@@ -1,0 +1,4809 @@
+{
+ "roofs": {
+  "bf16_TFLOPs": 147.04,
+  "fp32_TFLOPs": 111.74,
+  "read_GBs": 398.4,
+  "write_GBs": 268.2,
+  "machine_balance_bf16": 369.1,
+  "machine_balance_fp32": 280.5
+ },
+ "grid": [
+  13,
+  10
+ ],
+ "ncores": 130,
+ "live_cores": 130,
+ "stage_ms_per_fold_measured": 32682.7,
+ "block_wall_ms": 103.428,
+ "per_op_sum_ms": 92.895,
+ "per_op_coverage_pct": 89.8,
+ "calls_per_fold": 200.0,
+ "per_op_sum_ms_per_fold": 18578.9,
+ "n_classes": 116,
+ "n_calls_per_step": 1547,
+ "rows": [
+  {
+   "op": "slice",
+   "site": "protenix.py:403",
+   "n_per_step": 48,
+   "in_shapes": [
+    [
+     78,
+     32,
+     128
+    ]
+   ],
+   "out_shape": [
+    75,
+    32,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 106.33,
+   "ms_per_fold": 1020.8,
+   "pct_of_stage": 3.12,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 1.278,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 12.0,
+   "achieved_write_GBs": 11.6,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 4.3,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 976.82
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2950",
+   "n_per_step": 48,
+   "in_shapes": [
+    [
+     1,
+     320,
+     384
+    ],
+    [
+     384,
+     768
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 69.42,
+   "ms_per_fold": 666.44,
+   "pct_of_stage": 2.04,
+   "GFLOP_per_call": 0.18874,
+   "flop_basis": "2*1*320*384*768",
+   "dram_read_MB": 1.671,
+   "dram_write_MB": 0.983,
+   "AI_FLOP_per_byte": 71.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 2.72,
+   "achieved_read_GBs": 24.1,
+   "achieved_write_GBs": 14.2,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 6.0,
+   "tiles_MKN": [
+    10,
+    12,
+    24,
+    1
+   ],
+   "config": {
+    "per_core_M": 10,
+    "per_core_N": 1
+   },
+   "cores_engaged": 24,
+   "blocks": null,
+   "occupancy_pct": 18.5,
+   "config_path": "plain ttnn.matmul (batch serial)",
+   "comm_floor_us": 6.63,
+   "compute_floor_us": 1.69,
+   "overlap": "max (overlap)",
+   "floor_vs_measured": 60424.09,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 626.17
+  },
+  {
+   "op": "multiply",
+   "site": "tenstorrent.py:2290",
+   "n_per_step": 24,
+   "in_shapes": [
+    [
+     1,
+     16,
+     320,
+     320
+    ]
+   ],
+   "out_shape": [
+    1,
+    16,
+    320,
+    320
+   ],
+   "dtype": "fp32",
+   "us_per_call": 134.56,
+   "ms_per_fold": 645.87,
+   "pct_of_stage": 1.98,
+   "GFLOP_per_call": 0.00164,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 6.554,
+   "dram_write_MB": 6.554,
+   "AI_FLOP_per_byte": 0.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.01,
+   "achieved_read_GBs": 48.7,
+   "achieved_write_GBs": 48.7,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 18.2,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 528.58
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:2957",
+   "n_per_step": 48,
+   "in_shapes": [
+    [
+     1,
+     320,
+     768
+    ],
+    [
+     1,
+     320,
+     768
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 63.25,
+   "ms_per_fold": 607.19,
+   "pct_of_stage": 1.86,
+   "GFLOP_per_call": 0.00025,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 1.966,
+   "dram_write_MB": 0.983,
+   "AI_FLOP_per_byte": 0.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.0,
+   "achieved_read_GBs": 31.1,
+   "achieved_write_GBs": 15.5,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 7.8,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 559.81
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2942",
+   "n_per_step": 48,
+   "in_shapes": [
+    [
+     1,
+     320,
+     384
+    ],
+    [
+     384,
+     768
+    ],
+    [
+     32,
+     768
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 62.01,
+   "ms_per_fold": 595.33,
+   "pct_of_stage": 1.82,
+   "GFLOP_per_call": 0.18874,
+   "flop_basis": "2*1*320*384*768",
+   "dram_read_MB": 1.769,
+   "dram_write_MB": 0.983,
+   "AI_FLOP_per_byte": 68.6,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 3.04,
+   "achieved_read_GBs": 28.5,
+   "achieved_write_GBs": 15.9,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 7.2,
+   "tiles_MKN": [
+    10,
+    12,
+    24,
+    1
+   ],
+   "config": {
+    "per_core_M": 10,
+    "per_core_N": 1
+   },
+   "cores_engaged": 24,
+   "blocks": null,
+   "occupancy_pct": 18.5,
+   "config_path": "plain ttnn.matmul (batch serial)",
+   "comm_floor_us": 6.63,
+   "compute_floor_us": 1.69,
+   "overlap": "max (overlap)",
+   "floor_vs_measured": 71620.87,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 552.69
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:1108",
+   "n_per_step": 48,
+   "in_shapes": [
+    [
+     1,
+     320,
+     768
+    ],
+    [
+     768,
+     1536
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    1536
+   ],
+   "dtype": "fp32",
+   "us_per_call": 60.38,
+   "ms_per_fold": 579.65,
+   "pct_of_stage": 1.77,
+   "GFLOP_per_call": 0.75497,
+   "flop_basis": "2*1*320*768*1536",
+   "dram_read_MB": 5.702,
+   "dram_write_MB": 1.966,
+   "AI_FLOP_per_byte": 98.5,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 12.5,
+   "achieved_read_GBs": 94.4,
+   "achieved_write_GBs": 32.6,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 23.7,
+   "tiles_MKN": [
+    10,
+    24,
+    48,
+    1
+   ],
+   "config": {
+    "per_core_M": 10,
+    "per_core_N": 1
+   },
+   "cores_engaged": 48,
+   "blocks": null,
+   "occupancy_pct": 36.9,
+   "config_path": "plain ttnn.matmul (batch serial)",
+   "comm_floor_us": 19.17,
+   "compute_floor_us": 6.76,
+   "overlap": "max (overlap)",
+   "floor_vs_measured": 237020.51,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 442.26
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2381",
+   "n_per_step": 24,
+   "in_shapes": [
+    [
+     1,
+     320,
+     768
+    ],
+    [
+     768,
+     768
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 114.47,
+   "ms_per_fold": 549.48,
+   "pct_of_stage": 1.68,
+   "GFLOP_per_call": 0.37749,
+   "flop_basis": "2*1*320*768*768",
+   "dram_read_MB": 3.342,
+   "dram_write_MB": 0.983,
+   "AI_FLOP_per_byte": 87.3,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 3.3,
+   "achieved_read_GBs": 29.2,
+   "achieved_write_GBs": 8.6,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 7.3,
+   "tiles_MKN": [
+    10,
+    24,
+    24,
+    1
+   ],
+   "config": {
+    "per_core_M": 10,
+    "per_core_N": 1
+   },
+   "cores_engaged": 24,
+   "blocks": null,
+   "occupancy_pct": 18.5,
+   "config_path": "plain ttnn.matmul (batch serial)",
+   "comm_floor_us": 9.59,
+   "compute_floor_us": 3.38,
+   "overlap": "max (overlap)",
+   "floor_vs_measured": 73286.17,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 509.21
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:2286",
+   "n_per_step": 24,
+   "in_shapes": [
+    [
+     1,
+     16,
+     320,
+     64
+    ]
+   ],
+   "out_shape": [
+    1,
+    16,
+    64,
+    320
+   ],
+   "dtype": "fp32",
+   "us_per_call": 105.55,
+   "ms_per_fold": 506.63,
+   "pct_of_stage": 1.55,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 1.311,
+   "dram_write_MB": 1.311,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 12.4,
+   "achieved_write_GBs": 12.4,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 4.6,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 483.18
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2959",
+   "n_per_step": 48,
+   "in_shapes": [
+    [
+     1,
+     320,
+     768
+    ],
+    [
+     1,
+     320,
+     768
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 51.59,
+   "ms_per_fold": 495.3,
+   "pct_of_stage": 1.52,
+   "GFLOP_per_call": 0.00025,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 1.966,
+   "dram_write_MB": 0.983,
+   "AI_FLOP_per_byte": 0.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.0,
+   "achieved_read_GBs": 38.1,
+   "achieved_write_GBs": 19.1,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 9.6,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 447.93
+  },
+  {
+   "op": "add",
+   "site": "tenstorrent.py:2291",
+   "n_per_step": 24,
+   "in_shapes": [
+    [
+     1,
+     16,
+     320,
+     320
+    ],
+    [
+     1,
+     16,
+     320,
+     320
+    ]
+   ],
+   "out_shape": [
+    1,
+    16,
+    320,
+    320
+   ],
+   "dtype": "fp32",
+   "us_per_call": 101.13,
+   "ms_per_fold": 485.4,
+   "pct_of_stage": 1.49,
+   "GFLOP_per_call": 0.00164,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 13.107,
+   "dram_write_MB": 6.554,
+   "AI_FLOP_per_byte": 0.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.02,
+   "achieved_read_GBs": 129.6,
+   "achieved_write_GBs": 64.8,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 32.5,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 327.48
+  },
+  {
+   "op": "nlp_create_qkv_heads",
+   "site": "tenstorrent.py:2238",
+   "n_per_step": 24,
+   "in_shapes": [
+    [
+     1,
+     1,
+     320,
+     3072
+    ]
+   ],
+   "out_shape": [
+    1,
+    16,
+    320,
+    64
+   ],
+   "dtype": "fp32",
+   "us_per_call": 100.0,
+   "ms_per_fold": 480.0,
+   "pct_of_stage": 1.47,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "unclassified",
+   "dram_read_MB": 3.932,
+   "dram_write_MB": 1.311,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 39.3,
+   "achieved_write_GBs": 13.1,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 9.9,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 432.62
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2230",
+   "n_per_step": 24,
+   "in_shapes": [
+    [
+     1,
+     320,
+     768
+    ],
+    [
+     768,
+     3072
+    ],
+    [
+     32,
+     3072
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    3072
+   ],
+   "dtype": "fp32",
+   "us_per_call": 93.99,
+   "ms_per_fold": 451.16,
+   "pct_of_stage": 1.38,
+   "GFLOP_per_call": 1.50995,
+   "flop_basis": "2*1*320*768*3072",
+   "dram_read_MB": 10.813,
+   "dram_write_MB": 3.932,
+   "AI_FLOP_per_byte": 102.4,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 16.06,
+   "achieved_read_GBs": 115.0,
+   "achieved_write_GBs": 41.8,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 28.9,
+   "tiles_MKN": [
+    10,
+    24,
+    96,
+    1
+   ],
+   "config": {
+    "per_core_M": 10,
+    "per_core_N": 1
+   },
+   "cores_engaged": 96,
+   "blocks": null,
+   "occupancy_pct": 73.8,
+   "config_path": "plain ttnn.matmul (batch serial)",
+   "comm_floor_us": 38.35,
+   "compute_floor_us": 13.51,
+   "overlap": "max (overlap)",
+   "floor_vs_measured": 288770.89,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 320.88
+  },
+  {
+   "op": "softmax",
+   "site": "tenstorrent.py:2292",
+   "n_per_step": 24,
+   "in_shapes": [
+    [
+     1,
+     16,
+     320,
+     320
+    ]
+   ],
+   "out_shape": [
+    1,
+    16,
+    320,
+    320
+   ],
+   "dtype": "fp32",
+   "us_per_call": 90.72,
+   "ms_per_fold": 435.45,
+   "pct_of_stage": 1.33,
+   "GFLOP_per_call": 0.00819,
+   "flop_basis": "~5 FLOP/out-elem",
+   "dram_read_MB": 6.554,
+   "dram_write_MB": 6.554,
+   "AI_FLOP_per_byte": 0.6,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.09,
+   "achieved_read_GBs": 72.2,
+   "achieved_write_GBs": 72.2,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 26.9,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 318.16
+  },
+  {
+   "op": "matmul",
+   "site": "tenstorrent.py:460",
+   "n_per_step": 24,
+   "in_shapes": [
+    [
+     1,
+     16,
+     320,
+     64
+    ],
+    [
+     1,
+     16,
+     64,
+     320
+    ]
+   ],
+   "out_shape": [
+    1,
+    16,
+    320,
+    320
+   ],
+   "dtype": "fp32",
+   "us_per_call": 89.95,
+   "ms_per_fold": 431.77,
+   "pct_of_stage": 1.32,
+   "GFLOP_per_call": 0.20972,
+   "flop_basis": "2*16*320*64*320",
+   "dram_read_MB": 2.621,
+   "dram_write_MB": 6.554,
+   "AI_FLOP_per_byte": 22.9,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 2.33,
+   "achieved_read_GBs": 29.1,
+   "achieved_write_GBs": 72.9,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 27.2,
+   "tiles_MKN": [
+    10,
+    2,
+    10,
+    16
+   ],
+   "config": {
+    "per_core_M": 5,
+    "per_core_N": 10,
+    "in0_block_w": 1
+   },
+   "cores_engaged": 32,
+   "blocks": 32,
+   "rounds": 1,
+   "tail_round_cores": 32,
+   "occupancy_pct": 100.0,
+   "config_path": "batched_matmul (batch on grid)",
+   "comm_floor_us": 27.73,
+   "compute_floor_us": 1.88,
+   "overlap": "max (overlap)",
+   "floor_vs_measured": 271652.29,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 314.48
+  },
+  {
+   "op": "to_layout",
+   "site": "protenix.py:413",
+   "n_per_step": 12,
+   "in_shapes": [
+    [
+     75,
+     4,
+     128,
+     32
+    ]
+   ],
+   "out_shape": [
+    75,
+    4,
+    128,
+    32
+   ],
+   "dtype": "fp32",
+   "us_per_call": 178.71,
+   "ms_per_fold": 428.91,
+   "pct_of_stage": 1.31,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 4.915,
+   "dram_write_MB": 4.915,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 27.5,
+   "achieved_write_GBs": 27.5,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 10.3,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 384.92
+  },
+  {
+   "op": "multiply",
+   "site": "tenstorrent.py:2283",
+   "n_per_step": 24,
+   "in_shapes": [
+    [
+     1,
+     16,
+     320,
+     320
+    ]
+   ],
+   "out_shape": [
+    1,
+    16,
+    320,
+    320
+   ],
+   "dtype": "fp32",
+   "us_per_call": 86.82,
+   "ms_per_fold": 416.74,
+   "pct_of_stage": 1.28,
+   "GFLOP_per_call": 0.00164,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 6.554,
+   "dram_write_MB": 6.554,
+   "AI_FLOP_per_byte": 0.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.02,
+   "achieved_read_GBs": 75.5,
+   "achieved_write_GBs": 75.5,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 28.1,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 299.45
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:1108",
+   "n_per_step": 48,
+   "in_shapes": [
+    [
+     1,
+     320,
+     384
+    ],
+    [
+     384,
+     768
+    ],
+    [
+     32,
+     768
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 40.43,
+   "ms_per_fold": 388.17,
+   "pct_of_stage": 1.19,
+   "GFLOP_per_call": 0.18874,
+   "flop_basis": "2*1*320*384*768",
+   "dram_read_MB": 1.769,
+   "dram_write_MB": 0.983,
+   "AI_FLOP_per_byte": 68.6,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 4.67,
+   "achieved_read_GBs": 43.8,
+   "achieved_write_GBs": 24.3,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 11.0,
+   "tiles_MKN": [
+    10,
+    12,
+    24,
+    1
+   ],
+   "config": {
+    "per_core_M": 10,
+    "per_core_N": 1
+   },
+   "cores_engaged": 24,
+   "blocks": null,
+   "occupancy_pct": 18.5,
+   "config_path": "plain ttnn.matmul (batch serial)",
+   "comm_floor_us": 6.63,
+   "compute_floor_us": 1.69,
+   "overlap": "max (overlap)",
+   "floor_vs_measured": 109843.85,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 345.53
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2950",
+   "n_per_step": 18,
+   "in_shapes": [
+    [
+     1,
+     2400,
+     128
+    ],
+    [
+     128,
+     128
+    ]
+   ],
+   "out_shape": [
+    1,
+    2400,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 104.54,
+   "ms_per_fold": 376.34,
+   "pct_of_stage": 1.15,
+   "GFLOP_per_call": 0.07864,
+   "flop_basis": "2*1*2400*128*128",
+   "dram_read_MB": 1.294,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 31.2,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.75,
+   "achieved_read_GBs": 12.4,
+   "achieved_write_GBs": 11.8,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 4.4,
+   "tiles_MKN": [
+    75,
+    4,
+    4,
+    1
+   ],
+   "config": {
+    "per_core_M": 1,
+    "per_core_N": 4
+   },
+   "cores_engaged": 75,
+   "blocks": null,
+   "occupancy_pct": 57.7,
+   "config_path": "plain ttnn.matmul (batch serial)",
+   "comm_floor_us": 4.75,
+   "compute_floor_us": 0.7,
+   "overlap": "max (overlap)",
+   "floor_vs_measured": 43826.83,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 359.85
+  },
+  {
+   "op": "permute",
+   "site": "protenix.py:412",
+   "n_per_step": 12,
+   "in_shapes": [
+    [
+     75,
+     128,
+     4,
+     32
+    ]
+   ],
+   "out_shape": [
+    75,
+    4,
+    128,
+    32
+   ],
+   "dtype": "fp32",
+   "us_per_call": 155.36,
+   "ms_per_fold": 372.87,
+   "pct_of_stage": 1.14,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 4.915,
+   "dram_write_MB": 4.915,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 31.6,
+   "achieved_write_GBs": 31.6,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 11.8,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 328.89
+  },
+  {
+   "op": "multiply",
+   "site": "protenix.py:1115",
+   "n_per_step": 24,
+   "in_shapes": [
+    [
+     1,
+     320,
+     768
+    ],
+    [
+     1,
+     320,
+     768
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 71.53,
+   "ms_per_fold": 343.34,
+   "pct_of_stage": 1.05,
+   "GFLOP_per_call": 0.00025,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 1.966,
+   "dram_write_MB": 0.983,
+   "AI_FLOP_per_byte": 0.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.0,
+   "achieved_read_GBs": 27.5,
+   "achieved_write_GBs": 13.7,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 6.9,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 319.65
+  },
+  {
+   "op": "unsqueeze",
+   "site": "tenstorrent.py:2237",
+   "n_per_step": 24,
+   "in_shapes": [
+    [
+     1,
+     320,
+     3072
+    ]
+   ],
+   "out_shape": [
+    1,
+    1,
+    320,
+    3072
+   ],
+   "dtype": "fp32",
+   "us_per_call": 69.46,
+   "ms_per_fold": 333.4,
+   "pct_of_stage": 1.02,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 3.932,
+   "dram_write_MB": 3.932,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 56.6,
+   "achieved_write_GBs": 56.6,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 21.1,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 263.03
+  },
+  {
+   "op": "slice",
+   "site": "protenix.py:400",
+   "n_per_step": 12,
+   "in_shapes": [
+    [
+     1,
+     2576,
+     128
+    ]
+   ],
+   "out_shape": [
+    1,
+    2496,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 116.59,
+   "ms_per_fold": 279.81,
+   "pct_of_stage": 0.86,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 1.319,
+   "dram_write_MB": 1.278,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 11.3,
+   "achieved_write_GBs": 11.0,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 4.1,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 268.37
+  },
+  {
+   "op": "concat",
+   "site": "protenix.py:402",
+   "n_per_step": 12,
+   "in_shapes": [],
+   "out_shape": [
+    75,
+    128,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 115.83,
+   "ms_per_fold": 277.98,
+   "pct_of_stage": 0.85,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 0.0,
+   "dram_write_MB": 4.915,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": null,
+   "achieved_write_GBs": 42.4,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 15.8,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 234.0
+  },
+  {
+   "op": "matmul",
+   "site": "tenstorrent.py:460",
+   "n_per_step": 24,
+   "in_shapes": [
+    [
+     1,
+     16,
+     320,
+     320
+    ],
+    [
+     1,
+     16,
+     320,
+     64
+    ]
+   ],
+   "out_shape": [
+    1,
+    16,
+    320,
+    64
+   ],
+   "dtype": "fp32",
+   "us_per_call": 55.97,
+   "ms_per_fold": 268.66,
+   "pct_of_stage": 0.82,
+   "GFLOP_per_call": 0.20972,
+   "flop_basis": "2*16*320*320*64",
+   "dram_read_MB": 7.864,
+   "dram_write_MB": 1.311,
+   "AI_FLOP_per_byte": 22.9,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 3.75,
+   "achieved_read_GBs": 140.5,
+   "achieved_write_GBs": 23.4,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 35.3,
+   "tiles_MKN": [
+    10,
+    10,
+    2,
+    16
+   ],
+   "config": {
+    "per_core_M": 5,
+    "per_core_N": 2,
+    "in0_block_w": 2
+   },
+   "cores_engaged": 32,
+   "blocks": 32,
+   "rounds": 1,
+   "tail_round_cores": 32,
+   "occupancy_pct": 100.0,
+   "config_path": "batched_matmul (batch on grid)",
+   "comm_floor_us": 16.45,
+   "compute_floor_us": 1.88,
+   "overlap": "max (overlap)",
+   "floor_vs_measured": 352680.06,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 173.91
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:1115",
+   "n_per_step": 24,
+   "in_shapes": [
+    [
+     1,
+     320,
+     768
+    ],
+    [
+     1,
+     320,
+     768
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 50.22,
+   "ms_per_fold": 241.06,
+   "pct_of_stage": 0.74,
+   "GFLOP_per_call": 0.00025,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 1.966,
+   "dram_write_MB": 0.983,
+   "AI_FLOP_per_byte": 0.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.0,
+   "achieved_read_GBs": 39.1,
+   "achieved_write_GBs": 19.6,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 9.8,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 217.37
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:2323",
+   "n_per_step": 24,
+   "in_shapes": [
+    [
+     1,
+     768,
+     320
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 48.85,
+   "ms_per_fold": 234.48,
+   "pct_of_stage": 0.72,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 0.983,
+   "dram_write_MB": 0.983,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 20.1,
+   "achieved_write_GBs": 20.1,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 7.5,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 216.88
+  },
+  {
+   "op": "multiply",
+   "site": "tenstorrent.py:2379",
+   "n_per_step": 24,
+   "in_shapes": [
+    [
+     1,
+     320,
+     768
+    ],
+    [
+     1,
+     320,
+     768
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 48.76,
+   "ms_per_fold": 234.03,
+   "pct_of_stage": 0.72,
+   "GFLOP_per_call": 0.00025,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 1.966,
+   "dram_write_MB": 0.983,
+   "AI_FLOP_per_byte": 0.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.01,
+   "achieved_read_GBs": 40.3,
+   "achieved_write_GBs": 20.2,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 10.1,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 210.34
+  },
+  {
+   "op": "to_layout",
+   "site": "protenix.py:372",
+   "n_per_step": 6,
+   "in_shapes": [
+    [
+     1,
+     2400,
+     128
+    ]
+   ],
+   "out_shape": [
+    1,
+    2398,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 180.47,
+   "ms_per_fold": 216.57,
+   "pct_of_stage": 0.66,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 1.229,
+   "dram_write_MB": 1.228,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 6.8,
+   "achieved_write_GBs": 6.8,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 2.5,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 211.08
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:1120",
+   "n_per_step": 24,
+   "in_shapes": [
+    [
+     1,
+     320,
+     768
+    ],
+    [
+     1,
+     320,
+     768
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 44.19,
+   "ms_per_fold": 212.1,
+   "pct_of_stage": 0.65,
+   "GFLOP_per_call": 0.00025,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 1.966,
+   "dram_write_MB": 0.983,
+   "AI_FLOP_per_byte": 0.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.01,
+   "achieved_read_GBs": 44.5,
+   "achieved_write_GBs": 22.2,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 11.2,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 188.42
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:318",
+   "n_per_step": 18,
+   "in_shapes": [
+    [
+     1,
+     2400,
+     128
+    ],
+    [
+     128,
+     128
+    ],
+    [
+     32,
+     128
+    ]
+   ],
+   "out_shape": [
+    1,
+    2400,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 58.38,
+   "ms_per_fold": 210.17,
+   "pct_of_stage": 0.64,
+   "GFLOP_per_call": 0.07864,
+   "flop_basis": "2*1*2400*128*128",
+   "dram_read_MB": 1.311,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 31.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 1.35,
+   "achieved_read_GBs": 22.5,
+   "achieved_write_GBs": 21.0,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 7.8,
+   "tiles_MKN": [
+    75,
+    4,
+    4,
+    1
+   ],
+   "config": {
+    "per_core_M": 1,
+    "per_core_N": 4
+   },
+   "cores_engaged": 75,
+   "blocks": null,
+   "occupancy_pct": 57.7,
+   "config_path": "plain ttnn.matmul (batch serial)",
+   "comm_floor_us": 4.75,
+   "compute_floor_us": 0.7,
+   "overlap": "max (overlap)",
+   "floor_vs_measured": 78480.04,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 193.67
+  },
+  {
+   "op": "multiply",
+   "site": "protenix.py:1117",
+   "n_per_step": 24,
+   "in_shapes": [
+    [
+     1,
+     320,
+     1536
+    ],
+    [
+     1,
+     320,
+     1536
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    1536
+   ],
+   "dtype": "fp32",
+   "us_per_call": 43.68,
+   "ms_per_fold": 209.65,
+   "pct_of_stage": 0.64,
+   "GFLOP_per_call": 0.00049,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 3.932,
+   "dram_write_MB": 1.966,
+   "AI_FLOP_per_byte": 0.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.01,
+   "achieved_read_GBs": 90.0,
+   "achieved_write_GBs": 45.0,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 22.6,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 162.27
+  },
+  {
+   "op": "multiply",
+   "site": "protenix.py:456",
+   "n_per_step": 6,
+   "in_shapes": [
+    [
+     1,
+     2400,
+     256
+    ],
+    [
+     1,
+     2400,
+     256
+    ]
+   ],
+   "out_shape": [
+    1,
+    2400,
+    256
+   ],
+   "dtype": "fp32",
+   "us_per_call": 170.82,
+   "ms_per_fold": 204.98,
+   "pct_of_stage": 0.63,
+   "GFLOP_per_call": 0.00061,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 4.915,
+   "dram_write_MB": 2.458,
+   "AI_FLOP_per_byte": 0.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.0,
+   "achieved_read_GBs": 28.8,
+   "achieved_write_GBs": 14.4,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 7.2,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 190.18
+  },
+  {
+   "op": "slice",
+   "site": "tenstorrent.py:2320",
+   "n_per_step": 24,
+   "in_shapes": [
+    [
+     1,
+     16,
+     320,
+     64
+    ]
+   ],
+   "out_shape": [
+    1,
+    16,
+    320,
+    64
+   ],
+   "dtype": "fp32",
+   "us_per_call": 42.58,
+   "ms_per_fold": 204.37,
+   "pct_of_stage": 0.63,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 1.311,
+   "dram_write_MB": 1.311,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 30.8,
+   "achieved_write_GBs": 30.8,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 11.5,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 180.91
+  },
+  {
+   "op": "add_",
+   "site": "tenstorrent.py:2959",
+   "n_per_step": 18,
+   "in_shapes": [
+    [
+     1,
+     2400,
+     128
+    ],
+    [
+     1,
+     2400,
+     128
+    ]
+   ],
+   "out_shape": [
+    1,
+    2400,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 53.69,
+   "ms_per_fold": 193.3,
+   "pct_of_stage": 0.59,
+   "GFLOP_per_call": 0.00031,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 2.458,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 0.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.01,
+   "achieved_read_GBs": 45.8,
+   "achieved_write_GBs": 22.9,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 11.5,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 171.09
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2933",
+   "n_per_step": 18,
+   "in_shapes": [
+    [
+     1,
+     2400,
+     128
+    ]
+   ],
+   "out_shape": [
+    1,
+    2400,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 53.4,
+   "ms_per_fold": 192.25,
+   "pct_of_stage": 0.59,
+   "GFLOP_per_call": 0.00154,
+   "flop_basis": "~5 FLOP/out-elem",
+   "dram_read_MB": 1.229,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 0.6,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.03,
+   "achieved_read_GBs": 23.0,
+   "achieved_write_GBs": 23.0,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 8.6,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 175.76
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:1108",
+   "n_per_step": 24,
+   "in_shapes": [
+    [
+     1,
+     320,
+     1536
+    ],
+    [
+     1536,
+     768
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 39.89,
+   "ms_per_fold": 191.49,
+   "pct_of_stage": 0.59,
+   "GFLOP_per_call": 0.75497,
+   "flop_basis": "2*1*320*1536*768",
+   "dram_read_MB": 6.685,
+   "dram_write_MB": 0.983,
+   "AI_FLOP_per_byte": 98.5,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 18.92,
+   "achieved_read_GBs": 167.6,
+   "achieved_write_GBs": 24.6,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 42.1,
+   "tiles_MKN": [
+    10,
+    48,
+    24,
+    1
+   ],
+   "config": {
+    "per_core_M": 10,
+    "per_core_N": 1
+   },
+   "cores_engaged": 24,
+   "blocks": null,
+   "occupancy_pct": 18.5,
+   "config_path": "plain ttnn.matmul (batch serial)",
+   "comm_floor_us": 15.51,
+   "compute_floor_us": 6.76,
+   "overlap": "max (overlap)",
+   "floor_vs_measured": 420589.37,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 110.95
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2933",
+   "n_per_step": 48,
+   "in_shapes": [
+    [
+     1,
+     320,
+     768
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 19.06,
+   "ms_per_fold": 182.97,
+   "pct_of_stage": 0.56,
+   "GFLOP_per_call": 0.00123,
+   "flop_basis": "~5 FLOP/out-elem",
+   "dram_read_MB": 0.983,
+   "dram_write_MB": 0.983,
+   "AI_FLOP_per_byte": 0.6,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.06,
+   "achieved_read_GBs": 51.6,
+   "achieved_write_GBs": 51.6,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 19.2,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 147.78
+  },
+  {
+   "op": "permute",
+   "site": "tenstorrent.py:2321",
+   "n_per_step": 24,
+   "in_shapes": [
+    [
+     1,
+     16,
+     320,
+     64
+    ]
+   ],
+   "out_shape": [
+    1,
+    16,
+    64,
+    320
+   ],
+   "dtype": "fp32",
+   "us_per_call": 37.06,
+   "ms_per_fold": 177.87,
+   "pct_of_stage": 0.54,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 1.311,
+   "dram_write_MB": 1.311,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 35.4,
+   "achieved_write_GBs": 35.4,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 13.2,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 154.41
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2936",
+   "n_per_step": 48,
+   "in_shapes": [
+    [
+     1,
+     320,
+     384
+    ],
+    [
+     32,
+     384
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    384
+   ],
+   "dtype": "fp32",
+   "us_per_call": 18.43,
+   "ms_per_fold": 176.96,
+   "pct_of_stage": 0.54,
+   "GFLOP_per_call": 0.00061,
+   "flop_basis": "~5 FLOP/out-elem",
+   "dram_read_MB": 0.541,
+   "dram_write_MB": 0.492,
+   "AI_FLOP_per_byte": 0.6,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.03,
+   "achieved_read_GBs": 29.3,
+   "achieved_write_GBs": 26.7,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 9.9,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 159.37
+  },
+  {
+   "op": "multiply",
+   "site": "protenix.py:1120",
+   "n_per_step": 24,
+   "in_shapes": [
+    [
+     1,
+     320,
+     768
+    ],
+    [
+     1,
+     320,
+     768
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 35.49,
+   "ms_per_fold": 170.36,
+   "pct_of_stage": 0.52,
+   "GFLOP_per_call": 0.00025,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 1.966,
+   "dram_write_MB": 0.983,
+   "AI_FLOP_per_byte": 0.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.01,
+   "achieved_read_GBs": 55.4,
+   "achieved_write_GBs": 27.7,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 13.9,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 146.67
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:436",
+   "n_per_step": 6,
+   "in_shapes": [
+    [
+     75,
+     32,
+     32,
+     32
+    ]
+   ],
+   "out_shape": [
+    2400,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 141.26,
+   "ms_per_fold": 169.51,
+   "pct_of_stage": 0.52,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 9.83,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 69.6,
+   "achieved_write_GBs": 8.7,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 17.5,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 139.9
+  },
+  {
+   "op": "pad",
+   "site": "protenix.py:397",
+   "n_per_step": 12,
+   "in_shapes": [
+    [
+     1,
+     2398,
+     128
+    ]
+   ],
+   "out_shape": [
+    1,
+    2576,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 70.43,
+   "ms_per_fold": 169.03,
+   "pct_of_stage": 0.52,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 1.228,
+   "dram_write_MB": 1.319,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 17.4,
+   "achieved_write_GBs": 18.7,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 7.0,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 157.22
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2371",
+   "n_per_step": 24,
+   "in_shapes": [
+    [
+     1,
+     320,
+     768
+    ],
+    [
+     768,
+     768
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 34.15,
+   "ms_per_fold": 163.9,
+   "pct_of_stage": 0.5,
+   "GFLOP_per_call": 0.37749,
+   "flop_basis": "2*1*320*768*768",
+   "dram_read_MB": 3.342,
+   "dram_write_MB": 0.983,
+   "AI_FLOP_per_byte": 87.3,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 11.05,
+   "achieved_read_GBs": 97.9,
+   "achieved_write_GBs": 28.8,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 24.6,
+   "tiles_MKN": [
+    10,
+    24,
+    24,
+    1
+   ],
+   "config": {
+    "per_core_M": 10,
+    "per_core_N": 1
+   },
+   "cores_engaged": 24,
+   "blocks": null,
+   "occupancy_pct": 18.5,
+   "config_path": "plain ttnn.matmul (batch serial)",
+   "comm_floor_us": 9.59,
+   "compute_floor_us": 3.38,
+   "overlap": "max (overlap)",
+   "floor_vs_measured": 245685.86,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 123.64
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:411",
+   "n_per_step": 12,
+   "in_shapes": [
+    [
+     75,
+     128,
+     128
+    ]
+   ],
+   "out_shape": [
+    75,
+    128,
+    4,
+    32
+   ],
+   "dtype": "fp32",
+   "us_per_call": 66.16,
+   "ms_per_fold": 158.79,
+   "pct_of_stage": 0.49,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 4.915,
+   "dram_write_MB": 4.915,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 74.3,
+   "achieved_write_GBs": 74.3,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 27.7,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 114.8
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:2957",
+   "n_per_step": 18,
+   "in_shapes": [
+    [
+     1,
+     2400,
+     128
+    ],
+    [
+     1,
+     2400,
+     128
+    ]
+   ],
+   "out_shape": [
+    1,
+    2400,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 40.9,
+   "ms_per_fold": 147.24,
+   "pct_of_stage": 0.45,
+   "GFLOP_per_call": 0.00031,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 2.458,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 0.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.01,
+   "achieved_read_GBs": 60.1,
+   "achieved_write_GBs": 30.0,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 15.1,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 125.03
+  },
+  {
+   "op": "slice",
+   "site": "protenix.py:437",
+   "n_per_step": 6,
+   "in_shapes": [
+    [
+     2400,
+     128
+    ]
+   ],
+   "out_shape": [
+    2398,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 120.4,
+   "ms_per_fold": 144.48,
+   "pct_of_stage": 0.44,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 1.229,
+   "dram_write_MB": 1.228,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 10.2,
+   "achieved_write_GBs": 10.2,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 3.8,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 138.98
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:318",
+   "n_per_step": 12,
+   "in_shapes": [
+    [
+     1,
+     2400,
+     128
+    ],
+    [
+     128,
+     256
+    ]
+   ],
+   "out_shape": [
+    1,
+    2400,
+    256
+   ],
+   "dtype": "fp32",
+   "us_per_call": 59.43,
+   "ms_per_fold": 142.63,
+   "pct_of_stage": 0.44,
+   "GFLOP_per_call": 0.15729,
+   "flop_basis": "2*1*2400*128*256",
+   "dram_read_MB": 1.36,
+   "dram_write_MB": 2.458,
+   "AI_FLOP_per_byte": 41.2,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 2.65,
+   "achieved_read_GBs": 22.9,
+   "achieved_write_GBs": 41.4,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 15.4,
+   "tiles_MKN": [
+    75,
+    4,
+    8,
+    1
+   ],
+   "config": {
+    "per_core_M": 1,
+    "per_core_N": 8
+   },
+   "cores_engaged": 75,
+   "blocks": null,
+   "occupancy_pct": 57.7,
+   "config_path": "plain ttnn.matmul (batch serial)",
+   "comm_floor_us": 9.49,
+   "compute_floor_us": 1.41,
+   "overlap": "max (overlap)",
+   "floor_vs_measured": 154192.51,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 120.63
+  },
+  {
+   "op": "sigmoid",
+   "site": "protenix.py:1119",
+   "n_per_step": 24,
+   "in_shapes": [
+    [
+     1,
+     320,
+     768
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 28.91,
+   "ms_per_fold": 138.75,
+   "pct_of_stage": 0.42,
+   "GFLOP_per_call": 0.00025,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 0.983,
+   "dram_write_MB": 0.983,
+   "AI_FLOP_per_byte": 0.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.01,
+   "achieved_read_GBs": 34.0,
+   "achieved_write_GBs": 34.0,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 12.7,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 121.15
+  },
+  {
+   "op": "reshape",
+   "site": "tenstorrent.py:2322",
+   "n_per_step": 24,
+   "in_shapes": [
+    [
+     1,
+     16,
+     64,
+     320
+    ]
+   ],
+   "out_shape": [
+    1,
+    768,
+    320
+   ],
+   "dtype": "fp32",
+   "us_per_call": 27.34,
+   "ms_per_fold": 131.22,
+   "pct_of_stage": 0.4,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 1.311,
+   "dram_write_MB": 0.983,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 47.9,
+   "achieved_write_GBs": 36.0,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 13.4,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 113.62
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:433",
+   "n_per_step": 6,
+   "in_shapes": [
+    [
+     75,
+     4,
+     32,
+     128
+    ],
+    [
+     75,
+     4,
+     32,
+     128
+    ]
+   ],
+   "out_shape": [
+    75,
+    4,
+    32,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 103.69,
+   "ms_per_fold": 124.43,
+   "pct_of_stage": 0.38,
+   "GFLOP_per_call": 0.00123,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 9.83,
+   "dram_write_MB": 4.915,
+   "AI_FLOP_per_byte": 0.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.01,
+   "achieved_read_GBs": 94.8,
+   "achieved_write_GBs": 47.4,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 23.8,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 94.82
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:318",
+   "n_per_step": 18,
+   "in_shapes": [
+    [
+     1,
+     2400,
+     128
+    ],
+    [
+     128,
+     128
+    ]
+   ],
+   "out_shape": [
+    1,
+    2400,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 33.94,
+   "ms_per_fold": 122.2,
+   "pct_of_stage": 0.37,
+   "GFLOP_per_call": 0.07864,
+   "flop_basis": "2*1*2400*128*128",
+   "dram_read_MB": 1.294,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 31.2,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 2.32,
+   "achieved_read_GBs": 38.1,
+   "achieved_write_GBs": 36.2,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 13.5,
+   "tiles_MKN": [
+    75,
+    4,
+    4,
+    1
+   ],
+   "config": {
+    "per_core_M": 1,
+    "per_core_N": 4
+   },
+   "cores_engaged": 75,
+   "blocks": null,
+   "occupancy_pct": 57.7,
+   "config_path": "plain ttnn.matmul (batch serial)",
+   "comm_floor_us": 4.75,
+   "compute_floor_us": 0.7,
+   "overlap": "max (overlap)",
+   "floor_vs_measured": 134979.69,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 105.7
+  },
+  {
+   "op": "sigmoid",
+   "site": "protenix.py:1114",
+   "n_per_step": 24,
+   "in_shapes": [
+    [
+     1,
+     320,
+     768
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 24.54,
+   "ms_per_fold": 117.79,
+   "pct_of_stage": 0.36,
+   "GFLOP_per_call": 0.00025,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 0.983,
+   "dram_write_MB": 0.983,
+   "AI_FLOP_per_byte": 0.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.01,
+   "achieved_read_GBs": 40.1,
+   "achieved_write_GBs": 40.1,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 14.9,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 100.2
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2942",
+   "n_per_step": 18,
+   "in_shapes": [
+    [
+     1,
+     2400,
+     128
+    ],
+    [
+     128,
+     128
+    ],
+    [
+     32,
+     128
+    ]
+   ],
+   "out_shape": [
+    1,
+    2400,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 32.55,
+   "ms_per_fold": 117.16,
+   "pct_of_stage": 0.36,
+   "GFLOP_per_call": 0.07864,
+   "flop_basis": "2*1*2400*128*128",
+   "dram_read_MB": 1.311,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 31.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 2.42,
+   "achieved_read_GBs": 40.3,
+   "achieved_write_GBs": 37.8,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 14.1,
+   "tiles_MKN": [
+    75,
+    4,
+    4,
+    1
+   ],
+   "config": {
+    "per_core_M": 1,
+    "per_core_N": 4
+   },
+   "cores_engaged": 75,
+   "blocks": null,
+   "occupancy_pct": 57.7,
+   "config_path": "plain ttnn.matmul (batch serial)",
+   "comm_floor_us": 4.75,
+   "compute_floor_us": 0.7,
+   "overlap": "max (overlap)",
+   "floor_vs_measured": 140778.71,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 100.67
+  },
+  {
+   "op": "multiply",
+   "site": "protenix.py:458",
+   "n_per_step": 6,
+   "in_shapes": [
+    [
+     1,
+     2400,
+     128
+    ],
+    [
+     1,
+     2400,
+     128
+    ]
+   ],
+   "out_shape": [
+    1,
+    2400,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 86.78,
+   "ms_per_fold": 104.14,
+   "pct_of_stage": 0.32,
+   "GFLOP_per_call": 0.00031,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 2.458,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 0.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.0,
+   "achieved_read_GBs": 28.3,
+   "achieved_write_GBs": 14.2,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 7.1,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 96.74
+  },
+  {
+   "op": "multiply",
+   "site": "protenix.py:447",
+   "n_per_step": 6,
+   "in_shapes": [
+    [
+     2400,
+     128
+    ],
+    [
+     1,
+     2400,
+     128
+    ]
+   ],
+   "out_shape": [
+    1,
+    2400,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 84.99,
+   "ms_per_fold": 101.99,
+   "pct_of_stage": 0.31,
+   "GFLOP_per_call": 0.00031,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 2.458,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 0.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.0,
+   "achieved_read_GBs": 28.9,
+   "achieved_write_GBs": 14.5,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 7.3,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 94.59
+  },
+  {
+   "op": "matmul",
+   "site": "tenstorrent.py:460",
+   "n_per_step": 6,
+   "in_shapes": [
+    [
+     75,
+     4,
+     32,
+     128
+    ],
+    [
+     75,
+     4,
+     128,
+     32
+    ]
+   ],
+   "out_shape": [
+    75,
+    4,
+    32,
+    32
+   ],
+   "dtype": "fp32",
+   "us_per_call": 81.91,
+   "ms_per_fold": 98.29,
+   "pct_of_stage": 0.3,
+   "GFLOP_per_call": 0.07864,
+   "flop_basis": "2*300*32*128*32",
+   "dram_read_MB": 9.83,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 7.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.96,
+   "achieved_read_GBs": 120.0,
+   "achieved_write_GBs": 15.0,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 30.1,
+   "tiles_MKN": [
+    1,
+    4,
+    1,
+    300
+   ],
+   "config": {
+    "per_core_M": 1,
+    "per_core_N": 1,
+    "in0_block_w": 2
+   },
+   "cores_engaged": 130,
+   "blocks": 300,
+   "rounds": 3,
+   "tail_round_cores": 40,
+   "occupancy_pct": 30.8,
+   "config_path": "batched_matmul (batch on grid)",
+   "comm_floor_us": 16.92,
+   "compute_floor_us": 0.7,
+   "overlap": "max (overlap)",
+   "floor_vs_measured": 301259.66,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 68.68
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2936",
+   "n_per_step": 18,
+   "in_shapes": [
+    [
+     1,
+     2400,
+     128
+    ],
+    [
+     32,
+     128
+    ]
+   ],
+   "out_shape": [
+    1,
+    2400,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 26.73,
+   "ms_per_fold": 96.25,
+   "pct_of_stage": 0.29,
+   "GFLOP_per_call": 0.00154,
+   "flop_basis": "~5 FLOP/out-elem",
+   "dram_read_MB": 1.245,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 0.6,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.06,
+   "achieved_read_GBs": 46.6,
+   "achieved_write_GBs": 46.0,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 17.1,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 79.75
+  },
+  {
+   "op": "softmax",
+   "site": "protenix.py:434",
+   "n_per_step": 6,
+   "in_shapes": [
+    [
+     75,
+     4,
+     32,
+     128
+    ]
+   ],
+   "out_shape": [
+    75,
+    4,
+    32,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 74.57,
+   "ms_per_fold": 89.48,
+   "pct_of_stage": 0.27,
+   "GFLOP_per_call": 0.00614,
+   "flop_basis": "~5 FLOP/out-elem",
+   "dram_read_MB": 4.915,
+   "dram_write_MB": 4.915,
+   "AI_FLOP_per_byte": 0.6,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.08,
+   "achieved_read_GBs": 65.9,
+   "achieved_write_GBs": 65.9,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 24.6,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 67.49
+  },
+  {
+   "op": "multiply",
+   "site": "protenix.py:432",
+   "n_per_step": 6,
+   "in_shapes": [
+    [
+     75,
+     4,
+     32,
+     128
+    ]
+   ],
+   "out_shape": [
+    75,
+    4,
+    32,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 69.57,
+   "ms_per_fold": 83.49,
+   "pct_of_stage": 0.26,
+   "GFLOP_per_call": 0.00123,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 4.915,
+   "dram_write_MB": 4.915,
+   "AI_FLOP_per_byte": 0.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.02,
+   "achieved_read_GBs": 70.6,
+   "achieved_write_GBs": 70.6,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 26.3,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 61.5
+  },
+  {
+   "op": "to_layout",
+   "site": "protenix.py:376",
+   "n_per_step": 6,
+   "in_shapes": [
+    [
+     75,
+     4,
+     32,
+     32
+    ]
+   ],
+   "out_shape": [
+    75,
+    4,
+    32,
+    32
+   ],
+   "dtype": "fp32",
+   "us_per_call": 69.56,
+   "ms_per_fold": 83.47,
+   "pct_of_stage": 0.26,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 1.229,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 17.7,
+   "achieved_write_GBs": 17.7,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 6.6,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 77.97
+  },
+  {
+   "op": "pad",
+   "site": "protenix.py:373",
+   "n_per_step": 6,
+   "in_shapes": [
+    [
+     1,
+     2398,
+     128
+    ]
+   ],
+   "out_shape": [
+    1,
+    2400,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 68.74,
+   "ms_per_fold": 82.49,
+   "pct_of_stage": 0.25,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 1.228,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 17.9,
+   "achieved_write_GBs": 17.9,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 6.7,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 77.0
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:459",
+   "n_per_step": 6,
+   "in_shapes": [
+    [
+     1,
+     2400,
+     128
+    ],
+    [
+     1,
+     2400,
+     128
+    ]
+   ],
+   "out_shape": [
+    1,
+    2400,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 68.03,
+   "ms_per_fold": 81.63,
+   "pct_of_stage": 0.25,
+   "GFLOP_per_call": 0.00031,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 2.458,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 0.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.0,
+   "achieved_read_GBs": 36.1,
+   "achieved_write_GBs": 18.1,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 9.1,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 74.23
+  },
+  {
+   "op": "matmul",
+   "site": "tenstorrent.py:460",
+   "n_per_step": 6,
+   "in_shapes": [
+    [
+     75,
+     4,
+     32,
+     32
+    ],
+    [
+     75,
+     4,
+     32,
+     128
+    ]
+   ],
+   "out_shape": [
+    75,
+    4,
+    32,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 65.5,
+   "ms_per_fold": 78.6,
+   "pct_of_stage": 0.24,
+   "GFLOP_per_call": 0.07864,
+   "flop_basis": "2*300*32*32*128",
+   "dram_read_MB": 6.144,
+   "dram_write_MB": 4.915,
+   "AI_FLOP_per_byte": 7.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 1.2,
+   "achieved_read_GBs": 93.8,
+   "achieved_write_GBs": 75.0,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 28.0,
+   "tiles_MKN": [
+    1,
+    1,
+    4,
+    300
+   ],
+   "config": {
+    "per_core_M": 1,
+    "per_core_N": 4,
+    "in0_block_w": 1
+   },
+   "cores_engaged": 130,
+   "blocks": 300,
+   "rounds": 3,
+   "tail_round_cores": 40,
+   "occupancy_pct": 30.8,
+   "config_path": "batched_matmul (batch on grid)",
+   "comm_floor_us": 30.66,
+   "compute_floor_us": 0.7,
+   "overlap": "max (overlap)",
+   "floor_vs_measured": 279784.9,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 56.61
+  },
+  {
+   "op": "permute",
+   "site": "protenix.py:431",
+   "n_per_step": 6,
+   "in_shapes": [
+    [
+     75,
+     4,
+     128,
+     32
+    ]
+   ],
+   "out_shape": [
+    75,
+    4,
+    32,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 61.33,
+   "ms_per_fold": 73.6,
+   "pct_of_stage": 0.23,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 4.915,
+   "dram_write_MB": 4.915,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 80.1,
+   "achieved_write_GBs": 80.1,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 29.9,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 51.61
+  },
+  {
+   "op": "to_layout",
+   "site": "protenix.py:395",
+   "n_per_step": 12,
+   "in_shapes": [
+    [
+     1,
+     2400,
+     128
+    ]
+   ],
+   "out_shape": [
+    1,
+    2398,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 30.45,
+   "ms_per_fold": 73.08,
+   "pct_of_stage": 0.22,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 1.229,
+   "dram_write_MB": 1.228,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 40.4,
+   "achieved_write_GBs": 40.3,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 15.0,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 62.09
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:445",
+   "n_per_step": 6,
+   "in_shapes": [
+    [
+     1,
+     2400,
+     128
+    ],
+    [
+     128,
+     128
+    ]
+   ],
+   "out_shape": [
+    1,
+    2400,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 55.75,
+   "ms_per_fold": 66.91,
+   "pct_of_stage": 0.2,
+   "GFLOP_per_call": 0.07864,
+   "flop_basis": "2*1*2400*128*128",
+   "dram_read_MB": 1.294,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 31.2,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 1.41,
+   "achieved_read_GBs": 23.2,
+   "achieved_write_GBs": 22.0,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 8.2,
+   "tiles_MKN": [
+    75,
+    4,
+    4,
+    1
+   ],
+   "config": {
+    "per_core_M": 1,
+    "per_core_N": 4
+   },
+   "cores_engaged": 75,
+   "blocks": null,
+   "occupancy_pct": 57.7,
+   "config_path": "plain ttnn.matmul (batch serial)",
+   "comm_floor_us": 4.75,
+   "compute_floor_us": 0.7,
+   "overlap": "max (overlap)",
+   "floor_vs_measured": 82175.03,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 61.41
+  },
+  {
+   "op": "to_layout",
+   "site": "protenix.py:437",
+   "n_per_step": 6,
+   "in_shapes": [
+    [
+     2400,
+     128
+    ]
+   ],
+   "out_shape": [
+    2400,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 53.1,
+   "ms_per_fold": 63.72,
+   "pct_of_stage": 0.19,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 1.229,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 23.1,
+   "achieved_write_GBs": 23.1,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 8.6,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 58.22
+  },
+  {
+   "op": "permute",
+   "site": "protenix.py:435",
+   "n_per_step": 6,
+   "in_shapes": [
+    [
+     75,
+     4,
+     32,
+     32
+    ]
+   ],
+   "out_shape": [
+    75,
+    32,
+    32,
+    32
+   ],
+   "dtype": "fp32",
+   "us_per_call": 51.36,
+   "ms_per_fold": 61.63,
+   "pct_of_stage": 0.19,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 1.229,
+   "dram_write_MB": 9.83,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 23.9,
+   "achieved_write_GBs": 191.4,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 71.4,
+   "verdict": "WRITE-BOUND",
+   "gap_ms_per_fold": 17.65
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:433",
+   "n_per_step": 6,
+   "in_shapes": [
+    [
+     75,
+     4,
+     32,
+     128
+    ],
+    [
+     75,
+     1,
+     32,
+     128
+    ]
+   ],
+   "out_shape": [
+    75,
+    4,
+    32,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 49.31,
+   "ms_per_fold": 59.17,
+   "pct_of_stage": 0.18,
+   "GFLOP_per_call": 0.00123,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 6.144,
+   "dram_write_MB": 4.915,
+   "AI_FLOP_per_byte": 0.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.02,
+   "achieved_read_GBs": 124.6,
+   "achieved_write_GBs": 99.7,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 37.2,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 37.17
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:451",
+   "n_per_step": 6,
+   "in_shapes": [
+    [
+     1,
+     2400,
+     128
+    ],
+    [
+     1,
+     2400,
+     128
+    ]
+   ],
+   "out_shape": [
+    1,
+    2400,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 48.66,
+   "ms_per_fold": 58.4,
+   "pct_of_stage": 0.18,
+   "GFLOP_per_call": 0.00031,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 2.458,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 0.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.01,
+   "achieved_read_GBs": 50.5,
+   "achieved_write_GBs": 25.3,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 12.7,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 50.99
+  },
+  {
+   "op": "multiply",
+   "site": "protenix.py:450",
+   "n_per_step": 6,
+   "in_shapes": [
+    [
+     1,
+     2400,
+     128
+    ],
+    [
+     1,
+     2400,
+     128
+    ]
+   ],
+   "out_shape": [
+    1,
+    2400,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 47.49,
+   "ms_per_fold": 56.98,
+   "pct_of_stage": 0.17,
+   "GFLOP_per_call": 0.00031,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 2.458,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 0.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.01,
+   "achieved_read_GBs": 51.8,
+   "achieved_write_GBs": 25.9,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 13.0,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 49.58
+  },
+  {
+   "op": "to_memory_config",
+   "site": "tenstorrent.py:2961",
+   "n_per_step": 18,
+   "in_shapes": [
+    [
+     1,
+     2400,
+     128
+    ]
+   ],
+   "out_shape": [
+    1,
+    2400,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 14.74,
+   "ms_per_fold": 53.08,
+   "pct_of_stage": 0.16,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 1.229,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 83.3,
+   "achieved_write_GBs": 83.3,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 31.1,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 36.59
+  },
+  {
+   "op": "multiply_",
+   "site": "tenstorrent.py:2436",
+   "n_per_step": 2,
+   "in_shapes": [
+    [
+     1,
+     320,
+     768
+    ],
+    [
+     1,
+     320,
+     768
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 130.94,
+   "ms_per_fold": 52.38,
+   "pct_of_stage": 0.16,
+   "GFLOP_per_call": 0.00025,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 0.0,
+   "dram_write_MB": 0.0,
+   "AI_FLOP_per_byte": null,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.0,
+   "achieved_read_GBs": null,
+   "achieved_write_GBs": null,
+   "binding_roof": "COMPUTE",
+   "pct_of_binding_roof": 0.0,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 52.38
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:318",
+   "n_per_step": 6,
+   "in_shapes": [
+    [
+     1,
+     2400,
+     256
+    ],
+    [
+     256,
+     128
+    ]
+   ],
+   "out_shape": [
+    1,
+    2400,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 42.6,
+   "ms_per_fold": 51.12,
+   "pct_of_stage": 0.16,
+   "GFLOP_per_call": 0.15729,
+   "flop_basis": "2*1*2400*256*128",
+   "dram_read_MB": 2.589,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 41.2,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 3.69,
+   "achieved_read_GBs": 60.8,
+   "achieved_write_GBs": 28.8,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 15.3,
+   "tiles_MKN": [
+    75,
+    8,
+    4,
+    1
+   ],
+   "config": {
+    "per_core_M": 1,
+    "per_core_N": 4
+   },
+   "cores_engaged": 75,
+   "blocks": null,
+   "occupancy_pct": 57.7,
+   "config_path": "plain ttnn.matmul (batch serial)",
+   "comm_floor_us": 6.17,
+   "compute_floor_us": 1.41,
+   "overlap": "max (overlap)",
+   "floor_vs_measured": 152514.95,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 43.33
+  },
+  {
+   "op": "permute",
+   "site": "protenix.py:375",
+   "n_per_step": 6,
+   "in_shapes": [
+    [
+     75,
+     32,
+     4,
+     32
+    ]
+   ],
+   "out_shape": [
+    75,
+    4,
+    32,
+    32
+   ],
+   "dtype": "fp32",
+   "us_per_call": 41.67,
+   "ms_per_fold": 50.0,
+   "pct_of_stage": 0.15,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 1.229,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 29.5,
+   "achieved_write_GBs": 29.5,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 11.0,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 44.51
+  },
+  {
+   "op": "layer_norm",
+   "site": "tenstorrent.py:2408",
+   "n_per_step": 2,
+   "in_shapes": [
+    [
+     1,
+     320,
+     384
+    ],
+    [
+     32,
+     384
+    ],
+    [
+     32,
+     384
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    384
+   ],
+   "dtype": "fp32",
+   "us_per_call": 115.34,
+   "ms_per_fold": 46.14,
+   "pct_of_stage": 0.14,
+   "GFLOP_per_call": 0.00061,
+   "flop_basis": "~5 FLOP/out-elem",
+   "dram_read_MB": 0.59,
+   "dram_write_MB": 0.0,
+   "AI_FLOP_per_byte": 1.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.01,
+   "achieved_read_GBs": 5.1,
+   "achieved_write_GBs": null,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 1.3,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 45.54
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:374",
+   "n_per_step": 6,
+   "in_shapes": [
+    [
+     1,
+     2400,
+     128
+    ]
+   ],
+   "out_shape": [
+    75,
+    32,
+    4,
+    32
+   ],
+   "dtype": "fp32",
+   "us_per_call": 34.02,
+   "ms_per_fold": 40.82,
+   "pct_of_stage": 0.12,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 1.229,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 36.1,
+   "achieved_write_GBs": 36.1,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 13.5,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 35.33
+  },
+  {
+   "op": "to_layout",
+   "site": "protenix.py:438",
+   "n_per_step": 6,
+   "in_shapes": [
+    [
+     2398,
+     128
+    ]
+   ],
+   "out_shape": [
+    2400,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 22.37,
+   "ms_per_fold": 26.84,
+   "pct_of_stage": 0.08,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 1.228,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 54.9,
+   "achieved_write_GBs": 54.9,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 20.5,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 21.35
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2438",
+   "n_per_step": 2,
+   "in_shapes": [
+    [
+     1,
+     320,
+     768
+    ],
+    [
+     768,
+     384
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    384
+   ],
+   "dtype": "fp32",
+   "us_per_call": 65.7,
+   "ms_per_fold": 26.28,
+   "pct_of_stage": 0.08,
+   "GFLOP_per_call": 0.18874,
+   "flop_basis": "2*1*320*768*384",
+   "dram_read_MB": 1.18,
+   "dram_write_MB": 0.492,
+   "AI_FLOP_per_byte": 112.9,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 2.87,
+   "achieved_read_GBs": 18.0,
+   "achieved_write_GBs": 7.5,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 4.5,
+   "tiles_MKN": [
+    10,
+    24,
+    12,
+    1
+   ],
+   "config": {
+    "per_core_M": 10,
+    "per_core_N": 1
+   },
+   "cores_engaged": 12,
+   "blocks": null,
+   "occupancy_pct": 9.2,
+   "config_path": "plain ttnn.matmul (batch serial)",
+   "comm_floor_us": 4.79,
+   "compute_floor_us": 1.69,
+   "overlap": "max (overlap)",
+   "floor_vs_measured": 45068.88,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 25.1
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2427",
+   "n_per_step": 2,
+   "in_shapes": [
+    [
+     1,
+     320,
+     384
+    ],
+    [
+     384,
+     768
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 65.27,
+   "ms_per_fold": 26.11,
+   "pct_of_stage": 0.08,
+   "GFLOP_per_call": 0.18874,
+   "flop_basis": "2*1*320*384*768",
+   "dram_read_MB": 1.18,
+   "dram_write_MB": 0.0,
+   "AI_FLOP_per_byte": 160.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 2.89,
+   "achieved_read_GBs": 18.1,
+   "achieved_write_GBs": null,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 4.5,
+   "tiles_MKN": [
+    10,
+    12,
+    24,
+    1
+   ],
+   "config": {
+    "per_core_M": 10,
+    "per_core_N": 1
+   },
+   "cores_engaged": 24,
+   "blocks": null,
+   "occupancy_pct": 18.5,
+   "config_path": "plain ttnn.matmul (batch serial)",
+   "comm_floor_us": 6.63,
+   "compute_floor_us": 1.69,
+   "overlap": "max (overlap)",
+   "floor_vs_measured": 45361.45,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 24.93
+  },
+  {
+   "op": "from_torch",
+   "site": "protenix.py:303",
+   "n_per_step": 1,
+   "in_shapes": [],
+   "out_shape": [
+    32,
+    256
+   ],
+   "dtype": "fp32",
+   "us_per_call": 124.27,
+   "ms_per_fold": 24.85,
+   "pct_of_stage": 0.08,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "unclassified",
+   "dram_read_MB": 0.0,
+   "dram_write_MB": 0.033,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": null,
+   "achieved_write_GBs": 0.3,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 0.1,
+   "verdict": "OVERHEAD",
+   "gap_ms_per_fold": 24.83
+  },
+  {
+   "op": "to_torch",
+   "site": "protenix.py:922",
+   "n_per_step": 1,
+   "in_shapes": [
+    [
+     1,
+     2400,
+     32
+    ]
+   ],
+   "out_shape": null,
+   "dtype": "fp32",
+   "us_per_call": 122.32,
+   "ms_per_fold": 24.46,
+   "pct_of_stage": 0.07,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "unclassified",
+   "dram_read_MB": 0.307,
+   "dram_write_MB": 0.0,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 2.5,
+   "achieved_write_GBs": null,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 0.6,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 24.31
+  },
+  {
+   "op": "layer_norm",
+   "site": "protenix.py:330",
+   "n_per_step": 1,
+   "in_shapes": [
+    [
+     32,
+     256
+    ],
+    [
+     32,
+     256
+    ]
+   ],
+   "out_shape": [
+    32,
+    256
+   ],
+   "dtype": "fp32",
+   "us_per_call": 121.16,
+   "ms_per_fold": 24.23,
+   "pct_of_stage": 0.07,
+   "GFLOP_per_call": 4e-05,
+   "flop_basis": "~5 FLOP/out-elem",
+   "dram_read_MB": 0.066,
+   "dram_write_MB": 0.033,
+   "AI_FLOP_per_byte": 0.4,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.0,
+   "achieved_read_GBs": 0.5,
+   "achieved_write_GBs": 0.3,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 0.1,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 24.2
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:318",
+   "n_per_step": 1,
+   "in_shapes": [
+    [
+     32,
+     256
+    ],
+    [
+     256,
+     384
+    ]
+   ],
+   "out_shape": [
+    32,
+    384
+   ],
+   "dtype": "fp32",
+   "us_per_call": 111.51,
+   "ms_per_fold": 22.3,
+   "pct_of_stage": 0.07,
+   "GFLOP_per_call": 0.00629,
+   "flop_basis": "2*1*32*256*384",
+   "dram_read_MB": 0.426,
+   "dram_write_MB": 0.049,
+   "AI_FLOP_per_byte": 13.2,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.06,
+   "achieved_read_GBs": 3.8,
+   "achieved_write_GBs": 0.4,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 1.0,
+   "tiles_MKN": [
+    1,
+    8,
+    12,
+    1
+   ],
+   "config": {
+    "per_core_M": 1,
+    "per_core_N": 1
+   },
+   "cores_engaged": 12,
+   "blocks": null,
+   "occupancy_pct": 9.2,
+   "config_path": "plain ttnn.matmul (batch serial)",
+   "comm_floor_us": 1.17,
+   "compute_floor_us": 0.06,
+   "overlap": "max (overlap)",
+   "floor_vs_measured": 9588.67,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 22.09
+  },
+  {
+   "op": "from_torch",
+   "site": "protenix.py:303",
+   "n_per_step": 1,
+   "in_shapes": [],
+   "out_shape": [
+    2400,
+    32
+   ],
+   "dtype": "fp32",
+   "us_per_call": 82.06,
+   "ms_per_fold": 16.41,
+   "pct_of_stage": 0.05,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "unclassified",
+   "dram_read_MB": 0.0,
+   "dram_write_MB": 0.307,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": null,
+   "achieved_write_GBs": 3.7,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 1.4,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 16.18
+  },
+  {
+   "op": "to_memory_config",
+   "site": "tenstorrent.py:2961",
+   "n_per_step": 48,
+   "in_shapes": [
+    [
+     1,
+     320,
+     768
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 1.45,
+   "ms_per_fold": 13.94,
+   "pct_of_stage": 0.04,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 0.983,
+   "dram_write_MB": 0.983,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 677.0,
+   "achieved_write_GBs": 677.0,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 252.4,
+   "verdict": "ACCOUNTING-SUSPECT",
+   "gap_ms_per_fold": 0.0
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:401",
+   "n_per_step": 12,
+   "in_shapes": [
+    [
+     1,
+     2496,
+     128
+    ]
+   ],
+   "out_shape": [
+    78,
+    32,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 4.96,
+   "ms_per_fold": 11.9,
+   "pct_of_stage": 0.04,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 1.278,
+   "dram_write_MB": 1.278,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 257.8,
+   "achieved_write_GBs": 257.8,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 96.1,
+   "verdict": "WRITE-BOUND",
+   "gap_ms_per_fold": 0.46
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:879",
+   "n_per_step": 2,
+   "in_shapes": [
+    [
+     1,
+     320,
+     384
+    ],
+    [
+     1,
+     320,
+     384
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    384
+   ],
+   "dtype": "fp32",
+   "us_per_call": 29.04,
+   "ms_per_fold": 11.62,
+   "pct_of_stage": 0.04,
+   "GFLOP_per_call": 0.00012,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 0.983,
+   "dram_write_MB": 0.492,
+   "AI_FLOP_per_byte": 0.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.0,
+   "achieved_read_GBs": 33.9,
+   "achieved_write_GBs": 16.9,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 8.5,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 10.63
+  },
+  {
+   "op": "matmul",
+   "site": "protenix.py:887",
+   "n_per_step": 1,
+   "in_shapes": [
+    [
+     320,
+     2400
+    ],
+    [
+     2400,
+     768
+    ]
+   ],
+   "out_shape": [
+    320,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 46.91,
+   "ms_per_fold": 9.38,
+   "pct_of_stage": 0.03,
+   "GFLOP_per_call": 1.17965,
+   "flop_basis": "2*1*320*2400*768",
+   "dram_read_MB": 10.445,
+   "dram_write_MB": 0.983,
+   "AI_FLOP_per_byte": 103.2,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 25.15,
+   "achieved_read_GBs": 222.6,
+   "achieved_write_GBs": 21.0,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 55.9,
+   "tiles_MKN": [
+    10,
+    75,
+    24,
+    1
+   ],
+   "config": {
+    "per_core_M": 10,
+    "per_core_N": 1
+   },
+   "cores_engaged": 24,
+   "blocks": null,
+   "occupancy_pct": 18.5,
+   "config_path": "plain ttnn.matmul (batch serial)",
+   "comm_floor_us": 22.17,
+   "compute_floor_us": 10.56,
+   "overlap": "max (overlap)",
+   "floor_vs_measured": 558855.03,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 4.14
+  },
+  {
+   "op": "linear",
+   "site": "tenstorrent.py:2416",
+   "n_per_step": 2,
+   "in_shapes": [
+    [
+     1,
+     320,
+     384
+    ],
+    [
+     384,
+     768
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 22.12,
+   "ms_per_fold": 8.85,
+   "pct_of_stage": 0.03,
+   "GFLOP_per_call": 0.18874,
+   "flop_basis": "2*1*320*384*768",
+   "dram_read_MB": 1.18,
+   "dram_write_MB": 0.0,
+   "AI_FLOP_per_byte": 160.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 8.53,
+   "achieved_read_GBs": 53.3,
+   "achieved_write_GBs": null,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 13.4,
+   "tiles_MKN": [
+    10,
+    12,
+    24,
+    1
+   ],
+   "config": {
+    "per_core_M": 10,
+    "per_core_N": 1
+   },
+   "cores_engaged": 24,
+   "blocks": null,
+   "occupancy_pct": 18.5,
+   "config_path": "plain ttnn.matmul (batch serial)",
+   "comm_floor_us": 6.63,
+   "compute_floor_us": 1.69,
+   "overlap": "max (overlap)",
+   "floor_vs_measured": 133867.82,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 7.66
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:318",
+   "n_per_step": 1,
+   "in_shapes": [
+    [
+     1,
+     2400,
+     128
+    ],
+    [
+     128,
+     768
+    ]
+   ],
+   "out_shape": [
+    1,
+    2400,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 40.74,
+   "ms_per_fold": 8.15,
+   "pct_of_stage": 0.02,
+   "GFLOP_per_call": 0.47186,
+   "flop_basis": "2*1*2400*128*768",
+   "dram_read_MB": 1.622,
+   "dram_write_MB": 7.373,
+   "AI_FLOP_per_byte": 52.5,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 11.58,
+   "achieved_read_GBs": 39.8,
+   "achieved_write_GBs": 181.0,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 67.5,
+   "tiles_MKN": [
+    75,
+    4,
+    24,
+    1
+   ],
+   "config": {
+    "per_core_M": 1,
+    "per_core_N": 24
+   },
+   "cores_engaged": 75,
+   "blocks": null,
+   "occupancy_pct": 57.7,
+   "config_path": "plain ttnn.matmul (batch serial)",
+   "comm_floor_us": 28.48,
+   "compute_floor_us": 4.22,
+   "overlap": "max (overlap)",
+   "floor_vs_measured": 674688.06,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 2.65
+  },
+  {
+   "op": "relu",
+   "site": "protenix.py:887",
+   "n_per_step": 1,
+   "in_shapes": [
+    [
+     1,
+     2400,
+     768
+    ]
+   ],
+   "out_shape": [
+    1,
+    2400,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 39.35,
+   "ms_per_fold": 7.87,
+   "pct_of_stage": 0.02,
+   "GFLOP_per_call": 0.00184,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 7.373,
+   "dram_write_MB": 7.373,
+   "AI_FLOP_per_byte": 0.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.05,
+   "achieved_read_GBs": 187.4,
+   "achieved_write_GBs": 187.4,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 69.9,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 2.37
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:916",
+   "n_per_step": 1,
+   "in_shapes": [
+    [
+     2400,
+     128
+    ],
+    [
+     2400,
+     128
+    ]
+   ],
+   "out_shape": [
+    2400,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 30.54,
+   "ms_per_fold": 6.11,
+   "pct_of_stage": 0.02,
+   "GFLOP_per_call": 0.00031,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 2.458,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 0.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.01,
+   "achieved_read_GBs": 80.5,
+   "achieved_write_GBs": 40.2,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 20.2,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 4.88
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:884",
+   "n_per_step": 1,
+   "in_shapes": [
+    [
+     2400,
+     128
+    ],
+    [
+     2400,
+     128
+    ]
+   ],
+   "out_shape": [
+    2400,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 29.74,
+   "ms_per_fold": 5.95,
+   "pct_of_stage": 0.02,
+   "GFLOP_per_call": 0.00031,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 2.458,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 0.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.01,
+   "achieved_read_GBs": 82.6,
+   "achieved_write_GBs": 41.3,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 20.7,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 4.71
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:877",
+   "n_per_step": 1,
+   "in_shapes": [
+    [
+     320,
+     384
+    ],
+    [
+     32,
+     384
+    ]
+   ],
+   "out_shape": [
+    320,
+    384
+   ],
+   "dtype": "fp32",
+   "us_per_call": 29.66,
+   "ms_per_fold": 5.93,
+   "pct_of_stage": 0.02,
+   "GFLOP_per_call": 0.00012,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 0.541,
+   "dram_write_MB": 0.492,
+   "AI_FLOP_per_byte": 0.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.0,
+   "achieved_read_GBs": 18.2,
+   "achieved_write_GBs": 16.6,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 6.2,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 5.57
+  },
+  {
+   "op": "add",
+   "site": "protenix.py:890",
+   "n_per_step": 1,
+   "in_shapes": [
+    [
+     320,
+     768
+    ],
+    [
+     320,
+     768
+    ]
+   ],
+   "out_shape": [
+    320,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 29.41,
+   "ms_per_fold": 5.88,
+   "pct_of_stage": 0.02,
+   "GFLOP_per_call": 0.00025,
+   "flop_basis": "1 FLOP/out-elem",
+   "dram_read_MB": 1.966,
+   "dram_write_MB": 0.983,
+   "AI_FLOP_per_byte": 0.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.01,
+   "achieved_read_GBs": 66.8,
+   "achieved_write_GBs": 33.4,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 16.8,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 4.9
+  },
+  {
+   "op": "matmul",
+   "site": "protenix.py:916",
+   "n_per_step": 1,
+   "in_shapes": [
+    [
+     2400,
+     320
+    ],
+    [
+     320,
+     128
+    ]
+   ],
+   "out_shape": [
+    2400,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 24.97,
+   "ms_per_fold": 4.99,
+   "pct_of_stage": 0.02,
+   "GFLOP_per_call": 0.19661,
+   "flop_basis": "2*1*2400*320*128",
+   "dram_read_MB": 3.236,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 44.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 7.87,
+   "achieved_read_GBs": 129.6,
+   "achieved_write_GBs": 49.2,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 32.5,
+   "tiles_MKN": [
+    75,
+    10,
+    4,
+    1
+   ],
+   "config": {
+    "per_core_M": 1,
+    "per_core_N": 4
+   },
+   "cores_engaged": 75,
+   "blocks": null,
+   "occupancy_pct": 57.7,
+   "config_path": "plain ttnn.matmul (batch serial)",
+   "comm_floor_us": 7.71,
+   "compute_floor_us": 1.76,
+   "overlap": "max (overlap)",
+   "floor_vs_measured": 325282.82,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 3.37
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:318",
+   "n_per_step": 1,
+   "in_shapes": [
+    [
+     1,
+     2400,
+     128
+    ],
+    [
+     128,
+     32
+    ]
+   ],
+   "out_shape": [
+    1,
+    2400,
+    32
+   ],
+   "dtype": "fp32",
+   "us_per_call": 21.95,
+   "ms_per_fold": 4.39,
+   "pct_of_stage": 0.01,
+   "GFLOP_per_call": 0.01966,
+   "flop_basis": "2*1*2400*128*32",
+   "dram_read_MB": 1.245,
+   "dram_write_MB": 0.307,
+   "AI_FLOP_per_byte": 12.7,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.9,
+   "achieved_read_GBs": 56.7,
+   "achieved_write_GBs": 14.0,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 14.2,
+   "tiles_MKN": [
+    75,
+    4,
+    1,
+    1
+   ],
+   "config": {
+    "per_core_M": 1,
+    "per_core_N": 1
+   },
+   "cores_engaged": 75,
+   "blocks": null,
+   "occupancy_pct": 57.7,
+   "config_path": "plain ttnn.matmul (batch serial)",
+   "comm_floor_us": 3.08,
+   "compute_floor_us": 0.18,
+   "overlap": "max (overlap)",
+   "floor_vs_measured": 142380.33,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 3.77
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:318",
+   "n_per_step": 1,
+   "in_shapes": [
+    [
+     2400,
+     32
+    ],
+    [
+     32,
+     128
+    ]
+   ],
+   "out_shape": [
+    2400,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 21.67,
+   "ms_per_fold": 4.33,
+   "pct_of_stage": 0.01,
+   "GFLOP_per_call": 0.01966,
+   "flop_basis": "2*1*2400*32*128",
+   "dram_read_MB": 0.324,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 12.7,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.91,
+   "achieved_read_GBs": 14.9,
+   "achieved_write_GBs": 56.7,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 21.1,
+   "tiles_MKN": [
+    75,
+    1,
+    4,
+    1
+   ],
+   "config": {
+    "per_core_M": 1,
+    "per_core_N": 4
+   },
+   "cores_engaged": 75,
+   "blocks": null,
+   "occupancy_pct": 57.7,
+   "config_path": "plain ttnn.matmul (batch serial)",
+   "comm_floor_us": 4.62,
+   "compute_floor_us": 0.18,
+   "overlap": "max (overlap)",
+   "floor_vs_measured": 211383.08,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 3.42
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:318",
+   "n_per_step": 1,
+   "in_shapes": [
+    [
+     320,
+     768
+    ],
+    [
+     768,
+     128
+    ]
+   ],
+   "out_shape": [
+    320,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 21.18,
+   "ms_per_fold": 4.24,
+   "pct_of_stage": 0.01,
+   "GFLOP_per_call": 0.06291,
+   "flop_basis": "2*1*320*768*128",
+   "dram_read_MB": 1.376,
+   "dram_write_MB": 0.164,
+   "AI_FLOP_per_byte": 40.9,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 2.97,
+   "achieved_read_GBs": 65.0,
+   "achieved_write_GBs": 7.7,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 16.3,
+   "tiles_MKN": [
+    10,
+    24,
+    4,
+    1
+   ],
+   "config": {
+    "per_core_M": 1,
+    "per_core_N": 4
+   },
+   "cores_engaged": 10,
+   "blocks": null,
+   "occupancy_pct": 7.7,
+   "config_path": "plain ttnn.matmul (batch serial)",
+   "comm_floor_us": 2.47,
+   "compute_floor_us": 0.56,
+   "overlap": "max (overlap)",
+   "floor_vs_measured": 163088.2,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 3.55
+  },
+  {
+   "op": "linear",
+   "site": "protenix.py:318",
+   "n_per_step": 1,
+   "in_shapes": [
+    [
+     320,
+     384
+    ],
+    [
+     384,
+     768
+    ]
+   ],
+   "out_shape": [
+    320,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 20.99,
+   "ms_per_fold": 4.2,
+   "pct_of_stage": 0.01,
+   "GFLOP_per_call": 0.18874,
+   "flop_basis": "2*1*320*384*768",
+   "dram_read_MB": 1.671,
+   "dram_write_MB": 0.983,
+   "AI_FLOP_per_byte": 71.1,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 8.99,
+   "achieved_read_GBs": 79.6,
+   "achieved_write_GBs": 46.8,
+   "binding_roof": "DRAM-READ",
+   "pct_of_binding_roof": 20.0,
+   "tiles_MKN": [
+    10,
+    12,
+    24,
+    1
+   ],
+   "config": {
+    "per_core_M": 10,
+    "per_core_N": 1
+   },
+   "cores_engaged": 24,
+   "blocks": null,
+   "occupancy_pct": 18.5,
+   "config_path": "plain ttnn.matmul (batch serial)",
+   "comm_floor_us": 6.63,
+   "compute_floor_us": 1.69,
+   "overlap": "max (overlap)",
+   "floor_vs_measured": 199819.22,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 3.36
+  },
+  {
+   "op": "typecast",
+   "site": "protenix.py:1103",
+   "n_per_step": 1,
+   "in_shapes": [
+    [
+     1,
+     320,
+     768
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 19.9,
+   "ms_per_fold": 3.98,
+   "pct_of_stage": 0.01,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "0 FLOP/out-elem",
+   "dram_read_MB": 0.983,
+   "dram_write_MB": 0.983,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 49.4,
+   "achieved_write_GBs": 49.4,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 18.4,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 3.25
+  },
+  {
+   "op": "layer_norm",
+   "site": "protenix.py:330",
+   "n_per_step": 1,
+   "in_shapes": [
+    [
+     1,
+     2400,
+     128
+    ],
+    [
+     32,
+     128
+    ]
+   ],
+   "out_shape": [
+    1,
+    2400,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 19.16,
+   "ms_per_fold": 3.83,
+   "pct_of_stage": 0.01,
+   "GFLOP_per_call": 0.00154,
+   "flop_basis": "~5 FLOP/out-elem",
+   "dram_read_MB": 1.245,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 0.6,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.08,
+   "achieved_read_GBs": 65.0,
+   "achieved_write_GBs": 64.1,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 23.9,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 2.92
+  },
+  {
+   "op": "layer_norm",
+   "site": "protenix.py:808",
+   "n_per_step": 1,
+   "in_shapes": [
+    [
+     1,
+     320,
+     768
+    ],
+    [
+     32,
+     768
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 18.72,
+   "ms_per_fold": 3.74,
+   "pct_of_stage": 0.01,
+   "GFLOP_per_call": 0.00123,
+   "flop_basis": "~5 FLOP/out-elem",
+   "dram_read_MB": 1.081,
+   "dram_write_MB": 0.983,
+   "AI_FLOP_per_byte": 0.6,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.07,
+   "achieved_read_GBs": 57.8,
+   "achieved_write_GBs": 52.5,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 19.6,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 3.01
+  },
+  {
+   "op": "typecast",
+   "site": "protenix.py:1104",
+   "n_per_step": 1,
+   "in_shapes": [
+    [
+     1,
+     320,
+     384
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    384
+   ],
+   "dtype": "fp32",
+   "us_per_call": 18.56,
+   "ms_per_fold": 3.71,
+   "pct_of_stage": 0.01,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "0 FLOP/out-elem",
+   "dram_read_MB": 0.492,
+   "dram_write_MB": 0.492,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 26.5,
+   "achieved_write_GBs": 26.5,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 9.9,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 3.35
+  },
+  {
+   "op": "layer_norm",
+   "site": "protenix.py:330",
+   "n_per_step": 1,
+   "in_shapes": [
+    [
+     320,
+     384
+    ],
+    [
+     32,
+     384
+    ]
+   ],
+   "out_shape": [
+    320,
+    384
+   ],
+   "dtype": "fp32",
+   "us_per_call": 15.82,
+   "ms_per_fold": 3.16,
+   "pct_of_stage": 0.01,
+   "GFLOP_per_call": 0.00061,
+   "flop_basis": "~5 FLOP/out-elem",
+   "dram_read_MB": 0.541,
+   "dram_write_MB": 0.492,
+   "AI_FLOP_per_byte": 0.6,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": 0.04,
+   "achieved_read_GBs": 34.2,
+   "achieved_write_GBs": 31.1,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 11.6,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 2.8
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:879",
+   "n_per_step": 2,
+   "in_shapes": [
+    [
+     1,
+     320,
+     384
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    384
+   ],
+   "dtype": "fp32",
+   "us_per_call": 3.15,
+   "ms_per_fold": 1.26,
+   "pct_of_stage": 0.0,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 0.492,
+   "dram_write_MB": 0.492,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 156.2,
+   "achieved_write_GBs": 156.2,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 58.2,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 0.53
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:885",
+   "n_per_step": 2,
+   "in_shapes": [
+    [
+     2400,
+     128
+    ]
+   ],
+   "out_shape": [
+    1,
+    2400,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 3.08,
+   "ms_per_fold": 1.23,
+   "pct_of_stage": 0.0,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 1.229,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 398.4,
+   "achieved_write_GBs": 398.4,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 148.5,
+   "verdict": "ACCOUNTING-SUSPECT",
+   "gap_ms_per_fold": 0.0
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:919",
+   "n_per_step": 2,
+   "in_shapes": [
+    [
+     2400,
+     128
+    ]
+   ],
+   "out_shape": [
+    1,
+    2400,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 2.88,
+   "ms_per_fold": 1.15,
+   "pct_of_stage": 0.0,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 1.229,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 426.6,
+   "achieved_write_GBs": 426.6,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 159.0,
+   "verdict": "ACCOUNTING-SUSPECT",
+   "gap_ms_per_fold": 0.0
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:891",
+   "n_per_step": 1,
+   "in_shapes": [
+    [
+     1,
+     320,
+     384
+    ]
+   ],
+   "out_shape": [
+    320,
+    384
+   ],
+   "dtype": "fp32",
+   "us_per_call": 3.4,
+   "ms_per_fold": 0.68,
+   "pct_of_stage": 0.0,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 0.492,
+   "dram_write_MB": 0.492,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 144.4,
+   "achieved_write_GBs": 144.4,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 53.8,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 0.31
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:916",
+   "n_per_step": 1,
+   "in_shapes": [
+    [
+     1,
+     320,
+     768
+    ]
+   ],
+   "out_shape": [
+    320,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 3.36,
+   "ms_per_fold": 0.67,
+   "pct_of_stage": 0.0,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 0.983,
+   "dram_write_MB": 0.983,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 292.9,
+   "achieved_write_GBs": 292.9,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 109.2,
+   "verdict": "ACCOUNTING-SUSPECT",
+   "gap_ms_per_fold": 0.0
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:890",
+   "n_per_step": 1,
+   "in_shapes": [
+    [
+     320,
+     768
+    ]
+   ],
+   "out_shape": [
+    320,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 3.16,
+   "ms_per_fold": 0.63,
+   "pct_of_stage": 0.0,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 0.983,
+   "dram_write_MB": 0.983,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 311.0,
+   "achieved_write_GBs": 311.0,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 116.0,
+   "verdict": "ACCOUNTING-SUSPECT",
+   "gap_ms_per_fold": 0.0
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:877",
+   "n_per_step": 1,
+   "in_shapes": [
+    [
+     320,
+     384
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    384
+   ],
+   "dtype": "fp32",
+   "us_per_call": 3.02,
+   "ms_per_fold": 0.6,
+   "pct_of_stage": 0.0,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 0.492,
+   "dram_write_MB": 0.492,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 162.5,
+   "achieved_write_GBs": 162.5,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 60.6,
+   "verdict": "LATENCY-or-OCCUPANCY-BOUND",
+   "gap_ms_per_fold": 0.24
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:900",
+   "n_per_step": 1,
+   "in_shapes": [
+    [
+     320,
+     768
+    ]
+   ],
+   "out_shape": [
+    1,
+    320,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 3.0,
+   "ms_per_fold": 0.6,
+   "pct_of_stage": 0.0,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 0.983,
+   "dram_write_MB": 0.983,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 327.4,
+   "achieved_write_GBs": 327.4,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 122.1,
+   "verdict": "ACCOUNTING-SUSPECT",
+   "gap_ms_per_fold": 0.0
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:918",
+   "n_per_step": 1,
+   "in_shapes": [
+    [
+     1,
+     2400,
+     128
+    ]
+   ],
+   "out_shape": [
+    2400,
+    128
+   ],
+   "dtype": "fp32",
+   "us_per_call": 2.99,
+   "ms_per_fold": 0.6,
+   "pct_of_stage": 0.0,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 1.229,
+   "dram_write_MB": 1.229,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 411.3,
+   "achieved_write_GBs": 411.3,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 153.4,
+   "verdict": "ACCOUNTING-SUSPECT",
+   "gap_ms_per_fold": 0.0
+  },
+  {
+   "op": "reshape",
+   "site": "protenix.py:887",
+   "n_per_step": 1,
+   "in_shapes": [
+    [
+     1,
+     2400,
+     768
+    ]
+   ],
+   "out_shape": [
+    2400,
+    768
+   ],
+   "dtype": "fp32",
+   "us_per_call": 2.95,
+   "ms_per_fold": 0.59,
+   "pct_of_stage": 0.0,
+   "GFLOP_per_call": 0.0,
+   "flop_basis": "data movement",
+   "dram_read_MB": 7.373,
+   "dram_write_MB": 7.373,
+   "AI_FLOP_per_byte": 0.0,
+   "machine_balance": 280.5,
+   "achieved_TFLOPs": null,
+   "achieved_read_GBs": 2495.6,
+   "achieved_write_GBs": 2495.6,
+   "binding_roof": "DRAM-WRITE",
+   "pct_of_binding_roof": 930.5,
+   "verdict": "ACCOUNTING-SUSPECT",
+   "gap_ms_per_fold": 0.0
+  }
+ ]
+}
