@@ -22,6 +22,13 @@ MODELS = {"opendde-abag": ("opendde", "confidence_score"),
           "protenix-v2": ("protenix", "confidence_score"),
           "boltz2": ("boltz2", "confidence_score"),
           "esmfold2": ("esmfold2", "plddt")}
+# Mirrors abag_xm_deepn_analysis.py's GALAXY_EXCLUDE + P32_EXTENSION. The join is
+# reimplemented here on purpose so a shared bug cannot hide, but the panel must be the
+# same one: without these, this script's per-model count is a few cells above the
+# analysis's n_targets at 512 and the cross-check reads as a discrepancy that is not one.
+EXCLUDE = {"opendde-abag": {"9sbb", "9i3p", "9j4c", "9ivj", "9q7y"},
+           "protenix-v2": {"9j4c"},
+           "esmfold2": {"9j4c"}}
 
 
 def fold_pairs(out_dir: Path, prefix: str, target: str, sel_key: str):
@@ -70,17 +77,22 @@ def main():
     base = Path(a.base)
 
     checked = failures = 0
+    per_model = {}
     for model, (prefix, _sel) in MODELS.items():
         mdir = base / prefix
         if not mdir.is_dir():
             continue
+        per_model[model] = [0, 0, 0]      # checked, failed, skipped-not-8/8
         targets = sorted({d.name.split("_n512_c")[0] for d in mdir.glob("*_n512_c*")})
+        targets = [t for t in targets if t not in EXCLUDE.get(model, ())]
         for t in targets:
             p512 = pool(base, model, t, 512, range(8))
             p256 = pool(base, model, t, 256, range(4))
             if p512 is None or p256 is None:
+                per_model[model][2] += 1
                 continue          # not yet at 8 chunks; the completeness gate drops it
             checked += 1
+            per_model[model][0] += 1
             errs, notes = [], []
             if len(p512) != 512:
                 errs.append(f"pool(512) has {len(p512)} pairs, want 512")
@@ -112,6 +124,7 @@ def main():
             tag = "" if u_added is None or abs(u_added - u512) > 1e-12 else "  (note: pick also equals the added-256 pick)"
             if errs:
                 failures += 1
+                per_model[model][1] += 1
                 print(f"FAIL {model}/{t}")
                 for e in errs:
                     print(f"       {e}")
@@ -120,7 +133,12 @@ def main():
                       f"user {user(p256):.4f}->{u512:.4f}{tag}")
             for n in notes:
                 print(f"       note: {n}")
+    print()
+    for model, (c, f, s) in sorted(per_model.items()):
+        print(f"  {model:<14} checked {c:3d}  failed {f:3d}  not-yet-8/8 {s:3d}")
     print(f"\nchecked {checked} (model,target) cells at 8/8 chunks, {failures} failed")
+    print("per-model 'checked' is the panel the analysis should report as n_targets at 512; "
+          "a shortfall means labels are still missing, not that the pool is wrong")
     return 1 if failures or checked == 0 else 0
 
 
