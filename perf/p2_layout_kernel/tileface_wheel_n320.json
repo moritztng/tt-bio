@@ -1,0 +1,111 @@
+{
+  "n": 320,
+  "c": 32,
+  "ttnn": "wheel",
+  "cores": 110,
+  "tiles": 3200,
+  "arms": {
+    "floor: clone L1->L1": {
+      "us": 28.18,
+      "us_per_tile_per_core": 0.9688,
+      "gbs_two_way": 465.1,
+      "cores": 110,
+      "note": ""
+    },
+    "floor: transpose(-2,-1) L1->L1": {
+      "us": 28.45,
+      "us_per_tile_per_core": 0.9781,
+      "gbs_two_way": 460.6,
+      "cores": 110,
+      "note": ""
+    },
+    "floor: clone DRAM->L1": {
+      "us": 33.61,
+      "us_per_tile_per_core": 1.1554,
+      "gbs_two_way": 389.9,
+      "cores": 110,
+      "note": ""
+    },
+    "floor: clone L1->DRAM": {
+      "us": 42.0,
+      "us_per_tile_per_core": 1.4436,
+      "gbs_two_way": 312.1,
+      "cores": 110,
+      "note": ""
+    },
+    "permute in-move (0,3,1,2) l1->l1": {
+      "us": 112.14,
+      "us_per_tile_per_core": 3.855,
+      "gbs_two_way": 116.9,
+      "cores": 110,
+      "note": ""
+    },
+    "permute in-move (0,3,1,2) l1->dram": {
+      "us": 116.99,
+      "us_per_tile_per_core": 4.0214,
+      "gbs_two_way": 112.0,
+      "cores": 110,
+      "note": ""
+    },
+    "permute in-move (0,3,1,2) dram->l1": {
+      "us": 112.72,
+      "us_per_tile_per_core": 3.8747,
+      "gbs_two_way": 116.3,
+      "cores": 110,
+      "note": ""
+    },
+    "permute in-move (0,3,1,2) dram->dram": {
+      "us": 164.23,
+      "us_per_tile_per_core": 5.6454,
+      "gbs_two_way": 79.8,
+      "cores": 110,
+      "note": ""
+    },
+    "STAGED in-move (0,3,1,2) dram->L1->L1->dram": {
+      "us": 153.57,
+      "us_per_tile_per_core": 5.2791,
+      "gbs_two_way": 85.3,
+      "cores": 110,
+      "note": "clone in, permute in L1, clone out"
+    },
+    "permute out-move (0,2,3,1) l1->l1": {
+      "us": 93.4,
+      "us_per_tile_per_core": 3.2105,
+      "gbs_two_way": 140.3,
+      "cores": 110,
+      "note": ""
+    },
+    "permute out-move (0,2,3,1) l1->dram": {
+      "us": 148.46,
+      "us_per_tile_per_core": 5.1033,
+      "gbs_two_way": 88.3,
+      "cores": 110,
+      "note": ""
+    },
+    "permute out-move (0,2,3,1) dram->l1": {
+      "us": 513.5,
+      "us_per_tile_per_core": 17.6517,
+      "gbs_two_way": 25.5,
+      "cores": 110,
+      "note": ""
+    },
+    "permute out-move (0,2,3,1) dram->dram": {
+      "us": 591.88,
+      "us_per_tile_per_core": 20.3458,
+      "gbs_two_way": 22.1,
+      "cores": 110,
+      "note": ""
+    },
+    "STAGED out-move (0,2,3,1) dram->L1->L1->dram": {
+      "us": 134.91,
+      "us_per_tile_per_core": 4.6377,
+      "gbs_two_way": 97.2,
+      "cores": 110,
+      "note": "clone in, permute in L1, clone out"
+    }
+  },
+  "parity": {
+    "staged in-move (0,3,1,2)": true,
+    "staged out-move (0,2,3,1)": true
+  }
+}

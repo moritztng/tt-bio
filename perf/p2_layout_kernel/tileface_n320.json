@@ -1,0 +1,171 @@
+{
+  "n": 320,
+  "c": 32,
+  "grid": [
+    11,
+    10
+  ],
+  "cores": 110,
+  "tiles": 3200,
+  "bytes_one_way": 6553600,
+  "has_reblock": true,
+  "arms": {
+    "roof: clone L1->L1 (same 3200 tiles)": {
+      "us": 28.85,
+      "us_per_tile_per_core": 0.9917,
+      "gbs_two_way": 454.3,
+      "cores": 110,
+      "note": "the floor: same bytes, no reorder"
+    },
+    "roof: transpose(-2,-1) L1->L1 (in-tile)": {
+      "us": 29.02,
+      "us_per_tile_per_core": 0.9977,
+      "gbs_two_way": 451.6,
+      "cores": 110,
+      "note": "compute-engine in-tile move"
+    },
+    "roof: clone L1->DRAM": {
+      "us": 42.67,
+      "us_per_tile_per_core": 1.4669,
+      "gbs_two_way": 307.1,
+      "cores": 110,
+      "note": ""
+    },
+    "roof: clone DRAM->DRAM": {
+      "us": 50.31,
+      "us_per_tile_per_core": 1.7296,
+      "gbs_two_way": 260.5,
+      "cores": 110,
+      "note": ""
+    },
+    "roof: clone DRAM->L1": {
+      "us": 34.41,
+      "us_per_tile_per_core": 1.1828,
+      "gbs_two_way": 380.9,
+      "cores": 110,
+      "note": ""
+    },
+    "E0 permute(0,3,1,2) l1->l1": {
+      "us": 123.42,
+      "us_per_tile_per_core": 4.2426,
+      "gbs_two_way": 106.2,
+      "cores": 110,
+      "note": ""
+    },
+    "E0 permute(0,3,1,2) l1->dram": {
+      "us": 127.37,
+      "us_per_tile_per_core": 4.3782,
+      "gbs_two_way": 102.9,
+      "cores": 110,
+      "note": ""
+    },
+    "E0 permute(0,3,1,2) dram->l1": {
+      "us": 124.54,
+      "us_per_tile_per_core": 4.2812,
+      "gbs_two_way": 105.2,
+      "cores": 110,
+      "note": ""
+    },
+    "E0 permute(0,3,1,2) dram->dram": {
+      "us": 175.22,
+      "us_per_tile_per_core": 6.0233,
+      "gbs_two_way": 74.8,
+      "cores": 110,
+      "note": ""
+    },
+    "E0 permute(0,2,3,1) l1->l1": {
+      "us": 107.36,
+      "us_per_tile_per_core": 3.6904,
+      "gbs_two_way": 122.1,
+      "cores": 110,
+      "note": ""
+    },
+    "E0 permute(0,2,3,1) l1->dram": {
+      "us": 159.43,
+      "us_per_tile_per_core": 5.4805,
+      "gbs_two_way": 82.2,
+      "cores": 110,
+      "note": ""
+    },
+    "E0 permute(0,2,3,1) dram->l1": {
+      "us": 524.61,
+      "us_per_tile_per_core": 18.0335,
+      "gbs_two_way": 25.0,
+      "cores": 110,
+      "note": ""
+    },
+    "E0 permute(0,2,3,1) dram->dram": {
+      "us": 607.82,
+      "us_per_tile_per_core": 20.8937,
+      "gbs_two_way": 21.6,
+      "cores": 110,
+      "note": ""
+    },
+    "E2 reblock in-move l1->l1": {
+      "us": 84.2,
+      "us_per_tile_per_core": 2.8945,
+      "gbs_two_way": 155.7,
+      "cores": 110,
+      "note": "torch.equal=True"
+    },
+    "E2 reblock in-move l1->dram": {
+      "us": 85.77,
+      "us_per_tile_per_core": 2.9483,
+      "gbs_two_way": 152.8,
+      "cores": 110,
+      "note": "torch.equal=True"
+    },
+    "E2 reblock in-move dram->l1": {
+      "us": 89.66,
+      "us_per_tile_per_core": 3.082,
+      "gbs_two_way": 146.2,
+      "cores": 110,
+      "note": "torch.equal=True"
+    },
+    "E2 reblock in-move dram->dram": {
+      "us": 89.26,
+      "us_per_tile_per_core": 3.0685,
+      "gbs_two_way": 146.8,
+      "cores": 110,
+      "note": "torch.equal=True"
+    },
+    "E2 reblock out-move l1->l1": {
+      "us": 88.03,
+      "us_per_tile_per_core": 3.0261,
+      "gbs_two_way": 148.9,
+      "cores": 110,
+      "note": "torch.equal=True"
+    },
+    "E2 reblock out-move l1->dram": {
+      "us": 90.03,
+      "us_per_tile_per_core": 3.0949,
+      "gbs_two_way": 145.6,
+      "cores": 110,
+      "note": "torch.equal=True"
+    },
+    "E2 reblock out-move dram->l1": {
+      "us": 87.56,
+      "us_per_tile_per_core": 3.0098,
+      "gbs_two_way": 149.7,
+      "cores": 110,
+      "note": "torch.equal=True"
+    },
+    "E2 reblock out-move dram->dram": {
+      "us": 87.67,
+      "us_per_tile_per_core": 3.0135,
+      "gbs_two_way": 149.5,
+      "cores": 110,
+      "note": "torch.equal=True"
+    }
+  },
+  "parity": {
+    "reblock in-move l1->l1": true,
+    "reblock in-move l1->dram": true,
+    "reblock in-move dram->l1": true,
+    "reblock in-move dram->dram": true,
+    "reblock out-move l1->l1": true,
+    "reblock out-move l1->dram": true,
+    "reblock out-move dram->l1": true,
+    "reblock out-move dram->dram": true
+  }
+}
