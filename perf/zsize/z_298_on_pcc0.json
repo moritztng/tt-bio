@@ -1,0 +1,49 @@
+{
+ "host": "qb1",
+ "card": 0,
+ "ttnn": "0.68.0",
+ "fast": false,
+ "runs": [
+  {
+   "size": 320,
+   "arm": "on",
+   "fast": false,
+   "load_before": [
+    1.35,
+    1.12,
+    1.26
+   ],
+   "verdict": "ok",
+   "fold_s": 29.726,
+   "n_tokens": 298,
+   "plddt": 0.859478,
+   "cif_sha256": {
+    "cdk2x2_320.cif": "a8cafe108f6855e2"
+   },
+   "wall_s": 29.7,
+   "load_after": [
+    1.74,
+    1.22,
+    1.29
+   ],
+   "decisions": {
+    "layer_norm|h=1.5|1x298x298x256": {
+     "L1": 494
+    },
+    "layer_norm|h=1.5|298x298x256": {
+     "L1": 30
+    },
+    "transpose|298x298x256": {
+     "L1": 1048
+    },
+    "transpose|298x298x64": {
+     "L1": 160
+    }
+   }
+  }
+ ],
+ "grid": [
+  13,
+  10
+ ]
+}
