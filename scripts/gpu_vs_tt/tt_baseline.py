@@ -134,7 +134,7 @@ def seed_msa_cache(target: Path, a3m: Path, msa_dir: Path) -> int:
 
 def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
                samples: int = DIFFUSION_SAMPLES, hoist: bool = False,
-               instrument: bool = False):
+               instrument: bool = False, fast: bool = False):
     """Open the card, load the model, seed the MSA cache; return ``(one_fold, meta)``.
 
     Split out of ``measure`` so the multi-card fan-out driver (``tt_concurrency.py``)
@@ -152,10 +152,17 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
 
     ``instrument`` (raw mode only) wraps the three phases of ``_predict_protenix_one``
     with timers -- build_complex_features, model.fold, _write_protenix_structure -- and
-    appends one ``{feat, fold, write, total}`` entry per fold to ``meta["phase_times"]``,
-    so the host/device split is measured on the same folds the raw number comes from.
-    Monkeypatches module attributes inside this worker process only; production code is
-    untouched. protenix-v2 only (the disputed model).
+    appends one entry per fold to ``meta["phase_times"]``, so the host/device split is
+    measured on the same folds the raw number comes from. It also splits ``model.fold``
+    itself into ``trunk_cond`` / ``pairformer`` / ``msa_module`` / ``template`` /
+    ``diffusion`` / ``confidence``, each timed with the device synchronised on both sides,
+    so a stage number is device time rather than dispatch-ahead. ``pairformer`` nests inside
+    ``trunk_cond``. Monkeypatches module and instance attributes inside this worker process
+    only; production code is untouched. protenix-v2 only (the disputed model).
+
+    ``fast`` folds with bf8 trunk weights (bf16 diffusion), the shipped ``--fast`` path. Not
+    bit-exact against the default arm, so its CIF hash changes by construction, and the arm is
+    only quotable once it has passed ``scripts/release_gate.py``.
     """
     import torch  # noqa: F401
     torch.set_grad_enabled(False)
@@ -178,7 +185,7 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
     msa_dir.mkdir(parents=True, exist_ok=True)
 
     cfg = dict(
-        model=model, fast=False, output_format="cif",
+        model=model, fast=fast, output_format="cif",
         recycling_steps=RECYCLING_STEPS, sampling_steps=SAMPLING_STEPS,
         diffusion_samples=samples, seed=SEED, trace=False,
         msa_dir=str(msa_dir), struct_dir=str(struct_dir),
@@ -234,6 +241,36 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
         _pd.build_complex_features = _timed_feat
         _main._write_protenix_structure = _timed_write
         state.model.fold = _timed_fold
+
+        # Stage split inside model.fold, same _cur dict so --instrument reports it with no
+        # extra plumbing. Each wrapper synchronises the device on both sides, so a stage's
+        # number is device time and not dispatch-ahead. `pairformer` nests inside
+        # `trunk_cond`; P = pairformer / total is the share a Pairformer-block megakernel
+        # can address, which is the number the 4x moonshot turns on.
+        import ttnn as _tn
+        import tt_bio.protenix as _px
+        _dev = get_device()
+
+        def _stage(name, fn):
+            def wrapped(*a, **k):
+                _tn.synchronize_device(_dev)
+                t = time.perf_counter()
+                try:
+                    return fn(*a, **k)
+                finally:
+                    _tn.synchronize_device(_dev)
+                    _cur[name] = _cur.get(name, 0.0) + time.perf_counter() - t
+            return wrapped
+
+        state.model._trunk_cond = _stage("trunk_cond", state.model._trunk_cond)
+        _px.edm_sample = _stage("diffusion", _px.edm_sample)
+        _tr = state.model.trunk
+        _tr.PF = _stage("pairformer", _tr.PF)
+        _tr._msa = _stage("msa_module", _tr._msa)
+        _tr._template = _stage("template", _tr._template)
+        _ch = state.model.confidence_head
+        _ch.confidence_device = _stage("confidence", _ch.confidence_device)
+        _ch.confidence = _stage("confidence", _ch.confidence)
 
     hoisted = None
     if hoist:
@@ -303,9 +340,9 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
 
 def measure(model: str, repeat: int, msa_dir: Path, out_path: Path,
             target: Path, a3m: Path, label: str, hoist: bool = False,
-            instrument: bool = False) -> dict:
+            instrument: bool = False, fast: bool = False) -> dict:
     one_fold, meta, state = build_fold(model, msa_dir, target, a3m,
-                                       hoist=hoist, instrument=instrument)
+                                       hoist=hoist, instrument=instrument, fast=fast)
     import tt_bio.tenstorrent as _T
     from tt_bio.tenstorrent import cleanup
     grid = list(_T.COMPUTE_GRID_MAIN)   # only valid once the device is open
@@ -381,11 +418,14 @@ def main() -> int:
                     help="raw mode: also record the per-fold feat / fold / write "
                          "split, so the matched region and the full predict_one wall "
                          "come off the same folds")
+    ap.add_argument("--fast", action="store_true",
+                    help="fold with --fast (bf8 trunk weights, bf16 diffusion). NOT bit-exact "
+                         "against the default arm and only quotable once it passes release_gate.")
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
     measure(args.model, args.repeat, args.msa_dir, args.out,
             args.target, args.msa_a3m, args.label,
-            hoist=args.hoist, instrument=args.instrument)
+            hoist=args.hoist, instrument=args.instrument, fast=args.fast)
     return 0
 
 
