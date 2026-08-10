@@ -1,0 +1,98 @@
+{
+  "label": "298 aa qb2c3 self-check",
+  "square_roof_tflops": 101.2,
+  "percall_us": 5.242,
+  "exec_tflop": 314.93,
+  "logical_tflop": 287.22,
+  "padding_pct": 9.65,
+  "priced_by_rate_model_frac": 0.2044,
+  "flop_weighted_achievable_tflops": 32.21,
+  "arith_ideal_s": 3.112,
+  "arith_at_achievable_s": 9.776,
+  "pf_arith_s": 9.232,
+  "other_arith_s": 0.167,
+  "nonarith": {
+    "calls": 217,
+    "dram_basis_MB_per_block": 5190.2,
+    "dram_basis_s": 2.162,
+    "fit_basis_calls_l1": 213,
+    "fit_basis_calls_dram": 4,
+    "fit_basis_MB_l1": 7179.5,
+    "fit_basis_MB_dram": 1258.3,
+    "fit_basis_s": 4.895,
+    "allbytes_basis_MB_per_block": 8437.8,
+    "allbytes_basis_s": 3.515,
+    "l1_fit_penalty_s": 1.38
+  },
+  "diffusion": {
+    "arith_s": 0.377,
+    "weight_stream_s": 0.202,
+    "dispatch_s": 1.059,
+    "floor_s": 1.059
+  },
+  "per_stage": {
+    "pf.triatt": {
+      "exec_tflop": 101.75,
+      "ideal_ms": 1005,
+      "ceil_ms": 3700,
+      "eff_tflops": 27.5
+    },
+    "pf.trimul": {
+      "exec_tflop": 97.6,
+      "ideal_ms": 964,
+      "ceil_ms": 3462,
+      "eff_tflops": 28.2
+    },
+    "pf.transition": {
+      "exec_tflop": 80.0,
+      "ideal_ms": 791,
+      "ceil_ms": 1557,
+      "eff_tflops": 51.4
+    },
+    "diffusion": {
+      "exec_tflop": 18.73,
+      "ideal_ms": 185,
+      "ceil_ms": 377,
+      "eff_tflops": 49.7
+    },
+    "pf.attnpairbias": {
+      "exec_tflop": 14.02,
+      "ideal_ms": 139,
+      "ceil_ms": 513,
+      "eff_tflops": 27.3
+    },
+    "trunk": {
+      "exec_tflop": 2.8,
+      "ideal_ms": 28,
+      "ceil_ms": 167,
+      "eff_tflops": 16.8
+    },
+    "diff_pair_cond": {
+      "exec_tflop": 0.02,
+      "ideal_ms": 0,
+      "ceil_ms": 0,
+      "eff_tflops": 57.0
+    }
+  },
+  "basis_dram": {
+    "ceiling_s": 12.621,
+    "gap_at_ceiling_x": 2.709,
+    "block_ceiling_ms": 23.738,
+    "gpu_gap_today_x": 4.772,
+    "gpu_gap_at_ceiling_x": 1.761
+  },
+  "basis_allbytes": {
+    "ceiling_s": 13.974,
+    "gap_at_ceiling_x": 2.447,
+    "block_ceiling_ms": 26.557,
+    "gpu_gap_today_x": 4.772,
+    "gpu_gap_at_ceiling_x": 1.95
+  },
+  "basis_fit": {
+    "ceiling_s": 15.354,
+    "gap_at_ceiling_x": 2.227,
+    "block_ceiling_ms": 29.432,
+    "gpu_gap_today_x": 4.772,
+    "gpu_gap_at_ceiling_x": 2.143
+  }
+}

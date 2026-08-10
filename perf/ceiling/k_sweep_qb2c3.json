@@ -1,0 +1,162 @@
+{
+  "grid": [
+    11,
+    10
+  ],
+  "k_sweep_dram": {
+    "32": {
+      "backend": "minimal_matmul",
+      "ms": 0.2995,
+      "tflops": 5.6,
+      "rw_GB": 0.059,
+      "GBs": 196.9,
+      "AI": 28.4
+    },
+    "64": {
+      "backend": "minimal_matmul",
+      "ms": 0.2998,
+      "tflops": 11.19,
+      "rw_GB": 0.0655,
+      "GBs": 218.6,
+      "AI": 51.2
+    },
+    "128": {
+      "backend": "minimal_matmul",
+      "ms": 0.302,
+      "tflops": 22.22,
+      "rw_GB": 0.0786,
+      "GBs": 260.4,
+      "AI": 85.3
+    },
+    "256": {
+      "backend": "minimal_matmul",
+      "ms": 0.373,
+      "tflops": 35.99,
+      "rw_GB": 0.1049,
+      "GBs": 281.1,
+      "AI": 128.0
+    },
+    "512": {
+      "backend": "minimal_matmul",
+      "ms": 0.4754,
+      "tflops": 56.47,
+      "rw_GB": 0.1573,
+      "GBs": 330.9,
+      "AI": 170.7
+    },
+    "1024": {
+      "backend": "minimal_matmul",
+      "ms": 0.8803,
+      "tflops": 60.99,
+      "rw_GB": 0.2621,
+      "GBs": 297.8,
+      "AI": 204.8
+    },
+    "2048": {
+      "backend": "minimal_matmul",
+      "ms": 1.7775,
+      "tflops": 60.41,
+      "rw_GB": 0.4719,
+      "GBs": 265.5,
+      "AI": 227.6
+    }
+  },
+  "n_sweep_dram": {
+    "32": {
+      "backend": "minimal_matmul",
+      "ms": 0.243,
+      "tflops": 6.9,
+      "GBs": 242.7,
+      "AI": 28.4
+    },
+    "64": {
+      "backend": "minimal_matmul",
+      "ms": 0.2371,
+      "tflops": 14.15,
+      "GBs": 276.4,
+      "AI": 51.2
+    },
+    "128": {
+      "backend": "minimal_matmul",
+      "ms": 0.2513,
+      "tflops": 26.7,
+      "GBs": 312.9,
+      "AI": 85.3
+    },
+    "256": {
+      "backend": "minimal_matmul",
+      "ms": 0.3659,
+      "tflops": 36.68,
+      "GBs": 286.6,
+      "AI": 128.0
+    },
+    "512": {
+      "backend": "minimal_matmul",
+      "ms": 0.604,
+      "tflops": 44.44,
+      "GBs": 260.4,
+      "AI": 170.7
+    },
+    "1024": {
+      "backend": "minimal_matmul",
+      "ms": 1.0632,
+      "tflops": 50.5,
+      "GBs": 246.6,
+      "AI": 204.8
+    }
+  },
+  "k_sweep_l1": {
+    "32": {
+      "backend": "matmul+grid",
+      "ms": 0.0161,
+      "tflops": 8.32
+    },
+    "64": {
+      "backend": "matmul+grid",
+      "ms": 0.0185,
+      "tflops": 14.51
+    },
+    "128": {
+      "backend": "matmul+grid",
+      "ms": 0.0247,
+      "tflops": 21.71
+    },
+    "256": {
+      "backend": "matmul+grid",
+      "ms": 0.0269,
+      "tflops": 39.95
+    },
+    "512": {
+      "backend": "matmul+grid",
+      "ms": 0.0398,
+      "tflops": 53.91
+    },
+    "1024": {
+      "backend": "matmul+grid",
+      "ms": 0.0714,
+      "tflops": 60.16
+    },
+    "2048": {
+      "backend": "matmul+grid",
+      "ms": 0.1236,
+      "tflops": 69.49
+    }
+  },
+  "l1_copy_roof": {
+    "(1, 320, 320, 64)": {
+      "ms": 0.02671,
+      "MB": 13.11,
+      "GBs_rw": 981.5
+    },
+    "(1, 320, 320, 128)": {
+      "ms": 0.04775,
+      "MB": 26.21,
+      "GBs_rw": 1097.9
+    },
+    "(1, 320, 320, 256)": {
+      "ms": 0.09101,
+      "MB": 52.43,
+      "GBs_rw": 1152.2
+    }
+  }
+}
