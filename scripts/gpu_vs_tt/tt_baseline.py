@@ -9,9 +9,12 @@ then N warm folds give min/median/max. The committed alignment is seeded into
 the MSA cache as {seq_hash}.a3m before any fold, so MSA search never runs at all
 -- not in the timed region and not in the cold fold.
 
-Two targets share this harness, which is what makes the scaling comparison
-possible: examples/prot.yaml (117 aa) and examples/prot300.yaml (CDK2, 298 aa).
-Both use a 35-sequence alignment, so token count is the only variable.
+Three targets share this harness, which is what makes the scaling comparison
+possible: examples/prot.yaml (117 aa), perf/size512/fixtures/cdk2x2_298.yaml
+(CDK2, 298 aa) and cdk2x2_512.yaml (CDK2 tandem dimer cut to 512 aa). All three
+use a 35-sequence alignment, so token count is the only variable. cdk2x2_298.a3m
+is byte-identical to fixtures/prot300.a3m and its query row is byte-identical to
+fixtures/prot300.seq, so the 298-aa figures from either name are the same fold.
 
 Usage (on a TT host, card pinned via TT_VISIBLE_DEVICES):
 
@@ -19,14 +22,22 @@ Usage (on a TT host, card pinned via TT_VISIBLE_DEVICES):
         --model protenix-v2 --repeat 3 --out tt_protenix.json
 
     TT_VISIBLE_DEVICES=1 python3 scripts/gpu_vs_tt/tt_baseline.py \
-        --model protenix-v2 --repeat 3 --target examples/prot300.yaml \
-        --msa-a3m scripts/gpu_vs_tt/fixtures/prot300.a3m --label "298 aa" \
-        --out tt_protenix_300.json
+        --model protenix-v2 --repeat 5 --instrument \
+        --target perf/size512/fixtures/cdk2x2_298.yaml \
+        --msa-a3m perf/size512/fixtures/cdk2x2_298.a3m --label "298 aa" \
+        --out tt_protenix_298.json
+
+--instrument splits every fold into featurize / model.fold / CIF write, because
+the GPU harness times runner.predict only. Comparing the raw predict_one wall
+against that is a scope mismatch; the model.fold column is the matched region.
+--hoist is the other way to get it (timed region becomes model.fold directly),
+at the cost of no CIF to hash.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import socket
@@ -89,6 +100,17 @@ def _card_info() -> dict:
     return info
 
 
+def sha_structures(struct_dir: Path) -> dict:
+    """sha256 (16 hex) of every structure file the last timed fold wrote.
+
+    An unchanged wall-clock number is only provably the same computation if the
+    output bytes are unchanged too. Empty under ``--hoist``, where the CIF write is
+    suppressed on purpose.
+    """
+    return {q.name: hashlib.sha256(q.read_bytes()).hexdigest()[:16]
+            for q in sorted(struct_dir.glob("*")) if q.is_file()}
+
+
 def seed_msa_cache(target: Path, a3m: Path, msa_dir: Path) -> int:
     """Install ``a3m`` as the cached alignment for ``target``'s chain, so the timed
     folds hit the cache and no MSA search ever runs. Same contract the 117-aa run
@@ -96,8 +118,6 @@ def seed_msa_cache(target: Path, a3m: Path, msa_dir: Path) -> int:
     target's own sequence, which is what makes "identical bytes both sides" a
     checked fact rather than a claim.
     """
-    import hashlib
-
     from tt_bio.main import _read_bio_chains
 
     chains = _read_bio_chains(target)
@@ -282,9 +302,13 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
 
 
 def measure(model: str, repeat: int, msa_dir: Path, out_path: Path,
-            target: Path, a3m: Path, label: str) -> dict:
-    one_fold, meta, state = build_fold(model, msa_dir, target, a3m)
+            target: Path, a3m: Path, label: str, hoist: bool = False,
+            instrument: bool = False) -> dict:
+    one_fold, meta, state = build_fold(model, msa_dir, target, a3m,
+                                       hoist=hoist, instrument=instrument)
+    import tt_bio.tenstorrent as _T
     from tt_bio.tenstorrent import cleanup
+    grid = list(_T.COMPUTE_GRID_MAIN)   # only valid once the device is open
     hw, load_s, n_msa = meta["hardware"], meta["load_s"], meta["n_msa"]
 
     # Cold fold: first-kernel compile. Never counted in the warm numbers. The MSA
@@ -293,10 +317,12 @@ def measure(model: str, repeat: int, msa_dir: Path, out_path: Path,
     assert cold_metrics.get("msa"), "fold ran without an MSA -- cache seeding failed"
     msa_hits = sorted(p.name for p in msa_dir.glob("*.a3m"))
 
+    load_before = [round(x, 2) for x in os.getloadavg()]
     times = []
     for _ in range(repeat):
         t, _m = one_fold()
         times.append(t)
+    load_after = [round(x, 2) for x in os.getloadavg()]
 
     times_sorted = sorted(times)
     median = times_sorted[len(times_sorted) // 2]
@@ -317,6 +343,12 @@ def measure(model: str, repeat: int, msa_dir: Path, out_path: Path,
         warm_min_s=round(times_sorted[0], 3), warm_median_s=round(median, 3),
         warm_max_s=round(times_sorted[-1], 3),
         cold_metrics=cold_metrics,
+        compute_grid=grid,
+        timed_region=meta["timed_region"],
+        # phase_times[0] is the cold fold; [1:] line up with warm_times_s.
+        phase_times=meta.get("phase_times"),
+        cif_sha256=sha_structures(Path(meta["struct_dir"])),
+        loadavg_before=load_before, loadavg_after=load_after,
         date=time.strftime("%Y-%m-%d"),
     )
     out_path.write_text(json.dumps(result, indent=2) + "\n")
@@ -341,10 +373,19 @@ def main() -> int:
                     help="committed alignment, seeded into the MSA cache before folding")
     ap.add_argument("--label", default="117 aa",
                     help="size label recorded in the result JSON")
+    ap.add_argument("--hoist", action="store_true",
+                    help="time model.fold only -- featurization hoisted out and the "
+                         "CIF write suppressed, which is the region the GPU harness "
+                         "times (runner.predict + cuda.synchronize)")
+    ap.add_argument("--instrument", action="store_true",
+                    help="raw mode: also record the per-fold feat / fold / write "
+                         "split, so the matched region and the full predict_one wall "
+                         "come off the same folds")
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
     measure(args.model, args.repeat, args.msa_dir, args.out,
-            args.target, args.msa_a3m, args.label)
+            args.target, args.msa_a3m, args.label,
+            hoist=args.hoist, instrument=args.instrument)
     return 0
 
 

@@ -75,6 +75,16 @@ LADDERS = {
         dict(name="LD-shipped-default", dtype="bf16",
              triangle_attention="cuequivariance",
              triangle_multiplicative="cuequivariance"),
+        # The shipped default with TF32 turned off and nothing else moved. TT has
+        # no TF32 datapath (ttnn's DataFormat::Tf32 throws), so LD runs a 10-bit
+        # mantissa in the 200-step score model where TT runs 23. This rung is the
+        # precision-matched GPU side. Fusion and cache stay OUT of the dict, so
+        # they keep upstream's inference default and exactly one knob differs
+        # from LD -- LB moves all three at once and cannot price TF32 alone.
+        dict(name="LD-notf32", dtype="bf16",
+             triangle_attention="cuequivariance",
+             triangle_multiplicative="cuequivariance",
+             enable_tf32=False),
         # configs_base.py's values for the three flags, i.e. the training config,
         # with the default kernels. Not a shipped inference default -- it exists
         # only to price what fusion/cache/tf32 are worth at these sizes.
