@@ -116,8 +116,66 @@ def test_worker_fatal_error_survives_output_silencing():
     assert "must be swallowed" not in text, text
 
 
+def _display_chosen_for(stderr_is_tty: bool) -> str:
+    """Return the display class `_stream_run` picks for this stderr, debug off."""
+    import tt_bio.main as m
+
+    chosen = []
+
+    class _Rec:
+        name = "?"
+
+        def __init__(self, queue, **_kw): chosen.append(self.name)
+        def start(self): pass
+        def stop(self): pass
+
+    class _Prog(_Rec): name = "ProgressDisplay"
+    class _Dbg(_Rec): name = "DebugDisplay"
+
+    class _Stderr:
+        def isatty(self): return stderr_is_tty
+        def write(self, _s): return 0
+        def flush(self): pass
+
+    tmpdir = Path(tempfile.mkdtemp(prefix="tt-bio-test-display-"))
+    server = ControllerServer("127.0.0.1", 0, tmpdir / "controller.sqlite3")
+    server.serve_in_background()
+    client = ControllerClient(f"http://127.0.0.1:{server.port}")
+    saved = (m.ProgressDisplay, m.DebugDisplay, m._sys.stderr)
+    try:
+        m.ProgressDisplay, m.DebugDisplay = _Prog, _Dbg
+        m._sys.stderr = _Stderr()
+        run = client.create_run({
+            "data": str(tmpdir), "out_dir": str(tmpdir), "result_dir": str(tmpdir),
+            "config": {"model": "boltz2"},
+            "jobs": [{"id": "a", "name": "a.yaml", "input_b64": ""}],
+        })
+        client.cancel_run(run["run_id"])  # end the poll loop at once
+        _stream_run(client, run["run_id"], total=1, n_workers=1,
+                    debug=False, log=False, procs=None)
+    finally:
+        m.ProgressDisplay, m.DebugDisplay, m._sys.stderr = saved
+        server.shutdown()
+    assert len(chosen) == 1, f"expected one display, got {chosen}"
+    return chosen[0]
+
+
+def test_redirected_run_is_observable():
+    """A fold whose output is a file must write progress lines, not a 0-byte log.
+
+    Rich's Live renders only its final frame to a non-tty, so a redirected run
+    produced a zero-byte log for its whole duration. Every fleet watchdog reads
+    log growth to tell a working fold from a hung one, so it could distinguish
+    neither and reaped healthy folds on a wall-clock cap instead.
+    """
+    assert _display_chosen_for(stderr_is_tty=False) == "DebugDisplay"
+    # An interactive run keeps the Rich view it always had.
+    assert _display_chosen_for(stderr_is_tty=True) == "ProgressDisplay"
+
+
 if __name__ == "__main__":
     test_stream_run_ends_when_every_worker_is_dead()
     test_stream_run_without_procs_is_unchanged()
     test_worker_fatal_error_survives_output_silencing()
+    test_redirected_run_is_observable()
     print("PASS")

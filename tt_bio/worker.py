@@ -1059,9 +1059,6 @@ class _WorkerState:
                 "is_protein", "is_dna", "is_rna", "is_atomized", "restype",
                 "start_atom_index", "atom_mask", "token_mask")})
 
-        def _pfn(stage, step, total):
-            report_progress("diffusion" if stage == "trunk" else stage)
-
         n_sample = int(cfg["diffusion_samples"])
         result = model.fold(
             template_feat=template_feat, msa_feat=msa_feat, s_input=s_input,
@@ -1069,7 +1066,8 @@ class _WorkerState:
             token_mask=features["token_mask"], dm_aux_host=dm_aux_host,
             n_atom=aux["n_atom"], n_token=aux["n_token"],
             no_rollout_steps=int(cfg["sampling_steps"]), seed=seed,
-            no_samples=n_sample, confidence_aux_host=confidence_aux)
+            no_samples=n_sample, confidence_aux_host=confidence_aux,
+            progress_fn=report_progress)
 
         confs = result.confidence
         order = sorted(range(len(confs)),

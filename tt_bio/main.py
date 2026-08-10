@@ -1153,10 +1153,16 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
     from queue import Queue as ThreadQueue
 
     pq = ThreadQueue()
-    display = (
-        ProgressDisplay(pq, total=total, n_workers=n_workers, model=model) if not debug
-        else DebugDisplay(pq) if log else NullDisplay(pq)
-    )
+    if debug:
+        display = DebugDisplay(pq) if log else NullDisplay(pq)
+    elif _sys.stderr.isatty():
+        display = ProgressDisplay(pq, total=total, n_workers=n_workers, model=model)
+    else:
+        # Redirected output (fleet log, pipe): Rich Live renders nothing until the
+        # final frame, leaving a 0-byte log for the whole run — so a watchdog that
+        # reads log size cannot tell a healthy fold from a hang, and reaps both.
+        # Plain timestamped lines keep a redirected run observable.
+        display = DebugDisplay(pq)
     display.start()
     # Optional headless event capture (TT_BIO_PROGRESS_CAPTURE=<path>): tee every
     # streamed event to a JSONL file so the UX-regression guard can assert the
@@ -1176,7 +1182,21 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
         struct_dir.mkdir(parents=True, exist_ok=True)
     try:
         while True:
-            snapshot = client.events(run_id, after)
+            # A transient controller error (e.g. a store hiccup on a full shared
+            # disk) must not kill a hours-long run: retry the poll with bounded
+            # backoff and only give up when every attempt failed.
+            snapshot = None
+            for attempt in range(5):
+                try:
+                    snapshot = client.events(run_id, after)
+                    break
+                except Exception as exc:
+                    if attempt == 4:
+                        raise
+                    wait = 2 ** attempt
+                    click.echo(f"controller poll failed ({exc}); retrying in {wait}s "
+                               f"[{attempt + 1}/5]", err=True)
+                    time.sleep(wait)
             for ev in snapshot.get("events", []):
                 after = max(after, int(ev.get("seq", after)))
                 if ev.get("event") in ("run", "run_done"):

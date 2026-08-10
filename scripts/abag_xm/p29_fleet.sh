@@ -247,7 +247,10 @@ guarded_fold() { # <logfile> <chip> <cmd...> -- setsid launch + stall/cap group 
   wait $pid 2>/dev/null; local rc=$?
   if [ $killrc -ne 0 ]; then
     rc=$killrc
-    sudo -n tt-smi -r /dev/tenstorrent/$u >> "$log" 2>&1 \
+    # -r takes a bare UMD logical ID, the same namespace as TT_VISIBLE_DEVICES above.
+    # /dev/tenstorrent/$u would reset a different chip: kernel node order is not BDF
+    # order (node 0 is c1:00.0, UMD 0 is 01:00.0 on the galaxy).
+    sudo -n tt-smi -r $u >> "$log" 2>&1 \
       || echo "$(date -u +%FT%TZ) GUARD: tt-smi reset failed on dev $u" >> "$log"
     sleep 10
   fi
