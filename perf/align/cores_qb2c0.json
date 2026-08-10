@@ -1,0 +1,114 @@
+{
+ "ladder": [
+  {
+   "grid": [
+    11,
+    10
+   ],
+   "arm": "320x320",
+   "us": 69.47589999981574,
+   "cores_engaged": 100,
+   "grid_cores": 110
+  },
+  {
+   "grid": [
+    11,
+    10
+   ],
+   "arm": "298x298",
+   "us": 109.19305000243185,
+   "cores_engaged": 100,
+   "grid_cores": 110
+  },
+  {
+   "grid": [
+    10,
+    10
+   ],
+   "arm": "320x320",
+   "us": 68.57609999997294,
+   "cores_engaged": 100,
+   "grid_cores": 100
+  },
+  {
+   "grid": [
+    10,
+    10
+   ],
+   "arm": "298x298",
+   "us": 109.30325000231278,
+   "cores_engaged": 100,
+   "grid_cores": 100
+  },
+  {
+   "grid": [
+    8,
+    8
+   ],
+   "arm": "320x320",
+   "us": null,
+   "cores_engaged": null,
+   "grid_cores": 64
+  },
+  {
+   "grid": [
+    8,
+    8
+   ],
+   "arm": "298x298",
+   "us": null,
+   "cores_engaged": null,
+   "grid_cores": 64
+  },
+  {
+   "grid": [
+    5,
+    5
+   ],
+   "arm": "320x320",
+   "us": null,
+   "cores_engaged": null,
+   "grid_cores": 25
+  },
+  {
+   "grid": [
+    5,
+    5
+   ],
+   "arm": "298x298",
+   "us": null,
+   "cores_engaged": null,
+   "grid_cores": 25
+  },
+  {
+   "grid": [
+    4,
+    4
+   ],
+   "arm": "320x320",
+   "us": null,
+   "cores_engaged": null,
+   "grid_cores": 16
+  },
+  {
+   "grid": [
+    4,
+    4
+   ],
+   "arm": "298x298",
+   "us": null,
+   "cores_engaged": null,
+   "grid_cores": 16
+  }
+ ],
+ "grid_main": [
+  11,
+  10
+ ],
+ "_cmd": "cores",
+ "_grid": [
+  11,
+  10
+ ],
+ "_wall_s": 1.7630860805511475
+}
