@@ -459,10 +459,17 @@ def paired_boot(ci_rows, b=20000, seed=20260802):
 
 
 def _ci_row(pool):
-    """Per-target CI metrics for one pool: oracle, user, threshold indicators."""
+    """Per-target CI metrics for one pool: oracle, user, gap, threshold indicators.
+
+    `gap` is oracle minus user on the SAME target, which is the campaign's headline
+    quantity. It has to be carried per target and bootstrapped with the same resample
+    index as its two parts: oracle and user are strongly paired within a target, so
+    subtracting the two published intervals overstates the gap's width badly and can
+    flip its sign. There is no way to recover it after the fact.
+    """
     o = oracle_of(pool)
     u = max(pool, key=lambda x: x[0])[1]
-    return (o, u) + tuple(1.0 if o >= t else 0.0 for t in THR)
+    return (o, u, o - u) + tuple(1.0 if o >= t else 0.0 for t in THR)
 
 
 def paired_gain_boot(rows_lo, rows_hi, b=20000, seed=20260802):
@@ -477,7 +484,7 @@ def paired_gain_boot(rows_lo, rows_hi, b=20000, seed=20260802):
     hi = np.array(rows_hi, dtype=float)
     nt = len(lo)
     idx = rng.integers(0, nt, (b, nt))
-    keys = ("oracle", "user", "ge_0.23", "ge_0.49", "ge_0.80")
+    keys = ("oracle", "user", "gap", "ge_0.23", "ge_0.49", "ge_0.80")
     out = {}
     for c, k in enumerate(keys):
         g = hi[idx, c].mean(axis=1) - lo[idx, c].mean(axis=1)
@@ -689,10 +696,12 @@ def main():
                 print("  pairwise adjacent-rung gain CIs (stop-rule basis):")
                 for pair, d in gains.items():
                     o = d["gain_ci"]["oracle"]
+                    gp = d["gain_ci"]["gap"]
                     marg = d.get("marginal_oracle_per_1000cs")
                     cph, rate = d.get("cost_h_per_target"), d.get("s_per_sample_hi")
                     print(f"    {pair:<12} nt={d['common_targets']:<4} "
                           f"oracle gain {o[1]:+.4f} [{o[0]:+.4f},{o[2]:+.4f}]"
+                          f"  gap {gp[1]:+.4f} [{gp[0]:+.4f},{gp[2]:+.4f}]"
                           + (f"  marginal {marg:+.6f}/1000 card-s per target "
                              f"({d['step_samples']} samples x {rate:.1f} s = "
                              f"{cph:.2f} card-h/target)" if marg is not None else ""))

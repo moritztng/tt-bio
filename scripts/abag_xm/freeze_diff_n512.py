@@ -44,6 +44,16 @@ import sys
 MOVER_SUFFIXES = ("__paired_ci", "__deep")
 GAIN_SUFFIX = "__pairwise_gain_ci"      # frozen per pair, in its own pass below
 TARGET_RUNG = "512"
+# Cost annotations on a gain pair. Pass 36 repriced this metric on purpose (it mixed an
+# intensive numerator with an extensive denominator, so two pairs on different panels were
+# not comparable) and priced the step by the samples it adds rather than the chunks the
+# window happened to re-fold. Both are deliberate restatements of a published number, so
+# they are reported and never failed. The scientific payload beside them -- gain_ci,
+# common_targets, degenerate, doublings -- stays hard-frozen. Freezing the whole pair
+# blindly makes every pre-512 pair fail on a value the campaign meant to correct, and a
+# gate that always fails gets rubber-stamped, which is worse than no gate.
+COST_KEYS = ("marginal_oracle_per_1000cs", "cost_h_per_target", "step_samples",
+             "s_per_sample_hi", "s_per_sample_lo_same_panel")
 # The snapshot already carries a sparse 512 row for boltz2 (6 targets) and opendde-abag
 # (5), the p28 remnant that seeded this rung's chunks 4-7. Filling it out is the whole
 # point of the campaign, so 512 is the one rung that must NOT be frozen. Its old
@@ -60,6 +70,28 @@ def fmt(v):
     return s if len(s) <= 160 else s[:157] + "..."
 
 
+def _model_of(key):
+    for suf in MOVER_SUFFIXES + (GAIN_SUFFIX,):
+        if key.endswith(suf):
+            return key[:-len(suf)]
+    return key
+
+
+def _models_in(report):
+    return {k for k, v in report.items()
+            if isinstance(v, dict) and not k.endswith(MOVER_SUFFIXES)
+            and not k.endswith(GAIN_SUFFIX) and k != "n16_ark_models"}
+
+
+def _frozen_part(pair):
+    """A gain pair minus its cost annotations, with gain_ci reduced to nothing here.
+
+    gain_ci is compared metric by metric by the caller so a newly added metric (`gap`)
+    is an addition rather than a mismatch.
+    """
+    return {k: v for k, v in pair.items() if k not in COST_KEYS and k != "gain_ci"}
+
+
 def main(argv):
     if len(argv) != 3:
         print(__doc__.strip().splitlines()[0])
@@ -68,8 +100,21 @@ def main(argv):
     old, new = load(argv[1]), load(argv[2])
 
     fails, moved, grew, gone, checked = [], [], [], [], 0
+    repriced, added = [], []
+
+    # Step 8 runs the analysis one model at a time, so a per-model report legitimately
+    # carries no blocks for the other three. Scope the freeze to the models the report
+    # actually covers instead of failing on three quarters of the snapshot; without this
+    # the gate can only ever pass on an all-model run, which the runbook never asked for.
+    present = _models_in(new)
+    skipped = sorted(_models_in(old) - present)
+    if not present:
+        print("FREEZE GATE FAIL: the new report carries no model blocks at all.")
+        return 1
 
     for key in sorted(old):
+        if _model_of(key) in skipped:
+            continue
         if key.endswith(MOVER_SUFFIXES):
             if key not in new:
                 # e.g. protenix-v2__paired_ci: its all-rung intersection is already
@@ -84,7 +129,15 @@ def main(argv):
         if key not in new:
             fails.append((key, "present in the snapshot, absent from the new report", ""))
             continue
-        if key == "n16_ark_models" or not isinstance(old[key], dict):
+        if key == "n16_ark_models":
+            # A list of the models whose N=16 rung was restated with ARK DockQ. On a
+            # per-model run it is the snapshot's list intersected with that one model.
+            checked += 1
+            want = [m for m in old[key] if m in present]
+            if want != new[key]:
+                fails.append((key, fmt(want), fmt(new[key])))
+            continue
+        if not isinstance(old[key], dict):
             checked += 1
             if old[key] != new[key]:
                 fails.append((key, fmt(old[key]), fmt(new[key])))
@@ -109,14 +162,34 @@ def main(argv):
                               fmt({k: b.get(k) for k in diff})))
 
     # pairwise gain CIs: freeze the pairs that already existed, allow new ones
-    for key in sorted(k for k in old if k.endswith("__pairwise_gain_ci")):
+    for key in sorted(k for k in old if k.endswith(GAIN_SUFFIX)
+                      and _model_of(k) not in skipped):
         for pair in sorted(old[key]):
             checked += 1
+            tag = "%s[%s]" % (key, pair)
             if pair not in new.get(key, {}):
-                fails.append(("%s[%s]" % (key, pair), "frozen pair", "MISSING"))
-            elif old[key][pair] != new[key][pair]:
-                fails.append(("%s[%s]" % (key, pair),
-                              fmt(old[key][pair]), fmt(new[key][pair])))
+                fails.append((tag, "frozen pair", "MISSING"))
+                continue
+            a, b = old[key][pair], new[key][pair]
+            if _frozen_part(a) != _frozen_part(b):
+                d = sorted(k for k in set(_frozen_part(a)) | set(_frozen_part(b))
+                           if a.get(k) != b.get(k))
+                fails.append((tag, fmt({k: a.get(k) for k in d}),
+                              fmt({k: b.get(k) for k in d})))
+            # gain_ci metric by metric: a frozen metric must not move, a new one
+            # (`gap`, added pass 37) is an addition. A dropped metric still fails,
+            # because .get returns None and None never equals a CI triple.
+            ga, gb = a.get("gain_ci") or {}, b.get("gain_ci") or {}
+            for m in sorted(ga):
+                if ga[m] != gb.get(m):
+                    fails.append(("%s.gain_ci[%s]" % (tag, m),
+                                  fmt(ga[m]), fmt(gb.get(m, "MISSING"))))
+            for m in sorted(set(gb) - set(ga)):
+                added.append("%s.gain_ci[%s] = %s" % (tag, m, fmt(gb[m])))
+            for k in COST_KEYS:
+                if a.get(k) != b.get(k):
+                    repriced.append("%s %s: %s -> %s"
+                                    % (tag, k, a.get(k, "absent"), b.get(k, "absent")))
 
     new_rungs = sorted({r for k, v in new.items()
                         if not k.endswith(MOVER_SUFFIXES) and not k.endswith(GAIN_SUFFIX)
@@ -126,6 +199,11 @@ def main(argv):
                         for p in set(new[k]) - set(old.get(k, {}))})
 
     print("invariant assertions checked: %d" % checked)
+    print("models in this report: %s" % ", ".join(sorted(present)))
+    if skipped:
+        print("models NOT in this report, so not frozen here: %s" % ", ".join(skipped))
+        print("  a per-model run freezes only its own model. The all-model run is what"
+              " covers the panel.")
     print("new rungs: %s" % (", ".join(new_rungs) or "none"))
     print("new gain pairs: %s" % (", ".join(new_pairs) or "none"))
     # POWER_MIN guard, per model: 512 is not a "new" rung for boltz2/opendde-abag (the
@@ -142,6 +220,15 @@ def main(argv):
                   " the stop-rule chain silently -- run n512_power_census.py."
                   % (model, row.get("n_targets", -1)))
 
+    if added:
+        print("\nmetrics added since the snapshot (additions, not movements):")
+        for line in added:
+            print("  %s" % line)
+    if repriced:
+        print("\ncost annotations restated by pass 36's repricing (reported, never failed;"
+              "\nthe scientific payload beside them is frozen and was checked):")
+        for line in repriced:
+            print("  %s" % line)
     if grew:
         print("\nthe 512 rung filling out (this is the campaign's own output):")
         for line in grew:
