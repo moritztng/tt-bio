@@ -5,14 +5,14 @@
   "n_tokens": 117,
   "n_atoms": 900,
   "n_residues": 117,
-  "cold_s": 17.976,
+  "cold_s": 18.224,
   "warm_s": [
-    11.349,
-    11.378,
-    11.43
+    11.627,
+    11.746,
+    11.603
   ],
-  "warm_median_s": 11.378,
-  "warm_min_s": 11.349,
+  "warm_median_s": 11.627,
+  "warm_min_s": 11.603,
   "confidence": {
     "complex_plddt": 0.888699,
     "plddt": 0.888699,
@@ -26,10 +26,10 @@
   ],
   "intra_run_max_abs_delta_A": 0.0,
   "n_folds": 4,
-  "load_s": 3.5,
+  "load_s": 3.43,
   "n_msa": 35,
   "hardware": "blackhole",
   "card_type": "p150a",
   "aiclk_mhz": "1350",
-  "wall_s": 52.1
+  "wall_s": 53.2
 }
