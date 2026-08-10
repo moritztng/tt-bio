@@ -3,18 +3,18 @@
 
 The campaign's ladder is seed-nested: rung 2N chunk j carries the same seed block as rung
 N chunk j, and the galaxy link gate attests the engine tree is unchanged, so the CIFs are
-bit-identical (verified: md5-set equality). A label depends only on (structures, GT, yaml,
-scorer), so a labeled dir's labels.json is valid for ANY same-model same-target dir with
-the same md5-set. The p28/p29 windows land ~1600 linked chunks as full duplicate dirs --
-propagation saves ~20-25h of label CPU per window and shortens the post-window label tail
-that gates the refresh.
+bit-identical. A label depends only on (structures, GT, yaml, scorer), so a labeled dir's
+labels.json is valid for ANY same-model same-target dir carrying the same per-rank CIF md5
+map. The p28/p29 windows land ~1600 linked chunks as full duplicate dirs; propagation saves
+~20-25h of label CPU per window and shortens the post-window label tail that gates the
+refresh.
 
 Modes:
-  audit      -- group all fold dirs by md5-set; where >=2 dirs in a group are BOTH
+  audit      -- group all fold dirs by content key; where >=2 dirs in a group are BOTH
                 labeled, per-sample DockQ must agree exactly. Any disagreement means
                 scorer-era mixing or nondeterminism -- a link-premise violation worth
                 stopping for. Run pre-window.
-  propagate  -- for each unlabeled fold dir whose md5-set matches a labeled dir (same
+  propagate  -- for each unlabeled fold dir whose content key matches a labeled dir (same
                 model, same target), copy labels.json with a _propagated_from note.
                 Never overwrites. Run post-harvest, before the labelers drain the rung.
 
@@ -28,8 +28,14 @@ MODELS = ("opendde", "protenix", "boltz2", "esmfold2")
 
 
 def md5key(rd):
+    # Keyed on (filename, md5) pairs, not on the bare md5 set. A label is joined to a
+    # structure BY RANK, and rank lives in the filename (<target>_model_<rank>.cif), so
+    # set equality alone would license propagating labels between two dirs that hold the
+    # same structures under permuted ranks -- every DockQ silently attached to the wrong
+    # selector. Link-copied dirs are hardlinks and never permute, so this costs nothing
+    # and removes the gap between what the premise says and what it checks.
     st = rd / "structures"
-    h = sorted(hashlib.md5(p.read_bytes()).hexdigest() for p in st.glob("*.cif"))
+    h = sorted((p.name, hashlib.md5(p.read_bytes()).hexdigest()) for p in st.glob("*.cif"))
     return tuple(h) if h else None
 
 
