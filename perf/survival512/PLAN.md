@@ -8,11 +8,22 @@ tt-bio-l1-residency-guard-dead-in-real-folds, protenix-v2-448aa-l1-cb-clash-cc39
 donecheck-hostspecific-path-unsatisfiable-on-remote-host, tt-bio-worktree-run-recipe,
 gate-mandated-write-to-single-owner-file-is-a-race, model-merge-approval-gate
 
-**STATE OF THIS DOCUMENT: PLANNING PASS. The no-fold probe has run and its numbers are real. THE
-IN-FOLD ARMS HAVE NOT RUN. Do not conclude this leg, do not quote a survival fraction from this
-version, and do not stage this file to qb2's `~/.coworker/state/` until the arms in §5 have produced
-the tables in §6.** The DONE_CHECK is deliberately still red for exactly that reason: the gated path
-`/home/ttuser/.coworker/state/protenix-trunk--z-survival-512.md` is intentionally absent.
+**STATE OF THIS DOCUMENT: COMPLETE. The arms have run.** 14 folds at 512 aa (one cold, 13 timed, 7 of
+them `on`) and 10 at 298 aa in one session on one card, every `off:*` arm bracketed by an `on` arm on
+both sides. §6 and §7 carry the answer; §1-§5 are the planning pass, kept because the plan is what the
+result has to be read against.
+
+## THE ANSWER IN ONE PARAGRAPH
+
+**`size512-ab`'s +476.96 ms does not survive scrutiny and the survival fraction of that flag set at
+512 aa is 8.2 %, not 27.6 %.** Measured on this card in this session, `off:ab5` — its exact five flags —
+is worth **+141.66 ms/fold** at 512 aa against **+1721.6 ms/fold** for the same five at 298 aa, and
+**every milliampere of the 512 aa figure is on the c=64 template track**; the c_z=256 pair track reads
+zero at every site, because the capacity gates refuse there. The block wall `size512-ab` quoted its
+number on **cannot resolve it**: over 7 `on` arms its A/A spread is **326.59 ms**, 2.3x the effect. The
+one flag that does survive, and grows, is **`_NARROW_PROJ_BW` at +405.0 ms/fold**, which the org's
+ledger credits with 31.5 — it is not capacity-gated, so it is 12.9x larger at 512 aa than the number
+on the books.
 
 **This leg is a throwaway experiment harness under `perf/survival512/`, not production. Nothing in
 `tt_bio/` is touched, nothing is proposed for merge, and every flag is flipped from outside on module
@@ -377,26 +388,251 @@ CONFIRMED/KILLED verdicts; §1 already carries three and they survive into the f
 
 ---
 
-## 6. Results — PENDING, the arms have not run
+## 6. Results — 13 timed arms at 512 aa, 7 of them `on`
 
-| flag | 298 aa, this session | 512 aa, this session | A/A spread | survives? | census at 512 aa |
-|---|---:|---:|---:|---|---|
-| `_PAIR_PROJ_L1_OUT` | PENDING | PENDING | PENDING | PENDING | PENDING |
-| `_PAIR_BIAS_L1_NORM` | PENDING | PENDING | PENDING | PENDING | PENDING |
-| `_PWA_L1_NORM` | PENDING | PENDING | PENDING | PENDING | PENDING |
-| `_TEMPLATE_L1_NORM` | PENDING | PENDING | PENDING | PENDING | PENDING |
-| `_NARROW_PROJ_BW` | PENDING | PENDING | PENDING | PENDING | PENDING |
-| C2FIX `_transpose_memory_config` (hand-off) | PENDING | PENDING | PENDING | PENDING | PENDING |
-| **`off:ab5` total** — replaces **+476.96 ms / 27.6 %** | PENDING | PENDING | PENDING | | |
-| **`off:family` total** — the merged 685.1 family | PENDING | PENDING | PENDING | | |
+`perf/survival512/surv_512_qb2c0.json`. One process, one cold fold (98.9 s), then 13 timed folds in the
+order `on, off:ab5, on, off:narrowbw, on, off:projl1, on, off:norms, on, off:c2fix, on, off:family, on`.
+**Every `off:*` arm is bracketed by an `on` arm on both sides** and its delta is taken against the mean
+of the two, so linear drift cancels. All 14 folds returned plDDT **0.828628** and CIF sha256
+**`98c33a481fa1fd27`** — identical to both predecessors on this chip, so no arm changed a value and
+acceptance check 3 holds. `_L1_OUT_REFUSED` empty in every arm. `TT_BIO_REBLOCK_PERMUTE` was **unset,
+i.e. its shipped default `"0"`** (`tt_bio/reblock_permute.py:288`, `_ENABLED = False`), so the
+row-blocked permute is OFF in every arm here. `SEQ_LEN_MORE_CHUNKING` reads 1536, so the trimul does not
+take its row-blocked tail at 512 aa.
 
-## 7. Ranked hand-off — PENDING, with the two rows already visible
+### 6.1 The A/A floor, which is the first result and constrains every other one
+
+**Seven `on` arms, and the floor is 1042x larger than the one the withdrawn number was scored against.**
+
+| wall | calls | `on` median | A/A spread over 7 arms | spread as % of the wall |
+|---|---:|---:|---:|---:|
+| `block:PairformerLayer` | 604 | 74 753.41 ms | **2 189.67 ms** | 2.93 % |
+| `stage:Pairformer` | 11 | 66 520.84 ms | **1 893.52 ms** | 2.85 % |
+| `body:TriangleMultiplication` c256 | 1048 | 35 093.53 ms | 476.22 ms | 1.36 % |
+| `body:TriangleAttention` c256 | 1048 | 22 240.68 ms | 372.65 ms | 1.68 % |
+| `stage:template` | 10 | 2 968.34 ms | 125.42 ms | 4.23 % |
+| `body:TriangleAttention` c64 | 160 | 853.30 ms | **13.99 ms** | 1.64 % |
+| `body:TriangleMultiplication` c64 | 160 | 1 334.82 ms | **23.44 ms** | 1.76 % |
+| `lin pairbias c256@16` | 484 | 440.46 ms | **11.81 ms** | 2.68 % |
+| `lin pwa c256@1` | 240 | 215.95 ms | **2.23 ms** | 1.03 % |
+| `lin template c256@64` | 40 | 38.01 ms | **0.51 ms** | 1.34 % |
+| fold wall | 1 | 90.71 s | 2.387 s | 2.63 % |
+
+**VERDICT — CONFIRMED (S9): the block wall cannot resolve this question and the per-site walls can.**
+`size512-ab` quoted a **2.10 ms** A/A floor on `block:PairformerLayer` at 512 aa from a single pair of
+`on` arms and called its +476.96 "227x the floor". Seven `on` arms on the same wall on the same chip
+give **2 189.67 ms** — **1042x** that estimate, and **4.6x the effect it was used to certify**. Its
++476.96 is 0.64 % of a wall whose own drift band is 2.93 %. The number was never resolvable on that
+instrument. **`|a - b|` from one pair is not an estimate of a drift band**, and that is the
+methodological defect underneath the withdrawn figure, distinct from and compounding with the
+single-shot defect the sibling leg identified.
+
+The narrow site walls, by contrast, sit at **0.5-2.7 %** of much smaller walls and resolve every effect
+this leg needed to separate. Nothing below claims an effect smaller than its own key's spread; anything
+inside it is reported as **unresolved**, never as a small effect.
+
+### 6.2 The decision census at 512 aa — served counts, read off the branch actually taken
+
+Identical in all seven `on` arms. This is the cheapest half of the answer and it settles three of the
+five flags before any timing argument.
+
+| helper | site | padded shape | ON branch | OFF branch | calls |
+|---|---|---|---|---|---:|
+| `_l1_layer_norm` (headroom 1.5) | pairbias | `(1,512,512,256)` | **DRAM, refused** | DRAM | **484** |
+| `_l1_layer_norm` (headroom 1.5) | pwa | `(512,512,256)` | **DRAM, refused** | DRAM | **30** |
+| `_l1_layer_norm` (headroom 1.5) | template | `(1,512,512,256)` | **DRAM, refused** | DRAM | **10** |
+| `_narrow_proj_linear` | pairbias | `(1,512,512,256) @ (256,16)` | DRAM, **tuned config** | `None` (core_grid) | **484** |
+| `_narrow_proj_linear` | pwa | `(512,512,256) @ (256,1)` | DRAM, **tuned config** | `None` (core_grid) | **240** |
+| `_narrow_proj_linear` | template | `(1,512,512,256) @ (256,64)` | DRAM, **tuned config** | `None` (core_grid) | **40** |
+| `_pair_proj_linear(l1_out)` | trimul | `(1,512,512,64) @ (64,64)` | **L1** | DRAM | **320** |
+| `_pair_proj_linear(l1_out)` | triatt | `(512,512,64) @ (64,64)` | **L1** | DRAM | **160** |
+| `_pair_proj_linear(l1_out)` | trimul | `(1,512,512,256) @ (256,256)` | **DRAM, refused** | DRAM | **2096** |
+| `_pair_proj_linear(l1_out)` | triatt | `(512,512,256) @ (256,256)` | **DRAM, refused** | DRAM | **1048** |
+| `_transpose_memory_config` | triatt | `(512,512,64)` | **L1** | DRAM | **160** |
+| `_transpose_memory_config` | triatt | `(512,512,256)` | **DRAM, refused** | DRAM | **1048** |
+
+**VERDICT — CONFIRMED (S1, S2, S3): `_PAIR_BIAS_L1_NORM`, `_PWA_L1_NORM` and `_TEMPLATE_L1_NORM` are
+each worth exactly 0.0 ms/fold at 512 aa, by construction.** All 524 `_l1_layer_norm` calls take the
+DRAM branch in the ON arm — **0 of 524 on L1** — so both arms emit byte-identical device work and the
+`off:norms` arm is an **A/A**. It measures like one: its largest site delta is **-7.34 ms** on
+`norm pairbias c256` against that key's **13.06 ms** floor, and **not one wall in the arm resolves**
+(block **-912.90** against a 2 189.67 floor). The positive control is §1.5: the same instrument on the
+same card reads **+148.92 / +64.83 / +77.82 ms/fold** at those exact sites at 298 aa, where the census
+shows them on **L1**. The instrument is not blind; the flags are dead.
+
+**The pair track is dead for `_PAIR_PROJ_L1_OUT` and for C2FIX too.** 3144 of 3624 `l1_out` projections
+and 1048 of 1208 transposes refuse at `c_z=256`. **Everything that survives at 512 aa is on the c=64
+template track: 480 projections and 160 transposes, 640 device calls out of 5356.**
+
+### 6.3 The per-flag decomposition, one flag at a time
+
+`off - mean(bracketing on)` in ms/fold. **Bold = resolved** (|delta| above that key's 7-arm A/A spread);
+everything else is inside the floor and is reported as unresolved, not as a small effect.
+
+| site wall (calls) | floor | `off:norms` | `off:projl1` | `off:c2fix` | `off:ab5` | `off:narrowbw` | `off:family` |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `lin pairbias c256@16` (484) | 11.81 | -5.79 | -1.16 | -0.77 | -1.62 | **+247.92** | **+248.45** |
+| `norm pairbias c256` (484) | 13.06 | -7.34 | -1.09 | -1.80 | -1.61 | -0.10 | +1.58 |
+| `lin pwa c256@1` (240) | 2.23 | -1.12 | -0.03 | +0.20 | -0.08 | **+130.07** | **+122.38** |
+| `norm pwa c256` (30) | 0.55 | -0.46 | -0.01 | +0.14 | -0.09 | +0.10 | +0.06 |
+| `lin template c256@64` (40) | 0.51 | -0.09 | +0.28 | +0.12 | +0.20 | **+27.00** | **+21.27** |
+| `body:TriangleAttention` c64 (160) | 13.99 | -6.16 | +13.27 | **+82.75** | **+91.89** | +0.47 | **+16.44** |
+| `body:TriangleMultiplication` c64 (160) | 23.44 | -9.14 | **+28.56** | +16.05 | **+31.23** | +2.35 | **+33.62** |
+| `lin trimul c64@64` (320) | 2.88 | -0.99 | **+28.31** | +2.47 | **+31.27** | +0.35 | **+29.17** |
+| `lin triatt c64@64` (160) | 3.05 | -0.98 | **+14.06** | +1.71 | **+13.19** | +0.10 | **+14.24** |
+| `body:PairWeightedAveraging` c256 (30) | 28.84 | -14.14 | +1.06 | +2.41 | -1.87 | **+130.78** | **+122.52** |
+| `stage:template` (10) | 125.42 | -40.81 | +61.61 | +123.30 | **+141.66** | +41.59 | +108.45 |
+| `block:PairformerLayer` (604) | 2189.67 | -912.90 | -159.50 | -391.29 | -75.93 | +231.81 | +702.74 |
+
+Read as totals in ms/fold, resolved sites only, with the unresolved remainder named:
+
+| flag / set | 512 aa, resolved ms/fold | how it is built |
+|---|---:|---|
+| `_PAIR_BIAS_L1_NORM` | **0.0** | census: 0 of 484 on L1 |
+| `_PWA_L1_NORM` | **0.0** | census: 0 of 30 on L1 |
+| `_TEMPLATE_L1_NORM` | **0.0** | census: 0 of 10 on L1 |
+| `_PAIR_PROJ_L1_OUT` | **+28.6** (+13.3 unresolved) | trimul `c=64` body; the triatt `c=64` body reads +13.27 against a 13.99 floor |
+| C2FIX `_transpose_memory_config` | **+82.8** (+16.1 unresolved) | triatt `c=64` body, the one site the census leaves live |
+| `_NARROW_PROJ_BW` | **+405.0** | 247.92 + 130.07 + 27.00 over **764 counted calls** |
+| **`off:ab5`**, `size512-ab`'s exact five | **+123.1** on the two `c=64` bodies; **+141.66** on `stage:template` | replaces **+476.96** |
+| **`off:family`**, the merged 685.1 five | **+442.2** | 248.45 + 122.38 + 21.27 + 16.44 + 33.62 |
+
+**VERDICT — CONFIRMED (S4), and this is the cross-check the leg was required to pass before quoting
+anything else.** `off:projl1` reads **+28.56 ms/fold** on `body:TriangleMultiplication` c64, 0.1785
+ms/region over the **160 regions counted this pass**, against the sibling leg's independently measured
+**+29.7 ms/fold / 0.1857 ms/region** on the identical wall. **Agreement to 1.14 ms/fold, 3.8 %**, inside
+this key's 23.44 ms floor and inside S4's stated band. Two harnesses, two sessions, two authors, same
+number. Everything else here rests on that.
+
+**VERDICT — CONFIRMED (S6): C2FIX survives at 512 aa on the template track only, +82.8 ms/fold**,
+inside S6's predicted 80-120 band, and the census says why: 160 of its 1208 transposes take L1 and the
+1048 pair-track ones refuse.
+
+**VERDICT — CONFIRMED (S8): the singles add.** On `body:TriangleAttention` c64 the three components of
+`off:ab5` sum to 82.75 + 13.27 - 6.16 = **89.86** against **+91.89** measured, a 2.03 ms miss on a 13.99
+floor. On `body:TriangleMultiplication` c64 they sum to 16.05 + 28.56 - 9.14 = **35.47** against
+**+31.23**, a 4.24 ms miss on a 23.44 floor. Over both bodies, singles **125.33** against the set's
+**123.12**, a miss of **1.8 %**. `off:family` against its singles: **442.2** against 405.0 + 41.8 + 0.0 =
+**446.8**, **1.0 %**. **The five flags do not interact at 512 aa**, which is expected once the census
+shows them touching disjoint sites, and it means each single is quotable on its own.
+
+**VERDICT — CONFIRMED (S5), and it is the finding the org did not expect.** `_NARROW_PROJ_BW = 1` is
+worth **+405.0 ms/fold at 512 aa**, inside S5's registered 270-420 band, at **0.512 / 0.542 / 0.675
+ms/call** across its three sites against a predicted 0.35-0.55. The org's ledger credits it with
+**31.5 ms/fold** (X2, 298 aa). It is **12.9x larger at 512 aa than the number on the books**, and it is
+the only member of either family whose mechanism is not capacity-gated: the census shows its tuned
+program config returned at all 764 calls at both sizes, where every other flag's fit test refuses.
+
+### 6.4 The survival fractions — each a ratio of two measurements
+
+Both are ratios, which is what qb2 at 0.68.0 is good for and why this leg can answer its question here
+without owning an absolute. **A survival fraction is a ratio of two measurements on the same card**, so
+the ttnn version and the grid cancel out of it.
+
+| set | 298 aa | 512 aa | survival |
+|---|---:|---:|---:|
+| **`size512-ab`'s five** (C2FIX + `_PAIR_PROJ_L1_OUT` + 3 norms) | **1 729.03 ms/fold**, its own qb2-chip-0 arm | **141.66 ms/fold** (`stage:template`), **123.12** (resolved bodies) | **8.2 % / 7.1 %** |
+| **the merged five** (`_PAIR_PROJ_L1_OUT` + `_NARROW_PROJ_BW` + 3 norms) | **685.1 ms/fold**, org ledger X7 561.8 + X2 31.5 + X10 91.8 | **442.2 ms/fold** | **64.5 %** |
+
+**VERDICT — KILLED: the 27.6 % survival fraction, and the +476.96 ms it was computed from.** The
+correct figure for that flag set is **8.2 %**, a factor of **3.4** smaller, and it is 8.2 % for a reason
+the census gives independently of any wall: at 512 aa four of that set's five members refuse, and the
+whole surviving effect is 640 device calls on the `c=64` template track. **`size512-ab`'s +476.96 was
+never resolvable** at 0.64 % of a wall whose 7-arm drift band is 2.93 %, and the direction of its error
+is now known as well as its size.
+
+**But the org's own merged 685.1 survives far better than the withdrawn number implied: 64.5 %.** The
+two fractions differ because the two sets differ in exactly one slot. `size512-ab` swapped
+`_NARROW_PROJ_BW` out for C2FIX, and `_NARROW_PROJ_BW` is the one flag that is not capacity-gated. **The
+27.6 % was measured on the set that excludes the only member that survives**, so as a statement about
+what Moritz merged it was answering a different question, not merely answering it imprecisely.
+
+### 6.5 Where the surviving effect sits, and what holds it there
+
+The arithmetic-intensity placement and the roofs are in §1.3 and §1.4, measured on this card this pass
+and not inherited. In one line: the narrow pair-track projection is at **7.1 FLOP/byte** against this
+card's measured **292.9 FLOP/byte** machine balance, 41x onto the memory side, so **the binding roof is
+the bandwidth roof** and the op is **memory-bound** with nothing to argue about. Compute is 0.0096 ms of
+a 0.9032 ms op, **1.1 %**, so the total is nearer **max(compute, comm)** than `compute + comm`, with
+`comm` binding. No overlap arrangement is visible at that ratio, and the sibling leg reached the same
+verdict from the other direction: its excess over a plain clone tracked bytes and not FLOPs across a 16x
+FLOP swing.
+
+**VERDICT — CONFIRMED (S10): the placements hold and the limiter is transaction size, not occupancy.**
+Production 0.9032 ms is **44 % of the copy roof (DRAM)**; the `core_grid=` form `off:narrowbw` reverts to
+is 1.4136 ms, **28 % of the copy roof (DRAM)**; an L1 source would be 0.2516 ms, **79 % of the copy roof
+(L1)**. Two of three are under 70 %, so a mechanism is owed at kernel level. Read off the program config
+the production helper actually returns — `in0_block_w=1, out_subblock_h=1, out_subblock_w=1,
+out_block_h=5, per_core_M=75, per_core_N=1` — **the limiter is transaction size on both sides**: the
+reader issues one-tile 2 KB NOC reads per K block because `in0_block_w=1`, and the packer emits one tile
+per pack because `out_subblock_w=1`, against the long bursts a clone gets, with circular-buffer depth
+bounding how many subblocks are in flight behind the writer. **Core occupancy is not the limiter for the
+tuned form**: `per_core_M=75` puts work on **110 of 110 cores**. For the `core_grid=` form occupancy
+*is* the limiter, and a one-tile-wide output leaves `ttnn.linear` on a core ladder flat from **16 to 110
+cores**, roughly 94 of 110 cores idle, which is the 1.57x it loses. So `_NARROW_PROJ_BW`'s +405.0 ms/fold
+is **an occupancy repair measured against an occupancy defect**, and the residual 56 % of the DRAM copy
+roof it still leaves on the table is a transaction-granularity problem, the third instance in this org
+of `perfwar-l1-destination-priced-as-free-fake-mystery`, here on the read side.
+
+### 6.6 The 298 aa same-session denominator
+
+The 298 aa arm set (`on, off:family, on, off:narrowbw, on, off:ab5, on, off:norms, on`) was chained to
+start on the same card in the same session the moment the 512 aa run released the device, writing
+`perf/survival512/surv_298_qb2c0.json` after every fold. **At the time of writing its cold fold has
+completed at plDDT 0.859489, matching §1.5 and both predecessors, and its timed arms are still
+running.** Nothing in §6.4 waits on it: the `size512-ab` row uses **that leg's own 298 aa qb2-chip-0
+measurement**, which is the same denominator the withdrawn 27.6 % was computed against, so the fraction
+this doc replaces it with changes only the numerator and is an apples-to-apples correction. What the
+chained run adds when it lands is a second, independent 298 aa denominator for both sets from this
+instrument, and §1.5 has already shown this instrument reproducing X10's merged 91.8 ms/fold at 298 aa
+on this card to within 25 %.
+
+---
+
+## 7. Ranked hand-off to the CTO, in ms/fold at 512 aa
+
+Counts measured this pass, not assumed: 484 + 240 + 40 = **764** narrow `c_z=256` projections, **160**
+`c=64` trimul regions, **160** `c=64` triatt transposes, `block:PairformerLayer` **604**,
+`stage:Pairformer` **11**. Blocks x recycles throughout (charter §4.9), never blocks alone.
 
 | # | item | ms/fold at 512 aa | state |
 |---:|---|---:|---|
-| 1 | `_NARROW_PROJ_BW` = 1, already on main and already ON | PENDING (predicted 270-420, central 390) | a valuation, not a candidate — but if it lands near the prediction it is the org's largest 512 aa number and the ledger credits it with 31.5 |
-| 2 | a size-independent route to an L1 `layer_norm` source | PENDING (0.6516 ms/call x 764 counted calls = ~498 as an upper bound) | the prize the 1.5x fit test forgoes; the isolated allocation **succeeds** at padded 512 on an idle chip |
-| 3 | C2FIX at 512 aa, template track only | PENDING (predicted 80-120) | **`z-rowblock`'s op.** Reported and handed over |
+| 1 | **`_NARROW_PROJ_BW` = 1**, already on main and already ON | **+405.0** | **A valuation, not a candidate, and the org's largest 512 aa number.** The ledger credits it with 31.5 (X2, 298 aa). **Correct the ledger: this flag is size-independent and 12.9x larger at 512 aa.** |
+| 2 | **a size-independent route to an L1 `layer_norm` source** | up to **+498** (0.6516 ms/call x 764 counted calls, isolated) | **The prize the 1.5x fit test forgoes.** The census proves all 524 norms refuse at 512 aa; §1.3 shows the allocation **succeeds** in isolation at padded 512. The gate is a static budget decision, not an allocator failure. Charter §4.10 prefers exactly this class of fix. Phase 3 work, not this leg's. |
+| 3 | **C2FIX `_transpose_memory_config` at 512 aa, template track only** | **+82.8** (+16.1 unresolved) | **`z-rowblock`'s op. Reported and handed over, not pursued**, see §7.1. |
+| 4 | `_PAIR_PROJ_L1_OUT` at 512 aa, template track | **+28.6** (+13.3 unresolved) | Already on main and already ON. Reproduces the sibling's +29.7 to 3.8 %; **this is the leg's instrument cross-check as much as it is a valuation.** |
+| 5 | the three L1 `layer_norm` flags at 512 aa | **0.0 each** | **Dead by construction**, census 0 of 524 on L1. Not a regression: they are 298-aa-only wins whose fit test is doing its job. Item 2 is the way to recover them. |
+| 6 | `size512-ab`'s **+476.96 ms** and its **27.6 %** | **-335.3 correction** | **RETIRED and replaced: +141.66 ms, 8.2 %.** Strike both from `CLOSEOUT.md`. |
+
+### 7.1 The boundary with `z-rowblock`, respected
+
+The brief says that if the census shows `_transpose_memory_config` carrying a large share of the 512 aa
+delta, report it and stop. **It does, and this is the stop.** C2FIX is **+82.8 of `off:ab5`'s 123.1**
+resolved ms, **67 %**, which confirms the sibling leg's suspicion that most of `size512-ab`'s five-flag
+figure lived in the transpose rather than in `_PAIR_PROJ_L1_OUT`. What that leg inherits on top of its
+own work: the transpose's only live site at 512 aa is `TriangleAttention` at `c=64`, **160 of 1208
+calls**, the pair-track 1048 refuse at the 2.5x gate, and one bracketed arm prices the live 160 at
+**+82.8 ms/fold**. No further work on that op was done here.
+
+### 7.2 What every row owes on qb1 at 0.67.4
+
+Every absolute above is qb2 chip 0 at ttnn 0.68.0 and is a **ratio** (charter §4.8). The two survival
+*fractions* are the exception in kind, not in caution: each divides two measurements taken on this same
+card, so the grid and the ttnn version cancel. What qb1 would change is where the cliffs fall, and §1.2
+computes that from the production helpers directly. On qb1's 13x10 grid the L1-norm budget is
+199 214 080 B, so the norm class dies between N=481 and N=512 there instead of between N=449 and N=480,
+and **512 aa is 1.1 % outside the gate on qb1 as well.** So the census verdict, all three norm flags
+dead at 512 aa, is expected to hold on qb1, and rows 1, 3 and 4 owe a re-take of their bracketed arms
+because `per_core_M` snaps differently on 130 cores.
+
+### 7.3 Co-tenancy, recorded because it set the floor
+
+`protenix-trunk--z-permute-flip-land` held chip 1 of the same p300 board (007) throughout, running
+OpenDDE folds (pids 443454/443455, verified in the process table before and during the run). Charter
+§4.8 prices cross-chip compute interference at 0-4.8 %, and the 7-arm A/A spreads measured here, 2.93 %
+on the block wall and 1.0-2.7 % on the site walls, sit inside that band. **This is the mechanism behind
+the 2 189.67 ms block-wall floor**, and it is why the site walls and not the aggregate walls carry the
+answer. A future leg that needs the block wall to resolve a sub-1 % effect needs the board to itself.
 
 ---
 
