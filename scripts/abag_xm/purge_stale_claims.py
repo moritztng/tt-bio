@@ -9,10 +9,12 @@ fold. Usage:
     python3 purge_stale_claims.py p31
     python3 purge_stale_claims.py p32
 
-SAFE ONLY WITH ZERO FOLDS ALIVE IN THAT WINDOW. It deletes output dirs, and a live fold's dir is
-one of them. Verify with `pgrep -af abag_x[m]` first.
+Safe on a LIVE window since 2026-08-10: every cell with a fold running right now is skipped, so
+neither its claim nor its outdir is touched. That is what lets a stranded residual be re-exposed
+to the running driver's slots instead of waiting for the window to end. Set DRY=1 to report
+without changing anything.
 """
-import json, pathlib, shutil, sys
+import json, pathlib, re, shutil, subprocess, sys
 
 if len(sys.argv) != 2 or not sys.argv[1].startswith("p"):
     sys.exit("usage: purge_stale_claims.py <window>   e.g. p31, p32")
@@ -33,29 +35,53 @@ if res.exists():
         if r.get("rung") == 512 and r.get("rc") == 0:
             ok.add((r["model"], r["target"], r.get("chunk")))
 
+DRY = bool(sys.argv[2:] and sys.argv[2] == "--dry-run")
+
+# Live-fold exclusion. The fold command line carries --out_dir <B>/<mdir>/<target>_c<chunk>, which
+# identifies the cell exactly, so the process table is an authoritative liveness oracle. mmap-only
+# holds make fd counting a false negative, but a fold always has its own argv.
+live = set()
+for line in subprocess.run(["ps", "-eo", "args="], capture_output=True,
+                           text=True).stdout.splitlines():
+    mo = re.search(r"--out_dir\s+(\S+)", line)
+    if not mo:
+        continue
+    p = pathlib.Path(mo.group(1))
+    mo = re.match(r"(.+)_c(\d+)$", p.name)
+    if mo and p.parent.parent == B:            # ignore another window's folds
+        live.add((p.parent.name, mo.group(1), int(mo.group(2))))
+
 tasks = (B / "tasks.txt").read_text().splitlines()
-n_claim = n_dir = n_log = n_try = 0
+n_claim = n_dir = n_log = n_try = n_live = 0
 for i, line in enumerate(tasks, 1):
     m, t, rung, seed, c, k = line.split()
     if (m, t, int(c)) in ok:
         continue
+    if (MDIR[m], t, int(c)) in live:
+        n_live += 1
+        continue
     claim = B / "claims" / str(i)
     if claim.exists():
-        shutil.rmtree(claim)
+        if not DRY:
+            shutil.rmtree(claim)
         n_claim += 1
     # the retry counter lives outside the claim dir so it survives a release; a purge is an
     # operator decision to start the cell over, so the counter goes too
     tries = B / "tries" / str(i)
     if tries.exists():
-        tries.unlink()
+        if not DRY:
+            tries.unlink()
         n_try += 1
     d = B / MDIR[m] / (t + "_c" + c)
     if d.exists():
-        shutil.rmtree(d)
+        if not DRY:
+            shutil.rmtree(d)
         n_dir += 1
     for log in B.glob(MDIR[m] + "_" + t + "_c" + c + "*.log"):
-        log.unlink()
+        if not DRY:
+            log.unlink()
         n_log += 1
-print("purged: %d claims, %d tries, %d outdirs, %d logs" % (n_claim, n_try, n_dir, n_log))
+print("%s: %d claims, %d tries, %d outdirs, %d logs; %d live cells left alone"
+      % ("would purge" if DRY else "purged", n_claim, n_try, n_dir, n_log, n_live))
 print("ok cells:", len(ok & {(m, t, int(c)) for m, t, _, _, c, _ in
                              (l.split() for l in tasks)}), "of", len(tasks))

@@ -84,6 +84,24 @@ PY_SYS=/usr/bin/python3.10
 PY_VENV=$H/tt-bio/env/bin/python3.10
 MSA=$H/abag_xm/msa_cache
 
+# SECOND-INSTANCE MODE (2026-08-10). A window's slots walk the task index ONCE, upward, so a claim
+# released below a slot's cursor is unreachable and its cell strands. Measured on p31: 58 of 59
+# stranded cells sat in the chunk-7 block while every live slot's cursor was already near the top
+# of it. Rather than take the window down to sweep them, deploy this same script under a second
+# name and run it against the SAME $B with a fresh cursor on the chips whose slots have exited:
+#   SKIP_LINK=1 KEEP_TASKS=1 DONE_MARK=P31B_DONE DONE_FILE=$B/p31b.done YIELD_ON=P31_DONE \
+#   PGID_LOG=$B/p31b_pgids.log CHIPS="<idle chips>" bash p31b_fleet.sh 13 8
+# Two copies of the script means two inodes, so this cannot corrupt the running driver (bash reads
+# a script by byte offset as it executes). YIELD_ON makes the instance stop claiming and hand its
+# chips back the moment the primary window finishes, before the watchdog chains the next one.
+SKIP_LINK=${SKIP_LINK:-0}       # 1 = do not re-verify/hardlink sources (already done by instance 1)
+KEEP_TASKS=${KEEP_TASKS:-0}     # 1 = reuse the existing tasks.txt instead of regenerating it
+DONE_MARK=${DONE_MARK:-P31_DONE}
+DONE_FILE=${DONE_FILE:-$B/results.jsonl}
+YIELD_ON=${YIELD_ON:-}          # marker string; once it appears in $B/results.jsonl, stop claiming
+YIELD_FLAG=$B/.yield.$DONE_MARK
+PGID_LOG=${PGID_LOG:-$B/fold_pgids.log}
+
 # Per-window target lists. The four large targets were WH DRAM exclusions until the
 # 2026-08-08 OOM fix; this window runs the frozen p27-era engine tree, so they fold in
 # window p32 on the fixed tree instead. Never a scoring or biology call.
@@ -110,6 +128,12 @@ emit() { # <model> <target> <seedbase> <chunk>
 # dies mid-rung then leaves all four models at the same uniform measured depth (N=320, 384,
 # 448) rather than complete pools for a few targets and none for the rest.
 TASKS=$B/tasks.txt
+if [ "$KEEP_TASKS" = 1 ] && [ -s "$TASKS" ]; then
+  echo "tasks: reusing $(wc -l < $TASKS) existing lines  chips: $(wc -w <<<"$CHIPS") [$CHIPS]"
+else
+# Written via a temp file and mv: the rename is atomic, so a driver already running against this
+# window keeps reading a complete file. A bare `> $TASKS` truncates it, and a concurrent
+# `sed -n Np` would then return an empty line and fold garbage.
 {
   for j in 4 5 6 7; do
     for pass in pilot rest; do
@@ -124,10 +148,14 @@ TASKS=$B/tasks.txt
       done
     done
   done
-} > $TASKS
+} > $TASKS.new && mv $TASKS.new $TASKS
 echo "tasks: $(wc -l < $TASKS)  chips: $(wc -w <<<"$CHIPS") [$CHIPS]"
+fi
 
 # ---- link phase: hardlink provably-identical chunks from p28 (bz/od) and p29 (px/esm) ----
+if [ "$SKIP_LINK" = 1 ]; then
+echo "link phase skipped (SKIP_LINK=1): instance 1 already linked and claimed the reused chunks"
+else
 $PY_SYS - "$H" "$B" "$SRC" "$ANCHOR" <<'PY'
 import hashlib, json, pathlib, subprocess, sys, time
 H, B, src, anchor = (pathlib.Path(x) for x in sys.argv[1:5])
@@ -250,6 +278,7 @@ manifest["linked"] = linked_total
 (B / "link_manifest.json").write_text(json.dumps(manifest) + "\n")
 print(f"LINK {linked_total} chunks hardlinked: {manifest['by_model']}")
 PY
+fi
 
 group_cpu() { # <pgid> -> total CPU seconds of every process in the group
   ps -eo pgid=,times= | awk -v g="$1" '$1==g {s+=$2} END {print s+0}'
@@ -262,6 +291,9 @@ guarded_fold() { # <logfile> <chip> <cmd...> -- setsid launch + stall/cap group 
   local poll_s=${POLL_S:-60}
   setsid env TT_VISIBLE_DEVICES=$u "$@" > "$log" 2>&1 &
   local pid=$! t0=$(date +%s) last_cpu=-1 last_size=-1 stall=0 zero=0 killrc=0 g=0
+  # setsid makes the child a group leader, so $! is the pgid. Logging it turns a window takedown
+  # into `kill -- -<pgid>` over this file instead of reconstructing the groups by hand from ps.
+  echo "$(date -u +%FT%TZ) pgid=$pid dev=$u log=$log" >> "$PGID_LOG"
   while kill -0 $pid 2>/dev/null; do
     sleep $poll_s
     kill -0 $pid 2>/dev/null || break
@@ -425,6 +457,7 @@ slot() {
   while true; do
     claimed=0
     for ((idx=1; idx<=n; idx++)); do
+      [ -e "$YIELD_FLAG" ] && break 2      # cheap stat, not a grep: this runs 2600x per pass
       mkdir $B/claims/$idx 2>/dev/null || continue
       claimed=1
       read -r model t rung seed c k <<<"$(sed -n "${idx}p" $TASKS)"
@@ -444,9 +477,34 @@ slot() {
   echo "slot $chip done" >> $B/slots.log
 }
 
+# Yield poller (second-instance mode only). One process watching results.jsonl, converting the
+# primary window's marker into a flag file the hot loop can stat, then INTing this instance's own
+# fold groups so the chips are genuinely free before the watchdog chains the next window ~2-12 min
+# later. Only groups from THIS instance's $PGID_LOG are touched, never the primary's.
+if [ -n "$YIELD_ON" ]; then
+  rm -f "$YIELD_FLAG"
+  ( while ! grep -q "$YIELD_ON" $B/results.jsonl 2>/dev/null; do sleep 30; done
+    : > "$YIELD_FLAG"
+    echo "$(date -u +%FT%TZ) YIELD: $YIELD_ON seen, no new claims; INT of in-flight groups in 60 s" \
+      >> $B/slots.log
+    sleep 60
+    while read -r _ p _; do
+      p=${p#pgid=}
+      kill -0 -- -$p 2>/dev/null && kill -INT -- -$p 2>/dev/null
+    done < "$PGID_LOG"
+  ) &
+  YIELD_PID=$!
+fi
+
+# Wait on the slot pids specifically, not a bare `wait`: the yield poller is also a background job
+# and it never returns if its marker never appears, which would hang the driver past its last slot
+# and leave the done marker unwritten.
+PIDS=""
 for c in $CHIPS; do
   slot "$c" &
+  PIDS="$PIDS $!"
   sleep "$STAGGER"
 done
-wait
-echo P31_DONE >> $B/results.jsonl
+for p in $PIDS; do wait $p; done
+[ -n "${YIELD_PID:-}" ] && kill $YIELD_PID 2>/dev/null
+echo $DONE_MARK >> $DONE_FILE
