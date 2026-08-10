@@ -1,7 +1,8 @@
 """Host-only tests for the predict CLI's worker-liveness handling.
 
-The CLI used to poll a run forever after every local worker it spawned had
-exited, and the worker's own fatal went to /dev/null. No device needed.
+These cover the three defects behind the "predict hangs forever" failure: the
+CLI polled a run whose local workers had all exited, the workers' fatal went to
+/dev/null, and an orphaned worker kept its card lease. No device needed.
 """
 
 from __future__ import annotations
@@ -18,7 +19,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from tt_bio.distributed import ControllerClient, ControllerServer  # noqa: E402
 from tt_bio.main import _stream_run  # noqa: E402
-from tt_bio.worker import _report_fatal, _silence_subprocess_output  # noqa: E402
+from tt_bio.worker import (  # noqa: E402
+    _install_orphan_guard,
+    _report_fatal,
+    _silence_subprocess_output,
+)
 
 
 def _controller(tmpdir: Path):
@@ -110,3 +115,17 @@ def test_silence_subprocess_output_preserves_real_stderr():
         got = pipe.read()
     os.waitpid(pid, 0)
     assert b"boom" in got, f"fatal was swallowed, read {got!r}"
+
+
+def _orphan_child():
+    # A pid that is not our parent, standing in for a dispatcher that already died.
+    _install_orphan_guard(dispatcher_pid=os.getpid())
+    time.sleep(60)  # only reached if the guard failed to fire
+
+
+def test_orphan_guard_exits_when_dispatcher_is_gone():
+    proc = mp.get_context("fork").Process(target=_orphan_child)
+    proc.start()
+    proc.join(15)
+    assert not proc.is_alive(), "orphaned worker kept running; it would hold its card lease"
+    assert proc.exitcode == 70, f"expected exit 70, got {proc.exitcode}"
