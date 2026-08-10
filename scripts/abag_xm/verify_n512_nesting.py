@@ -81,7 +81,7 @@ def main():
             if p512 is None or p256 is None:
                 continue          # not yet at 8 chunks; the completeness gate drops it
             checked += 1
-            errs = []
+            errs, notes = [], []
             if len(p512) != 512:
                 errs.append(f"pool(512) has {len(p512)} pairs, want 512")
             if len(p256) != 256:
@@ -98,8 +98,16 @@ def main():
                 errs.append("oracle(512) is not the max over all 512")
             u512 = user(p512)
             best_sel = max(s for s, _d in p512)
-            if abs(dict((s, d) for s, d in p512)[best_sel] - u512) > 1e-12:
+            tied = [d for s, d in p512 if s == best_sel]
+            # A dict keyed by selector would keep the LAST tied entry while user()
+            # keeps the first, so on a tie at the max this check used to fail a
+            # correct pool. The pick only has to be one of the tied entries.
+            if not any(abs(d - u512) <= 1e-12 for d in tied):
                 errs.append("user pick is not dockq at argmax(selector) over all 512")
+            if len(tied) > 1:
+                notes.append(f"selector ties at its max: {len(tied)} samples share "
+                             f"{best_sel:.6f}, dockq {min(tied):.4f}..{max(tied):.4f}; "
+                             f"the pick is not uniquely defined")
             u_added = user(p512[256:]) if len(p512) > 256 else None
             tag = "" if u_added is None or abs(u_added - u512) > 1e-12 else "  (note: pick also equals the added-256 pick)"
             if errs:
@@ -110,6 +118,8 @@ def main():
             else:
                 print(f"ok   {model}/{t}  oracle 256->512 {o256:.4f}->{o512:.4f}  "
                       f"user {user(p256):.4f}->{u512:.4f}{tag}")
+            for n in notes:
+                print(f"       note: {n}")
     print(f"\nchecked {checked} (model,target) cells at 8/8 chunks, {failures} failed")
     return 1 if failures or checked == 0 else 0
 
