@@ -62,6 +62,21 @@ def check_model(model, rep, fails, infos):
         if PREV_PAIR in gains:
             po, pu = gains[PREV_PAIR]["gain_ci"]["oracle"], gains[PREV_PAIR]["gain_ci"]["user"]
             print(f"  vs {PREV_PAIR}: oracle {po[1]:+.4f}  gap {po[1] - pu[1]:+.4f}")
+        # marginal_oracle_per_1000cs divides a rung's card_h by nothing panel-aware, so the
+        # 256->512 and 128->256 values compare a cost over rung 512's panel against a cost
+        # over rung 256's. Per-target card-hours is the apples-to-apples form.
+        c512 = (rungs.get("512") or {}).get("card_h")
+        c256 = (rungs.get("256") or {}).get("card_h")
+        nt256 = (rungs.get("256") or {}).get("n_targets")
+        if None not in (c512, c256, nt512, nt256) and nt512 and nt256:
+            print(f"  cost basis: card_h 256={c256:.1f} over {nt256} targets "
+                  f"({c256 / nt256:.2f}/target), 512={c512:.1f} over {nt512} targets "
+                  f"({c512 / nt512:.2f}/target)")
+            if abs(nt512 - nt256) > 0.05 * nt256:
+                infos.append(f"{model}: marginal_oracle_per_1000cs is NOT comparable across "
+                             f"{PREV_PAIR} and {PAIR} -- rung 512 carries {nt512} targets vs "
+                             f"rung 256's {nt256}. Compare per-target card-hours, or wait for "
+                             f"the panels to match.")
     elif nt512 is not None and nt512 < POWER_MIN:
         infos.append(f"{model}: {PAIR} absent because rung {EXPECT_DEPTH} has {nt512} targets "
                      f"< POWER_MIN {POWER_MIN}. Label latency, not a defect.")
