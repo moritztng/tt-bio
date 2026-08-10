@@ -14,7 +14,7 @@
   ],
   "MB": 6.5536,
   "fill_implicit_tile_padding": {
-   "us": 56.650679998710984,
+   "us": 54.29106000519823,
    "logical": [
     1,
     32,
@@ -30,10 +30,10 @@
    "same_buffer": true
   },
   "multiply__mask2d": {
-   "error": "TT_THROW @ /project/ttnn/cpp/ttnn/operations/eltwise/binary_ng/device/binary_ng_device_operation.cpp:223: tt::exception\ninfo:\nInvalid subtile broadcast type\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnn"
+   "us": 22.46115000161808
   },
   "clone_L1": {
-   "us": 14.981349977460923
+   "us": 12.793099995178636
   }
  },
  "operand_1x64x298x298": {
@@ -51,7 +51,7 @@
   ],
   "MB": 13.1072,
   "fill_implicit_tile_padding": {
-   "us": 57.13841999750002,
+   "us": 55.42322000110289,
    "logical": [
     1,
     64,
@@ -67,10 +67,84 @@
    "same_buffer": true
   },
   "multiply__mask2d": {
-   "error": "TT_THROW @ /project/ttnn/cpp/ttnn/operations/eltwise/binary_ng/device/binary_ng_device_operation.cpp:223: tt::exception\ninfo:\nInvalid subtile broadcast type\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnn"
+   "us": 40.77779994986486
   },
   "clone_L1": {
-   "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 13107200 B L1 buffer across 110 banks, where each bank needs to store 120832 B, but bank size is 1461760 B (allocated: 1452032 B"
+   "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 13107200 B L1 buffer across 110 banks, where each bank needs to store 120832 B, but bank size is 1461760 B (allocated: 1449984 B"
+  }
+ },
+ "operand_1x8x298x298": {
+  "logical": [
+   1,
+   8,
+   298,
+   298
+  ],
+  "padded": [
+   1,
+   8,
+   320,
+   320
+  ],
+  "MB": 1.6384,
+  "fill_implicit_tile_padding": {
+   "us": 54.242160003923345,
+   "logical": [
+    1,
+    8,
+    298,
+    298
+   ],
+   "padded": [
+    1,
+    8,
+    320,
+    320
+   ],
+   "same_buffer": true
+  },
+  "multiply__mask2d": {
+   "us": 14.105049922363833
+  },
+  "clone_L1": {
+   "us": 9.228700037056115
+  }
+ },
+ "xnorm_1x298x298x256": {
+  "logical": [
+   1,
+   298,
+   298,
+   256
+  ],
+  "padded": [
+   1,
+   298,
+   320,
+   256
+  ],
+  "MB": 48.82432,
+  "fill_implicit_tile_padding": {
+   "us": 50.150899987784214,
+   "logical": [
+    1,
+    298,
+    298,
+    256
+   ],
+   "padded": [
+    1,
+    298,
+    320,
+    256
+   ],
+   "same_buffer": true
+  },
+  "multiply__mask2d": {
+   "us": 339.98634999079513
+  },
+  "clone_L1": {
+   "us": 247.05040004846524
   }
  },
  "pre_permute_1x298x298x32": {
@@ -86,12 +160,12 @@
    320,
    32
   ],
-  "fill_implicit_tile_padding_us": 19.890920011675917
+  "fill_implicit_tile_padding_us": 10.746640000434127
  },
  "_cmd": "fillpad",
  "_grid": [
   11,
   10
  ],
- "_wall_s": 0.7459120750427246
+ "_wall_s": 0.2577981948852539
 }
