@@ -36,6 +36,17 @@ ADDR_WRITE_MODE = None
 _CACHE: dict = {}
 # Counters for the A/B harness: (eligible calls served, calls that fell through to ttnn.permute).
 STATS = [0, 0]
+# Why calls were refused, keyed by (reason, shape). A gate that never fires has to say why: the
+# first wiring of this op served zero calls in a whole fold because the production shape is
+# [1, 298, 298, 32] and the kernel required N % 32 == 0.
+REJECTS: dict = {}
+
+
+def _reject(reason, shape):
+    k = (reason, tuple(shape))
+    REJECTS[k] = REJECTS.get(k, 0) + 1
+    STATS[1] += 1
+    return False
 
 
 def _cache_key(x, out, device, reader_ct, writer_ct):
@@ -60,7 +71,9 @@ def _cache_key(x, out, device, reader_ct, writer_ct):
 
 def _build(x, out, device, reader_ct, writer_ct):
     N = int(x.shape[1])
-    Nt = N // TILE_H
+    # The fold runs this at N=298, not at a multiple of 32, so the tile grid is ceil(N/32) in both
+    # directions and the last row-group is ragged. The kernels take N and handle it.
+    Nt = (N + TILE_H - 1) // TILE_H
     num_groups = Nt * Nt
 
     g = device.compute_with_storage_grid_size()
@@ -88,9 +101,9 @@ def _build(x, out, device, reader_ct, writer_ct):
         for cr in group.ranges():
             for cx in range(cr.start.x, cr.end.x + 1):
                 for cy in range(cr.start.y, cr.end.y + 1):
-                    reader_rt[cx][cy] = [start, per_core, Nt]
+                    reader_rt[cx][cy] = [start, per_core, Nt, N]
                     compute_rt[cx][cy] = [per_core * GROUP_TILES]
-                    writer_rt[cx][cy] = [start, per_core, Nt]
+                    writer_rt[cx][cy] = [start, per_core, Nt, N]
                     start += per_core
     assert start == num_groups, (start, num_groups)
 
@@ -176,18 +189,20 @@ def eligible(x, memory_config) -> bool:
     """
     if not _ENABLED:
         return False
-    shape = list(x.shape)
+    shape = [int(d) for d in x.shape]
     if len(shape) != 4 or shape[0] != 1 or shape[3] != 32 or shape[1] != shape[2]:
-        return False
+        return _reject("shape", shape)
     N = shape[1]
-    if N % TILE_H or x.dtype != ttnn.bfloat16 or x.layout != ttnn.TILE_LAYOUT:
-        return False
+    if x.dtype != ttnn.bfloat16 or x.layout != ttnn.TILE_LAYOUT:
+        return _reject("dtype_layout", shape)
     if memory_config.memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
-        return False
+        return _reject("sharded_out", shape)
     if x.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
-        return False
+        return _reject("sharded_in", shape)
     bt = memory_config.buffer_type
-    return (bt == ttnn.BufferType.DRAM and N >= 256) or (bt == ttnn.BufferType.L1 and 288 <= N <= 352)
+    if (bt == ttnn.BufferType.DRAM and N >= 256) or (bt == ttnn.BufferType.L1 and 288 <= N <= 352):
+        return True
+    return _reject(f"window_{bt}", shape)
 
 
 # Release-gated: OFF until the win is re-measured on qb1 at ttnn 0.67.4 (charter §4.8).
