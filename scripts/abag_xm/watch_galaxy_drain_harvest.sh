@@ -12,8 +12,18 @@
 set -u
 RUN=${1:?run id, e.g. p27}; shift
 RUNGS=${*:-64}
-SENT=$(printf '%s' "$RUN" | tr '[:lower:]' '[:upper:]')_DONE
 GB=/home/cust-team/mthuening/$RUN
+# Completion sentinel, and the file it lands in. The default is what a FIRST-instance
+# p2x_fleet.sh writes: the literal <RUN>_DONE appended to results.jsonl.
+#
+# A SECOND-INSTANCE driver does not do that. p31b (2026-08-10) was launched with
+# DONE_MARK=P31B_DONE DONE_FILE=<run>/p31b.done, so it writes a different marker into a
+# different file and never touches results.jsonl. The original p31 driver is gone and left
+# no P31_DONE behind (verified 2026-08-10 18:2xZ: grep -c P31_DONE results.jsonl == 0, no
+# p31_fleet.sh alive). Against the old hard-coded default this watcher polls every 600 s
+# forever, harvests nothing, and reports nothing -- a silent stall on the critical path.
+SENT=${SENT:-$(printf '%s' "$RUN" | tr '[:lower:]' '[:upper:]')_DONE}
+SENT_FILE=${SENT_FILE:-$GB/results.jsonl}
 STATE=$HOME/.coworker/state/deepn_harvested_$RUN
 # Worktree the harvest scripts are read from. Defaults to this file's own repo root, so the
 # watcher can never point at a torn-down worktree (the p27-era default
@@ -30,9 +40,9 @@ if [ -f "$STATE" ]; then echo "$(date -u) $RUN already harvested (state file); e
 # Baseline: if the sentinel is already present at arm time the fleet drained before we
 # armed -- harvest immediately rather than waiting for a second sentinel.
 armed=$(date -u)
-echo "$armed watcher armed for $RUN (sentinel $SENT, rungs: $RUNGS, DEST=$MNT)" >> "$LOG"
+echo "$armed watcher armed for $RUN (sentinel $SENT in $SENT_FILE, rungs: $RUNGS, DEST=$MNT)" >> "$LOG"
 while :; do
-  n=$(ssh -o BatchMode=yes -o ConnectTimeout=20 japanfold-ssh "grep -c $SENT $GB/results.jsonl 2>/dev/null" 2>/dev/null)
+  n=$(ssh -o BatchMode=yes -o ConnectTimeout=20 japanfold-ssh "grep -c $SENT $SENT_FILE 2>/dev/null" 2>/dev/null)
   case "$n" in ''|*[!0-9]*) ;; *) [ "$n" -ge 1 ] && break ;; esac
   sleep 600
 done
