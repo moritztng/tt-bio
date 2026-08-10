@@ -1,0 +1,85 @@
+{
+ "grid": {
+  "core_grid_main": "ttnn.CoreGrid(x=11, y=10)",
+  "compute_with_storage": "(x=13,y=10)",
+  "l1_unreserved_per_core_B": "AttributeError: no get_max_worker_l1_unreserved_size on device or its sub-devices",
+  "l1_size_per_core_B": "AttributeError: 'MeshDevice' object has no attribute 'l1_size_per_core'"
+ },
+ "roofs": {
+  "card": "qb1 TT_VISIBLE_DEVICES=2",
+  "note": "measured this pass, not inherited",
+  "compute_square_4096_TFLOPs": 128.08,
+  "dram": [
+   {
+    "MB": 32.0,
+    "read_GBs": 349.2,
+    "copy_rw_GBs": 379.8,
+    "write_GBs": 246.0
+   },
+   {
+    "MB": 64.0,
+    "read_GBs": 382.6,
+    "copy_rw_GBs": 399.2,
+    "write_GBs": 261.4
+   },
+   {
+    "MB": 128.0,
+    "read_GBs": 396.3,
+    "copy_rw_GBs": 407.7,
+    "write_GBs": 268.3
+   }
+  ],
+  "read_peak_GBs": 396.3,
+  "copy_peak_GBs": 407.7,
+  "clone_write_peak_GBs": 268.3,
+  "mm_writer_95360x32x2048_GBs": 200.3,
+  "mm_writer_95360x32x4096_GBs": 201.2,
+  "mm_writer_write_peak_GBs": 201.2,
+  "machine_balance_FLOP_per_byte": 323.2
+ },
+ "sdpa_matrix": {
+  "shape": "q/k/v [298, 8, 320, 32], bias [1, 8, 320, 320]",
+  "bias_bytes": 1638400,
+  "bias_l1_buffer_type": "BufferType.L1",
+  "chunk64_bias_dram_us": 2775.5,
+  "chunk64_bias_l1_err": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/transformer/sdpa/device/sdpa_device_operation.cpp:80: mask.buffer()->buffer_type() == tt::tt_metal::BufferType::DRAM\ninfo:\nWhen mask is provided to SDPA, i",
+  "chunk64_nobias_us": 1652.3,
+  "chunk320_bias_dram_us": 1758.9,
+  "chunk320_bias_l1_err": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/transformer/sdpa/device/sdpa_device_operation.cpp:80: mask.buffer()->buffer_type() == tt::tt_metal::BufferType::DRAM\ninfo:\nWhen mask is provided to SDPA, i",
+  "chunk320_nobias_us": 571.0,
+  "chunk64_biasleg_dram_us": 1123.2,
+  "chunk64_biasleg_dram_GBs": 434.7,
+  "chunk320_biasleg_dram_us": 1187.9,
+  "chunk320_biasleg_dram_GBs": 411.0,
+  "h4_chunk64_bias_dram_us": 1402.8,
+  "h4_err": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/transformer/sdpa/device/sdpa_device_operation.cpp:80: mask.buffer()->buffer_type() == tt::tt_metal::BufferType::DRAM\ninfo:\nWhen mask is provided to SDPA, i",
+  "grid_ladder_us": {
+   "1x1": 163719.9,
+   "2x2": 41367.0,
+   "4x4": 10488.4,
+   "6x6": 5009.7,
+   "8x8": 3203.2,
+   "11x10": 2812.8
+  },
+  "core_equivalents_of_110": 58.2
+ },
+ "head_split": {
+  "qkv_proj_us": 870.2,
+  "qkv_proj_write_GBs": 168.3,
+  "qkv_proj_read_GBs": 56.1,
+  "qkv_proj_TFLOPs": 43.09,
+  "split_us": 766.6,
+  "split_copy_GBs": 382.1,
+  "L3a_torch_equal": true,
+  "L3a_n_differing": 0,
+  "L3a_max_abs_diff": 0.0,
+  "L3b_reshape_matches": false,
+  "L3b_reshape_max_abs_diff": 127.0,
+  "L3b_permute_matches": true,
+  "L3b_permute_max_abs_diff": 0.0,
+  "L3c_batched_err": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:195: a_shape[i] == b_shape[i]\ninfo:\nbmm (non-bcast matmul) expects input tensors of shapes BCMK*BCKN=BCMN or equivalent\nbacktrace:\n --- /home/ttuser/.local/lib/python3.10/site-packages/ttnn/build/lib",
+  "L3c_narrow_one_us": 226.5,
+  "L3c_narrow_24_us": 5436.0,
+  "L3c_narrow_TFLOPs": 6.9
+ }
+}

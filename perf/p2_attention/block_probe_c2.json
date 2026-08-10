@@ -1,0 +1,125 @@
+{
+ "l1_stats_empty": {
+  "largest_l1_alloc_MB": 188,
+  "largest_l1_alloc_B": 187957248,
+  "per_core_B": 1445824,
+  "per_core_kB": 1411.9,
+  "stopped_by": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 1900"
+ },
+ "l1_at_sdpa": [
+  {
+   "largest_l1_alloc_MB": 188,
+   "largest_l1_alloc_B": 187957248,
+   "per_core_B": 1445824,
+   "per_core_kB": 1411.9,
+   "stopped_by": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 1900",
+   "q_chunk": 64,
+   "q_shape": [
+    298,
+    8,
+    320,
+    32
+   ],
+   "mask_buf": "BufferType.DRAM",
+   "mask_shape": [
+    1,
+    8,
+    320,
+    320
+   ]
+  },
+  {
+   "largest_l1_alloc_MB": 188,
+   "largest_l1_alloc_B": 187957248,
+   "per_core_B": 1445824,
+   "per_core_kB": 1411.9,
+   "stopped_by": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 1900",
+   "q_chunk": 64,
+   "q_shape": [
+    298,
+    8,
+    320,
+    32
+   ],
+   "mask_buf": "BufferType.DRAM",
+   "mask_shape": [
+    1,
+    8,
+    320,
+    320
+   ]
+  }
+ ],
+ "block_wall_ms_chunk64": 35.899,
+ "block_wall_ms_chunk320": 33.741,
+ "chunk320_sdpa_calls_in_block": 12,
+ "parity_one_block": {
+  "z": {
+   "rms_ref": 34.63524627685547,
+   "rmsd": 0.7956523895263672,
+   "rel_rmsd": 0.022972332313656807,
+   "max_abs": 86.0,
+   "max_abs_ref": 776.0,
+   "torch_equal": false,
+   "pcc": 0.9997092485427856
+  },
+  "s": {
+   "rms_ref": 4.134277820587158,
+   "rmsd": 0.003459794679656625,
+   "rel_rmsd": 0.0008368558483198285,
+   "max_abs": 0.5,
+   "max_abs_ref": 124.5,
+   "torch_equal": false,
+   "pcc": 0.9999996423721313
+  }
+ },
+ "head_scaling": {
+  "2": {
+   "with_bias_us": 734.4,
+   "nobias_us": 426.9,
+   "bias_leg_us": 307.5,
+   "bias_MB": 122.1,
+   "bias_leg_GBs": 397.0
+  },
+  "4": {
+   "with_bias_us": 1423.9,
+   "nobias_us": 868.4,
+   "bias_leg_us": 555.5,
+   "bias_MB": 244.1,
+   "bias_leg_GBs": 439.4
+  },
+  "8": {
+   "with_bias_us": 2776.2,
+   "nobias_us": 1619.5,
+   "bias_leg_us": 1156.7,
+   "bias_MB": 488.2,
+   "bias_leg_GBs": 422.1
+  }
+ },
+ "split_l1_vs_dram": {
+  "16": {
+   "l1_us": 35.1,
+   "dram_us": 61.4,
+   "l1_GBs": 447.8,
+   "dram_GBs": 256.3,
+   "speedup": 1.75,
+   "extrapolated_full_l1_us": 654.2
+  },
+  "32": {
+   "l1_us": 39.0,
+   "dram_us": 99.2,
+   "l1_GBs": 806.4,
+   "dram_GBs": 317.0,
+   "speedup": 2.54,
+   "extrapolated_full_l1_us": 363.3
+  },
+  "64": {
+   "l1_us": 81.7,
+   "dram_us": 175.8,
+   "l1_GBs": 769.8,
+   "dram_GBs": 358.0,
+   "speedup": 2.15,
+   "extrapolated_full_l1_us": 380.5
+  }
+ }
+}
