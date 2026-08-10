@@ -1,0 +1,10 @@
+2026-08-10 16:42:32.838 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+preflight ok: /home/ttuser/.coworker/wt/protenix-trunk--z-permute-flip-land/tt_bio/__init__.py
+=== START gate_crossmodel 2026-08-10T16:42:35Z
+=== END gate_crossmodel rc=0 2026-08-10T16:55:26Z
+=== START gate_abag 2026-08-10T16:55:26Z
+=== END gate_abag rc=0 2026-08-10T17:05:44Z
+=== START gate_capacity 2026-08-10T17:05:44Z
+=== END gate_capacity rc=143 2026-08-10T17:28:57Z
+QB1_GATE_ALL_DONE 2026-08-10T17:28:57Z

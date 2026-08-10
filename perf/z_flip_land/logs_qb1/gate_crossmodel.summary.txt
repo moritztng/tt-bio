@@ -1,0 +1,205 @@
+======================================================================
+[openfold3] folding prot.yaml (200 steps, 5 samples)
+======================================================================
+16:42:48  [tt-quietbox:tt0] loading model…
+16:43:00  [tt-quietbox:tt0] prot
+16:43:00  [tt-quietbox:tt0]   msa
+16:43:01  [tt-quietbox:tt0]   prep
+16:43:10  [tt-quietbox:tt0]   trunk 0/4
+16:43:13  [tt-quietbox:tt0]   trunk 1/4
+16:43:13  [tt-quietbox:tt0]   trunk 2/4
+16:43:14  [tt-quietbox:tt0]   trunk 3/4
+16:51:25  [tt-quietbox:tt0]   saving
+16:51:25  [tt-quietbox:tt0] ✓ prot — 505.5s
+Done: 1 ok, 0 failed — /home/ttuser/.coworker/wt/protenix-trunk--z-permute-flip-land/openfold3_results_prot/results.json
+Predicted chains: [('A', 117)]
+Ground truth chains: [('A', 117)]
+Best chain matching (117 common residues of 117 predicted / 117 ground truth):
+  A -> A (117 common residues)
+==================================================
+Protein: prot, Model: 0
+RMSD: 2.3001 Å   TM-score: 0.8110
+==================================================
+Predicted chains: [('A', 117)]
+Ground truth chains: [('A', 117)]
+Best chain matching (117 common residues of 117 predicted / 117 ground truth):
+  A -> A (117 common residues)
+==================================================
+Protein: prot, Model: 1
+RMSD: 2.8905 Å   TM-score: 0.7642
+==================================================
+Predicted chains: [('A', 117)]
+Ground truth chains: [('A', 117)]
+Best chain matching (117 common residues of 117 predicted / 117 ground truth):
+  A -> A (117 common residues)
+==================================================
+Protein: prot, Model: 2
+RMSD: 1.7755 Å   TM-score: 0.8901
+==================================================
+Predicted chains: [('A', 117)]
+Ground truth chains: [('A', 117)]
+Best chain matching (117 common residues of 117 predicted / 117 ground truth):
+  A -> A (117 common residues)
+==================================================
+Protein: prot, Model: 3
+RMSD: 1.7506 Å   TM-score: 0.8933
+==================================================
+Predicted chains: [('A', 117)]
+Ground truth chains: [('A', 117)]
+Best chain matching (117 common residues of 117 predicted / 117 ground truth):
+  A -> A (117 common residues)
+==================================================
+Protein: prot, Model: 4
+RMSD: 3.7397 Å   TM-score: 0.7580
+==================================================
+############################################################
+GROUND-TRUTH ACCURACY — prot (5 samples)
+  model 0: RMSD  2.300 Å   TM 0.811 <- best confidence (gated)
+  model 1: RMSD  2.890 Å   TM 0.764
+  model 2: RMSD  1.776 Å   TM 0.890
+  model 3: RMSD  1.751 Å   TM 0.893
+  model 4: RMSD  3.740 Å   TM 0.758
+  oracle-best sample: model 3 RMSD 1.751 Å TM 0.893
+############################################################
+======================================================================
+[boltz2] folding prot.yaml (200 steps, 5 samples)
+======================================================================
+16:51:50  [tt-quietbox:tt0] loading model…
+16:52:12  [tt-quietbox:tt0] prot
+16:52:12  [tt-quietbox:tt0]   msa
+16:52:12  [tt-quietbox:tt0]   prep
+16:52:13  [tt-quietbox:tt0]   trunk 0/4
+16:52:20  [tt-quietbox:tt0]   trunk 1/4
+16:52:21  [tt-quietbox:tt0]   trunk 2/4
+16:52:21  [tt-quietbox:tt0]   trunk 3/4
+16:52:59  [tt-quietbox:tt0]   confidence
+16:53:06  [tt-quietbox:tt0]   saving
+16:53:06  [tt-quietbox:tt0] ✓ prot — 54.4s
+Done: 1 ok, 0 failed — /home/ttuser/.coworker/wt/protenix-trunk--z-permute-flip-land/boltz2_results_prot/results.json
+Predicted chains: [('A', 117)]
+Ground truth chains: [('A', 117)]
+Best chain matching (117 common residues of 117 predicted / 117 ground truth):
+  A -> A (117 common residues)
+==================================================
+Protein: prot, Model: 0
+RMSD: 1.7004 Å   TM-score: 0.9185
+==================================================
+Predicted chains: [('A', 117)]
+Ground truth chains: [('A', 117)]
+Best chain matching (117 common residues of 117 predicted / 117 ground truth):
+  A -> A (117 common residues)
+==================================================
+Protein: prot, Model: 1
+RMSD: 1.5651 Å   TM-score: 0.9415
+==================================================
+Predicted chains: [('A', 117)]
+Ground truth chains: [('A', 117)]
+Best chain matching (117 common residues of 117 predicted / 117 ground truth):
+  A -> A (117 common residues)
+==================================================
+Protein: prot, Model: 2
+RMSD: 1.2231 Å   TM-score: 0.9544
+==================================================
+Predicted chains: [('A', 117)]
+Ground truth chains: [('A', 117)]
+Best chain matching (117 common residues of 117 predicted / 117 ground truth):
+  A -> A (117 common residues)
+==================================================
+Protein: prot, Model: 3
+RMSD: 1.7954 Å   TM-score: 0.9049
+==================================================
+Predicted chains: [('A', 117)]
+Ground truth chains: [('A', 117)]
+Best chain matching (117 common residues of 117 predicted / 117 ground truth):
+  A -> A (117 common residues)
+==================================================
+Protein: prot, Model: 4
+RMSD: 1.7043 Å   TM-score: 0.8904
+==================================================
+############################################################
+GROUND-TRUTH ACCURACY — prot (5 samples)
+  model 0: RMSD  1.700 Å   TM 0.919 <- best confidence (gated)
+  model 1: RMSD  1.565 Å   TM 0.941
+  model 2: RMSD  1.223 Å   TM 0.954
+  model 3: RMSD  1.795 Å   TM 0.905
+  model 4: RMSD  1.704 Å   TM 0.890
+  oracle-best sample: model 2 RMSD 1.223 Å TM 0.954
+############################################################
+======================================================================
+[opendde] folding prot.yaml (200 steps, 5 samples)
+======================================================================
+16:53:18  [tt-quietbox:tt0] loading model…
+16:53:43  [tt-quietbox:tt0] prot
+16:53:43  [tt-quietbox:tt0]   msa
+16:53:44  [tt-quietbox:tt0]   prep
+16:53:47  [tt-quietbox:tt0]   trunk 0/10
+16:54:10  [tt-quietbox:tt0]   trunk 1/10
+16:54:11  [tt-quietbox:tt0]   trunk 2/10
+16:54:12  [tt-quietbox:tt0]   trunk 3/10
+16:54:13  [tt-quietbox:tt0]   trunk 4/10
+16:54:13  [tt-quietbox:tt0]   trunk 5/10
+16:54:14  [tt-quietbox:tt0]   trunk 6/10
+16:54:15  [tt-quietbox:tt0]   trunk 7/10
+16:54:16  [tt-quietbox:tt0]   trunk 8/10
+16:54:17  [tt-quietbox:tt0]   trunk 9/10
+16:55:17  [tt-quietbox:tt0]   saving
+16:55:17  [tt-quietbox:tt0] ✓ prot — 94.0s
+Done: 1 ok, 0 failed — /home/ttuser/.coworker/wt/protenix-trunk--z-permute-flip-land/opendde_results_prot/results.json
+Predicted chains: [('A', 117)]
+Ground truth chains: [('A', 117)]
+Best chain matching (117 common residues of 117 predicted / 117 ground truth):
+  A -> A (117 common residues)
+==================================================
+Protein: prot, Model: 0
+RMSD: 3.1444 Å   TM-score: 0.8349
+==================================================
+Predicted chains: [('A', 117)]
+Ground truth chains: [('A', 117)]
+Best chain matching (117 common residues of 117 predicted / 117 ground truth):
+  A -> A (117 common residues)
+==================================================
+Protein: prot, Model: 1
+RMSD: 3.2455 Å   TM-score: 0.8447
+==================================================
+Predicted chains: [('A', 117)]
+Ground truth chains: [('A', 117)]
+Best chain matching (117 common residues of 117 predicted / 117 ground truth):
+  A -> A (117 common residues)
+==================================================
+Protein: prot, Model: 2
+RMSD: 3.2887 Å   TM-score: 0.8281
+==================================================
+Predicted chains: [('A', 117)]
+Ground truth chains: [('A', 117)]
+Best chain matching (117 common residues of 117 predicted / 117 ground truth):
+  A -> A (117 common residues)
+==================================================
+Protein: prot, Model: 3
+RMSD: 3.3152 Å   TM-score: 0.8342
+==================================================
+Predicted chains: [('A', 117)]
+Ground truth chains: [('A', 117)]
+Best chain matching (117 common residues of 117 predicted / 117 ground truth):
+  A -> A (117 common residues)
+==================================================
+Protein: prot, Model: 4
+RMSD: 3.3360 Å   TM-score: 0.8295
+==================================================
+############################################################
+GROUND-TRUTH ACCURACY — prot (5 samples)
+  model 0: RMSD  3.144 Å   TM 0.835 <- best confidence (gated)
+  model 1: RMSD  3.245 Å   TM 0.845
+  model 2: RMSD  3.289 Å   TM 0.828
+  model 3: RMSD  3.315 Å   TM 0.834
+  model 4: RMSD  3.336 Å   TM 0.829
+  oracle-best sample: model 0 RMSD 3.144 Å TM 0.835
+############################################################
+##############################################################################
+RELEASE GATE — prot.yaml (prot), 200 steps / 5 samples, seed 0
+##############################################################################
+model            RMSD (A)      TM           floor     wall  result
+openfold3           2.300   0.811     <=3.5/>=0.7     542s  PASS
+boltz2              1.700   0.919    <=3.0/>=0.75      88s  PASS
+opendde             3.144   0.835     <=6.0/>=0.5     133s  PASS
+##############################################################################
+GATE PASS — all models cleared parse + ground-truth floor
