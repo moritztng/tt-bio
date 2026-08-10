@@ -27,8 +27,17 @@ import torch
 from tt_bio.distributed import ControllerClient, HttpProgressQueue
 
 
-def _silence_subprocess_output() -> None:
-    """Send stdout/stderr to /dev/null so kernel/library noise stays hidden."""
+def _silence_subprocess_output() -> int:
+    """Send stdout/stderr to /dev/null so kernel/library noise stays hidden.
+
+    Returns a dup of the ORIGINAL fd 2, taken before the redirect and kept open for
+    fatal errors only (see ``_fatal``). Suppressing library noise is right; making a
+    worker's own death unreportable is not. With fd 2 on /dev/null the device-open
+    failure below and any uncaught exception vanished, so a dead worker left no trace
+    on any host, in any log — 26 campaign folds sat idle 45-100 minutes each with a
+    zero-byte log before the mechanism was found.
+    """
+    fatal_fd = os.dup(2)
     devnull = open(os.devnull, "w")
     sys.stdout = devnull
     sys.stderr = devnull
@@ -36,6 +45,22 @@ def _silence_subprocess_output() -> None:
     os.dup2(dn_fd, 1)
     os.dup2(dn_fd, 2)
     os.close(dn_fd)
+    return fatal_fd
+
+
+def _fatal(fatal_fd: int | None, message: str) -> None:
+    """Report a worker-fatal error and the live traceback past the output silencing.
+
+    ``fatal_fd is None`` means output was never silenced (--debug), so the normal
+    stderr already shows everything.
+    """
+    if fatal_fd is None:
+        traceback.print_exc()
+        return
+    try:
+        os.write(fatal_fd, f"{message}\n{traceback.format_exc()}".encode())
+    except Exception:
+        pass
 
 
 def _apply_tt_environment(worker_info: dict[str, Any]) -> None:
@@ -1176,8 +1201,7 @@ def run_worker_loop(
     Loads model artifacts once per run and reuses them for every job in that
     run. If the run's config changes, the model is reloaded.
     """
-    if not debug:
-        _silence_subprocess_output()
+    fatal_fd = _silence_subprocess_output() if not debug else None
     _install_signal_handlers()
     _apply_tt_environment(worker_info)
     _bind_host_threads()
@@ -1231,12 +1255,14 @@ def run_worker_loop(
             from tt_bio.tenstorrent import get_device as _get_device
             _get_device()
         except Exception:
-            traceback.print_exc()
             # The chip didn't come up with working local dispatch (e.g. a raced
             # "remote-only" bring-up). Do NOT stay online serving jobs we'd fail:
             # exit so the pool supervisor respawns us. The respawn reopens under the
             # host-wide device-init lock (one chip at a time), which is exactly what
             # clears the concurrent-init race behind a bad bring-up.
+            # Report first: `predict`'s local fan-out has no supervisor, so for that
+            # caller this exit is terminal and the reason is all it will ever get.
+            _fatal(fatal_fd, f"[worker {worker_info['label']}] device open failed, exiting")
             return
     try:
         while True:
@@ -1308,6 +1334,11 @@ def run_worker_loop(
                 _execute_job(state, job, cfg, run_id, client, worker_id, meta)
     except KeyboardInterrupt:
         pass
+    except BaseException:
+        # Anything that escapes the per-job handling kills this worker, and mp prints
+        # its traceback to a stderr that points at /dev/null. Say why, then die.
+        _fatal(fatal_fd, f"[worker {worker_info['label']}] uncaught error, exiting")
+        raise
     finally:
         state.reset()
 
