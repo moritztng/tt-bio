@@ -1,0 +1,20 @@
+{
+  "what": "boltz2 hsa L1 circular-buffer clash: verify c06bd76cf (protenix-trunk--z-crashband-fix) also closes the boltz2 ~600aa instance",
+  "host": "qb1 card 0, 13x10 Blackhole grid, ttnn 0.67.4",
+  "main_commit": "211e7791",
+  "prefix_control_commit": "6fa5a701",
+  "target": "examples/hsa_no_msa.yaml (human serum albumin, 585 aa), truncated to N for the sweep",
+  "args_full": "--recycling_steps 3 --sampling_steps 200 --diffusion_samples 1 --single_sequence --seed 0",
+  "args_sweep": "same but --sampling_steps 20 (clash is in the trunk)",
+  "sweep": [
+    {"n": 385, "nt": 13, "prefix": "ok 43.3s", "main": "ok 74.8s cold / 43.2-44.1s warm", "plddt": 0.867899},
+    {"n": 449, "nt": 15, "prefix": "FAIL program 410 clash core range [(0,0)-(2,9)]", "main": "ok 67.1s", "plddt": 0.888881},
+    {"n": 513, "nt": 17, "prefix": "FAIL program 418 clash core range [(0,0)-(2,9)]", "main": "ok 97.6s", "plddt": 0.886076},
+    {"n": 545, "nt": 18, "prefix": "FAIL program 418 clash core range [(0,0)-(2,9)]", "main": "ok 62.8s", "plddt": 0.892696},
+    {"n": 585, "nt": 19, "prefix": "FAIL program 426 clash core range [(0,0)-(2,9)]", "main": "ok 116.8s (200 steps)", "plddt": 0.893881}
+  ],
+  "bit_exact": "385 aa is the only size folding in both arms; CIF byte-identical across arms (sha256 5a7f94736a4c7c6bb6f60275825d04cd4dbbb921dfc36543ac189c818575a624), and two main reps byte-identical to each other",
+  "perf": "no cost; the 74.8s vs 43.3s first-pass gap was cold kernel cache (main ran first), warm re-measure on main 44.1s and 43.2s vs control 43.3s",
+  "note": "boltz2's crash band is not protenix-v2's: boltz2 clean at 385 and crashing (385,449] through 585 with no self-heal, protenix-v2 crashes [385,506] and self-heals at 507. Sweep each model's own cliff.",
+  "verdict": "FIXED on main by c06bd76cf, no additional change needed"
+}
