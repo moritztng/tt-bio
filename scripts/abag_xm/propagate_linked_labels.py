@@ -49,9 +49,25 @@ def results_dir(out_dir):
     return rds[0] if rds else None
 
 
-def scan(base):
-    """(model, target, suffix, out_dir, key, labels_or_None) for every fold dir."""
-    rows = []
+def chunk_of(name):
+    """The _c<j> suffix of a fold dir name, or None for an unchunked rung."""
+    return name.split("_c")[1] if "_c" in name else None
+
+
+def scan(base, mode):
+    """(model, target, suffix, out_dir, key, labels_or_None) for every fold dir of interest.
+
+    Hashing every CIF in the tree is ~200 GB of reads and ~15 min, and it sits on the
+    critical path between the harvest and the labeler. Duplicates only ever arise from the
+    link phase, which hardlinks rung 2N chunk j onto rung N chunk j -- the seed is a
+    function of the chunk index alone (chunk j -> base + 1000*j), so two dirs with
+    different chunk indices hold different seeds and cannot be duplicates. So group by
+    (model, target, chunk) from the names first, for free, and hash only the groups that
+    can produce a result: propagate needs a labeled dir and an unlabeled one in the same
+    group, audit needs two labeled ones. On p31, whose linked chunks all arrived already
+    labeled, this turns propagate into a stat-only walk.
+    """
+    found = []
     for m in MODELS:
         mdir = base / m
         if not mdir.is_dir():
@@ -61,9 +77,6 @@ def scan(base):
             if rd is None:
                 continue
             target = rd.name.split("results_")[1]
-            key = md5key(rd)
-            if key is None:
-                continue
             lj = out_dir / "labels.json"
             labels = None
             if lj.exists():
@@ -71,7 +84,24 @@ def scan(base):
                     labels = json.loads(lj.read_text())
                 except Exception:
                     pass
-            rows.append((m, target, out_dir.name, out_dir, key, labels))
+            found.append((m, target, out_dir, rd, labels))
+
+    counts = defaultdict(lambda: [0, 0])
+    for m, target, out_dir, _rd, labels in found:
+        counts[(m, target, chunk_of(out_dir.name))][0 if labels else 1] += 1
+    useful = {g for g, (lab, unlab) in counts.items()
+              if (lab >= 2 if mode == "audit" else lab and unlab)}
+
+    rows = []
+    for m, target, out_dir, rd, labels in found:
+        if (m, target, chunk_of(out_dir.name)) not in useful:
+            continue
+        key = md5key(rd)
+        if key is None:
+            continue
+        rows.append((m, target, out_dir.name, out_dir, key, labels))
+    print(f"scan: {len(found)} fold dirs, {len(rows)} hashed across {len(useful)} "
+          f"(model, target, chunk) groups that can produce a {mode} result", flush=True)
     return rows
 
 
@@ -131,8 +161,7 @@ def main():
     ap.add_argument("--base", type=Path, default=Path.home() / "abag_xm" / "deepn" / "galaxy")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
-    rows = scan(a.base)
-    print(f"scanned {len(rows)} fold dirs under {a.base}", flush=True)
+    rows = scan(a.base, a.mode)
     bad = do_audit(rows) if a.mode == "audit" else do_propagate(rows, a.dry_run)
     sys.exit(1 if a.mode == "audit" and bad else 0)
 
