@@ -1,0 +1,56 @@
+commit 142e01096d288f8cfd5b48fe6f714d27bbb3fa8d
+Author: Moritz Thüning <moritz.thuening@gmail.com>
+Date:   Mon Aug 10 13:14:31 2026 +0000
+
+    fix(protenix): free the h=1.5 normed pair tensor, closing the [385,506] crash band
+    
+    Every failure in the band throws at the same call, AttentionPairBias q@k^T
+    (tenstorrent.py:2270 -> batched_matmul), seventeen lines below the
+    _l1_layer_norm(z, 1.5) whose output is holding the banks. The Python frames were
+    already in z-size-robustness' committed failure JSON; no instrument was needed.
+    
+    The normed pair tensor is dead at `z = zb`, but a rebind is not a free you can
+    rely on: held L1 per bank at the throw tracks the norm's own padded footprint at
+    385, 448, 480 and 506 to within the allocator's interleave rounding, and the bias
+    permute is then placed underneath it, so the low-water mark stays low. Freeing it
+    before the permute allocates lets the permute take the space instead.
+    
+    The circular-buffer side is now closed-form. _batched_matmul_search plans
+    2*(p+Nt)*block_w*2048 + p*Nt*6144 plus 111104 B of fixed ttnn overhead, with
+    p = per_core_M from the divisor structure of Nt and the 32-block saturation rule.
+    That reproduces all four measured CB regions to the byte (1255936 at Nt=13,
+    799232 at 14, 653824 at 15, 995840 at 16) and all four core ranges via
+    cores = 16*Nt/p rounded down to whole grid columns. held + CB > 1461760 predicts
+    all eleven measured verdicts, 352 through 512.
+    
+    Measured on qb1 card 0, --fast, production defaults, three sizes covering both
+    edges: 385 ok 112.4 s, 448 ok 82.3 s, 506 ok 156.3 s, all previously crashes, and
+    524 of 524 h=1.5 layer_norm calls still on the L1 branch at every size. 448 comes
+    out plDDT 0.820076 / CIF sha256 0bd38dcabaeb91a1, byte-identical to the
+    L1-flags-off control.
+    
+    Release-gated, not merged: tenstorrent.py is reached by opendde, four openfold3_*
+    modules and esmfold2.
+
+diff --git a/tt_bio/tenstorrent.py b/tt_bio/tenstorrent.py
+index a654de73..1d621f61 100644
+--- a/tt_bio/tenstorrent.py
++++ b/tt_bio/tenstorrent.py
+@@ -2235,8 +2235,15 @@ class AttentionPairBias(Module):
+                         compute_kernel_config=self.compute_kernel_config,
+                         core_grid=CORE_GRID_MAIN,
+                     )
+-                z = zb
+-                z = ttnn.permute(z, (0, 3, 1, 2))
++                # The normed pair tensor is dead as soon as the projection has read it, and at
++                # 1.5x headroom it holds most of every L1 bank. Freeing it HERE rather than at the
++                # rebind below is what matters: the bias permute then allocates in the space it
++                # vacates instead of underneath it, so the q@k^T matmul four lines down can still
++                # place its circular buffers. Without this the whole [385, 506] token band throws
++                # `Statically allocated circular buffers ... clash with L1 buffers`.
++                ttnn.deallocate(z)
++                z = ttnn.permute(zb, (0, 3, 1, 2))
++                ttnn.deallocate(zb)
+             if self.dtype == ttnn.float32 and self.fp32_raw_matmul_attention:
+                 # ttnn SDPA rejects fp32 inputs (bf16/bf8 only), so the Protenix fp32 DiT
+                 # path computes attention as raw matmul. SDPA scales its additive mask

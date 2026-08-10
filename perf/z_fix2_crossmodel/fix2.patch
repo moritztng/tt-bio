@@ -1,0 +1,61 @@
+commit 5a207fee06a9fe75eed9873522622a366473ec06
+Author: moritztng <moritztng@users.noreply.github.com>
+Date:   Mon Aug 10 13:21:41 2026 +0000
+
+    fix(protenix): fall back to ttnn's own matmul planner when the tuned config clashes
+    
+    `_batched_matmul_search` budgets its circular buffers against `get_max_worker_l1_unreserved_size()`
+    on an idle device, so it cannot see what the live block is already holding. When the sum overflows
+    the 1 461 760 B bank the clash is raised at program compile inside tt-metal, not by the allocator,
+    and the fold dies. FIX-D removes the co-residency that made the whole [385, 506] token band throw;
+    this closes the gate that admitted the config in the first place.
+    
+    Same contract as `_L1_OUT_REFUSED`, which has solved exactly this for the pair-track output
+    projections since dafd49c1: attempt the tuned config once per shape class, catch the throw, memoise
+    the refusal, and use `program_config=None` for the rest of the process. One caught exception per
+    class rather than one per call, so a fold that refuses pays microseconds and not the 12 576 x 357 us
+    it would cost unmemoised.
+    
+    The fallback is arithmetically safe: `program_config=None` hands the same operands to ttnn's own
+    planner. `per_core_M` and `block_w` trade occupancy and in1 re-reads; `in0_block_w` is the only
+    field that regroups the accumulation, and a config that never ran cannot have set it.
+    
+    Also records `_L1_OUT_REFUSED`, `_BMM_CFG_REFUSED` and the live per-bank L1 view per fold in
+    perf/zsize/sweep_qb1.py, and commits the FIX-D hunk as a patch so a run can toggle it.
+
+diff --git a/tt_bio/tenstorrent.py b/tt_bio/tenstorrent.py
+index 1d621f61..b81c32e7 100644
+--- a/tt_bio/tenstorrent.py
++++ b/tt_bio/tenstorrent.py
+@@ -409,6 +409,13 @@ def _dram_interleaved(t: ttnn.Tensor) -> bool:
+     return mc.buffer_type == ttnn.BufferType.DRAM and not mc.is_sharded()
+ 
+ 
++# Shape classes whose tuned config the circular-buffer planner refused once. `_batched_matmul_search`
++# budgets against the idle device, so it cannot see what the live block already holds, and the
++# clash is raised at program compile inside tt-metal rather than by the allocator. Same contract as
++# `_L1_OUT_REFUSED`: one attempt per class per process, then ttnn's own planner for the rest.
++_BMM_CFG_REFUSED: set = set()
++
++
+ def batched_matmul(a: ttnn.Tensor, b: ttnn.Tensor, compute_kernel_config=None,
+                    dtype=None) -> ttnn.Tensor:
+     """`ttnn.matmul` for a batched attention matmul, with the batch spread over the core grid.
+@@ -435,6 +442,17 @@ def batched_matmul(a: ttnn.Tensor, b: ttnn.Tensor, compute_kernel_config=None,
+             batch, -(-sa[-2] // 32), -(-sa[-1] // 32), -(-sb[-1] // 32),
+             4 if a.dtype == ttnn.float32 else 2)
+     kw = {} if dtype is None else {"dtype": dtype}
++    if cfg is not None:
++        key = (batch, tuple(sa[-2:]), tuple(sb[-2:]), str(a.dtype))
++        if key in _BMM_CFG_REFUSED:
++            cfg = None
++        else:
++            try:
++                return ttnn.matmul(a, b, compute_kernel_config=compute_kernel_config,
++                                   program_config=cfg, **kw)
++            except Exception:                                                   # noqa: BLE001
++                _BMM_CFG_REFUSED.add(key)
++                cfg = None
+     return ttnn.matmul(a, b, compute_kernel_config=compute_kernel_config, program_config=cfg,
+                        **kw)
+ 
