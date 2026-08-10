@@ -253,8 +253,11 @@ def eligible(x, memory_config) -> bool:
 
     Two things decide it: the destination buffer type and ``N``. On DRAM the custom move wins from
     N=256 upward on both wheels measured (qb1 / 0.67.4: 1.90x at 298 and 320; qb2 / 0.68.0: 1.5x).
-    On L1 the margin is small and wheel-dependent, which is why the L1 window is narrow and why the
-    whole gate ships default-OFF.
+    On L1 the margin is smaller and wheel-dependent, so that leg of the window is narrow. It opens
+    at 288 because below that there are fewer work groups than cores and the per-call cost is not
+    amortised: N=256 on an L1 output measures 0.952x on 110 cores, a real loss, and it is the shape
+    boltzgen runs 2384 of its 3024 channel moves on. It closes at 352 because Nt=12 puts 144 groups
+    on 130 cores, 14 of them carrying two, and the win collapses from 1.415x to 1.002x.
 
     The channel count is deliberately not part of the window: the kernel handles any ``C`` that is a
     multiple of 32, because the trunk's own chunk width depends on the compute grid.
@@ -287,11 +290,13 @@ def eligible(x, memory_config) -> bool:
 # Whether `_channel_move` reaches for this kernel at all. Bit-exact: a permute is a pure index
 # reordering, `torch.equal` against `ttnn.permute` at all 24 shapes in `eligible`'s window including
 # the ragged group's output tile padding, and 24 live 298 aa protenix-v2 folds return plDDT
-# 0.859489 and identical coordinates with it on and off. Worth 209.3 ms/fold on that fold (1.0335x
-# per trimul call on the block wall, qb1 card 3 at ttnn 0.67.4, 4352 of 4352 eligible calls served);
-# esmfold2 serves 4336 of its own at 298 aa and none at 117 aa, where the window declines them.
-# Release-gated: no parity decision, but it changes every model that reaches the shared
-# TriangleMultiplication, so the cross-model evidence is in state/protenix-trunk--y-permute-flip.md.
+# 0.859489 and identical coordinates with it on and off. Worth 209-251 ms/fold on a 298 aa
+# protenix-v2 fold: three sessions on byte-identical code, qb1 card 3 at ttnn 0.67.4, all three read
+# on the trimul block wall because that host's fold-wall A/A floor runs to 1480 ms and cannot
+# resolve the effect. 4352 of 4352 eligible calls served in a live fold; esmfold2 serves 4336 of its
+# own at 298 aa and none at 117 aa, where the window declines them. openfold3, boltz2 and opendde
+# all gain (+236 / +314 / +681 ms/fold as qb2 ratios) and boltzgen serves zero of 3024.
+# Evidence: state/protenix-trunk--y-permute-flip.md, y-permute-crossmodel.md, z-permute-bands.md.
 REBLOCK_PERMUTE = True
 # `TT_BIO_REBLOCK_PERMUTE` stays as an out-of-process override for A/B harnesses; the default is
 # the constant above, so the release gate and any in-process import can see and set it.
