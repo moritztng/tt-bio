@@ -1,0 +1,1018 @@
+{
+  "grid": [
+    13,
+    10
+  ],
+  "cores": 130,
+  "rows": [
+    {
+      "dtype": "fp32",
+      "tokens": 117,
+      "op": "q@kT",
+      "in0": [
+        1,
+        16,
+        117,
+        64
+      ],
+      "in1": [
+        1,
+        16,
+        64,
+        117
+      ],
+      "m_tiles": 4,
+      "k_tiles": 2,
+      "n_tiles": 4,
+      "blocks": 64,
+      "gate_applies_on_main": false,
+      "rule_block_w": 2,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": false
+    },
+    {
+      "dtype": "fp32",
+      "tokens": 117,
+      "op": "attn@v",
+      "in0": [
+        1,
+        16,
+        117,
+        117
+      ],
+      "in1": [
+        1,
+        16,
+        117,
+        64
+      ],
+      "m_tiles": 4,
+      "k_tiles": 4,
+      "n_tiles": 2,
+      "blocks": 64,
+      "gate_applies_on_main": false,
+      "rule_block_w": 2,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": false
+    },
+    {
+      "dtype": "fp32",
+      "tokens": 160,
+      "op": "q@kT",
+      "in0": [
+        1,
+        16,
+        160,
+        64
+      ],
+      "in1": [
+        1,
+        16,
+        64,
+        160
+      ],
+      "m_tiles": 5,
+      "k_tiles": 2,
+      "n_tiles": 5,
+      "blocks": 80,
+      "gate_applies_on_main": false,
+      "rule_block_w": 1,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": true
+    },
+    {
+      "dtype": "fp32",
+      "tokens": 160,
+      "op": "attn@v",
+      "in0": [
+        1,
+        16,
+        160,
+        160
+      ],
+      "in1": [
+        1,
+        16,
+        160,
+        64
+      ],
+      "m_tiles": 5,
+      "k_tiles": 5,
+      "n_tiles": 2,
+      "blocks": 80,
+      "gate_applies_on_main": false,
+      "rule_block_w": 1,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": true
+    },
+    {
+      "dtype": "fp32",
+      "tokens": 192,
+      "op": "q@kT",
+      "in0": [
+        1,
+        16,
+        192,
+        64
+      ],
+      "in1": [
+        1,
+        16,
+        64,
+        192
+      ],
+      "m_tiles": 6,
+      "k_tiles": 2,
+      "n_tiles": 6,
+      "blocks": 96,
+      "gate_applies_on_main": false,
+      "rule_block_w": 1,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": true
+    },
+    {
+      "dtype": "fp32",
+      "tokens": 192,
+      "op": "attn@v",
+      "in0": [
+        1,
+        16,
+        192,
+        192
+      ],
+      "in1": [
+        1,
+        16,
+        192,
+        64
+      ],
+      "m_tiles": 6,
+      "k_tiles": 6,
+      "n_tiles": 2,
+      "blocks": 96,
+      "gate_applies_on_main": false,
+      "rule_block_w": 2,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": false
+    },
+    {
+      "dtype": "fp32",
+      "tokens": 224,
+      "op": "q@kT",
+      "in0": [
+        1,
+        16,
+        224,
+        64
+      ],
+      "in1": [
+        1,
+        16,
+        64,
+        224
+      ],
+      "m_tiles": 7,
+      "k_tiles": 2,
+      "n_tiles": 7,
+      "blocks": 112,
+      "gate_applies_on_main": false,
+      "rule_block_w": 1,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": true
+    },
+    {
+      "dtype": "fp32",
+      "tokens": 224,
+      "op": "attn@v",
+      "in0": [
+        1,
+        16,
+        224,
+        224
+      ],
+      "in1": [
+        1,
+        16,
+        224,
+        64
+      ],
+      "m_tiles": 7,
+      "k_tiles": 7,
+      "n_tiles": 2,
+      "blocks": 112,
+      "gate_applies_on_main": false,
+      "rule_block_w": 1,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": true
+    },
+    {
+      "dtype": "fp32",
+      "tokens": 256,
+      "op": "q@kT",
+      "in0": [
+        1,
+        16,
+        256,
+        64
+      ],
+      "in1": [
+        1,
+        16,
+        64,
+        256
+      ],
+      "m_tiles": 8,
+      "k_tiles": 2,
+      "n_tiles": 8,
+      "blocks": 128,
+      "gate_applies_on_main": false,
+      "rule_block_w": 1,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": true
+    },
+    {
+      "dtype": "fp32",
+      "tokens": 256,
+      "op": "attn@v",
+      "in0": [
+        1,
+        16,
+        256,
+        256
+      ],
+      "in1": [
+        1,
+        16,
+        256,
+        64
+      ],
+      "m_tiles": 8,
+      "k_tiles": 8,
+      "n_tiles": 2,
+      "blocks": 128,
+      "gate_applies_on_main": false,
+      "rule_block_w": 2,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": false
+    },
+    {
+      "dtype": "fp32",
+      "tokens": 298,
+      "op": "q@kT",
+      "in0": [
+        1,
+        16,
+        298,
+        64
+      ],
+      "in1": [
+        1,
+        16,
+        64,
+        298
+      ],
+      "m_tiles": 10,
+      "k_tiles": 2,
+      "n_tiles": 10,
+      "blocks": 160,
+      "gate_applies_on_main": true,
+      "rule_block_w": 1,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": true
+    },
+    {
+      "dtype": "fp32",
+      "tokens": 298,
+      "op": "attn@v",
+      "in0": [
+        1,
+        16,
+        298,
+        298
+      ],
+      "in1": [
+        1,
+        16,
+        298,
+        64
+      ],
+      "m_tiles": 10,
+      "k_tiles": 10,
+      "n_tiles": 2,
+      "blocks": 160,
+      "gate_applies_on_main": true,
+      "rule_block_w": 2,
+      "exact_widths": [
+        2
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": true
+    },
+    {
+      "dtype": "fp32",
+      "tokens": 352,
+      "op": "q@kT",
+      "in0": [
+        1,
+        16,
+        352,
+        64
+      ],
+      "in1": [
+        1,
+        16,
+        64,
+        352
+      ],
+      "m_tiles": 11,
+      "k_tiles": 2,
+      "n_tiles": 11,
+      "blocks": 176,
+      "gate_applies_on_main": true,
+      "rule_block_w": 1,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": true
+    },
+    {
+      "dtype": "fp32",
+      "tokens": 352,
+      "op": "attn@v",
+      "in0": [
+        1,
+        16,
+        352,
+        352
+      ],
+      "in1": [
+        1,
+        16,
+        352,
+        64
+      ],
+      "m_tiles": 11,
+      "k_tiles": 11,
+      "n_tiles": 2,
+      "blocks": 176,
+      "gate_applies_on_main": true,
+      "rule_block_w": 1,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": true
+    },
+    {
+      "dtype": "fp32",
+      "tokens": 416,
+      "op": "q@kT",
+      "in0": [
+        1,
+        16,
+        416,
+        64
+      ],
+      "in1": [
+        1,
+        16,
+        64,
+        416
+      ],
+      "m_tiles": 13,
+      "k_tiles": 2,
+      "n_tiles": 13,
+      "blocks": 208,
+      "gate_applies_on_main": true,
+      "rule_block_w": 1,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": true
+    },
+    {
+      "dtype": "fp32",
+      "tokens": 416,
+      "op": "attn@v",
+      "in0": [
+        1,
+        16,
+        416,
+        416
+      ],
+      "in1": [
+        1,
+        16,
+        416,
+        64
+      ],
+      "m_tiles": 13,
+      "k_tiles": 13,
+      "n_tiles": 2,
+      "blocks": 208,
+      "gate_applies_on_main": true,
+      "rule_block_w": 1,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": true
+    },
+    {
+      "dtype": "fp32",
+      "tokens": 480,
+      "op": "q@kT",
+      "in0": [
+        1,
+        16,
+        480,
+        64
+      ],
+      "in1": [
+        1,
+        16,
+        64,
+        480
+      ],
+      "m_tiles": 15,
+      "k_tiles": 2,
+      "n_tiles": 15,
+      "blocks": 240,
+      "gate_applies_on_main": true,
+      "rule_block_w": 1,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": true
+    },
+    {
+      "dtype": "fp32",
+      "tokens": 480,
+      "op": "attn@v",
+      "in0": [
+        1,
+        16,
+        480,
+        480
+      ],
+      "in1": [
+        1,
+        16,
+        480,
+        64
+      ],
+      "m_tiles": 15,
+      "k_tiles": 15,
+      "n_tiles": 2,
+      "blocks": 240,
+      "gate_applies_on_main": true,
+      "rule_block_w": 1,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": true
+    },
+    {
+      "dtype": "bf16",
+      "tokens": 117,
+      "op": "q@kT",
+      "in0": [
+        1,
+        16,
+        117,
+        64
+      ],
+      "in1": [
+        1,
+        16,
+        64,
+        117
+      ],
+      "m_tiles": 4,
+      "k_tiles": 2,
+      "n_tiles": 4,
+      "blocks": 64,
+      "gate_applies_on_main": false,
+      "rule_block_w": 2,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": false
+    },
+    {
+      "dtype": "bf16",
+      "tokens": 117,
+      "op": "attn@v",
+      "in0": [
+        1,
+        16,
+        117,
+        117
+      ],
+      "in1": [
+        1,
+        16,
+        117,
+        64
+      ],
+      "m_tiles": 4,
+      "k_tiles": 4,
+      "n_tiles": 2,
+      "blocks": 64,
+      "gate_applies_on_main": false,
+      "rule_block_w": 2,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": false
+    },
+    {
+      "dtype": "bf16",
+      "tokens": 160,
+      "op": "q@kT",
+      "in0": [
+        1,
+        16,
+        160,
+        64
+      ],
+      "in1": [
+        1,
+        16,
+        64,
+        160
+      ],
+      "m_tiles": 5,
+      "k_tiles": 2,
+      "n_tiles": 5,
+      "blocks": 80,
+      "gate_applies_on_main": false,
+      "rule_block_w": 1,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": true
+    },
+    {
+      "dtype": "bf16",
+      "tokens": 160,
+      "op": "attn@v",
+      "in0": [
+        1,
+        16,
+        160,
+        160
+      ],
+      "in1": [
+        1,
+        16,
+        160,
+        64
+      ],
+      "m_tiles": 5,
+      "k_tiles": 5,
+      "n_tiles": 2,
+      "blocks": 80,
+      "gate_applies_on_main": false,
+      "rule_block_w": 1,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": true
+    },
+    {
+      "dtype": "bf16",
+      "tokens": 192,
+      "op": "q@kT",
+      "in0": [
+        1,
+        16,
+        192,
+        64
+      ],
+      "in1": [
+        1,
+        16,
+        64,
+        192
+      ],
+      "m_tiles": 6,
+      "k_tiles": 2,
+      "n_tiles": 6,
+      "blocks": 96,
+      "gate_applies_on_main": false,
+      "rule_block_w": 1,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": true
+    },
+    {
+      "dtype": "bf16",
+      "tokens": 192,
+      "op": "attn@v",
+      "in0": [
+        1,
+        16,
+        192,
+        192
+      ],
+      "in1": [
+        1,
+        16,
+        192,
+        64
+      ],
+      "m_tiles": 6,
+      "k_tiles": 6,
+      "n_tiles": 2,
+      "blocks": 96,
+      "gate_applies_on_main": false,
+      "rule_block_w": 2,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": false
+    },
+    {
+      "dtype": "bf16",
+      "tokens": 224,
+      "op": "q@kT",
+      "in0": [
+        1,
+        16,
+        224,
+        64
+      ],
+      "in1": [
+        1,
+        16,
+        64,
+        224
+      ],
+      "m_tiles": 7,
+      "k_tiles": 2,
+      "n_tiles": 7,
+      "blocks": 112,
+      "gate_applies_on_main": false,
+      "rule_block_w": 1,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": true
+    },
+    {
+      "dtype": "bf16",
+      "tokens": 224,
+      "op": "attn@v",
+      "in0": [
+        1,
+        16,
+        224,
+        224
+      ],
+      "in1": [
+        1,
+        16,
+        224,
+        64
+      ],
+      "m_tiles": 7,
+      "k_tiles": 7,
+      "n_tiles": 2,
+      "blocks": 112,
+      "gate_applies_on_main": false,
+      "rule_block_w": 1,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": true
+    },
+    {
+      "dtype": "bf16",
+      "tokens": 256,
+      "op": "q@kT",
+      "in0": [
+        1,
+        16,
+        256,
+        64
+      ],
+      "in1": [
+        1,
+        16,
+        64,
+        256
+      ],
+      "m_tiles": 8,
+      "k_tiles": 2,
+      "n_tiles": 8,
+      "blocks": 128,
+      "gate_applies_on_main": false,
+      "rule_block_w": 1,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": true
+    },
+    {
+      "dtype": "bf16",
+      "tokens": 256,
+      "op": "attn@v",
+      "in0": [
+        1,
+        16,
+        256,
+        256
+      ],
+      "in1": [
+        1,
+        16,
+        256,
+        64
+      ],
+      "m_tiles": 8,
+      "k_tiles": 8,
+      "n_tiles": 2,
+      "blocks": 128,
+      "gate_applies_on_main": false,
+      "rule_block_w": 2,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": false
+    },
+    {
+      "dtype": "bf16",
+      "tokens": 298,
+      "op": "q@kT",
+      "in0": [
+        1,
+        16,
+        298,
+        64
+      ],
+      "in1": [
+        1,
+        16,
+        64,
+        298
+      ],
+      "m_tiles": 10,
+      "k_tiles": 2,
+      "n_tiles": 10,
+      "blocks": 160,
+      "gate_applies_on_main": true,
+      "rule_block_w": 1,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": true
+    },
+    {
+      "dtype": "bf16",
+      "tokens": 298,
+      "op": "attn@v",
+      "in0": [
+        1,
+        16,
+        298,
+        298
+      ],
+      "in1": [
+        1,
+        16,
+        298,
+        64
+      ],
+      "m_tiles": 10,
+      "k_tiles": 10,
+      "n_tiles": 2,
+      "blocks": 160,
+      "gate_applies_on_main": true,
+      "rule_block_w": 2,
+      "exact_widths": [
+        2
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": true
+    },
+    {
+      "dtype": "bf16",
+      "tokens": 352,
+      "op": "q@kT",
+      "in0": [
+        1,
+        16,
+        352,
+        64
+      ],
+      "in1": [
+        1,
+        16,
+        64,
+        352
+      ],
+      "m_tiles": 11,
+      "k_tiles": 2,
+      "n_tiles": 11,
+      "blocks": 176,
+      "gate_applies_on_main": true,
+      "rule_block_w": 1,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": true
+    },
+    {
+      "dtype": "bf16",
+      "tokens": 352,
+      "op": "attn@v",
+      "in0": [
+        1,
+        16,
+        352,
+        352
+      ],
+      "in1": [
+        1,
+        16,
+        352,
+        64
+      ],
+      "m_tiles": 11,
+      "k_tiles": 11,
+      "n_tiles": 2,
+      "blocks": 176,
+      "gate_applies_on_main": true,
+      "rule_block_w": 1,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": true
+    },
+    {
+      "dtype": "bf16",
+      "tokens": 416,
+      "op": "q@kT",
+      "in0": [
+        1,
+        16,
+        416,
+        64
+      ],
+      "in1": [
+        1,
+        16,
+        64,
+        416
+      ],
+      "m_tiles": 13,
+      "k_tiles": 2,
+      "n_tiles": 13,
+      "blocks": 208,
+      "gate_applies_on_main": true,
+      "rule_block_w": 1,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": true
+    },
+    {
+      "dtype": "bf16",
+      "tokens": 416,
+      "op": "attn@v",
+      "in0": [
+        1,
+        16,
+        416,
+        416
+      ],
+      "in1": [
+        1,
+        16,
+        416,
+        64
+      ],
+      "m_tiles": 13,
+      "k_tiles": 13,
+      "n_tiles": 2,
+      "blocks": 208,
+      "gate_applies_on_main": true,
+      "rule_block_w": 1,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": true
+    },
+    {
+      "dtype": "bf16",
+      "tokens": 480,
+      "op": "q@kT",
+      "in0": [
+        1,
+        16,
+        480,
+        64
+      ],
+      "in1": [
+        1,
+        16,
+        64,
+        480
+      ],
+      "m_tiles": 15,
+      "k_tiles": 2,
+      "n_tiles": 15,
+      "blocks": 240,
+      "gate_applies_on_main": true,
+      "rule_block_w": 1,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": true
+    },
+    {
+      "dtype": "bf16",
+      "tokens": 480,
+      "op": "attn@v",
+      "in0": [
+        1,
+        16,
+        480,
+        480
+      ],
+      "in1": [
+        1,
+        16,
+        480,
+        64
+      ],
+      "m_tiles": 15,
+      "k_tiles": 15,
+      "n_tiles": 2,
+      "blocks": 240,
+      "gate_applies_on_main": true,
+      "rule_block_w": 1,
+      "exact_widths": [
+        1
+      ],
+      "cb_overflow_widths": [],
+      "main_bit_exact": true
+    }
+  ],
+  "main_non_bit_exact": []
+}

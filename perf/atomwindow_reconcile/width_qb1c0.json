@@ -1,0 +1,704 @@
+{
+  "grid": [
+    13,
+    10
+  ],
+  "cores": 130,
+  "l1": 1532448,
+  "rows": [
+    {
+      "in0": [
+        1,
+        16,
+        229,
+        64
+      ],
+      "in1": [
+        1,
+        16,
+        64,
+        229
+      ],
+      "dtype": "bf16",
+      "batch": 16,
+      "m_tiles": 8,
+      "k_tiles": 2,
+      "n_tiles": 8,
+      "blocks": 128,
+      "rule_block_w": 1,
+      "chosen_per_core_M": 4,
+      "naive_us": 36.32,
+      "reps": 75,
+      "widths": {
+        "1": {
+          "chosen": {
+            "exact": true,
+            "us": 17.84
+          },
+          "p1": {
+            "exact": true,
+            "us": 25.41
+          }
+        },
+        "2": {
+          "chosen": {
+            "exact": false,
+            "us": 16.86
+          },
+          "p1": {
+            "exact": false,
+            "us": 26.46
+          }
+        }
+      },
+      "exact_widths": [
+        1
+      ],
+      "rule_is_exact": true,
+      "calls": {
+        "opendde/s1": 4800
+      }
+    },
+    {
+      "in0": [
+        1,
+        16,
+        229,
+        229
+      ],
+      "in1": [
+        1,
+        16,
+        229,
+        64
+      ],
+      "dtype": "bf16",
+      "batch": 16,
+      "m_tiles": 8,
+      "k_tiles": 8,
+      "n_tiles": 2,
+      "blocks": 128,
+      "rule_block_w": 2,
+      "chosen_per_core_M": 4,
+      "naive_us": 133.87,
+      "reps": 33,
+      "widths": {
+        "1": {
+          "chosen": {
+            "exact": true,
+            "us": 36.44
+          },
+          "p1": {
+            "exact": true,
+            "us": 25.61
+          }
+        },
+        "2": {
+          "chosen": {
+            "exact": false,
+            "us": 36.27
+          },
+          "p1": {
+            "exact": false,
+            "us": 25.95
+          }
+        },
+        "4": {
+          "chosen": {
+            "exact": false,
+            "us": 29.27
+          },
+          "p1": {
+            "exact": false,
+            "us": 39.3
+          }
+        },
+        "8": {
+          "chosen": {
+            "exact": false,
+            "us": 36.2
+          },
+          "p1": {
+            "exact": false,
+            "us": 34.02
+          }
+        }
+      },
+      "exact_widths": [
+        1
+      ],
+      "rule_is_exact": false,
+      "calls": {
+        "opendde/s1": 4800
+      }
+    },
+    {
+      "in0": [
+        1,
+        16,
+        117,
+        64
+      ],
+      "in1": [
+        1,
+        16,
+        64,
+        117
+      ],
+      "dtype": "fp32",
+      "batch": 16,
+      "m_tiles": 4,
+      "k_tiles": 2,
+      "n_tiles": 4,
+      "blocks": 64,
+      "rule_block_w": 2,
+      "chosen_per_core_M": 2,
+      "naive_us": 34.53,
+      "reps": 88,
+      "widths": {
+        "1": {
+          "chosen": {
+            "exact": true,
+            "us": 29.53
+          },
+          "p1": {
+            "exact": true,
+            "us": 31.45
+          }
+        },
+        "2": {
+          "chosen": {
+            "exact": false,
+            "us": 34.96
+          },
+          "p1": {
+            "exact": false,
+            "us": 18.04
+          }
+        }
+      },
+      "exact_widths": [
+        1
+      ],
+      "rule_is_exact": false,
+      "calls": {
+        "protenix-v2/s1": 4800
+      }
+    },
+    {
+      "in0": [
+        1,
+        16,
+        117,
+        117
+      ],
+      "in1": [
+        1,
+        16,
+        117,
+        64
+      ],
+      "dtype": "fp32",
+      "batch": 16,
+      "m_tiles": 4,
+      "k_tiles": 4,
+      "n_tiles": 2,
+      "blocks": 64,
+      "rule_block_w": 2,
+      "chosen_per_core_M": 2,
+      "naive_us": 68.85,
+      "reps": 62,
+      "widths": {
+        "1": {
+          "chosen": {
+            "exact": true,
+            "us": 19.81
+          },
+          "p1": {
+            "exact": true,
+            "us": 31.65
+          }
+        },
+        "2": {
+          "chosen": {
+            "exact": false,
+            "us": 31.02
+          },
+          "p1": {
+            "exact": false,
+            "us": 35.96
+          }
+        },
+        "4": {
+          "chosen": {
+            "exact": false,
+            "us": 35.1
+          },
+          "p1": {
+            "exact": false,
+            "us": 30.64
+          }
+        }
+      },
+      "exact_widths": [
+        1
+      ],
+      "rule_is_exact": false,
+      "calls": {
+        "protenix-v2/s1": 4800
+      }
+    },
+    {
+      "in0": [
+        29,
+        4,
+        32,
+        32
+      ],
+      "in1": [
+        29,
+        4,
+        32,
+        128
+      ],
+      "dtype": "bf16",
+      "batch": 116,
+      "m_tiles": 1,
+      "k_tiles": 1,
+      "n_tiles": 4,
+      "blocks": 116,
+      "rule_block_w": 1,
+      "chosen_per_core_M": 1,
+      "naive_us": 119.46,
+      "reps": 36,
+      "widths": {
+        "1": {
+          "chosen": {
+            "exact": true,
+            "us": 30.71
+          },
+          "p1": {
+            "exact": true,
+            "us": 30.5
+          }
+        }
+      },
+      "exact_widths": [
+        1
+      ],
+      "rule_is_exact": true,
+      "calls": {
+        "opendde/s1": 1203,
+        "protenix-v2/s1": 3,
+        "protenix-v2/s5": 3
+      }
+    },
+    {
+      "in0": [
+        29,
+        4,
+        32,
+        128
+      ],
+      "in1": [
+        29,
+        4,
+        128,
+        32
+      ],
+      "dtype": "bf16",
+      "batch": 116,
+      "m_tiles": 1,
+      "k_tiles": 4,
+      "n_tiles": 1,
+      "blocks": 116,
+      "rule_block_w": 2,
+      "chosen_per_core_M": 1,
+      "naive_us": 198.59,
+      "reps": 23,
+      "widths": {
+        "1": {
+          "chosen": {
+            "exact": false,
+            "us": 31.31
+          },
+          "p1": {
+            "exact": false,
+            "us": 31.07
+          }
+        },
+        "2": {
+          "chosen": {
+            "exact": true,
+            "us": 29.95
+          },
+          "p1": {
+            "exact": true,
+            "us": 27.1
+          }
+        },
+        "4": {
+          "chosen": {
+            "exact": false,
+            "us": 31.3
+          },
+          "p1": {
+            "exact": false,
+            "us": 36.5
+          }
+        }
+      },
+      "exact_widths": [
+        2
+      ],
+      "rule_is_exact": true,
+      "calls": {
+        "opendde/s1": 1203,
+        "protenix-v2/s1": 3,
+        "protenix-v2/s5": 3
+      }
+    },
+    {
+      "in0": [
+        29,
+        4,
+        32,
+        32
+      ],
+      "in1": [
+        29,
+        4,
+        32,
+        128
+      ],
+      "dtype": "fp32",
+      "batch": 116,
+      "m_tiles": 1,
+      "k_tiles": 1,
+      "n_tiles": 4,
+      "blocks": 116,
+      "rule_block_w": 1,
+      "chosen_per_core_M": 1,
+      "naive_us": 127.51,
+      "reps": 36,
+      "widths": {
+        "1": {
+          "chosen": {
+            "exact": true,
+            "us": 15.91
+          },
+          "p1": {
+            "exact": true,
+            "us": 15.76
+          }
+        }
+      },
+      "exact_widths": [
+        1
+      ],
+      "rule_is_exact": true,
+      "calls": {
+        "protenix-v2/s1": 1200
+      }
+    },
+    {
+      "in0": [
+        29,
+        4,
+        32,
+        128
+      ],
+      "in1": [
+        29,
+        4,
+        128,
+        32
+      ],
+      "dtype": "fp32",
+      "batch": 116,
+      "m_tiles": 1,
+      "k_tiles": 4,
+      "n_tiles": 1,
+      "blocks": 116,
+      "rule_block_w": 2,
+      "chosen_per_core_M": 1,
+      "naive_us": 218.55,
+      "reps": 20,
+      "widths": {
+        "1": {
+          "chosen": {
+            "exact": false,
+            "us": 35.88
+          },
+          "p1": {
+            "exact": false,
+            "us": 35.13
+          }
+        },
+        "2": {
+          "chosen": {
+            "exact": true,
+            "us": 36.76
+          },
+          "p1": {
+            "exact": true,
+            "us": 36.75
+          }
+        },
+        "4": {
+          "chosen": {
+            "exact": false,
+            "us": 30.49
+          },
+          "p1": {
+            "exact": false,
+            "us": 30.68
+          }
+        }
+      },
+      "exact_widths": [
+        2
+      ],
+      "rule_is_exact": true,
+      "calls": {
+        "protenix-v2/s1": 1200
+      }
+    },
+    {
+      "in0": [
+        1,
+        16,
+        117,
+        32
+      ],
+      "in1": [
+        1,
+        16,
+        32,
+        117
+      ],
+      "dtype": "bf16",
+      "batch": 16,
+      "m_tiles": 4,
+      "k_tiles": 1,
+      "n_tiles": 4,
+      "blocks": 64,
+      "rule_block_w": 1,
+      "chosen_per_core_M": 2,
+      "naive_us": 38.59,
+      "reps": 100,
+      "widths": {
+        "1": {
+          "chosen": {
+            "exact": true,
+            "us": 27.45
+          },
+          "p1": {
+            "exact": true,
+            "us": 22.03
+          }
+        }
+      },
+      "exact_widths": [
+        1
+      ],
+      "rule_is_exact": true,
+      "calls": {
+        "opendde/s1": 484,
+        "protenix-v2/s1": 484,
+        "protenix-v2/s5": 500
+      }
+    },
+    {
+      "in0": [
+        1,
+        16,
+        117,
+        117
+      ],
+      "in1": [
+        1,
+        16,
+        117,
+        32
+      ],
+      "dtype": "bf16",
+      "batch": 16,
+      "m_tiles": 4,
+      "k_tiles": 4,
+      "n_tiles": 1,
+      "blocks": 64,
+      "rule_block_w": 2,
+      "chosen_per_core_M": 2,
+      "naive_us": 35.02,
+      "reps": 111,
+      "widths": {
+        "1": {
+          "chosen": {
+            "exact": false,
+            "us": 13.75
+          },
+          "p1": {
+            "exact": false,
+            "us": 18.07
+          }
+        },
+        "2": {
+          "chosen": {
+            "exact": true,
+            "us": 27.78
+          },
+          "p1": {
+            "exact": true,
+            "us": 35.65
+          }
+        },
+        "4": {
+          "chosen": {
+            "exact": false,
+            "us": 15.93
+          },
+          "p1": {
+            "exact": false,
+            "us": 31.17
+          }
+        }
+      },
+      "exact_widths": [
+        2
+      ],
+      "rule_is_exact": true,
+      "calls": {
+        "opendde/s1": 484,
+        "protenix-v2/s1": 484,
+        "protenix-v2/s5": 500
+      }
+    },
+    {
+      "in0": [
+        1,
+        8,
+        229,
+        64
+      ],
+      "in1": [
+        1,
+        8,
+        64,
+        229
+      ],
+      "dtype": "bf16",
+      "batch": 8,
+      "m_tiles": 8,
+      "k_tiles": 2,
+      "n_tiles": 8,
+      "blocks": 64,
+      "rule_block_w": 1,
+      "chosen_per_core_M": 2,
+      "naive_us": 35.37,
+      "reps": 93,
+      "widths": {
+        "1": {
+          "chosen": {
+            "exact": true,
+            "us": 33.3
+          },
+          "p1": {
+            "exact": true,
+            "us": 27.66
+          }
+        },
+        "2": {
+          "chosen": {
+            "exact": false,
+            "us": 35.02
+          },
+          "p1": {
+            "exact": false,
+            "us": 35.6
+          }
+        }
+      },
+      "exact_widths": [
+        1
+      ],
+      "rule_is_exact": true,
+      "calls": {
+        "opendde/s1": 4
+      }
+    },
+    {
+      "in0": [
+        1,
+        8,
+        229,
+        229
+      ],
+      "in1": [
+        1,
+        8,
+        229,
+        64
+      ],
+      "dtype": "bf16",
+      "batch": 8,
+      "m_tiles": 8,
+      "k_tiles": 8,
+      "n_tiles": 2,
+      "blocks": 64,
+      "rule_block_w": 2,
+      "chosen_per_core_M": 2,
+      "naive_us": 67.78,
+      "reps": 62,
+      "widths": {
+        "1": {
+          "chosen": {
+            "exact": true,
+            "us": 35.38
+          },
+          "p1": {
+            "exact": true,
+            "us": 37.53
+          }
+        },
+        "2": {
+          "chosen": {
+            "exact": false,
+            "us": 34.95
+          },
+          "p1": {
+            "exact": false,
+            "us": 16.69
+          }
+        },
+        "4": {
+          "chosen": {
+            "exact": false,
+            "us": 39.36
+          },
+          "p1": {
+            "exact": false,
+            "us": 18.29
+          }
+        },
+        "8": {
+          "chosen": {
+            "exact": false,
+            "us": 35.31
+          },
+          "p1": {
+            "exact": false,
+            "us": 36.16
+          }
+        }
+      },
+      "exact_widths": [
+        1
+      ],
+      "rule_is_exact": false,
+      "calls": {
+        "opendde/s1": 4
+      }
+    }
+  ]
+}

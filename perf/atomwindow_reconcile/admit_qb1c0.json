@@ -1,0 +1,700 @@
+{
+  "grid": [
+    13,
+    10
+  ],
+  "cores": 130,
+  "l1": 1532448,
+  "gate_floor": 32,
+  "priced_saving_ms_per_fold": {
+    "opendde/prot.yaml/s1": 826.5,
+    "protenix-v2/prot.yaml/s1": 578.9,
+    "protenix-v2/prot.yaml/s5": 2.8
+  },
+  "rows": [
+    {
+      "in0": [
+        1,
+        16,
+        229,
+        64
+      ],
+      "in1": [
+        1,
+        16,
+        64,
+        229
+      ],
+      "dtype": "bf16",
+      "batch": 16,
+      "m_tiles": 8,
+      "k_tiles": 2,
+      "n_tiles": 8,
+      "blocks": 128,
+      "in0_block_w": 1,
+      "legal_p": [
+        1,
+        2,
+        4,
+        8
+      ],
+      "reps": 104,
+      "chosen": "MatmulMultiCoreReuseProgramConfig(compute_with_storage_grid_size=(x=13,y=10),in0_block_w=1,out_subblock_h=1,out_subblock_w=4,per_core_M=4,per_core_N=8)",
+      "us": {
+        "naive": 35.6,
+        "bmm": 28.71,
+        "p1": 25.22,
+        "p2": 19.19,
+        "p4": 17.65,
+        "p8": 22.14
+      },
+      "bit_exact": {
+        "naive": true,
+        "bmm": true,
+        "p1": true,
+        "p2": true,
+        "p4": true,
+        "p8": true
+      },
+      "vs_naive": {
+        "bmm": 1.24,
+        "p1": 1.412,
+        "p2": 1.855,
+        "p4": 2.017,
+        "p8": 1.608
+      },
+      "saved_us": 6.89,
+      "best_p": "p4",
+      "best_p_saved_us": 17.95,
+      "calls": {
+        "opendde/prot.yaml/s1": 4800
+      },
+      "saved_ms_per_fold": {
+        "opendde/prot.yaml/s1": 33.1
+      }
+    },
+    {
+      "in0": [
+        1,
+        16,
+        229,
+        229
+      ],
+      "in1": [
+        1,
+        16,
+        229,
+        64
+      ],
+      "dtype": "bf16",
+      "batch": 16,
+      "m_tiles": 8,
+      "k_tiles": 8,
+      "n_tiles": 2,
+      "blocks": 128,
+      "in0_block_w": 2,
+      "legal_p": [
+        1,
+        2,
+        4,
+        8
+      ],
+      "reps": 34,
+      "chosen": "MatmulMultiCoreReuseProgramConfig(compute_with_storage_grid_size=(x=13,y=10),in0_block_w=2,out_subblock_h=2,out_subblock_w=2,per_core_M=4,per_core_N=2)",
+      "us": {
+        "naive": 133.53,
+        "bmm": 29.71,
+        "p1": 25.66,
+        "p2": 21.69,
+        "p4": 25.87,
+        "p8": 40.0
+      },
+      "bit_exact": {
+        "naive": true,
+        "bmm": false,
+        "p1": false,
+        "p2": false,
+        "p4": false,
+        "p8": false
+      },
+      "vs_naive": {
+        "bmm": 4.494,
+        "p1": 5.204,
+        "p2": 6.156,
+        "p4": 5.162,
+        "p8": 3.338
+      },
+      "saved_us": 103.82,
+      "best_p": "p2",
+      "best_p_saved_us": 111.84,
+      "calls": {
+        "opendde/prot.yaml/s1": 4800
+      },
+      "saved_ms_per_fold": {
+        "opendde/prot.yaml/s1": 498.3
+      }
+    },
+    {
+      "in0": [
+        1,
+        16,
+        117,
+        64
+      ],
+      "in1": [
+        1,
+        16,
+        64,
+        117
+      ],
+      "dtype": "fp32",
+      "batch": 16,
+      "m_tiles": 4,
+      "k_tiles": 2,
+      "n_tiles": 4,
+      "blocks": 64,
+      "in0_block_w": 2,
+      "legal_p": [
+        1,
+        2,
+        4
+      ],
+      "reps": 113,
+      "chosen": "MatmulMultiCoreReuseProgramConfig(compute_with_storage_grid_size=(x=13,y=10),in0_block_w=2,out_subblock_h=1,out_subblock_w=4,per_core_M=2,per_core_N=4)",
+      "us": {
+        "naive": 33.36,
+        "bmm": 28.61,
+        "p1": 18.02,
+        "p2": 17.65,
+        "p4": 17.3
+      },
+      "bit_exact": {
+        "naive": true,
+        "bmm": false,
+        "p1": false,
+        "p2": false,
+        "p4": false
+      },
+      "vs_naive": {
+        "bmm": 1.166,
+        "p1": 1.851,
+        "p2": 1.89,
+        "p4": 1.928
+      },
+      "saved_us": 4.75,
+      "best_p": "p4",
+      "best_p_saved_us": 16.06,
+      "calls": {
+        "protenix-v2/prot.yaml/s1": 4800
+      },
+      "saved_ms_per_fold": {
+        "protenix-v2/prot.yaml/s1": 22.8
+      }
+    },
+    {
+      "in0": [
+        1,
+        16,
+        117,
+        117
+      ],
+      "in1": [
+        1,
+        16,
+        117,
+        64
+      ],
+      "dtype": "fp32",
+      "batch": 16,
+      "m_tiles": 4,
+      "k_tiles": 4,
+      "n_tiles": 2,
+      "blocks": 64,
+      "in0_block_w": 2,
+      "legal_p": [
+        1,
+        2,
+        4
+      ],
+      "reps": 60,
+      "chosen": "MatmulMultiCoreReuseProgramConfig(compute_with_storage_grid_size=(x=13,y=10),in0_block_w=2,out_subblock_h=2,out_subblock_w=2,per_core_M=2,per_core_N=2)",
+      "us": {
+        "naive": 68.9,
+        "bmm": 24.27,
+        "p1": 17.82,
+        "p2": 14.64,
+        "p4": 15.4
+      },
+      "bit_exact": {
+        "naive": true,
+        "bmm": false,
+        "p1": false,
+        "p2": false,
+        "p4": false
+      },
+      "vs_naive": {
+        "bmm": 2.839,
+        "p1": 3.866,
+        "p2": 4.706,
+        "p4": 4.474
+      },
+      "saved_us": 44.63,
+      "best_p": "p2",
+      "best_p_saved_us": 54.26,
+      "calls": {
+        "protenix-v2/prot.yaml/s1": 4800
+      },
+      "saved_ms_per_fold": {
+        "protenix-v2/prot.yaml/s1": 214.2
+      }
+    },
+    {
+      "in0": [
+        29,
+        4,
+        32,
+        32
+      ],
+      "in1": [
+        29,
+        4,
+        32,
+        128
+      ],
+      "dtype": "bf16",
+      "batch": 116,
+      "m_tiles": 1,
+      "k_tiles": 1,
+      "n_tiles": 4,
+      "blocks": 116,
+      "in0_block_w": 1,
+      "legal_p": [
+        1
+      ],
+      "reps": 37,
+      "chosen": "MatmulMultiCoreReuseProgramConfig(compute_with_storage_grid_size=(x=13,y=10),in0_block_w=1,out_subblock_h=1,out_subblock_w=4,per_core_M=1,per_core_N=4)",
+      "us": {
+        "naive": 183.34,
+        "bmm": 107.57,
+        "p1": 20.13
+      },
+      "bit_exact": {
+        "naive": true,
+        "bmm": true,
+        "p1": true
+      },
+      "vs_naive": {
+        "bmm": 1.704,
+        "p1": 9.108
+      },
+      "saved_us": 75.77,
+      "best_p": "p1",
+      "best_p_saved_us": 163.21,
+      "calls": {
+        "opendde/prot.yaml/s1": 1203,
+        "protenix-v2/prot.yaml/s1": 3,
+        "protenix-v2/prot.yaml/s5": 3
+      },
+      "saved_ms_per_fold": {
+        "opendde/prot.yaml/s1": 91.2,
+        "protenix-v2/prot.yaml/s1": 0.2,
+        "protenix-v2/prot.yaml/s5": 0.2
+      }
+    },
+    {
+      "in0": [
+        29,
+        4,
+        32,
+        128
+      ],
+      "in1": [
+        29,
+        4,
+        128,
+        32
+      ],
+      "dtype": "bf16",
+      "batch": 116,
+      "m_tiles": 1,
+      "k_tiles": 4,
+      "n_tiles": 1,
+      "blocks": 116,
+      "in0_block_w": 2,
+      "legal_p": [
+        1
+      ],
+      "reps": 24,
+      "chosen": "MatmulMultiCoreReuseProgramConfig(compute_with_storage_grid_size=(x=13,y=10),in0_block_w=2,out_subblock_h=1,out_subblock_w=1,per_core_M=1,per_core_N=1)",
+      "us": {
+        "naive": 198.08,
+        "bmm": 30.47,
+        "p1": 19.58
+      },
+      "bit_exact": {
+        "naive": true,
+        "bmm": true,
+        "p1": true
+      },
+      "vs_naive": {
+        "bmm": 6.501,
+        "p1": 10.116
+      },
+      "saved_us": 167.61,
+      "best_p": "p1",
+      "best_p_saved_us": 178.5,
+      "calls": {
+        "opendde/prot.yaml/s1": 1203,
+        "protenix-v2/prot.yaml/s1": 3,
+        "protenix-v2/prot.yaml/s5": 3
+      },
+      "saved_ms_per_fold": {
+        "opendde/prot.yaml/s1": 201.6,
+        "protenix-v2/prot.yaml/s1": 0.5,
+        "protenix-v2/prot.yaml/s5": 0.5
+      }
+    },
+    {
+      "in0": [
+        29,
+        4,
+        32,
+        32
+      ],
+      "in1": [
+        29,
+        4,
+        32,
+        128
+      ],
+      "dtype": "fp32",
+      "batch": 116,
+      "m_tiles": 1,
+      "k_tiles": 1,
+      "n_tiles": 4,
+      "blocks": 116,
+      "in0_block_w": 1,
+      "legal_p": [
+        1
+      ],
+      "reps": 36,
+      "chosen": "MatmulMultiCoreReuseProgramConfig(compute_with_storage_grid_size=(x=13,y=10),in0_block_w=1,out_subblock_h=1,out_subblock_w=4,per_core_M=1,per_core_N=4)",
+      "us": {
+        "naive": 127.5,
+        "bmm": 30.28,
+        "p1": 16.29
+      },
+      "bit_exact": {
+        "naive": true,
+        "bmm": true,
+        "p1": true
+      },
+      "vs_naive": {
+        "bmm": 4.211,
+        "p1": 7.827
+      },
+      "saved_us": 97.22,
+      "best_p": "p1",
+      "best_p_saved_us": 111.21,
+      "calls": {
+        "protenix-v2/prot.yaml/s1": 1200
+      },
+      "saved_ms_per_fold": {
+        "protenix-v2/prot.yaml/s1": 116.7
+      }
+    },
+    {
+      "in0": [
+        29,
+        4,
+        32,
+        128
+      ],
+      "in1": [
+        29,
+        4,
+        128,
+        32
+      ],
+      "dtype": "fp32",
+      "batch": 116,
+      "m_tiles": 1,
+      "k_tiles": 4,
+      "n_tiles": 1,
+      "blocks": 116,
+      "in0_block_w": 2,
+      "legal_p": [
+        1
+      ],
+      "reps": 22,
+      "chosen": "MatmulMultiCoreReuseProgramConfig(compute_with_storage_grid_size=(x=13,y=10),in0_block_w=2,out_subblock_h=1,out_subblock_w=1,per_core_M=1,per_core_N=1)",
+      "us": {
+        "naive": 215.81,
+        "bmm": 30.45,
+        "p1": 19.73
+      },
+      "bit_exact": {
+        "naive": true,
+        "bmm": true,
+        "p1": true
+      },
+      "vs_naive": {
+        "bmm": 7.087,
+        "p1": 10.938
+      },
+      "saved_us": 185.36,
+      "best_p": "p1",
+      "best_p_saved_us": 196.08,
+      "calls": {
+        "protenix-v2/prot.yaml/s1": 1200
+      },
+      "saved_ms_per_fold": {
+        "protenix-v2/prot.yaml/s1": 222.4
+      }
+    },
+    {
+      "in0": [
+        1,
+        16,
+        117,
+        32
+      ],
+      "in1": [
+        1,
+        16,
+        32,
+        117
+      ],
+      "dtype": "bf16",
+      "batch": 16,
+      "m_tiles": 4,
+      "k_tiles": 1,
+      "n_tiles": 4,
+      "blocks": 64,
+      "in0_block_w": 1,
+      "legal_p": [
+        1,
+        2,
+        4
+      ],
+      "reps": 155,
+      "chosen": "MatmulMultiCoreReuseProgramConfig(compute_with_storage_grid_size=(x=13,y=10),in0_block_w=1,out_subblock_h=1,out_subblock_w=4,per_core_M=2,per_core_N=4)",
+      "us": {
+        "naive": 19.56,
+        "bmm": 25.9,
+        "p1": 18.09,
+        "p2": 17.56,
+        "p4": 17.4
+      },
+      "bit_exact": {
+        "naive": true,
+        "bmm": true,
+        "p1": true,
+        "p2": true,
+        "p4": true
+      },
+      "vs_naive": {
+        "bmm": 0.755,
+        "p1": 1.081,
+        "p2": 1.114,
+        "p4": 1.124
+      },
+      "saved_us": -6.34,
+      "best_p": "p4",
+      "best_p_saved_us": 2.16,
+      "calls": {
+        "opendde/prot.yaml/s1": 484,
+        "protenix-v2/prot.yaml/s1": 484,
+        "protenix-v2/prot.yaml/s5": 500
+      },
+      "saved_ms_per_fold": {
+        "opendde/prot.yaml/s1": -3.1,
+        "protenix-v2/prot.yaml/s1": -3.1,
+        "protenix-v2/prot.yaml/s5": -3.2
+      }
+    },
+    {
+      "in0": [
+        1,
+        16,
+        117,
+        117
+      ],
+      "in1": [
+        1,
+        16,
+        117,
+        32
+      ],
+      "dtype": "bf16",
+      "batch": 16,
+      "m_tiles": 4,
+      "k_tiles": 4,
+      "n_tiles": 1,
+      "blocks": 64,
+      "in0_block_w": 2,
+      "legal_p": [
+        1,
+        2,
+        4
+      ],
+      "reps": 113,
+      "chosen": "MatmulMultiCoreReuseProgramConfig(compute_with_storage_grid_size=(x=13,y=10),in0_block_w=2,out_subblock_h=2,out_subblock_w=1,per_core_M=2,per_core_N=1)",
+      "us": {
+        "naive": 34.99,
+        "bmm": 24.32,
+        "p1": 18.08,
+        "p2": 17.63,
+        "p4": 17.49
+      },
+      "bit_exact": {
+        "naive": true,
+        "bmm": true,
+        "p1": true,
+        "p2": true,
+        "p4": true
+      },
+      "vs_naive": {
+        "bmm": 1.439,
+        "p1": 1.935,
+        "p2": 1.985,
+        "p4": 2.001
+      },
+      "saved_us": 10.67,
+      "best_p": "p4",
+      "best_p_saved_us": 17.5,
+      "calls": {
+        "opendde/prot.yaml/s1": 484,
+        "protenix-v2/prot.yaml/s1": 484,
+        "protenix-v2/prot.yaml/s5": 500
+      },
+      "saved_ms_per_fold": {
+        "opendde/prot.yaml/s1": 5.2,
+        "protenix-v2/prot.yaml/s1": 5.2,
+        "protenix-v2/prot.yaml/s5": 5.3
+      }
+    },
+    {
+      "in0": [
+        1,
+        8,
+        229,
+        64
+      ],
+      "in1": [
+        1,
+        8,
+        64,
+        229
+      ],
+      "dtype": "bf16",
+      "batch": 8,
+      "m_tiles": 8,
+      "k_tiles": 2,
+      "n_tiles": 8,
+      "blocks": 64,
+      "in0_block_w": 1,
+      "legal_p": [
+        1,
+        2,
+        4,
+        8
+      ],
+      "reps": 6,
+      "chosen": "MatmulMultiCoreReuseProgramConfig(compute_with_storage_grid_size=(x=13,y=10),in0_block_w=1,out_subblock_h=1,out_subblock_w=4,per_core_M=2,per_core_N=8)",
+      "us": {
+        "naive": 27.06,
+        "bmm": 33.93,
+        "p1": 22.17,
+        "p2": 21.01,
+        "p4": 21.19,
+        "p8": 22.75
+      },
+      "bit_exact": {
+        "naive": true,
+        "bmm": true,
+        "p1": true,
+        "p2": true,
+        "p4": true,
+        "p8": true
+      },
+      "vs_naive": {
+        "bmm": 0.798,
+        "p1": 1.221,
+        "p2": 1.288,
+        "p4": 1.277,
+        "p8": 1.189
+      },
+      "saved_us": -6.87,
+      "best_p": "p2",
+      "best_p_saved_us": 6.05,
+      "calls": {
+        "opendde/prot.yaml/s1": 4
+      },
+      "saved_ms_per_fold": {
+        "opendde/prot.yaml/s1": -0.0
+      }
+    },
+    {
+      "in0": [
+        1,
+        8,
+        229,
+        229
+      ],
+      "in1": [
+        1,
+        8,
+        229,
+        64
+      ],
+      "dtype": "bf16",
+      "batch": 8,
+      "m_tiles": 8,
+      "k_tiles": 8,
+      "n_tiles": 2,
+      "blocks": 64,
+      "in0_block_w": 2,
+      "legal_p": [
+        1,
+        2,
+        4,
+        8
+      ],
+      "reps": 63,
+      "chosen": "MatmulMultiCoreReuseProgramConfig(compute_with_storage_grid_size=(x=13,y=10),in0_block_w=2,out_subblock_h=2,out_subblock_w=2,per_core_M=2,per_core_N=2)",
+      "us": {
+        "naive": 67.53,
+        "bmm": 28.85,
+        "p1": 18.81,
+        "p2": 18.29,
+        "p4": 21.3,
+        "p8": 36.41
+      },
+      "bit_exact": {
+        "naive": true,
+        "bmm": false,
+        "p1": false,
+        "p2": false,
+        "p4": false,
+        "p8": false
+      },
+      "vs_naive": {
+        "bmm": 2.341,
+        "p1": 3.59,
+        "p2": 3.692,
+        "p4": 3.17,
+        "p8": 1.855
+      },
+      "saved_us": 38.68,
+      "best_p": "p2",
+      "best_p_saved_us": 49.24,
+      "calls": {
+        "opendde/prot.yaml/s1": 4
+      },
+      "saved_ms_per_fold": {
+        "opendde/prot.yaml/s1": 0.2
+      }
+    }
+  ]
+}

@@ -1,0 +1,231 @@
+{
+  "model": "opendde",
+  "target": "examples/prot.yaml",
+  "samples": 1,
+  "sampling_steps": 200,
+  "recycling_steps": 10,
+  "grid": [
+    13,
+    10
+  ],
+  "cores": 130,
+  "l1_unreserved": 1532448,
+  "fold_s": 30.497,
+  "n_tokens": 117,
+  "plddt": 0.834864,
+  "late_rebound": [],
+  "calls_total": 12982,
+  "calls_applied": 0,
+  "calls_gate_declined": 12982,
+  "calls_other_declined": 0,
+  "rows": [
+    {
+      "in0": [
+        1,
+        16,
+        229,
+        64
+      ],
+      "in1": [
+        1,
+        16,
+        64,
+        229
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "calls": 4800,
+      "batch": 16,
+      "m_tiles": 8,
+      "k_tiles": 2,
+      "n_tiles": 8,
+      "elem_bytes": 2,
+      "blocks": 128,
+      "applies": false,
+      "guard": "guard_ok",
+      "gate_declined": true,
+      "config": null
+    },
+    {
+      "in0": [
+        1,
+        16,
+        229,
+        229
+      ],
+      "in1": [
+        1,
+        16,
+        229,
+        64
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "calls": 4800,
+      "batch": 16,
+      "m_tiles": 8,
+      "k_tiles": 8,
+      "n_tiles": 2,
+      "elem_bytes": 2,
+      "blocks": 128,
+      "applies": false,
+      "guard": "guard_ok",
+      "gate_declined": true,
+      "config": null
+    },
+    {
+      "in0": [
+        29,
+        4,
+        32,
+        32
+      ],
+      "in1": [
+        29,
+        4,
+        32,
+        128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "calls": 1203,
+      "batch": 116,
+      "m_tiles": 1,
+      "k_tiles": 1,
+      "n_tiles": 4,
+      "elem_bytes": 2,
+      "blocks": 116,
+      "applies": false,
+      "guard": "guard_ok",
+      "gate_declined": true,
+      "config": null
+    },
+    {
+      "in0": [
+        29,
+        4,
+        32,
+        128
+      ],
+      "in1": [
+        29,
+        4,
+        128,
+        32
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "calls": 1203,
+      "batch": 116,
+      "m_tiles": 1,
+      "k_tiles": 4,
+      "n_tiles": 1,
+      "elem_bytes": 2,
+      "blocks": 116,
+      "applies": false,
+      "guard": "guard_ok",
+      "gate_declined": true,
+      "config": null
+    },
+    {
+      "in0": [
+        1,
+        16,
+        117,
+        32
+      ],
+      "in1": [
+        1,
+        16,
+        32,
+        117
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "calls": 484,
+      "batch": 16,
+      "m_tiles": 4,
+      "k_tiles": 1,
+      "n_tiles": 4,
+      "elem_bytes": 2,
+      "blocks": 64,
+      "applies": false,
+      "guard": "guard_ok",
+      "gate_declined": true,
+      "config": null
+    },
+    {
+      "in0": [
+        1,
+        16,
+        117,
+        117
+      ],
+      "in1": [
+        1,
+        16,
+        117,
+        32
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "calls": 484,
+      "batch": 16,
+      "m_tiles": 4,
+      "k_tiles": 4,
+      "n_tiles": 1,
+      "elem_bytes": 2,
+      "blocks": 64,
+      "applies": false,
+      "guard": "guard_ok",
+      "gate_declined": true,
+      "config": null
+    },
+    {
+      "in0": [
+        1,
+        8,
+        229,
+        64
+      ],
+      "in1": [
+        1,
+        8,
+        64,
+        229
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "calls": 4,
+      "batch": 8,
+      "m_tiles": 8,
+      "k_tiles": 2,
+      "n_tiles": 8,
+      "elem_bytes": 2,
+      "blocks": 64,
+      "applies": false,
+      "guard": "guard_ok",
+      "gate_declined": true,
+      "config": null
+    },
+    {
+      "in0": [
+        1,
+        8,
+        229,
+        229
+      ],
+      "in1": [
+        1,
+        8,
+        229,
+        64
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "calls": 4,
+      "batch": 8,
+      "m_tiles": 8,
+      "k_tiles": 8,
+      "n_tiles": 2,
+      "elem_bytes": 2,
+      "blocks": 64,
+      "applies": false,
+      "guard": "guard_ok",
+      "gate_declined": true,
+      "config": null
+    }
+  ]
+}

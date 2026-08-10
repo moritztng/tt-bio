@@ -1,0 +1,231 @@
+{
+  "model": "protenix-v2",
+  "target": "examples/prot300.yaml",
+  "samples": 1,
+  "sampling_steps": 200,
+  "recycling_steps": 10,
+  "grid": [
+    13,
+    10
+  ],
+  "cores": 130,
+  "l1_unreserved": 1532448,
+  "fold_s": 44.543,
+  "n_tokens": 298,
+  "plddt": 0.859489,
+  "late_rebound": [],
+  "calls_total": 12974,
+  "calls_applied": 12974,
+  "calls_gate_declined": 0,
+  "calls_other_declined": 0,
+  "rows": [
+    {
+      "in0": [
+        1,
+        16,
+        298,
+        64
+      ],
+      "in1": [
+        1,
+        16,
+        64,
+        298
+      ],
+      "dtype": "DataType.FLOAT32",
+      "calls": 4800,
+      "batch": 16,
+      "m_tiles": 10,
+      "k_tiles": 2,
+      "n_tiles": 10,
+      "elem_bytes": 4,
+      "blocks": 160,
+      "applies": true,
+      "guard": "guard_ok",
+      "gate_declined": false,
+      "config": "MatmulMultiCoreReuseProgramConfig(compute_with_storage_grid_size=(x=13,y=10),in0_block_w=1,out_subblock_h=1,out_subblock_w=2,per_core_M=5,per_core_N=10)"
+    },
+    {
+      "in0": [
+        1,
+        16,
+        298,
+        298
+      ],
+      "in1": [
+        1,
+        16,
+        298,
+        64
+      ],
+      "dtype": "DataType.FLOAT32",
+      "calls": 4800,
+      "batch": 16,
+      "m_tiles": 10,
+      "k_tiles": 10,
+      "n_tiles": 2,
+      "elem_bytes": 4,
+      "blocks": 160,
+      "applies": true,
+      "guard": "guard_ok",
+      "gate_declined": false,
+      "config": "MatmulMultiCoreReuseProgramConfig(compute_with_storage_grid_size=(x=13,y=10),in0_block_w=2,out_subblock_h=1,out_subblock_w=2,per_core_M=5,per_core_N=2)"
+    },
+    {
+      "in0": [
+        75,
+        4,
+        32,
+        32
+      ],
+      "in1": [
+        75,
+        4,
+        32,
+        128
+      ],
+      "dtype": "DataType.FLOAT32",
+      "calls": 1200,
+      "batch": 300,
+      "m_tiles": 1,
+      "k_tiles": 1,
+      "n_tiles": 4,
+      "elem_bytes": 4,
+      "blocks": 300,
+      "applies": true,
+      "guard": "guard_ok",
+      "gate_declined": false,
+      "config": "MatmulMultiCoreReuseProgramConfig(compute_with_storage_grid_size=(x=13,y=10),in0_block_w=1,out_subblock_h=1,out_subblock_w=4,per_core_M=1,per_core_N=4)"
+    },
+    {
+      "in0": [
+        75,
+        4,
+        32,
+        128
+      ],
+      "in1": [
+        75,
+        4,
+        128,
+        32
+      ],
+      "dtype": "DataType.FLOAT32",
+      "calls": 1200,
+      "batch": 300,
+      "m_tiles": 1,
+      "k_tiles": 4,
+      "n_tiles": 1,
+      "elem_bytes": 4,
+      "blocks": 300,
+      "applies": true,
+      "guard": "guard_ok",
+      "gate_declined": false,
+      "config": "MatmulMultiCoreReuseProgramConfig(compute_with_storage_grid_size=(x=13,y=10),in0_block_w=2,out_subblock_h=1,out_subblock_w=1,per_core_M=1,per_core_N=1)"
+    },
+    {
+      "in0": [
+        1,
+        16,
+        298,
+        32
+      ],
+      "in1": [
+        1,
+        16,
+        32,
+        298
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "calls": 484,
+      "batch": 16,
+      "m_tiles": 10,
+      "k_tiles": 1,
+      "n_tiles": 10,
+      "elem_bytes": 2,
+      "blocks": 160,
+      "applies": true,
+      "guard": "guard_ok",
+      "gate_declined": false,
+      "config": "MatmulMultiCoreReuseProgramConfig(compute_with_storage_grid_size=(x=13,y=10),in0_block_w=1,out_subblock_h=1,out_subblock_w=2,per_core_M=5,per_core_N=10)"
+    },
+    {
+      "in0": [
+        1,
+        16,
+        298,
+        298
+      ],
+      "in1": [
+        1,
+        16,
+        298,
+        32
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "calls": 484,
+      "batch": 16,
+      "m_tiles": 10,
+      "k_tiles": 10,
+      "n_tiles": 1,
+      "elem_bytes": 2,
+      "blocks": 160,
+      "applies": true,
+      "guard": "guard_ok",
+      "gate_declined": false,
+      "config": "MatmulMultiCoreReuseProgramConfig(compute_with_storage_grid_size=(x=13,y=10),in0_block_w=2,out_subblock_h=1,out_subblock_w=1,per_core_M=5,per_core_N=1)"
+    },
+    {
+      "in0": [
+        75,
+        4,
+        32,
+        32
+      ],
+      "in1": [
+        75,
+        4,
+        32,
+        128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "calls": 3,
+      "batch": 300,
+      "m_tiles": 1,
+      "k_tiles": 1,
+      "n_tiles": 4,
+      "elem_bytes": 2,
+      "blocks": 300,
+      "applies": true,
+      "guard": "guard_ok",
+      "gate_declined": false,
+      "config": "MatmulMultiCoreReuseProgramConfig(compute_with_storage_grid_size=(x=13,y=10),in0_block_w=1,out_subblock_h=1,out_subblock_w=4,per_core_M=1,per_core_N=4)"
+    },
+    {
+      "in0": [
+        75,
+        4,
+        32,
+        128
+      ],
+      "in1": [
+        75,
+        4,
+        128,
+        32
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "calls": 3,
+      "batch": 300,
+      "m_tiles": 1,
+      "k_tiles": 4,
+      "n_tiles": 1,
+      "elem_bytes": 2,
+      "blocks": 300,
+      "applies": true,
+      "guard": "guard_ok",
+      "gate_declined": false,
+      "config": "MatmulMultiCoreReuseProgramConfig(compute_with_storage_grid_size=(x=13,y=10),in0_block_w=2,out_subblock_h=1,out_subblock_w=1,per_core_M=1,per_core_N=1)"
+    }
+  ]
+}
