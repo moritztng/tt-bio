@@ -1,0 +1,142 @@
+{
+  "ttnn": "0.68.0",
+  "device_grid": [
+    11,
+    10
+  ],
+  "compute_grid_main": [
+    11,
+    10
+  ],
+  "num_cores": 110,
+  "get_max_worker_l1_unreserved_size": 1532416,
+  "l1_bank_bytes": 1461760,
+  "budget_bytes": 168565760,
+  "stub_validation": [
+    {
+      "n": 298,
+      "real_shape": [
+        298,
+        298,
+        256
+      ],
+      "transpose_c2fix": {
+        "real": true,
+        "stub": true,
+        "agree": true
+      },
+      "l1_layer_norm_x10": {
+        "real": true,
+        "stub": true,
+        "agree": true
+      }
+    },
+    {
+      "n": 352,
+      "real_shape": [
+        352,
+        352,
+        256
+      ],
+      "transpose_c2fix": {
+        "real": true,
+        "stub": true,
+        "agree": true
+      },
+      "l1_layer_norm_x10": {
+        "real": true,
+        "stub": true,
+        "agree": true
+      }
+    },
+    {
+      "n": 384,
+      "real_shape": [
+        384,
+        384,
+        256
+      ],
+      "transpose_c2fix": {
+        "real": false,
+        "stub": false,
+        "agree": true
+      },
+      "l1_layer_norm_x10": {
+        "real": true,
+        "stub": true,
+        "agree": true
+      }
+    }
+  ],
+  "stub_valid": true,
+  "sweep": {
+    "transpose_c2fix": {
+      "headroom": 2.5,
+      "last_passing_n": 352,
+      "first_failing_n_above_298": 353,
+      "monotone": true,
+      "at": {
+        "117": true,
+        "256": true,
+        "298": true,
+        "320": true,
+        "352": true,
+        "353": false,
+        "384": false,
+        "416": false,
+        "448": false,
+        "457": false,
+        "458": false,
+        "480": false,
+        "509": false,
+        "512": false,
+        "640": false,
+        "1095": false
+      },
+      "bytes_at": {
+        "298": 48824320,
+        "320": 52428800,
+        "352": 63438848,
+        "384": 75497472,
+        "448": 102760448,
+        "480": 117964800,
+        "512": 134217728,
+        "1095": 627916800
+      }
+    },
+    "l1_layer_norm_x10": {
+      "headroom": 1.5,
+      "last_passing_n": 457,
+      "first_failing_n_above_298": 458,
+      "monotone": true,
+      "at": {
+        "117": true,
+        "256": true,
+        "298": true,
+        "320": true,
+        "352": true,
+        "353": true,
+        "384": true,
+        "416": true,
+        "448": true,
+        "457": true,
+        "458": false,
+        "480": false,
+        "509": false,
+        "512": false,
+        "640": false,
+        "1095": false
+      },
+      "bytes_at": {
+        "298": 48824320,
+        "320": 52428800,
+        "352": 63438848,
+        "384": 75497472,
+        "448": 102760448,
+        "480": 117964800,
+        "512": 134217728,
+        "1095": 627916800
+      }
+    }
+  }
+}

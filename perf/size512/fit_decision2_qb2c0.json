@@ -1,0 +1,216 @@
+{
+  "ttnn": "0.68.0",
+  "grid": [
+    11,
+    10
+  ],
+  "num_cores": 110,
+  "per_core_unreserved": 1532416,
+  "l1_bank_bytes": 1461760,
+  "flags": {
+    "_PAIR_PROJ_BW": 16,
+    "_PAIR_PROJ_L1_BW": 16,
+    "_NARROW_PROJ_BW": 1,
+    "_PAIR_PROJ_L1_OUT": true,
+    "_PWA_L1_NORM": true,
+    "_TEMPLATE_L1_NORM": true
+  },
+  "cliffs": {
+    "c2fix_transpose_l1": {
+      "last_passing_n": 352,
+      "first_failing_above_298": 353,
+      "monotone_above_last": true
+    },
+    "x10_l1_layer_norm": {
+      "last_passing_n": 457,
+      "first_failing_above_298": 458,
+      "monotone_above_last": true
+    },
+    "x7_pair_proj_l1_out": {
+      "last_passing_n": 366,
+      "first_failing_above_298": 367,
+      "monotone_above_last": true
+    },
+    "pair_proj_dram_tuned": {
+      "last_passing_n": 1152,
+      "first_failing_above_298": null,
+      "monotone_above_last": true
+    },
+    "x2_narrow_narrow_c1_l1out": {
+      "last_passing_n": 1152,
+      "first_failing_above_298": null,
+      "monotone_above_last": true
+    },
+    "x2_narrow_narrow_c1_dram": {
+      "last_passing_n": 1152,
+      "first_failing_above_298": null,
+      "monotone_above_last": true
+    },
+    "x2_narrow_bias_c16_l1out": {
+      "last_passing_n": 1152,
+      "first_failing_above_298": null,
+      "monotone_above_last": true
+    },
+    "x2_narrow_bias_c16_dram": {
+      "last_passing_n": 1152,
+      "first_failing_above_298": null,
+      "monotone_above_last": true
+    },
+    "x2_narrow_tmpl_c64_l1out": {
+      "last_passing_n": 1024,
+      "first_failing_above_298": 1025,
+      "monotone_above_last": true
+    },
+    "x2_narrow_tmpl_c64_dram": {
+      "last_passing_n": 1152,
+      "first_failing_above_298": null,
+      "monotone_above_last": true
+    }
+  },
+  "at": {
+    "117": {
+      "c2fix_transpose_l1": true,
+      "x10_l1_layer_norm": true,
+      "x7_pair_proj_l1_out": true,
+      "pair_proj_dram_tuned": true,
+      "x2_narrow_narrow_c1_l1out": true,
+      "x2_narrow_narrow_c1_dram": true,
+      "x2_narrow_bias_c16_l1out": true,
+      "x2_narrow_bias_c16_dram": true,
+      "x2_narrow_tmpl_c64_l1out": true,
+      "x2_narrow_tmpl_c64_dram": true
+    },
+    "298": {
+      "c2fix_transpose_l1": true,
+      "x10_l1_layer_norm": true,
+      "x7_pair_proj_l1_out": true,
+      "pair_proj_dram_tuned": true,
+      "x2_narrow_narrow_c1_l1out": true,
+      "x2_narrow_narrow_c1_dram": true,
+      "x2_narrow_bias_c16_l1out": true,
+      "x2_narrow_bias_c16_dram": true,
+      "x2_narrow_tmpl_c64_l1out": true,
+      "x2_narrow_tmpl_c64_dram": true
+    },
+    "320": {
+      "c2fix_transpose_l1": true,
+      "x10_l1_layer_norm": true,
+      "x7_pair_proj_l1_out": true,
+      "pair_proj_dram_tuned": true,
+      "x2_narrow_narrow_c1_l1out": true,
+      "x2_narrow_narrow_c1_dram": true,
+      "x2_narrow_bias_c16_l1out": true,
+      "x2_narrow_bias_c16_dram": true,
+      "x2_narrow_tmpl_c64_l1out": true,
+      "x2_narrow_tmpl_c64_dram": true
+    },
+    "352": {
+      "c2fix_transpose_l1": true,
+      "x10_l1_layer_norm": true,
+      "x7_pair_proj_l1_out": true,
+      "pair_proj_dram_tuned": true,
+      "x2_narrow_narrow_c1_l1out": true,
+      "x2_narrow_narrow_c1_dram": true,
+      "x2_narrow_bias_c16_l1out": true,
+      "x2_narrow_bias_c16_dram": true,
+      "x2_narrow_tmpl_c64_l1out": true,
+      "x2_narrow_tmpl_c64_dram": true
+    },
+    "366": {
+      "c2fix_transpose_l1": false,
+      "x10_l1_layer_norm": true,
+      "x7_pair_proj_l1_out": true,
+      "pair_proj_dram_tuned": true,
+      "x2_narrow_narrow_c1_l1out": true,
+      "x2_narrow_narrow_c1_dram": true,
+      "x2_narrow_bias_c16_l1out": true,
+      "x2_narrow_bias_c16_dram": true,
+      "x2_narrow_tmpl_c64_l1out": true,
+      "x2_narrow_tmpl_c64_dram": true
+    },
+    "384": {
+      "c2fix_transpose_l1": false,
+      "x10_l1_layer_norm": true,
+      "x7_pair_proj_l1_out": false,
+      "pair_proj_dram_tuned": true,
+      "x2_narrow_narrow_c1_l1out": true,
+      "x2_narrow_narrow_c1_dram": true,
+      "x2_narrow_bias_c16_l1out": true,
+      "x2_narrow_bias_c16_dram": true,
+      "x2_narrow_tmpl_c64_l1out": true,
+      "x2_narrow_tmpl_c64_dram": true
+    },
+    "448": {
+      "c2fix_transpose_l1": false,
+      "x10_l1_layer_norm": true,
+      "x7_pair_proj_l1_out": false,
+      "pair_proj_dram_tuned": true,
+      "x2_narrow_narrow_c1_l1out": true,
+      "x2_narrow_narrow_c1_dram": true,
+      "x2_narrow_bias_c16_l1out": true,
+      "x2_narrow_bias_c16_dram": true,
+      "x2_narrow_tmpl_c64_l1out": true,
+      "x2_narrow_tmpl_c64_dram": true
+    },
+    "457": {
+      "c2fix_transpose_l1": false,
+      "x10_l1_layer_norm": true,
+      "x7_pair_proj_l1_out": false,
+      "pair_proj_dram_tuned": true,
+      "x2_narrow_narrow_c1_l1out": true,
+      "x2_narrow_narrow_c1_dram": true,
+      "x2_narrow_bias_c16_l1out": true,
+      "x2_narrow_bias_c16_dram": true,
+      "x2_narrow_tmpl_c64_l1out": true,
+      "x2_narrow_tmpl_c64_dram": true
+    },
+    "480": {
+      "c2fix_transpose_l1": false,
+      "x10_l1_layer_norm": false,
+      "x7_pair_proj_l1_out": false,
+      "pair_proj_dram_tuned": true,
+      "x2_narrow_narrow_c1_l1out": true,
+      "x2_narrow_narrow_c1_dram": true,
+      "x2_narrow_bias_c16_l1out": true,
+      "x2_narrow_bias_c16_dram": true,
+      "x2_narrow_tmpl_c64_l1out": true,
+      "x2_narrow_tmpl_c64_dram": true
+    },
+    "509": {
+      "c2fix_transpose_l1": false,
+      "x10_l1_layer_norm": false,
+      "x7_pair_proj_l1_out": false,
+      "pair_proj_dram_tuned": true,
+      "x2_narrow_narrow_c1_l1out": true,
+      "x2_narrow_narrow_c1_dram": true,
+      "x2_narrow_bias_c16_l1out": true,
+      "x2_narrow_bias_c16_dram": true,
+      "x2_narrow_tmpl_c64_l1out": true,
+      "x2_narrow_tmpl_c64_dram": true
+    },
+    "512": {
+      "c2fix_transpose_l1": false,
+      "x10_l1_layer_norm": false,
+      "x7_pair_proj_l1_out": false,
+      "pair_proj_dram_tuned": true,
+      "x2_narrow_narrow_c1_l1out": true,
+      "x2_narrow_narrow_c1_dram": true,
+      "x2_narrow_bias_c16_l1out": true,
+      "x2_narrow_bias_c16_dram": true,
+      "x2_narrow_tmpl_c64_l1out": true,
+      "x2_narrow_tmpl_c64_dram": true
+    },
+    "1095": {
+      "c2fix_transpose_l1": false,
+      "x10_l1_layer_norm": false,
+      "x7_pair_proj_l1_out": false,
+      "pair_proj_dram_tuned": true,
+      "x2_narrow_narrow_c1_l1out": true,
+      "x2_narrow_narrow_c1_dram": true,
+      "x2_narrow_bias_c16_l1out": true,
+      "x2_narrow_bias_c16_dram": true,
+      "x2_narrow_tmpl_c64_l1out": false,
+      "x2_narrow_tmpl_c64_dram": true
+    }
+  }
+}
