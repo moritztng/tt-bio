@@ -47,6 +47,68 @@ STATS = [0, 0]
 REJECTS: dict = {}
 
 
+# --- the wheel's own work split has holes, and they move with the part shape -----------------------
+#
+# `ttnn.split_work_to_cores` raises `TT_FATAL @ work_split.cpp:305: remaining == 0` for some unit
+# counts. Measured on qb1 at ttnn 0.67.4 over 4000 unit counts on ten grids (13x10, 11x10, 9x13,
+# 13x13, 13x9, 12x10, 12x7, 8x10, 7x10, 6x6, 5x11), zero mismatches against this rule: it throws
+# exactly when `units > cores` and `units % cores` is a NON-ZERO MULTIPLE OF THE GRID HEIGHT. The
+# split's two core groups then have sizes that are both multiples of the height, and the utility
+# cannot express the second one as core ranges from where the first one ends.
+#
+# On a 13x10 grid that is Nt = 20, 30, 40, 50, 60, i.e. N in [609,640], [929,960], [1249,1280],
+# [1569,1600], [1889,1920]. On a 7x10 part it also catches Nt = 10, which is the Protenix trunk's
+# own tile count. So a hardcoded Nt exclusion list is right on this card and wrong on the next one,
+# silently.
+#
+# The rule is therefore used only to ORDER the search. The utility is always the authority: every
+# candidate rectangle is handed to it, and a shape it cannot split at all is refused by `eligible`
+# and reaches `ttnn.permute` instead of a TT_FATAL.
+
+_SPLIT_CACHE: dict = {}
+
+
+def _split_hole(cores, height, units):
+    """The measured rule above. A search heuristic, never the final word."""
+    r = units % cores
+    return units > cores and r != 0 and r % height == 0
+
+
+def _split_plan(device, units):
+    """The work split for ``units`` groups, or ``None`` if no rectangle of cores can carry it.
+
+    The full grid is tried first, so every shape that works today is split exactly as it is today
+    and production at N=298 is untouched. Only when the wheel throws does this look for the largest
+    rectangular sub-grid it will accept -- 117 of 130 cores at Nt=20 on qb1's 13x10, 90.0 % -- which
+    keeps the kernel on those bands instead of handing them back to an op it beats by 1.9x on DRAM.
+
+    Cached per ``(device, grid, units)``. The cost matters: a split that works costs 0.61 us on qb1,
+    a throwing one costs 357 us, and ``_channel_move`` runs 4352 times in a 298 aa fold. Probing per
+    call would replace a crash with a slowdown.
+    """
+    g = device.compute_with_storage_grid_size()
+    key = (device.id(), g.x, g.y, units)
+    if key in _SPLIT_CACHE:
+        return _SPLIT_CACHE[key]
+    candidates = [(g.x, g.y)] + sorted(
+        ((sx, sy) for sy in range(1, g.y + 1) for sx in range(1, g.x + 1)
+         if (sx, sy) != (g.x, g.y) and not _split_hole(sx * sy, sy, units)),
+        key=lambda s: -s[0] * s[1],
+    )
+    plan = None
+    for sx, sy in candidates:
+        cores = ttnn.CoreRangeSet(
+            [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(sx - 1, sy - 1))]
+        )
+        try:
+            plan = (sx, sy, ttnn.split_work_to_cores(cores, units))
+        except Exception:                                              # noqa: BLE001 -- wheel TT_FATAL
+            continue
+        break
+    _SPLIT_CACHE[key] = plan
+    return plan
+
+
 def _reject(reason, shape):
     k = (reason, tuple(shape))
     REJECTS[k] = REJECTS.get(k, 0) + 1
@@ -82,11 +144,11 @@ def _build(x, out, device, reader_ct, writer_ct):
     Nt = (N + TILE_H - 1) // TILE_H
     num_groups = Nt * Nt
 
-    g = device.compute_with_storage_grid_size()
-    all_cores = ttnn.CoreRangeSet(
-        [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(g.x - 1, g.y - 1))]
-    )
-    (_, core_grid, cg1, cg2, work1, work2) = ttnn.split_work_to_cores(all_cores, num_groups)
+    plan = _split_plan(device, num_groups)
+    # `eligible` has already refused any shape with no plan, so this cannot fire from the production
+    # path. It stays as an assertion because a direct caller of `reblock_permute` bypasses the gate.
+    assert plan is not None, f"no expressible work split for {num_groups} groups"
+    _, _, (_, core_grid, cg1, cg2, work1, work2) = plan
 
     tile_bytes = TILE_H * TILE_W * 2  # bf16
 
@@ -210,9 +272,16 @@ def eligible(x, memory_config) -> bool:
     if x.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
         return _reject("sharded_in", shape)
     bt = memory_config.buffer_type
-    if (bt == ttnn.BufferType.DRAM and N >= 256) or (bt == ttnn.BufferType.L1 and 288 <= N <= 352):
-        return True
-    return _reject(f"window_{bt}", shape)
+    if not ((bt == ttnn.BufferType.DRAM and N >= 256)
+            or (bt == ttnn.BufferType.L1 and 288 <= N <= 352)):
+        return _reject(f"window_{bt}", shape)
+    # Last, because it is the only clause that touches the device, and cached, so a fold pays it once
+    # per shape. `_build` requests a work split for Nt*Nt groups and the wheel's utility throws on
+    # some of them (see `_split_plan`); a shape it cannot split has to reach `ttnn.permute`, not a
+    # TT_FATAL.
+    if _split_plan(x.device(), ((N + TILE_H - 1) // TILE_H) ** 2) is None:
+        return _reject("work_split", shape)
+    return True
 
 
 # Release-gated: OFF until the win is re-measured on qb1 at ttnn 0.67.4 (charter §4.8).

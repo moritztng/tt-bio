@@ -1,0 +1,779 @@
+{
+  "host": "qb1",
+  "card": 3,
+  "wheel": "0.67.4",
+  "grid": [
+    13,
+    10
+  ],
+  "cores": 130,
+  "compute_grid_main": [
+    13,
+    10
+  ],
+  "A_bare_utility": {
+    "13x10": {
+      "cores": 130,
+      "n_failing_Nt_of_64": 5,
+      "failing": [
+        {
+          "Nt": 20,
+          "units": 400,
+          "N_lo": 609,
+          "N_hi": 640,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        },
+        {
+          "Nt": 30,
+          "units": 900,
+          "N_lo": 929,
+          "N_hi": 960,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        },
+        {
+          "Nt": 40,
+          "units": 1600,
+          "N_lo": 1249,
+          "N_hi": 1280,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        },
+        {
+          "Nt": 50,
+          "units": 2500,
+          "N_lo": 1569,
+          "N_hi": 1600,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        },
+        {
+          "Nt": 60,
+          "units": 3600,
+          "N_lo": 1889,
+          "N_hi": 1920,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        }
+      ]
+    },
+    "11x10": {
+      "cores": 110,
+      "n_failing_Nt_of_64": 5,
+      "failing": [
+        {
+          "Nt": 20,
+          "units": 400,
+          "N_lo": 609,
+          "N_hi": 640,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        },
+        {
+          "Nt": 30,
+          "units": 900,
+          "N_lo": 929,
+          "N_hi": 960,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        },
+        {
+          "Nt": 40,
+          "units": 1600,
+          "N_lo": 1249,
+          "N_hi": 1280,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        },
+        {
+          "Nt": 50,
+          "units": 2500,
+          "N_lo": 1569,
+          "N_hi": 1600,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        },
+        {
+          "Nt": 60,
+          "units": 3600,
+          "N_lo": 1889,
+          "N_hi": 1920,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        }
+      ]
+    },
+    "7x10": {
+      "cores": 70,
+      "n_failing_Nt_of_64": 6,
+      "failing": [
+        {
+          "Nt": 10,
+          "units": 100,
+          "N_lo": 289,
+          "N_hi": 320,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        },
+        {
+          "Nt": 20,
+          "units": 400,
+          "N_lo": 609,
+          "N_hi": 640,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        },
+        {
+          "Nt": 30,
+          "units": 900,
+          "N_lo": 929,
+          "N_hi": 960,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        },
+        {
+          "Nt": 40,
+          "units": 1600,
+          "N_lo": 1249,
+          "N_hi": 1280,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        },
+        {
+          "Nt": 50,
+          "units": 2500,
+          "N_lo": 1569,
+          "N_hi": 1600,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        },
+        {
+          "Nt": 60,
+          "units": 3600,
+          "N_lo": 1889,
+          "N_hi": 1920,
+          "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0"
+        }
+      ]
+    }
+  },
+  "B_plan": {
+    "8": {
+      "sub_grid": [
+        13,
+        10
+      ],
+      "cores": 130,
+      "pct_of_full_grid": 100.0,
+      "hole_on_full_grid": false
+    },
+    "10": {
+      "sub_grid": [
+        13,
+        10
+      ],
+      "cores": 130,
+      "pct_of_full_grid": 100.0,
+      "hole_on_full_grid": false
+    },
+    "19": {
+      "sub_grid": [
+        13,
+        10
+      ],
+      "cores": 130,
+      "pct_of_full_grid": 100.0,
+      "hole_on_full_grid": false
+    },
+    "20": {
+      "sub_grid": [
+        13,
+        9
+      ],
+      "cores": 117,
+      "pct_of_full_grid": 90.0,
+      "hole_on_full_grid": true
+    },
+    "21": {
+      "sub_grid": [
+        13,
+        10
+      ],
+      "cores": 130,
+      "pct_of_full_grid": 100.0,
+      "hole_on_full_grid": false
+    },
+    "29": {
+      "sub_grid": [
+        13,
+        10
+      ],
+      "cores": 130,
+      "pct_of_full_grid": 100.0,
+      "hole_on_full_grid": false
+    },
+    "30": {
+      "sub_grid": [
+        13,
+        8
+      ],
+      "cores": 104,
+      "pct_of_full_grid": 80.0,
+      "hole_on_full_grid": true
+    },
+    "31": {
+      "sub_grid": [
+        13,
+        10
+      ],
+      "cores": 130,
+      "pct_of_full_grid": 100.0,
+      "hole_on_full_grid": false
+    },
+    "39": {
+      "sub_grid": [
+        13,
+        10
+      ],
+      "cores": 130,
+      "pct_of_full_grid": 100.0,
+      "hole_on_full_grid": false
+    },
+    "40": {
+      "sub_grid": [
+        13,
+        9
+      ],
+      "cores": 117,
+      "pct_of_full_grid": 90.0,
+      "hole_on_full_grid": true
+    },
+    "41": {
+      "sub_grid": [
+        13,
+        10
+      ],
+      "cores": 130,
+      "pct_of_full_grid": 100.0,
+      "hole_on_full_grid": false
+    },
+    "49": {
+      "sub_grid": [
+        13,
+        10
+      ],
+      "cores": 130,
+      "pct_of_full_grid": 100.0,
+      "hole_on_full_grid": false
+    },
+    "50": {
+      "sub_grid": [
+        13,
+        9
+      ],
+      "cores": 117,
+      "pct_of_full_grid": 90.0,
+      "hole_on_full_grid": true
+    },
+    "51": {
+      "sub_grid": [
+        13,
+        10
+      ],
+      "cores": 130,
+      "pct_of_full_grid": 100.0,
+      "hole_on_full_grid": false
+    },
+    "59": {
+      "sub_grid": [
+        13,
+        10
+      ],
+      "cores": 130,
+      "pct_of_full_grid": 100.0,
+      "hole_on_full_grid": false
+    },
+    "60": {
+      "sub_grid": [
+        12,
+        10
+      ],
+      "cores": 120,
+      "pct_of_full_grid": 92.3,
+      "hole_on_full_grid": true
+    },
+    "61": {
+      "sub_grid": [
+        13,
+        10
+      ],
+      "cores": 130,
+      "pct_of_full_grid": 100.0,
+      "hole_on_full_grid": false
+    },
+    "64": {
+      "sub_grid": [
+        13,
+        10
+      ],
+      "cores": 130,
+      "pct_of_full_grid": 100.0,
+      "hole_on_full_grid": false
+    }
+  },
+  "C_prefix_crash": {
+    "reproduced": true,
+    "Nt": 20,
+    "N": 640,
+    "throw": "TT_FATAL @ /project/tt_metal/common/work_split.cpp:305: remaining == 0",
+    "python_frames": [
+      "File \"/home/ttuser/.coworker/wt/protenix-trunk--z-permute-bands/tt_bio/reblock_permute.py\", line 234, in reblock_permute",
+      "File \"/home/ttuser/.coworker/wt/protenix-trunk--z-permute-bands/tt_bio/reblock_permute.py\", line 222, in _prepare",
+      "File \"/home/ttuser/.coworker/wt/protenix-trunk--z-permute-bands/tt_bio/reblock_permute.py\", line 147, in _build",
+      "return (gg.x, gg.y, ttnn.split_work_to_cores(crs(gg.x, gg.y), units))",
+      "--- tt::tt_metal::split_work_to_cores(tt::tt_metal::CoreRangeSet const&, unsigned int, bool)"
+    ]
+  },
+  "D_parity": [
+    {
+      "N": 298,
+      "C": 64,
+      "out": "dram",
+      "Nt": 10,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 298,
+      "C": 64,
+      "out": "l1",
+      "Nt": 10,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 320,
+      "C": 64,
+      "out": "l1",
+      "Nt": 10,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 288,
+      "C": 64,
+      "out": "l1",
+      "Nt": 9,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 352,
+      "C": 64,
+      "out": "l1",
+      "Nt": 11,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 287,
+      "C": 64,
+      "out": "dram",
+      "Nt": 9,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 353,
+      "C": 64,
+      "out": "dram",
+      "Nt": 12,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 608,
+      "C": 64,
+      "out": "dram",
+      "Nt": 19,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 609,
+      "C": 64,
+      "out": "dram",
+      "Nt": 20,
+      "eligible": true,
+      "plan_cores": 117,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 640,
+      "C": 64,
+      "out": "dram",
+      "Nt": 20,
+      "eligible": true,
+      "plan_cores": 117,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 641,
+      "C": 64,
+      "out": "dram",
+      "Nt": 21,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 928,
+      "C": 32,
+      "out": "dram",
+      "Nt": 29,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 929,
+      "C": 32,
+      "out": "dram",
+      "Nt": 30,
+      "eligible": true,
+      "plan_cores": 104,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 960,
+      "C": 32,
+      "out": "dram",
+      "Nt": 30,
+      "eligible": true,
+      "plan_cores": 104,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 961,
+      "C": 32,
+      "out": "dram",
+      "Nt": 31,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 1248,
+      "C": 32,
+      "out": "dram",
+      "Nt": 39,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 1249,
+      "C": 32,
+      "out": "dram",
+      "Nt": 40,
+      "eligible": true,
+      "plan_cores": 117,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 1280,
+      "C": 32,
+      "out": "dram",
+      "Nt": 40,
+      "eligible": true,
+      "plan_cores": 117,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 1281,
+      "C": 32,
+      "out": "dram",
+      "Nt": 41,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 1568,
+      "C": 32,
+      "out": "dram",
+      "Nt": 49,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 1569,
+      "C": 32,
+      "out": "dram",
+      "Nt": 50,
+      "eligible": true,
+      "plan_cores": 117,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 1600,
+      "C": 32,
+      "out": "dram",
+      "Nt": 50,
+      "eligible": true,
+      "plan_cores": 117,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 1601,
+      "C": 32,
+      "out": "dram",
+      "Nt": 51,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 1888,
+      "C": 32,
+      "out": "dram",
+      "Nt": 59,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 1889,
+      "C": 32,
+      "out": "dram",
+      "Nt": 60,
+      "eligible": true,
+      "plan_cores": 120,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 1920,
+      "C": 32,
+      "out": "dram",
+      "Nt": 60,
+      "eligible": true,
+      "plan_cores": 120,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    },
+    {
+      "N": 1921,
+      "C": 32,
+      "out": "dram",
+      "Nt": 61,
+      "eligible": true,
+      "plan_cores": 130,
+      "torch_equal": true,
+      "served_delta": 1,
+      "fell_through_delta": 0
+    }
+  ],
+  "E_fallthrough": {
+    "eligible_after_forced_none": false,
+    "served_delta": 0,
+    "fell_through_delta": 2,
+    "work_split_rejects": {
+      "work_split:[1, 320, 320, 64]": 2
+    },
+    "torch_equal_vs_stock": true
+  },
+  "F_roofs": [
+    {
+      "N": 298,
+      "C": 64,
+      "out": "dram",
+      "padded_bytes_one_way": 13107200,
+      "clone_us": 89.21,
+      "stock_permute_us": 321.2,
+      "kernel_us": 186.71,
+      "copy_roof_GBs_rw": 293.9,
+      "stock_GBs_rw": 81.6,
+      "kernel_GBs_rw": 140.4,
+      "cores_engaged": 130,
+      "work_groups": 100,
+      "kernel_pct_of_copy_roof": 47.8,
+      "stock_pct_of_copy_roof": 27.8,
+      "clone_thru_us": 62.83,
+      "stock_thru_us": 290.53,
+      "kernel_thru_us": 317.17,
+      "copy_roof_GBs_rw_thru": 417.2,
+      "ratio_stock_over_kernel_synced": 1.7203,
+      "ratio_stock_over_kernel_thru": 0.916,
+      "kernel_GBs_rw_thru": 82.7,
+      "kernel_pct_of_copy_roof_thru": 19.8
+    },
+    {
+      "N": 298,
+      "C": 64,
+      "out": "l1",
+      "padded_bytes_one_way": 13107200,
+      "clone_us": 58.33,
+      "stock_permute_us": 188.82,
+      "kernel_us": 213.8,
+      "copy_roof_GBs_rw": 449.4,
+      "stock_GBs_rw": 138.8,
+      "kernel_GBs_rw": 122.6,
+      "cores_engaged": 130,
+      "work_groups": 100,
+      "kernel_pct_of_copy_roof": 27.3,
+      "stock_pct_of_copy_roof": 30.9,
+      "clone_thru_us": 33.99,
+      "stock_thru_us": 157.54,
+      "kernel_thru_us": 127.87,
+      "copy_roof_GBs_rw_thru": 771.2,
+      "ratio_stock_over_kernel_synced": 0.8832,
+      "ratio_stock_over_kernel_thru": 1.2321,
+      "kernel_GBs_rw_thru": 205.0,
+      "kernel_pct_of_copy_roof_thru": 26.6
+    },
+    {
+      "N": 320,
+      "C": 64,
+      "out": "l1",
+      "padded_bytes_one_way": 13107200,
+      "clone_us": 66.67,
+      "stock_permute_us": 189.83,
+      "kernel_us": 190.96,
+      "copy_roof_GBs_rw": 393.2,
+      "stock_GBs_rw": 138.1,
+      "kernel_GBs_rw": 137.3,
+      "cores_engaged": 130,
+      "work_groups": 100,
+      "kernel_pct_of_copy_roof": 34.9,
+      "stock_pct_of_copy_roof": 35.1,
+      "clone_thru_us": 35.54,
+      "stock_thru_us": 161.5,
+      "kernel_thru_us": 267.96,
+      "copy_roof_GBs_rw_thru": 737.5,
+      "ratio_stock_over_kernel_synced": 0.9941,
+      "ratio_stock_over_kernel_thru": 0.6027,
+      "kernel_GBs_rw_thru": 97.8,
+      "kernel_pct_of_copy_roof_thru": 13.3
+    },
+    {
+      "N": 320,
+      "C": 64,
+      "out": "dram",
+      "padded_bytes_one_way": 13107200,
+      "clone_us": 93.9,
+      "stock_permute_us": 326.52,
+      "kernel_us": 189.56,
+      "copy_roof_GBs_rw": 279.2,
+      "stock_GBs_rw": 80.3,
+      "kernel_GBs_rw": 138.3,
+      "cores_engaged": 130,
+      "work_groups": 100,
+      "kernel_pct_of_copy_roof": 49.5,
+      "stock_pct_of_copy_roof": 28.8,
+      "clone_thru_us": 67.07,
+      "stock_thru_us": 292.66,
+      "kernel_thru_us": 128.27,
+      "copy_roof_GBs_rw_thru": 390.9,
+      "ratio_stock_over_kernel_synced": 1.7225,
+      "ratio_stock_over_kernel_thru": 2.2816,
+      "kernel_GBs_rw_thru": 204.4,
+      "kernel_pct_of_copy_roof_thru": 52.3
+    },
+    {
+      "N": 640,
+      "C": 32,
+      "out": "dram",
+      "padded_bytes_one_way": 26214400,
+      "clone_us": 160.96,
+      "stock_permute_us": 635.83,
+      "kernel_us": 325.5,
+      "copy_roof_GBs_rw": 325.7,
+      "stock_GBs_rw": 82.5,
+      "kernel_GBs_rw": 161.1,
+      "cores_engaged": 117,
+      "work_groups": 400,
+      "kernel_pct_of_copy_roof": 49.5,
+      "stock_pct_of_copy_roof": 25.3,
+      "clone_thru_us": 129.38,
+      "stock_thru_us": 595.84,
+      "kernel_thru_us": 259.57,
+      "copy_roof_GBs_rw_thru": 405.2,
+      "ratio_stock_over_kernel_synced": 1.9534,
+      "ratio_stock_over_kernel_thru": 2.2955,
+      "kernel_GBs_rw_thru": 202.0,
+      "kernel_pct_of_copy_roof_thru": 49.8
+    }
+  ],
+  "G_interaction": {
+    "L1_OUT_REFUSED": [],
+    "transpose_memory_config_buffer_type": "BufferType.L1",
+    "free_l1_idle": {
+      "largest_contiguous_bytes_free_per_bank": 1461760,
+      "total_bytes_free_per_bank": 1461760,
+      "total_bytes_per_bank": 1461760
+    },
+    "free_l1_with_kernel_output_live": {
+      "largest_contiguous_bytes_free_per_bank": 1359360,
+      "total_bytes_free_per_bank": 1359360,
+      "total_bytes_per_bank": 1461760
+    },
+    "free_l1_after": {
+      "largest_contiguous_bytes_free_per_bank": 1461760,
+      "total_bytes_free_per_bank": 1461760,
+      "total_bytes_per_bank": 1461760
+    }
+  },
+  "stats": {
+    "served": 208,
+    "fell_through": 2,
+    "rejects": {
+      "work_split:[1, 320, 320, 64]": 2
+    }
+  }
+}
