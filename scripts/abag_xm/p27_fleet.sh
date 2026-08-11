@@ -165,7 +165,11 @@ slot() {
   echo "slot $chip done" >> $B/slots.log
 }
 
-for (( c=0; c<NCHIP; c++ )); do
+# NCHIP takes the first N chips; CHIPS names them, for a run that has to skip a wedged or
+# co-tenanted one. The Galaxy carried a whole second copy of this script (p27_fleet6.sh) whose
+# only difference was a hardcoded `CHIPS="1 4 12 13 14 16"` here, and that copy still had the
+# four-target OD_EXCL in it long after this one was cleared. One script, one exclusion list.
+for c in ${CHIPS:-$(seq 0 $((NCHIP-1)))}; do
   slot "$c" &
   sleep "$STAGGER"
 done
