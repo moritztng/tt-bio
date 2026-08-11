@@ -42,6 +42,7 @@
 #include "api/compute/compute_kernel_api.h"
 #include "api/compute/eltwise_binary.h"
 #include "api/compute/eltwise_binary_sfpu.h"
+#include "api/compute/eltwise_unary/typecast.h"
 #include "api/compute/tile_move_copy.h"
 #include "api/compute/transpose_wh.h"
 
@@ -55,6 +56,14 @@ void kernel_main() {
     // host-side, out of reach from here, so which one `ttnn.multiply_` ran is a measurement rather
     // than a reading. Both are compiled in and the parity probe decides.
     constexpr uint32_t sfpu_mul = get_compile_time_arg_val(5);
+    // Diagnostic only: skip the activation so the phase under test is the multiply on its own,
+    // against a reference of ttnn.multiply(p, g) with two fully generic bf16 operands.
+    constexpr uint32_t skip_sigmoid = get_compile_time_arg_val(6);
+    // Round the product to bf16 in the SFPU before packing it. The LLK does exactly this for the
+    // sigmoid whenever DST is 16 bits (calculate_sigmoid calls float_to_fp16b by hand), which says
+    // the hardware path it is working around does not round the way a pack from an fp32 DST needs
+    // to. Measured here as a switch rather than assumed.
+    constexpr uint32_t round_product = get_compile_time_arg_val(7);
 
     const uint32_t num_tiles = get_arg_val<uint32_t>(0);
 
@@ -68,9 +77,11 @@ void kernel_main() {
         tile_regs_acquire();
         copy_tile_to_dst_init_short(g_cb);
         copy_tile(g_cb, 0, 0);
-        MATH((ckernel::llk_math_eltwise_unary_sfpu_sigmoid_init<false>()));
-        MATH((ckernel::llk_math_eltwise_unary_sfpu_sigmoid<false, /*is_fp32_dest_acc_en=*/false>(
-            0, (int)ckernel::VectorMode::RC)));
+        if constexpr (!skip_sigmoid) {
+            MATH((ckernel::llk_math_eltwise_unary_sfpu_sigmoid_init<false>()));
+            MATH((ckernel::llk_math_eltwise_unary_sfpu_sigmoid<false, /*is_fp32_dest_acc_en=*/false>(
+                0, (int)ckernel::VectorMode::RC)));
+        }
         tile_regs_commit();
         tile_regs_wait();
         pack_tile(0, sig_cb);
@@ -90,9 +101,17 @@ void kernel_main() {
             mul_binary_tile_init();
             mul_binary_tile(0, 1, 0);
         } else {
+            // The FULL init, not mul_tiles_init: the transpose at the end of the previous
+            // iteration reconfigured the unpack and pack data formats, and binary_tiles_init does
+            // not restore them.
+            binary_op_init_common(p_cb, sig_cb, mul_cb);
             mul_tiles_init(p_cb, sig_cb);
             tile_regs_acquire();
             mul_tiles(p_cb, sig_cb, 0, 0, 0);
+        }
+        if constexpr (round_product) {
+            typecast_tile_init<(uint32_t)DataFormat::Float32, (uint32_t)DataFormat::Float16_b>();
+            typecast_tile<(uint32_t)DataFormat::Float32, (uint32_t)DataFormat::Float16_b>(0);
         }
         tile_regs_commit();
         tile_regs_wait();

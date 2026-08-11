@@ -36,6 +36,9 @@ def main():
     ap.add_argument("--c", type=int, default=32)
     ap.add_argument("--pone", action="store_true", help="force the value slice to 1.0, isolating the sigmoid")
     ap.add_argument("--acc", default="", help="override GATE_FP32_ACC: 0 or 1")
+    ap.add_argument("--nosig", action="store_true", help="kernel skips the activation; reference is multiply(p, g)")
+    ap.add_argument("--sfpu", default="", help="override GATE_SFPU_MUL: 0 or 1")
+    ap.add_argument("--round", default=None, help="override GATE_ROUND_PRODUCT: 0 or 1")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
@@ -49,6 +52,11 @@ def main():
         h[..., 2 * C:3 * C] = 1.0
     if a.acc:
         RB.GATE_FP32_ACC = a.acc == "1"
+    if a.round is not None:
+        RB.GATE_ROUND_PRODUCT = a.round == "1"
+    if a.sfpu:
+        RB.GATE_SFPU_MUL = a.sfpu == "1"
+    RB.GATE_SKIP_SIGMOID = a.nosig
     xw = ttnn.from_torch(h, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev,
                          memory_config=ttnn.DRAM_MEMORY_CONFIG)
 
@@ -56,10 +64,10 @@ def main():
     p_h = h[..., 2 * C:3 * C]
 
     g_a, g_b, p_a, p_b = ttnn.chunk(xw, chunks=4, dim=-1)
-    r0 = ttnn.to_torch(ttnn.multiply_(
+    r0 = ttnn.to_torch(ttnn.multiply(p_a, g_a) if a.nosig else ttnn.multiply_(
         p_a, g_a, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]))
     g_a2, g_b2, p_a2, p_b2 = ttnn.chunk(xw, chunks=4, dim=-1)
-    sig_dev = ttnn.sigmoid(g_a2)
+    sig_dev = g_a2 if a.nosig else ttnn.sigmoid(g_a2)
     r1 = ttnn.to_torch(ttnn.multiply(p_a2, sig_dev))
     sig_dev_h = ttnn.to_torch(sig_dev)
 

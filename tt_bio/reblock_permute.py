@@ -624,7 +624,8 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
         kernel_source=str(KERNEL_DIR_GATED / "compute_reblock_permute_gated.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
         core_ranges=core_grid,
-        compile_time_args=[P_CB, G_CB, SIG_CB, MUL_CB, OUT_CB, int(GATE_SFPU_MUL)],
+        compile_time_args=[P_CB, G_CB, SIG_CB, MUL_CB, OUT_CB, int(GATE_SFPU_MUL),
+                           int(GATE_SKIP_SIGMOID), int(GATE_ROUND_PRODUCT)],
         runtime_args=compute_rt,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fidelity, fp32_dest_acc_en=fp32_acc
@@ -659,8 +660,14 @@ def _prepare_gated(x, out, device, fidelity, fp32_acc):
 # Pinned by perf/trimul_f2/e6_parity.py, which sweeps it: a wrong fidelity here is a silent
 # precision change, not an error.
 GATE_FIDELITY = ttnn.MathFidelity.HiFi4
-# Whether the product goes through the SFPU binary rather than the FPU. Measured, see the kernel.
-GATE_SFPU_MUL = True
+# Whether the product goes through the SFPU binary rather than the FPU. Measured: the two return
+# byte-identical results, so the FPU one is kept for being one DST register and one copy cheaper.
+GATE_SFPU_MUL = False
+# Diagnostics, never on in production: see the kernel. GATE_SKIP_SIGMOID drops the activation so
+# the multiply can be compared on its own; GATE_ROUND_PRODUCT rounds the product in the SFPU before
+# packing, which typecast_tile turns out to do as a bitcast rather than a conversion.
+GATE_SKIP_SIGMOID = False
+GATE_ROUND_PRODUCT = False
 GATE_FP32_ACC = True
 
 

@@ -39,7 +39,7 @@ def main():
            "cells": []}
     torch.manual_seed(0)
 
-    configs = [(ttnn.MathFidelity.HiFi4, False)]
+    configs = [(RB.GATE_FIDELITY, RB.GATE_FP32_ACC)]
     if a.sweep:
         configs = [(f, acc) for f in (ttnn.MathFidelity.HiFi4, ttnn.MathFidelity.HiFi2,
                                       ttnn.MathFidelity.LoFi) for acc in (False, True)]
