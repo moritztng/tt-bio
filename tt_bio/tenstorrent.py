@@ -2186,10 +2186,17 @@ class TriangleAttention(Module):
         if need_chunk:
             if not self.affinity and attn_mask is not None:
                 triangle_bias = ttnn.add(triangle_bias, attn_mask)
-            # Assemble the row blocks on the host when the full result is large enough
-            # that the concat's full-size allocation would risk a fragmented-DRAM
-            # refusal (CONCAT_HOST_BYTES); the loop then holds one block on device.
-            host_acc = _host_concat(x)
+            # Assemble the row blocks on the host, so the loop holds one block on device
+            # rather than all of them. Two separate reasons to, and either is enough:
+            # the concat's full-size allocation risks a fragmented-DRAM refusal
+            # (CONCAT_HOST_BYTES), and each block is an L1 buffer (gate_and_project asks
+            # for l1_out=True), so a block left resident sits underneath the NEXT chunk's
+            # minimal_matmul and its circular buffers cannot be placed. The second reason
+            # binds far below the first: at 1095 tokens the pair tensor is 878 MB, under
+            # the 1.5 GiB byte test, and chunk 1's qkv matmul throws on chunk 0's block.
+            # The dtype clause is load-bearing — a bf8 or fp32 block would round-trip
+            # through torch bf16 lossily, so those configs keep the device concat.
+            host_acc = _host_concat(x) or (x.dtype == ttnn.bfloat16 and _dtype() == ttnn.bfloat16)
             parts = []
             for s in range(0, S, chunk):
                 end = min(s + chunk, S)
@@ -2687,42 +2694,34 @@ class Transition(Module):
         if _IS_SMALL_GRID:
             _ref = _ref * 128 // max(128, x.shape[-1])
         transition_h_chunk_size = max(1, int(transition_h_chunk_size * min(1.0, _ref / (w_eff * x.shape[-1]))))
-        if H > SEQ_LEN_MORE_CHUNKING:
-            # Large-sequence path: slice row blocks lazily inside the loop. ttnn.chunk
-            # would materialise a full second copy of the pair tensor up front, and the
-            # list comprehension accumulates a full set of outputs before concat adds a
-            # third; here the peak is input + accumulated outputs + one block. swiglu is
-            # row-local, so block boundaries do not change a single output byte.
-            # Host-assemble the row blocks when the full result is large enough that
-            # the concat's full-size allocation would risk a fragmented-DRAM refusal
-            # (CONCAT_HOST_BYTES). Guarded on the swiglu output dtype being bf16.
-            host_acc = _host_concat(x) and (self.dtype or _dtype()) == ttnn.bfloat16
-            parts = []
-            for s in range(0, H, transition_h_chunk_size):
-                c = x[:, s:min(s + transition_h_chunk_size, H)]
-                if W <= transition_w_chunking_threshold:
-                    _acc_append(parts, swiglu(c), host_acc)
-                    ttnn.deallocate(c)
-                else:
-                    w_parts = []
-                    for w in range(0, W, TRANSITION_W_CHUNK_SIZE):
-                        cw = c[:, :, w:min(w + TRANSITION_W_CHUNK_SIZE, W), :]
-                        w_parts.append(swiglu(cw))
-                        ttnn.deallocate(cw)
-                    ttnn.deallocate(c)
-                    _acc_append(parts, ttnn.concat(w_parts, dim=2), host_acc)
-                    for wp in w_parts:
-                        ttnn.deallocate(wp)
-            dram_peak(f"transition4d loop done (lazy, h={transition_h_chunk_size}) [z={'x'.join(str(d) for d in x.shape)}]")
-            return _acc_concat(parts, 1, host_acc)
-        chunks = ttnn.chunk(x, -(-H // transition_h_chunk_size), dim=1)
-        dram_peak(f"transition4d chunked (eager, h={transition_h_chunk_size}) [z={'x'.join(str(d) for d in x.shape)}]")
-        if W <= transition_w_chunking_threshold:
-            return ttnn.concat([swiglu(c) for c in chunks], dim=1)
-        return ttnn.concat([
-            ttnn.concat([swiglu(c[:, :, w:min(w+TRANSITION_W_CHUNK_SIZE, W), :]) for w in range(0, W, TRANSITION_W_CHUNK_SIZE)], dim=2)
-            for c in chunks
-        ], dim=1)
+        # Slice row blocks lazily inside the loop and free each one as it is consumed.
+        # ttnn.chunk would materialise a full second copy of the input up front, and a
+        # list comprehension over it accumulates a full set of outputs before the concat
+        # adds a third, so the eager form peaks at ~4x the tensor where this peaks at
+        # input + accumulated outputs + one block. swiglu is row-local, so the block
+        # boundaries do not change a single output byte and the two forms are bit-equal.
+        # Host-assemble the row blocks when the full result is large enough that the
+        # concat's full-size allocation would risk a fragmented-DRAM refusal
+        # (CONCAT_HOST_BYTES). Guarded on the swiglu output dtype being bf16.
+        host_acc = _host_concat(x) and (self.dtype or _dtype()) == ttnn.bfloat16
+        parts = []
+        for s in range(0, H, transition_h_chunk_size):
+            c = x[:, s:min(s + transition_h_chunk_size, H)]
+            if W <= transition_w_chunking_threshold:
+                _acc_append(parts, swiglu(c), host_acc)
+                ttnn.deallocate(c)
+            else:
+                w_parts = []
+                for w in range(0, W, TRANSITION_W_CHUNK_SIZE):
+                    cw = c[:, :, w:min(w + TRANSITION_W_CHUNK_SIZE, W), :]
+                    w_parts.append(swiglu(cw))
+                    ttnn.deallocate(cw)
+                ttnn.deallocate(c)
+                _acc_append(parts, ttnn.concat(w_parts, dim=2), host_acc)
+                for wp in w_parts:
+                    ttnn.deallocate(wp)
+        dram_peak(f"transition4d loop done (h={transition_h_chunk_size}) [z={'x'.join(str(d) for d in x.shape)}]")
+        return _acc_concat(parts, 1, host_acc)
 
 
 class PairformerLayer(Module):
