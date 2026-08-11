@@ -1,0 +1,349 @@
+host=tt-quietbox2 start=2026-08-11T20:48:00+00:00 commit=1ac8205c
+ 20:48:00 up  3:43,  5 users,  load average: 0.05, 0.08, 0.31
+benchlock: integrated-ab-h200-gap acquired after 0s, loadavg 0.05 0.08 0.31
+2026-08-11 20:48:00.487 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+=== size 512: cold fold ===
+  cold 61.82s n_tokens=512 plddt=0.828628
+  main: fold 65.69s  block 51178.8 ms over 604 calls  plddt 0.828628  (66s)
+      DEC l1_layer_norm|h=1.5|1x512x512x256                    {'DRAM': 494}
+      DEC l1_layer_norm|h=1.5|512x512x256                      {'DRAM': 30}
+      DEC pair_proj_minimal_matmul|1x512x512x256@256           {'minimal_matmul': 2096}
+      DEC pair_proj_minimal_matmul|512x512x256@256             {'minimal_matmul': 1048}
+      DEC pair_proj_minimal_matmul|512x512x256@8               {'declined': 1048}
+      DEC pair_proj_minimal_matmul|512x512x64@2                {'declined': 160}
+      DEC pair_proj_out_l1|1x512x512x256@256                   {'DRAM': 2096}
+      DEC pair_proj_out_l1|1x512x512x64@64                     {'L1': 320}
+      DEC pair_proj_out_l1|512x512x256@256                     {'DRAM': 1048}
+      DEC pair_proj_out_l1|512x512x64@64                       {'L1': 160}
+      DEC qkv_mm_config|nt1|512x512x256                        {'None': 1048}
+      DEC qkv_mm_config|nt24|512x512x256                       {'blk=(4, 8, 1, 4, 1)': 2096}
+      DEC qkv_mm_config|nt2|512x512x64                         {'None': 160}
+      DEC qkv_mm_config|nt6|512x512x64                         {'None': 320}
+      DEC qkv_mm_config|nt8|1x512x512x256                      {'blk=(4, 8, 1, 4, 1)': 2096}
+      DEC qkv_mm_config|nt8|512x512x256                        {'blk=(4, 8, 1, 4, 1)': 2096}
+      DEC transpose|512x512x256                                {'DRAM': 1048}
+      DEC transpose|512x512x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q512k512                                {'q_chunk=512 k_chunk=256 bias=bf16': 1208}
+      DEC trimul_inproj_group|n512c32                          {'G=2': 160, 'G=8': 1048}
+  int: fold 53.85s  block 39327.42 ms over 604 calls  plddt 0.828628  (54s)
+      DEC l1_layer_norm|h=1.5|1x512x512x256                    {'DRAM': 494}
+      DEC l1_layer_norm|h=1.5|512x512x256                      {'DRAM': 30}
+      DEC pair_proj_minimal_matmul|1x512x512x256@256           {'minimal_matmul': 2096}
+      DEC pair_proj_minimal_matmul|512x512x256@8               {'declined': 1048}
+      DEC pair_proj_minimal_matmul|512x512x64@2                {'declined': 160}
+      DEC pair_proj_out_l1|1x512x512x256@256                   {'DRAM': 2096}
+      DEC pair_proj_out_l1|1x512x512x64@64                     {'L1': 320}
+      DEC pair_proj_out_l1|512x512x64@64                       {'L1': 160}
+      DEC qkv_mm_config|nt1|512x512x256                        {'None': 1048}
+      DEC qkv_mm_config|nt24|512x512x256                       {'blk=(4, 8, 1, 4, 1)': 1048}
+      DEC qkv_mm_config|nt2|512x512x64                         {'None': 160}
+      DEC qkv_mm_config|nt6|512x512x64                         {'None': 320}
+      DEC qkv_mm_config|nt8|1x512x512x256                      {'blk=(4, 8, 1, 4, 1)': 2096}
+      DEC qkv_mm_config|nt8|512x512x256                        {'blk=(4, 8, 1, 4, 1)': 1048}
+      DEC transpose|512x512x256                                {'L1': 1048}
+      DEC transpose|512x512x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q512k512                                {'q_chunk=512 k_chunk=256 bias=bf16': 1208}
+      DEC trimul_inproj_group|n512c32                          {'G=2': 160, 'G=8': 1048}
+  main: fold 65.60s  block 51131.44 ms over 604 calls  plddt 0.828628  (66s)
+      DEC l1_layer_norm|h=1.5|1x512x512x256                    {'DRAM': 494}
+      DEC l1_layer_norm|h=1.5|512x512x256                      {'DRAM': 30}
+      DEC pair_proj_minimal_matmul|1x512x512x256@256           {'minimal_matmul': 2096}
+      DEC pair_proj_minimal_matmul|512x512x256@256             {'minimal_matmul': 1048}
+      DEC pair_proj_minimal_matmul|512x512x256@8               {'declined': 1048}
+      DEC pair_proj_minimal_matmul|512x512x64@2                {'declined': 160}
+      DEC pair_proj_out_l1|1x512x512x256@256                   {'DRAM': 2096}
+      DEC pair_proj_out_l1|1x512x512x64@64                     {'L1': 320}
+      DEC pair_proj_out_l1|512x512x256@256                     {'DRAM': 1048}
+      DEC pair_proj_out_l1|512x512x64@64                       {'L1': 160}
+      DEC qkv_mm_config|nt1|512x512x256                        {'None': 1048}
+      DEC qkv_mm_config|nt24|512x512x256                       {'blk=(4, 8, 1, 4, 1)': 2096}
+      DEC qkv_mm_config|nt2|512x512x64                         {'None': 160}
+      DEC qkv_mm_config|nt6|512x512x64                         {'None': 320}
+      DEC qkv_mm_config|nt8|1x512x512x256                      {'blk=(4, 8, 1, 4, 1)': 2096}
+      DEC qkv_mm_config|nt8|512x512x256                        {'blk=(4, 8, 1, 4, 1)': 2096}
+      DEC transpose|512x512x256                                {'DRAM': 1048}
+      DEC transpose|512x512x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q512k512                                {'q_chunk=512 k_chunk=256 bias=bf16': 1208}
+      DEC trimul_inproj_group|n512c32                          {'G=2': 160, 'G=8': 1048}
+  int: fold 53.40s  block 38925.76 ms over 604 calls  plddt 0.828628  (53s)
+      DEC l1_layer_norm|h=1.5|1x512x512x256                    {'DRAM': 494}
+      DEC l1_layer_norm|h=1.5|512x512x256                      {'DRAM': 30}
+      DEC pair_proj_minimal_matmul|1x512x512x256@256           {'minimal_matmul': 2096}
+      DEC pair_proj_minimal_matmul|512x512x256@8               {'declined': 1048}
+      DEC pair_proj_minimal_matmul|512x512x64@2                {'declined': 160}
+      DEC pair_proj_out_l1|1x512x512x256@256                   {'DRAM': 2096}
+      DEC pair_proj_out_l1|1x512x512x64@64                     {'L1': 320}
+      DEC pair_proj_out_l1|512x512x64@64                       {'L1': 160}
+      DEC qkv_mm_config|nt1|512x512x256                        {'None': 1048}
+      DEC qkv_mm_config|nt24|512x512x256                       {'blk=(4, 8, 1, 4, 1)': 1048}
+      DEC qkv_mm_config|nt2|512x512x64                         {'None': 160}
+      DEC qkv_mm_config|nt6|512x512x64                         {'None': 320}
+      DEC qkv_mm_config|nt8|1x512x512x256                      {'blk=(4, 8, 1, 4, 1)': 2096}
+      DEC qkv_mm_config|nt8|512x512x256                        {'blk=(4, 8, 1, 4, 1)': 1048}
+      DEC transpose|512x512x256                                {'L1': 1048}
+      DEC transpose|512x512x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q512k512                                {'q_chunk=512 k_chunk=256 bias=bf16': 1208}
+      DEC trimul_inproj_group|n512c32                          {'G=2': 160, 'G=8': 1048}
+  int: fold 53.46s  block 38973.29 ms over 604 calls  plddt 0.828628  (53s)
+      DEC l1_layer_norm|h=1.5|1x512x512x256                    {'DRAM': 494}
+      DEC l1_layer_norm|h=1.5|512x512x256                      {'DRAM': 30}
+      DEC pair_proj_minimal_matmul|1x512x512x256@256           {'minimal_matmul': 2096}
+      DEC pair_proj_minimal_matmul|512x512x256@8               {'declined': 1048}
+      DEC pair_proj_minimal_matmul|512x512x64@2                {'declined': 160}
+      DEC pair_proj_out_l1|1x512x512x256@256                   {'DRAM': 2096}
+      DEC pair_proj_out_l1|1x512x512x64@64                     {'L1': 320}
+      DEC pair_proj_out_l1|512x512x64@64                       {'L1': 160}
+      DEC qkv_mm_config|nt1|512x512x256                        {'None': 1048}
+      DEC qkv_mm_config|nt24|512x512x256                       {'blk=(4, 8, 1, 4, 1)': 1048}
+      DEC qkv_mm_config|nt2|512x512x64                         {'None': 160}
+      DEC qkv_mm_config|nt6|512x512x64                         {'None': 320}
+      DEC qkv_mm_config|nt8|1x512x512x256                      {'blk=(4, 8, 1, 4, 1)': 2096}
+      DEC qkv_mm_config|nt8|512x512x256                        {'blk=(4, 8, 1, 4, 1)': 1048}
+      DEC transpose|512x512x256                                {'L1': 1048}
+      DEC transpose|512x512x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q512k512                                {'q_chunk=512 k_chunk=256 bias=bf16': 1208}
+      DEC trimul_inproj_group|n512c32                          {'G=2': 160, 'G=8': 1048}
+  int_noe6: fold 57.16s  block 42643.06 ms over 604 calls  plddt 0.828628  (57s)
+      DEC l1_layer_norm|h=1.5|1x512x512x256                    {'DRAM': 494}
+      DEC l1_layer_norm|h=1.5|512x512x256                      {'DRAM': 30}
+      DEC pair_proj_minimal_matmul|1x512x512x256@256           {'minimal_matmul': 2096}
+      DEC pair_proj_minimal_matmul|512x512x256@8               {'declined': 1048}
+      DEC pair_proj_minimal_matmul|512x512x64@2                {'declined': 160}
+      DEC pair_proj_out_l1|1x512x512x256@256                   {'DRAM': 2096}
+      DEC pair_proj_out_l1|1x512x512x64@64                     {'L1': 320}
+      DEC pair_proj_out_l1|512x512x64@64                       {'L1': 160}
+      DEC qkv_mm_config|nt1|512x512x256                        {'None': 1048}
+      DEC qkv_mm_config|nt24|512x512x256                       {'blk=(4, 8, 1, 4, 1)': 1048}
+      DEC qkv_mm_config|nt2|512x512x64                         {'None': 160}
+      DEC qkv_mm_config|nt6|512x512x64                         {'None': 320}
+      DEC qkv_mm_config|nt8|1x512x512x256                      {'blk=(4, 8, 1, 4, 1)': 2096}
+      DEC qkv_mm_config|nt8|512x512x256                        {'blk=(4, 8, 1, 4, 1)': 1048}
+      DEC transpose|512x512x256                                {'L1': 1048}
+      DEC transpose|512x512x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q512k512                                {'q_chunk=512 k_chunk=256 bias=bf16': 1208}
+      DEC trimul_inproj_group|n512c32                          {'G=2': 160, 'G=8': 1048}
+  int_nok1k2: fold 60.52s  block 46034.22 ms over 604 calls  plddt 0.828628  (61s)
+      DEC l1_layer_norm|h=1.5|1x512x512x256                    {'DRAM': 494}
+      DEC l1_layer_norm|h=1.5|512x512x256                      {'DRAM': 30}
+      DEC pair_proj_minimal_matmul|1x512x512x256@256           {'minimal_matmul': 2096}
+      DEC pair_proj_minimal_matmul|512x512x256@256             {'minimal_matmul': 1048}
+      DEC pair_proj_minimal_matmul|512x512x256@8               {'declined': 1048}
+      DEC pair_proj_minimal_matmul|512x512x64@2                {'declined': 160}
+      DEC pair_proj_out_l1|1x512x512x256@256                   {'DRAM': 2096}
+      DEC pair_proj_out_l1|1x512x512x64@64                     {'L1': 320}
+      DEC pair_proj_out_l1|512x512x256@256                     {'DRAM': 1048}
+      DEC pair_proj_out_l1|512x512x64@64                       {'L1': 160}
+      DEC qkv_mm_config|nt1|512x512x256                        {'None': 1048}
+      DEC qkv_mm_config|nt24|512x512x256                       {'blk=(4, 8, 1, 4, 1)': 2096}
+      DEC qkv_mm_config|nt2|512x512x64                         {'None': 160}
+      DEC qkv_mm_config|nt6|512x512x64                         {'None': 320}
+      DEC qkv_mm_config|nt8|1x512x512x256                      {'blk=(4, 8, 1, 4, 1)': 2096}
+      DEC qkv_mm_config|nt8|512x512x256                        {'blk=(4, 8, 1, 4, 1)': 2096}
+      DEC transpose|512x512x256                                {'L1': 1048}
+      DEC transpose|512x512x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q512k512                                {'q_chunk=512 k_chunk=256 bias=bf16': 1208}
+      DEC trimul_inproj_group|n512c32                          {'G=2': 160, 'G=8': 1048}
+  int_notr: fold 54.82s  block 40317.76 ms over 604 calls  plddt 0.828628  (55s)
+      DEC l1_layer_norm|h=1.5|1x512x512x256                    {'DRAM': 494}
+      DEC l1_layer_norm|h=1.5|512x512x256                      {'DRAM': 30}
+      DEC pair_proj_minimal_matmul|1x512x512x256@256           {'minimal_matmul': 2096}
+      DEC pair_proj_minimal_matmul|512x512x256@8               {'declined': 1048}
+      DEC pair_proj_minimal_matmul|512x512x64@2                {'declined': 160}
+      DEC pair_proj_out_l1|1x512x512x256@256                   {'DRAM': 2096}
+      DEC pair_proj_out_l1|1x512x512x64@64                     {'L1': 320}
+      DEC pair_proj_out_l1|512x512x64@64                       {'L1': 160}
+      DEC qkv_mm_config|nt1|512x512x256                        {'None': 1048}
+      DEC qkv_mm_config|nt24|512x512x256                       {'blk=(4, 8, 1, 4, 1)': 1048}
+      DEC qkv_mm_config|nt2|512x512x64                         {'None': 160}
+      DEC qkv_mm_config|nt6|512x512x64                         {'None': 320}
+      DEC qkv_mm_config|nt8|1x512x512x256                      {'blk=(4, 8, 1, 4, 1)': 2096}
+      DEC qkv_mm_config|nt8|512x512x256                        {'blk=(4, 8, 1, 4, 1)': 1048}
+      DEC transpose|512x512x256                                {'DRAM': 1048}
+      DEC transpose|512x512x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q512k512                                {'q_chunk=512 k_chunk=256 bias=bf16': 1208}
+      DEC trimul_inproj_group|n512c32                          {'G=2': 160, 'G=8': 1048}
+  int_noe6: fold 57.18s  block 42711.9 ms over 604 calls  plddt 0.828628  (57s)
+      DEC l1_layer_norm|h=1.5|1x512x512x256                    {'DRAM': 494}
+      DEC l1_layer_norm|h=1.5|512x512x256                      {'DRAM': 30}
+      DEC pair_proj_minimal_matmul|1x512x512x256@256           {'minimal_matmul': 2096}
+      DEC pair_proj_minimal_matmul|512x512x256@8               {'declined': 1048}
+      DEC pair_proj_minimal_matmul|512x512x64@2                {'declined': 160}
+      DEC pair_proj_out_l1|1x512x512x256@256                   {'DRAM': 2096}
+      DEC pair_proj_out_l1|1x512x512x64@64                     {'L1': 320}
+      DEC pair_proj_out_l1|512x512x64@64                       {'L1': 160}
+      DEC qkv_mm_config|nt1|512x512x256                        {'None': 1048}
+      DEC qkv_mm_config|nt24|512x512x256                       {'blk=(4, 8, 1, 4, 1)': 1048}
+      DEC qkv_mm_config|nt2|512x512x64                         {'None': 160}
+      DEC qkv_mm_config|nt6|512x512x64                         {'None': 320}
+      DEC qkv_mm_config|nt8|1x512x512x256                      {'blk=(4, 8, 1, 4, 1)': 2096}
+      DEC qkv_mm_config|nt8|512x512x256                        {'blk=(4, 8, 1, 4, 1)': 1048}
+      DEC transpose|512x512x256                                {'L1': 1048}
+      DEC transpose|512x512x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q512k512                                {'q_chunk=512 k_chunk=256 bias=bf16': 1208}
+      DEC trimul_inproj_group|n512c32                          {'G=2': 160, 'G=8': 1048}
+  int_nok1k2: fold 60.48s  block 46030.62 ms over 604 calls  plddt 0.828628  (60s)
+      DEC l1_layer_norm|h=1.5|1x512x512x256                    {'DRAM': 494}
+      DEC l1_layer_norm|h=1.5|512x512x256                      {'DRAM': 30}
+      DEC pair_proj_minimal_matmul|1x512x512x256@256           {'minimal_matmul': 2096}
+      DEC pair_proj_minimal_matmul|512x512x256@256             {'minimal_matmul': 1048}
+      DEC pair_proj_minimal_matmul|512x512x256@8               {'declined': 1048}
+      DEC pair_proj_minimal_matmul|512x512x64@2                {'declined': 160}
+      DEC pair_proj_out_l1|1x512x512x256@256                   {'DRAM': 2096}
+      DEC pair_proj_out_l1|1x512x512x64@64                     {'L1': 320}
+      DEC pair_proj_out_l1|512x512x256@256                     {'DRAM': 1048}
+      DEC pair_proj_out_l1|512x512x64@64                       {'L1': 160}
+      DEC qkv_mm_config|nt1|512x512x256                        {'None': 1048}
+      DEC qkv_mm_config|nt24|512x512x256                       {'blk=(4, 8, 1, 4, 1)': 2096}
+      DEC qkv_mm_config|nt2|512x512x64                         {'None': 160}
+      DEC qkv_mm_config|nt6|512x512x64                         {'None': 320}
+      DEC qkv_mm_config|nt8|1x512x512x256                      {'blk=(4, 8, 1, 4, 1)': 2096}
+      DEC qkv_mm_config|nt8|512x512x256                        {'blk=(4, 8, 1, 4, 1)': 2096}
+      DEC transpose|512x512x256                                {'L1': 1048}
+      DEC transpose|512x512x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q512k512                                {'q_chunk=512 k_chunk=256 bias=bf16': 1208}
+      DEC trimul_inproj_group|n512c32                          {'G=2': 160, 'G=8': 1048}
+  int_notr: fold 54.70s  block 40259.95 ms over 604 calls  plddt 0.828628  (55s)
+      DEC l1_layer_norm|h=1.5|1x512x512x256                    {'DRAM': 494}
+      DEC l1_layer_norm|h=1.5|512x512x256                      {'DRAM': 30}
+      DEC pair_proj_minimal_matmul|1x512x512x256@256           {'minimal_matmul': 2096}
+      DEC pair_proj_minimal_matmul|512x512x256@8               {'declined': 1048}
+      DEC pair_proj_minimal_matmul|512x512x64@2                {'declined': 160}
+      DEC pair_proj_out_l1|1x512x512x256@256                   {'DRAM': 2096}
+      DEC pair_proj_out_l1|1x512x512x64@64                     {'L1': 320}
+      DEC pair_proj_out_l1|512x512x64@64                       {'L1': 160}
+      DEC qkv_mm_config|nt1|512x512x256                        {'None': 1048}
+      DEC qkv_mm_config|nt24|512x512x256                       {'blk=(4, 8, 1, 4, 1)': 1048}
+      DEC qkv_mm_config|nt2|512x512x64                         {'None': 160}
+      DEC qkv_mm_config|nt6|512x512x64                         {'None': 320}
+      DEC qkv_mm_config|nt8|1x512x512x256                      {'blk=(4, 8, 1, 4, 1)': 2096}
+      DEC qkv_mm_config|nt8|512x512x256                        {'blk=(4, 8, 1, 4, 1)': 1048}
+      DEC transpose|512x512x256                                {'DRAM': 1048}
+      DEC transpose|512x512x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q512k512                                {'q_chunk=512 k_chunk=256 bias=bf16': 1208}
+      DEC trimul_inproj_group|n512c32                          {'G=2': 160, 'G=8': 1048}
+{
+ "ratios": {
+  "512": {
+   "on_block_ms": [],
+   "off_block_ms": [],
+   "on_fold_s": [],
+   "off_fold_s": []
+  }
+ },
+ "arm_medians": {
+  "512": {
+   "main": {
+    "block_ms": [
+     51178.8,
+     51131.44
+    ],
+    "fold_s": [
+     65.693,
+     65.601
+    ],
+    "plddt": [
+     0.828628,
+     0.828628
+    ],
+    "n": 2,
+    "block_ms_median": 51155.12,
+    "fold_s_median": 65.647,
+    "block_ms_min": 51131.44,
+    "fold_s_min": 65.601,
+    "block_ms_spread": 47.36,
+    "fold_s_spread": 0.092
+   },
+   "int": {
+    "block_ms": [
+     39327.42,
+     38925.76,
+     38973.29
+    ],
+    "fold_s": [
+     53.851,
+     53.402,
+     53.46
+    ],
+    "plddt": [
+     0.828628,
+     0.828628,
+     0.828628
+    ],
+    "n": 3,
+    "block_ms_median": 38973.29,
+    "fold_s_median": 53.46,
+    "block_ms_min": 38925.76,
+    "fold_s_min": 53.402,
+    "block_ms_spread": 401.66,
+    "fold_s_spread": 0.449
+   },
+   "int_noe6": {
+    "block_ms": [
+     42643.06,
+     42711.9
+    ],
+    "fold_s": [
+     57.158,
+     57.178
+    ],
+    "plddt": [
+     0.828628,
+     0.828628
+    ],
+    "n": 2,
+    "block_ms_median": 42677.48,
+    "fold_s_median": 57.168,
+    "block_ms_min": 42643.06,
+    "fold_s_min": 57.158,
+    "block_ms_spread": 68.84,
+    "fold_s_spread": 0.02
+   },
+   "int_nok1k2": {
+    "block_ms": [
+     46034.22,
+     46030.62
+    ],
+    "fold_s": [
+     60.519,
+     60.484
+    ],
+    "plddt": [
+     0.828628,
+     0.828628
+    ],
+    "n": 2,
+    "block_ms_median": 46032.42,
+    "fold_s_median": 60.502,
+    "block_ms_min": 46030.62,
+    "fold_s_min": 60.484,
+    "block_ms_spread": 3.6,
+    "fold_s_spread": 0.035
+   },
+   "int_notr": {
+    "block_ms": [
+     40317.76,
+     40259.95
+    ],
+    "fold_s": [
+     54.816,
+     54.703
+    ],
+    "plddt": [
+     0.828628,
+     0.828628
+    ],
+    "n": 2,
+    "block_ms_median": 40288.85,
+    "fold_s_median": 54.76,
+    "block_ms_min": 40259.95,
+    "fold_s_min": 54.703,
+    "block_ms_spread": 57.81,
+    "fold_s_spread": 0.113
+   }
+  }
+ }
+}
+wrote /home/ttuser/.coworker/wt/integrated-ab-h200-gap/perf/integ512/fold_ab_integ512.json
+benchlock: integrated-ab-h200-gap released, rc=0, loadavg 1.02 1.01 0.78
+EXIT=0 end=2026-08-11T20:59:42+00:00
