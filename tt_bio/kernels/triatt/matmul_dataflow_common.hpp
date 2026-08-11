@@ -21,6 +21,25 @@
 #define MM_SPLIT_TILE_ID(row, tidx, logical_d1) ((row) * (logical_d1) + (tidx))
 #endif
 
+// Same transform on the read side and on a single-output write. `logical_d1` is the head count in
+// both cases: K tiles for the in0 read of a [batch, head, row, 32] activation, N tiles for the gate
+// projection's output.
+#ifdef HEAD_MAJOR_IN0_MT
+#define MM_IN0_TILE_ID(row, col, logical_d1) \
+    ((((row) / HEAD_MAJOR_IN0_MT) * (logical_d1) + (col)) * HEAD_MAJOR_IN0_MT \
+     + ((row) % HEAD_MAJOR_IN0_MT))
+#else
+#define MM_IN0_TILE_ID(row, col, logical_d1) ((row) * (logical_d1) + (col))
+#endif
+
+#ifdef HEAD_MAJOR_OUT_MT
+#define MM_OUT_TILE_ID(row, col, logical_d1) \
+    ((((row) / HEAD_MAJOR_OUT_MT) * (logical_d1) + (col)) * HEAD_MAJOR_OUT_MT \
+     + ((row) % HEAD_MAJOR_OUT_MT))
+#else
+#define MM_OUT_TILE_ID(row, col, logical_d1) ((row) * (logical_d1) + (col))
+#endif
+
 namespace detail {
 /**
  * Helper to create tuple of TensorAccessors from TensorAccessorArgs tuple.
@@ -125,7 +144,7 @@ void read_in0_block_sync(
                     noc_async_read_tile(tile_id, in3_accessor, write_ptr);
                 } else {
 #endif
-                    uint32_t tile_id = i * shape.logical_d1 + j;
+                    uint32_t tile_id = MM_IN0_TILE_ID(i, j, shape.logical_d1);
                     noc_async_read_tile(tile_id, tensor_accessor, write_ptr);
 #ifdef READ_FROM_LOCAL_INPUT
                 }
@@ -204,7 +223,7 @@ void write_block_sync(
                 read_ptr += tile_size_bytes;
                 continue;
             }
-            uint32_t tile_id = i * shape.logical_d1 + j;
+            uint32_t tile_id = MM_OUT_TILE_ID(i, j, shape.logical_d1);
             noc_async_write_tile(tile_id, tensor_accessor, read_ptr);
             read_ptr += tile_size_bytes;
         }
@@ -312,7 +331,7 @@ void write_block_sync_granular(
                 if (n_tile_id >= shape.logical_d1) {
                     break;
                 }
-                uint32_t tile_id = m_tile * shape.logical_d1 + n_tile_id;
+                uint32_t tile_id = MM_OUT_TILE_ID(m_tile, n_tile_id, shape.logical_d1);
                 noc_async_write_tile(tile_id, tensor_accessor, out_read_ptr);
                 out_read_ptr += tile_size_bytes;
             }

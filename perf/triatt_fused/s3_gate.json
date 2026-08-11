@@ -1,0 +1,44 @@
+{
+ "predictions": "K1b: the tail of the sub-block stays head-major, so nlp_concat_heads never runs.\n\nPREDICTION, WRITTEN BEFORE THE RUN (state/triatt-fused-kernel-final.md 11, item 1):\n\n    torch.equal on the gate projection and on the final `out` at every size, and the head-major\n    tail beats the stock tail by the whole 0.748 ms/call of nlp_concat_heads at 512 aa\n    (0.70-0.80 ms), with the gate multiply and the `out` projection each within their own A/A\n    spread of the stock ones. Anything that makes multiply_ or `out` slower on a [S, 8, S, 32]\n    tensor than on the [S, S, 256] one it is a reshape of would be a surprise: the tile count,\n    the tile contents and the op are identical, only the logical shape differs.\n\n    Wider than that, or not torch.equal, and K1b stops.\n\nStock tail:        nlp_concat_heads(o) -> squeeze -> multiply_(oc, g) -> minimal_matmul(.., w_o)\nHead-major tail:   multiply_(o, g_hm) -> generic minimal_matmul with a head-major in0 read\n\n`o` comes out of the SDPA already head-major, so the stock tail's first op exists only to undo that.\n",
+ "sizes": {
+  "512": {
+   "n": 512,
+   "head_major_mt": 16,
+   "g_equal": true,
+   "out_equal": true,
+   "stock_concat_heads_ms": 0.7381959994745557,
+   "stock_concat_heads_aa": 0.02668532409921389,
+   "stock_g_ms": 0.7909669993750867,
+   "stock_g_aa": 0.013287533776618848,
+   "hm_g_ms": 0.7860969999455847,
+   "hm_g_aa": 0.026076935849216852,
+   "stock_out_ms": 0.7956259996717563,
+   "stock_out_aa": 0.026155506408425646,
+   "hm_out_ms": 0.8483359997626394,
+   "hm_out_aa": 0.023643932223784445,
+   "stock_tail_ms": 41.628517000390275,
+   "stock_tail_aa": 0.03786445239638836,
+   "hm_tail_ms": 40.917913999692246,
+   "hm_tail_aa": 0.03866824687697132,
+   "tail_saving_ms_per_call": 0.7106030006980291,
+   "tail_speedup": 1.0173665500324227
+  }
+ },
+ "meta": {
+  "grid": [
+   11,
+   10
+  ],
+  "loadavg": [
+   0.07275390625,
+   0.390625,
+   0.53173828125
+  ],
+  "card": "1",
+  "loadavg_end": [
+   0.1474609375,
+   0.40087890625,
+   0.53466796875
+  ]
+ }
+}

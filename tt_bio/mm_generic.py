@@ -88,7 +88,7 @@ def _cb(idx, core_grid, page_size, num_tiles, data_format):
         total_size=num_tiles * page_size, core_ranges=core_grid, format_descriptors=[fmt])
 
 
-def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None):
+def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=None):
     """The ProgramDescriptor for ``minimal_matmul(in0, in1) -> outs`` with block config ``cfg``.
 
     ``cfg`` is a 5-tuple ``(M_block, K_block, N_block, subblock_h, subblock_w)`` and a
@@ -98,7 +98,10 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None):
     tensors, exactly as the C++ factory does.
 
     ``defines`` and ``kernel_dir`` are the only additions to the transcription: they let the two DM
-    kernels come from ``tt_bio/kernels/triatt/`` with ``HEAD_MAJOR_MT`` set, which is K1.
+    kernels come from ``tt_bio/kernels/triatt/`` with the head-major guards set, which is K1.
+    ``m_k`` overrides the ``(M, K)`` the factory would infer from ``in0``'s shape, which a
+    head-major activation reports wrongly: ``[S, 8, S, 32]`` is the same tile grid as
+    ``[S*S, 256]`` but its last dim is 32.
     """
     if not isinstance(outs, (list, tuple)):
         outs = [outs]
@@ -112,10 +115,17 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None):
 
     in0_shape = [int(d) for d in in0.padded_shape]
     in1_shape = [int(d) for d in in1.padded_shape]
-    K = in0_shape[-1]
-    M = 1
-    for d in in0_shape[:-1]:
-        M *= d
+    if m_k is None:
+        K = in0_shape[-1]
+        M = 1
+        for d in in0_shape[:-1]:
+            M *= d
+    else:
+        M, K = m_k
+        vol = 1
+        for d in in0_shape:
+            vol *= d
+        assert M * K == vol, (m_k, in0_shape)
     N = in1_shape[-1]
 
     M_tiles, K_tiles, N_tiles = M // TILE_HW, K // TILE_HW, N // TILE_HW
@@ -282,23 +292,24 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None):
                      "transpose_core_grid": transpose, "defines": defines}}
 
 
-def _key(in0, in1, outs, cfg, ckc, defines, kernel_dir):
+def _key(in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k=None):
     if not isinstance(outs, (list, tuple)):
         outs = [outs]
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     return (spec(in0), spec(in1), tuple(spec(o) for o in outs),
             cfg, tuple(str(c) for c in ckc),
-            tuple(sorted(dict(defines).items())), str(kernel_dir))
+            tuple(sorted(dict(defines).items())), str(kernel_dir), m_k)
 
 
-def generic_minimal_matmul(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None):
+def generic_minimal_matmul(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None,
+                           m_k=None):
     """``minimal_matmul`` through ``generic_op``, descriptor cached per shape/config."""
     if not isinstance(outs, (list, tuple)):
         outs = [outs]
-    key = _key(in0, in1, outs, cfg, ckc, defines, kernel_dir)
+    key = _key(in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k)
     entry = _CACHE.get(key)
     if entry is None:
-        entry = _CACHE[key] = build(device, in0, in1, outs, cfg, ckc, defines, kernel_dir)
+        entry = _CACHE[key] = build(device, in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k)
     addrs = (in0.buffer_address(), in1.buffer_address(),
              tuple(o.buffer_address() for o in outs))
     if addrs != entry["addrs"]:
