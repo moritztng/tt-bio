@@ -48,6 +48,8 @@ def main():
     ap.add_argument("--n", type=int, default=512)
     ap.add_argument("--qc", type=int, default=512)
     ap.add_argument("--kc", type=int, default=256)
+    ap.add_argument("--kernel-dir", default=None,
+                    help="patched kernel tree; default is the wheel's own")
     ap.add_argument("--out", default="perf/triatt_fused/s4_gate.json")
     args = ap.parse_args()
     S, H, D = args.n, 8, 32
@@ -99,8 +101,12 @@ def main():
     out = ttnn.allocate_tensor_on_device(
         ttnn.Shape([S, H, S, D]), ttnn.bfloat16, ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
 
+    kdir = Path(args.kernel_dir) if args.kernel_dir else None
+    RES["meta"]["kernel_dir"] = str(kdir)
+
     def generic():
-        return SG.sdpa(dev, q, k, v, bias, out, args.qc, args.kc, grid, ckc, scale)
+        return SG.sdpa(dev, q, k, v, bias, out, args.qc, args.kc, grid, ckc, scale,
+                       kernel_dir=kdir)
 
     try:
         generic()
