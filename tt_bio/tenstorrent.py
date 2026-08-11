@@ -58,14 +58,23 @@ TRANSITION_H_CHUNK_SIZE = 16
 # opendde pair shape (W=320/c=384). Gate to the verified envelope only.
 TRANSITION_H_CHUNK_SIZE_BIG = 32  # verified envelope: W<=384 (298-aa W=320). W=512 (protenix N=512 MSA/pair) clashes in-block L1 -> stays on 16
 
-# A fused activation="silu" on Transition fc1 costs 174.0 us/call at the 298 aa pair shape, while the
-# same silu as a standalone SFPU pass costs 83.7 -- measured on qb1 card 0, ttnn 0.67.4. The penalty
-# is silu-specific and program-config-invariant: a fused relu costs +2.4 us and a fused gelu +141.3
-# against its own 135.3 standalone, and the +174 holds across eight explicit
-# MatmulMultiCoreReuseMultiCast configs. So unfusing pays a full L1 round trip and still wins,
-# because the fused path runs silu at half the SFPU rate the standalone op reaches. Release-gated:
-# the unfused form applies silu to the bf16-packed matmul output rather than to the fp32 dest
-# accumulator, so it is not bit-exact.
+# A fused activation="silu" on Transition fc1 costs 174.0 us/call at the 298 aa pair shape while the
+# same silu as a standalone SFPU pass costs 83.7 (qb1 card 0, ttnn 0.67.4), and 5.08 vs 2.50 ms per
+# 32 chunks at the 512 aa pair shape (qb2 card 0, ttnn 0.68.0). This is NOT a defect in the fused
+# path. Both call sites reach the one calculate_silu in ckernel_sfpu_silu.h, which picks its sigmoid
+# on is_fp32_dest_acc_en: Cody-Waite _sfpu_exp_fp32_accurate_ + reciprocal<2> for fp32 dest,
+# _sfpu_exp_21f_bf16_ + reciprocal<1> for bf16. Transition runs fp32_dest_acc_en=True so its fused
+# activation takes the accurate branch, and ttnn.silu accepts no compute_kernel_config at all, so on
+# a bf16 tensor it always takes the fast one. That is the whole 2.06x. It also explains why a fused
+# relu costs only +2.4 us (no branch on dest mode) while a fused gelu costs +141.3 against its own
+# 135.3 standalone, and why the penalty survives eight explicit MatmulMultiCoreReuseMultiCast
+# configs: program config cannot reach it.
+# Release-gated, and not bit-exact for two reasons rather than one. The unfused form applies silu to
+# the bf16-packed matmul output instead of the fp32 accumulator, AND it runs the fast sigmoid, which
+# is one bf16 ulp off the correctly rounded value on 9.4% of elements (measured at the production
+# hidden shape; the accurate branch matches correctly-rounded torch on all 524288 of them). TriMul's
+# gates already ship that same fast sigmoid -- see kernels/reblock_permute_gated, which had to
+# compile at 16-bit DST to match it.
 _UNFUSED_SILU = os.environ.get("TT_BIO_UNFUSED_SILU", "0") == "1"
 _FAST_MODE = False
 _DTYPE_OVERRIDE = None
