@@ -1,0 +1,21 @@
+{
+  "cores": 110,
+  "read_8MB_gbs": 289.9,
+  "l1copy_8MB_gbs": 441.2,
+  "read_16MB_gbs": 328.3,
+  "l1copy_16MB_gbs": 513.6,
+  "read_24MB_gbs": 374.9,
+  "l1copy_24MB_err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocat",
+  "read_32MB_err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocat",
+  "l1copy_32MB_err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocat",
+  "chunk_dram2dram_gbs_each_way": 184.4,
+  "chunk_dram2dram_ms": 0.091,
+  "chunk_l1_2_l1_gbs_each_way": 526.2,
+  "chunk_l1_2_l1_ms": 0.0319,
+  "chunk_dram2l1_gbs_each_way": 347.0,
+  "chunk_dram2l1_ms": 0.0483,
+  "permute_dram_ms": 0.4636,
+  "permute_dram_gbs_each_way": 36.2,
+  "permute_l1_ms": 0.2421,
+  "permute_l1_gbs_each_way": 69.3
+}

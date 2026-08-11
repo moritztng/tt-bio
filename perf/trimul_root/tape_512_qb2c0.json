@@ -1,0 +1,87 @@
+{
+  "n": 512,
+  "c_z": 256,
+  "hidden": 256,
+  "grid": [
+    11,
+    10
+  ],
+  "module_serial_ms": 28.531,
+  "module_pipe_ms": 28.4846,
+  "taped_sum_ms": 28.1453,
+  "sync_inflation": 0.9881,
+  "ops": [
+    {
+      "tag": "chunk4[1x512x512x128]",
+      "n": 8,
+      "ms": 6.0854,
+      "share": 0.2162
+    },
+    {
+      "tag": "minimal_matmul[1x512x512x256@256x128]->DRAM",
+      "n": 8,
+      "ms": 5.8837,
+      "share": 0.209
+    },
+    {
+      "tag": "transpose(1,2)[1x32x512x512]->DRAM",
+      "n": 8,
+      "ms": 3.0402,
+      "share": 0.108
+    },
+    {
+      "tag": "multiply_[1x512x512x32]",
+      "n": 16,
+      "ms": 2.6216,
+      "share": 0.0931
+    },
+    {
+      "tag": "linear[1x512x512x256@256x256]->DRAM",
+      "n": 2,
+      "ms": 2.0258,
+      "share": 0.072
+    },
+    {
+      "tag": "matmul[1x32x512x512@1x32x512x512]->DRAM",
+      "n": 8,
+      "ms": 1.9338,
+      "share": 0.0687
+    },
+    {
+      "tag": "layer_norm[1x512x512x256]",
+      "n": 2,
+      "ms": 1.8863,
+      "share": 0.067
+    },
+    {
+      "tag": "multiply_[1x512x512x256]",
+      "n": 1,
+      "ms": 1.075,
+      "share": 0.0382
+    },
+    {
+      "tag": "reallocate[1x32x512x512]",
+      "n": 16,
+      "ms": 0.9983,
+      "share": 0.0355
+    },
+    {
+      "tag": "transpose(-2,-1)[1x32x512x512]->DRAM",
+      "n": 8,
+      "ms": 0.9317,
+      "share": 0.0331
+    },
+    {
+      "tag": "transpose(2,3)[1x512x32x512]->DRAM",
+      "n": 8,
+      "ms": 0.9198,
+      "share": 0.0327
+    },
+    {
+      "tag": "concat[8x1x512x512x32]",
+      "n": 1,
+      "ms": 0.7437,
+      "share": 0.0264
+    }
+  ]
+}

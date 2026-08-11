@@ -1,0 +1,70 @@
+{
+ "n": 640,
+ "c_z": 256,
+ "arms": [
+  {
+   "which": "start",
+   "group": 1,
+   "serial_ms": 45.7048,
+   "pipe_ms": 45.6916,
+   "bit_exact_vs_g1": true,
+   "max_abs": 0.0
+  },
+  {
+   "which": "start",
+   "group": 2,
+   "serial_ms": 43.8084,
+   "pipe_ms": 43.8047,
+   "bit_exact_vs_g1": true,
+   "max_abs": 0.0
+  },
+  {
+   "which": "start",
+   "group": 4,
+   "serial_ms": 38.3062,
+   "pipe_ms": 38.2015,
+   "bit_exact_vs_g1": true,
+   "max_abs": 0.0
+  },
+  {
+   "which": "start",
+   "group": 8,
+   "serial_ms": 35.2834,
+   "pipe_ms": 35.1288,
+   "bit_exact_vs_g1": true,
+   "max_abs": 0.0
+  },
+  {
+   "which": "end",
+   "group": 1,
+   "serial_ms": 45.8055,
+   "pipe_ms": 45.6839,
+   "bit_exact_vs_g1": true,
+   "max_abs": 0.0
+  },
+  {
+   "which": "end",
+   "group": 2,
+   "serial_ms": 43.8561,
+   "pipe_ms": 43.8763,
+   "bit_exact_vs_g1": true,
+   "max_abs": 0.0
+  },
+  {
+   "which": "end",
+   "group": 4,
+   "serial_ms": 38.3062,
+   "pipe_ms": 38.2333,
+   "bit_exact_vs_g1": true,
+   "max_abs": 0.0
+  },
+  {
+   "which": "end",
+   "group": 8,
+   "serial_ms": 35.4247,
+   "pipe_ms": 35.2149,
+   "bit_exact_vs_g1": true,
+   "max_abs": 0.0
+  }
+ ]
+}

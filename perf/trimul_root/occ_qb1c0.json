@@ -1,0 +1,78 @@
+{
+ "grid": [
+  13,
+  10
+ ],
+ "runs": [
+  {
+   "ctl": "C1_occupancy",
+   "M": 512,
+   "N": 512,
+   "K": 512,
+   "Mt": 16,
+   "Nt": 16,
+   "Kt": 16,
+   "in0_block_w": 8,
+   "per_core_M": 2,
+   "per_core_N": 2,
+   "cores": 64,
+   "grid_cores": 130,
+   "s": 5.451900000252863e-05,
+   "tflops": 4.923704689879671,
+   "read_MB": 1.048576,
+   "write_MB": 0.524288
+  },
+  {
+   "ctl": "C1_occupancy",
+   "M": 1024,
+   "N": 1024,
+   "K": 512,
+   "Mt": 32,
+   "Nt": 32,
+   "Kt": 16,
+   "in0_block_w": 8,
+   "per_core_M": 4,
+   "per_core_N": 3,
+   "cores": 88,
+   "grid_cores": 130,
+   "s": 5.308999999442676e-05,
+   "tflops": 20.22493547019624,
+   "read_MB": 2.097152,
+   "write_MB": 2.097152
+  },
+  {
+   "ctl": "C1_occupancy",
+   "M": 2048,
+   "N": 2048,
+   "K": 512,
+   "Mt": 64,
+   "Nt": 64,
+   "Kt": 16,
+   "in0_block_w": 8,
+   "per_core_M": 7,
+   "per_core_N": 5,
+   "cores": 130,
+   "grid_cores": 130,
+   "s": 0.00010368900001367365,
+   "tflops": 41.42162905837278,
+   "read_MB": 4.194304,
+   "write_MB": 8.388608
+  },
+  {
+   "ctl": "C2_residency",
+   "where": "DRAM",
+   "s": 0.0002451780000001236,
+   "tflops": 35.03550315279377,
+   "cores": 64,
+   "grid_cores": 130
+  },
+  {
+   "ctl": "C2_residency",
+   "where": "L1",
+   "s": 0.00024072899998373032,
+   "tflops": 35.683007001983775,
+   "cores": 64,
+   "grid_cores": 130
+  }
+ ]
+}
