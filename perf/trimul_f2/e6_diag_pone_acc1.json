@@ -1,0 +1,46 @@
+{
+ "N": 320,
+ "C": 32,
+ "fidelity": "MathFidelity.HiFi4",
+ "fp32_dest_acc": true,
+ "kernel_vs_R0_production": {
+  "equal": false,
+  "max_abs": 0.00390625,
+  "frac_diff": 0.103922
+ },
+ "kernel_vs_R1_unfused": {
+  "equal": false,
+  "max_abs": 0.00390625,
+  "frac_diff": 0.103922
+ },
+ "kernel_vs_R2_host_fp32": {
+  "equal": false,
+  "max_abs": 0.00390625,
+  "frac_diff": 0.000364
+ },
+ "kernel_vs_R3_host_bf16_sigmoid": {
+  "equal": false,
+  "max_abs": 0.00390625,
+  "frac_diff": 0.000364
+ },
+ "R0_vs_R1": {
+  "equal": true,
+  "max_abs": 0.0,
+  "frac_diff": 0.0
+ },
+ "R0_vs_R2": {
+  "equal": false,
+  "max_abs": 0.00390625,
+  "frac_diff": 0.103558
+ },
+ "R0_vs_R3": {
+  "equal": false,
+  "max_abs": 0.00390625,
+  "frac_diff": 0.103558
+ },
+ "devsigmoid_vs_host_bf16_sigmoid": {
+  "equal": false,
+  "max_abs": 0.00390625,
+  "frac_diff": 0.103558
+ }
+}

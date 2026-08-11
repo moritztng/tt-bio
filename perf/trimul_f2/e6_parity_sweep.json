@@ -1,0 +1,72 @@
+{
+ "host": "qb2",
+ "ttnn": "0.68.0",
+ "cells": [
+  {
+   "N": 320,
+   "C": 32,
+   "fidelity": "MathFidelity.HiFi4",
+   "fp32_dest_acc": false,
+   "shape_ok": true,
+   "equal": false,
+   "max_abs": 0.015625,
+   "n_diff": 871437,
+   "frac_diff": 0.265941
+  },
+  {
+   "N": 320,
+   "C": 32,
+   "fidelity": "MathFidelity.HiFi4",
+   "fp32_dest_acc": true,
+   "shape_ok": true,
+   "equal": false,
+   "max_abs": 0.0234375,
+   "n_diff": 329705,
+   "frac_diff": 0.100618
+  },
+  {
+   "N": 320,
+   "C": 32,
+   "fidelity": "MathFidelity.HiFi2",
+   "fp32_dest_acc": false,
+   "shape_ok": true,
+   "equal": false,
+   "max_abs": 0.03125,
+   "n_diff": 1657169,
+   "frac_diff": 0.505728
+  },
+  {
+   "N": 320,
+   "C": 32,
+   "fidelity": "MathFidelity.HiFi2",
+   "fp32_dest_acc": true,
+   "shape_ok": true,
+   "equal": false,
+   "max_abs": 0.03125,
+   "n_diff": 1591338,
+   "frac_diff": 0.485638
+  },
+  {
+   "N": 320,
+   "C": 32,
+   "fidelity": "MathFidelity.LoFi",
+   "fp32_dest_acc": false,
+   "shape_ok": true,
+   "equal": false,
+   "max_abs": 0.171875,
+   "n_diff": 3035426,
+   "frac_diff": 0.926338
+  },
+  {
+   "N": 320,
+   "C": 32,
+   "fidelity": "MathFidelity.LoFi",
+   "fp32_dest_acc": true,
+   "shape_ok": true,
+   "equal": false,
+   "max_abs": 0.171875,
+   "n_diff": 3034635,
+   "frac_diff": 0.926097
+  }
+ ]
+}

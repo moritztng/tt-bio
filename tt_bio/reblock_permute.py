@@ -525,3 +525,213 @@ def eligible_back(x, memory_config) -> bool:
     if _split_plan(x.device(), (N // TILE_H) ** 2 * (C // TILE_W)) is None:
         return _reject("back_work_split", shape)
     return True
+
+
+# --- E6: the gate folded into the forward move ------------------------------------------------------
+#
+# The trimul's channel loop produces one wide projection [1, N, N, 4*Cg] and then spends three full
+# DRAM passes taking it apart: `ttnn.chunk(_, 4, dim=-1)` and two `multiply_(p, g, [SIGMOID])`. At
+# 512 aa those three ops measure 2.832 + 2 x 1.022 = 4.876 ms per call on qb2 card 1, at 95-99 % of
+# the 399.2 GB/s combined roof (perf/trimul_f2/e6_prize.py), so there is no tuning left in them: the
+# only way to make them cheaper is to stop doing them.
+#
+# The forward move runs at 47.5 % of that roof and its critical path is the WRITER RISC's gather,
+# 2048 local transactions per 32-tile group against 32 DRAM writes. So it has room on both of the
+# RISCs this work lands on: the reader gains a second DRAM stream and the compute kernel gains an
+# SFPU sigmoid and an FPU multiply, and neither is the binding resource.
+#
+# Bit-exactness is not by construction here -- unlike the plain permute, this kernel does
+# arithmetic. It is achieved by mirroring binary_ng's own kernel structure (see
+# compute_reblock_permute_gated.cpp) and pinned by `torch.equal` against the two-op sequence on
+# device, per shape, in perf/trimul_f2/e6_parity.py.
+
+KERNEL_DIR_GATED = Path(__file__).resolve().parent / "kernels" / "reblock_permute_gated"
+
+P_CB, G_CB, SIG_CB, MUL_CB = 0, 1, 2, 3
+
+_CACHE_GATED: dict = {}
+STATS_GATED = [0, 0]
+
+
+def _cache_key_gated(x, out, device, reader_ct, writer_ct):
+    """As `_cache_key`, plus the slice width. The two slice OFFSETS are deliberately absent: they
+    are common runtime args, so one descriptor serves both the `a` and the `b` call."""
+    g = device.compute_with_storage_grid_size()
+    return (
+        device.id(),
+        int(x.shape[1]), int(x.shape[3]), int(out.shape[1]),
+        str(x.dtype), str(x.layout),
+        str(x.memory_config()), str(out.memory_config()),
+        g.x, g.y,
+        tuple(reader_ct), tuple(writer_ct),
+    )
+
+
+def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
+    N = int(x.shape[1])
+    Ctw = int(x.shape[3]) // TILE_W       # channel tiles of the wide input
+    Ct = int(out.shape[1]) // TILE_W      # channel tiles of one slice
+    Nt = (N + TILE_H - 1) // TILE_H
+    num_groups = Nt * Nt
+
+    plan = _split_plan(device, num_groups)
+    assert plan is not None, f"no expressible work split for {num_groups} groups"
+    _, _, (_, core_grid, cg1, cg2, work1, work2) = plan
+
+    tile_bytes = TILE_H * TILE_W * 2  # bf16
+
+    def cb(idx, depth):
+        fmt = ttnn.CBFormatDescriptor(
+            buffer_index=idx, data_format=ttnn.bfloat16, page_size=tile_bytes
+        )
+        return ttnn.CBDescriptor(
+            total_size=depth * tile_bytes, core_ranges=core_grid, format_descriptors=[fmt]
+        )
+
+    # c_16 keeps the 32-tile group multiple the writer's L1 window needs. The four working CBs are
+    # double-buffered singles: the compute kernel consumes and produces one tile at a time, and a
+    # deeper ring would only hold more of a stream the writer is already the slow end of.
+    cbs = [cb(P_CB, 2), cb(G_CB, 2), cb(SIG_CB, 2), cb(MUL_CB, 2), cb(OUT_CB, GROUP_TILES * 2),
+           cb(STAGE_CB, 2)]
+
+    reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
+    start = 0
+    for group, per_core in ((cg1, work1), (cg2, work2)):
+        for cr in group.ranges():
+            for cx in range(cr.start.x, cr.end.x + 1):
+                for cy in range(cr.start.y, cr.end.y + 1):
+                    reader_rt[cx][cy] = [start, per_core, Nt, N, Ct, Ctw]
+                    compute_rt[cx][cy] = [per_core * GROUP_TILES * Ct]
+                    writer_rt[cx][cy] = [start, per_core, Nt, N, Ct]
+                    start += per_core
+    assert start == num_groups, (start, num_groups)
+
+    reader = ttnn.KernelDescriptor(
+        kernel_source=str(KERNEL_DIR_GATED / "reader_reblock_permute_gated.cpp"),
+        source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
+        core_ranges=core_grid, compile_time_args=reader_ct, runtime_args=reader_rt,
+        common_runtime_args=[0, 0, 0], config=ttnn.ReaderConfigDescriptor(),
+    )
+    # The writer is the ungated kernel's, byte for byte: it consumes c_16 and knows nothing about
+    # where the tiles came from.
+    writer = ttnn.KernelDescriptor(
+        kernel_source=str(KERNEL_DIR / "writer_reblock_permute.cpp"),
+        source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
+        core_ranges=core_grid, compile_time_args=writer_ct, runtime_args=writer_rt,
+        common_runtime_args=[0], config=ttnn.WriterConfigDescriptor(),
+    )
+    compute = ttnn.KernelDescriptor(
+        kernel_source=str(KERNEL_DIR_GATED / "compute_reblock_permute_gated.cpp"),
+        source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
+        core_ranges=core_grid,
+        compile_time_args=[P_CB, G_CB, SIG_CB, MUL_CB, OUT_CB, int(GATE_SFPU_MUL)],
+        runtime_args=compute_rt,
+        config=ttnn.ComputeConfigDescriptor(
+            math_fidelity=fidelity, fp32_dest_acc_en=fp32_acc
+        ),
+    )
+    pd = ttnn.ProgramDescriptor(kernels=[reader, writer, compute], semaphores=[], cbs=cbs)
+
+    global ADDR_WRITE_MODE
+    if ADDR_WRITE_MODE is None:
+        probe = 0xABCD1234
+        pd.kernels[0].common_runtime_args = [probe, 0, 0]
+        ADDR_WRITE_MODE = "in_place" if list(pd.kernels[0].common_runtime_args)[0] == probe \
+            else "rebuild_pd"
+        pd.kernels[0].common_runtime_args = [0, 0, 0]
+
+    return {"pd": pd, "kernels": [reader, writer, compute], "cbs": cbs, "core_grid": core_grid}
+
+
+def _prepare_gated(x, out, device, fidelity, fp32_acc):
+    reader_ct = list(ttnn.TensorAccessorArgs(x).get_compile_time_args())
+    writer_ct = [2, OUT_CB, TILE_H, TILE_W, FACE_H, FACE_W, STAGE_CB]
+    writer_ct.extend(ttnn.TensorAccessorArgs(out).get_compile_time_args())
+    key = _cache_key_gated(x, out, device, reader_ct, writer_ct)
+    entry = _CACHE_GATED.get(key)
+    if entry is None:
+        entry = _CACHE_GATED[key] = _build_gated(
+            x, out, device, reader_ct, writer_ct, fidelity, fp32_acc)
+    return entry
+
+
+# The compute config the multiply has to run under to stay bit-exact against `ttnn.multiply_`.
+# Pinned by perf/trimul_f2/e6_parity.py, which sweeps it: a wrong fidelity here is a silent
+# precision change, not an error.
+GATE_FIDELITY = ttnn.MathFidelity.HiFi4
+# Whether the product goes through the SFPU binary rather than the FPU. Measured, see the kernel.
+GATE_SFPU_MUL = True
+GATE_FP32_ACC = True
+
+
+def reblock_permute_gated(xw, p_slice, g_slice, slice_c, memory_config=None, device=None):
+    """``permute(chunk(xw, 4, -1)[p_slice] * sigmoid(chunk(xw, 4, -1)[g_slice]), (0, 3, 1, 2))``.
+
+    ``xw`` is ``[1, N, N, Cw]`` bf16 TILE and the result is ``[1, slice_c, N, N]``. The slice
+    arguments are in CHANNELS, not tiles; the kernel takes tile offsets.
+    """
+    device = device or xw.device()
+    mc = memory_config or xw.memory_config()
+    N = int(xw.shape[1])
+    out = ttnn.allocate_tensor_on_device(
+        ttnn.Shape([1, slice_c, N, N]), ttnn.bfloat16, ttnn.TILE_LAYOUT, device, mc
+    )
+    entry = _prepare_gated(xw, out, device, GATE_FIDELITY, GATE_FP32_ACC)
+    src, dst = xw.buffer_address(), out.buffer_address()
+    common_r = [src, p_slice // TILE_W, g_slice // TILE_W]
+    if ADDR_WRITE_MODE == "in_place":
+        pd = entry["pd"]
+        pd.kernels[0].common_runtime_args = common_r
+        pd.kernels[1].common_runtime_args = [dst]
+    else:
+        reader, writer, compute = entry["kernels"]
+        reader.common_runtime_args = common_r
+        writer.common_runtime_args = [dst]
+        pd = entry["pd"] = ttnn.ProgramDescriptor(
+            kernels=[reader, writer, compute], semaphores=[], cbs=entry["cbs"]
+        )
+    STATS_GATED[0] += 1
+    return ttnn.generic_op([xw, out], pd)
+
+
+# Whether the trimul folds the chunk and the two gates into the forward move.
+REBLOCK_PERMUTE_GATED = True
+_ENABLED_GATED = os.environ.get(
+    "TT_BIO_REBLOCK_PERMUTE_GATED", "1" if REBLOCK_PERMUTE_GATED else "0") == "1"
+
+
+def set_enabled_gated(on: bool) -> bool:
+    """A/B switch for the paired harness. Returns the previous state."""
+    global _ENABLED_GATED
+    prev, _ENABLED_GATED = _ENABLED_GATED, bool(on)
+    return prev
+
+
+def eligible_gated(xw, slice_c, memory_config) -> bool:
+    """The gate for the fused path, deliberately the forward gate's window plus what fusion adds.
+
+    Everything `eligible` checks applies unchanged: the same reader, the same writer, the same work
+    split. On top of it the wide input must actually be the four-way fused projection, and the
+    slice width must be a whole number of tiles, because the reader addresses slices in tile units.
+    """
+    if not _ENABLED_GATED:
+        return False
+    shape = [int(d) for d in xw.shape]
+    if len(shape) != 4 or shape[0] != 1 or shape[1] != shape[2]:
+        return _reject("gated_shape", shape)
+    if shape[3] != 4 * slice_c or slice_c % TILE_W:
+        return _reject("gated_slice", shape)
+    N = shape[1]
+    if xw.dtype != ttnn.bfloat16 or xw.layout != ttnn.TILE_LAYOUT:
+        return _reject("gated_dtype_layout", shape)
+    if memory_config.memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
+        return _reject("gated_sharded_out", shape)
+    if xw.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
+        return _reject("gated_sharded_in", shape)
+    bt = memory_config.buffer_type
+    if not ((bt == ttnn.BufferType.DRAM and N >= 256)
+            or (bt == ttnn.BufferType.L1 and L1_N_MIN <= N <= L1_N_MAX)):
+        return _reject(f"gated_window_{bt}", shape)
+    if _split_plan(xw.device(), ((N + TILE_H - 1) // TILE_H) ** 2) is None:
+        return _reject("gated_work_split", shape)
+    return True
