@@ -39,6 +39,7 @@ import ttnn
 from tt_bio.tenstorrent import CORE_GRID_MAIN, get_device
 
 L1 = ttnn.L1_MEMORY_CONFIG
+DRAM = ttnn.DRAM_MEMORY_CONFIG
 
 
 def cmp(name, a, b):
@@ -90,22 +91,31 @@ def main():
     x = ttnn.from_torch(xt, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev, memory_config=L1)
     w = ttnn.from_torch(wt, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev, memory_config=L1)
 
+    # Outputs go to DRAM and come back to host one at a time. Holding several of these in L1 at
+    # once clashes the next program's static circular buffers -- the same trap transition_gemm.py
+    # documented. Memory config cannot reach the dest-mode branch, so the numerics are unaffected.
     def lin(dtype, activation=None):
         return ttnn.linear(x, w, activation=activation, compute_kernel_config=ckc,
-                           memory_config=L1, dtype=dtype, core_grid=CORE_GRID_MAIN)
+                           memory_config=DRAM, dtype=dtype, core_grid=CORE_GRID_MAIN)
 
     acc32_t = lin(ttnn.float32)
-    prod_t = lin(ttnn.bfloat16, "silu")
-    matbf_t = lin(ttnn.bfloat16)
-    usilu_t = ttnn.silu(matbf_t, memory_config=L1)
-    accsilu_t = ttnn.silu(acc32_t, memory_config=L1)      # accurate branch, fp32 input, on device
-
     acc32 = ttnn.to_torch(acc32_t).to(torch.float32)
-    prod = ttnn.to_torch(prod_t).to(torch.float32)
-    matbf = ttnn.to_torch(matbf_t).to(torch.float32)
-    usilu = ttnn.to_torch(usilu_t).to(torch.float32)
+    accsilu_t = ttnn.silu(acc32_t, memory_config=DRAM)   # accurate branch, fp32 input, on device
     # accsilu comes back fp32; the production comparison is at bf16 output, so round it there.
     accsilu = ttnn.to_torch(accsilu_t).to(torch.bfloat16).to(torch.float32)
+    ttnn.deallocate(acc32_t)
+    ttnn.deallocate(accsilu_t)
+
+    prod_t = lin(ttnn.bfloat16, "silu")
+    prod = ttnn.to_torch(prod_t).to(torch.float32)
+    ttnn.deallocate(prod_t)
+
+    matbf_t = lin(ttnn.bfloat16)
+    matbf = ttnn.to_torch(matbf_t).to(torch.float32)
+    usilu_t = ttnn.silu(matbf_t, memory_config=DRAM)
+    usilu = ttnn.to_torch(usilu_t).to(torch.float32)
+    ttnn.deallocate(matbf_t)
+    ttnn.deallocate(usilu_t)
 
     silu = torch.nn.functional.silu
     ref_exact = silu(acc32).to(torch.bfloat16).to(torch.float32)

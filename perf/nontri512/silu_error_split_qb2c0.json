@@ -1,0 +1,66 @@
+{
+  "shape": [
+    1,
+    16,
+    512,
+    256
+  ],
+  "c_hid": 1024,
+  "rows": [
+    {
+      "name": "control: matmul bf16 output == bf16(acc32)",
+      "elems": 8388608,
+      "differ": 181,
+      "differ_frac": 2.2e-05,
+      "max_abs": 0.0078125,
+      "max_rel": 0.0078125,
+      "rms": 1.3195389328757301e-05
+    },
+    {
+      "name": "control: production fused == correctly-rounded torch on acc32",
+      "elems": 8388608,
+      "differ": 105,
+      "differ_frac": 1.3e-05,
+      "max_abs": 0.0078125,
+      "max_rel": 0.007692307699471712,
+      "rms": 9.734006198414136e-06
+    },
+    {
+      "name": "control: device accurate silu on fp32 input == production fused",
+      "elems": 8388608,
+      "differ": 59,
+      "differ_frac": 7e-06,
+      "max_abs": 0.0078125,
+      "max_rel": 0.007633587811142206,
+      "rms": 6.855700121377595e-06
+    },
+    {
+      "name": "INPUT ROUNDING alone (exact algo on bf16 input vs on acc32)",
+      "elems": 8388608,
+      "differ": 2006953,
+      "differ_frac": 0.239247,
+      "max_abs": 0.03125,
+      "max_rel": 0.016949152573943138,
+      "rms": 0.00188824615906924
+    },
+    {
+      "name": "ALGORITHM alone (fast silu on bf16 input vs exact algo on same)",
+      "elems": 8388608,
+      "differ": 778117,
+      "differ_frac": 0.092759,
+      "max_abs": 0.015625,
+      "max_rel": 0.014285714365541935,
+      "rms": 0.0006229550344869494
+    },
+    {
+      "name": "TOTAL, what the fold saw (_UNFUSED_SILU vs production)",
+      "elems": 8388608,
+      "differ": 2292517,
+      "differ_frac": 0.273289,
+      "max_abs": 0.03125,
+      "max_rel": 0.015384615398943424,
+      "rms": 0.0019121302757412195
+    }
+  ],
+  "grid": "11x10"
+}
