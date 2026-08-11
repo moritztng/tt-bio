@@ -1,0 +1,23 @@
+{
+  "note": "9ncy AbAg complex (505 tokens, former [385,506] crash band); envelope refs pending generation (--regen-refs)",
+  "reference_commit": "7b9d0b427",
+  "reference_impl": "tt-bio-cpu-torch",
+  "reference_version": "7b9d0b427",
+  "seeds": [
+    0
+  ],
+  "settings": {
+    "device_args": [
+      "--sampling_steps",
+      "200",
+      "--diffusion_samples",
+      "5"
+    ],
+    "model": "protenix-v2",
+    "msa": "staged",
+    "seed": 0,
+    "shared_draw_seed": 0,
+    "target_id": "9ncy",
+    "yaml": "examples/abag_xm/9ncy.yaml"
+  }
+}

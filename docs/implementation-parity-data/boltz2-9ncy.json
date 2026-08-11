@@ -1,0 +1,36 @@
+{
+  "mode": "integration_envelope",
+  "kind": "structure",
+  "target": "9ncy",
+  "margin": 0.5,
+  "verdict": "PASS",
+  "metrics": {
+    "kabsch_rmsd": {
+      "numerator": 0.76047302612466,
+      "envelope": 1.6594001346777516,
+      "bound": 2.5391002020166273,
+      "ratio": 0.45828188767282496,
+      "margin": 0.5,
+      "abs_floor": 0.05,
+      "pass": true
+    }
+  },
+  "sample_match": {
+    "numerator": {
+      "n_samples": 1,
+      "matched_rank": 0,
+      "rank0_rmsd": 0.76047302612466,
+      "ambiguity": Infinity,
+      "rank_flip": false,
+      "identification_safe": true
+    },
+    "envelope": {
+      "n_samples": 1,
+      "matched_rank": 0,
+      "rank0_rmsd": 1.6594001346777516,
+      "ambiguity": Infinity,
+      "rank_flip": false,
+      "identification_safe": true
+    }
+  }
+}
