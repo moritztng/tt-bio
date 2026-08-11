@@ -1,0 +1,146 @@
+{
+  "n": 512,
+  "grid": [
+    11,
+    10
+  ],
+  "cores": 110,
+  "l1_bank_bytes": 1461760,
+  "roofs": {
+    "dram_read_gbs_err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 48234496 B L1 buffer across 110 banks,",
+    "dram_write_gbs": 266.0,
+    "dram_write_gbs_mb": 32.0,
+    "dram_rw_gbs": 393.5,
+    "dram_rw_gbs_mb": 48.0,
+    "l1_copy_gbs_each_way_err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 32243712 B L1 buffer across 110 banks,",
+    "square_compute_tflops_2048": 92.39,
+    "square_compute_tflops_4096": 109.56
+  },
+  "components": {
+    "in_proj": {
+      "shape": "1x512x512x256@256x128",
+      "ms": 0.7383,
+      "tflops": 23.27,
+      "flop": 17179869184,
+      "rbytes": 134283264,
+      "wbytes": 67108864,
+      "read_gbs": 181.8,
+      "write_gbs": 90.9
+    },
+    "out_proj": {
+      "shape": "1x512x512x256@256x256",
+      "ms": 1.5771,
+      "tflops": 21.79,
+      "flop": 34359738368,
+      "rbytes": 134217728,
+      "wbytes": 134217728,
+      "read_gbs": 85.1,
+      "write_gbs": 85.1
+    }
+  },
+  "contraction_configs": [
+    {
+      "name": "production",
+      "ms": 0.2142,
+      "serial_ms": 0.2361,
+      "tflops": 40.1,
+      "read_gbs": 156.6,
+      "write_gbs": 78.3,
+      "cfg": {
+        "bw": 8,
+        "pm": 2,
+        "pn": 2,
+        "grid": "(x=11,y=10)"
+      },
+      "blocks": 64
+    },
+    {
+      "name": "pcM2N2_grid8x8",
+      "ms": 0.2154,
+      "serial_ms": 0.2333,
+      "tflops": 39.87,
+      "read_gbs": 155.8,
+      "write_gbs": 77.9,
+      "cfg": {
+        "bw": 8,
+        "pm": 2,
+        "pn": 2,
+        "grid": "(x=8,y=8)"
+      },
+      "blocks": 64
+    },
+    {
+      "name": "pcM2N2_grid10x10",
+      "ms": 0.217,
+      "serial_ms": 0.2357,
+      "tflops": 39.59,
+      "read_gbs": 154.7,
+      "write_gbs": 77.3,
+      "cfg": {
+        "bw": 8,
+        "pm": 2,
+        "pn": 2,
+        "grid": "(x=10,y=10)"
+      },
+      "blocks": 64
+    },
+    {
+      "name": "pcM1N1",
+      "err": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/factory/matmul_multicore_reuse_mcast_2d_program_factory.cpp:1698: num_blocks_x <= num_cores_x\ninfo:\nNum output blocks along x (16) must be sm"
+    },
+    {
+      "name": "pcM1N2",
+      "err": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/factory/matmul_multicore_reuse_mcast_2d_program_factory.cpp:1703: num_blocks_y <= num_cores_y\ninfo:\nNum output blocks along y (16) must be sm"
+    },
+    {
+      "name": "pcM2N1",
+      "err": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/factory/matmul_multicore_reuse_mcast_2d_program_factory.cpp:1698: num_blocks_x <= num_cores_x\ninfo:\nNum output blocks along x (16) must be sm"
+    },
+    {
+      "name": "pcM2N2_bw16",
+      "ms": 0.2358,
+      "serial_ms": 0.2532,
+      "tflops": 36.43,
+      "read_gbs": 142.3,
+      "write_gbs": 71.1,
+      "cfg": {
+        "bw": 16,
+        "pm": 2,
+        "pn": 2,
+        "grid": "(x=11,y=10)"
+      },
+      "blocks": 64
+    },
+    {
+      "name": "pcM1N1_bw16",
+      "err": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/factory/matmul_multicore_reuse_mcast_2d_program_factory.cpp:1698: num_blocks_x <= num_cores_x\ninfo:\nNum output blocks along x (16) must be sm"
+    },
+    {
+      "name": "pcM1N1_bw1",
+      "err": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/factory/matmul_multicore_reuse_mcast_2d_program_factory.cpp:1698: num_blocks_x <= num_cores_x\ninfo:\nNum output blocks along x (16) must be sm"
+    },
+    {
+      "name": "no_config",
+      "ms": 0.4875,
+      "serial_ms": 0.5086,
+      "tflops": 17.62,
+      "read_gbs": 68.8,
+      "write_gbs": 34.4
+    },
+    {
+      "name": "core_grid",
+      "ms": 0.4881,
+      "serial_ms": 0.5076,
+      "tflops": 17.6,
+      "read_gbs": 68.7,
+      "write_gbs": 34.4
+    },
+    {
+      "name": "production_L1_out",
+      "ms": 0.1911,
+      "tflops": 44.94
+    }
+  ],
+  "buffer_type": "BufferType.DRAM",
+  "chunk": 32
+}
