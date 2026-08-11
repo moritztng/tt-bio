@@ -1,0 +1,37 @@
+{
+ "n": 512,
+ "c_group": 256,
+ "roof_gbs": 375.0,
+ "rows": [
+  {
+   "label": "ttnn.chunk(gp_in_fused, 4, dim=-1)",
+   "ms": 2.8321887999481987,
+   "mb_rw": 1073.741824,
+   "gbs": 379.1208495774148,
+   "pct_roof": 101.09889322064394
+  },
+  {
+   "label": "multiply_(p, g, SIGMOID)  [clone subtracted]",
+   "ms": 1.0216816000138351,
+   "mb_rw": 402.653184,
+   "gbs": 394.1082857854614,
+   "pct_roof": 105.09554287612305
+  },
+  {
+   "label": "  the clone that was subtracted",
+   "ms": 0.6724103999658837,
+   "mb_rw": 268.435456,
+   "gbs": 399.21371830896675,
+   "pct_roof": 106.4569915490578
+  },
+  {
+   "label": "_channel_move forward (reblock_permute)",
+   "ms": 1.4143919999696664,
+   "mb_rw": 268.435456,
+   "gbs": 189.78858478113347,
+   "pct_roof": 50.61028927496893
+  }
+ ],
+ "prize_ms": 4.875551999975869,
+ "move_ms": 1.4143919999696664
+}
