@@ -1,0 +1,14 @@
+
+##############################################################################
+# FULL PARITY GATE — 3 legs, workers ['tt-quietbox2:0']
+##############################################################################
+leg                               kind       ref           verdict               wall  detail
+--------------------------------------------------------------------------------------------------------------
+protenix-prot-msa                 structure  cached        GAP                    26s  envelope worst kabsch_rmsd: num=0.5290 env=0.0000 ratio=inf; [reproduces committed]
+protenix-ubq-msa                  structure  cached        GAP                    30s  envelope worst kabsch_rmsd: num=0.0625 env=0.0000 ratio=inf; [reproduces committed]
+protenix-hsa-msa                  structure  cached        PASS                  182s  envelope worst kabsch_rmsd: num=0.0176 env=0.0000 ratio=0.00
+
+##############################################################################
+# Tally: {'GAP': 2, 'PASS': 1}    total wall 4.0 min
+# GATE PASS — every fast-path leg reproduces within its floor
+##############################################################################

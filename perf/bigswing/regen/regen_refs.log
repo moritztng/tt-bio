@@ -1,0 +1,8 @@
+--regen-refs: generating fp32+bf16 CPU references for 3 leg(s) (serial; ~2 CPU folds/leg). margin default 0.5.
+  protenix-prot-msa ref_fp32: OK (0.6 min)
+  protenix-prot-msa ref_bf16: OK (0.4 min)
+  protenix-ubq-msa ref_fp32: OK (0.6 min)
+  protenix-ubq-msa ref_bf16: OK (0.5 min)
+  protenix-hsa-msa ref_fp32: OK (3.2 min)
+  protenix-hsa-msa ref_bf16: OK (3.1 min)
+regen complete: 3 leg(s) with fp32+bf16 references; fingerprint index updated.
