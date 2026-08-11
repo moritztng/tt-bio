@@ -117,7 +117,8 @@ def wrap(name, fn):
             # (moonshot-4x-k256-kernel-rate.md 10b, pairformer-resident-chunking.md 70). At 512 aa
             # the outputs are 2.6x larger, so fall back down the ladder rather than leave a zero.
             err, dt, used = None, 0.0, 0
-            for r in sorted({STATE["reps"], 2, 1}, reverse=True):
+            for r in sorted({r for r in (STATE["reps"], 2, 1) if r <= STATE["reps"]},
+                            reverse=True):
                 try:
                     dt = bench(r)
                     if dt * 1e6 < STATE["small_us"]:
