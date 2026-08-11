@@ -1,0 +1,88 @@
+{
+  "model": "protenix-v2",
+  "side": "tenstorrent",
+  "hardware": "blackhole",
+  "machine": "tt-quietbox2",
+  "visible_devices": "0",
+  "card_type": "p300c",
+  "aiclk_mhz": "1350",
+  "tt_bio_git": "63d4117603a30d467260293172f48106e18b3c8c",
+  "ttnn_version": "0.68.0",
+  "input": "cdk2x2_512.yaml (512 aa, single protein, MSA on)",
+  "target": "perf/size512/fixtures/cdk2x2_512.yaml",
+  "n_msa": 35,
+  "n_tokens": 512,
+  "n_residues": 512,
+  "msa_cache": [
+    "4e5c2b391bde62d4.a3m"
+  ],
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "seed": 0,
+  "load_s": 1.76,
+  "cold_s": 140.04,
+  "warm_times_s": [
+    80.294,
+    80.333
+  ],
+  "warm_min_s": 80.294,
+  "warm_median_s": 80.333,
+  "warm_max_s": 80.333,
+  "cold_metrics": {
+    "complex_plddt": 0.523273,
+    "plddt": 0.523273,
+    "ptm": 0.389453,
+    "iptm": 0.0,
+    "confidence_score": 0.389453,
+    "n_residues": 512,
+    "n_chains": 1,
+    "n_tokens": 512,
+    "msa": true,
+    "n_atoms": 4117,
+    "samples": 1
+  },
+  "warm_folds": [
+    {
+      "s": 140.036,
+      "plddt": 0.523273,
+      "cif_sha256": {
+        "cdk2x2_512.cif": "3e856c3ec8ba9b6b"
+      },
+      "loadavg": [
+        "2.70",
+        "1.14",
+        "1.29"
+      ],
+      "arm_fold": "cold"
+    },
+    {
+      "s": 80.294,
+      "plddt": 0.523273,
+      "cif_sha256": {
+        "cdk2x2_512.cif": "3e856c3ec8ba9b6b"
+      },
+      "loadavg": [
+        "1.44",
+        "1.10",
+        "1.26"
+      ]
+    },
+    {
+      "s": 80.333,
+      "plddt": 0.523273,
+      "cif_sha256": {
+        "cdk2x2_512.cif": "3e856c3ec8ba9b6b"
+      },
+      "loadavg": [
+        "1.09",
+        "1.07",
+        "1.24"
+      ]
+    }
+  ],
+  "runtime_root": "/home/ttuser/silu_root/ttnn",
+  "kernel_cache": "/tmp/kc_fold_silu",
+  "uptime": "06:14:14 up  6:40,  6 users,  load average: 1.09, 1.07, 1.24",
+  "date": "2026-08-11"
+}
