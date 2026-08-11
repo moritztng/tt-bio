@@ -1,0 +1,34 @@
+{
+  "tag": "patchC",
+  "runtime_root": "/home/ttuser/silu_root_appx/ttnn",
+  "kernel_cache": "/tmp/kcacc2_appx",
+  "loadavg": "0.36 0.24 3.00 1/721 1519576",
+  "shape": {
+    "M": 512,
+    "K": 256,
+    "N": 1024,
+    "B": 32
+  },
+  "ckc": {
+    "math_approx_mode": true,
+    "fp32_dest_acc_en": true
+  },
+  "max_abs_err": 0.23840594291687012,
+  "mean_abs_err": 0.03110307827591896,
+  "rms_err": 0.06410260498523712,
+  "max_rel_err": 1.0,
+  "pcc": 0.9995988607406616,
+  "ref_absmax": 11.99992561340332,
+  "max_abs_err_core": 0.23840594291687012,
+  "rms_err_core": 0.07715480029582977,
+  "n_core": 2798800,
+  "objdump": {
+    "elf_candidates": [
+      "/tmp/kcacc2_appx/tt-metal-cache6745986192171285359/kernels/bmm_large_block_zm_fused_bias_activation/14892167712004297171/trisc1/trisc1.elf"
+    ],
+    "elf": "/tmp/kcacc2_appx/tt-metal-cache6745986192171285359/kernels/bmm_large_block_zm_fused_bias_activation/14892167712004297171/trisc1/trisc1.elf",
+    "sfpu_instrs": 85,
+    "total_instrs": 599
+  },
+  "fusion_ok": true
+}

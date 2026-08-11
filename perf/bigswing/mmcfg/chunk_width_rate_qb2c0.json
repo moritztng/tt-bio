@@ -1,0 +1,94 @@
+{
+ "host": "qb2",
+ "chip": 0,
+ "seq": 512,
+ "C": 32,
+ "reps": 5,
+ "arms": [
+  {
+   "G": 1,
+   "src_width": 128,
+   "chunks": 4,
+   "piece_width": 32,
+   "piece_tiles_contig": 1,
+   "calls_per_trimul": 8,
+   "ms_median": 6.0226,
+   "spread_ms": 0.0643,
+   "traffic_MB": 1024.0,
+   "GBps": 166.0
+  },
+  {
+   "G": 2,
+   "src_width": 256,
+   "chunks": 4,
+   "piece_width": 64,
+   "piece_tiles_contig": 2,
+   "calls_per_trimul": 4,
+   "ms_median": 5.9856,
+   "spread_ms": 0.0601,
+   "traffic_MB": 1024.0,
+   "GBps": 167.1
+  },
+  {
+   "G": 2,
+   "src_width": 256,
+   "chunks": 8,
+   "piece_width": 32,
+   "piece_tiles_contig": 1,
+   "calls_per_trimul": 4,
+   "ms_median": 10.4086,
+   "spread_ms": 0.0621,
+   "traffic_MB": 1024.0,
+   "GBps": 96.1
+  },
+  {
+   "G": 4,
+   "src_width": 512,
+   "chunks": 4,
+   "piece_width": 128,
+   "piece_tiles_contig": 4,
+   "calls_per_trimul": 2,
+   "ms_median": 3.7111,
+   "spread_ms": 0.0639,
+   "traffic_MB": 1024.0,
+   "GBps": 269.5
+  },
+  {
+   "G": 4,
+   "src_width": 512,
+   "chunks": 16,
+   "piece_width": 32,
+   "piece_tiles_contig": 1,
+   "calls_per_trimul": 2,
+   "ms_median": 10.3949,
+   "spread_ms": 0.0568,
+   "traffic_MB": 1024.0,
+   "GBps": 96.2
+  },
+  {
+   "G": 8,
+   "src_width": 1024,
+   "chunks": 4,
+   "piece_width": 256,
+   "piece_tiles_contig": 8,
+   "calls_per_trimul": 1,
+   "ms_median": 2.9864,
+   "spread_ms": 0.6065,
+   "traffic_MB": 1024.0,
+   "GBps": 334.9
+  },
+  {
+   "G": 8,
+   "src_width": 1024,
+   "chunks": 32,
+   "piece_width": 32,
+   "piece_tiles_contig": 1,
+   "calls_per_trimul": 1,
+   "ms_median": 10.4164,
+   "spread_ms": 1.037,
+   "traffic_MB": 1024.0,
+   "GBps": 96.0
+  }
+ ],
+ "ttnn": "0.68.0"
+}

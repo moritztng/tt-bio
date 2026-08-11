@@ -1,0 +1,20 @@
+{
+  "legs": [
+    {
+      "leg": "protenix-ubq-msa",
+      "verdict": "PASS",
+      "detail": "ubq: X=1.790 R=1.923 D=1.440 within=True",
+      "wall": 150.94721431400012,
+      "committed": "GAP-evidenced",
+      "report": "protenix-ubq-msa.json"
+    }
+  ],
+  "tally": {
+    "PASS": 1
+  },
+  "scored": 1,
+  "total_wall_s": 150.94745728499947,
+  "workers": [
+    "tt-quietbox2:0"
+  ]
+}

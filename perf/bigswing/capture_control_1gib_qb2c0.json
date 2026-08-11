@@ -1,0 +1,39 @@
+{
+ "host": "tt-quietbox2",
+ "ttnn": "0.68.0",
+ "model": "protenix-v2",
+ "n": 128,
+ "fast": false,
+ "warm": 1,
+ "region_gib": 1.0,
+ "loadavg_start": [
+  21.2314453125,
+  20.6357421875,
+  20.61328125
+ ],
+ "parts": {
+  "control_add": {
+   "log": "perf/bigswing/capture_control_1gib_qb2c0_control_add.log",
+   "verdict": "PASS",
+   "wall_s": 5.0,
+   "replay_ms": 0.026,
+   "part": "control_add",
+   "record_ms": 0.053882999054621905,
+   "end_ms": 0.0628909983788617
+  },
+  "control_matmul": {
+   "log": "perf/bigswing/capture_control_1gib_qb2c0_control_matmul.log",
+   "verdict": "PASS",
+   "wall_s": 6.6,
+   "replay_ms": 0.04,
+   "part": "control_matmul",
+   "record_ms": 0.137462997372495,
+   "end_ms": 0.05485500150825828
+  }
+ },
+ "loadavg_end": [
+  20.298828125,
+  20.45068359375,
+  20.552734375
+ ]
+}

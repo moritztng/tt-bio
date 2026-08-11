@@ -1,0 +1,83 @@
+{
+ "host": "qb2",
+ "chip": 0,
+ "seq": 512,
+ "K": 256,
+ "C": 32,
+ "n_pairs": 8,
+ "shape": "[1,512,512,256] @ [256,128g]",
+ "reps": 5,
+ "arms": [
+  {
+   "G": 1,
+   "n_calls_per_trimul": 8,
+   "N": 128,
+   "ms_median": 5.9391,
+   "ms_min": 5.8282,
+   "ms_max": 6.0815,
+   "spread_ms": 0.2533,
+   "tflops": 23.14,
+   "read_MB": 1024.0,
+   "write_MB": 512.0,
+   "agg_GBps": 252.6,
+   "torch_equal_vs_G1": true
+  },
+  {
+   "G": 2,
+   "n_calls_per_trimul": 4,
+   "N": 256,
+   "ms_median": 3.8753,
+   "ms_min": 3.7878,
+   "ms_max": 3.969,
+   "spread_ms": 0.1812,
+   "tflops": 35.47,
+   "read_MB": 512.0,
+   "write_MB": 512.0,
+   "agg_GBps": 258.0,
+   "torch_equal_vs_G1": true
+  },
+  {
+   "G": 4,
+   "n_calls_per_trimul": 2,
+   "N": 512,
+   "ms_median": 3.1281,
+   "ms_min": 3.0497,
+   "ms_max": 3.2128,
+   "spread_ms": 0.1631,
+   "tflops": 43.94,
+   "read_MB": 256.0,
+   "write_MB": 512.0,
+   "agg_GBps": 239.8,
+   "torch_equal_vs_G1": true
+  },
+  {
+   "G": 8,
+   "n_calls_per_trimul": 1,
+   "N": 1024,
+   "ms_median": 2.9208,
+   "ms_min": 2.8226,
+   "ms_max": 3.072,
+   "spread_ms": 0.2494,
+   "tflops": 47.06,
+   "read_MB": 128.0,
+   "write_MB": 512.0,
+   "agg_GBps": 214.0,
+   "torch_equal_vs_G1": true
+  }
+ ],
+ "ttnn": "0.68.0",
+ "bit_exact": {
+  "2": {
+   "torch_equal": true,
+   "max_abs": 0.0
+  },
+  "4": {
+   "torch_equal": true,
+   "max_abs": 0.0
+  },
+  "8": {
+   "torch_equal": true,
+   "max_abs": 0.0
+  }
+ }
+}

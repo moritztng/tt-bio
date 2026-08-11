@@ -2422,6 +2422,20 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             _dispatch_to_controller(controller, run_payload, total=len(jobs), results_path=results_path,
                                     struct_dir=struct_dir, model=model, debug=debug, log=log, run_id=run_id)
             return
+        # Every model on this branch is a ttnn-only port: load_model imports ttnn and opens a
+        # chip, with no torch fallback. Passing "tenstorrent" below regardless of --accelerator
+        # meant `--accelerator cpu` was accepted and then silently folded ON THE CARD. That is
+        # how scripts/full_parity_gate.py's "CPU references" for protenix-v2 and opendde became
+        # device folds: fp32 and bf16 references are then the same computation, the integration
+        # envelope denominator collapses to 0 and every device residual reads as a false GAP
+        # (2026-08-11: a --accelerator cpu regen fold was observed holding /dev/tenstorrent/0
+        # open, and its fp32/bf16 references agreed to six decimals). Refuse instead.
+        if not use_tt:
+            raise click.UsageError(
+                f"--model {model} runs on Tenstorrent only (tt-bio has no torch/CPU path for "
+                f"it), so --accelerator {accelerator} cannot be honored. Drop the flag to fold "
+                f"on the card; --model boltz2 is the one model with a CPU/GPU path."
+            )
         workers = _local_workers("tenstorrent", num_devices, device_ids, max_workers=max(len(jobs), 1))
         _cap_worker_threads(len(workers), host_threads)
         _dispatch_run(run_payload, workers, total=len(jobs), results_path=results_path,

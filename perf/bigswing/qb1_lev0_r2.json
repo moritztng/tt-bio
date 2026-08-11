@@ -1,0 +1,97 @@
+{
+  "model": "protenix-v2",
+  "side": "tenstorrent",
+  "hardware": "blackhole",
+  "machine": "tt-quietbox",
+  "visible_devices": "0",
+  "card_type": "p150a",
+  "aiclk_mhz": "1350",
+  "tt_bio_git": "0848581b10ff366c5aa00d7f5da8d7907de65ab6",
+  "ttnn_version": "0.67.4",
+  "input": "cdk2x2_512.yaml (512 aa, single protein, MSA on)",
+  "target": "/home/ttuser/.coworker/wt/pfrc-qb1/perf/size512/fixtures/cdk2x2_512.yaml",
+  "n_msa": 35,
+  "n_tokens": 512,
+  "n_residues": 512,
+  "msa_cache": [
+    "4e5c2b391bde62d4.a3m"
+  ],
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "seed": 0,
+  "load_s": 3.65,
+  "cold_s": 86.26,
+  "warm_times_s": [
+    80.484,
+    80.495
+  ],
+  "warm_min_s": 80.484,
+  "warm_median_s": 80.495,
+  "warm_max_s": 80.495,
+  "cold_metrics": {
+    "complex_plddt": 0.828628,
+    "plddt": 0.828628,
+    "ptm": 0.691968,
+    "iptm": 0.0,
+    "confidence_score": 0.691968,
+    "n_residues": 512,
+    "n_chains": 1,
+    "n_tokens": 512,
+    "msa": true,
+    "n_atoms": 4117,
+    "samples": 1
+  },
+  "warm_folds": [
+    {
+      "s": 86.259,
+      "plddt": 0.828628,
+      "cif_sha256": {
+        "cdk2x2_512.cif": "98c33a481fa1fd27"
+      },
+      "loadavg": [
+        "2.68",
+        "1.88",
+        "1.06"
+      ],
+      "arm_fold": "cold"
+    },
+    {
+      "s": 80.484,
+      "plddt": 0.828628,
+      "cif_sha256": {
+        "cdk2x2_512.cif": "98c33a481fa1fd27"
+      },
+      "loadavg": [
+        "3.66",
+        "2.16",
+        "1.21"
+      ]
+    },
+    {
+      "s": 80.495,
+      "plddt": 0.828628,
+      "cif_sha256": {
+        "cdk2x2_512.cif": "98c33a481fa1fd27"
+      },
+      "loadavg": [
+        "1.70",
+        "1.88",
+        "1.19"
+      ]
+    }
+  ],
+  "runtime_root": "<unset>",
+  "kernel_cache": "/home/ttuser/.cache/tt-metal-cache-tt-bio/ttnn-0.67.4",
+  "uptime": "09:50:20 up 1 day, 23:14,  0 users,  load average: 1.70, 1.88, 1.19",
+  "date": "2026-08-11",
+  "size": 512,
+  "l1_headroom": 2.5,
+  "pt_row_major": false,
+  "l1_n_max": 352,
+  "l1_n_min": 288,
+  "reblock_served": 52224,
+  "reblock_declined": 0,
+  "reblock_rejects": {},
+  "reblock_enabled": true
+}

@@ -1,0 +1,36 @@
+{
+  "tag": "stock",
+  "runtime_root": "<unset>",
+  "kernel_cache": "/tmp/kcacc2_stock",
+  "loadavg": "0.10 0.20 3.08 1/722 1518795",
+  "shape": {
+    "M": 512,
+    "K": 256,
+    "N": 1024,
+    "B": 32
+  },
+  "ckc": {
+    "math_approx_mode": true,
+    "fp32_dest_acc_en": true
+  },
+  "max_abs_err": 0.015624523162841797,
+  "mean_abs_err": 0.001220191945321858,
+  "rms_err": 0.002776549430564046,
+  "max_rel_err": 0.0038909323047846556,
+  "pcc": 0.9999694228172302,
+  "ref_absmax": 11.99992561340332,
+  "max_abs_err_core": 0.0077855587005615234,
+  "rms_err_core": 0.0014673782279714942,
+  "n_core": 2798800,
+  "objdump": {
+    "elf_candidates": [
+      "/tmp/kcacc2_stock/tt-metal-cache6745986192171285359/kernels/bmm_large_block_zm_fused_bias_activation/14892167712004297171/trisc1/trisc1.elf"
+    ],
+    "elf": "/tmp/kcacc2_stock/tt-metal-cache6745986192171285359/kernels/bmm_large_block_zm_fused_bias_activation/14892167712004297171/trisc1/trisc1.elf",
+    "sfpu_instrs": 1114,
+    "total_instrs": 1636
+  },
+  "fusion_ok": true,
+  "sfpu_expected": 898,
+  "sfpu_match": false
+}

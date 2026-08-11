@@ -1,0 +1,92 @@
+{
+  "model": "protenix-v2",
+  "side": "tenstorrent",
+  "hardware": "blackhole",
+  "machine": "tt-quietbox2",
+  "visible_devices": "0",
+  "card_type": "p300c",
+  "aiclk_mhz": "1350",
+  "tt_bio_git": "e091a58a3286b9add7c17148e24b65cafaafdcc9",
+  "ttnn_version": "0.68.0",
+  "input": "cdk2x2_512.yaml (512 aa, single protein, MSA on)",
+  "target": "/home/ttuser/.coworker/wt/pairformer-resident-chunking/perf/size512/fixtures/cdk2x2_512.yaml",
+  "n_msa": 35,
+  "n_tokens": 512,
+  "n_residues": 512,
+  "msa_cache": [
+    "4e5c2b391bde62d4.a3m"
+  ],
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "seed": 0,
+  "load_s": 1.26,
+  "cold_s": 97.2,
+  "warm_times_s": [
+    79.347,
+    79.344
+  ],
+  "warm_min_s": 79.344,
+  "warm_median_s": 79.347,
+  "warm_max_s": 79.347,
+  "cold_metrics": {
+    "complex_plddt": 0.828628,
+    "plddt": 0.828628,
+    "ptm": 0.691968,
+    "iptm": 0.0,
+    "confidence_score": 0.691968,
+    "n_residues": 512,
+    "n_chains": 1,
+    "n_tokens": 512,
+    "msa": true,
+    "n_atoms": 4117,
+    "samples": 1
+  },
+  "warm_folds": [
+    {
+      "s": 97.198,
+      "plddt": 0.828628,
+      "cif_sha256": {
+        "cdk2x2_512.cif": "98c33a481fa1fd27"
+      },
+      "loadavg": [
+        "1.11",
+        "0.52",
+        "0.84"
+      ],
+      "arm_fold": "cold"
+    },
+    {
+      "s": 79.347,
+      "plddt": 0.828628,
+      "cif_sha256": {
+        "cdk2x2_512.cif": "98c33a481fa1fd27"
+      },
+      "loadavg": [
+        "1.08",
+        "0.65",
+        "0.86"
+      ]
+    },
+    {
+      "s": 79.344,
+      "plddt": 0.828628,
+      "cif_sha256": {
+        "cdk2x2_512.cif": "98c33a481fa1fd27"
+      },
+      "loadavg": [
+        "1.02",
+        "0.74",
+        "0.87"
+      ]
+    }
+  ],
+  "runtime_root": "<unset>",
+  "kernel_cache": "/tmp/kc_fold_base",
+  "uptime": "07:08:01 up  7:34,  8 users,  load average: 1.02, 0.74, 0.87",
+  "date": "2026-08-11",
+  "reblock_served": 52224,
+  "reblock_declined": 0,
+  "reblock_rejects": {},
+  "reblock_enabled": true
+}

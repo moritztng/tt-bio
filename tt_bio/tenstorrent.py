@@ -89,6 +89,24 @@ _TRIMUL_RAW_CHANNEL_MOVES = False
 # run-to-run noise floor of exactly 0.0 (perf/trimul_kernel/w2_fold_parity.py). That is a
 # different fold, not a rounding difference. See _trimul_out_proj.
 _TRIMUL_MM_OUT = False
+# The trimul in-projection's N is 4 * the channel-chunk width, and above _trimul_l1_max_seq that
+# width is pinned to the narrowest value by _trimul_chunk_size -- on a path where the chunks are in
+# DRAM and the L1 budget the narrowing protects does not exist. At 512 aa the same 134.2 MB
+# activation is therefore streamed from DRAM once per chunk, 1024 MB read to write 512 MB, and
+# grouping G chunks into one matmul removes (G-1)/G of that read, bit-exact (torch.equal, max_abs
+# 0.0, 2.03x on the matmul: perf/bigswing/trimul_inproj_width.py).
+#
+# DEFAULT 1, i.e. OFF, because the matmul is not the whole unit. The loop consumes four
+# [1,S,S,C] pieces, so a grouped matmul is followed by a 4G-way ttnn.chunk, and a chunk whose
+# pieces are one tile wide runs at 96 GB/s against 166-335 GB/s for pieces of 4-8 tiles
+# (perf/bigswing/chunk_width_rate.py). The split loses more than the matmul saves: 11.670 -> 13.443
+# ms per trimul at G=4, which measured 0.9724x at the fold, CIF-identical, 40x the A/A floor
+# (perf/bigswing/fold_group_512_qb2c0.json).
+#
+# The fix is a role-major weight order, so the split is 4-way at every G and the channel loop runs
+# 32*G channels at a time. That screens at 1.72x on the mandatory unit. Until it exists, G > 1 is a
+# measured regression -- see state/pairformer-resident-chunking.md §67.
+_TRIMUL_INPROJ_GROUP = 1
 # Widest inner K block the pair-track projection config may use; None disables the config.
 # 1 keeps the contraction order of the production call and is bit-exact. Above 1 the partial
 # sums fold through packer_l1_acc in K-block order instead, which moves the last bf16 bit and
@@ -146,6 +164,47 @@ _PAIR_BIAS_L1_NORM = True
 # block loop so the residency window is the projections only.
 _PWA_L1_NORM = True
 _TEMPLATE_L1_NORM = True
+
+# Matmul fidelity for the trunk. The FPU is a 5b x 7b multiplier: srcA contributes a hidden bit plus
+# 4 mantissa bits per pass and srcB a hidden bit plus 6, so a 16-bit float's 8-bit significand splits
+# 5+3 on srcA and 7+1 on srcB (tt-metal tech_reports/matrix_engine/matrix_engine.md, "Math Fidelity").
+# The only term HiFi4 adds over HiFi3 is therefore A_lo*B_lo, ~2^-12 relative, which is below the
+# bf16 output's own 2^-8 rounding step -- and it costs a fourth pass, 64 against 48 cycles per tile.
+# MEASURED at seven production shapes at N=512 against an fp32 reference computed from the same bf16
+# operands (perf/bigswing/fid_512_mm_qb2c0.json): HiFi3 costs 0.08% of relative RMS where storing the
+# result in bf16 already costs 1.8%, and is worth 1.071x time-weighted over 831.2 of the Pairformer's
+# 872.95 executed TFLOP at 512 aa. HiFi2 is a different question: 2.59x the relative RMS, genuinely
+# above the rounding floor, so it is a parity decision and not a free one.
+# Deliberately NOT global. fp32 operands do need four passes, and Protenix's diffusion runs fp32 on
+# purpose (PROTENIX_DIFFUSION_FP32_DEVICE, and memory af3-diffusion-sampler-selective-fp32-boundary),
+# so the setting is scoped to the trunk, whose operands are bf16 and bf8 under --fast. Other models
+# opt in at their own construction site after their own envelope run -- a shared default across five
+# models is the shape that cost OpenDDE 60x once already.
+# Default hifi4 = production unchanged; the A/B and the envelope gate flip it.
+_TRUNK_MATH_FIDELITY = os.environ.get("TT_BIO_TRUNK_MATH_FIDELITY", "hifi4").lower()
+_MATH_FIDELITIES = {"lofi": "LoFi", "hifi2": "HiFi2", "hifi3": "HiFi3", "hifi4": "HiFi4"}
+
+
+def trunk_compute_kernel_config(base):
+    """`base` with the trunk's matmul fidelity, as a distinct object.
+
+    Distinct on purpose: every trunk submodule holds this one reference, so an A/B arm is a single
+    in-place write to `model.trunk.compute_kernel_config.math_fidelity` that provably cannot reach
+    the diffusion or confidence stages.
+    """
+    if _TRUNK_MATH_FIDELITY not in _MATH_FIDELITIES:
+        raise ValueError(f"TT_BIO_TRUNK_MATH_FIDELITY must be one of {sorted(_MATH_FIDELITIES)}, "
+                         f"got {_TRUNK_MATH_FIDELITY!r}")
+    cfg = type(base)(
+        math_fidelity=getattr(ttnn.MathFidelity, _MATH_FIDELITIES[_TRUNK_MATH_FIDELITY]),
+        math_approx_mode=base.math_approx_mode,
+        fp32_dest_acc_en=base.fp32_dest_acc_en,
+        packer_l1_acc=base.packer_l1_acc,
+    )
+    # The constructor takes four of the six fields; carry the other two rather than re-defaulting them.
+    cfg.dst_full_sync_en = base.dst_full_sync_en
+    cfg.throttle_level = base.throttle_level
+    return cfg
 # MEASURED LOSS, kept only as the A/B toggle behind perf/trimul_kernel/w2_arms.py.
 # Letting the output channel move write straight to DRAM drops the separate clone that used
 # to move the chunk there, but it also moves that permute's forced 64-byte writes from L1 to
@@ -512,6 +571,50 @@ def _fp32_softmax_attention(
     return o
 
 
+# The pair-tensor dim0/dim1 transpose is 4.0474 ms on [512,512,256] bf16 DRAM->DRAM, 66.3 GB/s
+# against a 389.9 GB/s clone roof, because tiling covers the last two dims and swapping the untiled
+# batch dim with the tile-row dim moves single 64-byte rows between tiles. Going out through
+# ROW_MAJOR removes that: the permute then sees no tiles at all, and retiling afterwards is a
+# whole-tile op. Measured in one process at that shape, warm 3, median of 7, torch.equal against the
+# tiled permute (perf/bigswing/pair_tr_ttnn_512_qb2c0.json):
+#
+#     permute (tiled)  4.0474 ms   66.3 GB/s      transpose(0,1)  4.0664 ms  (same kernel)
+#     via ROW_MAJOR    2.5275 ms  106.2 GB/s  1.6014x  <- this route
+#     4-D (0,2,1,3)    4.0753 ms  (same kernel)   clone roof      0.6885 ms  389.9 GB/s
+#
+# It costs one extra tensor of DRAM peak while the round trip is in flight, so it is gated to the
+# DRAM destination -- an L1 destination is already 1.4762 ms (2.7417x) and needs no help.
+PAIR_TRANSPOSE_VIA_ROW_MAJOR = True
+_PT_ROW_MAJOR = os.environ.get(
+    "TT_BIO_PAIR_TRANSPOSE_RM", "1" if PAIR_TRANSPOSE_VIA_ROW_MAJOR else "0") == "1"
+
+
+def _pair_transpose(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.Tensor:
+    """``permute(t, (1, 0, 2))``, through ROW_MAJOR where that wins. Bit-exact either way."""
+    if (_PT_ROW_MAJOR and len(t.shape) == 3
+            and memory_config.buffer_type == ttnn.BufferType.DRAM
+            and t.dtype == ttnn.bfloat16 and t.layout == ttnn.TILE_LAYOUT):
+        # Both to_layout calls MUST be pinned to the destination's buffer type. Without a
+        # memory_config ttnn places the intermediate by its own default, which is L1: that
+        # made openfold3 at 576 tokens die on `Out of Memory: Not enough space to allocate
+        # 84934656 B L1 buffer across 110 banks` -- exactly this tensor -- while the same
+        # fold passed with the route off. The round trip is a DRAM->DRAM move and every
+        # tensor in it belongs in DRAM.
+        rm = ttnn.to_layout(t, ttnn.ROW_MAJOR_LAYOUT, memory_config=memory_config)
+        p = ttnn.permute(rm, (1, 0, 2), memory_config=memory_config)
+        ttnn.deallocate(rm)
+        o = ttnn.to_layout(p, ttnn.TILE_LAYOUT, memory_config=memory_config)
+        ttnn.deallocate(p)
+        return o
+    return ttnn.permute(t, (1, 0, 2), memory_config=memory_config)
+
+
+# A/B knob only; the shipped value is 2.5 and nothing in the repo sets this. L1 total on an
+# 11x10 Blackhole grid is 168.57 MB (110 x 1 532 416 B), so the 512 aa pair tensor at
+# 134.22 MB is 79.6 % of it and the largest headroom that fits at all is 1.2559.
+_TRANSPOSE_L1_HEADROOM = float(os.environ.get("TT_BIO_TRANSPOSE_L1_HEADROOM", "2.5"))
+
+
 def _transpose_memory_config(t: ttnn.Tensor) -> ttnn.MemoryConfig:
     """L1 for a pair-tensor dim0/dim1 transpose when it fits, else DRAM.
 
@@ -532,7 +635,7 @@ def _transpose_memory_config(t: ttnn.Tensor) -> ttnn.MemoryConfig:
     every call and pin every tensor it ever saw for the life of the process.
     """
     # 2.5x headroom: the consumer still needs its circular buffers on every core.
-    return _l1_memory_config_if_it_fits(t, 2.5)
+    return _l1_memory_config_if_it_fits(t, _TRANSPOSE_L1_HEADROOM)
 
 
 def _l1_layer_norm(x: ttnn.Tensor, headroom: float, **kw):
@@ -1299,7 +1402,31 @@ def _open_and_init_device(trace_region_size):
         env_sz = os.environ.get("TT_BIO_TRACE_REGION_SIZE")
         if env_sz:
             trace_region_size = int(env_sz)
+    if trace_region_size >= 2 ** 32:
+        # A trace region of exactly 4 GiB or more wedges tt-metal instead of erroring: the
+        # capture records fine, then end_trace_capture blocks forever inside
+        # MeshTrace::populate_mesh_buffer -> enqueue_write_shard_to_sub_grid -> finish(), and
+        # the completion-queue reader thread spins at 100 % CPU on a completion that never
+        # arrives. Measured on qb2 / ttnn 0.68.0 / P300: 3.9 GiB closes a capture in 2.6 ms,
+        # 4.0 GiB never closes, for a bare ttnn.add with no model. Refuse it here rather than
+        # let a caller hang, and keep the byte count so the message is unambiguous.
+        raise ValueError(
+            f"trace_region_size={trace_region_size} is >= 2**32; tt-metal truncates it and "
+            "end_trace_capture never returns. Use 1 GiB (what the denoiser trace asks for).")
     device_id = int(os.environ.get("TT_BIO_LOGICAL_DEVICE_ID", "0"))
+    # A lone P300 chip is a custom topology and open_device() is a TT_FATAL without a mesh
+    # graph descriptor ("Custom fabric mesh graph descriptor path must be specified for CUSTOM
+    # cluster type"). tt-bio's CLI entry points set this in the parent before spawning workers;
+    # anything that reaches get_device() directly -- every tool under perf/, every ad-hoc
+    # script -- did not, and got the TT_FATAL. Setting it here covers both, and an explicit
+    # TT_MESH_GRAPH_DESC_PATH still wins. The import is function-local because tt_bio.main
+    # imports this module.
+    if not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
+        from .main import _detect_p300_devices, _find_ttnn_mesh_graph_descriptor
+        if _detect_p300_devices():
+            mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
+            if mgd:
+                os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
     # Wormhole: dispatch on Ethernet cores so the full 8x8 Tensix grid
     # (rather than 8x7 after worker-dispatch reservation) is available.
     # BUT on a multi-chip system (Galaxy / multi-card mesh) the ETH cores are
@@ -1550,25 +1677,35 @@ class TriangleMultiplication(Module):
         # and a fold holds one sequence length, so in practice one variant exists.
         self._g_in_t, self._p_in_t = g_in_t, p_in_t
         self._hidden = g_in_t.shape[1] // 2
-        self._gp_cache: dict[int, list[ttnn.Tensor]] = {}
+        self._gp_cache: dict[tuple[int, int], list[ttnn.Tensor]] = {}
         self.g_out_weight = self.torch_to_tt("g_out.weight")
         self.out_p_weight = self.torch_to_tt("p_out.weight")
 
-    def _gp_in_chunks(self, C: int) -> list[ttnn.Tensor]:
-        """Fused [g_a | g_b | p_a | p_b] input weights for a chunk width of C."""
-        cached = self._gp_cache.get(C)
+    def _gp_in_chunks(self, C: int, group: int = 1) -> list[ttnn.Tensor]:
+        """Fused [g_a | g_b | p_a | p_b] input weights, `group` consecutive chunks per weight.
+
+        The columns stay in pair order, so a 4*group-way split of the result hands back exactly
+        the four pieces per pair the narrow path produced -- which is what makes the wider matmul
+        bit-exact rather than merely close.
+        """
+        cached = self._gp_cache.get((C, group))
         if cached is not None:
             return cached
         g, p = self._g_in_t, self._p_in_t
         n_pairs = g.shape[1] // C // 2
+        assert n_pairs % group == 0, f"group {group} does not divide {n_pairs} pairs"
         chunks = [
             ttnn.from_torch(
                 torch.cat(
                     [
-                        g[:, i * C : (i + 1) * C],
-                        g[:, (i + n_pairs) * C : (i + n_pairs + 1) * C],
-                        p[:, i * C : (i + 1) * C],
-                        p[:, (i + n_pairs) * C : (i + n_pairs + 1) * C],
+                        col
+                        for j in range(i * group, (i + 1) * group)
+                        for col in (
+                            g[:, j * C : (j + 1) * C],
+                            g[:, (j + n_pairs) * C : (j + n_pairs + 1) * C],
+                            p[:, j * C : (j + 1) * C],
+                            p[:, (j + n_pairs) * C : (j + n_pairs + 1) * C],
+                        )
                     ],
                     dim=1,
                 ),
@@ -1576,9 +1713,9 @@ class TriangleMultiplication(Module):
                 device=self.device,
                 dtype=ttnn.bfloat16,
             )
-            for i in range(n_pairs)
+            for i in range(n_pairs // group)
         ]
-        self._gp_cache[C] = chunks
+        self._gp_cache[(C, group)] = chunks
         return chunks
 
     def _transform_chunk(
@@ -1633,8 +1770,17 @@ class TriangleMultiplication(Module):
         # Every L1 tensor the channel loop holds is [batch, chunk, H, H], so the width
         # budget has to see the batch a confidence head arrives with, not just H.
         batch = prod(list(x_norm_in.shape)[:-3])
-        gp_in_chunks = self._gp_in_chunks(_trimul_chunk_size(H, self._hidden, batch))
-        n_pairs = len(gp_in_chunks)
+        large_seq = memory_config.buffer_type == ttnn.BufferType.DRAM
+        chunk_size = _trimul_chunk_size(H, self._hidden, batch)
+        n_pairs = self._hidden // chunk_size
+        # The matmul's N and the channel-chunk width are two different numbers this code has been
+        # forcing to be one. Only the matmul widens (_TRIMUL_INPROJ_GROUP), and only on the DRAM
+        # path: on the L1 path _trimul_chunk_size has already widened the chunk itself and the L1
+        # budget it protects is real. Everything below the four-way unpack is unchanged.
+        group = _TRIMUL_INPROJ_GROUP if large_seq else 1
+        while n_pairs % group:
+            group //= 2
+        gp_in_chunks = self._gp_in_chunks(chunk_size, group)
         seq_len_tiles = (H + 31) // 32
         program_config = _triangle_mul_program_config(seq_len_tiles)
         if H > SEQ_LEN_MORE_CHUNKING:
@@ -1649,22 +1795,25 @@ class TriangleMultiplication(Module):
         # moved to DRAM as they are produced, so holding all n_pairs of them costs
         # no L1: measured 7.05 -> 6.94 ms per trimul at 298 aa
         # (perf/trimul_kernel/opsplit298.py).
-        large_seq = memory_config.buffer_type == ttnn.BufferType.DRAM
         # Assemble the per-channel chunks on the host when the full result is large
         # enough that the concat's full-size allocation would risk a fragmented-DRAM
         # refusal; the loop then holds at most one chunk on device (CONCAT_HOST_BYTES).
         host_acc = large_seq and _host_concat(x_in)
         x_chunks = []
+        pending: list[tuple] = []          # the current group's [g_a, g_b, p_a, p_b] quadruples
         for i in range(n_pairs):
-            gp_in_fused = ttnn.experimental.minimal_matmul(
-                x_norm_in,
-                gp_in_chunks[i],
-                memory_config=memory_config,
-                dtype=_dtype(),
-                compute_kernel_config=self.compute_kernel_config,
-            )
-            g_in_a, g_in_b, p_in_a, p_in_b = ttnn.chunk(gp_in_fused, chunks=4, dim=-1)
-            ttnn.deallocate(gp_in_fused)
+            if not pending:
+                gp_in_fused = ttnn.experimental.minimal_matmul(
+                    x_norm_in,
+                    gp_in_chunks[i // group],
+                    memory_config=memory_config,
+                    dtype=_dtype(),
+                    compute_kernel_config=self.compute_kernel_config,
+                )
+                parts = ttnn.chunk(gp_in_fused, chunks=4 * group, dim=-1)
+                ttnn.deallocate(gp_in_fused)
+                pending = [tuple(parts[4 * j : 4 * j + 4]) for j in range(group)]
+            g_in_a, g_in_b, p_in_a, p_in_b = pending.pop(0)
             a_chunk = ttnn.multiply_(
                 p_in_a, g_in_a, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
             )
@@ -1800,6 +1949,48 @@ class TriangleMultiplication(Module):
         return x
 
 
+# The qkv and g projections are the fold's two biggest `minimal_matmul` sites after the trimul
+# in-projection. An off-fold sweep of every legal MinimalMatmulConfig at their exact shapes
+# (perf/bigswing/mmcfg/mmcfg_sweep_512_qb2c0.json, warm 2, median of 5, torch.equal against the
+# unconfigured default) found one winner each and nothing at all for the in-projection:
+#
+#     [512,512,256] x [256,768]  2.2021 -> 2.1021 ms  1.0476x  M=4 K=8 N=1 sub=4x1
+#     [512,512,256] x [256,256]  0.9073 -> 0.8135 ms  1.1153x  M=2 K=8 N=1 sub=2x1
+#     [1,512,512,256] x [256,128]  best legal config 0.9904x   -- no win, left alone
+#
+# Both are bit-exact. Gated because a per-call ratio is a screen, not a fold gain.
+QKV_MM_CONFIG = True
+_MM_CFG = os.environ.get("TT_BIO_QKV_MM_CONFIG", "1" if QKV_MM_CONFIG else "0") == "1"
+_MM_BLOCK = {24: (4, 8, 1, 4, 1), 8: (2, 8, 1, 2, 1)}      # n_tiles -> (M, K, N, sub_h, sub_w)
+
+
+@lru_cache(maxsize=None)
+def _mm_core_coord(gx, gy):
+    return ttnn.CoreCoord(gx, gy)
+
+
+def _qkv_mm_config(inp, w):
+    """The swept block config for this (activation, weight) pair, or None to leave the op alone."""
+    if not _MM_CFG:
+        return None
+    kt = (int(w.shape[-2]) + 31) // 32
+    nt = (int(w.shape[-1]) + 31) // 32
+    blk = _MM_BLOCK.get(nt)
+    if blk is None or kt % blk[1]:
+        return None
+    shape = [int(d) for d in inp.shape]      # ttnn.Shape does not support slicing
+    mt = 1
+    for d in shape[:-1]:
+        mt *= d
+    mt = (mt + 31) // 32
+    M, K, N, sh, sw = blk
+    if mt % M or nt % N:
+        return None
+    return ttnn.MinimalMatmulConfig(
+        M_block_size=M, K_block_size=K, N_block_size=N, subblock_h=sh, subblock_w=sw,
+        compute_with_storage_grid_size=_mm_core_coord(*COMPUTE_GRID_MAIN))
+
+
 class TriangleAttention(Module):
     def __init__(
         self,
@@ -1892,8 +2083,7 @@ class TriangleAttention(Module):
             def normed_rows(s, e):
                 blk = x[:, s:e, :] if self.ending else x[s:e, :, :]
                 if self.ending:
-                    blk = ttnn.permute(blk, (1, 0, 2),
-                                       memory_config=_transpose_memory_config(blk))
+                    blk = _pair_transpose(blk, _transpose_memory_config(blk))
                 return ttnn.layer_norm(
                     blk,
                     weight=self.layer_norm_weight,
@@ -1924,7 +2114,7 @@ class TriangleAttention(Module):
             dram_peak(f"tri_att({'end' if self.ending else 'start'}) bias built [z={'x'.join(str(d) for d in x.shape)}]")
         else:
             if self.ending:
-                x = ttnn.permute(x, (1, 0, 2), memory_config=_transpose_memory_config(x))
+                x = _pair_transpose(x, _transpose_memory_config(x))
             # Explicit DRAM: for the ending variant x is the L1 transpose result
             # (_transpose_memory_config) and ttnn would otherwise inherit L1 here and again
             # for the qkv projection, whose 157 MB does not fit.
@@ -2009,12 +2199,14 @@ class TriangleAttention(Module):
                     weight_tensor=self.qkv_weight,
                     compute_kernel_config=self.compute_kernel_config,
                     dtype=_dtype(),
+                    config=_qkv_mm_config(x_chunk, self.qkv_weight),
                 )
                 g_chunk = ttnn.experimental.minimal_matmul(
                     input_tensor=x_chunk,
                     weight_tensor=self.g_weight,
                     compute_kernel_config=self.compute_kernel_config,
                     dtype=_dtype(),
+                    config=_qkv_mm_config(x_chunk, self.g_weight),
                 )
                 ttnn.deallocate(x_chunk)
                 if self.affinity:
@@ -2058,12 +2250,14 @@ class TriangleAttention(Module):
                     weight_tensor=self.qkv_weight,
                     compute_kernel_config=self.compute_kernel_config,
                     dtype=_dtype(),
+                    config=_qkv_mm_config(x, self.qkv_weight),
                 )
             g = ttnn.experimental.minimal_matmul(
                 input_tensor=x,
                 weight_tensor=self.g_weight,
                 compute_kernel_config=self.compute_kernel_config,
                 dtype=_dtype(),
+                config=_qkv_mm_config(x, self.g_weight),
             )
             ttnn.deallocate(x)
             if attn_mask is not None:
@@ -2073,7 +2267,7 @@ class TriangleAttention(Module):
             ttnn.deallocate(triangle_bias)
             x = gate_and_project(o, g)
         if self.ending:
-            x = ttnn.permute(x, (1, 0, 2), memory_config=_transpose_memory_config(x))
+            x = _pair_transpose(x, _transpose_memory_config(x))
         x = ttnn.reshape(x, (1, *x.shape))
         return x
 

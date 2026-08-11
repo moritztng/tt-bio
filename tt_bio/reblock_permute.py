@@ -248,16 +248,38 @@ def reblock_permute(x, memory_config=None, device=None):
     return ttnn.generic_op([x, out], pd)
 
 
+# The L1 leg's window edges, named so a fold-level A/B can move one of them in-process without
+# editing the gate. See eligible()'s docstring for what measured them.
+L1_N_MIN = 288
+L1_N_MAX = 352
+
+
 def eligible(x, memory_config) -> bool:
     """The gate, measured against the wheel's own ``ttnn.permute`` on the card that runs it.
 
     Two things decide it: the destination buffer type and ``N``. On DRAM the custom move wins from
     N=256 upward on both wheels measured (qb1 / 0.67.4: 1.90x at 298 and 320; qb2 / 0.68.0: 1.5x).
-    On L1 the margin is smaller and wheel-dependent, so that leg of the window is narrow. It opens
-    at 288 because below that there are fewer work groups than cores and the per-call cost is not
-    amortised: N=256 on an L1 output measures 0.952x on 110 cores, a real loss, and it is the shape
-    boltzgen runs 2384 of its 3024 channel moves on. It closes at 352 because Nt=12 puts 144 groups
-    on 130 cores, 14 of them carrying two, and the win collapses from 1.415x to 1.002x.
+    On L1 the margin is smaller and grid-dependent. It opens at 288 because below that there are
+    fewer work groups than cores and the per-call cost is not amortised: N=256 on an L1 output
+    measures 0.952x on 110 cores, a real loss, and it is the shape boltzgen runs 2384 of its 3024
+    channel moves on.
+
+    The upper edge stays 352. It was widened to 544 on qb2 evidence and reverted: the widening is
+    worth 0.000 s/fold at 512 aa (the fit test already routes the pair tensor to DRAM, where the leg
+    is open, so 52224 of 52224 moves were already served and 0 declined), and re-measured on qb1's
+    13x10 grid it does not reproduce -- two runs there read 0.68/0.72x at N=320, 0.65/0.86x at N=384,
+    and a run-to-run spread up to 23 % at N=512. A no-op with ambiguous cross-grid evidence is not
+    worth a shipped behaviour change. The qb2 band below is kept because it is the measurement, and
+    the qb1 repeats are in perf/bigswing/reblock_window_band_qb1c0{,_r2}.json.
+
+    The qb2 measurement was: 544, on the 11x10 grid at ttnn 0.68.0
+    (``perf/bigswing/reblock_window_band_qb2c0.json``): every N in {320, 352, 384, 416, 448, 480,
+    512, 544} wins on an L1 output and every one is ``torch.equal`` against ``ttnn.permute`` --
+    1.3317 / 1.0150 / 1.1500 / 1.3549 / 1.5587 / 1.3401 / 1.3958 / 1.6163x. There is no cliff in
+    that range, and the weakest point is N=352, which is where the window used to close. That 352
+    came from qb1's 13x10 grid, where Nt=12 puts 144 groups on 130 cores and the win was measured
+    to collapse to 1.002x. The band above 352 has NOT been re-measured on a 130-core grid, so this
+    edge is qb2-evidenced only and a qb1 re-measure is owed before it ships.
 
     The channel count is deliberately not part of the window: the kernel handles any ``C`` that is a
     multiple of 32, because the trunk's own chunk width depends on the compute grid.
@@ -276,7 +298,7 @@ def eligible(x, memory_config) -> bool:
         return _reject("sharded_in", shape)
     bt = memory_config.buffer_type
     if not ((bt == ttnn.BufferType.DRAM and N >= 256)
-            or (bt == ttnn.BufferType.L1 and 288 <= N <= 352)):
+            or (bt == ttnn.BufferType.L1 and L1_N_MIN <= N <= L1_N_MAX)):
         return _reject(f"window_{bt}", shape)
     # Last, because it is the only clause that touches the device, and cached, so a fold pays it once
     # per shape. `_build` requests a work split for Nt*Nt groups and the wheel's utility throws on

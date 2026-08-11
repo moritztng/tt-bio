@@ -32,7 +32,8 @@ import ttnn
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
-from tt_bio.tenstorrent import PairformerLayer, get_device  # noqa: E402
+from tt_bio import tenstorrent as T  # noqa: E402
+from tt_bio.tenstorrent import PairformerLayer, get_device, set_fast_mode  # noqa: E402
 from tt_bio import protenix_weights as PW  # noqa: E402
 
 TRI_HEAD_DIM = 32
@@ -109,19 +110,31 @@ def wrap(name, fn):
                 del extra
                 return dt
 
-            err = None
-            try:
-                dt = bench(STATE["reps"])
-                if dt * 1e6 < STATE["small_us"]:
-                    dt = bench(STATE["reps"] * 8)
-            except Exception as e:                               # noqa: BLE001
-                # An op we cannot safely re-run is still worth a row: shapes are recorded, time is
-                # not, and the row is excluded from the sum rather than silently guessed.
-                err, dt = f"{type(e).__name__}: {e}"[:200], 0.0
-                ttnn.synchronize_device(dev)
+            # bench() holds `reps` extra outputs live beside the block, so a wide output OOMs L1
+            # and the row lands at 0.0 with its time absorbed by the classes that did time. Nine
+            # rows were in that state at 320 aa, five of them matmuls including the largest in the
+            # fold, and four fusion go/no-go verdicts were built on the sum that absorbed them
+            # (moonshot-4x-k256-kernel-rate.md 10b, pairformer-resident-chunking.md 70). At 512 aa
+            # the outputs are 2.6x larger, so fall back down the ladder rather than leave a zero.
+            err, dt, used = None, 0.0, 0
+            for r in sorted({r for r in (STATE["reps"], 2, 1) if r <= STATE["reps"]},
+                            reverse=True):
+                try:
+                    dt = bench(r)
+                    if dt * 1e6 < STATE["small_us"]:
+                        dt = bench(r * 8)
+                    err, used = None, r
+                    break
+                except Exception as e:                           # noqa: BLE001
+                    # An op we cannot safely re-run even once is still worth a row: shapes are
+                    # recorded, time is not, and the row is excluded from the sum rather than
+                    # silently guessed.
+                    err, dt = f"{type(e).__name__}: {e}"[:200], 0.0
+                    ttnn.synchronize_device(dev)
             first = out[0] if isinstance(out, (list, tuple)) and out else out
             RECORDS.append({"i": STATE["idx"], "op": name, "site": site, "chain": chain, "s": dt,
                             "in": ins, "out": desc(first) if isinstance(first, ttnn.Tensor) else None,
+                            "reps_used": used,
                             **({"error": err} if err else {})})
             STATE["idx"] += 1
             return out
@@ -168,6 +181,11 @@ def main():
     ap.add_argument("--warm", type=int, default=3)
     ap.add_argument("--reps", type=int, default=4)
     ap.add_argument("--small-us", type=float, default=60.0)
+    ap.add_argument("--fast", action="store_true",
+                    help="census the --fast configuration: bfloat8_b chunks and the 640-token "
+                         "trimul L1 window. --fast is banked at 1.2207x and it is spent on the same "
+                         "data movement a fused program would remove, so a default-mode census "
+                         "measures a prize that is partly already banked.")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -175,6 +193,9 @@ def main():
     ckc = ttnn.init_device_compute_kernel_config(
         dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
         fp32_dest_acc_en=True, packer_l1_acc=True)
+    if args.fast:
+        set_fast_mode(True)
+    assert T._FAST_MODE is args.fast, T._FAST_MODE
     layer, c_z = build(args.model, ckc)
     N = args.n
     torch.manual_seed(0)
@@ -212,9 +233,16 @@ def main():
     tot = sum(r["s"] for r in RECORDS)
     print(f"ops={len(RECORDS)}  sum={tot * 1e3:.3f} ms  block={block_s * 1e3:.3f} ms  "
           f"coverage={100 * tot / block_s:.1f}%", flush=True)
+    untimed = [r for r in RECORDS if "error" in r]
+    if untimed:
+        print(f"UNTIMED {len(untimed)} rows -- the sum is not sound, see pairformer-resident-chunking.md 70",
+              flush=True)
+        for r in untimed:
+            print(f"  {r['op']} @ {r['site']} out={r['out']} :: {r['error']}", flush=True)
     json.dump({"model": args.model, "n": N, "c_z": c_z, "block_wall_s": block_s,
-               "reps": args.reps, "n_ops": len(RECORDS), "sum_s": tot, "fatal": fatal,
-               "records": RECORDS}, open(args.out, "w"), indent=1)
+               "reps": args.reps, "fast": args.fast, "n_ops": len(RECORDS), "sum_s": tot,
+               "n_untimed": len(untimed), "loadavg": open("/proc/loadavg").read().split()[:3],
+               "fatal": fatal, "records": RECORDS}, open(args.out, "w"), indent=1)
 
 
 if __name__ == "__main__":

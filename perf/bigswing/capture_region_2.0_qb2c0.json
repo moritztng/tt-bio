@@ -1,0 +1,30 @@
+{
+ "host": "tt-quietbox2",
+ "ttnn": "0.68.0",
+ "model": "protenix-v2",
+ "n": 128,
+ "fast": false,
+ "warm": 1,
+ "region_gib": 2.0,
+ "loadavg_start": [
+  21.58349609375,
+  21.2451171875,
+  20.8623046875
+ ],
+ "parts": {
+  "control_add": {
+   "log": "perf/bigswing/capture_region_2.0_qb2c0_control_add.log",
+   "verdict": "PASS",
+   "wall_s": 5.0,
+   "replay_ms": 0.049,
+   "part": "control_add",
+   "record_ms": 0.08745699960854836,
+   "end_ms": 0.07763900066493079
+  }
+ },
+ "loadavg_end": [
+  21.6171875,
+  21.2578125,
+  20.86865234375
+ ]
+}

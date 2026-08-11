@@ -1,0 +1,396 @@
+{
+ "host": "qb2",
+ "ttnn": "0.68.0",
+ "N": 512,
+ "grid": [
+  11,
+  10
+ ],
+ "classes": [
+  {
+   "class": "trimul.in_proj",
+   "backend": "linear",
+   "gflop": 17.179869184,
+   "arms": {
+    "HiFi4": {
+     "ms": 2.69633,
+     "all": [
+      2.75303,
+      2.69633,
+      2.72916
+     ],
+     "tflops": 6.37,
+     "vs_hifi4": 1.0
+    },
+    "HiFi3": {
+     "ms": 2.77799,
+     "all": [
+      2.80229,
+      2.77799
+     ],
+     "tflops": 6.18,
+     "vs_hifi4": 0.9706
+    },
+    "HiFi2": {
+     "ms": 2.78149,
+     "all": [
+      2.78149
+     ],
+     "tflops": 6.18,
+     "vs_hifi4": 0.9694
+    }
+   },
+   "acc": {
+    "HiFi4": {
+     "max_abs": 0.3052063,
+     "rel_rms": 0.00172707
+    },
+    "HiFi3": {
+     "max_abs": 0.3052063,
+     "rel_rms": 0.00173825
+    },
+    "HiFi2": {
+     "max_abs": 0.57709503,
+     "rel_rms": 0.00458629
+    },
+    "bf16_output_rounding_floor": {
+     "max_abs": 0.24992371,
+     "rel_rms": 0.00166148
+    }
+   }
+  },
+  {
+   "class": "trimul.out_proj",
+   "backend": "linear",
+   "gflop": 34.359738368,
+   "arms": {
+    "HiFi4": {
+     "ms": 1.58072,
+     "all": [
+      1.58378,
+      1.58072,
+      1.58086
+     ],
+     "tflops": 21.74,
+     "vs_hifi4": 1.0
+    },
+    "HiFi3": {
+     "ms": 1.57787,
+     "all": [
+      1.57787,
+      1.58073
+     ],
+     "tflops": 21.78,
+     "vs_hifi4": 1.0018
+    },
+    "HiFi2": {
+     "ms": 1.56915,
+     "all": [
+      1.56915
+     ],
+     "tflops": 21.9,
+     "vs_hifi4": 1.0074
+    }
+   },
+   "acc": {
+    "HiFi4": {
+     "max_abs": 0.30814362,
+     "rel_rms": 0.00172691
+    },
+    "HiFi3": {
+     "max_abs": 0.30814362,
+     "rel_rms": 0.00173813
+    },
+    "HiFi2": {
+     "max_abs": 0.60430145,
+     "rel_rms": 0.00458617
+    },
+    "bf16_output_rounding_floor": {
+     "max_abs": 0.24999237,
+     "rel_rms": 0.00166146
+    }
+   }
+  },
+  {
+   "class": "triatt.qkv",
+   "backend": "minimal",
+   "gflop": 103.079215104,
+   "arms": {
+    "HiFi4": {
+     "ms": 2.52691,
+     "all": [
+      2.52691,
+      2.56432,
+      2.65656
+     ],
+     "tflops": 40.79,
+     "vs_hifi4": 1.0
+    },
+    "HiFi3": {
+     "ms": 2.31843,
+     "all": [
+      2.34491,
+      2.31843
+     ],
+     "tflops": 44.46,
+     "vs_hifi4": 1.0899
+    },
+    "HiFi2": {
+     "ms": 2.17036,
+     "all": [
+      2.17036
+     ],
+     "tflops": 47.49,
+     "vs_hifi4": 1.1643
+    }
+   },
+   "acc": {
+    "HiFi4": {
+     "max_abs": 0.27253723,
+     "rel_rms": 0.00169081
+    },
+    "HiFi3": {
+     "max_abs": 0.27253723,
+     "rel_rms": 0.00169224
+    },
+    "HiFi2": {
+     "max_abs": 0.60644531,
+     "rel_rms": 0.00438061
+    },
+    "bf16_output_rounding_floor": {
+     "max_abs": 0.24998474,
+     "rel_rms": 0.00166146
+    }
+   }
+  },
+  {
+   "class": "triatt.g",
+   "backend": "minimal",
+   "gflop": 34.359738368,
+   "arms": {
+    "HiFi4": {
+     "ms": 0.96414,
+     "all": [
+      0.96414,
+      0.97054,
+      0.96706
+     ],
+     "tflops": 35.64,
+     "vs_hifi4": 1.0
+    },
+    "HiFi3": {
+     "ms": 0.93283,
+     "all": [
+      0.93419,
+      0.93283
+     ],
+     "tflops": 36.83,
+     "vs_hifi4": 1.0336
+    },
+    "HiFi2": {
+     "ms": 0.88708,
+     "all": [
+      0.88708
+     ],
+     "tflops": 38.73,
+     "vs_hifi4": 1.0869
+    }
+   },
+   "acc": {
+    "HiFi4": {
+     "max_abs": 0.26086426,
+     "rel_rms": 0.00169049
+    },
+    "HiFi3": {
+     "max_abs": 0.26464081,
+     "rel_rms": 0.00169195
+    },
+    "HiFi2": {
+     "max_abs": 0.59204102,
+     "rel_rms": 0.00438021
+    },
+    "bf16_output_rounding_floor": {
+     "max_abs": 0.24999237,
+     "rel_rms": 0.00166143
+    }
+   }
+  },
+  {
+   "class": "triatt.out",
+   "backend": "linear",
+   "gflop": 34.359738368,
+   "arms": {
+    "HiFi4": {
+     "ms": 1.58346,
+     "all": [
+      1.58469,
+      1.58395,
+      1.58346
+     ],
+     "tflops": 21.7,
+     "vs_hifi4": 1.0
+    },
+    "HiFi3": {
+     "ms": 1.55681,
+     "all": [
+      1.56105,
+      1.55681
+     ],
+     "tflops": 22.07,
+     "vs_hifi4": 1.0171
+    },
+    "HiFi2": {
+     "ms": 1.57643,
+     "all": [
+      1.57643
+     ],
+     "tflops": 21.8,
+     "vs_hifi4": 1.0045
+    }
+   },
+   "acc": {
+    "HiFi4": {
+     "max_abs": 0.29275513,
+     "rel_rms": 0.00172717
+    },
+    "HiFi3": {
+     "max_abs": 0.31018066,
+     "rel_rms": 0.00173836
+    },
+    "HiFi2": {
+     "max_abs": 0.59355164,
+     "rel_rms": 0.00458705
+    },
+    "bf16_output_rounding_floor": {
+     "max_abs": 0.24999237,
+     "rel_rms": 0.00166154
+    }
+   }
+  },
+  {
+   "class": "transition.up",
+   "error": "RuntimeError('TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\\ninfo:\\nStatically allocated circular buffers in program 25 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=9)]. L1 buffer allocated at 1112064 and static circular buffer region ends at 1159680\\nbacktrac"
+  },
+  {
+   "class": "transition.down",
+   "backend": "minimal",
+   "gflop": 4.294967296,
+   "arms": {
+    "HiFi4": {
+     "ms": 0.09625,
+     "all": [
+      0.09625,
+      0.09646,
+      0.09661
+     ],
+     "tflops": 44.62,
+     "vs_hifi4": 1.0
+    },
+    "HiFi3": {
+     "ms": 0.09422,
+     "all": [
+      0.09422,
+      0.09456
+     ],
+     "tflops": 45.58,
+     "vs_hifi4": 1.0215
+    },
+    "HiFi2": {
+     "ms": 0.09489,
+     "all": [
+      0.09489
+     ],
+     "tflops": 45.26,
+     "vs_hifi4": 1.0143
+    }
+   },
+   "acc": {
+    "HiFi4": {
+     "max_abs": 0.50776672,
+     "rel_rms": 0.00169075
+    },
+    "HiFi3": {
+     "max_abs": 0.50776672,
+     "rel_rms": 0.00169215
+    },
+    "HiFi2": {
+     "max_abs": 0.92233276,
+     "rel_rms": 0.00437923
+    },
+    "bf16_output_rounding_floor": {
+     "max_abs": 0.49711609,
+     "rel_rms": 0.00166129
+    }
+   }
+  },
+  {
+   "class": "trimul.tri_matmul",
+   "backend": "matmul",
+   "gflop": 8.589934592,
+   "arms": {
+    "HiFi4": {
+     "ms": 0.49492,
+     "all": [
+      0.49885,
+      0.49492,
+      0.49533
+     ],
+     "tflops": 17.36,
+     "vs_hifi4": 1.0
+    },
+    "HiFi3": {
+     "ms": 0.48773,
+     "all": [
+      0.4916,
+      0.48773
+     ],
+     "tflops": 17.61,
+     "vs_hifi4": 1.0147
+    },
+    "HiFi2": {
+     "ms": 0.48512,
+     "all": [
+      0.48512
+     ],
+     "tflops": 17.71,
+     "vs_hifi4": 1.0202
+    }
+   }
+  },
+  {
+   "class": "triatt.sdpa",
+   "backend": "sdpa",
+   "chunk": 256,
+   "gflop": 137.438953472,
+   "arms": {
+    "HiFi4": {
+     "ms": 2.80157,
+     "all": [
+      2.80157,
+      2.90225,
+      2.96075
+     ],
+     "tflops": 49.06,
+     "vs_hifi4": 1.0
+    },
+    "HiFi3": {
+     "ms": 2.48321,
+     "all": [
+      2.48321,
+      2.5523
+     ],
+     "tflops": 55.35,
+     "vs_hifi4": 1.1282
+    },
+    "HiFi2": {
+     "ms": 2.20079,
+     "all": [
+      2.20079
+     ],
+     "tflops": 62.45,
+     "vs_hifi4": 1.273
+    }
+   }
+  }
+ ]
+}
