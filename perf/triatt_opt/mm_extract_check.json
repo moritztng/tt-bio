@@ -1,0 +1,77 @@
+{
+ "ttnn": "0.68.0",
+ "note": "pc card 0 (p150a); qb2 card 2 numbers live in stage1_sweep.json",
+ "grid": [
+  13,
+  10
+ ],
+ "per_size": [
+  {
+   "S": 298,
+   "linear_ms": 0.40131702553480864,
+   "mm_ms": 0.34863909240812063,
+   "pair_proj_eq": true,
+   "pair_proj_ratio": 1.1510958876207222,
+   "blk2_ms": 0.3223989624530077,
+   "blk4_ms": 0.3350730985403061,
+   "mm_block_eq": true,
+   "mm_block_ratio": 0.9621750115347627
+  },
+  {
+   "S": 320,
+   "linear_ms": 0.4369729431346059,
+   "mm_ms": 0.38118893280625343,
+   "pair_proj_eq": true,
+   "pair_proj_ratio": 1.146342156152539,
+   "blk2_ms": 0.3426269395276904,
+   "blk4_ms": 0.35308697260916233,
+   "mm_block_eq": true,
+   "mm_block_ratio": 0.9703754771687646
+  },
+  {
+   "S": 384,
+   "linear_ms": 0.6200739881023765,
+   "mm_ms": 0.5222519394010305,
+   "pair_proj_eq": true,
+   "pair_proj_ratio": 1.1873081578472218,
+   "blk2_ms": 0.47168799210339785,
+   "blk4_ms": 0.47895091120153666,
+   "mm_block_eq": true,
+   "mm_block_ratio": 0.9848357755914516
+  },
+  {
+   "S": 512,
+   "linear_ms": 1.0140669764950871,
+   "mm_ms": 0.8425769628956914,
+   "pair_proj_eq": true,
+   "pair_proj_ratio": 1.203530384939596,
+   "blk2_ms": 0.8623739704489708,
+   "blk4_ms": 0.8456330979242921,
+   "mm_block_eq": true,
+   "mm_block_ratio": 1.0197968510998106
+  },
+  {
+   "S": 576,
+   "linear_ms": 1.3094859896227717,
+   "mm_ms": 1.0626768926158547,
+   "pair_proj_eq": true,
+   "pair_proj_ratio": 1.2322522478110716,
+   "blk2_ms": 1.025527948513627,
+   "blk4_ms": 1.0372699471190572,
+   "mm_block_eq": true,
+   "mm_block_ratio": 0.9886799008897899
+  },
+  {
+   "S": 640,
+   "linear_ms": 1.5920709120109677,
+   "mm_ms": 1.3457139721140265,
+   "pair_proj_eq": true,
+   "pair_proj_ratio": 1.183067832393782,
+   "blk2_ms": 1.314847031608224,
+   "blk4_ms": 1.3105690013617277,
+   "mm_block_eq": true,
+   "mm_block_ratio": 1.0032642541079875
+  }
+ ],
+ "all_bit_exact": true
+}

@@ -238,9 +238,17 @@ def main():
                 a.out.write_text(json.dumps(res, indent=1))
                 print(f"  {arm} FAILED: {type(e).__name__}: {str(e)[:300]}", flush=True)
                 continue
+            cifs = sha_dir(struct_dir)
+            # Keep every arm's structure files: a sha mismatch is only diagnosable with the
+            # files in hand, and identical shas make the copies free to delete.
+            keep = a.out.parent / f"{a.out.stem}_cifs" / f"{size}_{arm}_{len(res['runs'])}"
+            keep.mkdir(parents=True, exist_ok=True)
+            for p in struct_dir.glob("*"):
+                if p.is_file():
+                    (keep / p.name).write_bytes(p.read_bytes())
             rec = {"size": size, "arm": arm, "fold_s": round(fold_s, 3),
                    "n_tokens": m.get("n_tokens"), "plddt": m.get("plddt"),
-                   "cif_sha256": sha_dir(struct_dir),
+                   "cif_sha256": cifs,
                    "grid": list(T.COMPUTE_GRID_MAIN),
                    "pair_proj_mm": T._PAIR_PROJ_MM,
                    "mm_block_8": list(T._MM_BLOCK[8]),

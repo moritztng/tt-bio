@@ -1,0 +1,423 @@
+{
+ "ttnn": "0.68.0",
+ "host": "qb2",
+ "chip": 0,
+ "note": "qb2 is ttnn 0.68.0 -- every absolute here is a ratio input, not a campaign number",
+ "runs": [
+  {
+   "size": 512,
+   "arm": "prev",
+   "fold_s": 75.988,
+   "n_tokens": 512,
+   "plddt": 0.82979,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "e3261675bff96169"
+   },
+   "grid": [
+    13,
+    10
+   ],
+   "pair_proj_mm": false,
+   "mm_block_8": [
+    2,
+    8,
+    1,
+    2,
+    1
+   ],
+   "trimul_inproj_group": 1,
+   "sdpa_wide_q": true,
+   "triatt_bias_b8": false,
+   "sdpa_q_chunk_over_l1": [],
+   "fidelity": {
+    "trunk": "MathFidelity.HiFi4",
+    "diffusion": "MathFidelity.HiFi4",
+    "confidence": "MathFidelity.HiFi4"
+   },
+   "loadavg": [
+    "1.77",
+    "1.39",
+    "1.29"
+   ],
+   "wall_ms": {
+    "block:PairformerLayer": {
+     "calls": 604,
+     "ms": 61493.64
+    },
+    "stage:Pairformer": {
+     "calls": 11,
+     "ms": 54788.25
+    },
+    "body:TriangleMultiplication": {
+     "calls": 1208,
+     "ms": 28996.83
+    },
+    "body:TriangleAttention": {
+     "calls": 1208,
+     "ms": 20323.18
+    },
+    "body:AttentionPairBias": {
+     "calls": 5284,
+     "ms": 5413.81
+    },
+    "body:PairWeightedAveraging": {
+     "calls": 30,
+     "ms": 320.02
+    }
+   },
+   "decisions": {
+    "l1_layer_norm|h=1.5|1x512x512x256": {
+     "DRAM": 494
+    },
+    "l1_layer_norm|h=1.5|512x512x256": {
+     "DRAM": 30
+    },
+    "pair_proj_out_l1|1x512x512x256@256": {
+     "DRAM": 2096
+    },
+    "pair_proj_out_l1|1x512x512x64@64": {
+     "L1": 320
+    },
+    "pair_proj_out_l1|512x512x256@256": {
+     "DRAM": 1048
+    },
+    "pair_proj_out_l1|512x512x64@64": {
+     "L1": 160
+    },
+    "transpose|512x512x256": {
+     "DRAM": 1048
+    },
+    "transpose|512x512x64": {
+     "L1": 160
+    },
+    "tri_att_sdpa|q512k512": {
+     "q_chunk=512 k_chunk=256 bias=bf16": 1208
+    }
+   },
+   "l1_out_refused": [],
+   "block_wall_ms": 61493.64,
+   "block_calls": 604
+  },
+  {
+   "size": 512,
+   "arm": "prev",
+   "fold_s": 76.348,
+   "n_tokens": 512,
+   "plddt": 0.82857,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "1459585cd6ed80a2"
+   },
+   "grid": [
+    13,
+    10
+   ],
+   "pair_proj_mm": false,
+   "mm_block_8": [
+    2,
+    8,
+    1,
+    2,
+    1
+   ],
+   "trimul_inproj_group": 1,
+   "sdpa_wide_q": true,
+   "triatt_bias_b8": false,
+   "sdpa_q_chunk_over_l1": [],
+   "fidelity": {
+    "trunk": "MathFidelity.HiFi4",
+    "diffusion": "MathFidelity.HiFi4",
+    "confidence": "MathFidelity.HiFi4"
+   },
+   "loadavg": [
+    "1.58",
+    "1.41",
+    "1.30"
+   ],
+   "wall_ms": {
+    "block:PairformerLayer": {
+     "calls": 604,
+     "ms": 61721.22
+    },
+    "stage:Pairformer": {
+     "calls": 11,
+     "ms": 54912.61
+    },
+    "body:TriangleMultiplication": {
+     "calls": 1208,
+     "ms": 29023.24
+    },
+    "body:TriangleAttention": {
+     "calls": 1208,
+     "ms": 20337.35
+    },
+    "body:AttentionPairBias": {
+     "calls": 5284,
+     "ms": 5489.75
+    },
+    "body:PairWeightedAveraging": {
+     "calls": 30,
+     "ms": 322.2
+    }
+   },
+   "decisions": {
+    "l1_layer_norm|h=1.5|1x512x512x256": {
+     "DRAM": 494
+    },
+    "l1_layer_norm|h=1.5|512x512x256": {
+     "DRAM": 30
+    },
+    "pair_proj_out_l1|1x512x512x256@256": {
+     "DRAM": 2096
+    },
+    "pair_proj_out_l1|1x512x512x64@64": {
+     "L1": 320
+    },
+    "pair_proj_out_l1|512x512x256@256": {
+     "DRAM": 1048
+    },
+    "pair_proj_out_l1|512x512x64@64": {
+     "L1": 160
+    },
+    "transpose|512x512x256": {
+     "DRAM": 1048
+    },
+    "transpose|512x512x64": {
+     "L1": 160
+    },
+    "tri_att_sdpa|q512k512": {
+     "q_chunk=512 k_chunk=256 bias=bf16": 1208
+    }
+   },
+   "l1_out_refused": [],
+   "block_wall_ms": 61721.22,
+   "block_calls": 604
+  },
+  {
+   "size": 512,
+   "arm": "prev",
+   "fold_s": 76.117,
+   "n_tokens": 512,
+   "plddt": 0.828608,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "92d5670d08a90e84"
+   },
+   "grid": [
+    13,
+    10
+   ],
+   "pair_proj_mm": false,
+   "mm_block_8": [
+    2,
+    8,
+    1,
+    2,
+    1
+   ],
+   "trimul_inproj_group": 1,
+   "sdpa_wide_q": true,
+   "triatt_bias_b8": false,
+   "sdpa_q_chunk_over_l1": [],
+   "fidelity": {
+    "trunk": "MathFidelity.HiFi4",
+    "diffusion": "MathFidelity.HiFi4",
+    "confidence": "MathFidelity.HiFi4"
+   },
+   "loadavg": [
+    "2.20",
+    "1.60",
+    "1.37"
+   ],
+   "wall_ms": {
+    "block:PairformerLayer": {
+     "calls": 604,
+     "ms": 61556.64
+    },
+    "stage:Pairformer": {
+     "calls": 11,
+     "ms": 54785.9
+    },
+    "body:TriangleMultiplication": {
+     "calls": 1208,
+     "ms": 29001.05
+    },
+    "body:TriangleAttention": {
+     "calls": 1208,
+     "ms": 20308.45
+    },
+    "body:AttentionPairBias": {
+     "calls": 5284,
+     "ms": 5455.31
+    },
+    "body:PairWeightedAveraging": {
+     "calls": 30,
+     "ms": 320.61
+    }
+   },
+   "decisions": {
+    "l1_layer_norm|h=1.5|1x512x512x256": {
+     "DRAM": 494
+    },
+    "l1_layer_norm|h=1.5|512x512x256": {
+     "DRAM": 30
+    },
+    "pair_proj_out_l1|1x512x512x256@256": {
+     "DRAM": 2096
+    },
+    "pair_proj_out_l1|1x512x512x64@64": {
+     "L1": 320
+    },
+    "pair_proj_out_l1|512x512x256@256": {
+     "DRAM": 1048
+    },
+    "pair_proj_out_l1|512x512x64@64": {
+     "L1": 160
+    },
+    "transpose|512x512x256": {
+     "DRAM": 1048
+    },
+    "transpose|512x512x64": {
+     "L1": 160
+    },
+    "tri_att_sdpa|q512k512": {
+     "q_chunk=512 k_chunk=256 bias=bf16": 1208
+    }
+   },
+   "l1_out_refused": [],
+   "block_wall_ms": 61556.64,
+   "block_calls": 604
+  },
+  {
+   "size": 512,
+   "arm": "prev",
+   "fold_s": 76.189,
+   "n_tokens": 512,
+   "plddt": 0.828588,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "22471bdf54379d30"
+   },
+   "grid": [
+    13,
+    10
+   ],
+   "pair_proj_mm": false,
+   "mm_block_8": [
+    2,
+    8,
+    1,
+    2,
+    1
+   ],
+   "trimul_inproj_group": 1,
+   "sdpa_wide_q": true,
+   "triatt_bias_b8": false,
+   "sdpa_q_chunk_over_l1": [],
+   "fidelity": {
+    "trunk": "MathFidelity.HiFi4",
+    "diffusion": "MathFidelity.HiFi4",
+    "confidence": "MathFidelity.HiFi4"
+   },
+   "loadavg": [
+    "2.25",
+    "1.68",
+    "1.41"
+   ],
+   "wall_ms": {
+    "block:PairformerLayer": {
+     "calls": 604,
+     "ms": 61697.71
+    },
+    "stage:Pairformer": {
+     "calls": 11,
+     "ms": 54891.77
+    },
+    "body:TriangleMultiplication": {
+     "calls": 1208,
+     "ms": 29013.82
+    },
+    "body:TriangleAttention": {
+     "calls": 1208,
+     "ms": 20332.71
+    },
+    "body:AttentionPairBias": {
+     "calls": 5284,
+     "ms": 5439.05
+    },
+    "body:PairWeightedAveraging": {
+     "calls": 30,
+     "ms": 320.03
+    }
+   },
+   "decisions": {
+    "l1_layer_norm|h=1.5|1x512x512x256": {
+     "DRAM": 494
+    },
+    "l1_layer_norm|h=1.5|512x512x256": {
+     "DRAM": 30
+    },
+    "pair_proj_out_l1|1x512x512x256@256": {
+     "DRAM": 2096
+    },
+    "pair_proj_out_l1|1x512x512x64@64": {
+     "L1": 320
+    },
+    "pair_proj_out_l1|512x512x256@256": {
+     "DRAM": 1048
+    },
+    "pair_proj_out_l1|512x512x64@64": {
+     "L1": 160
+    },
+    "transpose|512x512x256": {
+     "DRAM": 1048
+    },
+    "transpose|512x512x64": {
+     "L1": 160
+    },
+    "tri_att_sdpa|q512k512": {
+     "q_chunk=512 k_chunk=256 bias=bf16": 1208
+    }
+   },
+   "l1_out_refused": [],
+   "block_wall_ms": 61697.71,
+   "block_calls": 604
+  }
+ ],
+ "ratios": {
+  "512": {
+   "on_block_ms": [],
+   "off_block_ms": [],
+   "on_fold_s": [],
+   "off_fold_s": []
+  }
+ },
+ "arm_medians": {
+  "512": {
+   "prev": {
+    "block_ms": [
+     61493.64,
+     61721.22,
+     61556.64,
+     61697.71
+    ],
+    "fold_s": [
+     75.988,
+     76.348,
+     76.117,
+     76.189
+    ],
+    "plddt": [
+     0.82979,
+     0.82857,
+     0.828608,
+     0.828588
+    ],
+    "n": 4,
+    "block_ms_median": 61627.18,
+    "fold_s_median": 76.153,
+    "block_ms_min": 61493.64,
+    "fold_s_min": 75.988,
+    "block_ms_spread": 227.58,
+    "fold_s_spread": 0.36
+   }
+  }
+ }
+}
