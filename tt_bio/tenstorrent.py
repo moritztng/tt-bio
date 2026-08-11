@@ -1674,6 +1674,22 @@ def _trimul_out_proj(
     return _pair_proj_linear(x, weight, ckc, _dtype(), l1_out=True)
 
 
+def _channel_move_back(chunk: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.Tensor:
+    """``permute(chunk, (0, 2, 3, 1))``, through the hand-written kernel where it wins.
+
+    The stock decomposition is ``transpose(1,2)`` then ``transpose(2,3)``, which reads and writes the
+    whole tensor twice; the kernel does it in one pass. Bit-exact against either
+    (``torch.equal``): both are a pure index reordering plus the same within-tile ``transpose_wh``.
+    Outside ``reblock_permute.eligible_back`` the two transposes stay.
+    """
+    if _reblock.eligible_back(chunk, memory_config):
+        return _reblock.reblock_permute_back(chunk, memory_config)
+    out = ttnn.transpose(chunk, 1, 2, memory_config=memory_config)
+    res = ttnn.transpose(out, 2, 3, memory_config=memory_config)
+    ttnn.deallocate(out)
+    return res
+
+
 def _channel_move(chunk: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.Tensor:
     """``permute(chunk, (0, 3, 1, 2))``, through the hand-written kernel where it wins.
 
@@ -1881,8 +1897,7 @@ class TriangleMultiplication(Module):
             # transpose is tile-local) and BIT-EXACT. On the small-L L1 path the
             # single permute is marginally faster, so keep it there.
             if large_seq and not _TRIMUL_RAW_CHANNEL_MOVES:
-                x_chunk = ttnn.transpose(x_chunk, 1, 2, memory_config=memory_config)
-                x_chunk_t = ttnn.transpose(x_chunk, 2, 3, memory_config=memory_config)
+                x_chunk_t = _channel_move_back(x_chunk, memory_config)
                 ttnn.deallocate(x_chunk)
                 x_chunk = x_chunk_t
             else:
