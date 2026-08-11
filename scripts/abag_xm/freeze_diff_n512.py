@@ -20,7 +20,13 @@ of targets (probe: 60 targets at 64/128/256, 45 also at 512):
                                 new rung cannot disturb an existing pair. Confirmed SAME
                                 for 64->128 and 128->256. This is the stop-rule
                                 comparator, so it is the one that most needs freezing.
-    n16_ark_models
+    n16_ark_models              and with it the whole N=16 rung. The ark is opt-in on
+                                DEEPN_N16_ARK=1, so a re-run that forgets the variable
+                                silently reassembles N=16 from native folds only and this
+                                gate fails on the [N=16] row, the 16->50 pair and this key
+                                together. Three failures, one missing env var. Export it
+                                for any run whose output is compared against a snapshot
+                                that had it.
 
   EXPECTED TO MOVE, reported but never failed on
     <model>__paired_ci          common set is the intersection over ALL rungs
@@ -53,7 +59,12 @@ TARGET_RUNG = "512"
 # blindly makes every pre-512 pair fail on a value the campaign meant to correct, and a
 # gate that always fails gets rubber-stamped, which is worse than no gate.
 COST_KEYS = ("marginal_oracle_per_1000cs", "cost_h_per_target", "step_samples",
-             "s_per_sample_hi", "s_per_sample_lo_same_panel")
+             "s_per_sample_hi", "s_per_sample_lo_same_panel", "cost_basis_targets")
+# cost_basis_targets is the denominator of cost_h_per_target, so it belongs in the list
+# above and not in the frozen payload. Leaving it out made every pre-512 pair fail on
+# `null -> 160`, which is the pass-36 repricing arriving where the snapshot had no cost
+# basis at all. That fired on all four models at once and is exactly the always-red gate
+# the comment above warns about.
 # The snapshot already carries a sparse 512 row for boltz2 (6 targets) and opendde-abag
 # (5), the p28 remnant that seeded this rung's chunks 4-7. Filling it out is the whole
 # point of the campaign, so 512 is the one rung that must NOT be frozen. Its old
