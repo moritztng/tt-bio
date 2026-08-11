@@ -3645,17 +3645,23 @@ class OuterProductMean(Module):
             per_row = C * D * J * 2
             rows_blk = max(32, min(OPM_CHUNK_SIZE,
                                    (OPM_Z_BUDGET_BYTES // max(per_row, 1)) // 32 * 32))
-            z_acc = None
+            # Accumulate the row blocks, do not grow a tensor by re-concatenating it. The old
+            # form ran ttnn.concat([z_acc, part]) once per block, so block k allocated the
+            # whole k-block prefix again with the previous prefix still live -- quadratic in
+            # both copy and peak, and the peak lands at ~2x the finished tensor right at the
+            # end. On opendde-abag 9j4c that is the refusal: 825753600 B for a 960-row prefix
+            # of a 1095-row result at c_z=384, with 9.27 GiB already in use.
+            # Host-assemble when the blocks are bf16, so the peak is one block plus the single
+            # full-size upload rather than two full-size tensors. bf16 -> torch -> bf16 is a
+            # byte-for-byte round trip; a bf8 (fast-mode) block would not be, so it keeps the
+            # device concat, which is still one concat instead of I/rows_blk of them.
+            z_acc, host_acc = [], None
             for i in range(0, I, rows_blk):
                 part = outer_product_mean(i, min(i + rows_blk, I))
-                if z_acc is None:
-                    z_acc = part
-                else:
-                    z_old = z_acc
-                    z_acc = ttnn.concat([z_old, part], dim=0)
-                    ttnn.deallocate(z_old)
-                    ttnn.deallocate(part)
-            z = z_acc
+                if host_acc is None:
+                    host_acc = part.dtype == ttnn.bfloat16 and _dtype() == ttnn.bfloat16
+                _acc_append(z_acc, part, host_acc)
+            z = _acc_concat(z_acc, 0, host_acc)
         else:
             z = outer_product_mean(0, I)
         if depth_parts is None:
