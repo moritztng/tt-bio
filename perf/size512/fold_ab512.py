@@ -64,6 +64,41 @@ E6 = {"e6": True, "noe6": False}
 # forgets the cache_clear silently runs an A/A pair and labels it an A/B -- see set_arm.
 SDPA = {"narrowq": (False, False), "wideq": (True, False),
         "narrowq_b8": (False, True), "wideq_b8": (True, True)}
+# Head-major qkv projection (tt_bio/triatt_qkv.py): the qkv matmul writes q, k and v itself instead
+# of nlp_create_qkv_heads reordering them afterwards. `nohmqkv` is today's shipped path. Every other
+# arm sets it explicitly to the production default so no arm inherits the previous one's setting.
+HMQKV = {"hmqkv": True, "nohmqkv": False}
+HMQKV_DEFAULT = True
+# The tail half (K1b): the gate projection writes head-major and `out` reads head-major, so
+# nlp_concat_heads never runs. It needs the qkv half on, so `hmtail` turns both on and `hmqkv`
+# turns only the qkv half on -- the pair `hmqkv` vs `hmtail` isolates the tail exactly.
+HMTAIL = {"hmtail": True, "hmtail_l1": True, "hmqkv": False, "nohmqkv": False}
+HMTAIL_DEFAULT = True
+# `hmtail` keeps the conservative gate, which declines any call whose `out` would have used the
+# L1-output leg. `hmtail_l1` lets the head-major tail take those calls too, which is the only way
+# to find out whether deleting nlp_concat_heads beats keeping `out`'s result in L1.
+HMTAIL_OVER_L1 = {"hmtail_l1": True, "hmtail": False}
+HMTAIL_OVER_L1_DEFAULT = True
+# K2: the SDPA bias held in a permanently fronted CB (tt_bio/triatt_sdpa.py). `k2` turns it on on
+# top of everything else; `nok2` is K1-complete, which is what it must be measured against.
+PMASK = {"k2": True, "nok2": False, "hmtail_l1": False}
+PMASK_DEFAULT = True
+
+# The integration arms. `main` is origin/main exactly as it ships today: E1/E2/C1/_MM_BLOCK[8]/the
+# pair-projection minimal_matmul leg all on (they are merged), E6 off (it ships behind an
+# off-by-default gate), K1 and K2 off (still on `wk/triatt-fused-kernel-final`) and the transpose
+# headroom at the shipped 2.5 (the 1.25 lever is still on `wk/tt-vs-b200-512aa-integrated`).
+# `int` turns those four on at once. The `int_no*` arms are leave-one-out knockouts *inside* the
+# integrated stack, which is the only way to attribute a share of the integrated win without
+# multiplying ratios taken against different baselines.
+INTEG = {
+    "main":       {"e6": False, "k1": False, "k2": False, "tr": False},
+    "int":        {"e6": True,  "k1": True,  "k2": True,  "tr": True},
+    "int_noe6":   {"e6": False, "k1": True,  "k2": True,  "tr": True},
+    "int_nok1k2": {"e6": True,  "k1": False, "k2": False, "tr": True},
+    "int_notr":   {"e6": True,  "k1": True,  "k2": True,  "tr": False},
+    "int_nok2":   {"e6": True,  "k1": True,  "k2": False, "tr": True},
+}
 
 
 def timed_call(key, fn, *a, **kw):
@@ -208,6 +243,13 @@ def main():
         bk = BACK.get(name)
         sdpa = SDPA.get(name)
         e6 = E6.get(name)
+        integ = INTEG.get(name)
+        hm = HMQKV.get(name)
+        hmt = HMTAIL.get(name)
+        if name in ("hmtail", "hmtail_l1", "k2", "nok2"):
+            hm = True
+        if name in ("k2", "nok2"):
+            hmt = True
         # `prev` reverts the two extracted engine fixes (the `_MM_BLOCK[8]` block config and the
         # pair-projection `minimal_matmul` leg) and holds every capacity gate at the production
         # default, so the arm difference is exactly those two and nothing else.
@@ -220,13 +262,27 @@ def main():
         T._TRANSPOSE_L1_HEADROOM = 2.5 if old else T.TRANSPOSE_L1_HEADROOM
         T._TRANSPOSE_L1_REFUSED.clear()
         STATE["gates"] = "on" if (fid or grp or bk is not None or sdpa or old
-                                  or e6 is not None) else name
+                                  or e6 is not None or hm is not None or hmt is not None
+                                  or integ is not None) else name
         # Every arm sets the SDPA flags, so an arm that is not an SDPA arm provably runs the
         # production pick rather than inheriting the previous arm's.
         T._SDPA_WIDE_Q, T._TRIATT_BIAS_B8 = sdpa if sdpa else SDPA_DEFAULT
         if base:
             T._SDPA_WIDE_Q = False
         T._tri_att_q_chunks.cache_clear()
+        import tt_bio.triatt_qkv as HM
+        HM._ENABLED = HMQKV_DEFAULT if hm is None else hm
+        HM._TAIL_ENABLED = HMTAIL_DEFAULT if hmt is None else hmt
+        HM._TAIL_OVER_L1 = (True if name in ("k2", "nok2")
+                            else HMTAIL_OVER_L1.get(name, HMTAIL_OVER_L1_DEFAULT))
+        import tt_bio.triatt_sdpa as PM
+        PM._ENABLED = PMASK.get(name, PMASK_DEFAULT)
+        PM.STATS[0] = PM.STATS[1] = 0
+        PM.REJECTS.clear()
+        HM.STATS[0] = HM.STATS[1] = 0
+        HM.TAIL_STATS[0] = HM.TAIL_STATS[1] = 0
+        HM.REJECTS.clear()
+        HM.TAIL_REJECTS.clear()
         on = STATE["gates"] == "on"
         T._PAIR_PROJ_L1_OUT = on
         T._PAIR_BIAS_L1_NORM = on
@@ -260,6 +316,25 @@ def main():
             T._TRIMUL_INPROJ_GROUP = 8
         _RB.set_enabled_gated(bool(e6))
         _RB.STATS_GATED[0] = _RB.STATS_GATED[1] = 0
+        # An integration arm sets all four branch levers explicitly and last, so it can inherit
+        # nothing from the arm before it. Everything else stays at the production default, which
+        # is what makes `main` the shipped configuration rather than a hand-built one.
+        if integ is not None:
+            import tt_bio.triatt_qkv as HMI
+            import tt_bio.triatt_sdpa as PMI
+            _RB.set_enabled_gated(integ["e6"])
+            _RB.STATS_GATED[0] = _RB.STATS_GATED[1] = 0
+            HMI._ENABLED = HMI._TAIL_ENABLED = integ["k1"]
+            HMI._TAIL_OVER_L1 = True
+            PMI._ENABLED = integ["k2"]
+            HMI.STATS[0] = HMI.STATS[1] = 0
+            HMI.TAIL_STATS[0] = HMI.TAIL_STATS[1] = 0
+            HMI.REJECTS.clear()
+            HMI.TAIL_REJECTS.clear()
+            PMI.STATS[0] = PMI.STATS[1] = 0
+            PMI.REJECTS.clear()
+            T._TRANSPOSE_L1_HEADROOM = T.TRANSPOSE_L1_HEADROOM if integ["tr"] else 2.5
+            T._TRANSPOSE_L1_REFUSED.clear()
         if fid:
             ckc = STATE["model"].trunk.compute_kernel_config
             ckc.math_fidelity = getattr(ttnn.MathFidelity, fid)
@@ -340,6 +415,18 @@ def main():
                    "transpose_l1_headroom": T._TRANSPOSE_L1_HEADROOM,
                    "transpose_l1_refused": [str(k) for k in T._TRANSPOSE_L1_REFUSED],
                    "trimul_inproj_fused_bytes": T._TRIMUL_INPROJ_FUSED_BYTES,
+                   "head_major_qkv": (lambda HM: {
+                       "enabled": HM._ENABLED, "served": HM.STATS[0], "declined": HM.STATS[1],
+                       "rejects": {f"{r}:{sh}": n for (r, sh), n in HM.REJECTS.items()},
+                       "tail_enabled": HM._TAIL_ENABLED, "tail_over_l1": HM._TAIL_OVER_L1,
+                       "tail_served": HM.TAIL_STATS[0],
+                       "tail_declined": HM.TAIL_STATS[1],
+                       "tail_rejects": {f"{r}:{sh}": n for (r, sh), n in HM.TAIL_REJECTS.items()}})(
+                       __import__("tt_bio.triatt_qkv", fromlist=["x"])),
+                   "persistent_mask": (lambda PM: {
+                       "enabled": PM._ENABLED, "served": PM.STATS[0], "declined": PM.STATS[1],
+                       "rejects": {f"{r}:{sh}": n for (r, sh), n in PM.REJECTS.items()}})(
+                       __import__("tt_bio.triatt_sdpa", fromlist=["x"])),
                    "sdpa_wide_q": T._SDPA_WIDE_Q,
                    "triatt_bias_b8": T._TRIATT_BIAS_B8,
                    "sdpa_q_chunk_over_l1": sorted(str(k) for k in T._SDPA_Q_CHUNK_OVER_L1),
@@ -352,6 +439,9 @@ def main():
             blk = rec["wall_ms"].get("block:PairformerLayer", {})
             rec["block_wall_ms"] = blk.get("ms")
             rec["block_calls"] = blk.get("calls")
+            ta = rec["wall_ms"].get("body:TriangleAttention", {})
+            rec["triatt_wall_ms"] = ta.get("ms")
+            rec["triatt_calls"] = ta.get("calls")
             res["runs"].append(rec)
             a.out.write_text(json.dumps(res, indent=1))
             print(f"  {arm}: fold {fold_s:.2f}s  block {blk.get('ms')} ms over {blk.get('calls')} "

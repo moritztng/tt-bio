@@ -1,0 +1,323 @@
+{
+ "predictions": "triatt-fused-kernel-final, planning pass: the reference numbers every Phase-2 gate compares\nagainst, re-measured on this card, plus the one block knob nobody has swept.\n\nCard 2 on qb2, P300c, 11x10 = 110 cores, ttnn 0.68.0, branch wk/triatt-fused-kernel-final.\nModel shape: protenix-v2 Pairformer, 512 aa, c_z = 256, 8 heads, head_dim 32.\n\nPREDICTIONS, WRITTEN BEFORE THE RUN (state/triatt-fused-kernel-final.md 4):\n\nR1  minimal_matmul qkv (M = 262144, K = 256, N = 768, DRAM->DRAM, `_qkv_mm_config`) lands\n    2.05-2.20 ms, i.e. reproduces the 2.103 ms the prior pass measured to within 5 %.\n    This is the number the generic_op re-drive of the same op must match in Phase 2 step 0.\nR2  nlp_create_qkv_heads on that output lands 2.10-2.25 ms (prior 2.154). This is the whole\n    prize of the head-major writer: it is deleted, not accelerated.\nR3  SDPA q_chunk 512 / k_chunk 256, bias on, lands 6.35-6.65 ms (prior 6.496) and bias off\n    2.20-2.40 (prior 2.285). Their ratio is the bias re-read and it is the K2 prize.\nR4  nlp_concat_heads 0.70-0.80 (prior 0.740); gate multiply_ 1.00-1.10 (prior 1.039);\n    out through _pair_proj_linear 0.75-0.85 (prior 0.784, the landed minimal_matmul leg).\nR5  The shipped `_MM_BLOCK[24]` entry (4,8,1,4,1) is NOT the best blocking for the qkv shape.\n    moonshot-4x-k256-kernel-rate 3c measured (4,8,2,4,1) best on a K=256 N=768 DRAM-out arm\n    at 1.116x over that op's internal default, and nobody has ever compared the two directly\n    at this shape. I predict the shipped entry is within 1.00-1.08x of the best legal config\n    here, i.e. there is a small free win but not a large one, and that every config with\n    K_block_size = 8 is torch.equal to every other (K stays one accumulation block).\nR6  Every arm above is stable to <= 3 % A/A on a quiet box. Anything wider means a co-tenant\n    is running and no ranking inside 1.1x may be pinned off this file.\n",
+ "arms": [
+  {
+   "arm": "R1_qkv_minimal_matmul",
+   "ms": 2.126967000094737,
+   "aa_spread": 0.009798459353090238,
+   "shape": "262144x256@256x768"
+  },
+  {
+   "arm": "R4_gate_minimal_matmul",
+   "ms": 0.787058999776491,
+   "aa_spread": 0.025702011929498916,
+   "shape": "262144x256@256x256"
+  },
+  {
+   "arm": "R2_nlp_create_qkv_heads",
+   "ms": 2.0963480001228163,
+   "aa_spread": 0.019294506523287826
+  },
+  {
+   "arm": "R3_sdpa_bias_on_wideq",
+   "ms": 6.487825000021985,
+   "aa_spread": 0.004061607717170834,
+   "q_chunk": 512,
+   "k_chunk": 256
+  },
+  {
+   "arm": "R3_sdpa_bias_off_wideq",
+   "ms": 2.2221389999685925,
+   "aa_spread": 0.008355012943937907,
+   "q_chunk": 512,
+   "k_chunk": 256
+  },
+  {
+   "arm": "R3_sdpa_bias_on_shipped",
+   "ms": 7.07443900000726,
+   "aa_spread": 0.0038055314938222895,
+   "q_chunk": 256,
+   "k_chunk": 256
+  },
+  {
+   "arm": "R3_sdpa_bias_off_shipped",
+   "ms": 2.2671649999210786,
+   "aa_spread": 0.007631998675714834,
+   "q_chunk": 256,
+   "k_chunk": 256
+  },
+  {
+   "arm": "R4_nlp_concat_heads",
+   "ms": 0.7479939999939234,
+   "aa_spread": 0.024673994587080625
+  },
+  {
+   "arm": "R4_gate_multiply",
+   "ms": 1.0486899996067223,
+   "aa_spread": 0.012342064867974008
+  },
+  {
+   "arm": "R4_out_pair_proj",
+   "ms": 0.7968980003170145,
+   "aa_spread": 0.02381233213940788
+  },
+  {
+   "arm": "R5_mm24_M2_N1_s4x1",
+   "error": "RuntimeError('TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:185: (cfg.M_block_size % cfg.subblock_h) == 0\\ninfo:\\nM_block_size (2)",
+   "M_block": 2,
+   "N_block": 1,
+   "sub": "4x1"
+  },
+  {
+   "arm": "R5_mm24_M2_N1_s2x1",
+   "ms": 2.597187999981543,
+   "aa_spread": 0.0066587402884682205,
+   "M_block": 2,
+   "N_block": 1,
+   "sub": "2x1",
+   "equal_to_shipped": true
+  },
+  {
+   "arm": "R5_mm24_M2_N1_s1x1",
+   "ms": 2.595835000192892,
+   "aa_spread": 0.01778156154036511,
+   "M_block": 2,
+   "N_block": 1,
+   "sub": "1x1",
+   "equal_to_shipped": true
+  },
+  {
+   "arm": "R5_mm24_M2_N2_s4x1",
+   "error": "RuntimeError('TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:185: (cfg.M_block_size % cfg.subblock_h) == 0\\ninfo:\\nM_block_size (2)",
+   "M_block": 2,
+   "N_block": 2,
+   "sub": "4x1"
+  },
+  {
+   "arm": "R5_mm24_M2_N2_s2x1",
+   "ms": 2.467499000431417,
+   "aa_spread": 0.026575897289429815,
+   "M_block": 2,
+   "N_block": 2,
+   "sub": "2x1",
+   "equal_to_shipped": true
+  },
+  {
+   "arm": "R5_mm24_M2_N2_s1x1",
+   "ms": 2.4860849998731283,
+   "aa_spread": 0.017547268186529734,
+   "M_block": 2,
+   "N_block": 2,
+   "sub": "1x1",
+   "equal_to_shipped": true
+  },
+  {
+   "arm": "R5_mm24_M2_N3_s4x1",
+   "error": "RuntimeError('TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:185: (cfg.M_block_size % cfg.subblock_h) == 0\\ninfo:\\nM_block_size (2)",
+   "M_block": 2,
+   "N_block": 3,
+   "sub": "4x1"
+  },
+  {
+   "arm": "R5_mm24_M2_N3_s2x1",
+   "ms": 2.6711300001807103,
+   "aa_spread": 0.016192397828234464,
+   "M_block": 2,
+   "N_block": 3,
+   "sub": "2x1",
+   "equal_to_shipped": true
+  },
+  {
+   "arm": "R5_mm24_M2_N3_s1x1",
+   "ms": 2.6787540000441368,
+   "aa_spread": 0.02728134058559008,
+   "M_block": 2,
+   "N_block": 3,
+   "sub": "1x1",
+   "equal_to_shipped": true
+  },
+  {
+   "arm": "R5_mm24_M4_N1_s4x1",
+   "ms": 2.127407999978459,
+   "aa_spread": 0.019352188324540297,
+   "M_block": 4,
+   "N_block": 1,
+   "sub": "4x1",
+   "equal_to_shipped": true
+  },
+  {
+   "arm": "R5_mm24_M4_N1_s2x1",
+   "ms": 2.1057760000076087,
+   "aa_spread": 0.021724532715452383,
+   "M_block": 4,
+   "N_block": 1,
+   "sub": "2x1",
+   "equal_to_shipped": true
+  },
+  {
+   "arm": "R5_mm24_M4_N1_s1x1",
+   "ms": 2.1040820001871907,
+   "aa_spread": 0.02227099519275787,
+   "M_block": 4,
+   "N_block": 1,
+   "sub": "1x1",
+   "equal_to_shipped": true
+  },
+  {
+   "arm": "R5_mm24_M4_N2_s4x1",
+   "ms": 2.12169599990375,
+   "aa_spread": 0.026675829102545536,
+   "M_block": 4,
+   "N_block": 2,
+   "sub": "4x1",
+   "equal_to_shipped": true
+  },
+  {
+   "arm": "R5_mm24_M4_N2_s2x1",
+   "ms": 2.1173380000618636,
+   "aa_spread": 0.016514132549390947,
+   "M_block": 4,
+   "N_block": 2,
+   "sub": "2x1",
+   "equal_to_shipped": true
+  },
+  {
+   "arm": "R5_mm24_M4_N2_s1x1",
+   "ms": 2.115615000093385,
+   "aa_spread": 0.024938374900221244,
+   "M_block": 4,
+   "N_block": 2,
+   "sub": "1x1",
+   "equal_to_shipped": true
+  },
+  {
+   "arm": "R5_mm24_M4_N3_s4x1",
+   "ms": 2.2077319999880274,
+   "aa_spread": 0.024597641402609345,
+   "M_block": 4,
+   "N_block": 3,
+   "sub": "4x1",
+   "equal_to_shipped": true
+  },
+  {
+   "arm": "R5_mm24_M4_N3_s2x1",
+   "ms": 2.231956999821705,
+   "aa_spread": 0.025259446980203732,
+   "M_block": 4,
+   "N_block": 3,
+   "sub": "2x1",
+   "equal_to_shipped": true
+  },
+  {
+   "arm": "R5_mm24_M4_N3_s1x1",
+   "ms": 2.235183999800938,
+   "aa_spread": 0.029490637231485668,
+   "M_block": 4,
+   "N_block": 3,
+   "sub": "1x1",
+   "equal_to_shipped": true
+  },
+  {
+   "arm": "R5_mm24_M8_N1_s4x1",
+   "ms": 2.5349779998578015,
+   "aa_spread": 0.010813505988106067,
+   "M_block": 8,
+   "N_block": 1,
+   "sub": "4x1",
+   "equal_to_shipped": true
+  },
+  {
+   "arm": "R5_mm24_M8_N1_s2x1",
+   "ms": 2.529879000121582,
+   "aa_spread": 0.017219400775903133,
+   "M_block": 8,
+   "N_block": 1,
+   "sub": "2x1",
+   "equal_to_shipped": true
+  },
+  {
+   "arm": "R5_mm24_M8_N1_s1x1",
+   "ms": 2.534927999931824,
+   "aa_spread": 0.021430588891962244,
+   "M_block": 8,
+   "N_block": 1,
+   "sub": "1x1",
+   "equal_to_shipped": true
+  },
+  {
+   "arm": "R5_mm24_M8_N2_s4x1",
+   "ms": 2.5057410002773395,
+   "aa_spread": 0.01551477186110858,
+   "M_block": 8,
+   "N_block": 2,
+   "sub": "4x1",
+   "equal_to_shipped": true
+  },
+  {
+   "arm": "R5_mm24_M8_N2_s2x1",
+   "ms": 2.5225740000678343,
+   "aa_spread": 0.06825171451532361,
+   "M_block": 8,
+   "N_block": 2,
+   "sub": "2x1",
+   "equal_to_shipped": true
+  },
+  {
+   "arm": "R5_mm24_M8_N2_s1x1",
+   "ms": 2.480683999692701,
+   "aa_spread": 0.08024036919094378,
+   "M_block": 8,
+   "N_block": 2,
+   "sub": "1x1",
+   "equal_to_shipped": true
+  },
+  {
+   "arm": "R5_mm24_M8_N3_s4x1",
+   "ms": 2.261153999825183,
+   "aa_spread": 0.08300584573201206,
+   "M_block": 8,
+   "N_block": 3,
+   "sub": "4x1",
+   "equal_to_shipped": true
+  },
+  {
+   "arm": "R5_mm24_M8_N3_s2x1",
+   "ms": 2.214152999840735,
+   "aa_spread": 0.0348431207807381,
+   "M_block": 8,
+   "N_block": 3,
+   "sub": "2x1",
+   "equal_to_shipped": true
+  },
+  {
+   "arm": "R5_mm24_M8_N3_s1x1",
+   "ms": 2.216158000010182,
+   "aa_spread": 0.06840261382453468,
+   "M_block": 8,
+   "N_block": 3,
+   "sub": "1x1",
+   "equal_to_shipped": true
+  }
+ ],
+ "meta": {
+  "n": 512,
+  "c": 256,
+  "heads": 8,
+  "head_dim": 32,
+  "grid": [
+   11,
+   10
+  ],
+  "loadavg": [
+   0.083984375,
+   0.04443359375,
+   0.095703125
+  ],
+  "qkv_mm_config": "MinimalMatmulConfig(M_block_size=4,K_block_size=8,N_block_size=1,subblock_h=4,subblock_w=1,compute_with_storage_grid_size=(x=11,y=10))",
+  "loadavg_end": [
+   0.865234375,
+   0.2216796875,
+   0.1533203125
+  ]
+ }
+}
