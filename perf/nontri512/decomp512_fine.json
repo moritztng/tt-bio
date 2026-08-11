@@ -1,0 +1,371 @@
+{
+ "model": "protenix-v2",
+ "side": "tenstorrent",
+ "hardware": "blackhole",
+ "machine": "tt-quietbox2",
+ "visible_devices": "0",
+ "tt_bio_git": "c02f2e9ba76d70d7d232c077cabdff1e95d26eb0",
+ "ttnn_version": "0.68.0",
+ "input": "cdk2x2_512.yaml (512 aa nontri decomp level=fine, single protein, MSA on)",
+ "target": "/home/ttuser/.coworker/wt/fold-nontriangle-below-4x/perf/size512/fixtures/cdk2x2_512.yaml",
+ "n_msa": 35,
+ "n_tokens": 512,
+ "n_residues": 512,
+ "msa_cache": [
+  "4e5c2b391bde62d4.a3m"
+ ],
+ "recycling_steps": 10,
+ "sampling_steps": 200,
+ "diffusion_samples": 1,
+ "seed": 0,
+ "load_s": 1.27,
+ "cold_s": 58.59,
+ "warm_times_s": [
+  53.505,
+  53.523
+ ],
+ "warm_min_s": 53.505,
+ "warm_median_s": 53.523,
+ "warm_max_s": 53.523,
+ "cold_metrics": {
+  "complex_plddt": 0.828628,
+  "plddt": 0.828628,
+  "ptm": 0.691968,
+  "iptm": 0.0,
+  "confidence_score": 0.691968,
+  "n_residues": 512,
+  "n_chains": 1,
+  "n_tokens": 512,
+  "msa": true,
+  "n_atoms": 4117,
+  "samples": 1
+ },
+ "warm_folds": [
+  {
+   "s": 58.591,
+   "plddt": 0.828628,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "98c33a481fa1fd27"
+   },
+   "loadavg": [
+    "1.30",
+    "0.36",
+    "0.15"
+   ],
+   "arm_fold": "cold"
+  },
+  {
+   "s": 53.505,
+   "plddt": 0.828628,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "98c33a481fa1fd27"
+   },
+   "loadavg": [
+    "1.42",
+    "0.59",
+    "0.25"
+   ]
+  },
+  {
+   "s": 53.523,
+   "plddt": 0.828628,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "98c33a481fa1fd27"
+   },
+   "loadavg": [
+    "1.68",
+    "0.77",
+    "0.33"
+   ]
+  }
+ ],
+ "runtime_root": "<unset>",
+ "kernel_cache": "/home/ttuser/.cache/tt-metal-cache-tt-bio/ttnn-0.68.0",
+ "uptime": "22:09:47 up  5:05,  3 users,  load average: 1.68, 0.77, 0.33",
+ "date": "2026-08-11",
+ "level": "fine",
+ "gate_state_after": {
+  "e6_gated_kernel": [
+   true,
+   [
+    7248,
+    0
+   ]
+  ],
+  "k1_head_major_qkv": {
+   "enabled": true,
+   "served": 3144,
+   "declined": 480
+  },
+  "k1b_tail": {
+   "enabled": true,
+   "over_l1": true,
+   "served": 3144,
+   "declined": 0
+  },
+  "k2_persistent_mask": {
+   "enabled": true,
+   "served": 3624,
+   "declined": 0
+  },
+  "transpose_l1_headroom": 1.25,
+  "transpose_l1_refused": [],
+  "trimul_inproj_group": 8,
+  "sdpa_wide_q": true,
+  "l1_out_refused": []
+ },
+ "folds": [
+  {
+   "total_s": 58.36,
+   "stages": {
+    "atom_feat_host": [
+     1,
+     0.004
+    ],
+    "to_host": [
+     5,
+     0.157
+    ],
+    "relp_host": [
+     1,
+     0.076
+    ],
+    "trunk": [
+     1,
+     44.626
+    ],
+    "diff_pair_cond": [
+     1,
+     0.338
+    ],
+    "plm_z_term": [
+     1,
+     0.079
+    ],
+    "diffusion": [
+     1,
+     11.307
+    ],
+    "confidence": [
+     1,
+     1.079
+    ]
+   },
+   "unattributed_s": 0.694,
+   "wall_ms": {
+    "block:PairformerLayer": {
+     "calls": 604,
+     "ms": 42675.04
+    },
+    "stage:Pairformer": {
+     "calls": 11,
+     "ms": 34647.48
+    },
+    "body:TriangleMultiplication": {
+     "calls": 1208,
+     "ms": 16907.94
+    },
+    "body:TriangleAttention": {
+     "calls": 1208,
+     "ms": 14012.7
+    },
+    "body:Transition": {
+     "calls": 1520,
+     "ms": 8200.02
+    },
+    "body:AttentionPairBias": {
+     "calls": 5284,
+     "ms": 5175.89
+    },
+    "block:AtomTransformer": {
+     "calls": 401,
+     "ms": 3753.22
+    },
+    "body:OuterProductMean": {
+     "calls": 40,
+     "ms": 892.76
+    },
+    "body:PairWeightedAveraging": {
+     "calls": 30,
+     "ms": 337.63
+    },
+    "stage:AtomAttentionEncoder": {
+     "calls": 1,
+     "ms": 233.68
+    },
+    "stage:TrunkInput": {
+     "calls": 1,
+     "ms": 26.22
+    }
+   }
+  },
+  {
+   "total_s": 53.431,
+   "stages": {
+    "atom_feat_host": [
+     1,
+     0.003
+    ],
+    "to_host": [
+     5,
+     0.157
+    ],
+    "relp_host": [
+     1,
+     0.076
+    ],
+    "trunk": [
+     1,
+     40.719
+    ],
+    "diff_pair_cond": [
+     1,
+     0.307
+    ],
+    "plm_z_term": [
+     1,
+     0.08
+    ],
+    "diffusion": [
+     1,
+     10.502
+    ],
+    "confidence": [
+     1,
+     1.067
+    ]
+   },
+   "unattributed_s": 0.52,
+   "wall_ms": {
+    "block:PairformerLayer": {
+     "calls": 604,
+     "ms": 38881.87
+    },
+    "stage:Pairformer": {
+     "calls": 11,
+     "ms": 34526.09
+    },
+    "body:TriangleMultiplication": {
+     "calls": 1208,
+     "ms": 16085.12
+    },
+    "body:TriangleAttention": {
+     "calls": 1208,
+     "ms": 11176.46
+    },
+    "body:Transition": {
+     "calls": 1520,
+     "ms": 8080.72
+    },
+    "body:AttentionPairBias": {
+     "calls": 5284,
+     "ms": 5122.23
+    },
+    "block:AtomTransformer": {
+     "calls": 401,
+     "ms": 3586.97
+    },
+    "body:OuterProductMean": {
+     "calls": 40,
+     "ms": 866.72
+    },
+    "body:PairWeightedAveraging": {
+     "calls": 30,
+     "ms": 309.97
+    },
+    "stage:AtomAttentionEncoder": {
+     "calls": 1,
+     "ms": 71.72
+    },
+    "stage:TrunkInput": {
+     "calls": 1,
+     "ms": 5.13
+    }
+   }
+  },
+  {
+   "total_s": 53.449,
+   "stages": {
+    "atom_feat_host": [
+     1,
+     0.004
+    ],
+    "to_host": [
+     5,
+     0.157
+    ],
+    "relp_host": [
+     1,
+     0.076
+    ],
+    "trunk": [
+     1,
+     40.711
+    ],
+    "diff_pair_cond": [
+     1,
+     0.307
+    ],
+    "plm_z_term": [
+     1,
+     0.076
+    ],
+    "diffusion": [
+     1,
+     10.523
+    ],
+    "confidence": [
+     1,
+     1.073
+    ]
+   },
+   "unattributed_s": 0.522,
+   "wall_ms": {
+    "block:PairformerLayer": {
+     "calls": 604,
+     "ms": 38874.99
+    },
+    "stage:Pairformer": {
+     "calls": 11,
+     "ms": 34526.0
+    },
+    "body:TriangleMultiplication": {
+     "calls": 1208,
+     "ms": 16080.17
+    },
+    "body:TriangleAttention": {
+     "calls": 1208,
+     "ms": 11175.74
+    },
+    "body:Transition": {
+     "calls": 1520,
+     "ms": 8083.22
+    },
+    "body:AttentionPairBias": {
+     "calls": 5284,
+     "ms": 5123.3
+    },
+    "block:AtomTransformer": {
+     "calls": 401,
+     "ms": 3587.6
+    },
+    "body:OuterProductMean": {
+     "calls": 40,
+     "ms": 867.71
+    },
+    "body:PairWeightedAveraging": {
+     "calls": 30,
+     "ms": 309.73
+    },
+    "stage:AtomAttentionEncoder": {
+     "calls": 1,
+     "ms": 71.29
+    },
+    "stage:TrunkInput": {
+     "calls": 1,
+     "ms": 5.07
+    }
+   }
+  }
+ ]
+}
