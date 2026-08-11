@@ -30,11 +30,25 @@ Completeness is verified exactly as p25_harvest.sh does it (results.json status 
 CIF per all_runs entry). A slot that will not verify after --retries is removed, so it
 is absent rather than half-present, and the completeness gate sees it.
 
+The work list comes from `fleet_results.jsonl` in DEST, so a stale ledger used to mean
+silent under-harvest: the fleet keeps finishing folds on the galaxy, the destination
+ledger does not hear about them, and this script reports "0 to pull" while completed
+cells sit unharvested. It is self-sealing, because nothing else refreshes the ledger
+either, and it does not read as a harvest problem downstream -- the absent cell reads as
+a fold that never succeeded. On 2026-08-11 that turned a 0.7 min network copy of 23
+completed cells into a proposed 1 h JapanFold folding outage to refold them.
+
+So the ledger is now refreshed from the galaxy's own `<run>/results.jsonl` before the
+work list is built, appending only lines the destination is short of (multiset deficit,
+so a legitimate repeated attempt is preserved and nothing is rewritten). Append-only, to
+keep this safe against the other writers of that file. `--no-ledger-refresh` opts out.
+
 usage:
   DEST=/home/moritz/qb1_galaxy python3 scripts/abag_xm/harvest_par.py p31 512
   ... --jobs 8 --models protenix-v2,esmfold2,opendde-abag,boltz2 --chunks 4-7
 """
 import argparse
+import collections
 import json
 import os
 import pathlib
@@ -77,6 +91,43 @@ def slot_complete(rd):
         return False
 
 
+def refresh_ledger(gal, run, fleet):
+    """Append the galaxy run ledger's records that DEST is short of. Returns lines added.
+
+    Keyed on the exact line and counted as a multiset, so an attempt that legitimately
+    repeats (same target, chunk, seed, seconds) survives instead of being deduped away,
+    and a line already present is never re-appended.
+    """
+    r = subprocess.run(["ssh", "-o", "BatchMode=yes", gal,
+                        f"cat /home/cust-team/mthuening/{run}/results.jsonl"],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        print(f"  ledger refresh SKIPPED: cannot read {run}/results.jsonl on {gal}")
+        return 0
+
+    def wellformed(text):
+        out = []
+        for line in text.splitlines():            # the fleet appends concurrently: torn lines exist
+            if not line.startswith("{"):
+                continue
+            try:
+                json.loads(line)
+            except ValueError:
+                continue
+            out.append(line)
+        return out
+
+    have = collections.Counter(wellformed(fleet.read_text() if fleet.exists() else ""))
+    add = []
+    for line, n in collections.Counter(wellformed(r.stdout)).items():
+        add.extend([line] * (n - have.get(line, 0)))
+    if add:
+        with fleet.open("a") as fh:               # append-only; never rewrite a shared ledger
+            fh.write("".join(x + "\n" for x in add))
+    print(f"  ledger refresh: +{len(add)} record(s) from {run}/results.jsonl")
+    return len(add)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("run")
@@ -92,6 +143,8 @@ def main():
     ap.add_argument("--models",
                     default="protenix-v2,esmfold2,opendde-abag,boltz2")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--no-ledger-refresh", action="store_true",
+                    help="trust DEST's ledger as-is; it can then hide a completed fold")
     args = ap.parse_args()
 
     if not args.dest:
@@ -107,6 +160,9 @@ def main():
     models = args.models.split(",")
     chunks = parse_chunks(args.chunks)
     gb = f"/home/cust-team/mthuening/{args.run}"
+
+    if not args.no_ledger_refresh:
+        refresh_ledger(args.gal, args.run, fleet)
 
     ok = {}
     for line in fleet.read_text().splitlines():

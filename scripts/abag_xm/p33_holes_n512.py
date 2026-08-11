@@ -1,16 +1,27 @@
 #!/usr/bin/env python3
-"""Enumerate the rung-512 chunk-folds still missing, and emit the p33 refold task list.
+"""Classify the rung-512 chunk-folds a target is missing: unharvested, or genuinely unfolded.
 
-Pass 50 pre-registered the final panel on the premise that folding was complete. It is not: 25
-cells are missing, 24 of them chunk 7, and each one costs its target the whole 512 rung. They are
-not unfolded tasks -- `fleet_results.jsonl` carries rc=124 (timeout, zero CIFs) records for them,
-spread across 25 of the 32 chips, on targets that fold chunks 0-6 clean. The rig's transient
-fold-failure rate at this rung is 8.9 pct and retries clear it; c7 holes concentrate at the end of
-the queue because that is where the retry budget ran out, not because the work there is harder.
-So a refold is expected to clear ~91 pct first attempt and effectively all of them with retries.
+A cell absent from the qb1 tree is NOT evidence that it needs refolding. This tree is the harvest
+DESTINATION, and the harvest is gated on `fleet_results.jsonl`, a ledger that is also staged here.
+When the ledger goes stale the harvester finds no work, the cells stay absent, and every check run
+against this tree agrees they are missing -- disk and ledger are the same stale snapshot, so they
+corroborate each other while both being wrong. That cost a proposed 25-cell / 1 h JapanFold outage
+on 2026-08-11: 23 of the 25 were already folded, complete and status=ok on the Galaxy, and needed a
+network copy rather than a chip. Only protenix-v2/9ssm_c7 and opendde-abag/9d73_c4 were real.
+
+So this script never emits a refold task for a cell the ledger says succeeded. Those go to a
+separate harvest list. A cell is a refold candidate only when no rc=0 record with CIFs exists for
+it, and its failed-attempt count is printed beside it, because the campaign's own rule is that a
+cell leaves its target out after three failures rather than being retried forever.
+
+Its verdict is only as fresh as the ledger. Run `harvest_par.py` first: it now refreshes the ledger
+from the Galaxy before it builds its work list, so a stale ledger can no longer hide a completed
+fold from either tool.
 
 Task-list format matches p31/p32's tasks.txt: `<model> <target> <rung> <seed> <chunk> <chunks>`,
-seed = base + 1000*chunk so the cells stay seed-nested and disjoint from every other chunk.
+seed = base + 1000*chunk so the cells stay seed-nested and disjoint from every other chunk. The
+bases are opendde 20000, protenix 30000, boltz2 40000, esmfold2 50000, verified against the live
+`p31/tasks.txt` and the ledger's own seed fields (c7 = 27000/37000/47000/57000).
 
 Refold with SRC=$H/deepn_src, the frozen 2026-08-02 engine (md5 ef0fe30fae32362de92bfe0d71dec076,
 zero CONCAT_HOST_BYTES markers) -- NEVER deepn_src_oomfix. Four hole targets (9ve0 747, 9xth 665,
@@ -99,6 +110,7 @@ def main():
 
     recs = fleet_512()
     tasks, total, unknown = [], 0, 0
+    unharvested = []
     for model in ("boltz2", "esmfold2", "opendde-abag", "protenix-v2"):
         present = chunks_on_disk(model, 512)
         # A target only counts as a hole if it reached rung 256 -- otherwise it is not in the
@@ -111,6 +123,19 @@ def main():
             print(f"\n{model}: {len(holes)} target(s) short of a 512 pool")
         for target in sorted(holes):
             for c in holes[target]:
+                hits = recs.get((model, target, c), ())
+                won = [r for r in hits if r.get("rc") == 0 and (r.get("cifs") or 0) > 0]
+                lost = [r for r in hits if r.get("rc") != 0]
+                # The ledger says this fold SUCCEEDED, so its absence here is an unharvested
+                # cell, not a hole. Refolding it would burn chips to reproduce bytes that
+                # already exist on the galaxy. Harvest instead.
+                if won:
+                    unharvested.append(f"{model} {target} c{c}")
+                    if not args.quiet:
+                        print(f"   {target:<6} c{c}  UNHARVESTED -- ledger has rc=0 "
+                              f"cifs={won[-1].get('cifs')} in {won[-1].get('seconds')}s. "
+                              f"Run harvest_par.py, do NOT refold.")
+                    continue
                 seed, how = seed_for(recs, model, target, c)
                 if seed is None:
                     unknown += 1
@@ -118,13 +143,20 @@ def main():
                     tasks.append(f"{model} {target} 512 {seed} {c} {CHUNKS_512}")
                     total += 1
                 if not args.quiet:
-                    hits = recs.get((model, target, c), ())
                     why = (", ".join(f"rc={r.get('rc')} {r.get('seconds')}s "
                                      f"cifs={r.get('cifs')}" for r in hits)
                            or "no fold record -- never attempted")
-                    print(f"   {target:<6} c{c}  seed {seed} ({how})  [{why}]")
+                    # The campaign's rule is that a cell leaves its target out after three
+                    # failures. Print the count so that rule can be applied rather than
+                    # assumed: 10 prior failures is not a transient hang.
+                    print(f"   {target:<6} c{c}  seed {seed} ({how})  "
+                          f"{len(lost)} prior failure(s)  [{why}]")
 
     if not args.quiet:
+        if unharvested:
+            print(f"\n{len(unharvested)} cell(s) are FOLDED BUT UNHARVESTED. These cost a "
+                  f"network copy, not a chip:\n  DEST=/home/moritz/qb1_galaxy python3 "
+                  f"scripts/abag_xm/harvest_par.py p31 512 --jobs 8 --chunks 4-7")
         print(f"\n{total} cell(s) to refold." +
               (f"  {unknown} cell(s) have no recoverable seed -- STOP, do not guess."
                if unknown else ""))
