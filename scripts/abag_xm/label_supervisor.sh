@@ -50,12 +50,25 @@ exec 9>/tmp/.abag_label_sup.lock
 flock -n 9 || { echo "$(date -u +%FT%TZ) another supervisor holds the lock, exiting" >>"$SLOG"; exit 0; }
 echo "$(date -u +%FT%TZ) supervisor up (pid $$), labeler alive=$(alive && echo yes || echo no)" >>"$SLOG"
 
+# Editing this file does NOT change a supervisor that is already running. bash reads a script
+# by byte offset from an open fd, and `sed -i` renames a new inode over the old one, so the live
+# process keeps executing the old bytes. Change the worker count here, then restart the
+# supervisor, then kill the labeler -- in that order. Doing it the other way round relaunches the
+# labeler with the OLD count and looks like the edit silently failed. Cost one restart cycle.
+#
+# --workers sizing: a label child is one core (OMP_NUM_THREADS=2, but it runs one DockQ/lddt
+# subprocess at a time), so the pool must be at least as wide as the cores it may be handed.
+# 48 covers the whole 32-core box with margin. It is deliberately larger than the box: on a
+# co-tenanted host the labeler is nice-15 and gets only a few cores, and a wide pool is how it
+# absorbs the cores the moment a co-tenant exits, without needing anyone to be awake to resize
+# it. Measured 2026-08-11 on qb1 under a 30-core co-tenant: 12 -> 48 workers moved the nice
+# bucket 5.0 -> 7.7 pct of the box (1.60 -> 2.46 of 32 cores). Per-dir cost is 29.1 core-seconds.
 i=0
 while true; do
   if ! alive; then
     echo "$(date -u +%FT%TZ) labeler python ABSENT -- reaped $(reap_locks) stale lock(s), relaunching" >>"$SLOG"
     (cd "$WT" && setsid nohup nice -15 python3 -u scripts/abag_xm_deepn_label.py \
-       --base "$BASE" --workers 12 </dev/null >>"$LOG" 2>&1 9>&- &)
+       --base "$BASE" --workers 48 </dev/null >>"$LOG" 2>&1 9>&- &)
     sleep 30 9>&-
     if alive; then
       echo "$(date -u +%FT%TZ) relaunch OK" >>"$SLOG"
