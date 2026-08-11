@@ -251,7 +251,7 @@ def reblock_permute(x, memory_config=None, device=None):
 # The L1 leg's window edges, named so a fold-level A/B can move one of them in-process without
 # editing the gate. See eligible()'s docstring for what measured them.
 L1_N_MIN = 288
-L1_N_MAX = 544
+L1_N_MAX = 352
 
 
 def eligible(x, memory_config) -> bool:
@@ -264,7 +264,15 @@ def eligible(x, memory_config) -> bool:
     measures 0.952x on 110 cores, a real loss, and it is the shape boltzgen runs 2384 of its 3024
     channel moves on.
 
-    The upper edge is 544, measured on qb2's 11x10 grid at ttnn 0.68.0
+    The upper edge stays 352. It was widened to 544 on qb2 evidence and reverted: the widening is
+    worth 0.000 s/fold at 512 aa (the fit test already routes the pair tensor to DRAM, where the leg
+    is open, so 52224 of 52224 moves were already served and 0 declined), and re-measured on qb1's
+    13x10 grid it does not reproduce -- two runs there read 0.68/0.72x at N=320, 0.65/0.86x at N=384,
+    and a run-to-run spread up to 23 % at N=512. A no-op with ambiguous cross-grid evidence is not
+    worth a shipped behaviour change. The qb2 band below is kept because it is the measurement, and
+    the qb1 repeats are in perf/bigswing/reblock_window_band_qb1c0{,_r2}.json.
+
+    The qb2 measurement was: 544, on the 11x10 grid at ttnn 0.68.0
     (``perf/bigswing/reblock_window_band_qb2c0.json``): every N in {320, 352, 384, 416, 448, 480,
     512, 544} wins on an L1 output and every one is ``torch.equal`` against ``ttnn.permute`` --
     1.3317 / 1.0150 / 1.1500 / 1.3549 / 1.5587 / 1.3401 / 1.3958 / 1.6163x. There is no cliff in
