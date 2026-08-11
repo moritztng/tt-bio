@@ -1,0 +1,262 @@
+{
+ "predictions": "S1/K1a: the head-major writer. Does the qkv matmul write q, k, v straight into head-major\nlayout, bit-exactly, at the same speed -- deleting nlp_create_qkv_heads entirely?\n\nPREDICTION, WRITTEN BEFORE THE RUN (state/triatt-fused-kernel-final.md 5-6):\n\n    torch.equal against nlp_create_qkv_heads(minimal_matmul(...)) at every size, and a time within\n    0.15 ms of S0's 2.209 ms. Wider than 0.15 ms means the per-tile destination scatter costs\n    something, which would contradict the read of write_block_sync_split, and K1 stops there.\n    The prize is the whole 2.096 ms/call of nlp_create_qkv_heads.\n\nThree writes replace one: the matmul's 24 output tile-columns are split into q/k/v by N chunk and\nplaced at (batch, head, row) instead of (row, head). head_dim is 32 = one tile, so no element moves\ninside a tile and the transaction count and size are unchanged.\n",
+ "sizes": {
+  "298": {
+   "n": 298,
+   "mm_config": "MinimalMatmulConfig(M_block_size=4,K_block_size=8,N_block_size=1,subblock_h=4,subblock_w=1,compute_with_storage_grid_size=(x=11,y=10))",
+   "ref_shapes": [
+    [
+     298,
+     8,
+     298,
+     32
+    ],
+    [
+     298,
+     8,
+     298,
+     32
+    ],
+    [
+     298,
+     8,
+     298,
+     32
+    ]
+   ],
+   "head_major_mt": 10,
+   "equal": [
+    true,
+    true,
+    true
+   ],
+   "all_equal": true,
+   "native_mm_ms": 0.824064999960683,
+   "native_mm_aa": 0.04620145288386213,
+   "head_major_mm_ms": 0.8137049999277224,
+   "head_major_mm_aa": 0.013248044051561788,
+   "native_mm_plus_heads_ms": 1.565192000271054,
+   "native_mm_plus_heads_aa": 0.020919478113049218,
+   "saving_ms_per_call": 0.7514870003433316,
+   "speedup_vs_chain": 1.9235374004216304,
+   "delta_vs_native_mm_ms": -0.01036000003296067
+  },
+  "320": {
+   "n": 320,
+   "mm_config": "MinimalMatmulConfig(M_block_size=4,K_block_size=8,N_block_size=1,subblock_h=4,subblock_w=1,compute_with_storage_grid_size=(x=11,y=10))",
+   "ref_shapes": [
+    [
+     320,
+     8,
+     320,
+     32
+    ],
+    [
+     320,
+     8,
+     320,
+     32
+    ],
+    [
+     320,
+     8,
+     320,
+     32
+    ]
+   ],
+   "head_major_mt": 10,
+   "equal": [
+    true,
+    true,
+    true
+   ],
+   "all_equal": true,
+   "native_mm_ms": 0.8797309997135017,
+   "native_mm_aa": 0.048596673202672636,
+   "head_major_mm_ms": 0.8634699997855932,
+   "head_major_mm_aa": 0.032536162057384514,
+   "native_mm_plus_heads_ms": 1.6668660000505042,
+   "native_mm_plus_heads_aa": 0.01846579154373426,
+   "saving_ms_per_call": 0.803396000264911,
+   "speedup_vs_chain": 1.9304272302041772,
+   "delta_vs_native_mm_ms": -0.016260999927908415
+  },
+  "384": {
+   "n": 384,
+   "mm_config": "MinimalMatmulConfig(M_block_size=4,K_block_size=8,N_block_size=1,subblock_h=4,subblock_w=1,compute_with_storage_grid_size=(x=11,y=10))",
+   "ref_shapes": [
+    [
+     384,
+     8,
+     384,
+     32
+    ],
+    [
+     384,
+     8,
+     384,
+     32
+    ],
+    [
+     384,
+     8,
+     384,
+     32
+    ]
+   ],
+   "head_major_mt": 12,
+   "equal": [
+    true,
+    true,
+    true
+   ],
+   "all_equal": true,
+   "native_mm_ms": 1.2335979999988922,
+   "native_mm_aa": 0.03191153016026195,
+   "head_major_mm_ms": 1.2136489999647893,
+   "head_major_mm_aa": 0.017658318243691705,
+   "native_mm_plus_heads_ms": 2.373325999997178,
+   "native_mm_plus_heads_aa": 0.011065062334489971,
+   "saving_ms_per_call": 1.1596770000323886,
+   "speedup_vs_chain": 1.9555291522227873,
+   "delta_vs_native_mm_ms": -0.019949000034102937
+  },
+  "512": {
+   "n": 512,
+   "mm_config": "MinimalMatmulConfig(M_block_size=4,K_block_size=8,N_block_size=1,subblock_h=4,subblock_w=1,compute_with_storage_grid_size=(x=11,y=10))",
+   "ref_shapes": [
+    [
+     512,
+     8,
+     512,
+     32
+    ],
+    [
+     512,
+     8,
+     512,
+     32
+    ],
+    [
+     512,
+     8,
+     512,
+     32
+    ]
+   ],
+   "head_major_mt": 16,
+   "equal": [
+    true,
+    true,
+    true
+   ],
+   "all_equal": true,
+   "native_mm_ms": 2.147103000424977,
+   "native_mm_aa": 0.021693416829978333,
+   "head_major_mm_ms": 2.0989019999433367,
+   "head_major_mm_aa": 0.0145685698552566,
+   "native_mm_plus_heads_ms": 4.255362000094465,
+   "native_mm_plus_heads_aa": 0.012005324100094182,
+   "saving_ms_per_call": 2.156460000151128,
+   "speedup_vs_chain": 2.0274229097925227,
+   "delta_vs_native_mm_ms": -0.04820100048164022
+  },
+  "576": {
+   "n": 576,
+   "mm_config": "MinimalMatmulConfig(M_block_size=4,K_block_size=8,N_block_size=1,subblock_h=4,subblock_w=1,compute_with_storage_grid_size=(x=11,y=10))",
+   "ref_shapes": [
+    [
+     576,
+     8,
+     576,
+     32
+    ],
+    [
+     576,
+     8,
+     576,
+     32
+    ],
+    [
+     576,
+     8,
+     576,
+     32
+    ]
+   ],
+   "head_major_mt": 18,
+   "equal": [
+    true,
+    true,
+    true
+   ],
+   "all_equal": true,
+   "native_mm_ms": 2.7237250001235225,
+   "native_mm_aa": 0.009111418914769418,
+   "head_major_mm_ms": 2.6970550002261007,
+   "head_major_mm_aa": 0.011876658070694508,
+   "native_mm_plus_heads_ms": 5.302312999901915,
+   "native_mm_plus_heads_aa": 0.010485235327418506,
+   "saving_ms_per_call": 2.605257999675814,
+   "speedup_vs_chain": 1.965963986443513,
+   "delta_vs_native_mm_ms": -0.026669999897421803
+  },
+  "640": {
+   "n": 640,
+   "mm_config": "MinimalMatmulConfig(M_block_size=4,K_block_size=8,N_block_size=1,subblock_h=4,subblock_w=1,compute_with_storage_grid_size=(x=11,y=10))",
+   "ref_shapes": [
+    [
+     640,
+     8,
+     640,
+     32
+    ],
+    [
+     640,
+     8,
+     640,
+     32
+    ],
+    [
+     640,
+     8,
+     640,
+     32
+    ]
+   ],
+   "head_major_mt": 20,
+   "equal": [
+    true,
+    true,
+    true
+   ],
+   "all_equal": true,
+   "native_mm_ms": 3.306990000055521,
+   "native_mm_aa": 0.0185963670654248,
+   "head_major_mm_ms": 3.3001269998749194,
+   "head_major_mm_aa": 0.017505689864787028,
+   "native_mm_plus_heads_ms": 6.566069000200514,
+   "native_mm_plus_heads_aa": 0.0136550498479863,
+   "saving_ms_per_call": 3.2659420003255946,
+   "speedup_vs_chain": 1.9896413078797814,
+   "delta_vs_native_mm_ms": -0.006863000180601375
+  }
+ },
+ "meta": {
+  "grid": [
+   11,
+   10
+  ],
+  "loadavg": [
+   0.15625,
+   0.09228515625,
+   0.07763671875
+  ],
+  "card": "1",
+  "loadavg_end": [
+   0.38427734375,
+   0.140625,
+   0.09375
+  ]
+ }
+}

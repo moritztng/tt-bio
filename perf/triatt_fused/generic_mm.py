@@ -76,15 +76,24 @@ def _cb(idx, core_grid, page_size, num_tiles, data_format):
         total_size=num_tiles * page_size, core_ranges=core_grid, format_descriptors=[fmt])
 
 
-def build(device, in0, in1, out, cfg, ckc):
-    """The ProgramDescriptor for ``minimal_matmul(in0, in1) -> out`` with block config ``cfg``.
+def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None):
+    """The ProgramDescriptor for ``minimal_matmul(in0, in1) -> outs`` with block config ``cfg``.
 
     ``cfg`` is a 5-tuple ``(M_block, K_block, N_block, subblock_h, subblock_w)`` and a
     ``(grid_x, grid_y)``; ``ckc`` is ``(math_fidelity, math_approx_mode, fp32_dest_acc_en,
-    dst_full_sync_en)``. Everything else is read off the tensors, exactly as the C++ factory does.
+    dst_full_sync_en)``. ``outs`` is a list of output tensors, one per N chunk, so a single-output
+    matmul and the three-way qkv split are the same code path. Everything else is read off the
+    tensors, exactly as the C++ factory does.
+
+    ``defines`` and ``kernel_dir`` are the only additions to the transcription: they let the two DM
+    kernels come from ``tt_bio/kernels/triatt/`` with ``HEAD_MAJOR_MT`` set, which is K1.
     """
+    if not isinstance(outs, (list, tuple)):
+        outs = [outs]
+    out = outs[0]
     (M_block_tiles, K_block_tiles, N_block_tiles, subblock_h, subblock_w), (gx, gy) = cfg
     math_fidelity, math_approx_mode, fp32_dest_acc_en, dst_full_sync_en = ckc
+    defines = [(str(k), str(v)) for k, v in dict(defines).items()]
 
     core_grid = ttnn.CoreRangeSet(
         [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
@@ -98,7 +107,7 @@ def build(device, in0, in1, out, cfg, ckc):
     N = in1_shape[-1]
 
     M_tiles, K_tiles, N_tiles = M // TILE_HW, K // TILE_HW, N // TILE_HW
-    N_chunks = 1
+    N_chunks = len(outs)
     N_tiles_per_chunk = N_tiles // N_chunks
 
     in0_tile_size = _TILE_BYTES[in0.dtype]
@@ -148,7 +157,7 @@ def build(device, in0, in1, out, cfg, ckc):
 
     acc_in0 = list(ttnn.TensorAccessorArgs(in0).get_compile_time_args())
     acc_in1 = list(ttnn.TensorAccessorArgs(in1).get_compile_time_args())
-    acc_out = list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
+    acc_out = [a for o in outs for a in ttnn.TensorAccessorArgs(o).get_compile_time_args()]
 
     in0_is_writer = not transpose
     in1_is_writer = transpose
@@ -172,12 +181,14 @@ def build(device, in0, in1, out, cfg, ckc):
     in1_recv_cores = cr((1, 0) if transpose else (0, 1), (gx - 1, gy - 1))
 
     kd = _kernel_dir()
-    in0_src, in1_src = str(kd / "dm_in0_sender.cpp"), str(kd / "dm_in1_sender_out.cpp")
-    compute_src = str(kd / "compute.cpp")
+    dmd = kernel_dir or kd
+    in0_src, in1_src = str(dmd / "dm_in0_sender.cpp"), str(dmd / "dm_in1_sender_out.cpp")
+    compute_src = str(kd / "compute.cpp")          # never patched, always the wheel's own
 
     k_blocks_per_core = _div_up(K_blocks, in1_axis_cores if transpose else in0_axis_cores)
 
-    in0_addr, in1_addr, out_addr = in0.buffer_address(), in1.buffer_address(), out.buffer_address()
+    in0_addr, in1_addr = in0.buffer_address(), in1.buffer_address()
+    out_addrs = [o.buffer_address() for o in outs]
 
     rt = {"in0_sender": [], "in0_recv": [], "in1_sender": [], "in1_recv": [], "compute": []}
     for cx in range(gx):
@@ -210,10 +221,10 @@ def build(device, in0, in1, out, cfg, ckc):
             cc = ttnn.CoreCoord(cx, cy)
             a0 = [in0_addr, 0, 0, int(core == in0_order[-1]),
                   in0_next[0], in0_next[1], in0_prev[0], in0_prev[1],
-                  M_start, M_end, N_start, N_end, defer_k, out_addr]
+                  M_start, M_end, N_start, N_end, defer_k, *out_addrs]
             a1 = [in1_addr, 0, int(core == in1_order[-1]),
                   in1_next[0], in1_next[1], in1_prev[0], in1_prev[1],
-                  M_start, M_end, N_start, N_end, defer_k, out_addr]
+                  M_start, M_end, N_start, N_end, defer_k, *out_addrs]
             rt["in0_sender" if in1_idx == 0 else "in0_recv"].append((cc, a0))
             rt["in1_sender" if in0_idx == 0 else "in1_recv"].append((cc, a1))
             rt["compute"].append((cc, [M_start, M_end, N_start, N_end]))
@@ -221,7 +232,7 @@ def build(device, in0, in1, out, cfg, ckc):
     def dm_kernel(src, cores, ct, args, risc, noc):
         return ttnn.KernelDescriptor(
             kernel_source=src, source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
-            core_ranges=cores, compile_time_args=ct, runtime_args=args,
+            core_ranges=cores, compile_time_args=ct, runtime_args=args, defines=defines,
             config=ttnn.DataMovementConfigDescriptor(processor=risc, noc=noc))
 
     kernels = [
@@ -250,51 +261,57 @@ def build(device, in0, in1, out, cfg, ckc):
     ]
     pd = ttnn.ProgramDescriptor(kernels=kernels, semaphores=semaphores, cbs=cbs)
     return {"pd": pd, "kernels": kernels, "cbs": cbs, "semaphores": semaphores, "rt": rt,
-            "addrs": (in0_addr, in1_addr, out_addr),
+            "addrs": (in0_addr, in1_addr, tuple(out_addrs)), "n_chunks": N_chunks,
             "dims": {"M_tiles": M_tiles, "K_tiles": K_tiles, "N_tiles": N_tiles,
                      "padded_M_tiles": padded_M_tiles, "padded_N_tiles": padded_N_tiles,
                      "M_blocks_per_core": M_blocks_per_core,
                      "N_blocks_per_core": N_blocks_per_core, "K_blocks": K_blocks,
-                     "transpose_core_grid": transpose}}
+                     "N_tiles_per_chunk": N_tiles_per_chunk,
+                     "transpose_core_grid": transpose, "defines": defines}}
 
 
-def _key(in0, in1, out, cfg, ckc):
-    return (str(in0.padded_shape), str(in1.padded_shape), str(out.padded_shape),
-            str(in0.dtype), str(in1.dtype), str(out.dtype),
-            str(in0.memory_config()), str(in1.memory_config()), str(out.memory_config()),
-            cfg, tuple(str(c) for c in ckc))
+def _key(in0, in1, outs, cfg, ckc, defines, kernel_dir):
+    if not isinstance(outs, (list, tuple)):
+        outs = [outs]
+    spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
+    return (spec(in0), spec(in1), tuple(spec(o) for o in outs),
+            cfg, tuple(str(c) for c in ckc),
+            tuple(sorted(dict(defines).items())), str(kernel_dir))
 
 
-def generic_minimal_matmul(device, in0, in1, out, cfg, ckc):
+def generic_minimal_matmul(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None):
     """``minimal_matmul`` through ``generic_op``, descriptor cached per shape/config."""
-    key = _key(in0, in1, out, cfg, ckc)
+    if not isinstance(outs, (list, tuple)):
+        outs = [outs]
+    key = _key(in0, in1, outs, cfg, ckc, defines, kernel_dir)
     entry = _CACHE.get(key)
     if entry is None:
-        entry = _CACHE[key] = build(device, in0, in1, out, cfg, ckc)
-    addrs = (in0.buffer_address(), in1.buffer_address(), out.buffer_address())
+        entry = _CACHE[key] = build(device, in0, in1, outs, cfg, ckc, defines, kernel_dir)
+    addrs = (in0.buffer_address(), in1.buffer_address(),
+             tuple(o.buffer_address() for o in outs))
     if addrs != entry["addrs"]:
         rebind(entry, *addrs)
-    ttnn.generic_op([in0, in1, out], entry["pd"])
-    return out
+    ttnn.generic_op([in0, in1, *outs], entry["pd"])
+    return outs[0] if len(outs) == 1 else outs
 
 
-def rebind(entry, in0_addr, in1_addr, out_addr):
-    """Rewrite the three buffer addresses in the cached per-core runtime args, in place.
+def rebind(entry, in0_addr, in1_addr, out_addrs):
+    """Rewrite the buffer addresses in the cached per-core runtime args, in place.
 
-    The addresses sit at fixed indices: in0 args [0] = in0_addr and [-1] = out_addr, in1 args
-    [0] = in1_addr and [-1] = out_addr. 110 cores x 2 DM kernels, so 440 scalar writes plus the
-    binding round-trip -- measured by the harness, and the reason K1 moves them into
-    ``common_runtime_args`` when it patches the writer anyway.
+    They sit at fixed indices: args[0] is the kernel's own input address and the last ``N_chunks``
+    entries are the output addresses. 110 cores x 2 DM kernels, so a few hundred scalar writes plus
+    the binding round-trip.
     """
+    n = entry["n_chunks"]
     rt = entry["rt"]
     for name, addr in (("in0_sender", in0_addr), ("in0_recv", in0_addr),
                        ("in1_sender", in1_addr), ("in1_recv", in1_addr)):
         for _, a in rt[name]:
             a[0] = addr
-            a[-1] = out_addr
+            a[len(a) - n:] = list(out_addrs)
     for k, name in zip(entry["kernels"][:4],
                        ("in0_sender", "in0_recv", "in1_sender", "in1_recv")):
         k.runtime_args = rt[name]
     entry["pd"] = ttnn.ProgramDescriptor(
         kernels=entry["kernels"], semaphores=entry["semaphores"], cbs=entry["cbs"])
-    entry["addrs"] = (in0_addr, in1_addr, out_addr)
+    entry["addrs"] = (in0_addr, in1_addr, tuple(out_addrs))
