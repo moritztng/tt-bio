@@ -18,12 +18,11 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
-sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import torch
 import ttnn
 from tt_bio import tenstorrent as T
-import generic_mm as G
+from tt_bio import mm_generic as G
 
 KDIR = REPO / "tt_bio" / "kernels" / "triatt"
 RES = {"predictions": __doc__, "sizes": {}}

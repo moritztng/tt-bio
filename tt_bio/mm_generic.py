@@ -43,6 +43,18 @@ def _kernel_dir(kind="minimal_matmul"):
     return root / "ttnn/cpp/ttnn/operations/experimental" / kind / "device/kernels"
 
 
+def ckc_args(ckc):
+    """The four fields ``ComputeConfigDescriptor`` takes, read off a ``DeviceComputeKernelConfig``.
+
+    ``get_compute_kernel_config_args`` also returns ``packer_l1_acc``, which the C++ factory
+    destructures and never passes to ``ComputeConfig``; there is no field for it here either.
+    """
+    return (getattr(ckc, "math_fidelity", ttnn.MathFidelity.HiFi4),
+            bool(getattr(ckc, "math_approx_mode", False)),
+            bool(getattr(ckc, "fp32_dest_acc_en", False)),
+            bool(getattr(ckc, "dst_full_sync_en", False)))
+
+
 def _div_up(a, b):
     return (a + b - 1) // b
 
