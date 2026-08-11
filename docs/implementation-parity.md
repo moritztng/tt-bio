@@ -209,10 +209,18 @@ bf16, and these are ttnn-only ports — the same "envelope methodology is torch-
 constraint recorded above, which `--regen-refs` does not detect, so it emits a device fold labelled
 as a CPU reference. This is NOT a coverage hole: OpenDDE and Protenix-v2 are scored by the legacy
 R/D/X device-vs-reference diagnostic against their official upstream implementations, which is the
-correct scorer for a ttnn-only port and which passes (see the paragraph above). Fix owed:
-`--regen-refs` should refuse to write an envelope reference pair for a leg whose two references
-come out identical, and `finalize_leg` should report a zero envelope as `NO-DATA` rather than
-`PASS`, so this can never again read as a green verdict.
+correct scorer for a ttnn-only port and which passes (see the paragraph above).
+
+**Fixed 2026-08-11, and the cause was one line.** `tt_bio/main.py` built the worker slots for every
+non-Boltz-2 model with a hardcoded `"tenstorrent"`, so `--accelerator cpu` was accepted and then
+folded on the card: a reference fold was caught holding `/dev/tenstorrent/0` open. Four changes.
+`predict` now refuses `--accelerator cpu/gpu` for a model with no torch path instead of ignoring it.
+The three Protenix-v2 and two OpenDDE structure legs carry `legacy_rdx`, like the OpenFold3 legs and
+for the same reason, so `--regen-refs` skips them and they score R/D/X against their upstream
+reference. `--regen-refs` refuses to write a reference pair whose two arms are byte-identical. And a
+report whose every metric has a zero envelope reads `NO-DATA`, never `PASS`. Boltz-2 is unaffected:
+it has a real torch path, its references differ as they should (fp32 0.911573 against bf16 0.871069
+on `hsa-nomsa`), and its legs are still envelope-scored.
 
 **`boltz2-prot-nomsa` GAP root-caused 2026-07-27 (GAP-evidenced, not fixed): seed-0 chaos, not a
 precision bug.** Two on-device fp32 levers were tried and neither closes it: the reference's own

@@ -264,21 +264,26 @@ LEGS = [
         device_args=_boltz2_struct_args(msa="none")),
 
     # --- Protenix-v2 structure legs (cached fixture, device-only per release) ---
+    # legacy_rdx: tt_bio/protenix.py imports ttnn at module scope and has no torch path, so a
+    # "CPU reference" fold for it is a device fold (main.py refuses one now). Its fp32 and bf16
+    # references were the same computation and the envelope denominator was 0 on all three legs,
+    # which made every envelope verdict here an artifact of the instrument. Same reason as the
+    # openfold3 legs below.
     Leg("protenix-prot-msa", "protenix-v2", "structure", "examples/prot.yaml",
         fixture="protenix-v2/prot/msa-server_200step_5sample_10cycle_bf16",
         committed_json="protenix-v2.json", target_id="prot",
         device_args=("--sampling_steps", "200", "--diffusion_samples", "5"),
-        msa="staged"),
+        msa="staged", legacy_rdx=True),
     Leg("protenix-ubq-msa", "protenix-v2", "structure", "examples/ubq.yaml",
         fixture="protenix-v2/ubq/msa-server_200step_5sample_10cycle_bf16",
         committed_json="protenix-v2-ubiquitin.json", target_id="ubq",
         device_args=("--sampling_steps", "200", "--diffusion_samples", "5"),
-        msa="staged"),
+        msa="staged", legacy_rdx=True),
     Leg("protenix-hsa-msa", "protenix-v2", "structure", "examples/hsa.yaml",
         fixture="protenix-v2/hsa/msa-server_200step_5sample_10cycle_bf16",
         committed_json="protenix-v2-hsa.json", target_id="hsa",
         device_args=("--sampling_steps", "200", "--diffusion_samples", "5"),
-        msa="staged"),
+        msa="staged", legacy_rdx=True),
 
     # --- OpenFold3 structure legs (cached fixture, device-only per release) ---
     # OF3 is ttnn-only (no tt-bio torch path), so these are external-reference
@@ -375,17 +380,20 @@ LEGS = [
 ]
 
 # OpenDDE structure legs + abag + boltzgen (append separately for clarity)
+# The two structure legs carry legacy_rdx for the protenix reason above: tt_bio/opendde.py is
+# ttnn-only, so its committed ref_fp32 and ref_bf16 fixtures were two device folds and agreed
+# to six decimals (0.533513 / 0.453797 on prot, 0.550660 / 0.444685 on trpcage).
 LEGS += [
     Leg("opendde-trpcage-nomsa", "opendde", "structure", "examples/trpcage_no_msa.yaml",
         fixture="opendde/trpcage/nomsa_4cycle_20step_1sample_fp32_reduced",
         committed_json="opendde.json", target_id="trpcage_no_msa",
         device_args=("--single_sequence", "--recycling_steps", "4", "--sampling_steps", "20", "--diffusion_samples", "1"),
-        msa="none"),
+        msa="none", legacy_rdx=True),
     Leg("opendde-prot-prod", "opendde", "structure", "examples/prot_no_msa.yaml",
         fixture="opendde/prot/nomsa_10cycle_200step_1sample_fp32_prod",
         committed_json="opendde-prod-leg.json", target_id="prot_no_msa",
         device_args=("--single_sequence", "--recycling_steps", "10", "--sampling_steps", "200", "--diffusion_samples", "1"),
-        msa="none"),
+        msa="none", legacy_rdx=True),
     Leg("opendde-abag", "opendde-abag", "abag", "examples/1ahw_abag.yaml",
         committed_json="opendde-abag-1ahw-irmsd.json", seeds=(0,),
         note="DockQ leg; reuses release_gate --model opendde-abag"),
@@ -935,6 +943,28 @@ def _ref_settings(leg: Leg) -> dict:
             "yaml": leg.yaml, "model": leg.model, "target_id": leg.target_id, "msa": leg.msa}
 
 
+def _refs_identical(base: Path) -> bool:
+    """True when a fixture's fp32 and bf16 references are the same bytes.
+
+    The envelope denominator IS the fp32-vs-bf16 distance, so two identical references make it
+    zero and every device residual then reads as a GAP no matter how small it is. That is not a
+    hypothetical: it is what a ttnn-only model produced, both references having run on the card.
+    Compared on the structures, not results.json, because the scorer reads coordinates."""
+    import hashlib
+
+    def digest(d: Path) -> str | None:
+        cifs = sorted(d.rglob("*.cif"))
+        if not cifs:
+            return None
+        h = hashlib.sha256()
+        for p in cifs:
+            h.update(p.read_bytes())
+        return h.hexdigest()
+
+    a, b = digest(base / "ref_fp32"), digest(base / "ref_bf16")
+    return a is not None and a == b
+
+
 def regen_envelope_refs(legs: list, workdir: Path, log_dir: Path,
                         fold_timeout: float | None, resume: bool) -> int:
     """(Re)generate each envelope leg's fp32 + bf16 CPU shared-draw references into
@@ -982,6 +1012,11 @@ def regen_envelope_refs(legs: list, workdir: Path, log_dir: Path,
             print(f"  {leg.id} ref_{dtype}: {'OK' if ok else 'FAILED'} ({wall/60:.1f} min)"
                   + ("" if ok else f" rc={rc} timed_out={timed_out} — see regen_{leg.id}_{dtype}.log"))
             leg_ok &= ok
+        if leg_ok and _refs_identical(base):
+            print(f"  {leg.id}: ref_fp32 and ref_bf16 are byte-identical — the bf16 autocast "
+                  "never applied, so the envelope denominator is 0 and any device residual "
+                  "reads as a false GAP. Refusing to write meta.json for this leg.")
+            leg_ok = False
         if leg_ok:
             envelope_meta = {"reference_impl": "tt-bio-cpu-torch", "reference_version": _repo_commit(),
                              "reference_commit": _repo_commit(), "settings": _ref_settings(leg),
@@ -1262,6 +1297,14 @@ def _envelope_verdict_row(report: dict) -> tuple[str, str]:
     metrics = report.get("metrics", {})
     if not metrics:
         return "NO-DATA", "no envelope metrics scored"
+    # A zero envelope on EVERY metric means the two references are the same computation, so
+    # the leg is decided by abs_floor alone and measures nothing. It must never read as PASS:
+    # three legs did exactly that until 2026-08-11 (ttnn-only models whose "CPU references"
+    # both ran on the card). A single scalar metric rounding to a zero envelope is legitimate
+    # — that is what abs_floor is for — so only a whole-report collapse is refused here.
+    if all(float(m.get("envelope", 0.0) or 0.0) == 0.0 for m in metrics.values()):
+        return "NO-DATA", ("every metric envelope is 0 — the fp32 and bf16 references are the "
+                           "same computation, so this leg measures nothing")
     worst = max(metrics.items(), key=lambda kv: kv[1].get("ratio", 0.0))
     wk, wm = worst
     parts = [f"{k} r={m.get('ratio', float('nan')):.2f}" for k, m in metrics.items()]
