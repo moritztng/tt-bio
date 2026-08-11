@@ -289,7 +289,7 @@ def _prefetch_openfold3_template_structures(tmpl_map: dict[str, str],
                 f"--model openfold3: failed to fetch template structure {url}: {exc}")
 
 
-def _err_text(exc: BaseException, limit: int = 400) -> str:
+def _err_text(exc: BaseException, limit: int = 2000) -> str:
     """Bounded error text for a job row that never loses the tail.
 
     TT_FATAL messages put the diagnostic payload LAST. An allocator OOM reads
