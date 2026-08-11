@@ -111,6 +111,8 @@ def main():
                          "fold's label cost. Total processes are (label workers) x this.")
     ap.add_argument("--per_sample_only", action="store_true",
                     help="skip pairwise matrix + basin clustering (quadratic in N)")
+    ap.add_argument("--force", action="store_true",
+                    help="relabel even if --out already holds a complete label")
     a = ap.parse_args()
     rd = Path(a.results_dir)
     target = rd.name.split("results_")[1]
@@ -122,6 +124,25 @@ def main():
     samples = _samples(rd, target)
     if a.n_samples and a.n_samples > 0:
         samples = samples[:a.n_samples]
+    # Already labelled, and labelled to this depth? Then this is a duplicate, and the only
+    # honest thing to do with it is nothing. Two labeler legs share one tree; each builds its
+    # todo list in a single scan and drains it over hours, so a fold the other leg finishes
+    # after our scan is still queued here. This guard lives in the per-fold process rather
+    # than the driver on purpose: every label is a fresh exec, so it takes effect on legs that
+    # are already running, without killing their in-flight work. Depth is compared, not mere
+    # existence, so a short or older label is still rewritten.
+    if a.out and not a.force:
+        try:
+            prev = json.loads(Path(a.out).read_text())
+            done = (prev.get("n_samples") == len(samples)
+                    and len(prev.get("samples") or []) == len(samples))
+        except Exception:
+            done = False
+        if done:
+            print(json.dumps({"_skipped": "labels.json already complete",
+                              "out": a.out, "n_samples": len(samples)}))
+            return
+
     st = rd / "structures"
     ptm_map = _ptm_by_rank(rd)
 
