@@ -1,0 +1,223 @@
+{
+ "grid": [
+  11,
+  10
+ ],
+ "seq": 512,
+ "cz": 256,
+ "chunk": 32,
+ "l1_bank_bytes": 1461760,
+ "reps": 3,
+ "roofs": {
+  "dram_read": {
+   "bytes_each_way": 16777216,
+   "s": 4.8973000957630575e-05,
+   "gbs_each_way": 342.58092565156375,
+   "gbs_aggregate": 685.1618513031275,
+   "shape": [
+    1,
+    32,
+    512,
+    512
+   ]
+  },
+  "dram_write": {
+   "bytes_each_way": 16777216,
+   "s": 6.811366620240733e-05,
+   "gbs_each_way": 246.31203891073253,
+   "gbs_aggregate": 492.62407782146505,
+   "shape": [
+    1,
+    32,
+    512,
+    512
+   ]
+  },
+  "dram_copy": {
+   "bytes_each_way": 16777216,
+   "s": 9.581800016652171e-05,
+   "gbs_each_way": 175.09461657353467,
+   "gbs_aggregate": 350.18923314706933,
+   "shape": [
+    1,
+    32,
+    512,
+    512
+   ]
+  },
+  "l1_copy": {
+   "bytes_each_way": 16777216,
+   "s": 3.6258000667051725e-05,
+   "gbs_each_way": 462.7176262161015,
+   "gbs_aggregate": 925.435252432203,
+   "shape": [
+    1,
+    32,
+    512,
+    512
+   ]
+  },
+  "compute_square_2048": {
+   "flop": 17179869184.0,
+   "s": 0.00023632400552742183,
+   "tflops": 72.69625083435095
+  },
+  "compute_square_4096": {
+   "flop": 137438953472.0,
+   "s": 0.001345903001492843,
+   "tflops": 102.11653686748305
+  }
+ },
+ "classes": {
+  "in_proj_G1": {
+   "shape": "[1,512,512,256]@[256,128]",
+   "calls_per_trimul": 8,
+   "s_per_trimul": 0.006268348995945416,
+   "flop_per_trimul": 137438953472.0,
+   "tflops": 21.925861747790407,
+   "read_MB": 1074.266112,
+   "write_MB": 536.870912,
+   "gbs_aggregate": 257.02733288177456,
+   "ai_flop_per_byte": 85.30556459485844
+  },
+  "in_proj_G4": {
+   "shape": "[1,512,512,256]@[256,512]",
+   "calls_per_trimul": 2,
+   "s_per_trimul": 0.003092000995820854,
+   "flop_per_trimul": 137438953472.0,
+   "tflops": 44.44984127034965,
+   "read_MB": 268.959744,
+   "write_MB": 536.870912,
+   "gbs_aggregate": 260.6178513814064,
+   "ai_flop_per_byte": 170.55562784645414
+  },
+  "in_proj_G8": {
+   "shape": "[1,512,512,256]@[256,1024]",
+   "calls_per_trimul": 1,
+   "s_per_trimul": 0.002886308000597637,
+   "flop_per_trimul": 137438953472.0,
+   "tflops": 47.617563144176565,
+   "read_MB": 134.742016,
+   "write_MB": 536.870912,
+   "gbs_aggregate": 232.68927912784648,
+   "ai_flop_per_byte": 204.64012490241998
+  },
+  "unit_G1_pair": {
+   "calls": 8,
+   "chunks_per_call": 4,
+   "piece_tiles": 1,
+   "s_per_trimul": 0.011736183994798921,
+   "ms_per_trimul": 11.736183994798921
+  },
+  "unit_G2_role": {
+   "calls": 4,
+   "chunks_per_call": 4,
+   "piece_tiles": 2,
+   "s_per_trimul": 0.009658183997089509,
+   "ms_per_trimul": 9.658183997089509
+  },
+  "unit_G4_role": {
+   "calls": 2,
+   "chunks_per_call": 4,
+   "piece_tiles": 4,
+   "s_per_trimul": 0.0066262210020795465,
+   "ms_per_trimul": 6.6262210020795465
+  },
+  "unit_G8_role": {
+   "calls": 1,
+   "chunks_per_call": 4,
+   "piece_tiles": 8,
+   "s_per_trimul": 0.005657788999087643,
+   "ms_per_trimul": 5.657788999087643
+  },
+  "unit_G4_pair": {
+   "calls": 2,
+   "chunks_per_call": 16,
+   "piece_tiles": 1,
+   "s_per_trimul": 0.013395531997957733,
+   "ms_per_trimul": 13.395531997957733
+  },
+  "unit_G8_pair": {
+   "calls": 1,
+   "chunks_per_call": 32,
+   "piece_tiles": 1,
+   "s_per_trimul": 0.013207983000029344,
+   "ms_per_trimul": 13.207983000029344
+  },
+  "tri_matmul_prodcfg": {
+   "shape": "[1,32,512,512]@[1,32,512,512]",
+   "calls_per_trimul": 8,
+   "s_per_trimul": 0.0017381729994667694,
+   "flop_per_trimul": 68719476736.0,
+   "tflops": 39.535464396858956,
+   "read_MB": 268.435456,
+   "write_MB": 134.217728,
+   "gbs_aggregate": 231.65311170034542,
+   "ai_flop_per_byte": 170.66666666666666,
+   "per_core_M": 2,
+   "per_core_N": 2,
+   "in0_block_w": 8,
+   "cores_engaged": 64,
+   "grid_cores": 110
+  },
+  "tri_matmul_nocfg": {
+   "shape": "[1,32,512,512]@[1,32,512,512]",
+   "calls_per_trimul": 8,
+   "s_per_trimul": 0.0038808000026619993,
+   "flop_per_trimul": 68719476736.0,
+   "tflops": 17.707554290059395,
+   "read_MB": 268.435456,
+   "write_MB": 134.217728,
+   "gbs_aggregate": 103.75520091831677,
+   "ai_flop_per_byte": 170.66666666666666,
+   "per_core_M": 2,
+   "per_core_N": 2,
+   "in0_block_w": 8,
+   "cores_engaged": 64,
+   "grid_cores": 110
+  },
+  "tri_matmul_legal_occupancy": [
+   {
+    "per_core_M": 2,
+    "per_core_N": 2,
+    "cores": 64
+   },
+   {
+    "per_core_M": 2,
+    "per_core_N": 3,
+    "cores": 48
+   },
+   {
+    "per_core_M": 3,
+    "per_core_N": 2,
+    "cores": 48
+   },
+   {
+    "per_core_M": 3,
+    "per_core_N": 3,
+    "cores": 36
+   },
+   {
+    "per_core_M": 2,
+    "per_core_N": 4,
+    "cores": 32
+   },
+   {
+    "per_core_M": 2,
+    "per_core_N": 5,
+    "cores": 32
+   }
+  ],
+  "out_proj": {
+   "shape": "[1,512,512,256]@[256,256]",
+   "calls_per_trimul": 2,
+   "s_per_trimul": 0.0019584850015235133,
+   "flop_per_trimul": 68719476736.0,
+   "tflops": 35.08807914410519,
+   "read_MB": 268.6976,
+   "write_MB": 268.435456,
+   "gbs_aggregate": 274.2594687128888,
+   "ai_flop_per_byte": 127.93753050268424
+  }
+ }
+}
