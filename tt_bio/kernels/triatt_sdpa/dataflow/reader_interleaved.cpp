@@ -289,6 +289,39 @@ void kernel_main() {
             valid_Skt_bound = valid_Skt + chunked_q_chunk_offset * Sq_chunk_t;
         }
 
+#ifdef PERSISTENT_MASK
+    // K2: the mask depends only on (head, q_chunk, k_chunk), and this core owns exactly one of
+    // each, so read all PERSISTENT_MASK k-chunk blocks once here and never refill. Blocks are laid
+    // out k-chunk-major, so block kc starts at tile kc * mask_chunk_tiles and the compute side
+    // indexes it with that base. The host asserts the preconditions: one head and one q chunk per
+    // core, a batch-broadcast mask, and no padded mask.
+    {
+        constexpr uint32_t persistent_mask_tiles = PERSISTENT_MASK * mask_chunk_tiles;
+        cb_reserve_back(cb_mask_in, persistent_mask_tiles);
+        uint32_t pm_write_ptr = get_write_ptr(cb_mask_in);
+        uint32_t pm_barrier = 0;
+        for (uint32_t kc = 0; kc < PERSISTENT_MASK; ++kc) {
+            uint32_t pm_row_start = local_q_start * Sq_chunk_t * valid_Skt;
+            if constexpr (!broadcast_provided_mask_heads) {
+                pm_row_start += local_nh_start * valid_Sqt * valid_Skt;
+            }
+            for (uint32_t row = 0; row < Sq_chunk_t; ++row) {
+                for (uint32_t col = 0; col < Sk_chunk_t; ++col) {
+                    noc_async_read_tile(pm_row_start + kc * Sk_chunk_t + col, mask_reader, pm_write_ptr);
+                    pm_write_ptr += mask_tile_bytes;
+                    if (++pm_barrier == barrier_threshold) {
+                        noc_async_read_barrier();
+                        pm_barrier = 0;
+                    }
+                }
+                pm_row_start += valid_Skt;
+            }
+        }
+        noc_async_read_barrier();
+        cb_push_back(cb_mask_in, persistent_mask_tiles);
+    }
+#endif
+
         for (uint32_t nb = local_batch_start; nb < local_batch_end; ++nb) {
             if constexpr (is_chunked) {
                 // Chunked means that we have paged attention
@@ -480,7 +513,12 @@ void kernel_main() {
                         }
 
                         // Mask read — safe after linked write pair is complete
+                        // PERSISTENT_MASK hoists this whole block out of the nb loop, above.
+#ifdef PERSISTENT_MASK
+                        if constexpr (false) {
+#else
                         if constexpr (use_provided_mask) {
+#endif
                             cb_reserve_back(cb_mask_in, mask_chunk_tiles);
                             uint32_t mask_write_ptr = get_write_ptr(cb_mask_in);
                             uint32_t barrier_count = 0;

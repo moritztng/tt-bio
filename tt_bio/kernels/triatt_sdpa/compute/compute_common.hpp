@@ -550,17 +550,18 @@ void mul_block_bcast_scalar_inplace(uint32_t in0_cb) {
  * in0_cb += in1_cb
  */
 template <bool pop_in1 = true>
-void add_block_inplace(uint32_t in0_cb, uint32_t in1_cb, uint32_t num_tiles) {
+void add_block_inplace(uint32_t in0_cb, uint32_t in1_cb, uint32_t num_tiles,
+                       uint32_t in1_base = 0) {
     // Precondition: in0_cb and in1_cb have num_tiles produced
     // Postcondition: in0_cb has num_tiles produced
     // Postcondition: in1_cb has num_tiles consumed
 
     add_tiles_init(in0_cb, in1_cb);
     cb_wait_front(in0_cb, num_tiles);
-    cb_wait_front(in1_cb, num_tiles);
+    cb_wait_front(in1_cb, in1_base + num_tiles);
     for (uint32_t i = 0; i < num_tiles; i++) {
         acquire_dst();
-        add_tiles(in0_cb, in1_cb, i, i, 0);
+        add_tiles(in0_cb, in1_cb, i, in1_base + i, 0);
         pack_tile(0, in0_cb);
         release_dst();
     }
@@ -1807,7 +1808,14 @@ void sdpa_inner_loop(
                         local_n_mask_chunk_id,
                         joint_n_mask_chunk_id);
                 } else {
+#ifdef PERSISTENT_MASK
+                    // The whole head's mask is fronted once; index block k_chunk
+                    // and never pop, so the next batch reuses the same tiles.
+                    add_block_inplace<false>(
+                        cb_qk_im, cb_mask_in, qk_chunk_tiles, k_chunk * qk_chunk_tiles);
+#else
                     add_block_inplace(cb_qk_im, cb_mask_in, qk_chunk_tiles);
+#endif
                 }
             }
 
