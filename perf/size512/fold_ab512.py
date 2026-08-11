@@ -158,7 +158,13 @@ def main():
         fid = FIDELITY.get(name)
         grp = GROUP.get(name)
         sdpa = SDPA.get(name)
-        STATE["gates"] = "on" if (fid or grp or sdpa) else name
+        # `prev` reverts the two extracted engine fixes (the `_MM_BLOCK[8]` block config and the
+        # pair-projection `minimal_matmul` leg) and holds every capacity gate at the production
+        # default, so the arm difference is exactly those two and nothing else.
+        prev = name == "prev"
+        T._PAIR_PROJ_MM = not prev
+        T._MM_BLOCK[8] = (2, 8, 1, 2, 1) if prev else (4, 8, 1, 4, 1)
+        STATE["gates"] = "on" if (fid or grp or sdpa or prev) else name
         # Every arm sets the SDPA flags, so an arm that is not an SDPA arm provably runs the
         # production pick rather than inheriting the previous arm's.
         T._SDPA_WIDE_Q, T._TRIATT_BIAS_B8 = sdpa if sdpa else SDPA_DEFAULT
@@ -236,6 +242,8 @@ def main():
                    "n_tokens": m.get("n_tokens"), "plddt": m.get("plddt"),
                    "cif_sha256": sha_dir(struct_dir),
                    "grid": list(T.COMPUTE_GRID_MAIN),
+                   "pair_proj_mm": T._PAIR_PROJ_MM,
+                   "mm_block_8": list(T._MM_BLOCK[8]),
                    "trimul_inproj_group": T._TRIMUL_INPROJ_GROUP,
                    "sdpa_wide_q": T._SDPA_WIDE_Q,
                    "triatt_bias_b8": T._TRIATT_BIAS_B8,
