@@ -1,0 +1,11 @@
+{
+ "model": "capacity:9j4c_abag",
+ "seconds": 841.981797784003,
+ "peak_gib": 8.723,
+ "cifs": 50,
+ "paes": 1,
+ "gate": true,
+ "error": null,
+ "pair_transpose_rm": "1",
+ "l1_headroom": "<default 2.5>"
+}
