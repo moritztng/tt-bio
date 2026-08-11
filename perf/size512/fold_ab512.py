@@ -47,6 +47,11 @@ STATE = {"dev": None, "gates": "on", "model": None}
 FIDELITY = {"lofi": "LoFi", "hifi2": "HiFi2", "hifi3": "HiFi3", "hifi4": "HiFi4"}
 # trimul in-projection group width (_TRIMUL_INPROJ_GROUP). g1 is the pre-pass-9 default.
 GROUP = {"g1": 1, "g2": 2, "g4": 4, "g8": 8}
+# Tri-attention SDPA arms: (_SDPA_WIDE_Q, _TRIATT_BIAS_B8). narrowq is the pre-C1 shipped q_chunk,
+# wideq is C1. `_tri_att_q_chunks` reads _SDPA_WIDE_Q from inside an lru_cache, so an arm flip that
+# forgets the cache_clear silently runs an A/A pair and labels it an A/B -- see set_arm.
+SDPA = {"narrowq": (False, False), "wideq": (True, False),
+        "narrowq_b8": (False, True), "wideq_b8": (True, True)}
 
 
 def timed_call(key, fn, *a, **kw):
@@ -114,6 +119,24 @@ def main():
     P._l1_layer_norm = ln          # protenix.py imports it by name, so patch both namespaces
     T._pair_proj_config = ppc
 
+    SDPA_DEFAULT = (T._SDPA_WIDE_Q, T._TRIATT_BIAS_B8)
+
+    # Record the q_chunk the tri-att SDPA actually ran at, per call. The candidate list is not the
+    # answer: a candidate that overflows L1 is dropped into _SDPA_Q_CHUNK_OVER_L1 and the next one
+    # runs, so the branch has to be read rather than inferred from the flag.
+    ORIG_TAS = T._tri_att_sdpa
+
+    def tas(qq, kk, vv, bias, scale):
+        ql, kl = int(qq.shape[2]), int(kk.shape[2])
+        fits = [c for c in T._tri_att_q_chunks(ql, kl)
+                if (ql, kl, c) not in T._SDPA_Q_CHUNK_OVER_L1]
+        DEC[f"tri_att_sdpa|q{ql}k{kl}"][
+            f"q_chunk={fits[0]} k_chunk={T._sdpa_chunks_shipped(ql, kl)[1]} "
+            f"bias={'bfp8' if T._TRIATT_BIAS_B8 else 'bf16'}"] += 1
+        return ORIG_TAS(qq, kk, vv, bias, scale)
+
+    T._tri_att_sdpa = tas
+
     saved = []
     for cls in (T.Pairformer,):
         f = cls.__call__
@@ -131,10 +154,15 @@ def main():
 
     def set_arm(name):
         # A fidelity arm holds the capacity gates at production defaults; the only thing that moves
-        # is the trunk's own compute kernel config, written in place.
+        # is the trunk's own compute kernel config, written in place. So does an SDPA arm.
         fid = FIDELITY.get(name)
         grp = GROUP.get(name)
-        STATE["gates"] = "on" if (fid or grp) else name
+        sdpa = SDPA.get(name)
+        STATE["gates"] = "on" if (fid or grp or sdpa) else name
+        # Every arm sets the SDPA flags, so an arm that is not an SDPA arm provably runs the
+        # production pick rather than inheriting the previous arm's.
+        T._SDPA_WIDE_Q, T._TRIATT_BIAS_B8 = sdpa if sdpa else SDPA_DEFAULT
+        T._tri_att_q_chunks.cache_clear()
         on = STATE["gates"] == "on"
         T._PAIR_PROJ_L1_OUT = on
         T._PAIR_BIAS_L1_NORM = on
@@ -209,6 +237,9 @@ def main():
                    "cif_sha256": sha_dir(struct_dir),
                    "grid": list(T.COMPUTE_GRID_MAIN),
                    "trimul_inproj_group": T._TRIMUL_INPROJ_GROUP,
+                   "sdpa_wide_q": T._SDPA_WIDE_Q,
+                   "triatt_bias_b8": T._TRIATT_BIAS_B8,
+                   "sdpa_q_chunk_over_l1": sorted(str(k) for k in T._SDPA_Q_CHUNK_OVER_L1),
                    "fidelity": fidelities(),
                    "loadavg": open("/proc/loadavg").read().split()[:3],
                    "wall_ms": {k: {"calls": v["n"], "ms": round(v["s"] * 1e3, 2)}
@@ -259,6 +290,11 @@ def main():
             v["n"] = len(v["block_ms"])
             v["block_ms_median"] = round(st.median(v["block_ms"]), 2)
             v["fold_s_median"] = round(st.median(v["fold_s"]), 3)
+            # The first fold of an arm pays the one-off JIT compile of that arm's SDPA program
+            # config -- ~1.6 s, larger than the effect under test and always in the same direction.
+            # min over repeats is the only summary immune to it; the raw list stays for audit.
+            v["block_ms_min"] = round(min(v["block_ms"]), 2)
+            v["fold_s_min"] = round(min(v["fold_s"]), 3)
             v["block_ms_spread"] = round(max(v["block_ms"]) - min(v["block_ms"]), 2)
             v["fold_s_spread"] = round(max(v["fold_s"]) - min(v["fold_s"]), 3)
         arms[size] = per

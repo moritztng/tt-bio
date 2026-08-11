@@ -389,6 +389,14 @@ _SDPA_Q_CHUNK_OVER_L1: set = set()
 # Kill switch so a fold-level A/B can run both arms without a checkout. Bit-exact either way.
 _SDPA_WIDE_Q = os.environ.get("TT_BIO_SDPA_WIDE_Q", "1") != "0"
 
+# C2, the triangle bias cast to bfloat8_b before the SDPA. OFF by default and it stays off until a
+# fold-level parity gate clears it: at N=512 the op-level error is rmsd/std 0.002547 at PCC
+# 1.000000, but W9 measured z rmsd/std 0.04179 on a block at N=320 against a shipped band of
+# 0.0185-0.0217, so the block amplifies it ~16x and the fold is the only denominator that decides.
+# The cast itself is 4.19 MB read + 2.10 MB written at N=512; the win is the re-read, which the
+# SDPA reader pays once per (q_chunk, k_chunk) pair.
+_TRIATT_BIAS_B8 = os.environ.get("TT_BIO_TRIATT_BIAS_B8", "0") != "0"
+
 
 @lru_cache(maxsize=None)
 def _tri_att_q_chunks(q_len: int, k_len: int) -> tuple:
@@ -399,8 +407,15 @@ def _tri_att_q_chunks(q_len: int, k_len: int) -> tuple:
     torch.equal to the shipped config at every size below -- q_chunk only splits output rows and the
     online softmax reduces over k, so no reduction order changes:
 
-        seq  320  352  384  448  512  576  640  768  1024
-        gain 1.53 1.68 1.59 1.34 1.08 1.71 1.41 1.06 1.09   (perf/triatt_root/phase_b12*.json)
+        seq   288  320  352  384  416  448  480  512  544  576
+        gain 1.62 1.53 1.68 1.59 1.43 1.34 1.11 1.08 1.81 1.71
+        seq   608  640  704  768  896 1024
+        gain 1.57 1.41 1.10 1.06 1.28 1.09
+
+    At 256, 672, 736 and 800 no candidate fits, so the policy runs the shipped config and those rows
+    measure 1.00x to within 0.42%, which is the op-level A/A floor. There is no size in the measured
+    range where widening loses. (perf/triatt_root/phase_b12*.json, phase_b2b*.json,
+    c1_intermediate*.json)
 
     Only q_chunks that DIVIDE the padded sequence are offered. The kernel reads and computes a
     padded_q x padded_k mask grid and that mask is 84% of this op's DRAM traffic, so a q_chunk that
@@ -424,6 +439,16 @@ def _tri_att_q_chunks(q_len: int, k_len: int) -> tuple:
 
 def _tri_att_sdpa(q, k, v, bias, scale: float):
     """SDPA for triangle attention at the widest q_chunk this device's L1 will hold."""
+    if _TRIATT_BIAS_B8 and bias is not None and bias.dtype != ttnn.bfloat8_b:
+        b8 = ttnn.typecast(bias, ttnn.bfloat8_b)
+        try:
+            return _tri_att_sdpa_at(q, k, v, b8, scale)
+        finally:
+            ttnn.deallocate(b8)
+    return _tri_att_sdpa_at(q, k, v, bias, scale)
+
+
+def _tri_att_sdpa_at(q, k, v, bias, scale: float):
     q_len, k_len = q.shape[2], k.shape[2]
     k_chunk = _sdpa_chunks_shipped(q_len, k_len)[1]
     fits = [qc for qc in _tri_att_q_chunks(q_len, k_len)

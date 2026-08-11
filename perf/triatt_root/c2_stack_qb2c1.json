@@ -1,0 +1,320 @@
+{
+ "ttnn": "0.68.0",
+ "host": "qb2",
+ "card": 1,
+ "predictions": "C2 (bfloat8_b triangle bias) x C1 (wide q_chunk): does the stack exist, and what does it cost\nin accuracy? Op-level, on device, at the three production shapes.\n\nPREDICTIONS, written before the run (perf/triatt_root/c2_stack_qb2c1.json records the outcome):\n  P1  The b8 path runs at 320, 512 and 576. ttnn.typecast to bfloat8_b needs TILE layout, which the\n      bias already has, and the SDPA \"mask must be in DRAM\" validation is about buffer type, not\n      dtype -- so nothing in state doc section 8.4's refusal applies here.\n  P2  b8 is NOT torch.equal to bf16 (it is a lossy cast) but is close on the op: rmsd/std about\n      0.0025 and PCC >= 0.9999 at 512. Section 6 measured 0.002547 / 1.000000 for exactly this.\n      wideq is torch.equal to narrowq at the same bias dtype -- C1's own bit-exactness must survive\n      the b8 cast, since the cast happens before the chunking.\n  P3  Timing at 512, against the shipped (narrow, bf16) = 7.1298 ms of section 6: wide/bf16 ~1.08x,\n      wide/b8 ~1.66x (section 6's L2 row, 4.2947 ms). narrow/b8 is UNMEASURED anywhere; the two\n      levers attack the same bias re-read, so they must stack sub-multiplicatively -- if narrow/b8\n      lands near 1.53x (= 1.66/1.084) the stack is multiplicative and section 6's L2 row is\n      consistent; if it lands near 1.66x on its own then C1 buys nothing once C2 is in and the\n      proposal changes shape. This is the number this run exists to produce.\n",
+ "rows": [
+  {
+   "seq": 320,
+   "arm": "narrowq",
+   "wide": false,
+   "b8": false,
+   "q_chunk": 64,
+   "k_chunk": 64,
+   "candidates": [
+    64
+   ],
+   "ms_min": 2.9031,
+   "ms_median": 2.9294,
+   "ms_all": [
+    3.0031,
+    2.9457,
+    2.9294,
+    2.9077,
+    2.9031
+   ],
+   "torch_equal_vs_shipped": true,
+   "rmsd_over_std": 0.0,
+   "pcc_vs_shipped": 1.0,
+   "over_l1": []
+  },
+  {
+   "seq": 320,
+   "arm": "wideq",
+   "wide": true,
+   "b8": false,
+   "q_chunk": 320,
+   "k_chunk": 64,
+   "candidates": [
+    320,
+    160,
+    64
+   ],
+   "ms_min": 1.8527,
+   "ms_median": 1.855,
+   "ms_all": [
+    1.9522,
+    1.8694,
+    1.8539,
+    1.855,
+    1.8527
+   ],
+   "torch_equal_vs_shipped": true,
+   "rmsd_over_std": 0.0,
+   "pcc_vs_shipped": 1.0,
+   "over_l1": []
+  },
+  {
+   "seq": 320,
+   "arm": "narrowq_b8",
+   "wide": false,
+   "b8": true,
+   "q_chunk": 64,
+   "k_chunk": 64,
+   "candidates": [
+    64
+   ],
+   "ms_min": 2.4039,
+   "ms_median": 2.4227,
+   "ms_all": [
+    2.5455,
+    2.4722,
+    2.4227,
+    2.4067,
+    2.4039
+   ],
+   "torch_equal_vs_shipped": false,
+   "rmsd_over_std": 0.003547,
+   "pcc_vs_shipped": 1.0,
+   "over_l1": []
+  },
+  {
+   "seq": 320,
+   "arm": "wideq_b8",
+   "wide": true,
+   "b8": true,
+   "q_chunk": 320,
+   "k_chunk": 64,
+   "candidates": [
+    320,
+    160,
+    64
+   ],
+   "ms_min": 1.3239,
+   "ms_median": 1.3351,
+   "ms_all": [
+    1.4617,
+    1.3239,
+    1.3422,
+    1.3292,
+    1.3351
+   ],
+   "torch_equal_vs_shipped": false,
+   "rmsd_over_std": 0.003547,
+   "pcc_vs_shipped": 1.0,
+   "over_l1": []
+  },
+  {
+   "seq": 512,
+   "arm": "narrowq",
+   "wide": false,
+   "b8": false,
+   "q_chunk": 256,
+   "k_chunk": 256,
+   "candidates": [
+    256
+   ],
+   "ms_min": 7.0908,
+   "ms_median": 7.1012,
+   "ms_all": [
+    7.2254,
+    7.1012,
+    7.1079,
+    7.0979,
+    7.0908
+   ],
+   "torch_equal_vs_shipped": true,
+   "rmsd_over_std": 0.0,
+   "pcc_vs_shipped": 1.0,
+   "over_l1": []
+  },
+  {
+   "seq": 512,
+   "arm": "wideq",
+   "wide": true,
+   "b8": false,
+   "q_chunk": 512,
+   "k_chunk": 256,
+   "candidates": [
+    512,
+    256
+   ],
+   "ms_min": 6.4912,
+   "ms_median": 6.5161,
+   "ms_all": [
+    6.635,
+    6.5159,
+    6.5161,
+    6.4912,
+    6.5256
+   ],
+   "torch_equal_vs_shipped": true,
+   "rmsd_over_std": 0.0,
+   "pcc_vs_shipped": 1.0,
+   "over_l1": []
+  },
+  {
+   "seq": 512,
+   "arm": "narrowq_b8",
+   "wide": false,
+   "b8": true,
+   "q_chunk": 256,
+   "k_chunk": 256,
+   "candidates": [
+    256
+   ],
+   "ms_min": 4.8464,
+   "ms_median": 4.8555,
+   "ms_all": [
+    4.9944,
+    4.8652,
+    4.8488,
+    4.8555,
+    4.8464
+   ],
+   "torch_equal_vs_shipped": false,
+   "rmsd_over_std": 0.003969,
+   "pcc_vs_shipped": 0.999963,
+   "over_l1": []
+  },
+  {
+   "seq": 512,
+   "arm": "wideq_b8",
+   "wide": true,
+   "b8": true,
+   "q_chunk": 512,
+   "k_chunk": 256,
+   "candidates": [
+    512,
+    256
+   ],
+   "ms_min": 4.2207,
+   "ms_median": 4.2371,
+   "ms_all": [
+    4.3723,
+    4.2371,
+    4.2207,
+    4.2429,
+    4.2286
+   ],
+   "torch_equal_vs_shipped": false,
+   "rmsd_over_std": 0.003969,
+   "pcc_vs_shipped": 0.999963,
+   "over_l1": []
+  },
+  {
+   "seq": 576,
+   "arm": "narrowq",
+   "wide": false,
+   "b8": false,
+   "q_chunk": 256,
+   "k_chunk": 256,
+   "candidates": [
+    256
+   ],
+   "ms_min": 24.6552,
+   "ms_median": 24.6978,
+   "ms_all": [
+    24.8186,
+    24.6978,
+    24.6552,
+    24.6984,
+    24.6561
+   ],
+   "torch_equal_vs_shipped": true,
+   "rmsd_over_std": 0.0,
+   "pcc_vs_shipped": 1.0,
+   "over_l1": []
+  },
+  {
+   "seq": 576,
+   "arm": "wideq",
+   "wide": true,
+   "b8": false,
+   "q_chunk": 576,
+   "k_chunk": 256,
+   "candidates": [
+    576,
+    288,
+    256
+   ],
+   "ms_min": 14.3793,
+   "ms_median": 14.395,
+   "ms_all": [
+    14.4851,
+    14.395,
+    14.3855,
+    14.3793,
+    14.397
+   ],
+   "torch_equal_vs_shipped": true,
+   "rmsd_over_std": 0.0,
+   "pcc_vs_shipped": 1.0,
+   "over_l1": []
+  },
+  {
+   "seq": 576,
+   "arm": "narrowq_b8",
+   "wide": false,
+   "b8": true,
+   "q_chunk": 256,
+   "k_chunk": 256,
+   "candidates": [
+    256
+   ],
+   "ms_min": 15.7307,
+   "ms_median": 15.7687,
+   "ms_all": [
+    15.917,
+    15.7783,
+    15.7687,
+    15.7529,
+    15.7307
+   ],
+   "torch_equal_vs_shipped": false,
+   "rmsd_over_std": 0.0039,
+   "pcc_vs_shipped": 0.999985,
+   "over_l1": []
+  },
+  {
+   "seq": 576,
+   "arm": "wideq_b8",
+   "wide": true,
+   "b8": true,
+   "q_chunk": 576,
+   "k_chunk": 256,
+   "candidates": [
+    576,
+    288,
+    256
+   ],
+   "ms_min": 9.2936,
+   "ms_median": 9.3147,
+   "ms_all": [
+    9.498,
+    9.351,
+    9.3147,
+    9.303,
+    9.2936
+   ],
+   "torch_equal_vs_shipped": false,
+   "rmsd_over_std": 0.0039,
+   "pcc_vs_shipped": 0.999985,
+   "over_l1": []
+  }
+ ],
+ "speedup_vs_shipped": {
+  "320|narrowq": 1.0,
+  "320|wideq": 1.567,
+  "320|narrowq_b8": 1.2077,
+  "320|wideq_b8": 2.1928,
+  "512|narrowq": 1.0,
+  "512|wideq": 1.0924,
+  "512|narrowq_b8": 1.4631,
+  "512|wideq_b8": 1.68,
+  "576|narrowq": 1.0,
+  "576|wideq": 1.7146,
+  "576|narrowq_b8": 1.5673,
+  "576|wideq_b8": 2.6529
+ }
+}
