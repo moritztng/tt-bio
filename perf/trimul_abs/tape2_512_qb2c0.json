@@ -1,0 +1,324 @@
+{
+  "n": 512,
+  "c_z": 256,
+  "hidden": 256,
+  "grid": [
+    11,
+    10
+  ],
+  "tapes": [
+    {
+      "label": "G=1",
+      "wall_ms": 28.4762,
+      "taped_sum_ms": 32.1326,
+      "reblock_inner_ms": 3.4911,
+      "addivity": 1.1284,
+      "reblock_served": 24,
+      "reblock_declined": 0,
+      "ops": [
+        {
+          "tag": "chunk4[1x512x512x128]",
+          "n": 8,
+          "ms": 6.0761,
+          "share": 0.1891
+        },
+        {
+          "tag": "minimal_matmul[1x512x512x256@256x128]->DRAM",
+          "n": 8,
+          "ms": 5.9392,
+          "share": 0.1848
+        },
+        {
+          "tag": "_channel_move[1x512x512x32]",
+          "n": 16,
+          "ms": 3.868,
+          "share": 0.1204
+        },
+        {
+          "tag": "REBLOCK_permute(0,3,1,2)[1x512x512x32]->-",
+          "n": 16,
+          "ms": 3.4911,
+          "share": 0.1086
+        },
+        {
+          "tag": "transpose(1,2)[1x32x512x512]->DRAM",
+          "n": 8,
+          "ms": 3.0562,
+          "share": 0.0951
+        },
+        {
+          "tag": "multiply_[1x512x512x32]",
+          "n": 16,
+          "ms": 2.6417,
+          "share": 0.0822
+        },
+        {
+          "tag": "linear[1x512x512x256@256x256]->DRAM",
+          "n": 2,
+          "ms": 2.0129,
+          "share": 0.0626
+        },
+        {
+          "tag": "matmul[1x32x512x512@1x32x512x512]->DRAM",
+          "n": 8,
+          "ms": 1.9629,
+          "share": 0.0611
+        },
+        {
+          "tag": "layer_norm[1x512x512x256]",
+          "n": 2,
+          "ms": 1.9165,
+          "share": 0.0596
+        },
+        {
+          "tag": "multiply_[1x512x512x256]",
+          "n": 1,
+          "ms": 1.076,
+          "share": 0.0335
+        },
+        {
+          "tag": "reallocate[1x32x512x512]",
+          "n": 16,
+          "ms": 1.0136,
+          "share": 0.0315
+        },
+        {
+          "tag": "transpose(-2,-1)[1x32x512x512]->DRAM",
+          "n": 8,
+          "ms": 0.911,
+          "share": 0.0284
+        },
+        {
+          "tag": "transpose(2,3)[1x512x32x512]->DRAM",
+          "n": 8,
+          "ms": 0.9055,
+          "share": 0.0282
+        },
+        {
+          "tag": "concat[8x1x512x512x32]",
+          "n": 1,
+          "ms": 0.7529,
+          "share": 0.0234
+        }
+      ]
+    },
+    {
+      "label": "G=8",
+      "wall_ms": 23.0256,
+      "taped_sum_ms": 23.9609,
+      "reblock_inner_ms": 2.9609,
+      "addivity": 1.0406,
+      "reblock_served": 3,
+      "reblock_declined": 0,
+      "ops": [
+        {
+          "tag": "transpose(1,2)[1x256x512x512]->DRAM",
+          "n": 1,
+          "ms": 4.0815,
+          "share": 0.1703
+        },
+        {
+          "tag": "multiply_[1x512x512x256]",
+          "n": 3,
+          "ms": 3.2613,
+          "share": 0.1361
+        },
+        {
+          "tag": "_channel_move[1x512x512x256]",
+          "n": 2,
+          "ms": 3.0266,
+          "share": 0.1263
+        },
+        {
+          "tag": "REBLOCK_permute(0,3,1,2)[1x512x512x256]->-",
+          "n": 2,
+          "ms": 2.9609,
+          "share": 0.1236
+        },
+        {
+          "tag": "chunk4[1x512x512x1024]",
+          "n": 1,
+          "ms": 2.8655,
+          "share": 0.1196
+        },
+        {
+          "tag": "minimal_matmul[1x512x512x256@256x1024]->DRAM",
+          "n": 1,
+          "ms": 2.854,
+          "share": 0.1191
+        },
+        {
+          "tag": "linear[1x512x512x256@256x256]->DRAM",
+          "n": 2,
+          "ms": 2.0616,
+          "share": 0.086
+        },
+        {
+          "tag": "layer_norm[1x512x512x256]",
+          "n": 2,
+          "ms": 1.9016,
+          "share": 0.0794
+        },
+        {
+          "tag": "matmul[1x256x512x512@1x256x512x512]->DRAM",
+          "n": 1,
+          "ms": 1.6971,
+          "share": 0.0708
+        },
+        {
+          "tag": "transpose(2,3)[1x512x256x512]->DRAM",
+          "n": 1,
+          "ms": 0.7671,
+          "share": 0.032
+        },
+        {
+          "tag": "transpose(-2,-1)[1x256x512x512]->DRAM",
+          "n": 1,
+          "ms": 0.7335,
+          "share": 0.0306
+        },
+        {
+          "tag": "reallocate[1x256x512x512]",
+          "n": 2,
+          "ms": 0.7111,
+          "share": 0.0297
+        }
+      ]
+    }
+  ],
+  "moves": [
+    {
+      "name": "fwd C=32 ttnn.permute ->DRAM",
+      "ms": 0.4921,
+      "mb_each_way": 16.0,
+      "gbs_each_way": 31.8,
+      "extra": ""
+    },
+    {
+      "name": "fwd C=32 REBLOCK ->DRAM",
+      "ms": 0.2066,
+      "mb_each_way": 16.0,
+      "gbs_each_way": 75.6,
+      "extra": "eligible",
+      "vs_ref": 2.3822
+    },
+    {
+      "name": "fwd C=32 ttnn.permute ->L1",
+      "ms": 0.2621,
+      "mb_each_way": 16.0,
+      "gbs_each_way": 59.6,
+      "extra": ""
+    },
+    {
+      "name": "fwd C=256 ttnn.permute ->DRAM",
+      "ms": 4.2879,
+      "mb_each_way": 128.0,
+      "gbs_each_way": 29.2,
+      "extra": ""
+    },
+    {
+      "name": "fwd C=256 REBLOCK ->DRAM",
+      "ms": 1.4419,
+      "mb_each_way": 128.0,
+      "gbs_each_way": 86.7,
+      "extra": "eligible",
+      "vs_ref": 2.9737
+    },
+    {
+      "name": "back C=32 transpose(1,2)+transpose(2,3) ->DRAM  [TODAY]",
+      "ms": 0.4634,
+      "mb_each_way": 16.0,
+      "gbs_each_way": 33.7,
+      "extra": ""
+    },
+    {
+      "name": "back C=32 single ttnn.permute(0,2,3,1) ->DRAM",
+      "ms": 1.3467,
+      "mb_each_way": 16.0,
+      "gbs_each_way": 11.6,
+      "extra": "",
+      "vs_ref": 0.3441
+    },
+    {
+      "name": "back C=32 transpose(1,2)+transpose(2,3) ->L1  [TODAY]",
+      "ms": 0.2321,
+      "mb_each_way": 16.0,
+      "gbs_each_way": 67.3,
+      "extra": ""
+    },
+    {
+      "name": "back C=32 single ttnn.permute(0,2,3,1) ->L1",
+      "ms": 1.4072,
+      "mb_each_way": 16.0,
+      "gbs_each_way": 11.1,
+      "extra": "",
+      "vs_ref": 0.1649
+    },
+    {
+      "name": "back C=256 transpose(1,2)+transpose(2,3) ->DRAM  [TODAY]",
+      "ms": 4.808,
+      "mb_each_way": 128.0,
+      "gbs_each_way": 26.0,
+      "extra": ""
+    },
+    {
+      "name": "back C=256 single ttnn.permute(0,2,3,1) ->DRAM",
+      "ms": 13.0902,
+      "mb_each_way": 128.0,
+      "gbs_each_way": 9.5,
+      "extra": "",
+      "vs_ref": 0.3673
+    },
+    {
+      "name": "clone[1, 32, 512, 512] DRAM->DRAM",
+      "ms": 0.1043,
+      "mb_each_way": 16.0,
+      "gbs_each_way": 149.8,
+      "extra": ""
+    },
+    {
+      "name": "clone[1, 32, 512, 512] DRAM->L1",
+      "ms": 0.06,
+      "mb_each_way": 16.0,
+      "gbs_each_way": 260.4,
+      "extra": ""
+    },
+    {
+      "name": "clone[1, 512, 512, 32] DRAM->DRAM",
+      "ms": 0.1067,
+      "mb_each_way": 16.0,
+      "gbs_each_way": 146.5,
+      "extra": ""
+    },
+    {
+      "name": "clone[1, 512, 512, 32] DRAM->L1",
+      "ms": 0.0612,
+      "mb_each_way": 16.0,
+      "gbs_each_way": 255.4,
+      "extra": ""
+    }
+  ],
+  "l1": {
+    "max_worker_l1_unreserved": 1532416
+  },
+  "l1_residency": [
+    {
+      "C": 32,
+      "ok": true,
+      "mb": 48.0,
+      "l1_matmul_ms": 0.2069
+    },
+    {
+      "C": 64,
+      "ok": true,
+      "mb": 96.0,
+      "l1_matmul_ms": 0.3827
+    },
+    {
+      "C": 128,
+      "ok": false,
+      "mb": 192.0,
+      "err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 67108864 B L1 buffer across 110 banks, where each bank needs to store 610304 B"
+    }
+  ]
+}
