@@ -147,6 +147,14 @@ def read_roof_bytes(r):
     return dram, l1
 
 
+def class_key(r):
+    """One shape class: the same call, made again. Site alone is not enough -- the Transition
+    issues the same line at two different shapes in one block."""
+    out = r.get("out") or {}
+    ins = tuple(tuple(d["shape"]) for d in (r.get("in") or []) if d and d.get("shape"))
+    return (r["op"], r.get("site"), tuple(out.get("shape") or ()), ins)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--census", required=True)
@@ -155,6 +163,12 @@ def main():
                     help="block invocations per fold: 48 blocks x 10 recycles (protenix.py:1982/2006)")
     ap.add_argument("--source", default="tt_bio/tenstorrent.py",
                     help="the file the census was taken against; line numbers are resolved here")
+    ap.add_argument("--class-median", action="store_true",
+                    help="price every (op, site, output shape) class at the MEDIAN of its "
+                         "invocations rather than the sum. bench() re-runs each op beside a live "
+                         "block, so one invocation of a class can be timed under memory pressure "
+                         "the other fifteen never see; summing carries that outlier into every one "
+                         "of the 480 fold invocations. See pairformer-resident-chunking.md 116.")
     ap.add_argument("--compute-roof", default="compute_trimul_pc",
                     choices=["compute_trimul_pc", "compute_l1_nt64"])
     a = ap.parse_args()
@@ -166,6 +180,15 @@ def main():
 
     errs = [r for r in recs if r.get("error")]
     good = [r for r in recs if not r.get("error") and r.get("s")]
+
+    if a.class_median:
+        import statistics
+        cls = defaultdict(list)
+        for r in good:
+            cls[class_key(r)].append(float(r["s"]))
+        med = {k: statistics.median(v) for k, v in cls.items()}
+        for r in good:
+            r["s"] = med[class_key(r)]
 
     buckets = defaultdict(float)          # bucket -> seconds/block
     bybucket_ops = defaultdict(lambda: defaultdict(float))
