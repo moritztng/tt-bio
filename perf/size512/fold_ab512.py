@@ -98,6 +98,9 @@ INTEG = {
     "int_nok1k2": {"e6": True,  "k1": False, "k2": False, "tr": True},
     "int_notr":   {"e6": True,  "k1": True,  "k2": True,  "tr": False},
     "int_nok2":   {"e6": True,  "k1": True,  "k2": False, "tr": True},
+    # The integrated arm plus the unfused Transition silu. Same four levers, one extra flag,
+    # so the int/int_usilu difference is exactly the silu route. Release-gated: NOT bit-exact.
+    "int_usilu":  {"e6": True,  "k1": True,  "k2": True,  "tr": True},
 }
 
 
@@ -258,6 +261,9 @@ def main():
         base = name == "base"
         old = prev or base
         T._PAIR_PROJ_MM = not old
+        # Every arm sets this, so a non-silu arm provably runs the fused production silu
+        # rather than inheriting the previous arm's flag.
+        T._UNFUSED_SILU = name == "int_usilu"
         T._MM_BLOCK[8] = (2, 8, 1, 2, 1) if old else (4, 8, 1, 4, 1)
         T._TRANSPOSE_L1_HEADROOM = 2.5 if old else T.TRANSPOSE_L1_HEADROOM
         T._TRANSPOSE_L1_REFUSED.clear()
