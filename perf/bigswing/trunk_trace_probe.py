@@ -58,10 +58,12 @@ def main():
     ap.add_argument("--warm", type=int, default=3)
     ap.add_argument("--iters", type=int, default=10,
                     help="replays per arm. 10 = one trunk's worth of cycles for one block.")
-    ap.add_argument("--region-gib", type=float, default=4.0,
-                    help="trace region reserved at device open. The capture holds every "
-                         "intermediate the block allocates, so this is the knob that decides "
-                         "whether capture is possible at all -- raise it if capture throws.")
+    ap.add_argument("--region-gib", type=float, default=1.0,
+                    help="trace region reserved at device open. It holds the recorded COMMAND "
+                         "stream, not the block's intermediates, so a block's worth is a few MB "
+                         "and 1 GiB (what the denoiser trace asks for) is ample. Do NOT raise "
+                         "this to 4: >= 2**32 wedges end_trace_capture forever (state doc "
+                         "SS103), which is what the old 4.0 default did for five passes.")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 

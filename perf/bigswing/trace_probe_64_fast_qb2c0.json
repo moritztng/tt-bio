@@ -1,0 +1,26 @@
+{
+ "host": "tt-quietbox2",
+ "mgd": "/home/ttuser/tt-bio/env/lib/python3.12/site-packages/ttnn/tt_metal/fabric/mesh_graph_descriptors/p150_mesh_graph_descriptor.textproto",
+ "model": "protenix-v2",
+ "n": 64,
+ "fast": true,
+ "iters": 20,
+ "region_bytes": 1073741824,
+ "ttnn": "0.68.0",
+ "loadavg_start": [
+  21.86767578125,
+  21.021484375,
+  20.7490234375
+ ],
+ "c_z": 256,
+ "eager_ms": 2.3673068499192595,
+ "capture_ms": 3.4385990002192557,
+ "replay_ms": 2.3327340499236016,
+ "ratio": 1.014820720774745,
+ "dispatch_exposed_pct": 1.4604274894417282,
+ "loadavg_end": [
+  23.0419921875,
+  21.400390625,
+  20.8857421875
+ ]
+}

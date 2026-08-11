@@ -1358,7 +1358,31 @@ def _open_and_init_device(trace_region_size):
         env_sz = os.environ.get("TT_BIO_TRACE_REGION_SIZE")
         if env_sz:
             trace_region_size = int(env_sz)
+    if trace_region_size >= 2 ** 32:
+        # A trace region of exactly 4 GiB or more wedges tt-metal instead of erroring: the
+        # capture records fine, then end_trace_capture blocks forever inside
+        # MeshTrace::populate_mesh_buffer -> enqueue_write_shard_to_sub_grid -> finish(), and
+        # the completion-queue reader thread spins at 100 % CPU on a completion that never
+        # arrives. Measured on qb2 / ttnn 0.68.0 / P300: 3.9 GiB closes a capture in 2.6 ms,
+        # 4.0 GiB never closes, for a bare ttnn.add with no model. Refuse it here rather than
+        # let a caller hang, and keep the byte count so the message is unambiguous.
+        raise ValueError(
+            f"trace_region_size={trace_region_size} is >= 2**32; tt-metal truncates it and "
+            "end_trace_capture never returns. Use 1 GiB (what the denoiser trace asks for).")
     device_id = int(os.environ.get("TT_BIO_LOGICAL_DEVICE_ID", "0"))
+    # A lone P300 chip is a custom topology and open_device() is a TT_FATAL without a mesh
+    # graph descriptor ("Custom fabric mesh graph descriptor path must be specified for CUSTOM
+    # cluster type"). tt-bio's CLI entry points set this in the parent before spawning workers;
+    # anything that reaches get_device() directly -- every tool under perf/, every ad-hoc
+    # script -- did not, and got the TT_FATAL. Setting it here covers both, and an explicit
+    # TT_MESH_GRAPH_DESC_PATH still wins. The import is function-local because tt_bio.main
+    # imports this module.
+    if not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
+        from .main import _detect_p300_devices, _find_ttnn_mesh_graph_descriptor
+        if _detect_p300_devices():
+            mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
+            if mgd:
+                os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
     # Wormhole: dispatch on Ethernet cores so the full 8x8 Tensix grid
     # (rather than 8x7 after worker-dispatch reservation) is available.
     # BUT on a multi-chip system (Galaxy / multi-card mesh) the ETH cores are
