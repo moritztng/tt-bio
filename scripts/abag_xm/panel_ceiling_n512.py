@@ -20,10 +20,15 @@ whose per-sample DockQ is null for the whole fold. On this panel that is exactly
 property). So the expected admitted panel is CEIL - 3 per model, measured that way rather than
 assumed: ceiling minus the script's own admitted count came out 3 in all four models at once.
 
-Exclusions mirror `abag_xm_deepn_analysis.py`: opendde 9sbb (documented mis-fold), and the four
-large targets held out for device DRAM capacity, which exist at 512 only and on a different
-engine commit. Run with DEEPN_P32_EXT=1 to include the latter, which is the separately-reported
-extension cohort and never the primary curve.
+Exclusions mirror `abag_xm_deepn_analysis.py`: opendde 9sbb (documented mis-fold), and the
+large targets held out for device DRAM capacity, an engineering boundary and never a scoring or
+biology decision. That set is per model, not a global four -- boltz2 folded all four through
+p27/p28 so they are already in its published rungs, protenix-v2 and esmfold2 lack only 9j4c, and
+opendde-abag never folded any of them on Wormhole below 512. Window p32 folded the excluded cells
+on a separate OOM-fixed tree (commit a6d5b6fda), so those cells alone carry a different engine
+than the rest of the panel; DEEPN_P32_EXT=1 admits them as the separately-reported extension
+cohort. It cannot change the 3-rung panel, since every cell it admits exists at 512 only and so
+fails the intersection anyway (verified both ways, pass 51).
 
 Read-only. Writes a JSON cache of the per-model target lists beside the tree.
 """
