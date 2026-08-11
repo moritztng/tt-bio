@@ -102,15 +102,18 @@ YIELD_ON=${YIELD_ON:-}          # marker string; once it appears in $B/results.j
 YIELD_FLAG=$B/.yield.$DONE_MARK
 PGID_LOG=${PGID_LOG:-$B/fold_pgids.log}
 
-# Per-window target lists. The four large targets were WH DRAM exclusions until the
-# 2026-08-08 OOM fix; this window runs the frozen p27-era engine tree, so they fold in
-# window p32 on the fixed tree instead. Never a scoring or biology call.
-# boltz2 has none: it folded all 164 targets incl. 9j4c on WH through p27/p28 (rung-512
-# chunk-0 record count is 164). Do not "tidy" 9j4c into BZ_EXCL for symmetry.
+# Per-window skip lists. These are engine-tree bookkeeping for THIS window, never a scoring
+# or biology call, and they are not "exclusions" — every target in the panel is owed a cell.
+# This window runs the frozen p27-era tree, so anything it cannot fold is folded in p32 on
+# the fixed tree. opendde 9i3p/9ivj/9q7y folded in p32 and protenix and esmfold2 9j4c fold on
+# main, so those four are gone from here. opendde 9j4c is the one cell still open; it stays
+# listed only so p31c does not emit a fold that is known to fail, and it comes out with the
+# fix. boltz2 folded all 164 incl. 9j4c through p27/p28 — do not "tidy" it into BZ_EXCL for
+# symmetry.
 BZ_EXCL=""
-OD_EXCL="9i3p 9j4c 9ivj 9q7y"
-PX_EXCL="9j4c"
-ESM_EXCL="9j4c"
+OD_EXCL="9j4c"
+PX_EXCL=""
+ESM_EXCL=""
 # The 16 p27 pilot targets lead chunk 4 so the launch gate lands inside the first hours.
 PILOT="21tw 9d3j 9i3p 9j4c 9ly5 9m0j 9ma0 9obn 9ppw 9q6y 9rye 9ua5 9udq 9v0x 9wpm 9zen"
 
