@@ -1,0 +1,96 @@
+{
+ "host": "qb2",
+ "card": 0,
+ "ttnn": "0.68.0",
+ "grid": [
+  11,
+  10
+ ],
+ "uptime": "05:09:21 up  5:35,  5 users,  load average: 21.82, 20.88, 20.70",
+ "warm": 3,
+ "reps": 7,
+ "rows": [
+  {
+   "tag": "N=512 C=32 L1->L1",
+   "n": 512,
+   "c": 32,
+   "buf_in": "L1",
+   "buf_out": "L1",
+   "eligible": false,
+   "rejects": {
+    "window_BufferType.L1|[1, 512, 512, 32]": 1
+   },
+   "ms_stock": 0.29017099950578995,
+   "ms_kernel": 0.22322400036500767,
+   "speedup": 1.2999095035986856,
+   "bit_exact": true,
+   "MB": 16.777216,
+   "GBs_stock_rw": 115.63675231897344,
+   "GBs_kernel_rw": 150.31731330472093
+  },
+  {
+   "tag": "N=512 C=32 DRAM->DRAM",
+   "n": 512,
+   "c": 32,
+   "buf_in": "DRAM",
+   "buf_out": "DRAM",
+   "eligible": true,
+   "rejects": {},
+   "ms_stock": 0.4834989995288197,
+   "ms_kernel": 0.22178099970915355,
+   "speedup": 2.180074037734912,
+   "bit_exact": true,
+   "MB": 16.777216,
+   "GBs_stock_rw": 69.39917566054847,
+   "GBs_kernel_rw": 151.2953410977663
+  },
+  {
+   "tag": "N=320 C=32 L1->L1",
+   "n": 320,
+   "c": 32,
+   "buf_in": "L1",
+   "buf_out": "L1",
+   "eligible": true,
+   "rejects": {},
+   "ms_stock": 0.12008799967588857,
+   "ms_kernel": 0.10781400123960339,
+   "speedup": 1.1138441973692055,
+   "bit_exact": true,
+   "MB": 6.5536,
+   "GBs_stock_rw": 109.14662610232222,
+   "GBs_kernel_rw": 121.57233614649788
+  },
+  {
+   "tag": "N=320 C=32 DRAM->DRAM",
+   "n": 320,
+   "c": 32,
+   "buf_in": "DRAM",
+   "buf_out": "DRAM",
+   "eligible": true,
+   "rejects": {},
+   "ms_stock": 0.17703599951346405,
+   "ms_kernel": 0.10231499982182868,
+   "speedup": 1.7303034728217221,
+   "bit_exact": true,
+   "MB": 6.5536,
+   "GBs_stock_rw": 74.03691924818469,
+   "GBs_kernel_rw": 128.10633849215537
+  },
+  {
+   "tag": "inverse (0,2,3,1) N=512 C=32 L1",
+   "n": 512,
+   "c": 32,
+   "buf_in": "L1",
+   "buf_out": "L1",
+   "ms_stock": 0.20511000184342265,
+   "MB": 16.777216,
+   "GBs_stock_rw": 163.59237335298187
+  },
+  {
+   "tag": "clone roof N=512 C=32 L1",
+   "ms_stock": 0.052078998123761266,
+   "MB": 16.777216,
+   "GBs_stock_rw": 644.2987232638533
+  }
+ ]
+}

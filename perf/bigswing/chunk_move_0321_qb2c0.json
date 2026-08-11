@@ -1,0 +1,32 @@
+{
+ "host": "qb2",
+ "card": 0,
+ "ttnn": "0.68.0",
+ "uptime": "05:10:54 up  5:37,  5 users,  load average: 20.96, 20.79, 20.68",
+ "n": 512,
+ "c": 32,
+ "warm": 3,
+ "reps": 7,
+ "rows": [
+  {
+   "arm": "stock permute (0,3,2,1)",
+   "ms": 0.9547050030960236
+  },
+  {
+   "arm": "kernel (0,3,1,2) + transpose(-2,-1)",
+   "ms": 1.0554979999142233,
+   "speedup": 0.9045066908450884,
+   "bit_exact": true
+  },
+  {
+   "arm": "stock (0,3,1,2) + transpose(-2,-1)",
+   "ms": 0.2929170004790649,
+   "speedup": 3.2593021283660777,
+   "bit_exact": true
+  },
+  {
+   "arm": "transpose(-2,-1) alone [1,32,512,512] L1",
+   "ms": 0.05035600042901933
+  }
+ ]
+}
