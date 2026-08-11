@@ -88,8 +88,14 @@ def _packed_identity_scalar():
     return (0x3F80 << 16) | 0x3F80
 
 
-def plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale):
-    """Everything the descriptor needs, derived exactly as the factory derives it."""
+def plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split=None):
+    """Everything the descriptor needs, derived exactly as the factory derives it.
+
+    `split` overrides `(batch_parallel_factor, nh_parallel_factor, q_parallel_factor)`. The
+    factory's own choice saturates batch first -- `batch_pf = min(B, num_cores)` -- which at
+    B = 512 on 110 cores leaves `nh_pf = 1` and hands every core all 8 heads. K2 needs one head per
+    core, i.e. `(num_cores // NQH, NQH, 1)`, and the per-core index arithmetic is unchanged.
+    """
     gx, gy = grid
     num_cores = gx * gy
     B, NQH, Sq, DH = (int(d) for d in q.padded_shape)
@@ -111,9 +117,13 @@ def plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale):
     bcast_batch = mshape[0] == 1
     bcast_heads = mshape[1] == 1
 
-    batch_pf = min(B, num_cores)
-    nh_pf = min(num_cores // batch_pf, NQH)
-    q_pf = min(num_cores // (batch_pf * nh_pf), q_num_chunks)
+    if split is None:
+        batch_pf = min(B, num_cores)
+        nh_pf = min(num_cores // batch_pf, NQH)
+        q_pf = min(num_cores // (batch_pf * nh_pf), q_num_chunks)
+    else:
+        batch_pf, nh_pf, q_pf = split
+        assert batch_pf * nh_pf * q_pf <= num_cores, (split, num_cores)
     batch_per_core = _div_up(B, batch_pf)
     nh_per_core = _div_up(NQH, nh_pf)
     q_per_core = _div_up(q_num_chunks, q_pf)
@@ -158,14 +168,15 @@ def plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale):
 
 
 def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale,
-          exp_approx_mode=False, mask_cb_tiles=None, defines_extra=None, kernel_dir=None):
+          exp_approx_mode=False, mask_cb_tiles=None, defines_extra=None, kernel_dir=None,
+          split=None):
     """The ProgramDescriptor for the fold's SDPA call.
 
     `mask_cb_tiles` overrides the size of `cb_mask_in` (K2 makes it the whole head's grid instead of
     a double-buffered chunk; at the shipped config those are the same 256 tiles). `kernel_dir` swaps
     in patched kernel sources. With both left alone this is the wheel's own program.
     """
-    p = plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale)
+    p = plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split)
     gx, gy, num_cores = p["gx"], p["gy"], p["num_cores"]
     core_grid = ttnn.CoreRangeSet(
         [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
@@ -340,7 +351,7 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
     key = (str(q.padded_shape), str(k.padded_shape), str(mask.padded_shape), str(out.padded_shape),
            str(q.dtype), q_chunk_size, k_chunk_size, grid, tuple(str(c) for c in ckc),
            tuple(sorted((kw.get("defines_extra") or {}).items())),
-           kw.get("mask_cb_tiles"), str(kw.get("kernel_dir")))
+           kw.get("mask_cb_tiles"), str(kw.get("kernel_dir")), kw.get("split"))
     e = _CACHE.get(key)
     if e is None:
         e = _CACHE[key] = build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid,
