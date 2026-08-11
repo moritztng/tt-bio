@@ -538,6 +538,59 @@ def paired_gain_boot(rows_lo, rows_hi, b=20000, seed=20260802):
     return out
 
 
+def panel_read(models, lo=256, hi=512):
+    """The campaign's headline: every model's oracle-vs-delivered gap at `lo` and `hi`,
+    read on the ONE target set that all of them have complete at BOTH rungs.
+
+    Why this exists as its own mode. Every other common-set in this file is within a
+    model, across rungs. That is the right basis for a per-model knee, and the wrong one
+    for the four-model sentence the campaign has to write: the per-model panels differ
+    (159/162/163/163 at 512), so quoting four numbers off four target sets and calling it
+    a comparison is a denominator mismatch. Intersecting at both rungs, not just at `hi`,
+    is what makes the 256->512 change paired -- a target that is complete at 512 but short
+    at 256 contributes a gap change against nothing.
+
+    The basis is the campaign spine (`galaxy64_pools`) alone, deliberately. Rungs 256 and
+    512 are campaign folds; merging the legacy overlay/tier-a maps in would let a rung
+    from another window and another commit interpose on one model and not the others,
+    which is the same mismatch one level down.
+
+    Pairing across models is inherited, not re-derived: `paired_gain_boot` builds its
+    resample index from a fixed seed and the row count, so feeding every model the same
+    panel in the same order gives all four the identical index vector. The four gap
+    changes are therefore paired with each other, and their differences are readable.
+    """
+    pools = {m: galaxy64_pools(m) for m in models}
+    per_model_sets = {m: ({t for (t, n) in p if n == lo}
+                          & {t for (t, n) in p if n == hi}) for m, p in pools.items()}
+    panel = sorted(set.intersection(*per_model_sets.values())) if per_model_sets else []
+    out = {"lo": lo, "hi": hi, "panel_size": len(panel), "panel": panel,
+           "per_model_both_rungs": {m: len(s) for m, s in sorted(per_model_sets.items())},
+           "models": {}}
+    if not panel:
+        return out
+    for m in models:
+        p = pools[m]
+        rows_lo = [_ci_row(p[(t, lo)]["pool"]) for t in panel]
+        rows_hi = [_ci_row(p[(t, hi)]["pool"]) for t in panel]
+        gain = paired_gain_boot(rows_lo, rows_hi)
+        ci = paired_boot({lo: [(r[0], r[1]) for r in rows_lo],
+                          hi: [(r[0], r[1]) for r in rows_hi]})
+        g = gain["gap"]
+        # The one scientific question, decided by the CI rather than by the point
+        # estimate: the gap change is only "widening"/"turning over" when the whole
+        # interval sits on one side of zero.
+        verdict = ("widening" if g[0] > 0 else
+                   "turning over" if g[2] < 0 else "flat (CI spans 0)")
+        out["models"][m] = {
+            "gap_lo": sum(r[2] for r in rows_lo) / len(panel),
+            "gap_hi": sum(r[2] for r in rows_hi) / len(panel),
+            "gap_change_ci": g, "verdict": verdict,
+            "oracle_change_ci": gain["oracle"], "user_change_ci": gain["user"],
+            "rung_ci": ci}
+    return out
+
+
 def deep_stats(pools, model):
     """Stop-rule + exhaustion inputs from each target's LARGEST pool."""
     import numpy as np
@@ -616,8 +669,34 @@ def main():
                          "reproduce rung 256 exactly; exits 1 on any mismatch")
     ap.add_argument("--gate-lo", type=int, default=256)
     ap.add_argument("--gate-hi", type=int, default=512)
+    ap.add_argument("--panel", action="store_true",
+                    help="four-model gap read on the targets every model has complete "
+                         "at BOTH --gate-lo and --gate-hi; exits 1 on an empty panel")
     a = ap.parse_args()
     models = [a.model] if a.model else sorted(MODELS)
+    if a.panel:
+        pm = [m for m in models if m in GALAXY64_OK]
+        r = panel_read(pm, a.gate_lo, a.gate_hi)
+        print("per-model targets complete at both rungs: "
+              + "  ".join(f"{m} {n}" for m, n in sorted(r["per_model_both_rungs"].items())))
+        if not r["panel_size"]:
+            # Same rule as the truncation gate: an empty panel is not a result. It
+            # means the rungs are not both complete+labelled yet.
+            print(f"\nPANEL: NO DATA -- 0 targets complete in all {len(pm)} models at "
+                  f"both N={a.gate_lo} and N={a.gate_hi}; this is NOT a read")
+            return 1
+        print(f"\n=== {len(pm)}-model panel: {r['panel_size']} targets complete in every "
+              f"model at both N={a.gate_lo} and N={a.gate_hi} ===")
+        print(f"{'model':<14} {'gap@'+str(a.gate_lo):>9} {'gap@'+str(a.gate_hi):>9} "
+              f"{'gap change [95 pct CI]':>34}  verdict")
+        for m, d in sorted(r["models"].items()):
+            g = d["gap_change_ci"]
+            print(f"{m:<14} {d['gap_lo']:>9.4f} {d['gap_hi']:>9.4f} "
+                  f"{g[1]:>+12.4f} [{g[0]:>+.4f},{g[2]:>+.4f}]  {d['verdict']}")
+        out = Path(a.out).with_name(Path(a.out).stem + f"_panel{a.gate_hi}.json")
+        out.write_text(json.dumps(r, indent=1, sort_keys=True))
+        print(f"\nwrote {out}")
+        return 0
     if a.truncation_gate:
         bad = tot = 0
         for model in models:
