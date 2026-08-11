@@ -729,8 +729,31 @@ _PT_ROW_MAJOR = os.environ.get(
     "TT_BIO_PAIR_TRANSPOSE_RM", "1" if PAIR_TRANSPOSE_VIA_ROW_MAJOR else "0") == "1"
 
 
+# Pair-tensor shape classes whose L1 transpose destination the allocator refused once. The
+# static budget in `_l1_memory_config_if_it_fits` cannot see what the live block already holds,
+# so the honest test is the allocation itself; remembering the refusal keeps it to one attempt
+# per class per process, the same pattern `_L1_OUT_REFUSED` uses for the projections.
+_TRANSPOSE_L1_REFUSED: set = set()
+
+
 def _pair_transpose(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.Tensor:
-    """``permute(t, (1, 0, 2))``, through ROW_MAJOR where that wins. Bit-exact either way."""
+    """``permute(t, (1, 0, 2))``, through ROW_MAJOR where that wins. Bit-exact either way.
+
+    An L1 destination is asked for by `_transpose_memory_config` and can still be refused at
+    the call site, so the L1 attempt falls back to DRAM rather than killing the fold.
+    """
+    if memory_config.buffer_type == ttnn.BufferType.L1:
+        key = (tuple(t.padded_shape), str(t.dtype))
+        if key not in _TRANSPOSE_L1_REFUSED:
+            try:
+                return _pair_transpose_impl(t, memory_config)
+            except Exception:                                                   # noqa: BLE001
+                _TRANSPOSE_L1_REFUSED.add(key)
+        memory_config = ttnn.DRAM_MEMORY_CONFIG
+    return _pair_transpose_impl(t, memory_config)
+
+
+def _pair_transpose_impl(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.Tensor:
     if (_PT_ROW_MAJOR and len(t.shape) == 3
             and memory_config.buffer_type == ttnn.BufferType.DRAM
             and t.dtype == ttnn.bfloat16 and t.layout == ttnn.TILE_LAYOUT):
@@ -749,10 +772,17 @@ def _pair_transpose(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.Te
     return ttnn.permute(t, (1, 0, 2), memory_config=memory_config)
 
 
-# A/B knob only; the shipped value is 2.5 and nothing in the repo sets this. L1 total on an
-# 11x10 Blackhole grid is 168.57 MB (110 x 1 532 416 B), so the 512 aa pair tensor at
-# 134.22 MB is 79.6 % of it and the largest headroom that fits at all is 1.2559.
-_TRANSPOSE_L1_HEADROOM = float(os.environ.get("TT_BIO_TRANSPOSE_L1_HEADROOM", "2.5"))
+# L1 total on an 11x10 Blackhole grid is 168.57 MB (110 x 1 532 416 B), so the 512 aa pair
+# tensor at 134.22 MB is 79.6 % of it and the largest headroom that fits at all is 1.2559. At
+# the old 2.5 the 512 aa transpose could never take the L1 route and always paid the DRAM one.
+# Measured on qb2 card 2, 512x512x256 bf16, median of 5 synced calls: DRAM 2.5284 ms against
+# 1.4779 ms into L1, 1.711x, and the same 0.600 ms either way at 320 aa where 2.5 already fit.
+# Two transposes per ending variant, so 2.101 ms of a 37.327 ms sub-block.
+# 1.25 rather than 1.2559: the consumer's circular buffers come out of the same banks, and the
+# refusal path in `_pair_transpose` is what makes the tight value safe.
+TRANSPOSE_L1_HEADROOM = 1.25
+_TRANSPOSE_L1_HEADROOM = float(
+    os.environ.get("TT_BIO_TRANSPOSE_L1_HEADROOM", str(TRANSPOSE_L1_HEADROOM)))
 
 
 def _transpose_memory_config(t: ttnn.Tensor) -> ttnn.MemoryConfig:
@@ -774,7 +804,7 @@ def _transpose_memory_config(t: ttnn.Tensor) -> ttnn.MemoryConfig:
     Not cached: ttnn.Tensor hashes by object identity, so an lru_cache here would miss on
     every call and pin every tensor it ever saw for the life of the process.
     """
-    # 2.5x headroom: the consumer still needs its circular buffers on every core.
+    # The headroom keeps room for the consumer's circular buffers on every core.
     return _l1_memory_config_if_it_fits(t, _TRANSPOSE_L1_HEADROOM)
 
 

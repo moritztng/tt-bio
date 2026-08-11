@@ -1,0 +1,226 @@
+host=tt-quietbox2 start=2026-08-11T23:04:11+00:00 commit=c9bfcaef
+ 23:04:11 up  5:59,  6 users,  load average: 0.27, 0.74, 0.60
+benchlock: boltz2-686-fast-integrated acquired after 0s, loadavg 0.27 0.74 0.60
+2026-08-11 23:04:11.647 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+=== cold fold (discarded: first-kernel compile, and it seeds the MSA cache) ===
+MSA for 686 (1 sequences)
+  0%|          | 0/150 [elapsed: 00:00 remaining: ?]SUBMIT:   0%|          | 0/150 [elapsed: 00:00 remaining: ?]COMPLETE:   0%|          | 0/150 [elapsed: 00:00 remaining: ?]COMPLETE: 100%|██████████| 150/150 [elapsed: 00:00 remaining: 00:00]COMPLETE: 100%|██████████| 150/150 [elapsed: 00:02 remaining: 00:00]
+2026-08-11 23:04:39.891 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1594624 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+  cold 100.18s (100s wall)  n_tokens=None plddt=None msa=None
+  main: fold 49.81s  block 26523.69 ms over 280 calls  plddt None  (50s)
+      DEC l1_layer_norm|h=1.5|1x704x704x128                        {'DRAM': 264}
+      DEC l1_layer_norm|h=1.5|704x704x128                          {'DRAM': 16}
+      DEC pair_proj_minimal_matmul|1x704x704x128@128               {'declined': 1120}
+      DEC pair_proj_minimal_matmul|704x704x128@128                 {'declined': 560}
+      DEC pair_proj_minimal_matmul|704x704x128@4                   {'declined': 560}
+      DEC qkv_mm_config|nt12|704x704x128                           {'None': 1120}
+      DEC qkv_mm_config|nt4|704x704x128                            {'None': 560}
+      DEC transpose|704x704x128|DataType.BFLOAT16                  {'DRAM': 280}
+      DEC transpose|704x704x128|DataType.BFLOAT8_B                 {'DRAM': 280}
+      DEC tri_att_sdpa|q704k704|DataType.BFLOAT8_B                 {'q_chunk=352 k_chunk=256': 560}
+      DEC trimul_inproj_group|n704c32                              {'G=4': 560}
+2026-08-11 23:06:50.167 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 67403776 B L1 buffer across 110 banks, where each bank needs to store 613632 B, but bank size is 1461760 B (allocated: 1155072 B, free: 306688 B, largest free block: 306688 B) (assert.hpp:104)
+  int: fold 49.54s  block 26256.47 ms over 280 calls  plddt None  (50s)
+      DEC l1_layer_norm|h=1.5|1x704x704x128                        {'DRAM': 264}
+      DEC l1_layer_norm|h=1.5|704x704x128                          {'DRAM': 16}
+      DEC pair_proj_minimal_matmul|1x704x704x128@128               {'declined': 1120}
+      DEC pair_proj_minimal_matmul|704x704x128@128                 {'declined': 560}
+      DEC pair_proj_minimal_matmul|704x704x128@4                   {'declined': 560}
+      DEC qkv_mm_config|nt12|704x704x128                           {'None': 1120}
+      DEC qkv_mm_config|nt4|704x704x128                            {'None': 560}
+      DEC transpose|704x704x128|DataType.BFLOAT16                  {'L1': 280}
+      DEC transpose|704x704x128|DataType.BFLOAT8_B                 {'L1': 280}
+      DEC tri_att_sdpa|q704k704|DataType.BFLOAT8_B                 {'q_chunk=352 k_chunk=256': 560}
+      DEC trimul_inproj_group|n704c32                              {'G=4': 560}
+  main: fold 49.70s  block 26532.48 ms over 280 calls  plddt None  (50s)
+      DEC l1_layer_norm|h=1.5|1x704x704x128                        {'DRAM': 264}
+      DEC l1_layer_norm|h=1.5|704x704x128                          {'DRAM': 16}
+      DEC pair_proj_minimal_matmul|1x704x704x128@128               {'declined': 1120}
+      DEC pair_proj_minimal_matmul|704x704x128@128                 {'declined': 560}
+      DEC pair_proj_minimal_matmul|704x704x128@4                   {'declined': 560}
+      DEC qkv_mm_config|nt12|704x704x128                           {'None': 1120}
+      DEC qkv_mm_config|nt4|704x704x128                            {'None': 560}
+      DEC transpose|704x704x128|DataType.BFLOAT16                  {'DRAM': 280}
+      DEC transpose|704x704x128|DataType.BFLOAT8_B                 {'DRAM': 280}
+      DEC tri_att_sdpa|q704k704|DataType.BFLOAT8_B                 {'q_chunk=352 k_chunk=256': 560}
+      DEC trimul_inproj_group|n704c32                              {'G=4': 560}
+2026-08-11 23:08:29.065 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 67403776 B L1 buffer across 110 banks, where each bank needs to store 613632 B, but bank size is 1461760 B (allocated: 1155072 B, free: 306688 B, largest free block: 306688 B) (assert.hpp:104)
+  int: fold 49.19s  block 25690.93 ms over 280 calls  plddt None  (49s)
+      DEC l1_layer_norm|h=1.5|1x704x704x128                        {'DRAM': 264}
+      DEC l1_layer_norm|h=1.5|704x704x128                          {'DRAM': 16}
+      DEC pair_proj_minimal_matmul|1x704x704x128@128               {'declined': 1120}
+      DEC pair_proj_minimal_matmul|704x704x128@128                 {'declined': 560}
+      DEC pair_proj_minimal_matmul|704x704x128@4                   {'declined': 560}
+      DEC qkv_mm_config|nt12|704x704x128                           {'None': 1120}
+      DEC qkv_mm_config|nt4|704x704x128                            {'None': 560}
+      DEC transpose|704x704x128|DataType.BFLOAT16                  {'L1': 280}
+      DEC transpose|704x704x128|DataType.BFLOAT8_B                 {'L1': 280}
+      DEC tri_att_sdpa|q704k704|DataType.BFLOAT8_B                 {'q_chunk=352 k_chunk=256': 560}
+      DEC trimul_inproj_group|n704c32                              {'G=4': 560}
+2026-08-11 23:09:18.040 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 67403776 B L1 buffer across 110 banks, where each bank needs to store 613632 B, but bank size is 1461760 B (allocated: 1155072 B, free: 306688 B, largest free block: 306688 B) (assert.hpp:104)
+  int: fold 48.92s  block 25683.89 ms over 280 calls  plddt None  (49s)
+      DEC l1_layer_norm|h=1.5|1x704x704x128                        {'DRAM': 264}
+      DEC l1_layer_norm|h=1.5|704x704x128                          {'DRAM': 16}
+      DEC pair_proj_minimal_matmul|1x704x704x128@128               {'declined': 1120}
+      DEC pair_proj_minimal_matmul|704x704x128@128                 {'declined': 560}
+      DEC pair_proj_minimal_matmul|704x704x128@4                   {'declined': 560}
+      DEC qkv_mm_config|nt12|704x704x128                           {'None': 1120}
+      DEC qkv_mm_config|nt4|704x704x128                            {'None': 560}
+      DEC transpose|704x704x128|DataType.BFLOAT16                  {'L1': 280}
+      DEC transpose|704x704x128|DataType.BFLOAT8_B                 {'L1': 280}
+      DEC tri_att_sdpa|q704k704|DataType.BFLOAT8_B                 {'q_chunk=352 k_chunk=256': 560}
+      DEC trimul_inproj_group|n704c32                              {'G=4': 560}
+2026-08-11 23:10:06.927 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 67403776 B L1 buffer across 110 banks, where each bank needs to store 613632 B, but bank size is 1461760 B (allocated: 1155072 B, free: 306688 B, largest free block: 306688 B) (assert.hpp:104)
+  int_noe6: fold 48.87s  block 25708.89 ms over 280 calls  plddt None  (49s)
+      DEC l1_layer_norm|h=1.5|1x704x704x128                        {'DRAM': 264}
+      DEC l1_layer_norm|h=1.5|704x704x128                          {'DRAM': 16}
+      DEC pair_proj_minimal_matmul|1x704x704x128@128               {'declined': 1120}
+      DEC pair_proj_minimal_matmul|704x704x128@128                 {'declined': 560}
+      DEC pair_proj_minimal_matmul|704x704x128@4                   {'declined': 560}
+      DEC qkv_mm_config|nt12|704x704x128                           {'None': 1120}
+      DEC qkv_mm_config|nt4|704x704x128                            {'None': 560}
+      DEC transpose|704x704x128|DataType.BFLOAT16                  {'L1': 280}
+      DEC transpose|704x704x128|DataType.BFLOAT8_B                 {'L1': 280}
+      DEC tri_att_sdpa|q704k704|DataType.BFLOAT8_B                 {'q_chunk=352 k_chunk=256': 560}
+      DEC trimul_inproj_group|n704c32                              {'G=4': 560}
+2026-08-11 23:10:55.782 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 67403776 B L1 buffer across 110 banks, where each bank needs to store 613632 B, but bank size is 1461760 B (allocated: 1155072 B, free: 306688 B, largest free block: 306688 B) (assert.hpp:104)
+  int_nok1k2: fold 48.83s  block 25685.76 ms over 280 calls  plddt None  (49s)
+      DEC l1_layer_norm|h=1.5|1x704x704x128                        {'DRAM': 264}
+      DEC l1_layer_norm|h=1.5|704x704x128                          {'DRAM': 16}
+      DEC pair_proj_minimal_matmul|1x704x704x128@128               {'declined': 1120}
+      DEC pair_proj_minimal_matmul|704x704x128@128                 {'declined': 560}
+      DEC pair_proj_minimal_matmul|704x704x128@4                   {'declined': 560}
+      DEC qkv_mm_config|nt12|704x704x128                           {'None': 1120}
+      DEC qkv_mm_config|nt4|704x704x128                            {'None': 560}
+      DEC transpose|704x704x128|DataType.BFLOAT16                  {'L1': 280}
+      DEC transpose|704x704x128|DataType.BFLOAT8_B                 {'L1': 280}
+      DEC tri_att_sdpa|q704k704|DataType.BFLOAT8_B                 {'q_chunk=352 k_chunk=256': 560}
+      DEC trimul_inproj_group|n704c32                              {'G=4': 560}
+  int_notr: fold 49.75s  block 26532.54 ms over 280 calls  plddt None  (50s)
+      DEC l1_layer_norm|h=1.5|1x704x704x128                        {'DRAM': 264}
+      DEC l1_layer_norm|h=1.5|704x704x128                          {'DRAM': 16}
+      DEC pair_proj_minimal_matmul|1x704x704x128@128               {'declined': 1120}
+      DEC pair_proj_minimal_matmul|704x704x128@128                 {'declined': 560}
+      DEC pair_proj_minimal_matmul|704x704x128@4                   {'declined': 560}
+      DEC qkv_mm_config|nt12|704x704x128                           {'None': 1120}
+      DEC qkv_mm_config|nt4|704x704x128                            {'None': 560}
+      DEC transpose|704x704x128|DataType.BFLOAT16                  {'DRAM': 280}
+      DEC transpose|704x704x128|DataType.BFLOAT8_B                 {'DRAM': 280}
+      DEC tri_att_sdpa|q704k704|DataType.BFLOAT8_B                 {'q_chunk=352 k_chunk=256': 560}
+      DEC trimul_inproj_group|n704c32                              {'G=4': 560}
+2026-08-11 23:12:34.386 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 67403776 B L1 buffer across 110 banks, where each bank needs to store 613632 B, but bank size is 1461760 B (allocated: 1155072 B, free: 306688 B, largest free block: 306688 B) (assert.hpp:104)
+  int_noe6: fold 48.84s  block 25663.0 ms over 280 calls  plddt None  (49s)
+      DEC l1_layer_norm|h=1.5|1x704x704x128                        {'DRAM': 264}
+      DEC l1_layer_norm|h=1.5|704x704x128                          {'DRAM': 16}
+      DEC pair_proj_minimal_matmul|1x704x704x128@128               {'declined': 1120}
+      DEC pair_proj_minimal_matmul|704x704x128@128                 {'declined': 560}
+      DEC pair_proj_minimal_matmul|704x704x128@4                   {'declined': 560}
+      DEC qkv_mm_config|nt12|704x704x128                           {'None': 1120}
+      DEC qkv_mm_config|nt4|704x704x128                            {'None': 560}
+      DEC transpose|704x704x128|DataType.BFLOAT16                  {'L1': 280}
+      DEC transpose|704x704x128|DataType.BFLOAT8_B                 {'L1': 280}
+      DEC tri_att_sdpa|q704k704|DataType.BFLOAT8_B                 {'q_chunk=352 k_chunk=256': 560}
+      DEC trimul_inproj_group|n704c32                              {'G=4': 560}
+2026-08-11 23:13:23.255 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 67403776 B L1 buffer across 110 banks, where each bank needs to store 613632 B, but bank size is 1461760 B (allocated: 1155072 B, free: 306688 B, largest free block: 306688 B) (assert.hpp:104)
+  int_nok1k2: fold 49.03s  block 25692.37 ms over 280 calls  plddt None  (49s)
+      DEC l1_layer_norm|h=1.5|1x704x704x128                        {'DRAM': 264}
+      DEC l1_layer_norm|h=1.5|704x704x128                          {'DRAM': 16}
+      DEC pair_proj_minimal_matmul|1x704x704x128@128               {'declined': 1120}
+      DEC pair_proj_minimal_matmul|704x704x128@128                 {'declined': 560}
+      DEC pair_proj_minimal_matmul|704x704x128@4                   {'declined': 560}
+      DEC qkv_mm_config|nt12|704x704x128                           {'None': 1120}
+      DEC qkv_mm_config|nt4|704x704x128                            {'None': 560}
+      DEC transpose|704x704x128|DataType.BFLOAT16                  {'L1': 280}
+      DEC transpose|704x704x128|DataType.BFLOAT8_B                 {'L1': 280}
+      DEC tri_att_sdpa|q704k704|DataType.BFLOAT8_B                 {'q_chunk=352 k_chunk=256': 560}
+      DEC trimul_inproj_group|n704c32                              {'G=4': 560}
+  int_notr: fold 49.72s  block 26492.56 ms over 280 calls  plddt None  (50s)
+      DEC l1_layer_norm|h=1.5|1x704x704x128                        {'DRAM': 264}
+      DEC l1_layer_norm|h=1.5|704x704x128                          {'DRAM': 16}
+      DEC pair_proj_minimal_matmul|1x704x704x128@128               {'declined': 1120}
+      DEC pair_proj_minimal_matmul|704x704x128@128                 {'declined': 560}
+      DEC pair_proj_minimal_matmul|704x704x128@4                   {'declined': 560}
+      DEC qkv_mm_config|nt12|704x704x128                           {'None': 1120}
+      DEC qkv_mm_config|nt4|704x704x128                            {'None': 560}
+      DEC transpose|704x704x128|DataType.BFLOAT16                  {'DRAM': 280}
+      DEC transpose|704x704x128|DataType.BFLOAT8_B                 {'DRAM': 280}
+      DEC tri_att_sdpa|q704k704|DataType.BFLOAT8_B                 {'q_chunk=352 k_chunk=256': 560}
+      DEC trimul_inproj_group|n704c32                              {'G=4': 560}
+{
+ "main": {
+  "n": 2,
+  "fold_median_s": 49.757,
+  "fold_s": [
+   49.813,
+   49.7
+  ],
+  "plddt": [
+   null,
+   null
+  ],
+  "block_median_ms": 26528.08,
+  "spread_s": 0.113
+ },
+ "int": {
+  "n": 3,
+  "fold_median_s": 49.189,
+  "fold_s": [
+   49.536,
+   49.189,
+   48.917
+  ],
+  "plddt": [
+   null,
+   null,
+   null
+  ],
+  "block_median_ms": 25690.93,
+  "spread_s": 0.619
+ },
+ "int_noe6": {
+  "n": 2,
+  "fold_median_s": 48.855,
+  "fold_s": [
+   48.867,
+   48.844
+  ],
+  "plddt": [
+   null,
+   null
+  ],
+  "block_median_ms": 25685.94,
+  "spread_s": 0.023
+ },
+ "int_nok1k2": {
+  "n": 2,
+  "fold_median_s": 48.929,
+  "fold_s": [
+   48.83,
+   49.028
+  ],
+  "plddt": [
+   null,
+   null
+  ],
+  "block_median_ms": 25689.06,
+  "spread_s": 0.198
+ },
+ "int_notr": {
+  "n": 2,
+  "fold_median_s": 49.733,
+  "fold_s": [
+   49.748,
+   49.719
+  ],
+  "plddt": [
+   null,
+   null
+  ],
+  "block_median_ms": 26512.55,
+  "spread_s": 0.029
+ },
+ "int_over_main": 1.0115,
+ "int_over_main_block": 1.0326
+}
+benchlock: boltz2-686-fast-integrated released, rc=0, loadavg 1.63 1.76 1.27
