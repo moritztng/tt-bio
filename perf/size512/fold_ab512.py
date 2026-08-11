@@ -60,6 +60,15 @@ SDPA = {"narrowq": (False, False), "wideq": (True, False),
 # arm sets it explicitly to the production default so no arm inherits the previous one's setting.
 HMQKV = {"hmqkv": True, "nohmqkv": False}
 HMQKV_DEFAULT = True
+# The tail half (K1b): the gate projection writes head-major and `out` reads head-major, so
+# nlp_concat_heads never runs. It needs the qkv half on, so `hmtail` turns both on and `hmqkv`
+# turns only the qkv half on -- the pair `hmqkv` vs `hmtail` isolates the tail exactly.
+HMTAIL = {"hmtail": True, "hmtail_l1": True, "hmqkv": False, "nohmqkv": False}
+HMTAIL_DEFAULT = True
+# `hmtail` keeps the conservative gate, which declines any call whose `out` would have used the
+# L1-output leg. `hmtail_l1` lets the head-major tail take those calls too, which is the only way
+# to find out whether deleting nlp_concat_heads beats keeping `out`'s result in L1.
+HMTAIL_OVER_L1 = {"hmtail_l1": True}
 
 
 def timed_call(key, fn, *a, **kw):
@@ -168,6 +177,9 @@ def main():
         bk = BACK.get(name)
         sdpa = SDPA.get(name)
         hm = HMQKV.get(name)
+        if name in ("hmtail", "hmtail_l1"):
+            hm = True
+        hmt = HMTAIL.get(name)
         # `prev` reverts the two extracted engine fixes (the `_MM_BLOCK[8]` block config and the
         # pair-projection `minimal_matmul` leg) and holds every capacity gate at the production
         # default, so the arm difference is exactly those two and nothing else.
@@ -175,15 +187,19 @@ def main():
         T._PAIR_PROJ_MM = not prev
         T._MM_BLOCK[8] = (2, 8, 1, 2, 1) if prev else (4, 8, 1, 4, 1)
         STATE["gates"] = ("on" if (fid or grp or bk is not None or sdpa or prev
-                                   or hm is not None) else name)
+                                   or hm is not None or hmt is not None) else name)
         # Every arm sets the SDPA flags, so an arm that is not an SDPA arm provably runs the
         # production pick rather than inheriting the previous arm's.
         T._SDPA_WIDE_Q, T._TRIATT_BIAS_B8 = sdpa if sdpa else SDPA_DEFAULT
         T._tri_att_q_chunks.cache_clear()
         import tt_bio.triatt_qkv as HM
         HM._ENABLED = HMQKV_DEFAULT if hm is None else hm
+        HM._TAIL_ENABLED = HMTAIL_DEFAULT if hmt is None else hmt
+        HM._TAIL_OVER_L1 = HMTAIL_OVER_L1.get(name, False)
         HM.STATS[0] = HM.STATS[1] = 0
+        HM.TAIL_STATS[0] = HM.TAIL_STATS[1] = 0
         HM.REJECTS.clear()
+        HM.TAIL_REJECTS.clear()
         on = STATE["gates"] == "on"
         T._PAIR_PROJ_L1_OUT = on
         T._PAIR_BIAS_L1_NORM = on
@@ -277,7 +293,11 @@ def main():
                        __import__("tt_bio.reblock_permute", fromlist=["x"])),
                    "head_major_qkv": (lambda HM: {
                        "enabled": HM._ENABLED, "served": HM.STATS[0], "declined": HM.STATS[1],
-                       "rejects": {f"{r}:{sh}": n for (r, sh), n in HM.REJECTS.items()}})(
+                       "rejects": {f"{r}:{sh}": n for (r, sh), n in HM.REJECTS.items()},
+                       "tail_enabled": HM._TAIL_ENABLED, "tail_over_l1": HM._TAIL_OVER_L1,
+                       "tail_served": HM.TAIL_STATS[0],
+                       "tail_declined": HM.TAIL_STATS[1],
+                       "tail_rejects": {f"{r}:{sh}": n for (r, sh), n in HM.TAIL_REJECTS.items()}})(
                        __import__("tt_bio.triatt_qkv", fromlist=["x"])),
                    "sdpa_wide_q": T._SDPA_WIDE_Q,
                    "triatt_bias_b8": T._TRIATT_BIAS_B8,
