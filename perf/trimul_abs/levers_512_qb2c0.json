@@ -1,0 +1,71 @@
+{
+  "n": 512,
+  "grid": [
+    11,
+    10
+  ],
+  "roofs": {
+    "read DRAM->L1": 324.9,
+    "write L1->DRAM": 245.0,
+    "combined DRAM->DRAM": 363.2,
+    "clone chunk[1,32,512,512]->DRAM": 177.3,
+    "clone chunk[1,32,512,512]->L1": 341.6,
+    "clone chunkG8[1,256,512,512]->DRAM": 186.3,
+    "compute 2048^3": 96.26,
+    "compute 4096^3": 121.95
+  },
+  "gates": {
+    "C=32 sigmoid=True": 0.1549,
+    "C=32 sigmoid=False": 0.1393,
+    "C=32 minimal_matmul_ms": 0.7062,
+    "C=256 sigmoid=True": 1.0577,
+    "C=256 sigmoid=False": 0.9407,
+    "C=256 minimal_matmul_ms": 0.9633
+  },
+  "reblock_l1": {
+    "C=32->DRAM": {
+      "permute_ms": 0.4604,
+      "reblock_ms": 0.1813,
+      "x": 2.539,
+      "equal": true,
+      "reblock_gbs": 86.2
+    },
+    "C=32->L1": {
+      "permute_ms": 0.2418,
+      "reblock_ms": 0.1801,
+      "x": 1.3421,
+      "equal": true,
+      "reblock_gbs": 86.7
+    },
+    "C=64->DRAM": {
+      "permute_ms": 0.9694,
+      "reblock_ms": 0.4203,
+      "x": 2.3065,
+      "equal": true,
+      "reblock_gbs": 74.4
+    },
+    "C=64->L1": {
+      "permute_ms": 0.4783,
+      "reblock_ms": 0.3665,
+      "x": 1.3051,
+      "equal": true,
+      "reblock_gbs": 85.3
+    },
+    "C=256->DRAM": {
+      "permute_ms": 4.2731,
+      "reblock_ms": 1.4084,
+      "x": 3.0341,
+      "equal": true,
+      "reblock_gbs": 88.8
+    }
+  },
+  "tail": {
+    "today_ms": 4.4356,
+    "rowblock_128_ms": 6.4855,
+    "rowblock_128_equal": true,
+    "rowblock_128_pcc": 1.0,
+    "rowblock_256_ms": 7.3102,
+    "rowblock_256_equal": true,
+    "rowblock_256_pcc": 1.0
+  }
+}
