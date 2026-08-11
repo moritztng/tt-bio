@@ -1,0 +1,184 @@
+{
+ "n": 512,
+ "c": 256,
+ "grid": [
+  11,
+  10
+ ],
+ "gflop": 68.719476736,
+ "rows": [
+  {
+   "label": "PRODUCTION 2D-mcast, whole output",
+   "ms": 1.654172250709962,
+   "tflops": 41.54312025637351
+  },
+  {
+   "label": "no-mcast 1/2 output, per_core_N=8 ibw=1 osub=1x1",
+   "ms": 1.9501445003697881,
+   "tflops": 35.23814605685341
+  },
+  {
+   "label": "no-mcast 1/2 output, per_core_N=8 ibw=1 osub=2x2",
+   "ms": 1.7282405005971668,
+   "tflops": 39.76268158989159
+  },
+  {
+   "label": "no-mcast 1/2 output, per_core_N=8 ibw=1 osub=1x4",
+   "ms": 1.752346250214032,
+   "tflops": 39.21569537276471
+  },
+  {
+   "label": "no-mcast 1/2 output, per_core_N=8 ibw=1 osub=4x1",
+   "ms": 1.726635000522947,
+   "tflops": 39.799654654971604
+  },
+  {
+   "label": "no-mcast 1/2 output, per_core_N=8 ibw=2 osub=1x1",
+   "ms": 1.7570527488715015,
+   "tflops": 39.110650935287126
+  },
+  {
+   "label": "no-mcast 1/2 output, per_core_N=8 ibw=2 osub=2x2",
+   "ms": 1.60641149886942,
+   "tflops": 42.77825251149175
+  },
+  {
+   "label": "no-mcast 1/2 output, per_core_N=8 ibw=2 osub=1x4",
+   "ms": 1.6081047506304458,
+   "tflops": 42.73320920733492
+  },
+  {
+   "label": "no-mcast 1/2 output, per_core_N=8 ibw=2 osub=4x1",
+   "ms": 1.5844522495171987,
+   "tflops": 43.37112510455246
+  },
+  {
+   "label": "no-mcast 1/2 output, per_core_N=8 ibw=4 osub=1x1",
+   "ms": 1.6255477494269144,
+   "tflops": 42.27465896355674
+  },
+  {
+   "label": "no-mcast 1/2 output, per_core_N=8 ibw=4 osub=2x2",
+   "ms": 1.5272987493517576,
+   "tflops": 44.99412885996738
+  },
+  {
+   "label": "no-mcast 1/2 output, per_core_N=8 ibw=4 osub=1x4",
+   "ms": 1.5245385002344847,
+   "tflops": 45.075592860023185
+  },
+  {
+   "label": "no-mcast 1/2 output, per_core_N=8 ibw=4 osub=4x1",
+   "ms": 1.4573707503586775,
+   "tflops": 47.15305060094507
+  },
+  {
+   "label": "no-mcast 1/2 output, per_core_N=8 ibw=8 osub=1x1",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1683968 B which is beyond max L1 size of 1572864 B\nback"
+  },
+  {
+   "label": "no-mcast 1/2 output, per_core_N=8 ibw=8 osub=2x2",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1683968 B which is beyond max L1 size of 1572864 B\nback"
+  },
+  {
+   "label": "no-mcast 1/2 output, per_core_N=8 ibw=8 osub=1x4",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1683968 B which is beyond max L1 size of 1572864 B\nback"
+  },
+  {
+   "label": "no-mcast 1/2 output, per_core_N=8 ibw=8 osub=4x1",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1683968 B which is beyond max L1 size of 1572864 B\nback"
+  },
+  {
+   "label": "no-mcast 1/4 output, per_core_N=4 ibw=1 osub=1x1",
+   "ms": 2.704031750909053,
+   "tflops": 25.413709255779857
+  },
+  {
+   "label": "no-mcast 1/4 output, per_core_N=4 ibw=1 osub=2x2",
+   "ms": 2.534995750465896,
+   "tflops": 27.10832028944046
+  },
+  {
+   "label": "no-mcast 1/4 output, per_core_N=4 ibw=1 osub=1x4",
+   "ms": 2.5091362495004432,
+   "tflops": 27.38770234166507
+  },
+  {
+   "label": "no-mcast 1/4 output, per_core_N=4 ibw=1 osub=4x1",
+   "ms": 2.5112705006904434,
+   "tflops": 27.364426379836985
+  },
+  {
+   "label": "no-mcast 1/4 output, per_core_N=4 ibw=2 osub=1x1",
+   "ms": 2.414834749288275,
+   "tflops": 28.457217106161703
+  },
+  {
+   "label": "no-mcast 1/4 output, per_core_N=4 ibw=2 osub=2x2",
+   "ms": 2.2981807505857432,
+   "tflops": 29.901684938612984
+  },
+  {
+   "label": "no-mcast 1/4 output, per_core_N=4 ibw=2 osub=1x4",
+   "ms": 2.2972115002630744,
+   "tflops": 29.91430119870561
+  },
+  {
+   "label": "no-mcast 1/4 output, per_core_N=4 ibw=2 osub=4x1",
+   "ms": 2.2723492511431687,
+   "tflops": 30.241599833929026
+  },
+  {
+   "label": "no-mcast 1/4 output, per_core_N=4 ibw=4 osub=1x1",
+   "ms": 2.234880499599967,
+   "tflops": 30.74861351571167
+  },
+  {
+   "label": "no-mcast 1/4 output, per_core_N=4 ibw=4 osub=2x2",
+   "ms": 2.1593444998870837,
+   "tflops": 31.82423033452674
+  },
+  {
+   "label": "no-mcast 1/4 output, per_core_N=4 ibw=4 osub=1x4",
+   "ms": 2.1584377500403207,
+   "tflops": 31.837599548430937
+  },
+  {
+   "label": "no-mcast 1/4 output, per_core_N=4 ibw=4 osub=4x1",
+   "ms": 2.151208998839138,
+   "tflops": 31.944584079502853
+  },
+  {
+   "label": "no-mcast 1/4 output, per_core_N=4 ibw=8 osub=1x1",
+   "ms": 2.2456382503150962,
+   "tflops": 30.601311999542954
+  },
+  {
+   "label": "no-mcast 1/4 output, per_core_N=4 ibw=8 osub=2x2",
+   "ms": 2.2314890011330135,
+   "tflops": 30.795346381321377
+  },
+  {
+   "label": "no-mcast 1/4 output, per_core_N=4 ibw=8 osub=1x4",
+   "ms": 2.227914750619675,
+   "tflops": 30.84475145060478
+  },
+  {
+   "label": "no-mcast 1/4 output, per_core_N=4 ibw=8 osub=4x1",
+   "ms": 2.232170500064967,
+   "tflops": 30.78594432369746
+  }
+ ],
+ "occupancy": 0.7757575757575758,
+ "production": {
+  "label": "PRODUCTION 2D-mcast, whole output",
+  "ms": 1.654172250709962,
+  "tflops": 41.54312025637351
+ },
+ "best_no_mcast": {
+  "label": "no-mcast 1/2 output, per_core_N=8 ibw=4 osub=4x1",
+  "ms": 1.4573707503586775,
+  "tflops": 47.15305060094507
+ },
+ "balanced_projection": 60.78322929028076
+}
