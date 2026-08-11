@@ -69,12 +69,26 @@ TRANSITION_H_CHUNK_SIZE_BIG = 32  # verified envelope: W<=384 (298-aa W=320). W=
 # relu costs only +2.4 us (no branch on dest mode) while a fused gelu costs +141.3 against its own
 # 135.3 standalone, and why the penalty survives eight explicit MatmulMultiCoreReuseMultiCast
 # configs: program config cannot reach it.
-# Release-gated, and not bit-exact for two reasons rather than one. The unfused form applies silu to
-# the bf16-packed matmul output instead of the fp32 accumulator, AND it runs the fast sigmoid, which
-# is one bf16 ulp off the correctly rounded value on 9.4% of elements (measured at the production
-# hidden shape; the accurate branch matches correctly-rounded torch on all 524288 of them). TriMul's
-# gates already ship that same fast sigmoid -- see kernels/reblock_permute_gated, which had to
-# compile at 16-bit DST to match it.
+# REJECTED 2026-08-12. Keep default-OFF. Do not re-propose without refuting the number below.
+# Unfusing is worth 1.351 s/fold at 512 aa and 1.822 s at 640 aa (1.0260x / 1.0198x, qb2, ttnn
+# 0.68.0), and it costs 3.849 A all-atom RMSD against a 0.000 A A/A self-RMSD on a 0.1136 A
+# envelope bound -- a 34x fail, measured between the two arms' own CIFs at 512 aa. That
+# independently reproduces the 4.133 A this same change already measured at 298 aa, which killed
+# it once before (state/protenix-trunk--y-silu-lowering.md H4, "It does not come back").
+# It is NOT bit-exact for two reasons, and the larger one is not the one this comment used to lead
+# with. Split against the fp32 accumulator as a common origin, at the production fc1 shape:
+#   the silu's INPUT rounded to bf16 (packed matmul output, not the accumulator): 23.9% of
+#     elements, rms 1.89e-3, up to 2 bf16 ulp   <- three quarters of the error
+#   the fast sigmoid instead of the accurate one:                                  9.3% of
+#     elements, rms 6.23e-4, 1 ulp
+# TriMul's gates ship only the second half -- they run the fast sigmoid ON their accumulator and
+# never round its input (see kernels/reblock_permute_gated, compiled at 16-bit DST to match it), so
+# "TriMul already ships this error class" was wrong and must not be used to argue for this flag.
+# The accuracy-preserving route to the same time is upstream, not here: calculate_silu in
+# ckernel_sfpu_silu.h drops the caller's APPROXIMATION_MODE, so an fp32-dest matmul cannot ask for a
+# bf16-grade silu even when the packer writes bf16. Fixing that keeps the fp32 accumulator and is
+# priced at 1381.2 ms/fold at 512 aa. It is a tt-metal wheel rebuild plus a release gate.
+# Issue text: perf/y_silu_lowering/UPSTREAM.md.
 _UNFUSED_SILU = os.environ.get("TT_BIO_UNFUSED_SILU", "0") == "1"
 _FAST_MODE = False
 _DTYPE_OVERRIDE = None
