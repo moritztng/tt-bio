@@ -18,6 +18,12 @@ Arms:
        threads to every submodule and which the diffusion module does not share -- so one
        variable moves and the fp32 diffusion boundary is provably untouched. Both fidelities
        are recorded per arm so the scoping is auditable from the JSON.
+  base pre-integration production default: all six levers from the three concluded efforts
+       reverted at once (trimul in-projection group -> 1, channel-move-back kernel off, SDPA
+       wide q off, _MM_BLOCK[8] -> the old (2,8,1,2,1), the pair-projection minimal_matmul leg
+       off, _TRANSPOSE_L1_HEADROOM -> 2.5). This is the only honest denominator for the
+       integrated arm: multiplying the three efforts' separately-measured ratios cannot be
+       right because they were taken against three different baselines.
   off  the five capacity-gated wins forced off:
          _transpose_memory_config -> DRAM   (C2FIX)
          _PAIR_PROJ_L1_OUT = False          (X7 L1 output)
@@ -123,6 +129,7 @@ def main():
     T._pair_proj_config = ppc
 
     SDPA_DEFAULT = (T._SDPA_WIDE_Q, T._TRIATT_BIAS_B8)
+    T_INPROJ_GROUP_DEFAULT = T._TRIMUL_INPROJ_GROUP
 
     # Record the q_chunk the tri-att SDPA actually ran at, per call. The candidate list is not the
     # answer: a candidate that overflows L1 is dropped into _SDPA_Q_CHUNK_OVER_L1 and the next one
@@ -139,6 +146,41 @@ def main():
         return ORIG_TAS(qq, kk, vv, bias, scale)
 
     T._tri_att_sdpa = tas
+
+    # ---- gate-state proof, per lever, read from inside the fold ------------------------------
+    # Reading a constant out of the source proves nothing: several of these levers are gated on
+    # a byte budget or an L1 fit and can silently decline at the size under test. Each wrapper
+    # below records the value the gate actually returned, per call.
+    ORIG_GRP = T._trimul_inproj_group
+
+    def grp_of(seq_len, chunk, batch, n_pairs):
+        g = ORIG_GRP(seq_len, chunk, batch, n_pairs)
+        DEC[f"trimul_inproj_group|n{seq_len}c{chunk}"][f"G={g}"] += 1
+        return g
+
+    T._trimul_inproj_group = grp_of
+
+    ORIG_PPMM = T._pair_proj_minimal_matmul
+
+    def ppmm(x, w, ckc, dtype):
+        out = ORIG_PPMM(x, w, ckc, dtype)
+        DEC[f"pair_proj_minimal_matmul|{'x'.join(str(int(d)) for d in x.shape)}"
+            f"@{int(list(w.shape)[-1])}"]["minimal_matmul" if out is not None else "declined"] += 1
+        return out
+
+    T._pair_proj_minimal_matmul = ppmm
+
+    ORIG_QKV = T._qkv_mm_config
+
+    def qkv(x, w):
+        cfg = ORIG_QKV(x, w)
+        # nt is the OUTPUT tile count, which is what keys _MM_BLOCK (see _qkv_mm_config).
+        nt = -(-int(list(w.shape)[-1]) // 32)
+        DEC[f"qkv_mm_config|nt{nt}|{'x'.join(str(int(d)) for d in x.shape)}"][
+            "None" if cfg is None else f"blk={T._MM_BLOCK.get(nt)}"] += 1
+        return cfg
+
+    T._qkv_mm_config = qkv
 
     saved = []
     for cls in (T.Pairformer,):
@@ -166,12 +208,19 @@ def main():
         # pair-projection `minimal_matmul` leg) and holds every capacity gate at the production
         # default, so the arm difference is exactly those two and nothing else.
         prev = name == "prev"
-        T._PAIR_PROJ_MM = not prev
-        T._MM_BLOCK[8] = (2, 8, 1, 2, 1) if prev else (4, 8, 1, 4, 1)
-        STATE["gates"] = "on" if (fid or grp or bk is not None or sdpa or prev) else name
+        # `base` reverts every lever the three concluded efforts landed, in one arm.
+        base = name == "base"
+        old = prev or base
+        T._PAIR_PROJ_MM = not old
+        T._MM_BLOCK[8] = (2, 8, 1, 2, 1) if old else (4, 8, 1, 4, 1)
+        T._TRANSPOSE_L1_HEADROOM = 2.5 if old else T.TRANSPOSE_L1_HEADROOM
+        T._TRANSPOSE_L1_REFUSED.clear()
+        STATE["gates"] = "on" if (fid or grp or bk is not None or sdpa or old) else name
         # Every arm sets the SDPA flags, so an arm that is not an SDPA arm provably runs the
         # production pick rather than inheriting the previous arm's.
         T._SDPA_WIDE_Q, T._TRIATT_BIAS_B8 = sdpa if sdpa else SDPA_DEFAULT
+        if base:
+            T._SDPA_WIDE_Q = False
         T._tri_att_q_chunks.cache_clear()
         on = STATE["gates"] == "on"
         T._PAIR_PROJ_L1_OUT = on
@@ -184,6 +233,16 @@ def main():
             # The weight cache is keyed on (chunk_size, group), so an arm flip builds the widened
             # weights once and never reloads the model.
             T._TRIMUL_INPROJ_GROUP = grp
+        if base:
+            import tt_bio.reblock_permute as RB
+            T._TRIMUL_INPROJ_GROUP = 1
+            RB.set_enabled_back(False)
+            RB.STATS_BACK[0] = RB.STATS_BACK[1] = 0
+        elif name in ("on", "prev"):
+            import tt_bio.reblock_permute as RB
+            T._TRIMUL_INPROJ_GROUP = T_INPROJ_GROUP_DEFAULT
+            RB.set_enabled_back(True)
+            RB.STATS_BACK[0] = RB.STATS_BACK[1] = 0
         if bk is not None:
             import tt_bio.reblock_permute as RB
             T._TRIMUL_INPROJ_GROUP = 8
@@ -264,6 +323,9 @@ def main():
                    "trimul_inproj_group": T._TRIMUL_INPROJ_GROUP,
                    "back_kernel": (lambda RB: [RB._ENABLED_BACK, list(RB.STATS_BACK)])(
                        __import__("tt_bio.reblock_permute", fromlist=["x"])),
+                   "transpose_l1_headroom": T._TRANSPOSE_L1_HEADROOM,
+                   "transpose_l1_refused": [str(k) for k in T._TRANSPOSE_L1_REFUSED],
+                   "trimul_inproj_fused_bytes": T._TRIMUL_INPROJ_FUSED_BYTES,
                    "sdpa_wide_q": T._SDPA_WIDE_Q,
                    "triatt_bias_b8": T._TRIATT_BIAS_B8,
                    "sdpa_q_chunk_over_l1": sorted(str(k) for k in T._SDPA_Q_CHUNK_OVER_L1),
