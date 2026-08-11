@@ -1,0 +1,91 @@
+{
+  "grid": [
+    11,
+    10
+  ],
+  "cores": 110,
+  "l1_bytes": 0,
+  "roofs": {
+    "matmul_2048_tflops": 75.05,
+    "matmul_4096_tflops": 102.76,
+    "read_clone_dram2l1_52MB_gbs": 355.7,
+    "write_clone_l12dram_52MB_gbs": 249.4,
+    "copy_dram2dram_52MB_gbs_rw": 374.7,
+    "read_clone_dram2l1_105MB_gbs": 352.0,
+    "write_clone_l12dram_105MB_gbs": 263.9,
+    "copy_dram2dram_105MB_gbs_rw": 387.3
+  },
+  "sdpa": [
+    {
+      "seq": 320,
+      "cfg": "prod+bias",
+      "ms": 2.9119,
+      "tflops": 11.52,
+      "read_MB": 650.0,
+      "write_MB": 50.0,
+      "bias_frac_of_read": 0.7692,
+      "implied_read_GBs": 234.1,
+      "implied_write_GBs": 18.0,
+      "AI_flop_per_byte": 45.71
+    },
+    {
+      "seq": 320,
+      "cfg": "prod-nobias",
+      "ms": 1.757,
+      "tflops": 19.1,
+      "read_MB": 150.0,
+      "write_MB": 50.0,
+      "bias_frac_of_read": 0.0,
+      "implied_read_GBs": 89.5,
+      "implied_write_GBs": 29.8,
+      "AI_flop_per_byte": 160.0
+    },
+    {
+      "seq": 512,
+      "cfg": "prod+bias",
+      "ms": 7.1528,
+      "tflops": 19.21,
+      "read_MB": 2432.0,
+      "write_MB": 128.0,
+      "bias_frac_of_read": 0.8421,
+      "implied_read_GBs": 356.5,
+      "implied_write_GBs": 18.8,
+      "AI_flop_per_byte": 51.2
+    },
+    {
+      "seq": 512,
+      "cfg": "prod-nobias",
+      "ms": 2.7658,
+      "tflops": 49.69,
+      "read_MB": 384.0,
+      "write_MB": 128.0,
+      "bias_frac_of_read": 0.0,
+      "implied_read_GBs": 145.6,
+      "implied_write_GBs": 48.5,
+      "AI_flop_per_byte": 256.0
+    }
+  ],
+  "batch_sweep_512": [
+    {
+      "b": 64,
+      "bias": 0.9594,
+      "nobias": 0.5644
+    },
+    {
+      "b": 128,
+      "bias": 1.8538,
+      "nobias": 1.095
+    },
+    {
+      "b": 256,
+      "bias": 3.5995,
+      "nobias": 1.6434
+    },
+    {
+      "b": 512,
+      "bias": 7.1501,
+      "nobias": 2.7478
+    }
+  ],
+  "bias_stream_GBs": 468.9
+}

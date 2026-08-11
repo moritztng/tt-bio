@@ -375,11 +375,15 @@ def _sdpa_program_config(q_chunk_size: int, k_chunk_size: int) -> ttnn.SDPAProgr
     )
 
 
+def _padded_sdpa_len(seq_len: int) -> int:
+    return ((seq_len + SDPA_CHUNK_TILE - 1) // SDPA_CHUNK_TILE) * SDPA_CHUNK_TILE
+
+
 @lru_cache(maxsize=None)
 def _capped_sdpa_chunk_size(seq_len: int) -> int:
     if seq_len <= 0:
         return SDPA_CHUNK_TILE
-    return min(SDPA_CHUNK_MAX, ((seq_len + SDPA_CHUNK_TILE - 1) // SDPA_CHUNK_TILE) * SDPA_CHUNK_TILE)
+    return min(SDPA_CHUNK_MAX, _padded_sdpa_len(seq_len))
 
 
 @lru_cache(maxsize=None)
@@ -391,15 +395,110 @@ def _sdpa_program_config_for_lengths(q_len: int, k_len: int) -> ttnn.SDPAProgram
 
 
 @lru_cache(maxsize=None)
-def _tri_att_sdpa_program_config(q_len: int, k_len: int) -> ttnn.SDPAProgramConfig:
+def _sdpa_chunks_shipped(q_len: int, k_len: int) -> tuple:
     # Microbench M7/M7b/M7c (Blackhole 13x10, tri-att shape batch=seq, h=8, d=32):
     # the 256-cap is optimal at >=512 (0.59x regression at 64) and 128 is best at
     # <=128, but in the 256<seq<=384 band (298-aa proteins pad to 320, 2 chunks of
     # 256+64 padded) q_chunk=k_chunk=64 is 2.45x faster. Chunking only changes the
     # online-softmax reduction order (measured PCC 0.9999 vs the 256 config).
+    # Both sizes were only ever swept together; q is widened past this pick by
+    # _tri_att_q_chunks, which is bit-exact, and k stays exactly here.
     if 256 < q_len <= 384 and 256 < k_len <= 384:
-        return _sdpa_program_config(q_chunk_size=64, k_chunk_size=64)
-    return _sdpa_program_config_for_lengths(q_len, k_len)
+        return (64, 64)
+    return (_capped_sdpa_chunk_size(q_len), _capped_sdpa_chunk_size(k_len))
+
+
+@lru_cache(maxsize=None)
+def _tri_att_sdpa_program_config(q_len: int, k_len: int) -> ttnn.SDPAProgramConfig:
+    q_chunk, k_chunk = _sdpa_chunks_shipped(q_len, k_len)
+    return _sdpa_program_config(q_chunk_size=q_chunk, k_chunk_size=k_chunk)
+
+# Circular-buffer budgets that a q_chunk overflowed on THIS device, so the first fold pays at most
+# one throw per shape and every later call skips straight to a config that fits.
+_SDPA_Q_CHUNK_OVER_L1: set = set()
+
+# Kill switch so a fold-level A/B can run both arms without a checkout. Bit-exact either way.
+_SDPA_WIDE_Q = os.environ.get("TT_BIO_SDPA_WIDE_Q", "1") != "0"
+
+# C2, the triangle bias cast to bfloat8_b before the SDPA. OFF by default and it stays off until a
+# fold-level parity gate clears it: at N=512 the op-level error is rmsd/std 0.002547 at PCC
+# 1.000000, but W9 measured z rmsd/std 0.04179 on a block at N=320 against a shipped band of
+# 0.0185-0.0217, so the block amplifies it ~16x and the fold is the only denominator that decides.
+# The cast itself is 4.19 MB read + 2.10 MB written at N=512; the win is the re-read, which the
+# SDPA reader pays once per (q_chunk, k_chunk) pair.
+_TRIATT_BIAS_B8 = os.environ.get("TT_BIO_TRIATT_BIAS_B8", "0") != "0"
+
+
+@lru_cache(maxsize=None)
+def _tri_att_q_chunks(q_len: int, k_len: int) -> tuple:
+    """q_chunk sizes to try for the tri-attention SDPA, widest first, production pick last.
+
+    The kernel re-reads all of K and V once per q-chunk, so one q-chunk spanning the whole padded
+    sequence reads them once instead of ceil(seq/256) times. Measured on qb2 card 1 at ttnn 0.68.0,
+    torch.equal to the shipped config at every size below -- q_chunk only splits output rows and the
+    online softmax reduces over k, so no reduction order changes:
+
+        seq   288  320  352  384  416  448  480  512  544  576
+        gain 1.62 1.53 1.68 1.59 1.43 1.34 1.11 1.08 1.81 1.71
+        seq   608  640  704  768  896 1024
+        gain 1.57 1.41 1.10 1.06 1.28 1.09
+
+    At 256, 672, 736 and 800 no candidate fits, so the policy runs the shipped config and those rows
+    measure 1.00x to within 0.42%, which is the op-level A/A floor. There is no size in the measured
+    range where widening loses. (perf/triatt_root/phase_b12*.json, phase_b2b*.json,
+    c1_intermediate*.json)
+
+    Only q_chunks that DIVIDE the padded sequence are offered. The kernel reads and computes a
+    padded_q x padded_k mask grid and that mask is 84% of this op's DRAM traffic, so a q_chunk that
+    does not divide the sequence pays the padding twice over: q512 at seq 768 pads 768 -> 1024 and
+    measures 0.797x, a loss, while q384 divides it and is 1.06x.
+
+    The ceiling is L1, not a number, so it is discovered rather than declared: q640/k256 fits at
+    seq 640 and overflows by 512 B of 1572864 at seq 768, and the per-core budget moves with the
+    core count (110 on this part, 130 on a 13x10 one). A hard-coded window calibrated on one grid
+    is how the reblock_permute lever became a 0.62x loss on the other.
+    """
+    prod = _sdpa_chunks_shipped(q_len, k_len)[0]
+    if not _SDPA_WIDE_Q:
+        return (prod,)
+    padded = _padded_sdpa_len(q_len)
+    wider = [padded // n for n in range(1, padded // SDPA_CHUNK_TILE + 1)
+             if padded % n == 0 and (padded // n) % SDPA_CHUNK_TILE == 0
+             and padded // n > prod]
+    return tuple(sorted(wider, reverse=True)) + (prod,)
+
+
+def _tri_att_sdpa(q, k, v, bias, scale: float):
+    """SDPA for triangle attention at the widest q_chunk this device's L1 will hold."""
+    if _TRIATT_BIAS_B8 and bias is not None and bias.dtype != ttnn.bfloat8_b:
+        b8 = ttnn.typecast(bias, ttnn.bfloat8_b)
+        try:
+            return _tri_att_sdpa_at(q, k, v, b8, scale)
+        finally:
+            ttnn.deallocate(b8)
+    return _tri_att_sdpa_at(q, k, v, bias, scale)
+
+
+def _tri_att_sdpa_at(q, k, v, bias, scale: float):
+    q_len, k_len = q.shape[2], k.shape[2]
+    k_chunk = _sdpa_chunks_shipped(q_len, k_len)[1]
+    fits = [qc for qc in _tri_att_q_chunks(q_len, k_len)
+            if (q_len, k_len, qc) not in _SDPA_Q_CHUNK_OVER_L1]
+    for q_chunk in fits[:-1]:
+        try:
+            return ttnn.transformer.scaled_dot_product_attention(
+                q, k, v, attn_mask=bias, is_causal=False, scale=scale,
+                program_config=_sdpa_program_config(q_chunk, k_chunk),
+            )
+        except Exception as exc:  # noqa: BLE001 -- re-raised unless it is the L1 budget
+            if "circular buffers" not in str(exc):
+                raise
+            _SDPA_Q_CHUNK_OVER_L1.add((q_len, k_len, q_chunk))
+    return ttnn.transformer.scaled_dot_product_attention(
+        q, k, v, attn_mask=bias, is_causal=False, scale=scale,
+        program_config=_sdpa_program_config(fits[-1], k_chunk),
+    )
+
 
 
 # Kill switch for the batched program config, so a parity gate that spawns one fold per leg can
@@ -916,6 +1015,37 @@ def _pair_proj_config(x: ttnn.Tensor, w: ttnn.Tensor, bw_cap: int | None = -1,
 _L1_OUT_REFUSED: set = set()
 
 
+# The DRAM-output leg of `_pair_proj_linear` is a `ttnn.linear` with a program config tuned for
+# the out_block_h drain schedule. For a square K=256, N=256 pair projection `minimal_matmul` with
+# the swept block config is simply faster, and bit-exact: K_block covers the whole contraction in
+# both, so nothing accumulates in a different order. Measured on qb2 card 2, `torch.equal` at
+# every size (perf/triatt_opt/stage1_sweep.json):
+#     298   0.4016 -> 0.3154 ms   320   0.4132 -> 0.3312   384   0.5888 -> 0.4589
+#     512   0.9949 -> 0.7844      576   1.2548 -> 0.9889   640   1.5561 -> 1.2052
+# The L1-output leg still wins where it applies (298: 0.2838), so this sits BELOW it and above
+# the DRAM linear. Scoped to a single-block contraction (kt == 8) because that is the class where
+# the identical accumulation order was verified.
+PAIR_PROJ_MINIMAL_MATMUL = True
+_PAIR_PROJ_MM = os.environ.get(
+    "TT_BIO_PAIR_PROJ_MM", "1" if PAIR_PROJ_MINIMAL_MATMUL else "0") == "1"
+
+
+def _pair_proj_minimal_matmul(x, w, ckc, dtype):
+    """`minimal_matmul` for a pair projection whose contraction fits one K block, else None."""
+    if not _PAIR_PROJ_MM or x.dtype != ttnn.bfloat16 or w.dtype != ttnn.bfloat16:
+        return None
+    if len(w.shape) != 2 or -(-int(w.shape[-2]) // 32) != 8:
+        return None
+    cfg = _qkv_mm_config(x, w)
+    if cfg is None:
+        return None
+    try:
+        return ttnn.experimental.minimal_matmul(
+            input_tensor=x, weight_tensor=w, compute_kernel_config=ckc, dtype=dtype, config=cfg)
+    except Exception:
+        return None
+
+
 def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False):
     """`ttnn.linear` on a pair-track projection, with the tuned config when the shape allows.
 
@@ -936,6 +1066,9 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False):
                     )
                 except Exception:
                     _L1_OUT_REFUSED.add(key)
+    mm = _pair_proj_minimal_matmul(x, w, ckc, dtype)
+    if mm is not None:
+        return mm
     cfg = _pair_proj_config(x, w)
     if cfg is not None:
         return ttnn.linear(
@@ -2009,7 +2142,15 @@ class TriangleMultiplication(Module):
 # Both are bit-exact. Gated because a per-call ratio is a screen, not a fold gain.
 QKV_MM_CONFIG = True
 _MM_CFG = os.environ.get("TT_BIO_QKV_MM_CONFIG", "1" if QKV_MM_CONFIG else "0") == "1"
-_MM_BLOCK = {24: (4, 8, 1, 4, 1), 8: (2, 8, 1, 2, 1)}      # n_tiles -> (M, K, N, sub_h, sub_w)
+# n_tiles -> (M_block, K_block, N_block, subblock_h, subblock_w).
+# The nt=8 entry was (2,8,1,2,1), tuned at a small M. Swept over M on qb2 card 2 at K=256,
+# N=256 (perf/triatt_opt/stage1_sweep.json), the 4-block entry wins at EVERY M measured and the
+# margin grows with M, `torch.equal` throughout (same K_block, so the same accumulation order):
+#     M      8192   16384   32768   65536  131072  262144  409600
+#     ratio 1.044x  1.085x  1.051x  1.110x  1.209x  1.219x  1.204x
+# The old entry cost 1.21x on every nt=8 pair-track projection in the repo at production M, not
+# just the triangle-attention gate.
+_MM_BLOCK = {24: (4, 8, 1, 4, 1), 8: (4, 8, 1, 4, 1)}
 
 
 @lru_cache(maxsize=None)
@@ -2200,10 +2341,7 @@ class TriangleAttention(Module):
                     bias_scale_inv=1.0 / self._bias_scale,
                 )
             else:
-                o = ttnn.transformer.scaled_dot_product_attention(
-                    q, k, v, attn_mask=bias, is_causal=False, scale=self.scale**-1,
-                    program_config=_tri_att_sdpa_program_config(q.shape[2], k.shape[2]),
-                )
+                o = _tri_att_sdpa(q, k, v, bias, self.scale**-1)
             ttnn.deallocate(q)
             ttnn.deallocate(k)
             ttnn.deallocate(v)

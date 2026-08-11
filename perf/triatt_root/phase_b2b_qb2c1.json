@@ -1,0 +1,103 @@
+{
+ "ttnn": "0.68.0",
+ "cap_probe": [
+  {
+   "seq": 768,
+   "q": 640,
+   "k": 256,
+   "legal": false,
+   "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1573376 B which is beyond max L1 size of 1572864 B\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/"
+  },
+  {
+   "seq": 768,
+   "q": 672,
+   "k": 256,
+   "legal": false,
+   "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1643008 B which is beyond max L1 size of 1572864 B\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/"
+  },
+  {
+   "seq": 768,
+   "q": 704,
+   "k": 256,
+   "legal": false,
+   "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1712640 B which is beyond max L1 size of 1572864 B\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/"
+  },
+  {
+   "seq": 768,
+   "q": 736,
+   "k": 256,
+   "legal": false,
+   "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1782272 B which is beyond max L1 size of 1572864 B\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/"
+  },
+  {
+   "seq": 768,
+   "q": 768,
+   "k": 256,
+   "legal": false,
+   "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1802752 B which is beyond max L1 size of 1572864 B\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/"
+  }
+ ],
+ "above_cap": [
+  {
+   "seq": 768,
+   "q": 256,
+   "k": 256,
+   "ms": 23.5986,
+   "ref": true,
+   "tflops": 19.66
+  },
+  {
+   "seq": 768,
+   "q": 384,
+   "k": 256,
+   "ms": 22.2396,
+   "tflops": 20.86,
+   "ratio": 1.0611,
+   "exact": "torch.equal",
+   "padded_q": 768,
+   "n_chunks": 2
+  },
+  {
+   "seq": 768,
+   "q": 512,
+   "k": 256,
+   "ms": 29.5927,
+   "tflops": 15.67,
+   "ratio": 0.7974,
+   "exact": "torch.equal",
+   "padded_q": 1024,
+   "n_chunks": 2
+  },
+  {
+   "seq": 768,
+   "q": 640,
+   "k": 256,
+   "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1573376 B which is beyond max L1 si"
+  },
+  {
+   "seq": 1024,
+   "q": 256,
+   "k": 256,
+   "ms": 55.1067,
+   "ref": true,
+   "tflops": 19.95
+  },
+  {
+   "seq": 1024,
+   "q": 512,
+   "k": 256,
+   "ms": 50.4485,
+   "tflops": 21.79,
+   "ratio": 1.0923,
+   "exact": "torch.equal",
+   "padded_q": 1024,
+   "n_chunks": 2
+  },
+  {
+   "seq": 1024,
+   "q": 640,
+   "k": 256,
+   "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1573376 B which is beyond max L1 si"
+  }
+ ]
+}
