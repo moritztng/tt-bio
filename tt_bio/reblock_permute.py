@@ -28,6 +28,7 @@ from pathlib import Path
 import ttnn
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "reblock_permute"
+KERNEL_DIR_BACK = Path(__file__).resolve().parent / "kernels" / "reblock_permute_back"
 
 TILE_H = TILE_W = 32
 FACE_H = FACE_W = 16
@@ -39,8 +40,11 @@ IN_CB, OUT_CB, STAGE_CB = 0, 16, 24
 ADDR_WRITE_MODE = None
 
 _CACHE: dict = {}
+_CACHE_BACK: dict = {}
 # Counters for the A/B harness: (eligible calls served, calls that fell through to ttnn.permute).
 STATS = [0, 0]
+# The same pair for the back direction, counted separately so one A/B can read both legs.
+STATS_BACK = [0, 0]
 # Why calls were refused, keyed by (reason, shape). A gate that never fires has to say why: the
 # first wiring of this op served zero calls in a whole fold because the production shape is
 # [1, 298, 298, 32] and the kernel required N % 32 == 0.
@@ -334,3 +338,190 @@ def set_enabled(on: bool) -> bool:
     global _ENABLED
     prev, _ENABLED = _ENABLED, bool(on)
     return prev
+
+
+# --- the inverse move, permute(x, (0,2,3,1)) -------------------------------------------------------
+#
+# The trimul's channel loop moves the chunk to the batch axis for the per-channel contraction and
+# then has to move it back. Forward is one kernel; back was two `ttnn.transpose` calls, and the pair
+# reads and writes the tensor TWICE. Measured at 512 aa on qb2 card 0 (state/trimul-absolute-optimal
+# §5): `transpose(1,2)` on [1,256,512,512] is 4.082 ms at 65.8 GB/s, 17.5 % of the measured combined
+# roof and the single largest class in the module, because the destination tile it feeds spans 32
+# channels while the source tile spans one, so a source tile scatters 32 rows into 32 destinations.
+# Its partner `transpose(2,3)` is tile-local and already at 93 %. One pass over the tensor at the
+# forward kernel's own measured rate is 1.51 ms against the pair's 4.849.
+#
+# Bit-exact by construction and verified with `torch.equal`: a permute is a pure index reordering,
+# and the tile transpose the compute kernel applies is the same `transpose_wh` the stock op uses.
+
+
+def _cache_key_back(x, out, device, reader_ct, writer_ct):
+    g = device.compute_with_storage_grid_size()
+    return (
+        device.id(),
+        int(x.shape[1]), int(x.shape[2]),
+        str(x.dtype), str(x.layout),
+        str(x.memory_config()), str(out.memory_config()),
+        g.x, g.y,
+        tuple(reader_ct), tuple(writer_ct),
+    )
+
+
+def _build_back(x, out, device, reader_ct, writer_ct):
+    C, N = int(x.shape[1]), int(x.shape[2])
+    Nt, Ct = N // TILE_H, C // TILE_W
+    # A group is (it, jt, ct) and owns 32 output tiles. Keeping `ct` INSIDE the group index rather
+    # than looping over it per group is what makes the work split even: at 512 aa with C=256 that is
+    # 2048 groups over 110 cores (19 and 18 per core, 5 % imbalance) where Nt*Nt groups would be 256
+    # over 110 (3 and 2, 33 %).
+    num_groups = Nt * Nt * Ct
+
+    plan = _split_plan(device, num_groups)
+    assert plan is not None, f"no expressible work split for {num_groups} groups"
+    _, _, (_, core_grid, cg1, cg2, work1, work2) = plan
+
+    tile_bytes = TILE_H * TILE_W * 2  # bf16
+
+    def cb(idx, depth):
+        fmt = ttnn.CBFormatDescriptor(
+            buffer_index=idx, data_format=ttnn.bfloat16, page_size=tile_bytes
+        )
+        return ttnn.CBDescriptor(
+            total_size=depth * tile_bytes, core_ranges=core_grid, format_descriptors=[fmt]
+        )
+
+    # Both 32-tile CBs MUST have a depth that is a multiple of 32, or the ring wraps mid-group: the
+    # reader would gather from a scratch window that is not contiguous and the writer would stream 32
+    # tiles from an address range that runs off the end of the buffer. That failure is silent -- it
+    # passes at N=128 and N=256, where a group is the whole buffer, and produces garbage at N=512.
+    # 64 is the smallest multiple that also double-buffers.
+    cbs = [cb(IN_CB, 2), cb(OUT_CB, GROUP_TILES * 2), cb(STAGE_CB, GROUP_TILES * 2)]
+
+    reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
+    start = 0
+    for group, per_core in ((cg1, work1), (cg2, work2)):
+        for cr in group.ranges():
+            for cx in range(cr.start.x, cr.end.x + 1):
+                for cy in range(cr.start.y, cr.end.y + 1):
+                    reader_rt[cx][cy] = [start, per_core, Nt, Ct]
+                    compute_rt[cx][cy] = [per_core * GROUP_TILES]
+                    writer_rt[cx][cy] = [start, per_core, Nt, Ct]
+                    start += per_core
+    assert start == num_groups, (start, num_groups)
+
+    reader = ttnn.KernelDescriptor(
+        kernel_source=str(KERNEL_DIR_BACK / "reader_reblock_permute_back.cpp"),
+        source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
+        core_ranges=core_grid, compile_time_args=reader_ct, runtime_args=reader_rt,
+        common_runtime_args=[0], config=ttnn.ReaderConfigDescriptor(),
+    )
+    writer = ttnn.KernelDescriptor(
+        kernel_source=str(KERNEL_DIR_BACK / "writer_reblock_permute_back.cpp"),
+        source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
+        core_ranges=core_grid, compile_time_args=writer_ct, runtime_args=writer_rt,
+        common_runtime_args=[0], config=ttnn.WriterConfigDescriptor(),
+    )
+    # The compute kernel is the forward direction's, unchanged: both moves end in one `transpose_wh`
+    # per tile, and the CB indices are the same.
+    compute = ttnn.KernelDescriptor(
+        kernel_source=str(KERNEL_DIR / "compute_reblock_permute.cpp"),
+        source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
+        core_ranges=core_grid, compile_time_args=[IN_CB, OUT_CB], runtime_args=compute_rt,
+        config=ttnn.ComputeConfigDescriptor(
+            math_fidelity=ttnn.MathFidelity.HiFi2, fp32_dest_acc_en=True
+        ),
+    )
+    pd = ttnn.ProgramDescriptor(kernels=[reader, writer, compute], semaphores=[], cbs=cbs)
+
+    # Same one-off probe as the forward direction: find out whether the binding hands back a
+    # reference to the kernel held inside the cached descriptor or a copy of it.
+    global ADDR_WRITE_MODE
+    if ADDR_WRITE_MODE is None:
+        probe = 0xABCD1234
+        pd.kernels[0].common_runtime_args = [probe]
+        ADDR_WRITE_MODE = "in_place" if list(pd.kernels[0].common_runtime_args) == [probe] \
+            else "rebuild_pd"
+        pd.kernels[0].common_runtime_args = [0]
+
+    return {"pd": pd, "kernels": [reader, writer, compute], "cbs": cbs, "core_grid": core_grid}
+
+
+def _prepare_back(x, out, device):
+    reader_ct = [2, STAGE_CB, IN_CB, TILE_H, TILE_W, FACE_H, FACE_W]
+    reader_ct.extend(ttnn.TensorAccessorArgs(x).get_compile_time_args())
+    writer_ct = [2, OUT_CB, TILE_H, TILE_W]
+    writer_ct.extend(ttnn.TensorAccessorArgs(out).get_compile_time_args())
+    key = _cache_key_back(x, out, device, reader_ct, writer_ct)
+    entry = _CACHE_BACK.get(key)
+    if entry is None:
+        entry = _CACHE_BACK[key] = _build_back(x, out, device, reader_ct, writer_ct)
+    return entry
+
+
+def reblock_permute_back(x, memory_config=None, device=None):
+    """``ttnn.permute(x, (0, 2, 3, 1))`` for ``x`` of shape ``[1, C, N, N]`` bf16 TILE."""
+    device = device or x.device()
+    mc = memory_config or x.memory_config()
+    C, N = int(x.shape[1]), int(x.shape[2])
+    out = ttnn.allocate_tensor_on_device(
+        ttnn.Shape([1, N, N, C]), ttnn.bfloat16, ttnn.TILE_LAYOUT, device, mc
+    )
+    entry = _prepare_back(x, out, device)
+    src, dst = x.buffer_address(), out.buffer_address()
+    if ADDR_WRITE_MODE == "in_place":
+        pd = entry["pd"]
+        pd.kernels[0].common_runtime_args = [src]
+        pd.kernels[1].common_runtime_args = [dst]
+    else:
+        reader, writer, compute = entry["kernels"]
+        reader.common_runtime_args = [src]
+        writer.common_runtime_args = [dst]
+        pd = entry["pd"] = ttnn.ProgramDescriptor(
+            kernels=[reader, writer, compute], semaphores=[], cbs=entry["cbs"]
+        )
+    STATS_BACK[0] += 1
+    return ttnn.generic_op([x, out], pd)
+
+
+# Whether `_channel_move_back` reaches for the kernel at all.
+REBLOCK_PERMUTE_BACK = False  # WIP: the kernel is NOT correct yet, see state doc E2
+_ENABLED_BACK = os.environ.get(
+    "TT_BIO_REBLOCK_PERMUTE_BACK", "1" if REBLOCK_PERMUTE_BACK else "0") == "1"
+
+
+def set_enabled_back(on: bool) -> bool:
+    """A/B switch for the paired harness. Returns the previous state."""
+    global _ENABLED_BACK
+    prev, _ENABLED_BACK = _ENABLED_BACK, bool(on)
+    return prev
+
+
+def eligible_back(x, memory_config) -> bool:
+    """The gate for the back direction.
+
+    Deliberately narrower than the forward one. ``N`` must be a multiple of 32: the forward kernels
+    carry an explicit ragged path because the trunk runs them at 298 aa, and the back direction can
+    simply decline that shape and keep the two transposes, since the class it exists for is the DRAM
+    path at 512 aa and above. The destination must be DRAM for the same reason -- that is the only
+    place the two-transpose pair is expensive, and it is where `_triangle_mul_memory_config` puts the
+    chunk from 352 aa up.
+    """
+    if not _ENABLED_BACK:
+        return False
+    shape = [int(d) for d in x.shape]
+    if len(shape) != 4 or shape[0] != 1 or shape[2] != shape[3] or shape[1] % TILE_W:
+        return _reject("back_shape", shape)
+    C, N = shape[1], shape[2]
+    if N % TILE_H:
+        return _reject("back_ragged", shape)
+    if x.dtype != ttnn.bfloat16 or x.layout != ttnn.TILE_LAYOUT:
+        return _reject("back_dtype_layout", shape)
+    if memory_config.memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
+        return _reject("back_sharded_out", shape)
+    if x.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
+        return _reject("back_sharded_in", shape)
+    if memory_config.buffer_type != ttnn.BufferType.DRAM or N < 256:
+        return _reject(f"back_window_{memory_config.buffer_type}", shape)
+    if _split_plan(x.device(), (N // TILE_H) ** 2 * (C // TILE_W)) is None:
+        return _reject("back_work_split", shape)
+    return True
