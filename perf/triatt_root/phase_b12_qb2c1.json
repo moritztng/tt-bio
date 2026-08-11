@@ -1,0 +1,141 @@
+{
+ "grid": [
+  11,
+  10
+ ],
+ "ttnn": "0.68.0",
+ "rows": [
+  {
+   "seq": 256,
+   "prod_q": 256,
+   "prod_k": 256,
+   "prod_ms": 1.0004,
+   "prod_tflops": 17.17,
+   "cand_q": 256,
+   "cand_k": 256,
+   "note": "candidate == production (control row)",
+   "exact": "identity"
+  },
+  {
+   "seq": 320,
+   "prod_q": 64,
+   "prod_k": 64,
+   "prod_ms": 2.9015,
+   "prod_tflops": 11.56,
+   "cand_q": 320,
+   "cand_k": 64,
+   "cand_ms": 1.892,
+   "cand_tflops": 17.73,
+   "exact": "torch.equal",
+   "ratio": 1.5336
+  },
+  {
+   "seq": 352,
+   "prod_q": 64,
+   "prod_k": 64,
+   "prod_ms": 4.2697,
+   "prod_tflops": 10.46,
+   "cand_q": 352,
+   "cand_k": 64,
+   "cand_ms": 2.5438,
+   "cand_tflops": 17.56,
+   "exact": "torch.equal",
+   "ratio": 1.6785
+  },
+  {
+   "seq": 384,
+   "prod_q": 64,
+   "prod_k": 64,
+   "prod_ms": 4.9221,
+   "prod_tflops": 11.78,
+   "cand_q": 384,
+   "cand_k": 64,
+   "cand_ms": 3.0956,
+   "cand_tflops": 18.73,
+   "exact": "torch.equal",
+   "ratio": 1.5901
+  },
+  {
+   "seq": 448,
+   "prod_q": 256,
+   "prod_k": 256,
+   "prod_ms": 6.6665,
+   "prod_tflops": 13.81,
+   "cand_q": 448,
+   "cand_k": 256,
+   "cand_ms": 4.9622,
+   "cand_tflops": 18.55,
+   "exact": "torch.equal",
+   "ratio": 1.3434
+  },
+  {
+   "seq": 512,
+   "prod_q": 256,
+   "prod_k": 256,
+   "prod_ms": 7.1545,
+   "prod_tflops": 19.21,
+   "cand_q": 512,
+   "cand_k": 256,
+   "cand_ms": 6.6145,
+   "cand_tflops": 20.78,
+   "exact": "torch.equal",
+   "ratio": 1.0816
+  },
+  {
+   "seq": 576,
+   "prod_q": 256,
+   "prod_k": 256,
+   "prod_ms": 24.6561,
+   "prod_tflops": 7.94,
+   "cand_q": 576,
+   "cand_k": 256,
+   "cand_ms": 14.4234,
+   "cand_tflops": 13.57,
+   "exact": "torch.equal",
+   "ratio": 1.7095
+  },
+  {
+   "seq": 640,
+   "prod_q": 256,
+   "prod_k": 256,
+   "prod_ms": 20.3223,
+   "prod_tflops": 13.21,
+   "cand_q": 640,
+   "cand_k": 256,
+   "cand_ms": 14.445,
+   "cand_tflops": 18.58,
+   "exact": "torch.equal",
+   "ratio": 1.4069
+  },
+  {
+   "seq": 768,
+   "prod_q": 256,
+   "prod_k": 256,
+   "prod_ms": 23.6549,
+   "prod_tflops": 19.61,
+   "cand_q": 768,
+   "cand_k": 256,
+   "cand_error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1802752 B which is beyond max L1 si"
+  },
+  {
+   "seq": 1024,
+   "prod_q": 256,
+   "prod_k": 256,
+   "prod_ms": 55.1589,
+   "prod_tflops": 19.93,
+   "cand_q": 1024,
+   "cand_k": 256,
+   "cand_error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2343424 B which is beyond max L1 si"
+  },
+  {
+   "seq": 1536,
+   "prod_q": 256,
+   "prod_k": 256,
+   "prod_ms": 184.1505,
+   "prod_tflops": 20.15,
+   "cand_q": 1536,
+   "cand_k": 256,
+   "cand_error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3424768 B which is beyond max L1 si"
+  }
+ ]
+}

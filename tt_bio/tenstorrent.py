@@ -343,11 +343,15 @@ def _sdpa_program_config(q_chunk_size: int, k_chunk_size: int) -> ttnn.SDPAProgr
     )
 
 
+def _padded_sdpa_len(seq_len: int) -> int:
+    return ((seq_len + SDPA_CHUNK_TILE - 1) // SDPA_CHUNK_TILE) * SDPA_CHUNK_TILE
+
+
 @lru_cache(maxsize=None)
 def _capped_sdpa_chunk_size(seq_len: int) -> int:
     if seq_len <= 0:
         return SDPA_CHUNK_TILE
-    return min(SDPA_CHUNK_MAX, ((seq_len + SDPA_CHUNK_TILE - 1) // SDPA_CHUNK_TILE) * SDPA_CHUNK_TILE)
+    return min(SDPA_CHUNK_MAX, _padded_sdpa_len(seq_len))
 
 
 @lru_cache(maxsize=None)
@@ -359,15 +363,85 @@ def _sdpa_program_config_for_lengths(q_len: int, k_len: int) -> ttnn.SDPAProgram
 
 
 @lru_cache(maxsize=None)
-def _tri_att_sdpa_program_config(q_len: int, k_len: int) -> ttnn.SDPAProgramConfig:
+def _sdpa_chunks_shipped(q_len: int, k_len: int) -> tuple:
     # Microbench M7/M7b/M7c (Blackhole 13x10, tri-att shape batch=seq, h=8, d=32):
     # the 256-cap is optimal at >=512 (0.59x regression at 64) and 128 is best at
     # <=128, but in the 256<seq<=384 band (298-aa proteins pad to 320, 2 chunks of
     # 256+64 padded) q_chunk=k_chunk=64 is 2.45x faster. Chunking only changes the
     # online-softmax reduction order (measured PCC 0.9999 vs the 256 config).
+    # Both sizes were only ever swept together; q is widened past this pick by
+    # _tri_att_q_chunks, which is bit-exact, and k stays exactly here.
     if 256 < q_len <= 384 and 256 < k_len <= 384:
-        return _sdpa_program_config(q_chunk_size=64, k_chunk_size=64)
-    return _sdpa_program_config_for_lengths(q_len, k_len)
+        return (64, 64)
+    return (_capped_sdpa_chunk_size(q_len), _capped_sdpa_chunk_size(k_len))
+
+
+@lru_cache(maxsize=None)
+def _tri_att_sdpa_program_config(q_len: int, k_len: int) -> ttnn.SDPAProgramConfig:
+    q_chunk, k_chunk = _sdpa_chunks_shipped(q_len, k_len)
+    return _sdpa_program_config(q_chunk_size=q_chunk, k_chunk_size=k_chunk)
+
+# Circular-buffer budgets that a q_chunk overflowed on THIS device, so the first fold pays at most
+# one throw per shape and every later call skips straight to a config that fits.
+_SDPA_Q_CHUNK_OVER_L1: set = set()
+
+# Kill switch so a fold-level A/B can run both arms without a checkout. Bit-exact either way.
+_SDPA_WIDE_Q = os.environ.get("TT_BIO_SDPA_WIDE_Q", "1") != "0"
+
+
+@lru_cache(maxsize=None)
+def _tri_att_q_chunks(q_len: int, k_len: int) -> tuple:
+    """q_chunk sizes to try for the tri-attention SDPA, widest first, production pick last.
+
+    The kernel re-reads all of K and V once per q-chunk, so one q-chunk spanning the whole padded
+    sequence reads them once instead of ceil(seq/256) times. Measured on qb2 card 1 at ttnn 0.68.0,
+    torch.equal to the shipped config at every size below -- q_chunk only splits output rows and the
+    online softmax reduces over k, so no reduction order changes:
+
+        seq  320  352  384  448  512  576  640  768  1024
+        gain 1.53 1.68 1.59 1.34 1.08 1.71 1.41 1.06 1.09   (perf/triatt_root/phase_b12*.json)
+
+    Only q_chunks that DIVIDE the padded sequence are offered. The kernel reads and computes a
+    padded_q x padded_k mask grid and that mask is 84% of this op's DRAM traffic, so a q_chunk that
+    does not divide the sequence pays the padding twice over: q512 at seq 768 pads 768 -> 1024 and
+    measures 0.797x, a loss, while q384 divides it and is 1.06x.
+
+    The ceiling is L1, not a number, so it is discovered rather than declared: q640/k256 fits at
+    seq 640 and overflows by 512 B of 1572864 at seq 768, and the per-core budget moves with the
+    core count (110 on this part, 130 on a 13x10 one). A hard-coded window calibrated on one grid
+    is how the reblock_permute lever became a 0.62x loss on the other.
+    """
+    prod = _sdpa_chunks_shipped(q_len, k_len)[0]
+    if not _SDPA_WIDE_Q:
+        return (prod,)
+    padded = _padded_sdpa_len(q_len)
+    wider = [padded // n for n in range(1, padded // SDPA_CHUNK_TILE + 1)
+             if padded % n == 0 and (padded // n) % SDPA_CHUNK_TILE == 0
+             and padded // n > prod]
+    return tuple(sorted(wider, reverse=True)) + (prod,)
+
+
+def _tri_att_sdpa(q, k, v, bias, scale: float):
+    """SDPA for triangle attention at the widest q_chunk this device's L1 will hold."""
+    q_len, k_len = q.shape[2], k.shape[2]
+    k_chunk = _sdpa_chunks_shipped(q_len, k_len)[1]
+    fits = [qc for qc in _tri_att_q_chunks(q_len, k_len)
+            if (q_len, k_len, qc) not in _SDPA_Q_CHUNK_OVER_L1]
+    for q_chunk in fits[:-1]:
+        try:
+            return ttnn.transformer.scaled_dot_product_attention(
+                q, k, v, attn_mask=bias, is_causal=False, scale=scale,
+                program_config=_sdpa_program_config(q_chunk, k_chunk),
+            )
+        except Exception as exc:  # noqa: BLE001 -- re-raised unless it is the L1 budget
+            if "circular buffers" not in str(exc):
+                raise
+            _SDPA_Q_CHUNK_OVER_L1.add((q_len, k_len, q_chunk))
+    return ttnn.transformer.scaled_dot_product_attention(
+        q, k, v, attn_mask=bias, is_causal=False, scale=scale,
+        program_config=_sdpa_program_config(fits[-1], k_chunk),
+    )
+
 
 
 # Kill switch for the batched program config, so a parity gate that spawns one fold per leg can
@@ -2152,10 +2226,7 @@ class TriangleAttention(Module):
                     bias_scale_inv=1.0 / self._bias_scale,
                 )
             else:
-                o = ttnn.transformer.scaled_dot_product_attention(
-                    q, k, v, attn_mask=bias, is_causal=False, scale=self.scale**-1,
-                    program_config=_tri_att_sdpa_program_config(q.shape[2], k.shape[2]),
-                )
+                o = _tri_att_sdpa(q, k, v, bias, self.scale**-1)
             ttnn.deallocate(q)
             ttnn.deallocate(k)
             ttnn.deallocate(v)

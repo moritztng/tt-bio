@@ -1,0 +1,88 @@
+{
+ "chunks": {
+  "256": [
+   256
+  ],
+  "320": [
+   320,
+   160,
+   64
+  ],
+  "352": [
+   352,
+   64
+  ],
+  "384": [
+   384,
+   192,
+   128,
+   96,
+   64
+  ],
+  "448": [
+   448,
+   256
+  ],
+  "512": [
+   512,
+   256
+  ],
+  "576": [
+   576,
+   288,
+   256
+  ],
+  "640": [
+   640,
+   320,
+   256
+  ],
+  "768": [
+   768,
+   384,
+   256
+  ],
+  "1024": [
+   1024,
+   512,
+   256
+  ]
+ },
+ "exact": {
+  "320": {
+   "torch_equal": true,
+   "torch_equal_2nd": true,
+   "first_call_ms": 794.59,
+   "second_call_ms": 30.16,
+   "over_l1": []
+  },
+  "512": {
+   "torch_equal": true,
+   "torch_equal_2nd": true,
+   "first_call_ms": 870.86,
+   "second_call_ms": 76.96,
+   "over_l1": []
+  },
+  "576": {
+   "torch_equal": true,
+   "torch_equal_2nd": true,
+   "first_call_ms": 911.5,
+   "second_call_ms": 98.79,
+   "over_l1": []
+  },
+  "768": {
+   "torch_equal": true,
+   "torch_equal_2nd": true,
+   "first_call_ms": 1805.2,
+   "second_call_ms": 173.91,
+   "over_l1": [
+    [
+     768,
+     768,
+     768
+    ]
+   ]
+  }
+ },
+ "fallback": {}
+}
