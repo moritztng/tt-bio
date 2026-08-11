@@ -89,6 +89,24 @@ _TRIMUL_RAW_CHANNEL_MOVES = False
 # run-to-run noise floor of exactly 0.0 (perf/trimul_kernel/w2_fold_parity.py). That is a
 # different fold, not a rounding difference. See _trimul_out_proj.
 _TRIMUL_MM_OUT = False
+# The trimul in-projection's N is 4 * the channel-chunk width, and above _trimul_l1_max_seq that
+# width is pinned to the narrowest value by _trimul_chunk_size -- on a path where the chunks are in
+# DRAM and the L1 budget the narrowing protects does not exist. At 512 aa the same 134.2 MB
+# activation is therefore streamed from DRAM once per chunk, 1024 MB read to write 512 MB, and
+# grouping G chunks into one matmul removes (G-1)/G of that read, bit-exact (torch.equal, max_abs
+# 0.0, 2.03x on the matmul: perf/bigswing/trimul_inproj_width.py).
+#
+# DEFAULT 1, i.e. OFF, because the matmul is not the whole unit. The loop consumes four
+# [1,S,S,C] pieces, so a grouped matmul is followed by a 4G-way ttnn.chunk, and a chunk whose
+# pieces are one tile wide runs at 96 GB/s against 166-335 GB/s for pieces of 4-8 tiles
+# (perf/bigswing/chunk_width_rate.py). The split loses more than the matmul saves: 11.670 -> 13.443
+# ms per trimul at G=4, which measured 0.9724x at the fold, CIF-identical, 40x the A/A floor
+# (perf/bigswing/fold_group_512_qb2c0.json).
+#
+# The fix is a role-major weight order, so the split is 4-way at every G and the channel loop runs
+# 32*G channels at a time. That screens at 1.72x on the mandatory unit. Until it exists, G > 1 is a
+# measured regression -- see state/pairformer-resident-chunking.md §67.
+_TRIMUL_INPROJ_GROUP = 1
 # Widest inner K block the pair-track projection config may use; None disables the config.
 # 1 keeps the contraction order of the production call and is bit-exact. Above 1 the partial
 # sums fold through packer_l1_acc in K-block order instead, which moves the last bf16 bit and
@@ -1591,25 +1609,35 @@ class TriangleMultiplication(Module):
         # and a fold holds one sequence length, so in practice one variant exists.
         self._g_in_t, self._p_in_t = g_in_t, p_in_t
         self._hidden = g_in_t.shape[1] // 2
-        self._gp_cache: dict[int, list[ttnn.Tensor]] = {}
+        self._gp_cache: dict[tuple[int, int], list[ttnn.Tensor]] = {}
         self.g_out_weight = self.torch_to_tt("g_out.weight")
         self.out_p_weight = self.torch_to_tt("p_out.weight")
 
-    def _gp_in_chunks(self, C: int) -> list[ttnn.Tensor]:
-        """Fused [g_a | g_b | p_a | p_b] input weights for a chunk width of C."""
-        cached = self._gp_cache.get(C)
+    def _gp_in_chunks(self, C: int, group: int = 1) -> list[ttnn.Tensor]:
+        """Fused [g_a | g_b | p_a | p_b] input weights, `group` consecutive chunks per weight.
+
+        The columns stay in pair order, so a 4*group-way split of the result hands back exactly
+        the four pieces per pair the narrow path produced -- which is what makes the wider matmul
+        bit-exact rather than merely close.
+        """
+        cached = self._gp_cache.get((C, group))
         if cached is not None:
             return cached
         g, p = self._g_in_t, self._p_in_t
         n_pairs = g.shape[1] // C // 2
+        assert n_pairs % group == 0, f"group {group} does not divide {n_pairs} pairs"
         chunks = [
             ttnn.from_torch(
                 torch.cat(
                     [
-                        g[:, i * C : (i + 1) * C],
-                        g[:, (i + n_pairs) * C : (i + n_pairs + 1) * C],
-                        p[:, i * C : (i + 1) * C],
-                        p[:, (i + n_pairs) * C : (i + n_pairs + 1) * C],
+                        col
+                        for j in range(i * group, (i + 1) * group)
+                        for col in (
+                            g[:, j * C : (j + 1) * C],
+                            g[:, (j + n_pairs) * C : (j + n_pairs + 1) * C],
+                            p[:, j * C : (j + 1) * C],
+                            p[:, (j + n_pairs) * C : (j + n_pairs + 1) * C],
+                        )
                     ],
                     dim=1,
                 ),
@@ -1617,9 +1645,9 @@ class TriangleMultiplication(Module):
                 device=self.device,
                 dtype=ttnn.bfloat16,
             )
-            for i in range(n_pairs)
+            for i in range(n_pairs // group)
         ]
-        self._gp_cache[C] = chunks
+        self._gp_cache[(C, group)] = chunks
         return chunks
 
     def _transform_chunk(
@@ -1674,8 +1702,17 @@ class TriangleMultiplication(Module):
         # Every L1 tensor the channel loop holds is [batch, chunk, H, H], so the width
         # budget has to see the batch a confidence head arrives with, not just H.
         batch = prod(list(x_norm_in.shape)[:-3])
-        gp_in_chunks = self._gp_in_chunks(_trimul_chunk_size(H, self._hidden, batch))
-        n_pairs = len(gp_in_chunks)
+        large_seq = memory_config.buffer_type == ttnn.BufferType.DRAM
+        chunk_size = _trimul_chunk_size(H, self._hidden, batch)
+        n_pairs = self._hidden // chunk_size
+        # The matmul's N and the channel-chunk width are two different numbers this code has been
+        # forcing to be one. Only the matmul widens (_TRIMUL_INPROJ_GROUP), and only on the DRAM
+        # path: on the L1 path _trimul_chunk_size has already widened the chunk itself and the L1
+        # budget it protects is real. Everything below the four-way unpack is unchanged.
+        group = _TRIMUL_INPROJ_GROUP if large_seq else 1
+        while n_pairs % group:
+            group //= 2
+        gp_in_chunks = self._gp_in_chunks(chunk_size, group)
         seq_len_tiles = (H + 31) // 32
         program_config = _triangle_mul_program_config(seq_len_tiles)
         if H > SEQ_LEN_MORE_CHUNKING:
@@ -1690,22 +1727,25 @@ class TriangleMultiplication(Module):
         # moved to DRAM as they are produced, so holding all n_pairs of them costs
         # no L1: measured 7.05 -> 6.94 ms per trimul at 298 aa
         # (perf/trimul_kernel/opsplit298.py).
-        large_seq = memory_config.buffer_type == ttnn.BufferType.DRAM
         # Assemble the per-channel chunks on the host when the full result is large
         # enough that the concat's full-size allocation would risk a fragmented-DRAM
         # refusal; the loop then holds at most one chunk on device (CONCAT_HOST_BYTES).
         host_acc = large_seq and _host_concat(x_in)
         x_chunks = []
+        pending: list[tuple] = []          # the current group's [g_a, g_b, p_a, p_b] quadruples
         for i in range(n_pairs):
-            gp_in_fused = ttnn.experimental.minimal_matmul(
-                x_norm_in,
-                gp_in_chunks[i],
-                memory_config=memory_config,
-                dtype=_dtype(),
-                compute_kernel_config=self.compute_kernel_config,
-            )
-            g_in_a, g_in_b, p_in_a, p_in_b = ttnn.chunk(gp_in_fused, chunks=4, dim=-1)
-            ttnn.deallocate(gp_in_fused)
+            if not pending:
+                gp_in_fused = ttnn.experimental.minimal_matmul(
+                    x_norm_in,
+                    gp_in_chunks[i // group],
+                    memory_config=memory_config,
+                    dtype=_dtype(),
+                    compute_kernel_config=self.compute_kernel_config,
+                )
+                parts = ttnn.chunk(gp_in_fused, chunks=4 * group, dim=-1)
+                ttnn.deallocate(gp_in_fused)
+                pending = [tuple(parts[4 * j : 4 * j + 4]) for j in range(group)]
+            g_in_a, g_in_b, p_in_a, p_in_b = pending.pop(0)
             a_chunk = ttnn.multiply_(
                 p_in_a, g_in_a, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
             )

@@ -45,6 +45,8 @@ WALL = defaultdict(lambda: {"n": 0, "s": 0.0})
 DEC = defaultdict(Counter)
 STATE = {"dev": None, "gates": "on", "model": None}
 FIDELITY = {"lofi": "LoFi", "hifi2": "HiFi2", "hifi3": "HiFi3", "hifi4": "HiFi4"}
+# trimul in-projection group width (_TRIMUL_INPROJ_GROUP). g1 is the pre-pass-9 default.
+GROUP = {"g1": 1, "g2": 2, "g4": 4, "g8": 8}
 
 
 def timed_call(key, fn, *a, **kw):
@@ -131,7 +133,8 @@ def main():
         # A fidelity arm holds the capacity gates at production defaults; the only thing that moves
         # is the trunk's own compute kernel config, written in place.
         fid = FIDELITY.get(name)
-        STATE["gates"] = "on" if fid else name
+        grp = GROUP.get(name)
+        STATE["gates"] = "on" if (fid or grp) else name
         on = STATE["gates"] == "on"
         T._PAIR_PROJ_L1_OUT = on
         T._PAIR_BIAS_L1_NORM = on
@@ -139,6 +142,10 @@ def main():
         T._TEMPLATE_L1_NORM = on
         T._pair_proj_program_config.cache_clear()
         T._L1_OUT_REFUSED.clear()
+        if grp:
+            # The weight cache is keyed on (chunk_size, group), so an arm flip builds the widened
+            # weights once and never reloads the model.
+            T._TRIMUL_INPROJ_GROUP = grp
         if fid:
             ckc = STATE["model"].trunk.compute_kernel_config
             ckc.math_fidelity = getattr(ttnn.MathFidelity, fid)
@@ -201,6 +208,7 @@ def main():
                    "n_tokens": m.get("n_tokens"), "plddt": m.get("plddt"),
                    "cif_sha256": sha_dir(struct_dir),
                    "grid": list(T.COMPUTE_GRID_MAIN),
+                   "trimul_inproj_group": T._TRIMUL_INPROJ_GROUP,
                    "fidelity": fidelities(),
                    "loadavg": open("/proc/loadavg").read().split()[:3],
                    "wall_ms": {k: {"calls": v["n"], "ms": round(v["s"] * 1e3, 2)}

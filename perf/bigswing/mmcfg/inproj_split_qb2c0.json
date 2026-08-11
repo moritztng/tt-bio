@@ -1,0 +1,93 @@
+{
+ "host": "qb2",
+ "chip": 0,
+ "seq": 512,
+ "K": 256,
+ "C": 32,
+ "n_pairs": 8,
+ "reps": 5,
+ "shape": "[1,512,512,256] @ [256,128g] then chunk(4g)",
+ "arms": [
+  {
+   "G": 1,
+   "split": false,
+   "pieces": 0,
+   "matmuls": 8,
+   "ms_median": 5.8728,
+   "spread_ms": 0.045,
+   "split_only_ms": null,
+   "vs_G1_with_split": null
+  },
+  {
+   "G": 1,
+   "split": true,
+   "pieces": 4,
+   "matmuls": 8,
+   "ms_median": 11.6696,
+   "spread_ms": 0.1236,
+   "split_only_ms": 5.7968,
+   "vs_G1_with_split": 1.0
+  },
+  {
+   "G": 2,
+   "split": false,
+   "pieces": 0,
+   "matmuls": 4,
+   "ms_median": 3.9446,
+   "spread_ms": 0.1999,
+   "split_only_ms": null,
+   "vs_G1_with_split": null
+  },
+  {
+   "G": 2,
+   "split": true,
+   "pieces": 8,
+   "matmuls": 4,
+   "ms_median": 14.2375,
+   "spread_ms": 1.861,
+   "split_only_ms": 10.2929,
+   "vs_G1_with_split": 0.8196
+  },
+  {
+   "G": 4,
+   "split": false,
+   "pieces": 0,
+   "matmuls": 2,
+   "ms_median": 3.2054,
+   "spread_ms": 0.3194,
+   "split_only_ms": null,
+   "vs_G1_with_split": null
+  },
+  {
+   "G": 4,
+   "split": true,
+   "pieces": 16,
+   "matmuls": 2,
+   "ms_median": 13.4427,
+   "spread_ms": 0.976,
+   "split_only_ms": 10.2373,
+   "vs_G1_with_split": 0.8681
+  },
+  {
+   "G": 8,
+   "split": false,
+   "pieces": 0,
+   "matmuls": 1,
+   "ms_median": 2.9859,
+   "spread_ms": 0.4168,
+   "split_only_ms": null,
+   "vs_G1_with_split": null
+  },
+  {
+   "G": 8,
+   "split": true,
+   "pieces": 32,
+   "matmuls": 1,
+   "ms_median": 13.2131,
+   "spread_ms": 0.2473,
+   "split_only_ms": 10.2272,
+   "vs_G1_with_split": 0.8832
+  }
+ ],
+ "ttnn": "0.68.0"
+}
