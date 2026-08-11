@@ -1,0 +1,89 @@
+{
+ "ttnn": "0.68.0",
+ "host": "qb2",
+ "chip": 0,
+ "mode": "census",
+ "size": 512,
+ "grid": [
+  11,
+  10
+ ],
+ "timed": true,
+ "note": "syncs inflate the absolute; per-site seconds are shares, not fold gains",
+ "fold_s": 81.383,
+ "wall_s": 81.383,
+ "n_tokens": 512,
+ "plddt": 0.828628,
+ "qkv_branch": {
+  "512x512x64@192->minimal_matmul": 160,
+  "512x512x256@768->minimal_matmul": 1048
+ },
+ "sites": {
+  "tenstorrent.py:1700|in=1x512x512x256|w=256x128": {
+   "n": 8384,
+   "s": 6.1992,
+   "accept": 0,
+   "decline": 0,
+   "throw": 0,
+   "why": "",
+   "out": "DRAM",
+   "dtype": "BFLOAT16",
+   "ms_per_call": 0.7394
+  },
+  "tenstorrent.py:2097|in=512x512x256|w=256x768": {
+   "n": 1048,
+   "s": 2.5613,
+   "accept": 0,
+   "decline": 0,
+   "throw": 0,
+   "why": "",
+   "out": "DRAM",
+   "dtype": "BFLOAT16",
+   "ms_per_call": 2.4439
+  },
+  "tenstorrent.py:2103|in=512x512x256|w=256x256": {
+   "n": 1048,
+   "s": 1.0239,
+   "accept": 0,
+   "decline": 0,
+   "throw": 0,
+   "why": "",
+   "out": "DRAM",
+   "dtype": "BFLOAT16",
+   "ms_per_call": 0.977
+  },
+  "tenstorrent.py:1700|in=1x512x512x64|w=64x128": {
+   "n": 320,
+   "s": 0.2328,
+   "accept": 0,
+   "decline": 0,
+   "throw": 0,
+   "why": "",
+   "out": "DRAM",
+   "dtype": "BFLOAT16",
+   "ms_per_call": 0.7275
+  },
+  "tenstorrent.py:2097|in=512x512x64|w=64x192": {
+   "n": 160,
+   "s": 0.1211,
+   "accept": 0,
+   "decline": 0,
+   "throw": 0,
+   "why": "",
+   "out": "DRAM",
+   "dtype": "BFLOAT16",
+   "ms_per_call": 0.7568
+  },
+  "tenstorrent.py:2103|in=512x512x64|w=64x64": {
+   "n": 160,
+   "s": 0.1168,
+   "accept": 0,
+   "decline": 0,
+   "throw": 0,
+   "why": "",
+   "out": "DRAM",
+   "dtype": "BFLOAT16",
+   "ms_per_call": 0.7303
+  }
+ }
+}
