@@ -960,11 +960,30 @@ def main():
                              f"{cph:.2f} card-h/target)" if marg is not None else ""))
             ds = deep_stats(pools, model)
             report[model + "__deep"] = ds
-            print(f"  within-fold oracle curve (top rung N={ds['top_rung']}, "
-                  f"{ds['n_targets']} targets):")
+            # Two curves, and only the second is quotable. The first reads each target at
+            # its own largest pool, so its target set SHRINKS as m grows -- deep-m entries
+            # are the overlay-heavy hard targets and the curve can invert. It is printed
+            # with a per-m nt so that shrinkage is visible instead of implied by a single
+            # header count. The stop-rule floor must come off the fixed-panel curve.
+            print(f"  within-fold oracle curve, MIXED target set (each target at its own "
+                  f"largest pool, cap N={ds['top_rung']}, {ds['n_targets']} targets; nt "
+                  f"shrinks with m -- do not quote):")
             for m, v in ds["within_fold_oracle_curve"].items():
                 fl = ds["seed_noise_floor_med"].get(str(m)) or ds["seed_noise_floor_med"].get(m)
-                print(f"    m={m:<4} E[oracle]={v:.4f}" + (f"  floor={fl:.4f}" if fl else ""))
+                nt = ds["within_fold_nt"].get(str(m)) or ds["within_fold_nt"].get(m)
+                print(f"    m={m:<4} nt={nt:<4} E[oracle]={v:.4f}"
+                      + (f"  floor={fl:.4f}" if fl else ""))
+            cm = ds.get("within_fold_common")
+            if cm:
+                print(f"  within-fold oracle curve, FIXED panel of {cm['n_targets']} targets "
+                      f"at depth D={cm['depth']} -- quote this one, and take the stop-rule "
+                      f"floor from here:")
+                for m, v in cm["curve"].items():
+                    fl = cm["floor_med"].get(str(m)) or cm["floor_med"].get(m)
+                    print(f"    m={m:<4} E[oracle]={v:.4f}" + (f"  floor={fl:.4f}" if fl else ""))
+            else:
+                print("  within-fold oracle curve, FIXED panel: NONE -- no depth reaches "
+                      "20 targets, so there is no quotable curve and no stop-rule floor")
             print(f"  solvable at top rung: {ds['solvable_at_top']}")
     if os.environ.get("DEEPN_N16_ARK") == "1":
         # models whose N=16 rung is the ARK restatement (same flavor as the qb1 arms);
