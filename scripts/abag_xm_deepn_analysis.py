@@ -924,18 +924,32 @@ def main():
                 # make the 512 step look 1.31x dearer when per sample the two rungs
                 # are within 2 pct. The sample rate is also panel-robust, which the
                 # raw cost is not -- rung 512's panel is overlay-heavy hard targets.
+                # Seconds per sample is a RATE, so it does not need every target in the
+                # panel -- but it must never be read off a handful, and the basis has to
+                # be named. A strict all() over `both` costs the whole model its cost
+                # headline for one unpriced target: boltz2 9d72/9d74 reach rung 512
+                # entirely through links whose records carry seconds=None and have no
+                # fleet_results row at all, and those 2 of 90 emptied boltz2's 256->512
+                # marginal cost. Price on the targets that carry a record, demand most of
+                # the panel, and publish the basis size beside the number.
+                COST_COVER_MIN = 0.90
+                COST_COVER_ABS = 8
+
                 def _rate(n):
-                    w = [pools[(t, n)].get("wall_s") for t in both]
-                    b = [pools[(t, n)].get("billed_n") for t in both]
-                    if not all(w) or not all(b):
+                    pri = [(pools[(t, n)].get("wall_s"), pools[(t, n)].get("billed_n"))
+                           for t in both]
+                    pri = [(w, b) for w, b in pri if w and b]
+                    if len(pri) < COST_COVER_ABS or len(pri) < COST_COVER_MIN * len(both):
                         return None
-                    return sum(w) / sum(b)
+                    return sum(w for w, _b in pri) / sum(b for _w, b in pri), len(pri)
 
                 r_hi, r_lo = _rate(hi), _rate(lo)
                 if r_hi:
-                    step_cs = (hi - lo) * r_hi / 1000
-                    gains[f"{lo}->{hi}"]["s_per_sample_hi"] = round(r_hi, 2)
+                    rate_hi, cost_n = r_hi
+                    step_cs = (hi - lo) * rate_hi / 1000
+                    gains[f"{lo}->{hi}"]["s_per_sample_hi"] = round(rate_hi, 2)
                     gains[f"{lo}->{hi}"]["step_samples"] = hi - lo
+                    gains[f"{lo}->{hi}"]["cost_basis_targets"] = cost_n
                     gains[f"{lo}->{hi}"]["cost_h_per_target"] = round(step_cs * 1000 / 3600, 4)
                     gains[f"{lo}->{hi}"]["marginal_oracle_per_1000cs"] = \
                         round(g["oracle"][1] / step_cs, 6)
@@ -943,7 +957,7 @@ def main():
                     # as the ladder deepens" is answerable with no panel and no
                     # sample-count confound.
                     if r_lo:
-                        gains[f"{lo}->{hi}"]["s_per_sample_lo_same_panel"] = round(r_lo, 2)
+                        gains[f"{lo}->{hi}"]["s_per_sample_lo_same_panel"] = round(r_lo[0], 2)
             if gains:
                 report[model + "__pairwise_gain_ci"] = gains
                 print("  pairwise adjacent-rung gain CIs (stop-rule basis):")
@@ -957,7 +971,9 @@ def main():
                           f"  gap {gp[1]:+.4f} [{gp[0]:+.4f},{gp[2]:+.4f}]"
                           + (f"  marginal {marg:+.6f}/1000 card-s per target "
                              f"({d['step_samples']} samples x {rate:.1f} s = "
-                             f"{cph:.2f} card-h/target)" if marg is not None else ""))
+                             f"{cph:.2f} card-h/target, priced on "
+                             f"{d['cost_basis_targets']}/{d['common_targets']})"
+                             if marg is not None else ""))
             ds = deep_stats(pools, model)
             report[model + "__deep"] = ds
             # Two curves, and only the second is quotable. The first reads each target at
