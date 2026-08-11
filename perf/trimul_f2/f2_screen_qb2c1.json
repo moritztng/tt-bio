@@ -1,0 +1,309 @@
+{
+ "roof_gbs": 375.0,
+ "s1": [
+  {
+   "n": 512,
+   "c": 256,
+   "src": "dram",
+   "dst": "dram",
+   "payload_mb": 134.217728,
+   "equal": true,
+   "ms": 1.4141367999854992,
+   "gbs_each_way": 94.91141734051207,
+   "pct_roof": 50.619422581606436
+  },
+  {
+   "n": 512,
+   "c": 256,
+   "src": "dram",
+   "dst": "l1",
+   "payload_mb": 134.217728,
+   "err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 134217728 B L1 buffer across 110 banks, where each bank ne"
+  },
+  {
+   "n": 512,
+   "c": 256,
+   "src": "l1",
+   "dst": "dram",
+   "payload_mb": 134.217728,
+   "equal": true,
+   "ms": 1.094264999983352,
+   "gbs_each_way": 122.65559805169856,
+   "pct_roof": 65.4163189609059
+  },
+  {
+   "n": 512,
+   "c": 256,
+   "src": "l1",
+   "dst": "l1",
+   "payload_mb": 134.217728,
+   "err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 134217728 B L1 buffer across 110 banks, where each bank ne"
+  },
+  {
+   "n": 512,
+   "c": 64,
+   "src": "dram",
+   "dst": "dram",
+   "payload_mb": 33.554432,
+   "equal": true,
+   "ms": 0.4204198000024917,
+   "gbs_each_way": 79.81173103598148,
+   "pct_roof": 42.566256552523456
+  },
+  {
+   "n": 512,
+   "c": 64,
+   "src": "dram",
+   "dst": "l1",
+   "payload_mb": 33.554432,
+   "err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 33554432 B L1 buffer across 110 banks, where each bank nee"
+  },
+  {
+   "n": 512,
+   "c": 64,
+   "src": "l1",
+   "dst": "dram",
+   "payload_mb": 33.554432,
+   "equal": true,
+   "ms": 0.28859539997938555,
+   "gbs_each_way": 116.26807635325025,
+   "pct_roof": 62.00964072173347
+  },
+  {
+   "n": 512,
+   "c": 64,
+   "src": "l1",
+   "dst": "l1",
+   "payload_mb": 33.554432,
+   "err": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 33554432 B L1 buffer across 110 banks, where each bank nee"
+  },
+  {
+   "n": 512,
+   "c": 32,
+   "src": "dram",
+   "dst": "dram",
+   "payload_mb": 16.777216,
+   "equal": true,
+   "ms": 0.18363459998909093,
+   "gbs_each_way": 91.36195466974453,
+   "pct_roof": 48.726375823863755
+  },
+  {
+   "n": 512,
+   "c": 32,
+   "src": "dram",
+   "dst": "l1",
+   "payload_mb": 16.777216,
+   "equal": true,
+   "ms": 0.18264660002387245,
+   "gbs_each_way": 91.85616374904961,
+   "pct_roof": 48.989953999493125
+  },
+  {
+   "n": 512,
+   "c": 32,
+   "src": "l1",
+   "dst": "dram",
+   "payload_mb": 16.777216,
+   "equal": true,
+   "ms": 0.15448439999090624,
+   "gbs_each_way": 108.6013604026529,
+   "pct_roof": 57.92072554808155
+  },
+  {
+   "n": 512,
+   "c": 32,
+   "src": "l1",
+   "dst": "l1",
+   "payload_mb": 16.777216,
+   "equal": true,
+   "ms": 0.15351840002040262,
+   "gbs_each_way": 109.28472416186139,
+   "pct_roof": 58.28518621965941
+  },
+  {
+   "n": 352,
+   "c": 64,
+   "src": "dram",
+   "dst": "dram",
+   "payload_mb": 15.859712,
+   "equal": true,
+   "ms": 0.22435920000134502,
+   "gbs_each_way": 70.68893096385138,
+   "pct_roof": 37.700763180720735
+  },
+  {
+   "n": 352,
+   "c": 64,
+   "src": "dram",
+   "dst": "l1",
+   "payload_mb": 15.859712,
+   "equal": true,
+   "ms": 0.22331519999170268,
+   "gbs_each_way": 71.01940217499423,
+   "pct_roof": 37.87701449333026
+  },
+  {
+   "n": 352,
+   "c": 64,
+   "src": "l1",
+   "dst": "dram",
+   "payload_mb": 15.859712,
+   "equal": true,
+   "ms": 0.20132859999648645,
+   "gbs_each_way": 78.77525597593576,
+   "pct_roof": 42.013469853832405
+  },
+  {
+   "n": 352,
+   "c": 64,
+   "src": "l1",
+   "dst": "l1",
+   "payload_mb": 15.859712,
+   "equal": true,
+   "ms": 0.1988842000173463,
+   "gbs_each_way": 79.74344869334391,
+   "pct_roof": 42.52983930311675
+  }
+ ],
+ "s2": [
+  {
+   "c": 256,
+   "label": "production 2D-mcast",
+   "blocks": 512,
+   "cores": 110,
+   "ms": 1.695596749982542,
+   "tflops": 40.52819559645154,
+   "ms_per_channel": 0.0066234248046193045
+  },
+  {
+   "c": 256,
+   "label": "no-mcast half-output",
+   "blocks": 512,
+   "cores": 110,
+   "ms": 1.461682500007555,
+   "tflops": 47.013955996356806,
+   "ms_per_channel": 0.005709697265654512
+  },
+  {
+   "c": 128,
+   "label": "production 2D-mcast",
+   "blocks": 256,
+   "cores": 110,
+   "ms": 0.8562409999512965,
+   "tflops": 40.128583389436386,
+   "ms_per_channel": 0.006689382812119504
+  },
+  {
+   "c": 128,
+   "label": "no-mcast half-output",
+   "blocks": 256,
+   "cores": 110,
+   "ms": 0.8797712500268062,
+   "tflops": 39.055309396565384,
+   "ms_per_channel": 0.006873212890834424
+  },
+  {
+   "c": 64,
+   "label": "production 2D-mcast",
+   "blocks": 128,
+   "cores": 110,
+   "ms": 0.4237984999804212,
+   "tflops": 40.53782442550807,
+   "ms_per_channel": 0.006621851562194081
+  },
+  {
+   "c": 64,
+   "label": "no-mcast half-output",
+   "blocks": 128,
+   "cores": 110,
+   "ms": 0.4147535000242897,
+   "tflops": 41.42187873759685,
+   "ms_per_channel": 0.006480523437879526
+  },
+  {
+   "c": 32,
+   "label": "production 2D-mcast",
+   "blocks": 64,
+   "cores": 110,
+   "ms": 0.21951625001292996,
+   "tflops": 39.131201409891226,
+   "ms_per_channel": 0.006859882812904061
+  },
+  {
+   "c": 32,
+   "label": "no-mcast half-output",
+   "blocks": 64,
+   "cores": 110,
+   "ms": 0.29599399999824527,
+   "tflops": 29.020637553635964,
+   "ms_per_channel": 0.009249812499945165
+  }
+ ],
+ "s3": [
+  {
+   "n_out": 256,
+   "l1_out": false,
+   "gflop": 34.359738368,
+   "mb_rw": 268.435456,
+   "out_mc": "BufferType.DRAM",
+   "ms": 0.7752494999522241,
+   "tflops": 44.32087782077572,
+   "gbs": 346.25685797481026
+  },
+  {
+   "n_out": 256,
+   "l1_out": true,
+   "gflop": 34.359738368,
+   "mb_rw": 268.435456,
+   "out_mc": "BufferType.DRAM",
+   "ms": 0.7736762499916949,
+   "tflops": 44.41100314035597,
+   "gbs": 346.960962034031
+  },
+  {
+   "n_out": 512,
+   "l1_out": false,
+   "gflop": 68.719476736,
+   "mb_rw": 402.653184,
+   "out_mc": "BufferType.DRAM",
+   "ms": 1.8418414999814559,
+   "tflops": 37.31020108771134,
+   "gbs": 218.61445949830863
+  },
+  {
+   "n_out": 512,
+   "l1_out": true,
+   "gflop": 68.719476736,
+   "mb_rw": 402.653184,
+   "out_mc": "BufferType.DRAM",
+   "ms": 1.8427357500172548,
+   "tflops": 37.29209504691952,
+   "gbs": 218.50836941554408
+  },
+  {
+   "n_out": 1024,
+   "l1_out": false,
+   "gflop": 137.438953472,
+   "mb_rw": 671.08864,
+   "out_mc": "BufferType.DRAM",
+   "ms": 5.756918250028775,
+   "tflops": 23.87370247463789,
+   "gbs": 116.57081286444283
+  },
+  {
+   "n_out": 1024,
+   "l1_out": true,
+   "gflop": 137.438953472,
+   "mb_rw": 671.08864,
+   "out_mc": "BufferType.DRAM",
+   "ms": 5.755750999981046,
+   "tflops": 23.878543994076985,
+   "gbs": 116.59445309607902
+  }
+ ],
+ "grid": [
+  11,
+  10
+ ]
+}

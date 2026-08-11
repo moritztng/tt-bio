@@ -1,0 +1,28 @@
+{
+ "stages": [
+  {
+   "stage": "fresh device",
+   "held_mb": 0.0,
+   "max_single_l1_mb": 47.972352,
+   "first_refusal": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false"
+  },
+  {
+   "stage": "with an F2-sized set resident",
+   "held_mb": 95.944704,
+   "max_single_l1_mb": 31.981568,
+   "first_refusal": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false"
+  },
+  {
+   "stage": "after one reblock generic_op",
+   "held_mb": 0.0,
+   "max_single_l1_mb": 47.972352,
+   "first_refusal": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false"
+  },
+  {
+   "stage": "after a C=256 reblock generic_op",
+   "held_mb": 0.0,
+   "max_single_l1_mb": 47.972352,
+   "first_refusal": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false"
+  }
+ ]
+}
