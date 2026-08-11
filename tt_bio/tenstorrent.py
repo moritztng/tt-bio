@@ -9,6 +9,7 @@ from types import MappingProxyType
 
 from . import reblock_permute as _reblock
 from . import triatt_qkv as _triatt_qkv
+from . import triatt_sdpa as _triatt_sdpa
 
 TRIANGLE_MULT_CHUNK_SIZE = 32
 TRIANGLE_ATT_CHUNK_SIZE_FAST = 1024
@@ -485,6 +486,13 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float):
     k_chunk = _sdpa_chunks_shipped(q_len, k_len)[1]
     fits = [qc for qc in _tri_att_q_chunks(q_len, k_len)
             if (q_len, k_len, qc) not in _SDPA_Q_CHUNK_OVER_L1]
+    # The bias is re-read once per batch row by the stock reader; hold it instead. Same
+    # preference order as the stock loop below -- `fits` is widest first, production pick last, and
+    # the wide q_chunk is worth 1.08-1.81x on its own, so K2 must not silently take the narrow one.
+    for q_chunk in fits:
+        o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk)
+        if o is not None:
+            return o
     for q_chunk in fits[:-1]:
         try:
             return ttnn.transformer.scaled_dot_product_attention(
