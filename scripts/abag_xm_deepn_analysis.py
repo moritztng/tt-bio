@@ -591,6 +591,68 @@ def panel_read(models, lo=256, hi=512):
     return out
 
 
+def panel3_read(models, lo=64, mid=256, hi=512):
+    """The campaign's question is about TWO doublings, so read them on one panel.
+
+    `panel_read` answers "is the gap still widening at 256->512" by the sign of a single
+    doubling's change. That is necessary and not sufficient: the brief asks whether the
+    gap "keeps widening or finally turns over", and a doubling can stay strictly above
+    zero while its rate collapses. opendde-abag is the worked case -- +0.0305 over 64->256
+    and +0.0089 over 256->512, both CIs strictly positive. Reading only the second one
+    says "widening" and hides the entire finding, which is that the RATE fell by a factor
+    of three. So the reported quantity here is the second difference,
+    (gap@hi - gap@mid) - (gap@mid - gap@lo), with its own CI and its own verdict.
+
+    Panel: targets every model has complete at ALL THREE rungs. Strictly smaller than the
+    two-rung panel and it must be named beside every number -- a target short at 64
+    contributes a second difference against nothing.
+
+    One resample index serves all three rungs, so d1, d2 and their difference are paired
+    within a model, and (via the fixed seed and row count in `paired_gain_boot`) across
+    models too. Note what this pairing does NOT buy: measured on opendde's 147-target
+    panel, corr(d1, d2) = -0.046, so the paired interval and a naive
+    difference-of-independent-intervals come out the same width to 2 pct. The shared `mid`
+    rung enters d1 positively and d2 negatively, and that cancellation almost exactly
+    offsets the positive target-level correlation the three rungs share. Pairing is still
+    how this is computed, because it is exact and costs nothing, but do not justify it by
+    a width argument that the data does not support.
+    """
+    import numpy as np
+    rungs = (lo, mid, hi)
+    pools = {m: galaxy64_pools(m) for m in models}
+    per_model_sets = {m: set.intersection(*({t for (t, n) in p if n == r} for r in rungs))
+                      for m, p in pools.items()}
+    panel = sorted(set.intersection(*per_model_sets.values())) if per_model_sets else []
+    out = {"lo": lo, "mid": mid, "hi": hi, "panel_size": len(panel), "panel": panel,
+           "per_model_all_rungs": {m: len(s) for m, s in sorted(per_model_sets.items())},
+           "models": {}}
+    if not panel:
+        return out
+    q = lambda a: [float(np.quantile(a, x)) for x in (0.025, 0.5, 0.975)]
+    for m in models:
+        p = pools[m]
+        gaps = {r: np.array([_ci_row(p[(t, r)]["pool"])[2] for t in panel]) for r in rungs}
+        rng = np.random.default_rng(20260802)
+        idx = rng.integers(0, len(panel), (20000, len(panel)))
+        d1 = gaps[mid][idx].mean(axis=1) - gaps[lo][idx].mean(axis=1)
+        d2 = gaps[hi][idx].mean(axis=1) - gaps[mid][idx].mean(axis=1)
+        sd = d2 - d1
+        c2, cs = q(d2), q(sd)
+        # Two independent verdicts, because they answer two different questions and can
+        # disagree: the gap can still be widening (c2 above 0) while the widening is
+        # decelerating (cs below 0). That conjunction is the campaign's likely answer and
+        # collapsing it to one word would misreport it in either direction.
+        out["models"][m] = {
+            "gap": {r: float(gaps[r].mean()) for r in rungs},
+            "d1_ci": q(d1), "d2_ci": c2, "second_diff_ci": cs,
+            "corr_d1_d2": float(np.corrcoef(d1, d2)[0, 1]),
+            "verdict_level": ("widening" if c2[0] > 0 else
+                              "turning over" if c2[2] < 0 else "flat (CI spans 0)"),
+            "verdict_rate": ("decelerating" if cs[2] < 0 else
+                             "accelerating" if cs[0] > 0 else "constant (CI spans 0)")}
+    return out
+
+
 def deep_stats(pools, model):
     """Stop-rule + exhaustion inputs from each target's LARGEST pool."""
     import numpy as np
@@ -672,8 +734,40 @@ def main():
     ap.add_argument("--panel", action="store_true",
                     help="four-model gap read on the targets every model has complete "
                          "at BOTH --gate-lo and --gate-hi; exits 1 on an empty panel")
+    ap.add_argument("--panel3", action="store_true",
+                    help="four-model read of BOTH doublings and their second difference, "
+                         "on the targets every model has complete at --gate-mid too; "
+                         "answers 'keeps widening or turns over'; exits 1 on empty panel")
+    ap.add_argument("--gate-mid", type=int, default=256)
     a = ap.parse_args()
     models = [a.model] if a.model else sorted(MODELS)
+    if a.panel3:
+        pm = [m for m in models if m in GALAXY64_OK]
+        lo, mid, hi = a.gate_lo, a.gate_mid, a.gate_hi
+        if a.gate_lo >= a.gate_mid:      # --gate-lo defaults to 256, which is `mid` here
+            lo = 64
+        r = panel3_read(pm, lo, mid, hi)
+        print("per-model targets complete at all three rungs: "
+              + "  ".join(f"{m} {n}" for m, n in sorted(r["per_model_all_rungs"].items())))
+        if not r["panel_size"]:
+            print(f"\nPANEL3: NO DATA -- 0 targets complete in all {len(pm)} models at "
+                  f"N={lo}, {mid} and {hi}; this is NOT a read")
+            return 1
+        print(f"\n=== {len(pm)}-model panel: {r['panel_size']} targets complete in every "
+              f"model at N={lo}, {mid} and {hi} ===")
+        print(f"{'model':<14} {'gap@'+str(lo):>8} {'gap@'+str(mid):>8} {'gap@'+str(hi):>8} "
+              f"{str(lo)+'->'+str(mid):>10} {str(mid)+'->'+str(hi):>10} "
+              f"{'2nd diff [95 pct CI]':>30}  level / rate")
+        for m, d in sorted(r["models"].items()):
+            s = d["second_diff_ci"]
+            print(f"{m:<14} {d['gap'][lo]:>8.4f} {d['gap'][mid]:>8.4f} {d['gap'][hi]:>8.4f} "
+                  f"{d['d1_ci'][1]:>+10.4f} {d['d2_ci'][1]:>+10.4f} "
+                  f"{s[1]:>+9.4f} [{s[0]:>+.4f},{s[2]:>+.4f}]  "
+                  f"{d['verdict_level']} / {d['verdict_rate']}")
+        out = Path(a.out).with_name(Path(a.out).stem + f"_panel3_{hi}.json")
+        out.write_text(json.dumps(r, indent=1, sort_keys=True))
+        print(f"\nwrote {out}")
+        return 0
     if a.panel:
         pm = [m for m in models if m in GALAXY64_OK]
         r = panel_read(pm, a.gate_lo, a.gate_hi)
