@@ -1,0 +1,14 @@
+# trace-probe evidence, 2026-08-11, qb2 card 0, ttnn 0.68.0, loadavg ~20.8, probe reniced to -15
+## N=512 --fast (killed at 587 s in end_trace_capture)
+ 03:30:57 up  3:57,  6 users,  load average: 20.53, 20.79, 19.98
+model=protenix-v2 c_z=256 N=512 fast=True region=4.0 GiB ttnn=0.68.0
+eager  = 94.734 ms/block
+rc_fast=137
+ 03:41:00 up  4:07,  9 users,  load average: 21.70, 21.61, 20.79
+rc_def=137
+ 03:41:23 up  4:07,  7 users,  load average: 21.03, 21.47, 20.76
+## N=128 --fast (killed at ~200 s in end_trace_capture)
+model=protenix-v2 c_z=256 N=128 fast=True region=4.0 GiB ttnn=0.68.0
+eager  = 5.642 ms/block
+## py-spy dump of both, MainThread
+main (trunk_trace_probe.py:141)  ->  ttnn.end_trace_capture(dev, tid, cq_id=0)

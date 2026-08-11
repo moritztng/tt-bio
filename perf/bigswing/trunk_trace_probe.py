@@ -69,13 +69,25 @@ def main():
     # first get_device() call anywhere in the process -- i.e. before build().
     os.environ["TT_BIO_TRACE_REGION_SIZE"] = str(int(args.region_gib * 2 ** 30))
 
+    # qb2's cards are P300 boards. With TT_VISIBLE_DEVICES pinning a single chip, ttnn 0.68.0
+    # classifies the cluster as CUSTOM and open_device() is a TT_FATAL without a mesh graph
+    # descriptor (tt_cluster.cpp:273). tt_bio's own entry points (main.py, full_parity_gate.py,
+    # perf_regression.py) set this for you; a bare perf tool that calls get_device() directly
+    # does not, which is why this probe could never have run as written.
+    if not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
+        from tt_bio.main import _detect_p300_devices, _find_ttnn_mesh_graph_descriptor
+        if _detect_p300_devices():
+            mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
+            if mgd:
+                os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
+
     import torch
     import ttnn
     from tt_bio import tenstorrent as T
     from tt_bio.tenstorrent import get_device, set_fast_mode
     from pf_block_ops import build
 
-    rec = {"host": platform.node(), "model": args.model, "n": args.n, "fast": args.fast,
+    rec = {"host": platform.node(), "mgd": os.environ.get("TT_MESH_GRAPH_DESC_PATH"), "model": args.model, "n": args.n, "fast": args.fast,
            "iters": args.iters, "region_bytes": int(args.region_gib * 2 ** 30),
            "ttnn": _ttnn_version(),
            "loadavg_start": os.getloadavg()}
@@ -100,20 +112,21 @@ def main():
     print(f"model={args.model} c_z={c_z} N={N} fast={args.fast} "
           f"region={args.region_gib} GiB ttnn={rec['ttnn']}", flush=True)
 
+    # The layer returns its own inputs: every residual is `z = ttnn.add_(z, z_update)`
+    # (tenstorrent.py:2683 and the four below it), which mutates in place and hands back the
+    # same buffer. Deallocating the return value therefore frees s0/z0 and the next iteration
+    # dies on "Buffer is not allocated". Drop the reference instead; nothing leaks, because the
+    # only thing returned is what we allocated.
     for _ in range(args.warm):
-        a, b = layer(s0, z0)
-        ttnn.deallocate(a)
-        ttnn.deallocate(b)
+        layer(s0, z0)
     ttnn.synchronize_device(dev)
 
-    # --- eager arm. Fixed input, output freed each iteration, so the two arms differ only in
-    # who issues the commands. Chaining s,z the way pf_block_ops does would churn the allocator
-    # differently from a replay and make the ratio measure two things at once.
+    # --- eager arm. Same buffers every iteration, updated in place, so the two arms differ only
+    # in who issues the commands. Chaining fresh s,z the way pf_block_ops does would churn the
+    # allocator differently from a replay and make the ratio measure two things at once.
     t0 = time.perf_counter()
     for _ in range(args.iters):
-        a, b = layer(s0, z0)
-        ttnn.deallocate(a)
-        ttnn.deallocate(b)
+        layer(s0, z0)
     ttnn.synchronize_device(dev)
     eager = (time.perf_counter() - t0) / args.iters
     rec["eager_ms"] = eager * 1e3
