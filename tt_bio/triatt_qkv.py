@@ -137,9 +137,20 @@ TAIL_STATS = [0, 0]
 TAIL_REJECTS: dict = {}
 
 # Whether the head-major tail may take a call whose `out` projection would otherwise have used the
-# L1-output leg. Default off: that leg also deletes the CONSUMER's operand read, and nothing measured
-# off-fold can see that. The arm that answers it is `hmtail_l1` in perf/size512/fold_ab512.py.
-_TAIL_OVER_L1 = os.environ.get("TT_BIO_TRIATT_TAIL_OVER_L1", "0") == "1"
+# L1-output leg. That leg also deletes the CONSUMER's operand read, which nothing measured off-fold
+# can see, so it was held off by default until the fold answered it. The fold answered it: deleting
+# nlp_concat_heads wins at every size measured, three folds per arm, alternating, byte-identical
+# output (perf/triatt_fused/fold_ab_k1_full{,_r2}.json).
+#
+#   n     TriAtt body ms          ratio     A/A on the on arm
+#   298   6080.7 ->  5034.2      1.2079x    2.67 ms
+#   384  10450.6 ->  8834.6      1.1829x  468.88 ms
+#   512  19719.8 -> 16716.5      1.1797x    4.54 ms
+#
+# 384 is the noisy one and is quoted as measured; the arms separate completely there anyway.
+TRIATT_TAIL_OVER_L1 = True
+_TAIL_OVER_L1 = os.environ.get(
+    "TT_BIO_TRIATT_TAIL_OVER_L1", "1" if TRIATT_TAIL_OVER_L1 else "0") == "1"
 
 
 def _tail_reject(reason, shape):

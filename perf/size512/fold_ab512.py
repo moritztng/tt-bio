@@ -68,7 +68,8 @@ HMTAIL_DEFAULT = True
 # `hmtail` keeps the conservative gate, which declines any call whose `out` would have used the
 # L1-output leg. `hmtail_l1` lets the head-major tail take those calls too, which is the only way
 # to find out whether deleting nlp_concat_heads beats keeping `out`'s result in L1.
-HMTAIL_OVER_L1 = {"hmtail_l1": True}
+HMTAIL_OVER_L1 = {"hmtail_l1": True, "hmtail": False}
+HMTAIL_OVER_L1_DEFAULT = True
 
 
 def timed_call(key, fn, *a, **kw):
@@ -195,7 +196,7 @@ def main():
         import tt_bio.triatt_qkv as HM
         HM._ENABLED = HMQKV_DEFAULT if hm is None else hm
         HM._TAIL_ENABLED = HMTAIL_DEFAULT if hmt is None else hmt
-        HM._TAIL_OVER_L1 = HMTAIL_OVER_L1.get(name, False)
+        HM._TAIL_OVER_L1 = HMTAIL_OVER_L1.get(name, HMTAIL_OVER_L1_DEFAULT)
         HM.STATS[0] = HM.STATS[1] = 0
         HM.TAIL_STATS[0] = HM.TAIL_STATS[1] = 0
         HM.REJECTS.clear()
