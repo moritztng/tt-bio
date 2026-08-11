@@ -603,6 +603,12 @@ def _pair_transpose(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.Te
     return ttnn.permute(t, (1, 0, 2), memory_config=memory_config)
 
 
+# A/B knob only; the shipped value is 2.5 and nothing in the repo sets this. L1 total on an
+# 11x10 Blackhole grid is 168.57 MB (110 x 1 532 416 B), so the 512 aa pair tensor at
+# 134.22 MB is 79.6 % of it and the largest headroom that fits at all is 1.2559.
+_TRANSPOSE_L1_HEADROOM = float(os.environ.get("TT_BIO_TRANSPOSE_L1_HEADROOM", "2.5"))
+
+
 def _transpose_memory_config(t: ttnn.Tensor) -> ttnn.MemoryConfig:
     """L1 for a pair-tensor dim0/dim1 transpose when it fits, else DRAM.
 
@@ -623,7 +629,7 @@ def _transpose_memory_config(t: ttnn.Tensor) -> ttnn.MemoryConfig:
     every call and pin every tensor it ever saw for the life of the process.
     """
     # 2.5x headroom: the consumer still needs its circular buffers on every core.
-    return _l1_memory_config_if_it_fits(t, 2.5)
+    return _l1_memory_config_if_it_fits(t, _TRANSPOSE_L1_HEADROOM)
 
 
 def _l1_layer_norm(x: ttnn.Tensor, headroom: float, **kw):
