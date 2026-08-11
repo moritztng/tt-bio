@@ -1,0 +1,106 @@
+{
+  "rows": [
+    {
+      "label": "baseline bf16 bias",
+      "q_chunk": 256,
+      "k_chunk": 256,
+      "approx": false,
+      "ms": 7.1304,
+      "tflops": 19.28
+    },
+    {
+      "label": "bfloat8_b bias",
+      "q_chunk": 256,
+      "k_chunk": 256,
+      "approx": false,
+      "ms": 4.882,
+      "tflops": 28.15
+    },
+    {
+      "label": "bfloat4_b bias",
+      "q_chunk": 256,
+      "k_chunk": 256,
+      "approx": false,
+      "ms": 3.9947,
+      "tflops": 34.41
+    },
+    {
+      "label": "no bias (ceiling)",
+      "q_chunk": 256,
+      "k_chunk": 256,
+      "approx": false,
+      "ms": 2.7645,
+      "tflops": 49.72
+    },
+    {
+      "label": "bf16 bias exp_approx",
+      "q_chunk": 256,
+      "k_chunk": 256,
+      "approx": true,
+      "ms": 7.1258,
+      "tflops": 19.29
+    },
+    {
+      "label": "no bias exp_approx",
+      "q_chunk": 256,
+      "k_chunk": 256,
+      "approx": true,
+      "ms": 2.6974,
+      "tflops": 50.95
+    },
+    {
+      "label": "chunk sweep bf16",
+      "q_chunk": 128,
+      "k_chunk": 256,
+      "approx": false,
+      "ms": 8.4032,
+      "tflops": 16.36
+    },
+    {
+      "label": "chunk sweep bf16",
+      "q_chunk": 256,
+      "k_chunk": 128,
+      "approx": false,
+      "ms": 7.3236,
+      "tflops": 18.77
+    },
+    {
+      "label": "chunk sweep bf16",
+      "q_chunk": 256,
+      "k_chunk": 512,
+      "approx": false,
+      "ms": 7.1529,
+      "tflops": 19.21
+    },
+    {
+      "label": "chunk sweep bf16",
+      "q_chunk": 512,
+      "k_chunk": 256,
+      "approx": false,
+      "ms": 6.6135,
+      "tflops": 20.78
+    },
+    {
+      "label": "chunk sweep bf16",
+      "q_chunk": 128,
+      "k_chunk": 512,
+      "approx": false,
+      "ms": 8.4256,
+      "tflops": 16.31
+    },
+    {
+      "label": "chunk sweep bf16",
+      "q_chunk": 64,
+      "k_chunk": 256,
+      "approx": false,
+      "ms": 11.0642,
+      "tflops": 12.42
+    }
+  ],
+  "l1_copy_26MB_gbs_rw": 836.4,
+  "l1_copy_52MB_gbs_rw": 893.0,
+  "op_rmsd_over_std_bfloat8_b": 0.002538,
+  "op_pcc_bfloat8_b": 1.0,
+  "op_rmsd_over_std_bfloat4_b": 0.00537,
+  "op_pcc_bfloat4_b": 1.0
+}

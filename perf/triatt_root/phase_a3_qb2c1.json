@@ -1,0 +1,321 @@
+{
+  "rows": [
+    {
+      "seq": 320,
+      "q": 64,
+      "k": 64,
+      "dtype": "bf16",
+      "ms": 2.9157,
+      "tflops": 11.51,
+      "vs_ref": "-"
+    },
+    {
+      "seq": 320,
+      "q": 64,
+      "k": 64,
+      "dtype": "bfp8",
+      "ms": 2.4111,
+      "tflops": 13.92,
+      "vs_ref": "-"
+    },
+    {
+      "seq": 320,
+      "q": 256,
+      "k": 256,
+      "dtype": "bf16",
+      "ms": 6.9375,
+      "tflops": 4.84,
+      "vs_ref": "REF"
+    },
+    {
+      "seq": 320,
+      "q": 256,
+      "k": 256,
+      "dtype": "bfp8",
+      "ms": 4.2006,
+      "tflops": 7.99,
+      "vs_ref": "differs rmsd/std 0.002409"
+    },
+    {
+      "seq": 320,
+      "q": 320,
+      "k": 256,
+      "dtype": "bf16",
+      "ms": 3.3111,
+      "tflops": 10.13,
+      "vs_ref": "torch.equal"
+    },
+    {
+      "seq": 320,
+      "q": 320,
+      "k": 256,
+      "dtype": "bfp8",
+      "ms": 2.1907,
+      "tflops": 15.32,
+      "vs_ref": "differs rmsd/std 0.002409"
+    },
+    {
+      "seq": 320,
+      "q": 320,
+      "k": 64,
+      "dtype": "bf16",
+      "ms": 1.9064,
+      "tflops": 17.6,
+      "vs_ref": "differs rmsd/std 0.005352"
+    },
+    {
+      "seq": 320,
+      "q": 320,
+      "k": 64,
+      "dtype": "bfp8",
+      "ms": 1.467,
+      "tflops": 22.87,
+      "vs_ref": "differs rmsd/std 0.005486"
+    },
+    {
+      "seq": 320,
+      "q": 256,
+      "k": 256,
+      "dtype": "nobias",
+      "ms": 1.7658,
+      "tflops": 19.0
+    },
+    {
+      "seq": 320,
+      "q": 320,
+      "k": 256,
+      "dtype": "nobias",
+      "ms": 1.1469,
+      "tflops": 29.26
+    },
+    {
+      "seq": 384,
+      "q": 64,
+      "k": 64,
+      "dtype": "bf16",
+      "ms": 4.9276,
+      "tflops": 11.77,
+      "vs_ref": "-"
+    },
+    {
+      "seq": 384,
+      "q": 64,
+      "k": 64,
+      "dtype": "bfp8",
+      "ms": 4.0035,
+      "tflops": 14.48,
+      "vs_ref": "-"
+    },
+    {
+      "seq": 384,
+      "q": 256,
+      "k": 256,
+      "dtype": "bf16",
+      "ms": 7.3714,
+      "tflops": 7.87,
+      "vs_ref": "REF"
+    },
+    {
+      "seq": 384,
+      "q": 256,
+      "k": 256,
+      "dtype": "bfp8",
+      "ms": 4.7872,
+      "tflops": 12.11,
+      "vs_ref": "differs rmsd/std 0.002515"
+    },
+    {
+      "seq": 384,
+      "q": 384,
+      "k": 256,
+      "dtype": "bf16",
+      "ms": 4.2252,
+      "tflops": 13.72,
+      "vs_ref": "torch.equal"
+    },
+    {
+      "seq": 384,
+      "q": 384,
+      "k": 256,
+      "dtype": "bfp8",
+      "ms": 3.0664,
+      "tflops": 18.91,
+      "vs_ref": "differs rmsd/std 0.002515"
+    },
+    {
+      "seq": 384,
+      "q": 384,
+      "k": 64,
+      "dtype": "bf16",
+      "ms": 3.0898,
+      "tflops": 18.77,
+      "vs_ref": "differs rmsd/std 0.005848"
+    },
+    {
+      "seq": 384,
+      "q": 384,
+      "k": 64,
+      "dtype": "bfp8",
+      "ms": 2.6346,
+      "tflops": 22.01,
+      "vs_ref": "differs rmsd/std 0.005899"
+    },
+    {
+      "seq": 384,
+      "q": 256,
+      "k": 256,
+      "dtype": "nobias",
+      "ms": 2.3439,
+      "tflops": 24.74
+    },
+    {
+      "seq": 384,
+      "q": 384,
+      "k": 256,
+      "dtype": "nobias",
+      "ms": 1.8131,
+      "tflops": 31.98
+    },
+    {
+      "seq": 512,
+      "q": 64,
+      "k": 64,
+      "dtype": "bf16",
+      "ms": 11.6435,
+      "tflops": 11.8,
+      "vs_ref": "-"
+    },
+    {
+      "seq": 512,
+      "q": 64,
+      "k": 64,
+      "dtype": "bfp8",
+      "ms": 9.2181,
+      "tflops": 14.91,
+      "vs_ref": "-"
+    },
+    {
+      "seq": 512,
+      "q": 256,
+      "k": 256,
+      "dtype": "bf16",
+      "ms": 7.1298,
+      "tflops": 19.28,
+      "vs_ref": "REF"
+    },
+    {
+      "seq": 512,
+      "q": 256,
+      "k": 256,
+      "dtype": "bfp8",
+      "ms": 4.8865,
+      "tflops": 28.13,
+      "vs_ref": "differs rmsd/std 0.002547"
+    },
+    {
+      "seq": 512,
+      "q": 512,
+      "k": 256,
+      "dtype": "bf16",
+      "ms": 6.5798,
+      "tflops": 20.89,
+      "vs_ref": "torch.equal"
+    },
+    {
+      "seq": 512,
+      "q": 512,
+      "k": 256,
+      "dtype": "bfp8",
+      "ms": 4.2947,
+      "tflops": 32.0,
+      "vs_ref": "differs rmsd/std 0.002547"
+    },
+    {
+      "seq": 512,
+      "q": 256,
+      "k": 256,
+      "dtype": "nobias",
+      "ms": 2.7498,
+      "tflops": 49.98
+    },
+    {
+      "seq": 512,
+      "q": 512,
+      "k": 256,
+      "dtype": "nobias",
+      "ms": 2.7457,
+      "tflops": 50.06
+    },
+    {
+      "seq": 640,
+      "q": 64,
+      "k": 64,
+      "dtype": "bf16",
+      "ms": 22.188,
+      "tflops": 12.1,
+      "vs_ref": "-"
+    },
+    {
+      "seq": 640,
+      "q": 64,
+      "k": 64,
+      "dtype": "bfp8",
+      "ms": 17.7035,
+      "tflops": 15.16,
+      "vs_ref": "-"
+    },
+    {
+      "seq": 640,
+      "q": 256,
+      "k": 256,
+      "dtype": "bf16",
+      "ms": 20.2842,
+      "tflops": 13.23,
+      "vs_ref": "REF"
+    },
+    {
+      "seq": 640,
+      "q": 256,
+      "k": 256,
+      "dtype": "bfp8",
+      "ms": 13.9803,
+      "tflops": 19.2,
+      "vs_ref": "differs rmsd/std 0.002872"
+    },
+    {
+      "seq": 640,
+      "q": 640,
+      "k": 256,
+      "dtype": "bf16",
+      "ms": 14.4486,
+      "tflops": 18.58,
+      "vs_ref": "torch.equal"
+    },
+    {
+      "seq": 640,
+      "q": 640,
+      "k": 256,
+      "dtype": "bfp8",
+      "ms": 10.3008,
+      "tflops": 26.06,
+      "vs_ref": "differs rmsd/std 0.002872"
+    },
+    {
+      "seq": 640,
+      "q": 256,
+      "k": 256,
+      "dtype": "nobias",
+      "ms": 7.8451,
+      "tflops": 34.22
+    },
+    {
+      "seq": 640,
+      "q": 640,
+      "k": 256,
+      "dtype": "nobias",
+      "ms": 6.4408,
+      "tflops": 41.68
+    }
+  ],
+  "exact": {}
+}
