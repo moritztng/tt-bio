@@ -571,6 +571,38 @@ def _fp32_softmax_attention(
     return o
 
 
+# The pair-tensor dim0/dim1 transpose is 4.0474 ms on [512,512,256] bf16 DRAM->DRAM, 66.3 GB/s
+# against a 389.9 GB/s clone roof, because tiling covers the last two dims and swapping the untiled
+# batch dim with the tile-row dim moves single 64-byte rows between tiles. Going out through
+# ROW_MAJOR removes that: the permute then sees no tiles at all, and retiling afterwards is a
+# whole-tile op. Measured in one process at that shape, warm 3, median of 7, torch.equal against the
+# tiled permute (perf/bigswing/pair_tr_ttnn_512_qb2c0.json):
+#
+#     permute (tiled)  4.0474 ms   66.3 GB/s      transpose(0,1)  4.0664 ms  (same kernel)
+#     via ROW_MAJOR    2.5275 ms  106.2 GB/s  1.6014x  <- this route
+#     4-D (0,2,1,3)    4.0753 ms  (same kernel)   clone roof      0.6885 ms  389.9 GB/s
+#
+# It costs one extra tensor of DRAM peak while the round trip is in flight, so it is gated to the
+# DRAM destination -- an L1 destination is already 1.4762 ms (2.7417x) and needs no help.
+PAIR_TRANSPOSE_VIA_ROW_MAJOR = True
+_PT_ROW_MAJOR = os.environ.get(
+    "TT_BIO_PAIR_TRANSPOSE_RM", "1" if PAIR_TRANSPOSE_VIA_ROW_MAJOR else "0") == "1"
+
+
+def _pair_transpose(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.Tensor:
+    """``permute(t, (1, 0, 2))``, through ROW_MAJOR where that wins. Bit-exact either way."""
+    if (_PT_ROW_MAJOR and len(t.shape) == 3
+            and memory_config.buffer_type == ttnn.BufferType.DRAM
+            and t.dtype == ttnn.bfloat16 and t.layout == ttnn.TILE_LAYOUT):
+        rm = ttnn.to_layout(t, ttnn.ROW_MAJOR_LAYOUT)
+        p = ttnn.permute(rm, (1, 0, 2), memory_config=memory_config)
+        ttnn.deallocate(rm)
+        o = ttnn.to_layout(p, ttnn.TILE_LAYOUT)
+        ttnn.deallocate(p)
+        return o
+    return ttnn.permute(t, (1, 0, 2), memory_config=memory_config)
+
+
 def _transpose_memory_config(t: ttnn.Tensor) -> ttnn.MemoryConfig:
     """L1 for a pair-tensor dim0/dim1 transpose when it fits, else DRAM.
 
@@ -1997,8 +2029,7 @@ class TriangleAttention(Module):
             def normed_rows(s, e):
                 blk = x[:, s:e, :] if self.ending else x[s:e, :, :]
                 if self.ending:
-                    blk = ttnn.permute(blk, (1, 0, 2),
-                                       memory_config=_transpose_memory_config(blk))
+                    blk = _pair_transpose(blk, _transpose_memory_config(blk))
                 return ttnn.layer_norm(
                     blk,
                     weight=self.layer_norm_weight,
@@ -2029,7 +2060,7 @@ class TriangleAttention(Module):
             dram_peak(f"tri_att({'end' if self.ending else 'start'}) bias built [z={'x'.join(str(d) for d in x.shape)}]")
         else:
             if self.ending:
-                x = ttnn.permute(x, (1, 0, 2), memory_config=_transpose_memory_config(x))
+                x = _pair_transpose(x, _transpose_memory_config(x))
             # Explicit DRAM: for the ending variant x is the L1 transpose result
             # (_transpose_memory_config) and ttnn would otherwise inherit L1 here and again
             # for the qkv projection, whose 157 MB does not fit.
@@ -2178,7 +2209,7 @@ class TriangleAttention(Module):
             ttnn.deallocate(triangle_bias)
             x = gate_and_project(o, g)
         if self.ending:
-            x = ttnn.permute(x, (1, 0, 2), memory_config=_transpose_memory_config(x))
+            x = _pair_transpose(x, _transpose_memory_config(x))
         x = ttnn.reshape(x, (1, *x.shape))
         return x
 

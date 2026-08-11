@@ -1,0 +1,94 @@
+{
+  "model": "protenix-v2",
+  "side": "tenstorrent",
+  "hardware": "blackhole",
+  "machine": "tt-quietbox2",
+  "visible_devices": "0",
+  "card_type": "p300c",
+  "aiclk_mhz": "1350",
+  "tt_bio_git": "7efedf1a12c8c467fc2c04477de58d23ae2d3c7d",
+  "ttnn_version": "0.68.0",
+  "input": "cdk2x2_512.yaml (512 aa, single protein, MSA on)",
+  "target": "/home/ttuser/.coworker/wt/pairformer-resident-chunking/perf/size512/fixtures/cdk2x2_512.yaml",
+  "n_msa": 35,
+  "n_tokens": 512,
+  "n_residues": 512,
+  "msa_cache": [
+    "4e5c2b391bde62d4.a3m"
+  ],
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "seed": 0,
+  "load_s": 1.27,
+  "cold_s": 80.51,
+  "warm_times_s": [
+    79.399,
+    79.409
+  ],
+  "warm_min_s": 79.399,
+  "warm_median_s": 79.409,
+  "warm_max_s": 79.409,
+  "cold_metrics": {
+    "complex_plddt": 0.828628,
+    "plddt": 0.828628,
+    "ptm": 0.691968,
+    "iptm": 0.0,
+    "confidence_score": 0.691968,
+    "n_residues": 512,
+    "n_chains": 1,
+    "n_tokens": 512,
+    "msa": true,
+    "n_atoms": 4117,
+    "samples": 1
+  },
+  "warm_folds": [
+    {
+      "s": 80.514,
+      "plddt": 0.828628,
+      "cif_sha256": {
+        "cdk2x2_512.cif": "98c33a481fa1fd27"
+      },
+      "loadavg": [
+        "1.19",
+        "0.93",
+        "0.74"
+      ],
+      "arm_fold": "cold"
+    },
+    {
+      "s": 79.399,
+      "plddt": 0.828628,
+      "cif_sha256": {
+        "cdk2x2_512.cif": "98c33a481fa1fd27"
+      },
+      "loadavg": [
+        "1.08",
+        "0.97",
+        "0.77"
+      ]
+    },
+    {
+      "s": 79.409,
+      "plddt": 0.828628,
+      "cif_sha256": {
+        "cdk2x2_512.cif": "98c33a481fa1fd27"
+      },
+      "loadavg": [
+        "1.05",
+        "0.99",
+        "0.80"
+      ]
+    }
+  ],
+  "runtime_root": "<unset>",
+  "kernel_cache": "/tmp/kc_fold_base",
+  "uptime": "07:46:19 up  8:12,  9 users,  load average: 1.05, 0.99, 0.80",
+  "date": "2026-08-11",
+  "l1_n_max": 352,
+  "l1_n_min": 288,
+  "reblock_served": 52224,
+  "reblock_declined": 0,
+  "reblock_rejects": {},
+  "reblock_enabled": true
+}
