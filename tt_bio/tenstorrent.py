@@ -594,10 +594,16 @@ def _pair_transpose(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.Te
     if (_PT_ROW_MAJOR and len(t.shape) == 3
             and memory_config.buffer_type == ttnn.BufferType.DRAM
             and t.dtype == ttnn.bfloat16 and t.layout == ttnn.TILE_LAYOUT):
-        rm = ttnn.to_layout(t, ttnn.ROW_MAJOR_LAYOUT)
+        # Both to_layout calls MUST be pinned to the destination's buffer type. Without a
+        # memory_config ttnn places the intermediate by its own default, which is L1: that
+        # made openfold3 at 576 tokens die on `Out of Memory: Not enough space to allocate
+        # 84934656 B L1 buffer across 110 banks` -- exactly this tensor -- while the same
+        # fold passed with the route off. The round trip is a DRAM->DRAM move and every
+        # tensor in it belongs in DRAM.
+        rm = ttnn.to_layout(t, ttnn.ROW_MAJOR_LAYOUT, memory_config=memory_config)
         p = ttnn.permute(rm, (1, 0, 2), memory_config=memory_config)
         ttnn.deallocate(rm)
-        o = ttnn.to_layout(p, ttnn.TILE_LAYOUT)
+        o = ttnn.to_layout(p, ttnn.TILE_LAYOUT, memory_config=memory_config)
         ttnn.deallocate(p)
         return o
     return ttnn.permute(t, (1, 0, 2), memory_config=memory_config)
