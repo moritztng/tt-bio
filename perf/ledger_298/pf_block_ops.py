@@ -238,7 +238,7 @@ def main():
         print(f"UNTIMED {len(untimed)} rows -- the sum is not sound, see pairformer-resident-chunking.md 70",
               flush=True)
         for r in untimed:
-            print(f"  {r[op]} @ {r[site]} out={r[out]} :: {r[error]}", flush=True)
+            print(f"  {r['op']} @ {r['site']} out={r['out']} :: {r['error']}", flush=True)
     json.dump({"model": args.model, "n": N, "c_z": c_z, "block_wall_s": block_s,
                "reps": args.reps, "fast": args.fast, "n_ops": len(RECORDS), "sum_s": tot,
                "n_untimed": len(untimed), "loadavg": open("/proc/loadavg").read().split()[:3],
