@@ -1,0 +1,84 @@
+{
+  "model": "protenix-v2",
+  "side": "tenstorrent",
+  "hardware": "blackhole",
+  "machine": "tt-quietbox2",
+  "visible_devices": "0",
+  "card_type": "p300c",
+  "aiclk_mhz": "1350",
+  "tt_bio_git": "8c89f55f66c41cbdc1cf51bce8ae738a6edd3e27",
+  "ttnn_version": "0.68.0",
+  "input": "cdk2x2_507.yaml (507 aa, single protein, MSA on)",
+  "target": "/home/ttuser/.coworker/wt/pairformer-resident-chunking/perf/size512/fixtures/cdk2x2_507.yaml",
+  "n_msa": 35,
+  "n_tokens": 507,
+  "n_residues": 507,
+  "msa_cache": [
+    "e6554b7c9624f8d1.a3m"
+  ],
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "seed": 0,
+  "load_s": 1.25,
+  "cold_s": 80.1,
+  "warm_times_s": [
+    78.25
+  ],
+  "warm_min_s": 78.25,
+  "warm_median_s": 78.25,
+  "warm_max_s": 78.25,
+  "cold_metrics": {
+    "complex_plddt": 0.815179,
+    "plddt": 0.815179,
+    "ptm": 0.68696,
+    "iptm": 0.0,
+    "confidence_score": 0.68696,
+    "n_residues": 507,
+    "n_chains": 1,
+    "n_tokens": 507,
+    "msa": true,
+    "n_atoms": 4070,
+    "samples": 1
+  },
+  "warm_folds": [
+    {
+      "s": 80.103,
+      "plddt": 0.815179,
+      "cif_sha256": {
+        "cdk2x2_507.cif": "46c5b05130f32334"
+      },
+      "loadavg": [
+        "1.34",
+        "1.41",
+        "1.19"
+      ],
+      "arm_fold": "cold"
+    },
+    {
+      "s": 78.25,
+      "plddt": 0.815179,
+      "cif_sha256": {
+        "cdk2x2_507.cif": "46c5b05130f32334"
+      },
+      "loadavg": [
+        "1.09",
+        "1.31",
+        "1.17"
+      ]
+    }
+  ],
+  "runtime_root": "<unset>",
+  "kernel_cache": "/tmp/kc_fold_base",
+  "uptime": "08:22:44 up  8:48, 10 users,  load average: 1.09, 1.31, 1.17",
+  "date": "2026-08-11",
+  "size": 507,
+  "l1_headroom": 2.5,
+  "pt_row_major": true,
+  "l1_n_max": 352,
+  "l1_n_min": 288,
+  "reblock_served": 34816,
+  "reblock_declined": 0,
+  "reblock_rejects": {},
+  "reblock_enabled": true
+}
