@@ -1,0 +1,3270 @@
+{
+ "host": "qb2",
+ "chip": 0,
+ "ttnn": "0.68.0",
+ "grid": [
+  11,
+  10
+ ],
+ "loadavg": [
+  "0.22",
+  "0.56",
+  "0.92"
+ ],
+ "warm": 2,
+ "reps": 5,
+ "note": "screen; per-call ratios, not fold gains",
+ "sites": [
+  {
+   "site": "site1700",
+   "in": [
+    1,
+    512,
+    512,
+    256
+   ],
+   "w": [
+    256,
+    128
+   ],
+   "m_tiles": 8192,
+   "k_tiles": 8,
+   "n_tiles": 4,
+   "base_ms": 0.6024370013619773,
+   "arms": [
+    {
+     "M": 1,
+     "K": 1,
+     "N": 1,
+     "sh": 1,
+     "sw": 1,
+     "ms": 3.572259003703948,
+     "speedup": 0.1686431473018423,
+     "exact": false
+    },
+    {
+     "M": 1,
+     "K": 1,
+     "N": 2,
+     "sh": 1,
+     "sw": 2,
+     "ms": 3.655817999970168,
+     "speedup": 0.16478856479367773,
+     "exact": false
+    },
+    {
+     "M": 1,
+     "K": 1,
+     "N": 4,
+     "sh": 1,
+     "sw": 4,
+     "ms": 3.7151900032768026,
+     "speedup": 0.16215509861692862,
+     "exact": false
+    },
+    {
+     "M": 1,
+     "K": 2,
+     "N": 1,
+     "sh": 1,
+     "sw": 1,
+     "ms": 2.1750890009570867,
+     "speedup": 0.27697119570596507,
+     "exact": false
+    },
+    {
+     "M": 1,
+     "K": 2,
+     "N": 2,
+     "sh": 1,
+     "sw": 2,
+     "ms": 2.2664229982183315,
+     "speedup": 0.2658096047540825,
+     "exact": false
+    },
+    {
+     "M": 1,
+     "K": 2,
+     "N": 4,
+     "sh": 1,
+     "sw": 4,
+     "ms": 2.3270489982678555,
+     "speedup": 0.2588845365140153,
+     "exact": false
+    },
+    {
+     "M": 1,
+     "K": 4,
+     "N": 1,
+     "sh": 1,
+     "sw": 1,
+     "ms": 1.4682440014439635,
+     "speedup": 0.41031122944790027,
+     "exact": false
+    },
+    {
+     "M": 1,
+     "K": 4,
+     "N": 2,
+     "sh": 1,
+     "sw": 2,
+     "ms": 1.5564519999315962,
+     "speedup": 0.38705787354088245,
+     "exact": false
+    },
+    {
+     "M": 1,
+     "K": 4,
+     "N": 4,
+     "sh": 1,
+     "sw": 4,
+     "ms": 1.6114270038087852,
+     "speedup": 0.37385311276157784,
+     "exact": false
+    },
+    {
+     "M": 1,
+     "K": 8,
+     "N": 1,
+     "sh": 1,
+     "sw": 1,
+     "ms": 1.0878399989451282,
+     "speedup": 0.5537919197181174,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 8,
+     "N": 2,
+     "sh": 1,
+     "sw": 2,
+     "ms": 1.1808380004367791,
+     "speedup": 0.5101775189646187,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 8,
+     "N": 4,
+     "sh": 1,
+     "sw": 4,
+     "ms": 1.2153539937571622,
+     "speedup": 0.49568850265558856,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 1,
+     "N": 1,
+     "sh": 2,
+     "sw": 1,
+     "ms": 1.891769999929238,
+     "speedup": 0.31845150382155946,
+     "exact": false
+    },
+    {
+     "M": 2,
+     "K": 1,
+     "N": 2,
+     "sh": 2,
+     "sw": 2,
+     "ms": 1.9401329991524108,
+     "speedup": 0.3105132491561996,
+     "exact": false
+    },
+    {
+     "M": 2,
+     "K": 1,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 2,
+     "N": 1,
+     "sh": 2,
+     "sw": 1,
+     "ms": 1.2435870012268424,
+     "speedup": 0.4844349456593322,
+     "exact": false
+    },
+    {
+     "M": 2,
+     "K": 2,
+     "N": 2,
+     "sh": 2,
+     "sw": 2,
+     "ms": 1.2422639993019402,
+     "speedup": 0.48495086527541814,
+     "exact": false
+    },
+    {
+     "M": 2,
+     "K": 2,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 4,
+     "N": 1,
+     "sh": 2,
+     "sw": 1,
+     "ms": 0.868323004397098,
+     "speedup": 0.6937936670009877,
+     "exact": false
+    },
+    {
+     "M": 2,
+     "K": 4,
+     "N": 2,
+     "sh": 2,
+     "sw": 2,
+     "ms": 0.9078070070245303,
+     "speedup": 0.6636179239644253,
+     "exact": false
+    },
+    {
+     "M": 2,
+     "K": 4,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 1,
+     "sh": 2,
+     "sw": 1,
+     "ms": 0.7089189966791309,
+     "speedup": 0.8497966681440909,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 2,
+     "sh": 2,
+     "sw": 2,
+     "ms": 0.7474420053767972,
+     "speedup": 0.8059983209777987,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 1,
+     "N": 1,
+     "sh": 4,
+     "sw": 1,
+     "ms": 1.2041619993397035,
+     "speedup": 0.5002956426895391,
+     "exact": false
+    },
+    {
+     "M": 4,
+     "K": 1,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 1,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 2,
+     "N": 1,
+     "sh": 4,
+     "sw": 1,
+     "ms": 0.917976998607628,
+     "speedup": 0.6562659002085494,
+     "exact": false
+    },
+    {
+     "M": 4,
+     "K": 2,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 2,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 4,
+     "N": 1,
+     "sh": 4,
+     "sw": 1,
+     "ms": 0.676507996104192,
+     "speedup": 0.890509801556275,
+     "exact": false
+    },
+    {
+     "M": 4,
+     "K": 4,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 4,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 8,
+     "N": 1,
+     "sh": 4,
+     "sw": 1,
+     "ms": 0.6082580002839677,
+     "speedup": 0.9904300495525372,
+     "exact": true
+    },
+    {
+     "M": 4,
+     "K": 8,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 8,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 1,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 1,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 1,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 2,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 2,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 2,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 4,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 4,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 4,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 8,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 8,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 8,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 1,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 1,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 1,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 2,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 2,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 2,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 4,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 4,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 4,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 8,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 8,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 8,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 1,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 1,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 1,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 2,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 2,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 2,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 4,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 4,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 4,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 8,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 8,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 8,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    }
+   ],
+   "n_candidates": 72,
+   "best": [
+    {
+     "M": 4,
+     "K": 8,
+     "N": 1,
+     "sh": 4,
+     "sw": 1,
+     "ms": 0.6082580002839677,
+     "speedup": 0.9904300495525372,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 1,
+     "sh": 2,
+     "sw": 1,
+     "ms": 0.7089189966791309,
+     "speedup": 0.8497966681440909,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 2,
+     "sh": 2,
+     "sw": 2,
+     "ms": 0.7474420053767972,
+     "speedup": 0.8059983209777987,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 8,
+     "N": 1,
+     "sh": 1,
+     "sw": 1,
+     "ms": 1.0878399989451282,
+     "speedup": 0.5537919197181174,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 8,
+     "N": 2,
+     "sh": 1,
+     "sw": 2,
+     "ms": 1.1808380004367791,
+     "speedup": 0.5101775189646187,
+     "exact": true
+    }
+   ]
+  },
+  {
+   "site": "site2097",
+   "in": [
+    512,
+    512,
+    256
+   ],
+   "w": [
+    256,
+    768
+   ],
+   "m_tiles": 8192,
+   "k_tiles": 8,
+   "n_tiles": 24,
+   "base_ms": 2.202120995207224,
+   "arms": [
+    {
+     "M": 1,
+     "K": 1,
+     "N": 1,
+     "sh": 1,
+     "sw": 1,
+     "ms": 10.654580000846181,
+     "speedup": 0.2066830410051201,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 1,
+     "N": 2,
+     "sh": 1,
+     "sw": 2,
+     "ms": 7.977093002409674,
+     "speedup": 0.27605557494967403,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 1,
+     "N": 3,
+     "sh": 1,
+     "sw": 3,
+     "ms": 4.948197994963266,
+     "speedup": 0.44503493947670375,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 1,
+     "N": 4,
+     "sh": 1,
+     "sw": 4,
+     "ms": 4.98776399763301,
+     "speedup": 0.44150464942853374,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 1,
+     "N": 6,
+     "sh": 1,
+     "sw": 6,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 1,
+     "K": 1,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 1,
+     "K": 1,
+     "N": 12,
+     "sh": 1,
+     "sw": 6,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 1,
+     "K": 1,
+     "N": 24,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 1,
+     "K": 2,
+     "N": 1,
+     "sh": 1,
+     "sw": 1,
+     "ms": 6.707647000439465,
+     "speedup": 0.32830007230001035,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 2,
+     "N": 2,
+     "sh": 1,
+     "sw": 2,
+     "ms": 5.294768001476768,
+     "speedup": 0.4159050962370832,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 2,
+     "N": 3,
+     "sh": 1,
+     "sw": 3,
+     "ms": 3.801885999564547,
+     "speedup": 0.5792180500571154,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 2,
+     "N": 4,
+     "sh": 1,
+     "sw": 4,
+     "ms": 3.8000330023351125,
+     "speedup": 0.5795004921941533,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 2,
+     "N": 6,
+     "sh": 1,
+     "sw": 6,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 1,
+     "K": 2,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 1,
+     "K": 2,
+     "N": 12,
+     "sh": 1,
+     "sw": 6,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 1,
+     "K": 2,
+     "N": 24,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 1,
+     "K": 4,
+     "N": 1,
+     "sh": 1,
+     "sw": 1,
+     "ms": 4.535583000688348,
+     "speedup": 0.4855210443449093,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 4,
+     "N": 2,
+     "sh": 1,
+     "sw": 2,
+     "ms": 3.8723009929526597,
+     "speedup": 0.568685388665536,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 4,
+     "N": 3,
+     "sh": 1,
+     "sw": 3,
+     "ms": 3.3184460044139996,
+     "speedup": 0.6636000683085075,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 4,
+     "N": 4,
+     "sh": 1,
+     "sw": 4,
+     "ms": 3.3242279969272204,
+     "speedup": 0.6624458362190482,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 4,
+     "N": 6,
+     "sh": 1,
+     "sw": 6,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 1,
+     "K": 4,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 1,
+     "K": 4,
+     "N": 12,
+     "sh": 1,
+     "sw": 6,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 1,
+     "K": 4,
+     "N": 24,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 1,
+     "K": 8,
+     "N": 1,
+     "sh": 1,
+     "sw": 1,
+     "ms": 3.4845219997805543,
+     "speedup": 0.6319721888241508,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 8,
+     "N": 2,
+     "sh": 1,
+     "sw": 2,
+     "ms": 3.3677600004011765,
+     "speedup": 0.6538829949120192,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 8,
+     "N": 3,
+     "sh": 1,
+     "sw": 3,
+     "ms": 3.310882006189786,
+     "speedup": 0.6651161204447328,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 8,
+     "N": 4,
+     "sh": 1,
+     "sw": 4,
+     "ms": 3.316271999210585,
+     "speedup": 0.6640350959545608,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 8,
+     "N": 6,
+     "sh": 1,
+     "sw": 6,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 1,
+     "K": 8,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 1,
+     "K": 8,
+     "N": 12,
+     "sh": 1,
+     "sw": 6,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 1,
+     "K": 8,
+     "N": 24,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 1,
+     "N": 1,
+     "sh": 2,
+     "sw": 1,
+     "ms": 5.743522000557277,
+     "speedup": 0.3834095168423763,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 1,
+     "N": 2,
+     "sh": 2,
+     "sw": 2,
+     "ms": 4.418591001012828,
+     "speedup": 0.4983762911530971,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 1,
+     "N": 3,
+     "sh": 2,
+     "sw": 3,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 1,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 1,
+     "N": 6,
+     "sh": 1,
+     "sw": 6,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 1,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 1,
+     "N": 12,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 1,
+     "N": 24,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 2,
+     "N": 1,
+     "sh": 2,
+     "sw": 1,
+     "ms": 3.7453190016094595,
+     "speedup": 0.5879662037495114,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 2,
+     "N": 2,
+     "sh": 2,
+     "sw": 2,
+     "ms": 3.521372993418481,
+     "speedup": 0.6253586312279426,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 2,
+     "N": 3,
+     "sh": 2,
+     "sw": 3,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 2,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 2,
+     "N": 6,
+     "sh": 1,
+     "sw": 6,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 2,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 2,
+     "N": 12,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 2,
+     "N": 24,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 4,
+     "N": 1,
+     "sh": 2,
+     "sw": 1,
+     "ms": 2.8910930050187744,
+     "speedup": 0.7616915095379035,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 4,
+     "N": 2,
+     "sh": 2,
+     "sw": 2,
+     "ms": 2.8822570020565763,
+     "speedup": 0.7640265922282243,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 4,
+     "N": 3,
+     "sh": 2,
+     "sw": 3,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 4,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 4,
+     "N": 6,
+     "sh": 1,
+     "sw": 6,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 4,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 4,
+     "N": 12,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 4,
+     "N": 24,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 1,
+     "sh": 2,
+     "sw": 1,
+     "ms": 2.30460699822288,
+     "speedup": 0.955529943676,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 2,
+     "sh": 2,
+     "sw": 2,
+     "ms": 2.3460360025637783,
+     "speedup": 0.9386560959851928,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 3,
+     "sh": 2,
+     "sw": 3,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 6,
+     "sh": 1,
+     "sw": 6,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 12,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 24,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 1,
+     "N": 1,
+     "sh": 4,
+     "sw": 1,
+     "ms": 3.700954999658279,
+     "speedup": 0.5950142585928639,
+     "exact": true
+    },
+    {
+     "M": 4,
+     "K": 1,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 1,
+     "N": 3,
+     "sh": 2,
+     "sw": 3,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 1,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 1,
+     "N": 6,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 1,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 1,
+     "N": 12,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 1,
+     "N": 24,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 2,
+     "N": 1,
+     "sh": 4,
+     "sw": 1,
+     "ms": 3.0288960042526014,
+     "speedup": 0.7270375054526215,
+     "exact": true
+    },
+    {
+     "M": 4,
+     "K": 2,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 2,
+     "N": 3,
+     "sh": 2,
+     "sw": 3,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 2,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 2,
+     "N": 6,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 2,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 2,
+     "N": 12,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 2,
+     "N": 24,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 4,
+     "N": 1,
+     "sh": 4,
+     "sw": 1,
+     "ms": 2.904699998907745,
+     "speedup": 0.7581233848711703,
+     "exact": true
+    },
+    {
+     "M": 4,
+     "K": 4,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 4,
+     "N": 3,
+     "sh": 2,
+     "sw": 3,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 4,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 4,
+     "N": 6,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 4,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 4,
+     "N": 12,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 4,
+     "N": 24,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 8,
+     "N": 1,
+     "sh": 4,
+     "sw": 1,
+     "ms": 2.102111997373868,
+     "speedup": 1.0475754850161627,
+     "exact": true
+    },
+    {
+     "M": 4,
+     "K": 8,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 8,
+     "N": 3,
+     "sh": 2,
+     "sw": 3,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 8,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 8,
+     "N": 6,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 8,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 8,
+     "N": 12,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 8,
+     "N": 24,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 1,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 1,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 1,
+     "N": 3,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 1,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 1,
+     "N": 6,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 1,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 1,
+     "N": 12,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 1,
+     "N": 24,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 2,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 2,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 2,
+     "N": 3,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 2,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 2,
+     "N": 6,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 2,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 2,
+     "N": 12,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 2,
+     "N": 24,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 4,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 4,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 4,
+     "N": 3,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 4,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 4,
+     "N": 6,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 4,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 4,
+     "N": 12,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 4,
+     "N": 24,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 8,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 8,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 8,
+     "N": 3,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 8,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 8,
+     "N": 6,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 8,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 8,
+     "N": 12,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 8,
+     "N": 24,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 1,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 1,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 1,
+     "N": 3,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 1,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 1,
+     "N": 6,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 1,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 1,
+     "N": 12,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 1,
+     "N": 24,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 2,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 2,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 2,
+     "N": 3,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 2,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 2,
+     "N": 6,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 2,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 2,
+     "N": 12,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 2,
+     "N": 24,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 4,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 4,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 4,
+     "N": 3,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 4,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 4,
+     "N": 6,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 4,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 4,
+     "N": 12,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 4,
+     "N": 24,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 8,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 8,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 8,
+     "N": 3,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 8,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 8,
+     "N": 6,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 8,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 8,
+     "N": 12,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 8,
+     "N": 24,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 1,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 1,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 1,
+     "N": 3,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 1,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 1,
+     "N": 6,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 1,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 1,
+     "N": 12,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 1,
+     "N": 24,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 2,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 2,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 2,
+     "N": 3,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 2,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 2,
+     "N": 6,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 2,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 2,
+     "N": 12,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 2,
+     "N": 24,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 4,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 4,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 4,
+     "N": 3,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 4,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 4,
+     "N": 6,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 4,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 4,
+     "N": 12,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 4,
+     "N": 24,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 8,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 8,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 8,
+     "N": 3,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 8,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 8,
+     "N": 6,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 8,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 8,
+     "N": 12,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 8,
+     "N": 24,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    }
+   ],
+   "n_candidates": 192,
+   "best": [
+    {
+     "M": 4,
+     "K": 8,
+     "N": 1,
+     "sh": 4,
+     "sw": 1,
+     "ms": 2.102111997373868,
+     "speedup": 1.0475754850161627,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 1,
+     "sh": 2,
+     "sw": 1,
+     "ms": 2.30460699822288,
+     "speedup": 0.955529943676,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 2,
+     "sh": 2,
+     "sw": 2,
+     "ms": 2.3460360025637783,
+     "speedup": 0.9386560959851928,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 4,
+     "N": 2,
+     "sh": 2,
+     "sw": 2,
+     "ms": 2.8822570020565763,
+     "speedup": 0.7640265922282243,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 4,
+     "N": 1,
+     "sh": 2,
+     "sw": 1,
+     "ms": 2.8910930050187744,
+     "speedup": 0.7616915095379035,
+     "exact": true
+    }
+   ]
+  },
+  {
+   "site": "site2103",
+   "in": [
+    512,
+    512,
+    256
+   ],
+   "w": [
+    256,
+    256
+   ],
+   "m_tiles": 8192,
+   "k_tiles": 8,
+   "n_tiles": 8,
+   "base_ms": 0.9072769971680827,
+   "arms": [
+    {
+     "M": 1,
+     "K": 1,
+     "N": 1,
+     "sh": 1,
+     "sw": 1,
+     "ms": 3.5772400005953386,
+     "speedup": 0.2536248607913056,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 1,
+     "N": 2,
+     "sh": 1,
+     "sw": 2,
+     "ms": 3.6873290009680204,
+     "speedup": 0.2460526296758165,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 1,
+     "N": 4,
+     "sh": 1,
+     "sw": 4,
+     "ms": 3.730090997123625,
+     "speedup": 0.24323186696188076,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 1,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 1,
+     "K": 2,
+     "N": 1,
+     "sh": 1,
+     "sw": 1,
+     "ms": 2.242950002255384,
+     "speedup": 0.4045016590899379,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 2,
+     "N": 2,
+     "sh": 1,
+     "sw": 2,
+     "ms": 2.3303560010390356,
+     "speedup": 0.3893297834165918,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 2,
+     "N": 4,
+     "sh": 1,
+     "sw": 4,
+     "ms": 2.3928450027597137,
+     "speedup": 0.37916245980065694,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 2,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 1,
+     "K": 4,
+     "N": 1,
+     "sh": 1,
+     "sw": 1,
+     "ms": 1.586970996868331,
+     "speedup": 0.5717035780480356,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 4,
+     "N": 2,
+     "sh": 1,
+     "sw": 2,
+     "ms": 1.6203140039579011,
+     "speedup": 0.5599389963623714,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 4,
+     "N": 4,
+     "sh": 1,
+     "sw": 4,
+     "ms": 1.677824002399575,
+     "speedup": 0.5407462259870651,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 4,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 1,
+     "K": 8,
+     "N": 1,
+     "sh": 1,
+     "sw": 1,
+     "ms": 1.239489996805787,
+     "speedup": 0.7319760542692317,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 8,
+     "N": 2,
+     "sh": 1,
+     "sw": 2,
+     "ms": 1.2877919944003224,
+     "speedup": 0.7045213831994416,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 8,
+     "N": 4,
+     "sh": 1,
+     "sw": 4,
+     "ms": 1.3162460018065758,
+     "speedup": 0.6892913603709532,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 8,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 1,
+     "N": 1,
+     "sh": 2,
+     "sw": 1,
+     "ms": 1.9102570004179142,
+     "speedup": 0.47495022762360994,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 1,
+     "N": 2,
+     "sh": 2,
+     "sw": 2,
+     "ms": 1.960030996997375,
+     "speedup": 0.4628891066304386,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 1,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 1,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 2,
+     "N": 1,
+     "sh": 2,
+     "sw": 1,
+     "ms": 1.3079199998173863,
+     "speedup": 0.6936792749516469,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 2,
+     "N": 2,
+     "sh": 2,
+     "sw": 2,
+     "ms": 1.2941739987581968,
+     "speedup": 0.7010471528856593,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 2,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 2,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 4,
+     "N": 1,
+     "sh": 2,
+     "sw": 1,
+     "ms": 0.9339280004496686,
+     "speedup": 0.97146353544518,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 4,
+     "N": 2,
+     "sh": 2,
+     "sw": 2,
+     "ms": 0.9723909970489331,
+     "speedup": 0.9330372246570958,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 4,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 4,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 1,
+     "sh": 2,
+     "sw": 1,
+     "ms": 0.8135079988278449,
+     "speedup": 1.115264998592941,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 2,
+     "sh": 2,
+     "sw": 2,
+     "ms": 0.8444480045000091,
+     "speedup": 1.0744024408054278,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 1,
+     "N": 1,
+     "sh": 4,
+     "sw": 1,
+     "ms": 1.2918889988213778,
+     "speedup": 0.702287114446995,
+     "exact": true
+    },
+    {
+     "M": 4,
+     "K": 1,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 1,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 1,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 2,
+     "N": 1,
+     "sh": 4,
+     "sw": 1,
+     "ms": 0.9642849981901236,
+     "speedup": 0.9408805476295496,
+     "exact": true
+    },
+    {
+     "M": 4,
+     "K": 2,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 2,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 2,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 4,
+     "N": 1,
+     "sh": 4,
+     "sw": 1,
+     "ms": 0.8270649996120483,
+     "speedup": 1.0969839100840437,
+     "exact": true
+    },
+    {
+     "M": 4,
+     "K": 4,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 4,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 4,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 8,
+     "N": 1,
+     "sh": 4,
+     "sw": 1,
+     "ms": 0.8189090003725141,
+     "speedup": 1.1079094218715033,
+     "exact": true
+    },
+    {
+     "M": 4,
+     "K": 8,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 8,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 4,
+     "K": 8,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 1,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 1,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 1,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 1,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 2,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 2,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 2,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 2,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 4,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 4,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 4,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 4,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 8,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 8,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 8,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 8,
+     "K": 8,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 1,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 1,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 1,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 1,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 2,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 2,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 2,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 2,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 4,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 4,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 4,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 4,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 8,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 8,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 8,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 16,
+     "K": 8,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 1,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 1,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 1,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 1,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 2,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 2,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 2,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 2,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 4,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 4,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 4,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 4,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 8,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 8,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 8,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    },
+    {
+     "M": 32,
+     "K": 8,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206:"
+    }
+   ],
+   "n_candidates": 96,
+   "best": [
+    {
+     "M": 2,
+     "K": 8,
+     "N": 1,
+     "sh": 2,
+     "sw": 1,
+     "ms": 0.8135079988278449,
+     "speedup": 1.115264998592941,
+     "exact": true
+    },
+    {
+     "M": 4,
+     "K": 8,
+     "N": 1,
+     "sh": 4,
+     "sw": 1,
+     "ms": 0.8189090003725141,
+     "speedup": 1.1079094218715033,
+     "exact": true
+    },
+    {
+     "M": 4,
+     "K": 4,
+     "N": 1,
+     "sh": 4,
+     "sw": 1,
+     "ms": 0.8270649996120483,
+     "speedup": 1.0969839100840437,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 2,
+     "sh": 2,
+     "sw": 2,
+     "ms": 0.8444480045000091,
+     "speedup": 1.0744024408054278,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 4,
+     "N": 1,
+     "sh": 2,
+     "sw": 1,
+     "ms": 0.9339280004496686,
+     "speedup": 0.97146353544518,
+     "exact": true
+    }
+   ]
+  }
+ ],
+ "loadavg_end": [
+  "2.70",
+  "1.20",
+  "1.12"
+ ]
+}

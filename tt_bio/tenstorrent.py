@@ -1949,6 +1949,48 @@ class TriangleMultiplication(Module):
         return x
 
 
+# The qkv and g projections are the fold's two biggest `minimal_matmul` sites after the trimul
+# in-projection. An off-fold sweep of every legal MinimalMatmulConfig at their exact shapes
+# (perf/bigswing/mmcfg/mmcfg_sweep_512_qb2c0.json, warm 2, median of 5, torch.equal against the
+# unconfigured default) found one winner each and nothing at all for the in-projection:
+#
+#     [512,512,256] x [256,768]  2.2021 -> 2.1021 ms  1.0476x  M=4 K=8 N=1 sub=4x1
+#     [512,512,256] x [256,256]  0.9073 -> 0.8135 ms  1.1153x  M=2 K=8 N=1 sub=2x1
+#     [1,512,512,256] x [256,128]  best legal config 0.9904x   -- no win, left alone
+#
+# Both are bit-exact. Gated because a per-call ratio is a screen, not a fold gain.
+QKV_MM_CONFIG = True
+_MM_CFG = os.environ.get("TT_BIO_QKV_MM_CONFIG", "1" if QKV_MM_CONFIG else "0") == "1"
+_MM_BLOCK = {24: (4, 8, 1, 4, 1), 8: (2, 8, 1, 2, 1)}      # n_tiles -> (M, K, N, sub_h, sub_w)
+
+
+@lru_cache(maxsize=None)
+def _mm_core_coord(gx, gy):
+    return ttnn.CoreCoord(gx, gy)
+
+
+def _qkv_mm_config(inp, w):
+    """The swept block config for this (activation, weight) pair, or None to leave the op alone."""
+    if not _MM_CFG:
+        return None
+    kt = (int(w.shape[-2]) + 31) // 32
+    nt = (int(w.shape[-1]) + 31) // 32
+    blk = _MM_BLOCK.get(nt)
+    if blk is None or kt % blk[1]:
+        return None
+    shape = [int(d) for d in inp.shape]      # ttnn.Shape does not support slicing
+    mt = 1
+    for d in shape[:-1]:
+        mt *= d
+    mt = (mt + 31) // 32
+    M, K, N, sh, sw = blk
+    if mt % M or nt % N:
+        return None
+    return ttnn.MinimalMatmulConfig(
+        M_block_size=M, K_block_size=K, N_block_size=N, subblock_h=sh, subblock_w=sw,
+        compute_with_storage_grid_size=_mm_core_coord(*COMPUTE_GRID_MAIN))
+
+
 class TriangleAttention(Module):
     def __init__(
         self,
@@ -2157,12 +2199,14 @@ class TriangleAttention(Module):
                     weight_tensor=self.qkv_weight,
                     compute_kernel_config=self.compute_kernel_config,
                     dtype=_dtype(),
+                    config=_qkv_mm_config(x_chunk, self.qkv_weight),
                 )
                 g_chunk = ttnn.experimental.minimal_matmul(
                     input_tensor=x_chunk,
                     weight_tensor=self.g_weight,
                     compute_kernel_config=self.compute_kernel_config,
                     dtype=_dtype(),
+                    config=_qkv_mm_config(x_chunk, self.g_weight),
                 )
                 ttnn.deallocate(x_chunk)
                 if self.affinity:
@@ -2206,12 +2250,14 @@ class TriangleAttention(Module):
                     weight_tensor=self.qkv_weight,
                     compute_kernel_config=self.compute_kernel_config,
                     dtype=_dtype(),
+                    config=_qkv_mm_config(x, self.qkv_weight),
                 )
             g = ttnn.experimental.minimal_matmul(
                 input_tensor=x,
                 weight_tensor=self.g_weight,
                 compute_kernel_config=self.compute_kernel_config,
                 dtype=_dtype(),
+                config=_qkv_mm_config(x, self.g_weight),
             )
             ttnn.deallocate(x)
             if attn_mask is not None:
