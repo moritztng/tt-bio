@@ -80,6 +80,13 @@ def pending_folds(base, models=MODEL_DIRS):
 def label_one(out_dir, rd, venv_py=LABEL_VENV_PY, shared_venv=SHARED_VENV):
     target = rd.name.split("results_")[1]
     lock = out_dir / ".label_lock"
+    # Re-check at dequeue, not just at scan. pending_folds() builds the whole todo list in
+    # one pass and the pool then drains it over hours, so with a second leg running on
+    # another host every dir that leg finishes after our scan is still in our list and would
+    # be labelled a second time. The write is atomic and deterministic, so a duplicate costs
+    # nothing but CPU -- and CPU is the campaign's critical path.
+    if (out_dir / "labels.json").exists() or lock.exists():
+        return
     lock.write_text(str(os.getpid()))
     t0 = time.time()
     try:
