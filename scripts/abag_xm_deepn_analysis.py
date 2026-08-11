@@ -251,8 +251,15 @@ def _reuse_skip(model: str):
     return skip
 
 
-def galaxy64_pools(model: str):
+def galaxy64_pools(model: str, max_chunk: int | None = None):
     """Harvested WH-Galaxy deep-N folds (the PHASE 2 campaign spine, N>=64).
+
+    ``max_chunk`` restricts every rung to chunks 0..max_chunk, which is what the
+    truncation gate needs: the ladder is seed-nested, so rung 512's chunks 0-3 ARE
+    rung 256's chunks (same inodes), and truncating 512 back to them must reproduce
+    the 256 rung exactly. Unchunked dirs are dropped when truncating -- they carry no
+    chunk structure to cut, so including them would silently mix a whole rung into a
+    truncated pool.
 
     Same pool shape as deepn_pools, rooted at BASE/galaxy/<prefix>/<target>_n<N>[_c<j>],
     walls from BASE/galaxy/fleet_results.jsonl. In assembly this arm is applied LAST with
@@ -320,6 +327,8 @@ def galaxy64_pools(model: str):
                 chunk = int(rest.split("_c")[1])
             except ValueError:
                 chunk = None
+        if max_chunk is not None and (chunk is None or chunk > max_chunk):
+            continue
         pool = pool_fold(out_dir / f"{prefix}_results_{t}" / "results.json",
                          out_dir / "labels.json", sel)
         if pool is None:
@@ -336,9 +345,10 @@ def galaxy64_pools(model: str):
     # as N=256. Unchunked single-fold rungs (n64) are complete by construction.
     for k in list(out):
         m = meta[k]
-        if m["plain"] and not m["chunks"]:
+        if max_chunk is None and m["plain"] and not m["chunks"]:
             continue
-        if len(m["chunks"]) < max(1, k[1] // 64):
+        need = (max_chunk + 1) if max_chunk is not None else max(1, k[1] // 64)
+        if len(m["chunks"]) < need:
             del out[k]
     for k in out:
         out[k] = {"pool": out[k], "wall_s": walls.get(k), "billed_n": billed.get(k)}
@@ -405,6 +415,42 @@ def curve_points(pools):
 
 def oracle_of(pool):
     return max(v for _c, v in pool)
+
+
+def user_of(pool):
+    return max(pool, key=lambda x: x[0])[1]
+
+
+def truncation_gate(model: str, lo: int = 256, hi: int = 512):
+    """Pooling-correctness gate: cut rung `hi` back to its first `lo` samples and
+    require it to reproduce rung `lo` exactly.
+
+    The ladder is seed-nested and the reuse is physical -- rung 512's chunks 0-3 are
+    hardlinks of rung 256's chunks, verified same-inode. So this is an identity test,
+    not a statistical one: every field must match exactly, and a single mismatch means
+    the pooling code is wrong and no 512 number downstream is trustworthy.
+
+    What it does test: chunk enumeration and ordering, the rung-completeness
+    arithmetic, that no chunk is double-counted, and above all that the selector is
+    re-derived over the WHOLE pool rather than over only the newly added samples --
+    the specific failure the campaign brief names.
+
+    What it cannot test: whether the NEW chunks 4-7 are pooled correctly. Nothing can,
+    by identity; that is covered by the completeness gate requiring all 8 chunks and by
+    `n_hi` being 512."""
+    full = galaxy64_pools(model)
+    trunc = galaxy64_pools(model, max_chunk=lo // CHUNK_SAMPLES - 1)
+    targets = sorted({t for (t, n) in full if n == lo}
+                     & {t for (t, n) in trunc if n == hi})
+    rows = []
+    for t in targets:
+        a, b = full[(t, lo)]["pool"], trunc[(t, hi)]["pool"]
+        rows.append({"target": t, "n_lo": len(a), "n_hi_trunc": len(b),
+                     "n_hi_full": len(full[(t, hi)]["pool"]) if (t, hi) in full else None,
+                     "oracle_lo": oracle_of(a), "oracle_hi": oracle_of(b),
+                     "user_lo": user_of(a), "user_hi": user_of(b),
+                     "pool_equal": sorted(a) == sorted(b)})
+    return rows
 
 
 def subsample_oracle_curve(pool, ms, rng, b=200):
@@ -565,8 +611,42 @@ def main():
     ap.add_argument("--deep", action="store_true",
                     help="add stop-rule floors, within-fold curves, paired-bootstrap CIs")
     ap.add_argument("--out", default=str(BASE / "analysis_curves.json"))
+    ap.add_argument("--truncation-gate", action="store_true",
+                    help="cut rung 512 back to its first 256 and require it to "
+                         "reproduce rung 256 exactly; exits 1 on any mismatch")
+    ap.add_argument("--gate-lo", type=int, default=256)
+    ap.add_argument("--gate-hi", type=int, default=512)
     a = ap.parse_args()
     models = [a.model] if a.model else sorted(MODELS)
+    if a.truncation_gate:
+        bad = tot = 0
+        for model in models:
+            rows = truncation_gate(model, a.gate_lo, a.gate_hi)
+            if not rows:
+                print(f"{model:<14} no (target) with both rungs complete -- nothing to gate")
+                continue
+            miss = [r for r in rows
+                    if not r["pool_equal"] or r["n_lo"] != r["n_hi_trunc"]
+                    or r["oracle_lo"] != r["oracle_hi"] or r["user_lo"] != r["user_hi"]]
+            bad += len(miss)
+            tot += len(rows)
+            print(f"{model:<14} {len(rows) - len(miss)}/{len(rows)} targets reproduce "
+                  f"N={a.gate_lo} exactly from the truncated N={a.gate_hi} pool")
+            for r in miss[:10]:
+                print(f"    MISMATCH {r['target']}: n {r['n_lo']}->{r['n_hi_trunc']} "
+                      f"oracle {r['oracle_lo']}->{r['oracle_hi']} "
+                      f"user {r['user_lo']}->{r['user_hi']} "
+                      f"pool_equal={r['pool_equal']}")
+        if not tot:
+            # A gate that gated nothing is not a pass. Zero comparable targets means
+            # the rungs are not both complete+labelled yet, which is exactly the state
+            # in which a green gate would be most misleading.
+            print("\nTRUNCATION GATE: NO DATA -- 0 targets had both rungs complete "
+                  "and labelled; this is NOT a pass")
+            return 1
+        print(f"\nTRUNCATION GATE: {'PASS' if not bad else 'FAIL'} "
+              f"({tot - bad}/{tot} exact)")
+        return 0 if not bad else 1
     report = {}
     ark16 = []
     for model in models:
