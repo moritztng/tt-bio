@@ -484,7 +484,7 @@ def reblock_permute_back(x, memory_config=None, device=None):
 
 
 # Whether `_channel_move_back` reaches for the kernel at all.
-REBLOCK_PERMUTE_BACK = False  # WIP: the kernel is NOT correct yet, see state doc E2
+REBLOCK_PERMUTE_BACK = True
 _ENABLED_BACK = os.environ.get(
     "TT_BIO_REBLOCK_PERMUTE_BACK", "1" if REBLOCK_PERMUTE_BACK else "0") == "1"
 

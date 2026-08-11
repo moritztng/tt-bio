@@ -70,28 +70,30 @@ void kernel_main() {
     const uint32_t end_group = start_group + num_groups;
 
     // The scratch window is this RISC's private staging area, not a producer/consumer queue: the
-    // same kernel writes it and reads it, so it is reserved ONCE and addressed directly. Pushing
-    // and waiting on it per group is what the reference implementation did, and it is wrong here --
-    // a CB's producer and consumer pointers are separate state, so on the second group of a core
-    // `get_read_ptr` no longer names what `get_write_ptr` returned. That failure is invisible while
-    // every core has at most one group (N <= 320 at C = 32, num_groups <= 110) and appears the
-    // moment any core gets two: measured `torch.equal` true at N = 256/288/320 with C = 32 and
-    // false at every larger cell, with the rate collapsing to 8-13 GB/s on the semaphore round
-    // trips as well. The forward direction's writer already uses this pattern for its staging CB.
+    // same kernel writes it and reads it, so it is reserved ONCE and addressed directly, the way the
+    // forward direction's writer holds its own staging CB.
     cb_reserve_back(scratch_cb_id, TILE_HEIGHT);
     const uint32_t group_l1_base = get_write_ptr(scratch_cb_id);
 
-    // Every gather read is local L1 -> L1 at exactly FACE_ROW_BYTES, so the NOC coordinates and the
-    // length are the same for all of them and can be written into the read command buffer once per
-    // group instead of once per transaction. ONCE PER GROUP AND NOT ONCE PER KERNEL: this kernel
-    // also issues `noc_async_read_page` for the group's DRAM tiles, and that shares the same read
-    // command buffer, so the DRAM reads overwrite the one-packet state. Setting it at kernel entry
-    // makes every gather read use a DRAM page's NOC coordinates -- measured as `torch.equal` false
-    // at every shape and a uniform 8-9 GB/s. Setting it once and then reading DRAM per group is
-    // worse than useless, it is correct only for the first group of each core, which passes at
-    // N <= 320, C = 32 and fails everywhere a core owns two groups. The forward direction's writer
-    // gets to set it once because a writer issues no reads other than its own gather.
-    const uint32_t gather_state_addr = get_noc_addr(group_l1_base);
+    // Every gather read is local L1 -> L1 at exactly FACE_ROW_BYTES, so the coordinates and the
+    // length are the same for all of them and go into the read command buffer once per GROUP rather
+    // than once per transaction.
+    //
+    // Two things about this line were each worth a wrong kernel, and both are silent:
+    //
+    //   * it is uint64_t, not uint32_t. `get_noc_addr` returns a 64-bit NOC address whose high bits
+    //     are the target core's x/y; truncating it to 32 bits keeps only the local offset, so the
+    //     state names core (0,0) and every gather read fetches another core's L1. Measured
+    //     `torch.equal` false at every shape at a uniform 5 GB/s -- SLOWER than the wrong-state case
+    //     below, because the reads become real NOC hops.
+    //   * it is re-issued per group and not once per kernel. This kernel also calls
+    //     `noc_async_read_page` for the group's DRAM tiles and that shares the same read command
+    //     buffer, so the DRAM reads overwrite the one-packet state. Setting it once at entry
+    //     measured false everywhere at 9 GB/s; setting it once lazily after the first group's reads
+    //     measured TRUE at exactly the shapes where no core owns two groups (N <= 320 at C = 32) and
+    //     false beyond, which is the shape-dependent failure that makes this trap dangerous. The
+    //     forward writer gets to set it once because a writer issues no reads but its own gather.
+    const uint64_t gather_state_addr = get_noc_addr(group_l1_base);
 
     for (uint32_t group = start_group; group < end_group; ++group) {
         const uint32_t it = group / NtCt;

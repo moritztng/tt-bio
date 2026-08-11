@@ -52,6 +52,9 @@ GROUP = {"g1": 1, "g2": 2, "g4": 4, "g8": 8}
 # forgets the cache_clear silently runs an A/A pair and labels it an A/B -- see set_arm.
 SDPA = {"narrowq": (False, False), "wideq": (True, False),
         "narrowq_b8": (False, True), "wideq_b8": (True, True)}
+# trimul channel-move-back kernel (reblock_permute_back). Both arms hold the in-projection at
+# the branch default of 8 so the only thing that moves is the back move.
+BACK = {"g8nobk": False, "g8bk": True}
 
 
 def timed_call(key, fn, *a, **kw):
@@ -158,7 +161,8 @@ def main():
         fid = FIDELITY.get(name)
         grp = GROUP.get(name)
         sdpa = SDPA.get(name)
-        STATE["gates"] = "on" if (fid or grp or sdpa) else name
+        bk = BACK.get(name)
+        STATE["gates"] = "on" if (fid or grp or sdpa or bk is not None) else name
         # Every arm sets the SDPA flags, so an arm that is not an SDPA arm provably runs the
         # production pick rather than inheriting the previous arm's.
         T._SDPA_WIDE_Q, T._TRIATT_BIAS_B8 = sdpa if sdpa else SDPA_DEFAULT
@@ -174,6 +178,11 @@ def main():
             # The weight cache is keyed on (chunk_size, group), so an arm flip builds the widened
             # weights once and never reloads the model.
             T._TRIMUL_INPROJ_GROUP = grp
+        if bk is not None:
+            import tt_bio.reblock_permute as RB
+            T._TRIMUL_INPROJ_GROUP = 8
+            RB.set_enabled_back(bk)
+            RB.STATS_BACK[0] = RB.STATS_BACK[1] = 0
         if fid:
             ckc = STATE["model"].trunk.compute_kernel_config
             ckc.math_fidelity = getattr(ttnn.MathFidelity, fid)
@@ -240,6 +249,8 @@ def main():
                    "sdpa_wide_q": T._SDPA_WIDE_Q,
                    "triatt_bias_b8": T._TRIATT_BIAS_B8,
                    "sdpa_q_chunk_over_l1": sorted(str(k) for k in T._SDPA_Q_CHUNK_OVER_L1),
+                   "back_kernel": (lambda RB: [RB._ENABLED_BACK, list(RB.STATS_BACK)])(
+                       __import__("tt_bio.reblock_permute", fromlist=["x"])),
                    "fidelity": fidelities(),
                    "loadavg": open("/proc/loadavg").read().split()[:3],
                    "wall_ms": {k: {"calls": v["n"], "ms": round(v["s"] * 1e3, 2)}
