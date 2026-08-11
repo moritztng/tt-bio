@@ -293,10 +293,26 @@ def measure(model: str, repeat: int, msa_dir: Path, out_path: Path,
     assert cold_metrics.get("msa"), "fold ran without an MSA -- cache seeding failed"
     msa_hits = sorted(p.name for p in msa_dir.glob("*.a3m"))
 
+    def _fold_record(t, m):
+        """Per-fold provenance: the CIF hash the arm produced, its plDDT and the host load.
+
+        An A/B whose arms differ in numerics must show what each arm actually built, and the
+        load at the fold is what made an earlier 512 aa figure unusable. struct_dir is cleared
+        at the START of the next fold, so this reads it while it is still the current one.
+        """
+        import hashlib
+        cifs = {}
+        for f in sorted(Path(meta["struct_dir"]).glob("*.cif")):
+            cifs[f.name] = hashlib.sha256(f.read_bytes()).hexdigest()[:16]
+        return {"s": round(t, 3), "plddt": m.get("plddt"), "cif_sha256": cifs,
+                "loadavg": open("/proc/loadavg").read().split()[:3]}
+
+    fold_recs = [dict(_fold_record(cold_s, cold_metrics), arm_fold="cold")]
     times = []
     for _ in range(repeat):
         t, _m = one_fold()
         times.append(t)
+        fold_recs.append(_fold_record(t, _m))
 
     times_sorted = sorted(times)
     median = times_sorted[len(times_sorted) // 2]
@@ -317,6 +333,10 @@ def measure(model: str, repeat: int, msa_dir: Path, out_path: Path,
         warm_min_s=round(times_sorted[0], 3), warm_median_s=round(median, 3),
         warm_max_s=round(times_sorted[-1], 3),
         cold_metrics=cold_metrics,
+        warm_folds=fold_recs,
+        runtime_root=os.environ.get("TT_METAL_RUNTIME_ROOT", "<unset>"),
+        kernel_cache=os.environ.get("TT_METAL_CACHE", "<unset>"),
+        uptime=subprocess.run(["uptime"], capture_output=True, text=True).stdout.strip(),
         date=time.strftime("%Y-%m-%d"),
     )
     out_path.write_text(json.dumps(result, indent=2) + "\n")
