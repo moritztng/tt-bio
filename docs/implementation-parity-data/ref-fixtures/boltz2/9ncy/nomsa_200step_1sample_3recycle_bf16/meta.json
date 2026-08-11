@@ -1,0 +1,25 @@
+{
+  "reference_commit": "a56bc7309",
+  "reference_impl": "tt-bio-cpu-torch",
+  "reference_version": "a56bc7309",
+  "seeds": [
+    0
+  ],
+  "settings": {
+    "device_args": [
+      "--recycling_steps",
+      "3",
+      "--sampling_steps",
+      "200",
+      "--diffusion_samples",
+      "1",
+      "--single_sequence"
+    ],
+    "model": "boltz2",
+    "msa": "none",
+    "seed": 0,
+    "shared_draw_seed": 0,
+    "target_id": "9ncy",
+    "yaml": "examples/abag_xm/9ncy.yaml"
+  }
+}
