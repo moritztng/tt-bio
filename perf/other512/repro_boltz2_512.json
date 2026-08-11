@@ -1,0 +1,80 @@
+{
+ "wheel": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "0",
+ "model": "boltz2",
+ "reblock_permute_constant": true,
+ "enabled_at_import": true,
+ "grid": [
+  11,
+  10
+ ],
+ "cores": 110,
+ "compute_grid_main": [
+  11,
+  10
+ ],
+ "l1_max_seq": 352,
+ "meta": {
+  "hardware": "blackhole",
+  "card_type": null,
+  "aiclk_mhz": null,
+  "load_s": 3.74
+ },
+ "rows": [
+  {
+   "target": "perf/size512/fixtures/cdk2x2_512.yaml",
+   "kernel_on": true,
+   "rc_ok": true,
+   "error": null,
+   "wall_s": 75.37,
+   "n_tokens": null,
+   "n_residues": null,
+   "plddt": null,
+   "cif_sha": [
+    [
+     "cdk2x2_512.cif",
+     "e3360bd924594132"
+    ]
+   ],
+   "channel_move_calls": 3024,
+   "calls_served": 3024,
+   "calls_refused": 0,
+   "by_shape": [
+    {
+     "N": 512,
+     "C": 128,
+     "in": "DRAM",
+     "out": "DRAM",
+     "dtype": "BFLOAT16",
+     "layout": "TILE",
+     "eligible": true,
+     "calls": 3024
+    }
+   ],
+   "reject_reasons": {},
+   "trimul_invocations": {
+    "1x512x512x128": 1512
+   },
+   "trimul_invocations_total": 1512,
+   "trimul_throws": [],
+   "l1_out_refused_n": 0,
+   "l1_out_refused": [],
+   "l1_layer_norm": {
+    "l1": 756,
+    "dram": 0
+   },
+   "pair_shape": [
+    512,
+    128
+   ],
+   "transpose_memory_config": "BufferType.L1",
+   "transpose_l1_expected": false,
+   "load": [
+    1.13,
+    0.37,
+    0.29
+   ]
+  }
+ ]
+}
