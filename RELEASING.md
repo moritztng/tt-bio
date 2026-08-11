@@ -107,6 +107,10 @@ each leg, not two.
   (default 2400 s); a fold that never produces `results.json` in that window
   (e.g. a flaky MSA server) is killed with a clear error. A fold that succeeds
   but hangs on shutdown is reaped once its `results.json` is written.
+  The boltz2 affinity legs carry a higher floor of 7200 s
+  (`Leg.min_fold_timeout`): their affinity trunk runs in fp32 on the host, so a
+  co-tenanted host makes them slow rather than wrong — the wider window keeps
+  that from reading as an ERROR.
 - **Offline MSA fallback.** When the public ColabFold service is down or flaky,
   set `RELEASE_GATE_MSA_DIR` to a directory holding the cached
   `{sha256(sequence)[:16]}.a3m` files; the network-MSA legs then fold with
