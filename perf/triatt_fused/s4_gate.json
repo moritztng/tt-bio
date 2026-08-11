@@ -1,0 +1,114 @@
+{
+ "predictions": "S4, the kill gate for K2: does the SDPA transcription reproduce the native op?\n\nPREDICTION, WRITTEN BEFORE THE RUN. S0 did the same thing for `minimal_matmul` and landed 1.018x\nand torch.equal, so the same standard applies here:\n\n    torch.equal against ttnn.transformer.scaled_dot_product_attention, and within 5 % of its\n    measured time. Anything else and K2's route through generic_op is dead, because the mask patch\n    is this same descriptor plus a work-split change and two kernel edits.\n\nThe derived constants are asserted against the factory's own arithmetic first, so a mismatch shows\nup as a named assertion rather than as a wrong number or a hang. For the 512 aa shipped config\n(q_chunk 512, k_chunk 256, head_dim 32, 8 heads, batch 512, 11x10 grid, fp32_dest_acc):\n\n    dst_size 4, qk subblock (2,2), out subblock (4,1), mask CB 256 tiles = 512 KiB,\n    batch_parallel_factor 110, nh_parallel_factor 1 -> every core carries all 8 heads.\n",
+ "arms": [
+  {
+   "arm": "native",
+   "round": 0,
+   "ms": 6.541740000102436,
+   "aa_spread": 0.005924111985867104
+  },
+  {
+   "arm": "generic_op",
+   "round": 0,
+   "ms": 6.52910699864151,
+   "aa_spread": 0.004663577820495657
+  },
+  {
+   "arm": "native",
+   "round": 1,
+   "ms": 6.502706000901526,
+   "aa_spread": 0.0029520016589664848
+  },
+  {
+   "arm": "generic_op",
+   "round": 1,
+   "ms": 6.536490000144113,
+   "aa_spread": 0.007351345955984235
+  }
+ ],
+ "meta": {
+  "n": 512,
+  "q_chunk": 512,
+  "k_chunk": 256,
+  "grid": [
+   11,
+   10
+  ],
+  "loadavg": [
+   0.00439453125,
+   0.0263671875,
+   0.26513671875
+  ],
+  "card": "1",
+  "loadavg_end": [
+   0.08447265625,
+   0.04296875,
+   0.26953125
+  ]
+ },
+ "plan": {
+  "gx": 11,
+  "gy": 10,
+  "num_cores": 110,
+  "B": 512,
+  "NQH": 8,
+  "NKH": 8,
+  "NVH": 8,
+  "Sq": 512,
+  "Sk": 512,
+  "DH": 32,
+  "Sqt": 16,
+  "Skt": 16,
+  "DHt": 1,
+  "vDHt": 1,
+  "valid_Sqt": 16,
+  "valid_Skt": 16,
+  "use_padded_mask": false,
+  "Sq_chunk_t": 16,
+  "Sk_chunk_t": 8,
+  "q_num_chunks": 1,
+  "k_num_chunks": 2,
+  "bcast_batch": true,
+  "bcast_heads": false,
+  "batch_pf": 110,
+  "nh_pf": 1,
+  "q_pf": 1,
+  "batch_per_core": 5,
+  "nh_per_core": 8,
+  "q_per_core": 1,
+  "q_buffer_factor": 1,
+  "dst_size": 8,
+  "qk_in0_block_w": 1,
+  "qk_sb_h": 2,
+  "qk_sb_w": 4,
+  "qk_in0_ns": 8,
+  "qk_in1_ns": 2,
+  "qk_num_blocks": 1,
+  "out_in0_block_w": 8,
+  "out_sb_h": 8,
+  "out_sb_w": 1,
+  "out_in0_ns": 2,
+  "out_in1_ns": 1,
+  "out_num_blocks": 1,
+  "math_fidelity": "MathFidelity.HiFi2",
+  "math_approx": true,
+  "fp32_dest_acc": false,
+  "dst_full_sync": false,
+  "scale": 0.1767766952966369,
+  "q_tiles": 16,
+  "k_tiles": 16,
+  "v_tiles": 16,
+  "mask_tiles": 256,
+  "qk_tiles": 128,
+  "out_im_tiles": 16,
+  "out0_t": 16,
+  "statistics_tiles": 16
+ },
+ "equal": true,
+ "summary": {
+  "native_ms": 6.522223000501981,
+  "generic_ms": 6.532798499392811,
+  "ratio": 1.0016214561952292,
+  "gate_pass": true
+ }
+}

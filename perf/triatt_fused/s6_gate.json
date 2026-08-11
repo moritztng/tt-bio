@@ -1,0 +1,56 @@
+{
+ "predictions": "K2: the SDPA mask read once per head instead of once per (batch, head, k_chunk).\n\nPREDICTION, WRITTEN BEFORE THE RUN (state/triatt-fused-kernel-final.md \u00a74 and \u00a711):\n\n    Bit-exact. Nothing about the arithmetic changes -- the same mask tiles are added to the same\n    QK tiles in the same order. Only where the bytes come from changes, and the ordering within\n    add_block_inplace is untouched.\n\n    6.53 -> 2.37-2.75 ms, i.e. the measured bias-off 2.222 ms plus ~0.15 ms for the one-time\n    56 MiB mask read plus 0-0.35 for the L1-accumulate. That is the \u00a74 prediction verbatim; the\n    per-call number there was 2.56. Against the 6.53 ms the transcription measures with the stock\n    reader, that is 2.4-2.8x on the op.\n\n    Anything above 3.0 ms means the mask was not actually the cost, and the 84.2 % read-share\n    attribution the whole of K2 rests on is wrong.\n\nPreconditions the hoisted fill assumes, asserted here before the define is set: one head per core,\none q chunk per core, a batch-broadcast mask, and no padded mask.\n",
+ "arms": [
+  {
+   "arm": "base",
+   "equal": true
+  },
+  {
+   "arm": "k2",
+   "equal": true
+  }
+ ],
+ "meta": {
+  "n": 512,
+  "q_chunk": 512,
+  "k_chunk": 256,
+  "grid": [
+   11,
+   10
+  ],
+  "loadavg": [
+   0.07177734375,
+   0.046875,
+   0.13330078125
+  ],
+  "card": "1",
+  "persistent_mask_tiles": 256,
+  "persistent_mask_kib": 512,
+  "stock_mask_cb_tiles": 256,
+  "loadavg_end": [
+   0.306640625,
+   0.09619140625,
+   0.14892578125
+  ]
+ },
+ "plan": {
+  "k_num_chunks": 2,
+  "Sq_chunk_t": 16,
+  "Sk_chunk_t": 8,
+  "nh_per_core": 1,
+  "q_per_core": 1,
+  "batch_per_core": 40,
+  "bcast_batch": true,
+  "bcast_heads": false,
+  "use_padded_mask": false,
+  "mask_tiles": 256
+ },
+ "summary": {
+  "native": 6.520562999867252,
+  "base": 6.498194499727106,
+  "k2": 2.6729595001597772,
+  "k2_over_base": 0.4113387957642741,
+  "base_over_k2": 2.4310860300497157,
+  "all_equal": true
+ }
+}

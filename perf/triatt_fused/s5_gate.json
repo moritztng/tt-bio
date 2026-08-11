@@ -1,0 +1,62 @@
+{
+ "predictions": "S5: what does the head-contiguous work split cost, before K2 spends it?\n\nK2 needs one head per core so a core's mask is fixed for its whole lifetime. The factory's own split\nsaturates batch first and hands every core all 8 heads, so this is a required change, not a tuning\nknob. It is separable from the mask work and it is measured here on its own, with the wheel's\nkernels UNMODIFIED, so K2's later number is not carrying this cost silently.\n\nPREDICTION, WRITTEN BEFORE THE RUN (state/triatt-fused-kernel-final.md \u00a711):\n\n    Bit-exact -- the same work is done, only distributed differently, and flash attention's\n    accumulation is per (batch, head, q_chunk), none of which is split across cores in either\n    arrangement.\n\n    Slower by roughly the core loss. 512 batches x 8 heads = 4096 units. Today: 110 cores x\n    ceil(512/110)=5 batches x 8 heads = 40 units each. Head-contiguous: 13 x 8 = 104 cores x\n    ceil(512/13)=40 batches x 1 head = 40 units each, with 6 cores idle. Same units per core, 5.5 %\n    fewer cores, so I predict 1.00-1.07x slower, i.e. 6.53 -> 6.53-6.99 ms, and most likely near\n    the top of that band because the per-core unit count is identical and only the core count drops.\n\n    Anything outside that band means the split changes something other than core count -- DRAM\n    locality of the q/k/v reads is the obvious candidate, since a core now walks 40 consecutive\n    batches of one head instead of 5 batches of all heads.\n",
+ "arms": [
+  {
+   "arm": "stock",
+   "split": {
+    "batch_pf": 110,
+    "nh_pf": 1,
+    "q_pf": 1,
+    "batch_per_core": 5,
+    "nh_per_core": 8,
+    "q_per_core": 1
+   },
+   "equal": true
+  },
+  {
+   "arm": "headcontig",
+   "split": {
+    "batch_pf": 13,
+    "nh_pf": 8,
+    "q_pf": 1,
+    "batch_per_core": 40,
+    "nh_per_core": 1,
+    "q_per_core": 1
+   },
+   "equal": true
+  }
+ ],
+ "meta": {
+  "n": 512,
+  "q_chunk": 512,
+  "k_chunk": 256,
+  "grid": [
+   11,
+   10
+  ],
+  "loadavg": [
+   0.009765625,
+   0.02490234375,
+   0.23583984375
+  ],
+  "card": "1",
+  "head_contiguous_split": [
+   13,
+   8,
+   1
+  ],
+  "cores_used": 104,
+  "loadavg_end": [
+   0.08935546875,
+   0.04150390625,
+   0.240234375
+  ]
+ },
+ "summary": {
+  "native_ms": 6.530851998832077,
+  "stock_split_ms": 6.556145499416743,
+  "headcontig_ms": 6.535645999974804,
+  "headcontig_over_stock": 0.9968732390939519,
+  "all_equal": true
+ }
+}

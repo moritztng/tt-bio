@@ -1,0 +1,72 @@
+{
+ "predictions": "S0: does the generic_op transcription reproduce the native minimal_matmul, in output and in time?\n\nPREDICTION, WRITTEN BEFORE THE RUN (state/triatt-fused-kernel-final.md 5, and the docstring of\nperf/triatt_fused/generic_mm.py):\n\n    2.13-2.35 ms against the native qkv arm measured in the same process, and torch.equal.\n    > 2.40 ms, or not torch.equal: the route is dead and this task is a NO-GO.\n\nBoth arms run in one process, warm, alternating, with an A/A pair, so the comparison does not carry\na process or a thermal difference.\n",
+ "arms": [
+  {
+   "arm": "native",
+   "round": 0,
+   "ms": 2.143337999768846,
+   "aa_spread": 0.01907165352536036
+  },
+  {
+   "arm": "generic_op",
+   "round": 0,
+   "ms": 2.182612000069639,
+   "aa_spread": 0.023062734088146918
+  },
+  {
+   "arm": "native",
+   "round": 1,
+   "ms": 2.1957680000923574,
+   "aa_spread": 0.016919365100587024
+  },
+  {
+   "arm": "generic_op",
+   "round": 1,
+   "ms": 2.234602000044106,
+   "aa_spread": 0.011805234325970894
+  }
+ ],
+ "meta": {
+  "n": 512,
+  "grid": [
+   11,
+   10
+  ],
+  "loadavg": [
+   0.12158203125,
+   0.0732421875,
+   0.07470703125
+  ],
+  "card": "1",
+  "mm_config": "MinimalMatmulConfig(M_block_size=4,K_block_size=8,N_block_size=1,subblock_h=4,subblock_w=1,compute_with_storage_grid_size=(x=11,y=10))",
+  "descriptor_build_s": 0.0010047310001937149,
+  "dims": {
+   "M_tiles": 8192,
+   "K_tiles": 8,
+   "N_tiles": 24,
+   "padded_M_tiles": 8195,
+   "padded_N_tiles": 30,
+   "M_blocks_per_core": 187,
+   "N_blocks_per_core": 3,
+   "K_blocks": 1,
+   "transpose_core_grid": true
+  },
+  "loadavg_end": [
+   0.12158203125,
+   0.0732421875,
+   0.07470703125
+  ]
+ },
+ "equal": true,
+ "aa_pair_native_ms": [
+  2.2355529999913415,
+  2.242526999907568
+ ],
+ "rebind_us": 84.92135000324197,
+ "summary": {
+  "native_ms": 2.169552999930602,
+  "generic_ms": 2.2086070000568725,
+  "ratio_generic_over_native": 1.0180009431101797,
+  "gate_pass": true
+ }
+}

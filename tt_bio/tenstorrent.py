@@ -8,6 +8,8 @@ from functools import lru_cache
 from types import MappingProxyType
 
 from . import reblock_permute as _reblock
+from . import triatt_qkv as _triatt_qkv
+from . import triatt_sdpa as _triatt_sdpa
 
 TRIANGLE_MULT_CHUNK_SIZE = 32
 TRIANGLE_ATT_CHUNK_SIZE_FAST = 1024
@@ -484,6 +486,13 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float):
     k_chunk = _sdpa_chunks_shipped(q_len, k_len)[1]
     fits = [qc for qc in _tri_att_q_chunks(q_len, k_len)
             if (q_len, k_len, qc) not in _SDPA_Q_CHUNK_OVER_L1]
+    # The bias is re-read once per batch row by the stock reader; hold it instead. Same
+    # preference order as the stock loop below -- `fits` is widest first, production pick last, and
+    # the wide q_chunk is worth 1.08-1.81x on its own, so K2 must not silently take the narrow one.
+    for q_chunk in fits:
+        o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk)
+        if o is not None:
+            return o
     for q_chunk in fits[:-1]:
         try:
             return ttnn.transformer.scaled_dot_product_attention(
@@ -2372,7 +2381,11 @@ class TriangleAttention(Module):
             triangle_bias = ttnn.permute(triangle_bias, (0, 3, 1, 2))
             dram_peak(f"tri_att({'end' if self.ending else 'start'}) bias built [z={'x'.join(str(d) for d in x.shape)}]")
 
-        def attend(qkv_in, bias):
+        def attend(qkv_in, bias, keep_heads=False):
+            if isinstance(qkv_in, tuple):
+                # already head-major, written there by the projection itself
+                q, k, v = qkv_in
+                return _attend_heads(q, k, v, bias, keep_heads)
             qkv_in = ttnn.unsqueeze(qkv_in, 1)
             # The head split follows the projection: when the projection kept its result in L1
             # (see _tri_att_qkv_l1_config) reading it back out to DRAM here would hand back the
@@ -2382,6 +2395,9 @@ class TriangleAttention(Module):
                 transpose_k_heads=False, memory_config=qkv_in.memory_config(),
             )
             ttnn.deallocate(qkv_in)
+            return _attend_heads(q, k, v, bias, keep_heads)
+
+        def _attend_heads(q, k, v, bias, keep_heads=False):
             if _FP32_SOFTMAX or self.fp32_softmax:
                 o = _fp32_softmax_attention(
                     q, k, v, bias,
@@ -2395,6 +2411,9 @@ class TriangleAttention(Module):
             ttnn.deallocate(q)
             ttnn.deallocate(k)
             ttnn.deallocate(v)
+            if keep_heads:
+                # The tail reads [batch, head, seq, 32] directly; see tt_bio/triatt_qkv.py
+                return o
             if self.subtile:
                 # Slice off the zero-padded head channels, then manual head-concat
                 # (head-major) to produce [1, S, n_heads*head_dim] -- nlp_concat_heads
@@ -2411,11 +2430,16 @@ class TriangleAttention(Module):
             return o
 
         def gate_and_project(o_in: ttnn.Tensor, g_in: ttnn.Tensor) -> ttnn.Tensor:
+            head_major = len(g_in.shape) == 4
             o_in = ttnn.multiply_(o_in, g_in, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
             ttnn.deallocate(g_in)
-            x_out = _pair_proj_linear(
-                o_in, self.o_weight, self.compute_kernel_config, _dtype(), l1_out=True
-            )
+            if head_major:
+                x_out = _triatt_qkv.out_proj(
+                    o_in, self.o_weight, self.compute_kernel_config, _dtype())
+            else:
+                x_out = _pair_proj_linear(
+                    o_in, self.o_weight, self.compute_kernel_config, _dtype(), l1_out=True
+                )
             ttnn.deallocate(o_in)
             return x_out
 
@@ -2430,28 +2454,43 @@ class TriangleAttention(Module):
             for s in range(0, S, chunk):
                 end = min(s + chunk, S)
                 x_chunk = normed_rows(s, end)
-                qkv_chunk = ttnn.experimental.minimal_matmul(
-                    input_tensor=x_chunk,
-                    weight_tensor=self.qkv_weight,
-                    compute_kernel_config=self.compute_kernel_config,
-                    dtype=_dtype(),
-                    config=_qkv_mm_config(x_chunk, self.qkv_weight),
+                qkv_cfg_chunk = _qkv_mm_config(x_chunk, self.qkv_weight)
+                qkv_chunk = _triatt_qkv.qkv_heads(
+                    x_chunk, self.qkv_weight, self.compute_kernel_config,
+                    self.n_heads, self.head_dim, _dtype(), qkv_cfg_chunk,
                 )
-                g_chunk = ttnn.experimental.minimal_matmul(
-                    input_tensor=x_chunk,
-                    weight_tensor=self.g_weight,
-                    compute_kernel_config=self.compute_kernel_config,
-                    dtype=_dtype(),
-                    config=_qkv_mm_config(x_chunk, self.g_weight),
-                )
+                if qkv_chunk is None:
+                    qkv_chunk = ttnn.experimental.minimal_matmul(
+                        input_tensor=x_chunk,
+                        weight_tensor=self.qkv_weight,
+                        compute_kernel_config=self.compute_kernel_config,
+                        dtype=_dtype(),
+                        config=qkv_cfg_chunk,
+                    )
+                g_cfg_chunk = _qkv_mm_config(x_chunk, self.g_weight)
+                g_chunk = None
+                if isinstance(qkv_chunk, tuple):
+                    g_chunk = _triatt_qkv.gate_proj(
+                        x_chunk, self.g_weight, self.o_weight, self.compute_kernel_config,
+                        self.n_heads, self.head_dim, _dtype(), g_cfg_chunk,
+                    )
+                if g_chunk is None:
+                    g_chunk = ttnn.experimental.minimal_matmul(
+                        input_tensor=x_chunk,
+                        weight_tensor=self.g_weight,
+                        compute_kernel_config=self.compute_kernel_config,
+                        dtype=_dtype(),
+                        config=g_cfg_chunk,
+                    )
                 ttnn.deallocate(x_chunk)
                 if self.affinity:
                     bias = ttnn.add(triangle_bias, attn_mask[s:end, :, :])
-                    o_chunk = attend(qkv_chunk, bias)
+                    o_chunk = attend(qkv_chunk, bias, len(g_chunk.shape) == 4)
                     ttnn.deallocate(bias)
                 else:
-                    o_chunk = attend(qkv_chunk, triangle_bias)
-                ttnn.deallocate(qkv_chunk)
+                    o_chunk = attend(qkv_chunk, triangle_bias, len(g_chunk.shape) == 4)
+                if not isinstance(qkv_chunk, tuple):   # the triple is freed inside attend
+                    ttnn.deallocate(qkv_chunk)
                 _acc_append(parts, gate_and_project(o_chunk, g_chunk), host_acc)
             dram_peak(f"tri_att({'end' if self.ending else 'start'}) row loop done [z={'x'.join(str(d) for d in x.shape)}]")
             # x here is the reshaped (unpermuted) input -- for the starting variant it can
@@ -2471,35 +2510,50 @@ class TriangleAttention(Module):
             del parts
         else:
             qkv_cfg = _qkv_l1_config(x, self.qkv_weight, _dtype())
-            if qkv_cfg is not None:
-                qkv = ttnn.linear(
-                    x,
-                    self.qkv_weight,
-                    compute_kernel_config=self.compute_kernel_config,
-                    dtype=_dtype(),
-                    memory_config=ttnn.L1_MEMORY_CONFIG,
-                    program_config=qkv_cfg,
-                )
-            else:
-                qkv = ttnn.experimental.minimal_matmul(
-                    input_tensor=x,
-                    weight_tensor=self.qkv_weight,
-                    compute_kernel_config=self.compute_kernel_config,
-                    dtype=_dtype(),
-                    config=_qkv_mm_config(x, self.qkv_weight),
-                )
-            g = ttnn.experimental.minimal_matmul(
-                input_tensor=x,
-                weight_tensor=self.g_weight,
-                compute_kernel_config=self.compute_kernel_config,
-                dtype=_dtype(),
-                config=_qkv_mm_config(x, self.g_weight),
+            # When the head-major projection takes the call, `qkv` is already the (q, k, v)
+            # triple and no head split follows. It declines an L1 projection outright.
+            qkv = None if qkv_cfg is not None else _triatt_qkv.qkv_heads(
+                x, self.qkv_weight, self.compute_kernel_config,
+                self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.qkv_weight),
             )
+            if qkv is None:
+                if qkv_cfg is not None:
+                    qkv = ttnn.linear(
+                        x,
+                        self.qkv_weight,
+                        compute_kernel_config=self.compute_kernel_config,
+                        dtype=_dtype(),
+                        memory_config=ttnn.L1_MEMORY_CONFIG,
+                        program_config=qkv_cfg,
+                    )
+                else:
+                    qkv = ttnn.experimental.minimal_matmul(
+                        input_tensor=x,
+                        weight_tensor=self.qkv_weight,
+                        compute_kernel_config=self.compute_kernel_config,
+                        dtype=_dtype(),
+                        config=_qkv_mm_config(x, self.qkv_weight),
+                    )
+            g = None
+            if isinstance(qkv, tuple):
+                g = _triatt_qkv.gate_proj(
+                    x, self.g_weight, self.o_weight, self.compute_kernel_config,
+                    self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.g_weight),
+                )
+            if g is None:
+                g = ttnn.experimental.minimal_matmul(
+                    input_tensor=x,
+                    weight_tensor=self.g_weight,
+                    compute_kernel_config=self.compute_kernel_config,
+                    dtype=_dtype(),
+                    config=_qkv_mm_config(x, self.g_weight),
+                )
             ttnn.deallocate(x)
             if attn_mask is not None:
                 triangle_bias = ttnn.add(triangle_bias, attn_mask)
-            o = attend(qkv, triangle_bias)
-            ttnn.deallocate(qkv)
+            o = attend(qkv, triangle_bias, len(g.shape) == 4)
+            if not isinstance(qkv, tuple):        # the triple is freed inside attend
+                ttnn.deallocate(qkv)
             ttnn.deallocate(triangle_bias)
             x = gate_and_project(o, g)
         if self.ending:
