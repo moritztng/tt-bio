@@ -107,7 +107,38 @@ _TRIMUL_MM_OUT = False
 # whole trimul is 28.483 -> 22.996 ms, 1.239x, torch.equal against G=1 at G=2/4/8 on both the
 # starting and the ending variant. Every downstream op is elementwise, an index move or a
 # per-channel matmul, so the width is a partition of the same sum.
-_TRIMUL_INPROJ_GROUP = 1
+_TRIMUL_INPROJ_GROUP = 8
+# Widest fused in-projection output the DRAM path may build, in bytes. The group width is what makes
+# the fused projection pay, and it is also the module's whole DRAM-peak risk: at 512 aa the output is
+# 512 MiB at G=8 against 64 MiB at G=1, and it grows with N^2, so a constant group would ask for
+# 1.9 GiB at 9i3p (973 aa) and 2.6 GiB at 9j4c (1136 aa) while those targets are already the ones
+# closest to a refusal. Keyed on the allocation's own size rather than on the sequence length,
+# because the sequence length is not what does not fit -- that is the mistake
+# `_triangle_mul_memory_config`'s threshold makes.
+#
+# 1 GiB is measured, not chosen: perf/trimul_abs/cap_sweep.py runs the real module at N = 512 to
+# 1136 with 6 GiB of foreign DRAM held (what a 9j4c fold has live, state/capacity_9j4c_dram2.log)
+# and every width allocates, so the budget is not a fit/no-fit boundary -- it is a footprint cap.
+# The extra DRAM peak a fused projection costs is measured at ~2x its own size, so 1 GiB holds the
+# worst case at +1.448 GiB (704 aa, G=8: 8.377 vs 6.929 GiB) and leaves >20 GiB free at every size.
+# It keeps the full width at 512-704 aa, takes G=4 at 973 aa (9i3p) and G=2 at 1136 aa (9j4c).
+_TRIMUL_INPROJ_FUSED_BYTES = 1024 * 2 ** 20
+
+
+def _trimul_inproj_group(seq_len: int, chunk: int, batch: int, n_pairs: int) -> int:
+    """How many channel chunks the in-projection matmul may fuse at this shape.
+
+    Halves from `_TRIMUL_INPROJ_GROUP` until the fused output fits the byte budget and the width
+    still divides the channel loop. Every width is bit-exact against every other: the group is a
+    partition of an independent-channel sum and everything below the four-way unpack is elementwise,
+    an index move or a per-channel matmul (`torch.equal` at G=2/4/8, perf/trimul_root/).
+    Bytes are priced at bf16 even when `_dtype()` is bfloat8_b, so the budget is a bound.
+    """
+    fused = 4 * chunk * seq_len * seq_len * batch * 2
+    g = _TRIMUL_INPROJ_GROUP
+    while g > 1 and (n_pairs % g or g * fused > _TRIMUL_INPROJ_FUSED_BYTES):
+        g //= 2
+    return g
 # Widest inner K block the pair-track projection config may use; None disables the config.
 # 1 keeps the contraction order of the production call and is bit-exact. Above 1 the partial
 # sums fold through packer_l1_acc in K-block order instead, which moves the last bf16 bit and
@@ -1816,7 +1847,8 @@ class TriangleMultiplication(Module):
         return chunks
 
     def _transform_chunk(
-        self, chunk: ttnn.Tensor, permute_dims: tuple[int, ...], memory_config: ttnn.MemoryConfig
+        self, chunk: ttnn.Tensor, permute_dims: tuple[int, ...], memory_config: ttnn.MemoryConfig,
+        realloc: bool = True,
     ) -> ttnn.Tensor:
         # Bring the channel chunk to the batch axis for the per-channel matmul.
         # The two cases are (0,3,1,2) [no inner swap] and (0,3,2,1) [also swaps
@@ -1844,7 +1876,12 @@ class TriangleMultiplication(Module):
             ops.append((ttnn.permute, permute_dims))
         if _FAST_MODE:
             ops.append((ttnn.typecast, ttnn.bfloat8_b))
-        ops.append((ttnn.reallocate,))
+        # The reallocate compacts the chunk so the NEXT iteration's allocations find contiguous
+        # space; with one iteration there is no next one and nothing to fragment. It is a full
+        # round trip of the chunk through DRAM (134.2 MB each way at 512 aa, measured 0.711 ms for
+        # the pair at 101 % of the combined roof -- at the roof for what it does, and unnecessary).
+        if realloc:
+            ops.append((ttnn.reallocate,))
         old = chunk
         for op, *args in ops:
             chunk = op(chunk, *args, memory_config=memory_config)
@@ -1874,9 +1911,9 @@ class TriangleMultiplication(Module):
         # forcing to be one. Only the matmul widens (_TRIMUL_INPROJ_GROUP), and only on the DRAM
         # path: on the L1 path _trimul_chunk_size has already widened the chunk itself and the L1
         # budget it protects is real. Everything below the four-way unpack is unchanged.
-        group = _TRIMUL_INPROJ_GROUP if large_seq else 1
-        while n_pairs % group:
-            group //= 2
+        group = (
+            _trimul_inproj_group(H, chunk_size, batch, n_pairs) if large_seq else 1
+        )
         gp_in_chunks = self._gp_in_chunks(chunk_size, group)
         seq_len_tiles = (H + 31) // 32
         program_config = _triangle_mul_program_config(seq_len_tiles)
@@ -1920,9 +1957,11 @@ class TriangleMultiplication(Module):
 
             a_chunk = self._transform_chunk(
                 a_chunk, (0, 3) + ((2, 1) if self.ending else (1, 2)), memory_config=memory_config,
+                realloc=n_pairs // group > 1,
             )
             b_chunk = self._transform_chunk(
                 b_chunk, (0, 3) + ((1, 2) if self.ending else (2, 1)), memory_config=memory_config,
+                realloc=n_pairs // group > 1,
             )
             x_chunk = ttnn.matmul(
                 a_chunk,
