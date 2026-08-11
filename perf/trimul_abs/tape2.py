@@ -80,6 +80,8 @@ wrap(ttnn, "reallocate", lambda a, kw: f"reallocate[{shp(a[0])}]")
 # THE FIX: the channel move goes through tt_bio's own generic_op, not a ttnn entry point.
 wrap(RB, "reblock_permute", lambda a, kw: f"REBLOCK_permute(0,3,1,2)[{shp(a[0])}]->{buf(kw)}")
 wrap(T, "_channel_move", lambda a, kw: f"_channel_move[{shp(a[0])}]")
+wrap(RB, "reblock_permute_back", lambda a, kw: f"REBLOCK_back(0,2,3,1)[{shp(a[0])}]->{buf(kw)}")
+wrap(T, "_channel_move_back", lambda a, kw: f"_channel_move_back[{shp(a[0])}]")
 
 
 def once():
