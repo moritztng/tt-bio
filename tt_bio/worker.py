@@ -301,6 +301,13 @@ def _err_text(exc: BaseException, limit: int = 2000) -> str:
     `str(exc)[:200]` lands mid-number just before it, so every recorded OOM in the
     AbAg-XM Wormhole campaign was indistinguishable between a genuinely full chip
     and one oversized request. Keep both ends instead of just the head.
+
+    400 was still too tight, for the opposite reason. A TT_THROW puts its payload in the
+    MIDDLE -- `... clash with L1 buffers. L1 buffer allocated at X and static circular
+    buffer region ends at Y`, followed by the backtrace frames that name the op -- so
+    keeping both ends elided the diagnosis and the op together, and every L1
+    circular-buffer clash in the AbAg-XM campaign was recorded unattributably. 2000 keeps
+    the OOM parenthetical, the TT_THROW payload and the first backtrace frames.
     """
     s = str(exc)
     if len(s) <= limit:
