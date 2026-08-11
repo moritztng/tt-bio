@@ -4,45 +4,31 @@
 
 // reblock_permute GATED compute: per tile pair, out = transpose_wh(p * sigmoid(g)).
 //
-// The three phases mirror what the two ops this kernel replaces do, in the same order and with
-// the same rounding points, which is what makes the result bit-exact rather than merely close:
+// The three phases mirror the two ops this kernel replaces, in the same order and with the same
+// rounding points. That is what makes the result bit-exact rather than merely close, and two of the
+// choices below are load-bearing for it. Both were measured, not read (perf/trimul_f2/e6_diag.py,
+// qb2 card 0, N=320 C=32, forensics over 3.28 M elements):
 //
-//   1. sigmoid(g) into DST, PACKED BACK TO A CB. binary_ng applies an input activation in
-//      PREPROCESS (eltwise_utils.hpp), which copies the operand to DST, runs the SFPU op and packs
-//      the result into cb_post_rhs before the binary op unpacks it again. The activation result is
-//      therefore rounded to the CB's format before the multiply, and a version that kept it in DST
-//      would multiply against more mantissa than ttnn does.
-//   2. mul_tiles(p, sigmoid(g)) -> DST -> CB. Same FPU multiply ttnn issues.
+//   * THE DESCRIPTOR MUST RUN 16-BIT DST (`fp32_dest_acc_en=False`). `calculate_sigmoid` branches
+//     on that flag: under it, `_sfpu_exp_21f_bf16_` + one reciprocal iteration + an explicit
+//     `float_to_fp16b`; over it, `_sfpu_exp_accurate_` + two iterations. ttnn takes the cheap
+//     branch, so its sigmoid is a full bf16 ulp off the correctly rounded one on 10.4 % of
+//     elements. A kernel compiled with fp32 DST computes the ACCURATE sigmoid and therefore misses.
+//   * THE MULTIPLY MUST BE THE SFPU ONE. The FPU's `mul_tiles` truncates the product into a 16-bit
+//     DST: 25.7 % of elements land one ulp low, on top of the ties. `mul_binary_tile` rounds, and
+//     matches ttnn on every element.
 //
-// The two phases want OPPOSITE dest accumulate modes and that is the whole parity story here.
-// Measured on qb2 card 0 at N=320, C=32 (perf/trimul_f2/e6_diag.py):
-//
-//   * the MULTIPLY needs fp32 DST. In 16-bit DST the exact bf16 x bf16 product is truncated on the
-//     way in, and 26.6 % of elements land one ulp below `ttnn.multiply_`, which is itself exactly
-//     the correctly rounded product (R0_vs_m_exact: equal).
-//   * the SIGMOID needs the 16-bit algorithm. `calculate_sigmoid` branches on the same flag and
-//     picks `_sfpu_exp_21f_bf16_` + one reciprocal iteration + an explicit `float_to_fp16b` under
-//     it, against `_sfpu_exp_accurate_` + two iterations above it. ttnn takes the cheap branch:
-//     its sigmoid is a full bf16 ulp off the correctly rounded one on 10.4 % of elements, and a
-//     kernel compiled with fp32 DST reproduces the ACCURATE value and so misses ttnn's.
-//
-// One kernel has one dest mode, but the flag is only a template argument. So the kernel is
-// compiled with fp32 DST for the multiply and the sigmoid is called through the LLK with the flag
-// forced false, which runs the 16-bit algorithm and rounds its own result to bf16 in software.
-// Storing that already-rounded value in an fp32 DST is exact, so the two phases each get what they
-// need. `sigmoid_tile()` cannot express this: it hardwires the template argument to the kernel's
-// own DST_ACCUM_MODE.
-//   3. the within-tile WH transpose, unchanged from compute_reblock_permute.cpp. It runs LAST, as
-//      it does in production, where `_transform_chunk` moves the already-gated chunk. A permute is
-//      a pure index reordering, so its position cannot change a value, but keeping the order also
-//      keeps the diff against the ungated kernel readable.
+// The two knobs interact, which is why the config could not be found by sweeping either alone.
+// Packing the product from an fp32 DST instead is the third combination and it is also wrong, in a
+// way worth naming because it looks harmless: the packer breaks ties AWAY FROM ZERO where ttnn
+// breaks them to even, so exactly half the ties come out one ulp off and nothing else does. That
+// is 0.91 % of elements at a 1.85 % tie rate, small enough to read as noise and it is not noise.
 #include <cstdint>
 
 #include "api/compute/common.h"
 #include "api/compute/compute_kernel_api.h"
 #include "api/compute/eltwise_binary.h"
 #include "api/compute/eltwise_binary_sfpu.h"
-#include "api/compute/eltwise_unary/typecast.h"
 #include "api/compute/tile_move_copy.h"
 #include "api/compute/transpose_wh.h"
 
@@ -52,18 +38,9 @@ void kernel_main() {
     constexpr uint32_t sig_cb = get_compile_time_arg_val(2);  // c_2,  sigmoid(g)
     constexpr uint32_t mul_cb = get_compile_time_arg_val(3);  // c_3,  p * sigmoid(g)
     constexpr uint32_t out_cb = get_compile_time_arg_val(4);  // c_16, post-WH, the writer's input
-    // binary_ng ships an FPU kernel and an SFPU kernel for the same op and picks between them
-    // host-side, out of reach from here, so which one `ttnn.multiply_` ran is a measurement rather
-    // than a reading. Both are compiled in and the parity probe decides.
-    constexpr uint32_t sfpu_mul = get_compile_time_arg_val(5);
-    // Diagnostic only: skip the activation so the phase under test is the multiply on its own,
-    // against a reference of ttnn.multiply(p, g) with two fully generic bf16 operands.
-    constexpr uint32_t skip_sigmoid = get_compile_time_arg_val(6);
-    // Round the product to bf16 in the SFPU before packing it. The LLK does exactly this for the
-    // sigmoid whenever DST is 16 bits (calculate_sigmoid calls float_to_fp16b by hand), which says
-    // the hardware path it is working around does not round the way a pack from an fp32 DST needs
-    // to. Measured here as a switch rather than assumed.
-    constexpr uint32_t round_product = get_compile_time_arg_val(7);
+    // Diagnostic: drop the activation so the multiply can be compared on its own against
+    // ttnn.multiply(p, g) with two generic bf16 operands. Never set in production.
+    constexpr uint32_t skip_sigmoid = get_compile_time_arg_val(5);
 
     const uint32_t num_tiles = get_arg_val<uint32_t>(0);
 
@@ -72,15 +49,18 @@ void kernel_main() {
     binary_op_init_common(p_cb, sig_cb, mul_cb);
 
     for (uint32_t i = 0; i < num_tiles; ++i) {
+        // sigmoid(g) -> its own CB. binary_ng applies an input activation in PREPROCESS
+        // (eltwise_utils.hpp), which copies the operand to DST, runs the SFPU op and packs the
+        // result before the binary op unpacks it again, so the activation is rounded to bf16
+        // BEFORE the multiply. Keeping it in DST would multiply against more mantissa than ttnn.
         cb_wait_front(g_cb, onetile);
         cb_reserve_back(sig_cb, onetile);
         tile_regs_acquire();
         copy_tile_to_dst_init_short(g_cb);
         copy_tile(g_cb, 0, 0);
         if constexpr (!skip_sigmoid) {
-            MATH((ckernel::llk_math_eltwise_unary_sfpu_sigmoid_init<false>()));
-            MATH((ckernel::llk_math_eltwise_unary_sfpu_sigmoid<false, /*is_fp32_dest_acc_en=*/false>(
-                0, (int)ckernel::VectorMode::RC)));
+            sigmoid_tile_init();
+            sigmoid_tile(0);
         }
         tile_regs_commit();
         tile_regs_wait();
@@ -92,27 +72,13 @@ void kernel_main() {
         cb_wait_front(p_cb, onetile);
         cb_wait_front(sig_cb, onetile);
         cb_reserve_back(mul_cb, onetile);
-        if constexpr (sfpu_mul) {
-            tile_regs_acquire();
-            copy_tile_to_dst_init_short(p_cb);
-            copy_tile(p_cb, 0, 0);
-            copy_tile_to_dst_init_short(sig_cb);
-            copy_tile(sig_cb, 0, 1);
-            mul_binary_tile_init();
-            mul_binary_tile(0, 1, 0);
-        } else {
-            // The FULL init, not mul_tiles_init: the transpose at the end of the previous
-            // iteration reconfigured the unpack and pack data formats, and binary_tiles_init does
-            // not restore them.
-            binary_op_init_common(p_cb, sig_cb, mul_cb);
-            mul_tiles_init(p_cb, sig_cb);
-            tile_regs_acquire();
-            mul_tiles(p_cb, sig_cb, 0, 0, 0);
-        }
-        if constexpr (round_product) {
-            typecast_tile_init<(uint32_t)DataFormat::Float32, (uint32_t)DataFormat::Float16_b>();
-            typecast_tile<(uint32_t)DataFormat::Float32, (uint32_t)DataFormat::Float16_b>(0);
-        }
+        tile_regs_acquire();
+        copy_tile_to_dst_init_short(p_cb);
+        copy_tile(p_cb, 0, 0);
+        copy_tile_to_dst_init_short(sig_cb);
+        copy_tile(sig_cb, 0, 1);
+        mul_binary_tile_init();
+        mul_binary_tile(0, 1, 0);
         tile_regs_commit();
         tile_regs_wait();
         pack_tile(0, mul_cb);
@@ -121,6 +87,8 @@ void kernel_main() {
         cb_pop_front(sig_cb, onetile);
         cb_push_back(mul_cb, onetile);
 
+        // The within-tile WH transpose, unchanged from compute_reblock_permute.cpp. It runs last,
+        // as it does in production where `_transform_chunk` moves the already-gated chunk.
         cb_wait_front(mul_cb, onetile);
         cb_reserve_back(out_cb, onetile);
         transpose_wh_init(mul_cb, out_cb);

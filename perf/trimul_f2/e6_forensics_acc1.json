@@ -1,0 +1,65 @@
+{
+ "N": 320,
+ "C": 32,
+ "mul_forensics": {
+  "tie_rate": 0.018452,
+  "wrong_rate": 0.009121,
+  "wrong_and_tie": 0.009121,
+  "wrong_not_tie": 0.0,
+  "tie_and_wrong_over_tie": 0.494344,
+  "wrong_toward_zero_frac": 0.499147,
+  "discarded_nonzero_rate": 0.969994
+ },
+ "fidelity": "MathFidelity.HiFi4",
+ "fp32_dest_acc": true,
+ "kernel_vs_R0_production": {
+  "equal": false,
+  "max_abs": 0.0625,
+  "frac_diff": 0.009121
+ },
+ "kernel_vs_R1_unfused": {
+  "equal": false,
+  "max_abs": 0.0625,
+  "frac_diff": 0.009121
+ },
+ "kernel_vs_R2_host_fp32": {
+  "equal": false,
+  "max_abs": 13.59765625,
+  "frac_diff": 0.998439
+ },
+ "kernel_vs_R3_host_bf16_sigmoid": {
+  "equal": false,
+  "max_abs": 13.59765625,
+  "frac_diff": 0.998518
+ },
+ "R0_vs_R1": {
+  "equal": true,
+  "max_abs": 0.0,
+  "frac_diff": 0.0
+ },
+ "R0_vs_R2": {
+  "equal": false,
+  "max_abs": 13.59765625,
+  "frac_diff": 0.998469
+ },
+ "R0_vs_R3": {
+  "equal": false,
+  "max_abs": 13.59765625,
+  "frac_diff": 0.998523
+ },
+ "devsigmoid_vs_host_bf16_sigmoid": {
+  "equal": false,
+  "max_abs": 5.22412109375,
+  "frac_diff": 0.998752
+ },
+ "kernel_vs_m_exact": {
+  "equal": false,
+  "max_abs": 0.0625,
+  "frac_diff": 0.009121
+ },
+ "R0_vs_m_exact": {
+  "equal": true,
+  "max_abs": 0.0,
+  "frac_diff": 0.0
+ }
+}

@@ -1939,6 +1939,34 @@ class TriangleMultiplication(Module):
             old = chunk
         return chunk
 
+    def _transform_chunk_gated(
+        self, gp: ttnn.Tensor, gate: tuple[int, int, int], permute_dims: tuple[int, ...],
+        memory_config: ttnn.MemoryConfig, realloc: bool,
+    ) -> ttnn.Tensor:
+        """`_transform_chunk` when the gate rides along inside the channel move.
+
+        The fused projection is never split and never gated in DRAM: the move's reader takes the
+        value and gate slices in place and its compute kernel applies the sigmoid and the multiply
+        on the way. That deletes `ttnn.chunk` and both `multiply_` calls, 4.876 ms per call at
+        512 aa, all three of them at 95-99 % of the memory roof and so with no tuning left in them.
+        Bit-exact against the sequence it replaces, `torch.equal` at 24 shapes; see
+        `tt_bio/reblock_permute.py` and `perf/trimul_f2/e6_parity.py`.
+
+        `gp` stays alive: both roles read the same fused projection, so the caller owns it.
+        """
+        ops = []
+        if permute_dims == (0, 3, 2, 1):
+            ops.append((ttnn.transpose, -2, -1))
+        if realloc:
+            ops.append((ttnn.reallocate,))
+        chunk = _reblock.reblock_permute_gated(gp, *gate, memory_config=memory_config)
+        old = chunk
+        for op, *args in ops:
+            chunk = op(chunk, *args, memory_config=memory_config)
+            ttnn.deallocate(old)
+            old = chunk
+        return chunk
+
     def __call__(self, x: ttnn.Tensor, mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
         x_in = x  # keep the pair tensor reachable for the row-blocked tail below
         x_norm_in = ttnn.layer_norm(
@@ -1992,27 +2020,49 @@ class TriangleMultiplication(Module):
                 dtype=_dtype(),
                 compute_kernel_config=self.compute_kernel_config,
             )
-            g_in_a, g_in_b, p_in_a, p_in_b = ttnn.chunk(gp_in_fused, chunks=4, dim=-1)
-            ttnn.deallocate(gp_in_fused)
-            a_chunk = ttnn.multiply_(
-                p_in_a, g_in_a, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
+            perm_a = (0, 3) + ((2, 1) if self.ending else (1, 2))
+            perm_b = (0, 3) + ((1, 2) if self.ending else (2, 1))
+            slice_c = int(gp_in_fused.shape[-1]) // 4
+            # The fused path only replaces the (0,3,1,2) move, which is the leg `_transform_chunk`
+            # decomposes to on the DRAM path. A mask multiply or --fast's typecasts would have to
+            # ride inside the kernel too, so those keep the four-way split.
+            gated = (
+                mask_u is None
+                and not _FAST_MODE
+                and not _TRIMUL_RAW_CHANNEL_MOVES
+                and memory_config.buffer_type == ttnn.BufferType.DRAM
+                and _reblock.eligible_gated(gp_in_fused, slice_c, memory_config)
             )
-            b_chunk = ttnn.multiply_(
-                p_in_b, g_in_b, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
-            )
-            ttnn.deallocate(g_in_a)
-            ttnn.deallocate(g_in_b)
-            if mask_u is not None:
-                a_chunk = ttnn.multiply_(a_chunk, mask_u)
+            if gated:
+                a_chunk = self._transform_chunk_gated(
+                    gp_in_fused, (2 * slice_c, 0, slice_c), perm_a, memory_config,
+                    n_pairs // group > 1,
+                )
+                b_chunk = self._transform_chunk_gated(
+                    gp_in_fused, (3 * slice_c, slice_c, slice_c), perm_b, memory_config,
+                    n_pairs // group > 1,
+                )
+                ttnn.deallocate(gp_in_fused)
+            else:
+                g_in_a, g_in_b, p_in_a, p_in_b = ttnn.chunk(gp_in_fused, chunks=4, dim=-1)
+                ttnn.deallocate(gp_in_fused)
+                a_chunk = ttnn.multiply_(
+                    p_in_a, g_in_a, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
+                )
+                b_chunk = ttnn.multiply_(
+                    p_in_b, g_in_b, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
+                )
+                ttnn.deallocate(g_in_a)
+                ttnn.deallocate(g_in_b)
+                if mask_u is not None:
+                    a_chunk = ttnn.multiply_(a_chunk, mask_u)
 
-            a_chunk = self._transform_chunk(
-                a_chunk, (0, 3) + ((2, 1) if self.ending else (1, 2)), memory_config=memory_config,
-                realloc=n_pairs // group > 1,
-            )
-            b_chunk = self._transform_chunk(
-                b_chunk, (0, 3) + ((1, 2) if self.ending else (2, 1)), memory_config=memory_config,
-                realloc=n_pairs // group > 1,
-            )
+                a_chunk = self._transform_chunk(
+                    a_chunk, perm_a, memory_config=memory_config, realloc=n_pairs // group > 1,
+                )
+                b_chunk = self._transform_chunk(
+                    b_chunk, perm_b, memory_config=memory_config, realloc=n_pairs // group > 1,
+                )
             x_chunk = ttnn.matmul(
                 a_chunk,
                 b_chunk,

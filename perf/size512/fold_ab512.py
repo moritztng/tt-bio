@@ -50,6 +50,9 @@ GROUP = {"g1": 1, "g2": 2, "g4": 4, "g8": 8}
 # trimul channel-move-back kernel (reblock_permute_back). Both arms hold the in-projection at
 # the branch default of 8 so the only thing that moves is the back move.
 BACK = {"g8nobk": False, "g8bk": True}
+# E6: the four-way chunk and both input gates folded into the forward channel move. Both arms
+# hold the in-projection at the branch default of 8, so the only thing that moves is the gate.
+E6 = {"e6": True, "noe6": False}
 # Tri-attention SDPA arms: (_SDPA_WIDE_Q, _TRIATT_BIAS_B8). narrowq is the pre-C1 shipped q_chunk,
 # wideq is C1. `_tri_att_q_chunks` reads _SDPA_WIDE_Q from inside an lru_cache, so an arm flip that
 # forgets the cache_clear silently runs an A/A pair and labels it an A/B -- see set_arm.
@@ -162,13 +165,15 @@ def main():
         grp = GROUP.get(name)
         bk = BACK.get(name)
         sdpa = SDPA.get(name)
+        e6 = E6.get(name)
         # `prev` reverts the two extracted engine fixes (the `_MM_BLOCK[8]` block config and the
         # pair-projection `minimal_matmul` leg) and holds every capacity gate at the production
         # default, so the arm difference is exactly those two and nothing else.
         prev = name == "prev"
         T._PAIR_PROJ_MM = not prev
         T._MM_BLOCK[8] = (2, 8, 1, 2, 1) if prev else (4, 8, 1, 4, 1)
-        STATE["gates"] = "on" if (fid or grp or bk is not None or sdpa or prev) else name
+        STATE["gates"] = "on" if (fid or grp or bk is not None or sdpa or prev
+                                  or e6 is not None) else name
         # Every arm sets the SDPA flags, so an arm that is not an SDPA arm provably runs the
         # production pick rather than inheriting the previous arm's.
         T._SDPA_WIDE_Q, T._TRIATT_BIAS_B8 = sdpa if sdpa else SDPA_DEFAULT
@@ -189,6 +194,13 @@ def main():
             T._TRIMUL_INPROJ_GROUP = 8
             RB.set_enabled_back(bk)
             RB.STATS_BACK[0] = RB.STATS_BACK[1] = 0
+        # Every arm sets the fused gate, so a non-E6 arm provably runs without it rather than
+        # inheriting the previous arm's state.
+        import tt_bio.reblock_permute as _RB
+        if e6 is not None:
+            T._TRIMUL_INPROJ_GROUP = 8
+        _RB.set_enabled_gated(bool(e6))
+        _RB.STATS_GATED[0] = _RB.STATS_GATED[1] = 0
         if fid:
             ckc = STATE["model"].trunk.compute_kernel_config
             ckc.math_fidelity = getattr(ttnn.MathFidelity, fid)
@@ -263,6 +275,8 @@ def main():
                    "mm_block_8": list(T._MM_BLOCK[8]),
                    "trimul_inproj_group": T._TRIMUL_INPROJ_GROUP,
                    "back_kernel": (lambda RB: [RB._ENABLED_BACK, list(RB.STATS_BACK)])(
+                       __import__("tt_bio.reblock_permute", fromlist=["x"])),
+                   "gated_kernel": (lambda RB: [RB._ENABLED_GATED, list(RB.STATS_GATED)])(
                        __import__("tt_bio.reblock_permute", fromlist=["x"])),
                    "sdpa_wide_q": T._SDPA_WIDE_Q,
                    "triatt_bias_b8": T._TRIATT_BIAS_B8,

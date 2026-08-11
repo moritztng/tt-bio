@@ -37,8 +37,6 @@ def main():
     ap.add_argument("--pone", action="store_true", help="force the value slice to 1.0, isolating the sigmoid")
     ap.add_argument("--acc", default="", help="override GATE_FP32_ACC: 0 or 1")
     ap.add_argument("--nosig", action="store_true", help="kernel skips the activation; reference is multiply(p, g)")
-    ap.add_argument("--sfpu", default="", help="override GATE_SFPU_MUL: 0 or 1")
-    ap.add_argument("--round", default=None, help="override GATE_ROUND_PRODUCT: 0 or 1")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
@@ -52,10 +50,6 @@ def main():
         h[..., 2 * C:3 * C] = 1.0
     if a.acc:
         RB.GATE_FP32_ACC = a.acc == "1"
-    if a.round is not None:
-        RB.GATE_ROUND_PRODUCT = a.round == "1"
-    if a.sfpu:
-        RB.GATE_SFPU_MUL = a.sfpu == "1"
     RB.GATE_SKIP_SIGMOID = a.nosig
     xw = ttnn.from_torch(h, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev,
                          memory_config=ttnn.DRAM_MEMORY_CONFIG)
@@ -83,7 +77,23 @@ def main():
     # kernel and ttnn matches it is the one rounding, and the other is doing something else.
     m_exact = (p_h.float() * sig_dev_h.float()).bfloat16()
 
-    res = {"N": N, "C": C,
+    # Forensics on the multiply. The exact bf16 x bf16 product fits in fp32, so `exact` is the real
+    # number both sides are rounding, and the low 16 bits of its fp32 encoding are exactly what a
+    # round to bf16 discards. A tie is that field being 0x8000. If the kernel's misses are all ties
+    # the two sides differ only in how they break them; if they are not, one of them is not rounding.
+    exact = (p_h.float() * sig_dev_h.float()).contiguous()
+    low = exact.view(torch.int32) & 0xFFFF
+    tie = low == 0x8000
+    wrong = prod.float() != m_exact.float()
+    below = (prod.float() < m_exact.float()) & wrong
+    fmt = lambda t: round(float(t.float().mean()), 6)
+    forensics = {"tie_rate": fmt(tie), "wrong_rate": fmt(wrong),
+                 "wrong_and_tie": fmt(wrong & tie), "wrong_not_tie": fmt(wrong & ~tie),
+                 "tie_and_wrong_over_tie": round(float((wrong & tie).sum() / max(int(tie.sum()), 1)), 6),
+                 "wrong_toward_zero_frac": round(float(below.sum() / max(int(wrong.sum()), 1)), 6),
+                 "discarded_nonzero_rate": fmt(low != 0)}
+
+    res = {"N": N, "C": C, "mul_forensics": forensics,
            "fidelity": str(RB.GATE_FIDELITY), "fp32_dest_acc": RB.GATE_FP32_ACC,
            "kernel_vs_R0_production": cmp(prod, r0),
            "kernel_vs_R1_unfused": cmp(prod, r1),

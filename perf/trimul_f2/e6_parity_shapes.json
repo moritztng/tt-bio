@@ -6,89 +6,193 @@
    "N": 288,
    "C": 32,
    "fidelity": "MathFidelity.HiFi4",
-   "fp32_dest_acc": true,
+   "fp32_dest_acc": false,
    "shape_ok": true,
-   "equal": false,
-   "max_abs": 0.015625,
-   "n_diff": 24239,
-   "frac_diff": 0.009132
+   "equal": true
+  },
+  {
+   "N": 288,
+   "C": 64,
+   "fidelity": "MathFidelity.HiFi4",
+   "fp32_dest_acc": false,
+   "shape_ok": true,
+   "equal": true
   },
   {
    "N": 288,
    "C": 256,
    "fidelity": "MathFidelity.HiFi4",
-   "fp32_dest_acc": true,
+   "fp32_dest_acc": false,
    "shape_ok": true,
-   "equal": false,
-   "max_abs": 0.015625,
-   "n_diff": 191538,
-   "frac_diff": 0.00902
+   "equal": true
+  },
+  {
+   "N": 320,
+   "C": 32,
+   "fidelity": "MathFidelity.HiFi4",
+   "fp32_dest_acc": false,
+   "shape_ok": true,
+   "equal": true
+  },
+  {
+   "N": 320,
+   "C": 64,
+   "fidelity": "MathFidelity.HiFi4",
+   "fp32_dest_acc": false,
+   "shape_ok": true,
+   "equal": true
+  },
+  {
+   "N": 320,
+   "C": 256,
+   "fidelity": "MathFidelity.HiFi4",
+   "fp32_dest_acc": false,
+   "shape_ok": true,
+   "equal": true
   },
   {
    "N": 352,
    "C": 32,
    "fidelity": "MathFidelity.HiFi4",
-   "fp32_dest_acc": true,
+   "fp32_dest_acc": false,
    "shape_ok": true,
-   "equal": false,
-   "max_abs": 0.015625,
-   "n_diff": 35643,
-   "frac_diff": 0.00899
+   "equal": true
+  },
+  {
+   "N": 352,
+   "C": 64,
+   "fidelity": "MathFidelity.HiFi4",
+   "fp32_dest_acc": false,
+   "shape_ok": true,
+   "equal": true
   },
   {
    "N": 352,
    "C": 256,
    "fidelity": "MathFidelity.HiFi4",
-   "fp32_dest_acc": true,
+   "fp32_dest_acc": false,
    "shape_ok": true,
-   "equal": false,
-   "max_abs": 0.015625,
-   "n_diff": 287063,
-   "frac_diff": 0.00905
+   "equal": true
+  },
+  {
+   "N": 384,
+   "C": 32,
+   "fidelity": "MathFidelity.HiFi4",
+   "fp32_dest_acc": false,
+   "shape_ok": true,
+   "equal": true
+  },
+  {
+   "N": 384,
+   "C": 64,
+   "fidelity": "MathFidelity.HiFi4",
+   "fp32_dest_acc": false,
+   "shape_ok": true,
+   "equal": true
+  },
+  {
+   "N": 384,
+   "C": 256,
+   "fidelity": "MathFidelity.HiFi4",
+   "fp32_dest_acc": false,
+   "shape_ok": true,
+   "equal": true
+  },
+  {
+   "N": 448,
+   "C": 32,
+   "fidelity": "MathFidelity.HiFi4",
+   "fp32_dest_acc": false,
+   "shape_ok": true,
+   "equal": true
+  },
+  {
+   "N": 448,
+   "C": 64,
+   "fidelity": "MathFidelity.HiFi4",
+   "fp32_dest_acc": false,
+   "shape_ok": true,
+   "equal": true
+  },
+  {
+   "N": 448,
+   "C": 256,
+   "fidelity": "MathFidelity.HiFi4",
+   "fp32_dest_acc": false,
+   "shape_ok": true,
+   "equal": true
   },
   {
    "N": 512,
    "C": 32,
    "fidelity": "MathFidelity.HiFi4",
-   "fp32_dest_acc": true,
+   "fp32_dest_acc": false,
    "shape_ok": true,
-   "equal": false,
-   "max_abs": 0.015625,
-   "n_diff": 75041,
-   "frac_diff": 0.008946
+   "equal": true
+  },
+  {
+   "N": 512,
+   "C": 64,
+   "fidelity": "MathFidelity.HiFi4",
+   "fp32_dest_acc": false,
+   "shape_ok": true,
+   "equal": true
   },
   {
    "N": 512,
    "C": 256,
    "fidelity": "MathFidelity.HiFi4",
-   "fp32_dest_acc": true,
+   "fp32_dest_acc": false,
    "shape_ok": true,
-   "equal": false,
-   "max_abs": 0.015625,
-   "n_diff": 605057,
-   "frac_diff": 0.009016
+   "equal": true
   },
   {
    "N": 576,
    "C": 32,
    "fidelity": "MathFidelity.HiFi4",
-   "fp32_dest_acc": true,
+   "fp32_dest_acc": false,
    "shape_ok": true,
-   "equal": false,
-   "max_abs": 0.015625,
-   "n_diff": 95576,
-   "frac_diff": 0.009002
+   "equal": true
+  },
+  {
+   "N": 576,
+   "C": 64,
+   "fidelity": "MathFidelity.HiFi4",
+   "fp32_dest_acc": false,
+   "shape_ok": true,
+   "equal": true
   },
   {
    "N": 576,
    "C": 256,
    "fidelity": "MathFidelity.HiFi4",
-   "fp32_dest_acc": true,
+   "fp32_dest_acc": false,
    "shape_ok": true,
-   "equal": false,
-   "max_abs": 0.015625,
-   "n_diff": 768089,
-   "frac_diff": 0.009043
+   "equal": true
+  },
+  {
+   "N": 640,
+   "C": 32,
+   "fidelity": "MathFidelity.HiFi4",
+   "fp32_dest_acc": false,
+   "shape_ok": true,
+   "equal": true
+  },
+  {
+   "N": 640,
+   "C": 64,
+   "fidelity": "MathFidelity.HiFi4",
+   "fp32_dest_acc": false,
+   "shape_ok": true,
+   "equal": true
+  },
+  {
+   "N": 640,
+   "C": 256,
+   "fidelity": "MathFidelity.HiFi4",
+   "fp32_dest_acc": false,
+   "shape_ok": true,
+   "equal": true
   }
  ]
 }

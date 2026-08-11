@@ -624,8 +624,7 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
         kernel_source=str(KERNEL_DIR_GATED / "compute_reblock_permute_gated.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
         core_ranges=core_grid,
-        compile_time_args=[P_CB, G_CB, SIG_CB, MUL_CB, OUT_CB, int(GATE_SFPU_MUL),
-                           int(GATE_SKIP_SIGMOID), int(GATE_ROUND_PRODUCT)],
+        compile_time_args=[P_CB, G_CB, SIG_CB, MUL_CB, OUT_CB, int(GATE_SKIP_SIGMOID)],
         runtime_args=compute_rt,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fidelity, fp32_dest_acc_en=fp32_acc
@@ -656,19 +655,14 @@ def _prepare_gated(x, out, device, fidelity, fp32_acc):
     return entry
 
 
-# The compute config the multiply has to run under to stay bit-exact against `ttnn.multiply_`.
-# Pinned by perf/trimul_f2/e6_parity.py, which sweeps it: a wrong fidelity here is a silent
+# The compute config the kernel has to run under to stay bit-exact against . Both
+# values are load-bearing and neither is a default: see the kernel for the two mechanisms and
+# perf/trimul_f2/e6_parity.py for the shapes they were pinned at. A change here is a silent
 # precision change, not an error.
 GATE_FIDELITY = ttnn.MathFidelity.HiFi4
-# Whether the product goes through the SFPU binary rather than the FPU. Measured: the two return
-# byte-identical results, so the FPU one is kept for being one DST register and one copy cheaper.
-GATE_SFPU_MUL = False
-# Diagnostics, never on in production: see the kernel. GATE_SKIP_SIGMOID drops the activation so
-# the multiply can be compared on its own; GATE_ROUND_PRODUCT rounds the product in the SFPU before
-# packing, which typecast_tile turns out to do as a bitcast rather than a conversion.
+GATE_FP32_ACC = False
+# Diagnostic, never on in production: drops the activation so the multiply can be measured alone.
 GATE_SKIP_SIGMOID = False
-GATE_ROUND_PRODUCT = False
-GATE_FP32_ACC = True
 
 
 def reblock_permute_gated(xw, p_slice, g_slice, slice_c, memory_config=None, device=None):
@@ -702,7 +696,7 @@ def reblock_permute_gated(xw, p_slice, g_slice, slice_c, memory_config=None, dev
 
 
 # Whether the trimul folds the chunk and the two gates into the forward move.
-REBLOCK_PERMUTE_GATED = True
+REBLOCK_PERMUTE_GATED = False
 _ENABLED_GATED = os.environ.get(
     "TT_BIO_REBLOCK_PERMUTE_GATED", "1" if REBLOCK_PERMUTE_GATED else "0") == "1"
 
