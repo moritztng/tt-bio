@@ -984,6 +984,37 @@ def _pair_proj_config(x: ttnn.Tensor, w: ttnn.Tensor, bw_cap: int | None = -1,
 _L1_OUT_REFUSED: set = set()
 
 
+# The DRAM-output leg of `_pair_proj_linear` is a `ttnn.linear` with a program config tuned for
+# the out_block_h drain schedule. For a square K=256, N=256 pair projection `minimal_matmul` with
+# the swept block config is simply faster, and bit-exact: K_block covers the whole contraction in
+# both, so nothing accumulates in a different order. Measured on qb2 card 2, `torch.equal` at
+# every size (perf/triatt_opt/stage1_sweep.json):
+#     298   0.4016 -> 0.3154 ms   320   0.4132 -> 0.3312   384   0.5888 -> 0.4589
+#     512   0.9949 -> 0.7844      576   1.2548 -> 0.9889   640   1.5561 -> 1.2052
+# The L1-output leg still wins where it applies (298: 0.2838), so this sits BELOW it and above
+# the DRAM linear. Scoped to a single-block contraction (kt == 8) because that is the class where
+# the identical accumulation order was verified.
+PAIR_PROJ_MINIMAL_MATMUL = True
+_PAIR_PROJ_MM = os.environ.get(
+    "TT_BIO_PAIR_PROJ_MM", "1" if PAIR_PROJ_MINIMAL_MATMUL else "0") == "1"
+
+
+def _pair_proj_minimal_matmul(x, w, ckc, dtype):
+    """`minimal_matmul` for a pair projection whose contraction fits one K block, else None."""
+    if not _PAIR_PROJ_MM or x.dtype != ttnn.bfloat16 or w.dtype != ttnn.bfloat16:
+        return None
+    if len(w.shape) != 2 or -(-int(w.shape[-2]) // 32) != 8:
+        return None
+    cfg = _qkv_mm_config(x, w)
+    if cfg is None:
+        return None
+    try:
+        return ttnn.experimental.minimal_matmul(
+            input_tensor=x, weight_tensor=w, compute_kernel_config=ckc, dtype=dtype, config=cfg)
+    except Exception:
+        return None
+
+
 def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False):
     """`ttnn.linear` on a pair-track projection, with the tuned config when the shape allows.
 
@@ -1004,6 +1035,9 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False):
                     )
                 except Exception:
                     _L1_OUT_REFUSED.add(key)
+    mm = _pair_proj_minimal_matmul(x, w, ckc, dtype)
+    if mm is not None:
+        return mm
     cfg = _pair_proj_config(x, w)
     if cfg is not None:
         return ttnn.linear(
@@ -2054,7 +2088,15 @@ class TriangleMultiplication(Module):
 # Both are bit-exact. Gated because a per-call ratio is a screen, not a fold gain.
 QKV_MM_CONFIG = True
 _MM_CFG = os.environ.get("TT_BIO_QKV_MM_CONFIG", "1" if QKV_MM_CONFIG else "0") == "1"
-_MM_BLOCK = {24: (4, 8, 1, 4, 1), 8: (2, 8, 1, 2, 1)}      # n_tiles -> (M, K, N, sub_h, sub_w)
+# n_tiles -> (M_block, K_block, N_block, subblock_h, subblock_w).
+# The nt=8 entry was (2,8,1,2,1), tuned at a small M. Swept over M on qb2 card 2 at K=256,
+# N=256 (perf/triatt_opt/stage1_sweep.json), the 4-block entry wins at EVERY M measured and the
+# margin grows with M, `torch.equal` throughout (same K_block, so the same accumulation order):
+#     M      8192   16384   32768   65536  131072  262144  409600
+#     ratio 1.044x  1.085x  1.051x  1.110x  1.209x  1.219x  1.204x
+# The old entry cost 1.21x on every nt=8 pair-track projection in the repo at production M, not
+# just the triangle-attention gate.
+_MM_BLOCK = {24: (4, 8, 1, 4, 1), 8: (4, 8, 1, 4, 1)}
 
 
 @lru_cache(maxsize=None)
