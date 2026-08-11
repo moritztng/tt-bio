@@ -1,0 +1,110 @@
+ROOFS (card 2, 128 MB clone unless noted):
+  dram_read          379.2 GB/s
+  dram_write         262.3 GB/s
+  dram_copy          388.9 GB/s
+  l1_copy@52MB       986.8 GB/s
+
+=== triatt_start  MEASURED 16.187 ms  (15 ops) ===
+op@site                                  ms     read    write     GB/s   %roof
+reshape@2127                          0.003        -        -     view        
+layer_norm@2189                       0.928    128.0    128.0    289.3   74.4%
+linear@984                            0.588        -        -     view        
+unsqueeze@2200                        0.002        -        -     view        
+permute@2201                          0.127     16.0      4.0    164.8   42.4%
+minimal_matmul@2313                   2.103    128.0    384.0    255.3   65.6%
+minimal_matmul@2320                   0.954    128.0    128.0    281.2   72.3%
+unsqueeze@2205                        0.003        -        -     view        
+nlp_create_qkv_heads@2209             2.154    384.0    384.0    373.8   96.1%
+scaled_dot_product_attention@433      6.552   2432.0    128.0    409.7  105.3%
+nlp_concat_heads@2237                 0.740    128.0    128.0    362.9   93.3%
+squeeze@2239                          0.002        -        -     view        
+multiply_@2243                        1.039    256.0    128.0    387.5   99.6%
+linear@984                            0.989        -        -     view        
+reshape@2336                          0.002        -        -     view        
+TRAFFIC TOTAL (MiB)                                    5012.0
+
+=== triatt_end  MEASURED 21.139 ms  (21 ops) ===
+op@site                                  ms     read    write     GB/s   %roof
+reshape@2127                          0.002        -        -     view        
+to_layout@678                         0.727    128.0    128.0    369.0   94.9%
+permute@679                           1.029    128.0    128.0    260.8   67.0%
+to_layout@681                         0.797    128.0    128.0    336.9   86.6%
+layer_norm@2189                       0.917    128.0    128.0    292.9   75.3%
+linear@984                            0.571        -        -     view        
+unsqueeze@2200                        0.002        -        -     view        
+permute@2201                          0.120     16.0      4.0    174.6   44.9%
+minimal_matmul@2313                   2.082    128.0    384.0    257.9   66.3%
+minimal_matmul@2320                   0.950    128.0    128.0    282.5   72.6%
+unsqueeze@2205                        0.002        -        -     view        
+nlp_create_qkv_heads@2209             2.099    384.0    384.0    383.7   98.6%
+scaled_dot_product_attention@433      6.512   2432.0    128.0    412.2  106.0%
+nlp_concat_heads@2237                 0.724    128.0    128.0    370.8   95.3%
+squeeze@2239                          0.004        -        -     view        
+multiply_@2243                        1.047    256.0    128.0    384.5   98.9%
+linear@984                            0.993        -        -     view        
+to_layout@678                         0.728    128.0    128.0    368.9   94.9%
+permute@679                           1.027    128.0    128.0    261.3   67.2%
+to_layout@681                         0.804    128.0    128.0    333.9   85.9%
+reshape@2336                          0.002        -        -     view        
+TRAFFIC TOTAL (MiB)                                    6548.0
+
+triatt per Pairformer block MEASURED = 37.327 ms
+block wall MEASURED                  = 115.151 ms
+triatt share of block                = 32.4 %
+traffic per block DERIVED            = 11560 MiB
+pf.triatt per fold = share x pf_stack = 18.845 s  (23.8 % of the 79.172 s fold)
+pf.triatt per fold = 528 x block  = 19.708 s
+the brief's DERIVED figure            = 12.871 s (ratio 1.531x)
+
+=== DERIVED byte floor, one triatt call, N=512 c=256 h=8 d=32 bf16 ===
+  z read (pass 1, for the bias)                   128.0 MiB
+  bias write                                        4.0 MiB
+  z read (pass 2, rows)                           128.0 MiB
+  bias read, multicast per head group               4.0 MiB
+  output write                                    128.0 MiB
+  TOTAL (bias multicast)                          392.0 MiB
+  TOTAL (bias once per core, 110 cores)           443.0 MiB
+
+memory time floor: read 260 MiB / 379.2 = 0.719 ms; write 132 MiB / 262.3 = 0.528 ms; combined stream 1.057 ms
+
+compute floor from MEASURED op times:
+  fused projection qkv+gate+bias N=1056   2.629 ms  MEASURED
+  attention, bias off, wide-q             2.285 ms  MEASURED
+  out projection, (4,8,1,4,1)             0.787 ms  MEASURED
+  TOTAL compute floor                     5.701 ms/call = 11.402 ms/block
+  ceiling against the measured block      3.274x
+  sanity: 411.0 MB / 5.701 ms = 72.1 GB/s = 18.5 % of the copy roof
+
+=== lever prices, all MEASURED unless marked ===
+L2 fused projection: shipped 3.646 -> 2.629 ms/call (saves 1.017 ms/call, 2.034 ms/block, 5.4 % of the sub-block), bit-exact {'qkv768': True, 'gate256': True, 'bias32': True, 'qkv+gate:qkv': True, 'qkv+gate:gate': True}
+L3 out projection cfg: 0.989 -> 0.787 ms/call (saves 0.203, 0.405 ms/block, 1.1 %)
+L4 bias-once: 6.496 -> 2.285 ms/call (2.843x on the op, saves 8.422 ms/block, 22.6 %)
+   marginal bias stream: 4.211 ms for 2048 MiB = 510 GB/s (pattern roof, vs the 379 GB/s streaming read roof)
+L5 head split 2.154 + concat 0.740 ms/call: 5.788 ms/block, 15.5 %
+L6 pair transposes (ending only): 5.113 ms/block, 13.7 % of the sub-block; own clone floor 2 x 0.690 ms
+L7 gate multiply 1.039 ms/call, 387.5 GB/s = 99.6 % of the copy roof (saturated)
+L8 layer_norm 0.928 ms/call, 289.3 GB/s = 74.4 % of the copy roof; floor 0.690 ms
+
+best designed config (start variant) = 7.908 ms/call vs 16.187 MEASURED = 2.047x
+  block (transposes absorbed)        = 15.817 ms vs 37.327 = 2.360x
+  residual to the floor              = 4.415 ms/block
+
+=== L1-resident row-chunk verdict (P2/P3) ===
+ N=768: production unchunked DRAM->DRAM 2.1248 ms (48.5 TF/s)
+   R= 32 DRAM->DRAM: 2.9849 ms/call (34.5 TF/s) = 0.712x production
+   R= 32 L1->L1: 2.4620 ms/call (41.9 TF/s) = 0.863x production
+   R= 64 DRAM->DRAM: 2.5634 ms/call (40.2 TF/s) = 0.829x production
+   R= 64 L1->L1: 2.1036 ms/call (49.0 TF/s) = 1.010x production
+ N=256: production unchunked DRAM->DRAM 0.7866 ms (43.7 TF/s)
+   R= 32 DRAM->DRAM: 1.3817 ms/call (24.9 TF/s) = 0.569x production
+   R= 32 L1->L1: 1.2643 ms/call (27.2 TF/s) = 0.622x production
+   R= 64 DRAM->DRAM: 1.0856 ms/call (31.7 TF/s) = 0.725x production
+   R= 64 L1->L1: 0.9817 ms/call (35.0 TF/s) = 0.801x production
+
+=== SDPA batch chunking (P6/P7) ===
+  B=512 qkv=DRAM bias=on  6.4962 ms x1 = 6.4962 ms/call
+  B= 64 qkv=DRAM bias=on  0.8837 ms x8 = 7.0694 ms/call
+  B= 64 qkv=L1   bias=on  0.7885 ms x8 = 6.3077 ms/call
+  B= 32 qkv=DRAM bias=on  0.4979 ms x16 = 7.9671 ms/call
+  B= 32 qkv=L1   bias=on  0.4243 ms x16 = 6.7887 ms/call
+  B=512 qkv=DRAM bias=off 2.2853 ms x1 = 2.2853 ms/call

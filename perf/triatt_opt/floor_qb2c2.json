@@ -1,0 +1,449 @@
+{
+ "predictions": "triatt-absolute-optimal, planning pass: the three unmeasured quantities the design turns on.\n\nCard 2 on qb2, P300c, 11x10 = 110 cores, ttnn 0.68.0, branch wk/triatt-absolute-optimal.\n\nPREDICTIONS, WRITTEN BEFORE THE RUN (state/triatt-absolute-optimal.md 0):\n\nP1  Card-2 roofs land within 5 % of the card-1 figures the sister leg measured: DRAM read\n    352-356 GB/s, DRAM write 249-264, DRAM->DRAM copy 375-387, L1->L1 836-893.\nP2  qkv at a 64-row chunk (M=32768, K=256, N=768) DRAM->DRAM costs 8 x ~0.263 = ~2.10 ms,\n    i.e. chunking alone is free (+-5 %) because the op is traffic-bound, not launch-bound.\nP3  qkv L1->L1 is 1.30-1.60x the DRAM->DRAM time. It removes 512 MiB of a 512 MiB traffic\n    bill, so if the op were purely write-bound it would be much more; I predict it stops at\n    a compute rate near 55-70 TF/s. THIS IS THE MEASUREMENT THAT DECIDES THE L1-RESIDENT\n    ROW-CHUNK DESIGN: below 1.15x that design is dead, above 1.35x it is the biggest cheap\n    lever in the sub-block.\nP4  gate / out (K=256, N=256) L1->L1 is 1.25-1.60x their DRAM->DRAM time.\nP5  the fused projection (one matmul, N=768+256+32 -> 1056) beats the three separate\n    matmuls by 1.35-1.60x, and every output column is bit-exact against the separate ops\n    (same K, same accumulation order, weights only concatenated along N).\nP6  SDPA at batch 64 x 8 chunks is 1.00-1.12x the batch-512 time: the work unit is\n    (batch, head, q_chunk), so 64x8 = 512 units over 110 cores wastes at most one wave\n    (512/(5*110) = 93 % occupancy) and the bias re-read per batch element is unchanged.\nP7  SDPA with q/k/v in L1 and the bias still in DRAM is 1.00-1.10x the all-DRAM time: the\n    bias is 84 % of the read, so removing the q/k/v read cannot pay much.\n",
+ "loadavg": [
+  "1.06",
+  "1.37",
+  "1.12"
+ ],
+ "grid": [
+  11,
+  10
+ ],
+ "roofs": [
+  {
+   "mb": 52,
+   "roof": "dram_read",
+   "ms": 0.15407599858008325,
+   "gbps": 353.88997963663587
+  },
+  {
+   "mb": 52,
+   "roof": "dram_write",
+   "ms": 0.21933099924353883,
+   "gbps": 248.60121090068054
+  },
+  {
+   "mb": 52,
+   "roof": "dram_copy",
+   "ms": 0.29036700288997963,
+   "gbps": 375.5657595891496
+  },
+  {
+   "mb": 52,
+   "roof": "l1_copy",
+   "ms": 0.11051200272049755,
+   "gbps": 986.7878720450811
+  },
+  {
+   "mb": 105,
+   "roof": "dram_read",
+   "ms": 0.29653900128323585,
+   "gbps": 371.28498957490854
+  },
+  {
+   "mb": 105,
+   "roof": "dram_write",
+   "ms": 0.4293749952921644,
+   "gbps": 256.4203346892222
+  },
+  {
+   "mb": 105,
+   "roof": "dram_copy",
+   "ms": 0.5712779966415837,
+   "gbps": 385.45324919656014
+  },
+  {
+   "mb": 105,
+   "roof": "l1_copy",
+   "error": "RuntimeError('TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\\ninfo:\\nOut of Memory: Not enough "
+  },
+  {
+   "mb": 128,
+   "roof": "dram_read",
+   "ms": 0.35398999898461625,
+   "gbps": 379.1568360264123
+  },
+  {
+   "mb": 128,
+   "roof": "dram_write",
+   "ms": 0.5117629989399575,
+   "gbps": 262.26540073825674
+  },
+  {
+   "mb": 128,
+   "roof": "dram_copy",
+   "ms": 0.6901660017319955,
+   "gbps": 388.9433199061558
+  },
+  {
+   "mb": 128,
+   "roof": "l1_copy",
+   "error": "RuntimeError('TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\\ninfo:\\nOut of Memory: Not enough "
+  }
+ ],
+ "mm": [
+  {
+   "M": 16384,
+   "K": 256,
+   "N": 768,
+   "src": "DRAM",
+   "dst": "DRAM",
+   "cfg": true,
+   "ms": 0.18655900203157216,
+   "tflops": 34.53304784997572,
+   "read_MiB": 8.0,
+   "write_MiB": 24.0,
+   "row_chunk": 32,
+   "chunks": 16,
+   "ms_full": 2.9849440325051546
+  },
+  {
+   "M": 16384,
+   "K": 256,
+   "N": 768,
+   "src": "L1",
+   "dst": "L1",
+   "cfg": true,
+   "ms": 0.1538760043331422,
+   "tflops": 41.86780760210063,
+   "read_MiB": 8.0,
+   "write_MiB": 24.0,
+   "row_chunk": 32,
+   "chunks": 16,
+   "ms_full": 2.462016069330275
+  },
+  {
+   "M": 16384,
+   "K": 256,
+   "N": 768,
+   "src": "DRAM",
+   "dst": "L1",
+   "cfg": true,
+   "ms": 0.1517810014775023,
+   "tflops": 42.44570059023449,
+   "read_MiB": 8.0,
+   "write_MiB": 24.0,
+   "row_chunk": 32,
+   "chunks": 16,
+   "ms_full": 2.4284960236400366
+  },
+  {
+   "M": 16384,
+   "K": 256,
+   "N": 768,
+   "src": "L1",
+   "dst": "DRAM",
+   "cfg": true,
+   "ms": 0.1486649998696521,
+   "tflops": 43.33535768101889,
+   "read_MiB": 8.0,
+   "write_MiB": 24.0,
+   "row_chunk": 32,
+   "chunks": 16,
+   "ms_full": 2.3786399979144335
+  },
+  {
+   "M": 16384,
+   "K": 256,
+   "N": 256,
+   "src": "DRAM",
+   "dst": "DRAM",
+   "cfg": true,
+   "ms": 0.08635500125819817,
+   "tflops": 24.868086581101487,
+   "read_MiB": 8.0,
+   "write_MiB": 8.0,
+   "row_chunk": 32,
+   "chunks": 16,
+   "ms_full": 1.3816800201311707
+  },
+  {
+   "M": 16384,
+   "K": 256,
+   "N": 256,
+   "src": "L1",
+   "dst": "L1",
+   "cfg": true,
+   "ms": 0.0790210033301264,
+   "tflops": 27.176112141077834,
+   "read_MiB": 8.0,
+   "write_MiB": 8.0,
+   "row_chunk": 32,
+   "chunks": 16,
+   "ms_full": 1.2643360532820225
+  },
+  {
+   "M": 16384,
+   "K": 256,
+   "N": 256,
+   "src": "DRAM",
+   "dst": "L1",
+   "cfg": true,
+   "ms": 0.07736900442978367,
+   "tflops": 27.75638207867792,
+   "read_MiB": 8.0,
+   "write_MiB": 8.0,
+   "row_chunk": 32,
+   "chunks": 16,
+   "ms_full": 1.2379040708765388
+  },
+  {
+   "M": 16384,
+   "K": 256,
+   "N": 256,
+   "src": "L1",
+   "dst": "DRAM",
+   "cfg": true,
+   "ms": 0.08043499838095158,
+   "tflops": 26.698373733150493,
+   "read_MiB": 8.0,
+   "write_MiB": 8.0,
+   "row_chunk": 32,
+   "chunks": 16,
+   "ms_full": 1.2869599740952253
+  },
+  {
+   "M": 32768,
+   "K": 256,
+   "N": 768,
+   "src": "DRAM",
+   "dst": "DRAM",
+   "cfg": true,
+   "ms": 0.3204259992344305,
+   "tflops": 40.211786555351054,
+   "read_MiB": 16.0,
+   "write_MiB": 48.0,
+   "row_chunk": 64,
+   "chunks": 8,
+   "ms_full": 2.563407993875444
+  },
+  {
+   "M": 32768,
+   "K": 256,
+   "N": 768,
+   "src": "L1",
+   "dst": "L1",
+   "cfg": true,
+   "ms": 0.2629549999255687,
+   "tflops": 49.00040650167202,
+   "read_MiB": 16.0,
+   "write_MiB": 48.0,
+   "row_chunk": 64,
+   "chunks": 8,
+   "ms_full": 2.1036399994045496
+  },
+  {
+   "M": 32768,
+   "K": 256,
+   "N": 768,
+   "src": "DRAM",
+   "dst": "L1",
+   "cfg": true,
+   "ms": 0.26327600062359124,
+   "tflops": 48.94066248910281,
+   "read_MiB": 16.0,
+   "write_MiB": 48.0,
+   "row_chunk": 64,
+   "chunks": 8,
+   "ms_full": 2.10620800498873
+  },
+  {
+   "M": 32768,
+   "K": 256,
+   "N": 768,
+   "src": "L1",
+   "dst": "DRAM",
+   "cfg": true,
+   "ms": 0.26242500462103635,
+   "tflops": 49.09936805224363,
+   "read_MiB": 16.0,
+   "write_MiB": 48.0,
+   "row_chunk": 64,
+   "chunks": 8,
+   "ms_full": 2.099400036968291
+  },
+  {
+   "M": 32768,
+   "K": 256,
+   "N": 256,
+   "src": "DRAM",
+   "dst": "DRAM",
+   "cfg": true,
+   "ms": 0.13570099690696225,
+   "tflops": 31.65022655614436,
+   "read_MiB": 16.0,
+   "write_MiB": 16.0,
+   "row_chunk": 64,
+   "chunks": 8,
+   "ms_full": 1.085607975255698
+  },
+  {
+   "M": 32768,
+   "K": 256,
+   "N": 256,
+   "src": "L1",
+   "dst": "L1",
+   "cfg": true,
+   "ms": 0.12271599553059787,
+   "tflops": 34.99924583938284,
+   "read_MiB": 16.0,
+   "write_MiB": 16.0,
+   "row_chunk": 64,
+   "chunks": 8,
+   "ms_full": 0.9817279642447829
+  },
+  {
+   "M": 32768,
+   "K": 256,
+   "N": 256,
+   "src": "DRAM",
+   "dst": "L1",
+   "cfg": true,
+   "ms": 0.11698500020429492,
+   "tflops": 36.71382902508485,
+   "read_MiB": 16.0,
+   "write_MiB": 16.0,
+   "row_chunk": 64,
+   "chunks": 8,
+   "ms_full": 0.9358800016343594
+  },
+  {
+   "M": 32768,
+   "K": 256,
+   "N": 256,
+   "src": "L1",
+   "dst": "DRAM",
+   "cfg": true,
+   "ms": 0.11707499652402475,
+   "tflops": 36.685606863277904,
+   "read_MiB": 16.0,
+   "write_MiB": 16.0,
+   "row_chunk": 64,
+   "chunks": 8,
+   "ms_full": 0.936599972192198
+  },
+  {
+   "M": 262144,
+   "K": 256,
+   "N": 768,
+   "src": "DRAM",
+   "dst": "DRAM",
+   "cfg": true,
+   "ms": 2.1248409975669347,
+   "tflops": 48.511495788170336,
+   "read_MiB": 128.0,
+   "write_MiB": 384.0,
+   "row_chunk": 512,
+   "chunks": 1,
+   "ms_full": 2.1248409975669347
+  },
+  {
+   "M": 262144,
+   "K": 256,
+   "N": 256,
+   "src": "DRAM",
+   "dst": "DRAM",
+   "cfg": true,
+   "ms": 0.7865809966460802,
+   "tflops": 43.68239064318517,
+   "read_MiB": 128.0,
+   "write_MiB": 128.0,
+   "row_chunk": 512,
+   "chunks": 1,
+   "ms_full": 0.7865809966460802
+  }
+ ],
+ "fused": [
+  {
+   "combo": "qkv768",
+   "N": 768,
+   "ms": 2.111505003995262,
+   "write_MiB": 384.0
+  },
+  {
+   "combo": "gate256",
+   "N": 256,
+   "ms": 0.7880429984652437,
+   "write_MiB": 128.0
+  },
+  {
+   "combo": "bias32",
+   "N": 32,
+   "ms": 0.6334070058073848,
+   "write_MiB": 16.0
+  },
+  {
+   "combo": "qkv+bias_800",
+   "N": 800,
+   "ms": 1.9869160023517907,
+   "write_MiB": 400.0
+  },
+  {
+   "combo": "qkv+gate_1024",
+   "N": 1024,
+   "ms": 3.371696002432145,
+   "write_MiB": 512.0
+  },
+  {
+   "combo": "all_1056",
+   "N": 1056,
+   "ms": 2.6291399990441278,
+   "write_MiB": 528.0
+  }
+ ],
+ "fused_bitexact": {
+  "qkv768": true,
+  "gate256": true,
+  "bias32": true,
+  "qkv+gate:qkv": true,
+  "qkv+gate:gate": true
+ },
+ "sdpa": [
+  {
+   "B": 512,
+   "qkv_mem": "DRAM",
+   "ms": 6.496185997093562,
+   "chunks": 1,
+   "ms_full": 6.496185997093562
+  },
+  {
+   "B": 512,
+   "qkv_mem": "BufferType.L1",
+   "error": "RuntimeError('TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\\ninfo:\\nOut of Memory: Not enough space to allocate 134217728 B L1 buffer "
+  },
+  {
+   "B": 64,
+   "qkv_mem": "DRAM",
+   "ms": 0.8836769993649796,
+   "chunks": 8,
+   "ms_full": 7.0694159949198365
+  },
+  {
+   "B": 64,
+   "qkv_mem": "L1",
+   "ms": 0.7884639999247156,
+   "chunks": 8,
+   "ms_full": 6.307711999397725
+  },
+  {
+   "B": 32,
+   "qkv_mem": "DRAM",
+   "ms": 0.49794599908636883,
+   "chunks": 16,
+   "ms_full": 7.967135985381901
+  },
+  {
+   "B": 32,
+   "qkv_mem": "L1",
+   "ms": 0.4242950017214753,
+   "chunks": 16,
+   "ms_full": 6.788720027543604
+  },
+  {
+   "B": 512,
+   "qkv_mem": "DRAM",
+   "bias": "off",
+   "ms": 2.2853289992781356
+  }
+ ]
+}
