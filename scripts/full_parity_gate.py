@@ -206,6 +206,7 @@ class Leg:
                                  # vs the harvested external reference (legacy R/D/X), never the
                                  # shared-draws envelope — ref_fp32/ref_bf16 would be device-on-CPU
                                  # tautology, and --regen-refs must skip these legs
+    min_fold_timeout: float | None = None  # per-leg FLOOR (s); effective = max(--fold-timeout, this)
     note: str = ""
 
 
@@ -218,6 +219,16 @@ def _boltz2_struct_args(recycling=3, steps=200, samples=1, msa="none"):
         return tuple(base + ["--use_msa_server"])
     return tuple(base)  # staged: --msa_dir appended at run time
 
+
+# Every boltz2 affinity fold runs the affinity model's 64-block pairformer trunk in fp32 ON
+# HOST (BOLTZ2_AFFINITY_TRUNK_FP32_HOST, boltz2.py — a deliberate accuracy fix), with a fresh
+# torch.compile per seed process: CPU-bound and contention-fragile. In the 2026-08-11 gate
+# refresh a co-tenanted kernel campaign pushed dhfr (largest affinity target, L187) seed folds
+# past the 2400s default while the same folds took ~600-700s on a quiet host — a flake, not a
+# regression. The whole affinity class shares the mechanism, so the whole class gets 3x the
+# default. Costs nothing on success: a completed fold is reaped 30s after results.json appears
+# regardless of the remaining budget.
+AFFINITY_FOLD_TIMEOUT_S = 7200.0
 
 LEGS = [
     # --- deterministic encoders (in-process reference, fast, no fixture) ---
@@ -350,6 +361,8 @@ LEGS = [
              "fp32 diffusion boundary (P15, OF3_DIFFUSION_FP32_DEVICE default-on)"),
 
     # --- Boltz-2 affinity legs (cached fixture, device-only per release) ---
+    # (min_fold_timeout=AFFINITY_FOLD_TIMEOUT_S on each: the fp32 host trunk makes the class
+    # contention-fragile, see the constant's note above)
 ] + [
     Leg(f"boltz2-affinity-fkbp12-nomsa", "boltz2", "affinity", "examples/affinity_fkg.yaml",
         fixture="boltz2/affinity_fkg/nomsa_200step_5affsample_3recycle_bf16_mwcorr",
@@ -357,40 +370,43 @@ LEGS = [
         device_args=("--single_sequence", "--affinity_mw_correction",
                       "--diffusion_samples_affinity", "5", "--sampling_steps_affinity", "200",
                       "--recycling_steps", "3", "--sampling_steps", "200",
-                      "--diffusion_samples", "1")),
+                      "--diffusion_samples", "1"),
+        min_fold_timeout=AFFINITY_FOLD_TIMEOUT_S),
     Leg(f"boltz2-affinity-fkbp12-msa", "boltz2", "affinity", "examples/affinity_fkg_msa.yaml",
         fixture="boltz2/affinity_fkg/msa-colabfold_200step_5affsample_3recycle_bf16_mwcorr_gpu",
         committed_json="boltz2-affinity-fkbp12-msa-seeded.json", target_id="affinity_fkg",
         device_args=("--affinity_mw_correction", "--diffusion_samples_affinity", "5",
                       "--sampling_steps_affinity", "200", "--recycling_steps", "3",
                       "--sampling_steps", "200", "--diffusion_samples", "1"),
-        msa="yaml"),
+        msa="yaml", min_fold_timeout=AFFINITY_FOLD_TIMEOUT_S),
     Leg(f"boltz2-affinity-dhfr-nomsa", "boltz2", "affinity", "examples/affinity_dhfr.yaml",
         fixture="boltz2/affinity_dhfr/nomsa_200step_5affsample_3recycle_bf16_mwcorr",
         committed_json="boltz2-affinity-dhfr-seeded.json", target_id="affinity_dhfr",
         device_args=("--single_sequence", "--affinity_mw_correction",
                       "--diffusion_samples_affinity", "5", "--sampling_steps_affinity", "200",
-                      "--recycling_steps", "3", "--sampling_steps", "200", "--diffusion_samples", "1")),
+                      "--recycling_steps", "3", "--sampling_steps", "200", "--diffusion_samples", "1"),
+        min_fold_timeout=AFFINITY_FOLD_TIMEOUT_S),
     Leg(f"boltz2-affinity-dhfr-msa", "boltz2", "affinity", "examples/affinity_dhfr_msa.yaml",
         fixture="boltz2/affinity_dhfr/msa-colabfold_200step_5affsample_3recycle_bf16_mwcorr_gpu",
         committed_json="boltz2-affinity-dhfr-seeded.json", target_id="affinity_dhfr",
         device_args=("--affinity_mw_correction", "--diffusion_samples_affinity", "5",
                       "--sampling_steps_affinity", "200", "--recycling_steps", "3",
                       "--sampling_steps", "200", "--diffusion_samples", "1"),
-        msa="yaml"),
+        msa="yaml", min_fold_timeout=AFFINITY_FOLD_TIMEOUT_S),
     Leg(f"boltz2-affinity-tryp-nomsa", "boltz2", "affinity", "examples/affinity_tryp.yaml",
         fixture="boltz2/affinity_tryp/nomsa_200step_5affsample_3recycle_bf16_mwcorr",
         committed_json="boltz2-affinity-tryp-seeded.json", target_id="affinity_tryp",
         device_args=("--single_sequence", "--affinity_mw_correction",
                       "--diffusion_samples_affinity", "5", "--sampling_steps_affinity", "200",
-                      "--recycling_steps", "3", "--sampling_steps", "200", "--diffusion_samples", "1")),
+                      "--recycling_steps", "3", "--sampling_steps", "200", "--diffusion_samples", "1"),
+        min_fold_timeout=AFFINITY_FOLD_TIMEOUT_S),
     Leg(f"boltz2-affinity-tryp-msa", "boltz2", "affinity", "examples/affinity_tryp_msa.yaml",
         fixture="boltz2/affinity_tryp/msa-colabfold_200step_5affsample_3recycle_bf16_mwcorr_gpu",
         committed_json="boltz2-affinity-tryp-seeded.json", target_id="affinity_tryp",
         device_args=("--affinity_mw_correction", "--diffusion_samples_affinity", "5",
                       "--sampling_steps_affinity", "200", "--recycling_steps", "3",
                       "--sampling_steps", "200", "--diffusion_samples", "1"),
-        msa="yaml"),
+        msa="yaml", min_fold_timeout=AFFINITY_FOLD_TIMEOUT_S),
 ]
 
 # OpenDDE structure legs + abag + boltzgen (append separately for clarity)
@@ -1030,7 +1046,8 @@ def regen_envelope_refs(legs: list, workdir: Path, log_dir: Path,
             logf = open(log_dir / f"regen_{leg.id}_{dtype}.log", "w")
             t0 = time.monotonic()
             try:
-                rc, timed_out = _run_local_fold(wrapped, out_dir, logf, fold_timeout)
+                rc, timed_out = _run_local_fold(wrapped, out_dir, logf,
+                                                max(fold_timeout, leg.min_fold_timeout or 0.0))
             finally:
                 logf.close()
             wall = time.monotonic() - t0
@@ -1496,7 +1513,10 @@ def main() -> int:
     ap.add_argument("--fold-timeout", type=float, default=2400.0,
                    help="hard wall-clock timeout (s) per device fold / in-process harness. A fold "
                         "that never produces results.json within this window (e.g. a flaky MSA "
-                        "server) is killed with a clear error instead of hanging the gate. Default 2400.")
+                        "server) is killed with a clear error instead of hanging the gate. Default "
+                        "2400. Legs can declare a higher floor (Leg.min_fold_timeout — the boltz2 "
+                        "affinity legs get 7200s for their contention-fragile fp32 host trunk); "
+                        "the effective timeout is max(this, the leg floor).")
     ap.add_argument("--margin", type=float, default=None,
                    help="integration-parity envelope margin (device may drift up to "
                         "envelope*(1+margin) from the fp32 reference). Default: integration_envelope"
@@ -1633,6 +1653,7 @@ def main() -> int:
     t_start = time.monotonic()
     for leg in legs:
         seeds = seeds_override if seeds_override is not None else list(leg.seeds)
+        leg_timeout = max(args.fold_timeout, leg.min_fold_timeout or 0.0)
         # fingerprint check for fixture legs
         ref_status = "in-process"
         if leg.fixture:
@@ -1710,7 +1731,7 @@ def main() -> int:
                 # references. The refs' presence was already verified above.
                 fp32_dir, bf16_dir = envelope_ref_dirs(leg)
                 folds = run_folds_fanout(leg, [ENVELOPE_SEED], workdir, workers, log_dir,
-                                         resume=resume, fold_timeout=args.fold_timeout,
+                                         resume=resume, fold_timeout=leg_timeout,
                                          extra_env=_shared_draw_env())
                 dev = folds.get(ENVELOPE_SEED)
                 if not isinstance(dev, Path):
@@ -1733,7 +1754,7 @@ def main() -> int:
                     if ckpt:
                         fold_env["OF3_CKPT"] = str(ckpt)
                 folds = run_folds_fanout(leg, seeds, workdir, workers, log_dir,
-                                         resume=resume, fold_timeout=args.fold_timeout,
+                                         resume=resume, fold_timeout=leg_timeout,
                                          extra_env=fold_env)
                 dev_dirs, fold_errs = [], []
                 for s in seeds:
@@ -1754,7 +1775,7 @@ def main() -> int:
             else:
                 log_path = log_dir / f"{leg.id}.log"
                 report = run_inprocess(leg, cached_report_path, log_path, dict(os.environ),
-                                       fold_timeout=args.fold_timeout,
+                                       fold_timeout=leg_timeout,
                                        pin_card=workers[0].card if workers else None)
                 verdict, detail = extract_verdict(leg, report)
             wall = time.monotonic() - t_run
