@@ -1,0 +1,143 @@
+{
+ "n": 512,
+ "c": 256,
+ "grid": [
+  11,
+  10
+ ],
+ "gflop": 68.719476736,
+ "rows": [
+  {
+   "label": "PRODUCTION 2D-mcast (_triangle_mul_program_config)",
+   "ms": 1.6594665012235055,
+   "tflops": 41.410583874597
+  },
+  {
+   "label": "no-mcast batch-split ibw=1 osub=1x1",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1815040 B which is beyond max L1 si"
+  },
+  {
+   "label": "no-mcast batch-split ibw=1 osub=2x2",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1815040 B which is beyond max L1 si"
+  },
+  {
+   "label": "no-mcast batch-split ibw=1 osub=1x4",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1815040 B which is beyond max L1 si"
+  },
+  {
+   "label": "no-mcast batch-split ibw=1 osub=4x1",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1815040 B which is beyond max L1 si"
+  },
+  {
+   "label": "no-mcast batch-split ibw=1 osub=1x2",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1815040 B which is beyond max L1 si"
+  },
+  {
+   "label": "no-mcast batch-split ibw=1 osub=2x1",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1815040 B which is beyond max L1 si"
+  },
+  {
+   "label": "no-mcast batch-split ibw=2 osub=1x1",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1946112 B which is beyond max L1 si"
+  },
+  {
+   "label": "no-mcast batch-split ibw=2 osub=2x2",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1946112 B which is beyond max L1 si"
+  },
+  {
+   "label": "no-mcast batch-split ibw=2 osub=1x4",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1946112 B which is beyond max L1 si"
+  },
+  {
+   "label": "no-mcast batch-split ibw=2 osub=4x1",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1946112 B which is beyond max L1 si"
+  },
+  {
+   "label": "no-mcast batch-split ibw=2 osub=1x2",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1946112 B which is beyond max L1 si"
+  },
+  {
+   "label": "no-mcast batch-split ibw=2 osub=2x1",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1946112 B which is beyond max L1 si"
+  },
+  {
+   "label": "no-mcast batch-split ibw=4 osub=1x1",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2208256 B which is beyond max L1 si"
+  },
+  {
+   "label": "no-mcast batch-split ibw=4 osub=2x2",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2208256 B which is beyond max L1 si"
+  },
+  {
+   "label": "no-mcast batch-split ibw=4 osub=1x4",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2208256 B which is beyond max L1 si"
+  },
+  {
+   "label": "no-mcast batch-split ibw=4 osub=4x1",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2208256 B which is beyond max L1 si"
+  },
+  {
+   "label": "no-mcast batch-split ibw=4 osub=1x2",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2208256 B which is beyond max L1 si"
+  },
+  {
+   "label": "no-mcast batch-split ibw=4 osub=2x1",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2208256 B which is beyond max L1 si"
+  },
+  {
+   "label": "no-mcast batch-split ibw=8 osub=1x1",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2732544 B which is beyond max L1 si"
+  },
+  {
+   "label": "no-mcast batch-split ibw=8 osub=2x2",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2732544 B which is beyond max L1 si"
+  },
+  {
+   "label": "no-mcast batch-split ibw=8 osub=1x4",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2732544 B which is beyond max L1 si"
+  },
+  {
+   "label": "no-mcast batch-split ibw=8 osub=4x1",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2732544 B which is beyond max L1 si"
+  },
+  {
+   "label": "no-mcast batch-split ibw=8 osub=1x2",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2732544 B which is beyond max L1 si"
+  },
+  {
+   "label": "no-mcast batch-split ibw=8 osub=2x1",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2732544 B which is beyond max L1 si"
+  },
+  {
+   "label": "no-mcast batch-split ibw=16 osub=1x1",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3781120 B which is beyond max L1 si"
+  },
+  {
+   "label": "no-mcast batch-split ibw=16 osub=2x2",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3781120 B which is beyond max L1 si"
+  },
+  {
+   "label": "no-mcast batch-split ibw=16 osub=1x4",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3781120 B which is beyond max L1 si"
+  },
+  {
+   "label": "no-mcast batch-split ibw=16 osub=4x1",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3781120 B which is beyond max L1 si"
+  },
+  {
+   "label": "no-mcast batch-split ibw=16 osub=1x2",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3781120 B which is beyond max L1 si"
+  },
+  {
+   "label": "no-mcast batch-split ibw=16 osub=2x1",
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3781120 B which is beyond max L1 si"
+  }
+ ],
+ "production": {
+  "label": "PRODUCTION 2D-mcast (_triangle_mul_program_config)",
+  "ms": 1.6594665012235055,
+  "tflops": 41.410583874597
+ },
+ "best_no_mcast": null,
+ "occupancy": 0.7757575757575758
+}
