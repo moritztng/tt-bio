@@ -1,0 +1,98 @@
+host=tt-quietbox2 start=2026-08-11T23:17:49+00:00 commit=c9bfcaef
+ 23:17:49 up  6:13,  6 users,  load average: 0.11, 1.02, 1.07
+benchlock: boltz2-686-fast-integrated acquired after 0s, loadavg 0.11 1.02 1.07
+2026-08-11 23:17:49.305 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+=== cold fold (discarded: first-kernel compile, and it seeds the MSA cache) ===
+2026-08-11 23:18:03.052 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1667584 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+  cold 64.63s (65s wall)  n_tokens=None plddt=None msa=None
+  main: fold 54.04s  block 30214.39 ms over 280 calls  plddt None  (54s)
+      DEC l1_layer_norm|h=1.5|1x704x704x128                        {'DRAM': 264}
+      DEC l1_layer_norm|h=1.5|704x704x128                          {'DRAM': 16}
+      DEC pair_proj_minimal_matmul|1x704x704x128@128               {'declined': 1120}
+      DEC pair_proj_minimal_matmul|704x704x128@128                 {'declined': 560}
+      DEC pair_proj_minimal_matmul|704x704x128@4                   {'declined': 560}
+      DEC qkv_mm_config|nt12|704x704x128                           {'None': 1120}
+      DEC qkv_mm_config|nt4|704x704x128                            {'None': 560}
+      DEC transpose|704x704x128|DataType.BFLOAT16                  {'DRAM': 560}
+      DEC tri_att_sdpa|q704k704|DataType.BFLOAT16                  {'q_chunk=352 k_chunk=256': 560}
+      DEC trimul_inproj_group|n704c32                              {'G=4': 560}
+  int: fold 52.56s  block 28849.67 ms over 280 calls  plddt None  (53s)
+      DEC l1_layer_norm|h=1.5|1x704x704x128                        {'DRAM': 264}
+      DEC l1_layer_norm|h=1.5|704x704x128                          {'DRAM': 16}
+      DEC pair_proj_minimal_matmul|1x704x704x128@128               {'declined': 1120}
+      DEC pair_proj_minimal_matmul|704x704x128@128                 {'declined': 560}
+      DEC pair_proj_minimal_matmul|704x704x128@4                   {'declined': 560}
+      DEC qkv_mm_config|nt12|704x704x128                           {'None': 1120}
+      DEC qkv_mm_config|nt4|704x704x128                            {'None': 560}
+      DEC transpose|704x704x128|DataType.BFLOAT16                  {'L1': 560}
+      DEC tri_att_sdpa|q704k704|DataType.BFLOAT16                  {'q_chunk=352 k_chunk=256': 560}
+      DEC trimul_inproj_group|n704c32                              {'G=4': 560}
+  main: fold 54.08s  block 30215.33 ms over 280 calls  plddt None  (54s)
+      DEC l1_layer_norm|h=1.5|1x704x704x128                        {'DRAM': 264}
+      DEC l1_layer_norm|h=1.5|704x704x128                          {'DRAM': 16}
+      DEC pair_proj_minimal_matmul|1x704x704x128@128               {'declined': 1120}
+      DEC pair_proj_minimal_matmul|704x704x128@128                 {'declined': 560}
+      DEC pair_proj_minimal_matmul|704x704x128@4                   {'declined': 560}
+      DEC qkv_mm_config|nt12|704x704x128                           {'None': 1120}
+      DEC qkv_mm_config|nt4|704x704x128                            {'None': 560}
+      DEC transpose|704x704x128|DataType.BFLOAT16                  {'DRAM': 560}
+      DEC tri_att_sdpa|q704k704|DataType.BFLOAT16                  {'q_chunk=352 k_chunk=256': 560}
+      DEC trimul_inproj_group|n704c32                              {'G=4': 560}
+  int: fold 52.27s  block 28542.8 ms over 280 calls  plddt None  (52s)
+      DEC l1_layer_norm|h=1.5|1x704x704x128                        {'DRAM': 264}
+      DEC l1_layer_norm|h=1.5|704x704x128                          {'DRAM': 16}
+      DEC pair_proj_minimal_matmul|1x704x704x128@128               {'declined': 1120}
+      DEC pair_proj_minimal_matmul|704x704x128@128                 {'declined': 560}
+      DEC pair_proj_minimal_matmul|704x704x128@4                   {'declined': 560}
+      DEC qkv_mm_config|nt12|704x704x128                           {'None': 1120}
+      DEC qkv_mm_config|nt4|704x704x128                            {'None': 560}
+      DEC transpose|704x704x128|DataType.BFLOAT16                  {'L1': 560}
+      DEC tri_att_sdpa|q704k704|DataType.BFLOAT16                  {'q_chunk=352 k_chunk=256': 560}
+      DEC trimul_inproj_group|n704c32                              {'G=4': 560}
+  int: fold 52.40s  block 28569.55 ms over 280 calls  plddt None  (52s)
+      DEC l1_layer_norm|h=1.5|1x704x704x128                        {'DRAM': 264}
+      DEC l1_layer_norm|h=1.5|704x704x128                          {'DRAM': 16}
+      DEC pair_proj_minimal_matmul|1x704x704x128@128               {'declined': 1120}
+      DEC pair_proj_minimal_matmul|704x704x128@128                 {'declined': 560}
+      DEC pair_proj_minimal_matmul|704x704x128@4                   {'declined': 560}
+      DEC qkv_mm_config|nt12|704x704x128                           {'None': 1120}
+      DEC qkv_mm_config|nt4|704x704x128                            {'None': 560}
+      DEC transpose|704x704x128|DataType.BFLOAT16                  {'L1': 560}
+      DEC tri_att_sdpa|q704k704|DataType.BFLOAT16                  {'q_chunk=352 k_chunk=256': 560}
+      DEC trimul_inproj_group|n704c32                              {'G=4': 560}
+{
+ "main": {
+  "n": 2,
+  "fold_median_s": 54.062,
+  "fold_s": [
+   54.044,
+   54.08
+  ],
+  "plddt": [
+   0.868578,
+   0.868578
+  ],
+  "block_median_ms": 30214.86,
+  "spread_s": 0.036
+ },
+ "int": {
+  "n": 3,
+  "fold_median_s": 52.403,
+  "fold_s": [
+   52.555,
+   52.269,
+   52.403
+  ],
+  "plddt": [
+   0.868578,
+   0.868578,
+   0.868578
+  ],
+  "block_median_ms": 28569.55,
+  "spread_s": 0.286
+ },
+ "int_over_main": 1.0317,
+ "int_over_main_block": 1.0576
+}
+benchlock: boltz2-686-fast-integrated released, rc=0, loadavg 1.61 1.59 1.32
