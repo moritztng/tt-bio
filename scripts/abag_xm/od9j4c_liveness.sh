@@ -35,10 +35,18 @@ printf 'chunk\tchip\tpid\tlast_line\tage_s\tcifs\tverdict\n'
 for dir in $P/odcamp/9j4c_c* $P/od9j4c/9j4c_c*; do
   [ -d "$dir" ] || continue
   c=$(basename "$dir")
+  # A retired output dir is not a chunk. od9j4c_r2_fleet.sh renames the dead mps=5 output to
+  # `<chunk>.stale.<epoch>` before it re-folds, so the glob above matches one extra directory per
+  # retried chunk. Counted as a chunk it has no process and no cifs, scores DEAD_NO_OUTPUT, and
+  # pins the exit code to 1 forever — the script can then never report a healthy fleet.
+  case "$c" in *.stale.*) continue ;; esac
   base=$(dirname "$dir")
   seen=$((seen+1))
 
-  log=$(ls -t "$base/${c}_mps"*.log 2>/dev/null | head -1)
+  # Match `<chunk>_mps2.log` AND `<chunk>_r2_mps2.log`: the r2 runner puts its own tag between the
+  # chunk name and the mps rung. The old `${c}_mps*` glob missed every r2 log, fell back to the
+  # retired mps=5 log, and read its hours-old mtime as a stall on a chunk that was folding fine.
+  log=$(ls -t "$base/${c}"*_mps*.log 2>/dev/null | head -1)
   line='-'; age=-1
   if [ -n "${log:-}" ]; then
     line=$(grep -E 'trunk [0-9]+/|diffusion|sample|Done:' "$log" 2>/dev/null | tail -1 | sed 's/^[0-9:]*  *//;s/\[[^]]*\] *//' | cut -c1-40)
