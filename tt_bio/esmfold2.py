@@ -464,37 +464,24 @@ class DiffusionConditioningModel(Module):
     def cond_pair(self, z_trunk, relpos):
         """Pair conditioning z = f(z_trunk, relpos). Step-INVARIANT (no t / no
         coords) — computed once and cached across the diffusion trajectory."""
-        # The concat and its layer_norm are both [B,L,L,c_z+c_rel] and stay live while
-        # z_proj allocates its own [B,L,L,256] result: ~2 GiB of full-size tensors at
-        # L=1095 on top of a trunk that has already left ~10 GiB resident. That is the
-        # allocation esmfold2's 9j4c exclusion dies on at the campaign's 64 samples
-        # (627916800 B = 1095x1120x256x2 refused with 34281632 B/bank free, i.e. 96.8 pct
-        # occupancy — measured on the WH Galaxy). a0c009764 row-tiled the pair INIT; this
-        # is the same tensor family two stages later and it was never tiled.
+        # Three full-size pair tensors used to be live when z_proj allocates its own
+        # [B,L,L,256]: the concat and its layer_norm, both [B,L,L,c_z+c_rel], plus the
+        # concat's own inputs which the caller still owns. At L=1095 on a trunk that has
+        # already left ~10 GiB resident that is the allocation esmfold2's 9j4c exclusion
+        # dies on at the campaign's 64 samples — 627916800 B = 1095x1120x256x2 refused
+        # with 34281632 B/bank free, i.e. 96.8 pct occupancy, measured on the WH Galaxy.
         #
-        # Every op here is row-local over dim=1: the concat is on the LAST dim, layer_norm
-        # normalises over the last dim, z_proj is a matmul on the last dim, and the
-        # transitions are row-independent by their own construction. So row tiles
-        # reassemble bit-identically and only the row block is ever materialised. The
-        # cached result is still the full [B,L,L,256] — what the tiling removes is the two
-        # full-size transients that used to sit beside it.
-        from tt_bio import tenstorrent
-        L = int(z_trunk.shape[1])
-        tile = tenstorrent.pair_row_tile(L)
-        if tile:
-            parts = [self._cond_pair_rows(z_trunk, relpos, s, min(s + tile, L))
-                     for s in range(0, L, tile)]
-            return ttnn.concat(parts, dim=1)
-        return self._cond_pair_rows(z_trunk, relpos, 0, L)
-
-    def _cond_pair_rows(self, z_trunk, relpos, s, e):
+        # Both intermediates are dead the moment the next op has read them, so freeing
+        # them there costs nothing and changes no arithmetic. The concat alone is wider
+        # than the refused buffer, so releasing it before the matmul is what makes 9j4c
+        # fit; releasing the norm after it keeps the transitions off the same ceiling.
         ck = self.compute_kernel_config
         lin = self._lin
-        full = (s == 0 and e == int(z_trunk.shape[1]))
-        zt = z_trunk if full else z_trunk[:, s:e]
-        rp = relpos if full else relpos[:, s:e]
-        z = ttnn.concat([zt, rp], dim=-1)
-        z = lin(ttnn.layer_norm(z, weight=self.z_in_w, bias=self.z_in_b, epsilon=1e-5, compute_kernel_config=ck), self.z_proj_w)
+        zc = ttnn.concat([z_trunk, relpos], dim=-1)
+        zn = ttnn.layer_norm(zc, weight=self.z_in_w, bias=self.z_in_b, epsilon=1e-5, compute_kernel_config=ck)
+        ttnn.deallocate(zc)
+        z = lin(zn, self.z_proj_w)
+        ttnn.deallocate(zn)
         for t in self.z_trans:
             z = ttnn.add(z, t(z))
         return z
