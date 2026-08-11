@@ -664,8 +664,31 @@ _PT_ROW_MAJOR = os.environ.get(
     "TT_BIO_PAIR_TRANSPOSE_RM", "1" if PAIR_TRANSPOSE_VIA_ROW_MAJOR else "0") == "1"
 
 
+# Pair-tensor shape classes whose L1 transpose destination the allocator refused once. The
+# static budget in `_l1_memory_config_if_it_fits` cannot see what the live block already holds,
+# so the honest test is the allocation itself; remembering the refusal keeps it to one attempt
+# per class per process, the same pattern `_L1_OUT_REFUSED` uses for the projections.
+_TRANSPOSE_L1_REFUSED: set = set()
+
+
 def _pair_transpose(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.Tensor:
-    """``permute(t, (1, 0, 2))``, through ROW_MAJOR where that wins. Bit-exact either way."""
+    """``permute(t, (1, 0, 2))``, through ROW_MAJOR where that wins. Bit-exact either way.
+
+    An L1 destination is asked for by `_transpose_memory_config` and can still be refused at
+    the call site, so the L1 attempt falls back to DRAM rather than killing the fold.
+    """
+    if memory_config.buffer_type == ttnn.BufferType.L1:
+        key = (tuple(t.padded_shape), str(t.dtype))
+        if key not in _TRANSPOSE_L1_REFUSED:
+            try:
+                return _pair_transpose_impl(t, memory_config)
+            except Exception:
+                _TRANSPOSE_L1_REFUSED.add(key)
+        memory_config = ttnn.DRAM_MEMORY_CONFIG
+    return _pair_transpose_impl(t, memory_config)
+
+
+def _pair_transpose_impl(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.Tensor:
     if (_PT_ROW_MAJOR and len(t.shape) == 3
             and memory_config.buffer_type == ttnn.BufferType.DRAM
             and t.dtype == ttnn.bfloat16 and t.layout == ttnn.TILE_LAYOUT):
@@ -684,10 +707,17 @@ def _pair_transpose(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.Te
     return ttnn.permute(t, (1, 0, 2), memory_config=memory_config)
 
 
-# A/B knob only; the shipped value is 2.5 and nothing in the repo sets this. L1 total on an
-# 11x10 Blackhole grid is 168.57 MB (110 x 1 532 416 B), so the 512 aa pair tensor at
-# 134.22 MB is 79.6 % of it and the largest headroom that fits at all is 1.2559.
-_TRANSPOSE_L1_HEADROOM = float(os.environ.get("TT_BIO_TRANSPOSE_L1_HEADROOM", "2.5"))
+# L1 total on an 11x10 Blackhole grid is 168.57 MB (110 x 1 532 416 B), so the 512 aa pair
+# tensor at 134.22 MB is 79.6 % of it and the largest headroom that fits at all is 1.2559. At
+# the old 2.5 the 512 aa transpose could never take the L1 route and always paid the DRAM one.
+# Measured on qb2 card 2, 512x512x256 bf16, median of 5 synced calls: DRAM 2.5284 ms against
+# 1.4779 ms into L1, 1.711x, and the same 0.600 ms either way at 320 aa where 2.5 already fit.
+# Two transposes per ending variant, so 2.101 ms of a 37.327 ms sub-block.
+# 1.25 rather than 1.2559: the consumer's circular buffers come out of the same banks, and the
+# refusal path in `_pair_transpose` is what makes the tight value safe.
+TRANSPOSE_L1_HEADROOM = 1.25
+_TRANSPOSE_L1_HEADROOM = float(
+    os.environ.get("TT_BIO_TRANSPOSE_L1_HEADROOM", str(TRANSPOSE_L1_HEADROOM)))
 
 
 def _transpose_memory_config(t: ttnn.Tensor) -> ttnn.MemoryConfig:
@@ -959,6 +989,37 @@ def _pair_proj_config(x: ttnn.Tensor, w: ttnn.Tensor, bw_cap: int | None = -1,
 _L1_OUT_REFUSED: set = set()
 
 
+# The DRAM-output leg of `_pair_proj_linear` is a `ttnn.linear` with a program config tuned for
+# the out_block_h drain schedule. For a square K=256, N=256 pair projection `minimal_matmul` with
+# the swept block config is simply faster, and bit-exact: K_block covers the whole contraction in
+# both, so nothing accumulates in a different order. Measured on qb2 card 2, `torch.equal` at
+# every size (perf/triatt_opt/stage1_sweep.json):
+#     298   0.4016 -> 0.3154 ms   320   0.4132 -> 0.3312   384   0.5888 -> 0.4589
+#     512   0.9949 -> 0.7844      576   1.2548 -> 0.9889   640   1.5561 -> 1.2052
+# The L1-output leg still wins where it applies (298: 0.2838), so this sits BELOW it and above
+# the DRAM linear. Scoped to a single-block contraction (kt == 8) because that is the class where
+# the identical accumulation order was verified.
+PAIR_PROJ_MINIMAL_MATMUL = True
+_PAIR_PROJ_MM = os.environ.get(
+    "TT_BIO_PAIR_PROJ_MM", "1" if PAIR_PROJ_MINIMAL_MATMUL else "0") == "1"
+
+
+def _pair_proj_minimal_matmul(x, w, ckc, dtype):
+    """`minimal_matmul` for a pair projection whose contraction fits one K block, else None."""
+    if not _PAIR_PROJ_MM or x.dtype != ttnn.bfloat16 or w.dtype != ttnn.bfloat16:
+        return None
+    if len(w.shape) != 2 or -(-int(w.shape[-2]) // 32) != 8:
+        return None
+    cfg = _qkv_mm_config(x, w)
+    if cfg is None:
+        return None
+    try:
+        return ttnn.experimental.minimal_matmul(
+            input_tensor=x, weight_tensor=w, compute_kernel_config=ckc, dtype=dtype, config=cfg)
+    except Exception:
+        return None
+
+
 def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False):
     """`ttnn.linear` on a pair-track projection, with the tuned config when the shape allows.
 
@@ -979,6 +1040,9 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False):
                     )
                 except Exception:
                     _L1_OUT_REFUSED.add(key)
+    mm = _pair_proj_minimal_matmul(x, w, ckc, dtype)
+    if mm is not None:
+        return mm
     cfg = _pair_proj_config(x, w)
     if cfg is not None:
         return ttnn.linear(
@@ -2029,7 +2093,15 @@ class TriangleMultiplication(Module):
 # Both are bit-exact. Gated because a per-call ratio is a screen, not a fold gain.
 QKV_MM_CONFIG = True
 _MM_CFG = os.environ.get("TT_BIO_QKV_MM_CONFIG", "1" if QKV_MM_CONFIG else "0") == "1"
-_MM_BLOCK = {24: (4, 8, 1, 4, 1), 8: (2, 8, 1, 2, 1)}      # n_tiles -> (M, K, N, sub_h, sub_w)
+# n_tiles -> (M_block, K_block, N_block, subblock_h, subblock_w).
+# The nt=8 entry was (2,8,1,2,1), tuned at a small M. Swept over M on qb2 card 2 at K=256,
+# N=256 (perf/triatt_opt/stage1_sweep.json), the 4-block entry wins at EVERY M measured and the
+# margin grows with M, `torch.equal` throughout (same K_block, so the same accumulation order):
+#     M      8192   16384   32768   65536  131072  262144  409600
+#     ratio 1.044x  1.085x  1.051x  1.110x  1.209x  1.219x  1.204x
+# The old entry cost 1.21x on every nt=8 pair-track projection in the repo at production M, not
+# just the triangle-attention gate.
+_MM_BLOCK = {24: (4, 8, 1, 4, 1), 8: (4, 8, 1, 4, 1)}
 
 
 @lru_cache(maxsize=None)

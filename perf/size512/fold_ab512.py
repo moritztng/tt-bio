@@ -134,7 +134,14 @@ def main():
         # is the trunk's own compute kernel config, written in place.
         fid = FIDELITY.get(name)
         grp = GROUP.get(name)
-        STATE["gates"] = "on" if (fid or grp) else name
+        # `prev` reverts the three triatt Stage-1 levers and holds every capacity gate at the
+        # production default, so the arm difference is exactly those three and nothing else.
+        prev = name == "prev"
+        T._TRANSPOSE_L1_HEADROOM = 2.5 if prev else T.TRANSPOSE_L1_HEADROOM
+        T._PAIR_PROJ_MM = not prev
+        T._MM_BLOCK[8] = (2, 8, 1, 2, 1) if prev else (4, 8, 1, 4, 1)
+        T._TRANSPOSE_L1_REFUSED.clear()
+        STATE["gates"] = "on" if (fid or grp or prev) else name
         on = STATE["gates"] == "on"
         T._PAIR_PROJ_L1_OUT = on
         T._PAIR_BIAS_L1_NORM = on

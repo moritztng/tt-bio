@@ -1,0 +1,46 @@
+{
+ "predictions": "Does the fused N=1056 projection survive the cost of extracting its columns?\n\nstate/triatt-absolute-optimal.md 4.4 measured the MATMUL only (2.598 fused vs 3.456 separate,\n1.330x, bit-exact). The consumers need [0:768] for nlp_create_qkv_heads, [768:1024] for the\ngate multiply and [1024:1056] for the bias. In ttnn a last-dim slice of a TILE_LAYOUT tensor is\na copy, not a view.\n\nPREDICTION, WRITTEN BEFORE THE RUN: the [0:768] slice alone reads 384 MiB and writes 384 MiB,\nso at the measured 388.9 GB/s copy roof it is ~2.07 ms at 512 aa and the fusion is a NET LOSS\nof ~1.2 ms/call once extraction is counted. If so, 4.4's 1.387x is a matmul-only number that\ndoes not survive integration, and only the two config levers land.\nSecond prediction: the L1-destination transpose (_TRANSPOSE_L1_HEADROOM lowered) does not fire\nat 512 aa at any headroom, because the pair tensor is 134.22 MB of a 168.6 MB grid.\n",
+ "loadavg": "0.29 0.94 1.26 1/727 1866368",
+ "slices": [
+  {
+   "S": 320,
+   "slice_qkv_ms": 0.8534760054317303,
+   "slice_g_ms": 0.29773600545013323,
+   "slice_bias_ms": 0.05336799949873239,
+   "slice_total_ms": 1.204580010380596
+  },
+  {
+   "S": 512,
+   "slice_qkv_ms": 2.1786090001114644,
+   "slice_g_ms": 0.7541550003224984,
+   "slice_bias_ms": 0.10757799464045092,
+   "slice_total_ms": 3.0403419950744137
+  }
+ ],
+ "transpose": [
+  {
+   "S": 320,
+   "MB": 52.4288,
+   "shipped_ms": 0.6046199996490031,
+   "by_headroom": {
+    "2.5": 0.6013639940647408,
+    "1.6": 0.6015939943608828,
+    "1.25": 0.6007929987390526,
+    "1.0": 0.6002020018058829,
+    "0.8": 0.6000209978083149
+   }
+  },
+  {
+   "S": 512,
+   "MB": 134.217728,
+   "shipped_ms": 2.528350996726658,
+   "by_headroom": {
+    "2.5": "dram",
+    "1.6": "dram",
+    "1.25": 1.4778629993088543,
+    "1.0": 1.4772009963053279,
+    "0.8": 1.476500001444947
+   }
+  }
+ ]
+}
