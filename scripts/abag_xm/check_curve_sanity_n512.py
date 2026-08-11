@@ -19,7 +19,8 @@ Answers the three questions that are easy to get wrong by eye off the console ou
 3. `within_fold_common` is the monotone-interpretable curve: a fixed target set at fixed depth
    D. For a fixed pool E[max over an m-subset] is monotone non-decreasing in m by
    construction, so a decrease there beyond Monte-Carlo noise (B=200 draws) IS a real defect.
-   That is the check worth gating on, and it is not printed by the analysis at all.
+   That is the check worth gating on. The analysis prints this curve too (bcb42f751), but
+   printing it is not checking it: only this gate tests the monotonicity.
 
 Exits 1 on a real violation, 0 otherwise. INFO lines are not failures.
 
