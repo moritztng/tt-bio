@@ -12,6 +12,12 @@ open, and the weights and the MSA cache are shared, which is what makes a 4-arm 
 
 Arms:
   on   production defaults; every gate decides for itself.
+  hifi4/hifi3/hifi2
+       the trunk's matmul fidelity, capacity gates held at production defaults. The arm is a
+       single in-place write to the trunk's own compute kernel config object, which the trunk
+       threads to every submodule and which the diffusion module does not share -- so one
+       variable moves and the fp32 diffusion boundary is provably untouched. Both fidelities
+       are recorded per arm so the scoping is auditable from the JSON.
   off  the five capacity-gated wins forced off:
          _transpose_memory_config -> DRAM   (C2FIX)
          _PAIR_PROJ_L1_OUT = False          (X7 L1 output)
@@ -37,7 +43,8 @@ sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
 
 WALL = defaultdict(lambda: {"n": 0, "s": 0.0})
 DEC = defaultdict(Counter)
-STATE = {"dev": None, "gates": "on"}
+STATE = {"dev": None, "gates": "on", "model": None}
+FIDELITY = {"lofi": "LoFi", "hifi2": "HiFi2", "hifi3": "HiFi3", "hifi4": "HiFi4"}
 
 
 def timed_call(key, fn, *a, **kw):
@@ -121,14 +128,34 @@ def main():
         cls.__call__ = (lambda g, nm: lambda self, *x, **k: timed_call(f"body:{nm}", g, self, *x, **k))(f, cls.__name__)
 
     def set_arm(name):
-        STATE["gates"] = name
-        on = name == "on"
+        # A fidelity arm holds the capacity gates at production defaults; the only thing that moves
+        # is the trunk's own compute kernel config, written in place.
+        fid = FIDELITY.get(name)
+        STATE["gates"] = "on" if fid else name
+        on = STATE["gates"] == "on"
         T._PAIR_PROJ_L1_OUT = on
         T._PAIR_BIAS_L1_NORM = on
         T._PWA_L1_NORM = on
         T._TEMPLATE_L1_NORM = on
         T._pair_proj_program_config.cache_clear()
         T._L1_OUT_REFUSED.clear()
+        if fid:
+            ckc = STATE["model"].trunk.compute_kernel_config
+            ckc.math_fidelity = getattr(ttnn.MathFidelity, fid)
+            assert str(ckc.math_fidelity).endswith(fid), ckc.math_fidelity
+
+    def fidelities():
+        m = STATE["model"]
+        if m is None:
+            return {}
+        out = {"trunk": str(m.trunk.compute_kernel_config.math_fidelity)}
+        dit = getattr(getattr(m, "diffusion", None), "_dit_ckc", None)
+        if dit is not None:
+            out["diffusion"] = str(dit.math_fidelity)
+        conf = getattr(getattr(m, "confidence_head", None), "compute_kernel_config", None)
+        if conf is not None:
+            out["confidence"] = str(conf.math_fidelity)
+        return out
 
     import importlib.metadata as im
     res = {"ttnn": im.version("ttnn"), "host": "qb2", "chip": 0,
@@ -139,8 +166,9 @@ def main():
         tgt = a.fixdir / f"cdk2x2_{size}.yaml"
         a3m = a.fixdir / f"cdk2x2_{size}.a3m"
         set_arm("on")
-        one_fold, meta, _state = B.build_fold("protenix-v2", ROOT / f".msa_s512_{size}", tgt, a3m)
+        one_fold, meta, state = B.build_fold("protenix-v2", ROOT / f".msa_s512_{size}", tgt, a3m)
         STATE["dev"] = T.get_device()
+        STATE["model"] = state.model
         struct_dir = Path(meta["struct_dir"])
         print(f"=== size {size}: cold fold ===", flush=True)
         try:
@@ -173,6 +201,8 @@ def main():
                    "n_tokens": m.get("n_tokens"), "plddt": m.get("plddt"),
                    "cif_sha256": sha_dir(struct_dir),
                    "grid": list(T.COMPUTE_GRID_MAIN),
+                   "fidelity": fidelities(),
+                   "loadavg": open("/proc/loadavg").read().split()[:3],
                    "wall_ms": {k: {"calls": v["n"], "ms": round(v["s"] * 1e3, 2)}
                                for k, v in sorted(WALL.items(), key=lambda kv: -kv[1]["s"])},
                    "decisions": {k: dict(v) for k, v in sorted(DEC.items())},
@@ -204,8 +234,29 @@ def main():
             e["off_over_on_fold"] = round(st.median(offf) / st.median(onf), 4)
         ratios[size] = e
     res["ratios"] = ratios
+    # Per-arm medians, for arms that are not the on/off pair (fidelity sweeps). Report the median
+    # over an arm's repeats and the arm-to-arm spread of the reference arm: a difference smaller
+    # than that spread is not resolved (perfwar-single-shot-ab-resolution-floor).
+    arms = {}
+    for size in sorted({r["size"] for r in res["runs"] if "block_wall_ms" in r}):
+        per = {}
+        for r in res["runs"]:
+            if r["size"] != size or "block_wall_ms" not in r:
+                continue
+            per.setdefault(r["arm"], {"block_ms": [], "fold_s": [], "plddt": []})
+            per[r["arm"]]["block_ms"].append(r["block_wall_ms"])
+            per[r["arm"]]["fold_s"].append(r["fold_s"])
+            per[r["arm"]]["plddt"].append(r["plddt"])
+        for arm, v in per.items():
+            v["n"] = len(v["block_ms"])
+            v["block_ms_median"] = round(st.median(v["block_ms"]), 2)
+            v["fold_s_median"] = round(st.median(v["fold_s"]), 3)
+            v["block_ms_spread"] = round(max(v["block_ms"]) - min(v["block_ms"]), 2)
+            v["fold_s_spread"] = round(max(v["fold_s"]) - min(v["fold_s"]), 3)
+        arms[size] = per
+    res["arm_medians"] = arms
     a.out.write_text(json.dumps(res, indent=1))
-    print(json.dumps(ratios, indent=1), flush=True)
+    print(json.dumps({"ratios": ratios, "arm_medians": arms}, indent=1), flush=True)
     print("wrote", a.out, flush=True)
 
 

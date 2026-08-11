@@ -146,6 +146,47 @@ _PAIR_BIAS_L1_NORM = True
 # block loop so the residency window is the projections only.
 _PWA_L1_NORM = True
 _TEMPLATE_L1_NORM = True
+
+# Matmul fidelity for the trunk. The FPU is a 5b x 7b multiplier: srcA contributes a hidden bit plus
+# 4 mantissa bits per pass and srcB a hidden bit plus 6, so a 16-bit float's 8-bit significand splits
+# 5+3 on srcA and 7+1 on srcB (tt-metal tech_reports/matrix_engine/matrix_engine.md, "Math Fidelity").
+# The only term HiFi4 adds over HiFi3 is therefore A_lo*B_lo, ~2^-12 relative, which is below the
+# bf16 output's own 2^-8 rounding step -- and it costs a fourth pass, 64 against 48 cycles per tile.
+# MEASURED at seven production shapes at N=512 against an fp32 reference computed from the same bf16
+# operands (perf/bigswing/fid_512_mm_qb2c0.json): HiFi3 costs 0.08% of relative RMS where storing the
+# result in bf16 already costs 1.8%, and is worth 1.071x time-weighted over 831.2 of the Pairformer's
+# 872.95 executed TFLOP at 512 aa. HiFi2 is a different question: 2.59x the relative RMS, genuinely
+# above the rounding floor, so it is a parity decision and not a free one.
+# Deliberately NOT global. fp32 operands do need four passes, and Protenix's diffusion runs fp32 on
+# purpose (PROTENIX_DIFFUSION_FP32_DEVICE, and memory af3-diffusion-sampler-selective-fp32-boundary),
+# so the setting is scoped to the trunk, whose operands are bf16 and bf8 under --fast. Other models
+# opt in at their own construction site after their own envelope run -- a shared default across five
+# models is the shape that cost OpenDDE 60x once already.
+# Default hifi4 = production unchanged; the A/B and the envelope gate flip it.
+_TRUNK_MATH_FIDELITY = os.environ.get("TT_BIO_TRUNK_MATH_FIDELITY", "hifi4").lower()
+_MATH_FIDELITIES = {"lofi": "LoFi", "hifi2": "HiFi2", "hifi3": "HiFi3", "hifi4": "HiFi4"}
+
+
+def trunk_compute_kernel_config(base):
+    """`base` with the trunk's matmul fidelity, as a distinct object.
+
+    Distinct on purpose: every trunk submodule holds this one reference, so an A/B arm is a single
+    in-place write to `model.trunk.compute_kernel_config.math_fidelity` that provably cannot reach
+    the diffusion or confidence stages.
+    """
+    if _TRUNK_MATH_FIDELITY not in _MATH_FIDELITIES:
+        raise ValueError(f"TT_BIO_TRUNK_MATH_FIDELITY must be one of {sorted(_MATH_FIDELITIES)}, "
+                         f"got {_TRUNK_MATH_FIDELITY!r}")
+    cfg = type(base)(
+        math_fidelity=getattr(ttnn.MathFidelity, _MATH_FIDELITIES[_TRUNK_MATH_FIDELITY]),
+        math_approx_mode=base.math_approx_mode,
+        fp32_dest_acc_en=base.fp32_dest_acc_en,
+        packer_l1_acc=base.packer_l1_acc,
+    )
+    # The constructor takes four of the six fields; carry the other two rather than re-defaulting them.
+    cfg.dst_full_sync_en = base.dst_full_sync_en
+    cfg.throttle_level = base.throttle_level
+    return cfg
 # MEASURED LOSS, kept only as the A/B toggle behind perf/trimul_kernel/w2_arms.py.
 # Letting the output channel move write straight to DRAM drops the separate clone that used
 # to move the chunk there, but it also moves that permute's forced 64-byte writes from L1 to

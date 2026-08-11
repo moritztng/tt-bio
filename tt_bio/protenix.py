@@ -1590,8 +1590,10 @@ class Protenix:
         self.diff_feat = AtomFeaturization(under("diffusion_module.atom_attention_encoder."),
                                             compute_kernel_config, dtype=diffusion_dtype)
         _TT.set_fast_mode(self._fast)   # trunk: bf8 when --fast
-        self.trunk = Trunk(model_state_dict, compute_kernel_config, c_z=self._c_z,
-                           msa_update_first=msa_update_first)
+        # The trunk gets its OWN compute kernel config, so its matmul fidelity cannot reach the
+        # diffusion module, which runs fp32 on purpose and does need all four mantissa passes.
+        self.trunk = Trunk(model_state_dict, _TT.trunk_compute_kernel_config(compute_kernel_config),
+                           c_z=self._c_z, msa_update_first=msa_update_first)
         _TT.set_fast_mode(False)   # diffusion uses its gate-controlled dtype; confidence stays bf16
         self.diffusion = DiffusionModule(under("diffusion_module."), self.dev, compute_kernel_config,
                                           diffusion_fp32=resolved_diffusion_fp32)
