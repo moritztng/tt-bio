@@ -1400,6 +1400,14 @@ def run_worker_loop(
                 _execute_job(state, job, cfg, run_id, client, worker_id, meta)
     except KeyboardInterrupt:
         pass
+    except BaseException:
+        # Anything escaping the per-job handling above kills this worker, and with
+        # stdout/stderr on /dev/null the traceback would otherwise vanish — the
+        # only diagnostic a local `predict` fan-out (no supervisor) will ever get
+        # for why a worker slot went quiet.
+        _report_fatal(f"tt-bio worker {worker_info['label']}: uncaught error, exiting\n"
+                      f"{traceback.format_exc()}")
+        raise
     finally:
         state.reset()
 
