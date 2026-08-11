@@ -1,0 +1,9 @@
+start 2026-08-11T19:03:17+00:00 loadavg 1.68 1.42 1.14
+co-tenant pid 56737 gone at 2026-08-11T19:03:47+00:00 after 30s
+benchlock: trimul-fused-kernel-final acquired after 15s, loadavg 0.98 1.28 1.10
+  on: fold 66.04s  block 51400.45 ms over 604 calls  plddt 0.828628  (66s)
+  e6: fold 62.29s  block 47671.85 ms over 604 calls  plddt 0.828628  (62s)
+  on: fold 66.21s  block 51405.1 ms over 604 calls  plddt 0.828628  (66s)
+  e6: fold 62.36s  block 47699.14 ms over 604 calls  plddt 0.828628  (62s)
+benchlock: trimul-fused-kernel-final released, rc=0, loadavg 2.56 2.08 1.51
+done 2026-08-11T19:09:30+00:00 rc=0 loadavg 2.56 2.08 1.51

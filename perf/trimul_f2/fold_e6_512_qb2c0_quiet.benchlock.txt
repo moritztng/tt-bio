@@ -1,0 +1,9 @@
+start 2026-08-11T19:14:45+00:00 loadavg 0.12 1.03 1.23
+box clear of folds at 2026-08-11T19:14:45+00:00 after 0s
+benchlock: trimul-fused-kernel-final acquired after 0s, loadavg 0.12 1.03 1.23
+  on: fold 65.59s  block 51126.41 ms over 604 calls  plddt 0.828628  (66s)
+  e6: fold 62.02s  block 47504.96 ms over 604 calls  plddt 0.828628  (62s)
+  on: fold 65.56s  block 51111.84 ms over 604 calls  plddt 0.828628  (66s)
+  e6: fold 61.92s  block 47458.4 ms over 604 calls  plddt 0.828628  (62s)
+benchlock: trimul-fused-kernel-final released, rc=0, loadavg 1.20 1.05 1.16
+done 2026-08-11T19:20:11+00:00 rc=0 loadavg 1.20 1.05 1.16
