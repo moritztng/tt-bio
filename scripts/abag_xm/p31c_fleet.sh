@@ -102,16 +102,15 @@ YIELD_ON=${YIELD_ON:-}          # marker string; once it appears in $B/results.j
 YIELD_FLAG=$B/.yield.$DONE_MARK
 PGID_LOG=${PGID_LOG:-$B/fold_pgids.log}
 
-# Per-window skip lists. These are engine-tree bookkeeping for THIS window, never a scoring
-# or biology call, and they are not "exclusions" — every target in the panel is owed a cell.
-# This window runs the frozen p27-era tree, so anything it cannot fold is folded in p32 on
-# the fixed tree. opendde 9i3p/9ivj/9q7y folded in p32 and protenix and esmfold2 9j4c fold on
-# main, so those four are gone from here. opendde 9j4c is the one cell still open; it stays
-# listed only so p31c does not emit a fold that is known to fail, and it comes out with the
-# fix. boltz2 folded all 164 incl. 9j4c through p27/p28 — do not "tidy" it into BZ_EXCL for
-# symmetry.
+# Per-window skip lists, now all empty, and they stay empty. Every target in the panel is owed a
+# cell on every model; a name here means "this window's tree cannot fold it", never a scoring or
+# biology call, and it has to come out the moment the tree is fixed. It did not last time: the
+# four "WH DRAM exclusions" outlived their own root-cause fix for five days because these lists
+# lived only on the Galaxy and not in git. opendde 9j4c was the last entry and folds on the
+# f4204eaf5 tree, so nothing is listed. Do not repopulate these to route around a failure — fix
+# the failure.
 BZ_EXCL=""
-OD_EXCL="9j4c"
+OD_EXCL=""
 PX_EXCL=""
 ESM_EXCL=""
 # The 16 p27 pilot targets lead chunk 4 so the launch gate lands inside the first hours.
