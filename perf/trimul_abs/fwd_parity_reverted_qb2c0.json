@@ -1,0 +1,133 @@
+{
+ "grid": [
+  11,
+  10
+ ],
+ "rows": [
+  {
+   "n": 298,
+   "c": 32,
+   "dst": "DRAM",
+   "elig": true,
+   "equal_permute": true,
+   "equal_ref": true,
+   "kernel_ms": 0.07013520080363378,
+   "kernel_gbs": 162.07142589960432,
+   "stock_ms": 0.14881840033922344,
+   "stock_gbs": 76.38109248647844,
+   "speedup": 2.121878865876335
+  },
+  {
+   "n": 298,
+   "c": 32,
+   "dst": "L1",
+   "elig": true,
+   "equal_permute": true,
+   "equal_ref": true,
+   "kernel_ms": 0.06936379941180348,
+   "kernel_gbs": 163.87383759814227,
+   "stock_ms": 0.09561359911458567,
+   "stock_gbs": 118.8838418934279,
+   "speedup": 1.378436589768399
+  },
+  {
+   "n": 298,
+   "c": 64,
+   "dst": "DRAM",
+   "elig": true,
+   "equal_permute": true,
+   "equal_ref": true,
+   "kernel_ms": 0.12841379939345643,
+   "kernel_gbs": 177.03567768713216,
+   "stock_ms": 0.296550799976103,
+   "stock_gbs": 76.66080820497521,
+   "speedup": 2.309337480682114
+  },
+  {
+   "n": 298,
+   "c": 64,
+   "dst": "L1",
+   "elig": true,
+   "equal_permute": true,
+   "equal_ref": true,
+   "kernel_ms": 0.12964019988430664,
+   "kernel_gbs": 175.3609144407992,
+   "stock_ms": 0.1859569994849153,
+   "stock_gbs": 122.25312337245015,
+   "speedup": 1.434408460113968
+  },
+  {
+   "n": 298,
+   "c": 256,
+   "dst": "DRAM",
+   "elig": true,
+   "equal_permute": true,
+   "equal_ref": true,
+   "kernel_ms": 0.6345062007312663,
+   "kernel_gbs": 143.31663882117678,
+   "stock_ms": 1.2032376005663536,
+   "stock_gbs": 75.57551057014636,
+   "speedup": 1.8963370242554387
+  },
+  {
+   "n": 298,
+   "c": 256,
+   "dst": "L1",
+   "elig": true,
+   "equal_permute": true,
+   "equal_ref": true,
+   "err": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 7 clash with L1 buffers on core range [(x=0,y=0) - (x=9,y=9)]. L1 buffer allocated at 141312 and static circular buffer region ends at 250368\nbacktrace:\n --- /home/ttuser/"
+  },
+  {
+   "n": 512,
+   "c": 32,
+   "dst": "DRAM",
+   "elig": true,
+   "equal_permute": true,
+   "equal_ref": true,
+   "kernel_ms": 0.18661200010683388,
+   "kernel_gbs": 179.80854382778364,
+   "stock_ms": 0.47013020084705204,
+   "stock_gbs": 71.37263664309091,
+   "speedup": 2.5192924387386997
+  },
+  {
+   "n": 512,
+   "c": 32,
+   "dst": "L1",
+   "elig": false
+  },
+  {
+   "n": 512,
+   "c": 64,
+   "dst": "DRAM",
+   "elig": true,
+   "equal_permute": true,
+   "equal_ref": true,
+   "kernel_ms": 0.4248381999786943,
+   "kernel_gbs": 157.96334699508074,
+   "stock_ms": 0.9999418005463667,
+   "stock_gbs": 67.11276992654155,
+   "speedup": 2.3537003042488034
+  },
+  {
+   "n": 512,
+   "c": 64,
+   "dst": "L1",
+   "elig": false
+  },
+  {
+   "n": 512,
+   "c": 256,
+   "dst": "DRAM",
+   "elig": true,
+   "equal_permute": true,
+   "equal_ref": true,
+   "kernel_ms": 1.4151857991237193,
+   "kernel_gbs": 189.682129488732,
+   "stock_ms": 4.329639000934549,
+   "stock_gbs": 61.999500637826486,
+   "speedup": 3.059413826520485
+  }
+ ]
+}
