@@ -1759,6 +1759,25 @@ class TriangleMultiplication(Module):
             old = chunk
         return chunk
 
+    def prewarm(self, H: int, batch: int = 1) -> None:
+        """Build the fused input-weight cache this shape will use, before the call that uses it.
+
+        `_gp_in_chunks` is otherwise built inside the first `__call__`, interleaved with its
+        compute: 96 tensors of (c_z, 4*chunk) across a 4-block Pairformer, ~9.4 MB. A refiner
+        whose first call builds them does not agree with one whose first call does not -- see
+        the note in tt_bio/opendde.py -- and uploading them up front costs no compute at all.
+
+        The (chunk_size, group) pair is computed exactly as `__call__` computes it, from the same
+        inputs, so the entry warmed is the entry used.
+        """
+        memory_config = _triangle_mul_memory_config(H)
+        chunk_size = _trimul_chunk_size(H, self._hidden, batch)
+        n_pairs = self._hidden // chunk_size
+        group = _TRIMUL_INPROJ_GROUP if memory_config.buffer_type == ttnn.BufferType.DRAM else 1
+        while n_pairs % group:
+            group //= 2
+        self._gp_in_chunks(chunk_size, group)
+
     def _in_proj_rows(self, x, w, H, batch, memory_config):
         """`LN(x) @ w`, computed in row blocks so the full-size LN'd pair tensor never exists.
 
