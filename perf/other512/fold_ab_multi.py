@@ -257,10 +257,22 @@ def main():
 
     # The group is the whole point of the g12 arm, so read it back rather than infer it: an arm
     # that flips the cap and still returns 4 is an A/A pair wearing an A/B's label.
-    ORIG_GROUP = T._trimul_inproj_group
+    ORIG_GROUP = T._trimul_inproj_group          # this branch: largest divisor at or below the cap
+
+    def group_halving(seq_len, chunk, batch, n_pairs):
+        """main's search, verbatim. Restoring the cap to 8 is NOT enough to restore main: at
+        n_pairs = 12 main halves 8 -> 4 while a divisor search at cap 8 returns 6, so an `on` arm
+        that only moved the constant would be a third behaviour and not a baseline."""
+        fused = 4 * chunk * seq_len * seq_len * batch * 2
+        g = 8
+        while g > 1 and (n_pairs % g or g * fused > T._TRIMUL_INPROJ_FUSED_BYTES):
+            g //= 2
+        return g
+
+    GROUP_SEARCH = [ORIG_GROUP]
 
     def group_census(seq_len, chunk, batch, n_pairs):
-        g = ORIG_GROUP(seq_len, chunk, batch, n_pairs)
+        g = GROUP_SEARCH[0](seq_len, chunk, batch, n_pairs)
         GROUPS[f"S={seq_len},n_pairs={n_pairs}->g={g}"] += 1
         return g
 
@@ -327,6 +339,7 @@ def main():
         PM.STATS[0] = PM.STATS[1] = 0
         PM.REJECTS.clear()
 
+        GROUP_SEARCH[0] = ORIG_GROUP if name in ("g12", "all") else group_halving
         T._TRIMUL_INPROJ_GROUP = 12 if name in ("g12", "all") else 8
         for k, v in _MM_BLOCK_ODDE.items():
             if name in ("mm12", "all"):
@@ -424,6 +437,7 @@ def main():
                                        "rejects": {f"{r}:{sh}": n for (r, sh), n in PM.REJECTS.items()}},
                    "transpose_l1_headroom": T._TRANSPOSE_L1_HEADROOM,
                    "trimul_inproj_group_cap": T._TRIMUL_INPROJ_GROUP,
+                   "group_search": "divisor" if GROUP_SEARCH[0] is ORIG_GROUP else "halving",
                    "trimul_inproj_groups": dict(GROUPS),
                    "gated_move_instances": sum(
                        1 for m in _walk_trimuls(STATE["model"]) if getattr(m, "gated_move", False)),
