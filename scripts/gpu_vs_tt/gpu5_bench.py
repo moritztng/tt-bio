@@ -26,9 +26,11 @@ import argparse
 import importlib
 import json
 import os
+import re
 import shutil
 import sys
 import time
+import types
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -49,38 +51,62 @@ DEFAULTS = {
 # --------------------------------------------------------------------------------------
 # kernel counters
 # --------------------------------------------------------------------------------------
+# Both cuEquivariance distributions, and the submodules models actually import from.
+# OpenFold3 takes triangle_multiplicative_update from cuequivariance_torch and
+# triangle_attention from cuequivariance_ops_torch.triangle_attention /
+# cuequivariance_torch.primitives.triangle, so wrapping only the top level of
+# cuequivariance_ops_torch counts none of it and reads as a silent 0.
+_CUEQ_MODULES = (
+    "cuequivariance_ops_torch",
+    "cuequivariance_ops_torch.triangle_attention",
+    "cuequivariance_torch",
+    "cuequivariance_torch.primitives.triangle",
+)
+
+
 def install_cueq_counters() -> dict:
-    """Wrap every triangle-* entry point in cuequivariance_ops_torch with a counter.
+    """Wrap every triangle-* entry point in both cuEquivariance packages with a counter.
 
     Patching the vendor package rather than each model's call site is what makes this
     evidence: a rung that *asks* for a kernel is not proof the kernel *ran*. Both
     OpenFold3's docs and protenix's own code fall back to torch on unsupported shapes,
     silently. If the counter is 0 after a fold, cuEquivariance did not run, whatever the
     flag said.
+
+    MUST be called before the model package is imported. Models bind these functions with
+    `from X import Y`, which copies the reference into the model's own namespace; patching
+    the source module afterwards leaves that copy pointing at the original and the counter
+    reads 0 for a kernel that ran on every call.
     """
     counts: dict[str, int] = {}
-    try:
-        mod = importlib.import_module("cuequivariance_ops_torch")
-    except ImportError:
-        counts["cuequivariance_ops_torch"] = -1   # -1 == package not importable
-        return counts
-    for name in dir(mod):
-        if "triangle" not in name.lower():
-            continue
-        fn = getattr(mod, name)
-        if not callable(fn):
-            continue
-        counts[name] = 0
-
-        def make(nm, orig):
-            def wrapper(*a, **kw):
-                counts[nm] += 1
-                return orig(*a, **kw)
-            return wrapper
+    seen = False
+    for modname in _CUEQ_MODULES:
         try:
-            setattr(mod, name, make(name, fn))
+            mod = importlib.import_module(modname)
         except Exception:
-            counts.pop(name, None)
+            continue
+        seen = True
+        short = modname.split(".")[-1]
+        for name in dir(mod):
+            if "triangle" not in name.lower():
+                continue
+            fn = getattr(mod, name, None)
+            if not callable(fn) or isinstance(fn, types.ModuleType):
+                continue
+            key = name if modname == "cuequivariance_ops_torch" else f"{short}.{name}"
+            counts[key] = 0
+
+            def make(nm, orig):
+                def wrapper(*a, **kw):
+                    counts[nm] += 1
+                    return orig(*a, **kw)
+                return wrapper
+            try:
+                setattr(mod, name, make(key, fn))
+            except Exception:
+                counts.pop(key, None)
+    if not seen:
+        counts["cuequivariance"] = -1   # -1 == neither package importable
     return counts
 
 
@@ -279,9 +305,16 @@ def run_of3(args) -> dict:
 
     # --num-diffusion-samples defaults to 5 and --use-msa-server defaults True; the second
     # would silently ignore the precomputed MSA and hit ColabFold, so both are overridden.
+    #
+    # --num-model-seeds is deliberately NOT passed. Any truthy value makes the runner
+    # discard the query set's seeds and substitute generate_seeds(42, n)
+    # (experiment_runner.py:610-612), and there is no --start-seed to steer it: passing
+    # "1" silently folded at seed 2746317213 instead of the seed 0 every other model here
+    # uses, which is exactly the cross-model hyperparameter mismatch rule 4 forbids.
+    # Omitting it leaves self.seeds at the query set's own [SEED].
     argv = ["predict", "--query-json", str(qpath), "--output-dir", str(work / "out"),
             "--inference-ckpt-path", args.checkpoint, "--runner-yaml", str(ypath),
-            "--num-diffusion-samples", str(SAMPLES), "--num-model-seeds", "1",
+            "--num-diffusion-samples", str(SAMPLES),
             "--use-msa-server", "false", "--use-templates", "false"]
     if args.extra:
         argv += args.extra.split()
@@ -309,6 +342,13 @@ def run_of3(args) -> dict:
     # timed calls attached. A cell with no structure is a failure, not a fast fold.
     assert preds, ("openfold3 produced no structure: every fold failed inside the runner. "
                    "Read the log for the per-fold traceback -- exit code 0 is not evidence.")
+    # OF3 writes the seed it actually used into the output path. Read it back rather than
+    # trusting the query set, since the runner is willing to override it.
+    seeds_used = sorted({m.group(1) for p in preds
+                         if (m := re.search(r"seed_(\d+)", str(p)))})
+    assert seeds_used == [str(SEED)], (
+        f"openfold3 folded at seed(s) {seeds_used}, not {SEED}: the runner overrode the "
+        "query set's seed, so this cell is not comparable to the other four")
     return dict(out, wall_s=round(wall, 2), n_timed_calls=len(timer.times),
                 timed_symbol=patched, kernel_counts_total=dict(cueq, **sdpa),
                 predictions=[str(p) for p in preds], cli_argv=argv,
