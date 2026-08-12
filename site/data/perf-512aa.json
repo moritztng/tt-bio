@@ -169,7 +169,7 @@
       "cells": {
         "p150a": {
           "shipped": { "status": "measured", "s_per_fold": 100.292, "source": "tt-protenix-rekey", "ref": "tt-bio main 12e5f957, qb2 card 0, ttnn 0.68.0, benchlocked, A/A floor 0.086 s, plDDT 0.754131, CIF sha256 50aa1e46583bd5a8" },
-          "best": { "status": "measured", "s_per_fold": 100.292, "availability": "in the latest release", "source": "tt-protenix-rekey", "ref": "no optimization arm has been measured for OpenDDE at 512 aa yet" }
+          "best": { "status": "measured", "s_per_fold": 94.804, "availability": "branch wk/opendde-512aa-deep-perf, not merged", "source": "tt-oddedeep", "ref": "the E6 channel-move arm, 1.0553x against its own in-process baseline of 100.046 s (card 2, benchlocked, A/A floor 0.069 s over three baseline arms), CIF sha256 50aa1e46583bd5a8 and plDDT 0.754131 identical to that baseline and to the card-0 wall. A faster integrated arm measured 85.870 s but shifts plDDT by -2.1e-05 and is release-gated on a structural RMSD still owed, so it is not quoted as the number" }
         },
         "h200": { "status": "measured", "s_per_fold": 20.640, "source": "gpu-5model", "ref": "n=3, spread 0.29 %, opendde 1.0.3, torch 2.7.1+cu128, plDDT 0.827" },
         "b200": { "status": "blocked", "reason": "does not run", "detail": "Same hang as Protenix-v2, same signature. OpenDDE pins cuequivariance-ops-torch 0.10.0. The three models that ran clean on the B200 all resolve 0.11.1, so the split is along the cuEquivariance version, not the model.", "source": "gpu-5model" }
@@ -183,7 +183,7 @@
       "cells": {
         "p150a": {
           "shipped": { "status": "measured", "s_per_fold": 108.110, "source": "tt-othermodels", "ref": "qb2 card 0, ttnn 0.68.0, benchlocked, A/A floor 0.002 s, plDDT 0.547851, CIF sha256 da9b4ed68f8c0405" },
-          "best": { "status": "measured", "s_per_fold": 107.222, "availability": "the E6 kernel is on main but ships off by default", "source": "tt-othermodels", "ref": "976 channel moves served, bit-exact, 1.0083x. It stays off because the same flag costs Boltz-2 0.373 s per fold" }
+          "best": { "status": "measured", "s_per_fold": 63.545, "availability": "branch wk/openfold3-512aa-deep-perf, not merged", "source": "tt-of3deep", "ref": "branch 25fa561c: the diffusion conditioning pair branch hoisted out of the 200-step rollout, host pad round trips replaced by a device typecast, DiT pair bias cached per rollout. 1.7010x, bit-exact: CIF sha256 da9b4ed68f8c0405 and plDDT 0.547851 on every arm. Instrumented folds, cross-process baseline agreement 0.015 s against a 44.550 s effect; the benchlocked fold A/B is queued behind other timed runs. The separate E6 kernel is on main but ships off, worth 1.0083x here" }
         },
         "h200": { "status": "measured", "s_per_fold": 10.263, "source": "gpu-5model", "ref": "n=3, spread 0.21 %, openfold3 0.4.4, torch 2.13.0+cu130, ckpt of3-p2-155k.pt, plDDT 0.639" },
         "b200": { "status": "measured", "s_per_fold": 11.897, "source": "gpu-5model", "ref": "n=3, spread 0.69 %. Slower than the H200 by 15.9 %" }
@@ -243,6 +243,18 @@
       "kind": "internal",
       "date": "2026-08-12",
       "detail": "ESMFold2 at 512 aa on qb2, ttnn 0.68.0, decomposition plus a twelve-fold A/B on an 0.006 s noise floor."
+    },
+    "tt-of3deep": {
+      "label": "openfold3-512aa-deep-perf",
+      "kind": "internal",
+      "date": "2026-08-12",
+      "detail": "OpenFold3 at 512 aa on qb2, ttnn 0.68.0, sync-bracketed decomposition plus one integrated arm at 25fa561c. The rollout went from 33 % host-bound to 3.5 %."
+    },
+    "tt-oddedeep": {
+      "label": "opendde-512aa-deep-perf",
+      "kind": "internal",
+      "date": "2026-08-12",
+      "detail": "OpenDDE at 512 aa on qb2 card 2, ttnn 0.68.0, seven arms in one benchlocked process on a 0.069 s A/A floor, every lever's decision counters read from inside the fold."
     },
     "tt-integrated": {
       "label": "integrated-ab-h200-gap",
