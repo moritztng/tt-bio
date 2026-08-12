@@ -48,7 +48,7 @@ def read_atoms(p: Path):
                         keys.append(tuple(f[idx[c]] for c in keycols))
                         xyz.append([float(f[idx[n]]) for n in need])
                         j += 1
-                    return keys, np.asarray(xyz, dtype=np.float64)
+                    return keys, np.asarray(xyz, dtype=np.float64), keycols
             i = j
         else:
             i += 1
@@ -75,6 +75,10 @@ def main():
     ap.add_argument("root", type=Path)
     ap.add_argument("--size", default=None)
     ap.add_argument("--ref", default="on")
+    # One `cif/` tree accumulates arms from every task that ever ran the harness, and arms from
+    # different MODELS have different atom counts, which aborts the atom-for-atom check. Name the
+    # arms the comparison is about.
+    ap.add_argument("--arms", default=None, help="comma-separated arm names to include")
     a = ap.parse_args()
 
     data = {}
@@ -84,40 +88,56 @@ def main():
         size, arm = arm_of(d.name)
         if a.size and size != a.size:
             continue
+        if a.arms and arm not in a.arms.split(","):
+            continue
         cifs = sorted(d.glob("*.cif"))
         if not cifs:
             continue
-        k, x = read_atoms(cifs[0])
-        data[d.name] = (arm, k, x)
+        k, x, keycols = read_atoms(cifs[0])
+        data[d.name] = (arm, k, x, keycols)
         print(f"  {d.name:26s} {len(x):6d} atoms  {cifs[0].name}")
     if len(data) < 2:
         raise SystemExit("need at least two folds on disk")
 
     ref_keys = data[sorted(data)[0]][1]
-    for name, (_, k, _) in data.items():
+    for name, (_, k, _, _) in data.items():
         if k != ref_keys:
             raise SystemExit(f"atom identity differs in {name} -- cannot compare by order")
     print(f"\n  atom identity identical across all {len(data)} folds ({len(ref_keys)} atoms), "
           f"so the comparison is atom-for-atom\n")
 
-    print("  pairwise all-atom Kabsch RMSD, A:")
+    # CA-only as well as all-atom. Ask 4649 fixes its merge threshold on the Kabsch **CA** RMSD, and
+    # a backbone-only superposition is the number this lineage has always quoted beside the all-atom
+    # one (`opendde-512aa-deep-perf` §12.4: 1.2527 A CA, 2.5379 A all-atom).
+    keycols = data[sorted(data)[0]][3]
+    ca = None
+    if "_atom_site.label_atom_id" in keycols:
+        j = keycols.index("_atom_site.label_atom_id")
+        ca = np.array([k[j] == "CA" for k in ref_keys])
+        print(f"  CA atoms: {int(ca.sum())} of {len(ref_keys)}\n")
+
+    print("  pairwise Kabsch RMSD, A  (all-atom | CA-only):")
     rows = []
     for x, y in itertools.combinations(sorted(data), 2):
         r = kabsch_rmsd(data[x][2], data[y][2])
+        rca = kabsch_rmsd(data[x][2][ca], data[y][2][ca]) if ca is not None else float("nan")
         kind = "A/A" if data[x][0] == data[y][0] else "A/B"
-        rows.append((kind, x, y, r))
-        print(f"    {kind}  {x:26s} vs {y:26s}  {r:11.6f}")
+        rows.append((kind, x, y, r, rca))
+        print(f"    {kind}  {x:26s} vs {y:26s}  {r:11.6f} | {rca:11.6f}")
 
-    aa = [r for k, _, _, r in rows if k == "A/A"]
+    aa = [(r, rca) for k, _, _, r, rca in rows if k == "A/A"]
     if aa:
-        print(f"\n  A/A structural floor: max {max(aa):.6f} A over {len(aa)} pair(s)")
-    print(f"\n  vs the `{a.ref}` arm:")
+        print(f"\n  A/A structural floor: max {max(v[0] for v in aa):.6f} A all-atom, "
+              f"{max(v[1] for v in aa):.6f} A CA, over {len(aa)} pair(s)")
+    print(f"\n  vs the `{a.ref}` arm  (all-atom | CA-only):")
     refs = [n for n, v in data.items() if v[0] == a.ref]
-    for name, (arm, _, x) in sorted(data.items()):
+    for name, (arm, _, x, _) in sorted(data.items()):
         if arm == a.ref:
             continue
         vals = [kabsch_rmsd(x, data[r][2]) for r in refs]
-        print(f"    {arm:16s} {min(vals):9.6f} .. {max(vals):9.6f} A")
+        vca = [kabsch_rmsd(x[ca], data[r][2][ca]) for r in refs] if ca is not None else [float("nan")]
+        print(f"    {arm:16s} {min(vals):9.6f} .. {max(vals):9.6f} | "
+              f"{min(vca):9.6f} .. {max(vca):9.6f} A")
 
 
 if __name__ == "__main__":

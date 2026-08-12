@@ -89,7 +89,7 @@ def _collect_fp32(root, seen=None, depth=0):
     return out
 
 ARMS = ("on", "e6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hifi",
-        "nonewmm", "oldkey", "nofp32_trunk", "nofp32_msatmpl", "k1def", "k1b")
+        "nonewmm", "oldkey", "nofp32_trunk", "nofp32_msatmpl", "k1def", "k1b", "mm12")
 
 # `k1def` / `k1b` add opendde's two pair widths to `_MM_BLOCK` at the op's OWN default block config,
 # `T._MM_DEFAULT = (8,8,8,2,2)`. main has no entry at kt = 12, so K1 declines all 1216 tri-att calls
@@ -98,6 +98,13 @@ ARMS = ("on", "e6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hifi",
 # (perf/odde4x/screen2.json). `k1def` runs K1a with the head-major TAIL off, `k1b` runs both, so the
 # fold A/B prices the tail separately and its CIF digest answers whether it is byte-identical here.
 K1DEF_ARMS = ("k1def", "k1b")
+
+# `mm12` is `opendde-512aa-deep-perf`'s entry at the same two widths, verbatim (its commit 586ced36).
+# Its K_block is 12, a divisor of kt, so it folds the contraction differently from the unconfigured
+# op and is NOT bit-exact: torch.equal False at max_abs 0.5, one bf16 ULP. It is the faster arm
+# (1.1652x at 512 aa against `ge`'s 1.1018x) and it is what ask 4649 gates on a structural control.
+# That task's `on` was pre-`ge` main; `ge` is merged now, so this arm on THIS tree is its `all`.
+_MM_BLOCK_ODDE = {(12, 36): (4, 12, 1, 2, 1), (12, 12): (8, 12, 1, 2, 1)}
 
 # Which sites each arm routes onto the fused SDPA. The confidence head is never in a flip set:
 # it stays on `_fp32_softmax_attention` on every arm, deliberately, so plDDT reports on the
@@ -365,6 +372,8 @@ def main():
         for k in ((12, 36), (12, 12)):
             if name in K1DEF_ARMS:
                 T._MM_BLOCK[k] = T._MM_DEFAULT
+            elif name == "mm12":
+                T._MM_BLOCK[k] = _MM_BLOCK_ODDE[k]
             else:
                 T._MM_BLOCK.pop(k, None)
 
