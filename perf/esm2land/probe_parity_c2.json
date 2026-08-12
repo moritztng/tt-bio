@@ -1,0 +1,101 @@
+{
+ "host": "tt-quietbox2",
+ "card": "2",
+ "grid": [
+  11,
+  10
+ ],
+ "cz": 256,
+ "d_ff": 1024,
+ "PAIR_PROJ_BW": 16,
+ "PAIR_PROJ_L1_BW": 16,
+ "sizes": {
+  "298": {
+   "arms": {
+    "ref_shipped": 9.533,
+    "A_split": 6.86,
+    "D_engine_full": 6.879,
+    "C_rows32": 6.778,
+    "E_lin_L1gated_rows32": 6.767,
+    "F_lin_DRAMgated_rows32": 7.984
+   },
+   "exact_vs_shipped": {
+    "A_split": true,
+    "D_engine_full": true,
+    "C_rows32": false,
+    "E_lin_L1gated_rows32": false,
+    "F_lin_DRAMgated_rows32": false
+   },
+   "legs": {
+    "A_split": {},
+    "D_engine_full": {
+     "core_grid_untuned": 16
+    },
+    "C_rows32": {
+     "L1_cfg_None->core_grid_untuned": 160
+    },
+    "E_lin_L1gated_rows32": {},
+    "F_lin_DRAMgated_rows32": {}
+   },
+   "l1_refused_cache": []
+  },
+  "320": {
+   "arms": {
+    "ref_shipped": 10.217,
+    "A_split": 7.314,
+    "D_engine_full": 7.32,
+    "C_rows32": 7.285,
+    "E_lin_L1gated_rows32": 7.297,
+    "F_lin_DRAMgated_rows32": 8.515
+   },
+   "exact_vs_shipped": {
+    "A_split": true,
+    "D_engine_full": true,
+    "C_rows32": true,
+    "E_lin_L1gated_rows32": true,
+    "F_lin_DRAMgated_rows32": true
+   },
+   "legs": {
+    "A_split": {},
+    "D_engine_full": {
+     "core_grid_untuned": 16
+    },
+    "C_rows32": {
+     "L1_cfg_None->core_grid_untuned": 160
+    },
+    "E_lin_L1gated_rows32": {},
+    "F_lin_DRAMgated_rows32": {}
+   },
+   "l1_refused_cache": []
+  },
+  "512": {
+   "arms": {
+    "ref_shipped": 29.663,
+    "A_split": 21.179,
+    "D_engine_full": 21.161,
+    "C_rows32": 18.067,
+    "E_lin_L1gated_rows32": 18.117,
+    "F_lin_DRAMgated_rows32": 21.407
+   },
+   "exact_vs_shipped": {
+    "A_split": true,
+    "D_engine_full": true,
+    "C_rows32": true,
+    "E_lin_L1gated_rows32": true,
+    "F_lin_DRAMgated_rows32": true
+   },
+   "legs": {
+    "A_split": {},
+    "D_engine_full": {
+     "core_grid_untuned": 16
+    },
+    "C_rows32": {
+     "L1_cfg_None->core_grid_untuned": 256
+    },
+    "E_lin_L1gated_rows32": {},
+    "F_lin_DRAMgated_rows32": {}
+   },
+   "l1_refused_cache": []
+  }
+ }
+}

@@ -244,6 +244,71 @@ class Attention(Module):
         return out
 
 
+# ESMFold2 asks its pair transition for a fused SwiGLU kernel that no shipped ttnn wheel has:
+# `ttnn.experimental.minimal_matmul` takes no `fuse_swiglu` kwarg on 0.68.0, so the request fell
+# through to `_lin -> chunk -> silu -> multiply`. That chain moves 4.832 GB per call at
+# [1,512,512,256] to compute an expression whose information content is 1.611 GB, because
+# `ttnn.chunk` copies the whole fc1 output and `silu` and `multiply` each re-read what the op
+# before them wrote.
+#
+# Splitting fc1 into its two halves on the host removes the chunk, and running the SiLU as the
+# multiply's operand-A activation removes the silu. MEASURED on qb2, median of 5, c_z=256,
+# d_ff=1024 (perf/esm2land/): 9.564 -> 6.860 ms/call at 298 aa, 10.196 -> 7.314 at 320,
+# 29.442 -> 21.166 at 512, `torch.equal` against the chain it replaces at every size.
+#
+# Two dead ends, measured, so they are not retried: putting the SiLU in the fc1 epilogue instead
+# is 1.50x SLOWER (8.621 vs 5.747 ms), and `ttnn.swiglu` is both slower and not bit-exact.
+# See state/esmfold2-512aa-deep-perf.md.
+SPLIT_SWIGLU = True
+_SPLIT_SWIGLU = os.environ.get("TT_BIO_SPLIT_SWIGLU", "1" if SPLIT_SWIGLU else "0") == "1"
+
+# Blocking the same FFN over rows puts the SwiGLU product in L1, so fc2 reads its operand from L1
+# instead of streaming 33.55 MB back out of DRAM. The row block is not the win and does not pay for
+# itself: with the product left in DRAM the identical block is a LOSS at every size (21.407 vs
+# 21.166 ms at 512 aa). It is what shrinks the product enough for L1 to serve it, and the L1 term
+# is worth 3.27 ms/call at 512 aa: 21.327 -> 18.057 (perf/esm2land/probe_ladder_c0.json).
+#
+# 32 rows is pinned by parity, not tuned. 16 and 8 are faster still (16.144 ms at 512 aa) and are
+# not torch.equal at any size, so they are a release-gate decision and not this one; 64 is refused
+# outright by a circular-buffer clash.
+PAIR_FFN_ROW_BLOCK = 32
+_PAIR_FFN_ROW_BLOCK = int(os.environ.get("TT_BIO_PAIR_FFN_ROW_BLOCK", PAIR_FFN_ROW_BLOCK))
+
+# Both levers carry a measured sequence-length window, and the window is not a formula.
+# `ttnn.linear(core_grid=...)` derives its own matmul program from (M, N, K, grid), so halving
+# fc1's N -- or blocking the rows, which changes the batch extent -- can land on a different
+# K-accumulation blocking and round differently in the last bf16 bit. Which L that happens at is
+# not predictable from L: the row block is torch.equal at every one of the 23 sizes measured from
+# 320 to 768 aa whether or not 32 divides them, and differs at every size below 320 except 96 and
+# 128; the split fc1 is torch.equal at all 25 sizes from 144 to 768 and differs at 96 and 128.
+# The differences are one bf16 ulp (max_abs/peak 4.7e-3 to 5.7e-3 against a bf16 relative eps of
+# 3.9e-3), so they are an accumulation order rather than a defect -- but the bar for landing this
+# was byte-identical output, so each lever fires only inside the window where that was measured.
+# Ladders: perf/esm2land/probe_stage2_c0.json decomposes it per op over 14 sizes (the fused SiLU
+# is exact at every size on its own; the fc1 split and the row block are what move), and
+# probe_ladder_c0.json / probe_ladder2_c0.json cover 28 sizes end to end.
+#
+# Both are also restricted to the 11x10 Blackhole grid they were measured on. A smaller grid
+# derives different matmul programs and does its own row blocking through `pair_row_tile`, so the
+# parity above says nothing there and the shipped unsplit chain keeps running.
+SPLIT_SWIGLU_MIN_SEQ = 144
+PAIR_FFN_ROW_BLOCK_SEQ = (320, 768)
+
+
+def set_split_swiglu(on: bool) -> bool:
+    """A/B switch for the split-fc1 SwiGLU path. Returns the previous state."""
+    global _SPLIT_SWIGLU
+    prev, _SPLIT_SWIGLU = _SPLIT_SWIGLU, bool(on)
+    return prev
+
+
+def set_pair_ffn_row_block(rows: int) -> int:
+    """Row height for the blocked pair FFN, 0 to switch it off. Returns the previous value."""
+    global _PAIR_FFN_ROW_BLOCK
+    prev, _PAIR_FFN_ROW_BLOCK = _PAIR_FFN_ROW_BLOCK, int(rows)
+    return prev
+
+
 def _pack_swiglu_weight(weight: torch.Tensor) -> torch.Tensor:
     packed = weight.t()
     rows, two_n = packed.shape
@@ -268,11 +333,35 @@ class SwiGLUFFN(Module):
         # fc1/fc2 are the FFN's big matmuls (and the bulk of the ESMC-6B FLOPs);
         # block-fp8 in fast mode, bf16 otherwise. Shared with the folding trunk's
         # pair-transition, so fast mode bf8's that too.
-        transform = _pack_swiglu_weight if self.fuse_swiglu else lambda weight: weight.t()
-        self.fc1_weight = self.torch_to_tt("1.weight", transform=transform, dtype=_dtype())
+        # With no fused kernel in the wheel, `fuse_swiglu=True` really selects the split-fc1
+        # path (see SPLIT_SWIGLU above). Build only the fc1 layout the live path reads.
+        self.split_swiglu = bool(fuse_swiglu and not self.fuse_swiglu)
+        if self.split_swiglu:
+            half = self.weights["1.weight"].shape[0] // 2
+            self.fc1_weight = None
+            self.fc1_a_weight = self.torch_to_tt(
+                "1.weight", transform=lambda w: w[:half].t(), dtype=_dtype()
+            )
+            self.fc1_b_weight = self.torch_to_tt(
+                "1.weight", transform=lambda w: w[half:].t(), dtype=_dtype()
+            )
+        else:
+            transform = _pack_swiglu_weight if self.fuse_swiglu else lambda weight: weight.t()
+            self.fc1_weight = self.torch_to_tt("1.weight", transform=transform, dtype=_dtype())
         self.fc2_weight = self.torch_to_tt("3.weight", dtype=_dtype())
 
-    def _ffn(self, x: ttnn.Tensor) -> ttnn.Tensor:
+    def _fc1_full(self) -> ttnn.Tensor:
+        """The unsplit fc1 weight, built on demand for the A/B control arm.
+
+        `concat` along the output dim is the two halves' own values in their own order, so the
+        control arm stays byte-identical to the shipped path without a second copy of the weight
+        resident in production: 1.05 MB per block, 50 MB over ESMFold2's 48 pair transitions.
+        """
+        if self.fc1_weight is None:
+            self.fc1_weight = ttnn.concat([self.fc1_a_weight, self.fc1_b_weight], dim=-1)
+        return self.fc1_weight
+
+    def _ffn(self, x: ttnn.Tensor, split: bool = False, l1_gated: bool = False) -> ttnn.Tensor:
         ck = self.compute_kernel_config
         x_norm = ttnn.layer_norm(
             x, weight=self.norm_weight, bias=self.norm_bias,
@@ -287,8 +376,18 @@ class SwiGLUFFN(Module):
                 fuse_swiglu=True,
             )
             ttnn.deallocate(x_norm)
+        elif split:
+            h1 = self._lin(x_norm, self.fc1_a_weight)
+            h2 = self._lin(x_norm, self.fc1_b_weight)
+            ttnn.deallocate(x_norm)
+            gated = ttnn.multiply(
+                h1, h2, input_tensor_a_activations=[ttnn.UnaryOpType.SILU],
+                **({"memory_config": ttnn.L1_MEMORY_CONFIG} if l1_gated else {}),
+            )
+            ttnn.deallocate(h1)
+            ttnn.deallocate(h2)
         else:
-            h = self._lin(x_norm, self.fc1_weight)
+            h = self._lin(x_norm, self._fc1_full())
             ttnn.deallocate(x_norm)
             x1, x2 = ttnn.chunk(h, 2, dim=-1)
             ttnn.deallocate(h)
@@ -307,6 +406,18 @@ class SwiGLUFFN(Module):
         # tile. Single pass on Blackhole. See tenstorrent._apply_grid_thresholds.
         from tt_bio import tenstorrent
         L = x.shape[1]
+        split = bool(
+            self.split_swiglu and _SPLIT_SWIGLU
+            and not getattr(tenstorrent, "_IS_SMALL_GRID", False)
+            and x.shape[-2] >= SPLIT_SWIGLU_MIN_SEQ
+        )
+        lo, hi = PAIR_FFN_ROW_BLOCK_SEQ
+        rows = _PAIR_FFN_ROW_BLOCK
+        if split and len(x.shape) == 4 and rows and lo <= L <= hi:
+            parts = ttnn.chunk(x, -(-L // rows), dim=1)
+            return ttnn.concat(
+                [self._ffn(p, split=True, l1_gated=True) for p in parts], dim=1
+            )
         if len(x.shape) == 4:
             chunk = tenstorrent.pair_row_tile(L)
         else:
@@ -314,8 +425,8 @@ class SwiGLUFFN(Module):
             chunk = t if (t and L > t) else 0
         if chunk:
             parts = ttnn.chunk(x, -(-L // chunk), dim=1)
-            return ttnn.concat([self._ffn(p) for p in parts], dim=1)
-        return self._ffn(x)
+            return ttnn.concat([self._ffn(p, split=split) for p in parts], dim=1)
+        return self._ffn(x, split=split)
 
 
 class Block(Module):
