@@ -10,7 +10,7 @@ PY=/home/ttuser/tt-bio-dev/env/bin/python3
 mkdir -p perf/odde640_gecheck
 /home/ttuser/.coworker/scripts/benchlock.sh opendde-ge-640aa-regression-check -- \
   $PY -u perf/other512/fold_ab_multi.py --model opendde --sizes 640 \
-      --arms on,on \
+      --arms e6,on \
       --out perf/odde640_gecheck/ab_opendde_640.json
 echo "RC=$?"
 echo "=== GECHECK DONE ==="

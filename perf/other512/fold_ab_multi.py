@@ -90,7 +90,7 @@ def _collect_fp32(root, seen=None, depth=0):
             out += _collect_fp32(v, seen, depth + 1)
     return out
 
-ARMS = ("on", "e6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hifi",
+ARMS = ("on", "e6", "noe6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hifi",
         "nonewmm", "oldkey", "nofp32_trunk", "nofp32_msatmpl", "nos2")
 
 # Which sites each arm routes onto the fused SDPA. The confidence head is never in a flip set:
@@ -336,7 +336,7 @@ def main():
 
         RB.set_enabled(True)                         # main ships the forward move ON
         RB.set_enabled_back(True)                    # and the back move ON
-        RB.set_enabled_gated(name == "e6")           # main ships E6 OFF
+        RB.set_enabled_gated(name != "noe6")         # main ships E6 ON; noe6 ablates it
         RB.STATS[0] = RB.STATS[1] = 0
         RB.STATS_BACK[0] = RB.STATS_BACK[1] = 0
         RB.STATS_GATED[0] = RB.STATS_GATED[1] = 0
