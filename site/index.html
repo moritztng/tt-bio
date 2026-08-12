@@ -77,10 +77,13 @@ section.band + section.band { border-top: 1px solid var(--line); padding-top: 34
 .mgroup .tablewrap { margin: 10px 0 0; }
 .mtable { font-size: 0.9rem; }
 .mtable th { font-size: 0.76rem; }
-.mtable td, .mtable th { padding-right: 26px; }
+/* Capability cells wrap at every width. They are lists, so a narrow window should fold them onto a
+ * second line rather than push the last column into a horizontal scroll a reader will not find. */
+.mtable td, .mtable th { padding-right: 26px; white-space: normal; }
 .mtable td:last-child, .mtable th:last-child { padding-right: 0; }
 .mtable td:first-child, .mtable th:first-child {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace; text-transform: none; letter-spacing: 0;
+  white-space: nowrap;
 }
 .mtable td:first-child { color: var(--tt); font-weight: 600; font-size: 0.84rem; }
 .mtable th:first-child { font-size: 0.78rem; }
@@ -143,8 +146,7 @@ details.disclose > div { padding-top: 14px; }
   section.chart { margin-bottom: 40px; }
   section.band + section.band { padding-top: 26px; }
   .mtable { font-size: 0.83rem; }
-  .mtable td, .mtable th { padding-right: 18px; white-space: normal; }
-  .mtable td:first-child, .mtable th:first-child { white-space: nowrap; }
+  .mtable td, .mtable th { padding-right: 18px; }
 }
 </style>
 </head>
