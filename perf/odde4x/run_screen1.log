@@ -1,0 +1,93 @@
+benchlock: opendde-to-4x acquired after 0s, loadavg 0.04 0.55 0.52
+2026-08-12 14:14:30.737 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+ S1 {'kt': 12, 'nt': 36, 'cfg': [8, 8, 8, 2, 2], 'base_ms': 3.7613, 'torch_equal': True, 'max_abs': 0.0, 'ms': 3.7575, 'ratio': 1.001}
+2026-08-12 14:14:32.994 | critical |          Always | TT_FATAL: subblock_h * subblock_w must be <= max_dest_volume (assert.hpp:104)
+ S1 {'kt': 12, 'nt': 36, 'cfg': [8, 8, 8, 4, 2], 'base_ms': 3.7613, 'error': 'RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206: cfg.subblock_h * cfg.subblock_w <= max_dest_volume\ninfo:\nsubblock'}
+ S1 {'kt': 12, 'nt': 36, 'cfg': [4, 8, 8, 2, 2], 'base_ms': 3.7613, 'torch_equal': True, 'max_abs': 0.0, 'ms': 4.4349, 'ratio': 0.8481}
+2026-08-12 14:14:33.993 | critical |          Always | TT_FATAL: N_block_size (1) must be divisible by subblock_w (2) (assert.hpp:104)
+ S1 {'kt': 12, 'nt': 36, 'cfg': [8, 8, 1, 2, 2], 'base_ms': 3.7613, 'error': 'RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:190: (cfg.N_block_size % cfg.subblock_w) == 0\ninfo:\nN_block_size (1) m'}
+ S1 {'kt': 12, 'nt': 36, 'cfg': [8, 12, 8, 2, 2], 'base_ms': 3.7613, 'torch_equal': False, 'max_abs': 0.5, 'ms': 4.0162, 'ratio': 0.9365}
+2026-08-12 14:14:34.946 | critical |          Always | TT_FATAL: subblock_h * subblock_w must be <= max_dest_volume (assert.hpp:104)
+ S1 {'kt': 12, 'nt': 36, 'cfg': [8, 8, 8, 2, 4], 'base_ms': 3.7613, 'error': 'RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206: cfg.subblock_h * cfg.subblock_w <= max_dest_volume\ninfo:\nsubblock'}
+ S1 {'kt': 12, 'nt': 12, 'cfg': [8, 8, 8, 2, 2], 'base_ms': 1.7926, 'torch_equal': True, 'max_abs': 0.0, 'ms': 1.7774, 'ratio': 1.0086}
+2026-08-12 14:14:35.303 | critical |          Always | TT_FATAL: subblock_h * subblock_w must be <= max_dest_volume (assert.hpp:104)
+ S1 {'kt': 12, 'nt': 12, 'cfg': [8, 8, 8, 4, 2], 'base_ms': 1.7926, 'error': 'RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206: cfg.subblock_h * cfg.subblock_w <= max_dest_volume\ninfo:\nsubblock'}
+ S1 {'kt': 12, 'nt': 12, 'cfg': [4, 8, 8, 2, 2], 'base_ms': 1.7926, 'torch_equal': True, 'max_abs': 0.0, 'ms': 1.9245, 'ratio': 0.9315}
+2026-08-12 14:14:35.880 | critical |          Always | TT_FATAL: N_block_size (1) must be divisible by subblock_w (2) (assert.hpp:104)
+ S1 {'kt': 12, 'nt': 12, 'cfg': [8, 8, 1, 2, 2], 'base_ms': 1.7926, 'error': 'RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:190: (cfg.N_block_size % cfg.subblock_w) == 0\ninfo:\nN_block_size (1) m'}
+ S1 {'kt': 12, 'nt': 12, 'cfg': [8, 12, 8, 2, 2], 'base_ms': 1.7926, 'torch_equal': False, 'max_abs': 0.5, 'ms': 1.5398, 'ratio': 1.1642}
+2026-08-12 14:14:36.437 | critical |          Always | TT_FATAL: subblock_h * subblock_w must be <= max_dest_volume (assert.hpp:104)
+ S1 {'kt': 12, 'nt': 12, 'cfg': [8, 8, 8, 2, 4], 'base_ms': 1.7926, 'error': 'RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:206: cfg.subblock_h * cfg.subblock_w <= max_dest_volume\ninfo:\nsubblock'}
+ S2 {'entry': [8, 8, 8, 2, 2], 'qkv_mm_config_is_none': True}
+ S2 {'entry': [12, 12, 1, 2, 2], 'qkv_mm_config_is_none': True}
+ S3 {'h_const': 10, 'h_effective': 6, 'n_chunks': 86, 'torch_equal_vs_h10': True, 'max_abs': 0.0, 'ms': 29.4872, 'tflops': 31.46}
+ S3 {'h_const': 12, 'h_effective': 8, 'n_chunks': 64, 'torch_equal_vs_h10': False, 'max_abs': 512.0, 'ms': 30.2768, 'tflops': 30.64}
+ S3 {'h_const': 16, 'h_effective': 10, 'n_chunks': 52, 'torch_equal_vs_h10': False, 'max_abs': 512.0, 'ms': 28.8715, 'tflops': 32.13}
+2026-08-12 14:14:44.542 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 557 clash with L1 buffers on core range [(x=0,y=0) - (x=9,y=9)]. L1 buffer allocated at 1153024 and static circular buffer region ends at 1182208 (assert.hpp:104)
+ S3 {'h_const': 20, 'h_effective': 13, 'n_chunks': 40, 'error': 'RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 557 clash with L1 buffers on core range [(x=0,y=0) - (x=9'}
+ S3 {'h_const': 26, 'h_effective': 17, 'n_chunks': 31, 'torch_equal_vs_h10': False, 'max_abs': 512.0, 'ms': 26.313, 'tflops': 35.26}
+2026-08-12 14:14:47.744 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 681 clash with L1 buffers on core range [(x=0,y=0) - (x=9,y=9)]. L1 buffer allocated at 894976 and static circular buffer region ends at 993792 (assert.hpp:104)
+ S3 {'h_const': 32, 'h_effective': 21, 'n_chunks': 25, 'error': 'RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 681 clash with L1 buffers on core range [(x=0,y=0) - (x=9'}
+2026-08-12 14:14:48.713 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 723 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=7)]. L1 buffer allocated at 636928 and static circular buffer region ends at 967168 (assert.hpp:104)
+ S3 {'h_const': 44, 'h_effective': 29, 'n_chunks': 18, 'error': 'RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 723 clash with L1 buffers on core range [(x=0,y=0) - (x=1'}
+2026-08-12 14:14:49.331 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 753 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 856064 and static circular buffer region ends at 1118720 (assert.hpp:104)
+ S3 {'h_const': 64, 'h_effective': 42, 'n_chunks': 13, 'error': 'RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 753 clash with L1 buffers on core range [(x=0,y=0) - (x=1'}
+ S5 10 {'slice_ms': 0.0404, 'layer_norm_ms': 0.0596, 'fc1_silu_ms': 0.2502, 'fc2_ms': 0.094, 'multiply_ms': 0.078, 'fc3_dram_ms': 0.1317, 'n_chunks_at_this_h': 52, 'sum_ms': 0.6539, 'projected_call_ms': 34.003}
+2026-08-12 14:14:49.707 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 761 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 540672 and static circular buffer region ends at 967168 (assert.hpp:104)
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/opendde-to-4x/perf/odde4x/screen1.py", line 312, in <module>
+    main()
+  File "/home/ttuser/.coworker/wt/opendde-to-4x/perf/odde4x/screen1.py", line 249, in main
+    x2 = lin(tr.fc2_weight, ttnn.L1_MEMORY_CONFIG)
+  File "/home/ttuser/.coworker/wt/opendde-to-4x/perf/odde4x/screen1.py", line 245, in <lambda>
+    lin = lambda w, mc, act=None: ttnn.linear(
+  File "/home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/decorators.py", line 473, in __call__
+    result = self.function(*function_args, **function_kwargs)
+RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception
+info:
+Statically allocated circular buffers in program 761 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 540672 and static circular buffer region ends at 967168
+backtrace:
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d3f55) [0x76ec082d3f55]
+ --- tt::tt_metal::detail::ProgramImpl::validate_circular_buffer_region(tt::tt_metal::IDevice const*)
+ --- tt::tt_metal::distributed::MeshWorkloadImpl::compile(tt::tt_metal::distributed::MeshDevice*)
+ --- tt::tt_metal::distributed::EnqueueMeshWorkload(tt::tt_metal::distributed::MeshCommandQueue&, tt::tt_metal::distributed::MeshWorkload&, bool)
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail21enqueue_mesh_workloadITkNS0_36DeviceOperationWithMeshDeviceAdapterENS0_26MeshDeviceOperationAdapterINS_4prim21MatmulDeviceOperationEEEEEvRKNT_22operation_attributes_tERKNS7_13tensor_args_tERNS7_21tensor_return_value_tEPN2tt8tt_metal11distributed10MeshDeviceERNSI_12MeshWorkloadEb+0x332) [0x76ec09dc9d92]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0xfcbea9) [0x76ec09dcbea9]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail30create_and_cache_mesh_workloadITkNS0_22DeviceOperationConceptENS0_26MeshDeviceOperationAdapterINS_4prim21MatmulDeviceOperationEEEEEvRKNT_22operation_attributes_tERKNS7_13tensor_args_tERNS7_21tensor_return_value_tEPN2tt8tt_metal11distributed10MeshDeviceERNSH_13program_cache6detail12ProgramCacheEm+0x1a1) [0x76ec09dc97a1]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_4prim21MatmulDeviceOperationEEENT_21tensor_return_value_tERKNS5_22operation_attributes_tERKNS5_13tensor_args_tE+0x583) [0x76ec09dc2b23]
+ --- ttnn::prim::matmul(tt::tt_metal::Tensor const&, tt::tt_metal::Tensor const&, std::optional<tt::tt_metal::Tensor> const&, std::optional<tt::tt_metal::Tensor> const&, ttnn::prim::MatmulParams const&)
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0xf7c318) [0x76ec09d7c318]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn10operations6matmul6linearERKN2tt8tt_metal6TensorES6_RKSt8optionalIS5_EbbRKS7_IKNS3_12MemoryConfigEES7_IKNS3_8DataTypeEERKS7_IKSt7variantIJNS1_28MatmulMultiCoreProgramConfigENS1_33MatmulMultiCoreReuseProgramConfigENS1_42MatmulMultiCoreReuseMultiCastProgramConfigENS1_44MatmulMultiCoreReuseMultiCast1DProgramConfigENS1_53MatmulMultiCoreReuseMultiCastDRAMShardedProgramConfigENS1_60MatmulMultiCoreReuseMultiCastBatchedDRAMShardedProgramConfigEEEERKS7_IKSJ_IJNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEENS0_5unary19BasicUnaryWithParamIJfEEEEEES7_IKNS_19ComputeKernelConfigEES7_IKNS_5types8CoreGridEERKS7_IKNS3_4TileEES7_IS4_ERKS7_IKNS3_12experimental20GlobalCircularBufferEERKS7_IN4ttsl10StrongTypeIhNS3_14SubDeviceIdTagEEEE+0x333) [0x76ec09d7d3e3]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/_ttnn.cpython-310-x86_64-linux-gnu.so(+0x3f7549) [0x76ec0a9f7549]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/_ttnn.cpython-310-x86_64-linux-gnu.so(+0x3f72b7) [0x76ec0a9f72b7]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/_ttnn.cpython-310-x86_64-linux-gnu.so(+0x26f895) [0x76ec0a86f895]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x115) [0x648b7745d7d5]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x3a2626) [0x648b77491626]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0xa185) [0x648b773bf4b5]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x648b773602d2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x115) [0x648b7745d7d5]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x3a2626) [0x648b77491626]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x2fcea2) [0x648b773ebea2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x3db8) [0x648b773b90e8]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x648b773602d2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x2fccb9) [0x648b773ebcb9]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x42fa) [0x648b773b962a]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x648b773602d2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x2fccb9) [0x648b773ebcb9]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x42fa) [0x648b773b962a]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x3d4544) [0x648b774c3544]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x40a183) [0x648b774f9183]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x1b3592) [0x648b772a2592]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_SimpleFileObject+0x109) [0x648b772a20c9]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_AnyFileObject+0xa5) [0x648b772a1ac5]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x1bcd89) [0x648b772abd89]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x1bc8f2) [0x648b772ab8f2]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_RunMain+0x680) [0x648b77504b70]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x148028) [0x648b77237028]
+ --- /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x76ec4e42a1ca]
+ --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x76ec4e42a28b]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x345cdb) [0x648b77434cdb]
+
+benchlock: opendde-to-4x released, rc=1, loadavg 1.69 0.91 0.64
+RC=1

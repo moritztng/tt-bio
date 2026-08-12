@@ -1,0 +1,82 @@
+benchlock: opendde-to-4x acquired after 0s, loadavg 0.08 0.15 0.10
+2026-08-12 14:02:44.415 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+=== cold fold (JIT + program cache; discarded) ===
+2026-08-12 14:04:07.105 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3394048 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+2026-08-12 14:04:07.114 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2343424 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+  cold 97.92s n_tokens=512 n_atoms=4117 plddt=0.754131
+
+=== run 0: instrumented fold 91.788s  plddt 0.754131 n_tokens 512 n_atoms 4117 ===
+  top:model.fold                                    1 calls    91.716 s  91715.860 ms/call   99.92 %
+  block:PairformerLayer                           608 calls    72.630 s    119.458 ms/call   79.13 %
+  top:trunk                                         1 calls    71.803 s  71802.569 ms/call   78.23 %
+  stage:Pairformer                                 12 calls    65.973 s   5497.752 ms/call   71.88 %
+  body:TriangleMultiplication                    1216 calls    27.321 s     22.468 ms/call   29.76 %
+  body:TriangleAttention                         1216 calls    24.355 s     20.029 ms/call   26.53 %
+  body:Transition[4d,c=384]                       528 calls    15.363 s     29.096 ms/call   16.74 %
+  top:rollout                                       1 calls    12.230 s  12230.456 ms/call   13.32 %
+  diff:denoise                                    200 calls    12.166 s     60.832 ms/call   13.25 %
+  dm:token_dit_device                             200 calls     8.895 s     44.474 ms/call    9.69 %
+  body:AttentionPairBias                         5288 calls     7.450 s      1.409 ms/call    8.12 %
+  trunk:msa                                        10 calls     6.542 s    654.195 ms/call    7.13 %
+  top:expand_and_refine                             1 calls     3.680 s   3680.317 ms/call    4.01 %
+  dm:atom_transformer                             401 calls     2.780 s      6.933 ms/call    3.03 %
+  trunk:template                                   10 calls     1.651 s    165.087 ms/call    1.80 %
+  top:confidence                                    1 calls     1.568 s   1568.292 ms/call    1.71 %
+  dm:adaln                                      13209 calls     1.459 s      0.110 ms/call    1.59 %
+  expander:call                                     1 calls     1.059 s   1059.206 ms/call    1.15 %
+  body:OuterProductMean                            40 calls     0.878 s     21.952 ms/call    0.96 %
+  top:diffusion_pair_cond                           1 calls     0.810 s    810.482 ms/call    0.88 %
+  cond:dit_z_device                                 1 calls     0.482 s    482.417 ms/call    0.53 %
+  body:PairWeightedAveraging                       40 calls     0.425 s     10.615 ms/call    0.46 %
+  body:Transition[4d,c=64]                         80 calls     0.242 s      3.029 ms/call    0.26 %
+  top:plm_z_term                                    1 calls     0.132 s    132.343 ms/call    0.14 %
+  dm:dit_block_biases                               1 calls     0.114 s    114.275 ms/call    0.12 %
+  body:Transition[3d,c=384]                       888 calls     0.105 s      0.118 ms/call    0.11 %
+  dm:atom_cond                                    200 calls     0.100 s      0.502 ms/call    0.11 %
+  top:input_aae                                     1 calls     0.069 s     69.406 ms/call    0.08 %
+  body:Transition[4d,c=128]                        42 calls     0.061 s      1.451 ms/call    0.07 %
+  expander:pair_project_full                        8 calls     0.045 s      5.585 ms/call    0.05 %
+  top:diff_feat.p_lm                                2 calls     0.008 s      4.113 ms/call    0.01 %
+  trunk:trunk_input                                 1 calls     0.007 s      7.174 ms/call    0.01 %
+  host:build_structural_token_features              1 calls     0.004 s      4.102 ms/call    0.00 %
+  top:diff_feat.c_l                                 2 calls     0.001 s      0.284 ms/call    0.00 %
+
+=== run 1: instrumented fold 91.801s  plddt 0.754131 n_tokens 512 n_atoms 4117 ===
+  top:model.fold                                    1 calls    91.729 s  91728.740 ms/call   99.92 %
+  block:PairformerLayer                           608 calls    72.611 s    119.426 ms/call   79.10 %
+  top:trunk                                         1 calls    71.781 s  71781.483 ms/call   78.19 %
+  stage:Pairformer                                 12 calls    65.964 s   5496.983 ms/call   71.86 %
+  body:TriangleMultiplication                    1216 calls    27.331 s     22.476 ms/call   29.77 %
+  body:TriangleAttention                         1216 calls    24.349 s     20.024 ms/call   26.52 %
+  body:Transition[4d,c=384]                       528 calls    15.369 s     29.108 ms/call   16.74 %
+  top:rollout                                       1 calls    12.224 s  12224.174 ms/call   13.32 %
+  diff:denoise                                    200 calls    12.165 s     60.827 ms/call   13.25 %
+  dm:token_dit_device                             200 calls     8.903 s     44.515 ms/call    9.70 %
+  body:AttentionPairBias                         5288 calls     7.449 s      1.409 ms/call    8.11 %
+  trunk:msa                                        10 calls     6.535 s    653.522 ms/call    7.12 %
+  top:expand_and_refine                             1 calls     3.687 s   3687.207 ms/call    4.02 %
+  dm:atom_transformer                             401 calls     2.777 s      6.926 ms/call    3.03 %
+  trunk:template                                   10 calls     1.645 s    164.478 ms/call    1.79 %
+  top:confidence                                    1 calls     1.575 s   1574.729 ms/call    1.72 %
+  dm:adaln                                      13209 calls     1.466 s      0.111 ms/call    1.60 %
+  expander:call                                     1 calls     1.065 s   1065.449 ms/call    1.16 %
+  body:OuterProductMean                            40 calls     0.877 s     21.936 ms/call    0.96 %
+  top:diffusion_pair_cond                           1 calls     0.811 s    811.145 ms/call    0.88 %
+  cond:dit_z_device                                 1 calls     0.484 s    484.469 ms/call    0.53 %
+  body:PairWeightedAveraging                       40 calls     0.424 s     10.607 ms/call    0.46 %
+  body:Transition[4d,c=64]                         80 calls     0.240 s      3.000 ms/call    0.26 %
+  top:plm_z_term                                    1 calls     0.132 s    132.487 ms/call    0.14 %
+  dm:dit_block_biases                               1 calls     0.114 s    113.773 ms/call    0.12 %
+  body:Transition[3d,c=384]                       888 calls     0.101 s      0.114 ms/call    0.11 %
+  dm:atom_cond                                    200 calls     0.101 s      0.504 ms/call    0.11 %
+  top:input_aae                                     1 calls     0.072 s     72.253 ms/call    0.08 %
+  body:Transition[4d,c=128]                        42 calls     0.061 s      1.446 ms/call    0.07 %
+  expander:pair_project_full                        8 calls     0.046 s      5.759 ms/call    0.05 %
+  top:diff_feat.p_lm                                2 calls     0.008 s      4.113 ms/call    0.01 %
+  trunk:trunk_input                                 1 calls     0.007 s      7.186 ms/call    0.01 %
+  host:build_structural_token_features              1 calls     0.004 s      4.147 ms/call    0.00 %
+  top:diff_feat.c_l                                 2 calls     0.001 s      0.285 ms/call    0.00 %
+wrote perf/odde4x/decomp_512.json
+benchlock: opendde-to-4x released, rc=0, loadavg 1.55 0.96 0.47
+RC=0
