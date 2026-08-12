@@ -947,12 +947,29 @@ def _detect_p300_devices() -> list[int]:
 
 
 def _find_ttnn_mesh_graph_descriptor(filename: str) -> str | None:
+    """Locate a fabric mesh-graph descriptor shipped with the installed tt-metal.
+
+    The pip wheel vendors these inside the ttnn package; a source build keeps them in the
+    tt-metal checkout, with ttnn imported from ``<checkout>/ttnn/ttnn``. Searching only the
+    wheel location returned None on every source build, and a lone P300 chip cannot open
+    without a descriptor, so ``TT_VISIBLE_DEVICES=<one chip>`` failed outright with "Custom
+    fabric mesh graph descriptor path must be specified for CUSTOM cluster type". That is
+    the ordinary one-card-per-worker pinning, unusable on a source-built P300 host.
+    """
     spec = importlib.util.find_spec("ttnn")
     if spec is None or not spec.submodule_search_locations:
         return None
     ttnn_root = Path(next(iter(spec.submodule_search_locations)))
-    descriptor = ttnn_root / "tt_metal" / "fabric" / "mesh_graph_descriptors" / filename
-    return str(descriptor) if descriptor.is_file() else None
+    roots = [ttnn_root]                       # wheel: ttnn/tt_metal/fabric/...
+    metal_home = os.environ.get("TT_METAL_HOME")
+    if metal_home:
+        roots.append(Path(metal_home))
+    roots.extend(ttnn_root.parents[:2])       # source: <checkout>/ttnn/ttnn -> <checkout>
+    for root in roots:
+        descriptor = root / "tt_metal" / "fabric" / "mesh_graph_descriptors" / filename
+        if descriptor.is_file():
+            return str(descriptor)
+    return None
 
 
 def _build_worker_device_assignments(devices: list[int]) -> dict[int, dict[str, object]]:
