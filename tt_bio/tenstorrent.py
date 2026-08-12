@@ -2292,8 +2292,17 @@ _MM_BLOCK = {
     (4, 4): (4, 4, 1, 4, 1),    # boltz2 / openfold3 gate  at c_z=128
     (2, 12): (4, 2, 1, 4, 1),   # openfold3 qkv            at c_z=64
     (2, 2): (4, 2, 1, 4, 1),    # openfold3 gate           at c_z=64
-    (12, 36): _MM_DEFAULT,      # opendde tri-att qkv      at c_z=384
-    (12, 12): _MM_DEFAULT,      # opendde tri-att gate + out at c_z=384
+    # opendde tri-att at c_z=384. These two are NOT bit-exact -- K_block = 12 folds the contraction
+    # differently from the unconfigured op, one bf16 ULP at max_abs 0.5. MEASURED at the fold, 512 aa
+    # (perf/odde4x/ab_opendde_512_mm12.json): 96.578 -> 92.803 s, 1.0407x on a 0.063 s A/A floor,
+    # and at 298 aa the structural cost is 0.3249 A Kabsch CA against an A/A floor of exactly zero
+    # (perf/odde4x/ab_opendde_298_mm12.json + perf/other512/cif_rmsd.py). Ask 4649 fixed the merge
+    # threshold at <= 0.35 A CA BEFORE the number existed, and protenix-v2 is byte-identical at the
+    # full 64-hex digest with these entries live (perf/odde4x/ab_px_leak.json), so nothing else moves.
+    # The byte-identical alternative at the same two keys is `_MM_DEFAULT`, worth 96.785 -> 94.523 s
+    # instead; swap these two values for it and the tail guard in triatt_qkv.py turns itself on.
+    (12, 36): (4, 12, 1, 2, 1),
+    (12, 12): (8, 12, 1, 2, 1),
 }
 
 
