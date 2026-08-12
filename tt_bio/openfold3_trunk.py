@@ -43,7 +43,7 @@ from __future__ import annotations
 
 import ttnn
 
-from .tenstorrent import Module, Pairformer
+from .tenstorrent import Module, OF3_TRI_ATT_SDPA_CKC, Pairformer
 from .openfold3_weights import remap_pairformer_stack, _sub
 from .openfold3_template import TemplateEmbedder
 from .openfold3_msa_embedder import MSAModuleEmbedder, MSAModule
@@ -123,11 +123,9 @@ class OF3Trunk(Module):
         self.num_cycles = num_cycles
         self.glue = OF3TrunkGlue(state_dict, compute_kernel_config)
         pf_sd = remap_pairformer_stack(state_dict, prefix="pairformer_stack")
-        # scale_pair_bias=False: openfold3 adds the attention pair bias UNSCALED (q
-        # pre-scaled by 1/sqrt(d)); the shared default sqrt(d) fold is Boltz's.
         self.pairformer = Pairformer(
             _N_PAIRFORMER_BLOCKS, *_PF_DIMS, True, pf_sd, compute_kernel_config,
-            scale_pair_bias=False, fp32_softmax=True)
+            tri_att_sdpa_ckc=OF3_TRI_ATT_SDPA_CKC)
         self.template = TemplateEmbedder(
             _sub(state_dict, "template_embedder"), compute_kernel_config)
         self.msa_embedder = MSAModuleEmbedder(

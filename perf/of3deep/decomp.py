@@ -15,7 +15,7 @@ Nesting is real and is reported, not silently summed: `diffusion:rollout` CONTAI
 the NPE / encoder / DiT / decoder rows. `sum_children` per parent is printed so containment can be
 checked instead of assumed.
 """
-import argparse, json, os, sys, time
+import argparse, json, os, shutil, sys, time
 from collections import defaultdict
 from pathlib import Path
 
@@ -69,6 +69,7 @@ def main():
     ap.add_argument("--repeat", type=int, default=1)
     ap.add_argument("--fixdir", type=Path, default=ROOT / "perf" / "size512" / "fixtures")
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--keep-cif", type=Path, default=None)
     a = ap.parse_args()
 
     import ttnn
@@ -86,6 +87,7 @@ def main():
     B.SAMPLING_STEPS = _resolve_sampling_steps(None, "openfold3")
 
     # ---- the timers -------------------------------------------------------------------------
+    import tt_bio.triatt_sdpa as TS
     import tt_bio.openfold3_fold as OF
     import tt_bio.openfold3_trunk as TR
     import tt_bio.openfold3_template as TP
@@ -187,6 +189,17 @@ def main():
                               for p in sorted(struct_dir.glob("*")) if p.is_file()},
                "loadavg": open("/proc/loadavg").read().split()[:3],
                "regions": rows}
+        if a.keep_cif is not None:
+            dst = a.keep_cif / f"run{i}"
+            dst.mkdir(parents=True, exist_ok=True)
+            for f in sorted(struct_dir.glob("*")):
+                if f.is_file():
+                    shutil.copy2(f, dst / f.name)
+        # Which calls the persistent-mask fused SDPA actually served. The predicted band turns on
+        # whether the template stack's c_z=64 and the MSA shapes clear its gate, so count it rather
+        # than assume it.
+        rec["triatt_sdpa"] = {"served": TS.STATS[0], "declined": TS.STATS[1],
+                              "rejects": {f"{k[0]}:{list(k[1])}": v for k, v in TS.REJECTS.items()}}
         res["runs"].append(rec)
         a.out.parent.mkdir(parents=True, exist_ok=True)
         a.out.write_text(json.dumps(res, indent=1))

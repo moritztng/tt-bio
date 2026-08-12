@@ -20,7 +20,8 @@ from __future__ import annotations
 import ttnn
 
 from .tenstorrent import (
-    Module, OuterProductMean, PairWeightedAveraging, Transition, PairformerLayer,
+    Module, OF3_TRI_ATT_SDPA_CKC, OuterProductMean, PairWeightedAveraging, Transition,
+    PairformerLayer,
 )
 from .openfold3_weights import remap_msa_module
 
@@ -78,12 +79,9 @@ class MSAModuleBlock:
             self.pwa = PairWeightedAveraging(
                 *_MSA_AVG_DIMS, block_remap["pair_weighted_averaging"], ckc)
             self.msa_transition = Transition(block_remap["msa_transition"], ckc)
-        # scale_pair_bias=False: openfold3 adds the tri_att pair bias UNSCALED (q is
-        # pre-scaled by 1/sqrt(d)); the shared primitive's default sqrt(d) fold is the
-        # Boltz convention and was root-caused as the OF3 MSA z-track degradation.
         self.pair_stack = PairformerLayer(
             *_MSA_TRI_DIMS, None, None, False, block_remap["pair_stack"], ckc,
-            scale_pair_bias=False, fp32_softmax=True)
+            tri_att_sdpa_ckc=OF3_TRI_ATT_SDPA_CKC)
 
     def __call__(self, m, z):
         z = ttnn.add(z, self.opm(m, None, None))

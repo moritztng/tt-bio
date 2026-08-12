@@ -516,18 +516,37 @@ def _tri_att_q_chunks(q_len: int, k_len: int) -> tuple:
     return tuple(sorted(wider, reverse=True)) + (prod,)
 
 
-def _tri_att_sdpa(q, k, v, bias, scale: float):
+# The fused SDPA computes softmax(scale*(q@k^T + bias)) -- the scale lands on the mask too, because
+# compute_common.hpp adds the mask before sub_exp_block_bcast_cols_inplace applies the scale. Every
+# model that reaches it must therefore hand it a pair bias already multiplied by sqrt(head_dim),
+# which is what scale_pair_bias=True does. A model built with scale_pair_bias=False silently runs at
+# 1/sqrt(head_dim) of its intended bias weight: measured 27.347 A all-atom Kabsch on openfold3's
+# 512 aa fold against a 0.000 A A/A floor, and reproduced to 0.2 % in pure float64 with no device
+# involved (perf/of3_4x/s2_bias_scale.json). Assert it instead of documenting it.
+_FUSED_SDPA_BIAS_SCALE = (
+    "the fused SDPA computes softmax(scale*(qk+bias)); a model with scale_pair_bias=False "
+    "must not take this branch or its pair bias is divided by sqrt(head_dim)")
+
+# Compute kernel config for openfold3's triangle attention on the fused path, as
+# (math_fidelity, math_approx_mode, fp32_dest_acc_en, packer_l1_acc). Measured at 512 aa against a
+# float64 gold (perf/of3_4x/s2_bias_scale.json): the op default (HiFi2, no fp32 dst) lands rmsd/std
+# 0.027023, this lands 0.022279, and _fp32_softmax_attention -- the path openfold3 shipped before --
+# lands 0.026320. So this is the accurate arm, not a concession. +0.307 ms/call at 512 aa.
+OF3_TRI_ATT_SDPA_CKC = (ttnn.MathFidelity.HiFi4, False, True, False)
+
+
+def _tri_att_sdpa(q, k, v, bias, scale: float, ckc=None):
     """SDPA for triangle attention at the widest q_chunk this device's L1 will hold."""
     if _TRIATT_BIAS_B8 and bias is not None and bias.dtype != ttnn.bfloat8_b:
         b8 = ttnn.typecast(bias, ttnn.bfloat8_b)
         try:
-            return _tri_att_sdpa_at(q, k, v, b8, scale)
+            return _tri_att_sdpa_at(q, k, v, b8, scale, ckc)
         finally:
             ttnn.deallocate(b8)
-    return _tri_att_sdpa_at(q, k, v, bias, scale)
+    return _tri_att_sdpa_at(q, k, v, bias, scale, ckc)
 
 
-def _tri_att_sdpa_at(q, k, v, bias, scale: float):
+def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None):
     q_len, k_len = q.shape[2], k.shape[2]
     k_chunk = _sdpa_chunks_shipped(q_len, k_len)[1]
     fits = [qc for qc in _tri_att_q_chunks(q_len, k_len)
@@ -536,7 +555,7 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float):
     # preference order as the stock loop below -- `fits` is widest first, production pick last, and
     # the wide q_chunk is worth 1.08-1.81x on its own, so K2 must not silently take the narrow one.
     for q_chunk in fits:
-        o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk)
+        o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=ckc)
         if o is not None:
             return o
     for q_chunk in fits[:-1]:
@@ -2326,20 +2345,24 @@ class TriangleAttention(Module):
         affinity: bool = False,
         scale_pair_bias: bool = True,
         fp32_softmax: bool = False,
+        tri_att_sdpa_ckc: tuple | None = None,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.head_dim = head_dim
         self.n_heads = n_heads
         self.ending = ending
+        # None = the fused op's own default. Setting it also opts AttentionPairBias into the
+        # persistent-mask fused SDPA; see OF3_TRI_ATT_SDPA_CKC.
+        self._tri_att_sdpa_ckc = tri_att_sdpa_ckc
         self.affinity = affinity
         self.fp32_softmax = fp32_softmax
         self.scale = self.head_dim**0.5
-        # Boltz/Protenix fold sqrt(head_dim) into the pair-bias projection (their
-        # reference adds the bias pre-scaled); openfold3 pre-scales q by 1/sqrt(d) and
-        # adds the pair bias UNSCALED (triangular_attention.py + primitives/attention.py
-        # _prep_qkv). The folded form makes the OF3 tri_att softmax sqrt(d)~5.7x too
-        # peaky -- the root cause behind the OF3 MSA pair_stack z-track degradation
-        # (fp32 A/B vs the reference golden: 0.892 folded vs 1.000000 unscaled).
+        # Fold sqrt(head_dim) into the pair-bias projection. Boltz/Protenix reference this
+        # directly. openfold3's reference adds the bias unscaled, and _fp32_softmax_attention
+        # undoes the fold via bias_scale_inv to match it -- but the FUSED SDPA cannot, because it
+        # applies the scale after the mask is already added, so it needs the fold to be present.
+        # Every model that can reach the fused path must therefore pass scale_pair_bias=True; see
+        # _FUSED_SDPA_BIAS_SCALE.
         self._bias_scale = self.scale if scale_pair_bias else 1.0
         # nlp_concat_heads pads each head's channel dim up to a 32-tile boundary, so at
         # a sub-tile head_dim it
@@ -2483,7 +2506,8 @@ class TriangleAttention(Module):
                     bias_scale_inv=1.0 / self._bias_scale,
                 )
             else:
-                o = _tri_att_sdpa(q, k, v, bias, self.scale**-1)
+                assert self._bias_scale != 1.0, _FUSED_SDPA_BIAS_SCALE
+                o = _tri_att_sdpa(q, k, v, bias, self.scale**-1, self._tri_att_sdpa_ckc)
             ttnn.deallocate(q)
             ttnn.deallocate(k)
             ttnn.deallocate(v)
@@ -2651,9 +2675,11 @@ class AttentionPairBias(Module):
         fp32_raw_matmul_attention: bool = False,
         scale_pair_bias: bool = True,
         fp32_softmax: bool = False,
+        tri_att_sdpa_ckc: tuple | None = None,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.fp32_softmax = fp32_softmax
+        self._tri_att_sdpa_ckc = tri_att_sdpa_ckc
         self.head_dim = head_dim
         self.dtype = dtype if dtype is not None else _dtype(ttnn.bfloat16)
         self.fp32_raw_matmul_attention = fp32_raw_matmul_attention
@@ -2701,9 +2727,8 @@ class AttentionPairBias(Module):
         if compute_pair_bias:
             self.z_norm_weight = self.torch_to_tt("proj_z.0.weight", dtype=self.dtype)
             self.z_norm_bias = self.torch_to_tt("proj_z.0.bias", dtype=self.dtype)
-            # Boltz/Protenix scale the pair bias by sqrt(head_dim); openfold3 adds it
-            # unscaled (q is pre-scaled by 1/sqrt(d) in the reference Attention). OF3
-            # construction sites pass scale_pair_bias=False.
+            # sqrt(head_dim) folded into the z projection, so the fused SDPA's
+            # softmax(scale*(qk+bias)) is the right computation; see _FUSED_SDPA_BIAS_SCALE.
             self._bias_scale = self.head_dim**0.5 if scale_pair_bias else 1.0
             self.z_weight = ttnn.multiply_(
                 self.torch_to_tt("proj_z.1.weight", dtype=self.dtype),
@@ -2737,13 +2762,12 @@ class AttentionPairBias(Module):
         if (_FP32_SOFTMAX or self.fp32_softmax) and self.dtype != ttnn.float32:
             # Gate on: fp32 softmax reduction, bf16 operands/storage (reference recipe).
             #
-            # Do not reroute this to the fused SDPA to skip the re-materialisation traffic. It is
-            # worth 1.37x on the openfold3 512 aa fold (107.489 -> 78.205 s) and it changes the
-            # answer: all-atom Kabsch RMSD 27.347 A against this path on a 0.000 A A/A floor, and
-            # plDDT 0.547851 -> 0.439598. Flipping only the MSA and template stacks is worth 1.05x
-            # and still moves the structure 7.611 A. The compute kernel config cannot rescue it:
-            # sdpa_generic keeps the exponentiated scores in a bf16 circular buffer, so
-            # fp32_dest_acc never reaches them. Measured: perf/other512/ab_of3_sites_512.json.
+            # The 27.347 A that this comment used to blame on a bf16 circular buffer was a
+            # bias-weighting defect, not a precision one: the fused op needs the pair bias
+            # pre-scaled by sqrt(head_dim) (_FUSED_SDPA_BIAS_SCALE). Widening sdpa_generic's
+            # intermediate CBs to fp32 recovers nothing -- it makes the error worse, PCC 0.456
+            # against bf16's 0.734, and refuses L1 above k_chunk=128
+            # (perf/of3_4x/s1_fp32_cb_sdpa.json). Do not re-open that route.
             return _fp32_softmax_attention(
                 q, k, v, bias,
                 scale_inv=self.head_dim ** -0.5,
@@ -2752,6 +2776,13 @@ class AttentionPairBias(Module):
                 bias_scale_inv=1.0 / self._bias_scale,
             )
         if self.dtype != ttnn.float32:
+            if self._tri_att_sdpa_ckc is not None:
+                # Opted in: take the persistent-mask fused op and the wide q_chunk that
+                # TriangleAttention already takes. The stock op below re-reads the whole pair bias
+                # once per batch row -- 3.267 ms/call at 512 aa against the fused op's 1.376 ms.
+                assert getattr(self, "_bias_scale", None) != 1.0, _FUSED_SDPA_BIAS_SCALE
+                return _tri_att_sdpa(
+                    q, k, v, bias, self.head_dim**-0.5, self._tri_att_sdpa_ckc)
             return ttnn.transformer.scaled_dot_product_attention(
                 q,
                 k,
@@ -3113,6 +3144,7 @@ class PairformerLayer(Module):
         scale_pair_bias: bool = True,
         fp32_softmax: bool = False,
         gated_move: bool = False,
+        tri_att_sdpa_ckc: tuple | None = None,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.transform_s = transform_s
@@ -3131,6 +3163,7 @@ class PairformerLayer(Module):
             affinity=affinity,
             scale_pair_bias=scale_pair_bias,
             fp32_softmax=fp32_softmax,
+            tri_att_sdpa_ckc=tri_att_sdpa_ckc,
         )
         self.triangle_attention_end = TriangleAttention(
             tri_att_head_dim,
@@ -3141,6 +3174,7 @@ class PairformerLayer(Module):
             affinity=affinity,
             scale_pair_bias=scale_pair_bias,
             fp32_softmax=fp32_softmax,
+            tri_att_sdpa_ckc=tri_att_sdpa_ckc,
         )
         self.transition_z = Transition(
             self.scope("transition_z"), compute_kernel_config
@@ -3157,6 +3191,7 @@ class PairformerLayer(Module):
                 compute_kernel_config,
                 scale_pair_bias=scale_pair_bias,
                 fp32_softmax=fp32_softmax,
+                tri_att_sdpa_ckc=tri_att_sdpa_ckc,
             )
             self.transition_s = Transition(
                 self.scope("transition_s"), compute_kernel_config
@@ -3224,6 +3259,7 @@ class Pairformer(Module):
         scale_pair_bias: bool = True,
         fp32_softmax: bool = False,
         gated_move: bool = False,
+        tri_att_sdpa_ckc: tuple | None = None,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.blocks = [
@@ -3239,6 +3275,7 @@ class Pairformer(Module):
                 scale_pair_bias=scale_pair_bias,
                 fp32_softmax=fp32_softmax,
                 gated_move=gated_move,
+                tri_att_sdpa_ckc=tri_att_sdpa_ckc,
             )
             for i in range(n_blocks)
         ]
