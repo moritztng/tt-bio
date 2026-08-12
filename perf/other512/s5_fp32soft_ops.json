@@ -1,0 +1,81 @@
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "shape": {
+  "B": 512,
+  "H": 4,
+  "S": 512,
+  "D": 32
+ },
+ "roof_GBps": 388.0,
+ "ops": [
+  {
+   "op": "permute k",
+   "ms": 0.3618,
+   "GB": 0.1342,
+   "GBps": 371.0,
+   "pct_of_roof": 95.6
+  },
+  {
+   "op": "matmul q@kT -> bf16",
+   "ms": 7.1119,
+   "GB": 1.208,
+   "GBps": 169.9,
+   "pct_of_roof": 43.8
+  },
+  {
+   "op": "typecast bf16->fp32",
+   "ms": 8.8028,
+   "GB": 3.2212,
+   "GBps": 365.9,
+   "pct_of_roof": 94.3
+  },
+  {
+   "op": "multiply by scale",
+   "ms": 10.7861,
+   "GB": 4.295,
+   "GBps": 398.2,
+   "pct_of_roof": 102.6
+  },
+  {
+   "op": "add bias",
+   "ms": 14.5483,
+   "GB": 4.2992,
+   "GBps": 295.5,
+   "pct_of_roof": 76.2
+  },
+  {
+   "op": "softmax fp32",
+   "ms": 10.9485,
+   "GB": 4.295,
+   "GBps": 392.3,
+   "pct_of_roof": 101.1
+  },
+  {
+   "op": "typecast fp32->bf16",
+   "ms": 7.1809,
+   "GB": 3.2212,
+   "GBps": 448.6,
+   "pct_of_roof": 115.6
+  },
+  {
+   "op": "matmul attn@v",
+   "ms": 3.0079,
+   "GB": 1.208,
+   "GBps": 401.6,
+   "pct_of_roof": 103.5
+  }
+ ],
+ "rewrite_probes": {
+  "add_alpha": {
+   "ok": false,
+   "error": "TypeError: \nttnn.add(): incompatible function arguments.\n\nCalled with:\n  add(ttnn.Tensor, ttnn.Tensor, alpha=0.1767766952966369)\n\nAvailable signatures:\n  add(input_tensor_a: ttnn.Tensor, input_tensor_b: float, *, dtype: ttnn.DataTy"
+  },
+  "matmul_fp32_out": {
+   "ok": true,
+   "dtype": "DataType.FLOAT32",
+   "ms": 11.986
+  }
+ },
+ "sum_ms": 62.7482
+}

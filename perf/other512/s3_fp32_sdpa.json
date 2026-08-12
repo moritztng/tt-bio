@@ -1,0 +1,42 @@
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "grid": [
+  11,
+  10
+ ],
+ "shape": {
+  "B": 512,
+  "H": 4,
+  "S": 512,
+  "D": 32
+ },
+ "rows": [
+  {
+   "dtype": "bf16",
+   "bytes_per_call_GB": 0.2705,
+   "k2": {
+    "served": true,
+    "ms": 1.4016
+   },
+   "stock": {
+    "ok": true,
+    "ms": 3.2926
+   }
+  },
+  {
+   "dtype": "fp32",
+   "bytes_per_call_GB": 0.5411,
+   "k2": {
+    "served": false,
+    "rejects": {
+     "dtype:(512, 4, 512, 32)": 1
+    }
+   },
+   "stock": {
+    "ok": false,
+    "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/transformer/sdpa/device/sdpa_device_operation.cpp:44: input_tensor->dtype() == DataType::BFLOAT16 || input_tensor->dtype() == DataType::BFLOAT8_B || input_tensor->dtype() == DataType::BFLOAT4_B\ninfo:\nData type of input tensor must be BFLOAT16, BFLOAT8_B, "
+   }
+  }
+ ]
+}
