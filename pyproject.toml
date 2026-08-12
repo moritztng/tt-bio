@@ -86,11 +86,14 @@ include = ["tt_bio*"]
 "tt_bio.boltzgen.resources" = ["*.json"]
 "tt_bio.boltzgen.resources.config" = ["*.yaml"]
 "tt_bio.boltzgen.resources.splits" = ["*.txt"]
-# reblock_permute kernel sources: tt_bio/reblock_permute.py loads them by path
-# (KERNEL_DIR) as ttnn.generic_op kernel_source on the DEFAULT path, so a clean
-# install without them crashes on the first eligible permute. Attached to the
-# tt_bio package because tt_bio/kernels/ is not itself a package.
-"tt_bio" = ["kernels/reblock_permute/*.cpp"]
+# kernel sources: tt_bio/reblock_permute.py, tt_bio/mm_generic.py (triatt /
+# triatt_sdpa / trimul fused kernels) and friends load them by path
+# (KERNEL_DIR, ttnn KernelDescriptor FILE_PATH) on the DEFAULT path, so a clean
+# install without them crashes on the first eligible call. Attached to the
+# tt_bio package because tt_bio/kernels/ is not itself a package. Recursive
+# globs so a NEW kernel dir cannot silently drop out of the wheel again
+# (the v0.3.3 / reblock_permute / triatt_sdpa bug class).
+"tt_bio" = ["kernels/**/*.cpp", "kernels/**/*.hpp"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
