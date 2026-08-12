@@ -31,7 +31,7 @@ So this harness is that one generalised on exactly three axes and nothing else:
 A lever that reports `served 0, declined 0` is UNTESTED, not inactive -- the counters distinguish
 "gated off with a reason" from "fired and did nothing", which is the whole point of Phase 0.
 """
-import argparse, hashlib, json, statistics as st, sys, time
+import argparse, hashlib, json, shutil, statistics as st, sys, time
 from collections import defaultdict, Counter
 from pathlib import Path
 
@@ -43,6 +43,25 @@ WALL = defaultdict(lambda: {"n": 0, "s": 0.0})
 DEC = defaultdict(Counter)
 STATE = {"dev": None, "model": None}
 FP32_OWNERS: list = []
+# id(module) -> "trunk" | "msa" | "template" | "confidence". Populated AFTER the cold fold,
+# because `OF3Fold.confidence_head` is None until the first `_confidence()` call
+# (openfold3_fold.py:200,250-252) -- collecting before it exists silently leaves the head's
+# 8 calls unflipped on every arm, which reads as "K2 declined 8" and is not that at all.
+OWNED: dict = {}
+CALLS = Counter()      # (owner, class, c_z, fp32_softmax) -> calls, reset per arm
+
+
+def _collect_owned(model):
+    """Partition the fp32_softmax modules by the site that owns them."""
+    OWNED.clear()
+    t = getattr(model, "trunk", None)
+    for label, root in (("trunk", getattr(t, "pairformer", None)),
+                        ("msa", getattr(t, "msa_module", None)),
+                        ("template", getattr(t, "template", None)),
+                        ("confidence", getattr(model, "confidence_head", None))):
+        for m in _collect_fp32(root):
+            OWNED.setdefault(id(m), label)          # first owner wins, no double-count
+    return OWNED
 
 
 def _collect_fp32(root, seen=None, depth=0):
@@ -70,7 +89,15 @@ def _collect_fp32(root, seen=None, depth=0):
     return out
 
 ARMS = ("on", "e6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hifi",
-        "nonewmm", "oldkey")
+        "nonewmm", "oldkey", "nofp32_trunk", "nofp32_msatmpl")
+
+# Which sites each arm routes onto the fused SDPA. The confidence head is never in a flip set:
+# it stays on `_fp32_softmax_attention` on every arm, deliberately, so plDDT reports on the
+# trunk embeddings rather than on its own perturbation.
+FLIP = {"nofp32":         {"trunk", "msa", "template"},
+        "nofp32hifi":     {"trunk", "msa", "template"},
+        "nofp32_trunk":   {"trunk"},
+        "nofp32_msatmpl": {"msa", "template"}}
 
 # The fused SDPA at full precision: fp32 accumulation in DST, exact exp, HiFi4 matmuls. MEASURED
 # off-fold at openfold3's own tri-att shape (perf/other512/s2_sdpa_precision.json): 1.7097 ms against
@@ -262,6 +289,31 @@ def main():
         patch(E2, "PairUpdateBlock", "block:PairUpdateBlock")
         patch(E2, "FoldingTrunkModel", "stage:FoldingTrunk")
 
+    # Per-owner CALL census. Module counts are not call counts -- 156 modules against 488 calls,
+    # because `attn_pair_bias` is flipped but is not a TriangleAttention and template blocks are
+    # re-entered once per template per cycle. Count calls, per owner, per c_z.
+    def census(mod, name):
+        cls = getattr(mod, name, None)
+        if cls is None or not hasattr(cls, "__call__"):
+            return
+        f = cls.__call__
+
+        def wrapped(self, *x, **k):
+            cz = None
+            for arg in x:
+                sh = getattr(arg, "shape", None)
+                if sh is not None and len(sh) >= 1:
+                    cz = int(sh[-1])
+                    break
+            CALLS[(OWNED.get(id(self), "unowned"), name, cz,
+                   bool(getattr(self, "fp32_softmax", False)))] += 1
+            return f(self, *x, **k)
+
+        cls.__call__ = wrapped
+
+    for nm in ("TriangleAttention", "AttentionPairBias"):
+        census(T, nm)
+
     def set_arm(name):
         """Every lever is written on every arm, so an arm provably runs its own state."""
         assert name in ARMS, f"unknown arm {name}"
@@ -303,8 +355,16 @@ def main():
                 T._MM_BLOCK[k] = (4, k[0], 1, 4, 1)
 
         # capacity gates stay at production defaults on every arm: they are not under test here
+        # `nofp32`/`nofp32hifi` flip every site except the confidence head, whatever the partition
+        # says, so they reproduce the predecessor's arm exactly even if a module is unowned. Only
+        # the two partial arms depend on OWNED being complete.
+        flip = FLIP.get(name, frozenset())
+        every_site = name in ("nofp32", "nofp32hifi")
         for mod in FP32_OWNERS:
-            mod.fp32_softmax = name not in ("nofp32", "nofp32hifi")
+            o = OWNED.get(id(mod), "unowned")
+            mod.fp32_softmax = (o == "confidence") or not (every_site or o in flip)
+        assert all(m.fp32_softmax for m in FP32_OWNERS
+                   if OWNED.get(id(m)) == "confidence"), "confidence head must stay fp32"
         PM._CKC_OVERRIDE = CKC_HIFI if name == "nofp32hifi" else None
 
         T._PAIR_PROJ_L1_OUT = T._PAIR_BIAS_L1_NORM = True
@@ -326,9 +386,6 @@ def main():
         one_fold, meta, state = B.build_fold(a.model, ROOT / f".msa_om512_{size}", tgt, a3m)
         STATE["dev"] = T.get_device()
         STATE["model"] = getattr(state, "model", None)
-        FP32_OWNERS[:] = _collect_fp32(STATE["model"])
-        res["fp32_softmax_modules"] = len(FP32_OWNERS)
-        print(f"  fp32_softmax attention modules: {len(FP32_OWNERS)}", flush=True)
         g = STATE["dev"].compute_with_storage_grid_size()
         res["grid"] = [g.x, g.y]
         res["compute_grid_main"] = list(T.COMPUTE_GRID_MAIN)
@@ -339,6 +396,24 @@ def main():
             cold_s, cold_m = one_fold()
             print(f"  cold {cold_s:.2f}s n_tokens={cold_m.get('n_tokens')} "
                   f"plddt={cold_m.get('plddt')}", flush=True)
+            # ONLY now is the lazily-built confidence head present. Collect after the cold fold.
+            FP32_OWNERS[:] = _collect_fp32(STATE["model"])
+            _collect_owned(STATE["model"])
+            by_owner = Counter(OWNED.get(id(m), "unowned") for m in FP32_OWNERS)
+            res["fp32_softmax_modules"] = len(FP32_OWNERS)
+            res["fp32_modules_by_owner"] = dict(by_owner)
+            res["cold_call_census"] = {"|".join(map(str, k)): v for k, v in sorted(CALLS.items())}
+            print(f"  fp32_softmax attention modules: {len(FP32_OWNERS)} {dict(by_owner)}",
+                  flush=True)
+            for k, v in sorted(CALLS.items()):
+                print(f"      CENSUS {'|'.join(map(str, k)):48s} {v}", flush=True)
+            if by_owner["unowned"] or (a.model == "openfold3"
+                                       and set(by_owner) - {"unowned"} !=
+                                       {"trunk", "msa", "template", "confidence"}):
+                res["owner_partition_warning"] = dict(by_owner)
+                print(f"  WARNING partition incomplete: {dict(by_owner)} -- the two partial arms "
+                      f"are not interpretable; nofp32 still flips every non-confidence site",
+                      flush=True)
         except Exception as e:                                                  # noqa: BLE001
             import traceback; traceback.print_exc()
             res["runs"].append({"size": size, "arm": "cold",
@@ -346,9 +421,11 @@ def main():
             a.out.write_text(json.dumps(res, indent=1))
             continue
 
+        cif_keep = Path(__file__).resolve().parent / "cif"
+        run_ix = Counter()
         for arm in a.arms.split(","):
             set_arm(arm)
-            WALL.clear(); DEC.clear()
+            WALL.clear(); DEC.clear(); CALLS.clear()
             try:
                 fold_s, m = one_fold()
             except Exception as e:                                              # noqa: BLE001
@@ -391,6 +468,19 @@ def main():
                    "wall_ms": {k: {"calls": v["n"], "ms": round(v["s"] * 1e3, 2)}
                                for k, v in sorted(WALL.items(), key=lambda kv: -kv[1]["s"])},
                    "decisions": {k: dict(v) for k, v in sorted(DEC.items())}}
+            # Keep the CIFs. The RMSD question died last time because the files were gone.
+            run_ix[arm] += 1
+            keep = cif_keep / f"{size}_{arm}_{run_ix[arm]}"
+            keep.mkdir(parents=True, exist_ok=True)
+            for p in sorted(struct_dir.glob("*")):
+                if p.is_file():
+                    shutil.copy2(p, keep / p.name)
+            rec["cif_dir"] = str(keep.relative_to(ROOT))
+            rec["call_census"] = {"|".join(map(str, k)): v for k, v in sorted(CALLS.items())}
+            rec["fp32_on_by_owner"] = {
+                o: sorted({bool(getattr(m, "fp32_softmax", False))
+                           for m in FP32_OWNERS if OWNED.get(id(m)) == o})
+                for o in sorted(set(OWNED.values()))}
             for key, short in (("block:PairformerLayer", "block"),
                                ("block:PairUpdateBlock", "block"),
                                ("body:TriangleAttention", "triatt"),
@@ -402,6 +492,9 @@ def main():
             a.out.write_text(json.dumps(res, indent=1))
             print(f"  {arm}: fold {fold_s:.2f}s  block {rec.get('block_wall_ms')} ms over "
                   f"{rec.get('block_calls')} calls  plddt {m.get('plddt')}", flush=True)
+            print(f"      owners {rec['fp32_on_by_owner']}", flush=True)
+            for k, v in sorted(CALLS.items()):
+                print(f"      CENSUS {'|'.join(map(str, k)):48s} {v}", flush=True)
             print(f"      K1 {rec['head_major_qkv']['served']}/{rec['head_major_qkv']['declined']} "
                   f"{rec['head_major_qkv']['rejects']}  K2 {rec['persistent_mask']['served']}/"
                   f"{rec['persistent_mask']['declined']} {rec['persistent_mask']['rejects']}  "
