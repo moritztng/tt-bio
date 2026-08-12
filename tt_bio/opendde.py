@@ -18,7 +18,7 @@ import torch
 import ttnn
 
 from .protenix import _KeyedWeights
-from .tenstorrent import CONCAT_HOST_BYTES, _acc_append, _acc_concat, get_device
+from .tenstorrent import CONCAT_HOST_BYTES, _acc_concat, get_device
 
 # opendde/data/tokenizer.py
 STRUCTURAL_TOKEN_ROLES = {
@@ -255,7 +255,7 @@ class StructuralTokenExpander(_KeyedWeights):
         # reason _host_concat gives: a bf8 or fp32 round trip through torch bf16 would not be.
         host_z = (z_flat.dtype == ttnn.bfloat16
                   and Ns * Ns * self.c_z * 2 > CONCAT_HOST_BYTES)
-        z_chunks, ab_chunks = [], []
+        z_chunks, ab_chunks, live = [], [], []
         for start in range(0, Ns, chunk):
             end = min(start + chunk, Ns)
             row_index = torch.arange(start, end)
@@ -271,9 +271,21 @@ class StructuralTokenExpander(_KeyedWeights):
                 ttnn.reshape(z_dev, (end - start, Ns, self.c_z)), ttnn.TILE_LAYOUT)
             z_tile = ttnn.add(z_tile, self._pair_project_full(z_dev, role, row_index))
             z_tile = ttnn.add(z_tile, self._pair_init_bias(pf))
-            _acc_append(z_chunks, z_tile, host_z)
+            if host_z:
+                z_chunks.append(ttnn.to_torch(z_tile))
+                live.append(z_tile)      # freed together below, NOT one per iteration
+            else:
+                z_chunks.append(z_tile)
             ab_chunks.append(self._attn_bias(pf))
-        ttnn.deallocate(z_flat)          # free the row loop's biggest resident before uploading
+        # Free the row loop's residents before the upload, in one go at the end. Deallocating
+        # each chunk inside the loop instead lets the next iteration's tensors reuse its memory,
+        # and that -- not the host assembly, which is bit-identical (verified in a real fold,
+        # scripts/probe_zstruct_assembly.py: 8 blocks, (977,977,384), equal=True) -- is what moved
+        # 9i3p's structure. Freeing here keeps the loop's allocation pattern as it was and still
+        # leaves the heap empty for the upload, which is the whole point of the change.
+        for t in live:
+            ttnn.deallocate(t)
+        ttnn.deallocate(z_flat)
         z_struct = _acc_concat(z_chunks, -3, host_z)
         attn_bias = ab_chunks[0] if len(ab_chunks) == 1 else ttnn.concat(ab_chunks, dim=0)
         return s_inputs_struct, s_struct, z_struct, attn_bias
