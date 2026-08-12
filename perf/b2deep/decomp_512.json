@@ -1,0 +1,564 @@
+{
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "1",
+ "model": "boltz2",
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "timers_installed": [
+  "stage:Pairformer",
+  "block:PairformerLayer",
+  "body:TriangleMultiplication",
+  "body:TriangleAttention",
+  "body:AttentionPairBias",
+  "body:PairWeightedAveraging",
+  "stage:MSA",
+  "stage:Diffusion(dev)",
+  "stage:DiffusionTransformer",
+  "stage:Miniformer",
+  "stage:TrunkModule",
+  "stage:MSAModule",
+  "stage:PairformerModule",
+  "stage:DiffusionModule",
+  "stage:MiniformerModule",
+  "body:MSALayer",
+  "body:OuterProductMean",
+  "body:Transition",
+  "body:AdaLN",
+  "body:ConditionedTransitionBlock",
+  "body:MiniTriangularUpdate",
+  "block:DiffusionTransformerLayer",
+  "block:MiniformerLayer",
+  "stage:AtomDiffusion.sample",
+  "stage:ConfidenceModule",
+  "stage:DistogramModule",
+  "stage:InputEmbedder",
+  "host:prepare_features",
+  "host:write_result",
+  "host:predict_step",
+  "host:Boltz2.forward"
+ ],
+ "runs": [
+  {
+   "size": 512,
+   "arm": "on",
+   "fold_s": 25.999,
+   "n_tokens": null,
+   "plddt": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "fca25e32ea181ae2"
+   },
+   "reblock_fwd": [
+    true,
+    [
+     1120,
+     0
+    ]
+   ],
+   "reblock_back": [
+    true,
+    [
+     560,
+     0
+    ]
+   ],
+   "gated_kernel": [
+    false,
+    [
+     0,
+     0
+    ]
+   ],
+   "head_major_qkv": {
+    "enabled": true,
+    "served": 560,
+    "declined": 0,
+    "rejects": {},
+    "tail_enabled": true,
+    "tail_served": 560,
+    "tail_declined": 0,
+    "tail_rejects": {}
+   },
+   "persistent_mask": {
+    "enabled": true,
+    "served": 560,
+    "declined": 0,
+    "rejects": {}
+   },
+   "transpose_l1_headroom": 2.5,
+   "fp32_softmax_modules": 0,
+   "sdpa_ckc_override": null,
+   "fp32_softmax_on": [],
+   "pair_proj_mm": true,
+   "mm_block": {
+    "(2, 2)": [
+     4,
+     2,
+     1,
+     4,
+     1
+    ],
+    "(2, 12)": [
+     4,
+     2,
+     1,
+     4,
+     1
+    ],
+    "(4, 4)": [
+     4,
+     4,
+     1,
+     4,
+     1
+    ],
+    "(4, 12)": [
+     4,
+     4,
+     1,
+     4,
+     1
+    ],
+    "(8, 8)": [
+     4,
+     8,
+     1,
+     4,
+     1
+    ],
+    "(8, 24)": [
+     4,
+     8,
+     1,
+     4,
+     1
+    ]
+   },
+   "sdpa_q_chunk_over_l1": [],
+   "loadavg": [
+    "1.22",
+    "1.16",
+    "0.66"
+   ],
+   "wall_ms": {
+    "host:predict_step": {
+     "calls": 1,
+     "ms": 25710.6
+    },
+    "host:Boltz2.forward": {
+     "calls": 1,
+     "ms": 25706.27
+    },
+    "stage:TrunkModule": {
+     "calls": 1,
+     "ms": 13163.17
+    },
+    "block:PairformerLayer": {
+     "calls": 280,
+     "ms": 11834.2
+    },
+    "stage:Pairformer": {
+     "calls": 5,
+     "ms": 11194.38
+    },
+    "stage:AtomDiffusion.sample": {
+     "calls": 1,
+     "ms": 9262.65
+    },
+    "stage:DiffusionModule": {
+     "calls": 200,
+     "ms": 9081.01
+    },
+    "stage:Diffusion(dev)": {
+     "calls": 200,
+     "ms": 8495.15
+    },
+    "stage:DiffusionTransformer": {
+     "calls": 600,
+     "ms": 8284.8
+    },
+    "block:DiffusionTransformerLayer": {
+     "calls": 6000,
+     "ms": 7833.63
+    },
+    "body:TriangleMultiplication": {
+     "calls": 560,
+     "ms": 5777.41
+    },
+    "body:AttentionPairBias": {
+     "calls": 6264,
+     "ms": 4487.97
+    },
+    "body:TriangleAttention": {
+     "calls": 560,
+     "ms": 2875.04
+    },
+    "body:Transition": {
+     "calls": 960,
+     "ms": 2481.13
+    },
+    "body:ConditionedTransitionBlock": {
+     "calls": 6000,
+     "ms": 2056.17
+    },
+    "stage:MSA": {
+     "calls": 4,
+     "ms": 1983.63
+    },
+    "body:MSALayer": {
+     "calls": 16,
+     "ms": 1977.6
+    },
+    "body:AdaLN": {
+     "calls": 12000,
+     "ms": 1619.39
+    },
+    "stage:ConfidenceModule": {
+     "calls": 1,
+     "ms": 1215.01
+    },
+    "body:OuterProductMean": {
+     "calls": 16,
+     "ms": 661.91
+    },
+    "body:PairWeightedAveraging": {
+     "calls": 16,
+     "ms": 492.18
+    },
+    "stage:PairformerModule": {
+     "calls": 1,
+     "ms": 471.94
+    },
+    "host:prepare_features": {
+     "calls": 1,
+     "ms": 201.37
+    },
+    "stage:InputEmbedder": {
+     "calls": 1,
+     "ms": 109.99
+    },
+    "host:write_result": {
+     "calls": 1,
+     "ms": 80.42
+    },
+    "stage:DistogramModule": {
+     "calls": 1,
+     "ms": 31.44
+    }
+   },
+   "decisions": {
+    "l1_layer_norm|h=1.5|1x512x512x128": {
+     "L1": 264
+    },
+    "l1_layer_norm|h=1.5|512x512x128": {
+     "L1": 16
+    },
+    "pair_proj_out_l1|1x512x512x128@128": {
+     "L1": 1120
+    },
+    "pair_proj_out_l1|1x512x512x128@16": {
+     "L1": 264
+    },
+    "pair_proj_out_l1|512x512x128@1": {
+     "L1": 128
+    },
+    "qkv_mm_config|kt=4,nt=12": {
+     "config": 560
+    },
+    "qkv_mm_config|kt=4,nt=4": {
+     "config": 560
+    },
+    "transpose|512x512x128": {
+     "L1": 560
+    },
+    "tri_att_sdpa|q512k512": {
+     "q_chunk=512": 560
+    }
+   },
+   "block_wall_ms": 11834.2,
+   "block_calls": 280,
+   "triatt_wall_ms": 2875.04,
+   "triatt_calls": 560,
+   "trimul_wall_ms": 5777.41,
+   "trimul_calls": 560
+  },
+  {
+   "size": 512,
+   "arm": "on",
+   "fold_s": 25.866,
+   "n_tokens": null,
+   "plddt": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "fca25e32ea181ae2"
+   },
+   "reblock_fwd": [
+    true,
+    [
+     1120,
+     0
+    ]
+   ],
+   "reblock_back": [
+    true,
+    [
+     560,
+     0
+    ]
+   ],
+   "gated_kernel": [
+    false,
+    [
+     0,
+     0
+    ]
+   ],
+   "head_major_qkv": {
+    "enabled": true,
+    "served": 560,
+    "declined": 0,
+    "rejects": {},
+    "tail_enabled": true,
+    "tail_served": 560,
+    "tail_declined": 0,
+    "tail_rejects": {}
+   },
+   "persistent_mask": {
+    "enabled": true,
+    "served": 560,
+    "declined": 0,
+    "rejects": {}
+   },
+   "transpose_l1_headroom": 2.5,
+   "fp32_softmax_modules": 0,
+   "sdpa_ckc_override": null,
+   "fp32_softmax_on": [],
+   "pair_proj_mm": true,
+   "mm_block": {
+    "(2, 2)": [
+     4,
+     2,
+     1,
+     4,
+     1
+    ],
+    "(2, 12)": [
+     4,
+     2,
+     1,
+     4,
+     1
+    ],
+    "(4, 4)": [
+     4,
+     4,
+     1,
+     4,
+     1
+    ],
+    "(4, 12)": [
+     4,
+     4,
+     1,
+     4,
+     1
+    ],
+    "(8, 8)": [
+     4,
+     8,
+     1,
+     4,
+     1
+    ],
+    "(8, 24)": [
+     4,
+     8,
+     1,
+     4,
+     1
+    ]
+   },
+   "sdpa_q_chunk_over_l1": [],
+   "loadavg": [
+    "1.13",
+    "1.14",
+    "0.67"
+   ],
+   "wall_ms": {
+    "host:predict_step": {
+     "calls": 1,
+     "ms": 25572.8
+    },
+    "host:Boltz2.forward": {
+     "calls": 1,
+     "ms": 25570.74
+    },
+    "stage:TrunkModule": {
+     "calls": 1,
+     "ms": 13144.96
+    },
+    "block:PairformerLayer": {
+     "calls": 280,
+     "ms": 11831.3
+    },
+    "stage:Pairformer": {
+     "calls": 5,
+     "ms": 11190.94
+    },
+    "stage:AtomDiffusion.sample": {
+     "calls": 1,
+     "ms": 9235.88
+    },
+    "stage:DiffusionModule": {
+     "calls": 200,
+     "ms": 9053.84
+    },
+    "stage:Diffusion(dev)": {
+     "calls": 200,
+     "ms": 8488.82
+    },
+    "stage:DiffusionTransformer": {
+     "calls": 600,
+     "ms": 8279.27
+    },
+    "block:DiffusionTransformerLayer": {
+     "calls": 6000,
+     "ms": 7830.06
+    },
+    "body:TriangleMultiplication": {
+     "calls": 560,
+     "ms": 5785.3
+    },
+    "body:AttentionPairBias": {
+     "calls": 6264,
+     "ms": 4487.33
+    },
+    "body:TriangleAttention": {
+     "calls": 560,
+     "ms": 2871.96
+    },
+    "body:Transition": {
+     "calls": 960,
+     "ms": 2479.0
+    },
+    "body:ConditionedTransitionBlock": {
+     "calls": 6000,
+     "ms": 2056.33
+    },
+    "stage:MSA": {
+     "calls": 4,
+     "ms": 1986.09
+    },
+    "body:MSALayer": {
+     "calls": 16,
+     "ms": 1980.05
+    },
+    "body:AdaLN": {
+     "calls": 12000,
+     "ms": 1617.98
+    },
+    "stage:ConfidenceModule": {
+     "calls": 1,
+     "ms": 1166.35
+    },
+    "body:OuterProductMean": {
+     "calls": 16,
+     "ms": 663.48
+    },
+    "body:PairWeightedAveraging": {
+     "calls": 16,
+     "ms": 492.46
+    },
+    "stage:PairformerModule": {
+     "calls": 1,
+     "ms": 449.89
+    },
+    "host:prepare_features": {
+     "calls": 1,
+     "ms": 207.42
+    },
+    "stage:InputEmbedder": {
+     "calls": 1,
+     "ms": 98.36
+    },
+    "host:write_result": {
+     "calls": 1,
+     "ms": 80.91
+    },
+    "stage:DistogramModule": {
+     "calls": 1,
+     "ms": 31.13
+    }
+   },
+   "decisions": {
+    "l1_layer_norm|h=1.5|1x512x512x128": {
+     "L1": 264
+    },
+    "l1_layer_norm|h=1.5|512x512x128": {
+     "L1": 16
+    },
+    "pair_proj_out_l1|1x512x512x128@128": {
+     "L1": 1120
+    },
+    "pair_proj_out_l1|1x512x512x128@16": {
+     "L1": 264
+    },
+    "pair_proj_out_l1|512x512x128@1": {
+     "L1": 128
+    },
+    "qkv_mm_config|kt=4,nt=12": {
+     "config": 560
+    },
+    "qkv_mm_config|kt=4,nt=4": {
+     "config": 560
+    },
+    "transpose|512x512x128": {
+     "L1": 560
+    },
+    "tri_att_sdpa|q512k512": {
+     "q_chunk=512": 560
+    }
+   },
+   "block_wall_ms": 11831.3,
+   "block_calls": 280,
+   "triatt_wall_ms": 2871.96,
+   "triatt_calls": 560,
+   "trimul_wall_ms": 5785.3,
+   "trimul_calls": 560
+  }
+ ],
+ "fp32_softmax_modules": 0,
+ "grid": [
+  11,
+  10
+ ],
+ "compute_grid_main": [
+  11,
+  10
+ ],
+ "arm_medians": {
+  "512": {
+   "on": {
+    "fold_s": [
+     25.999,
+     25.866
+    ],
+    "block_ms": [
+     11834.2,
+     11831.3
+    ],
+    "plddt": [
+     null,
+     null
+    ],
+    "n": 2,
+    "fold_s_median": 25.932,
+    "fold_s_min": 25.866,
+    "fold_s_spread": 0.133,
+    "block_ms_median": 11832.75,
+    "block_ms_spread": 2.9
+   },
+   "aa_floor_fold_s": 0.133,
+   "aa_floor_block_ms": 2.9
+  }
+ }
+}

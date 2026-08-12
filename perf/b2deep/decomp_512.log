@@ -1,0 +1,47 @@
+benchlock: boltz2-512aa-deep-perf acquired after 0s, loadavg 0.78 1.05 0.58
+2026-08-12 09:13:55.914 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+  fp32_softmax attention modules: 0
+=== boltz2 size 512 rec=3 steps=200: cold ===
+  cold 61.93s n_tokens=None plddt=None
+  on: fold 26.00s  block 11834.2 ms over 280 calls  plddt None
+      K1 560/0 {}  K2 560/0 {}  E6 [False, [0, 0]]
+      DEC qkv_mm_config|kt=4,nt=12                       {'config': 560}
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 560}
+      DEC transpose|512x512x128                          {'L1': 560}
+      DEC tri_att_sdpa|q512k512                          {'q_chunk=512': 560}
+  on: fold 25.87s  block 11831.3 ms over 280 calls  plddt None
+      K1 560/0 {}  K2 560/0 {}  E6 [False, [0, 0]]
+      DEC qkv_mm_config|kt=4,nt=12                       {'config': 560}
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 560}
+      DEC transpose|512x512x128                          {'L1': 560}
+      DEC tri_att_sdpa|q512k512                          {'q_chunk=512': 560}
+{
+ "512": {
+  "on": {
+   "fold_s": [
+    25.999,
+    25.866
+   ],
+   "block_ms": [
+    11834.2,
+    11831.3
+   ],
+   "plddt": [
+    null,
+    null
+   ],
+   "n": 2,
+   "fold_s_median": 25.932,
+   "fold_s_min": 25.866,
+   "fold_s_spread": 0.133,
+   "block_ms_median": 11832.75,
+   "block_ms_spread": 2.9
+  },
+  "aa_floor_fold_s": 0.133,
+  "aa_floor_block_ms": 2.9
+ }
+}
+wrote perf/b2deep/decomp_512.json
+benchlock: boltz2-512aa-deep-perf released, rc=0, loadavg 1.12 1.14 0.68
+RC=0

@@ -145,6 +145,10 @@ def main():
     ap.add_argument("--arms", default="on,on")
     ap.add_argument("--fixdir", type=Path, default=ROOT / "perf" / "size512" / "fixtures")
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--split", action="store_true",
+                    help="key AttentionPairBias / DiT layer by atom-vs-token level and shape")
+    ap.add_argument("--deep", action="store_true",
+                    help="install the full stage/body timer set (inflates the wall; use for shares)")
     a = ap.parse_args()
 
     import ttnn
@@ -238,9 +242,72 @@ def main():
 
     patch(T, "Pairformer", "stage:Pairformer")
     patch(T, "PairformerLayer", "block:PairformerLayer")
+    def patch_split(cls, base):
+        """Key by atom/token level and input shape.
+
+        APB and the DiT layer each serve two structurally different call classes -- the
+        token-level unfused matmul+softmax+matmul chain and the atom-level windowed fused
+        SDPA. One mean over 6264 calls hides which one carries the time, and that is what
+        decides the lever."""
+        f = cls.__call__
+
+        def w(self, *x, **k):
+            lvl = "atom" if getattr(self, "atom_level", False) else "token"
+            sh = "x".join(str(int(d)) for d in x[0].shape) if x else "?"
+            return timed_call(f"{base}|{lvl}|{sh}", f, self, *x, **k)
+
+        cls.__call__ = w
+        installed.append(f"{base}|split")
+
     for nm in ("TriangleMultiplication", "TriangleAttention", "AttentionPairBias",
                "PairWeightedAveraging"):
+        if a.split and nm == "AttentionPairBias":
+            continue
         patch(T, nm, f"body:{nm}")
+    if a.split:
+        patch_split(T.AttentionPairBias, "body:AttentionPairBias")
+    # ---- deep set: everything the 50.6 % "everything else" could be hiding in -------------
+    if a.deep:
+        import tt_bio.boltz2 as B2
+        for nm, key in (("MSA", "stage:MSA"), ("Diffusion", "stage:Diffusion(dev)"),
+                        ("DiffusionTransformer", "stage:DiffusionTransformer"),
+                        ("Miniformer", "stage:Miniformer"), ("TrunkModule", "stage:TrunkModule"),
+                        ("MSAModule", "stage:MSAModule"), ("PairformerModule", "stage:PairformerModule"),
+                        ("DiffusionModule", "stage:DiffusionModule"),
+                        ("MiniformerModule", "stage:MiniformerModule")):
+            patch(T, nm, key)
+        for nm in ("MSALayer", "OuterProductMean", "Transition", "AdaLN",
+                   "ConditionedTransitionBlock", "MiniTriangularUpdate"):
+            patch(T, nm, f"body:{nm}")
+        if a.split:
+            patch_split(T.DiffusionTransformerLayer, "block:DiffusionTransformerLayer")
+        else:
+            patch(T, "DiffusionTransformerLayer", "block:DiffusionTransformerLayer")
+        patch(T, "MiniformerLayer", "block:MiniformerLayer")
+        # host-side / torch-level stages of the boltz-2 fold
+        def patch_fwd(mod, name, key, meth="forward"):
+            cls = getattr(mod, name, None)
+            if cls is None or not hasattr(cls, meth):
+                return
+            f = getattr(cls, meth)
+            setattr(cls, meth,
+                    (lambda g: lambda self, *x, **k: timed_call(key, g, self, *x, **k))(f))
+            installed.append(key)
+        patch_fwd(B2, "AtomDiffusion", "stage:AtomDiffusion.sample", "sample")
+        patch_fwd(B2, "ConfidenceModule", "stage:ConfidenceModule")
+        patch_fwd(B2, "DistogramModule", "stage:DistogramModule")
+        patch_fwd(B2, "InputEmbedder", "stage:InputEmbedder")
+        # the three host phases of predict_one: featurise / fold / write
+        import tt_bio.main as _M
+        _prep, _wr = _M.prepare_features, _M.write_result
+        _M.prepare_features = lambda *x, **k: timed_call("host:prepare_features", _prep, *x, **k)
+        _M.write_result = lambda *x, **k: timed_call("host:write_result", _wr, *x, **k)
+        _step = B2.Boltz2.predict_step
+        B2.Boltz2.predict_step = lambda self, *x, **k: timed_call("host:predict_step", _step, self, *x, **k)
+        _fwd = B2.Boltz2.forward
+        B2.Boltz2.forward = lambda self, *x, **k: timed_call("host:Boltz2.forward", _fwd, self, *x, **k)
+        installed += ["host:prepare_features", "host:write_result", "host:predict_step",
+                      "host:Boltz2.forward"]
     if a.model.startswith("esmfold2"):
         patch(E2, "PairUpdateBlock", "block:PairUpdateBlock")
         patch(E2, "FoldingTrunkModel", "stage:FoldingTrunk")
