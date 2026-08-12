@@ -12,4 +12,4 @@ include tt_bio/boltzgen/resources/config/*.yaml
 include tt_bio/boltzgen/resources/splits/*.txt
 include tt_bio/_vendor/esm/LICENSE
 include tt_bio/_vendor/esmfold2_hf/LICENSE
-include tt_bio/kernels/reblock_permute/*.cpp
+recursive-include tt_bio/kernels *.cpp *.hpp
