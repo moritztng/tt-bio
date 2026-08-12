@@ -1,0 +1,313 @@
+{
+  "schema": 1,
+  "updated": "2026-08-12",
+  "title": "tt-bio at 512 residues: Tenstorrent against NVIDIA",
+  "subtitle": "Five structure-prediction models, one fixture, measured wall-clock.",
+
+  "notes": [
+    "This file is the only place numbers are edited. index.html reads it and derives everything else.",
+    "Never write a derived value here. Server throughput, throughput per dollar and every ratio are computed in the page from s_per_fold, accelerators, price and the assumptions block.",
+    "A cell with no measurement gets status 'pending' or 'blocked' and a reason. Do not fill it with an estimate."
+  ],
+
+  "scope": {
+    "size_aa": 512,
+    "fixture": "perf/size512/fixtures/cdk2x2_512.yaml",
+    "fixture_sha256": "24d8b2d8c06e4409995abae024766e316da3175dde7596073b68c7963d2df398",
+    "msa_file": "perf/size512/fixtures/cdk2x2_512.a3m",
+    "msa_sha256": "ef2301402e7716e9df368987210456194b108c8ae7e144b7bf09a3dd6f40bf5e",
+    "msa_depth": 35,
+    "description": "CDK2 (PDB 1HCL) tandem-duplicated to 512 residues, one protein chain, no ligands, synthetic MSA of exactly 35 sequences.",
+    "diffusion_samples": 1,
+    "seed": 0,
+    "templates": "off",
+    "protocol": "Warm folds only. The cold fold is discarded explicitly on both sides. Tenstorrent runs are benchlocked (exclusive host) and alternate their arms inside one process, so both arms of a comparison share one noise floor; every Tenstorrent cell states that A/A floor. GPU runs quote a median of n=3."
+  },
+
+  "badges": {
+    "measured": "Measured on the hardware named, on this fixture.",
+    "derived": "Computed from a measured number plus a stated assumption. The assumption is on the chart.",
+    "listed": "Public list or vendor starting price, linked and dated."
+  },
+
+  "platforms": [
+    {
+      "id": "p150a",
+      "vendor": "tenstorrent",
+      "name": "Blackhole p150a",
+      "short": "p150a",
+      "kind": "card",
+      "accelerators": 1,
+      "spec": "120 Tensix cores, 32 GB GDDR6, 512 GB/s",
+      "price_usd": 1399,
+      "price_kind": "list",
+      "price_source": "tt-cards",
+      "note": "The card every Tenstorrent number on this page was measured on. Host: tt-quietbox2, compute grid 11x10 = 110 cores."
+    },
+    {
+      "id": "galaxy_bh",
+      "vendor": "tenstorrent",
+      "name": "Galaxy Blackhole",
+      "short": "Galaxy Blackhole",
+      "kind": "server",
+      "accelerators": 32,
+      "per_accelerator": "p150a",
+      "spec": "6U, 32x Blackhole ASIC, 1 TB GDDR6 @ 16 TB/s",
+      "price_usd": 110000,
+      "price_kind": "list",
+      "price_source": "tt-galaxy",
+      "scaling_efficiency": 0.868,
+      "scaling_source": "galaxy-32way",
+      "note": "1 TB / 32 = 32 GB and 16 TB/s / 32 = 512 GB/s per ASIC, which is the p150a's memory system exactly. Per-chip fold time is assumed equal to the measured p150a; no Galaxy Blackhole fold has been measured."
+    },
+    {
+      "id": "h200",
+      "vendor": "nvidia",
+      "name": "H200 SXM 143 GB",
+      "short": "H200",
+      "kind": "card",
+      "accelerators": 1,
+      "spec": "Hopper, 143 GB HBM3e",
+      "price_usd": null,
+      "price_kind": "not_public",
+      "note": "Measured on a rented vast.ai node, Xeon Platinum 8480+, 28 vCPU. NVIDIA does not publish a per-card list price."
+    },
+    {
+      "id": "b200",
+      "vendor": "nvidia",
+      "name": "B200 SXM 183 GB",
+      "short": "B200",
+      "kind": "card",
+      "accelerators": 1,
+      "spec": "Blackwell, 183 GB HBM3e",
+      "price_usd": null,
+      "price_kind": "not_public",
+      "note": "Measured on a rented vast.ai node, Xeon Platinum 8559C, 24 vCPU. Weaker host than the H200 node, which matters for a dispatch-heavy trunk."
+    },
+    {
+      "id": "hgx_h200_8",
+      "vendor": "nvidia",
+      "name": "8x H200 SXM server",
+      "short": "8x H200",
+      "kind": "server",
+      "accelerators": 8,
+      "per_accelerator": "h200",
+      "spec": "HGX/DGX H200 class, 8x H200 SXM 141-143 GB",
+      "price_usd": 404126,
+      "price_kind": "vendor_starting",
+      "price_source": "thinkmate-h200",
+      "scaling_efficiency": 1.0,
+      "scaling_source": "assumed-linear",
+      "note": "NVIDIA publishes no list price for DGX H200. This is a reseller starting price for an 8-GPU HGX H200 system, which is the closest publicly checkable figure."
+    },
+    {
+      "id": "hgx_b200_8",
+      "vendor": "nvidia",
+      "name": "8x B200 SXM server",
+      "short": "8x B200",
+      "kind": "server",
+      "accelerators": 8,
+      "per_accelerator": "b200",
+      "spec": "HGX B200, 8x B200 SXM 180-183 GB",
+      "price_usd": 506048,
+      "price_kind": "vendor_starting",
+      "price_source": "thinkmate-b200",
+      "scaling_efficiency": 1.0,
+      "scaling_source": "assumed-linear",
+      "note": "Same caveat as the H200 server: reseller starting price, no NVIDIA list price."
+    }
+  ],
+
+  "models": [
+    {
+      "id": "boltz2",
+      "name": "Boltz-2",
+      "recycles": 3,
+      "sampling_steps": 200,
+      "cells": {
+        "p150a": {
+          "main": { "status": "measured", "s_per_fold": 24.924, "source": "tt-othermodels", "ref": "main 12e5f957, qb2 card 0, ttnn 0.68.0, benchlocked, A/A floor 0.015 s, CIF sha256 fca25e32ea181ae2. The _MM_BLOCK re-key 6adb462f took it there from 25.945 s, byte-identical. The two perf merges that landed after this measurement are gated to OpenFold3 and to OpenDDE by construction, so neither moves it." },
+          "branch": { "status": "measured", "s_per_fold": 24.395, "availability": "branch wk/boltz2-512aa-deep-perf, not merged, held for an accuracy verdict", "parity": "not bit-exact", "source": "tt-b2deep", "ref": "the `both` arm, an AdaLN s-norm hoist plus an attention-pair-bias scale fold, measured directly in one 12-fold benchlocked session: 24.802 s baseline to 24.395 s, 1.0167x on an A/A floor of 0.097 s. The only figure on this page that changes the answer it returns: CIF sha256 7aa00b02e5dc6f61 against the baseline's fca25e32ea181ae2, 0.28 to 0.33 A Kabsch on a monomer control. It stays on the branch until someone rules on that." }
+        },
+        "h200": { "status": "measured", "s_per_fold": 7.298, "source": "gpu-5model", "ref": "n=3, spread 0.14 %, boltz 2.2.1, torch 2.13.0+cu130, cuEquivariance 0.11.1, plDDT 0.883" },
+        "b200": { "status": "measured", "s_per_fold": 8.042, "source": "gpu-5model", "ref": "n=3, spread 1.0 %, same stack. Slower than the H200 by 10.2 %" }
+      }
+    },
+    {
+      "id": "esmfold2",
+      "name": "ESMFold2",
+      "recycles": 10,
+      "sampling_steps": "100 requested, 68 executed",
+      "cells": {
+        "p150a": {
+          "main": { "status": "measured", "s_per_fold": 46.042, "source": "tt-esmfold2", "ref": "main 6a8d4f59, qb2 card 0, ttnn 0.68.0, A/A floor 0.006 s. Card 2 read 45.816 s, 0.49 % apart" },
+          "branch": { "status": "measured", "s_per_fold": 37.871, "availability": "branch wk/esmfold2-512aa-deep-perf, not merged", "parity": "bit-exact", "source": "tt-esmfold2", "ref": "E6 kernel plus a bit-exact SwiGLU rewrite, 1.2158x, CIF sha256 295867277b9c137f byte-identical across all twelve folds, plDDT 0.9285 in every one" }
+        },
+        "h200": { "status": "measured", "s_per_fold": 7.256, "source": "gpu-5model", "ref": "n=3, spread 0.11 %, transformers 4.57.6, esm 3.3.0, torch 2.13.0+cu130, plDDT 0.929. ESMC-6B runs without transformer_engine/xformers/flash-attn, so its LayerNorm+Linear and RoPE are unfused" },
+        "b200": { "status": "measured", "s_per_fold": 5.461, "source": "gpu-5model", "ref": "n=3, spread 0.13 %. The one model where the B200 beats the H200, by 24.7 %" }
+      }
+    },
+    {
+      "id": "protenix-v2",
+      "name": "Protenix-v2",
+      "recycles": 10,
+      "sampling_steps": 200,
+      "cells": {
+        "p150a": {
+          "main": { "status": "measured", "s_per_fold": 58.597, "source": "tt-protenix-rekey", "ref": "main 12e5f957, qb2 card 0, ttnn 0.68.0, benchlocked, A/A floor 0.070 s, CIF sha256 98c33a481fa1fd27, plDDT 0.828628" },
+          "branch": { "status": "measured", "s_per_fold": 53.460, "availability": "branch wk/integrated-ab-h200-gap, not merged. K1/K2 have since landed on main; E6 and the tight L1 transpose have not", "parity": "byte-identical", "source": "tt-integrated", "ref": "branch wk/integrated-ab-h200-gap 1ac8205c, n=3, A/A floor 0.058 s, byte-identical. Its baseline arm was 65.647 s on main 48aa02f5, before K1/K2 merged" }
+        },
+        "h200": { "status": "measured", "s_per_fold": 12.186, "source": "gpu-5model", "ref": "n=3, spread 0.82 %, protenix 2.0.0, torch 2.7.1+cu128, plDDT 0.853. Control against the 12.226 s of record on the same machine, 0.33 % apart" },
+        "b200": { "status": "blocked", "reason": "does not run", "detail": "Hangs after featurization and never completes a fold. Isolated to the cuEquivariance triangle kernels: protenix-v2 pins cuequivariance-ops-torch 0.8.0, and turning fusion, the shared-vars cache and TF32 all off still hangs. No number is estimated for this cell.", "source": "gpu-5model" }
+      }
+    },
+    {
+      "id": "opendde",
+      "name": "OpenDDE",
+      "recycles": 10,
+      "sampling_steps": 200,
+      "cells": {
+        "p150a": {
+          "main": { "status": "measured", "s_per_fold": 90.874, "parity": "byte-identical", "source": "tt-oddedeep", "ref": "merged to main as c44bb684d on 2026-08-12. Measured as the `ge` arm, a divisor-group search for the trimul channel loop plus the E6 gated move: arms on/ge/on in one benchlocked process on qb2 card 2, 100.124 s to 90.874 s, 1.1018x, A/A floor 0.017 s. Byte-identical at the full 64-hex CIF digest 50aa1e46583bd5a8fcb4a44c51fd8acbcd652d6da7d3635e07d1477217035155, plDDT 0.754131 on all three arms. The pre-merge wall on card 0 at main 12e5f957 was 100.292 s" }
+        },
+        "h200": { "status": "measured", "s_per_fold": 20.640, "source": "gpu-5model", "ref": "n=3, spread 0.29 %, opendde 1.0.3, torch 2.7.1+cu128, plDDT 0.827" },
+        "b200": { "status": "blocked", "reason": "does not run", "detail": "Same hang as Protenix-v2, same signature. OpenDDE pins cuequivariance-ops-torch 0.10.0. The three models that ran clean on the B200 all resolve 0.11.1, so the split is along the cuEquivariance version, not the model.", "source": "gpu-5model" }
+      }
+    },
+    {
+      "id": "openfold3",
+      "name": "OpenFold3",
+      "recycles": 3,
+      "sampling_steps": 200,
+      "cells": {
+        "p150a": {
+          "main": { "status": "measured", "s_per_fold": 56.590, "parity": "bit-exact", "source": "tt-of3deep", "ref": "merged to main as 4688ee5a5 on 2026-08-12. Four arms alternating on/C/on/C in one benchlocked session on qb2 card 1: 107.412 s to 56.590 s, 1.8981x, A/A floor 0.444 s on the baseline and 0.039 s on the arm, against a 50.822 s effect. Bit-exact on all four: CIF sha256 da9b4ed68f8c0405, plDDT 0.547851. The diffusion rollout went from 64.80 s to 13.16 s; the trunk did not move, 0.005 s across four runs" }
+        },
+        "h200": { "status": "measured", "s_per_fold": 10.263, "source": "gpu-5model", "ref": "n=3, spread 0.21 %, openfold3 0.4.4, torch 2.13.0+cu130, ckpt of3-p2-155k.pt, plDDT 0.639" },
+        "b200": { "status": "measured", "s_per_fold": 11.897, "source": "gpu-5model", "ref": "n=3, spread 0.69 %. Slower than the H200 by 15.9 %" }
+      }
+    }
+  ],
+
+  "assumptions": {
+    "concurrency": {
+      "default": 1.0,
+      "options": [
+        { "value": 1.0, "label": "one fold at a time", "detail": "What both sides were measured at. No MPS on the GPU, no multi-process sharing of a Tenstorrent chip (tt-bio takes an flock before opening a device, so one process per chip is enforced)." },
+        { "value": 2.0, "label": "GPU with MPS, 2.0x", "detail": "The H200's measured MPS ceiling at 298 aa: one fold already puts it at 68.1 % utilization, so MPS buys 2.00x before saturating. At 117 aa, where one fold leaves the GPU at 33.5 %, MPS bought 6.53x. The 512 aa value is not measured. Applied to the NVIDIA servers only; the Tenstorrent side has no equivalent lever measured at this size." }
+      ],
+      "applies_to": ["hgx_h200_8", "hgx_b200_8"],
+      "note": "Charts 1 and 4 read this. Chart 3 does not: it is a latency question."
+    },
+    "throughput_formula": "predictions per hour = 3600 / s_per_fold * accelerators * scaling_efficiency * concurrency",
+    "galaxy_scaling": {
+      "value": 0.868,
+      "kind": "assumption carried from a different generation",
+      "detail": "27.8x of 32 chips, measured on a Wormhole Galaxy folding Protenix-v2. Whether it transfers to a Blackhole Galaxy is unknown and untested. The dominant cost is host CPU sync per fold, roughly 1.007 cores, independent of card generation; a faster chip amortizes that over a shorter fold, so the Blackhole figure could be lower rather than equal."
+    },
+    "gpu_scaling": {
+      "value": 1.0,
+      "kind": "assumed, not measured",
+      "detail": "8 GPUs folding independent targets are assumed to scale perfectly. No multi-GPU fanout was measured. This favours NVIDIA."
+    },
+    "not_applied": [
+      "Diffusion-sample batching. Both stacks have it and the H200 uses it better: 4 samples cost the H200 4 % more wall time and a p150a 49 % more, measured at 117 aa. It is left off both sides because 4 samples of one target are 4 poses, not 4 answers.",
+      "tt-bio's multi-prediction batching, measured at 1.72x for batch 8, is not applied to the Tenstorrent bars.",
+      "Power. The Galaxy Blackhole and an 8-GPU HGX node have very different power envelopes and neither was measured here."
+    ]
+  },
+
+  "sources": {
+    "gpu-5model": {
+      "label": "gpu-h200-b200-5model-512aa",
+      "kind": "internal",
+      "date": "2026-08-12",
+      "detail": "Five models on rented vast.ai H200 and B200 nodes, same fixture, each model at its own shipped defaults, cuEquivariance kernels proven entered by counter. Harness on branch wk/gpu-h200-b200-5model-512aa, scripts/gpu_vs_tt/."
+    },
+    "tt-othermodels": {
+      "label": "other-models-512aa-perf",
+      "kind": "internal",
+      "date": "2026-08-12",
+      "detail": "Boltz-2 and OpenFold3 at 512 aa on qb2 card 0, ttnn 0.68.0, benchlocked, per-lever counters read from inside the fold. Its OpenFold3 wall has since been superseded by the deep-perf A/B."
+    },
+    "tt-b2deep": {
+      "label": "boltz2-512aa-deep-perf",
+      "kind": "internal",
+      "date": "2026-08-12",
+      "detail": "Boltz-2 at 512 aa on qb2, ttnn 0.68.0, twelve folds in one benchlocked process on an 0.097 s A/A floor, plus a 298 aa replicate and an all-atom Kabsch RMSD per arm."
+    },
+    "tt-protenix-rekey": {
+      "label": "other-models-512aa-protenix-regression",
+      "kind": "internal",
+      "date": "2026-08-12",
+      "detail": "Protenix-v2 and OpenDDE at 512 aa on qb2 card 0 at main 12e5f957, benchlocked at load <= 0.6, three rounds each."
+    },
+    "tt-esmfold2": {
+      "label": "esmfold2-512aa-deep-perf",
+      "kind": "internal",
+      "date": "2026-08-12",
+      "detail": "ESMFold2 at 512 aa on qb2, ttnn 0.68.0, decomposition plus a twelve-fold A/B on an 0.006 s noise floor."
+    },
+    "tt-of3deep": {
+      "label": "openfold3-512aa-deep-perf",
+      "kind": "internal",
+      "date": "2026-08-12",
+      "detail": "OpenFold3 at 512 aa on qb2, ttnn 0.68.0, sync-bracketed decomposition plus two benchlocked fold A/Bs. Merged to main as 4688ee5a5. The rollout went from 64.80 s to 13.16 s and the trunk did not move."
+    },
+    "tt-oddedeep": {
+      "label": "opendde-512aa-deep-perf",
+      "kind": "internal",
+      "date": "2026-08-12",
+      "detail": "OpenDDE at 512 aa on qb2 card 2, ttnn 0.68.0, seven arms in one benchlocked process plus a separate on/ge/on run for the byte-identical landing. The byte-identical half merged to main as c44bb684d; a faster arm measuring 85.785 s stays on the branch because it moves the delivered structure by 1.25 A CA."
+    },
+    "tt-integrated": {
+      "label": "integrated-ab-h200-gap",
+      "kind": "internal",
+      "date": "2026-08-11",
+      "detail": "Every landed trunk lever on one branch, Protenix-v2 at 512 aa on qb2 card 0, per-lever gate state read from inside the fold."
+    },
+    "galaxy-32way": {
+      "label": "JapanFold Galaxy 32-way scaling investigation",
+      "kind": "internal",
+      "date": "2026-08-02",
+      "detail": "30-pass investigation, merged a48b0ad95. Fold fanout ceiling 27.8x on 32 Wormhole chips. Host-side levers measured and killed one by one; the residual 13 % is real and unclosed."
+    },
+    "tt-galaxy": {
+      "label": "Tenstorrent, Galaxy Blackhole",
+      "kind": "public",
+      "url": "https://tenstorrent.com/en/hardware/galaxy",
+      "accessed": "2026-08-12",
+      "detail": "$110,000 list. 6U, 32x Blackhole ASIC, 1 TB GDDR6 at 16 TB/s."
+    },
+    "tt-cards": {
+      "label": "Tenstorrent, Blackhole cards",
+      "kind": "public",
+      "url": "https://tenstorrent.com/en/hardware/cards",
+      "accessed": "2026-08-12",
+      "detail": "Blackhole p150a $1,399. 120 Tensix cores, 32 GB GDDR6."
+    },
+    "thinkmate-h200": {
+      "label": "Thinkmate GPX QH14-28E4-8HGX",
+      "kind": "public",
+      "url": "https://www.thinkmate.com/systems/servers/gpx/h200",
+      "accessed": "2026-08-12",
+      "detail": "8-GPU HGX H200 system, starting price $404,126.00. NVIDIA publishes no list price for DGX H200."
+    },
+    "thinkmate-b200": {
+      "label": "Thinkmate GPX XN10-210X6-8HGX",
+      "kind": "public",
+      "url": "https://www.thinkmate.com/systems/servers/gpx/b200",
+      "accessed": "2026-08-12",
+      "detail": "8-GPU HGX B200 system, starting price $506,048.00. NVIDIA publishes no list price for DGX B200."
+    }
+  },
+
+  "caveats": [
+    "Rows are not a cross-model ranking. Boltz-2 and OpenFold3 do 3 recycles where Protenix-v2, OpenDDE and ESMFold2 do 10, because that is what each ships. Compare a model to itself across hardware, not to another model.",
+    "The B200 is not uniformly faster than the H200 here. It wins ESMFold2 by 24.7 % and loses Boltz-2 by 10.2 % and OpenFold3 by 15.9 %. Its node also had a weaker host, 24 vCPU against 28.",
+    "Accuracy is not compared on this page. Each stack ran its own shipped defaults and every run was sanity-checked against its own plDDT, but the models differ and the numbers here are wall-clock only.",
+    "The GPU numbers come from single rented nodes, not from a DGX. The server figures multiply one measured GPU by 8 and assume a DGX or HGX node reaches the same per-GPU fold time.",
+    "The Tenstorrent cards measured here report an 11x10 compute grid, 110 cores. Other Blackhole hosts report 13x10.",
+    "OpenFold3's 1.8981x is hoisting, not a new kernel. The diffusion conditioning branch, the encoder pair update and the DiT pair bias are computed once per rollout instead of 200 times, which is why the answer does not change. Routing its fp32-softmax triangle attention through the fused SDPA kernel was tried separately and rejected: it moved the structure by 27.3 A."
+  ]
+}
