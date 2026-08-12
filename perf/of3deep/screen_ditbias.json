@@ -1,0 +1,22 @@
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "loadavg": [
+  "0.32",
+  "1.20",
+  "1.12"
+ ],
+ "n": 512,
+ "blocks": 24,
+ "steps": 200,
+ "z_MB": 134.2,
+ "clone_implied_GBs": 381.8,
+ "ms": {
+  "pair_bias_full": 3.637,
+  "layer_norm_only": 0.835,
+  "layer_norm+linear": 1.589,
+  "clone_z (roof ref)": 0.703
+ },
+ "pair_bias_per_step_ms": 87.29,
+ "hoistable_s_over_rollout": 17.37
+}

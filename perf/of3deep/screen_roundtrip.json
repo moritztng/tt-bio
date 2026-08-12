@@ -1,0 +1,127 @@
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "ttnn": "0.68.0",
+ "loadavg": [
+  "2.70",
+  "1.49",
+  "0.83"
+ ],
+ "steps": 200,
+ "iters": 8,
+ "cases": [
+  {
+   "case": "zij  [1,512,512,128] fp32  (_pad_pair)",
+   "shape": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "dtype": "FLOAT32",
+   "MB": 134.2,
+   "per_step_calls": 1,
+   "roundtrip_ms": 145.538,
+   "roundtrip_min_max_ms": [
+    139.842,
+    214.876
+   ],
+   "to_torch_ms": 136.128,
+   "from_torch_ms": 54.086,
+   "device_clone_ms": 0.699,
+   "clone_implied_GBs": 383.9,
+   "roundtrip_implied_GBs": 1.84,
+   "projected_s_over_steps": 29.108
+  },
+  {
+   "case": "zij  [1,512,512,128] bf16",
+   "shape": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "MB": 67.1,
+   "per_step_calls": 0,
+   "roundtrip_ms": 141.576,
+   "roundtrip_min_max_ms": [
+    137.391,
+    246.44
+   ],
+   "to_torch_ms": 61.049,
+   "from_torch_ms": 89.222,
+   "device_clone_ms": 0.353,
+   "clone_implied_GBs": 379.8,
+   "roundtrip_implied_GBs": 0.95,
+   "projected_s_over_steps": 0.0
+  },
+  {
+   "case": "si   [1,512,384] fp32      (_pad_tokens)",
+   "shape": [
+    1,
+    512,
+    384
+   ],
+   "dtype": "FLOAT32",
+   "MB": 0.8,
+   "per_step_calls": 1,
+   "roundtrip_ms": 0.34,
+   "roundtrip_min_max_ms": [
+    0.323,
+    0.365
+   ],
+   "to_torch_ms": 0.174,
+   "from_torch_ms": 0.161,
+   "device_clone_ms": 0.027,
+   "clone_implied_GBs": 58.4,
+   "roundtrip_implied_GBs": 4.63,
+   "projected_s_over_steps": 0.068
+  },
+  {
+   "case": "ai   [1,512,768] fp32      (dm _pad_tokens)",
+   "shape": [
+    1,
+    512,
+    768
+   ],
+   "dtype": "FLOAT32",
+   "MB": 1.6,
+   "per_step_calls": 1,
+   "roundtrip_ms": 0.605,
+   "roundtrip_min_max_ms": [
+    0.595,
+    0.615
+   ],
+   "to_torch_ms": 0.329,
+   "from_torch_ms": 0.294,
+   "device_clone_ms": 0.028,
+   "clone_implied_GBs": 114.3,
+   "roundtrip_implied_GBs": 5.2,
+   "projected_s_over_steps": 0.121
+  },
+  {
+   "case": "cl   [1,4096,128] fp32     (dm _pad_atoms x3)",
+   "shape": [
+    1,
+    4096,
+    128
+   ],
+   "dtype": "FLOAT32",
+   "MB": 2.1,
+   "per_step_calls": 3,
+   "roundtrip_ms": 0.804,
+   "roundtrip_min_max_ms": [
+    0.791,
+    0.852
+   ],
+   "to_torch_ms": 0.439,
+   "from_torch_ms": 0.383,
+   "device_clone_ms": 0.03,
+   "clone_implied_GBs": 139.8,
+   "roundtrip_implied_GBs": 5.22,
+   "projected_s_over_steps": 0.482
+  }
+ ],
+ "projected_total_s": 29.779
+}
