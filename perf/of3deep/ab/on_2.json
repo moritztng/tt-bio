@@ -1,0 +1,201 @@
+{
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "3",
+ "size": 512,
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "loadavg": [
+  "2.00",
+  "1.22",
+  "0.98"
+ ],
+ "of3_diffusion_fp32": "1",
+ "runs": [
+  {
+   "run": 0,
+   "fold_s": 106.128,
+   "plddt": 0.547851,
+   "n_tokens": 512,
+   "n_atoms": 4116,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "da9b4ed68f8c0405"
+   },
+   "loadavg": [
+    "2.44",
+    "1.59",
+    "1.17"
+   ],
+   "regions": {
+    "top:model.fold": {
+     "calls": 1,
+     "s": 104.562,
+     "ms_per_call": 104562.141,
+     "pct_of_fold": 98.52
+    },
+    "diff:rollout": {
+     "calls": 1,
+     "s": 62.89,
+     "ms_per_call": 62890.325,
+     "pct_of_fold": 59.26
+    },
+    "top:trunk": {
+     "calls": 1,
+     "s": 38.997,
+     "ms_per_call": 38996.678,
+     "pct_of_fold": 36.74
+    },
+    "diff:module": {
+     "calls": 200,
+     "s": 37.407,
+     "ms_per_call": 187.036,
+     "pct_of_fold": 35.25
+    },
+    "dm:dit_stack": {
+     "calls": 200,
+     "s": 23.973,
+     "ms_per_call": 119.866,
+     "pct_of_fold": 22.59
+    },
+    "dm:dit_block": {
+     "calls": 4800,
+     "s": 23.877,
+     "ms_per_call": 4.974,
+     "pct_of_fold": 22.5
+    },
+    "diff:pad_pair_zij(host round trip)": {
+     "calls": 200,
+     "s": 18.516,
+     "ms_per_call": 92.578,
+     "pct_of_fold": 17.45
+    },
+    "dm:atom_transformer": {
+     "calls": 401,
+     "s": 9.605,
+     "ms_per_call": 23.952,
+     "pct_of_fold": 9.05
+    },
+    "diff:conditioning": {
+     "calls": 200,
+     "s": 6.725,
+     "ms_per_call": 33.624,
+     "pct_of_fold": 6.34
+    },
+    "dm:decoder": {
+     "calls": 200,
+     "s": 4.987,
+     "ms_per_call": 24.937,
+     "pct_of_fold": 4.7
+    },
+    "trunk:template": {
+     "calls": 4,
+     "s": 4.865,
+     "ms_per_call": 1216.262,
+     "pct_of_fold": 4.58
+    },
+    "trunk:msa_block": {
+     "calls": 16,
+     "s": 3.058,
+     "ms_per_call": 191.124,
+     "pct_of_fold": 2.88
+    },
+    "dm:npe": {
+     "calls": 200,
+     "s": 1.482,
+     "ms_per_call": 7.412,
+     "pct_of_fold": 1.4
+    },
+    "top:confidence": {
+     "calls": 1,
+     "s": 1.32,
+     "ms_per_call": 1320.016,
+     "pct_of_fold": 1.24
+    },
+    "host:build_features": {
+     "calls": 1,
+     "s": 1.156,
+     "ms_per_call": 1155.988,
+     "pct_of_fold": 1.09
+    },
+    "dm:pad_atoms(host round trip)": {
+     "calls": 600,
+     "s": 0.476,
+     "ms_per_call": 0.793,
+     "pct_of_fold": 0.45
+    },
+    "prep:input_atom_encoder": {
+     "calls": 1,
+     "s": 0.174,
+     "ms_per_call": 174.081,
+     "pct_of_fold": 0.16
+    },
+    "host:derive_relpos": {
+     "calls": 1,
+     "s": 0.123,
+     "ms_per_call": 123.467,
+     "pct_of_fold": 0.12
+    },
+    "dm:pad_tokens_ai(host round trip)": {
+     "calls": 200,
+     "s": 0.099,
+     "ms_per_call": 0.494,
+     "pct_of_fold": 0.09
+    },
+    "host:ref_atom_embed": {
+     "calls": 2,
+     "s": 0.076,
+     "ms_per_call": 38.142,
+     "pct_of_fold": 0.07
+    },
+    "diff:pad_tokens_si(host round trip)": {
+     "calls": 200,
+     "s": 0.056,
+     "ms_per_call": 0.28,
+     "pct_of_fold": 0.05
+    },
+    "host:write_structure": {
+     "calls": 1,
+     "s": 0.037,
+     "ms_per_call": 37.474,
+     "pct_of_fold": 0.04
+    },
+    "host:derive_template_feat": {
+     "calls": 1,
+     "s": 0.014,
+     "ms_per_call": 14.396,
+     "pct_of_fold": 0.01
+    },
+    "trunk:glue_z": {
+     "calls": 4,
+     "s": 0.008,
+     "ms_per_call": 1.905,
+     "pct_of_fold": 0.01
+    },
+    "host:derive_block_aux": {
+     "calls": 1,
+     "s": 0.001,
+     "ms_per_call": 1.315,
+     "pct_of_fold": 0.0
+    },
+    "host:msa_features": {
+     "calls": 1,
+     "s": 0.001,
+     "ms_per_call": 0.627,
+     "pct_of_fold": 0.0
+    },
+    "trunk:glue_s": {
+     "calls": 4,
+     "s": 0.0,
+     "ms_per_call": 0.084,
+     "pct_of_fold": 0.0
+    },
+    "trunk:msa_embedder": {
+     "calls": 1,
+     "s": 0.0,
+     "ms_per_call": 0.262,
+     "pct_of_fold": 0.0
+    }
+   }
+  }
+ ]
+}

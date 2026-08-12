@@ -28,7 +28,7 @@ broadcast and the per-row layer_norm do not leak into real atoms.
 import torch
 import ttnn
 
-from .tenstorrent import Module, CORE_GRID_MAIN, _dtype
+from .tenstorrent import Module, CORE_GRID_MAIN, _dtype, _no_host_pad
 from .openfold3_atom_transformer import OF3AtomTransformer
 from .openfold3_weights import _sub
 
@@ -63,7 +63,7 @@ class OF3AtomAttentionDecoder(Module):
                                      compute_kernel_config)
 
     def __call__(self, ai, ql, cl, plm, atom_mask_col, atom_to_token_index_tt,
-                 key_block_idxs_tt, valid_mask, mask_bias, n_atom, NP, nb):
+                 key_block_idxs_tt, valid_mask, mask_bias, n_atom, NP, nb, cache=None):
         # token -> atom broadcast: linear_q_in(ai) then gather by atom_to_token_index.
         q_in_tok = ttnn.linear(ai, self.w_q_in,
                                compute_kernel_config=self.compute_kernel_config,
@@ -88,13 +88,15 @@ class OF3AtomAttentionDecoder(Module):
 
         # 3-block windowed cross-attention (reuses the gated OF3AtomTransformer).
         ql_out = self.at(ql_aug, cl, plm, atom_mask_col, key_block_idxs_tt,
-                         valid_mask, mask_bias, n_atom, NP, nb)  # [1, n_atom, 128]
+                         valid_mask, mask_bias, n_atom, NP, nb,
+                         cache=cache)  # [1, n_atom, 128]
         ttnn.deallocate(ql_aug)
 
         # weight-only layer_norm + linear_q_out (c_atom -> 3); pad to NP for tiling,
         # slice back to n_atom. LN is per-row so padded (zero) rows do not affect reals.
         ql_out_pad = self._pad_atoms(ql_out, n_atom, NP, self._act_dtype)
-        ttnn.deallocate(ql_out)
+        if ql_out_pad is not ql_out:
+            ttnn.deallocate(ql_out)
         ln = ttnn.layer_norm(ql_out_pad, weight=self.ln_w, epsilon=1e-5,
                              compute_kernel_config=self.compute_kernel_config)
         ttnn.deallocate(ql_out_pad)
@@ -109,6 +111,9 @@ class OF3AtomAttentionDecoder(Module):
     @staticmethod
     def _pad_atoms(x, n_atom, NP, dtype=ttnn.bfloat16):
         # x: [1, n_atom, 128] device -> [1, NP, 128] device (zero-padded).
+        out = _no_host_pad(x, dtype, n_atom, NP)
+        if out is not None:
+            return out
         th = ttnn.to_torch(x).float()  # [1, n_atom, 128]
         if NP > n_atom:
             th = torch.nn.functional.pad(th, (0, 0, 0, NP - n_atom))

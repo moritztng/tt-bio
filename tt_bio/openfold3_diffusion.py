@@ -92,9 +92,12 @@ class OF3DiffusionConditioning(Module):
         self.tr_s = [_SwiGLUTransition(self.scope(f"transition_s.{i}"), compute_kernel_config)
                      for i in range(2)]
 
-    def __call__(self, zij_trunk, relpos, si_trunk, si_input, n_emb, pair_mask, tok_mask):
+    def pair(self, zij_trunk, relpos, pair_mask):
+        """Pair branch: cat([zij_trunk, relpos]) -> LN_z -> linear_z -> 2x SwiGLU.
+
+        Nothing here depends on the noise level, so a diffusion rollout computes it once
+        rather than once per step."""
         lin = self._lin
-        # Pair conditioning: cat([zij_trunk, relpos]) -> LN_z -> linear_z -> 2x SwiGLU.
         zc = ttnn.concat([zij_trunk, relpos], dim=-1)        # [1, N, N, 267]
         z = ttnn.layer_norm(zc, weight=self.ln_z, epsilon=1e-5,
                             compute_kernel_config=self.compute_kernel_config)
@@ -102,8 +105,12 @@ class OF3DiffusionConditioning(Module):
         z = lin(z, self.w_lin_z)                              # [1, N, N, 128]
         for tr in self.tr_z:
             z = ttnn.add(z, tr(z, pair_mask))
+        return z
 
-        # Single conditioning: cat([si_trunk, si_input]) -> LN_s -> linear_s.
+    def single(self, si_trunk, si_input, n_emb, tok_mask):
+        """Single branch: cat([si_trunk, si_input]) -> LN_s -> linear_s, plus the
+        Fourier noise embedding. This is the half that depends on the noise level."""
+        lin = self._lin
         sc = ttnn.concat([si_trunk, si_input], dim=-1)       # [1, N, 833]
         s = ttnn.layer_norm(sc, weight=self.ln_s, epsilon=1e-5,
                             compute_kernel_config=self.compute_kernel_config)
@@ -118,5 +125,8 @@ class OF3DiffusionConditioning(Module):
         ttnn.deallocate(n_proj)
         for tr in self.tr_s:
             s = ttnn.add(s, tr(s, tok_mask))
+        return s
 
-        return s, z
+    def __call__(self, zij_trunk, relpos, si_trunk, si_input, n_emb, pair_mask, tok_mask):
+        z = self.pair(zij_trunk, relpos, pair_mask)
+        return self.single(si_trunk, si_input, n_emb, tok_mask), z

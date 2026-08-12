@@ -56,7 +56,7 @@ from __future__ import annotations
 import torch
 import ttnn
 
-from .tenstorrent import Module, AdaLN, CORE_GRID_MAIN, _dtype, batched_matmul
+from .tenstorrent import Module, AdaLN, CORE_GRID_MAIN, _dtype, _cached, batched_matmul
 from .openfold3_atom_transformer import remap_of3_adaln
 
 C_A = 768
@@ -154,20 +154,25 @@ class _DiTBlock(Module):
                            compute_kernel_config=self.compute_kernel_config,
                            core_grid=CORE_GRID_MAIN)
 
-    def __call__(self, a, s, z, mask_bias, tok_mask_col):
-        lin = self._lin
-        # AdaLN-conditioned a.
-        a_ln = self.adaln_a(a, s)
-
-        # Per-block pair bias: LN_z(z) -> linear_z -> [1,16,N,N].
+    def _pair_bias(self, z, mask_bias):
+        """LN_z(z) -> linear_z -> [1,16,N,N] + mask_bias. Pure function of the
+        conditioning pair, so the rollout computes it once per block, not once per step."""
         z = ttnn.layer_norm(z, weight=self.ln_z_w, epsilon=1e-5,
                             compute_kernel_config=self.compute_kernel_config)
-        zb = lin(z, self.w_lin_z)                       # [1, N, N, 16]
+        zb = self._lin(z, self.w_lin_z)                 # [1, N, N, 16]
         zb = ttnn.to_layout(zb, ttnn.ROW_MAJOR_LAYOUT)
         zb = ttnn.permute(zb, (0, 3, 1, 2))             # [1, 16, N, N]
         zb = ttnn.to_layout(zb, ttnn.TILE_LAYOUT)
         ttnn.deallocate(z)
-        zb = ttnn.add_(zb, mask_bias)                   # + mask_bias [1,1,1,N]
+        return ttnn.add_(zb, mask_bias)                 # + mask_bias [1,1,1,N]
+
+    def __call__(self, a, s, z, mask_bias, tok_mask_col, cache=None):
+        lin = self._lin
+        # AdaLN-conditioned a.
+        a_ln = self.adaln_a(a, s)
+
+        zb = _cached(cache, (id(self), "pair_bias"),
+                     lambda: self._pair_bias(z, mask_bias))
 
         # Fused padded qkv -> heads.
         qkv = lin(a_ln, self.qkv_w, bias=self.qkv_b)   # [1, N, 3072]
@@ -185,7 +190,9 @@ class _DiTBlock(Module):
                             compute_kernel_config=self.compute_kernel_config)
         sc = ttnn.multiply(sc, scale)
         sc = ttnn.add(sc, zb)
-        ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(zb)
+        ttnn.deallocate(q); ttnn.deallocate(k)
+        if cache is None:
+            ttnn.deallocate(zb)
         sc = ttnn.typecast(sc, ttnn.float32)
         attn = ttnn.softmax(sc, dim=-1, numeric_stable=True)
         ttnn.deallocate(sc)
@@ -247,7 +254,7 @@ class OF3DiffusionTransformer(Module):
                        for b in range(n_blocks)]
         self.n_blocks = n_blocks
 
-    def __call__(self, a, s, z, token_mask, tok_mask_col):
+    def __call__(self, a, s, z, token_mask, tok_mask_col, cache=None):
         # Pad to the tile-aligned logical width so the SDPA's tiled key extent is
         # fully masked. from_torch pads *storage* with 0 (="unmasked" for an additive
         # mask), so a logical-N mask leaves the tile-padded keys (N -> ceil(N/32)*32)
@@ -278,7 +285,7 @@ class OF3DiffusionTransformer(Module):
                                     dtype=self._act_dtype)
         x = a_d
         for blk in self.blocks:
-            x = blk(x, s_d, z_d, mask_bias, tmc_d)
+            x = blk(x, s_d, z_d, mask_bias, tmc_d, cache=cache)
         if padded_N == N:
             return x
         x = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
