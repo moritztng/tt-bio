@@ -422,8 +422,10 @@ class OpenDDE:
         # 4.145e-02 relative on 357828302 of 366539136 z_ref elements, and calls 2-4 agree exactly.
         # It is call order and not buffer provenance -- a second ttnn.concat-built input run last
         # matches the from_torch ones, not call 1. The cause is visible in the module itself: it
-        # holds 26 device tensors before that call and 146 after, so most of its weights and fused
-        # caches materialise DURING it and the first call runs interleaved with its own uploads.
+        # holds 172 device tensors before that call and 268 after, and the 96 new ones are all
+        # `_gp_cache`: 12 fused input-weight chunks per trimul, 2 trimuls per block, 4 blocks,
+        # ~9.4 MB. Nothing is mutated (changed=0). The first call BUILDS that cache while it
+        # computes, and no later call does.
         #
         # That interleaving is sensitive to the allocation state it inherits, which is why the fold
         # moved when the expander changed how it assembles z_struct even though z_struct itself is
@@ -435,22 +437,12 @@ class OpenDDE:
         # RELEASE-GATED: this changes the numbers for every opendde / opendde-abag fold, because
         # every fold so far has run the refiner cold. It buys a result that does not depend on
         # unrelated upstream allocation, which the cold one demonstrably does.
-        h_z = ttnn.to_torch(ttnn.reshape(z_st, (1, Ns, Ns, self.expander.c_z)))
-        h_s = ttnn.to_torch(ttnn.reshape(s_st, (1, Ns, self.expander.c_s)))
-        h_b = ttnn.to_torch(ttnn.reshape(attn_bias, (1, 1, Ns, Ns))) if extra_attn_bias else None
-        ttnn.deallocate(z_st)   # the refiner updates z in place, so every call needs its own copy
-
-        def _fresh(t):
-            return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=get_device(),
-                                   dtype=ttnn.bfloat16)
-
-        warm_s, warm_z = self.refiner(_fresh(h_s), _fresh(h_z),
-                                      extra_attn_bias=(_fresh(h_b) if h_b is not None else None))
-        ttnn.deallocate(warm_s)
-        ttnn.deallocate(warm_z)
-
-        z4, s3 = _fresh(h_z), _fresh(h_s)
-        bias = _fresh(h_b) if h_b is not None else None
+        for blk in self.refiner.blocks:
+            blk.triangle_multiplication_start.prewarm(Ns, 1)
+            blk.triangle_multiplication_end.prewarm(Ns, 1)
+        z4 = ttnn.reshape(z_st, (1, Ns, Ns, self.expander.c_z))
+        s3 = ttnn.reshape(s_st, (1, Ns, self.expander.c_s))
+        bias = ttnn.reshape(attn_bias, (1, 1, Ns, Ns)) if extra_attn_bias else None
         s_ref, z_ref = self.refiner(s3, z4, extra_attn_bias=bias)
         result = (s_inputs_st, ttnn.reshape(s_ref, (Ns, self.expander.c_s)), z_ref)
         if return_attn_bias:
