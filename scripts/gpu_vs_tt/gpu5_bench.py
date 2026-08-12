@@ -226,50 +226,61 @@ def run_of3(args) -> dict:
     work.mkdir(parents=True)
     a3m = str(args.a3m.resolve())
 
+    # InferenceQuerySet: seeds at the top level, queries keyed by name. Four names so one
+    # process does cold + 3 warm with no weight reload. use_paired_msas False because the
+    # pinned fixture is a single unpaired a3m -- leaving it True makes OF3 look for a
+    # paired alignment that does not exist.
     n = args.repeat + 1
-    queries = [dict(name=f"fold{i}", chains=[dict(
-        molecule_type="protein", chain_ids=["A"], sequence=seq,
-        main_msa_file_paths=[a3m])]) for i in range(n)]
+    qset = dict(seeds=[SEED], queries={
+        f"fold{i}": dict(
+            chains=[dict(molecule_type="protein", chain_ids=["A"], sequence=seq,
+                         main_msa_file_paths=[a3m])],
+            use_msas=True, use_paired_msas=False, use_main_msas=True)
+        for i in range(n)})
     qpath = work / "queries.json"
-    qpath.write_text(json.dumps(queries, indent=2))
+    qpath.write_text(json.dumps(qset, indent=2))
 
+    # cuEquivariance is opt-in for OF3, through the runner yaml rather than a flag.
     ypath = work / "runner.yaml"
     ypath.write_text(
-        "model_update:\n  presets: [\"predict\"]\n  custom:\n    settings:\n"
-        "      memory:\n        eval:\n          use_cueq_triangle_kernels: true\n")
+        "model_update:\n"
+        "  presets: [\"predict\"]\n"
+        "  custom:\n"
+        "    settings:\n"
+        "      memory:\n"
+        "        eval:\n"
+        "          use_cueq_triangle_kernels: true\n")
 
     cueq = install_cueq_counters()
     sdpa = install_sdpa_counter()
     timer = FoldTimer()
-    patched = None
-    for path, attr in (("openfold3.model.openfold3", "OpenFold3"),
-                       ("openfold3.projects.of3_all_atom.model", "OpenFold3")):
-        try:
-            cls = getattr(importlib.import_module(path), attr)
-        except Exception:
-            continue
-        for m in ("predict_step", "forward"):
-            if hasattr(cls, m):
-                timer.patch(cls, m)
-                patched = f"{path}.{attr}.{m}"
-                break
-        if patched:
-            break
-    assert patched, "could not find OpenFold3's predict entry point -- introspect on the box"
+    runner_mod = importlib.import_module("openfold3.projects.of3_all_atom.runner")
+    cls = getattr(runner_mod, "OpenFold3AllAtom")
+    assert hasattr(cls, "predict_step"), "no predict_step on OpenFold3AllAtom"
+    timer.patch(cls, "predict_step")
+    patched = "openfold3.projects.of3_all_atom.runner.OpenFold3AllAtom.predict_step"
     print("of3 timing:", patched, file=sys.stderr, flush=True)
 
-    argv = ["--queries", str(qpath), "--output-dir", str(work / "out"),
-            "--checkpoint-path", args.checkpoint,
-            "--runner-config", str(ypath),
-            "--num-diffusion-samples", str(SAMPLES),
-            "--no-use-msa-server", "--seed", str(SEED)]
+    # --num-diffusion-samples defaults to 5 and --use-msa-server defaults True; the second
+    # would silently ignore the precomputed MSA and hit ColabFold, so both are overridden.
+    argv = ["predict", "--query-json", str(qpath), "--output-dir", str(work / "out"),
+            "--inference-ckpt-path", args.checkpoint, "--runner-yaml", str(ypath),
+            "--num-diffusion-samples", str(SAMPLES), "--num-model-seeds", "1",
+            "--use-msa-server", "false", "--use-templates", "false"]
     if args.extra:
         argv += args.extra.split()
+    print("of3 argv:", " ".join(argv), file=sys.stderr, flush=True)
     t0 = time.perf_counter()
-    entry = importlib.import_module("openfold3.cli.predict")
-    fn = getattr(entry, "main", None) or getattr(entry, "cli")
+    cli_mod = importlib.import_module("openfold3.run_openfold")
+    group = None
+    for name in dir(cli_mod):
+        obj = getattr(cli_mod, name)
+        if hasattr(obj, "main") and hasattr(obj, "commands"):
+            group = obj
+            break
+    assert group is not None, "could not find run_openfold's click group"
     try:
-        fn(args=argv, standalone_mode=False) if hasattr(fn, "main") else fn(argv)
+        group.main(args=argv, standalone_mode=False)
     except SystemExit as e:
         if e.code not in (0, None):
             raise

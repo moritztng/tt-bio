@@ -240,6 +240,66 @@ def _ca_indices(atom_array, n_atoms: int):
     return idx or None
 
 
+def _confidence(pred) -> dict:
+    """Whatever confidence the vendor reports, as plain numbers.
+
+    Rule 6 of the five-model benchmark: a rung that fails its own accuracy check is not a
+    speed data point, so every run has to carry a confidence read. protenix returns these
+    in the prediction dict, so they cost nothing to record -- the alternative (reading
+    plDDT back off the B-factor column of a written file) is a lossier route to the same
+    number.
+    """
+    out = {}
+    for k, v in (pred or {}).items():
+        if not any(t in k.lower() for t in ("plddt", "ptm", "pae", "confidence", "resolved")):
+            continue
+        try:
+            import numpy as np
+            a = np.asarray(v.cpu() if hasattr(v, "cpu") else v, dtype=np.float64)
+            out[k] = round(float(a.mean()), 6) if a.size else None
+            if a.size > 1:
+                out[f"{k}_n"] = int(a.size)
+        except Exception:
+            continue
+    return out
+
+
+def _save_structure(atom_array, coords, pred, path: Path) -> str:
+    """Write the predicted structure so the shared accuracy gate can read it.
+
+    gpu_bench.py keeps coordinates in memory and never wrote a file, which was fine while
+    the only correctness check was a rung-vs-rung RMSD inside one process. The five-model
+    benchmark needs a structure per cell, checked by the same gate for all five models.
+    """
+    import numpy as np
+    c = np.asarray(coords.cpu() if hasattr(coords, "cpu") else coords, dtype=np.float32)
+    while c.ndim > 2:
+        c = c[0]
+    try:
+        aa = atom_array.copy()
+    except Exception as e:
+        return f"no atom array: {e}"
+    if len(aa) != c.shape[0]:
+        return f"atom count mismatch: array {len(aa)} vs coords {c.shape[0]}"
+    aa.coord = c
+    # Per-atom plDDT into the B-factor column, which is where the gate looks and where
+    # every folding tool puts it. Skip silently if the model reports it per-token instead.
+    for k in ("plddt", "atom_plddt", "full_plddt"):
+        v = (pred or {}).get(k)
+        if v is None:
+            continue
+        b = np.asarray(v.cpu() if hasattr(v, "cpu") else v, dtype=np.float32).reshape(-1)
+        if b.size == len(aa):
+            aa.set_annotation("b_factor", b)
+            break
+    path.parent.mkdir(parents=True, exist_ok=True)
+    import biotite.structure.io.pdb as pdb
+    f = pdb.PDBFile()
+    f.set_structure(aa)
+    f.write(str(path))
+    return str(path)
+
+
 def _kabsch_rmsd(c1, c2, idx=None) -> float:
     import numpy as np
     a = np.asarray(c1, dtype=np.float64)
@@ -350,7 +410,8 @@ def build_fold(model: str, model_name: str, rung: dict, input_json: str,
 
 def run_model(model: str, model_name: str, repeat: int, input_json: str,
               dump_root: Path, checkpoint: str | None, out_path: Path,
-              rungs: list[dict], label: str, n_msa_expected: int) -> dict:
+              rungs: list[dict], label: str, n_msa_expected: int,
+              save_structure: str | None = None) -> dict:
     torch = importlib.import_module("torch")
 
     results = []
@@ -392,6 +453,13 @@ def run_model(model: str, model_name: str, repeat: int, input_json: str,
                 rmsd_all = f"rmsd-error: {e}"
 
         ts = sorted(times)
+        struct, conf = None, _confidence(pred)
+        if save_structure is not None:
+            try:
+                struct = _save_structure(meta["atom_array"], pred["coordinate"], pred,
+                                         Path(save_structure) / f"{rung['name']}.pdb")
+            except Exception as e:
+                struct = f"save-error: {e}"
         results.append(dict(
             rung=rung["name"], rung_config=rung, load_s=load_s,
             resolved_config=meta["resolved_config"],
@@ -404,6 +472,7 @@ def run_model(model: str, model_name: str, repeat: int, input_json: str,
             # name, with CA reported separately when the atom array lines up.
             all_atom_kabsch_rmsd_vs_L0=rmsd_all,
             ca_kabsch_rmsd_vs_L0=rmsd_ca,
+            confidence=conf, structure=struct,
         ))
         print(f"[{model} {rung['name']}] warm median {ts[len(ts)//2]:.2f}s "
               f"(min {ts[0]:.2f}/max {ts[-1]:.2f}) cold {cold_s:.1f}s "
@@ -475,6 +544,8 @@ def main() -> int:
     ap.add_argument("--rungs", default=None,
                     help="comma-separated subset of rung names (default: all)")
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--save-structure", default=None,
+                    help="directory for one PDB per rung, for the shared accuracy gate")
     args = ap.parse_args()
 
     model_name = {"protenix-v2": "protenix-v2", "opendde": "opendde_v1"}[args.model]
@@ -496,7 +567,8 @@ def main() -> int:
     if not rungs:
         ap.error("no rungs selected")
     run_model(args.model, model_name, args.repeat, str(input_json), work / "dump",
-              args.checkpoint, args.out, rungs, args.label, n_msa_expected)
+              args.checkpoint, args.out, rungs, args.label, n_msa_expected,
+              save_structure=args.save_structure)
     return 0
 
 
