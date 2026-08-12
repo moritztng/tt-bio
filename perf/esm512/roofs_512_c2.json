@@ -1,0 +1,33 @@
+{
+ "host": "tt-quietbox2",
+ "card": "2",
+ "grid": [
+  11,
+  10
+ ],
+ "core_grid_main": [
+  11,
+  10
+ ],
+ "L": 512,
+ "roofs": {
+  "clone_GBs": 390.0,
+  "clone_ms": 0.6883,
+  "add_GBs": 431.1,
+  "add_ms": 0.9339,
+  "mm4096_LoFi_fp32acc_main11x10": 289.2,
+  "mm4096_LoFi_fp32acc_full": 285.61,
+  "mm4096_LoFi_nofp32acc_main11x10": 282.24,
+  "mm4096_LoFi_nofp32acc_full": 280.84,
+  "mm4096_HiFi2_fp32acc_main11x10": 189.57,
+  "mm4096_HiFi2_fp32acc_full": 185.2,
+  "mm4096_HiFi2_nofp32acc_main11x10": 193.56,
+  "mm4096_HiFi2_nofp32acc_full": 191.48,
+  "mm4096_HiFi4_fp32acc_main11x10": 112.68,
+  "mm4096_HiFi4_fp32acc_full": 108.9,
+  "mm4096_HiFi4_nofp32acc_main11x10": 113.58,
+  "mm4096_HiFi4_nofp32acc_full": 111.76
+ },
+ "bodies": {},
+ "arms": {}
+}

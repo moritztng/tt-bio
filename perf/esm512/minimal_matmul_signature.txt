@@ -1,0 +1,7 @@
+# Evidence that SwiGLUFFN.fuse_swiglu cannot be True on ttnn 0.68.0 (qb2, 2026-08-12).
+# tt_bio/esmc.py:263-267 gates the flag on the string "fuse_swiglu" appearing in
+# ttnn.experimental.minimal_matmul.__doc__. It does not appear, and the kwarg does not exist:
+
+Available signatures:
+  minimal_matmul(input_tensor: ttnn.Tensor, weight_tensor: ttnn.Tensor, *, bias_tensor: ttnn.Tensor | None = None, fused_activation: ttnn._ttnn.activation.UnaryWithParam | None = None, config: ttnn.experimental.MinimalMatmulConfig | None = None, memory_config: ttnn.MemoryConfig | None = None, dtype: ttnn.DataType | None = None, compute_kernel_config: ttnn.core.WormholeComputeKernelConfig | None = None)
+benchlock: esmfold2-512aa-deep-perf released, rc=1, loadavg 1.27 1.17 0.69

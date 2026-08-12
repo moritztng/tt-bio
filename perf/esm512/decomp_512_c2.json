@@ -1,0 +1,90 @@
+{
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "2",
+ "model": "esmfold2",
+ "size": 512,
+ "recycling_steps": 10,
+ "sampling_steps": 100,
+ "timers_installed": [
+  "stage:ESMC-6B",
+  "stage:LMShim",
+  "stage:MSAEncoder",
+  "stage:FoldingTrunk*",
+  "stage:DiffusionModule",
+  "stage:DiffusionConditioning",
+  "stage:DistogramHead",
+  "block:PairUpdateBlock",
+  "body:TriangleMultiplication",
+  "body:SwiGLUFFN",
+  "block:TokenDiT",
+  "body:AttentionPairBias",
+  "body:CondTransition",
+  "leaf:_attn_fp32",
+  "body:AtomEncoder",
+  "body:AtomDecoder",
+  "body:SWAAtomTransformer",
+  "leaf:SWAAttention",
+  "body:OuterProductMean",
+  "body:MSAPWA"
+ ],
+ "runs": [
+  {
+   "arm": "plain0",
+   "fold_s": 45.818,
+   "plddt": 0.9285,
+   "n_tokens": null,
+   "cif": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "loadavg": "2.12"
+  },
+  {
+   "arm": "plain1",
+   "fold_s": 45.92,
+   "plddt": 0.9285,
+   "n_tokens": null,
+   "cif": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "loadavg": "1.61"
+  },
+  {
+   "arm": "timed0",
+   "fold_s": 46.16,
+   "plddt": 0.9285,
+   "n_tokens": null,
+   "cif": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "loadavg": "1.38"
+  },
+  {
+   "arm": "plain_post0",
+   "fold_s": 45.814,
+   "plddt": 0.9285,
+   "n_tokens": null,
+   "cif": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "loadavg": "1.20"
+  },
+  {
+   "arm": "plain_post1",
+   "fold_s": 45.764,
+   "plddt": 0.9285,
+   "n_tokens": null,
+   "cif": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "loadavg": "1.20"
+  }
+ ],
+ "grid": [
+  11,
+  10
+ ],
+ "cold_s": 102.73510850000002,
+ "plain_median": 45.816,
+ "plain_spread": 0.1559999999999988
+}

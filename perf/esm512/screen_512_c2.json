@@ -1,0 +1,95 @@
+{
+ "host": "tt-quietbox2",
+ "card": "2",
+ "grid": [
+  11,
+  10
+ ],
+ "L": 512,
+ "small_grid": false,
+ "pair_row_tile": 0,
+ "seq_len_more_chunking": 1536,
+ "ops": {
+  "layer_norm": {
+   "ms": 0.9428,
+   "MB": 268.4
+  },
+  "fc1_linear_N2048": {
+   "ms": 11.3229,
+   "MB": 1208.0,
+   "GFLOP": 274.9
+  },
+  "chunk2": {
+   "ms": 5.591,
+   "MB": 2147.5
+  },
+  "silu": {
+   "ms": 3.4486,
+   "MB": 1073.7
+  },
+  "multiply": {
+   "ms": 3.6716,
+   "MB": 1610.6
+  },
+  "fc2_linear_N256": {
+   "ms": 4.6343,
+   "MB": 671.1,
+   "GFLOP": 137.4
+  },
+  "ttnn_swiglu": {
+   "ms": 13.2947,
+   "MB": 1610.6
+  },
+  "multiply_siluA": {
+   "ms": 4.2315,
+   "MB": 1610.6
+  },
+  "fc1_half_N1024": {
+   "ms": 5.7471,
+   "MB": 671.1
+  },
+  "fc1_half_N1024_silu_epilogue": {
+   "ms": 8.6206,
+   "MB": 671.1
+  }
+ },
+ "chain": {
+  "baseline_ms": 29.405,
+  "cand_split_ms": 21.1466,
+  "cand_swiglu_ms": 29.8634
+ },
+ "exact": {
+  "ttnn_swiglu_vs_chunk_silu_mul": false,
+  "multiply_siluA_vs_silu_then_mul": true,
+  "cand_split_vs_baseline": true,
+  "cand_swiglu_vs_baseline": false
+ },
+ "trimul": {
+  "chunk_size": 32,
+  "memcfg": "BufferType.DRAM",
+  "n_pairs": 8,
+  "group": 8,
+  "start_e60_ms": 18.1347,
+  "start_e60_gated_served_declined": [
+   0,
+   0
+  ],
+  "start_e61_ms": 14.7653,
+  "start_e61_gated_served_declined": [
+   18,
+   0
+  ],
+  "end_e60_ms": 18.1911,
+  "end_e60_gated_served_declined": [
+   0,
+   0
+  ],
+  "end_e61_ms": 14.7427,
+  "end_e61_gated_served_declined": [
+   18,
+   0
+  ]
+ },
+ "fuse_swiglu_flag": false,
+ "minimal_matmul_has_fuse_swiglu": false
+}
