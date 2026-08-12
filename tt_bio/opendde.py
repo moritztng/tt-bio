@@ -419,6 +419,13 @@ class OpenDDE:
         import ttnn
         s_inputs_st, s_st, z_st, attn_bias = self.expander(ifd, s_inputs_res, s_res, z_res)
         Ns = s_st.shape[0]
+        # Build the refiner trimuls' fused input-weight cache up front, so the first (timed)
+        # call does not interleave the 96-tensor `_gp_cache` uploads with its compute.
+        # Numerically inert, measured: a fold with this prewarm produces the same numbers as
+        # one without.
+        for blk in self.refiner.blocks:
+            blk.triangle_multiplication_start.prewarm(Ns, 1)
+            blk.triangle_multiplication_end.prewarm(Ns, 1)
         z4 = ttnn.reshape(z_st, (1, Ns, Ns, self.expander.c_z))
         s3 = ttnn.reshape(s_st, (1, Ns, self.expander.c_s))
         bias = None

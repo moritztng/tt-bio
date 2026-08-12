@@ -2084,6 +2084,24 @@ class TriangleMultiplication(Module):
             ttnn.deallocate(rows)
         return _acc_concat(blocks, 1, host)
 
+    def prewarm(self, H: int, batch: int = 1) -> None:
+        """Build the fused input-weight cache this shape will use, before the call that uses it.
+
+        `_gp_in_chunks` is otherwise built inside the first `__call__`, interleaved with its
+        compute: 96 tensors of (c_z, 4*chunk) across a 4-block Pairformer, ~9.4 MB. Uploading
+        them up front costs no compute. Numerically inert, measured: a warm first call and a
+        cold one produce the same numbers.
+
+        The (chunk_size, group) pair is computed exactly as `__call__` computes it, from the
+        same inputs, so the entry warmed is the entry used.
+        """
+        memory_config = _triangle_mul_memory_config(H)
+        large_seq = memory_config.buffer_type == ttnn.BufferType.DRAM
+        chunk_size = _trimul_chunk_size(H, self._hidden, batch)
+        n_pairs = self._hidden // chunk_size
+        group = _trimul_inproj_group(H, chunk_size, batch, n_pairs) if large_seq else 1
+        self._gp_in_chunks(chunk_size, group)
+
     def __call__(self, x: ttnn.Tensor, mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
         x_in = x  # keep the pair tensor reachable for the row-blocked tail below
         shp = [int(d) for d in x.shape]
