@@ -1,0 +1,773 @@
+{
+ "host": "tt-quietbox2",
+ "card": "2",
+ "grid": [
+  11,
+  10
+ ],
+ "ttnn": "0.68.0",
+ "loadavg": [
+  "1.02",
+  "1.01",
+  "0.71"
+ ],
+ "warm": 2,
+ "reps": 5,
+ "note": "screen; per-call ratios, not fold gains",
+ "A_inproj": {
+  "L512": {
+   "in": [
+    1,
+    512,
+    512,
+    256
+   ],
+   "w": [
+    256,
+    1024
+   ],
+   "m_tiles": 8192,
+   "k_tiles": 8,
+   "n_tiles": 32,
+   "base_ms": 2.8661,
+   "arms": [
+    {
+     "M": 1,
+     "K": 8,
+     "N": 1,
+     "sh": 1,
+     "sw": 1,
+     "ms": 5.0314,
+     "speedup": 0.5696,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 8,
+     "N": 2,
+     "sh": 1,
+     "sw": 1,
+     "ms": 4.3723,
+     "speedup": 0.6555,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 8,
+     "N": 2,
+     "sh": 1,
+     "sw": 2,
+     "ms": 4.3724,
+     "speedup": 0.6555,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 8,
+     "N": 4,
+     "sh": 1,
+     "sw": 1,
+     "ms": 4.6803,
+     "speedup": 0.6124,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 8,
+     "N": 4,
+     "sh": 1,
+     "sw": 4,
+     "ms": 4.5929,
+     "speedup": 0.624,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 8,
+     "N": 8,
+     "sh": 1,
+     "sw": 1,
+     "ms": 4.6734,
+     "speedup": 0.6133,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 8,
+     "N": 8,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operatio"
+    },
+    {
+     "M": 1,
+     "K": 8,
+     "N": 16,
+     "sh": 1,
+     "sw": 1,
+     "ms": 4.7219,
+     "speedup": 0.607,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 8,
+     "N": 16,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operatio"
+    },
+    {
+     "M": 1,
+     "K": 8,
+     "N": 32,
+     "sh": 1,
+     "sw": 1,
+     "ms": 4.8982,
+     "speedup": 0.5851,
+     "exact": true
+    },
+    {
+     "M": 1,
+     "K": 8,
+     "N": 32,
+     "sh": 1,
+     "sw": 8,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operatio"
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 1,
+     "sh": 1,
+     "sw": 1,
+     "ms": 3.4539,
+     "speedup": 0.8298,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 1,
+     "sh": 2,
+     "sw": 1,
+     "ms": 3.4575,
+     "speedup": 0.8289,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 2,
+     "sh": 1,
+     "sw": 1,
+     "ms": 3.3126,
+     "speedup": 0.8652,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 2,
+     "sh": 2,
+     "sw": 2,
+     "ms": 3.3313,
+     "speedup": 0.8604,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 4,
+     "sh": 1,
+     "sw": 1,
+     "ms": 3.7824,
+     "speedup": 0.7577,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operatio"
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 8,
+     "sh": 1,
+     "sw": 1,
+     "ms": 3.7359,
+     "speedup": 0.7672,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 8,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operatio"
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 16,
+     "sh": 1,
+     "sw": 1,
+     "ms": 3.7564,
+     "speedup": 0.763,
+     "exact": true
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 16,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operatio"
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 32,
+     "sh": 1,
+     "sw": 1,
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "M": 2,
+     "K": 8,
+     "N": 32,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operatio"
+    },
+    {
+     "M": 4,
+     "K": 8,
+     "N": 1,
+     "sh": 1,
+     "sw": 1,
+     "ms": 3.2273,
+     "speedup": 0.8881,
+     "exact": true
+    },
+    {
+     "M": 4,
+     "K": 8,
+     "N": 1,
+     "sh": 4,
+     "sw": 1,
+     "ms": 3.4095,
+     "speedup": 0.8406,
+     "exact": true
+    },
+    {
+     "M": 4,
+     "K": 8,
+     "N": 2,
+     "sh": 1,
+     "sw": 1,
+     "ms": 2.9702,
+     "speedup": 0.9649,
+     "exact": true
+    },
+    {
+     "M": 4,
+     "K": 8,
+     "N": 2,
+     "sh": 4,
+     "sw": 2,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operatio"
+    },
+    {
+     "M": 4,
+     "K": 8,
+     "N": 4,
+     "sh": 1,
+     "sw": 1,
+     "ms": 3.1036,
+     "speedup": 0.9235,
+     "exact": true
+    },
+    {
+     "M": 4,
+     "K": 8,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operatio"
+    },
+    {
+     "M": 4,
+     "K": 8,
+     "N": 8,
+     "sh": 1,
+     "sw": 1,
+     "ms": 3.1244,
+     "speedup": 0.9173,
+     "exact": true
+    },
+    {
+     "M": 4,
+     "K": 8,
+     "N": 8,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operatio"
+    },
+    {
+     "M": 4,
+     "K": 8,
+     "N": 16,
+     "sh": 1,
+     "sw": 1,
+     "ms": 3.1723,
+     "speedup": 0.9035,
+     "exact": true
+    },
+    {
+     "M": 4,
+     "K": 8,
+     "N": 16,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operatio"
+    },
+    {
+     "M": 4,
+     "K": 8,
+     "N": 32,
+     "sh": 1,
+     "sw": 1,
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "M": 4,
+     "K": 8,
+     "N": 32,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operatio"
+    },
+    {
+     "M": 8,
+     "K": 8,
+     "N": 1,
+     "sh": 1,
+     "sw": 1,
+     "ms": 3.9605,
+     "speedup": 0.7237,
+     "exact": true
+    },
+    {
+     "M": 8,
+     "K": 8,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operatio"
+    },
+    {
+     "M": 8,
+     "K": 8,
+     "N": 2,
+     "sh": 1,
+     "sw": 1,
+     "ms": 3.5433,
+     "speedup": 0.8089,
+     "exact": true
+    },
+    {
+     "M": 8,
+     "K": 8,
+     "N": 2,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operatio"
+    },
+    {
+     "M": 8,
+     "K": 8,
+     "N": 4,
+     "sh": 1,
+     "sw": 1,
+     "ms": 2.8491,
+     "speedup": 1.006,
+     "exact": true
+    },
+    {
+     "M": 8,
+     "K": 8,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operatio"
+    },
+    {
+     "M": 8,
+     "K": 8,
+     "N": 8,
+     "sh": 1,
+     "sw": 1,
+     "ms": 2.9004,
+     "speedup": 0.9882,
+     "exact": true
+    },
+    {
+     "M": 8,
+     "K": 8,
+     "N": 8,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operatio"
+    },
+    {
+     "M": 8,
+     "K": 8,
+     "N": 16,
+     "sh": 1,
+     "sw": 1,
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "M": 8,
+     "K": 8,
+     "N": 16,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operatio"
+    },
+    {
+     "M": 8,
+     "K": 8,
+     "N": 32,
+     "sh": 1,
+     "sw": 1,
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "M": 8,
+     "K": 8,
+     "N": 32,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operatio"
+    },
+    {
+     "M": 16,
+     "K": 8,
+     "N": 1,
+     "sh": 1,
+     "sw": 1,
+     "ms": 4.2056,
+     "speedup": 0.6815,
+     "exact": true
+    },
+    {
+     "M": 16,
+     "K": 8,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operatio"
+    },
+    {
+     "M": 16,
+     "K": 8,
+     "N": 2,
+     "sh": 1,
+     "sw": 1,
+     "ms": 3.4029,
+     "speedup": 0.8423,
+     "exact": true
+    },
+    {
+     "M": 16,
+     "K": 8,
+     "N": 2,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operatio"
+    },
+    {
+     "M": 16,
+     "K": 8,
+     "N": 4,
+     "sh": 1,
+     "sw": 1,
+     "ms": 2.8185,
+     "speedup": 1.0169,
+     "exact": true
+    },
+    {
+     "M": 16,
+     "K": 8,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operatio"
+    },
+    {
+     "M": 16,
+     "K": 8,
+     "N": 8,
+     "sh": 1,
+     "sw": 1,
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "M": 16,
+     "K": 8,
+     "N": 8,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operatio"
+    },
+    {
+     "M": 16,
+     "K": 8,
+     "N": 16,
+     "sh": 1,
+     "sw": 1,
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "M": 16,
+     "K": 8,
+     "N": 16,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operatio"
+    },
+    {
+     "M": 16,
+     "K": 8,
+     "N": 32,
+     "sh": 1,
+     "sw": 1,
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "M": 16,
+     "K": 8,
+     "N": 32,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operatio"
+    },
+    {
+     "M": 32,
+     "K": 8,
+     "N": 1,
+     "sh": 1,
+     "sw": 1,
+     "ms": 4.6633,
+     "speedup": 0.6146,
+     "exact": true
+    },
+    {
+     "M": 32,
+     "K": 8,
+     "N": 1,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operatio"
+    },
+    {
+     "M": 32,
+     "K": 8,
+     "N": 2,
+     "sh": 1,
+     "sw": 1,
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "M": 32,
+     "K": 8,
+     "N": 2,
+     "sh": 8,
+     "sw": 1,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operatio"
+    },
+    {
+     "M": 32,
+     "K": 8,
+     "N": 4,
+     "sh": 1,
+     "sw": 1,
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "M": 32,
+     "K": 8,
+     "N": 4,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operatio"
+    },
+    {
+     "M": 32,
+     "K": 8,
+     "N": 8,
+     "sh": 1,
+     "sw": 1,
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "M": 32,
+     "K": 8,
+     "N": 8,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operatio"
+    },
+    {
+     "M": 32,
+     "K": 8,
+     "N": 16,
+     "sh": 1,
+     "sw": 1,
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "M": 32,
+     "K": 8,
+     "N": 16,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operatio"
+    },
+    {
+     "M": 32,
+     "K": 8,
+     "N": 32,
+     "sh": 1,
+     "sw": 1,
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular "
+    },
+    {
+     "M": 32,
+     "K": 8,
+     "N": 32,
+     "sh": 2,
+     "sw": 4,
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operatio"
+    }
+   ],
+   "best": [
+    {
+     "M": 16,
+     "K": 8,
+     "N": 4,
+     "sh": 1,
+     "sw": 1,
+     "ms": 2.8185,
+     "speedup": 1.0169,
+     "exact": true
+    },
+    {
+     "M": 8,
+     "K": 8,
+     "N": 4,
+     "sh": 1,
+     "sw": 1,
+     "ms": 2.8491,
+     "speedup": 1.006,
+     "exact": true
+    },
+    {
+     "M": 8,
+     "K": 8,
+     "N": 8,
+     "sh": 1,
+     "sw": 1,
+     "ms": 2.9004,
+     "speedup": 0.9882,
+     "exact": true
+    },
+    {
+     "M": 4,
+     "K": 8,
+     "N": 2,
+     "sh": 1,
+     "sw": 1,
+     "ms": 2.9702,
+     "speedup": 0.9649,
+     "exact": true
+    },
+    {
+     "M": 4,
+     "K": 8,
+     "N": 4,
+     "sh": 1,
+     "sw": 1,
+     "ms": 3.1036,
+     "speedup": 0.9235,
+     "exact": true
+    }
+   ]
+  },
+  "L320": {
+   "m_tiles": 3200,
+   "declined_by_key": false,
+   "base_ms": 1.1754,
+   "ms": 1.1447,
+   "speedup": 1.0269,
+   "exact": true
+  },
+  "L298": {
+   "m_tiles": 2776,
+   "declined_by_key": true,
+   "base_ms": 1.1324
+  }
+ },
+ "B_subblock": {
+  "shipped_1x1": {
+   "ms": 1.6056,
+   "speedup": 1.0,
+   "exact": true,
+   "GBps": 250.8
+  },
+  "sub1x2": {
+   "ms": 1.7797,
+   "speedup": 0.9022,
+   "exact": true
+  },
+  "sub2x1": {
+   "ms": 1.8382,
+   "speedup": 0.8734,
+   "exact": true
+  },
+  "sub2x2": {
+   "ms": 2.049,
+   "speedup": 0.7836,
+   "exact": true
+  }
+ },
+ "C_move": {
+  "gated_from_fused_1024": {
+   "ms": 2.2182,
+   "MB": 384.0,
+   "GBps": 181.5
+  },
+  "plain_fwd_from_256": {
+   "ms": 1.4474,
+   "MB": 256.0,
+   "GBps": 185.5
+  },
+  "back_from_256": {
+   "ms": 258.9912,
+   "MB": 256.0,
+   "GBps": 1.0
+  }
+ },
+ "loadavg_end": [
+  "2.44",
+  "1.35",
+  "0.84"
+ ]
+}

@@ -39,6 +39,7 @@ from tt_bio.tenstorrent import (
     Weights,
     WeightScope,
     _dtype,
+    _pair_proj_linear,
     _sdpa_program_config_for_lengths,
     get_device,
     trace_region_size,
@@ -256,6 +257,24 @@ def set_split_swiglu(on: bool) -> bool:
     return prev
 
 
+# Row height for the L1-resident pair FFN (0 = off, full-size DRAM projections). The split-fc1
+# path still writes both d_ff-wide halves to DRAM and reads them straight back: 3.892 GB per call
+# at [1,512,512,256], 42 % of the measured 422.9 GB/s roof. Blocking the call over rows so each
+# half is written to L1 instead deletes that round trip. 32 rows is not a free parameter: 64 is
+# refused by the circular-buffer clash (`_pair_proj_linear` falls back and the win goes), and 8
+# and 16 are FASTER per call but NOT bit-exact, so they are a release-gate decision and not this.
+# MEASURED at [1,512,512,256], qb2 card 2: 21.257 -> 18.398 ms per call, `torch.equal` against
+# the full-size path (perf/esm512/screen_armc_c0.json).
+_PAIR_L1_ROWS = int(os.environ.get("TT_BIO_PAIR_L1_ROWS", "0"))
+
+
+def set_pair_l1_rows(rows: int) -> int:
+    """Row height for the L1-resident pair FFN, 0 to switch it off. Returns the previous value."""
+    global _PAIR_L1_ROWS
+    prev, _PAIR_L1_ROWS = _PAIR_L1_ROWS, int(rows)
+    return prev
+
+
 def _pack_swiglu_weight(weight: torch.Tensor) -> torch.Tensor:
     packed = weight.t()
     rows, two_n = packed.shape
@@ -305,7 +324,7 @@ class SwiGLUFFN(Module):
             )
         self.fc2_weight = self.torch_to_tt("3.weight", dtype=_dtype())
 
-    def _ffn(self, x: ttnn.Tensor) -> ttnn.Tensor:
+    def _ffn(self, x: ttnn.Tensor, l1_fc1: bool = False) -> ttnn.Tensor:
         ck = self.compute_kernel_config
         x_norm = ttnn.layer_norm(
             x, weight=self.norm_weight, bias=self.norm_bias,
@@ -321,11 +340,17 @@ class SwiGLUFFN(Module):
             )
             ttnn.deallocate(x_norm)
         elif self.split_swiglu and _SPLIT_SWIGLU:
-            h1 = self._lin(x_norm, self.fc1_a_weight)
-            h2 = self._lin(x_norm, self.fc1_b_weight)
+            if l1_fc1:
+                dt = _dtype()
+                h1 = _pair_proj_linear(x_norm, self.fc1_a_weight, ck, dt, l1_out=True)
+                h2 = _pair_proj_linear(x_norm, self.fc1_b_weight, ck, dt, l1_out=True)
+            else:
+                h1 = self._lin(x_norm, self.fc1_a_weight)
+                h2 = self._lin(x_norm, self.fc1_b_weight)
             ttnn.deallocate(x_norm)
             gated = ttnn.multiply(
-                h1, h2, input_tensor_a_activations=[ttnn.UnaryOpType.SILU]
+                h1, h2, input_tensor_a_activations=[ttnn.UnaryOpType.SILU],
+                **({"memory_config": ttnn.L1_MEMORY_CONFIG} if l1_fc1 else {}),
             )
             ttnn.deallocate(h1)
             ttnn.deallocate(h2)
@@ -349,6 +374,11 @@ class SwiGLUFFN(Module):
         # tile. Single pass on Blackhole. See tenstorrent._apply_grid_thresholds.
         from tt_bio import tenstorrent
         L = x.shape[1]
+        if len(x.shape) == 4 and _PAIR_L1_ROWS and self.split_swiglu and _SPLIT_SWIGLU:
+            rows = _PAIR_L1_ROWS
+            if L > rows:
+                parts = ttnn.chunk(x, -(-L // rows), dim=1)
+                return ttnn.concat([self._ffn(p, l1_fc1=True) for p in parts], dim=1)
         if len(x.shape) == 4:
             chunk = tenstorrent.pair_row_tile(L)
         else:

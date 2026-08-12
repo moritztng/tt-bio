@@ -1,0 +1,146 @@
+{
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "2",
+ "model": "esmfold2",
+ "size": 512,
+ "recycling_steps": 10,
+ "sampling_steps": 100,
+ "arms": [
+  "base",
+  "armc"
+ ],
+ "rounds": 2,
+ "runs": [
+  {
+   "tag": "warm:base",
+   "arm": "base",
+   "pair_l1_rows": 0,
+   "inproj_mm_cfg": false,
+   "fold_s": 50.43,
+   "plddt": 0.9285,
+   "cif": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "e6_served": 2152,
+   "e6_declined": 0,
+   "l1_out_refused": 0,
+   "loadavg": "1.55"
+  },
+  {
+   "tag": "warm:armc",
+   "arm": "armc",
+   "pair_l1_rows": 32,
+   "inproj_mm_cfg": false,
+   "fold_s": 35.69,
+   "plddt": 0.9285,
+   "cif": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "e6_served": 2152,
+   "e6_declined": 0,
+   "l1_out_refused": 0,
+   "loadavg": "1.31"
+  },
+  {
+   "tag": "r0:base",
+   "arm": "base",
+   "pair_l1_rows": 0,
+   "inproj_mm_cfg": false,
+   "fold_s": 37.548,
+   "plddt": 0.9285,
+   "cif": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "e6_served": 2152,
+   "e6_declined": 0,
+   "l1_out_refused": 0,
+   "loadavg": "2.01"
+  },
+  {
+   "tag": "r0:armc",
+   "arm": "armc",
+   "pair_l1_rows": 32,
+   "inproj_mm_cfg": false,
+   "fold_s": 36.037,
+   "plddt": 0.9285,
+   "cif": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "e6_served": 2152,
+   "e6_declined": 0,
+   "l1_out_refused": 0,
+   "loadavg": "2.25"
+  },
+  {
+   "tag": "r1:base",
+   "arm": "base",
+   "pair_l1_rows": 0,
+   "inproj_mm_cfg": false,
+   "fold_s": 38.073,
+   "plddt": 0.9285,
+   "cif": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "e6_served": 2152,
+   "e6_declined": 0,
+   "l1_out_refused": 0,
+   "loadavg": "2.47"
+  },
+  {
+   "tag": "r1:armc",
+   "arm": "armc",
+   "pair_l1_rows": 32,
+   "inproj_mm_cfg": false,
+   "fold_s": 36.169,
+   "plddt": 0.9285,
+   "cif": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "e6_served": 2152,
+   "e6_declined": 0,
+   "l1_out_refused": 0,
+   "loadavg": "2.29"
+  }
+ ],
+ "inproj_screen": {
+  "M": 16,
+  "K": 8,
+  "N": 4,
+  "sh": 1,
+  "sw": 1,
+  "ms": 2.8185,
+  "speedup": 1.0169,
+  "exact": true
+ },
+ "inproj_dropped": "kill gate 1.05x not cleared",
+ "mm_block_8_32": [],
+ "grid": [
+  11,
+  10
+ ],
+ "summary": {
+  "base": {
+   "n": 2,
+   "median": 37.811,
+   "min": 37.548,
+   "max": 38.073,
+   "spread": 0.525,
+   "speedup_vs_base": 1.0,
+   "delta_s": 0.0,
+   "x_vs_h200": 5.211
+  },
+  "armc": {
+   "n": 2,
+   "median": 36.103,
+   "min": 36.037,
+   "max": 36.169,
+   "spread": 0.132,
+   "speedup_vs_base": 1.0473,
+   "delta_s": 1.708,
+   "x_vs_h200": 4.9756
+  },
+  "A/A_noise_floor_s": 0.525
+ },
+ "cif_identical_across_arms": true
+}
