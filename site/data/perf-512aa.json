@@ -1,6 +1,6 @@
 {
   "schema": 2,
-  "updated": "2026-08-12",
+  "updated": "2026-08-13",
   "title": "TT-Bio: biomolecular structure, design and embeddings on Tenstorrent",
   "subtitle": "Five structure-prediction models at 512 residues, measured on Tenstorrent Blackhole and on NVIDIA H200 and B200.",
   "notes": [
@@ -16,7 +16,7 @@
     "diffusion_samples": 1,
     "seed": 0,
     "templates": "off",
-    "protocol": "Warm folds, one prediction at a time on one accelerator, the same two input files on both sides, each model at its own shipped defaults."
+    "protocol": "Warm folds, one prediction at a time on one accelerator, the same two input files on both sides, each model at its own recycle and sampling-step settings. Each Tenstorrent cell is that model's fastest arm that passes parity."
   },
   "platforms": [
     {
@@ -156,9 +156,9 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 37.871,
+          "s_per_fold": 36.103,
           "parity": "bit-exact",
-          "ref": "Twelve warm folds, noise floor 0.006 s. Bit-exact: CIF sha256 295867277b9c137f and plDDT 0.9285 in every one of the twelve."
+          "ref": "Round-robin A/B against the 37.811 s arm it replaces, median of two rounds, A/A noise floor 0.525 s against a 1.708 s delta. Bit-exact: CIF sha256 295867277b9c137f and plDDT 0.9285 identical on every arm, and torch.equal at every replaced op."
         },
         "h200": {
           "status": "measured",
@@ -204,9 +204,9 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 90.874,
+          "s_per_fold": 88.61,
           "parity": "byte-identical",
-          "ref": "Three warm folds, noise floor 0.017 s. Byte-identical at the full CIF digest 50aa1e46583bd5a8fcb4a44c51fd8acbcd652d6da7d3635e07d1477217035155, plDDT 0.754131."
+          "ref": "The 90.874 s arm less the 2.262 s its successor measured against it in a round-robin A/B, noise floor 0.204 s. Byte-identical: the full CIF digest 50aa1e46583bd5a8fcb4a44c51fd8acbcd652d6da7d3635e07d1477217035155 and plDDT 0.754131 are unchanged, structure delta 0.000000 A."
         },
         "h200": {
           "status": "measured",
@@ -285,6 +285,6 @@
   },
   "caveats": [
     "Rows are not a cross-model ranking. Boltz-2 and OpenFold3 do 3 recycles where ESMFold2, Protenix-v2 and OpenDDE do 10, because that is what each ships. Compare a model to itself across hardware.",
-    "Accuracy is not compared here. Each stack ran its own shipped defaults and every run was checked against its own plDDT, but these numbers are wall-clock and cost."
+    "Accuracy is not compared here. Each stack ran its own settings and every run was checked against its own plDDT, but these numbers are wall-clock and cost."
   ]
 }
