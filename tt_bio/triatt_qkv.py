@@ -178,12 +178,22 @@ def gate_proj(x, w_g, w_o, ckc, n_heads, head_dim, dtype, mm_config):
         return _tail_reject("out_weight_shape", shape)
 
     from .tenstorrent import (_mm_block_for, COMPUTE_GRID_MAIN, _PAIR_PROJ_L1_OUT, _L1_OUT_REFUSED,
-                              _PAIR_PROJ_MM)
+                              _PAIR_PROJ_MM, _MM_DEFAULT)
     if not _PAIR_PROJ_MM:
         # `out` would take the DRAM `ttnn.linear` leg, which this has never been compared against
         return _tail_reject("pair_proj_mm_off", shape)
     if _mm_block_for(w_g) is None or _mm_block_for(w_o) is None:
         return _tail_reject("no_block_entry", shape)
+    # `_MM_DEFAULT` exists so K1a has a descriptor at a width the swept table does not cover
+    # (opendde, c_z=384, kt=12). The TAIL is a different question there: `_pair_proj_minimal_matmul`
+    # refuses kt != 8, so the stock `out` at that width is a `ttnn.linear` with `_pair_proj_config`,
+    # and a head-major `out` swaps the op class. MEASURED at the fold, 512 aa,
+    # perf/odde4x/ab_opendde_512.json: the tail moves the CIF digest and plDDT 0.754131 -> 0.750771
+    # to buy 0.234 s, which is 1.15x the run's own 0.204 s A/A floor. Where the table has a SWEPT
+    # entry the tail keeps serving and stays byte-identical (boltz2/openfold3 at kt = 4 and 2,
+    # `on` vs `nonewmm` same CIF digest in perf/other512/ab_b2_rekey_512.json).
+    if _mm_block_for(w_o) is _MM_DEFAULT:
+        return _tail_reject("mm_default_entry_k1a_only", shape)
     # The L1-output leg of `out` also deletes the consumer's operand read; never trade it away.
     # `_L1_OUT_REFUSED` is the allocator's own verdict and is only populated after a real attempt,
     # so the first call at a new shape declines and the rest of the fold follows the verdict.
