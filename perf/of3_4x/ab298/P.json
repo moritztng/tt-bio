@@ -1,0 +1,206 @@
+{
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "3",
+ "size": 298,
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "loadavg": [
+  "2.63",
+  "1.69",
+  "1.05"
+ ],
+ "of3_diffusion_fp32": "1",
+ "runs": [
+  {
+   "run": 0,
+   "fold_s": 14.555,
+   "plddt": 0.506183,
+   "n_tokens": 298,
+   "n_atoms": 2397,
+   "cif_sha256": {
+    "cdk2x2_298.cif": "f90bc5f04b32aa87"
+   },
+   "loadavg": [
+    "2.96",
+    "1.86",
+    "1.13"
+   ],
+   "regions": {
+    "top:model.fold": {
+     "calls": 1,
+     "s": 13.7,
+     "ms_per_call": 13700.125,
+     "pct_of_fold": 94.13
+    },
+    "diff:rollout": {
+     "calls": 1,
+     "s": 8.452,
+     "ms_per_call": 8452.235,
+     "pct_of_fold": 58.07
+    },
+    "diff:module": {
+     "calls": 200,
+     "s": 8.152,
+     "ms_per_call": 40.76,
+     "pct_of_fold": 56.01
+    },
+    "top:trunk": {
+     "calls": 1,
+     "s": 4.366,
+     "ms_per_call": 4366.221,
+     "pct_of_fold": 30.0
+    },
+    "dm:dit_stack": {
+     "calls": 200,
+     "s": 4.237,
+     "ms_per_call": 21.183,
+     "pct_of_fold": 29.11
+    },
+    "dm:dit_block": {
+     "calls": 4800,
+     "s": 4.156,
+     "ms_per_call": 0.866,
+     "pct_of_fold": 28.56
+    },
+    "dm:atom_transformer": {
+     "calls": 401,
+     "s": 3.446,
+     "ms_per_call": 8.592,
+     "pct_of_fold": 23.67
+    },
+    "dm:decoder": {
+     "calls": 200,
+     "s": 1.882,
+     "ms_per_call": 9.41,
+     "pct_of_fold": 12.93
+    },
+    "trunk:msa_block": {
+     "calls": 16,
+     "s": 0.972,
+     "ms_per_call": 60.778,
+     "pct_of_fold": 6.68
+    },
+    "host:build_features": {
+     "calls": 1,
+     "s": 0.68,
+     "ms_per_call": 679.588,
+     "pct_of_fold": 4.67
+    },
+    "trunk:template": {
+     "calls": 4,
+     "s": 0.374,
+     "ms_per_call": 93.592,
+     "pct_of_fold": 2.57
+    },
+    "top:confidence": {
+     "calls": 1,
+     "s": 0.322,
+     "ms_per_call": 322.449,
+     "pct_of_fold": 2.22
+    },
+    "dm:pad_atoms(host round trip)": {
+     "calls": 200,
+     "s": 0.116,
+     "ms_per_call": 0.578,
+     "pct_of_fold": 0.79
+    },
+    "dm:pad_tokens_ai(host round trip)": {
+     "calls": 200,
+     "s": 0.088,
+     "ms_per_call": 0.44,
+     "pct_of_fold": 0.6
+    },
+    "prep:input_atom_encoder": {
+     "calls": 1,
+     "s": 0.086,
+     "ms_per_call": 85.847,
+     "pct_of_fold": 0.59
+    },
+    "diff:cond_single": {
+     "calls": 200,
+     "s": 0.085,
+     "ms_per_call": 0.426,
+     "pct_of_fold": 0.59
+    },
+    "diff:pad_pair_zij(host round trip)": {
+     "calls": 1,
+     "s": 0.06,
+     "ms_per_call": 60.21,
+     "pct_of_fold": 0.41
+    },
+    "diff:pad_tokens_si(host round trip)": {
+     "calls": 200,
+     "s": 0.043,
+     "ms_per_call": 0.216,
+     "pct_of_fold": 0.3
+    },
+    "host:derive_relpos": {
+     "calls": 1,
+     "s": 0.037,
+     "ms_per_call": 36.845,
+     "pct_of_fold": 0.25
+    },
+    "host:ref_atom_embed": {
+     "calls": 2,
+     "s": 0.033,
+     "ms_per_call": 16.334,
+     "pct_of_fold": 0.22
+    },
+    "host:write_structure": {
+     "calls": 1,
+     "s": 0.023,
+     "ms_per_call": 22.612,
+     "pct_of_fold": 0.16
+    },
+    "diff:cond_pair": {
+     "calls": 1,
+     "s": 0.012,
+     "ms_per_call": 11.519,
+     "pct_of_fold": 0.08
+    },
+    "host:derive_template_feat": {
+     "calls": 1,
+     "s": 0.005,
+     "ms_per_call": 4.69,
+     "pct_of_fold": 0.03
+    },
+    "trunk:glue_z": {
+     "calls": 4,
+     "s": 0.003,
+     "ms_per_call": 0.704,
+     "pct_of_fold": 0.02
+    },
+    "trunk:glue_s": {
+     "calls": 4,
+     "s": 0.001,
+     "ms_per_call": 0.248,
+     "pct_of_fold": 0.01
+    },
+    "host:derive_block_aux": {
+     "calls": 1,
+     "s": 0.001,
+     "ms_per_call": 0.539,
+     "pct_of_fold": 0.0
+    },
+    "host:msa_features": {
+     "calls": 1,
+     "s": 0.0,
+     "ms_per_call": 0.304,
+     "pct_of_fold": 0.0
+    },
+    "trunk:msa_embedder": {
+     "calls": 1,
+     "s": 0.0,
+     "ms_per_call": 0.216,
+     "pct_of_fold": 0.0
+    }
+   },
+   "triatt_sdpa": {
+    "served": 976,
+    "declined": 0,
+    "rejects": {}
+   }
+  }
+ ]
+}

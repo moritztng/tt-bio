@@ -1,0 +1,131 @@
+benchlock: openfold3-to-4x acquired after 0s, loadavg 0.08 0.19 0.35
+=== arm on run 1  (/tmp/of3_base)  2026-08-12T14:25:19+00:00 ===
+  cold 58.08s n_tokens=512 n_atoms=4116 plddt=0.547851
+=== run 0: instrumented fold 56.407s  plddt 0.547851 n_tokens 512 n_atoms 4116 ===
+  top:model.fold                                    1 calls    54.878 s  54878.208 ms/call   97.29 %
+  top:trunk                                         1 calls    39.009 s  39009.199 ms/call   69.16 %
+  diff:rollout                                      1 calls    13.201 s  13200.972 ms/call   23.40 %
+  diff:module                                     200 calls    12.967 s     64.837 ms/call   22.99 %
+  dm:dit_stack                                    200 calls     6.785 s     33.923 ms/call   12.03 %
+  dm:dit_block                                   4800 calls     6.701 s      1.396 ms/call   11.88 %
+  dm:atom_transformer                             401 calls     5.759 s     14.361 ms/call   10.21 %
+  trunk:template                                    4 calls     4.866 s   1216.605 ms/call    8.63 %
+  trunk:msa_block                                  16 calls     3.056 s    191.014 ms/call    5.42 %
+  dm:decoder                                      200 calls     3.052 s     15.258 ms/call    5.41 %
+  top:confidence                                    1 calls     1.321 s   1320.796 ms/call    2.34 %
+  host:build_features                               1 calls     1.145 s   1144.601 ms/call    2.03 %
+  prep:input_atom_encoder                           1 calls     0.165 s    164.711 ms/call    0.29 %
+  dm:pad_atoms(host round trip)                   200 calls     0.129 s      0.647 ms/call    0.23 %
+  host:derive_relpos                                1 calls     0.114 s    114.154 ms/call    0.20 %
+  diff:cond_single                                200 calls     0.081 s      0.405 ms/call    0.14 %
+  host:ref_atom_embed                               2 calls     0.069 s     34.655 ms/call    0.12 %
+  host:write_structure                              1 calls     0.038 s     37.608 ms/call    0.07 %
+  diff:cond_pair                                    1 calls     0.033 s     33.334 ms/call    0.06 %
+  host:derive_template_feat                         1 calls     0.014 s     14.062 ms/call    0.02 %
+  trunk:glue_z                                      4 calls     0.008 s      1.940 ms/call    0.01 %
+  diff:pad_tokens_si(host round trip)             200 calls     0.007 s      0.035 ms/call    0.01 %
+  dm:pad_tokens_ai(host round trip)               200 calls     0.003 s      0.013 ms/call    0.00 %
+  host:derive_block_aux                             1 calls     0.001 s      1.095 ms/call    0.00 %
+  host:msa_features                                 1 calls     0.001 s      0.626 ms/call    0.00 %
+  diff:pad_pair_zij(host round trip)                1 calls     0.001 s      0.602 ms/call    0.00 %
+  trunk:glue_s                                      4 calls     0.000 s      0.089 ms/call    0.00 %
+  trunk:msa_embedder                                1 calls     0.000 s      0.271 ms/call    0.00 %
+--- exit 0 arm on run 1 2026-08-12T14:27:18+00:00
+=== arm P run 1  (/home/ttuser/.coworker/wt/openfold3-to-4x)  2026-08-12T14:27:18+00:00 ===
+  cold 31.08s n_tokens=512 n_atoms=4116 plddt=0.617382
+=== run 0: instrumented fold 26.869s  plddt 0.617382 n_tokens 512 n_atoms 4116 ===
+  top:model.fold                                    1 calls    25.279 s  25279.101 ms/call   94.08 %
+  diff:rollout                                      1 calls    13.190 s  13190.479 ms/call   49.09 %
+  diff:module                                     200 calls    12.956 s     64.778 ms/call   48.22 %
+  top:trunk                                         1 calls     9.897 s   9897.478 ms/call   36.84 %
+  dm:dit_stack                                    200 calls     6.782 s     33.911 ms/call   25.24 %
+  dm:dit_block                                   4800 calls     6.699 s      1.396 ms/call   24.93 %
+  dm:atom_transformer                             401 calls     5.755 s     14.351 ms/call   21.42 %
+  dm:decoder                                      200 calls     3.047 s     15.237 ms/call   11.34 %
+  host:build_features                               1 calls     1.195 s   1194.755 ms/call    4.45 %
+  trunk:msa_block                                  16 calls     1.115 s     69.707 ms/call    4.15 %
+  trunk:template                                    4 calls     0.981 s    245.154 ms/call    3.65 %
+  top:confidence                                    1 calls     0.852 s    852.419 ms/call    3.17 %
+  prep:input_atom_encoder                           1 calls     0.169 s    168.571 ms/call    0.63 %
+  dm:pad_atoms(host round trip)                   200 calls     0.129 s      0.644 ms/call    0.48 %
+  host:derive_relpos                                1 calls     0.115 s    114.773 ms/call    0.43 %
+  diff:cond_single                                200 calls     0.084 s      0.422 ms/call    0.31 %
+  host:ref_atom_embed                               2 calls     0.074 s     37.021 ms/call    0.28 %
+  host:write_structure                              1 calls     0.038 s     38.064 ms/call    0.14 %
+  diff:cond_pair                                    1 calls     0.033 s     33.352 ms/call    0.12 %
+  host:derive_template_feat                         1 calls     0.015 s     14.738 ms/call    0.05 %
+  trunk:glue_z                                      4 calls     0.008 s      1.943 ms/call    0.03 %
+  diff:pad_tokens_si(host round trip)             200 calls     0.007 s      0.035 ms/call    0.03 %
+  dm:pad_tokens_ai(host round trip)               200 calls     0.003 s      0.013 ms/call    0.01 %
+  host:derive_block_aux                             1 calls     0.001 s      1.087 ms/call    0.00 %
+  diff:pad_pair_zij(host round trip)                1 calls     0.001 s      0.609 ms/call    0.00 %
+  host:msa_features                                 1 calls     0.001 s      0.603 ms/call    0.00 %
+  trunk:glue_s                                      4 calls     0.000 s      0.085 ms/call    0.00 %
+  trunk:msa_embedder                                1 calls     0.000 s      0.255 ms/call    0.00 %
+--- exit 0 arm P run 1 2026-08-12T14:28:19+00:00
+=== arm on run 2  (/tmp/of3_base)  2026-08-12T14:28:19+00:00 ===
+  cold 57.80s n_tokens=512 n_atoms=4116 plddt=0.547851
+=== run 0: instrumented fold 56.396s  plddt 0.547851 n_tokens 512 n_atoms 4116 ===
+  top:model.fold                                    1 calls    54.873 s  54872.849 ms/call   97.30 %
+  top:trunk                                         1 calls    39.027 s  39027.349 ms/call   69.20 %
+  diff:rollout                                      1 calls    13.212 s  13211.702 ms/call   23.43 %
+  diff:module                                     200 calls    12.977 s     64.887 ms/call   23.01 %
+  dm:dit_stack                                    200 calls     6.788 s     33.938 ms/call   12.04 %
+  dm:dit_block                                   4800 calls     6.703 s      1.396 ms/call   11.88 %
+  dm:atom_transformer                             401 calls     5.755 s     14.351 ms/call   10.20 %
+  trunk:template                                    4 calls     4.870 s   1217.583 ms/call    8.64 %
+  trunk:msa_block                                  16 calls     3.062 s    191.389 ms/call    5.43 %
+  dm:decoder                                      200 calls     3.057 s     15.284 ms/call    5.42 %
+  top:confidence                                    1 calls     1.308 s   1308.336 ms/call    2.32 %
+  host:build_features                               1 calls     1.143 s   1142.557 ms/call    2.03 %
+  prep:input_atom_encoder                           1 calls     0.165 s    164.770 ms/call    0.29 %
+  dm:pad_atoms(host round trip)                   200 calls     0.131 s      0.656 ms/call    0.23 %
+  host:derive_relpos                                1 calls     0.112 s    111.784 ms/call    0.20 %
+  diff:cond_single                                200 calls     0.081 s      0.406 ms/call    0.14 %
+  host:ref_atom_embed                               2 calls     0.071 s     35.439 ms/call    0.13 %
+  host:write_structure                              1 calls     0.038 s     37.527 ms/call    0.07 %
+  diff:cond_pair                                    1 calls     0.033 s     33.401 ms/call    0.06 %
+  host:derive_template_feat                         1 calls     0.014 s     14.147 ms/call    0.03 %
+  trunk:glue_z                                      4 calls     0.008 s      1.948 ms/call    0.01 %
+  diff:pad_tokens_si(host round trip)             200 calls     0.007 s      0.036 ms/call    0.01 %
+  dm:pad_tokens_ai(host round trip)               200 calls     0.003 s      0.014 ms/call    0.00 %
+  host:derive_block_aux                             1 calls     0.001 s      1.319 ms/call    0.00 %
+  host:msa_features                                 1 calls     0.001 s      0.625 ms/call    0.00 %
+  diff:pad_pair_zij(host round trip)                1 calls     0.001 s      0.590 ms/call    0.00 %
+  trunk:glue_s                                      4 calls     0.000 s      0.079 ms/call    0.00 %
+  trunk:msa_embedder                                1 calls     0.000 s      0.248 ms/call    0.00 %
+--- exit 0 arm on run 2 2026-08-12T14:30:17+00:00
+=== arm P run 2  (/home/ttuser/.coworker/wt/openfold3-to-4x)  2026-08-12T14:30:17+00:00 ===
+  cold 28.31s n_tokens=512 n_atoms=4116 plddt=0.617382
+=== run 0: instrumented fold 26.760s  plddt 0.617382 n_tokens 512 n_atoms 4116 ===
+  top:model.fold                                    1 calls    25.226 s  25225.512 ms/call   94.27 %
+  diff:rollout                                      1 calls    13.183 s  13183.468 ms/call   49.27 %
+  diff:module                                     200 calls    12.956 s     64.779 ms/call   48.41 %
+  top:trunk                                         1 calls     9.895 s   9895.234 ms/call   36.98 %
+  dm:dit_stack                                    200 calls     6.781 s     33.906 ms/call   25.34 %
+  dm:dit_block                                   4800 calls     6.698 s      1.395 ms/call   25.03 %
+  dm:atom_transformer                             401 calls     5.758 s     14.360 ms/call   21.52 %
+  dm:decoder                                      200 calls     3.047 s     15.237 ms/call   11.39 %
+  host:build_features                               1 calls     1.141 s   1141.401 ms/call    4.27 %
+  trunk:msa_block                                  16 calls     1.114 s     69.650 ms/call    4.16 %
+  trunk:template                                    4 calls     0.981 s    245.177 ms/call    3.66 %
+  top:confidence                                    1 calls     0.814 s    813.644 ms/call    3.04 %
+  prep:input_atom_encoder                           1 calls     0.169 s    168.544 ms/call    0.63 %
+  dm:pad_atoms(host round trip)                   200 calls     0.128 s      0.639 ms/call    0.48 %
+  host:derive_relpos                                1 calls     0.117 s    116.767 ms/call    0.44 %
+  diff:cond_single                                200 calls     0.080 s      0.402 ms/call    0.30 %
+  host:ref_atom_embed                               2 calls     0.074 s     36.787 ms/call    0.27 %
+  host:write_structure                              1 calls     0.037 s     37.421 ms/call    0.14 %
+  diff:cond_pair                                    1 calls     0.034 s     33.620 ms/call    0.13 %
+  host:derive_template_feat                         1 calls     0.014 s     14.255 ms/call    0.05 %
+  trunk:glue_z                                      4 calls     0.008 s      1.913 ms/call    0.03 %
+  diff:pad_tokens_si(host round trip)             200 calls     0.007 s      0.034 ms/call    0.03 %
+  dm:pad_tokens_ai(host round trip)               200 calls     0.003 s      0.013 ms/call    0.01 %
+  host:derive_block_aux                             1 calls     0.001 s      1.079 ms/call    0.00 %
+  host:msa_features                                 1 calls     0.001 s      0.629 ms/call    0.00 %
+  diff:pad_pair_zij(host round trip)                1 calls     0.001 s      0.604 ms/call    0.00 %
+  trunk:glue_s                                      4 calls     0.000 s      0.090 ms/call    0.00 %
+  trunk:msa_embedder                                1 calls     0.000 s      0.258 ms/call    0.00 %
+--- exit 0 arm P run 2 2026-08-12T14:31:16+00:00
+ALL ARMS DONE 2026-08-12T14:31:16+00:00
+benchlock: openfold3-to-4x released, rc=0, loadavg 1.02 1.01 0.71

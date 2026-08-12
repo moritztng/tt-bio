@@ -1,0 +1,9 @@
+=== 298 arm on (/tmp/of3_base) 2026-08-12T14:33:53+00:00 ===
+  cold 44.02s n_tokens=298 n_atoms=2397 plddt=0.516236
+=== run 0: instrumented fold 20.705s  plddt 0.516236 n_tokens 298 n_atoms 2397 ===
+--- exit 0 298 arm on 2026-08-12T14:35:01+00:00
+=== 298 arm P (/home/ttuser/.coworker/wt/openfold3-to-4x) 2026-08-12T14:35:01+00:00 ===
+  cold 18.17s n_tokens=298 n_atoms=2397 plddt=0.506183
+=== run 0: instrumented fold 14.555s  plddt 0.506183 n_tokens 298 n_atoms 2397 ===
+--- exit 0 298 arm P 2026-08-12T14:35:37+00:00
+ALL 298 DONE 2026-08-12T14:35:37+00:00
