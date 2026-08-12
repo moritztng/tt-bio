@@ -49,6 +49,26 @@ OPM_Z_BUDGET_BYTES = 1 << 28              # 0.25 GiB
 CONCAT_HOST_BYTES = int(os.environ.get("TT_BIO_CONCAT_HOST_BYTES", 1536 * 2 ** 20))  # 1.5 GiB
 TRANSITION_W_CHUNK_SIZE = 1024
 SEQ_LEN_MORE_CHUNKING = 1536
+# Row-block height for the trimul's row-local projections. One number so the input and output
+# projections cannot drift apart; a tile multiple, so a block boundary never splits a tile and the
+# blocks stay bit-exact against the whole-tensor result.
+PAIR_ROW_BLOCK = 128
+# Byte gate for row-blocking the trimul INPUT norm, which is a different question from the output
+# projections' SEQ_LEN_MORE_CHUNKING gate and must not share it.
+#
+# Row-blocking the input norm costs 43 % per trimul call -- 664.6 ms against 464.8 ms at H=977,
+# c_z=384, 25 reps, stdev under 1 ms (perf/trimul_kernel/inproj_shape_read.py) -- because the norm
+# is recomputed once per channel group. It buys nothing unless the whole-tensor norm cannot actually
+# be allocated, and that is a byte question, not a token-count one. Gating it on
+# SEQ_LEN_MORE_CHUNKING instead cost 1.8 % at the panel median: that constant is rescaled to 608 on
+# a small-grid Wormhole (see _apply_small_grid_budgets), so a 977-token refiner was row-blocking a
+# 744 MB tensor that fits with room to spare.
+#
+# The threshold sits between the largest pair tensor that demonstrably fits and the one that gets
+# refused: 9i3p's is 2.59 GiB and folds with the whole-tensor norm, 9j4c's is 3.19 GiB and is the
+# refusal this exists for.
+TRIMUL_IN_NORM_ROWBLOCK_BYTES = int(os.environ.get(
+    "TT_BIO_TRIMUL_IN_NORM_ROWBLOCK_BYTES", 3 * 2 ** 30))  # 3 GiB
 TRANSITION_BATCH_CHUNKING_THRESHOLD = 1024
 TRANSITION_W_CHUNKING_THRESHOLD = 1024
 TRANSITION_H_CHUNK_SIZE_FAST = 32
@@ -2033,21 +2053,81 @@ class TriangleMultiplication(Module):
             old = chunk
         return chunk
 
+    def _in_proj_rows(self, x, w, H, batch, memory_config):
+        """`LN(x) @ w`, computed in row blocks so the full-size LN'd pair tensor never exists.
+
+        layer_norm normalises over the LAST dim and the matmul contracts the LAST dim, so
+        output row r depends only on input row r: the blocks reassemble bit-identically to
+        the whole-tensor result, exactly as for the row-blocked output projections below.
+        The norm is recomputed once per channel group rather than cached, which trades a
+        memory-bound reread for the 3.24 GiB allocation that made the large cells unfoldable.
+
+        Only reached past TRIMUL_IN_NORM_ROWBLOCK_BYTES, so anything whose pair tensor can
+        simply be allocated is unchanged: same ops, same order, same allocations.
+        """
+        out_bytes = batch * H * H * int(w.shape[-1]) * 2
+        host = (x.dtype == ttnn.bfloat16 and _dtype() == ttnn.bfloat16
+                and out_bytes > CONCAT_HOST_BYTES)
+        blocks = []
+        for s in range(0, H, PAIR_ROW_BLOCK):
+            rows = ttnn.layer_norm(
+                x[:, s:min(s + PAIR_ROW_BLOCK, H)],
+                weight=self.in_norm_weight,
+                bias=self.in_norm_bias,
+                epsilon=1e-5,
+                compute_kernel_config=self.compute_kernel_config,
+            )
+            _acc_append(blocks, ttnn.experimental.minimal_matmul(
+                rows, w, memory_config=memory_config, dtype=_dtype(),
+                compute_kernel_config=self.compute_kernel_config,
+            ), host)
+            ttnn.deallocate(rows)
+        return _acc_concat(blocks, 1, host)
+
+    def prewarm(self, H: int, batch: int = 1) -> None:
+        """Build the fused input-weight cache this shape will use, before the call that uses it.
+
+        `_gp_in_chunks` is otherwise built inside the first `__call__`, interleaved with its
+        compute: 96 tensors of (c_z, 4*chunk) across a 4-block Pairformer, ~9.4 MB. Uploading
+        them up front costs no compute. Numerically inert, measured: a warm first call and a
+        cold one produce the same numbers.
+
+        The (chunk_size, group) pair is computed exactly as `__call__` computes it, from the
+        same inputs, so the entry warmed is the entry used.
+        """
+        memory_config = _triangle_mul_memory_config(H)
+        large_seq = memory_config.buffer_type == ttnn.BufferType.DRAM
+        chunk_size = _trimul_chunk_size(H, self._hidden, batch)
+        n_pairs = self._hidden // chunk_size
+        group = _trimul_inproj_group(H, chunk_size, batch, n_pairs) if large_seq else 1
+        self._gp_in_chunks(chunk_size, group)
+
     def __call__(self, x: ttnn.Tensor, mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
         x_in = x  # keep the pair tensor reachable for the row-blocked tail below
-        x_norm_in = ttnn.layer_norm(
+        shp = [int(d) for d in x.shape]
+        H = shp[1]
+        # Past TRIMUL_IN_NORM_ROWBLOCK_BYTES the LN'd pair tensor is never materialised whole. It
+        # was the last full-size pair allocation this op still made: the output projections below
+        # have been row-blocked for a while, but the input norm was computed whole on every path.
+        # On OpenDDE's structural-token axis that is a [1,2113,2113,384] bf16 request, 3.19 GiB,
+        # refused against a 208.7 MiB largest free block -- the AbAg-XM 9j4c cell.
+        #
+        # Gated on the tensor's OWN bytes, not on SEQ_LEN_MORE_CHUNKING: the row-blocked path costs
+        # 43 % per call, and only a tensor too big to allocate is worth paying that for. See the
+        # constant.
+        row_norm = prod(shp) * (2 if x.dtype == ttnn.bfloat16 else 4) > TRIMUL_IN_NORM_ROWBLOCK_BYTES
+        x_norm_in = None if row_norm else ttnn.layer_norm(
             x,
             weight=self.in_norm_weight,
             bias=self.in_norm_bias,
             epsilon=1e-5,
             compute_kernel_config=self.compute_kernel_config,
         )
-        H = x_norm_in.shape[1]
-        dram_peak(f"trimul({'end' if self.ending else 'start'}) x_norm_in [z={'x'.join(str(d) for d in x_norm_in.shape)}]")
+        dram_peak(f"trimul({'end' if self.ending else 'start'}) x_norm_in [z={'x'.join(str(d) for d in x.shape)}]")
         memory_config = _triangle_mul_memory_config(H)
         # Every L1 tensor the channel loop holds is [batch, chunk, H, H], so the width
         # budget has to see the batch a confidence head arrives with, not just H.
-        batch = prod(list(x_norm_in.shape)[:-3])
+        batch = prod(shp[:-3])
         large_seq = memory_config.buffer_type == ttnn.BufferType.DRAM
         chunk_size = _trimul_chunk_size(H, self._hidden, batch)
         n_pairs = self._hidden // chunk_size
@@ -2061,7 +2141,7 @@ class TriangleMultiplication(Module):
         gp_in_chunks = self._gp_in_chunks(chunk_size, group)
         seq_len_tiles = (H + 31) // 32
         program_config = _triangle_mul_program_config(seq_len_tiles)
-        if H > SEQ_LEN_MORE_CHUNKING:
+        if not row_norm and H > SEQ_LEN_MORE_CHUNKING:
             # Compact large input activation for better large-sequence placement.
             x_norm_in = ttnn.reallocate(x_norm_in)
         # Unsqueeze mask once before chunk loop (mask is [1,S,S] or [1,S])
@@ -2079,12 +2159,16 @@ class TriangleMultiplication(Module):
         host_acc = large_seq and _host_concat(x_in)
         x_chunks = []
         for i in range(n_pairs // group):
-            gp_in_fused = ttnn.experimental.minimal_matmul(
-                x_norm_in,
-                gp_in_chunks[i],
-                memory_config=memory_config,
-                dtype=_dtype(),
-                compute_kernel_config=self.compute_kernel_config,
+            gp_in_fused = (
+                self._in_proj_rows(x_in, gp_in_chunks[i], H, batch, memory_config)
+                if row_norm else
+                ttnn.experimental.minimal_matmul(
+                    x_norm_in,
+                    gp_in_chunks[i],
+                    memory_config=memory_config,
+                    dtype=_dtype(),
+                    compute_kernel_config=self.compute_kernel_config,
+                )
             )
             perm_a = (0, 3) + ((2, 1) if self.ending else (1, 2))
             perm_b = (0, 3) + ((1, 2) if self.ending else (2, 1))
@@ -2169,7 +2253,7 @@ class TriangleMultiplication(Module):
                 moved = ttnn.clone(x_chunk, memory_config=ttnn.DRAM_MEMORY_CONFIG)
                 ttnn.deallocate(x_chunk)
                 x_chunks.append(moved)
-        if H > SEQ_LEN_MORE_CHUNKING:
+        if x_norm_in is not None and H > SEQ_LEN_MORE_CHUNKING:
             # x_norm_in is dead on the row-blocked tail path (both norms are
             # recomputed per row block from x_in). Freeing it before the concat
             # drops that peak from 4 pair-tensor multiples to 3 -- the difference
@@ -2177,19 +2261,24 @@ class TriangleMultiplication(Module):
             ttnn.deallocate(x_norm_in)
         x = _acc_concat(x_chunks, -1, host_acc)
         dram_peak(f"trimul({'end' if self.ending else 'start'}) channel loop done [z={'x'.join(str(d) for d in x_in.shape)}]")
-        if H > SEQ_LEN_MORE_CHUNKING:
+        # x_norm_in is None only when the byte gate row-blocked the input norm; that can
+        # happen below SEQ_LEN_MORE_CHUNKING in a batched confidence head (the byte gate
+        # sees the batch, this constant does not), and the full-size tail needs x_norm_in.
+        # Take the row-blocked tail then too: it recomputes both norms from x_in and is
+        # bit-identical, so the guard only ever fires where the else path would crash.
+        if H > SEQ_LEN_MORE_CHUNKING or x_norm_in is None:
             # Row-block the output projections instead of computing them full-size.
             # Both layer_norms are row-local, so recomputing them per row block from the
             # (alive, unmutated) inputs is bit-identical to slicing the full-size results,
             # and the full-size norm_out output never exists: at these shapes it is one
-            # pair-tensor-sized allocation attempted while z, x_norm_in and the hidden
-            # are all live, which is exactly the refusal the large targets die on. Peak
-            # here drops to ~3 pair-tensor multiples (z + accumulated blocks + concat
-            # destination), with the hidden freed before the concat. x_norm_in
-            # was already freed ahead of the channel-loop concat above.
+            # pair-tensor-sized allocation attempted while z and the hidden are live, which
+            # is exactly the refusal the large targets die on. Peak here is z + accumulated
+            # blocks + concat destination, with the hidden freed before the concat. The
+            # input norm above the gate is row-blocked the same way (_in_proj_rows), so no
+            # full-size LN'd pair tensor exists anywhere on this path.
             blocks = []
-            for s in range(0, H, 128):
-                e = min(s + 128, H)
+            for s in range(0, H, PAIR_ROW_BLOCK):
+                e = min(s + PAIR_ROW_BLOCK, H)
                 z_rows = ttnn.layer_norm(
                     x_in[:, s:e],
                     weight=self.in_norm_weight,
