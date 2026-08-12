@@ -457,17 +457,17 @@ details.disclose > div { padding-top: 14px; }
   /* ---------- the four charts ---------- */
   var SER = {
     galaxy_bh: "var(--tt)", p150a: "var(--tt)",
-    hgx_h200_8: "var(--h200)", h200: "var(--h200)",
-    hgx_b200_8: "var(--b200)", b200: "var(--b200)"
+    dgx_h200: "var(--h200)", h200: "var(--h200)",
+    dgx_b200: "var(--b200)", b200: "var(--b200)"
   };
-  var SERVER_OF = { p150a: "galaxy_bh", h200: "hgx_h200_8", b200: "hgx_b200_8" };
+  var SERVER_OF = { p150a: "galaxy_bh", h200: "dgx_h200", b200: "dgx_b200" };
   var CELLS = ["p150a", "h200", "b200"];
 
   function serverLabel(p) {
     return p.name + ", " + p.accelerators + (p.id === "galaxy_bh" ? " AI Processors" : " GPUs");
   }
   function serverShort(p) {
-    return p.accelerators + "x " + (p.id === "galaxy_bh" ? "Blackhole" : p.short.replace("8x ", ""));
+    return p.id === "galaxy_bh" ? p.accelerators + "x Blackhole" : p.short;
   }
 
   /* Charts 1 and 2 share their shape: one measured accelerator scaled to its server. */
@@ -511,7 +511,7 @@ details.disclose > div { padding-top: 14px; }
       tipUnit: "the reference server's predictions per dollar",
       tickFmt: function (v) { return v.toFixed(1) + "x"; },
       title: "Throughput per dollar of " + (capex ? "purchase price" : "total cost of ownership") +
-        " at 512 residues, the 8x H200 server set to 1.00x, derived"
+        " at 512 residues, the " + ref.name + " set to 1.00x, derived"
     });
     document.getElementById(host + "-cond").innerHTML = capex
       ? "Hardware only: <span class=\"num\">predictions per hour &divide; purchase price</span>, with the " +
@@ -528,8 +528,8 @@ details.disclose > div { padding-top: 14px; }
       "Across the five models the Galaxy Blackhole returns " + fmtX(adv[0]) + " to " +
       fmtX(adv[adv.length - 1]) + " the predictions per dollar of the " + ref.name +
       (capex ? " on purchase price alone. Electricity is a larger share of the Galaxy's hourly cost " +
-               "than of the H200 server's, because the Galaxy is so much cheaper to buy, so the total " +
-               "cost of ownership chart below is the narrower of the two."
+               "than of the " + ref.name + "'s, because the Galaxy is so much cheaper to buy, so the " +
+               "total cost of ownership chart below is the narrower of the two."
              : " once electricity is included. " + m.sensitivity);
   }
 
@@ -578,7 +578,7 @@ details.disclose > div { padding-top: 14px; }
   }
 
   function chartCost() {
-    var rows = ["galaxy_bh", "hgx_h200_8", "hgx_b200_8"].map(plat);
+    var rows = ["galaxy_bh", "dgx_h200", "dgx_b200"].map(plat);
     var max = 0, groups = [];
     rows.forEach(function (p) {
       max = Math.max(max, p.price_usd);
@@ -601,8 +601,8 @@ details.disclose > div { padding-top: 14px; }
       desc: groups.map(function (g) { return g.label + " " + g.bars[0].label + ", " + g.sub; }).join(". ") + "."
     });
     document.getElementById("c4-cond").textContent =
-      "Hardware only. Tenstorrent publishes a list price; NVIDIA does not publish one for an 8-GPU " +
-      "server, so both NVIDIA bars are the lowest price an integrator publishes for that generation. " +
+      "Hardware only, list price for each system: the Galaxy Blackhole against the two NVIDIA DGX " +
+      "systems a buyer would quote against it. " +
       "With electricity and " + D.cost_model.amortisation_years + "-year amortisation those come to " +
       rows.map(function (p) { return "$" + usdPerHour(p).toFixed(2); }).join(", ") +
       " per hour of ownership respectively.";
@@ -625,8 +625,10 @@ details.disclose > div { padding-top: 14px; }
           }).join("") + "</tr>";
       }).join("") + "</tbody>";
 
-    var head2 = "<thead><tr><th>Model</th><th class=\"n\">Galaxy Blackhole, 32 AI Processors</th>" +
-      "<th class=\"n\">8x H200</th><th class=\"n\">8x B200</th></tr></thead>";
+    var head2 = "<thead><tr><th>Model</th>" +
+      ["galaxy_bh", "dgx_h200", "dgx_b200"].map(function (id) {
+        return "<th class=\"n\">" + serverLabel(plat(id)) + "</th>";
+      }).join("") + "</tr></thead>";
     function body(basis) {
       return D.models.map(function (m) {
         return "<tr><td>" + m.name + "</td>" + CELLS.map(function (k) {
@@ -675,9 +677,9 @@ details.disclose > div { padding-top: 14px; }
       d2.appendChild(document.createTextNode("does not run"));
       el2.appendChild(d2);
     }
-    keyRow("c1-keys", ["galaxy_bh", "hgx_h200_8", "hgx_b200_8"]);
-    keyRow("c1b-keys", ["galaxy_bh", "hgx_h200_8", "hgx_b200_8"]);
-    keyRow("c2-keys", ["galaxy_bh", "hgx_h200_8", "hgx_b200_8"]);
+    keyRow("c1-keys", ["galaxy_bh", "dgx_h200", "dgx_b200"]);
+    keyRow("c1b-keys", ["galaxy_bh", "dgx_h200", "dgx_b200"]);
+    keyRow("c2-keys", ["galaxy_bh", "dgx_h200", "dgx_b200"]);
     keyRow("c3-keys", ["p150a", "h200", "b200"]);
 
     var md = document.getElementById("methods-dl");
@@ -701,7 +703,7 @@ details.disclose > div { padding-top: 14px; }
       fmtCents(m.electricity_usd_per_kwh) + " is the US industrial average price of electricity. " +
       m.utilisation + " " + m.sensitivity);
     mrow("Power", "Each server carries its vendor's published maximum system power: " +
-      ["galaxy_bh", "hgx_h200_8", "hgx_b200_8"].map(function (id) {
+      ["galaxy_bh", "dgx_h200", "dgx_b200"].map(function (id) {
         var p = plat(id);
         return fmtKw(p.power_kw) + " for the " + p.name;
       }).join(", ") + ".");

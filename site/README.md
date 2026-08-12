@@ -5,9 +5,9 @@ structure and binding affinity prediction, protein design, protein embeddings, w
 in the first column and one short cell per capability. That section is static markup in the HTML, so
 it renders even if the data fetch fails. Second, performance and cost: tt-bio's five
 structure-prediction models on Blackhole against H200 and B200 at 512 residues, with throughput per
-dollar on purchase price and again on total cost of ownership, predictions per hour per server,
-prediction time on one AI Processor, and what each server costs to buy and to power. That section is
-driven by `data/perf-512aa.json`.
+dollar of a Galaxy Blackhole against a DGX H200 and a DGX B200 on purchase price and again on total
+cost of ownership, predictions per hour per server, prediction time on one AI Processor, and what
+each server costs to buy and to power. That section is driven by `data/perf-512aa.json`.
 
 Preview it:
 

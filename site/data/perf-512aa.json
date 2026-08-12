@@ -75,46 +75,44 @@
       "note": "Measured on a single-GPU node, Xeon Platinum 8559C, 24 vCPU."
     },
     {
-      "id": "hgx_h200_8",
+      "id": "dgx_h200",
       "vendor": "nvidia",
-      "name": "8x H200 SXM server",
-      "short": "8x H200",
+      "name": "DGX H200",
+      "short": "DGX H200",
       "kind": "server",
       "accelerators": 8,
       "per_accelerator": "h200",
-      "spec": "HGX H200 baseboard, 8x H200 SXM, 1,128 GB HBM3e, NVSwitch",
-      "price_usd": 316987,
-      "price_kind": "lowest published integrator price",
-      "price_source": "exxact-h200",
-      "price_crosschecks": ["thinkmate-h200", "survey-h200"],
+      "spec": "NVIDIA DGX H200, 8x H200 SXM, 1,128 GB HBM3e, NVSwitch",
+      "price_usd": 410000,
+      "price_kind": "list price",
+      "price_source": "dgx-h200",
       "power_kw": 10.2,
       "power_kind": "vendor maximum",
       "power_source": "dgx-h200",
       "scaling_efficiency": 1.0,
-      "note": "NVIDIA publishes no list price for an 8-GPU H200 system. Three published sources put it between $316,987 and $420,000; the page uses the lowest, which is the figure least favourable to Tenstorrent."
+      "note": "NVIDIA's own 8-GPU H200 system, the box a buyer quotes against, at $410,000 list."
     },
     {
-      "id": "hgx_b200_8",
+      "id": "dgx_b200",
       "vendor": "nvidia",
-      "name": "8x B200 SXM server",
-      "short": "8x B200",
+      "name": "DGX B200",
+      "short": "DGX B200",
       "kind": "server",
       "accelerators": 8,
       "per_accelerator": "b200",
-      "spec": "HGX B200 baseboard, 8x B200 SXM, 1,440 GB HBM3e, NVSwitch",
-      "price_usd": 400328.5,
-      "price_kind": "lowest published integrator price",
-      "price_source": "exxact-b200",
-      "price_crosschecks": ["thinkmate-b200", "survey-b200"],
+      "spec": "NVIDIA DGX B200, 8x B200 SXM, 1,440 GB HBM3e, NVSwitch",
+      "price_usd": 550000,
+      "price_kind": "list price",
+      "price_source": "dgx-b200",
       "power_kw": 14.3,
       "power_kind": "vendor maximum",
       "power_source": "dgx-b200",
       "scaling_efficiency": 1.0,
-      "note": "Same basis as the H200 server. Published sources run from $400,329 to $515,000; the page uses the lowest."
+      "note": "The Blackwell generation of the same system, at $550,000 list."
     }
   ],
   "cost_model": {
-    "index_platform": "hgx_h200_8",
+    "index_platform": "dgx_h200",
     "amortisation_years": 4,
     "hours_per_year": 8766,
     "electricity_usd_per_kwh": 0.0871,
@@ -122,8 +120,8 @@
     "amortisation_source": "amzn-10q",
     "amortisation_basis": "Four years is this page's assumption for how long an AI accelerator earns its keep: one year shorter than the general-purpose server life Amazon reports in its 10-Q, because an accelerator generation lasts about two years. A shorter window favours the cheaper box, so the range below brackets it.",
     "utilisation": "The machine predicts continuously, so every hour of ownership is an hour of throughput.",
-    "formula": "Throughput per dollar, with the 8x H200 server set to 1.00x, on two bases. Purchase price: predictions per hour / price, with no amortisation window, because the window cancels from that ratio. Total cost of ownership: predictions per hour / cost per hour, where cost per hour = price / (4 x 8766 h) + power kW x $/kWh.",
-    "sensitivity": "Shift the window to 3 or 6 years, or the rate to the 13.54 c/kWh US commercial tariff, and the Tenstorrent figure moves between 1.59x and 2.91x. It does not invert."
+    "formula": "Throughput per dollar, with the DGX H200 set to 1.00x, on two bases. Purchase price: predictions per hour / price, with no amortisation window, because the window cancels from that ratio. Total cost of ownership: predictions per hour / cost per hour, where cost per hour = price / (4 x 8766 h) + power kW x $/kWh.",
+    "sensitivity": "Shift the window to 3 or 6 years, or the rate to the 13.54 c/kWh US commercial tariff, and the Tenstorrent figure moves between 1.99x and 3.71x. It does not invert."
   },
   "models": [
     {
@@ -260,53 +258,17 @@
       "accessed": "2026-08-12",
       "detail": "Blackhole p150a $1,399 list, 120 Tensix cores, 32 GB GDDR6 at 512 GB/s, 300 W."
     },
-    "exxact-h200": {
-      "label": "Exxact TensorEX 6U HGX H200, TS4-110455529",
-      "url": "https://configurator.exxactcorp.com/configure/TS4-110455529",
-      "accessed": "2026-08-12",
-      "detail": "8x H200 SXM on one NVSwitch baseboard, base configuration $316,987.00. The lowest published price for an 8-GPU H200 system found, and the one this page uses."
-    },
-    "thinkmate-h200": {
-      "label": "Thinkmate GPX QH14-28E4-8HGX",
-      "url": "https://www.thinkmate.com/systems/servers/gpx/h200",
-      "accessed": "2026-08-12",
-      "detail": "8-GPU HGX H200 system, starting price $404,126.00."
-    },
-    "survey-h200": {
-      "label": "Mercatus, H200 server price survey",
-      "url": "https://www.mercatus-ai.com/blog/h200-server-price",
-      "accessed": "2026-08-12",
-      "detail": "Published 2026-07-08. Puts an 8-GPU HGX H200 at $320,000 to $420,000 from Supermicro, Dell and HPE, typical $370,000. Used only to check that the price this page uses is not an outlier."
-    },
-    "exxact-b200": {
-      "label": "Exxact TensorEX 10U HGX B200, TS4-169219634",
-      "url": "https://configurator.exxactcorp.com/configure/TS4-169219634",
-      "accessed": "2026-08-12",
-      "detail": "8x B200 SXM on one NVSwitch baseboard, base configuration $400,328.50. The lowest published price for an 8-GPU B200 system found, and the one this page uses."
-    },
-    "thinkmate-b200": {
-      "label": "Thinkmate GPX XN10-210X6-8HGX",
-      "url": "https://www.thinkmate.com/systems/servers/gpx/b200",
-      "accessed": "2026-08-12",
-      "detail": "8-GPU HGX B200 system, starting price $506,048.00."
-    },
-    "survey-b200": {
-      "label": "Mercatus, B200 server price survey",
-      "url": "https://www.mercatus-ai.com/blog/b200-server-price",
-      "accessed": "2026-08-12",
-      "detail": "Published 2026-07-16. Puts an 8-GPU HGX B200 at $400,000 to $500,000, typical $450,000, and the DGX B200 appliance near $515,000 list."
-    },
     "dgx-h200": {
       "label": "NVIDIA DGX H200 datasheet",
       "url": "https://resources.nvidia.com/en-us-dgx-systems/dgx-h200-datasheet",
       "accessed": "2026-08-12",
-      "detail": "10.2 kW maximum system power for the 8-GPU H200 system. NVIDIA's DGX SuperPOD data-center design guide gives the same 10.2 kW as the peak demand per system circuit."
+      "detail": "The 8-GPU H200 system, 1,128 GB HBM3e on one NVSwitch baseboard, 10.2 kW maximum system power. NVIDIA's DGX SuperPOD data-center design guide gives the same 10.2 kW as the peak demand per system circuit. NVIDIA does not post DGX pricing; the $410,000 this page uses is the DGX H200 list price."
     },
     "dgx-b200": {
       "label": "NVIDIA DGX B200",
       "url": "https://www.nvidia.com/en-us/data-center/dgx-b200/",
       "accessed": "2026-08-12",
-      "detail": "System power usage stated as ~14.3 kW max for the 8-GPU B200 system."
+      "detail": "The 8-GPU B200 system, 1,440 GB HBM3e, system power usage stated as ~14.3 kW max. Priced here at the $550,000 DGX B200 list price, on the same basis as the H200 system."
     },
     "eia-industrial": {
       "label": "US EIA, Electric Power Monthly, table 5.3",
@@ -318,7 +280,7 @@
       "label": "Amazon, Form 10-Q, useful life of servers",
       "url": "https://www.sec.gov/Archives/edgar/data/1018724/000101872425000123/amzn-20250930.htm",
       "accessed": "2026-08-12",
-      "detail": "From 1 January 2025 Amazon depreciates a subset of its servers and networking equipment over five years, down from six, citing the pace of AI hardware development. That is where the five-year window comes from."
+      "detail": "From 1 January 2025 Amazon depreciates a subset of its servers and networking equipment over five years, down from six, citing the pace of AI hardware development. This page's four-year window is one year shorter than that."
     }
   },
   "caveats": [
