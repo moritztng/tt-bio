@@ -438,6 +438,29 @@ _APB_FUSED_SDPA = False
 # against the chain: chain 160.53 us, tile concat 61.09 us (2.6278x), tile pad 57.31 us (2.8011x).
 _ATOM_PAD_IN_TILE = True
 
+# L2, the scale fold. The unfused attention chain computes (q@k^T + z) * head_dim**-0.5, and that
+# multiply_ is a whole extra pass over the materialised [1, n_heads, S, S] logits: 16.78 MB read +
+# 8.39 MB written per call at 512 aa over 5064 calls per fold. The scale is a constant, so it folds
+# into the q rows of the projection weight at load and the additive bias arrives pre-scaled by the
+# same factor. NOT bit-exact -- q is rounded to bf16 after being scaled instead of the fp32 product
+# being scaled -- and the boltz-2 diffusion module's own sqrt(head_dim) bake on the cached token bias
+# moves with it, so this stays OFF until a cross-model parity gate clears protenix and opendde, whose
+# DiT biases are baked in their own files.
+_APB_SCALE_FOLD = os.environ.get("TT_BIO_APB_SCALE_FOLD", "0") != "0"
+
+# L1, the AdaLN s-norm hoist. Every AdaLN in a DiffusionTransformer stack layer-norms the SAME `s`
+# (the stack passes one `s` object to all its layers) and loads an s_norm.weight with no bias, so
+# layer_norm(s, weight=w) is exactly normalize(s) * w and
+#     linear(normalize(s) * w, W, b) == linear(normalize(s), diag(w) @ W, b)
+# with diag(w) @ W foldable at load. The unweighted normalisation is then computed once per stack
+# call instead of once per AdaLN: 11 400 layer_norm calls per 512 aa fold. NOT bit-exact -- it
+# removes one activation rounding per call and adds one weight rounding at load.
+_ADALN_SNORM_HOIST = os.environ.get("TT_BIO_ADALN_SNORM_HOIST", "0") != "0"
+
+# Build the second weight set for both levers above, so one process can fold on every arm and share
+# one A/A floor. ~175 MB of extra DRAM at 512 aa; a shipping build sets one weight set, not two.
+_DIT_LEVER_AB = os.environ.get("TT_BIO_DIT_LEVER_AB", "0") != "0"
+
 # C2, the triangle bias cast to bfloat8_b before the SDPA. OFF by default and it stays off until a
 # fold-level parity gate clears it: at N=512 the op-level error is rmsd/std 0.002547 at PCC
 # 1.000000, but W9 measured z rmsd/std 0.04179 on a block at N=320 against a shipped band of
@@ -2625,6 +2648,12 @@ class AttentionPairBias(Module):
         self.n_heads = n_heads
         self.compute_pair_bias = compute_pair_bias
         self.atom_level = atom_level
+        # L2: `_q_scale` is what the fold bakes into the q rows. The atom path is excluded -- it has
+        # no multiply_ over a materialised logits tensor, the scale rides inside the fused SDPA.
+        self._q_scale = 1.0 if atom_level else self.head_dim**-0.5
+        self._bias_scale = 1.0
+        self.qkv_weight_f = self.z_weight_f = None
+        self._seq_mask_src = self._seq_mask_scaled = None
         if atom_level:
             self.q_weight = self.torch_to_tt("proj_q.weight", dtype=self.dtype)
             self.q_bias = self.torch_to_tt("proj_q.bias", dtype=self.dtype)
@@ -2636,32 +2665,35 @@ class AttentionPairBias(Module):
                 dtype=self.dtype,
             )
         else:
-            qkv_weight = torch.cat(
-                [self.weights["proj_q.weight"], self.weights["proj_k.weight"], self.weights["proj_v.weight"]],
-                dim=0,
-            )
             head_dim_padding = -head_dim % 32
             padded_head_dim = head_dim + head_dim_padding
-            qkv_weight = qkv_weight.reshape(3 * self.n_heads, head_dim, -1)
-            qkv_weight = torch.nn.functional.pad(qkv_weight, (0, 0, 0, head_dim_padding), mode='constant', value=0)
-            qkv_weight = qkv_weight.reshape(3 * self.n_heads * padded_head_dim, -1)
-            self.qkv_weight = ttnn.from_torch(
-                qkv_weight.t(),
-                layout=ttnn.TILE_LAYOUT,
-                device=self.device,
-                dtype=self.dtype,
-            )
-            q_bias = self.weights["proj_q.bias"]
-            q_bias = q_bias.reshape(self.n_heads, head_dim)
-            q_bias = torch.nn.functional.pad(q_bias, (0, head_dim_padding), mode='constant', value=0)
-            q_bias = q_bias.reshape(self.n_heads * padded_head_dim)
-            qkv_bias = torch.cat([q_bias, torch.zeros(2 * self.n_heads * padded_head_dim, dtype=q_bias.dtype, device=q_bias.device)])
-            self.qkv_bias = ttnn.from_torch(
-                qkv_bias,
-                layout=ttnn.TILE_LAYOUT,
-                device=self.device,
-                dtype=self.dtype,
-            )
+
+            def _qkv(q_scale: float) -> tuple[ttnn.Tensor, ttnn.Tensor]:
+                """The packed qkv projection, with the q rows scaled by `q_scale` in fp32."""
+                qkv_weight = torch.cat(
+                    [self.weights["proj_q.weight"] * q_scale, self.weights["proj_k.weight"],
+                     self.weights["proj_v.weight"]],
+                    dim=0,
+                )
+                qkv_weight = qkv_weight.reshape(3 * self.n_heads, head_dim, -1)
+                qkv_weight = torch.nn.functional.pad(qkv_weight, (0, 0, 0, head_dim_padding), mode='constant', value=0)
+                qkv_weight = qkv_weight.reshape(3 * self.n_heads * padded_head_dim, -1)
+                q_bias = self.weights["proj_q.bias"] * q_scale
+                q_bias = q_bias.reshape(self.n_heads, head_dim)
+                q_bias = torch.nn.functional.pad(q_bias, (0, head_dim_padding), mode='constant', value=0)
+                q_bias = q_bias.reshape(self.n_heads * padded_head_dim)
+                qkv_bias = torch.cat([q_bias, torch.zeros(2 * self.n_heads * padded_head_dim, dtype=q_bias.dtype, device=q_bias.device)])
+                to_tt = lambda t: ttnn.from_torch(
+                    t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=self.dtype,
+                )
+                return to_tt(qkv_weight.t()), to_tt(qkv_bias)
+
+            # `q_scale = 1.0` multiplies in fp32 and is therefore bit-identical to not scaling.
+            self.qkv_weight = self.qkv_bias = None
+            if not _APB_SCALE_FOLD or _DIT_LEVER_AB:
+                self.qkv_weight, self.qkv_bias = _qkv(1.0)
+            if _APB_SCALE_FOLD or _DIT_LEVER_AB:
+                self.qkv_weight_f, self.qkv_bias_f = _qkv(self._q_scale)
         self.g_weight = self.torch_to_tt("proj_g.weight", dtype=self.dtype)
         if compute_pair_bias:
             self.z_norm_weight = self.torch_to_tt("proj_z.0.weight", dtype=self.dtype)
@@ -2674,7 +2706,44 @@ class AttentionPairBias(Module):
                 self.torch_to_tt("proj_z.1.weight", dtype=self.dtype),
                 self._bias_scale,
             )
+            if self._q_scale != 1.0:
+                # L2: with the logit scale folded into q the bias has to arrive scaled by the same
+                # factor. For boltz-2 (scale_pair_bias=True) sqrt(d) * 1/sqrt(d) cancels exactly, so
+                # this is the un-baked weight rather than a second rounding.
+                self.z_weight_f = ttnn.multiply_(
+                    self.torch_to_tt("proj_z.1.weight", dtype=self.dtype),
+                    self._bias_scale * self._q_scale,
+                )
         self.o_weight = self.torch_to_tt("proj_o.weight", dtype=self.dtype)
+
+    def _folded(self) -> bool:
+        """True when this call runs the L2 scale fold (see `_APB_SCALE_FOLD`)."""
+        return _APB_SCALE_FOLD and self.qkv_weight_f is not None
+
+    def _logit_scale(self) -> float:
+        """The scale still applied to q@k^T at runtime: 1.0 once it is folded into q."""
+        return 1.0 if self._folded() else self.head_dim**-0.5
+
+    def _z_weight(self) -> ttnn.Tensor:
+        return self.z_weight_f if (self._folded() and self.z_weight_f is not None) else self.z_weight
+
+    def _add_seq_mask(self, z: ttnn.Tensor, seq_mask: ttnn.Tensor | None) -> ttnn.Tensor:
+        """Add the additive mask/bias into the pair bias, in the domain this branch expects.
+
+        The unfused chain and the fused SDPA both add the mask BEFORE the logit scale, so with the
+        scale folded into q the mask has to arrive pre-scaled by the same factor. The mask is cached
+        upstream and constant across a fold, so the scaled copy is built once per source tensor
+        rather than once per call. For a saturating -1e9 padding mask the scale is a no-op on the
+        answer; for a real additive bias (opendde's refiner passes one) it is not.
+        """
+        if seq_mask is None:
+            return z
+        if self._folded():
+            if self._seq_mask_src is not seq_mask:
+                self._seq_mask_src = seq_mask
+                self._seq_mask_scaled = ttnn.multiply(seq_mask, self._q_scale)
+            seq_mask = self._seq_mask_scaled
+        return ttnn.add_(z, seq_mask)
 
     def compute_bias(self, z: ttnn.Tensor) -> ttnn.Tensor:
         """Project the (LN'd) pair tensor z -> per-head additive attention bias
@@ -2688,7 +2757,7 @@ class AttentionPairBias(Module):
             compute_kernel_config=self.compute_kernel_config,
         )
         z = ttnn.linear(
-            z, self.z_weight, compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN,
+            z, self._z_weight(), compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN,
         )
         return ttnn.permute(z, (0, 3, 1, 2))
 
@@ -2703,10 +2772,10 @@ class AttentionPairBias(Module):
             # Gate on: fp32 softmax reduction, bf16 operands/storage (reference recipe).
             return _fp32_softmax_attention(
                 q, k, v, bias,
-                scale_inv=self.head_dim ** -0.5,
+                scale_inv=self._logit_scale(),
                 compute_kernel_config=self.compute_kernel_config,
                 out_dtype=_dtype(),
-                bias_scale_inv=1.0 / self._bias_scale,
+                bias_scale_inv=1.0 / (self._bias_scale * self._q_scale),
             )
         if self.dtype != ttnn.float32:
             return ttnn.transformer.scaled_dot_product_attention(
@@ -2715,7 +2784,7 @@ class AttentionPairBias(Module):
                 v,
                 attn_mask=bias,
                 is_causal=False,
-                scale=self.head_dim**-0.5,
+                scale=self._logit_scale(),
                 program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2]),
             )
 
@@ -2737,7 +2806,7 @@ class AttentionPairBias(Module):
             v_bf16,
             attn_mask=bias_bf16,
             is_causal=False,
-            scale=self.head_dim**-0.5,
+            scale=self._logit_scale(),
             program_config=_sdpa_program_config_for_lengths(
                 q_bf16.shape[2], k_bf16.shape[2]
             ),
@@ -2759,10 +2828,11 @@ class AttentionPairBias(Module):
         bias_precomputed: bool = False,
     ) -> ttnn.Tensor:
         if not self.atom_level:
+            fold = self._folded()
             qkv = ttnn.linear(
                 s,
-                self.qkv_weight,
-                bias=self.qkv_bias,
+                self.qkv_weight_f if fold else self.qkv_weight,
+                bias=self.qkv_bias_f if fold else self.qkv_bias,
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
             )
@@ -2788,12 +2858,12 @@ class AttentionPairBias(Module):
                                              epsilon=1e-5,
                                              compute_kernel_config=self.compute_kernel_config),
                              False))
-                zb = _narrow_proj_linear(z, self.z_weight, self.compute_kernel_config, z.dtype,
+                zb = _narrow_proj_linear(z, self._z_weight(), self.compute_kernel_config, z.dtype,
                                          l1_out=in_l1)
                 if zb is None:
                     zb = ttnn.linear(
                         z,
-                        self.z_weight,
+                        self._z_weight(),
                         compute_kernel_config=self.compute_kernel_config,
                         core_grid=CORE_GRID_MAIN,
                     )
@@ -2811,15 +2881,18 @@ class AttentionPairBias(Module):
                 # path computes attention as raw matmul. SDPA scales its additive mask
                 # along with QK, so z_weight carries sqrt(head_dim) compensation. Undo
                 # that compensation before adding z after the explicit QK scale.
-                if self.compute_pair_bias:
+                if self.compute_pair_bias and not fold:
                     z = ttnn.multiply(z, self.head_dim ** -0.5)
                 if seq_mask is not None:
+                    # This branch has already brought z into the unscaled-bias domain, so the mask
+                    # is added there too and needs no fold compensation.
                     z = ttnn.add_(z, seq_mask)
                 kt = ttnn.permute(k, (0, 1, 3, 2))
                 sc = batched_matmul(q, kt,
                                     compute_kernel_config=self.compute_kernel_config)
                 ttnn.deallocate(kt)
-                sc = ttnn.multiply(sc, self.head_dim ** -0.5)
+                if not fold:
+                    sc = ttnn.multiply(sc, self.head_dim ** -0.5)
                 sc = ttnn.add(sc, z)
                 attn = ttnn.softmax(sc, dim=-1)
                 o = batched_matmul(attn, v,
@@ -2831,8 +2904,7 @@ class AttentionPairBias(Module):
                 # `_attention` applies `scale` to QK *and* to the additive mask, which is exactly
                 # what the unfused chain's `(q@k^T + z) * head_dim**-0.5` computes, so this is a
                 # drop-in on the arithmetic and differs only in precision.
-                if seq_mask is not None:
-                    z = ttnn.add_(z, seq_mask)
+                z = self._add_seq_mask(z, seq_mask)
                 if z is not None and z.memory_config() != ttnn.DRAM_MEMORY_CONFIG:
                     # `sdpa_device_operation.cpp:80` TT_FATALs on an L1 mask, and the shipped
                     # trunk path hands the bias over in L1 (`_PAIR_BIAS_L1_NORM`). Any fused
@@ -2842,8 +2914,7 @@ class AttentionPairBias(Module):
                     z = zd
                 o = self._attention(q, k, v, z)
             else:
-                if seq_mask is not None:
-                    z = ttnn.add_(z, seq_mask)
+                z = self._add_seq_mask(z, seq_mask)
                 # Unfused attention: the fused ttnn SDPA kernel systematically flattens
                 # near-degenerate attention distributions (observed on 7XI5s repeat-
                 # protein logits: output std shrunk ~16%, s-track diverged over trunk
@@ -2855,7 +2926,10 @@ class AttentionPairBias(Module):
                 ttnn.deallocate(kt)
                 if z is not None:
                     logits = ttnn.add_(logits, z)
-                logits = ttnn.multiply_(logits, self.head_dim**-0.5)
+                if not fold:
+                    # L2 deletes this pass: 16.78 MB read + 8.39 MB written over the whole
+                    # [1, n_heads, S, S] logits tensor, for a constant.
+                    logits = ttnn.multiply_(logits, self.head_dim**-0.5)
                 probs = ttnn.softmax(logits, dim=-1,
                                      compute_kernel_config=self.compute_kernel_config)
                 ttnn.deallocate(logits)
@@ -3470,12 +3544,25 @@ class AdaLN(Module):
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.atom_level = atom_level
-        self.s_norm_weight = self.torch_to_tt("s_norm.weight", dtype=dtype)
-        self.s_scale_weight = self.torch_to_tt("s_scale.weight", dtype=dtype)
+        self.s_norm_weight = self.s_scale_weight_f = self.s_bias_weight_f = None
         self.s_scale_bias = self.torch_to_tt("s_scale.bias", dtype=dtype)
-        self.s_bias_weight = self.torch_to_tt("s_bias.weight", dtype=dtype)
+        if not _ADALN_SNORM_HOIST or _DIT_LEVER_AB:
+            self.s_norm_weight = self.torch_to_tt("s_norm.weight", dtype=dtype)
+            self.s_scale_weight = self.torch_to_tt("s_scale.weight", dtype=dtype)
+            self.s_bias_weight = self.torch_to_tt("s_bias.weight", dtype=dtype)
+        if _ADALN_SNORM_HOIST or _DIT_LEVER_AB:
+            # L1: s_norm has a weight and no bias, so fold it into the two linears that read the
+            # normed s. `torch_to_tt` stores weights transposed, and W is [out, in] on the torch
+            # side, so the fold broadcasts over the contracted axis.
+            w = self.weights["s_norm.weight"]
+            fold = lambda W: (W * w).t()                                        # noqa: E731
+            self.s_scale_weight_f = self.torch_to_tt("s_scale.weight", transform=fold, dtype=dtype)
+            self.s_bias_weight_f = self.torch_to_tt("s_bias.weight", transform=fold, dtype=dtype)
 
-    def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False) -> ttnn.Tensor:
+    def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False,
+                 pre_normed: bool = False) -> ttnn.Tensor:
+        """`pre_normed`: `s` already carries the unweighted normalisation, hoisted out of the stack
+        by `DiffusionTransformer` (L1), so this call uses the folded linear weights."""
         memory_config = _adaln_memory_config(self.atom_level, large_seq_len)
         if self.atom_level:
             a = ttnn.to_memory_config(a, memory_config=memory_config)
@@ -3483,15 +3570,16 @@ class AdaLN(Module):
         a = ttnn.layer_norm(
             a, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config
         )
-        s = ttnn.layer_norm(
-            s,
-            weight=self.s_norm_weight,
-            epsilon=1e-5,
-            compute_kernel_config=self.compute_kernel_config,
-        )
+        if not pre_normed:
+            s = ttnn.layer_norm(
+                s,
+                weight=self.s_norm_weight,
+                epsilon=1e-5,
+                compute_kernel_config=self.compute_kernel_config,
+            )
         s_scale = ttnn.linear(
             s,
-            self.s_scale_weight,
+            self.s_scale_weight_f if pre_normed else self.s_scale_weight,
             bias=self.s_scale_bias,
             compute_kernel_config=self.compute_kernel_config,
             memory_config=memory_config,
@@ -3499,7 +3587,7 @@ class AdaLN(Module):
         )
         s_bias = ttnn.linear(
             s,
-            self.s_bias_weight,
+            self.s_bias_weight_f if pre_normed else self.s_bias_weight,
             compute_kernel_config=self.compute_kernel_config,
             memory_config=memory_config,
             #core_grid=ttnn.CoreGrid(y=10, x=11), CAUSES ACCURACY ISSUE
@@ -3535,9 +3623,11 @@ class ConditionedTransitionBlock(Module):
         self.output_projection_bias = self.torch_to_tt("output_projection.0.bias")
 
     def __call__(
-        self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False
+        self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False,
+        s_norm: ttnn.Tensor | None = None,
     ) -> ttnn.Tensor:
-        a = self.adaln(a, s, large_seq_len=large_seq_len)
+        a = self.adaln(a, s if s_norm is None else s_norm, large_seq_len=large_seq_len,
+                       pre_normed=s_norm is not None)
         a_swish = ttnn.linear(
             a,
             self.swish_weight,
@@ -3619,8 +3709,10 @@ class DiffusionTransformerLayer(Module):
         z: ttnn.Tensor,
         keys_indexing: ttnn.Tensor | None = None,
         large_seq_len: bool = False,
+        s_norm: ttnn.Tensor | None = None,
     ) -> ttnn.Tensor:
-        b = self.adaln(a, s, large_seq_len=large_seq_len)
+        b = self.adaln(a, s if s_norm is None else s_norm, large_seq_len=large_seq_len,
+                       pre_normed=s_norm is not None)
         if not self.atom_level:
             b = self.attn_pair_bias(b, z)
         else:
@@ -3640,7 +3732,7 @@ class DiffusionTransformerLayer(Module):
             s_o = self.s_o
         b = ttnn.multiply(s_o, b)
         a = ttnn.add(a, b)
-        a_t = self.transition(a, s, large_seq_len=large_seq_len)
+        a_t = self.transition(a, s, large_seq_len=large_seq_len, s_norm=s_norm)
         a = ttnn.add(a, a_t)
         return a
 
@@ -3676,6 +3768,12 @@ class DiffusionTransformer(Module):
         large_seq_len: bool = False,
     ) -> ttnn.Tensor:
         dim = z.shape[1] // len(self.layers)
+        s_norm = None
+        if _ADALN_SNORM_HOIST:
+            # L1: every AdaLN in this stack normalises this same `s`, and each one's s_norm.weight
+            # is folded into its own two linears, so the unweighted normalisation is shared.
+            s_norm = ttnn.layer_norm(s, epsilon=1e-5,
+                                     compute_kernel_config=self.compute_kernel_config)
         for i, layer in enumerate(self.layers):
             a = layer(
                 a,
@@ -3683,7 +3781,10 @@ class DiffusionTransformer(Module):
                 z[:, i * dim : (i + 1) * dim, :, :],
                 keys_indexing,
                 large_seq_len=large_seq_len,
+                s_norm=s_norm,
             )
+        if s_norm is not None:
+            ttnn.deallocate(s_norm)
         return a
 
 
@@ -4799,14 +4900,22 @@ class DiffusionModule(TorchWrapper):
             if token_pad:
                 bias_token = torch.nn.functional.pad(bias_token, (0, 0, 0, token_pad, 0, token_pad))
             bias = self._from_torch(bias_token)
-            bias = ttnn.multiply_(
-                bias, (TOKEN_DIM / TOKEN_N_HEADS) ** 0.5
-            )
+            if not _APB_SCALE_FOLD:
+                # The token DiT bias is baked here, not in AttentionPairBias (those modules run with
+                # compute_pair_bias=False), so the L2 fold has to drop the bake at this site.
+                bias = ttnn.multiply_(
+                    bias, (TOKEN_DIM / TOKEN_N_HEADS) ** 0.5
+                )
             bias_token_tt = ttnn.permute(bias, (0, 3, 1, 2))
             if token_pad:
                 # Fuse additive padding mask into token bias (bfloat16 for -1e9)
+                # The mask is added AFTER the bake, i.e. in the pre-scale domain, so under the fold
+                # it carries the folded scale itself. -1e9 saturates either way; this keeps the two
+                # arms algebraically identical rather than only behaviourally identical.
                 seq_mask = torch.zeros(1, 1, 1, padded_seq)
-                seq_mask[..., seq_len:] = -1e9
+                seq_mask[..., seq_len:] = -1e9 * (
+                    (TOKEN_DIM / TOKEN_N_HEADS) ** -0.5 if _APB_SCALE_FOLD else 1.0
+                )
                 bias_token_tt = ttnn.add_(bias_token_tt, self._from_torch(seq_mask))
             self._cache_set("bias_token", bias_token_tt)
 

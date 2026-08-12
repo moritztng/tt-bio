@@ -70,7 +70,7 @@ def _collect_fp32(root, seen=None, depth=0):
     return out
 
 ARMS = ("on", "e6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hifi",
-        "nonewmm", "oldkey", "sdpa", "nos2", "s2")
+        "nonewmm", "oldkey", "sdpa", "nos2", "s2", "s3", "l1", "both")
 
 # The fused SDPA at full precision: fp32 accumulation in DST, exact exp, HiFi4 matmuls. MEASURED
 # off-fold at openfold3's own tri-att shape (perf/other512/s2_sdpa_precision.json): 1.7097 ms against
@@ -382,6 +382,15 @@ def main():
         # `nos2` is the control -- main's chain, verbatim -- so the arm is readable whichever way
         # the default is set when this runs.
         T._ATOM_PAD_IN_TILE = name != "nos2"
+        # L2: fold the constant (q@k^T + z) * head_dim**-0.5 into the q rows of the projection
+        # weight, which deletes one full pass over the [1, n_heads, S, S] logits tensor.
+        # L1: hoist the AdaLN s layer-norm out of every DiffusionTransformer stack.
+        # `_DIT_LEVER_AB` keeps both weight sets, so every arm is reachable in this one process and
+        # they share one A/A floor. It is read at construction, i.e. on the set_arm("on") that
+        # precedes build_fold.
+        T._DIT_LEVER_AB = True
+        T._APB_SCALE_FOLD = name in ("s3", "both")
+        T._ADALN_SNORM_HOIST = name in ("l1", "both")
 
         T._PAIR_PROJ_L1_OUT = T._PAIR_BIAS_L1_NORM = True
         T._PWA_L1_NORM = T._TEMPLATE_L1_NORM = True
@@ -457,6 +466,8 @@ def main():
                                        "rejects": {f"{r}:{sh}": n for (r, sh), n in PM.REJECTS.items()}},
                    "transpose_l1_headroom": T._TRANSPOSE_L1_HEADROOM,
                    "apb_fused_sdpa": T._APB_FUSED_SDPA,
+                   "apb_scale_fold": T._APB_SCALE_FOLD,
+                   "adaln_snorm_hoist": T._ADALN_SNORM_HOIST,
                    "atom_pad_in_tile": T._ATOM_PAD_IN_TILE,
                    "fp32_softmax_modules": len(FP32_OWNERS),
                    "sdpa_ckc_override": (None if PM._CKC_OVERRIDE is None
