@@ -131,12 +131,12 @@
       "recycles": 3,
       "sampling_steps": 200,
       "cells": {
-        "p150a": {
-          "status": "measured",
-          "s_per_fold": 24.924,
-          "parity": "bit-exact",
-          "ref": "Median of a warm pair, 24.881 and 24.966 s. Bit-exact: CIF sha256 fca25e32ea181ae2, the same structure the reference implementation returns."
-        },
+  "p150a": {
+   "status": "measured",
+   "s_per_fold": 24.822,
+   "parity": "bit-exact",
+   "ref": "Median of n=3 warm, 24.818 / 24.822 / 24.866 s. Bit-exact: CIF sha256 fca25e32ea181ae2, the same structure the reference implementation returns."
+  },
         "h200": {
           "status": "measured",
           "s_per_fold": 7.298,
