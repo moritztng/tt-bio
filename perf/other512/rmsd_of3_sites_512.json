@@ -1,0 +1,35 @@
+{
+ "ref": "512_on_1",
+ "n_atoms": 4116,
+ "n_res": 512,
+ "arms": {
+  "512_on_2": {
+   "global_rmsd_A": 0.0,
+   "half1_rmsd_A": 0.0,
+   "half2_rmsd_A": 0.0,
+   "local64_median_A": 0.0,
+   "local64_max_A": 0.0
+  },
+  "512_nofp32_msatmpl_1": {
+   "global_rmsd_A": 7.611061,
+   "half1_rmsd_A": 7.165746,
+   "half2_rmsd_A": 6.609714,
+   "local64_median_A": 4.908861,
+   "local64_max_A": 10.10128
+  },
+  "512_nofp32_trunk_1": {
+   "global_rmsd_A": 27.712861,
+   "half1_rmsd_A": 18.01275,
+   "half2_rmsd_A": 25.009328,
+   "local64_median_A": 11.992146,
+   "local64_max_A": 13.575187
+  },
+  "512_nofp32_1": {
+   "global_rmsd_A": 27.347078,
+   "half1_rmsd_A": 18.965499,
+   "half2_rmsd_A": 23.010636,
+   "local64_median_A": 13.056433,
+   "local64_max_A": 15.210403
+  }
+ }
+}

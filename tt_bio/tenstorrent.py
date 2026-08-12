@@ -2685,6 +2685,14 @@ class AttentionPairBias(Module):
     ) -> ttnn.Tensor:
         if (_FP32_SOFTMAX or self.fp32_softmax) and self.dtype != ttnn.float32:
             # Gate on: fp32 softmax reduction, bf16 operands/storage (reference recipe).
+            #
+            # Do not reroute this to the fused SDPA to skip the re-materialisation traffic. It is
+            # worth 1.37x on the openfold3 512 aa fold (107.489 -> 78.205 s) and it changes the
+            # answer: all-atom Kabsch RMSD 27.347 A against this path on a 0.000 A A/A floor, and
+            # plDDT 0.547851 -> 0.439598. Flipping only the MSA and template stacks is worth 1.05x
+            # and still moves the structure 7.611 A. The compute kernel config cannot rescue it:
+            # sdpa_generic keeps the exponentiated scores in a bf16 circular buffer, so
+            # fp32_dest_acc never reaches them. Measured: perf/other512/ab_of3_sites_512.json.
             return _fp32_softmax_attention(
                 q, k, v, bias,
                 scale_inv=self.head_dim ** -0.5,
