@@ -199,7 +199,12 @@ def main():
             print(f"  would pull {m} {t} c{ch}")
         return 0
 
-    cm = f"/tmp/ssh-cm/harvest_par.{args.run}.{os.getpid()}.sock"
+    # The run id goes into a filename here, so a nested one has to be flattened: this campaign's
+    # ledger lives at p34d/od9j4c rather than a flat pNN, and the raw id asks ssh to bind
+    # /tmp/ssh-cm/harvest_par.p34d/od9j4c.<pid>.sock, whose parent does not exist ("cannot bind to
+    # path ... No such file or directory", exit 255). It fails before pulling anything, so nothing
+    # is half-harvested, but the run does not happen.
+    cm = f"/tmp/ssh-cm/harvest_par.{args.run.replace('/', '_')}.{os.getpid()}.sock"
     pathlib.Path("/tmp/ssh-cm").mkdir(exist_ok=True)
     subprocess.run(["ssh", "-o", "BatchMode=yes", "-M", "-S", cm,
                     "-o", "ControlPersist=900", "-fN", args.gal], check=True)
