@@ -1,0 +1,77 @@
+{
+ "host": "tt-quietbox2",
+ "card": "3",
+ "grid": [
+  11,
+  10
+ ],
+ "shape": {
+  "H": 4,
+  "S": 512,
+  "D": 32
+ },
+ "scale": 0.1767766952966369,
+ "prescale": 5.65685424949238,
+ "accuracy": [
+  {
+   "arm": "_fp32_softmax_attention (shipped)",
+   "max_abs": 0.067659,
+   "rmsd": 0.003024,
+   "rmsd_over_std": 0.02632,
+   "pcc": 0.99975562
+  },
+  {
+   "arm": "fused bf16 CB, bias as-is",
+   "max_abs": 2.069387,
+   "rmsd": 0.078711,
+   "rmsd_over_std": 0.685107,
+   "pcc": 0.73441681
+  },
+  {
+   "arm": "fused bf16 CB, bias PRESCALED",
+   "max_abs": 0.075895,
+   "rmsd": 0.003105,
+   "rmsd_over_std": 0.027023,
+   "pcc": 0.99971106
+  },
+  {
+   "arm": "fused bf16 CB, HiFi4+fp32dst, bias PRESCALED",
+   "max_abs": 0.042757,
+   "rmsd": 0.00256,
+   "rmsd_over_std": 0.022279,
+   "pcc": 0.99978798
+  },
+  {
+   "arm": "fused fp32 CB k=128, HiFi4+fp32dst, bias PRESCALED",
+   "max_abs": 2.213186,
+   "rmsd": 0.101363,
+   "rmsd_over_std": 0.882271,
+   "pcc": 0.47139569
+  }
+ ],
+ "perf": [
+  {
+   "arm": "_fp32_softmax_attention (shipped)",
+   "ms": 62.7044
+  },
+  {
+   "arm": "fused bf16 CB, ship ckc, k=256",
+   "ms": 1.3741
+  },
+  {
+   "arm": "fused bf16 CB, HiFi4+fp32dst, k=256",
+   "ms": 1.6828
+  },
+  {
+   "arm": "fused fp32 CB, HiFi4+fp32dst, k=128",
+   "ms": 2.2212
+  }
+ ],
+ "host_gap": {
+  "note": "float64, no device: the two semantics against each other",
+  "max_abs": 2.065105,
+  "rmsd": 0.078545,
+  "rmsd_over_std": 0.683663,
+  "pcc": 0.73504914
+ }
+}

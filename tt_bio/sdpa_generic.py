@@ -169,7 +169,7 @@ def plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split
 
 def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale,
           exp_approx_mode=False, mask_cb_tiles=None, defines_extra=None, kernel_dir=None,
-          split=None):
+          split=None, im_dtype=None, stats_dtype=None):
     """The ProgramDescriptor for the fold's SDPA call.
 
     `mask_cb_tiles` overrides the size of `cb_mask_in` (K2 makes it the whole head's grid instead of
@@ -186,8 +186,14 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     v_ts = _TILE_BYTES[v.dtype]
     mask_ts = _TILE_BYTES[mask.dtype]
     out_ts = _TILE_BYTES[out.dtype]
-    im_df, stats_df, scalar_df = ttnn.bfloat16, ttnn.bfloat16, ttnn.bfloat16   # :651-653, always bf16
-    im_ts = stats_ts = scalar_ts = 2048
+    # :651-653 the stock op pins all three to bf16. `im_dtype`/`stats_dtype` widen the
+    # intermediates that hold the exponentiated scores (cb 24/25/26) and the online-softmax
+    # running max/sum (cb 27-31); nothing else in the program depends on their width, and the
+    # compute kernel reads both from the CB descriptors. Left None this is the wheel's program.
+    im_df = im_dtype or ttnn.bfloat16
+    stats_df = stats_dtype or ttnn.bfloat16
+    scalar_df = ttnn.bfloat16
+    im_ts, stats_ts, scalar_ts = _TILE_BYTES[im_df], _TILE_BYTES[stats_df], 2048
 
     def cb(idx, n_tiles, page, fmt):
         f = ttnn.CBFormatDescriptor(buffer_index=idx, data_format=fmt, page_size=page)
@@ -351,7 +357,8 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
     key = (str(q.padded_shape), str(k.padded_shape), str(mask.padded_shape), str(out.padded_shape),
            str(q.dtype), q_chunk_size, k_chunk_size, grid, tuple(str(c) for c in ckc),
            tuple(sorted((kw.get("defines_extra") or {}).items())),
-           kw.get("mask_cb_tiles"), str(kw.get("kernel_dir")), kw.get("split"))
+           kw.get("mask_cb_tiles"), str(kw.get("kernel_dir")), kw.get("split"),
+           str(kw.get("im_dtype")), str(kw.get("stats_dtype")))
     e = _CACHE.get(key)
     if e is None:
         e = _CACHE[key] = build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid,

@@ -1,0 +1,150 @@
+{
+ "host": "tt-quietbox2",
+ "card": "3",
+ "grid": [
+  11,
+  10
+ ],
+ "shape": {
+  "H": 4,
+  "S": 512,
+  "D": 32
+ },
+ "q_chunk": 512,
+ "accuracy": [
+  {
+   "arm": "_fp32_softmax_attention (shipped)",
+   "max_abs": 0.06765900025824534,
+   "rmsd": 0.0030238973169895433,
+   "rmsd_over_std": 0.026320196216805862,
+   "pcc": 0.9997556150833924
+  },
+  {
+   "arm": "stock ttnn SDPA (the 27.347 A arm)",
+   "max_abs": 2.0693868288605746,
+   "rmsd": 0.07871110702468753,
+   "rmsd_over_std": 0.6851065245146173,
+   "pcc": 0.7344168051824321
+  },
+  {
+   "arm": "transcription bf16 im/stats, ship ckc, k=256",
+   "max_abs": 2.0693868288605746,
+   "rmsd": 0.07871110702468753,
+   "rmsd_over_std": 0.6851065245146173,
+   "pcc": 0.7344168051824321
+  },
+  {
+   "arm": "transcription bf16 im/stats, HiFi4+fp32dst, k=256",
+   "max_abs": 2.0659688601105746,
+   "rmsd": 0.07867623136741168,
+   "rmsd_over_std": 0.6848029645565682,
+   "pcc": 0.7343444391815117
+  },
+  {
+   "arm": "transcription fp32 im, bf16 stats, HiFi4+fp32dst, k=256",
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1593856 B which is beyond max L1 size of 1572864 B\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0xe943cb) [0x7c4767a943cb]\n --- tt::tt_metal::detail::ProgramImpl::va"
+  },
+  {
+   "arm": "transcription fp32 im+stats, HiFi4+fp32dst, k=256",
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1757696 B which is beyond max L1 size of 1572864 B\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0xe943cb) [0x7c4767a943cb]\n --- tt::tt_metal::detail::ProgramImpl::va"
+  },
+  {
+   "arm": "transcription fp32 im+stats, HiFi4+fp32dst, k=128",
+   "max_abs": 2.2039083132355746,
+   "rmsd": 0.10228870350066833,
+   "rmsd_over_std": 0.8903274366407916,
+   "pcc": 0.4556433761874959
+  },
+  {
+   "arm": "transcription fp32 im+stats, HiFi4+fp32dst, k=64",
+   "max_abs": 2.1807149538605746,
+   "rmsd": 0.10317361320466259,
+   "rmsd_over_std": 0.8980297474674277,
+   "pcc": 0.44297917048294333
+  },
+  {
+   "arm": "transcription fp32 im+stats, ship ckc, k=128",
+   "max_abs": 2.1987813601105746,
+   "rmsd": 0.09945636524415041,
+   "rmsd_over_std": 0.8656745827740029,
+   "pcc": 0.5031815591417678
+  }
+ ],
+ "perf": [
+  {
+   "arm": "_fp32_softmax_attention (shipped)",
+   "ms": 62.6778,
+   "ms_min": 62.5994
+  },
+  {
+   "arm": "stock ttnn SDPA (the 27.347 A arm)",
+   "ms": 3.267,
+   "ms_min": 3.2604
+  },
+  {
+   "arm": "transcription bf16 im/stats, ship ckc, k=256",
+   "ms": 1.3761,
+   "ms_min": 1.3674
+  },
+  {
+   "arm": "transcription bf16 im/stats, HiFi4+fp32dst, k=256",
+   "ms": 1.6498,
+   "ms_min": 1.6395
+  },
+  {
+   "arm": "transcription fp32 im, bf16 stats, HiFi4+fp32dst, k=256",
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1593856 B which is beyond max L1 size of 1572864 B\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0xe943cb) [0x7c4767a943cb]\n --- tt::tt_metal::detail::ProgramImpl::va"
+  },
+  {
+   "arm": "transcription fp32 im+stats, HiFi4+fp32dst, k=256",
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1757696 B which is beyond max L1 size of 1572864 B\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0xe943cb) [0x7c4767a943cb]\n --- tt::tt_metal::detail::ProgramImpl::va"
+  },
+  {
+   "arm": "transcription fp32 im+stats, HiFi4+fp32dst, k=128",
+   "ms": 2.1885,
+   "ms_min": 2.1684
+  },
+  {
+   "arm": "transcription fp32 im+stats, HiFi4+fp32dst, k=64",
+   "ms": 2.9709,
+   "ms_min": 2.9565
+  },
+  {
+   "arm": "transcription fp32 im+stats, ship ckc, k=128",
+   "ms": 1.8777,
+   "ms_min": 1.8675
+  }
+ ],
+ "l1": [
+  {
+   "im": "None",
+   "stats": "None",
+   "k_chunk": 256,
+   "bytes": 1153024
+  },
+  {
+   "im": "DataType.FLOAT32",
+   "stats": "None",
+   "k_chunk": 256,
+   "bytes": 1482752
+  },
+  {
+   "im": "DataType.FLOAT32",
+   "stats": "DataType.FLOAT32",
+   "k_chunk": 256,
+   "bytes": 1646592
+  },
+  {
+   "im": "DataType.FLOAT32",
+   "stats": "DataType.FLOAT32",
+   "k_chunk": 128,
+   "bytes": 1351680
+  },
+  {
+   "im": "DataType.FLOAT32",
+   "stats": "DataType.FLOAT32",
+   "k_chunk": 64,
+   "bytes": 1204224
+  }
+ ]
+}
