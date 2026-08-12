@@ -1257,7 +1257,7 @@ class ConfidenceHead:
     plddt = LN(s_single[atom->token]) . plddt_weight[atom_to_tokatom_idx]. Validated vs
     the real v2 reference (pae/pde PCC 1.0; plddt PCC ~0.93). Reference confidence_head."""
 
-    def __init__(self, conf_state_dict, device, compute_kernel_config):
+    def __init__(self, conf_state_dict, device, compute_kernel_config, gated_move=False):
         import re
         from .tenstorrent import Pairformer
         self._w = dict(conf_state_dict)
@@ -1275,7 +1275,8 @@ class ConfidenceHead:
         nhp = self._w[b0 + "tri_att_start.linear.weight"].shape[0]
         chpa = self._w[b0 + "tri_att_start.mha.linear_q.weight"].shape[0] // nhp
         apb_nh = self._w[b0 + "attention_pair_bias.linear_nobias_z.weight"].shape[0]
-        self.pf = Pairformer(nb, chpa, nhp, 384 // apb_nh, apb_nh, True, comb, compute_kernel_config)
+        self.pf = Pairformer(nb, chpa, nhp, 384 // apb_nh, apb_nh, True, comb,
+                             compute_kernel_config, gated_move=gated_move)
 
     def _g(self, k):
         return self._w[k].float()
@@ -1563,7 +1564,7 @@ class Protenix:
     variance). feats is a dict of model-ready tensors (from the v2 data pipeline)."""
 
     def __init__(self, model_state_dict, compute_kernel_config, device=None, c_z=None,
-                 msa_update_first=False, diffusion_fp32=None):
+                 msa_update_first=False, diffusion_fp32=None, gated_move=False):
         """diffusion_fp32: explicit per-instantiation override for the coordinate-sensitive
         diffusion stack's precision; None falls back to PROTENIX_DIFFUSION_FP32_DEVICE (default
         fp32). Callers that share this class across models (e.g. OpenDDE) should pass this
@@ -1593,11 +1594,13 @@ class Protenix:
         # The trunk gets its OWN compute kernel config, so its matmul fidelity cannot reach the
         # diffusion module, which runs fp32 on purpose and does need all four mantissa passes.
         self.trunk = Trunk(model_state_dict, _TT.trunk_compute_kernel_config(compute_kernel_config),
-                           c_z=self._c_z, msa_update_first=msa_update_first)
+                           c_z=self._c_z, msa_update_first=msa_update_first,
+                           gated_move=gated_move)
         _TT.set_fast_mode(False)   # diffusion uses its gate-controlled dtype; confidence stays bf16
         self.diffusion = DiffusionModule(under("diffusion_module."), self.dev, compute_kernel_config,
                                           diffusion_fp32=resolved_diffusion_fp32)
-        self.confidence_head = ConfidenceHead(under("confidence_head."), self.dev, compute_kernel_config)
+        self.confidence_head = ConfidenceHead(under("confidence_head."), self.dev,
+                                              compute_kernel_config, gated_move=gated_move)
 
     @classmethod
     def load_from_checkpoint(cls, path, compute_kernel_config=None, device=None):
@@ -1984,7 +1987,7 @@ class Trunk(_KeyedWeights):
     TRI_HEAD_DIM = 32  # constant across c_z variants (Protenix-v2 256/8 heads, OpenDDE 384/12)
 
     def __init__(self, model_state_dict, compute_kernel_config, c_z=None,
-                 msa_update_first=False):
+                 msa_update_first=False, gated_move=False):
         """model_state_dict: full v2-family model dict with the 'module.' prefix STRIPPED.
         c_z: pair channel width (default 256, Protenix-v2's; OpenDDE's shared Trunk subtree
         is c_z=384 -- same architecture, wider pair, head_dim fixed at 32 so n_tri_heads
@@ -2012,7 +2015,8 @@ class Trunk(_KeyedWeights):
                    if k.startswith(f"pairformer_stack.blocks.{i}.")}
             for k, v in PW.remap_pairformer_block(blk).items():
                 comb[f"layers.{i}.{k}"] = v
-        self.PF = Pairformer(nb_pf, self.TRI_HEAD_DIM, n_tri_heads, 384 // 16, 16, True, comb, compute_kernel_config)
+        self.PF = Pairformer(nb_pf, self.TRI_HEAD_DIM, n_tri_heads, 384 // 16, 16, True, comb,
+                             compute_kernel_config, gated_move=gated_move)
         # template embedder: 2 pair-only PairformerLayers
         tpl = {k[len(f"template_embedder.pairformer_stack.blocks.{b}."):]: v for b in range(2)
                for k, v in self._w.items()
@@ -2021,7 +2025,7 @@ class Trunk(_KeyedWeights):
                     PW.remap_msa_pair_stack({k[len(f"template_embedder.pairformer_stack.blocks.{b}."):]: v
                                              for k, v in self._w.items()
                                              if k.startswith(f"template_embedder.pairformer_stack.blocks.{b}.")}),
-                    compute_kernel_config) for b in range(2)]
+                    compute_kernel_config, gated_move=gated_move) for b in range(2)]
         # 4-block MSA module
         self.MSA = []
         nb_msa = 4
@@ -2029,7 +2033,9 @@ class Trunk(_KeyedWeights):
             P = f"msa_module.blocks.{i}."
             sub = lambda pp: {k[len(pp):]: v for k, v in self._w.items() if k.startswith(pp)}
             opm = OuterProductMean(PW.remap_outer_product_mean(sub(P + "outer_product_mean_msa.")), compute_kernel_config)
-            pl = PairformerLayer(self.TRI_HEAD_DIM, n_tri_heads, None, None, False, PW.remap_msa_pair_stack(sub(P + "pair_stack.")), compute_kernel_config)
+            pl = PairformerLayer(self.TRI_HEAD_DIM, n_tri_heads, None, None, False,
+                                 PW.remap_msa_pair_stack(sub(P + "pair_stack.")),
+                                 compute_kernel_config, gated_move=gated_move)
             has = any(k.startswith(P + "msa_stack.") for k in self._w)
             pwa = tm = None
             if has:

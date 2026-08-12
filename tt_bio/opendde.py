@@ -354,16 +354,18 @@ class OpenDDE:
         # OpenDDE to its own validated bf16 diffusion config regardless of Protenix-v2's
         # PROTENIX_DIFFUSION_FP32_DEVICE default (fp32 diffusion is >60x slower on OpenDDE's
         # atom-level tensors, see tt-bio-shared-diffusion-global-env-default-regression).
+        # gated_move=True: E6 fires on 1048 of the fold's 1216 trimul channel moves at c_z=384
+        # and is torch.equal to the sequence it replaces at both slice widths.
         self._protenix = Protenix(
             self._shared, compute_kernel_config, self.dev, c_z=C["c_z"], msa_update_first=True,
-            diffusion_fp32=False)
+            diffusion_fp32=False, gated_move=True)
         self.expander = StructuralTokenExpander(
             routed["expander"], compute_kernel_config, c_s=C["c_s"], c_z=C["c_z"],
             c_s_inputs=C["c_s_inputs"], n_roles=C["n_roles"], pair_chunk_size=C["pair_chunk_size"])
         self.refiner = Pairformer(
             routed["refiner_blocks"], C["c_z"] // C["refiner_tri_heads"], C["refiner_tri_heads"],
             C["c_s"] // C["refiner_att_heads"], C["refiner_att_heads"], True,
-            routed["refiner"], compute_kernel_config)
+            routed["refiner"], compute_kernel_config, gated_move=True)
 
     @classmethod
     def load_from_checkpoint(cls, path=None, *, abag=False, compute_kernel_config=None, device=None):
