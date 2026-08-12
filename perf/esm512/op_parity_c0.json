@@ -1,0 +1,120 @@
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "grid": [
+  11,
+  10
+ ],
+ "ttnn": "0.68.0",
+ "pad_multiple": null,
+ "ffn": {
+  "512": {
+   "torch_equal": true,
+   "max_abs_diff": 0.0,
+   "shape": [
+    1,
+    512,
+    512,
+    256
+   ]
+  },
+  "298": {
+   "torch_equal": true,
+   "max_abs_diff": 0.0,
+   "shape": [
+    1,
+    298,
+    298,
+    256
+   ]
+  }
+ },
+ "trimul": {
+  "L512": {
+   "torch_equal": true,
+   "max_abs_diff": 0.0,
+   "served_declined_off": [
+    0,
+    0
+   ],
+   "served_declined_on": [
+    2,
+    0
+   ]
+  },
+  "L320": {
+   "torch_equal": true,
+   "max_abs_diff": 0.0,
+   "served_declined_off": [
+    0,
+    0
+   ],
+   "served_declined_on": [
+    0,
+    0
+   ]
+  },
+  "L298": {
+   "torch_equal": true,
+   "max_abs_diff": 0.0,
+   "served_declined_off": [
+    0,
+    0
+   ],
+   "served_declined_on": [
+    0,
+    0
+   ]
+  }
+ },
+ "shape_gate": {
+  "esmfold2_cz256_L512": {
+   "chunk_size": 32,
+   "n_pairs": 8,
+   "group": 8,
+   "groups": 1,
+   "one_group": true,
+   "dram": true
+  },
+  "esmfold2_cz256_L320": {
+   "chunk_size": 32,
+   "n_pairs": 8,
+   "group": 1,
+   "groups": 8,
+   "one_group": false,
+   "dram": false
+  },
+  "esmfold2_cz256_L298": {
+   "chunk_size": 32,
+   "n_pairs": 8,
+   "group": 1,
+   "groups": 8,
+   "one_group": false,
+   "dram": false
+  },
+  "boltz2_cz128_L512": {
+   "chunk_size": 32,
+   "n_pairs": 4,
+   "group": 4,
+   "groups": 1,
+   "one_group": true,
+   "dram": true
+  },
+  "boltz2_cz128_L320": {
+   "chunk_size": 32,
+   "n_pairs": 4,
+   "group": 1,
+   "groups": 4,
+   "one_group": false,
+   "dram": false
+  },
+  "boltz2_cz128_L298": {
+   "chunk_size": 32,
+   "n_pairs": 4,
+   "group": 1,
+   "groups": 4,
+   "one_group": false,
+   "dram": false
+  }
+ }
+}

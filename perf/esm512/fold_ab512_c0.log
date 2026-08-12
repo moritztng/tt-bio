@@ -1,0 +1,59 @@
+benchlock: esmfold2-512aa-deep-perf acquired after 0s, loadavg 1.10 1.25 1.18
+2026-08-12 09:43:49.724 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+Fetching 14 files:   0%|          | 0/14 [00:00<?, ?it/s]Fetching 14 files: 100%|██████████| 14/14 [00:00<00:00, 85101.82it/s]
+=== esmfold2 512 aa rec=10 steps=100 arms=['base', 'e6', 'split', 'both'] rounds=2 ===
+Loading CCD dictionary from /home/ttuser/.cache/huggingface/hub/models--biohub--ESMFold2/snapshots/8fc3ff471022fdce52c77030685eb775de0c00a3/ccd.pkl
+  warm:base          58.871s plddt=0.9285 e6=0/0 cif=295867277b9c137f load=2.85
+  warm:e6            42.400s plddt=0.9285 e6=2152/0 cif=295867277b9c137f load=3.47
+  warm:split         41.924s plddt=0.9285 e6=0/0 cif=295867277b9c137f load=3.03
+  warm:both          38.188s plddt=0.9285 e6=2152/0 cif=295867277b9c137f load=2.91
+  r0:base            46.039s plddt=0.9285 e6=0/0 cif=295867277b9c137f load=2.21
+  r0:e6              42.177s plddt=0.9285 e6=2152/0 cif=295867277b9c137f load=1.57
+  r0:split           41.580s plddt=0.9285 e6=0/0 cif=295867277b9c137f load=1.93
+  r0:both            37.929s plddt=0.9285 e6=2152/0 cif=295867277b9c137f load=1.97
+  r1:base            46.045s plddt=0.9285 e6=0/0 cif=295867277b9c137f load=2.40
+  r1:e6              42.410s plddt=0.9285 e6=2152/0 cif=295867277b9c137f load=2.68
+  r1:split           41.433s plddt=0.9285 e6=0/0 cif=295867277b9c137f load=1.79
+  r1:both            37.814s plddt=0.9285 e6=2152/0 cif=295867277b9c137f load=1.44
+{
+ "base": {
+  "n": 2,
+  "median": 46.042,
+  "min": 46.039,
+  "max": 46.045,
+  "spread": 0.006,
+  "speedup_vs_base": 1.0,
+  "delta_s": 0.0
+ },
+ "e6": {
+  "n": 2,
+  "median": 42.293,
+  "min": 42.177,
+  "max": 42.41,
+  "spread": 0.233,
+  "speedup_vs_base": 1.0886,
+  "delta_s": 3.749
+ },
+ "split": {
+  "n": 2,
+  "median": 41.507,
+  "min": 41.433,
+  "max": 41.58,
+  "spread": 0.147,
+  "speedup_vs_base": 1.1093,
+  "delta_s": 4.535
+ },
+ "both": {
+  "n": 2,
+  "median": 37.871,
+  "min": 37.814,
+  "max": 37.929,
+  "spread": 0.115,
+  "speedup_vs_base": 1.2158,
+  "delta_s": 8.171
+ },
+ "A/A_noise_floor_s": 0.006
+}
+CIF identical across all arms: True
+benchlock: esmfold2-512aa-deep-perf released, rc=0, loadavg 1.41 1.89 1.62

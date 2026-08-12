@@ -1851,9 +1851,19 @@ class TriangleMultiplication(Module):
         ending: bool,
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+        gated_moves: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.ending = ending
+        # E6 (the channel move that carries the chunk and both sigmoid gates inside it) is a win
+        # only when a fold's trimul calls are ALL eligible: an eligible call is ~1.23x, and a fold
+        # that mixes eligible and ineligible calls pays for a second program variant on every
+        # block. boltz2 measured 64 of 560 moves served and lost overall. That is a per-fold
+        # property, so no per-call predicate can decide it -- in particular `n_pairs // group == 1`
+        # cannot: boltz2 at c_z=128, L=512 has n_pairs=4, group=4 and passes it too (measured,
+        # perf/esm512/op_parity_c0.json). So the owning model opts in, the way it already opts into
+        # `fuse_swiglu`. Default off: every existing caller is unchanged.
+        self._gated_moves = bool(gated_moves)
         self.in_norm_weight = self.torch_to_tt("norm_in.weight")
         self.in_norm_bias = self.torch_to_tt("norm_in.bias")
         self.out_norm_weight = self.torch_to_tt("norm_out.weight")
@@ -2036,7 +2046,8 @@ class TriangleMultiplication(Module):
             # decomposes to on the DRAM path. A mask multiply or --fast's typecasts would have to
             # ride inside the kernel too, so those keep the four-way split.
             gated = (
-                mask_u is None
+                self._gated_moves
+                and mask_u is None
                 and not _FAST_MODE
                 and not _TRIMUL_RAW_CHANNEL_MOVES
                 and memory_config.buffer_type == ttnn.BufferType.DRAM

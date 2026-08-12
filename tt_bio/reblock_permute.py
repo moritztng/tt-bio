@@ -695,8 +695,11 @@ def reblock_permute_gated(xw, p_slice, g_slice, slice_c, memory_config=None, dev
     return ttnn.generic_op([xw, out], pd)
 
 
-# Whether the trimul folds the chunk and the two gates into the forward move.
-REBLOCK_PERMUTE_GATED = False
+# Whether the trimul folds the chunk and the two gates into the forward move. This is the master
+# switch the A/B harness flips; WHICH trimuls ask for it is a per-instance opt-in
+# (`TriangleMultiplication(..., gated_moves=True)`), default off, so turning the master on changes
+# no model that has not asked.
+REBLOCK_PERMUTE_GATED = True
 _ENABLED_GATED = os.environ.get(
     "TT_BIO_REBLOCK_PERMUTE_GATED", "1" if REBLOCK_PERMUTE_GATED else "0") == "1"
 

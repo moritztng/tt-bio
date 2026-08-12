@@ -244,6 +244,18 @@ class Attention(Module):
         return out
 
 
+# A/B switch for the split-fc1 SwiGLU rewrite in `SwiGLUFFN` (see there). Default on: the
+# rewrite is `torch.equal` against the chain it replaces.
+_SPLIT_SWIGLU = os.environ.get("TT_BIO_SPLIT_SWIGLU", "1") == "1"
+
+
+def set_split_swiglu(on: bool) -> bool:
+    """A/B switch for the split-fc1 SwiGLU path. Returns the previous state."""
+    global _SPLIT_SWIGLU
+    prev, _SPLIT_SWIGLU = _SPLIT_SWIGLU, bool(on)
+    return prev
+
+
 def _pack_swiglu_weight(weight: torch.Tensor) -> torch.Tensor:
     packed = weight.t()
     rows, two_n = packed.shape
@@ -268,8 +280,29 @@ class SwiGLUFFN(Module):
         # fc1/fc2 are the FFN's big matmuls (and the bulk of the ESMC-6B FLOPs);
         # block-fp8 in fast mode, bf16 otherwise. Shared with the folding trunk's
         # pair-transition, so fast mode bf8's that too.
+        # The wheel's `minimal_matmul` has no `fuse_swiglu` kwarg on ttnn 0.68.0, so every
+        # `fuse_swiglu=True` caller silently ran `_lin -> chunk -> silu -> multiply` instead. That
+        # chain moves 4.832 GB per call at [1,512,512,256] to compute an expression whose
+        # information content is 1.611 GB: `ttnn.chunk` copies the whole fc1 output, and `silu`
+        # and `multiply` each re-read what the previous op wrote. Splitting fc1 into its two
+        # halves on the host removes the chunk, and running the SiLU as the multiply's operand-A
+        # activation removes the silu: 29.405 -> 21.147 ms per call, `torch.equal` against the
+        # chain it replaces. Fusing the SiLU into the fc1 epilogue instead is 1.50x SLOWER (8.621
+        # vs 5.747 ms) and `ttnn.swiglu` is both slower and not bit-exact.
+        # See state/esmfold2-512aa-deep-perf.md.
+        self.split_swiglu = bool(fuse_swiglu and not self.fuse_swiglu)
         transform = _pack_swiglu_weight if self.fuse_swiglu else lambda weight: weight.t()
+        # Kept even on the split path so the control arm stays reachable for the A/B; it costs
+        # 1.05 MB per pair-transition block, 50 MB over esmfold2's 48 blocks.
         self.fc1_weight = self.torch_to_tt("1.weight", transform=transform, dtype=_dtype())
+        if self.split_swiglu:
+            half = self.weights["1.weight"].shape[0] // 2
+            self.fc1_a_weight = self.torch_to_tt(
+                "1.weight", transform=lambda w: w[:half].t(), dtype=_dtype()
+            )
+            self.fc1_b_weight = self.torch_to_tt(
+                "1.weight", transform=lambda w: w[half:].t(), dtype=_dtype()
+            )
         self.fc2_weight = self.torch_to_tt("3.weight", dtype=_dtype())
 
     def _ffn(self, x: ttnn.Tensor) -> ttnn.Tensor:
@@ -287,6 +320,15 @@ class SwiGLUFFN(Module):
                 fuse_swiglu=True,
             )
             ttnn.deallocate(x_norm)
+        elif self.split_swiglu and _SPLIT_SWIGLU:
+            h1 = self._lin(x_norm, self.fc1_a_weight)
+            h2 = self._lin(x_norm, self.fc1_b_weight)
+            ttnn.deallocate(x_norm)
+            gated = ttnn.multiply(
+                h1, h2, input_tensor_a_activations=[ttnn.UnaryOpType.SILU]
+            )
+            ttnn.deallocate(h1)
+            ttnn.deallocate(h2)
         else:
             h = self._lin(x_norm, self.fc1_weight)
             ttnn.deallocate(x_norm)

@@ -135,11 +135,16 @@ class PairUpdateBlock(Module):
         super().__init__(state_dict, compute_kernel_config)
         sd = self.weights.as_dict()
         # tri_mul_out = outgoing (ending=False); tri_mul_in = incoming (ending=True).
+        # Every trimul in this block runs at c_z = 256 on the DRAM path, so the whole hidden
+        # dimension is one group and all of the fold's channel moves are eligible for E6
+        # (18 served, 0 declined at 512 aa). 18.135 -> 14.765 ms per trimul, bit-exact.
         self.tri_out = TriangleMultiplication(
-            False, _remap_trimul(sd, "tri_mul_out._engine"), compute_kernel_config
+            False, _remap_trimul(sd, "tri_mul_out._engine"), compute_kernel_config,
+            gated_moves=True,
         )
         self.tri_in = TriangleMultiplication(
-            True, _remap_trimul(sd, "tri_mul_in._engine"), compute_kernel_config
+            True, _remap_trimul(sd, "tri_mul_in._engine"), compute_kernel_config,
+            gated_moves=True,
         )
         self.transition = SwiGLUFFN(
             _remap_transition(sd), compute_kernel_config, fuse_swiglu=True
