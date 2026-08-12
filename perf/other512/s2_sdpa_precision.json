@@ -1,0 +1,105 @@
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "grid": [
+  11,
+  10
+ ],
+ "shape": {
+  "B": 512,
+  "H": 4,
+  "S": 512,
+  "D": 32
+ },
+ "note": "gold = host torch fp32 over the same device inputs",
+ "rows": [
+  {
+   "name": "_fp32_softmax_attention (shipped for openfold3)",
+   "ms": 62.5789,
+   "rmsd": 0.90254307,
+   "rmsd_over_std": 10.92845015,
+   "max_abs": 5.11035967,
+   "pcc": 0.347640395
+  },
+  {
+   "name": "shipped_hifi2_approx",
+   "ckc": [
+    "HiFi2",
+    true,
+    false,
+    false
+   ],
+   "q_chunk": 512,
+   "rmsd": 0.03217186,
+   "rmsd_over_std": 0.38955328,
+   "max_abs": 0.71172416,
+   "pcc": 0.924555779,
+   "ms": 1.4048,
+   "inside_shipped_error": true
+  },
+  {
+   "name": "fp32dst",
+   "ckc": [
+    "HiFi2",
+    true,
+    true,
+    false
+   ],
+   "q_chunk": 512,
+   "rmsd": 0.03221263,
+   "rmsd_over_std": 0.39004685,
+   "max_abs": 0.71172416,
+   "pcc": 0.92444098,
+   "ms": 1.4416,
+   "inside_shipped_error": true
+  },
+  {
+   "name": "fp32dst_noapprox",
+   "ckc": [
+    "HiFi2",
+    false,
+    true,
+    false
+   ],
+   "q_chunk": 512,
+   "rmsd": 0.03217626,
+   "rmsd_over_std": 0.38960646,
+   "max_abs": 0.71172416,
+   "pcc": 0.924481392,
+   "ms": 1.4518,
+   "inside_shipped_error": true
+  },
+  {
+   "name": "fp32dst_noapprox_hifi4",
+   "ckc": [
+    "HiFi4",
+    false,
+    true,
+    false
+   ],
+   "q_chunk": 512,
+   "rmsd": 0.03213536,
+   "rmsd_over_std": 0.38911131,
+   "max_abs": 0.70586479,
+   "pcc": 0.924524963,
+   "ms": 1.7097,
+   "inside_shipped_error": true
+  },
+  {
+   "name": "hifi4_approx",
+   "ckc": [
+    "HiFi4",
+    true,
+    false,
+    false
+   ],
+   "q_chunk": 512,
+   "rmsd": 0.03214403,
+   "rmsd_over_std": 0.38921624,
+   "max_abs": 0.70391166,
+   "pcc": 0.924502552,
+   "ms": 1.6515,
+   "inside_shipped_error": true
+  }
+ ]
+}

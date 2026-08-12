@@ -69,7 +69,13 @@ def _collect_fp32(root, seen=None, depth=0):
             out += _collect_fp32(v, seen, depth + 1)
     return out
 
-ARMS = ("on", "e6", "nok1", "nok2", "tr125", "nomm", "nofp32")
+ARMS = ("on", "e6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hifi")
+
+# The fused SDPA at full precision: fp32 accumulation in DST, exact exp, HiFi4 matmuls. MEASURED
+# off-fold at openfold3's own tri-att shape (perf/other512/s2_sdpa_precision.json): 1.7097 ms against
+# 1.4048 ms for the shipped fused config and 62.5789 ms for _fp32_softmax_attention -- so the whole
+# precision ladder costs 0.305 ms/call and still runs 36.6x faster than the path it replaces.
+CKC_HIFI = None            # bound in main() once ttnn is imported
 
 
 def timed_call(key, fn, *a, **kw):
@@ -143,6 +149,8 @@ def main():
     import ttnn
     import tt_bio.tenstorrent as T
     import tt_baseline as B
+    global CKC_HIFI
+    CKC_HIFI = (ttnn.MathFidelity.HiFi4, False, True, False)
     from tt_bio.main import _resolve_recycling_steps, _resolve_sampling_steps
 
     # qb2 is two dual-chip p300 boards; a bare single-chip open fails without the mesh descriptor.
@@ -269,7 +277,8 @@ def main():
 
         # capacity gates stay at production defaults on every arm: they are not under test here
         for mod in FP32_OWNERS:
-            mod.fp32_softmax = name != "nofp32"
+            mod.fp32_softmax = name not in ("nofp32", "nofp32hifi")
+        PM._CKC_OVERRIDE = CKC_HIFI if name == "nofp32hifi" else None
 
         T._PAIR_PROJ_L1_OUT = T._PAIR_BIAS_L1_NORM = True
         T._PWA_L1_NORM = T._TEMPLATE_L1_NORM = True
@@ -343,6 +352,9 @@ def main():
                                        "rejects": {f"{r}:{sh}": n for (r, sh), n in PM.REJECTS.items()}},
                    "transpose_l1_headroom": T._TRANSPOSE_L1_HEADROOM,
                    "fp32_softmax_modules": len(FP32_OWNERS),
+                   "sdpa_ckc_override": (None if PM._CKC_OVERRIDE is None
+                                         else [str(PM._CKC_OVERRIDE[0]).rsplit(".", 1)[-1],
+                                               *map(bool, PM._CKC_OVERRIDE[1:])]),
                    "fp32_softmax_on": [bool(getattr(m, "fp32_softmax", False)) for m in FP32_OWNERS][:4],
                    "pair_proj_mm": T._PAIR_PROJ_MM, "mm_block_8": list(T._MM_BLOCK[8]),
                    "sdpa_q_chunk_over_l1": sorted(str(k) for k in T._SDPA_Q_CHUNK_OVER_L1),

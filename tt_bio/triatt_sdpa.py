@@ -45,6 +45,14 @@ _ENABLED = os.environ.get(
     "TT_BIO_TRIATT_PERSISTENT_MASK", "1" if TRIATT_PERSISTENT_MASK else "0") == "1"
 
 
+# Compute kernel config for the fused SDPA when the caller does not pass one. None means the
+# op default below. Set it to raise the fused path precision -- openfold3 triangle attention runs
+# _fp32_softmax_attention instead of SDPA precisely because bf16 softmax costs it 0.108 plDDT, and
+# the fused kernel already threads fp32_dest_acc through dst_size and every subblock, so the fp32
+# reduction is a config and not a kernel edit. Inert by default: nothing reads it unless it is set.
+_CKC_OVERRIDE = None
+
+
 def _reject(reason, shape):
     key = (reason, tuple(shape))
     REJECTS[key] = REJECTS.get(key, 0) + 1
@@ -83,7 +91,7 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None):
     out = ttnn.allocate_tensor_on_device(
         ttnn.Shape(shape), ttnn.bfloat16, ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
     # The op's own default compute kernel config, not the trunk's -- see perf/triatt_fused/s4_gate.py
-    ckc = ckc_default or (ttnn.MathFidelity.HiFi2, True, False, False)
+    ckc = ckc_default or _CKC_OVERRIDE or (ttnn.MathFidelity.HiFi2, True, False, False)
 
     p = SG.plan(q, k, v, bias, out, q_chunk, k_chunk, grid, ckc, scale, split)
     # everything the hoisted fill assumes
