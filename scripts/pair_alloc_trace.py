@@ -21,7 +21,8 @@ import traceback
 import ttnn
 
 THRESHOLD = int(os.environ.get("TT_BIO_ALLOC_TRACE_BYTES", 1 << 30))
-TRACED_OPS = ("layer_norm", "concat", "linear", "typecast", "clone", "add", "permute")
+TRACED_OPS = ("layer_norm", "concat", "linear", "typecast", "clone", "add", "permute",
+              "from_torch")   # a host-assembled block set re-enters DRAM as one to_device
 _ITEMSIZE = {ttnn.bfloat16: 2, ttnn.float32: 4, ttnn.uint32: 4, ttnn.int32: 4}
 
 # A file and not stdout, for the reason `tenstorrent.dram_peak` documents: `tt-bio predict`
