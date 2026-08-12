@@ -1,0 +1,206 @@
+benchlock: boltz2-512aa-deep-perf waiting; currently held by: openfold3-512aa-deep-perf pid=105324 since=2026-08-12T10:10:02+00:00
+benchlock: boltz2-512aa-deep-perf acquired after 0s, loadavg 1.49 1.33 1.20
+2026-08-12 10:56:21.347 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+  fp32_softmax attention modules: 0
+=== boltz2 size 512 rec=3 steps=200: cold ===
+  cold 25.25s n_tokens=None plddt=None
+      RMSD vs 512_on_0: {'cdk2x2_512.cif': {'n_atoms': 4116, 'rmsd_direct_A': 0.0, 'rmsd_kabsch_A': 0.0}}
+  on: fold 24.86s  block 11833.12 ms over 280 calls  plddt None
+      K1 560/0 {}  K2 560/0 {}  E6 [False, [0, 0]]
+      DEC qkv_mm_config|kt=4,nt=12                       {'config': 560}
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 560}
+      DEC transpose|512x512x128                          {'L1': 560}
+      DEC tri_att_sdpa|q512k512                          {'q_chunk=512': 560}
+      RMSD vs 512_on_0: {'cdk2x2_512.cif': {'n_atoms': 4116, 'rmsd_direct_A': 7.805691, 'rmsd_kabsch_A': 7.6829}}
+  s3: fold 24.66s  block 11824.58 ms over 280 calls  plddt None
+      K1 560/0 {}  K2 560/0 {}  E6 [False, [0, 0]]
+      DEC qkv_mm_config|kt=4,nt=12                       {'config': 560}
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 560}
+      DEC transpose|512x512x128                          {'L1': 560}
+      DEC tri_att_sdpa|q512k512                          {'q_chunk=512': 560}
+      RMSD vs 512_on_0: {'cdk2x2_512.cif': {'n_atoms': 4116, 'rmsd_direct_A': 9.540881, 'rmsd_kabsch_A': 8.820255}}
+  l1: fold 24.64s  block 11837.88 ms over 280 calls  plddt None
+      K1 560/0 {}  K2 560/0 {}  E6 [False, [0, 0]]
+      DEC qkv_mm_config|kt=4,nt=12                       {'config': 560}
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 560}
+      DEC transpose|512x512x128                          {'L1': 560}
+      DEC tri_att_sdpa|q512k512                          {'q_chunk=512': 560}
+      RMSD vs 512_on_0: {'cdk2x2_512.cif': {'n_atoms': 4116, 'rmsd_direct_A': 9.479911, 'rmsd_kabsch_A': 8.649755}}
+  both: fold 24.46s  block 11797.1 ms over 280 calls  plddt None
+      K1 560/0 {}  K2 560/0 {}  E6 [False, [0, 0]]
+      DEC qkv_mm_config|kt=4,nt=12                       {'config': 560}
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 560}
+      DEC transpose|512x512x128                          {'L1': 560}
+      DEC tri_att_sdpa|q512k512                          {'q_chunk=512': 560}
+      RMSD vs 512_on_0: {'cdk2x2_512.cif': {'n_atoms': 4116, 'rmsd_direct_A': 0.0, 'rmsd_kabsch_A': 0.0}}
+  nos2: fold 24.88s  block 11829.14 ms over 280 calls  plddt None
+      K1 560/0 {}  K2 560/0 {}  E6 [False, [0, 0]]
+      DEC qkv_mm_config|kt=4,nt=12                       {'config': 560}
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 560}
+      DEC transpose|512x512x128                          {'L1': 560}
+      DEC tri_att_sdpa|q512k512                          {'q_chunk=512': 560}
+      RMSD vs 512_on_0: {'cdk2x2_512.cif': {'n_atoms': 4116, 'rmsd_direct_A': 0.0, 'rmsd_kabsch_A': 0.0}}
+  on: fold 24.80s  block 11794.61 ms over 280 calls  plddt None
+      K1 560/0 {}  K2 560/0 {}  E6 [False, [0, 0]]
+      DEC qkv_mm_config|kt=4,nt=12                       {'config': 560}
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 560}
+      DEC transpose|512x512x128                          {'L1': 560}
+      DEC tri_att_sdpa|q512k512                          {'q_chunk=512': 560}
+      RMSD vs 512_on_0: {'cdk2x2_512.cif': {'n_atoms': 4116, 'rmsd_direct_A': 0.0, 'rmsd_kabsch_A': 0.0}}
+  nos2: fold 24.93s  block 11838.74 ms over 280 calls  plddt None
+      K1 560/0 {}  K2 560/0 {}  E6 [False, [0, 0]]
+      DEC qkv_mm_config|kt=4,nt=12                       {'config': 560}
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 560}
+      DEC transpose|512x512x128                          {'L1': 560}
+      DEC tri_att_sdpa|q512k512                          {'q_chunk=512': 560}
+      RMSD vs 512_on_0: {'cdk2x2_512.cif': {'n_atoms': 4116, 'rmsd_direct_A': 9.479911, 'rmsd_kabsch_A': 8.649755}}
+  both: fold 24.34s  block 11807.79 ms over 280 calls  plddt None
+      K1 560/0 {}  K2 560/0 {}  E6 [False, [0, 0]]
+      DEC qkv_mm_config|kt=4,nt=12                       {'config': 560}
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 560}
+      DEC transpose|512x512x128                          {'L1': 560}
+      DEC tri_att_sdpa|q512k512                          {'q_chunk=512': 560}
+      RMSD vs 512_on_0: {'cdk2x2_512.cif': {'n_atoms': 4116, 'rmsd_direct_A': 9.540881, 'rmsd_kabsch_A': 8.820255}}
+  l1: fold 24.60s  block 11815.74 ms over 280 calls  plddt None
+      K1 560/0 {}  K2 560/0 {}  E6 [False, [0, 0]]
+      DEC qkv_mm_config|kt=4,nt=12                       {'config': 560}
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 560}
+      DEC transpose|512x512x128                          {'L1': 560}
+      DEC tri_att_sdpa|q512k512                          {'q_chunk=512': 560}
+      RMSD vs 512_on_0: {'cdk2x2_512.cif': {'n_atoms': 4116, 'rmsd_direct_A': 7.805691, 'rmsd_kabsch_A': 7.6829}}
+  s3: fold 24.63s  block 11787.79 ms over 280 calls  plddt None
+      K1 560/0 {}  K2 560/0 {}  E6 [False, [0, 0]]
+      DEC qkv_mm_config|kt=4,nt=12                       {'config': 560}
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 560}
+      DEC transpose|512x512x128                          {'L1': 560}
+      DEC tri_att_sdpa|q512k512                          {'q_chunk=512': 560}
+      RMSD vs 512_on_0: {'cdk2x2_512.cif': {'n_atoms': 4116, 'rmsd_direct_A': 0.0, 'rmsd_kabsch_A': 0.0}}
+  on: fold 24.76s  block 11796.26 ms over 280 calls  plddt None
+      K1 560/0 {}  K2 560/0 {}  E6 [False, [0, 0]]
+      DEC qkv_mm_config|kt=4,nt=12                       {'config': 560}
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 560}
+      DEC transpose|512x512x128                          {'L1': 560}
+      DEC tri_att_sdpa|q512k512                          {'q_chunk=512': 560}
+      RMSD vs 512_on_0: {'cdk2x2_512.cif': {'n_atoms': 4116, 'rmsd_direct_A': 0.0, 'rmsd_kabsch_A': 0.0}}
+  nos2: fold 24.95s  block 11827.93 ms over 280 calls  plddt None
+      K1 560/0 {}  K2 560/0 {}  E6 [False, [0, 0]]
+      DEC qkv_mm_config|kt=4,nt=12                       {'config': 560}
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 560}
+      DEC transpose|512x512x128                          {'L1': 560}
+      DEC tri_att_sdpa|q512k512                          {'q_chunk=512': 560}
+{
+ "512": {
+  "on": {
+   "fold_s": [
+    24.859,
+    24.802,
+    24.762
+   ],
+   "block_ms": [
+    11833.12,
+    11794.61,
+    11796.26
+   ],
+   "plddt": [
+    null,
+    null,
+    null
+   ],
+   "n": 3,
+   "fold_s_median": 24.802,
+   "fold_s_min": 24.762,
+   "fold_s_spread": 0.097,
+   "block_ms_median": 11796.26,
+   "block_ms_spread": 38.51
+  },
+  "s3": {
+   "fold_s": [
+    24.659,
+    24.635
+   ],
+   "block_ms": [
+    11824.58,
+    11787.79
+   ],
+   "plddt": [
+    null,
+    null
+   ],
+   "n": 2,
+   "fold_s_median": 24.647,
+   "fold_s_min": 24.635,
+   "fold_s_spread": 0.024,
+   "block_ms_median": 11806.19,
+   "block_ms_spread": 36.79
+  },
+  "l1": {
+   "fold_s": [
+    24.638,
+    24.603
+   ],
+   "block_ms": [
+    11837.88,
+    11815.74
+   ],
+   "plddt": [
+    null,
+    null
+   ],
+   "n": 2,
+   "fold_s_median": 24.62,
+   "fold_s_min": 24.603,
+   "fold_s_spread": 0.035,
+   "block_ms_median": 11826.81,
+   "block_ms_spread": 22.14
+  },
+  "both": {
+   "fold_s": [
+    24.455,
+    24.335
+   ],
+   "block_ms": [
+    11797.1,
+    11807.79
+   ],
+   "plddt": [
+    null,
+    null
+   ],
+   "n": 2,
+   "fold_s_median": 24.395,
+   "fold_s_min": 24.335,
+   "fold_s_spread": 0.12,
+   "block_ms_median": 11802.44,
+   "block_ms_spread": 10.69
+  },
+  "nos2": {
+   "fold_s": [
+    24.884,
+    24.926,
+    24.948
+   ],
+   "block_ms": [
+    11829.14,
+    11838.74,
+    11827.93
+   ],
+   "plddt": [
+    null,
+    null,
+    null
+   ],
+   "n": 3,
+   "fold_s_median": 24.926,
+   "fold_s_min": 24.884,
+   "fold_s_spread": 0.064,
+   "block_ms_median": 11829.14,
+   "block_ms_spread": 10.81
+  },
+  "aa_floor_fold_s": 0.097,
+  "aa_floor_block_ms": 38.51
+ }
+}
+wrote perf/b2deep/ab_l1l2_512.json
+benchlock: boltz2-512aa-deep-perf released, rc=0, loadavg 1.84 1.57 1.34
+RC=0
