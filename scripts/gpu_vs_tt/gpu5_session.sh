@@ -57,25 +57,27 @@ for M in $MODELS; do
       gate "$ST/$RUNG.pdb" "$EXP" | tee "$R/gate_${M}_${TAG}.txt"
       ;;
     boltz-2|openfold3|esmfold2)
+      EXTRA=""
       case "$M" in
         boltz-2)   PY=/root/venv-boltz/bin/python3 ;;
         openfold3) PY=/root/venv-of3/bin/python3 ;;
-        esmfold2)  PY=/root/venv-esm/bin/python3 ;;
+        # venv-esm312, not venv-esm: upstream esm needs python >=3.12 and the model class
+        # comes from transformers. --esm-backend selects the fast kernel path, which is
+        # NOT the default, and 10 loops / 100 requested steps is the paper's protocol and
+        # what the TT arm runs.
+        esmfold2)  PY=/root/venv-esm312/bin/python
+                   EXTRA="--esm-backend cuequivariance --recycles 10 --steps 100" ;;
       esac
       timeout "$PER_MODEL_S" $PY gpu5_bench.py --model "$M" --repeat "$REPEAT" \
         --yaml "$FIX/cdk2x2_512.yaml" --a3m "$FIX/cdk2x2_512.a3m" \
         --seq-file fixtures/prot512.seq --work /root/work \
-        --checkpoint /root/ckpt/of3-p2-155k.pt --out "$OUT" > "$LOG" 2>&1
+        --checkpoint /root/ckpt/of3-p2-155k.pt $EXTRA --out "$OUT" > "$LOG" 2>&1
       echo "$M rc=$?"
       # gpu5_bench.py records every prediction it produced; gate the last one, which is
-      # the last warm fold rather than the discarded cold one.
-      P=$(python3 -c "
-import json,sys
-try:
-    p=json.load(open('$OUT'))['result'].get('predictions') or []
-    print(p[-1] if p else '')
-except Exception: print('')
-")
+      # the last warm fold rather than the discarded cold one. Written to a file rather
+      # than inlined: nesting python in a double-quoted $( ) inside this heredoc-generated
+      # script ate the quotes once already and gated the empty string.
+      P=$(OUTJSON="$OUT" python3 last_prediction.py)
       gate "$P" "" | tee "$R/gate_${M}_${TAG}.txt"
       ;;
   esac
