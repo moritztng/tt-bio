@@ -219,7 +219,7 @@ details.disclose > div { padding-top: 14px; }
 
 <section class="chart" id="c1b">
   <div class="chart-head">
-    <div class="chart-title"><h3>Throughput per dollar, purchase price and electricity</h3><span class="pill">Derived</span></div>
+    <div class="chart-title"><h3>Throughput per dollar, total cost of ownership</h3><span class="pill">Derived</span></div>
     <p class="cond" id="c1b-cond"></p>
   </div>
   <div class="keys" id="c1b-keys"></div>
@@ -262,7 +262,7 @@ details.disclose > div { padding-top: 14px; }
     <div class="tablewrap"><table id="t-derived"></table></div>
     <h4 style="margin-top:24px">Derived, throughput per dollar of purchase price</h4>
     <div class="tablewrap"><table id="t-perdollar-capex"></table></div>
-    <h4 style="margin-top:24px">Derived, throughput per dollar of purchase price and electricity</h4>
+    <h4 style="margin-top:24px">Derived, throughput per dollar of total cost of ownership</h4>
     <div class="tablewrap"><table id="t-perdollar"></table></div>
   </div>
 </details>
@@ -510,16 +510,16 @@ details.disclose > div { padding-top: 14px; }
       id: host, unit: "predictions per dollar", unitShort: "pred/$",
       tipUnit: "the reference server's predictions per dollar",
       tickFmt: function (v) { return v.toFixed(1) + "x"; },
-      title: "Throughput per dollar of " + (capex ? "purchase price" : "purchase price and electricity") +
+      title: "Throughput per dollar of " + (capex ? "purchase price" : "total cost of ownership") +
         " at 512 residues, the 8x H200 server set to 1.00x, derived"
     });
     document.getElementById(host + "-cond").innerHTML = capex
       ? "Hardware only: <span class=\"num\">predictions per hour &divide; purchase price</span>, with the " +
         ref.name + " set to <span class=\"num\">1.00x</span>. No amortisation window, because it " +
         "cancels from this ratio. Electricity is not counted here."
-      : "Predictions per hour per dollar of ownership: <span class=\"num\">predictions per hour &divide; " +
-        "cost per hour</span>, with the " + ref.name + " set to <span class=\"num\">1.00x</span>. Cost per " +
-        "hour is the purchase price spread over " + m.amortisation_years + " years plus electricity at " +
+      : "Total cost of ownership: <span class=\"num\">predictions per hour &divide; cost per hour</span>, " +
+        "with the " + ref.name + " set to <span class=\"num\">1.00x</span>. Cost per hour is the purchase " +
+        "price spread over " + m.amortisation_years + " years plus electricity at " +
         fmtCents(m.electricity_usd_per_kwh) + ", with the machine predicting around the clock.";
     var adv = [];
     D.models.forEach(function (mo) { adv.push(perDollarIndex(mo, "p150a", basis)); });
@@ -528,8 +528,8 @@ details.disclose > div { padding-top: 14px; }
       "Across the five models the Galaxy Blackhole returns " + fmtX(adv[0]) + " to " +
       fmtX(adv[adv.length - 1]) + " the predictions per dollar of the " + ref.name +
       (capex ? " on purchase price alone. Electricity is a larger share of the Galaxy's hourly cost " +
-               "than of the H200 server's, because the Galaxy is so much cheaper to buy, so the chart " +
-               "below is the narrower of the two."
+               "than of the H200 server's, because the Galaxy is so much cheaper to buy, so the total " +
+               "cost of ownership chart below is the narrower of the two."
              : " once electricity is included. " + m.sensitivity);
   }
 
@@ -697,8 +697,7 @@ details.disclose > div { padding-top: 14px; }
       "no accuracy.");
     mrow("Servers", "A server bar is one measured accelerator times the accelerators in the box, on " +
       "both sides: 32 Blackhole AI Processors against 8 GPUs.");
-    mrow("Cost", m.formula + " Only the second basis uses the window, and " + m.amortisation_years +
-      " years is the server life Amazon depreciates over in its 10-Q; " +
+    mrow("Cost", m.formula + " Only the second basis uses the window. " + m.amortisation_basis + " " +
       fmtCents(m.electricity_usd_per_kwh) + " is the US industrial average price of electricity. " +
       m.utilisation + " " + m.sensitivity);
     mrow("Power", "Each server carries its vendor's published maximum system power: " +

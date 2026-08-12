@@ -115,14 +115,15 @@
   ],
   "cost_model": {
     "index_platform": "hgx_h200_8",
-    "amortisation_years": 5,
+    "amortisation_years": 4,
     "hours_per_year": 8766,
     "electricity_usd_per_kwh": 0.0871,
     "electricity_source": "eia-industrial",
     "amortisation_source": "amzn-10q",
+    "amortisation_basis": "Four years is this page's assumption for how long an AI accelerator earns its keep: one year shorter than the general-purpose server life Amazon reports in its 10-Q, because an accelerator generation lasts about two years. A shorter window favours the cheaper box, so the range below brackets it.",
     "utilisation": "The machine predicts continuously, so every hour of ownership is an hour of throughput.",
-    "formula": "Throughput per dollar, with the 8x H200 server set to 1.00x, on two bases. Purchase price: predictions per hour / price, with no amortisation window, because the window cancels from that ratio. Purchase price and electricity: predictions per hour / cost per hour, where cost per hour = price / (5 x 8766 h) + power kW x $/kWh.",
-    "sensitivity": "Shift the window to 3 or 7 years, or the rate to the 13.54 c/kWh US commercial tariff, and the Tenstorrent figure moves between 1.51x and 2.91x. It does not invert."
+    "formula": "Throughput per dollar, with the 8x H200 server set to 1.00x, on two bases. Purchase price: predictions per hour / price, with no amortisation window, because the window cancels from that ratio. Total cost of ownership: predictions per hour / cost per hour, where cost per hour = price / (4 x 8766 h) + power kW x $/kWh.",
+    "sensitivity": "Shift the window to 3 or 6 years, or the rate to the 13.54 c/kWh US commercial tariff, and the Tenstorrent figure moves between 1.59x and 2.91x. It does not invert."
   },
   "models": [
     {
