@@ -21,6 +21,12 @@ So this harness is that one generalised on exactly three axes and nothing else:
       nok2   persistent SDPA bias OFF
       tr125  `_TRANSPOSE_L1_HEADROOM` 2.5 -> 1.25
       nomm   `_MM_BLOCK[8]` reverted to (2,8,1,2,1) and `_PAIR_PROJ_MM` off (the two engine-wide ones)
+      nofp32 every `fp32_softmax=True` attention switched to the fused flash-SDPA route. openfold3
+             is the only model that sets it (`openfold3_trunk.py:130`); this arm is the SCREEN for a
+             fused fp32-softmax kernel, and it is an upper bound on that kernel by construction --
+             it buys the whole traffic saving and pays none of the fp32 reduction cost, so a kernel
+             that keeps the reduction in fp32 lands at or below it. It is NOT bit-exact and is not a
+             shipping proposal; its plDDT against the `on` arm is the accuracy number it exists for.
 
 A lever that reports `served 0, declined 0` is UNTESTED, not inactive -- the counters distinguish
 "gated off with a reason" from "fired and did nothing", which is the whole point of Phase 0.
@@ -36,8 +42,34 @@ sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
 WALL = defaultdict(lambda: {"n": 0, "s": 0.0})
 DEC = defaultdict(Counter)
 STATE = {"dev": None, "model": None}
+FP32_OWNERS: list = []
 
-ARMS = ("on", "e6", "nok1", "nok2", "tr125", "nomm")
+
+def _collect_fp32(root, seen=None, depth=0):
+    """Every live attention module whose `fp32_softmax` is True, found by walking the built model.
+
+    A class-level flip would not work: `fp32_softmax` is an instance attribute set by the caller
+    (`openfold3_trunk.py:130`), so the arm has to reach the instances. Returns the list so a run can
+    record how many it found -- an arm that flips zero modules is an A/A pair mislabelled as an A/B.
+    """
+    if root is None or depth > 12:
+        return []
+    seen = seen if seen is not None else set()
+    if id(root) in seen:
+        return []
+    seen.add(id(root))
+    out = []
+    if getattr(root, "fp32_softmax", False) is True:
+        out.append(root)
+    for v in list(getattr(root, "__dict__", {}).values()):
+        if isinstance(v, (list, tuple)):
+            for it in v:
+                out += _collect_fp32(it, seen, depth + 1)
+        elif hasattr(v, "__dict__"):
+            out += _collect_fp32(v, seen, depth + 1)
+    return out
+
+ARMS = ("on", "e6", "nok1", "nok2", "tr125", "nomm", "nofp32")
 
 
 def timed_call(key, fn, *a, **kw):
@@ -236,6 +268,9 @@ def main():
         T._MM_BLOCK[8] = (2, 8, 1, 2, 1) if name == "nomm" else (4, 8, 1, 4, 1)
 
         # capacity gates stay at production defaults on every arm: they are not under test here
+        for mod in FP32_OWNERS:
+            mod.fp32_softmax = name != "nofp32"
+
         T._PAIR_PROJ_L1_OUT = T._PAIR_BIAS_L1_NORM = True
         T._PWA_L1_NORM = T._TEMPLATE_L1_NORM = True
         T._pair_proj_program_config.cache_clear()
@@ -255,6 +290,9 @@ def main():
         one_fold, meta, state = B.build_fold(a.model, ROOT / f".msa_om512_{size}", tgt, a3m)
         STATE["dev"] = T.get_device()
         STATE["model"] = getattr(state, "model", None)
+        FP32_OWNERS[:] = _collect_fp32(STATE["model"])
+        res["fp32_softmax_modules"] = len(FP32_OWNERS)
+        print(f"  fp32_softmax attention modules: {len(FP32_OWNERS)}", flush=True)
         g = STATE["dev"].compute_with_storage_grid_size()
         res["grid"] = [g.x, g.y]
         res["compute_grid_main"] = list(T.COMPUTE_GRID_MAIN)
@@ -304,6 +342,8 @@ def main():
                                        "declined": PM.STATS[1],
                                        "rejects": {f"{r}:{sh}": n for (r, sh), n in PM.REJECTS.items()}},
                    "transpose_l1_headroom": T._TRANSPOSE_L1_HEADROOM,
+                   "fp32_softmax_modules": len(FP32_OWNERS),
+                   "fp32_softmax_on": [bool(getattr(m, "fp32_softmax", False)) for m in FP32_OWNERS][:4],
                    "pair_proj_mm": T._PAIR_PROJ_MM, "mm_block_8": list(T._MM_BLOCK[8]),
                    "sdpa_q_chunk_over_l1": sorted(str(k) for k in T._SDPA_Q_CHUNK_OVER_L1),
                    "loadavg": open("/proc/loadavg").read().split()[:3],

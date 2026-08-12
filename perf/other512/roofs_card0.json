@@ -1,0 +1,54 @@
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "grid": [
+  11,
+  10
+ ],
+ "compute_grid_main": [
+  11,
+  10
+ ],
+ "rows": [
+  {
+   "shape": [
+    512,
+    512,
+    128
+   ],
+   "MiB": 64.0,
+   "clone_ms": 0.3533,
+   "copy_roof_GBps": 379.9
+  },
+  {
+   "shape": [
+    512,
+    512,
+    384
+   ],
+   "MiB": 192.0,
+   "clone_ms": 1.0218,
+   "copy_roof_GBps": 394.1
+  },
+  {
+   "shape": [
+    995,
+    995,
+    384
+   ],
+   "MiB": 725.1,
+   "clone_ms": 3.92,
+   "copy_roof_GBps": 387.9
+  },
+  {
+   "shape": [
+    512,
+    512,
+    256
+   ],
+   "MiB": 128.0,
+   "clone_ms": 0.6865,
+   "copy_roof_GBps": 391.0
+  }
+ ]
+}
