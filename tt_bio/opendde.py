@@ -18,7 +18,7 @@ import torch
 import ttnn
 
 from .protenix import _KeyedWeights
-from .tenstorrent import get_device
+from .tenstorrent import CONCAT_HOST_BYTES, _acc_concat, get_device
 
 # opendde/data/tokenizer.py
 STRUCTURAL_TOKEN_ROLES = {
@@ -238,7 +238,24 @@ class StructuralTokenExpander(_KeyedWeights):
         z_flat = ttnn.from_torch(
             z_res.reshape(Nr * Nr, self.c_z), layout=ttnn.ROW_MAJOR_LAYOUT,
             device=get_device(), dtype=getattr(self, "dtype", ttnn.bfloat16))
-        z_chunks, ab_chunks = [], []
+        # Assemble z_struct on the host once it is large, and upload it as ONE allocation
+        # after the row loop's transients are gone.
+        #
+        # This is placement, not footprint. Measured on the Galaxy at Ns=2113: the trunk hands
+        # the seam a single 912.8 MiB/bank hole, and by the time this function returns the
+        # largest hole is 208.7 MiB -- already the number the refiner is then refused at, before
+        # it has allocated anything. The device concat asks for its [Ns,Ns,c_z] result while all
+        # ceil(Ns/128) row chunks are still live beside it (~3.4 GB at Ns=2113), so the result
+        # lands above them and its neighbours never coalesce. Accumulating on the host leaves at
+        # most one chunk on device, so the upload takes the bottom of an intact hole and what
+        # remains above it stays contiguous -- which is what the refiner's own pair tensor needs.
+        #
+        # Bit-exact: to_torch preserves the bf16 bytes, the concat is along the row axis so no
+        # tile padding is crossed, and from_torch re-tilizes the same values. bf16 only, for the
+        # reason _host_concat gives: a bf8 or fp32 round trip through torch bf16 would not be.
+        host_z = (z_flat.dtype == ttnn.bfloat16
+                  and Ns * Ns * self.c_z * 2 > CONCAT_HOST_BYTES)
+        z_chunks, ab_chunks, live = [], [], []
         for start in range(0, Ns, chunk):
             end = min(start + chunk, Ns)
             row_index = torch.arange(start, end)
@@ -254,10 +271,22 @@ class StructuralTokenExpander(_KeyedWeights):
                 ttnn.reshape(z_dev, (end - start, Ns, self.c_z)), ttnn.TILE_LAYOUT)
             z_tile = ttnn.add(z_tile, self._pair_project_full(z_dev, role, row_index))
             z_tile = ttnn.add(z_tile, self._pair_init_bias(pf))
-            z_chunks.append(z_tile)
+            if host_z:
+                z_chunks.append(ttnn.to_torch(z_tile))
+                live.append(z_tile)      # freed together below, NOT one per iteration
+            else:
+                z_chunks.append(z_tile)
             ab_chunks.append(self._attn_bias(pf))
+        # Free the row loop's residents before the upload, in one go at the end. Deallocating
+        # each chunk inside the loop instead lets the next iteration's tensors reuse its memory,
+        # and that -- not the host assembly, which is bit-identical (verified in a real fold,
+        # scripts/probe_zstruct_assembly.py: 8 blocks, (977,977,384), equal=True) -- is what moved
+        # 9i3p's structure. Freeing here keeps the loop's allocation pattern as it was and still
+        # leaves the heap empty for the upload, which is the whole point of the change.
+        for t in live:
+            ttnn.deallocate(t)
         ttnn.deallocate(z_flat)
-        z_struct = z_chunks[0] if len(z_chunks) == 1 else ttnn.concat(z_chunks, dim=-3)
+        z_struct = _acc_concat(z_chunks, -3, host_z)
         attn_bias = ab_chunks[0] if len(ab_chunks) == 1 else ttnn.concat(ab_chunks, dim=0)
         return s_inputs_struct, s_struct, z_struct, attn_bias
 
@@ -390,6 +419,13 @@ class OpenDDE:
         import ttnn
         s_inputs_st, s_st, z_st, attn_bias = self.expander(ifd, s_inputs_res, s_res, z_res)
         Ns = s_st.shape[0]
+        # Build the refiner trimuls' fused input-weight cache up front, so the first (timed)
+        # call does not interleave the 96-tensor `_gp_cache` uploads with its compute.
+        # Numerically inert, measured: a fold with this prewarm produces the same numbers as
+        # one without.
+        for blk in self.refiner.blocks:
+            blk.triangle_multiplication_start.prewarm(Ns, 1)
+            blk.triangle_multiplication_end.prewarm(Ns, 1)
         z4 = ttnn.reshape(z_st, (1, Ns, Ns, self.expander.c_z))
         s3 = ttnn.reshape(s_st, (1, Ns, self.expander.c_s))
         bias = None
