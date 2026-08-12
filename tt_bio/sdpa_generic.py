@@ -39,8 +39,8 @@ _CACHE: dict = {}
 
 
 def _kdir():
-    root = Path(ttnn.__file__).resolve().parent
-    return root / "ttnn/cpp/ttnn/operations/transformer/sdpa/device/kernels"
+    from .mm_generic import ttnn_cpp_root
+    return ttnn_cpp_root() / "cpp/ttnn/operations/transformer/sdpa/device/kernels"
 
 
 def _div_up(a, b):
