@@ -69,7 +69,8 @@ def _collect_fp32(root, seen=None, depth=0):
             out += _collect_fp32(v, seen, depth + 1)
     return out
 
-ARMS = ("on", "e6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hifi")
+ARMS = ("on", "e6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hifi",
+        "nonewmm")
 
 # The fused SDPA at full precision: fp32 accumulation in DST, exact exp, HiFi4 matmuls. MEASURED
 # off-fold at openfold3's own tri-att shape (perf/other512/s2_sdpa_precision.json): 1.7097 ms against
@@ -273,7 +274,14 @@ def main():
 
         T._TRANSPOSE_L1_HEADROOM = 1.25 if name == "tr125" else 2.5
         T._PAIR_PROJ_MM = name != "nomm"
-        T._MM_BLOCK[8] = (2, 8, 1, 2, 1) if name == "nomm" else (4, 8, 1, 4, 1)
+        T._MM_BLOCK[(8, 8)] = (2, 8, 1, 2, 1) if name == "nomm" else (4, 8, 1, 4, 1)
+        # `nonewmm` reverts ONLY the four widths this task added, so the A/B isolates
+        # the re-key from the two engine-wide levers `nomm` also moves.
+        for k in ((4, 12), (4, 4), (2, 12), (2, 2)):
+            if name == "nonewmm":
+                T._MM_BLOCK.pop(k, None)
+            else:
+                T._MM_BLOCK[k] = (4, k[0], 1, 4, 1)
 
         # capacity gates stay at production defaults on every arm: they are not under test here
         for mod in FP32_OWNERS:
@@ -356,7 +364,7 @@ def main():
                                          else [str(PM._CKC_OVERRIDE[0]).rsplit(".", 1)[-1],
                                                *map(bool, PM._CKC_OVERRIDE[1:])]),
                    "fp32_softmax_on": [bool(getattr(m, "fp32_softmax", False)) for m in FP32_OWNERS][:4],
-                   "pair_proj_mm": T._PAIR_PROJ_MM, "mm_block_8": list(T._MM_BLOCK[8]),
+                   "pair_proj_mm": T._PAIR_PROJ_MM, "mm_block": {str(k): list(x) for k, x in sorted(T._MM_BLOCK.items())},
                    "sdpa_q_chunk_over_l1": sorted(str(k) for k in T._SDPA_Q_CHUNK_OVER_L1),
                    "loadavg": open("/proc/loadavg").read().split()[:3],
                    "wall_ms": {k: {"calls": v["n"], "ms": round(v["s"] * 1e3, 2)}

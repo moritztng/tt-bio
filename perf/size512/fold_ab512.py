@@ -196,7 +196,7 @@ def main():
         # default, so the arm difference is exactly those two and nothing else.
         prev = name == "prev"
         T._PAIR_PROJ_MM = not prev
-        T._MM_BLOCK[8] = (2, 8, 1, 2, 1) if prev else (4, 8, 1, 4, 1)
+        T._MM_BLOCK[(8, 8)] = (2, 8, 1, 2, 1) if prev else (4, 8, 1, 4, 1)
         STATE["gates"] = ("on" if (fid or grp or bk is not None or sdpa or prev
                                    or e6 is not None or hm is not None or hmt is not None)
                           else name)
@@ -311,7 +311,7 @@ def main():
                    "cif_sha256": cifs,
                    "grid": list(T.COMPUTE_GRID_MAIN),
                    "pair_proj_mm": T._PAIR_PROJ_MM,
-                   "mm_block_8": list(T._MM_BLOCK[8]),
+                   "mm_block_8": list(T._MM_BLOCK[(8, 8)]),
                    "trimul_inproj_group": T._TRIMUL_INPROJ_GROUP,
                    "back_kernel": (lambda RB: [RB._ENABLED_BACK, list(RB.STATS_BACK)])(
                        __import__("tt_bio.reblock_permute", fromlist=["x"])),

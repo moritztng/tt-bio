@@ -76,8 +76,8 @@ def qkv_heads(x, w, ckc, n_heads, head_dim, dtype, mm_config):
     # The descriptor is a transcription of the factory for the shipped block entry only.
     if mm_config is None:
         return _reject("no_mm_config", shape)
-    from .tenstorrent import _MM_BLOCK, COMPUTE_GRID_MAIN
-    blk = _MM_BLOCK.get(int(w.shape[-1]) // TILE)
+    from .tenstorrent import _mm_block_for, COMPUTE_GRID_MAIN
+    blk = _mm_block_for(w)
     if blk is None:
         return _reject("no_block_entry", shape)
 
@@ -177,13 +177,12 @@ def gate_proj(x, w_g, w_o, ckc, n_heads, head_dim, dtype, mm_config):
     if len(w_o.shape) != 2 or int(w_o.shape[-2]) // TILE != int(w_g.shape[-1]) // TILE:
         return _tail_reject("out_weight_shape", shape)
 
-    from .tenstorrent import (_MM_BLOCK, COMPUTE_GRID_MAIN, _PAIR_PROJ_L1_OUT, _L1_OUT_REFUSED,
+    from .tenstorrent import (_mm_block_for, COMPUTE_GRID_MAIN, _PAIR_PROJ_L1_OUT, _L1_OUT_REFUSED,
                               _PAIR_PROJ_MM)
     if not _PAIR_PROJ_MM:
         # `out` would take the DRAM `ttnn.linear` leg, which this has never been compared against
         return _tail_reject("pair_proj_mm_off", shape)
-    if _MM_BLOCK.get(int(w_g.shape[-1]) // TILE) is None or _MM_BLOCK.get(
-            int(w_o.shape[-1]) // TILE) is None:
+    if _mm_block_for(w_g) is None or _mm_block_for(w_o) is None:
         return _tail_reject("no_block_entry", shape)
     # The L1-output leg of `out` also deletes the consumer's operand read; never trade it away.
     # `_L1_OUT_REFUSED` is the allocator's own verdict and is only populated after a real attempt,
@@ -202,7 +201,7 @@ def gate_proj(x, w_g, w_o, ckc, n_heads, head_dim, dtype, mm_config):
         ttnn.Shape([shape[0], n_heads, shape[1], head_dim]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
         dev, ttnn.DRAM_MEMORY_CONFIG)
     G.generic_minimal_matmul(
-        dev, x, w_g, out, (_MM_BLOCK[int(w_g.shape[-1]) // TILE], tuple(COMPUTE_GRID_MAIN)),
+        dev, x, w_g, out, (_mm_block_for(w_g), tuple(COMPUTE_GRID_MAIN)),
         G.ckc_args(ckc), {"HEAD_MAJOR_OUT_MT": pad[-2] // TILE}, KERNEL_DIR)
     TAIL_STATS[0] += 1
     return out
@@ -210,7 +209,7 @@ def gate_proj(x, w_g, w_o, ckc, n_heads, head_dim, dtype, mm_config):
 
 def out_proj(gated, w, ckc, dtype):
     """The `out` projection reading a head-major activation: `[B, H, S, 32] -> [B, S, H*32]`."""
-    from .tenstorrent import _MM_BLOCK, COMPUTE_GRID_MAIN
+    from .tenstorrent import _mm_block_for, COMPUTE_GRID_MAIN
     B, H, S, D = (int(d) for d in gated.shape)
     pad = [int(d) for d in gated.padded_shape]
     dev = gated.device()
@@ -218,7 +217,7 @@ def out_proj(gated, w, ckc, dtype):
         ttnn.Shape([B, S, int(w.shape[-1])]), ttnn.bfloat16, ttnn.TILE_LAYOUT, dev,
         ttnn.DRAM_MEMORY_CONFIG)
     G.generic_minimal_matmul(
-        dev, gated, w, out, (_MM_BLOCK[int(w.shape[-1]) // TILE], tuple(COMPUTE_GRID_MAIN)),
+        dev, gated, w, out, (_mm_block_for(w), tuple(COMPUTE_GRID_MAIN)),
         G.ckc_args(ckc), {"HEAD_MAJOR_IN0_MT": pad[-2] // TILE}, KERNEL_DIR,
         m_k=(pad[0] * pad[-2], H * D))
     return out

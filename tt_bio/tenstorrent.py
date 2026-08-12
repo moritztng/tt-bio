@@ -2209,7 +2209,32 @@ _MM_CFG = os.environ.get("TT_BIO_QKV_MM_CONFIG", "1" if QKV_MM_CONFIG else "0") 
 #     ratio 1.044x  1.085x  1.051x  1.110x  1.209x  1.219x  1.204x
 # The old entry cost 1.21x on every nt=8 pair-track projection in the repo at production M, not
 # just the triangle-attention gate.
-_MM_BLOCK = {24: (4, 8, 1, 4, 1), 8: (4, 8, 1, 4, 1)}
+# Keyed on (kt, nt) -- the contraction tiles AND the output tiles -- not on nt alone. Keying on nt
+# was protenix-only by accident: the two entries below are its widths, so K1, K1b and the swept
+# block config have been shipped and idle for every other model since c9bfcaef. Adding nt=12 under
+# the old key would ALSO have been picked up by opendde's gate projection, whose kt is 12 and which
+# passes the `kt % blk[1]` guard because 12 % 4 == 0 -- and that config is MEASURED at 0.5318x and
+# not bit-exact (perf/other512/s1_widths.json). The key is what prevents that.
+#
+# Every entry sets K_block == kt, so the contraction is one K block and the accumulation order is
+# the unconfigured op's. MEASURED bit-exact by torch.equal at each width, with the op speedup:
+#     (4,12) 1.2107x   (4,4) 1.6859x   (2,12) 1.2431x   (2,2) 2.1644x
+# opendde's (12,36) and (12,12) are deliberately ABSENT: its 995 tokens give mt = 30939, which 4
+# does not divide, so the only M_block passing `mt % M` is 1 -- measured 0.5794x / 0.5318x and not
+# bit-exact. It needs its own sweep, not an entry copied from here.
+_MM_BLOCK = {
+    (8, 24): (4, 8, 1, 4, 1),   # protenix-v2 qkv          -- unchanged, byte-identical to before
+    (8, 8): (4, 8, 1, 4, 1),    # protenix-v2 gate + pair  -- unchanged
+    (4, 12): (4, 4, 1, 4, 1),   # boltz2 / openfold3 qkv   at c_z=128
+    (4, 4): (4, 4, 1, 4, 1),    # boltz2 / openfold3 gate  at c_z=128
+    (2, 12): (4, 2, 1, 4, 1),   # openfold3 qkv            at c_z=64
+    (2, 2): (4, 2, 1, 4, 1),    # openfold3 gate           at c_z=64
+}
+
+
+def _mm_block_for(w):
+    """The swept block entry for this weight, or None. The single reader of the (kt, nt) key."""
+    return _MM_BLOCK.get(((int(w.shape[-2]) + 31) // 32, (int(w.shape[-1]) + 31) // 32))
 
 
 @lru_cache(maxsize=None)
@@ -2223,7 +2248,7 @@ def _qkv_mm_config(inp, w):
         return None
     kt = (int(w.shape[-2]) + 31) // 32
     nt = (int(w.shape[-1]) + 31) // 32
-    blk = _MM_BLOCK.get(nt)
+    blk = _mm_block_for(w)
     if blk is None or kt % blk[1]:
         return None
     shape = [int(d) for d in inp.shape]      # ttnn.Shape does not support slicing

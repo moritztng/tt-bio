@@ -1,0 +1,177 @@
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "grid": [
+  11,
+  10
+ ],
+ "mm_block_today": {
+  "24": [
+   4,
+   8,
+   1,
+   4,
+   1
+  ],
+  "8": [
+   4,
+   8,
+   1,
+   4,
+   1
+  ]
+ },
+ "rows": [
+  {
+   "case": "boltz2/of3 qkv  c_z=128",
+   "kt": 4,
+   "nt": 12,
+   "mt": 8192,
+   "calls_per_fold": 1968,
+   "entry": [
+    4,
+    4,
+    1,
+    4,
+    1
+   ],
+   "guards": {
+    "kt_mod_Kblock": 0,
+    "mt_mod_M": 0,
+    "M_block": 4
+   },
+   "equal": true,
+   "ms_unconfigured": 1.1745,
+   "ms_configured": 0.9701,
+   "speedup": 1.2107,
+   "saving_ms": 0.2044
+  },
+  {
+   "case": "boltz2/of3 gate c_z=128",
+   "kt": 4,
+   "nt": 4,
+   "mt": 8192,
+   "calls_per_fold": 984,
+   "entry": [
+    4,
+    4,
+    1,
+    4,
+    1
+   ],
+   "guards": {
+    "kt_mod_Kblock": 0,
+    "mt_mod_M": 0,
+    "M_block": 4
+   },
+   "equal": true,
+   "ms_unconfigured": 0.7615,
+   "ms_configured": 0.4517,
+   "speedup": 1.6859,
+   "saving_ms": 0.3098
+  },
+  {
+   "case": "of3 qkv         c_z=64",
+   "kt": 2,
+   "nt": 12,
+   "mt": 8192,
+   "calls_per_fold": 128,
+   "entry": [
+    4,
+    2,
+    1,
+    4,
+    1
+   ],
+   "guards": {
+    "kt_mod_Kblock": 0,
+    "mt_mod_M": 0,
+    "M_block": 4
+   },
+   "equal": true,
+   "ms_unconfigured": 1.1637,
+   "ms_configured": 0.9361,
+   "speedup": 1.2431,
+   "saving_ms": 0.2276
+  },
+  {
+   "case": "of3 gate        c_z=64",
+   "kt": 2,
+   "nt": 2,
+   "mt": 8192,
+   "calls_per_fold": 64,
+   "entry": [
+    4,
+    2,
+    1,
+    4,
+    1
+   ],
+   "guards": {
+    "kt_mod_Kblock": 0,
+    "mt_mod_M": 0,
+    "M_block": 4
+   },
+   "equal": true,
+   "ms_unconfigured": 0.724,
+   "ms_configured": 0.3345,
+   "speedup": 2.1644,
+   "saving_ms": 0.3895
+  },
+  {
+   "case": "opendde qkv     c_z=384",
+   "kt": 12,
+   "nt": 36,
+   "mt": 30939,
+   "calls_per_fold": null,
+   "entry": [
+    1,
+    12,
+    1,
+    1,
+    1
+   ],
+   "guards": {
+    "kt_mod_Kblock": 0,
+    "mt_mod_M": 0,
+    "M_block": 1
+   },
+   "equal": false,
+   "max_abs": 0.5,
+   "rmsd_over_std": 2.061e-05,
+   "ms_unconfigured": 15.2592,
+   "ms_configured": 26.3355,
+   "speedup": 0.5794,
+   "saving_ms": -11.0763
+  },
+  {
+   "case": "opendde gate    c_z=384",
+   "kt": 12,
+   "nt": 12,
+   "mt": 30939,
+   "calls_per_fold": null,
+   "entry": [
+    1,
+    12,
+    1,
+    1,
+    1
+   ],
+   "guards": {
+    "kt_mod_Kblock": 0,
+    "mt_mod_M": 0,
+    "M_block": 1
+   },
+   "equal": false,
+   "max_abs": 0.5,
+   "rmsd_over_std": 2.0927e-05,
+   "ms_unconfigured": 7.0466,
+   "ms_configured": 13.2512,
+   "speedup": 0.5318,
+   "saving_ms": -6.2046
+  }
+ ],
+ "all_bit_exact": false,
+ "max_speedup": 2.1644,
+ "verdict": "NO-GO"
+}
