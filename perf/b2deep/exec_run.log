@@ -1,0 +1,123 @@
+benchlock: boltz2-512aa-deep-perf acquired after 0s, loadavg 0.08 0.86 1.00
++ PY=/home/ttuser/tt-bio-dev/env/bin/python3
++ cd /home/ttuser/.coworker/wt/boltz2-512aa-deep-perf
++ echo '=== STEP 0: S0 split census (the gate) ==='
+=== STEP 0: S0 split census (the gate) ===
++ /home/ttuser/tt-bio-dev/env/bin/python3 -u perf/b2deep/decompose.py --model boltz2 --sizes 512 --deep --split --arms on --out perf/b2deep/decomp_split_512.json
+2026-08-12 09:31:30.511 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+  fp32_softmax attention modules: 0
+=== boltz2 size 512 rec=3 steps=200: cold ===
+  cold 26.18s n_tokens=None plddt=None
+  on: fold 25.74s  block 11871.12 ms over 280 calls  plddt None
+      K1 560/0 {}  K2 560/0 {}  E6 [False, [0, 0]]
+      DEC qkv_mm_config|kt=4,nt=12                       {'config': 560}
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 560}
+      DEC transpose|512x512x128                          {'L1': 560}
+      DEC tri_att_sdpa|q512k512                          {'q_chunk=512': 560}
+{
+ "512": {
+  "on": {
+   "fold_s": [
+    25.738
+   ],
+   "block_ms": [
+    11871.12
+   ],
+   "plddt": [
+    null
+   ],
+   "n": 1,
+   "fold_s_median": 25.738,
+   "fold_s_min": 25.738,
+   "fold_s_spread": 0.0,
+   "block_ms_median": 11871.12,
+   "block_ms_spread": 0.0
+  }
+ }
+}
+wrote perf/b2deep/decomp_split_512.json
++ echo 'S0 RC=0'
+S0 RC=0
++ echo '=== STEP 2: S1 fused-SDPA screen, on,sdpa,on ==='
+=== STEP 2: S1 fused-SDPA screen, on,sdpa,on ===
++ /home/ttuser/tt-bio-dev/env/bin/python3 -u perf/other512/fold_ab_multi.py --model boltz2 --sizes 512 --arms on,sdpa,on --out perf/b2deep/ab_s1_sdpa_512.json
+2026-08-12 09:32:27.431 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+  fp32_softmax attention modules: 0
+=== boltz2 size 512 rec=3 steps=200: cold ===
+  cold 25.26s n_tokens=None plddt=None
+      RMSD vs None: {'error': "ValueError: '_atom_site.Cartn_x' is not in list"}
+  on: fold 24.86s  block 11832.52 ms over 280 calls  plddt None
+      K1 560/0 {}  K2 560/0 {}  E6 [False, [0, 0]]
+      DEC qkv_mm_config|kt=4,nt=12                       {'config': 560}
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 560}
+      DEC transpose|512x512x128                          {'L1': 560}
+      DEC tri_att_sdpa|q512k512                          {'q_chunk=512': 560}
+2026-08-12 09:33:22.918 | critical |          Always | TT_FATAL: When mask is provided to SDPA, it must be in DRAM (assert.hpp:104)
+  sdpa FAILED: RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/transformer/sdpa/device/sdpa_device_operation.cpp:80: mask.buffer()->buffer_type() == tt::tt_metal::BufferType::DRAM
+info:
+When mask is provided to SDPA, it must be in DRAM
+backtrace:
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/buil
+      RMSD vs None: {'error': "ValueError: '_atom_site.Cartn_x' is not in list"}
+  on: fold 24.87s  block 11826.64 ms over 280 calls  plddt None
+      K1 560/0 {}  K2 560/0 {}  E6 [False, [0, 0]]
+      DEC qkv_mm_config|kt=4,nt=12                       {'config': 560}
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 560}
+      DEC transpose|512x512x128                          {'L1': 560}
+      DEC tri_att_sdpa|q512k512                          {'q_chunk=512': 560}
+{
+ "512": {
+  "on": {
+   "fold_s": [
+    24.858,
+    24.868
+   ],
+   "block_ms": [
+    11832.52,
+    11826.64
+   ],
+   "plddt": [
+    null,
+    null
+   ],
+   "n": 2,
+   "fold_s_median": 24.863,
+   "fold_s_min": 24.858,
+   "fold_s_spread": 0.01,
+   "block_ms_median": 11829.58,
+   "block_ms_spread": 5.88
+  },
+  "aa_floor_fold_s": 0.01,
+  "aa_floor_block_ms": 5.88
+ }
+}
+wrote perf/b2deep/ab_s1_sdpa_512.json
++ echo 'S1 RC=0'
+S1 RC=0
++ echo '=== STEP 1: roofs on card 1 ==='
+=== STEP 1: roofs on card 1 ===
++ /home/ttuser/tt-bio-dev/env/bin/python3 -u perf/other512/roofs.py perf/b2deep/roofs_card1.json
+2026-08-12 09:33:49.395 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+{"shape": [512, 512, 128], "MiB": 64.0, "clone_ms": 0.3562, "copy_roof_GBps": 376.8}
+{"shape": [512, 512, 384], "MiB": 192.0, "clone_ms": 1.0171, "copy_roof_GBps": 395.9}
+{"shape": [995, 995, 384], "MiB": 725.1, "clone_ms": 3.9079, "copy_roof_GBps": 389.1}
+{"shape": [512, 512, 256], "MiB": 128.0, "clone_ms": 0.686, "copy_roof_GBps": 391.3}
+{"host": "tt-quietbox2", "card": "1", "grid": [11, 10], "compute_grid_main": [11, 10], "rows": [{"shape": [512, 512, 128], "MiB": 64.0, "clone_ms": 0.3562, "copy_roof_GBps": 376.8}, {"shape": [512, 512, 384], "MiB": 192.0, "clone_ms": 1.0171, "copy_roof_GBps": 395.9}, {"shape": [995, 995, 384], "MiB": 725.1, "clone_ms": 3.9079, "copy_roof_GBps": 389.1}, {"shape": [512, 512, 256], "MiB": 128.0, "clone_ms": 0.686, "copy_roof_GBps": 391.3}]}
++ echo 'ROOFS RC=0'
+ROOFS RC=0
++ echo '=== STEP 3: S2 atom-pad off-fold screen ==='
+=== STEP 3: S2 atom-pad off-fold screen ===
++ /home/ttuser/tt-bio-dev/env/bin/python3 -u perf/b2deep/s2_atom_pad.py perf/b2deep/s2_atom_pad.json
+2026-08-12 09:33:52.207 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+{"K": 224, "shape": [1, 224, 32, 128], "MiB": 1.75, "A_rowmajor_chain_equal_to_A": true, "A_rowmajor_chain_us": 160.53, "B_tile_concat_equal_to_A": true, "B_tile_concat_us": 61.09, "C_tile_pad_equal_to_A": true, "C_tile_pad_us": 57.31, "speedup_B_over_A": 2.6278, "speedup_C_over_A": 2.8011}
+{"K": 64, "shape": [1, 64, 32, 128], "MiB": 0.5, "A_rowmajor_chain_equal_to_A": true, "A_rowmajor_chain_us": 73.47, "B_tile_concat_equal_to_A": true, "B_tile_concat_us": 29.78, "C_tile_pad_equal_to_A": true, "C_tile_pad_us": 36.08, "speedup_B_over_A": 2.4671, "speedup_C_over_A": 2.0363}
+{"K": 448, "shape": [1, 448, 32, 128], "MiB": 3.5, "A_rowmajor_chain_equal_to_A": true, "A_rowmajor_chain_us": 294.94, "B_tile_concat_equal_to_A": true, "B_tile_concat_us": 97.94, "C_tile_pad_equal_to_A": true, "C_tile_pad_us": 83.98, "speedup_B_over_A": 3.0114, "speedup_C_over_A": 3.512}
+wrote perf/b2deep/s2_atom_pad.json
++ echo 'S2 RC=0'
+S2 RC=0
+benchlock: boltz2-512aa-deep-perf released, rc=0, loadavg 1.97 1.39 1.18
+WRAPPER RC=0

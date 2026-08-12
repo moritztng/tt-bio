@@ -422,6 +422,22 @@ _SDPA_Q_CHUNK_OVER_L1: set = set()
 # Kill switch so a fold-level A/B can run both arms without a checkout. Bit-exact either way.
 _SDPA_WIDE_Q = os.environ.get("TT_BIO_SDPA_WIDE_Q", "1") != "0"
 
+# SCREEN ONLY, inert by default. Routes the token-level / trunk AttentionPairBias through the same
+# fused ttnn SDPA the atom-level path already uses, instead of the unfused
+# matmul + add + multiply + softmax + matmul chain. It exists to measure the ceiling of any fused
+# route on this model: the chain materialises a [1, n_heads, S, S] logits tensor and then traverses
+# it 4.5 more times, and SDPA never materialises it at all. It is NOT a shipping proposal --
+# `ba6ede96` unfused this branch because SDPA stores the exponentiated scores in a bf16 CB and
+# flattens near-degenerate distributions. Turning it on changes the answer.
+_APB_FUSED_SDPA = False
+
+# The atom-level AttentionPairBias widens q from ATOM_WINDOW to ATOM_DIM on dim -2. That pad is
+# tile-aligned (32 -> 128 adds exactly 3 tiles of zeros), so leaving TILE layout to do it in
+# ROW_MAJOR and tilizing back is pure round trip. MEASURED off-fold at the production shape
+# [1, 224, 32, 128] bf16 (perf/b2deep/s2_atom_pad.json), median of 7 after 2 warm, torch.equal
+# against the chain: chain 160.53 us, tile concat 61.09 us (2.6278x), tile pad 57.31 us (2.8011x).
+_ATOM_PAD_IN_TILE = True
+
 # C2, the triangle bias cast to bfloat8_b before the SDPA. OFF by default and it stays off until a
 # fold-level parity gate clears it: at N=512 the op-level error is rmsd/std 0.002547 at PCC
 # 1.000000, but W9 measured z rmsd/std 0.04179 on a block at N=320 against a shipped band of
@@ -2810,6 +2826,21 @@ class AttentionPairBias(Module):
                                    compute_kernel_config=self.compute_kernel_config)
                 ttnn.deallocate(attn)
                 ttnn.deallocate(sc)
+            elif _APB_FUSED_SDPA:
+                # S1 screen (see _APB_FUSED_SDPA): the fused route, upper bound on any kernel.
+                # `_attention` applies `scale` to QK *and* to the additive mask, which is exactly
+                # what the unfused chain's `(q@k^T + z) * head_dim**-0.5` computes, so this is a
+                # drop-in on the arithmetic and differs only in precision.
+                if seq_mask is not None:
+                    z = ttnn.add_(z, seq_mask)
+                if z is not None and z.memory_config() != ttnn.DRAM_MEMORY_CONFIG:
+                    # `sdpa_device_operation.cpp:80` TT_FATALs on an L1 mask, and the shipped
+                    # trunk path hands the bias over in L1 (`_PAIR_BIAS_L1_NORM`). Any fused
+                    # route has to pay this spill, so the screen pays it too.
+                    zd = ttnn.to_memory_config(z, ttnn.DRAM_MEMORY_CONFIG)
+                    ttnn.deallocate(z)
+                    z = zd
+                o = self._attention(q, k, v, z)
             else:
                 if seq_mask is not None:
                     z = ttnn.add_(z, seq_mask)
@@ -2867,9 +2898,12 @@ class AttentionPairBias(Module):
                 dtype=_dtype(),
             )
 
-            q = ttnn.to_layout(q, ttnn.ROW_MAJOR_LAYOUT)
-            q = ttnn.pad(q, [[0, 0], [0, 0], [0, ATOM_DIM - ATOM_WINDOW], [0, 0]], 0.0)
-            q = ttnn.to_layout(q, ttnn.TILE_LAYOUT, dtype=_dtype())
+            if _ATOM_PAD_IN_TILE:
+                q = ttnn.pad(q, [[0, 0], [0, 0], [0, ATOM_DIM - ATOM_WINDOW], [0, 0]], 0.0)
+            else:
+                q = ttnn.to_layout(q, ttnn.ROW_MAJOR_LAYOUT)
+                q = ttnn.pad(q, [[0, 0], [0, 0], [0, ATOM_DIM - ATOM_WINDOW], [0, 0]], 0.0)
+                q = ttnn.to_layout(q, ttnn.TILE_LAYOUT, dtype=_dtype())
             q = ttnn.reshape(q, (B * K, 1, ATOM_DIM, -1))
             kv = ttnn.reshape(kv, (B * K, 1, ATOM_DIM, -1))
             q, k, v = ttnn.experimental.nlp_create_qkv_heads(q, kv, num_heads=self.n_heads, num_kv_heads=self.n_heads, transpose_k_heads=False)

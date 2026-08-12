@@ -31,7 +31,7 @@ So this harness is that one generalised on exactly three axes and nothing else:
 A lever that reports `served 0, declined 0` is UNTESTED, not inactive -- the counters distinguish
 "gated off with a reason" from "fired and did nothing", which is the whole point of Phase 0.
 """
-import argparse, hashlib, json, statistics as st, sys, time
+import argparse, hashlib, json, shutil, statistics as st, sys, time
 from collections import defaultdict, Counter
 from pathlib import Path
 
@@ -70,7 +70,7 @@ def _collect_fp32(root, seen=None, depth=0):
     return out
 
 ARMS = ("on", "e6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hifi",
-        "nonewmm", "oldkey")
+        "nonewmm", "oldkey", "sdpa", "nos2", "s2")
 
 # The fused SDPA at full precision: fp32 accumulation in DST, exact exp, HiFi4 matmuls. MEASURED
 # off-fold at openfold3's own tri-att shape (perf/other512/s2_sdpa_precision.json): 1.7097 ms against
@@ -103,6 +103,75 @@ def timed_call(key, fn, *a, **kw):
     w = WALL[key]
     w["n"] += 1
     w["s"] += time.perf_counter() - t0
+    return out
+
+
+def _cif_coords(path: Path):
+    """(N, 3) float64 of every atom_site row, in file order.
+
+    Minimal mmCIF loop reader. It collects (tags, rows) per `loop_` and then picks the loop that
+    actually carries `_atom_site.Cartn_x`, rather than assuming the atom loop is the last one --
+    tracking one tag list across the whole file reads the coordinates against another loop's header.
+    """
+    import numpy as np
+    import shlex
+    loops, tags, rows, phase = [], [], [], None
+    def flush():
+        if tags and rows:
+            loops.append((list(tags), list(rows)))
+    for line in path.read_text().splitlines():
+        st_ = line.strip()
+        if st_.startswith("loop_"):
+            flush(); tags, rows, phase = [], [], "tags"
+            continue
+        if not st_ or st_.startswith("#"):
+            flush(); tags, rows, phase = [], [], None
+            continue
+        if phase == "tags" and st_.startswith("_"):
+            tags.append(st_.split()[0])
+            continue
+        if phase == "tags" and not st_.startswith("_"):
+            phase = "rows"
+        if phase == "rows":
+            try:
+                f = shlex.split(st_)
+            except ValueError:
+                f = st_.split()
+            if len(f) == len(tags):
+                rows.append(f)
+    flush()
+    for tg, rw in loops:
+        if "_atom_site.Cartn_x" in tg:
+            ix = [tg.index(f"_atom_site.Cartn_{c}") for c in "xyz"]
+            return np.array([[float(r[i]) for i in ix] for r in rw], dtype=np.float64)
+    return None
+
+
+def struct_rmsd(dref: Path, darm: Path):
+    """Direct and Kabsch-superposed all-atom RMSD between two fold outputs.
+
+    Direct is the number that matters: both arms fold the same features with the same seed, so the
+    output frames are comparable and a superposition would hide a real coordinate change. Kabsch is
+    reported alongside so a pure rigid-frame difference is distinguishable from a structural one."""
+    import numpy as np
+    out = {}
+    for f in sorted(dref.glob("*.cif")):
+        g = darm / f.name
+        if not g.exists():
+            continue
+        A, Bc = _cif_coords(f), _cif_coords(g)
+        if A is None or Bc is None or A.shape != Bc.shape:
+            out[f.name] = {"error": f"shape {None if A is None else A.shape} vs "
+                                    f"{None if Bc is None else Bc.shape}"}
+            continue
+        direct = float(np.sqrt(((A - Bc) ** 2).sum(axis=1).mean()))
+        a, b = A - A.mean(0), Bc - Bc.mean(0)
+        u, _, vt = np.linalg.svd(a.T @ b)
+        d = np.sign(np.linalg.det(vt.T @ u.T))
+        r = vt.T @ np.diag([1.0, 1.0, d]) @ u.T
+        kab = float(np.sqrt(((a @ r.T - b) ** 2).sum(axis=1).mean()))
+        out[f.name] = {"n_atoms": int(A.shape[0]), "rmsd_direct_A": round(direct, 6),
+                       "rmsd_kabsch_A": round(kab, 6)}
     return out
 
 
@@ -307,6 +376,13 @@ def main():
             mod.fp32_softmax = name not in ("nofp32", "nofp32hifi")
         PM._CKC_OVERRIDE = CKC_HIFI if name == "nofp32hifi" else None
 
+        # S1: the token-level / trunk AttentionPairBias fused-SDPA screen. Written on every arm.
+        T._APB_FUSED_SDPA = name == "sdpa"
+        # S2: pad the atom-level q in TILE layout instead of round-tripping through ROW_MAJOR.
+        # `nos2` is the control -- main's chain, verbatim -- so the arm is readable whichever way
+        # the default is set when this runs.
+        T._ATOM_PAD_IN_TILE = name != "nos2"
+
         T._PAIR_PROJ_L1_OUT = T._PAIR_BIAS_L1_NORM = True
         T._PWA_L1_NORM = T._TEMPLATE_L1_NORM = True
         T._pair_proj_program_config.cache_clear()
@@ -319,6 +395,8 @@ def main():
            "recycling_steps": B.RECYCLING_STEPS, "sampling_steps": B.SAMPLING_STEPS,
            "timers_installed": installed, "runs": []}
 
+    arm_seq = defaultdict(int)
+    REF_DIR = [None]
     for size in [int(s) for s in a.sizes.split(",")]:
         tgt = a.fixdir / f"cdk2x2_{size}.yaml"
         a3m = a.fixdir / f"cdk2x2_{size}.a3m"
@@ -378,6 +456,8 @@ def main():
                                        "declined": PM.STATS[1],
                                        "rejects": {f"{r}:{sh}": n for (r, sh), n in PM.REJECTS.items()}},
                    "transpose_l1_headroom": T._TRANSPOSE_L1_HEADROOM,
+                   "apb_fused_sdpa": T._APB_FUSED_SDPA,
+                   "atom_pad_in_tile": T._ATOM_PAD_IN_TILE,
                    "fp32_softmax_modules": len(FP32_OWNERS),
                    "sdpa_ckc_override": (None if PM._CKC_OVERRIDE is None
                                          else [str(PM._CKC_OVERRIDE[0]).rsplit(".", 1)[-1],
@@ -398,8 +478,26 @@ def main():
                 w = rec["wall_ms"].get(key)
                 if w and rec.get(f"{short}_wall_ms") is None:
                     rec[f"{short}_wall_ms"], rec[f"{short}_calls"] = w["ms"], w["calls"]
+            # Retain this arm's structure, then score it against the FIRST `on` arm. A CIF digest
+            # answers bit-exact or not; it cannot say how far a non-bit-exact arm moved.
+            keep = a.out.parent / f"{a.out.stem}.arms" / f"{size}_{arm}_{arm_seq[arm]}"
+            arm_seq[arm] += 1
+            try:
+                keep.mkdir(parents=True, exist_ok=True)
+                for f in sorted(struct_dir.glob("*")):
+                    if f.is_file():
+                        shutil.copy2(f, keep / f.name)
+                if REF_DIR[0] is None and arm == "on":
+                    REF_DIR[0] = keep
+                if REF_DIR[0] is not None:
+                    rec["rmsd_vs_on"] = struct_rmsd(REF_DIR[0], keep)
+                    rec["rmsd_ref_dir"] = REF_DIR[0].name
+            except Exception as e:                                              # noqa: BLE001
+                rec["rmsd_vs_on"] = {"error": f"{type(e).__name__}: {e}"[:300]}
             res["runs"].append(rec)
             a.out.write_text(json.dumps(res, indent=1))
+            if rec.get("rmsd_vs_on"):
+                print(f"      RMSD vs {rec.get('rmsd_ref_dir')}: {rec['rmsd_vs_on']}", flush=True)
             print(f"  {arm}: fold {fold_s:.2f}s  block {rec.get('block_wall_ms')} ms over "
                   f"{rec.get('block_calls')} calls  plddt {m.get('plddt')}", flush=True)
             print(f"      K1 {rec['head_major_qkv']['served']}/{rec['head_major_qkv']['declined']} "

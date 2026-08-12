@@ -1,0 +1,66 @@
+{
+ "host": "tt-quietbox2",
+ "card": "1",
+ "grid": [
+  11,
+  10
+ ],
+ "atom_window": 32,
+ "atom_dim": 128,
+ "rows": [
+  {
+   "K": 224,
+   "shape": [
+    1,
+    224,
+    32,
+    128
+   ],
+   "MiB": 1.75,
+   "A_rowmajor_chain_equal_to_A": true,
+   "A_rowmajor_chain_us": 160.53,
+   "B_tile_concat_equal_to_A": true,
+   "B_tile_concat_us": 61.09,
+   "C_tile_pad_equal_to_A": true,
+   "C_tile_pad_us": 57.31,
+   "speedup_B_over_A": 2.6278,
+   "speedup_C_over_A": 2.8011
+  },
+  {
+   "K": 64,
+   "shape": [
+    1,
+    64,
+    32,
+    128
+   ],
+   "MiB": 0.5,
+   "A_rowmajor_chain_equal_to_A": true,
+   "A_rowmajor_chain_us": 73.47,
+   "B_tile_concat_equal_to_A": true,
+   "B_tile_concat_us": 29.78,
+   "C_tile_pad_equal_to_A": true,
+   "C_tile_pad_us": 36.08,
+   "speedup_B_over_A": 2.4671,
+   "speedup_C_over_A": 2.0363
+  },
+  {
+   "K": 448,
+   "shape": [
+    1,
+    448,
+    32,
+    128
+   ],
+   "MiB": 3.5,
+   "A_rowmajor_chain_equal_to_A": true,
+   "A_rowmajor_chain_us": 294.94,
+   "B_tile_concat_equal_to_A": true,
+   "B_tile_concat_us": 97.94,
+   "C_tile_pad_equal_to_A": true,
+   "C_tile_pad_us": 83.98,
+   "speedup_B_over_A": 3.0114,
+   "speedup_C_over_A": 3.512
+  }
+ ]
+}
