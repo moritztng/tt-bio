@@ -47,10 +47,26 @@ OPM_Z_BUDGET_BYTES = 1 << 28              # 0.25 GiB
 CONCAT_HOST_BYTES = int(os.environ.get("TT_BIO_CONCAT_HOST_BYTES", 1536 * 2 ** 20))  # 1.5 GiB
 TRANSITION_W_CHUNK_SIZE = 1024
 SEQ_LEN_MORE_CHUNKING = 1536
-# Row-block height for the trimul's row-local projections above SEQ_LEN_MORE_CHUNKING. One
-# number so the input and output projections cannot drift apart; a tile multiple, so a block
-# boundary never splits a tile and the blocks stay bit-exact against the whole-tensor result.
+# Row-block height for the trimul's row-local projections. One number so the input and output
+# projections cannot drift apart; a tile multiple, so a block boundary never splits a tile and the
+# blocks stay bit-exact against the whole-tensor result.
 PAIR_ROW_BLOCK = 128
+# Byte gate for row-blocking the trimul INPUT norm, which is a different question from the output
+# projections' SEQ_LEN_MORE_CHUNKING gate and must not share it.
+#
+# Row-blocking the input norm costs 43 % per trimul call -- 664.6 ms against 464.8 ms at H=977,
+# c_z=384, 25 reps, stdev under 1 ms (perf/trimul_kernel/inproj_shape_read.py) -- because the norm
+# is recomputed once per channel group. It buys nothing unless the whole-tensor norm cannot actually
+# be allocated, and that is a byte question, not a token-count one. Gating it on
+# SEQ_LEN_MORE_CHUNKING instead cost 1.8 % at the panel median: that constant is rescaled to 608 on
+# a small-grid Wormhole (see _apply_small_grid_budgets), so a 977-token refiner was row-blocking a
+# 744 MB tensor that fits with room to spare.
+#
+# The threshold sits between the largest pair tensor that demonstrably fits and the one that gets
+# refused: 9i3p's is 2.59 GiB and folds with the whole-tensor norm, 9j4c's is 3.19 GiB and is the
+# refusal this exists for.
+TRIMUL_IN_NORM_ROWBLOCK_BYTES = int(os.environ.get(
+    "TT_BIO_TRIMUL_IN_NORM_ROWBLOCK_BYTES", 3 * 2 ** 30))  # 3 GiB
 TRANSITION_BATCH_CHUNKING_THRESHOLD = 1024
 TRANSITION_W_CHUNKING_THRESHOLD = 1024
 TRANSITION_H_CHUNK_SIZE_FAST = 32
@@ -1811,13 +1827,18 @@ class TriangleMultiplication(Module):
 
     def __call__(self, x: ttnn.Tensor, mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
         x_in = x  # keep the pair tensor reachable for the row-blocked tail below
-        H = int(x.shape[1])
-        # Above the gate the LN'd pair tensor is never materialised whole. It was the last
-        # full-size pair allocation this op still made: the output projections below have
-        # been row-blocked for a while, but the input norm was computed whole on every path.
-        # On OpenDDE's structural-token axis that is a [1,2113,2113,384] bf16 request, 3.24
-        # GiB, refused against a 208.7 MiB largest free block -- the AbAg-XM 9j4c cell.
-        row_norm = H > SEQ_LEN_MORE_CHUNKING
+        shp = [int(d) for d in x.shape]
+        H = shp[1]
+        # Past TRIMUL_IN_NORM_ROWBLOCK_BYTES the LN'd pair tensor is never materialised whole. It
+        # was the last full-size pair allocation this op still made: the output projections below
+        # have been row-blocked for a while, but the input norm was computed whole on every path.
+        # On OpenDDE's structural-token axis that is a [1,2113,2113,384] bf16 request, 3.19 GiB,
+        # refused against a 208.7 MiB largest free block -- the AbAg-XM 9j4c cell.
+        #
+        # Gated on the tensor's OWN bytes, not on SEQ_LEN_MORE_CHUNKING: the row-blocked path costs
+        # 43 % per call, and only a tensor too big to allocate is worth paying that for. See the
+        # constant.
+        row_norm = prod(shp) * (2 if x.dtype == ttnn.bfloat16 else 4) > TRIMUL_IN_NORM_ROWBLOCK_BYTES
         x_norm_in = None if row_norm else ttnn.layer_norm(
             x,
             weight=self.in_norm_weight,
@@ -1829,7 +1850,7 @@ class TriangleMultiplication(Module):
         memory_config = _triangle_mul_memory_config(H)
         # Every L1 tensor the channel loop holds is [batch, chunk, H, H], so the width
         # budget has to see the batch a confidence head arrives with, not just H.
-        batch = prod(list(x.shape)[:-3])
+        batch = prod(shp[:-3])
         large_seq = memory_config.buffer_type == ttnn.BufferType.DRAM
         chunk_size = _trimul_chunk_size(H, self._hidden, batch)
         n_pairs = self._hidden // chunk_size
