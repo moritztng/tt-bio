@@ -167,6 +167,43 @@ def _build_configs(model_name: str, rung: dict, input_json: str, dump_dir: str,
     return configs
 
 
+def _install_vendor_cueq_counters() -> dict:
+    """Count entries into cuequivariance_ops_torch's triangle kernels directly.
+
+    Model-agnostic, because it wraps the vendor package instead of a model's call
+    site. Re-entrant: run_model calls this once per rung, and the _bench_orig_
+    stash means a second call re-wraps the ORIGINAL rather than nesting another
+    layer on top of the previous rung's closure (which would keep the old rung's
+    dict counting). Returns {} when the package is absent, so a torch-only model
+    reads as "no cueq counters" rather than a crash.
+    """
+    counts: dict[str, int] = {}
+    try:
+        mod = importlib.import_module("cuequivariance_ops_torch")
+    except ImportError:
+        return counts
+    for name in dir(mod):
+        if "triangle" not in name.lower():
+            continue
+        orig_attr = f"_bench_orig_{name}"
+        fn = getattr(mod, orig_attr, None) or getattr(mod, name, None)
+        if not callable(fn):
+            continue
+        counts[f"cueqops_{name}"] = 0
+
+        def make(key, orig):
+            def counted(*a, **kw):
+                counts[key] += 1
+                return orig(*a, **kw)
+            return counted
+        try:
+            setattr(mod, orig_attr, fn)
+            setattr(mod, name, make(f"cueqops_{name}", fn))
+        except Exception:
+            counts.pop(f"cueqops_{name}", None)
+    return counts
+
+
 def _install_kernel_counters(model: str) -> dict | None:
     """Count the triangle kernels each fold actually calls.
 
@@ -176,15 +213,22 @@ def _install_kernel_counters(model: str) -> dict | None:
     -- so a rung that ASKS for a kernel is not evidence the kernel ran. Wrapping
     the four call sites turns "we set the flag" into "the kernel was entered N
     times". Returns None for a codebase whose module layout does not match.
+
+    OpenDDE runs on the protenix-v2 stack, so it gets the same call-site wrap; it
+    was previously excluded by a literal model-name check and reported None. On top
+    of that, every model gets the vendor-package counters, which wrap
+    cuequivariance_ops_torch itself rather than one codebase's call site, so a model
+    whose layout is unknown still produces evidence instead of an assertion.
     """
-    if model != "protenix-v2":
-        return None
+    counts = _install_vendor_cueq_counters()
+    if model not in ("protenix-v2", "opendde"):
+        return counts or None
     try:
         lay = importlib.import_module("protenix.model.triangular.layers")
         tri = importlib.import_module("protenix.model.triangular.triangular")
     except ImportError:
-        return None
-    counts = {"cueq_triatt": 0, "cueq_trimul": 0, "triattention": 0, "torch_attn": 0}
+        return counts or None
+    counts.update({"cueq_triatt": 0, "cueq_trimul": 0, "triattention": 0, "torch_attn": 0})
 
     def wrap(mod, attr, key):
         # Restore first: run_model calls this once per rung, and re-wrapping an

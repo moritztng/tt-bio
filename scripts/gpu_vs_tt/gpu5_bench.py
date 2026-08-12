@@ -299,7 +299,16 @@ def run_of3(args) -> dict:
 # --------------------------------------------------------------------------------------
 def run_esmfold2(args) -> dict:
     """ESMFold2 is single-sequence by design, so the MSA is dropped -- a property of the
-    model, not of the harness. Plain torch API, so the loop needs no CLI wrapper."""
+    model, not of the harness. Plain torch API, so the loop needs no CLI wrapper.
+
+    The model class ships in transformers, not in the `esm` package and not in the HF
+    repo: `biohub/ESMFold2` holds only config.json + model.safetensors + ccd.pkl, so
+    trust_remote_code has nothing to fetch, and upstream esm 3.3.0's
+    esm.models.esmfold2 carries only the input builders. transformers 4.57.6 defines
+    ESMFold2Model in transformers.models.esmfold2.modeling_esmfold2 but its lazy
+    __init__ re-exports only ESMFold2ExperimentalModel, so AutoModel cannot resolve it
+    and the import has to name the module directly.
+    """
     torch = importlib.import_module("torch")
     seq = args.seq_file.read_text().strip()
     work = Path(args.work) / "esmfold2"
@@ -315,27 +324,35 @@ def run_esmfold2(args) -> dict:
     model = ESMFold2Model.from_pretrained(args.esm_repo).cuda().eval()
     load_s = time.perf_counter() - load_t0
 
+    # set_kernel_backend picks the fast path: None is the reference implementation,
+    # "fused" the vendored Triton kernels, "cuequivariance" the cueq kernels with a
+    # python fallback where they do not apply. The default is the reference path, so
+    # rule 1 (run it the fast way a researcher would) means selecting one explicitly.
+    backend = None if args.esm_backend == "reference" else args.esm_backend
+    if hasattr(model, "set_kernel_backend"):
+        model.set_kernel_backend(backend)
+
     times, preds = [], []
-    fold = getattr(model, "fold", None) or getattr(model, "infer", None)
-    assert fold is not None, f"no fold/infer method on {ESMFold2Model}"
-    kw = dict(num_recycles=args.recycles, num_steps=args.steps)
+    # forward's own knob names: num_loops is recycling, num_sampling_steps is the
+    # requested diffusion step count. ESMFold2 clips the Karras schedule at
+    # sigma_max=256, so a requested 100 executes 68 -- requested is not executed here.
+    kw = dict(num_loops=args.recycles, num_sampling_steps=args.steps,
+              num_diffusion_samples=SAMPLES)
     for i in range(args.repeat + 1):
         torch.manual_seed(SEED)
         torch.cuda.synchronize()
         t0 = time.perf_counter()
         with torch.no_grad():
-            out = fold(seq, **kw)
+            pdb = model.infer_protein_as_pdb(seq, **kw)
         torch.cuda.synchronize()
         times.append(time.perf_counter() - t0)
         p = work / f"fold{i}.pdb"
-        text = out if isinstance(out, str) else getattr(out, "pdb", None)
-        if text:
-            p.write_text(text if isinstance(text, str) else text[0])
-            preds.append(str(p))
+        p.write_text(pdb if isinstance(pdb, str) else pdb[0])
+        preds.append(str(p))
 
     return dict(summarize(times, args.repeat), load_s=round(load_s, 2),
                 kernel_counts_total=dict(cueq, **sdpa), predictions=preds,
-                fold_kwargs=kw, msa_rows=0,
+                fold_kwargs=kw, kernel_backend=backend, msa_rows=0,
                 msa_note="single-sequence model: the 35-row MSA is not consumed",
                 n_residues=len(seq))
 
@@ -352,8 +369,13 @@ def main() -> int:
                     "perf/size512/fixtures/cdk2x2_512.a3m")
     ap.add_argument("--seq-file", type=Path, default=HERE / "fixtures/prot512.seq")
     ap.add_argument("--checkpoint", default="/root/ckpt/of3-p2-155k.pt")
-    ap.add_argument("--esm-module", default="esm.models.esmfold2")
+    ap.add_argument("--esm-module",
+                    default="transformers.models.esmfold2.modeling_esmfold2",
+                    help="where ESMFold2Model lives; transformers ships it, esm does not")
     ap.add_argument("--esm-repo", default="biohub/ESMFold2")
+    ap.add_argument("--esm-backend", default="cuequivariance",
+                    choices=["cuequivariance", "fused", "reference"],
+                    help="ESMFold2 kernel backend; 'reference' passes None")
     ap.add_argument("--recycles", type=int, default=None)
     ap.add_argument("--steps", type=int, default=None)
     ap.add_argument("--work", default="/root/work")
