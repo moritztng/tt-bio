@@ -109,7 +109,13 @@ _TRIMUL_MM_OUT = False
 # whole trimul is 28.483 -> 22.996 ms, 1.239x, torch.equal against G=1 at G=2/4/8 on both the
 # starting and the ending variant. Every downstream op is elementwise, an index move or a
 # per-channel matmul, so the width is a partition of the same sum.
-_TRIMUL_INPROJ_GROUP = 8
+# 12 is opendde's whole channel loop in one iteration (trimul hidden 384 / chunk 32). It is a CAP,
+# not a width: the search below takes the largest DIVISOR of the model's own channel loop that fits
+# the byte budget, so n_pairs=4 models (protenix-v2, boltz2, openfold3, esmfold2) still get 4, byte
+# for byte what they got at cap 8. Measured at opendde's own 512 aa shapes (perf/odde512/screen3.json,
+# qb2 card 3): the channel loop is 25.4418 ms/call at G=4 over three iterations and 22.3395 ms at
+# G=12 in one.
+_TRIMUL_INPROJ_GROUP = 12
 # Widest fused in-projection output the DRAM path may build, in bytes. The group width is what makes
 # the fused projection pay, and it is also the module's whole DRAM-peak risk: at 512 aa the output is
 # 512 MiB at G=8 against 64 MiB at G=1, and it grows with N^2, so a constant group would ask for
@@ -130,17 +136,19 @@ _TRIMUL_INPROJ_FUSED_BYTES = 1024 * 2 ** 20
 def _trimul_inproj_group(seq_len: int, chunk: int, batch: int, n_pairs: int) -> int:
     """How many channel chunks the in-projection matmul may fuse at this shape.
 
-    Halves from `_TRIMUL_INPROJ_GROUP` until the fused output fits the byte budget and the width
-    still divides the channel loop. Every width is bit-exact against every other: the group is a
+    The largest divisor of the channel loop at or below `_TRIMUL_INPROJ_GROUP` whose fused output
+    fits the byte budget. This used to halve down from the cap, which cannot reach a 12-pair loop at
+    all -- 12 -> 6 -> 3 -> 1 skips every divisor of 12 below 12 itself -- so opendde ran three
+    iterations where one would do. Every width is bit-exact against every other: the group is a
     partition of an independent-channel sum and everything below the four-way unpack is elementwise,
     an index move or a per-channel matmul (`torch.equal` at G=2/4/8, perf/trimul_root/).
     Bytes are priced at bf16 even when `_dtype()` is bfloat8_b, so the budget is a bound.
     """
     fused = 4 * chunk * seq_len * seq_len * batch * 2
-    g = _TRIMUL_INPROJ_GROUP
-    while g > 1 and (n_pairs % g or g * fused > _TRIMUL_INPROJ_FUSED_BYTES):
-        g //= 2
-    return g
+    for g in range(min(n_pairs, _TRIMUL_INPROJ_GROUP), 1, -1):
+        if n_pairs % g == 0 and g * fused <= _TRIMUL_INPROJ_FUSED_BYTES:
+            return g
+    return 1
 # Widest inner K block the pair-track projection config may use; None disables the config.
 # 1 keeps the contraction order of the production call and is bit-exact. Above 1 the partial
 # sums fold through packer_l1_acc in K-block order instead, which moves the last bf16 bit and
@@ -1039,11 +1047,20 @@ _PAIR_PROJ_MM = os.environ.get(
     "TT_BIO_PAIR_PROJ_MM", "1" if PAIR_PROJ_MINIMAL_MATMUL else "0") == "1"
 
 
+# Contraction widths, in tiles, MEASURED on the `minimal_matmul` route for the pair-track
+# projection class. 8 is protenix-v2's c_z=256, shipped since the route landed. 12 is opendde's
+# c_z=384, whose [512,512,384] x [384,384] out/gate projections are the same shape as the triangle
+# attention gate and sweep at 1.2419x (perf/odde512/mm_sweep.json). Deliberately NOT "any width with
+# a `_MM_BLOCK` entry": kt 4 and 2 have entries for the qkv route only, and accepting them here would
+# reroute boltz2, openfold3 and esmfold2 onto a path nothing has measured for them.
+_PAIR_PROJ_MM_KT = (8, 12)
+
+
 def _pair_proj_minimal_matmul(x, w, ckc, dtype):
     """`minimal_matmul` for a pair projection whose contraction fits one K block, else None."""
     if not _PAIR_PROJ_MM or x.dtype != ttnn.bfloat16 or w.dtype != ttnn.bfloat16:
         return None
-    if len(w.shape) != 2 or -(-int(w.shape[-2]) // 32) != 8:
+    if len(w.shape) != 2 or -(-int(w.shape[-2]) // 32) not in _PAIR_PROJ_MM_KT:
         return None
     cfg = _qkv_mm_config(x, w)
     if cfg is None:
@@ -1851,9 +1868,13 @@ class TriangleMultiplication(Module):
         ending: bool,
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+        gated_move: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.ending = ending
+        # Opt in to the fused chunk+gate forward move (E6). Per instance and not a global, because
+        # the same kernel wins on opendde's channel widths and loses on boltz2's call mix.
+        self.gated_move = gated_move
         self.in_norm_weight = self.torch_to_tt("norm_in.weight")
         self.in_norm_bias = self.torch_to_tt("norm_in.bias")
         self.out_norm_weight = self.torch_to_tt("norm_out.weight")
@@ -2036,7 +2057,8 @@ class TriangleMultiplication(Module):
             # decomposes to on the DRAM path. A mask multiply or --fast's typecasts would have to
             # ride inside the kernel too, so those keep the four-way split.
             gated = (
-                mask_u is None
+                self.gated_move
+                and mask_u is None
                 and not _FAST_MODE
                 and not _TRIMUL_RAW_CHANNEL_MOVES
                 and memory_config.buffer_type == ttnn.BufferType.DRAM
@@ -2219,9 +2241,19 @@ _MM_CFG = os.environ.get("TT_BIO_QKV_MM_CONFIG", "1" if QKV_MM_CONFIG else "0") 
 # Every entry sets K_block == kt, so the contraction is one K block and the accumulation order is
 # the unconfigured op's. MEASURED bit-exact by torch.equal at each width, with the op speedup:
 #     (4,12) 1.2107x   (4,4) 1.6859x   (2,12) 1.2431x   (2,2) 2.1644x
-# opendde's (12,36) and (12,12) are deliberately ABSENT: its 995 tokens give mt = 30939, which 4
-# does not divide, so the only M_block passing `mt % M` is 1 -- measured 0.5794x / 0.5318x and not
-# bit-exact. It needs its own sweep, not an entry copied from here.
+# opendde's two widths come from its OWN sweep at the shapes a measured 512 aa fold presents
+# (perf/odde512/mm_sweep.json, qb2 card 3, warm 2 / median of 7). 1048 of its 1216 triangle-attention
+# calls are at 512 tokens, where mt = 8192 and M_block 4 and 8 are both legal and both win. The
+# 0.5794x that used to keep these widths out is the M_block = 1 row, and 1 is the only legal M at the
+# 995-token shape (mt = 30939 = 3 x 10313) -- 8 of 1216 calls, which `mt % M` still refuses.
+#     [512,512,384] x [384,1152]  3.6591 -> 3.4749 ms  1.0530x  M=4
+#     [512,512,384] x [384,384]   1.7576 -> 1.4153 ms  1.2419x  M=8
+# NOT bit-exact, unlike every entry above, and that is a correction to the rule stated there:
+# `K_block == kt` reproduces the unconfigured `minimal_matmul` only where it also folds K in one
+# block, which it does at kt <= 8 and does not at kt = 12. Measured across every divisor of 12
+# (1, 2, 3, 4, 6, 12): none is `torch.equal`, max_abs is exactly one bf16 ULP, and rel-RMSD against
+# an fp32 reference is 1.689e-03 for the baseline and for every candidate alike, so neither fold
+# order is nearer the true product. Release-gated on that basis, not on byte-identity.
 _MM_BLOCK = {
     (8, 24): (4, 8, 1, 4, 1),   # protenix-v2 qkv          -- unchanged, byte-identical to before
     (8, 8): (4, 8, 1, 4, 1),    # protenix-v2 gate + pair  -- unchanged
@@ -2229,6 +2261,8 @@ _MM_BLOCK = {
     (4, 4): (4, 4, 1, 4, 1),    # boltz2 / openfold3 gate  at c_z=128
     (2, 12): (4, 2, 1, 4, 1),   # openfold3 qkv            at c_z=64
     (2, 2): (4, 2, 1, 4, 1),    # openfold3 gate           at c_z=64
+    (12, 36): (4, 12, 1, 2, 1),  # opendde qkv             at c_z=384 -- NOT bit-exact, see above
+    (12, 12): (8, 12, 1, 2, 1),  # opendde gate + pair     at c_z=384 -- NOT bit-exact, see above
 }
 
 
@@ -3053,14 +3087,15 @@ class PairformerLayer(Module):
         affinity: bool = False,
         scale_pair_bias: bool = True,
         fp32_softmax: bool = False,
+        gated_move: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.transform_s = transform_s
         self.triangle_multiplication_start = TriangleMultiplication(
-            False, self.scope("tri_mul_out"), compute_kernel_config
+            False, self.scope("tri_mul_out"), compute_kernel_config, gated_move=gated_move
         )
         self.triangle_multiplication_end = TriangleMultiplication(
-            True, self.scope("tri_mul_in"), compute_kernel_config
+            True, self.scope("tri_mul_in"), compute_kernel_config, gated_move=gated_move
         )
         self.triangle_attention_start = TriangleAttention(
             tri_att_head_dim,
@@ -3163,6 +3198,7 @@ class Pairformer(Module):
         affinity: bool = False,
         scale_pair_bias: bool = True,
         fp32_softmax: bool = False,
+        gated_move: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.blocks = [
@@ -3177,6 +3213,7 @@ class Pairformer(Module):
                 affinity=affinity,
                 scale_pair_bias=scale_pair_bias,
                 fp32_softmax=fp32_softmax,
+                gated_move=gated_move,
             )
             for i in range(n_blocks)
         ]

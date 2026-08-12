@@ -70,7 +70,14 @@ def _collect_fp32(root, seen=None, depth=0):
     return out
 
 ARMS = ("on", "e6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hifi",
-        "nonewmm", "oldkey")
+        "nonewmm", "oldkey", "g12", "mm12", "all")
+
+# opendde's three levers, and the integrated arm that is the only number allowed to ship:
+#   g12   `_TRIMUL_INPROJ_GROUP` 12 + the divisor search -- the 12-pair channel loop in one pass
+#   mm12  the two `_MM_BLOCK` widths opendde's own sweep selected, which also unlock K1/K1b there
+#   all   every one of them, measured together in one arm rather than added up
+_MM_BLOCK_ODDE = {(12, 36): (4, 12, 1, 2, 1), (12, 12): (8, 12, 1, 2, 1)}
+GROUPS = Counter()
 
 # The fused SDPA at full precision: fp32 accumulation in DST, exact exp, HiFi4 matmuls. MEASURED
 # off-fold at openfold3's own tri-att shape (perf/other512/s2_sdpa_precision.json): 1.7097 ms against
@@ -92,6 +99,26 @@ def _mm_block_old(w):
     blk = _MM_BLOCK_OLD.get((int(w.shape[-1]) + 31) // 32)
     OLDKEY_HITS[0 if blk is not None else 1] += 1
     return blk
+
+
+def _walk_trimuls(root, seen=None, depth=0):
+    """Every live TriangleMultiplication in the built model, so `gated_move` is counted and not
+    assumed. Same walk as `_collect_fp32`, same reason: the flag is an instance attribute."""
+    import tt_bio.tenstorrent as T
+    if root is None or depth > 14:
+        return []
+    seen = seen if seen is not None else set()
+    if id(root) in seen:
+        return []
+    seen.add(id(root))
+    out = [root] if isinstance(root, T.TriangleMultiplication) else []
+    for v in list(getattr(root, "__dict__", {}).values()):
+        if isinstance(v, (list, tuple)):
+            for it in v:
+                out += _walk_trimuls(it, seen, depth + 1)
+        elif hasattr(v, "__dict__"):
+            out += _walk_trimuls(v, seen, depth + 1)
+    return out
 
 
 def timed_call(key, fn, *a, **kw):
@@ -228,6 +255,17 @@ def main():
 
     T._qkv_mm_config = qkvmm
 
+    # The group is the whole point of the g12 arm, so read it back rather than infer it: an arm
+    # that flips the cap and still returns 4 is an A/A pair wearing an A/B's label.
+    ORIG_GROUP = T._trimul_inproj_group
+
+    def group_census(seq_len, chunk, batch, n_pairs):
+        g = ORIG_GROUP(seq_len, chunk, batch, n_pairs)
+        GROUPS[f"S={seq_len},n_pairs={n_pairs}->g={g}"] += 1
+        return g
+
+    T._trimul_inproj_group = group_census
+
     ORIG_MM_BLOCK_FOR = T._mm_block_for
 
     ORIG_TAS = T._tri_att_sdpa
@@ -271,7 +309,7 @@ def main():
 
         RB.set_enabled(True)                         # main ships the forward move ON
         RB.set_enabled_back(True)                    # and the back move ON
-        RB.set_enabled_gated(name == "e6")           # main ships E6 OFF
+        RB.set_enabled_gated(name in ("e6", "all"))   # the master switch; models opt in per instance
         RB.STATS[0] = RB.STATS[1] = 0
         RB.STATS_BACK[0] = RB.STATS_BACK[1] = 0
         RB.STATS_GATED[0] = RB.STATS_GATED[1] = 0
@@ -289,6 +327,13 @@ def main():
         PM.STATS[0] = PM.STATS[1] = 0
         PM.REJECTS.clear()
 
+        T._TRIMUL_INPROJ_GROUP = 12 if name in ("g12", "all") else 8
+        for k, v in _MM_BLOCK_ODDE.items():
+            if name in ("mm12", "all"):
+                T._MM_BLOCK[k] = v
+            else:
+                T._MM_BLOCK.pop(k, None)
+        GROUPS.clear()
         T._TRANSPOSE_L1_HEADROOM = 1.25 if name == "tr125" else 2.5
         T._PAIR_PROJ_MM = name != "nomm"
         T._mm_block_for = _mm_block_old if name == "oldkey" else ORIG_MM_BLOCK_FOR
@@ -378,6 +423,10 @@ def main():
                                        "declined": PM.STATS[1],
                                        "rejects": {f"{r}:{sh}": n for (r, sh), n in PM.REJECTS.items()}},
                    "transpose_l1_headroom": T._TRANSPOSE_L1_HEADROOM,
+                   "trimul_inproj_group_cap": T._TRIMUL_INPROJ_GROUP,
+                   "trimul_inproj_groups": dict(GROUPS),
+                   "gated_move_instances": sum(
+                       1 for m in _walk_trimuls(STATE["model"]) if getattr(m, "gated_move", False)),
                    "fp32_softmax_modules": len(FP32_OWNERS),
                    "sdpa_ckc_override": (None if PM._CKC_OVERRIDE is None
                                          else [str(PM._CKC_OVERRIDE[0]).rsplit(".", 1)[-1],
@@ -402,6 +451,8 @@ def main():
             a.out.write_text(json.dumps(res, indent=1))
             print(f"  {arm}: fold {fold_s:.2f}s  block {rec.get('block_wall_ms')} ms over "
                   f"{rec.get('block_calls')} calls  plddt {m.get('plddt')}", flush=True)
+            print(f"      group {rec['trimul_inproj_groups']}  gated_move instances "
+                  f"{rec['gated_move_instances']}", flush=True)
             print(f"      K1 {rec['head_major_qkv']['served']}/{rec['head_major_qkv']['declined']} "
                   f"{rec['head_major_qkv']['rejects']}  K2 {rec['persistent_mask']['served']}/"
                   f"{rec['persistent_mask']['declined']} {rec['persistent_mask']['rejects']}  "
