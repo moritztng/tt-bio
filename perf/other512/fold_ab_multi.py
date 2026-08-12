@@ -70,11 +70,14 @@ def _collect_fp32(root, seen=None, depth=0):
     return out
 
 ARMS = ("on", "e6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hifi",
-        "nonewmm", "oldkey", "g12", "mm12", "all")
+        "nonewmm", "oldkey", "g12", "mm12", "ge", "all")
 
 # opendde's three levers, and the integrated arm that is the only number allowed to ship:
 #   g12   `_TRIMUL_INPROJ_GROUP` 12 + the divisor search -- the 12-pair channel loop in one pass
 #   mm12  the two `_MM_BLOCK` widths opendde's own sweep selected, which also unlock K1/K1b there
+#   ge    g12 + e6 ONLY, the two byte-identical levers together without the mm12 entry.
+#         This is the arm that can ship with no accuracy decision at all, and run A never
+#         separated it from `all`. Its CIF sha256 MUST come back 50aa1e46583bd5a8.
 #   all   every one of them, measured together in one arm rather than added up
 _MM_BLOCK_ODDE = {(12, 36): (4, 12, 1, 2, 1), (12, 12): (8, 12, 1, 2, 1)}
 GROUPS = Counter()
@@ -324,7 +327,7 @@ def main():
 
         RB.set_enabled(True)                         # main ships the forward move ON
         RB.set_enabled_back(True)                    # and the back move ON
-        RB.set_enabled_gated(name in ("e6", "all"))   # the master switch; models opt in per instance
+        RB.set_enabled_gated(name in ("e6", "ge", "all"))   # the master switch; models opt in per instance
         RB.STATS[0] = RB.STATS[1] = 0
         RB.STATS_BACK[0] = RB.STATS_BACK[1] = 0
         RB.STATS_GATED[0] = RB.STATS_GATED[1] = 0
@@ -342,8 +345,8 @@ def main():
         PM.STATS[0] = PM.STATS[1] = 0
         PM.REJECTS.clear()
 
-        GROUP_SEARCH[0] = ORIG_GROUP if name in ("g12", "all") else group_halving
-        T._TRIMUL_INPROJ_GROUP = 12 if name in ("g12", "all") else 8
+        GROUP_SEARCH[0] = ORIG_GROUP if name in ("g12", "ge", "all") else group_halving
+        T._TRIMUL_INPROJ_GROUP = 12 if name in ("g12", "ge", "all") else 8
         for k, v in _MM_BLOCK_ODDE.items():
             if name in ("mm12", "all"):
                 T._MM_BLOCK[k] = v
