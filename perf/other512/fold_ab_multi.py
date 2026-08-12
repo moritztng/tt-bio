@@ -42,6 +42,7 @@ sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
 
 WALL = defaultdict(lambda: {"n": 0, "s": 0.0})
 DEC = defaultdict(Counter)
+GROUPS = Counter()
 STATE = {"dev": None, "model": None}
 FP32_OWNERS: list = []
 # id(module) -> "trunk" | "msa" | "template" | "confidence". Populated AFTER the cold fold,
@@ -89,7 +90,7 @@ def _collect_fp32(root, seen=None, depth=0):
             out += _collect_fp32(v, seen, depth + 1)
     return out
 
-ARMS = ("on", "e6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hifi",
+ARMS = ("on", "e6", "noe6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hifi",
         "nonewmm", "oldkey", "nofp32_trunk", "nofp32_msatmpl", "nos2")
 
 # Which sites each arm routes onto the fused SDPA. The confidence head is never in a flip set:
@@ -256,6 +257,17 @@ def main():
 
     T._qkv_mm_config = qkvmm
 
+    # Read the in-projection divisor group back off the live fold rather than inferring it:
+    # an arm that ships the divisor search and still returns 4 at 640 aa is an inert lever.
+    ORIG_GROUP = T._trimul_inproj_group
+
+    def group_census(seq_len, chunk, batch, n_pairs):
+        g = ORIG_GROUP(seq_len, chunk, batch, n_pairs)
+        GROUPS[f"S={seq_len},n_pairs={n_pairs}->g={g}"] += 1
+        return g
+
+    T._trimul_inproj_group = group_census
+
     ORIG_MM_BLOCK_FOR = T._mm_block_for
 
     ORIG_TAS = T._tri_att_sdpa
@@ -324,7 +336,7 @@ def main():
 
         RB.set_enabled(True)                         # main ships the forward move ON
         RB.set_enabled_back(True)                    # and the back move ON
-        RB.set_enabled_gated(name == "e6")           # main ships E6 OFF
+        RB.set_enabled_gated(name != "noe6")         # main ships E6 ON; noe6 ablates it
         RB.STATS[0] = RB.STATS[1] = 0
         RB.STATS_BACK[0] = RB.STATS_BACK[1] = 0
         RB.STATS_GATED[0] = RB.STATS_GATED[1] = 0
@@ -431,7 +443,7 @@ def main():
         run_ix = Counter()
         for arm in a.arms.split(","):
             set_arm(arm)
-            WALL.clear(); DEC.clear(); CALLS.clear()
+            WALL.clear(); DEC.clear(); CALLS.clear(); GROUPS.clear()
             try:
                 fold_s, m = one_fold()
             except Exception as e:                                              # noqa: BLE001
@@ -446,6 +458,8 @@ def main():
             rec = {"size": size, "arm": arm, "fold_s": round(fold_s, 3),
                    "n_tokens": m.get("n_tokens"), "plddt": m.get("plddt"),
                    "cif_sha256": sha_dir(struct_dir),
+                   "group_search": "divisor",
+                   "trimul_inproj_groups": dict(GROUPS),
                    "reblock_fwd": [RB._ENABLED, list(RB.STATS)],
                    "reblock_back": [RB._ENABLED_BACK, list(RB.STATS_BACK)],
                    "gated_kernel": [RB._ENABLED_GATED, list(RB.STATS_GATED)],
