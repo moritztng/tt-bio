@@ -63,7 +63,7 @@ class OF3AtomAttentionDecoder(Module):
                                      compute_kernel_config)
 
     def __call__(self, ai, ql, cl, plm, atom_mask_col, atom_to_token_index_tt,
-                 key_block_idxs_tt, valid_mask, mask_bias, n_atom, NP, nb):
+                 key_block_idxs_tt, valid_mask, mask_bias, n_atom, NP, nb, cache=None):
         # token -> atom broadcast: linear_q_in(ai) then gather by atom_to_token_index.
         q_in_tok = ttnn.linear(ai, self.w_q_in,
                                compute_kernel_config=self.compute_kernel_config,
@@ -88,7 +88,8 @@ class OF3AtomAttentionDecoder(Module):
 
         # 3-block windowed cross-attention (reuses the gated OF3AtomTransformer).
         ql_out = self.at(ql_aug, cl, plm, atom_mask_col, key_block_idxs_tt,
-                         valid_mask, mask_bias, n_atom, NP, nb)  # [1, n_atom, 128]
+                         valid_mask, mask_bias, n_atom, NP, nb,
+                         cache=cache)  # [1, n_atom, 128]
         ttnn.deallocate(ql_aug)
 
         # weight-only layer_norm + linear_q_out (c_atom -> 3); pad to NP for tiling,

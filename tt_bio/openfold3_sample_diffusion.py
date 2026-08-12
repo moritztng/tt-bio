@@ -45,6 +45,15 @@ from .openfold3_diffusion_module import OF3DiffusionModule
 from .openfold3_weights import _sub
 
 
+def _free_cached(obj):
+    """Free a cache entry: tensors, and the tuples/lists of tensors the hoists store."""
+    if isinstance(obj, ttnn.Tensor):
+        ttnn.deallocate(obj)
+    else:
+        for v in obj:
+            _free_cached(v)
+
+
 def fourier_noise_emb(t: float, sigma_data: float, w: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
     """Host replication of OF3 ``FourierEmbedding``: ``n = 0.25*log(t/sigma_data)`` ->
     ``cos(2*pi*(n*w + b))`` -> [c_fourier_emb=256]. Bit-exact vs the reference
@@ -169,8 +178,7 @@ class OF3SampleDiffusion:
             xl_host = xl_noisy + step_scale * dt * delta
 
         ttnn.deallocate(zij_pad)
-        for v in inv_cache.values():
-            ttnn.deallocate(v)
+        _free_cached(inv_cache.values())
         return self._to_dev(xl_host.unsqueeze(0))
 
     @staticmethod

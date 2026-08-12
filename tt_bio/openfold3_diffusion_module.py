@@ -39,7 +39,7 @@ import math
 import torch
 import ttnn
 
-from .tenstorrent import Module, CORE_GRID_MAIN, _dtype, _no_host_pad
+from .tenstorrent import Module, CORE_GRID_MAIN, _dtype, _cached, _no_host_pad
 from .openfold3_atom_transformer import OF3AtomTransformer
 from .openfold3_diffusion_transformer import OF3DiffusionTransformer
 from .openfold3_diffusion_decoder import OF3AtomAttentionDecoder
@@ -79,8 +79,13 @@ class OF3NoisyPositionEmbedder(Module):
         self.ln_s_w = self.torch_to_tt("layer_norm_s.weight", transform=lambda x: x)
         self.ln_z_w = self.torch_to_tt("layer_norm_z.weight", transform=lambda x: x)
 
-    def __call__(self, cl0, plm0, si_trunk, zij, rl, atom_mask_col,
-                 atom_to_token_idx_tt, zij_flat_idx_tt, zij_mask, n_atom, NP):
+    def invariants(self, cl0, plm0, si_trunk, zij, atom_mask_col,
+                   atom_to_token_idx_tt, zij_flat_idx_tt, zij_mask, NP):
+        """The two broadcasts, at the padded atom length: ``cl`` [1, NP, 128] and ``plm``.
+
+        Pure functions of (cl0, plm0, si_trunk, zij), all four fixed across the sampler
+        rollout, so this is where the per-step work stops being per-step. Only
+        ``ql = cl + linear_r(rl)`` sees the noisy coordinates."""
         ckc = self.compute_kernel_config
 
         # --- single broadcast: cl = cl0 + broadcast_to_atoms(linear_s(LN_s(si_trunk))) ---
@@ -132,19 +137,31 @@ class OF3NoisyPositionEmbedder(Module):
         plm = ttnn.add(plm0, zij_blocks)
         ttnn.deallocate(zij_blocks)
 
-        # --- noisy-coordinate projection: ql = cl + linear_r(rl) ---
-        rl_proj = ttnn.linear(rl, self.w_lr, compute_kernel_config=ckc,
+        return cl, plm
+
+    def ql_at_np(self, cl, rl):
+        """ql = cl + linear_r(rl), both [1, NP, 128] -- the only per-step part."""
+        rl_proj = ttnn.linear(rl, self.w_lr,
+                              compute_kernel_config=self.compute_kernel_config,
                               core_grid=CORE_GRID_MAIN)                         # [1, NP, 128]
         ql = ttnn.add(cl, rl_proj)
         ttnn.deallocate(rl_proj)
+        return ql
+
+    def __call__(self, cl0, plm0, si_trunk, zij, rl, atom_mask_col,
+                 atom_to_token_idx_tt, zij_flat_idx_tt, zij_mask, n_atom, NP):
+        cl_np, plm = self.invariants(cl0, plm0, si_trunk, zij, atom_mask_col,
+                                     atom_to_token_idx_tt, zij_flat_idx_tt, zij_mask, NP)
+        ql_np = self.ql_at_np(cl_np, rl)
 
         # slice atom-padded outputs back to n_atom.
-        cl = ttnn.to_layout(cl, ttnn.ROW_MAJOR_LAYOUT)
+        cl = ttnn.to_layout(cl_np, ttnn.ROW_MAJOR_LAYOUT)
         cl = ttnn.slice(cl, [0, 0, 0], [1, n_atom, 128])
         cl = ttnn.to_layout(cl, ttnn.TILE_LAYOUT)
-        ql = ttnn.to_layout(ql, ttnn.ROW_MAJOR_LAYOUT)
+        ql = ttnn.to_layout(ql_np, ttnn.ROW_MAJOR_LAYOUT)
         ql = ttnn.slice(ql, [0, 0, 0], [1, n_atom, 128])
         ql = ttnn.to_layout(ql, ttnn.TILE_LAYOUT)
+        ttnn.deallocate(cl_np); ttnn.deallocate(ql_np)
         return cl, plm, ql
 
 
@@ -282,15 +299,41 @@ class OF3DiffusionModule(Module):
         """
         lin = self._lin
 
-        # --- NoisyPositionEmbedder (gated) -> cl, plm, ql (sliced to n_atom). ---
-        cl, plm, ql = self.npe(cl0, plm0, si_trunk, zij, rl_noisy, atom_mask_col,
-                               atom_to_token_idx_tt, npe_flat_idx_tt, npe_zij_mask,
-                               n_atom, NP)
+        # --- Loop invariants: the NPE broadcasts + the whole encoder pair update. ---
+        # cl and plm are pure functions of (cl0, plm0, si_trunk, zij), and the pair update
+        # is a pure function of those two, so on a cached rollout this whole block runs
+        # once instead of 200 times. Only ql sees the noisy coordinates.
+        cl_pad, plm = _cached(
+            cache, (id(self), "npe_and_pair_update"),
+            lambda: self._invariants(cl0, plm0, si_trunk, zij, atom_mask_col,
+                                     atom_to_token_idx_tt, npe_flat_idx_tt, npe_zij_mask,
+                                     enc_key_block_idxs_tt, enc_valid_mask, enc_pair_mask,
+                                     NP, nb))
+        ql_pad = self.npe.ql_at_np(cl_pad, rl_noisy)               # [1, NP, 128]
+        plm_postpu = ttnn.clone(plm) if _return_intermediates else None
 
-        # --- Encoder pair update (fresh): cl_lm + pair_mlp, update plm. ---
-        cl_pad = self._pad_atoms(cl, n_atom, NP, self._act_dtype)  # [1, NP, 128]
-        if cl_pad is not cl:
-            ttnn.deallocate(cl)
+        # --- Encoder atom_transformer (gated OF3AtomTransformer) -> ql [1, n_atom, 128]. ---
+        ql_enc = self.enc_at(ql_pad, cl_pad, plm, atom_mask_col,
+                             enc_key_block_idxs_tt, enc_valid_mask, enc_mask_bias,
+                             n_atom, NP, nb, cache=cache)          # [1, n_atom, 128]
+        ttnn.deallocate(ql_pad)
+        ql_enc_cp = ttnn.clone(ql_enc) if _return_intermediates else None
+        return self._post_encoder(
+            ql_enc, ql_enc_cp, plm_postpu, cl_pad, plm, si, zij, xl_noisy,
+            atom_mask_col, atom_mask_col_na, atom_to_token_idx_tt,
+            enc_key_block_idxs_tt, enc_valid_mask, enc_mask_bias,
+            atom_to_token_mean_tt, token_mask_pad_tt, tok_mask_col_pad_tt,
+            n_atom, NP, nb, n_token, n_tok_pad, t, sigma_data,
+            _return_intermediates, cache)
+
+    def _invariants(self, cl0, plm0, si_trunk, zij, atom_mask_col,
+                    atom_to_token_idx_tt, npe_flat_idx_tt, npe_zij_mask,
+                    enc_key_block_idxs_tt, enc_valid_mask, enc_pair_mask, NP, nb):
+        """cl [1, NP, 128] and the post-pair-update plm -- the rollout invariants."""
+        lin = self._lin
+        cl_pad, plm = self.npe.invariants(cl0, plm0, si_trunk, zij, atom_mask_col,
+                                          atom_to_token_idx_tt, npe_flat_idx_tt,
+                                          npe_zij_mask, NP)
         # cl_l = reshape to query blocks [1, nb, NQ, 128].
         cl_l = ttnn.to_layout(cl_pad, ttnn.ROW_MAJOR_LAYOUT)
         cl_l = ttnn.reshape(cl_l, (1, nb, self.N_QUERY, 128))
@@ -330,17 +373,16 @@ class OF3DiffusionModule(Module):
         plm = ttnn.add(plm, pm)
         ttnn.deallocate(pm)
         plm = ttnn.multiply(plm, enc_pair_mask)
-        plm_postpu = ttnn.clone(plm) if _return_intermediates else None
+        return cl_pad, plm
 
-        # --- Encoder atom_transformer (gated OF3AtomTransformer) -> ql [1, n_atom, 128]. ---
-        ql_pad = self._pad_atoms(ql, n_atom, NP, self._act_dtype)  # [1, NP, 128]
-        if ql_pad is not ql:
-            ttnn.deallocate(ql)
-        ql_enc = self.enc_at(ql_pad, cl_pad, plm, atom_mask_col,
-                             enc_key_block_idxs_tt, enc_valid_mask, enc_mask_bias,
-                             n_atom, NP, nb)                  # [1, n_atom, 128]
-        ttnn.deallocate(ql_pad)
-        ql_enc_cp = ttnn.clone(ql_enc) if _return_intermediates else None
+    def _post_encoder(self, ql_enc, ql_enc_cp, plm_postpu, cl_pad, plm, si, zij, xl_noisy,
+                      atom_mask_col, atom_mask_col_na, atom_to_token_idx_tt,
+                      enc_key_block_idxs_tt, enc_valid_mask, enc_mask_bias,
+                      atom_to_token_mean_tt, token_mask_pad_tt, tok_mask_col_pad_tt,
+                      n_atom, NP, nb, n_token, n_tok_pad, t, sigma_data,
+                      _return_intermediates, cache):
+        """Everything downstream of the encoder atom transformer: it all depends on ql."""
+        lin = self._lin
 
         # --- linear_q aggregation (fresh): ai = atom_to_token_mean @ relu(linear_q(ql)). ---
         qproj = lin(ql_enc, self.w_lq, activation="relu")      # [1, n_atom, 768]
@@ -380,7 +422,8 @@ class OF3DiffusionModule(Module):
             ttnn.deallocate(ql_enc)
         rl_update = self.dec(ai_ln, ql_dec, cl_pad, plm, atom_mask_col,
                              atom_to_token_idx_tt, enc_key_block_idxs_tt,
-                             enc_valid_mask, enc_mask_bias, n_atom, NP, nb)
+                             enc_valid_mask, enc_mask_bias, n_atom, NP, nb,
+                             cache=cache)
         ttnn.deallocate(ai_ln); ttnn.deallocate(ql_dec)
         rl_update_cp = ttnn.clone(rl_update) if _return_intermediates else None
 

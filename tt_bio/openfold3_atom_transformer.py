@@ -27,7 +27,7 @@ from __future__ import annotations
 import torch
 import ttnn
 
-from .tenstorrent import Module, AdaLN, CORE_GRID_MAIN, _dtype, batched_matmul
+from .tenstorrent import Module, AdaLN, CORE_GRID_MAIN, _dtype, _cached, batched_matmul
 
 
 def remap_of3_adaln(sd: dict) -> dict:
@@ -110,16 +110,14 @@ class OF3AtomTransformer(Module):
             xk = ttnn.typecast(xk, self._act_dtype)
         return ttnn.multiply(xk, valid_mask)
 
-    def __call__(self, a, s, z, atom_mask_col, key_block_idxs_tt, valid_mask,
-                 mask_bias, n_atom, NP, nb):
-        """a, s: [1, NP, 128] device (padded to a multiple of N_QUERY; a_init = cl when
-        rl=None); z: [1, nb, N_QUERY, N_KEY, 16] device (blocked pair = plm);
-        atom_mask_col: [1, NP, 1] device; key_block_idxs_tt: [1, nb*N_KEY] uint32 device;
-        valid_mask: [1, nb, N_KEY, 1] device; mask_bias: [1, nb, 1, N_QUERY, N_KEY] device.
-        Returns [1, n_atom, 128]."""
-        scale = self.HEAD_DIM ** -0.5
-        nq, nk, H, dh = self.N_QUERY, self.N_KEY, self.N_HEADS, self.HEAD_DIM
+    def _invariants(self, s, z, key_block_idxs_tt, valid_mask, nb):
+        """Everything in a block that is a pure function of (s, z).
 
+        In the sampler rollout ``s`` is the atom conditioning ``cl`` and ``z`` the blocked
+        pair ``plm``; both are loop invariants, so this whole group is computed once per
+        rollout instead of once per step. The sampler owns the cache, so a cached tensor
+        must never be deallocated by a consumer."""
+        nq, nk, H = self.N_QUERY, self.N_KEY, self.N_HEADS
         z_ln = ttnn.layer_norm(z, weight=self.ln_z_w, epsilon=1e-5,
                                compute_kernel_config=self.compute_kernel_config)
         z_bias = []
@@ -129,12 +127,32 @@ class OF3AtomTransformer(Module):
             zb = ttnn.permute(ttnn.reshape(zb, (1, nb, nq, nk, H)), (0, 1, 4, 2, 3))
             z_bias.append(ttnn.to_layout(zb, ttnn.TILE_LAYOUT))
         ttnn.deallocate(z_ln)
-
         # s blocks are fixed across blocks (s = cl does not evolve).
         s_q = ttnn.to_layout(s, ttnn.ROW_MAJOR_LAYOUT)
         s_q = ttnn.reshape(s_q, (1, nb, nq, 128))
         s_q = ttnn.to_layout(s_q, ttnn.TILE_LAYOUT)
         s_k = self._gather_keys(s, key_block_idxs_tt, valid_mask, nb)
+        ada_raw = [self._lin(s, f"blocks.{b}.attention_pair_bias.linear_ada_out.weight",
+                             f"blocks.{b}.attention_pair_bias.linear_ada_out.bias")
+                   for b in range(3)]
+        cg_raw = [self._lin(s, f"blocks.{b}.conditioned_transition.linear_g.weight",
+                            f"blocks.{b}.conditioned_transition.linear_g.bias")
+                  for b in range(3)]
+        return z_bias, s_q, s_k, ada_raw, cg_raw
+
+    def __call__(self, a, s, z, atom_mask_col, key_block_idxs_tt, valid_mask,
+                 mask_bias, n_atom, NP, nb, cache=None):
+        """a, s: [1, NP, 128] device (padded to a multiple of N_QUERY; a_init = cl when
+        rl=None); z: [1, nb, N_QUERY, N_KEY, 16] device (blocked pair = plm);
+        atom_mask_col: [1, NP, 1] device; key_block_idxs_tt: [1, nb*N_KEY] uint32 device;
+        valid_mask: [1, nb, N_KEY, 1] device; mask_bias: [1, nb, 1, N_QUERY, N_KEY] device.
+        Returns [1, n_atom, 128]."""
+        scale = self.HEAD_DIM ** -0.5
+        nq, nk, H, dh = self.N_QUERY, self.N_KEY, self.N_HEADS, self.HEAD_DIM
+
+        z_bias, s_q, s_k, ada_raw, cg_raw = _cached(
+            cache, (id(self), "block_invariants"),
+            lambda: self._invariants(s, z, key_block_idxs_tt, valid_mask, nb))
 
         x = a
         for b in range(3):
@@ -173,9 +191,7 @@ class OF3AtomTransformer(Module):
             o = self._lin(o, apb + "mha.linear_o.weight")
             o = ttnn.reshape(ttnn.to_layout(o, ttnn.ROW_MAJOR_LAYOUT), (1, NP, 128))
             o = ttnn.to_layout(o, ttnn.TILE_LAYOUT)
-            ada_raw = self._lin(s, apb + "linear_ada_out.weight", apb + "linear_ada_out.bias")
-            o = ttnn.multiply(o, ada_raw, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-            ttnn.deallocate(ada_raw)
+            o = ttnn.multiply(o, ada_raw[b], input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
             x = ttnn.add(x, o)
             ttnn.deallocate(o)
 
@@ -187,12 +203,15 @@ class OF3AtomTransformer(Module):
             ttnn.deallocate(b1); ttnn.deallocate(b2)
             out = self._lin(bb, ct + "linear_out.weight")
             ttnn.deallocate(bb)
-            cg_raw = self._lin(s, ct + "linear_g.weight", ct + "linear_g.bias")
-            out = ttnn.multiply(out, cg_raw, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-            ttnn.deallocate(cg_raw)
+            out = ttnn.multiply(out, cg_raw[b], input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
             out = ttnn.multiply(out, atom_mask_col)
             x = ttnn.add(x, out)
             ttnn.deallocate(out); ttnn.deallocate(a_qn); ttnn.deallocate(a_kn)
+
+        if cache is None:
+            # Uncached path owns the group; the cached one is freed by the sampler.
+            for t in (*z_bias, s_q, s_k, *ada_raw, *cg_raw):
+                ttnn.deallocate(t)
 
         x = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
         x = ttnn.slice(x, [0, 0, 0], [1, n_atom, 128])
