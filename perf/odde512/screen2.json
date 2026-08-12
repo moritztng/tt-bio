@@ -1,0 +1,649 @@
+{
+ "host": "tt-quietbox2",
+ "card": "3",
+ "ttnn": "0.68.0",
+ "grid": [
+  11,
+  10
+ ],
+ "rows": [
+  {
+   "case": "triatt qkv   [512,512,384]@[384,1152]",
+   "rows": [
+    512,
+    512
+   ],
+   "kt": 12,
+   "nt": 36,
+   "mt": 8192,
+   "base_ms": 3.6883,
+   "base_vs_fp32_relrmsd": 0.001689491,
+   "cands": [
+    {
+     "entry": [
+      4,
+      1,
+      1,
+      2,
+      1
+     ],
+     "ms": 8.2013,
+     "ratio": 0.4497,
+     "equal": false,
+     "max_abs": 0.5,
+     "base_vs_fp32": 0.001689491,
+     "cand_vs_fp32": 0.00168949,
+     "cand_vs_base": 2.2691e-05,
+     "closer_to_fp32": true
+    },
+    {
+     "entry": [
+      4,
+      2,
+      1,
+      2,
+      1
+     ],
+     "ms": 5.9756,
+     "ratio": 0.6172,
+     "equal": false,
+     "max_abs": 0.5,
+     "base_vs_fp32": 0.001689491,
+     "cand_vs_fp32": 0.001689491,
+     "cand_vs_base": 2.0967e-05,
+     "closer_to_fp32": true
+    },
+    {
+     "entry": [
+      4,
+      3,
+      1,
+      2,
+      1
+     ],
+     "ms": 5.5076,
+     "ratio": 0.6697,
+     "equal": false,
+     "max_abs": 0.5,
+     "base_vs_fp32": 0.001689491,
+     "cand_vs_fp32": 0.001689491,
+     "cand_vs_base": 1.9706e-05,
+     "closer_to_fp32": true
+    },
+    {
+     "entry": [
+      4,
+      4,
+      1,
+      2,
+      1
+     ],
+     "ms": 4.4782,
+     "ratio": 0.8236,
+     "equal": false,
+     "max_abs": 0.5,
+     "base_vs_fp32": 0.001689491,
+     "cand_vs_fp32": 0.001689491,
+     "cand_vs_base": 1.6958e-05,
+     "closer_to_fp32": true
+    },
+    {
+     "entry": [
+      4,
+      6,
+      1,
+      2,
+      1
+     ],
+     "ms": 3.6562,
+     "ratio": 1.0088,
+     "equal": false,
+     "max_abs": 0.5,
+     "base_vs_fp32": 0.001689491,
+     "cand_vs_fp32": 0.001689491,
+     "cand_vs_base": 1.7116e-05,
+     "closer_to_fp32": true
+    },
+    {
+     "entry": [
+      4,
+      12,
+      1,
+      2,
+      1
+     ],
+     "ms": 3.4953,
+     "ratio": 1.0552,
+     "equal": false,
+     "max_abs": 0.5,
+     "base_vs_fp32": 0.001689491,
+     "cand_vs_fp32": 0.001689492,
+     "cand_vs_base": 2.1333e-05,
+     "closer_to_fp32": false
+    },
+    {
+     "entry": [
+      1,
+      12,
+      1,
+      1,
+      1
+     ],
+     "ms": 6.3492,
+     "ratio": 0.5809,
+     "equal": false,
+     "max_abs": 0.5,
+     "base_vs_fp32": 0.001689491,
+     "cand_vs_fp32": 0.001689492,
+     "cand_vs_base": 2.1333e-05,
+     "closer_to_fp32": false
+    },
+    {
+     "entry": [
+      2,
+      12,
+      1,
+      2,
+      1
+     ],
+     "ms": 4.3351,
+     "ratio": 0.8508,
+     "equal": false,
+     "max_abs": 0.5,
+     "base_vs_fp32": 0.001689491,
+     "cand_vs_fp32": 0.001689492,
+     "cand_vs_base": 2.1333e-05,
+     "closer_to_fp32": false
+    },
+    {
+     "entry": [
+      4,
+      12,
+      1,
+      4,
+      1
+     ],
+     "ms": 3.4977,
+     "ratio": 1.0545,
+     "equal": false,
+     "max_abs": 0.5,
+     "base_vs_fp32": 0.001689491,
+     "cand_vs_fp32": 0.001689492,
+     "cand_vs_base": 2.1333e-05,
+     "closer_to_fp32": false
+    },
+    {
+     "entry": [
+      8,
+      12,
+      1,
+      2,
+      1
+     ],
+     "ms": 3.8009,
+     "ratio": 0.9704,
+     "equal": false,
+     "max_abs": 0.5,
+     "base_vs_fp32": 0.001689491,
+     "cand_vs_fp32": 0.001689492,
+     "cand_vs_base": 2.1333e-05,
+     "closer_to_fp32": false
+    },
+    {
+     "entry": [
+      8,
+      12,
+      1,
+      4,
+      1
+     ],
+     "ms": 3.5419,
+     "ratio": 1.0413,
+     "equal": false,
+     "max_abs": 0.5,
+     "base_vs_fp32": 0.001689491,
+     "cand_vs_fp32": 0.001689492,
+     "cand_vs_base": 2.1333e-05,
+     "closer_to_fp32": false
+    }
+   ]
+  },
+  {
+   "case": "triatt gate  [512,512,384]@[384,384]",
+   "rows": [
+    512,
+    512
+   ],
+   "kt": 12,
+   "nt": 12,
+   "mt": 8192,
+   "base_ms": 1.742,
+   "base_vs_fp32_relrmsd": 0.00168977,
+   "cands": [
+    {
+     "entry": [
+      4,
+      1,
+      1,
+      2,
+      1
+     ],
+     "ms": 3.5514,
+     "ratio": 0.4905,
+     "equal": false,
+     "max_abs": 0.25,
+     "base_vs_fp32": 0.00168977,
+     "cand_vs_fp32": 0.001689769,
+     "cand_vs_base": 2.2568e-05,
+     "closer_to_fp32": true
+    },
+    {
+     "entry": [
+      4,
+      2,
+      1,
+      2,
+      1
+     ],
+     "ms": 2.5234,
+     "ratio": 0.6903,
+     "equal": false,
+     "max_abs": 0.25,
+     "base_vs_fp32": 0.00168977,
+     "cand_vs_fp32": 0.001689769,
+     "cand_vs_base": 2.0926e-05,
+     "closer_to_fp32": true
+    },
+    {
+     "entry": [
+      4,
+      3,
+      1,
+      2,
+      1
+     ],
+     "ms": 2.0913,
+     "ratio": 0.833,
+     "equal": false,
+     "max_abs": 0.25,
+     "base_vs_fp32": 0.00168977,
+     "cand_vs_fp32": 0.00168977,
+     "cand_vs_base": 2.0521e-05,
+     "closer_to_fp32": false
+    },
+    {
+     "entry": [
+      4,
+      4,
+      1,
+      2,
+      1
+     ],
+     "ms": 1.8683,
+     "ratio": 0.9324,
+     "equal": false,
+     "max_abs": 0.25,
+     "base_vs_fp32": 0.00168977,
+     "cand_vs_fp32": 0.00168977,
+     "cand_vs_base": 1.7442e-05,
+     "closer_to_fp32": true
+    },
+    {
+     "entry": [
+      4,
+      6,
+      1,
+      2,
+      1
+     ],
+     "ms": 1.6338,
+     "ratio": 1.0662,
+     "equal": false,
+     "max_abs": 0.25,
+     "base_vs_fp32": 0.00168977,
+     "cand_vs_fp32": 0.00168977,
+     "cand_vs_base": 1.7642e-05,
+     "closer_to_fp32": true
+    },
+    {
+     "entry": [
+      4,
+      12,
+      1,
+      2,
+      1
+     ],
+     "ms": 1.6381,
+     "ratio": 1.0634,
+     "equal": false,
+     "max_abs": 0.5,
+     "base_vs_fp32": 0.00168977,
+     "cand_vs_fp32": 0.00168977,
+     "cand_vs_base": 2.2028e-05,
+     "closer_to_fp32": false
+    },
+    {
+     "entry": [
+      1,
+      12,
+      1,
+      1,
+      1
+     ],
+     "ms": 3.1854,
+     "ratio": 0.5469,
+     "equal": false,
+     "max_abs": 0.5,
+     "base_vs_fp32": 0.00168977,
+     "cand_vs_fp32": 0.00168977,
+     "cand_vs_base": 2.2028e-05,
+     "closer_to_fp32": false
+    },
+    {
+     "entry": [
+      2,
+      12,
+      1,
+      2,
+      1
+     ],
+     "ms": 2.1129,
+     "ratio": 0.8244,
+     "equal": false,
+     "max_abs": 0.5,
+     "base_vs_fp32": 0.00168977,
+     "cand_vs_fp32": 0.00168977,
+     "cand_vs_base": 2.2028e-05,
+     "closer_to_fp32": false
+    },
+    {
+     "entry": [
+      4,
+      12,
+      1,
+      4,
+      1
+     ],
+     "ms": 1.6523,
+     "ratio": 1.0543,
+     "equal": false,
+     "max_abs": 0.5,
+     "base_vs_fp32": 0.00168977,
+     "cand_vs_fp32": 0.00168977,
+     "cand_vs_base": 2.2028e-05,
+     "closer_to_fp32": false
+    },
+    {
+     "entry": [
+      8,
+      12,
+      1,
+      2,
+      1
+     ],
+     "ms": 1.4202,
+     "ratio": 1.2266,
+     "equal": false,
+     "max_abs": 0.5,
+     "base_vs_fp32": 0.00168977,
+     "cand_vs_fp32": 0.00168977,
+     "cand_vs_base": 2.2028e-05,
+     "closer_to_fp32": false
+    },
+    {
+     "entry": [
+      8,
+      12,
+      1,
+      4,
+      1
+     ],
+     "ms": 1.424,
+     "ratio": 1.2233,
+     "equal": false,
+     "max_abs": 0.5,
+     "base_vs_fp32": 0.00168977,
+     "cand_vs_fp32": 0.00168977,
+     "cand_vs_base": 2.2028e-05,
+     "closer_to_fp32": false
+    }
+   ]
+  },
+  {
+   "case": "trimul inproj[512,512,384]@[384,512]",
+   "rows": [
+    512,
+    512
+   ],
+   "kt": 12,
+   "nt": 16,
+   "mt": 8192,
+   "base_ms": 1.7414,
+   "base_vs_fp32_relrmsd": 0.001689671,
+   "cands": [
+    {
+     "entry": [
+      4,
+      1,
+      1,
+      2,
+      1
+     ],
+     "ms": 3.7124,
+     "ratio": 0.4691,
+     "equal": false,
+     "max_abs": 0.5,
+     "base_vs_fp32": 0.001689671,
+     "cand_vs_fp32": 0.00168967,
+     "cand_vs_base": 2.3069e-05,
+     "closer_to_fp32": true
+    },
+    {
+     "entry": [
+      4,
+      2,
+      1,
+      2,
+      1
+     ],
+     "ms": 2.652,
+     "ratio": 0.6566,
+     "equal": false,
+     "max_abs": 0.5,
+     "base_vs_fp32": 0.001689671,
+     "cand_vs_fp32": 0.001689671,
+     "cand_vs_base": 2.0731e-05,
+     "closer_to_fp32": true
+    },
+    {
+     "entry": [
+      4,
+      3,
+      1,
+      2,
+      1
+     ],
+     "ms": 2.3044,
+     "ratio": 0.7557,
+     "equal": false,
+     "max_abs": 0.5,
+     "base_vs_fp32": 0.001689671,
+     "cand_vs_fp32": 0.001689671,
+     "cand_vs_base": 1.9707e-05,
+     "closer_to_fp32": true
+    },
+    {
+     "entry": [
+      4,
+      4,
+      1,
+      2,
+      1
+     ],
+     "ms": 2.2632,
+     "ratio": 0.7695,
+     "equal": false,
+     "max_abs": 0.5,
+     "base_vs_fp32": 0.001689671,
+     "cand_vs_fp32": 0.001689671,
+     "cand_vs_base": 1.7305e-05,
+     "closer_to_fp32": true
+    },
+    {
+     "entry": [
+      4,
+      6,
+      1,
+      2,
+      1
+     ],
+     "ms": 2.0547,
+     "ratio": 0.8475,
+     "equal": false,
+     "max_abs": 0.5,
+     "base_vs_fp32": 0.001689671,
+     "cand_vs_fp32": 0.001689671,
+     "cand_vs_base": 1.7213e-05,
+     "closer_to_fp32": false
+    },
+    {
+     "entry": [
+      4,
+      12,
+      1,
+      2,
+      1
+     ],
+     "ms": 1.7787,
+     "ratio": 0.979,
+     "equal": false,
+     "max_abs": 0.5,
+     "base_vs_fp32": 0.001689671,
+     "cand_vs_fp32": 0.001689671,
+     "cand_vs_base": 2.1163e-05,
+     "closer_to_fp32": false
+    },
+    {
+     "entry": [
+      1,
+      12,
+      1,
+      1,
+      1
+     ],
+     "ms": 3.2042,
+     "ratio": 0.5435,
+     "equal": false,
+     "max_abs": 0.5,
+     "base_vs_fp32": 0.001689671,
+     "cand_vs_fp32": 0.001689671,
+     "cand_vs_base": 2.1163e-05,
+     "closer_to_fp32": false
+    },
+    {
+     "entry": [
+      2,
+      12,
+      1,
+      2,
+      1
+     ],
+     "ms": 2.2543,
+     "ratio": 0.7725,
+     "equal": false,
+     "max_abs": 0.5,
+     "base_vs_fp32": 0.001689671,
+     "cand_vs_fp32": 0.001689671,
+     "cand_vs_base": 2.1163e-05,
+     "closer_to_fp32": false
+    },
+    {
+     "entry": [
+      4,
+      12,
+      1,
+      4,
+      1
+     ],
+     "ms": 1.7906,
+     "ratio": 0.9725,
+     "equal": false,
+     "max_abs": 0.5,
+     "base_vs_fp32": 0.001689671,
+     "cand_vs_fp32": 0.001689671,
+     "cand_vs_base": 2.1163e-05,
+     "closer_to_fp32": false
+    },
+    {
+     "entry": [
+      8,
+      12,
+      1,
+      2,
+      1
+     ],
+     "ms": 1.8281,
+     "ratio": 0.9526,
+     "equal": false,
+     "max_abs": 0.5,
+     "base_vs_fp32": 0.001689671,
+     "cand_vs_fp32": 0.001689671,
+     "cand_vs_base": 2.1163e-05,
+     "closer_to_fp32": false
+    },
+    {
+     "entry": [
+      8,
+      12,
+      1,
+      4,
+      1
+     ],
+     "ms": 1.8433,
+     "ratio": 0.9448,
+     "equal": false,
+     "max_abs": 0.5,
+     "base_vs_fp32": 0.001689671,
+     "cand_vs_fp32": 0.001689671,
+     "cand_vs_base": 2.1163e-05,
+     "closer_to_fp32": false
+    }
+   ]
+  }
+ ],
+ "roofs": [
+  {
+   "shape": [
+    512,
+    512,
+    384
+   ],
+   "label": "opendde pair tensor",
+   "GB": 0.2013,
+   "clone_ms": 1.0142,
+   "copy_roof_GBs": 397.0
+  },
+  {
+   "shape": [
+    512,
+    512,
+    512
+   ],
+   "label": "trimul fused in-proj out",
+   "GB": 0.2684,
+   "clone_ms": 1.3512,
+   "copy_roof_GBs": 397.3
+  },
+  {
+   "shape": [
+    512,
+    512,
+    1152
+   ],
+   "label": "triatt qkv out",
+   "GB": 0.604,
+   "clone_ms": 3.0085,
+   "copy_roof_GBs": 401.5
+  }
+ ]
+}
