@@ -117,11 +117,11 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 24.395,
-          "availability": "branch wk/boltz2-512aa-deep-perf, not merged",
-          "parity": "not bit-exact",
+          "s_per_fold": 24.924,
+          "availability": "on main as 12e5f957",
+          "parity": "byte-identical",
           "source": "tt-b2deep",
-          "ref": "the `both` arm, an AdaLN s-norm hoist plus an attention-pair-bias scale fold, measured directly in one 12-fold benchlocked session: 24.802 s baseline to 24.395 s, 1.0167x on an A/A floor of 0.097 s. The only figure on this page that changes the answer it returns: CIF sha256 7aa00b02e5dc6f61 against the baseline's fca25e32ea181ae2, 0.28 to 0.33 A Kabsch on a monomer control. It stays on the branch until someone rules on that."
+          "ref": "main 12e5f957, qb2 card 0, ttnn 0.68.0, benchlocked, A/A floor 0.015 s, CIF sha256 fca25e32ea181ae2 identical to baseline. The _MM_BLOCK (kt,nt) re-key took it there from 25.945 s. The faster 24.395 s arm on wk/boltz2-512aa-deep-perf is not published: it is not bit-exact and is held for an accuracy verdict, and every other figure on this page passes parity."
         },
         "h200": {
           "status": "measured",
