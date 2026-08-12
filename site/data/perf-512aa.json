@@ -1,11 +1,11 @@
 {
   "schema": 2,
   "updated": "2026-08-12",
-  "title": "Bio on Tenstorrent: Performance and Cost",
+  "title": "TT-Bio: biomolecular structure, design and embeddings on Tenstorrent",
   "subtitle": "Five structure-prediction models at 512 residues, measured on Tenstorrent Blackhole and on NVIDIA H200 and B200.",
   "notes": [
     "This file is the only place numbers are edited. index.html reads it and derives everything else.",
-    "Never write a derived value here. Server throughput, cost per hour and throughput per dollar are computed in the page from s_per_fold, accelerators, price and power.",
+    "Never write a derived value here. Server throughput, cost per hour and both throughput-per-dollar charts are computed in the page from s_per_fold, accelerators, price and power.",
     "One cell per model per platform, holding the fastest measured arm that is bit-exact or byte-identical against its own reference. A cell with no measurement gets status 'blocked' and a reason. Do not fill it with an estimate."
   ],
   "scope": {
@@ -121,8 +121,8 @@
     "electricity_source": "eia-industrial",
     "amortisation_source": "amzn-10q",
     "utilisation": "The machine predicts continuously, so every hour of ownership is an hour of throughput.",
-    "formula": "cost per hour = price / (5 x 8766 h) + power kW x $/kWh. Throughput per dollar = predictions per hour / cost per hour, with the 8x H200 server set to 1.00x.",
-    "sensitivity": "Shift the window to 3 or 7 years, or the rate to the 13.54 c/kWh US commercial tariff, and the Tenstorrent figure moves between 1.51x and 2.90x. It does not invert."
+    "formula": "Throughput per dollar = predictions per hour / cost per hour, with the 8x H200 server set to 1.00x, on two bases. Purchase price: cost per hour = price / (5 x 8766 h). Purchase price and electricity: cost per hour = price / (5 x 8766 h) + power kW x $/kWh.",
+    "sensitivity": "Shift the window to 3 or 7 years, or the rate to the 13.54 c/kWh US commercial tariff, and the Tenstorrent figure moves between 1.51x and 2.91x. It does not invert."
   },
   "models": [
     {

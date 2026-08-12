@@ -1,8 +1,12 @@
-# The 512 aa performance and cost page
+# The TT-Bio page
 
-`index.html` is a standalone page comparing tt-bio's five structure-prediction models on Blackhole
-against H200 and B200 at 512 residues: throughput per dollar, predictions per hour per server,
-prediction time on one AI Processor, and what each server costs to buy and to power.
+`index.html` is a standalone page in two sections. First, what TT-Bio runs: every model id grouped
+into structure and binding affinity prediction, protein design, and protein embeddings. That section
+is static markup in the HTML, so it renders even if the data fetch fails. Second, performance and
+cost: tt-bio's five structure-prediction models on Blackhole against H200 and B200 at 512 residues,
+with throughput per dollar on purchase price and again on purchase price plus electricity,
+predictions per hour per server, prediction time on one AI Processor, and what each server costs to
+buy and to power. That section is driven by `data/perf-512aa.json`.
 
 Preview it:
 
@@ -15,8 +19,8 @@ you pass `--allow-file-access-from-files`.
 
 Edit `data/perf-512aa.json` and nothing else. Every seconds-per-prediction figure lives there with
 its noise floor and parity anchor, and every price and power rating lives there with a dated source
-link. The page derives predictions per hour, cost per hour and throughput per dollar in the browser,
-so no derived value is stored and no HTML changes when a benchmark moves.
+link. The page derives predictions per hour, cost per hour and both throughput-per-dollar charts in
+the browser, so no derived value is stored and no HTML changes when a benchmark moves.
 
 One cell per model per platform, holding the fastest measured arm that is bit-exact or byte-identical
 against its own reference. A cell with no measurement gets `"status": "blocked"` plus a reason and
