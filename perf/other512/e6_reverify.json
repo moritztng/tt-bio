@@ -1,0 +1,625 @@
+{
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "0",
+ "model": "esmfold2",
+ "recycling_steps": 10,
+ "sampling_steps": 100,
+ "timers_installed": [
+  "stage:Pairformer",
+  "block:PairformerLayer",
+  "body:TriangleMultiplication",
+  "body:TriangleAttention",
+  "body:AttentionPairBias",
+  "body:PairWeightedAveraging",
+  "block:PairUpdateBlock",
+  "stage:FoldingTrunk"
+ ],
+ "runs": [
+  {
+   "size": 512,
+   "arm": "on",
+   "fold_s": 40.046,
+   "n_tokens": null,
+   "plddt": 0.9285,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "reblock_fwd": [
+    true,
+    [
+     2168,
+     0
+    ]
+   ],
+   "reblock_back": [
+    true,
+    [
+     1084,
+     0
+    ]
+   ],
+   "gated_kernel": [
+    false,
+    [
+     0,
+     0
+    ]
+   ],
+   "head_major_qkv": {
+    "enabled": true,
+    "served": 0,
+    "declined": 0,
+    "rejects": {},
+    "tail_enabled": true,
+    "tail_served": 0,
+    "tail_declined": 0,
+    "tail_rejects": {}
+   },
+   "persistent_mask": {
+    "enabled": true,
+    "served": 0,
+    "declined": 0,
+    "rejects": {}
+   },
+   "transpose_l1_headroom": 2.5,
+   "atom_pad_in_tile": true,
+   "fp32_softmax_modules": 0,
+   "sdpa_ckc_override": null,
+   "fp32_softmax_on": [],
+   "pair_proj_mm": true,
+   "mm_block": {
+    "(2, 2)": [
+     4,
+     2,
+     1,
+     4,
+     1
+    ],
+    "(2, 12)": [
+     4,
+     2,
+     1,
+     4,
+     1
+    ],
+    "(4, 4)": [
+     4,
+     4,
+     1,
+     4,
+     1
+    ],
+    "(4, 12)": [
+     4,
+     4,
+     1,
+     4,
+     1
+    ],
+    "(8, 8)": [
+     4,
+     8,
+     1,
+     4,
+     1
+    ],
+    "(8, 24)": [
+     4,
+     8,
+     1,
+     4,
+     1
+    ]
+   },
+   "oldkey_lookup": {
+    "active": false,
+    "hit": 0,
+    "miss": 0
+   },
+   "sdpa_q_chunk_over_l1": [],
+   "loadavg": [
+    "1.85",
+    "1.51",
+    "1.06"
+   ],
+   "wall_ms": {
+    "stage:FoldingTrunk": {
+     "calls": 14,
+     "ms": 30854.55
+    },
+    "block:PairUpdateBlock": {
+     "calls": 538,
+     "ms": 30846.18
+    },
+    "body:TriangleMultiplication": {
+     "calls": 1084,
+     "ms": 19739.47
+    }
+   },
+   "decisions": {
+    "pair_proj_out_l1|1x512x512x256@256": {
+     "DRAM": 2168
+    },
+    "qkv_mm_config|kt=8,nt=8": {
+     "config": 2168
+    }
+   },
+   "cif_dir": "perf/other512/cif/512_on_1",
+   "call_census": {},
+   "fp32_on_by_owner": {},
+   "block_wall_ms": 30846.18,
+   "block_calls": 538,
+   "trimul_wall_ms": 19739.47,
+   "trimul_calls": 1084
+  },
+  {
+   "size": 512,
+   "arm": "e6",
+   "fold_s": 36.896,
+   "n_tokens": null,
+   "plddt": 0.9285,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "reblock_fwd": [
+    true,
+    [
+     16,
+     0
+    ]
+   ],
+   "reblock_back": [
+    true,
+    [
+     1084,
+     0
+    ]
+   ],
+   "gated_kernel": [
+    true,
+    [
+     2152,
+     0
+    ]
+   ],
+   "head_major_qkv": {
+    "enabled": true,
+    "served": 0,
+    "declined": 0,
+    "rejects": {},
+    "tail_enabled": true,
+    "tail_served": 0,
+    "tail_declined": 0,
+    "tail_rejects": {}
+   },
+   "persistent_mask": {
+    "enabled": true,
+    "served": 0,
+    "declined": 0,
+    "rejects": {}
+   },
+   "transpose_l1_headroom": 2.5,
+   "atom_pad_in_tile": true,
+   "fp32_softmax_modules": 0,
+   "sdpa_ckc_override": null,
+   "fp32_softmax_on": [],
+   "pair_proj_mm": true,
+   "mm_block": {
+    "(2, 2)": [
+     4,
+     2,
+     1,
+     4,
+     1
+    ],
+    "(2, 12)": [
+     4,
+     2,
+     1,
+     4,
+     1
+    ],
+    "(4, 4)": [
+     4,
+     4,
+     1,
+     4,
+     1
+    ],
+    "(4, 12)": [
+     4,
+     4,
+     1,
+     4,
+     1
+    ],
+    "(8, 8)": [
+     4,
+     8,
+     1,
+     4,
+     1
+    ],
+    "(8, 24)": [
+     4,
+     8,
+     1,
+     4,
+     1
+    ]
+   },
+   "oldkey_lookup": {
+    "active": false,
+    "hit": 0,
+    "miss": 0
+   },
+   "sdpa_q_chunk_over_l1": [],
+   "loadavg": [
+    "1.47",
+    "1.45",
+    "1.06"
+   ],
+   "wall_ms": {
+    "stage:FoldingTrunk": {
+     "calls": 14,
+     "ms": 27658.94
+    },
+    "block:PairUpdateBlock": {
+     "calls": 538,
+     "ms": 27651.19
+    },
+    "body:TriangleMultiplication": {
+     "calls": 1084,
+     "ms": 16547.93
+    }
+   },
+   "decisions": {
+    "pair_proj_out_l1|1x512x512x256@256": {
+     "DRAM": 2168
+    },
+    "qkv_mm_config|kt=8,nt=8": {
+     "config": 2168
+    }
+   },
+   "cif_dir": "perf/other512/cif/512_e6_1",
+   "call_census": {},
+   "fp32_on_by_owner": {},
+   "block_wall_ms": 27651.19,
+   "block_calls": 538,
+   "trimul_wall_ms": 16547.93,
+   "trimul_calls": 1084
+  },
+  {
+   "size": 512,
+   "arm": "on",
+   "fold_s": 40.111,
+   "n_tokens": null,
+   "plddt": 0.9285,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "reblock_fwd": [
+    true,
+    [
+     2168,
+     0
+    ]
+   ],
+   "reblock_back": [
+    true,
+    [
+     1084,
+     0
+    ]
+   ],
+   "gated_kernel": [
+    false,
+    [
+     0,
+     0
+    ]
+   ],
+   "head_major_qkv": {
+    "enabled": true,
+    "served": 0,
+    "declined": 0,
+    "rejects": {},
+    "tail_enabled": true,
+    "tail_served": 0,
+    "tail_declined": 0,
+    "tail_rejects": {}
+   },
+   "persistent_mask": {
+    "enabled": true,
+    "served": 0,
+    "declined": 0,
+    "rejects": {}
+   },
+   "transpose_l1_headroom": 2.5,
+   "atom_pad_in_tile": true,
+   "fp32_softmax_modules": 0,
+   "sdpa_ckc_override": null,
+   "fp32_softmax_on": [],
+   "pair_proj_mm": true,
+   "mm_block": {
+    "(2, 2)": [
+     4,
+     2,
+     1,
+     4,
+     1
+    ],
+    "(2, 12)": [
+     4,
+     2,
+     1,
+     4,
+     1
+    ],
+    "(4, 4)": [
+     4,
+     4,
+     1,
+     4,
+     1
+    ],
+    "(4, 12)": [
+     4,
+     4,
+     1,
+     4,
+     1
+    ],
+    "(8, 8)": [
+     4,
+     8,
+     1,
+     4,
+     1
+    ],
+    "(8, 24)": [
+     4,
+     8,
+     1,
+     4,
+     1
+    ]
+   },
+   "oldkey_lookup": {
+    "active": false,
+    "hit": 0,
+    "miss": 0
+   },
+   "sdpa_q_chunk_over_l1": [],
+   "loadavg": [
+    "1.24",
+    "1.40",
+    "1.05"
+   ],
+   "wall_ms": {
+    "stage:FoldingTrunk": {
+     "calls": 14,
+     "ms": 30860.11
+    },
+    "block:PairUpdateBlock": {
+     "calls": 538,
+     "ms": 30851.52
+    },
+    "body:TriangleMultiplication": {
+     "calls": 1084,
+     "ms": 19740.54
+    }
+   },
+   "decisions": {
+    "pair_proj_out_l1|1x512x512x256@256": {
+     "DRAM": 2168
+    },
+    "qkv_mm_config|kt=8,nt=8": {
+     "config": 2168
+    }
+   },
+   "cif_dir": "perf/other512/cif/512_on_2",
+   "call_census": {},
+   "fp32_on_by_owner": {},
+   "block_wall_ms": 30851.52,
+   "block_calls": 538,
+   "trimul_wall_ms": 19740.54,
+   "trimul_calls": 1084
+  },
+  {
+   "size": 512,
+   "arm": "e6",
+   "fold_s": 36.608,
+   "n_tokens": null,
+   "plddt": 0.9285,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "reblock_fwd": [
+    true,
+    [
+     16,
+     0
+    ]
+   ],
+   "reblock_back": [
+    true,
+    [
+     1084,
+     0
+    ]
+   ],
+   "gated_kernel": [
+    true,
+    [
+     2152,
+     0
+    ]
+   ],
+   "head_major_qkv": {
+    "enabled": true,
+    "served": 0,
+    "declined": 0,
+    "rejects": {},
+    "tail_enabled": true,
+    "tail_served": 0,
+    "tail_declined": 0,
+    "tail_rejects": {}
+   },
+   "persistent_mask": {
+    "enabled": true,
+    "served": 0,
+    "declined": 0,
+    "rejects": {}
+   },
+   "transpose_l1_headroom": 2.5,
+   "atom_pad_in_tile": true,
+   "fp32_softmax_modules": 0,
+   "sdpa_ckc_override": null,
+   "fp32_softmax_on": [],
+   "pair_proj_mm": true,
+   "mm_block": {
+    "(2, 2)": [
+     4,
+     2,
+     1,
+     4,
+     1
+    ],
+    "(2, 12)": [
+     4,
+     2,
+     1,
+     4,
+     1
+    ],
+    "(4, 4)": [
+     4,
+     4,
+     1,
+     4,
+     1
+    ],
+    "(4, 12)": [
+     4,
+     4,
+     1,
+     4,
+     1
+    ],
+    "(8, 8)": [
+     4,
+     8,
+     1,
+     4,
+     1
+    ],
+    "(8, 24)": [
+     4,
+     8,
+     1,
+     4,
+     1
+    ]
+   },
+   "oldkey_lookup": {
+    "active": false,
+    "hit": 0,
+    "miss": 0
+   },
+   "sdpa_q_chunk_over_l1": [],
+   "loadavg": [
+    "1.12",
+    "1.34",
+    "1.05"
+   ],
+   "wall_ms": {
+    "stage:FoldingTrunk": {
+     "calls": 14,
+     "ms": 27205.27
+    },
+    "block:PairUpdateBlock": {
+     "calls": 538,
+     "ms": 27196.41
+    },
+    "body:TriangleMultiplication": {
+     "calls": 1084,
+     "ms": 16086.06
+    }
+   },
+   "decisions": {
+    "pair_proj_out_l1|1x512x512x256@256": {
+     "DRAM": 2168
+    },
+    "qkv_mm_config|kt=8,nt=8": {
+     "config": 2168
+    }
+   },
+   "cif_dir": "perf/other512/cif/512_e6_2",
+   "call_census": {},
+   "fp32_on_by_owner": {},
+   "block_wall_ms": 27196.41,
+   "block_calls": 538,
+   "trimul_wall_ms": 16086.06,
+   "trimul_calls": 1084
+  }
+ ],
+ "grid": [
+  11,
+  10
+ ],
+ "compute_grid_main": [
+  11,
+  10
+ ],
+ "fp32_softmax_modules": 0,
+ "fp32_modules_by_owner": {},
+ "cold_call_census": {},
+ "arm_medians": {
+  "512": {
+   "on": {
+    "fold_s": [
+     40.046,
+     40.111
+    ],
+    "block_ms": [
+     30846.18,
+     30851.52
+    ],
+    "plddt": [
+     0.9285,
+     0.9285
+    ],
+    "n": 2,
+    "fold_s_median": 40.078,
+    "fold_s_min": 40.046,
+    "fold_s_spread": 0.065,
+    "block_ms_median": 30848.85,
+    "block_ms_spread": 5.34
+   },
+   "e6": {
+    "fold_s": [
+     36.896,
+     36.608
+    ],
+    "block_ms": [
+     27651.19,
+     27196.41
+    ],
+    "plddt": [
+     0.9285,
+     0.9285
+    ],
+    "n": 2,
+    "fold_s_median": 36.752,
+    "fold_s_min": 36.608,
+    "fold_s_spread": 0.288,
+    "block_ms_median": 27423.8,
+    "block_ms_spread": 454.78
+   },
+   "aa_floor_fold_s": 0.065,
+   "aa_floor_block_ms": 5.34
+  }
+ }
+}

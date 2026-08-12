@@ -136,10 +136,12 @@ class PairUpdateBlock(Module):
         sd = self.weights.as_dict()
         # tri_mul_out = outgoing (ending=False); tri_mul_in = incoming (ending=True).
         self.tri_out = TriangleMultiplication(
-            False, _remap_trimul(sd, "tri_mul_out._engine"), compute_kernel_config
+            False, _remap_trimul(sd, "tri_mul_out._engine"), compute_kernel_config,
+            gated_move=True,
         )
         self.tri_in = TriangleMultiplication(
-            True, _remap_trimul(sd, "tri_mul_in._engine"), compute_kernel_config
+            True, _remap_trimul(sd, "tri_mul_in._engine"), compute_kernel_config,
+            gated_move=True,
         )
         self.transition = SwiGLUFFN(
             _remap_transition(sd), compute_kernel_config, fuse_swiglu=True
