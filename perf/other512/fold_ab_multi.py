@@ -89,7 +89,15 @@ def _collect_fp32(root, seen=None, depth=0):
     return out
 
 ARMS = ("on", "e6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hifi",
-        "nonewmm", "oldkey", "nofp32_trunk", "nofp32_msatmpl")
+        "nonewmm", "oldkey", "nofp32_trunk", "nofp32_msatmpl", "k1def", "k1b")
+
+# `k1def` / `k1b` add opendde's two pair widths to `_MM_BLOCK` at the op's OWN default block config,
+# `T._MM_DEFAULT = (8,8,8,2,2)`. main has no entry at kt = 12, so K1 declines all 1216 tri-att calls
+# there today ("no_mm_config"). The entry is byte-identical to `config=None` by construction and
+# buys the matmul nothing; what it buys is K1a, measured 1.7733x off-fold at this width
+# (perf/odde4x/screen2.json). `k1def` runs K1a with the head-major TAIL off, `k1b` runs both, so the
+# fold A/B prices the tail separately and its CIF digest answers whether it is byte-identical here.
+K1DEF_ARMS = ("k1def", "k1b")
 
 # Which sites each arm routes onto the fused SDPA. The confidence head is never in a flip set:
 # it stays on `_fp32_softmax_attention` on every arm, deliberately, so plDDT reports on the
@@ -330,7 +338,7 @@ def main():
         RB.REJECTS.clear()
 
         HM._ENABLED = name != "nok1"
-        HM._TAIL_ENABLED = name != "nok1"
+        HM._TAIL_ENABLED = name not in ("nok1", "k1def")
         HM._TAIL_OVER_L1 = True
         HM.STATS[0] = HM.STATS[1] = 0
         HM.TAIL_STATS[0] = HM.TAIL_STATS[1] = 0
@@ -353,6 +361,12 @@ def main():
                 T._MM_BLOCK.pop(k, None)
             else:
                 T._MM_BLOCK[k] = (4, k[0], 1, 4, 1)
+        # opendde's two widths, written on EVERY arm so no arm inherits the previous one's table.
+        for k in ((12, 36), (12, 12)):
+            if name in K1DEF_ARMS:
+                T._MM_BLOCK[k] = T._MM_DEFAULT
+            else:
+                T._MM_BLOCK.pop(k, None)
 
         # capacity gates stay at production defaults on every arm: they are not under test here
         # `nofp32`/`nofp32hifi` flip every site except the confidence head, whatever the partition

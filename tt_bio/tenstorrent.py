@@ -2270,9 +2270,21 @@ _MM_CFG = os.environ.get("TT_BIO_QKV_MM_CONFIG", "1" if QKV_MM_CONFIG else "0") 
 # Every entry sets K_block == kt, so the contraction is one K block and the accumulation order is
 # the unconfigured op's. MEASURED bit-exact by torch.equal at each width, with the op speedup:
 #     (4,12) 1.2107x   (4,4) 1.6859x   (2,12) 1.2431x   (2,2) 2.1644x
-# opendde's (12,36) and (12,12) are deliberately ABSENT: its 995 tokens give mt = 30939, which 4
-# does not divide, so the only M_block passing `mt % M` is 1 -- measured 0.5794x / 0.5318x and not
-# bit-exact. It needs its own sweep, not an entry copied from here.
+# opendde's (12,36) and (12,12) are served by `_MM_DEFAULT`, not by a swept entry. A sweep over the
+# DIVISORS of kt = 12 found nothing bit-exact (0.5794x / 0.5318x at M_block 1, the only M passing
+# `mt % M` at its 995-token mt = 30939), which read as "no entry is possible at this width". The op's
+# own default is K_block = 8, a NON-divisor: `determine_default_block_sizes` in tt-metal v0.68.0
+# returns (M, K, N) = (8, 8, 8) unconditionally with subblocks (2, 2) under `fp32_dest_acc_en` (which
+# every ckc on this path sets, line 4486), and `padded_K_tiles = round_up(K_tiles, K_block)` pads the
+# last K block. An entry equal to that default is byte-identical to `config=None` BY CONSTRUCTION --
+# MEASURED torch.equal at max_abs 0.0 on both opendde widths (perf/odde4x/screen1.py). It buys the
+# matmul itself nothing (1.0010x / 1.0086x); it exists so K1's head-major transcription has a
+# descriptor to read, which is worth 1.7733x on the qkv projection (perf/odde4x/screen2.json).
+# If a site ever ran with fp32_dest_acc_en=False the default would be subblocks (4, 2) and this entry
+# would stop being the default -- the per-arm CIF digest in perf/odde4x/ab_opendde_512.json is what
+# checks that, and it is byte-identical.
+_MM_DEFAULT = (8, 8, 8, 2, 2)
+
 _MM_BLOCK = {
     (8, 24): (4, 8, 1, 4, 1),   # protenix-v2 qkv          -- unchanged, byte-identical to before
     (8, 8): (4, 8, 1, 4, 1),    # protenix-v2 gate + pair  -- unchanged
@@ -2280,6 +2292,8 @@ _MM_BLOCK = {
     (4, 4): (4, 4, 1, 4, 1),    # boltz2 / openfold3 gate  at c_z=128
     (2, 12): (4, 2, 1, 4, 1),   # openfold3 qkv            at c_z=64
     (2, 2): (4, 2, 1, 4, 1),    # openfold3 gate           at c_z=64
+    (12, 36): _MM_DEFAULT,      # opendde tri-att qkv      at c_z=384
+    (12, 12): _MM_DEFAULT,      # opendde tri-att gate + out at c_z=384
 }
 
 
@@ -2300,7 +2314,7 @@ def _qkv_mm_config(inp, w):
     kt = (int(w.shape[-2]) + 31) // 32
     nt = (int(w.shape[-1]) + 31) // 32
     blk = _mm_block_for(w)
-    if blk is None or kt % blk[1]:
+    if blk is None:
         return None
     shape = [int(d) for d in inp.shape]      # ttnn.Shape does not support slicing
     mt = 1
@@ -2308,7 +2322,11 @@ def _qkv_mm_config(inp, w):
         mt *= d
     mt = (mt + 31) // 32
     M, K, N, sh, sw = blk
-    if mt % M or nt % N:
+    # The three divisibility guards protect bit-exactness against a config that folds the
+    # contraction in a different order than the unconfigured op. `_MM_DEFAULT` cannot: it IS that
+    # order. Scope the relaxation by object identity on the one shared tuple, so the six swept
+    # entries keep all three guards and every other model stays byte-for-byte on today's path.
+    if blk is not _MM_DEFAULT and (kt % K or mt % M or nt % N):
         return None
     return ttnn.MinimalMatmulConfig(
         M_block_size=M, K_block_size=K, N_block_size=N, subblock_h=sh, subblock_w=sw,
