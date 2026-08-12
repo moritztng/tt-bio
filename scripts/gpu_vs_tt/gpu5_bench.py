@@ -224,7 +224,23 @@ def run_of3(args) -> dict:
     work = Path(args.work) / "of3"
     shutil.rmtree(work, ignore_errors=True)
     work.mkdir(parents=True)
-    a3m = str(args.a3m.resolve())
+
+    # OF3 filters MSA files by BASENAME, not by the path you hand it. parse_msas_direct
+    # keys its output dict on the file stem and skips any stem missing from
+    # MSASettings.max_seq_counts (io/sequence/msa.py:275), whose default keys are the
+    # pipeline's own DB names: uniref90_hits, uniprot_hits, bfd_uniclust_hits,
+    # mgnify_hits, colabfold_main and so on. Handing it cdk2x2_512.a3m therefore parses
+    # NOTHING, and the empty dict surfaces far downstream as
+    # `sorted(all_msas_per_chain.keys())[0] -> IndexError` inside featurization, with the
+    # run still exiting 0. Stage a copy named uniref90_hits.a3m: that is the first entry
+    # in aln_order and the canonical slot for a precomputed unpaired main MSA, and its
+    # 10000-row cap keeps all 35 rows. Bytes are unchanged -- this is a rename, not a
+    # conversion, and it is the only per-model input change OF3 needs.
+    msa_dir = work / "msa"
+    msa_dir.mkdir()
+    staged = msa_dir / "uniref90_hits.a3m"
+    shutil.copyfile(args.a3m, staged)
+    a3m = str(staged.resolve())
 
     # InferenceQuerySet: seeds at the top level, queries keyed by name. Four names so one
     # process does cold + 3 warm with no weight reload. use_paired_msas False because the
@@ -288,10 +304,16 @@ def run_of3(args) -> dict:
 
     out = summarize(timer.times, args.repeat)
     preds = sorted((work / "out").rglob("*.cif"))
+    # OF3 catches a per-fold featurization failure, logs it and carries on, so the CLI
+    # exits 0 having predicted nothing. That is how the empty-MSA bug read as rc=0 with
+    # timed calls attached. A cell with no structure is a failure, not a fast fold.
+    assert preds, ("openfold3 produced no structure: every fold failed inside the runner. "
+                   "Read the log for the per-fold traceback -- exit code 0 is not evidence.")
     return dict(out, wall_s=round(wall, 2), n_timed_calls=len(timer.times),
                 timed_symbol=patched, kernel_counts_total=dict(cueq, **sdpa),
                 predictions=[str(p) for p in preds], cli_argv=argv,
-                msa_rows=args.a3m.read_text().count(">"), n_residues=len(seq))
+                msa_staged_as=str(staged), msa_rows=args.a3m.read_text().count(">"),
+                n_residues=len(seq))
 
 
 # --------------------------------------------------------------------------------------
