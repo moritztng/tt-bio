@@ -50,14 +50,41 @@ def _install():
         blocks = [ttnn.from_torch(b, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
                   for b in acc]
         dev_cat = ttnn.concat(blocks, dim=dim)
+        # `to_torch` shows neither the padding nor the spec, and a downstream op picks its kernel
+        # from the spec. Compare that too, before comparing any data.
+        for nm, t in (("dev_cat", dev_cat), ("host_cat", host_cat)):
+            _mark(f"[Z] {nm}: shape={tuple(t.shape)} padded={tuple(t.padded_shape)} "
+                  f"dtype={t.dtype} layout={t.layout} mem={t.memory_config()}")
+
         a, b = ttnn.to_torch(dev_cat), ttnn.to_torch(host_cat)
         same = torch.equal(a, b)
-        msg = f"[Z] blocks={len(acc)} dim={dim} shape={tuple(a.shape)} equal={same}"
+        msg = f"[Z] blocks={len(acc)} dim={dim} shape={tuple(a.shape)} logical_equal={same}"
         if not same:
             d = (a.float() - b.float()).abs()
             msg += (f" max|diff|={d.max().item():.6g} "
                     f"mismatch={(d > 0).sum().item()}/{d.numel()}")
         _mark(msg)
+
+        # `to_torch` returns the LOGICAL data, so the comparison above cannot see the tile
+        # padding -- and the trimul's triangle product contracts the token axis, which is the
+        # padded one. Contract it here on one tile of channels, cheap enough to do in a fold,
+        # and compare that instead. This is the check the earlier probes both missed: one
+        # compared logical data only, the other used synthetic blocks whose padding was clean.
+        try:
+            def contract(z):
+                s = z[:, :, :32]
+                return ttnn.to_torch(ttnn.matmul(ttnn.permute(s, (2, 0, 1)),
+                                                 ttnn.permute(s, (2, 1, 0))))
+            ca, cb = contract(dev_cat), contract(host_cat)
+            psame = torch.equal(ca, cb)
+            m2 = f"[Z] padded-axis contraction equal={psame}"
+            if not psame:
+                d = (ca.float() - cb.float()).abs()
+                m2 += (f" max|diff|={d.max().item():.6g} "
+                       f"mismatch={(d > 0).sum().item()}/{d.numel()}")
+            _mark(m2)
+        except Exception as e:
+            _mark(f"[Z] padded-axis contraction failed: {e}")
         ttnn.deallocate(dev_cat)
         for t in blocks:
             ttnn.deallocate(t)
