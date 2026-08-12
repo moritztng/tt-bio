@@ -116,7 +116,12 @@ def main():
     import tt_bio.openfold3_sample_diffusion as SDM
     SD = SDM.OF3SampleDiffusion
     wrap_method(SD, "__call__", "diff:rollout")
+    # The conditioning is one class on main and a (pair, single) pair once the invariant
+    # branch is hoisted. Wrap whichever exists so one harness times both arms.
     wrap_method(DC.OF3DiffusionConditioning, "__call__", "diff:conditioning")
+    for _m, _k in (("pair", "diff:cond_pair"), ("single", "diff:cond_single")):
+        if hasattr(DC.OF3DiffusionConditioning, _m):
+            wrap_method(DC.OF3DiffusionConditioning, _m, _k)
     wrap_static(SD, "_pad_tokens", "diff:pad_tokens_si(host round trip)")
     wrap_static(SD, "_pad_pair", "diff:pad_pair_zij(host round trip)")
     wrap_method(DM.OF3DiffusionModule, "__call__", "diff:module")

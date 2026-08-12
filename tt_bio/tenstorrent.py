@@ -310,6 +310,44 @@ def _dtype(default=None):
     return ttnn.bfloat8_b if _FAST_MODE else ttnn.bfloat16
 
 
+def _no_host_pad(x: ttnn.Tensor, dtype, n: int, n_pad: int) -> ttnn.Tensor | None:
+    """The device-side result of padding ``x`` from ``n`` to ``n_pad`` and casting it to
+    ``dtype``, or None when a real host pad is needed.
+
+    The openfold3 diffusion pad helpers round-trip through host torch. At 512 aa there is
+    nothing to pad (``n_pad == n``), and what the round trip actually does is untilize,
+    widen bf16 to fp32 and re-tilize 67 MB on one host thread -- 94.3 ms per diffusion step
+    against 0.7 ms for the same bytes on device. bf16 -> fp32 is exact in both directions,
+    so ``ttnn.typecast`` reproduces it bit for bit; ``n_pad == n`` also means the dimension
+    is tile-aligned, so there is no tile padding for the round trip to have zeroed.
+
+    Returns ``x`` itself when even the cast is unnecessary, so every caller must guard its
+    ``ttnn.deallocate`` of the input with ``is not``.
+    """
+    if (n_pad != n or x.layout != ttnn.TILE_LAYOUT
+            or x.memory_config() != ttnn.DRAM_MEMORY_CONFIG):
+        return None
+    return x if x.dtype == dtype else ttnn.typecast(x, dtype)
+
+
+def _cached(cache, key, make):
+    """``make()``, reused across calls while ``cache`` is a live dict.
+
+    The openfold3 diffusion rollout re-runs conditioning -> encoder -> DiT 200 times, but
+    everything that is not a function of the noise level ``t`` or of the noisy coordinates
+    is identical on every step. Sites producing such a value wrap it here; the sampler owns
+    one dict per rollout and frees it at the end, so a cached tensor must never be
+    deallocated by its consumer. ``cache is None`` runs the uncached path unchanged.
+    """
+    if cache is None:
+        return make()
+    v = cache.get(key)
+    if v is None:
+        v = make()
+        cache[key] = v
+    return v
+
+
 def _adaln_memory_config(atom_level: bool, large_seq_len: bool) -> ttnn.MemoryConfig | None:
     if not atom_level:
         return None

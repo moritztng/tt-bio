@@ -39,7 +39,7 @@ import math
 import torch
 import ttnn
 
-from .tenstorrent import CORE_GRID_MAIN, _dtype
+from .tenstorrent import CORE_GRID_MAIN, _dtype, _no_host_pad
 from .openfold3_diffusion import OF3DiffusionConditioning
 from .openfold3_diffusion_module import OF3DiffusionModule
 from .openfold3_weights import _sub
@@ -115,6 +115,17 @@ class OF3SampleDiffusion:
         atom_mask_host = ttnn.to_torch(atom_mask_col_na_dev).float().reshape(n_atom)  # [n_atom]
         xl_host = ttnn.to_torch(xl_init_dev).float().reshape(n_atom, 3)               # [n_atom, 3]
 
+        # Loop invariants. Only the single conditioning branch and the atom-level legs see
+        # the noise level; the pair branch, its fp32 cast, and every value downstream that
+        # is a pure function of (zij, cl0, plm0, si_trunk) are the same on all 200 steps.
+        # inv_cache holds the deep ones (the DiT per-block pair bias); it owns them, so no
+        # consumer deallocates a cached tensor. Freed together after the loop.
+        zij_dev = self.dc.pair(zij_trunk_dev, relpos_dev, pair_mask_dev)
+        zij_pad = self._pad_pair(zij_dev, n_token, n_tok_pad, self._act_dtype)
+        if zij_pad is not zij_dev:
+            ttnn.deallocate(zij_dev)
+        inv_cache: dict = {}
+
         for tau in range(len(t_list)):
             if progress_fn:
                 progress_fn("diffusion", step=tau, total=len(t_list))
@@ -128,15 +139,14 @@ class OF3SampleDiffusion:
             noise = noise_list[tau].float()
             t = float(t_list[tau])
             xl_noisy = xl_aug + noise
-            # per-step conditioning: host n_emb(t) -> device conditioning -> (si, zij).
+            # per-step conditioning: host n_emb(t) -> device single branch -> si.
+            # (the pair branch and zij_pad are loop-invariant and were hoisted above.)
             n_emb = fourier_noise_emb(t, self.sigma_data, self.fourier_w, self.fourier_b)
-            si_dev, zij_dev = self.dc(zij_trunk_dev, relpos_dev, si_trunk_dev,
-                                      si_input_dev, self._to_dev(n_emb.reshape(1, 1, 256)),
-                                      pair_mask_dev, tok_mask_dev)
-            # pad conditioned si/zij to n_tok_pad for the DiffusionModule.
+            si_dev = self.dc.single(si_trunk_dev, si_input_dev,
+                                    self._to_dev(n_emb.reshape(1, 1, 256)), tok_mask_dev)
             si_pad = self._pad_tokens(si_dev, n_token, n_tok_pad, self._act_dtype)
-            zij_pad = self._pad_pair(zij_dev, n_token, n_tok_pad, self._act_dtype)
-            ttnn.deallocate(si_dev); ttnn.deallocate(zij_dev)
+            if si_pad is not si_dev:
+                ttnn.deallocate(si_dev)
             # rl_noisy = xl_noisy * atom_mask / sqrt(t^2 + sigma_data^2) (host -> device).
             rl_noisy = xl_noisy * atom_mask_host[:, None] / math.sqrt(t * t + self.sigma_data ** 2)
             rl_noisy_dev = self._to_dev(self._pad_atoms_host(rl_noisy, n_atom, NP))
@@ -148,9 +158,9 @@ class OF3SampleDiffusion:
                 npe_flat_idx_tt, npe_zij_mask, enc_key_block_idxs_tt, enc_valid_mask,
                 enc_mask_bias, enc_pair_mask, atom_to_token_mean_tt,
                 token_mask_pad_tt, tok_mask_col_pad_tt,
-                n_atom, NP, nb, n_token, n_tok_pad, t, self.sigma_data)
+                n_atom, NP, nb, n_token, n_tok_pad, t, self.sigma_data, cache=inv_cache)
             xl_denoised = ttnn.to_torch(xl_denoised_dev).float().reshape(n_atom, 3)
-            ttnn.deallocate(si_pad); ttnn.deallocate(zij_pad)
+            ttnn.deallocate(si_pad)
             ttnn.deallocate(rl_noisy_dev); ttnn.deallocate(xl_noisy_dev)
             ttnn.deallocate(xl_denoised_dev)
             # EDM step (host).
@@ -158,6 +168,9 @@ class OF3SampleDiffusion:
             dt = float(c_tau_list[tau]) - t
             xl_host = xl_noisy + step_scale * dt * delta
 
+        ttnn.deallocate(zij_pad)
+        for v in inv_cache.values():
+            ttnn.deallocate(v)
         return self._to_dev(xl_host.unsqueeze(0))
 
     @staticmethod
@@ -168,6 +181,9 @@ class OF3SampleDiffusion:
 
     @staticmethod
     def _pad_tokens(x_dev, n_token, n_tok_pad, dtype=ttnn.bfloat16):
+        out = _no_host_pad(x_dev, dtype, n_token, n_tok_pad)
+        if out is not None:
+            return out
         th = ttnn.to_torch(x_dev).float()
         if n_tok_pad > n_token:
             th = torch.nn.functional.pad(th, (0, 0, 0, n_tok_pad - n_token))
@@ -176,6 +192,9 @@ class OF3SampleDiffusion:
 
     @staticmethod
     def _pad_pair(x_dev, n_token, n_tok_pad, dtype=ttnn.bfloat16):
+        out = _no_host_pad(x_dev, dtype, n_token, n_tok_pad)
+        if out is not None:
+            return out
         th = ttnn.to_torch(x_dev).float()
         if n_tok_pad > n_token:
             th = torch.nn.functional.pad(th, (0, 0, 0, n_tok_pad - n_token, 0, n_tok_pad - n_token))

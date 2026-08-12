@@ -39,7 +39,7 @@ import math
 import torch
 import ttnn
 
-from .tenstorrent import Module, CORE_GRID_MAIN, _dtype
+from .tenstorrent import Module, CORE_GRID_MAIN, _dtype, _no_host_pad
 from .openfold3_atom_transformer import OF3AtomTransformer
 from .openfold3_diffusion_transformer import OF3DiffusionTransformer
 from .openfold3_diffusion_decoder import OF3AtomAttentionDecoder
@@ -233,6 +233,9 @@ class OF3DiffusionModule(Module):
 
     @staticmethod
     def _pad_atoms(x, n_atom, NP, dtype=ttnn.bfloat16):
+        out = _no_host_pad(x, dtype, n_atom, NP)
+        if out is not None:
+            return out
         th = ttnn.to_torch(x).float()
         if NP > n_atom:
             th = torch.nn.functional.pad(th, (0, 0, 0, NP - n_atom))
@@ -241,6 +244,9 @@ class OF3DiffusionModule(Module):
 
     @staticmethod
     def _pad_tokens(x, n_token, n_tok_pad, dtype=ttnn.bfloat16):
+        out = _no_host_pad(x, dtype, n_token, n_tok_pad)
+        if out is not None:
+            return out
         th = ttnn.to_torch(x).float()
         if n_tok_pad > n_token:
             th = torch.nn.functional.pad(th, (0, 0, 0, n_tok_pad - n_token))
@@ -253,7 +259,7 @@ class OF3DiffusionModule(Module):
                  enc_key_block_idxs_tt, enc_valid_mask, enc_mask_bias, enc_pair_mask,
                  atom_to_token_mean_tt, token_mask_pad_tt, tok_mask_col_pad_tt,
                  n_atom, NP, nb, n_token, n_tok_pad, t, sigma_data,
-                 _return_intermediates=False):
+                 _return_intermediates=False, cache=None):
         """Run the post-conditioning ``DiffusionModule`` forward -> ``xl_out``.
 
         See the class docstring for the topology. Device bf16 inputs:
@@ -283,7 +289,8 @@ class OF3DiffusionModule(Module):
 
         # --- Encoder pair update (fresh): cl_lm + pair_mlp, update plm. ---
         cl_pad = self._pad_atoms(cl, n_atom, NP, self._act_dtype)  # [1, NP, 128]
-        ttnn.deallocate(cl)
+        if cl_pad is not cl:
+            ttnn.deallocate(cl)
         # cl_l = reshape to query blocks [1, nb, NQ, 128].
         cl_l = ttnn.to_layout(cl_pad, ttnn.ROW_MAJOR_LAYOUT)
         cl_l = ttnn.reshape(cl_l, (1, nb, self.N_QUERY, 128))
@@ -327,7 +334,8 @@ class OF3DiffusionModule(Module):
 
         # --- Encoder atom_transformer (gated OF3AtomTransformer) -> ql [1, n_atom, 128]. ---
         ql_pad = self._pad_atoms(ql, n_atom, NP, self._act_dtype)  # [1, NP, 128]
-        ttnn.deallocate(ql)
+        if ql_pad is not ql:
+            ttnn.deallocate(ql)
         ql_enc = self.enc_at(ql_pad, cl_pad, plm, atom_mask_col,
                              enc_key_block_idxs_tt, enc_valid_mask, enc_mask_bias,
                              n_atom, NP, nb)                  # [1, n_atom, 128]
@@ -353,8 +361,10 @@ class OF3DiffusionModule(Module):
 
         # --- DiT (gated) -> ai. Feed padded (n_tok_pad) with the padded token mask. ---
         ai_pad = self._pad_tokens(ai, n_token, n_tok_pad, self._act_dtype)  # [1, n_tok_pad, 768]
-        ttnn.deallocate(ai)
-        ai_pad = self.dit(ai_pad, si, zij, token_mask_pad_tt, tok_mask_col_pad_tt)
+        if ai_pad is not ai:
+            ttnn.deallocate(ai)
+        ai_pad = self.dit(ai_pad, si, zij, token_mask_pad_tt, tok_mask_col_pad_tt,
+                          cache=cache)
         ai_postdit = ttnn.clone(ai_pad) if _return_intermediates else None
 
         # --- layer_norm_a (fresh glue), keep padded for the decoder. ---
@@ -366,7 +376,8 @@ class OF3DiffusionModule(Module):
         # Decoder reuses the encoder's ql (atom_transformer output), cl, and the
         # post-pair-update plm -- the same (ql, cl, plm) the reference decoder consumes.
         ql_dec = self._pad_atoms(ql_enc, n_atom, NP, self._act_dtype)  # [1, NP, 128]
-        ttnn.deallocate(ql_enc)
+        if ql_dec is not ql_enc:
+            ttnn.deallocate(ql_enc)
         rl_update = self.dec(ai_ln, ql_dec, cl_pad, plm, atom_mask_col,
                              atom_to_token_idx_tt, enc_key_block_idxs_tt,
                              enc_valid_mask, enc_mask_bias, n_atom, NP, nb)
