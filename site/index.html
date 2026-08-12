@@ -135,6 +135,19 @@ footer { color: var(--fg-faint); font-size: 0.8rem; border-top: 1px solid var(--
   .scope dt, .methods dt { margin-top: 8px; }
   section.chart { margin-bottom: 40px; }
 }
+
+main { max-width: 1000px; }
+details.disclose { border-top: 1px solid var(--line); padding: 14px 0 2px; }
+details.disclose > summary {
+  cursor: pointer; list-style: none; font-weight: 620; font-size: 1.05rem;
+  display: flex; align-items: baseline; gap: 8px;
+}
+details.disclose > summary::-webkit-details-marker { display: none; }
+details.disclose > summary::after { content: "+"; color: var(--fg-faint); font-weight: 500; }
+details.disclose[open] > summary::after { content: "\2013"; }
+details.disclose > summary:focus-visible { outline: 2px solid var(--tt); outline-offset: 3px; }
+details.disclose .sum-note { font-weight: 400; font-size: 0.83rem; color: var(--fg-faint); }
+details.disclose > div { padding-top: 14px; }
 </style>
 </head>
 <body>
@@ -145,21 +158,13 @@ footer { color: var(--fg-faint); font-size: 0.8rem; border-top: 1px solid var(--
 
 <div class="scope"><dl id="scope-dl"></dl></div>
 
-<div class="legend-row" id="badge-legend"></div>
-
 <section class="chart" id="c1">
   <div class="chart-head">
     <div class="chart-title"><h2>Predictions per hour, per server</h2><span class="pill">Derived</span></div>
     <p class="cond" id="c1-cond"></p>
   </div>
-  <div class="controls">
-    <span>GPU concurrency</span>
-    <span class="seg" id="conc-seg" role="group" aria-label="GPU concurrency assumption"></span>
-  </div>
-  <p class="conc-detail" id="conc-detail"></p>
   <div class="keys" id="c1-keys"></div>
   <figure><div id="c1-svg"></div></figure>
-  <p class="cond" id="c1-note"></p>
 </section>
 
 <section class="chart" id="c2">
@@ -168,7 +173,6 @@ footer { color: var(--fg-faint); font-size: 0.8rem; border-top: 1px solid var(--
     <p class="cond" id="c2-cond"></p>
   </div>
   <figure><div id="c2-svg"></div></figure>
-  <p class="cond" id="c2-note"></p>
 </section>
 
 <section class="chart" id="c3">
@@ -178,7 +182,6 @@ footer { color: var(--fg-faint); font-size: 0.8rem; border-top: 1px solid var(--
   </div>
   <div class="keys" id="c3-keys"></div>
   <figure><div id="c3-svg"></div></figure>
-  <p class="cond" id="c3-note"></p>
 </section>
 
 <section class="chart" id="c4">
@@ -191,38 +194,37 @@ footer { color: var(--fg-faint); font-size: 0.8rem; border-top: 1px solid var(--
   <p class="cond" id="c4-note"></p>
 </section>
 
-<hr>
+<details class="disclose" id="exact">
+  <summary>The exact figures <span class="sum-note">measured seconds per fold, and the two derived tables</span></summary>
+  <div>
+    <h3>Measured, seconds per fold</h3>
+    <div class="tablewrap"><table id="t-measured"></table></div>
+    <h3 style="margin-top:24px">Derived, predictions per hour per server</h3>
+    <div class="tablewrap"><table id="t-derived"></table></div>
+    <h3 style="margin-top:24px">Derived, predictions per hour per $1,000 of server</h3>
+    <div class="tablewrap"><table id="t-perdollar"></table></div>
+  </div>
+</details>
 
-<section id="exact">
-  <h2>The exact figures</h2>
-  <p class="cond">Seconds per fold, measured. Predictions per hour and per $1,000, derived at the concurrency setting in force above.</p>
-  <h3 style="margin-top:20px">Measured, seconds per fold</h3>
-  <div class="tablewrap"><table id="t-measured"></table></div>
-  <h3 style="margin-top:24px">Derived, predictions per hour per server</h3>
-  <div class="tablewrap"><table id="t-derived"></table></div>
-  <h3 style="margin-top:24px">Derived, predictions per hour per $1,000 of server</h3>
-  <div class="tablewrap"><table id="t-perdollar"></table></div>
-</section>
-
-<hr>
-
-<section id="methods" class="methods">
-  <h2>Methods</h2>
-  <dl id="methods-dl"></dl>
-  <h3>What is assumed</h3>
-  <dl id="assump-dl"></dl>
-  <h3>Levers deliberately not applied to either side</h3>
-  <div class="notes"><ul id="notapplied"></ul></div>
-  <h3>Caveats</h3>
-  <div class="notes"><ul id="caveats"></ul></div>
-  <h3>Sources</h3>
-  <div class="notes"><ul id="sources"></ul></div>
-</section>
+<details class="disclose methods" id="methods">
+  <summary>Methods, assumptions and sources <span class="sum-note">fixture, hosts, parity, merge state, what is assumed</span></summary>
+  <div>
+    <dl id="methods-dl"></dl>
+    <h3>What is assumed</h3>
+    <dl id="assump-dl"></dl>
+    <h3>Levers deliberately not applied to either side</h3>
+    <div class="notes"><ul id="notapplied"></ul></div>
+    <h3>Caveats</h3>
+    <div class="notes"><ul id="caveats"></ul></div>
+    <h3>Sources</h3>
+    <div class="notes"><ul id="sources"></ul></div>
+  </div>
+</details>
 
 <footer>
-  <p>Every number here is measured on the hardware named or derived from one, with the derivation and
-  its assumptions stated. Nothing is estimated. Updated <span class="num" id="foot-date"></span>
-  from <span class="num">site/data/perf-512aa.json</span>.</p>
+  <p>Measured on the hardware named or derived from a measurement, with the derivation stated. Nothing
+  is estimated. Updated <span class="num" id="foot-date"></span> from
+  <span class="num">site/data/perf-512aa.json</span>.</p>
 </footer>
 
 </main>
@@ -231,7 +233,7 @@ footer { color: var(--fg-faint); font-size: 0.8rem; border-top: 1px solid var(--
 (function () {
   "use strict";
 
-  var D = null, CONC = 1.0;
+  var D = null;
 
   /* ---------- formatting ---------- */
   function fmtInt(v) { return Math.round(v).toLocaleString("en-US"); }
@@ -244,15 +246,23 @@ footer { color: var(--fg-faint); font-size: 0.8rem; border-top: 1px solid var(--
     for (var i = 0; i < D.platforms.length; i++) if (D.platforms[i].id === id) return D.platforms[i];
     return null;
   }
-  function perHour(sPerFold, p, conc) {
+  function perHour(sPerFold, p) {
     var eff = p.scaling_efficiency === undefined ? 1.0 : p.scaling_efficiency;
-    var c = (D.assumptions.concurrency.applies_to.indexOf(p.id) >= 0) ? conc : 1.0;
-    return 3600.0 / sPerFold * p.accelerators * eff * c;
+    return 3600.0 / sPerFold * p.accelerators * eff;
   }
   function perDollarK(perHourValue, p) { return perHourValue / (p.price_usd / 1000.0); }
-  function ttCell(m, which) { return m.cells.p150a[which] || m.cells.p150a.main; }
   function list(xs) {
     return xs.length < 2 ? (xs[0] || "") : xs.slice(0, -1).join(", ") + " and " + xs[xs.length - 1];
+  }
+
+  /* Everything a bar can tell you on hover, built from that cell's own provenance. */
+  function tip(m, key, headline) {
+    var c = m.cells[key], p = plat(key), bits = [m.name + " on " + p.name, headline];
+    if (c.parity) bits.push("parity: " + c.parity);
+    if (c.availability) bits.push(c.availability);
+    if (c.ref) bits.push(c.ref);
+    if (c.source && D.sources[c.source]) bits.push("source: " + D.sources[c.source].label);
+    return bits.join("\n");
   }
 
   /* ---------- chart engine: grouped horizontal bars, inline SVG ---------- */
@@ -264,27 +274,21 @@ footer { color: var(--fg-faint); font-size: 0.8rem; border-top: 1px solid var(--
     return n;
   }
 
-  /*
-   * spec = {
-   *   groups: [{ label, bars: [{ series, color, value, solid, label, labelShort, sub, blocked, reason }] }],
-   *   unit, max, ticks, title, desc
-   * }
-   * A bar with `solid` < `value` is drawn as a solid segment to `solid`, a lighter segment on to
-   * `value`, and a dashed boundary at `solid`. The chart caption says what the two mean.
-   */
+  /* spec = { groups: [{ label, sub, bars: [{ series, seriesShort, color, value, label, labelShort,
+   *          tip, blocked, reason }] }], unit, max, tickFmt, title, desc } */
   function drawBars(host, spec) {
     var W = Math.max(300, host.clientWidth || 900);
     var narrow = W < 620;
-    var labelW = narrow ? 84 : 186;
-    var gutter = narrow ? 66 : 108;
-    var rowH = narrow ? 21 : 25;
-    var barH = narrow ? 13 : 15;
-    var headH = narrow ? 21 : 23;
-    var groupGap = narrow ? 12 : 14;
-    var axisH = 20;
-    var fsLab = narrow ? 11 : 12.5;
-    var fsGrp = narrow ? 12 : 13.5;
-    var fsVal = narrow ? 11 : 12.5;
+    var labelW = narrow ? 90 : 200;
+    var gutter = narrow ? 70 : 116;
+    var rowH = narrow ? 26 : 31;
+    var barH = narrow ? 17 : 21;
+    var headH = narrow ? 25 : 28;
+    var groupGap = narrow ? 14 : 18;
+    var axisH = 22;
+    var fsLab = narrow ? 11.5 : 13;
+    var fsGrp = narrow ? 13 : 15;
+    var fsVal = narrow ? 11.5 : 13.5;
     var plotX = labelW;
     var plotW = Math.max(60, W - labelW - gutter);
     var nTicks = narrow ? 3 : 5;
@@ -293,7 +297,7 @@ footer { color: var(--fg-faint); font-size: 0.8rem; border-top: 1px solid var(--
     var rows = [];
     for (i = 0; i < spec.groups.length; i++) {
       var g = spec.groups[i];
-      var gh = (narrow && g.sub) ? headH + 15 : headH;
+      var gh = g.sub ? headH + 16 : headH;
       rows.push({ kind: "group", label: g.label, sub: g.sub, y: y, h: gh });
       y += gh;
       for (j = 0; j < g.bars.length; j++) { rows.push({ kind: "bar", bar: g.bars[j], y: y }); y += rowH; }
@@ -310,82 +314,62 @@ footer { color: var(--fg-faint); font-size: 0.8rem; border-top: 1px solid var(--
 
     var scale = function (v) { return Math.max(0, v) / spec.max * plotW; };
 
-    /* axis, at the top, gridlines through the plot */
     for (i = 0; i <= nTicks; i++) {
       var tv = spec.max * i / nTicks;
       var tx = plotX + scale(tv);
-      svg.appendChild(el("line", {
-        x1: tx, x2: tx, y1: axisH, y2: H - 2,
-        stroke: "var(--line)", "stroke-width": 1
-      }));
+      svg.appendChild(el("line", { x1: tx, x2: tx, y1: axisH, y2: H - 2, stroke: "var(--line)", "stroke-width": 1 }));
       svg.appendChild(el("text", {
         x: tx, y: axisH - 7, "text-anchor": i === 0 ? "start" : (i === nTicks ? "end" : "middle"),
-        "font-size": narrow ? 10 : 11, fill: "var(--fg-faint)",
+        "font-size": narrow ? 10 : 11.5, fill: "var(--fg-faint)",
         "font-family": "ui-monospace, SFMono-Regular, Menlo, monospace"
       }, spec.tickFmt(tv)));
     }
-    svg.appendChild(el("text", {
-      x: 0, y: axisH - 7, "font-size": narrow ? 10 : 11, fill: "var(--fg-faint)"
-    }, spec.unit));
+    svg.appendChild(el("text", { x: 0, y: axisH - 7, "font-size": narrow ? 10 : 11.5, fill: "var(--fg-faint)" }, spec.unit));
 
     for (i = 0; i < rows.length; i++) {
       var r = rows[i];
       if (r.kind === "group") {
         svg.appendChild(el("text", {
-          x: 0, y: r.y + headH - 7, "font-size": fsGrp, "font-weight": 620, fill: "var(--fg)"
+          x: 0, y: r.y + headH - 8, "font-size": fsGrp, "font-weight": 620, fill: "var(--fg)"
         }, r.label));
         if (r.sub) svg.appendChild(el("text", {
-          x: narrow ? 0 : plotX + 2, y: narrow ? r.y + r.h - 6 : r.y + headH - 7,
-          "font-size": narrow ? 10 : 11, fill: "var(--fg-faint)"
+          x: 0, y: r.y + r.h - 5, "font-size": narrow ? 10 : 11.5, fill: "var(--fg-faint)"
         }, r.sub));
         continue;
       }
       var b = r.bar, by = r.y + (rowH - barH) / 2;
-      svg.appendChild(el("text", {
+      var grp = el("g", null);
+      if (b.tip || b.reason) grp.appendChild(el("title", null, b.tip || b.reason));
+      grp.appendChild(el("text", {
         x: 0, y: r.y + rowH / 2 + 4, "font-size": fsLab, fill: "var(--fg-muted)"
       }, narrow && b.seriesShort ? b.seriesShort : b.series));
 
       if (b.blocked) {
-        var br = el("rect", {
+        grp.appendChild(el("rect", {
           x: plotX, y: by, width: plotW, height: barH, rx: 3,
           fill: "none", stroke: "var(--fg-faint)", "stroke-width": 1, "stroke-dasharray": "3 3"
-        });
-        br.appendChild(el("title", null, b.reason));
-        svg.appendChild(br);
-        var bt = el("text", {
-          x: plotX + 7, y: by + barH - 3, "font-size": narrow ? 10 : 11, fill: "var(--fg-faint)"
-        }, "does not run");
-        bt.appendChild(el("title", null, b.reason));
-        svg.appendChild(bt);
+        }));
+        grp.appendChild(el("text", {
+          x: plotX + 8, y: by + barH - 5, "font-size": narrow ? 10 : 11.5, fill: "var(--fg-faint)"
+        }, "does not run"));
+        svg.appendChild(grp);
         continue;
       }
 
-      var full = scale(b.value), solid = scale(b.solid === undefined ? b.value : b.solid);
-      if (full > solid) {
-        svg.appendChild(el("rect", { x: plotX, y: by, width: full, height: barH, rx: 2, fill: b.colorLight }));
-      }
-      svg.appendChild(el("rect", { x: plotX, y: by, width: Math.max(1, solid), height: barH, rx: 2, fill: b.color }));
-      if (full > solid) {
-        svg.appendChild(el("line", {
-          x1: plotX + solid, x2: plotX + solid, y1: by - 2, y2: by + barH + 2,
-          stroke: "var(--fg)", "stroke-width": 1, "stroke-dasharray": "2 2", opacity: 0.75
-        }));
-      }
-      svg.appendChild(el("text", {
-        x: plotX + full + 6, y: by + barH - 2, "font-size": fsVal, fill: "var(--fg)",
+      grp.appendChild(el("rect", {
+        x: plotX, y: by, width: Math.max(1, scale(b.value)), height: barH, rx: 2, fill: b.color
+      }));
+      grp.appendChild(el("text", {
+        x: plotX + scale(b.value) + 7, y: by + barH - 5, "font-size": fsVal, fill: "var(--fg)",
         "font-family": "ui-monospace, SFMono-Regular, Menlo, monospace"
       }, narrow && b.labelShort ? b.labelShort : b.label));
-      if (b.sub && !narrow) svg.appendChild(el("text", {
-        x: plotX + 6, y: by + barH - 2, "font-size": 11, fill: "var(--panel)",
-        "font-family": "ui-monospace, SFMono-Regular, Menlo, monospace"
-      }, b.sub));
+      svg.appendChild(grp);
     }
 
     host.textContent = "";
     host.appendChild(svg);
   }
 
-  /* ---------- niceMax ---------- */
   function niceMax(v) {
     if (v <= 0) return 1;
     var mag = Math.pow(10, Math.floor(Math.log(v) / Math.LN10));
@@ -396,66 +380,54 @@ footer { color: var(--fg-faint); font-size: 0.8rem; border-top: 1px solid var(--
 
   /* ---------- the four charts ---------- */
   var SER = {
-    galaxy_bh: { color: "var(--tt)", light: "var(--tt-light)" },
-    p150a: { color: "var(--tt)", light: "var(--tt-light)" },
-    hgx_h200_8: { color: "var(--h200)", light: "var(--h200)" },
-    hgx_b200_8: { color: "var(--b200)", light: "var(--b200)" },
-    h200: { color: "var(--h200)", light: "var(--h200)" },
-    b200: { color: "var(--b200)", light: "var(--b200)" }
+    galaxy_bh: "var(--tt)", p150a: "var(--tt)",
+    hgx_h200_8: "var(--h200)", h200: "var(--h200)",
+    hgx_b200_8: "var(--b200)", b200: "var(--b200)"
   };
+  var SERVER_OF = { p150a: "galaxy_bh", h200: "hgx_h200_8", b200: "hgx_b200_8" };
+  var CELLS = ["p150a", "h200", "b200"];
 
-  function chart1() {
-    var gal = plat("galaxy_bh"), h = plat("hgx_h200_8"), b = plat("hgx_b200_8");
+  function serverLabel(p) { return p.name + ", " + p.accelerators + (p.id === "galaxy_bh" ? " chips" : " GPUs"); }
+  function serverShort(p) { return p.accelerators + "x " + (p.id === "galaxy_bh" ? "Blackhole" : p.short.replace("8x ", "")); }
+
+  /* Charts 1 and 4 share their shape: one measured accelerator scaled to its server. */
+  function serverChart(hostId, valueOf, fmt, spec) {
     var groups = [], max = 0;
     D.models.forEach(function (m) {
-      var bars = [];
-      var best = perHour(ttCell(m, "branch").s_per_fold, gal, CONC);
-      var ship = perHour(ttCell(m, "main").s_per_fold, gal, CONC);
-      bars.push({
-        series: gal.name + ", " + gal.accelerators + " chips", seriesShort: "Galaxy " + gal.accelerators + "x",
-        color: SER.galaxy_bh.color, colorLight: SER.galaxy_bh.light,
-        value: Math.max(best, ship), solid: Math.min(best, ship),
-        label: ship < best ? fmtInt(ship) + " → " + fmtInt(best) : fmtInt(best),
-        labelShort: fmtInt(best)
-      });
-      [[h, "h200"], [b, "b200"]].forEach(function (pair) {
-        var p = pair[0], cell = m.cells[pair[1]];
-        if (cell.status !== "measured") {
-          bars.push({ series: p.name, seriesShort: p.short, blocked: true, reason: cell.detail });
-          return;
+      var bars = CELLS.map(function (k) {
+        var c = m.cells[k], p = plat(SERVER_OF[k]);
+        if (c.status !== "measured") {
+          return { series: serverLabel(p), seriesShort: serverShort(p), blocked: true, reason: c.detail };
         }
-        var v = perHour(cell.s_per_fold, p, CONC);
-        bars.push({
-          series: p.name, seriesShort: p.short, color: SER[p.id].color, colorLight: SER[p.id].light,
-          value: v, label: fmtInt(v)
-        });
+        var v = valueOf(c.s_per_fold, p);
+        max = Math.max(max, v);
+        return {
+          series: serverLabel(p), seriesShort: serverShort(p), color: SER[p.id], value: v,
+          label: fmt(v), tip: tip(m, k, fmt(v) + " " + spec.unit + " from " + fmtSec(c.s_per_fold) + " s per fold")
+        };
       });
-      bars.forEach(function (x) { if (!x.blocked) max = Math.max(max, x.value); });
       groups.push({ label: m.name, bars: bars });
     });
-    var host = document.getElementById("c1-svg");
-    drawBars(host, {
-      id: "c1", groups: groups, max: niceMax(max), unit: "pred/hr",
-      tickFmt: function (v) { return fmtInt(v); },
-      title: "Predictions per hour per server at 512 aa, derived",
-      desc: "Grouped bars, one group per model. " + D.models.map(function (m) {
-        var g = perHour(ttCell(m, "branch").s_per_fold, gal, CONC);
-        var hh = m.cells.h200.status === "measured" ? fmtInt(perHour(m.cells.h200.s_per_fold, h, CONC)) : "n/a";
-        var bb = m.cells.b200.status === "measured" ? fmtInt(perHour(m.cells.b200.s_per_fold, b, CONC)) : "does not run";
-        return m.name + ": Galaxy Blackhole " + fmtInt(g) + ", 8x H200 " + hh + ", 8x B200 " + bb + ".";
+    drawBars(document.getElementById(hostId), {
+      id: spec.id, groups: groups, max: niceMax(max), unit: spec.unit,
+      tickFmt: function (v) { return v >= 1000 ? fmtInt(v) : v.toFixed(0); },
+      title: spec.title,
+      desc: groups.map(function (g) {
+        return g.label + ": " + g.bars.map(function (b) {
+          return b.series + " " + (b.blocked ? "does not run" : b.label);
+        }).join(", ") + ".";
       }).join(" ")
     });
+    return groups;
+  }
+
+  function chart1() {
+    serverChart("c1-svg", function (s, p) { return perHour(s, p); }, fmtInt,
+      { id: "c1", unit: "pred/hr", title: "Predictions per hour per server at 512 aa, derived" });
     document.getElementById("c1-cond").innerHTML =
-      "512 aa, one shared fixture, each model at its own shipped defaults. " +
-      "<span class=\"num\">3600 / s_per_fold &times; accelerators &times; scaling_efficiency &times; concurrency</span>. " +
-      "Galaxy Blackhole " + gal.accelerators + " chips at " + gal.scaling_efficiency +
-      " assumed scaling, both NVIDIA servers " + h.accelerators + " GPUs at " +
-      h.scaling_efficiency + " assumed scaling. Concurrency " + CONC.toFixed(1) +
-      "x on the NVIDIA bars. Measured " + D.updated + ".";
-    document.getElementById("c1-note").textContent =
-      "Throughput, not latency: this is how many independent targets a whole server finishes in an " +
-      "hour. The Tenstorrent per-chip fold time is the p150a figure from chart 3; no Galaxy " +
-      "Blackhole fold has been measured.";
+      "One measured accelerator times the accelerators in the box: " +
+      "<span class=\"num\">3600 / s_per_fold &times; accelerators</span>. " +
+      "32 Blackhole chips, 8 H200 GPUs, 8 B200 GPUs, no derate on either side.";
   }
 
   function chart2() {
@@ -467,16 +439,14 @@ footer { color: var(--fg-faint); font-size: 0.8rem; border-top: 1px solid var(--
     var max = 0, groups = [];
     rows.forEach(function (r) {
       max = Math.max(max, r.p.price_usd);
-      var perStr = r.per.price_usd
-        ? fmtUsd(r.per.price_usd) + " per " + r.per.short + ", list"
-        : "no public per-" + r.per.short + " price";
       groups.push({
-        label: r.p.name,
-        sub: perStr,
+        label: serverLabel(r.p),
+        sub: r.per.price_usd ? fmtUsd(r.per.price_usd) + " per " + r.per.short + ", list"
+                             : "no public per-" + r.per.short + " price",
         bars: [{
-          series: "", seriesShort: "", color: SER[r.p.id].color, colorLight: SER[r.p.id].light,
-          value: r.p.price_usd, label: fmtUsd(r.p.price_usd),
-          labelShort: "$" + Math.round(r.p.price_usd / 1000) + "k"
+          series: "", seriesShort: "", color: SER[r.p.id], value: r.p.price_usd,
+          label: fmtUsd(r.p.price_usd), labelShort: "$" + Math.round(r.p.price_usd / 1000) + "k",
+          tip: r.p.name + "\n" + fmtUsd(r.p.price_usd) + ", " + r.p.price_kind.replace("_", " ") + "\n" + r.p.note
         }]
       });
     });
@@ -487,40 +457,26 @@ footer { color: var(--fg-faint); font-size: 0.8rem; border-top: 1px solid var(--
       desc: groups.map(function (g) { return g.label + " " + g.bars[0].label; }).join(", ") + "."
     });
     document.getElementById("c2-cond").innerHTML =
-      "Published prices, fetched " + D.sources["tt-galaxy"].accessed +
-      ". Tenstorrent lists the Galaxy Blackhole at <span class=\"num\">" +
-      fmtUsd(plat("galaxy_bh").price_usd) + "</span>. NVIDIA publishes no list price for a DGX H200 " +
-      "or DGX B200, so both NVIDIA bars are one named reseller's starting price for an 8-GPU HGX " +
-      "system of that generation, taken from the same vendor on the same day.";
-    document.getElementById("c2-note").innerHTML =
-      "Hardware only. No rack, network, power, cooling or software cost is in any bar. " +
-      "Links in <a href=\"#methods\">Sources</a>.";
+      "Hardware only, fetched " + D.sources["tt-galaxy"].accessed + ". NVIDIA publishes no list price " +
+      "for a DGX, so both NVIDIA bars are one reseller's starting price for an 8-GPU HGX system of that " +
+      "generation, same vendor, same day.";
   }
 
   function chart3() {
     var groups = [], max = 0;
     D.models.forEach(function (m) {
-      var ship = ttCell(m, "main").s_per_fold, best = ttCell(m, "branch").s_per_fold;
-      var bars = [{
-        series: plat("p150a").name, seriesShort: "p150a",
-        color: SER.p150a.color, colorLight: SER.p150a.light,
-        value: Math.max(ship, best), solid: Math.min(ship, best),
-        label: best < ship ? fmtSec(best, 1) + " ← " + fmtSec(ship, 1) : fmtSec(best, 1),
-        labelShort: fmtSec(best, 1)
-      }];
-      ["h200", "b200"].forEach(function (k) {
-        var cell = m.cells[k], p = plat(k);
-        if (cell.status !== "measured") {
-          bars.push({ series: p.name, seriesShort: p.short, blocked: true, reason: cell.detail });
-          return;
+      var bars = CELLS.map(function (k) {
+        var c = m.cells[k], p = plat(k);
+        if (c.status !== "measured") {
+          return { series: p.name, seriesShort: p.short, blocked: true, reason: c.detail };
         }
-        bars.push({
-          series: p.name, seriesShort: p.short, color: SER[k].color, colorLight: SER[k].light,
-          value: cell.s_per_fold, label: fmtSec(cell.s_per_fold, 1)
-        });
+        max = Math.max(max, c.s_per_fold);
+        return {
+          series: p.name, seriesShort: p.short, color: SER[k], value: c.s_per_fold,
+          label: fmtSec(c.s_per_fold, 1), tip: tip(m, k, fmtSec(c.s_per_fold) + " s per fold")
+        };
       });
-      bars.forEach(function (x) { if (!x.blocked) max = Math.max(max, x.value); });
-      groups.push({ label: m.name, bars: bars });
+      groups.push({ label: m.name + ", " + m.recycles + " recycles", bars: bars });
     });
     drawBars(document.getElementById("c3-svg"), {
       id: "c3", groups: groups, max: niceMax(max), unit: "s",
@@ -528,114 +484,70 @@ footer { color: var(--fg-faint); font-size: 0.8rem; border-top: 1px solid var(--
       title: "Seconds for one prediction on one card at 512 aa, measured",
       desc: D.models.map(function (m) {
         var b = m.cells.b200.status === "measured" ? fmtSec(m.cells.b200.s_per_fold, 3) + " s" : "does not run";
-        return m.name + ": p150a " + fmtSec(ttCell(m, "branch").s_per_fold, 3) + " s, H200 " +
+        return m.name + ": p150a " + fmtSec(m.cells.p150a.s_per_fold, 3) + " s, H200 " +
           fmtSec(m.cells.h200.s_per_fold, 3) + " s, B200 " + b + ".";
       }).join(" ")
     });
     document.getElementById("c3-cond").textContent =
-      "Latency, not throughput: one fold, one accelerator, warm, the cold fold discarded. " +
-      "Tenstorrent on " + ttHostString() + " NVIDIA on rented single-GPU nodes, n=3. Each model at its " +
-      "own shipped precision and recycle count. Measured " + D.updated + ".";
-    document.getElementById("c3-note").textContent =
-      "Shorter is better here. A Tenstorrent bar's solid segment is the fastest measured arm and the " +
-      "lighter tail is the runtime main additionally spends when that arm has not merged.";
+      "Shorter is better. One fold, one accelerator, warm, each model at its own shipped precision and " +
+      "recycle count. Tenstorrent on " + ttHostString() + " NVIDIA on rented single-GPU nodes.";
   }
 
   function chart4() {
-    var gal = plat("galaxy_bh"), h = plat("hgx_h200_8"), b = plat("hgx_b200_8");
-    var groups = [], max = 0;
+    serverChart("c4-svg", function (s, p) { return perDollarK(perHour(s, p), p); }, fmtOne,
+      { id: "c4", unit: "pred/hr per $1k", title: "Predictions per hour per $1,000 of server price at 512 aa, derived" });
+    document.getElementById("c4-cond").textContent =
+      "Chart 1 divided by chart 2. Purchase price only, so this is a hardware ratio and not a cost per " +
+      "prediction.";
+    var gal = plat("galaxy_bh"), h = plat("hgx_h200_8"), adv = [];
     D.models.forEach(function (m) {
-      var best = perDollarK(perHour(ttCell(m, "branch").s_per_fold, gal, CONC), gal);
-      var ship = perDollarK(perHour(ttCell(m, "main").s_per_fold, gal, CONC), gal);
-      var bars = [{
-        series: gal.name + ", " + gal.accelerators + " chips", seriesShort: "Galaxy " + gal.accelerators + "x",
-        color: SER.galaxy_bh.color, colorLight: SER.galaxy_bh.light,
-        value: Math.max(best, ship), solid: Math.min(best, ship),
-        label: ship < best ? fmtOne(ship) + " → " + fmtOne(best) : fmtOne(best),
-        labelShort: fmtOne(best)
-      }];
-      [[h, "h200"], [b, "b200"]].forEach(function (pair) {
-        var p = pair[0], cell = m.cells[pair[1]];
-        if (cell.status !== "measured") {
-          bars.push({ series: p.name, seriesShort: p.short, blocked: true, reason: cell.detail });
-          return;
-        }
-        var v = perDollarK(perHour(cell.s_per_fold, p, CONC), p);
-        bars.push({
-          series: p.name, seriesShort: p.short, color: SER[p.id].color, colorLight: SER[p.id].light,
-          value: v, label: fmtOne(v)
-        });
-      });
-      bars.forEach(function (x) { if (!x.blocked) max = Math.max(max, x.value); });
-      groups.push({ label: m.name, bars: bars });
-    });
-    drawBars(document.getElementById("c4-svg"), {
-      id: "c4", groups: groups, max: niceMax(max), unit: "pred/hr per $1k",
-      tickFmt: function (v) { return v.toFixed(0); },
-      title: "Predictions per hour per $1,000 of server price at 512 aa, derived",
-      desc: D.models.map(function (m) {
-        var g = perDollarK(perHour(ttCell(m, "branch").s_per_fold, gal, CONC), gal);
-        var hh = fmtOne(perDollarK(perHour(m.cells.h200.s_per_fold, h, CONC), h));
-        return m.name + ": Galaxy Blackhole " + fmtOne(g) + ", 8x H200 " + hh + ".";
-      }).join(" ")
-    });
-    document.getElementById("c4-cond").innerHTML =
-      "Chart 1 divided by chart 2, at concurrency " + CONC.toFixed(1) + "x on the NVIDIA bars. " +
-      "Hardware price only, over one server's lifetime of folds, so it is a purchase-price ratio " +
-      "and not a cost per prediction.";
-    var adv = [];
-    D.models.forEach(function (m) {
-      var g = perDollarK(perHour(ttCell(m, "branch").s_per_fold, gal, CONC), gal);
-      var hh = perDollarK(perHour(m.cells.h200.s_per_fold, h, CONC), h);
-      adv.push(g / hh);
+      adv.push(perDollarK(perHour(m.cells.p150a.s_per_fold, gal), gal) /
+               perDollarK(perHour(m.cells.h200.s_per_fold, h), h));
     });
     adv.sort(function (x, y) { return x - y; });
     document.getElementById("c4-note").textContent =
       "Against the 8x H200 server, the Galaxy Blackhole returns " + adv[0].toFixed(2) + "x to " +
-      adv[adv.length - 1].toFixed(2) + "x the predictions per hour per dollar at this concurrency " +
-      "setting. Change the setting above and this changes with it.";
+      adv[adv.length - 1].toFixed(2) + "x the predictions per hour per dollar.";
   }
 
   /* ---------- tables ---------- */
   function tables() {
     var gal = plat("galaxy_bh"), h = plat("hgx_h200_8"), b = plat("hgx_b200_8");
-    var t = document.getElementById("t-measured");
-    var head = "<thead><tr><th>Model</th><th>Recycles</th><th class=\"n\">p150a, on main</th>" +
-      "<th class=\"n\">p150a, fastest branch</th><th class=\"n\">H200</th><th class=\"n\">B200</th></tr></thead>";
-    var body = D.models.map(function (m) {
-      var ship = ttCell(m, "main"), best = ttCell(m, "branch");
-      function gpu(k) {
-        var c = m.cells[k];
-        return c.status === "measured"
-          ? "<td class=\"n num\">" + fmtSec(c.s_per_fold) + "</td>"
-          : "<td class=\"n blocked\" title=\"" + c.detail.replace(/"/g, "&quot;") + "\">does not run</td>";
-      }
-      var bestCell = best.s_per_fold < ship.s_per_fold
-        ? "<td class=\"n num\">" + fmtSec(best.s_per_fold) + "</td>"
-        : "<td class=\"n blocked\">on main</td>";
-      return "<tr><td>" + m.name + "</td><td class=\"num\">" + m.recycles + "</td>" +
-        "<td class=\"n num\">" + fmtSec(ship.s_per_fold) + "</td>" + bestCell + gpu("h200") + gpu("b200") + "</tr>";
-    }).join("");
-    t.innerHTML = head + "<tbody>" + body + "</tbody>";
+    function gpuCell(c, render) {
+      return c.status === "measured"
+        ? "<td class=\"n num\">" + render(c) + "</td>"
+        : "<td class=\"n blocked\" title=\"" + c.detail.replace(/"/g, "&quot;") + "\">does not run</td>";
+    }
+    document.getElementById("t-measured").innerHTML =
+      "<thead><tr><th>Model</th><th>Recycles</th><th class=\"n\">p150a</th><th class=\"n\">H200</th>" +
+      "<th class=\"n\">B200</th></tr></thead><tbody>" +
+      D.models.map(function (m) {
+        return "<tr><td>" + m.name + "</td><td class=\"num\">" + m.recycles + "</td>" +
+          CELLS.map(function (k) {
+            return gpuCell(m.cells[k], function (c) { return fmtSec(c.s_per_fold); });
+          }).join("") + "</tr>";
+      }).join("") + "</tbody>";
 
     var head2 = "<thead><tr><th>Model</th><th class=\"n\">Galaxy Blackhole, 32 chips</th>" +
       "<th class=\"n\">8x H200</th><th class=\"n\">8x B200</th></tr></thead>";
-    function derivedBody(perK) {
+    function body(perK) {
       return D.models.map(function (m) {
-        var g = perHour(ttCell(m, "branch").s_per_fold, gal, CONC);
-        function cell(k, p) {
-          var c = m.cells[k];
-          if (c.status !== "measured") return "<td class=\"n blocked\">does not run</td>";
-          var v = perHour(c.s_per_fold, p, CONC);
-          return "<td class=\"n num\">" + (perK ? fmtOne(perDollarK(v, p)) : fmtInt(v)) + "</td>";
-        }
-        return "<tr><td>" + m.name + "</td><td class=\"n num\">" +
-          (perK ? fmtOne(perDollarK(g, gal)) : fmtInt(g)) + "</td>" +
-          cell("h200", h) + cell("b200", b) + "</tr>";
+        return "<tr><td>" + m.name + "</td>" + CELLS.map(function (k) {
+          var p = plat(SERVER_OF[k]);
+          return gpuCell(m.cells[k], function (c) {
+            var v = perHour(c.s_per_fold, p);
+            return perK ? fmtOne(perDollarK(v, p)) : fmtInt(v);
+          });
+        }).join("") + "</tr>";
       }).join("");
     }
-    document.getElementById("t-derived").innerHTML = head2 + "<tbody>" + derivedBody(false) + "</tbody>";
-    document.getElementById("t-perdollar").innerHTML = head2 + "<tbody>" + derivedBody(true) + "</tbody>";
+    document.getElementById("t-derived").innerHTML = head2 + "<tbody>" + body(false) + "</tbody>";
+    document.getElementById("t-perdollar").innerHTML = head2 + "<tbody>" + body(true) + "</tbody>";
+  }
+
+  function ttHostString() {
+    var n = plat("p150a").note;
+    return n.indexOf("Host: ") >= 0 ? n.split("Host: ")[1] : n;
   }
 
   /* ---------- static text ---------- */
@@ -647,149 +559,90 @@ footer { color: var(--fg-faint); font-size: 0.8rem; border-top: 1px solid var(--
 
     var s = D.scope;
     var dl = document.getElementById("scope-dl");
-    [["Target", s.description, false],
-     ["Fixture", s.fixture + ", sha256 " + s.fixture_sha256.slice(0, 16), true],
-     ["MSA", s.msa_depth + " sequences, " + s.msa_file.split("/").pop(), true],
-     ["Protocol", s.protocol, false],
-     ["Updated", D.updated, true]].forEach(function (kv) {
+    [["Target", s.description],
+     ["Protocol", s.protocol],
+     ["Updated", D.updated]].forEach(function (kv) {
       dl.appendChild(Object.assign(document.createElement("dt"), { textContent: kv[0] }));
-      var dd = document.createElement("dd");
-      dd.textContent = kv[1];
-      if (kv[2]) dd.className = "num";
-      dl.appendChild(dd);
+      dl.appendChild(Object.assign(document.createElement("dd"), { textContent: kv[1] }));
     });
 
-    var bl = document.getElementById("badge-legend");
-    [["Measured", D.badges.measured], ["Derived", D.badges.derived], ["List price", D.badges.listed]]
-      .forEach(function (kv) {
-        var wrap = document.createElement("span");
-        wrap.className = "key";
-        wrap.innerHTML = "<span class=\"pill\">" + kv[0] + "</span>";
-        wrap.appendChild(document.createTextNode(kv[1]));
-        bl.appendChild(wrap);
-      });
-
-    function keyRow(host, items) {
+    function keyRow(host, ids) {
       var el2 = document.getElementById(host);
       el2.textContent = "";
-      items.forEach(function (it) {
-        var k = document.createElement("span");
+      ids.forEach(function (id) {
+        var p = plat(id), k = document.createElement("span");
         k.className = "key";
-        k.innerHTML = "<span class=\"swatch" + (it.cls ? " " + it.cls : "") + "\"" +
-          (it.color ? " style=\"background:" + it.color + "\"" : "") + "></span>";
-        k.appendChild(document.createTextNode(it.text));
+        k.innerHTML = "<span class=\"swatch\" style=\"background:" + SER[id] + "\"></span>";
+        k.appendChild(document.createTextNode(p.kind === "server" ? serverLabel(p) : p.name));
         el2.appendChild(k);
       });
+      var d2 = document.createElement("span");
+      d2.className = "key";
+      d2.innerHTML = "<span class=\"swatch dash\"></span>";
+      d2.appendChild(document.createTextNode("does not run"));
+      el2.appendChild(d2);
     }
-    var ttSplitThr = "Tenstorrent: solid is what main gives today, the lighter segment is the extra " +
-      "throughput an unmerged branch adds";
-    var ttSplitLat = "Tenstorrent: solid is an unmerged branch, the lighter segment is the runtime " +
-      "main additionally spends";
-    keyRow("c1-keys", [
-      { cls: "split", text: ttSplitThr },
-      { color: "var(--h200)", text: "8x H200" },
-      { color: "var(--b200)", text: "8x B200" },
-      { cls: "dash", text: "does not run" }
-    ]);
-    keyRow("c3-keys", [
-      { cls: "split", text: ttSplitLat },
-      { color: "var(--h200)", text: "H200" },
-      { color: "var(--b200)", text: "B200" },
-      { cls: "dash", text: "does not run" }
-    ]);
-    keyRow("c4-keys", [
-      { cls: "split", text: ttSplitThr },
-      { color: "var(--h200)", text: "8x H200" },
-      { color: "var(--b200)", text: "8x B200" },
-      { cls: "dash", text: "does not run" }
-    ]);
-
-    var seg = document.getElementById("conc-seg");
-    D.assumptions.concurrency.options.forEach(function (o) {
-      var btn = document.createElement("button");
-      btn.type = "button";
-      btn.textContent = o.value.toFixed(1) + "x, " + o.label;
-      btn.setAttribute("aria-pressed", String(o.value === CONC));
-      btn.addEventListener("click", function () {
-        CONC = o.value;
-        Array.prototype.forEach.call(seg.querySelectorAll("button"), function (x) {
-          x.setAttribute("aria-pressed", String(x === btn));
-        });
-        renderAll();
-      });
-      seg.appendChild(btn);
-    });
+    keyRow("c1-keys", ["galaxy_bh", "hgx_h200_8", "hgx_b200_8"]);
+    keyRow("c3-keys", ["p150a", "h200", "b200"]);
+    keyRow("c4-keys", ["galaxy_bh", "hgx_h200_8", "hgx_b200_8"]);
 
     var md = document.getElementById("methods-dl");
     function mrow(k, v) {
       md.appendChild(Object.assign(document.createElement("dt"), { textContent: k }));
-      var dd = document.createElement("dd");
-      dd.textContent = v;
-      md.appendChild(dd);
+      md.appendChild(Object.assign(document.createElement("dd"), { textContent: v }));
     }
-    mrow("Target", s.description);
-    mrow("Fixture", s.fixture + ", sha256 " + s.fixture_sha256);
-    mrow("MSA", s.msa_file + ", sha256 " + s.msa_sha256 + ", depth " + s.msa_depth);
-    mrow("Run config", "seed " + s.seed + ", templates " + s.templates + ", " +
-      s.diffusion_samples + " diffusion sample, each model at its own shipped recycle and sampling-step defaults");
-    mrow("Tenstorrent host", ttHostString() + " Stack: ttnn 0.68.0, tt-bio at the commit named per cell.");
-    mrow("NVIDIA hosts", plat("h200").note + " " + plat("b200").note);
-    mrow("Protocol", s.protocol);
-    mrow("Measured", "Every seconds-per-fold figure on this page. One fold, one accelerator, wall-clock.");
-    mrow("Derived", D.assumptions.throughput_formula + ". Every predictions-per-hour and per-dollar " +
-      "figure. No derived value is stored in the data file; the page computes them in the browser.");
     var clean = [], dirty = [], onMain = [], onBranch = [];
     D.models.forEach(function (m) {
       var c = m.cells.p150a;
-      (c.branch ? onBranch : onMain).push(m.name);
-      var par = (c.branch || c.main).parity;
-      if (par && par.indexOf("not ") === 0) dirty.push(m.name); else clean.push(m.name);
+      (c.availability.indexOf("branch") === 0 ? onBranch : onMain).push(m.name);
+      (c.parity && c.parity.indexOf("not ") === 0 ? dirty : clean).push(m.name);
     });
-    mrow("Parity", "Every Tenstorrent figure was A/B'd against its own baseline on this fixture. " +
-      list(clean) + " are bit-exact or byte-identical against theirs, same CIF sha256 and same plDDT, " +
-      "so those speedups cost no accuracy. " + list(dirty) + " " + (dirty.length === 1 ? "is" : "are") +
-      " the exception: the branch arm moves the delivered structure by 0.3 A, which is why it is still " +
-      "on a branch. Each cell in the data file states its own parity.");
+    mrow("Target", s.description);
+    mrow("Fixture", s.fixture + ", sha256 " + s.fixture_sha256);
+    mrow("MSA", s.msa_file + ", sha256 " + s.msa_sha256 + ", depth " + s.msa_depth);
+    mrow("Run config", "seed " + s.seed + ", templates " + s.templates + ", " + s.diffusion_samples +
+      " diffusion sample, each model at its own shipped recycle and sampling-step defaults");
+    mrow("Tenstorrent host", ttHostString() + " Stack: ttnn 0.68.0, tt-bio at the commit named per cell.");
+    mrow("NVIDIA hosts", plat("h200").note + " " + plat("b200").note);
+    mrow("Protocol", s.protocol);
+    mrow("Measured", "Every seconds-per-fold figure on this page. One fold, one accelerator, wall-clock. " +
+      "Hover any bar for the commit, noise floor and parity anchor behind it.");
+    mrow("Derived", D.assumptions.throughput_formula + ". No derived value is stored in the data file; " +
+      "the page computes them in the browser.");
+    mrow("Parity", "Each Tenstorrent figure is the fastest arm A/B'd against its own baseline on this " +
+      "fixture. " + list(clean) + " are bit-exact or byte-identical against theirs, same CIF sha256 and " +
+      "same plDDT, so those speedups cost no accuracy. " + list(dirty) + " " +
+      (dirty.length === 1 ? "is" : "are") + " the exception: that arm moves the delivered structure by " +
+      "0.3 A, which is why it is still on a branch.");
     mrow("Merge state", list(onMain) + " run at the figure shown on main today. " + list(onBranch) +
-      " have a faster arm that is not merged; it sits on the branch named in the data file, pending a " +
-      "release-gate decision, so pulling tt-bio today gives them the main column.");
-    mrow("Concurrency", D.assumptions.concurrency.note + " The 2.0x option is the H200's measured MPS " +
-      "ceiling at 298 aa. At 117 aa, where one fold leaves the GPU at 33.5 % utilization, MPS bought " +
-      "6.53x. At 512 aa it is not measured, so nothing here claims a 512 aa MPS factor.");
+      " do not: their fastest arm sits on the branch named in the data file, pending a release-gate " +
+      "decision, so pulling tt-bio today is slower for those three.");
 
     var ad = document.getElementById("assump-dl");
     function arow(k, v) {
       ad.appendChild(Object.assign(document.createElement("dt"), { textContent: k }));
-      var dd = document.createElement("dd");
-      dd.textContent = v;
-      ad.appendChild(dd);
+      ad.appendChild(Object.assign(document.createElement("dd"), { textContent: v }));
     }
-    arow("Galaxy chip count", gal_count());
-    arow("Galaxy scaling " + D.assumptions.galaxy_scaling.value,
-      D.assumptions.galaxy_scaling.kind + ". " + D.assumptions.galaxy_scaling.detail);
+    arow("Server scaling " + D.assumptions.scaling.value.toFixed(1),
+      D.assumptions.scaling.kind + ". " + D.assumptions.scaling.detail);
     arow("Galaxy per-chip fold time", plat("galaxy_bh").note);
-    arow("NVIDIA server scaling " + D.assumptions.gpu_scaling.value.toFixed(1),
-      D.assumptions.gpu_scaling.kind + ". " + D.assumptions.gpu_scaling.detail);
-    D.assumptions.concurrency.options.forEach(function (o) {
-      arow("Concurrency " + o.value.toFixed(1) + "x", o.label + ". " + o.detail);
-    });
+    arow("Server prices", plat("hgx_h200_8").note);
 
-    var na = document.getElementById("notapplied");
-    D.assumptions.not_applied.forEach(function (x) {
-      na.appendChild(Object.assign(document.createElement("li"), { textContent: x }));
-    });
-    var cv = document.getElementById("caveats");
-    D.caveats.forEach(function (x) {
-      cv.appendChild(Object.assign(document.createElement("li"), { textContent: x }));
-    });
+    function fill(id, items) {
+      var host = document.getElementById(id);
+      items.forEach(function (x) {
+        host.appendChild(Object.assign(document.createElement("li"), { textContent: x }));
+      });
+    }
+    fill("notapplied", D.assumptions.not_applied);
+    fill("caveats", D.caveats);
+
     var sl = document.getElementById("sources");
     Object.keys(D.sources).forEach(function (k) {
       var s2 = D.sources[k], li = document.createElement("li");
       if (s2.url) {
         var a = document.createElement("a");
-        a.href = s2.url;
-        a.textContent = s2.label;
-        a.rel = "noreferrer";
+        a.href = s2.url; a.textContent = s2.label; a.rel = "noreferrer";
         li.appendChild(a);
         li.appendChild(document.createTextNode(", accessed " + s2.accessed + ". " + s2.detail));
       } else {
@@ -801,33 +654,22 @@ footer { color: var(--fg-faint); font-size: 0.8rem; border-top: 1px solid var(--
       sl.appendChild(li);
     });
   }
-  function ttHostString() {
-    var n = plat("p150a").note;
-    return n.indexOf("Host: ") >= 0 ? n.split("Host: ")[1] : n;
-  }
-  function gal_count() {
-    var g = plat("galaxy_bh");
-    return g.accelerators + " Blackhole ASICs per server, public spec: " + g.spec +
-      ". The NVIDIA servers are 8 GPUs each. Both counts are on the chart axis labels.";
-  }
 
-  function renderAll() {
-    chart1(); chart2(); chart3(); chart4(); tables();
-    var o = D.assumptions.concurrency.options.filter(function (x) { return x.value === CONC; })[0];
-    document.getElementById("conc-detail").textContent = o ? o.detail : "";
-  }
+  function renderAll() { chart1(); chart2(); chart3(); chart4(); tables(); }
 
   var rt = null;
   window.addEventListener("resize", function () {
     if (rt) clearTimeout(rt);
     rt = setTimeout(function () { if (D) renderAll(); }, 120);
   });
+  document.addEventListener("toggle", function (e) {
+    if (e.target.id === "exact" && e.target.open && D) tables();
+  }, true);
 
   fetch("./data/perf-512aa.json", { cache: "no-store" })
     .then(function (r) { return r.json(); })
     .then(function (json) {
       D = json;
-      CONC = D.assumptions.concurrency.default;
       statics();
       renderAll();
     })

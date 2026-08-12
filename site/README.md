@@ -18,9 +18,9 @@ source doc, commit, host, noise floor and parity anchor. The page derives predic
 predictions per dollar in the browser, so no derived value is ever stored and no HTML changes when a
 benchmark moves.
 
-Each Tenstorrent model has a `main` cell, which is what the tt-bio you can pull today does, and an
-optional `branch` cell for a faster arm that has not merged. Drop the `branch` cell when its work
-lands on main; the page falls back to `main` and the table says so.
+One cell per model per platform, holding the fastest measured arm. `availability` says whether that
+arm is on main or still on a branch and `parity` says what it costs; the Methods block builds its
+merge-state and parity paragraphs from those two fields, so they cannot drift from the numbers.
 
 A cell with no measurement gets `"status": "pending"` or `"status": "blocked"` plus a reason, and
 renders as such. Do not fill it with an estimate.
