@@ -249,19 +249,55 @@ def _confidence(pred) -> dict:
     plDDT back off the B-factor column of a written file) is a lossier route to the same
     number.
     """
+    import numpy as np
     out = {}
     for k, v in (pred or {}).items():
         if not any(t in k.lower() for t in ("plddt", "ptm", "pae", "confidence", "resolved")):
             continue
         try:
-            import numpy as np
             a = np.asarray(v.cpu() if hasattr(v, "cpu") else v, dtype=np.float64)
-            out[k] = round(float(a.mean()), 6) if a.size else None
-            if a.size > 1:
-                out[f"{k}_n"] = int(a.size)
         except Exception:
             continue
+        if not a.size:
+            continue
+        out[f"{k}_shape"] = list(a.shape)
+        out[k] = round(float(a.mean()), 6)
+    # protenix reports plDDT as per-atom BIN LOGITS, not as a score: 8234 atoms x 25 bins
+    # on this fixture. Averaging those raw gives a negative "plDDT", which is how the
+    # first run of this benchmark read 0.0 through the B-factor column. Softmax over the
+    # bin axis against bin centres is the score every folding tool prints.
+    pl = _plddt_from_logits(pred)
+    if pl is not None:
+        out["plddt_score_mean"] = round(float(pl.mean()), 6)
+        out["plddt_score_n"] = int(pl.size)
     return out
+
+
+def _plddt_from_logits(pred):
+    """Per-atom plDDT in 0-1 from whatever plddt tensor the vendor returned, or None.
+
+    Handles both conventions: an already-scored [N] vector in 0-1 (or 0-100), and the
+    [N, n_bins] logits protenix and OpenDDE return. Bin centres are (i+0.5)/n_bins, the
+    AF2/AF3 convention these heads are trained against.
+    """
+    import numpy as np
+    v = (pred or {}).get("plddt")
+    if v is None:
+        return None
+    try:
+        a = np.asarray(v.cpu() if hasattr(v, "cpu") else v, dtype=np.float64)
+    except Exception:
+        return None
+    a = a.reshape(-1, a.shape[-1]) if a.ndim > 2 else a
+    if a.ndim == 1:
+        return a / 100.0 if a.max() > 1.5 else a
+    if a.ndim != 2 or a.shape[-1] < 2:
+        return None
+    nb = a.shape[-1]
+    e = np.exp(a - a.max(axis=-1, keepdims=True))
+    p = e / e.sum(axis=-1, keepdims=True)
+    centres = (np.arange(nb) + 0.5) / nb
+    return p @ centres
 
 
 def _save_structure(atom_array, coords, pred, path: Path) -> str:
@@ -284,14 +320,11 @@ def _save_structure(atom_array, coords, pred, path: Path) -> str:
     aa.coord = c
     # Per-atom plDDT into the B-factor column, which is where the gate looks and where
     # every folding tool puts it. Skip silently if the model reports it per-token instead.
-    for k in ("plddt", "atom_plddt", "full_plddt"):
-        v = (pred or {}).get(k)
-        if v is None:
-            continue
-        b = np.asarray(v.cpu() if hasattr(v, "cpu") else v, dtype=np.float32).reshape(-1)
+    pl = _plddt_from_logits(pred)
+    if pl is not None:
+        b = np.asarray(pl, dtype=np.float32).reshape(-1)
         if b.size == len(aa):
             aa.set_annotation("b_factor", b)
-            break
     path.parent.mkdir(parents=True, exist_ok=True)
     import biotite.structure.io.pdb as pdb
     f = pdb.PDBFile()

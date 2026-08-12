@@ -16,6 +16,7 @@ TAG=${TAG:-h200}
 MODELS=${MODELS:-"protenix-v2 opendde boltz-2 esmfold2 openfold3"}
 REPEAT=${REPEAT:-3}
 BUDGET_S=${BUDGET_S:-5400}
+PER_MODEL_S=${PER_MODEL_S:-1800}   # a hung cell must not eat the rest of the rental
 START=$(date +%s)
 export CUDA_HOME=/opt/conda
 export PATH=/opt/conda/bin:$PATH
@@ -45,7 +46,7 @@ for M in $MODELS; do
       else
         PY=/root/venv-opendde/bin/python3; CK=/root/ckpt/opendde.pt; RUNG=L2-bf16-fusion-cache
       fi
-      $PY gpu_bench.py --model "$M" --repeat "$REPEAT" --checkpoint "$CK" \
+      timeout "$PER_MODEL_S" $PY gpu_bench.py --model "$M" --repeat "$REPEAT" --checkpoint "$CK" \
         --msa-a3m fixtures/prot512.a3m --seq-file fixtures/prot512.seq \
         --label "cdk2x2_512 (512 aa)" --name prot512 --rungs "$RUNG" \
         --save-structure "$ST" --out "$OUT" > "$LOG" 2>&1
@@ -61,7 +62,7 @@ for M in $MODELS; do
         openfold3) PY=/root/venv-of3/bin/python3 ;;
         esmfold2)  PY=/root/venv-esm/bin/python3 ;;
       esac
-      $PY gpu5_bench.py --model "$M" --repeat "$REPEAT" \
+      timeout "$PER_MODEL_S" $PY gpu5_bench.py --model "$M" --repeat "$REPEAT" \
         --yaml "$FIX/cdk2x2_512.yaml" --a3m "$FIX/cdk2x2_512.a3m" \
         --seq-file fixtures/prot512.seq --work /root/work \
         --checkpoint /root/ckpt/of3-p2-155k.pt --out "$OUT" > "$LOG" 2>&1
