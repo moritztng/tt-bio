@@ -1,8 +1,9 @@
 # The TT-Bio page
 
-`index.html` is a standalone page in two sections. First, what TT-Bio runs: every model id grouped
-into structure and binding affinity prediction, protein design, and protein embeddings. That section
-is static markup in the HTML, so it renders even if the data fetch fails. Second, performance and
+`index.html` is a standalone page in two sections. First, what TT-Bio runs: one table per group,
+structure and binding affinity prediction, protein design, protein embeddings, with the `--model` id
+in the first column and one short cell per capability. That section is static markup in the HTML, so
+it renders even if the data fetch fails. Second, performance and
 cost: tt-bio's five structure-prediction models on Blackhole against H200 and B200 at 512 residues,
 with throughput per dollar on purchase price and again on purchase price plus electricity,
 predictions per hour per server, prediction time on one AI Processor, and what each server costs to
@@ -26,8 +27,11 @@ One cell per model per platform, holding the fastest measured arm that is bit-ex
 against its own reference. A cell with no measurement gets `"status": "blocked"` plus a reason and
 renders as "does not run". Do not fill it with an estimate.
 
-`cost_model` holds the amortisation window, the electricity rate and the platform the chart is
-indexed to. Change one of those and every per-dollar figure moves with it.
+`cost_model` holds the amortisation window, the electricity rate and the platform both charts are
+indexed to. The window and the rate move the purchase-price-plus-electricity chart only. The
+purchase-price chart is predictions per hour divided by the price itself, with no window: spreading
+the price over a window multiplies both sides of that ratio by the same number, so it cancels. Only a
+price change moves it.
 
 ## Publishing
 

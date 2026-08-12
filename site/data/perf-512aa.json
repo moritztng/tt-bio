@@ -121,7 +121,7 @@
     "electricity_source": "eia-industrial",
     "amortisation_source": "amzn-10q",
     "utilisation": "The machine predicts continuously, so every hour of ownership is an hour of throughput.",
-    "formula": "Throughput per dollar = predictions per hour / cost per hour, with the 8x H200 server set to 1.00x, on two bases. Purchase price: cost per hour = price / (5 x 8766 h). Purchase price and electricity: cost per hour = price / (5 x 8766 h) + power kW x $/kWh.",
+    "formula": "Throughput per dollar, with the 8x H200 server set to 1.00x, on two bases. Purchase price: predictions per hour / price, with no amortisation window, because the window cancels from that ratio. Purchase price and electricity: predictions per hour / cost per hour, where cost per hour = price / (5 x 8766 h) + power kW x $/kWh.",
     "sensitivity": "Shift the window to 3 or 7 years, or the rate to the 13.54 c/kWh US commercial tariff, and the Tenstorrent figure moves between 1.51x and 2.91x. It does not invert."
   },
   "models": [
