@@ -70,13 +70,28 @@ def _collect_fp32(root, seen=None, depth=0):
     return out
 
 ARMS = ("on", "e6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hifi",
-        "nonewmm")
+        "nonewmm", "oldkey")
 
 # The fused SDPA at full precision: fp32 accumulation in DST, exact exp, HiFi4 matmuls. MEASURED
 # off-fold at openfold3's own tri-att shape (perf/other512/s2_sdpa_precision.json): 1.7097 ms against
 # 1.4048 ms for the shipped fused config and 62.5789 ms for _fp32_softmax_attention -- so the whole
 # precision ladder costs 0.305 ms/call and still runs 36.6x faster than the path it replaces.
 CKC_HIFI = None            # bound in main() once ttnn is imported
+
+
+# `oldkey` is the control for the (kt, nt) re-key: main's lookup, verbatim. main keys `_MM_BLOCK`
+# on nt ALONE and then guards on `kt % blk[1]`, so it serves any kt that is a multiple of 8 at
+# nt in {24, 8}. `nonewmm` only pops the four widths the re-key added and still looks up on
+# (kt, nt), so it cannot see a projection main served at some kt != 8 -- which is exactly the
+# regression this task exists to rule out. OLDKEY_HITS proves the arm actually ran.
+_MM_BLOCK_OLD = {24: (4, 8, 1, 4, 1), 8: (4, 8, 1, 4, 1)}
+OLDKEY_HITS = [0, 0]
+
+
+def _mm_block_old(w):
+    blk = _MM_BLOCK_OLD.get((int(w.shape[-1]) + 31) // 32)
+    OLDKEY_HITS[0 if blk is not None else 1] += 1
+    return blk
 
 
 def timed_call(key, fn, *a, **kw):
@@ -213,6 +228,8 @@ def main():
 
     T._qkv_mm_config = qkvmm
 
+    ORIG_MM_BLOCK_FOR = T._mm_block_for
+
     ORIG_TAS = T._tri_att_sdpa
 
     def tas(qq, kk, vv, bias, scale):
@@ -274,6 +291,8 @@ def main():
 
         T._TRANSPOSE_L1_HEADROOM = 1.25 if name == "tr125" else 2.5
         T._PAIR_PROJ_MM = name != "nomm"
+        T._mm_block_for = _mm_block_old if name == "oldkey" else ORIG_MM_BLOCK_FOR
+        OLDKEY_HITS[0] = OLDKEY_HITS[1] = 0
         T._MM_BLOCK[(8, 8)] = (2, 8, 1, 2, 1) if name == "nomm" else (4, 8, 1, 4, 1)
         # `nonewmm` reverts ONLY the four widths this task added, so the A/B isolates
         # the re-key from the two engine-wide levers `nomm` also moves.
@@ -365,6 +384,8 @@ def main():
                                                *map(bool, PM._CKC_OVERRIDE[1:])]),
                    "fp32_softmax_on": [bool(getattr(m, "fp32_softmax", False)) for m in FP32_OWNERS][:4],
                    "pair_proj_mm": T._PAIR_PROJ_MM, "mm_block": {str(k): list(x) for k, x in sorted(T._MM_BLOCK.items())},
+                   "oldkey_lookup": {"active": T._mm_block_for is not ORIG_MM_BLOCK_FOR,
+                                     "hit": OLDKEY_HITS[0], "miss": OLDKEY_HITS[1]},
                    "sdpa_q_chunk_over_l1": sorted(str(k) for k in T._SDPA_Q_CHUNK_OVER_L1),
                    "loadavg": open("/proc/loadavg").read().split()[:3],
                    "wall_ms": {k: {"calls": v["n"], "ms": round(v["s"] * 1e3, 2)}
