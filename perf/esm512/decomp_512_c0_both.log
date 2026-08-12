@@ -1,0 +1,31 @@
+2026-08-12 10:05:49.194 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+Fetching 14 files:   0%|          | 0/14 [00:00<?, ?it/s]Fetching 14 files: 100%|██████████| 14/14 [00:00<00:00, 320875.72it/s]
+=== esmfold2 512 aa rec=10 steps=100: cold ===
+Loading CCD dictionary from /home/ttuser/.cache/huggingface/hub/models--biohub--ESMFold2/snapshots/8fc3ff471022fdce52c77030685eb775de0c00a3/ccd.pkl
+  cold 51.613s (wall 51.6s) n_tokens=None plddt=0.9285
+  plain0: 38.110s plddt=0.9285
+  timed0: 38.835s plddt=0.9285
+    body:TriangleMultiplication        n=  1084 incl=  16.071s excl=  16.071s
+    body:SwiGLUFFN                     n=   625 incl=  11.655s excl=  11.655s
+    leaf:SWAAttention                  n=   411 incl=   1.590s excl=   1.590s
+    block:PairUpdateBlock              n=   538 incl=  28.927s excl=   1.543s
+    leaf:_attn_fp32                    n=   816 incl=   0.514s excl=   0.514s
+    body:OuterProductMean              n=     4 incl=   0.459s excl=   0.459s
+    body:AttentionPairBias             n=   816 incl=   0.879s excl=   0.365s
+    stage:ESMC-6B                      n=     1 incl=   0.340s excl=   0.266s
+    body:CondTransition                n=   816 incl=   0.196s excl=   0.196s
+    body:SWAAtomTransformer            n=   137 incl=   1.717s excl=   0.127s
+    body:MSAPWA                        n=     3 incl=   0.083s excl=   0.083s
+    block:TokenDiT                     n=    68 incl=   1.140s excl=   0.065s
+    stage:LMShim                       n=     1 incl=   0.038s excl=   0.038s
+    stage:DiffusionModule              n=    68 incl=   2.905s excl=   0.034s
+    phase:prepare_input                n=     1 incl=   0.017s excl=   0.017s
+    stage:MSAEncoder                   n=     1 incl=   0.827s excl=   0.016s
+    body:AtomEncoder                   n=    69 incl=   0.882s excl=   0.015s
+    body:AtomDecoder                   n=    68 incl=   0.862s excl=   0.011s
+    phase:decode                       n=     1 incl=   0.009s excl=   0.009s
+    stage:FoldingTrunk*                n=    14 incl=  28.935s excl=   0.008s
+    stage:DistogramHead                n=     1 incl=   0.006s excl=   0.006s
+  plain_post0: 38.343s plddt=0.9285
+{"plain_median": 38.2265, "plain_spread": 0.2330000000000041}

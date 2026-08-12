@@ -1,0 +1,46 @@
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "grid": [
+  11,
+  10
+ ],
+ "L": 512,
+ "arms": {
+  "A_landed": 21.257,
+  "C_engineL1_rows8": 18.277,
+  "C_engineL1_rows16": 15.785,
+  "C_engineL1_rows32": 18.398,
+  "C_rows32_L1": null,
+  "C_rows32_DRAM": 21.321,
+  "C_rows64_L1": null,
+  "C_rows64_DRAM": 22.646,
+  "C_rows128_L1": null,
+  "C_rows128_DRAM": 24.094,
+  "C_rows256_L1": null,
+  "C_rows256_DRAM": 22.902
+ },
+ "exact": {
+  "C_engineL1_rows8": false,
+  "C_engineL1_rows16": false,
+  "C_engineL1_rows32": true,
+  "C_rows32_L1": "REFUSED: RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 259 clash with L1 buffers on co",
+  "C_rows32_DRAM": true,
+  "C_rows64_L1": "REFUSED: RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 279 clash with L1 buffers on co",
+  "C_rows64_DRAM": true,
+  "C_rows128_L1": "REFUSED: RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 295 clash with L1 buffers on co",
+  "C_rows128_DRAM": true,
+  "C_rows256_L1": "REFUSED: RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 268435456 B L1 buffer across 110 banks",
+  "C_rows256_DRAM": true
+ },
+ "l1_bytes": {
+  "C_engineL1_rows8": 25.2,
+  "C_engineL1_rows16": 50.3,
+  "C_engineL1_rows32": 100.7,
+  "rows32": 100.7,
+  "rows64": 201.3,
+  "rows128": 402.7,
+  "rows256": 805.3
+ },
+ "l1_refused_cache": 0
+}

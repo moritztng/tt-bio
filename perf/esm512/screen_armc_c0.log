@@ -1,0 +1,34 @@
+2026-08-12 10:08:52.672 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+  A (landed, DRAM)            21.340 ms
+2026-08-12 10:08:54.719 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 43 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 962560 and static circular buffer region ends at 1245696 (assert.hpp:104)
+  C_rows32_L1                    None ms  exact=REFUSED: RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception
+info:
+Statically allocated circular buffers in program 43 clash with L1 buffers on cor (L1 need 100.7 MB)
+  C_rows32_DRAM                 21.36 ms  exact=True (L1 need 100.7 MB)
+2026-08-12 10:08:55.784 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 67 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 962560 and static circular buffer region ends at 1200640 (assert.hpp:104)
+  C_rows64_L1                    None ms  exact=REFUSED: RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception
+info:
+Statically allocated circular buffers in program 67 clash with L1 buffers on cor (L1 need 201.3 MB)
+  C_rows64_DRAM                22.676 ms  exact=True (L1 need 201.3 MB)
+2026-08-12 10:08:56.889 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 83 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 352256 and static circular buffer region ends at 1155584 (assert.hpp:104)
+  C_rows128_L1                   None ms  exact=REFUSED: RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception
+info:
+Statically allocated circular buffers in program 83 clash with L1 buffers on cor (L1 need 402.7 MB)
+  C_rows128_DRAM               24.147 ms  exact=True (L1 need 402.7 MB)
+2026-08-12 10:08:57.976 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 268435456 B L1 buffer across 110 banks, where each bank needs to store 2441216 B, but bank size is 1461760 B (allocated: 0 B, free: 1461760 B, largest free block: 1461760 B) (assert.hpp:104)
+  C_rows256_L1                   None ms  exact=REFUSED: RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false
+info:
+Out of Memory: Not enough space to allocate 268435456 B L1 buffer across 110 banks (L1 need 805.3 MB)
+  C_rows256_DRAM               22.898 ms  exact=True (L1 need 805.3 MB)
+{
+ "A_landed": 21.34,
+ "C_rows32_L1": null,
+ "C_rows32_DRAM": 21.36,
+ "C_rows64_L1": null,
+ "C_rows64_DRAM": 22.676,
+ "C_rows128_L1": null,
+ "C_rows128_DRAM": 24.147,
+ "C_rows256_L1": null,
+ "C_rows256_DRAM": 22.898
+}

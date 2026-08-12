@@ -1,0 +1,31 @@
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "size": 512,
+ "runs": [
+  {
+   "i": 0,
+   "fold_s": 51.53,
+   "plddt": 0.9285,
+   "phases": {
+    "fold_complex": 51.481,
+    "host:write_cif": 0.04,
+    "host:resolve_msa": 0.007,
+    "host:read_chains": 0.001
+   },
+   "outside_fold_complex_s": 0.049
+  },
+  {
+   "i": 1,
+   "fold_s": 37.859,
+   "plddt": 0.9285,
+   "phases": {
+    "fold_complex": 37.816,
+    "host:write_cif": 0.04,
+    "host:read_chains": 0.001,
+    "host:resolve_msa": 0.0
+   },
+   "outside_fold_complex_s": 0.043
+  }
+ ]
+}

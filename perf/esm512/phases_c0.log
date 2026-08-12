@@ -1,0 +1,6 @@
+2026-08-12 10:01:06.768 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+Fetching 14 files:   0%|          | 0/14 [00:00<?, ?it/s]Fetching 14 files: 100%|██████████| 14/14 [00:00<00:00, 178481.02it/s]
+Loading CCD dictionary from /home/ttuser/.cache/huggingface/hub/models--biohub--ESMFold2/snapshots/8fc3ff471022fdce52c77030685eb775de0c00a3/ccd.pkl
+  fold0 51.530s  fold_complex=51.481  host:write_cif=0.040  host:resolve_msa=0.007  host:read_chains=0.001  outside_fold_complex=0.049
+  fold1 37.859s  fold_complex=37.816  host:write_cif=0.040  host:read_chains=0.001  host:resolve_msa=0.000  outside_fold_complex=0.043

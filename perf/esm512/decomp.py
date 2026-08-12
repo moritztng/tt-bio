@@ -128,6 +128,13 @@ def main():
     installed.append(patch(E2, "SWAAtomTransformerModel", "body:SWAAtomTransformer"))
     installed.append(patch(E2, "SWAAttention", "leaf:SWAAttention"))
     installed.append(patch(E2, "OuterProductMean", "body:OuterProductMean"))
+    # The three phases INSIDE fold_complex. p2 measured everything outside it at 0.043 s, so the
+    # 5.16 s the p1 decomposition could not attribute is in here, not in featurization or the CIF
+    # write. prepare_input and decode are host torch; model() is the device forward the stage
+    # timers above already cover, so `model minus the stages` is what is genuinely unnamed.
+    from tt_bio._vendor.esm.models.esmfold2 import processor as _P
+    installed.append(patch(_P, "ESMFold2InputBuilder", "phase:prepare_input", meth="prepare_input"))
+    installed.append(patch(_P, "ESMFold2InputBuilder", "phase:decode", meth="decode"))
     installed.append(patch(E2, "MSAPairWeightedAveraging", "body:MSAPWA"))
     installed = [k for k in installed if k]
 
