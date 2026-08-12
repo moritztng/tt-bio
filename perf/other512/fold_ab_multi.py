@@ -187,6 +187,9 @@ def main():
     ap.add_argument("--arms", default="on,on")
     ap.add_argument("--fixdir", type=Path, default=ROOT / "perf" / "size512" / "fixtures")
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--keep-cif", type=Path, default=None,
+                    help="copy each arm's structures to <dir>/<size>_<arm>/, so two arms that "
+                         "differ on purpose can be compared by RMSD and not just by sha256")
     a = ap.parse_args()
 
     import ttnn
@@ -461,6 +464,13 @@ def main():
                 w = rec["wall_ms"].get(key)
                 if w and rec.get(f"{short}_wall_ms") is None:
                     rec[f"{short}_wall_ms"], rec[f"{short}_calls"] = w["ms"], w["calls"]
+            if a.keep_cif is not None:
+                dst = a.keep_cif / f"{size}_{arm}_{len(res['runs'])}"
+                dst.mkdir(parents=True, exist_ok=True)
+                for p in sorted(struct_dir.glob("*")):
+                    if p.is_file():
+                        (dst / p.name).write_bytes(p.read_bytes())
+                rec["cif_dir"] = str(dst)
             res["runs"].append(rec)
             a.out.write_text(json.dumps(res, indent=1))
             print(f"  {arm}: fold {fold_s:.2f}s  block {rec.get('block_wall_ms')} ms over "
