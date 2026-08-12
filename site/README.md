@@ -1,8 +1,8 @@
-# The 512 aa performance page
+# The 512 aa performance and cost page
 
 `index.html` is a standalone page comparing tt-bio's five structure-prediction models on Blackhole
-against H200 and B200 at 512 residues: predictions per hour per server, server price, one fold on one
-card, and predictions per hour per dollar.
+against H200 and B200 at 512 residues: throughput per dollar, predictions per hour per server,
+prediction time on one AI Processor, and what each server costs to buy and to power.
 
 Preview it:
 
@@ -13,17 +13,17 @@ you pass `--allow-file-access-from-files`.
 
 ## Updating a number
 
-Edit `data/perf-512aa.json` and nothing else. Every seconds-per-fold figure lives there with its
-source doc, commit, host, noise floor and parity anchor. The page derives predictions per hour and
-predictions per dollar in the browser, so no derived value is ever stored and no HTML changes when a
-benchmark moves.
+Edit `data/perf-512aa.json` and nothing else. Every seconds-per-prediction figure lives there with
+its noise floor and parity anchor, and every price and power rating lives there with a dated source
+link. The page derives predictions per hour, cost per hour and throughput per dollar in the browser,
+so no derived value is stored and no HTML changes when a benchmark moves.
 
-One cell per model per platform, holding the fastest measured arm. `availability` says whether that
-arm is on main or still on a branch and `parity` says what it costs; the Methods block builds its
-merge-state and parity paragraphs from those two fields, so they cannot drift from the numbers.
+One cell per model per platform, holding the fastest measured arm that is bit-exact or byte-identical
+against its own reference. A cell with no measurement gets `"status": "blocked"` plus a reason and
+renders as "does not run". Do not fill it with an estimate.
 
-A cell with no measurement gets `"status": "pending"` or `"status": "blocked"` plus a reason, and
-renders as such. Do not fill it with an estimate.
+`cost_model` holds the amortisation window, the electricity rate and the platform the chart is
+indexed to. Change one of those and every per-dollar figure moves with it.
 
 ## Publishing
 
