@@ -97,17 +97,26 @@ def _bracket_seam():
     what decides where a fix can move them. Wrapping the method here keeps the probe out of
     the model code.
     """
-    from tt_bio.opendde import OpenDDE
-    orig = OpenDDE.expand_and_refine
+    from tt_bio.opendde import OpenDDE, StructuralTokenExpander
+    outer, inner = OpenDDE.expand_and_refine, StructuralTokenExpander.__call__
 
-    def wrapped(self, *a, **kw):
+    def wrapped_outer(self, *a, **kw):
         _dump("seam_pre_expander")
         try:
-            return orig(self, *a, **kw)
+            return outer(self, *a, **kw)
         finally:
             _dump("seam_post_refiner")
 
-    OpenDDE.expand_and_refine = wrapped
+    def wrapped_inner(self, *a, **kw):
+        try:
+            return inner(self, *a, **kw)
+        finally:
+            # The expander alone, before the refiner allocates anything: this is where a
+            # reallocate of z_struct would have to find its room.
+            _dump("seam_post_expander")
+
+    OpenDDE.expand_and_refine = wrapped_outer
+    StructuralTokenExpander.__call__ = wrapped_inner
 
 
 from tt_bio.main import cli  # noqa: E402  (import after the patch, so tt_bio sees it)
