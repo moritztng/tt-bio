@@ -1,0 +1,278 @@
+{
+ "host": "tt-quietbox2",
+ "card": "2",
+ "grid": [
+  11,
+  10
+ ],
+ "L": 512,
+ "c_z": 256,
+ "n": 5,
+ "warm": 2,
+ "ops": {
+  "roof_add_3x_pair": {
+   "ms": 0.9521,
+   "all_ms": [
+    0.9904,
+    0.9607,
+    0.9511,
+    0.9521,
+    0.9487
+   ],
+   "MB": 384.0,
+   "GBps": 422.9
+  },
+  "WHOLE_trimul_e6_on": {
+   "ms": 14.755,
+   "all_ms": [
+    14.719,
+    14.9533,
+    14.7596,
+    14.6747,
+    14.755
+   ]
+  },
+  "WHOLE_trimul_e6_on_end": {
+   "ms": 14.8399,
+   "all_ms": [
+    14.7282,
+    14.9862,
+    14.8399,
+    14.9201,
+    14.7597
+   ]
+  },
+  "WHOLE_trimul_e6_off": {
+   "ms": 18.1901,
+   "all_ms": [
+    18.2341,
+    18.1213,
+    18.141,
+    18.1901,
+    18.2176
+   ]
+  },
+  "1_layer_norm_in": {
+   "ms": 0.9665,
+   "all_ms": [
+    0.9658,
+    0.9618,
+    0.972,
+    0.9665,
+    0.9724
+   ],
+   "MB": 256.0,
+   "GBps": 277.7
+  },
+  "2_inproj_minimal_mm_N1024": {
+   "ms": 2.7941,
+   "all_ms": [
+    2.7167,
+    2.7829,
+    2.9182,
+    2.7941,
+    2.8059
+   ],
+   "MB": 640.0,
+   "GBps": 240.2,
+   "GFLOP": 137.4,
+   "TFLOPps": 49.2
+  },
+  "3_gated_move": {
+   "ms": 2.2373,
+   "all_ms": [
+    2.2373,
+    2.3244,
+    2.243,
+    2.1832,
+    2.175
+   ],
+   "MB": 384.0,
+   "GBps": 180.0
+  },
+  "4_transpose_inner": {
+   "ms": 0.7339,
+   "all_ms": [
+    0.7329,
+    0.7303,
+    0.7344,
+    0.7444,
+    0.7339
+   ],
+   "MB": 256.0,
+   "GBps": 365.8
+  },
+  "5_channel_matmul": {
+   "ms": 1.6687,
+   "all_ms": [
+    1.6687,
+    1.616,
+    1.7119,
+    1.6083,
+    1.7008
+   ],
+   "MB": 384.0,
+   "GBps": 241.3,
+   "GFLOP": 68.7,
+   "TFLOPps": 41.2
+  },
+  "6_channel_move_back": {
+   "ms": 0.9994,
+   "all_ms": [
+    0.9918,
+    0.9994,
+    0.9955,
+    1.0039,
+    1.0259
+   ],
+   "MB": 256.0,
+   "GBps": 268.6
+  },
+  "7_layer_norm_out": {
+   "ms": 0.951,
+   "all_ms": [
+    0.9546,
+    0.9393,
+    0.9504,
+    0.9536,
+    0.951
+   ],
+   "MB": 256.0,
+   "GBps": 282.3
+  },
+  "8_out_proj": {
+   "ms": 0.7921,
+   "all_ms": [
+    0.7965,
+    0.817,
+    0.7894,
+    0.7896,
+    0.7921
+   ],
+   "MB": 256.0,
+   "GBps": 338.9,
+   "GFLOP": 34.4,
+   "TFLOPps": 43.4
+  },
+  "9_gate_multiply": {
+   "ms": 1.0468,
+   "all_ms": [
+    1.0997,
+    1.0438,
+    1.0483,
+    1.0468,
+    1.0428
+   ],
+   "MB": 384.0,
+   "GBps": 384.6
+  },
+  "P1_matmul_transpose_b": {
+   "ms": 4.2044,
+   "all_ms": [
+    4.2214,
+    4.2025,
+    4.2044,
+    4.2013,
+    4.2173
+   ],
+   "MB": 384.0,
+   "GBps": 95.8,
+   "GFLOP": 68.7,
+   "TFLOPps": 16.3
+  },
+  "P2_inproj_L1_rows32": {
+   "ms": 0.1641,
+   "all_ms": [
+    0.1681,
+    0.1608,
+    0.1641,
+    0.1639,
+    0.1731
+   ],
+   "MB": 40.0,
+   "GBps": 255.7,
+   "GFLOP": 8.6,
+   "TFLOPps": 52.4
+  },
+  "P2_inproj_DRAM_rows64": {
+   "ms": 0.4216,
+   "all_ms": [
+    0.4135,
+    0.4117,
+    0.4268,
+    0.4216,
+    0.434
+   ],
+   "MB": 80.0,
+   "GBps": 199.0,
+   "GFLOP": 17.2,
+   "TFLOPps": 40.7
+  },
+  "P4_out_proj_fused_N512": {
+   "ms": 1.5059,
+   "all_ms": [
+    1.5081,
+    1.495,
+    1.5059,
+    1.5021,
+    1.5167
+   ],
+   "MB": 384.0,
+   "GBps": 267.4,
+   "GFLOP": 68.7,
+   "TFLOPps": 45.6
+  }
+ },
+ "probe": {
+  "P1_transpose_b": {
+   "ok": true,
+   "ms": 4.204372999993211,
+   "torch_equal": false,
+   "max_abs_diff": 0.5
+  },
+  "P2_L1_rows32": {
+   "ok": true,
+   "ms": 0.16406200001028992
+  },
+  "P2_L1_rows64": {
+   "ok": false,
+   "err": "RuntimeError('TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\\ninfo:\\nStatically allocated circular buffers in program 37 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=9)]. L1 buffer allocated at 962560 and static circular buffer region ends at 1159680\\nbacktrace"
+  },
+  "P2_e6_accepts_rowblock": false,
+  "P3_ops_present": {
+   "addcmul": true,
+   "addcdiv": true,
+   "mac": true,
+   "addalpha": true
+  },
+  "P3_addcmul": {
+   "ok": false,
+   "err": "TypeError('\\nttnn.addcmul(): incompatible function arguments.\\n\\nCalled with:\\n  addcmul(ttnn.Tensor, ttnn.Tensor, ttnn.Tensor, float)\\n\\nAvailable signatures:\\n  addcmul(input_a: ttnn.Tensor, input_b: ttnn.Tensor, input_c: ttnn.Tensor, *, value: float | int | int = 1.0, memory_config: ttnn.MemoryCo"
+  }
+ },
+ "shape": {
+  "chunk_size": 32,
+  "n_pairs": 8,
+  "group": 8,
+  "groups": 1,
+  "dram": true,
+  "host_concat": false,
+  "slice_c": 256
+ },
+ "reconstruction": {
+  "sum_of_ops_ms": 15.2192,
+  "whole_op_ms": 14.755,
+  "ratio": 1.0315,
+  "share": {
+   "1_layer_norm_in": 0.0635,
+   "2_inproj_minimal_mm_N1024": 0.1836,
+   "3_gated_move": 0.294,
+   "4_transpose_inner": 0.0482,
+   "5_channel_matmul": 0.1096,
+   "6_channel_move_back": 0.0657,
+   "7_layer_norm_out": 0.0625,
+   "8_out_proj": 0.1041,
+   "9_gate_multiply": 0.0688
+  }
+ }
+}
