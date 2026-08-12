@@ -1,0 +1,28 @@
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "grid": [
+  11,
+  10
+ ],
+ "shape": {
+  "B": 512,
+  "H": 4,
+  "S": 512,
+  "D": 32
+ },
+ "rows": [
+  {
+   "name": "today (_fp32_softmax_attention)",
+   "ms": 62.6022
+  },
+  {
+   "name": "scale_mask_softmax",
+   "error": "TypeError: \nttnn.scale_mask_softmax(): incompatible function arguments.\n\nCalled with:\n  scale_mask_softmax(ttnn.Tensor, float, ttnn.Tensor)\n\nAvailable signatures:\n  scale_mask_softmax(input_tensor: ttnn.Tensor, scale: float | None = None, mask: ttnn.Tensor | None = None, *, memory_config: ttnn.MemoryConfig | None = None, is_causal_mask: bool = False, compute_kernel_config: ttnn.core.WormholeComputeKernelConf"
+  },
+  {
+   "name": "scale_mask_softmax + fp32 matmul",
+   "error": "TypeError: \nttnn.scale_mask_softmax(): incompatible function arguments.\n\nCalled with:\n  scale_mask_softmax(ttnn.Tensor, float, ttnn.Tensor)\n\nAvailable signatures:\n  scale_mask_softmax(input_tensor: ttnn.Tensor, scale: float | None = None, mask: ttnn.Tensor | None = None, *, memory_config: ttnn.MemoryConfig | None = None, is_causal_mask: bool = False, compute_kernel_config: ttnn.core.WormholeComputeKernelConf"
+  }
+ ]
+}
