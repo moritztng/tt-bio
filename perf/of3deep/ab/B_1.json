@@ -1,0 +1,207 @@
+{
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "3",
+ "size": 512,
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "loadavg": [
+  "1.46",
+  "0.79",
+  "0.83"
+ ],
+ "of3_diffusion_fp32": "1",
+ "runs": [
+  {
+   "run": 0,
+   "fold_s": 63.454,
+   "plddt": 0.547851,
+   "n_tokens": 512,
+   "n_atoms": 4116,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "da9b4ed68f8c0405"
+   },
+   "loadavg": [
+    "2.08",
+    "1.22",
+    "0.98"
+   ],
+   "regions": {
+    "top:model.fold": {
+     "calls": 1,
+     "s": 61.894,
+     "ms_per_call": 61893.876,
+     "pct_of_fold": 97.54
+    },
+    "top:trunk": {
+     "calls": 1,
+     "s": 39.002,
+     "ms_per_call": 39002.256,
+     "pct_of_fold": 61.47
+    },
+    "diff:rollout": {
+     "calls": 1,
+     "s": 20.212,
+     "ms_per_call": 20212.262,
+     "pct_of_fold": 31.85
+    },
+    "diff:module": {
+     "calls": 200,
+     "s": 19.977,
+     "ms_per_call": 99.886,
+     "pct_of_fold": 31.48
+    },
+    "dm:atom_transformer": {
+     "calls": 401,
+     "s": 9.596,
+     "ms_per_call": 23.931,
+     "pct_of_fold": 15.12
+    },
+    "dm:dit_stack": {
+     "calls": 200,
+     "s": 6.799,
+     "ms_per_call": 33.997,
+     "pct_of_fold": 10.72
+    },
+    "dm:dit_block": {
+     "calls": 4800,
+     "s": 6.715,
+     "ms_per_call": 1.399,
+     "pct_of_fold": 10.58
+    },
+    "dm:decoder": {
+     "calls": 200,
+     "s": 4.978,
+     "ms_per_call": 24.89,
+     "pct_of_fold": 7.85
+    },
+    "trunk:template": {
+     "calls": 4,
+     "s": 4.867,
+     "ms_per_call": 1216.756,
+     "pct_of_fold": 7.67
+    },
+    "trunk:msa_block": {
+     "calls": 16,
+     "s": 3.059,
+     "ms_per_call": 191.186,
+     "pct_of_fold": 4.82
+    },
+    "dm:npe": {
+     "calls": 200,
+     "s": 1.432,
+     "ms_per_call": 7.161,
+     "pct_of_fold": 2.26
+    },
+    "top:confidence": {
+     "calls": 1,
+     "s": 1.326,
+     "ms_per_call": 1325.611,
+     "pct_of_fold": 2.09
+    },
+    "host:build_features": {
+     "calls": 1,
+     "s": 1.149,
+     "ms_per_call": 1149.436,
+     "pct_of_fold": 1.81
+    },
+    "dm:pad_atoms(host round trip)": {
+     "calls": 600,
+     "s": 0.402,
+     "ms_per_call": 0.669,
+     "pct_of_fold": 0.63
+    },
+    "prep:input_atom_encoder": {
+     "calls": 1,
+     "s": 0.175,
+     "ms_per_call": 174.759,
+     "pct_of_fold": 0.28
+    },
+    "host:derive_relpos": {
+     "calls": 1,
+     "s": 0.122,
+     "ms_per_call": 122.462,
+     "pct_of_fold": 0.19
+    },
+    "diff:cond_single": {
+     "calls": 200,
+     "s": 0.081,
+     "ms_per_call": 0.404,
+     "pct_of_fold": 0.13
+    },
+    "host:ref_atom_embed": {
+     "calls": 2,
+     "s": 0.076,
+     "ms_per_call": 37.788,
+     "pct_of_fold": 0.12
+    },
+    "host:write_structure": {
+     "calls": 1,
+     "s": 0.037,
+     "ms_per_call": 37.173,
+     "pct_of_fold": 0.06
+    },
+    "diff:cond_pair": {
+     "calls": 1,
+     "s": 0.033,
+     "ms_per_call": 33.278,
+     "pct_of_fold": 0.05
+    },
+    "host:derive_template_feat": {
+     "calls": 1,
+     "s": 0.014,
+     "ms_per_call": 14.451,
+     "pct_of_fold": 0.02
+    },
+    "trunk:glue_z": {
+     "calls": 4,
+     "s": 0.008,
+     "ms_per_call": 1.928,
+     "pct_of_fold": 0.01
+    },
+    "diff:pad_tokens_si(host round trip)": {
+     "calls": 200,
+     "s": 0.007,
+     "ms_per_call": 0.035,
+     "pct_of_fold": 0.01
+    },
+    "dm:pad_tokens_ai(host round trip)": {
+     "calls": 200,
+     "s": 0.003,
+     "ms_per_call": 0.014,
+     "pct_of_fold": 0.0
+    },
+    "host:derive_block_aux": {
+     "calls": 1,
+     "s": 0.001,
+     "ms_per_call": 1.334,
+     "pct_of_fold": 0.0
+    },
+    "host:msa_features": {
+     "calls": 1,
+     "s": 0.001,
+     "ms_per_call": 0.628,
+     "pct_of_fold": 0.0
+    },
+    "diff:pad_pair_zij(host round trip)": {
+     "calls": 1,
+     "s": 0.001,
+     "ms_per_call": 0.581,
+     "pct_of_fold": 0.0
+    },
+    "trunk:glue_s": {
+     "calls": 4,
+     "s": 0.0,
+     "ms_per_call": 0.08,
+     "pct_of_fold": 0.0
+    },
+    "trunk:msa_embedder": {
+     "calls": 1,
+     "s": 0.0,
+     "ms_per_call": 0.261,
+     "pct_of_fold": 0.0
+    }
+   }
+  }
+ ]
+}
