@@ -1,0 +1,60 @@
+{
+ "size": 512,
+ "seed": 1,
+ "cif": "/root/results/of3ref/ref_512_seed1.cif",
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "diffusion_samples": 1,
+ "templates": false,
+ "msa_rows": 35,
+ "n_residues": 512,
+ "gpu": "NVIDIA H200",
+ "gpu_capability": [
+  9,
+  0
+ ],
+ "packages": {
+  "torch": "2.13.0",
+  "openfold3": "0.4.4",
+  "cuequivariance_torch": "0.11.1"
+ },
+ "checkpoint_sha256_head": "af09eac4f29cef85",
+ "a3m_sha256_head": "ef2301402e7716e9",
+ "kernel_counts_total": {
+  "pairformer_combined_triangle_multiplication": 0,
+  "triangle_attention": 700,
+  "triangle_multiplicative_update": 430,
+  "triangle_mxfp8_cutlass_supported": 0,
+  "triangle_mxfp8_einsum": 0,
+  "triangle_mxfp8_einsum_cutlass": 0,
+  "triangle_mxfp8_select_backend": 0,
+  "triangle_attention._diagnose_triangle_attention_fallback": 700,
+  "triangle_attention._triangle_attention_torch": 0,
+  "triangle_attention._warn_triangle_attention_fallback": 0,
+  "triangle_attention.triangle_attention": 0,
+  "cuequivariance_torch.triangle_attention": 0,
+  "cuequivariance_torch.triangle_multiplicative_update": 430,
+  "triangle.triangle_attention": 700,
+  "triangle.triangle_multiplicative_update": 0,
+  "torch_sdpa": 0
+ },
+ "cli_argv": [
+  "predict",
+  "--query-json",
+  "/root/work/of3/queries.json",
+  "--output-dir",
+  "/root/work/of3/out",
+  "--inference-ckpt-path",
+  "/root/ckpt/of3-p2-155k.pt",
+  "--runner-yaml",
+  "/root/work/of3/runner.yaml",
+  "--num-diffusion-samples",
+  "1",
+  "--use-msa-server",
+  "false",
+  "--use-templates",
+  "false"
+ ],
+ "cold_s": 13.154,
+ "host": "99bfc88f86a1"
+}

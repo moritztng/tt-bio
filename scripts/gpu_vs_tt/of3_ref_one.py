@@ -56,6 +56,19 @@ def main() -> None:
     assert seq == yaml_seq, "the .seq and the fixture YAML disagree"
     assert seq == a3m_rows[1], "the a3m query row is not the target sequence"
 
+    # torch MUST be imported before anything touches cuEquivariance. libcue_ops.so links
+    # libnvrtc.so.12, which reaches the loader only via torch's bundled nvidia wheels, and
+    # cuequivariance_ops.load_library() swallows its own failure -- it prints to stderr and
+    # returns, leaving cuequivariance_ops cached in sys.modules with the library NOT loaded.
+    # After that every cueq import in the process dies with "libcue_ops.so: cannot open
+    # shared object file", naming the wrong library. gpu5_bench.install_cueq_counters()
+    # imports cueq before the model does, so without this line the counters silently skip
+    # cueq (their except-continue) and openfold3's own import then fails hard. The earlier
+    # H200/B200 pass never hit it because stage_base's conda cuda-toolkit put libnvrtc on
+    # the system path; this run installs of3 only.
+    import torch  # noqa: E402,F401
+    from cuequivariance_ops_torch import triangle_attention as _ta  # noqa: E402,F401
+
     sys.path.insert(0, str(HERE))
     import gpu5_bench  # noqa: E402  -- must import before openfold3 (cueq counters)
 

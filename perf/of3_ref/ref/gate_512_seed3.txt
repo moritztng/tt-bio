@@ -1,0 +1,22 @@
+{
+  "file": "/root/results/of3ref/ref_512_seed3.cif",
+  "n_ca": 512,
+  "checks": {
+    "all_finite": true,
+    "residue_count_ok": true,
+    "ca_ca_median_in_band": true,
+    "chain_breaks_ok": true,
+    "rg_in_band": true
+  },
+  "fail": [],
+  "ca_ca_median_A": 3.8341,
+  "chain_break_frac": 0.0,
+  "radius_of_gyration_A": 28.607,
+  "rg_band_A": [
+    11.8,
+    58.9
+  ],
+  "plddt_scale": "0-100",
+  "plddt_mean": 0.660705,
+  "pass": true
+}
