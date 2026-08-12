@@ -283,8 +283,14 @@ def run_of3(args) -> dict:
     qpath.write_text(json.dumps(qset, indent=2))
 
     # cuEquivariance is opt-in for OF3, through the runner yaml rather than a flag.
+    #
+    # The seed has to be set here too. InferenceQuerySet.seeds exists and is parsed, but
+    # the dataset is built from experiment_settings.seeds instead
+    # (experiment_runner.py:557 and :730), which defaults to [42] -- so a query file
+    # asking for seed 0 is silently folded at 42.
     ypath = work / "runner.yaml"
     ypath.write_text(
+        f"experiment_settings:\n  seeds: [{SEED}]\n"
         "model_update:\n"
         "  presets: [\"predict\"]\n"
         "  custom:\n"
