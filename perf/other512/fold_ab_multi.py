@@ -21,6 +21,7 @@ So this harness is that one generalised on exactly three axes and nothing else:
       nok2   persistent SDPA bias OFF
       tr125  `_TRANSPOSE_L1_HEADROOM` 2.5 -> 1.25
       nomm   `_MM_BLOCK[8]` reverted to (2,8,1,2,1) and `_PAIR_PROJ_MM` off (the two engine-wide ones)
+      nos2   atom-level q pad as the pre-S2 ROW_MAJOR round trip; control for the shipped TILE pad
       nofp32 every `fp32_softmax=True` attention switched to the fused flash-SDPA route. openfold3
              is the only model that sets it (`openfold3_trunk.py:130`); this arm is the SCREEN for a
              fused fp32-softmax kernel, and it is an upper bound on that kernel by construction --
@@ -89,7 +90,7 @@ def _collect_fp32(root, seen=None, depth=0):
     return out
 
 ARMS = ("on", "e6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hifi",
-        "nonewmm", "oldkey", "nofp32_trunk", "nofp32_msatmpl")
+        "nonewmm", "oldkey", "nofp32_trunk", "nofp32_msatmpl", "nos2")
 
 # Which sites each arm routes onto the fused SDPA. The confidence head is never in a flip set:
 # it stays on `_fp32_softmax_attention` on every arm, deliberately, so plDDT reports on the
@@ -367,6 +368,11 @@ def main():
                    if OWNED.get(id(m)) == "confidence"), "confidence head must stay fp32"
         PM._CKC_OVERRIDE = CKC_HIFI if name == "nofp32hifi" else None
 
+        # S2: pad the atom-level q in TILE instead of round-tripping through ROW_MAJOR. `nos2`
+        # is the control -- the pre-S2 chain verbatim -- so the arm reads the same whichever way
+        # the default is set.
+        T._ATOM_PAD_IN_TILE = name != "nos2"
+
         T._PAIR_PROJ_L1_OUT = T._PAIR_BIAS_L1_NORM = True
         T._PWA_L1_NORM = T._TEMPLATE_L1_NORM = True
         T._pair_proj_program_config.cache_clear()
@@ -455,6 +461,7 @@ def main():
                                        "declined": PM.STATS[1],
                                        "rejects": {f"{r}:{sh}": n for (r, sh), n in PM.REJECTS.items()}},
                    "transpose_l1_headroom": T._TRANSPOSE_L1_HEADROOM,
+                   "atom_pad_in_tile": T._ATOM_PAD_IN_TILE,
                    "fp32_softmax_modules": len(FP32_OWNERS),
                    "sdpa_ckc_override": (None if PM._CKC_OVERRIDE is None
                                          else [str(PM._CKC_OVERRIDE[0]).rsplit(".", 1)[-1],

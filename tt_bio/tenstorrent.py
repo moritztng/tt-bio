@@ -468,6 +468,13 @@ _SDPA_Q_CHUNK_OVER_L1: set = set()
 # Kill switch so a fold-level A/B can run both arms without a checkout. Bit-exact either way.
 _SDPA_WIDE_Q = os.environ.get("TT_BIO_SDPA_WIDE_Q", "1") != "0"
 
+# The atom-level AttentionPairBias widens q from ATOM_WINDOW (32) to ATOM_DIM (128) on dim -2.
+# That pad is tile-aligned (32 -> 128 adds exactly 3 tiles of zeros), so leaving TILE layout to
+# pad in ROW_MAJOR and tilizing back is a pure round trip. Measured off-fold at the production
+# shape [1, 224, 32, 128] bf16, median of 7 after 2 warm, torch.equal against the chain: chain
+# 160.53 us, pad in TILE 57.31 us (2.8011x). At the fold: -0.124 s at 512 aa, bit-exact.
+_ATOM_PAD_IN_TILE = os.environ.get("TT_BIO_ATOM_PAD_IN_TILE", "1") != "0"
+
 # C2, the triangle bias cast to bfloat8_b before the SDPA. OFF by default and it stays off until a
 # fold-level parity gate clears it: at N=512 the op-level error is rmsd/std 0.002547 at PCC
 # 1.000000, but W9 measured z rmsd/std 0.04179 on a block at N=320 against a shipped band of
@@ -2926,9 +2933,12 @@ class AttentionPairBias(Module):
                 dtype=_dtype(),
             )
 
-            q = ttnn.to_layout(q, ttnn.ROW_MAJOR_LAYOUT)
-            q = ttnn.pad(q, [[0, 0], [0, 0], [0, ATOM_DIM - ATOM_WINDOW], [0, 0]], 0.0)
-            q = ttnn.to_layout(q, ttnn.TILE_LAYOUT, dtype=_dtype())
+            if _ATOM_PAD_IN_TILE:
+                q = ttnn.pad(q, [[0, 0], [0, 0], [0, ATOM_DIM - ATOM_WINDOW], [0, 0]], 0.0)
+            else:
+                q = ttnn.to_layout(q, ttnn.ROW_MAJOR_LAYOUT)
+                q = ttnn.pad(q, [[0, 0], [0, 0], [0, ATOM_DIM - ATOM_WINDOW], [0, 0]], 0.0)
+                q = ttnn.to_layout(q, ttnn.TILE_LAYOUT, dtype=_dtype())
             q = ttnn.reshape(q, (B * K, 1, ATOM_DIM, -1))
             kv = ttnn.reshape(kv, (B * K, 1, ATOM_DIM, -1))
             q, k, v = ttnn.experimental.nlp_create_qkv_heads(q, kv, num_heads=self.n_heads, num_kv_heads=self.n_heads, transpose_k_heads=False)
