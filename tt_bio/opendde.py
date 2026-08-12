@@ -18,7 +18,7 @@ import torch
 import ttnn
 
 from .protenix import _KeyedWeights
-from .tenstorrent import get_device
+from .tenstorrent import CONCAT_HOST_BYTES, _acc_append, _acc_concat, get_device
 
 # opendde/data/tokenizer.py
 STRUCTURAL_TOKEN_ROLES = {
@@ -238,6 +238,23 @@ class StructuralTokenExpander(_KeyedWeights):
         z_flat = ttnn.from_torch(
             z_res.reshape(Nr * Nr, self.c_z), layout=ttnn.ROW_MAJOR_LAYOUT,
             device=get_device(), dtype=getattr(self, "dtype", ttnn.bfloat16))
+        # Assemble z_struct on the host once it is large, and upload it as ONE allocation
+        # after the row loop's transients are gone.
+        #
+        # This is placement, not footprint. Measured on the Galaxy at Ns=2113: the trunk hands
+        # the seam a single 912.8 MiB/bank hole, and by the time this function returns the
+        # largest hole is 208.7 MiB -- already the number the refiner is then refused at, before
+        # it has allocated anything. The device concat asks for its [Ns,Ns,c_z] result while all
+        # ceil(Ns/128) row chunks are still live beside it (~3.4 GB at Ns=2113), so the result
+        # lands above them and its neighbours never coalesce. Accumulating on the host leaves at
+        # most one chunk on device, so the upload takes the bottom of an intact hole and what
+        # remains above it stays contiguous -- which is what the refiner's own pair tensor needs.
+        #
+        # Bit-exact: to_torch preserves the bf16 bytes, the concat is along the row axis so no
+        # tile padding is crossed, and from_torch re-tilizes the same values. bf16 only, for the
+        # reason _host_concat gives: a bf8 or fp32 round trip through torch bf16 would not be.
+        host_z = (z_flat.dtype == ttnn.bfloat16
+                  and Ns * Ns * self.c_z * 2 > CONCAT_HOST_BYTES)
         z_chunks, ab_chunks = [], []
         for start in range(0, Ns, chunk):
             end = min(start + chunk, Ns)
@@ -254,10 +271,10 @@ class StructuralTokenExpander(_KeyedWeights):
                 ttnn.reshape(z_dev, (end - start, Ns, self.c_z)), ttnn.TILE_LAYOUT)
             z_tile = ttnn.add(z_tile, self._pair_project_full(z_dev, role, row_index))
             z_tile = ttnn.add(z_tile, self._pair_init_bias(pf))
-            z_chunks.append(z_tile)
+            _acc_append(z_chunks, z_tile, host_z)
             ab_chunks.append(self._attn_bias(pf))
-        ttnn.deallocate(z_flat)
-        z_struct = z_chunks[0] if len(z_chunks) == 1 else ttnn.concat(z_chunks, dim=-3)
+        ttnn.deallocate(z_flat)          # free the row loop's biggest resident before uploading
+        z_struct = _acc_concat(z_chunks, -3, host_z)
         attn_bias = ab_chunks[0] if len(ab_chunks) == 1 else ttnn.concat(ab_chunks, dim=0)
         return s_inputs_struct, s_struct, z_struct, attn_bias
 
