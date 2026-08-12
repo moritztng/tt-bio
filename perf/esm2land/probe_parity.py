@@ -91,7 +91,12 @@ def main():
     ap.add_argument("--L", type=int, nargs="+", default=[298, 320, 512])
     ap.add_argument("--rows", type=int, nargs="+", default=[32])
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--arms", default="", help="comma-separated substrings; empty = all arms")
+    ap.add_argument("--skip-ref", action="store_true",
+                    help="do not build the reference (no parity, but reaches L where the "
+                         "full-size fc1 output alone would not fit)")
     a = ap.parse_args()
+    want = [x for x in a.arms.split(",") if x]
     CZ, FF = 256, 1024
 
     from tt_bio.main import _detect_p300_devices, _find_ttnn_mesh_graph_descriptor
@@ -211,19 +216,26 @@ def main():
         T._L1_OUT_REFUSED.clear()
 
         _TAG[0] = f"L{L}:ref"
-        ref_t = ttnn.to_torch(ref())
-        entry["arms"]["ref_shipped"] = bench(ref)
+        if a.skip_ref:
+            ref_t = None
+        else:
+            ref_t = ttnn.to_torch(ref())
+            entry["arms"]["ref_shipped"] = bench(ref)
 
         arms = [("A_split", arm_a), ("D_engine_full", arm_d)]
         arms += [(f"C_rows{r}", arm_c(r)) for r in a.rows]
         arms += [(f"E_lin_L1gated_rows{r}", arm_e(r, True)) for r in a.rows]
         arms += [(f"F_lin_DRAMgated_rows{r}", arm_e(r, False)) for r in a.rows]
+        if want:
+            arms = [(n, f) for n, f in arms if any(w in n for w in want)]
         for name, fn in arms:
             _TAG[0] = f"L{L}:{name}"
             n0 = len(LEGS)
             try:
                 got = ttnn.to_torch(fn())
-                entry["exact_vs_shipped"][name] = bool(torch.equal(ref_t, got))
+                entry["exact_vs_shipped"][name] = (
+                    None if ref_t is None else bool(torch.equal(ref_t, got))
+                )
                 entry["arms"][name] = bench(fn)
             except Exception as e:
                 entry["exact_vs_shipped"][name] = f"RAISED: {type(e).__name__}: {str(e)[:160]}"
