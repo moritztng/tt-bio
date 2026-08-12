@@ -466,10 +466,24 @@ class DiffusionConditioningModel(Module):
     def cond_pair(self, z_trunk, relpos):
         """Pair conditioning z = f(z_trunk, relpos). Step-INVARIANT (no t / no
         coords) — computed once and cached across the diffusion trajectory."""
+        # Three full-size pair tensors used to be live when z_proj allocates its own
+        # [B,L,L,256]: the concat and its layer_norm, both [B,L,L,c_z+c_rel], plus the
+        # concat's own inputs which the caller still owns. At L=1095 on a trunk that has
+        # already left ~10 GiB resident that is the allocation esmfold2's 9j4c exclusion
+        # dies on at the campaign's 64 samples — 627916800 B = 1095x1120x256x2 refused
+        # with 34281632 B/bank free, i.e. 96.8 pct occupancy, measured on the WH Galaxy.
+        #
+        # Both intermediates are dead the moment the next op has read them, so freeing
+        # them there costs nothing and changes no arithmetic. The concat alone is wider
+        # than the refused buffer, so releasing it before the matmul is what makes 9j4c
+        # fit; releasing the norm after it keeps the transitions off the same ceiling.
         ck = self.compute_kernel_config
         lin = self._lin
-        z = ttnn.concat([z_trunk, relpos], dim=-1)
-        z = lin(ttnn.layer_norm(z, weight=self.z_in_w, bias=self.z_in_b, epsilon=1e-5, compute_kernel_config=ck), self.z_proj_w)
+        zc = ttnn.concat([z_trunk, relpos], dim=-1)
+        zn = ttnn.layer_norm(zc, weight=self.z_in_w, bias=self.z_in_b, epsilon=1e-5, compute_kernel_config=ck)
+        ttnn.deallocate(zc)
+        z = lin(zn, self.z_proj_w)
+        ttnn.deallocate(zn)
         for t in self.z_trans:
             z = ttnn.add(z, t(z))
         return z
