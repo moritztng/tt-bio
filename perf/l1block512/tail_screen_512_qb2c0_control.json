@@ -1,0 +1,106 @@
+{
+  "n": 512,
+  "reps": 5,
+  "grid": [
+    11,
+    10
+  ],
+  "c_z": 256,
+  "hidden": 256,
+  "trimul_calls_per_fold": 1208,
+  "aa_pipe_ms": 0.0194,
+  "legs": [
+    {
+      "leg": "A_off",
+      "mode": "off",
+      "rows": 0,
+      "pipe_ms": 18.1597,
+      "pipe_delta_ms": 0.0,
+      "sync_ms": 18.1973,
+      "sync_delta_ms": 0.0,
+      "pipe_all": [
+        18.1222,
+        18.1791,
+        18.1597,
+        18.1503,
+        18.1997
+      ],
+      "parity": "reference"
+    },
+    {
+      "leg": "block_R128",
+      "mode": "block",
+      "rows": 128,
+      "pipe_ms": 18.8639,
+      "pipe_delta_ms": 0.7042,
+      "sync_ms": 18.9826,
+      "sync_delta_ms": 0.7853,
+      "pipe_all": [
+        18.7976,
+        18.9004,
+        18.869,
+        18.8341,
+        18.8639
+      ],
+      "parity": "torch.equal=True max_abs_diff=0.000e+00"
+    },
+    {
+      "leg": "blockdram_R128",
+      "mode": "blockdram",
+      "rows": 128,
+      "pipe_ms": 19.9796,
+      "pipe_delta_ms": 1.8198,
+      "sync_ms": 20.1381,
+      "sync_delta_ms": 1.9408,
+      "pipe_all": [
+        19.9776,
+        19.9796,
+        19.9329,
+        19.9949,
+        19.9923
+      ],
+      "parity": "torch.equal=True max_abs_diff=0.000e+00"
+    },
+    {
+      "leg": "blockdram_R256",
+      "mode": "blockdram",
+      "rows": 256,
+      "pipe_ms": 20.2477,
+      "pipe_delta_ms": 2.0879,
+      "sync_ms": 20.3466,
+      "sync_delta_ms": 2.1493,
+      "pipe_all": [
+        20.2477,
+        20.3091,
+        20.1639,
+        20.2103,
+        20.273
+      ],
+      "parity": "torch.equal=True max_abs_diff=0.000e+00"
+    },
+    {
+      "leg": "A_off_2",
+      "mode": "off",
+      "rows": 0,
+      "pipe_ms": 18.1403,
+      "pipe_delta_ms": -0.0194,
+      "sync_ms": 18.378,
+      "sync_delta_ms": 0.1807,
+      "pipe_all": [
+        18.1345,
+        18.1018,
+        18.1496,
+        18.155,
+        18.1403
+      ],
+      "parity": "torch.equal=True max_abs_diff=0.000e+00"
+    }
+  ],
+  "parity": {
+    "A_off": "reference",
+    "block_R128": "torch.equal=True max_abs_diff=0.000e+00",
+    "blockdram_R128": "torch.equal=True max_abs_diff=0.000e+00",
+    "blockdram_R256": "torch.equal=True max_abs_diff=0.000e+00",
+    "A_off_2": "torch.equal=True max_abs_diff=0.000e+00"
+  }
+}

@@ -1869,6 +1869,59 @@ def _trimul_out_proj(
     return _pair_proj_linear(x, weight, ckc, _dtype(), l1_out=True)
 
 
+# The trimul output tail is four full-size DRAM ops: `norm_out` -> `p_out` -> `g_out(x_norm_in)` ->
+# `multiply_`. Measured in situ at 512 aa it is 4.032 ms of the 13.33 ms call and it moves 1207.8 MB
+# (671.0 read + 536.8 write) to produce 134.2 MB of result. Every intermediate is a whole pair
+# tensor, so none of them can be L1-resident at that size and all four round-trip DRAM.
+#
+# Two forms delete traffic without touching a value:
+#   "l1norm"  the out norm writes L1 and `p_out` reads it there. One 134.22 MB write and the read
+#             that follows it disappear. No extra ops, no row blocking, and `_l1_layer_norm` falls
+#             back to today's DRAM path if the allocator refuses.
+#   "block"   row-block the whole tail at `_TRIMUL_TAIL_ROWS` rows with every intermediate in L1.
+#             Both norms are row-local and both projections keep `K_block` over the whole
+#             contraction, so a row partition is the same arithmetic in the same order, not a
+#             reassociation -- `torch.equal` is the gate, not a tolerance. It pays a closing concat
+#             (268.4 MB) and ~21 extra dispatches at 512 aa, which is why it is screened and not
+#             assumed.
+# MEASURED LOSS, both of them. Kept only as the A/B toggle behind
+# `perf/l1block512/screen_tail.py`, which measures every leg in situ on real protenix-v2 layer-0
+# weights, interleaved, median of 7, `torch.equal` against production. At 512 aa on qb2 card 0,
+# 11x10 grid, against an 18.143 ms/call production leg with a 0.006-0.019 ms A/A floor:
+#
+#     l1norm                       does not build. 134.22 MB in L1 leaves 241152 B free per bank
+#                                  and the projection's static circular buffers need to reach
+#                                  569856 where the buffer sits at 352256. Full-size residency is
+#                                  not available at this size, only blocked residency is.
+#     block  R=64                  +0.890 ms/call
+#     block  R=128                 +0.704 / +0.736 ms/call   (two runs)
+#     block  R=256                 does not build
+#     blockdram R=128 (control)    +1.820 ms/call
+#     blockdram R=256 (control)    +2.088 ms/call
+#
+# The control is the point, and it splits the change into two effects that point opposite ways.
+# Row blocking on its own costs +1.820 ms/call, because ttnn has no row-range operand: each block
+# must materialise its slice of `x` and of `x_norm_in` as a real tensor first, which ADDS 402.6 MB
+# of reads and 402.6 MB of writes per call before anything is deleted, plus a closing 268.4 MB
+# concat. Its own byte model says +2.45 ms at the measured roofs, so blocking is not paying an
+# unexplained penalty; it is simply moving 805 MB the unblocked chain never moves.
+# L1 residency then returns 1.116 ms of that. Against the control it deletes 671.0 MB of DRAM
+# reads and 671.0 MB of writes, a 4.058 ms byte model at 398.8 / 271.5 GB/s, so the return is
+# 27.5 % -- the same order as the 19 % an L1-output projection returned at 298 aa
+# (`stage-through-l1-fixes-source-not-destination`), and for the same reason: most of what
+# residency deletes is write-side and write-side deletions barely pay.
+# Both forms are `torch.equal` against production, so this is a rate result, not a parity one.
+#
+# The pincer generalises to the whole L1-blocking program at this size: a full-size pair tensor is
+# 134.22 MB and two live is 268 MB against 168.57 MB of grid L1, so residency is reachable ONLY
+# through blocking, and blocking costs 1.63x what residency returns. See
+# `state/protenix-to-4x.md`.
+TRIMUL_TAIL_MODE = "off"
+_TRIMUL_TAIL_MODE = os.environ.get("TT_BIO_TRIMUL_TAIL", TRIMUL_TAIL_MODE)
+TRIMUL_TAIL_ROWS = 128
+_TRIMUL_TAIL_ROWS = int(os.environ.get("TT_BIO_TRIMUL_TAIL_ROWS", str(TRIMUL_TAIL_ROWS)))
+
+
 def _channel_move_back(chunk: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.Tensor:
     """``permute(chunk, (0, 2, 3, 1))``, through the hand-written kernel where it wins.
 
@@ -2224,13 +2277,32 @@ class TriangleMultiplication(Module):
             ttnn.deallocate(x)
             dram_peak(f"trimul({'end' if self.ending else 'start'}) tail blocks done [z={'x'.join(str(d) for d in x_in.shape)}]")
             return _acc_concat(blocks, 1, host_acc)
-        x = ttnn.layer_norm(
-            x,
-            weight=self.out_norm_weight,
-            bias=self.out_norm_bias,
-            epsilon=1e-5,
-            compute_kernel_config=self.compute_kernel_config,
-        )
+        return self._tail(x, x_norm_in, H)
+
+    def _tail(self, x: ttnn.Tensor, x_norm_in: ttnn.Tensor, H: int) -> ttnn.Tensor:
+        """`norm_out` -> `p_out` -> `g_out(x_norm_in)` -> `multiply_`. See `_TRIMUL_TAIL_MODE`."""
+        if (_TRIMUL_TAIL_MODE in ("block", "blockdram") and H > _TRIMUL_TAIL_ROWS
+                and H % _TRIMUL_TAIL_ROWS == 0):
+            return self._tail_row_blocked(x, x_norm_in, H)
+        if _TRIMUL_TAIL_MODE == "l1norm":
+            # headroom 1.0: the projection that reads this is the only other thing live on the
+            # banks and it takes its own output to DRAM at this size, so the norm result is the
+            # whole L1 ask. A refusal returns today's DRAM path unchanged.
+            x, _ = _l1_layer_norm(
+                x, 1.0,
+                weight=self.out_norm_weight,
+                bias=self.out_norm_bias,
+                epsilon=1e-5,
+                compute_kernel_config=self.compute_kernel_config,
+            )
+        else:
+            x = ttnn.layer_norm(
+                x,
+                weight=self.out_norm_weight,
+                bias=self.out_norm_bias,
+                epsilon=1e-5,
+                compute_kernel_config=self.compute_kernel_config,
+            )
         p_out = _trimul_out_proj(x, self.out_p_weight, self.compute_kernel_config)
         ttnn.deallocate(x)
         dram_peak(f"trimul({'end' if self.ending else 'start'}) p_out done [z={'x'.join(str(d) for d in x_norm_in.shape)}]")
@@ -2240,6 +2312,52 @@ class TriangleMultiplication(Module):
             p_out, g_out, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
         )
         return x
+
+    def _tail_row_blocked(self, x: ttnn.Tensor, x_norm_in: ttnn.Tensor, H: int) -> ttnn.Tensor:
+        """The tail over row blocks, every intermediate in L1.
+
+        A row block of `_TRIMUL_TAIL_ROWS` rows at 512 aa is 33.55 MB, so the two live
+        projection results are 67.1 MB of the grid's 168.57 MB and the chain never reaches DRAM
+        between the input slice and the block result. Bit-exact by row locality (both layer norms
+        normalise over the last axis) plus an unchanged contraction blocking in both projections.
+        """
+        # "blockdram" is the control that separates the two things this change does at once:
+        # it row-blocks identically but keeps every intermediate in DRAM, so the difference
+        # between the two modes is what L1 residency is worth and the difference from
+        # production is what row blocking costs.
+        L1 = (ttnn.DRAM_MEMORY_CONFIG if _TRIMUL_TAIL_MODE == "blockdram"
+              else ttnn.L1_MEMORY_CONFIG)
+        shape = [int(d) for d in x.shape]
+        blocks = []
+        for s in range(0, H, _TRIMUL_TAIL_ROWS):
+            e = s + _TRIMUL_TAIL_ROWS
+            start, end = [0] * len(shape), list(shape)
+            start[1], end[1] = s, e
+            x_rows = ttnn.layer_norm(
+                ttnn.slice(x, start, end, memory_config=L1),
+                weight=self.out_norm_weight,
+                bias=self.out_norm_bias,
+                epsilon=1e-5,
+                compute_kernel_config=self.compute_kernel_config,
+                memory_config=L1,
+            )
+            p_block = _trimul_out_proj(x_rows, self.out_p_weight, self.compute_kernel_config)
+            ttnn.deallocate(x_rows)
+            z_rows = ttnn.slice(x_norm_in, start, end, memory_config=L1)
+            g_block = _trimul_out_proj(z_rows, self.g_out_weight, self.compute_kernel_config)
+            ttnn.deallocate(z_rows)
+            blocks.append(ttnn.multiply(
+                p_block, g_block, memory_config=ttnn.DRAM_MEMORY_CONFIG,
+                input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID],
+            ))
+            ttnn.deallocate(p_block)
+            ttnn.deallocate(g_block)
+        ttnn.deallocate(x)
+        ttnn.deallocate(x_norm_in)
+        out = ttnn.concat(blocks, 1, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        for b in blocks:
+            ttnn.deallocate(b)
+        return out
 
 
 # The qkv and g projections are the fold's two biggest `minimal_matmul` sites after the trimul

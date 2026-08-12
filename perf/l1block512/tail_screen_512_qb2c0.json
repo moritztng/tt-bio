@@ -1,0 +1,98 @@
+{
+  "n": 512,
+  "reps": 7,
+  "grid": [
+    11,
+    10
+  ],
+  "c_z": 256,
+  "hidden": 256,
+  "trimul_calls_per_fold": 1208,
+  "aa_pipe_ms": 0.0055,
+  "legs": [
+    {
+      "leg": "A_off",
+      "mode": "off",
+      "rows": 0,
+      "pipe_ms": 18.143,
+      "pipe_delta_ms": 0.0,
+      "sync_ms": 18.1805,
+      "sync_delta_ms": 0.0,
+      "pipe_all": [
+        18.1405,
+        18.1222,
+        18.1772,
+        18.1754,
+        18.1022,
+        18.143,
+        18.1602
+      ],
+      "parity": "reference"
+    },
+    {
+      "leg": "block_R64",
+      "mode": "block",
+      "rows": 64,
+      "pipe_ms": 19.0333,
+      "pipe_delta_ms": 0.8903,
+      "sync_ms": 19.0311,
+      "sync_delta_ms": 0.8506,
+      "pipe_all": [
+        19.0086,
+        19.0487,
+        19.0419,
+        19.0613,
+        19.0215,
+        19.0333,
+        18.9842
+      ],
+      "parity": "torch.equal=True max_abs_diff=0.000e+00"
+    },
+    {
+      "leg": "block_R128",
+      "mode": "block",
+      "rows": 128,
+      "pipe_ms": 18.8786,
+      "pipe_delta_ms": 0.7356,
+      "sync_ms": 18.9188,
+      "sync_delta_ms": 0.7383,
+      "pipe_all": [
+        18.9327,
+        18.8844,
+        18.8786,
+        18.7991,
+        18.825,
+        18.8785,
+        18.897
+      ],
+      "parity": "torch.equal=True max_abs_diff=0.000e+00"
+    },
+    {
+      "leg": "A_off_2",
+      "mode": "off",
+      "rows": 0,
+      "pipe_ms": 18.1485,
+      "pipe_delta_ms": 0.0055,
+      "sync_ms": 18.2117,
+      "sync_delta_ms": 0.0312,
+      "pipe_all": [
+        18.1681,
+        18.1007,
+        18.1485,
+        18.1532,
+        18.143,
+        18.1543,
+        18.0982
+      ],
+      "parity": "torch.equal=True max_abs_diff=0.000e+00"
+    }
+  ],
+  "parity": {
+    "A_off": "reference",
+    "l1norm": "RAISED RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 31 clash with L1 buffers on cor",
+    "block_R64": "torch.equal=True max_abs_diff=0.000e+00",
+    "block_R128": "torch.equal=True max_abs_diff=0.000e+00",
+    "block_R256": "RAISED RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 79 clash with L1 buffers on cor",
+    "A_off_2": "torch.equal=True max_abs_diff=0.000e+00"
+  }
+}
