@@ -244,6 +244,32 @@ class Attention(Module):
         return out
 
 
+# ESMFold2 asks its pair transition for a fused SwiGLU kernel that no shipped ttnn wheel has:
+# `ttnn.experimental.minimal_matmul` takes no `fuse_swiglu` kwarg on 0.68.0, so the request fell
+# through to `_lin -> chunk -> silu -> multiply`. That chain moves 4.832 GB per call at
+# [1,512,512,256] to compute an expression whose information content is 1.611 GB, because
+# `ttnn.chunk` copies the whole fc1 output and `silu` and `multiply` each re-read what the op
+# before them wrote.
+#
+# Splitting fc1 into its two halves on the host removes the chunk, and running the SiLU as the
+# multiply's operand-A activation removes the silu. MEASURED on qb2, median of 5, c_z=256,
+# d_ff=1024 (perf/esm2land/): 9.564 -> 6.860 ms/call at 298 aa, 10.196 -> 7.314 at 320,
+# 29.442 -> 21.166 at 512, `torch.equal` against the chain it replaces at every size.
+#
+# Two dead ends, measured, so they are not retried: putting the SiLU in the fc1 epilogue instead
+# is 1.50x SLOWER (8.621 vs 5.747 ms), and `ttnn.swiglu` is both slower and not bit-exact.
+# See state/esmfold2-512aa-deep-perf.md.
+SPLIT_SWIGLU = True
+_SPLIT_SWIGLU = os.environ.get("TT_BIO_SPLIT_SWIGLU", "1" if SPLIT_SWIGLU else "0") == "1"
+
+
+def set_split_swiglu(on: bool) -> bool:
+    """A/B switch for the split-fc1 SwiGLU path. Returns the previous state."""
+    global _SPLIT_SWIGLU
+    prev, _SPLIT_SWIGLU = _SPLIT_SWIGLU, bool(on)
+    return prev
+
+
 def _pack_swiglu_weight(weight: torch.Tensor) -> torch.Tensor:
     packed = weight.t()
     rows, two_n = packed.shape
@@ -268,9 +294,33 @@ class SwiGLUFFN(Module):
         # fc1/fc2 are the FFN's big matmuls (and the bulk of the ESMC-6B FLOPs);
         # block-fp8 in fast mode, bf16 otherwise. Shared with the folding trunk's
         # pair-transition, so fast mode bf8's that too.
-        transform = _pack_swiglu_weight if self.fuse_swiglu else lambda weight: weight.t()
-        self.fc1_weight = self.torch_to_tt("1.weight", transform=transform, dtype=_dtype())
+        # With no fused kernel in the wheel, `fuse_swiglu=True` really selects the split-fc1
+        # path (see SPLIT_SWIGLU above). Build only the fc1 layout the live path reads.
+        self.split_swiglu = bool(fuse_swiglu and not self.fuse_swiglu)
+        if self.split_swiglu:
+            half = self.weights["1.weight"].shape[0] // 2
+            self.fc1_weight = None
+            self.fc1_a_weight = self.torch_to_tt(
+                "1.weight", transform=lambda w: w[:half].t(), dtype=_dtype()
+            )
+            self.fc1_b_weight = self.torch_to_tt(
+                "1.weight", transform=lambda w: w[half:].t(), dtype=_dtype()
+            )
+        else:
+            transform = _pack_swiglu_weight if self.fuse_swiglu else lambda weight: weight.t()
+            self.fc1_weight = self.torch_to_tt("1.weight", transform=transform, dtype=_dtype())
         self.fc2_weight = self.torch_to_tt("3.weight", dtype=_dtype())
+
+    def _fc1_full(self) -> ttnn.Tensor:
+        """The unsplit fc1 weight, built on demand for the A/B control arm.
+
+        `concat` along the output dim is the two halves' own values in their own order, so the
+        control arm stays byte-identical to the shipped path without a second copy of the weight
+        resident in production: 1.05 MB per block, 50 MB over ESMFold2's 48 pair transitions.
+        """
+        if self.fc1_weight is None:
+            self.fc1_weight = ttnn.concat([self.fc1_a_weight, self.fc1_b_weight], dim=-1)
+        return self.fc1_weight
 
     def _ffn(self, x: ttnn.Tensor) -> ttnn.Tensor:
         ck = self.compute_kernel_config
@@ -287,8 +337,15 @@ class SwiGLUFFN(Module):
                 fuse_swiglu=True,
             )
             ttnn.deallocate(x_norm)
+        elif self.split_swiglu and _SPLIT_SWIGLU:
+            h1 = self._lin(x_norm, self.fc1_a_weight)
+            h2 = self._lin(x_norm, self.fc1_b_weight)
+            ttnn.deallocate(x_norm)
+            gated = ttnn.multiply(h1, h2, input_tensor_a_activations=[ttnn.UnaryOpType.SILU])
+            ttnn.deallocate(h1)
+            ttnn.deallocate(h2)
         else:
-            h = self._lin(x_norm, self.fc1_weight)
+            h = self._lin(x_norm, self._fc1_full())
             ttnn.deallocate(x_norm)
             x1, x2 = ttnn.chunk(h, 2, dim=-1)
             ttnn.deallocate(h)

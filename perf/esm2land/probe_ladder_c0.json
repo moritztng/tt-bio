@@ -1,0 +1,362 @@
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "grid": [
+  11,
+  10
+ ],
+ "cz": 256,
+ "d_ff": 1024,
+ "PAIR_PROJ_BW": 16,
+ "PAIR_PROJ_L1_BW": 16,
+ "sizes": {
+  "298": {
+   "arms": {
+    "ref_shipped": 9.58,
+    "A_split": 6.909,
+    "D_engine_full": 6.919,
+    "C_rows32": 6.796,
+    "E_lin_L1gated_rows32": 6.804,
+    "F_lin_DRAMgated_rows32": 7.945
+   },
+   "exact_vs_shipped": {
+    "A_split": true,
+    "D_engine_full": true,
+    "C_rows32": false,
+    "E_lin_L1gated_rows32": false,
+    "F_lin_DRAMgated_rows32": false
+   },
+   "legs": {
+    "A_split": {},
+    "D_engine_full": {
+     "core_grid_untuned": 16
+    },
+    "C_rows32": {
+     "L1_cfg_None->core_grid_untuned": 160
+    },
+    "E_lin_L1gated_rows32": {},
+    "F_lin_DRAMgated_rows32": {}
+   },
+   "l1_refused_cache": []
+  },
+  "320": {
+   "arms": {
+    "ref_shipped": 10.205,
+    "A_split": 7.308,
+    "D_engine_full": 7.355,
+    "C_rows32": 7.298,
+    "E_lin_L1gated_rows32": 7.263,
+    "F_lin_DRAMgated_rows32": 8.473
+   },
+   "exact_vs_shipped": {
+    "A_split": true,
+    "D_engine_full": true,
+    "C_rows32": true,
+    "E_lin_L1gated_rows32": true,
+    "F_lin_DRAMgated_rows32": true
+   },
+   "legs": {
+    "A_split": {},
+    "D_engine_full": {
+     "core_grid_untuned": 16
+    },
+    "C_rows32": {
+     "L1_cfg_None->core_grid_untuned": 160
+    },
+    "E_lin_L1gated_rows32": {},
+    "F_lin_DRAMgated_rows32": {}
+   },
+   "l1_refused_cache": []
+  },
+  "352": {
+   "arms": {
+    "ref_shipped": 12.864,
+    "A_split": 9.309,
+    "D_engine_full": 9.31,
+    "C_rows32": 9.116,
+    "E_lin_L1gated_rows32": 9.11,
+    "F_lin_DRAMgated_rows32": 10.381
+   },
+   "exact_vs_shipped": {
+    "A_split": true,
+    "D_engine_full": true,
+    "C_rows32": true,
+    "E_lin_L1gated_rows32": true,
+    "F_lin_DRAMgated_rows32": true
+   },
+   "legs": {
+    "A_split": {},
+    "D_engine_full": {
+     "core_grid_untuned": 16
+    },
+    "C_rows32": {
+     "L1_cfg_None->core_grid_untuned": 176
+    },
+    "E_lin_L1gated_rows32": {},
+    "F_lin_DRAMgated_rows32": {}
+   },
+   "l1_refused_cache": []
+  },
+  "384": {
+   "arms": {
+    "ref_shipped": 15.561,
+    "A_split": 10.533,
+    "D_engine_full": 10.51,
+    "C_rows32": 10.743,
+    "E_lin_L1gated_rows32": 10.72,
+    "F_lin_DRAMgated_rows32": 12.604
+   },
+   "exact_vs_shipped": {
+    "A_split": true,
+    "D_engine_full": true,
+    "C_rows32": true,
+    "E_lin_L1gated_rows32": true,
+    "F_lin_DRAMgated_rows32": true
+   },
+   "legs": {
+    "A_split": {},
+    "D_engine_full": {
+     "core_grid_untuned": 16
+    },
+    "C_rows32": {
+     "L1_cfg_None->core_grid_untuned": 192
+    },
+    "E_lin_L1gated_rows32": {},
+    "F_lin_DRAMgated_rows32": {}
+   },
+   "l1_refused_cache": []
+  },
+  "385": {
+   "arms": {
+    "ref_shipped": 18.416,
+    "A_split": 13.166,
+    "D_engine_full": 13.195,
+    "C_rows32": 11.507,
+    "E_lin_L1gated_rows32": 11.503,
+    "F_lin_DRAMgated_rows32": 13.681
+   },
+   "exact_vs_shipped": {
+    "A_split": true,
+    "D_engine_full": true,
+    "C_rows32": true,
+    "E_lin_L1gated_rows32": true,
+    "F_lin_DRAMgated_rows32": true
+   },
+   "legs": {
+    "A_split": {},
+    "D_engine_full": {
+     "core_grid_untuned": 16
+    },
+    "C_rows32": {
+     "L1_cfg_None->core_grid_untuned": 208
+    },
+    "E_lin_L1gated_rows32": {},
+    "F_lin_DRAMgated_rows32": {}
+   },
+   "l1_refused_cache": []
+  },
+  "400": {
+   "arms": {
+    "ref_shipped": 18.202,
+    "A_split": 12.65,
+    "D_engine_full": 12.565,
+    "C_rows32": 11.863,
+    "E_lin_L1gated_rows32": 11.888,
+    "F_lin_DRAMgated_rows32": 13.919
+   },
+   "exact_vs_shipped": {
+    "A_split": true,
+    "D_engine_full": true,
+    "C_rows32": true,
+    "E_lin_L1gated_rows32": true,
+    "F_lin_DRAMgated_rows32": true
+   },
+   "legs": {
+    "A_split": {},
+    "D_engine_full": {
+     "core_grid_untuned": 16
+    },
+    "C_rows32": {
+     "L1_cfg_None->core_grid_untuned": 208
+    },
+    "E_lin_L1gated_rows32": {},
+    "F_lin_DRAMgated_rows32": {}
+   },
+   "l1_refused_cache": []
+  },
+  "416": {
+   "arms": {
+    "ref_shipped": 19.038,
+    "A_split": 14.305,
+    "D_engine_full": 14.355,
+    "C_rows32": 12.182,
+    "E_lin_L1gated_rows32": 12.177,
+    "F_lin_DRAMgated_rows32": 14.274
+   },
+   "exact_vs_shipped": {
+    "A_split": true,
+    "D_engine_full": true,
+    "C_rows32": true,
+    "E_lin_L1gated_rows32": true,
+    "F_lin_DRAMgated_rows32": true
+   },
+   "legs": {
+    "A_split": {},
+    "D_engine_full": {
+     "core_grid_untuned": 16
+    },
+    "C_rows32": {
+     "L1_cfg_None->core_grid_untuned": 208
+    },
+    "E_lin_L1gated_rows32": {},
+    "F_lin_DRAMgated_rows32": {}
+   },
+   "l1_refused_cache": []
+  },
+  "448": {
+   "arms": {
+    "ref_shipped": 24.559,
+    "A_split": 26.508,
+    "D_engine_full": 26.491,
+    "C_rows32": 14.459,
+    "E_lin_L1gated_rows32": 14.473,
+    "F_lin_DRAMgated_rows32": 17.059
+   },
+   "exact_vs_shipped": {
+    "A_split": true,
+    "D_engine_full": true,
+    "C_rows32": true,
+    "E_lin_L1gated_rows32": true,
+    "F_lin_DRAMgated_rows32": true
+   },
+   "legs": {
+    "A_split": {},
+    "D_engine_full": {
+     "core_grid_untuned": 16
+    },
+    "C_rows32": {
+     "L1_cfg_None->core_grid_untuned": 224
+    },
+    "E_lin_L1gated_rows32": {},
+    "F_lin_DRAMgated_rows32": {}
+   },
+   "l1_refused_cache": []
+  },
+  "480": {
+   "arms": {
+    "ref_shipped": 22.814,
+    "A_split": 16.265,
+    "D_engine_full": 16.352,
+    "C_rows32": 16.21,
+    "E_lin_L1gated_rows32": 16.201,
+    "F_lin_DRAMgated_rows32": 19.239
+   },
+   "exact_vs_shipped": {
+    "A_split": true,
+    "D_engine_full": true,
+    "C_rows32": true,
+    "E_lin_L1gated_rows32": true,
+    "F_lin_DRAMgated_rows32": true
+   },
+   "legs": {
+    "A_split": {},
+    "D_engine_full": {
+     "core_grid_untuned": 16
+    },
+    "C_rows32": {
+     "L1_cfg_None->core_grid_untuned": 240
+    },
+    "E_lin_L1gated_rows32": {},
+    "F_lin_DRAMgated_rows32": {}
+   },
+   "l1_refused_cache": []
+  },
+  "512": {
+   "arms": {
+    "ref_shipped": 29.618,
+    "A_split": 21.327,
+    "D_engine_full": 21.326,
+    "C_rows32": 18.091,
+    "E_lin_L1gated_rows32": 18.057,
+    "F_lin_DRAMgated_rows32": 21.422
+   },
+   "exact_vs_shipped": {
+    "A_split": true,
+    "D_engine_full": true,
+    "C_rows32": true,
+    "E_lin_L1gated_rows32": true,
+    "F_lin_DRAMgated_rows32": true
+   },
+   "legs": {
+    "A_split": {},
+    "D_engine_full": {
+     "core_grid_untuned": 16
+    },
+    "C_rows32": {
+     "L1_cfg_None->core_grid_untuned": 256
+    },
+    "E_lin_L1gated_rows32": {},
+    "F_lin_DRAMgated_rows32": {}
+   },
+   "l1_refused_cache": []
+  },
+  "576": {
+   "arms": {
+    "ref_shipped": 34.28,
+    "A_split": 23.036,
+    "D_engine_full": 23.005,
+    "C_rows32": 23.567,
+    "E_lin_L1gated_rows32": 23.48,
+    "F_lin_DRAMgated_rows32": 27.84
+   },
+   "exact_vs_shipped": {
+    "A_split": true,
+    "D_engine_full": true,
+    "C_rows32": true,
+    "E_lin_L1gated_rows32": true,
+    "F_lin_DRAMgated_rows32": true
+   },
+   "legs": {
+    "A_split": {},
+    "D_engine_full": {
+     "core_grid_untuned": 16
+    },
+    "C_rows32": {
+     "L1_cfg_None->core_grid_untuned": 288
+    },
+    "E_lin_L1gated_rows32": {},
+    "F_lin_DRAMgated_rows32": {}
+   },
+   "l1_refused_cache": []
+  },
+  "640": {
+   "arms": {
+    "ref_shipped": 52.215,
+    "A_split": 37.769,
+    "D_engine_full": 37.732,
+    "C_rows32": 28.229,
+    "E_lin_L1gated_rows32": 28.898,
+    "F_lin_DRAMgated_rows32": 33.131
+   },
+   "exact_vs_shipped": {
+    "A_split": true,
+    "D_engine_full": true,
+    "C_rows32": true,
+    "E_lin_L1gated_rows32": true,
+    "F_lin_DRAMgated_rows32": true
+   },
+   "legs": {
+    "A_split": {},
+    "D_engine_full": {
+     "core_grid_untuned": 16
+    },
+    "C_rows32": {
+     "L1_cfg_None->core_grid_untuned": 320
+    },
+    "E_lin_L1gated_rows32": {},
+    "F_lin_DRAMgated_rows32": {}
+   },
+   "l1_refused_cache": []
+  }
+ }
+}
