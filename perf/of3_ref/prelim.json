@@ -1,0 +1,66 @@
+{
+ "gt": {
+  "file": "1hcl.cif",
+  "resolved_ca": 294
+ },
+ "sizes": {
+  "298": {
+   "arm_cifs": {
+    "on": [
+     "298_on_1.cif"
+    ],
+    "P": [
+     "298_P_1.cif"
+    ]
+   },
+   "ref_cifs": [],
+   "arm_vs_arm_A": 16.321045,
+   "gt_ca_rmsd_A": {
+    "whole": {
+     "on": 9.436996,
+     "P": 15.821123,
+     "n_matched_ca": 294
+    }
+   }
+  },
+  "512": {
+   "arm_cifs": {
+    "on": [
+     "512_on_1.cif",
+     "512_on_2.cif"
+    ],
+    "P": [
+     "512_P_1.cif",
+     "512_P_2.cif"
+    ]
+   },
+   "ref_cifs": [],
+   "arm_vs_arm_A": 5.293086,
+   "on_self_A": 0.0,
+   "P_self_A": 0.0,
+   "retained_controls_A": {
+    "on|512_refH200": 7.762501,
+    "P|512_refH200": 8.034621,
+    "on|512_refB200": 7.668567,
+    "P|512_refB200": 7.956154
+   },
+   "ref_hw_floor_A": 0.634242,
+   "gt_ca_rmsd_A": {
+    "copy1(res 1-298)": {
+     "on": 6.662157,
+     "P": 8.143896,
+     "512_refH200": 8.681259,
+     "512_refB200": 8.623706,
+     "n_matched_ca": 294
+    },
+    "copy2(res 299-512)": {
+     "on": 5.759479,
+     "P": 6.148185,
+     "512_refH200": 7.12391,
+     "512_refB200": 7.12138,
+     "n_matched_ca": 210
+    }
+   }
+  }
+ }
+}
