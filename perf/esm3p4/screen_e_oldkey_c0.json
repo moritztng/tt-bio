@@ -1,0 +1,39 @@
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "grid": [
+  11,
+  10
+ ],
+ "N": 512,
+ "n": 7,
+ "arms": {
+  "whole_dram": {
+   "ms": 2.155,
+   "blocks": 1,
+   "x_vs_whole_dram": 1.0
+  },
+  "blocked64_dram": {
+   "ms": 4.9352,
+   "blocks": 8,
+   "x_vs_whole_dram": 0.4367
+  },
+  "blocked64_l1": {
+   "ms": 4.2861,
+   "blocks": 8,
+   "x_vs_whole_dram": 0.5028
+  },
+  "blocked32_dram": {
+   "ms": 8.5746,
+   "blocks": 16,
+   "x_vs_whole_dram": 0.2513
+  },
+  "blocked32_l1": {
+   "ms": 8.5654,
+   "blocks": 16,
+   "x_vs_whole_dram": 0.2516
+  }
+ },
+ "loadavg": "0.81",
+ "kill_gate_ms": 1.11
+}
