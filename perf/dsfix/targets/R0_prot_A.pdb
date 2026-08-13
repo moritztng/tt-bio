@@ -36,8 +36,6 @@ SEQRES  10 A  136  ASN ALA ILE ILE VAL ALA GLY GLN LEU ALA LEU TRP ALA
 SEQRES  11 A  136  VAL GLN CYS GLY LEU SER                                      
 MODRES 7ROA MSE A   74  MET  MODIFIED RESIDUE                                   
 MODRES 7ROA MSE A  139  MET  MODIFIED RESIDUE                                   
-HET    MSE  A  17       8                                                       
-HET    MSE  A  67       8                                                       
 HELIX    1   1 GLU A   60  TYR A   75  1                                  16    
 HELIX    2   2 THR A   80  PHE A   92  1                                  13    
 HELIX    3   3 ALA A   93  ASN A  105  1                                  13    
@@ -288,22 +286,22 @@ ATOM    120  OE1 GLU A  16      21.059  15.448 -24.259  1.00 44.77           O
 ANISOU  120  OE1 GLU A  16     6306   6294   4412   -507    397    406       O  
 ATOM    121  OE2 GLU A  16      20.774  17.626 -24.427  1.00 61.75           O  
 ANISOU  121  OE2 GLU A  16     8804   8113   6544   -631    227    772       O  
-HETATM  122  N   MSE A  17      17.330  12.587 -21.491  1.00 11.48           N  
-ANISOU  122  N   MSE A  17     1700   1779    882    300   -154    295       N  
-HETATM  123  CA  MSE A  17      17.172  11.127 -21.436  1.00 12.69           C  
-ANISOU  123  CA  MSE A  17     1732   1990   1101    371   -158    195       C  
-HETATM  124  C   MSE A  17      15.700  10.802 -21.243  1.00 16.77           C  
-ANISOU  124  C   MSE A  17     2236   2466   1671    411   -168    180       C  
-HETATM  125  O   MSE A  17      15.198   9.792 -21.738  1.00 18.20           O  
-ANISOU  125  O   MSE A  17     2377   2694   1846    439   -166    135       O  
-HETATM  126  CB  MSE A  17      17.886  10.388 -20.295  1.00 19.46           C  
-ANISOU  126  CB  MSE A  17     2485   2817   2091    412   -214    128       C  
-HETATM  127  CG  MSE A  17      17.812  10.957 -18.914  1.00 22.10           C  
-ANISOU  127  CG  MSE A  17     2835   3047   2514    355   -238    163       C  
-HETATM  128 SE   MSE A  17      19.177  10.104 -17.805  0.52 10.58          SE  
-ANISOU  128 SE   MSE A  17     1259   1528   1234    331   -358    134      SE  
-HETATM  129  CE  MSE A  17      20.654  11.369 -17.973  1.00 19.54           C  
-ANISOU  129  CE  MSE A  17     2327   2748   2348    465   -340     39       C  
+ATOM    122  N   MET A  17      17.330  12.587 -21.491  1.00 11.48           N  
+ANISOU  122  N   MET A  17     1700   1779    882    300   -154    295       N  
+ATOM    123  CA  MET A  17      17.172  11.127 -21.436  1.00 12.69           C  
+ANISOU  123  CA  MET A  17     1732   1990   1101    371   -158    195       C  
+ATOM    124  C   MET A  17      15.700  10.802 -21.243  1.00 16.77           C  
+ANISOU  124  C   MET A  17     2236   2466   1671    411   -168    180       C  
+ATOM    125  O   MET A  17      15.198   9.792 -21.738  1.00 18.20           O  
+ANISOU  125  O   MET A  17     2377   2694   1846    439   -166    135       O  
+ATOM    126  CB  MET A  17      17.886  10.388 -20.295  1.00 19.46           C  
+ANISOU  126  CB  MET A  17     2485   2817   2091    412   -214    128       C  
+ATOM    127  CG  MET A  17      17.812  10.957 -18.914  1.00 22.10           C  
+ANISOU  127  CG  MET A  17     2835   3047   2514    355   -238    163       C  
+ATOM    128  SD  MET A  17      19.177  10.104 -17.805  0.52 10.58           S  
+ANISOU  128  SD  MET A  17     1259   1528   1234    331   -358    134       S  
+ATOM    129  CE  MET A  17      20.654  11.369 -17.973  1.00 19.54           C  
+ANISOU  129  CE  MET A  17     2327   2748   2348    465   -340     39       C  
 ATOM    130  N   TYR A  18      15.006  11.633 -20.468  1.00 11.55           N  
 ANISOU  130  N   TYR A  18     1600   1754   1034    429   -181    190       N  
 ATOM    131  CA  TYR A  18      13.684  11.270 -19.977  1.00 10.88           C  
@@ -1088,22 +1086,22 @@ ATOM    520  O   ALA A  66      15.410   8.238   4.603  1.00 22.75           O
 ANISOU  520  O   ALA A  66     5022   1589   2033    584   1471    241       O  
 ATOM    521  CB  ALA A  66      16.757   5.413   4.220  1.00 20.46           C  
 ANISOU  521  CB  ALA A  66     4494   1602   1677    550   1099    310       C  
-HETATM  522  N   MSE A  67      16.701   8.437   2.767  1.00 19.07           N  
-ANISOU  522  N   MSE A  67     4287   1257   1701    402   1213    158       N  
-HETATM  523  CA  MSE A  67      16.997   9.857   2.985  0.52 24.89           C  
-ANISOU  523  CA  MSE A  67     5151   1921   2387    330   1281     77       C  
-HETATM  524  C   MSE A  67      16.191  10.822   2.120  1.00 20.08           C  
-ANISOU  524  C   MSE A  67     4311   1311   2009    335   1497    166       C  
-HETATM  525  O   MSE A  67      15.841  11.918   2.560  1.00 22.15           O  
-ANISOU  525  O   MSE A  67     4667   1447   2303    339   1670    137       O  
-HETATM  526  CB  MSE A  67      18.495  10.103   2.775  0.52 26.36           C  
-ANISOU  526  CB  MSE A  67     5317   2164   2536    220    991   -133       C  
-HETATM  527  CG  MSE A  67      19.357   9.125   3.545  0.52 31.56           C  
-ANISOU  527  CG  MSE A  67     6134   2932   2925    234    752   -197       C  
-HETATM  528 SE   MSE A  67      18.931   9.357   5.437  0.31 57.94          SE  
-ANISOU  528 SE   MSE A  67     9767   6309   5938    316    833   -286      SE  
-HETATM  529  CE  MSE A  67      18.957   7.514   6.018  0.52 44.35           C  
-ANISOU  529  CE  MSE A  67     8058   4748   4044    468    752    -65       C  
+ATOM    522  N   MET A  67      16.701   8.437   2.767  1.00 19.07           N  
+ANISOU  522  N   MET A  67     4287   1257   1701    402   1213    158       N  
+ATOM    523  CA  MET A  67      16.997   9.857   2.985  0.52 24.89           C  
+ANISOU  523  CA  MET A  67     5151   1921   2387    330   1281     77       C  
+ATOM    524  C   MET A  67      16.191  10.822   2.120  1.00 20.08           C  
+ANISOU  524  C   MET A  67     4311   1311   2009    335   1497    166       C  
+ATOM    525  O   MET A  67      15.841  11.918   2.560  1.00 22.15           O  
+ANISOU  525  O   MET A  67     4667   1447   2303    339   1670    137       O  
+ATOM    526  CB  MET A  67      18.495  10.103   2.775  0.52 26.36           C  
+ANISOU  526  CB  MET A  67     5317   2164   2536    220    991   -133       C  
+ATOM    527  CG  MET A  67      19.357   9.125   3.545  0.52 31.56           C  
+ANISOU  527  CG  MET A  67     6134   2932   2925    234    752   -197       C  
+ATOM    528  SD  MET A  67      18.931   9.357   5.437  0.31 57.94           S  
+ANISOU  528  SD  MET A  67     9767   6309   5938    316    833   -286       S  
+ATOM    529  CE  MET A  67      18.957   7.514   6.018  0.52 44.35           C  
+ANISOU  529  CE  MET A  67     8058   4748   4044    468    752    -65       C  
 ATOM    530  N   ILE A  68      15.895  10.420   0.893  1.00 15.32           N  
 ANISOU  530  N   ILE A  68     3299   1260   1262    -14    335   -381       N  
 ATOM    531  CA  ILE A  68      15.254  11.281  -0.093  1.00 14.90           C  
