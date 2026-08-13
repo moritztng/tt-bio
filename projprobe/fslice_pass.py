@@ -136,13 +136,44 @@ def main():
             json.dump(res, open(HERE / "fslice_pass.json", "w"), indent=1)
             return
 
+        # --- mode 2: the selection matmul alone -----------------------------------------------------
+        # T0[r, u] = srcp[r, floor(A*u)], i.e. a pure selection. If this is wrong, the fault is the
+        # tilize/matmul/selection-matrix chain and nothing downstream is worth looking at.
+        ref2 = np.zeros((32, 32))
+        for r in range(NROWS):
+            for u in range(32):
+                ref2[r, u] = srcn[row0 + r, offs_el[r] + math.floor(A * u)]
+        t, pd = build(dev, ins, 2, 1, offs_by, row0)
+        ttnn.generic_op(t, pd)
+        ttnn.synchronize_device(dev)
+        g2 = ttnn.to_torch(out).reshape(SRC_TILES, 32, 32)[0].to(torch.float64).numpy()
+        r2 = float(np.linalg.norm(g2 - ref2) / max(np.linalg.norm(ref2), 1e-300))
+        print(f"mode 2  T0 selection vs fp64: rel L2 {r2:.4e}  max|diff| {np.abs(g2-ref2).max():.3e}",
+              flush=True)
+        res["arms"]["mode2_select"] = {"rel_l2": r2, "max_abs_diff": float(np.abs(g2 - ref2).max())}
+
+        # --- mode 3: the weight tile ----------------------------------------------------------------
+        ref3 = np.zeros((32, 32))
+        for r in range(NROWS):
+            for u in range(32):
+                ref3[r, u] = h[r] + (A * u - math.floor(A * u))
+        t, pd = build(dev, ins, 3, 1, offs_by, row0)
+        ttnn.generic_op(t, pd)
+        ttnn.synchronize_device(dev)
+        g3 = ttnn.to_torch(out).reshape(SRC_TILES, 32, 32)[0].to(torch.float64).numpy()
+        r3 = float(np.linalg.norm(g3 - ref3) / max(np.linalg.norm(ref3), 1e-300))
+        print(f"mode 3  weight tile vs fp64:  rel L2 {r3:.4e}  max|diff| {np.abs(g3-ref3).max():.3e}",
+              flush=True)
+        res["arms"]["mode3_weight"] = {"rel_l2": r3, "max_abs_diff": float(np.abs(g3 - ref3).max())}
+        json.dump(res, open(HERE / "fslice_pass.json", "w"), indent=1)
+
         # --- mode 1: the pass, against an fp64 single-interpolation reference ------------------------
         ref = np.zeros((32, 32))
         for r in range(NROWS):
             for u in range(32):
-                p = A * u + h[r]
-                j = math.floor(p)
-                f = p - j
+                p_ = A * u + h[r]
+                j = math.floor(p_)
+                f = p_ - j
                 b0 = offs_el[r] + j
                 ref[r, u] = (1 - f) * srcn[row0 + r, b0] + f * srcn[row0 + r, b0 + 1]
         t, pd = build(dev, ins, 1, 1, offs_by, row0)
@@ -155,8 +186,12 @@ def main():
         res["arms"]["mode1"] = {"rel_l2": rel, "max_abs_diff": float(np.abs(g1 - ref).max()),
                                 "ref_rms": float(np.sqrt((ref ** 2).mean()))}
         json.dump(res, open(HERE / "fslice_pass.json", "w"), indent=1)
+        if rel > 2e-2:
+            print("  pass is not correct; throughput withheld (timing a wrong kernel is not a result).",
+                  flush=True)
+            return
 
-        # --- throughput of the verified pass --------------------------------------------------------
+        # --- throughput of the VERIFIED pass ---------------------------------------------------------
         NB = 2000
         outb = ttnn.from_torch(torch.zeros(1, 1, 32 * NB, 32).to(torch.bfloat16),
                                dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
@@ -170,8 +205,7 @@ def main():
             ttnn.synchronize_device(dev)
             best = min(best, time.perf_counter() - t0)
         ns = best * 1e9 / NB
-        print(f"one core: {ns:8.1f} ns per output tile per pass "
-              f"({130 * 1e3 / ns:8.1f} k output-tiles/s chip if it scales)", flush=True)
+        print(f"one core: {ns:8.1f} ns per output tile per pass", flush=True)
         res["arms"]["throughput_1core"] = {"ns_per_output_tile": ns, "nblocks": NB}
         json.dump(res, open(HERE / "fslice_pass.json", "w"), indent=1)
     finally:

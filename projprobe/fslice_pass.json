@@ -8,13 +8,21 @@
    "bit_exact": true,
    "mismatches": 0
   },
+  "mode2_select": {
+   "rel_l2": 0.0,
+   "max_abs_diff": 0.0
+  },
+  "mode3_weight": {
+   "rel_l2": 0.002144866260833431,
+   "max_abs_diff": 0.007499999999998508
+  },
   "mode1": {
-   "rel_l2": 1.3966483245698282,
-   "max_abs_diff": 230.67000000000007,
+   "rel_l2": 0.0042012056114737635,
+   "max_abs_diff": 1.229999999999876,
    "ref_rms": 57.901592482519156
   },
   "throughput_1core": {
-   "ns_per_output_tile": 2791.3345038541593,
+   "ns_per_output_tile": 2788.89400215121,
    "nblocks": 2000
   }
  }
