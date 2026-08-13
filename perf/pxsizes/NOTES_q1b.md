@@ -97,3 +97,49 @@ K2's contribution on qb2 is inferred from a cross-host subtraction, which is the
 §14.4. A `nok2` arm at 768 on qb2 (the harness already has that arm) would measure it directly in
 one process, ~155 s. It was not run because the script goes straight from the 768 leg into the 1024
 leg under a fresh benchlock hold, and a co-tenanted arm would not be comparable to the four above.
+
+---
+
+## Pass 3 (2026-08-13 22:15-23:00Z) — why pass 2 produced no 1024 datapoint, and what is queued
+
+**Pass 2's 1024 leg failed for a reason that is now attributable, and it is not the model.**
+`q1b2_qb2.log` records the whole sequence:
+
+- `on` p1 started 17:23:07Z, printed the two expected caught `TT_THROW`s at 17:23:15/16
+  (3394048 B and 1788416 B against the 1572864 B per-core L1, on the full 11x10 grid — the same
+  benign over-L1 refusals `boltz2-qb2-hang-bisect` characterised), then produced nothing further and
+  was killed by its own 1300 s `timeout` at 17:44:47Z. `RC_1024_on_p1=124`, no JSON.
+- `base4` p1 started 17:44:47Z on the card that SIGTERM had just left wedged (state 12.6: killing a
+  stalled fold wedges the card, and `tt-smi -ls` still enumerating it is not a liveness check) and
+  ran until the host was power-cycled.
+
+So pass 2 yields **one** 1024 observation, not two: the `on` arm overran 1300 s. The `base4` arm's
+failure is fully explained by the preceding kill and carries no independent information.
+
+**Is the overrun a stall or a slow fold?** The measured 768 row settles this. qb2's `on` arm at
+768 is 134.7 s against qb1's 155.4 s, i.e. qb2 is slightly *faster* per fold at the size both hosts
+now share, and qb1's cache-warm 1024 is 288.0 s. So qb2 1024 should land near 250-300 s. 1300 s is
+4.5x that. It is a stall.
+
+**What it is not.** It is not MSA generation: `.msa_s512_1024/d4bb492258e7af30.a3m` is dated
+17:23, seconds into the run, so the MSA was in hand before the fold started. It is not the caught
+throws either — those fire at 768 as well, on every arm, clean or not (hang-bisect §"CB overflows
+are benign"). And it is not the second-fold MSA stall of state §7.1/§12 *in its known position*:
+one arm per process means this was fold 1. Either the stall's onset moves to fold 1 at 1024, or
+this is the qb2 host/device state the hang bisect closed as boot-scoped. Pass 2 ran on the 15:48Z
+boot, which was that box's fifth boot in ~32 h.
+
+**Queued this pass:** `run_q1c_1024_qb2.sh`, launched detached 22:19:55Z on the 22:15Z boot,
+waiting on benchlock (held by `opendde-beat-b200` since 22:22:16Z; benchlock's own wait window is
+5400 s, so the leg holds its claim until ~23:50Z). Two changes from pass 2, both aimed at the
+failure above:
+
+1. Per-arm timeout 700 s instead of 1300 s. That is >2x the 250-300 s the 768 row predicts, so a
+   healthy fold has room, and a stall costs 12 min rather than 22.
+2. `tt-smi -r 2` after any nonzero RC, before the next arm starts. Pass 2's second arm was doomed
+   by the absence of exactly this step.
+
+Arms and stop rule are unchanged from the 768 leg (state §14.1): `on, base4, on, base4`, one arm
+per process, ratio from the second of each, NOT RESOLVED if either arm's cross-process spread
+exceeds a third of the gap. Each arm writes `perf/pxsizes/q1c_1024_<arm>_<tag>.json` as it lands,
+so a partial leg is still readable.
