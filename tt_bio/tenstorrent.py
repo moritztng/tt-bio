@@ -77,6 +77,9 @@ TRANSITION_H_CHUNK_SIZE = 16
 # with in-block L1 pressure at MSA shapes (W=1024/c=128, test_msa[100-1000]) and at the
 # opendde pair shape (W=320/c=384). Gate to the verified envelope only.
 TRANSITION_H_CHUNK_SIZE_BIG = 32  # verified envelope: W<=384 (298-aa W=320). W=512 (protenix N=512 MSA/pair) clashes in-block L1 -> stays on 16
+# (H, W, channel) -> the row chunk the scaling above actually produced. The chunk is a local,
+# so a size sweep cannot otherwise tell a gate that declined from one that fired and scaled.
+_TRANSITION_CHUNK_SEEN: dict = {}
 
 # A fused activation="silu" on Transition fc1 costs 174.0 us/call at the 298 aa pair shape, while the
 # same silu as a standalone SFPU pass costs 83.7 -- measured on qb1 card 0, ttnn 0.67.4. The penalty
@@ -3187,6 +3190,7 @@ class Transition(Module):
         if _IS_SMALL_GRID:
             _ref = _ref * 128 // max(128, x.shape[-1])
         transition_h_chunk_size = max(1, int(transition_h_chunk_size * min(1.0, _ref / (w_eff * x.shape[-1]))))
+        _TRANSITION_CHUNK_SEEN[(int(H), int(W), int(x.shape[-1]))] = transition_h_chunk_size
         if H > SEQ_LEN_MORE_CHUNKING:
             # Large-sequence path: slice row blocks lazily inside the loop. ttnn.chunk
             # would materialise a full second copy of the pair tensor up front, and the

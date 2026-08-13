@@ -33,7 +33,7 @@ cannot resolve a null. Run the `on` arm twice to get this session's own A/A floo
 
 Results are written after every fold, so a turn that runs out of time still lands what it measured.
 """
-import argparse, hashlib, json, statistics as st, sys, time
+import argparse, hashlib, json, os, statistics as st, sys, time
 from collections import defaultdict, Counter
 from pathlib import Path
 
@@ -75,8 +75,18 @@ HMTAIL_OVER_L1 = {"hmtail_l1": True, "hmtail": False}
 HMTAIL_OVER_L1_DEFAULT = True
 # K2: the SDPA bias held in a permanently fronted CB (tt_bio/triatt_sdpa.py). `k2` turns it on on
 # top of everything else; `nok2` is K1-complete, which is what it must be measured against.
-PMASK = {"k2": True, "nok2": False, "hmtail_l1": False}
+PMASK = {"k2": True, "nok2": False, "hmtail_l1": False, "base4": False}
 PMASK_DEFAULT = True
+# The four landed kernels out at once, every capacity gate left at its production default and
+# _TRANSPOSE_L1_HEADROOM untouched. That is exactly the `main` arm of the 512 run, so base4/on at
+# any size is directly comparable to 512s 65.647 / 54.760 = 1.1988x.
+BASE4 = ("base4",)
+# S1: the Transition row chunk. Per-chunk L1 use is h_chunk * W * channel and 512 measured 2.10 M
+# elements as the largest that runs, so 128 aa (1.05 M at chunk 32) is the only size with headroom.
+TRANSITION_BIG = {"bigchunk64": 64}
+# S3: the trimul L1/DRAM threshold. Below 256 the 256 aa fold takes the DRAM path, which is what
+# makes both channel-move kernels eligible there.
+L1MAX = {"l1max224": 224}
 
 
 def timed_call(key, fn, *a, **kw):
@@ -105,6 +115,8 @@ def main():
     ap.add_argument("--sizes", default="512", help="comma list of fixture token counts")
     ap.add_argument("--arms", default="on,on,off", help="comma list, run in this order per size")
     ap.add_argument("--fixdir", type=Path, default=ROOT / "perf" / "size512" / "fixtures")
+    ap.add_argument("--timers", choices=("body", "full"), default="body",
+                    help="full also times Transition, at two device syncs per call")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
@@ -162,6 +174,31 @@ def main():
 
     T._tri_att_sdpa = tas
 
+    # ---- the trimul path, read out of the fold rather than derived from the shape ----------
+    ORIG_TCS, ORIG_TMMC, ORIG_IPG = (T._trimul_chunk_size, T._triangle_mul_memory_config,
+                                     T._trimul_inproj_group)
+
+    def tcs(seq_len, hidden, batch=1):
+        c = ORIG_TCS(seq_len, hidden, batch)
+        DEC[f"trimul_chunk|N{seq_len}|h{hidden}|b{batch}"][f"c={c}"] += 1
+        return c
+
+    def tmmc(seq_len):
+        mc = ORIG_TMMC(seq_len)
+        DEC[f"trimul_pair_buffer|N{seq_len}"]["L1" if is_l1(mc) else "DRAM"] += 1
+        return mc
+
+    def ipg(seq_len, chunk, batch, n_pairs):
+        # _TRIMUL_INPROJ_GROUP is the CAP. Only the return value is the group the fold ran, and
+        # a shape that never reaches here took the L1 path and fused nothing.
+        g = ORIG_IPG(seq_len, chunk, batch, n_pairs)
+        DEC[f"trimul_inproj_group|N{seq_len}|c{chunk}|pairs{n_pairs}"][f"g={g}"] += 1
+        return g
+
+    T._trimul_chunk_size, T._triangle_mul_memory_config, T._trimul_inproj_group = tcs, tmmc, ipg
+    TRANS_BIG_DEFAULT = T.TRANSITION_H_CHUNK_SIZE_BIG
+    L1MAX_DEFAULT = T.TRIANGLE_MULT_L1_MAX_SEQ
+
     saved = []
     for cls in (T.Pairformer,):
         f = cls.__call__
@@ -171,8 +208,13 @@ def main():
         f = cls.__call__
         saved.append((cls, f))
         cls.__call__ = (lambda g: lambda self, *x, **k: timed_call("block:PairformerLayer", g, self, *x, **k))(f)
-    for cls in (T.TriangleMultiplication, T.TriangleAttention, T.AttentionPairBias,
-                T.PairWeightedAveraging):
+    bodies = [T.TriangleMultiplication, T.TriangleAttention, T.AttentionPairBias,
+              T.PairWeightedAveraging]
+    if a.timers == "full":
+        # Transition is 8.013 s of 53 at 512 and the largest single non-triangle head, but it is
+        # called thousands of times, so its two syncs per call are only paid when asked for.
+        bodies.append(T.Transition)
+    for cls in bodies:
         f = cls.__call__
         saved.append((cls, f))
         cls.__call__ = (lambda g, nm: lambda self, *x, **k: timed_call(f"body:{nm}", g, self, *x, **k))(f, cls.__name__)
@@ -191,6 +233,8 @@ def main():
         if name in ("k2", "nok2"):
             hmt = True
         hmt = HMTAIL.get(name)
+        if name in BASE4:
+            e6, hm, hmt = False, False, False
         # `prev` reverts the two extracted engine fixes (the `_MM_BLOCK[8]` block config and the
         # pair-projection `minimal_matmul` leg) and holds every capacity gate at the production
         # default, so the arm difference is exactly those two and nothing else.
@@ -198,7 +242,8 @@ def main():
         T._PAIR_PROJ_MM = not prev
         T._MM_BLOCK[(8, 8)] = (2, 8, 1, 2, 1) if prev else (4, 8, 1, 4, 1)
         STATE["gates"] = ("on" if (fid or grp or bk is not None or sdpa or prev
-                                   or e6 is not None or hm is not None or hmt is not None)
+                                   or e6 is not None or hm is not None or hmt is not None
+                                   or name in TRANSITION_BIG or name in L1MAX)
                           else name)
         # Every arm sets the SDPA flags, so an arm that is not an SDPA arm provably runs the
         # production pick rather than inheriting the previous arm's.
@@ -222,6 +267,11 @@ def main():
         T._PAIR_BIAS_L1_NORM = on
         T._PWA_L1_NORM = on
         T._TEMPLATE_L1_NORM = on
+        # Both constants are module globals read at call time, and EVERY arm writes them, so a
+        # non-constant arm provably runs the shipped value rather than inheriting the last arms.
+        T.TRANSITION_H_CHUNK_SIZE_BIG = TRANSITION_BIG.get(name, TRANS_BIG_DEFAULT)
+        T.TRIANGLE_MULT_L1_MAX_SEQ = L1MAX.get(name, L1MAX_DEFAULT)
+        T._TRANSITION_CHUNK_SEEN.clear()
         T._pair_proj_program_config.cache_clear()
         T._L1_OUT_REFUSED.clear()
         if grp:
@@ -259,7 +309,8 @@ def main():
         return out
 
     import importlib.metadata as im
-    res = {"ttnn": im.version("ttnn"), "host": "qb2", "chip": 0,
+    res = {"ttnn": im.version("ttnn"), "host": "qb2",
+           "chip": os.environ.get("TT_VISIBLE_DEVICES", "?"),
            "note": "qb2 is ttnn 0.68.0 -- every absolute here is a ratio input, not a campaign number",
            "runs": []}
 
@@ -337,7 +388,11 @@ def main():
                    "wall_ms": {k: {"calls": v["n"], "ms": round(v["s"] * 1e3, 2)}
                                for k, v in sorted(WALL.items(), key=lambda kv: -kv[1]["s"])},
                    "decisions": {k: dict(v) for k, v in sorted(DEC.items())},
-                   "l1_out_refused": [str(k) for k in T._L1_OUT_REFUSED]}
+                   "l1_out_refused": [str(k) for k in T._L1_OUT_REFUSED],
+                   "transition_h_chunk_size_big": T.TRANSITION_H_CHUNK_SIZE_BIG,
+                   "trimul_l1_max_seq": T.TRIANGLE_MULT_L1_MAX_SEQ,
+                   "transition_chunks": {f"H{h}|W{w}|c{c}": v for (h, w, c), v
+                                         in sorted(T._TRANSITION_CHUNK_SEEN.items())}}
             blk = rec["wall_ms"].get("block:PairformerLayer", {})
             rec["block_wall_ms"] = blk.get("ms")
             rec["block_calls"] = blk.get("calls")
