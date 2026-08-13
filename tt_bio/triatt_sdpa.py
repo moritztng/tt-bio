@@ -46,13 +46,17 @@ TRIATT_PERSISTENT_MASK = True
 _ENABLED = os.environ.get(
     "TT_BIO_TRIATT_PERSISTENT_MASK", "1" if TRIATT_PERSISTENT_MASK else "0") == "1"
 
-# The q-split above, ON by default up to _Q_SPLIT_MAX_S. Verified at 768 aa with the _PM_OVER_L1
-# fix in place: -17.670 s (6.4 %) on the fold, byte-identical CIF and plDDT, 7x the 2.543 s A/A
-# floor (perf/sizes/qsplitfix_768.json, qb1 card 2, benchlock). Above 768 the persistent mask CB is
-# 2x the stock size at four k chunks and L1 refuses it (1024 aa), so the split stays off there.
-# "0" forces off; a screen at a larger size raises _Q_SPLIT_MAX_S alongside _Q_SPLIT.
+# The q-split above, ON by default up to _Q_SPLIT_MAX_S padded tokens. Verified at 768 aa with the
+# _PM_OVER_L1 fix in place: -17.670 s (6.4 %) on the fold, byte-identical CIF and plDDT, 7x the
+# 2.543 s A/A floor (perf/sizes/qsplitfix_768.json, qb1 card 2, benchlock). Raised to 1024 on the
+# boltz2 evidence: 1.0777x at 768 aa and 1.0893x at 1024 aa, CIF byte-identical, and three
+# back-to-back 1024 aa folds with the lever on showed no OOM and flat VmHWM (perf/b2sizes/). At
+# 1024 the q1024/q512 persistent-mask configs refuse at compile, land in _PM_OVER_L1, and all 560
+# calls serve at q256 (55.6 % of the per-core budget). Above 1024 the mask CB growth is untested,
+# so the shipped split stays there; an L1 refusal at any size is caught and falls back to the
+# stock op. "0" forces off.
 _Q_SPLIT = os.environ.get("TT_BIO_TRIATT_MASK_Q_SPLIT", "1") == "1"
-_Q_SPLIT_MAX_S = 768
+_Q_SPLIT_MAX_S = 1024
 
 # q_chunks whose PERSISTENT mask CB does not fit. Deliberately not `_SDPA_Q_CHUNK_OVER_L1`: that set
 # is the wide-q ladder memo of q_chunks the STOCK op cannot fit, and `_tri_att_sdpa_at` filters its
