@@ -105,6 +105,7 @@ def _grid_if_single_k_tile(a):
 # tiles means the groupings are the same; scripts/rfd3_port/probe_pinned_pair_linears.py has the
 # per-shape sweep and the cross-(I, D) evidence.
 _TUNED_MM_CACHE = {}
+_ACT_UNARY = {"silu": ttnn.UnaryOpType.SILU}
 # Stays OPT-IN, and p17 measured why rather than assuming it. The per-step win is real and
 # reproduces in the shipped (trace-OFF) configuration -- +10.0% at 419 atoms and +1.4% to +4.0%
 # from 979 to 3359, favouring the tuned path in 9 of 10 fixture-rounds (sign test p=0.02). Two
@@ -127,6 +128,10 @@ _TUNED_MM_CACHE = {}
 _TUNE_MATMUL = os.environ.get("RFD3_TUNE_MATMUL") == "1"
 # Debug: re-check every cached config against ttnn's default on every call and print any
 # divergence. Doubles the matmul work, so it is for locating a break, not for production.
+# Kill switch for the fused-activation extension above, so an A/B can isolate it inside one
+# tree. On by default: it rides inside the opt-in RFD3_TUNE_MATMUL and its bitwise gate is
+# the same one, so it cannot pick a config that rounds differently.
+_TUNE_ACT = os.environ.get("RFD3_TUNE_ACT", "1") == "1"
 _TUNE_AUDIT = os.environ.get("RFD3_TUNE_AUDIT") == "1"
 # Debug: print what calibration decided per shape, and why.
 _TUNE_LOG = os.environ.get("RFD3_TUNE_LOG") == "1"
@@ -163,7 +168,7 @@ def _mm_time(fn):
     return (time.perf_counter() - t0) / _TUNE_REPS
 
 
-def _mm_candidates(x, w, grid):
+def _mm_candidates(x, w, grid, act=None):
     """Batch-folded 1D configs, parameterised by the K-blocking `in0_block_w`.
 
     `out_block_h=1` because every measured winner had it and a larger value only eats the L1
@@ -186,7 +191,8 @@ def _mm_candidates(x, w, grid):
             yield ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
                 compute_with_storage_grid_size=grid, in0_block_w=bw,
                 out_subblock_h=1, out_subblock_w=osw, out_block_h=1, out_block_w=obw,
-                per_core_M=per_core_m, per_core_N=nt, fuse_batch=True, mcast_in0=False)
+                per_core_M=per_core_m, per_core_N=nt, fuse_batch=True, mcast_in0=False,
+                fused_activation=act)
 
 
 def _tunable(x, w):
@@ -211,27 +217,36 @@ def _tunable(x, w):
     return all(d == 1 for d in ws[:-2])
 
 
-def _tuned_linear(x, w, *, bias=None, ckc=None, dtype=None, core_grid=BATCH_INVARIANT_GRID):
+def _tuned_linear(x, w, *, bias=None, ckc=None, dtype=None, core_grid=BATCH_INVARIANT_GRID,
+                  activation=None):
     """`ttnn.linear` with a calibrated, bit-exact program config where one helps.
 
-    No `activation=`: ttnn wants a fused activation on the program config instead, so the two
-    silu-gated linears keep the default path (they are the cheap half of a Transition anyway).
+    `activation="silu"` rides on the program config's `fused_activation` instead of ttnn's
+    `activation=` kwarg, which ttnn refuses alongside an explicit config. It was left out
+    originally because the silu-gated linear was the cheap half of a Transition; at the pinned
+    rfd3_R4 fixture it is 128.3 ms/step, 16.7 % of the token encoder, so it is not
+    (perf/p42/r4_s2_tokenenc.json). The bitwise gate is unchanged and decides it either way.
     """
     kw = dict(compute_kernel_config=ckc, dtype=dtype)
     if bias is not None:
         kw["bias"] = bias
-    if not _TUNE_MATMUL or not _tunable(x, w):
+    kw_pc = dict(kw)
+    act = None
+    if activation is not None:
+        kw["activation"] = activation
+        act = ttnn.UnaryWithParam(_ACT_UNARY[activation])
+    if not _TUNE_MATMUL or not _tunable(x, w) or (activation is not None and not _TUNE_ACT):
         return ttnn.linear(x, w, core_grid=core_grid, **kw)
     key = (tuple(list(x.padded_shape)), tuple(list(w.padded_shape)), x.dtype, dtype,
-           bias is not None, core_grid)
+           bias is not None, core_grid, activation)
     if key not in _TUNED_MM_CACHE:
-        _TUNED_MM_CACHE[key] = _calibrate_linear(x, w, kw, core_grid)
+        _TUNED_MM_CACHE[key] = _calibrate_linear(x, w, kw, core_grid, kw_pc, act)
     pc = _TUNED_MM_CACHE[key]
     if pc is None:
         return ttnn.linear(x, w, core_grid=core_grid, **kw)
-    out = ttnn.linear(x, w, program_config=pc, **kw)
+    out = ttnn.linear(x, w, program_config=pc, **kw_pc)
     if _TUNE_AUDIT:
-        ref = ttnn.linear(x, w, core_grid=core_grid, **kw)
+        ref = ttnn.linear(x, w, core_grid=core_grid, **kw)  # kw carries `activation=`
         m = _mm_maxabs(out, ref)
         ttnn.deallocate(ref)
         if m != 0.0:
@@ -247,7 +262,7 @@ def _mm_random_like(t, seed):
                            layout=ttnn.TILE_LAYOUT, device=get_device())
 
 
-def _calibrate_linear(x, w, kw, core_grid):
+def _calibrate_linear(x, w, kw, core_grid, kw_pc=None, act=None):
     """Pick the fastest program config whose output is BITWISE equal to ttnn's default.
 
     Exactness is checked on RANDOM operands as well as the live ones, and the random check comes
@@ -265,6 +280,7 @@ def _calibrate_linear(x, w, kw, core_grid):
     # because `_mm_random_like` draws and uploads a full-size operand -- 256 M elements for
     # `[8,250,250,512]`, 1.69 s of the 2.01 s that shape spends. A shape under the floor now
     # pays one timed default and nothing else.
+    kwp = kw if kw_pc is None else kw_pc
     ref = ttnn.linear(x, w, core_grid=core_grid, **kw)
     default_t = _mm_time(lambda: ttnn.linear(x, w, core_grid=core_grid, **kw))
     if default_t * 1e3 < _TUNE_MIN_MS:
@@ -278,13 +294,13 @@ def _calibrate_linear(x, w, kw, core_grid):
     rref = ttnn.linear(rx, rw, core_grid=core_grid, **kw)
     budget = default_t / _TUNE_MIN_GAIN
     best = None
-    for pc in _mm_candidates(x, w, get_device().compute_with_storage_grid_size()):
+    for pc in _mm_candidates(x, w, get_device().compute_with_storage_grid_size(), act):
         try:
-            if _mm_maxabs(ttnn.linear(rx, rw, program_config=pc, **kw), rref) != 0.0:
+            if _mm_maxabs(ttnn.linear(rx, rw, program_config=pc, **kwp), rref) != 0.0:
                 continue
-            if _mm_maxabs(ttnn.linear(x, w, program_config=pc, **kw), ref) != 0.0:
+            if _mm_maxabs(ttnn.linear(x, w, program_config=pc, **kwp), ref) != 0.0:
                 continue
-            t = _mm_time(lambda: ttnn.linear(x, w, program_config=pc, **kw))
+            t = _mm_time(lambda: ttnn.linear(x, w, program_config=pc, **kwp))
         except Exception:
             continue  # illegal L1 / subblock combinations are expected and simply skipped
         if t < budget:
@@ -478,9 +494,9 @@ class Transition(Module):
     def __call__(self, x):
         x = ttnn.rms_norm(x, weight=self.norm_w, epsilon=1e-6,
                             compute_kernel_config=self.compute_kernel_config)
-        a = ttnn.linear(x, self.fc1_w, activation="silu",
-                         compute_kernel_config=self.compute_kernel_config,
-                         dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID)
+        a = _tuned_linear(x, self.fc1_w, activation="silu",
+                          ckc=self.compute_kernel_config,
+                          dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID)
         b = _tuned_linear(x, self.fc2_w, ckc=self.compute_kernel_config,
                           dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID)
         ttnn.deallocate(x)
