@@ -152,7 +152,7 @@ def main():
                 ref[r, u] = (1 - f) * basen[r, j] + f * basen[r, j + 1]
 
         for mode, lay, shp in ((5, ttnn.TILE_LAYOUT, (1, 1, 32, 32)),
-                               (11, ttnn.ROW_MAJOR_LAYOUT, (1, 1, 1, 1024))):
+                               (12, ttnn.ROW_MAJOR_LAYOUT, (1, 1, 1, 1024))):
             out1 = ttnn.from_torch(torch.zeros(*shp).to(torch.bfloat16), dtype=ttnn.bfloat16,
                                    layout=lay, device=dev)
             pd = build(dev, x, sel, frac5, out1, 1, 1, offs_by, rowidx, mode, 1, 3)
@@ -170,7 +170,7 @@ def main():
         n = nx * ny
         t = {}
         for mode, lay, shp in ((5, ttnn.TILE_LAYOUT, (1, 1, 32 * NB * n, 32)),
-                               (11, ttnn.ROW_MAJOR_LAYOUT, (1, 1, NB * n, 1024))):
+                               (12, ttnn.ROW_MAJOR_LAYOUT, (1, 1, NB * n, 1024))):
             out = ttnn.from_torch(torch.zeros(*shp).to(torch.bfloat16), dtype=ttnn.bfloat16,
                                   layout=lay, device=dev)
             pd = build(dev, x, sel, frac5, out, nx, ny, offs_by, rowidx, mode, NB, 3)
@@ -196,8 +196,8 @@ def main():
             json.dump(res, open(HERE / "fslice_general.json", "w"), indent=1)
             ttnn.deallocate(out)
         print(f"\nrow-major output (what chaining a second pass needs) costs "
-              f"{t[11]/t[5]:.3f}x ({t[11]-t[5]:+.1f} ns per output tile)", flush=True)
-        res["untilize_cost_factor"] = t[11] / t[5]
+              f"{t[12]/t[5]:.3f}x ({t[12]-t[5]:+.1f} ns per output tile)", flush=True)
+        res["untilize_cost_factor"] = t[12] / t[5]
         json.dump(res, open(HERE / "fslice_general.json", "w"), indent=1)
     finally:
         ttnn.close_device(dev)

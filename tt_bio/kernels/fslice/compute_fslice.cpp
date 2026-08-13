@@ -47,6 +47,11 @@
 //     nothing about what the conversion costs. Left in place as the starting point for the
 //     next attempt; the suspects are the packer dest-offset state shared with tilize, and the
 //     face_r_dim/num_faces defaults.
+//  12 mode 5 arithmetic, then row-major out by ROUND-TRIPPING DST THROUGH A CB: pack the
+//     result normally into a staging CB, release, re-acquire, bring it back with
+//     copy_tile, and untilize that. Mode 10 showed pack_untilize_dest cannot consume
+//     matmul-written DST and mode 8 showed it consumes copy_tile-written DST bit-exactly,
+//     so the round trip launders the DST arrangement. Costs one extra pack plus unpack.
 //  11 mode 5 arithmetic, then row-major out via a CB round trip: pack_tile into cb_til's
 //     spare page and pack_untilize_block from there. Mode 10 showed pack_untilize_dest
 //     cannot consume matmul-written DST, so the DEST route is unavailable and the block
@@ -211,7 +216,7 @@ void kernel_main() {
         // w(r, u) = g(r) + frac(A*u). add_tiles_bcast_rows broadcasts ROW 0 of its SECOND operand, so
         // the per-row tile must be first and the per-column tile second. cb_frac tile 1 holds g(r)
         // replicated across the columns; tile 0 holds frac(A*u) in row 0.
-        if constexpr (mode != 4 && mode != 5 && mode != 7 && mode != 8 && mode != 9 && mode != 10 && mode != 11) {
+        if constexpr (mode != 4 && mode != 5 && mode != 7 && mode != 8 && mode != 9 && mode != 10 && mode != 11 && mode != 12) {
             add_bcast_rows_init_short(cb_frac, cb_frac);
             add_tiles_bcast_rows(cb_frac, cb_frac, 1, 0, DST_W);
         }
@@ -237,6 +242,40 @@ void kernel_main() {
             continue;
         }
 
+        if constexpr (mode == 12) {
+            binary_dest_reuse_tiles_init<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac);
+            binary_dest_reuse_tiles<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac, 0, DST_T0);
+            binary_dest_reuse_tiles<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac, 1, DST_T1);
+            binary_dest_reuse_tiles<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac, 2, DST_T2);
+            add_binary_tile_init();
+            add_binary_tile(DST_T0, DST_T1, DST_BASE);
+            add_binary_tile(DST_BASE, DST_T2, DST_OUT);
+            tile_regs_commit();
+            tile_regs_wait();
+            cb_reserve_back(cb_mid, one);
+            pack_tile(DST_OUT, cb_mid);
+            tile_regs_release();
+            cb_push_back(cb_mid, one);
+
+            // Second acquire. copy_tile-written DST is what mode 8 proved pack_untilize_dest can read.
+            cb_wait_front(cb_mid, one);
+            cb_reserve_back(cb_out, one);
+            tile_regs_acquire();
+            copy_tile_to_dst_init_short(cb_mid);
+            copy_tile(cb_mid, 0, 0);
+            tile_regs_commit();
+            tile_regs_wait();
+            pack_untilize_dest_init<1, 1>(cb_out);
+            pack_untilize_dest<1, 1>(cb_out);
+            pack_untilize_uninit(cb_out);
+            tile_regs_release();
+            cb_push_back(cb_out, one);
+            cb_pop_front(cb_mid, one);
+
+            cb_pop_front(cb_til, src_tiles);
+            cb_pop_front(cb_src, src_tiles);
+            continue;
+        }
         if constexpr (mode == 11) {
             binary_dest_reuse_tiles_init<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac);
             binary_dest_reuse_tiles<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac, 0, DST_T0);
