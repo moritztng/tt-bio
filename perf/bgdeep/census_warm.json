@@ -1,0 +1,410 @@
+{
+ "wheel": "0.68.0",
+ "host": "qb2",
+ "card": "1",
+ "spec": "/home/ttuser/.coworker/wt/boltzgen-deep-perf/perf/bgdeep/binder_fixed100.yaml",
+ "protocol": "protein-anything",
+ "num_designs": 3,
+ "steps": "design",
+ "wall_s": 65.129,
+ "s_per_design": 21.71,
+ "designs_per_hour": 165.82,
+ "timers_installed": {
+  "stage:PairformerModule": true,
+  "stage:Pairformer": true,
+  "block:PairformerLayer": true,
+  "body:TriangleMultiplication": true,
+  "body:TriangleAttention": true,
+  "body:PairWeightedAveraging": true,
+  "diffusion:device_step": true,
+  "diffusion:sample_loop": true,
+  "cond:DiffusionConditioning": true,
+  "stage:Boltz.forward": true,
+  "e1d:input_embedder": true,
+  "e1d:s_init": true,
+  "e1d:rel_pos": true,
+  "e1d:token_bonds": true,
+  "e1d:token_bonds_type": true,
+  "e1d:contact_conditioning": true,
+  "e1d:token_distance_module": true,
+  "e1d:template_module": true,
+  "e1d:msa_module": true,
+  "e1d:pairformer_module": true,
+  "e1d:distogram_module": true,
+  "e1d:bfactor_module": true,
+  "e1d:masker": true
+ },
+ "shapes": {
+  "MAX_ATOMS_PER_TOKEN": 14,
+  "PAIRFORMER_PAD_MULTIPLE": 64,
+  "ATOM_WINDOW": 32,
+  "N_real": 2432,
+  "seq_len": 232,
+  "batch": 1
+ },
+ "wall_by_component": {
+  "block:PairformerLayer": {
+   "calls": 864,
+   "s": 11.1988
+  },
+  "body:PairWeightedAveraging": {
+   "calls": 48,
+   "s": 0.9414
+  },
+  "body:TriangleAttention": {
+   "calls": 1728,
+   "s": 2.4622
+  },
+  "body:TriangleMultiplication": {
+   "calls": 1728,
+   "s": 3.3361
+  },
+  "cond:DiffusionConditioning": {
+   "calls": 3,
+   "s": 0.857
+  },
+  "diffusion:device_step": {
+   "calls": 1500,
+   "s": 36.6674
+  },
+  "diffusion:sample_loop": {
+   "calls": 3,
+   "s": 39.2515
+  },
+  "e1d:bfactor_module": {
+   "calls": 3,
+   "s": 0.0006
+  },
+  "e1d:contact_conditioning": {
+   "calls": 3,
+   "s": 0.0663
+  },
+  "e1d:distogram_module": {
+   "calls": 3,
+   "s": 0.0183
+  },
+  "e1d:input_embedder": {
+   "calls": 3,
+   "s": 0.2084
+  },
+  "e1d:masker": {
+   "calls": 2,
+   "s": 0.0113
+  },
+  "e1d:rel_pos": {
+   "calls": 3,
+   "s": 0.0496
+  },
+  "e1d:s_init": {
+   "calls": 3,
+   "s": 0.0004
+  },
+  "e1d:template_module": {
+   "calls": 12,
+   "s": 0.6488
+  },
+  "e1d:token_bonds": {
+   "calls": 3,
+   "s": 0.0066
+  },
+  "e1d:token_bonds_type": {
+   "calls": 3,
+   "s": 0.0029
+  },
+  "stage:Boltz.forward": {
+   "calls": 3,
+   "s": 57.2228
+  },
+  "stage:Pairformer": {
+   "calls": 36,
+   "s": 10.6894
+  },
+  "stage:PairformerModule": {
+   "calls": 12,
+   "s": 0.2967
+  }
+ },
+ "per_design": [
+  {
+   "e1d:input_embedder": {
+    "calls": 1,
+    "s": 0.0589
+   },
+   "e1d:s_init": {
+    "calls": 1,
+    "s": 0.0001
+   },
+   "e1d:rel_pos": {
+    "calls": 1,
+    "s": 0.017
+   },
+   "e1d:token_bonds": {
+    "calls": 1,
+    "s": 0.0041
+   },
+   "e1d:token_bonds_type": {
+    "calls": 1,
+    "s": 0.0008
+   },
+   "e1d:contact_conditioning": {
+    "calls": 1,
+    "s": 0.0198
+   },
+   "body:TriangleMultiplication": {
+    "calls": 576,
+    "s": 1.7423
+   },
+   "body:TriangleAttention": {
+    "calls": 576,
+    "s": 1.2073
+   },
+   "block:PairformerLayer": {
+    "calls": 288,
+    "s": 5.4557
+   },
+   "stage:Pairformer": {
+    "calls": 12,
+    "s": 5.0855
+   },
+   "stage:PairformerModule": {
+    "calls": 4,
+    "s": 0.0907
+   },
+   "e1d:template_module": {
+    "calls": 4,
+    "s": 0.1816
+   },
+   "body:PairWeightedAveraging": {
+    "calls": 16,
+    "s": 0.875
+   },
+   "e1d:distogram_module": {
+    "calls": 1,
+    "s": 0.005
+   },
+   "cond:DiffusionConditioning": {
+    "calls": 1,
+    "s": 0.2619
+   },
+   "e1d:bfactor_module": {
+    "calls": 1,
+    "s": 0.0002
+   },
+   "diffusion:device_step": {
+    "calls": 500,
+    "s": 13.7692
+   },
+   "diffusion:sample_loop": {
+    "calls": 1,
+    "s": 14.6971
+   },
+   "stage:Boltz.forward": {
+    "calls": 1,
+    "s": 23.6339
+   }
+  },
+  {
+   "e1d:input_embedder": {
+    "calls": 1,
+    "s": 0.0836
+   },
+   "e1d:s_init": {
+    "calls": 1,
+    "s": 0.0002
+   },
+   "e1d:rel_pos": {
+    "calls": 1,
+    "s": 0.0174
+   },
+   "e1d:token_bonds": {
+    "calls": 1,
+    "s": 0.0012
+   },
+   "e1d:token_bonds_type": {
+    "calls": 1,
+    "s": 0.001
+   },
+   "e1d:contact_conditioning": {
+    "calls": 1,
+    "s": 0.0247
+   },
+   "body:TriangleMultiplication": {
+    "calls": 576,
+    "s": 0.7418
+   },
+   "body:TriangleAttention": {
+    "calls": 576,
+    "s": 0.6481
+   },
+   "block:PairformerLayer": {
+    "calls": 288,
+    "s": 2.8757
+   },
+   "stage:Pairformer": {
+    "calls": 12,
+    "s": 2.8078
+   },
+   "stage:PairformerModule": {
+    "calls": 4,
+    "s": 0.1142
+   },
+   "e1d:template_module": {
+    "calls": 4,
+    "s": 0.2819
+   },
+   "body:PairWeightedAveraging": {
+    "calls": 16,
+    "s": 0.0348
+   },
+   "e1d:distogram_module": {
+    "calls": 1,
+    "s": 0.0051
+   },
+   "cond:DiffusionConditioning": {
+    "calls": 1,
+    "s": 0.276
+   },
+   "e1d:bfactor_module": {
+    "calls": 1,
+    "s": 0.0002
+   },
+   "diffusion:device_step": {
+    "calls": 500,
+    "s": 11.3244
+   },
+   "diffusion:sample_loop": {
+    "calls": 1,
+    "s": 11.7742
+   },
+   "stage:Boltz.forward": {
+    "calls": 1,
+    "s": 16.4021
+   }
+  },
+  {
+   "e1d:input_embedder": {
+    "calls": 1,
+    "s": 0.066
+   },
+   "e1d:s_init": {
+    "calls": 1,
+    "s": 0.0002
+   },
+   "e1d:rel_pos": {
+    "calls": 1,
+    "s": 0.0152
+   },
+   "e1d:token_bonds": {
+    "calls": 1,
+    "s": 0.0012
+   },
+   "e1d:token_bonds_type": {
+    "calls": 1,
+    "s": 0.0011
+   },
+   "e1d:contact_conditioning": {
+    "calls": 1,
+    "s": 0.0218
+   },
+   "body:TriangleMultiplication": {
+    "calls": 576,
+    "s": 0.852
+   },
+   "body:TriangleAttention": {
+    "calls": 576,
+    "s": 0.6068
+   },
+   "block:PairformerLayer": {
+    "calls": 288,
+    "s": 2.8674
+   },
+   "stage:Pairformer": {
+    "calls": 12,
+    "s": 2.796
+   },
+   "stage:PairformerModule": {
+    "calls": 4,
+    "s": 0.0919
+   },
+   "e1d:template_module": {
+    "calls": 4,
+    "s": 0.1853
+   },
+   "body:PairWeightedAveraging": {
+    "calls": 16,
+    "s": 0.0316
+   },
+   "e1d:distogram_module": {
+    "calls": 1,
+    "s": 0.0082
+   },
+   "cond:DiffusionConditioning": {
+    "calls": 1,
+    "s": 0.3191
+   },
+   "e1d:bfactor_module": {
+    "calls": 1,
+    "s": 0.0002
+   },
+   "diffusion:device_step": {
+    "calls": 500,
+    "s": 11.5738
+   },
+   "diffusion:sample_loop": {
+    "calls": 1,
+    "s": 12.7802
+   },
+   "stage:Boltz.forward": {
+    "calls": 1,
+    "s": 17.1868
+   }
+  }
+ ],
+ "levers": {
+  "K1_head_major_qkv": {
+   "served": 1728,
+   "declined": 0,
+   "rejects": {}
+  },
+  "K1b_head_major_tail": {
+   "served": 1632,
+   "declined": 96
+  },
+  "K2_persistent_sdpa_bias": {
+   "served": 1728,
+   "declined": 0
+  },
+  "E6_fused_gated_channel_move": {
+   "served": 0,
+   "declined": 0
+  },
+  "channel_move_fwd": {
+   "served": 0,
+   "declined": 3360
+  },
+  "channel_move_back": {
+   "served": 0,
+   "declined": 0
+  },
+  "reblock_rejects": {
+   "('window_BufferType.L1', (1, 256, 256, 64))": 3360
+  }
+ },
+ "counters": {
+  "qkv_mm_config|kt=2,nt=12": {
+   "config": 96
+  },
+  "qkv_mm_config|kt=2,nt=4": {
+   "None": 192
+  },
+  "qkv_mm_config|kt=4,nt=12": {
+   "config": 1632
+  },
+  "qkv_mm_config|kt=4,nt=4": {
+   "config": 1632
+  },
+  "transpose_memory_config": {
+   "L1": 1728
+  }
+ }
+}
