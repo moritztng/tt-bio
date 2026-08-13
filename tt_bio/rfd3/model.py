@@ -128,10 +128,16 @@ _ACT_UNARY = {"silu": ttnn.UnaryOpType.SILU}
 _TUNE_MATMUL = os.environ.get("RFD3_TUNE_MATMUL") == "1"
 # Debug: re-check every cached config against ttnn's default on every call and print any
 # divergence. Doubles the matmul work, so it is for locating a break, not for production.
-# Kill switch for the fused-activation extension above, so an A/B can isolate it inside one
-# tree. On by default: it rides inside the opt-in RFD3_TUNE_MATMUL and its bitwise gate is
-# the same one, so it cannot pick a config that rounds differently.
-_TUNE_ACT = os.environ.get("RFD3_TUNE_ACT", "1") == "1"
+# The fused-activation extension above, DEFAULT OFF because it was measured and it does not pay.
+# On the rfd3_R4 pair shapes every `fused_activation` candidate fails the bitwise gate and
+# calibration returns DEFAULT, so the only thing the extension buys is the cost of building those
+# candidates. The isolated fold A/B is -0.39 % against a 1.07 % arm spread, i.e. nothing
+# (perf/p42/ab_actC/). The path is kept because the same calibration run measured why the row is
+# expensive in the first place: `activation="silu"` costs 74 % on top of the identical matmul at
+# [2,685,704,128] @ [128,512] (17.128 ms against 9.858) and 35 % at [128,256]. That is ~55 ms/step
+# of the fc1 row, and the only route to it is unfusing the silu, which is not bit-exact -- see the
+# fleet memory `unfusing-activation-rounds-input-not-just-algorithm`.
+_TUNE_ACT = os.environ.get("RFD3_TUNE_ACT") == "1"
 _TUNE_AUDIT = os.environ.get("RFD3_TUNE_AUDIT") == "1"
 # Debug: print what calibration decided per shape, and why.
 _TUNE_LOG = os.environ.get("RFD3_TUNE_LOG") == "1"

@@ -1,0 +1,38 @@
+{
+  "atoms": 6051,
+  "designs": 2,
+  "median_warm_step_ms": 1544.9265319984988,
+  "drain_ms_total": 1226.8223499922897,
+  "drain_ms_per_step": {
+    "model.py:2805->model.py:2676": 1.357036002445966,
+    "p42_drain_attribution.py:94->model.py:2810": 1.9002260014531203,
+    "model.py:301->model.py:156": 0.0,
+    "model.py:2808->model.py:2617": 1.7753590000211261,
+    "model.py:2861->model.py:2044": 0.3115149957011454,
+    "model.py:2820->model.py:1636": 198.5301899985643,
+    "model.py:2831->model.py:2843": 494.84258799930103,
+    "model.py:2821->model.py:2700": 5.639939998218324,
+    "model.py:299->model.py:156": 0.0,
+    "model.py:2847->model.py:2227": 182.2899220060208,
+    "model.py:2809->model.py:2617": 1.1454889972810633,
+    "model.py:2831->model.py:2855": 309.16893299581716,
+    "p42_drain_attribution.py:94->model.py:2802": 28.420727998309303,
+    "p42_drain_attribution.py:94->model.py:2806": 1.4404239991563372
+  },
+  "calls_per_step": {
+    "model.py:2805->model.py:2676": 1,
+    "p42_drain_attribution.py:94->model.py:2810": 1,
+    "model.py:301->model.py:156": 0,
+    "model.py:2808->model.py:2617": 1,
+    "model.py:2861->model.py:2044": 2,
+    "model.py:2820->model.py:1636": 1,
+    "model.py:2831->model.py:2843": 2,
+    "model.py:2821->model.py:2700": 1,
+    "model.py:299->model.py:156": 0,
+    "model.py:2847->model.py:2227": 2,
+    "model.py:2809->model.py:2617": 1,
+    "model.py:2831->model.py:2855": 2,
+    "p42_drain_attribution.py:94->model.py:2802": 1,
+    "p42_drain_attribution.py:94->model.py:2806": 1
+  }
+}
