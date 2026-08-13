@@ -77,6 +77,10 @@ HMTAIL_OVER_L1_DEFAULT = True
 # top of everything else; `nok2` is K1-complete, which is what it must be measured against.
 PMASK = {"k2": True, "nok2": False, "hmtail_l1": False}
 PMASK_DEFAULT = True
+# F1: the trimul output tail's two projections and its gate in one generic_op. Bit-exact against
+# the three ops it replaces, so `f1` must produce the same CIF sha as `nof1`; the instrument that
+# resolves it is the TriangleMultiplication body wall, not the fold wall.
+TAILF1 = {"f1": True, "nof1": False}
 
 
 def timed_call(key, fn, *a, **kw):
@@ -185,6 +189,7 @@ def main():
         bk = BACK.get(name)
         sdpa = SDPA.get(name)
         e6 = E6.get(name)
+        f1 = TAILF1.get(name)
         hm = HMQKV.get(name)
         if name in ("hmtail", "hmtail_l1", "k2", "nok2"):
             hm = True
@@ -198,8 +203,15 @@ def main():
         T._PAIR_PROJ_MM = not prev
         T._MM_BLOCK[(8, 8)] = (2, 8, 1, 2, 1) if prev else (4, 8, 1, 4, 1)
         STATE["gates"] = ("on" if (fid or grp or bk is not None or sdpa or prev
-                                   or e6 is not None or hm is not None or hmt is not None)
+                                   or e6 is not None or f1 is not None or hm is not None
+                                   or hmt is not None)
                           else name)
+        # Every arm sets the tail kernel, so a non-F1 arm provably runs the three shipped ops
+        # rather than inheriting the previous arm's flag.
+        T._TRIMUL_TAIL_F1 = bool(f1)
+        import tt_bio.trimul_tail as F1MOD
+        F1MOD.STATS[0] = F1MOD.STATS[1] = 0
+        F1MOD.REJECTS.clear()
         # Every arm sets the SDPA flags, so an arm that is not an SDPA arm provably runs the
         # production pick rather than inheriting the previous arm's.
         T._SDPA_WIDE_Q, T._TRIATT_BIAS_B8 = sdpa if sdpa else SDPA_DEFAULT
@@ -259,8 +271,11 @@ def main():
         return out
 
     import importlib.metadata as im
-    res = {"ttnn": im.version("ttnn"), "host": "qb2", "chip": 0,
-           "note": "qb2 is ttnn 0.68.0 -- every absolute here is a ratio input, not a campaign number",
+    import os, socket
+    res = {"ttnn": im.version("ttnn"), "host": socket.gethostname(),
+           "chip": os.environ.get("TT_VISIBLE_DEVICES", "?"),
+           "note": "qb1 (tt-quietbox) is ttnn 0.67.4 and qb2 is 0.68.0 -- never put an absolute "
+                   "from one in a table with the other; the arms in THIS file share a process",
            "runs": []}
 
     for size in [int(s) for s in a.sizes.split(",")]:
@@ -329,6 +344,11 @@ def main():
                        "enabled": PM._ENABLED, "served": PM.STATS[0], "declined": PM.STATS[1],
                        "rejects": {f"{r}:{sh}": n for (r, sh), n in PM.REJECTS.items()}})(
                        __import__("tt_bio.triatt_sdpa", fromlist=["x"])),
+                   "trimul_tail_f1": (lambda F1M: {
+                       "enabled": T._TRIMUL_TAIL_F1, "served": F1M.STATS[0],
+                       "declined": F1M.STATS[1],
+                       "rejects": {f"{r}:{sh}": n for (r, sh), n in F1M.REJECTS.items()}})(
+                       __import__("tt_bio.trimul_tail", fromlist=["x"])),
                    "sdpa_wide_q": T._SDPA_WIDE_Q,
                    "triatt_bias_b8": T._TRIATT_BIAS_B8,
                    "sdpa_q_chunk_over_l1": sorted(str(k) for k in T._SDPA_Q_CHUNK_OVER_L1),

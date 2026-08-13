@@ -10,6 +10,8 @@ from types import MappingProxyType
 from . import reblock_permute as _reblock
 from . import triatt_qkv as _triatt_qkv
 from . import triatt_sdpa as _triatt_sdpa
+from . import trimul_tail as _trimul_tail
+from . import mm_generic as _mm_generic
 
 TRIANGLE_MULT_CHUNK_SIZE = 32
 TRIANGLE_ATT_CHUNK_SIZE_FAST = 1024
@@ -2093,6 +2095,20 @@ def _trimul_out_proj(
     return _pair_proj_linear(x, weight, ckc, _dtype(), l1_out=True)
 
 
+# F1: the tail's two output projections and its gate in one `generic_op` (`tt_bio/trimul_tail.py`).
+# `p_out` and `g_out` never become tensors, so the tail reads 2 pair tensors and writes 1 instead of
+# 4 and 3. Bit-exact against the three ops it replaces -- `torch.equal` at 11 shapes from N=32 to
+# 576, `perf/trimul_f1/f1_parity.py`.
+# Default OFF. It is real but small: -684.20 ms on the trimul body wall and -0.459 s on the fold
+# wall at 512 aa, byte-identical CIF (`perf/trimul_f1/fold_ab_f1_main_qb1c3.json`). Deleted bytes
+# at this site return ~39 % of what the 271.5 GB/s write roof prices them at, which is why the
+# levers that would have been stacked on top of it (both layer norms inside the same kernel) were
+# repriced to ~-0.39 s each and not built. Flipping it on is a release-gate decision, not a default.
+TRIMUL_TAIL_F1 = False
+_TRIMUL_TAIL_F1 = os.environ.get(
+    "TT_BIO_TRIMUL_TAIL_F1", "1" if TRIMUL_TAIL_F1 else "0") == "1"
+
+
 def _channel_move_back(chunk: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.Tensor:
     """``permute(chunk, (0, 2, 3, 1))``, through the hand-written kernel where it wins.
 
@@ -2529,6 +2545,16 @@ class TriangleMultiplication(Module):
             epsilon=1e-5,
             compute_kernel_config=self.compute_kernel_config,
         )
+        if _TRIMUL_TAIL_F1:
+            # `fused_tail` returns None for any call its descriptor does not cover (at 512 aa that
+            # is the narrow-hidden trimuls, k_tiles=2), and the three ops below run unchanged.
+            fused = _trimul_tail.fused_tail(
+                x, x_norm_in, self.out_p_weight, self.g_out_weight,
+                _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN))
+            if fused is not None:
+                ttnn.deallocate(x)
+                ttnn.deallocate(x_norm_in)
+                return fused
         p_out = _trimul_out_proj(x, self.out_p_weight, self.compute_kernel_config)
         ttnn.deallocate(x)
         dram_peak(f"trimul({'end' if self.ending else 'start'}) p_out done [z={'x'.join(str(d) for d in x_norm_in.shape)}]")
