@@ -26,7 +26,7 @@ from tt_bio.main import _resolve_recycling_steps, _resolve_sampling_steps
 
 assert "TT_BIO_TRIATT_MASK_Q_SPLIT" not in os.environ, "env override must be unset for this run"
 assert PM._Q_SPLIT is True, f"shipped default is not ON: {PM._Q_SPLIT}"
-assert PM._Q_SPLIT_MAX_SEQ == 1024, f"gate moved: {PM._Q_SPLIT_MAX_SEQ}"
+assert PM._Q_SPLIT_MAX_S == 1024, f"gate moved: {PM._Q_SPLIT_MAX_S}"
 
 B.RECYCLING_STEPS = _resolve_recycling_steps(None, "boltz2")
 B.SAMPLING_STEPS = _resolve_sampling_steps(None, "boltz2")
@@ -40,7 +40,7 @@ struct_dir = Path(meta["struct_dir"])
 res = {"ttnn": __import__("importlib.metadata", fromlist=["x"]).version("ttnn"),
        "host": os.uname().nodename, "card": os.environ.get("TT_VISIBLE_DEVICES"),
        "model": "boltz2", "size": 1024, "arm": "shipped-default",
-       "q_split_default": PM._Q_SPLIT, "q_split_max_seq": PM._Q_SPLIT_MAX_SEQ,
+       "q_split_default": PM._Q_SPLIT, "q_split_max_s": PM._Q_SPLIT_MAX_S,
        "recycling_steps": B.RECYCLING_STEPS, "sampling_steps": B.SAMPLING_STEPS, "runs": []}
 
 for label in ("cold", "warm"):

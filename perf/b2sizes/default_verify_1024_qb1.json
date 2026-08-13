@@ -6,14 +6,14 @@
  "size": 1024,
  "arm": "shipped-default",
  "q_split_default": true,
- "q_split_max_seq": 1024,
+ "q_split_max_s": 1024,
  "recycling_steps": 3,
  "sampling_steps": 200,
  "runs": [
   {
    "label": "cold",
-   "fold_s": 93.158,
-   "wall_s": 93.158,
+   "fold_s": 94.151,
+   "wall_s": 94.151,
    "n_tokens": null,
    "plddt": null,
    "cif_sha256": {
@@ -28,12 +28,12 @@
      "(1024, 1024, 512)"
     ]
    },
-   "maxrss_mb": 12250.7
+   "maxrss_mb": 12484.6
   },
   {
    "label": "warm",
-   "fold_s": 91.039,
-   "wall_s": 91.04,
+   "fold_s": 91.564,
+   "wall_s": 91.564,
    "n_tokens": null,
    "plddt": null,
    "cif_sha256": {
@@ -48,7 +48,7 @@
      "(1024, 1024, 512)"
     ]
    },
-   "maxrss_mb": 12366.4
+   "maxrss_mb": 12626.3
   }
  ]
 }
