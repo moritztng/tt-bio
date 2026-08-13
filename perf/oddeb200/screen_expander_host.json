@@ -1,0 +1,21 @@
+{
+  "host": "tt-quietbox2",
+  "loadavg": [
+    "1.02",
+    "1.04",
+    "1.08"
+  ],
+  "torch": "2.13.0+cpu",
+  "threads": 8,
+  "NT": 512,
+  "Ns": 995,
+  "chunk": 128,
+  "n_chunks": 8,
+  "per_fold_s_median": 0.0037,
+  "per_fold_s_min": 0.0037,
+  "per_fold_s_max": 0.0037,
+  "per_chunk_ms_median": 0.47,
+  "modelled_MB_per_chunk": 9.2,
+  "implied_host_GBs": 19.48,
+  "gate_030_pass": false
+}
