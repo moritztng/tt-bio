@@ -52,6 +52,17 @@ void kernel_main() {
     const uint32_t sel_addr = get_arg_val<uint32_t>(3 + nrows);
     const uint32_t frac_addr = get_arg_val<uint32_t>(4 + nrows);
 
+    // Per-row SOURCE ROW index, not just a per-row byte offset. The byte offset is quantised to 8
+    // elements from an L1 source (16 B, measured), so the residual 0..7 of floor(B*r + C) cannot be
+    // expressed as an offset. It can be expressed as an ADDRESS: hold the source pre-replicated at the
+    // 8 sub-offsets and send row r to copy (k0(r) mod 8). Picking the copy is a different row index,
+    // which costs the reader nothing -- same 32 transactions, same bytes -- and buys the general shear
+    // instead of only those whose integer offset is a multiple of 8. The price is 8x source residency.
+    uint32_t ri[32];
+    for (uint32_t k = 0; k < nrows; ++k) {
+        ri[k] = get_arg_val<uint32_t>(5 + nrows + k);
+    }
+
     const auto s = TensorAccessor(src_args, src_addr, row_bytes);
 
     // The selection matrices and the two fraction vectors are fixed for the whole orientation, so they
@@ -90,7 +101,7 @@ void kernel_main() {
         uint32_t w = get_write_ptr(cb_src);
         for (uint32_t i = 0; i < g; ++i) {
             for (uint32_t r = 0; r < nrows; ++r) {
-                noc_async_read(s.get_noc_addr(row0 + r, bo[r]), w, win_bytes);
+                noc_async_read(s.get_noc_addr(ri[r], bo[r]), w, win_bytes);
                 w += win_bytes;
             }
         }

@@ -1,0 +1,13 @@
+{
+ "A": 1.31,
+ "ncopy": 8,
+ "arms": {
+  "general_rel_l2": 0.0033926785752560434,
+  "general_130core": {
+   "ns_per_output_tile_per_core": 2031.9674877100624,
+   "chip_output_tiles_per_s": 63977401.60031018,
+   "derived_slices_per_s": 848524.2363319555,
+   "pct_of_floor": 26.51638238537361
+  }
+ }
+}
