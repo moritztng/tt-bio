@@ -36,6 +36,11 @@ if os.environ.get("SCREEN_LEGS") == "control":
     LEGS = [("A_off", "off", 0), ("block_R128", "block", 128),
             ("blockdram_R128", "blockdram", 128), ("blockdram_R256", "blockdram", 256),
             ("A_off_2", "off", 0)]
+elif os.environ.get("SCREEN_LEGS") == "f1":
+    # F1 and its A/A twin. f1_2 is the same leg run again, so the gap between them is this
+    # instrument's own floor (0.006-0.019 ms on the predecessor's run) and F1's effect has to
+    # clear it by the margin the stop rule asks for.
+    LEGS = [("A_off", "off", 0), ("f1", "f1", 0), ("f1_2", "f1", 0), ("A_off_2", "off", 0)]
 else:
     LEGS = [("A_off", "off", 0), ("l1norm", "l1norm", 0),
             ("block_R64", "block", 64), ("block_R128", "block", 128),
@@ -138,5 +143,11 @@ OUT = dict(n=N, reps=REPS, grid=list(COMPUTE_GRID_MAIN), c_z=c_z, hidden=tm._hid
            legs=rows_out, parity={k: str(v) for k, v in parity.items()})
 d = HERE
 d.mkdir(parents=True, exist_ok=True)
-(d / f"tail_screen_{N}_qb2c0{'_control' if os.environ.get('SCREEN_LEGS') == 'control' else ''}.json").write_text(json.dumps(OUT, indent=2))
-print("WROTE " + str(d / f"tail_screen_{N}_qb2c0{'_control' if os.environ.get('SCREEN_LEGS') == 'control' else ''}.json"))
+# The host is in the filename because the two QuietBoxes run different ttnn stacks and a number
+# from one must never end up in a table with a number from the other.
+import socket
+tag = os.environ.get("SCREEN_TAG") or (socket.gethostname() + "_card" + os.environ.get("TT_VISIBLE_DEVICES", "?"))
+suffix = os.environ.get("SCREEN_LEGS", "")
+name = f"tail_screen_{N}_{tag}" + (f"_{suffix}" if suffix else "") + ".json"
+(d / name).write_text(json.dumps(OUT, indent=2))
+print("WROTE " + str(d / name))

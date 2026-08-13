@@ -10,6 +10,8 @@ from types import MappingProxyType
 from . import reblock_permute as _reblock
 from . import triatt_qkv as _triatt_qkv
 from . import triatt_sdpa as _triatt_sdpa
+from . import trimul_tail as _trimul_tail
+from . import mm_generic as _mm_generic
 
 TRIANGLE_MULT_CHUNK_SIZE = 32
 TRIANGLE_ATT_CHUNK_SIZE_FAST = 1024
@@ -2303,6 +2305,19 @@ class TriangleMultiplication(Module):
                 epsilon=1e-5,
                 compute_kernel_config=self.compute_kernel_config,
             )
+        if _TRIMUL_TAIL_MODE == "f1":
+            # F1: both output projections and the gate in one kernel. `p_out` and `g_out` never
+            # become tensors, so the tail moves 2P read + 1P write instead of 4P + 3P. Bit-exact
+            # against the three ops below (`torch.equal` at 11 shapes, perf/trimul_f1/f1_parity.py);
+            # `fused_tail` returns None outside the class its descriptor covers and the three ops
+            # run unchanged.
+            fused = _trimul_tail.fused_tail(
+                x, x_norm_in, self.out_p_weight, self.g_out_weight,
+                _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN))
+            if fused is not None:
+                ttnn.deallocate(x)
+                ttnn.deallocate(x_norm_in)
+                return fused
         p_out = _trimul_out_proj(x, self.out_p_weight, self.compute_kernel_config)
         ttnn.deallocate(x)
         dram_peak(f"trimul({'end' if self.ending else 'start'}) p_out done [z={'x'.join(str(d) for d in x_norm_in.shape)}]")
