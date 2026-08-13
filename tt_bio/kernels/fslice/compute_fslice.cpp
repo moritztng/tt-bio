@@ -36,6 +36,14 @@
 //
 // `mode` selects the output so a failure can be attributed rather than guessed at:
 //   0 tilize only   1 full pass   2 emit T0 (selection matmul)   3 emit the weight tile w
+//   4 full pass with M and frac(q) precomputed on the host
+//
+// Mode 4 is the optimisation the attribution asked for. Differencing the modes at 130 cores put
+// the six SFPU ops at 1694.7 ns of a 2936.4 ns output tile -- 58% -- against roughly 90 ns for the
+// six matmuls and the broadcast. But M and frac(q) are functions of g(r) and frac(A*u), and BOTH
+// are known on the host, so building them on the device with a broadcast add, a copy, a floor and
+// a frac is work that need not happen at all. Mode 4 reads them as two ready tiles and keeps only
+// the three lerps, trading four device ops for two cheap FPU copies.
 #include <cstdint>
 
 #include "api/compute/common.h"
@@ -114,8 +122,10 @@ void kernel_main() {
         // w(r, u) = g(r) + frac(A*u). add_tiles_bcast_rows broadcasts ROW 0 of its SECOND operand, so
         // the per-row tile must be first and the per-column tile second. cb_frac tile 1 holds g(r)
         // replicated across the columns; tile 0 holds frac(A*u) in row 0.
-        add_bcast_rows_init_short(cb_frac, cb_frac);
-        add_tiles_bcast_rows(cb_frac, cb_frac, 1, 0, DST_W);
+        if constexpr (mode != 4) {
+            add_bcast_rows_init_short(cb_frac, cb_frac);
+            add_tiles_bcast_rows(cb_frac, cb_frac, 1, 0, DST_W);
+        }
 
         if constexpr (mode == 3) {
             tile_regs_commit();
@@ -138,13 +148,20 @@ void kernel_main() {
             continue;
         }
 
-        // M = floor(w) in {0, 1}; frac(q) = w - M = frac(w). copy_dest_values is (in, out), so the
-        // weight is the SOURCE and M the destination -- passing these the other way round overwrites
-        // w with an uninitialised register and makes the whole result independent of g(r).
-        copy_dest_values(DST_W, DST_M);
-        rounding_op_tile_init();
-        floor_tile(DST_M);
-        frac_tile(DST_W);
+        if constexpr (mode == 4) {
+            // cb_frac already holds frac(q) in tile 0 and M in tile 1, so nothing has to be derived.
+            copy_tile_to_dst_init_short(cb_frac);
+            copy_tile(cb_frac, 0, DST_W);
+            copy_tile(cb_frac, 1, DST_M);
+        } else {
+            // M = floor(w) in {0, 1}; frac(q) = w - M = frac(w). copy_dest_values is (in, out), so the
+            // weight is the SOURCE and M the destination -- passing these the other way round
+            // overwrites w with an uninitialised register and makes the result independent of g(r).
+            copy_dest_values(DST_W, DST_M);
+            rounding_op_tile_init();
+            floor_tile(DST_M);
+            frac_tile(DST_W);
+        }
 
         lerp_tile_init();
         lerp_tile<DataFormat::Float16_b>(DST_T0, DST_T1, DST_M, DST_BASE);

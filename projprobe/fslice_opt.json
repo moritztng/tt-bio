@@ -1,0 +1,21 @@
+{
+ "A": 1.31,
+ "nb_per_core": 400,
+ "arms": {
+  "mode1_rel_l2": 0.004356191654170387,
+  "mode4_rel_l2": 0.0022274857009478874,
+  "mode1_130core": {
+   "ns_per_output_tile_per_core": 2940.3775261016563,
+   "chip_output_tiles_per_s": 44212009.800099924,
+   "derived_slices_per_s": 586378.3291278407,
+   "pct_of_floor": 18.324322785245023
+  },
+  "mode4_130core": {
+   "ns_per_output_tile_per_core": 2185.3900034329854,
+   "chip_output_tiles_per_s": 59485949.78277818,
+   "derived_slices_per_s": 788954.675390696,
+   "pct_of_floor": 24.65483360595925
+  }
+ },
+ "lever_speedup": 1.3454703835391744
+}
