@@ -250,7 +250,7 @@ def eligible_shape(batch, n_heads, length, n_keys, dtype) -> bool:
     return True
 
 
-RFD3_SPARSE_BIAS = False   # release-gated: opt-in until the fold A/B and the trajectory gate land
+RFD3_SPARSE_BIAS = True    # default-on: torch.equal at every shape, byte-identical designs
 _ENABLED = os.environ.get(
     "RFD3_SPARSE_BIAS", "1" if RFD3_SPARSE_BIAS else "0"
 ) == "1"
@@ -467,7 +467,7 @@ def set_fused_enabled(on: bool) -> bool:
     return prev
 
 
-RFD3_FUSED_SCORES = False   # release-gated: opt-in until the fold A/B and the parity gate land
+RFD3_FUSED_SCORES = True    # default-on: torch.equal on the result and on the softmax
 _FUSED_ENABLED = os.environ.get(
     "RFD3_FUSED_SCORES", "1" if RFD3_FUSED_SCORES else "0"
 ) == "1"
