@@ -1,0 +1,274 @@
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "grid": [
+  11,
+  10
+ ],
+ "L": 512,
+ "n": 5,
+ "l1_bank_bytes": 1461760,
+ "A_bare": {
+  "rows32": {
+   "dram_core_grid_ms": 0.3125,
+   "cands": {
+    "bw1_obh5_obw2": {
+     "ms": 1.0264,
+     "equal": true
+    },
+    "bw1_obh5_obw4": {
+     "ms": 0.5144,
+     "equal": true
+    },
+    "bw1_obh5_obw8": {
+     "ms": 0.286,
+     "equal": true
+    },
+    "bw1_obh5_obw16": {
+     "ms": 0.206,
+     "equal": true
+    },
+    "bw1_obh5_obw32": {
+     "ms": 0.16,
+     "equal": true
+    },
+    "bw1_obh4_obw2": {
+     "ms": 1.0103,
+     "equal": true
+    },
+    "bw1_obh4_obw4": {
+     "ms": 0.5366,
+     "equal": true
+    },
+    "bw1_obh4_obw8": {
+     "ms": 0.3303,
+     "equal": true
+    },
+    "bw1_obh4_obw16": {
+     "ms": 0.2446,
+     "equal": true
+    },
+    "bw1_obh4_obw32": {
+     "ms": 0.2051,
+     "equal": true
+    },
+    "bw1_obh2_obw2": {
+     "ms": 1.2186,
+     "equal": true
+    },
+    "bw1_obh2_obw4": {
+     "ms": 0.6231,
+     "equal": true
+    },
+    "bw1_obh2_obw8": {
+     "ms": 0.3226,
+     "equal": true
+    },
+    "bw1_obh2_obw16": {
+     "ms": 0.227,
+     "equal": true
+    },
+    "bw1_obh2_obw32": {
+     "ms": 0.1835,
+     "equal": true
+    },
+    "bw1_obh1_obw2": {
+     "ms": 1.056,
+     "equal": true
+    },
+    "bw1_obh1_obw4": {
+     "ms": 0.6087,
+     "equal": true
+    },
+    "bw1_obh1_obw8": {
+     "ms": 0.3706,
+     "equal": true
+    },
+    "bw1_obh1_obw16": {
+     "ms": 0.2606,
+     "equal": true
+    },
+    "bw1_obh1_obw32": {
+     "ms": 0.212,
+     "equal": true
+    }
+   },
+   "best_bit_exact": {
+    "tag": "bw1_obh5_obw32",
+    "ms": 0.16,
+    "speedup_vs_dram": 1.9537
+   }
+  },
+  "rows64": {
+   "dram_core_grid_ms": 0.6926,
+   "cands": {
+    "bw1_obh5_obw2": {
+     "ms": 1.9189,
+     "equal": true
+    },
+    "bw1_obh5_obw4": {
+     "ms": 1.0689,
+     "equal": true
+    },
+    "bw1_obh5_obw8": {
+     "ms": 0.5231,
+     "equal": true
+    },
+    "bw1_obh5_obw16": {
+     "ms": 0.3615,
+     "equal": true
+    },
+    "bw1_obh5_obw32": {
+     "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in"
+    },
+    "bw1_obh4_obw2": {
+     "ms": 2.273,
+     "equal": true
+    },
+    "bw1_obh4_obw4": {
+     "ms": 0.9305,
+     "equal": true
+    },
+    "bw1_obh4_obw8": {
+     "ms": 0.5527,
+     "equal": true
+    },
+    "bw1_obh4_obw16": {
+     "ms": 0.396,
+     "equal": true
+    },
+    "bw1_obh4_obw32": {
+     "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in"
+    },
+    "bw1_obh2_obw2": {
+     "ms": 2.0631,
+     "equal": true
+    },
+    "bw1_obh2_obw4": {
+     "ms": 0.9596,
+     "equal": true
+    },
+    "bw1_obh2_obw8": {
+     "ms": 0.5584,
+     "equal": true
+    },
+    "bw1_obh2_obw16": {
+     "ms": 0.3835,
+     "equal": true
+    },
+    "bw1_obh2_obw32": {
+     "ms": 0.2997,
+     "equal": true
+    },
+    "bw1_obh1_obw2": {
+     "ms": 2.0748,
+     "equal": true
+    },
+    "bw1_obh1_obw4": {
+     "ms": 1.1895,
+     "equal": true
+    },
+    "bw1_obh1_obw8": {
+     "ms": 0.7094,
+     "equal": true
+    },
+    "bw1_obh1_obw16": {
+     "ms": 0.5105,
+     "equal": true
+    },
+    "bw1_obh1_obw32": {
+     "ms": 0.4091,
+     "equal": true
+    }
+   },
+   "best_bit_exact": {
+    "tag": "bw1_obh2_obw32",
+    "ms": 0.2997,
+    "speedup_vs_dram": 2.3109
+   }
+  },
+  "rows128": {
+   "dram_core_grid_ms": 1.5529,
+   "cands": {
+    "bw1_obh5_obw2": {
+     "ms": 3.8599,
+     "equal": true
+    },
+    "bw1_obh5_obw4": {
+     "ms": 1.9308,
+     "equal": true
+    },
+    "bw1_obh5_obw8": {
+     "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in"
+    },
+    "bw1_obh5_obw16": {
+     "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in"
+    },
+    "bw1_obh5_obw32": {
+     "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in"
+    },
+    "bw1_obh4_obw2": {
+     "ms": 4.0757,
+     "equal": true
+    },
+    "bw1_obh4_obw4": {
+     "ms": 2.0782,
+     "equal": true
+    },
+    "bw1_obh4_obw8": {
+     "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in"
+    },
+    "bw1_obh4_obw16": {
+     "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in"
+    },
+    "bw1_obh4_obw32": {
+     "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in"
+    },
+    "bw1_obh2_obw2": {
+     "ms": 4.0848,
+     "equal": true
+    },
+    "bw1_obh2_obw4": {
+     "ms": 1.8745,
+     "equal": true
+    },
+    "bw1_obh2_obw8": {
+     "ms": 1.0771,
+     "equal": true
+    },
+    "bw1_obh2_obw16": {
+     "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in"
+    },
+    "bw1_obh2_obw32": {
+     "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in"
+    },
+    "bw1_obh1_obw2": {
+     "ms": 4.0744,
+     "equal": true
+    },
+    "bw1_obh1_obw4": {
+     "ms": 2.1715,
+     "equal": true
+    },
+    "bw1_obh1_obw8": {
+     "ms": 1.3125,
+     "equal": true
+    },
+    "bw1_obh1_obw16": {
+     "ms": 0.9062,
+     "equal": true
+    },
+    "bw1_obh1_obw32": {
+     "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in"
+    }
+   },
+   "best_bit_exact": {
+    "tag": "bw1_obh1_obw16",
+    "ms": 0.9062,
+    "speedup_vs_dram": 1.7137
+   }
+  }
+ },
+ "B_chain": {},
+ "loadavg": "0.21"
+}

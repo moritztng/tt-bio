@@ -1,0 +1,129 @@
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "grid": [
+  11,
+  10
+ ],
+ "L": 512,
+ "n": 5,
+ "arms": {
+  "unblocked": {
+   "ms": 21.286,
+   "equal": true
+  },
+  "shipped_l2_rows32_obw16": {
+   "ms": 14.5864,
+   "equal": true
+  },
+  "rows64_bw1_obh5_obw32_gatedDRAM": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular "
+  },
+  "rows64_bw1_obh5_obw16_gatedDRAM": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular "
+  },
+  "rows64_bw1_obh5_obw8_gatedDRAM": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular "
+  },
+  "rows64_bw1_obh4_obw32_gatedDRAM": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular "
+  },
+  "rows64_bw1_obh4_obw16_gatedDRAM": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular "
+  },
+  "rows64_bw1_obh4_obw8_gatedDRAM": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular "
+  },
+  "rows64_bw1_obh2_obw32_gatedDRAM": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular "
+  },
+  "rows64_bw1_obh2_obw16_gatedDRAM": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular "
+  },
+  "rows64_bw1_obh2_obw8_gatedDRAM": {
+   "refused": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space "
+  },
+  "rows64_bw1_obh1_obw32_gatedDRAM": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular "
+  },
+  "rows64_bw1_obh1_obw16_gatedDRAM": {
+   "refused": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space "
+  },
+  "rows64_bw1_obh1_obw8_gatedDRAM": {
+   "refused": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space "
+  },
+  "rows64_bw1_obh5_obw32_gatedL1": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular "
+  },
+  "rows64_bw1_obh5_obw16_gatedL1": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular "
+  },
+  "rows64_bw1_obh5_obw8_gatedL1": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular "
+  },
+  "rows64_bw1_obh4_obw32_gatedL1": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular "
+  },
+  "rows64_bw1_obh4_obw16_gatedL1": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular "
+  },
+  "rows64_bw1_obh4_obw8_gatedL1": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular "
+  },
+  "rows64_bw1_obh2_obw32_gatedL1": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular "
+  },
+  "rows64_bw1_obh2_obw16_gatedL1": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular "
+  },
+  "rows64_bw1_obh2_obw8_gatedL1": {
+   "refused": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space "
+  },
+  "rows64_bw1_obh1_obw32_gatedL1": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular "
+  },
+  "rows64_bw1_obh1_obw16_gatedL1": {
+   "refused": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space "
+  },
+  "rows64_bw1_obh1_obw8_gatedL1": {
+   "refused": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space "
+  },
+  "rows128_bw1_obh5_obw32_gatedDRAM": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular "
+  },
+  "rows128_bw1_obh5_obw16_gatedDRAM": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular "
+  },
+  "rows128_bw1_obh5_obw8_gatedDRAM": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular "
+  },
+  "rows128_bw1_obh4_obw32_gatedDRAM": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular "
+  },
+  "rows128_bw1_obh4_obw16_gatedDRAM": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular "
+  },
+  "rows128_bw1_obh4_obw8_gatedDRAM": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular "
+  },
+  "rows128_bw1_obh2_obw32_gatedDRAM": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular "
+  },
+  "rows128_bw1_obh2_obw16_gatedDRAM": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular "
+  },
+  "rows128_bw1_obh2_obw8_gatedDRAM": {
+   "refused": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space "
+  },
+  "rows128_bw1_obh1_obw32_gatedDRAM": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular "
+  },
+  "rows128_bw1_obh1_obw16_gatedDRAM": {
+   "refused": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space "
+  },
+  "rows128_bw1_obh1_obw8_gatedDRAM": {
+   "refused": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space "
+  }
+ },
+ "loadavg": "0.76"
+}
