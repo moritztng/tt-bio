@@ -14,6 +14,8 @@ adjacency, role-pair-type) are precomputed host-side; the gathers themselves,
 the split-MLP, the 49 role-pair pair projections, and the bias adds run on
 device.
 """
+import os
+
 import torch
 import ttnn
 
@@ -34,7 +36,7 @@ _BASE = (STRUCTURAL_TOKEN_ROLES["dna_base"], STRUCTURAL_TOKEN_ROLES["rna_base"])
 
 # Keep the OpenDDE trunk->structural z_trunk host copy in the bf16 the device held instead of
 # upcasting it to fp32 that both consumers immediately undo. Bit-exact; ON by default.
-_SEAM_BF16 = True
+_SEAM_BF16 = os.environ.get("TT_BIO_OPENDDE_SEAM_BF16", "1") == "1"
 
 
 class StructuralTokenExpander(_KeyedWeights):

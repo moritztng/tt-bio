@@ -284,7 +284,7 @@ def _window_kv_m(x, M, N, NP, nq=32, nk=128, pad_left=48):
 # materialising int64 one-hots and an int64 cat (`_generate_relp`). Bit-exact; ON by default.
 # RELP_STATS is [scatter_calls, legacy_calls] -- a perf arm that flips the flag and serves zero
 # calls is an A/A pair mislabelled as an A/B, and only the counter says which happened.
-_RELP_SCATTER = True
+_RELP_SCATTER = os.environ.get("TT_BIO_RELP_SCATTER", "1") == "1"
 RELP_STATS = [0, 0]
 
 

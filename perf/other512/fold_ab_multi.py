@@ -51,6 +51,13 @@ FP32_OWNERS: list = []
 # 8 calls unflipped on every arm, which reads as "K2 declined 8" and is not that at all.
 OWNED: dict = {}
 CALLS = Counter()      # (owner, class, c_z, fp32_softmax) -> calls, reset per arm
+# Diffusion trace replay, per arm. `build_fold` hard-codes `trace=False` in its cfg, so the arm
+# cannot reach it through the config; the wrapper below overrides the kwarg on `model.fold`. The
+# device must ALSO have been opened with a trace region (TT_BIO_TRACE_REGION_SIZE in the parent
+# env), and a trace arm that runs without one would silently measure its non-trace twin -- so it
+# raises instead. Reserving the region changes the DRAM layout for every arm in the process, which
+# is why a trace arm belongs in its own process and not beside a re-anchor.
+TRACE = [False]
 
 
 def _collect_owned(model):
@@ -400,6 +407,13 @@ def main():
         # perf/oddeb200/verify_glue.py. Written on every arm; the counter proves which fired.
         PX._RELP_SCATTER = OD._SEAM_BF16 = name in ("glue", "traceglue")
         PX.RELP_STATS[0] = PX.RELP_STATS[1] = 0
+        TRACE[0] = name == "traceglue"
+        if TRACE[0]:
+            import tt_bio.tenstorrent as _TTd
+            assert _TTd.trace_region_size() > 0, (
+                "the traceglue arm needs a device opened with a trace region -- set "
+                "TT_BIO_TRACE_REGION_SIZE=1073741824 in the parent env before this process opens "
+                "the card, or the arm silently measures the glue arm again")
 
         # capacity gates stay at production defaults on every arm: they are not under test here
         # `nofp32`/`nofp32hifi` flip every site except the confidence head, whatever the partition
@@ -453,6 +467,16 @@ def main():
         one_fold, meta, state = B.build_fold(a.model, ROOT / f".msa_om512_{size}", tgt, a3m)
         STATE["dev"] = T.get_device()
         STATE["model"] = getattr(state, "model", None)
+        _m = STATE["model"]
+        if _m is not None and not getattr(_m, "_ab_trace_wrapped", False):
+            _of = _m.fold
+
+            def _fold_traced(*x, _of=_of, **k):
+                k["trace"] = TRACE[0]
+                return _of(*x, **k)
+
+            _m.fold = _fold_traced
+            _m._ab_trace_wrapped = True
         g = STATE["dev"].compute_with_storage_grid_size()
         res["grid"] = [g.x, g.y]
         res["compute_grid_main"] = list(T.COMPUTE_GRID_MAIN)
@@ -528,6 +552,7 @@ def main():
                                        "rejects": {f"{r}:{sh}": n for (r, sh), n in PM.REJECTS.items()},
                                        "pm_over_l1": sorted(str(k) for k in PM._PM_OVER_L1)},
                    "transpose_l1_headroom": T._TRANSPOSE_L1_HEADROOM,
+                   "trace": TRACE[0],
                    "host_glue": {"relp_scatter": PX._RELP_SCATTER,
                                  "relp_calls_scatter": PX.RELP_STATS[0],
                                  "relp_calls_legacy": PX.RELP_STATS[1],
