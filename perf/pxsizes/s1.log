@@ -1,0 +1,683 @@
+benchlock: protenix-v2-sizes-perf waiting; currently held by: boltz2-sizes-perf pid=234416 since=2026-08-13T01:04:43+00:00
+benchlock: protenix-v2-sizes-perf acquired after 107s, loadavg 0.52 1.48 1.95
+c38cc70ad2681beb1c170f505f3284ac0dc7a7a5a9716e3c8f2da4efedb90a4e  /home/ttuser/.coworker/wt/protenix-v2-sizes-perf/perf/size512/fixtures/cdk2x2_128.yaml
+638a6fcebb12db604a5866ae1346932bb5bd1ddd7280b56fd4496e632261232b  /home/ttuser/.coworker/wt/protenix-v2-sizes-perf/perf/size512/fixtures/cdk2x2_128.a3m
+64bdb358793781b611b67e741c8800a74299e70e28d40f14d427bf28889f6625  /home/ttuser/.coworker/wt/protenix-v2-sizes-perf/perf/size512/fixtures/cdk2x2_256.yaml
+b8a16508da13a01af066d03e676ec27a80b7efc1f696be29d489893c95b452dc  /home/ttuser/.coworker/wt/protenix-v2-sizes-perf/perf/size512/fixtures/cdk2x2_256.a3m
+ef1e85c3a222c81a8c6deb7c87d3bdcf795b7aecea7517ff17c03b8972616c90  /home/ttuser/.coworker/wt/protenix-v2-sizes-perf/perf/size512/fixtures/cdk2x2_768.yaml
+7ed940bd80330523f39cc165a5d1e288579d684862bc633f1f063e933e3fa4b4  /home/ttuser/.coworker/wt/protenix-v2-sizes-perf/perf/size512/fixtures/cdk2x2_768.a3m
+98c31baa6e4e624fdff62c6af73255515135bad3a386d15618e27188ee033f87  /home/ttuser/.coworker/wt/protenix-v2-sizes-perf/perf/size512/fixtures/cdk2x2_1024.yaml
+644b2608d8f989d2aad1cb75ac65ee55ca8147e332702a3095f407c4841af8d3  /home/ttuser/.coworker/wt/protenix-v2-sizes-perf/perf/size512/fixtures/cdk2x2_1024.a3m
+=== 2026-08-13T01:09:47+00:00  size 128  arms on,on,base4,noe6,nohmqkv,nok2,narrowq,off,bigchunk64,on ===
+2026-08-13 01:09:47.731 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+=== size 128: cold fold ===
+  cold 53.92s n_tokens=128 plddt=0.618223
+  on: fold 8.04s  block 3308.9 ms over 604 calls  plddt 0.618223  (8s)
+      DEC l1_layer_norm|h=1.5|128x128x256                      {'L1': 30}
+      DEC l1_layer_norm|h=1.5|1x128x128x256                    {'L1': 494}
+      DEC pair_proj_out_l1|128x128x256@1                       {'L1': 240}
+      DEC pair_proj_out_l1|128x128x64@64                       {'L1': 160}
+      DEC pair_proj_out_l1|1x128x128x256@16                    {'L1': 484}
+      DEC pair_proj_out_l1|1x128x128x256@256                   {'L1': 2096}
+      DEC pair_proj_out_l1|1x128x128x256@64                    {'L1': 40}
+      DEC pair_proj_out_l1|1x128x128x64@64                     {'L1': 320}
+      DEC transpose|128x128x256                                {'L1': 1048}
+      DEC transpose|128x128x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q128k128                                {'q_chunk=128 k_chunk=128 bias=bf16': 1208}
+      DEC trimul_chunk|N128|h256|b1                            {'c=256': 1048}
+      DEC trimul_chunk|N128|h64|b1                             {'c=64': 160}
+      DEC trimul_pair_buffer|N128                              {'L1': 1208}
+  on: fold 8.05s  block 3313.65 ms over 604 calls  plddt 0.618223  (8s)
+      DEC l1_layer_norm|h=1.5|128x128x256                      {'L1': 30}
+      DEC l1_layer_norm|h=1.5|1x128x128x256                    {'L1': 494}
+      DEC pair_proj_out_l1|128x128x256@1                       {'L1': 240}
+      DEC pair_proj_out_l1|128x128x64@64                       {'L1': 160}
+      DEC pair_proj_out_l1|1x128x128x256@16                    {'L1': 484}
+      DEC pair_proj_out_l1|1x128x128x256@256                   {'L1': 2096}
+      DEC pair_proj_out_l1|1x128x128x256@64                    {'L1': 40}
+      DEC pair_proj_out_l1|1x128x128x64@64                     {'L1': 320}
+      DEC transpose|128x128x256                                {'L1': 1048}
+      DEC transpose|128x128x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q128k128                                {'q_chunk=128 k_chunk=128 bias=bf16': 1208}
+      DEC trimul_chunk|N128|h256|b1                            {'c=256': 1048}
+      DEC trimul_chunk|N128|h64|b1                             {'c=64': 160}
+      DEC trimul_pair_buffer|N128                              {'L1': 1208}
+  base4: fold 10.42s  block 5687.41 ms over 604 calls  plddt 0.618223  (10s)
+      DEC l1_layer_norm|h=1.5|128x128x256                      {'L1': 30}
+      DEC l1_layer_norm|h=1.5|1x128x128x256                    {'L1': 494}
+      DEC pair_proj_out_l1|128x128x256@1                       {'L1': 240}
+      DEC pair_proj_out_l1|128x128x256@256                     {'L1': 1048}
+      DEC pair_proj_out_l1|128x128x64@64                       {'L1': 160}
+      DEC pair_proj_out_l1|1x128x128x256@16                    {'L1': 484}
+      DEC pair_proj_out_l1|1x128x128x256@256                   {'L1': 2096}
+      DEC pair_proj_out_l1|1x128x128x256@64                    {'L1': 40}
+      DEC pair_proj_out_l1|1x128x128x64@64                     {'L1': 320}
+      DEC transpose|128x128x256                                {'L1': 1048}
+      DEC transpose|128x128x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q128k128                                {'q_chunk=128 k_chunk=128 bias=bf16': 1208}
+      DEC trimul_chunk|N128|h256|b1                            {'c=256': 1048}
+      DEC trimul_chunk|N128|h64|b1                             {'c=64': 160}
+      DEC trimul_pair_buffer|N128                              {'L1': 1208}
+  noe6: fold 8.11s  block 3315.77 ms over 604 calls  plddt 0.618223  (8s)
+      DEC l1_layer_norm|h=1.5|128x128x256                      {'L1': 30}
+      DEC l1_layer_norm|h=1.5|1x128x128x256                    {'L1': 494}
+      DEC pair_proj_out_l1|128x128x256@1                       {'L1': 240}
+      DEC pair_proj_out_l1|128x128x64@64                       {'L1': 160}
+      DEC pair_proj_out_l1|1x128x128x256@16                    {'L1': 484}
+      DEC pair_proj_out_l1|1x128x128x256@256                   {'L1': 2096}
+      DEC pair_proj_out_l1|1x128x128x256@64                    {'L1': 40}
+      DEC pair_proj_out_l1|1x128x128x64@64                     {'L1': 320}
+      DEC transpose|128x128x256                                {'L1': 1048}
+      DEC transpose|128x128x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q128k128                                {'q_chunk=128 k_chunk=128 bias=bf16': 1208}
+      DEC trimul_chunk|N128|h256|b1                            {'c=256': 1048}
+      DEC trimul_chunk|N128|h64|b1                             {'c=64': 160}
+      DEC trimul_pair_buffer|N128                              {'L1': 1208}
+  nohmqkv: fold 8.19s  block 3427.88 ms over 604 calls  plddt 0.618223  (8s)
+      DEC l1_layer_norm|h=1.5|128x128x256                      {'L1': 30}
+      DEC l1_layer_norm|h=1.5|1x128x128x256                    {'L1': 494}
+      DEC pair_proj_out_l1|128x128x256@1                       {'L1': 240}
+      DEC pair_proj_out_l1|128x128x256@256                     {'L1': 1048}
+      DEC pair_proj_out_l1|128x128x64@64                       {'L1': 160}
+      DEC pair_proj_out_l1|1x128x128x256@16                    {'L1': 484}
+      DEC pair_proj_out_l1|1x128x128x256@256                   {'L1': 2096}
+      DEC pair_proj_out_l1|1x128x128x256@64                    {'L1': 40}
+      DEC pair_proj_out_l1|1x128x128x64@64                     {'L1': 320}
+      DEC transpose|128x128x256                                {'L1': 1048}
+      DEC transpose|128x128x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q128k128                                {'q_chunk=128 k_chunk=128 bias=bf16': 1208}
+      DEC trimul_chunk|N128|h256|b1                            {'c=256': 1048}
+      DEC trimul_chunk|N128|h64|b1                             {'c=64': 160}
+      DEC trimul_pair_buffer|N128                              {'L1': 1208}
+  nok2: fold 8.12s  block 3389.82 ms over 604 calls  plddt 0.618223  (8s)
+      DEC l1_layer_norm|h=1.5|128x128x256                      {'L1': 30}
+      DEC l1_layer_norm|h=1.5|1x128x128x256                    {'L1': 494}
+      DEC pair_proj_out_l1|128x128x256@1                       {'L1': 240}
+      DEC pair_proj_out_l1|128x128x64@64                       {'L1': 160}
+      DEC pair_proj_out_l1|1x128x128x256@16                    {'L1': 484}
+      DEC pair_proj_out_l1|1x128x128x256@256                   {'L1': 2096}
+      DEC pair_proj_out_l1|1x128x128x256@64                    {'L1': 40}
+      DEC pair_proj_out_l1|1x128x128x64@64                     {'L1': 320}
+      DEC transpose|128x128x256                                {'L1': 1048}
+      DEC transpose|128x128x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q128k128                                {'q_chunk=128 k_chunk=128 bias=bf16': 1208}
+      DEC trimul_chunk|N128|h256|b1                            {'c=256': 1048}
+      DEC trimul_chunk|N128|h64|b1                             {'c=64': 160}
+      DEC trimul_pair_buffer|N128                              {'L1': 1208}
+  narrowq: fold 8.05s  block 3310.6 ms over 604 calls  plddt 0.618223  (8s)
+      DEC l1_layer_norm|h=1.5|128x128x256                      {'L1': 30}
+      DEC l1_layer_norm|h=1.5|1x128x128x256                    {'L1': 494}
+      DEC pair_proj_out_l1|128x128x256@1                       {'L1': 240}
+      DEC pair_proj_out_l1|128x128x64@64                       {'L1': 160}
+      DEC pair_proj_out_l1|1x128x128x256@16                    {'L1': 484}
+      DEC pair_proj_out_l1|1x128x128x256@256                   {'L1': 2096}
+      DEC pair_proj_out_l1|1x128x128x256@64                    {'L1': 40}
+      DEC pair_proj_out_l1|1x128x128x64@64                     {'L1': 320}
+      DEC transpose|128x128x256                                {'L1': 1048}
+      DEC transpose|128x128x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q128k128                                {'q_chunk=128 k_chunk=128 bias=bf16': 1208}
+      DEC trimul_chunk|N128|h256|b1                            {'c=256': 1048}
+      DEC trimul_chunk|N128|h64|b1                             {'c=64': 160}
+      DEC trimul_pair_buffer|N128                              {'L1': 1208}
+  off: fold 9.77s  block 4678.29 ms over 604 calls  plddt 0.618223  (10s)
+      DEC transpose|128x128x256                                {'DRAM': 1048}
+      DEC transpose|128x128x64                                 {'DRAM': 160}
+      DEC tri_att_sdpa|q128k128                                {'q_chunk=128 k_chunk=128 bias=bf16': 1208}
+      DEC trimul_chunk|N128|h256|b1                            {'c=256': 1048}
+      DEC trimul_chunk|N128|h64|b1                             {'c=64': 160}
+      DEC trimul_pair_buffer|N128                              {'L1': 1208}
+  bigchunk64: fold 9.31s  block 3269.04 ms over 604 calls  plddt 0.618493  (9s)
+      DEC l1_layer_norm|h=1.5|128x128x256                      {'L1': 30}
+      DEC l1_layer_norm|h=1.5|1x128x128x256                    {'L1': 494}
+      DEC pair_proj_out_l1|128x128x256@1                       {'L1': 240}
+      DEC pair_proj_out_l1|128x128x64@64                       {'L1': 160}
+      DEC pair_proj_out_l1|1x128x128x256@16                    {'L1': 484}
+      DEC pair_proj_out_l1|1x128x128x256@256                   {'L1': 2096}
+      DEC pair_proj_out_l1|1x128x128x256@64                    {'L1': 40}
+      DEC pair_proj_out_l1|1x128x128x64@64                     {'L1': 320}
+      DEC transpose|128x128x256                                {'L1': 1048}
+      DEC transpose|128x128x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q128k128                                {'q_chunk=128 k_chunk=128 bias=bf16': 1208}
+      DEC trimul_chunk|N128|h256|b1                            {'c=256': 1048}
+      DEC trimul_chunk|N128|h64|b1                             {'c=64': 160}
+      DEC trimul_pair_buffer|N128                              {'L1': 1208}
+  on: fold 8.09s  block 3314.94 ms over 604 calls  plddt 0.618223  (8s)
+      DEC l1_layer_norm|h=1.5|128x128x256                      {'L1': 30}
+      DEC l1_layer_norm|h=1.5|1x128x128x256                    {'L1': 494}
+      DEC pair_proj_out_l1|128x128x256@1                       {'L1': 240}
+      DEC pair_proj_out_l1|128x128x64@64                       {'L1': 160}
+      DEC pair_proj_out_l1|1x128x128x256@16                    {'L1': 484}
+      DEC pair_proj_out_l1|1x128x128x256@256                   {'L1': 2096}
+      DEC pair_proj_out_l1|1x128x128x256@64                    {'L1': 40}
+      DEC pair_proj_out_l1|1x128x128x64@64                     {'L1': 320}
+      DEC transpose|128x128x256                                {'L1': 1048}
+      DEC transpose|128x128x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q128k128                                {'q_chunk=128 k_chunk=128 bias=bf16': 1208}
+      DEC trimul_chunk|N128|h256|b1                            {'c=256': 1048}
+      DEC trimul_chunk|N128|h64|b1                             {'c=64': 160}
+      DEC trimul_pair_buffer|N128                              {'L1': 1208}
+{
+ "ratios": {
+  "128": {
+   "on_block_ms": [
+    3308.9,
+    3313.65,
+    3314.94
+   ],
+   "off_block_ms": [
+    4678.29
+   ],
+   "on_fold_s": [
+    8.042,
+    8.048,
+    8.094
+   ],
+   "off_fold_s": [
+    9.773
+   ],
+   "aa_floor_block_ms": 4.75,
+   "aa_floor_fold_s": 0.006,
+   "off_over_on_block": 1.4118,
+   "off_minus_on_block_ms": 1364.64,
+   "off_over_on_fold": 1.2143
+  }
+ },
+ "arm_medians": {
+  "128": {
+   "on": {
+    "block_ms": [
+     3308.9,
+     3313.65,
+     3314.94
+    ],
+    "fold_s": [
+     8.042,
+     8.048,
+     8.094
+    ],
+    "plddt": [
+     0.618223,
+     0.618223,
+     0.618223
+    ],
+    "n": 3,
+    "block_ms_median": 3313.65,
+    "fold_s_median": 8.048,
+    "block_ms_min": 3308.9,
+    "fold_s_min": 8.042,
+    "block_ms_spread": 6.04,
+    "fold_s_spread": 0.052
+   },
+   "base4": {
+    "block_ms": [
+     5687.41
+    ],
+    "fold_s": [
+     10.415
+    ],
+    "plddt": [
+     0.618223
+    ],
+    "n": 1,
+    "block_ms_median": 5687.41,
+    "fold_s_median": 10.415,
+    "block_ms_min": 5687.41,
+    "fold_s_min": 10.415,
+    "block_ms_spread": 0.0,
+    "fold_s_spread": 0.0
+   },
+   "noe6": {
+    "block_ms": [
+     3315.77
+    ],
+    "fold_s": [
+     8.109
+    ],
+    "plddt": [
+     0.618223
+    ],
+    "n": 1,
+    "block_ms_median": 3315.77,
+    "fold_s_median": 8.109,
+    "block_ms_min": 3315.77,
+    "fold_s_min": 8.109,
+    "block_ms_spread": 0.0,
+    "fold_s_spread": 0.0
+   },
+   "nohmqkv": {
+    "block_ms": [
+     3427.88
+    ],
+    "fold_s": [
+     8.189
+    ],
+    "plddt": [
+     0.618223
+    ],
+    "n": 1,
+    "block_ms_median": 3427.88,
+    "fold_s_median": 8.189,
+    "block_ms_min": 3427.88,
+    "fold_s_min": 8.189,
+    "block_ms_spread": 0.0,
+    "fold_s_spread": 0.0
+   },
+   "nok2": {
+    "block_ms": [
+     3389.82
+    ],
+    "fold_s": [
+     8.124
+    ],
+    "plddt": [
+     0.618223
+    ],
+    "n": 1,
+    "block_ms_median": 3389.82,
+    "fold_s_median": 8.124,
+    "block_ms_min": 3389.82,
+    "fold_s_min": 8.124,
+    "block_ms_spread": 0.0,
+    "fold_s_spread": 0.0
+   },
+   "narrowq": {
+    "block_ms": [
+     3310.6
+    ],
+    "fold_s": [
+     8.054
+    ],
+    "plddt": [
+     0.618223
+    ],
+    "n": 1,
+    "block_ms_median": 3310.6,
+    "fold_s_median": 8.054,
+    "block_ms_min": 3310.6,
+    "fold_s_min": 8.054,
+    "block_ms_spread": 0.0,
+    "fold_s_spread": 0.0
+   },
+   "off": {
+    "block_ms": [
+     4678.29
+    ],
+    "fold_s": [
+     9.773
+    ],
+    "plddt": [
+     0.618223
+    ],
+    "n": 1,
+    "block_ms_median": 4678.29,
+    "fold_s_median": 9.773,
+    "block_ms_min": 4678.29,
+    "fold_s_min": 9.773,
+    "block_ms_spread": 0.0,
+    "fold_s_spread": 0.0
+   },
+   "bigchunk64": {
+    "block_ms": [
+     3269.04
+    ],
+    "fold_s": [
+     9.306
+    ],
+    "plddt": [
+     0.618493
+    ],
+    "n": 1,
+    "block_ms_median": 3269.04,
+    "fold_s_median": 9.306,
+    "block_ms_min": 3269.04,
+    "fold_s_min": 9.306,
+    "block_ms_spread": 0.0,
+    "fold_s_spread": 0.0
+   }
+  }
+ }
+}
+wrote perf/pxsizes/s1_128.json
+RC_128=0
+=== 2026-08-13T01:12:11+00:00  size 256  arms on,on,base4,noe6,nohmqkv,nok2,narrowq,off,l1max224,on ===
+2026-08-13 01:12:11.766 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+=== size 256: cold fold ===
+  cold 55.81s n_tokens=256 plddt=0.606308
+  on: fold 17.68s  block 10495.91 ms over 604 calls  plddt 0.606308  (18s)
+      DEC l1_layer_norm|h=1.5|1x256x256x256                    {'L1': 494}
+      DEC l1_layer_norm|h=1.5|256x256x256                      {'L1': 30}
+      DEC pair_proj_out_l1|1x256x256x256@16                    {'L1': 484}
+      DEC pair_proj_out_l1|1x256x256x256@256                   {'L1': 2096}
+      DEC pair_proj_out_l1|1x256x256x256@64                    {'L1': 40}
+      DEC pair_proj_out_l1|1x256x256x64@64                     {'L1': 320}
+      DEC pair_proj_out_l1|256x256x256@1                       {'L1': 240}
+      DEC pair_proj_out_l1|256x256x64@64                       {'L1': 160}
+      DEC transpose|256x256x256                                {'L1': 1048}
+      DEC transpose|256x256x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q256k256                                {'q_chunk=256 k_chunk=256 bias=bf16': 1208}
+      DEC trimul_chunk|N256|h256|b1                            {'c=64': 1048}
+      DEC trimul_chunk|N256|h64|b1                             {'c=64': 160}
+      DEC trimul_pair_buffer|N256                              {'L1': 1208}
+  on: fold 17.61s  block 10496.35 ms over 604 calls  plddt 0.606308  (18s)
+      DEC l1_layer_norm|h=1.5|1x256x256x256                    {'L1': 494}
+      DEC l1_layer_norm|h=1.5|256x256x256                      {'L1': 30}
+      DEC pair_proj_out_l1|1x256x256x256@16                    {'L1': 484}
+      DEC pair_proj_out_l1|1x256x256x256@256                   {'L1': 2096}
+      DEC pair_proj_out_l1|1x256x256x256@64                    {'L1': 40}
+      DEC pair_proj_out_l1|1x256x256x64@64                     {'L1': 320}
+      DEC pair_proj_out_l1|256x256x256@1                       {'L1': 240}
+      DEC pair_proj_out_l1|256x256x64@64                       {'L1': 160}
+      DEC transpose|256x256x256                                {'L1': 1048}
+      DEC transpose|256x256x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q256k256                                {'q_chunk=256 k_chunk=256 bias=bf16': 1208}
+      DEC trimul_chunk|N256|h256|b1                            {'c=64': 1048}
+      DEC trimul_chunk|N256|h64|b1                             {'c=64': 160}
+      DEC trimul_pair_buffer|N256                              {'L1': 1208}
+  base4: fold 21.94s  block 14835.2 ms over 604 calls  plddt 0.606308  (22s)
+      DEC l1_layer_norm|h=1.5|1x256x256x256                    {'L1': 494}
+      DEC l1_layer_norm|h=1.5|256x256x256                      {'L1': 30}
+      DEC pair_proj_out_l1|1x256x256x256@16                    {'L1': 484}
+      DEC pair_proj_out_l1|1x256x256x256@256                   {'L1': 2096}
+      DEC pair_proj_out_l1|1x256x256x256@64                    {'L1': 40}
+      DEC pair_proj_out_l1|1x256x256x64@64                     {'L1': 320}
+      DEC pair_proj_out_l1|256x256x256@1                       {'L1': 240}
+      DEC pair_proj_out_l1|256x256x256@256                     {'L1': 1048}
+      DEC pair_proj_out_l1|256x256x64@64                       {'L1': 160}
+      DEC transpose|256x256x256                                {'L1': 1048}
+      DEC transpose|256x256x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q256k256                                {'q_chunk=256 k_chunk=256 bias=bf16': 1208}
+      DEC trimul_chunk|N256|h256|b1                            {'c=64': 1048}
+      DEC trimul_chunk|N256|h64|b1                             {'c=64': 160}
+      DEC trimul_pair_buffer|N256                              {'L1': 1208}
+  noe6: fold 17.49s  block 10482.15 ms over 604 calls  plddt 0.606308  (17s)
+      DEC l1_layer_norm|h=1.5|1x256x256x256                    {'L1': 494}
+      DEC l1_layer_norm|h=1.5|256x256x256                      {'L1': 30}
+      DEC pair_proj_out_l1|1x256x256x256@16                    {'L1': 484}
+      DEC pair_proj_out_l1|1x256x256x256@256                   {'L1': 2096}
+      DEC pair_proj_out_l1|1x256x256x256@64                    {'L1': 40}
+      DEC pair_proj_out_l1|1x256x256x64@64                     {'L1': 320}
+      DEC pair_proj_out_l1|256x256x256@1                       {'L1': 240}
+      DEC pair_proj_out_l1|256x256x64@64                       {'L1': 160}
+      DEC transpose|256x256x256                                {'L1': 1048}
+      DEC transpose|256x256x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q256k256                                {'q_chunk=256 k_chunk=256 bias=bf16': 1208}
+      DEC trimul_chunk|N256|h256|b1                            {'c=64': 1048}
+      DEC trimul_chunk|N256|h64|b1                             {'c=64': 160}
+      DEC trimul_pair_buffer|N256                              {'L1': 1208}
+  nohmqkv: fold 18.27s  block 11240.4 ms over 604 calls  plddt 0.606308  (18s)
+      DEC l1_layer_norm|h=1.5|1x256x256x256                    {'L1': 494}
+      DEC l1_layer_norm|h=1.5|256x256x256                      {'L1': 30}
+      DEC pair_proj_out_l1|1x256x256x256@16                    {'L1': 484}
+      DEC pair_proj_out_l1|1x256x256x256@256                   {'L1': 2096}
+      DEC pair_proj_out_l1|1x256x256x256@64                    {'L1': 40}
+      DEC pair_proj_out_l1|1x256x256x64@64                     {'L1': 320}
+      DEC pair_proj_out_l1|256x256x256@1                       {'L1': 240}
+      DEC pair_proj_out_l1|256x256x256@256                     {'L1': 1048}
+      DEC pair_proj_out_l1|256x256x64@64                       {'L1': 160}
+      DEC transpose|256x256x256                                {'L1': 1048}
+      DEC transpose|256x256x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q256k256                                {'q_chunk=256 k_chunk=256 bias=bf16': 1208}
+      DEC trimul_chunk|N256|h256|b1                            {'c=64': 1048}
+      DEC trimul_chunk|N256|h64|b1                             {'c=64': 160}
+      DEC trimul_pair_buffer|N256                              {'L1': 1208}
+  nok2: fold 18.18s  block 11131.82 ms over 604 calls  plddt 0.606308  (18s)
+      DEC l1_layer_norm|h=1.5|1x256x256x256                    {'L1': 494}
+      DEC l1_layer_norm|h=1.5|256x256x256                      {'L1': 30}
+      DEC pair_proj_out_l1|1x256x256x256@16                    {'L1': 484}
+      DEC pair_proj_out_l1|1x256x256x256@256                   {'L1': 2096}
+      DEC pair_proj_out_l1|1x256x256x256@64                    {'L1': 40}
+      DEC pair_proj_out_l1|1x256x256x64@64                     {'L1': 320}
+      DEC pair_proj_out_l1|256x256x256@1                       {'L1': 240}
+      DEC pair_proj_out_l1|256x256x64@64                       {'L1': 160}
+      DEC transpose|256x256x256                                {'L1': 1048}
+      DEC transpose|256x256x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q256k256                                {'q_chunk=256 k_chunk=256 bias=bf16': 1208}
+      DEC trimul_chunk|N256|h256|b1                            {'c=64': 1048}
+      DEC trimul_chunk|N256|h64|b1                             {'c=64': 160}
+      DEC trimul_pair_buffer|N256                              {'L1': 1208}
+  narrowq: fold 17.48s  block 10480.72 ms over 604 calls  plddt 0.606308  (17s)
+      DEC l1_layer_norm|h=1.5|1x256x256x256                    {'L1': 494}
+      DEC l1_layer_norm|h=1.5|256x256x256                      {'L1': 30}
+      DEC pair_proj_out_l1|1x256x256x256@16                    {'L1': 484}
+      DEC pair_proj_out_l1|1x256x256x256@256                   {'L1': 2096}
+      DEC pair_proj_out_l1|1x256x256x256@64                    {'L1': 40}
+      DEC pair_proj_out_l1|1x256x256x64@64                     {'L1': 320}
+      DEC pair_proj_out_l1|256x256x256@1                       {'L1': 240}
+      DEC pair_proj_out_l1|256x256x64@64                       {'L1': 160}
+      DEC transpose|256x256x256                                {'L1': 1048}
+      DEC transpose|256x256x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q256k256                                {'q_chunk=256 k_chunk=256 bias=bf16': 1208}
+      DEC trimul_chunk|N256|h256|b1                            {'c=64': 1048}
+      DEC trimul_chunk|N256|h64|b1                             {'c=64': 160}
+      DEC trimul_pair_buffer|N256                              {'L1': 1208}
+  off: fold 20.73s  block 12342.57 ms over 604 calls  plddt 0.606308  (21s)
+      DEC transpose|256x256x256                                {'DRAM': 1048}
+      DEC transpose|256x256x64                                 {'DRAM': 160}
+      DEC tri_att_sdpa|q256k256                                {'q_chunk=256 k_chunk=256 bias=bf16': 1208}
+      DEC trimul_chunk|N256|h256|b1                            {'c=64': 1048}
+      DEC trimul_chunk|N256|h64|b1                             {'c=64': 160}
+      DEC trimul_pair_buffer|N256                              {'L1': 1208}
+  l1max224: fold 20.34s  block 13293.64 ms over 604 calls  plddt 0.606308  (20s)
+      DEC l1_layer_norm|h=1.5|1x256x256x256                    {'L1': 494}
+      DEC l1_layer_norm|h=1.5|256x256x256                      {'L1': 30}
+      DEC pair_proj_out_l1|1x256x256x256@16                    {'L1': 484}
+      DEC pair_proj_out_l1|1x256x256x256@256                   {'L1': 2096}
+      DEC pair_proj_out_l1|1x256x256x256@64                    {'L1': 40}
+      DEC pair_proj_out_l1|1x256x256x64@64                     {'L1': 320}
+      DEC pair_proj_out_l1|256x256x256@1                       {'L1': 240}
+      DEC pair_proj_out_l1|256x256x64@64                       {'L1': 160}
+      DEC transpose|256x256x256                                {'L1': 1048}
+      DEC transpose|256x256x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q256k256                                {'q_chunk=256 k_chunk=256 bias=bf16': 1208}
+      DEC trimul_chunk|N256|h256|b1                            {'c=32': 1048}
+      DEC trimul_chunk|N256|h64|b1                             {'c=32': 160}
+      DEC trimul_inproj_group|N256|c32|pairs2                  {'g=2': 160}
+      DEC trimul_inproj_group|N256|c32|pairs8                  {'g=8': 1048}
+      DEC trimul_pair_buffer|N256                              {'DRAM': 1208}
+  on: fold 17.52s  block 10505.76 ms over 604 calls  plddt 0.606308  (18s)
+      DEC l1_layer_norm|h=1.5|1x256x256x256                    {'L1': 494}
+      DEC l1_layer_norm|h=1.5|256x256x256                      {'L1': 30}
+      DEC pair_proj_out_l1|1x256x256x256@16                    {'L1': 484}
+      DEC pair_proj_out_l1|1x256x256x256@256                   {'L1': 2096}
+      DEC pair_proj_out_l1|1x256x256x256@64                    {'L1': 40}
+      DEC pair_proj_out_l1|1x256x256x64@64                     {'L1': 320}
+      DEC pair_proj_out_l1|256x256x256@1                       {'L1': 240}
+      DEC pair_proj_out_l1|256x256x64@64                       {'L1': 160}
+      DEC transpose|256x256x256                                {'L1': 1048}
+      DEC transpose|256x256x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q256k256                                {'q_chunk=256 k_chunk=256 bias=bf16': 1208}
+      DEC trimul_chunk|N256|h256|b1                            {'c=64': 1048}
+      DEC trimul_chunk|N256|h64|b1                             {'c=64': 160}
+      DEC trimul_pair_buffer|N256                              {'L1': 1208}
+{
+ "ratios": {
+  "256": {
+   "on_block_ms": [
+    10495.91,
+    10496.35,
+    10505.76
+   ],
+   "off_block_ms": [
+    12342.57
+   ],
+   "on_fold_s": [
+    17.685,
+    17.606,
+    17.517
+   ],
+   "off_fold_s": [
+    20.728
+   ],
+   "aa_floor_block_ms": 0.44,
+   "aa_floor_fold_s": 0.079,
+   "off_over_on_block": 1.1759,
+   "off_minus_on_block_ms": 1846.22,
+   "off_over_on_fold": 1.1773
+  }
+ },
+ "arm_medians": {
+  "256": {
+   "on": {
+    "block_ms": [
+     10495.91,
+     10496.35,
+     10505.76
+    ],
+    "fold_s": [
+     17.685,
+     17.606,
+     17.517
+    ],
+    "plddt": [
+     0.606308,
+     0.606308,
+     0.606308
+    ],
+    "n": 3,
+    "block_ms_median": 10496.35,
+    "fold_s_median": 17.606,
+    "block_ms_min": 10495.91,
+    "fold_s_min": 17.517,
+    "block_ms_spread": 9.85,
+    "fold_s_spread": 0.168
+   },
+   "base4": {
+    "block_ms": [
+     14835.2
+    ],
+    "fold_s": [
+     21.943
+    ],
+    "plddt": [
+     0.606308
+    ],
+    "n": 1,
+    "block_ms_median": 14835.2,
+    "fold_s_median": 21.943,
+    "block_ms_min": 14835.2,
+    "fold_s_min": 21.943,
+    "block_ms_spread": 0.0,
+    "fold_s_spread": 0.0
+   },
+   "noe6": {
+    "block_ms": [
+     10482.15
+    ],
+    "fold_s": [
+     17.491
+    ],
+    "plddt": [
+     0.606308
+    ],
+    "n": 1,
+    "block_ms_median": 10482.15,
+    "fold_s_median": 17.491,
+    "block_ms_min": 10482.15,
+    "fold_s_min": 17.491,
+    "block_ms_spread": 0.0,
+    "fold_s_spread": 0.0
+   },
+   "nohmqkv": {
+    "block_ms": [
+     11240.4
+    ],
+    "fold_s": [
+     18.271
+    ],
+    "plddt": [
+     0.606308
+    ],
+    "n": 1,
+    "block_ms_median": 11240.4,
+    "fold_s_median": 18.271,
+    "block_ms_min": 11240.4,
+    "fold_s_min": 18.271,
+    "block_ms_spread": 0.0,
+    "fold_s_spread": 0.0
+   },
+   "nok2": {
+    "block_ms": [
+     11131.82
+    ],
+    "fold_s": [
+     18.181
+    ],
+    "plddt": [
+     0.606308
+    ],
+    "n": 1,
+    "block_ms_median": 11131.82,
+    "fold_s_median": 18.181,
+    "block_ms_min": 11131.82,
+    "fold_s_min": 18.181,
+    "block_ms_spread": 0.0,
+    "fold_s_spread": 0.0
+   },
+   "narrowq": {
+    "block_ms": [
+     10480.72
+    ],
+    "fold_s": [
+     17.48
+    ],
+    "plddt": [
+     0.606308
+    ],
+    "n": 1,
+    "block_ms_median": 10480.72,
+    "fold_s_median": 17.48,
+    "block_ms_min": 10480.72,
+    "fold_s_min": 17.48,
+    "block_ms_spread": 0.0,
+    "fold_s_spread": 0.0
+   },
+   "off": {
+    "block_ms": [
+     12342.57
+    ],
+    "fold_s": [
+     20.728
+    ],
+    "plddt": [
+     0.606308
+    ],
+    "n": 1,
+    "block_ms_median": 12342.57,
+    "fold_s_median": 20.728,
+    "block_ms_min": 12342.57,
+    "fold_s_min": 20.728,
+    "block_ms_spread": 0.0,
+    "fold_s_spread": 0.0
+   },
+   "l1max224": {
+    "block_ms": [
+     13293.64
+    ],
+    "fold_s": [
+     20.335
+    ],
+    "plddt": [
+     0.606308
+    ],
+    "n": 1,
+    "block_ms_median": 13293.64,
+    "fold_s_median": 20.335,
+    "block_ms_min": 13293.64,
+    "fold_s_min": 20.335,
+    "block_ms_spread": 0.0,
+    "fold_s_spread": 0.0
+   }
+  }
+ }
+}
+wrote perf/pxsizes/s1_256.json
+RC_256=0
+=== 2026-08-13T01:16:18+00:00  size 1024  arms on,off ===
+2026-08-13 01:16:18.707 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+=== size 1024: cold fold ===
+2026-08-13 01:16:43.538 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3394048 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+2026-08-13 01:16:44.359 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2343424 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+  cold 315.09s n_tokens=1024 plddt=0.778516
