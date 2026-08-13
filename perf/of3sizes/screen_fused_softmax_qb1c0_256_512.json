@@ -1,0 +1,37 @@
+{
+ "host": "qb1",
+ "card": "0",
+ "ttnn": "0.67.4",
+ "n_heads": 4,
+ "head_dim": 32,
+ "rows": [
+  {
+   "S": 256,
+   "score_fp32_GiB": 0.25,
+   "fused_ms": "REFUSED: RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/normalization/softmax/device/softmax_device_operation.cpp:202: mask.padded_shape()[i] == 1\ninfo:\nNon-sharded mask intermediate dimensions must be 1\nbacktrace:\n --- /home/ttuser/.local/lib/python3.10/site-packages/tt",
+   "fused_scale_only_ms": "REFUSED: RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/normalization/softmax/device/softmax_device_operation.cpp:287: not attributes.scale.has_value()\ninfo:\nScale value must not be set when mask is not present\nbacktrace:\n --- /home/ttuser/.local/lib/python3.10/site-pack",
+   "stock_ms": 5.835805000060645,
+   "stock_all_ms": [
+    5.789477000007537,
+    5.830516000060015,
+    5.835805000060645,
+    5.83671599997615,
+    5.864286000132779
+   ]
+  },
+  {
+   "S": 512,
+   "score_fp32_GiB": 2.0,
+   "fused_ms": "REFUSED: RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/normalization/softmax/device/softmax_device_operation.cpp:202: mask.padded_shape()[i] == 1\ninfo:\nNon-sharded mask intermediate dimensions must be 1\nbacktrace:\n --- /home/ttuser/.local/lib/python3.10/site-packages/tt",
+   "fused_scale_only_ms": "REFUSED: RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/normalization/softmax/device/softmax_device_operation.cpp:287: not attributes.scale.has_value()\ninfo:\nScale value must not be set when mask is not present\nbacktrace:\n --- /home/ttuser/.local/lib/python3.10/site-pack",
+   "stock_ms": 44.838371000196275,
+   "stock_all_ms": [
+    44.79066200019588,
+    44.82547199995679,
+    44.838371000196275,
+    44.84982100007073,
+    44.90609899994524
+   ]
+  }
+ ]
+}
