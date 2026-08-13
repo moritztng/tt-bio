@@ -217,11 +217,23 @@
     "cdk2x2_768.cif": "4b4d52861e55077c"
    },
    "loadavg": "2.75"
+  },
+  {
+   "arm": "plain_post1",
+   "fold_s": 88.755,
+   "plddt": 0.901,
+   "n_tokens": null,
+   "cif": {
+    "cdk2x2_768.cif": "4b4d52861e55077c"
+   },
+   "loadavg": "3.17"
   }
  ],
  "grid": [
   13,
   10
  ],
- "cold_s": 173.7808273749979
+ "cold_s": 173.7808273749979,
+ "plain_median": 88.8495,
+ "plain_spread": 1.4739999999999895
 }

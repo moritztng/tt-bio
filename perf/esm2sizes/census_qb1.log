@@ -100543,3 +100543,5 @@ Loading CCD dictionary from /home/ttuser/.cache/huggingface/hub/models--biohub--
     phase:decode                       n=     1 incl=   0.025s excl=   0.025s
     stage:DistogramHead                n=     1 incl=   0.013s excl=   0.013s
   plain_post0: 88.944s plddt=0.901
+  plain_post1: 88.755s plddt=0.901
+{"plain_median": 88.8495, "plain_spread": 1.4739999999999895}
