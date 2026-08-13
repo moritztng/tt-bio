@@ -151,41 +151,53 @@ def main():
                 f = q - j
                 ref[r, u] = (1 - f) * basen[r, j] + f * basen[r, j + 1]
 
-        out1 = ttnn.from_torch(torch.zeros(1, 1, 32, 32).to(torch.bfloat16), dtype=ttnn.bfloat16,
-                               layout=ttnn.TILE_LAYOUT, device=dev)
-        pd = build(dev, x, sel, frac5, out1, 1, 1, offs_by, rowidx, 5, 1, 3)
-        ttnn.generic_op([x, sel, frac5, out1], pd)
-        ttnn.synchronize_device(dev)
-        g = ttnn.to_torch(out1).reshape(32, 32).to(torch.float64).numpy()
-        rel = float(np.linalg.norm(g - ref) / max(np.linalg.norm(ref), 1e-300))
-        print(f"general shear (B={B}, C={C}) vs fp64: rel L2 {rel:.4e}  "
-              f"max|diff| {np.abs(g-ref).max():.3e}", flush=True)
-        res["arms"]["general_rel_l2"] = rel
-        ttnn.deallocate(out1)
+        for mode, lay, shp in ((5, ttnn.TILE_LAYOUT, (1, 1, 32, 32)),
+                               (7, ttnn.ROW_MAJOR_LAYOUT, (1, 1, 1, 1024))):
+            out1 = ttnn.from_torch(torch.zeros(*shp).to(torch.bfloat16), dtype=ttnn.bfloat16,
+                                   layout=lay, device=dev)
+            pd = build(dev, x, sel, frac5, out1, 1, 1, offs_by, rowidx, mode, 1, 3)
+            ttnn.generic_op([x, sel, frac5, out1], pd)
+            ttnn.synchronize_device(dev)
+            g = ttnn.to_torch(out1).reshape(32, 32).to(torch.float64).numpy()
+            rel = float(np.linalg.norm(g - ref) / max(np.linalg.norm(ref), 1e-300))
+            tag = "tiled out" if mode == 5 else "ROW-MAJOR out"
+            print(f"general shear (B={B}, C={C}) mode {mode} {tag:14s} vs fp64: rel L2 {rel:.4e}",
+                  flush=True)
+            res["arms"][f"general_mode{mode}_rel_l2"] = rel
+            ttnn.deallocate(out1)
 
         nx, ny = 13, 10
         n = nx * ny
-        out = ttnn.from_torch(torch.zeros(1, 1, 32 * NB * n, 32).to(torch.bfloat16),
-                              dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
-        pd = build(dev, x, sel, frac5, out, nx, ny, offs_by, rowidx, 5, NB, 3)
-        ttnn.generic_op([x, sel, frac5, out], pd)
-        ttnn.synchronize_device(dev)
-        best = float("inf")
-        for _ in range(5):
-            t0 = time.perf_counter()
+        t = {}
+        for mode, lay, shp in ((5, ttnn.TILE_LAYOUT, (1, 1, 32 * NB * n, 32)),
+                               (7, ttnn.ROW_MAJOR_LAYOUT, (1, 1, NB * n, 1024))):
+            out = ttnn.from_torch(torch.zeros(*shp).to(torch.bfloat16), dtype=ttnn.bfloat16,
+                                  layout=lay, device=dev)
+            pd = build(dev, x, sel, frac5, out, nx, ny, offs_by, rowidx, mode, NB, 3)
             ttnn.generic_op([x, sel, frac5, out], pd)
             ttnn.synchronize_device(dev)
-            best = min(best, time.perf_counter() - t0)
-        ns = best * 1e9 / NB
-        tiles_s = n * NB / best
-        slices_s = tiles_s / (TILES_PER_SLICE * PASSES_PER_TILE)
-        print(f"general @130 cores: {ns:8.1f} ns/tile/core   {tiles_s/1e6:6.2f} M tiles/s   "
-              f"-> {slices_s/1e3:7.1f} k slices/s ({100*slices_s/FLOOR_SLICES_S:4.1f}% of floor)",
-              flush=True)
-        res["arms"]["general_130core"] = {"ns_per_output_tile_per_core": ns,
-                                          "chip_output_tiles_per_s": tiles_s,
-                                          "derived_slices_per_s": slices_s,
-                                          "pct_of_floor": 100.0 * slices_s / FLOOR_SLICES_S}
+            best = float("inf")
+            for _ in range(5):
+                t0 = time.perf_counter()
+                ttnn.generic_op([x, sel, frac5, out], pd)
+                ttnn.synchronize_device(dev)
+                best = min(best, time.perf_counter() - t0)
+            ns = best * 1e9 / NB
+            tiles_s = n * NB / best
+            slices_s = tiles_s / (TILES_PER_SLICE * PASSES_PER_TILE)
+            t[mode] = ns
+            tag = "tiled out" if mode == 5 else "ROW-MAJOR out"
+            print(f"general @130 cores mode {mode} {tag:14s}: {ns:8.1f} ns/tile/core   "
+                  f"{tiles_s/1e6:6.2f} M tiles/s -> {slices_s/1e3:7.1f} k slices/s "
+                  f"({100*slices_s/FLOOR_SLICES_S:4.1f}% of floor)", flush=True)
+            res["arms"][f"general_mode{mode}_130core"] = {
+                "ns_per_output_tile_per_core": ns, "chip_output_tiles_per_s": tiles_s,
+                "derived_slices_per_s": slices_s, "pct_of_floor": 100.0 * slices_s / FLOOR_SLICES_S}
+            json.dump(res, open(HERE / "fslice_general.json", "w"), indent=1)
+            ttnn.deallocate(out)
+        print(f"\nrow-major output (what chaining a second pass needs) costs "
+              f"{t[7]/t[5]:.3f}x ({t[7]-t[5]:+.1f} ns per output tile)", flush=True)
+        res["untilize_cost_factor"] = t[7] / t[5]
         json.dump(res, open(HERE / "fslice_general.json", "w"), indent=1)
     finally:
         ttnn.close_device(dev)
