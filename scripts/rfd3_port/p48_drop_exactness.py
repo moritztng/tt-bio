@@ -5,9 +5,12 @@ fp32, and adding exact zeros to a float sum in any grouping is exact -- so compu
 only the surviving tiles gives bit-identical weights, and `torch.equal` is the gate rather than a
 PCC.
 
-That holds if ttnn reduces the softmax denominator by scanning tiles into one accumulator: adding a
-zero tile leaves the accumulator bit-identical. It does NOT obviously hold if the reduction is a
-tree across tiles, because dropping tiles re-pairs the survivors.
+RESOLVED, and the answer is more specific than either guess. Padding the key axis with masked
+tiles is bit-exact at every width up to 2x (p49), so the reduction is not width-sensitive and the
+exact-zero argument holds. What breaks it is RELOCATING the survivors: compaction moves 32 tiles
+from positions spread over 0-189 down to 0-31, and ttnn accumulates in positional groups, so each
+survivor lands in a different partial sum. A kernel that skips empty tiles IN PLACE is exact; one
+that compacts is not.
 
 So this is an empirical question and it is cheap. Build one score row set at full width with the
 dropped positions masked to -1e4, and the same values compacted to the surviving tiles, and compare
