@@ -32,7 +32,7 @@ PAGE = 4096
 OUTER = 5000
 BE = 4                       # S1c's optimum depth
 NPAGES = 130
-ARMS = ((32, 64), (32, 128), (32, 256), (64, 64))
+ARMS = ((32, 64), (32, 128), (32, 192), (32, 256), (32, 384), (32, 512), (64, 64))
 
 
 def build(dev, x, out, nreads, chunk, offs):
