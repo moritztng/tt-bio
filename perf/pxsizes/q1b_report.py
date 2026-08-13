@@ -26,6 +26,12 @@ def load(size, arm, p):
     return r
 
 
+def cif(r):
+    # fold_ab512 writes cif_sha256 as {filename: digest}; one entry per fold.
+    v = r.get("cif_sha256")
+    return "|".join(sorted(v.values())) if isinstance(v, dict) else (v or "")
+
+
 def ms(r, k):
     return r.get("wall_ms", {}).get(k, {}).get("ms")
 
@@ -48,10 +54,10 @@ for size in (768, 1024):
         if "error" in r:
             print(f"| {p} | `{arm}` | **ERROR** {r['error'][:60]} | | | | |")
             continue
-        print(f"| {p} | `{arm}` | {r['fold_s']:.3f} | {r['plddt']} | `{r['cif_sha256'][:16]}` | "
+        print(f"| {p} | `{arm}` | {r['fold_s']:.3f} | {r['plddt']} | `{cif(r)[:16]}` | "
               f"{r.get('block_wall_ms')} | {r.get('block_calls')} |")
 
-    shas = {r["cif_sha256"] for r in have.values() if "cif_sha256" in r}
+    shas = {cif(r) for r in have.values() if r.get("cif_sha256")}
     plddts = {r["plddt"] for r in have.values() if "plddt" in r}
     print(f"\n- distinct CIF sha256 across arms: **{len(shas)}** {[s[:16] for s in shas]}")
     print(f"- distinct plDDT: {plddts}")
