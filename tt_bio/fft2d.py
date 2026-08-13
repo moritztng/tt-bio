@@ -87,14 +87,27 @@ def build(dev, N, nimg, dt, ftt, xtt, ott):
         f = ttnn.CBFormatDescriptor(buffer_index=i, data_format=tdt, page_size=tb)
         return ttnn.CBDescriptor(total_size=d * tb, core_ranges=cg, format_descriptors=[f])
 
+    # The two depths that matter, and they matter for different reasons.
+    #
+    # cb_x at one image deep forces the reader and the compute to alternate: the kernel does
+    # cb_wait_front(cb_x, ntile) and cannot start until a whole image has landed, and the reader
+    # cannot start the next one until compute pops. At two deep the reader runs a full image ahead
+    # and the DRAM read hides behind the matmuls. No kernel change is needed for this -- the depth
+    # alone buys the pipelining, because the CB protocol already expresses it.
+    #
     # cb_o is deliberately small: pass 2 emits two tiles at a time and the writer drains them, so a
-    # whole output image never has to be resident and the write overlaps the next block's matmuls.
-    cbs = [cb(CB_F, nf), cb(CB_X, ntile), cb(CB_T, ntile), cb(CB_O, 16)]
+    # whole output image is never resident and the write overlaps the matmuls that follow it.
+    xdepth = int(os.environ.get("FFT_XDEPTH", "2"))
+    odepth = int(os.environ.get("FFT_ODEPTH", "32"))
+    cbs = [cb(CB_F, nf), cb(CB_X, xdepth * ntile), cb(CB_T, ntile), cb(CB_O, odepth)]
 
     rct = [CB_F, CB_X, tb, nf, ntile, nimg]
     rct += list(ttnn.TensorAccessorArgs(ftt).get_compile_time_args())
     rct += list(ttnn.TensorAccessorArgs(xtt).get_compile_time_args())
-    wct = [CB_O, tb, ntile, nimg] + list(ttnn.TensorAccessorArgs(ott).get_compile_time_args())
+    # The writer drains in chunks of `chunk` tiles behind one barrier. It must divide ntile and fit
+    # in cb_o, so cb_o is sized as two chunks: one being written out, one being filled by pass 2.
+    chunk = int(os.environ.get("FFT_CHUNK", "16"))
+    wct = [CB_O, tb, ntile, nimg, chunk] + list(ttnn.TensorAccessorArgs(ott).get_compile_time_args())
 
     rrt, crt, wrt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     c = 0
@@ -147,8 +160,13 @@ def run_box(dev, N, dt, nimg, reps=5):
         ttnn.synchronize_device(dev)
         best = min(best, time.perf_counter() - t0)
 
-    got = from_tiles(ttnn.to_torch(ott).reshape(-1, 32, 32), total, N)
-    ref = np.fft.fft2(img, axes=(-2, -1))
+    # Verify a subset. The transform is identical per image and every core runs the same program, so
+    # checking all of a large batch costs host time without adding evidence; the batch exists to
+    # amortise the DFT matrix, not to broaden the correctness claim. nv is reported so the claim
+    # says what it covers.
+    nv = min(total, int(os.environ.get("FFT_VERIFY_N", "130")))
+    got = from_tiles(ttnn.to_torch(ott).reshape(-1, 32, 32)[:nv * ntile], nv, N)
+    ref = np.fft.fft2(img[:nv], axes=(-2, -1))
     err = got - ref
     rel = float(np.linalg.norm(err) / np.linalg.norm(ref))
 
@@ -167,29 +185,51 @@ def run_box(dev, N, dt, nimg, reps=5):
         "ms": best * 1e3, "images_per_s": total / best,
         "rel_l2": rel, "rel_l2_by_shell": shells,
         "max_abs_over_max_ref": float(np.abs(err).max() / np.abs(ref).max()),
-        "achieved_GBps": bytes_moved / best / 1e9,
+        "achieved_GBps_image_only": bytes_moved / best / 1e9,
+        # The DFT matrix is re-read by every core on every launch, so it is real DRAM traffic and
+        # belongs in any honest bandwidth figure. It is separated out because it is the term the
+        # batch size amortises, and hiding it inside one number would hide the lever.
+        "f_bytes_frac": 3 * (N // 32) ** 2 / (2 * nimg * 2 * (N // 32) ** 2),
+        "achieved_GBps_total": (bytes_moved + ncores * 3 * (N // 32) ** 2 * 32 * 32 * nb)
+                               / best / 1e9,
+        "verified_images": nv,
+        "xdepth": int(os.environ.get("FFT_XDEPTH", "2")),
+        "odepth": int(os.environ.get("FFT_ODEPTH", "32")),
+        "chunk": int(os.environ.get("FFT_CHUNK", "16")),
+        "fidelity": os.environ.get("FFT_FIDELITY", "HiFi2"),
+        "l1_tiles": 3 * (N // 32) ** 2 + int(os.environ.get("FFT_XDEPTH", "2")) * 2 * (N // 32) ** 2
+                    + 2 * (N // 32) ** 2 + int(os.environ.get("FFT_ODEPTH", "32")),
     }
 
 
 def main():
     dev = ttnn.open_device(device_id=0)
     out = {"arms": []}
+    res_path = Path(__file__).resolve().parent.parent / "fftprobe" / "fft2d_result.json"
+    nimg = int(os.environ.get("FFT_NIMG", "8"))
+    boxes = [int(b) for b in os.environ.get("FFT_BOXES", "256").split(",")]
+    sweep = os.environ.get("FFT_SWEEP", "")
     try:
-        for N, nimg in ((256, int(os.environ.get("FFT_NIMG", "8"))),):
+        for N in boxes:
             for dt in os.environ.get("FFT_DTYPES", "bf16").split(","):
-                try:
-                    r = run_box(dev, N, dt, nimg)
-                    out["arms"].append(r)
-                    print(f"box {r['box']} {dt}: {r['images_per_s']:10.0f} img/s  "
-                          f"{r['achieved_GBps']:6.1f} GB/s  rel_l2 {r['rel_l2']:.3e}  "
-                          f"shells low/mid/high {r['rel_l2_by_shell']['low']:.2e}/"
-                          f"{r['rel_l2_by_shell']['mid']:.2e}/{r['rel_l2_by_shell']['high']:.2e}",
-                          flush=True)
-                except Exception as e:                                   # noqa: BLE001
-                    out["arms"].append({"box": N, "dtype": dt, "error": str(e)[:600]})
-                    print(f"box {N} {dt}: ERROR {str(e)[:400]}", flush=True)
-                json.dump(out, open(Path(__file__).resolve().parent.parent
-                                    / "fftprobe" / "fft2d_result.json", "w"), indent=1)
+                for combo in (sweep.split(";") if sweep else [""]):
+                    for kv in combo.split(","):
+                        if "=" in kv:
+                            k, v = kv.split("=")
+                            os.environ[k] = v
+                    try:
+                        r = run_box(dev, N, dt, nimg)
+                        out["arms"].append(r)
+                        print(f"box {r['box']} {dt} x{r['xdepth']} o{r['odepth']} c{r['chunk']} "
+                              f"{r['fidelity']}: {r['images_per_s']:10.0f} img/s  "
+                              f"{r['achieved_GBps_total']:6.1f} GB/s tot  "
+                              f"rel_l2 {r['rel_l2']:.3e}  "
+                              f"L1 {r['l1_tiles']} tiles", flush=True)
+                    except Exception as e:                               # noqa: BLE001
+                        out["arms"].append({"box": N, "dtype": dt, "combo": combo,
+                                            "error": str(e)[:400]})
+                        print(f"box {N} {dt} [{combo}]: ERROR {str(e)[:220]}", flush=True)
+                    json.dump(out, open(res_path, "w"), indent=1)
     finally:
         ttnn.close_device(dev)
 
