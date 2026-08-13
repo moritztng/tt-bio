@@ -1,0 +1,140 @@
+{
+ "precompute": {
+  "calls": 3,
+  "all_identical": false,
+  "rows": [
+   {
+    "template_feats": {
+     "aa_constraint_mask": "4a9865d790156d7f:(1, 514, 20)",
+     "atom_pad_mask": "ae5b2e455f49f6bf:(1, 4576)",
+     "atom_resolved_mask": "ca23ecc097c47650:(1, 4576)",
+     "backbone_mask": "3ab5b903b2707180:(1, 4576)",
+     "chain_design_mask": "a49f745743a9a13d:(1, 514)",
+     "design_mask": "7c611d49e716f33a:(1, 514)",
+     "design_ss_mask": "b66c1df618413564:(1, 514)",
+     "fake_atom_mask": "5813e2838e62d2da:(1, 4576)",
+     "masked_ref_atom_name_chars": "03f1021a834a8b72:(1, 4576, 4, 64)",
+     "msa_mask": "c0e0e4bd30793bb0:(1, 1, 514)",
+     "query_to_template": "d7af8f8bddfd8b18:(1, 1, 514)",
+     "template_ca": "402a0761e8d80f54:(1, 1, 514, 3)",
+     "template_cb": "402a0761e8d80f54:(1, 1, 514, 3)",
+     "template_frame_rot": "4d6ede480fec4f94:(1, 1, 514, 3, 3)",
+     "template_frame_t": "402a0761e8d80f54:(1, 1, 514, 3)",
+     "template_mask": "d5fe696dc1aa5c0a:(1, 1, 514)",
+     "template_mask_cb": "d5fe696dc1aa5c0a:(1, 1, 514)",
+     "template_mask_frame": "d5fe696dc1aa5c0a:(1, 1, 514)",
+     "template_restype": "70c9c19ca1b815cf:(1, 1, 514, 33)",
+     "token_distance_mask": "7408762f60552f7b:(1, 514, 514)",
+     "token_disto_mask": "a0894ca77ee431c3:(1, 514)",
+     "token_pad_mask": "a0894ca77ee431c3:(1, 514)",
+     "token_pair_mask": "a0894ca77ee431c3:(1, 514)",
+     "token_resolved_mask": "a0894ca77ee431c3:(1, 514)"
+    },
+    "pair_mask": "5a0a71692852b51f:(1, 514, 514, 128)",
+    "seq_len": 514,
+    "seq_pad": 62
+   },
+   {
+    "template_feats": {
+     "aa_constraint_mask": "4a9865d790156d7f:(1, 514, 20)",
+     "atom_pad_mask": "ae5b2e455f49f6bf:(1, 4576)",
+     "atom_resolved_mask": "ca23ecc097c47650:(1, 4576)",
+     "backbone_mask": "3ab5b903b2707180:(1, 4576)",
+     "chain_design_mask": "a49f745743a9a13d:(1, 514)",
+     "design_mask": "7c611d49e716f33a:(1, 514)",
+     "design_ss_mask": "b66c1df618413564:(1, 514)",
+     "fake_atom_mask": "5813e2838e62d2da:(1, 4576)",
+     "masked_ref_atom_name_chars": "03f1021a834a8b72:(1, 4576, 4, 64)",
+     "msa_mask": "c0e0e4bd30793bb0:(1, 1, 514)",
+     "query_to_template": "d7af8f8bddfd8b18:(1, 1, 514)",
+     "template_ca": "402a0761e8d80f54:(1, 1, 514, 3)",
+     "template_cb": "402a0761e8d80f54:(1, 1, 514, 3)",
+     "template_frame_rot": "4d6ede480fec4f94:(1, 1, 514, 3, 3)",
+     "template_frame_t": "402a0761e8d80f54:(1, 1, 514, 3)",
+     "template_mask": "d5fe696dc1aa5c0a:(1, 1, 514)",
+     "template_mask_cb": "d5fe696dc1aa5c0a:(1, 1, 514)",
+     "template_mask_frame": "d5fe696dc1aa5c0a:(1, 1, 514)",
+     "template_restype": "70c9c19ca1b815cf:(1, 1, 514, 33)",
+     "token_distance_mask": "7408762f60552f7b:(1, 514, 514)",
+     "token_disto_mask": "a0894ca77ee431c3:(1, 514)",
+     "token_pad_mask": "a0894ca77ee431c3:(1, 514)",
+     "token_pair_mask": "a0894ca77ee431c3:(1, 514)",
+     "token_resolved_mask": "a0894ca77ee431c3:(1, 514)"
+    },
+    "pair_mask": "5a0a71692852b51f:(1, 514, 514, 128)",
+    "seq_len": 514,
+    "seq_pad": 62
+   },
+   {
+    "template_feats": {
+     "aa_constraint_mask": "4a9865d790156d7f:(1, 514, 20)",
+     "atom_pad_mask": "ae5b2e455f49f6bf:(1, 4576)",
+     "atom_resolved_mask": "ca23ecc097c47650:(1, 4576)",
+     "backbone_mask": "3ab5b903b2707180:(1, 4576)",
+     "chain_design_mask": "a49f745743a9a13d:(1, 514)",
+     "design_mask": "7c611d49e716f33a:(1, 514)",
+     "design_ss_mask": "b66c1df618413564:(1, 514)",
+     "fake_atom_mask": "5813e2838e62d2da:(1, 4576)",
+     "masked_ref_atom_name_chars": "03f1021a834a8b72:(1, 4576, 4, 64)",
+     "msa_mask": "c0e0e4bd30793bb0:(1, 1, 514)",
+     "query_to_template": "d7af8f8bddfd8b18:(1, 1, 514)",
+     "template_ca": "402a0761e8d80f54:(1, 1, 514, 3)",
+     "template_cb": "402a0761e8d80f54:(1, 1, 514, 3)",
+     "template_frame_rot": "4d6ede480fec4f94:(1, 1, 514, 3, 3)",
+     "template_frame_t": "402a0761e8d80f54:(1, 1, 514, 3)",
+     "template_mask": "d5fe696dc1aa5c0a:(1, 1, 514)",
+     "template_mask_cb": "d5fe696dc1aa5c0a:(1, 1, 514)",
+     "template_mask_frame": "d5fe696dc1aa5c0a:(1, 1, 514)",
+     "template_restype": "70c9c19ca1b815cf:(1, 1, 514, 33)",
+     "token_distance_mask": "7408762f60552f7b:(1, 514, 514)",
+     "token_disto_mask": "a0894ca77ee431c3:(1, 514)",
+     "token_pad_mask": "a0894ca77ee431c3:(1, 514)",
+     "token_pair_mask": "a0894ca77ee431c3:(1, 514)",
+     "token_resolved_mask": "a0894ca77ee431c3:(1, 514)"
+    },
+    "pair_mask": "ac5824f94c5ab90e:(1, 514, 514, 128)",
+    "seq_len": 514,
+    "seq_pad": 62
+   }
+  ]
+ },
+ "build_static": {
+  "calls": 3,
+  "all_identical": false,
+  "rows": [
+   {
+    "s_inputs": "a048f34ff12c080a:(1, 514, 384)",
+    "s_init": "136f38343fedb612:(1, 514, 384)",
+    "z_init": "73263085f4832e3e:(1, 514, 514, 128)",
+    "rpe": "5a0a71692852b51f:(1, 514, 514, 128)"
+   },
+   {
+    "s_inputs": "38009b5d17fb9d0c:(1, 514, 384)",
+    "s_init": "fa44b5deb99de362:(1, 514, 384)",
+    "z_init": "da7ad7f3f9a79328:(1, 514, 514, 128)",
+    "rpe": "5a0a71692852b51f:(1, 514, 514, 128)"
+   },
+   {
+    "s_inputs": "f0be1aaf615aa72b:(1, 514, 384)",
+    "s_init": "19fe8b3af3140ea1:(1, 514, 384)",
+    "z_init": "6b07ecd0eefd1361:(1, 514, 514, 128)",
+    "rpe": "ac5824f94c5ab90e:(1, 514, 514, 128)"
+   }
+  ]
+ },
+ "diff_cond": {
+  "calls": 3,
+  "all_identical": true,
+  "rows": [
+   {
+    "args": []
+   },
+   {
+    "args": []
+   },
+   {
+    "args": []
+   }
+  ]
+ }
+}

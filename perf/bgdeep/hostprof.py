@@ -68,6 +68,9 @@ def main() -> int:
     if pr is None:
         print("NO PROFILE CAPTURED", flush=True)
         return 1
+    prof_path = str(Path(a.out).with_suffix(".prof"))
+    pr.dump_stats(prof_path)
+    print(f"=== profile dumped to {prof_path} ===", flush=True)
     buf = io.StringIO()
     st = pstats.Stats(pr, stream=buf)
     print(f"=== profiled Boltz.forward wall (cProfile-inflated): {state['wall']:.3f} s ===")
