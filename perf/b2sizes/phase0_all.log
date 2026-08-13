@@ -1,0 +1,222 @@
+benchlock: boltz2-sizes-perf acquired after 0s, loadavg 1.00 1.04 1.17
+2026-08-12 23:46:17.511 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+=== boltz2 size 128 rec=3 steps=200: cold ===
+  cold 37.02s n_tokens=None plddt=None
+  fp32_softmax attention modules: 0 {}
+      CENSUS unowned|AttentionPairBias|128|False              1200
+      CENSUS unowned|AttentionPairBias|384|False              264
+      CENSUS unowned|AttentionPairBias|768|False              4800
+      CENSUS unowned|TriangleAttention|128|False              560
+  on: fold 5.68s  block 1019.1 ms over 280 calls  plddt None
+      owners {}
+      CENSUS unowned|AttentionPairBias|128|False              1200
+      CENSUS unowned|AttentionPairBias|384|False              264
+      CENSUS unowned|AttentionPairBias|768|False              4800
+      CENSUS unowned|TriangleAttention|128|False              560
+      K1 0/0 {}  K2 0/560 {'memory_config:(128, 4, 128, 32)': 560}  E6 [True, [0, 0]]
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 560}
+      DEC transpose|128x128x128                          {'L1': 560}
+      DEC tri_att_sdpa|q128k128                          {'q_chunk=128': 560}
+  on: fold 5.59s  block 1017.87 ms over 280 calls  plddt None
+      owners {}
+      CENSUS unowned|AttentionPairBias|128|False              1200
+      CENSUS unowned|AttentionPairBias|384|False              264
+      CENSUS unowned|AttentionPairBias|768|False              4800
+      CENSUS unowned|TriangleAttention|128|False              560
+      K1 0/0 {}  K2 0/560 {'memory_config:(128, 4, 128, 32)': 560}  E6 [True, [0, 0]]
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 560}
+      DEC transpose|128x128x128                          {'L1': 560}
+      DEC tri_att_sdpa|q128k128                          {'q_chunk=128': 560}
+=== boltz2 size 256 rec=3 steps=200: cold ===
+  cold 35.66s n_tokens=None plddt=None
+  fp32_softmax attention modules: 0 {}
+      CENSUS unowned|AttentionPairBias|128|False              2400
+      CENSUS unowned|AttentionPairBias|384|False              528
+      CENSUS unowned|AttentionPairBias|768|False              9600
+      CENSUS unowned|TriangleAttention|128|False              1120
+  on: fold 9.36s  block 3054.76 ms over 280 calls  plddt None
+      owners {}
+      CENSUS unowned|AttentionPairBias|128|False              1200
+      CENSUS unowned|AttentionPairBias|384|False              264
+      CENSUS unowned|AttentionPairBias|768|False              4800
+      CENSUS unowned|TriangleAttention|128|False              560
+      K1 560/0 {}  K2 560/0 {}  E6 [True, [0, 0]]
+      DEC qkv_mm_config|kt=4,nt=12                       {'config': 560}
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 560}
+      DEC transpose|256x256x128                          {'L1': 560}
+      DEC tri_att_sdpa|q256k256                          {'q_chunk=256': 560}
+  on: fold 9.35s  block 3024.33 ms over 280 calls  plddt None
+      owners {}
+      CENSUS unowned|AttentionPairBias|128|False              1200
+      CENSUS unowned|AttentionPairBias|384|False              264
+      CENSUS unowned|AttentionPairBias|768|False              4800
+      CENSUS unowned|TriangleAttention|128|False              560
+      K1 560/0 {}  K2 560/0 {}  E6 [True, [0, 0]]
+      DEC qkv_mm_config|kt=4,nt=12                       {'config': 560}
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 560}
+      DEC transpose|256x256x128                          {'L1': 560}
+      DEC tri_att_sdpa|q256k256                          {'q_chunk=256': 560}
+=== boltz2 size 768 rec=3 steps=200: cold ===
+2026-08-12 23:48:22.982 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2198016 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+2026-08-12 23:48:23.827 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1802752 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+  cold 86.65s n_tokens=None plddt=None
+  fp32_softmax attention modules: 0 {}
+      CENSUS unowned|AttentionPairBias|128|False              2400
+      CENSUS unowned|AttentionPairBias|384|False              528
+      CENSUS unowned|AttentionPairBias|768|False              9600
+      CENSUS unowned|TriangleAttention|128|False              1120
+  on: fold 53.07s  block 31977.94 ms over 280 calls  plddt None
+      owners {}
+      CENSUS unowned|AttentionPairBias|128|False              1200
+      CENSUS unowned|AttentionPairBias|384|False              264
+      CENSUS unowned|AttentionPairBias|768|False              4800
+      CENSUS unowned|TriangleAttention|128|False              560
+      K1 560/0 {}  K2 0/1120 {'fill_preconditions:(768, 4, 768, 32)': 1120}  E6 [True, [0, 0]]
+      DEC qkv_mm_config|kt=4,nt=12                       {'config': 560}
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 560}
+      DEC transpose|768x768x128                          {'DRAM': 560}
+      DEC tri_att_sdpa|q768k768                          {'q_chunk=384': 560}
+  on: fold 53.46s  block 31978.15 ms over 280 calls  plddt None
+      owners {}
+      CENSUS unowned|AttentionPairBias|128|False              1200
+      CENSUS unowned|AttentionPairBias|384|False              264
+      CENSUS unowned|AttentionPairBias|768|False              4800
+      CENSUS unowned|TriangleAttention|128|False              560
+      K1 560/0 {}  K2 0/1120 {'fill_preconditions:(768, 4, 768, 32)': 1120}  E6 [True, [0, 0]]
+      DEC qkv_mm_config|kt=4,nt=12                       {'config': 560}
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 560}
+      DEC transpose|768x768x128                          {'DRAM': 560}
+      DEC tri_att_sdpa|q768k768                          {'q_chunk=384': 560}
+=== boltz2 size 1024 rec=3 steps=200: cold ===
+2026-08-12 23:51:38.230 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3394048 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+2026-08-12 23:51:39.075 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2343424 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+  cold 124.93s n_tokens=None plddt=None
+  fp32_softmax attention modules: 0 {}
+      CENSUS unowned|AttentionPairBias|128|False              2400
+      CENSUS unowned|AttentionPairBias|384|False              528
+      CENSUS unowned|AttentionPairBias|768|False              9600
+      CENSUS unowned|TriangleAttention|128|False              1120
+  on: fold 95.42s  block 60699.7 ms over 280 calls  plddt None
+      owners {}
+      CENSUS unowned|AttentionPairBias|128|False              1200
+      CENSUS unowned|AttentionPairBias|384|False              264
+      CENSUS unowned|AttentionPairBias|768|False              4800
+      CENSUS unowned|TriangleAttention|128|False              560
+      K1 560/0 {}  K2 0/1120 {'fill_preconditions:(1024, 4, 1024, 32)': 1120}  E6 [True, [0, 0]]
+      DEC qkv_mm_config|kt=4,nt=12                       {'config': 560}
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 560}
+      DEC transpose|1024x1024x128                        {'DRAM': 560}
+      DEC tri_att_sdpa|q1024k1024                        {'q_chunk=512': 560}
+  on: fold 95.21s  block 60710.17 ms over 280 calls  plddt None
+      owners {}
+      CENSUS unowned|AttentionPairBias|128|False              1200
+      CENSUS unowned|AttentionPairBias|384|False              264
+      CENSUS unowned|AttentionPairBias|768|False              4800
+      CENSUS unowned|TriangleAttention|128|False              560
+      K1 560/0 {}  K2 0/1120 {'fill_preconditions:(1024, 4, 1024, 32)': 1120}  E6 [True, [0, 0]]
+      DEC qkv_mm_config|kt=4,nt=12                       {'config': 560}
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 560}
+      DEC transpose|1024x1024x128                        {'DRAM': 560}
+      DEC tri_att_sdpa|q1024k1024                        {'q_chunk=512': 560}
+{
+ "128": {
+  "on": {
+   "fold_s": [
+    5.685,
+    5.594
+   ],
+   "block_ms": [
+    1019.1,
+    1017.87
+   ],
+   "plddt": [
+    null,
+    null
+   ],
+   "n": 2,
+   "fold_s_median": 5.639,
+   "fold_s_min": 5.594,
+   "fold_s_spread": 0.091,
+   "block_ms_median": 1018.49,
+   "block_ms_spread": 1.23
+  },
+  "aa_floor_fold_s": 0.091,
+  "aa_floor_block_ms": 1.23
+ },
+ "256": {
+  "on": {
+   "fold_s": [
+    9.362,
+    9.352
+   ],
+   "block_ms": [
+    3054.76,
+    3024.33
+   ],
+   "plddt": [
+    null,
+    null
+   ],
+   "n": 2,
+   "fold_s_median": 9.357,
+   "fold_s_min": 9.352,
+   "fold_s_spread": 0.01,
+   "block_ms_median": 3039.55,
+   "block_ms_spread": 30.43
+  },
+  "aa_floor_fold_s": 0.01,
+  "aa_floor_block_ms": 30.43
+ },
+ "768": {
+  "on": {
+   "fold_s": [
+    53.066,
+    53.463
+   ],
+   "block_ms": [
+    31977.94,
+    31978.15
+   ],
+   "plddt": [
+    null,
+    null
+   ],
+   "n": 2,
+   "fold_s_median": 53.264,
+   "fold_s_min": 53.066,
+   "fold_s_spread": 0.397,
+   "block_ms_median": 31978.04,
+   "block_ms_spread": 0.21
+  },
+  "aa_floor_fold_s": 0.397,
+  "aa_floor_block_ms": 0.21
+ },
+ "1024": {
+  "on": {
+   "fold_s": [
+    95.422,
+    95.207
+   ],
+   "block_ms": [
+    60699.7,
+    60710.17
+   ],
+   "plddt": [
+    null,
+    null
+   ],
+   "n": 2,
+   "fold_s_median": 95.314,
+   "fold_s_min": 95.207,
+   "fold_s_spread": 0.215,
+   "block_ms_median": 60704.93,
+   "block_ms_spread": 10.47
+  },
+  "aa_floor_fold_s": 0.215,
+  "aa_floor_block_ms": 10.47
+ }
+}
+wrote perf/b2sizes/phase0_all.json
+benchlock: boltz2-sizes-perf released, rc=0, loadavg 3.56 3.09 2.34
+RC=0
