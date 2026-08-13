@@ -44,39 +44,51 @@ SKIP_SIGMOID = 0
 BLOCK = (4, 8, 1, 4, 1)
 
 STATS = [0, 0]          # served, declined
+REJECTS: dict = {}      # (reason, shape) -> count, so a decline is diagnosable from the fold JSON
 
 
-def _reject(_why):
+def _reject(why, shape=""):
     STATS[1] += 1
+    REJECTS[(why, shape)] = REJECTS.get((why, shape), 0) + 1
     return None
 
 
 def eligible(xa, xb, wa, wb):
-    """True when F1's descriptor covers this call. Every clause is a real assumption of the fork."""
-    if xa.dtype != ttnn.bfloat16 or xb.dtype != ttnn.bfloat16:
-        return False
-    if wa.dtype != ttnn.bfloat16 or wb.dtype != ttnn.bfloat16:
-        return False
+    """None when F1's descriptor covers this call, else the reason it does not.
+
+    Every clause is a real assumption of the fork, so a decline names which one.
+    """
+    if ttnn.bfloat16 not in (xa.dtype, xb.dtype, wa.dtype, wb.dtype):
+        return "dtype"
+    if xa.dtype != xb.dtype or wa.dtype != wb.dtype:
+        return "dtype_pair"
     if tuple(xa.padded_shape) != tuple(xb.padded_shape):
-        return False
-    if tuple(wa.shape) != tuple(wb.shape) or len(wa.shape) != 2:
-        return False
+        return "act_shape_pair"
+    if len(wa.shape) != 2 or tuple(wa.shape) != tuple(wb.shape):
+        return "weight_shape_pair"
     if str(xa.memory_config()) != str(xb.memory_config()):
-        return False
+        return "act_memcfg_pair"
     if str(wa.memory_config()) != str(wb.memory_config()):
-        return False
+        return "weight_memcfg_pair"
     kt = (int(wa.shape[-2]) + TILE - 1) // TILE
     nt = (int(wa.shape[-1]) + TILE - 1) // TILE
     M, K, N, _, _ = BLOCK
-    if kt != K:                       # one K block: the fusion's whole simplification
-        return False
+    if kt != K:
+        # One K block is the fusion's whole simplification. At 512 aa this declines the
+        # narrow-hidden trimuls (c_hidden 64, kt = 2), which production does not put through
+        # `minimal_matmul` either: `_MM_BLOCK` has no entry for a 2-tile output.
+        return f"k_tiles={kt}"
     if nt % N:
-        return False
+        return f"n_tiles={nt}"
     mt = 1
     for d in [int(d) for d in xa.padded_shape][:-1]:
         mt *= d
     mt = (mt + TILE - 1) // TILE
-    return mt % M == 0 and mt > nt    # mt > nt is `transpose`, the only orientation this is run on
+    if mt % M:
+        return f"m_tiles={mt}"
+    if mt <= nt:
+        return "m_le_n"               # `transpose`, the only core-grid orientation this is run on
+    return None
 
 
 def _cb(idx, core_grid, tiles):
@@ -136,8 +148,10 @@ _CACHE: dict = {}
 
 def fused_tail(xa, xb, wa, wb, ckc, grid):
     """`p * sigmoid(g)` for `p = xa @ wa`, `g = xb @ wb`, in one kernel. None if out of scope."""
-    if not eligible(xa, xb, wa, wb):
-        return _reject("shape")
+    why = eligible(xa, xb, wa, wb)
+    if why is not None:
+        return _reject(why, "x".join(str(int(d)) for d in xa.padded_shape)
+                       + "@" + "x".join(str(int(d)) for d in wa.shape))
     device = xa.device()
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = (spec(xa), spec(wa), tuple(grid), tuple(str(c) for c in ckc), ROUND, SKIP_SIGMOID)

@@ -101,6 +101,13 @@ INTEG = {
     # The integrated arm plus the unfused Transition silu. Same four levers, one extra flag,
     # so the int/int_usilu difference is exactly the silu route. Release-gated: NOT bit-exact.
     "int_usilu":  {"e6": True,  "k1": True,  "k2": True,  "tr": True},
+    # `int_2` is `int` again: the two together are this session's A/A floor on the fold wall, which
+    # is the only thing that says whether an int/int_f1 gap is resolved.
+    "int_2":      {"e6": True,  "k1": True,  "k2": True,  "tr": True},
+    # F1: the trimul output tail's two projections and its gate in one generic_op. Bit-exact
+    # against the three ops it replaces (torch.equal at 11 shapes, perf/trimul_f1/f1_parity.py),
+    # so this arm must produce a byte-identical CIF.
+    "int_f1":     {"e6": True,  "k1": True,  "k2": True,  "tr": True},
 }
 
 
@@ -264,6 +271,9 @@ def main():
         # Every arm sets this, so a non-silu arm provably runs the fused production silu
         # rather than inheriting the previous arm's flag.
         T._UNFUSED_SILU = name == "int_usilu"
+        T._TRIMUL_TAIL_MODE = "f1" if name == "int_f1" else "off"
+        import tt_bio.trimul_tail as F1
+        F1.STATS[0] = F1.STATS[1] = 0
         T._MM_BLOCK[8] = (2, 8, 1, 2, 1) if old else (4, 8, 1, 4, 1)
         T._TRANSPOSE_L1_HEADROOM = 2.5 if old else T.TRANSPOSE_L1_HEADROOM
         T._TRANSPOSE_L1_REFUSED.clear()
@@ -360,8 +370,12 @@ def main():
         return out
 
     import importlib.metadata as im
-    res = {"ttnn": im.version("ttnn"), "host": "qb2", "chip": 0,
-           "note": "qb2 is ttnn 0.68.0 -- every absolute here is a ratio input, not a campaign number",
+    import os, socket
+    host = socket.gethostname()
+    res = {"ttnn": im.version("ttnn"), "host": host,
+           "chip": os.environ.get("TT_VISIBLE_DEVICES", "?"),
+           "note": "qb1 (tt-quietbox) is ttnn 0.67.4 and qb2 is 0.68.0 -- never put an absolute "
+                   "from one in a table with the other; the arms in THIS file share a process",
            "runs": []}
 
     for size in [int(s) for s in a.sizes.split(",")]:
@@ -433,6 +447,10 @@ def main():
                        "enabled": PM._ENABLED, "served": PM.STATS[0], "declined": PM.STATS[1],
                        "rejects": {f"{r}:{sh}": n for (r, sh), n in PM.REJECTS.items()}})(
                        __import__("tt_bio.triatt_sdpa", fromlist=["x"])),
+                   "trimul_tail_mode": T._TRIMUL_TAIL_MODE,
+                   "trimul_tail_f1": (lambda F: {"served": F.STATS[0], "declined": F.STATS[1],
+                                                 "round": F.ROUND})(
+                       __import__("tt_bio.trimul_tail", fromlist=["x"])),
                    "sdpa_wide_q": T._SDPA_WIDE_Q,
                    "triatt_bias_b8": T._TRIATT_BIAS_B8,
                    "sdpa_q_chunk_over_l1": sorted(str(k) for k in T._SDPA_Q_CHUNK_OVER_L1),
