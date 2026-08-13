@@ -40,13 +40,16 @@ from scripts.rfd3_port.p36_bias_kernel_probe import align_tile, make_indices, ti
 REPS = 5
 
 
-def one_shape(device, H, L, K, kind, results, scale, slots=(None,)):
+def one_shape(device, H, L, K, kind, results, scale, slots=(None,), B=1):
     N = align_tile(L)
-    print(f"\n=== H{H}_L{L}_K{K}_{kind} ===", flush=True)
+    print(f"\n=== B{B}_H{H}_L{L}_K{K}_{kind} ===", flush=True)
 
-    idx = make_indices(kind, L, K)
-    pb = torch.randn(1, H, L, K)
-    sc = torch.randn(1, H, L, N)
+    # Every design in a batch has its OWN neighbour graph -- the indices come from that design's
+    # coordinates -- so a batched fixture with one index replicated over B would pass while the
+    # kernel ignored the batch axis of the index entirely. Each slice gets a different seed.
+    idx = torch.cat([make_indices(kind, L, K, seed=s) for s in range(B)], dim=0)
+    pb = torch.randn(B, H, L, K)
+    sc = torch.randn(B, H, L, N)
     pair_bias = ttnn.from_torch(
         pb, layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16
     )
@@ -54,7 +57,7 @@ def one_shape(device, H, L, K, kind, results, scale, slots=(None,)):
         sc, layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16
     )
     idx_tiled = ttnn.from_torch(
-        idx.unsqueeze(1).expand(1, H, L, K).contiguous().to(torch.int32),
+        idx.unsqueeze(1).expand(B, H, L, K).contiguous().to(torch.int32),
         layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.uint32,
     )
     idx_rm = ttnn.from_torch(
@@ -62,7 +65,7 @@ def one_shape(device, H, L, K, kind, results, scale, slots=(None,)):
         layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=ttnn.uint32,
     )
     template = ttnn.full(
-        (1, H, L, N), -1e4, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=device
+        (B, H, L, N), -1e4, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=device
     )
     act = [ttnn.UnaryWithParam(ttnn.UnaryOpType.MUL_UNARY_SFPU, scale)]
 
@@ -98,7 +101,7 @@ def one_shape(device, H, L, K, kind, results, scale, slots=(None,)):
         if s is not None:
             rfd3_bias.F_BIAS_SLOTS = s
             rfd3_bias._FCACHE.clear()
-        tag = f"H{H}_L{L}_K{K}_{kind}" + (f"_slots{s}" if s is not None else "")
+        tag = f"B{B}_H{H}_L{L}_K{K}_{kind}" + (f"_slots{s}" if s is not None else "")
         a, b = ref_full(), got()
         ta, tb = ttnn.to_torch(a), ttnn.to_torch(b)
         sa, sb = ttnn.softmax(a, dim=-1), ttnn.softmax(b, dim=-1)
@@ -115,13 +118,13 @@ def one_shape(device, H, L, K, kind, results, scale, slots=(None,)):
                 print(f"   at {pos}: ref={ta[tuple(pos)]:.8f} got={tb[tuple(pos)]:.8f}")
         ms_got, all_got = timed(got, device)
         replaced = ms_bias + ms_sc
-        gbps = (90.3 + 180.6) * (H / 4) * (N / 3360) * (L / 3359) / ms_got
+        gbps = B * (90.3 + 180.6) * (H / 4) * (N / 3360) * (L / 3359) / ms_got
         print(f"bias_slots={rfd3_bias.F_BIAS_SLOTS:>3}  equal={equal} equal_softmax={equal_sm} "
               f"maxabs={maxabs:g}\n  shipped bias {ms_bias:.3f} + scores {ms_sc:.3f} = "
               f"{replaced:.3f} ms   L6a bias {ms_l6a:.3f}   fused {ms_got:.3f} ms   "
               f"{replaced / ms_got:.2f}x vs shipped   {gbps:.0f} GB/s of a 385 roof", flush=True)
         results[tag] = {
-            "H": H, "L": L, "K": K, "N": N, "kind": kind,
+            "B": B, "H": H, "L": L, "K": K, "N": N, "kind": kind,
             "bias_slots": rfd3_bias.F_BIAS_SLOTS, "out_slots": rfd3_bias.F_OUT_SLOTS,
             "window": rfd3_bias.F_WINDOW, "scores_slots": rfd3_bias.F_SCORES_SLOTS,
             "bit_exact": equal, "bit_exact_softmax": equal_sm, "maxabs": maxabs,
@@ -142,6 +145,7 @@ def main():
     ap.add_argument("--kinds", default="random,banded,mixed")
     ap.add_argument("--slots", default="", help="comma-separated cb_bias depth sweep")
     ap.add_argument("--head-dim", type=int, default=32)
+    ap.add_argument("--batches", default="1", help="comma-separated batch sizes")
     args = ap.parse_args()
 
     slots = tuple(int(s) for s in args.slots.split(",")) if args.slots else (None,)
@@ -151,8 +155,9 @@ def main():
     device = ttnn.open_device(device_id=0)
     results: dict = {}
     try:
-        for kind in args.kinds.split(","):
-            one_shape(device, 4, 3359, 128, kind, results, scale, slots)
+        for B in [int(b) for b in args.batches.split(",")]:
+            for kind in args.kinds.split(","):
+                one_shape(device, 4, 3359, 128, kind, results, scale, slots, B=B)
     finally:
         ttnn.close_device(device)
 

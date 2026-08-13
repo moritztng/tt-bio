@@ -48,7 +48,8 @@ def make_indices(kind: str, L: int, K: int, seed: int = 0) -> torch.Tensor:
     elif kind == "banded":
         # Every row's K keys contiguous and centred on the diagonal: a single output tile
         # then takes 32 pokes from each of its 32 rows, the kernel's undo-list worst case.
-        base = torch.arange(L).clamp(0, L - K).unsqueeze(1)
+        # `seed` shifts the band so batched slices differ from each other.
+        base = (torch.arange(L) + seed).clamp(0, L - K).unsqueeze(1)
         idx = base + torch.arange(K).unsqueeze(0)
     elif kind == "mixed":
         half = K // 2

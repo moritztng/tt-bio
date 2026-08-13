@@ -41,6 +41,14 @@
 // OUT_SLOTS be large: a per-tile 4 KB L1 refill, or an undo list of offsets, would both
 // cost L1 or time per slot.
 //
+//
+// BATCH. A group is a (design, head, tile-row) band and the group index is that triple flattened,
+// so every page this kernel touches except the neighbour index is still `group * <tiles per band>`
+// -- tile pages of a [B, H, L, *] tensor run in exactly that order. The index is the one tensor
+// that is NOT per head: it is [B, 1, L, K] ROW_MAJOR, one page per row, so its page needs the design
+// back out of the group, which is the only reason HIt is passed in. Multiplicity batching is the
+// default for a multi-design run (`--batch_size 8`), so batch > 1 is the common path, not an edge.
+//
 // IMPORTANT: use the api/-prefixed include path (bare dataflow_api.h is a known
 // device-wedge cause in this codebase).
 #include "api/dataflow/dataflow_api.h"
@@ -72,7 +80,8 @@ void kernel_main() {
     constexpr uint32_t L = get_compile_time_arg_val(8);         // logical rows
     constexpr uint32_t fill = get_compile_time_arg_val(9);      // fp32 bit pattern
     constexpr uint32_t OUT_SLOTS = get_compile_time_arg_val(10);
-    constexpr auto bias_args = TensorAccessorArgs<11>();
+    constexpr uint32_t HIt = get_compile_time_arg_val(11);   // heads * tile rows, one design's bands
+    constexpr auto bias_args = TensorAccessorArgs<12>();
     constexpr auto idx_args = TensorAccessorArgs<bias_args.next_compile_time_args_offset()>();
     constexpr auto out_args = TensorAccessorArgs<idx_args.next_compile_time_args_offset()>();
 
@@ -116,20 +125,20 @@ void kernel_main() {
 
     const uint32_t end_group = start_group + num_groups;
     for (uint32_t group = start_group; group < end_group; ++group) {
-        const uint32_t h = group / It;
-        const uint32_t it = group - h * It;
+        const uint32_t b = group / HIt;
+        const uint32_t it = group % It;
         const uint32_t row_base = it * TILE_H;
         const uint32_t rows = (row_base + TILE_H <= L) ? TILE_H : (L - row_base);
 
         // The index rows of this band. idx is ROW_MAJOR uint32 [1, 1, L, K] -- one page per
         // row -- and is shared by every head, so a band's pages are read once per (h, it).
         for (uint32_t r = 0; r < rows; ++r) {
-            noc_async_read(s_idx.get_noc_addr(row_base + r),
+            noc_async_read(s_idx.get_noc_addr(b * L + row_base + r),
                            reinterpret_cast<uint32_t>(idx_l1) + r * IDX_ROW_WORDS * 4,
                            IDX_ROW_WORDS * 4);
         }
         // The band's bias tiles: [1, H, L, K] bf16 TILE, page (h*It + it)*Kt + kt.
-        const uint32_t bias_page0 = (h * It + it) * Kt;
+        const uint32_t bias_page0 = group * Kt;
         for (uint32_t kt = 0; kt < Kt; ++kt) {
             noc_async_read(s_bias.get_noc_addr(bias_page0 + kt),
                            bias_base + kt * BIAS_TILE_BYTES, BIAS_TILE_BYTES);
@@ -166,7 +175,7 @@ void kernel_main() {
             slot_jt[slot] = NO_TILE;
         };
 
-        uint32_t out_page = (h * It + it) * Jt;
+        uint32_t out_page = group * Jt;
         for (uint32_t jt = 0; jt < Jt; ++jt) {
             const uint32_t slot = jt & (OUT_SLOTS - 1);
             const uint32_t out_addr_l1 = out_base + slot * OUT_TILE_BYTES;

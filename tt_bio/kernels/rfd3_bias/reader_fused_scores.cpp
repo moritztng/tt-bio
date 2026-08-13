@@ -23,6 +23,14 @@
 // per tile. The invariant is "every free slot is pristine": true at entry, and each tile restores the
 // NEXT slot while poking the current one, so the read barrier already in the loop covers it.
 //
+//
+// BATCH. A group is a (design, head, tile-row) band and the group index is that triple flattened,
+// so every page this kernel touches except the neighbour index is still `group * <tiles per band>`
+// -- tile pages of a [B, H, L, *] tensor run in exactly that order. The index is the one tensor
+// that is NOT per head: it is [B, 1, L, K] ROW_MAJOR, one page per row, so its page needs the design
+// back out of the group, which is the only reason HIt is passed in. Multiplicity batching is the
+// default for a multi-design run (`--batch_size 8`), so batch > 1 is the common path, not an edge.
+//
 // IMPORTANT: use the api/-prefixed include path (bare dataflow_api.h is a known device-wedge
 // cause in this codebase).
 #include "api/dataflow/dataflow_api.h"
@@ -56,7 +64,8 @@ void kernel_main() {
     // every read, every CB handshake, the compute pass and the write, so the op splits into "the
     // pipeline" and "the per-element placement". That decomposition is what refuted L6c.
     constexpr uint32_t NOPOKE = get_compile_time_arg_val(12);
-    constexpr auto scores_args = TensorAccessorArgs<13>();
+    constexpr uint32_t HIt = get_compile_time_arg_val(13);   // heads * tile rows, one design's bands
+    constexpr auto scores_args = TensorAccessorArgs<14>();
     constexpr auto pb_args = TensorAccessorArgs<scores_args.next_compile_time_args_offset()>();
     constexpr auto idx_args = TensorAccessorArgs<pb_args.next_compile_time_args_offset()>();
 
@@ -101,16 +110,16 @@ void kernel_main() {
 
     const uint32_t end_group = start_group + num_groups;
     for (uint32_t group = start_group; group < end_group; ++group) {
-        const uint32_t h = group / It;
-        const uint32_t it = group - h * It;
+        const uint32_t b = group / HIt;
+        const uint32_t it = group % It;
         const uint32_t row_base = it * TILE_H;
         const uint32_t rows = (row_base + TILE_H <= L) ? TILE_H : (L - row_base);
 
         for (uint32_t r = 0; r < rows; ++r) {
-            noc_async_read(s_idx.get_noc_addr(row_base + r),
+            noc_async_read(s_idx.get_noc_addr(b * L + row_base + r),
                            reinterpret_cast<uint32_t>(idx_l1) + r * K * 4, K * 4);
         }
-        const uint32_t pb_page0 = (h * It + it) * Kt;
+        const uint32_t pb_page0 = group * Kt;
         for (uint32_t kt = 0; kt < Kt; ++kt) {
             noc_async_read(s_pb.get_noc_addr(pb_page0 + kt), pb_base + kt * BIAS_TILE_BYTES,
                            BIAS_TILE_BYTES);
@@ -121,7 +130,7 @@ void kernel_main() {
             cur[r] = 0;
         }
 
-        const uint32_t tile_page0 = (h * It + it) * Jt;
+        const uint32_t tile_page0 = group * Jt;
         for (uint32_t jt = 0; jt < Jt; ++jt) {
             // The scores tile is issued FIRST and barriered last, so its DRAM latency hides
             // behind this tile's poke walk instead of adding to it.

@@ -97,7 +97,8 @@ def _cache_key(bias, idx, out, device, ct_args):
 
 
 def _build(bias, idx, out, device, ct_head, acc_args):
-    H, L, K = int(bias.shape[1]), int(bias.shape[2]), int(bias.shape[3])
+    B, H, L, K = (int(bias.shape[0]), int(bias.shape[1]), int(bias.shape[2]),
+                  int(bias.shape[3]))
     N = int(out.shape[3])
     It = (L + TILE_H - 1) // TILE_H
     Jt = N // TILE_W
@@ -108,7 +109,7 @@ def _build(bias, idx, out, device, ct_head, acc_args):
         [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(g.x - 1, g.y - 1))]
     )
     cores = [(cx, cy) for cx in range(g.x) for cy in range(g.y)]
-    counts = _even_split(H * It, cores)
+    counts = _even_split(B * H * It, cores)
 
     def cb(idx_, fmt, page_size, depth):
         return ttnn.CBDescriptor(
@@ -144,9 +145,9 @@ def _build(bias, idx, out, device, ct_head, acc_args):
         rt_a[cx][cy] = [start, n - half]
         rt_b[cx][cy] = [start + n - half, half]
         start += n
-    assert start == H * It, (start, H * It)
+    assert start == B * H * It, (start, B * H * It)
 
-    tail = [It, Jt, Kt, K, L, _fill_bits(-1e4), OUT_SLOTS] + list(acc_args)
+    tail = [It, Jt, Kt, K, L, _fill_bits(-1e4), OUT_SLOTS, H * It] + list(acc_args)
     kernels = [
         ttnn.KernelDescriptor(
             kernel_source=str(KERNEL_DIR / "writer_sparse_bias.cpp"),
@@ -186,12 +187,13 @@ def sparse_bias_fp32(pair_bias, idx_rm, out=None, memory_config=None, device=Non
     would silently drop entries.
     """
     device = device or pair_bias.device()
-    H, L, K = int(pair_bias.shape[1]), int(pair_bias.shape[2]), int(pair_bias.shape[3])
+    B, H, L, K = (int(pair_bias.shape[0]), int(pair_bias.shape[1]), int(pair_bias.shape[2]),
+                  int(pair_bias.shape[3]))
     N = ((L + TILE_W - 1) // TILE_W) * TILE_W
     if out is None:
         mc = memory_config or ttnn.DRAM_MEMORY_CONFIG
         out = ttnn.allocate_tensor_on_device(
-            ttnn.Shape([1, H, L, N]), ttnn.float32, ttnn.TILE_LAYOUT, device, mc
+            ttnn.Shape([B, H, L, N]), ttnn.float32, ttnn.TILE_LAYOUT, device, mc
         )
 
     ct_head = [IDX_CB, BIAS_CB, OUT_CB, SLOT_CB]
@@ -232,12 +234,15 @@ def eligible_shape(batch, n_heads, length, n_keys, dtype) -> bool:
 
     Called once per step from ``_sparse_qk_inputs``, before either tensor exists, because the
     answer decides how the index is uploaded and whether the dense template is built at all.
+
+    ``batch`` is not a constraint: a group is a (design, head, tile-row) band and the group index is
+    that triple flattened, so multiplicity batching costs the kernels one divide. It was refused
+    until 2026-08-13 and that refusal cost every multi-design run the whole win, since
+    ``--batch_size`` defaults to 8.
     """
     shape = [batch, n_heads, length, n_keys]
     if not _ENABLED:
         return False
-    if batch != 1:
-        return _reject("batch", shape)
     if dtype != ttnn.bfloat16:
         return _reject("dtype", shape)
     if n_keys % TILE_W or n_keys < TILE_W:
@@ -286,7 +291,8 @@ def _scale_bits(value: float) -> int:
 
 
 def _fbuild(scores, pair_bias, idx_rm, out, device, scale, acc):
-    H, L, K = int(pair_bias.shape[1]), int(pair_bias.shape[2]), int(pair_bias.shape[3])
+    B, H, L, K = (int(pair_bias.shape[0]), int(pair_bias.shape[1]), int(pair_bias.shape[2]),
+                  int(pair_bias.shape[3]))
     N = int(out.shape[3])
     It = (L + TILE_H - 1) // TILE_H
     Jt = N // TILE_W
@@ -297,7 +303,7 @@ def _fbuild(scores, pair_bias, idx_rm, out, device, scale, acc):
         [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(g.x - 1, g.y - 1))]
     )
     cores = [(cx, cy) for cx in range(g.x) for cy in range(g.y)]
-    counts = _even_split(H * It, cores)
+    counts = _even_split(B * H * It, cores)
 
     def cb(idx_, fmt, page_size, depth):
         return ttnn.CBDescriptor(
@@ -324,7 +330,7 @@ def _fbuild(scores, pair_bias, idx_rm, out, device, scale, acc):
         writer_rt[cx][cy] = [start, n]
         compute_rt[cx][cy] = [n * Jt]
         start += n
-    assert start == H * It, (start, H * It)
+    assert start == B * H * It, (start, B * H * It)
 
     reader = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "reader_fused_scores.cpp"),
@@ -332,7 +338,7 @@ def _fbuild(scores, pair_bias, idx_rm, out, device, scale, acc):
         core_ranges=core_grid,
         compile_time_args=[F_SCORES_CB, F_BIAS_CB, F_IDX_CB, F_PB_CB, F_TPL_CB,
                            It, Jt, Kt, K, L, _fill_bits(-1e4), F_BIAS_SLOTS,
-                           F_NOPOKE] + list(acc),
+                           F_NOPOKE, H * It] + list(acc),
         runtime_args=reader_rt, common_runtime_args=[0, 0, 0],
         config=ttnn.ReaderConfigDescriptor(),
     )
@@ -394,12 +400,13 @@ def fused_scores_bias_fp32(scores, pair_bias, idx_rm, scale, out=None, memory_co
     along the last axis. The output is ``[1, H, L, N]`` fp32 TILE.
     """
     device = scores.device()
-    H, L, K = int(pair_bias.shape[1]), int(pair_bias.shape[2]), int(pair_bias.shape[3])
+    B, H, L, K = (int(pair_bias.shape[0]), int(pair_bias.shape[1]), int(pair_bias.shape[2]),
+                  int(pair_bias.shape[3]))
     N = int(scores.shape[3])
     if out is None:
         mc = memory_config or ttnn.DRAM_MEMORY_CONFIG
         out = ttnn.allocate_tensor_on_device(
-            ttnn.Shape([1, H, L, N]), ttnn.float32, ttnn.TILE_LAYOUT, device, mc
+            ttnn.Shape([B, H, L, N]), ttnn.float32, ttnn.TILE_LAYOUT, device, mc
         )
 
     acc = (
