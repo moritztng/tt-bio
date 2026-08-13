@@ -81,7 +81,7 @@ def main() -> int:
     import ttnn
     import tt_bio.tenstorrent as T
 
-    R = {"host": "qb2", "card": os.environ.get("TT_VISIBLE_DEVICES"), "spec": str(spec)}
+    R = {"host": __import__("socket").gethostname(), "card": os.environ.get("TT_VISIBLE_DEVICES"), "spec": str(spec)}
     SEC = {}            # id(DiffusionTransformer instance) -> section name
     CAP = {"want": None}   # section name to graph-capture on this step, or None
     GRAPHS = {}
@@ -116,6 +116,27 @@ def main() -> int:
         return _orig_dt_call(self, *x, **k)
 
     T.DiffusionTransformer.__call__ = dt_call
+
+    # One-shot capture of a single unit (AdaLN / DiffusionTransformerLayer), first call only.
+    def unit_hook(cls, name):
+        orig = cls.__call__
+
+        def call(self, *x, **k):
+            if CAP.get("unit") != name or name in GRAPHS:
+                return orig(self, *x, **k)
+            ttnn.synchronize_device(state["dev"])
+            ttnn.graph.begin_graph_capture(ttnn.graph.RunMode.NORMAL)
+            try:
+                out = orig(self, *x, **k)
+                ttnn.synchronize_device(state["dev"])
+            finally:
+                GRAPHS[name] = ttnn.graph.end_graph_capture()
+            return out
+
+        cls.__call__ = call
+
+    unit_hook(T.AdaLN, "AdaLN")
+    unit_hook(T.DiffusionTransformerLayer, "DiffusionTransformerLayer")
 
     # ---- step hook ----------------------------------------------------------------------
     _orig_run = T.DiffusionModule._run_diffusion_device
@@ -226,6 +247,13 @@ def main() -> int:
             CAP["want"] = ("atom_encoder", "token_transformer", "atom_decoder")[j - 1]
             out = _orig_run(self, r_dev, times_dev, large_seq_len)
             CAP["want"] = None
+            return out
+        # L5's census: one AdaLN and one whole DiffusionTransformerLayer, so "192 s-path programs
+        # per step" is a measurement and not a read of the source.
+        if j in (4, 5):
+            CAP["unit"] = ("AdaLN", "DiffusionTransformerLayer")[j - 4]
+            out = _orig_run(self, r_dev, times_dev, large_seq_len)
+            CAP["unit"] = None
             return out
         raise Done()
 

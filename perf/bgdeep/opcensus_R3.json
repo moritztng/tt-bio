@@ -1,0 +1,830 @@
+{
+ "host": "tt-quietbox",
+ "card": "1",
+ "spec": "perf/dsfix/fixtures/bg_R3.yaml",
+ "shapes": {
+  "MAX_ATOMS_PER_TOKEN": 14,
+  "PAIRFORMER_PAD_MULTIPLE": 64,
+  "ATOM_WINDOW": 32,
+  "ATOM_N_LAYERS": 3,
+  "TOKEN_N_LAYERS": 24,
+  "ATOM_DIM": 128,
+  "TOKEN_DIM": 768,
+  "N_real": 4576,
+  "seq_len": 514,
+  "batch": 1
+ },
+ "wall_s": 85.573,
+ "aborted_after_census": true,
+ "steps_seen": 41,
+ "wheel": "0.67.4",
+ "timing": {
+  "atom_decoder": {
+   "calls": 15,
+   "total_s": 0.0975,
+   "ms_per_call": 6.5009
+  },
+  "atom_encoder": {
+   "calls": 15,
+   "total_s": 0.0977,
+   "ms_per_call": 6.5128
+  },
+  "forward_total": {
+   "calls": 15,
+   "total_s": 0.609,
+   "ms_per_call": 40.5986
+  },
+  "stage:_from_torch": {
+   "calls": 30,
+   "total_s": 0.0121,
+   "ms_per_call": 0.4046
+  },
+  "stage:_to_torch": {
+   "calls": 15,
+   "total_s": 0.0104,
+   "ms_per_call": 0.6956
+  },
+  "step_synced": {
+   "calls": 15,
+   "total_s": 0.5881,
+   "ms_per_call": 39.2062
+  },
+  "step_unsynced": {
+   "calls": 15,
+   "total_s": 0.5846,
+   "ms_per_call": 38.9757
+  },
+  "token_transformer": {
+   "calls": 15,
+   "total_s": 0.3743,
+   "ms_per_call": 24.9515
+  }
+ },
+ "graphs": {
+  "whole_step": {
+   "n_py": 1944,
+   "n_dev": 0,
+   "n_other": 3723,
+   "top_py": [
+    [
+     "ttnn.deallocate",
+     482
+    ],
+    [
+     "ttnn.linear",
+     403
+    ],
+    [
+     "ttnn.multiply_",
+     176
+    ],
+    [
+     "ttnn.layer_norm",
+     126
+    ],
+    [
+     "ttnn.to_memory_config",
+     90
+    ],
+    [
+     "ttnn.reshape",
+     88
+    ],
+    [
+     "ttnn.add_",
+     84
+    ],
+    [
+     "ttnn.add",
+     66
+    ],
+    [
+     "ttnn.permute",
+     63
+    ],
+    [
+     "ttnn.multiply",
+     61
+    ],
+    [
+     "ttnn.Tensor.__getitem__",
+     60
+    ],
+    [
+     "ttnn.slice",
+     60
+    ],
+    [
+     "ttnn.matmul",
+     56
+    ],
+    [
+     "ttnn.experimental.nlp_create_qkv_heads",
+     30
+    ],
+    [
+     "ttnn.unsqueeze",
+     26
+    ],
+    [
+     "ttnn.transpose",
+     24
+    ],
+    [
+     "ttnn.softmax",
+     24
+    ],
+    [
+     "ttnn.pad",
+     6
+    ],
+    [
+     "ttnn.transformer.scaled_dot_product_attention",
+     6
+    ],
+    [
+     "ttnn.experimental.nlp_concat_heads",
+     6
+    ],
+    [
+     "ttnn.squeeze",
+     6
+    ],
+    [
+     "ttnn.cos",
+     1
+    ]
+   ],
+   "top_dev": [],
+   "top_other": [
+    [
+     "Tensor::deallocate",
+     1095
+    ],
+    [
+     "tt::tt_metal::create_device_tensor",
+     1076
+    ],
+    [
+     "MatmulDeviceOperation",
+     459
+    ],
+    [
+     "BinaryNgDeviceOperation",
+     399
+    ],
+    [
+     "Tensor::reshape",
+     276
+    ],
+    [
+     "LayerNormDeviceOperation",
+     126
+    ],
+    [
+     "TransposeDeviceOperation",
+     75
+    ],
+    [
+     "SliceDeviceOperation",
+     60
+    ],
+    [
+     "CopyDeviceOperation",
+     36
+    ],
+    [
+     "ReshapeViewDeviceOperation",
+     36
+    ],
+    [
+     "NlpCreateHeadsDeviceOperation",
+     30
+    ],
+    [
+     "SoftmaxDeviceOperation",
+     24
+    ],
+    [
+     "PermuteDeviceOperation",
+     12
+    ],
+    [
+     "PadDeviceOperation",
+     6
+    ],
+    [
+     "SDPAOperation",
+     6
+    ],
+    [
+     "NLPConcatHeadsDeviceOperation",
+     6
+    ],
+    [
+     "UnaryDeviceOperation",
+     1
+    ]
+   ]
+  },
+  "atom_encoder": {
+   "n_py": 201,
+   "n_dev": 0,
+   "n_other": 437,
+   "top_py": [
+    [
+     "ttnn.linear",
+     39
+    ],
+    [
+     "ttnn.deallocate",
+     30
+    ],
+    [
+     "ttnn.reshape",
+     30
+    ],
+    [
+     "ttnn.to_memory_config",
+     21
+    ],
+    [
+     "ttnn.multiply_",
+     15
+    ],
+    [
+     "ttnn.layer_norm",
+     12
+    ],
+    [
+     "ttnn.Tensor.__getitem__",
+     6
+    ],
+    [
+     "ttnn.slice",
+     6
+    ],
+    [
+     "ttnn.add_",
+     6
+    ],
+    [
+     "ttnn.permute",
+     6
+    ],
+    [
+     "ttnn.multiply",
+     6
+    ],
+    [
+     "ttnn.add",
+     6
+    ],
+    [
+     "ttnn.matmul",
+     3
+    ],
+    [
+     "ttnn.pad",
+     3
+    ],
+    [
+     "ttnn.experimental.nlp_create_qkv_heads",
+     3
+    ],
+    [
+     "ttnn.transformer.scaled_dot_product_attention",
+     3
+    ],
+    [
+     "ttnn.experimental.nlp_concat_heads",
+     3
+    ],
+    [
+     "ttnn.squeeze",
+     3
+    ]
+   ],
+   "top_dev": [],
+   "top_other": [
+    [
+     "tt::tt_metal::create_device_tensor",
+     126
+    ],
+    [
+     "Tensor::deallocate",
+     122
+    ],
+    [
+     "Tensor::reshape",
+     48
+    ],
+    [
+     "MatmulDeviceOperation",
+     42
+    ],
+    [
+     "BinaryNgDeviceOperation",
+     39
+    ],
+    [
+     "CopyDeviceOperation",
+     18
+    ],
+    [
+     "LayerNormDeviceOperation",
+     12
+    ],
+    [
+     "SliceDeviceOperation",
+     6
+    ],
+    [
+     "ReshapeViewDeviceOperation",
+     6
+    ],
+    [
+     "PermuteDeviceOperation",
+     6
+    ],
+    [
+     "PadDeviceOperation",
+     3
+    ],
+    [
+     "NlpCreateHeadsDeviceOperation",
+     3
+    ],
+    [
+     "SDPAOperation",
+     3
+    ],
+    [
+     "NLPConcatHeadsDeviceOperation",
+     3
+    ]
+   ]
+  },
+  "token_transformer": {
+   "n_py": 1488,
+   "n_dev": 0,
+   "n_other": 2735,
+   "top_py": [
+    [
+     "ttnn.deallocate",
+     408
+    ],
+    [
+     "ttnn.linear",
+     312
+    ],
+    [
+     "ttnn.multiply_",
+     144
+    ],
+    [
+     "ttnn.layer_norm",
+     96
+    ],
+    [
+     "ttnn.add_",
+     72
+    ],
+    [
+     "ttnn.Tensor.__getitem__",
+     48
+    ],
+    [
+     "ttnn.slice",
+     48
+    ],
+    [
+     "ttnn.to_memory_config",
+     48
+    ],
+    [
+     "ttnn.matmul",
+     48
+    ],
+    [
+     "ttnn.permute",
+     48
+    ],
+    [
+     "ttnn.multiply",
+     48
+    ],
+    [
+     "ttnn.add",
+     48
+    ],
+    [
+     "ttnn.unsqueeze",
+     24
+    ],
+    [
+     "ttnn.experimental.nlp_create_qkv_heads",
+     24
+    ],
+    [
+     "ttnn.transpose",
+     24
+    ],
+    [
+     "ttnn.softmax",
+     24
+    ],
+    [
+     "ttnn.reshape",
+     24
+    ]
+   ],
+   "top_dev": [],
+   "top_other": [
+    [
+     "Tensor::deallocate",
+     815
+    ],
+    [
+     "tt::tt_metal::create_device_tensor",
+     792
+    ],
+    [
+     "MatmulDeviceOperation",
+     360
+    ],
+    [
+     "BinaryNgDeviceOperation",
+     312
+    ],
+    [
+     "Tensor::reshape",
+     168
+    ],
+    [
+     "LayerNormDeviceOperation",
+     96
+    ],
+    [
+     "TransposeDeviceOperation",
+     72
+    ],
+    [
+     "SliceDeviceOperation",
+     48
+    ],
+    [
+     "NlpCreateHeadsDeviceOperation",
+     24
+    ],
+    [
+     "SoftmaxDeviceOperation",
+     24
+    ],
+    [
+     "ReshapeViewDeviceOperation",
+     24
+    ]
+   ]
+  },
+  "atom_decoder": {
+   "n_py": 201,
+   "n_dev": 0,
+   "n_other": 437,
+   "top_py": [
+    [
+     "ttnn.linear",
+     39
+    ],
+    [
+     "ttnn.deallocate",
+     30
+    ],
+    [
+     "ttnn.reshape",
+     30
+    ],
+    [
+     "ttnn.to_memory_config",
+     21
+    ],
+    [
+     "ttnn.multiply_",
+     15
+    ],
+    [
+     "ttnn.layer_norm",
+     12
+    ],
+    [
+     "ttnn.Tensor.__getitem__",
+     6
+    ],
+    [
+     "ttnn.slice",
+     6
+    ],
+    [
+     "ttnn.add_",
+     6
+    ],
+    [
+     "ttnn.permute",
+     6
+    ],
+    [
+     "ttnn.multiply",
+     6
+    ],
+    [
+     "ttnn.add",
+     6
+    ],
+    [
+     "ttnn.matmul",
+     3
+    ],
+    [
+     "ttnn.pad",
+     3
+    ],
+    [
+     "ttnn.experimental.nlp_create_qkv_heads",
+     3
+    ],
+    [
+     "ttnn.transformer.scaled_dot_product_attention",
+     3
+    ],
+    [
+     "ttnn.experimental.nlp_concat_heads",
+     3
+    ],
+    [
+     "ttnn.squeeze",
+     3
+    ]
+   ],
+   "top_dev": [],
+   "top_other": [
+    [
+     "tt::tt_metal::create_device_tensor",
+     126
+    ],
+    [
+     "Tensor::deallocate",
+     122
+    ],
+    [
+     "Tensor::reshape",
+     48
+    ],
+    [
+     "MatmulDeviceOperation",
+     42
+    ],
+    [
+     "BinaryNgDeviceOperation",
+     39
+    ],
+    [
+     "CopyDeviceOperation",
+     18
+    ],
+    [
+     "LayerNormDeviceOperation",
+     12
+    ],
+    [
+     "SliceDeviceOperation",
+     6
+    ],
+    [
+     "ReshapeViewDeviceOperation",
+     6
+    ],
+    [
+     "PermuteDeviceOperation",
+     6
+    ],
+    [
+     "PadDeviceOperation",
+     3
+    ],
+    [
+     "NlpCreateHeadsDeviceOperation",
+     3
+    ],
+    [
+     "SDPAOperation",
+     3
+    ],
+    [
+     "NLPConcatHeadsDeviceOperation",
+     3
+    ]
+   ]
+  },
+  "AdaLN": {
+   "n_py": 11,
+   "n_dev": 0,
+   "n_other": 24,
+   "top_py": [
+    [
+     "ttnn.to_memory_config",
+     3
+    ],
+    [
+     "ttnn.layer_norm",
+     2
+    ],
+    [
+     "ttnn.linear",
+     2
+    ],
+    [
+     "ttnn.deallocate",
+     2
+    ],
+    [
+     "ttnn.multiply_",
+     1
+    ],
+    [
+     "ttnn.add_",
+     1
+    ]
+   ],
+   "top_dev": [],
+   "top_other": [
+    [
+     "tt::tt_metal::create_device_tensor",
+     8
+    ],
+    [
+     "Tensor::deallocate",
+     6
+    ],
+    [
+     "CopyDeviceOperation",
+     3
+    ],
+    [
+     "BinaryNgDeviceOperation",
+     3
+    ],
+    [
+     "LayerNormDeviceOperation",
+     2
+    ],
+    [
+     "MatmulDeviceOperation",
+     2
+    ]
+   ]
+  },
+  "DiffusionTransformerLayer": {
+   "n_py": 65,
+   "n_dev": 0,
+   "n_other": 141,
+   "top_py": [
+    [
+     "ttnn.linear",
+     13
+    ],
+    [
+     "ttnn.deallocate",
+     10
+    ],
+    [
+     "ttnn.reshape",
+     10
+    ],
+    [
+     "ttnn.to_memory_config",
+     7
+    ],
+    [
+     "ttnn.multiply_",
+     5
+    ],
+    [
+     "ttnn.layer_norm",
+     4
+    ],
+    [
+     "ttnn.add_",
+     2
+    ],
+    [
+     "ttnn.permute",
+     2
+    ],
+    [
+     "ttnn.multiply",
+     2
+    ],
+    [
+     "ttnn.add",
+     2
+    ],
+    [
+     "ttnn.matmul",
+     1
+    ],
+    [
+     "ttnn.pad",
+     1
+    ],
+    [
+     "ttnn.experimental.nlp_create_qkv_heads",
+     1
+    ],
+    [
+     "ttnn.Tensor.__getitem__",
+     1
+    ],
+    [
+     "ttnn.slice",
+     1
+    ],
+    [
+     "ttnn.transformer.scaled_dot_product_attention",
+     1
+    ],
+    [
+     "ttnn.experimental.nlp_concat_heads",
+     1
+    ],
+    [
+     "ttnn.squeeze",
+     1
+    ]
+   ],
+   "top_dev": [],
+   "top_other": [
+    [
+     "tt::tt_metal::create_device_tensor",
+     41
+    ],
+    [
+     "Tensor::deallocate",
+     39
+    ],
+    [
+     "Tensor::reshape",
+     15
+    ],
+    [
+     "MatmulDeviceOperation",
+     14
+    ],
+    [
+     "BinaryNgDeviceOperation",
+     13
+    ],
+    [
+     "CopyDeviceOperation",
+     6
+    ],
+    [
+     "LayerNormDeviceOperation",
+     4
+    ],
+    [
+     "ReshapeViewDeviceOperation",
+     2
+    ],
+    [
+     "PermuteDeviceOperation",
+     2
+    ],
+    [
+     "PadDeviceOperation",
+     1
+    ],
+    [
+     "NlpCreateHeadsDeviceOperation",
+     1
+    ],
+    [
+     "SliceDeviceOperation",
+     1
+    ],
+    [
+     "SDPAOperation",
+     1
+    ],
+    [
+     "NLPConcatHeadsDeviceOperation",
+     1
+    ]
+   ]
+  }
+ },
+ "f_atom_path": 0.3319,
+ "token_share": 0.6364,
+ "sections_sum_share": 0.9683,
+ "K_py_ops": 1944,
+ "us_per_py_op": 20.049
+}

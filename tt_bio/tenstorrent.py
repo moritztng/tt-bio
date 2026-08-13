@@ -382,8 +382,16 @@ def _adaln_memory_config(atom_level: bool, large_seq_len: bool) -> ttnn.MemoryCo
     return ttnn.DRAM_MEMORY_CONFIG if large_seq_len else ttnn.L1_MEMORY_CONFIG
 
 
+# L2's A/B switch. BoltzGen never calls set_fast_mode, so its gate is the non-fast 352 and every
+# trimul chunk at 576 padded tokens lives in DRAM. Overriding the gate is the whole change, so the
+# end-to-end A/B is also the screen -- there is no build to protect.
+_TRIMUL_L1_MAX_SEQ_OVERRIDE = int(os.environ.get("TT_BIO_TRIMUL_L1_MAX_SEQ", "0") or 0)
+
+
 def _trimul_l1_max_seq() -> int:
     """Longest sequence whose trimul chunks still live in L1."""
+    if _TRIMUL_L1_MAX_SEQ_OVERRIDE:
+        return _TRIMUL_L1_MAX_SEQ_OVERRIDE
     if _FAST_MODE:
         return (
             TRIANGLE_MULT_L1_MAX_SEQ_FAST_13X10
