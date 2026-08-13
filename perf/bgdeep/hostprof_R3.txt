@@ -1,0 +1,111 @@
+profiled Boltz.forward wall 47.879 s
+
+===== BY CUMULATIVE TIME (top 45) =====
+         3522844 function calls (3490928 primitive calls) in 47.796 seconds
+
+   Ordered by: cumulative time
+   List reduced from 418 to 45 due to restriction <45>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.142    0.142   47.802   47.802 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/boltzgen/model/models/boltz.py:469(forward)
+  817/512    0.004    0.000   46.081    0.090 /home/ttuser/.local/lib/python3.10/site-packages/torch/nn/modules/module.py:1775(_wrapped_call_impl)
+  817/512    0.181    0.000   46.079    0.090 /home/ttuser/.local/lib/python3.10/site-packages/torch/nn/modules/module.py:1783(_call_impl)
+1118819/1087541   32.368    0.000   37.150    0.000 /home/ttuser/.local/lib/python3.10/site-packages/ttnn/decorators.py:455(__call__)
+        1    0.089    0.089   23.469   23.469 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/boltzgen/model/modules/diffusion.py:301(sample)
+      500    0.040    0.000   22.054    0.044 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/boltzgen/model/modules/diffusion.py:179(preconditioned_network_forward)
+      500    0.006    0.000   21.890    0.044 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/boltzgen/adapter.py:122(forward)
+      500    0.062    0.000   21.884    0.044 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:5062(forward)
+        1    0.029    0.029   21.642   21.642 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:5765(forward)
+        4    0.163    0.041   19.125    4.781 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:5726(_iteration)
+      500    0.005    0.000   17.679    0.035 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:5039(_run_diffusion_device)
+      500    0.043    0.000   17.671    0.035 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:4466(__call__)
+     1500    0.102    0.000   17.068    0.011 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:3873(__call__)
+    15000    0.194    0.000   16.217    0.001 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:3818(__call__)
+      288    0.026    0.000   14.747    0.051 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:3340(__call__)
+       12    0.002    0.000   14.421    1.202 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:3421(__call__)
+    15256    0.485    0.000    7.937    0.001 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:2968(__call__)
+      576    0.035    0.000    6.512    0.011 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:2154(__call__)
+    15000    0.190    0.000    5.200    0.000 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:3740(__call__)
+    30000    0.293    0.000    4.726    0.000 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:3681(__call__)
+     1560    0.020    0.000    4.288    0.003 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:3155(__call__)
+     1191    4.021    0.003    4.043    0.003 /home/ttuser/.local/lib/python3.10/site-packages/ttnn/operations/core.py:241(from_torch)
+    12648    0.085    0.000    3.841    0.000 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:3156(swiglu)
+     1032    0.003    0.000    3.803    0.004 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:4665(_from_torch)
+      510    0.030    0.000    3.765    0.007 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:4673(_to_torch)
+      510    0.204    0.000    3.468    0.007 /home/ttuser/.local/lib/python3.10/site-packages/ttnn/operations/core.py:367(to_torch)
+        4    0.079    0.020    3.455    0.864 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:5705(_apply_template_host)
+      304    0.013    0.000    3.390    0.011 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:3270(<listcomp>)
+      576    0.029    0.000    2.858    0.005 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:2554(__call__)
+        1    0.054    0.054    1.952    1.952 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:5584(_build_static)
+        1    0.007    0.007    1.949    1.949 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/boltzgen/model/modules/diffusion_conditioning.py:77(forward)
+    30768    0.046    0.000    1.590    0.000 /home/ttuser/.local/lib/python3.10/site-packages/ttnn/__init__.py:401(<lambda>)
+    30768    0.022    0.000    1.544    0.000 /home/ttuser/.local/lib/python3.10/site-packages/ttnn/decorators.py:981(method_call)
+        4    0.289    0.072    1.541    0.385 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/boltzgen/model/modules/trunk.py:283(forward)
+      128    0.001    0.000    1.533    0.012 /home/ttuser/.local/lib/python3.10/site-packages/torch/nn/modules/linear.py:130(forward)
+      128    1.531    0.012    1.531    0.012 {built-in method torch._C._nn.linear}
+    30768    0.376    0.000    1.479    0.000 /home/ttuser/.local/lib/python3.10/site-packages/ttnn/operations/core.py:36(__getitem__)
+        1    0.133    0.133    1.362    1.362 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:5482(precompute)
+      500    0.003    0.000    1.357    0.003 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:4907(_populate_diffusion_cache)
+        3    0.514    0.171    1.255    0.418 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/boltzgen/model/layers/transition.py:43(forward)
+    24512    0.452    0.000    1.240    0.000 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:753(batched_matmul)
+        4    0.000    0.000    1.148    0.287 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:4333(__call__)
+       16    0.002    0.000    1.147    0.072 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:4251(__call__)
+       50    0.370    0.007    1.086    0.022 /home/ttuser/.local/lib/python3.10/site-packages/torch/nn/modules/container.py:248(forward)
+     1664    0.012    0.000    1.023    0.001 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/mm_generic.py:304(generic_minimal_matmul)
+
+
+
+===== BY TOTAL (SELF) TIME (top 45) =====
+         3522844 function calls (3490928 primitive calls) in 47.796 seconds
+
+   Ordered by: internal time
+   List reduced from 418 to 45 due to restriction <45>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+1118819/1087541   32.368    0.000   37.150    0.000 /home/ttuser/.local/lib/python3.10/site-packages/ttnn/decorators.py:455(__call__)
+     1191    4.021    0.003    4.043    0.003 /home/ttuser/.local/lib/python3.10/site-packages/ttnn/operations/core.py:241(from_torch)
+      128    1.531    0.012    1.531    0.012 {built-in method torch._C._nn.linear}
+     2516    0.755    0.000    0.755    0.000 {built-in method torch.einsum}
+     1664    0.571    0.000    0.592    0.000 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/mm_generic.py:321(rebind)
+        3    0.514    0.171    1.255    0.418 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/boltzgen/model/layers/transition.py:43(forward)
+    15256    0.485    0.000    7.937    0.001 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:2968(__call__)
+    24512    0.452    0.000    1.240    0.000 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:753(batched_matmul)
+       57    0.435    0.008    0.435    0.008 {built-in method torch.layer_norm}
+    30768    0.376    0.000    1.479    0.000 /home/ttuser/.local/lib/python3.10/site-packages/ttnn/operations/core.py:36(__getitem__)
+       50    0.370    0.007    1.086    0.022 /home/ttuser/.local/lib/python3.10/site-packages/torch/nn/modules/container.py:248(forward)
+    30000    0.293    0.000    4.726    0.000 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:3681(__call__)
+        4    0.289    0.072    1.541    0.385 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/boltzgen/model/modules/trunk.py:283(forward)
+     2522    0.270    0.000    0.270    0.000 {method 'to' of 'torch._C.TensorBase' objects}
+      164    0.262    0.002    0.262    0.002 {built-in method torch.cat}
+      576    0.211    0.000    0.386    0.001 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/sdpa_generic.py:350(sdpa)
+      510    0.204    0.000    3.468    0.007 /home/ttuser/.local/lib/python3.10/site-packages/ttnn/operations/core.py:367(to_torch)
+    15000    0.194    0.000   16.217    0.001 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:3818(__call__)
+    15000    0.190    0.000    5.200    0.000 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:3740(__call__)
+  817/512    0.181    0.000   46.079    0.090 /home/ttuser/.local/lib/python3.10/site-packages/torch/nn/modules/module.py:1783(_call_impl)
+        4    0.163    0.041   19.125    4.781 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:5726(_iteration)
+        1    0.142    0.142   47.802   47.802 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/boltzgen/model/models/boltz.py:469(forward)
+      528    0.139    0.000    0.139    0.000 {built-in method torch._C._nn.pad}
+        1    0.133    0.133    1.362    1.362 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:5482(precompute)
+        1    0.115    0.115    0.232    0.232 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/boltzgen/model/modules/trunk.py:30(forward)
+     1501    0.114    0.000    0.114    0.000 {built-in method torch.randn}
+      500    0.110    0.000    0.811    0.002 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/boltzgen/model/geometry.py:17(weighted_rigid_align)
+     1500    0.102    0.000   17.068    0.011 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:3873(__call__)
+        1    0.089    0.089   23.469   23.469 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/boltzgen/model/modules/diffusion.py:301(sample)
+        1    0.087    0.087    0.765    0.765 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/boltzgen/model/modules/encoders.py:226(forward)
+    12648    0.085    0.000    3.841    0.000 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:3156(swiglu)
+        4    0.079    0.020    3.455    0.864 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:5705(_apply_template_host)
+        6    0.064    0.011    0.064    0.011 {built-in method torch._C._nn.silu}
+      500    0.062    0.000   21.884    0.044 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:5062(forward)
+651960/651959    0.060    0.000    0.060    0.000 {built-in method builtins.len}
+    49024    0.055    0.000    0.055    0.000 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:741(_dram_interleaved)
+        1    0.054    0.054    1.952    1.952 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:5584(_build_static)
+     3515    0.052    0.000    0.052    0.000 {method 'sum' of 'torch._C.TensorBase' objects}
+        1    0.052    0.052    0.052    0.052 {built-in method torch.exp}
+        1    0.048    0.048    0.930    0.930 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/boltzgen/model/modules/encoders.py:353(forward)
+    30768    0.046    0.000    1.590    0.000 /home/ttuser/.local/lib/python3.10/site-packages/ttnn/__init__.py:401(<lambda>)
+   628015    0.044    0.000    0.044    0.000 {method 'append' of 'list' objects}
+    38496    0.043    0.000    0.043    0.000 /usr/lib/python3.10/enum.py:749(__str__)
+      500    0.043    0.000   17.671    0.035 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/tenstorrent.py:4466(__call__)
+      500    0.042    0.000    0.077    0.000 /home/ttuser/.coworker/wt/boltzgen-optimize-on-fixture/tt_bio/boltzgen/model/modules/utils.py:156(quaternion_to_matrix)
+
+
