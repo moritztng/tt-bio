@@ -1,0 +1,25 @@
+2026-08-13 05:59:39.053 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+  L= 768 A_split          145.71 ms  exact=True  legs={}
+  L= 768 D_engine_full    146.86 ms  exact=True  legs={'core_grid_untuned': 16}
+  L= 768 C_rows8          38.909 ms  exact=False  legs={'L1_cfg_None->core_grid_untuned': 1536}
+  L= 768 C_rows16         38.906 ms  exact=True  legs={'L1_cfg_None->core_grid_untuned': 768}
+  L= 768 C_rows32         37.243 ms  exact=True  legs={'L1_cfg_None->core_grid_untuned': 384}
+  L= 768 E_lin_L1gated_rows8 38.899 ms  exact=False  legs={}
+  L= 768 E_lin_L1gated_rows16 39.007 ms  exact=True  legs={}
+  L= 768 E_lin_L1gated_rows32 37.296 ms  exact=True  legs={}
+  L= 768 F_lin_DRAMgated_rows8 46.924 ms  exact=False  legs={}
+  L= 768 F_lin_DRAMgated_rows16 46.108 ms  exact=True  legs={}
+  L= 768 F_lin_DRAMgated_rows32 45.062 ms  exact=True  legs={}
+  L=1024 A_split          77.936 ms  exact=True  legs={}
+  L=1024 D_engine_full    77.848 ms  exact=True  legs={'core_grid_untuned': 16}
+  L=1024 C_rows8          65.647 ms  exact=False  legs={'L1_cfg_None->core_grid_untuned': 2048}
+  L=1024 C_rows16         70.208 ms  exact=True  legs={'L1_cfg_None->core_grid_untuned': 1024}
+  L=1024 C_rows32         70.669 ms  exact=True  legs={'L1_cfg_None->core_grid_untuned': 512}
+  L=1024 E_lin_L1gated_rows8 65.755 ms  exact=False  legs={}
+  L=1024 E_lin_L1gated_rows16 70.273 ms  exact=True  legs={}
+  L=1024 E_lin_L1gated_rows32 70.789 ms  exact=True  legs={}
+  L=1024 F_lin_DRAMgated_rows8 77.59 ms  exact=False  legs={}
+  L=1024 F_lin_DRAMgated_rows16 84.611 ms  exact=True  legs={}
+  L=1024 F_lin_DRAMgated_rows32 85.269 ms  exact=True  legs={}
+wrote perf/esm2sizes/screen_qb1c3.json
