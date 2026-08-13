@@ -1,0 +1,52 @@
+{
+ "host": "tt-quietbox2",
+ "card": "2",
+ "grid": [
+  11,
+  10
+ ],
+ "L": 512,
+ "n": 5,
+ "arms": {
+  "unblocked": {
+   "ms": 21.1662,
+   "equal": true
+  },
+  "shipped_rows32": {
+   "ms": 17.9184,
+   "equal": true
+  },
+  "rows32_bw1_obh5_obw32_gatedL1": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 51 clash with L1 buffers on cor"
+  },
+  "rows32_bw1_obh5_obw32_gatedDRAM": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 51 clash with L1 buffers on cor"
+  },
+  "rows32_bw1_obh5_obw16_gatedL1": {
+   "ms": 14.6623,
+   "equal": true
+  },
+  "rows32_bw1_obh5_obw16_gatedDRAM": {
+   "ms": 14.6804,
+   "equal": true
+  },
+  "rows32_bw1_obh5_obw8_gatedL1": {
+   "ms": 17.1143,
+   "equal": true
+  },
+  "rows32_bw1_obh5_obw8_gatedDRAM": {
+   "ms": 17.1358,
+   "equal": true
+  },
+  "rows32_bw1_obh5_obw4_gatedL1": {
+   "ms": 25.112,
+   "equal": true
+  },
+  "rows32_bw1_obh5_obw4_gatedDRAM": {
+   "ms": 25.1621,
+   "equal": true
+  }
+ },
+ "l1_bank_bytes": 1461760,
+ "loadavg": "1.53"
+}
