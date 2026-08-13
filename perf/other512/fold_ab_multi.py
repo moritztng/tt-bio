@@ -91,7 +91,8 @@ def _collect_fp32(root, seen=None, depth=0):
     return out
 
 ARMS = ("on", "e6", "noe6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hifi",
-        "nonewmm", "oldkey", "nofp32_trunk", "nofp32_msatmpl", "nos2")
+        "nonewmm", "oldkey", "nofp32_trunk", "nofp32_msatmpl", "nos2",
+        "hchunk16", "noL1out", "k2q")
 
 # Which sites each arm routes onto the fused SDPA. The confidence head is never in a flip set:
 # it stays on `_fp32_softmax_attention` on every arm, deliberately, so plDDT reports on the
@@ -387,6 +388,14 @@ def main():
 
         T._PAIR_PROJ_L1_OUT = T._PAIR_BIAS_L1_NORM = True
         T._PWA_L1_NORM = T._TEMPLATE_L1_NORM = True
+
+        # The three arms this task adds. They are written AFTER the block above, which sets
+        # `_PAIR_PROJ_L1_OUT` unconditionally: reversing the order makes `noL1out` read identical
+        # to `on` and measure nothing.
+        T.TRANSITION_H_CHUNK_SIZE_BIG = 16 if name == "hchunk16" else 32
+        T._PAIR_PROJ_L1_OUT = name != "noL1out"
+        PM._Q_PARALLEL = name == "k2q"
+
         T._pair_proj_program_config.cache_clear()
         T._tri_att_q_chunks.cache_clear()
         T._L1_OUT_REFUSED.clear()
@@ -475,6 +484,10 @@ def main():
                                        "declined": PM.STATS[1],
                                        "rejects": {f"{r}:{sh}": n for (r, sh), n in PM.REJECTS.items()}},
                    "transpose_l1_headroom": T._TRANSPOSE_L1_HEADROOM,
+                   "transition_h_chunk_big": T.TRANSITION_H_CHUNK_SIZE_BIG,
+                   "pair_proj_l1_out": T._PAIR_PROJ_L1_OUT,
+                   "l1_out_refused": sorted(str(k) for k in T._L1_OUT_REFUSED),
+                   "mask_q_parallel": PM._Q_PARALLEL,
                    "atom_pad_in_tile": T._ATOM_PAD_IN_TILE,
                    "fp32_softmax_modules": len(FP32_OWNERS),
                    "sdpa_ckc_override": (None if PM._CKC_OVERRIDE is None

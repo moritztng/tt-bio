@@ -52,6 +52,17 @@ _ENABLED = os.environ.get(
 # reduction is a config and not a kernel edit. Inert by default: nothing reads it unless it is set.
 _CKC_OVERRIDE = None
 
+# K2 hands every core one head and one q chunk. It asked for that with `q_pf = 1`, which makes
+# `q_per_core == q_num_chunks`, so the precondition only holds while the widest q_chunk spans the
+# whole padded sequence. It stops doing that above ~640 aa: at 768 the q768 config overflows L1, the
+# fold falls back to q384, and all 1120 calls per fold decline on `fill_preconditions`. Splitting the
+# q chunks ACROSS cores instead of down one core restores `q_per_core == 1` with no kernel edit --
+# the hoisted fill already bases its read on `local_q_start`, so each core fills its own band.
+# The per-core mask CB grows from `2 * Sq_chunk_t * Sk_chunk_t` to `k_num_chunks * Sq_chunk_t *
+# Sk_chunk_t` tiles, i.e. 1.5x at 768/q384 and 2x at 1024/q512, and an overflow lands in the
+# existing `l1_budget` catch. OFF until a fold-level A/B clears it.
+_Q_PARALLEL = os.environ.get("TT_BIO_TRIATT_MASK_Q_PARALLEL", "0") == "1"
+
 
 def _reject(reason, shape):
     key = (reason, tuple(shape))
@@ -83,9 +94,14 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None):
     if l1_key in _SDPA_Q_CHUNK_OVER_L1:
         return _reject("q_chunk_over_l1", shape)
     H = shape[1]
-    if grid[0] * grid[1] // H < 1:
+    cores = grid[0] * grid[1]
+    # `q_nc = 1` reproduces the shipped split exactly, so the lever is inert at every size where
+    # the widest q_chunk already spans the sequence.
+    Sq = int(q.padded_shape[2])
+    q_nc = (Sq + q_chunk - 1) // q_chunk if _Q_PARALLEL else 1
+    if cores // (H * q_nc) < 1:
         return _reject("grid_too_small", shape)
-    split = (grid[0] * grid[1] // H, H, 1)
+    split = (cores // (H * q_nc), H, q_nc)
 
     dev = q.device()
     out = ttnn.allocate_tensor_on_device(
