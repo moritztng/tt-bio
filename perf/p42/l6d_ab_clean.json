@@ -1,0 +1,160 @@
+{
+  "off_rev": "RFD3_FUSED_TPLCOPY",
+  "flag": "RFD3_FUSED_TPLCOPY",
+  "also_env": {
+    "RFD3_SPARSE_BIAS": "1",
+    "RFD3_FUSED_SCORES": "1"
+  },
+  "steps": [
+    20,
+    200
+  ],
+  "designs": 1,
+  "runs": [
+    {
+      "wall_s": 21.306541593003203,
+      "sha": {
+        "iai.cif": "b481af0bcf7fc50a937dc87da71720e2a75e7606587422b908a8dc348f0d2079"
+      },
+      "arm": "off",
+      "steps": 20,
+      "rep": 0
+    },
+    {
+      "wall_s": 55.20790387400484,
+      "sha": {
+        "iai.cif": "35d8fcf6d3ecc0fb0d3c730a470e8dcde2bbcf87aa5ea6061d4d3c019acffff0"
+      },
+      "arm": "off",
+      "steps": 200,
+      "rep": 0
+    },
+    {
+      "wall_s": 21.17980670099496,
+      "sha": {
+        "iai.cif": "b481af0bcf7fc50a937dc87da71720e2a75e7606587422b908a8dc348f0d2079"
+      },
+      "arm": "on",
+      "steps": 20,
+      "rep": 0
+    },
+    {
+      "wall_s": 56.24167605399998,
+      "sha": {
+        "iai.cif": "35d8fcf6d3ecc0fb0d3c730a470e8dcde2bbcf87aa5ea6061d4d3c019acffff0"
+      },
+      "arm": "on",
+      "steps": 200,
+      "rep": 0
+    },
+    {
+      "wall_s": 21.41499045600358,
+      "sha": {
+        "iai.cif": "b481af0bcf7fc50a937dc87da71720e2a75e7606587422b908a8dc348f0d2079"
+      },
+      "arm": "off",
+      "steps": 20,
+      "rep": 1
+    },
+    {
+      "wall_s": 57.18484758200066,
+      "sha": {
+        "iai.cif": "35d8fcf6d3ecc0fb0d3c730a470e8dcde2bbcf87aa5ea6061d4d3c019acffff0"
+      },
+      "arm": "off",
+      "steps": 200,
+      "rep": 1
+    },
+    {
+      "wall_s": 21.511606157000642,
+      "sha": {
+        "iai.cif": "b481af0bcf7fc50a937dc87da71720e2a75e7606587422b908a8dc348f0d2079"
+      },
+      "arm": "on",
+      "steps": 20,
+      "rep": 1
+    },
+    {
+      "wall_s": 55.38987101500243,
+      "sha": {
+        "iai.cif": "35d8fcf6d3ecc0fb0d3c730a470e8dcde2bbcf87aa5ea6061d4d3c019acffff0"
+      },
+      "arm": "on",
+      "steps": 200,
+      "rep": 1
+    },
+    {
+      "wall_s": 21.513640890996612,
+      "sha": {
+        "iai.cif": "b481af0bcf7fc50a937dc87da71720e2a75e7606587422b908a8dc348f0d2079"
+      },
+      "arm": "off",
+      "steps": 20,
+      "rep": 2
+    },
+    {
+      "wall_s": 56.411957062999136,
+      "sha": {
+        "iai.cif": "35d8fcf6d3ecc0fb0d3c730a470e8dcde2bbcf87aa5ea6061d4d3c019acffff0"
+      },
+      "arm": "off",
+      "steps": 200,
+      "rep": 2
+    },
+    {
+      "wall_s": 21.674638620002952,
+      "sha": {
+        "iai.cif": "b481af0bcf7fc50a937dc87da71720e2a75e7606587422b908a8dc348f0d2079"
+      },
+      "arm": "on",
+      "steps": 20,
+      "rep": 2
+    },
+    {
+      "wall_s": 54.14249719899817,
+      "sha": {
+        "iai.cif": "35d8fcf6d3ecc0fb0d3c730a470e8dcde2bbcf87aa5ea6061d4d3c019acffff0"
+      },
+      "arm": "on",
+      "steps": 200,
+      "rep": 2
+    }
+  ],
+  "off": {
+    "walls": {
+      "20": [
+        21.306541593003203,
+        21.41499045600358,
+        21.513640890996612
+      ],
+      "200": [
+        55.20790387400484,
+        57.18484758200066,
+        56.411957062999136
+      ]
+    },
+    "ms_per_step": 194.4275922610864,
+    "s_per_design_199": 38.6910908599562,
+    "designs_per_hour_wall": 63.81625788978799
+  },
+  "on": {
+    "walls": {
+      "20": [
+        21.17980670099496,
+        21.511606157000642,
+        21.674638620002952
+      ],
+      "200": [
+        56.24167605399998,
+        55.38987101500243,
+        54.14249719899817
+      ]
+    },
+    "ms_per_step": 188.21258254445436,
+    "s_per_design_199": 37.45430392634642,
+    "designs_per_hour_wall": 64.99383251903465
+  },
+  "aa_floor_pct": 3.504476375084852,
+  "delta_pct": 3.19656775273246,
+  "cif_identical_across_arms": true
+}
