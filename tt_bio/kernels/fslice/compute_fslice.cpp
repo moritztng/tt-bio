@@ -47,6 +47,12 @@
 //     nothing about what the conversion costs. Left in place as the starting point for the
 //     next attempt; the suspects are the packer dest-offset state shared with tilize, and the
 //     face_r_dim/num_faces defaults.
+//  13 BOTH stage-2 passes FUSED, with the intermediate never leaving L1. Pass 1 runs twice
+//     to build the 64-wide window pass 2 needs, the two tiles are transposed in place
+//     (the second pass resamples the other axis), and pass 2 reads them straight out of a
+//     circular buffer. The point is that pass 2 issues NO per-row reads at all: the
+//     reader supplies two assemblies per output tile instead of three, and no
+//     intermediate ever reaches DRAM. This is section 3.2's Floor B.
 //  12 mode 5 arithmetic, then row-major out by ROUND-TRIPPING DST THROUGH A CB: pack the
 //     result normally into a staging CB, release, re-acquire, bring it back with
 //     copy_tile, and untilize that. Mode 10 showed pack_untilize_dest cannot consume
@@ -103,6 +109,7 @@
 #include "api/compute/matmul.h"
 #include "api/compute/tile_move_copy.h"
 #include "api/compute/tilize.h"
+#include "api/compute/transpose_wh.h"
 #include "api/compute/pack_untilize.h"
 
 #define DST_T0 0
@@ -122,7 +129,9 @@ void kernel_main() {
     constexpr uint32_t cb_out = get_compile_time_arg_val(4);
     constexpr uint32_t src_tiles = get_compile_time_arg_val(5);
     constexpr uint32_t mode = get_compile_time_arg_val(6);
-    constexpr uint32_t cb_mid = get_compile_time_arg_val(7);   // staging for mode 11
+    constexpr uint32_t cb_mid = get_compile_time_arg_val(7);   // staging for modes 11/12
+    constexpr uint32_t cb_int = get_compile_time_arg_val(8);   // fused intermediate
+    constexpr uint32_t cb_int2 = get_compile_time_arg_val(9);  // transposed intermediate
 
     const uint32_t nblocks = get_arg_val<uint32_t>(0);
     constexpr uint32_t one = 1;
@@ -216,7 +225,7 @@ void kernel_main() {
         // w(r, u) = g(r) + frac(A*u). add_tiles_bcast_rows broadcasts ROW 0 of its SECOND operand, so
         // the per-row tile must be first and the per-column tile second. cb_frac tile 1 holds g(r)
         // replicated across the columns; tile 0 holds frac(A*u) in row 0.
-        if constexpr (mode != 4 && mode != 5 && mode != 7 && mode != 8 && mode != 9 && mode != 10 && mode != 11 && mode != 12) {
+        if constexpr (mode != 4 && mode != 5 && mode != 7 && mode != 8 && mode != 9 && mode != 10 && mode != 11 && mode != 12 && mode != 13) {
             add_bcast_rows_init_short(cb_frac, cb_frac);
             add_tiles_bcast_rows(cb_frac, cb_frac, 1, 0, DST_W);
         }
@@ -242,6 +251,84 @@ void kernel_main() {
             continue;
         }
 
+        if constexpr (mode == 13) {
+            // --- pass 1, twice: two intermediate tiles, straight into an L1 circular buffer --------
+            for (uint32_t h = 0; h < 2; ++h) {
+                // h == 0 inherits the acquired DST and the six selection matmuls the common prologue
+                // above already ran. Repeating them here would DOUBLE T0..T2, because matmul_tiles
+                // accumulates into DST rather than overwriting it.
+                if (h) {
+                    cb_wait_front(cb_src, src_tiles);
+                    tilize_init_short_with_dt(cb_out, cb_src, src_tiles, cb_til);
+                    cb_reserve_back(cb_til, src_tiles);
+                    tilize_block(cb_src, src_tiles, cb_til);
+                    cb_push_back(cb_til, src_tiles);
+                    tilize_uninit_with_dt(cb_src, cb_out, cb_til);
+                    cb_wait_front(cb_til, src_tiles);
+                    tile_regs_acquire();
+                    mm_init(cb_til, cb_sel, cb_int, 0);
+                    for (uint32_t k = 0; k < src_tiles; ++k) {
+                        matmul_tiles(cb_til, cb_sel, k, k, DST_T0);
+                        matmul_tiles(cb_til, cb_sel, k, src_tiles + k, DST_T1);
+                        matmul_tiles(cb_til, cb_sel, k, 2 * src_tiles + k, DST_T2);
+                    }
+                }
+                binary_dest_reuse_tiles_init<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac);
+                binary_dest_reuse_tiles<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac, 0, DST_T0);
+                binary_dest_reuse_tiles<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac, 1, DST_T1);
+                binary_dest_reuse_tiles<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac, 2, DST_T2);
+                add_binary_tile_init();
+                add_binary_tile(DST_T0, DST_T1, DST_BASE);
+                add_binary_tile(DST_BASE, DST_T2, DST_OUT);
+                tile_regs_commit();
+                tile_regs_wait();
+                cb_reserve_back(cb_int, one);
+                pack_tile(DST_OUT, cb_int);
+                tile_regs_release();
+                cb_push_back(cb_int, one);
+                cb_pop_front(cb_til, src_tiles);
+                cb_pop_front(cb_src, src_tiles);
+            }
+
+            // --- transpose: pass 2 resamples the other axis --------------------------------------
+            cb_wait_front(cb_int, 2);
+            cb_reserve_back(cb_int2, 2);
+            tile_regs_acquire();
+            transpose_wh_init_short(cb_int);
+            transpose_wh_tile(cb_int, 0, 0);
+            transpose_wh_tile(cb_int, 1, 1);
+            tile_regs_commit();
+            tile_regs_wait();
+            pack_tile(0, cb_int2);
+            pack_tile(1, cb_int2);
+            tile_regs_release();
+            cb_push_back(cb_int2, 2);
+            cb_pop_front(cb_int, 2);
+
+            // --- pass 2: reads the intermediate out of L1, no per-row reads whatsoever -----------
+            cb_wait_front(cb_int2, 2);
+            tile_regs_acquire();
+            mm_init(cb_int2, cb_sel, cb_out, 0);
+            for (uint32_t k = 0; k < src_tiles; ++k) {
+                matmul_tiles(cb_int2, cb_sel, k, k, DST_T0);
+                matmul_tiles(cb_int2, cb_sel, k, src_tiles + k, DST_T1);
+                matmul_tiles(cb_int2, cb_sel, k, 2 * src_tiles + k, DST_T2);
+            }
+            binary_dest_reuse_tiles_init<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac);
+            binary_dest_reuse_tiles<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac, 0, DST_T0);
+            binary_dest_reuse_tiles<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac, 1, DST_T1);
+            binary_dest_reuse_tiles<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac, 2, DST_T2);
+            add_binary_tile_init();
+            add_binary_tile(DST_T0, DST_T1, DST_BASE);
+            add_binary_tile(DST_BASE, DST_T2, DST_OUT);
+            tile_regs_commit();
+            tile_regs_wait();
+            pack_tile(DST_OUT, cb_out);
+            tile_regs_release();
+            cb_push_back(cb_out, one);
+            cb_pop_front(cb_int2, 2);
+            continue;
+        }
         if constexpr (mode == 12) {
             binary_dest_reuse_tiles_init<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac);
             binary_dest_reuse_tiles<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac, 0, DST_T0);
