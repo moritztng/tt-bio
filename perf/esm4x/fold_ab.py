@@ -22,7 +22,10 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
 
-ARMS = {"base": 0, "armc": 32}      # arm -> pair FFN row height, 0 = the landed full-size path
+# arm -> (pair FFN row height, fc1 out_block_w). rows 0 is the landed full-size path; a block
+# width of None is the pre-L2 behaviour, where the gate refuses an L1 destination for the fc1
+# operand class and both halves fall back to a DRAM `ttnn.linear(core_grid=...)`.
+ARMS = {"base": (0, None), "armc": (32, None), "l2": (32, "fc1")}
 
 
 def sha_dir(d):
@@ -79,12 +82,16 @@ def main():
     res["grid"] = [g.x, g.y]
     struct_dir = Path(meta["struct_dir"])
 
+    fc1_block_w = EC._PAIR_FFN_FC1_BLOCK_W
+
     def run(tag, arm):
-        rows = ARMS[arm]
+        rows, fc1 = ARMS[arm]
         EC.set_pair_l1_rows(rows)
+        EC._PAIR_FFN_FC1_BLOCK_W = fc1_block_w if fc1 else None
         RP.STATS_GATED[0] = RP.STATS_GATED[1] = 0
         fold_s, m = one_fold()
         row = {"tag": tag, "arm": arm, "pair_l1_rows": rows,
+               "fc1_out_block_w": EC._PAIR_FFN_FC1_BLOCK_W,
                "fold_s": round(fold_s, 3), "plddt": m.get("plddt"), "cif": sha_dir(struct_dir),
                "e6_served": RP.STATS_GATED[0], "e6_declined": RP.STATS_GATED[1],
                "l1_out_refused": len(T._L1_OUT_REFUSED),
@@ -120,6 +127,9 @@ def main():
             s["speedup_vs_base"] = round(b / s["median"], 4)
             s["delta_s"] = round(b - s["median"], 3)
             s["x_vs_h200"] = round(s["median"] / 7.256, 4)
+            # predictions/hour per dollar: 32 processors at $110,000 against 8 H200 at $410,000
+            # with the H200 at 7.256 s/fold. Reproduces the page's own 2.996x at 36.103 s.
+            s["capex_ratio"] = round(108.180 / s["median"], 4)
         summary["A/A_noise_floor_s"] = summary["base"]["spread"]
     res["summary"] = summary
     cifs = {row["arm"]: tuple(sorted(row["cif"].items())) for row in res["runs"]}
