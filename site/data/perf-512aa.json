@@ -121,7 +121,7 @@
     "amortisation_basis": "Four years is this page's assumption for how long an AI accelerator earns its keep: one year shorter than the general-purpose server life Amazon reports in its 10-Q, because an accelerator generation lasts about two years. A shorter window favours the cheaper box, so the range below brackets it.",
     "utilisation": "The machine predicts continuously, so every hour of ownership is an hour of throughput.",
     "formula": "Throughput per dollar, with the DGX H200 set to 1.00x, on two bases. Purchase price: predictions per hour / price, with no amortisation window, because the window cancels from that ratio. Total cost of ownership: predictions per hour / cost per hour, where cost per hour = price / (4 x 8766 h) + power kW x $/kWh.",
-    "sensitivity": "Shift the window to 3 or 6 years, or the rate to the 13.54 c/kWh US commercial tariff, and the Tenstorrent figure moves between 1.99x and 3.71x. It does not invert."
+    "sensitivity": "Shift the window to 3 or 6 years, or the rate to the 13.54 c/kWh US commercial tariff, and the Tenstorrent figure moves between 2.21x and 3.71x. It does not invert."
   },
   "models": [
     {
@@ -228,9 +228,9 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 56.59,
+          "s_per_fold": 44.88,
           "parity": "bit-exact",
-          "ref": "Four warm folds, noise floor 0.039 s. Bit-exact: CIF sha256 da9b4ed68f8c0405 and plDDT 0.547851 on all four."
+          "ref": "44.886 / 44.872 s, the two folds of this arm inside one alternating four-fold run under benchlock (perf/of3x3/ab_512_shard_qb2c0.json), A/A floor 0.014 s against a 6.31 s effect. The lever is TriangleAttention's fp32-softmax tail run height-sharded in L1 instead of DRAM-interleaved, merged from wk/openfold3-to-3x-perdollar; the control arm without it, in the same run, is 51.19 s. Bit-exact: CIF sha256 da9b4ed68f8c0405 and plDDT 0.547851 unchanged on both arms, and the digest holds across arms at 768 and 1024 aa too."
         },
         "h200": {
           "status": "measured",
