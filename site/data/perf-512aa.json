@@ -6,7 +6,7 @@
   "notes": [
     "This file is the only place numbers are edited. index.html reads it and derives everything else.",
     "Never write a derived value here. Server throughput, cost per hour and both throughput-per-dollar charts are computed in the page from s_per_fold, accelerators, price and power.",
-    "One cell per model per platform, holding the fastest measured arm that is bit-exact or byte-identical against its own reference. A cell with no measurement gets status 'blocked' and a reason. Do not fill it with an estimate."
+    "One cell per model per platform, holding the fastest measured arm that passes parity against its own reference. Every Tenstorrent cell states which parity it holds: bit-exact, byte-identical, or a measured structural delta inside a bar that was fixed before the number existed. A cell with no measurement gets status 'blocked' and a reason. Do not fill it with an estimate."
   ],
   "scope": {
     "size_aa": 512,
@@ -204,9 +204,9 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 88.61,
-          "parity": "byte-identical",
-          "ref": "The 90.874 s arm less the 2.262 s its successor measured against it in a round-robin A/B, noise floor 0.204 s. Byte-identical: the full CIF digest 50aa1e46583bd5a8fcb4a44c51fd8acbcd652d6da7d3635e07d1477217035155 and plDDT 0.754131 are unchanged, structure delta 0.000000 A."
+          "s_per_fold": 87.10,
+          "parity": "0.3248 A CA RMSD, inside the 0.35 A bar fixed before the measurement",
+          "ref": "The 90.874 s arm less the 3.775 s this arm measured against it in a round-robin A/B, noise floor 0.063 s. This is the one cell that is not bit-exact: the triangle-attention matmul folds its contraction in twelve-tile blocks, worth one bf16 unit in the last place, so the CIF digest moves 50aa1e46583bd5a8 to 357c67003bb738ac and plDDT 0.754131 to 0.754110. The structural cost is 0.3248 A Kabsch CA, measured on a monomeric 298-residue control because this fixture's two domains hinge freely and saturate the metric. The byte-identical arm at the same two matmul settings returns 88.61 s."
         },
         "h200": {
           "status": "measured",

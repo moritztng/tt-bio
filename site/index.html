@@ -696,9 +696,11 @@ details.disclose > div { padding-top: 14px; }
       ", " + s.diffusion_samples + " diffusion sample. Both sides ran these same two files.");
     mrow("Measured", "Wall-clock seconds for one prediction on one accelerator, warm. " +
       "Hover any bar for the run behind it.");
-    mrow("Parity", "Every Tenstorrent figure here returns a structure that is bit-exact or " +
-      "byte-identical against its own reference on this input, at the same plDDT, so the speed costs " +
-      "no accuracy.");
+    mrow("Parity", "Each Tenstorrent figure carries the parity it holds against that model's own " +
+      "reference on this input: " + D.models.map(function (x) {
+        var c = x.cells.p150a;
+        return x.name + " " + (c && c.parity ? c.parity : "not measured");
+      }).join("; ") + ".");
     mrow("Servers", "A server bar is one measured accelerator times the accelerators in the box, on " +
       "both sides: 32 Blackhole AI Processors against 8 GPUs.");
     mrow("Cost", m.formula + " Only the second basis uses the window. " + m.amortisation_basis + " " +

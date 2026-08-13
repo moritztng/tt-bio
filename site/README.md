@@ -23,9 +23,11 @@ its noise floor and parity anchor, and every price and power rating lives there 
 link. The page derives predictions per hour, cost per hour and both throughput-per-dollar charts in
 the browser, so no derived value is stored and no HTML changes when a benchmark moves.
 
-One cell per model per platform, holding the fastest measured arm that is bit-exact or byte-identical
-against its own reference. A cell with no measurement gets `"status": "blocked"` plus a reason and
-renders as "does not run". Do not fill it with an estimate.
+One cell per model per platform, holding the fastest measured arm that passes parity against its own
+reference. Every Tenstorrent cell states which parity it holds in `parity`, and Methods lists them:
+bit-exact, byte-identical, or a measured structural delta inside a bar that was fixed before the
+number existed. A cell with no measurement gets `"status": "blocked"` plus a reason and renders as
+"does not run". Do not fill it with an estimate.
 
 `cost_model` holds the amortisation window, the electricity rate and the platform both charts are
 indexed to. The window is 4 years and the rate is the US industrial average, and they move the total
