@@ -1,0 +1,56 @@
+{
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "0",
+ "model": "esmfold2",
+ "size": 512,
+ "recycling_steps": 10,
+ "sampling_steps": 100,
+ "arms": [
+  "armc",
+  "arm1"
+ ],
+ "rounds": 0,
+ "runs": [
+  {
+   "tag": "warm:armc",
+   "arm": "armc",
+   "pair_l1_rows": 32,
+   "fc1_out_block_w": null,
+   "xfer_registered": 0,
+   "xfer_elided": 0,
+   "fold_s": 49.777,
+   "plddt": 0.9285,
+   "cif": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "e6_served": 2152,
+   "e6_declined": 0,
+   "l1_out_refused": 0,
+   "loadavg": "1.32"
+  },
+  {
+   "tag": "warm:arm1",
+   "arm": "arm1",
+   "pair_l1_rows": 32,
+   "fc1_out_block_w": 16,
+   "xfer_registered": 0,
+   "xfer_elided": 0,
+   "fold_s": 34.001,
+   "plddt": 0.9285,
+   "cif": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "e6_served": 2152,
+   "e6_declined": 0,
+   "l1_out_refused": 0,
+   "loadavg": "1.52"
+  }
+ ],
+ "grid": [
+  11,
+  10
+ ],
+ "summary": {},
+ "cif_identical_across_arms": true
+}

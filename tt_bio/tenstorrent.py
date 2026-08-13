@@ -4462,8 +4462,11 @@ class Diffusion(Module):
 # And it bounds how long the entry pins device memory: a registered tensor stays allocated until
 # the host tensor it is keyed on dies, and at 512 aa a pair track is 268 MB.
 _XFER_PASSTHROUGH = bool(int(os.environ.get("TT_BIO_XFER_PASSTHROUGH", "0")))
-# (registered, elided) since the last reset -- the kill gate is a hit count, not a wall clock.
-XFER_STATS = [0, 0]
+# (registered, elided, to_torch calls, from_torch calls) since the last reset. The kill gate on
+# this lever is a hit count against the round trips actually taken, not a wall clock, so the
+# denominator has to be counted too.
+XFER_STATS = [0, 0, 0, 0]
+XFER_SKIP = {}
 _XFER: dict[int, tuple] = {}
 
 
@@ -4481,6 +4484,8 @@ def _xfer_register(host: torch.Tensor, dev: ttnn.Tensor) -> None:
         return
     try:
         if dev.layout != ttnn.TILE_LAYOUT or dev.memory_config().buffer_type != ttnn.BufferType.DRAM:
+            XFER_SKIP["guard: " + str(dev.layout) + " " + str(dev.memory_config().buffer_type)] = (
+                XFER_SKIP.get("guard: " + str(dev.layout) + " " + str(dev.memory_config().buffer_type), 0) + 1)
             return
         key = id(host)
         old = _XFER.pop(key, None)
@@ -4489,7 +4494,9 @@ def _xfer_register(host: torch.Tensor, dev: ttnn.Tensor) -> None:
         _XFER[key] = (dev, host._version, weakref.finalize(host, _XFER.pop, key, None),
                       weakref.ref(host))
         XFER_STATS[0] += 1
-    except Exception:
+    except Exception as e:
+        XFER_SKIP[type(e).__name__ + ": " + str(e)[:70]] = XFER_SKIP.get(
+            type(e).__name__ + ": " + str(e)[:70], 0) + 1
         _XFER.pop(id(host), None)
 
 
@@ -4534,6 +4541,7 @@ class TorchWrapper(nn.Module):
         )
 
     def _from_torch(self, x: torch.Tensor, dtype=ttnn.bfloat16) -> ttnn.Tensor:
+        XFER_STATS[3] += 1
         dev = _xfer_take(x, dtype)
         if dev is not None:
             return dev
@@ -4545,6 +4553,7 @@ class TorchWrapper(nn.Module):
         )
 
     def _to_torch(self, x: ttnn.Tensor) -> torch.Tensor:
+        XFER_STATS[2] += 1
         out = torch.Tensor(ttnn.to_torch(x)).to(torch.float32)
         _xfer_register(out, x)
         return out
