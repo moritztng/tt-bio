@@ -1,0 +1,94 @@
+{
+  "L": 3359,
+  "k": 128,
+  "n_seq_neighbours": 2,
+  "reps": 7,
+  "pad_slots": {
+    "max": 112,
+    "min": 58,
+    "mean": 59.61030197143555
+  },
+  "items_ms": {
+    "cdist": 10.016997002821881,
+    "clone+masked_fill_": 8.190658001694828,
+    "topk(k=128)": 8.120209000480827,
+    "topk(sorted=False)": 7.149195000238251,
+    "topk(k=p_max=112)": 7.925641999463551,
+    "final sort(dim=-1)": 1.6292930013150908,
+    "WHOLE CALL (cdist+extend+sort)": 22.728431002178695
+  },
+  "variants": {
+    "shipped": {
+      "exact": true,
+      "ms": 22.422046000428963,
+      "n_differing": 0,
+      "speedup_vs_shipped": 1.0136644533573729
+    },
+    "k=p_max(112)": {
+      "exact": true,
+      "ms": 22.135189996333793,
+      "n_differing": 0,
+      "speedup_vs_shipped": 1.0268008092970136
+    },
+    "gram(no sqrt)": {
+      "exact": true,
+      "ms": 43.549083995458204,
+      "n_differing": 0,
+      "speedup_vs_shipped": 0.5219037673570602
+    },
+    "chunked(256)": {
+      "exact": true,
+      "ms": 19.27751699986402,
+      "n_differing": 0,
+      "speedup_vs_shipped": 1.179012369816041
+    },
+    "chunked(256)+kmax": {
+      "exact": true,
+      "ms": 18.011837993981317,
+      "n_differing": 0,
+      "speedup_vs_shipped": 1.261860727915354
+    },
+    "chunked(256)+gram": {
+      "exact": true,
+      "ms": 36.71699500409886,
+      "n_differing": 0,
+      "speedup_vs_shipped": 0.6190166433729511
+    },
+    "chunked(512)": {
+      "exact": true,
+      "ms": 17.68312300555408,
+      "n_differing": 0,
+      "speedup_vs_shipped": 1.2853177006708565
+    },
+    "chunked(512)+kmax": {
+      "exact": true,
+      "ms": 16.424943998572417,
+      "n_differing": 0,
+      "speedup_vs_shipped": 1.383775250871732
+    },
+    "chunked(512)+gram": {
+      "exact": true,
+      "ms": 31.459789999644272,
+      "n_differing": 0,
+      "speedup_vs_shipped": 0.7224597177042725
+    },
+    "chunked(1024)": {
+      "exact": true,
+      "ms": 21.815505999256857,
+      "n_differing": 0,
+      "speedup_vs_shipped": 1.041847528219283
+    },
+    "chunked(1024)+kmax": {
+      "exact": true,
+      "ms": 22.971867998421658,
+      "n_differing": 0,
+      "speedup_vs_shipped": 0.9894028210392081
+    },
+    "chunked(1024)+gram": {
+      "exact": true,
+      "ms": 24.012900998059195,
+      "n_differing": 0,
+      "speedup_vs_shipped": 0.9465091703836902
+    }
+  }
+}
