@@ -91,7 +91,7 @@ def _collect_fp32(root, seen=None, depth=0):
     return out
 
 ARMS = ("on", "e6", "noe6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hifi",
-        "nonewmm", "oldkey", "nofp32_trunk", "nofp32_msatmpl", "nos2")
+        "nonewmm", "oldkey", "nofp32_trunk", "nofp32_msatmpl", "nos2", "noout", "nohbig")
 
 # Which sites each arm routes onto the fused SDPA. The confidence head is never in a flip set:
 # it stays on `_fp32_softmax_attention` on every arm, deliberately, so plDDT reports on the
@@ -269,6 +269,7 @@ def main():
     T._trimul_inproj_group = group_census
 
     ORIG_MM_BLOCK_FOR = T._mm_block_for
+    HBIG_SHIPPED = T.TRANSITION_H_CHUNK_SIZE_BIG
 
     ORIG_TAS = T._tri_att_sdpa
 
@@ -280,6 +281,23 @@ def main():
         return ORIG_TAS(qq, kk, vv, bias, scale)
 
     T._tri_att_sdpa = tas
+
+    # `TRANSITION_H_CHUNK_SIZE_BIG` is gated on `not _FAST_MODE and W <= 384 and c <= 256`
+    # (tenstorrent.py:3161). Census the two shape inputs the gate reads, per call, so an arm that
+    # reports "no eligible call" has measured that rather than inferred it.
+    ORIG_TRANS = T.Transition.__call__
+
+    def trans(self, x):
+        sh = [int(d) for d in x.shape]
+        if len(sh) >= 4:
+            W, c = sh[2], sh[-1]
+            DEC[f"transition|W={W},c={c}"][
+                "hbig_eligible" if (W <= 384 and c <= 256) else "hbig_gated_off"] += 1
+        else:
+            DEC[f"transition|rank{len(sh)}"]["swiglu_direct"] += 1
+        return ORIG_TRANS(self, x)
+
+    T.Transition.__call__ = trans
 
     # ---- timers, probed rather than assumed --------------------------------------------------
     installed = []
@@ -385,7 +403,12 @@ def main():
         # the default is set.
         T._ATOM_PAD_IN_TILE = name != "nos2"
 
-        T._PAIR_PROJ_L1_OUT = T._PAIR_BIAS_L1_NORM = True
+        # The two levers this task puts under test. `set_arm` used to hard-write
+        # `_PAIR_PROJ_L1_OUT = True` on every arm, so the lever could not be ablated at all.
+        T._PAIR_PROJ_L1_OUT = name != "noout"
+        T._PAIR_BIAS_L1_NORM = True
+        T.TRANSITION_H_CHUNK_SIZE_BIG = (T.TRANSITION_H_CHUNK_SIZE if name == "nohbig"
+                                         else HBIG_SHIPPED)
         T._PWA_L1_NORM = T._TEMPLATE_L1_NORM = True
         T._pair_proj_program_config.cache_clear()
         T._tri_att_q_chunks.cache_clear()
@@ -475,6 +498,9 @@ def main():
                                        "declined": PM.STATS[1],
                                        "rejects": {f"{r}:{sh}": n for (r, sh), n in PM.REJECTS.items()}},
                    "transpose_l1_headroom": T._TRANSPOSE_L1_HEADROOM,
+                   "pair_proj_l1_out": T._PAIR_PROJ_L1_OUT,
+                   "l1_out_refused": sorted(str(k) for k in T._L1_OUT_REFUSED),
+                   "transition_h_chunk_big": T.TRANSITION_H_CHUNK_SIZE_BIG,
                    "atom_pad_in_tile": T._ATOM_PAD_IN_TILE,
                    "fp32_softmax_modules": len(FP32_OWNERS),
                    "sdpa_ckc_override": (None if PM._CKC_OVERRIDE is None
@@ -521,7 +547,8 @@ def main():
                   f"{rec['persistent_mask']['declined']} {rec['persistent_mask']['rejects']}  "
                   f"E6 {rec['gated_kernel']}", flush=True)
             for k, v in sorted(DEC.items()):
-                if k.startswith(("qkv_mm_config", "transpose", "tri_att_sdpa")):
+                if k.startswith(("qkv_mm_config", "transpose", "tri_att_sdpa",
+                                 "transition", "pair_proj_out_l1")):
                     print(f"      DEC {k:46s} {dict(v)}", flush=True)
 
     per = {}
