@@ -1,0 +1,25 @@
+{
+ "host": "tt-quietbox",
+ "card": "1",
+ "ttnn": "0.68.0",
+ "loadavg": [
+  "0.15",
+  "0.11",
+  "0.72"
+ ],
+ "cases": [
+  {
+   "S": 768,
+   "H": 12,
+   "q_chunk": 384,
+   "k_chunk": 256,
+   "stock_serves": false,
+   "qsplit_serves": true,
+   "torch_equal": true,
+   "max_abs_diff": 0.0,
+   "ms_stock": 34.197,
+   "ms_qsplit": 13.536,
+   "speedup": 2.5265
+  }
+ ]
+}

@@ -91,7 +91,7 @@ def _collect_fp32(root, seen=None, depth=0):
     return out
 
 ARMS = ("on", "e6", "noe6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hifi",
-        "nonewmm", "oldkey", "nofp32_trunk", "nofp32_msatmpl", "nos2", "noout", "nohbig", "wbig")
+        "nonewmm", "oldkey", "nofp32_trunk", "nofp32_msatmpl", "nos2", "noout", "nohbig", "wbig", "qsplit")
 
 # Which sites each arm routes onto the fused SDPA. The confidence head is never in a flip set:
 # it stays on `_fp32_softmax_attention` on every arm, deliberately, so plDDT reports on the
@@ -415,6 +415,11 @@ def main():
         # is "no W bound at any size in this task"; the c <= 256 half of the gate still stands, so
         # the c=384 pair track is untouched and the shape that actually clashed is not widened.
         T.TRANSITION_H_CHUNK_BIG_MAX_W = 4096 if name == "wbig" else HBIG_MAXW_SHIPPED
+        # `qsplit` gives the SDPA q chunks their own parallel factor, so the persistent-mask
+        # gate stops declining every call at the sizes where a full-S q chunk does not fit L1.
+        # Screened byte-identical at 768: torch.equal, max_abs_diff 0.0, 2.5265x on the op
+        # (perf/sizes/pm_screen.json). Default off everywhere else.
+        PM._Q_SPLIT = name == "qsplit"
         T._PWA_L1_NORM = T._TEMPLATE_L1_NORM = True
         T._pair_proj_program_config.cache_clear()
         T._tri_att_q_chunks.cache_clear()

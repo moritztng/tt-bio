@@ -1,0 +1,40 @@
+{
+ "host": "tt-quietbox",
+ "card": "1",
+ "ttnn": "0.68.0",
+ "loadavg": [
+  "0.46",
+  "0.22",
+  "0.73"
+ ],
+ "cases": [
+  {
+   "S": 1024,
+   "H": 12,
+   "q_chunk": 512,
+   "k_chunk": 256,
+   "stock_serves": false,
+   "qsplit_serves": false,
+   "reject": {
+    "('fill_preconditions', (1024, 12, 1024, 32))": 1,
+    "('l1_budget', (1024, 12, 1024, 32))": 1
+   },
+   "ms_stock": 77.663,
+   "ms_qsplit": null,
+   "speedup": null
+  },
+  {
+   "S": 512,
+   "H": 12,
+   "q_chunk": 256,
+   "k_chunk": 256,
+   "stock_serves": false,
+   "qsplit_serves": true,
+   "torch_equal": true,
+   "max_abs_diff": 0.0,
+   "ms_stock": 11.177,
+   "ms_qsplit": 4.287,
+   "speedup": 2.6071
+  }
+ ]
+}

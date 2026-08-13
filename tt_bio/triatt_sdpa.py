@@ -44,6 +44,10 @@ TRIATT_PERSISTENT_MASK = True
 _ENABLED = os.environ.get(
     "TT_BIO_TRIATT_PERSISTENT_MASK", "1" if TRIATT_PERSISTENT_MASK else "0") == "1"
 
+# Screening arm for the q-split above. OFF by default: nothing ships until the 768 fold A/B and the
+# byte-identical check have both run.
+_Q_SPLIT = os.environ.get("TT_BIO_TRIATT_MASK_Q_SPLIT", "0") == "1"
+
 
 # Compute kernel config for the fused SDPA when the caller does not pass one. None means the
 # op default below. Set it to raise the fused path precision -- openfold3 triangle attention runs
@@ -83,9 +87,21 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None):
     if l1_key in _SDPA_Q_CHUNK_OVER_L1:
         return _reject("q_chunk_over_l1", shape)
     H = shape[1]
-    if grid[0] * grid[1] // H < 1:
+    cores = grid[0] * grid[1]
+    if cores // H < 1:
         return _reject("grid_too_small", shape)
-    split = (grid[0] * grid[1] // H, H, 1)
+    # One q chunk per core is a precondition of the hoisted fill, and `q_pf = 1` hands a core every
+    # q chunk there is. That is free while the widest q_chunk spans the sequence, which is true up to
+    # 512 aa and false above it -- L1 refuses a full-S chunk at 768, the ladder drops to S/2, and the
+    # gate then declines the whole fold (0 of 2424 calls served at 768, 0 of 2528 at 1024, all
+    # `fill_preconditions`, all on this one term). Give the q chunks their own factor instead. Tiles
+    # per core are unchanged: the batch factor shrinks by exactly the amount the q factor grows.
+    q_pf = 1
+    if _Q_SPLIT:
+        qnc = -(-shape[2] // q_chunk)
+        if qnc > 1 and cores // (H * qnc) >= 1:
+            q_pf = qnc
+    split = (cores // (H * q_pf), H, q_pf)
 
     dev = q.device()
     out = ttnn.allocate_tensor_on_device(
