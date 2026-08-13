@@ -38,6 +38,8 @@ void kernel_main() {
     constexpr uint32_t cb_bias = get_compile_time_arg_val(1);    // fp32, built by the reader
     constexpr uint32_t cb_out = get_compile_time_arg_val(2);     // fp32, to the writer
     constexpr uint32_t scale_bits = get_compile_time_arg_val(3);
+    // Diagnostic only: drop both SFPU passes and pack the bias tile straight through.
+    constexpr uint32_t DIAG_COPY = get_compile_time_arg_val(4);
 
     const uint32_t num_tiles = get_arg_val<uint32_t>(0);
 
@@ -53,12 +55,17 @@ void kernel_main() {
         cb_reserve_back(cb_out, onetile);
 
         tile_regs_acquire();
-        copy_tile_to_dst_init_short_with_dt(cb_bias, cb_scores);
-        copy_tile(cb_scores, 0, 0);
-        mul_unary_tile(0, scale_bits);
-        copy_tile_to_dst_init_short_with_dt(cb_scores, cb_bias);
-        copy_tile(cb_bias, 0, 1);
-        add_binary_tile(0, 1, 0);
+        if constexpr (DIAG_COPY) {
+            copy_tile_to_dst_init_short(cb_bias);
+            copy_tile(cb_bias, 0, 0);
+        } else {
+            copy_tile_to_dst_init_short_with_dt(cb_bias, cb_scores);
+            copy_tile(cb_scores, 0, 0);
+            mul_unary_tile(0, scale_bits);
+            copy_tile_to_dst_init_short_with_dt(cb_scores, cb_bias);
+            copy_tile(cb_bias, 0, 1);
+            add_binary_tile(0, 1, 0);
+        }
         tile_regs_commit();
 
         tile_regs_wait();

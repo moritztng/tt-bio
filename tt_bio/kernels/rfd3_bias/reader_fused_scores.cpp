@@ -49,7 +49,11 @@ void kernel_main() {
     constexpr uint32_t L = get_compile_time_arg_val(9);
     constexpr uint32_t fill = get_compile_time_arg_val(10);    // fp32 bit pattern
     constexpr uint32_t SLOTS = get_compile_time_arg_val(11);   // cb_bias depth, power of two
-    constexpr auto scores_args = TensorAccessorArgs<12>();
+    // Diagnostic only, never set in production: skip the poke walk and the repair replay, keeping
+    // every read, every CB handshake, the compute pass and the write, so the op splits into "the
+    // pipeline" and "the per-element placement". That decomposition is what refuted L6c.
+    constexpr uint32_t NOPOKE = get_compile_time_arg_val(12);
+    constexpr auto scores_args = TensorAccessorArgs<13>();
     constexpr auto pb_args = TensorAccessorArgs<scores_args.next_compile_time_args_offset()>();
     constexpr auto idx_args = TensorAccessorArgs<pb_args.next_compile_time_args_offset()>();
 
@@ -96,7 +100,7 @@ void kernel_main() {
     // ever called with idx_l1 still holding the band that tile belonged to, and only after the
     // compute kernel has released the page.
     auto repair = [&](uint32_t slot) {
-        if (slot_jt[slot] == NO_TILE) {
+        if (NOPOKE || slot_jt[slot] == NO_TILE) {
             return;
         }
         volatile tt_l1_ptr uint32_t* out_l1 =
@@ -157,7 +161,7 @@ void kernel_main() {
             volatile tt_l1_ptr uint32_t* sc = slot_l1 + slot * TILE_H;
             const uint32_t col_lo = jt * 32;
             const uint32_t col_hi = col_lo + 32;
-            for (uint32_t r = 0; r < rows; ++r) {
+            for (uint32_t r = 0; NOPOKE ? false : r < rows; ++r) {
                 volatile tt_l1_ptr uint32_t* irow = idx_l1 + r * K;
                 uint32_t sidx = cur[r];
                 sc[r] = sidx;
