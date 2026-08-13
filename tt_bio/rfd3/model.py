@@ -144,6 +144,14 @@ _TUNE_ACT = os.environ.get("RFD3_TUNE_ACT") == "1"
 # RELEASE-GATED and default OFF: the algebra is exact (scripts/rfd3_port/p45_concat_fold_screen.py,
 # 3.5e-16 in float64) but the rounding is not, so it needs a trajectory gate, not a torch.equal.
 _FOLD_PROCESS_Z = os.environ.get("RFD3_FOLD_PROCESS_Z") == "1"
+# Lever A`s accuracy arm: keep the rms scale and the const + r*gather accumulation in fp32 and
+# round once at the end, instead of adding two bf16 terms. DEFAULT OFF, because it was measured and
+# it made the design WORSE, not better -- 4.98 and 7.05 A against the bf16 arm`s 2.75 and 3.48 A on
+# the same two designs (perf/p42/fold_*). That is the whole verdict on lever A: over 200 steps the
+# divergence is set by the PRESENCE of a departure from the shipped rounding, not by its size, so
+# there is no precision knob that walks it back. Only a bit-exact form would be takeable, and the
+# fold cannot be bit-exact because it reassociates the rms reduction.
+_FOLD_FP32 = os.environ.get("RFD3_FOLD_FP32") == "1"
 _TUNE_AUDIT = os.environ.get("RFD3_TUNE_AUDIT") == "1"
 # Debug: print what calibration decided per shape, and why.
 _TUNE_LOG = os.environ.get("RFD3_TUNE_LOG") == "1"
@@ -2142,6 +2150,12 @@ class DiffusionTokenEncoder(Module):
         ws = (W[:, cz + nb:] * w[cz + nb:]).t().contiguous()           # [65, 128]
         pair = (wd[:, None, :] + ws[None, :, :]).reshape(nb * nb, cz).contiguous()
         dev, dt = self.device, self.dtype
+        # `wz` stays bf16: it is a matmul operand, and fp32 matmul on Blackhole is a host-fallback
+        # dead-end (p7 2g.2). Its fp32 ACCUMULATION is what matters and `dtype=` below asks for it.
+        # The tables stay bf16 whatever _FOLD_FP32 says: ttnn.embedding TT_FATALs on anything
+        # else. That is not a loss -- the shipped path rounds r*w_d to bf16 at the rms_norm output
+        # before the same multiply, so folding w_d into the table is the same one rounding, just
+        # moved. What _FOLD_FP32 buys is the ACCUMULATION below.
         return {"wz": _tt(wz, dev, dt), "d": _tt(wd, dev, dt), "pair": _tt(pair, dev, dt)}
 
     def _fold_const(self, Z_init_II, B, I, has_self):
@@ -2167,10 +2181,11 @@ class DiffusionTokenEncoder(Module):
         zr = (z * r).expand(B, -1, -1, -1).contiguous()
         r = r.expand(B, -1, -1, -1).contiguous()
         dev, dt = self.device, self.dtype
-        const = ttnn.linear(_tt(zr, dev, dt), self._fold["wz"], dtype=dt,
+        tt = ttnn.float32 if _FOLD_FP32 else dt
+        const = ttnn.linear(_tt(zr, dev, dt), self._fold["wz"], dtype=tt,
                             compute_kernel_config=self.compute_kernel_config,
                             core_grid=CORE_GRID_MAIN)
-        ent = (const, _tt(r, dev, dt))
+        ent = (const, _tt(r, dev, tt))
         self._const[key] = ent
         return ent
 
@@ -2187,6 +2202,8 @@ class DiffusionTokenEncoder(Module):
         g = ttnn.to_layout(ttnn.reshape(g, (B, I, I, self.C_Z)), ttnn.TILE_LAYOUT)
         out = ttnn.add(const, ttnn.multiply(g, r))
         ttnn.deallocate(g)
+        if out.dtype != self.dtype:
+            out = ttnn.typecast(out, self.dtype, memory_config=out.memory_config())
         return out
 
     def _onehot_dev(self, bins, batch, I):
