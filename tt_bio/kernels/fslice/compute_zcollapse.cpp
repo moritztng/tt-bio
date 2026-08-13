@@ -40,6 +40,10 @@ void kernel_main() {
     // z-collapse is bound by the 28 tile READS or the 28 multiplies. The result is wrong
     // whenever nmul < nplane, and is a cost probe only.
     constexpr uint32_t nmul = get_compile_time_arg_val(4);
+    // Planes leaving the window per output tile. With an integer band shift the mask set
+    // is IDENTICAL for every output tile, because the window start and the band centre
+    // advance by the same amount, so nothing has to be reloaded or re-indexed.
+    constexpr uint32_t shift = get_compile_time_arg_val(5);
 
     const uint32_t nblocks = get_arg_val<uint32_t>(0);
     constexpr uint32_t one = 1;
@@ -75,6 +79,6 @@ void kernel_main() {
         pack_tile(DST_ACC, cb_out);
         tile_regs_release();
         cb_push_back(cb_out, one);
-        cb_pop_front(cb_v, nplane);
+        cb_pop_front(cb_v, shift);
     }
 }
