@@ -87,3 +87,12 @@ the editable install fails and the script's fallback overlays the `4010e3e2e` `a
 
 The B200 leg needed no rediscovery: install plus checkpoint took under 2 minutes there, against ~15
 on the H200, because every trap below was already fixed in the committed scripts.
+
+## Correction, made before the deliverable was final
+
+An earlier commit message claimed arm C's H200 median (104.93 s) sits inside arm A's warm range
+"[103.57, 104.97]". That upper bound is arm A's **cold** batch, not a warm rep. Arm A's warm range is
+103.57-103.87, so arm C is +1.10 % against it, not contained by it. On the B200 arm C is -0.15 %.
+Both are nulls next to the 11.9 % the dense path moves on the H200, and the counters are identical, so
+the conclusion is unchanged: cuequivariance does nothing here. `state/rfd3-gpu-h200-b200.md` states it
+the correct way.
