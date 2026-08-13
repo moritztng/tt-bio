@@ -1,0 +1,52 @@
+{
+ "outer": 20000,
+ "tile_bytes": 2048,
+ "npages": 4096,
+ "budget_ns": 540.0,
+ "arms": {
+  "BULK": {
+   "ns_per_tile_assembly": 649.2913496913388,
+   "nreads": 32,
+   "ns_per_read": 20.29035467785434,
+   "nonzero": true,
+   "gbs_chip": 410.047046101208
+  },
+  "UNIF32": {
+   "ns_per_tile_assembly": 10095.108700625133,
+   "nreads": 32,
+   "ns_per_read": 315.4721468945354,
+   "nonzero": true,
+   "gbs_chip": 26.373168223885816
+  },
+  "VARY32": {
+   "ns_per_tile_assembly": 8626.935250504175,
+   "nreads": 32,
+   "ns_per_read": 269.5917265782555,
+   "nonzero": true,
+   "gbs_chip": 30.86148119454593,
+   "ratio_to_uniform": 0.8545658601942501
+  },
+  "STATE32": {
+   "ns_per_tile_assembly": 10105.715499958023,
+   "nreads": 32,
+   "ns_per_read": 315.80360937368823,
+   "nonzero": true,
+   "gbs_chip": 26.345487363176403,
+   "ratio_to_uniform": 1.00105068698589
+  },
+  "STATE64": {
+   "ns_per_tile_assembly": 21705.678600119427,
+   "nreads": 64,
+   "ns_per_read": 339.15122812686604,
+   "nonzero": true,
+   "gbs_chip": 12.2659145979677,
+   "ratio_to_uniform": 2.1501183636363734
+  }
+ },
+ "ncores": 130,
+ "verdict": {
+  "best_varying_ns": 8626.935250504175,
+  "budget_ns": 540.0,
+  "fits_budget": false
+ }
+}
