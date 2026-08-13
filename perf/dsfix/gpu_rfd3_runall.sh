@@ -16,7 +16,15 @@ exec >>/work/runall.log 2>&1
 echo "=== runall $GPU start $(date -u +%FT%TZ)  plim=$PLIM idle=$IDLE ==="
 cd /work || exit 1
 JL=/work/results/rfd3_prod.jsonl
-FIX=perf/dsfix/fixtures/rfd3_R4_gpu.json
+
+# The spec's `input` is relative and upstream resolves it against the SPEC FILE's own directory, not
+# cwd -- from perf/dsfix/fixtures/ it went looking for
+# /work/perf/dsfix/fixtures/perf/dsfix/targets/R4_9q6y_A.pdb and died in the load_input validator.
+# So the spec is copied to /work, where its relative target path resolves. Same bytes, same sha256
+# (647e066a...), just parked where the resolver expects it.
+FIX=/work/rfd3_R4_gpu.json
+cp -f /work/perf/dsfix/fixtures/rfd3_R4_gpu.json "$FIX"
+sha256sum "$FIX"
 
 P() { /work/v_head/bin/python perf/dsfix/gpu_rfd3_prod.py --gpu "$GPU" \
       --power-limit "$PLIM" --idle-W "$IDLE" --inputs "$FIX" --out "$JL" "$@"; }
