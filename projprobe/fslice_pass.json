@@ -1,0 +1,21 @@
+{
+ "A": 1.31,
+ "src_w": 1024,
+ "win": 64,
+ "barrier_every": 4,
+ "arms": {
+  "mode0": {
+   "bit_exact": true,
+   "mismatches": 0
+  },
+  "mode1": {
+   "rel_l2": 1.3966483245698282,
+   "max_abs_diff": 230.67000000000007,
+   "ref_rms": 57.901592482519156
+  },
+  "throughput_1core": {
+   "ns_per_output_tile": 2791.3345038541593,
+   "nblocks": 2000
+  }
+ }
+}
