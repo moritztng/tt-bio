@@ -4724,6 +4724,12 @@ class TorchWrapper(nn.Module):
         self._first_forward_pass = True
 
 
+# L4/E6 A/B switch. The fused gated channel move is opt-in per TriangleMultiplication and no
+# PairformerModule has ever opted in, so E6 reads `served 0 / declined 0` -- UNTESTED, not inactive.
+# Default off, so every model keeps its shipped behaviour unless this is set.
+_PAIRFORMER_GATED_MOVE = os.environ.get("TT_BIO_PAIRFORMER_GATED_MOVE", "0") == "1"
+
+
 class PairformerModule(TorchWrapper):
     def __init__(
         self,
@@ -4755,6 +4761,7 @@ class PairformerModule(TorchWrapper):
             weights,
             self.compute_kernel_config,
             affinity=self.affinity,
+            gated_move=_PAIRFORMER_GATED_MOVE,
         )
 
     def forward(
