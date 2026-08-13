@@ -46,9 +46,13 @@ TRIATT_PERSISTENT_MASK = True
 _ENABLED = os.environ.get(
     "TT_BIO_TRIATT_PERSISTENT_MASK", "1" if TRIATT_PERSISTENT_MASK else "0") == "1"
 
-# Screening arm for the q-split above. OFF by default: nothing ships until the 768 fold A/B and the
-# byte-identical check have both run.
-_Q_SPLIT = os.environ.get("TT_BIO_TRIATT_MASK_Q_SPLIT", "0") == "1"
+# The q-split above, ON by default up to _Q_SPLIT_MAX_S. Verified at 768 aa with the _PM_OVER_L1
+# fix in place: -17.670 s (6.4 %) on the fold, byte-identical CIF and plDDT, 7x the 2.543 s A/A
+# floor (perf/sizes/qsplitfix_768.json, qb1 card 2, benchlock). Above 768 the persistent mask CB is
+# 2x the stock size at four k chunks and L1 refuses it (1024 aa), so the split stays off there.
+# "0" forces off; a screen at a larger size raises _Q_SPLIT_MAX_S alongside _Q_SPLIT.
+_Q_SPLIT = os.environ.get("TT_BIO_TRIATT_MASK_Q_SPLIT", "1") == "1"
+_Q_SPLIT_MAX_S = 768
 
 # q_chunks whose PERSISTENT mask CB does not fit. Deliberately not `_SDPA_Q_CHUNK_OVER_L1`: that set
 # is the wide-q ladder memo of q_chunks the STOCK op cannot fit, and `_tri_att_sdpa_at` filters its
@@ -111,7 +115,7 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None):
     # `fill_preconditions`, all on this one term). Give the q chunks their own factor instead. Tiles
     # per core are unchanged: the batch factor shrinks by exactly the amount the q factor grows.
     q_pf = 1
-    if _Q_SPLIT:
+    if _Q_SPLIT and shape[2] <= _Q_SPLIT_MAX_S:
         qnc = -(-shape[2] // q_chunk)
         if qnc > 1 and cores // (H * qnc) >= 1:
             q_pf = qnc
