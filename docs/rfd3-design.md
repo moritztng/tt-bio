@@ -70,20 +70,27 @@ trajectory PCC 1.000000, maxabs 0, at 200 timesteps and batch 8), so
 `--batch_size` is a throughput and memory knob only.
 
 Throughput: batching pays off most on small designs and still pays on large ones.
-Measured on one Blackhole p150a in the default configuration for a 200-timestep
-design, two interleaved rounds per point:
+Each cell is one real 200-timestep design on one Blackhole p150a in the default
+configuration, timed end to end, and is the faster of two interleaved rounds:
 
 | design | atoms | batch 1 | batch 8 | batch 8 vs 1 |
 |---|---:|---:|---:|---:|
-| 40 residues | 419 | 0.0919 designs/sec | 0.1905 | 2.07x |
-| 80 residues | 979 | 0.0686 | 0.0988 | 1.44x |
-| 150 residues | 1959 | 0.0383 | 0.0439 | 1.15x |
-| Mpro + nirmatrelvir | 2702 | 0.0228 | 0.0246 | 1.08x |
-| 250 residues | 3359 | 0.0182 | 0.0203 | 1.12x |
+| 40 residues | 419 | 0.0632 designs/sec | 0.1968 | 3.11x |
+| 80 residues | 979 | 0.0581 | 0.1171 | 2.02x |
+| 150 residues | 1959 | 0.0452 | 0.0569 | 1.26x |
+| Mpro + nirmatrelvir | 2702 | 0.0317 | 0.0334 | 1.05x |
+| 250 residues | 3359 | 0.0275 | 0.0316 | 1.15x |
 
 Expect several percent of run-to-run spread on these. A warmer card reads slower,
 so comparing two settings back to back needs an even number of runs with the order
 alternating, or the second one is penalised.
+
+An earlier version of this table composed its batch-1 cells from a one-time build
+cost plus a per-step rate. That composition runs about 1.45x optimistic at batch 1
+on a small design, so those cells read higher than these and their batch-8-vs-1
+ratios read lower. The CLI agrees with the timed numbers: `tt-bio design
+--num_timesteps 200` at 419 atoms and `--batch_size 1` costs 15.7 s per design,
+which is the 0.0632 in the first row.
 
 `--batch_size` is an upper bound, not the batch you get: the runtime scales the
 batch down by atom count so a batch cannot exhaust device memory. The default 8
