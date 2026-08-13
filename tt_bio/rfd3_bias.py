@@ -438,6 +438,24 @@ def fused_enabled() -> bool:
     return _FUSED_ENABLED
 
 
+def stats_line() -> str:
+    """What the two kernels actually did in this process, for the shape sweep.
+
+    A shape sweep cannot be read off wall times or even off the output: both kernels gate
+    themselves and fall back silently, which is correct behaviour and indistinguishable from
+    "served" in the CIF. This is the only way to tell the two apart, so it is printed on request
+    rather than reconstructed.
+    """
+    return (f"[rfd3_bias] sparse_bias served={STATS[0]} declined={STATS[1]} "
+            f"fused served={FSTATS[0]} rejects={ {k: v for k, v in REJECTS.items()} }")
+
+
+if os.environ.get("RFD3_BIAS_STATS") == "1":
+    import atexit
+
+    atexit.register(lambda: print(stats_line(), flush=True))
+
+
 def set_fused_enabled(on: bool) -> bool:
     """A/B switch for the paired harness. Returns the previous state."""
     global _FUSED_ENABLED

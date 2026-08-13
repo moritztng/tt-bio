@@ -1,0 +1,78 @@
+{
+  "steps": 20,
+  "seed": 0,
+  "shapes": [
+    {
+      "span": 230,
+      "tokens": 250,
+      "off": {
+        "rc": 0,
+        "wall_s": 21.56306170499738,
+        "sha": {
+          "iai230.cif": "b481af0bcf7fc50a937dc87da71720e2a75e7606587422b908a8dc348f0d2079"
+        },
+        "stats": "[rfd3_bias] sparse_bias served=114 declined=0 fused served=0 rejects={}",
+        "atoms": "3359",
+        "err": ""
+      },
+      "on": {
+        "rc": 0,
+        "wall_s": 36.335102686993196,
+        "sha": {
+          "iai230.cif": "b481af0bcf7fc50a937dc87da71720e2a75e7606587422b908a8dc348f0d2079"
+        },
+        "stats": "[rfd3_bias] sparse_bias served=0 declined=0 fused served=171 rejects={}",
+        "atoms": "3359",
+        "err": ""
+      },
+      "atoms": "3359",
+      "identical": true
+    },
+    {
+      "span": 230,
+      "tokens": 250,
+      "batch": 2,
+      "off": {
+        "rc": 0,
+        "wall_s": 114.72999089599762,
+        "sha": {
+          "iaib_0.cif": "b481af0bcf7fc50a937dc87da71720e2a75e7606587422b908a8dc348f0d2079",
+          "iaib_1.cif": "afcf03dddb20c1b7f92d157c9983c712eaecab72ccebf1e60f888b9d9fdd2140"
+        },
+        "stats": "[rfd3_bias] sparse_bias served=0 declined=19 fused served=0 rejects={('batch', (2, 4, 3359, 128)): 19}",
+        "atoms": "3359",
+        "err": ""
+      },
+      "on": {
+        "rc": 0,
+        "wall_s": 42.09145064400218,
+        "sha": {
+          "iaib_0.cif": "b481af0bcf7fc50a937dc87da71720e2a75e7606587422b908a8dc348f0d2079",
+          "iaib_1.cif": "afcf03dddb20c1b7f92d157c9983c712eaecab72ccebf1e60f888b9d9fdd2140"
+        },
+        "stats": "[rfd3_bias] sparse_bias served=0 declined=19 fused served=0 rejects={('batch', (2, 4, 3359, 128)): 19}",
+        "atoms": "3359",
+        "err": ""
+      },
+      "atoms": "3359",
+      "identical": true,
+      "declined_cleanly": true
+    }
+  ],
+  "gate_unit": {
+    "eligible": {
+      "batch2": false,
+      "fp32": false,
+      "keys_not_tile_multiple": false,
+      "keys_below_tile": false,
+      "production": true
+    },
+    "rejects": {
+      "('batch', (2, 4, 3359, 128))": 1,
+      "('dtype', (1, 4, 3359, 128))": 1,
+      "('n_keys', (1, 4, 3359, 40))": 1,
+      "('n_keys', (1, 4, 3359, 16))": 1
+    },
+    "as_expected": true
+  }
+}

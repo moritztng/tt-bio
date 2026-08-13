@@ -1,0 +1,110 @@
+{
+  "steps": 20,
+  "seed": 0,
+  "shapes": [
+    {
+      "span": 40,
+      "tokens": 60,
+      "off": {
+        "rc": 0,
+        "wall_s": 54.77821743499953,
+        "sha": {
+          "iai40.cif": "52852f90d2b54a9643409d5480182aaf646e9c93c3314d6005fb318a90824dc6"
+        },
+        "stats": "[rfd3_bias] sparse_bias served=114 declined=0 fused served=0 rejects={}",
+        "atoms": "699",
+        "err": ""
+      },
+      "on": {
+        "rc": 0,
+        "wall_s": 10.902283804003673,
+        "sha": {
+          "iai40.cif": "52852f90d2b54a9643409d5480182aaf646e9c93c3314d6005fb318a90824dc6"
+        },
+        "stats": "[rfd3_bias] sparse_bias served=0 declined=0 fused served=171 rejects={}",
+        "atoms": "699",
+        "err": ""
+      },
+      "atoms": "699",
+      "identical": true
+    },
+    {
+      "span": 120,
+      "tokens": 140,
+      "off": {
+        "rc": 0,
+        "wall_s": 69.79722588000004,
+        "sha": {
+          "iai120.cif": "8f3322a9f14f9e81434df995becce997eb81c727bfaf02f52cb641efbd8e090f"
+        },
+        "stats": "[rfd3_bias] sparse_bias served=114 declined=0 fused served=0 rejects={}",
+        "atoms": "1819",
+        "err": ""
+      },
+      "on": {
+        "rc": 0,
+        "wall_s": 13.943795741004578,
+        "sha": {
+          "iai120.cif": "8f3322a9f14f9e81434df995becce997eb81c727bfaf02f52cb641efbd8e090f"
+        },
+        "stats": "[rfd3_bias] sparse_bias served=0 declined=0 fused served=171 rejects={}",
+        "atoms": "1819",
+        "err": ""
+      },
+      "atoms": "1819",
+      "identical": true
+    },
+    {
+      "span": 230,
+      "tokens": 250,
+      "off": {
+        "rc": 0,
+        "wall_s": 21.802078545995755,
+        "sha": {
+          "iai230.cif": "b481af0bcf7fc50a937dc87da71720e2a75e7606587422b908a8dc348f0d2079"
+        },
+        "stats": "[rfd3_bias] sparse_bias served=114 declined=0 fused served=0 rejects={}",
+        "atoms": "3359",
+        "err": ""
+      },
+      "on": {
+        "rc": 0,
+        "wall_s": 21.268257960000483,
+        "sha": {
+          "iai230.cif": "b481af0bcf7fc50a937dc87da71720e2a75e7606587422b908a8dc348f0d2079"
+        },
+        "stats": "[rfd3_bias] sparse_bias served=0 declined=0 fused served=171 rejects={}",
+        "atoms": "3359",
+        "err": ""
+      },
+      "atoms": "3359",
+      "identical": true
+    },
+    {
+      "span": 400,
+      "tokens": 420,
+      "off": {
+        "rc": 0,
+        "wall_s": 95.76012849800463,
+        "sha": {
+          "iai400.cif": "c69126269206697f963e59f11361fe4ff4bdf712c3a5b94394aa944d91488a0b"
+        },
+        "stats": "[rfd3_bias] sparse_bias served=114 declined=0 fused served=0 rejects={}",
+        "atoms": "5739",
+        "err": ""
+      },
+      "on": {
+        "rc": 0,
+        "wall_s": 44.8537704190021,
+        "sha": {
+          "iai400.cif": "c69126269206697f963e59f11361fe4ff4bdf712c3a5b94394aa944d91488a0b"
+        },
+        "stats": "[rfd3_bias] sparse_bias served=0 declined=0 fused served=171 rejects={}",
+        "atoms": "5739",
+        "err": ""
+      },
+      "atoms": "5739",
+      "identical": true
+    }
+  ]
+}
