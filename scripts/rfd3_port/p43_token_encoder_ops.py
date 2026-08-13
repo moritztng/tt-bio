@@ -36,6 +36,7 @@ import ttnn  # noqa: E402
 from tt_bio.rfd3.design import build_diffusion_module, build_token_initializer  # noqa: E402
 from tt_bio.rfd3.featurize import featurize  # noqa: E402
 from tt_bio.rfd3.input import InputSpecification  # noqa: E402
+from tt_bio.rfd3 import model as _M  # noqa: E402
 from tt_bio.rfd3.model import DiffusionTokenEncoder  # noqa: E402
 from tt_bio.rfd3.sampler import RFD3Sampler  # noqa: E402
 
@@ -112,6 +113,9 @@ def main() -> int:
     ap.add_argument("--designs", type=int, default=2)
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--roof", type=float, default=385.0, help="measured clone roof, GB/s")
+    ap.add_argument("--region", default="DiffusionTokenEncoder.run_device",
+                    help="Class.method to bracket; the atom side is "
+                         "CompactStreamingDecoder.run_full_device")
     ap.add_argument("--out", type=Path)
     a = ap.parse_args()
 
@@ -129,7 +133,9 @@ def main() -> int:
     L = init["Q_L_init"].shape[0]
     coord0 = f["motif_pos"].float().unsqueeze(0) if "motif_pos" in f else torch.zeros(1, L, 3)
 
-    enc_call = DiffusionTokenEncoder.run_device
+    _cls_name, _meth = a.region.split(".")
+    _cls = getattr(_M, _cls_name)
+    enc_call = getattr(_cls, _meth)
 
     def enc(self, *ar, **kw):
         DEV[0] = self.device
@@ -143,7 +149,7 @@ def main() -> int:
             REGION[0] += time.perf_counter() - t0
             ON[0] = False
 
-    DiffusionTokenEncoder.run_device = enc
+    setattr(_cls, _meth, enc)
 
     cls = type(dev_dm)
     dm_call = cls.__call__
