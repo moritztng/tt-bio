@@ -681,3 +681,14 @@ Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/
 2026-08-13 01:16:43.538 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3394048 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
 2026-08-13 01:16:44.359 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2343424 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
   cold 315.09s n_tokens=1024 plddt=0.778516
+Terminated
+RC_1024=143
+=== 2026-08-13T02:44:58+00:00  size 768  arms on,on,base4,nok2,off ===
+2026-08-13 02:44:58.353 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+=== size 768: cold fold ===
+2026-08-13 02:45:17.741 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 187 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 196608 and static circular buffer region ends at 201216 (assert.hpp:104)
+2026-08-13 02:45:20.695 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2198016 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+2026-08-13 02:45:21.512 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1802752 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+  cold 199.63s n_tokens=768 plddt=0.787723
+2026-08-13 02:48:23.307 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 187 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 196608 and static circular buffer region ends at 201216 (assert.hpp:104)
