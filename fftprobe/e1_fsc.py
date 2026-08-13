@@ -43,6 +43,12 @@ ARMS = {
     "arm1_3.5e-4": 3.5e-4,      # path C+, the best FPU-based accuracy measured
     "arm2_1.5e-3": 1.5e-3,      # path A / path C without the split-bf16 matmul
     "arm3_4.1e-2": 4.1e-2,      # bf16, to price the 2x bandwidth win
+    # Sensitivity controls. Not candidate precisions -- deliberately blown-out error levels whose
+    # only job is to prove the harness can see degradation at all. If these do not cost resolution,
+    # then "all arms pass" means the test is blind, not that the precision is free, and every number
+    # above it is worthless. Reported alongside the arms for exactly that reason.
+    "sens_3e-1": 3e-1,
+    "sens_1e0": 1.0,
 }
 
 _rng_perturb = np.random.default_rng(12345)
@@ -125,15 +131,20 @@ def trilinear_gather(F3, coords, box):
     return out
 
 
-def trilinear_scatter(acc, wacc, coords, vals, box):
-    """Backprojection: trilinear scatter-add of a Fourier slice into the 3D volume.
+def scatter_chunk(acc, wacc, coords, vals, box):
+    """Backprojection: trilinear scatter-add of Fourier slices into the 3D volume.
 
-    np.bincount rather than np.add.at -- add.at is a Python-level loop over duplicates and is 50x
-    slower here, which turns a 20-minute arm into a day.
+    Called once per CHUNK of projections, not once per projection. np.bincount costs O(nbins) per
+    call regardless of how few points it is given, and nbins here is box^3, so one call per
+    projection spends all its time zeroing a 2M-element output array. Batching the whole chunk into
+    three bincounts turns that from the dominant cost into a rounding error. np.add.at is the other
+    obvious route and is a Python-level loop over duplicate indices, 50x slower again.
     """
+    n = box ** 3
     c = coords + box / 2.0
     i0 = np.floor(c).astype(np.int64)
     frac = c - i0
+    flats, ws, vs = [], [], []
     for dz in (0, 1):
         for dy in (0, 1):
             for dx in (0, 1):
@@ -142,13 +153,14 @@ def trilinear_scatter(acc, wacc, coords, vals, box):
                      * np.where(dx, frac[:, 2], 1 - frac[:, 2]))
                 idx = i0 + np.array([dz, dy, dx])
                 ok = np.all((idx >= 0) & (idx < box), axis=1)
-                flat = ((idx[:, 0] * box + idx[:, 1]) * box + idx[:, 2])[ok]
-                ww = w[ok]
-                vv = vals[ok]
-                n = box**3
-                acc += (np.bincount(flat, ww * vv.real, n)
-                        + 1j * np.bincount(flat, ww * vv.imag, n))
-                wacc += np.bincount(flat, ww, n)
+                flats.append(((idx[:, 0] * box + idx[:, 1]) * box + idx[:, 2])[ok])
+                ws.append(w[ok])
+                vs.append(vals[ok])
+    flat = np.concatenate(flats)
+    w = np.concatenate(ws)
+    v = np.concatenate(vs)
+    acc += np.bincount(flat, w * v.real, n) + 1j * np.bincount(flat, w * v.imag, n)
+    wacc += np.bincount(flat, w, n)
 
 
 def fsc(a, b, box):
@@ -177,24 +189,26 @@ def res_at(curve, thr, box, pixel_a):
     return box * pixel_a / (len(curve) - 1)
 
 
-def reconstruct(F3flat, rots, imgs_noise, rel, box, half):
-    acc = np.zeros(box**3, dtype=np.complex128)
-    wacc = np.zeros(box**3, dtype=np.float64)
-    for j in half:
-        coords = slice_coords(box, rots[j])
-        # forward 2D transform of the noisy particle image -- perturbed, this is the FFT we ship
-        F2 = perturb(np.fft.fft2(imgs_noise[j]), rel).ravel()
-        trilinear_scatter(acc, wacc, coords, F2, box)
+def reconstruct(rots, imgs_noise, rel, box, half, chunk=int(os.environ.get("E1_CHUNK", "250"))):
+    acc = np.zeros(box ** 3, dtype=np.complex128)
+    wacc = np.zeros(box ** 3, dtype=np.float64)
+    for c0 in range(0, len(half), chunk):
+        sel = half[c0:c0 + chunk]
+        co = np.concatenate([slice_coords(box, rots[j]) for j in sel])
+        # forward 2D transform of each noisy particle image -- perturbed, this is the FFT we ship
+        va = np.concatenate([perturb(np.fft.fft2(imgs_noise[j]), rel).ravel() for j in sel])
+        scatter_chunk(acc, wacc, co, va, box)
     vol = np.where(wacc > 1e-6, acc / np.maximum(wacc, 1e-6), 0.0).reshape(box, box, box)
-    # inverse 3D transform -- also perturbed
-    return np.real(np.fft.ifftn(perturb(vol, rel)))
+    # inverse 3D transform -- also perturbed. ifftshift undoes the centred convention the slice
+    # coordinates and the gather both use.
+    return np.real(np.fft.ifftn(np.fft.ifftshift(perturb(vol, rel))))
 
 
 def main():
     t0 = time.time()
     rng = np.random.default_rng(SEED)
     vol = make_map(BOX, rng)
-    F3 = np.fft.fftn(vol)
+    F3 = np.fft.fftshift(np.fft.fftn(vol))
     F3flat = F3.ravel()
 
     rots = random_rotations(NPROJ, rng)
@@ -213,8 +227,8 @@ def main():
     out = {"box": BOX, "nproj": NPROJ, "snr": SNR, "pixel_a": PIXEL_A, "arms": {}}
     for name, rel in ARMS.items():
         ta = time.time()
-        v1 = reconstruct(F3flat, rots, imgs, rel, BOX, halves[0])
-        v2 = reconstruct(F3flat, rots, imgs, rel, BOX, halves[1])
+        v1 = reconstruct(rots, imgs, rel, BOX, halves[0])
+        v2 = reconstruct(rots, imgs, rel, BOX, halves[1])
         c = fsc(v1, v2, BOX)
         r143 = res_at(c, 0.143, BOX, PIXEL_A)
         out["arms"][name] = {
@@ -230,12 +244,24 @@ def main():
     for name, a in out["arms"].items():
         a["delta_A_vs_control"] = a["res_0.143_A"] - base
     out["verdict"] = {
-        "arm1_passes_0.1A": abs(out["arms"]["arm1_3.5e-4"]["delta_A_vs_control"]) < 0.1,
-        "arm2_passes_0.1A": abs(out["arms"]["arm2_1.5e-3"]["delta_A_vs_control"]) < 0.1,
-        "arm3_passes_0.1A": abs(out["arms"]["arm3_4.1e-2"]["delta_A_vs_control"]) < 0.1,
+        f"{k}_passes_0.1A": bool(abs(v["delta_A_vs_control"]) < 0.1)
+        for k, v in out["arms"].items() if k != "arm0_exact"
     }
+    # The control must actually resolve something, or the arms are being compared inside the noise
+    # floor and the ordering between them is meaningless. Reported rather than assumed.
+    ctrl = out["arms"]["arm0_exact"]
+    shell = BOX * PIXEL_A / max(ctrl["res_0.143_A"], 1e-9)
+    out["control_shell_at_0.143"] = float(shell)
+    out["control_has_dynamic_range"] = bool(shell >= 0.25 * (BOX // 2))
+    # The harness is only trustworthy if the blown-out controls actually lose resolution.
+    out["harness_is_sensitive"] = bool(
+        out["arms"]["sens_1e0"]["res_0.143_A"] - base > 0.1)
     p = Path(__file__).resolve().parent / f"e1_fsc_box{BOX}.json"
     json.dump(out, open(p, "w"), indent=1)
+    print("control FSC:", " ".join(f"{v:.2f}" for v in out["arms"]["arm0_exact"]["fsc"][:16]),
+          flush=True)
+    print(f"control resolves to shell {out['control_shell_at_0.143']:.1f} of {BOX//2}"
+          f"  dynamic_range={out['control_has_dynamic_range']}", flush=True)
     print(json.dumps(out["verdict"], indent=1), flush=True)
     print(f"total {time.time()-t0:.0f}s -> {p}", flush=True)
 
