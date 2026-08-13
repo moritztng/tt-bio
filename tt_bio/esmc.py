@@ -39,6 +39,8 @@ from tt_bio.tenstorrent import (
     Weights,
     WeightScope,
     _dtype,
+    _PAIR_FFN_FC1_BLOCK_W,
+    _PAIR_FFN_FC1_BW,
     _pair_proj_linear,
     _sdpa_program_config_for_lengths,
     get_device,
@@ -342,8 +344,10 @@ class SwiGLUFFN(Module):
         elif self.split_swiglu and _SPLIT_SWIGLU:
             if l1_fc1:
                 dt = _dtype()
-                h1 = _pair_proj_linear(x_norm, self.fc1_a_weight, ck, dt, l1_out=True)
-                h2 = _pair_proj_linear(x_norm, self.fc1_b_weight, ck, dt, l1_out=True)
+                l1 = dict(l1_out=True, l1_bw=_PAIR_FFN_FC1_BW,
+                          l1_block_w=_PAIR_FFN_FC1_BLOCK_W)
+                h1 = _pair_proj_linear(x_norm, self.fc1_a_weight, ck, dt, **l1)
+                h2 = _pair_proj_linear(x_norm, self.fc1_b_weight, ck, dt, **l1)
             else:
                 h1 = self._lin(x_norm, self.fc1_a_weight)
                 h2 = self._lin(x_norm, self.fc1_b_weight)
