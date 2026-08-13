@@ -1,0 +1,85 @@
+{
+  "shape": [
+    1,
+    4,
+    3359,
+    3360
+  ],
+  "atoms": 3359,
+  "heads": 4,
+  "head_dim": 32,
+  "n_keys": 128,
+  "elements": 45144960,
+  "ttnn": "0.67.4",
+  "ops": {
+    "clone_bf16": {
+      "ms": 0.4897620019619353,
+      "mb": 180.57984,
+      "gbs": 368.70937164707766
+    },
+    "clone_fp32": {
+      "ms": 0.9370150000904687,
+      "mb": 361.15968,
+      "gbs": 385.43639105577824
+    },
+    "scatter": {
+      "ms": 4.6828249978716485,
+      "mb": 180.57984,
+      "gbs": 38.56215854362993,
+      "gelem_s": 9.640539635907482
+    },
+    "typecast_bias_up": {
+      "ms": 0.7923369994387031,
+      "mb": 270.86976,
+      "gbs": 341.86180904323027
+    },
+    "typecast_scores_up": {
+      "ms": 0.7934369932627305,
+      "mb": 270.86976,
+      "gbs": 341.3878635607137
+    },
+    "multiply_scale": {
+      "ms": 0.9677939960965887,
+      "mb": 361.15968,
+      "gbs": 373.17826051480813
+    },
+    "add_bias": {
+      "ms": 1.2786590014002286,
+      "mb": 541.73952,
+      "gbs": 423.67786830324115
+    },
+    "softmax_fp32": {
+      "ms": 0.9740149980643764,
+      "mb": 361.15968,
+      "gbs": 370.7947831580819
+    },
+    "typecast_attn_down": {
+      "ms": 0.6654790049651638,
+      "mb": 270.86976,
+      "gbs": 407.02976048685315
+    },
+    "attn_at_v": {
+      "ms": 0.664908999169711,
+      "mb": 90.28992,
+      "gbs": 135.79289814508053
+    }
+  },
+  "chain_ms": 10.81945499026915,
+  "candidates": {
+    "f1_add_scaled[UnaryWithParam]": {
+      "ms": 1.285160004044883,
+      "bit_exact_after_softmax": true,
+      "replaces_ms": 2.2464529974968173
+    },
+    "f1b_multiply_then_add_fresh": {
+      "ms": 2.1669759953510948
+    },
+    "f2_softmax_in_place": {
+      "ms": 1.84861000161618,
+      "bit_exact": true,
+      "vs_softmax_ms": 0.9740149980643764
+    },
+    "f3_scale_mask_softmax": "REJECTED: TypeError: \nttnn.scale_mask_softmax(): incompatible function arguments.\n\nCalled with:\n  scale_mask_softmax(ttnn.Tensor, float, ttnn.Tensor)\n\nAvailable signatures:\n  scale_mask_softmax(input_tensor: ttnn.Tensor, scale: float | None = None, mask: ttnn.T",
+    "f3_scatter_fp32": "REJECTED: RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/scatter/scatter.cpp:109: !(input_dtype == DataType::FLOAT32 && input_layout == Layout::TILE)\ninfo:\nScatter doesn't work for fp32 tiled tensors yet (see to_layout issue #) - input te"
+  }
+}

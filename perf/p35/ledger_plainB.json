@@ -1,0 +1,13 @@
+{
+  "atoms": 3359,
+  "steps": 39,
+  "wall_s": 12.526070436004375,
+  "ms_per_step": 321.1812932308814,
+  "plain": true,
+  "freeze_indices": false,
+  "rows_ms_per_step": {},
+  "calls_per_step": {},
+  "drain_ms": 0.0,
+  "host_ms": 0.0,
+  "dispatch_ms": 0.0
+}
