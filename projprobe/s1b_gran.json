@@ -1,0 +1,232 @@
+{
+ "page_bytes": 4096,
+ "total_bytes": 2048,
+ "outer": 5000,
+ "runs": {
+  "dram/plain/1x2048B": {
+   "ns_per_assembly": 696.5665990719572,
+   "ns_per_read": 696.5665990719572,
+   "nreads": 1,
+   "chunk": 2048,
+   "nonzero": true,
+   "gbs_chip": 382.2175802783457
+  },
+  "dram/plain/2x1024B": {
+   "ns_per_assembly": 788.9489992521703,
+   "ns_per_read": 394.47449962608516,
+   "nreads": 2,
+   "chunk": 1024,
+   "nonzero": true,
+   "gbs_chip": 337.4616106394251
+  },
+  "dram/plain/4x512B": {
+   "ns_per_assembly": 1177.6128027122468,
+   "ns_per_read": 294.4032006780617,
+   "nreads": 4,
+   "chunk": 512,
+   "nonzero": true,
+   "gbs_chip": 226.08449856081987
+  },
+  "dram/plain/8x256B": {
+   "ns_per_assembly": 2252.4012019857764,
+   "ns_per_read": 281.55015024822205,
+   "nreads": 8,
+   "chunk": 256,
+   "nonzero": true,
+   "gbs_chip": 118.20274281743225
+  },
+  "dram/plain/16x128B": {
+   "ns_per_assembly": 4745.626400108449,
+   "ns_per_read": 296.6016500067781,
+   "nreads": 16,
+   "chunk": 128,
+   "nonzero": true,
+   "gbs_chip": 56.102182842272576
+  },
+  "dram/plain/32x64B": {
+   "ns_per_assembly": 10261.80440094322,
+   "ns_per_read": 320.6813875294756,
+   "nreads": 32,
+   "chunk": 64,
+   "nonzero": true,
+   "gbs_chip": 25.944754898614946
+  },
+  "dram/plain/64x32B": {
+   "ns_per_assembly": 22135.61060198117,
+   "ns_per_read": 345.8689156559558,
+   "nreads": 64,
+   "chunk": 32,
+   "nonzero": true,
+   "gbs_chip": 12.027678151158439
+  },
+  "dram/state/1x2048B": {
+   "ns_per_assembly": 696.7987981624901,
+   "ns_per_read": 696.7987981624901,
+   "nreads": 1,
+   "chunk": 2048,
+   "nonzero": true,
+   "gbs_chip": 382.09021126628596
+  },
+  "dram/state/2x1024B": {
+   "ns_per_assembly": 787.7311989432201,
+   "ns_per_read": 393.86559947161004,
+   "nreads": 2,
+   "chunk": 1024,
+   "nonzero": true,
+   "gbs_chip": 337.9833125273875
+  },
+  "dram/state/4x512B": {
+   "ns_per_assembly": 1183.5565994260833,
+   "ns_per_read": 295.8891498565208,
+   "nreads": 4,
+   "chunk": 512,
+   "nonzero": true,
+   "gbs_chip": 224.94910689450936
+  },
+  "dram/state/8x256B": {
+   "ns_per_assembly": 2232.4935998767614,
+   "ns_per_read": 279.0616999845952,
+   "nreads": 8,
+   "chunk": 256,
+   "nonzero": true,
+   "gbs_chip": 119.2567808546896
+  },
+  "dram/state/16x128B": {
+   "ns_per_assembly": 4702.357199857943,
+   "ns_per_read": 293.8973249911214,
+   "nreads": 16,
+   "chunk": 128,
+   "nonzero": true,
+   "gbs_chip": 56.61841257147438
+  },
+  "dram/state/32x64B": {
+   "ns_per_assembly": 10222.010998404585,
+   "ns_per_read": 319.4378437001433,
+   "nreads": 32,
+   "chunk": 64,
+   "nonzero": true,
+   "gbs_chip": 26.045755579949365
+  },
+  "dram/state/64x32B": {
+   "ns_per_assembly": 21796.578000066802,
+   "ns_per_read": 340.5715312510438,
+   "nreads": 64,
+   "chunk": 32,
+   "nonzero": true,
+   "gbs_chip": 12.214761418016353
+  },
+  "l1/plain/1x2048B": {
+   "ns_per_assembly": 426.1909984052181,
+   "ns_per_read": 426.1909984052181,
+   "nreads": 1,
+   "chunk": 2048,
+   "nonzero": true,
+   "gbs_chip": 624.6964412581556
+  },
+  "l1/plain/2x1024B": {
+   "ns_per_assembly": 445.97660016734153,
+   "ns_per_read": 222.98830008367077,
+   "nreads": 2,
+   "chunk": 1024,
+   "nonzero": true,
+   "gbs_chip": 596.981993898559
+  },
+  "l1/plain/4x512B": {
+   "ns_per_assembly": 492.303998908028,
+   "ns_per_read": 123.075999727007,
+   "nreads": 4,
+   "chunk": 512,
+   "nonzero": true,
+   "gbs_chip": 540.8040572299694
+  },
+  "l1/plain/8x256B": {
+   "ns_per_assembly": 646.5493992436677,
+   "ns_per_read": 80.81867490545847,
+   "nreads": 8,
+   "chunk": 256,
+   "nonzero": true,
+   "gbs_chip": 411.7860140484966
+  },
+  "l1/plain/16x128B": {
+   "ns_per_assembly": 1288.0568014224991,
+   "ns_per_read": 80.5035500889062,
+   "nreads": 16,
+   "chunk": 128,
+   "nonzero": true,
+   "gbs_chip": 206.69895901017014
+  },
+  "l1/plain/32x64B": {
+   "ns_per_assembly": 2736.9133982574567,
+   "ns_per_read": 85.52854369554552,
+   "nreads": 32,
+   "chunk": 64,
+   "nonzero": true,
+   "gbs_chip": 97.27746598394754
+  },
+  "l1/plain/64x32B": {
+   "ns_per_assembly": 5815.876999986358,
+   "ns_per_read": 90.87307812478684,
+   "nreads": 64,
+   "chunk": 32,
+   "nonzero": true,
+   "gbs_chip": 45.77813457895078
+  },
+  "l1/state/1x2048B": {
+   "ns_per_assembly": 439.13279951084405,
+   "ns_per_read": 439.13279951084405,
+   "nreads": 1,
+   "chunk": 2048,
+   "nonzero": true,
+   "gbs_chip": 606.285844046649
+  },
+  "l1/state/2x1024B": {
+   "ns_per_assembly": 455.45659959316254,
+   "ns_per_read": 227.72829979658127,
+   "nreads": 2,
+   "chunk": 1024,
+   "nonzero": true,
+   "gbs_chip": 584.5562458372968
+  },
+  "l1/state/4x512B": {
+   "ns_per_assembly": 506.52979989536107,
+   "ns_per_read": 126.63244997384027,
+   "nreads": 4,
+   "chunk": 512,
+   "nonzero": true,
+   "gbs_chip": 525.6156697098569
+  },
+  "l1/state/8x256B": {
+   "ns_per_assembly": 660.0391992833465,
+   "ns_per_read": 82.50489991041832,
+   "nreads": 8,
+   "chunk": 256,
+   "nonzero": true,
+   "gbs_chip": 403.3699820996639
+  },
+  "l1/state/16x128B": {
+   "ns_per_assembly": 1276.7830019583926,
+   "ns_per_read": 79.79893762239954,
+   "nreads": 16,
+   "chunk": 128,
+   "nonzero": true,
+   "gbs_chip": 208.52407933973745
+  },
+  "l1/state/32x64B": {
+   "ns_per_assembly": 2682.288200594485,
+   "ns_per_read": 83.82150626857765,
+   "nreads": 32,
+   "chunk": 64,
+   "nonzero": true,
+   "gbs_chip": 99.25853602942156
+  },
+  "l1/state/64x32B": {
+   "ns_per_assembly": 5696.342998999171,
+   "ns_per_read": 89.00535935936205,
+   "nreads": 64,
+   "chunk": 32,
+   "nonzero": true,
+   "gbs_chip": 46.73875854153753
+  }
+ },
+ "ncores": 130
+}
