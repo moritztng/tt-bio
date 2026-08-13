@@ -371,105 +371,12 @@ def _fbuild(scores, pair_bias, idx_rm, out, device, scale, acc):
     return {"pd": pd, "kernels": kernels, "cbs": cbs}
 
 
-# --- L6c: the same op with the bias build shared across both data-movement RISCs ----------------
-# Two CB sets, one per RISC, plus one output ring drained by whichever RISC carries DRAIN=1.
-S_SCORES_A, S_BIAS_A, S_IDX_A, S_PB_A, S_CUR_A = 0, 1, 2, 3, 4
-S_SCORES_B, S_BIAS_B, S_IDX_B, S_PB_B, S_CUR_B = 5, 6, 7, 8, 9
-S_OUT_CB = 16
-# 1 = share the bias build across both RISCs (L6c), 0 = the single-reader form (L6b).
-F_SPLIT = os.environ.get("RFD3_FUSED_SPLIT", "1") == "1"
 # Diagnostics, never set in production: NOPOKE drops the poke walk and the repair replay,
-# DIAG_COPY drops both SFPU passes. Together they decompose the op's 1.67 ms/call.
+# DIAG_COPY drops both SFPU passes. Together they decompose the op's 1.68 ms/call into the
+# pipeline (0.864) and the per-element placement (0.819), which is what refuted L6c -- the
+# two-RISC split of the placement work, 1.682 against 1.683 (state/rfd3-host-half.md §25).
 F_NOPOKE = int(os.environ.get("RFD3_FUSED_NOPOKE", "0"))
 F_DIAG_COPY = int(os.environ.get("RFD3_FUSED_DIAG_COPY", "0"))
-
-
-def _fbuild_split(scores, pair_bias, idx_rm, out, device, scale, acc):
-    H, L, K = int(pair_bias.shape[1]), int(pair_bias.shape[2]), int(pair_bias.shape[3])
-    N = int(out.shape[3])
-    It = (L + TILE_H - 1) // TILE_H
-    Jt = N // TILE_W
-    Kt = (K + TILE_W - 1) // TILE_W
-
-    g = device.compute_with_storage_grid_size()
-    core_grid = ttnn.CoreRangeSet(
-        [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(g.x - 1, g.y - 1))]
-    )
-    cores = [(cx, cy) for cx in range(g.x) for cy in range(g.y)]
-    counts = _even_split(H * It, cores)
-
-    def cb(idx_, fmt, page_size, depth):
-        return ttnn.CBDescriptor(
-            total_size=depth * page_size,
-            core_ranges=core_grid,
-            format_descriptors=[
-                ttnn.CBFormatDescriptor(buffer_index=idx_, data_format=fmt, page_size=page_size)
-            ],
-        )
-
-    cbs = [cb(S_OUT_CB, ttnn.float32, TILE_H * TILE_W * 4, F_OUT_SLOTS)]
-    for sc_, bi_, ix_, pb_, cu_ in ((S_SCORES_A, S_BIAS_A, S_IDX_A, S_PB_A, S_CUR_A),
-                                    (S_SCORES_B, S_BIAS_B, S_IDX_B, S_PB_B, S_CUR_B)):
-        cbs += [
-            cb(sc_, ttnn.bfloat16, TILE_H * TILE_W * 2, F_SCORES_SLOTS),
-            cb(bi_, ttnn.float32, TILE_H * TILE_W * 4, F_BIAS_SLOTS),
-            cb(ix_, ttnn.uint32, K * 4, TILE_H),
-            cb(pb_, ttnn.bfloat16, TILE_H * TILE_W * 2, Kt),
-            cb(cu_, ttnn.uint32, TILE_H * 4, F_BIAS_SLOTS),
-        ]
-
-    rt_a, rt_b, rt_c = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
-    start = 0
-    for i, ((cx, cy), n) in enumerate(zip(cores, counts)):
-        # The phase offset alternates by core so that an odd band count hands its extra band to a
-        # different RISC on the next core. Without it phase 0 would own 260 of the 420 bands at the
-        # production shape (100 cores of 3 bands give 2 to phase 0) and the split would be 62/38.
-        args = [start, n, i & 1]
-        rt_a[cx][cy] = args
-        rt_b[cx][cy] = args
-        rt_c[cx][cy] = [n, i & 1]
-        start += n
-    assert start == H * It, (start, H * It)
-
-    tail = [It, Jt, Kt, K, L, _fill_bits(-1e4), F_BIAS_SLOTS]
-    kernels = []
-    for head, phase, drain, rt, cfg in (
-        ([S_SCORES_A, S_BIAS_A, S_IDX_A, S_PB_A, S_CUR_A], 0, 0, rt_a,
-         ttnn.ReaderConfigDescriptor()),
-        ([S_SCORES_B, S_BIAS_B, S_IDX_B, S_PB_B, S_CUR_B], 1, 1, rt_b,
-         ttnn.WriterConfigDescriptor()),
-    ):
-        kernels.append(ttnn.KernelDescriptor(
-            kernel_source=str(KERNEL_DIR / "dm_fused_scores.cpp"),
-            source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
-            core_ranges=core_grid,
-            compile_time_args=head + [S_OUT_CB] + tail
-            + [phase, drain, F_WINDOW, F_OUT_SLOTS, F_NOPOKE] + list(acc),
-            runtime_args=rt, common_runtime_args=[0, 0, 0, 0], config=cfg,
-        ))
-    kernels.append(ttnn.KernelDescriptor(
-        kernel_source=str(KERNEL_DIR / "compute_fused_scores2.cpp"),
-        source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
-        core_ranges=core_grid,
-        compile_time_args=[S_SCORES_A, S_BIAS_A, S_SCORES_B, S_BIAS_B, S_OUT_CB,
-                           _scale_bits(scale), Jt, F_DIAG_COPY],
-        runtime_args=rt_c,
-        config=ttnn.ComputeConfigDescriptor(
-            math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
-            fp32_dest_acc_en=True, dst_full_sync_en=False,
-        ),
-    ))
-    pd = ttnn.ProgramDescriptor(kernels=kernels, semaphores=[], cbs=cbs)
-
-    global ADDR_WRITE_MODE
-    if ADDR_WRITE_MODE is None:
-        probe = [0xABCD1234, 0x1234ABCD, 0xFEED0001, 0x5A5A5A5A]
-        pd.kernels[0].common_runtime_args = probe
-        ADDR_WRITE_MODE = (
-            "in_place" if list(pd.kernels[0].common_runtime_args) == probe else "rebuild_pd"
-        )
-        pd.kernels[0].common_runtime_args = [0, 0, 0, 0]
-    return {"pd": pd, "kernels": kernels, "cbs": cbs, "split": True}
 
 
 def fused_scores_bias_fp32(scores, pair_bias, idx_rm, scale, out=None, memory_config=None):
@@ -498,28 +405,16 @@ def fused_scores_bias_fp32(scores, pair_bias, idx_rm, scale, out=None, memory_co
         + list(ttnn.TensorAccessorArgs(pair_bias).get_compile_time_args())
         + list(ttnn.TensorAccessorArgs(idx_rm).get_compile_time_args())
     )
-    # L6c's two data-movement kernels share one source, so both carry the output accessor too.
-    acc_split = acc + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
     key = _cache_key(pair_bias, idx_rm, out, device, tuple(acc)) + (
-        tuple(int(d) for d in scores.shape), str(scores.dtype), _scale_bits(scale), F_SPLIT,
+        tuple(int(d) for d in scores.shape), str(scores.dtype), _scale_bits(scale),
         F_NOPOKE, F_DIAG_COPY,
     )
     entry = _FCACHE.get(key)
     if entry is None:
-        entry = _FCACHE[key] = (
-            _fbuild_split(scores, pair_bias, idx_rm, out, device, scale, acc_split)
-            if F_SPLIT else
-            _fbuild(scores, pair_bias, idx_rm, out, device, scale, acc))
+        entry = _FCACHE[key] = _fbuild(scores, pair_bias, idx_rm, out, device, scale, acc)
 
-    # L6c hands both data-movement kernels all four addresses (each one both reads and, on the
-    # draining RISC, writes); L6b's reader takes three and its writer one.
-    if entry.get("split"):
-        addrs = [scores.buffer_address(), pair_bias.buffer_address(), idx_rm.buffer_address(),
-                 out.buffer_address()]
-        per_kernel = [addrs, addrs]
-    else:
-        per_kernel = [[scores.buffer_address(), pair_bias.buffer_address(),
-                       idx_rm.buffer_address()], [out.buffer_address()]]
+    per_kernel = [[scores.buffer_address(), pair_bias.buffer_address(),
+                   idx_rm.buffer_address()], [out.buffer_address()]]
     if ADDR_WRITE_MODE == "in_place":
         pd = entry["pd"]
         for k, a in zip(pd.kernels, per_kernel):
