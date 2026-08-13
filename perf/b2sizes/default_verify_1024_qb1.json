@@ -1,0 +1,54 @@
+{
+ "ttnn": "0.67.4",
+ "host": "tt-quietbox",
+ "card": "0",
+ "model": "boltz2",
+ "size": 1024,
+ "arm": "shipped-default",
+ "q_split_default": true,
+ "q_split_max_seq": 1024,
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "runs": [
+  {
+   "label": "cold",
+   "fold_s": 93.158,
+   "wall_s": 93.158,
+   "n_tokens": null,
+   "plddt": null,
+   "cif_sha256": {
+    "cdk2x2_1024.cif": "d3a02f9315060b3d"
+   },
+   "persistent_mask": {
+    "q_split": true,
+    "served": 560,
+    "declined": 1120,
+    "pm_over_l1": [
+     "(1024, 1024, 1024)",
+     "(1024, 1024, 512)"
+    ]
+   },
+   "maxrss_mb": 12250.7
+  },
+  {
+   "label": "warm",
+   "fold_s": 91.039,
+   "wall_s": 91.04,
+   "n_tokens": null,
+   "plddt": null,
+   "cif_sha256": {
+    "cdk2x2_1024.cif": "d3a02f9315060b3d"
+   },
+   "persistent_mask": {
+    "q_split": true,
+    "served": 1120,
+    "declined": 2240,
+    "pm_over_l1": [
+     "(1024, 1024, 1024)",
+     "(1024, 1024, 512)"
+    ]
+   },
+   "maxrss_mb": 12366.4
+  }
+ ]
+}
