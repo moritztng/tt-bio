@@ -94,3 +94,24 @@ took benchlock at ~14:04Z for its own 1024 aa openfold3 leg.
 `on` fold completes, attempt 1 was a one-off on a freshly booted card. If it hangs again, boltz-2 at
 1024 aa does not run on qb2 at all right now, and that is a live main-branch finding independent of
 the q-split.
+
+## Reproduced, and bounded by a 512 aa control (2026-08-13 14:12-14:33Z)
+
+Attempt 2 (1024 aa, benchlock, after `tt-smi -r 3`) hung in the identical stack 8 min into the cold
+`on` fold. Attempt 3 (768 aa, no benchlock, after another reset) hung the same way. Control: 512 aa
+on the same card one reset later folded in 34.98 s (cold 37.67 s) and produced CIF digest
+`fca25e32ea181ae2`, which is the same digest the 512 anchor produced on qb2 card 1 in the earlier
+pass. Card, wheel and numerics are fine; the hang is selected by target size.
+
+L1 refusal pattern, exact across all four runs: 1024 logged caught CB overflows at 3394048 and
+2343424 B, 768 at 2198016 and 1802752 B, 512 logged none and had K2 serving 560/560 with
+`sdpa_q_chunk_over_l1 == []`. First hypothesis for the next pass: a caught `TT_THROW` during program
+creation at >=768 aa on a 110-core grid leaves dispatch state inconsistent. Unproven.
+
+Next bisect, cheapest first: (1) 1024 cold fold on qb2 card 1 or 2 to separate card 3 from qb2;
+(2) `e8f0fc21` on card 3, since §2.1 measured 768/1024 on qb2 at 53.066 s and 95.422 s on that
+commit with the same ttnn 0.68.0 wheel; (3) if it is main, bisect the merges between `e8f0fc21` and
+`26c763f7`, where `ca9b6703` (`PAIR_FFN_ROW_BLOCK_SEQ` extended to 1024, qb1-only measurement)
+touches shared `tenstorrent.py` code at exactly these sizes.
+
+Written up in `state/boltz2-sizes-perf.md` §10.
