@@ -408,7 +408,8 @@ def main():
             (4 << 30) if name == "blk4g" else (8 << 30))
         T._FP32_SOFTMAX_L1_BYTES_PER_CORE = 0 if name == "noshard" else (768 << 10)
         T.FP32_SOFTMAX_STATS.update(calls=0, blocked=0, blocks=0, fused=0, unfused=0,
-                                    l1=0, l1_blocks=0)
+                                    l1=0, l1_blocks=0, l1_refused=0)
+        T._FP32_SOFTMAX_L1_REFUSED.clear()
         T.TRANSITION_H_CHUNK_SIZE_BIG = 16 if name == "hchunk16" else 32
         T._PAIR_PROJ_L1_OUT = name != "noL1out"
         T._pair_proj_program_config.cache_clear()

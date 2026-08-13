@@ -794,7 +794,22 @@ _FP32_SOFTMAX_L1_BYTES_PER_CORE = 768 << 10
 _FP32_SOFTMAX_L1_GRID = (8, 8)  # (y, x). 8x8 = 64; this p150a refuses more than 110 shards.
 
 FP32_SOFTMAX_STATS = {"calls": 0, "blocked": 0, "blocks": 0, "fused": 0, "unfused": 0,
-                      "l1": 0, "l1_blocks": 0}
+                      "l1": 0, "l1_blocks": 0, "l1_refused": 0}
+
+# A block that fits L1 is not automatically a block the sharded softmax fits AROUND: that kernel
+# stages its rows through statically allocated circular buffers whose size grows with the row
+# width, and at 1024 aa they need 549376 B/core on an 11x10 core range while the model already
+# holds ~282 KB/core of its own L1 elsewhere. The block then allocates legally and the softmax
+# refuses at program creation. No per-core byte budget can predict that, because the term that
+# differs between 512 aa (fits at 786432 B/core) and 1024 aa (does not, at the same 786432) is the
+# REST of the model's L1 residency at that size -- so a byte budget tuned at 512 would go silently
+# dark above it, which is `tt-bio-tuned-at-512-l1-gates-go-dark-above-640aa` exactly.
+#
+# So the gate is empirical and self-setting, the same shape as `_L1_OUT_REFUSED` above: the first
+# block at a geometry tries the shard, and a refusal retires that geometry for the process and
+# falls back to the interleaved tail, which is bit-identical. It is counted, so it is never a
+# silent dark gate: `l1_blocks` vs `l1_refused` in the census says which path a size took.
+_FP32_SOFTMAX_L1_REFUSED: set = set()
 
 
 def _fp32_softmax_l1_rows(per_row: int, height_per_row: int) -> int:
@@ -856,19 +871,27 @@ def _fp32_softmax_attention(
     height_per_row = int(q.shape[1]) * int(q.shape[2])
     per_row = height_per_row * int(k.shape[2]) * 4
     blk = max(32, int(_FP32_SOFTMAX_BLOCK_BYTES // per_row) // 32 * 32) if per_row else rows
-    l1_rows = _fp32_softmax_l1_rows(per_row, height_per_row)
+    # The memo is keyed on the SHAPE CLASS, not on the block. A refusal has to retire the block
+    # size along with the shard: an L1-sized block that then runs interleaved is the worst of both,
+    # 342 blocks per call paying the loop's slice-and-concat with none of the residency back. That
+    # is measured, not feared -- it cost 278.23 -> 317.79 s at 1024 aa before this key was widened.
+    l1_key = (height_per_row, int(k.shape[2]))
+    l1_rows = 0 if l1_key in _FP32_SOFTMAX_L1_REFUSED else _fp32_softmax_l1_rows(per_row,
+                                                                                height_per_row)
     if l1_rows:
         blk = min(blk, l1_rows)
         FP32_SOFTMAX_STATS["l1"] += 1
 
     def shard_for(n):
-        return _fp32_softmax_shard(n, height_per_row, int(k.shape[2])) if l1_rows else None
+        if not l1_rows or l1_key in _FP32_SOFTMAX_L1_REFUSED:
+            return None
+        return _fp32_softmax_shard(n, height_per_row, int(k.shape[2]))
 
     if rows <= 1 or blk >= rows:
         sh = shard_for(rows)
         FP32_SOFTMAX_STATS["l1_blocks"] += sh is not None
         return _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_config,
-                                             out_dtype, bias_scale_inv, sh)
+                                             out_dtype, bias_scale_inv, sh, l1_key)
     FP32_SOFTMAX_STATS["blocked"] += 1
     parts = []
     for s in range(0, rows, blk):
@@ -878,7 +901,7 @@ def _fp32_softmax_attention(
         FP32_SOFTMAX_STATS["l1_blocks"] += sh is not None
         parts.append(_fp32_softmax_attention_block(qs, ks, vs, bias, scale_inv,
                                                    compute_kernel_config, out_dtype,
-                                                   bias_scale_inv, sh))
+                                                   bias_scale_inv, sh, l1_key))
         for t in (qs, ks, vs):
             ttnn.deallocate(t)
     FP32_SOFTMAX_STATS["blocks"] += len(parts)
@@ -889,7 +912,7 @@ def _fp32_softmax_attention(
 
 
 def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_config,
-                                  out_dtype, bias_scale_inv, shard=None):
+                                  out_dtype, bias_scale_inv, shard=None, l1_key=None):
     """One row block of `_fp32_softmax_attention`. The whole tensor is one block below the budget.
 
     ``shard`` height-shards the block so the four steps between the two matmuls stay in L1. Both
@@ -899,17 +922,40 @@ def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_confi
     # bf16 operands, fp32_dest_acc -> bf16 scores (the existing einsum recipe).
     sc = batched_matmul(q, kt, compute_kernel_config=compute_kernel_config)
     ttnn.deallocate(kt)
+    attn_bf = None
+    if shard is not None:
+        try:
+            attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, shard)
+        except RuntimeError:
+            # The shard allocated but the sharded softmax could not fit its circular buffers
+            # around it. Retire this geometry and take the interleaved tail, which is the same
+            # ops on the same dtypes and therefore the same bits.
+            _FP32_SOFTMAX_L1_REFUSED.add(l1_key)
+            FP32_SOFTMAX_STATS["l1_refused"] += 1
+            attn_bf = None
+    if attn_bf is None:
+        attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, None)
+    ttnn.deallocate(sc)
+    o = batched_matmul(attn_bf, v, compute_kernel_config=compute_kernel_config, dtype=out_dtype)
+    ttnn.deallocate(attn_bf)
+    return o
+
+
+def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard):
+    """bf16 scores -> bf16 attention weights, both interleaved. ``shard`` keeps the middle in L1.
+
+    ``sc0`` is left allocated either way, so a caller can retry interleaved after a refusal.
+    """
     if shard is not None:
         # typecast refuses a layout change, so the bf16 scores move to L1 first and the fp32 copy
         # is born sharded. That read is the tail's only DRAM read. The bf16 half is freed the
         # moment the fp32 copy exists: holding both plus the bf16 result at the end of the tail is
         # 1.5 MB/core and refuses.
-        sc_l1 = ttnn.to_memory_config(sc, shard)
-        ttnn.deallocate(sc)
+        sc_l1 = ttnn.to_memory_config(sc0, shard)
         sc = ttnn.typecast(sc_l1, ttnn.float32, memory_config=shard)
         ttnn.deallocate(sc_l1)
     else:
-        sc = ttnn.typecast(sc, ttnn.float32, memory_config=sc.memory_config())
+        sc = ttnn.typecast(sc0, ttnn.float32, memory_config=sc0.memory_config())
     bias_f = ttnn.typecast(bias, ttnn.float32, memory_config=bias.memory_config())
     # undo the pair-bias pre-bake (sqrt(h) for Boltz/Protenix, 1.0 for openfold3)
     bias_f = ttnn.multiply(bias_f, scale_inv if bias_scale_inv is None else bias_scale_inv)
@@ -921,7 +967,11 @@ def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_confi
         attn = ttnn.add_(sc, bias_f, input_tensor_a_activations=[
             ttnn.UnaryWithParam(ttnn.UnaryOpType.MUL_UNARY_SFPU, scale_inv)])
         ttnn.deallocate(bias_f)
-        attn = ttnn.softmax_in_place(attn)
+        try:
+            attn = ttnn.softmax_in_place(attn)
+        except RuntimeError:
+            ttnn.deallocate(attn)
+            raise
     else:
         FP32_SOFTMAX_STATS["unfused"] += 1
         sc = ttnn.multiply(sc, scale_inv)
@@ -935,9 +985,7 @@ def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_confi
         attn_i = ttnn.to_memory_config(attn_bf, ttnn.DRAM_MEMORY_CONFIG)
         ttnn.deallocate(attn_bf)
         attn_bf = attn_i
-    o = batched_matmul(attn_bf, v, compute_kernel_config=compute_kernel_config, dtype=out_dtype)
-    ttnn.deallocate(attn_bf)
-    return o
+    return attn_bf
 
 
 # The pair-tensor dim0/dim1 transpose is 4.0474 ms on [512,512,256] bf16 DRAM->DRAM, 66.3 GB/s
