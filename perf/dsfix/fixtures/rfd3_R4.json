@@ -1,0 +1,7 @@
+{
+  "R4_b100": {
+    "input": "perf/dsfix/targets/R4_9q6y_A.pdb",
+    "contig": "A1-585,100",
+    "length": "100"
+  }
+}
