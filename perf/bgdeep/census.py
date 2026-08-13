@@ -132,8 +132,47 @@ def main() -> int:
     from tt_bio.boltzgen.model.models import boltz as BZ
     _orig_boltz_fwd = BZ.Boltz.forward
 
+    # E1d: the planning pass left 7.63 s/design of `Boltz.forward` un-attributed (17.1 %, larger
+    # than tri-att + trimul combined). Wrap the named submodules `forward` actually calls, so the
+    # residual is decomposed instead of estimated. These are torch nn.Modules, so replacing the
+    # bound `forward` on the INSTANCE is enough -- `obj(...)` routes through it.
+    E1D_SUBMODULES = (
+        "input_embedder", "inverse_folding_encoder", "s_init", "rel_pos", "token_bonds",
+        "token_bonds_type", "contact_conditioning", "token_distance_module", "template_module",
+        "msa_module", "pairformer_module", "distogram_module", "bfactor_module",
+        "confidence_module", "masker",
+    )
+
+    # Per-design snapshots. The planning pass averaged a COLD design 1 (which JIT-compiles the
+    # whole ~1275-program diffusion graph) together with a warm one, so every row of its table is
+    # inflated. Snapshot the timers at each design boundary and report the designs separately.
+    PER_DESIGN = []
+
+    def _snapshot():
+        return {k: (v["n"], v["s"]) for k, v in WALL.items()}
+
     def boltz_fwd(self, *x, **k):
-        return _t("stage:Boltz.forward", _orig_boltz_fwd, self, *x, **k)
+        if not getattr(self, "_e1d_wrapped", False):
+            self._e1d_wrapped = True
+            for nm in E1D_SUBMODULES:
+                sub = getattr(self, nm, None)
+                if sub is None or not callable(getattr(sub, "forward", None)):
+                    continue
+                key = f"e1d:{nm}"
+                installed[key] = True
+                setattr(sub, "forward",
+                        (lambda g, kk: lambda *a2, **k2: _t(kk, g, *a2, **k2))(sub.forward, key))
+        before = _snapshot()
+        try:
+            return _t("stage:Boltz.forward", _orig_boltz_fwd, self, *x, **k)
+        finally:
+            after = _snapshot()
+            PER_DESIGN.append({
+                k: {"calls": after[k][0] - before.get(k, (0, 0.0))[0],
+                    "s": round(after[k][1] - before.get(k, (0, 0.0))[1], 4)}
+                for k in after
+                if after[k][0] - before.get(k, (0, 0.0))[0] > 0
+            })
 
     BZ.Boltz.forward = boltz_fwd
     installed["stage:Boltz.forward"] = True
@@ -170,6 +209,7 @@ def main() -> int:
                    "ATOM_WINDOW": T.ATOM_WINDOW, **DIFF_SHAPE},
         "wall_by_component": {k: {"calls": v["n"], "s": round(v["s"], 4)}
                               for k, v in sorted(WALL.items())},
+        "per_design": PER_DESIGN,
         "levers": {
             "K1_head_major_qkv": {"served": HM.STATS[0], "declined": HM.STATS[1],
                                   "rejects": {f"{k}": v for k, v
