@@ -278,7 +278,10 @@ def main():
         # non-constant arm provably runs the shipped value rather than inheriting the last arms.
         T.TRANSITION_H_CHUNK_SIZE_BIG = TRANSITION_BIG.get(name, TRANS_BIG_DEFAULT)
         T.TRIANGLE_MULT_L1_MAX_SEQ = L1MAX.get(name, L1MAX_DEFAULT)
-        T._TRANSITION_CHUNK_SEEN.clear()
+        # The chunk census is instrumentation that only ever lived on wk/protenix-v2-sizes-perf;
+        # main has no _TRANSITION_CHUNK_SEEN. Absent is recorded as absent, not grafted into
+        # the engine for a measurement -- a counter that adds device syncs is not worth a merge.
+        getattr(T, "_TRANSITION_CHUNK_SEEN", {}).clear()
         T._pair_proj_program_config.cache_clear()
         T._L1_OUT_REFUSED.clear()
         if grp:
@@ -408,7 +411,7 @@ def main():
                    "transition_h_chunk_size_big": T.TRANSITION_H_CHUNK_SIZE_BIG,
                    "trimul_l1_max_seq": T.TRIANGLE_MULT_L1_MAX_SEQ,
                    "transition_chunks": {f"H{h}|W{w}|c{c}": v for (h, w, c), v
-                                         in sorted(T._TRANSITION_CHUNK_SEEN.items())}}
+                                         in sorted(getattr(T, "_TRANSITION_CHUNK_SEEN", {}).items())}}
             blk = rec["wall_ms"].get("block:PairformerLayer", {})
             rec["block_wall_ms"] = blk.get("ms")
             rec["block_calls"] = blk.get("calls")
