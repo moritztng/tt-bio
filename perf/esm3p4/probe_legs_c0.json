@@ -1,0 +1,156 @@
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "grid": [
+  11,
+  10
+ ],
+ "L": 512,
+ "l1_bank_bytes": 1461760,
+ "PAIR_PROJ_BW": 16,
+ "PAIR_PROJ_L1_BW": 16,
+ "PAIR_PROJ_L1_OUT": true,
+ "cfg": {
+  "rows8_bw8_l11": null,
+  "rows8_bw8_l10": null,
+  "rows8_bw4_l11": null,
+  "rows8_bw4_l10": null,
+  "rows8_bw2_l11": null,
+  "rows8_bw2_l10": {
+   "in0_block_w": 2,
+   "out_block_h": 5,
+   "out_block_w": 32,
+   "per_core_M": 5,
+   "out_subblock_h": 1,
+   "out_subblock_w": 4
+  },
+  "rows8_bw1_l11": null,
+  "rows8_bw1_l10": {
+   "in0_block_w": 1,
+   "out_block_h": 5,
+   "out_block_w": 32,
+   "per_core_M": 5,
+   "out_subblock_h": 1,
+   "out_subblock_w": 4
+  },
+  "rows16_bw8_l11": null,
+  "rows16_bw8_l10": null,
+  "rows16_bw4_l11": null,
+  "rows16_bw4_l10": null,
+  "rows16_bw2_l11": null,
+  "rows16_bw2_l10": {
+   "in0_block_w": 2,
+   "out_block_h": 5,
+   "out_block_w": 32,
+   "per_core_M": 5,
+   "out_subblock_h": 1,
+   "out_subblock_w": 4
+  },
+  "rows16_bw1_l11": null,
+  "rows16_bw1_l10": {
+   "in0_block_w": 1,
+   "out_block_h": 5,
+   "out_block_w": 32,
+   "per_core_M": 5,
+   "out_subblock_h": 1,
+   "out_subblock_w": 4
+  },
+  "rows32_bw8_l11": null,
+  "rows32_bw8_l10": null,
+  "rows32_bw4_l11": null,
+  "rows32_bw4_l10": null,
+  "rows32_bw2_l11": null,
+  "rows32_bw2_l10": {
+   "in0_block_w": 2,
+   "out_block_h": 5,
+   "out_block_w": 32,
+   "per_core_M": 5,
+   "out_subblock_h": 1,
+   "out_subblock_w": 4
+  },
+  "rows32_bw1_l11": null,
+  "rows32_bw1_l10": {
+   "in0_block_w": 1,
+   "out_block_h": 5,
+   "out_block_w": 32,
+   "per_core_M": 5,
+   "out_subblock_h": 1,
+   "out_subblock_w": 4
+  },
+  "rows64_bw8_l11": null,
+  "rows64_bw8_l10": null,
+  "rows64_bw4_l11": null,
+  "rows64_bw4_l10": null,
+  "rows64_bw2_l11": null,
+  "rows64_bw2_l10": {
+   "in0_block_w": 2,
+   "out_block_h": 5,
+   "out_block_w": 32,
+   "per_core_M": 10,
+   "out_subblock_h": 1,
+   "out_subblock_w": 4
+  },
+  "rows64_bw1_l11": null,
+  "rows64_bw1_l10": {
+   "in0_block_w": 1,
+   "out_block_h": 5,
+   "out_block_w": 32,
+   "per_core_M": 10,
+   "out_subblock_h": 1,
+   "out_subblock_w": 4
+  },
+  "rows512_bw8_l11": null,
+  "rows512_bw8_l10": null,
+  "rows512_bw4_l11": null,
+  "rows512_bw4_l10": null,
+  "rows512_bw2_l11": null,
+  "rows512_bw2_l10": {
+   "in0_block_w": 2,
+   "out_block_h": 5,
+   "out_block_w": 32,
+   "per_core_M": 75,
+   "out_subblock_h": 1,
+   "out_subblock_w": 4
+  },
+  "rows512_bw1_l11": null,
+  "rows512_bw1_l10": {
+   "in0_block_w": 1,
+   "out_block_h": 5,
+   "out_block_w": 32,
+   "per_core_M": 75,
+   "out_subblock_h": 1,
+   "out_subblock_w": 4
+  }
+ },
+ "legs": {
+  "rows32": [
+   "DRAM_linear_core_grid"
+  ],
+  "rows16": [
+   "DRAM_linear_core_grid"
+  ],
+  "rows8": [
+   "DRAM_linear_core_grid"
+  ]
+ },
+ "exact": {
+  "rows32": {
+   "equal": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "n_elem": 67108864
+  },
+  "rows16": {
+   "equal": false,
+   "max_abs": 0.001953125,
+   "n_diff": 30311847,
+   "n_elem": 67108864
+  },
+  "rows8": {
+   "equal": false,
+   "max_abs": 0.001953125,
+   "n_diff": 30311847,
+   "n_elem": 67108864
+  }
+ }
+}
