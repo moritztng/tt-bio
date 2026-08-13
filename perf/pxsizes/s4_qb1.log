@@ -172,3 +172,7 @@ Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/
       DEC trimul_inproj_group|N1024|c32|pairs8                 {'g=4': 1048}
       DEC trimul_pair_buffer|N1024                             {'DRAM': 1208}
 2026-08-13 04:38:40.762 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 134217728 B L1 buffer across 130 banks, where each bank needs to store 1034240 B, but bank size is 1461760 B (allocated: 1034240 B, free: 427520 B, largest free block: 427520 B) (assert.hpp:104)
+Terminated
+benchlock: protenix-v2-sizes-perf released, rc=143, loadavg 1.00 1.04 1.16
+RC_1024=143
+=== done: 2026-08-13T04:54:01+00:00 ===
