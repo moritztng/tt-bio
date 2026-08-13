@@ -261,11 +261,9 @@ def set_enabled(on: bool) -> bool:
 # --- L6b: the same bias, fused into the score path -------------------------------------------
 # cb ids for the fused op. The three scratch buffers are reader-local (it only ever takes their
 # write pointer), so their depth is a size and not a pipeline knob.
-F_SCORES_CB, F_BIAS_CB, F_IDX_CB, F_PB_CB, F_CUR_CB, F_OUT_CB = 0, 1, 2, 3, 4, 16
-# L6d: one pristine all-fill page. A used slot is restored by copying 4 KB from it instead of
-# replaying the tile's poke walk backwards. 1 = copy (default), 0 = the replay.
-F_TPL_CB = 5
-F_TPLCOPY = int(os.environ.get("RFD3_FUSED_TPLCOPY", "1"))
+# The pristine all-fill page is how a used slot is restored: one 4 KB local L1->L1 copy, measured
+# 1.686 -> 1.393 ms/call against replaying the tile's poke walk backwards (state §28), bit-exact.
+F_SCORES_CB, F_BIAS_CB, F_IDX_CB, F_PB_CB, F_TPL_CB, F_OUT_CB = 0, 1, 2, 3, 4, 16
 # cb_bias / cb_out depth. Both must be powers of two: the reader and the writer index the ring
 # with a mask, because they track their own slot rather than trusting a CB pointer across a wrap.
 F_BIAS_SLOTS = int(os.environ.get("RFD3_FUSED_BIAS_SLOTS", "8"))
@@ -316,7 +314,6 @@ def _fbuild(scores, pair_bias, idx_rm, out, device, scale, acc):
         cb(F_OUT_CB, ttnn.float32, TILE_H * TILE_W * 4, F_OUT_SLOTS),
         cb(F_IDX_CB, ttnn.uint32, K * 4, TILE_H),
         cb(F_PB_CB, ttnn.bfloat16, TILE_H * TILE_W * 2, Kt),
-        cb(F_CUR_CB, ttnn.uint32, TILE_H * 4, F_BIAS_SLOTS),
         cb(F_TPL_CB, ttnn.float32, TILE_H * TILE_W * 4, 1),
     ]
 
@@ -333,9 +330,9 @@ def _fbuild(scores, pair_bias, idx_rm, out, device, scale, acc):
         kernel_source=str(KERNEL_DIR / "reader_fused_scores.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
         core_ranges=core_grid,
-        compile_time_args=[F_SCORES_CB, F_BIAS_CB, F_IDX_CB, F_PB_CB, F_CUR_CB,
+        compile_time_args=[F_SCORES_CB, F_BIAS_CB, F_IDX_CB, F_PB_CB, F_TPL_CB,
                            It, Jt, Kt, K, L, _fill_bits(-1e4), F_BIAS_SLOTS,
-                           F_NOPOKE, F_TPLCOPY, F_TPL_CB] + list(acc),
+                           F_NOPOKE] + list(acc),
         runtime_args=reader_rt, common_runtime_args=[0, 0, 0],
         config=ttnn.ReaderConfigDescriptor(),
     )
@@ -412,7 +409,7 @@ def fused_scores_bias_fp32(scores, pair_bias, idx_rm, scale, out=None, memory_co
     )
     key = _cache_key(pair_bias, idx_rm, out, device, tuple(acc)) + (
         tuple(int(d) for d in scores.shape), str(scores.dtype), _scale_bits(scale),
-        F_NOPOKE, F_DIAG_COPY, F_TPLCOPY,
+        F_NOPOKE, F_DIAG_COPY,
     )
     entry = _FCACHE.get(key)
     if entry is None:

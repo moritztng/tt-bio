@@ -10,15 +10,18 @@
 //     -> typecast(scores, fp32) -> add(scores * scale, bias)
 // with one pass reading 90.3 MB and writing 180.6 MB at the production shape.
 //
-// The bias half is writer_sparse_bias.cpp's walk, unchanged in substance: a group is one
-// (head, tile-row) band, the band's 32 index rows are read once and walked with a per-row
-// cursor as the tile-column window advances (idx is sorted ascending along K), each L1 slot is
-// primed with the mask constant once and afterwards only ever REPAIRED by replaying the walk of
-// the tile that last used it. The one difference is where the tile goes: into a circular buffer
-// for the compute kernel instead of to DRAM. So the repair has to reclaim slots through
-// cb_reserve_back -- a slot is only safe to touch once the compute kernel has consumed it -- and
-// the reclaim must happen while THIS band's index rows are still the ones in L1, which is why
-// the whole ring is drained at the end of every band.
+// The bias half is writer_sparse_bias.cpp's walk: a group is one (head, tile-row) band, the band's
+// 32 index rows are read once and walked with a per-row cursor as the tile-column window advances
+// (idx is sorted ascending along K), and the tile goes into a circular buffer for the compute kernel
+// instead of to DRAM.
+//
+// A used L1 slot returns to all-fill by ONE local 4 KB L1->L1 copy from a pristine template page.
+// writer_sparse_bias.cpp instead replayed the tile's walk writing the mask constant back, which is
+// ~120 scalar L1 accesses per tile; the copy measured 1.686 -> 1.393 ms/call against it at the
+// production shape, bit-exact, and it also removes the per-band ring reclaim, the coupling that
+// forced that reclaim to happen while the band's index rows were still in L1, and 32 cursor stores
+// per tile. The invariant is "every free slot is pristine": true at entry, and each tile restores the
+// NEXT slot while poking the current one, so the read barrier already in the loop covers it.
 //
 // IMPORTANT: use the api/-prefixed include path (bare dataflow_api.h is a known device-wedge
 // cause in this codebase).
@@ -41,7 +44,7 @@ void kernel_main() {
     constexpr uint32_t cb_bias = get_compile_time_arg_val(1);
     constexpr uint32_t cb_idx = get_compile_time_arg_val(2);   // reader-local scratch
     constexpr uint32_t cb_pb = get_compile_time_arg_val(3);    // reader-local scratch
-    constexpr uint32_t cb_cur = get_compile_time_arg_val(4);   // reader-local scratch
+    constexpr uint32_t cb_tpl = get_compile_time_arg_val(4);   // the pristine all-fill page
     constexpr uint32_t It = get_compile_time_arg_val(5);
     constexpr uint32_t Jt = get_compile_time_arg_val(6);
     constexpr uint32_t Kt = get_compile_time_arg_val(7);
@@ -53,17 +56,7 @@ void kernel_main() {
     // every read, every CB handshake, the compute pass and the write, so the op splits into "the
     // pipeline" and "the per-element placement". That decomposition is what refuted L6c.
     constexpr uint32_t NOPOKE = get_compile_time_arg_val(12);
-    // L6d. How a used L1 slot returns to all-fill before it is written again:
-    //   0 = replay the tile's cursor walk, writing `fill` where it wrote bias (~120 scalar L1
-    //       accesses per tile, and it forces the reclaim to happen while the band's index rows are
-    //       still in L1);
-    //   1 = copy 4 KB from one pristine template page, ONE local L1->L1 NOC transaction, which also
-    //       removes the per-band reclaim and the 32 cursor stores per tile.
-    // The invariant under 1 is "every free slot is pristine": true at entry, and each tile restores
-    // the NEXT slot while poking the current one, so the barrier already in the loop covers it.
-    constexpr uint32_t TPLCOPY = get_compile_time_arg_val(13);
-    constexpr uint32_t cb_tpl = get_compile_time_arg_val(14);
-    constexpr auto scores_args = TensorAccessorArgs<15>();
+    constexpr auto scores_args = TensorAccessorArgs<13>();
     constexpr auto pb_args = TensorAccessorArgs<scores_args.next_compile_time_args_offset()>();
     constexpr auto idx_args = TensorAccessorArgs<pb_args.next_compile_time_args_offset()>();
 
@@ -81,8 +74,6 @@ void kernel_main() {
         reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_write_ptr(cb_idx));
     const uint32_t pb_base = get_write_ptr(cb_pb);
     volatile tt_l1_ptr uint16_t* pb_l1 = reinterpret_cast<volatile tt_l1_ptr uint16_t*>(pb_base);
-    volatile tt_l1_ptr uint32_t* slot_l1 =
-        reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_write_ptr(cb_cur));
     // The ring base. Captured before any push, so page `s` of the ring is bias_base + s*4096 and
     // the slot the n-th push lands in is n % SLOTS -- the same bookkeeping the DRAM version did
     // with jt, and it must agree with the CB's own pointer, which advances one page per push.
@@ -96,50 +87,17 @@ void kernel_main() {
         }
     }
     const uint32_t tpl_addr = get_write_ptr(cb_tpl);
-    uint64_t tpl_noc = 0;
-    if constexpr (TPLCOPY) {
+    {
         volatile tt_l1_ptr uint32_t* p = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(tpl_addr);
         for (uint32_t w = 0; w < OUT_TILE_WORDS; ++w) {
             p[w] = fill;
         }
-        tpl_noc = get_noc_addr(tpl_addr);
     }
+    const uint64_t tpl_noc = get_noc_addr(tpl_addr);
 
-    constexpr uint32_t NO_TILE = 0xFFFFFFFFu;
-    uint32_t slot_jt[SLOTS];
-    uint32_t slot_rows[SLOTS];
-    for (uint32_t slot = 0; slot < SLOTS; ++slot) {
-        slot_jt[slot] = NO_TILE;
-        slot_rows[slot] = 0;
-    }
     uint32_t cur[TILE_H];
     uint32_t pushed = 0;
 
-    // Restore slot `slot` to all-fill by replaying the walk of the tile that last used it. Only
-    // ever called with idx_l1 still holding the band that tile belonged to, and only after the
-    // compute kernel has released the page.
-    auto repair = [&](uint32_t slot) {
-        if (TPLCOPY || NOPOKE || slot_jt[slot] == NO_TILE) {
-            return;
-        }
-        volatile tt_l1_ptr uint32_t* out_l1 =
-            reinterpret_cast<volatile tt_l1_ptr uint32_t*>(bias_base + slot * OUT_TILE_BYTES);
-        volatile tt_l1_ptr uint32_t* sc = slot_l1 + slot * TILE_H;
-        const uint32_t lo = slot_jt[slot] * 32;
-        const uint32_t hi = lo + 32;
-        const uint32_t nr = slot_rows[slot];
-        for (uint32_t r = 0; r < nr; ++r) {
-            volatile tt_l1_ptr uint32_t* irow = idx_l1 + r * K;
-            for (uint32_t sidx = sc[r]; sidx < K; ++sidx) {
-                const uint32_t j = irow[sidx];
-                if (j >= hi) {
-                    break;
-                }
-                out_l1[face_off(r, j - lo)] = fill;
-            }
-        }
-        slot_jt[slot] = NO_TILE;
-    };
 
     const uint32_t end_group = start_group + num_groups;
     for (uint32_t group = start_group; group < end_group; ++group) {
@@ -171,22 +129,16 @@ void kernel_main() {
             noc_async_read(s_scores.get_noc_addr(tile_page0 + jt), get_write_ptr(cb_scores),
                            SCORES_TILE_BYTES);
 
-            // Under TPLCOPY the next slot is reserved as well, because this tile restores it.
-            cb_reserve_back(cb_bias, TPLCOPY ? 2 : 1);
+            // The next slot is reserved as well, because this tile restores it.
+            cb_reserve_back(cb_bias, 2);
             const uint32_t slot = pushed & (SLOTS - 1);
             volatile tt_l1_ptr uint32_t* out_l1 =
                 reinterpret_cast<volatile tt_l1_ptr uint32_t*>(bias_base + slot * OUT_TILE_BYTES);
-            repair(slot);
-
-            volatile tt_l1_ptr uint32_t* sc = slot_l1 + slot * TILE_H;
             const uint32_t col_lo = jt * 32;
             const uint32_t col_hi = col_lo + 32;
             for (uint32_t r = 0; NOPOKE ? false : r < rows; ++r) {
                 volatile tt_l1_ptr uint32_t* irow = idx_l1 + r * K;
                 uint32_t sidx = cur[r];
-                if constexpr (!TPLCOPY) {
-                    sc[r] = sidx;   // the replay's only state; the template copy needs none
-                }
                 while (sidx < K) {
                     const uint32_t j = irow[sidx];
                     if (j >= col_hi) {
@@ -199,31 +151,15 @@ void kernel_main() {
                 }
                 cur[r] = sidx;
             }
-            slot_jt[slot] = jt;
-            slot_rows[slot] = rows;
-
-            if constexpr (TPLCOPY) {
-                // Restore the slot this core will poke next. It is free (reserved above) and dirty
-                // from its previous use, so this one transaction is the whole repair.
-                noc_async_read(tpl_noc,
-                               bias_base + ((pushed + 1) & (SLOTS - 1)) * OUT_TILE_BYTES,
-                               OUT_TILE_BYTES);
-            }
+            // Restore the slot this core will poke next. It is free (reserved above) and dirty
+            // from its previous use, so this one transaction is the whole repair.
+            noc_async_read(tpl_noc, bias_base + ((pushed + 1) & (SLOTS - 1)) * OUT_TILE_BYTES,
+                           OUT_TILE_BYTES);
             noc_async_read_barrier();
             cb_push_back(cb_scores, 1);
             cb_push_back(cb_bias, 1);
             ++pushed;
         }
 
-        if constexpr (!TPLCOPY) {
-            // Reclaim the whole ring before the band's index rows are overwritten: reserving every
-            // page waits until the compute kernel has consumed all of them, and the replay is only
-            // correct against the index rows of the band that wrote them. The template copy has no
-            // such coupling, which is why it needs nothing here.
-            cb_reserve_back(cb_bias, SLOTS);
-            for (uint32_t slot = 0; slot < SLOTS; ++slot) {
-                repair(slot);
-            }
-        }
     }
 }
