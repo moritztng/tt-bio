@@ -35,12 +35,32 @@ _TILE_BYTES = {ttnn.bfloat16: 2048, ttnn.float32: 4096}
 _CACHE: dict = {}
 
 
-def _kernel_dir(kind="minimal_matmul"):
-    """The wheel's own kernel sources. Pointed at in place so their sibling includes resolve."""
+def ttnn_cpp_root():
+    """The directory holding ttnn's C++ ``cpp/`` tree, whichever way ttnn was installed.
+
+    Kernel sources are pointed at in place so their sibling includes resolve, which means
+    this path has to be right. The pip wheel vendors them at ``<pkg>/ttnn/cpp``; a source
+    build imports ttnn from ``<checkout>/ttnn/ttnn`` and keeps them at ``<checkout>/ttnn/cpp``.
+    Assuming the wheel layout produced ``<checkout>/ttnn/ttnn/ttnn/cpp/...`` on a source
+    build, so every generic_op kernel failed to JIT-build with "No such file or directory"
+    and four of the release gate's models could not fold at all.
+    """
+    import os
     import ttnn as _t
     from pathlib import Path
     root = Path(_t.__file__).resolve().parent
-    return root / "ttnn/cpp/ttnn/operations/experimental" / kind / "device/kernels"
+    candidates = [root / "ttnn", root.parent]
+    metal_home = os.environ.get("TT_METAL_HOME")
+    if metal_home:
+        candidates.append(Path(metal_home) / "ttnn")
+    for cand in candidates:
+        if (cand / "cpp" / "ttnn" / "operations").is_dir():
+            return cand
+    return candidates[0]
+
+
+def _kernel_dir(kind="minimal_matmul"):
+    return ttnn_cpp_root() / "cpp/ttnn/operations/experimental" / kind / "device/kernels"
 
 
 def ckc_args(ckc):
