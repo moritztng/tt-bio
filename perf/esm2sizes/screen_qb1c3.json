@@ -1,0 +1,116 @@
+{
+ "host": "tt-quietbox",
+ "card": "3",
+ "grid": [
+  13,
+  10
+ ],
+ "cz": 256,
+ "d_ff": 1024,
+ "PAIR_PROJ_BW": 16,
+ "PAIR_PROJ_L1_BW": 16,
+ "sizes": {
+  "768": {
+   "arms": {
+    "ref_shipped": 165.935,
+    "A_split": 145.71,
+    "D_engine_full": 146.86,
+    "C_rows8": 38.909,
+    "C_rows16": 38.906,
+    "C_rows32": 37.243,
+    "E_lin_L1gated_rows8": 38.899,
+    "E_lin_L1gated_rows16": 39.007,
+    "E_lin_L1gated_rows32": 37.296,
+    "F_lin_DRAMgated_rows8": 46.924,
+    "F_lin_DRAMgated_rows16": 46.108,
+    "F_lin_DRAMgated_rows32": 45.062
+   },
+   "exact_vs_shipped": {
+    "A_split": true,
+    "D_engine_full": true,
+    "C_rows8": false,
+    "C_rows16": true,
+    "C_rows32": true,
+    "E_lin_L1gated_rows8": false,
+    "E_lin_L1gated_rows16": true,
+    "E_lin_L1gated_rows32": true,
+    "F_lin_DRAMgated_rows8": false,
+    "F_lin_DRAMgated_rows16": true,
+    "F_lin_DRAMgated_rows32": true
+   },
+   "legs": {
+    "A_split": {},
+    "D_engine_full": {
+     "core_grid_untuned": 16
+    },
+    "C_rows8": {
+     "L1_cfg_None->core_grid_untuned": 1536
+    },
+    "C_rows16": {
+     "L1_cfg_None->core_grid_untuned": 768
+    },
+    "C_rows32": {
+     "L1_cfg_None->core_grid_untuned": 384
+    },
+    "E_lin_L1gated_rows8": {},
+    "E_lin_L1gated_rows16": {},
+    "E_lin_L1gated_rows32": {},
+    "F_lin_DRAMgated_rows8": {},
+    "F_lin_DRAMgated_rows16": {},
+    "F_lin_DRAMgated_rows32": {}
+   },
+   "l1_refused_cache": []
+  },
+  "1024": {
+   "arms": {
+    "ref_shipped": 114.766,
+    "A_split": 77.936,
+    "D_engine_full": 77.848,
+    "C_rows8": 65.647,
+    "C_rows16": 70.208,
+    "C_rows32": 70.669,
+    "E_lin_L1gated_rows8": 65.755,
+    "E_lin_L1gated_rows16": 70.273,
+    "E_lin_L1gated_rows32": 70.789,
+    "F_lin_DRAMgated_rows8": 77.59,
+    "F_lin_DRAMgated_rows16": 84.611,
+    "F_lin_DRAMgated_rows32": 85.269
+   },
+   "exact_vs_shipped": {
+    "A_split": true,
+    "D_engine_full": true,
+    "C_rows8": false,
+    "C_rows16": true,
+    "C_rows32": true,
+    "E_lin_L1gated_rows8": false,
+    "E_lin_L1gated_rows16": true,
+    "E_lin_L1gated_rows32": true,
+    "F_lin_DRAMgated_rows8": false,
+    "F_lin_DRAMgated_rows16": true,
+    "F_lin_DRAMgated_rows32": true
+   },
+   "legs": {
+    "A_split": {},
+    "D_engine_full": {
+     "core_grid_untuned": 16
+    },
+    "C_rows8": {
+     "L1_cfg_None->core_grid_untuned": 2048
+    },
+    "C_rows16": {
+     "L1_cfg_None->core_grid_untuned": 1024
+    },
+    "C_rows32": {
+     "L1_cfg_None->core_grid_untuned": 512
+    },
+    "E_lin_L1gated_rows8": {},
+    "E_lin_L1gated_rows16": {},
+    "E_lin_L1gated_rows32": {},
+    "F_lin_DRAMgated_rows8": {},
+    "F_lin_DRAMgated_rows16": {},
+    "F_lin_DRAMgated_rows32": {}
+   },
+   "l1_refused_cache": []
+  }
+ }
+}
