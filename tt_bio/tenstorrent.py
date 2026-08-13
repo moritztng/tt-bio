@@ -2099,8 +2099,8 @@ def _trimul_out_proj(
 # `p_out` and `g_out` never become tensors, so the tail reads 2 pair tensors and writes 1 instead of
 # 4 and 3. Bit-exact against the three ops it replaces -- `torch.equal` at 11 shapes from N=32 to
 # 576, `perf/trimul_f1/f1_parity.py`.
-# Default OFF. It is real but small: -684.20 ms on the trimul body wall and -0.459 s on the fold
-# wall at 512 aa, byte-identical CIF (`perf/trimul_f1/fold_ab_f1_main_qb1c3.json`). Deleted bytes
+# Default OFF. It is real but small: -679.47 ms on the trimul body wall at 512 aa, against a 33.46 ms
+# A/A floor, byte-identical CIF (`perf/trimul_f1/fold_ab_f1_main_qb1c1.json`). Deleted bytes
 # at this site return ~39 % of what the 271.5 GB/s write roof prices them at, which is why the
 # levers that would have been stacked on top of it (both layer norms inside the same kernel) were
 # repriced to ~-0.39 s each and not built. Flipping it on is a release-gate decision, not a default.
