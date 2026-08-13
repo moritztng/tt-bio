@@ -33,7 +33,7 @@ import torch
 import ttnn
 
 KDIR = Path(__file__).resolve().parent / "s1b_kernels"
-IN_CB, OUT_CB = 0, 16
+IN_CB, OUT_CB, SCRATCH_CB = 0, 16, 24
 TILE = 32
 FP32_TILE_BYTES = TILE * TILE * 4
 
@@ -55,7 +55,7 @@ def build(device, x, out, arm, K, outer, is_32bit=1):
             total_size=depth * FP32_TILE_BYTES, core_ranges=core_grid, format_descriptors=[fmt]
         )
 
-    cbs = [cb(IN_CB, 2), cb(OUT_CB, 2)]
+    cbs = [cb(IN_CB, 2), cb(OUT_CB, 2), cb(SCRATCH_CB, 2)]
 
     reader_ct = [IN_CB, FP32_TILE_BYTES, 2]
     reader_ct.extend(ttnn.TensorAccessorArgs(x).get_compile_time_args())
@@ -88,7 +88,7 @@ def build(device, x, out, arm, K, outer, is_32bit=1):
         kernel_source=str(KDIR / "compute_s1b.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
         core_ranges=core_grid,
-        compile_time_args=[IN_CB, OUT_CB, ARMS[arm], K, is_32bit],
+        compile_time_args=[IN_CB, OUT_CB, SCRATCH_CB, ARMS[arm], K, is_32bit],
         runtime_args=compute_rt,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True
@@ -148,7 +148,11 @@ def main():
         res["sweep"] = {}
         for arm in ("copy_only", "sfpu_dest", "fpu_mul", "fpu_matmul", "transpose"):
             res["sweep"][arm] = {}
-            Ks = (0,) if arm == "copy_only" else (1, 2, 4, 8, 16, 32)
+            # sfpu_dest is the gate, so it gets the full sweep; the other arms need only enough
+            # points to separate flat from linear, and every extra K is a ~25 s JIT compile.
+            Ks = ((0,) if arm == "copy_only"
+                  else (1, 2, 4, 8, 16, 32) if arm == "sfpu_dest"
+                  else (1, 4, 16))
             for K in Ks:
                 try:
                     ms, got = run(dev, x, out, arm, K, OUTER)
