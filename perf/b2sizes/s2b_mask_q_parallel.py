@@ -16,6 +16,7 @@ import json
 import os
 import statistics
 import time
+from pathlib import Path
 
 import torch
 
@@ -26,7 +27,7 @@ def main():
     ap.add_argument("--heads", type=int, default=4)
     ap.add_argument("--dh", type=int, default=32)
     ap.add_argument("--reps", type=int, default=7)
-    ap.add_argument("--out", default="perf/b2sizes/s2b_mask_q_parallel.json")
+    ap.add_argument("--out", default="perf/b2sizes/s2b_screen.json")
     a = ap.parse_args()
 
     import ttnn
@@ -41,32 +42,25 @@ def main():
     for N in [int(s) for s in a.sizes.split(",")]:
         H, DH = a.heads, a.dh
         torch.manual_seed(0)
-        parts = []
-        for _ in range(3):
-            parts.append(torch.randn(N, H, N, DH, dtype=torch.float32).to(torch.bfloat16))
-        tb = torch.randn(1, H, N, N, dtype=torch.float32).to(torch.bfloat16)
 
         def up(t):
             return ttnn.from_torch(t, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev,
                                    memory_config=ttnn.DRAM_MEMORY_CONFIG)
 
-        q, k, v = (up(t) for t in parts)
-        b = up(tb)
-        del parts, tb
+        q, k, v = (up(torch.randn(N, H, N, DH).to(torch.bfloat16)) for _ in range(3))
+        b = up(torch.randn(1, H, N, N).to(torch.bfloat16))
         scale = float(DH) ** -0.5
         rec = {"N": N, "shape": [N, H, N, DH], "arms": {}}
+        out_t = {}
 
         for arm, qpar in (("A_shipped", False), ("B_q_parallel", True)):
             PM._Q_PARALLEL = qpar
-            PM.STATS[0] = PM.STATS[1] = 0
-            PM.REJECTS.clear()
-            for _ in range(2):                                    # warm: also caches L1 refusals
+            for _ in range(2):                          # warm; also caches the L1 refusals once
                 o = T._tri_att_sdpa_at(q, k, v, b, scale)
                 ttnn.deallocate(o)
             PM.STATS[0] = PM.STATS[1] = 0
             PM.REJECTS.clear()
             ms = []
-            keep = None
             for i in range(a.reps):
                 ttnn.synchronize_device(dev)
                 t0 = time.perf_counter()
@@ -74,37 +68,36 @@ def main():
                 ttnn.synchronize_device(dev)
                 ms.append((time.perf_counter() - t0) * 1e3)
                 if i == a.reps - 1:
-                    keep = ttnn.to_torch(o)
+                    out_t[arm] = ttnn.to_torch(o)
                 ttnn.deallocate(o)
+            rej = {}
+            for key, n in PM.REJECTS.items():
+                rej[str(key[0]) + ":" + str(tuple(key[1]))] = n
             rec["arms"][arm] = {
                 "q_parallel": qpar, "ms_median": round(statistics.median(ms), 3),
                 "ms_min": round(min(ms), 3), "ms_all": [round(x, 3) for x in ms],
-                "k2_served": PM.STATS[0], "k2_declined": PM.STATS[1],
-                "k2_rejects": {f"{r}:{sh}": n for (r, sh), n in PM.REJECTS.items()},
+                "k2_served": PM.STATS[0], "k2_declined": PM.STATS[1], "k2_rejects": rej,
                 "sdpa_q_chunk_over_l1": sorted(str(x) for x in T._SDPA_Q_CHUNK_OVER_L1),
             }
-            rec.setdefault("_out", {})[arm] = keep
-            print(f"  N={N:5d} {arm:14s} q_par={int(qpar)} median {statistics.median(ms):9.3f} ms "
-                  f"served={PM.STATS[0]} declined={PM.STATS[1]} {rec[arms][arm][k2_rejects]}",
+            print("  N=%5d %-14s q_par=%d median %9.3f ms served=%d declined=%d %s"
+                  % (N, arm, int(qpar), statistics.median(ms), PM.STATS[0], PM.STATS[1], rej),
                   flush=True)
 
-        oa, ob = rec["_out"].pop("A_shipped"), rec["_out"].pop("B_q_parallel")
-        rec.pop("_out")
+        oa, ob = out_t["A_shipped"], out_t["B_q_parallel"]
         rec["torch_equal"] = bool(torch.equal(oa, ob))
-        d = (oa.float() - ob.float()).abs()
-        rec["max_abs_diff"] = float(d.max())
+        rec["max_abs_diff"] = float((oa.float() - ob.float()).abs().max())
         rec["speedup"] = round(rec["arms"]["A_shipped"]["ms_median"]
                                / rec["arms"]["B_q_parallel"]["ms_median"], 4)
-        print(f"  N={N:5d} speedup {rec[speedup]:.4f}x  torch.equal={rec[torch_equal]} "
-              f"max_abs_diff={rec[max_abs_diff]:.3e}", flush=True)
+        print("  N=%5d speedup %.4fx torch.equal=%s max_abs_diff=%.3e"
+              % (N, rec["speedup"], rec["torch_equal"], rec["max_abs_diff"]), flush=True)
         res["runs"].append(rec)
+        Path(a.out).write_text(json.dumps(res, indent=1))     # write per size, not only at the end
         for t in (q, k, v, b):
             ttnn.deallocate(t)
-        del oa, ob, d
+        del oa, ob, out_t
 
-    from pathlib import Path
     Path(a.out).write_text(json.dumps(res, indent=1))
-    print(f"wrote {a.out}")
+    print("wrote " + a.out)
 
 
 if __name__ == "__main__":
