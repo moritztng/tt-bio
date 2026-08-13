@@ -376,6 +376,11 @@ def _cached(cache, key, make):
     return v
 
 
+# Kill switch so a fold-level A/B can run both arms without a checkout. Bit-exact either way --
+# see TrunkModule._apply_template_noop.
+_TEMPLATE_NOOP_GATE = os.environ.get("TT_BIO_TEMPLATE_NOOP_GATE", "1") != "0"
+
+
 def _adaln_memory_config(atom_level: bool, large_seq_len: bool) -> ttnn.MemoryConfig | None:
     if not atom_level:
         return None
@@ -5653,6 +5658,28 @@ class TrunkModule(TorchWrapper):
             if has_templates else None
         )
 
+        # ---- the template module reduces to zero when the input carries no template ----
+        # BoltzGen's TemplateModule ends in
+        #     u = (v * template_mask).sum(dim=1) / num_templates ; u = u_proj(relu(u))
+        # (trunk.py:376-381) and `u_proj` has `bias=False`, so an all-zero `template_mask` gives a
+        # structurally exact zero delta -- proven from the source, not observed on one fixture, and
+        # MEASURED absmax 0.0 on 4/4 recycles at bg_R3. `_apply_template_host` then reduces to its
+        # only other effect: it slices the pair tensor to seq_len and re-pads with zeros, and the
+        # padded region really is dirty when it arrives (8.65e6 non-zero elements, absmax 17.25
+        # MEASURED at bg_R3), so the call is NOT a no-op and cannot simply be skipped. Multiplying
+        # by a keep mask on device reproduces it exactly and costs one program.
+        tmpl_noop = (
+            self.template_module_torch is not None
+            and not has_templates
+            and tm is not None
+            and not bool(tm.any().item())
+        )
+        tmpl_keep_mask = None
+        if tmpl_noop and seq_pad:
+            keep = z_init.new_zeros(1, padded_seq, padded_seq, 1)
+            keep[:, :seq_len, :seq_len, :] = 1.0
+            tmpl_keep_mask = self._from_torch(keep)
+
         # ---- token distances (BoltzGen only, device-resident injection) ----
         has_token_distance = self.token_distance_recycle is not None
         token_distance_static = (
@@ -5667,6 +5694,8 @@ class TrunkModule(TorchWrapper):
             "seq_pad": seq_pad,
             "has_templates": has_templates,
             "tmpl_static": tmpl_static,
+            "tmpl_noop": tmpl_noop,
+            "tmpl_keep_mask": tmpl_keep_mask,
             "has_token_distance": has_token_distance,
             "token_distance_static": token_distance_static,
             "feats": feats,
@@ -5692,6 +5721,20 @@ class TrunkModule(TorchWrapper):
         z_out = ttnn.add(z_rec, delta)
         ttnn.deallocate(z_rec)
         ttnn.deallocate(delta)
+        return z_out
+
+    def _apply_template_noop(self, z_rec, st):
+        """`z_rec = z_rec + template(z_rec)` when template(.) is provably zero: re-zero the pad.
+
+        MEASURED at bg_R3 on qb1 card 1, ttnn 0.67.4: the host path costs 3.455 s/design over 4
+        recycles (85 MB down, a full host TemplateModule forward, 85 MB up); this costs 513.89 us
+        per call, and `torch.equal` holds against the sliced-and-re-padded host result.
+        """
+        mask = st["tmpl_keep_mask"]
+        if mask is None:                       # seq_pad == 0: there is no pad to re-zero
+            return z_rec
+        z_out = ttnn.multiply(z_rec, mask)
+        ttnn.deallocate(z_rec)
         return z_out
 
     def _apply_token_distance(self, z_rec, st):
@@ -5739,7 +5782,9 @@ class TrunkModule(TorchWrapper):
         if st["has_templates"]:
             z_rec = self._apply_template(z_rec, st)
         elif self.template_module_torch is not None:
-            z_rec = self._apply_template_host(z_rec, st)
+            z_rec = (self._apply_template_noop(z_rec, st)
+                     if (st["tmpl_noop"] and _TEMPLATE_NOOP_GATE)
+                     else self._apply_template_host(z_rec, st))
 
         # z = z + msa(z). The inner MSA mutates its z argument in place, so clone
         # z_rec first to preserve it for the residual add (matches the wrapper,

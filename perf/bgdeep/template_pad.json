@@ -1,0 +1,56 @@
+{
+ "calls": [
+  {
+   "seq_len": 514,
+   "seq_pad": 62,
+   "padded_shape": [
+    1,
+    576,
+    576,
+    128
+   ],
+   "pad_region_nonzero_elems": 8647264,
+   "pad_region_absmax": 4.125,
+   "skip_is_bit_exact": false
+  },
+  {
+   "seq_len": 514,
+   "seq_pad": 62,
+   "padded_shape": [
+    1,
+    576,
+    576,
+    128
+   ],
+   "pad_region_nonzero_elems": 8649496,
+   "pad_region_absmax": 17.25,
+   "skip_is_bit_exact": false
+  },
+  {
+   "seq_len": 514,
+   "seq_pad": 62,
+   "padded_shape": [
+    1,
+    576,
+    576,
+    128
+   ],
+   "pad_region_nonzero_elems": 8648628,
+   "pad_region_absmax": 15.875,
+   "skip_is_bit_exact": false
+  },
+  {
+   "seq_len": 514,
+   "seq_pad": 62,
+   "padded_shape": [
+    1,
+    576,
+    576,
+    128
+   ],
+   "pad_region_nonzero_elems": 8648938,
+   "pad_region_absmax": 15.9375,
+   "skip_is_bit_exact": false
+  }
+ ]
+}

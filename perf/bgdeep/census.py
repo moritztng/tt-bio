@@ -210,7 +210,8 @@ def main() -> int:
         "seed": a.seed, "workdir": str(workdir),
         "env": {k2: os.environ.get(k2) for k2 in
                 ("TT_BIO_SDPA_K_DIVIDES", "TT_BIO_TRIATT_PERSISTENT_MASK",
-                 "TT_BIO_SDPA_WIDE_Q")},
+                 "TT_BIO_SDPA_WIDE_Q", "TT_BIO_TEMPLATE_NOOP_GATE",
+                 "TT_BIO_TRIMUL_L1_MAX_SEQ", "TT_BIO_PAIRFORMER_GATED_MOVE")},
         "wall_s": round(wall, 3),
         "s_per_design": round(wall / max(1, a.num_designs), 3),
         "designs_per_hour": round(3600.0 * a.num_designs / wall, 2),

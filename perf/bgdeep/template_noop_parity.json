@@ -1,0 +1,52 @@
+{
+ "calls": [
+  {
+   "shape": [
+    1,
+    576,
+    576,
+    128
+   ],
+   "equal": true,
+   "maxdiff": 0.0,
+   "nonzero_dev": 33804387,
+   "nonzero_host": 33804387
+  },
+  {
+   "shape": [
+    1,
+    576,
+    576,
+    128
+   ],
+   "equal": true,
+   "maxdiff": 0.0,
+   "nonzero_dev": 33807563,
+   "nonzero_host": 33807563
+  },
+  {
+   "shape": [
+    1,
+    576,
+    576,
+    128
+   ],
+   "equal": true,
+   "maxdiff": 0.0,
+   "nonzero_dev": 33807289,
+   "nonzero_host": 33807289
+  },
+  {
+   "shape": [
+    1,
+    576,
+    576,
+    128
+   ],
+   "equal": true,
+   "maxdiff": 0.0,
+   "nonzero_dev": 33807324,
+   "nonzero_host": 33807324
+  }
+ ]
+}
