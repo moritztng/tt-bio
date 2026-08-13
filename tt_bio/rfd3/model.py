@@ -387,6 +387,39 @@ def _tt(x, dev, dtype=ttnn.bfloat16):
     return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=dtype)
 
 
+# The diffusion loop re-uploads several tensors that cannot have changed. p41 measured 32 _tt
+# calls per step costing 14.6 ms at 3359 atoms, of which 7.5 ms is byte-identical on every one
+# of the 199 steps: the trunk pair stream Z_init_II (5.14 ms/step, 2 x [1,250,250,128]), the
+# downcast additive mask (1.80), and the atom/token conditioning the decoder's downcast reads
+# (0.59). Uploading them once is bit-exact by construction -- the same bytes through the same
+# deterministic cast produce the same device tensor -- so the gate is the design's CIF sha.
+_UPLOAD_CACHE: dict = {}
+# Bounded so a callsite whose data DOES change per step degrades to today's behaviour instead
+# of growing an entry per step. 24 covers the annotated sites several times over.
+_UPLOAD_CACHE_MAX = 24
+
+
+def _tt_cached(x, dev, dtype=ttnn.bfloat16):
+    """`_tt`, keeping the device tensor when the host bytes provably have not changed.
+
+    Keyed on the storage address plus shape/stride/dtype and torch's own version counter, which
+    any in-place write bumps. The entry holds a reference to ``x``, so its storage cannot be
+    freed and the address handed to a different tensor underneath a live key; an evicted entry
+    drops that reference and its key with it, so a recycled address cannot false-hit either.
+    A consumer that deallocated the cached tensor is detected rather than trusted.
+    """
+    key = (dev.id(), x.data_ptr(), tuple(x.shape), tuple(x.stride()),
+           str(x.dtype), str(dtype), x._version)
+    ent = _UPLOAD_CACHE.get(key)
+    if ent is not None and ent[1].is_allocated():
+        return ent[1]
+    out = _tt(x, dev, dtype)
+    if len(_UPLOAD_CACHE) >= _UPLOAD_CACHE_MAX:
+        _UPLOAD_CACHE.pop(next(iter(_UPLOAD_CACHE)))
+    _UPLOAD_CACHE[key] = (x, out)
+    return out
+
+
 def _tt_host(x, dtype=ttnn.bfloat16):
     """Host-side tiled tensor, for filling a persistent trace-input buffer.
 
@@ -1168,9 +1201,22 @@ class GatedCrossAttention(Module):
         dev, dt = self.device, self.dtype
         if mask.ndim == 3:
             mask = mask.unsqueeze(0)
-        mask = torch.where(mask, 0.0, -1e4).to(torch.float32)
-        mask = mask.expand(batch, -1, -1, -1).reshape(batch * tokens, 1, n_query, n_key)
-        return _tt(mask, dev, dt)
+        # Keyed on the SOURCE mask, not on the derived additive one: `torch.where` allocates a
+        # fresh tensor per call, so keying on the result could never hit and would evict the
+        # rest of the cache. `_grouping_buffers` is supposed to make this once-per-design, and
+        # p41 measured it running twice on every step, so the upload is cached here as well.
+        cache = self.__dict__.setdefault("_additive_mask_cache", {})
+        ck = (mask.data_ptr(), tuple(mask.shape), tuple(mask.stride()), str(mask.dtype),
+              mask._version, batch, tokens, n_query, n_key, dev.id(), str(dt))
+        ent = cache.get(ck)
+        if ent is not None and ent[1].is_allocated():
+            return ent[1]
+        add = torch.where(mask, 0.0, -1e4).to(torch.float32)
+        add = add.expand(batch, -1, -1, -1).reshape(batch * tokens, 1, n_query, n_key)
+        out = _tt(add, dev, dt)
+        cache.clear()  # one mask per module; the reference in the entry pins the source
+        cache[ck] = (mask, out)
+        return out
 
     def run_device(self, q, kv, attn_mask=None, attn_mask_dev=None):
         """q [B,T,Q,Cq], kv [B,T,K,Ckv]; return device [B,T,Q,Cq].
@@ -2113,7 +2159,7 @@ class DiffusionTokenEncoder(Module):
                     else self._onehot_dev(D_II_self, B, I))
         if Z_init_II.ndim == 3:
             Z_init_II = Z_init_II.unsqueeze(0)
-        z = self._batched(_tt(Z_init_II, dev, dt), B)
+        z = self._batched(_tt_cached(Z_init_II, dev, dt), B)
         zcat = ttnn.concat([z, d_dev, self_dev], dim=-1)  # [B,I,I,258]
         z = ttnn.rms_norm(zcat, weight=self.process_z_n, epsilon=1e-6, compute_kernel_config=ckc)
         z = ttnn.linear(z, self.process_z_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
@@ -2607,8 +2653,8 @@ class RFD3DiffusionModule(Module):
         if S_I.ndim == 2: S_I = S_I.unsqueeze(0)
         B, I, _ = S_I.shape
         valid, pack_idx_dev, mask_dev = self._grouping_buffers(tok_idx, B)
-        c_g = _pack_atoms_dev_core(_tt(C_L, dev, dt), pack_idx_dev, valid)
-        S_I_dev = _tt(S_I, dev, dt)  # uploaded once, reused below (was 2x, p23 perf)
+        c_g = _pack_atoms_dev_core(_tt_cached(C_L, dev, dt), pack_idx_dev, valid)
+        S_I_dev = _tt_cached(S_I, dev, dt)  # uploaded once, reused below (was 2x, p23 perf)
         q = ttnn.unsqueeze(S_I_dev, 2)
         upd = ttnn.squeeze(self.downcast_c.run_device(q, c_g, attn_mask_dev=mask_dev), 2)
         return ttnn.to_torch(ttnn.add(S_I_dev, upd)).float()
