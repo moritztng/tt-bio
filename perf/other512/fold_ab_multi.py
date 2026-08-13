@@ -399,6 +399,11 @@ def main():
         T._pair_proj_program_config.cache_clear()
         T._tri_att_q_chunks.cache_clear()
         T._L1_OUT_REFUSED.clear()
+        # `_SDPA_Q_CHUNK_OVER_L1` is process-global, so a lever arm that provokes an L1 refusal
+        # changes the q_chunk every LATER arm runs -- including the reference arms. That voided the
+        # trailing `on` arm of the 1024 aa A/B on 2026-08-13 and inflated its A/A floor from 0.017 s
+        # to 1.875 s. Clear it too, so every arm rediscovers its own refusals.
+        T._SDPA_Q_CHUNK_OVER_L1.clear()
 
     import importlib.metadata as im
     res = {"ttnn": im.version("ttnn"), "host": os.uname().nodename,
