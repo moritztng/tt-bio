@@ -1,0 +1,9 @@
+{
+ "N128_R32": true,
+ "N128_R64": true,
+ "N128_whole_selfconsistent": true,
+ "N256_R32": true,
+ "N256_R64": true,
+ "N256_whole_selfconsistent": true,
+ "ungated_forward_vs_ttnn_permute": true
+}

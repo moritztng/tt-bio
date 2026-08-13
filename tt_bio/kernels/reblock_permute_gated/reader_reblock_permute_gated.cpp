@@ -33,6 +33,10 @@ void kernel_main() {
     const uint32_t src_addr = get_common_arg_val<uint32_t>(0);
     const uint32_t p_off = get_common_arg_val<uint32_t>(1);  // value slice, in channel tiles
     const uint32_t g_off = get_common_arg_val<uint32_t>(2);  // gate slice, in channel tiles
+    // Row-tile offset of this block inside the full permuted axis. 0 for a whole-tensor move. The
+    // source block is addressed LOCALLY -- it is its own tensor -- so this only enters the padding
+    // test, which asks where the block's rows sit in the logical D1.
+    const uint32_t it_off = get_common_arg_val<uint32_t>(3);
     const uint32_t start_group = get_arg_val<uint32_t>(0);
     const uint32_t num_groups = get_arg_val<uint32_t>(1);
     const uint32_t Nt = get_arg_val<uint32_t>(2);
@@ -55,9 +59,10 @@ void kernel_main() {
     for (uint32_t group = start_group; group < end_group; ++group) {
         const uint32_t it = group / Nt;
         const uint32_t jt = group % Nt;
+        const uint32_t row_abs = (it + it_off) * TILE_HEIGHT;
+        const uint32_t rows_valid = (row_abs + TILE_HEIGHT <= D1) ? TILE_HEIGHT
+                                                                  : (D1 - row_abs);
         const uint32_t row_base = it * TILE_HEIGHT;
-        const uint32_t rows_valid = (row_base + TILE_HEIGHT <= D1) ? TILE_HEIGHT
-                                                                  : (D1 - row_base);
         const uint32_t first_page = (row_base * Nt + jt) * Ctw;
         const uint32_t pad_page = jt * Ctw;  // row 0 of this tile column; always valid
 

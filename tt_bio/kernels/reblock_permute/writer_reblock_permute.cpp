@@ -47,6 +47,10 @@ void kernel_main() {
     // See the reader: the destination address is the only per-call value, so it is a common
     // runtime arg and the descriptor above it is cacheable.
     uint32_t dst_addr = get_common_arg_val<uint32_t>(0);
+    // Row-tile offset of this block inside the destination. 0 for a whole-tensor move. The
+    // destination is always the FULL [1, C, D1, Nt*32] tensor, so a row block writes a slab of it
+    // and every page index below is absolute.
+    uint32_t it_off = get_common_arg_val<uint32_t>(1);
     uint32_t start_group = get_arg_val<uint32_t>(0);
     uint32_t num_groups = get_arg_val<uint32_t>(1);
     uint32_t Nt = get_arg_val<uint32_t>(2);
@@ -86,7 +90,7 @@ void kernel_main() {
     const uint32_t NtNt = Nt * Nt;
     const uint32_t end_group = start_group + num_groups;
     for (uint32_t group = start_group; group < end_group; ++group) {
-        const uint32_t it = group / Nt;
+        const uint32_t it = (group / Nt) + it_off;
         const uint32_t jt = group % Nt;
         const uint32_t page_base = it * Nt + jt;
 
