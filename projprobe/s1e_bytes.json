@@ -1,0 +1,38 @@
+{
+ "barrier_every": 4,
+ "outer": 5000,
+ "arms": {
+  "32x64B": {
+   "ns_per_assembly": 1197.0401974394917,
+   "total_bytes": 2048,
+   "ns_per_read": 37.40750616998412,
+   "gbs_chip": 222.41525436614083
+  },
+  "32x128B": {
+   "ns_per_assembly": 1338.5561993345618,
+   "total_bytes": 4096,
+   "ns_per_read": 41.82988122920506,
+   "gbs_chip": 397.80175106933314
+  },
+  "32x256B": {
+   "ns_per_assembly": 2795.3519980655983,
+   "total_bytes": 8192,
+   "ns_per_read": 87.35474993954995,
+   "gbs_chip": 380.9752763648225
+  },
+  "64x64B": {
+   "ns_per_assembly": 3177.8878008481115,
+   "total_bytes": 4096,
+   "ns_per_read": 49.65449688825174,
+   "gbs_chip": 167.55783506827783
+  }
+ },
+ "ncores": 130,
+ "verdict": {
+  "one_component_ns": 1197.0401974394917,
+  "interleaved_ns": 1338.5561993345618,
+  "separate_ns": 3177.8878008481115,
+  "interleave_gain": 2.3741160830064056,
+  "second_component_is_free": true
+ }
+}
