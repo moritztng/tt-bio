@@ -45,26 +45,31 @@ def main():
         for N in BOXES:
             nvox = N * N * (N // 2 + 1)
             nidx = 4 * N * N            # 8 voxels x N*(N/2+1) pixels, rounded to 4N^2
+            nvox = (nvox // 1024) * 1024
             rec = {"n_voxels": nvox, "n_indices": nidx}
 
             # The 3D Fourier half-volume, flattened. Real component only: a complex volume is two
             # of these and doubles every number below, which is stated rather than measured twice.
+            ROWS = 32
+            dom = nvox // ROWS                       # gather domain per row
+            nper = nidx // ROWS                      # index positions per row
+            rec["rows"], rec["domain_per_row"] = ROWS, dom
             vol = ttnn.from_torch(
-                torch.randn(1, 1, 1, nvox, dtype=torch.float32),
+                torch.randn(1, 1, ROWS, dom, dtype=torch.float32),
                 dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
             # A real trilinear index pattern: 8 neighbours of a rotated plane, not a contiguous run.
-            base = torch.randint(0, max(nvox - 8, 1), (1, 1, 1, nidx // 8), dtype=torch.int32)
+            base = torch.randint(0, max(dom - 8, 1), (1, 1, ROWS, nper // 8), dtype=torch.int64)
             idx_t = (base.repeat_interleave(8, dim=-1)
-                     + torch.arange(8, dtype=torch.int32).repeat(nidx // 8)).clamp(0, nvox - 1)
+                     + torch.arange(8, dtype=torch.int64).repeat(nper // 8)).clamp(0, dom - 1)
             # ttnn.gather requires UINT32 or UINT16 indices; INT32 is refused outright.
-            idx = ttnn.from_torch(idx_t.to(torch.int64), dtype=ttnn.uint32,
+            idx = ttnn.from_torch(idx_t, dtype=ttnn.uint32,
                                   layout=ttnn.TILE_LAYOUT, device=dev)
             src = ttnn.from_torch(
-                torch.randn(1, 1, 1, nidx, dtype=torch.float32),
+                torch.randn(1, 1, ROWS, nper, dtype=torch.float32),
                 dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
 
             # elementwise reference on the same element count: the rate everything is measured against
-            a = ttnn.from_torch(torch.randn(1, 1, 1, nidx, dtype=torch.float32),
+            a = ttnn.from_torch(torch.randn(1, 1, ROWS, nper, dtype=torch.float32),
                                 dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
             try:
                 s = timed(lambda: ttnn.add(a, src), dev)
@@ -76,9 +81,9 @@ def main():
             # tensors yet" -- so the scatter arms run in bf16. That is not a free substitution for
             # backprojection, which accumulates hundreds of thousands of slices into one volume and
             # needs fp32 to do it. Recorded as a capability gap, not as a measurement choice.
-            volb = ttnn.from_torch(torch.randn(1, 1, 1, nvox, dtype=torch.float32),
+            volb = ttnn.from_torch(torch.randn(1, 1, ROWS, dom, dtype=torch.float32),
                                    dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
-            srcb = ttnn.from_torch(torch.randn(1, 1, 1, nidx, dtype=torch.float32),
+            srcb = ttnn.from_torch(torch.randn(1, 1, ROWS, nper, dtype=torch.float32),
                                    dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
             for name, fn in (
                 ("gather", lambda: ttnn.gather(vol, dim=-1, index=idx)),

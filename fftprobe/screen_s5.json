@@ -1,0 +1,67 @@
+{
+ "boxes": {
+  "256": {
+   "n_voxels": 8454144,
+   "n_indices": 262144,
+   "rows": 32,
+   "domain_per_row": 264192,
+   "add": {
+    "s": 5.2408999181352556e-05,
+    "g_elem_per_s": 5.001889066663812
+   },
+   "gather": {
+    "s": 0.31522733400197467,
+    "g_elem_per_s": 0.0008316030106651788,
+    "us_per_slice": 315227.33400197467
+   },
+   "scatter_bf16": {
+    "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/scatter/scatter.cpp:134: !(is_i32(index_dtype) && index_layout == Layout::TILE && index_shape[dim] > to_layout_int32_scatter_axis_max_length)\ninfo:\nScatter doesn't work for int32 tensors that have scatter row longer than 256 elements - index"
+   },
+   "scatter_add_bf16": {
+    "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/scatter/scatter.cpp:134: !(is_i32(index_dtype) && index_layout == Layout::TILE && index_shape[dim] > to_layout_int32_scatter_axis_max_length)\ninfo:\nScatter doesn't work for int32 tensors that have scatter row longer than 256 elements - index"
+   }
+  },
+  "384": {
+   "n_voxels": 28459008,
+   "n_indices": 589824,
+   "rows": 32,
+   "domain_per_row": 889344,
+   "add": {
+    "s": 6.225900142453611e-05,
+    "g_elem_per_s": 9.473714426899754
+   },
+   "gather": {
+    "s": 2.650970602997404,
+    "g_elem_per_s": 0.00022249360265749334,
+    "us_per_slice": 2650970.602997404
+   },
+   "scatter_bf16": {
+    "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/scatter/scatter.cpp:134: !(is_i32(index_dtype) && index_layout == Layout::TILE && index_shape[dim] > to_layout_int32_scatter_axis_max_length)\ninfo:\nScatter doesn't work for int32 tensors that have scatter row longer than 256 elements - index"
+   },
+   "scatter_add_bf16": {
+    "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/scatter/scatter.cpp:134: !(is_i32(index_dtype) && index_layout == Layout::TILE && index_shape[dim] > to_layout_int32_scatter_axis_max_length)\ninfo:\nScatter doesn't work for int32 tensors that have scatter row longer than 256 elements - index"
+   }
+  },
+  "512": {
+   "n_voxels": 67371008,
+   "n_indices": 1048576,
+   "rows": 32,
+   "domain_per_row": 2105344,
+   "add": {
+    "s": 9.29080051719211e-05,
+    "g_elem_per_s": 11.286174943264237
+   },
+   "gather": {
+    "s": 10.040159529002267,
+    "g_elem_per_s": 0.0001044381811833822,
+    "us_per_slice": 10040159.529002268
+   },
+   "scatter_bf16": {
+    "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/scatter/scatter.cpp:134: !(is_i32(index_dtype) && index_layout == Layout::TILE && index_shape[dim] > to_layout_int32_scatter_axis_max_length)\ninfo:\nScatter doesn't work for int32 tensors that have scatter row longer than 256 elements - index"
+   },
+   "scatter_add_bf16": {
+    "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/scatter/scatter.cpp:134: !(is_i32(index_dtype) && index_layout == Layout::TILE && index_shape[dim] > to_layout_int32_scatter_axis_max_length)\ninfo:\nScatter doesn't work for int32 tensors that have scatter row longer than 256 elements - index"
+   }
+  }
+ }
+}
