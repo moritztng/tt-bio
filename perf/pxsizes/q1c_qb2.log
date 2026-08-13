@@ -1,0 +1,68 @@
+=== host: tt-quietbox2  card: 2  main: 68044355 perf(sizes): 1024 aa leg for qb2, with a card reset between arms  start: 2026-08-13T22:19:55+00:00 ===
+=== uptime:  22:19:55 up 4 min,  4 users,  load average: 1.06, 0.50, 0.20 ===
+98c31baa6e4e624fdff62c6af73255515135bad3a386d15618e27188ee033f87  /home/ttuser/.coworker/wt/protenix-v2-qb2-768-1024-rows/perf/size512/fixtures/cdk2x2_1024.yaml
+644b2608d8f989d2aad1cb75ac65ee55ca8147e332702a3095f407c4841af8d3  /home/ttuser/.coworker/wt/protenix-v2-qb2-768-1024-rows/perf/size512/fixtures/cdk2x2_1024.a3m
+ttnn 0.68.0
+benchlock: protenix-v2-qb2-768-1024-rows waiting; currently held by: openfold3-1024aa-confirm-and-merge pid=7051 since=2026-08-13T22:18:22+00:00
+benchlock: protenix-v2-qb2-768-1024-rows acquired after 0s, loadavg 0.67 1.27 1.06
+=== 2026-08-13T22:41:41+00:00  1024 aa arm on p1 (one arm, one process) ===
+2026-08-13 22:41:41.445 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+2026-08-13 22:41:48.939 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3394048 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+2026-08-13 22:41:48.947 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1788416 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+  on: fold 239.37s  block 198815.4 ms over 604 calls  plddt 0.778516  (239s)
+      DEC l1_layer_norm|h=1.5|1024x1024x256                    {'DRAM': 30}
+      DEC l1_layer_norm|h=1.5|1x1024x1024x256                  {'DRAM': 494}
+      DEC pair_proj_out_l1|1024x1024x64@64                     {'DRAM': 160}
+      DEC pair_proj_out_l1|1x1024x1024x256@256                 {'DRAM': 2096}
+      DEC pair_proj_out_l1|1x1024x1024x64@64                   {'DRAM': 320}
+      DEC transpose|1024x1024x256                              {'DRAM': 1048}
+      DEC transpose|1024x1024x64                               {'DRAM': 160}
+      DEC tri_att_sdpa|q1024k1024                              {'q_chunk=1024 k_chunk=256 bias=bf16': 1208}
+      DEC trimul_chunk|N1024|h256|b1                           {'c=32': 1048}
+      DEC trimul_chunk|N1024|h64|b1                            {'c=32': 160}
+      DEC trimul_inproj_group|N1024|c32|pairs2                 {'g=2': 160}
+      DEC trimul_inproj_group|N1024|c32|pairs8                 {'g=4': 1048}
+      DEC trimul_pair_buffer|N1024                             {'DRAM': 1208}
+{
+ "ratios": {
+  "1024": {
+   "on_block_ms": [
+    198815.4
+   ],
+   "off_block_ms": [],
+   "on_fold_s": [
+    239.373
+   ],
+   "off_fold_s": []
+  }
+ },
+ "arm_medians": {
+  "1024": {
+   "on": {
+    "block_ms": [
+     198815.4
+    ],
+    "fold_s": [
+     239.373
+    ],
+    "plddt": [
+     0.778516
+    ],
+    "n": 1,
+    "block_ms_median": 198815.4,
+    "fold_s_median": 239.373,
+    "block_ms_min": 198815.4,
+    "fold_s_min": 239.373,
+    "block_ms_spread": 0.0,
+    "fold_s_spread": 0.0
+   }
+  }
+ }
+}
+wrote perf/pxsizes/q1c_1024_on_p1.json
+RC_1024_on_p1=0  at 2026-08-13T22:45:44+00:00
+=== 2026-08-13T22:45:44+00:00  1024 aa arm base4 p1 (one arm, one process) ===
+2026-08-13 22:45:44.650 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+2026-08-13 22:45:51.739 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2343424 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
