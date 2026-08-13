@@ -1,0 +1,86 @@
+{
+  "model": "opendde",
+  "side": "tenstorrent",
+  "hardware": "blackhole",
+  "machine": "tt-quietbox2",
+  "visible_devices": "0",
+  "tt_bio_git": "b7c648fe8155da4144cdc50be6ff46ed44e17f59",
+  "ttnn_version": "0.68.0",
+  "input": "cdk2x2_512.yaml (512 aa cdk2x2, glue ON, single protein, MSA on)",
+  "target": "/home/ttuser/.coworker/wt/opendde-beat-b200/perf/size512/fixtures/cdk2x2_512.yaml",
+  "n_msa": 35,
+  "n_tokens": 512,
+  "n_residues": 512,
+  "msa_cache": [
+    "4e5c2b391bde62d4.a3m"
+  ],
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "seed": 0,
+  "load_s": 2.31,
+  "cold_s": 89.82,
+  "warm_times_s": [
+    87.115,
+    87.486
+  ],
+  "warm_min_s": 87.115,
+  "warm_median_s": 87.486,
+  "warm_max_s": 87.486,
+  "cold_metrics": {
+    "complex_plddt": 0.75411,
+    "plddt": 0.75411,
+    "ptm": 0.592593,
+    "iptm": 0.0,
+    "confidence_score": 0.592593,
+    "n_residues": 512,
+    "n_chains": 1,
+    "n_tokens": 512,
+    "msa": true,
+    "n_atoms": 4117,
+    "samples": 1
+  },
+  "warm_folds": [
+    {
+      "s": 89.816,
+      "plddt": 0.75411,
+      "cif_sha256": {
+        "cdk2x2_512.cif": "357c67003bb738ac"
+      },
+      "loadavg": [
+        "2.87",
+        "2.78",
+        "1.88"
+      ],
+      "arm_fold": "cold"
+    },
+    {
+      "s": 87.115,
+      "plddt": 0.75411,
+      "cif_sha256": {
+        "cdk2x2_512.cif": "357c67003bb738ac"
+      },
+      "loadavg": [
+        "4.85",
+        "3.34",
+        "2.16"
+      ]
+    },
+    {
+      "s": 87.486,
+      "plddt": 0.75411,
+      "cif_sha256": {
+        "cdk2x2_512.cif": "357c67003bb738ac"
+      },
+      "loadavg": [
+        "4.10",
+        "3.48",
+        "2.31"
+      ]
+    }
+  ],
+  "runtime_root": "<unset>",
+  "kernel_cache": "/home/ttuser/.cache/tt-metal-cache-tt-bio/ttnn-0.68.0",
+  "uptime": "16:28:09 up 39 min,  4 users,  load average: 4.10, 3.48, 2.31",
+  "date": "2026-08-13"
+}
