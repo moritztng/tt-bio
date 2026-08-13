@@ -41,7 +41,7 @@ FLOOR_SLICES_S = 3.20e6
 TILES_PER_DIRECTION = (512 // 32) ** 2 * 2
 
 
-def build(dev, v, m, out, nx, ny, nplane, nb, diag=0):
+def build(dev, v, m, out, nx, ny, nplane, nb, nmul=None):
     cg = ttnn.CoreRangeSet([ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(nx - 1, ny - 1))])
 
     def cb(i, page, depth):
@@ -51,7 +51,7 @@ def build(dev, v, m, out, nx, ny, nplane, nb, diag=0):
     rct = ([CB_V, CB_MASK, nplane, TILE_B, BARRIER_EVERY]
            + list(ttnn.TensorAccessorArgs(v).get_compile_time_args())
            + list(ttnn.TensorAccessorArgs(m).get_compile_time_args()))
-    cct = [CB_V, CB_MASK, CB_OUT, nplane]
+    cct = [CB_V, CB_MASK, CB_OUT, nplane, nplane if nmul is None else nmul]
     wct = [CB_OUT, TILE_B, 1] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
     rrt, crt, wrt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     c = 0
@@ -134,6 +134,25 @@ def main():
                                         "ns_per_slice_per_core_amortised": per_slice_ns}
             print(f"nplane {nplane:3d}: rel L2 {rel:.3e}   {ns:9.1f} ns/tile/core   "
                   f"-> {per_slice_ns:7.1f} ns per slice per core after 96x amortisation", flush=True)
+            # Cost probe: same reads, one multiply. Wrong result on purpose; the difference from the
+            # full arm is the arithmetic, and what is left is the reads.
+            out2 = ttnn.from_torch(torch.zeros(1, 1, 32 * NB * n, 32).to(torch.bfloat16),
+                                   dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
+            pd2 = build(dev, v, m, out2, nx, ny, nplane, NB, 1)
+            ttnn.generic_op([v, m, out2], pd2)
+            ttnn.synchronize_device(dev)
+            b2 = float("inf")
+            for _ in range(5):
+                t0 = time.perf_counter()
+                ttnn.generic_op([v, m, out2], pd2)
+                ttnn.synchronize_device(dev)
+                b2 = min(b2, time.perf_counter() - t0)
+            ns_reads = b2 * 1e9 / NB
+            res["arms"][str(nplane)]["ns_reads_only"] = ns_reads
+            res["arms"][str(nplane)]["read_share_pct"] = 100.0 * ns_reads / ns
+            print(f"            reads-only {ns_reads:9.1f} ns  -> reads are "
+                  f"{100.0*ns_reads/ns:4.1f}% of the z-collapse", flush=True)
+            ttnn.deallocate(out2)
             json.dump(res, open(HERE / "fslice_stage1.json", "w"), indent=1)
             ttnn.deallocate(out)
             ttnn.deallocate(m)

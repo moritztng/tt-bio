@@ -35,6 +35,11 @@ void kernel_main() {
     constexpr uint32_t cb_mask = get_compile_time_arg_val(1);
     constexpr uint32_t cb_out = get_compile_time_arg_val(2);
     constexpr uint32_t nplane = get_compile_time_arg_val(3);
+    // How many of the fetched planes are actually multiplied. Setting this below nplane
+    // keeps the reads and drops the arithmetic, which is the only way to tell whether the
+    // z-collapse is bound by the 28 tile READS or the 28 multiplies. The result is wrong
+    // whenever nmul < nplane, and is a cost probe only.
+    constexpr uint32_t nmul = get_compile_time_arg_val(4);
 
     const uint32_t nblocks = get_arg_val<uint32_t>(0);
     constexpr uint32_t one = 1;
@@ -61,7 +66,7 @@ void kernel_main() {
         // Exploited rather than worked around, it makes the whole z-collapse ONE op per plane with no
         // SFPU involvement at all: the sum over the band falls out of the multiplies themselves.
         mul_tiles_init(cb_v, cb_mask);
-        for (uint32_t p = 0; p < nplane; ++p) {
+        for (uint32_t p = 0; p < nmul; ++p) {
             mul_tiles(cb_v, cb_mask, p, p, DST_ACC);
         }
 
