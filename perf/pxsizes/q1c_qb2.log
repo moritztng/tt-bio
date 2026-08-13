@@ -66,3 +66,164 @@ RC_1024_on_p1=0  at 2026-08-13T22:45:44+00:00
 2026-08-13 22:45:44.650 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
 Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
 2026-08-13 22:45:51.739 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2343424 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+  base4: fold 281.75s  block 241244.15 ms over 604 calls  plddt 0.778516  (282s)
+      DEC l1_layer_norm|h=1.5|1024x1024x256                    {'DRAM': 30}
+      DEC l1_layer_norm|h=1.5|1x1024x1024x256                  {'DRAM': 494}
+      DEC pair_proj_out_l1|1024x1024x256@256                   {'DRAM': 1048}
+      DEC pair_proj_out_l1|1024x1024x64@64                     {'DRAM': 160}
+      DEC pair_proj_out_l1|1x1024x1024x256@256                 {'DRAM': 2096}
+      DEC pair_proj_out_l1|1x1024x1024x64@64                   {'DRAM': 320}
+      DEC transpose|1024x1024x256                              {'DRAM': 1048}
+      DEC transpose|1024x1024x64                               {'DRAM': 160}
+      DEC tri_att_sdpa|q1024k1024                              {'q_chunk=1024 k_chunk=256 bias=bf16': 1, 'q_chunk=512 k_chunk=256 bias=bf16': 1207}
+      DEC trimul_chunk|N1024|h256|b1                           {'c=32': 1048}
+      DEC trimul_chunk|N1024|h64|b1                            {'c=32': 160}
+      DEC trimul_inproj_group|N1024|c32|pairs2                 {'g=2': 160}
+      DEC trimul_inproj_group|N1024|c32|pairs8                 {'g=4': 1048}
+      DEC trimul_pair_buffer|N1024                             {'DRAM': 1208}
+{
+ "ratios": {
+  "1024": {
+   "on_block_ms": [],
+   "off_block_ms": [],
+   "on_fold_s": [],
+   "off_fold_s": []
+  }
+ },
+ "arm_medians": {
+  "1024": {
+   "base4": {
+    "block_ms": [
+     241244.15
+    ],
+    "fold_s": [
+     281.745
+    ],
+    "plddt": [
+     0.778516
+    ],
+    "n": 1,
+    "block_ms_median": 241244.15,
+    "fold_s_median": 281.745,
+    "block_ms_min": 241244.15,
+    "fold_s_min": 281.745,
+    "block_ms_spread": 0.0,
+    "fold_s_spread": 0.0
+   }
+  }
+ }
+}
+wrote perf/pxsizes/q1c_1024_base4_p1.json
+RC_1024_base4_p1=0  at 2026-08-13T22:50:29+00:00
+=== 2026-08-13T22:50:29+00:00  1024 aa arm on p2 (one arm, one process) ===
+2026-08-13 22:50:29.883 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+2026-08-13 22:50:37.033 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3394048 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+2026-08-13 22:50:37.038 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1788416 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+  on: fold 239.30s  block 198807.61 ms over 604 calls  plddt 0.778516  (239s)
+      DEC l1_layer_norm|h=1.5|1024x1024x256                    {'DRAM': 30}
+      DEC l1_layer_norm|h=1.5|1x1024x1024x256                  {'DRAM': 494}
+      DEC pair_proj_out_l1|1024x1024x64@64                     {'DRAM': 160}
+      DEC pair_proj_out_l1|1x1024x1024x256@256                 {'DRAM': 2096}
+      DEC pair_proj_out_l1|1x1024x1024x64@64                   {'DRAM': 320}
+      DEC transpose|1024x1024x256                              {'DRAM': 1048}
+      DEC transpose|1024x1024x64                               {'DRAM': 160}
+      DEC tri_att_sdpa|q1024k1024                              {'q_chunk=1024 k_chunk=256 bias=bf16': 1208}
+      DEC trimul_chunk|N1024|h256|b1                           {'c=32': 1048}
+      DEC trimul_chunk|N1024|h64|b1                            {'c=32': 160}
+      DEC trimul_inproj_group|N1024|c32|pairs2                 {'g=2': 160}
+      DEC trimul_inproj_group|N1024|c32|pairs8                 {'g=4': 1048}
+      DEC trimul_pair_buffer|N1024                             {'DRAM': 1208}
+{
+ "ratios": {
+  "1024": {
+   "on_block_ms": [
+    198807.61
+   ],
+   "off_block_ms": [],
+   "on_fold_s": [
+    239.301
+   ],
+   "off_fold_s": []
+  }
+ },
+ "arm_medians": {
+  "1024": {
+   "on": {
+    "block_ms": [
+     198807.61
+    ],
+    "fold_s": [
+     239.301
+    ],
+    "plddt": [
+     0.778516
+    ],
+    "n": 1,
+    "block_ms_median": 198807.61,
+    "fold_s_median": 239.301,
+    "block_ms_min": 198807.61,
+    "fold_s_min": 239.301,
+    "block_ms_spread": 0.0,
+    "fold_s_spread": 0.0
+   }
+  }
+ }
+}
+wrote perf/pxsizes/q1c_1024_on_p2.json
+RC_1024_on_p2=0  at 2026-08-13T22:54:32+00:00
+=== 2026-08-13T22:54:32+00:00  1024 aa arm base4 p2 (one arm, one process) ===
+2026-08-13 22:54:32.704 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+2026-08-13 22:54:39.910 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2343424 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+  base4: fold 280.82s  block 240265.33 ms over 604 calls  plddt 0.778516  (281s)
+      DEC l1_layer_norm|h=1.5|1024x1024x256                    {'DRAM': 30}
+      DEC l1_layer_norm|h=1.5|1x1024x1024x256                  {'DRAM': 494}
+      DEC pair_proj_out_l1|1024x1024x256@256                   {'DRAM': 1048}
+      DEC pair_proj_out_l1|1024x1024x64@64                     {'DRAM': 160}
+      DEC pair_proj_out_l1|1x1024x1024x256@256                 {'DRAM': 2096}
+      DEC pair_proj_out_l1|1x1024x1024x64@64                   {'DRAM': 320}
+      DEC transpose|1024x1024x256                              {'DRAM': 1048}
+      DEC transpose|1024x1024x64                               {'DRAM': 160}
+      DEC tri_att_sdpa|q1024k1024                              {'q_chunk=1024 k_chunk=256 bias=bf16': 1, 'q_chunk=512 k_chunk=256 bias=bf16': 1207}
+      DEC trimul_chunk|N1024|h256|b1                           {'c=32': 1048}
+      DEC trimul_chunk|N1024|h64|b1                            {'c=32': 160}
+      DEC trimul_inproj_group|N1024|c32|pairs2                 {'g=2': 160}
+      DEC trimul_inproj_group|N1024|c32|pairs8                 {'g=4': 1048}
+      DEC trimul_pair_buffer|N1024                             {'DRAM': 1208}
+{
+ "ratios": {
+  "1024": {
+   "on_block_ms": [],
+   "off_block_ms": [],
+   "on_fold_s": [],
+   "off_fold_s": []
+  }
+ },
+ "arm_medians": {
+  "1024": {
+   "base4": {
+    "block_ms": [
+     240265.33
+    ],
+    "fold_s": [
+     280.824
+    ],
+    "plddt": [
+     0.778516
+    ],
+    "n": 1,
+    "block_ms_median": 240265.33,
+    "fold_s_median": 280.824,
+    "block_ms_min": 240265.33,
+    "fold_s_min": 280.824,
+    "block_ms_spread": 0.0,
+    "fold_s_spread": 0.0
+   }
+  }
+ }
+}
+wrote perf/pxsizes/q1c_1024_base4_p2.json
+RC_1024_base4_p2=0  at 2026-08-13T22:59:17+00:00
+benchlock: protenix-v2-qb2-768-1024-rows released, rc=0, loadavg 1.01 1.10 1.08
+=== 1024 leg done: 2026-08-13T22:59:17+00:00 ===
