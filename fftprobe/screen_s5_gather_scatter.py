@@ -56,7 +56,9 @@ def main():
             base = torch.randint(0, max(nvox - 8, 1), (1, 1, 1, nidx // 8), dtype=torch.int32)
             idx_t = (base.repeat_interleave(8, dim=-1)
                      + torch.arange(8, dtype=torch.int32).repeat(nidx // 8)).clamp(0, nvox - 1)
-            idx = ttnn.from_torch(idx_t, dtype=ttnn.int32, layout=ttnn.TILE_LAYOUT, device=dev)
+            # ttnn.gather requires UINT32 or UINT16 indices; INT32 is refused outright.
+            idx = ttnn.from_torch(idx_t.to(torch.int64), dtype=ttnn.uint32,
+                                  layout=ttnn.TILE_LAYOUT, device=dev)
             src = ttnn.from_torch(
                 torch.randn(1, 1, 1, nidx, dtype=torch.float32),
                 dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
@@ -70,10 +72,18 @@ def main():
             except Exception as e:                                      # noqa: BLE001
                 rec["add"] = {"error": str(e)[:200]}
 
+            # ttnn.scatter refuses fp32 TILE outright -- "Scatter doesn't work for fp32 tiled
+            # tensors yet" -- so the scatter arms run in bf16. That is not a free substitution for
+            # backprojection, which accumulates hundreds of thousands of slices into one volume and
+            # needs fp32 to do it. Recorded as a capability gap, not as a measurement choice.
+            volb = ttnn.from_torch(torch.randn(1, 1, 1, nvox, dtype=torch.float32),
+                                   dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
+            srcb = ttnn.from_torch(torch.randn(1, 1, 1, nidx, dtype=torch.float32),
+                                   dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
             for name, fn in (
                 ("gather", lambda: ttnn.gather(vol, dim=-1, index=idx)),
-                ("scatter", lambda: ttnn.scatter(vol, dim=-1, index=idx, src=src)),
-                ("scatter_add", lambda: ttnn.scatter_add(vol, dim=-1, index=idx, src=src)),
+                ("scatter_bf16", lambda: ttnn.scatter(volb, dim=-1, index=idx, src=srcb)),
+                ("scatter_add_bf16", lambda: ttnn.scatter_add(volb, dim=-1, index=idx, src=srcb)),
             ):
                 try:
                     s = timed(fn, dev)
@@ -89,7 +99,7 @@ def main():
 
             out["boxes"][N] = rec
             json.dump(out, open(Path(__file__).resolve().parent / "screen_s5.json", "w"), indent=1)
-            for t in (vol, idx, src, a):
+            for t in (vol, idx, src, a, volb, srcb):
                 ttnn.deallocate(t)
     finally:
         ttnn.close_device(dev)
