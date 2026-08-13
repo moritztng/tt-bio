@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -146,7 +147,9 @@ def main() -> None:
                     print(f"[{name}] b={batch} {tag} r={rnd} already measured", flush=True)
                     continue
                 before = (rfd3_bias.STATS[0], rfd3_bias.FSTATS[0])
+                load_before = os.getloadavg()[0]
                 elapsed, X = sample(batch, a.timesteps, 2000 + 100 * rnd)
+                load_after = os.getloadavg()[0]
                 outs[tag] = X
                 rec = {"point": a.point, "name": name, "atoms": L, "tokens": tokens,
                        "batch": batch, "batch_requested": batch_req, "arm": tag, "round": rnd,
@@ -154,6 +157,7 @@ def main() -> None:
                        "ms_per_step": elapsed / (a.timesteps - 1) * 1000,
                        "ms_per_step_per_design": elapsed / (a.timesteps - 1) / batch * 1000,
                        "designs_per_sec": batch / elapsed, "s_per_design": elapsed / batch,
+                       "load_before": load_before, "load_after": load_after,
                        "finite": bool(torch.isfinite(X).all().item()),
                        "sparse_served": rfd3_bias.STATS[0] - before[0],
                        "fused_served": rfd3_bias.FSTATS[0] - before[1],
