@@ -91,7 +91,7 @@ def _collect_fp32(root, seen=None, depth=0):
     return out
 
 ARMS = ("on", "e6", "noe6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hifi",
-        "nonewmm", "oldkey", "nofp32_trunk", "nofp32_msatmpl", "nos2", "noout", "nohbig")
+        "nonewmm", "oldkey", "nofp32_trunk", "nofp32_msatmpl", "nos2", "noout", "nohbig", "wbig")
 
 # Which sites each arm routes onto the fused SDPA. The confidence head is never in a flip set:
 # it stays on `_fp32_softmax_attention` on every arm, deliberately, so plDDT reports on the
@@ -270,6 +270,7 @@ def main():
 
     ORIG_MM_BLOCK_FOR = T._mm_block_for
     HBIG_SHIPPED = T.TRANSITION_H_CHUNK_SIZE_BIG
+    HBIG_MAXW_SHIPPED = T.TRANSITION_H_CHUNK_BIG_MAX_W
 
     ORIG_TAS = T._tri_att_sdpa
 
@@ -292,7 +293,8 @@ def main():
         if len(sh) >= 4:
             W, c = sh[2], sh[-1]
             DEC[f"transition|W={W},c={c}"][
-                "hbig_eligible" if (W <= 384 and c <= 256) else "hbig_gated_off"] += 1
+                "hbig_eligible" if (W <= T.TRANSITION_H_CHUNK_BIG_MAX_W and c <= 256)
+                else "hbig_gated_off"] += 1
         else:
             DEC[f"transition|rank{len(sh)}"]["swiglu_direct"] += 1
         return ORIG_TRANS(self, x)
@@ -409,6 +411,10 @@ def main():
         T._PAIR_BIAS_L1_NORM = True
         T.TRANSITION_H_CHUNK_SIZE_BIG = (T.TRANSITION_H_CHUNK_SIZE if name == "nohbig"
                                          else HBIG_SHIPPED)
+        # `wbig` lifts the W bound off the c=64 / c=128 tracks. 4096 is not a proposed default, it
+        # is "no W bound at any size in this task"; the c <= 256 half of the gate still stands, so
+        # the c=384 pair track is untouched and the shape that actually clashed is not widened.
+        T.TRANSITION_H_CHUNK_BIG_MAX_W = 4096 if name == "wbig" else HBIG_MAXW_SHIPPED
         T._PWA_L1_NORM = T._TEMPLATE_L1_NORM = True
         T._pair_proj_program_config.cache_clear()
         T._tri_att_q_chunks.cache_clear()
@@ -501,6 +507,7 @@ def main():
                    "pair_proj_l1_out": T._PAIR_PROJ_L1_OUT,
                    "l1_out_refused": sorted(str(k) for k in T._L1_OUT_REFUSED),
                    "transition_h_chunk_big": T.TRANSITION_H_CHUNK_SIZE_BIG,
+                   "transition_h_chunk_big_max_w": T.TRANSITION_H_CHUNK_BIG_MAX_W,
                    "atom_pad_in_tile": T._ATOM_PAD_IN_TILE,
                    "fp32_softmax_modules": len(FP32_OWNERS),
                    "sdpa_ckc_override": (None if PM._CKC_OVERRIDE is None

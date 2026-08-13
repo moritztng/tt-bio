@@ -77,6 +77,11 @@ TRANSITION_H_CHUNK_SIZE = 16
 # with in-block L1 pressure at MSA shapes (W=1024/c=128, test_msa[100-1000]) and at the
 # opendde pair shape (W=320/c=384). Gate to the verified envelope only.
 TRANSITION_H_CHUNK_SIZE_BIG = 32  # verified envelope: W<=384 (298-aa W=320). W=512 (protenix N=512 MSA/pair) clashes in-block L1 -> stays on 16
+# The W bound above was validated against the c=256 clash. Per-chunk swiglu L1 scales with
+# h_chunk * W * c, so c=64 and c=128 sit at a quarter and a half of that footprint and are
+# bound by a number measured for a wider channel. Named so it can be measured rather than
+# argued: default 384 keeps every shipped shape byte-identical.
+TRANSITION_H_CHUNK_BIG_MAX_W = 384
 
 # A fused activation="silu" on Transition fc1 costs 174.0 us/call at the 298 aa pair shape, while the
 # same silu as a standalone SFPU pass costs 83.7 -- measured on qb1 card 0, ttnn 0.67.4. The penalty
@@ -3158,7 +3163,7 @@ class Transition(Module):
 
         H, W = x.shape[1], x.shape[2]
         transition_h_chunk_size = TRANSITION_H_CHUNK_SIZE_FAST if _FAST_MODE else TRANSITION_H_CHUNK_SIZE
-        if not _FAST_MODE and W <= 384 and x.shape[-1] <= 256:
+        if not _FAST_MODE and W <= TRANSITION_H_CHUNK_BIG_MAX_W and x.shape[-1] <= 256:
             transition_h_chunk_size = TRANSITION_H_CHUNK_SIZE_BIG
         # Per-chunk swiglu L1 use ~ h_chunk * W * channel. The chunk size is tuned for the
         # reference W=1024, c=128; scale the row-chunk so memory stays bounded for wider pair

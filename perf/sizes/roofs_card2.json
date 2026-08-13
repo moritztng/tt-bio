@@ -1,0 +1,51 @@
+{
+ "host": "tt-quietbox",
+ "ttnn": "0.68.0",
+ "card": "2",
+ "loadavg": [
+  "3.30",
+  "1.90",
+  "1.53"
+ ],
+ "grid": [
+  13,
+  10
+ ],
+ "roofs": {
+  "128": {
+   "bytes_one_way": 12582912,
+   "copy_ms": 0.095,
+   "copy_gbps": 263.9,
+   "unary_w_ms": 0.125,
+   "unary_w_gbps": 201.0
+  },
+  "256": {
+   "bytes_one_way": 50331648,
+   "copy_ms": 0.273,
+   "copy_gbps": 369.1,
+   "unary_w_ms": 0.276,
+   "unary_w_gbps": 365.3
+  },
+  "512": {
+   "bytes_one_way": 201326592,
+   "copy_ms": 1.009,
+   "copy_gbps": 399.3,
+   "unary_w_ms": 0.987,
+   "unary_w_gbps": 408.0
+  },
+  "768": {
+   "bytes_one_way": 452984832,
+   "copy_ms": 2.201,
+   "copy_gbps": 411.5,
+   "unary_w_ms": 2.167,
+   "unary_w_gbps": 418.0
+  },
+  "1024": {
+   "bytes_one_way": 805306368,
+   "copy_ms": 3.896,
+   "copy_gbps": 413.4,
+   "unary_w_ms": 3.836,
+   "unary_w_gbps": 419.8
+  }
+ }
+}
