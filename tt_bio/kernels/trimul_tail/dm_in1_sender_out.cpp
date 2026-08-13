@@ -8,6 +8,16 @@
 #ifndef TRIMUL_TAIL_PASSES
 #define TRIMUL_TAIL_PASSES 2
 #endif
+// How the product is rounded to bf16 before it is packed: 0 leaves it to the packer (which
+// breaks ties away from zero under fp32 DST), 1 uses SFPSTOCHRND round-to-nearest-even, 2 does
+// the same rounding with integer arithmetic. Only 0 is known-wrong; 1 and 2 are the candidates.
+#ifndef TRIMUL_TAIL_ROUND
+#define TRIMUL_TAIL_ROUND 2
+#endif
+// Diagnostic only: drop the gate so the multiply can be scored on its own. Never set in production.
+#ifndef TRIMUL_TAIL_SKIP_SIGMOID
+#define TRIMUL_TAIL_SKIP_SIGMOID 0
+#endif
 // SPDX-FileCopyrightText: © 2026 Tenstorrent AI ULC
 //
 // SPDX-License-Identifier: Apache-2.0

@@ -28,6 +28,17 @@ KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "trimul_tail"
 TILE = 32
 PASSES = 2
 
+# How the product reaches bf16 before it is packed. MEASURED at N=128 against
+# multiply_(p, g, SIGMOID) (perf/trimul_f1/f1_round_diag.py, qb1 card 3, ttnn 0.67.4):
+#     0  leave it to the packer         38004/4194304 elements miss (0.906%)
+#     1  float_to_fp16b + reinterpret   38004/4194304, byte-identical to 0 -- a silent NO-OP
+#     2  the same rounding in integers  0/4194304, torch.equal
+# 1 does nothing because under fp32 DST the SFPSTOCHRND result does not land where
+# reinterpret<vFloat> reads it; it only works in the 16-bit DST the LLK's own sigmoid runs in.
+# SKIP_SIGMOID drops the gate so the multiply can be scored alone. Diagnostic only.
+ROUND = 2
+SKIP_SIGMOID = 0
+
 # Same swept block config the two projections use today (`tenstorrent._MM_BLOCK[8]`), so each pass
 # runs the identical `matmul_blocks` over the identical single K block in the identical order.
 BLOCK = (4, 8, 1, 4, 1)
@@ -77,8 +88,10 @@ def _cb(idx, core_grid, tiles):
 
 
 def _build(device, xa, xb, wa, wb, out, grid, ckc):
+    defs = {"TRIMUL_TAIL_PASSES": PASSES, "TRIMUL_TAIL_ROUND": ROUND,
+            "TRIMUL_TAIL_SKIP_SIGMOID": SKIP_SIGMOID}
     entry = MG.build(device, xa, wa, [out], (BLOCK, grid), ckc,
-                     defines={"TRIMUL_TAIL_PASSES": PASSES}, kernel_dir=KERNEL_DIR)
+                     defines=defs, kernel_dir=KERNEL_DIR)
 
     gx, gy = grid
     core_grid = ttnn.CoreRangeSet(
@@ -92,7 +105,7 @@ def _build(device, xa, xb, wa, wb, out, grid, ckc):
     # The compute kernel is the fork's, not the wheel's, and it needs the pass count too.
     compute = entry["kernels"][4]
     compute.kernel_source = str(KERNEL_DIR / "compute.cpp")
-    compute.defines = [("TRIMUL_TAIL_PASSES", str(PASSES))]
+    compute.defines = [(k, str(v)) for k, v in defs.items()]
 
     _bind_b(entry, xb.buffer_address(), wb.buffer_address())
     _repack(entry)
@@ -127,7 +140,7 @@ def fused_tail(xa, xb, wa, wb, ckc, grid):
         return _reject("shape")
     device = xa.device()
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
-    key = (spec(xa), spec(wa), tuple(grid), tuple(str(c) for c in ckc))
+    key = (spec(xa), spec(wa), tuple(grid), tuple(str(c) for c in ckc), ROUND, SKIP_SIGMOID)
     out = ttnn.allocate_tensor_on_device(
         ttnn.Shape([int(d) for d in xa.padded_shape][:-1] + [int(wa.shape[-1])]),
         ttnn.bfloat16, ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)

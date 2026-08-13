@@ -72,6 +72,16 @@ HEADER = """// SPDX-FileCopyrightText: (c) 2026 Tenstorrent USA, Inc.
 #ifndef TRIMUL_TAIL_PASSES
 #define TRIMUL_TAIL_PASSES 2
 #endif
+// How the product is rounded to bf16 before it is packed: 0 leaves it to the packer (which
+// breaks ties away from zero under fp32 DST), 1 uses SFPSTOCHRND round-to-nearest-even, 2 does
+// the same rounding with integer arithmetic. Only 0 is known-wrong; 1 and 2 are the candidates.
+#ifndef TRIMUL_TAIL_ROUND
+#define TRIMUL_TAIL_ROUND 2
+#endif
+// Diagnostic only: drop the gate so the multiply can be scored on its own. Never set in production.
+#ifndef TRIMUL_TAIL_SKIP_SIGMOID
+#define TRIMUL_TAIL_SKIP_SIGMOID 0
+#endif
 """
 
 K_LOOP_CLOSE = """                }
@@ -153,7 +163,19 @@ inline void _round_bf16_() {
 #pragma GCC unroll 8
     for (int d = 0; d < ITERATIONS; d++) {
         sfpi::vFloat v = sfpi::dst_reg[0];
-        sfpi::dst_reg[0] = sfpi::reinterpret<sfpi::vFloat>(sfpi::float_to_fp16b(v, 0));
+#if TRIMUL_TAIL_ROUND == 2
+        // The same round-to-nearest-even by hand, in case the SFPSTOCHRND path does not land
+        // where reinterpret<vFloat> expects it.
+        sfpi::vUInt u = sfpi::reinterpret<sfpi::vUInt>(v);
+        sfpi::vUInt lsb = (u >> 16) & 1;
+        u = u + 0x7FFF;
+        u = u + lsb;
+        u = (u >> 16) << 16;
+        sfpi::dst_reg[0] = sfpi::reinterpret<sfpi::vFloat>(u);
+#else
+        sfpi::dst_reg[0] = sfpi::reinterpret<sfpi::vFloat>(
+            sfpi::float_to_fp16b(v, sfpi::RoundMode::NearestEven));
+#endif
         sfpi::dst_reg++;
     }
 }
@@ -186,7 +208,9 @@ void gate_block(
         reconfig_data_format_srca(g_cb);
         pack_reconfig_data_format(sig_cb);
         copy_tile(g_cb, t, 0);
+#if TRIMUL_TAIL_SKIP_SIGMOID == 0
         sigmoid_bf16_tile(0);
+#endif
         tile_regs_commit();
         tile_regs_wait();
         pack_tile(0, sig_cb);
@@ -203,7 +227,9 @@ void gate_block(
         copy_tile(sig_cb, 0, 1);
         mul_binary_tile_init();
         mul_binary_tile(0, 1, 0);
+#if TRIMUL_TAIL_ROUND != 0
         round_bf16_tile(0);
+#endif
         tile_regs_commit();
         tile_regs_wait();
         pack_tile(0, out_cb);
