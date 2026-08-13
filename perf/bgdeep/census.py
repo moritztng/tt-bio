@@ -23,7 +23,7 @@ Two things per run:
 """
 from __future__ import annotations
 
-import argparse, json, os, shutil, sys, time
+import argparse, json, os, shutil, socket, sys, time
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -197,7 +197,7 @@ def main() -> int:
 
     import importlib.metadata as md
     R = {
-        "wheel": md.version("ttnn"), "host": "qb2",
+        "wheel": md.version("ttnn"), "host": socket.gethostname(),
         "card": os.environ.get("TT_VISIBLE_DEVICES"), "spec": str(spec),
         "protocol": a.protocol, "num_designs": a.num_designs, "steps": a.steps,
         "wall_s": round(wall, 3),
@@ -215,7 +215,9 @@ def main() -> int:
                                   "rejects": {f"{k}": v for k, v
                                               in getattr(HM, "REJECTS", {}).items()}},
             "K1b_head_major_tail": {"served": HM.TAIL_STATS[0], "declined": HM.TAIL_STATS[1]},
-            "K2_persistent_sdpa_bias": {"served": PM.STATS[0], "declined": PM.STATS[1]},
+            "K2_persistent_sdpa_bias": {"served": PM.STATS[0], "declined": PM.STATS[1],
+                                        "rejects": {f"{k}": v for k, v
+                                                    in getattr(PM, "REJECTS", {}).items()}},
             "E6_fused_gated_channel_move": {"served": RB.STATS_GATED[0],
                                             "declined": RB.STATS_GATED[1]},
             "channel_move_fwd": {"served": RB.STATS[0], "declined": RB.STATS[1]},
