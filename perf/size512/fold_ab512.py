@@ -318,9 +318,14 @@ def main():
         return out
 
     import importlib.metadata as im
-    res = {"ttnn": im.version("ttnn"), "host": "qb2",
+    import socket
+    # host was hardcoded "qb2" and the note asserted ttnn 0.68.0. Run on any other box and the
+    # record self-contradicts: the 768 aa qb1 run wrote host "qb2" next to a detected ttnn 0.67.4.
+    # A wrong host label on a perf record is how two grids end up inside one comparison, so both
+    # fields are read from the machine now and neither is asserted.
+    res = {"ttnn": im.version("ttnn"), "host": socket.gethostname(),
            "chip": os.environ.get("TT_VISIBLE_DEVICES", "?"),
-           "note": "qb2 is ttnn 0.68.0 -- every absolute here is a ratio input, not a campaign number",
+           "note": "absolutes are ratio inputs, not campaign numbers; compare only within one host",
            "runs": []}
 
     for size in [int(s) for s in a.sizes.split(",")]:

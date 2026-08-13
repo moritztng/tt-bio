@@ -1,0 +1,81 @@
+=== host: tt-quietbox  card: 1  start: 2026-08-13T04:04:47+00:00 ===
+ef1e85c3a222c81a8c6deb7c87d3bdcf795b7aecea7517ff17c03b8972616c90  /home/ttuser/.coworker/wt/protenix-v2-sizes-perf/perf/size512/fixtures/cdk2x2_768.yaml
+7ed940bd80330523f39cc165a5d1e288579d684862bc633f1f063e933e3fa4b4  /home/ttuser/.coworker/wt/protenix-v2-sizes-perf/perf/size512/fixtures/cdk2x2_768.a3m
+2026-08-13 04:04:47.298 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+2026-08-13 04:05:31.172 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=12,y=9)] grow to 2198016 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+2026-08-13 04:05:33.097 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=12,y=9)] grow to 1802752 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+  on: fold 227.14s  block 138592.7 ms over 604 calls  plddt 0.787723  (227s)
+      DEC l1_layer_norm|h=1.5|1x768x768x256                    {'DRAM': 494}
+      DEC l1_layer_norm|h=1.5|768x768x256                      {'DRAM': 30}
+      DEC pair_proj_out_l1|1x768x768x256@256                   {'DRAM': 2096}
+      DEC pair_proj_out_l1|1x768x768x64@64                     {'L1': 320}
+      DEC pair_proj_out_l1|768x768x64@64                       {'L1': 160}
+      DEC transpose|768x768x256                                {'DRAM': 1048}
+      DEC transpose|768x768x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q768k768                                {'q_chunk=768 k_chunk=256 bias=bf16': 1, 'q_chunk=384 k_chunk=256 bias=bf16': 1207}
+      DEC trimul_chunk|N768|h256|b1                            {'c=32': 1048}
+      DEC trimul_chunk|N768|h64|b1                             {'c=32': 160}
+      DEC trimul_inproj_group|N768|c32|pairs2                  {'g=2': 160}
+      DEC trimul_inproj_group|N768|c32|pairs8                  {'g=4': 1048}
+      DEC trimul_pair_buffer|N768                              {'DRAM': 1208}
+  on: fold 155.44s  block 120828.44 ms over 604 calls  plddt 0.787723  (155s)
+      DEC l1_layer_norm|h=1.5|1x768x768x256                    {'DRAM': 494}
+      DEC l1_layer_norm|h=1.5|768x768x256                      {'DRAM': 30}
+      DEC pair_proj_out_l1|1x768x768x256@256                   {'DRAM': 2096}
+      DEC pair_proj_out_l1|1x768x768x64@64                     {'L1': 320}
+      DEC pair_proj_out_l1|768x768x64@64                       {'L1': 160}
+      DEC transpose|768x768x256                                {'DRAM': 1048}
+      DEC transpose|768x768x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q768k768                                {'q_chunk=384 k_chunk=256 bias=bf16': 1208}
+      DEC trimul_chunk|N768|h256|b1                            {'c=32': 1048}
+      DEC trimul_chunk|N768|h64|b1                             {'c=32': 160}
+      DEC trimul_inproj_group|N768|c32|pairs2                  {'g=2': 160}
+      DEC trimul_inproj_group|N768|c32|pairs8                  {'g=4': 1048}
+      DEC trimul_pair_buffer|N768                              {'DRAM': 1208}
+{
+ "ratios": {
+  "768": {
+   "on_block_ms": [
+    138592.7,
+    120828.44
+   ],
+   "off_block_ms": [],
+   "on_fold_s": [
+    227.142,
+    155.441
+   ],
+   "off_fold_s": [],
+   "aa_floor_block_ms": 17764.26,
+   "aa_floor_fold_s": 71.701
+  }
+ },
+ "arm_medians": {
+  "768": {
+   "on": {
+    "block_ms": [
+     138592.7,
+     120828.44
+    ],
+    "fold_s": [
+     227.142,
+     155.441
+    ],
+    "plddt": [
+     0.787723,
+     0.787723
+    ],
+    "n": 2,
+    "block_ms_median": 129710.57,
+    "fold_s_median": 191.291,
+    "block_ms_min": 120828.44,
+    "fold_s_min": 155.441,
+    "block_ms_spread": 17764.26,
+    "fold_s_spread": 71.701
+   }
+  }
+ }
+}
+wrote perf/pxsizes/s3_768_qb1_aa.json
+RC_768_onon=0
+=== done: 2026-08-13T04:11:19+00:00 ===
