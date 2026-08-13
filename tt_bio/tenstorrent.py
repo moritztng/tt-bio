@@ -742,6 +742,30 @@ def batched_matmul(a: ttnn.Tensor, b: ttnn.Tensor, compute_kernel_config=None,
                        **kw)
 
 
+# The score tensor is [S, n_heads, S, S], so its element count is n_heads * S**3 -- CUBIC in the
+# token count, not quadratic. One fp32 copy is 2 GiB at 512 aa and 16 GiB at 1024, and the plain
+# chain below held TWO of them live across multiply / add / softmax. At 1024 aa that was refused per
+# bank ("Not enough space to allocate 17179869184 B DRAM buffer across 8 banks ... largest free
+# block: 1107296256 B") and OpenFold3 could not fold at all. Two changes fix it, both torch.equal
+# with max_abs exactly 0.0 against the chain they replace:
+#
+#   * the scale folds into the bias add's input-a activation and the softmax reduces in place. That
+#     deletes one whole N**3 pass and one of the two fp32 allocations: 20.25 -> 16.25 whole-tensor
+#     passes, and the fp32 peak halves (perf/of3sizes/probe_fuse.py, probe_fuse2.py).
+#   * rows of the leading dim are blocked when one fp32 score copy exceeds the budget below. Those
+#     rows are independent -- the softmax reduces over the last dim only and the bias broadcasts
+#     over the leading dim -- so blocking is a partition, not a reordering
+#     (perf/of3sizes/screen_triatt_fp32_qb1c0.json: torch_equal true, max_abs 0.0 at 512 and 768).
+#
+# The budget is keyed on the allocation's own byte count, never on the sequence length, and it sits
+# between the largest score tensor MEASURED to allocate (6.75 GiB at 768 aa) and the one measured to
+# refuse (16 GiB at 1024). So 128 / 256 / 512 / 768 keep the single-shot path and pay nothing, and
+# only 1024 blocks -- into two blocks of 512 rows.
+_FP32_SOFTMAX_BLOCK_BYTES = 8 << 30
+_FP32_SOFTMAX_FUSED_ADD = True
+FP32_SOFTMAX_STATS = {"calls": 0, "blocked": 0, "blocks": 0, "fused": 0, "unfused": 0}
+
+
 def _fp32_softmax_attention(
     q: ttnn.Tensor,
     k: ttnn.Tensor,
@@ -759,26 +783,66 @@ def _fp32_softmax_attention(
     The q@k matmul keeps bf16 operands with fp32_dest_acc (the existing einsum recipe);
     only the softmax reduction and the additive bias it consumes upcast to fp32. The
     additive ``bias`` arrives pre-baked by ``sqrt(h)`` (z_weight * sqrt(h)), so it is
-    multiplied by ``scale_inv`` to recover the raw reference ``z`` before the add —
+    multiplied by ``scale_inv`` to recover the raw reference ``z`` before the add --
     the same undo the fp32_raw_matmul_attention path applies. Replaces the fused
     ``ttnn.transformer.scaled_dot_product_attention`` call (bf16 softmax) when the
     BOLTZ2_FP32_SOFTMAX gate is on.
+
+    Blocks the leading dim when one fp32 score copy exceeds ``_FP32_SOFTMAX_BLOCK_BYTES``.
     """
+    FP32_SOFTMAX_STATS["calls"] += 1
+    rows = int(q.shape[0])
+    per_row = int(q.shape[1]) * int(q.shape[2]) * int(k.shape[2]) * 4
+    blk = max(32, int(_FP32_SOFTMAX_BLOCK_BYTES // per_row) // 32 * 32) if per_row else rows
+    if rows <= 1 or blk >= rows:
+        return _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_config,
+                                             out_dtype, bias_scale_inv)
+    FP32_SOFTMAX_STATS["blocked"] += 1
+    parts = []
+    for s in range(0, rows, blk):
+        e = min(s + blk, rows)
+        qs, ks, vs = q[s:e], k[s:e], v[s:e]
+        parts.append(_fp32_softmax_attention_block(qs, ks, vs, bias, scale_inv,
+                                                   compute_kernel_config, out_dtype,
+                                                   bias_scale_inv))
+        for t in (qs, ks, vs):
+            ttnn.deallocate(t)
+    FP32_SOFTMAX_STATS["blocks"] += len(parts)
+    o = ttnn.concat(parts, dim=0)
+    for part in parts:
+        ttnn.deallocate(part)
+    return o
+
+
+def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_config,
+                                  out_dtype, bias_scale_inv):
+    """One row block of `_fp32_softmax_attention`. The whole tensor is one block below the budget."""
     kt = ttnn.permute(k, (0, 1, 3, 2))
     # bf16 operands, fp32_dest_acc -> bf16 scores (the existing einsum recipe).
     sc = batched_matmul(q, kt, compute_kernel_config=compute_kernel_config)
     ttnn.deallocate(kt)
     sc = ttnn.typecast(sc, ttnn.float32, memory_config=sc.memory_config())
-    sc = ttnn.multiply(sc, scale_inv)
     bias_f = ttnn.typecast(bias, ttnn.float32, memory_config=bias.memory_config())
     # undo the pair-bias pre-bake (sqrt(h) for Boltz/Protenix, 1.0 for openfold3)
     bias_f = ttnn.multiply(bias_f, scale_inv if bias_scale_inv is None else bias_scale_inv)
-    sc = ttnn.add(sc, bias_f)
-    ttnn.deallocate(bias_f)
-    attn = ttnn.softmax(sc, dim=-1)  # fp32 softmax reduction
+    if _FP32_SOFTMAX_FUSED_ADD:
+        # The score scale rides the add's input-a activation instead of taking a pass of its own,
+        # and the softmax reduces into the same buffer. Both are bit-exact; the bias is O(S**2) so
+        # its own multiply is three orders below the scores and stays where it is.
+        FP32_SOFTMAX_STATS["fused"] += 1
+        attn = ttnn.add_(sc, bias_f, input_tensor_a_activations=[
+            ttnn.UnaryWithParam(ttnn.UnaryOpType.MUL_UNARY_SFPU, scale_inv)])
+        ttnn.deallocate(bias_f)
+        attn = ttnn.softmax_in_place(attn)
+    else:
+        FP32_SOFTMAX_STATS["unfused"] += 1
+        sc = ttnn.multiply(sc, scale_inv)
+        sc = ttnn.add(sc, bias_f)
+        ttnn.deallocate(bias_f)
+        attn = ttnn.softmax(sc, dim=-1)  # fp32 softmax reduction
+        ttnn.deallocate(sc)
     attn_bf = ttnn.typecast(attn, ttnn.bfloat16, memory_config=attn.memory_config())
     ttnn.deallocate(attn)
-    ttnn.deallocate(sc)
     o = batched_matmul(attn_bf, v, compute_kernel_config=compute_kernel_config, dtype=out_dtype)
     ttnn.deallocate(attn_bf)
     return o
