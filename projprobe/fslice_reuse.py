@@ -47,7 +47,7 @@ FLOOR_SLICES_S = 3.20e6
 STAGE2_NS_PER_SLICE_PER_CORE = 782.1     # measured, section 23
 
 
-def build(dev, v, m, out, nx, ny, nb, shift):
+def build(dev, v, m, out, nx, ny, nb, shift, ncopy=1):
     cg = ttnn.CoreRangeSet([ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(nx - 1, ny - 1))])
 
     def cb(i, page, depth):
@@ -57,8 +57,8 @@ def build(dev, v, m, out, nx, ny, nb, shift):
     rct = ([CB_V, CB_MASK, NPLANE, TILE_B, BARRIER_EVERY, shift]
            + list(ttnn.TensorAccessorArgs(v).get_compile_time_args())
            + list(ttnn.TensorAccessorArgs(m).get_compile_time_args()))
-    cct = [CB_V, CB_MASK, CB_OUT, NPLANE, NPLANE, shift]
-    wct = [CB_OUT, TILE_B, 1] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
+    cct = [CB_V, CB_MASK, CB_OUT, NPLANE, NPLANE, shift, ncopy]
+    wct = [CB_OUT, TILE_B, ncopy] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
     rrt, crt, wrt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     c = 0
     for cy in range(ny):
@@ -76,7 +76,7 @@ def build(dev, v, m, out, nx, ny, nb, shift):
            ttnn.ComputeConfigDescriptor(math_fidelity=ttnn.MathFidelity.HiFi4)),
         mk(KDIR / "writer_fslice.cpp", wct, wrt, ttnn.WriterConfigDescriptor()),
     ], semaphores=[], cbs=[cb(CB_V, TILE_B, NPLANE + 2 * shift), cb(CB_MASK, TILE_B, NPLANE),
-                           cb(CB_OUT, TILE_B, 4)])
+                           cb(CB_OUT, TILE_B, 4 * ncopy)])
 
 
 def main():
@@ -149,6 +149,27 @@ def main():
             print(f"shift {shift:3d}: rel L2 {rel:.3e}  {ns:9.1f} ns/tile ({base/ns:5.2f}x)  "
                   f"stage1 {per_slice:7.1f} ns/slice -> projection {1e9/tot/1e3:7.1f} k slices/s "
                   f"({100*(1e9/tot)/FLOOR_SLICES_S:4.1f}% of floor)", flush=True)
+            # The general shear needs stage 1 to emit 8 replicated copies. Cost probe: bytes right,
+            # contents of copies 1..7 wrong, so only the timing is used.
+            if shift == 7:
+                o8 = ttnn.from_torch(torch.zeros(1, 1, 32 * NB * n * 8, 32).to(torch.bfloat16),
+                                     dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
+                pd8 = build(dev, v, m, o8, nx, ny, NB, shift, 8)
+                ttnn.generic_op([v, m, o8], pd8)
+                ttnn.synchronize_device(dev)
+                b8 = float("inf")
+                for _ in range(5):
+                    t0 = time.perf_counter()
+                    ttnn.generic_op([v, m, o8], pd8)
+                    ttnn.synchronize_device(dev)
+                    b8 = min(b8, time.perf_counter() - t0)
+                ns8 = b8 * 1e9 / NB
+                ps8 = ns8 * TILES_PER_DIRECTION / n / PSI_PER_DIRECTION
+                res["replicated_stage1"] = {"ns_per_tile_per_core": ns8,
+                                            "ns_per_slice_per_core": ps8, "factor_vs_1copy": ns8 / ns}
+                print(f"   stage 1 emitting 8 replicated copies: {ns8:9.1f} ns/tile "
+                      f"({ns8/ns:5.2f}x)  -> {ps8:7.1f} ns/slice/core", flush=True)
+                ttnn.deallocate(o8)
             json.dump(res, open(HERE / "fslice_reuse.json", "w"), indent=1)
             ttnn.deallocate(out)
     finally:

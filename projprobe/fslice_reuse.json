@@ -11,57 +11,62 @@
  "arms": {
   "28": {
    "max_rel_l2": 0.0033085323843017535,
-   "ns_per_tile_per_core": 20033.414984936826,
+   "ns_per_tile_per_core": 18536.194984335452,
    "speedup_vs_no_reuse": 1.0,
-   "stage1_ns_per_slice_per_core": 821.8836916897159,
-   "projection_ns_per_slice_per_core": 1603.983691689716,
-   "projection_k_slices_per_s": 623.447735273761,
-   "projection_pct_of_floor": 19.482741727305033
+   "stage1_ns_per_slice_per_core": 760.459281408634,
+   "projection_ns_per_slice_per_core": 1542.559281408634,
+   "projection_k_slices_per_s": 648.2733027198931,
+   "projection_pct_of_floor": 20.25854070999666
   },
   "14": {
    "max_rel_l2": 0.003521018321933886,
-   "ns_per_tile_per_core": 6873.83500917349,
-   "speedup_vs_no_reuse": 2.914445132622647,
-   "stage1_ns_per_slice_per_core": 282.0034875558355,
-   "projection_ns_per_slice_per_core": 1064.1034875558355,
-   "projection_k_slices_per_s": 939.7582206002572,
-   "projection_pct_of_floor": 29.36744439375804
+   "ns_per_tile_per_core": 6819.039990659803,
+   "speedup_vs_no_reuse": 2.7182997914259057,
+   "stage1_ns_per_slice_per_core": 279.75548679629964,
+   "projection_ns_per_slice_per_core": 1061.8554867962996,
+   "projection_k_slices_per_s": 941.7477353882472,
+   "projection_pct_of_floor": 29.429616730882724
   },
   "7": {
    "max_rel_l2": 0.003521018321933886,
-   "ns_per_tile_per_core": 2820.800000336021,
-   "speedup_vs_no_reuse": 7.102033104988085,
-   "stage1_ns_per_slice_per_core": 115.7251282189137,
-   "projection_ns_per_slice_per_core": 897.8251282189137,
-   "projection_k_slices_per_s": 1113.802642151238,
-   "projection_pct_of_floor": 34.806332567226185
+   "ns_per_tile_per_core": 2836.399944499135,
+   "speedup_vs_no_reuse": 6.535113293978244,
+   "stage1_ns_per_slice_per_core": 116.36512592816963,
+   "projection_ns_per_slice_per_core": 898.4651259281696,
+   "projection_k_slices_per_s": 1113.0092544960369,
+   "projection_pct_of_floor": 34.78153920300115
   },
   "4": {
    "max_rel_l2": 0.0033412249413339134,
-   "ns_per_tile_per_core": 2313.4599905461073,
-   "speedup_vs_no_reuse": 8.65950354309253,
-   "stage1_ns_per_slice_per_core": 94.91117909932747,
-   "projection_ns_per_slice_per_core": 877.0111790993275,
-   "projection_k_slices_per_s": 1140.23632062134,
-   "projection_pct_of_floor": 35.63238501941687
+   "ns_per_tile_per_core": 2263.014976051636,
+   "speedup_vs_no_reuse": 8.190928995386598,
+   "stage1_ns_per_slice_per_core": 92.84164004314404,
+   "projection_ns_per_slice_per_core": 874.941640043144,
+   "projection_k_slices_per_s": 1142.9333731912557,
+   "projection_pct_of_floor": 35.71666791222674
   },
   "2": {
    "max_rel_l2": 0.003424183997619908,
-   "ns_per_tile_per_core": 2291.9600451132283,
-   "speedup_vs_no_reuse": 8.740734825483019,
-   "stage1_ns_per_slice_per_core": 94.02913005592733,
-   "projection_ns_per_slice_per_core": 876.1291300559274,
-   "projection_k_slices_per_s": 1141.3842614001035,
-   "projection_pct_of_floor": 35.66825816875323
+   "ns_per_tile_per_core": 2249.515018775128,
+   "speedup_vs_no_reuse": 8.240085009269466,
+   "stage1_ns_per_slice_per_core": 92.28779564205654,
+   "projection_ns_per_slice_per_core": 874.3877956420565,
+   "projection_k_slices_per_s": 1143.6573165636505,
+   "projection_pct_of_floor": 35.73929114261408
   },
   "1": {
    "max_rel_l2": 0.003443533045755272,
-   "ns_per_tile_per_core": 2246.1600019596517,
-   "speedup_vs_no_reuse": 8.918961680137999,
-   "stage1_ns_per_slice_per_core": 92.15015392654982,
-   "projection_ns_per_slice_per_core": 874.2501539265498,
-   "projection_k_slices_per_s": 1143.8373736723586,
-   "projection_pct_of_floor": 35.744917927261206
+   "ns_per_tile_per_core": 2231.9099662126973,
+   "speedup_vs_no_reuse": 8.305081864834051,
+   "stage1_ns_per_slice_per_core": 91.5655370753927,
+   "projection_ns_per_slice_per_core": 873.6655370753928,
+   "projection_k_slices_per_s": 1144.6027771079464,
+   "projection_pct_of_floor": 35.76883678462332
   }
+ },
+ "replicated_stage1": {
+  "ns_per_tile_per_core": 8372.41495901253,
+  "ns_per_slice_per_core": 343.4836906261551,
+  "factor_vs_1copy": 2.951775180806165
  }
 }

@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Both stage-2 passes fused, intermediate never leaving L1. Section 3.2's Floor B.
+"""Both stage-2 passes fused, on the GENERAL shear. The honest stage-2 number.
+
+Every fused figure so far used the restricted shear, where the per-row integer offset happens to
+be a multiple of 8 elements. A real orientation gives no reason for that, and section 19 fixed it
+by holding the source replicated at the 8 sub-offsets and sending row r to copy k0(r) mod 8 --
+which cost 1.43x on a single pass, entirely from where the reads land. This runs the FUSED kernel
+on that replicated source with offsets that hit all eight residues, so the result is the general
+stage-2 rate rather than the restricted one.
 
 Every slices/s figure so far is DERIVED by assuming three passes of the measured single pass compose at
 no extra cost. Section 22.2 priced the two materialised routes at 1.55x (pass 1 scatters 32 rows into a
@@ -36,6 +43,7 @@ WIN = 32 * SRC_TILES
 ELEM = 2
 TILE_B = 32 * 32 * ELEM
 SRC_W, SRC_ROWS = 1024, 64
+NCOPY = 8
 BARRIER_EVERY = 4
 A = 1.31
 NB = 400
@@ -98,20 +106,33 @@ def main():
     res = {"A": A, "arms": {}}
     try:
         rng = np.random.default_rng(51)
-        base = rng.integers(-120, 120, size=(SRC_ROWS, SRC_W)).astype(np.float32)
+        base = rng.integers(-120, 120, size=(SRC_ROWS, SRC_W + NCOPY)).astype(np.float32)
         basen = torch.from_numpy(base).to(torch.bfloat16).to(torch.float64).numpy()
+        # Copies interleaved PER ROW, which section 19 measured at 1.89x over blocking them.
+        rep = np.zeros((SRC_ROWS * NCOPY, SRC_W), dtype=np.float32)
+        for r in range(SRC_ROWS):
+            for sft in range(NCOPY):
+                rep[r * NCOPY + sft, :] = basen[r, sft:sft + SRC_W]
         mc = ttnn.MemoryConfig(ttnn.TensorMemoryLayout.INTERLEAVED, ttnn.BufferType.L1)
-        x = ttnn.from_torch(torch.from_numpy(base).to(torch.bfloat16).reshape(1, 1, SRC_ROWS, SRC_W),
+        x = ttnn.from_torch(torch.from_numpy(rep).to(torch.bfloat16).reshape(1, 1, SRC_ROWS * NCOPY, SRC_W),
                             dtype=ttnn.bfloat16, layout=ttnn.ROW_MAJOR_LAYOUT, device=dev,
                             memory_config=mc)
         P = sel_matrices(A, WIN)
         selt = np.concatenate([P[d].reshape(SRC_TILES, 32, 32).reshape(-1, 32) for d in range(3)], 0)
         sel = ttnn.from_torch(torch.from_numpy(selt).to(torch.bfloat16).reshape(1, 1, -1, 32),
                               dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
-        h = np.array([math.modf(0.37 * r + 0.2)[0] for r in range(NROWS)])
-        offs_el = 8 * np.arange(NROWS, dtype=np.int64)
+        # A GENERAL shear: B and C are not multiples of 8, so floor(B*r + C) hits every residue mod 8
+        # and none of these offsets is reachable without the replication.
+        Bs, Cs = 0.77, 5.3
+        s_r = Bs * np.arange(NROWS) + Cs
+        k0 = np.floor(s_r).astype(np.int64)
+        h = s_r - k0
+        rho = k0 % NCOPY
+        offs_el = 8 * (k0 // NCOPY)
         offs_by = offs_el * ELEM
-        rowidx = np.arange(NROWS, dtype=np.int64)
+        rowidx = np.arange(NROWS) * NCOPY + rho
+        print(f"general shear B={Bs} C={Cs}: residues mod 8 hit = {sorted(set(rho.tolist()))}",
+              flush=True)
         f5 = np.zeros((3, 32, 32), dtype=np.float32)
         for r in range(NROWS):
             for u in range(32):
@@ -135,7 +156,9 @@ def main():
                     f = q - j
                     o[r, u] = (1 - f) * win[r, j] + f * win[r, j + 1]
             return o
-        w0 = np.stack([basen[r, offs_el[r]:offs_el[r] + WIN] for r in range(NROWS)])
+        # The window the reader actually assembles: row r of copy rho[r] at aligned offset offs_el[r],
+        # which is the source starting at k0(r) exactly.
+        w0 = np.stack([basen[r, k0[r]:k0[r] + WIN] for r in range(NROWS)])
         # Pass 1s two tiles STACK vertically, so the intermediate is 64 v-rows x 32 u-columns.
         # Transposing gives 32 u-rows x 64 v-columns, which is the 64-wide window pass 2 resamples.
         I = np.concatenate([pass1(w0), pass1(w0)], axis=0)      # 64 x 32, halves identical in this test

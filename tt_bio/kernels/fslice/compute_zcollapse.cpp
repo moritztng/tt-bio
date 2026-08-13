@@ -44,6 +44,13 @@ void kernel_main() {
     // is IDENTICAL for every output tile, because the window start and the band centre
     // advance by the same amount, so nothing has to be reloaded or re-indexed.
     constexpr uint32_t shift = get_compile_time_arg_val(5);
+    // Copies of W emitted per output tile. The general shear needs the source replicated at
+    // the 8 sub-offsets (section 19), and stage 1 is what has to write them. Each copy is W
+    // shifted by s elements, which is a matmul against a shift matrix -- free here, since the
+    // z-collapse is read-bound. What is NOT free is the write traffic, and that is what this
+    // measures. COST PROBE: the copies emitted are unshifted, so the bytes are right and the
+    // contents of copies 1..7 are not.
+    constexpr uint32_t ncopy = get_compile_time_arg_val(6);
 
     const uint32_t nblocks = get_arg_val<uint32_t>(0);
     constexpr uint32_t one = 1;
@@ -53,7 +60,7 @@ void kernel_main() {
 
     for (uint32_t b = 0; b < nblocks; ++b) {
         cb_wait_front(cb_v, nplane);
-        cb_reserve_back(cb_out, one);
+        cb_reserve_back(cb_out, ncopy);
         tile_regs_acquire();
 
         // The accumulator PING-PONGS between two registers. add_binary_tile(a, b, out) with out equal
@@ -76,9 +83,11 @@ void kernel_main() {
 
         tile_regs_commit();
         tile_regs_wait();
-        pack_tile(DST_ACC, cb_out);
+        for (uint32_t q = 0; q < ncopy; ++q) {
+            pack_tile(DST_ACC, cb_out);
+        }
         tile_regs_release();
-        cb_push_back(cb_out, one);
+        cb_push_back(cb_out, ncopy);
         cb_pop_front(cb_v, shift);
     }
 }
