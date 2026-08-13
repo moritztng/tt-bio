@@ -196,6 +196,7 @@ def main():
         return g
 
     T._trimul_chunk_size, T._triangle_mul_memory_config, T._trimul_inproj_group = tcs, tmmc, ipg
+    E6_DEFAULT = __import__("tt_bio.reblock_permute", fromlist=["x"])._ENABLED_GATED
     TRANS_BIG_DEFAULT = T.TRANSITION_H_CHUNK_SIZE_BIG
     L1MAX_DEFAULT = T.TRIANGLE_MULT_L1_MAX_SEQ
 
@@ -283,12 +284,14 @@ def main():
             T._TRIMUL_INPROJ_GROUP = 8
             RB.set_enabled_back(bk)
             RB.STATS_BACK[0] = RB.STATS_BACK[1] = 0
-        # Every arm sets the fused gate, so a non-E6 arm provably runs without it rather than
-        # inheriting the previous arm's state.
+        # Every arm sets the fused gate, so a non-E6 arm provably runs a known value instead of
+        # inheriting the previous one. That value used to be `bool(e6)`, which is False when the arm
+        # does not name E6 -- so `on` ran with E6 OFF and was not the shipped stack at any size
+        # where the gate would have opened. Only an arm that names E6 overrides it now.
         import tt_bio.reblock_permute as _RB
         if e6 is not None:
             T._TRIMUL_INPROJ_GROUP = 8
-        _RB.set_enabled_gated(bool(e6))
+        _RB.set_enabled_gated(E6_DEFAULT if e6 is None else bool(e6))
         _RB.STATS_GATED[0] = _RB.STATS_GATED[1] = 0
         if fid:
             ckc = STATE["model"].trunk.compute_kernel_config
@@ -389,6 +392,7 @@ def main():
                                for k, v in sorted(WALL.items(), key=lambda kv: -kv[1]["s"])},
                    "decisions": {k: dict(v) for k, v in sorted(DEC.items())},
                    "l1_out_refused": [str(k) for k in T._L1_OUT_REFUSED],
+                   "e6_default": E6_DEFAULT,
                    "transition_h_chunk_size_big": T.TRANSITION_H_CHUNK_SIZE_BIG,
                    "trimul_l1_max_seq": T.TRIANGLE_MULT_L1_MAX_SEQ,
                    "transition_chunks": {f"H{h}|W{w}|c{c}": v for (h, w, c), v
