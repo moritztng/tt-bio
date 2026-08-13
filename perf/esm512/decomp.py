@@ -163,11 +163,11 @@ def main():
           f"n_tokens={cold_m.get('n_tokens')} plddt={cold_m.get('plddt')}", flush=True)
     res["cold_s"] = cold_s
 
-    def record(tag, fold_s, m):
+    def record(tag, fold_s, m, detail=False):
         row = {"arm": tag, "fold_s": round(fold_s, 3), "plddt": m.get("plddt"),
                "n_tokens": m.get("n_tokens"), "cif": sha_dir(struct_dir),
                "loadavg": open("/proc/loadavg").read().split()[0]}
-        if TIMERS_ON[0]:
+        if detail:
             row["levers"] = LV.snapshot(reset_rb=True)
             comp = {}
             for k, v in sorted(INCL.items(), key=lambda kv: -kv[1]["s"]):
@@ -191,7 +191,7 @@ def main():
         fold_s, m = one_fold()
         TIMERS_ON[0] = False
         LV.on(False)
-        record(f"timed{i}", fold_s, m)
+        record(f"timed{i}", fold_s, m, detail=True)
         for k, v in sorted(INCL.items(), key=lambda kv: -(kv[1]["s"] - CHILD[kv[0]])):
             print(f"    {k:34s} n={v['n']:6d} incl={v['s']:8.3f}s excl={v['s']-CHILD[k]:8.3f}s",
                   flush=True)

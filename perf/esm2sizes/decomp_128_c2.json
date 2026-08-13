@@ -1,0 +1,92 @@
+{
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "2",
+ "model": "esmfold2",
+ "size": 128,
+ "recycling_steps": 10,
+ "sampling_steps": 100,
+ "timers_installed": [
+  "stage:ESMC-6B",
+  "stage:LMShim",
+  "stage:MSAEncoder",
+  "stage:FoldingTrunk*",
+  "stage:DiffusionModule",
+  "stage:DiffusionConditioning",
+  "stage:DistogramHead",
+  "block:PairUpdateBlock",
+  "body:TriangleMultiplication",
+  "body:SwiGLUFFN",
+  "block:TokenDiT",
+  "body:AttentionPairBias",
+  "body:CondTransition",
+  "leaf:_attn_fp32",
+  "body:AtomEncoder",
+  "body:AtomDecoder",
+  "body:SWAAtomTransformer",
+  "leaf:SWAAttention",
+  "body:OuterProductMean",
+  "phase:prepare_input",
+  "phase:decode",
+  "body:MSAPWA"
+ ],
+ "runs": [
+  {
+   "arm": "plain0",
+   "fold_s": 3.967,
+   "plddt": 0.9211,
+   "n_tokens": null,
+   "cif": {
+    "cdk2x2_128.cif": "b9bdb3267977020f"
+   },
+   "loadavg": "2.45"
+  },
+  {
+   "arm": "plain1",
+   "fold_s": 3.969,
+   "plddt": 0.9211,
+   "n_tokens": null,
+   "cif": {
+    "cdk2x2_128.cif": "b9bdb3267977020f"
+   },
+   "loadavg": "2.41"
+  },
+  {
+   "arm": "timed0",
+   "fold_s": 4.354,
+   "plddt": 0.9211,
+   "n_tokens": null,
+   "cif": {
+    "cdk2x2_128.cif": "b9bdb3267977020f"
+   },
+   "loadavg": "2.41"
+  },
+  {
+   "arm": "plain_post0",
+   "fold_s": 4.033,
+   "plddt": 0.9211,
+   "n_tokens": null,
+   "cif": {
+    "cdk2x2_128.cif": "b9bdb3267977020f"
+   },
+   "loadavg": "2.94"
+  },
+  {
+   "arm": "plain_post1",
+   "fold_s": 3.97,
+   "plddt": 0.9211,
+   "n_tokens": null,
+   "cif": {
+    "cdk2x2_128.cif": "b9bdb3267977020f"
+   },
+   "loadavg": "2.86"
+  }
+ ],
+ "grid": [
+  11,
+  10
+ ],
+ "cold_s": 30.928563088000374,
+ "plain_median": 3.9695,
+ "plain_spread": 0.06600000000000028
+}
