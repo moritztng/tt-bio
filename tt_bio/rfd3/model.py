@@ -161,7 +161,10 @@ _TUNE_MIN_GAIN = 1.05  # ignore a candidate that is not at least 5% faster than 
 # that cost is the whole result. Replaces the old `D > 1` gate in `_tunable`, which was the same
 # intent expressed on the wrong variable. 0.25 ms sits above the 0.02-0.13 ms matmuls of the
 # 419-atom fixture and below the 0.53-2.74 ms ones of the 3359-atom fixture at D=1.
-_TUNE_MIN_MS = 0.25
+# Overridable so the floor itself can be A/B tested. At the pinned rfd3_R4 fixture the DiT
+# issues ~360 _tuned_linear calls per step and the tune log shows several of its shapes
+# skipped just under this floor, the (2,704,768) by (768,384) one at 0.214 ms for instance.
+_TUNE_MIN_MS = float(os.environ.get("RFD3_TUNE_MIN_MS", "0.25"))
 _TUNE_REPS = 3
 
 
