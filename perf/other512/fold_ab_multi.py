@@ -297,7 +297,7 @@ def main():
     patch(T, "Pairformer", "stage:Pairformer")
     patch(T, "PairformerLayer", "block:PairformerLayer")
     for nm in ("TriangleMultiplication", "TriangleAttention", "AttentionPairBias",
-               "PairWeightedAveraging"):
+               "PairWeightedAveraging", "Transition"):
         patch(T, nm, f"body:{nm}")
     if a.model.startswith("esmfold2"):
         patch(E2, "PairUpdateBlock", "block:PairUpdateBlock")
