@@ -2273,63 +2273,11 @@ def _extend_with_neighbours(mask, seq_idx, D_LL, k, inplace=False):
     return idx.long()
 
 
-# Rows per distance block. The (L,L) distance matrix is 45 MB at 3359 atoms and the shipped path
-# makes four passes over it -- cdist writes it, masked_fill_ reads and rewrites it, topk reads it
-# again -- so it is streamed through DRAM rather than held in cache. Chunking the ROWS changes no
-# arithmetic (rows are independent) and keeps each block resident.
-#
-# Swept on qb1 under benchlock at 3359 atoms (scripts/rfd3_port/p37_extend_neighbours.py,
-# perf/p37/extend_neighbours.json): 256 -> 18.012 ms, 512 -> 16.425, 1024 -> 22.972, against the
-# shipped path's 22.422. 512 it is, and the shape of that curve is a host cache property, so it is a
-# constant to re-measure on a different box rather than a universal.
-_NEIGHBOUR_ROW_CHUNK = 512
-
-
-def _extend_with_neighbours_chunked(mask, seq_idx, x, k, p_max):
-    """`_extend_with_neighbours` over row blocks, taking coordinates instead of a distance matrix.
-
-    Identical indices, not merely close ones: rows are independent, so a block computes exactly the
-    arithmetic the full matrix would for those rows, and the equality is measured rather than argued
-    -- every chunk size and every variant in p37 is `torch.equal` against the shipped path.
-
-    Two things are folded in here because they only pay off together (16.425 ms against 17.683 for
-    chunking alone and 22.135 for the shallower topk alone):
-
-    * the distance block is never materialised at full size, so cdist's 45 MB output, the
-      masked_fill_ that rewrites it and the topk that reads it all stay in cache;
-    * the topk goes only `p_max` deep instead of k. `flip` puts the NEAREST last and a row fills at
-      most p_max of its k slots from the distance side, so the first k - p_max columns of `fill` are
-      never selected and anything may sit there.
-
-    NOT used on the multi-chain branch: that one reads D_LL again for the inter-chain pass, so the
-    full matrix has to exist there anyway.
-    """
-    length = x.shape[-2]
-    if p_max == 0:                                    # every slot is a sequence neighbour
-        return seq_idx.unsqueeze(0).expand(x.shape[0], length, k).long()
-    inf = float("inf")
-    outs = []
-    for s in range(0, length, _NEIGHBOUR_ROW_CHUNK):
-        e = min(s + _NEIGHBOUR_ROW_CHUNK, length)
-        d = torch.cdist(x[:, s:e], x, p=2).masked_fill_(mask[s:e], inf)
-        near = torch.topk(d, p_max, dim=-1, largest=False).indices.flip(dims=[-1])
-        fill = near if p_max == k else torch.cat(
-            [near[..., :1].expand(*near.shape[:-1], k - p_max), near], dim=-1)
-        si = seq_idx[s:e]
-        outs.append(torch.where((si == length).expand_as(fill), fill, si.expand_as(fill)))
-    return torch.cat(outs, dim=-2).long()
-
-
 def _mask_and_seq_idx(tok_idx, n_seq_neighbours, k, chain, base_mask, length):
     mask = _build_index_mask(tok_idx, n_seq_neighbours, k, chain, base_mask).contiguous()
     rows = torch.arange(length, device=tok_idx.device).unsqueeze(0).expand(length, length)
     seq_idx = torch.where(mask, rows, length).topk(k, dim=1, largest=False, sorted=True).values
-    # How many of a row's k slots the distance topk actually has to fill. The rest are sequence
-    # neighbours. It is a property of the mask, so it is cached here rather than recomputed on
-    # every one of ~200 diffusion steps. Measured 112 of 128 at 3359 atoms (mean 59.6), which is
-    # why a shallower topk is worth only 1.3% on its own -- see _extend_with_neighbours_chunked.
-    p_max = int((seq_idx == length).sum(-1).max())
-    return mask, seq_idx, p_max
+    return mask, seq_idx
 
 
 _ATTN_INDEX_CACHE: dict = {}
@@ -2384,21 +2332,20 @@ def _create_attention_indices(f, X_L, tok_idx, n_keys, n_seq_neighbours):
     if X_L.ndim == 2:
         X_L = X_L.unsqueeze(0)
     if "single" in parts:
-        mask, seq_idx, p_max = parts["single"]
-        # One design at a time, and one row block at a time within it. The designs are
-        # independent, so the outer split is the same arithmetic, and a (1,L,L) distance slice
-        # is 45 MB at 3359 atoms where the batched form streams three (D,L,L) tensors of 361 MB
-        # each: bit-identical indices, 220.7 -> 152.5 ms at 3359 atoms D=8
-        # (scripts/rfd3_port/p24_attn_indices_variants.py). 45 MB still does not fit a cache, so
-        # the inner split takes the same idea one level down: 22.422 -> 16.425 ms, indices
-        # identical (scripts/rfd3_port/p37_extend_neighbours.py).
+        mask, seq_idx = parts["single"]
+        # One design at a time. The designs are independent, so this is the same
+        # arithmetic, but a (1,L,L) distance slice is 45 MB at 3359 atoms and stays
+        # resident, where the batched form streams three (D,L,L) tensors of 361 MB each.
+        # Measured bit-identical indices and 220.7 -> 152.5 ms at 3359 atoms D=8,
+        # 142.5 -> 68.9 ms at 2702 (scripts/rfd3_port/p24_attn_indices_variants.py).
         idx = torch.cat([
-            _extend_with_neighbours_chunked(mask, seq_idx, x, parts["k"], p_max)
+            _extend_with_neighbours(mask, seq_idx, torch.cdist(x, x, p=2), parts["k"],
+                                    inplace=True)
             for x in X_L.unsqueeze(1)], dim=0)
     else:
         D_LL = torch.cdist(X_L, X_L, p=2)   # the inter-chain pass below reads it again
         ki, kc, chain = parts["ki"], parts["kc"], parts["chain"]
-        mask, seq_idx, _ = parts["intra"]
+        mask, seq_idx = parts["intra"]
         intra = _extend_with_neighbours(mask, seq_idx, D_LL, kc)
         atom_base_mask = parts["atom_base_mask"]
         inter = torch.zeros(D_LL.shape[0], L, ki, dtype=torch.long, device=device)
