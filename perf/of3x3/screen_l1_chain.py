@@ -101,6 +101,28 @@ try:
         ttnn.deallocate(ob)
         return out
 
+
+    def shard_direct_arm():
+        # typecast straight from the interleaved bf16 scores into a sharded fp32 destination,
+        # skipping the separate to_memory_config pass
+        sc = ttnn.typecast(sc0, ttnn.float32, memory_config=shard)
+        attn = ttnn.add_(sc, bias_f, input_tensor_a_activations=act)
+        attn = _sharded_softmax(attn)
+        ob = ttnn.typecast(attn, ttnn.bfloat16, memory_config=shard)
+        ttnn.deallocate(attn)
+        out = ttnn.to_memory_config(ob, DRAM)
+        ttnn.deallocate(ob)
+        return out
+
+    def shard_direct_out_arm():
+        # ... and typecast straight back out to interleaved DRAM bf16
+        sc = ttnn.typecast(sc0, ttnn.float32, memory_config=shard)
+        attn = ttnn.add_(sc, bias_f, input_tensor_a_activations=act)
+        attn = _sharded_softmax(attn)
+        out = ttnn.typecast(attn, ttnn.bfloat16, memory_config=DRAM)
+        ttnn.deallocate(attn)
+        return out
+
     def shard_softmax_arm():
         sc = ttnn.typecast(sc0, ttnn.float32, memory_config=DRAM)
         attn = ttnn.add_(sc, bias_f, input_tensor_a_activations=act)
@@ -130,7 +152,7 @@ try:
     ttnn.deallocate(ref)
 
     ARMS = [("dram", dram_arm), ("shard_bcast", shard_bcast_arm),
-            ("shard_rep", shard_rep_arm), ("shard_softmax", shard_softmax_arm)]
+            ("shard_direct", shard_direct_arm), ("shard_direct_out", shard_direct_out_arm)]
     for name, fn in ARMS:
         try:
             if name == "shard_rep":
@@ -167,7 +189,7 @@ try:
         el = ROWS * H * S * S
         by = el * (2 + 4) + el * (4 + 4 + 4) + el * (4 + 4) + el * (4 + 2)
         res["dram_GBs"] = round(by / 1e9 / (res["dram_ms"] / 1e3), 1)
-        for k in ("shard_bcast", "shard_rep", "shard_softmax"):
+        for k in ("shard_bcast", "shard_direct", "shard_direct_out"):
             if res.get(k + "_ms"):
                 res[k + "_speedup"] = round(res["dram_ms"] / res[k + "_ms"], 4)
 except Exception as e:

@@ -768,7 +768,63 @@ def batched_matmul(a: ttnn.Tensor, b: ttnn.Tensor, compute_kernel_config=None,
 # only 1024 blocks -- into two blocks of 512 rows.
 _FP32_SOFTMAX_BLOCK_BYTES = 8 << 30
 _FP32_SOFTMAX_FUSED_ADD = True
-FP32_SOFTMAX_STATS = {"calls": 0, "blocked": 0, "blocks": 0, "fused": 0, "unfused": 0}
+
+# The four steps between the two matmuls -- typecast to fp32, the biased add, the softmax, the
+# typecast back -- are pure DRAM traffic: measured at 392.4 GB/s against a 383.9 GB/s ttnn.clone
+# copy roof on this part, so no program config, compute kernel config or core grid can pay and only
+# deleting DRAM passes can. Height-sharding the fp32 score block keeps all four in L1 and leaves
+# DRAM with one read of the bf16 scores and one write of the bf16 weights.
+#
+# Bit-exact by construction -- same ops, same dtypes, same reduction axis, only the memory config
+# moves -- and torch.equal with max_abs 0.0 at every block size measured
+# (perf/of3x3/screen_l1_chain.py, qb2 card 0, S=512, n_heads=4, 8x8 core grid, whole tail timed
+# from the interleaved bf16 scores back to interleaved bf16 weights so each arm pays its own
+# transitions):
+#
+#      rows   fp32 B/core        DRAM        L1        speedup
+#         4       262144    0.3582 ms   0.2425 ms      1.4771x
+#         8       524288    0.6840 ms   0.4375 ms      1.5634x
+#        12       786432    1.0535 ms   0.6436 ms      1.6369x   <- the budget below
+#        16      1048576    1.3342 ms   refuses: 1048576 B/core against 937472 B free
+#
+# The budget is bytes per core, never a sequence length: the whole point is that a block is sized
+# to fit L1, and `_triangle_mul_memory_config`'s sequence-length threshold is the mistake not to
+# copy. Peak is 1.5x the budget, because the bf16 half of a typecast is live alongside the fp32.
+_FP32_SOFTMAX_L1_BYTES_PER_CORE = 768 << 10
+_FP32_SOFTMAX_L1_GRID = (8, 8)  # (y, x). 8x8 = 64; this p150a refuses more than 110 shards.
+
+FP32_SOFTMAX_STATS = {"calls": 0, "blocked": 0, "blocks": 0, "fused": 0, "unfused": 0,
+                      "l1": 0, "l1_blocks": 0}
+
+
+def _fp32_softmax_l1_rows(per_row: int, height_per_row: int) -> int:
+    """Largest leading-dim block whose fp32 score copy is L1-resident. 0 when none is.
+
+    A height shard needs whole tile rows on every core, so the block's flattened height must be a
+    multiple of ``cores * 32`` -- the same divisibility constraint as
+    ``ttnn-split-work-to-cores-grid-height-holes``, and a block that cannot meet it simply takes
+    the interleaved path.
+    """
+    cores = _FP32_SOFTMAX_L1_GRID[0] * _FP32_SOFTMAX_L1_GRID[1]
+    if per_row <= 0 or _FP32_SOFTMAX_L1_BYTES_PER_CORE <= 0:
+        return 0
+    blk = int(_FP32_SOFTMAX_L1_BYTES_PER_CORE) * cores // per_row
+    step = cores * 32
+    while blk > 0 and (blk * height_per_row) % step:
+        blk -= 1
+    return blk
+
+
+def _fp32_softmax_shard(rows: int, height_per_row: int, width: int):
+    """Height-sharded config for one score block, or None when the block does not divide."""
+    cores = _FP32_SOFTMAX_L1_GRID[0] * _FP32_SOFTMAX_L1_GRID[1]
+    height = rows * height_per_row
+    if height % (cores * 32) or width % 32:
+        return None
+    return ttnn.create_sharded_memory_config(
+        shape=(height, width),
+        core_grid=ttnn.CoreGrid(y=_FP32_SOFTMAX_L1_GRID[0], x=_FP32_SOFTMAX_L1_GRID[1]),
+        strategy=ttnn.ShardStrategy.HEIGHT, orientation=ttnn.ShardOrientation.ROW_MAJOR)
 
 
 def _fp32_softmax_attention(
@@ -797,19 +853,32 @@ def _fp32_softmax_attention(
     """
     FP32_SOFTMAX_STATS["calls"] += 1
     rows = int(q.shape[0])
-    per_row = int(q.shape[1]) * int(q.shape[2]) * int(k.shape[2]) * 4
+    height_per_row = int(q.shape[1]) * int(q.shape[2])
+    per_row = height_per_row * int(k.shape[2]) * 4
     blk = max(32, int(_FP32_SOFTMAX_BLOCK_BYTES // per_row) // 32 * 32) if per_row else rows
+    l1_rows = _fp32_softmax_l1_rows(per_row, height_per_row)
+    if l1_rows:
+        blk = min(blk, l1_rows)
+        FP32_SOFTMAX_STATS["l1"] += 1
+
+    def shard_for(n):
+        return _fp32_softmax_shard(n, height_per_row, int(k.shape[2])) if l1_rows else None
+
     if rows <= 1 or blk >= rows:
+        sh = shard_for(rows)
+        FP32_SOFTMAX_STATS["l1_blocks"] += sh is not None
         return _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_config,
-                                             out_dtype, bias_scale_inv)
+                                             out_dtype, bias_scale_inv, sh)
     FP32_SOFTMAX_STATS["blocked"] += 1
     parts = []
     for s in range(0, rows, blk):
         e = min(s + blk, rows)
         qs, ks, vs = q[s:e], k[s:e], v[s:e]
+        sh = shard_for(e - s)
+        FP32_SOFTMAX_STATS["l1_blocks"] += sh is not None
         parts.append(_fp32_softmax_attention_block(qs, ks, vs, bias, scale_inv,
                                                    compute_kernel_config, out_dtype,
-                                                   bias_scale_inv))
+                                                   bias_scale_inv, sh))
         for t in (qs, ks, vs):
             ttnn.deallocate(t)
     FP32_SOFTMAX_STATS["blocks"] += len(parts)
@@ -820,13 +889,27 @@ def _fp32_softmax_attention(
 
 
 def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_config,
-                                  out_dtype, bias_scale_inv):
-    """One row block of `_fp32_softmax_attention`. The whole tensor is one block below the budget."""
+                                  out_dtype, bias_scale_inv, shard=None):
+    """One row block of `_fp32_softmax_attention`. The whole tensor is one block below the budget.
+
+    ``shard`` height-shards the block so the four steps between the two matmuls stay in L1. Both
+    matmuls keep interleaved operands either way, so the shard is live only across the tail.
+    """
     kt = ttnn.permute(k, (0, 1, 3, 2))
     # bf16 operands, fp32_dest_acc -> bf16 scores (the existing einsum recipe).
     sc = batched_matmul(q, kt, compute_kernel_config=compute_kernel_config)
     ttnn.deallocate(kt)
-    sc = ttnn.typecast(sc, ttnn.float32, memory_config=sc.memory_config())
+    if shard is not None:
+        # typecast refuses a layout change, so the bf16 scores move to L1 first and the fp32 copy
+        # is born sharded. That read is the tail's only DRAM read. The bf16 half is freed the
+        # moment the fp32 copy exists: holding both plus the bf16 result at the end of the tail is
+        # 1.5 MB/core and refuses.
+        sc_l1 = ttnn.to_memory_config(sc, shard)
+        ttnn.deallocate(sc)
+        sc = ttnn.typecast(sc_l1, ttnn.float32, memory_config=shard)
+        ttnn.deallocate(sc_l1)
+    else:
+        sc = ttnn.typecast(sc, ttnn.float32, memory_config=sc.memory_config())
     bias_f = ttnn.typecast(bias, ttnn.float32, memory_config=bias.memory_config())
     # undo the pair-bias pre-bake (sqrt(h) for Boltz/Protenix, 1.0 for openfold3)
     bias_f = ttnn.multiply(bias_f, scale_inv if bias_scale_inv is None else bias_scale_inv)
@@ -848,6 +931,10 @@ def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_confi
         ttnn.deallocate(sc)
     attn_bf = ttnn.typecast(attn, ttnn.bfloat16, memory_config=attn.memory_config())
     ttnn.deallocate(attn)
+    if shard is not None:
+        attn_i = ttnn.to_memory_config(attn_bf, ttnn.DRAM_MEMORY_CONFIG)
+        ttnn.deallocate(attn_bf)
+        attn_bf = attn_i
     o = batched_matmul(attn_bf, v, compute_kernel_config=compute_kernel_config, dtype=out_dtype)
     ttnn.deallocate(attn_bf)
     return o

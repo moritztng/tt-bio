@@ -97,6 +97,9 @@ ARMS = ("on", "e6", "noe6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hi
         # the score tensor is one allocation whatever its size, which is what refuses at 1024 aa.
         # `hchunk16` and `noL1out` ablate the two levers whose gates are only live BELOW 384 aa.
         "nofuse", "norowblk", "blk4g", "hchunk16", "noL1out", "pre",
+        # openfold3-to-3x-perdollar. `noshard` zeroes the per-core L1 budget so the fp32-softmax
+        # tail runs DRAM-interleaved, i.e. main verbatim. `on` is the shipped default.
+        "noshard",
         # qsplit: the triatt_sdpa q-split lever (TT_BIO_TRIATT_MASK_Q_SPLIT), written explicitly
         # per arm so "on" stays a pre-lever reference whatever the shipped default is.
         "qsplit")
@@ -403,7 +406,9 @@ def main():
         T._FP32_SOFTMAX_FUSED_ADD = name not in ("nofuse", "pre")
         T._FP32_SOFTMAX_BLOCK_BYTES = (1 << 62) if name in ("norowblk", "pre") else (
             (4 << 30) if name == "blk4g" else (8 << 30))
-        T.FP32_SOFTMAX_STATS.update(calls=0, blocked=0, blocks=0, fused=0, unfused=0)
+        T._FP32_SOFTMAX_L1_BYTES_PER_CORE = 0 if name == "noshard" else (768 << 10)
+        T.FP32_SOFTMAX_STATS.update(calls=0, blocked=0, blocks=0, fused=0, unfused=0,
+                                    l1=0, l1_blocks=0)
         T.TRANSITION_H_CHUNK_SIZE_BIG = 16 if name == "hchunk16" else 32
         T._PAIR_PROJ_L1_OUT = name != "noL1out"
         T._pair_proj_program_config.cache_clear()
@@ -503,6 +508,7 @@ def main():
                    "transpose_l1_headroom": T._TRANSPOSE_L1_HEADROOM,
                    "fp32_softmax_chain": {"block_bytes": T._FP32_SOFTMAX_BLOCK_BYTES,
                                           "fused_add": T._FP32_SOFTMAX_FUSED_ADD,
+                                          "l1_bytes_per_core": T._FP32_SOFTMAX_L1_BYTES_PER_CORE,
                                           **dict(T.FP32_SOFTMAX_STATS)},
                    "transition_h_chunk_size_big": T.TRANSITION_H_CHUNK_SIZE_BIG,
                    "pair_proj_l1_out": T._PAIR_PROJ_L1_OUT,
