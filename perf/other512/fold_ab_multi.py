@@ -96,7 +96,10 @@ ARMS = ("on", "e6", "noe6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hi
         # (scale as its own pass, out-of-place softmax); `norowblk` lifts the row-block budget so
         # the score tensor is one allocation whatever its size, which is what refuses at 1024 aa.
         # `hchunk16` and `noL1out` ablate the two levers whose gates are only live BELOW 384 aa.
-        "nofuse", "norowblk", "blk4g", "hchunk16", "noL1out", "pre")
+        "nofuse", "norowblk", "blk4g", "hchunk16", "noL1out", "pre",
+        # qsplit: the triatt_sdpa q-split lever (TT_BIO_TRIATT_MASK_Q_SPLIT), written explicitly
+        # per arm so "on" stays a pre-lever reference whatever the shipped default is.
+        "qsplit")
 
 # Which sites each arm routes onto the fused SDPA. The confidence head is never in a flip set:
 # it stays on `_fp32_softmax_attention` on every arm, deliberately, so plDDT reports on the
@@ -356,6 +359,7 @@ def main():
         HM.TAIL_REJECTS.clear()
 
         PM._ENABLED = name != "nok2"
+        PM._Q_SPLIT = name == "qsplit"
         PM.STATS[0] = PM.STATS[1] = 0
         PM.REJECTS.clear()
 
@@ -405,6 +409,11 @@ def main():
         T._pair_proj_program_config.cache_clear()
         T._tri_att_q_chunks.cache_clear()
         T._L1_OUT_REFUSED.clear()
+        # The L1-refusal memos are process-global, so an arm that throws retires a q_chunk for
+        # every later arm -- that voided a reference arm at 1024 aa (wk/boltz2-sizes-perf e3b0b95b).
+        # Every arm re-discovers its own refusals; the cost is one extra caught TT_THROW per shape.
+        T._SDPA_Q_CHUNK_OVER_L1.clear()
+        PM._PM_OVER_L1.clear()
 
     import importlib.metadata as im
     res = {"ttnn": im.version("ttnn"), "host": os.uname().nodename,
@@ -486,9 +495,11 @@ def main():
                                       "tail_declined": HM.TAIL_STATS[1],
                                       "tail_rejects": {f"{r}:{sh}": n
                                                        for (r, sh), n in HM.TAIL_REJECTS.items()}},
-                   "persistent_mask": {"enabled": PM._ENABLED, "served": PM.STATS[0],
+                   "persistent_mask": {"enabled": PM._ENABLED, "q_split": PM._Q_SPLIT,
+                                       "served": PM.STATS[0],
                                        "declined": PM.STATS[1],
-                                       "rejects": {f"{r}:{sh}": n for (r, sh), n in PM.REJECTS.items()}},
+                                       "rejects": {f"{r}:{sh}": n for (r, sh), n in PM.REJECTS.items()},
+                                       "pm_over_l1": sorted(str(k) for k in PM._PM_OVER_L1)},
                    "transpose_l1_headroom": T._TRANSPOSE_L1_HEADROOM,
                    "fp32_softmax_chain": {"block_bytes": T._FP32_SOFTMAX_BLOCK_BYTES,
                                           "fused_add": T._FP32_SOFTMAX_FUSED_ADD,
@@ -506,6 +517,8 @@ def main():
                                      "hit": OLDKEY_HITS[0], "miss": OLDKEY_HITS[1]},
                    "sdpa_q_chunk_over_l1": sorted(str(k) for k in T._SDPA_Q_CHUNK_OVER_L1),
                    "loadavg": open("/proc/loadavg").read().split()[:3],
+                   "maxrss_mb": round(int(next(l for l in open("/proc/self/status")
+                                               if l.startswith("VmHWM")).split()[1]) / 1024, 1),
                    "wall_ms": {k: {"calls": v["n"], "ms": round(v["s"] * 1e3, 2)}
                                for k, v in sorted(WALL.items(), key=lambda kv: -kv[1]["s"])},
                    "decisions": {k: dict(v) for k, v in sorted(DEC.items())}}
