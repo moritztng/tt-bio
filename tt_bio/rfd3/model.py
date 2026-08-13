@@ -1372,8 +1372,17 @@ class RFD3AtomBlock(Module):
         scores = ttnn.typecast(
             scores, ttnn.float32, memory_config=scores.memory_config()
         )
-        scores = ttnn.multiply(scores, self.head_dim**-0.5)
-        scores = ttnn.add(scores, bias_f)
+        # Scale and add in ONE op: the scale rides on operand a as a MUL_UNARY_SFPU activation.
+        # Bit-exact rather than close, and by measurement rather than by argument
+        # (scripts/rfd3_port/p35_dense_chain_price.py, perf/p35/dense_chain_qb1c0.json): 1.285 ms
+        # against 2.246 for the pair at [1,4,3359,3360], torch.equal on the softmax output. It
+        # holds here because both operands are already fp32, so the op's destination register is
+        # fp32 and nothing is silently computed at the input dtype -- the trap that stops a
+        # bf16->fp32 widen from folding into a binary op the same way. Do not copy this to a
+        # bf16 site (GatedCrossAttention.run_device) on the strength of this comment: there the
+        # split form rounds the scaled scores to bf16 before the add and the folded form does not.
+        scores = ttnn.add(scores, bias_f, input_tensor_a_activations=[
+            ttnn.UnaryWithParam(ttnn.UnaryOpType.MUL_UNARY_SFPU, self.head_dim**-0.5)])
         attention = ttnn.softmax(scores, dim=-1)
         attention = ttnn.typecast(
             attention, dt, memory_config=attention.memory_config()
