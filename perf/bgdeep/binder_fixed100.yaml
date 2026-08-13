@@ -1,0 +1,12 @@
+# examples/binder.yaml with the binder length pinned to 100. The shipped spec draws the length
+# from 80..120 per design, which changes the padded token bucket between designs and makes an
+# A/B or an A/A pair uninterpretable. Same target (chain A of examples/ground_truth_structures/prot.cif).
+entities:
+  - protein:
+      id: B
+      sequence: 100
+  - file:
+      path: /home/ttuser/.coworker/wt/boltzgen-deep-perf/examples/ground_truth_structures/prot.cif
+      include:
+        - chain:
+            id: A

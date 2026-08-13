@@ -1,0 +1,121 @@
+{
+ "wheel": "0.68.0",
+ "host": "qb2",
+ "card": "1",
+ "spec": "/home/ttuser/.coworker/wt/boltzgen-deep-perf/perf/bgdeep/binder_fixed100.yaml",
+ "protocol": "protein-anything",
+ "num_designs": 2,
+ "steps": "design",
+ "wall_s": 98.242,
+ "s_per_design": 49.121,
+ "designs_per_hour": 73.29,
+ "timers_installed": {
+  "stage:PairformerModule": true,
+  "stage:Pairformer": true,
+  "block:PairformerLayer": true,
+  "body:TriangleMultiplication": true,
+  "body:TriangleAttention": true,
+  "body:PairWeightedAveraging": true,
+  "diffusion:device_step": true,
+  "diffusion:sample_loop": true,
+  "cond:DiffusionConditioning": true,
+  "stage:Boltz.forward": true
+ },
+ "shapes": {
+  "MAX_ATOMS_PER_TOKEN": 14,
+  "PAIRFORMER_PAD_MULTIPLE": 64,
+  "ATOM_WINDOW": 32,
+  "N_real": 2432,
+  "seq_len": 232,
+  "batch": 1
+ },
+ "wall_by_component": {
+  "block:PairformerLayer": {
+   "calls": 576,
+   "s": 25.4246
+  },
+  "body:PairWeightedAveraging": {
+   "calls": 32,
+   "s": 4.2429
+  },
+  "body:TriangleAttention": {
+   "calls": 1152,
+   "s": 6.8586
+  },
+  "body:TriangleMultiplication": {
+   "calls": 1152,
+   "s": 7.3445
+  },
+  "cond:DiffusionConditioning": {
+   "calls": 2,
+   "s": 0.5706
+  },
+  "diffusion:device_step": {
+   "calls": 1000,
+   "s": 46.999
+  },
+  "diffusion:sample_loop": {
+   "calls": 2,
+   "s": 47.7771
+  },
+  "stage:Boltz.forward": {
+   "calls": 2,
+   "s": 89.0471
+  },
+  "stage:Pairformer": {
+   "calls": 24,
+   "s": 20.9102
+  },
+  "stage:PairformerModule": {
+   "calls": 8,
+   "s": 0.1833
+  }
+ },
+ "levers": {
+  "K1_head_major_qkv": {
+   "served": 1152,
+   "declined": 0,
+   "rejects": {}
+  },
+  "K1b_head_major_tail": {
+   "served": 1088,
+   "declined": 64
+  },
+  "K2_persistent_sdpa_bias": {
+   "served": 1152,
+   "declined": 0
+  },
+  "E6_fused_gated_channel_move": {
+   "served": 0,
+   "declined": 0
+  },
+  "channel_move_fwd": {
+   "served": 0,
+   "declined": 2240
+  },
+  "channel_move_back": {
+   "served": 0,
+   "declined": 0
+  },
+  "reblock_rejects": {
+   "('window_BufferType.L1', (1, 256, 256, 64))": 2240
+  }
+ },
+ "counters": {
+  "qkv_mm_config|kt=2,nt=12": {
+   "config": 64
+  },
+  "qkv_mm_config|kt=2,nt=4": {
+   "None": 128
+  },
+  "qkv_mm_config|kt=4,nt=12": {
+   "config": 1088
+  },
+  "qkv_mm_config|kt=4,nt=4": {
+   "config": 1088
+  },
+  "transpose_memory_config": {
+   "L1": 1152
+  }
+ }
+}
