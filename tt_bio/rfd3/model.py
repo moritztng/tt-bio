@@ -130,6 +130,12 @@ _TUNE_AUDIT = os.environ.get("RFD3_TUNE_AUDIT") == "1"
 # Debug: print what calibration decided per shape, and why.
 _TUNE_LOG = os.environ.get("RFD3_TUNE_LOG") == "1"
 _TUNE_MIN_GAIN = 1.05  # ignore a candidate that is not at least 5% faster than the default
+# Don't calibrate a matmul whose default call is already this fast: an explicit program config
+# costs a fixed amount per call that timing the matmul alone does not see, and under this floor
+# that cost is the whole result. Replaces the old `D > 1` gate in `_tunable`, which was the same
+# intent expressed on the wrong variable. 0.25 ms sits above the 0.02-0.13 ms matmuls of the
+# 419-atom fixture and below the 0.53-2.74 ms ones of the 3359-atom fixture at D=1.
+_TUNE_MIN_MS = 0.25
 _TUNE_REPS = 3
 
 
@@ -183,21 +189,25 @@ def _mm_candidates(x, w, grid):
 
 
 def _tunable(x, w):
-    """Only a multi-design `[D, .., M, K] @ [K, N]` with a batch-1 in1 can fold its batch into M.
+    """Any `[.., M, K] @ [K, N]` with a batch-1 in1 can fold its leading dims into M.
 
-    Dim 0 is the design axis at every call site that routes through here, and `D > 1` is the
-    condition, not `prod(leading dims) > 1`: at D=1 a pair tensor is still `[1, I, I, C]`, so the
-    token axis alone would qualify it. Measured at D=1/I=40, tuning those leaves 0.02-0.13 ms
-    matmuls that calibration reads as 1.2-2.6x wins -- under 2% of the step even if real -- and
-    the end-to-end result is 6% SLOWER, over three paired rounds at 20 timesteps and two at 60.
-    An explicit program config costs something per call that timing the matmul on its own does
-    not see, and only a genuine design batch is worth that. So D=1 takes the p14 path exactly,
-    with no calibration compiles at all, and D=8 keeps its win.
+    The gate used to be `xs[0] > 1`, i.e. only a genuine design batch, and that was set from a
+    D=1/I=40 measurement where the matmuls are 0.02-0.13 ms, calibration reads 1.2-2.6x on them,
+    and the end-to-end result was 6% SLOWER. That conclusion was right and the gate was on the
+    wrong variable: what makes a tiny matmul not worth an explicit program config is its SIZE,
+    not the design count. At I=250 the same four pair linears are 0.53-2.74 ms at D=1 and the
+    calibrated fuse_batch config is 1.91-5.90x on them, every arm bitwise equal to the default
+    (scripts/rfd3_port/p33_padding_verdict.py, perf/p33/padding_verdict_c3.json).
+
+    So the size predicate lives in `_calibrate_linear` instead, as a floor on the DEFAULT call's
+    own measured time (`_TUNE_MIN_MS`), which costs nothing extra because calibration has to time
+    the default anyway. A shape under the floor bails before it builds a single candidate, so
+    I=40 still takes the untuned path and I=250 at D=1 now gets its win.
     """
     xs, ws = list(x.padded_shape), list(w.padded_shape)
     if len(xs) < 3 or len(ws) < 2:
         return False
-    return xs[0] > 1 and all(d == 1 for d in ws[:-2])
+    return all(d == 1 for d in ws[:-2])
 
 
 def _tuned_linear(x, w, *, bias=None, ckc=None, dtype=None, core_grid=BATCH_INVARIANT_GRID):
@@ -248,10 +258,23 @@ def _calibrate_linear(x, w, kw, core_grid):
     batch invariance at L=1959/D=8. Random operands exercise every grouping across the whole
     output, so surviving them makes exactness a property of the shape rather than of one tensor.
     """
-    rx, rw = _mm_random_like(x, 0), _mm_random_like(w, 1)
-    rref = ttnn.linear(rx, rw, core_grid=core_grid, **kw)
+    # Time the default BEFORE building anything else. Two reasons, both measured
+    # (scripts/rfd3_port/p34_calib_cost.py, perf/p34/calib_cost.json): it is the size gate
+    # `_tunable` no longer applies, and the setup below is 64.9% of calibration's whole cost,
+    # because `_mm_random_like` draws and uploads a full-size operand -- 256 M elements for
+    # `[8,250,250,512]`, 1.69 s of the 2.01 s that shape spends. A shape under the floor now
+    # pays one timed default and nothing else.
     ref = ttnn.linear(x, w, core_grid=core_grid, **kw)
     default_t = _mm_time(lambda: ttnn.linear(x, w, core_grid=core_grid, **kw))
+    if default_t * 1e3 < _TUNE_MIN_MS:
+        ttnn.deallocate(ref)
+        if _TUNE_LOG:
+            print(f"[tune] x={tuple(x.padded_shape)} w={tuple(w.padded_shape)} "
+                  f"default={default_t * 1e3:8.3f} ms  under {_TUNE_MIN_MS} ms floor, SKIP",
+                  flush=True)
+        return None
+    rx, rw = _mm_random_like(x, 0), _mm_random_like(w, 1)
+    rref = ttnn.linear(rx, rw, core_grid=core_grid, **kw)
     budget = default_t / _TUNE_MIN_GAIN
     best = None
     for pc in _mm_candidates(x, w, get_device().compute_with_storage_grid_size()):
