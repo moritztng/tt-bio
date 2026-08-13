@@ -281,6 +281,9 @@ _PAIR_FFN_ROW_BLOCK = int(os.environ.get("TT_BIO_PAIR_FFN_ROW_BLOCK", PAIR_FFN_R
 # not predictable from L: the row block is torch.equal at every one of the 23 sizes measured from
 # 320 to 768 aa whether or not 32 divides them, and differs at every size below 320 except 96 and
 # 128; the split fc1 is torch.equal at all 25 sizes from 144 to 768 and differs at 96 and 128.
+# The row-block window was extended to 1024 on the same evidence: torch.equal at the op
+# (perf/esm2sizes/screen_qb1c3.json) and a byte-identical CIF at the fold
+# (perf/esm2sizes/fold_1024_window_qb1c3.json), measured on the qb1 13x10 grid, ttnn 0.67.4.
 # The differences are one bf16 ulp (max_abs/peak 4.7e-3 to 5.7e-3 against a bf16 relative eps of
 # 3.9e-3), so they are an accumulation order rather than a defect -- but the bar for landing this
 # was byte-identical output, so each lever fires only inside the window where that was measured.
@@ -292,7 +295,7 @@ _PAIR_FFN_ROW_BLOCK = int(os.environ.get("TT_BIO_PAIR_FFN_ROW_BLOCK", PAIR_FFN_R
 # derives different matmul programs and does its own row blocking through `pair_row_tile`, so the
 # parity above says nothing there and the shipped unsplit chain keeps running.
 SPLIT_SWIGLU_MIN_SEQ = 144
-PAIR_FFN_ROW_BLOCK_SEQ = (320, 768)
+PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)
 
 
 def set_split_swiglu(on: bool) -> bool:

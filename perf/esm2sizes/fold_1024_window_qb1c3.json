@@ -1,0 +1,124 @@
+{
+ "ttnn": "0.67.4",
+ "host": "tt-quietbox",
+ "card": "3",
+ "model": "esmfold2",
+ "size": 1024,
+ "recycling_steps": 10,
+ "sampling_steps": 100,
+ "arms": [
+  "armA",
+  "armAC"
+ ],
+ "rounds": 2,
+ "runs": [
+  {
+   "tag": "warm:armA",
+   "arm": "armA",
+   "split_swiglu": true,
+   "pair_ffn_row_block": 0,
+   "fold_s": 289.855,
+   "plddt": 0.8949,
+   "cif": {
+    "cdk2x2_1024.cif": "8a899d7536643a16"
+   },
+   "ffn_instances": 145,
+   "ffn_instances_split": 58,
+   "loadavg": "3.90"
+  },
+  {
+   "tag": "warm:armAC",
+   "arm": "armAC",
+   "split_swiglu": true,
+   "pair_ffn_row_block": 32,
+   "fold_s": 159.542,
+   "plddt": 0.8949,
+   "cif": {
+    "cdk2x2_1024.cif": "8a899d7536643a16"
+   },
+   "ffn_instances": 145,
+   "ffn_instances_split": 58,
+   "loadavg": "2.87"
+  },
+  {
+   "tag": "r0:armA",
+   "arm": "armA",
+   "split_swiglu": true,
+   "pair_ffn_row_block": 0,
+   "fold_s": 163.384,
+   "plddt": 0.8949,
+   "cif": {
+    "cdk2x2_1024.cif": "8a899d7536643a16"
+   },
+   "ffn_instances": 145,
+   "ffn_instances_split": 58,
+   "loadavg": "1.27"
+  },
+  {
+   "tag": "r0:armAC",
+   "arm": "armAC",
+   "split_swiglu": true,
+   "pair_ffn_row_block": 32,
+   "fold_s": 159.69,
+   "plddt": 0.8949,
+   "cif": {
+    "cdk2x2_1024.cif": "8a899d7536643a16"
+   },
+   "ffn_instances": 145,
+   "ffn_instances_split": 58,
+   "loadavg": "1.08"
+  },
+  {
+   "tag": "r1:armA",
+   "arm": "armA",
+   "split_swiglu": true,
+   "pair_ffn_row_block": 0,
+   "fold_s": 163.397,
+   "plddt": 0.8949,
+   "cif": {
+    "cdk2x2_1024.cif": "8a899d7536643a16"
+   },
+   "ffn_instances": 145,
+   "ffn_instances_split": 58,
+   "loadavg": "2.03"
+  },
+  {
+   "tag": "r1:armAC",
+   "arm": "armAC",
+   "split_swiglu": true,
+   "pair_ffn_row_block": 32,
+   "fold_s": 159.375,
+   "plddt": 0.8949,
+   "cif": {
+    "cdk2x2_1024.cif": "8a899d7536643a16"
+   },
+   "ffn_instances": 145,
+   "ffn_instances_split": 58,
+   "loadavg": "3.25"
+  }
+ ],
+ "grid": [
+  13,
+  10
+ ],
+ "split_swiglu_default": true,
+ "pair_ffn_row_block_default": 32,
+ "summary": {
+  "armA": {
+   "n": 2,
+   "median": 163.39,
+   "min": 163.384,
+   "max": 163.397,
+   "spread": 0.013
+  },
+  "armAC": {
+   "n": 2,
+   "median": 159.532,
+   "min": 159.375,
+   "max": 159.69,
+   "spread": 0.315
+  }
+ },
+ "cif_identical_across_arms": true,
+ "plddt_identical_across_arms": true
+}
