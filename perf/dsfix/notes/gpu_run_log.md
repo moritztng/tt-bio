@@ -3,25 +3,26 @@
 Append-only. **A relaunch reads this FIRST** to find a box that is still burning money, and to avoid
 re-paying for an install that already happened.
 
-## Live boxes
+## Boxes — BOTH TORN DOWN, nothing of this task is still billing
 
-| box | vast instance | ssh | offer | $/hr | rented (UTC) | torn down |
-|---|---|---|---|---|---|---|
-| H200 | **47635549** | `-p 35548 root@ssh7.vast.ai` | 39605030 | 3.9351 | 2026-08-13 14:20 | **NO — live** |
+| box | vast instance | offer | $/hr | rented (UTC) | destroyed (UTC) | cost |
+|---|---|---|---:|---|---|---:|
+| H200 | 47635549 | 39605030 | 3.9561 | 14:15 | **15:27, confirmed** | ~$4.74 |
+| B200 | 47639947 | 47561350 | 5.3490 | 15:27 | **16:04, confirmed** | ~$3.35 |
+
+Verified by a separate list read after each destroy: zero instances labelled `rfd3-gpu-*`. The box
+`47636751 prot-odde-b200` seen in those reads belongs to another worker and was left alone.
 
 Credit before renting: **$34.3722** (`vastai show user --raw`, agrees with the fixture doc's
 post-teardown reading).
 
-Teardown, when the H200 leg is done:
+Two vast CLI gotchas that each cost rental time:
 
-```bash
-V=~/.vast-venv/bin/vastai
-$V destroy instance 47635549
-$V show instances-v1 --raw | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d['instances'] if isinstance(d,dict) else d))"
-```
-
-`show instances-v1 --raw` returns a **dict** with an `instances` key, not a list. Indexing it as a
-list throws `TypeError: string indices must be integers` on every poll and burns rental time.
+- `show instances-v1 --raw` returns a **dict** with an `instances` key, not a list. Indexing it as a
+  list throws `TypeError: string indices must be integers` on every poll of a wait loop.
+- `destroy instance` **prompts for confirmation** and aborts without it. Pipe `yes |`, then confirm
+  with a separate list read.
+- this CLI build has no `--price` flag on `create instance`; on-demand takes the offer price.
 
 ## H200 — state of the box
 
@@ -71,16 +72,18 @@ the editable install fails and the script's fallback overlays the `4010e3e2e` `a
   thing in a subshell with all three fds redirected. Without the subshell, ssh holds the channel
   open waiting on the inherited fds and the local client hangs until timeout.
 
-## Progress
+## Progress — COMPLETE
 
-- [x] H200 rented, idle power and power limit measured
-- [x] fixtures shipped, sha256 verified on the box
-- [x] arm A + arm B venvs installed, difference proven
-- [x] checkpoint installed, sha256 recorded
-- [ ] arm sequence: `bash /work/gpu_rfd3_runall.sh H200 700 78.7`, relaunched 14:41Z with weights
-      present. Results append to `/work/results/rfd3_prod.jsonl`, log `/work/runall.log`, terminal
-      marker `/work/RUN_OK` or `/work/RUN_FAIL`. Order: smoke, A b=8, A b=1, D, B, cueq install, C.
-- [ ] pull the JSONL back into `perf/dsfix/results/`
-- [ ] tear down H200, confirm zero instances
-- [ ] B200 leg (offer 33945597, $5.3138/hr, Oregon)
-- [ ] write `state/rfd3-gpu-h200-b200.md`
+- [x] H200 rented, idle 78.7 W and 700 W limit measured
+- [x] fixtures shipped, sha256 verified on both boxes
+- [x] arm A + arm B venvs installed, difference proven by symbol presence
+- [x] checkpoint installed, sha256 9b3f8592, identical on both boxes
+- [x] H200: all 5 arms measured and valid
+- [x] H200 torn down, confirmed
+- [x] B200 rented, idle 147.9 W and 1000 W limit measured; all 5 arms measured and valid, no hang
+- [x] B200 torn down, confirmed
+- [x] results in `perf/dsfix/results/rfd3_prod_{h200,b200}.jsonl`
+- [x] `state/rfd3-gpu-h200-b200.md` written, DONE_CHECK passes
+
+The B200 leg needed no rediscovery: install plus checkpoint took under 2 minutes there, against ~15
+on the H200, because every trap below was already fixed in the committed scripts.
