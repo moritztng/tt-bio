@@ -36,7 +36,8 @@ void kernel_main() {
     constexpr uint32_t cb_frac = get_compile_time_arg_val(8);
     constexpr uint32_t nsel = get_compile_time_arg_val(9);           // 3 * ntiles
     constexpr uint32_t tile_bytes = get_compile_time_arg_val(10);
-    constexpr auto src_args = TensorAccessorArgs<11>();
+    constexpr uint32_t nfrac = get_compile_time_arg_val(11);   // 2 for modes 1/4, 3 for mode 5
+    constexpr auto src_args = TensorAccessorArgs<12>();
     constexpr auto sel_args = TensorAccessorArgs<src_args.next_compile_time_args_offset()>();
     constexpr auto frac_args = TensorAccessorArgs<sel_args.next_compile_time_args_offset()>();
 
@@ -65,15 +66,15 @@ void kernel_main() {
             noc_async_read_page(i, sa, w);
             w += tile_bytes;
         }
-        cb_reserve_back(cb_frac, 2);
+        cb_reserve_back(cb_frac, nfrac);
         uint32_t wf = get_write_ptr(cb_frac);
-        for (uint32_t i = 0; i < 2; ++i) {
+        for (uint32_t i = 0; i < nfrac; ++i) {
             noc_async_read_page(i, fa, wf);
             wf += tile_bytes;
         }
         noc_async_read_barrier();
         cb_push_back(cb_sel, nsel);
-        cb_push_back(cb_frac, 2);
+        cb_push_back(cb_frac, nfrac);
     }
 
     // Assemblies are grouped so the barrier lands BEFORE the push. Pushing on an unfinished read would

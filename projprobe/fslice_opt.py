@@ -55,7 +55,7 @@ def sel_matrices(A, nsrc):
     return P
 
 
-def build(dev, x, sel, frac, out, nx, ny, offs_bytes, mode, nb):
+def build(dev, x, sel, frac, out, nx, ny, offs_bytes, mode, nb, nfrac=2):
     cg = ttnn.CoreRangeSet([ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(nx - 1, ny - 1))])
 
     def cb(i, page, depth):
@@ -63,7 +63,7 @@ def build(dev, x, sel, frac, out, nx, ny, offs_bytes, mode, nb):
         return ttnn.CBDescriptor(total_size=depth * page, core_ranges=cg, format_descriptors=[f])
 
     rct = ([CB_SRC, WIN * ELEM, NROWS, SRC_W * ELEM, SRC_TILES, BARRIER_EVERY, mode,
-            CB_SEL, CB_FRAC, 3 * SRC_TILES, TILE_B]
+            CB_SEL, CB_FRAC, 3 * SRC_TILES, TILE_B, nfrac]
            + list(ttnn.TensorAccessorArgs(x).get_compile_time_args())
            + list(ttnn.TensorAccessorArgs(sel).get_compile_time_args())
            + list(ttnn.TensorAccessorArgs(frac).get_compile_time_args()))
@@ -89,7 +89,7 @@ def build(dev, x, sel, frac, out, nx, ny, offs_bytes, mode, nb):
         mk(KDIR / "writer_fslice.cpp", wct, wrt, ttnn.WriterConfigDescriptor()),
     ], semaphores=[], cbs=[cb(CB_SRC, TILE_B, 4 * BARRIER_EVERY * SRC_TILES),
                            cb(CB_TIL, TILE_B, 2 * SRC_TILES), cb(CB_SEL, TILE_B, 3 * SRC_TILES),
-                           cb(CB_FRAC, TILE_B, 2), cb(CB_OUT, TILE_B, 4)])
+                           cb(CB_FRAC, TILE_B, 4), cb(CB_OUT, TILE_B, 4)])
 
 
 def main():
@@ -129,6 +129,20 @@ def main():
         frac4 = ttnn.from_torch(torch.from_numpy(f4.reshape(1, 1, 64, 32)).to(torch.bfloat16),
                                 dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
 
+        # mode 5 operands: c0, c1, c2 from expanding the three lerps.
+        #   c0 = (1-wq)(1-M),  c1 = (1-wq)M + wq(1-M),  c2 = wq*M
+        f5 = np.zeros((3, 32, 32), dtype=np.float32)
+        for r in range(NROWS):
+            for u in range(32):
+                w = h[r] + (A * u - math.floor(A * u))
+                M = math.floor(w)
+                wq = w - M
+                f5[0, r, u] = (1 - wq) * (1 - M)
+                f5[1, r, u] = (1 - wq) * M + wq * (1 - M)
+                f5[2, r, u] = wq * M
+        frac5 = ttnn.from_torch(torch.from_numpy(f5.reshape(1, 1, 96, 32)).to(torch.bfloat16),
+                                dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
+
         ref = np.zeros((32, 32))
         for r in range(NROWS):
             for u in range(32):
@@ -141,8 +155,8 @@ def main():
         # --- verify mode 4 at one core BEFORE timing it ---------------------------------------------
         out1 = ttnn.from_torch(torch.zeros(1, 1, 32, 32).to(torch.bfloat16), dtype=ttnn.bfloat16,
                                layout=ttnn.TILE_LAYOUT, device=dev)
-        for mode, fr in ((1, frac1), (4, frac4)):
-            pd = build(dev, x, sel, fr, out1, 1, 1, offs_by, mode, 1)
+        for mode, fr, nf in ((1, frac1, 2), (4, frac4, 2), (5, frac5, 3)):
+            pd = build(dev, x, sel, fr, out1, 1, 1, offs_by, mode, 1, nf)
             ttnn.generic_op([x, sel, fr, out1], pd)
             ttnn.synchronize_device(dev)
             g = ttnn.to_torch(out1).reshape(32, 32).to(torch.float64).numpy()
@@ -155,10 +169,10 @@ def main():
         nx, ny = 13, 10
         n = nx * ny
         timings = {}
-        for mode, fr in ((1, frac1), (4, frac4)):
+        for mode, fr, nf in ((1, frac1, 2), (4, frac4, 2), (5, frac5, 3)):
             out = ttnn.from_torch(torch.zeros(1, 1, 32 * NB * n, 32).to(torch.bfloat16),
                                   dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
-            pd = build(dev, x, sel, fr, out, nx, ny, offs_by, mode, NB)
+            pd = build(dev, x, sel, fr, out, nx, ny, offs_by, mode, NB, nf)
             ttnn.generic_op([x, sel, fr, out], pd)
             ttnn.synchronize_device(dev)
             best = float("inf")
@@ -180,10 +194,14 @@ def main():
                   flush=True)
             json.dump(res, open(HERE / "fslice_opt.json", "w"), indent=1)
             ttnn.deallocate(out)
-        print(f"\nlever: host-precomputed M and frac(q) bought "
-              f"{timings[1]/timings[4]:.3f}x ({timings[1]-timings[4]:.1f} ns per output tile)",
+        print(f"\nlever 1: host-precomputed M and frac(q)  {timings[1]/timings[4]:.3f}x "
+              f"({timings[1]-timings[4]:.1f} ns/tile)", flush=True)
+        print(f"lever 2: coefficient form on the FPU     {timings[4]/timings[5]:.3f}x "
+              f"({timings[4]-timings[5]:.1f} ns/tile)   cumulative {timings[1]/timings[5]:.3f}x",
               flush=True)
-        res["lever_speedup"] = timings[1] / timings[4]
+        res["lever_precompute"] = timings[1] / timings[4]
+        res["lever_coefficient_fpu"] = timings[4] / timings[5]
+        res["lever_cumulative"] = timings[1] / timings[5]
         json.dump(res, open(HERE / "fslice_opt.json", "w"), indent=1)
     finally:
         ttnn.close_device(dev)

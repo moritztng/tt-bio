@@ -37,6 +37,14 @@
 // `mode` selects the output so a failure can be attributed rather than guessed at:
 //   0 tilize only   1 full pass   2 emit T0 (selection matmul)   3 emit the weight tile w
 //   4 full pass with M and frac(q) precomputed on the host
+//   5 full pass as out = c0*T0 + c1*T1 + c2*T2, coefficients precomputed on the host
+//
+// Mode 5 chases the rest of the SFPU bill. Expanding the three lerps and folding M and
+// frac(q) in gives out = c0*T0 + c1*T1 + c2*T2 with
+//     c0 = (1-frac(q))(1-M),  c1 = (1-frac(q))M + frac(q)(1-M),  c2 = frac(q)M
+// all three host-computable. The three multiplies then run on the FPU via
+// binary_dest_reuse_tiles (DST = CB * DST), leaving only two DST-to-DST adds on the SFPU
+// instead of three ternary lerps.
 //
 // Mode 4 is the optimisation the attribution asked for. Differencing the modes at 130 cores put
 // the six SFPU ops at 1694.7 ns of a 2936.4 ns output tile -- 58% -- against roughly 90 ns for the
@@ -51,6 +59,7 @@
 #include "api/compute/bcast.h"
 #include "api/compute/copy_dest_values.h"
 #include "api/compute/eltwise_binary.h"
+#include "api/compute/eltwise_binary_sfpu.h"
 #include "api/compute/eltwise_unary/eltwise_unary.h"
 #include "api/compute/eltwise_unary/lerp.h"
 #include "api/compute/eltwise_unary/rounding.h"
@@ -122,7 +131,7 @@ void kernel_main() {
         // w(r, u) = g(r) + frac(A*u). add_tiles_bcast_rows broadcasts ROW 0 of its SECOND operand, so
         // the per-row tile must be first and the per-column tile second. cb_frac tile 1 holds g(r)
         // replicated across the columns; tile 0 holds frac(A*u) in row 0.
-        if constexpr (mode != 4) {
+        if constexpr (mode != 4 && mode != 5) {
             add_bcast_rows_init_short(cb_frac, cb_frac);
             add_tiles_bcast_rows(cb_frac, cb_frac, 1, 0, DST_W);
         }
@@ -148,6 +157,25 @@ void kernel_main() {
             continue;
         }
 
+        if constexpr (mode == 5) {
+            // Three FPU multiplies that read the coefficient from L1 and reuse DST as the other
+            // operand, then two SFPU adds. No lerp, no floor, no frac, no broadcast.
+            binary_dest_reuse_tiles_init<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac);
+            binary_dest_reuse_tiles<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac, 0, DST_T0);
+            binary_dest_reuse_tiles<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac, 1, DST_T1);
+            binary_dest_reuse_tiles<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac, 2, DST_T2);
+            add_binary_tile_init();
+            add_binary_tile(DST_T0, DST_T1, DST_BASE);
+            add_binary_tile(DST_BASE, DST_T2, DST_OUT);
+            tile_regs_commit();
+            tile_regs_wait();
+            pack_tile(DST_OUT, cb_out);
+            tile_regs_release();
+            cb_push_back(cb_out, one);
+            cb_pop_front(cb_til, src_tiles);
+            cb_pop_front(cb_src, src_tiles);
+            continue;
+        }
         if constexpr (mode == 4) {
             // cb_frac already holds frac(q) in tile 0 and M in tile 1, so nothing has to be derived.
             copy_tile_to_dst_init_short(cb_frac);
