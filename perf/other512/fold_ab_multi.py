@@ -96,7 +96,7 @@ ARMS = ("on", "e6", "noe6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hi
         # (scale as its own pass, out-of-place softmax); `norowblk` lifts the row-block budget so
         # the score tensor is one allocation whatever its size, which is what refuses at 1024 aa.
         # `hchunk16` and `noL1out` ablate the two levers whose gates are only live BELOW 384 aa.
-        "nofuse", "norowblk", "blk4g", "hchunk16", "noL1out")
+        "nofuse", "norowblk", "blk4g", "hchunk16", "noL1out", "pre")
 
 # Which sites each arm routes onto the fused SDPA. The confidence head is never in a flip set:
 # it stays on `_fp32_softmax_attention` on every arm, deliberately, so plDDT reports on the
@@ -394,8 +394,10 @@ def main():
         T._PWA_L1_NORM = T._TEMPLATE_L1_NORM = True
         # openfold3-sizes-perf arms. These come AFTER the blanket _PAIR_PROJ_L1_OUT assignment
         # above, or `noL1out` silently reads identical to `on`.
-        T._FP32_SOFTMAX_FUSED_ADD = name != "nofuse"
-        T._FP32_SOFTMAX_BLOCK_BYTES = (1 << 62) if name == "norowblk" else (
+        # `pre` is main verbatim: neither lever. It is the control that says whether
+        # 1024 aa folded before this branch, at the fold rather than off it.
+        T._FP32_SOFTMAX_FUSED_ADD = name not in ("nofuse", "pre")
+        T._FP32_SOFTMAX_BLOCK_BYTES = (1 << 62) if name in ("norowblk", "pre") else (
             (4 << 30) if name == "blk4g" else (8 << 30))
         T.FP32_SOFTMAX_STATS.update(calls=0, blocked=0, blocks=0, fused=0, unfused=0)
         T.TRANSITION_H_CHUNK_SIZE_BIG = 16 if name == "hchunk16" else 32
