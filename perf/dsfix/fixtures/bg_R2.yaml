@@ -1,0 +1,9 @@
+entities:
+  - protein:
+      id: B
+      sequence: 100
+  - file:
+      path: ../../../examples/ground_truth_structures/9loe.cif
+      include:
+        - chain:
+            id: A

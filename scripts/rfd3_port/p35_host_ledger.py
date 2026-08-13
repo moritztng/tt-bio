@@ -113,6 +113,8 @@ def main():
     ap.add_argument("--ckpt", default="/home/ttuser/.boltz/rfd3/weights")
     ap.add_argument("--num_timesteps", type=int, default=30)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--designs", type=int, default=1,
+                    help="diffusion batch; the pinned R4 fixture ships at 2 on Tenstorrent")
     ap.add_argument("--plain", action="store_true")
     ap.add_argument("--freeze-indices", action="store_true")
     ap.add_argument("--out", type=Path)
@@ -156,9 +158,10 @@ def main():
     sampler = RFD3Sampler(num_timesteps=a.num_timesteps)
     t0 = time.perf_counter()
     with torch.no_grad():
-        X, traj = sampler.sample(dev_dm, 1, L, coord0, f, init,
+        X, traj = sampler.sample(dev_dm, a.designs, L, coord0, f, init,
                                  f["is_motif_atom_with_fixed_coord"],
-                                 generator=torch.Generator().manual_seed(a.seed))
+                                 generator=[torch.Generator().manual_seed(a.seed + i)
+                                            for i in range(a.designs)])
     wall = time.perf_counter() - t0
     steps = len(traj)
     per = wall / steps * 1e3
@@ -207,7 +210,7 @@ def main():
     if a.out:
         a.out.parent.mkdir(parents=True, exist_ok=True)
         a.out.write_text(json.dumps({
-            "atoms": L, "steps": steps, "wall_s": wall, "ms_per_step": per,
+            "atoms": L, "designs": a.designs, "steps": steps, "wall_s": wall, "ms_per_step": per,
             "plain": a.plain, "freeze_indices": a.freeze_indices,
             "median_warm_step_ms": med_step, "step_walls_ms": step_walls,
             "rows_ms_per_step": med_ms or {k: v / steps * 1e3 for k, v in ACC.items()},

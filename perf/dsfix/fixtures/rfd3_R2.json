@@ -1,0 +1,7 @@
+{
+  "R2_b100": {
+    "input": "perf/dsfix/targets/R2_9loe_A.pdb",
+    "contig": "A1-318,100",
+    "length": "100"
+  }
+}

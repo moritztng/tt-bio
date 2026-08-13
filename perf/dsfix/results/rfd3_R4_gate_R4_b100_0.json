@@ -1,0 +1,19 @@
+{
+ "cif": "perf/dsfix/out/R4_prod/R4_b100_0.cif",
+ "designed_chain": "A",
+ "n_designed": 100,
+ "motif_ok": true,
+ "n_distinct_aa": 1,
+ "most_common_aa": "UNK",
+ "most_common_frac": 1.0,
+ "seq_ok": false,
+ "ca_n": 99,
+ "ca_median": 3.8535,
+ "ca_min": 2.932,
+ "ca_max": 15.7511,
+ "ca_outside": 3,
+ "ca_ok": false,
+ "n_clashes": 0,
+ "clash_ok": true,
+ "gate_pass": false
+}
