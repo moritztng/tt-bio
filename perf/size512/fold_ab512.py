@@ -118,6 +118,12 @@ def main():
     ap.add_argument("--timers", choices=("body", "full"), default="body",
                     help="full also times Transition, at two device syncs per call")
     ap.add_argument("--out", type=Path, required=True)
+    # Above ~640 aa the SECOND fold in a process stalls the device in the MSA stack (state
+    # doc 7.1), so a multi-arm invocation never gets past arm 1. --skip-cold drops the
+    # separate warm-up fold so that arm 1 IS the cold fold: one arm per process, with the
+    # full counter record, which is the only fold shape that completes at 768 and 1024.
+    ap.add_argument("--skip-cold", action="store_true",
+                    help="no separate cold fold; the first arm is the cold fold")
     a = ap.parse_args()
 
     import ttnn
@@ -320,24 +326,25 @@ def main():
     for size in [int(s) for s in a.sizes.split(",")]:
         tgt = a.fixdir / f"cdk2x2_{size}.yaml"
         a3m = a.fixdir / f"cdk2x2_{size}.a3m"
-        set_arm("on")
+        set_arm(a.arms.split(",")[0])
         one_fold, meta, state = B.build_fold("protenix-v2", ROOT / f".msa_s512_{size}", tgt, a3m)
         STATE["dev"] = T.get_device()
         STATE["model"] = state.model
         struct_dir = Path(meta["struct_dir"])
-        print(f"=== size {size}: cold fold ===", flush=True)
-        try:
-            cold_s, cold_m = one_fold()
-        except Exception as e:                                                  # noqa: BLE001
-            res["runs"].append({"size": size, "arm": "cold", "error": f"{type(e).__name__}: {e}"[:400]})
-            a.out.write_text(json.dumps(res, indent=1))
-            print(f"  COLD FOLD FAILED at {size}: {type(e).__name__}: {str(e)[:300]}", flush=True)
-            continue
-        assert cold_m.get("msa"), "fold ran without an MSA"
-        print(f"  cold {cold_s:.2f}s n_tokens={cold_m.get('n_tokens')} plddt={cold_m.get('plddt')}",
-              flush=True)
-        WALL.clear()
-        DEC.clear()
+        if not a.skip_cold:
+            print(f"=== size {size}: cold fold ===", flush=True)
+            try:
+                cold_s, cold_m = one_fold()
+            except Exception as e:                                                  # noqa: BLE001
+                res["runs"].append({"size": size, "arm": "cold", "error": f"{type(e).__name__}: {e}"[:400]})
+                a.out.write_text(json.dumps(res, indent=1))
+                print(f"  COLD FOLD FAILED at {size}: {type(e).__name__}: {str(e)[:300]}", flush=True)
+                continue
+            assert cold_m.get("msa"), "fold ran without an MSA"
+            print(f"  cold {cold_s:.2f}s n_tokens={cold_m.get('n_tokens')} plddt={cold_m.get('plddt')}",
+                  flush=True)
+            WALL.clear()
+            DEC.clear()
 
         for arm in a.arms.split(","):
             set_arm(arm)
