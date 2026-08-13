@@ -17,9 +17,11 @@ MEASURED on qb2 card 1 at 512 aa (`perf/triatt_fused/s6_gate.json`), `torch.equa
     transcription, head-contiguous split    6.498 ms
     + persistent mask                       2.673 ms    2.431x
 
-The mask CB does not grow: the persistent form needs `k_num_chunks * Sq_chunk_t * Sk_chunk_t` tiles
-and the stock one already allocates `Sq_chunk_t * Sk_chunk_t * 2` for double buffering, which is the
-same 256 tiles whenever there are two k chunks.
+The mask CB grows with the k chunk count: the persistent form needs `k_num_chunks * Sq_chunk_t *
+Sk_chunk_t` tiles against the stock `Sq_chunk_t * Sk_chunk_t * 2` for double buffering, so it is
+`k_num_chunks / 2` times the stock CB. That is a wash at two k chunks (512 aa, 256 tiles either
+way), 1.5x at three (768 aa, 288 against 192, and it fits) and 2x at four (1024 aa, 512 against 256,
+and L1 refuses it). It does NOT hold flat, and a refusal is handled below rather than predicted.
 
 The gate is narrow on purpose. It needs one head and one q chunk per core, a batch-broadcast mask,
 no padded mask, and bf16 interleaved DRAM throughout; anything else falls through to the stock op.
@@ -47,6 +49,16 @@ _ENABLED = os.environ.get(
 # Screening arm for the q-split above. OFF by default: nothing ships until the 768 fold A/B and the
 # byte-identical check have both run.
 _Q_SPLIT = os.environ.get("TT_BIO_TRIATT_MASK_Q_SPLIT", "0") == "1"
+
+# q_chunks whose PERSISTENT mask CB does not fit. Deliberately not `_SDPA_Q_CHUNK_OVER_L1`: that set
+# is the wide-q ladder memo of q_chunks the STOCK op cannot fit, and `_tri_att_sdpa_at` filters its
+# candidate list with it. This kernel allocates a strictly larger mask CB -- `k_num_chunks *
+# Sq_chunk_t * Sk_chunk_t` tiles against the stock `2 * Sq_chunk_t * Sk_chunk_t` -- so a refusal here
+# says nothing about what the stock op fits. Writing it into the shared set retires a q_chunk the
+# stock op runs perfectly well, and the fold loses the wide-q win (1.08-1.81x) on every later call at
+# that shape. MEASURED at 512 aa: the 995-token refiner fell from q_chunk 512 to 256 after one such
+# throw and the fold lost 3.129 s against an A/A floor of 0.056 s.
+_PM_OVER_L1: set = set()
 
 
 # Compute kernel config for the fused SDPA when the caller does not pass one. None means the
@@ -86,6 +98,8 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None):
     l1_key = (int(q.shape[2]), int(k.shape[2]), q_chunk)
     if l1_key in _SDPA_Q_CHUNK_OVER_L1:
         return _reject("q_chunk_over_l1", shape)
+    if l1_key in _PM_OVER_L1:
+        return _reject("pm_over_l1", shape)
     H = shape[1]
     cores = grid[0] * grid[1]
     if cores // H < 1:
@@ -125,8 +139,9 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None):
         ttnn.deallocate(out)
         if "circular buffers" not in str(exc):
             raise
-        # Remember it, so the next call skips straight to the next q_chunk instead of re-throwing.
-        _SDPA_Q_CHUNK_OVER_L1.add(l1_key)
+        # Remember it here only, so the next call declines instead of re-throwing while the stock
+        # ladder keeps the q_chunk it fits.
+        _PM_OVER_L1.add(l1_key)
         return _reject("l1_budget", shape)
     STATS[0] += 1
     return out
