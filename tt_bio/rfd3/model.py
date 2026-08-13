@@ -138,6 +138,12 @@ _TUNE_MATMUL = os.environ.get("RFD3_TUNE_MATMUL") == "1"
 # of the fc1 row, and the only route to it is unfusing the silu, which is not bit-exact -- see the
 # fleet memory `unfusing-activation-rounds-input-not-just-algorithm`.
 _TUNE_ACT = os.environ.get("RFD3_TUNE_ACT") == "1"
+# Lever A: fold the diffusion token encoder`s process_z chain -- concat[z, onehot_d, onehot_s] ->
+# rms_norm(258) -> linear(258->128) -- into one gather plus a per-design constant. 165.7 ms/step at
+# the pinned rfd3_R4 fixture, every op of it at a fraction of the roof. See _fold_process_z.
+# RELEASE-GATED and default OFF: the algebra is exact (scripts/rfd3_port/p45_concat_fold_screen.py,
+# 3.5e-16 in float64) but the rounding is not, so it needs a trajectory gate, not a torch.equal.
+_FOLD_PROCESS_Z = os.environ.get("RFD3_FOLD_PROCESS_Z") == "1"
 _TUNE_AUDIT = os.environ.get("RFD3_TUNE_AUDIT") == "1"
 # Debug: print what calibration decided per shape, and why.
 _TUNE_LOG = os.environ.get("RFD3_TUNE_LOG") == "1"
@@ -2090,6 +2096,7 @@ class DiffusionTokenEncoder(Module):
         cat_c_z = self.C_Z + self.N_BINS + self.N_BINS  # 128 + 65 (distogram) + 65 (self)
         self.process_z_n = self.torch_to_tt("process_z.0.weight", dtype=self.dtype)
         self.process_z_w = self.torch_to_tt("process_z.1.weight", dtype=self.dtype)
+        self._fold = self._build_fold_tables() if _FOLD_PROCESS_Z else None
         self.transition_2 = [Transition(self.scope(f"transition_2.{i}"), ckc, self.C_Z, n=2, dtype=self.dtype)
                              for i in range(2)]
         self.pairformer_stack = [PairformerBlock(self.scope(f"pairformer_stack.{i}"), ckc,
@@ -2111,6 +2118,76 @@ class DiffusionTokenEncoder(Module):
         if batch == 1 or x_dev.shape[0] == batch:
             return x_dev
         return ttnn.concat([x_dev] * batch, dim=0)
+
+    def _build_fold_tables(self):
+        """Lever A`s weight tables, folded once at load.
+
+        `rms_norm` scales a row by r = 1/sqrt(mean(x^2) + eps) and then multiplies by a per-channel
+        weight, so the whole chain is linear in each block of the concat once r is known. Each
+        one-hot row contributes exactly one 1.0 to sum(x^2) and selects exactly one row of the
+        weight, so:
+
+          * the rms denominator is computable from z alone -- the bin values never enter it;
+          * `onehot(b) @ W_d` is row b of W_d, so the 65-wide one-hot never has to exist;
+          * `Wd_pre[i] + Ws_pre[j]` is a pure function of the bin PAIR, so the two gathers collapse
+            into one lookup of a 65*65 x 128 table. That matters because `ttnn.embedding` here runs
+            at 14 GB/s, 3.6 % of the roof -- it is element-rate limited, not bandwidth limited, so
+            halving the number of gathers is worth more than narrowing them.
+        """
+        w = self.weights["process_z.0.weight"].float()      # [258]
+        W = self.weights["process_z.1.weight"].float()      # [128, 258]
+        nb, cz = self.N_BINS, self.C_Z
+        wz = (W[:, :cz] * w[:cz]).t().contiguous()                     # [128, 128]
+        wd = (W[:, cz:cz + nb] * w[cz:cz + nb]).t().contiguous()       # [65, 128]
+        ws = (W[:, cz + nb:] * w[cz + nb:]).t().contiguous()           # [65, 128]
+        pair = (wd[:, None, :] + ws[None, :, :]).reshape(nb * nb, cz).contiguous()
+        dev, dt = self.device, self.dtype
+        return {"wz": _tt(wz, dev, dt), "d": _tt(wd, dev, dt), "pair": _tt(pair, dev, dt)}
+
+    def _fold_const(self, Z_init_II, B, I, has_self):
+        """The step-invariant half: the rms scale and the z term, built once per design.
+
+        `Z_init_II` is the same tensor for every timestep and every recycle -- model.py hands one
+        `Z_II` to every `_process_`, which is why `_tt_cached` already hits on its upload -- so both
+        are constants. There are two of them, not one: on the first recycle `D_II_self` is None and
+        the self-conditioning block is all zeros, contributing 0 to sum(x^2) rather than 1.
+
+        r is computed on the host in fp32. It costs one reduction per design against 400 uses, and
+        host fp32 is strictly more accurate than folding the same reduction into bf16 on device.
+        """
+        key = ("fold", B, I, has_self, self.dtype)
+        ent = self._const.get(key)
+        if ent is not None and all(t.is_allocated() for t in ent):
+            return ent
+        z = Z_init_II if Z_init_II.ndim == 4 else Z_init_II.unsqueeze(0)
+        z = z.float()
+        n = self.C_Z + 2 * self.N_BINS
+        occupied = 2.0 if has_self else 1.0
+        r = torch.rsqrt((z.pow(2).sum(-1, keepdim=True) + occupied) / n + 1e-6)
+        zr = (z * r).expand(B, -1, -1, -1).contiguous()
+        r = r.expand(B, -1, -1, -1).contiguous()
+        dev, dt = self.device, self.dtype
+        const = ttnn.linear(_tt(zr, dev, dt), self._fold["wz"], dtype=dt,
+                            compute_kernel_config=self.compute_kernel_config,
+                            core_grid=CORE_GRID_MAIN)
+        ent = (const, _tt(r, dev, dt))
+        self._const[key] = ent
+        return ent
+
+    def _fold_process_z(self, Z_init_II, bins, D_II_self, B, I):
+        """process_z as `const + r * table[bin_pair]` -- one gather, no 258-wide tensor."""
+        const, r = self._fold_const(Z_init_II, B, I, D_II_self is not None)
+        if D_II_self is None:
+            idx, tbl = bins, self._fold["d"]
+        else:
+            idx, tbl = bins.to(torch.int64) * self.N_BINS + D_II_self.to(torch.int64), \
+                       self._fold["pair"]
+        g = ttnn.embedding(_tt_idx(idx, self.device), tbl, layout=ttnn.ROW_MAJOR_LAYOUT,
+                           memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        g = ttnn.to_layout(ttnn.reshape(g, (B, I, I, self.C_Z)), ttnn.TILE_LAYOUT)
+        out = ttnn.add(const, ttnn.multiply(g, r))
+        ttnn.deallocate(g)
+        return out
 
     def _onehot_dev(self, bins, batch, I):
         """One-hot the [B,I,I] int32 bin indices on device, by gathering identity rows.
@@ -2176,16 +2253,19 @@ class DiffusionTokenEncoder(Module):
             s = ttnn.add(s, ttnn.typecast(upd, ttnn.float32, memory_config=upd.memory_config())) if f32 \
                 else ttnn.add(s, upd)
         bins = _scaled_distogram_bins(R_L_ca, sigma_data=self.sigma_data, n_bins=self.N_BINS)
-        d_dev = self._onehot_dev(bins, B, I)
-        self_dev = (self._zeros_dev(B, I) if D_II_self is None
-                    else self._onehot_dev(D_II_self, B, I))
         if Z_init_II.ndim == 3:
             Z_init_II = Z_init_II.unsqueeze(0)
-        z = self._batched(_tt_cached(Z_init_II, dev, dt), B)
-        zcat = ttnn.concat([z, d_dev, self_dev], dim=-1)  # [B,I,I,258]
-        z = ttnn.rms_norm(zcat, weight=self.process_z_n, epsilon=1e-6, compute_kernel_config=ckc)
-        z = ttnn.linear(z, self.process_z_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
-        ttnn.deallocate(zcat)
+        if self._fold is not None:
+            z = self._fold_process_z(Z_init_II, bins, D_II_self, B, I)
+        else:
+            d_dev = self._onehot_dev(bins, B, I)
+            self_dev = (self._zeros_dev(B, I) if D_II_self is None
+                        else self._onehot_dev(D_II_self, B, I))
+            z = self._batched(_tt_cached(Z_init_II, dev, dt), B)
+            zcat = ttnn.concat([z, d_dev, self_dev], dim=-1)  # [B,I,I,258]
+            z = ttnn.rms_norm(zcat, weight=self.process_z_n, epsilon=1e-6, compute_kernel_config=ckc)
+            z = ttnn.linear(z, self.process_z_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+            ttnn.deallocate(zcat)
         if f32:
             z = ttnn.typecast(z, ttnn.float32, memory_config=z.memory_config())
         for tr in self.transition_2:
