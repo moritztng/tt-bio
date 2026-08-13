@@ -1,0 +1,1048 @@
+{
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "3",
+ "model": "openfold3",
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "timers_installed": [
+  "stage:Pairformer",
+  "block:PairformerLayer",
+  "body:TriangleMultiplication",
+  "body:TriangleAttention",
+  "body:AttentionPairBias",
+  "body:PairWeightedAveraging"
+ ],
+ "runs": [
+  {
+   "size": 1024,
+   "arm": "noshard",
+   "fold_s": 276.779,
+   "n_tokens": 1024,
+   "plddt": 0.510712,
+   "cif_sha256": {
+    "cdk2x2_1024.cif": "40d01ef035db22b7"
+   },
+   "group_search": "divisor",
+   "trimul_inproj_groups": {
+    "S=1024,n_pairs=2->g=2": 64,
+    "S=1024,n_pairs=4->g=4": 424
+   },
+   "reblock_fwd": [
+    true,
+    [
+     976,
+     0
+    ]
+   ],
+   "reblock_back": [
+    true,
+    [
+     488,
+     0
+    ]
+   ],
+   "gated_kernel": [
+    true,
+    [
+     0,
+     0
+    ]
+   ],
+   "head_major_qkv": {
+    "enabled": true,
+    "served": 424,
+    "declined": 64,
+    "rejects": {
+     "head_dim_or_width:(1024, 1024, 64)": 64
+    },
+    "tail_enabled": true,
+    "tail_served": 424,
+    "tail_declined": 0,
+    "tail_rejects": {}
+   },
+   "persistent_mask": {
+    "enabled": true,
+    "q_split": false,
+    "served": 0,
+    "declined": 0,
+    "rejects": {},
+    "pm_over_l1": []
+   },
+   "transpose_l1_headroom": 2.5,
+   "fp32_softmax_chain": {
+    "block_bytes": 8589934592,
+    "fused_add": true,
+    "l1_bytes_per_core": 0,
+    "calls": 488,
+    "blocked": 488,
+    "blocks": 976,
+    "fused": 976,
+    "unfused": 0,
+    "l1": 0,
+    "l1_blocks": 0,
+    "l1_refused": 0
+   },
+   "transition_h_chunk_size_big": 32,
+   "pair_proj_l1_out": true,
+   "atom_pad_in_tile": true,
+   "fp32_softmax_modules": 168,
+   "sdpa_ckc_override": null,
+   "fp32_softmax_on": [
+    true,
+    true,
+    true,
+    true
+   ],
+   "pair_proj_mm": true,
+   "mm_block": {
+    "(2, 2)": [
+     4,
+     2,
+     1,
+     4,
+     1
+    ],
+    "(2, 12)": [
+     4,
+     2,
+     1,
+     4,
+     1
+    ],
+    "(4, 4)": [
+     4,
+     4,
+     1,
+     4,
+     1
+    ],
+    "(4, 12)": [
+     4,
+     4,
+     1,
+     4,
+     1
+    ],
+    "(8, 8)": [
+     4,
+     8,
+     1,
+     4,
+     1
+    ],
+    "(8, 24)": [
+     4,
+     8,
+     1,
+     4,
+     1
+    ],
+    "(12, 12)": [
+     8,
+     12,
+     1,
+     2,
+     1
+    ],
+    "(12, 36)": [
+     4,
+     12,
+     1,
+     2,
+     1
+    ]
+   },
+   "oldkey_lookup": {
+    "active": false,
+    "hit": 0,
+    "miss": 0
+   },
+   "sdpa_q_chunk_over_l1": [],
+   "loadavg": [
+    "1.03",
+    "1.08",
+    "1.37"
+   ],
+   "maxrss_mb": 10627.8,
+   "wall_ms": {
+    "block:PairformerLayer": {
+     "calls": 240,
+     "ms": 229548.94
+    },
+    "body:TriangleAttention": {
+     "calls": 488,
+     "ms": 205993.98
+    },
+    "stage:Pairformer": {
+     "calls": 4,
+     "ms": 185051.91
+    },
+    "body:TriangleMultiplication": {
+     "calls": 488,
+     "ms": 17955.39
+    },
+    "body:AttentionPairBias": {
+     "calls": 192,
+     "ms": 1122.02
+    },
+    "body:PairWeightedAveraging": {
+     "calls": 12,
+     "ms": 207.35
+    }
+   },
+   "decisions": {
+    "l1_layer_norm|h=1.5|1024x1024x128": {
+     "DRAM": 12
+    },
+    "l1_layer_norm|h=1.5|1x1024x1024x128": {
+     "DRAM": 192
+    },
+    "pair_proj_out_l1|1024x1024x64@64": {
+     "DRAM": 64
+    },
+    "pair_proj_out_l1|1x1024x1024x128@128": {
+     "DRAM": 848
+    },
+    "pair_proj_out_l1|1x1024x1024x64@64": {
+     "DRAM": 128
+    },
+    "qkv_mm_config|kt=2,nt=12": {
+     "config": 128
+    },
+    "qkv_mm_config|kt=2,nt=2": {
+     "config": 64
+    },
+    "qkv_mm_config|kt=4,nt=12": {
+     "config": 424
+    },
+    "qkv_mm_config|kt=4,nt=4": {
+     "config": 424
+    },
+    "transpose|1024x1024x128": {
+     "DRAM": 424
+    },
+    "transpose|1024x1024x64": {
+     "DRAM": 64
+    }
+   },
+   "cif_dir": "perf/other512/cif/1024_noshard_1",
+   "call_census": {
+    "confidence|TriangleAttention|128|True": 8,
+    "msa|TriangleAttention|128|True": 32,
+    "template|TriangleAttention|64|True": 64,
+    "trunk|AttentionPairBias|384|True": 192,
+    "trunk|TriangleAttention|128|True": 384
+   },
+   "fp32_on_by_owner": {
+    "confidence": [
+     true
+    ],
+    "msa": [
+     true
+    ],
+    "template": [
+     true
+    ],
+    "trunk": [
+     true
+    ]
+   },
+   "block_wall_ms": 229548.94,
+   "block_calls": 240,
+   "triatt_wall_ms": 205993.98,
+   "triatt_calls": 488,
+   "trimul_wall_ms": 17955.39,
+   "trimul_calls": 488
+  },
+  {
+   "size": 1024,
+   "arm": "on",
+   "fold_s": 277.037,
+   "n_tokens": 1024,
+   "plddt": 0.510712,
+   "cif_sha256": {
+    "cdk2x2_1024.cif": "40d01ef035db22b7"
+   },
+   "group_search": "divisor",
+   "trimul_inproj_groups": {
+    "S=1024,n_pairs=2->g=2": 64,
+    "S=1024,n_pairs=4->g=4": 424
+   },
+   "reblock_fwd": [
+    true,
+    [
+     976,
+     0
+    ]
+   ],
+   "reblock_back": [
+    true,
+    [
+     488,
+     0
+    ]
+   ],
+   "gated_kernel": [
+    true,
+    [
+     0,
+     0
+    ]
+   ],
+   "head_major_qkv": {
+    "enabled": true,
+    "served": 424,
+    "declined": 64,
+    "rejects": {
+     "head_dim_or_width:(1024, 1024, 64)": 64
+    },
+    "tail_enabled": true,
+    "tail_served": 424,
+    "tail_declined": 0,
+    "tail_rejects": {}
+   },
+   "persistent_mask": {
+    "enabled": true,
+    "q_split": false,
+    "served": 0,
+    "declined": 0,
+    "rejects": {},
+    "pm_over_l1": []
+   },
+   "transpose_l1_headroom": 2.5,
+   "fp32_softmax_chain": {
+    "block_bytes": 8589934592,
+    "fused_add": true,
+    "l1_bytes_per_core": 786432,
+    "calls": 488,
+    "blocked": 488,
+    "blocks": 1316,
+    "fused": 1317,
+    "unfused": 0,
+    "l1": 1,
+    "l1_blocks": 1,
+    "l1_refused": 1
+   },
+   "transition_h_chunk_size_big": 32,
+   "pair_proj_l1_out": true,
+   "atom_pad_in_tile": true,
+   "fp32_softmax_modules": 168,
+   "sdpa_ckc_override": null,
+   "fp32_softmax_on": [
+    true,
+    true,
+    true,
+    true
+   ],
+   "pair_proj_mm": true,
+   "mm_block": {
+    "(2, 2)": [
+     4,
+     2,
+     1,
+     4,
+     1
+    ],
+    "(2, 12)": [
+     4,
+     2,
+     1,
+     4,
+     1
+    ],
+    "(4, 4)": [
+     4,
+     4,
+     1,
+     4,
+     1
+    ],
+    "(4, 12)": [
+     4,
+     4,
+     1,
+     4,
+     1
+    ],
+    "(8, 8)": [
+     4,
+     8,
+     1,
+     4,
+     1
+    ],
+    "(8, 24)": [
+     4,
+     8,
+     1,
+     4,
+     1
+    ],
+    "(12, 12)": [
+     8,
+     12,
+     1,
+     2,
+     1
+    ],
+    "(12, 36)": [
+     4,
+     12,
+     1,
+     2,
+     1
+    ]
+   },
+   "oldkey_lookup": {
+    "active": false,
+    "hit": 0,
+    "miss": 0
+   },
+   "sdpa_q_chunk_over_l1": [],
+   "loadavg": [
+    "1.88",
+    "1.26",
+    "1.34"
+   ],
+   "maxrss_mb": 10636.6,
+   "wall_ms": {
+    "block:PairformerLayer": {
+     "calls": 240,
+     "ms": 229644.96
+    },
+    "body:TriangleAttention": {
+     "calls": 488,
+     "ms": 206084.12
+    },
+    "stage:Pairformer": {
+     "calls": 4,
+     "ms": 185060.96
+    },
+    "body:TriangleMultiplication": {
+     "calls": 488,
+     "ms": 17957.0
+    },
+    "body:AttentionPairBias": {
+     "calls": 192,
+     "ms": 1111.99
+    },
+    "body:PairWeightedAveraging": {
+     "calls": 12,
+     "ms": 208.11
+    }
+   },
+   "decisions": {
+    "l1_layer_norm|h=1.5|1024x1024x128": {
+     "DRAM": 12
+    },
+    "l1_layer_norm|h=1.5|1x1024x1024x128": {
+     "DRAM": 192
+    },
+    "pair_proj_out_l1|1024x1024x64@64": {
+     "DRAM": 64
+    },
+    "pair_proj_out_l1|1x1024x1024x128@128": {
+     "DRAM": 848
+    },
+    "pair_proj_out_l1|1x1024x1024x64@64": {
+     "DRAM": 128
+    },
+    "qkv_mm_config|kt=2,nt=12": {
+     "config": 128
+    },
+    "qkv_mm_config|kt=2,nt=2": {
+     "config": 64
+    },
+    "qkv_mm_config|kt=4,nt=12": {
+     "config": 424
+    },
+    "qkv_mm_config|kt=4,nt=4": {
+     "config": 424
+    },
+    "transpose|1024x1024x128": {
+     "DRAM": 424
+    },
+    "transpose|1024x1024x64": {
+     "DRAM": 64
+    }
+   },
+   "cif_dir": "perf/other512/cif/1024_on_1",
+   "call_census": {
+    "confidence|TriangleAttention|128|True": 8,
+    "msa|TriangleAttention|128|True": 32,
+    "template|TriangleAttention|64|True": 64,
+    "trunk|AttentionPairBias|384|True": 192,
+    "trunk|TriangleAttention|128|True": 384
+   },
+   "fp32_on_by_owner": {
+    "confidence": [
+     true
+    ],
+    "msa": [
+     true
+    ],
+    "template": [
+     true
+    ],
+    "trunk": [
+     true
+    ]
+   },
+   "block_wall_ms": 229644.96,
+   "block_calls": 240,
+   "triatt_wall_ms": 206084.12,
+   "triatt_calls": 488,
+   "trimul_wall_ms": 17957.0,
+   "trimul_calls": 488
+  },
+  {
+   "size": 1024,
+   "arm": "noshard",
+   "fold_s": 276.827,
+   "n_tokens": 1024,
+   "plddt": 0.510712,
+   "cif_sha256": {
+    "cdk2x2_1024.cif": "40d01ef035db22b7"
+   },
+   "group_search": "divisor",
+   "trimul_inproj_groups": {
+    "S=1024,n_pairs=2->g=2": 64,
+    "S=1024,n_pairs=4->g=4": 424
+   },
+   "reblock_fwd": [
+    true,
+    [
+     976,
+     0
+    ]
+   ],
+   "reblock_back": [
+    true,
+    [
+     488,
+     0
+    ]
+   ],
+   "gated_kernel": [
+    true,
+    [
+     0,
+     0
+    ]
+   ],
+   "head_major_qkv": {
+    "enabled": true,
+    "served": 424,
+    "declined": 64,
+    "rejects": {
+     "head_dim_or_width:(1024, 1024, 64)": 64
+    },
+    "tail_enabled": true,
+    "tail_served": 424,
+    "tail_declined": 0,
+    "tail_rejects": {}
+   },
+   "persistent_mask": {
+    "enabled": true,
+    "q_split": false,
+    "served": 0,
+    "declined": 0,
+    "rejects": {},
+    "pm_over_l1": []
+   },
+   "transpose_l1_headroom": 2.5,
+   "fp32_softmax_chain": {
+    "block_bytes": 8589934592,
+    "fused_add": true,
+    "l1_bytes_per_core": 0,
+    "calls": 488,
+    "blocked": 488,
+    "blocks": 976,
+    "fused": 976,
+    "unfused": 0,
+    "l1": 0,
+    "l1_blocks": 0,
+    "l1_refused": 0
+   },
+   "transition_h_chunk_size_big": 32,
+   "pair_proj_l1_out": true,
+   "atom_pad_in_tile": true,
+   "fp32_softmax_modules": 168,
+   "sdpa_ckc_override": null,
+   "fp32_softmax_on": [
+    true,
+    true,
+    true,
+    true
+   ],
+   "pair_proj_mm": true,
+   "mm_block": {
+    "(2, 2)": [
+     4,
+     2,
+     1,
+     4,
+     1
+    ],
+    "(2, 12)": [
+     4,
+     2,
+     1,
+     4,
+     1
+    ],
+    "(4, 4)": [
+     4,
+     4,
+     1,
+     4,
+     1
+    ],
+    "(4, 12)": [
+     4,
+     4,
+     1,
+     4,
+     1
+    ],
+    "(8, 8)": [
+     4,
+     8,
+     1,
+     4,
+     1
+    ],
+    "(8, 24)": [
+     4,
+     8,
+     1,
+     4,
+     1
+    ],
+    "(12, 12)": [
+     8,
+     12,
+     1,
+     2,
+     1
+    ],
+    "(12, 36)": [
+     4,
+     12,
+     1,
+     2,
+     1
+    ]
+   },
+   "oldkey_lookup": {
+    "active": false,
+    "hit": 0,
+    "miss": 0
+   },
+   "sdpa_q_chunk_over_l1": [],
+   "loadavg": [
+    "1.47",
+    "1.27",
+    "1.31"
+   ],
+   "maxrss_mb": 10636.6,
+   "wall_ms": {
+    "block:PairformerLayer": {
+     "calls": 240,
+     "ms": 229583.07
+    },
+    "body:TriangleAttention": {
+     "calls": 488,
+     "ms": 206016.58
+    },
+    "stage:Pairformer": {
+     "calls": 4,
+     "ms": 185071.86
+    },
+    "body:TriangleMultiplication": {
+     "calls": 488,
+     "ms": 17960.7
+    },
+    "body:AttentionPairBias": {
+     "calls": 192,
+     "ms": 1118.63
+    },
+    "body:PairWeightedAveraging": {
+     "calls": 12,
+     "ms": 207.32
+    }
+   },
+   "decisions": {
+    "l1_layer_norm|h=1.5|1024x1024x128": {
+     "DRAM": 12
+    },
+    "l1_layer_norm|h=1.5|1x1024x1024x128": {
+     "DRAM": 192
+    },
+    "pair_proj_out_l1|1024x1024x64@64": {
+     "DRAM": 64
+    },
+    "pair_proj_out_l1|1x1024x1024x128@128": {
+     "DRAM": 848
+    },
+    "pair_proj_out_l1|1x1024x1024x64@64": {
+     "DRAM": 128
+    },
+    "qkv_mm_config|kt=2,nt=12": {
+     "config": 128
+    },
+    "qkv_mm_config|kt=2,nt=2": {
+     "config": 64
+    },
+    "qkv_mm_config|kt=4,nt=12": {
+     "config": 424
+    },
+    "qkv_mm_config|kt=4,nt=4": {
+     "config": 424
+    },
+    "transpose|1024x1024x128": {
+     "DRAM": 424
+    },
+    "transpose|1024x1024x64": {
+     "DRAM": 64
+    }
+   },
+   "cif_dir": "perf/other512/cif/1024_noshard_2",
+   "call_census": {
+    "confidence|TriangleAttention|128|True": 8,
+    "msa|TriangleAttention|128|True": 32,
+    "template|TriangleAttention|64|True": 64,
+    "trunk|AttentionPairBias|384|True": 192,
+    "trunk|TriangleAttention|128|True": 384
+   },
+   "fp32_on_by_owner": {
+    "confidence": [
+     true
+    ],
+    "msa": [
+     true
+    ],
+    "template": [
+     true
+    ],
+    "trunk": [
+     true
+    ]
+   },
+   "block_wall_ms": 229583.07,
+   "block_calls": 240,
+   "triatt_wall_ms": 206016.58,
+   "triatt_calls": 488,
+   "trimul_wall_ms": 17960.7,
+   "trimul_calls": 488
+  },
+  {
+   "size": 1024,
+   "arm": "on",
+   "fold_s": 276.855,
+   "n_tokens": 1024,
+   "plddt": 0.510712,
+   "cif_sha256": {
+    "cdk2x2_1024.cif": "40d01ef035db22b7"
+   },
+   "group_search": "divisor",
+   "trimul_inproj_groups": {
+    "S=1024,n_pairs=2->g=2": 64,
+    "S=1024,n_pairs=4->g=4": 424
+   },
+   "reblock_fwd": [
+    true,
+    [
+     976,
+     0
+    ]
+   ],
+   "reblock_back": [
+    true,
+    [
+     488,
+     0
+    ]
+   ],
+   "gated_kernel": [
+    true,
+    [
+     0,
+     0
+    ]
+   ],
+   "head_major_qkv": {
+    "enabled": true,
+    "served": 424,
+    "declined": 64,
+    "rejects": {
+     "head_dim_or_width:(1024, 1024, 64)": 64
+    },
+    "tail_enabled": true,
+    "tail_served": 424,
+    "tail_declined": 0,
+    "tail_rejects": {}
+   },
+   "persistent_mask": {
+    "enabled": true,
+    "q_split": false,
+    "served": 0,
+    "declined": 0,
+    "rejects": {},
+    "pm_over_l1": []
+   },
+   "transpose_l1_headroom": 2.5,
+   "fp32_softmax_chain": {
+    "block_bytes": 8589934592,
+    "fused_add": true,
+    "l1_bytes_per_core": 786432,
+    "calls": 488,
+    "blocked": 488,
+    "blocks": 1316,
+    "fused": 1317,
+    "unfused": 0,
+    "l1": 1,
+    "l1_blocks": 1,
+    "l1_refused": 1
+   },
+   "transition_h_chunk_size_big": 32,
+   "pair_proj_l1_out": true,
+   "atom_pad_in_tile": true,
+   "fp32_softmax_modules": 168,
+   "sdpa_ckc_override": null,
+   "fp32_softmax_on": [
+    true,
+    true,
+    true,
+    true
+   ],
+   "pair_proj_mm": true,
+   "mm_block": {
+    "(2, 2)": [
+     4,
+     2,
+     1,
+     4,
+     1
+    ],
+    "(2, 12)": [
+     4,
+     2,
+     1,
+     4,
+     1
+    ],
+    "(4, 4)": [
+     4,
+     4,
+     1,
+     4,
+     1
+    ],
+    "(4, 12)": [
+     4,
+     4,
+     1,
+     4,
+     1
+    ],
+    "(8, 8)": [
+     4,
+     8,
+     1,
+     4,
+     1
+    ],
+    "(8, 24)": [
+     4,
+     8,
+     1,
+     4,
+     1
+    ],
+    "(12, 12)": [
+     8,
+     12,
+     1,
+     2,
+     1
+    ],
+    "(12, 36)": [
+     4,
+     12,
+     1,
+     2,
+     1
+    ]
+   },
+   "oldkey_lookup": {
+    "active": false,
+    "hit": 0,
+    "miss": 0
+   },
+   "sdpa_q_chunk_over_l1": [],
+   "loadavg": [
+    "1.03",
+    "1.12",
+    "1.23"
+   ],
+   "maxrss_mb": 10636.6,
+   "wall_ms": {
+    "block:PairformerLayer": {
+     "calls": 240,
+     "ms": 229626.29
+    },
+    "body:TriangleAttention": {
+     "calls": 488,
+     "ms": 206079.65
+    },
+    "stage:Pairformer": {
+     "calls": 4,
+     "ms": 185043.88
+    },
+    "body:TriangleMultiplication": {
+     "calls": 488,
+     "ms": 17958.18
+    },
+    "body:AttentionPairBias": {
+     "calls": 192,
+     "ms": 1114.06
+    },
+    "body:PairWeightedAveraging": {
+     "calls": 12,
+     "ms": 209.33
+    }
+   },
+   "decisions": {
+    "l1_layer_norm|h=1.5|1024x1024x128": {
+     "DRAM": 12
+    },
+    "l1_layer_norm|h=1.5|1x1024x1024x128": {
+     "DRAM": 192
+    },
+    "pair_proj_out_l1|1024x1024x64@64": {
+     "DRAM": 64
+    },
+    "pair_proj_out_l1|1x1024x1024x128@128": {
+     "DRAM": 848
+    },
+    "pair_proj_out_l1|1x1024x1024x64@64": {
+     "DRAM": 128
+    },
+    "qkv_mm_config|kt=2,nt=12": {
+     "config": 128
+    },
+    "qkv_mm_config|kt=2,nt=2": {
+     "config": 64
+    },
+    "qkv_mm_config|kt=4,nt=12": {
+     "config": 424
+    },
+    "qkv_mm_config|kt=4,nt=4": {
+     "config": 424
+    },
+    "transpose|1024x1024x128": {
+     "DRAM": 424
+    },
+    "transpose|1024x1024x64": {
+     "DRAM": 64
+    }
+   },
+   "cif_dir": "perf/other512/cif/1024_on_2",
+   "call_census": {
+    "confidence|TriangleAttention|128|True": 8,
+    "msa|TriangleAttention|128|True": 32,
+    "template|TriangleAttention|64|True": 64,
+    "trunk|AttentionPairBias|384|True": 192,
+    "trunk|TriangleAttention|128|True": 384
+   },
+   "fp32_on_by_owner": {
+    "confidence": [
+     true
+    ],
+    "msa": [
+     true
+    ],
+    "template": [
+     true
+    ],
+    "trunk": [
+     true
+    ]
+   },
+   "block_wall_ms": 229626.29,
+   "block_calls": 240,
+   "triatt_wall_ms": 206079.65,
+   "triatt_calls": 488,
+   "trimul_wall_ms": 17958.18,
+   "trimul_calls": 488
+  }
+ ],
+ "grid": [
+  11,
+  10
+ ],
+ "compute_grid_main": [
+  11,
+  10
+ ],
+ "fp32_softmax_modules": 168,
+ "fp32_modules_by_owner": {
+  "trunk": 144,
+  "template": 4,
+  "msa": 8,
+  "confidence": 12
+ },
+ "cold_call_census": {
+  "unowned|AttentionPairBias|384|True": 192,
+  "unowned|TriangleAttention|64|True": 64,
+  "unowned|TriangleAttention|128|True": 424
+ },
+ "arm_medians": {
+  "1024": {
+   "noshard": {
+    "fold_s": [
+     276.779,
+     276.827
+    ],
+    "block_ms": [
+     229548.94,
+     229583.07
+    ],
+    "plddt": [
+     0.510712,
+     0.510712
+    ],
+    "n": 2,
+    "fold_s_median": 276.803,
+    "fold_s_min": 276.779,
+    "fold_s_spread": 0.048,
+    "block_ms_median": 229566.01,
+    "block_ms_spread": 34.13
+   },
+   "on": {
+    "fold_s": [
+     277.037,
+     276.855
+    ],
+    "block_ms": [
+     229644.96,
+     229626.29
+    ],
+    "plddt": [
+     0.510712,
+     0.510712
+    ],
+    "n": 2,
+    "fold_s_median": 276.946,
+    "fold_s_min": 276.855,
+    "fold_s_spread": 0.182,
+    "block_ms_median": 229635.62,
+    "block_ms_spread": 18.67
+   },
+   "aa_floor_fold_s": 0.182,
+   "aa_floor_block_ms": 18.67
+  }
+ }
+}

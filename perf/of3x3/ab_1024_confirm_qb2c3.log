@@ -1,0 +1,126 @@
+benchlock: openfold3-1024aa-confirm-and-merge waiting; currently held by: rfd3-host-half-defaults-on pid=41569 since=2026-08-13T16:39:20+00:00
+benchlock: openfold3-1024aa-confirm-and-merge acquired after 0s, loadavg 1.05 1.30 1.65
+2026-08-13 16:53:14.795 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+=== openfold3 size 1024 rec=3 steps=200: cold ===
+2026-08-13 16:53:27.389 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 187 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=9)]. L1 buffer allocated at 393216 and static circular buffer region ends at 549376 (assert.hpp:104)
+  [fold] sample 0: xl_final std=19.0062 range=[-46.12,45.66]
+  cold 281.57s n_tokens=1024 plddt=0.510712
+  fp32_softmax attention modules: 168 {'trunk': 144, 'template': 4, 'msa': 8, 'confidence': 12}
+      CENSUS unowned|AttentionPairBias|384|True               192
+      CENSUS unowned|TriangleAttention|64|True                64
+      CENSUS unowned|TriangleAttention|128|True               424
+  [fold] sample 0: xl_final std=19.0062 range=[-46.12,45.66]
+  noshard: fold 276.78s  block 229548.94 ms over 240 calls  plddt 0.510712
+      owners {'confidence': [True], 'msa': [True], 'template': [True], 'trunk': [True]}
+      CENSUS confidence|TriangleAttention|128|True            8
+      CENSUS msa|TriangleAttention|128|True                   32
+      CENSUS template|TriangleAttention|64|True               64
+      CENSUS trunk|AttentionPairBias|384|True                 192
+      CENSUS trunk|TriangleAttention|128|True                 384
+      FP32SOFT {'block_bytes': 8589934592, 'fused_add': True, 'l1_bytes_per_core': 0, 'calls': 488, 'blocked': 488, 'blocks': 976, 'fused': 976, 'unfused': 0, 'l1': 0, 'l1_blocks': 0, 'l1_refused': 0}  hchunk 32  l1out True
+      K1 424/64 {'head_dim_or_width:(1024, 1024, 64)': 64}  K2 0/0 {}  E6 [True, [0, 0]]
+      DEC qkv_mm_config|kt=2,nt=12                       {'config': 128}
+      DEC qkv_mm_config|kt=2,nt=2                        {'config': 64}
+      DEC qkv_mm_config|kt=4,nt=12                       {'config': 424}
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 424}
+      DEC transpose|1024x1024x128                        {'DRAM': 424}
+      DEC transpose|1024x1024x64                         {'DRAM': 64}
+2026-08-13 17:02:44.209 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 187 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=9)]. L1 buffer allocated at 393216 and static circular buffer region ends at 549376 (assert.hpp:104)
+  [fold] sample 0: xl_final std=19.0062 range=[-46.12,45.66]
+  on: fold 277.04s  block 229644.96 ms over 240 calls  plddt 0.510712
+      owners {'confidence': [True], 'msa': [True], 'template': [True], 'trunk': [True]}
+      CENSUS confidence|TriangleAttention|128|True            8
+      CENSUS msa|TriangleAttention|128|True                   32
+      CENSUS template|TriangleAttention|64|True               64
+      CENSUS trunk|AttentionPairBias|384|True                 192
+      CENSUS trunk|TriangleAttention|128|True                 384
+      FP32SOFT {'block_bytes': 8589934592, 'fused_add': True, 'l1_bytes_per_core': 786432, 'calls': 488, 'blocked': 488, 'blocks': 1316, 'fused': 1317, 'unfused': 0, 'l1': 1, 'l1_blocks': 1, 'l1_refused': 1}  hchunk 32  l1out True
+      K1 424/64 {'head_dim_or_width:(1024, 1024, 64)': 64}  K2 0/0 {}  E6 [True, [0, 0]]
+      DEC qkv_mm_config|kt=2,nt=12                       {'config': 128}
+      DEC qkv_mm_config|kt=2,nt=2                        {'config': 64}
+      DEC qkv_mm_config|kt=4,nt=12                       {'config': 424}
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 424}
+      DEC transpose|1024x1024x128                        {'DRAM': 424}
+      DEC transpose|1024x1024x64                         {'DRAM': 64}
+  [fold] sample 0: xl_final std=19.0062 range=[-46.12,45.66]
+  noshard: fold 276.83s  block 229583.07 ms over 240 calls  plddt 0.510712
+      owners {'confidence': [True], 'msa': [True], 'template': [True], 'trunk': [True]}
+      CENSUS confidence|TriangleAttention|128|True            8
+      CENSUS msa|TriangleAttention|128|True                   32
+      CENSUS template|TriangleAttention|64|True               64
+      CENSUS trunk|AttentionPairBias|384|True                 192
+      CENSUS trunk|TriangleAttention|128|True                 384
+      FP32SOFT {'block_bytes': 8589934592, 'fused_add': True, 'l1_bytes_per_core': 0, 'calls': 488, 'blocked': 488, 'blocks': 976, 'fused': 976, 'unfused': 0, 'l1': 0, 'l1_blocks': 0, 'l1_refused': 0}  hchunk 32  l1out True
+      K1 424/64 {'head_dim_or_width:(1024, 1024, 64)': 64}  K2 0/0 {}  E6 [True, [0, 0]]
+      DEC qkv_mm_config|kt=2,nt=12                       {'config': 128}
+      DEC qkv_mm_config|kt=2,nt=2                        {'config': 64}
+      DEC qkv_mm_config|kt=4,nt=12                       {'config': 424}
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 424}
+      DEC transpose|1024x1024x128                        {'DRAM': 424}
+      DEC transpose|1024x1024x64                         {'DRAM': 64}
+2026-08-13 17:11:57.915 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 187 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=9)]. L1 buffer allocated at 393216 and static circular buffer region ends at 549376 (assert.hpp:104)
+  [fold] sample 0: xl_final std=19.0062 range=[-46.12,45.66]
+  on: fold 276.85s  block 229626.29 ms over 240 calls  plddt 0.510712
+      owners {'confidence': [True], 'msa': [True], 'template': [True], 'trunk': [True]}
+      CENSUS confidence|TriangleAttention|128|True            8
+      CENSUS msa|TriangleAttention|128|True                   32
+      CENSUS template|TriangleAttention|64|True               64
+      CENSUS trunk|AttentionPairBias|384|True                 192
+      CENSUS trunk|TriangleAttention|128|True                 384
+      FP32SOFT {'block_bytes': 8589934592, 'fused_add': True, 'l1_bytes_per_core': 786432, 'calls': 488, 'blocked': 488, 'blocks': 1316, 'fused': 1317, 'unfused': 0, 'l1': 1, 'l1_blocks': 1, 'l1_refused': 1}  hchunk 32  l1out True
+      K1 424/64 {'head_dim_or_width:(1024, 1024, 64)': 64}  K2 0/0 {}  E6 [True, [0, 0]]
+      DEC qkv_mm_config|kt=2,nt=12                       {'config': 128}
+      DEC qkv_mm_config|kt=2,nt=2                        {'config': 64}
+      DEC qkv_mm_config|kt=4,nt=12                       {'config': 424}
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 424}
+      DEC transpose|1024x1024x128                        {'DRAM': 424}
+      DEC transpose|1024x1024x64                         {'DRAM': 64}
+{
+ "1024": {
+  "noshard": {
+   "fold_s": [
+    276.779,
+    276.827
+   ],
+   "block_ms": [
+    229548.94,
+    229583.07
+   ],
+   "plddt": [
+    0.510712,
+    0.510712
+   ],
+   "n": 2,
+   "fold_s_median": 276.803,
+   "fold_s_min": 276.779,
+   "fold_s_spread": 0.048,
+   "block_ms_median": 229566.01,
+   "block_ms_spread": 34.13
+  },
+  "on": {
+   "fold_s": [
+    277.037,
+    276.855
+   ],
+   "block_ms": [
+    229644.96,
+    229626.29
+   ],
+   "plddt": [
+    0.510712,
+    0.510712
+   ],
+   "n": 2,
+   "fold_s_median": 276.946,
+   "fold_s_min": 276.855,
+   "fold_s_spread": 0.182,
+   "block_ms_median": 229635.62,
+   "block_ms_spread": 18.67
+  },
+  "aa_floor_fold_s": 0.182,
+  "aa_floor_block_ms": 18.67
+ }
+}
+wrote perf/of3x3/ab_1024_confirm_qb2c3.json
+benchlock: openfold3-1024aa-confirm-and-merge released, rc=0, loadavg 1.03 1.12 1.23
