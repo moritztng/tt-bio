@@ -189,7 +189,7 @@ def _build(x, out, device, reader_ct, writer_ct):
         kernel_source=str(KERNEL_DIR / "writer_reblock_permute.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
         core_ranges=core_grid, compile_time_args=writer_ct, runtime_args=writer_rt,
-        common_runtime_args=[0, 0], config=ttnn.WriterConfigDescriptor(),
+        common_runtime_args=[0], config=ttnn.WriterConfigDescriptor(),
     )
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute_reblock_permute.cpp"),
@@ -240,11 +240,11 @@ def reblock_permute(x, memory_config=None, device=None):
     if ADDR_WRITE_MODE == "in_place":
         pd = entry["pd"]
         pd.kernels[0].common_runtime_args = [src]
-        pd.kernels[1].common_runtime_args = [dst, 0]
+        pd.kernels[1].common_runtime_args = [dst]
     else:
         reader, writer, compute = entry["kernels"]
         reader.common_runtime_args = [src]
-        writer.common_runtime_args = [dst, 0]
+        writer.common_runtime_args = [dst]
         pd = entry["pd"] = ttnn.ProgramDescriptor(
             kernels=[reader, writer, compute], semaphores=[], cbs=entry["cbs"]
         )
@@ -578,7 +578,11 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
     Ct = int(out.shape[1]) // TILE_W      # channel tiles of one slice
     Nt = (N + TILE_H - 1) // TILE_H
     Nrt = (int(x.shape[1]) + TILE_H - 1) // TILE_H
-    num_groups = Nrt * Nt
+    # A group is (row-tile, col-tile, channel-tile). Keeping the channel tile INSIDE the group
+    # index is what makes the split even on a row block: a 64-row block at 512 aa is 2*16*8 = 256
+    # groups over 110 cores where (row-tile, col-tile) alone would be 32, i.e. 8 waves against the
+    # whole-tensor move's 3. `_build_back` does the same and records the same arithmetic.
+    num_groups = Nrt * Nt * Ct
 
     plan = _split_plan(device, num_groups)
     assert plan is not None, f"no expressible work split for {num_groups} groups"
@@ -607,7 +611,7 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
             for cx in range(cr.start.x, cr.end.x + 1):
                 for cy in range(cr.start.y, cr.end.y + 1):
                     reader_rt[cx][cy] = [start, per_core, Nt, N, Ct, Ctw]
-                    compute_rt[cx][cy] = [per_core * GROUP_TILES * Ct]
+                    compute_rt[cx][cy] = [per_core * GROUP_TILES]
                     writer_rt[cx][cy] = [start, per_core, Nt, N, Ct]
                     start += per_core
     assert start == num_groups, (start, num_groups)
@@ -618,10 +622,10 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
         core_ranges=core_grid, compile_time_args=reader_ct, runtime_args=reader_rt,
         common_runtime_args=[0, 0, 0, 0], config=ttnn.ReaderConfigDescriptor(),
     )
-    # The writer is the ungated kernel's, byte for byte: it consumes c_16 and knows nothing about
-    # where the tiles came from.
+    # The writer is a fork of the ungated one: same gather, same staging, same DRAM write, but the
+    # work unit carries the channel tile and the destination index carries the block's row offset.
     writer = ttnn.KernelDescriptor(
-        kernel_source=str(KERNEL_DIR / "writer_reblock_permute.cpp"),
+        kernel_source=str(KERNEL_DIR_GATED / "writer_reblock_permute_gated.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
         core_ranges=core_grid, compile_time_args=writer_ct, runtime_args=writer_rt,
         common_runtime_args=[0, 0], config=ttnn.WriterConfigDescriptor(),

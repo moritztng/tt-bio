@@ -2,8 +2,20 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-// reblock_permute GATHER writer. Produces output = permute(x, (0,3,1,2)) for
-// x [1, N, N, C] -> [1, C, N, N], C a multiple of 32, Ct = C/32 channel tiles.
+// reblock_permute GATED gather writer. A fork of writer_reblock_permute.cpp with two changes and
+// nothing else; the gather, the staging and the DRAM write are identical.
+//
+//   1. THE WORK UNIT IS (it, jt, ct), not (it, jt). The ungated writer owns a tile column and
+//      loops the channel tiles inside it, which is even at a whole-tensor move -- Nt*Nt = 256
+//      groups over 110 cores -- and badly uneven at a row block: a 64-row block is Nrt*Nt = 32
+//      groups, so 8 blocks cost 8 waves against the whole move's 3. Keying on the channel tile
+//      too gives 2*16*8 = 256 groups per block and puts the packing back. This is exactly what
+//      writer_reblock_permute_back.cpp already does, for the same reason.
+//   2. A ROW-TILE OFFSET. The destination is always the full [1, C, D1, N] tensor, so a row
+//      block writes a slab of it and every page index here is absolute.
+//
+// Produces output = permute(x, (0,3,1,2)) for x [1, N, N, C] -> [1, C, N, N], C a multiple of 32,
+// Ct = C/32 channel tiles.
 //
 // The compute kernel feeds, per group (it, jt) and channel tile ct, the 32
 // post-WH tiles in il-ascending order, where tile `il` is
@@ -47,6 +59,7 @@ void kernel_main() {
     // See the reader: the destination address is the only per-call value, so it is a common
     // runtime arg and the descriptor above it is cacheable.
     uint32_t dst_addr = get_common_arg_val<uint32_t>(0);
+    uint32_t it_off = get_common_arg_val<uint32_t>(1);  // row-tile offset of this block, 0 = whole
     uint32_t start_group = get_arg_val<uint32_t>(0);
     uint32_t num_groups = get_arg_val<uint32_t>(1);
     uint32_t Nt = get_arg_val<uint32_t>(2);
@@ -84,10 +97,15 @@ void kernel_main() {
     bool slot_dirty[2] = {false, false};
 
     const uint32_t NtNt = Nt * Nt;
+    const uint32_t NtCt = Nt * Ct;
     const uint32_t end_group = start_group + num_groups;
     for (uint32_t group = start_group; group < end_group; ++group) {
-        const uint32_t it = group / Nt;
-        const uint32_t jt = group % Nt;
+        // (it, jt, ct) with ct fastest, the same order the reader walks.
+        const uint32_t itl = group / NtCt;
+        const uint32_t rem = group - itl * NtCt;
+        const uint32_t jt = rem / Ct;
+        const uint32_t ct = rem - jt * Ct;
+        const uint32_t it = itl + it_off;
         const uint32_t page_base = it * Nt + jt;
 
         // Rows [rows_valid, 32) of every output tile in this group are tile padding: zero, the same
@@ -120,8 +138,9 @@ void kernel_main() {
         const uint32_t rows_lo = rows_valid < FACE_HEIGHT ? rows_valid : FACE_HEIGHT;
         const uint32_t rows_hi = rows_valid > FACE_HEIGHT ? rows_valid - FACE_HEIGHT : 0;
 
-        uint32_t out_page = page_base;
-        for (uint32_t ct = 0; ct < Ct; ++ct) {
+        // Channel plane ct*32 + c lives at page (ct*32 + c) * Nt*Nt + it*Nt + jt.
+        uint32_t out_page = page_base + ct * TILE_HEIGHT * NtNt;
+        {
             cb_wait_front(cb_id_in, TILE_HEIGHT);
             const uint32_t group_l1_base = get_read_ptr(cb_id_in);
 
