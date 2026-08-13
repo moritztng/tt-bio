@@ -1,0 +1,309 @@
+{
+ "atoms": 3359,
+ "median_warm_step_ms": 269.4648159958888,
+ "warm_steps": 5,
+ "step_walls_ms": [
+  3978.3052269995096,
+  271.21575699857203,
+  270.0927350015263,
+  269.4648159958888,
+  289.4725899968762,
+  267.2226619979483,
+  267.10280399856856
+ ],
+ "tt_ms_per_step": 7.86734259017976,
+ "cacheable_across_steps_ms_per_step": 0,
+ "cacheable_within_step_ms_per_step": 1.0281603987095878,
+ "rows": [
+  {
+   "fn": "<genexpr>",
+   "line": 1969,
+   "shape": [
+    1,
+    3359,
+    128
+   ],
+   "branch": 384,
+   "in_dtype": "torch.float32",
+   "calls_per_step": 4.0,
+   "ms_per_step": 1.1052838002797216,
+   "us_per_call": 276.3209500699304,
+   "invariant_across_steps": false,
+   "repeats_within_step": true,
+   "distinct_shas": 10,
+   "n_calls": 20
+  },
+  {
+   "fn": "__call__",
+   "line": 2784,
+   "shape": [
+    1,
+    3359,
+    3
+   ],
+   "branch": 387,
+   "in_dtype": "torch.float32",
+   "calls_per_step": 1.0,
+   "ms_per_step": 0.6900609994772822,
+   "us_per_call": 690.0609994772822,
+   "invariant_across_steps": false,
+   "repeats_within_step": false,
+   "distinct_shas": 5,
+   "n_calls": 5
+  },
+  {
+   "fn": "<genexpr>",
+   "line": 1969,
+   "shape": [
+    1,
+    250,
+    768
+   ],
+   "branch": 384,
+   "in_dtype": "torch.float32",
+   "calls_per_step": 2.0,
+   "ms_per_step": 0.6704593979520723,
+   "us_per_call": 335.22969897603616,
+   "invariant_across_steps": false,
+   "repeats_within_step": false,
+   "distinct_shas": 10,
+   "n_calls": 10
+  },
+  {
+   "fn": "__call__",
+   "line": 1605,
+   "shape": [
+    1,
+    3359,
+    128
+   ],
+   "branch": 384,
+   "in_dtype": "torch.float32",
+   "calls_per_step": 2.0,
+   "ms_per_step": 0.5781665997346863,
+   "us_per_call": 289.08329986734316,
+   "invariant_across_steps": false,
+   "repeats_within_step": false,
+   "distinct_shas": 10,
+   "n_calls": 10
+  },
+  {
+   "fn": "__call__",
+   "line": 2203,
+   "shape": [
+    1,
+    250,
+    768
+   ],
+   "branch": 384,
+   "in_dtype": "torch.float32",
+   "calls_per_step": 2.0,
+   "ms_per_step": 0.5607415980193764,
+   "us_per_call": 280.3707990096882,
+   "invariant_across_steps": false,
+   "repeats_within_step": true,
+   "distinct_shas": 5,
+   "n_calls": 10
+  },
+  {
+   "fn": "__call__",
+   "line": 2210,
+   "shape": [
+    1,
+    1,
+    250,
+    250
+   ],
+   "branch": 387,
+   "in_dtype": "torch.float32",
+   "calls_per_step": 2.0,
+   "ms_per_step": 0.5296733987051994,
+   "us_per_call": 264.8366993525997,
+   "invariant_across_steps": false,
+   "repeats_within_step": false,
+   "distinct_shas": 10,
+   "n_calls": 10
+  },
+  {
+   "fn": "_process_time",
+   "line": 2598,
+   "shape": [
+    1,
+    3359,
+    256
+   ],
+   "branch": 384,
+   "in_dtype": "torch.float32",
+   "calls_per_step": 1.0,
+   "ms_per_step": 0.5220793987973593,
+   "us_per_call": 522.0793987973593,
+   "invariant_across_steps": false,
+   "repeats_within_step": false,
+   "distinct_shas": 5,
+   "n_calls": 5
+  },
+  {
+   "fn": "_process_time",
+   "line": 2598,
+   "shape": [
+    1,
+    250,
+    256
+   ],
+   "branch": 387,
+   "in_dtype": "torch.float32",
+   "calls_per_step": 1.0,
+   "ms_per_step": 0.44502460077637807,
+   "us_per_call": 445.02460077637807,
+   "invariant_across_steps": false,
+   "repeats_within_step": false,
+   "distinct_shas": 5,
+   "n_calls": 5
+  },
+  {
+   "fn": "_sparse_attn_index",
+   "line": 1075,
+   "shape": [
+    1,
+    1,
+    3359,
+    128
+   ],
+   "branch": 384,
+   "in_dtype": "torch.int32",
+   "calls_per_step": 1.0,
+   "ms_per_step": 0.4396029995405115,
+   "us_per_call": 439.6029995405115,
+   "invariant_across_steps": false,
+   "repeats_within_step": false,
+   "distinct_shas": 5,
+   "n_calls": 5
+  },
+  {
+   "fn": "_downcast_q",
+   "line": 2680,
+   "shape": [
+    1,
+    3359,
+    128
+   ],
+   "branch": 384,
+   "in_dtype": "torch.float32",
+   "calls_per_step": 1.0,
+   "ms_per_step": 0.40300519904121757,
+   "us_per_call": 403.00519904121757,
+   "invariant_across_steps": false,
+   "repeats_within_step": false,
+   "distinct_shas": 5,
+   "n_calls": 5
+  },
+  {
+   "fn": "run_full_device",
+   "line": 1996,
+   "shape": [
+    1,
+    250,
+    384
+   ],
+   "branch": 384,
+   "in_dtype": "torch.float32",
+   "calls_per_step": 2.0,
+   "ms_per_step": 0.40246559656225145,
+   "us_per_call": 201.23279828112572,
+   "invariant_across_steps": false,
+   "repeats_within_step": false,
+   "distinct_shas": 10,
+   "n_calls": 10
+  },
+  {
+   "fn": "run_device",
+   "line": 2148,
+   "shape": [
+    1,
+    250,
+    384
+   ],
+   "branch": 384,
+   "in_dtype": "torch.float32",
+   "calls_per_step": 2.0,
+   "ms_per_step": 0.3902953991200775,
+   "us_per_call": 195.14769956003875,
+   "invariant_across_steps": false,
+   "repeats_within_step": true,
+   "distinct_shas": 5,
+   "n_calls": 10
+  },
+  {
+   "fn": "__call__",
+   "line": 2204,
+   "shape": [
+    1,
+    250,
+    384
+   ],
+   "branch": 384,
+   "in_dtype": "torch.float32",
+   "calls_per_step": 2.0,
+   "ms_per_step": 0.38710960070602596,
+   "us_per_call": 193.55480035301298,
+   "invariant_across_steps": false,
+   "repeats_within_step": false,
+   "distinct_shas": 10,
+   "n_calls": 10
+  },
+  {
+   "fn": "__call__",
+   "line": 2795,
+   "shape": [
+    1,
+    3359,
+    128
+   ],
+   "branch": 384,
+   "in_dtype": "torch.float32",
+   "calls_per_step": 1.0,
+   "ms_per_step": 0.3620402014348656,
+   "us_per_call": 362.0402014348656,
+   "invariant_across_steps": false,
+   "repeats_within_step": false,
+   "distinct_shas": 5,
+   "n_calls": 5
+  },
+  {
+   "fn": "_downcast_q",
+   "line": 2681,
+   "shape": [
+    1,
+    250,
+    768
+   ],
+   "branch": 384,
+   "in_dtype": "torch.float32",
+   "calls_per_step": 1.0,
+   "ms_per_step": 0.20818659977521747,
+   "us_per_call": 208.18659977521747,
+   "invariant_across_steps": false,
+   "repeats_within_step": false,
+   "distinct_shas": 5,
+   "n_calls": 5
+  },
+  {
+   "fn": "_downcast_q",
+   "line": 2682,
+   "shape": [
+    1,
+    250,
+    384
+   ],
+   "branch": 384,
+   "in_dtype": "torch.float32",
+   "calls_per_step": 1.0,
+   "ms_per_step": 0.1731472002575174,
+   "us_per_call": 173.1472002575174,
+   "invariant_across_steps": false,
+   "repeats_within_step": false,
+   "distinct_shas": 5,
+   "n_calls": 5
+  }
+ ]
+}

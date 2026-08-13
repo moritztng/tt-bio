@@ -24,6 +24,7 @@ import torch.nn.functional as F
 
 import ttnn
 
+from .. import rfd3_bias
 from ..tenstorrent import Module, get_device, CORE_GRID_MAIN, attn_value_matmul
 
 # This is a SNAPSHOT, and deliberately left as one. `_configure_active_compute_grid` widens
@@ -130,6 +131,12 @@ _TUNE_AUDIT = os.environ.get("RFD3_TUNE_AUDIT") == "1"
 # Debug: print what calibration decided per shape, and why.
 _TUNE_LOG = os.environ.get("RFD3_TUNE_LOG") == "1"
 _TUNE_MIN_GAIN = 1.05  # ignore a candidate that is not at least 5% faster than the default
+# Don't calibrate a matmul whose default call is already this fast: an explicit program config
+# costs a fixed amount per call that timing the matmul alone does not see, and under this floor
+# that cost is the whole result. Replaces the old `D > 1` gate in `_tunable`, which was the same
+# intent expressed on the wrong variable. 0.25 ms sits above the 0.02-0.13 ms matmuls of the
+# 419-atom fixture and below the 0.53-2.74 ms ones of the 3359-atom fixture at D=1.
+_TUNE_MIN_MS = 0.25
 _TUNE_REPS = 3
 
 
@@ -183,21 +190,25 @@ def _mm_candidates(x, w, grid):
 
 
 def _tunable(x, w):
-    """Only a multi-design `[D, .., M, K] @ [K, N]` with a batch-1 in1 can fold its batch into M.
+    """Any `[.., M, K] @ [K, N]` with a batch-1 in1 can fold its leading dims into M.
 
-    Dim 0 is the design axis at every call site that routes through here, and `D > 1` is the
-    condition, not `prod(leading dims) > 1`: at D=1 a pair tensor is still `[1, I, I, C]`, so the
-    token axis alone would qualify it. Measured at D=1/I=40, tuning those leaves 0.02-0.13 ms
-    matmuls that calibration reads as 1.2-2.6x wins -- under 2% of the step even if real -- and
-    the end-to-end result is 6% SLOWER, over three paired rounds at 20 timesteps and two at 60.
-    An explicit program config costs something per call that timing the matmul on its own does
-    not see, and only a genuine design batch is worth that. So D=1 takes the p14 path exactly,
-    with no calibration compiles at all, and D=8 keeps its win.
+    The gate used to be `xs[0] > 1`, i.e. only a genuine design batch, and that was set from a
+    D=1/I=40 measurement where the matmuls are 0.02-0.13 ms, calibration reads 1.2-2.6x on them,
+    and the end-to-end result was 6% SLOWER. That conclusion was right and the gate was on the
+    wrong variable: what makes a tiny matmul not worth an explicit program config is its SIZE,
+    not the design count. At I=250 the same four pair linears are 0.53-2.74 ms at D=1 and the
+    calibrated fuse_batch config is 1.91-5.90x on them, every arm bitwise equal to the default
+    (scripts/rfd3_port/p33_padding_verdict.py, perf/p33/padding_verdict_c3.json).
+
+    So the size predicate lives in `_calibrate_linear` instead, as a floor on the DEFAULT call's
+    own measured time (`_TUNE_MIN_MS`), which costs nothing extra because calibration has to time
+    the default anyway. A shape under the floor bails before it builds a single candidate, so
+    I=40 still takes the untuned path and I=250 at D=1 now gets its win.
     """
     xs, ws = list(x.padded_shape), list(w.padded_shape)
     if len(xs) < 3 or len(ws) < 2:
         return False
-    return xs[0] > 1 and all(d == 1 for d in ws[:-2])
+    return all(d == 1 for d in ws[:-2])
 
 
 def _tuned_linear(x, w, *, bias=None, ckc=None, dtype=None, core_grid=BATCH_INVARIANT_GRID):
@@ -248,10 +259,23 @@ def _calibrate_linear(x, w, kw, core_grid):
     batch invariance at L=1959/D=8. Random operands exercise every grouping across the whole
     output, so surviving them makes exactness a property of the shape rather than of one tensor.
     """
-    rx, rw = _mm_random_like(x, 0), _mm_random_like(w, 1)
-    rref = ttnn.linear(rx, rw, core_grid=core_grid, **kw)
+    # Time the default BEFORE building anything else. Two reasons, both measured
+    # (scripts/rfd3_port/p34_calib_cost.py, perf/p34/calib_cost.json): it is the size gate
+    # `_tunable` no longer applies, and the setup below is 64.9% of calibration's whole cost,
+    # because `_mm_random_like` draws and uploads a full-size operand -- 256 M elements for
+    # `[8,250,250,512]`, 1.69 s of the 2.01 s that shape spends. A shape under the floor now
+    # pays one timed default and nothing else.
     ref = ttnn.linear(x, w, core_grid=core_grid, **kw)
     default_t = _mm_time(lambda: ttnn.linear(x, w, core_grid=core_grid, **kw))
+    if default_t * 1e3 < _TUNE_MIN_MS:
+        ttnn.deallocate(ref)
+        if _TUNE_LOG:
+            print(f"[tune] x={tuple(x.padded_shape)} w={tuple(w.padded_shape)} "
+                  f"default={default_t * 1e3:8.3f} ms  under {_TUNE_MIN_MS} ms floor, SKIP",
+                  flush=True)
+        return None
+    rx, rw = _mm_random_like(x, 0), _mm_random_like(w, 1)
+    rref = ttnn.linear(rx, rw, core_grid=core_grid, **kw)
     budget = default_t / _TUNE_MIN_GAIN
     best = None
     for pc in _mm_candidates(x, w, get_device().compute_with_storage_grid_size()):
@@ -361,6 +385,39 @@ def _tt(x, dev, dtype=ttnn.bfloat16):
                                     device=dev, dtype=dtype)
         return ttnn.to_layout(row_major, ttnn.TILE_LAYOUT)
     return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=dtype)
+
+
+# The diffusion loop re-uploads several tensors that cannot have changed. p41 measured 32 _tt
+# calls per step costing 14.6 ms at 3359 atoms, of which 7.5 ms is byte-identical on every one
+# of the 199 steps: the trunk pair stream Z_init_II (5.14 ms/step, 2 x [1,250,250,128]), the
+# downcast additive mask (1.80), and the atom/token conditioning the decoder's downcast reads
+# (0.59). Uploading them once is bit-exact by construction -- the same bytes through the same
+# deterministic cast produce the same device tensor -- so the gate is the design's CIF sha.
+_UPLOAD_CACHE: dict = {}
+# Bounded so a callsite whose data DOES change per step degrades to today's behaviour instead
+# of growing an entry per step. 24 covers the annotated sites several times over.
+_UPLOAD_CACHE_MAX = 24
+
+
+def _tt_cached(x, dev, dtype=ttnn.bfloat16):
+    """`_tt`, keeping the device tensor when the host bytes provably have not changed.
+
+    Keyed on the storage address plus shape/stride/dtype and torch's own version counter, which
+    any in-place write bumps. The entry holds a reference to ``x``, so its storage cannot be
+    freed and the address handed to a different tensor underneath a live key; an evicted entry
+    drops that reference and its key with it, so a recycled address cannot false-hit either.
+    A consumer that deallocated the cached tensor is detected rather than trusted.
+    """
+    key = (dev.id(), x.data_ptr(), tuple(x.shape), tuple(x.stride()),
+           str(x.dtype), str(dtype), x._version)
+    ent = _UPLOAD_CACHE.get(key)
+    if ent is not None and ent[1].is_allocated():
+        return ent[1]
+    out = _tt(x, dev, dtype)
+    if len(_UPLOAD_CACHE) >= _UPLOAD_CACHE_MAX:
+        _UPLOAD_CACHE.pop(next(iter(_UPLOAD_CACHE)))
+    _UPLOAD_CACHE[key] = (x, out)
+    return out
 
 
 def _tt_host(x, dtype=ttnn.bfloat16):
@@ -1023,6 +1080,18 @@ def _sparse_attn_index(indices, device, n_heads):
     return out
 
 
+def _sparse_attn_index_rm(indices, device):
+    """[1,1,L,K] uint32 ROW_MAJOR neighbour index, for the fused bias kernel.
+
+    The kernel reads the same index for every head, so unlike the scatter path nothing is
+    replicated over heads and nothing is tilized. One page per row of 4*K bytes is also what
+    makes the kernel's per-band index fetch a contiguous page read.
+    """
+    return ttnn.from_torch(
+        indices.cpu().unsqueeze(1).to(torch.int32).contiguous(),
+        layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=ttnn.uint32)
+
+
 def _sparse_qk_inputs(p_host, indices, device, dtype, n_heads=4, mask_cache=None):
     """Gather local pair features and build the scatter index for one step.
 
@@ -1061,15 +1130,25 @@ def _sparse_qk_inputs(p_host, indices, device, dtype, n_heads=4, mask_cache=None
         and p_host.ndim == 4
         and p_host.shape[:3] == (1, length, length)
     )
+    # The fused kernel writes the mask constant itself, so on that path there is no dense
+    # template to build or hold (90 MB at 3359 atoms) and no per-head index replica: it takes
+    # one ROW_MAJOR [1,1,L,K] index and returns the fp32 bias directly. `dense_bias is None`
+    # is what tells _sparse_bias_f32 which route to take, so the choice is made once per step
+    # here rather than per block.
+    fused_bias = rfd3_bias.eligible_shape(batch, n_heads, length, indices.shape[-1], dtype)
     if on_device:
         n_keys = indices.shape[-1]
         p_dev = _sparse_pair_gather(mask_cache, p_host, indices, device, dtype)
-        attn_idx_dev = _sparse_attn_index(indices, device, n_heads)
+        attn_idx_dev = (_sparse_attn_index_rm(indices, device) if fused_bias
+                        else _sparse_attn_index(indices, device, n_heads))
     else:
         p_sparse, attn_idx, n_keys = _sparse_qk_host(p_host, indices, n_heads)
         p_dev = _tt(p_sparse, device, dtype)
-        attn_idx_dev = _tt(attn_idx, device, ttnn.uint32)
-    if mask_cache is None:
+        attn_idx_dev = (_sparse_attn_index_rm(indices, device) if fused_bias
+                        else _tt(attn_idx, device, ttnn.uint32))
+    if fused_bias:
+        dense_bias = None
+    elif mask_cache is None:
         dense_bias = ttnn.full(
             (batch, n_heads, length, _align_tile(length)), -1e4,
             dtype=dtype, layout=ttnn.TILE_LAYOUT, device=device)
@@ -1122,9 +1201,22 @@ class GatedCrossAttention(Module):
         dev, dt = self.device, self.dtype
         if mask.ndim == 3:
             mask = mask.unsqueeze(0)
-        mask = torch.where(mask, 0.0, -1e4).to(torch.float32)
-        mask = mask.expand(batch, -1, -1, -1).reshape(batch * tokens, 1, n_query, n_key)
-        return _tt(mask, dev, dt)
+        # Keyed on the SOURCE mask, not on the derived additive one: `torch.where` allocates a
+        # fresh tensor per call, so keying on the result could never hit and would evict the
+        # rest of the cache. `_grouping_buffers` is supposed to make this once-per-design, and
+        # p41 measured it running twice on every step, so the upload is cached here as well.
+        cache = self.__dict__.setdefault("_additive_mask_cache", {})
+        ck = (mask.data_ptr(), tuple(mask.shape), tuple(mask.stride()), str(mask.dtype),
+              mask._version, batch, tokens, n_query, n_key, dev.id(), str(dt))
+        ent = cache.get(ck)
+        if ent is not None and ent[1].is_allocated():
+            return ent[1]
+        add = torch.where(mask, 0.0, -1e4).to(torch.float32)
+        add = add.expand(batch, -1, -1, -1).reshape(batch * tokens, 1, n_query, n_key)
+        out = _tt(add, dev, dt)
+        cache.clear()  # one mask per module; the reference in the entry pins the source
+        cache[ck] = (mask, out)
+        return out
 
     def run_device(self, q, kv, attn_mask=None, attn_mask_dev=None):
         """q [B,T,Q,Cq], kv [B,T,K,Ckv]; return device [B,T,Q,Cq].
@@ -1242,6 +1334,28 @@ class RFD3AtomBlock(Module):
         )
         return ttnn.add(ttnn.multiply(a, ttnn.sigmoid(gain)), bias)
 
+    def _sparse_pair_bias(self, p, cache):
+        """The compact `[1, H, L, K]` bf16 neighbour pair bias, for the fused score path.
+
+        Same cache discipline as `_sparse_bias_f32` and for the same reason -- the decoder runs
+        its three atom blocks twice per step on the same gathered pair features -- but nothing
+        dense is built or held: `rfd3_bias.fused_scores_bias_fp32` reads these 3.4 MB directly and
+        materialises the 180.6 MB fp32 bias one L1 tile at a time inside the op.
+        """
+        key = (id(p), id(self))
+        if cache is not None:
+            hit = cache.get((id(self), "pb"))
+            if hit is not None and hit[0] == key and hit[1] is p:
+                return hit[2]
+        pair_bias = _tuned_linear(
+            p, self.b_w, ckc=self.compute_kernel_config, dtype=self.dtype,
+            core_grid=CORE_GRID_MAIN,
+        )
+        pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
+        if cache is not None:
+            cache[(id(self), "pb")] = (key, p, pair_bias)
+        return pair_bias
+
     def _sparse_bias_f32(self, p, dense_bias, attn_idx_dev, cache):
         """The dense fp32 attention bias for one atom block, built once per pair stream.
 
@@ -1271,12 +1385,19 @@ class RFD3AtomBlock(Module):
             p, self.b_w, ckc=ckc, dtype=dt, core_grid=CORE_GRID_MAIN,
         )
         pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
-        # dense_bias carries the -1e4 mask, so scattering the local pair bias into it
-        # gives pair_bias at neighbours (as the dense path does) and leaves -1e4, whose
-        # exp underflows to zero, everywhere else.
-        bias = ttnn.scatter(dense_bias, 3, attn_idx_dev, pair_bias)
-        bias_f = ttnn.typecast(bias, ttnn.float32, memory_config=bias.memory_config())
-        ttnn.deallocate(bias)
+        if dense_bias is None:
+            # One pass: the kernel fills the mask constant, pokes the neighbour bias and
+            # writes fp32, which is the same values in the same positions as the three ops
+            # below and is gated on torch.equal against them
+            # (scripts/rfd3_port/p36_bias_kernel_probe.py). 0.932 ms against 5.437.
+            bias_f = rfd3_bias.sparse_bias_fp32(pair_bias, attn_idx_dev)
+        else:
+            # dense_bias carries the -1e4 mask, so scattering the local pair bias into it
+            # gives pair_bias at neighbours (as the dense path does) and leaves -1e4, whose
+            # exp underflows to zero, everywhere else.
+            bias = ttnn.scatter(dense_bias, 3, attn_idx_dev, pair_bias)
+            bias_f = ttnn.typecast(bias, ttnn.float32, memory_config=bias.memory_config())
+            ttnn.deallocate(bias)
         if cache is not None:
             cache[id(self)] = (key, p, bias_f)
         return bias_f
@@ -1321,6 +1442,7 @@ class RFD3AtomBlock(Module):
         n_key = _align_tile(length)
         kk = _pad_key_axis(kk, n_key, 2, 0.0)
         vv = _pad_key_axis(vv, n_key, 2, 0.0)
+        fused = False
         if sparse_qk is None:
             pair_bias = _tuned_linear(
                 p, self.b_w, ckc=ckc, dtype=dt, core_grid=CORE_GRID_MAIN,
@@ -1342,15 +1464,41 @@ class RFD3AtomBlock(Module):
             # the gathered form -- while at L=3359 the dense matmul costs 0.375 ms
             # against 33.9 ms for a gathered [1,32]@[32,128] batch plus scatter.
             n_keys, attn_idx_dev, dense_bias = sparse_qk
-            bias_f = self._sparse_bias_f32(p, dense_bias, attn_idx_dev, bias_cache)
+            # L6b: one kernel for the last five ops of this path -- the mask template, the
+            # scatter of the neighbour bias, both widens and the scaled add. It reads the bf16
+            # scores and the compact pair bias and writes `scores*scale + bias` in fp32, so the
+            # dense fp32 bias never exists in DRAM and 8.5 ms/call of traffic becomes 1.67.
+            # Bit-exact against the five ops it replaces by construction and by torch.equal at
+            # the production shape (scripts/rfd3_port/p42_fused_scores_probe.py), including on
+            # the softmax that consumes it. `dense_bias is None` is L6a's own gate, so the trace
+            # path -- which passes its own template -- keeps the old route untouched.
+            fused = dense_bias is None and rfd3_bias.fused_enabled() and dt == ttnn.bfloat16
+            if fused:
+                pair_bias = self._sparse_pair_bias(p, bias_cache)
+            else:
+                bias_f = self._sparse_bias_f32(p, dense_bias, attn_idx_dev, bias_cache)
             scores = ttnn.matmul(
                 qq, ttnn.permute(kk, (0, 1, 3, 2)), compute_kernel_config=ckc,
             )
-        scores = ttnn.typecast(
-            scores, ttnn.float32, memory_config=scores.memory_config()
-        )
-        scores = ttnn.multiply(scores, self.head_dim**-0.5)
-        scores = ttnn.add(scores, bias_f)
+        if fused:
+            scores = rfd3_bias.fused_scores_bias_fp32(
+                scores, pair_bias, attn_idx_dev, self.head_dim**-0.5
+            )
+        else:
+            scores = ttnn.typecast(
+                scores, ttnn.float32, memory_config=scores.memory_config()
+            )
+            # Scale and add in ONE op: the scale rides on operand a as a MUL_UNARY_SFPU activation.
+            # Bit-exact rather than close, and by measurement rather than by argument
+            # (scripts/rfd3_port/p35_dense_chain_price.py, perf/p35/dense_chain_qb1c0.json): 1.285 ms
+            # against 2.246 for the pair at [1,4,3359,3360], torch.equal on the softmax output. It
+            # holds here because both operands are already fp32, so the op's destination register is
+            # fp32 and nothing is silently computed at the input dtype -- the trap that stops a
+            # bf16->fp32 widen from folding into a binary op the same way. Do not copy this to a
+            # bf16 site (GatedCrossAttention.run_device) on the strength of this comment: there the
+            # split form rounds the scaled scores to bf16 before the add and the folded form does not.
+            scores = ttnn.add(scores, bias_f, input_tensor_a_activations=[
+                ttnn.UnaryWithParam(ttnn.UnaryOpType.MUL_UNARY_SFPU, self.head_dim**-0.5)])
         attention = ttnn.softmax(scores, dim=-1)
         attention = ttnn.typecast(
             attention, dt, memory_config=attention.memory_config()
@@ -2051,7 +2199,7 @@ class DiffusionTokenEncoder(Module):
                     else self._onehot_dev(D_II_self, B, I))
         if Z_init_II.ndim == 3:
             Z_init_II = Z_init_II.unsqueeze(0)
-        z = self._batched(_tt(Z_init_II, dev, dt), B)
+        z = self._batched(_tt_cached(Z_init_II, dev, dt), B)
         zcat = ttnn.concat([z, d_dev, self_dev], dim=-1)  # [B,I,I,258]
         z = ttnn.rms_norm(zcat, weight=self.process_z_n, epsilon=1e-6, compute_kernel_config=ckc)
         z = ttnn.linear(z, self.process_z_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
@@ -2545,8 +2693,8 @@ class RFD3DiffusionModule(Module):
         if S_I.ndim == 2: S_I = S_I.unsqueeze(0)
         B, I, _ = S_I.shape
         valid, pack_idx_dev, mask_dev = self._grouping_buffers(tok_idx, B)
-        c_g = _pack_atoms_dev_core(_tt(C_L, dev, dt), pack_idx_dev, valid)
-        S_I_dev = _tt(S_I, dev, dt)  # uploaded once, reused below (was 2x, p23 perf)
+        c_g = _pack_atoms_dev_core(_tt_cached(C_L, dev, dt), pack_idx_dev, valid)
+        S_I_dev = _tt_cached(S_I, dev, dt)  # uploaded once, reused below (was 2x, p23 perf)
         q = ttnn.unsqueeze(S_I_dev, 2)
         upd = ttnn.squeeze(self.downcast_c.run_device(q, c_g, attn_mask_dev=mask_dev), 2)
         return ttnn.to_torch(ttnn.add(S_I_dev, upd)).float()

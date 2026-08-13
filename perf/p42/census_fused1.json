@@ -1,0 +1,1329 @@
+{
+  "atoms": 3359,
+  "median_warm_step_ms": 184.04402500163997,
+  "wall_s": 4.120127771006082,
+  "ops_per_step": 3213,
+  "wrapped_ms_per_step": 149.5677549391985,
+  "callsites": [
+    {
+      "op": "sigmoid",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 1542,
+      "n": 45,
+      "ms": 0.7899460033513606
+    },
+    {
+      "op": "linear",
+      "file": "model.py",
+      "fn": "run_full_device",
+      "line": 2040,
+      "n": 2,
+      "ms": 0.05048800085205585
+    },
+    {
+      "op": "linear",
+      "file": "model.py",
+      "fn": "_downcast_q_device",
+      "line": 2713,
+      "n": 1,
+      "ms": 0.02824999683070928
+    },
+    {
+      "op": "sigmoid",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 1508,
+      "n": 45,
+      "ms": 0.8513669672538526
+    },
+    {
+      "op": "reshape",
+      "file": "model.py",
+      "fn": "run_device",
+      "line": 1781,
+      "n": 2,
+      "ms": 0.06196799222379923
+    },
+    {
+      "op": "permute",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 536,
+      "n": 4,
+      "ms": 0.09703899559099227
+    },
+    {
+      "op": "rms_norm",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 525,
+      "n": 4,
+      "ms": 0.05560999852605164
+    },
+    {
+      "op": "add",
+      "file": "model.py",
+      "fn": "_downcast_q_device",
+      "line": 2711,
+      "n": 1,
+      "ms": 0.02820900408551097
+    },
+    {
+      "op": "permute",
+      "file": "model.py",
+      "fn": "split",
+      "line": 1241,
+      "n": 30,
+      "ms": 0.6154070215416141
+    },
+    {
+      "op": "add",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 584,
+      "n": 4,
+      "ms": 0.11002799146808684
+    },
+    {
+      "op": "rms_norm",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 479,
+      "n": 16,
+      "ms": 0.3447909912210889
+    },
+    {
+      "op": "to_torch",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 2834,
+      "n": 1,
+      "ms": 0.6211110012372956
+    },
+    {
+      "op": "to_torch",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 2251,
+      "n": 2,
+      "ms": 1.4727480011060834
+    },
+    {
+      "op": "reshape",
+      "file": "model.py",
+      "fn": "_merge_heads",
+      "line": 960,
+      "n": 19,
+      "ms": 0.08543797594029456
+    },
+    {
+      "op": "linear",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 2830,
+      "n": 1,
+      "ms": 0.055558994063176215
+    },
+    {
+      "op": "multiply",
+      "file": "model.py",
+      "fn": "run_device",
+      "line": 1264,
+      "n": 10,
+      "ms": 0.3093249906669371
+    },
+    {
+      "op": "reshape",
+      "file": "model.py",
+      "fn": "_onehot_dev",
+      "line": 2148,
+      "n": 3,
+      "ms": 0.013720004062633961
+    },
+    {
+      "op": "permute",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 538,
+      "n": 4,
+      "ms": 0.06630999268963933
+    },
+    {
+      "op": "add",
+      "file": "model.py",
+      "fn": "_downcast_c",
+      "line": 2700,
+      "n": 1,
+      "ms": 0.027129004593007267
+    },
+    {
+      "op": "linear",
+      "file": "model.py",
+      "fn": "run_device",
+      "line": 2205,
+      "n": 2,
+      "ms": 0.06374900112859905
+    },
+    {
+      "op": "rms_norm",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 518,
+      "n": 4,
+      "ms": 0.06197900074766949
+    },
+    {
+      "op": "permute",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 547,
+      "n": 4,
+      "ms": 0.0893280011950992
+    },
+    {
+      "op": "embedding",
+      "file": "model.py",
+      "fn": "_unpack_atoms_device",
+      "line": 1764,
+      "n": 6,
+      "ms": 0.13064599625067785
+    },
+    {
+      "op": "linear",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 1527,
+      "n": 45,
+      "ms": 1.7595609824638814
+    },
+    {
+      "op": "permute",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 1450,
+      "n": 36,
+      "ms": 0.6926700007170439
+    },
+    {
+      "op": "permute",
+      "file": "model.py",
+      "fn": "run_device",
+      "line": 1252,
+      "n": 10,
+      "ms": 0.2429659871268086
+    },
+    {
+      "op": "multiply",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 1516,
+      "n": 45,
+      "ms": 1.23725896992255
+    },
+    {
+      "op": "rms_norm",
+      "file": "model.py",
+      "fn": "_downcast_q_device",
+      "line": 2712,
+      "n": 1,
+      "ms": 0.023689004592597485
+    },
+    {
+      "op": "zeros",
+      "file": "model.py",
+      "fn": "_zeros_dev",
+      "line": 2161,
+      "n": 0,
+      "ms": 0.0
+    },
+    {
+      "op": "add",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 1452,
+      "n": 36,
+      "ms": 1.0301150032319129
+    },
+    {
+      "op": "linear",
+      "file": "model.py",
+      "fn": "run_device",
+      "line": 1231,
+      "n": 10,
+      "ms": 0.21718801144743338
+    },
+    {
+      "op": "rms_norm",
+      "file": "model.py",
+      "fn": "run_device",
+      "line": 1235,
+      "n": 10,
+      "ms": 0.23212400265038013
+    },
+    {
+      "op": "rms_norm",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 1423,
+      "n": 45,
+      "ms": 0.7583469850942492
+    },
+    {
+      "op": "rms_norm",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 529,
+      "n": 4,
+      "ms": 0.05324000812834129
+    },
+    {
+      "op": "permute",
+      "file": "model.py",
+      "fn": "heads",
+      "line": 1430,
+      "n": 135,
+      "ms": 2.501589995517861
+    },
+    {
+      "op": "add",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 1546,
+      "n": 45,
+      "ms": 1.1141570284962654
+    },
+    {
+      "op": "softmax",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 555,
+      "n": 4,
+      "ms": 0.1369380042888224
+    },
+    {
+      "op": "add",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 1500,
+      "n": 36,
+      "ms": 1.1076919836341403
+    },
+    {
+      "op": "rms_norm",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 2835,
+      "n": 1,
+      "ms": 0.03635900066001341
+    },
+    {
+      "op": "matmul",
+      "file": "model.py",
+      "fn": "run_device",
+      "line": 1251,
+      "n": 10,
+      "ms": 0.26139600231545046
+    },
+    {
+      "op": "softmax",
+      "file": "model.py",
+      "fn": "run_device",
+      "line": 1260,
+      "n": 10,
+      "ms": 0.369494991900865
+    },
+    {
+      "op": "linear",
+      "file": "model.py",
+      "fn": "run_device",
+      "line": 1233,
+      "n": 10,
+      "ms": 0.1720649961498566
+    },
+    {
+      "op": "permute",
+      "file": "model.py",
+      "fn": "_merge_heads",
+      "line": 961,
+      "n": 40,
+      "ms": 0.8861550086294301
+    },
+    {
+      "op": "reshape",
+      "file": "model.py",
+      "fn": "_pack_atoms_dev_core",
+      "line": 2471,
+      "n": 2,
+      "ms": 0.01399000029778108
+    },
+    {
+      "op": "rms_norm",
+      "file": "model.py",
+      "fn": "run_device",
+      "line": 1228,
+      "n": 10,
+      "ms": 0.31755399686517194
+    },
+    {
+      "op": "typecast",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 550,
+      "n": 4,
+      "ms": 0.08901899855118245
+    },
+    {
+      "op": "to_layout",
+      "file": "model.py",
+      "fn": "_unpack_atoms_device",
+      "line": 1760,
+      "n": 6,
+      "ms": 0.13593901530839503
+    },
+    {
+      "op": "matmul",
+      "file": "tenstorrent.py",
+      "fn": "attn_value_matmul",
+      "line": 1280,
+      "n": 9,
+      "ms": 0.22945598902879283
+    },
+    {
+      "op": "rms_norm",
+      "file": "model.py",
+      "fn": "run_device",
+      "line": 2204,
+      "n": 2,
+      "ms": 0.06760800170013681
+    },
+    {
+      "op": "add",
+      "file": "model.py",
+      "fn": "run_device",
+      "line": 1259,
+      "n": 2,
+      "ms": 0.06343900167848915
+    },
+    {
+      "op": "sigmoid",
+      "file": "model.py",
+      "fn": "run_device",
+      "line": 1264,
+      "n": 10,
+      "ms": 0.22217699006432667
+    },
+    {
+      "op": "permute",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 1454,
+      "n": 36,
+      "ms": 0.7162739930208772
+    },
+    {
+      "op": "rms_norm",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 540,
+      "n": 4,
+      "ms": 0.0760990078561008
+    },
+    {
+      "op": "matmul",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 548,
+      "n": 4,
+      "ms": 0.09841800056165084
+    },
+    {
+      "op": "embedding",
+      "file": "model.py",
+      "fn": "_onehot_dev",
+      "line": 2146,
+      "n": 3,
+      "ms": 0.19407700165174901
+    },
+    {
+      "op": "unsqueeze",
+      "file": "model.py",
+      "fn": "_downcast_c",
+      "line": 2698,
+      "n": 1,
+      "ms": 0.035329998354427516
+    },
+    {
+      "op": "from_torch",
+      "file": "model.py",
+      "fn": "_tt",
+      "line": 387,
+      "n": 4,
+      "ms": 1.4521260018227622
+    },
+    {
+      "op": "from_torch",
+      "file": "model.py",
+      "fn": "_pair_gather_table",
+      "line": 1041,
+      "n": 0,
+      "ms": 0.0
+    },
+    {
+      "op": "multiply",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 565,
+      "n": 4,
+      "ms": 0.11873699259012938
+    },
+    {
+      "op": "sigmoid",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 1516,
+      "n": 45,
+      "ms": 0.7708270059083588
+    },
+    {
+      "op": "to_torch",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 2068,
+      "n": 2,
+      "ms": 0.13272800424601883
+    },
+    {
+      "op": "typecast",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 552,
+      "n": 4,
+      "ms": 0.0651480004307814
+    },
+    {
+      "op": "to_layout",
+      "file": "model.py",
+      "fn": "_pack_atoms_device",
+      "line": 1755,
+      "n": 8,
+      "ms": 0.1667280012043193
+    },
+    {
+      "op": "permute",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 544,
+      "n": 4,
+      "ms": 0.09137999586528167
+    },
+    {
+      "op": "squeeze",
+      "file": "model.py",
+      "fn": "run_full_device",
+      "line": 2033,
+      "n": 2,
+      "ms": 0.05944800068391487
+    },
+    {
+      "op": "add",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 583,
+      "n": 4,
+      "ms": 0.10329901124350727
+    },
+    {
+      "op": "linear",
+      "file": "model.py",
+      "fn": "run_device",
+      "line": 1265,
+      "n": 10,
+      "ms": 0.28504299552878365
+    },
+    {
+      "op": "from_torch",
+      "file": "model.py",
+      "fn": "_sparse_pair_gather",
+      "line": 1058,
+      "n": 1,
+      "ms": 0.4369829985080287
+    },
+    {
+      "op": "linear",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 523,
+      "n": 4,
+      "ms": 0.08670899842400104
+    },
+    {
+      "op": "matmul",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 1453,
+      "n": 36,
+      "ms": 0.7858710087020881
+    },
+    {
+      "op": "typecast",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 1503,
+      "n": 45,
+      "ms": 0.8097090103547089
+    },
+    {
+      "op": "permute",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 537,
+      "n": 4,
+      "ms": 0.06647800910286605
+    },
+    {
+      "op": "typecast",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 1457,
+      "n": 36,
+      "ms": 0.7140950110624544
+    },
+    {
+      "op": "to_torch",
+      "file": "model.py",
+      "fn": "_process_",
+      "line": 2879,
+      "n": 2,
+      "ms": 19.954638999479357
+    },
+    {
+      "op": "to_torch",
+      "file": "model.py",
+      "fn": "_downcast_q",
+      "line": 2724,
+      "n": 1,
+      "ms": 0.5627909995382652
+    },
+    {
+      "op": "add",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 585,
+      "n": 4,
+      "ms": 0.10143899999093264
+    },
+    {
+      "op": "rms_norm",
+      "file": "model.py",
+      "fn": "_adaln",
+      "line": 1328,
+      "n": 90,
+      "ms": 1.4356919709825888
+    },
+    {
+      "op": "pad",
+      "file": "model.py",
+      "fn": "_pad_key_axis",
+      "line": 945,
+      "n": 126,
+      "ms": 1.7253439727937803
+    },
+    {
+      "op": "multiply",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 487,
+      "n": 16,
+      "ms": 0.47904001257847995
+    },
+    {
+      "op": "linear",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 1538,
+      "n": 45,
+      "ms": 0.8819970025797375
+    },
+    {
+      "op": "reshape",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 533,
+      "n": 4,
+      "ms": 0.10259899863740429
+    },
+    {
+      "op": "multiply",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 551,
+      "n": 4,
+      "ms": 0.14014000771567225
+    },
+    {
+      "op": "linear",
+      "file": "model.py",
+      "fn": "_process_time",
+      "line": 2640,
+      "n": 2,
+      "ms": 0.07234999793581665
+    },
+    {
+      "op": "reshape",
+      "file": "model.py",
+      "fn": "_pack_atoms_device",
+      "line": 1743,
+      "n": 8,
+      "ms": 0.0352600181940943
+    },
+    {
+      "op": "to_layout",
+      "file": "model.py",
+      "fn": "_pack_atoms_device",
+      "line": 1741,
+      "n": 8,
+      "ms": 0.22411599638871849
+    },
+    {
+      "op": "reshape",
+      "file": "model.py",
+      "fn": "_pack_atoms_device",
+      "line": 1752,
+      "n": 8,
+      "ms": 0.02012999902945012
+    },
+    {
+      "op": "reshape",
+      "file": "model.py",
+      "fn": "split",
+      "line": 1238,
+      "n": 30,
+      "ms": 0.6463650206569582
+    },
+    {
+      "op": "add",
+      "file": "model.py",
+      "fn": "run_device",
+      "line": 1784,
+      "n": 6,
+      "ms": 0.16924700321396813
+    },
+    {
+      "op": "typecast",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 556,
+      "n": 4,
+      "ms": 0.07731899677310139
+    },
+    {
+      "op": "sigmoid",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 565,
+      "n": 4,
+      "ms": 0.08473000343656167
+    },
+    {
+      "op": "add",
+      "file": "model.py",
+      "fn": "run_full_device",
+      "line": 2044,
+      "n": 4,
+      "ms": 0.11161001020809636
+    },
+    {
+      "op": "to_layout",
+      "file": "model.py",
+      "fn": "_tt",
+      "line": 386,
+      "n": 21,
+      "ms": 0.914780015591532
+    },
+    {
+      "op": "embedding",
+      "file": "model.py",
+      "fn": "_pack_atoms_device",
+      "line": 1746,
+      "n": 8,
+      "ms": 0.186436009244062
+    },
+    {
+      "op": "to_layout",
+      "file": "model.py",
+      "fn": "_pack_atoms_dev_core",
+      "line": 2469,
+      "n": 2,
+      "ms": 0.20707699877675623
+    },
+    {
+      "op": "reshape",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 535,
+      "n": 4,
+      "ms": 0.06601800123462453
+    },
+    {
+      "op": "from_torch",
+      "file": "model.py",
+      "fn": "_tt",
+      "line": 384,
+      "n": 21,
+      "ms": 2.684596009203233
+    },
+    {
+      "op": "add",
+      "file": "model.py",
+      "fn": "run_device",
+      "line": 2195,
+      "n": 4,
+      "ms": 0.10602799738990143
+    },
+    {
+      "op": "permute",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 1481,
+      "n": 9,
+      "ms": 0.19290600903332233
+    },
+    {
+      "op": "add",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 553,
+      "n": 4,
+      "ms": 0.1327379868598655
+    },
+    {
+      "op": "matmul",
+      "file": "tenstorrent.py",
+      "fn": "attn_value_matmul",
+      "line": 1279,
+      "n": 40,
+      "ms": 0.9215070167556405
+    },
+    {
+      "op": "add",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 1520,
+      "n": 45,
+      "ms": 1.1456960055511445
+    },
+    {
+      "op": "to_layout",
+      "file": "model.py",
+      "fn": "_onehot_dev",
+      "line": 2149,
+      "n": 3,
+      "ms": 0.07002799975452945
+    },
+    {
+      "op": "rms_norm",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 1424,
+      "n": 45,
+      "ms": 0.6007789852446876
+    },
+    {
+      "op": "to_layout",
+      "file": "model.py",
+      "fn": "_unpack_atoms_device",
+      "line": 1771,
+      "n": 6,
+      "ms": 0.11286800872767344
+    },
+    {
+      "op": "linear",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 566,
+      "n": 4,
+      "ms": 0.07702899893047288
+    },
+    {
+      "op": "linear",
+      "file": "model.py",
+      "fn": "_process_",
+      "line": 2879,
+      "n": 2,
+      "ms": 0.05645999772241339
+    },
+    {
+      "op": "rms_norm",
+      "file": "model.py",
+      "fn": "_process_time",
+      "line": 2639,
+      "n": 2,
+      "ms": 0.08631899981992319
+    },
+    {
+      "op": "to_torch",
+      "file": "model.py",
+      "fn": "_process_",
+      "line": 2867,
+      "n": 2,
+      "ms": 34.4594420021167
+    },
+    {
+      "op": "reshape",
+      "file": "model.py",
+      "fn": "split",
+      "line": 1242,
+      "n": 30,
+      "ms": 0.08465000428259373
+    },
+    {
+      "op": "matmul",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 1480,
+      "n": 9,
+      "ms": 0.22646700381301343
+    },
+    {
+      "op": "to_torch",
+      "file": "model.py",
+      "fn": "_process_time",
+      "line": 2641,
+      "n": 2,
+      "ms": 0.8326169991050847
+    },
+    {
+      "op": "unsqueeze",
+      "file": "model.py",
+      "fn": "_downcast_q_device",
+      "line": 2710,
+      "n": 1,
+      "ms": 0.03100999310845509
+    },
+    {
+      "op": "multiply",
+      "file": "model.py",
+      "fn": "_adaln",
+      "line": 1335,
+      "n": 90,
+      "ms": 2.536681044148281
+    },
+    {
+      "op": "to_torch",
+      "file": "model.py",
+      "fn": "_downcast_c",
+      "line": 2700,
+      "n": 1,
+      "ms": 0.24271699658129364
+    },
+    {
+      "op": "to_torch",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 2826,
+      "n": 1,
+      "ms": 3.718772000866011
+    },
+    {
+      "op": "linear",
+      "file": "model.py",
+      "fn": "_tuned_linear",
+      "line": 224,
+      "n": 573,
+      "ms": 11.340316996211186
+    },
+    {
+      "op": "add",
+      "file": "model.py",
+      "fn": "_adaln",
+      "line": 1335,
+      "n": 90,
+      "ms": 2.2340159630402923
+    },
+    {
+      "op": "rms_norm",
+      "file": "model.py",
+      "fn": "run_full_device",
+      "line": 2037,
+      "n": 2,
+      "ms": 0.038919999497011304
+    },
+    {
+      "op": "reshape",
+      "file": "model.py",
+      "fn": "_merge_heads",
+      "line": 961,
+      "n": 40,
+      "ms": 0.880564002727624
+    },
+    {
+      "op": "linear",
+      "file": "model.py",
+      "fn": "run_device",
+      "line": 1230,
+      "n": 10,
+      "ms": 0.3073070110986009
+    },
+    {
+      "op": "multiply",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 1542,
+      "n": 45,
+      "ms": 1.1905150095117278
+    },
+    {
+      "op": "to_torch",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 1660,
+      "n": 1,
+      "ms": 12.325747993600089
+    },
+    {
+      "op": "reshape",
+      "file": "model.py",
+      "fn": "_pack_atoms_dev_core",
+      "line": 2477,
+      "n": 2,
+      "ms": 0.006091002433095127
+    },
+    {
+      "op": "rms_norm",
+      "file": "model.py",
+      "fn": "run_device",
+      "line": 1234,
+      "n": 10,
+      "ms": 0.2564659807831049
+    },
+    {
+      "op": "rms_norm",
+      "file": "model.py",
+      "fn": "_adaln",
+      "line": 1327,
+      "n": 90,
+      "ms": 1.6914909792831168
+    },
+    {
+      "op": "embedding",
+      "file": "model.py",
+      "fn": "_sparse_pair_gather",
+      "line": 1060,
+      "n": 1,
+      "ms": 0.05520899867406115
+    },
+    {
+      "op": "add",
+      "file": "model.py",
+      "fn": "_downcast_q_device",
+      "line": 2714,
+      "n": 1,
+      "ms": 0.02666999353095889
+    },
+    {
+      "op": "permute",
+      "file": "model.py",
+      "fn": "_sparse_pair_bias",
+      "line": 1354,
+      "n": 6,
+      "ms": 0.1326769997831434
+    },
+    {
+      "op": "multiply",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 1508,
+      "n": 45,
+      "ms": 1.3506469695130363
+    },
+    {
+      "op": "pad",
+      "file": "model.py",
+      "fn": "_pack_atoms_device",
+      "line": 1742,
+      "n": 8,
+      "ms": 0.4935929973726161
+    },
+    {
+      "op": "linear",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 527,
+      "n": 4,
+      "ms": 0.06921799649717286
+    },
+    {
+      "op": "to_layout",
+      "file": "model.py",
+      "fn": "_pack_atoms_dev_core",
+      "line": 2478,
+      "n": 2,
+      "ms": 0.05954799416940659
+    },
+    {
+      "op": "multiply",
+      "file": "model.py",
+      "fn": "run_device",
+      "line": 1255,
+      "n": 10,
+      "ms": 0.37151400465518236
+    },
+    {
+      "op": "multiply",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 1535,
+      "n": 45,
+      "ms": 1.200378013891168
+    },
+    {
+      "op": "pad",
+      "file": "model.py",
+      "fn": "_pack_atoms_dev_core",
+      "line": 2470,
+      "n": 2,
+      "ms": 0.19211699691368267
+    },
+    {
+      "op": "from_torch",
+      "file": "model.py",
+      "fn": "_sparse_attn_index_rm",
+      "line": 1090,
+      "n": 1,
+      "ms": 0.3044760014745407
+    },
+    {
+      "op": "linear",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 481,
+      "n": 16,
+      "ms": 0.7212709824671037
+    },
+    {
+      "op": "linear",
+      "file": "model.py",
+      "fn": "run_device",
+      "line": 1232,
+      "n": 10,
+      "ms": 0.17765599477570504
+    },
+    {
+      "op": "from_torch",
+      "file": "model.py",
+      "fn": "_tt_idx",
+      "line": 464,
+      "n": 3,
+      "ms": 0.4829030076507479
+    },
+    {
+      "op": "reshape",
+      "file": "model.py",
+      "fn": "_unpack_atoms_device",
+      "line": 1761,
+      "n": 6,
+      "ms": 0.021970001398585737
+    },
+    {
+      "op": "squeeze",
+      "file": "model.py",
+      "fn": "_downcast_q_device",
+      "line": 2710,
+      "n": 1,
+      "ms": 0.031479001336265355
+    },
+    {
+      "op": "reshape",
+      "file": "model.py",
+      "fn": "_unpack_atoms_device",
+      "line": 1770,
+      "n": 6,
+      "ms": 0.008838986104819924
+    },
+    {
+      "op": "add",
+      "file": "model.py",
+      "fn": "run_device",
+      "line": 2213,
+      "n": 4,
+      "ms": 0.10767898493213579
+    },
+    {
+      "op": "linear",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 1512,
+      "n": 45,
+      "ms": 0.9088669903576374
+    },
+    {
+      "op": "embedding",
+      "file": "model.py",
+      "fn": "_pack_atoms_dev_core",
+      "line": 2474,
+      "n": 2,
+      "ms": 0.0637680059298873
+    },
+    {
+      "op": "linear",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 563,
+      "n": 4,
+      "ms": 0.08524700388079509
+    },
+    {
+      "op": "to_layout",
+      "file": "model.py",
+      "fn": "_sparse_pair_gather",
+      "line": 1063,
+      "n": 1,
+      "ms": 0.03178000042680651
+    },
+    {
+      "op": "unsqueeze",
+      "file": "model.py",
+      "fn": "run_full_device",
+      "line": 2031,
+      "n": 2,
+      "ms": 0.05745999806094915
+    },
+    {
+      "op": "softmax",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 1502,
+      "n": 45,
+      "ms": 1.3757339911535382
+    },
+    {
+      "op": "concat",
+      "file": "model.py",
+      "fn": "run_device",
+      "line": 2203,
+      "n": 2,
+      "ms": 0.4181830008747056
+    },
+    {
+      "op": "reshape",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 534,
+      "n": 4,
+      "ms": 0.0668479988235049
+    },
+    {
+      "op": "to_torch",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 2830,
+      "n": 1,
+      "ms": 0.7148090007831343
+    },
+    {
+      "op": "reshape",
+      "file": "model.py",
+      "fn": "heads",
+      "line": 1427,
+      "n": 135,
+      "ms": 2.5561570073477924
+    },
+    {
+      "op": "sigmoid",
+      "file": "model.py",
+      "fn": "_adaln",
+      "line": 1335,
+      "n": 90,
+      "ms": 1.6352600287063979
+    },
+    {
+      "op": "reshape",
+      "file": "model.py",
+      "fn": "_sparse_pair_gather",
+      "line": 1064,
+      "n": 1,
+      "ms": 0.005109999619890004
+    },
+    {
+      "op": "linear",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 520,
+      "n": 4,
+      "ms": 0.09685800614533946
+    },
+    {
+      "op": "typecast",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 1488,
+      "n": 36,
+      "ms": 0.572900018596556
+    },
+    {
+      "op": "squeeze",
+      "file": "model.py",
+      "fn": "_downcast_c",
+      "line": 2699,
+      "n": 1,
+      "ms": 0.031169001886155456
+    },
+    {
+      "op": "matmul",
+      "file": "model.py",
+      "fn": "run_device",
+      "line": 1261,
+      "n": 10,
+      "ms": 0.25469700631219894
+    },
+    {
+      "op": "linear",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 2826,
+      "n": 1,
+      "ms": 0.1271779983653687
+    },
+    {
+      "op": "rms_norm",
+      "file": "model.py",
+      "fn": "run_device",
+      "line": 1229,
+      "n": 10,
+      "ms": 0.23924498964333907
+    },
+    {
+      "op": "add",
+      "file": "model.py",
+      "fn": "run_device",
+      "line": 1257,
+      "n": 8,
+      "ms": 0.24149899400072172
+    },
+    {
+      "op": "linear",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 2835,
+      "n": 1,
+      "ms": 0.03436000406509265
+    },
+    {
+      "op": "rms_norm",
+      "file": "model.py",
+      "fn": "_process_",
+      "line": 2879,
+      "n": 2,
+      "ms": 0.04348000220488757
+    },
+    {
+      "op": "linear",
+      "file": "model.py",
+      "fn": "__call__",
+      "line": 2060,
+      "n": 2,
+      "ms": 0.1415980004821904
+    }
+  ]
+}

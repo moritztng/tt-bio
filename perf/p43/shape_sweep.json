@@ -1,0 +1,199 @@
+{
+  "steps": 20,
+  "seed": 0,
+  "shapes": [
+    {
+      "span": 40,
+      "tokens": 60,
+      "off": {
+        "rc": 0,
+        "wall_s": 10.844478950995835,
+        "sha": {
+          "iai40.cif": "52852f90d2b54a9643409d5480182aaf646e9c93c3314d6005fb318a90824dc6"
+        },
+        "stats": "[rfd3_bias] sparse_bias served=114 declined=0 fused served=0 rejects={}",
+        "atoms": "699",
+        "err": ""
+      },
+      "on": {
+        "rc": 0,
+        "wall_s": 10.785934854997322,
+        "sha": {
+          "iai40.cif": "52852f90d2b54a9643409d5480182aaf646e9c93c3314d6005fb318a90824dc6"
+        },
+        "stats": "[rfd3_bias] sparse_bias served=0 declined=0 fused served=171 rejects={}",
+        "atoms": "699",
+        "err": ""
+      },
+      "atoms": "699",
+      "identical": true
+    },
+    {
+      "span": 120,
+      "tokens": 140,
+      "off": {
+        "rc": 0,
+        "wall_s": 14.011833230004413,
+        "sha": {
+          "iai120.cif": "8f3322a9f14f9e81434df995becce997eb81c727bfaf02f52cb641efbd8e090f"
+        },
+        "stats": "[rfd3_bias] sparse_bias served=114 declined=0 fused served=0 rejects={}",
+        "atoms": "1819",
+        "err": ""
+      },
+      "on": {
+        "rc": 0,
+        "wall_s": 13.786523915005091,
+        "sha": {
+          "iai120.cif": "8f3322a9f14f9e81434df995becce997eb81c727bfaf02f52cb641efbd8e090f"
+        },
+        "stats": "[rfd3_bias] sparse_bias served=0 declined=0 fused served=171 rejects={}",
+        "atoms": "1819",
+        "err": ""
+      },
+      "atoms": "1819",
+      "identical": true
+    },
+    {
+      "span": 230,
+      "tokens": 250,
+      "off": {
+        "rc": 0,
+        "wall_s": 21.507573935996334,
+        "sha": {
+          "iai230.cif": "b481af0bcf7fc50a937dc87da71720e2a75e7606587422b908a8dc348f0d2079"
+        },
+        "stats": "[rfd3_bias] sparse_bias served=114 declined=0 fused served=0 rejects={}",
+        "atoms": "3359",
+        "err": ""
+      },
+      "on": {
+        "rc": 0,
+        "wall_s": 21.391673507998348,
+        "sha": {
+          "iai230.cif": "b481af0bcf7fc50a937dc87da71720e2a75e7606587422b908a8dc348f0d2079"
+        },
+        "stats": "[rfd3_bias] sparse_bias served=0 declined=0 fused served=171 rejects={}",
+        "atoms": "3359",
+        "err": ""
+      },
+      "atoms": "3359",
+      "identical": true
+    },
+    {
+      "span": 400,
+      "tokens": 420,
+      "off": {
+        "rc": 0,
+        "wall_s": 46.265572935997625,
+        "sha": {
+          "iai400.cif": "c69126269206697f963e59f11361fe4ff4bdf712c3a5b94394aa944d91488a0b"
+        },
+        "stats": "[rfd3_bias] sparse_bias served=114 declined=0 fused served=0 rejects={}",
+        "atoms": "5739",
+        "err": ""
+      },
+      "on": {
+        "rc": 0,
+        "wall_s": 45.910826113999065,
+        "sha": {
+          "iai400.cif": "c69126269206697f963e59f11361fe4ff4bdf712c3a5b94394aa944d91488a0b"
+        },
+        "stats": "[rfd3_bias] sparse_bias served=0 declined=0 fused served=171 rejects={}",
+        "atoms": "5739",
+        "err": ""
+      },
+      "atoms": "5739",
+      "identical": true
+    },
+    {
+      "span": 230,
+      "tokens": 250,
+      "batch": 2,
+      "off": {
+        "rc": 0,
+        "wall_s": 27.375519611996424,
+        "sha": {
+          "iaib2_0.cif": "b481af0bcf7fc50a937dc87da71720e2a75e7606587422b908a8dc348f0d2079",
+          "iaib2_1.cif": "afcf03dddb20c1b7f92d157c9983c712eaecab72ccebf1e60f888b9d9fdd2140"
+        },
+        "stats": "[rfd3_bias] sparse_bias served=114 declined=0 fused served=0 rejects={}",
+        "atoms": "3359",
+        "err": ""
+      },
+      "on": {
+        "rc": 0,
+        "wall_s": 26.78318867899361,
+        "sha": {
+          "iaib2_0.cif": "b481af0bcf7fc50a937dc87da71720e2a75e7606587422b908a8dc348f0d2079",
+          "iaib2_1.cif": "afcf03dddb20c1b7f92d157c9983c712eaecab72ccebf1e60f888b9d9fdd2140"
+        },
+        "stats": "[rfd3_bias] sparse_bias served=0 declined=0 fused served=171 rejects={}",
+        "atoms": "3359",
+        "err": ""
+      },
+      "atoms": "3359",
+      "identical": true,
+      "served": true,
+      "n_cifs": 2
+    },
+    {
+      "span": 230,
+      "tokens": 250,
+      "batch": 8,
+      "off": {
+        "rc": 0,
+        "wall_s": 94.05276630900335,
+        "sha": {
+          "iaib8_0.cif": "b481af0bcf7fc50a937dc87da71720e2a75e7606587422b908a8dc348f0d2079",
+          "iaib8_1.cif": "afcf03dddb20c1b7f92d157c9983c712eaecab72ccebf1e60f888b9d9fdd2140",
+          "iaib8_2.cif": "2ddad49219866a50a974eea8f0967ca13eb388573720bd6f1d38363f1bcbd531",
+          "iaib8_3.cif": "c9a2e63202c09171a7ca8f48d78f03e8b660f3bc9b4bc4a1f0a8bde157fb7b36",
+          "iaib8_4.cif": "8df33971863bbfcd28d4542e25e4e301c7d45bb5b1c04e46f6ca92b3fefab9d4",
+          "iaib8_5.cif": "35aeb31c2231d37aacc02ea26dd12f1961039e21ea410525596d2d845a4d44a0",
+          "iaib8_6.cif": "636d54a2827fb426fa373dbb54f99da47e692384a72be3da790bcd7315807d02",
+          "iaib8_7.cif": "b724cd658a8a089b739a5dc6d35671bdc32f3865049ea0ca5de1802f233f45d3"
+        },
+        "stats": "[rfd3_bias] sparse_bias served=114 declined=0 fused served=0 rejects={}",
+        "atoms": "3359",
+        "err": ""
+      },
+      "on": {
+        "rc": 0,
+        "wall_s": 46.80639996699756,
+        "sha": {
+          "iaib8_0.cif": "b481af0bcf7fc50a937dc87da71720e2a75e7606587422b908a8dc348f0d2079",
+          "iaib8_1.cif": "afcf03dddb20c1b7f92d157c9983c712eaecab72ccebf1e60f888b9d9fdd2140",
+          "iaib8_2.cif": "2ddad49219866a50a974eea8f0967ca13eb388573720bd6f1d38363f1bcbd531",
+          "iaib8_3.cif": "c9a2e63202c09171a7ca8f48d78f03e8b660f3bc9b4bc4a1f0a8bde157fb7b36",
+          "iaib8_4.cif": "8df33971863bbfcd28d4542e25e4e301c7d45bb5b1c04e46f6ca92b3fefab9d4",
+          "iaib8_5.cif": "35aeb31c2231d37aacc02ea26dd12f1961039e21ea410525596d2d845a4d44a0",
+          "iaib8_6.cif": "636d54a2827fb426fa373dbb54f99da47e692384a72be3da790bcd7315807d02",
+          "iaib8_7.cif": "b724cd658a8a089b739a5dc6d35671bdc32f3865049ea0ca5de1802f233f45d3"
+        },
+        "stats": "[rfd3_bias] sparse_bias served=0 declined=0 fused served=171 rejects={}",
+        "atoms": "3359",
+        "err": ""
+      },
+      "atoms": "3359",
+      "identical": true,
+      "served": true,
+      "n_cifs": 8
+    }
+  ],
+  "gate_unit": {
+    "eligible": {
+      "batch2": true,
+      "fp32": false,
+      "keys_not_tile_multiple": false,
+      "keys_below_tile": false,
+      "production": true
+    },
+    "rejects": {
+      "('dtype', (1, 4, 3359, 128))": 1,
+      "('n_keys', (1, 4, 3359, 40))": 1,
+      "('n_keys', (1, 4, 3359, 16))": 1
+    },
+    "as_expected": true
+  }
+}

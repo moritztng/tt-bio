@@ -1,0 +1,119 @@
+{
+  "off_rev": "RFD3_FUSED_SCORES",
+  "flag": "RFD3_FUSED_SCORES",
+  "also_env": {
+    "RFD3_SPARSE_BIAS": "1"
+  },
+  "steps": [
+    20,
+    200
+  ],
+  "designs": 1,
+  "runs": [
+    {
+      "wall_s": 21.43498028400063,
+      "sha": {
+        "iai.cif": "b481af0bcf7fc50a937dc87da71720e2a75e7606587422b908a8dc348f0d2079"
+      },
+      "arm": "off",
+      "steps": 20,
+      "rep": 0
+    },
+    {
+      "wall_s": 56.9545303210034,
+      "sha": {
+        "iai.cif": "35d8fcf6d3ecc0fb0d3c730a470e8dcde2bbcf87aa5ea6061d4d3c019acffff0"
+      },
+      "arm": "off",
+      "steps": 200,
+      "rep": 0
+    },
+    {
+      "wall_s": 21.15071999799693,
+      "sha": {
+        "iai.cif": "b481af0bcf7fc50a937dc87da71720e2a75e7606587422b908a8dc348f0d2079"
+      },
+      "arm": "on",
+      "steps": 20,
+      "rep": 0
+    },
+    {
+      "wall_s": 54.00705114199809,
+      "sha": {
+        "iai.cif": "35d8fcf6d3ecc0fb0d3c730a470e8dcde2bbcf87aa5ea6061d4d3c019acffff0"
+      },
+      "arm": "on",
+      "steps": 200,
+      "rep": 0
+    },
+    {
+      "wall_s": 21.50250172500091,
+      "sha": {
+        "iai.cif": "b481af0bcf7fc50a937dc87da71720e2a75e7606587422b908a8dc348f0d2079"
+      },
+      "arm": "off",
+      "steps": 20,
+      "rep": 1
+    },
+    {
+      "wall_s": 56.900711726993904,
+      "sha": {
+        "iai.cif": "35d8fcf6d3ecc0fb0d3c730a470e8dcde2bbcf87aa5ea6061d4d3c019acffff0"
+      },
+      "arm": "off",
+      "steps": 200,
+      "rep": 1
+    },
+    {
+      "wall_s": 21.294928998002433,
+      "sha": {
+        "iai.cif": "b481af0bcf7fc50a937dc87da71720e2a75e7606587422b908a8dc348f0d2079"
+      },
+      "arm": "on",
+      "steps": 20,
+      "rep": 1
+    },
+    {
+      "wall_s": 54.51048898099543,
+      "sha": {
+        "iai.cif": "35d8fcf6d3ecc0fb0d3c730a470e8dcde2bbcf87aa5ea6061d4d3c019acffff0"
+      },
+      "arm": "on",
+      "steps": 200,
+      "rep": 1
+    }
+  ],
+  "off": {
+    "walls": {
+      "20": [
+        21.43498028400063,
+        21.50250172500091
+      ],
+      "200": [
+        56.9545303210034,
+        56.900711726993904
+      ]
+    },
+    "ms_per_step": 196.99377788609934,
+    "s_per_design_199": 39.20176179933377,
+    "designs_per_hour_wall": 63.2381950140226
+  },
+  "on": {
+    "walls": {
+      "20": [
+        21.15071999799693,
+        21.294928998002433
+      ],
+      "200": [
+        54.00705114199809,
+        54.51048898099543
+      ]
+    },
+    "ms_per_step": 183.5330309083171,
+    "s_per_design_199": 36.5230731507551,
+    "designs_per_hour_wall": 66.34872106241569
+  },
+  "aa_floor_pct": 0.0945386317598114,
+  "delta_pct": 6.833082304541193,
+  "cif_identical_across_arms": true
+}
