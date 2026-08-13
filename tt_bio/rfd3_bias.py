@@ -44,10 +44,12 @@ IDX_CB, BIAS_CB, OUT_CB, SLOT_CB = 0, 1, 2, 3
 CB_STRIDE = 4
 # Output tiles in flight per core. Must be a power of two (the kernel masks with it). This is
 # the op's only real tuning knob: the write is 180.6 MB at the production shape and the card's
-# measured clone roof is 385 GB/s, so 0.47 ms is the floor, and how close the kernel gets to
-# it is decided by how many 4 KB DRAM writes a core can have outstanding. Set from a sweep,
-# see perf/p36/slot_sweep.json.
-OUT_SLOTS = int(os.environ.get("RFD3_SPARSE_BIAS_SLOTS", "16"))
+# measured clone roof is 385 GB/s, so 0.47 ms is the floor. Swept at the production shape on qb1
+# card 1 (perf/p36/slot_sweep.json, slot_sweep_2risc.json): on one RISC 4/8/16/32 slots read
+# 1.987 / 1.652 / 1.655 / 1.693 ms, on two 1.081 / 0.932 / 0.972. It saturates at 8 on both, which
+# is what says the op is bound by the kernel's own L1 traffic rather than by the write -- and why
+# the second RISC, not more slots, is what took it from 1.65 to 0.93 ms.
+OUT_SLOTS = int(os.environ.get("RFD3_SPARSE_BIAS_SLOTS", "8"))
 
 ADDR_WRITE_MODE = None
 _CACHE: dict = {}
@@ -225,21 +227,21 @@ def _reject(reason, shape):
     return False
 
 
-def eligible(pair_bias, idx_rm) -> bool:
-    """Whether the kernel may serve this call. See the module docstring for the measurement."""
+def eligible_shape(batch, n_heads, length, n_keys, dtype) -> bool:
+    """Whether the kernel may serve a step, decided from the shape alone.
+
+    Called once per step from ``_sparse_qk_inputs``, before either tensor exists, because the
+    answer decides how the index is uploaded and whether the dense template is built at all.
+    """
+    shape = [batch, n_heads, length, n_keys]
     if not _ENABLED:
         return False
-    if idx_rm is None:
-        return _reject("no_row_major_index", [0])
-    shape = [int(d) for d in pair_bias.shape]
-    if len(shape) != 4 or shape[0] != 1 or shape[3] % TILE_W:
-        return _reject("shape", shape)
-    if pair_bias.dtype != ttnn.bfloat16 or pair_bias.layout != ttnn.TILE_LAYOUT:
-        return _reject("dtype_layout", shape)
-    if idx_rm.dtype != ttnn.uint32 or idx_rm.layout != ttnn.ROW_MAJOR_LAYOUT:
-        return _reject("idx_dtype_layout", shape)
-    if pair_bias.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
-        return _reject("sharded_in", shape)
+    if batch != 1:
+        return _reject("batch", shape)
+    if dtype != ttnn.bfloat16:
+        return _reject("dtype", shape)
+    if n_keys % TILE_W or n_keys < TILE_W:
+        return _reject("n_keys", shape)
     return True
 
 

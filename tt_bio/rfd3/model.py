@@ -24,6 +24,7 @@ import torch.nn.functional as F
 
 import ttnn
 
+from .. import rfd3_bias
 from ..tenstorrent import Module, get_device, CORE_GRID_MAIN, attn_value_matmul
 
 # This is a SNAPSHOT, and deliberately left as one. `_configure_active_compute_grid` widens
@@ -1046,6 +1047,18 @@ def _sparse_attn_index(indices, device, n_heads):
     return out
 
 
+def _sparse_attn_index_rm(indices, device):
+    """[1,1,L,K] uint32 ROW_MAJOR neighbour index, for the fused bias kernel.
+
+    The kernel reads the same index for every head, so unlike the scatter path nothing is
+    replicated over heads and nothing is tilized. One page per row of 4*K bytes is also what
+    makes the kernel's per-band index fetch a contiguous page read.
+    """
+    return ttnn.from_torch(
+        indices.cpu().unsqueeze(1).to(torch.int32).contiguous(),
+        layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=ttnn.uint32)
+
+
 def _sparse_qk_inputs(p_host, indices, device, dtype, n_heads=4, mask_cache=None):
     """Gather local pair features and build the scatter index for one step.
 
@@ -1084,15 +1097,25 @@ def _sparse_qk_inputs(p_host, indices, device, dtype, n_heads=4, mask_cache=None
         and p_host.ndim == 4
         and p_host.shape[:3] == (1, length, length)
     )
+    # The fused kernel writes the mask constant itself, so on that path there is no dense
+    # template to build or hold (90 MB at 3359 atoms) and no per-head index replica: it takes
+    # one ROW_MAJOR [1,1,L,K] index and returns the fp32 bias directly. `dense_bias is None`
+    # is what tells _sparse_bias_f32 which route to take, so the choice is made once per step
+    # here rather than per block.
+    fused_bias = rfd3_bias.eligible_shape(batch, n_heads, length, indices.shape[-1], dtype)
     if on_device:
         n_keys = indices.shape[-1]
         p_dev = _sparse_pair_gather(mask_cache, p_host, indices, device, dtype)
-        attn_idx_dev = _sparse_attn_index(indices, device, n_heads)
+        attn_idx_dev = (_sparse_attn_index_rm(indices, device) if fused_bias
+                        else _sparse_attn_index(indices, device, n_heads))
     else:
         p_sparse, attn_idx, n_keys = _sparse_qk_host(p_host, indices, n_heads)
         p_dev = _tt(p_sparse, device, dtype)
-        attn_idx_dev = _tt(attn_idx, device, ttnn.uint32)
-    if mask_cache is None:
+        attn_idx_dev = (_sparse_attn_index_rm(indices, device) if fused_bias
+                        else _tt(attn_idx, device, ttnn.uint32))
+    if fused_bias:
+        dense_bias = None
+    elif mask_cache is None:
         dense_bias = ttnn.full(
             (batch, n_heads, length, _align_tile(length)), -1e4,
             dtype=dtype, layout=ttnn.TILE_LAYOUT, device=device)
@@ -1294,12 +1317,19 @@ class RFD3AtomBlock(Module):
             p, self.b_w, ckc=ckc, dtype=dt, core_grid=CORE_GRID_MAIN,
         )
         pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
-        # dense_bias carries the -1e4 mask, so scattering the local pair bias into it
-        # gives pair_bias at neighbours (as the dense path does) and leaves -1e4, whose
-        # exp underflows to zero, everywhere else.
-        bias = ttnn.scatter(dense_bias, 3, attn_idx_dev, pair_bias)
-        bias_f = ttnn.typecast(bias, ttnn.float32, memory_config=bias.memory_config())
-        ttnn.deallocate(bias)
+        if dense_bias is None:
+            # One pass: the kernel fills the mask constant, pokes the neighbour bias and
+            # writes fp32, which is the same values in the same positions as the three ops
+            # below and is gated on torch.equal against them
+            # (scripts/rfd3_port/p36_bias_kernel_probe.py). 0.932 ms against 5.437.
+            bias_f = rfd3_bias.sparse_bias_fp32(pair_bias, attn_idx_dev)
+        else:
+            # dense_bias carries the -1e4 mask, so scattering the local pair bias into it
+            # gives pair_bias at neighbours (as the dense path does) and leaves -1e4, whose
+            # exp underflows to zero, everywhere else.
+            bias = ttnn.scatter(dense_bias, 3, attn_idx_dev, pair_bias)
+            bias_f = ttnn.typecast(bias, ttnn.float32, memory_config=bias.memory_config())
+            ttnn.deallocate(bias)
         if cache is not None:
             cache[id(self)] = (key, p, bias_f)
         return bias_f
