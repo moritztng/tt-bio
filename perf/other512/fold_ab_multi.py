@@ -97,9 +97,15 @@ ARMS = ("on", "e6", "noe6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hi
         # the score tensor is one allocation whatever its size, which is what refuses at 1024 aa.
         # `hchunk16` and `noL1out` ablate the two levers whose gates are only live BELOW 384 aa.
         "nofuse", "norowblk", "blk4g", "hchunk16", "noL1out", "pre",
-        # qsplit: the triatt_sdpa q-split lever (TT_BIO_TRIATT_MASK_Q_SPLIT), written explicitly
-        # per arm so "on" stays a pre-lever reference whatever the shipped default is.
-        "qsplit")
+        # qsplit: the triatt_sdpa q-split lever (TT_BIO_TRIATT_MASK_Q_SPLIT). main now ships it
+        # ON up to 1024 padded tokens, so `noqsplit` is the ablation and `qsplit` is its old alias.
+        "qsplit", "noqsplit",
+        # opendde-beat-b200. `mmdef` puts the op's own default block config at opendde's two
+        # tri-att widths -- the byte-identical alternative to the twelve-tile tuples main ships.
+        # `glue` turns on the two bit-exact host-side levers (the relp scatter and the bf16
+        # z_trunk seam); `traceglue` is `glue` plus diffusion trace replay, run from the trace
+        # harness because it needs a device opened with a trace region.
+        "mmdef", "glue", "traceglue")
 
 # Which sites each arm routes onto the fused SDPA. The confidence head is never in a flip set:
 # it stays on `_fp32_softmax_attention` on every arm, deliberately, so plDDT reports on the
@@ -341,6 +347,8 @@ def main():
         import tt_bio.reblock_permute as RB
         import tt_bio.triatt_qkv as HM
         import tt_bio.triatt_sdpa as PM
+        import tt_bio.protenix as PX
+        import tt_bio.opendde as OD
 
         RB.set_enabled(True)                         # main ships the forward move ON
         RB.set_enabled_back(True)                    # and the back move ON
@@ -359,7 +367,11 @@ def main():
         HM.TAIL_REJECTS.clear()
 
         PM._ENABLED = name != "nok2"
-        PM._Q_SPLIT = name == "qsplit"
+        # main ships the q-split ON up to 1024 padded tokens (`triatt_sdpa.py:58`, d31c1fa0 /
+        # 063f89db). This line was `name == "qsplit"`, written when the lever was opt-in, so every
+        # `on` arm since silently ablated a shipped lever and measured against a baseline that is
+        # not main. `noqsplit` is the ablation now.
+        PM._Q_SPLIT = name != "noqsplit"
         PM.STATS[0] = PM.STATS[1] = 0
         PM.REJECTS.clear()
 
@@ -375,6 +387,19 @@ def main():
                 T._MM_BLOCK.pop(k, None)
             else:
                 T._MM_BLOCK[k] = (4, k[0], 1, 4, 1)
+
+        # opendde tri-att at c_z=384. main ships the twelve-tile tuples (`mm12`: 0.3248 A CA at
+        # 298 aa, not byte-identical); `mmdef` is the byte-identical alternative, which is the op's
+        # own default block config. Identity matters -- `_qkv_mm_config` relaxes its three
+        # divisibility guards only for the `_MM_DEFAULT` tuple OBJECT.
+        T._MM_BLOCK[(12, 36)] = T._MM_DEFAULT if name == "mmdef" else (4, 12, 1, 2, 1)
+        T._MM_BLOCK[(12, 12)] = T._MM_DEFAULT if name == "mmdef" else (8, 12, 1, 2, 1)
+
+        # The two bit-exact host-side levers, screened at -0.3724 s in
+        # perf/oddeb200/screen_hostglue.json and re-verified against the shipped functions in
+        # perf/oddeb200/verify_glue.py. Written on every arm; the counter proves which fired.
+        PX._RELP_SCATTER = OD._SEAM_BF16 = name in ("glue", "traceglue")
+        PX.RELP_STATS[0] = PX.RELP_STATS[1] = 0
 
         # capacity gates stay at production defaults on every arm: they are not under test here
         # `nofp32`/`nofp32hifi` flip every site except the confidence head, whatever the partition
@@ -479,6 +504,8 @@ def main():
             RB = __import__("tt_bio.reblock_permute", fromlist=["x"])
             HM = __import__("tt_bio.triatt_qkv", fromlist=["x"])
             PM = __import__("tt_bio.triatt_sdpa", fromlist=["x"])
+            PX = __import__("tt_bio.protenix", fromlist=["x"])
+            OD = __import__("tt_bio.opendde", fromlist=["x"])
             rec = {"size": size, "arm": arm, "fold_s": round(fold_s, 3),
                    "n_tokens": m.get("n_tokens"), "plddt": m.get("plddt"),
                    "cif_sha256": sha_dir(struct_dir),
@@ -501,6 +528,10 @@ def main():
                                        "rejects": {f"{r}:{sh}": n for (r, sh), n in PM.REJECTS.items()},
                                        "pm_over_l1": sorted(str(k) for k in PM._PM_OVER_L1)},
                    "transpose_l1_headroom": T._TRANSPOSE_L1_HEADROOM,
+                   "host_glue": {"relp_scatter": PX._RELP_SCATTER,
+                                 "relp_calls_scatter": PX.RELP_STATS[0],
+                                 "relp_calls_legacy": PX.RELP_STATS[1],
+                                 "seam_bf16": OD._SEAM_BF16},
                    "fp32_softmax_chain": {"block_bytes": T._FP32_SOFTMAX_BLOCK_BYTES,
                                           "fused_add": T._FP32_SOFTMAX_FUSED_ADD,
                                           **dict(T.FP32_SOFTMAX_STATS)},
@@ -549,6 +580,9 @@ def main():
             print(f"      owners {rec['fp32_on_by_owner']}", flush=True)
             for k, v in sorted(CALLS.items()):
                 print(f"      CENSUS {'|'.join(map(str, k)):48s} {v}", flush=True)
+            print(f"      GLUE {rec['host_glue']}  MM12 "
+                  f"{rec['mm_block'].get('(12, 36)')}/{rec['mm_block'].get('(12, 12)')}  "
+                  f"qsplit {rec['persistent_mask']['q_split']}", flush=True)
             print(f"      FP32SOFT {rec['fp32_softmax_chain']}  hchunk "
                   f"{rec['transition_h_chunk_size_big']}  l1out {rec['pair_proj_l1_out']}",
                   flush=True)
