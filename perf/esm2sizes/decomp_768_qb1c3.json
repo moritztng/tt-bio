@@ -1,0 +1,227 @@
+{
+ "ttnn": "0.67.4",
+ "host": "tt-quietbox",
+ "card": "3",
+ "model": "esmfold2",
+ "size": 768,
+ "recycling_steps": 10,
+ "sampling_steps": 100,
+ "timers_installed": [
+  "stage:ESMC-6B",
+  "stage:LMShim",
+  "stage:MSAEncoder",
+  "stage:FoldingTrunk*",
+  "stage:DiffusionModule",
+  "stage:DiffusionConditioning",
+  "stage:DistogramHead",
+  "block:PairUpdateBlock",
+  "body:TriangleMultiplication",
+  "body:SwiGLUFFN",
+  "block:TokenDiT",
+  "body:AttentionPairBias",
+  "body:CondTransition",
+  "leaf:_attn_fp32",
+  "body:AtomEncoder",
+  "body:AtomDecoder",
+  "body:SWAAtomTransformer",
+  "leaf:SWAAttention",
+  "body:OuterProductMean",
+  "phase:prepare_input",
+  "phase:decode",
+  "body:MSAPWA"
+ ],
+ "runs": [
+  {
+   "arm": "plain0",
+   "fold_s": 88.412,
+   "plddt": 0.901,
+   "n_tokens": null,
+   "cif": {
+    "cdk2x2_768.cif": "4b4d52861e55077c"
+   },
+   "loadavg": "5.36"
+  },
+  {
+   "arm": "plain1",
+   "fold_s": 89.886,
+   "plddt": 0.901,
+   "n_tokens": null,
+   "cif": {
+    "cdk2x2_768.cif": "4b4d52861e55077c"
+   },
+   "loadavg": "5.02"
+  },
+  {
+   "arm": "timed0",
+   "fold_s": 92.106,
+   "plddt": 0.901,
+   "n_tokens": null,
+   "cif": {
+    "cdk2x2_768.cif": "4b4d52861e55077c"
+   },
+   "loadavg": "4.29",
+   "levers": {
+    "calls": {
+     "attn_pair_bias|head_dim=48,pad=64,heads=16": 816,
+     "pair_row_tile|L=768,tile=0": 14,
+     "swiglu_call|ndim=3,L=832,minseq_ok=True,rowwin_ok=False": 80,
+     "swiglu_call|ndim=4,L=768,minseq_ok=True,rowwin_ok=True": 545,
+     "swiglu_ffn|ndim=3,rows=832,split=False,l1_gated=False": 80,
+     "swiglu_ffn|ndim=4,rows=32,split=True,l1_gated=True": 12912,
+     "swiglu_ffn|ndim=4,rows=768,split=False,l1_gated=False": 7,
+     "trimul_chunk|seq=768,chunk=32": 1084,
+     "trimul_memcfg|seq=768,DRAM": 1084
+    },
+    "reblock": {
+     "plain_served": 32,
+     "declined_total": 0,
+     "back_served": 2168,
+     "gated_served": 4304,
+     "gated_declined": 0
+    },
+    "rejects": {},
+    "gate_constants": {
+     "SPLIT_SWIGLU": true,
+     "SPLIT_SWIGLU_MIN_SEQ": 144,
+     "PAIR_FFN_ROW_BLOCK": 32,
+     "PAIR_FFN_ROW_BLOCK_SEQ": [
+      320,
+      768
+     ],
+     "REBLOCK_PERMUTE": true,
+     "REBLOCK_PERMUTE_GATED": true,
+     "L1_N_MIN": 288,
+     "L1_N_MAX": 352,
+     "TRIANGLE_MULT_L1_MAX_SEQ": 352,
+     "TRIANGLE_MULT_L1_MAX_SEQ_FAST": 640,
+     "SEQ_LEN_MORE_CHUNKING": 1536,
+     "TRANSITION_H_CHUNK_SIZE_BIG": 32,
+     "IS_SMALL_GRID": false,
+     "FAST_MODE": false
+    }
+   },
+   "components": {
+    "stage:FoldingTrunk*": {
+     "n": 14,
+     "incl_s": 64.908,
+     "excl_s": 0.033
+    },
+    "block:PairUpdateBlock": {
+     "n": 538,
+     "incl_s": 64.875,
+     "excl_s": 3.707
+    },
+    "body:TriangleMultiplication": {
+     "n": 1084,
+     "incl_s": 41.4254,
+     "excl_s": 41.4254
+    },
+    "body:SwiGLUFFN": {
+     "n": 625,
+     "incl_s": 20.8663,
+     "excl_s": 20.8663
+    },
+    "stage:DiffusionModule": {
+     "n": 68,
+     "incl_s": 6.2302,
+     "excl_s": 0.1131
+    },
+    "body:SWAAtomTransformer": {
+     "n": 137,
+     "incl_s": 3.1024,
+     "excl_s": 0.4196
+    },
+    "block:TokenDiT": {
+     "n": 68,
+     "incl_s": 2.9713,
+     "excl_s": 0.1716
+    },
+    "leaf:SWAAttention": {
+     "n": 411,
+     "incl_s": 2.6827,
+     "excl_s": 2.6827
+    },
+    "stage:MSAEncoder": {
+     "n": 1,
+     "incl_s": 2.4261,
+     "excl_s": 0.0377
+    },
+    "body:AttentionPairBias": {
+     "n": 816,
+     "incl_s": 2.2031,
+     "excl_s": 1.0626
+    },
+    "body:AtomEncoder": {
+     "n": 69,
+     "incl_s": 1.6159,
+     "excl_s": 0.0356
+    },
+    "body:AtomDecoder": {
+     "n": 68,
+     "incl_s": 1.5509,
+     "excl_s": 0.0289
+    },
+    "leaf:_attn_fp32": {
+     "n": 816,
+     "incl_s": 1.1404,
+     "excl_s": 1.1404
+    },
+    "body:OuterProductMean": {
+     "n": 4,
+     "incl_s": 1.086,
+     "excl_s": 1.086
+    },
+    "body:CondTransition": {
+     "n": 816,
+     "incl_s": 0.5966,
+     "excl_s": 0.5966
+    },
+    "stage:ESMC-6B": {
+     "n": 1,
+     "incl_s": 0.5772,
+     "excl_s": 0.477
+    },
+    "body:MSAPWA": {
+     "n": 3,
+     "incl_s": 0.2789,
+     "excl_s": 0.2789
+    },
+    "stage:LMShim": {
+     "n": 1,
+     "incl_s": 0.0785,
+     "excl_s": 0.0785
+    },
+    "phase:prepare_input": {
+     "n": 1,
+     "incl_s": 0.0488,
+     "excl_s": 0.0488
+    },
+    "phase:decode": {
+     "n": 1,
+     "incl_s": 0.025,
+     "excl_s": 0.025
+    },
+    "stage:DistogramHead": {
+     "n": 1,
+     "incl_s": 0.0134,
+     "excl_s": 0.0134
+    }
+   }
+  },
+  {
+   "arm": "plain_post0",
+   "fold_s": 88.944,
+   "plddt": 0.901,
+   "n_tokens": null,
+   "cif": {
+    "cdk2x2_768.cif": "4b4d52861e55077c"
+   },
+   "loadavg": "2.75"
+  }
+ ],
+ "grid": [
+  13,
+  10
+ ],
+ "cold_s": 173.7808273749979
+}
