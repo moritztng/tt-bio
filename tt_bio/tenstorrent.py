@@ -462,6 +462,47 @@ def _sdpa_program_config_for_lengths(q_len: int, k_len: int) -> ttnn.SDPAProgram
     )
 
 
+# Kill switch so a fold-level A/B can run both arms without a checkout. NOT bit-exact either way --
+# see _tri_att_k_chunk.
+_SDPA_K_DIVIDES = os.environ.get("TT_BIO_SDPA_K_DIVIDES", "1") != "0"
+
+
+@lru_cache(maxsize=None)
+def _tri_att_k_chunk(k_len: int) -> int:
+    """The widest k_chunk at or under the cap that DIVIDES the padded key length.
+
+    `_tri_att_q_chunks` already enforces this rule on q, and its docstring gives the reason: the
+    kernel reads and computes a padded_q x padded_k mask grid, and that mask is 84 % of the op's
+    read traffic, so a chunk that does not divide the sequence pays for padding that carries no
+    information. The rule was never applied to k. At 512 the capped 256 divides the sequence and
+    the omission is invisible; at 576 it pads the key axis to 768, and it also sets
+    `use_padded_mask`, which is the one clause of K2's `fill_preconditions` guard that fails -- so
+    the persistent-mask kernel declined 100 % of BoltzGen's triangle attention calls
+    (5184 rejects = 1728 calls x 3 q_chunk candidates, `perf/bgdeep/census_R3_n3.json`).
+
+    MEASURED on qb1 card 1 at ttnn 0.67.4, the bg_R3 production shape
+    (B, H, Sq, Sk, D) = (576, 4, 576, 576, 32), q_chunk 576, median of 7 after 2 warm, benchlocked
+    (`perf/triatt_kchunk/screen_c1.json`):
+
+        stock SDPA, k_chunk 256 (padded to 768)   7.480 ms
+        stock SDPA, k_chunk 192 (divides 576)     4.901 ms   1.526x
+        K2 fused, k_chunk 192                     2.389 ms   3.131x
+
+    k_chunk 288 is a further 8 % on the call but drops PCC to 0.9999985 against 192's 1.0000000,
+    and it is over the cap, so it is not taken. Changing the k reduction width is NOT bit-exact --
+    the online softmax reduces over k -- so this is release-gated.
+    """
+    capped = _capped_sdpa_chunk_size(k_len)
+    padded = _padded_sdpa_len(k_len)
+    if not _SDPA_K_DIVIDES or padded % capped == 0:
+        return capped
+    # Floor at half the cap. A divisor below that more than doubles the k-chunk count, which trades
+    # the padding away for reduction-loop overhead the 256-cap sweep never measured; 704 and 832
+    # have no divisor at or above 128 and keep the shipped pick unchanged rather than falling to 64.
+    fits = [c for c in range(capped, SDPA_CHUNK_MAX // 2 - 1, -SDPA_CHUNK_TILE) if padded % c == 0]
+    return fits[0] if fits else capped
+
+
 @lru_cache(maxsize=None)
 def _sdpa_chunks_shipped(q_len: int, k_len: int) -> tuple:
     # Microbench M7/M7b/M7c (Blackhole 13x10, tri-att shape batch=seq, h=8, d=32):
@@ -473,7 +514,7 @@ def _sdpa_chunks_shipped(q_len: int, k_len: int) -> tuple:
     # _tri_att_q_chunks, which is bit-exact, and k stays exactly here.
     if 256 < q_len <= 384 and 256 < k_len <= 384:
         return (64, 64)
-    return (_capped_sdpa_chunk_size(q_len), _capped_sdpa_chunk_size(k_len))
+    return (_capped_sdpa_chunk_size(q_len), _tri_att_k_chunk(k_len))
 
 
 @lru_cache(maxsize=None)

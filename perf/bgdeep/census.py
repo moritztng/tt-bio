@@ -53,6 +53,10 @@ def main() -> int:
     ap.add_argument("--num-designs", type=int, default=2)
     ap.add_argument("--steps", default="design")
     ap.add_argument("--out", default=None)
+    ap.add_argument("--seed", type=int, default=None,
+                    help="re-seed torch at sampler entry, so two arms share draws "
+                         "(BoltzGen has no --seed and two untraced runs diverge ~9-10 A)")
+    ap.add_argument("--workdir", default=None)
     a = ap.parse_args()
 
     here = Path(__file__).resolve().parent
@@ -120,6 +124,9 @@ def main() -> int:
     _orig_sample = AtomDiffusion.sample
 
     def sample(self, *x, **k):
+        if a.seed is not None:
+            import torch
+            torch.manual_seed(a.seed)
         return _t("diffusion:sample_loop", _orig_sample, self, *x, **k)
 
     AtomDiffusion.sample = sample
@@ -178,7 +185,7 @@ def main() -> int:
     installed["stage:Boltz.forward"] = True
 
     # ---- run ------------------------------------------------------------------------------
-    workdir = Path.home() / "bgdeep_out"
+    workdir = Path(a.workdir) if a.workdir else Path.home() / "bgdeep_out"
     if workdir.exists():
         shutil.rmtree(workdir)
     argv = ["run", str(spec), "--output", str(workdir),
@@ -200,6 +207,10 @@ def main() -> int:
         "wheel": md.version("ttnn"), "host": socket.gethostname(),
         "card": os.environ.get("TT_VISIBLE_DEVICES"), "spec": str(spec),
         "protocol": a.protocol, "num_designs": a.num_designs, "steps": a.steps,
+        "seed": a.seed, "workdir": str(workdir),
+        "env": {k2: os.environ.get(k2) for k2 in
+                ("TT_BIO_SDPA_K_DIVIDES", "TT_BIO_TRIATT_PERSISTENT_MASK",
+                 "TT_BIO_SDPA_WIDE_Q")},
         "wall_s": round(wall, 3),
         "s_per_design": round(wall / max(1, a.num_designs), 3),
         "designs_per_hour": round(3600.0 * a.num_designs / wall, 2),
