@@ -228,9 +228,9 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 44.88,
+          "s_per_fold": 44.535,
           "parity": "bit-exact",
-          "ref": "44.886 / 44.872 s, the two folds of this arm inside one alternating four-fold run under benchlock (perf/of3x3/ab_512_shard_qb2c0.json), A/A floor 0.014 s against a 6.31 s effect. The lever is TriangleAttention's fp32-softmax tail run height-sharded in L1 instead of DRAM-interleaved, merged from wk/openfold3-to-3x-perdollar; the control arm without it, in the same run, is 51.19 s. Bit-exact: CIF sha256 da9b4ed68f8c0405 and plDDT 0.547851 unchanged on both arms, and the digest holds across arms at 768 and 1024 aa too."
+          "ref": "Four warm folds of the shipped default on main after the merge, one process under benchlock on qb2 card 3 (perf/of3x3/ab_512_postmerge_qb2c3.json): 44.512 / 44.577 / 44.559 / 44.451 s, median 44.535, spread 0.126 s. The lever is TriangleAttention's fp32-softmax tail run height-sharded in L1 instead of DRAM-interleaved, merged from wk/openfold3-to-3x-perdollar; the control arm without it, in an alternating run on the branch, is 51.19 s. Bit-exact: CIF sha256 da9b4ed68f8c0405 and plDDT 0.547851 on all four folds, the same digest the control arm produced, and it holds at 768 and 1024 aa too."
         },
         "h200": {
           "status": "measured",
