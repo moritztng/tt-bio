@@ -1,0 +1,103 @@
+benchlock: openfold3-sizes-perf acquired after 0s, loadavg 0.89 1.79 2.37
+2026-08-13 01:39:20.269 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+=== openfold3 size 768 rec=3 steps=200: cold ===
+  [fold] sample 0: xl_final std=17.0072 range=[-43.56,44.25]
+  cold 228.66s n_tokens=768 plddt=0.551688
+  fp32_softmax attention modules: 168 {'trunk': 144, 'template': 4, 'msa': 8, 'confidence': 12}
+      CENSUS unowned|AttentionPairBias|384|True               192
+      CENSUS unowned|TriangleAttention|64|True                64
+      CENSUS unowned|TriangleAttention|128|True               424
+  [fold] sample 0: xl_final std=17.0072 range=[-43.56,44.25]
+  on: fold 141.71s  block 100410.59 ms over 240 calls  plddt 0.551688
+      owners {'confidence': [True], 'msa': [True], 'template': [True], 'trunk': [True]}
+      CENSUS confidence|TriangleAttention|128|True            8
+      CENSUS msa|TriangleAttention|128|True                   32
+      CENSUS template|TriangleAttention|64|True               64
+      CENSUS trunk|AttentionPairBias|384|True                 192
+      CENSUS trunk|TriangleAttention|128|True                 384
+      FP32SOFT {'block_bytes': 8589934592, 'fused_add': True, 'calls': 488, 'blocked': 0, 'blocks': 0, 'fused': 488, 'unfused': 0}  hchunk 32  l1out True
+      K1 424/64 {'head_dim_or_width:(768, 768, 64)': 64}  K2 0/0 {}  E6 [True, [0, 0]]
+      DEC qkv_mm_config|kt=2,nt=12                       {'config': 128}
+      DEC qkv_mm_config|kt=2,nt=2                        {'config': 64}
+      DEC qkv_mm_config|kt=4,nt=12                       {'config': 424}
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 424}
+      DEC transpose|768x768x128                          {'DRAM': 424}
+      DEC transpose|768x768x64                           {'L1': 64}
+  [fold] sample 0: xl_final std=17.0072 range=[-43.56,44.25]
+  nofuse: fold 159.22s  block 117138.56 ms over 240 calls  plddt 0.551688
+      owners {'confidence': [True], 'msa': [True], 'template': [True], 'trunk': [True]}
+      CENSUS confidence|TriangleAttention|128|True            8
+      CENSUS msa|TriangleAttention|128|True                   32
+      CENSUS template|TriangleAttention|64|True               64
+      CENSUS trunk|AttentionPairBias|384|True                 192
+      CENSUS trunk|TriangleAttention|128|True                 384
+      FP32SOFT {'block_bytes': 8589934592, 'fused_add': False, 'calls': 488, 'blocked': 0, 'blocks': 0, 'fused': 0, 'unfused': 488}  hchunk 32  l1out True
+      K1 424/64 {'head_dim_or_width:(768, 768, 64)': 64}  K2 0/0 {}  E6 [True, [0, 0]]
+      DEC qkv_mm_config|kt=2,nt=12                       {'config': 128}
+      DEC qkv_mm_config|kt=2,nt=2                        {'config': 64}
+      DEC qkv_mm_config|kt=4,nt=12                       {'config': 424}
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 424}
+      DEC transpose|768x768x128                          {'DRAM': 424}
+      DEC transpose|768x768x64                           {'L1': 64}
+  [fold] sample 0: xl_final std=17.0072 range=[-43.56,44.25]
+  on: fold 142.19s  block 100241.93 ms over 240 calls  plddt 0.551688
+      owners {'confidence': [True], 'msa': [True], 'template': [True], 'trunk': [True]}
+      CENSUS confidence|TriangleAttention|128|True            8
+      CENSUS msa|TriangleAttention|128|True                   32
+      CENSUS template|TriangleAttention|64|True               64
+      CENSUS trunk|AttentionPairBias|384|True                 192
+      CENSUS trunk|TriangleAttention|128|True                 384
+      FP32SOFT {'block_bytes': 8589934592, 'fused_add': True, 'calls': 488, 'blocked': 0, 'blocks': 0, 'fused': 488, 'unfused': 0}  hchunk 32  l1out True
+      K1 424/64 {'head_dim_or_width:(768, 768, 64)': 64}  K2 0/0 {}  E6 [True, [0, 0]]
+      DEC qkv_mm_config|kt=2,nt=12                       {'config': 128}
+      DEC qkv_mm_config|kt=2,nt=2                        {'config': 64}
+      DEC qkv_mm_config|kt=4,nt=12                       {'config': 424}
+      DEC qkv_mm_config|kt=4,nt=4                        {'config': 424}
+      DEC transpose|768x768x128                          {'DRAM': 424}
+      DEC transpose|768x768x64                           {'L1': 64}
+{
+ "768": {
+  "on": {
+   "fold_s": [
+    141.713,
+    142.192
+   ],
+   "block_ms": [
+    100410.59,
+    100241.93
+   ],
+   "plddt": [
+    0.551688,
+    0.551688
+   ],
+   "n": 2,
+   "fold_s_median": 141.952,
+   "fold_s_min": 141.713,
+   "fold_s_spread": 0.479,
+   "block_ms_median": 100326.26,
+   "block_ms_spread": 168.66
+  },
+  "nofuse": {
+   "fold_s": [
+    159.225
+   ],
+   "block_ms": [
+    117138.56
+   ],
+   "plddt": [
+    0.551688
+   ],
+   "n": 1,
+   "fold_s_median": 159.225,
+   "fold_s_min": 159.225,
+   "fold_s_spread": 0.0,
+   "block_ms_median": 117138.56,
+   "block_ms_spread": 0.0
+  },
+  "aa_floor_fold_s": 0.479,
+  "aa_floor_block_ms": 168.66
+ }
+}
+wrote perf/of3sizes/ab_768_qb1c0.json
+benchlock: openfold3-sizes-perf released, rc=0, loadavg 3.68 2.04 2.13

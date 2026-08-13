@@ -1,0 +1,133 @@
+{
+ "host": "tt-quietbox",
+ "card": "0",
+ "ttnn": "0.67.4",
+ "n_heads": 4,
+ "head_dim": 32,
+ "block_bytes": 8589934592,
+ "rows": [
+  {
+   "S": 256,
+   "score_fp32_GiB": 0.25,
+   "stock_ms": 7.697,
+   "stock_all_ms": [
+    7.659,
+    7.674,
+    7.679,
+    7.697,
+    7.714,
+    7.718,
+    7.747
+   ],
+   "stock_stats": {
+    "calls": 9,
+    "blocked": 0,
+    "blocks": 0,
+    "fused": 0,
+    "unfused": 9
+   },
+   "fused_ms": 6.367,
+   "fused_all_ms": [
+    6.346,
+    6.36,
+    6.366,
+    6.367,
+    6.369,
+    6.379,
+    6.542
+   ],
+   "fused_stats": {
+    "calls": 9,
+    "blocked": 0,
+    "blocks": 0,
+    "fused": 9,
+    "unfused": 0
+   },
+   "torch_equal": true,
+   "max_abs_diff": 0.0,
+   "speedup": 1.2089
+  },
+  {
+   "S": 512,
+   "score_fp32_GiB": 2.0,
+   "stock_ms": 62.595,
+   "stock_all_ms": [
+    62.402,
+    62.53,
+    62.552,
+    62.595,
+    62.61,
+    62.615,
+    62.933
+   ],
+   "stock_stats": {
+    "calls": 9,
+    "blocked": 0,
+    "blocks": 0,
+    "fused": 0,
+    "unfused": 9
+   },
+   "fused_ms": 51.897,
+   "fused_all_ms": [
+    51.774,
+    51.814,
+    51.844,
+    51.897,
+    51.952,
+    51.959,
+    52.184
+   ],
+   "fused_stats": {
+    "calls": 9,
+    "blocked": 0,
+    "blocks": 0,
+    "fused": 9,
+    "unfused": 0
+   },
+   "torch_equal": true,
+   "max_abs_diff": 0.0,
+   "speedup": 1.2061
+  },
+  {
+   "S": 768,
+   "score_fp32_GiB": 6.75,
+   "stock_ms": 205.724,
+   "stock_all_ms": [
+    204.827,
+    205.33,
+    205.647,
+    205.724,
+    206.195,
+    206.624,
+    206.642
+   ],
+   "stock_stats": {
+    "calls": 9,
+    "blocked": 0,
+    "blocks": 0,
+    "fused": 0,
+    "unfused": 9
+   },
+   "fused_ms": 169.62,
+   "fused_all_ms": [
+    168.853,
+    169.336,
+    169.562,
+    169.62,
+    169.787,
+    169.845,
+    170.472
+   ],
+   "fused_stats": {
+    "calls": 9,
+    "blocked": 0,
+    "blocks": 0,
+    "fused": 9,
+    "unfused": 0
+   },
+   "torch_equal": true,
+   "max_abs_diff": 0.0,
+   "speedup": 1.2129
+  }
+ ]
+}

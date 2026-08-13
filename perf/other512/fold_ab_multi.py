@@ -91,7 +91,12 @@ def _collect_fp32(root, seen=None, depth=0):
     return out
 
 ARMS = ("on", "e6", "noe6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hifi",
-        "nonewmm", "oldkey", "nofp32_trunk", "nofp32_msatmpl", "nos2")
+        "nonewmm", "oldkey", "nofp32_trunk", "nofp32_msatmpl", "nos2",
+        # openfold3-sizes-perf. `nofuse` is the pre-change baseline for the fp32-softmax chain
+        # (scale as its own pass, out-of-place softmax); `norowblk` lifts the row-block budget so
+        # the score tensor is one allocation whatever its size, which is what refuses at 1024 aa.
+        # `hchunk16` and `noL1out` ablate the two levers whose gates are only live BELOW 384 aa.
+        "nofuse", "norowblk", "blk4g", "hchunk16", "noL1out", "pre")
 
 # Which sites each arm routes onto the fused SDPA. The confidence head is never in a flip set:
 # it stays on `_fp32_softmax_attention` on every arm, deliberately, so plDDT reports on the
@@ -387,6 +392,16 @@ def main():
 
         T._PAIR_PROJ_L1_OUT = T._PAIR_BIAS_L1_NORM = True
         T._PWA_L1_NORM = T._TEMPLATE_L1_NORM = True
+        # openfold3-sizes-perf arms. These come AFTER the blanket _PAIR_PROJ_L1_OUT assignment
+        # above, or `noL1out` silently reads identical to `on`.
+        # `pre` is main verbatim: neither lever. It is the control that says whether
+        # 1024 aa folded before this branch, at the fold rather than off it.
+        T._FP32_SOFTMAX_FUSED_ADD = name not in ("nofuse", "pre")
+        T._FP32_SOFTMAX_BLOCK_BYTES = (1 << 62) if name in ("norowblk", "pre") else (
+            (4 << 30) if name == "blk4g" else (8 << 30))
+        T.FP32_SOFTMAX_STATS.update(calls=0, blocked=0, blocks=0, fused=0, unfused=0)
+        T.TRANSITION_H_CHUNK_SIZE_BIG = 16 if name == "hchunk16" else 32
+        T._PAIR_PROJ_L1_OUT = name != "noL1out"
         T._pair_proj_program_config.cache_clear()
         T._tri_att_q_chunks.cache_clear()
         T._L1_OUT_REFUSED.clear()
@@ -475,6 +490,11 @@ def main():
                                        "declined": PM.STATS[1],
                                        "rejects": {f"{r}:{sh}": n for (r, sh), n in PM.REJECTS.items()}},
                    "transpose_l1_headroom": T._TRANSPOSE_L1_HEADROOM,
+                   "fp32_softmax_chain": {"block_bytes": T._FP32_SOFTMAX_BLOCK_BYTES,
+                                          "fused_add": T._FP32_SOFTMAX_FUSED_ADD,
+                                          **dict(T.FP32_SOFTMAX_STATS)},
+                   "transition_h_chunk_size_big": T.TRANSITION_H_CHUNK_SIZE_BIG,
+                   "pair_proj_l1_out": T._PAIR_PROJ_L1_OUT,
                    "atom_pad_in_tile": T._ATOM_PAD_IN_TILE,
                    "fp32_softmax_modules": len(FP32_OWNERS),
                    "sdpa_ckc_override": (None if PM._CKC_OVERRIDE is None
@@ -516,6 +536,9 @@ def main():
             print(f"      owners {rec['fp32_on_by_owner']}", flush=True)
             for k, v in sorted(CALLS.items()):
                 print(f"      CENSUS {'|'.join(map(str, k)):48s} {v}", flush=True)
+            print(f"      FP32SOFT {rec['fp32_softmax_chain']}  hchunk "
+                  f"{rec['transition_h_chunk_size_big']}  l1out {rec['pair_proj_l1_out']}",
+                  flush=True)
             print(f"      K1 {rec['head_major_qkv']['served']}/{rec['head_major_qkv']['declined']} "
                   f"{rec['head_major_qkv']['rejects']}  K2 {rec['persistent_mask']['served']}/"
                   f"{rec['persistent_mask']['declined']} {rec['persistent_mask']['rejects']}  "

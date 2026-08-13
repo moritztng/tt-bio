@@ -1,0 +1,70 @@
+{
+ "host": "qb1",
+ "card": "0",
+ "ttnn": "0.67.4",
+ "n_heads": 4,
+ "head_dim": 32,
+ "rows": [
+  {
+   "S": 512,
+   "block_rows": 256,
+   "score_elems": 536870912,
+   "score_fp32_GiB": 2.0,
+   "score_bf16_GiB": 1.0,
+   "qkv_MiB_each": 64.0,
+   "blocked_ms": 64.13391999990381,
+   "blocked_all_ms": [
+    63.920503999952416,
+    64.13391999990381,
+    64.16281899987553
+   ],
+   "full_ms": 62.537684000062654,
+   "full_all_ms": [
+    62.49168599993027,
+    62.537684000062654,
+    62.54058500007886
+   ],
+   "torch_equal": true,
+   "max_abs_diff": 0.0,
+   "blocked_over_full": 1.0255243862219068
+  },
+  {
+   "S": 768,
+   "block_rows": 96,
+   "score_elems": 1811939328,
+   "score_fp32_GiB": 6.75,
+   "score_bf16_GiB": 3.375,
+   "qkv_MiB_each": 144.0,
+   "blocked_ms": 209.27876900009323,
+   "blocked_all_ms": [
+    208.95575800000188,
+    209.27876900009323,
+    209.6356659999401
+   ],
+   "full_ms": 205.59522799999286,
+   "full_all_ms": [
+    204.78779999984908,
+    205.59522799999286,
+    205.6152600000587
+   ],
+   "torch_equal": true,
+   "max_abs_diff": 0.0,
+   "blocked_over_full": 1.0179164712913498
+  },
+  {
+   "S": 1024,
+   "block_rows": 64,
+   "score_elems": 4294967296,
+   "score_fp32_GiB": 16.0,
+   "score_bf16_GiB": 8.0,
+   "qkv_MiB_each": 256.0,
+   "blocked_ms": 491.9176210000842,
+   "blocked_all_ms": [
+    491.85789800003477,
+    491.9176210000842,
+    491.9549480000569
+   ],
+   "full_ms": "REFUSED: RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 17179869184 B DRAM buffer across 8 banks, where each bank needs to store 2147483648 B, but bank size is 4278190016 B (allocated: 2249363456 B, free: 2028826560 B, largest free block: 1107296256 B)\nbacktrace:\n --- /home/ttuser/.local/lib/python3.10/site-packages/ttnn/build/lib/l"
+  }
+ ]
+}

@@ -1,0 +1,19 @@
+benchlock: openfold3-sizes-perf acquired after 45s, loadavg 1.65 3.13 2.95
+2026-08-13 01:32:55.813 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+=== openfold3 size 1024 rec=3 steps=200: cold ===
+2026-08-13 01:33:26.341 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 134217728 B L1 buffer across 130 banks, where each bank needs to store 1034240 B, but bank size is 1461760 B (allocated: 1034240 B, free: 427520 B, largest free block: 427520 B) (assert.hpp:104)
+  [fold] sample 0: xl_final std=17.8426 range=[-43.52,47.54]
+  cold 303.59s n_tokens=1024 plddt=0.527724
+  fp32_softmax attention modules: 168 {'trunk': 144, 'template': 4, 'msa': 8, 'confidence': 12}
+      CENSUS unowned|AttentionPairBias|384|True               192
+      CENSUS unowned|TriangleAttention|64|True                64
+      CENSUS unowned|TriangleAttention|128|True               424
+2026-08-13 01:38:27.216 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 134217728 B L1 buffer across 130 banks, where each bank needs to store 1034240 B, but bank size is 1461760 B (allocated: 1034240 B, free: 427520 B, largest free block: 427520 B) (assert.hpp:104)
+2026-08-13 01:38:27.308 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 17179869184 B DRAM buffer across 8 banks, where each bank needs to store 2147483648 B, but bank size is 4278190016 B (allocated: 2950310400 B, free: 1327879616 B, largest free block: 1073741824 B) (assert.hpp:104)
+  pre FAILED: RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false
+info:
+Out of Memory: Not enough space to allocate 17179869184 B DRAM buffer across 8 banks, where each bank needs to store 2147483648 B, but bank size is 4278190016 B (allocated: 2950310400 B, free: 1327879616 B, largest free bl
+{}
+wrote perf/of3sizes/pre_1024_qb1c0.json
+benchlock: openfold3-sizes-perf released, rc=0, loadavg 2.22 2.15 2.52

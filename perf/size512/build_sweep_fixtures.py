@@ -6,8 +6,9 @@ a fresh ColabFold search puts a network dependency and an unreproducible alignme
 of a leg whose product is a boolean, and the AbAg complexes are multimers that `seed_msa_cache`
 refuses and whose MSA pairing would be a second variable.
 
-So the sweep is prot300 (CDK2, 298 aa, 35 sequences) tandem-doubled to 596 match columns and cut
-to each target length. Doubling a query and doubling every aligned row gives a well-formed a3m,
+So the sweep is prot300 (CDK2, 298 aa, 35 sequences) tandem-repeated ceil(L/298) times and cut
+to each target length. Doubling covers everything up to 596; 768 and 1024 need three and four
+copies, and the repeat count is derived from L so no size needs its own rule. Doubling a query and doubling every aligned row gives a well-formed a3m,
 so depth stays exactly 35 at every size and token count is the only variable -- the same contract
 `tt_baseline.py` states for its own two targets. L=298 reproduces the original fixture, which is
 the self-check.
@@ -23,7 +24,8 @@ ROOT = Path(__file__).resolve().parents[2]
 SRC_A3M = ROOT / "scripts/gpu_vs_tt/fixtures/prot300.a3m"
 SRC_YAML = ROOT / "examples/prot300.yaml"
 OUT = Path(__file__).resolve().parent / "fixtures"
-SIZES = [298, 320, 352, 384, 448, 512]
+SIZES = [128, 256, 298, 320, 352, 384, 448, 512, 768, 1024]
+REPEAT = lambda L: -(-L // 298)   # tandem copies needed to reach L match columns
 
 
 def cut(row: str, ncols: int) -> str:
@@ -50,13 +52,13 @@ def main():
     assert all(h.startswith(">") for h in heads), "a3m is not strict header/row pairs"
     query = rows[0]
     assert query == query.upper(), "query row carries insertions"
-    doubled = [r + r for r in rows]
     OUT.mkdir(parents=True, exist_ok=True)
     yaml_src = SRC_YAML.read_text()
     made = []
     for L in SIZES:
-        seq = (query + query)[:L]
-        a3m = "\n".join(f"{h}\n{cut(r, L)}" for h, r in zip(heads, doubled)) + "\n"
+        reps = REPEAT(L)
+        seq = (query * reps)[:L]
+        a3m = "\n".join(f"{h}\n{cut(r * reps, L)}" for h, r in zip(heads, rows)) + "\n"
         a3m_rows = a3m.split("\n")
         assert a3m_rows[1] == seq, f"L={L}: a3m query row != target sequence"
         (OUT / f"cdk2x2_{L}.a3m").write_text(a3m)
