@@ -1,0 +1,1 @@
+wall(1)=24.33s wall(3)=55.79s marginal=15.73 s/design => 0.0636 designs/sec
