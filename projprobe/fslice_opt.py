@@ -169,7 +169,7 @@ def main():
         nx, ny = 13, 10
         n = nx * ny
         timings = {}
-        for mode, fr, nf in ((1, frac1, 2), (4, frac4, 2), (5, frac5, 3)):
+        for mode, fr, nf in ((1, frac1, 2), (4, frac4, 2), (5, frac5, 3), (6, frac5, 3)):
             out = ttnn.from_torch(torch.zeros(1, 1, 32 * NB * n, 32).to(torch.bfloat16),
                                   dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
             pd = build(dev, x, sel, fr, out, nx, ny, offs_by, mode, NB, nf)
@@ -196,6 +196,10 @@ def main():
             ttnn.deallocate(out)
         print(f"\nlever 1: host-precomputed M and frac(q)  {timings[1]/timings[4]:.3f}x "
               f"({timings[1]-timings[4]:.1f} ns/tile)", flush=True)
+        print(f"tilize cost (mode 5 - mode 6, mode 6 is a COST PROBE with a wrong result): "
+              f"{timings[5]-timings[6]:.1f} ns/tile, {100*(timings[5]-timings[6])/timings[5]:.0f}% of mode 5",
+              flush=True)
+        res["tilize_cost_ns"] = timings[5] - timings[6]
         print(f"lever 2: coefficient form on the FPU     {timings[4]/timings[5]:.3f}x "
               f"({timings[4]-timings[5]:.1f} ns/tile)   cumulative {timings[1]/timings[5]:.3f}x",
               flush=True)

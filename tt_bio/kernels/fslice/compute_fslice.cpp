@@ -38,6 +38,11 @@
 //   0 tilize only   1 full pass   2 emit T0 (selection matmul)   3 emit the weight tile w
 //   4 full pass with M and frac(q) precomputed on the host
 //   5 full pass as out = c0*T0 + c1*T1 + c2*T2, coefficients precomputed on the host
+//   6 mode 5 with the tilize HOISTED out of the block loop -- a cost probe, not a
+//     correct kernel: every block reuses one window, so the output is wrong on purpose.
+//     mode 5 minus mode 6 is the tilize, including its per-block init/uninit
+//     reconfiguration, which is what decides whether batching output tiles per block is
+//     worth building.
 //
 // Mode 5 chases the rest of the SFPU bill. Expanding the three lerps and folding M and
 // frac(q) in gives out = c0*T0 + c1*T1 + c2*T2 with
@@ -105,6 +110,46 @@ void kernel_main() {
 
     cb_wait_front(cb_sel, 3 * src_tiles);
     cb_wait_front(cb_frac, 2);
+
+    if constexpr (mode == 6) {
+        // Tilize exactly one window, before the loop, and never again.
+        cb_wait_front(cb_src, src_tiles);
+        tilize_init(cb_src, src_tiles, cb_til);
+        cb_reserve_back(cb_til, src_tiles);
+        tilize_block(cb_src, src_tiles, cb_til);
+        cb_push_back(cb_til, src_tiles);
+        tilize_uninit(cb_src, cb_til);
+        cb_wait_front(cb_til, src_tiles);
+        cb_pop_front(cb_src, src_tiles);
+
+        for (uint32_t b = 0; b < nblocks; ++b) {
+            if (b) {
+                cb_wait_front(cb_src, src_tiles);
+                cb_pop_front(cb_src, src_tiles);
+            }
+            cb_reserve_back(cb_out, one);
+            tile_regs_acquire();
+            mm_init(cb_til, cb_sel, cb_out, 0);
+            for (uint32_t k = 0; k < src_tiles; ++k) {
+                matmul_tiles(cb_til, cb_sel, k, k, DST_T0);
+                matmul_tiles(cb_til, cb_sel, k, src_tiles + k, DST_T1);
+                matmul_tiles(cb_til, cb_sel, k, 2 * src_tiles + k, DST_T2);
+            }
+            binary_dest_reuse_tiles_init<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac);
+            binary_dest_reuse_tiles<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac, 0, DST_T0);
+            binary_dest_reuse_tiles<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac, 1, DST_T1);
+            binary_dest_reuse_tiles<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac, 2, DST_T2);
+            add_binary_tile_init();
+            add_binary_tile(DST_T0, DST_T1, DST_BASE);
+            add_binary_tile(DST_BASE, DST_T2, DST_OUT);
+            tile_regs_commit();
+            tile_regs_wait();
+            pack_tile(DST_OUT, cb_out);
+            tile_regs_release();
+            cb_push_back(cb_out, one);
+        }
+        return;
+    }
 
     for (uint32_t b = 0; b < nblocks; ++b) {
         cb_wait_front(cb_src, src_tiles);
