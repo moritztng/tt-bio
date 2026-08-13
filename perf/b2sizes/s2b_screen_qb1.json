@@ -1,0 +1,128 @@
+{
+ "host": "tt-quietbox",
+ "card": "0",
+ "grid": [
+  13,
+  10
+ ],
+ "heads": 4,
+ "dh": 32,
+ "reps": 7,
+ "runs": [
+  {
+   "N": 768,
+   "shape": [
+    768,
+    4,
+    768,
+    32
+   ],
+   "arms": {
+    "A_shipped": {
+     "q_parallel": false,
+     "ms_median": 11.168,
+     "ms_min": 11.087,
+     "ms_all": [
+      11.44,
+      11.087,
+      11.18,
+      11.19,
+      11.168,
+      11.168,
+      11.164
+     ],
+     "k2_served": 0,
+     "k2_declined": 14,
+     "k2_rejects": {
+      "fill_preconditions:(768, 4, 768, 32)": 14
+     },
+     "sdpa_q_chunk_over_l1": [
+      "(768, 768, 768)"
+     ]
+    },
+    "B_q_parallel": {
+     "q_parallel": true,
+     "ms_median": 3.867,
+     "ms_min": 3.86,
+     "ms_all": [
+      3.921,
+      3.893,
+      3.87,
+      3.86,
+      3.866,
+      3.863,
+      3.867
+     ],
+     "k2_served": 7,
+     "k2_declined": 0,
+     "k2_rejects": {},
+     "sdpa_q_chunk_over_l1": [
+      "(768, 768, 768)"
+     ]
+    }
+   },
+   "torch_equal": true,
+   "max_abs_diff": 0.0,
+   "speedup": 2.888
+  },
+  {
+   "N": 1024,
+   "shape": [
+    1024,
+    4,
+    1024,
+    32
+   ],
+   "arms": {
+    "A_shipped": {
+     "q_parallel": false,
+     "ms_median": 25.171,
+     "ms_min": 25.103,
+     "ms_all": [
+      25.199,
+      25.114,
+      25.135,
+      25.186,
+      25.103,
+      25.171,
+      25.183
+     ],
+     "k2_served": 0,
+     "k2_declined": 14,
+     "k2_rejects": {
+      "fill_preconditions:(1024, 4, 1024, 32)": 14
+     },
+     "sdpa_q_chunk_over_l1": [
+      "(1024, 1024, 1024)",
+      "(768, 768, 768)"
+     ]
+    },
+    "B_q_parallel": {
+     "q_parallel": true,
+     "ms_median": 8.704,
+     "ms_min": 8.616,
+     "ms_all": [
+      8.704,
+      8.632,
+      8.616,
+      8.684,
+      8.761,
+      8.741,
+      8.737
+     ],
+     "k2_served": 7,
+     "k2_declined": 0,
+     "k2_rejects": {},
+     "sdpa_q_chunk_over_l1": [
+      "(1024, 1024, 1024)",
+      "(1024, 1024, 512)",
+      "(768, 768, 768)"
+     ]
+    }
+   },
+   "torch_equal": true,
+   "max_abs_diff": 0.0,
+   "speedup": 2.8919
+  }
+ ]
+}
