@@ -160,7 +160,13 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
     cfg = dict(
         model=model, fast=False, output_format="cif",
         recycling_steps=RECYCLING_STEPS, sampling_steps=SAMPLING_STEPS,
-        diffusion_samples=samples, seed=SEED, trace=False,
+        diffusion_samples=samples, seed=SEED,
+        # TT_BIO_BASE_TRACE=1 folds through the captured diffusion trace, the path
+        # `tt-bio predict --trace` takes: worker.py forwards cfg["trace"] to the model fold and
+        # get_device() picks the region up from TT_BIO_TRACE_REGION_SIZE. With no region
+        # OpenDDE.fold raises instead of silently running the untraced stream, so a trace arm
+        # cannot quietly re-measure its own twin.
+        trace=os.environ.get("TT_BIO_BASE_TRACE") == "1",
         msa_dir=str(msa_dir), struct_dir=str(struct_dir),
         use_msa_server=True, msa_db_path=None, use_envdb=False, msa_endpoint=None,
         single_sequence=False, msa_server_url="https://api.colabfold.com",
