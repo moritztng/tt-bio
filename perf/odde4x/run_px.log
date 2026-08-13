@@ -1,0 +1,133 @@
+benchlock: opendde-to-4x acquired after 0s, loadavg 0.57 0.77 0.81
+2026-08-12 15:14:29.938 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+=== protenix-v2 size 512 rec=10 steps=200: cold ===
+  cold 61.97s n_tokens=512 plddt=0.828628
+  fp32_softmax attention modules: 0 {}
+      CENSUS unowned|AttentionPairBias|384|False              484
+      CENSUS unowned|AttentionPairBias|768|False              4800
+      CENSUS unowned|TriangleAttention|64|False               160
+      CENSUS unowned|TriangleAttention|256|False              1048
+  on: fold 58.60s  block 44016.02 ms over 604 calls  plddt 0.828628
+      owners {}
+      CENSUS unowned|AttentionPairBias|384|False              484
+      CENSUS unowned|AttentionPairBias|768|False              4800
+      CENSUS unowned|TriangleAttention|64|False               160
+      CENSUS unowned|TriangleAttention|256|False              1048
+      K1 1048/160 {'no_mm_config:(512, 512, 64)': 160}  K2 1208/0 {}  E6 [False, [0, 0]]
+      DEC qkv_mm_config|kt=2,nt=2                        {'config': 160}
+      DEC qkv_mm_config|kt=2,nt=6                        {'None': 320}
+      DEC qkv_mm_config|kt=8,nt=0                        {'None': 1048}
+      DEC qkv_mm_config|kt=8,nt=24                       {'config': 1048}
+      DEC qkv_mm_config|kt=8,nt=8                        {'config': 3144}
+      DEC transpose|512x512x256                          {'DRAM': 1048}
+      DEC transpose|512x512x64                           {'L1': 160}
+      DEC tri_att_sdpa|q512k512                          {'q_chunk=512': 1208}
+  k1def: fold 59.31s  block 44747.29 ms over 604 calls  plddt 0.828628
+      owners {}
+      CENSUS unowned|AttentionPairBias|384|False              484
+      CENSUS unowned|AttentionPairBias|768|False              4800
+      CENSUS unowned|TriangleAttention|64|False               160
+      CENSUS unowned|TriangleAttention|256|False              1048
+      K1 1048/160 {'no_mm_config:(512, 512, 64)': 160}  K2 1208/0 {}  E6 [False, [0, 0]]
+      DEC qkv_mm_config|kt=2,nt=2                        {'config': 160}
+      DEC qkv_mm_config|kt=2,nt=6                        {'None': 320}
+      DEC qkv_mm_config|kt=8,nt=0                        {'None': 1048}
+      DEC qkv_mm_config|kt=8,nt=24                       {'config': 1048}
+      DEC qkv_mm_config|kt=8,nt=8                        {'config': 5240}
+      DEC transpose|512x512x256                          {'DRAM': 1048}
+      DEC transpose|512x512x64                           {'L1': 160}
+      DEC tri_att_sdpa|q512k512                          {'q_chunk=512': 1208}
+  mm12: fold 58.94s  block 43979.77 ms over 604 calls  plddt 0.828628
+      owners {}
+      CENSUS unowned|AttentionPairBias|384|False              484
+      CENSUS unowned|AttentionPairBias|768|False              4800
+      CENSUS unowned|TriangleAttention|64|False               160
+      CENSUS unowned|TriangleAttention|256|False              1048
+      K1 1048/160 {'no_mm_config:(512, 512, 64)': 160}  K2 1208/0 {}  E6 [False, [0, 0]]
+      DEC qkv_mm_config|kt=2,nt=2                        {'config': 160}
+      DEC qkv_mm_config|kt=2,nt=6                        {'None': 320}
+      DEC qkv_mm_config|kt=8,nt=0                        {'None': 1048}
+      DEC qkv_mm_config|kt=8,nt=24                       {'config': 1048}
+      DEC qkv_mm_config|kt=8,nt=8                        {'config': 3144}
+      DEC transpose|512x512x256                          {'DRAM': 1048}
+      DEC transpose|512x512x64                           {'L1': 160}
+      DEC tri_att_sdpa|q512k512                          {'q_chunk=512': 1208}
+  on: fold 58.62s  block 43998.52 ms over 604 calls  plddt 0.828628
+      owners {}
+      CENSUS unowned|AttentionPairBias|384|False              484
+      CENSUS unowned|AttentionPairBias|768|False              4800
+      CENSUS unowned|TriangleAttention|64|False               160
+      CENSUS unowned|TriangleAttention|256|False              1048
+      K1 1048/160 {'no_mm_config:(512, 512, 64)': 160}  K2 1208/0 {}  E6 [False, [0, 0]]
+      DEC qkv_mm_config|kt=2,nt=2                        {'config': 160}
+      DEC qkv_mm_config|kt=2,nt=6                        {'None': 320}
+      DEC qkv_mm_config|kt=8,nt=0                        {'None': 1048}
+      DEC qkv_mm_config|kt=8,nt=24                       {'config': 1048}
+      DEC qkv_mm_config|kt=8,nt=8                        {'config': 3144}
+      DEC transpose|512x512x256                          {'DRAM': 1048}
+      DEC transpose|512x512x64                           {'L1': 160}
+      DEC tri_att_sdpa|q512k512                          {'q_chunk=512': 1208}
+{
+ "512": {
+  "on": {
+   "fold_s": [
+    58.602,
+    58.616
+   ],
+   "block_ms": [
+    44016.02,
+    43998.52
+   ],
+   "plddt": [
+    0.828628,
+    0.828628
+   ],
+   "n": 2,
+   "fold_s_median": 58.609,
+   "fold_s_min": 58.602,
+   "fold_s_spread": 0.014,
+   "block_ms_median": 44007.27,
+   "block_ms_spread": 17.5
+  },
+  "k1def": {
+   "fold_s": [
+    59.311
+   ],
+   "block_ms": [
+    44747.29
+   ],
+   "plddt": [
+    0.828628
+   ],
+   "n": 1,
+   "fold_s_median": 59.311,
+   "fold_s_min": 59.311,
+   "fold_s_spread": 0.0,
+   "block_ms_median": 44747.29,
+   "block_ms_spread": 0.0
+  },
+  "mm12": {
+   "fold_s": [
+    58.942
+   ],
+   "block_ms": [
+    43979.77
+   ],
+   "plddt": [
+    0.828628
+   ],
+   "n": 1,
+   "fold_s_median": 58.942,
+   "fold_s_min": 58.942,
+   "fold_s_spread": 0.0,
+   "block_ms_median": 43979.77,
+   "block_ms_spread": 0.0
+  },
+  "aa_floor_fold_s": 0.014,
+  "aa_floor_block_ms": 17.5
+ }
+}
+wrote perf/odde4x/ab_px_leak.json
+benchlock: opendde-to-4x released, rc=0, loadavg 1.71 1.26 1.00
+RC=0

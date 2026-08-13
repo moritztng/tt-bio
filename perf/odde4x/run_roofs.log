@@ -1,0 +1,13 @@
+benchlock: opendde-to-4x acquired after 0s, loadavg 0.19 0.29 0.43
+2026-08-12 14:21:34.877 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+ copy {'shape': [512, 512, 384], 'gb': 0.2013, 'ms': 1.0184, 'read_plus_write_gbs': 395.4}
+ copy {'shape': [512, 512, 512], 'gb': 0.2684, 'ms': 1.3553, 'read_plus_write_gbs': 396.1}
+ copy {'shape': [512, 512, 1152], 'gb': 0.604, 'ms': 3.0109, 'read_plus_write_gbs': 401.2}
+ compute {'n': 2048, 'gflop': 17.2, 'ms': 0.204, 'tflops': 84.2}
+ compute {'n': 3072, 'gflop': 58.0, 'ms': 0.5594, 'tflops': 103.65}
+ compute {'n': 4096, 'gflop': 137.4, 'ms': 1.249, 'tflops': 110.04}
+copy roof 401.2 GB/s   compute roof 110.04 TFLOP/s   balance 274.3 FLOP/byte
+wrote /home/ttuser/.coworker/wt/opendde-to-4x/perf/odde4x/roofs_card1.json
+benchlock: opendde-to-4x released, rc=0, loadavg 0.26 0.31 0.43
+RC=0

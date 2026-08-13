@@ -1,0 +1,139 @@
+benchlock: opendde-to-4x acquired after 30s, loadavg 0.60 1.36 1.03
+2026-08-12 14:37:25.671 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+=== opendde size 512 rec=10 steps=200: cold ===
+2026-08-12 14:38:50.258 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3394048 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+2026-08-12 14:38:50.264 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2343424 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+  cold 99.33s n_tokens=512 plddt=0.754131
+  fp32_softmax attention modules: 0 {}
+      CENSUS unowned|AttentionPairBias|384|False              488
+      CENSUS unowned|AttentionPairBias|768|False              4800
+      CENSUS unowned|TriangleAttention|64|False               160
+      CENSUS unowned|TriangleAttention|384|False              1056
+  on: fold 96.89s  block 78091.26 ms over 608 calls  plddt 0.754131
+      owners {}
+      CENSUS unowned|AttentionPairBias|384|False              488
+      CENSUS unowned|AttentionPairBias|768|False              4800
+      CENSUS unowned|TriangleAttention|64|False               160
+      CENSUS unowned|TriangleAttention|384|False              1056
+      K1 0/1216 {'no_mm_config:(512, 512, 64)': 160, 'no_mm_config:(512, 512, 384)': 1048, 'no_mm_config:(995, 995, 384)': 8}  K2 1208/16 {'fill_preconditions:(995, 12, 995, 32)': 16}  E6 [False, [0, 0]]
+      DEC qkv_mm_config|kt=12,nt=12                      {'None': 1056}
+      DEC qkv_mm_config|kt=12,nt=36                      {'None': 2112}
+      DEC qkv_mm_config|kt=2,nt=2                        {'config': 160}
+      DEC qkv_mm_config|kt=2,nt=6                        {'None': 320}
+      DEC transpose|512x512x384                          {'DRAM': 1048}
+      DEC transpose|512x512x64                           {'L1': 160}
+      DEC transpose|995x995x384                          {'DRAM': 8}
+      DEC tri_att_sdpa|q512k512                          {'q_chunk=512': 1208}
+      DEC tri_att_sdpa|q995k995                          {'q_chunk=512': 8}
+  k1def: fold 94.52s  block 75764.18 ms over 608 calls  plddt 0.754131
+      owners {}
+      CENSUS unowned|AttentionPairBias|384|False              488
+      CENSUS unowned|AttentionPairBias|768|False              4800
+      CENSUS unowned|TriangleAttention|64|False               160
+      CENSUS unowned|TriangleAttention|384|False              1056
+      K1 1056/160 {'no_mm_config:(512, 512, 64)': 160}  K2 1208/16 {'fill_preconditions:(995, 12, 995, 32)': 16}  E6 [False, [0, 0]]
+      DEC qkv_mm_config|kt=12,nt=12                      {'config': 2112}
+      DEC qkv_mm_config|kt=12,nt=36                      {'config': 1056}
+      DEC qkv_mm_config|kt=2,nt=2                        {'config': 160}
+      DEC qkv_mm_config|kt=2,nt=6                        {'None': 320}
+      DEC transpose|512x512x384                          {'DRAM': 1048}
+      DEC transpose|512x512x64                           {'L1': 160}
+      DEC transpose|995x995x384                          {'DRAM': 8}
+      DEC tri_att_sdpa|q512k512                          {'q_chunk=512': 1208}
+      DEC tri_att_sdpa|q995k995                          {'q_chunk=512': 8}
+  k1b: fold 94.29s  block 75526.92 ms over 608 calls  plddt 0.750771
+      owners {}
+      CENSUS unowned|AttentionPairBias|384|False              488
+      CENSUS unowned|AttentionPairBias|768|False              4800
+      CENSUS unowned|TriangleAttention|64|False               160
+      CENSUS unowned|TriangleAttention|384|False              1056
+      K1 1056/160 {'no_mm_config:(512, 512, 64)': 160}  K2 1208/16 {'fill_preconditions:(995, 12, 995, 32)': 16}  E6 [False, [0, 0]]
+      DEC qkv_mm_config|kt=12,nt=12                      {'config': 1056}
+      DEC qkv_mm_config|kt=12,nt=36                      {'config': 1056}
+      DEC qkv_mm_config|kt=2,nt=2                        {'config': 160}
+      DEC qkv_mm_config|kt=2,nt=6                        {'None': 320}
+      DEC transpose|512x512x384                          {'DRAM': 1048}
+      DEC transpose|512x512x64                           {'L1': 160}
+      DEC transpose|995x995x384                          {'DRAM': 8}
+      DEC tri_att_sdpa|q512k512                          {'q_chunk=512': 1208}
+      DEC tri_att_sdpa|q995k995                          {'q_chunk=512': 8}
+  on: fold 96.68s  block 77940.3 ms over 608 calls  plddt 0.754131
+      owners {}
+      CENSUS unowned|AttentionPairBias|384|False              488
+      CENSUS unowned|AttentionPairBias|768|False              4800
+      CENSUS unowned|TriangleAttention|64|False               160
+      CENSUS unowned|TriangleAttention|384|False              1056
+      K1 0/1216 {'no_mm_config:(512, 512, 64)': 160, 'no_mm_config:(512, 512, 384)': 1048, 'no_mm_config:(995, 995, 384)': 8}  K2 1208/16 {'fill_preconditions:(995, 12, 995, 32)': 16}  E6 [False, [0, 0]]
+      DEC qkv_mm_config|kt=12,nt=12                      {'None': 1056}
+      DEC qkv_mm_config|kt=12,nt=36                      {'None': 2112}
+      DEC qkv_mm_config|kt=2,nt=2                        {'config': 160}
+      DEC qkv_mm_config|kt=2,nt=6                        {'None': 320}
+      DEC transpose|512x512x384                          {'DRAM': 1048}
+      DEC transpose|512x512x64                           {'L1': 160}
+      DEC transpose|995x995x384                          {'DRAM': 8}
+      DEC tri_att_sdpa|q512k512                          {'q_chunk=512': 1208}
+      DEC tri_att_sdpa|q995k995                          {'q_chunk=512': 8}
+{
+ "512": {
+  "on": {
+   "fold_s": [
+    96.887,
+    96.683
+   ],
+   "block_ms": [
+    78091.26,
+    77940.3
+   ],
+   "plddt": [
+    0.754131,
+    0.754131
+   ],
+   "n": 2,
+   "fold_s_median": 96.785,
+   "fold_s_min": 96.683,
+   "fold_s_spread": 0.204,
+   "block_ms_median": 78015.78,
+   "block_ms_spread": 150.96
+  },
+  "k1def": {
+   "fold_s": [
+    94.523
+   ],
+   "block_ms": [
+    75764.18
+   ],
+   "plddt": [
+    0.754131
+   ],
+   "n": 1,
+   "fold_s_median": 94.523,
+   "fold_s_min": 94.523,
+   "fold_s_spread": 0.0,
+   "block_ms_median": 75764.18,
+   "block_ms_spread": 0.0
+  },
+  "k1b": {
+   "fold_s": [
+    94.289
+   ],
+   "block_ms": [
+    75526.92
+   ],
+   "plddt": [
+    0.750771
+   ],
+   "n": 1,
+   "fold_s_median": 94.289,
+   "fold_s_min": 94.289,
+   "fold_s_spread": 0.0,
+   "block_ms_median": 75526.92,
+   "block_ms_spread": 0.0
+  },
+  "aa_floor_fold_s": 0.204,
+  "aa_floor_block_ms": 150.96
+ }
+}
+wrote perf/odde4x/ab_opendde_512.json
+benchlock: opendde-to-4x released, rc=0, loadavg 1.67 1.46 1.22
+RC=0
