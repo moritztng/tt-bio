@@ -256,3 +256,180 @@ def set_enabled(on: bool) -> bool:
     global _ENABLED
     prev, _ENABLED = _ENABLED, bool(on)
     return prev
+
+
+# --- L6b: the same bias, fused into the score path -------------------------------------------
+# cb ids for the fused op. The three scratch buffers are reader-local (it only ever takes their
+# write pointer), so their depth is a size and not a pipeline knob.
+F_SCORES_CB, F_BIAS_CB, F_IDX_CB, F_PB_CB, F_CUR_CB, F_OUT_CB = 0, 1, 2, 3, 4, 16
+# cb_bias / cb_out depth. Both must be powers of two: the reader and the writer index the ring
+# with a mask, because they track their own slot rather than trusting a CB pointer across a wrap.
+F_BIAS_SLOTS = int(os.environ.get("RFD3_FUSED_BIAS_SLOTS", "8"))
+F_OUT_SLOTS = int(os.environ.get("RFD3_FUSED_OUT_SLOTS", "8"))
+F_SCORES_SLOTS = int(os.environ.get("RFD3_FUSED_SCORES_SLOTS", "4"))
+# Writes coalesced per barrier on the writer RISC.
+F_WINDOW = int(os.environ.get("RFD3_FUSED_WINDOW", "4"))
+
+_FCACHE: dict = {}
+FSTATS = [0, 0]
+
+
+def _scale_bits(value: float) -> int:
+    """fp32 bit pattern of ``value``, which is how MUL_UNARY_SFPU carries its scalar.
+
+    ttnn's own emitter writes ``mul_unary_tile({}, {:#x}u)``, so the scalar never reaches the
+    device as a float and the fp64 -> fp32 rounding happens here, exactly where ttnn does it.
+    """
+    return struct.unpack("<I", struct.pack("<f", value))[0]
+
+
+def _fbuild(scores, pair_bias, idx_rm, out, device, scale, acc):
+    H, L, K = int(pair_bias.shape[1]), int(pair_bias.shape[2]), int(pair_bias.shape[3])
+    N = int(out.shape[3])
+    It = (L + TILE_H - 1) // TILE_H
+    Jt = N // TILE_W
+    Kt = (K + TILE_W - 1) // TILE_W
+
+    g = device.compute_with_storage_grid_size()
+    core_grid = ttnn.CoreRangeSet(
+        [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(g.x - 1, g.y - 1))]
+    )
+    cores = [(cx, cy) for cx in range(g.x) for cy in range(g.y)]
+    counts = _even_split(H * It, cores)
+
+    def cb(idx_, fmt, page_size, depth):
+        return ttnn.CBDescriptor(
+            total_size=depth * page_size,
+            core_ranges=core_grid,
+            format_descriptors=[
+                ttnn.CBFormatDescriptor(buffer_index=idx_, data_format=fmt, page_size=page_size)
+            ],
+        )
+
+    cbs = [
+        cb(F_SCORES_CB, ttnn.bfloat16, TILE_H * TILE_W * 2, F_SCORES_SLOTS),
+        cb(F_BIAS_CB, ttnn.float32, TILE_H * TILE_W * 4, F_BIAS_SLOTS),
+        cb(F_OUT_CB, ttnn.float32, TILE_H * TILE_W * 4, F_OUT_SLOTS),
+        cb(F_IDX_CB, ttnn.uint32, K * 4, TILE_H),
+        cb(F_PB_CB, ttnn.bfloat16, TILE_H * TILE_W * 2, Kt),
+        cb(F_CUR_CB, ttnn.uint32, TILE_H * 4, F_BIAS_SLOTS),
+    ]
+
+    reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
+    start = 0
+    for (cx, cy), n in zip(cores, counts):
+        reader_rt[cx][cy] = [start, n]
+        writer_rt[cx][cy] = [start, n]
+        compute_rt[cx][cy] = [n * Jt]
+        start += n
+    assert start == H * It, (start, H * It)
+
+    reader = ttnn.KernelDescriptor(
+        kernel_source=str(KERNEL_DIR / "reader_fused_scores.cpp"),
+        source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
+        core_ranges=core_grid,
+        compile_time_args=[F_SCORES_CB, F_BIAS_CB, F_IDX_CB, F_PB_CB, F_CUR_CB,
+                           It, Jt, Kt, K, L, _fill_bits(-1e4), F_BIAS_SLOTS] + list(acc),
+        runtime_args=reader_rt, common_runtime_args=[0, 0, 0],
+        config=ttnn.ReaderConfigDescriptor(),
+    )
+    writer = ttnn.KernelDescriptor(
+        kernel_source=str(KERNEL_DIR / "writer_fused_scores.cpp"),
+        source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
+        core_ranges=core_grid,
+        compile_time_args=[F_OUT_CB, It, Jt, F_WINDOW, F_OUT_SLOTS]
+        + list(ttnn.TensorAccessorArgs(out).get_compile_time_args()),
+        runtime_args=writer_rt, common_runtime_args=[0],
+        config=ttnn.WriterConfigDescriptor(),
+    )
+    compute = ttnn.KernelDescriptor(
+        kernel_source=str(KERNEL_DIR / "compute_fused_scores.cpp"),
+        source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
+        core_ranges=core_grid,
+        compile_time_args=[F_SCORES_CB, F_BIAS_CB, F_OUT_CB, _scale_bits(scale)],
+        runtime_args=compute_rt,
+        # fp32_dest_acc_en is not a tuning knob here, it is the parity condition: ttnn packs the
+        # scaled tile to an fp32 intermediate and this kernel keeps it in DST, and those two agree
+        # only while DST is fp32. See compute_fused_scores.cpp.
+        config=ttnn.ComputeConfigDescriptor(
+            math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+            fp32_dest_acc_en=True, dst_full_sync_en=False,
+        ),
+    )
+    kernels = [reader, writer, compute]
+    pd = ttnn.ProgramDescriptor(kernels=kernels, semaphores=[], cbs=cbs)
+
+    global ADDR_WRITE_MODE
+    if ADDR_WRITE_MODE is None:
+        probe = [0xABCD1234, 0x1234ABCD, 0xFEED0001]
+        pd.kernels[0].common_runtime_args = probe
+        ADDR_WRITE_MODE = (
+            "in_place" if list(pd.kernels[0].common_runtime_args) == probe else "rebuild_pd"
+        )
+        pd.kernels[0].common_runtime_args = [0, 0, 0]
+    return {"pd": pd, "kernels": kernels, "cbs": cbs}
+
+
+def fused_scores_bias_fp32(scores, pair_bias, idx_rm, scale, out=None, memory_config=None):
+    """``add(typecast(scores, fp32), sparse_bias, a_activations=[MUL_UNARY_SFPU(scale)])``, fused.
+
+    Five ops in one pass: the ``-1e4`` template, the ``scatter`` of the neighbour pair bias, its
+    widen, the scores' widen, and the scaled add. The dense fp32 bias is never materialised in
+    DRAM -- it is built one tile at a time in L1 and consumed there -- so the traffic is the
+    90.3 MB of scores read plus the 180.6 MB of output written and nothing else.
+
+    ``scores`` is ``[1, H, L, N]`` bf16 TILE with ``N = align_tile(L)``, ``pair_bias`` is
+    ``[1, H, L, K]`` bf16 TILE, ``idx_rm`` is ``[1, 1, L, K]`` uint32 ROW_MAJOR sorted ascending
+    along the last axis. The output is ``[1, H, L, N]`` fp32 TILE.
+    """
+    device = scores.device()
+    H, L, K = int(pair_bias.shape[1]), int(pair_bias.shape[2]), int(pair_bias.shape[3])
+    N = int(scores.shape[3])
+    if out is None:
+        mc = memory_config or ttnn.DRAM_MEMORY_CONFIG
+        out = ttnn.allocate_tensor_on_device(
+            ttnn.Shape([1, H, L, N]), ttnn.float32, ttnn.TILE_LAYOUT, device, mc
+        )
+
+    acc = (
+        list(ttnn.TensorAccessorArgs(scores).get_compile_time_args())
+        + list(ttnn.TensorAccessorArgs(pair_bias).get_compile_time_args())
+        + list(ttnn.TensorAccessorArgs(idx_rm).get_compile_time_args())
+    )
+    key = _cache_key(pair_bias, idx_rm, out, device, tuple(acc)) + (
+        tuple(int(d) for d in scores.shape), str(scores.dtype), _scale_bits(scale),
+    )
+    entry = _FCACHE.get(key)
+    if entry is None:
+        entry = _FCACHE[key] = _fbuild(scores, pair_bias, idx_rm, out, device, scale, acc)
+
+    addrs = [scores.buffer_address(), pair_bias.buffer_address(), idx_rm.buffer_address()]
+    if ADDR_WRITE_MODE == "in_place":
+        pd = entry["pd"]
+        pd.kernels[0].common_runtime_args = addrs
+        pd.kernels[1].common_runtime_args = [out.buffer_address()]
+    else:
+        entry["kernels"][0].common_runtime_args = addrs
+        entry["kernels"][1].common_runtime_args = [out.buffer_address()]
+        pd = entry["pd"] = ttnn.ProgramDescriptor(
+            kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"]
+        )
+    FSTATS[0] += 1
+    return ttnn.generic_op([scores, pair_bias, idx_rm, out], pd)
+
+
+def fused_enabled() -> bool:
+    return _FUSED_ENABLED
+
+
+def set_fused_enabled(on: bool) -> bool:
+    """A/B switch for the paired harness. Returns the previous state."""
+    global _FUSED_ENABLED
+    prev, _FUSED_ENABLED = _FUSED_ENABLED, bool(on)
+    return prev
+
+
+RFD3_FUSED_SCORES = False   # release-gated: opt-in until the fold A/B and the parity gate land
+_FUSED_ENABLED = os.environ.get(
+    "RFD3_FUSED_SCORES", "1" if RFD3_FUSED_SCORES else "0"
+) == "1"

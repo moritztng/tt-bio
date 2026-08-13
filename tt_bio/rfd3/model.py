@@ -1334,6 +1334,28 @@ class RFD3AtomBlock(Module):
         )
         return ttnn.add(ttnn.multiply(a, ttnn.sigmoid(gain)), bias)
 
+    def _sparse_pair_bias(self, p, cache):
+        """The compact `[1, H, L, K]` bf16 neighbour pair bias, for the fused score path.
+
+        Same cache discipline as `_sparse_bias_f32` and for the same reason -- the decoder runs
+        its three atom blocks twice per step on the same gathered pair features -- but nothing
+        dense is built or held: `rfd3_bias.fused_scores_bias_fp32` reads these 3.4 MB directly and
+        materialises the 180.6 MB fp32 bias one L1 tile at a time inside the op.
+        """
+        key = (id(p), id(self))
+        if cache is not None:
+            hit = cache.get((id(self), "pb"))
+            if hit is not None and hit[0] == key and hit[1] is p:
+                return hit[2]
+        pair_bias = _tuned_linear(
+            p, self.b_w, ckc=self.compute_kernel_config, dtype=self.dtype,
+            core_grid=CORE_GRID_MAIN,
+        )
+        pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
+        if cache is not None:
+            cache[(id(self), "pb")] = (key, p, pair_bias)
+        return pair_bias
+
     def _sparse_bias_f32(self, p, dense_bias, attn_idx_dev, cache):
         """The dense fp32 attention bias for one atom block, built once per pair stream.
 
@@ -1420,6 +1442,7 @@ class RFD3AtomBlock(Module):
         n_key = _align_tile(length)
         kk = _pad_key_axis(kk, n_key, 2, 0.0)
         vv = _pad_key_axis(vv, n_key, 2, 0.0)
+        fused = False
         if sparse_qk is None:
             pair_bias = _tuned_linear(
                 p, self.b_w, ckc=ckc, dtype=dt, core_grid=CORE_GRID_MAIN,
@@ -1441,24 +1464,41 @@ class RFD3AtomBlock(Module):
             # the gathered form -- while at L=3359 the dense matmul costs 0.375 ms
             # against 33.9 ms for a gathered [1,32]@[32,128] batch plus scatter.
             n_keys, attn_idx_dev, dense_bias = sparse_qk
-            bias_f = self._sparse_bias_f32(p, dense_bias, attn_idx_dev, bias_cache)
+            # L6b: one kernel for the last five ops of this path -- the mask template, the
+            # scatter of the neighbour bias, both widens and the scaled add. It reads the bf16
+            # scores and the compact pair bias and writes `scores*scale + bias` in fp32, so the
+            # dense fp32 bias never exists in DRAM and 8.5 ms/call of traffic becomes 1.67.
+            # Bit-exact against the five ops it replaces by construction and by torch.equal at
+            # the production shape (scripts/rfd3_port/p42_fused_scores_probe.py), including on
+            # the softmax that consumes it. `dense_bias is None` is L6a's own gate, so the trace
+            # path -- which passes its own template -- keeps the old route untouched.
+            fused = dense_bias is None and rfd3_bias.fused_enabled() and dt == ttnn.bfloat16
+            if fused:
+                pair_bias = self._sparse_pair_bias(p, bias_cache)
+            else:
+                bias_f = self._sparse_bias_f32(p, dense_bias, attn_idx_dev, bias_cache)
             scores = ttnn.matmul(
                 qq, ttnn.permute(kk, (0, 1, 3, 2)), compute_kernel_config=ckc,
             )
-        scores = ttnn.typecast(
-            scores, ttnn.float32, memory_config=scores.memory_config()
-        )
-        # Scale and add in ONE op: the scale rides on operand a as a MUL_UNARY_SFPU activation.
-        # Bit-exact rather than close, and by measurement rather than by argument
-        # (scripts/rfd3_port/p35_dense_chain_price.py, perf/p35/dense_chain_qb1c0.json): 1.285 ms
-        # against 2.246 for the pair at [1,4,3359,3360], torch.equal on the softmax output. It
-        # holds here because both operands are already fp32, so the op's destination register is
-        # fp32 and nothing is silently computed at the input dtype -- the trap that stops a
-        # bf16->fp32 widen from folding into a binary op the same way. Do not copy this to a
-        # bf16 site (GatedCrossAttention.run_device) on the strength of this comment: there the
-        # split form rounds the scaled scores to bf16 before the add and the folded form does not.
-        scores = ttnn.add(scores, bias_f, input_tensor_a_activations=[
-            ttnn.UnaryWithParam(ttnn.UnaryOpType.MUL_UNARY_SFPU, self.head_dim**-0.5)])
+        if fused:
+            scores = rfd3_bias.fused_scores_bias_fp32(
+                scores, pair_bias, attn_idx_dev, self.head_dim**-0.5
+            )
+        else:
+            scores = ttnn.typecast(
+                scores, ttnn.float32, memory_config=scores.memory_config()
+            )
+            # Scale and add in ONE op: the scale rides on operand a as a MUL_UNARY_SFPU activation.
+            # Bit-exact rather than close, and by measurement rather than by argument
+            # (scripts/rfd3_port/p35_dense_chain_price.py, perf/p35/dense_chain_qb1c0.json): 1.285 ms
+            # against 2.246 for the pair at [1,4,3359,3360], torch.equal on the softmax output. It
+            # holds here because both operands are already fp32, so the op's destination register is
+            # fp32 and nothing is silently computed at the input dtype -- the trap that stops a
+            # bf16->fp32 widen from folding into a binary op the same way. Do not copy this to a
+            # bf16 site (GatedCrossAttention.run_device) on the strength of this comment: there the
+            # split form rounds the scaled scores to bf16 before the add and the folded form does not.
+            scores = ttnn.add(scores, bias_f, input_tensor_a_activations=[
+                ttnn.UnaryWithParam(ttnn.UnaryOpType.MUL_UNARY_SFPU, self.head_dim**-0.5)])
         attention = ttnn.softmax(scores, dim=-1)
         attention = ttnn.typecast(
             attention, dt, memory_config=attention.memory_config()

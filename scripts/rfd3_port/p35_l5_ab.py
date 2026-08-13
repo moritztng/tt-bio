@@ -45,7 +45,8 @@ def sha_dir(d: Path) -> dict:
     return {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(d.rglob("*.cif"))}
 
 
-def run_one(tree: Path, steps: int, designs: int, seed: int, tag: str, ckpt: str) -> dict:
+def run_one(tree: Path, steps: int, designs: int, seed: int, tag: str, ckpt: str,
+            extra_env: dict | None = None) -> dict:
     out = WT / "perf/p35/ab" / tag
     if out.exists():
         shutil.rmtree(out)
@@ -53,6 +54,7 @@ def run_one(tree: Path, steps: int, designs: int, seed: int, tag: str, ckpt: str
     env = dict(os.environ)
     env.update(PYTHONPATH=str(tree))
     env.pop("RFD3_TUNE_MATMUL", None)
+    env.update(extra_env or {})
     cmd = [PY, "-m", "tt_bio.main", "design", str(WT / "perf/p34/specs_iai.json"), "--model", "rfd3",
            "--from_pdb", "--out_dir", str(out), "--num_timesteps", str(steps),
            "--num_designs", str(designs), "--seed", str(seed)]
@@ -70,6 +72,9 @@ def run_one(tree: Path, steps: int, designs: int, seed: int, tag: str, ckpt: str
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--off-rev", default="HEAD~1", help="revision holding the OFF arm's model.py")
+    ap.add_argument("--flag", default="", help="A/B one env flag in ONE tree (NAME), off=0 on=1, "
+                                              "instead of two worktrees")
+    ap.add_argument("--also-env", default="", help="NAME=VAL,... set in both arms")
     ap.add_argument("--reps", type=int, default=3)
     ap.add_argument("--short", type=int, default=20)
     ap.add_argument("--long", type=int, default=200)
@@ -79,25 +84,34 @@ def main():
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
-    off = Path("/tmp/rfd3_l5_off")
-    if off.exists():
-        subprocess.run(["git", "worktree", "remove", "--force", str(off)], cwd=str(WT))
-    subprocess.run(["git", "worktree", "add", "--detach", str(off), a.off_rev], cwd=str(WT),
-                   check=True)
-    trees = {"off": off, "on": WT}
-    rec: dict = {"off_rev": a.off_rev, "steps": [a.short, a.long], "designs": a.designs, "runs": []}
+    both = dict(kv.split("=", 1) for kv in a.also_env.split(",") if kv)
+    if a.flag:
+        arm_env = {"off": {**both, a.flag: "0"}, "on": {**both, a.flag: "1"}}
+        off = None
+        trees = {"off": WT, "on": WT}
+    else:
+        arm_env = {"off": dict(both), "on": dict(both)}
+        off = Path("/tmp/rfd3_l5_off")
+        if off.exists():
+            subprocess.run(["git", "worktree", "remove", "--force", str(off)], cwd=str(WT))
+        subprocess.run(["git", "worktree", "add", "--detach", str(off), a.off_rev], cwd=str(WT),
+                       check=True)
+        trees = {"off": off, "on": WT}
+    rec: dict = {"off_rev": a.flag or a.off_rev, "flag": a.flag, "also_env": both,
+                 "steps": [a.short, a.long], "designs": a.designs, "runs": []}
     try:
         for rep in range(a.reps):
             for arm in ("off", "on"):
                 for steps in (a.short, a.long):
                     r = run_one(trees[arm], steps, a.designs, a.seed,
-                                f"{arm}_t{steps}_r{rep}", a.ckpt)
+                                f"{arm}_t{steps}_r{rep}", a.ckpt, arm_env[arm])
                     r.update(arm=arm, steps=steps, rep=rep)
                     rec["runs"].append(r)
                     print(f"  {arm:3s} t={steps:3d} rep{rep}  {r['wall_s']:7.2f} s  "
                           f"{list(r['sha'].values())[0][:16]}", flush=True)
     finally:
-        subprocess.run(["git", "worktree", "remove", "--force", str(off)], cwd=str(WT))
+        if off is not None:
+            subprocess.run(["git", "worktree", "remove", "--force", str(off)], cwd=str(WT))
 
     for arm in ("off", "on"):
         w = {s: [r["wall_s"] for r in rec["runs"] if r["arm"] == arm and r["steps"] == s]
