@@ -1,0 +1,10 @@
+{
+ "mode8_bit_exact": true,
+ "mode8_mismatches": 0,
+ "mode9_bit_exact": true,
+ "mode9_mismatches": 0,
+ "mode10_bit_exact": false,
+ "mode10_mismatches": 1019,
+ "untilize_bit_exact": true,
+ "untilize_mismatches": 0
+}

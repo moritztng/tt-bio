@@ -27,7 +27,7 @@ import ttnn
 
 HERE = Path(__file__).resolve().parent
 KDIR = HERE.parent / "tt_bio" / "kernels" / "fslice"
-CB_SRC, CB_TIL, CB_SEL, CB_FRAC, CB_OUT = 0, 4, 8, 12, 16
+CB_SRC, CB_TIL, CB_SEL, CB_FRAC, CB_OUT, CB_MID = 0, 4, 8, 12, 16, 20
 NROWS, SRC_TILES = 32, 2
 WIN = 32 * SRC_TILES
 ELEM = 2
@@ -64,7 +64,7 @@ def build(dev, x, sel, frac, out, nx, ny, offs_bytes, rowidx, mode, nb, nfrac):
            + list(ttnn.TensorAccessorArgs(x).get_compile_time_args())
            + list(ttnn.TensorAccessorArgs(sel).get_compile_time_args())
            + list(ttnn.TensorAccessorArgs(frac).get_compile_time_args()))
-    cct = [CB_SRC, CB_TIL, CB_SEL, CB_FRAC, CB_OUT, SRC_TILES, mode]
+    cct = [CB_SRC, CB_TIL, CB_SEL, CB_FRAC, CB_OUT, SRC_TILES, mode, CB_MID]
     wct = [CB_OUT, TILE_B, 1] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
     rrt, crt, wrt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     c = 0
@@ -86,7 +86,7 @@ def build(dev, x, sel, frac, out, nx, ny, offs_bytes, rowidx, mode, nb, nfrac):
         mk(KDIR / "writer_fslice.cpp", wct, wrt, ttnn.WriterConfigDescriptor()),
     ], semaphores=[], cbs=[cb(CB_SRC, TILE_B, 4 * BARRIER_EVERY * SRC_TILES),
                            cb(CB_TIL, TILE_B, 2 * SRC_TILES), cb(CB_SEL, TILE_B, 3 * SRC_TILES),
-                           cb(CB_FRAC, TILE_B, 4), cb(CB_OUT, TILE_B, 4)])
+                           cb(CB_FRAC, TILE_B, 4), cb(CB_OUT, TILE_B, 4), cb(CB_MID, TILE_B, 2)])
 
 
 def main():
@@ -152,7 +152,7 @@ def main():
                 ref[r, u] = (1 - f) * basen[r, j] + f * basen[r, j + 1]
 
         for mode, lay, shp in ((5, ttnn.TILE_LAYOUT, (1, 1, 32, 32)),
-                               (7, ttnn.ROW_MAJOR_LAYOUT, (1, 1, 1, 1024))):
+                               (11, ttnn.ROW_MAJOR_LAYOUT, (1, 1, 1, 1024))):
             out1 = ttnn.from_torch(torch.zeros(*shp).to(torch.bfloat16), dtype=ttnn.bfloat16,
                                    layout=lay, device=dev)
             pd = build(dev, x, sel, frac5, out1, 1, 1, offs_by, rowidx, mode, 1, 3)
@@ -170,7 +170,7 @@ def main():
         n = nx * ny
         t = {}
         for mode, lay, shp in ((5, ttnn.TILE_LAYOUT, (1, 1, 32 * NB * n, 32)),
-                               (7, ttnn.ROW_MAJOR_LAYOUT, (1, 1, NB * n, 1024))):
+                               (11, ttnn.ROW_MAJOR_LAYOUT, (1, 1, NB * n, 1024))):
             out = ttnn.from_torch(torch.zeros(*shp).to(torch.bfloat16), dtype=ttnn.bfloat16,
                                   layout=lay, device=dev)
             pd = build(dev, x, sel, frac5, out, nx, ny, offs_by, rowidx, mode, NB, 3)
@@ -196,8 +196,8 @@ def main():
             json.dump(res, open(HERE / "fslice_general.json", "w"), indent=1)
             ttnn.deallocate(out)
         print(f"\nrow-major output (what chaining a second pass needs) costs "
-              f"{t[7]/t[5]:.3f}x ({t[7]-t[5]:+.1f} ns per output tile)", flush=True)
-        res["untilize_cost_factor"] = t[7] / t[5]
+              f"{t[11]/t[5]:.3f}x ({t[11]-t[5]:+.1f} ns per output tile)", flush=True)
+        res["untilize_cost_factor"] = t[11] / t[5]
         json.dump(res, open(HERE / "fslice_general.json", "w"), indent=1)
     finally:
         ttnn.close_device(dev)

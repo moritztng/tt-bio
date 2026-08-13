@@ -3,19 +3,19 @@
  "ncopy": 8,
  "arms": {
   "general_mode5_rel_l2": 0.0033926785752560434,
-  "general_mode7_rel_l2": 1.1350035515183274,
+  "general_mode11_rel_l2": 1.019831773983351,
   "general_mode5_130core": {
-   "ns_per_output_tile_per_core": 2052.9174798866734,
-   "chip_output_tiles_per_s": 63324513.17389355,
-   "derived_slices_per_s": 839865.0591916251,
-   "pct_of_floor": 26.245783099738286
+   "ns_per_output_tile_per_core": 2043.46750251716,
+   "chip_output_tiles_per_s": 63617356.20452243,
+   "derived_slices_per_s": 843748.9995004529,
+   "pct_of_floor": 26.367156234389153
   },
-  "general_mode7_130core": {
-   "ns_per_output_tile_per_core": 2013.7200044700876,
-   "chip_output_tiles_per_s": 64557137.889788024,
-   "derived_slices_per_s": 856213.2058742997,
-   "pct_of_floor": 26.756662683571864
+  "general_mode11_130core": {
+   "ns_per_output_tile_per_core": 2498.735011613462,
+   "chip_output_tiles_per_s": 52026325.07880758,
+   "derived_slices_per_s": 690018.6105157362,
+   "pct_of_floor": 21.563081578616757
   }
  },
- "untilize_cost_factor": 0.9809064534738388
+ "untilize_cost_factor": 1.2227916561117316
 }

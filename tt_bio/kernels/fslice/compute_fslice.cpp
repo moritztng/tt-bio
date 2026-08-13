@@ -47,6 +47,24 @@
 //     nothing about what the conversion costs. Left in place as the starting point for the
 //     next attempt; the suspects are the packer dest-offset state shared with tilize, and the
 //     face_r_dim/num_faces defaults.
+//  11 mode 5 arithmetic, then row-major out via a CB round trip: pack_tile into cb_til's
+//     spare page and pack_untilize_block from there. Mode 10 showed pack_untilize_dest
+//     cannot consume matmul-written DST, so the DEST route is unavailable and the block
+//     route -- which reads an already-packed CB rather than DST -- is the way round it.
+//  10 mode 8 but the tile reaches DST through the MATMUL instead of copy_tile, with an
+//     identity selection matrix so the answer is unchanged. Modes 8 and 9 both pass, so
+//     neither pack_untilize_dest nor SFPU-written DST is the problem; the matmul is the
+//     only remaining difference in mode 7.
+//   9 mode 8 plus ONE SFPU op (add_binary_tile doubling DST 0) before the untilize. Mode 8
+//     passes bit-exact, so pack_untilize_dest works; the only structural difference in
+//     mode 7 is that its DST is written by SFPU ops rather than by the unpacker. If mode 9
+//     breaks, SFPU-written DST is what pack_untilize_dest cannot consume, and that is a
+//     general constraint rather than a bug in this kernel.
+//   8 ISOLATION TEST for the untilize: tilize the window, copy tile 0 straight into DST 0
+//     and pack_untilize_dest it, with no arithmetic whatsoever. The output must equal the
+//     first 32 columns of the assembled row-major window. If this fails, the untilize is
+//     broken in this kernel's context and mode 7 is not worth debugging further; if it
+//     passes, the untilize is fine and the fault is in how mode 7 uses it.
 //   6 mode 5 with the tilize HOISTED out of the block loop -- a cost probe, not a
 //     correct kernel: every block reuses one window, so the output is wrong on purpose.
 //     mode 5 minus mode 6 is the tilize, including its per-block init/uninit
@@ -99,6 +117,7 @@ void kernel_main() {
     constexpr uint32_t cb_out = get_compile_time_arg_val(4);
     constexpr uint32_t src_tiles = get_compile_time_arg_val(5);
     constexpr uint32_t mode = get_compile_time_arg_val(6);
+    constexpr uint32_t cb_mid = get_compile_time_arg_val(7);   // staging for mode 11
 
     const uint32_t nblocks = get_arg_val<uint32_t>(0);
     constexpr uint32_t one = 1;
@@ -192,7 +211,7 @@ void kernel_main() {
         // w(r, u) = g(r) + frac(A*u). add_tiles_bcast_rows broadcasts ROW 0 of its SECOND operand, so
         // the per-row tile must be first and the per-column tile second. cb_frac tile 1 holds g(r)
         // replicated across the columns; tile 0 holds frac(A*u) in row 0.
-        if constexpr (mode != 4 && mode != 5 && mode != 7) {
+        if constexpr (mode != 4 && mode != 5 && mode != 7 && mode != 8 && mode != 9 && mode != 10 && mode != 11) {
             add_bcast_rows_init_short(cb_frac, cb_frac);
             add_tiles_bcast_rows(cb_frac, cb_frac, 1, 0, DST_W);
         }
@@ -218,6 +237,80 @@ void kernel_main() {
             continue;
         }
 
+        if constexpr (mode == 11) {
+            binary_dest_reuse_tiles_init<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac);
+            binary_dest_reuse_tiles<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac, 0, DST_T0);
+            binary_dest_reuse_tiles<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac, 1, DST_T1);
+            binary_dest_reuse_tiles<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac, 2, DST_T2);
+            add_binary_tile_init();
+            add_binary_tile(DST_T0, DST_T1, DST_BASE);
+            add_binary_tile(DST_BASE, DST_T2, DST_OUT);
+            tile_regs_commit();
+            tile_regs_wait();
+            cb_reserve_back(cb_mid, one);
+            pack_tile(DST_OUT, cb_mid);
+            tile_regs_release();
+            cb_push_back(cb_mid, one);
+
+            // CB -> CB untilize. The operand is a packed tile in L1, not DST, so the matmul's DST
+            // arrangement never reaches the untilize.
+            cb_wait_front(cb_mid, one);
+            pack_untilize_init(cb_mid, cb_out);
+            pack_untilize_block(cb_mid, 1, cb_out);
+            pack_untilize_uninit(cb_out);
+            cb_push_back(cb_out, one);
+            cb_pop_front(cb_mid, one);
+
+            cb_pop_front(cb_til, src_tiles);
+            cb_pop_front(cb_src, src_tiles);
+            continue;
+        }
+        if constexpr (mode == 10) {
+            mm_init(cb_til, cb_sel, cb_out, 0);
+            for (uint32_t k = 0; k < src_tiles; ++k) {
+                matmul_tiles(cb_til, cb_sel, k, k, 0);
+            }
+            tile_regs_commit();
+            tile_regs_wait();
+            pack_untilize_dest_init<1, 1>(cb_out);
+            pack_untilize_dest<1, 1>(cb_out);
+            pack_untilize_uninit(cb_out);
+            tile_regs_release();
+            cb_push_back(cb_out, one);
+            cb_pop_front(cb_til, src_tiles);
+            cb_pop_front(cb_src, src_tiles);
+            continue;
+        }
+        if constexpr (mode == 9) {
+            copy_tile_to_dst_init_short(cb_til);
+            copy_tile(cb_til, 0, 0);
+            add_binary_tile_init();
+            add_binary_tile(0, 0, 0);        // the single SFPU write to DST 0
+            tile_regs_commit();
+            tile_regs_wait();
+            pack_untilize_dest_init<1, 1>(cb_out);
+            pack_untilize_dest<1, 1>(cb_out);
+            pack_untilize_uninit(cb_out);
+            tile_regs_release();
+            cb_push_back(cb_out, one);
+            cb_pop_front(cb_til, src_tiles);
+            cb_pop_front(cb_src, src_tiles);
+            continue;
+        }
+        if constexpr (mode == 8) {
+            copy_tile_to_dst_init_short(cb_til);
+            copy_tile(cb_til, 0, 0);
+            tile_regs_commit();
+            tile_regs_wait();
+            pack_untilize_dest_init<1, 1>(cb_out);
+            pack_untilize_dest<1, 1>(cb_out);
+            pack_untilize_uninit(cb_out);
+            tile_regs_release();
+            cb_push_back(cb_out, one);
+            cb_pop_front(cb_til, src_tiles);
+            cb_pop_front(cb_src, src_tiles);
+            continue;
+        }
         if constexpr (mode == 7) {
             // Same arithmetic as mode 5, but the result lands in DST 0 and leaves as row-major so the
             // next pass can read per-row windows out of it directly.
