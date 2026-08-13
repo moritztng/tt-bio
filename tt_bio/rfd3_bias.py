@@ -236,8 +236,11 @@ def eligible_shape(batch, n_heads, length, n_keys, dtype) -> bool:
     shape = [batch, n_heads, length, n_keys]
     if not _ENABLED:
         return False
-    if batch != 1:
-        return _reject("batch", shape)
+    # No batch predicate. The kernel is invoked once per design and only ever sees a
+    # [1,H,L,K] slice, so a batched fold is served by looping rather than by rejecting. The old
+    # `batch != 1` rejection made this whole lever silently dead at the pinned rfd3_R4 fixture,
+    # whose production batch is 2 -- the composed A/B measured -0.09 % because the kernel never
+    # ran (perf/p42/ab_compose/).
     if dtype != ttnn.bfloat16:
         return _reject("dtype", shape)
     if n_keys % TILE_W or n_keys < TILE_W:

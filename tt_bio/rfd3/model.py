@@ -1117,15 +1117,19 @@ def _sparse_attn_index(indices, device, n_heads):
 
 
 def _sparse_attn_index_rm(indices, device):
-    """[1,1,L,K] uint32 ROW_MAJOR neighbour index, for the fused bias kernel.
+    """One [1,1,L,K] uint32 ROW_MAJOR neighbour index per design, for the fused bias kernel.
 
     The kernel reads the same index for every head, so unlike the scatter path nothing is
     replicated over heads and nothing is tilized. One page per row of 4*K bytes is also what
     makes the kernel's per-band index fetch a contiguous page read.
+
+    A list, not a batched tensor: the neighbour graph is built from coordinates and every design
+    has its own, and the kernel takes one design at a time. The whole list is 6.2 MB at the
+    pinned fixture, so uploading it split costs nothing and avoids slicing on device.
     """
-    return ttnn.from_torch(
-        indices.cpu().unsqueeze(1).to(torch.int32).contiguous(),
-        layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=ttnn.uint32)
+    idx = indices.cpu().unsqueeze(1).to(torch.int32).contiguous()
+    return [ttnn.from_torch(idx[b:b + 1], layout=ttnn.ROW_MAJOR_LAYOUT, device=device,
+                            dtype=ttnn.uint32) for b in range(idx.shape[0])]
 
 
 def _sparse_qk_inputs(p_host, indices, device, dtype, n_heads=4, mask_cache=None):
@@ -1404,7 +1408,22 @@ class RFD3AtomBlock(Module):
             # writes fp32, which is the same values in the same positions as the three ops
             # below and is gated on torch.equal against them
             # (scripts/rfd3_port/p36_bias_kernel_probe.py). 0.932 ms against 5.437.
-            bias_f = rfd3_bias.sparse_bias_fp32(pair_bias, attn_idx_dev)
+            #
+            # One invocation per design. `pair_bias` is [B,H,L,K] and only 12.4 MB at the pinned
+            # fixture, so slicing the input is free; the cost of the loop is the concat of the
+            # [1,H,L,align(L)] fp32 outputs, which is the full 1.177 GB at B=2.
+            if len(attn_idx_dev) == 1:
+                bias_f = rfd3_bias.sparse_bias_fp32(pair_bias, attn_idx_dev[0])
+            else:
+                sh = list(pair_bias.shape)   # LOGICAL bounds: slice past L would read tile padding
+                parts = []
+                for b, idx_b in enumerate(attn_idx_dev):
+                    sl = ttnn.slice(pair_bias, [b, 0, 0, 0], [b + 1, sh[1], sh[2], sh[3]])
+                    parts.append(rfd3_bias.sparse_bias_fp32(sl, idx_b))
+                    ttnn.deallocate(sl)
+                bias_f = ttnn.concat(parts, dim=0)
+                for t in parts:
+                    ttnn.deallocate(t)
         else:
             # dense_bias carries the -1e4 mask, so scattering the local pair bias into it
             # gives pair_bias at neighbours (as the dense path does) and leaves -1e4, whose
