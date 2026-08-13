@@ -1,0 +1,219 @@
+{
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "2",
+ "model": "esmfold2",
+ "size": 1024,
+ "recycling_steps": 10,
+ "sampling_steps": 100,
+ "timers_installed": [
+  "stage:ESMC-6B",
+  "stage:LMShim",
+  "stage:MSAEncoder",
+  "stage:FoldingTrunk*",
+  "stage:DiffusionModule",
+  "stage:DiffusionConditioning",
+  "stage:DistogramHead",
+  "block:PairUpdateBlock",
+  "body:TriangleMultiplication",
+  "body:SwiGLUFFN",
+  "block:TokenDiT",
+  "body:AttentionPairBias",
+  "body:CondTransition",
+  "leaf:_attn_fp32",
+  "body:AtomEncoder",
+  "body:AtomDecoder",
+  "body:SWAAtomTransformer",
+  "leaf:SWAAttention",
+  "body:OuterProductMean",
+  "phase:prepare_input",
+  "phase:decode",
+  "body:MSAPWA"
+ ],
+ "runs": [
+  {
+   "arm": "plain0",
+   "fold_s": 149.401,
+   "plddt": 0.8942,
+   "n_tokens": null,
+   "cif": {
+    "cdk2x2_1024.cif": "3d6d54769ad060fd"
+   },
+   "loadavg": "1.78"
+  },
+  {
+   "arm": "timed0",
+   "fold_s": 149.529,
+   "plddt": 0.8942,
+   "n_tokens": null,
+   "cif": {
+    "cdk2x2_1024.cif": "3d6d54769ad060fd"
+   },
+   "loadavg": "2.12",
+   "levers": {
+    "calls": {
+     "attn_pair_bias|head_dim=48,pad=64,heads=16": 816,
+     "pair_row_tile|L=1024,tile=0": 552,
+     "swiglu_call|ndim=3,L=1088,minseq_ok=True,rowwin_ok=False": 80,
+     "swiglu_call|ndim=4,L=1024,minseq_ok=True,rowwin_ok=False": 545,
+     "swiglu_ffn|ndim=3,rows=1088,split=False,l1_gated=False": 80,
+     "swiglu_ffn|ndim=4,rows=1024,split=False,l1_gated=False": 7,
+     "swiglu_ffn|ndim=4,rows=1024,split=True,l1_gated=False": 538,
+     "trimul_chunk|seq=1024,chunk=32": 1084,
+     "trimul_memcfg|seq=1024,DRAM": 1084
+    },
+    "reblock": {
+     "plain_served": 32,
+     "declined_total": 0,
+     "back_served": 2168,
+     "gated_served": 4304,
+     "gated_declined": 0
+    },
+    "rejects": {},
+    "gate_constants": {
+     "SPLIT_SWIGLU": true,
+     "SPLIT_SWIGLU_MIN_SEQ": 144,
+     "PAIR_FFN_ROW_BLOCK": 32,
+     "PAIR_FFN_ROW_BLOCK_SEQ": [
+      320,
+      768
+     ],
+     "REBLOCK_PERMUTE": true,
+     "REBLOCK_PERMUTE_GATED": true,
+     "L1_N_MIN": 288,
+     "L1_N_MAX": 352,
+     "TRIANGLE_MULT_L1_MAX_SEQ": 352,
+     "TRIANGLE_MULT_L1_MAX_SEQ_FAST": 640,
+     "SEQ_LEN_MORE_CHUNKING": 1536,
+     "TRANSITION_H_CHUNK_SIZE_BIG": 32,
+     "IS_SMALL_GRID": false,
+     "FAST_MODE": false
+    }
+   },
+   "components": {
+    "stage:FoldingTrunk*": {
+     "n": 14,
+     "incl_s": 120.3088,
+     "excl_s": 0.0076
+    },
+    "block:PairUpdateBlock": {
+     "n": 538,
+     "incl_s": 120.3012,
+     "excl_s": 5.8992
+    },
+    "body:TriangleMultiplication": {
+     "n": 1084,
+     "incl_s": 74.8008,
+     "excl_s": 74.8008
+    },
+    "body:SwiGLUFFN": {
+     "n": 625,
+     "incl_s": 40.8172,
+     "excl_s": 40.8172
+    },
+    "stage:DiffusionModule": {
+     "n": 68,
+     "incl_s": 6.5496,
+     "excl_s": 0.0456
+    },
+    "body:SWAAtomTransformer": {
+     "n": 137,
+     "incl_s": 3.7821,
+     "excl_s": 0.1853
+    },
+    "leaf:SWAAttention": {
+     "n": 411,
+     "incl_s": 3.5967,
+     "excl_s": 3.5967
+    },
+    "stage:MSAEncoder": {
+     "n": 1,
+     "incl_s": 3.2627,
+     "excl_s": 0.0599
+    },
+    "block:TokenDiT": {
+     "n": 68,
+     "incl_s": 2.6984,
+     "excl_s": 0.0716
+    },
+    "body:AttentionPairBias": {
+     "n": 816,
+     "incl_s": 2.3086,
+     "excl_s": 0.5986
+    },
+    "body:AtomEncoder": {
+     "n": 69,
+     "incl_s": 1.9378,
+     "excl_s": 0.0318
+    },
+    "body:AtomDecoder": {
+     "n": 68,
+     "incl_s": 1.8967,
+     "excl_s": 0.0206
+    },
+    "body:OuterProductMean": {
+     "n": 4,
+     "incl_s": 1.8055,
+     "excl_s": 1.8055
+    },
+    "leaf:_attn_fp32": {
+     "n": 816,
+     "incl_s": 1.71,
+     "excl_s": 1.71
+    },
+    "stage:ESMC-6B": {
+     "n": 1,
+     "incl_s": 0.5663,
+     "excl_s": 0.4365
+    },
+    "body:CondTransition": {
+     "n": 816,
+     "incl_s": 0.3182,
+     "excl_s": 0.3182
+    },
+    "body:MSAPWA": {
+     "n": 3,
+     "incl_s": 0.3111,
+     "excl_s": 0.3111
+    },
+    "stage:LMShim": {
+     "n": 1,
+     "incl_s": 0.1041,
+     "excl_s": 0.1041
+    },
+    "phase:prepare_input": {
+     "n": 1,
+     "incl_s": 0.0327,
+     "excl_s": 0.0327
+    },
+    "stage:DistogramHead": {
+     "n": 1,
+     "incl_s": 0.0271,
+     "excl_s": 0.0271
+    },
+    "phase:decode": {
+     "n": 1,
+     "incl_s": 0.0166,
+     "excl_s": 0.0166
+    }
+   }
+  },
+  {
+   "arm": "plain_post0",
+   "fold_s": 148.762,
+   "plddt": 0.8942,
+   "n_tokens": null,
+   "cif": {
+    "cdk2x2_1024.cif": "3d6d54769ad060fd"
+   },
+   "loadavg": "1.65"
+  }
+ ],
+ "grid": [
+  11,
+  10
+ ],
+ "cold_s": 220.75029023300067,
+ "plain_median": 149.0815,
+ "plain_spread": 0.63900000000001
+}

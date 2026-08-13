@@ -1,0 +1,240 @@
+{
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "2",
+ "model": "esmfold2",
+ "size": 128,
+ "recycling_steps": 10,
+ "sampling_steps": 100,
+ "timers_installed": [
+  "stage:ESMC-6B",
+  "stage:LMShim",
+  "stage:MSAEncoder",
+  "stage:FoldingTrunk*",
+  "stage:DiffusionModule",
+  "stage:DiffusionConditioning",
+  "stage:DistogramHead",
+  "block:PairUpdateBlock",
+  "body:TriangleMultiplication",
+  "body:SwiGLUFFN",
+  "block:TokenDiT",
+  "body:AttentionPairBias",
+  "body:CondTransition",
+  "leaf:_attn_fp32",
+  "body:AtomEncoder",
+  "body:AtomDecoder",
+  "body:SWAAtomTransformer",
+  "leaf:SWAAttention",
+  "body:OuterProductMean",
+  "phase:prepare_input",
+  "phase:decode",
+  "body:MSAPWA"
+ ],
+ "runs": [
+  {
+   "arm": "plain0",
+   "fold_s": 3.966,
+   "plddt": 0.9211,
+   "n_tokens": null,
+   "cif": {
+    "cdk2x2_128.cif": "b9bdb3267977020f"
+   },
+   "loadavg": "1.87"
+  },
+  {
+   "arm": "plain1",
+   "fold_s": 3.948,
+   "plddt": 0.9211,
+   "n_tokens": null,
+   "cif": {
+    "cdk2x2_128.cif": "b9bdb3267977020f"
+   },
+   "loadavg": "1.80"
+  },
+  {
+   "arm": "timed0",
+   "fold_s": 4.308,
+   "plddt": 0.9211,
+   "n_tokens": null,
+   "cif": {
+    "cdk2x2_128.cif": "b9bdb3267977020f"
+   },
+   "loadavg": "1.73",
+   "levers": {
+    "calls": {
+     "attn_pair_bias|head_dim=48,pad=64,heads=16": 816,
+     "pair_row_tile|L=128,tile=0": 552,
+     "swiglu_call|ndim=3,L=192,minseq_ok=True,rowwin_ok=False": 80,
+     "swiglu_call|ndim=4,L=128,minseq_ok=False,rowwin_ok=False": 545,
+     "swiglu_ffn|ndim=3,rows=192,split=False,l1_gated=False": 80,
+     "swiglu_ffn|ndim=4,rows=128,split=False,l1_gated=False": 545,
+     "trimul_chunk|seq=128,chunk=256": 1084,
+     "trimul_memcfg|seq=128,L1": 1084
+    },
+    "reblock": {
+     "plain_served": 0,
+     "declined_total": 1084,
+     "back_served": 0,
+     "gated_served": 0,
+     "gated_declined": 0
+    },
+    "rejects": {
+     "window_BufferType.L1|[1, 128, 128, 256]": 1084
+    },
+    "gate_constants": {
+     "SPLIT_SWIGLU": true,
+     "SPLIT_SWIGLU_MIN_SEQ": 144,
+     "PAIR_FFN_ROW_BLOCK": 32,
+     "PAIR_FFN_ROW_BLOCK_SEQ": [
+      320,
+      768
+     ],
+     "REBLOCK_PERMUTE": true,
+     "REBLOCK_PERMUTE_GATED": true,
+     "L1_N_MIN": 288,
+     "L1_N_MAX": 352,
+     "TRIANGLE_MULT_L1_MAX_SEQ": 352,
+     "TRIANGLE_MULT_L1_MAX_SEQ_FAST": 640,
+     "SEQ_LEN_MORE_CHUNKING": 1536,
+     "TRANSITION_H_CHUNK_SIZE_BIG": 32,
+     "IS_SMALL_GRID": false,
+     "FAST_MODE": false
+    }
+   },
+   "components": {
+    "stage:FoldingTrunk*": {
+     "n": 14,
+     "incl_s": 2.401,
+     "excl_s": 0.0062
+    },
+    "block:PairUpdateBlock": {
+     "n": 538,
+     "incl_s": 2.3948,
+     "excl_s": 0.1381
+    },
+    "body:TriangleMultiplication": {
+     "n": 1084,
+     "incl_s": 1.46,
+     "excl_s": 1.46
+    },
+    "stage:DiffusionModule": {
+     "n": 68,
+     "incl_s": 1.2827,
+     "excl_s": 0.029
+    },
+    "body:SwiGLUFFN": {
+     "n": 625,
+     "incl_s": 0.8609,
+     "excl_s": 0.8609
+    },
+    "body:SWAAtomTransformer": {
+     "n": 137,
+     "incl_s": 0.6539,
+     "excl_s": 0.0909
+    },
+    "block:TokenDiT": {
+     "n": 68,
+     "incl_s": 0.5916,
+     "excl_s": 0.0481
+    },
+    "leaf:SWAAttention": {
+     "n": 411,
+     "incl_s": 0.563,
+     "excl_s": 0.563
+    },
+    "body:AttentionPairBias": {
+     "n": 816,
+     "incl_s": 0.4002,
+     "excl_s": 0.2541
+    },
+    "body:AtomEncoder": {
+     "n": 69,
+     "incl_s": 0.3394,
+     "excl_s": 0.0078
+    },
+    "body:AtomDecoder": {
+     "n": 68,
+     "incl_s": 0.3285,
+     "excl_s": 0.0062
+    },
+    "stage:ESMC-6B": {
+     "n": 1,
+     "incl_s": 0.1469,
+     "excl_s": 0.1011
+    },
+    "leaf:_attn_fp32": {
+     "n": 816,
+     "incl_s": 0.1462,
+     "excl_s": 0.1462
+    },
+    "body:CondTransition": {
+     "n": 816,
+     "incl_s": 0.1433,
+     "excl_s": 0.1433
+    },
+    "stage:MSAEncoder": {
+     "n": 1,
+     "incl_s": 0.0606,
+     "excl_s": 0.0021
+    },
+    "body:OuterProductMean": {
+     "n": 4,
+     "incl_s": 0.0295,
+     "excl_s": 0.0295
+    },
+    "body:MSAPWA": {
+     "n": 3,
+     "incl_s": 0.0107,
+     "excl_s": 0.0107
+    },
+    "stage:LMShim": {
+     "n": 1,
+     "incl_s": 0.0054,
+     "excl_s": 0.0054
+    },
+    "phase:prepare_input": {
+     "n": 1,
+     "incl_s": 0.0048,
+     "excl_s": 0.0048
+    },
+    "phase:decode": {
+     "n": 1,
+     "incl_s": 0.0023,
+     "excl_s": 0.0023
+    },
+    "stage:DistogramHead": {
+     "n": 1,
+     "incl_s": 0.0004,
+     "excl_s": 0.0004
+    }
+   }
+  },
+  {
+   "arm": "plain_post0",
+   "fold_s": 3.95,
+   "plddt": 0.9211,
+   "n_tokens": null,
+   "cif": {
+    "cdk2x2_128.cif": "b9bdb3267977020f"
+   },
+   "loadavg": "1.68"
+  },
+  {
+   "arm": "plain_post1",
+   "fold_s": 3.941,
+   "plddt": 0.9211,
+   "n_tokens": null,
+   "cif": {
+    "cdk2x2_128.cif": "b9bdb3267977020f"
+   },
+   "loadavg": "1.62"
+  }
+ ],
+ "grid": [
+  11,
+  10
+ ],
+ "cold_s": 10.801248490000035,
+ "plain_median": 3.949,
+ "plain_spread": 0.025000000000000355
+}
