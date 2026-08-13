@@ -1,0 +1,36 @@
+{
+  "B": 2,
+  "H": 4,
+  "L": 6051,
+  "n_key": 6080,
+  "score_gb_fp32": 1.17728256,
+  "total_ms": 32.74399299698416,
+  "compute_ms": 4.850932004046626,
+  "byte_ms": 27.893060992937535,
+  "rows": {
+    "matmul q@kT": {
+      "ms": 2.2370540027623065,
+      "kind": "COMPUTE"
+    },
+    "typecast->fp32": {
+      "ms": 4.921961000945885,
+      "kind": "BYTES"
+    },
+    "add+scale": {
+      "ms": 8.15016900014598,
+      "kind": "BYTES"
+    },
+    "softmax": {
+      "ms": 10.767515996121801,
+      "kind": "BYTES"
+    },
+    "typecast->bf16": {
+      "ms": 4.05341499572387,
+      "kind": "BYTES"
+    },
+    "matmul attn@v": {
+      "ms": 2.61387800128432,
+      "kind": "COMPUTE"
+    }
+  }
+}
