@@ -27,8 +27,12 @@ nproc | tee -a "$LOG"
 say "apt"
 # rdkit's Chem.Draw is imported transitively through pdbeccdutils, which boltzgen depends on, and
 # dies on libXrender.so.1. A runtime image ships none of these four and the whole import fails.
+# build-essential is not optional either: cuEquivariance's fused layer_norm_transpose is a triton
+# kernel, and triton JIT-compiles its CUDA driver shim with the system C compiler on first call. On
+# a -runtime image that raises "Failed to find C compiler" from inside the first trimul, which reads
+# as a model failure and is really a missing gcc.
 apt-get update -qq && apt-get install -y -qq libxrender1 libxext6 libsm6 libxi6 curl \
-  2>&1 | tail -2 | tee -a "$LOG"
+  build-essential 2>&1 | tail -2 | tee -a "$LOG"
 
 say "venv + boltzgen"
 if [ ! -x "$WORK/venv-bgg/bin/pip" ]; then

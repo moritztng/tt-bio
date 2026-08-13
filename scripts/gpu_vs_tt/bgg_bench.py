@@ -18,6 +18,7 @@ Results append to /work/results/bgg_<gpu>.jsonl; one design per arm is kept unde
 import json
 import math
 import pathlib
+import re
 import shutil
 import statistics
 import subprocess
@@ -33,6 +34,11 @@ BINDER_RES = 100
 TARGET_RES = {"R3": 414, "R4": 585}
 TIMEOUT_S = 1200          # a clean R3 arm is minutes; anything at 20 min is the Blackwell hang
 HANG_WINDOW_S = 90        # power/CPU are reduced over this tail when an arm times out
+
+RE_STEP = re.compile(r"STEP (\d+\.\d+)")
+RE_DESIGN = re.compile(r"DESIGN (\d+) (\d+\.\d+) (\d+\.\d+)")
+RE_SWITCH = re.compile(r"CKPTSWITCH (\d+\.\d+)")
+RE_JSONREC = re.compile(r"(COUNTERS|ENV) (\{.*\})\s*$")
 
 # Every arm runs the shipped design defaults: sampling_steps 500 (design.yaml), recycling_steps 3,
 # precision bf16-mixed, matmul_precision high (TF32 on, deliberately not touched), protocol
@@ -248,19 +254,30 @@ def run_arm(name, gpu):
     hang = {}
     wd = threading.Thread(target=watchdog, daemon=True)
     wd.start()
+    # Scan for the records anywhere in the line, not just at its start. The CLI writes its own
+    # progress to the same stdout without always terminating it, so a stamp can land mid-line
+    # ("Predicting DataLoader 0: ...STEP 1786...") and a startswith() parse silently drops it. That
+    # showed up as 2998 of 3000 expected step stamps, which is a parse artefact wearing the costume
+    # of a missing measurement.
     for line in p.stdout:
-        if line.startswith("STEP "):
-            stamps.append(float(line.split()[1]))
-        elif line.startswith("DESIGN "):
-            f = line.split()
-            loops.append((int(f[1]), float(f[2]), float(f[3])))
-        elif line.startswith("CKPTSWITCH "):
-            switches.append(float(line.split()[1]))
-        elif line.startswith("COUNTERS "):
-            counters = json.loads(line[len("COUNTERS "):])
-        elif line.startswith("ENV "):
-            env = json.loads(line[len("ENV "):])
-        else:
+        hit = False
+        for m in RE_STEP.finditer(line):
+            stamps.append(float(m.group(1)))
+            hit = True
+        for m in RE_DESIGN.finditer(line):
+            loops.append((int(m.group(1)), float(m.group(2)), float(m.group(3))))
+            hit = True
+        for m in RE_SWITCH.finditer(line):
+            switches.append(float(m.group(1)))
+            hit = True
+        m = RE_JSONREC.search(line)
+        if m:
+            if m.group(1) == "COUNTERS":
+                counters = json.loads(m.group(2))
+            else:
+                env = json.loads(m.group(2))
+            hit = True
+        if not hit:
             tail.append(line)
             if len(tail) > 200:
                 tail.pop(0)
@@ -371,13 +388,24 @@ def run_arm(name, gpu):
     # diffusion_pairformer_args.num_blocks=0. So cueq counts are per-recycle, not per-step, and a
     # large torch_sdpa count is expected and correct rather than a fallback.
     c = counters or {}
+    tot = c.get("triatt_forward_total", 0)
+    nok = c.get("triatt_forward_nokern", 0)
+    share = (nok / tot) if tot else None
+    rec["triatt_nokern_share"] = round(share, 5) if share is not None else None
     if name == "nokern":
         kern_ok = (c.get("cueq_trimul", 1) == 0 and c.get("cueq_triatt", 1) == 0
-                   and c.get("triatt_torch_fallback", 0) > 0)
+                   and c.get("triatt_torch_fallback", 0) > 0 and share == 1.0)
         kern_why = "" if kern_ok else "--use_kernels false did not take: %s" % json.dumps(c)
     else:
+        # Not "zero fallback". boltzgen 0.3.2 calls the token-distance module at boltz.py:578
+        # WITHOUT use_kernels, while the template, MSA and pairformer calls on the three lines
+        # around it all pass it. That module owns an 8-block PairformerNoSeqModule, so 16 of the
+        # ~576 triangle-attention forwards per design take the torch branch no matter what the CLI
+        # is given. It is an upstream plumbing gap, it is what a user runs, and it is not patched
+        # here -- a patched model is not the production path. Gate on "every reachable kernel site
+        # is engaged and the unreachable share stays small and attributed" instead.
         kern_ok = (c.get("cueq_trimul", 0) > 0 and c.get("cueq_triatt", 0) > 0
-                   and c.get("triatt_torch_fallback", 1) == 0)
+                   and share is not None and share <= 0.05)
         kern_why = "" if kern_ok else "cuEquivariance not engaged: %s" % json.dumps(c)
     rec["kernels_ok"], rec["kernels_why"] = kern_ok, kern_why
     # Not a gate: MiniformerModule/MiniformerNoSeqModule accept use_kernels and drop it before

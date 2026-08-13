@@ -44,7 +44,9 @@ C = {
     "cueq_trimul": 0,          # cuEquivariance triangle_multiplicative_update
     "cueq_triatt": 0,          # cuEquivariance triangle_attention
     "trimul_forward_total": 0,  # every triangular-multiply forward, kernel or not
-    "triatt_torch_fallback": 0,  # the torch matmul+softmax path; must stay 0
+    "triatt_forward_total": 0,  # every triangle-attention forward, kernel or not
+    "triatt_forward_nokern": 0,  # ...of which took the torch branch
+    "triatt_torch_fallback": 0,  # torch matmul+softmax calls; chunked, so >= the forward count
     "torch_sdpa": 0,           # torch SDPA, which is where the diffusion token attention goes
     "ckpt_switches": 0,
 }
@@ -92,6 +94,23 @@ for _cls in (TRI.MiniTriangularUpdate, TRI.TriangleMultiplicationOutgoing,
             return _f(self, *a, **kw)
         cls.forward = forward
     _wrap(_cls)
+
+# Same at the triangle-attention forward, one increment per module call rather than per chunk, so
+# the kernel and non-kernel shares are directly comparable. `_attention` is chunked and fires ~5x per
+# non-kernel forward at this size, which would otherwise overstate the fallback.
+_ATT = __import__("boltzgen.model.layers.triangular_attention.attention",
+                  fromlist=["TriangleAttention"]).TriangleAttention
+_orig_triatt_fwd = _ATT.forward
+
+
+def _counted_triatt_fwd(self, *a, **kw):
+    C["triatt_forward_total"] += 1
+    if not kw.get("use_kernels", False):
+        C["triatt_forward_nokern"] += 1
+    return _orig_triatt_fwd(self, *a, **kw)
+
+
+_ATT.forward = _counted_triatt_fwd
 
 
 def _stamping(iterable, use_tqdm=True, desc=None, **kw):
