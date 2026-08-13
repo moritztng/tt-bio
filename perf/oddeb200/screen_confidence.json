@@ -1,0 +1,50 @@
+{
+ "host": "tt-quietbox2",
+ "card": null,
+ "ttnn": null,
+ "model": "opendde",
+ "n_tokens": 512,
+ "folds": [
+  {
+   "fold": 0,
+   "kind": "cold",
+   "fold_s": 87.047,
+   "plddt": 0.75411,
+   "confidence": {
+    "total_s": 1.6498,
+    "pf_device_s": 0.4914,
+    "host_s": 1.1584,
+    "pf_calls": 1
+   }
+  },
+  {
+   "fold": 1,
+   "kind": "warm",
+   "fold_s": 84.958,
+   "plddt": 0.75411,
+   "confidence": {
+    "total_s": 1.6272,
+    "pf_device_s": 0.489,
+    "host_s": 1.1382,
+    "pf_calls": 1
+   }
+  },
+  {
+   "fold": 2,
+   "kind": "warm",
+   "fold_s": 84.978,
+   "plddt": 0.75411,
+   "confidence": {
+    "total_s": 1.6301,
+    "pf_device_s": 0.4916,
+    "host_s": 1.1385,
+    "pf_calls": 1
+   }
+  }
+ ],
+ "warm_confidence_total_s": 1.6286,
+ "warm_confidence_pf_device_s": 0.4903,
+ "warm_confidence_host_s": 1.1383,
+ "warm_fold_s": 84.968,
+ "pf_device_share": 0.3011
+}
