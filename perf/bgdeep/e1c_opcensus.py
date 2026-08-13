@@ -122,7 +122,8 @@ def main() -> int:
         orig = cls.__call__
 
         def call(self, *x, **k):
-            if CAP.get("unit") != name or name in GRAPHS:
+            if (CAP.get("unit") != name or name in GRAPHS
+                    or getattr(self, "atom_level", False)):
                 return orig(self, *x, **k)
             ttnn.synchronize_device(state["dev"])
             ttnn.graph.begin_graph_capture(ttnn.graph.RunMode.NORMAL)
