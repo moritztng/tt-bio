@@ -1,0 +1,409 @@
+{
+ "host": "tt-quietbox2",
+ "card": "3",
+ "grid": [
+  11,
+  10
+ ],
+ "n": 7,
+ "fc2": {
+  "shipped_core_grid": {
+   "ms": 0.3603,
+   "equal": true
+  },
+  "bw1_obh5_obw8": {
+   "ms": 0.3604,
+   "equal": true
+  },
+  "bw1_obh5_obw4": {
+   "ms": 0.618,
+   "equal": true
+  },
+  "bw1_obh5_obw2": {
+   "ms": 1.0473,
+   "equal": true
+  },
+  "bw1_obh5_obw1": {
+   "ms": 1.9523,
+   "equal": true
+  },
+  "bw1_obh4_obw8": {
+   "ms": 0.3785,
+   "equal": true
+  },
+  "bw1_obh4_obw4": {
+   "ms": 0.7076,
+   "equal": true
+  },
+  "bw1_obh4_obw2": {
+   "ms": 1.2297,
+   "equal": true
+  },
+  "bw1_obh4_obw1": {
+   "ms": 2.359,
+   "equal": true
+  },
+  "bw1_obh2_obw8": {
+   "ms": 0.4067,
+   "equal": true
+  },
+  "bw1_obh2_obw4": {
+   "ms": 0.7191,
+   "equal": true
+  },
+  "bw1_obh2_obw2": {
+   "ms": 1.2751,
+   "equal": true
+  },
+  "bw1_obh2_obw1": {
+   "ms": 2.3947,
+   "equal": true
+  },
+  "bw1_obh1_obw8": {
+   "ms": 0.3595,
+   "equal": true
+  },
+  "bw1_obh1_obw4": {
+   "ms": 0.6278,
+   "equal": true
+  },
+  "bw1_obh1_obw2": {
+   "ms": 1.0953,
+   "equal": true
+  },
+  "bw1_obh1_obw1": {
+   "ms": 2.067,
+   "equal": true
+  },
+  "bw2_obh5_obw8": {
+   "ms": 0.2578,
+   "equal": false
+  },
+  "bw2_obh5_obw4": {
+   "ms": 0.4319,
+   "equal": false
+  },
+  "bw2_obh5_obw2": {
+   "ms": 0.7172,
+   "equal": false
+  },
+  "bw2_obh5_obw1": {
+   "ms": 1.3528,
+   "equal": false
+  },
+  "bw2_obh4_obw8": {
+   "ms": 0.2916,
+   "equal": false
+  },
+  "bw2_obh4_obw4": {
+   "ms": 0.4745,
+   "equal": false
+  },
+  "bw2_obh4_obw2": {
+   "ms": 0.8091,
+   "equal": false
+  },
+  "bw2_obh4_obw1": {
+   "ms": 1.4929,
+   "equal": false
+  },
+  "bw2_obh2_obw8": {
+   "ms": 0.2773,
+   "equal": false
+  },
+  "bw2_obh2_obw4": {
+   "ms": 0.4594,
+   "equal": false
+  },
+  "bw2_obh2_obw2": {
+   "ms": 0.775,
+   "equal": false
+  },
+  "bw2_obh2_obw1": {
+   "ms": 1.4211,
+   "equal": false
+  },
+  "bw2_obh1_obw8": {
+   "ms": 0.2784,
+   "equal": false
+  },
+  "bw2_obh1_obw4": {
+   "ms": 0.4725,
+   "equal": false
+  },
+  "bw2_obh1_obw2": {
+   "ms": 0.7884,
+   "equal": false
+  },
+  "bw2_obh1_obw1": {
+   "ms": 1.4424,
+   "equal": false
+  },
+  "bw4_obh5_obw8": {
+   "ms": 0.268,
+   "equal": false
+  },
+  "bw4_obh5_obw4": {
+   "ms": 0.4517,
+   "equal": false
+  },
+  "bw4_obh5_obw2": {
+   "ms": 0.7958,
+   "equal": false
+  },
+  "bw4_obh5_obw1": {
+   "ms": 1.4944,
+   "equal": false
+  },
+  "bw4_obh4_obw8": {
+   "ms": 0.2634,
+   "equal": false
+  },
+  "bw4_obh4_obw4": {
+   "ms": 0.4826,
+   "equal": false
+  },
+  "bw4_obh4_obw2": {
+   "ms": 0.8146,
+   "equal": false
+  },
+  "bw4_obh4_obw1": {
+   "ms": 1.4869,
+   "equal": false
+  },
+  "bw4_obh2_obw8": {
+   "ms": 0.2706,
+   "equal": false
+  },
+  "bw4_obh2_obw4": {
+   "ms": 0.4492,
+   "equal": false
+  },
+  "bw4_obh2_obw2": {
+   "ms": 0.7581,
+   "equal": false
+  },
+  "bw4_obh2_obw1": {
+   "ms": 1.4266,
+   "equal": false
+  },
+  "bw4_obh1_obw8": {
+   "ms": 0.2352,
+   "equal": false
+  },
+  "bw4_obh1_obw4": {
+   "ms": 0.4293,
+   "equal": false
+  },
+  "bw4_obh1_obw2": {
+   "ms": 0.7059,
+   "equal": false
+  },
+  "bw4_obh1_obw1": {
+   "ms": 1.4881,
+   "equal": false
+  },
+  "bw8_obh5_obw8": {
+   "ms": 0.2319,
+   "equal": false
+  },
+  "bw8_obh5_obw4": {
+   "ms": 0.3331,
+   "equal": false
+  },
+  "bw8_obh5_obw2": {
+   "ms": 0.7052,
+   "equal": false
+  },
+  "bw8_obh5_obw1": {
+   "ms": 1.1404,
+   "equal": false
+  },
+  "bw8_obh4_obw8": {
+   "ms": 0.2289,
+   "equal": false
+  },
+  "bw8_obh4_obw4": {
+   "ms": 0.3671,
+   "equal": false
+  },
+  "bw8_obh4_obw2": {
+   "ms": 0.6643,
+   "equal": false
+  },
+  "bw8_obh4_obw1": {
+   "ms": 1.2783,
+   "equal": false
+  },
+  "bw8_obh2_obw8": {
+   "ms": 0.2148,
+   "equal": false
+  },
+  "bw8_obh2_obw4": {
+   "ms": 0.3446,
+   "equal": false
+  },
+  "bw8_obh2_obw2": {
+   "ms": 0.636,
+   "equal": false
+  },
+  "bw8_obh2_obw1": {
+   "ms": 1.2174,
+   "equal": false
+  },
+  "bw8_obh1_obw8": {
+   "ms": 0.206,
+   "equal": false
+  },
+  "bw8_obh1_obw4": {
+   "ms": 0.3358,
+   "equal": false
+  },
+  "bw8_obh1_obw2": {
+   "ms": 0.5885,
+   "equal": false
+  },
+  "bw8_obh1_obw1": {
+   "ms": 1.1276,
+   "equal": false
+  },
+  "bw16_obh5_obw8": {
+   "ms": 0.2301,
+   "equal": false
+  },
+  "bw16_obh5_obw4": {
+   "ms": 0.3835,
+   "equal": false
+  },
+  "bw16_obh5_obw2": {
+   "ms": 0.6242,
+   "equal": false
+  },
+  "bw16_obh5_obw1": {
+   "ms": 1.1576,
+   "equal": false
+  },
+  "bw16_obh4_obw8": {
+   "ms": 0.2695,
+   "equal": false
+  },
+  "bw16_obh4_obw4": {
+   "ms": 0.3984,
+   "equal": false
+  },
+  "bw16_obh4_obw2": {
+   "ms": 0.6808,
+   "equal": false
+  },
+  "bw16_obh4_obw1": {
+   "ms": 1.285,
+   "equal": false
+  },
+  "bw16_obh2_obw8": {
+   "ms": 0.2253,
+   "equal": false
+  },
+  "bw16_obh2_obw4": {
+   "ms": 0.3732,
+   "equal": false
+  },
+  "bw16_obh2_obw2": {
+   "ms": 0.6464,
+   "equal": false
+  },
+  "bw16_obh2_obw1": {
+   "ms": 1.22,
+   "equal": false
+  },
+  "bw16_obh1_obw8": {
+   "ms": 0.2203,
+   "equal": false
+  },
+  "bw16_obh1_obw4": {
+   "ms": 0.3239,
+   "equal": false
+  },
+  "bw16_obh1_obw2": {
+   "ms": 0.5868,
+   "equal": false
+  },
+  "bw16_obh1_obw1": {
+   "ms": 1.133,
+   "equal": false
+  },
+  "bw32_obh5_obw8": {
+   "ms": 0.2273,
+   "equal": false
+  },
+  "bw32_obh5_obw4": {
+   "ms": 0.364,
+   "equal": false
+  },
+  "bw32_obh5_obw2": {
+   "ms": 0.6291,
+   "equal": false
+  },
+  "bw32_obh5_obw1": {
+   "ms": 1.1923,
+   "equal": false
+  },
+  "bw32_obh4_obw8": {
+   "ms": 0.2354,
+   "equal": false
+  },
+  "bw32_obh4_obw4": {
+   "ms": 0.3997,
+   "equal": false
+  },
+  "bw32_obh4_obw2": {
+   "ms": 0.7125,
+   "equal": false
+  },
+  "bw32_obh4_obw1": {
+   "ms": 1.3016,
+   "equal": false
+  },
+  "bw32_obh2_obw8": {
+   "ms": 0.2347,
+   "equal": false
+  },
+  "bw32_obh2_obw4": {
+   "ms": 0.3707,
+   "equal": false
+  },
+  "bw32_obh2_obw2": {
+   "ms": 0.6806,
+   "equal": false
+  },
+  "bw32_obh2_obw1": {
+   "ms": 1.2472,
+   "equal": false
+  },
+  "bw32_obh1_obw8": {
+   "ms": 0.2307,
+   "equal": false
+  },
+  "bw32_obh1_obw4": {
+   "ms": 0.3301,
+   "equal": false
+  },
+  "bw32_obh1_obw2": {
+   "ms": 0.6148,
+   "equal": false
+  },
+  "bw32_obh1_obw1": {
+   "ms": 1.1405,
+   "equal": false
+  }
+ },
+ "parts": {
+  "multiply_silu": 0.289
+ },
+ "slice_is_view": false,
+ "fc2_best_bit_exact": {
+  "tag": "bw1_obh1_obw8",
+  "ms": 0.3595,
+  "x": 1.002,
+  "fold_s_if_landed": 0.006
+ }
+}
