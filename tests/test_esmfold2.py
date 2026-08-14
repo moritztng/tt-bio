@@ -139,15 +139,22 @@ def test_inputs_embedder(n_tokens):
 
 @pytest.mark.parametrize("seq_len", [32, 64])
 def test_distogram_head(seq_len):
+    # Production calling convention (modeling_esmfold2.py: the reference forward
+    # pre-symmetrizes): the head receives z + z.transpose(-2, -3) and is a plain linear.
     ref = make_distogram_head()
     z = torch.randn(1, seq_len, seq_len, 256)
-    ref_out = ref(z + z.transpose(-2, -3))
+    z_sym = z + z.transpose(-2, -3)
+    ref_out = ref(z_sym)
 
     mod = tt_ef2.DistogramHeadModel()
     mod.load_state_dict(ref.state_dict(), strict=False)
-    out = mod(z)
+    out = mod(z_sym)
     assert out.shape == ref_out.shape
     assert pcc(out, ref_out) > 0.999
+    # PCC alone passed the double-symmetrize bug at 0.9998 (an affine rescale keeps
+    # correlation ~1); the relative-L2 bound is what catches a scaled input.
+    rel_l2 = (out - ref_out).norm() / ref_out.norm()
+    assert rel_l2 < 0.05, f"rel L2 {rel_l2:.4f}"
 
 
 def test_diffusion_sampler_shared_rng_gate(monkeypatch):

@@ -21,6 +21,11 @@ shows whether matching random draws collapses the residual.
 Reported per protein:
   * plddt_pcc / plddt_mae   -- per-residue confidence, the metric ESMFold ranks on
   * distogram_pcc, ptm      -- sampler-independent (computed once, first seed)
+  * distogram_rel_l2        -- ||tt-ref||/||ref|| on distogram_logits, gated by
+                              DISTOGRAM_REL_L2_MAX: PCC is scale-blind, so the
+                              double-symmetrize bug (head received z+zT and
+                              symmetrized again) scored distogram_pcc 0.9996.
+                              rel_l2 was 1.09 with that bug, 0.05 without it.
   * kabsch_rmsd, coord_dm_pcc R/D/X distributions across the sampler seeds
 
 Usage:
@@ -71,6 +76,17 @@ _FORWARD_KEYS = {
 def pcc(a, b) -> float:
     a, b = a.flatten().float(), b.flatten().float()
     return torch.corrcoef(torch.stack([a, b]))[0, 1].item()
+
+
+def rel_l2(a, b) -> float:
+    a, b = a.flatten().float(), b.flatten().float()
+    return ((a - b).norm() / b.norm()).item()
+
+
+# Hard bound on the distogram rel_l2 above: the only legitimate gap is bf16 device
+# noise (0.053 measured on the trpcage leg); a re-symmetrizing head lands at ~0.9.
+# 0.25 sits far from both.
+DISTOGRAM_REL_L2_MAX = 0.25
 
 
 def dist_matrix(x):  # x: [n,3] -> [n,n]
@@ -359,16 +375,22 @@ def main():
 
         base_ref, base_tt = ref_runs[seeds[0]], tt_runs[seeds[0]]
         verdicts = compare_multiseed(ref_runs, tt_runs, atom_mask, seeds)
+        dg_rel = rel_l2(base_tt["distogram_logits"], base_ref["distogram_logits"])
         m = dict(
             protein=name, L=len(seq), n_seeds=len(seeds),
             plddt_pcc=pcc(base_tt["plddt"], base_ref["plddt"]),
             plddt_mae=(base_tt["plddt"].float() - base_ref["plddt"].float()).abs().mean().item(),
             distogram_pcc=pcc(base_tt["distogram_logits"], base_ref["distogram_logits"]),
+            distogram_rel_l2=dg_rel,
             ptm_tt=float(base_tt["ptm"].mean()), ptm_ref=float(base_ref["ptm"].mean()),
             **verdicts,
         )
         results.append(m)
         print(json.dumps(m, indent=2), flush=True)
+        assert dg_rel < DISTOGRAM_REL_L2_MAX, (
+            f"{name}: distogram_rel_l2 {dg_rel:.4f} >= {DISTOGRAM_REL_L2_MAX}: "
+            "distogram_logits is scale-wrong, not just noisy (a PCC-only anchor "
+            "shipped the double-symmetrize bug at distogram_pcc 0.9996)")
 
         if args.fixture_dir:
             n_steps_device = _seen.get("n_steps")

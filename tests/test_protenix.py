@@ -349,7 +349,8 @@ def test_diffusion_transformer_block_parity():
     assert p > 0.98, f"PCC {p:.5f}"
 
 
-# DistogramHead (pair -> distogram bins, symmetrized).
+# DistogramHead (pair -> distogram bins). The tt-bio head is a plain linear;
+# symmetrization is the caller's job, matching how the esmfold2 runtime calls it.
 def test_distogram_head_parity():
     from tt_bio.esmfold2 import DistogramHead
     c_z, no_bins, L = 128, 64, 32
@@ -358,7 +359,8 @@ def test_distogram_head_parity():
     ref = run_reference_distogram_head(mod, z.clone()).float()
     dev = get_device()
     dh = DistogramHead(remap_distogram_head(sd), _ck(dev))
-    out = torch.Tensor(ttnn.to_torch(dh(ttnn.from_torch(z, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)))).float().reshape(ref.shape)
+    z_sym = z + z.transpose(-2, -3)
+    out = torch.Tensor(ttnn.to_torch(dh(ttnn.from_torch(z_sym, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)))).float().reshape(ref.shape)
     p = pcc(out, ref)
     assert p > 0.98, f"PCC {p:.5f}"
 
@@ -410,7 +412,8 @@ def test_real_weight_distogram_head():
     ref = mod(z.clone()).float()
     dev = get_device()
     dh = DistogramHead(remap_distogram_head(mod.state_dict()), _ck(dev))
-    out = torch.Tensor(ttnn.to_torch(dh(ttnn.from_torch(z, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)))).float().reshape(ref.shape)
+    z_sym = z + z.transpose(-2, -3)
+    out = torch.Tensor(ttnn.to_torch(dh(ttnn.from_torch(z_sym, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)))).float().reshape(ref.shape)
     p = pcc(out, ref)
     assert p > 0.98, f"real-weight distogram PCC {p:.5f}"
 
@@ -501,6 +504,7 @@ def test_real_weight_v2_distogram_head():
     ref = mod(z.clone()).float()
     dev = get_device()
     dh = DistogramHead(remap_distogram_head(mod.state_dict()), _ck(dev))
-    out = torch.Tensor(ttnn.to_torch(dh(ttnn.from_torch(z, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)))).float().reshape(ref.shape)
+    z_sym = z + z.transpose(-2, -3)
+    out = torch.Tensor(ttnn.to_torch(dh(ttnn.from_torch(z_sym, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)))).float().reshape(ref.shape)
     p = pcc(out, ref)
     assert p > 0.98, f"v2 real-weight distogram PCC {p:.5f} (c_z={c_z})"

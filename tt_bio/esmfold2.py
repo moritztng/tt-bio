@@ -1356,7 +1356,8 @@ class StructureHead(TorchWrapper):
 
 
 class DistogramHead(Module):
-    """Linear on the symmetrized pair: distogram_head(z + z.transpose(L axes))."""
+    """Plain pair->bins linear. Symmetrizing z is the caller's job: the reference
+    forward passes `z + z.transpose(-2, -3)` in, so this module must not do it again."""
 
     def __init__(self, state_dict: Weights, compute_kernel_config):
         super().__init__(state_dict, compute_kernel_config)
@@ -1364,8 +1365,7 @@ class DistogramHead(Module):
         self.b = self.torch_to_tt("bias", transform=_ROW)
 
     def __call__(self, z: ttnn.Tensor) -> ttnn.Tensor:
-        zs = ttnn.add(z, ttnn.permute(z, (0, 2, 1, 3)))
-        return self._lin(zs, self.w, bias=self.b)
+        return self._lin(z, self.w, bias=self.b)
 
 
 class DistogramHeadModel(TorchWrapper):

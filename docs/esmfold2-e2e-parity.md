@@ -20,7 +20,8 @@ TT_VISIBLE_DEVICES=0 MKL_THREADING_LAYER=GNU \
 |---|---|---|
 | `plddt_pcc` | **0.9989** | per-residue confidence — the metric ESMFold ranks on |
 | `plddt_mae` | 0.0031 | mean pLDDT 0.824 (tt) vs 0.821 (ref) |
-| `distogram_pcc` | **0.9996** | pairwise distance-bin logits |
+| `distogram_pcc` | **0.9997** | pairwise distance-bin logits |
+| `distogram_rel_l2` | **0.053** | gated: the harness fails the leg above 0.25. PCC is scale-blind, so this relative-L2 bound is the actual distogram anchor |
 | `coord_dm_pcc` | 0.928 | alignment-free atom-atom distance matrix |
 | `kabsch_rmsd` | 2.15 Å | tt-vs-ref, after weighted rigid alignment |
 | `ref_selfvar_rmsd` | 1.98 Å | reference's **own** two-seed sample-to-sample spread |
@@ -28,7 +29,8 @@ TT_VISIBLE_DEVICES=0 MKL_THREADING_LAYER=GNU \
 
 ## Verdict
 
-**Pass.** pLDDT and distogram PCC are ~0.999 and pTM matches. The tt-vs-ref
+**Pass.** pLDDT and distogram match (PCC ~0.999, rel L2 0.05) and pTM matches.
+The tt-vs-ref
 coordinate RMSD (2.15 Å) is within the reference's own sample-to-sample
 variance (1.98 Å, two torch seeds) — the spread is intrinsic diffusion
 stochasticity (independent RNG streams), not a port error, so coords are

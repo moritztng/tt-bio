@@ -294,7 +294,8 @@ def make_distogram_head(c_z=128, no_bins=64, seed=0):
 
 def remap_distogram_head(ref_sd: dict) -> dict:
     """Protenix: logits=linear(z); out=logits+logits.T -> W(z+zT)+2b.
-    tt-bio esmfold2 DistogramHead: linear(z+zT) -> W(z+zT)+b. So bias must double."""
+    tt-bio esmfold2 DistogramHead is a plain linear, so callers feed it z+zT:
+    linear(z+zT) -> W(z+zT)+b. The bias must double to match the reference."""
     return {"weight": ref_sd["linear.weight"], "bias": 2.0 * ref_sd["linear.bias"]}
 
 
