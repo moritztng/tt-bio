@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Render the perf page in headless Chrome at a wide and a narrow width, screenshot both,
-and dump every OpenFold3 bar label the page actually drew.
+and count the labels the page actually drew. Extra strings to look for go on the command line,
+which is how a measured number is checked without being written into this file.
 
-  python3 perf/perfpage/render_check.py http://localhost:8117/ /tmp/out
+  python3 perf/perfpage/render_check.py http://localhost:8117/ /tmp/out "45.3 s" "199.2 s"
 """
 import json
 import os
@@ -33,6 +34,12 @@ PROBE = r"""
 """
 
 
+# The fold side must be unmoved by a design-side edit, so its numbers are checked on every run.
+# "Binder design" is the new band, and six SVGs is five fold charts plus the design one.
+NEEDLES = ["44.88", "56.59", "3.41x", "2.75x", "OpenFold3", "Binder design", "BoltzGen",
+           "RFdiffusion3"]
+
+
 def run(url, outdir, width, height, tag):
     os.makedirs(outdir, exist_ok=True)
     shot = os.path.join(outdir, "perf-%s-%d.png" % (tag, width))
@@ -53,7 +60,8 @@ def main():
     outdir = sys.argv[2]
     for width, height, tag in [(1400, 2400, "wide"), (420, 2600, "narrow")]:
         shot, size, dom = run(url, outdir, width, height, tag)
-        hits = {s: dom.count(s) for s in ["44.88", "56.59", "3.41x", "2.75x", "OpenFold3"]}
+        hits = {s: dom.count(s) for s in NEEDLES + sys.argv[3:]}
+        hits["svg"] = dom.count("<svg")
         print("%-6s %4dpx  %s  %d bytes  %s" % (tag, width, shot, size, json.dumps(hits)))
 
 

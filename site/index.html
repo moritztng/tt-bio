@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TT-Bio: biomolecular structure, design and embeddings on Tenstorrent</title>
-<meta name="description" content="Open biomolecular models on Tenstorrent: folding and binding affinity, binder design, and protein embeddings. Measured throughput per dollar against NVIDIA H200 and B200 at 512 residues.">
+<meta name="description" content="Open biomolecular models on Tenstorrent: folding and binding affinity, binder design, and protein embeddings. Measured throughput per dollar against NVIDIA H200 and B200 at 512 residues, plus seconds per design for the two binder-design models.">
 <style>
 :root {
   color-scheme: light dark;
@@ -255,11 +255,33 @@ details.disclose > div { padding-top: 14px; }
   <figure><div id="c4-svg"></div></figure>
 </section>
 
+</section>
+
+<section class="band" id="design">
+  <div class="band-head">
+    <h2>Binder design</h2>
+    <p class="band-deck" id="design-deck"></p>
+  </div>
+
+<section class="chart" id="c5">
+  <div class="chart-head">
+    <div class="chart-title"><h3>Seconds per design, one AI Processor</h3><span class="pill">Measured</span></div>
+    <p class="cond" id="c5-cond"></p>
+  </div>
+  <div class="keys" id="c5-keys"></div>
+  <figure><div id="c5-svg"></div></figure>
+  <p class="cond" id="c5-note"></p>
+</section>
+
+</section>
+
 <details class="disclose" id="exact">
   <summary>The exact figures <span class="sum-note">measured seconds per prediction, and the two derived tables</span></summary>
   <div>
     <h4>Measured, seconds per prediction on one AI Processor</h4>
     <div class="tablewrap"><table id="t-measured"></table></div>
+    <h4 style="margin-top:24px">Measured, seconds per design on one AI Processor</h4>
+    <div class="tablewrap"><table id="t-design"></table></div>
     <h4 style="margin-top:24px">Derived, predictions per hour per server</h4>
     <div class="tablewrap"><table id="t-derived"></table></div>
     <h4 style="margin-top:24px">Derived, throughput per dollar of purchase price</h4>
@@ -279,8 +301,6 @@ details.disclose > div { padding-top: 14px; }
     <div class="notes"><ul id="caveats"></ul></div>
   </div>
 </details>
-
-</section>
 
 <footer>
   <p>Every seconds-per-prediction figure is measured on the hardware named. Everything else is derived
@@ -579,6 +599,37 @@ details.disclose > div { padding-top: 14px; }
       "better. One prediction at a time, warm, each model at its own shipped precision and recycle count.";
   }
 
+  function chartDesign() {
+    var groups = [], max = 0;
+    D.design.models.forEach(function (m) {
+      var bars = CELLS.map(function (k) {
+        var c = m.cells[k], p = plat(k);
+        if (c.status !== "measured") {
+          return { series: p.name, seriesShort: p.short, blocked: true, reason: c.detail };
+        }
+        max = Math.max(max, c.s_per_design);
+        return {
+          series: p.name, seriesShort: p.short, color: SER[k], value: c.s_per_design,
+          label: fmtSec(c.s_per_design, 1) + " s",
+          tip: [m.name + " on " + p.name, fmtSec(c.s_per_design) + " s per design", m.target, c.ref].join("\n")
+        };
+      });
+      groups.push({ label: m.name, sub: m.target, bars: bars });
+    });
+    drawBars(document.getElementById("c5-svg"), {
+      id: "c5", groups: groups, max: niceMax(max), unit: "seconds per design", unitShort: "s",
+      tickFmt: function (v) { return v.toFixed(0); },
+      title: "Seconds to return one binder design on one AI Processor, measured",
+      desc: D.design.models.map(function (m) {
+        return m.name + ": " + CELLS.map(function (k) {
+          return plat(k).name + " " + fmtSec(m.cells[k].s_per_design) + " s";
+        }).join(", ") + ".";
+      }).join(" ")
+    });
+    document.getElementById("c5-cond").textContent = D.design.cond;
+    document.getElementById("c5-note").textContent = D.design.note;
+  }
+
   function chartCost() {
     var rows = ["galaxy_bh", "dgx_h200", "dgx_b200"].map(plat);
     var max = 0, groups = [];
@@ -627,6 +678,17 @@ details.disclose > div { padding-top: 14px; }
           }).join("") + "</tr>";
       }).join("") + "</tbody>";
 
+    document.getElementById("t-design").innerHTML =
+      "<thead><tr><th>Model</th><th class=\"n\">Steps</th><th>Batch</th><th class=\"n\">Blackhole p150a</th>" +
+      "<th class=\"n\">H200</th><th class=\"n\">B200</th></tr></thead><tbody>" +
+      D.design.models.map(function (m) {
+        return "<tr><td>" + m.name + "</td><td class=\"n num\">" + m.sampling_steps + "</td>" +
+          "<td class=\"num\">" + m.batch + "</td>" +
+          CELLS.map(function (k) {
+            return gpuCell(m.cells[k], function (c) { return fmtSec(c.s_per_design); });
+          }).join("") + "</tr>";
+      }).join("") + "</tbody>";
+
     var head2 = "<thead><tr><th>Model</th>" +
       ["galaxy_bh", "dgx_h200", "dgx_b200"].map(function (id) {
         return "<th class=\"n\">" + serverLabel(plat(id)) + "</th>";
@@ -652,6 +714,7 @@ details.disclose > div { padding-top: 14px; }
      * the tab title word for word. */
     document.title = D.title;
     document.getElementById("perf-deck").textContent = D.subtitle;
+    document.getElementById("design-deck").textContent = D.design.deck;
     document.getElementById("foot-date").textContent = D.updated;
 
     var s = D.scope, m = D.cost_model;
@@ -683,6 +746,7 @@ details.disclose > div { padding-top: 14px; }
     keyRow("c1b-keys", ["galaxy_bh", "dgx_h200", "dgx_b200"]);
     keyRow("c2-keys", ["galaxy_bh", "dgx_h200", "dgx_b200"]);
     keyRow("c3-keys", ["p150a", "h200", "b200"]);
+    keyRow("c5-keys", ["p150a", "h200", "b200"]);
 
     var md = document.getElementById("methods-dl");
     function mrow(k, v) {
@@ -701,6 +765,7 @@ details.disclose > div { padding-top: 14px; }
         var c = x.cells.p150a;
         return x.name + " " + (c && c.parity ? c.parity : "not measured");
       }).join("; ") + ".");
+    mrow("Binder design", D.design.methods);
     mrow("Servers", "A server bar is one measured accelerator times the accelerators in the box, on " +
       "both sides: 32 Blackhole AI Processors against 8 GPUs.");
     mrow("Cost", m.formula + " Only the second basis uses the window. " + m.amortisation_basis + " " +
@@ -731,7 +796,7 @@ details.disclose > div { padding-top: 14px; }
   function renderAll() {
     chartPerDollar("c1", "capex");
     chartPerDollar("c1b", "tco");
-    chartThroughput(); chartTime(); chartCost(); tables();
+    chartThroughput(); chartTime(); chartDesign(); chartCost(); tables();
   }
 
   var rt = null;
