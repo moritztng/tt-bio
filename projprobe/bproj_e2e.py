@@ -170,6 +170,21 @@ def coef_tiles(h):
     return c
 
 
+def dense_masks(nplane):
+    """A band whose every plane contributes to every voxel.
+
+    masks() is the real interpolation kernel and it has TWO nonzero taps per (X, Y), so a voxel in
+    the arm receives only 2*nstep nonzero contributions out of nwin -- the arm shares one mask set
+    across all directions, where the real problem gives each direction its own plane equation. That
+    makes the arm's S1' residual 0.0 at every depth and it does NOT answer the accumulation-precision
+    question. This set does: nplane strictly positive weights summing to 1 per voxel, so the depth in
+    the accumulator is nwin and nothing else.
+    """
+    rng = np.random.default_rng(11)
+    m = rng.uniform(0.2, 1.0, size=(nplane, 32, 32)).astype(np.float32)
+    return m / m.sum(axis=0, keepdims=True)
+
+
 def masks():
     a, b = 0.43, 0.29
     mk_ = np.zeros((NPLANE, 32, 32), dtype=np.float32)
@@ -388,13 +403,15 @@ def s2_reference(sln, cfn, qn, rho, offs_el, ncontrib):
     return one * ncontrib, win
 
 
-def s2_parity(dev, res, chunk, row_el, sl, sln, coef, cfn, selt, qn, offs_el, rho, nc2, wpg):
+def s2_parity(dev, res, chunk, row_el, sl, sln, coef, cfn, selt, qn, offs_el, rho, nc2, wpg,
+              dstacc=True):
     """One core, one W tile, nc2 contributions. A scale-only residual means contributions are being
     LOST rather than computed wrong, and the least-squares scale says how many of them landed."""
     w1 = ttnn.from_torch(torch.zeros(1, 1, 32 * wpg, 32).to(torch.bfloat16), dtype=ttnn.bfloat16,
                          layout=ttnn.TILE_LAYOUT, device=dev)
     rowidx1 = [(np.arange(NROWS) * NCOPY + rho).tolist()]
-    pd = build_s2a(sl, coef, selt, w1, 1, 1, 1, row_el, offs_el * ELEM, rowidx1, nc2, chunk)
+    pd = build_s2a(sl, coef, selt, w1, 1, 1, 1, row_el, offs_el * ELEM, rowidx1, nc2, chunk,
+                   dstacc=dstacc)
     ttnn.generic_op([sl, coef, selt, w1], pd)
     ttnn.synchronize_device(dev)
     got = ttnn.to_torch(w1)[0, 0, :32, :].to(torch.float64).numpy()
@@ -404,11 +421,11 @@ def s2_parity(dev, res, chunk, row_el, sl, sln, coef, cfn, selt, qn, offs_el, rh
     k = float((got * one).sum() / (one * one).sum())
     resid = float(np.linalg.norm(got - k * one) / max(np.linalg.norm(got), 1e-300))
     err = np.abs(got - ref).ravel()
-    print("  S2' nc %3d (%d chunk): rel L2 %.4e   landed %7.3f of %d   resid %.3e   "
+    print("  S2' nc %3d (%d chunk) %s: rel L2 %.4e   landed %7.3f of %d   resid %.3e   "
           "err p50 %.2e p99 %.2e max %.2e"
-          % (nc2, max(1, nc2 // chunk), rel, k, nc2, resid, np.percentile(err, 50),
-             np.percentile(err, 99), err.max()), flush=True)
-    res["parity_s2_nc%d" % nc2] = {"rel_l2": rel, "landed": k, "resid": resid,
+          % (nc2, max(1, nc2 // chunk), "fp32dst" if dstacc else "bf16dst", rel, k, nc2, resid,
+             np.percentile(err, 50), np.percentile(err, 99), err.max()), flush=True)
+    res["parity_s2_%s_nc%d" % ("fp32dst" if dstacc else "bf16dst", nc2)] = {"rel_l2": rel, "landed": k, "resid": resid,
                                    "err_pct": {q: float(np.percentile(err, q))
                                                for q in (50, 90, 99, 100)}}
     ttnn.deallocate(w1)
@@ -557,18 +574,30 @@ def main():
             wpg = 128
             w1 = ttnn.from_torch(torch.zeros(1, 1, 32 * wpg, 32).to(torch.bfloat16),
                                  dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
-            for _nc in (a.chunk, 2 * a.chunk, 3 * a.chunk):
-                s2_parity(dev, res, a.chunk, row_el, sl, sln, coef, cfn, selt, qn, offs_el, rho,
-                          _nc, wpg)
+            for _dst in (True, False):
+                for _nc in (a.chunk, 2 * a.chunk, 3 * a.chunk):
+                    s2_parity(dev, res, a.chunk, row_el, sl, sln, coef, cfn, selt, qn, offs_el, rho,
+                              _nc, wpg, _dst)
             # S1' off the device's own W, at nstep = 1 and at the band's real depth
+            # EVERY page of the parity W store, not just page 0: with nb = 1 the window's other 83
+            # contributions were zero and the residual was 0.0 at every depth for both accumulators.
             rowidx1 = [(np.arange(NROWS) * NCOPY + rho).tolist()]
-            pd = build_s2a(sl, coef, selt, w1, 1, 1, 1, row_el, offs_el * ELEM, rowidx1,
+            pd = build_s2a(sl, coef, selt, w1, 1, 1, wpg, row_el, offs_el * ELEM, rowidx1,
                            a.ncontrib, a.chunk)
             ttnn.generic_op([sl, coef, selt, w1], pd)
             ttnn.synchronize_device(dev)
+            dm = dense_masks(NPLANE)
+            dm_t = ttnn.from_torch(torch.from_numpy(dm.reshape(1, 1, NPLANE * 32, 32)).to(torch.bfloat16),
+                                   dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
+            dmn = torch.from_numpy(dm).to(torch.bfloat16).to(torch.float64).numpy()
             for ns in (1, 2, 3):
-                s1_parity(dev, res, w1, m_t, ns, vol_fmt, vol_page, tdt, mkn,
-                          "fp32dst" if dstacc else "bf16dst", wpg)
+                for _dst in (True, False):
+                    f_ = ttnn.float32 if _dst else ttnn.bfloat16
+                    p_ = F32_TILE_B if _dst else TILE_B
+                    d_ = torch.float32 if _dst else torch.bfloat16
+                    s1_parity(dev, res, w1, dm_t, ns, f_, p_, d_, dmn,
+                              ("fp32dst" if _dst else "bf16dst") + "_dense", wpg)
+            ttnn.deallocate(dm_t)
             ttnn.deallocate(w1)
 
         print(f"\nbox {a.box}: slice {2*a.box*a.box} B = {strips_per_slice} strips x "
