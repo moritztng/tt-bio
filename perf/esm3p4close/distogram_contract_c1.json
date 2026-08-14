@@ -1,0 +1,9 @@
+{
+ "L": 64,
+ "pcc_unit_test_convention": 0.999995,
+ "pcc_production_convention": 0.999777,
+ "max_abs_unit_test": 0.015587,
+ "max_abs_production": 6.807078,
+ "ref_out_absmean": 0.656968,
+ "max_abs_production_vs_doubled_model": 0.03193
+}

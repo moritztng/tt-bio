@@ -1,0 +1,297 @@
+{
+ "ttnn": "0.68.0",
+ "size": 512,
+ "card": "1",
+ "git_head": "def3e45d",
+ "recycling_steps": 10,
+ "sampling_steps": 100,
+ "grid": [
+  11,
+  10
+ ],
+ "warm_s": 45.087,
+ "clean_s": 32.03,
+ "plddt": 0.9285,
+ "instrumented_s": 32.065,
+ "instrument_overhead_pct": 0.112,
+ "plddt_instrumented": 0.9285,
+ "sites": [
+  {
+   "site": "to_torch StructureHead                esmfold2.py:1341",
+   "n": 68,
+   "s": 2.0918,
+   "shapes": [
+    "(1, 4128, 3)"
+   ],
+   "dtypes": [
+    "DataType.BFLOAT16"
+   ]
+  },
+  {
+   "site": "to_torch FoldingTrunk[48 blocks]      esmfold2_runtime.py:287",
+   "n": 1,
+   "s": 0.608,
+   "shapes": [
+    "(1, 512, 512, 256)"
+   ],
+   "dtypes": [
+    "DataType.BFLOAT16"
+   ]
+  },
+  {
+   "site": "to_torch FoldingTrunk[4 blocks]       esmfold2.py:202",
+   "n": 2,
+   "s": 0.4774,
+   "shapes": [
+    "(1, 512, 512, 256)"
+   ],
+   "dtypes": [
+    "DataType.BFLOAT16"
+   ]
+  },
+  {
+   "site": "from_torch LanguageModelShim            esmfold2.py:1032",
+   "n": 1,
+   "s": 0.3886,
+   "shapes": [
+    "(1, 512, 81, 2560)"
+   ],
+   "dtypes": [
+    "DataType.BFLOAT16"
+   ]
+  },
+  {
+   "site": "to_torch MSAEncoder[4 blocks]         esmfold2.py:1176",
+   "n": 1,
+   "s": 0.3224,
+   "shapes": [
+    "(1, 512, 512, 256)"
+   ],
+   "dtypes": [
+    "DataType.BFLOAT16"
+   ]
+  },
+  {
+   "site": "from_torch StructureHead                esmfold2.py:1312",
+   "n": 4,
+   "s": 0.3101,
+   "shapes": [
+    "(1, 4128, 389)",
+    "(1, 512, 451)",
+    "(1, 512, 512, 256)"
+   ],
+   "dtypes": [
+    "DataType.BFLOAT16"
+   ]
+  },
+  {
+   "site": "from_torch FoldingTrunk[4 blocks]       esmfold2.py:201",
+   "n": 2,
+   "s": 0.3048,
+   "shapes": [
+    "(1, 512, 512, 256)"
+   ],
+   "dtypes": [
+    "DataType.BFLOAT16"
+   ]
+  },
+  {
+   "site": "from_torch MSAEncoder[4 blocks]         esmfold2.py:1175",
+   "n": 4,
+   "s": 0.1708,
+   "shapes": [
+    "(1, 512, 35, 35)",
+    "(1, 512, 451)",
+    "(1, 512, 512, 1)"
+   ],
+   "dtypes": [
+    "DataType.BFLOAT16"
+   ]
+  },
+  {
+   "site": "from_torch FoldingTrunk[2 blocks]       esmfold2.py:201",
+   "n": 1,
+   "s": 0.1535,
+   "shapes": [
+    "(1, 512, 512, 256)"
+   ],
+   "dtypes": [
+    "DataType.BFLOAT16"
+   ]
+  },
+  {
+   "site": "to_torch FoldingTrunk[2 blocks]       esmfold2.py:202",
+   "n": 1,
+   "s": 0.1533,
+   "shapes": [
+    "(1, 512, 512, 256)"
+   ],
+   "dtypes": [
+    "DataType.BFLOAT16"
+   ]
+  },
+  {
+   "site": "from_torch DistogramHeadModel           esmfold2.py:1376",
+   "n": 1,
+   "s": 0.1529,
+   "shapes": [
+    "(1, 512, 512, 256)"
+   ],
+   "dtypes": [
+    "DataType.BFLOAT16"
+   ]
+  },
+  {
+   "site": "from_torch FoldingTrunk[48 blocks]      esmfold2_runtime.py:277",
+   "n": 1,
+   "s": 0.1517,
+   "shapes": [
+    "(1, 512, 512, 256)"
+   ],
+   "dtypes": [
+    "DataType.BFLOAT16"
+   ]
+  },
+  {
+   "site": "from_torch FoldingTrunk[48 blocks]      esmfold2_runtime.py:278",
+   "n": 1,
+   "s": 0.1514,
+   "shapes": [
+    "(1, 512, 512, 256)"
+   ],
+   "dtypes": [
+    "DataType.BFLOAT16"
+   ]
+  },
+  {
+   "site": "from_torch RelPosEncoding               esmfold2.py:931",
+   "n": 1,
+   "s": 0.1383,
+   "shapes": [
+    "(1, 512, 512, 139)"
+   ],
+   "dtypes": [
+    "DataType.BFLOAT16"
+   ]
+  },
+  {
+   "site": "to_torch LanguageModelShim            esmfold2.py:1032",
+   "n": 1,
+   "s": 0.0923,
+   "shapes": [
+    "(1, 512, 512, 256)"
+   ],
+   "dtypes": [
+    "DataType.BFLOAT16"
+   ]
+  },
+  {
+   "site": "to_torch RelPosEncoding               esmfold2.py:933",
+   "n": 1,
+   "s": 0.0916,
+   "shapes": [
+    "(1, 512, 512, 256)"
+   ],
+   "dtypes": [
+    "DataType.BFLOAT16"
+   ]
+  },
+  {
+   "site": "from_torch InputsEmbedder               esmfold2.py:961",
+   "n": 3,
+   "s": 0.0348,
+   "shapes": [
+    "(1, 1, 4128, 4128)",
+    "(1, 4128, 1)",
+    "(1, 512, 4128)"
+   ],
+   "dtypes": [
+    "DataType.BFLOAT16"
+   ]
+  },
+  {
+   "site": "from_torch StructureHead                esmfold2.py:1313",
+   "n": 3,
+   "s": 0.0306,
+   "shapes": [
+    "(1, 1, 4128, 32)",
+    "(1, 1, 4128, 4128)"
+   ],
+   "dtypes": [
+    "DataType.BFLOAT16"
+   ]
+  },
+  {
+   "site": "from_torch StructureHead                esmfold2.py:1341",
+   "n": 136,
+   "s": 0.0191,
+   "shapes": [
+    "(1, 256)",
+    "(1, 4128, 6)"
+   ],
+   "dtypes": [
+    "DataType.BFLOAT16"
+   ]
+  },
+  {
+   "site": "to_torch DistogramHeadModel           esmfold2.py:1376",
+   "n": 1,
+   "s": 0.0172,
+   "shapes": [
+    "(1, 512, 512, 64)"
+   ],
+   "dtypes": [
+    "DataType.BFLOAT16"
+   ]
+  },
+  {
+   "site": "to_torch InputsEmbedder               esmfold2.py:962",
+   "n": 1,
+   "s": 0.0101,
+   "shapes": [
+    "(1, 512, 384)"
+   ],
+   "dtypes": [
+    "DataType.BFLOAT16"
+   ]
+  },
+  {
+   "site": "from_torch StructureHead                esmfold2.py:1314",
+   "n": 3,
+   "s": 0.0074,
+   "shapes": [
+    "(1, 4128, 1)",
+    "(1, 4128, 512)",
+    "(1, 512, 4128)"
+   ],
+   "dtypes": [
+    "DataType.BFLOAT16"
+   ]
+  },
+  {
+   "site": "from_torch InputsEmbedder               esmfold2.py:960",
+   "n": 3,
+   "s": 0.0032,
+   "shapes": [
+    "(1, 1, 4128, 32)",
+    "(1, 4128, 389)"
+   ],
+   "dtypes": [
+    "DataType.BFLOAT16"
+   ]
+  },
+  {
+   "site": "from_torch FoldingTrunk[48 blocks]      esmfold2_runtime.py:279",
+   "n": 1,
+   "s": 0.0001,
+   "shapes": [
+    "(1, 1, 1, 256)"
+   ],
+   "dtypes": [
+    "DataType.BFLOAT16"
+   ]
+  }
+ ],
+ "total_calls": 242,
+ "total_s": 5.881
+}
