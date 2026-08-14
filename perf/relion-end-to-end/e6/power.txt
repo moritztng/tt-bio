@@ -1,6 +1,0 @@
-arm gpu mean_W mean_util_pct n_samples
-g1 0 132.0 72 26
-g1 1 79.1 0 26
-g2 0 127.4 45 20
-g2 1 129.1 53 20
-idle - 77.0-79.5 0 -

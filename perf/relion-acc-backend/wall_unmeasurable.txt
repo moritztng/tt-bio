@@ -1,4 +1,0 @@
-benchlocked bridge arm (p6/t3): acquired in a quiet window, then a co-tenant drove loadavg 0.46 -> 112.51
-  follower CPU sagged 429% -> 355% during the run; wall contaminated, not quotable
-qb1 1-min loadavg range across this integration measurement window: 0.46 to 112.51
-benchlock.sh gates acquisition, not duration -- a co-tenant starting mid-run is not excluded

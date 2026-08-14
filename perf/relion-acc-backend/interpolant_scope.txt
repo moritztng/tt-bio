@@ -1,8 +1,0 @@
-Both device E-step kernels are shear-based, so one accuracy decision governs the whole device E-step:
-  projection      shear (fslice)   : +0.0589 A at FSC 0.143, n=12, CI [+0.0517, +0.0661]
-  backprojection  shear adjoint    : NEVER MEASURED in Angstroms (no 0.143 or Angstrom figure in its state doc)
-backprojection precision work answered accumulation, not interpolant: bf16 grows ~sqrt(n) to 1.12e-2 rel L2
-  at 84 contributions, so fp32 accumulation is a requirement. That part is settled.
-evidence the bproj kernel is shear-based: a DRAM source cannot express the shear (needs L1-resident slice)
-UNMEASURED, third input: whether interpolant error compounds across iterations. All figures are single-pass
-  against a fixed reference; a real refinement feeds the error back through the reconstructed map.

@@ -1,6 +1,0 @@
-projection exact trilinear 98.6 ms (95.6%)
-compare direct form 50.2 ms
-compare A+B-2C two-matmul form 4.5 ms (4.4%)
-GEMM vs direct max rel diff on diff2 1.916e-07
-gathers per call 28873152 = No*P*8; per iteration x4452 = 128.5G
-compare-only-on-device ceiling 103.1/98.6 = 1.04x

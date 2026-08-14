@@ -1,5 +1,0 @@
-arm T  (mutex across whole call) 989.67 s, follower CPU ~108%, loadavg at start 43.03
-arm T2 (mutex scoped to init)    591.17 s, follower CPU 377-499%, loadavg at start 1.24
-arm A  (bridge declines)         339.92 s, follower CPU ~390%, loadavg at start 22.42
-parity unchanged by the fix: 4452/4452 identical assignments, FSC 0.143 = 3.4125 A, gsfsc shell 85
-walls NOT comparable: co-tenant loadavg swung 1.24 to 49.58 during the window

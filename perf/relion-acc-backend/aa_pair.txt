@@ -1,6 +1,0 @@
-A/A pair, same binary and env, two runs:
-  arm A  unlocked, loadavg 22.42 at launch : 339.92 s
-  arm A2 benchlocked, quiet at acquisition : 168.89 s   -> wall noise floor 2.01x
-identity across the A/A: assignments 4452/4452, FSC 0.143 = 3.4125 A, gsfsc shell 85 -- all identical
-map sha256 DIFFERS across the A/A (A half1 d49dddb189cc4fe4 vs A2 half1 3afa476d625e44cc)
-  => RELION ALTCPU reconstruction is not bit-reproducible run to run; map sha256 is not an identity check
