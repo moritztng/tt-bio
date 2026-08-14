@@ -1,0 +1,57 @@
+{
+  "model": "boltz2",
+  "git": "bee090b4e5251d52e4a970a58e23f95bb2431b80",
+  "folds": [
+    {
+      "target": "bk6_104",
+      "trace": false,
+      "s": 59.957,
+      "plddt": null,
+      "cif_sha256": {
+        "bk6_104.cif": "2145fa0217a5b945"
+      },
+      "trace_N": null
+    },
+    {
+      "target": "bk6_104_rot37",
+      "trace": false,
+      "s": 51.204,
+      "plddt": null,
+      "cif_sha256": {
+        "bk6_104_rot37.cif": "7bacb20237bea69a"
+      },
+      "trace_N": null
+    },
+    {
+      "target": "bk6_104",
+      "trace": true,
+      "s": 40.144,
+      "plddt": null,
+      "cif_sha256": {
+        "bk6_104.cif": "2145fa0217a5b945"
+      },
+      "trace_N": 1792
+    },
+    {
+      "target": "bk6_104_rot37",
+      "trace": true,
+      "s": 41.497,
+      "plddt": null,
+      "cif_sha256": {
+        "bk6_104_rot37.cif": "7bacb20237bea69a"
+      },
+      "trace_N": 1792
+    },
+    {
+      "target": "bk6_104",
+      "trace": false,
+      "s": 50.875,
+      "plddt": null,
+      "cif_sha256": {
+        "bk6_104.cif": "2145fa0217a5b945"
+      },
+      "trace_N": null
+    }
+  ],
+  "problems": []
+}
