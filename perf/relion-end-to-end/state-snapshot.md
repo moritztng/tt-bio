@@ -1,4 +1,4 @@
-# RELION end to end on Tenstorrent: a full refinement runs through our code and lands on RELION's own published resolution to the digit, the port is closer to RELION's reference than RELION's own GPU backend is, and the honest verdict is that this dataset is too host-bound to be an accelerator benchmark
+# RELION end to end on Tenstorrent: a full refinement runs through our code and lands on RELION's own published resolution to the digit, the port sits 15x closer to RELION's reference than RELION's own CUDA backend does, and on this dataset we lose to a single H200 on wall-clock and 15-36x on energy because the job cannot fill either box
 
 Task `relion-end-to-end` | worktree `/home/moritz/.coworker/wt/relion-end-to-end` on pc, branch
 `wk/relion-end-to-end`. Continues `relion-acc-backend`. **Not merged. Proposed with evidence.**
@@ -17,6 +17,10 @@ Both print **`Auto-refine: + Final resolution (without masking) is: 3.79378`**, 
 identical to the value RELION's own precalculated `Refine3D/job019` prints for this job. The arm with
 the coarse squared-difference kernel running in `tt_bio/cryoem/relion.py` converged on the same
 iteration, through the same per-iteration accuracy estimates, to the same answer.
+
+**E6 RAN.** A 2x H200 box was rented, three arms measured (1 GPU, 2 GPU, and the same box's CPU),
+and the instance destroyed: **$2.77 of the $40 cap, post-teardown balance $46.5885, 0 instances
+running.** Six independent runs across three architectures now converge to `3.79378 Å`. §7.
 
 ---
 
@@ -39,12 +43,13 @@ E-step task. What *did* move is which route the E-step should take: the previous
 device gather was impossible and that the only buildable kernel changed RELION's answer. §10 measured
 the gather and it is alive, so the accuracy fork that dominated this lineage's risk is gone.
 
-**One thing this pass re-scoped that the brief could not have anticipated.** The comparison target was
-going to be a rented H200 (E6). There is no `vastai` binary on pc or on qb1 and vast.ai credit was $0,
-so E6 could not run — but RELION ships its own answer. `Tutorial5.0/Refine3D/job019` is RELION's own
-4-GPU run of this exact job, and its file mtimes survived distribution intact. That is a same-span,
-same-MPI-configuration, RELION-authored GPU reference, and it is worth more than a rented card would
-have been because it is the vendor's own number on the vendor's own job. §7.
+**The comparison arm went from unfundable to measured mid-pass, and both versions are kept.** E6 was
+blocked on a $0 vast.ai balance; Moritz funded it and a 2x H200 box ran three arms for $2.77 (§7).
+Independently, `Tutorial5.0/Refine3D/job019` turned out to be RELION's own 4-GPU run of this exact
+job with its file mtimes intact — a same-span, same-MPI-configuration, RELION-authored GPU reference
+that was on disk the whole time. **Both are in §7 and they agree**: one H200 does this job in 129.89 s
+and RELION's own four 2023-era GPUs did it in 119 s, which says the job saturates at roughly 100-130 s
+whatever GPU you point at it.
 
 ---
 
@@ -196,10 +201,34 @@ score within the last bits of each other and the tie breaks the other way; that 
 then differs by one sampling step, and because a refinement feeds its output back in, the *set* of
 such particles widens slowly. It is a widening tie-break set, not a growing error.
 
-**So there are two independent controls and they agree.** `ref2` bounds RELION's own run-to-run
-nondeterminism and puts the bridge one particle away from it; `job019` bounds RELION's own
-cross-backend disagreement and puts the bridge 20x inside it. **Neither leaves room for a bridge
-effect on RELION's answer.**
+### 3.4. The full parity ladder, once the rented arms are added
+
+E6 (§7) built stock RELION at the same commit on rented hardware, which turns the parity question into
+a ladder with four independent controls rather than one comparison. Every row is graded against the
+same `ref` arm, `_rlnAngleRot`, angles modulo 360:
+
+| what it is | bit-identical | median \|Δ\| | p99 \|Δ\| | max \|Δ\| |
+|---|---|---|---|---|
+| `ref2` — RELION's CPU path against **itself**, rerun | 4428/4452 | 0.000000° | **0.000000°** | 0.402° |
+| **`tt` — OUR BRIDGE** | **4427/4452** | **0.000000°** | **0.000000°** | **0.402°** |
+| `xeoncpu` — stock RELION CPU path, **different box, different build** | 4439/4452 | 0.000000° | **0.000000°** | 0.497° |
+| `h200x1` — RELION's **own CUDA path** on an H200, stock build | 4064/4452 | 0.000000° | 0.370508° | 179.2° |
+| `h200x2` — the same on 2 GPUs | 4044/4452 | 0.000000° | 0.374485° | 2.33° |
+| `job019` — RELION's own CUDA path, 2023 silicon | 0/4452 | 0.086043° | 0.785993° | 179.9° |
+
+**The ladder separates cleanly into two bands, and our bridge is in the tight one.** Every CPU-path
+RELION — ours, RELION's rerun against itself, and a stock build on entirely different silicon with a
+different compiler — sits at **p99 exactly zero** and ~4430/4452 bit-identical. Every CUDA-path RELION
+sits at p99 0.37-0.79° and 0-4064/4452. **Our bridge disagrees with RELION's reference on 25 particles
+of 4,452; RELION's own GPU backend disagrees on 388 on modern silicon and on all 4,452 on 2023
+silicon.** The bridge is 15x tighter than the accelerator RELION itself ships, and it is
+indistinguishable from RELION's CPU path running on another machine.
+
+**So there are four independent controls and they all agree.** `ref2` bounds RELION's own run-to-run
+nondeterminism and puts the bridge one particle away from it; `xeoncpu` bounds a different
+box-and-build of the same code path and puts the bridge 12 particles inside it; `job019` and the two
+H200 arms bound RELION's own cross-backend disagreement and put the bridge 15-178x inside it.
+**Nothing here leaves room for a bridge effect on RELION's answer.**
 
 ---
 
@@ -346,69 +375,101 @@ a Galaxy is the right shape of machine, and no kernel work changes that.
 
 ---
 
-## 7. Galaxy against a DGX H200: wall-clock, dollars and watts, with the measured/extrapolated split
+## 7. Galaxy against an H200: a MEASURED pair on both sides, wall-clock, dollars and watts
 
-### 7.1. The GPU arm, and why it is RELION's own number rather than a rented one
+**E6 ran.** vast.ai was funded mid-pass ($49.36), a 2x H200 box was rented, three arms ran on it, and
+it was destroyed. **Total spend $2.77 of the $40 cap; post-teardown balance $46.5885 and
+`vastai show instances` returns 0 instances.** The `vastai` CLI is not packaged on pc or qb1 — it
+installs into a venv with `pip install vastai`, which is what this pass did rather than reporting the
+missing binary as a blocker a second time.
 
-E6 was to rent an H200. **There is no `vastai` binary on pc or qb1 and the account balance is $0**, so
-no rental happened and **nothing was spent against the $40 cap; there is no instance to tear down.**
+### 7.1. The rented arms
 
-What replaced it is better. `Tutorial5.0/Refine3D/job019` is RELION's own run of this exact job, and
-`job.star` records `use_gpu Yes`, `gpu_ids 0:1:2:3`, `nr_mpi 5`, `nr_threads 6` — **the same 5×6 MPI
-configuration our arms use, on 4 GPUs.** Its file mtimes survived distribution: `job.star` is stamped
-`2023-10-19T11:58:21Z` and `note.txt`'s own "Executing new job on Thu Oct 19 12:58:21 2023" line
-matches it to the second modulo the timezone, and all nine of `run_it013_*`'s files share one mtime,
-which is the signature of a real run writing an iteration out, not of a tarball extraction.
+Stock RELION at **`e4a4aad06f079dda646bff870713ae97f3c829a6`**, the same commit qb1 runs, cloned from
+github and built on the rented box — not our patched tree, because a GPU reference a customer could
+reproduce must not carry our bridge or our instrument. Same span (`--continue` from RELION's own
+`run_it012_optimiser.star` to convergence), same `-n 5 --j 6 --pool 6 --dont_combine_weights_via_disc
+--preread_images`. Box: 2x NVIDIA H200, Intel Xeon Platinum 8480+, cgroup quota 53.76 cores, so the
+30-thread configuration is not oversubscribed. `perf/relion-end-to-end/e6_gpu.sh`.
 
-| span | RELION's 4 GPUs | our reference arm, 32-core CPU | ratio |
-|---|---|---|---|
-| whole job, it000 → final | **237 s** | not run | — |
-| **it012 → convergence, the span both our arms cover** | **119 s** | **922.19 s** | **7.75x** |
-| same, discounting the one extra iteration our run took (§2) | 119 s | ~757.7 s | **6.37x** |
+| arm | hardware | wall, s | CPU-s user+sys | rc | RELION's own final resolution |
+|---|---|---|---|---|---|
+| **g1** | **1x H200** | **129.89** | 2134.57 + 45.53 | 0 | **3.79378 Å** |
+| **g2** | **2x H200** | **98.34** | 1554.30 + 43.14 | 0 | **3.79378 Å** |
+| **c** | **Xeon 8480+, 5x6, ALTCPU** | **527.12** | 11628.73 + 52.76 | 0 | **3.79378 Å** |
+| ref (qb1) | EPYC 32-core, 5x6, ALTCPU | 922.19 | 20771.53 + 32.91 | 0 | **3.79378 Å** |
+| tt (qb1) | the bridge | 3988.48 | 80855.73 + 3300.38 | 0 | **3.79378 Å** |
+| job019 | RELION's own 4 GPUs, Oct 2023 | 119 | — | — | **3.79378 Å** |
 
-**RELION's own 4-GPU acceleration of this job is 6.4-7.8x over a good 32-core CPU box, not 40x.** The
-GPU model is not recorded and the run is from October 2023, so it is a pre-H200 card; and the CPU is
-qb1 rather than their host. Those two unknowns pull in opposite directions and neither is quantified.
-**Status: MEASURED wall on both sides, of an EXTRAPOLATED-comparability pair.**
+**Six independent runs, three architectures, two CPU vendors, three RELION build configurations, and
+every one converges to `3.79378 Å`.** That is a stronger statement about RELION than about any of the
+hardware, and it is the backdrop the rest of this section is read against.
 
-The tutorial's prose says "approximately 7 minutes" for this job; its own artifact says 237 s. The
-artifact is finer-grained and same-span-capable, so it is what is quoted, and the discrepancy is
-stated rather than smoothed.
+**The rental bought exactly the two unknowns §7.1 previously could not close.**
 
-### 7.2. Prices and power, sourced
+- **The host correction is now measured: `922.19 / 527.12` = qb1's EPYC is 1.749x slower than the
+  Xeon on this job.** The old job019 comparison divided qb1's wall by their GPU wall and got 7.75x;
+  **corrected onto one CPU that ratio is `527.12 / 119` = 4.43x.** The unquantified host unknown was
+  worth 1.75x, and it was inflating our own reported GPU gap.
+- **The GPU is now a known part.** A single H200 does this job in **129.89 s** against RELION's own
+  four 2023-era GPUs at **119 s**. The two independent estimates agree that this job saturates at
+  roughly 100-130 s *regardless of how many GPUs or which generation* — which is the host bound
+  asserting itself, not a GPU result.
 
-| | Tenstorrent Galaxy Blackhole | DGX / HGX H200, 8 GPU |
+**The GPU scaling slope is measured, not assumed: 1 -> 2 H200 is 1.321x, 66% of linear.** Carried one
+more doubling at the same efficiency, 4 GPUs land at ~74.5 s and 8 at ~56.4 s. Those two are
+EXTRAPOLATED from a measured slope, which is a large improvement on the previous pass where the whole
+GPU column was extrapolated from someone else's rounded prose.
+
+### 7.2. Prices and power, and the datasheet TDP was wrong by 5x for this workload
+
+| | Tenstorrent Galaxy Blackhole | H200 |
 |---|---|---|
-| **list price** | **$110,000** per 6U node, 32 chips | **$320k-420k**, ~$370k typical integrated OEM |
-| source | Tenstorrent launch pricing, April 2026: [The Register, 2026-04-28](https://www.theregister.com/2026/04/28/tenstorrent_galaxy_blackhole_ai_servers_ga/); [Dealroom](https://app.dealroom.co/news/feed/tenstorrent-launches-110k-galaxy-blackhole-ai-server-with-32-accelerators-and-23-petaflops) | Mercatus OEM survey; ITCT quote. The same Register piece prices an eight-way DGX at "three to five times" the Galaxy, i.e. **$330k-550k** — one author comparing the two boxes is a better source for the *ratio* than two independent absolutes |
-| status | public list, not negotiated | public survey, up to 25% spread across OEMs |
-| accelerator power | **135 W p50 measured sustained** × 32 = **4.32 kW** | 700 W datasheet × 8 = **5.60 kW** |
-| bf16 throughput | **5.95 PFLOP/s measured sustained** (32 × 185.8) | 7.91 PFLOP/s datasheet peak, ~6.3 at a typical 80% achieved |
-| TFLOP/s per watt | **1.38 measured** | 1.41 datasheet-peak, ~1.13 achieved |
+| **list price** | **$110,000** per 6U node, 32 chips | **$320k-420k** for an 8-GPU DGX/HGX, ~$370k typical OEM |
+| source | Tenstorrent launch pricing, April 2026: [The Register, 2026-04-28](https://www.theregister.com/2026/04/28/tenstorrent_galaxy_blackhole_ai_servers_ga/); [Dealroom](https://app.dealroom.co/news/feed/tenstorrent-launches-110k-galaxy-blackhole-ai-server-with-32-accelerators-and-23-petaflops) | Mercatus OEM survey; ITCT quote. The same Register piece prices an eight-way DGX at "three to five times" the Galaxy, i.e. $330k-550k — one author comparing the two boxes is a better source for the *ratio* than two independent absolutes |
+| rental, measured this pass | — | **$7.87/hr for 2x H200** (vast.ai, verified offer, actually billed) |
+| **accelerator power on THIS job** | **135 W p50 measured sustained** per chip | **132.0 W measured mean at 72% util**, sampled every 5 s over the g1 arm |
+| idle draw, measured | — | 77-79 W per card |
+| datasheet TDP | — | 700 W |
 
-Neither power figure includes host, board, fan or memory power, on either side.
+**The single most important correction in this section: an H200 running this refinement draws 132 W,
+19% of its 700 W datasheet TDP.** The previous pass's per-watt row used 700 W x 8 and made a DGX look
+far worse than it is. **A datasheet TDP is a roof, and this program's standing rule is that a roof
+must be measured on the silicon it is quoted for** — that rule was applied to Tenstorrent's numbers
+throughout this lineage and not, until now, to NVIDIA's. The reason the H200 idles at 19% of TDP is
+the same reason everything else in this document is what it is: the job cannot fill it.
 
-### 7.3. The comparison, stated plainly
+### 7.3. The comparison, host-corrected onto one CPU class, stated plainly
 
-| | wall for one refinement | energy at the accelerator | hardware list price |
-|---|---|---|---|
-| RELION's own 4-GPU node, 2023 silicon | **119 s** MEASURED | 0.093 kWh (4 × 700 W) | — |
-| DGX H200, 8 GPU | **not measured**, and RELION scales poorly past 4 GPUs so it is not 2x the row above | — | $320-420k |
-| Galaxy, today's kernel (coarse only) | **244.7 s** EXTRAPOLATED | 0.296 kWh | $110,000 |
-| Galaxy, three E-step kernels | **102.6 s** EXTRAPOLATED | 0.125 kWh | $110,000 |
-| Galaxy, at the pipeline floor | 56.6 s EXTRAPOLATED | 0.068 kWh | $110,000 |
+Our device rows were composed against qb1's host. Putting them on the Xeon-class host the H200 arms
+actually ran on — dividing every host term by the measured 1.749x — is the only way to compare walls
+rather than compare hosts:
 
-**On this job, today, a Galaxy loses to a four-GPU node RELION itself ran in 2023 — 244.7 s against
-119 s — and it only draws level after three device kernels that do not exist.** At 8.99x it is
-marginally ahead on wall (102.6 s against 119 s) and ahead 3.4x on price, but against an *H200* rather
-than 2023 silicon even that lead is not safe, and this pass cannot measure an H200 to find out.
+| what runs the refinement | wall, s | vs 1x H200 (129.89 s) | vs 2x H200 (98.34 s) | energy at the accelerator |
+|---|---|---|---|---|
+| **1x H200** | **129.89** MEASURED | 1.00x | 0.76x | **0.0048 kWh** MEASURED |
+| **2x H200** | **98.34** MEASURED | 1.32x | 1.00x | **0.0070 kWh** MEASURED |
+| 4x H200 | ~74.5 EXTRAPOLATED from the measured slope | 1.74x | 1.32x | — |
+| 8x H200 (a DGX) | ~56.4 EXTRAPOLATED | 2.30x | 1.74x | — |
+| 1x p150, coarse only — *the kernel already hooked* | 184.5 EXTRAPOLATED | **0.70x** | 0.53x | 0.0069 kWh |
+| Galaxy 32 chips, coarse only | 141.5 EXTRAPOLATED | **0.92x** | 0.70x | **0.1698 kWh** |
+| Galaxy, three E-step kernels | 60.6 EXTRAPOLATED | **2.14x** | **1.62x** | 0.0727 kWh |
+| Galaxy, at the pipeline floor | 29.2 EXTRAPOLATED | 4.46x | 3.37x | 0.0349 kWh |
 
-**Do not quote a per-dollar or per-watt headline from this table.** Both the energy and the price
-columns divide a whole 32-chip node by a job that uses 38.7% of linear scaling on it. A Galaxy running
-this refinement is a mostly-idle Galaxy, and dividing its list price by a wall it does not earn is the
-same class of error as the 8.0x ceiling this lineage already corrected once.
+**On wall-clock: today's hooked kernel loses to a single H200 even with all 32 Galaxy chips behind it
+(141.5 s against 129.89 s). Three E-step kernels would beat two H200s by 1.62x.** That is the honest
+shape of it, and the first row is the one that is true today.
 
----
+**On energy the Galaxy loses badly and the mechanism is idle silicon.** One H200 finishes this job on
+0.0048 kWh. One p150 needs 0.0069 kWh, in the same class. **A 32-chip Galaxy needs 0.0727-0.1698 kWh,
+15-36x the H200**, because it holds 4.32 kW for a job whose fanout is 38.7% of linear — 31 of its 32
+chips are mostly waiting. Per-watt on this job is not close, and no kernel fixes it; only a bigger job
+does.
+
+**On price the Galaxy leads 3.4x ($110,000 against ~$370k) and that lead is real but cannot be
+converted here.** Dividing either box's list price by a wall it does not earn produces a per-dollar
+number that says more about the dataset than the hardware, which is the same class of error as the
+8.0x ceiling this lineage already corrected once. **No per-dollar headline is quoted from this table.**
 
 ## 8. The measured/extrapolated split, in one place
 
@@ -422,7 +483,11 @@ same class of error as the 8.0x ceiling this lineage already corrected once.
 - The 12.38x 32-chip fanout, the 404.9 GB/s DRAM roof, the 42.48 GB/s ring, the 135 W p50, the
   185.8 TFLOP/s bf16 (`relion-intercard-scaling`).
 - RELION's own 4-GPU wall, 237 s whole job and 119 s over our span (§7.1).
-- The ~1% A/A noise floor and the 0.7% instrument cost (§2.1).
+- **E6, all of it: 1x H200 at 129.89 s, 2x H200 at 98.34 s, the same box's Xeon 8480+ CPU at
+  527.12 s, all `rc=0` at `3.79378 Å`; the 1.749x host correction; the 1.321x GPU scaling slope;
+  and the H200's 132.0 W mean board draw at 72% util** (§7).
+- The A/A noise floor at both scales (1.1% per iteration, 11.2% per refinement) and the 0.7%
+  instrument cost (§2.1).
 
 **EXTRAPOLATED, with the assumption named at the row:**
 - Every device-accelerated refinement wall in §5 and §6. The device term is measured; composing it
@@ -430,14 +495,22 @@ same class of error as the 8.0x ceiling this lineage already corrected once.
   quoted as achieved.
 - The fine pass and `storeWeightedSums` reaching the coarse pass's device efficiency (§5) —
   optimistic for the scatter.
-- Everything in §7.3's Galaxy rows, and the DGX H200 row is **not measured at all**: the GPU number is
-  RELION's own 2023 4-GPU node, not an H200, and the gap between them is unquantified here.
+- Every Galaxy and p150 row in §7.3, including its host correction onto the Xeon class. The device
+  term is measured, the host terms are measured, composing them into a wall is arithmetic.
+- **The 4x and 8x H200 rows (~74.5 s, ~56.4 s)**, carried from the *measured* 1->2 slope of 1.321x at
+  the same efficiency per doubling. RELION's scaling almost certainly degrades further, so both are
+  optimistic for the GPU.
 - Iteration 17's `expectation_6` (~264 s), scaled from its own `expectation` share rather than timed,
   because the converged iteration exits before printing a Timer table.
 
-**Not measured and named as such:** an H200 of any kind; a device arm of the full refinement (it needs
-2 cards for a gold-standard MPI split, or two single-halfset runs assembled); whether the shear
-interpolant's error compounds, which §10 made informational rather than blocking.
+**No longer on this list, because E6 ran:** an H200 of any kind, and the "different host" unknown that
+made the job019 comparison an EXTRAPOLATED-comparability pair. Both are measured.
+
+**Not measured and named as such:** a device arm of the full refinement (it needs 2 cards for a
+gold-standard MPI split, or two single-halfset runs assembled); a Galaxy arm of any kind, so every
+32-chip row rests on `relion-intercard-scaling`'s measured 12.38x fanout rather than on a Galaxy
+running RELION; a production-scale dataset (§9); and whether the shear interpolant's error compounds,
+which §10 made informational rather than blocking.
 
 ---
 
@@ -453,18 +526,27 @@ where RELION's own CUDA backend disagrees by 0.086° on every particle. **That i
 claim than any accelerator vendor in this field publishes**, it is checkable by anyone with the
 tutorial data, and it is the thing a pharma or academic user is actually afraid of.
 
-**What is not worth shipping yet is a speed claim, and the mechanism is the dataset rather than the
-silicon.** After the single largest optimization this pipeline has — the coarse pass at its measured
-device floor — the refinement is **84% host-bound**, and 32x more silicon buys 18%. RELION's own GPUs
-hit the same wall: their 4-GPU node gets 6.4-7.8x, not the order of magnitude the marketing of any of
-these boxes implies. The tutorial job has 4,452 particles against a measured ~7,060-particle crossover.
-**This dataset is too small and too host-bound to be an accelerator benchmark at all, and that is true
-of RELION's GPU path as much as ours.**
+**What is not worth shipping yet is a speed claim, and E6 sharpened rather than softened that.** After
+the single largest optimization this pipeline has — the coarse pass at its measured device floor — the
+refinement is **84% host-bound**, and 32x more silicon buys 18%. The rented arms show the same wall
+from the other side: **a single H200 gets 4.06x over its own box's CPU and a second H200 only takes
+that to 5.36x, 66% of linear**, and an H200 running this job draws 132 W of a 700 W TDP. Every
+accelerator pointed at this dataset, ours and NVIDIA's, is mostly waiting on RELION's host code.
 
-**So the honest answer to "what does a real RELION refinement cost on a Galaxy against a DGX H200" is
-that on this job we lose today and the win after three more kernels is marginal and unmeasured.** The
-mechanism is named, it is not a kernel deficiency, and saying it now is worth far more than a
-favourable framing that falls apart the first time a customer runs the tutorial.
+**So the honest answer to "what does a real RELION refinement cost on a Galaxy against a DGX H200":**
+
+- **On wall-clock we lose today.** All 32 Galaxy chips with the kernel we already hook land at 141.5 s
+  against **129.89 s for one H200**. Three E-step kernels would put us at 60.6 s and beat two H200s by
+  1.62x, but those kernels do not exist.
+- **On energy we lose badly, 15-36x**, and it is not close. One H200 finishes on 0.0048 kWh; a Galaxy
+  needs 0.0727-0.1698 kWh because it holds 4.32 kW at 38.7%-of-linear fanout. No kernel fixes that.
+- **On price we lead 3.4x**, $110,000 against ~$370k, and that is the only column we win — but it
+  cannot be converted into a per-dollar claim on a job that fills neither box.
+
+**That is a loss on this dataset, stated with its mechanism.** It is not a kernel deficiency and it is
+not a silicon deficiency; it is a 4,452-particle job below a measured ~7,060-particle crossover, and
+saying so now is worth far more than a favourable framing that falls apart the first time a customer
+runs the tutorial.
 
 **What would change the verdict, and it is a real dataset rather than a real kernel:** a production
 refinement is 100k-1M particles, not 4,452. Above the measured 7,060-particle crossover the fanout
@@ -567,7 +649,9 @@ blend's tile layout needs a strided weight tile or a pair reduction.
 
 1. **The production-scale arm.** §9's verdict turns on 4,452 particles being below a measured
    ~7,060-particle crossover. A 100k-particle job is the arm that decides whether this ships as a
-   performance story, and it is the single highest-value thing left in this lineage.
+   performance story, and it is the single highest-value thing left in this lineage. **E6 makes it
+   cheap to do properly now**: the recipe, the stock-RELION CUDA build and the teardown are in
+   `perf/relion-end-to-end/e6_gpu.sh`, it cost $2.77, and $46.59 of credit remains.
 2. **The exact-trilinear device coarse kernel.** Priced at 9.37 s per iteration (§10), bit-identical
    by construction, no accuracy fork. It is a new-model-port-shaped change and **cannot merge without
    Moritz**, so it is proposed, not started.
@@ -577,8 +661,7 @@ blend's tile layout needs a strided weight tile or a pair reduction.
 4. **A device arm of the full refinement**, which needs 2 cards for a gold-standard MPI split (RELION 5
    refuses a single-process gold-standard split and its own error message advertises a flag that no
    longer parses), or two single-halfset runs assembled.
-5. **An actual H200.** §7.3's GPU column is RELION's 2023 silicon. If credit ever appears, this is a
-   2-3 h arm inside the $40 cap.
+5. ~~An actual H200.~~ **DONE, §7.** 1x and 2x H200 measured, instance destroyed, $2.77 spent.
 
 ---
 
@@ -590,7 +673,25 @@ blend's tile layout needs a strided weight tile or a pair reduction.
   disagrees with itself completely. Graded by magnitude, it agrees everywhere and is bit-identical
   nowhere, which is just what two float backends do. **Report the distribution of |Δ|, not the count of
   matches — and get the second pair into the table, because a disagreement number means nothing without
-  the disagreement the reference already has with itself.**
+  the disagreement the reference already has with itself.** Extended by E6: build the reference's own
+  accelerator too. Stock RELION's CUDA path disagrees with stock RELION's CPU path on 388 of 4,452
+  particles at p99 0.37°, where our bridge disagrees on 25 at p99 exactly zero — a comparison that
+  costs one rental and turns "our port is close" into "our port is 15x closer than the vendor's own.
+- **A datasheet TDP is an asserted roof, and this program applied its own "measure the roof" rule to
+  its silicon but not to the competitor's.** An H200 running this refinement draws **132 W of a 700 W
+  TDP, 19%**, and the previous pass's per-watt row used 700 W x 8. That overstated the DGX's power by
+  5x — in *our* favour, which is why it survived a review that would have caught it the other way
+  round. Measure the competitor's roof on the competitor's silicon on your workload, or do not quote
+  a per-watt number.
+- **A cross-machine ratio silently prices the hosts, not the accelerators, and the correction was
+  1.75x here.** Dividing qb1's 922.19 s CPU wall by someone else's 119 s GPU wall gave 7.75x; renting
+  a box and running the SAME CPU arm on it showed the two CPUs differ by 1.749x, and the honest
+  same-CPU ratio is 4.43x. **The cheapest arm on a rented box is the one that reproduces your own
+  baseline** — it costs minutes, it is the only thing that makes the expensive arm comparable, and it
+  is the arm most likely to be skipped.
+- **Renting the competitor is cheap enough that not renting it is the expensive choice.** Three arms
+  on 2x H200 — GPU, multi-GPU and the host CPU control — cost **$2.77** including build and teardown.
+  A whole section of this document had been EXTRAPOLATED for want of that.
 - **A vendor's own precalculated results are a timed benchmark if the mtimes survived.** RELION ships
   `Refine3D/job019` with `use_gpu Yes`, `gpu_ids 0:1:2:3`, `nr_mpi 5` and per-iteration file mtimes
   that reconstruct a same-span 4-GPU wall to the second — a better comparison arm than the rented card
