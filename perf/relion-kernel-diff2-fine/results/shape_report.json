@@ -1,0 +1,32 @@
+{
+  "calls": 22260,
+  "orientation_num": {
+    "mean": 43.18706199460917,
+    "median": 40.0,
+    "p99": 104.0,
+    "max": 192
+  },
+  "translation_num": {
+    "values": {
+      "36": 22260
+    }
+  },
+  "significant_num": {
+    "mean": 237.26433063791555,
+    "median": 192.0,
+    "p99": 832.0,
+    "max": 1792
+  },
+  "job_num_count": {
+    "mean": 59.31608265947889,
+    "median": 48.0
+  },
+  "image_size": {
+    "values": {
+      "19404": 17808,
+      "33024": 4452
+    }
+  },
+  "jobs_per_distinct_orientation": 1.3734688103322017,
+  "density": 0.15047587228128828
+}
