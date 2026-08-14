@@ -45,6 +45,13 @@ NORIENT = int(sys.argv[2]) if len(sys.argv) > 2 else 1500
 APIX = 1.0                                             # Angstrom per pixel
 SNR = float(sys.argv[3]) if len(sys.argv) > 3 else 0.1  # per-pixel signal-to-noise
 SEED = int(sys.argv[4]) if len(sys.argv) > 4 else 97
+# Which separable variant is on trial against trilinear. Section 15.3 measured three
+# interpolants against a continuum: trilinear 1.00x, separable-2D 1.16-1.21x, two-pass
+# 1.23-1.27x. The kernel implements the two-pass, the worst of the three, and it failed the
+# gate at 0.0589 A. sep2d is the same z-collapse followed by a true 2D bilinear instead of
+# two 1D passes -- more accurate, and never cost-measured because section 15.3 treated it
+# only as the family's floor.
+VARIANT = sys.argv[5] if len(sys.argv) > 5 else "twopass"   # twopass | sep2d
 NATOM, SIGMA = 400, 1.5
 PAD = 2
 
@@ -165,6 +172,43 @@ def sep_weights(uu, vv, u3, v3, P):
     return np.array(out_i), np.array(out_w)
 
 
+def sep2d_weights(uu, vv, u3, v3, P):
+    """z-collapse on the (X, Y) lattice, then a true 2D bilinear -- NOT two 1D passes.
+
+    Same stage 1 as the two-pass form and the same axis permutation, but the in-plane resample keeps a
+    single bilinear cell instead of routing through an intermediate on the mixed (x_out, Y_source)
+    lattice. That intermediate is what makes the two-pass a third interpolant and costs it accuracy.
+    """
+    c = P // 2
+    n = np.cross(u3, v3)
+    perm = np.argsort(np.abs(n))
+    a3, b3 = u3[perm], v3[perm]
+    M = np.array([[a3[0], b3[0]], [a3[1], b3[1]]])
+    ab = np.array([a3[2], b3[2]]) @ np.linalg.inv(M)
+    aa, bb = ab[0], ab[1]
+    inv = np.argsort(perm)
+    out_i, out_w = [], []
+
+    def emit(X, Y, wxy):
+        Z = aa * X + bb * Y
+        Z0 = np.floor(Z)
+        t = Z - Z0
+        for dz, wz in ((0.0, 1 - t), (1.0, t)):
+            cc = (np.stack([X, Y, Z0 + dz], -1)[:, inv] + c).astype(np.int64)
+            np.clip(cc, 0, P - 1, out=cc)
+            out_i.append((cc[:, 0] * P + cc[:, 1]) * P + cc[:, 2])
+            out_w.append(wxy * wz)
+
+    Xt = a3[0] * uu + b3[0] * vv
+    Yt = a3[1] * uu + b3[1] * vv
+    X0, Y0 = np.floor(Xt), np.floor(Yt)
+    fx, fy = Xt - X0, Yt - Y0
+    for dy, wy in ((0.0, 1 - fy), (1.0, fy)):
+        for dx, wx in ((0.0, 1 - fx), (1.0, fx)):
+            emit(X0 + dx, Y0 + dy, wx * wy)
+    return np.array(out_i), np.array(out_w)
+
+
 def rand_rot(rng):
     a = rng.normal(size=(3, 3))
     q, r = np.linalg.qr(a)
@@ -204,7 +248,7 @@ def main():
     rng = np.random.default_rng(SEED)
     t0 = time.time()
     V = build_volume(P, rng)
-    print(f"box {N}, padded {P}, {NORIENT} orientations, SNR {SNR}, volume built in "
+    print(f"box {N} [{VARIANT}], padded {P}, {NORIENT} orientations, SNR {SNR}, built in "
           f"{time.time()-t0:.1f}s", flush=True)
     Vf = V.reshape(-1)
 
@@ -235,6 +279,8 @@ def main():
         for kind in ("tri", "sep"):
             if kind == "tri":
                 idx, wt = tri_weights(p, P)
+            elif VARIANT == "sep2d":
+                idx, wt = sep2d_weights(uu, vv, u3, v3, P)
             else:
                 idx, wt = sep_weights(uu, vv, u3, v3, P)
             # Project: the sample is the weighted sum over its lattice neighbours.
@@ -257,7 +303,8 @@ def main():
 
     for kind in ("tri", "sep"):
         flush(kind)
-    res = {"box": N, "pad": P, "norient": NORIENT, "apix": APIX, "snr": SNR, "arms": {}}
+    res = {"box": N, "pad": P, "norient": NORIENT, "apix": APIX, "snr": SNR,
+           "variant": VARIANT, "arms": {}}
     print()
     for kind in ("tri", "sep"):
         rec = (acc[kind] / np.maximum(wsum[kind], 1e-9)).reshape(P, P, P).astype(np.complex128)
@@ -271,7 +318,7 @@ def main():
     res["pass"] = bool(abs(d) <= 0.05)
     print(f"\nseparable minus trilinear: {d:+.4f} A   (gate: 0.05 A)  -> "
           f"{'PASS' if abs(d) <= 0.05 else 'FAIL'}", flush=True)
-    json.dump(res, open(HERE / f"s2p2_fsc_box{N}_snr{SNR}_s{SEED}.json", "w"), indent=1)
+    json.dump(res, open(HERE / f"s2p2_fsc_box{N}_snr{SNR}_s{SEED}" + ("" if VARIANT == "twopass" else "_" + VARIANT) + ".json", "w"), indent=1)
     ft, fs = res["arms"]["tri"]["fsc"], res["arms"]["sep"]["fsc"]
     print("  shell : FSC tri / FSC sep, upper half of the spectrum")
     for k in range(len(ft) // 2, len(ft), max(1, len(ft) // 16)):
