@@ -227,25 +227,6 @@ def parse_contig(s: str, *, unindex: bool = False) -> List[ContigComponent]:
     return out
 
 
-def contig_summary(comps: Sequence[ContigComponent]) -> dict:
-    """A compact, human-readable summary of a parsed contig (counts + indexed
-    residues), useful for logging the sampled contig back into the output JSON
-    (upstream logs `sampled_contig` + counts)."""
-    n_indexed = sum(1 for c in comps if isinstance(c, Indexed))
-    n_breaks = sum(1 for c in comps if isinstance(c, ChainBreak))
-    n_designed_fixed = sum(1 for c in comps if isinstance(c, Designed))
-    n_designed_range = sum(1 for c in comps if isinstance(c, DesignedRange))
-    n_offsets = sum(1 for c in comps if isinstance(c, UnindexedOffset))
-    return {
-        "n_components": len(comps),
-        "n_indexed": n_indexed,
-        "n_chain_breaks": n_breaks,
-        "n_designed_fixed": n_designed_fixed,
-        "n_designed_range": n_designed_range,
-        "n_unindexed_offsets": n_offsets,
-    }
-
-
 # --- InputSelection parser -------------------------------------------------
 def parse_input_selection(
     value: Union[bool, str, Mapping, None],
