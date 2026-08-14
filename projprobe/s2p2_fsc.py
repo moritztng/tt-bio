@@ -177,8 +177,9 @@ def rand_rot(rng):
 def fsc(a, b, P, rmax):
     c = P // 2
     ax = np.arange(P) - c
-    R = np.sqrt(ax[:, None, None] ** 2 + ax[None, :, None] ** 2 + ax[None, None, :] ** 2)
-    sh = np.round(R / PAD).astype(np.int64)          # shells in UNPADDED frequency units
+    R2 = (ax[:, None, None].astype(np.float32) ** 2 + ax[None, :, None].astype(np.float32) ** 2
+          + ax[None, None, :].astype(np.float32) ** 2)
+    sh = np.round(np.sqrt(R2) / PAD).astype(np.int32)   # shells in UNPADDED frequency units
     m = sh <= rmax
     sh, A, B = sh[m], a[m], b[m]
     num = np.bincount(sh, np.real(A * np.conj(B)), rmax + 1)
@@ -209,6 +210,22 @@ def main():
 
     acc = {k: np.zeros(P ** 3, dtype=np.complex128) for k in ("tri", "sep")}
     wsum = {k: np.zeros(P ** 3) for k in ("tri", "sep")}
+    # np.bincount allocates and zeroes its P^3 output on EVERY call -- 1.07 GB at box 256, three times
+    # per arm per orientation. Buffering the scatter and flushing every FLUSH orientations amortises
+    # that allocation instead of paying it 400 times.
+    FLUSH = 25
+    buf = {k: {"i": [], "v": [], "w": []} for k in ("tri", "sep")}
+
+    def flush(kind):
+        b = buf[kind]
+        if not b["i"]:
+            return
+        fi = np.concatenate(b["i"])
+        fv = np.concatenate(b["v"])
+        fw = np.concatenate(b["w"])
+        acc[kind] += np.bincount(fi, fv.real, P ** 3) + 1j * np.bincount(fi, fv.imag, P ** 3)
+        wsum[kind] += np.bincount(fi, fw, P ** 3)
+        b["i"].clear(); b["v"].clear(); b["w"].clear()
     for o in range(NORIENT):
         A = rand_rot(rng)
         p, uu, vv, u3, v3 = slice_coords(rmax, A, PAD)
@@ -229,14 +246,17 @@ def main():
             val = val + noise
             # Backproject with the SAME weights -- the adjoint. Standard gridding accumulates the
             # weighted value and the weight, then divides.
-            fl = idx.reshape(-1)
-            contrib = (wt * val[None, :]).reshape(-1)
-            acc[kind] += np.bincount(fl, contrib.real, P ** 3) \
-                + 1j * np.bincount(fl, contrib.imag, P ** 3)
-            wsum[kind] += np.bincount(fl, wt.reshape(-1), P ** 3)
+            buf[kind]["i"].append(idx.reshape(-1))
+            buf[kind]["v"].append((wt * val[None, :]).reshape(-1))
+            buf[kind]["w"].append(wt.reshape(-1))
+        if (o + 1) % FLUSH == 0:
+            for kind in ("tri", "sep"):
+                flush(kind)
         if (o + 1) % 300 == 0:
             print(f"  {o+1}/{NORIENT}  ({time.time()-t0:.0f}s)", flush=True)
 
+    for kind in ("tri", "sep"):
+        flush(kind)
     res = {"box": N, "pad": P, "norient": NORIENT, "apix": APIX, "snr": SNR, "arms": {}}
     print()
     for kind in ("tri", "sep"):
