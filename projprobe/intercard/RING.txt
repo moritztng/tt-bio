@@ -1,0 +1,18 @@
+Blackhole UBB (bh-glx-exp-b03u14) chip adjacency, read from tools/umd/system_health 2026-08-14.
+32 chips, 4 neighbours each, 2 ethernet links per neighbour, all 256 endpoints UP, 0 retrains.
+Structure: 4 groups of 8; each group is a 2x4 mesh; groups wired as a 4-ring (chip k <-> k+8, k+24 mod 32).
+
+Hamiltonian cycle (every consecutive pair is a real 2-link edge, including the closing 24->0).
+Use PREFIXES of this list as TT_VISIBLE_DEVICES for the 2/4/8/16/32 fanout points.
+Do not let mesh auto-discovery pick the set: an arbitrary subset is not guaranteed to be a line.
+
+0,1,2,3,7,6,5,4,12,13,14,15,11,10,9,8,16,17,18,19,23,22,21,20,28,29,30,31,27,26,25,24
+
+N=2  -> 0,1
+N=4  -> 0,1,2,3
+N=8  -> 0,1,2,3,7,6,5,4
+N=16 -> 0,1,2,3,7,6,5,4,12,13,14,15,11,10,9,8
+N=32 -> the whole list
+
+Known blocker: device 20 ERISC core 27-25 heartbeat is stalled, so a 32-way mesh open throws.
+Fix: build_Release/tools/umd/warm_reset --max-attempts 2, gated on sudo lsof /dev/tenstorrent/* empty.
