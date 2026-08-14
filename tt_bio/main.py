@@ -972,6 +972,36 @@ def _find_ttnn_mesh_graph_descriptor(filename: str) -> str | None:
     return None
 
 
+def _p300_mesh_descriptor(device: int | None = None) -> str | None:
+    """The 1x1 mesh-graph descriptor a lone P300 chip needs to open, or None.
+
+    A single P300 chip is a custom topology and ttnn refuses to open it without one
+    ("Custom fabric mesh graph descriptor path must be specified for CUSTOM cluster
+    type"). Pass ``device`` to ask about one chip rather than the host.
+    """
+    p300 = _detect_p300_devices()
+    if not p300 or (device is not None and device not in p300):
+        return None
+    return _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
+
+
+def ensure_p300_mesh_descriptor(env=None, device: int | None = None) -> str | None:
+    """Set ``TT_MESH_GRAPH_DESC_PATH`` in ``env`` (default the process environment).
+
+    Every path that opens a device itself needs this: the predict fanout sets it per
+    worker, and the embed / saprot / design / gen commands and any direct
+    ``ttnn.open_device`` caller open in-process with no shard to inherit it. An
+    explicit ``TT_MESH_GRAPH_DESC_PATH`` always wins.
+    """
+    env = os.environ if env is None else env
+    if env.get("TT_MESH_GRAPH_DESC_PATH"):
+        return None
+    mgd = _p300_mesh_descriptor(device)
+    if mgd:
+        env["TT_MESH_GRAPH_DESC_PATH"] = mgd
+    return mgd
+
+
 def _build_worker_device_assignments(devices: list[int]) -> dict[int, dict[str, object]]:
     """Build per-worker visibility/logical-device assignments.
 
@@ -979,11 +1009,7 @@ def _build_worker_device_assignments(devices: list[int]) -> dict[int, dict[str, 
     chip is a custom topology, those workers also get a 1x1 Blackhole MGD.
     """
     p300_devices = set(_detect_p300_devices())
-    p300_mgd = (
-        _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
-        if p300_devices and not os.environ.get("TT_MESH_GRAPH_DESC_PATH")
-        else None
-    )
+    p300_mgd = None if os.environ.get("TT_MESH_GRAPH_DESC_PATH") else _p300_mesh_descriptor()
 
     assignments: dict[int, dict[str, object]] = {}
     for device in devices:
@@ -1484,15 +1510,7 @@ def _run_boltzgen_cli(prog: str, args) -> None:
     sys.argv = [prog, *args]
     from tt_bio.boltzgen.cli.boltzgen import main as _bg_main
 
-    # A lone P300 Blackhole chip is a custom topology: ttnn refuses to open
-    # it without a 1x1 mesh-graph descriptor. The predict path sets this per
-    # worker and the embed command sets it in-process; the gen path opens the
-    # device in-process for a single device (no fanout shard to inherit it),
-    # so set it here the same way. See the embed command + perf_regression.py.
-    if _detect_p300_devices() and not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
-        mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
-        if mgd:
-            os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
+    ensure_p300_mesh_descriptor()
 
     _bg_main()
 
@@ -2928,13 +2946,7 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
             results = esmc.embed(seqs, model=model, devices=device_list, fast=fast,
                                  return_logits=return_logits, pool=pool, batch_size=batch_size)
         else:
-            # This process opens its TT device in-process (no fanout subprocess),
-            # so it needs the same P300-board-misdetection workaround the fanout
-            # path applies per-shard (see esmc._spawn_shard).
-            if _detect_p300_devices() and not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
-                mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
-                if mgd:
-                    os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
+            ensure_p300_mesh_descriptor()
             click.echo(f"Loading {model}{' (fast)' if fast else ''} …")
             m = esmc.load_esmc(model, fast=fast)
             click.echo(f"Embedding {len(seqs)} sequence(s) → {out}")
@@ -3021,13 +3033,7 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
             results = saprot.embed(seqs, model=model, devices=device_list, fast=fast,
                                   return_logits=return_logits, pool=pool, batch_size=batch_size)
         else:
-            # This process opens its TT device in-process (no fanout subprocess),
-            # so it needs the same P300-board-misdetection workaround the fanout
-            # path applies per-shard (see saprot._spawn_saprot_shard).
-            if _detect_p300_devices() and not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
-                mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
-                if mgd:
-                    os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
+            ensure_p300_mesh_descriptor()
             click.echo(f"Loading {model}{' (fast)' if fast else ''} …")
             m = saprot.load_saprot(model, fast=fast)
             click.echo(f"Embedding {len(seqs)} sequence(s) → {out}")
@@ -3261,14 +3267,7 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
         from tt_bio import runtime
         device_list = runtime.detect_tenstorrent_devices(devices, 0, len(specs) * num_designs)
 
-    # A lone P300 Blackhole chip is a custom topology: ttnn refuses to open it
-    # without a 1x1 mesh-graph descriptor. The fanout path sets this per shard;
-    # the single-device in-process path opens the device here (no shard to
-    # inherit it), so set it the same way as the embed/gen/saprot commands.
-    if _detect_p300_devices() and not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
-        mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
-        if mgd:
-            os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
+    ensure_p300_mesh_descriptor()
 
     click.echo(f"Designing {len(specs)} spec(s) × {num_designs} design(s) → {out_dir} "
                f"(checkpoint={gdir}, from_pdb={from_pdb}, {num_timesteps} steps, batch={batch_size}"

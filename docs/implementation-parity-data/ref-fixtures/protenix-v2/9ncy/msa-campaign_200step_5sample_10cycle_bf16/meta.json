@@ -19,5 +19,6 @@
     "shared_draw_seed": 0,
     "target_id": "9ncy",
     "yaml": "examples/abag_xm/9ncy.yaml"
-  }
+  },
+  "settings_tag": "msa-campaign_200step_5sample_10cycle_bf16"
 }
