@@ -6,28 +6,21 @@ profiled arm. See src_acc_tt/tt_profile.h for why neither RELION's -DTIMING time
 macros can produce this number.
 
 diff --git a/src/acc/cpu/cpu_benchmark_utils.h b/src/acc/cpu/cpu_benchmark_utils.h
-index 1111111..2222222 100644
+index a8daa31..baab47b 100644
 --- a/src/acc/cpu/cpu_benchmark_utils.h
 +++ b/src/acc/cpu/cpu_benchmark_utils.h
-@@ -1,11 +1,20 @@
+@@ -2,10 +2,11 @@
  #ifndef CPU_BENCHMARK_UTILS_H_
  #define CPU_BENCHMARK_UTILS_H_
-
+ 
+-#define	CTIC(timer,timing)
+-#define	CTOC(timer,timing)  
 +#include "src/acc/tt/tt_profile.h"
-+
 +#define	CTIC(timer,timing) (TTProf::tic(timing))
 +#define	CTOC(timer,timing) (TTProf::toc(timing))
-+#define	GTIC(timer,timing)
-+#define	GTOC(timer,timing)
-+#define	GATHERGPUTIMINGS(timer)
-+
-+#if 0
- #define	CTIC(timer,timing)
- #define	CTOC(timer,timing)
  #define	GTIC(timer,timing)
- #define	GTOC(timer,timing)
- #define	GATHERGPUTIMINGS(timer)
-+#endif
-
+-#define	GTOC(timer,timing) 
++#define	GTOC(timer,timing)
+ #define	GATHERGPUTIMINGS(timer) 
+ 
  namespace CpuKernels
- {

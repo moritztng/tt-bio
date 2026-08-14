@@ -19,7 +19,7 @@
 set -u
 S=/home/ttuser/relion-scratch
 T=$S/Tutorial5.0
-WT=$S/tt-bio                 # stable clone, deliberately outside any worktree
+WT=$S/tt-bio-fine                 # stable clone, deliberately outside any worktree
 BIN=$S/relion/build-fine/bin/relion_refine_mpi
 BL=$HOME/.coworker/scripts/benchlock.sh
 mkdir -p "$S/fine"

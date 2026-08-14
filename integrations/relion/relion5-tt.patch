@@ -28,7 +28,7 @@ index 8b8cd50..97bc14e 100644
      message(STATUS "ALTCPU enabled - Building CPU-accelerated version of RELION")
  elseif(SYCL)
 diff --git a/src/acc/acc_helper_functions_impl.h b/src/acc/acc_helper_functions_impl.h
-index c06a122..4b5866c 100644
+index c06a122..7437eed 100644
 --- a/src/acc/acc_helper_functions_impl.h
 +++ b/src/acc/acc_helper_functions_impl.h
 @@ -12,6 +12,10 @@
@@ -130,6 +130,45 @@ index c06a122..4b5866c 100644
  			AccUtilities::diff2_CC_coarse<false,false,D2C_CC_BLOCK_SIZE_2D>(
  #else
  			AccUtilities::diff2_CC_coarse<false,false,D2C_BLOCK_SIZE_2D>(
+@@ -1838,6 +1860,26 @@ void runDiff2KernelFine(
+ 		bool do_CC,
+ 		bool data_is_3D)
+ {
++#ifdef _TT_ENABLED
++	// The sibling of the coarse hook. RELION names significant_num entries of the
++	// orientation x translation matrix; the bridge computes them whole-tensor and returns.
++	if (!do_CC && projector.mdlZ != 0 && !data_is_3D)
++	{
++		if (TTBridge::diff2Fine(
++				(const float*)projector.mdlComplex,
++				projector.mdlX, projector.mdlXY / projector.mdlX, projector.mdlZ,
++				projector.mdlInitY, projector.mdlInitZ,
++				projector.maxR, projector.maxR2_padded, projector.padding_factor,
++				projector.imgX, projector.imgY,
++				eulers, trans_x, trans_y,
++				Fimgs_real, Fimgs_imag, corr_img,
++				rot_idx, trans_idx,
++				diff2s, (float)(op.highres_Xi2_img[img_id] / 2.),
++				(long)orientation_num, (long)translation_num, (long)significant_num,
++				(long)image_size, (long)job_num_count))
++			return;
++	}
++#endif
+     long unsigned block_dim = job_num_count;
+ 
+     if(!do_CC)
+@@ -2002,6 +2044,11 @@ void runDiff2KernelFine(
+ 		#endif
+     }
+ 
++#ifdef _TT_ENABLED
++	// TT_RELION_CHECK=1 only: grade the private-buffer result against what RELION just wrote.
++	if (!do_CC && projector.mdlZ != 0 && !data_is_3D)
++		TTBridge::diff2FineCheck(diff2s, (long)significant_num);
++#endif
+ }
+ 
+ void runCollect2jobs(	int grid_dim,
 diff --git a/src/acc/utilities.h b/src/acc/utilities.h
 index f407bdb..fc67a30 100644
 --- a/src/acc/utilities.h
