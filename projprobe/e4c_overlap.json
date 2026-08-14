@@ -1,0 +1,64 @@
+{
+ "outer": 5000,
+ "nreads": 32,
+ "chunk": 16,
+ "ops_sweep": {
+  "0": {
+   "ns_per_assembly_pair": 1204.19380000385,
+   "vs_gather_only": 1.0,
+   "nonzero": true,
+   "tile_ops": 0,
+   "coarse_estep_s_1_chip": 9.299212938731653
+  },
+  "4": {
+   "ns_per_assembly_pair": 1209.9906000003102,
+   "vs_gather_only": 1.0048138430844287,
+   "nonzero": true,
+   "tile_ops": 4,
+   "coarse_estep_s_1_chip": 9.343977890627395
+  },
+  "8": {
+   "ns_per_assembly_pair": 1218.1120000605006,
+   "vs_gather_only": 1.0115581063916839,
+   "nonzero": true,
+   "tile_ops": 8,
+   "coarse_estep_s_1_chip": 9.40669423123644
+  },
+  "16": {
+   "ns_per_assembly_pair": 1207.6482000338729,
+   "vs_gather_only": 1.00286864126855,
+   "nonzero": true,
+   "tile_ops": 16,
+   "coarse_estep_s_1_chip": 9.325889044732731
+  },
+  "32": {
+   "ns_per_assembly_pair": 2083.3540000239736,
+   "vs_gather_only": 1.7300819851566358,
+   "nonzero": true,
+   "tile_ops": 32,
+   "coarse_estep_s_1_chip": 16.088400781435137
+  },
+  "64": {
+   "ns_per_assembly_pair": 4046.2971999659203,
+   "vs_gather_only": 3.3601710953444406,
+   "nonzero": true,
+   "tile_ops": 64,
+   "coarse_estep_s_1_chip": 31.24694652617913
+  },
+  "128": {
+   "ns_per_assembly_pair": 7931.054599976051,
+   "vs_gather_only": 6.5861945144964995,
+   "nonzero": true,
+   "tile_ops": 128,
+   "coarse_estep_s_1_chip": 61.24642524620929
+  }
+ },
+ "ncores": 130,
+ "verdict": {
+  "free_up_to_tile_ops_per_assembly_pair": 16,
+  "needed_tile_ops_per_assembly_pair": 1.09375,
+  "headroom": 14.628571428571428,
+  "gather_only_ns": 1204.19380000385,
+  "blend_hides": true
+ }
+}

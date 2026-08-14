@@ -32,7 +32,10 @@ void kernel_main() {
     constexpr uint32_t chunk = get_compile_time_arg_val(3);
     constexpr uint32_t barrier_every = get_compile_time_arg_val(4);
     constexpr uint32_t page_bytes = get_compile_time_arg_val(5);
-    constexpr auto src_args = TensorAccessorArgs<6>();
+    // E4c: push the CB up front so the compute kernel can run its own loop alongside the gather,
+    // instead of only after it. The two then contend for the core, which is the question.
+    constexpr uint32_t push_early = get_compile_time_arg_val(6);
+    constexpr auto src_args = TensorAccessorArgs<7>();
 
     const uint32_t src_addr = get_arg_val<uint32_t>(0);
     const uint32_t npages = get_arg_val<uint32_t>(1);
@@ -52,6 +55,9 @@ void kernel_main() {
 
     cb_reserve_back(cb_in, 1);
     const uint32_t w0 = get_write_ptr(cb_in);
+    if (push_early) {
+        cb_push_back(cb_in, 1);
+    }
 
     uint32_t slot = 0;
     for (uint32_t i = 0; i < outer; ++i) {
@@ -74,5 +80,7 @@ void kernel_main() {
         }
     }
     noc_async_read_barrier();
-    cb_push_back(cb_in, 1);
+    if (!push_early) {
+        cb_push_back(cb_in, 1);
+    }
 }

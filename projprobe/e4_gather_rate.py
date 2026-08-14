@@ -60,7 +60,7 @@ def build(dev, x, out, chunk, offs, strides, nreads=NREADS):
         f = ttnn.CBFormatDescriptor(buffer_index=i, data_format=ttnn.bfloat16, page_size=nb)
         return ttnn.CBDescriptor(total_size=d * nb, core_ranges=cg, format_descriptors=[f])
 
-    rct = ([IN_CB, total, nreads, chunk, BE, PAGE]
+    rct = ([IN_CB, total, nreads, chunk, BE, PAGE, 0]
            + list(ttnn.TensorAccessorArgs(x).get_compile_time_args()))
     wct = [OUT_CB, 2048] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
     rrt, crt, wrt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
@@ -85,9 +85,10 @@ def build(dev, x, out, chunk, offs, strides, nreads=NREADS):
 
 
 SCRATCH_CB = 1                  # the writer RISC's own gather destination in the dual arm
+BLEND_CB = 2                    # the blend loop's pack destination, so its tile_regs cycle is whole
 
 
-def build_dual(dev, x, out, chunk, offs, strides, nreads=NREADS):
+def build_dual(dev, x, out, chunk, offs, strides, nreads=NREADS, ops=0):
     """Both dataflow RISCs gathering. The reader (NCRISC) and the writer (BRISC) run the same loop
     on different phases into different CBs, so if the ~47-cycle issue cost is per-RISC rather than
     per-core the measured rate per assembly stays flat while twice the reads happen."""
@@ -99,10 +100,11 @@ def build_dual(dev, x, out, chunk, offs, strides, nreads=NREADS):
         f = ttnn.CBFormatDescriptor(buffer_index=i, data_format=ttnn.bfloat16, page_size=nb)
         return ttnn.CBDescriptor(total_size=d * nb, core_ranges=cg, format_descriptors=[f])
 
+    PE = 1 if ops else 0        # push the CB up front so compute overlaps the gather
     sa = list(ttnn.TensorAccessorArgs(x).get_compile_time_args())
     da = list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
-    rct = [IN_CB, total, nreads, chunk, BE, PAGE] + sa
-    wct = [SCRATCH_CB, total, nreads, chunk, BE, PAGE, OUT_CB, 2048] + sa + da
+    rct = [IN_CB, total, nreads, chunk, BE, PAGE, PE] + sa
+    wct = [SCRATCH_CB, total, nreads, chunk, BE, PAGE, OUT_CB, 2048, PE] + sa + da
     rrt, crt, wrt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     tail = [int(o) for o in offs[:nreads]] + [int(s) for s in strides[:nreads]]
     c = 0
@@ -118,11 +120,11 @@ def build_dual(dev, x, out, chunk, offs, strides, nreads=NREADS):
         core_ranges=cg, compile_time_args=ct, runtime_args=rt, config=cfg)
     return ttnn.ProgramDescriptor(kernels=[
         mk(KDIR / "reader_e4_gather.cpp", rct, rrt, ttnn.ReaderConfigDescriptor()),
-        mk(KDIR / "compute_s1_drain.cpp", [IN_CB, OUT_CB], crt,
+        mk(KDIR / "compute_e4_blend.cpp", [IN_CB, OUT_CB, ops, OUTER, BLEND_CB], crt,
            ttnn.ComputeConfigDescriptor(math_fidelity=ttnn.MathFidelity.HiFi4)),
         mk(KDIR / "writer_e4_gather.cpp", wct, wrt, ttnn.WriterConfigDescriptor()),
     ], semaphores=[], cbs=[cb(IN_CB, total, BE + 1), cb(SCRATCH_CB, total, BE + 1),
-                           cb(OUT_CB, 2048, 2)])
+                           cb(BLEND_CB, 2048, 2), cb(OUT_CB, 2048, 2)])
 
 
 def main():
@@ -246,6 +248,36 @@ def main():
             print(f"dual-RISC FAIL {str(e)[:300]}", flush=True)
         json.dump(res, open(HERE / "e4_gather_rate.json", "w"), indent=1)
 
+        # E4c: does the arithmetic hide under the gather? 9.37 s is a floor for the coarse pass only
+        # if the trilinear blend and the compare ride along for free. A real kernel needs about 8
+        # weighted accumulates per complex component per pixel, and one assembly of 32 x 16 B is 8
+        # pixels' worth of corner pairs, so the interesting neighbourhood is tens of tile ops.
+        print()
+        res["overlap_ops_at_16B_dual"] = {}
+        base = res.get("dual_risc_16B", {}).get("ns_per_assembly_pair")
+        for ops in (0, 8, 16, 32, 64, 128):
+            try:
+                pd = build_dual(dev, x, out, 16, offs, strides, ops=ops)
+                ttnn.generic_op([x, out], pd)
+                ttnn.synchronize_device(dev)
+                best = float("inf")
+                for _ in range(5):
+                    t0 = time.perf_counter()
+                    ttnn.generic_op([x, out], pd)
+                    ttnn.synchronize_device(dev)
+                    best = min(best, time.perf_counter() - t0)
+                ns = best * 1e9 / OUTER
+                rec = {"ns_per_assembly_pair": ns}
+                if base:
+                    rec["vs_gather_only"] = ns / base
+                res["overlap_ops_at_16B_dual"][str(ops)] = rec
+                print(f"overlap ops={ops:4d}  {ns:8.2f} ns/assembly-pair"
+                      + (f"  {ns/base:.3f}x gather-only" if base else ""), flush=True)
+            except Exception as e:                                       # noqa: BLE001
+                res["overlap_ops_at_16B_dual"][str(ops)] = {"error": str(e)[:250]}
+                print(f"overlap ops={ops:4d}  FAIL {str(e)[:180]}", flush=True)
+        json.dump(res, open(HERE / "e4_gather_rate.json", "w"), indent=1)
+
         c = res["control_nreads_at_16B"]
         if all("ns_per_assembly" in c.get(str(n), {}) for n in (1, 32)):
             # Two-point fit: slope is the marginal read, intercept is everything else in the loop.
@@ -292,4 +324,5 @@ def main():
         print("ROUTE DEAD" if v["route_dead"] else "ROUTE ALIVE (within 2x of the bar)")
 
 
-main()
+if __name__ == "__main__":
+    main()

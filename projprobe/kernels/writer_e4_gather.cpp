@@ -23,7 +23,8 @@ void kernel_main() {
     constexpr uint32_t page_bytes = get_compile_time_arg_val(5);
     constexpr uint32_t cb_out = get_compile_time_arg_val(6);
     constexpr uint32_t tile_bytes = get_compile_time_arg_val(7);
-    constexpr auto src_args = TensorAccessorArgs<8>();
+    constexpr uint32_t push_early = get_compile_time_arg_val(8);
+    constexpr auto src_args = TensorAccessorArgs<9>();
     constexpr auto dst_args = TensorAccessorArgs<src_args.next_compile_time_args_offset()>();
 
     const uint32_t src_addr = get_arg_val<uint32_t>(0);
@@ -45,6 +46,9 @@ void kernel_main() {
 
     cb_reserve_back(cb_scratch, 1);
     const uint32_t w0 = get_write_ptr(cb_scratch);
+    if (push_early) {
+        cb_push_back(cb_scratch, 1);
+    }
 
     uint32_t slot = 0;
     for (uint32_t i = 0; i < outer; ++i) {
