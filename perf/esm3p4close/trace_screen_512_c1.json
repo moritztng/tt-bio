@@ -1,0 +1,51 @@
+{
+ "ttnn": "0.68.0",
+ "size": 512,
+ "reps": 10,
+ "card": "1",
+ "trace_region_size": "1073741824",
+ "git_head": "8b6493b8",
+ "sampling_steps": 100,
+ "grid": [
+  11,
+  10
+ ],
+ "parity_torch_equal": true,
+ "parity_max_abs": 0.0,
+ "N_atoms": 4128,
+ "B": 1,
+ "eager_ms": 39.2861,
+ "eager_all": [
+  39.25,
+  39.297,
+  39.34,
+  39.307,
+  39.316,
+  39.285,
+  39.263,
+  39.253,
+  39.288,
+  39.249
+ ],
+ "traced_ms": 39.3939,
+ "traced_all": [
+  39.358,
+  39.385,
+  39.376,
+  39.381,
+  39.42,
+  39.355,
+  39.403,
+  39.428,
+  39.421,
+  39.415
+ ],
+ "capture_ms": 14.837,
+ "pure_execute_ms": 39.2779,
+ "ttnn_calls_per_step": 1245,
+ "steps_executed": 68,
+ "fold_delta_s": -0.0222,
+ "kill_gate_ms_per_step": 8.8,
+ "GO": false,
+ "device_share_pct": 99.98
+}

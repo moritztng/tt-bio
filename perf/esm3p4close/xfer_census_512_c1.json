@@ -1,0 +1,233 @@
+{
+ "ttnn": "0.68.0",
+ "model": "esmfold2",
+ "size": 512,
+ "card": "1",
+ "git_head": "4109512e",
+ "recycling_steps": 10,
+ "sampling_steps": 100,
+ "grid": [
+  11,
+  10
+ ],
+ "warm_s": 47.316,
+ "clean_s": 34.183,
+ "plddt": 0.9285,
+ "instrumented_s": 34.189,
+ "instrument_overhead_pct": 0.018,
+ "plddt_instrumented": 0.9285,
+ "sites": [
+  {
+   "site": "to_torch esmfold2.py:1341",
+   "n": 68,
+   "s": 2.0797,
+   "mb_fp32": 3.4,
+   "shapes": [
+    "(1, 4128, 3)"
+   ]
+  },
+  {
+   "site": "to_torch esmfold2.py:202",
+   "n": 3,
+   "s": 0.6719,
+   "mb_fp32": 805.3,
+   "shapes": [
+    "(1, 512, 512, 256)"
+   ]
+  },
+  {
+   "site": "to_torch esmfold2_runtime.py:287",
+   "n": 1,
+   "s": 0.655,
+   "mb_fp32": 268.4,
+   "shapes": [
+    "(1, 512, 512, 256)"
+   ]
+  },
+  {
+   "site": "from_torch esmfold2.py:201",
+   "n": 3,
+   "s": 0.5006,
+   "mb_fp32": 805.3,
+   "shapes": [
+    "(1, 512, 512, 256)"
+   ]
+  },
+  {
+   "site": "from_torch esmfold2.py:1032",
+   "n": 1,
+   "s": 0.4179,
+   "mb_fp32": 424.7,
+   "shapes": [
+    "(1, 512, 81, 2560)"
+   ]
+  },
+  {
+   "site": "from_torch esmfold2.py:1312",
+   "n": 4,
+   "s": 0.3398,
+   "mb_fp32": 544.2,
+   "shapes": [
+    "(1, 4128, 389)",
+    "(1, 512, 451)",
+    "(1, 512, 512, 256)"
+   ]
+  },
+  {
+   "site": "to_torch esmfold2.py:1176",
+   "n": 1,
+   "s": 0.3236,
+   "mb_fp32": 268.4,
+   "shapes": [
+    "(1, 512, 512, 256)"
+   ]
+  },
+  {
+   "site": "from_torch esmfold2.py:1175",
+   "n": 4,
+   "s": 0.1961,
+   "mb_fp32": 272.9,
+   "shapes": [
+    "(1, 512, 35, 35)",
+    "(1, 512, 451)",
+    "(1, 512, 512, 1)",
+    "(1, 512, 512, 256)"
+   ]
+  },
+  {
+   "site": "from_torch esmfold2.py:1376",
+   "n": 1,
+   "s": 0.1667,
+   "mb_fp32": 268.4,
+   "shapes": [
+    "(1, 512, 512, 256)"
+   ]
+  },
+  {
+   "site": "from_torch esmfold2_runtime.py:277",
+   "n": 1,
+   "s": 0.166,
+   "mb_fp32": 268.4,
+   "shapes": [
+    "(1, 512, 512, 256)"
+   ]
+  },
+  {
+   "site": "from_torch esmfold2_runtime.py:278",
+   "n": 1,
+   "s": 0.1649,
+   "mb_fp32": 268.4,
+   "shapes": [
+    "(1, 512, 512, 256)"
+   ]
+  },
+  {
+   "site": "from_torch esmfold2.py:931",
+   "n": 1,
+   "s": 0.147,
+   "mb_fp32": 145.8,
+   "shapes": [
+    "(1, 512, 512, 139)"
+   ]
+  },
+  {
+   "site": "to_torch esmfold2.py:1032",
+   "n": 1,
+   "s": 0.0922,
+   "mb_fp32": 268.4,
+   "shapes": [
+    "(1, 512, 512, 256)"
+   ]
+  },
+  {
+   "site": "to_torch esmfold2.py:933",
+   "n": 1,
+   "s": 0.0921,
+   "mb_fp32": 268.4,
+   "shapes": [
+    "(1, 512, 512, 256)"
+   ]
+  },
+  {
+   "site": "from_torch esmfold2.py:961",
+   "n": 3,
+   "s": 0.0474,
+   "mb_fp32": 76.6,
+   "shapes": [
+    "(1, 1, 4128, 4128)",
+    "(1, 4128, 1)",
+    "(1, 512, 4128)"
+   ]
+  },
+  {
+   "site": "from_torch esmfold2.py:1313",
+   "n": 3,
+   "s": 0.0422,
+   "mb_fp32": 69.2,
+   "shapes": [
+    "(1, 1, 4128, 32)",
+    "(1, 1, 4128, 4128)"
+   ]
+  },
+  {
+   "site": "to_torch esmfold2.py:1376",
+   "n": 1,
+   "s": 0.0222,
+   "mb_fp32": 67.1,
+   "shapes": [
+    "(1, 512, 512, 64)"
+   ]
+  },
+  {
+   "site": "from_torch esmfold2.py:1341",
+   "n": 136,
+   "s": 0.0214,
+   "mb_fp32": 6.8,
+   "shapes": [
+    "(1, 256)",
+    "(1, 4128, 6)"
+   ]
+  },
+  {
+   "site": "to_torch esmfold2.py:962",
+   "n": 1,
+   "s": 0.0101,
+   "mb_fp32": 0.8,
+   "shapes": [
+    "(1, 512, 384)"
+   ]
+  },
+  {
+   "site": "from_torch esmfold2.py:1314",
+   "n": 3,
+   "s": 0.008,
+   "mb_fp32": 16.9,
+   "shapes": [
+    "(1, 4128, 1)",
+    "(1, 4128, 512)",
+    "(1, 512, 4128)"
+   ]
+  },
+  {
+   "site": "from_torch esmfold2.py:960",
+   "n": 3,
+   "s": 0.0038,
+   "mb_fp32": 7.5,
+   "shapes": [
+    "(1, 1, 4128, 32)",
+    "(1, 4128, 389)"
+   ]
+  },
+  {
+   "site": "from_torch esmfold2_runtime.py:279",
+   "n": 1,
+   "s": 0.0002,
+   "mb_fp32": 0.0,
+   "shapes": [
+    "(1, 1, 1, 256)"
+   ]
+  }
+ ],
+ "total_calls": 242,
+ "total_s": 6.169
+}
