@@ -506,6 +506,11 @@ Model-specific options are labelled below.
 | `--diffusion_samples` | `1` | Number of structure samples |
 | `--max_parallel_samples` | `5` | Diffusion samples denoised in one batched forward. Higher is faster but costs device memory linearly; lower it if a large target runs out of memory |
 | `--output_format` | `cif` | `cif` or `pdb` |
+| `--seed` | `0` | Random seed for the diffusion sampler |
+| `--trace` | `False` | **(Protenix-v2/OpenDDE)** Replay a captured trace of the per-step diffusion device stream. Lossless, and removes the per-step host dispatch; reserves 1 GiB of device memory |
+| `--diffusion_trace` | `False` | **(Boltz-2)** The same for Boltz-2's diffusion DiT stream |
+| `--write_pde` | `False` | **(Protenix-v2/OpenDDE)** Write the PDE matrix per target |
+| `--write_embeddings` | `False` | **(Protenix-v2/OpenDDE)** Write the `s`/`z` embeddings per target |
 | `--override` | `False` | Re-run from scratch |
 | `--use_msa_server` | auto | Use the online ColabFold API; auto-enabled for Boltz-2/Protenix-v2/OpenFold3/OpenDDE when no local DB is found |
 | `--single_sequence` | `False` | **(Boltz-2/Protenix-v2/OpenFold3/OpenDDE)** Skip all MSA requests; lower accuracy |
@@ -534,6 +539,8 @@ Model-specific options are labelled below.
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--msa_db_path` | auto-detect | Path to local ColabFold database (`~/.boltz/msa_db` if present) |
+| `--msa_dir` | `<out_dir>/msa` | MSA cache directory. Point it at a shared persistent path to reuse `{seq_hash}.a3m` across runs |
+| `--msa_cache_only` | `False` | Treat `--msa_dir` as the only MSA source: never search, and fail rather than quietly fold a chain single-sequence |
 | `--use_envdb` | `False` | Also search environmental database |
 | `--use_msa_server` | auto | Use ColabFold API for MSA (auto-enabled when no local DB is found) |
 | `--single_sequence` | `False` | Fold without an MSA (Boltz-2/Protenix-v2/OpenFold3/OpenDDE) |

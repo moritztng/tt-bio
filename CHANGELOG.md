@@ -5,6 +5,19 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Changed
+
+- RFdiffusion3 ships both fused bias kernels on by default (`881704d2`). The sparse
+  attention bias is built in one pass instead of a poke walk (5.83x at the op,
+  `703d12a1`) and the whole score+bias chain is one kernel (4.42x at the op,
+  `923a9396`); both learned multiplicity batching, worth 6.26x at batch 2
+  (`fa7246da`). Every step is bit-exact: the fold A/B legs land byte-identical
+  designs at +12.36 %, +5.10 %, +6.83 % and +4.65 % on ms/step (`583961c4`,
+  `ee4a8980`, `64a14e68`, `599d81ff`). The published throughput table in
+  `docs/rfd3-design.md` was regenerated with them on (`5123065e`).
+- Triangle attention runs the q-split at or below 1024 padded tokens and gates it
+  off above (`063f89db`).
+
 ### Fixed
 
 - `--trace` with Protenix-v2 or OpenDDE silently returned wrong structures for every
@@ -14,6 +27,36 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   `scripts/trace_multitarget_parity.py` (two same-size targets, one process, trace on
   vs off, byte-identical CIFs required). Boltz-2 and BoltzGen were not affected: their
   predict path resets the trace cache between targets.
+- Protenix-v2 crashed on targets between 385 and 506 residues: the h=1.5 normed pair
+  tensor was held past its last use (`142e0109`). ESMFold2 hit the same class at large
+  targets and now frees the pair-conditioning intermediates rather than row-tiling them
+  (`08565983`). OpenDDE uploads `z_struct` as one allocation into an intact hole
+  (`28a91107`) and frees the expander's row chunks after the loop (`d2ad024b`).
+- A clean `pip install` was missing kernel sources: the wheel and sdist now ship every
+  file under `tt_bio/kernels/` through recursive globs, so a new kernel directory cannot
+  drop out again (`cb3ef828`, `baa6ad0a`).
+- On a tt-metal built from source, tt-bio could not find the fabric mesh-graph
+  descriptor (`ee73d9a4`) or the `generic_op` kernel sources (`e2fb610a`), so a lone
+  Blackhole P300 chip would not open and the fused kernels would not build.
+- A worker that died of an uncaught exception reported silence (`a5921d2d`), and a
+  process holding a card could outlive whoever spawned it (`3bd84f04`, `26a8c085`).
+- Protenix-v2 falls back to ttnn's own matmul planner when a tuned config clashes
+  instead of failing the fold (`5a207fee`).
+
+### Performance
+
+- OpenFold3 at 512 residues: 51.19 -> 44.535 s on one Blackhole p150a, from running
+  TriangleAttention's fp32-softmax tail height-sharded in L1 rather than
+  DRAM-interleaved. Bit-exact — the same CIF digest (da9b4ed68f8c0405) and plDDT as the
+  control arm, and it holds at 768 and 1024 aa (`abbf42ba`, `d0589dca`; four warm folds
+  on main in `perf/of3x3/ab_512_postmerge_qb2c3.json`, spread 0.126 s).
+- The trimul output tail's two projections and its gate are one kernel: -679.47 ms on
+  the trimul body wall at 512 aa, byte-identical (`747e1b75`, re-verified on main
+  `0febf057`).
+- BoltzGen skips the template round trip when the input carries no template, worth 8.8 %
+  (`4d07b39e`).
+- ESMFold2's pair-FFN row blocking extends to 1024 residues: -3.858 s (1.0242x) at
+  1024 aa, bit-exact (`ca9b6703`).
 
 ## [0.6.2] - 2026-08-07
 

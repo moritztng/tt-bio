@@ -2227,7 +2227,8 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--step_scale", default=None, type=float)
 @click.option("--output_format", type=click.Choice(["pdb", "cif"]), default="cif")
 @click.option("--override", is_flag=True)
-@click.option("--seed", default=None, type=int)
+@click.option("--seed", default=None, type=int,
+              help="Random seed for the diffusion sampler. Default: 0.")
 @click.option("--use_msa_server", is_flag=True, help="Generate MSAs via ColabFold API (requires internet)")
 @click.option("--msa_db_path", default=None, type=click.Path(exists=True), help="Local ColabFold DB for offline MSA (default: auto-detect ~/.boltz/msa_db)")
 @click.option("--msa_dir", "msa_dir_opt", default=None, type=click.Path(),
@@ -2254,7 +2255,11 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--subsample_msa", is_flag=True)
 @click.option("--num_subsampled_msa", default=1024, type=int)
 @click.option("--no_kernels", is_flag=True)
-@click.option("--trace", is_flag=True)
+@click.option("--trace", is_flag=True,
+              help="Replay a captured ttnn trace of the per-step diffusion device "
+                   "stream (lossless; collapses per-step host dispatch). protenix-v2 "
+                   "and opendde only. Opt-in — reserves a 1 GiB trace region on the "
+                   "device.")
 @click.option("--diffusion_trace", is_flag=True,
               help="Replay a captured ttnn trace of the per-step diffusion DiT device "
                    "stream (lossless; collapses per-step host dispatch). boltz2 only. "
