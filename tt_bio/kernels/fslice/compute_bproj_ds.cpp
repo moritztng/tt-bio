@@ -88,6 +88,10 @@ void kernel_main() {
                         binary_dest_reuse_tiles<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_coef, d, DST_W);
                         tile_regs_commit();
                         tile_regs_wait();
+                        // The tilize reconfigured the packer to cb_til, and tilize_uninit does not
+                        // restore it. Every pack states its own destination format: without this the
+                        // accumulator pack wrote fp32 DST as bf16 into an fp32 buffer.
+                        pack_reconfig_data_format(cb_mid);
                         pack_tile(DST_W, cb_mid);
                         tile_regs_release();
                         cb_push_back(cb_mid, one);
@@ -119,6 +123,7 @@ void kernel_main() {
             }
             tile_regs_commit();
             tile_regs_wait();
+            pack_reconfig_data_format(last ? cb_out : cb_acc);
             pack_tile(DST_W, last ? cb_out : cb_acc);
             tile_regs_release();
             if (c) {

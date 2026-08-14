@@ -193,6 +193,9 @@ def build_s2a(sl, coef, selt, w, nx, ny, nb, row_el, offs_bytes, rowidx_of_core,
         mk(KDIR / "writer_fslice.cpp", cg, wct, wrt, ttnn.WriterConfigDescriptor()),
     ], semaphores=[], cbs=cbs(cg, [
         (CB_SRC, ttnn.bfloat16, TILE_B, 4 * BARRIER_EVERY * SRC_TILES),
+        # Every CB this kernel PACKS into carries one format. The tilize reconfigures the packer
+        # to cb_til, and a later pack_tile to a differently-formatted CB is not reconfigured back:
+        # the first build wrote fp32 DST as bf16 into an fp32 buffer and parity came back 1.2e31.
         (CB_TIL, ttnn.bfloat16, TILE_B, 2 * SRC_TILES),
         (CB_COEF, ttnn.bfloat16, TILE_B, 3),
         (CB_SELT, ttnn.bfloat16, TILE_B, nselt),
@@ -237,6 +240,32 @@ def s2_reference(sln, cfn, qn, rho, offs_el, ncontrib):
     for d in range(3):
         one += (cfn[d] * win) @ qn[d]
     return one * ncontrib, win
+
+
+def s2_parity(dev, res, a, row_el, sl, sln, coef, cfn, selt, qn, offs_el, rho, fmt, page, tdt, nc2):
+    """One core, one W tile, nc2 contributions -- run at 1, 2 and 3 chunks so the cb_acc carry is
+    isolated from the arithmetic. A scale-only residual means contributions are being LOST rather
+    than computed wrong, and the least-squares scale says how many of them landed."""
+    w1 = ttnn.from_torch(torch.zeros(1, 1, 32 * WPAGES, 32).to(tdt), dtype=fmt,
+                         layout=ttnn.TILE_LAYOUT, device=dev)
+    rowidx1 = [(np.arange(NROWS) * NCOPY + rho).tolist()]
+    pd = build_s2a(sl, coef, selt, w1, 1, 1, 1, row_el, offs_el * ELEM, rowidx1, nc2,
+                   a.chunk, fmt, page)
+    ttnn.generic_op([sl, coef, selt, w1], pd)
+    ttnn.synchronize_device(dev)
+    got = ttnn.to_torch(w1)[0, 0, :32, :].to(torch.float64).numpy()
+    ref, _ = s2_reference(sln, cfn, qn, rho, offs_el, nc2)
+    one = ref / nc2
+    rel = float(np.linalg.norm(got - ref) / max(np.linalg.norm(ref), 1e-300))
+    k = float((got * one).sum() / (one * one).sum())
+    resid = float(np.linalg.norm(got - k * one) / max(np.linalg.norm(got), 1e-300))
+    err = np.abs(got - ref).ravel()
+    print("  S2' nc2 %3d (%d chunk): rel L2 %.4e   landed %7.3f of %d   "
+          "scale-removed residual %.4e" % (nc2, nc2 // a.chunk, rel, k, nc2, resid), flush=True)
+    res["parity_s2_nc%d" % nc2] = {"rel_l2": rel, "landed": k, "resid": resid,
+                                   "err_pct": {q: float(np.percentile(err, q))
+                                               for q in (50, 90, 99, 100)}}
+    ttnn.deallocate(w1)
 
 
 def main():
@@ -310,6 +339,9 @@ def main():
         if not a.skip_parity:
             print("PARITY", flush=True)
             # --- S2': one core, one W tile, 2*chunk contributions so the cb_acc carry is live ---
+            for _nc in (a.chunk, 2 * a.chunk, 3 * a.chunk):
+                s2_parity(dev, res, a, row_el, sl, sln, coef, cfn, selt, qn, offs_el, rho,
+                          fmt, page, tdt, _nc)
             nc2 = 2 * a.chunk
             w1 = ttnn.from_torch(torch.zeros(1, 1, 32 * WPAGES, 32).to(tdt), dtype=fmt,
                                  layout=ttnn.TILE_LAYOUT, device=dev)
@@ -321,6 +353,21 @@ def main():
             got = ttnn.to_torch(w1)[0, 0, :32, :].to(torch.float64).numpy()
             ref, win = s2_reference(sln, cfn, qn, rho, offs_el, nc2)
             rel = float(np.linalg.norm(got - ref) / max(np.linalg.norm(ref), 1e-300))
+            print(f"    |got| {np.linalg.norm(got):.4e}  |ref| {np.linalg.norm(ref):.4e}", flush=True)
+            # One device run, many hypotheses: which arrangement of the operands does the kernel
+            # actually compute? Cheaper than a device round trip per guess.
+            cand = {}
+            cand["as-built"] = ref
+            cand["q^T"] = sum((cfn[d] * win) @ qn[d].T for d in range(3)) * nc2
+            cand["win^T"] = sum((cfn[d] * win.T) @ qn[d] for d in range(3)) * nc2
+            cand["c^T"] = sum((cfn[d].T * win) @ qn[d] for d in range(3)) * nc2
+            cand["no-coef"] = sum(win @ qn[d] for d in range(3)) * nc2
+            cand["coef-after"] = sum(cfn[d] * (win @ qn[d]) for d in range(3)) * nc2
+            cand["q^T win^T"] = sum((cfn[d] * win.T) @ qn[d].T for d in range(3)) * nc2
+            cand["out^T"] = ref.T
+            for k, v in sorted(cand.items(), key=lambda kv: np.linalg.norm(got - kv[1])):
+                print(f"      {k:14s} rel L2 {np.linalg.norm(got-v)/max(np.linalg.norm(v),1e-30):.4e}",
+                      flush=True)
             err = np.abs(got - ref).ravel()
             print(f"  S2' slice -> W tile vs fp64, {nc2} contributions: rel L2 {rel:.4e}  "
                   f"max {err.max():.3e}  p50 {np.percentile(err,50):.3e}  "
