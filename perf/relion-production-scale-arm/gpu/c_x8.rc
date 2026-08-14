@@ -1,0 +1,1 @@
+rc=0 arm=c_x8 scale=8 (verified from log tail, wall from /usr/bin/time)
