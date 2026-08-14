@@ -152,8 +152,27 @@ def build_stage1(v, m, w, nx, ny, nstrip, row_el, hoist, strip_of_core, shift_re
                                      (CB_MID2, TILE_B, 2)]))
 
 
+def mode14_asm(nb, run_len, step_q):
+    """Assemblies mode 14 consumes for `nb` output tiles, with the kernel's exact integer arithmetic.
+
+    The reader has to issue precisely this many or the program deadlocks, so the count is derived the
+    same way in both places: `acc` is the window start in Q16 mid-rows and `acc >> 21` its tile index,
+    and a run needs the highest window start it reaches, plus the two tiles of the window itself.
+    """
+    tot, k0 = 0, 0
+    while k0 < nb:
+        t_run = min(run_len, nb - k0)
+        acc, produced = 0, 0
+        for _ in range(t_run):
+            produced = max(produced, (acc >> 21) + 2)
+            acc += step_q
+        tot += produced
+        k0 += t_run
+    return tot
+
+
 def build_stage2(w, sel, frac, out, nx, ny, nb, row_el, offs_bytes, rowidx_of_core,
-                 mode=13, fid="HiFi4", cbtil=2, cbsrc=4):
+                 mode=13, fid="HiFi4", cbtil=2, cbsrc=4, run_len=5, step_q=0):
     """`nb` is the number of OUTPUT TILES per core that mode 13 produces.
 
     The reader issues the SAME 2*nb assemblies whatever the mode, so a screen mode prices the
@@ -162,9 +181,11 @@ def build_stage2(w, sel, frac, out, nx, ny, nb, row_el, offs_bytes, rowidx_of_co
     mode 0 only tilizes and packs (src_tiles out per assembly, hence the wider writer block).
     """
     cg = ttnn.CoreRangeSet([ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(nx - 1, ny - 1))])
-    asm = nb * 2                          # assemblies per core -- fixed across modes
-    nblk = nb if mode == 13 else asm      # compute-loop trips
-    tpb = SRC_TILES if mode == 0 else 1   # cb_out tiles the compute pushes per trip
+    # Mode 14 is the one mode whose reader count is not 2*nb: that IS the lever. It produces the same
+    # nb output tiles from fewer assemblies, so its sha256 stays comparable with mode 13's.
+    asm = mode14_asm(nb, run_len, step_q) if mode == 14 else nb * 2
+    nblk = nb if mode in (13, 14) else asm   # compute-loop trips
+    tpb = SRC_TILES if mode == 0 else 1      # cb_out tiles the compute pushes per trip
     rct = ([CB_SRC, WIN * ELEM, NROWS, row_el * ELEM, SRC_TILES, BARRIER_EVERY, mode,
             CB_SEL, CB_FRAC, 3 * SRC_TILES, TILE_B, 3]
            + list(ttnn.TensorAccessorArgs(w).get_compile_time_args())
@@ -179,7 +200,7 @@ def build_stage2(w, sel, frac, out, nx, ny, nb, row_el, offs_bytes, rowidx_of_co
             rrt[cx][cy] = ([w.buffer_address(), asm, 0] + [int(o) for o in offs_bytes]
                            + [sel.buffer_address(), frac.buffer_address()]
                            + [int(i) for i in rowidx_of_core[c]])
-            crt[cx][cy] = [nblk]
+            crt[cx][cy] = [nblk, run_len, step_q]
             wrt[cx][cy] = [out.buffer_address(), nblk, c * nblk * tpb]
             c += 1
     return ttnn.ProgramDescriptor(kernels=[
@@ -316,6 +337,10 @@ def main():
     ap.add_argument("--cbtil", type=int, default=2, help="cb_til depth in units of SRC_TILES (lever O)")
     ap.add_argument("--cbsrc", type=int, default=4,
                     help="cb_src depth in units of BARRIER_EVERY*SRC_TILES (lever O)")
+    ap.add_argument("--runlen", type=int, default=5,
+                    help="output tiles per tile-column run (lever B); the disc gives 5.03")
+    ap.add_argument("--dscale", type=float, default=1.1228,
+                    help="D = 1/cos(theta) for lever B; s4_geom puts the mean at 1.1228")
     ap.add_argument("--split", action="store_true",
                     help="also time the two stages separately, after the chained arm")
     a = ap.parse_args()
@@ -327,7 +352,7 @@ def main():
     res = {"box": a.box, "row_el": row_el, "strips_per_dir": strips_per_dir, "nplane": NPLANE,
            "psi": PSI, "ncopy": NCOPY, "nstrip": a.nstrip, "components": a.components,
            "hoist_init": a.hoist, "ncore": ncore, "mode": a.mode, "fid": a.fid,
-           "cbtil": a.cbtil, "cbsrc": a.cbsrc}
+           "cbtil": a.cbtil, "cbsrc": a.cbsrc, "run_len": a.runlen, "dscale": a.dscale}
     try:
         rng = np.random.default_rng(61)
         vol = rng.integers(-100, 100, size=(NPAGES * 32, 32)).astype(np.float32)
@@ -381,7 +406,8 @@ def main():
                                dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
         # A screen mode produces a different number of output tiles per core from the same reader
         # stream, so the destination has to be sized for the mode or the writer walks off the end.
-        nblk = nb if a.mode == 13 else nb * 2
+        step_q = int(round(32.0 * a.dscale * 65536))
+        nblk = nb if a.mode in (13, 14) else nb * 2
         tpb = SRC_TILES if a.mode == 0 else 1
         out = ttnn.from_torch(torch.zeros(1, 1, 32 * nblk * tpb * ncore, 32).to(torch.bfloat16),
                               dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
@@ -390,7 +416,12 @@ def main():
         pd1 = build_stage1(vol_t, m_t, w, NX, NY, a.nstrip, row_el, a.hoist, strip_of_core,
                            a.shift, nmask)
         pd2 = build_stage2(w, sel, frac, out, NX, NY, nb, row_el, offs_el * ELEM, rowidx_of_core,
-                           a.mode, a.fid, a.cbtil, a.cbsrc)
+                           a.mode, a.fid, a.cbtil, a.cbsrc, a.runlen, step_q)
+        if a.mode == 14:
+            asm14 = mode14_asm(nb, a.runlen, step_q)
+            res.update({"asm": asm14, "asm_ratio": asm14 / (2 * nb), "step_q": step_q})
+            print(f"lever B: D = {a.dscale}, run {a.runlen} -> {asm14} assemblies/core against "
+                  f"{2 * nb}, r = {asm14 / (2 * nb):.4f}", flush=True)
 
         ins1, ins2 = [vol_t, m_t, w], [w, sel, frac, out]
         ttnn.generic_op(ins1, pd1)
@@ -436,7 +467,8 @@ def main():
         tag = (f"fslice_e2e_box{a.box}_c{a.components}_h{a.hoist}_s{a.shift}"
                + (f"_m{a.mode}" if a.mode != 13 else "")
                + (f"_{a.fid}" if a.fid != "HiFi4" else "")
-               + (f"_t{a.cbtil}" if a.cbtil != 2 else "") + (f"_r{a.cbsrc}" if a.cbsrc != 4 else ""))
+               + (f"_t{a.cbtil}" if a.cbtil != 2 else "") + (f"_r{a.cbsrc}" if a.cbsrc != 4 else "")
+               + (f"_L{a.runlen}D{a.dscale}" if a.mode == 14 else ""))
         json.dump(res, open(HERE / f"{tag}.json", "w"), indent=1)
     finally:
         ttnn.close_device(dev)

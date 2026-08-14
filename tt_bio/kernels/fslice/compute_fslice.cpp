@@ -160,6 +160,115 @@ void kernel_main() {
         pack_untilize_dest_init<1, 1>(cb_out);
     }
 
+    if constexpr (mode == 14) {
+        // LEVER B -- pass 1 once per intermediate instead of twice per output tile.
+        //
+        // Mode 13 runs pass 1 twice for every output tile, because pass 2 resamples the intermediate
+        // along its r axis and needs a 64-row window of it. Those windows OVERLAP down a tile-column:
+        // the next output tile needs the window shifted by 32*D rows, and a 2-pass separable rotation
+        // forces A*D == 1, so D = 1/cos(theta) is in [1, 1.414] and the shift is 32 to 46 rows, never
+        // a clean two tiles. So each output tile needs one or two NEW intermediates, not two, and the
+        // rest are already sitting in cb_int2.
+        //
+        // The window is kept as the front of cb_int2: pass 2 always reads tiles 0 and 1, the tiles
+        // that fall out of the window are popped, and only the shortfall is produced. `acc` is the
+        // window start in Q16 mid-rows, so `acc >> 21` is its mid-TILE index. Nothing here changes
+        // any arithmetic -- with a fixed shear the intermediates are the same values mode 13 computes,
+        // so the output must be bit-identical and that is the gate.
+        const uint32_t run_len = get_arg_val<uint32_t>(1);
+        const uint32_t step_q = get_arg_val<uint32_t>(2);   // 32*D in Q16 mid-rows
+
+        for (uint32_t k0 = 0; k0 < nblocks; k0 += run_len) {
+            uint32_t t_run = nblocks - k0;
+            if (t_run > run_len) {
+                t_run = run_len;
+            }
+            uint32_t acc = 0, front = 0, produced = 0;
+            for (uint32_t k = 0; k < t_run; ++k) {
+                const uint32_t m = acc >> 21;
+                while (produced < m + 2) {
+                    // --- pass 1, one intermediate ------------------------------------------------
+                    cb_wait_front(cb_src, src_tiles);
+                    tilize_init_short_with_dt(cb_out, cb_src, src_tiles, cb_til);
+                    cb_reserve_back(cb_til, src_tiles);
+                    tilize_block(cb_src, src_tiles, cb_til);
+                    cb_push_back(cb_til, src_tiles);
+                    tilize_uninit_with_dt(cb_src, cb_out, cb_til);
+                    cb_wait_front(cb_til, src_tiles);
+                    tile_regs_acquire();
+                    mm_init(cb_til, cb_sel, cb_int, 0);
+                    for (uint32_t j = 0; j < src_tiles; ++j) {
+                        matmul_tiles(cb_til, cb_sel, j, j, DST_T0);
+                        matmul_tiles(cb_til, cb_sel, j, src_tiles + j, DST_T1);
+                        matmul_tiles(cb_til, cb_sel, j, 2 * src_tiles + j, DST_T2);
+                    }
+                    binary_dest_reuse_tiles_init<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac);
+                    binary_dest_reuse_tiles<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac, 0, DST_T0);
+                    binary_dest_reuse_tiles<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac, 1, DST_T1);
+                    binary_dest_reuse_tiles<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac, 2, DST_T2);
+                    add_binary_tile_init();
+                    add_binary_tile(DST_T0, DST_T1, DST_BASE);
+                    add_binary_tile(DST_BASE, DST_T2, DST_OUT);
+                    tile_regs_commit();
+                    tile_regs_wait();
+                    cb_reserve_back(cb_int, one);
+                    pack_tile(DST_OUT, cb_int);
+                    tile_regs_release();
+                    cb_push_back(cb_int, one);
+                    cb_pop_front(cb_til, src_tiles);
+                    cb_pop_front(cb_src, src_tiles);
+
+                    // --- transpose it straight into the window ----------------------------------
+                    cb_wait_front(cb_int, one);
+                    cb_reserve_back(cb_int2, one);
+                    tile_regs_acquire();
+                    transpose_wh_init_short(cb_int);
+                    transpose_wh_tile(cb_int, 0, 0);
+                    tile_regs_commit();
+                    tile_regs_wait();
+                    pack_tile(0, cb_int2);
+                    tile_regs_release();
+                    cb_push_back(cb_int2, one);
+                    cb_pop_front(cb_int, one);
+                    ++produced;
+                }
+                if (m > front) {
+                    cb_pop_front(cb_int2, m - front);
+                    front = m;
+                }
+
+                // --- pass 2, off the window -----------------------------------------------------
+                cb_wait_front(cb_int2, 2);
+                cb_reserve_back(cb_out, one);
+                tile_regs_acquire();
+                mm_init(cb_int2, cb_sel, cb_out, 0);
+                for (uint32_t j = 0; j < src_tiles; ++j) {
+                    matmul_tiles(cb_int2, cb_sel, j, j, DST_T0);
+                    matmul_tiles(cb_int2, cb_sel, j, src_tiles + j, DST_T1);
+                    matmul_tiles(cb_int2, cb_sel, j, 2 * src_tiles + j, DST_T2);
+                }
+                binary_dest_reuse_tiles_init<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac);
+                binary_dest_reuse_tiles<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac, 0, DST_T0);
+                binary_dest_reuse_tiles<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac, 1, DST_T1);
+                binary_dest_reuse_tiles<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_frac, 2, DST_T2);
+                add_binary_tile_init();
+                add_binary_tile(DST_T0, DST_T1, DST_BASE);
+                add_binary_tile(DST_BASE, DST_T2, DST_OUT);
+                tile_regs_commit();
+                tile_regs_wait();
+                pack_tile(DST_OUT, cb_out);
+                tile_regs_release();
+                cb_push_back(cb_out, one);
+                acc += step_q;
+            }
+            // The run ends with exactly the two window tiles left; retire them so the next run of the
+            // same core starts from an empty cb_int2 and `front` stays consistent with the CB.
+            cb_wait_front(cb_int2, 2);
+            cb_pop_front(cb_int2, 2);
+        }
+        return;
+    }
+
     if constexpr (mode == 6) {
         // Tilize exactly one window, before the loop, and never again.
         cb_wait_front(cb_src, src_tiles);
