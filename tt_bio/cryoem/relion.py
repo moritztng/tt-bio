@@ -11,6 +11,11 @@ One deliberate difference: RELION accumulates per 256-pixel block, this reduces 
 once. That changes the last bits and nothing else, and TT_RELION_CHECK=1 measures the residual
 against RELION's own value rather than asserting it.
 
+Both of RELION's difference passes are the same computation. The coarse pass wants the whole
+orientation x translation matrix; the fine pass wants a sparse subset of the entries of the same
+matrix, over a different (significant) orientation set, plus a per-image constant. So there is one
+core, _dense_diff2, and two entry points.
+
 Backend selected by TT_RELION_BACKEND:
   torch   torch on the host. Exact, slow, and the arm that proves the plumbing.
   ttnn    the device path.
@@ -28,13 +33,18 @@ _CHECK = os.environ.get("TT_RELION_CHECK", "") not in ("", "0")
 # hash of the reference. Answers "is the coarse orientation set shared across particles" from a
 # real run rather than from reading RELION's sampling code.
 _TRACE = os.environ.get("TT_RELION_TRACE", "")
+# TT_RELION_SHAPE=<path>: append one line per FINE call with the shape only, and keep declining.
+# The fine pass runs on a data-dependent significant subset, so its orientation count, its job
+# count and its density are properties of the refinement rather than of the code. This logs them
+# from the reference arm, where every call declines and the run costs what RELION's own run costs.
+_SHAPE = os.environ.get("TT_RELION_SHAPE", "")
 # TT_RELION_DUMP=<path>: write the first call's raw inputs to <path>.<pid>.npz and keep going.
 # The separable-interpolant study needs RELION's own padded model and its own orientation set at
 # the real operating point; reconstructing either from RELION's source is guesswork.
 _DUMP = os.environ.get("TT_RELION_DUMP", "")
 _DUMP_N = int(os.environ.get("TT_RELION_DUMP_N", "1"))
 _dumped = [0]
-_stats = {"handled": 0, "declined": 0, "resid_max": 0.0, "resid_n": 0}
+_stats = {"handled": 0, "declined": 0, "fine_handled": 0, "fine_declined": 0}
 
 
 # TT_RELION_TORCH_THREADS=<n>: torch's intra-op thread count inside the bridge. RELION already
@@ -111,6 +121,65 @@ def _project(t, mdl, x, y, e, mdlX, mdlY, mdlZ, mdlInitY, mdlInitZ,
     return t.where(inside, ref_r, zero), t.where(inside, ref_i, zero)
 
 
+def _dense_diff2(t, mdl_mv, eul_mv, tx_mv, ty_mv, re_mv, im_mv, corr_mv,
+                 mdlX, mdlY, mdlZ, mdlInitY, mdlInitZ, maxR, maxR2_padded,
+                 padding_factor, imgX, imgY,
+                 orientation_num, translation_num, image_size, tag):
+    """The whole orientation x translation squared-difference matrix, flat [O*T] float32.
+
+    This is the body of RELION's diff2_coarse_2D and, entry for entry, of diff2_fine_2D as well:
+    the fine kernel differs only in which entries it is asked for and in the constant it adds.
+    """
+    mdl = t.from_numpy(np.frombuffer(mdl_mv, dtype=np.float32).reshape(-1, 2).copy())
+    eul = t.from_numpy(np.frombuffer(eul_mv, dtype=np.float32)
+                       .reshape(orientation_num, 9).copy())
+    tx = t.from_numpy(np.frombuffer(tx_mv, dtype=np.float32).copy())
+    ty = t.from_numpy(np.frombuffer(ty_mv, dtype=np.float32).copy())
+    img_r = t.from_numpy(np.frombuffer(re_mv, dtype=np.float32).copy())
+    img_i = t.from_numpy(np.frombuffer(im_mv, dtype=np.float32).copy())
+    w = t.from_numpy(np.frombuffer(corr_mv, dtype=np.float32).copy()) * 0.5
+
+    pix = t.arange(image_size, dtype=t.int64)
+    x = (pix % imgX).to(t.float32)
+    yi = pix // imgX
+    y = t.where(yi > maxR, yi - imgY, yi).to(t.float32)
+
+    # The shift stack. A phase shift preserves magnitude, so this is the only place the
+    # translations enter and it does not depend on the orientation.
+    ph = x.unsqueeze(0) * tx.unsqueeze(1) + y.unsqueeze(0) * ty.unsqueeze(1)
+    s, c = t.sin(ph), t.cos(ph)
+    sh_r = c * img_r - s * img_i
+    sh_i = c * img_i + s * img_r
+
+    acc = np.empty(orientation_num * translation_num, dtype=np.float32)
+    for o0 in range(0, orientation_num, _ORI_CHUNK):
+        o1 = min(o0 + _ORI_CHUNK, orientation_num)
+        ref_r, ref_i = _project(t, mdl, x, y, eul[o0:o1], mdlX, mdlY, mdlZ,
+                                mdlInitY, mdlInitZ, maxR2_padded, padding_factor)
+        dr = ref_r.unsqueeze(1) - sh_r.unsqueeze(0)
+        di = ref_i.unsqueeze(1) - sh_i.unsqueeze(0)
+        d2 = ((dr * dr + di * di) * w).sum(-1)
+        acc[o0 * translation_num:o1 * translation_num] = d2.reshape(-1).numpy()
+
+    if _DUMP and _dumped[0] < _DUMP_N:
+        _dumped[0] += 1
+        np.savez("%s.%s.%d.%d.npz" % (_DUMP, tag, os.getpid(), _dumped[0]),
+                 mdl=mdl.numpy(), eul=eul.numpy(), tx=tx.numpy(), ty=ty.numpy(),
+                 img_r=img_r.numpy(), img_i=img_i.numpy(), w=w.numpy(),
+                 diff2=acc,
+                 geom=np.array([mdlX, mdlY, mdlZ, mdlInitY, mdlInitZ, maxR, maxR2_padded,
+                                padding_factor, imgX, imgY, orientation_num,
+                                translation_num, image_size], dtype=np.int64))
+    if _TRACE:
+        import hashlib
+        eh = hashlib.sha256(np.frombuffer(eul_mv, dtype=np.float32).tobytes()).hexdigest()[:16]
+        mh = hashlib.sha256(np.frombuffer(mdl_mv, dtype=np.float32).tobytes()).hexdigest()[:16]
+        with open("%s.%d" % (_TRACE, os.getpid()), "a") as fh:
+            fh.write("%s %d %d %d %s %s\n"
+                     % (tag, orientation_num, translation_num, image_size, eh, mh))
+    return acc
+
+
 def diff2_coarse(mdl_mv, eul_mv, tx_mv, ty_mv, re_mv, im_mv, corr_mv, out_mv,
                  mdlX, mdlY, mdlZ, mdlInitY, mdlInitZ, maxR, maxR2_padded,
                  padding_factor, imgX, imgY,
@@ -121,56 +190,11 @@ def diff2_coarse(mdl_mv, eul_mv, tx_mv, ty_mv, re_mv, im_mv, corr_mv, out_mv,
         return False        # not wired yet, so RELION keeps its own kernel
     try:
         t = _torch()
-        mdl = t.from_numpy(np.frombuffer(mdl_mv, dtype=np.float32).reshape(-1, 2).copy())
-        eul = t.from_numpy(np.frombuffer(eul_mv, dtype=np.float32)
-                           .reshape(orientation_num, 9).copy())
-        tx = t.from_numpy(np.frombuffer(tx_mv, dtype=np.float32).copy())
-        ty = t.from_numpy(np.frombuffer(ty_mv, dtype=np.float32).copy())
-        img_r = t.from_numpy(np.frombuffer(re_mv, dtype=np.float32).copy())
-        img_i = t.from_numpy(np.frombuffer(im_mv, dtype=np.float32).copy())
-        w = t.from_numpy(np.frombuffer(corr_mv, dtype=np.float32).copy()) * 0.5
-
-        pix = t.arange(image_size, dtype=t.int64)
-        x = (pix % imgX).to(t.float32)
-        yi = pix // imgX
-        y = t.where(yi > maxR, yi - imgY, yi).to(t.float32)
-
-        # The shift stack. A phase shift preserves magnitude, so this is the only place the
-        # translations enter and it does not depend on the orientation.
-        ph = x.unsqueeze(0) * tx.unsqueeze(1) + y.unsqueeze(0) * ty.unsqueeze(1)
-        s, c = t.sin(ph), t.cos(ph)
-        sh_r = c * img_r - s * img_i
-        sh_i = c * img_i + s * img_r
-
-        acc = np.empty(orientation_num * translation_num, dtype=np.float32)
-        for o0 in range(0, orientation_num, _ORI_CHUNK):
-            o1 = min(o0 + _ORI_CHUNK, orientation_num)
-            ref_r, ref_i = _project(t, mdl, x, y, eul[o0:o1], mdlX, mdlY, mdlZ,
-                                    mdlInitY, mdlInitZ, maxR2_padded, padding_factor)
-            dr = ref_r.unsqueeze(1) - sh_r.unsqueeze(0)
-            di = ref_i.unsqueeze(1) - sh_i.unsqueeze(0)
-            d2 = ((dr * dr + di * di) * w).sum(-1)
-            acc[o0 * translation_num:o1 * translation_num] = d2.reshape(-1).numpy()
-
-        if _DUMP and _dumped[0] < _DUMP_N:
-            _dumped[0] += 1
-            np.savez("%s.%d.%d.npz" % (_DUMP, os.getpid(), _dumped[0]),
-                     mdl=mdl.numpy(), eul=eul.numpy(), tx=tx.numpy(), ty=ty.numpy(),
-                     img_r=img_r.numpy(), img_i=img_i.numpy(), w=w.numpy(),
-                     diff2=acc,
-                     geom=np.array([mdlX, mdlY, mdlZ, mdlInitY, mdlInitZ, maxR, maxR2_padded,
-                                    padding_factor, imgX, imgY, orientation_num,
-                                    translation_num, image_size], dtype=np.int64))
-        if _TRACE:
-            import hashlib
-            eh = hashlib.sha256(np.frombuffer(eul_mv, dtype=np.float32).tobytes()).hexdigest()[:16]
-            mh = hashlib.sha256(np.frombuffer(mdl_mv, dtype=np.float32).tobytes()).hexdigest()[:16]
-            with open("%s.%d" % (_TRACE, os.getpid()), "a") as fh:
-                fh.write("%d %d %d %s %s\n"
-                         % (orientation_num, translation_num, image_size, eh, mh))
+        acc = _dense_diff2(t, mdl_mv, eul_mv, tx_mv, ty_mv, re_mv, im_mv, corr_mv,
+                           mdlX, mdlY, mdlZ, mdlInitY, mdlInitZ, maxR, maxR2_padded,
+                           padding_factor, imgX, imgY,
+                           orientation_num, translation_num, image_size, "C")
         out = np.frombuffer(out_mv, dtype=np.float32)
-        if _CHECK:
-            _stats["resid_ours"] = acc.copy()
         out += acc
         _stats["handled"] += 1
         return True
@@ -179,6 +203,51 @@ def diff2_coarse(mdl_mv, eul_mv, tx_mv, ty_mv, re_mv, im_mv, corr_mv, out_mv,
         traceback.print_exc()
         print("tt_bio.cryoem.relion: diff2_coarse declined: %r" % (exc,))
         _stats["declined"] += 1
+        return False
+
+
+def diff2_fine(mdl_mv, eul_mv, tx_mv, ty_mv, re_mv, im_mv, corr_mv,
+               rot_idx_mv, trans_idx_mv, out_mv,
+               mdlX, mdlY, mdlZ, mdlInitY, mdlInitZ, maxR, maxR2_padded,
+               padding_factor, imgX, imgY, sum_init,
+               orientation_num, translation_num, significant_num, image_size,
+               job_num_count):
+    """runDiff2KernelFine, 3D reference and 2D data. Accumulates onto out_mv.
+
+    RELION's fine kernel is written as a list of jobs, each job one orientation and a run of at
+    most D2F_CHUNK_REF3D consecutive translations, and it re-projects the reference once per job.
+    The jobs tile [0, significant_num) exactly (makeJobsForDiff2Fine, acc_helper_functions_impl.h),
+    so the job list is CUDA block geometry and carries no information the flat rot_idx/trans_idx
+    pair does not. Projecting each distinct orientation once and reading the requested entries out
+    of the dense matrix is therefore the same answer with strictly less projection work.
+    """
+    if _SHAPE:
+        rot_idx = np.frombuffer(rot_idx_mv, dtype=np.uint64)
+        with open("%s.%d" % (_SHAPE, os.getpid()), "a") as fh:
+            fh.write("F %d %d %d %d %d %d\n"
+                     % (orientation_num, translation_num, significant_num, job_num_count,
+                        image_size, len(np.unique(rot_idx))))
+    if _BACKEND == "ttnn":
+        _stats["fine_declined"] += 1
+        return False
+    try:
+        t = _torch()
+        acc = _dense_diff2(t, mdl_mv, eul_mv, tx_mv, ty_mv, re_mv, im_mv, corr_mv,
+                           mdlX, mdlY, mdlZ, mdlInitY, mdlInitZ, maxR, maxR2_padded,
+                           padding_factor, imgX, imgY,
+                           orientation_num, translation_num, image_size, "F")
+        rot_idx = np.frombuffer(rot_idx_mv, dtype=np.uint64)
+        trans_idx = np.frombuffer(trans_idx_mv, dtype=np.uint64)
+        take = rot_idx * np.uint64(translation_num) + trans_idx
+        out = np.frombuffer(out_mv, dtype=np.float32)
+        out += acc[take] + np.float32(sum_init)
+        _stats["fine_handled"] += 1
+        return True
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        print("tt_bio.cryoem.relion: diff2_fine declined: %r" % (exc,))
+        _stats["fine_declined"] += 1
         return False
 
 
