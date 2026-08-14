@@ -1,0 +1,90 @@
+{
+ "host": "tt-quietbox2",
+ "model": "opendde",
+ "n_tokens": 512,
+ "Ns": 995,
+ "replica_faithful": true,
+ "ref": {
+  "plddt": 0.75411,
+  "cif_sha256_prefix": "357c67003bb738ac"
+ },
+ "folds": [
+  {
+   "fold": 0,
+   "kind": "cold",
+   "fold_s": 87.096,
+   "plddt": 0.75411,
+   "cif_sha256_full": {
+    "cdk2x2_512.cif": "357c67003bb738ac3d378654c32eec5c8f2afd2eec288d3cf56fb9ee7001d92b"
+   },
+   "phases": {
+    "expander": 1.9652,
+    "prewarm": 0.0102,
+    "reshape": 0.0,
+    "refiner": 2.2984,
+    "tail": 0.0,
+    "total": 4.2738,
+    "Ns": 995
+   }
+  },
+  {
+   "fold": 1,
+   "kind": "warm",
+   "fold_s": 85.003,
+   "plddt": 0.75411,
+   "cif_sha256_full": {
+    "cdk2x2_512.cif": "357c67003bb738ac3d378654c32eec5c8f2afd2eec288d3cf56fb9ee7001d92b"
+   },
+   "phases": {
+    "expander": 0.9199,
+    "prewarm": 0.0001,
+    "reshape": 0.0,
+    "refiner": 2.2994,
+    "tail": 0.0,
+    "total": 3.2194,
+    "Ns": 995
+   }
+  },
+  {
+   "fold": 2,
+   "kind": "warm",
+   "fold_s": 85.031,
+   "plddt": 0.75411,
+   "cif_sha256_full": {
+    "cdk2x2_512.cif": "357c67003bb738ac3d378654c32eec5c8f2afd2eec288d3cf56fb9ee7001d92b"
+   },
+   "phases": {
+    "expander": 0.9208,
+    "prewarm": 0.0001,
+    "reshape": 0.0,
+    "refiner": 2.2989,
+    "tail": 0.0,
+    "total": 3.2198,
+    "Ns": 995
+   }
+  }
+ ],
+ "warm_phase_avg_s": {
+  "expander": 0.9204,
+  "prewarm": 0.0001,
+  "reshape": 0.0,
+  "refiner": 2.2992,
+  "tail": 0.0,
+  "total": 3.2196
+ },
+ "cold_phases_s": {
+  "expander": 1.9652,
+  "prewarm": 0.0102,
+  "reshape": 0.0,
+  "refiner": 2.2984,
+  "tail": 0.0,
+  "total": 4.2738,
+  "Ns": 995
+ },
+ "inherited_decomp": {
+  "top:expand_and_refine": 3.687,
+  "expander:call": 1.065,
+  "expander:pair_project_full": 0.046,
+  "unattributed": 2.576
+ }
+}
