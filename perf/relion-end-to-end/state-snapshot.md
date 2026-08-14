@@ -19,7 +19,7 @@ the coarse squared-difference kernel running in `tt_bio/cryoem/relion.py` conver
 iteration, through the same per-iteration accuracy estimates, to the same answer.
 
 **E6 RAN.** A 2x H200 box was rented, three arms measured (1 GPU, 2 GPU, and the same box's CPU),
-and the instance destroyed: **$2.77 of the $40 cap, post-teardown balance $46.5885, 0 instances
+and the instance destroyed: **$3.33 of the $40 cap, final settled balance $46.0292, 0 instances
 running.** Six independent runs across three architectures now converge to `3.79378 Å`. §7.
 
 ---
@@ -44,7 +44,7 @@ device gather was impossible and that the only buildable kernel changed RELION's
 the gather and it is alive, so the accuracy fork that dominated this lineage's risk is gone.
 
 **The comparison arm went from unfundable to measured mid-pass, and both versions are kept.** E6 was
-blocked on a $0 vast.ai balance; Moritz funded it and a 2x H200 box ran three arms for $2.77 (§7).
+blocked on a $0 vast.ai balance; Moritz funded it and a 2x H200 box ran three arms for $3.33 (§7).
 Independently, `Tutorial5.0/Refine3D/job019` turned out to be RELION's own 4-GPU run of this exact
 job with its file mtimes intact — a same-span, same-MPI-configuration, RELION-authored GPU reference
 that was on disk the whole time. **Both are in §7 and they agree**: one H200 does this job in 129.89 s
@@ -378,8 +378,10 @@ a Galaxy is the right shape of machine, and no kernel work changes that.
 ## 7. Galaxy against an H200: a MEASURED pair on both sides, wall-clock, dollars and watts
 
 **E6 ran.** vast.ai was funded mid-pass ($49.36), a 2x H200 box was rented, three arms ran on it, and
-it was destroyed. **Total spend $2.77 of the $40 cap; post-teardown balance $46.5885 and
-`vastai show instances` returns 0 instances.** The `vastai` CLI is not packaged on pc or qb1 — it
+it was destroyed. **Total spend $3.33 of the $40 cap; final settled balance $46.0292 and
+`vastai show instances` returns 0 instances.** The balance read $46.5885 immediately after the
+destroy call and settled to $46.0292 a few minutes later, so the number quoted is the settled one:
+a balance read the instant an instance dies is not the bill. The `vastai` CLI is not packaged on pc or qb1 — it
 installs into a venv with `pip install vastai`, which is what this pass did rather than reporting the
 missing binary as a blocker a second time.
 
@@ -651,7 +653,7 @@ blend's tile layout needs a strided weight tile or a pair reduction.
    ~7,060-particle crossover. A 100k-particle job is the arm that decides whether this ships as a
    performance story, and it is the single highest-value thing left in this lineage. **E6 makes it
    cheap to do properly now**: the recipe, the stock-RELION CUDA build and the teardown are in
-   `perf/relion-end-to-end/e6_gpu.sh`, it cost $2.77, and $46.59 of credit remains.
+   `perf/relion-end-to-end/e6_gpu.sh`, it cost $3.33, and $46.03 of credit remains.
 2. **The exact-trilinear device coarse kernel.** Priced at 9.37 s per iteration (§10), bit-identical
    by construction, no accuracy fork. It is a new-model-port-shaped change and **cannot merge without
    Moritz**, so it is proposed, not started.
@@ -661,7 +663,7 @@ blend's tile layout needs a strided weight tile or a pair reduction.
 4. **A device arm of the full refinement**, which needs 2 cards for a gold-standard MPI split (RELION 5
    refuses a single-process gold-standard split and its own error message advertises a flag that no
    longer parses), or two single-halfset runs assembled.
-5. ~~An actual H200.~~ **DONE, §7.** 1x and 2x H200 measured, instance destroyed, $2.77 spent.
+5. ~~An actual H200.~~ **DONE, §7.** 1x and 2x H200 measured, instance destroyed, $3.33 spent.
 
 ---
 
@@ -690,7 +692,7 @@ blend's tile layout needs a strided weight tile or a pair reduction.
   baseline** — it costs minutes, it is the only thing that makes the expensive arm comparable, and it
   is the arm most likely to be skipped.
 - **Renting the competitor is cheap enough that not renting it is the expensive choice.** Three arms
-  on 2x H200 — GPU, multi-GPU and the host CPU control — cost **$2.77** including build and teardown.
+  on 2x H200 — GPU, multi-GPU and the host CPU control — cost **$3.33** including build and teardown.
   A whole section of this document had been EXTRAPOLATED for want of that.
 - **A vendor's own precalculated results are a timed benchmark if the mtimes survived.** RELION ships
   `Refine3D/job019` with `use_gpu Yes`, `gpu_ids 0:1:2:3`, `nr_mpi 5` and per-iteration file mtimes
