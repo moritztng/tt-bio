@@ -51,7 +51,7 @@ SEED = int(sys.argv[4]) if len(sys.argv) > 4 else 97
 # gate at 0.0589 A. sep2d is the same z-collapse followed by a true 2D bilinear instead of
 # two 1D passes -- more accurate, and never cost-measured because section 15.3 treated it
 # only as the family's floor.
-VARIANT = sys.argv[5] if len(sys.argv) > 5 else "twopass"   # twopass | sep2d
+VARIANT = sys.argv[5] if len(sys.argv) > 5 else "twopass"   # twopass | twopass_bal | sep2d
 NATOM, SIGMA = 400, 1.5
 PAD = 2
 
@@ -124,9 +124,36 @@ def sep_weights(uu, vv, u3, v3, P):
     ab = np.array([a3[2], b3[2]]) @ np.linalg.inv(M)
     aa, bb = ab[0], ab[1]
 
+    # Choosing the decomposition. The pivot criterion picks the candidate whose 2x2 solve is best
+    # conditioned, which is what keeps the algebra stable -- but it is NOT what governs accuracy. A
+    # separable resample loses accuracy where a pass MAGNIFIES or MINIFIES, because the intermediate is
+    # then sampled too coarsely or the second pass sees an already-filtered signal. The pass scales are
+    # (alpha, v1) for order A and (u0, delta) for order B, and `twopass_bal` picks the candidate whose
+    # scales sit closest to unity instead of the one with the largest pivot.
+    def scales(order, swap):
+        p3, q3 = (b3, a3) if swap else (a3, b3)
+        u0, u1, v0, v1 = p3[0], p3[1], q3[0], q3[1]
+        if order == "A":
+            if abs(v1) < 1e-12:
+                return None
+            return (u0 - v0 * u1 / v1, v1)
+        if abs(u0) < 1e-12:
+            return None
+        return (u0, v1 - v0 * u1 / u0)
+
     cands = [("A", 0, abs(b3[1])), ("B", 0, abs(a3[0])),
              ("A", 1, abs(a3[1])), ("B", 1, abs(b3[0]))]
-    order, swap, _ = max(cands, key=lambda t: t[2])
+    if VARIANT == "twopass_bal":
+        best, order, swap = None, "A", 0
+        for o, sw, _ in cands:
+            sc = scales(o, sw)
+            if sc is None:
+                continue
+            cost = max(abs(np.log(abs(sc[0]) / PAD + 1e-30)), abs(np.log(abs(sc[1]) / PAD + 1e-30)))
+            if best is None or cost < best:
+                best, order, swap = cost, o, sw
+    else:
+        order, swap, _ = max(cands, key=lambda t: t[2])
     p3, q3 = (b3, a3) if swap else (a3, b3)
     su, sv = (vv, uu) if swap else (uu, vv)
     u0, u1, v0, v1 = p3[0], p3[1], q3[0], q3[1]
