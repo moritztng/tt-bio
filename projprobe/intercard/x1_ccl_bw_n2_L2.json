@@ -1,0 +1,40 @@
+{
+ "n_devices": 2,
+ "reps": 8,
+ "num_links": 2,
+ "tag": "L2",
+ "visible": "0,1",
+ "rows": [
+  {
+   "mb": 104.0,
+   "best_ms": 2.788229030556977,
+   "med_ms": 2.8510739794000983,
+   "spread_pct": 35.3626605145861,
+   "alg_GBs": 39.111530223977255,
+   "bus_GBs": 39.111530223977255,
+   "bit_exact": false,
+   "max_abs_err": 0.06244659423828125,
+   "max_rel_err": 0.0057438757722828694,
+   "equals_bf16_rounded_ref": false,
+   "max_err_vs_bf16_ref": 0.0625,
+   "sha256": "62eb24aeb3141a23",
+   "sha256_ref": "fef33968d065f816"
+  },
+  {
+   "mb": 821.0,
+   "best_ms": 20.435401995200664,
+   "med_ms": 20.53811796940863,
+   "spread_pct": 4.379429201469295,
+   "alg_GBs": 42.126937175113135,
+   "bus_GBs": 42.126937175113135,
+   "bit_exact": false,
+   "max_abs_err": 0.0624847412109375,
+   "max_rel_err": 0.005428280746173195,
+   "equals_bf16_rounded_ref": false,
+   "max_err_vs_bf16_ref": 0.0625,
+   "sha256": "69c1e433ac6ea5a0",
+   "sha256_ref": "a94a5eb320fe44c2"
+  }
+ ],
+ "loadavg_end": "1.49 1.77 1.33 1/1285 1897782"
+}
