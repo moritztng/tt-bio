@@ -16,19 +16,14 @@ What's left:
 These prove the seam (state dict layout) hasn't drifted, which is the
 narrowest failure mode any future refactor can introduce.
 """
-import os
 from pathlib import Path
 
 import pytest
 
+from conftest import boltzgen_checkpoint
 
-_CKPT_ROOT = (
-    Path.home()
-    / ".cache/huggingface/hub/models--boltzgen--boltzgen-1"
-    / "snapshots/c1be29e1f82ffcc72264f64b993c43fb4e0d17f0"
-)
-DESIGN_CKPT = Path(os.environ.get("BOLTZGEN_DESIGN_CKPT", _CKPT_ROOT / "boltzgen1_diverse.ckpt"))
-FOLD_CKPT = Path(os.environ.get("BOLTZGEN_FOLD_CKPT", _CKPT_ROOT / "boltz2_conf_final.ckpt"))
+DESIGN_CKPT = boltzgen_checkpoint("boltzgen1_diverse.ckpt", "BOLTZGEN_DESIGN_CKPT")
+FOLD_CKPT = boltzgen_checkpoint("boltz2_conf_final.ckpt", "BOLTZGEN_FOLD_CKPT")
 
 
 def _load(ckpt: Path) -> int:

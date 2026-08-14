@@ -1,0 +1,364 @@
+{
+ "host": "tt-quietbox2",
+ "card": "2",
+ "grid": [
+  11,
+  10
+ ],
+ "L": 512,
+ "n": 5,
+ "S2": {
+  "unblocked_ref_ms": 21.1431,
+  "shipped_rows32_ms": 18.0226,
+  "fc1_ref_ms": 0.3122,
+  "fc1_l1_bw1_obh5_obw2": {
+   "ms": 1.0123,
+   "equal": true
+  },
+  "fc1_l1_bw1_obh5_obw4": {
+   "ms": 0.5382,
+   "equal": true
+  },
+  "fc1_l1_bw1_obh5_obw8": {
+   "ms": 0.2838,
+   "equal": true
+  },
+  "fc1_l1_bw1_obh5_obw16": {
+   "ms": 0.2057,
+   "equal": true
+  },
+  "fc1_l1_bw1_obh5_obw32": {
+   "ms": 0.1643,
+   "equal": true
+  },
+  "fc1_l1_bw1_obh4_obw2": {
+   "ms": 0.9984,
+   "equal": true
+  },
+  "fc1_l1_bw1_obh4_obw4": {
+   "ms": 0.5344,
+   "equal": true
+  },
+  "fc1_l1_bw1_obh4_obw8": {
+   "ms": 0.3537,
+   "equal": true
+  },
+  "fc1_l1_bw1_obh4_obw16": {
+   "ms": 0.2423,
+   "equal": true
+  },
+  "fc1_l1_bw1_obh4_obw32": {
+   "ms": 0.2029,
+   "equal": true
+  },
+  "fc1_l1_bw1_obh2_obw2": {
+   "ms": 1.2124,
+   "equal": true
+  },
+  "fc1_l1_bw1_obh2_obw4": {
+   "ms": 0.622,
+   "equal": true
+  },
+  "fc1_l1_bw1_obh2_obw8": {
+   "ms": 0.3209,
+   "equal": true
+  },
+  "fc1_l1_bw1_obh2_obw16": {
+   "ms": 0.2231,
+   "equal": true
+  },
+  "fc1_l1_bw1_obh2_obw32": {
+   "ms": 0.1776,
+   "equal": true
+  },
+  "fc1_l1_bw1_obh1_obw2": {
+   "ms": 1.0505,
+   "equal": true
+  },
+  "fc1_l1_bw1_obh1_obw4": {
+   "ms": 0.6248,
+   "equal": true
+  },
+  "fc1_l1_bw1_obh1_obw8": {
+   "ms": 0.3715,
+   "equal": true
+  },
+  "fc1_l1_bw1_obh1_obw16": {
+   "ms": 0.2609,
+   "equal": true
+  },
+  "fc1_l1_bw1_obh1_obw32": {
+   "ms": 0.2107,
+   "equal": true
+  },
+  "fc1_l1_bw2_obh5_obw2": {
+   "ms": 0.7194,
+   "equal": false
+  },
+  "fc1_l1_bw2_obh5_obw4": {
+   "ms": 0.3896,
+   "equal": false
+  },
+  "fc1_l1_bw2_obh5_obw8": {
+   "ms": 0.2313,
+   "equal": false
+  },
+  "fc1_l1_bw2_obh5_obw16": {
+   "ms": 0.1658,
+   "equal": false
+  },
+  "fc1_l1_bw2_obh5_obw32": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in"
+  },
+  "fc1_l1_bw2_obh4_obw2": {
+   "ms": 0.8455,
+   "equal": false
+  },
+  "fc1_l1_bw2_obh4_obw4": {
+   "ms": 0.4614,
+   "equal": false
+  },
+  "fc1_l1_bw2_obh4_obw8": {
+   "ms": 0.2755,
+   "equal": false
+  },
+  "fc1_l1_bw2_obh4_obw16": {
+   "ms": 0.2053,
+   "equal": false
+  },
+  "fc1_l1_bw2_obh4_obw32": {
+   "ms": 0.1818,
+   "equal": false
+  },
+  "fc1_l1_bw2_obh2_obw2": {
+   "ms": 0.798,
+   "equal": false
+  },
+  "fc1_l1_bw2_obh2_obw4": {
+   "ms": 0.4336,
+   "equal": false
+  },
+  "fc1_l1_bw2_obh2_obw8": {
+   "ms": 0.2628,
+   "equal": false
+  },
+  "fc1_l1_bw2_obh2_obw16": {
+   "ms": 0.1883,
+   "equal": false
+  },
+  "fc1_l1_bw2_obh2_obw32": {
+   "ms": 0.1595,
+   "equal": false
+  },
+  "fc1_l1_bw2_obh1_obw2": {
+   "ms": 0.799,
+   "equal": false
+  },
+  "fc1_l1_bw2_obh1_obw4": {
+   "ms": 0.4401,
+   "equal": false
+  },
+  "fc1_l1_bw2_obh1_obw8": {
+   "ms": 0.2726,
+   "equal": false
+  },
+  "fc1_l1_bw2_obh1_obw16": {
+   "ms": 0.2162,
+   "equal": false
+  },
+  "fc1_l1_bw2_obh1_obw32": {
+   "ms": 0.1907,
+   "equal": false
+  },
+  "fc1_l1_bw4_obh5_obw2": {
+   "ms": 0.7086,
+   "equal": false
+  },
+  "fc1_l1_bw4_obh5_obw4": {
+   "ms": 0.3958,
+   "equal": false
+  },
+  "fc1_l1_bw4_obh5_obw8": {
+   "ms": 0.2513,
+   "equal": false
+  },
+  "fc1_l1_bw4_obh5_obw16": {
+   "ms": 0.1706,
+   "equal": false
+  },
+  "fc1_l1_bw4_obh5_obw32": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on"
+  },
+  "fc1_l1_bw4_obh4_obw2": {
+   "ms": 0.7665,
+   "equal": false
+  },
+  "fc1_l1_bw4_obh4_obw4": {
+   "ms": 0.4598,
+   "equal": false
+  },
+  "fc1_l1_bw4_obh4_obw8": {
+   "ms": 0.2681,
+   "equal": false
+  },
+  "fc1_l1_bw4_obh4_obw16": {
+   "ms": 0.1776,
+   "equal": false
+  },
+  "fc1_l1_bw4_obh4_obw32": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in"
+  },
+  "fc1_l1_bw4_obh2_obw2": {
+   "ms": 0.7511,
+   "equal": false
+  },
+  "fc1_l1_bw4_obh2_obw4": {
+   "ms": 0.414,
+   "equal": false
+  },
+  "fc1_l1_bw4_obh2_obw8": {
+   "ms": 0.2399,
+   "equal": false
+  },
+  "fc1_l1_bw4_obh2_obw16": {
+   "ms": 0.1621,
+   "equal": false
+  },
+  "fc1_l1_bw4_obh2_obw32": {
+   "ms": 0.1568,
+   "equal": false
+  },
+  "fc1_l1_bw4_obh1_obw2": {
+   "ms": 0.7297,
+   "equal": false
+  },
+  "fc1_l1_bw4_obh1_obw4": {
+   "ms": 0.35,
+   "equal": false
+  },
+  "fc1_l1_bw4_obh1_obw8": {
+   "ms": 0.2527,
+   "equal": false
+  },
+  "fc1_l1_bw4_obh1_obw16": {
+   "ms": 0.2027,
+   "equal": false
+  },
+  "fc1_l1_bw4_obh1_obw32": {
+   "ms": 0.1844,
+   "equal": false
+  },
+  "fc1_l1_bw8_obh5_obw2": {
+   "ms": 0.605,
+   "equal": false
+  },
+  "fc1_l1_bw8_obh5_obw4": {
+   "ms": 0.3252,
+   "equal": false
+  },
+  "fc1_l1_bw8_obh5_obw8": {
+   "ms": 0.1958,
+   "equal": false
+  },
+  "fc1_l1_bw8_obh5_obw16": {
+   "ms": 0.139,
+   "equal": false
+  },
+  "fc1_l1_bw8_obh5_obw32": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on"
+  },
+  "fc1_l1_bw8_obh4_obw2": {
+   "ms": 0.6729,
+   "equal": false
+  },
+  "fc1_l1_bw8_obh4_obw4": {
+   "ms": 0.3913,
+   "equal": false
+  },
+  "fc1_l1_bw8_obh4_obw8": {
+   "ms": 0.2284,
+   "equal": false
+  },
+  "fc1_l1_bw8_obh4_obw16": {
+   "ms": 0.1877,
+   "equal": false
+  },
+  "fc1_l1_bw8_obh4_obw32": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in"
+  },
+  "fc1_l1_bw8_obh2_obw2": {
+   "ms": 0.6532,
+   "equal": false
+  },
+  "fc1_l1_bw8_obh2_obw4": {
+   "ms": 0.3754,
+   "equal": false
+  },
+  "fc1_l1_bw8_obh2_obw8": {
+   "ms": 0.2108,
+   "equal": false
+  },
+  "fc1_l1_bw8_obh2_obw16": {
+   "ms": 0.1685,
+   "equal": false
+  },
+  "fc1_l1_bw8_obh2_obw32": {
+   "ms": 0.1591,
+   "equal": false
+  },
+  "fc1_l1_bw8_obh1_obw2": {
+   "ms": 0.6629,
+   "equal": false
+  },
+  "fc1_l1_bw8_obh1_obw4": {
+   "ms": 0.3295,
+   "equal": false
+  },
+  "fc1_l1_bw8_obh1_obw8": {
+   "ms": 0.2441,
+   "equal": false
+  },
+  "fc1_l1_bw8_obh1_obw16": {
+   "ms": 0.2109,
+   "equal": false
+  },
+  "fc1_l1_bw8_obh1_obw32": {
+   "ms": 0.1939,
+   "equal": false
+  },
+  "fc1_best_bitexact": [
+   "bw1_obh5_obw32",
+   0.16428999992967874
+  ],
+  "chain_rows32_l1fc1": {
+   "refused": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 59 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buf"
+  }
+ },
+ "S1": {
+  "N128": {
+   "dram_src_ms": 0.5559,
+   "l1_src_ms": 0.5555,
+   "ratio": 1.0006,
+   "MB": 24.0,
+   "dram_GBps": 45.3,
+   "equal": true
+  },
+  "N192": {
+   "dram_src_ms": 0.6619,
+   "l1_src_ms": 0.5602,
+   "ratio": 1.1815,
+   "MB": 54.0,
+   "dram_GBps": 85.5,
+   "equal": true
+  },
+  "N256": {
+   "dram_src_ms": 0.7673,
+   "l1_src_ms": 0.5644,
+   "ratio": 1.3595,
+   "MB": 96.0,
+   "dram_GBps": 131.2,
+   "equal": true
+  }
+ },
+ "loadavg": "1.95"
+}

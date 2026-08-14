@@ -77,3 +77,4 @@ perf/p2/
 /run_*.sh
 /bench_*.sh
 /ab_*.sh
+scratch/

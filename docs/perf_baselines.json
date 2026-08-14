@@ -224,8 +224,8 @@
             "rfd3": {
               "unit": "designs/s",
               "direction": "higher",
-              "value": 0.310593,
-              "latency_ms": 3219.65,
+              "value": 0.2653,
+              "latency_ms": 3769.3,
               "input": "iai_inputs.yaml (IAI motif-scaffold, I40/L419, from_pdb, 4 steps)",
               "sampling_steps": null,
               "diffusion_samples": null,
@@ -237,9 +237,9 @@
               "hardware": "blackhole",
               "card_type": "p300c",
               "machine_id": "tt-quietbox2",
-              "tt_bio_version": "0.5.0",
-              "date": "2026-08-02",
-              "note": "seed p300c tt-quietbox2 baselines: opendde-abag had no baseline on any card, rfd3 had p150a only; measured on main v0.5.0 @ df0b34a7, qb2 card 0, during the 2026-08-02 regression check"
+              "tt_bio_version": "0.6.2",
+              "date": "2026-08-14",
+              "note": "reseeded 2026-08-14: the 2026-08-02 seed (0.310593) is not reproducible on qb2 -- df0b34a7 and main HEAD 77d74d10b measure identically today (0.2653 median of 13 interleaved warm reps, cards 0 and 1 alike), and every same-host gate since 08-08 read -12..-17%; drift is host/seed-condition, not code (wheel/kernel/kmd/microcode all unchanged in the window)"
             },
             "openfold3": {
               "unit": "structures/s",
@@ -715,24 +715,24 @@
         },
         "pc": {
           "models": {
-            "boltz2-affinity": {
-              "unit": "affinities/s",
-              "direction": "higher",
-              "value": 0.009498,
-              "latency_ms": 105283.85,
-              "input": "affinity_fkg.yaml (FKBP12+SB3, L107, single-seq, affinity mode)",
-              "sampling_steps": 10,
-              "diffusion_samples": 1,
-              "recycling_steps": 1,
-              "warmup": 0,
-              "repeat": 1,
-              "hardware": "blackhole",
-              "card_type": "p150a",
-              "machine_id": "pc",
-              "tt_bio_version": "0.3.1",
-              "date": "2026-07-20",
-              "note": "seed p150a boltz2-affinity perf baseline (new leg added in implementation-parity-hardening pass, no prior baseline existed)"
-            },
+          "boltz2-affinity": {
+            "unit": "affinities/s",
+            "direction": "higher",
+            "value": 0.005688,
+            "latency_ms": 175822.0,
+            "input": "affinity_fkg.yaml (FKBP12+SB3, L107, single-seq, affinity mode)",
+            "sampling_steps": 10,
+            "diffusion_samples": 1,
+            "recycling_steps": 1,
+            "warmup": 0,
+            "repeat": 1,
+            "hardware": "blackhole",
+            "card_type": "p150a",
+            "machine_id": "pc",
+            "tt_bio_version": "0.6.2",
+            "date": "2026-08-14",
+            "note": "reseeded 2026-08-14: the 2026-07-20 seed (0.009498) predates the shipped fp32-host affinity path. Clean interleaved endpoint A/B on pc card 0 (benchlocked, quiet host, 5 reps/arm): v0.3.1 reproduces the seed (0.0094 median) while origin/main 7431d6e39 measures 0.0057; HEAD with BOLTZ2_AFFINITY_TRUNK_FP32_HOST=0 runs 23 s, so the affinity model's 64-block fp32 host trunk (372f55b9c, default ON since 2026-07-21, load-bearing for the affinity parity legs) is ~140 s of the ~176 s wall. Intentional accuracy/perf tradeoff, not a code regression; baseline moved to the honest shipped-config number (median rep)."
+          },
             "rfd3": {
               "unit": "designs/s",
               "direction": "higher",

@@ -39,6 +39,9 @@ from tt_bio.tenstorrent import (
     Weights,
     WeightScope,
     _dtype,
+    _PAIR_FFN_FC1_BLOCK_W,
+    _PAIR_FFN_FC1_BW,
+    _pair_proj_linear,
     _sdpa_program_config_for_lengths,
     get_device,
     trace_region_size,
@@ -297,11 +300,37 @@ _PAIR_FFN_ROW_BLOCK = int(os.environ.get("TT_BIO_PAIR_FFN_ROW_BLOCK", PAIR_FFN_R
 SPLIT_SWIGLU_MIN_SEQ = 144
 PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)
 
+# Inside the row block, fc1's two halves can also write their OUTPUT to L1, so fc2's operand never
+# leaves the chip. That is a second, independent lever on top of the row block: the block alone
+# only shrinks the SwiGLU product enough for L1 to serve it, while fc1 itself still round-trips
+# 2.15 GB per call through DRAM. `_pair_proj_program_config` hardcoded `out_block_w = n_tiles`,
+# which at this operand class ([B*rows, N, 256] x [256, 1024], k_tiles 8, n_tiles 32) spends
+# 1,212,416 B of a 1,461,760 B bank on the in0/in1 buffers alone, so the gate refused an L1
+# destination at every row height and both halves fell back to a DRAM output.
+#
+# MEASURED on qb2 card 0, ttnn 0.68.0, 11x10 grid, whole `SwiGLUFFN` at [1,512,512,256],
+# median of 5: 18.095 -> 14.657 ms per call, 1.235x, `torch.equal`
+# (perf/esm3p4/accept_l2_c0.json). At the 512 aa fold it is worth -1.926 s.
+#
+# Ships OFF. It is bit-exact where it was measured, but it changes the matmul program ttnn
+# derives, and the row-block window it rides inside spans 320-1024 aa across two grids of which
+# only 11x10 at 512 aa was checked with this config. Flipping the default is a release call.
+PAIR_FFN_L1_FC1 = False
+_PAIR_FFN_L1_FC1 = os.environ.get(
+    "TT_BIO_PAIR_FFN_L1_FC1", "1" if PAIR_FFN_L1_FC1 else "0") == "1"
+
 
 def set_split_swiglu(on: bool) -> bool:
     """A/B switch for the split-fc1 SwiGLU path. Returns the previous state."""
     global _SPLIT_SWIGLU
     prev, _SPLIT_SWIGLU = _SPLIT_SWIGLU, bool(on)
+    return prev
+
+
+def set_pair_ffn_l1_fc1(on: bool) -> bool:
+    """A/B switch for the L1-resident fc1 inside the row-blocked pair FFN. Returns the previous state."""
+    global _PAIR_FFN_L1_FC1
+    prev, _PAIR_FFN_L1_FC1 = _PAIR_FFN_L1_FC1, bool(on)
     return prev
 
 
@@ -380,8 +409,15 @@ class SwiGLUFFN(Module):
             )
             ttnn.deallocate(x_norm)
         elif split:
-            h1 = self._lin(x_norm, self.fc1_a_weight)
-            h2 = self._lin(x_norm, self.fc1_b_weight)
+            if l1_gated and _PAIR_FFN_L1_FC1:
+                l1 = dict(l1_out=True, l1_bw=_PAIR_FFN_FC1_BW,
+                          l1_block_w=_PAIR_FFN_FC1_BLOCK_W)
+                dt = _dtype()
+                h1 = _pair_proj_linear(x_norm, self.fc1_a_weight, ck, dt, **l1)
+                h2 = _pair_proj_linear(x_norm, self.fc1_b_weight, ck, dt, **l1)
+            else:
+                h1 = self._lin(x_norm, self.fc1_a_weight)
+                h2 = self._lin(x_norm, self.fc1_b_weight)
             ttnn.deallocate(x_norm)
             gated = ttnn.multiply(
                 h1, h2, input_tensor_a_activations=[ttnn.UnaryOpType.SILU],
@@ -1324,11 +1360,8 @@ def _spawn_shard(idx: int, device: int, shard: list[tuple[str, str]], workdir: s
     # fanout paths, a single-chip worker needs the 1x1 Blackhole mesh-graph
     # descriptor or ttnn.open_device aborts with "Custom fabric mesh graph
     # descriptor path must be specified".
-    from tt_bio.main import _detect_p300_devices, _find_ttnn_mesh_graph_descriptor
-    if device in _detect_p300_devices() and not env.get("TT_MESH_GRAPH_DESC_PATH"):
-        mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
-        if mgd:
-            env["TT_MESH_GRAPH_DESC_PATH"] = mgd
+    from tt_bio.main import ensure_p300_mesh_descriptor
+    ensure_p300_mesh_descriptor(env, device)
     logf = open(log_path, "w")
     proc = subprocess.Popen(
         [sys.executable, "-c",

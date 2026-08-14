@@ -24,6 +24,7 @@ import torch
 import ttnn
 
 from tt_bio import tenstorrent as T
+from tt_bio.main import ensure_p300_mesh_descriptor
 
 F32, BF16 = ttnn.float32, ttnn.bfloat16
 
@@ -60,6 +61,9 @@ def _legal_per_core_M(batch, m_tiles, n_tiles, block_w, elem_bytes, cores, l1):
 
 
 def test_batched_matmul_config():
+    # This opens the device directly rather than through T.get_device(), so it has to
+    # apply the lone-P300 mesh-graph descriptor itself or open_device is a TT_FATAL.
+    ensure_p300_mesh_descriptor()
     dev = ttnn.open_device(device_id=0)
     try:
         T._configure_active_compute_grid(dev)

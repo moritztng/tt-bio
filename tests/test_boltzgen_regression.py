@@ -34,6 +34,8 @@ from typing import Dict
 
 import pytest
 
+from conftest import boltzgen_checkpoint
+
 
 REGRESSION_URL = (
     "https://storage.googleapis.com/tt-boltz-artifacts/boltzgen_regression.tar.gz"
@@ -44,15 +46,7 @@ _CACHE = Path.home() / ".cache/tt-bio/regression"
 # published (renaming would silently skip the whole e2e regression, as it did).
 _ROOT = _CACHE / "tt_boltz_regression_v1"
 
-# Matches test_boltzgen.py's BOLTZGEN_DESIGN_CKPT override so the gate can point
-# at the checkpoint wherever it actually lives (e.g. ~/.boltz/boltzgen/); the CLI
-# itself resolves from ~/.boltz/boltzgen/ regardless of this skip-guard path.
-_DESIGN_CKPT = Path(os.environ.get(
-    "BOLTZGEN_DESIGN_CKPT",
-    Path.home()
-    / ".cache/huggingface/hub/models--boltzgen--boltzgen-1"
-    / "snapshots/c1be29e1f82ffcc72264f64b993c43fb4e0d17f0/boltzgen1_diverse.ckpt",
-))
+_DESIGN_CKPT = boltzgen_checkpoint("boltzgen1_diverse.ckpt", "BOLTZGEN_DESIGN_CKPT")
 
 
 def _fetch_regression_data() -> Path:
