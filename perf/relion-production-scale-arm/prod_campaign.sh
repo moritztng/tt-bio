@@ -29,41 +29,44 @@ COMMON="--auto_iter_max 13 --cpu --j 6 --pool 6 --dont_combine_weights_via_disc 
 
 inner() {
   arm=$1; bk=$2; k=$3
+  [ -f "$O/$arm.done" ] && { echo "skip $arm (done)"; return 0; }
+  uptime > "$O/$arm.loadavg"
   cd "$T" || return 1
   /usr/bin/time -f "%e %U %S %M" -o "$O/$arm.time" \
     mpirun -n 5 -x PYTHONPATH="$WT" -x TT_RELION_BACKEND="$bk" -x TT_RELION_PROFILE=1 \
       "$BIN" --o "$O/${arm}_run" --continue "$T/Prod/opt_x${k}.star" $COMMON \
       > "$O/$arm.log" 2>&1
   echo "rc=$? arm=$arm backend=$bk scale=$k" > "$O/$arm.rc"
-}
-
-run_arm() {
-  arm=$1; bk=$2; k=$3
-  [ -f "$O/$arm.done" ] && { echo "skip $arm (done)"; return 0; }
-  uptime > "$O/$arm.loadavg"
-  BENCHLOCK_MAXLOAD=3.0 BENCHLOCK_WAIT_S=${BLWAIT:-14400} "$BL" \
-    worker:relion-production-scale-arm -- bash "$0" inner "$arm" "$bk" "$k"
-  bl=$?
   uptime >> "$O/$arm.loadavg"
-  # benchlock 75 means it gave up waiting for a quiet box and deliberately did NOT measure. Never
-  # write a done-marker for an arm that never ran -- a relaunch would then skip it silently.
-  if [ "$bl" = "75" ]; then
-    echo "benchlock=75 arm=$arm NOT RUN" > "$O/$arm.rc"
-    echo "BENCHLOCK_TIMEOUT $arm"
-    return 75
-  fi
   echo DONE > "$O/$arm.done"
-  echo "finished $arm: $(cat "$O/$arm.time" 2>/dev/null | tail -1)"
+  echo "finished $arm: $(tail -1 "$O/$arm.time" 2>/dev/null)"
 }
 
-if [ "${1:-}" = "inner" ]; then inner "$2" "$3" "$4"; exit $?; fi
+# The whole ladder runs inside ONE benchlock hold, and that is a deliberate change from the e2e
+# campaign's lock-per-arm. A slope is only readable if every point saw the same box: taking the lock
+# four times on a shared host means four different co-tenancy states baked into four points, and the
+# fitted marginal -- the number this task turns on -- is a difference between points, so it is
+# exactly what that corrupts. The cost is a ~90 min exclusive hold instead of four short ones.
+ladder() {
+  for spec in $SPECS; do
+    IFS=: read -r arm bk k <<< "$spec"
+    inner "$arm" "$bk" "$k"
+  done
+  echo CAMPAIGN_DONE > "$O/campaign.done"
+}
 
-# Order matters: the reference ladder first and cheapest-first, so a truncated campaign still
-# yields a fit. The bridge arm is 4.3x slower (§2) and only needs enough points to show that the
-# parity result holds at scale -- it is not, and must never be quoted as, the port's performance.
+# Cheapest point first, so a hold that has to be cut short still leaves a fittable ladder. The bridge
+# arm is 4.3x slower (`relion-end-to-end` §2) and only needs enough points to show the parity result
+# holds at scale -- it is not, and must never be quoted as, the port's performance.
 SPECS=${SPECS:-"ref1:ttnn:1 ref3:ttnn:3 ref8:ttnn:8 ref25:ttnn:25"}
-for spec in $SPECS; do
-  IFS=: read -r arm bk k <<< "$spec"
-  run_arm "$arm" "$bk" "$k" || exit $?
-done
-echo CAMPAIGN_DONE > "$O/campaign.done"
+export SPECS O T WT BIN COMMON
+
+if [ "${1:-}" = "ladder" ]; then ladder; exit $?; fi
+
+BENCHLOCK_MAXLOAD=3.0 BENCHLOCK_WAIT_S=${BLWAIT:-14400} "$BL" \
+  worker:relion-production-scale-arm -- bash "$0" ladder
+bl=$?
+# benchlock 75 means it gave up waiting for a quiet box and deliberately did NOT measure. Never write
+# a done-marker for a ladder that never ran -- a relaunch would then skip it silently.
+[ "$bl" = "75" ] && { echo "BENCHLOCK_TIMEOUT, ladder NOT RUN"; exit 75; }
+exit $bl
