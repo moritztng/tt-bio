@@ -43,6 +43,8 @@ NPAGES = 512
 NB = 200
 A = 1.31
 CONTRIB = (1, 2, 4, 8)
+NROWS = 32
+VOL_W = 1024      # volume row pitch, elements
 TILES_PER_SLICE = 25736 / 1024.0
 FLOOR_SLICES_S = 3.20e6
 
@@ -57,7 +59,7 @@ def sel_matrices(A, nsrc):
     return P
 
 
-def build(dev, y, cf, st, out, nx, ny, nb, ncontrib, fp32=False):
+def build(dev, y, cf, st, out, nx, ny, nb, ncontrib, fp32=False, scatter=0):
     cg = ttnn.CoreRangeSet([ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(nx - 1, ny - 1))])
 
     def cb(i, page, depth):
@@ -70,7 +72,11 @@ def build(dev, y, cf, st, out, nx, ny, nb, ncontrib, fp32=False):
            + list(ttnn.TensorAccessorArgs(cf).get_compile_time_args())
            + list(ttnn.TensorAccessorArgs(st).get_compile_time_args()))
     cct = [CB_Y, CB_COEF, CB_SELT, CB_MID, CB_OUT, OUT_TILES, ncontrib]
-    wct = [CB_OUT, TILE_B, OUT_TILES] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
+    # The 64-wide source window is OUT_TILES tiles, so each of the 32 rows carries
+    # OUT_TILES * 32 elements and lands at its own offset in the volume.
+    win_b = OUT_TILES * 32 * ELEM
+    wct = ([CB_OUT, TILE_B, OUT_TILES, NROWS, VOL_W * ELEM, win_b, scatter]
+           + list(ttnn.TensorAccessorArgs(out).get_compile_time_args()))
     rrt, crt, wrt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     c = 0
     for cy in range(ny):
@@ -78,7 +84,9 @@ def build(dev, y, cf, st, out, nx, ny, nb, ncontrib, fp32=False):
             rrt[cx][cy] = [y.buffer_address(), cf.buffer_address(), st.buffer_address(),
                            nb * ncontrib, (c * 5) % 64, NPAGES]
             crt[cx][cy] = [nb]
-            wrt[cx][cy] = [out.buffer_address(), nb, c * nb * OUT_TILES]
+            # Per-row write offsets, 16 B aligned as the alignment probe requires.
+            offs = [((c * 13 + 7 * r) % 64) * 16 for r in range(NROWS)]
+            wrt[cx][cy] = [out.buffer_address(), nb, (c * nb * OUT_TILES) % 4096, 4096] + offs
             c += 1
     mk = lambda p, ct, rt, cfg: ttnn.KernelDescriptor(
         kernel_source=str(p), source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
@@ -88,7 +96,7 @@ def build(dev, y, cf, st, out, nx, ny, nb, ncontrib, fp32=False):
         mk(KDIR / "compute_bproj.cpp", cct, crt,
            ttnn.ComputeConfigDescriptor(math_fidelity=ttnn.MathFidelity.HiFi4,
                                        fp32_dest_acc_en=fp32)),
-        mk(KDIR / "writer_fslice.cpp", wct, wrt, ttnn.WriterConfigDescriptor()),
+        mk(KDIR / "writer_bproj.cpp", wct, wrt, ttnn.WriterConfigDescriptor()),
     ], semaphores=[], cbs=[cb(CB_Y, TILE_B, 4), cb(CB_COEF, TILE_B, 3), cb(CB_SELT, TILE_B, nselt),
                            cb(CB_MID, TILE_B, 2 * 3 * ncontrib), cb(CB_OUT, TILE_B, 2 * OUT_TILES)])
 
@@ -175,6 +183,24 @@ def main():
               res["arms"][f"{tag}/{ncontrib}"] = {"rel_l2": rel, "ns_per_volume_tile": ns,
                                             "ns_per_contribution": per_contrib,
                                             "gain_vs_1": base / per_contrib}
+              if fp32 and ncontrib in (1, 8):
+                  o2 = ttnn.from_torch(torch.zeros(1, 1, 32 * NB * n * OUT_TILES, 32).to(torch.bfloat16),
+                                       dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
+                  pd2 = build(dev, y, cft, st, o2, nx, ny, NB, ncontrib, fp32, 1)
+                  ttnn.generic_op([y, cft, st, o2], pd2)
+                  ttnn.synchronize_device(dev)
+                  b2 = float("inf")
+                  for _ in range(5):
+                      t0 = time.perf_counter()
+                      ttnn.generic_op([y, cft, st, o2], pd2)
+                      ttnn.synchronize_device(dev)
+                      b2 = min(b2, time.perf_counter() - t0)
+                  ns2 = b2 * 1e9 / NB
+                  res["arms"][f"{tag}/{ncontrib}"]["ns_scattered_write"] = ns2
+                  res["arms"][f"{tag}/{ncontrib}"]["scatter_over_bulk"] = ns2 / ns
+                  print(f"      per-row scattered write: {ns2:9.1f} ns/volume-tile "
+                        f"({ns2/ns:5.2f}x bulk)", flush=True)
+                  ttnn.deallocate(o2)
               print(f"{tag} ncontrib {ncontrib:2d}: rel L2 {rel:.3e}   {ns:9.1f} ns/volume-tile   "
                     f"{per_contrib:8.1f} ns per contribution ({base/per_contrib:5.2f}x)", flush=True)
               json.dump(res, open(HERE / "fslice_bproj.json", "w"), indent=1)
