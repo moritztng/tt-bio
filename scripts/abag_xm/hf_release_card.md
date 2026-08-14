@@ -29,9 +29,19 @@ configs:
 
 # AbAg-XM
 
+<a href="https://tenstorrent.com"><img src="https://huggingface.co/datasets/Tenstorrent/abag-xm/resolve/main/tt-logo-card.png" alt="Tenstorrent" height="42"></a>
+
+*Computed on [Tenstorrent](https://tenstorrent.com) hardware with [TT-Bio](https://github.com/moritztng/tt-bio).*
+
+
 335,360 antibody-antigen structure predictions from four independently trained models, every one
-scored against the experimental structure with DockQ. 164 targets, 512 samples per target per
-model, no cell shallower than 512.
+scored against the experimental structure with DockQ. 512 samples per target per model, no cell
+shallower than 512.
+
+**The targets are [2026ARK-AB](https://arxiv.org/abs/2607.03787), the antibody-antigen benchmark
+released with OpenDDE.** 164 PDB targets, 404 interfaces, 159 clusters at 40% MMseqs2 entity
+clustering. We did not assemble that set and take no credit for it. What this dataset adds is the
+predictions and labels on top of it. **If you use this dataset, cite 2026ARK-AB as well.**
 
 This is the substrate for one finding: **sampling scales and selection does not.** The pool of 512
 gets steadily better as you draw more, and the structure a model's own confidence hands you stops
@@ -56,6 +66,27 @@ co-folders, whose confidence is effectively continuous, that never bites. For es
 its pLDDT selector is quantised to 4 decimals, which leaves about 181 distinct values per 512 and
 a top-selector tie on 20 of the 161 scorable targets. Break those ties the other way and
 esmfold2's delivered@512 reads 0.2878 rather than 0.2852.
+
+## Computed on Tenstorrent
+
+All 335,360 folds ran on **[Tenstorrent](https://tenstorrent.com)** hardware, a 32-chip Wormhole Galaxy, using
+**[TT-Bio](https://github.com/moritztng/tt-bio)**, our open-source stack for running structure
+prediction models on Tenstorrent. Four models, 512 samples per target, 164 targets. At this scale
+cost per prediction is what decides whether a study like this is affordable at all, which is most of
+why this dataset exists.
+
+## The benchmark this builds on
+
+The 164 targets are **2026ARK-AB**, the antibody-antigen benchmark released with OpenDDE: 164 PDB
+targets, 404 antibody-antigen interfaces, 159 clusters at 40% MMseqs2 entity clustering. **We did not
+assemble this target set.** It is defined in
+[Folding, Reasoning, and Scaling with Open-source Drug Discovery Engine](https://arxiv.org/abs/2607.03787),
+and the target list is in [aurekaresearch/OpenDDE](https://github.com/aurekaresearch/OpenDDE) under
+`benchmarks/2026ARK_AB/`. If you use this dataset, please cite that work as well.
+
+**AbAg-XM** is our name for the 335,360 predictions and DockQ labels generated on top of that
+benchmark, not a name for the benchmark itself. XM is for cross-model: the same targets folded by four
+independently trained models, which is what this dataset adds.
 
 ## Load it
 
@@ -94,7 +125,7 @@ Plain folders: `natives/` (164 experimental reference structures, 139 MB), `inpu
 inputs, byte-identical to what the campaign ran), `msa/` (353 gzipped a3m alignments, 212 MB, one
 per distinct chain sequence).
 
-## Schema — `samples`
+## Schema: `samples`
 
 | column | type | units | meaning |
 |---|---|---|---|
@@ -112,14 +143,14 @@ per distinct chain sequence).
 | `irmsd` | float32 | Å | interface backbone RMSD |
 | `lrmsd` | float32 | Å | ligand RMSD |
 | `fnat` | float32 | [0,1] | fraction of native contacts recovered |
-| `interface_lddt` | float32 | [0,1] | lDDT over interface atom pairs. Null on 4 targets, see limitations |
-| `cdr_h1_rmsd`, `cdr_h2_rmsd`, `cdr_h3_rmsd` | float32 | Å | per-CDR-loop RMSD after alignment. Null on 5 targets, see limitations |
-| `epitope_jaccard` | float32 | [0,1] | overlap of predicted and native antigen contact residue sets. Populated on every sample; read the limitation on the 7 unresolved-epitope targets |
+| `interface_lddt` | float32 | [0,1] | lDDT over interface atom pairs. Null on 4 targets and a few scattered poses, see limitations |
+| `cdr_h1_rmsd`, `cdr_h2_rmsd`, `cdr_h3_rmsd` | float32 | Å | per-CDR-loop RMSD after alignment. Null on 4 targets for H1, 5 for H2 and H3, see limitations |
+| `epitope_jaccard` | float32 | [0,1] | overlap of predicted and native antigen contact residue sets. Null on the 7 targets with no resolvable native epitope, see limitations |
 | `seed` | int32 | | diffusion seed for the chunk |
 | `mps` | int8 | chips | chips per fold job. Null where the fleet recorded `auto` |
 | `wall_s` | int32 | s | wall time of the 64-sample chunk, not of one sample. All 64 rows of a chunk share it |
 | `hardware` | string | | `wh-galaxy` on every row |
-| `code_sha` | string | | tt-bio commit that produced the fold |
+| `code_sha` | string | | TT-Bio commit that produced the fold |
 
 `DockQ` is the CAPRI-calibrated composite of `fnat`, `irmsd` and `lrmsd` on the antibody-antigen
 interface. `interface_lddt`, the CDR RMSDs and `epitope_jaccard` are our own implementations.
@@ -138,7 +169,7 @@ it), `msa_a3m` (JSON, chain id -> a3m file), `dockq_scorable`, `note`.
 
 * **Models.** Boltz-2, Protenix-v2 and OpenDDE-abag are AlphaFold3-style all-atom diffusion
   co-folders; ESMFold2 is a single-sequence folder. All four ran through
-  [tt-bio](https://github.com/moritztng/tt-bio) at commit `e2edf05da6`, stamped in the `code_sha`
+  [TT-Bio](https://github.com/moritztng/tt-bio) at commit `e2edf05da6`, stamped in the `code_sha`
   column of every row.
 * **Hardware.** A 32-chip Tenstorrent Wormhole Galaxy. `hardware` is `wh-galaxy` on every published
   row.
@@ -163,6 +194,51 @@ Only the 512-sample rung ships. The campaign's shallower rungs nest inside it: r
 reconstruct any of them. Shipping them as separate rows would count the same prediction up to four
 times.
 
+## Correction applied 2026-08-14
+
+**11,776 `epitope_jaccard` values changed from 0.0 to null.** Where the native antigen chain does not
+resolve there is no native epitope to intersect against, and the scorer wrote `0.0` instead of
+leaving the value empty. Those rows read as "the model missed the epitope entirely" when the truth is
+"not computable". They cover 7 targets (9kwy, 9ly2, 9ly3, 9lz2, 9ull, 9ulm, 9ynx) in all four models.
+
+Rows were selected on the scorer's own `native_epitope_size == 0`, never on the value being zero.
+**The exact zeros on other targets are real measurements** and none of them changed, nor did any
+other value in any other column: 11,776 cells moved across the whole `samples` config and nothing
+else did. There were 44,433 of those real zeros at this commit. The rescore below then filled rows
+that had been empty, some of them with real zeros, and the count is now 52,440.
+
+The dataset was public with the old values from about 10:41 UTC on 2026-08-14 until this commit. To
+tell which copy you hold, read `epitope_jaccard` on target 9kwy: null is the corrected data, 0.0 is
+the old data. Either re-pull, or drop `epitope_jaccard` on those seven targets.
+
+## Rescored secondary metrics, 2026-08-14
+
+**418,271 `interface_lddt`, CDR-RMSD and `epitope_jaccard` values changed from null to a value.**
+Nothing else moved. The gaps were never a property of the folds. The labelling ran across two hosts
+and one of them had no PyYAML and no ANARCI, so every metric that needs them came back empty on the
+cells that host scored, which is why the missing values fell on whole 64-sample jobs rather than on
+individual poses. All 111,616 affected predictions were still on disk, so the repair was to rescore
+them with the same scripts, the same interpreter and the same structures that produced every value
+already in this dataset.
+
+That makes it a fill, and it is asserted as one. Re-running those scorers on 22,368 already-populated
+values reproduced all 22,368 bit-for-bit, and the upload moved nothing: `value_changed` is 0 and
+`value -> null` is 0 on every column of every file. The fills are 41,472 in boltz2, 249,301 in
+esmfold2 and 127,498 in protenix-v2. opendde-abag was already complete and its file is unchanged.
+
+`epitope_jaccard` stays null on the seven targets named above. The rescore does compute it there, as
+`0.0`, which is exactly the artifact the correction above removed, so those 14,336 rows are left
+empty on purpose.
+
+**The stated reason for the three unscorable targets was also wrong, and is corrected.** This card
+said 9ly2, 9ly3 and 9lz2 are 3-way Ab:Ag hetero-hexamers whose antibody-antigen interface the scorer
+cannot resolve. The chain map is in fact correct and explicitly declared. The real mechanism is
+chemical: 71/71, 78/78 and 48/48 of the antigen-side contact atoms on their declared interface sit on
+phosphoserine, which DockQ drops. No value changed with that correction, only the explanation.
+
+Earlier pulls carry the old, ragged columns. To tell which copy you hold, count non-null
+`cdr_h3_rmsd` in `samples/esmfold2.parquet`: 81,408 in this data, 15,360 in the old.
+
 ## Known limitations
 
 * **164 targets.** Enough to separate the four models' oracle-delivered gaps with intervals that do
@@ -174,26 +250,29 @@ times.
   fold input carries unmodified serine at those positions, so the quantity does not exist on the
   prediction side either. Their confidence values ship; `dockq` is null. 161 targets are scorable, in
   every model.
+* **`epitope_jaccard` is null on seven targets.** 9kwy, 9ly2, 9ly3, 9lz2, 9ull, 9ulm and 9ynx have
+  no resolvable native antigen chain, so there is no native epitope set to compare a prediction
+  against and no overlap exists to measure, in any model. Read those nulls as "not computable", not
+  as misses, and exclude them from any `epitope_jaccard` aggregate. Exact zeros on the other targets
+  are real: the antibody docked somewhere else.
 * **One cell is absent.** opendde-abag / 9sbb. Its galaxy folds sit in a pTM 0.668-0.697 basin
   against ~0.91 on a refold of the identical input, DockQ 0.023 against 0.880 under the same fixed
   scorer, and a scan over the whole panel found it the only such case. It is a pipeline artifact,
   not model behaviour, and no published number used it. That is why `samples` has 655 x 512 rows,
   not 656 x 512.
-* **The secondary metrics are null only where the quantity does not exist.** `dockq` and `irmsd`
-  are populated on every scorable sample in all four models, and `epitope_jaccard` on every sample
-  of every target. `interface_lddt` is null on the 4 targets whose native antigen chain does not
-  resolve (9ly2, 9ly3, 9lz2, 9mz8) and the CDR RMSDs on the 5 whose native heavy chain cannot be
-  IMGT-numbered at the loops (9l9y, 9lwc, 9mnu, 9msc, 9udq). The same targets in every model. Mean
-  per-target depth out of 512, boltz2 / esmfold2 / opendde-abag / protenix-v2: `interface_lddt`
-  499.4 / 498.9 / 499.4 / 499.4, `cdr_h3_rmsd` 496.4 / 496.4 / 496.3 / 496.4, `epitope_jaccard`
-  512.0 throughout. Beyond those targets a few individual poses lack `interface_lddt` because the
-  interface did not resolve on that pose: 13 samples in boltz2, 108 in esmfold2, 0 in
-  opendde-abag, 16 in protenix-v2, out of ~81,900 each.
-* **`epitope_jaccard` is 0.0 on 7 targets for a reason that is not the model.** On 9kwy, 9ly2, 9ly3,
-  9lz2, 9ull, 9ulm and 9ynx the native antigen chain does not resolve, so the native epitope set is
-  empty and the metric evaluates to 0.0 rather than to a comparison. That is 14,336 rows, all four
-  models, and it is not evidence that the models missed those epitopes. Exclude those 7 targets from
-  any `epitope_jaccard` aggregate. Zeros elsewhere in the column are real.
+* **The secondary metrics are near-complete, and null where the quantity does not exist.** `dockq`,
+  `irmsd`, `lrmsd` and `fnat` are populated on every scorable sample in all four models. Mean
+  per-target depth out of 512, for boltz2 / esmfold2 / opendde-abag / protenix-v2: `interface_lddt`
+  499.4 / 498.9 / 499.4 / 499.4, `cdr_h1_rmsd` 496.8 / 496.8 / 496.8 / 496.8, `cdr_h2_rmsd` and
+  `cdr_h3_rmsd` 496.4 / 496.4 / 496.3 / 496.4, `epitope_jaccard` 490.1 / 490.1 / 490.0 / 490.1. The
+  shortfall is named targets, the same ones in every model. `interface_lddt` is null on 9ly2, 9ly3,
+  9lz2 and 9mz8, whose native antigen chain does not resolve. The CDR RMSDs are null on 9l9y, 9mnu,
+  9msc and 9udq, whose native heavy chain cannot be IMGT-numbered, and H2 and H3 additionally on
+  9lwc. `epitope_jaccard` is null on the seven targets above. Beyond those, a thin per-pose residual
+  remains, scattered rather than by target: `interface_lddt` on 13 / 108 / 0 / 16 samples and
+  `cdr_h1_rmsd` on 439 / 450 / 434 / 449. `cdr_h2_rmsd`, `cdr_h3_rmsd` and `epitope_jaccard` have
+  none. Quote these metrics at their own depth, and read the nulls on the named targets as "not
+  computable" rather than as misses.
 * **512 is a decision cap, not a measured knee.** The oracle's gain per doubling is still positive at
   the top rung, so the ceiling has not saturated. Nothing here says 512 is where sampling stops
   paying.
@@ -226,6 +305,11 @@ hypotheses, not measurements; treat them as such.
 
 ## Citation
 
+If you use this dataset, please cite it:
+
+> Thüning, M. (2026). *AbAg-XM: 335,360 DockQ-labelled antibody-antigen structure predictions
+> from four models*. Tenstorrent. https://huggingface.co/datasets/Tenstorrent/abag-xm
+
 ```bibtex
 @misc{abagxm2026,
   title  = {AbAg-XM: 335,360 DockQ-labelled antibody-antigen structure predictions
@@ -236,3 +320,8 @@ hypotheses, not measurements; treat them as such.
   note   = {Analysis: https://moritztng.github.io/abag-scaling/}
 }
 ```
+
+The analysis built on this dataset is at
+[moritztng.github.io/abag-scaling](https://moritztng.github.io/abag-scaling/); citing the dataset
+covers both. The `natives/` reference structures come from the PDB under CC0, so if you use those,
+please also cite the original depositors.
