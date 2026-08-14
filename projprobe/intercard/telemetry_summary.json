@@ -1,0 +1,31 @@
+{
+ "source": "telemetry_compute_sampled.log (every 200th line of a 60 s stream, 8-chip 40 s bf16 matmul)",
+ "samples": 9070,
+ "chips": 4,
+ "groups": {
+  "active_0_7": {
+   "n": 2268,
+   "tdp_mean": 99.8,
+   "tdp_p50": 135,
+   "tdp_p90": 139,
+   "tdp_peak": 157,
+   "aiclk_p50": 1031,
+   "aiclk_p90": 1062,
+   "aiclk_max": 1350,
+   "temp_mean": 52.6,
+   "temp_peak": 58.61
+  },
+  "idle_8_31": {
+   "n": 6802,
+   "tdp_mean": 36.2,
+   "tdp_p50": 36,
+   "tdp_p90": 38,
+   "tdp_peak": 39,
+   "aiclk_p50": 800,
+   "aiclk_p90": 800,
+   "aiclk_max": 800,
+   "temp_mean": 39.9,
+   "temp_peak": 41.05
+  }
+ }
+}
