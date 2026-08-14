@@ -584,7 +584,22 @@ class OpenDDE:
             # Residue-axis confidence (select_pair_output_branch(pair_output_space="residue")):
             # s_inputs/s_trunk/z_trunk are the step-1 pre-expansion tensors, `feats` the
             # original residue-level dict -- identical call shape to Protenix.fold's.
-            confs = [P.confidence_head.confidence(s_inputs, s_trunk, z_trunk, coords[k], feats)
-                     for k in range(n_sample)]
+            # The device-resident head (TT_PROTENIX_CONF_DEVICE=1, off by default) was
+            # unreachable from here: the flag is honoured in Protenix._confidence_for and
+            # this call site went straight to the host path, so setting it produced a
+            # byte-identical fold at an unchanged wall. Same two guards Protenix uses --
+            # the env gate plus N >= 128, below which bf16 distance-embed rounding moves
+            # the pLDDT head. z_base is sample-invariant, so it is built once and reused.
+            if P.confidence_head.device_confidence_enabled() and s_trunk.shape[0] >= 128:
+                z_base_dev = P.confidence_head.z_base_device(s_inputs, s_trunk, z_trunk)
+                try:
+                    confs = [P.confidence_head.confidence_device(
+                        s_inputs, s_trunk, z_base_dev, coords[k], feats)
+                        for k in range(n_sample)]
+                finally:
+                    ttnn.deallocate(z_base_dev)
+            else:
+                confs = [P.confidence_head.confidence(s_inputs, s_trunk, z_trunk, coords[k], feats)
+                         for k in range(n_sample)]
             return coords, (confs[0] if n_sample == 1 else confs)
         return coords

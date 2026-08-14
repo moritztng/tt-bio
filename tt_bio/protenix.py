@@ -1462,7 +1462,10 @@ class ConfidenceHead:
         # ---- confidence Pairformer (device, z stays resident) ----
         so, zo = self.pf(rc["s_t"], z)                                       # (1,N,384),(1,N,N,256)
         # ---- heads on device ----
-        zof = ttnn.reshape(zo, (1, N, N, 256))
+        # The pair channel is whatever this model's confidence Pairformer produces, not
+        # always protenix-v2's 256: OpenDDE fails new_volume == old_volume here. The host
+        # path infers it (reshape(N, N, -1)); do the same rather than assume.
+        zof = ttnn.reshape(zo, (1, N, N, zo.shape[-1]))
         pae_ln = ttnn.layer_norm(zof, weight=self._wtt("pae_ln.weight", False),
                                  bias=(self._wtt("pae_ln.bias", False) if "pae_ln.bias" in self._w else None),
                                  epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
