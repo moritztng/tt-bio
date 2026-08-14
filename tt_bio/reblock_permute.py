@@ -559,7 +559,7 @@ def _cache_key_gated(x, out, device, reader_ct, writer_ct):
     g = device.compute_with_storage_grid_size()
     return (
         device.id(),
-        int(x.shape[1]), int(x.shape[3]), int(out.shape[1]),
+        int(x.shape[1]), int(x.shape[3]), int(out.shape[1]), int(out.shape[2]),
         str(x.dtype), str(x.layout),
         str(x.memory_config()), str(out.memory_config()),
         g.x, g.y,
@@ -568,11 +568,21 @@ def _cache_key_gated(x, out, device, reader_ct, writer_ct):
 
 
 def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
-    N = int(x.shape[1])
+    # `x` may be a ROW BLOCK of the wide projection, [1, R, N, Cw] with R < N, while `out` is
+    # always the full [1, slice_c, N, N] destination. Nt is therefore read off the destination and
+    # Nrt off the source: the block is its own tensor and is addressed locally, while every
+    # destination index is absolute via the `row_off` common arg. R == N is the whole-tensor move
+    # and is byte-for-byte what it was.
+    N = int(out.shape[2])
     Ctw = int(x.shape[3]) // TILE_W       # channel tiles of the wide input
     Ct = int(out.shape[1]) // TILE_W      # channel tiles of one slice
     Nt = (N + TILE_H - 1) // TILE_H
-    num_groups = Nt * Nt
+    Nrt = (int(x.shape[1]) + TILE_H - 1) // TILE_H
+    # A group is (row-tile, col-tile, channel-tile). Keeping the channel tile INSIDE the group
+    # index is what makes the split even on a row block: a 64-row block at 512 aa is 2*16*8 = 256
+    # groups over 110 cores where (row-tile, col-tile) alone would be 32, i.e. 8 waves against the
+    # whole-tensor move's 3. `_build_back` does the same and records the same arithmetic.
+    num_groups = Nrt * Nt * Ct
 
     plan = _split_plan(device, num_groups)
     assert plan is not None, f"no expressible work split for {num_groups} groups"
@@ -601,7 +611,7 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
             for cx in range(cr.start.x, cr.end.x + 1):
                 for cy in range(cr.start.y, cr.end.y + 1):
                     reader_rt[cx][cy] = [start, per_core, Nt, N, Ct, Ctw]
-                    compute_rt[cx][cy] = [per_core * GROUP_TILES * Ct]
+                    compute_rt[cx][cy] = [per_core * GROUP_TILES]
                     writer_rt[cx][cy] = [start, per_core, Nt, N, Ct]
                     start += per_core
     assert start == num_groups, (start, num_groups)
@@ -610,15 +620,15 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
         kernel_source=str(KERNEL_DIR_GATED / "reader_reblock_permute_gated.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
         core_ranges=core_grid, compile_time_args=reader_ct, runtime_args=reader_rt,
-        common_runtime_args=[0, 0, 0], config=ttnn.ReaderConfigDescriptor(),
+        common_runtime_args=[0, 0, 0, 0], config=ttnn.ReaderConfigDescriptor(),
     )
-    # The writer is the ungated kernel's, byte for byte: it consumes c_16 and knows nothing about
-    # where the tiles came from.
+    # The writer is a fork of the ungated one: same gather, same staging, same DRAM write, but the
+    # work unit carries the channel tile and the destination index carries the block's row offset.
     writer = ttnn.KernelDescriptor(
-        kernel_source=str(KERNEL_DIR / "writer_reblock_permute.cpp"),
+        kernel_source=str(KERNEL_DIR_GATED / "writer_reblock_permute_gated.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
         core_ranges=core_grid, compile_time_args=writer_ct, runtime_args=writer_rt,
-        common_runtime_args=[0], config=ttnn.WriterConfigDescriptor(),
+        common_runtime_args=[0, 0], config=ttnn.WriterConfigDescriptor(),
     )
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR_GATED / "compute_reblock_permute_gated.cpp"),
@@ -635,10 +645,10 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
     global ADDR_WRITE_MODE
     if ADDR_WRITE_MODE is None:
         probe = 0xABCD1234
-        pd.kernels[0].common_runtime_args = [probe, 0, 0]
+        pd.kernels[0].common_runtime_args = [probe, 0, 0, 0]
         ADDR_WRITE_MODE = "in_place" if list(pd.kernels[0].common_runtime_args)[0] == probe \
             else "rebuild_pd"
-        pd.kernels[0].common_runtime_args = [0, 0, 0]
+        pd.kernels[0].common_runtime_args = [0, 0, 0, 0]
 
     return {"pd": pd, "kernels": [reader, writer, compute], "cbs": cbs, "core_grid": core_grid}
 
@@ -665,29 +675,40 @@ GATE_FP32_ACC = False
 GATE_SKIP_SIGMOID = False
 
 
-def reblock_permute_gated(xw, p_slice, g_slice, slice_c, memory_config=None, device=None):
+def reblock_permute_gated(xw, p_slice, g_slice, slice_c, memory_config=None, device=None,
+                          out=None, row_off=0):
     """``permute(chunk(xw, 4, -1)[p_slice] * sigmoid(chunk(xw, 4, -1)[g_slice]), (0, 3, 1, 2))``.
 
     ``xw`` is ``[1, N, N, Cw]`` bf16 TILE and the result is ``[1, slice_c, N, N]``. The slice
     arguments are in CHANNELS, not tiles; the kernel takes tile offsets.
+
+    Pass ``out`` and ``row_off`` to move ONE ROW BLOCK: ``xw`` is then ``[1, R, N, Cw]`` holding
+    the rows starting at ``row_off``, and the block is written into the full ``out`` in place.
+    That is what lets the projection feeding this move stay L1-resident -- the whole
+    ``[1, N, N, Cw]`` projection is 512 MB at 512 aa against 160 MB of L1, and a 64-row block is
+    67 MB. The result is identical to moving the whole tensor: the destination index is absolute
+    and the blocks partition it.
     """
     device = device or xw.device()
-    mc = memory_config or xw.memory_config()
-    N = int(xw.shape[1])
-    out = ttnn.allocate_tensor_on_device(
-        ttnn.Shape([1, slice_c, N, N]), ttnn.bfloat16, ttnn.TILE_LAYOUT, device, mc
-    )
+    if out is None:
+        mc = memory_config or xw.memory_config()
+        N = int(xw.shape[1])
+        out = ttnn.allocate_tensor_on_device(
+            ttnn.Shape([1, slice_c, N, N]), ttnn.bfloat16, ttnn.TILE_LAYOUT, device, mc
+        )
+    assert row_off % TILE_H == 0, f"row_off {row_off} is not a tile boundary"
     entry = _prepare_gated(xw, out, device, GATE_FIDELITY, GATE_FP32_ACC)
     src, dst = xw.buffer_address(), out.buffer_address()
-    common_r = [src, p_slice // TILE_W, g_slice // TILE_W]
+    common_r = [src, p_slice // TILE_W, g_slice // TILE_W, row_off // TILE_H]
+    common_w = [dst, row_off // TILE_H]
     if ADDR_WRITE_MODE == "in_place":
         pd = entry["pd"]
         pd.kernels[0].common_runtime_args = common_r
-        pd.kernels[1].common_runtime_args = [dst]
+        pd.kernels[1].common_runtime_args = common_w
     else:
         reader, writer, compute = entry["kernels"]
         reader.common_runtime_args = common_r
-        writer.common_runtime_args = [dst]
+        writer.common_runtime_args = common_w
         pd = entry["pd"] = ttnn.ProgramDescriptor(
             kernels=[reader, writer, compute], semaphores=[], cbs=entry["cbs"]
         )

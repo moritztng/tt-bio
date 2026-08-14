@@ -1208,7 +1208,7 @@ def _tri_att_qkv_l1_config(
 @lru_cache(maxsize=None)
 def _pair_proj_program_config(
     m_tiles: int, k_tiles: int, n_tiles: int, in0_block_w: int, elem_bytes: int,
-    out_l1: bool = False,
+    out_l1: bool = False, block_w: int | None = None,
 ) -> ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig | None:
     """Program config for a tall pair-track projection, or None if the shape is outside it.
 
@@ -1241,7 +1241,14 @@ def _pair_proj_program_config(
     if per_core_M > m_tiles or -(-m_tiles // per_core_M) > num_cores:
         return None
     out_block_h = 5
-    out_block_w = n_tiles
+    # `out_block_w` defaults to the whole output row, which is what every caller before the pair
+    # FFN wanted. It is a drain-schedule parameter, not a contraction one, so narrowing it is
+    # free of any parity decision and it is the only way an L1 destination fits at n_tiles = 32:
+    # the in0/in1 buffers alone are 2*bw*(obh + obw) tiles and at obw = 32 that is 1.21 MB of a
+    # 1.46 MB bank before the output is counted.
+    out_block_w = n_tiles if block_w is None else block_w
+    if out_block_w < 1 or n_tiles % out_block_w:
+        return None
     sh = max(h for h in range(min(4, out_block_h), 0, -1) if out_block_h % h == 0)
     sw = max(w for w in range(min(4 // sh, out_block_w), 0, -1) if out_block_w % w == 0)
     l1 = _l1_bank_bytes()
@@ -1271,7 +1278,7 @@ def _pair_proj_program_config(
 
 
 def _pair_proj_config(x: ttnn.Tensor, w: ttnn.Tensor, bw_cap: int | None = -1,
-                      out_l1: bool = False) -> object | None:
+                      out_l1: bool = False, block_w: int | None = None) -> object | None:
     """_pair_proj_program_config for a concrete operand pair, or None if it does not apply.
 
     `bw_cap` defaults to the module's `_PAIR_PROJ_BW`; the narrow-output sites pass
@@ -1297,7 +1304,7 @@ def _pair_proj_config(x: ttnn.Tensor, w: ttnn.Tensor, bw_cap: int | None = -1,
             return None
         bw = max((d for d in (k_tiles, 8, 4, 2, 1)
                   if d <= cap and k_tiles % d == 0), default=1)
-        return _pair_proj_program_config(m_tiles, k_tiles, n_tiles, bw, 2, out_l1)
+        return _pair_proj_program_config(m_tiles, k_tiles, n_tiles, bw, 2, out_l1, block_w)
     except Exception:
         return None
 
@@ -1339,7 +1346,22 @@ def _pair_proj_minimal_matmul(x, w, ckc, dtype):
         return None
 
 
-def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False):
+# The pair FFN's fc1 halves, [B*rows, N, c_z] x [c_z, d_ff]: k_tiles 8, n_tiles 32. The default
+# gate refuses an L1 destination for this class at every row height and every block width, so all
+# three matmuls of the row-blocked pair FFN fell back to a plain `ttnn.linear(core_grid=...)` with
+# a DRAM output and fc1's 2.15 GB/call round trip was never removed. Naming out_block_w = 16 fits
+# it. `in0_block_w` must stay 1: of the 80 configs swept at [1,32,512,256] x [256,1024], all 20 at
+# bw = 1 are `torch.equal` against the shipped call and all 60 above it differ by one bf16 ulp,
+# which is the K accumulation order. obw = 32 is faster bare (0.164 vs 0.206 ms) and CLASHES in
+# the chain once one half is already resident; obw = 8 costs 2.45 ms/call. MEASURED on qb2 card 2,
+# whole FFN at [1,512,512,256] rows=32: 17.918 -> 14.662 ms, `torch.equal`
+# (perf/esm3p4/screen_a_c2.json, screen_b_c2.json).
+_PAIR_FFN_FC1_BW = 1
+_PAIR_FFN_FC1_BLOCK_W = 16
+
+
+def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
+                      l1_bw: int | None = None, l1_block_w: int | None = None):
     """`ttnn.linear` on a pair-track projection, with the tuned config when the shape allows.
 
     `l1_out` is for the members whose consumer reads the result straight back on device (the
@@ -1348,9 +1370,11 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False):
     allocator refuses, which is the only test that knows what the live block is already holding.
     """
     if l1_out and _PAIR_PROJ_L1_OUT:
-        key = (tuple(x.padded_shape), tuple(w.shape), str(dtype))
+        key = (tuple(x.padded_shape), tuple(w.shape), str(dtype), l1_bw, l1_block_w)
         if key not in _L1_OUT_REFUSED:
-            cfg = _pair_proj_config(x, w, bw_cap=_PAIR_PROJ_L1_BW, out_l1=True)
+            cfg = _pair_proj_config(
+                x, w, bw_cap=_PAIR_PROJ_L1_BW if l1_bw is None else l1_bw,
+                out_l1=True, block_w=l1_block_w)
             if cfg is not None:
                 try:
                     return ttnn.linear(
