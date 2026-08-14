@@ -5115,6 +5115,9 @@ class Boltz2(nn.Module):
             and use_tenstorrent
             and _os_trunk.environ.get("BOLTZ2_AFFINITY_TRUNK_FP32_DEVICE", "0") == "1"
         )
+        if self.affinity_trunk_fp32_device:
+            print("[boltz2] affinity pairformer trunk: fp32 ON DEVICE "
+                  "(BOLTZ2_AFFINITY_TRUNK_FP32_DEVICE=1)")
         _trunk_use_tt = use_tenstorrent and not self.affinity_trunk_fp32_host
         if use_templates:
             if use_templates_v2:
