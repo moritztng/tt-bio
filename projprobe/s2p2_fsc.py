@@ -318,7 +318,8 @@ def main():
     res["pass"] = bool(abs(d) <= 0.05)
     print(f"\nseparable minus trilinear: {d:+.4f} A   (gate: 0.05 A)  -> "
           f"{'PASS' if abs(d) <= 0.05 else 'FAIL'}", flush=True)
-    json.dump(res, open(HERE / f"s2p2_fsc_box{N}_snr{SNR}_s{SEED}" + ("" if VARIANT == "twopass" else "_" + VARIANT) + ".json", "w"), indent=1)
+    tag = "" if VARIANT == "twopass" else "_" + VARIANT
+    json.dump(res, open(HERE / (f"s2p2_fsc_box{N}_snr{SNR}_s{SEED}" + tag + ".json"), "w"), indent=1)
     ft, fs = res["arms"]["tri"]["fsc"], res["arms"]["sep"]["fsc"]
     print("  shell : FSC tri / FSC sep, upper half of the spectrum")
     for k in range(len(ft) // 2, len(ft), max(1, len(ft) // 16)):
