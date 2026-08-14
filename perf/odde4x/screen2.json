@@ -1,0 +1,70 @@
+{
+ "host": "tt-quietbox2",
+ "card": "1",
+ "grid": [
+  11,
+  10
+ ],
+ "ttnn": "0.68.0",
+ "loadavg": [
+  "0.12",
+  "0.44",
+  "0.50"
+ ],
+ "rows": [
+  {
+   "entry": [
+    8,
+    8,
+    8,
+    2,
+    2
+   ],
+   "qkv_mm_config_builds_via_tt_bio_guard": false,
+   "k1a_served": true,
+   "k1a_rejects": {},
+   "k1a_torch_equal": [
+    true,
+    true,
+    true
+   ],
+   "k1a_max_abs": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "k1a_ref_absmax": 114.5,
+   "k1a_ms": 3.9185,
+   "k1a_stock_ms": 6.9488,
+   "k1a_ratio": 1.7733,
+   "k1b_served": true,
+   "k1b_rejects": {},
+   "k1b_torch_equal": true,
+   "k1b_max_abs": 0.0,
+   "k1b_ref_absmax": 120.5,
+   "k1b_gate_ms": 1.8087,
+   "k1b_stock_gate_ms": 1.8377
+  },
+  {
+   "entry": [
+    12,
+    12,
+    1,
+    2,
+    2
+   ],
+   "qkv_mm_config_builds_via_tt_bio_guard": false,
+   "k1a_error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:190: (cfg.N_block_size % cfg.subblock_w) == 0\ninfo:\nN_block_size (1) must be divisible by subblock_w (2)\nbacktrace:\n ---",
+   "k1b_served": true,
+   "k1b_rejects": {},
+   "k1b_error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/minimal_matmul_device_operation.cpp:190: (cfg.N_block_size % cfg.subblock_w) == 0\ninfo:\nN_block_size (1) must be divisible by subblock_w (2)\nbacktrace:\n ---"
+  }
+ ],
+ "s4_channel_move_back": {
+  "wide_384_ms": 2.452,
+  "sliced_3x128_ms": 3.6881,
+  "delta_ms": -1.2361,
+  "shapes_match": true,
+  "torch_equal": true
+ }
+}

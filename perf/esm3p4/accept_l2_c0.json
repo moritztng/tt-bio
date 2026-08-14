@@ -1,0 +1,41 @@
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "grid": [
+  11,
+  10
+ ],
+ "L": 512,
+ "n": 5,
+ "arms": {
+  "unblocked": {
+   "ms": 21.3271,
+   "equal": true,
+   "speedup_vs_unblocked": 1.0
+  },
+  "shipped_rows32": {
+   "ms": 18.0946,
+   "equal": true,
+   "speedup_vs_unblocked": 1.1786
+  },
+  "l2_rows32": {
+   "ms": 14.6573,
+   "equal": true,
+   "speedup_vs_unblocked": 1.455
+  }
+ },
+ "l1_bank_bytes": 1461760,
+ "loadavg": "1.00",
+ "fc1_config": {
+  "default_gate": null,
+  "named": {
+   "in0_block_w": 1,
+   "out_block_h": 5,
+   "out_block_w": 16,
+   "per_core_M": 5,
+   "per_core_N": 32,
+   "out_subblock_h": 1,
+   "out_subblock_w": 4
+  }
+ }
+}
