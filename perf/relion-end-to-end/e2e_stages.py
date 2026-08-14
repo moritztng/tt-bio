@@ -4,14 +4,20 @@
 Two instruments, one binary, and they measure different things:
 
   RELION's own Timer (-DTIMING) gives the OUTER split -- expectation_1/2/6, maximization,
-  writeOutput, "flatten solvent". Those are per-rank wall seconds and they sum to the iteration, so
-  this is the table that prices the pipeline floor.
+  writeOutput, "flatten solvent". One table is printed per ITERATION and the timer is reset each
+  time, so the repeated columns below are iterations, not ranks, and they are wall seconds that sum
+  to the iteration. This is the table that prices the pipeline floor. Note that the LAST iteration
+  of a converged auto-refine never prints one: RELION exits after the convergence message, so a
+  4-column Timer table can describe a 5-iteration run.
 
   TTPROF (the CTIC/CTOC bodies) gives the INNER split of the accelerated E-step -- oneParticle and
-  the coarse pass, the fine pass, storeWeightedSums, getFourierTransformsAndCtfs beneath it. Those
-  are a SUM OVER THREADS, so they exceed the elapsed wall by roughly the thread count and only their
-  shares of `oneParticle` mean anything. Mixing the two currencies in one column is the mistake this
-  script exists to prevent.
+  the coarse pass, the fine pass, storeWeightedSums, getFourierTransformsAndCtfs beneath it. One
+  table is printed per FOLLOWER at process exit, cumulative over the whole run, so the repeated
+  columns are ranks, not iterations. The values are a SUM OVER THREADS, so they exceed the elapsed
+  wall by roughly the thread count and only their shares of `oneParticle` mean anything.
+
+So the repeated columns mean opposite things in the two tables. Mixing the two currencies, or reading
+one table's columns as the other's, is the mistake this script exists to prevent.
 
 Usage: e2e_stages.py <log> [<log> ...]
 """
@@ -55,9 +61,18 @@ def main(argv):
     for a in argv[1:]:
         p = Path(a)
         timer, ttprof = parse(p)
-        out[p.name] = {"timer_sec": timer, "ttprof": ttprof}
+        niter = max((len(v) for v in timer.values()), default=0)
+        nrank = max((len(v) for v in ttprof.values()), default=0)
+        nexp = p.read_text(errors="ignore").count("Expectation iteration")
+        out[p.name] = {"timer_sec": timer, "ttprof": ttprof,
+                       "n_timer_tables": niter, "n_ttprof_tables": nrank,
+                       "n_expectation_iterations": nexp,
+                       "untimed_final_iteration": bool(nexp > niter)}
         print(f"\n########## {p.name}")
-        print("--- RELION Timer, per-rank wall seconds (the pipeline floor's currency) ---")
+        print(f"{nexp} Expectation iterations, {niter} Timer tables"
+              + ("  <-- the final converged iteration prints none, so it is NOT in the Timer sums"
+                 if nexp > niter else ""))
+        print(f"--- RELION Timer: {niter} table(s), ONE PER ITERATION, wall seconds ---")
         if not timer:
             print("  (no Timer table: the binary was built without -DTIMING)")
         for k in OUTER_KEYS:
@@ -67,7 +82,8 @@ def main(argv):
         extra = [k for k in timer if k not in OUTER_KEYS]
         if extra:
             print(f"  ({len(extra)} further Timer tags in the json)")
-        print("--- TTPROF, CPU-seconds summed over threads; only the % column is comparable ---")
+        print(f"--- TTPROF: {nrank} table(s), ONE PER FOLLOWER RANK, cumulative CPU-seconds "
+              "summed over threads; only the % column is comparable ---")
         if not ttprof:
             print("  (no TTPROF table: TT_RELION_PROFILE was unset or the binary lacks the instrument)")
         for k, v in sorted(ttprof.items(), key=lambda kv: -kv[1][0]["cpu_s"])[:12]:
