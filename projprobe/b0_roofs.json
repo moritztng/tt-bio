@@ -1,0 +1,170 @@
+{
+ "page_bytes": 2048,
+ "outer": 4096,
+ "roofs": {
+  "read/2048B/be1": {
+   "ms": 2.8053099958924577,
+   "gbs": 388.73388024736687,
+   "ns_per_page": 684.890135715932,
+   "ns_per_xact": 684.890135715932,
+   "xact_bytes": 2048,
+   "barrier_every": 1,
+   "mode": "read"
+  },
+  "read/2048B/be4": {
+   "ms": 2.6962830015690997,
+   "gbs": 404.45273710711126,
+   "ns_per_page": 658.272217179956,
+   "ns_per_xact": 658.272217179956,
+   "xact_bytes": 2048,
+   "barrier_every": 4,
+   "mode": "read"
+  },
+  "read/2048B/be16": {
+   "ms": 2.76656101050321,
+   "gbs": 394.1785617088724,
+   "ns_per_page": 675.4299342048853,
+   "ns_per_xact": 675.4299342048853,
+   "xact_bytes": 2048,
+   "barrier_every": 16,
+   "mode": "read"
+  },
+  "write/2048B/be1": {
+   "ms": 7.048796003800817,
+   "gbs": 154.70997308078935,
+   "ns_per_page": 1720.8974618654338,
+   "ns_per_xact": 1720.8974618654338,
+   "xact_bytes": 2048,
+   "barrier_every": 1,
+   "mode": "write"
+  },
+  "write/2048B/be4": {
+   "ms": 6.317890001810156,
+   "gbs": 172.6081080372644,
+   "ns_per_page": 1542.4536137231826,
+   "ns_per_xact": 1542.4536137231826,
+   "xact_bytes": 2048,
+   "barrier_every": 4,
+   "mode": "write"
+  },
+  "write/2048B/be16": {
+   "ms": 6.285440002102405,
+   "gbs": 173.49923627227918,
+   "ns_per_page": 1534.5312505132824,
+   "ns_per_xact": 1534.5312505132824,
+   "xact_bytes": 2048,
+   "barrier_every": 16,
+   "mode": "write"
+  },
+  "rmw/2048B/be1": {
+   "ms": 7.8564619907410815,
+   "gbs": 277.61072128527763,
+   "ns_per_page": 1918.0815407082719,
+   "ns_per_xact": 1918.0815407082719,
+   "xact_bytes": 2048,
+   "barrier_every": 1,
+   "mode": "rmw"
+  },
+  "rmw/2048B/be4": {
+   "ms": 7.5677769928006455,
+   "gbs": 288.20062775037616,
+   "ns_per_page": 1847.60180488297,
+   "ns_per_xact": 1847.60180488297,
+   "xact_bytes": 2048,
+   "barrier_every": 4,
+   "mode": "rmw"
+  },
+  "rmw/2048B/be16": {
+   "ms": 7.426059994031675,
+   "gbs": 293.7005736222035,
+   "ns_per_page": 1813.0029282303894,
+   "ns_per_xact": 1813.0029282303894,
+   "xact_bytes": 2048,
+   "barrier_every": 16,
+   "mode": "rmw"
+  },
+  "read/128B/be1": {
+   "ms": 19.865053007379174,
+   "gbs": 54.89635691356626,
+   "ns_per_page": 4849.866456879681,
+   "ns_per_xact": 303.1166535549801,
+   "xact_bytes": 128,
+   "barrier_every": 1,
+   "mode": "read"
+  },
+  "read/128B/be4": {
+   "ms": 18.430327996611595,
+   "gbs": 59.16981185578961,
+   "ns_per_page": 4499.591796047753,
+   "ns_per_xact": 281.22448725298455,
+   "xact_bytes": 128,
+   "barrier_every": 4,
+   "mode": "read"
+  },
+  "read/128B/be16": {
+   "ms": 18.394949001958594,
+   "gbs": 59.28361312031294,
+   "ns_per_page": 4490.954346181297,
+   "ns_per_xact": 280.6846466363311,
+   "xact_bytes": 128,
+   "barrier_every": 16,
+   "mode": "read"
+  },
+  "write/128B/be1": {
+   "ms": 9.602482998161577,
+   "gbs": 113.56635988928937,
+   "ns_per_page": 2344.356200723041,
+   "ns_per_xact": 146.52226254519007,
+   "xact_bytes": 128,
+   "barrier_every": 1,
+   "mode": "write"
+  },
+  "write/128B/be4": {
+   "ms": 9.651391999796033,
+   "gbs": 112.99085562197105,
+   "ns_per_page": 2356.2968749502033,
+   "ns_per_xact": 147.2685546843877,
+   "xact_bytes": 128,
+   "barrier_every": 4,
+   "mode": "write"
+  },
+  "write/128B/be16": {
+   "ms": 9.514632998616435,
+   "gbs": 114.61493471777389,
+   "ns_per_page": 2322.9084469278405,
+   "ns_per_xact": 145.18177793299003,
+   "xact_bytes": 128,
+   "barrier_every": 16,
+   "mode": "write"
+  },
+  "rmw/128B/be1": {
+   "ms": 30.734763990039937,
+   "gbs": 70.96322850264275,
+   "ns_per_page": 7503.604489755844,
+   "ns_per_xact": 468.97528060974025,
+   "xact_bytes": 128,
+   "barrier_every": 1,
+   "mode": "rmw"
+  },
+  "rmw/128B/be4": {
+   "ms": 28.371834006975405,
+   "gbs": 76.87335543637317,
+   "ns_per_page": 6926.71728685923,
+   "ns_per_xact": 432.91983042870186,
+   "xact_bytes": 128,
+   "barrier_every": 4,
+   "mode": "rmw"
+  },
+  "rmw/128B/be16": {
+   "ms": 27.22557399829384,
+   "gbs": 80.1099025547333,
+   "ns_per_page": 6646.868651927207,
+   "ns_per_xact": 415.42929074545043,
+   "xact_bytes": 128,
+   "barrier_every": 16,
+   "mode": "rmw"
+  }
+ },
+ "ncores": 130,
+ "write_landed_frac_ones": 1.0
+}

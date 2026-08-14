@@ -75,6 +75,9 @@ def main():
                             memory_config=mc)
         print(f"buffer {pages} pages x {PAGE} B = {pages*PAGE/2**20:.0f} MiB", flush=True)
         page0 = [c * npage_per_core for c in range(nc)]
+        # generic_op demands >= 2 io tensors; the kernel only ever touches `x`.
+        sink = ttnn.from_torch(torch.zeros(1, 1, 32, 32).to(torch.bfloat16), dtype=ttnn.bfloat16,
+                               layout=ttnn.TILE_LAYOUT, device=dev)
 
         for xact in XACTS:
             for name, mode in MODES.items():
@@ -82,12 +85,12 @@ def main():
                     key = f"{name}/{xact}B/be{be}"
                     try:
                         pd = build(dev, x, mode, xact, be, page0, npage_per_core)
-                        ttnn.generic_op([x], pd)
+                        ttnn.generic_op([x, sink], pd)
                         ttnn.synchronize_device(dev)
                         best = float("inf")
                         for _ in range(5):
                             t0 = time.perf_counter()
-                            ttnn.generic_op([x], pd)
+                            ttnn.generic_op([x, sink], pd)
                             ttnn.synchronize_device(dev)
                             best = min(best, time.perf_counter() - t0)
                         # traffic: rmw crosses DRAM twice per page.
