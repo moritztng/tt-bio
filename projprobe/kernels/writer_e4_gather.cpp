@@ -24,7 +24,8 @@ void kernel_main() {
     constexpr uint32_t cb_out = get_compile_time_arg_val(6);
     constexpr uint32_t tile_bytes = get_compile_time_arg_val(7);
     constexpr uint32_t push_early = get_compile_time_arg_val(8);
-    constexpr auto src_args = TensorAccessorArgs<9>();
+    constexpr uint32_t addr_ops = get_compile_time_arg_val(9);
+    constexpr auto src_args = TensorAccessorArgs<10>();
     constexpr auto dst_args = TensorAccessorArgs<src_args.next_compile_time_args_offset()>();
 
     const uint32_t src_addr = get_arg_val<uint32_t>(0);
@@ -60,6 +61,10 @@ void kernel_main() {
             acc[r] += stride[r];
             if (acc[r] >= span) {
                 acc[r] -= span;
+            }
+            for (uint32_t q = 0; q < addr_ops; ++q) {
+                const uint32_t r2 = (acc[r] >> 3) * (acc[r] >> 3);
+                acc[r] ^= (r2 & 0x8u) >> 3;
             }
         }
         if (++slot == barrier_every) {

@@ -24,6 +24,9 @@ import ttnn
 import e4_gather_rate as E
 
 OPS = (0, 4, 8, 16, 32, 64, 128)
+# E4d: integer ops in the READER per gather, for the radius test and the Friedel branch that the
+# fixed-stride model omits. The address advance itself is one add and is already in the loop.
+ADDR_OPS = (0, 1, 2, 4, 8, 16)
 
 
 def main():
@@ -71,6 +74,41 @@ def main():
                 print(f"ops={ops:4d}  FAIL {str(e)[:200]}", flush=True)
             json.dump(res, open(Path(__file__).resolve().parent / "e4c_overlap.json", "w"),
                       indent=1)
+
+        # E4d. The projector's address advance along a scan line is a single add, because
+        # d(address)/dx = e00 + e10*mdlX + e20*mdlX*mdlY is constant -- so the stride add already in
+        # the reader is the true shape. What the model omits is the per-pixel radius test against
+        # maxR2_padded and the Friedel branch. This prices integer work per gather on the dataflow
+        # RISC, at the dual-RISC rate and with no compute contending.
+        print()
+        res["addr_ops_sweep"] = {}
+        abase = None
+        for ao in ADDR_OPS:
+            try:
+                pd = E.build_dual(dev, x, out, 16, offs, strides, addr_ops=ao)
+                ttnn.generic_op([x, out], pd)
+                ttnn.synchronize_device(dev)
+                best = float("inf")
+                for _ in range(5):
+                    t0 = time.perf_counter()
+                    ttnn.generic_op([x, out], pd)
+                    ttnn.synchronize_device(dev)
+                    best = min(best, time.perf_counter() - t0)
+                ns = best * 1e9 / E.OUTER
+                if abase is None:
+                    abase = ns
+                res["addr_ops_sweep"][str(ao)] = {
+                    "ns_per_assembly_pair": ns, "vs_zero": ns / abase,
+                    "ns_per_read": ns / 128,
+                    "coarse_estep_s_1_chip": E.GATHERS_PER_ITER / (2 * 64 / (ns * 1e-9) * nc)}
+                print(f"addr_ops={ao:3d}  {ns:8.2f} ns/assembly-pair  {ns/abase:.3f}x  "
+                      f"coarse E-step {res['addr_ops_sweep'][str(ao)]['coarse_estep_s_1_chip']:6.2f} s",
+                      flush=True)
+            except Exception as e:                                       # noqa: BLE001
+                res["addr_ops_sweep"][str(ao)] = {"error": str(e)[:250]}
+                print(f"addr_ops={ao:3d}  FAIL {str(e)[:180]}", flush=True)
+            json.dump(res, open(Path(__file__).resolve().parent / "e4c_overlap.json", "w"),
+                      indent=1)
     finally:
         ttnn.close_device(dev)
 
@@ -83,6 +121,7 @@ def main():
     # assembly-pair. That is the number the sweep has to clear, and it is measured at HiFi4, the
     # slowest fidelity, so the margin is conservative.
     NEEDED = 16 * (8 * 2 + 9 * 6) / 1024.0
+    # E4d runs inside the same device session, appended after the ops sweep.
     s = res["ops_sweep"]
     free = [int(k) for k, v in s.items()
             if "vs_gather_only" in v and v["vs_gather_only"] < 1.05]

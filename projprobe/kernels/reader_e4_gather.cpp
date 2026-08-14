@@ -35,7 +35,14 @@ void kernel_main() {
     // E4c: push the CB up front so the compute kernel can run its own loop alongside the gather,
     // instead of only after it. The two then contend for the core, which is the question.
     constexpr uint32_t push_early = get_compile_time_arg_val(6);
-    constexpr auto src_args = TensorAccessorArgs<7>();
+    // E4d: how much integer work can the reader do per gather before it stops being read-bound?
+    // The real projector's address advance is ONE add -- d(address)/dx = e00 + e10*mdlX +
+    // e20*mdlX*mdlY is a constant along a scan line, so the stride add below is the true shape, not
+    // a simplification. What it omits is the per-pixel radius test against maxR2_padded and the
+    // Friedel branch that conjugates the imaginary part outside the half-volume. Those are a handful
+    // of integer ops and a branch, and `addr_ops` prices them.
+    constexpr uint32_t addr_ops = get_compile_time_arg_val(7);
+    constexpr auto src_args = TensorAccessorArgs<8>();
 
     const uint32_t src_addr = get_arg_val<uint32_t>(0);
     const uint32_t npages = get_arg_val<uint32_t>(1);
@@ -72,6 +79,12 @@ void kernel_main() {
             acc[r] += stride[r];
             if (acc[r] >= span) {
                 acc[r] -= span;
+            }
+            // Data-dependent so the compiler cannot hoist or drop it, and folded back into the
+            // address walk so it is on the critical path rather than beside it.
+            for (uint32_t q = 0; q < addr_ops; ++q) {
+                const uint32_t r2 = (acc[r] >> 3) * (acc[r] >> 3);
+                acc[r] ^= (r2 & 0x8u) >> 3;
             }
         }
         if (++slot == barrier_every) {

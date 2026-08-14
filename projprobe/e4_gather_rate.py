@@ -60,7 +60,7 @@ def build(dev, x, out, chunk, offs, strides, nreads=NREADS):
         f = ttnn.CBFormatDescriptor(buffer_index=i, data_format=ttnn.bfloat16, page_size=nb)
         return ttnn.CBDescriptor(total_size=d * nb, core_ranges=cg, format_descriptors=[f])
 
-    rct = ([IN_CB, total, nreads, chunk, BE, PAGE, 0]
+    rct = ([IN_CB, total, nreads, chunk, BE, PAGE, 0, 0]
            + list(ttnn.TensorAccessorArgs(x).get_compile_time_args()))
     wct = [OUT_CB, 2048] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
     rrt, crt, wrt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
@@ -88,7 +88,7 @@ SCRATCH_CB = 1                  # the writer RISC's own gather destination in th
 BLEND_CB = 2                    # the blend loop's pack destination, so its tile_regs cycle is whole
 
 
-def build_dual(dev, x, out, chunk, offs, strides, nreads=NREADS, ops=0):
+def build_dual(dev, x, out, chunk, offs, strides, nreads=NREADS, ops=0, addr_ops=0):
     """Both dataflow RISCs gathering. The reader (NCRISC) and the writer (BRISC) run the same loop
     on different phases into different CBs, so if the ~47-cycle issue cost is per-RISC rather than
     per-core the measured rate per assembly stays flat while twice the reads happen."""
@@ -103,8 +103,8 @@ def build_dual(dev, x, out, chunk, offs, strides, nreads=NREADS, ops=0):
     PE = 1 if ops else 0        # push the CB up front so compute overlaps the gather
     sa = list(ttnn.TensorAccessorArgs(x).get_compile_time_args())
     da = list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
-    rct = [IN_CB, total, nreads, chunk, BE, PAGE, PE] + sa
-    wct = [SCRATCH_CB, total, nreads, chunk, BE, PAGE, OUT_CB, 2048, PE] + sa + da
+    rct = [IN_CB, total, nreads, chunk, BE, PAGE, PE, addr_ops] + sa
+    wct = [SCRATCH_CB, total, nreads, chunk, BE, PAGE, OUT_CB, 2048, PE, addr_ops] + sa + da
     rrt, crt, wrt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     tail = [int(o) for o in offs[:nreads]] + [int(s) for s in strides[:nreads]]
     c = 0

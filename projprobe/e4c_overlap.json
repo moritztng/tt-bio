@@ -4,61 +4,99 @@
  "chunk": 16,
  "ops_sweep": {
   "0": {
-   "ns_per_assembly_pair": 1204.19380000385,
+   "ns_per_assembly_pair": 1213.7576000895933,
    "vs_gather_only": 1.0,
    "nonzero": true,
    "tile_ops": 0,
-   "coarse_estep_s_1_chip": 9.299212938731653
+   "coarse_estep_s_1_chip": 9.373068005499565
   },
   "4": {
-   "ns_per_assembly_pair": 1209.9906000003102,
-   "vs_gather_only": 1.0048138430844287,
+   "ns_per_assembly_pair": 1209.8041999706766,
+   "vs_gather_only": 0.9967428421304015,
    "nonzero": true,
    "tile_ops": 4,
-   "coarse_estep_s_1_chip": 9.343977890627395
+   "coarse_estep_s_1_chip": 9.34253844328317
   },
   "8": {
-   "ns_per_assembly_pair": 1218.1120000605006,
-   "vs_gather_only": 1.0115581063916839,
+   "ns_per_assembly_pair": 1196.6457999733393,
+   "vs_gather_only": 0.9859017977601204,
    "nonzero": true,
    "tile_ops": 8,
-   "coarse_estep_s_1_chip": 9.40669423123644
+   "coarse_estep_s_1_chip": 9.240924597149887
   },
   "16": {
-   "ns_per_assembly_pair": 1207.6482000338729,
-   "vs_gather_only": 1.00286864126855,
+   "ns_per_assembly_pair": 1196.984399939538,
+   "vs_gather_only": 0.9861807661193494,
    "nonzero": true,
    "tile_ops": 16,
-   "coarse_estep_s_1_chip": 9.325889044732731
+   "coarse_estep_s_1_chip": 9.243539386552323
   },
   "32": {
-   "ns_per_assembly_pair": 2083.3540000239736,
-   "vs_gather_only": 1.7300819851566358,
+   "ns_per_assembly_pair": 2095.236999957706,
+   "vs_gather_only": 1.7262400662233104,
    "nonzero": true,
    "tile_ops": 32,
-   "coarse_estep_s_1_chip": 16.088400781435137
+   "coarse_estep_s_1_chip": 16.180165534529156
   },
   "64": {
-   "ns_per_assembly_pair": 4046.2971999659203,
-   "vs_gather_only": 3.3601710953444406,
+   "ns_per_assembly_pair": 4038.571599994612,
+   "vs_gather_only": 3.3273296082319117,
    "nonzero": true,
    "tile_ops": 64,
-   "coarse_estep_s_1_chip": 31.24694652617913
+   "coarse_estep_s_1_chip": 31.18728669466993
   },
   "128": {
-   "ns_per_assembly_pair": 7931.054599976051,
-   "vs_gather_only": 6.5861945144964995,
+   "ns_per_assembly_pair": 7928.663799975766,
+   "vs_gather_only": 6.532328859889745,
    "nonzero": true,
    "tile_ops": 128,
-   "coarse_estep_s_1_chip": 61.24642524620929
+   "coarse_estep_s_1_chip": 61.22796263803402
   }
  },
  "ncores": 130,
+ "addr_ops_sweep": {
+  "0": {
+   "ns_per_assembly_pair": 1209.3131999790785,
+   "vs_zero": 1.0,
+   "ns_per_read": 9.44775937483655,
+   "coarse_estep_s_1_chip": 9.33874676666536
+  },
+  "1": {
+   "ns_per_assembly_pair": 1361.5758000014466,
+   "vs_zero": 1.1259083255065787,
+   "ns_per_read": 10.637310937511302,
+   "coarse_estep_s_1_chip": 10.51457273438617
+  },
+  "2": {
+   "ns_per_assembly_pair": 1473.7116000105743,
+   "vs_zero": 1.2186351724566225,
+   "ns_per_read": 11.513371875082612,
+   "coarse_estep_s_1_chip": 11.380525276523969
+  },
+  "4": {
+   "ns_per_assembly_pair": 2106.8963998914114,
+   "vs_zero": 1.7422255871579517,
+   "ns_per_read": 16.46012812415165,
+   "coarse_estep_s_1_chip": 16.27020356887298
+  },
+  "8": {
+   "ns_per_assembly_pair": 2806.5361999324523,
+   "vs_zero": 2.320768680918232,
+   "ns_per_read": 21.926064061972284,
+   "coarse_estep_s_1_chip": 21.673071015103375
+  },
+  "16": {
+   "ns_per_assembly_pair": 4219.403200113447,
+   "vs_zero": 3.4890905021018908,
+   "ns_per_read": 32.96408750088631,
+   "coarse_estep_s_1_chip": 32.58373264510685
+  }
+ },
  "verdict": {
   "free_up_to_tile_ops_per_assembly_pair": 16,
   "needed_tile_ops_per_assembly_pair": 1.09375,
   "headroom": 14.628571428571428,
-  "gather_only_ns": 1204.19380000385,
+  "gather_only_ns": 1213.7576000895933,
   "blend_hides": true
  }
 }
