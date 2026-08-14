@@ -1,0 +1,27 @@
+# host bh-glx-exp-b03u14 Fri Aug 14 11:10:36 AM UTC 2026 openmpi mpirun (Open MPI) 4.1.2
+# loadavg 1.11 2.10 1.75 1/1062 1903597
+# ranks=1 reps=6  MPI_DOUBLE MPI_SUM MPI_COMM_WORLD
+{"ranks": 1, "mb": 209.29, "best_ms": 14.824, "mean_ms": 14.856, "alg_GBs": 14.80, "ringbus_GBs": 0.00, "exact": true}
+{"ranks": 1, "mb": 348.34, "best_ms": 24.235, "mean_ms": 24.373, "alg_GBs": 15.07, "ringbus_GBs": 0.00, "exact": true}
+{"ranks": 1, "mb": 741.43, "best_ms": 52.031, "mean_ms": 52.155, "alg_GBs": 14.94, "ringbus_GBs": 0.00, "exact": true}
+# ranks=2 reps=6  MPI_DOUBLE MPI_SUM MPI_COMM_WORLD
+{"ranks": 2, "mb": 209.29, "best_ms": 130.911, "mean_ms": 132.167, "alg_GBs": 1.68, "ringbus_GBs": 1.68, "exact": true}
+{"ranks": 2, "mb": 348.34, "best_ms": 217.482, "mean_ms": 218.506, "alg_GBs": 1.68, "ringbus_GBs": 1.68, "exact": true}
+{"ranks": 2, "mb": 741.43, "best_ms": 450.309, "mean_ms": 451.531, "alg_GBs": 1.73, "ringbus_GBs": 1.73, "exact": true}
+# ranks=4 reps=6  MPI_DOUBLE MPI_SUM MPI_COMM_WORLD
+{"ranks": 4, "mb": 209.29, "best_ms": 148.494, "mean_ms": 164.248, "alg_GBs": 1.48, "ringbus_GBs": 2.22, "exact": true}
+{"ranks": 4, "mb": 348.34, "best_ms": 269.238, "mean_ms": 271.442, "alg_GBs": 1.36, "ringbus_GBs": 2.03, "exact": true}
+{"ranks": 4, "mb": 741.43, "best_ms": 525.928, "mean_ms": 529.385, "alg_GBs": 1.48, "ringbus_GBs": 2.22, "exact": true}
+# ranks=8 reps=6  MPI_DOUBLE MPI_SUM MPI_COMM_WORLD
+{"ranks": 8, "mb": 209.29, "best_ms": 247.638, "mean_ms": 249.506, "alg_GBs": 0.89, "ringbus_GBs": 1.55, "exact": true}
+{"ranks": 8, "mb": 348.34, "best_ms": 381.250, "mean_ms": 383.749, "alg_GBs": 0.96, "ringbus_GBs": 1.68, "exact": true}
+{"ranks": 8, "mb": 741.43, "best_ms": 766.649, "mean_ms": 776.197, "alg_GBs": 1.01, "ringbus_GBs": 1.77, "exact": true}
+# ranks=16 reps=6  MPI_DOUBLE MPI_SUM MPI_COMM_WORLD
+{"ranks": 16, "mb": 209.29, "best_ms": 310.943, "mean_ms": 319.471, "alg_GBs": 0.71, "ringbus_GBs": 1.32, "exact": true}
+{"ranks": 16, "mb": 348.34, "best_ms": 508.038, "mean_ms": 520.659, "alg_GBs": 0.72, "ringbus_GBs": 1.35, "exact": true}
+{"ranks": 16, "mb": 741.43, "best_ms": 1035.781, "mean_ms": 1052.458, "alg_GBs": 0.75, "ringbus_GBs": 1.41, "exact": true}
+# ranks=32 reps=6  MPI_DOUBLE MPI_SUM MPI_COMM_WORLD
+{"ranks": 32, "mb": 209.29, "best_ms": 595.248, "mean_ms": 603.015, "alg_GBs": 0.37, "ringbus_GBs": 0.71, "exact": true}
+{"ranks": 32, "mb": 348.34, "best_ms": 960.726, "mean_ms": 979.830, "alg_GBs": 0.38, "ringbus_GBs": 0.74, "exact": true}
+{"ranks": 32, "mb": 741.43, "best_ms": 1984.072, "mean_ms": 2040.547, "alg_GBs": 0.39, "ringbus_GBs": 0.76, "exact": true}
+# loadavg_end 16.61 6.02 3.11 3/1053 1904026
