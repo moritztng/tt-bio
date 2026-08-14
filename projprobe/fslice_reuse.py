@@ -161,7 +161,7 @@ def main():
                   f"({100*(1e9/tot)/FLOOR_SLICES_S:4.1f}% of floor)", flush=True)
             # The general shear needs stage 1 to emit 8 replicated copies. Cost probe: bytes right,
             # contents of copies 1..7 wrong, so only the timing is used.
-            if shift == 7:
+            if shift in (7, 28):
                 o8 = ttnn.from_torch(torch.zeros(1, 1, 32 * NB * n * 8, 32).to(torch.bfloat16),
                                      dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
                 pd8 = build(dev, v, m, o8, nx, ny, NB, shift, 8)
