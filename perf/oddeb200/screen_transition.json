@@ -1,0 +1,35 @@
+{
+ "host": "tt-quietbox2",
+ "ttnn": null,
+ "shape": [
+  1,
+  10,
+  512,
+  384
+ ],
+ "hidden": 1536,
+ "row_chunk_h": 10,
+ "chunks_per_call": 52,
+ "ms_per_chunk": {
+  "slice": 0.0433,
+  "layer_norm": 0.058,
+  "fc1_silu": 0.2547,
+  "fc2": 0.0954,
+  "multiply_": 0.073,
+  "fc3": 0.1368,
+  "whole_chunk": 0.5459
+ },
+ "per_leg_sum_ms": 0.6613,
+ "whole_chunk_ms": 0.5459,
+ "per_op_over_read": 0.2113,
+ "whole_call_ms": 28.3882,
+ "deletable_ms_per_chunk": 0.1453,
+ "deletable_ms_per_call": 6.2393,
+ "inherited": {
+  "whole_call_ms": 29.096,
+  "per_leg_sum_per_chunk_ms": 0.6539,
+  "over_read": 0.177,
+  "gate_ms_per_call": 4.4
+ },
+ "gate_denominator_moved": -0.7078
+}
