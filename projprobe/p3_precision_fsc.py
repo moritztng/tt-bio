@@ -64,7 +64,10 @@ VARIANT = sys.argv[5] if len(sys.argv) > 5 else "twopass"
 PREC = sys.argv[6] if len(sys.argv) > 6 else "bf16_dev"
 PAD = 2
 APIX = 1.0
-FLUSH = 25
+# How many orientations accumulate before the backprojection buffers are folded into the
+# volume. Only `bf16acc` is sensitive to it: that arm rounds the accumulator at every flush,
+# so FLUSH is its rounding count and a smaller value is a tighter lower bound on the damage.
+FLUSH = int(sys.argv[7]) if len(sys.argv) > 7 else 25
 
 # The device-measured round-off of the real kernel against an fp64 model of the same
 # operation, projection spike sections 24.1 (stage 1, band 28: 3.41e-3) and 28.1 (stage 2,
@@ -219,7 +222,9 @@ def main():
     res["pass"] = bool(abs(d) <= BAR_A)
     print(f"\n{VARIANT}/{PREC} minus RELION trilinear fp64: {d:+.4f} A   (bar {BAR_A} A) -> "
           f"{'PASS' if abs(d) <= BAR_A else 'FAIL'}", flush=True)
-    out = HERE / f"p3fsc_box{N}_snr{SNR}_s{SEED}_{VARIANT}_{PREC}.json"
+    res["flush"] = FLUSH
+    tag = "" if FLUSH == 25 else f"_f{FLUSH}"
+    out = HERE / f"p3fsc_box{N}_snr{SNR}_s{SEED}_{VARIANT}_{PREC}{tag}.json"
     json.dump(res, open(out, "w"), indent=1)
     print(f"-> {out.name}  ({time.time()-t0:.0f}s)")
 
