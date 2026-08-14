@@ -168,9 +168,12 @@ times.
 * **164 targets.** Enough to separate the four models' oracle-delivered gaps with intervals that do
   not overlap zero. Not enough to support per-epitope-class or per-germline claims, and not a
   general statement about co-folding beyond antibody-antigen complexes.
-* **Three targets carry no DockQ.** 9ly2, 9ly3 and 9lz2 are 3-way Ab:Ag hetero-hexamers in their
-  asymmetric units and the scorer resolves no antibody-antigen interface for them, in any model.
-  Their confidence values ship; `dockq` is null. So 161 targets are scorable, in every model.
+* **Three targets carry no DockQ.** 9ly2, 9ly3 and 9lz2 are anti-phosphoepitope antibodies. Every
+  contact atom on the antigen side of their declared interface sits on a phosphoserine (71/71, 78/78
+  and 48/48), and DockQ scores only standard residues, so the interface has nothing to score. The
+  fold input carries unmodified serine at those positions, so the quantity does not exist on the
+  prediction side either. Their confidence values ship; `dockq` is null. 161 targets are scorable, in
+  every model.
 * **One cell is absent.** opendde-abag / 9sbb. Its galaxy folds sit in a pTM 0.668-0.697 basin
   against ~0.91 on a refold of the identical input, DockQ 0.023 against 0.880 under the same fixed
   scorer, and a scan over the whole panel found it the only such case. It is a pipeline artifact,
