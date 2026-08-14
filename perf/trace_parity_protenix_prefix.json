@@ -1,0 +1,59 @@
+{
+  "model": "protenix-v2",
+  "git": "bee090b4e5251d52e4a970a58e23f95bb2431b80",
+  "folds": [
+    {
+      "target": "bk6_104",
+      "trace": false,
+      "s": 53.953,
+      "plddt": 0.616755,
+      "cif_sha256": {
+        "bk6_104.cif": "38956892bf07c194"
+      },
+      "trace_N": null
+    },
+    {
+      "target": "bk6_104_rot37",
+      "trace": false,
+      "s": 11.354,
+      "plddt": 0.561458,
+      "cif_sha256": {
+        "bk6_104_rot37.cif": "44dc57d9da1bae0e"
+      },
+      "trace_N": null
+    },
+    {
+      "target": "bk6_104",
+      "trace": true,
+      "s": 8.195,
+      "plddt": 0.616755,
+      "cif_sha256": {
+        "bk6_104.cif": "38956892bf07c194"
+      },
+      "trace_N": 794
+    },
+    {
+      "target": "bk6_104_rot37",
+      "trace": true,
+      "s": 8.057,
+      "plddt": 0.471194,
+      "cif_sha256": {
+        "bk6_104_rot37.cif": "197a353c392f5d5f"
+      },
+      "trace_N": 794
+    },
+    {
+      "target": "bk6_104",
+      "trace": false,
+      "s": 11.564,
+      "plddt": 0.616755,
+      "cif_sha256": {
+        "bk6_104.cif": "38956892bf07c194"
+      },
+      "trace_N": 794
+    }
+  ],
+  "problems": [
+    "trace-ON B diverged from untraced B: 197a353c392f5d5f vs 44dc57d9da1bae0e -- the second target replayed stale conditioning (the multi-target trace bug)"
+  ]
+}

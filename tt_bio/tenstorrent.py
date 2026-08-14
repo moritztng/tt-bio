@@ -5128,6 +5128,15 @@ class DiffusionModule(TorchWrapper):
         runtime cache every step. Idempotent. Returns ``(seq_len, N, N_padded)``
         so callers can slice the output and pick the chunked kernel path.
         """
+        cond_key = s_inputs  # the entry object; padding below replaces the name
+        cond_ref = self._cache_get("cond_ref")
+        if cond_ref is not None and cond_ref is not cond_key:
+            # A new fold's conditioning arrived while the cache still holds the
+            # previous fold's. The staged device tensors, and any trace captured
+            # over their buffers, are valid only for the conditioning they were
+            # staged from; shape alone cannot tell "next step of the same fold"
+            # from "first step of a new one", but tensor identity can.
+            self.reset_static_cache()
         B, N, _ = q.shape
         NW = N // ATOM_WINDOW
 
@@ -5236,6 +5245,7 @@ class DiffusionModule(TorchWrapper):
             self._cache_set("atom_to_token_normed", atom_to_token_normed_tt)
 
             self._cache_set("atom_pad", atom_pad)
+            self._cache_set("cond_ref", cond_key)
             self._first_forward_pass = False
         return seq_len, N, N_padded
 

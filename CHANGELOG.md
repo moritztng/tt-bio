@@ -3,6 +3,18 @@
 All notable changes to TT-Bio are recorded here. Versioning is [SemVer](https://semver.org);
 releases are cut from a commit that has passed the on-hardware test suite (see `RELEASING.md`).
 
+## [Unreleased]
+
+### Fixed
+
+- `--trace` with Protenix-v2 or OpenDDE silently returned wrong structures for every
+  target after the first when one process folded several targets of the same size: the
+  captured trace was keyed on shape alone and replayed the first target's conditioning.
+  The trace is now re-captured when the conditioning changes. Regression gate:
+  `scripts/trace_multitarget_parity.py` (two same-size targets, one process, trace on
+  vs off, byte-identical CIFs required). Boltz-2 and BoltzGen were not affected: their
+  predict path resets the trace cache between targets.
+
 ## [0.6.2] - 2026-08-07
 
 OpenFold3 lands: `tt-bio predict --model openfold3` folds proteins, RNA and DNA with the
