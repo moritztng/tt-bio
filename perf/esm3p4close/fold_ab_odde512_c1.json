@@ -1,0 +1,148 @@
+{
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "1",
+ "model": "opendde",
+ "size": 512,
+ "git_head": "4347657f",
+ "has_l1_fc1_gate": true,
+ "recycling_steps": 10,
+ "sampling_steps": 200,
+ "arms": [
+  "base",
+  "l2"
+ ],
+ "rounds": 1,
+ "runs": [
+  {
+   "tag": "warm:base",
+   "arm": "base",
+   "l1_fc1": false,
+   "fold_s": 110.692,
+   "plddt": 0.75411,
+   "cif": {
+    "cdk2x2_512.cif": "357c67003bb738ac"
+   },
+   "e6_served": 2464,
+   "e6_declined": 0,
+   "l1_fc1_stats": [
+    0,
+    0
+   ],
+   "fwd_move": [
+    0,
+    24
+   ],
+   "back_move": [
+    1208,
+    0
+   ],
+   "l1_out_refused": 0,
+   "loadavg": "1.54"
+  },
+  {
+   "tag": "warm:l2",
+   "arm": "l2",
+   "l1_fc1": true,
+   "fold_s": 83.418,
+   "plddt": 0.75411,
+   "cif": {
+    "cdk2x2_512.cif": "357c67003bb738ac"
+   },
+   "e6_served": 2464,
+   "e6_declined": 0,
+   "l1_fc1_stats": [
+    0,
+    0
+   ],
+   "fwd_move": [
+    0,
+    24
+   ],
+   "back_move": [
+    1208,
+    0
+   ],
+   "l1_out_refused": 0,
+   "loadavg": "1.19"
+  },
+  {
+   "tag": "r0:base",
+   "arm": "base",
+   "l1_fc1": false,
+   "fold_s": 83.459,
+   "plddt": 0.75411,
+   "cif": {
+    "cdk2x2_512.cif": "357c67003bb738ac"
+   },
+   "e6_served": 2464,
+   "e6_declined": 0,
+   "l1_fc1_stats": [
+    0,
+    0
+   ],
+   "fwd_move": [
+    0,
+    24
+   ],
+   "back_move": [
+    1208,
+    0
+   ],
+   "l1_out_refused": 0,
+   "loadavg": "1.05"
+  },
+  {
+   "tag": "r0:l2",
+   "arm": "l2",
+   "l1_fc1": true,
+   "fold_s": 83.479,
+   "plddt": 0.75411,
+   "cif": {
+    "cdk2x2_512.cif": "357c67003bb738ac"
+   },
+   "e6_served": 2464,
+   "e6_declined": 0,
+   "l1_fc1_stats": [
+    0,
+    0
+   ],
+   "fwd_move": [
+    0,
+    24
+   ],
+   "back_move": [
+    1208,
+    0
+   ],
+   "l1_out_refused": 0,
+   "loadavg": "1.52"
+  }
+ ],
+ "grid": [
+  11,
+  10
+ ],
+ "summary": {
+  "base": {
+   "n": 1,
+   "median": 83.459,
+   "min": 83.459,
+   "max": 83.459,
+   "spread": 0.0,
+   "speedup_vs_base": 1.0,
+   "delta_s": 0.0
+  },
+  "l2": {
+   "n": 1,
+   "median": 83.479,
+   "min": 83.479,
+   "max": 83.479,
+   "spread": 0.0,
+   "speedup_vs_base": 0.9998,
+   "delta_s": -0.02
+  },
+  "A/A_noise_floor_s": 0.0
+ },
+ "cif_identical_across_arms": true
+}
