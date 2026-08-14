@@ -1,0 +1,1 @@
+rc=0 arm=g1_x3 acc=--gpu 0 scale=3
