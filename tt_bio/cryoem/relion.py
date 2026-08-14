@@ -37,9 +37,21 @@ _dumped = [0]
 _stats = {"handled": 0, "declined": 0, "resid_max": 0.0, "resid_n": 0}
 
 
+# TT_RELION_TORCH_THREADS=<n>: torch's intra-op thread count inside the bridge. RELION already
+# parallelises over --j threads per rank and runs several ranks per box, so torch's default (one
+# thread per core, per process) multiplies that by the core count. Unset leaves torch alone.
+_TORCH_THREADS = int(os.environ.get("TT_RELION_TORCH_THREADS", "0"))
+_torch_ready = [False]
+
+
 def _torch():
     import torch
+    # set_grad_enabled is thread-local and RELION calls this from every one of its --j threads, so
+    # it stays per call. set_num_threads is process-wide, so it is set once.
     torch.set_grad_enabled(False)
+    if _TORCH_THREADS > 0 and not _torch_ready[0]:
+        torch.set_num_threads(_TORCH_THREADS)
+        _torch_ready[0] = True
     return torch
 
 
