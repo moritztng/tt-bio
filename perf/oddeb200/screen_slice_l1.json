@@ -1,0 +1,20 @@
+{
+ "shape": [
+  1,
+  10,
+  512,
+  384
+ ],
+ "chunks_per_call": 52,
+ "l1_slice_memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::L1,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+ "torch_equal": true,
+ "max_abs_diff": 0.0,
+ "slice_dram_ms": 0.0433,
+ "slice_l1_ms": 0.0296,
+ "whole_dram_ms": 0.5398,
+ "whole_l1_ms": 0.5251,
+ "slice_delta_ms_per_chunk": -0.0137,
+ "whole_delta_ms_per_chunk": -0.0147,
+ "whole_delta_ms_per_call": -0.7644,
+ "projected_s_per_fold": -0.4036
+}
