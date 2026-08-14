@@ -112,9 +112,9 @@ per distinct chain sequence).
 | `irmsd` | float32 | Å | interface backbone RMSD |
 | `lrmsd` | float32 | Å | ligand RMSD |
 | `fnat` | float32 | [0,1] | fraction of native contacts recovered |
-| `interface_lddt` | float32 | [0,1] | lDDT over interface atom pairs. Partial coverage, see limitations |
-| `cdr_h1_rmsd`, `cdr_h2_rmsd`, `cdr_h3_rmsd` | float32 | Å | per-CDR-loop RMSD after alignment. Partial coverage |
-| `epitope_jaccard` | float32 | [0,1] | overlap of predicted and native antigen contact residue sets. Partial coverage |
+| `interface_lddt` | float32 | [0,1] | lDDT over interface atom pairs. Null on 4 targets, see limitations |
+| `cdr_h1_rmsd`, `cdr_h2_rmsd`, `cdr_h3_rmsd` | float32 | Å | per-CDR-loop RMSD after alignment. Null on 5 targets, see limitations |
+| `epitope_jaccard` | float32 | [0,1] | overlap of predicted and native antigen contact residue sets. Populated on every sample; read the limitation on the 7 unresolved-epitope targets |
 | `seed` | int32 | | diffusion seed for the chunk |
 | `mps` | int8 | chips | chips per fold job. Null where the fleet recorded `auto` |
 | `wall_s` | int32 | s | wall time of the 64-sample chunk, not of one sample. All 64 rows of a chunk share it |
@@ -179,11 +179,21 @@ times.
   scorer, and a scan over the whole panel found it the only such case. It is a pipeline artifact,
   not model behaviour, and no published number used it. That is why `samples` has 655 x 512 rows,
   not 656 x 512.
-* **The secondary metrics are ragged, badly so for esmfold2.** `dockq` and `irmsd` are populated on
-  every scorable sample in all four models. `interface_lddt`, `epitope_jaccard` and the CDR RMSDs
-  are not: mean per-target depth for `cdr_h3_rmsd` is 419.8 for boltz2, 505.6 for opendde-abag,
-  330.0 for protenix-v2 and **95.4 for esmfold2** out of 512. Quote those metrics at their own
-  depth. No epitope or CDR claim from this dataset is a claim at n=512.
+* **The secondary metrics are null only where the quantity does not exist.** `dockq` and `irmsd`
+  are populated on every scorable sample in all four models, and `epitope_jaccard` on every sample
+  of every target. `interface_lddt` is null on the 4 targets whose native antigen chain does not
+  resolve (9ly2, 9ly3, 9lz2, 9mz8) and the CDR RMSDs on the 5 whose native heavy chain cannot be
+  IMGT-numbered at the loops (9l9y, 9lwc, 9mnu, 9msc, 9udq). The same targets in every model. Mean
+  per-target depth out of 512, boltz2 / esmfold2 / opendde-abag / protenix-v2: `interface_lddt`
+  499.4 / 498.9 / 499.4 / 499.4, `cdr_h3_rmsd` 496.4 / 496.4 / 496.3 / 496.4, `epitope_jaccard`
+  512.0 throughout. Beyond those targets a few individual poses lack `interface_lddt` because the
+  interface did not resolve on that pose: 13 samples in boltz2, 108 in esmfold2, 0 in
+  opendde-abag, 16 in protenix-v2, out of ~81,900 each.
+* **`epitope_jaccard` is 0.0 on 7 targets for a reason that is not the model.** On 9kwy, 9ly2, 9ly3,
+  9lz2, 9ull, 9ulm and 9ynx the native antigen chain does not resolve, so the native epitope set is
+  empty and the metric evaluates to 0.0 rather than to a comparison. That is 14,336 rows, all four
+  models, and it is not evidence that the models missed those epitopes. Exclude those 7 targets from
+  any `epitope_jaccard` aggregate. Zeros elsewhere in the column are real.
 * **512 is a decision cap, not a measured knee.** The oracle's gain per doubling is still positive at
   the top rung, so the ceiling has not saturated. Nothing here says 512 is where sampling stops
   paying.
