@@ -1,6 +1,6 @@
 {
   "schema": 2,
-  "updated": "2026-08-13",
+  "updated": "2026-08-14",
   "title": "TT-Bio: biomolecular structure, design and embeddings on Tenstorrent",
   "subtitle": "Five structure-prediction models at 512 residues, measured on Tenstorrent Blackhole and on NVIDIA H200 and B200.",
   "notes": [
@@ -245,6 +245,62 @@
       }
     }
   ],
+  "design": {
+    "deck": "BoltzGen and RFdiffusion3, seconds per binder design on one AI Processor, each on its own pinned target.",
+    "cond": "Wall-clock seconds to return one binder design on a single AI Processor, warm, at each model's shipped defaults. Shorter is better. Both sides run the same target and ask for the same designs; RFdiffusion3's eight come out of one forward of 8 on the GPUs and four forwards of 2 on the p150a, the largest batch its atom-pair budget allows at this target.",
+    "note": "No throughput-per-dollar figure is derived here. The rung above this one overflows L1 on the p150a for BoltzGen, so BoltzGen is measured one rung below it, where the H200 sits at 41 % of its power limit and the B200 at 31 %, and a cost ratio taken on an idle GPU would not survive a bigger target. On both models the B200 is no faster than the H200, 0.6 % slower on RFdiffusion3 and 1.27x slower on BoltzGen. The rows above carry a bit-exact digest; a design draws a new sequence every time, so these two carry per-run output validation instead, and every design counted here wrote, parsed, had finite coordinates and had the residue topology its spec asked for.",
+    "methods": "Two pinned targets, one per model, at the shipped defaults: BoltzGen 500 sampling steps at batch 1, RFdiffusion3 200 timesteps for eight designs. Tenstorrent figures are warm medians on one Blackhole p150a under a run lock, with the cold pass and, for BoltzGen, the design that pays the checkpoint switch dropped. GPU figures come from the same protocol on rented single-GPU nodes. Designs are validated per run rather than digested: chain sizes, residue topology and finite coordinates, never atom equality between siblings, because sibling designs legitimately differ.",
+    "models": [
+      {
+        "id": "boltzgen",
+        "name": "BoltzGen",
+        "target": "EBV gp350 D123 (9ma0 chain A), 414 target residues, 100-residue binder, 514 tokens",
+        "sampling_steps": 500,
+        "batch": 1,
+        "cells": {
+          "p150a": {
+            "status": "measured",
+            "s_per_design": 45.289,
+            "ref": "Median of n=4 warm designs, 45.187 / 45.221 / 45.357 / 45.393 s, spread 0.46 %, with a second independent process 0.05 % away at 45.265 s. qb2, Blackhole p150a physical card 0, ttnn 0.68.0, under a run lock. End-to-end per design; the cold design and the design that pays the 1.9 GB checkpoint switch are dropped, the same two the GPU arm drops. 500 sampling steps resolved from the shipped design.yaml and asserted per design. 20.501 s of each design is the denoising loop at 41.00 ms per step, the other 24.8 s is trunk, post-processing and writing."
+          },
+          "h200": {
+            "status": "measured",
+            "s_per_design": 12.647,
+            "ref": "Median of n=4 warm designs, spread 1.18 %, end-to-end per design. boltzgen 0.1.0, torch 2.13.0+cu130, fused kernels on. The cold design and the design that pays the checkpoint switch are dropped."
+          },
+          "b200": {
+            "status": "measured",
+            "s_per_design": 16.092,
+            "ref": "Median of n=4 warm designs, spread 0.59 %, end-to-end per design, same stack."
+          }
+        }
+      },
+      {
+        "id": "rfd3",
+        "name": "RFdiffusion3",
+        "target": "Human serum albumin (9q6y chain A), 585 target residues, 100-residue binder, 6051 atoms",
+        "sampling_steps": 200,
+        "batch": "8 requested",
+        "cells": {
+          "p150a": {
+            "status": "measured",
+            "s_per_design": 167.189,
+            "ref": "Median of n=3 warm forwards, 334.081 / 334.379 / 334.862 s per forward of 2, spread 0.23 %, 1671.9 ms per timestep. qb2, Blackhole p150a physical card 0, ttnn 0.68.0, under a run lock. The run asked for the shipped batch of 8; the runtime clamps it to 2 at this target size, so the eight designs come out as four forwards of two and the cold forward is dropped. All eight wrote 6051 atoms and 685 residues and passed validation. The same target at --batch_size 1 returns 144.044 s per design, so the clamped batch of 2 is 1.16x slower per design than the batch below it; this cell holds the shipped default."
+          },
+          "h200": {
+            "status": "measured",
+            "s_per_design": 12.974,
+            "ref": "Median of n=3 warm batches, 103.79 s per batch of 8, spread 0.29 %. rc-foundry 0.2.0, torch 2.13.0+cu130, 553.1 W, 79.0 % of the box's own 700 W limit."
+          },
+          "b200": {
+            "status": "measured",
+            "s_per_design": 13.049,
+            "ref": "Median of n=3 warm batches, 104.39 s per batch of 8, spread 1.34 %, same stack."
+          }
+        }
+      }
+    ]
+  },
   "sources": {
     "tt-galaxy": {
       "label": "Tenstorrent, Galaxy Blackhole",
