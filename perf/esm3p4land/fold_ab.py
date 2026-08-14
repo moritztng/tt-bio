@@ -19,7 +19,9 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
 
-ARMS = {"base": False, "l2": True}
+# `ship` leaves the gate alone, so it measures whatever the module default currently is. That is
+# the arm the page publishes, and it is the only one that catches a default that did not land.
+ARMS = {"base": False, "l2": True, "ship": None}
 
 
 def sha_dir(d):
@@ -72,7 +74,9 @@ def main():
 
     def run(tag, arm):
         want = ARMS[arm]
-        if hasattr(EC, "set_pair_ffn_l1_fc1"):
+        if want is None:
+            want = EC._PAIR_FFN_L1_FC1
+        elif hasattr(EC, "set_pair_ffn_l1_fc1"):
             EC.set_pair_ffn_l1_fc1(want)
         elif want:
             raise SystemExit("arm %s needs set_pair_ffn_l1_fc1, absent here" % arm)
