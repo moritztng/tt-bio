@@ -81,10 +81,21 @@ performance claim and it must never be quoted as one.** The performance claim is
 
 ### 2.1. The A/A, so the deltas below are interpretable
 
-The same iteration ran twice under `benchlock.sh` at **142.50 s** and **140.98 s**, **1.1% apart**,
-both acquiring the lock at loadavg 0.17-0.52 — against the **2.01x** that `relion-acc-backend` §4.8
-measured for the same arm *unlocked* on this same host. **The noise floor under a clean lock is ~1%.**
-Independently, the `-DTIMING` + CTIC/CTOC instrument is nearly free: this run's `expectation_6` is
+There are two, at two scales, and **they do not give the same answer — which is the point**.
+
+- **Per iteration: 1.1%.** The same iteration ran twice under `benchlock.sh` at **142.50 s** and
+  **140.98 s**, both acquiring the lock at loadavg 0.17-0.52 — against the **2.01x** that
+  `relion-acc-backend` §4.8 measured for the same arm *unlocked* on this host.
+- **Per whole refinement: 11.2%.** `ref` and `ref2` are the same binary, same backend, same input,
+  both under the lock: **922.19 s** and **1025.91 s** (21184.71 + 34.81 CPU-s, `rc=0`, same
+  `3.79378 Å`). `ref2` acquired at loadavg 2.65 against the threshold of 3.0, so this is co-tenancy
+  the lock permits rather than measurement error.
+
+**Quoting the 1.1% as this task's noise floor would understate it by 10x.** A whole-refinement A/B has
+to clear 11.2%, not 1%. The 4.325x in §2 clears it by 39x, so it stands, but no refinement-scale
+result under ~12% should be read as a signal on this host.
+
+The `-DTIMING` + CTIC/CTOC instrument is separately nearly free: this run's `expectation_6` is
 **131.826 s** against the un-instrumented iteration 13 at **132.756 s**, **0.7% apart**.
 
 ---
@@ -147,15 +158,36 @@ the RELION-against-RELION row and not in ours.
 
 | iteration | it012 | it013 | it014 | it015 | it016 |
 |---|---|---|---|---|---|
-| tt vs ref, worst column, particles no longer bit-identical | 0/4452 | 0/4452 | 6/4452 | 13/4452 | 18/4452 |
-| as a rate | 0.000% | 0.000% | 0.135% | 0.292% | **0.404%** |
+| **tt vs ref** — the bridge against RELION's kernels | 0/4452 | 0/4452 | 6/4452 | 13/4452 | **18/4452 = 0.404%** |
+| **ref2 vs ref** — RELION's kernels against *themselves*, rerun | 0/4452 | 0/4452 | 1/4452 | 7/4452 | **13/4452 = 0.292%** |
 
-Read alone that is "the bridge changes RELION's answer and it compounds", and it would be the wrong
-reading. **What grows is the count of particles whose values are no longer bit-identical. What does
-not grow is the size of any disagreement**: at the end of the trajectory the median is still exactly
-zero, the p99 is still exactly zero, and the largest single move is 0.47°, which is smaller than the
-0.79° p99 that RELION's own two backends already differ by at every particle. The resolution the
-refinement converges to is unchanged at −0.0001 Å and `relion_postprocess` prints the same six digits.
+Read on its own the first row is "the bridge changes RELION's answer and it compounds", and it would
+be the wrong reading. **The second row is the control that settles it, and it is the pre-registered
+outcome: RELION's own reference arm, rerun byte-for-byte identically, drifts from its own first run
+in the same shape and the same order.** `ref2` is `ref` in every respect including
+`TT_RELION_BACKEND=ttnn`; the only difference is that it is a second run.
+
+| pair | Rot bit-identical | Rot max \|Δ\| | Psi max \|Δ\| | FSC 0.143 | vs ref | cross-FSC min | rel L2 |
+|---|---|---|---|---|---|---|---|
+| **ref2 vs ref** (RELION against itself) | **4428/4452** | 0.402428° | 0.469614° | 3.9943 Å | **+0.0001 Å** | 0.999924 / 0.999957 | 8.7e-3 / 6.5e-3 |
+| **tt vs ref** (the bridge) | **4427/4452** | 0.402428° | 0.469614° | 3.9941 Å | **−0.0001 Å** | 0.999898 / 0.999987 | 1.0e-2 / 3.6e-3 |
+
+**One particle apart on the count, identical to six decimal places on the worst case, and on opposite
+sides of the reference by the same 0.0001 Å.** The bridge's disagreement with RELION is
+indistinguishable from RELION's disagreement with itself. The identical `0.402428°` and `0.469614°`
+maxima in both rows are not a coincidence: they are the same particles landing on the same
+sampling-step boundary, which is what the mechanism below predicts.
+
+**What grows is the count of particles whose values are no longer bit-identical. What does not grow is
+the size of any disagreement**: at the end of the trajectory the median is still exactly zero, the p99
+is still exactly zero, and the largest single move is 0.47° — smaller than the 0.79° p99 that RELION's
+own two *backends* already differ by at every particle. `relion_postprocess` prints the same six
+digits for both arms, and `ref2` reaches RELION's own `3.79378 Å` as well.
+
+**PRE-REGISTERED before `ref2` ran** (`perf/relion-end-to-end/e2e_ctrl.sh`, committed before launch):
+"if the drift is RELION's own, ref2-vs-ref shows a reassignment trajectory of the same shape and order
+as tt-vs-ref, and the bridge is exonerated. If ref2-vs-ref is 0/4452 at every iteration, the 18
+particles ARE the bridge and the parity claim has to say so." **It landed on the first branch.**
 
 **The mechanism, named:** the bridge reduces the whole image at once where RELION accumulates per
 256-pixel block, which changes the last bits of the score and nothing else (`tt_bio/cryoem/relion.py`
@@ -164,14 +196,10 @@ score within the last bits of each other and the tie breaks the other way; that 
 then differs by one sampling step, and because a refinement feeds its output back in, the *set* of
 such particles widens slowly. It is a widening tie-break set, not a growing error.
 
-**One control is queued and not yet reported: a second reference arm, `ref2`, identical to `ref` in
-every respect including the backend.** It bounds the same binary's own run-to-run reassignment over a
-trajectory, which would tell us how much of the 18 particles is RELION's own nondeterminism rather
-than the bridge. It is launched (`perf/relion-end-to-end/e2e_ctrl.sh`, relaunch-safe) and was still
-waiting on qb1's benchlock behind another worker at the end of this pass. **It is confirmatory, not
-load-bearing:** the job019 control above already bounds the disagreement against a fully independent
-RELION run, and it bounds it 20x above where the bridge sits. Both predictions are pre-registered in
-the script.
+**So there are two independent controls and they agree.** `ref2` bounds RELION's own run-to-run
+nondeterminism and puts the bridge one particle away from it; `job019` bounds RELION's own
+cross-backend disagreement and puts the bridge 20x inside it. **Neither leaves room for a bridge
+effect on RELION's answer.**
 
 ---
 
@@ -543,8 +571,9 @@ blend's tile layout needs a strided weight tile or a pair reduction.
 2. **The exact-trilinear device coarse kernel.** Priced at 9.37 s per iteration (§10), bit-identical
    by construction, no accuracy fork. It is a new-model-port-shaped change and **cannot merge without
    Moritz**, so it is proposed, not started.
-3. **`ref2` and the `TT_RELION_TORCH_THREADS` screen**, both launched and queued behind qb1's
-   benchlock (§3.3, §5.1). Confirmatory; neither can change a headline.
+3. **The `TT_RELION_TORCH_THREADS` screen** (§5.1), launched and running on qb1 behind `ref2`'s
+   benchlock hold. Confirmatory; it cannot change a headline, because the bridge's wall is not the
+   port's performance claim. `ref2` itself is **DONE** and reported in §2.1 and §3.3.
 4. **A device arm of the full refinement**, which needs 2 cards for a gold-standard MPI split (RELION 5
    refuses a single-process gold-standard split and its own error message advertises a flag that no
    longer parses), or two single-halfset runs assembled.
@@ -575,6 +604,17 @@ blend's tile layout needs a strided weight tile or a pair reduction.
   is also only getting 6-8x.** RELION's 4 GPUs get 6.4-7.8x on the tutorial job over a 32-core CPU. When
   the reference implementation's own accelerator underperforms its class, the dataset is the constraint,
   not the port — check the measured crossover before reading any ratio from it.
+- **A parity number needs the reference's disagreement with ITSELF before it means anything, and two
+  independent controls beat one.** The bridge's assignments drift from RELION's over five iterations
+  (0→18 of 4,452), which reads as a defect until you rerun RELION against itself and get 0→13 with
+  the worst case identical to six decimals. Two controls were available almost free: a second
+  reference arm (run-to-run) and RELION's own shipped CUDA results (cross-backend). Neither cost a
+  kernel. **Budget a self-control arm into any trajectory-level parity claim — a bit-exact single
+  iteration says nothing about a loop whose output is its own next input, and neither does a drift
+  number without the reference's own.**
+- **An A/A at one scale does not transfer to another.** The same host gave a 1.1% noise floor per
+  iteration and **11.2%** per whole refinement, both under the same benchlock threshold. Measuring the
+  A/A at the cheap scale and quoting it at the expensive one understates the bar by 10x.
 - **A growing count of non-identical particles is not a growing error.** Over five iterations the
   bridge's non-bit-identical set widened 0 → 18 of 4,452 while the median and p99 disagreement stayed
   exactly zero and the converged resolution moved by 0.0001 Å. The mechanism is a tie-break set widening
