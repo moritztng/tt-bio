@@ -78,7 +78,11 @@ TRANSITION_H_CHUNK_SIZE = 16
 # 0.0), and the next op writes L1 anyway; measured -0.7644 ms/call at [1,10,512,384]. Off by
 # default until the fold A/B and the 640 aa / protenix-v2 capacity legs clear it -- it raises peak
 # L1 inside a swiglu whose budget already makes h = 13, 21, 29, 42 clash.
-_TRANSITION_SLICE_L1 = os.environ.get("TT_BIO_TRANSITION_SLICE_L1", "0") == "1"
+_TRANSITION_SLICE_L1 = os.environ.get("TT_BIO_TRANSITION_SLICE_L1", "0") in ("1", "2")
+# =1 slices into L1, =2 keeps DRAM and changes ONLY the loop structure. The two arms
+# separate "where the chunk lands" from "when it is allocated", which the first attempt
+# changed together.
+_TRANSITION_SLICE_L1_DRAM = os.environ.get("TT_BIO_TRANSITION_SLICE_L1", "0") == "2"
 # Measured 1.87x at the protenix pair shape (microbench M4, W=320/c=256) but 32 clashes
 # with in-block L1 pressure at MSA shapes (W=1024/c=128, test_msa[100-1000]) and at the
 # opendde pair shape (W=320/c=384). Gate to the verified envelope only.
@@ -3299,7 +3303,8 @@ class Transition(Module):
             for s in range(0, H, transition_h_chunk_size):
                 e = min(s + transition_h_chunk_size, H)
                 c = ttnn.slice(x, [0, s, 0, 0], [x.shape[0], e, W, x.shape[-1]],
-                               memory_config=ttnn.L1_MEMORY_CONFIG)
+                               memory_config=(ttnn.DRAM_MEMORY_CONFIG if _TRANSITION_SLICE_L1_DRAM
+                                              else ttnn.L1_MEMORY_CONFIG))
                 parts.append(swiglu(c))
                 ttnn.deallocate(c)
             return ttnn.concat(parts, dim=1)

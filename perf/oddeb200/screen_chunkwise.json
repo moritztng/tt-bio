@@ -1,0 +1,381 @@
+{
+ "shape_full": [
+  1,
+  10,
+  512,
+  384
+ ],
+ "n_chunks": 52,
+ "full_height_chunks": 51,
+ "ragged_chunks": 1,
+ "full_height_differing": 0,
+ "ragged_differing": 0,
+ "max_abs_diff_over_all": 0.0,
+ "verdict": "every chunk bit-exact in isolation -- the fold-level divergence comes from the surrounding allocation sequence, not from any single chunk",
+ "chunks": [
+  {
+   "start": 0,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 10,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 20,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 30,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 40,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 50,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 60,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 70,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 80,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 90,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 100,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 110,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 120,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 130,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 140,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 150,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 160,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 170,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 180,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 190,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 200,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 210,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 220,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 230,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 240,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 250,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 260,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 270,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 280,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 290,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 300,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 310,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 320,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 330,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 340,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 350,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 360,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 370,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 380,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 390,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 400,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 410,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 420,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 430,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 440,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 450,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 460,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 470,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 480,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 490,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 500,
+   "rows": 10,
+   "ragged": false,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  },
+  {
+   "start": 510,
+   "rows": 2,
+   "ragged": true,
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  }
+ ]
+}
