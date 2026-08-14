@@ -1,0 +1,3 @@
+a rc=0 backend=ttnn wall=339.92s rss=2.84GB loadavg=22.42
+t rc=0 backend=torch wall=989.67s rss=4.03GB loadavg=43.03
+bridge per-call 151.2ms at No=186 Nt=9 P=19404; predicted 337s/follower, measured ~325s (3.6% off)

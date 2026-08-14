@@ -26,7 +26,11 @@ void kernel_main() {
     // plane is read once and serves nplane/shift output tiles. The z-collapse is 100%
     // reads (measured), so this ratio is the whole lever.
     constexpr uint32_t shift = get_compile_time_arg_val(5);
-    constexpr auto v_args = TensorAccessorArgs<6>();
+    // Tiles loaded from the mask tensor. Normally == nplane. The chained pipeline appends the
+    // per-copy shift matrices to the same tensor -- they are fixed for the whole run exactly as the
+    // masks are, so they ride in on the same one-off load rather than needing a second operand.
+    constexpr uint32_t nmask = get_compile_time_arg_val(6);
+    constexpr auto v_args = TensorAccessorArgs<7>();
     constexpr auto m_args = TensorAccessorArgs<v_args.next_compile_time_args_offset()>();
 
     const uint32_t v_addr = get_arg_val<uint32_t>(0);
@@ -39,14 +43,14 @@ void kernel_main() {
     const auto m = TensorAccessor(m_args, m_addr, tile_bytes);
 
     // The weight tiles are fixed for the direction, so they are loaded once rather than per tile.
-    cb_reserve_back(cb_mask, nplane);
+    cb_reserve_back(cb_mask, nmask);
     uint32_t wm = get_write_ptr(cb_mask);
-    for (uint32_t p = 0; p < nplane; ++p) {
+    for (uint32_t p = 0; p < nmask; ++p) {
         noc_async_read_page(p, m, wm);
         wm += tile_bytes;
     }
     noc_async_read_barrier();
-    cb_push_back(cb_mask, nplane);
+    cb_push_back(cb_mask, nmask);
 
     // Fill the window once, then top it up by `shift` planes per output tile. The circular buffer IS
     // the window: the compute pops `shift` from the front and these pushes add `shift` at the back, so

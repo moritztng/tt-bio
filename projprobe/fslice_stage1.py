@@ -48,7 +48,7 @@ def build(dev, v, m, out, nx, ny, nplane, nb, nmul=None):
         f = ttnn.CBFormatDescriptor(buffer_index=i, data_format=ttnn.bfloat16, page_size=page)
         return ttnn.CBDescriptor(total_size=depth * page, core_ranges=cg, format_descriptors=[f])
 
-    rct = ([CB_V, CB_MASK, nplane, TILE_B, BARRIER_EVERY]
+    rct = ([CB_V, CB_MASK, nplane, TILE_B, BARRIER_EVERY, nplane, nplane]
            + list(ttnn.TensorAccessorArgs(v).get_compile_time_args())
            + list(ttnn.TensorAccessorArgs(m).get_compile_time_args()))
     cct = [CB_V, CB_MASK, CB_OUT, nplane, nplane if nmul is None else nmul]

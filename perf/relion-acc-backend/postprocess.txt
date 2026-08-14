@@ -1,0 +1,6 @@
+relion_postprocess --angpix 1.244835, unmasked, RELION own binary, on the it013 half-maps:
+  A_ref       FINAL RESOLUTION 3.50195 A
+  T_mutexwide FINAL RESOLUTION 3.50195 A
+  T2_fixed    FINAL RESOLUTION 3.50195 A
+postprocess FSC table 129 shells x 4 cols: max abs delta 1.300e-05, 427/516 cells bit-identical
+postprocessed map sha256 differs per arm (summation order propagating), logs in /home/ttuser/relion-scratch/pp/
