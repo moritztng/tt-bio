@@ -1,0 +1,79 @@
+{
+ "base": "ref_run",
+ "pairs": {
+  "tt_run": {
+   "_rlnAngleRot": {
+    "n": 4452,
+    "identical": 4427,
+    "median": 0.0,
+    "p99": 0.0,
+    "max": 0.40242800000000045
+   },
+   "_rlnAngleTilt": {
+    "n": 4452,
+    "identical": 4427,
+    "median": 0.0,
+    "p99": 0.0,
+    "max": 0.19978400000000107
+   },
+   "_rlnAnglePsi": {
+    "n": 4452,
+    "identical": 4423,
+    "median": 0.0,
+    "p99": 0.0,
+    "max": 0.469614
+   },
+   "_rlnOriginXAngst": {
+    "n": 4452,
+    "identical": 4449,
+    "median": 0.0,
+    "p99": 0.0,
+    "max": 0.3960720000000002
+   },
+   "_rlnOriginYAngst": {
+    "n": 4452,
+    "identical": 4452,
+    "median": 0.0,
+    "p99": 0.0,
+    "max": 0.0
+   }
+  },
+  "gpu019_run": {
+   "_rlnAngleRot": {
+    "n": 4452,
+    "identical": 0,
+    "median": 0.08604300000000764,
+    "p99": 0.7859929200000011,
+    "max": 179.913288
+   },
+   "_rlnAngleTilt": {
+    "n": 4452,
+    "identical": 0,
+    "median": 0.039282999999997514,
+    "p99": 0.36927299999999824,
+    "max": 0.9600410000000004
+   },
+   "_rlnAnglePsi": {
+    "n": 4452,
+    "identical": 1,
+    "median": 0.04682950000000119,
+    "p99": 0.769188700000002,
+    "max": 10.988780999999996
+   },
+   "_rlnOriginXAngst": {
+    "n": 4452,
+    "identical": 0,
+    "median": 0.05307200000000001,
+    "p99": 0.23255000000000003,
+    "max": 0.618711
+   },
+   "_rlnOriginYAngst": {
+    "n": 4452,
+    "identical": 0,
+    "median": 0.05307200000000023,
+    "p99": 0.23255000000000003,
+    "max": 0.513498
+   }
+  }
+ }
+}

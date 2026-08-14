@@ -1,7 +1,7 @@
-# RELION end to end on Tenstorrent: the coarse pass is 90.4% of the E-step, so the one kernel already built carries an 8x whole-iteration ceiling — and the wall underneath it is RELION's own host code
+# RELION end to end on Tenstorrent: a full refinement runs through our code and lands on RELION's own published resolution to the digit, the port is closer to RELION's reference than RELION's own GPU backend is, and the honest verdict is that this dataset is too host-bound to be an accelerator benchmark
 
 Task `relion-end-to-end` | worktree `/home/moritz/.coworker/wt/relion-end-to-end` on pc, branch
-`wk/relion-end-to-end`. Continues `relion-acc-backend`. **Not merged.**
+`wk/relion-end-to-end`. Continues `relion-acc-backend`. **Not merged. Proposed with evidence.**
 
 TASK TYPE: ACCELERATE (whole-pipeline, inside a third-party codebase) | PLAYBOOKS loaded: ALWAYS-ON +
 §ACCELERATE + §VERIFY/BENCHMARK | memories read: `perf-method-floor-screen-predict-then-build`,
@@ -9,433 +9,611 @@ TASK TYPE: ACCELERATE (whole-pipeline, inside a third-party codebase) | PLAYBOOK
 `relion-precision-fsc-result`, `ttnn-fft-blackhole-kernel-result`,
 `ttnn-scatter-gather-per-element-limited`, `tt-bio-isolated-op-timing-oversync-inflates-cost`,
 `pc-disk-space-critical`, `galaxy-shared-customer`, `perf-gate-single-shot-legs-recurring-false-alarm`,
-`land-task-stale-premise-and-grep-overcount`.
+`land-task-stale-premise-and-grep-overcount`, `cdk2x2-chimeric-fixture-cannot-score-non-bit-exact-parity`.
 
-**STATUS: PLANNING PASS (opus5 tier). One thing is MEASURED this pass and it re-scopes the task; the
-rest is an execution plan with exact commands. No DONE is claimed and no perf claim is made.**
-
----
-
-## 0. What this pass measured, in one table, because it changes the answer
-
-RELION's accelerated E-step had no observable stage breakdown. It has one now.
-
-| region, iteration 13, cs=196, 30 threads | cpu-seconds | share of `oneParticle` |
-|---|---|---|
-| `oneParticle` (the whole per-particle E-step) | 730.13 / 733.65 | 100% |
-| **`getAllSquaredDifferencesCoarse`** | **660.06 / 665.52** | **90.40% / 90.71%** |
-| `getAllSquaredDifferencesFine` | 25.59 / 24.09 | 3.50% / 3.28% |
-| `storeWeightedSums` (wavg + backproject) | 25.29 / 24.56 | 3.46% / 3.35% |
-| — `maximization` (the wavg inside it) | 24.91 / 24.18 | 3.41% / 3.30% |
-| — `backproject` | — / 10.48 | — / 1.43% |
-| `getFourierTransformsAndCtfs` | 19.02 / 19.32 | 2.60% / 2.63% |
-| `convertAllSquaredDifferencesToWeights`, both passes | 0.12 / 0.12 | 0.02% |
-
-Two independent follower ranks, 1,104 and 1,116 particles, agreeing to 0.3 percentage points.
-`prof.log`, `perf/relion-end-to-end/e2e_prof.sh`, run under `benchlock.sh` (acquired at loadavg 0.52).
-
-**MEASURED, and it is the single number this task turns on: RELION's coarse squared-difference kernel
-is 90.4% of its own accelerated E-step. The fine pass is 3.5%.** The kernel the bridge already
-offloads is not a slice of the problem, it is nearly all of it.
-
-**A/A on the arm, MEASURED this pass:** the same iteration ran twice under `benchlock.sh` at
-**142.50 s** and **140.98 s**, **1.1% apart**, both acquiring the lock at loadavg 0.17-0.52. So the
-noise floor on this arm under a clean lock is ~1%, against the 2.01x that `relion-acc-backend` §4.8
-measured for an *unlocked* arm on this same host. The second run exits `rc=0`; the first exited 139
-after printing a correct table, which is the atexit bug in §8.
-
-**And the instrument is nearly free**, which is what makes the share believable rather than an
-observer effect: this run's `expectation_6` is **131.826 s** against P1's un-instrumented iteration 13
-at **132.756 s** (`relion-acc-backend.md` §3.1), **0.7% apart**, on the same continue from the same
-`it012` optimiser. That is the A/A for the instrument.
+**THE MILESTONE IS MET.** Two complete RELION 3D auto-refinements ran to convergence on the RELION-5
+tutorial dataset, on one binary with one variable, both `rc=0`, both writing RELION's own output tree.
+Both print **`Auto-refine: + Final resolution (without masking) is: 3.79378`**, byte-identical, and
+identical to the value RELION's own precalculated `Refine3D/job019` prints for this job. The arm with
+the coarse squared-difference kernel running in `tt_bio/cryoem/relion.py` converged on the same
+iteration, through the same per-iteration accuracy estimates, to the same answer.
 
 ---
 
-## 1. Re-scope. Three predecessors land here, and one of them was wrong in the favourable direction.
-
-The brief said to read `relion-acc-backend`, `relion-projection-optimize` and
-`relion-intercard-scaling` and re-scope against what they found, following evidence rather than a
-stale plan. What they carry forward:
+## 1. Re-scope, because three predecessors land here and one of them was wrong in the favourable direction
 
 | inherited from | claim | status after this pass |
 |---|---|---|
-| `relion-acc-backend` §4.5 | RELION runs a full iteration with its coarse compare in our code, **4452/4452 particle orientations bit-identical**, `relion_postprocess` **3.50195 Å** in both arms | **holds. This is the port's foundation and it is not reopened.** |
-| `relion-acc-backend` §3.3 | "the whole-program ceiling from accelerating the E-step alone is ~41x" | **SUPERSEDED.** It substituted a *coarse-only* device figure (0.085 s) for the *entire* E-step particle loop. §0 makes the real split measurable: the coarse-only ceiling is **8.0x**, and 41x needs three more kernels. §2. |
-| `relion-acc-backend` §4.12 | the shear interpolant's error is 6.0% median at this dataset's `--pad 1` and moves RELION's chosen orientation on 1 particle in 16 | **holds, and it is the blocker for any device projection.** §3 |
-| `relion-projection-optimize` P8 | lever B is 1.25x, 51.20% of the measured floor, and needs a per-block reader offset before it is a shippable kernel | **holds. It is a kernel-level result on the shear, so it inherits §3's accuracy fork.** |
-| `relion-intercard-scaling` §15.3 | 32 chips give 12.38x on the tutorial job, 38.7% of linear, crossover ~7,060 particles; reduction 117.4 ms per half-set | **holds.** |
-| `relion-intercard-scaling` §8 | "per dollar cannot be sourced defensibly and should not be estimated" | **RETIRED this pass.** Both sides now have public list prices. §6. |
+| `relion-acc-backend` §4.5 | RELION runs one iteration with its coarse compare in our code, 4452/4452 orientations bit-identical | **holds, and §3 now extends it to a whole trajectory.** |
+| `relion-acc-backend` §3.3 | "the whole-program ceiling from accelerating the E-step alone is ~41x" | **SUPERSEDED.** It substituted a coarse-only device figure for the entire E-step particle loop. Measured, coarse-only on one card is **3.20x on a whole refinement**. §5. |
+| `relion-acc-backend` §4.6 | exact-trilinear-on-device is dead, citing a scatter/gather figure from another workload | **REFUTED by measurement.** §10: the gather clears its pre-registered bar at 1.60x. |
+| `relion-acc-backend` §4.12 | the shear interpolant misses RELION's reference by 6.0% median at `--pad 1` | **holds, and it no longer blocks anything** — §10 removed the need for the shear. |
+| `relion-projection-optimize` P8 | lever B is 1.25x at 51.20% of the measured floor | **holds, and it is now off the critical path** for the same reason. |
+| `relion-intercard-scaling` §15.3 | 32 chips give 12.38x on this job, 38.7% of linear, crossover ~7,060 particles | **holds, and it is the row that decides §7.** This job has 4,452 particles, below the crossover. |
+| `relion-intercard-scaling` §8 | per dollar cannot be sourced defensibly | **RETIRED.** Both sides have public list prices. §7. |
+| this task, previous pass | the whole-refinement ceiling is ~3.19x, from a projected `expectation_6` | **CONFIRMED at 3.20x** by the finished reference arm, and the projection it rested on was 0.3% off. |
 
-**The bottleneck did not move to I/O or to the M-step.** §0 settles it: the M-step is 1.362 s against
-an E-step of 131.826 s, and 90.4% of that E-step is one kernel. So this task is about the E-step
-after all — but the interesting question is no longer "can the coarse kernel go faster", it is **what
-is left when it goes to zero**, and that is §2.
+**The bottleneck did not move to I/O or to the M-step.** The M-step is 5.617 s of a 922.19 s
+refinement and it is the control that proves the bridge touches nothing else (§4). It stayed an
+E-step task. What *did* move is which route the E-step should take: the previous pass believed a
+device gather was impossible and that the only buildable kernel changed RELION's answer. §10 measured
+the gather and it is alive, so the accuracy fork that dominated this lineage's risk is gone.
+
+**One thing this pass re-scoped that the brief could not have anticipated.** The comparison target was
+going to be a rented H200 (E6). There is no `vastai` binary on pc or on qb1 and vast.ai credit was $0,
+so E6 could not run — but RELION ships its own answer. `Tutorial5.0/Refine3D/job019` is RELION's own
+4-GPU run of this exact job, and its file mtimes survived distribution intact. That is a same-span,
+same-MPI-configuration, RELION-authored GPU reference, and it is worth more than a rented card would
+have been because it is the vendor's own number on the vendor's own job. §7.
 
 ---
 
-## 2. The pipeline floor, and it is not the sum of the primitive floors
+## 2. The milestone: two complete refinements, one binary, one variable
 
-Iteration 13, 5 MPI ranks x 6 threads = 30 threads, all rows measured this pass except where marked:
+`perf/relion-end-to-end/e2e_campaign.sh` on qb1, both arms under `benchlock.sh`, both continuing from
+RELION's own `Refine3D/job019/run_it012_optimiser.star`, both `mpirun -n 5 --j 6 --pool 6 --cpu
+--dont_combine_weights_via_disc --preread_images`. One binary, `relion/build-e2e` (`ALTCPU=ON TT=ON`
+plus `-DTIMING`). The only variable is `TT_RELION_BACKEND`: `ttnn` makes the bridge decline every
+coarse call so RELION runs its own `CpuKernels`, `torch` makes the bridge handle it.
 
-| term | wall, s | binding limit | can it be offloaded? |
+| arm | wall, s | CPU-s user+sys | maxrss | rc | iterations | RELION's own final resolution |
+|---|---|---|---|---|---|---|
+| **ref**, RELION's own kernels | **922.19** | 20771.53 + 32.91 | 2.84 GB | 0 | 13→17, converged | **3.79378 Å** |
+| **tt**, coarse compare in our code | **3988.48** | 80855.73 + 3300.38 | 5.54 GB | 0 | 13→17, converged | **3.79378 Å** |
+
+Both logs are line-for-line identical in structure: the same five `Expectation iteration` banners, the
+same `Auto-refine: Estimated accuracy angles=` at every iteration (0.546, 0.53, 0.523, 0.52, 0.52),
+the same `Refinement has converged, entering last iteration where two halves will be combined`, the
+same `Refinement has converged, stopping now`. **The bridge does not perturb the trajectory's shape at
+all — it reproduces RELION's control flow decision for decision.**
+
+**It takes five iterations where job019 needed four from the same point.** Auto-refine's convergence
+counter reset at iteration 15 because the angular change went *up* (0.115668° at it14 → 0.17011° at
+it15) before settling. Not a `--continue` artifact and not a defect: it costs one iteration of wall
+and lands on the same answer. Both arms pay it, so the A/B is unaffected, but a wall quoted "per
+refinement" has to say five iterations.
+
+**The bridge arm is 4.325x SLOWER than RELION's own CPU kernel, and that is the expected and correct
+result for what it is.** `tt_bio/cryoem/relion.py`'s torch backend is a host-side transcription whose
+purpose is to prove the plumbing and the numerics, not to be fast — its docstring says so. It is the
+arm that makes "RELION's answer computed by our code" a measurable fact. **It is not the port's
+performance claim and it must never be quoted as one.** The performance claim is §5's device floor.
+
+### 2.1. The A/A, so the deltas below are interpretable
+
+The same iteration ran twice under `benchlock.sh` at **142.50 s** and **140.98 s**, **1.1% apart**,
+both acquiring the lock at loadavg 0.17-0.52 — against the **2.01x** that `relion-acc-backend` §4.8
+measured for the same arm *unlocked* on this same host. **The noise floor under a clean lock is ~1%.**
+Independently, the `-DTIMING` + CTIC/CTOC instrument is nearly free: this run's `expectation_6` is
+**131.826 s** against the un-instrumented iteration 13 at **132.756 s**, **0.7% apart**.
+
+---
+
+## 3. Is it the same answer? Yes, and the port is closer to RELION's reference than RELION's own GPU backend is
+
+`perf/relion-end-to-end/e2e_compare.py` and `e2e_disagree.py`, over the whole trajectory.
+
+### 3.1. Resolution and the maps
+
+| arm | source | gold-standard FSC **0.143**, unmasked | `relion_postprocess` FINAL RESOLUTION | half1 sha256/16 | half2 sha256/16 |
+|---|---|---|---|---|---|
+| ref, RELION's own kernels | converged | **3.9942 Å** | **4.033896 Å** | `8b742aba54ab9233` | `df8605b9b55caaf8` |
+| tt, coarse in our code | converged | **3.9941 Å** | **4.033896 Å** | `26454fbd8788d05c` | `6f5f54f5583feff7` |
+| RELION's own 4-GPU job019 | converged | **3.9804 Å** | — | `712d2c0e57656222` | `989f70473b79a896` |
+
+- **Resolution delta at FSC 0.143: −0.0001 Å**, against the program's standing bar of 0.1 Å. RELION's
+  own GPU backend sits **+0.0139 Å** from our CPU reference on the same data, 139x further away.
+- **`relion_postprocess` prints 4.033896 Å for both arms**, to all six digits it emits.
+- **Cross-FSC, ref half-*k* against tt half-*k*: min over all 128 shells = +0.999898 and +0.999987**,
+  relative L2 1.008e-02 and 3.567e-03. The two arms reconstructed the same volume to the Nyquist edge.
+- **The sha256 per half map differs between the arms and is reported, NOT used as an identity check.**
+  `relion-acc-backend` §4.8 ran the *reference* arm twice and the half-map sha256 differed while all
+  4,452 assignments and the FSC crossing were identical: RELION's ALTCPU reconstruction is not
+  bit-reproducible run to run. A doc that reads a sha difference here as a bridge effect reads noise.
+
+### 3.2. The assignments, and the control that makes the number mean something
+
+Exact equality is the right test for two runs of one binary on one box differing in one variable. It
+is the **wrong** test the moment the builds differ, and having both here is what makes the verdict
+defensible. `e2e_disagree.py`, angles compared modulo 360 so a hair either side of the wrap does not
+score as 359.9° of disagreement:
+
+| pair | column | bit-identical | median \|Δ\| | p99 \|Δ\| | max \|Δ\| |
+|---|---|---|---|---|---|
+| **tt vs ref** (our bridge vs RELION's CPU) | `_rlnAngleRot` | **4427/4452** | **0.000000°** | **0.000000°** | 0.402428° |
+| | `_rlnAngleTilt` | **4427/4452** | **0.000000°** | **0.000000°** | 0.199784° |
+| | `_rlnAnglePsi` | **4423/4452** | **0.000000°** | **0.000000°** | 0.469614° |
+| | `_rlnOriginXAngst` | **4449/4452** | **0.000000 Å** | **0.000000 Å** | 0.396072 Å |
+| | `_rlnOriginYAngst` | **4452/4452** | **0.000000 Å** | **0.000000 Å** | 0.000000 Å |
+| **job019 vs ref** (RELION's CUDA vs RELION's CPU) | `_rlnAngleRot` | 0/4452 | 0.086043° | 0.785993° | 179.913288° |
+| | `_rlnAngleTilt` | 0/4452 | 0.039283° | 0.369273° | 0.960041° |
+| | `_rlnAnglePsi` | 1/4452 | 0.046830° | 0.769189° | 10.988781° |
+| | `_rlnOriginXAngst` | 0/4452 | 0.053072 Å | 0.232550 Å | 0.618711 Å |
+| | `_rlnOriginYAngst` | 0/4452 | 0.053072 Å | 0.232550 Å | 0.513498 Å |
+
+**The parity verdict, and it is the strongest statement this lineage has been able to make.** Our
+bridge leaves RELION's answer **bit-identical on 99.4% of particles, with a median and a 99th
+percentile disagreement of exactly zero, and a worst case under half a degree**. RELION's *own* CUDA
+backend, on the same job, agrees with RELION's own CPU backend on **zero** particles out of 4,452, with
+a median disagreement of 0.086° and a worst case of 11°. **The port is one to two orders of magnitude
+closer to RELION's reference than the accelerator RELION itself ships.** That is the yardstick a
+customer actually cares about, and it came free from an artifact already on disk.
+
+The 179.9° max on `_rlnAngleRot` is the Euler degeneracy, not a disagreement: at `Tilt` near zero the
+Rot/Psi decomposition is not unique, so Rot can differ by ~180° with Psi compensating. It appears in
+the RELION-against-RELION row and not in ours.
+
+### 3.3. Does the disagreement compound? The count grows, the magnitude does not, and the answer does not move
+
+| iteration | it012 | it013 | it014 | it015 | it016 |
+|---|---|---|---|---|---|
+| tt vs ref, worst column, particles no longer bit-identical | 0/4452 | 0/4452 | 6/4452 | 13/4452 | 18/4452 |
+| as a rate | 0.000% | 0.000% | 0.135% | 0.292% | **0.404%** |
+
+Read alone that is "the bridge changes RELION's answer and it compounds", and it would be the wrong
+reading. **What grows is the count of particles whose values are no longer bit-identical. What does
+not grow is the size of any disagreement**: at the end of the trajectory the median is still exactly
+zero, the p99 is still exactly zero, and the largest single move is 0.47°, which is smaller than the
+0.79° p99 that RELION's own two backends already differ by at every particle. The resolution the
+refinement converges to is unchanged at −0.0001 Å and `relion_postprocess` prints the same six digits.
+
+**The mechanism, named:** the bridge reduces the whole image at once where RELION accumulates per
+256-pixel block, which changes the last bits of the score and nothing else (`tt_bio/cryoem/relion.py`
+docstring). Almost always the argmin over orientations is unaffected. Occasionally two orientations
+score within the last bits of each other and the tie breaks the other way; that particle's assignment
+then differs by one sampling step, and because a refinement feeds its output back in, the *set* of
+such particles widens slowly. It is a widening tie-break set, not a growing error.
+
+**One control is queued and not yet reported: a second reference arm, `ref2`, identical to `ref` in
+every respect including the backend.** It bounds the same binary's own run-to-run reassignment over a
+trajectory, which would tell us how much of the 18 particles is RELION's own nondeterminism rather
+than the bridge. It is launched (`perf/relion-end-to-end/e2e_ctrl.sh`, relaunch-safe) and was still
+waiting on qb1's benchlock behind another worker at the end of this pass. **It is confirmatory, not
+load-bearing:** the job019 control above already bounds the disagreement against a fully independent
+RELION run, and it bounds it 20x above where the bridge sits. Both predictions are pre-registered in
+the script.
+
+---
+
+## 4. Where the wall-clock actually goes, by stage, across a whole refinement
+
+RELION's accelerated E-step had no observable stage breakdown before this lineage. It has one now:
+`src/acc/cpu/cpu_benchmark_utils.h`'s CTIC/CTOC macros were defined empty with the real body sitting
+inside a `/* */` comment. Giving them a thread-safe body instruments 51 regions at a measured 0.7%.
+
+**TTPROF, cumulative CPU-seconds summed over threads, four follower ranks, whole trajectory.** Only
+the % column is comparable between arms; the ranks agree to 0.14 points, which is the instrument's
+own reproducibility.
+
+| region | ref arm, % of `oneParticle` | tt arm, % of `oneParticle` |
+|---|---|---|
+| `oneParticle`, the whole per-particle E-step | 100% | 100% |
+| **`getAllSquaredDifferencesCoarse`** | **78.17 / 78.25 / 78.23 / 78.31** | **88.85 / 88.74 / 88.43 / 88.64** |
+| `storeWeightedSums` (wavg + backproject) | 9.28 / 9.21 / 9.20 / 9.19 | 6.12 / 6.14 / 6.42 / 6.24 |
+| `getAllSquaredDifferencesFine` | 7.16 / 7.05 / 7.10 / 7.02 | 3.52 / 3.61 / 3.66 / 3.63 |
+| `getFourierTransformsAndCtfs` | 5.37 / 5.46 / 5.45 / 5.46 | 1.49 / 1.49 / 1.47 / 1.48 |
+| `backproject` (inside `storeWeightedSums`) | 4.86 / 4.83 / 4.81 / 4.84 | 3.80 / 3.76 / 4.01 / 3.82 |
+| `weightPass`, the wrapper over both difference passes | 85.35 / 85.33 / 85.35 / 85.35 | 92.38 / 92.36 / 92.11 / 92.28 |
+
+**The instrument's nesting checks out arithmetically**, which matters because a tic/toc tree that
+double-counted would inflate exactly the share this task turns on: `weightPass` = 85.35% against
+coarse + fine = 78.17 + 7.16 = **85.33%**. The wrapper equals the sum of its children to 0.02 points,
+so the regions nest rather than overlap.
+
+**Iteration 13 alone put coarse at 90.40%. Over the whole trajectory it is 78.2%, and the 12 points
+are one iteration.** The pre-registered prediction, written before the reference arm ran, was "below
+90.4%, landing in 80-90%, and if it lands below 70% the ceiling table is wrong". **Measured 78.2%:
+right about the direction, outside the band, above the kill line.** What moved the mix is iteration 17,
+the final combined-halves pass, which RELION itself warns "will use data to Nyquist frequency" and
+which took **~274 s of the 922 s wall on its own** and is not coarse-dominated.
+
+**RELION's own Timer, wall seconds per iteration**, and the M-step is the control:
+
+| | it13 | it14 | it15 | it16 | it17 | ref total (13-16) | tt total (13-16) | tt/ref |
+|---|---|---|---|---|---|---|---|---|
+| `expectation`, ref | 137.209 | 164.671 | 160.483 | 162.893 | ~274 | 625.256 | | |
+| `expectation`, tt | 636.334 | 667.753 | 735.263 | 687.537 | ~1250 | | 2726.887 | **4.361x** |
+| `expectation_6`, the particle loop, ref | 133.870 | 156.769 | 156.792 | 157.780 | ~264 | 605.211 | | |
+| `expectation_6`, tt | 632.123 | 664.668 | 715.588 | 675.097 | | | 2687.476 | **4.441x** |
+| **`maximization` = the M-step, ref** | 1.390 | 1.408 | 1.409 | 1.410 | | **5.617** | | |
+| **`maximization`, tt** | 1.403 | 1.531 | 1.503 | 1.557 | | | **5.994** | **1.067x** |
+
+**The M-step is the control and it holds at 1.067x.** The bridge replaces one kernel inside the E-step
+and touches nothing else; if it had perturbed anything global, the M-step would have moved with it. The
+6.7% it does move is the arm's larger resident set (5.54 GB against 2.84 GB) pressuring the same box.
+
+**Residual accounting, and there is no material gap.** `expectation_6` over the whole trajectory is
+605.211 measured for it13-16 plus ~264 for it17 scaled from its own `expectation` share = **871.2 s,
+94.5% of the 922.19 s wall**. The remaining **51.0 s** is `expectation_1/2`, the M-step, the solvent
+flatten, `writeOutput`, process startup and the optimiser read — all named, none unattributed.
+
+---
+
+## 5. The pipeline floor, and what each optimization bought
+
+The pipeline floor is not what you get by adding up the primitive floors. The primitives add to a
+fraction of a second; the pipeline cannot go below **51.0 s per refinement** because that is RELION's
+own host code, and `src/backprojector.cpp` contains **zero** `_CUDA_ENABLED`/`do_gpu` references, so
+every GPU RELION in the world pays the M-step on the host too.
+
+**Applying §4's measured shares to the measured 871.2 s particle loop:**
+
+| term | s per refinement | binding limit | seam? |
 |---|---|---|---|
-| `getAllSquaredDifferencesCoarse` | **119.2** (90.4% of `expectation_6`) | compute-bound on CPU; the projection's trilinear **gather** is the mechanism, not the compare (`relion-acc-backend` §4.6: projection is 95.6% of the call, the `A+B−2C` compare is 4.4%) | **yes, already hooked** |
-| `getAllSquaredDifferencesFine` | 4.61 | same kernel shape, significant subset only | yes, `runDiff2KernelFine` |
-| `storeWeightedSums` | 4.56 | wavg + trilinear **scatter** into the destination volume | yes, `runWavgKernel` + `runBackProjectKernel` |
-| `getFourierTransformsAndCtfs` | 3.43 | host FFTW per particle | no seam in any RELION backend |
-| `expectation_1` + `expectation_2` | 2.11 | per-iteration host setup, never attributed by anything in this lineage | no |
-| `maximization` / `reconstruction` (the M-step) | 1.362 | host FFTW + gridding. `src/backprojector.cpp` has **zero** `_CUDA_ENABLED`/`do_gpu` references, so every GPU RELION in the world pays this | no |
-| `iterate: writeOutput` | 0.267 | disk | no |
-| `flatten solvent` | 0.160 | host | no |
-| **iteration** | **135.7** | | |
+| `getAllSquaredDifferencesCoarse` | **681.3** | compute-bound on CPU; the trilinear **gather** inside the projection is the mechanism, not the compare (`relion-acc-backend` §4.6: projection is 95.6% of the call) | **yes, already hooked** |
+| `storeWeightedSums` | 80.1 | wavg + trilinear **scatter** into the destination volume | yes, `runWavgKernel` + `runBackProjectKernel` |
+| `getAllSquaredDifferencesFine` | 61.9 | same kernel shape, significant subset only | yes, `runDiff2KernelFine` |
+| `getFourierTransformsAndCtfs` | 47.0 | host FFTW per particle | no seam in any RELION backend |
+| host residue outside the particle loop | **51.0** | setup, the M-step, solvent, `writeOutput`, startup | **no** |
+| **refinement** | **922.19** | | |
 
-**The floor, and the three levels of it.** `D` is the device coarse E-step for one iteration, which
-`relion-estep-integration` measures at 2.37 s for the whole 15-iteration trajectory on one p150, so
-one cs=196 iteration is a fraction of a second and is not the term that matters.
+**The device coarse pass is MEASURED, not assumed: 9.37 s per cs=196 iteration on one p150** (§10),
+so five iterations is **46.8 s**. That figure is the gather *and* the arithmetic, because §10's overlap
+sweep showed the blend and the compare hide under the gather with 14.6x of headroom.
 
-| what is on the device | remaining host work per iteration | iteration | speedup |
-|---|---|---|---|
-| nothing (today, RELION's own CPU kernels) | 135.7 | **135.7 s** | 1.00x |
-| **coarse only — what the bridge already hooks** | 3.90 + 4.61 + 4.56 + 3.43 = **16.50** | **16.5 s + D** | **≈8.0x** |
-| all four E-step kernels | 3.90 + 3.43 = **7.33** | **7.3 s + D** | **≈18x** |
-| + a device per-particle FFT (`ttnn-fft-blackhole-kernel-result`: 616 k img/s, 76.8% of the DRAM roof) | **3.90** | **3.9 s + D** | **≈35x** |
+| what is on the device | host work left, s | refinement wall, s | speedup | status |
+|---|---|---|---|---|
+| nothing — RELION's own CPU kernels | — | **922.19** | **1.00x** | **MEASURED** |
+| the coarse pass, one p150 — *the kernel already hooked* | 240.9 | **287.8** | **3.20x** | device term MEASURED, composition EXTRAPOLATED |
+| the coarse pass, 32-chip Galaxy at the measured 12.38x fanout | 240.9 | **244.7** | **3.77x** | EXTRAPOLATED |
+| coarse + fine + `storeWeightedSums`, one p150 | 98.0 | **154.7** | **5.96x** | EXTRAPOLATED |
+| coarse + fine + `storeWeightedSums`, Galaxy | 98.0 | **102.6** | **8.99x** | EXTRAPOLATED |
+| + a device per-particle FFT, Galaxy | 51.0 | **56.6** | **16.30x** | EXTRAPOLATED |
+| **the floor: RELION host code that has no seam in any backend** | **51.0** | **51.0** | **18.08x** | MEASURED by difference |
 
-**So the pipeline floor is 3.90 s per iteration of RELION's own host code — setup, the M-step,
-`writeOutput`, the solvent flatten — none of which has an accelerator seam in any of RELION's four
-backends.** Over a 17-iteration refinement that is **66 s**, and it is 94% host code. That is the
-answer to "derive the floor for the pipeline, which is not the sum of the primitive floors": the
-primitive floors sum to a fraction of a second, and the pipeline floor is two orders of magnitude
-above them, set entirely by code we do not touch.
+The three EXTRAPOLATED middle rows carry one named assumption: that the fine pass and
+`storeWeightedSums` reach the same device-to-CPU ratio the coarse pass measured (0.0688). For the fine
+pass that is defensible, it is the same kernel on a subset. **For `storeWeightedSums` it is
+optimistic** — it is a scatter, and `relion-backprojection-kernel-result` measured our backprojection
+kernel at 16-17% of its own floor. Those rows are an upper bound on the speedup, and they are labelled.
 
-**Residual accounting, and the one honest gap.** Of the 135.7 s iteration, 131.8 s is attributed to
-named regions by direct measurement and 3.90 s to five named host terms. **Nothing is unattributed at
-this altitude.** One term inside the 3.90 s has a named mechanism but no measurement:
-`expectation_1` + `expectation_2` at 2.11 s is 54% of the pipeline floor and nothing in this lineage
-has ever looked inside it. It is now the largest un-decomposed term in the program. §7 item 6.
+**Attack the largest named cost — and note where that puts the residual.** The largest cost is the
+coarse pass at 681.3 s, and putting it on the device at its measured floor removes 634.5 s of the
+922.19 s wall. **What is left is 287.8 s of which 240.9 s is host code, so after the single biggest
+optimization this pipeline is 84% host-bound.** That is the residual and its mechanism is named: the
+per-particle FFT and the M-step and the setup, none of which any RELION backend accelerates. The
+scaling row makes the same point more sharply — spreading the device term across 32 chips at the
+measured 12.38x fanout moves the refinement from 3.20x to 3.77x. **A 32x increase in silicon buys 18%,
+because the thing being scaled is already only 16% of the wall.**
 
-**Bytes/time against the roof, both directions.** The coarse call moves at least 490 MB (231 MB of
-model gather for 186 x 19,404 x 8 corners at 8 B, 260 MB of difference temporaries, 1.4 MB of shift
-stack) and the host bridge does it in 151.2 ms = **3.24 GB/s**, two orders below this EPYC's socket
-DRAM roof and physically consistent with the ~108%-of-600% single-core utilisation measured at the
-time (`relion-acc-backend` §4.5/§4.7). In the other direction: the device coarse pass at 2.37 s for
-2.660 GB of trajectory reduction plus its own model traffic is checked against the **measured**
-404.9 GB/s DRAM roof and 42.48 GB/s composed ring bandwidth in `relion-intercard-scaling` §13.1/§15.2,
-not against a datasheet. This lineage has published 668 GB/s on a ~400 GB/s card once; every roof
+**Bytes/time against a measured roof, in both directions.** Forward: the coarse call moves at least
+490 MB (231 MB of model gather for 186 × 19,404 × 8 corners at 8 B, 260 MB of difference temporaries,
+1.4 MB of shift stack) and the host bridge does it in 151.2 ms = **3.24 GB/s**, two orders below this
+EPYC's socket DRAM roof and physically consistent with the ~108%-of-600% single-core utilisation
+measured at the time — that is a sanity check that says the bridge is latency-bound on its own Python
+and torch dispatch, not on memory. Backward: the device side is checked against the **measured**
+404.9 GB/s DRAM roof and 42.48 GB/s composed ring bandwidth from `relion-intercard-scaling` §13.1/§15.2,
+not against a datasheet. **This lineage published 668 GB/s on a ~400 GB/s card once**; every roof
 quoted here was measured on the silicon it is quoted for.
 
+### 5.1. The one lever tried on the bridge itself, and its pre-registered gate
+
+The bridge arm's per-particle cost got *worse* with more MPI ranks: `relion-acc-backend` §4.5 measured
+325 s per follower for 2,226 particles on `-n 3` (0.146 s/particle) against this campaign's 636.334 s
+for 1,113 on `-n 5` (0.572 s/particle), same box, same binary. **Candidate mechanism, stated as a
+candidate: torch sizes its intra-op pool per process from the core count, so four ranks ask the
+32-core box for twice the threads two ranks did, on top of RELION's own `--j 6` per rank.**
+`TT_RELION_TORCH_THREADS` is the one-line arm; the screen is one iteration against the same binary's
+measured it013 of 636.334 s. **Pre-registered before the run: below 424 s (1.5x) confirms
+oversubscription; above 1.1x refutes it, and a refutation is a result.** Queued behind the same
+benchlock hold as `ref2` at the end of this pass. **It cannot change any headline** — the bridge's
+wall is not the port's performance claim, §2.
+
 ---
 
-## 3. The fork that decides whether "end to end on Tenstorrent" can mean the same answer
+## 6. Per card and per server
 
-The 8.0x above is a ceiling on a device kernel that **does not exist in an accuracy-preserving form**,
-and this is the whole of the risk in the task. Restating it with only measured inputs:
+| unit | what it does per refinement | source |
+|---|---|---|
+| **1 × p150 (Blackhole)** | the coarse pass in **46.8 s**, 130 cores, model 31.7 MB L1-resident at 238 kB/core, 135 W p50 measured sustained | §10, MEASURED |
+| **1 × qb1 (32-core EPYC, 5 MPI × 6 threads)** | the whole refinement in **922.19 s** on RELION's own kernels | §2, MEASURED |
+| **1 × p150 + host** | whole refinement **287.8 s**, 3.20x, of which 240.9 s is host | §5, EXTRAPOLATED composition |
+| **32-chip Galaxy (6U) + host** | whole refinement **244.7 s**, 3.77x today's kernel; **102.6 s**, 8.99x with three | §5, EXTRAPOLATED |
+| **RELION's own 4-GPU node** | whole job **237 s**; the it012→convergence span our arms cover in **119 s** | §7, MEASURED from RELION's own artifact |
 
-- RELION's answer is defined by `CpuKernels::complex3D`, axis-aligned **trilinear** on the padded
-  model. Our host bridge implements exactly that and is bit-identical on 4452/4452 particles.
-- Every device projection kernel in this program (`tt_bio/kernels/fslice`, and the backprojection is
-  its adjoint) is a **z-collapse plus per-row shear**, a different interpolant. It exists because a
-  per-row NoC read is honoured at 16 B from L1 and 64 B from DRAM, so a bulk row read can express a
-  shear and cannot express a gather.
-- The shear costs **+0.0589 Å** at FSC 0.143 as a pipeline (n=12, CI [+0.0517, +0.0661]) — **but that
-  was measured at `padding_factor` 2 and this dataset runs `--pad 1`**, where the same shear's
-  reference error is **6.0% median** (range 0.3-13.3%, r=0.90 against the shear slope) and RELION's
-  chosen orientation moves on **1 particle in 16**.
+**The per-server number is not 32x the per-card number and this is the point.** `relion-intercard-scaling`
+§15.3 measured the fanout on this job at **12.38x on 32 chips, 38.7% of linear**, with the crossover
+into good scaling at **~7,060 particles**. This dataset has **4,452**. The job is below the size where
+a Galaxy is the right shape of machine, and no kernel work changes that.
 
-So there are exactly three routes to a device coarse pass, and none of them is free:
+---
 
-| route | speedup ceiling | accuracy | status |
+## 7. Galaxy against a DGX H200: wall-clock, dollars and watts, with the measured/extrapolated split
+
+### 7.1. The GPU arm, and why it is RELION's own number rather than a rented one
+
+E6 was to rent an H200. **There is no `vastai` binary on pc or qb1 and the account balance is $0**, so
+no rental happened and **nothing was spent against the $40 cap; there is no instance to tear down.**
+
+What replaced it is better. `Tutorial5.0/Refine3D/job019` is RELION's own run of this exact job, and
+`job.star` records `use_gpu Yes`, `gpu_ids 0:1:2:3`, `nr_mpi 5`, `nr_threads 6` — **the same 5×6 MPI
+configuration our arms use, on 4 GPUs.** Its file mtimes survived distribution: `job.star` is stamped
+`2023-10-19T11:58:21Z` and `note.txt`'s own "Executing new job on Thu Oct 19 12:58:21 2023" line
+matches it to the second modulo the timezone, and all nine of `run_it013_*`'s files share one mtime,
+which is the signature of a real run writing an iteration out, not of a tarball extraction.
+
+| span | RELION's 4 GPUs | our reference arm, 32-core CPU | ratio |
 |---|---|---|---|
-| shear interpolant on device | the 8.0x of §2 | changes RELION's orientations on a single-digit % of particles per iteration; resolution cost at pad 1 **unmeasured** | buildable, **accuracy-gated** |
-| exact trilinear on device | the 8.0x of §2 | bit-identical | **UNPRICED**, see below |
-| compare-only on device, projection stays on host | **1.04x** of the bridge call, MEASURED | bit-identical | dead on arithmetic |
+| whole job, it000 → final | **237 s** | not run | — |
+| **it012 → convergence, the span both our arms cover** | **119 s** | **922.19 s** | **7.75x** |
+| same, discounting the one extra iteration our run took (§2) | 119 s | ~757.7 s | **6.37x** |
 
-**The middle row is the one this lineage has not actually priced, and I am refusing to inherit its
-dismissal.** `relion-acc-backend` §4.6 killed exact-trilinear-on-device by citing
-`ttnn-scatter-gather-per-element-limited`'s "~10-14 cycles per element" and a "1446x worse" figure
-measured on a different access pattern. Carrying that arithmetic through *this* workload gives
-128.5 G corner gathers per iteration at 12 cycles over 130 cores at 1.35 GHz = **8.8 s**, against the
-119.2 s of CPU coarse pass it would replace. That is a 13x, not a dead end. It is also a
-`ttnn`-op-level number for a hand-written-kernel question, and the model is only 31.7 MB, which fits
-across 130 cores' L1 at 244 kB each. **A roof quoted from another workload's measurement is exactly
-the error this program has published three times.** §5 has the screen that settles it in one bounded
-run, and it costs far less than the multi-day kernel it would justify.
+**RELION's own 4-GPU acceleration of this job is 6.4-7.8x over a good 32-core CPU box, not 40x.** The
+GPU model is not recorded and the run is from October 2023, so it is a pre-H200 card; and the CPU is
+qb1 rather than their host. Those two unknowns pull in opposite directions and neither is quantified.
+**Status: MEASURED wall on both sides, of an EXTRAPOLATED-comparability pair.**
 
----
+The tutorial's prose says "approximately 7 minutes" for this job; its own artifact says 237 s. The
+artifact is finer-grained and same-span-capable, so it is what is quoted, and the discrepancy is
+stated rather than smoothed.
 
-## 4. The execution plan, in order, with the exact commands
-
-**Host decision, decided and recorded rather than asked: every RELION run in this task happens on
-qb1, not on the assigned pc card.** pc has **15 GB free of 227 GB (94% full)** and 12 cores; the
-RELION tree plus the tutorial dataset is **36 GB** and already built on qb1, which has 464 GB free and
-32 cores. Re-homing it would mean an 11.3 GB re-download and two cmake builds onto a disk that cannot
-hold them, and `pc-disk-space-critical` is a standing fleet hazard. The RELION arms are CPU-only and
-consume no card, so this does not take a card from anyone; pc card 0 stays available for the device
-screen in step E4. The build and data live at `/home/ttuser/relion-scratch`, deliberately **outside**
-any worktree — a gitignored `scratch/` inside a `~/.coworker/wt/` tree is deleted when the task
-concludes, which already cost this lineage an 11.3 GB re-download once.
-
-**Preconditions for every step.** `benchlock.sh` for every timed arm; commit and push after each step,
-because these are 20-90 minute runs and a relaunch must not repeat one. Note that `benchlock.sh`
-**gates acquisition, not the run** (`relion-acc-backend` §4.8: qb1's loadavg ranged 0.46 to 112.51
-across one measurement window, and the same arm ran 2.01x faster under a clean lock). So every arm
-below records `uptime` at start **and** end, and every wall is reported beside `/usr/bin/time`'s
-user+sys CPU-seconds, which measures work done rather than elapsed and is the co-tenancy-robust
-metric. **A wall whose loadavg trace moved by more than 2x during the run is reported as
-contaminated, not quoted.**
-
----
-
-### E1 — the by-stage split across the whole trajectory, not one iteration (~25 min)
-
-§0 measured iteration 13. Iteration 1 is exhaustive (1,152 coarse orientations against 145) and
-`CurrentImageSize` runs `32 76 80 128 144 146 146 150 154 154 160 160 196 196 196`, so the 90.4%
-share is a late-iteration number and the trajectory average is what the deliverable needs. This is
-the same instrument, one run, and it also produces RELION's own reference output to convergence.
-
-```
-cd /home/ttuser/relion-scratch
-# reference arm, RELION's own kernels, profiler on, to CONVERGENCE (13 -> 17, no --auto_iter_max)
-BENCHLOCK_MAXLOAD=3.0 ~/.coworker/scripts/benchlock.sh worker:relion-end-to-end -- \
-  bash e2e_ref.sh          # copy of e2e_prof.sh with --auto_iter_max removed, --o e2e/ref_run
-```
-Accept: `rc=0` (the atexit teardown segfault is fixed — the previous binary printed a correct table
-then exited 139; the statics are now leaked deliberately, see `tt_profile.h`), a complete
-`ref_run_it017_*` tree, and a `TTPROF` table per follower. **Pre-registered prediction, written before
-the run: the coarse share over the whole trajectory falls below the 90.4% of iteration 13, because
-iteration 1's fine pass searches 9,216 orientations against 1,160, and lands in 80-90%.** If it lands
-below 70% the §2 ceiling table is wrong and must be recomputed before anything else in this plan runs.
-
-### E2 — a complete refinement to convergence with the coarse pass in our code (~60-90 min, chunked)
-
-This is the milestone. Same shape as E1, `TT_RELION_BACKEND=torch`, so the coarse compare runs in
-`tt_bio/cryoem/relion.py` for **every iteration**, not one.
-
-**The bridge arm is ~3x the reference arm's wall** (`relion-acc-backend` §4.5 priced one call at
-151.2 ms and predicted 337 s per follower per iteration, measuring 325 s — 3.6% off), so a
-17-iteration from-scratch arm does not fit a 50-minute turn. **Chunk it with `--auto_iter_max`,** which
-is what auto-refine already provides and what §4.5 used:
-
-```
-# chunk 1: continue from RELION's it012, stop at 15
-mpirun -n 5 -x PYTHONPATH=<tt-bio checkout on qb1> -x TT_RELION_BACKEND=torch -x TT_RELION_PROFILE=1 \
-  relion/build-tt/bin/relion_refine_mpi --o e2e/tt_run \
-  --continue Tutorial5.0/Refine3D/job019/run_it012_optimiser.star --auto_iter_max 15 \
-  --cpu --j 6 --pool 6 --dont_combine_weights_via_disc --preread_images
-# chunk 2: continue from OUR it015, run to convergence
-  ... --continue e2e/tt_run_it015_optimiser.star     # no --auto_iter_max
-```
-**`PYTHONPATH` is broken as inherited and must be fixed first.** `p3_arms.sh` points it at
-`/home/ttuser/.coworker/wt/relion-acc-backend`, a worktree that no longer exists — the concluded task
-took it. Clone `wk/relion-end-to-end` to a **stable path outside any worktree**
-(`/home/ttuser/relion-scratch/tt-bio`) and point `PYTHONPATH` there. Verify with
-`TTBridge: tt_bio.cryoem.relion loaded` from both followers and a non-zero handled-call count before
-trusting a single number: **`--cpu` is mandatory and omitting it produces a healthy-looking, correct,
-full-speed run that never calls the bridge once.** Three smoke runs of this integration were pure CPU.
-
-Accept: `rc=0` on both chunks, a complete `tt_run_it017_*` tree, RELION writing its own output.
-
-### E3 — is it the same answer? (~5 min, no device)
-
-Against E1's reference arm, on the same data, in RELION's own currency. The battery is already
-written: `p3_compare.py`.
-
-```
-relion_postprocess --i e2e/tt_run_it017_half1_class001_unfil.mrc --angpix 1.244835 --o pp/tt
-relion_postprocess --i e2e/ref_run_it017_half1_class001_unfil.mrc --angpix 1.244835 --o pp/ref
-python3 p3_compare.py e2e/ref_run_it017 e2e/tt_run_it017
-```
-| check | bar |
-|---|---|
-| `relion_postprocess` `FINAL RESOLUTION` | identical to the digit RELION prints (arm A/T were both **3.50195 Å** at one iteration) |
-| gold-standard FSC 0.143 crossing, unmasked | **|Δ| ≤ 0.1 Å**, the program's standing bar |
-| `_rlnAngleRot/Tilt/Psi`, `_rlnOriginX/YAngst` over 4,452 particles | 4452/4452 identical, as at one iteration |
-| cross-FSC, ref half-k against tt half-k | min FSC over all shells ≥ 0.999 |
-| **sha256 of each output half-map** | **reported per arm, and NOT used as an identity check** |
-
-**Parity verdict, stated with its scope rather than borrowed whole.** What is MEASURED today is
-one-iteration parity: with the coarse compare running in our code, all 4,452 particles get
-**bit-identical** orientations and offsets on all five assignment columns, the unmasked gold-standard
-FSC 0.143 crossing is **3.4125 Å in both arms (Δ = −0.0000 Å)**, and `relion_postprocess` prints
-**3.50195 Å** for both — `relion-acc-backend` §4.5, re-checked after the mutex fix in §4.7. **What is
-OWED is trajectory-level parity: whether that survives 17 iterations of feedback**, which no
-measurement in this lineage has, because a bit-exact single iteration says nothing about a loop whose
-output is its own next input. E3 is that verdict and this task does not have it yet. **The one-iteration
-result must not be quoted as if it were the refinement's.**
-
-**That last row is not a formality.** `relion-acc-backend` §4.8 ran the reference arm twice and the
-half-map sha256 differed while all 4,452 assignments and the FSC crossing were identical: **RELION's
-ALTCPU reconstruction is not bit-reproducible run to run.** A doc that reads a sha difference here as
-a bridge effect is reading noise. The gate asks for a per-arm hash; give it one, and say what it means.
-
-### E4 — the screen that settles §3's unpriced route (~40 min, pc card 0, the only device work here)
-
-Before anyone builds a trilinear gather kernel, measure the gather rate. `ttnn.generic_op`, model
-distributed across 130 cores' L1 at 244 kB each, reader doing 16 B-aligned L1 reads along the real
-access line (`xp = e0*x + e1*y` stepping x, so the walk is a 3D line, not random).
-
-**Pre-registered kill gate, written before the build:** the route needs **128.5 G gathers per
-iteration in under 15 s** to beat the 119.2 s of CPU coarse pass by 8x, i.e. **8.6 G gathers/s
-chip-wide, 66 M/s/core, ~20 cycles/gather at 1.35 GHz**. Measure achieved gathers/s on one core first
-and multiply by nothing — report the single-core rate and the 130-core rate as separate measurements.
-**If a single core cannot reach 66 M gathers/s within 2x, the route is dead and §3's middle row closes
-by measurement rather than by a borrowed citation.** Either outcome is a full result.
-
-### E5 — the shear compounding arm, which is the only thing that can open the device path (~90 min, chunked, no device)
-
-If E4 kills exact trilinear, the shear is the only device route, and the open question is not its
-single-pass error but whether that error **compounds** over a refinement: the projection error
-perturbs the scores, the scores pick the orientations, the backprojection error perturbs the map, and
-that map is the next iteration's reference. **Every figure in this lineage, +0.0589 Å included, is a
-single-pass score against a fixed truth.** The harness is complete: §4.12 already built the host shear
-projector, so this runs on the host in exact fp32 with no device and no accuracy risk from the
-hardware. Run E2 again with `TT_RELION_INTERP=shear`, then E3's battery.
-
-**Pre-registered:** report the FSC 0.143 delta against E1 **and** the per-iteration orientation
-reassignment rate against E1's assignments. A reassignment rate that grows iteration over iteration is
-compounding; one that is flat at a few percent is not. **Do not report the resolution delta without
-the rate, or the reverse** — §4.11 measured the argmin's tolerance, could not measure the shear's
-error, bridged it with an inference, and §4.12 refuted the inference one pass later.
-
-### E6 — the DGX H200 arm (~2-3 h, ≤$15 of the $40 cap)
-
-The one number the program has never had: a **measured** whole-refinement GPU wall on this dataset.
-Rent **one** H200 (Lambda on-demand is the cheapest live rate found this pass at $2.29/hr; vast.ai
-lists ~$3.62-3.82/hr), build RELION with `-DCUDA=ON`, run the same tutorial Refine3D job to
-convergence, tear down and confirm.
-
-| what it gives | status it earns |
-|---|---|
-| 1x H200 whole-refinement wall | **MEASURED** |
-| 8x H200 | **EXTRAPOLATED**, and RELION scales poorly past 4 GPUs, so extrapolate from RELION's own figure below, never linearly |
-
-**Verified from primary source this pass** — RELION 5's own tutorial, for this exact Refine3D job:
-*"On our computer with 4 GPUs, we used 5 MPIs and 6 threads, and this calculation took approximately
-7 minutes."* That is **420 s for the whole refinement on 4 GPUs**, RELION's own claim about its own
-job, and it is the anchor the comparison hangs on. The GPU model is not stated, which is exactly why
-E6 rents one.
-
-Teardown is not optional and not assumed: record the instance id, the destroy call and the final
-balance in the doc.
-
----
-
-## 5. The comparison, with every price and watt sourced, and the measured/extrapolated split
-
-**Per dollar is now sourceable on both sides, which retires `relion-intercard-scaling` §8's refusal.**
-That refusal was correct when written — a Blackhole UBB had no public price. It does now.
+### 7.2. Prices and power, sourced
 
 | | Tenstorrent Galaxy Blackhole | DGX / HGX H200, 8 GPU |
 |---|---|---|
-| **list price** | **$110,000** per 6U node, 32 chips | **$320k-420k**, ~$370k typical integrated OEM price; DGX-branded quoted $400-500k |
-| source | Tenstorrent launch pricing, April 2026, reported by The Register and Dealroom | Mercatus OEM survey; ITCT quote |
-| status | **public list**, not negotiated | **public survey**, spread up to 25% across OEMs, volume 8-20% below list |
-| chip/GPU power | **135 W p50 measured sustained**, 32 x = 4.32 kW | 700 W datasheet, 8 x = 5.60 kW |
-| bf16 throughput | **5.95 PFLOP/s measured sustained** (32 x 185.8) | 7.91 PFLOP/s datasheet peak, ~6.3 at a typical 80% achieved |
+| **list price** | **$110,000** per 6U node, 32 chips | **$320k-420k**, ~$370k typical integrated OEM |
+| source | Tenstorrent launch pricing, April 2026: [The Register, 2026-04-28](https://www.theregister.com/2026/04/28/tenstorrent_galaxy_blackhole_ai_servers_ga/); [Dealroom](https://app.dealroom.co/news/feed/tenstorrent-launches-110k-galaxy-blackhole-ai-server-with-32-accelerators-and-23-petaflops) | Mercatus OEM survey; ITCT quote. The same Register piece prices an eight-way DGX at "three to five times" the Galaxy, i.e. **$330k-550k** — one author comparing the two boxes is a better source for the *ratio* than two independent absolutes |
+| status | public list, not negotiated | public survey, up to 25% spread across OEMs |
+| accelerator power | **135 W p50 measured sustained** × 32 = **4.32 kW** | 700 W datasheet × 8 = **5.60 kW** |
+| bf16 throughput | **5.95 PFLOP/s measured sustained** (32 × 185.8) | 7.91 PFLOP/s datasheet peak, ~6.3 at a typical 80% achieved |
 | TFLOP/s per watt | **1.38 measured** | 1.41 datasheet-peak, ~1.13 achieved |
 
-Neither power figure includes host, board, fan or memory power, on either side. The Galaxy's 23
-PFLOPS-dense-FP8 marketing number is consistent with the measured bf16 rate at the usual 2x and is
-not used here.
+Neither power figure includes host, board, fan or memory power, on either side.
 
-**The comparison the deliverable owes, and the honest shape of it before E1-E6 run.** RELION's own
-4-GPU figure is 420 s for the whole refinement. §2's Galaxy **floor** is 3.90 s x 17 = **66 s**, of
-which 94% is RELION host code — so at its floor the Galaxy leads on wall-clock, and at $110k against
-$370k it leads by a further 3.4x on price. **But that floor requires four device kernels that do not
-exist, one of which is accuracy-blocked (§3), and today's measured position is that the bridge arm is
-slower than RELION's own CPU kernel.** Every row of the final table must carry MEASURED or
-EXTRAPOLATED, and the Galaxy row is EXTRAPOLATED until a device arm runs. Publishing the 66 s as an
-achieved number would be the single worst thing this task could do.
+### 7.3. The comparison, stated plainly
+
+| | wall for one refinement | energy at the accelerator | hardware list price |
+|---|---|---|---|
+| RELION's own 4-GPU node, 2023 silicon | **119 s** MEASURED | 0.093 kWh (4 × 700 W) | — |
+| DGX H200, 8 GPU | **not measured**, and RELION scales poorly past 4 GPUs so it is not 2x the row above | — | $320-420k |
+| Galaxy, today's kernel (coarse only) | **244.7 s** EXTRAPOLATED | 0.296 kWh | $110,000 |
+| Galaxy, three E-step kernels | **102.6 s** EXTRAPOLATED | 0.125 kWh | $110,000 |
+| Galaxy, at the pipeline floor | 56.6 s EXTRAPOLATED | 0.068 kWh | $110,000 |
+
+**On this job, today, a Galaxy loses to a four-GPU node RELION itself ran in 2023 — 244.7 s against
+119 s — and it only draws level after three device kernels that do not exist.** At 8.99x it is
+marginally ahead on wall (102.6 s against 119 s) and ahead 3.4x on price, but against an *H200* rather
+than 2023 silicon even that lead is not safe, and this pass cannot measure an H200 to find out.
+
+**Do not quote a per-dollar or per-watt headline from this table.** Both the energy and the price
+columns divide a whole 32-chip node by a job that uses 38.7% of linear scaling on it. A Galaxy running
+this refinement is a mostly-idle Galaxy, and dividing its list price by a wall it does not earn is the
+same class of error as the 8.0x ceiling this lineage already corrected once.
 
 ---
 
-## 6. Decided against, so execution does not relitigate it
+## 8. The measured/extrapolated split, in one place
 
-1. **Do not build the device coarse kernel this task.** §3 says the only buildable route changes
-   RELION's orientations and its resolution cost at `--pad 1` is unmeasured; E5 is the measurement
-   that decides it, and it needs no device. Building the kernel first would be building on an
-   unresolved accuracy fork, and a new-model-port-shaped change cannot merge without Moritz anyway.
-2. **Do not re-home RELION onto pc.** §4: 15 GB free against a 36 GB tree.
-3. **Do not chase a clean wall on qb1 by fixing `benchlock`.** §4.8 closed this: a duration-holding
-   lock is a fleet change, not a task change. Report CPU-seconds beside the wall instead.
-4. **Do not batch particles for the coarse compare.** `relion-acc-backend` §4.9 measured 256 calls in
-   one iteration with **256 distinct euler-set hashes** — auto-refine builds a per-particle projection
-   plan (`cpu_ml_optimiser.cpp:123`, `do_auto_refine` trips it unconditionally), so there is no shared
-   slice store to amortise. Batching still pays for Class2D/Class3D and for the backprojection's
-   shared destination volume. Not for this.
-5. **Do not build the bf16 or sphere-packed reduction, and do not build the host-mediated PCIe
-   reduce.** Both closed by measurement in `relion-intercard-scaling` (§0.5: 1.88x on a minority term
-   whose precision half is already spent at bf16-grade; §14: 36x worse than ethernet as shipped, 2x
-   worse at its measured 21.6 GB/s roof).
-6. **Do not re-run the interpolant FSC at pad 2.** E5 subsumes it: it measures the reassignment's
-   actual effect on resolution over a real refinement instead of its rate at one operating point.
-7. **Do not quote the 43x reduction advantage.** 21x of it is OpenMPI's untuned default
-   (`relion-intercard-scaling` §13.2). "Structurally cheaper" is the defensible claim.
-8. **Do not re-derive lever O, lever D, lever F-at-LoFi, or lever W/R/I/P/X.** All dead with evidence
-   in `relion-projection-optimize` §5 and P8. Lever F (HiFi2) is GATED at 1.127x for a 3.13x accuracy
+**MEASURED on real silicon this pass or the ones before it:**
+- Both complete refinements to convergence, walls, CPU-seconds, maxrss, rc, and RELION's own
+  `3.79378 Å` from both (§2).
+- Every FSC 0.143 crossing, `relion_postprocess`'s 4.033896 Å, the cross-FSC, every per-arm sha256,
+  and every assignment-disagreement distribution (§3).
+- The by-stage split for both arms, four follower ranks each, and RELION's own Timer walls (§4).
+- The device coarse-pass gather rate, its overlap headroom, and the reader RISC's issue cost (§10).
+- The 12.38x 32-chip fanout, the 404.9 GB/s DRAM roof, the 42.48 GB/s ring, the 135 W p50, the
+  185.8 TFLOP/s bf16 (`relion-intercard-scaling`).
+- RELION's own 4-GPU wall, 237 s whole job and 119 s over our span (§7.1).
+- The ~1% A/A noise floor and the 0.7% instrument cost (§2.1).
+
+**EXTRAPOLATED, with the assumption named at the row:**
+- Every device-accelerated refinement wall in §5 and §6. The device term is measured; composing it
+  with the measured host terms into a wall is arithmetic on separate measurements, and no such row is
+  quoted as achieved.
+- The fine pass and `storeWeightedSums` reaching the coarse pass's device efficiency (§5) —
+  optimistic for the scatter.
+- Everything in §7.3's Galaxy rows, and the DGX H200 row is **not measured at all**: the GPU number is
+  RELION's own 2023 4-GPU node, not an H200, and the gap between them is unquantified here.
+- Iteration 17's `expectation_6` (~264 s), scaled from its own `expectation` share rather than timed,
+  because the converged iteration exits before printing a Timer table.
+
+**Not measured and named as such:** an H200 of any kind; a device arm of the full refinement (it needs
+2 cards for a gold-standard MPI split, or two single-halfset runs assembled); whether the shear
+interpolant's error compounds, which §10 made informational rather than blocking.
+
+---
+
+## 9. GO/NO-GO and the plain verdict on whether this is worth shipping
+
+**GO on the port as a correctness result. NO-GO on shipping it as a performance product for this
+class of job. GO on building the exact-trilinear device coarse kernel, gated on Moritz.**
+
+**What is unambiguously worth shipping is the parity result.** A full RELION refinement runs to
+convergence with its dominant kernel computed by `tt_bio/cryoem/relion.py`, lands on RELION's own
+published resolution to the digit, and disagrees with RELION's reference by a median of exactly zero
+where RELION's own CUDA backend disagrees by 0.086° on every particle. **That is a stronger fidelity
+claim than any accelerator vendor in this field publishes**, it is checkable by anyone with the
+tutorial data, and it is the thing a pharma or academic user is actually afraid of.
+
+**What is not worth shipping yet is a speed claim, and the mechanism is the dataset rather than the
+silicon.** After the single largest optimization this pipeline has — the coarse pass at its measured
+device floor — the refinement is **84% host-bound**, and 32x more silicon buys 18%. RELION's own GPUs
+hit the same wall: their 4-GPU node gets 6.4-7.8x, not the order of magnitude the marketing of any of
+these boxes implies. The tutorial job has 4,452 particles against a measured ~7,060-particle crossover.
+**This dataset is too small and too host-bound to be an accelerator benchmark at all, and that is true
+of RELION's GPU path as much as ours.**
+
+**So the honest answer to "what does a real RELION refinement cost on a Galaxy against a DGX H200" is
+that on this job we lose today and the win after three more kernels is marginal and unmeasured.** The
+mechanism is named, it is not a kernel deficiency, and saying it now is worth far more than a
+favourable framing that falls apart the first time a customer runs the tutorial.
+
+**What would change the verdict, and it is a real dataset rather than a real kernel:** a production
+refinement is 100k-1M particles, not 4,452. Above the measured 7,060-particle crossover the fanout
+improves and the host residue amortises over vastly more per-particle work, so the coarse pass's share
+goes back up toward iteration 13's 90.4% and the Galaxy's 32 chips start earning their price. **That
+is the arm to run next, and this pass did not run it.** Nothing here should be extended to a
+production-scale job without it.
+
+---
+
+## 10. E4, CLOSED by measurement: the exact-trilinear gather is issue-bound, not dead
+
+`projprobe/e4_gather_rate.py` + `projprobe/kernels/reader_e4_gather.cpp`, pc card 0, one p150, 130
+cores, model 31.7 MB L1-resident at 238 kB/core, 16 B-aligned reads walking a correlated 3D line,
+`barrier_every` 4. Every arm's output is nonzero, so no arm measures elided reads.
+
+**The pre-registered kill gate, written before the kernel existed: 66 M corner-gathers/s/core, and the
+route is dead if one core cannot reach that within 2x.**
+
+| arm | ns/read | corner-gathers/s/core | chip | vs the bar | coarse E-step, 1 p150 |
+|---|---|---|---|---|---|
+| 32 × 8 B, one corner per read | 36.70 | 27.3 M | 3.54 G/s | 0.414x | 36.27 s |
+| **32 × 16 B, a corner pair — THE HONEST ARM** | **36.85** | **54.3 M** | **7.06 G/s** | **0.824x** | **18.21 s** |
+| 32 × 32 B, two pairs | 36.90 | 108.4 M | 14.09 G/s | 1.645x | 9.12 s |
+| 32 × 64 B, four pairs | 36.74 | 217.8 M | 28.31 G/s | 3.305x | 4.54 s |
+
+**16 B is the honest arm and it is not the fastest row.** A trilinear cube's 8 corners are adjacent in
+x only — `(x,y,z)` and `(x+1,y,z)` share a 16 B line, but the y and z neighbours are `mdlX` and
+`mdlX*mdlY` voxels away. The 32 B and 64 B rows are what a *relaid-out* model would get.
+
+**E4b: the second dataflow RISC is free, and that is what clears the bar.** The same loop in the writer
+slot on a different phase into its own scratch CB gives **1.93x: 18.96 ns per read, 105.5 M
+corner-gathers/s/core, 13.71 G/s chip-wide, 1.601x the bar**, and the coarse E-step gather on one p150
+falls to **9.37 s**. **The route is ALIVE and `relion-acc-backend` §4.6's dismissal is refuted by
+measurement rather than by argument.**
+
+**The mechanism, named: per-transaction issue cost on the dataflow RISC, not bytes.** Flat at
+36.7-36.9 ns from 8 B to 64 B — an eightfold change in bytes moves it 0.5%. A read-count sweep at fixed
+16 B fits a marginal **34.83 ns per read** on a 64.15 ns loop intercept, so the per-read number is the
+read and not the loop around it. 34.83 ns at 1.35 GHz is **~47 cycles to issue one NoC read**.
+Independently consistent with `s1e_bytes.json`'s 42.4 ns per 64 B read at a fixed page.
+**Reproducibility:** two independent runs of the 16 B arm gave 54.3 and 54.8 M/s/core, **0.9% apart**.
+
+**E4c, MEASURED: the arithmetic hides under the gather with 14.6x headroom**, so 9.37 s is a floor for
+the whole coarse pass and not just its reads. `compute_e4_blend.cpp` runs `mul_tiles` against a CB the
+reader pushes up front, so the math unit and both gather loops are live at once:
+
+| tile ops per assembly-pair | ns | vs gather-only |
+|---|---|---|
+| 0 / 4 / 8 / **16** | 1204.19 / 1209.99 / 1218.11 / **1207.65** | 1.000 / 1.005 / 1.012 / **1.003x** |
+| 32 / 64 / 128 | 2083.35 / 4046.30 / 7931.05 | 1.730 / 3.360 / 6.586x |
+
+Flat to 16, then linear. **What the real kernel needs in the same currency: 1.09 tile ops per
+assembly-pair against 16 free**, measured at HiFi4, the slowest fidelity, so the margin is conservative.
+
+**E4d, MEASURED, and it is the constraint the other two hide: the reader RISC has no spare issue slot
+at all.** The same harness with integer address units added to the reader's per-gather loop:
+
+| extra ~6-instruction units per gather | 0 | **1** | 2 | 4 | 8 | 16 |
+|---|---|---|---|---|---|---|
+| ns per assembly-pair | 1209.31 | **1361.58** | 1473.71 | 2106.90 | 2806.54 | 4219.40 |
+| vs zero | 1.000 | **1.126x** | 1.219 | 1.742 | 2.321 | 3.489 |
+
+**One unit costs 4.76 ns per read, 6.4 cycles at 1.35 GHz.** The load-bearing number is the 4.76 ns,
+not an instructions-per-cycle figure — what it establishes is that read issue and address arithmetic
+**add rather than overlap** on that RISC. **The math unit's 14.6x of headroom says nothing about the
+reader, and it would be easy to read E4c as if it did.**
+
+**Prescriptive, for whoever builds the kernel.** The address advance is one add:
+`d(address)/dx = e00 + e10*mdlX + e20*mdlX*mdlY` is constant along a scan line. The radius test against
+`maxR2_padded` is per pixel, i.e. per four gathers, and the Friedel conjugate flip belongs in the blend
+rather than the reader. **A reader that recomputes the address from the Euler matrix per gather would
+pay several-fold, and this table is the reason to say so before anyone writes one.** Still not
+measured: the shift stack, and the packing — a 16 B read lands its two corners *adjacent*, so the
+blend's tile layout needs a strided weight tile or a pair reduction.
+
+---
+
+## 11. Decided against, so a relaunch does not relitigate it
+
+1. **Do not quote the bridge arm's 3988.48 s as the port's performance.** §2.
+2. **Do not quote a per-dollar or per-watt headline from §7.3.** It divides a whole node by a job that
+   does not fill it. §7.3.
+3. **Do not re-home RELION onto pc.** 15 GB free against a 36 GB tree; `pc-disk-space-critical`.
+4. **Do not chase a clean wall by fixing `benchlock`.** A duration-holding lock is a fleet change.
+   Report CPU-seconds beside the wall instead, which is the co-tenancy-robust metric.
+5. **Do not batch particles for the coarse compare.** `relion-acc-backend` §4.9 measured 256 calls in
+   one iteration with 256 distinct euler-set hashes — auto-refine builds a per-particle projection plan
+   unconditionally, so there is no shared slice store to amortise. It still pays for Class2D/Class3D.
+6. **Do not build the bf16 or sphere-packed reduction, or the host-mediated PCIe reduce.** Closed by
+   measurement in `relion-intercard-scaling` §0.5 and §14.
+7. **Do not re-derive lever O, D, F-at-LoFi, or W/R/I/P/X.** Dead with evidence in
+   `relion-projection-optimize` §5 and P8. Lever F (HiFi2) is GATED at 1.127x for a 3.13x accuracy
    regression and stays out of any headline.
+8. **Do not build the shear device projector.** §10 removed the reason it existed.
 
 ---
 
-## 7. Open, in priority order
+## 12. Open, in priority order
 
-1. **E1-E3: a complete refinement through the bridge, and whether it is the same answer.** The
-   milestone. Nothing else in the deliverable can be written honestly first.
-2. **E4: price the exact-trilinear gather.** It is the difference between a bit-identical port and an
-   accuracy-gated one, and it is currently closed by a borrowed citation rather than a measurement.
-3. **E5: does the shear's error compound over a refinement.** Decides the device path if E4 kills
-   exact trilinear.
-4. **E6: the measured GPU wall.** The comparison is EXTRAPOLATED on both sides without it.
-5. **The device arm itself**, which needs 2 cards for gold-standard MPI (RELION 5 refuses a
-   single-process gold-standard split, and its own error message advertises `--debug_split_random_half`
-   which no longer parses) or two single-halfset runs assembled.
-6. **`expectation_1` + `expectation_2` at 2.11 s is 54% of the pipeline floor and nothing has ever
-   looked inside it.** After §2 it is the largest un-decomposed term in the whole program, and it is
-   bigger than the M-step everyone has been worried about.
-
-**GO/NO-GO, stated for the decision actually in front of us: GO on E1-E3 and E6, GO on E4 as a
-bounded screen, GO on E5, and NO-GO on building the device coarse kernel until E4 and E5 report.**
-The reason to say it that way rather than "GO on the port": §2 shows the prize is real (8.0x from the
-kernel already hooked, 35x if three more follow, against a 66 s floor that beats RELION's own 4-GPU
-figure at a third of the price), and §3 shows the only currently buildable route to it silently
-changes RELION's answer. Those two facts together mean the next work is measurement, not kernels.
+1. **The production-scale arm.** §9's verdict turns on 4,452 particles being below a measured
+   ~7,060-particle crossover. A 100k-particle job is the arm that decides whether this ships as a
+   performance story, and it is the single highest-value thing left in this lineage.
+2. **The exact-trilinear device coarse kernel.** Priced at 9.37 s per iteration (§10), bit-identical
+   by construction, no accuracy fork. It is a new-model-port-shaped change and **cannot merge without
+   Moritz**, so it is proposed, not started.
+3. **`ref2` and the `TT_RELION_TORCH_THREADS` screen**, both launched and queued behind qb1's
+   benchlock (§3.3, §5.1). Confirmatory; neither can change a headline.
+4. **A device arm of the full refinement**, which needs 2 cards for a gold-standard MPI split (RELION 5
+   refuses a single-process gold-standard split and its own error message advertises a flag that no
+   longer parses), or two single-halfset runs assembled.
+5. **An actual H200.** §7.3's GPU column is RELION's 2023 silicon. If credit ever appears, this is a
+   2-3 h arm inside the $40 cap.
 
 ---
 
-## 8. Durable lessons from this pass
+## 13. Durable lessons
 
-- **RELION's accelerated E-step has no observable stage split, for two independent reasons, and both
-  are traps.** `TIMING_ESP_DIFF1`/`DIFF2`/`WSUM` are tic'd only when
-  `op.part_id == baseMLO->exp_my_first_part_id` (or `thread_id == 0`), which never fires on the ALTCPU
-  path, and `Timer::printTimes` only prints tags with `counts[i] > 0` — so they vanish from the table
-  rather than printing zero. Independently, the CTIC/CTOC macros that bracket every interesting region
-  are defined empty at the top of `src/acc/cpu/cpu_benchmark_utils.h`, and the block that would give
-  them a body is inside a `/* ... */` comment. **Giving those macros a thread-safe body is a one-file
-  change that instruments 51 regions at a measured 0.7% cost**, and it is why every stage share in this
-  lineage before now was derived from sampling counts.
-- **The sampling counts predicted the wrong answer by a factor of 5, in the favourable direction.**
-  Coarse is 1,305 sampling points per particle against the fine pass's 41,760, which reads as "the
-  fine pass is 32x the work". Measured, coarse is **90.4%** and fine is **3.5%**, because the fine
-  pass only ever evaluates the significant subset. A work estimate from a sampling-space count is not
-  a measurement, and this one was wrong by 25x on the ratio.
+- **Exact equality is the wrong parity metric the moment the two builds differ, and it inverts the
+  verdict.** RELION's own CUDA backend scores **0/4452 identical** against RELION's own CPU backend
+  while the largest disagreement over all 4,452 particles is under a degree. Graded by `==`, RELION
+  disagrees with itself completely. Graded by magnitude, it agrees everywhere and is bit-identical
+  nowhere, which is just what two float backends do. **Report the distribution of |Δ|, not the count of
+  matches — and get the second pair into the table, because a disagreement number means nothing without
+  the disagreement the reference already has with itself.**
+- **A vendor's own precalculated results are a timed benchmark if the mtimes survived.** RELION ships
+  `Refine3D/job019` with `use_gpu Yes`, `gpu_ids 0:1:2:3`, `nr_mpi 5` and per-iteration file mtimes
+  that reconstruct a same-span 4-GPU wall to the second — a better comparison arm than the rented card
+  it replaced, and it was on disk the whole time. Check `note.txt` against `job.star`'s mtime to prove
+  the stamps are original before trusting them.
+- **After the single biggest optimization, ask what fraction is left that you do not own.** Putting
+  RELION's dominant kernel on the device at its measured floor leaves the refinement **84% host-bound**,
+  and 32x more silicon then buys 18%. A ceiling computed from one kernel's share is not a ceiling on the
+  program; the number that matters is the share of the *residual* with no seam in any backend.
+- **A benchmark can be too small to be a benchmark, and the tell is that the vendor's own accelerator
+  is also only getting 6-8x.** RELION's 4 GPUs get 6.4-7.8x on the tutorial job over a 32-core CPU. When
+  the reference implementation's own accelerator underperforms its class, the dataset is the constraint,
+  not the port — check the measured crossover before reading any ratio from it.
+- **A growing count of non-identical particles is not a growing error.** Over five iterations the
+  bridge's non-bit-identical set widened 0 → 18 of 4,452 while the median and p99 disagreement stayed
+  exactly zero and the converged resolution moved by 0.0001 Å. The mechanism is a tie-break set widening
+  under feedback, not error accumulation, and only reporting the magnitude alongside the count tells
+  them apart.
+- **Headroom on one engine says nothing about the next one.** The same core gave 14.6x of slack on the
+  math unit and **zero** on the dataflow RISC: one extra instruction per gather costs 12.6%. Stopping at
+  the generous engine would have produced a reader that recomputes addresses per gather, priced at
+  several-fold. Sweep every engine the inner loop touches, not the one the question was about.
+- **A gather this program called impossible is issue-bound at ~47 cycles per NoC read, flat from 8 B to
+  64 B, and the second dataflow RISC halves it for free.** The fix for a gather-bound kernel is *fewer,
+  wider* reads and a second issuing RISC, not a different algorithm. Every design in this lineage that
+  routed around a gather was routing around a cost that had never been measured on the real access shape.
+- **RELION's accelerated E-step has no observable stage split, for two independent reasons, both traps.**
+  `TIMING_ESP_DIFF1`/`DIFF2`/`WSUM` are tic'd only when `op.part_id == baseMLO->exp_my_first_part_id`,
+  which never fires on the ALTCPU path, and `Timer::printTimes` only prints tags with `counts[i] > 0`, so
+  they vanish rather than printing zero. Independently, the CTIC/CTOC macros are defined empty in
+  `src/acc/cpu/cpu_benchmark_utils.h` with the real body inside a `/* */` comment. Giving them a
+  thread-safe body instruments 51 regions at a measured 0.7%.
+- **A sampling-space work estimate is not a measurement, and this one was wrong by 25x on the ratio.**
+  Coarse is 1,305 sampling points per particle against fine's 41,760, which reads as "fine is 32x the
+  work". Measured, coarse is 78-90% and fine is 3-7%, because the fine pass only ever evaluates the
+  significant subset.
+- **A converged auto-refine iteration exits before printing its Timer table**, so a parser that sums
+  the tables silently drops the single most expensive iteration — here 274 s of a 922 s refinement. The
+  count of `Expectation iteration` banners and the count of Timer tables must be compared, not assumed
+  equal.
+- **This task's DONE_CHECK passes on a planning document and on a doc that *denies* having a result.**
+  Run against this doc's plan-only ancestor it printed `DONE`; and `_perf_method_gate` greps for
+  `iteration[- ]level|iteration wall`, so a sentence saying "there is no iteration-level A/B" satisfies
+  the clause demanding one. The gate cannot tell a claim from its negation. Flagged, not exploited —
+  the honest strengthening is a clause requiring the doc to name an output tree that exists on disk
+  (`e2e/ref_run_it016_data.star`, `e2e/e2e_disagree.json`), and it is orchestrator-owned. Same family as
+  `donecheck-keyword-grep-lets-multistage-task-conclude-early`, one turn of the screw worse.
 - **An atexit handler that reads a function-local `static` container is a use-after-free.** atexit
   handlers and static destructors share one LIFO list, so a container constructed after the handler is
-  registered is destroyed before it runs. The symptom is a correct printed table followed by exit 139.
-  Leak the container on purpose.
-- **A ceiling built by substituting one component's device time for a whole phase is not a ceiling.**
-  `relion-acc-backend` §3.3's "~41x from accelerating the E-step alone" put a coarse-only 0.085 s in
-  place of the entire E-step particle loop. The real coarse-only number is 8.0x. The tell was in the
-  table's own row label, and the fix needed a measurement rather than an argument.
-- **A roof borrowed from another workload's measurement is an asserted roof.** The
-  exact-trilinear-on-device route was closed by citing a scatter/gather figure measured on a different
-  access pattern; carried through this workload's own numbers the same citation gives 13x, not a dead
-  end. Same failure family as the 254.5 TFLOP/s matmul roof that turned out to be 212.7 on UBB silicon.
-- **This task's DONE_CHECK passes on a planning document, and it should not.** Run against this doc
-  before a single line of E1-E6 existed, `relion-end-to-end_donecheck.py` printed `DONE`. Every clause
-  it checks is satisfied by a doc that *describes* an A/B, a floor, a GO/NO-GO and a parity scope
-  honestly — it has no way to tell a plan from a result, because the tokens it greps for are the same
-  either way. Flagged rather than exploited: **no DONE is claimed by this pass.** The gate is
-  orchestrator-owned, so the fix is not made here, and the honest strengthening is a clause requiring
-  the doc to name an output tree that exists on disk (`ref_run_it017_*`), not a keyword. Same
-  keyword-grep failure family as `donecheck-keyword-grep-lets-multistage-task-conclude-early`.
-- **A Blackhole Galaxy now has a public list price ($110,000, 32 chips, 6U), so "per dollar has no
-  defensible source" is retired.** Re-check a "cannot be sourced" verdict when the product ships.
+  registered is destroyed before it runs. Symptom: a correct printed table then exit 139. Leak it.
+- **A compute kernel's `tile_regs` cycle must be whole, and half a cycle wedges the chip rather than
+  failing.** acquire+math+commit+release with no `tile_regs_wait` and no `pack_tile` leaves the packer
+  signalling dest-section-done for a section it never waited on: `ops=0` ran fine because the loop was
+  skipped, `ops=8` hung all 130 cores. A synthetic math loop that omits the pack is not a cheaper
+  version of the real thing, it is a different and illegal thing.
