@@ -3639,6 +3639,439 @@ class Pairformer(Module):
         return s, z
 
 
+# ---------------------------------------------------------------------------
+# fp32-on-device pairformer for the Boltz-2 affinity trunk. Gated by
+# BOLTZ2_AFFINITY_TRUNK_FP32_DEVICE (boltz2.py), affinity model only.
+#
+# Composed ttnn fp32 ops, reference-exact against tt_bio/reference.py's
+# PairformerLayer. Deliberately separate from the shipped bf16 Pairformer: that
+# module's chunking, fused kernels and tuned program configs are bf16-sized
+# (_pair_proj_minimal_matmul refuses non-bf16 operands, _pair_proj_program_config
+# prices 2 bytes/element), and the affinity targets pad to L<=192, so none of
+# the large-sequence machinery is needed. fp32 op costs at L=192 were measured
+# in perf/boltz2-affinity-device-fp32-trunk/screen_fp32_ops.py (p150a): a fp32
+# block is ~15 ms device-busy vs ~11 ms bf16 vs ~101 ms host fp32.
+# ---------------------------------------------------------------------------
+
+
+class Fp32TriangleMultiplication(Module):
+    """TriangleMultiplicationOutgoing/Incoming in fp32, reference-exact."""
+
+    def __init__(
+        self,
+        ending: bool,
+        state_dict: Weights,
+        compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+    ):
+        super().__init__(state_dict, compute_kernel_config)
+        self.ending = ending
+        fp32 = ttnn.float32
+        self.in_norm_weight = self.torch_to_tt("norm_in.weight", dtype=fp32)
+        self.in_norm_bias = self.torch_to_tt("norm_in.bias", dtype=fp32)
+        self.out_norm_weight = self.torch_to_tt("norm_out.weight", dtype=fp32)
+        self.out_norm_bias = self.torch_to_tt("norm_out.bias", dtype=fp32)
+        self.p_in_weight = self.torch_to_tt("p_in.weight", dtype=fp32)
+        self.g_in_weight = self.torch_to_tt("g_in.weight", dtype=fp32)
+        self.p_out_weight = self.torch_to_tt("p_out.weight", dtype=fp32)
+        self.g_out_weight = self.torch_to_tt("g_out.weight", dtype=fp32)
+
+    def __call__(self, x: ttnn.Tensor, mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
+        ckc = self.compute_kernel_config
+        fp32 = ttnn.float32
+        x_in = ttnn.layer_norm(
+            x, weight=self.in_norm_weight, bias=self.in_norm_bias,
+            epsilon=1e-5, compute_kernel_config=ckc,
+        )
+        p = ttnn.linear(x_in, self.p_in_weight, compute_kernel_config=ckc, dtype=fp32)
+        g = ttnn.linear(x_in, self.g_in_weight, compute_kernel_config=ckc, dtype=fp32)
+        gp = ttnn.multiply_(p, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+        ttnn.deallocate(g)
+        if mask is not None:
+            # mask is already [1, N, N, 1] fp32
+            gp = ttnn.multiply_(gp, mask)
+        a, b = ttnn.chunk(gp, chunks=2, dim=-1)
+        ttnn.deallocate(gp)
+        # outgoing: einsum("bikd,bjkd->bijd"); incoming: einsum("bkid,bkjd->bijd"),
+        # each as permute -> batched matmul over the channel axis -> permute back.
+        perm_a = (0, 3) + ((2, 1) if self.ending else (1, 2))
+        perm_b = (0, 3) + ((1, 2) if self.ending else (2, 1))
+        ap = ttnn.permute(a, perm_a)
+        ttnn.deallocate(a)
+        bp = ttnn.permute(b, perm_b)
+        ttnn.deallocate(b)
+        xc = batched_matmul(ap, bp, compute_kernel_config=ckc)
+        ttnn.deallocate(ap)
+        ttnn.deallocate(bp)
+        xc = ttnn.permute(xc, (0, 2, 3, 1))
+        xn = ttnn.layer_norm(
+            xc, weight=self.out_norm_weight, bias=self.out_norm_bias,
+            epsilon=1e-5, compute_kernel_config=ckc,
+        )
+        ttnn.deallocate(xc)
+        out = ttnn.linear(xn, self.p_out_weight, compute_kernel_config=ckc, dtype=fp32)
+        ttnn.deallocate(xn)
+        g_out = ttnn.linear(x_in, self.g_out_weight, compute_kernel_config=ckc, dtype=fp32)
+        ttnn.deallocate(x_in)
+        out = ttnn.multiply_(
+            out, g_out, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
+        )
+        ttnn.deallocate(g_out)
+        return out
+
+
+class Fp32TriangleAttention(Module):
+    """TriangleAttentionStartingNode/EndingNode in fp32, reference-exact.
+
+    Raw-matmul attention: ttnn's fused SDPA rejects fp32 operands (bf16/bf8
+    only). q is pre-scaled by 1/sqrt(head_dim) exactly as the reference's
+    _prep_qkv, the pair bias is projected from the LN'd input, and the pair mask
+    rides as an additive [I, 1, 1, J] bias (1e9, the reference's inf).
+    """
+
+    def __init__(
+        self,
+        head_dim: int,
+        n_heads: int,
+        ending: bool,
+        state_dict: Weights,
+        compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+    ):
+        super().__init__(state_dict, compute_kernel_config)
+        self.head_dim = head_dim
+        self.n_heads = n_heads
+        self.ending = ending
+        fp32 = ttnn.float32
+        self.layer_norm_weight = self.torch_to_tt("layer_norm.weight", dtype=fp32)
+        self.layer_norm_bias = self.torch_to_tt("layer_norm.bias", dtype=fp32)
+        self.bias_weight = self.torch_to_tt("linear.weight", dtype=fp32)
+        self.q_weight = self.torch_to_tt("linear_q.weight", dtype=fp32)
+        self.k_weight = self.torch_to_tt("linear_k.weight", dtype=fp32)
+        self.v_weight = self.torch_to_tt("linear_v.weight", dtype=fp32)
+        self.g_weight = self.torch_to_tt("linear_g.weight", dtype=fp32)
+        self.o_weight = self.torch_to_tt("linear_o.weight", dtype=fp32)
+
+    def __call__(self, x: ttnn.Tensor, mask_bias: ttnn.Tensor | None = None) -> ttnn.Tensor:
+        ckc = self.compute_kernel_config
+        fp32 = ttnn.float32
+        # Drop the unit batch dim; the reshape aliases the caller's pair tensor
+        # for the starting variant, so it is never deallocated here.
+        x = ttnn.reshape(x, tuple(x.shape)[1:])  # [I, J, C]
+        if self.ending:
+            xt = ttnn.transpose(x, 0, 1)
+            xn = ttnn.layer_norm(
+                xt, weight=self.layer_norm_weight, bias=self.layer_norm_bias,
+                epsilon=1e-5, compute_kernel_config=ckc,
+            )
+            ttnn.deallocate(xt)
+        else:
+            xn = ttnn.layer_norm(
+                x, weight=self.layer_norm_weight, bias=self.layer_norm_bias,
+                epsilon=1e-5, compute_kernel_config=ckc,
+            )
+        I, J, C = (int(d) for d in xn.shape)
+        H, hd = self.n_heads, self.head_dim
+        # Pair bias from the normed input: [I,J,H] -> [1,H,I,J].
+        bias = ttnn.linear(xn, self.bias_weight, compute_kernel_config=ckc, dtype=fp32)
+        bias = ttnn.permute(bias, (2, 0, 1))
+        bias = ttnn.unsqueeze(bias, 0)
+
+        def heads(t: ttnn.Tensor) -> ttnn.Tensor:
+            # [I,J,H*hd] -> [I,H,J,hd]; both reshape dims are tile-aligned.
+            t = ttnn.reshape(t, (I, J, H, hd))
+            return ttnn.permute(t, (0, 2, 1, 3))
+
+        q = heads(ttnn.linear(xn, self.q_weight, compute_kernel_config=ckc, dtype=fp32))
+        k = heads(ttnn.linear(xn, self.k_weight, compute_kernel_config=ckc, dtype=fp32))
+        v = heads(ttnn.linear(xn, self.v_weight, compute_kernel_config=ckc, dtype=fp32))
+        g = ttnn.linear(xn, self.g_weight, compute_kernel_config=ckc, dtype=fp32)
+        ttnn.deallocate(xn)
+        q = ttnn.multiply_(q, hd ** -0.5)
+        kt = ttnn.transpose(k, -2, -1)
+        ttnn.deallocate(k)
+        sc = batched_matmul(q, kt, compute_kernel_config=ckc)  # [I,H,J,J]
+        ttnn.deallocate(q)
+        ttnn.deallocate(kt)
+        sc = ttnn.add_(sc, bias)  # [1,H,I,J] broadcasts over the row (batch) dim
+        ttnn.deallocate(bias)
+        if mask_bias is not None:
+            # [I,1,1,J]: depends on (row, key), so it rides the scores, not the
+            # bias; broadcasts over heads and queries.
+            sc = ttnn.add_(sc, mask_bias)
+        probs = ttnn.softmax(sc, dim=-1, compute_kernel_config=ckc)
+        ttnn.deallocate(sc)
+        o = batched_matmul(probs, v, compute_kernel_config=ckc)  # [I,H,J,hd]
+        ttnn.deallocate(probs)
+        ttnn.deallocate(v)
+        # Merge heads via the padding-free (H, hd) merge: [I,H,J,hd] ->
+        # [I,H,hd,J] -> [I,H*hd,J] -> [I,J,H*hd].
+        o = ttnn.permute(o, (0, 1, 3, 2))
+        o = ttnn.reshape(o, (I, H * hd, J))
+        o = ttnn.permute(o, (0, 2, 1))
+        o = ttnn.multiply_(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+        ttnn.deallocate(g)
+        out = ttnn.linear(o, self.o_weight, compute_kernel_config=ckc, dtype=fp32)
+        ttnn.deallocate(o)
+        if self.ending:
+            out = ttnn.transpose(out, 0, 1)
+        return ttnn.reshape(out, (1, I, J, C))
+
+
+class Fp32Transition(Module):
+    """Transition (SwiGLU MLP) in fp32, reference-exact, no chunking."""
+
+    def __init__(
+        self,
+        state_dict: Weights,
+        compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+    ):
+        super().__init__(state_dict, compute_kernel_config)
+        fp32 = ttnn.float32
+        self.norm_weight = self.torch_to_tt("norm.weight", dtype=fp32)
+        self.norm_bias = self.torch_to_tt("norm.bias", dtype=fp32)
+        self.fc1_weight = self.torch_to_tt("fc1.weight", dtype=fp32)
+        self.fc2_weight = self.torch_to_tt("fc2.weight", dtype=fp32)
+        self.fc3_weight = self.torch_to_tt("fc3.weight", dtype=fp32)
+
+    def __call__(self, x: ttnn.Tensor) -> ttnn.Tensor:
+        ckc = self.compute_kernel_config
+        fp32 = ttnn.float32
+        xn = ttnn.layer_norm(
+            x, weight=self.norm_weight, bias=self.norm_bias,
+            epsilon=1e-5, compute_kernel_config=ckc,
+        )
+        x1 = ttnn.linear(
+            xn, self.fc1_weight, activation="silu",
+            compute_kernel_config=ckc, dtype=fp32,
+        )
+        x2 = ttnn.linear(xn, self.fc2_weight, compute_kernel_config=ckc, dtype=fp32)
+        ttnn.deallocate(xn)
+        x1 = ttnn.multiply_(x1, x2)
+        ttnn.deallocate(x2)
+        out = ttnn.linear(x1, self.fc3_weight, compute_kernel_config=ckc, dtype=fp32)
+        ttnn.deallocate(x1)
+        return out
+
+
+class Fp32AttentionPairBias(Module):
+    """AttentionPairBias (single-track attention with pair bias) in fp32.
+
+    head_dim 24 is sub-tile: the q/k/v projection columns are zero-padded to 32
+    per head (exact: padded channels contribute nothing to q.k and are sliced
+    off before the head merge), the same trick the bf16 module uses. Attention
+    is raw matmul + softmax in fp32 (fused SDPA rejects fp32 operands).
+    """
+
+    def __init__(
+        self,
+        head_dim: int,
+        n_heads: int,
+        state_dict: Weights,
+        compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+    ):
+        super().__init__(state_dict, compute_kernel_config)
+        self.head_dim = head_dim
+        self.n_heads = n_heads
+        pad = -head_dim % 32
+        self.padded_head_dim = head_dim + pad
+        fp32 = ttnn.float32
+
+        def pad_head(w: torch.Tensor) -> torch.Tensor:
+            # [H*hd, C] -> [H*padded_hd, C], zero rows in the padded channels.
+            w = w.reshape(self.n_heads, head_dim, -1)
+            w = torch.nn.functional.pad(w, (0, 0, 0, pad))
+            return w.reshape(self.n_heads * self.padded_head_dim, -1)
+
+        def pad_bias(b: torch.Tensor) -> torch.Tensor:
+            b = b.reshape(self.n_heads, head_dim)
+            b = torch.nn.functional.pad(b, (0, pad))
+            return b.reshape(self.n_heads * self.padded_head_dim)
+
+        self.q_weight = self.torch_to_tt(
+            "proj_q.weight", transform=lambda w: pad_head(w).t(), dtype=fp32
+        )
+        self.q_bias = self.torch_to_tt(
+            "proj_q.bias", transform=pad_bias, dtype=fp32
+        )
+        self.k_weight = self.torch_to_tt(
+            "proj_k.weight", transform=lambda w: pad_head(w).t(), dtype=fp32
+        )
+        self.v_weight = self.torch_to_tt(
+            "proj_v.weight", transform=lambda w: pad_head(w).t(), dtype=fp32
+        )
+        self.g_weight = self.torch_to_tt("proj_g.weight", dtype=fp32)
+        self.o_weight = self.torch_to_tt("proj_o.weight", dtype=fp32)
+        self.z_norm_weight = self.torch_to_tt("proj_z.0.weight", dtype=fp32)
+        self.z_norm_bias = self.torch_to_tt("proj_z.0.bias", dtype=fp32)
+        self.z_weight = self.torch_to_tt("proj_z.1.weight", dtype=fp32)
+
+    def __call__(
+        self,
+        s: ttnn.Tensor,
+        z: ttnn.Tensor,
+        seq_mask: ttnn.Tensor | None = None,
+    ) -> ttnn.Tensor:
+        ckc = self.compute_kernel_config
+        fp32 = ttnn.float32
+        B, L = int(s.shape[0]), int(s.shape[1])
+        H, hd, phd = self.n_heads, self.head_dim, self.padded_head_dim
+        zn = ttnn.layer_norm(
+            z, weight=self.z_norm_weight, bias=self.z_norm_bias,
+            epsilon=1e-5, compute_kernel_config=ckc,
+        )
+        bias = ttnn.linear(zn, self.z_weight, compute_kernel_config=ckc, dtype=fp32)
+        ttnn.deallocate(zn)
+        bias = ttnn.permute(bias, (0, 3, 1, 2))  # [B,H,L,L]
+        if seq_mask is not None:
+            bias = ttnn.add_(bias, seq_mask)  # [B,1,1,L] additive key mask
+
+        def qkv(w: ttnn.Tensor, b: ttnn.Tensor | None = None) -> ttnn.Tensor:
+            t = ttnn.linear(s, w, bias=b, compute_kernel_config=ckc, dtype=fp32)
+            t = ttnn.reshape(t, (B, L, H, phd))
+            return ttnn.permute(t, (0, 2, 1, 3))  # [B,H,L,phd]
+
+        q = qkv(self.q_weight, self.q_bias)
+        k = qkv(self.k_weight)
+        v = qkv(self.v_weight)
+        kt = ttnn.transpose(k, -2, -1)
+        ttnn.deallocate(k)
+        sc = batched_matmul(q, kt, compute_kernel_config=ckc)  # [B,H,L,L]
+        ttnn.deallocate(q)
+        ttnn.deallocate(kt)
+        sc = ttnn.multiply_(sc, hd ** -0.5)
+        sc = ttnn.add_(sc, bias)
+        ttnn.deallocate(bias)
+        probs = ttnn.softmax(sc, dim=-1, compute_kernel_config=ckc)
+        ttnn.deallocate(sc)
+        o = batched_matmul(probs, v, compute_kernel_config=ckc)  # [B,H,L,phd]
+        ttnn.deallocate(probs)
+        ttnn.deallocate(v)
+        # Head merge with the sub-tile slice, the same sequence the bf16 module
+        # uses: [B,H,L,phd] -> [B,H,L,hd] -> [B,H,hd,L] -> [B,H*hd,L] -> [B,L,H*hd].
+        o = o[:, :, :, :hd]
+        o = ttnn.permute(o, (0, 1, 3, 2))
+        o = ttnn.reshape(o, (B, H * hd, L))
+        o = ttnn.permute(o, (0, 2, 1))
+        g = ttnn.linear(s, self.g_weight, compute_kernel_config=ckc, dtype=fp32)
+        o = ttnn.multiply_(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+        ttnn.deallocate(g)
+        out = ttnn.linear(o, self.o_weight, compute_kernel_config=ckc, dtype=fp32)
+        ttnn.deallocate(o)
+        return out
+
+
+class Fp32PairformerLayer(Module):
+    def __init__(
+        self,
+        tri_att_head_dim: int,
+        tri_att_n_heads: int,
+        att_head_dim: int,
+        att_n_heads: int,
+        transform_s: bool,
+        state_dict: Weights,
+        compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+    ):
+        super().__init__(state_dict, compute_kernel_config)
+        self.transform_s = transform_s
+        self.triangle_multiplication_start = Fp32TriangleMultiplication(
+            False, self.scope("tri_mul_out"), compute_kernel_config
+        )
+        self.triangle_multiplication_end = Fp32TriangleMultiplication(
+            True, self.scope("tri_mul_in"), compute_kernel_config
+        )
+        self.triangle_attention_start = Fp32TriangleAttention(
+            tri_att_head_dim, tri_att_n_heads, False,
+            self.scope("tri_att_start", "mha."), compute_kernel_config,
+        )
+        self.triangle_attention_end = Fp32TriangleAttention(
+            tri_att_head_dim, tri_att_n_heads, True,
+            self.scope("tri_att_end", "mha."), compute_kernel_config,
+        )
+        self.transition_z = Fp32Transition(
+            self.scope("transition_z"), compute_kernel_config
+        )
+        if transform_s:
+            self.pre_norm_s_weight = self.torch_to_tt("pre_norm_s.weight", dtype=ttnn.float32)
+            self.pre_norm_s_bias = self.torch_to_tt("pre_norm_s.bias", dtype=ttnn.float32)
+            self.attention_pair_bias = Fp32AttentionPairBias(
+                att_head_dim, att_n_heads,
+                self.scope("attention"), compute_kernel_config,
+            )
+            self.transition_s = Fp32Transition(
+                self.scope("transition_s"), compute_kernel_config
+            )
+
+    def __call__(
+        self,
+        s: ttnn.Tensor | None,
+        z: ttnn.Tensor,
+        mask: ttnn.Tensor | None = None,
+        tri_attn_mask: ttnn.Tensor | None = None,
+        s_attn_mask: ttnn.Tensor | None = None,
+    ) -> tuple[ttnn.Tensor | None, ttnn.Tensor]:
+        z_update = self.triangle_multiplication_start(z, mask)
+        z = ttnn.add_(z, z_update)
+        ttnn.deallocate(z_update)
+        z_update = self.triangle_multiplication_end(z, mask)
+        z = ttnn.add_(z, z_update)
+        ttnn.deallocate(z_update)
+        z_update = self.triangle_attention_start(z, tri_attn_mask)
+        z = ttnn.add_(z, z_update)
+        ttnn.deallocate(z_update)
+        z_update = self.triangle_attention_end(z, tri_attn_mask)
+        z = ttnn.add_(z, z_update)
+        ttnn.deallocate(z_update)
+        z_update = self.transition_z(z)
+        z = ttnn.add_(z, z_update)
+        ttnn.deallocate(z_update)
+        if self.transform_s:
+            s_norm = ttnn.layer_norm(
+                s, weight=self.pre_norm_s_weight, bias=self.pre_norm_s_bias,
+                epsilon=1e-5, compute_kernel_config=self.compute_kernel_config,
+            )
+            s_update = self.attention_pair_bias(s_norm, z, seq_mask=s_attn_mask)
+            ttnn.deallocate(s_norm)
+            s = ttnn.add_(s, s_update)
+            ttnn.deallocate(s_update)
+            s_update = self.transition_s(s)
+            s = ttnn.add_(s, s_update)
+            ttnn.deallocate(s_update)
+        return s, z
+
+
+class Fp32Pairformer(Module):
+    def __init__(
+        self,
+        n_blocks: int,
+        tri_att_head_dim: int,
+        tri_att_n_heads: int,
+        att_head_dim: int,
+        att_n_heads: int,
+        transform_s: bool,
+        state_dict: Weights,
+        compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+    ):
+        super().__init__(state_dict, compute_kernel_config)
+        self.blocks = [
+            Fp32PairformerLayer(
+                tri_att_head_dim, tri_att_n_heads, att_head_dim, att_n_heads,
+                transform_s, self.scope(f"layers.{i}"), compute_kernel_config,
+            )
+            for i in range(n_blocks)
+        ]
+
+    def __call__(
+        self,
+        s: ttnn.Tensor | None,
+        z: ttnn.Tensor,
+        mask: ttnn.Tensor | None = None,
+        tri_attn_mask: ttnn.Tensor | None = None,
+        s_attn_mask: ttnn.Tensor | None = None,
+    ) -> tuple[ttnn.Tensor | None, ttnn.Tensor]:
+        for block in self.blocks:
+            s, z = block(s, z, mask, tri_attn_mask, s_attn_mask)
+        return s, z
+
+
 class MiniTriangularUpdate(Module):
     """Bi-directional triangular multiplicative update (BoltzGen Miniformer).
 
@@ -5020,6 +5453,115 @@ class PairformerModule(TorchWrapper):
 
         s_result = self._to_torch(s_out)[:, :seq_len, :] if s_out is not None else None
         z_result = self._to_torch(z_out)[:, :seq_len, :seq_len, :]
+        return s_result, z_result
+
+
+class Fp32PairformerModule(TorchWrapper):
+    """fp32-on-device pairformer trunk for the affinity model
+    (BOLTZ2_AFFINITY_TRUNK_FP32_DEVICE). Same call signature as
+    PairformerModule; activations and weights stay fp32 end to end, so the z
+    that feeds the affinity head carries no bf16 storage rounding. The host
+    recycle loop in Boltz2.forward is reused unchanged: s/z arrive as host
+    torch fp32, ride the device for the 64 blocks, and return to host fp32.
+    """
+
+    def __init__(
+        self,
+        n_blocks: int,
+        tri_att_head_dim: int,
+        tri_att_n_heads: int,
+        att_head_dim: int,
+        att_n_heads: int,
+        transform_s: bool,
+    ):
+        super().__init__()
+        self.n_blocks = n_blocks
+        self.tri_att_head_dim = tri_att_head_dim
+        self.tri_att_n_heads = tri_att_n_heads
+        self.att_head_dim = att_head_dim
+        self.att_n_heads = att_n_heads
+        self.transform_s = transform_s
+
+    def _create_module(self, weights: WeightScope):
+        return Fp32Pairformer(
+            self.n_blocks,
+            self.tri_att_head_dim,
+            self.tri_att_n_heads,
+            self.att_head_dim,
+            self.att_n_heads,
+            self.transform_s,
+            weights,
+            self.compute_kernel_config,
+        )
+
+    def forward(
+        self,
+        s: torch.Tensor | None,
+        z: torch.Tensor,
+        mask: torch.Tensor | None = None,
+        pair_mask: torch.Tensor | None = None,
+        use_kernels: bool = False,
+    ) -> tuple[torch.Tensor | None, torch.Tensor]:
+        seq_len = z.shape[1]
+        pad = (-seq_len) % PAIRFORMER_PAD_MULTIPLE
+
+        required_cache_keys = ("mask_tt", "tri_attn_mask_tt", "attn_mask_tt")
+        if (not self._first_forward_pass) and (not self._cache_has_all(required_cache_keys)):
+            self._clear_runtime_cache()
+            self._first_forward_pass = True
+
+        if pad:
+            z = torch.nn.functional.pad(z, (0, 0, 0, pad, 0, pad))
+            if s is not None:
+                s = torch.nn.functional.pad(s, (0, 0, 0, pad))
+
+        if self._first_forward_pass:
+            mask_1d = mask if mask is not None else z.new_ones(1, seq_len)
+            if pad:
+                mask_1d = torch.nn.functional.pad(mask_1d, (0, pad))
+                if pair_mask is not None:
+                    pair_mask = torch.nn.functional.pad(pair_mask, (0, pad, 0, pad))
+            if pair_mask is None:
+                pair_mask = mask_1d[:, :, None] * mask_1d[:, None, :]
+            # tri-mul mask [1,S,S,1]; tri-attn additive pair mask [S,1,1,S]
+            # (1e9, the reference's inf); s-attn additive key mask [1,1,1,S]
+            # (1e6, the reference AttentionPairBias's inf).
+            self._cache_set(
+                "mask_tt",
+                self._from_torch(pair_mask.unsqueeze(-1), ttnn.float32),
+            )
+            tri_mask = (pair_mask - 1.0) * 1e9  # [1,S,S], 0 on real pairs
+            self._cache_set(
+                "tri_attn_mask_tt",
+                self._from_torch(
+                    tri_mask.reshape(seq_len + pad, 1, 1, seq_len + pad), ttnn.float32
+                ),
+            )
+            self._cache_set(
+                "attn_mask_tt",
+                self._from_torch(
+                    (1 - mask_1d).reshape(1, 1, 1, -1) * -1e6, ttnn.float32
+                ),
+            )
+            self._first_forward_pass = False
+
+        s_tt = self._from_torch(s, ttnn.float32) if s is not None else None
+        z_tt = self._from_torch(z, ttnn.float32)
+        s_out, z_out = self.module(
+            s_tt,
+            z_tt,
+            self._cache_get("mask_tt"),
+            self._cache_get("tri_attn_mask_tt"),
+            self._cache_get("attn_mask_tt"),
+        )
+        # The layers' first residual add_ writes into the uploaded tensors, so
+        # s_out/z_out alias s_tt/z_tt: deallocate the outputs only.
+        z_result = self._to_torch(z_out)[:, :seq_len, :seq_len, :]
+        ttnn.deallocate(z_out)
+        s_result = None
+        if s_out is not None:
+            s_result = self._to_torch(s_out)[:, :seq_len, :]
+            ttnn.deallocate(s_out)
         return s_result, z_result
 
 

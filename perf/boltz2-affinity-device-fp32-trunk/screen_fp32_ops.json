@@ -1,0 +1,107 @@
+{
+  "L": 192,
+  "ops": {
+    "lin_z256  [36864,128]x[128,256]  trimul g/p_in": {
+      "bf16_ms": 0.1442,
+      "bf16_tflops": 16.757,
+      "fp32_ms": 0.2657,
+      "fp32_tflops": 9.091,
+      "per_block": 4
+    },
+    "lin_z128  [36864,128]x[128,128]  trimul out+triatt o/g": {
+      "bf16_ms": 0.0812,
+      "bf16_tflops": 14.872,
+      "fp32_ms": 0.1467,
+      "fp32_tflops": 8.232,
+      "per_block": 8
+    },
+    "lin_z512  [36864,128]x[128,512]  transition_z up": {
+      "bf16_ms": 0.2685,
+      "bf16_tflops": 17.994,
+      "fp32_ms": 0.5094,
+      "fp32_tflops": 9.486,
+      "per_block": 1
+    },
+    "lin_512z  [36864,512]x[512,128]  transition_z dn": {
+      "bf16_ms": 0.2879,
+      "bf16_tflops": 16.784,
+      "fp32_ms": 0.5457,
+      "fp32_tflops": 8.854,
+      "per_block": 1
+    },
+    "lin_qkv   [36864,128]x[128,384]  triatt qkv": {
+      "bf16_ms": 0.2085,
+      "bf16_tflops": 17.384,
+      "fp32_ms": 0.3813,
+      "fp32_tflops": 9.505,
+      "per_block": 2
+    },
+    "bmm_tri   [128,192,192]@[128,192,192]  trimul contract": {
+      "bf16_ms": 0.5647,
+      "bf16_tflops": 3.208,
+      "fp32_ms": 0.63,
+      "fp32_tflops": 2.876,
+      "per_block": 2
+    },
+    "bmm_qk    [768,192,32]@[768,32,192]  triatt QK^T": {
+      "bf16_ms": 0.9081,
+      "bf16_tflops": 1.995,
+      "fp32_ms": 1.0927,
+      "fp32_tflops": 1.658,
+      "per_block": 2
+    },
+    "bmm_av    [768,192,192]@[768,192,32]  triatt AV": {
+      "bf16_ms": 2.1283,
+      "bf16_tflops": 0.851,
+      "fp32_ms": 2.3349,
+      "fp32_tflops": 0.776,
+      "per_block": 2
+    },
+    "softmax   [768,192,192]  triatt": {
+      "bf16_ms": 0.5137,
+      "bf16_tflops": 0.276,
+      "fp32_ms": 0.9572,
+      "fp32_tflops": 0.148,
+      "per_block": 2
+    },
+    "layernorm [1,192,192,128]  z norms": {
+      "bf16_ms": 0.0714,
+      "bf16_tflops": 0.33,
+      "fp32_ms": 0.1247,
+      "fp32_tflops": 0.189,
+      "per_block": 7
+    },
+    "lin_s1536 [192,384]x[384,1536]  transition_s up": {
+      "bf16_ms": 0.0246,
+      "bf16_tflops": 9.217,
+      "fp32_ms": 0.0303,
+      "fp32_tflops": 7.479,
+      "per_block": 1
+    },
+    "lin_s384  [192,1536]x[1536,384]  transition_s dn": {
+      "bf16_ms": 0.0493,
+      "bf16_tflops": 4.597,
+      "fp32_ms": 0.0623,
+      "fp32_tflops": 3.638,
+      "per_block": 1
+    },
+    "lin_sqkv  [192,384]x[384,1152]  s-attn qkv": {
+      "bf16_ms": 0.0248,
+      "bf16_tflops": 6.85,
+      "fp32_ms": 0.0282,
+      "fp32_tflops": 6.018,
+      "per_block": 1
+    },
+    "lin_zbias [36864,128]x[128,16]  s-attn pair bias": {
+      "bf16_ms": 0.0568,
+      "bf16_tflops": 2.657,
+      "fp32_ms": 0.0986,
+      "fp32_tflops": 1.531,
+      "per_block": 1
+    }
+  },
+  "block_ms": {
+    "bf16": 11.084700000000002,
+    "fp32": 15.176
+  }
+}
