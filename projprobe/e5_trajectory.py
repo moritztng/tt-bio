@@ -11,10 +11,13 @@ WHAT THIS PRICES, and it is not the whole refinement:
   fully enumerated, well-defined quantity, so it can be priced exactly from measured rates.
 
 WHAT IT DOES NOT PRICE:
-  the oversampled (fine) pass, which RELION runs only at the SIGNIFICANT coarse poses. Its sampling
-  is 32x the coarse pass but its particle-pose count is N_sig-dependent and N_sig has never been
-  measured (deliverable section 9 item 2). Reported as a multiplier, not folded into a total.
+  the oversampled (fine) pass's COMPARE, which RELION runs only at the significant coarse poses. Its
+  sampling is 32x the coarse pass. Reported as a multiplier, not folded into a total.
   Also not priced: the M-step, I/O, and the inter-card volume reduction.
+
+  Term E (backprojection) IS priced with the real posterior width, because RELION's
+  _rlnNrOfSignificantSamples is the count in the oversampled space and that is exactly the number of
+  poses the adjoint touches.
 
 Every rate below is MEASURED on qb1 card 0 and cited. No rate is a spec sheet and no rate is assumed
 constant where it was measured to vary.
@@ -29,7 +32,26 @@ HERE = Path(__file__).resolve().parent
 # ---- MEASURED rates ------------------------------------------------------------------------------
 FFT_IMG_S = 616078.0        # ttnn-fft-kernel-spike.md 17.4
 PROJ_SLICE_S = 428200.0     # relion-projection-complete.md 3.3
-BPROJ_SLICE_S = 413200.0    # relion-backprojection.md 12
+# MEASURED this pass, projprobe/bproj_e2e.py at four boxes under benchlock (loadavg 0.10 at start),
+# --skip-parity, 5 reps, sha256 stable on every arm and the box-256 sha reproducing the prior pass's
+# b9cfe4c7 exactly. The adjoint's WALL is constant at 2.42-2.46 ms across all four boxes at ~58 GB/s
+# of DRAM read: the arm moves the same 126 MB and only the SLICE ACCOUNTING changes. So a slice costs
+# its own bytes and the per-slice cost scales as box^2 -- measured ratios 4.02 / 9.09 / 16.27 against
+# box^2 ratios of 4 / 9 / 16. Pricing term E at the box-256 rate for every iteration, as the previous
+# pass did, over-charges every iteration whose CurrentImageSize is below 256 -- which is 12 of 15.
+BPROJ_SLICE_S_BY_BOX = {64: 6566.6e3, 128: 1634.9e3, 192: 722.2e3, 256: 403.6e3}
+
+
+def bproj_rate(size):
+    """Smallest box the harness supports that covers this iteration's CurrentImageSize.
+
+    The adjoint's geometry needs box/2 to be a multiple of 32, so box is a multiple of 64. Rounding
+    the crop UP to the next valid box is conservative: the real slice is smaller than the one priced.
+    """
+    for b in (64, 128, 192, 256):
+        if size <= b:
+            return BPROJ_SLICE_S_BY_BOX[b]
+    return BPROJ_SLICE_S_BY_BOX[256]
 NS_PER_STACK_ELEM = 0.0807  # e4_shift_side.py, A-side composite, npix 25088
 NS_PER_SCORE = 0.886e6 / 1.784e7   # e1_screens.py term D: 0.886 ms / 1.784e7 scores
 WRITE_ROOF = 173.5e9
@@ -122,10 +144,10 @@ def price(route, shift):
         d = NPART * ntp * no_c * NS_PER_SCORE / 1e9
         a = NPART / FFT_IMG_S
         b = no_c / PROJ_SLICE_S
-        e = NPART * NSIG[it] / BPROJ_SLICE_S
+        e = NPART * NSIG[it] / bproj_rate(size)
         r = dict(it=it, size=size, npix=npix, no=no_c, nt=nt_c, ntp=ntp, side=side, gemm_n=gemm_n,
                  A=a, B=b, S=s, C=c, D=d, E=e, total=a + b + s + c + d + e,
-                 nsig=NSIG[it], fine_multiplier=(no_f * nt_f) / (no_c * nt_c))
+                 nsig=NSIG[it], bproj_rate=bproj_rate(size), fine_multiplier=(no_f * nt_f) / (no_c * nt_c))
         rows.append(r)
         for k in ("A", "B", "S", "C", "D", "E", "total"):
             tot[k] = tot.get(k, 0.0) + r[k]
@@ -167,9 +189,12 @@ def main():
     print("\n  fine-pass sampling multiplier per iteration (N_o*N_t fine / coarse):", flush=True)
     print("   ", "  ".join("it%d=%.0fx" % (r["it"], r["fine_multiplier"]) for r in rows[:6]),
           "...", flush=True)
-    print("    RELION evaluates it only at the significant coarse poses, so the wall-clock",
+    print("    RELION evaluates it only at the significant coarse poses, so the compare's wall-clock",
           flush=True)
-    print("    multiplier is N_sig/(N_o*N_t) times that -- and N_sig is UNMEASURED.", flush=True)
+    print("    multiplier is N_sig/(N_o*N_t) times that. N_sig is MEASURED (see NSIG above); the fine",
+          flush=True)
+    print("    compare is left unpriced because its k and n differ from every anchor measured.",
+          flush=True)
     p = HERE / "e5_trajectory.json"
     p.write_text(json.dumps(out, indent=1))
     print("\nwrote", p, flush=True)
