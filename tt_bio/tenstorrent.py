@@ -73,6 +73,12 @@ TRANSITION_BATCH_CHUNKING_THRESHOLD = 1024
 TRANSITION_W_CHUNKING_THRESHOLD = 1024
 TRANSITION_H_CHUNK_SIZE_FAST = 32
 TRANSITION_H_CHUNK_SIZE = 16
+# Slice the eager 4d row chunks straight into L1 instead of letting them inherit x's DRAM config.
+# The slice is a pure copy so it cannot change a value (screened: torch.equal True, max_abs_diff
+# 0.0), and the next op writes L1 anyway; measured -0.7644 ms/call at [1,10,512,384]. Off by
+# default until the fold A/B and the 640 aa / protenix-v2 capacity legs clear it -- it raises peak
+# L1 inside a swiglu whose budget already makes h = 13, 21, 29, 42 clash.
+_TRANSITION_SLICE_L1 = os.environ.get("TT_BIO_TRANSITION_SLICE_L1", "0") == "1"
 # Measured 1.87x at the protenix pair shape (microbench M4, W=320/c=256) but 32 clashes
 # with in-block L1 pressure at MSA shapes (W=1024/c=128, test_msa[100-1000]) and at the
 # opendde pair shape (W=320/c=384). Gate to the verified envelope only.
@@ -3284,6 +3290,19 @@ class Transition(Module):
                         ttnn.deallocate(wp)
             dram_peak(f"transition4d loop done (lazy, h={transition_h_chunk_size}) [z={'x'.join(str(d) for d in x.shape)}]")
             return _acc_concat(parts, 1, host_acc)
+        if _TRANSITION_SLICE_L1 and W <= transition_w_chunking_threshold:
+            # Same row blocks as ttnn.chunk, taken one at a time into L1 and freed after their
+            # swiglu, so neither the up-front full second copy nor the DRAM round trip happens.
+            # swiglu is row-local, so the block boundaries are the ones ttnn.chunk would pick.
+            dram_peak(f"transition4d chunked (eager-l1, h={transition_h_chunk_size}) [z={'x'.join(str(d) for d in x.shape)}]")
+            parts = []
+            for s in range(0, H, transition_h_chunk_size):
+                e = min(s + transition_h_chunk_size, H)
+                c = ttnn.slice(x, [0, s, 0, 0], [x.shape[0], e, W, x.shape[-1]],
+                               memory_config=ttnn.L1_MEMORY_CONFIG)
+                parts.append(swiglu(c))
+                ttnn.deallocate(c)
+            return ttnn.concat(parts, dim=1)
         chunks = ttnn.chunk(x, -(-H // transition_h_chunk_size), dim=1)
         dram_peak(f"transition4d chunked (eager, h={transition_h_chunk_size}) [z={'x'.join(str(d) for d in x.shape)}]")
         if W <= transition_w_chunking_threshold:
