@@ -31,23 +31,30 @@ What it measures, per model:
     Same warmup-then-time protocol; a different runtime shape than 300m/600m,
     gated separately so a 6B dispatch/throughput regression can't ship silently.
   * boltzgen — designs/s on ``examples/binder.yaml`` (protein-anything, 4
-    designs). A single end-to-end ``tt-bio design --model boltzgen``
-    subprocess (design +
-    inverse-fold + refold + analysis + filter); the first design's first-kernel
-    compile is included in the timed region, so this is a conservative
-    cold-inflated warm-throughput proxy. Reuses the SAME fixture/protocol the
-    designability accuracy leg gates.
+    designs). Median wall-clock of SINGLE_SHOT_REPEAT back-to-back end-to-end
+    ``tt-bio design --model boltzgen`` subprocess runs (design +
+    inverse-fold + refold + analysis + filter); each rep's first-design
+    first-kernel compile is included in its timed region, so this stays a
+    conservative cold-inflated warm-throughput proxy. Reuses the SAME
+    fixture/protocol the designability accuracy leg gates.
   * boltz2-affinity — affinities/s on ``examples/affinity_fkg.yaml``
-    (FKBP12+SB3, L107, single-seq, ``--affinity_mw_correction``). A single
-    end-to-end ``tt-bio predict`` subprocess in Boltz-2's binding-affinity mode
+    (FKBP12+SB3, L107, single-seq, ``--affinity_mw_correction``). Median
+    wall-clock of SINGLE_SHOT_REPEAT back-to-back end-to-end ``tt-bio predict``
+    subprocess runs in Boltz-2's binding-affinity mode
     (README "Binding Affinity Prediction"): fold the complex, then re-run the
     affinity model's own 64-block trunk + AtomDiffusion + affinity heads from
-    ``boltz2_aff.ckpt``. The first call's first-kernel compile is included in the
-    timed region, so this is a conservative cold-inflated warm-throughput proxy
-    (same character as the boltzgen leg — the affinity path has no warm
+    ``boltz2_aff.ckpt``. Each rep's first-kernel compile is included in its
+    timed region, so this stays a conservative cold-inflated warm-throughput
+    proxy (same character as the boltzgen leg — the affinity path has no warm
     steady-state loop to repeat). Reuses the SAME fixture the affinity accuracy
     leg (docs/implementation-parity.md) folds. Shipped-default fp32 host gates stay
     ON (no env overrides) so the timed call matches the shipped config.
+  * rfd3 — designs/s on the IAI motif-scaffold fixture
+    (``scripts/rfd3_port/parity_artifacts/iai_protein/iai_inputs.yaml``,
+    I40/L419, ``--from_pdb``, 1 design, 4 timesteps — the shipped CLI default).
+    Median wall-clock of SINGLE_SHOT_REPEAT back-to-back end-to-end
+    ``tt-bio design --model rfd3`` subprocess runs. Same single-shot character
+    as boltzgen: no warm steady-state loop, cold-inflated per rep.
   * saprot-650m embed — seq/s on a fixed batch of 8 ubiquitin-length sequences
     (batch_size 8). Device-resident ESM-2 over the fused AA+Foldseek-3Di vocab,
     loaded via ``tt_bio.saprot`` directly (the worker's embed path is
@@ -82,23 +89,48 @@ didn't intend fails the gate. Cover new models / new card types as they ship by
 adding a spec here + a baseline entry (seeded on that card type / machine).
 
 Regression threshold (default 15%) — evidence, not a guess. Run-to-run spread
-was measured on qb2 (p300c) by running the gate 3x per model as separate
-invocations (fresh process, fresh first-kernel compile each time):
+of the warm-median legs was measured on qb2 (p300c) by running the gate 3x per
+model as separate invocations (fresh process, fresh first-kernel compile each
+time):
 
   * embed  (esmc-300m, warm median of 5): 33.506 / 33.531 / 33.506 seq/s  → 0.08%
   * fold   (boltz2,    warm median of 5): 1.524 / 1.520 / 1.519 struct/s  → 0.34%
-  * single-shot (boltz2-affinity, 1 timed): 72.1 s / 74.1 s wall          → ~2.7%
 
 The warm-median legs (fold/embed) are extremely stable (<0.5%) because WARMUP
-absorbs compile and the median of REPEAT smooths dispatch jitter. The single-shot
-legs (kind="gen"/"affinity") have NO warm loop to median over — one cold-inflated
-wall-clock — so they are the noisy floor (~3% here; the gen pipeline, longer and
-unmeasured, is expected to be similar or a little higher). 15% sits comfortably
-above that ~3% worst-case floor with margin for the gen leg and for thermal/clock
-drift over the weeks between releases, while still catching any material
-kernel/dispatch regression (which shows up as tens of percent, not single digits).
-Do NOT tighten below ~10% without adding a warm loop to the single-shot legs
-first, or they will false-alarm on their own run-to-run noise.
+absorbs compile and the median of REPEAT smooths dispatch jitter.
+
+The single-shot legs (kind="gen"/"design"/"affinity": boltzgen, rfd3,
+boltz2-affinity) have no in-process warm loop — a one-shot design/affinity call
+has no steady state to repeat — so one end-to-end CLI wall-clock is one draw
+from a much wider distribution. Measured single-draw noise on this class (same
+code, same card, warm kernel cache):
+
+  * boltzgen: 0.01418 / 0.01974 designs/s against a 0.01706 baseline — two
+    same-code draws straddling the baseline at -16.9% / +15.7% (2026-08-02, qb2)
+  * rfd3: a 2026-08-02 seed of 0.3106 designs/s vs the stable 0.258-0.273 band
+    measured ever since — the seed itself was a +17% outlier, proven by a
+    6-rep interleaved endpoint A/B (2026-08-14, qb2); also -21.6% on a
+    CPU-contended host with a +59.6% rebound once idle (2026-08-02, qb1)
+  * boltz2-affinity: flagged at -40.7% against its baseline on an unchanged
+    tree (2026-08-14, pc)
+
+i.e. ±20-30% with fatter tails — above the 15% threshold, so a one-draw verdict
+false-alarmed repeatedly (three documented false alarms 2026-08-02…08-14). The
+fix is methodological, not a wider blind spot: these legs run
+SINGLE_SHOT_REPEAT (3) back-to-back CLI invocations and gate the MEDIAN. A lone
+outlier draw no longer decides the verdict, and a real dispatch/throughput
+regression — which shifts every rep, not one — still fails at 15%. Kernel
+compile is disk-cached across processes, so every rep pays the same model load
+and there is no cold rep to exclude; the cost is ~3x wall on three legs that
+were 1-4 min each. Do NOT gate these legs on a single draw again, and do not
+tighten the threshold below ~10% without raising SINGLE_SHOT_REPEAT first.
+
+Validation of the median-of-3 protocol (2026-08-14, qb1, unchanged tree):
+rfd3 9/9/9 s → PASS +2.3%; boltzgen 252/257/259 s → PASS -0.3%;
+boltz2-affinity 108/109/130 s → PASS +3.0%, where the 130 s rep was a +19%
+outlier draw that a one-draw verdict could have flagged. An injected +3 s/rep
+rfd3 slowdown (reps 12/12/12 s) FAILED at -23.7% — a real regression is still
+caught.
 
 Usage::
 
@@ -244,11 +276,12 @@ SPECS: dict[str, dict] = {
     # Prediction" — affinity_prediction=True, the affinity model's own 64-block
     # trunk + AtomDiffusion re-run + affinity heads, distinct from structure
     # prediction). A real customer-facing CLI mode () that
-    # had ZERO perf-gate coverage. kind="affinity" is a single end-to-end CLI
-    # subprocess like the gen leg (the affinity path has no warm steady-state
-    # predict_one loop — it folds once then predicts affinity once per target),
-    # so warmup=0/repeat=1 and the gated metric is affinities/s = 1 / wall-clock.
-    # The first call's first-kernel compile is included in the timed region, so
+    # had ZERO perf-gate coverage. kind="affinity" runs SINGLE_SHOT_REPEAT
+    # end-to-end CLI subprocess reps like the gen leg (the affinity path has no
+    # warm steady-state predict_one loop — it folds once then predicts affinity
+    # once per target), so warmup=0/repeat=SINGLE_SHOT_REPEAT and the gated
+    # metric is affinities/s = 1 / median wall-clock.
+    # Each rep's first-kernel compile is included in its timed region, so
     # this is a conservative cold-inflated warm-throughput proxy — same character
     # as the boltzgen leg. Shipped-default fp32 host gates stay ON (no env
     # overrides) so the timed call matches the shipped config.
@@ -260,9 +293,10 @@ SPECS: dict[str, dict] = {
     # does not enforce it -- it is covered here voluntarily, the same way the
     # gate covers every shipped user-facing CLI surface. Like boltzgen, RFD3
     # has no warm steady-state loop (one design = featurize -> on-device
-    # TokenInitializer -> sampler -> CIF), so kind="design" is a single
-    # end-to-end `tt-bio design --model rfd3 --from_pdb` subprocess timed wall-to-wall;
-    # designs/s = num_designs / wall. Reuses the SAME IAI motif-scaffold fixture
+    # TokenInitializer -> sampler -> CIF), so kind="design" runs
+    # SINGLE_SHOT_REPEAT end-to-end `tt-bio design --model rfd3 --from_pdb`
+    # subprocess reps timed wall-to-wall;
+    # designs/s = num_designs / median wall. Reuses the SAME IAI motif-scaffold fixture
     # the parity leg (scripts/rfd3_port/parity_gate.py) and the UX leg use --
     # no new fixture invented. num_timesteps=4 is the shipped CLI default (a
     # fast smoke setting); the gate measures the shipped default, not a
@@ -324,6 +358,17 @@ WARMUP = 2          # warmup folds absorb first-kernel compile (excluded from ti
 REPEAT = 5          # timed folds; report the median
 DEFAULT_THRESHOLD = 15.0   # % regression allowed before the gate fails; see docstring
                            # "regression threshold" note for the measured evidence.
+
+# Single-shot legs (kind gen/design/affinity) have no in-process warm loop — a
+# one-shot design/affinity call has no steady-state predict_one to repeat — so
+# the gate runs the whole end-to-end CLI this many times back-to-back and gates
+# the MEDIAN wall-clock. Measured single-draw noise on this leg class is
+# ±20-30% with fatter tails (evidence in the docstring's threshold section), far
+# above the 15% threshold, so a one-draw verdict false-alarms on its own noise;
+# the median of 3 rejects a lone outlier draw while a real regression (which
+# shifts every rep) still fails. Kernel compile is disk-cached across processes,
+# so every rep pays the same model load — there is no cold rep to exclude.
+SINGLE_SHOT_REPEAT = 3
 
 # Wall-clock ceilings so a wedged device / hung dependency can never stall a
 # release (the same standing rule the gate redesign established: every long step
@@ -629,21 +674,44 @@ def _run_cli(cmd: list[str], env: dict, log_path: Path, timeout: int, label: str
     return wall
 
 
+def _time_single_shot(make_cmd, env: dict, work: Path, timeout: int,
+                      label: str) -> tuple[float, list[float]]:
+    """Run a single-shot leg's CLI SINGLE_SHOT_REPEAT times back-to-back and
+    return (median wall, sorted walls).
+
+    ``make_cmd(rep)`` must return (cmd, log_path) with a FRESH output directory
+    per rep — reusing one would let a pipeline's own resume/abort logic
+    short-circuit reps 2..N on rep 1's outputs and measure the wrong thing.
+    See SINGLE_SHOT_REPEAT for why the median of these reps, not one draw, is
+    the gated number."""
+    walls = []
+    for rep in range(SINGLE_SHOT_REPEAT):
+        cmd, log_path = make_cmd(rep)
+        walls.append(_run_cli(cmd, env, log_path, timeout,
+                              f"{label} rep {rep + 1}/{SINGLE_SHOT_REPEAT}"))
+    walls.sort()
+    return walls[len(walls) // 2], walls
+
+
 def _measure_gen(model: str, spec: dict, out_path: Path) -> dict:
-    """Time one ``tt-bio design --model boltzgen`` job end-to-end and write a JSON result.
+    """Time ``tt-bio design --model boltzgen`` end-to-end, SINGLE_SHOT_REPEAT
+    times, and write a JSON result gating the median wall-clock.
 
     BoltzGen is a *design* pipeline, not a fold loop: it has no warm steady-state
     ``predict_one`` to repeat. So this leg spawns the shipping design CLI as a
     subprocess (the pipeline owns its own device lifecycle — no device is
     opened in this measure process) and times the full design + inverse-fold +
     refold + analysis + filter pipeline on the canonical binder fixture. The
-    gated metric is ``designs/s = num_designs / wall-clock``.
+    gated metric is ``designs/s = num_designs / median wall-clock`` over
+    SINGLE_SHOT_REPEAT back-to-back runs — one draw of this pipeline has a
+    measured ±20-30% noise floor (see the module docstring's threshold
+    section), so the median, not a single run, is what the gate compares.
 
-    This is a single end-to-end invocation, not a warm loop: the first design
-    absorbs first-kernel compile and is included in the timed region, so
-    ``designs/s`` is a conservative (cold-inflated) warm-throughput proxy. The cold
-    fraction is stable across releases, so a dispatch/throughput regression still
-    shows up as a higher wall-clock. Reuses the SAME fixture/protocol the
+    Each rep's first design absorbs first-kernel compile (disk-cached across
+    processes after first contact) and model load, so ``designs/s`` remains a
+    conservative (cold-inflated) warm-throughput proxy. The cold fraction is
+    stable across releases, so a dispatch/throughput regression still shows up
+    as a higher wall-clock in every rep. Reuses the SAME fixture/protocol the
     designability accuracy leg runs (``examples/binder.yaml``,
     ``protein-anything``) — no new fixture invented.
     """
@@ -653,28 +721,31 @@ def _measure_gen(model: str, spec: dict, out_path: Path) -> dict:
     n = spec["num_designs"]
     protocol = spec["protocol"]
     work = Path(tempfile.mkdtemp(prefix=f"perf-{model}-"))
-    out_dir = work / "gen"
-    log_path = work / "gen.log"
     # The unified design command's --devices takes physical card ids (not a
     # count) — same convention as the rfd3 leg below.
     visible = (os.environ.get("TT_VISIBLE_DEVICES", "0").split(",")[0].strip() or "0")
-    cmd = [
-        sys.executable, "-m", "tt_bio.main", "design", str(spec_path),
-        "--model", "boltzgen",
-        "--out_dir", str(out_dir),
-        "--num_designs", str(n),
-        "--protocol", protocol,
-        "--devices", visible,
-        "--budget", str(n),
-        "--debug",  # headless: no Rich live view, no-op reporter
-    ]
+
+    def make_cmd(rep: int):
+        cmd = [
+            sys.executable, "-m", "tt_bio.main", "design", str(spec_path),
+            "--model", "boltzgen",
+            "--out_dir", str(work / f"gen-rep{rep}"),
+            "--num_designs", str(n),
+            "--protocol", protocol,
+            "--devices", visible,
+            "--budget", str(n),
+            "--debug",  # headless: no Rich live view, no-op reporter
+        ]
+        return cmd, work / f"gen-rep{rep}.log"
+
     env = dict(os.environ)
     pp = str(REPO_ROOT)
     env["PYTHONPATH"] = pp + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
     env.setdefault("TT_VISIBLE_DEVICES", "0")
     env.setdefault("TT_METAL_LOGGER_LEVEL", "FATAL")
     env.setdefault("LOGURU_LEVEL", "WARNING")
-    wall = _run_cli(cmd, env, log_path, GEN_TIMEOUT_S, f"design boltzgen [{model}]")
+    wall, walls = _time_single_shot(make_cmd, env, work, GEN_TIMEOUT_S,
+                                    f"design boltzgen [{model}]")
     throughput = n / wall
     latency_ms = wall / n * 1000.0
     card = detect_card_type()
@@ -688,10 +759,10 @@ def _measure_gen(model: str, spec: dict, out_path: Path) -> dict:
         throughput=round(throughput, 6),
         latency_ms=round(latency_ms, 2),
         median_s=round(wall, 4),
-        times_s=[round(wall, 4)],
+        times_s=[round(w, 4) for w in walls],
         load_s=0.0,
         warmup=0,
-        repeat=1,
+        repeat=SINGLE_SHOT_REPEAT,
         # protein-anything production defaults (design 500 / refold 200 steps,
         # recycling 3) — informational; the perf leg does not override them.
         sampling_steps=500,
@@ -705,14 +776,16 @@ def _measure_gen(model: str, spec: dict, out_path: Path) -> dict:
     )
     out_path.write_text(json.dumps(result))
     print(f"[{model}] {result['throughput']} {spec['unit']}  "
-          f"({latency_ms:.0f} ms/design, wall {wall:.0f}s)", file=sys.stderr)
+          f"({latency_ms:.0f} ms/design, median wall {wall:.0f}s, "
+          f"reps {[f'{w:.0f}' for w in walls]}s)", file=sys.stderr)
     shutil.rmtree(work, ignore_errors=True)
     return result
 
 
 def _measure_design(model: str, spec: dict, out_path: Path) -> dict:
-    """Time one ``tt-bio design --model rfd3 --from_pdb`` job end-to-end and write a
-    JSON result.
+    """Time ``tt-bio design --model rfd3 --from_pdb`` end-to-end,
+    SINGLE_SHOT_REPEAT times, and write a JSON result gating the median
+    wall-clock.
 
     RFD3 is a design pipeline (like BoltzGen), not a fold loop: it has no warm
     steady-state ``predict_one`` to repeat. So this leg spawns the shipping
@@ -723,13 +796,17 @@ def _measure_design(model: str, spec: dict, out_path: Path) -> dict:
     on the canonical IAI motif-scaffold fixture (the SAME fixture the parity leg
     and the UX leg use -- scripts/rfd3_port/parity_artifacts/iai_protein/
     iai_inputs.yaml, I40/L419). The gated metric is ``designs/s = num_designs /
-    wall-clock``.
+    median wall-clock`` over SINGLE_SHOT_REPEAT back-to-back runs -- one draw of
+    this ~4-9 s host-dominated pipeline swings wildly (a -21.6% draw under CPU
+    contention and a +17% outlier seed are both on record, see the module
+    docstring's threshold section), so the median, not a single run, is what
+    the gate compares.
 
-    A single end-to-end invocation, not a warm loop: the first design absorbs
-    first-kernel compile and is included in the timed region, so ``designs/s``
-    is a conservative (cold-inflated) warm-throughput proxy -- same character
-    as the boltzgen leg. The cold fraction is stable across releases, so a
-    dispatch/throughput regression still shows up as a higher wall-clock.
+    Each rep absorbs first-kernel compile (disk-cached across processes after
+    first contact) and model load, so ``designs/s`` remains a conservative
+    (cold-inflated) warm-throughput proxy -- same character as the boltzgen leg.
+    The cold fraction is stable across releases, so a dispatch/throughput
+    regression still shows up as a higher wall-clock in every rep.
     num_timesteps=4 is the shipped CLI default (a fast smoke setting); the gate
     measures the shipped default, not a production 200-step design.
     """
@@ -739,29 +816,32 @@ def _measure_design(model: str, spec: dict, out_path: Path) -> dict:
     n = spec["num_designs"]
     timesteps = spec["num_timesteps"]
     work = Path(tempfile.mkdtemp(prefix=f"perf-{model}-"))
-    out_dir = work / "design"
-    log_path = work / "design.log"
     # The design command's --devices takes physical card ids (not a count), so a
     # hardcoded "1" fails on single-card hosts (pc has only id 0). Derive the id
     # from TT_VISIBLE_DEVICES (default 0) -- the same convention detect_card_type
     # uses -- so the leg runs on whichever card the caller pinned.
     visible = (os.environ.get("TT_VISIBLE_DEVICES", "0").split(",")[0].strip() or "0")
-    cmd = [
-        sys.executable, "-m", "tt_bio.main", "design", str(spec_path),
-        "--model", "rfd3",
-        "--from_pdb",
-        "--out_dir", str(out_dir),
-        "--num_designs", str(n),
-        "--num_timesteps", str(timesteps),
-        "--devices", visible,
-    ]
+
+    def make_cmd(rep: int):
+        cmd = [
+            sys.executable, "-m", "tt_bio.main", "design", str(spec_path),
+            "--model", "rfd3",
+            "--from_pdb",
+            "--out_dir", str(work / f"design-rep{rep}"),
+            "--num_designs", str(n),
+            "--num_timesteps", str(timesteps),
+            "--devices", visible,
+        ]
+        return cmd, work / f"design-rep{rep}.log"
+
     env = dict(os.environ)
     pp = str(REPO_ROOT)
     env["PYTHONPATH"] = pp + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
     env.setdefault("TT_VISIBLE_DEVICES", "0")
     env.setdefault("TT_METAL_LOGGER_LEVEL", "FATAL")
     env.setdefault("LOGURU_LEVEL", "WARNING")
-    wall = _run_cli(cmd, env, log_path, DESIGN_TIMEOUT_S, f"design [{model}]")
+    wall, walls = _time_single_shot(make_cmd, env, work, DESIGN_TIMEOUT_S,
+                                    f"design [{model}]")
     throughput = n / wall
     latency_ms = wall / n * 1000.0
     card = detect_card_type()
@@ -775,10 +855,10 @@ def _measure_design(model: str, spec: dict, out_path: Path) -> dict:
         throughput=round(throughput, 6),
         latency_ms=round(latency_ms, 2),
         median_s=round(wall, 4),
-        times_s=[round(wall, 4)],
+        times_s=[round(w, 4) for w in walls],
         load_s=0.0,
         warmup=0,
-        repeat=1,
+        repeat=SINGLE_SHOT_REPEAT,
         num_timesteps=timesteps,
         num_designs=n,
         input=f"{spec_path.name} (IAI motif-scaffold, I40/L419, from_pdb, {timesteps} steps)",
@@ -787,7 +867,8 @@ def _measure_design(model: str, spec: dict, out_path: Path) -> dict:
     )
     out_path.write_text(json.dumps(result))
     print(f"[{model}] {result['throughput']} {spec['unit']}  "
-          f"({latency_ms:.0f} ms/design, wall {wall:.0f}s)", file=sys.stderr)
+          f"({latency_ms:.0f} ms/design, median wall {wall:.0f}s, "
+          f"reps {[f'{w:.0f}' for w in walls]}s)", file=sys.stderr)
     shutil.rmtree(work, ignore_errors=True)
     return result
 
@@ -802,15 +883,19 @@ def _measure_affinity(model: str, spec: dict, out_path: Path) -> dict:
     re-runs the affinity model's own 64-block trunk + AtomDiffusion + affinity
     heads from a separate boltz2_aff.ckpt. There is no warm steady-state
     ``predict_one`` loop to repeat (one target = fold-once + predict-affinity-once),
-    so this leg mirrors the gen leg: a single end-to-end ``tt-bio predict``
-    subprocess (the CLI owns its device lifecycle; no device is opened in this
-    measure process) timed wall-to-wall. The gated metric is
-    ``affinities/s = 1 / wall-clock``.
+    so this leg mirrors the gen leg: SINGLE_SHOT_REPEAT back-to-back end-to-end
+    ``tt-bio predict`` subprocess runs (the CLI owns its device lifecycle; no
+    device is opened in this measure process), each timed wall-to-wall. The
+    gated metric is ``affinities/s = 1 / median wall-clock`` — one draw of this
+    host-fp32-dominated pipeline false-alarmed at -40.7% on an unchanged tree
+    (2026-08-14, pc), so the median, not a single run, is what the gate compares.
 
-    The first call's first-kernel compile is included in the timed region, so
-    ``affinities/s`` is a conservative (cold-inflated) warm-throughput proxy; the
-    cold fraction is stable across releases, so a dispatch/throughput regression
-    still shows up as a higher wall-clock. Uses the SAME FKBP12+SB3 fixture the
+    Each rep's first-kernel compile (disk-cached across processes after first
+    contact) and model load are included in its timed region, so
+    ``affinities/s`` remains a conservative (cold-inflated) warm-throughput
+    proxy; the cold fraction is stable across releases, so a dispatch/throughput
+    regression still shows up as a higher wall-clock in every rep. Uses the SAME
+    FKBP12+SB3 fixture the
     affinity accuracy leg (docs/implementation-parity.md) folds, with a light sampling
     protocol (1 structure recycle / 10 structure steps / 1 structure sample +
     10 affinity steps / 1 affinity sample) so the gate stays in minutes while
@@ -823,29 +908,32 @@ def _measure_affinity(model: str, spec: dict, out_path: Path) -> dict:
     if not spec_path.exists():
         raise FileNotFoundError(f"missing affinity fixture {spec_path}")
     work = Path(tempfile.mkdtemp(prefix=f"perf-{model}-"))
-    out_dir = work / "out"
-    log_path = work / "affinity.log"
-    cmd = [
-        sys.executable, "-m", "tt_bio.main", "predict", str(spec_path),
-        "--model", "boltz2",
-        "--single_sequence",
-        "--override",
-        "--affinity_mw_correction",
-        "--debug",  # NullDisplay: headless, no Rich TTY
-        "--recycling_steps", str(RECYCLING_STEPS),
-        "--sampling_steps", str(SAMPLING_STEPS),
-        "--diffusion_samples", str(DIFFUSION_SAMPLES),
-        "--sampling_steps_affinity", str(SAMPLING_STEPS),
-        "--diffusion_samples_affinity", str(DIFFUSION_SAMPLES),
-        "--out_dir", str(out_dir),
-    ]
+
+    def make_cmd(rep: int):
+        cmd = [
+            sys.executable, "-m", "tt_bio.main", "predict", str(spec_path),
+            "--model", "boltz2",
+            "--single_sequence",
+            "--override",
+            "--affinity_mw_correction",
+            "--debug",  # NullDisplay: headless, no Rich TTY
+            "--recycling_steps", str(RECYCLING_STEPS),
+            "--sampling_steps", str(SAMPLING_STEPS),
+            "--diffusion_samples", str(DIFFUSION_SAMPLES),
+            "--sampling_steps_affinity", str(SAMPLING_STEPS),
+            "--diffusion_samples_affinity", str(DIFFUSION_SAMPLES),
+            "--out_dir", str(work / f"out-rep{rep}"),
+        ]
+        return cmd, work / f"affinity-rep{rep}.log"
+
     env = dict(os.environ)
     pp = str(REPO_ROOT)
     env["PYTHONPATH"] = pp + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
     env.setdefault("TT_VISIBLE_DEVICES", "0")
     env.setdefault("TT_METAL_LOGGER_LEVEL", "FATAL")
     env.setdefault("LOGURU_LEVEL", "WARNING")
-    wall = _run_cli(cmd, env, log_path, MEASURE_TIMEOUT_S, f"affinity predict [{model}]")
+    wall, walls = _time_single_shot(make_cmd, env, work, MEASURE_TIMEOUT_S,
+                                    f"affinity predict [{model}]")
     throughput = 1.0 / wall
     latency_ms = wall * 1000.0
     card = detect_card_type()
@@ -859,10 +947,10 @@ def _measure_affinity(model: str, spec: dict, out_path: Path) -> dict:
         throughput=round(throughput, 6),
         latency_ms=round(latency_ms, 2),
         median_s=round(wall, 4),
-        times_s=[round(wall, 4)],
+        times_s=[round(w, 4) for w in walls],
         load_s=0.0,
         warmup=0,
-        repeat=1,
+        repeat=SINGLE_SHOT_REPEAT,
         sampling_steps=SAMPLING_STEPS,
         diffusion_samples=DIFFUSION_SAMPLES,
         recycling_steps=RECYCLING_STEPS,
@@ -874,7 +962,8 @@ def _measure_affinity(model: str, spec: dict, out_path: Path) -> dict:
     )
     out_path.write_text(json.dumps(result))
     print(f"[{model}] {result['throughput']} {spec['unit']}  "
-          f"({latency_ms:.0f} ms/call, wall {wall:.0f}s)", file=sys.stderr)
+          f"({latency_ms:.0f} ms/call, median wall {wall:.0f}s, "
+          f"reps {[f'{w:.0f}' for w in walls]}s)", file=sys.stderr)
     shutil.rmtree(work, ignore_errors=True)
     return result
 
@@ -1111,13 +1200,17 @@ def _run_measure(model: str) -> dict | None:
     env.setdefault("TT_VISIBLE_DEVICES", "0")
     env.setdefault("TT_METAL_LOGGER_LEVEL", "FATAL")
     env.setdefault("LOGURU_LEVEL", "WARNING")
-    # Parent-side backstop timeout: the inner CLI legs (gen/affinity) already
-    # bound their own grandchild, so this is the ceiling for the in-process
-    # fold/embed child (which has no inner subprocess) plus a margin over the
-    # gen ceiling. start_new_session + killpg so a wedge reaps the whole tree,
+    # Parent-side backstop timeout: the inner CLI legs (gen/design/affinity)
+    # already bound their own grandchild per rep, so this is the ceiling for the
+    # in-process fold/embed child (which has no inner subprocess) plus a margin
+    # over the single-shot legs' per-rep ceiling times SINGLE_SHOT_REPEAT.
+    # start_new_session + killpg so a wedge reaps the whole tree,
     # not just the launcher (which would orphan device-holding workers).
     import signal
-    timeout = (GEN_TIMEOUT_S if SPECS[model]["kind"] == "gen" else MEASURE_TIMEOUT_S) + 300
+    kind = SPECS[model]["kind"]
+    per_rep = GEN_TIMEOUT_S if kind == "gen" else MEASURE_TIMEOUT_S
+    reps = SINGLE_SHOT_REPEAT if kind in ("gen", "design", "affinity") else 1
+    timeout = per_rep * reps + 300
     proc = subprocess.Popen(cmd, env=env, start_new_session=True)
     try:
         rc = proc.wait(timeout=timeout)
@@ -1171,15 +1264,16 @@ def _print_table(rows: list[dict], baselines: dict, card_type: str, machine_id: 
     all_pass = True
     bm = card_baselines(baselines, card_type, machine_id)
     have_card = bm is not None
-    # The warm-protocol suffix is per-row (fold/embed legs use WARMUP+REPEAT; the
-    # gen leg is a single end-to-end pipeline run, warmup=0/repeat=1). Describe
-    # the first row's protocol so the title never mislabels a gen-only run as
-    # "2 warmup + 5 timed".
+    # The protocol suffix is per-row: fold/embed legs run WARMUP+REPEAT
+    # in-process (warmup>0); the single-shot legs (gen/design/affinity) run
+    # SINGLE_SHOT_REPEAT end-to-end CLI reps and gate the median (warmup=0).
+    # Describe the first row's protocol so the title never mislabels a
+    # single-shot-only run as "2 warmup + 5 timed".
     r0 = rows[0] if rows else {}
     w = r0.get("warmup", WARMUP)
     rep = r0.get("repeat", REPEAT)
-    warm_desc = (f"warm ({w} warmup + {rep} timed)" if r0.get("kind") not in ("gen", "affinity")
-                 else f"single end-to-end run ({rep} timed)")
+    warm_desc = (f"warm ({w} warmup + {rep} timed)" if w
+                 else f"median of {rep} end-to-end runs")
     title = (f"PERF REGRESSION GATE — card {card_type} @ {machine_id} — "
              f"{', '.join(r['model'] for r in rows)}  "
              f"| threshold ±{threshold:.0f}%  | {warm_desc}")
