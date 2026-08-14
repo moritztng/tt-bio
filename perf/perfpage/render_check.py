@@ -36,8 +36,9 @@ PROBE = r"""
 
 # The fold side must be unmoved by a design-side edit, so its numbers are checked on every run.
 # "Binder design" is the new band, and six SVGs is five fold charts plus the design one.
-NEEDLES = ["44.88", "56.59", "3.41x", "2.75x", "OpenFold3", "Binder design", "BoltzGen",
-           "RFdiffusion3"]
+# 44.535 is OpenFold3 on main; 44.88 and 56.59 are the two values it has already retired and
+# must both come back 0, which is what catches a page serving a cached older data file.
+NEEDLES = ["44.535", "44.88", "56.59", "OpenFold3", "Binder design", "BoltzGen", "RFdiffusion3"]
 
 
 def run(url, outdir, width, height, tag):
