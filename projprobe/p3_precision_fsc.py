@@ -81,6 +81,33 @@ TOPUP = float(np.sqrt(max(DEVICE_REL_L2 ** 2 - STRUCT_REL_L2 ** 2, 0.0)))
 BAR_A = 0.1
 
 
+def fsc_planewise(accv, wsumv, Vv, P, rmax):
+    """H.fsc's result, computed one z-plane at a time and never materialising the division.
+
+    Same shells, same float32 radius, same rounding, verified equal to H.fsc at box 96. The
+    plane-at-a-time form is what makes box 256 run on a 30 GB host at all: H.fsc's boolean
+    masks copy a P^3 complex128 array twice, and the gridding divide allocates a third, which
+    is 6.4 GB on top of an 8.5 GB working set and gets the process OOM-killed after the last
+    orientation -- i.e. after all the work and before any result. Frees each arm's
+    accumulators as it consumes them.
+    """
+    nb = rmax + 2                       # last bin collects everything outside rmax
+    num, da, db = (np.zeros(nb) for _ in range(3))
+    ax = (np.arange(P) - P // 2).astype(np.float32)
+    a2 = ax ** 2
+    for z in range(P):
+        s0, s1 = z * P * P, (z + 1) * P * P
+        r2 = (a2[z] + a2[:, None] + a2[None, :]).reshape(-1)
+        sh = np.round(np.sqrt(r2) / PAD).astype(np.int64)
+        np.minimum(sh, rmax + 1, out=sh)
+        a = accv[s0:s1] / np.maximum(wsumv[s0:s1], 1e-9)
+        b = Vv[s0:s1].astype(np.complex128)
+        num += np.bincount(sh, a.real * b.real + a.imag * b.imag, nb)
+        da += np.bincount(sh, a.real ** 2 + a.imag ** 2, nb)
+        db += np.bincount(sh, b.real ** 2 + b.imag ** 2, nb)
+    return (num / np.sqrt(np.maximum(da * db, 1e-30)))[:rmax + 1]
+
+
 def weights(p, uu, vv, u3, v3, P):
     if VARIANT == "tri":
         return tri_weights_q(p, P, 8) if PREC == "tex8" else H.tri_weights(p, P)
@@ -183,8 +210,7 @@ def main():
            "device_rel_l2": DEVICE_REL_L2, "arms": {}}
     print()
     for kind in ("ref", "arm"):
-        rec = (acc[kind] / np.maximum(wsum[kind], 1e-9)).reshape(P, P, P)
-        f = H.fsc(rec, V.astype(np.complex128), P, rmax)
+        f = fsc_planewise(acc.pop(kind), wsum.pop(kind), V.reshape(-1), P, rmax)
         r, kk = H.resolution(f, N)
         res["arms"][kind] = {"resolution_A": r, "shell": kk, "fsc": f.tolist()}
         print(f"{kind:4s}: FSC 0.143 at shell {kk:6.2f} -> {r:7.3f} A", flush=True)
