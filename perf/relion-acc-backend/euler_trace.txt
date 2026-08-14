@@ -1,0 +1,7 @@
+TT_RELION_TRACE, auto-refine iteration 13, 256 bridge calls captured:
+  distinct euler-set sha256: 256 of 256 -- every particle has its own orientation set
+  orientation_num: 180 x113, 174 x63, 186 x29, 168 x22, 192 x10, 204 x10, 198 x5, 210 x3
+  translation_num 9 and image_size 19404 on every call
+  distinct reference sha256: 2, one per half set
+mechanism: src/acc/cpu/cpu_ml_optimiser.cpp:123 sets generateProjectionPlanOnTheFly=true for do_auto_refine
+  RELION own comment there: Can we pre-generate projector plan and corresponding euler matrices for all particles

@@ -24,6 +24,10 @@ import numpy as np
 _BACKEND = os.environ.get("TT_RELION_BACKEND", "torch")
 _ORI_CHUNK = int(os.environ.get("TT_RELION_ORI_CHUNK", "32"))
 _CHECK = os.environ.get("TT_RELION_CHECK", "") not in ("", "0")
+# TT_RELION_TRACE=<path>: append one line per call with the shape, a hash of the euler set and a
+# hash of the reference. Answers "is the coarse orientation set shared across particles" from a
+# real run rather than from reading RELION's sampling code.
+_TRACE = os.environ.get("TT_RELION_TRACE", "")
 _stats = {"handled": 0, "declined": 0, "resid_max": 0.0, "resid_n": 0}
 
 
@@ -130,6 +134,13 @@ def diff2_coarse(mdl_mv, eul_mv, tx_mv, ty_mv, re_mv, im_mv, corr_mv, out_mv,
             d2 = ((dr * dr + di * di) * w).sum(-1)
             acc[o0 * translation_num:o1 * translation_num] = d2.reshape(-1).numpy()
 
+        if _TRACE:
+            import hashlib
+            eh = hashlib.sha256(np.frombuffer(eul_mv, dtype=np.float32).tobytes()).hexdigest()[:16]
+            mh = hashlib.sha256(np.frombuffer(mdl_mv, dtype=np.float32).tobytes()).hexdigest()[:16]
+            with open("%s.%d" % (_TRACE, os.getpid()), "a") as fh:
+                fh.write("%d %d %d %s %s\n"
+                         % (orientation_num, translation_num, image_size, eh, mh))
         out = np.frombuffer(out_mv, dtype=np.float32)
         if _CHECK:
             _stats["resid_ours"] = acc.copy()
