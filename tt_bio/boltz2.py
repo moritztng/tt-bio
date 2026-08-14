@@ -5104,6 +5104,17 @@ class Boltz2(nn.Module):
             affinity_prediction
             and _os_trunk.environ.get("BOLTZ2_AFFINITY_TRUNK_FP32_HOST", "1") != "0"
         )
+        # Release-gated (DEFAULT OFF): run the affinity model's 64-block
+        # pairformer in fp32 ON DEVICE (Fp32PairformerModule) instead of on the
+        # host. The MSA module and the recycle projections follow the HOST flag
+        # (default on -> host fp32, byte-identical to shipped); only the
+        # pairformer moves. Keeps the affinity parity the host trunk was built
+        # for while giving the pairformer's compute back to the card.
+        self.affinity_trunk_fp32_device = (
+            affinity_prediction
+            and use_tenstorrent
+            and _os_trunk.environ.get("BOLTZ2_AFFINITY_TRUNK_FP32_DEVICE", "0") == "1"
+        )
         _trunk_use_tt = use_tenstorrent and not self.affinity_trunk_fp32_host
         if use_templates:
             if use_templates_v2:
@@ -5144,7 +5155,9 @@ class Boltz2(nn.Module):
                 fullgraph=False,
             )
         self.pairformer_module = (
-            tenstorrent.PairformerModule(64, 32, 4, 24, 16, True)
+            tenstorrent.Fp32PairformerModule(64, 32, 4, 24, 16, True)
+            if self.affinity_trunk_fp32_device
+            else tenstorrent.PairformerModule(64, 32, 4, 24, 16, True)
             if _trunk_use_tt
             else PairformerModule_(token_s, token_z, **pairformer_args)
         )
@@ -5405,6 +5418,7 @@ class Boltz2(nn.Module):
             and not self.is_msa_compiled
             and not self.is_pairformer_compiled
             and not self.affinity_trunk_fp32_host
+            and not self.affinity_trunk_fp32_device
         )
         if use_resident_trunk:
             _trunk = self._tt_trunk_module()
@@ -5449,6 +5463,26 @@ class Boltz2(nn.Module):
                     pairformer_module = self.pairformer_module._orig_mod  # noqa: SLF001
                 else:
                     pairformer_module = self.pairformer_module
+
+                # Diagnostic (dev-only): capture the affinity trunk's real inputs at
+                # the first recycle for offline component verification, then exit.
+                import os as _os_dump
+                if (
+                    i == 0
+                    and self.affinity_prediction
+                    and _os_dump.environ.get("BOLTZ2_DUMP_TRUNK_IO")
+                ):
+                    torch.save(
+                        {
+                            "s": s.detach().cpu(),
+                            "z": z.detach().cpu(),
+                            "mask": mask.detach().cpu(),
+                            "pair_mask": pair_mask.detach().cpu(),
+                        },
+                        _os_dump.environ["BOLTZ2_DUMP_TRUNK_IO"],
+                    )
+                    print("[boltz2] BOLTZ2_DUMP_TRUNK_IO: wrote trunk I/O, exiting")
+                    raise SystemExit(0)
 
                 s, z = pairformer_module(
                     s,
