@@ -1,0 +1,296 @@
+{
+ "page_bytes": 4096,
+ "total_bytes": 2048,
+ "outer": 5000,
+ "runs": {
+  "dram/1x2048B/be1": {
+   "ns_per_assembly": 696.7824010644108,
+   "ns_per_read": 696.7824010644108,
+   "nreads": 1,
+   "barrier_every": 1,
+   "gbs_chip": 382.09920284049866,
+   "nonzero": true
+  },
+  "dram/1x2048B/be2": {
+   "ns_per_assembly": 705.6186004774645,
+   "ns_per_read": 705.6186004774645,
+   "nreads": 1,
+   "barrier_every": 2,
+   "gbs_chip": 377.3143165725022,
+   "nonzero": true
+  },
+  "dram/1x2048B/be4": {
+   "ns_per_assembly": 691.9787992956117,
+   "ns_per_read": 691.9787992956117,
+   "nreads": 1,
+   "barrier_every": 4,
+   "gbs_chip": 384.75167197465385,
+   "nonzero": true
+  },
+  "dram/1x2048B/be8": {
+   "ns_per_assembly": 684.6987991593778,
+   "ns_per_read": 684.6987991593778,
+   "nreads": 1,
+   "barrier_every": 8,
+   "gbs_chip": 388.8425104978563,
+   "nonzero": true
+  },
+  "dram/1x2048B/be16": {
+   "ns_per_assembly": 689.6765989949927,
+   "ns_per_read": 689.6765989949927,
+   "nreads": 1,
+   "barrier_every": 16,
+   "gbs_chip": 386.0360064238355,
+   "nonzero": true
+  },
+  "dram/1x2048B/be32": {
+   "ns_per_assembly": 697.9145982768387,
+   "ns_per_read": 697.9145982768387,
+   "nreads": 1,
+   "barrier_every": 32,
+   "gbs_chip": 381.4793395314419,
+   "nonzero": true
+  },
+  "dram/8x256B/be1": {
+   "ns_per_assembly": 2138.5150001151487,
+   "ns_per_read": 267.3143750143936,
+   "nreads": 8,
+   "barrier_every": 1,
+   "gbs_chip": 124.49760697758222,
+   "nonzero": true
+  },
+  "dram/8x256B/be2": {
+   "ns_per_assembly": 2099.957599421032,
+   "ns_per_read": 262.494699927629,
+   "nreads": 8,
+   "barrier_every": 2,
+   "gbs_chip": 126.78351223539163,
+   "nonzero": true
+  },
+  "dram/8x256B/be4": {
+   "ns_per_assembly": 2119.6212008362636,
+   "ns_per_read": 264.95265010453295,
+   "nreads": 8,
+   "barrier_every": 4,
+   "gbs_chip": 125.60734903715775,
+   "nonzero": true
+  },
+  "dram/8x256B/be8": {
+   "ns_per_assembly": 2122.853198670782,
+   "ns_per_read": 265.35664983384777,
+   "nreads": 8,
+   "barrier_every": 8,
+   "gbs_chip": 125.41611457952219,
+   "nonzero": true
+  },
+  "dram/8x256B/be16": {
+   "ns_per_assembly": 2125.9971981635317,
+   "ns_per_read": 265.74964977044147,
+   "nreads": 8,
+   "barrier_every": 16,
+   "gbs_chip": 125.23064481457554,
+   "nonzero": true
+  },
+  "dram/8x256B/be32": {
+   "ns_per_assembly": 2135.070998338051,
+   "ns_per_read": 266.8838747922564,
+   "nreads": 8,
+   "barrier_every": 32,
+   "gbs_chip": 124.69842932962997,
+   "nonzero": true
+  },
+  "dram/32x64B/be1": {
+   "ns_per_assembly": 8998.33099974785,
+   "ns_per_read": 281.1978437421203,
+   "nreads": 32,
+   "barrier_every": 1,
+   "gbs_chip": 29.58770909932748,
+   "nonzero": true
+  },
+  "dram/32x64B/be2": {
+   "ns_per_assembly": 9022.79439906124,
+   "ns_per_read": 281.96232497066376,
+   "nreads": 32,
+   "barrier_every": 2,
+   "gbs_chip": 29.507488281867584,
+   "nonzero": true
+  },
+  "dram/32x64B/be4": {
+   "ns_per_assembly": 8973.675197921693,
+   "ns_per_read": 280.4273499350529,
+   "nreads": 32,
+   "barrier_every": 4,
+   "gbs_chip": 29.6690034047211,
+   "nonzero": true
+  },
+  "dram/32x64B/be8": {
+   "ns_per_assembly": 8877.266800845973,
+   "ns_per_read": 277.41458752643666,
+   "nreads": 32,
+   "barrier_every": 8,
+   "gbs_chip": 29.991213058351274,
+   "nonzero": true
+  },
+  "dram/32x64B/be16": {
+   "ns_per_assembly": 8894.200599752367,
+   "ns_per_read": 277.94376874226145,
+   "nreads": 32,
+   "barrier_every": 16,
+   "gbs_chip": 29.934112348153324,
+   "nonzero": true
+  },
+  "dram/32x64B/be32": {
+   "ns_per_assembly": 8884.79060085956,
+   "ns_per_read": 277.64970627686125,
+   "nreads": 32,
+   "barrier_every": 32,
+   "gbs_chip": 29.965815961294865,
+   "nonzero": true
+  },
+  "l1/1x2048B/be1": {
+   "ns_per_assembly": 442.97680142335594,
+   "ns_per_read": 442.97680142335594,
+   "nreads": 1,
+   "barrier_every": 1,
+   "gbs_chip": 601.0247018456224,
+   "nonzero": true
+  },
+  "l1/1x2048B/be2": {
+   "ns_per_assembly": 413.72520208824426,
+   "ns_per_read": 413.72520208824426,
+   "nreads": 1,
+   "barrier_every": 2,
+   "gbs_chip": 643.518931542423,
+   "nonzero": true
+  },
+  "l1/1x2048B/be4": {
+   "ns_per_assembly": 403.6294005345553,
+   "ns_per_read": 403.6294005345553,
+   "nreads": 1,
+   "barrier_every": 4,
+   "gbs_chip": 659.6149825741121,
+   "nonzero": true
+  },
+  "l1/1x2048B/be8": {
+   "ns_per_assembly": 428.50300087593496,
+   "ns_per_read": 428.50300087593496,
+   "nreads": 1,
+   "barrier_every": 8,
+   "gbs_chip": 621.3258704274158,
+   "nonzero": true
+  },
+  "l1/1x2048B/be16": {
+   "ns_per_assembly": 443.7088005943224,
+   "ns_per_read": 443.7088005943224,
+   "nreads": 1,
+   "barrier_every": 16,
+   "gbs_chip": 600.0331741074029,
+   "nonzero": true
+  },
+  "l1/1x2048B/be32": {
+   "ns_per_assembly": 440.9768007462844,
+   "ns_per_read": 440.9768007462844,
+   "nreads": 1,
+   "barrier_every": 32,
+   "gbs_chip": 603.7505817753458,
+   "nonzero": true
+  },
+  "l1/8x256B/be1": {
+   "ns_per_assembly": 540.5731993960217,
+   "ns_per_read": 67.57164992450271,
+   "nreads": 8,
+   "barrier_every": 1,
+   "gbs_chip": 492.5142428397633,
+   "nonzero": true
+  },
+  "l1/8x256B/be2": {
+   "ns_per_assembly": 456.70059917028993,
+   "ns_per_read": 57.08757489628624,
+   "nreads": 8,
+   "barrier_every": 2,
+   "gbs_chip": 582.963982275677,
+   "nonzero": true
+  },
+  "l1/8x256B/be4": {
+   "ns_per_assembly": 489.2377997748554,
+   "ns_per_read": 61.15472497185692,
+   "nreads": 8,
+   "barrier_every": 4,
+   "gbs_chip": 544.1934374705353,
+   "nonzero": true
+  },
+  "l1/8x256B/be8": {
+   "ns_per_assembly": 511.88359793741256,
+   "ns_per_read": 63.98544974217657,
+   "nreads": 8,
+   "barrier_every": 8,
+   "gbs_chip": 520.1182477281736,
+   "nonzero": true
+  },
+  "l1/8x256B/be16": {
+   "ns_per_assembly": 566.1425995640457,
+   "ns_per_read": 70.76782494550571,
+   "nreads": 8,
+   "barrier_every": 16,
+   "gbs_chip": 470.2702114361582,
+   "nonzero": true
+  },
+  "l1/8x256B/be32": {
+   "ns_per_assembly": 663.2311997236684,
+   "ns_per_read": 82.90389996545855,
+   "nreads": 8,
+   "barrier_every": 32,
+   "gbs_chip": 401.42864224561123,
+   "nonzero": true
+  },
+  "l1/32x64B/be1": {
+   "ns_per_assembly": 1753.575398470275,
+   "ns_per_read": 54.7992312021961,
+   "nreads": 32,
+   "barrier_every": 1,
+   "gbs_chip": 151.82694752233263,
+   "nonzero": true
+  },
+  "l1/32x64B/be2": {
+   "ns_per_assembly": 1370.1056013815105,
+   "ns_per_read": 42.8158000431722,
+   "nreads": 32,
+   "barrier_every": 2,
+   "gbs_chip": 194.32078792433504,
+   "nonzero": true
+  },
+  "l1/32x64B/be4": {
+   "ns_per_assembly": 1218.4999999590218,
+   "ns_per_read": 38.07812499871943,
+   "nreads": 32,
+   "barrier_every": 4,
+   "gbs_chip": 218.49815347472602,
+   "nonzero": true
+  },
+  "l1/32x64B/be8": {
+   "ns_per_assembly": 1231.499799177982,
+   "ns_per_read": 38.484368724311935,
+   "nreads": 32,
+   "barrier_every": 8,
+   "gbs_chip": 216.19167147060313,
+   "nonzero": true
+  },
+  "l1/32x64B/be16": {
+   "ns_per_assembly": 1353.6538026528433,
+   "ns_per_read": 42.30168133290135,
+   "nreads": 32,
+   "barrier_every": 16,
+   "gbs_chip": 196.68248962787396,
+   "nonzero": true
+  },
+  "l1/32x64B/be32": {
+   "ns_per_assembly": 1469.4659999804571,
+   "ns_per_read": 45.920812499389285,
+   "nreads": 32,
+   "barrier_every": 32,
+   "gbs_chip": 181.1814632006054,
+   "nonzero": true
+  }
+ },
+ "ncores": 130
+}

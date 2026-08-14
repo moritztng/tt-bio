@@ -1,0 +1,37 @@
+{
+ "A": 1.31,
+ "nb_per_core": 400,
+ "arms": {
+  "mode1_rel_l2": 0.004356191654170387,
+  "mode4_rel_l2": 0.0022274857009478874,
+  "mode5_rel_l2": 0.0034372772185952798,
+  "mode1_130core": {
+   "ns_per_output_tile_per_core": 2937.104982265737,
+   "chip_output_tiles_per_s": 44261271.14452532,
+   "derived_slices_per_s": 587031.6761474708,
+   "pct_of_floor": 18.344739879608465
+  },
+  "mode4_130core": {
+   "ns_per_output_tile_per_core": 2180.267510993872,
+   "chip_output_tiles_per_s": 59625710.76461149,
+   "derived_slices_per_s": 790808.3077266885,
+   "pct_of_floor": 24.712759616459014
+  },
+  "mode5_130core": {
+   "ns_per_output_tile_per_core": 1417.1025031828322,
+   "chip_output_tiles_per_s": 91736483.21699959,
+   "derived_slices_per_s": 1216689.4468734793,
+   "pct_of_floor": 38.02154521479623
+  },
+  "mode6_130core": {
+   "ns_per_output_tile_per_core": 1318.0300084059127,
+   "chip_output_tiles_per_s": 98632048.71733391,
+   "derived_slices_per_s": 1308144.465425214,
+   "pct_of_floor": 40.87951454453794
+  }
+ },
+ "tilize_cost_ns": 99.07249477691948,
+ "lever_precompute": 1.347130555060586,
+ "lever_coefficient_fpu": 1.5385390302373754,
+ "lever_cumulative": 2.0726129377860514
+}

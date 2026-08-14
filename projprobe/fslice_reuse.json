@@ -1,0 +1,76 @@
+{
+ "nplane": 28,
+ "shifts": [
+  28,
+  14,
+  7,
+  4,
+  2,
+  1
+ ],
+ "arms": {
+  "28": {
+   "max_rel_l2": 0.0033085323843017535,
+   "ns_per_tile_per_core": 17106.81499389466,
+   "speedup_vs_no_reuse": 1.0,
+   "stage1_ns_per_slice_per_core": 701.8180510315757,
+   "projection_ns_per_slice_per_core": 1483.9180510315757,
+   "projection_k_slices_per_s": 673.8916608668718,
+   "projection_pct_of_floor": 21.059114402089744,
+   "ns_dram_source": 18410.04501329735,
+   "dram_over_l1": 1.076181920472502
+  },
+  "14": {
+   "max_rel_l2": 0.003521018321933886,
+   "ns_per_tile_per_core": 6522.089970530942,
+   "speedup_vs_no_reuse": 2.6229038653543824,
+   "stage1_ns_per_slice_per_core": 267.5729218679361,
+   "projection_ns_per_slice_per_core": 1049.672921867936,
+   "projection_k_slices_per_s": 952.6777143307258,
+   "projection_pct_of_floor": 29.771178572835183
+  },
+  "7": {
+   "max_rel_l2": 0.003521018321933886,
+   "ns_per_tile_per_core": 2444.1099958494306,
+   "speedup_vs_no_reuse": 6.999200127222312,
+   "stage1_ns_per_slice_per_core": 100.2711793168997,
+   "projection_ns_per_slice_per_core": 882.3711793168998,
+   "projection_k_slices_per_s": 1133.3099079393824,
+   "projection_pct_of_floor": 35.4159346231057,
+   "ns_dram_source": 5364.915050449781,
+   "dram_over_l1": 2.1950383000603244
+  },
+  "4": {
+   "max_rel_l2": 0.0033412249413339134,
+   "ns_per_tile_per_core": 2111.665016855113,
+   "speedup_vs_no_reuse": 8.10110261682116,
+   "stage1_ns_per_slice_per_core": 86.63241094790209,
+   "projection_ns_per_slice_per_core": 868.732410947902,
+   "projection_k_slices_per_s": 1151.1024423606661,
+   "projection_pct_of_floor": 35.97195132377082
+  },
+  "2": {
+   "max_rel_l2": 0.003424183997619908,
+   "ns_per_tile_per_core": 2086.864988086745,
+   "speedup_vs_no_reuse": 8.197375053753873,
+   "stage1_ns_per_slice_per_core": 85.61497387022546,
+   "projection_ns_per_slice_per_core": 867.7149738702254,
+   "projection_k_slices_per_s": 1152.4521647238034,
+   "projection_pct_of_floor": 36.014130147618864
+  },
+  "1": {
+   "max_rel_l2": 0.003443533045755272,
+   "ns_per_tile_per_core": 2098.2150454074144,
+   "speedup_vs_no_reuse": 8.15303227919281,
+   "stage1_ns_per_slice_per_core": 86.08061724748366,
+   "projection_ns_per_slice_per_core": 868.1806172474837,
+   "projection_k_slices_per_s": 1151.8340540364077,
+   "projection_pct_of_floor": 35.99481418863774
+  }
+ },
+ "replicated_stage1": {
+  "ns_per_tile_per_core": 7850.820038584061,
+  "ns_per_slice_per_core": 322.0849246598589,
+  "factor_vs_1copy": 3.2121385911093467
+ }
+}

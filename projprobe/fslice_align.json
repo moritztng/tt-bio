@@ -1,0 +1,331 @@
+{
+ "aligns": {
+  "dram/md0/2": {
+   "mismatches": 2034,
+   "bit_exact": false,
+   "distinct_offsets": 32,
+   "offsets_bytes": [
+    6,
+    30,
+    54,
+    78,
+    102,
+    126,
+    150,
+    174
+   ]
+  },
+  "dram/md0/4": {
+   "mismatches": 2037,
+   "bit_exact": false,
+   "distinct_offsets": 32,
+   "offsets_bytes": [
+    4,
+    28,
+    52,
+    76,
+    100,
+    124,
+    148,
+    172
+   ]
+  },
+  "dram/md0/8": {
+   "mismatches": 1784,
+   "bit_exact": false,
+   "distinct_offsets": 32,
+   "offsets_bytes": [
+    0,
+    24,
+    48,
+    72,
+    96,
+    120,
+    144,
+    168
+   ]
+  },
+  "dram/md0/16": {
+   "mismatches": 1562,
+   "bit_exact": false,
+   "distinct_offsets": 32,
+   "offsets_bytes": [
+    0,
+    16,
+    48,
+    64,
+    96,
+    112,
+    144,
+    160
+   ]
+  },
+  "dram/md0/32": {
+   "mismatches": 1084,
+   "bit_exact": false,
+   "distinct_offsets": 24,
+   "offsets_bytes": [
+    0,
+    0,
+    32,
+    64,
+    96,
+    96,
+    128,
+    160
+   ]
+  },
+  "dram/md0/64": {
+   "mismatches": 0,
+   "bit_exact": true,
+   "distinct_offsets": 12,
+   "offsets_bytes": [
+    0,
+    0,
+    0,
+    64,
+    64,
+    64,
+    128,
+    128
+   ]
+  },
+  "dram/md0/128": {
+   "mismatches": 0,
+   "bit_exact": true,
+   "distinct_offsets": 6,
+   "offsets_bytes": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    128,
+    128
+   ]
+  },
+  "l1/md0/2": {
+   "mismatches": 2037,
+   "bit_exact": false,
+   "distinct_offsets": 32,
+   "offsets_bytes": [
+    6,
+    30,
+    54,
+    78,
+    102,
+    126,
+    150,
+    174
+   ]
+  },
+  "l1/md0/4": {
+   "mismatches": 2038,
+   "bit_exact": false,
+   "distinct_offsets": 32,
+   "offsets_bytes": [
+    4,
+    28,
+    52,
+    76,
+    100,
+    124,
+    148,
+    172
+   ]
+  },
+  "l1/md0/8": {
+   "mismatches": 1017,
+   "bit_exact": false,
+   "distinct_offsets": 32,
+   "offsets_bytes": [
+    0,
+    24,
+    48,
+    72,
+    96,
+    120,
+    144,
+    168
+   ]
+  },
+  "l1/md0/16": {
+   "mismatches": 0,
+   "bit_exact": true,
+   "distinct_offsets": 32,
+   "offsets_bytes": [
+    0,
+    16,
+    48,
+    64,
+    96,
+    112,
+    144,
+    160
+   ]
+  },
+  "l1/md0/32": {
+   "mismatches": 0,
+   "bit_exact": true,
+   "distinct_offsets": 24,
+   "offsets_bytes": [
+    0,
+    0,
+    32,
+    64,
+    96,
+    96,
+    128,
+    160
+   ]
+  },
+  "l1/md0/64": {
+   "mismatches": 0,
+   "bit_exact": true,
+   "distinct_offsets": 12,
+   "offsets_bytes": [
+    0,
+    0,
+    0,
+    64,
+    64,
+    64,
+    128,
+    128
+   ]
+  },
+  "l1/md0/128": {
+   "mismatches": 0,
+   "bit_exact": true,
+   "distinct_offsets": 6,
+   "offsets_bytes": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    128,
+    128
+   ]
+  },
+  "dram/md1/2": {
+   "mismatches": 2034,
+   "bit_exact": false,
+   "distinct_offsets": 32,
+   "offsets_bytes": [
+    6,
+    30,
+    54,
+    78,
+    102,
+    126,
+    150,
+    174
+   ]
+  },
+  "dram/md1/4": {
+   "mismatches": 2039,
+   "bit_exact": false,
+   "distinct_offsets": 32,
+   "offsets_bytes": [
+    4,
+    28,
+    52,
+    76,
+    100,
+    124,
+    148,
+    172
+   ]
+  },
+  "dram/md1/8": {
+   "mismatches": 1784,
+   "bit_exact": false,
+   "distinct_offsets": 32,
+   "offsets_bytes": [
+    0,
+    24,
+    48,
+    72,
+    96,
+    120,
+    144,
+    168
+   ]
+  },
+  "dram/md1/16": {
+   "mismatches": 1562,
+   "bit_exact": false,
+   "distinct_offsets": 32,
+   "offsets_bytes": [
+    0,
+    16,
+    48,
+    64,
+    96,
+    112,
+    144,
+    160
+   ]
+  },
+  "dram/md1/32": {
+   "mismatches": 1021,
+   "bit_exact": false,
+   "distinct_offsets": 24,
+   "offsets_bytes": [
+    0,
+    0,
+    32,
+    64,
+    96,
+    96,
+    128,
+    160
+   ]
+  },
+  "dram/md1/64": {
+   "mismatches": 0,
+   "bit_exact": true,
+   "distinct_offsets": 12,
+   "offsets_bytes": [
+    0,
+    0,
+    0,
+    64,
+    64,
+    64,
+    128,
+    128
+   ]
+  },
+  "dram/md1/128": {
+   "mismatches": 0,
+   "bit_exact": true,
+   "distinct_offsets": 6,
+   "offsets_bytes": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    128,
+    128
+   ]
+  }
+ },
+ "src_w": 512,
+ "win": 64,
+ "conclusive_passes": [
+  "dram/md0/64",
+  "dram/md0/128",
+  "l1/md0/16",
+  "l1/md0/32",
+  "l1/md0/64",
+  "l1/md0/128",
+  "dram/md1/64",
+  "dram/md1/128"
+ ]
+}

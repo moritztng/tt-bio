@@ -1,0 +1,52 @@
+{
+ "planes": [
+  2,
+  8,
+  28,
+  51,
+  62
+ ],
+ "psi_per_direction": 96,
+ "tiles_per_direction": 512,
+ "arms": {
+  "2": {
+   "rel_l2": 0.0019645675912647364,
+   "ns_per_tile_per_core": 1241.5750097716227,
+   "ns_per_slice_per_core_amortised": 50.93641065729734,
+   "ns_reads_only": 1256.3250493258238,
+   "read_share_pct": 101.18801034477282
+  },
+  "8": {
+   "rel_l2": 0.003354784716348711,
+   "ns_per_tile_per_core": 2853.050027624704,
+   "ns_per_slice_per_core_amortised": 117.04820626152632,
+   "ns_reads_only": 2874.5450254064053,
+   "read_share_pct": 100.75340416654372
+  },
+  "28": {
+   "rel_l2": 0.0034108798877076677,
+   "ns_per_tile_per_core": 17308.239985140972,
+   "ns_per_slice_per_core_amortised": 710.0816404160399,
+   "ns_reads_only": 18235.870011267252,
+   "read_share_pct": 105.35947055808474
+  },
+  "51": {
+   "rel_l2": 0.0034108798877076677,
+   "ns_per_tile_per_core": 36928.890040144324,
+   "ns_per_slice_per_core_amortised": 1515.0313862623314,
+   "ns_reads_only": 35911.055019823834,
+   "read_share_pct": 97.24379741927247
+  },
+  "62": {
+   "rel_l2": 0.0034108798877076677,
+   "ns_per_tile_per_core": 50222.40002290346,
+   "ns_per_slice_per_core_amortised": 2060.4061547857827,
+   "ns_reads_only": 49753.45997081604,
+   "read_share_pct": 99.06627311344427
+  }
+ },
+ "stage2_ns_per_slice_per_core": 782.1137920673077,
+ "stage1_ns_per_slice_per_core": 710.0816404160399,
+ "projection_k_slices_per_s": 670.1535055202359,
+ "projection_pct_of_floor": 20.94229704750737
+}
