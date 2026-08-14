@@ -37,7 +37,18 @@ sys.path.insert(0, str(S / "tt-bio" / "projprobe"))
 from e3_fsc_relion import fsc, read_mrc, resolution  # noqa: E402
 
 E2E = S / "e2e"
-ARMS = {"ref_relion_own": "ref_run", "tt_bridge_active": "tt_run"}
+# Which two arms to compare, A against B, as output-stem names under e2e/. Defaults to the campaign's
+# reference-against-bridge pair. Taking them from argv is what lets the same battery run the control
+# the parity verdict needs: ref against a SECOND reference arm, which is the only way to tell a
+# bridge effect from RELION's own run-to-run nondeterminism fed back through the refinement loop.
+#
+#   python3 e2e_compare.py                      # ref_run vs tt_run   -> e2e_compare.json
+#   python3 e2e_compare.py ref_run ref2_run     # the control         -> e2e_compare_ref2_run.json
+_ARGV = sys.argv[1:]
+A_STEM, B_STEM = (_ARGV + ["ref_run", "tt_run"])[:2] if len(_ARGV) >= 2 else ("ref_run", "tt_run")
+A_NAME, B_NAME = f"A_{A_STEM}", f"B_{B_STEM}"
+ARMS = {A_NAME: A_STEM, B_NAME: B_STEM}
+OUT = "e2e_compare.json" if (A_STEM, B_STEM) == ("ref_run", "tt_run") else f"e2e_compare_{B_STEM}.json"
 COLS = ("_rlnAngleRot", "_rlnAngleTilt", "_rlnAnglePsi",
         "_rlnOriginXAngst", "_rlnOriginYAngst")
 
@@ -116,16 +127,17 @@ def main():
               flush=True)
 
     if len(vols) == 2:
-        (a1, a2, apix) = vols["ref_relion_own"]
-        (t1, t2, _) = vols["tt_bridge_active"]
+        (a1, a2, apix) = vols[A_NAME]
+        (t1, t2, _) = vols[B_NAME]
         N = a1.shape[0]
-        d = res["arms"]["tt_bridge_active"]["resol_A"] - res["arms"]["ref_relion_own"]["resol_A"]
+        d = res["arms"][B_NAME]["resol_A"] - res["arms"][A_NAME]["resol_A"]
         res["delta_resol_A"] = d
         res["within_0.1A"] = bool(abs(d) <= 0.1)
-        print(f"\n=== resolution delta at FSC 0.143 ===\n  tt - ref = {d:+.4f} A"
+        print(f"\n=== resolution delta at FSC 0.143 ===\n  {B_STEM} - {A_STEM} = {d:+.4f} A"
               f"   (bar: within 0.1 A)", flush=True)
 
-        print("\n=== cross-FSC, ref half-k vs tt half-k (1.0 means the same volume) ===", flush=True)
+        print(f"\n=== cross-FSC, {A_STEM} half-k vs {B_STEM} half-k "
+              f"(1.0 means the same volume) ===", flush=True)
         for k, (va, vt) in enumerate(((a1, t1), (a2, t2)), start=1):
             f = fsc(np.fft.fftshift(np.fft.fftn(va)), np.fft.fftshift(np.fft.fftn(vt)), N, N // 2)
             r, _ = resolution(f, N, apix)
@@ -136,9 +148,9 @@ def main():
                   f"0.143 crossing {r:.4f} A   rel L2 {rl2:.3e}", flush=True)
 
     print("\n=== final per-particle assignments ===", flush=True)
-    pa, pt = data_star("ref_run"), data_star("tt_run")
+    pa, pt = data_star(A_STEM), data_star(B_STEM)
     if pa and pt:
-        print(f"  ref {pa.name}   tt {pt.name}", flush=True)
+        print(f"  A {pa.name}   B {pt.name}", flush=True)
         for c in COLS:
             va = np.array([float(x) for x in star_col(pa, c)])
             vt = np.array([float(x) for x in star_col(pt, c)])
@@ -155,9 +167,9 @@ def main():
     # The compounding check. A single iteration cannot show feedback; a trajectory can.
     print("\n=== reassignment rate per iteration (does any disagreement compound?) ===", flush=True)
     res["per_iteration"] = {}
-    for p in sorted(E2E.glob("ref_run_it0*_data.star")):
+    for p in sorted(E2E.glob(f"{A_STEM}_it0*_data.star")):
         it = p.name.split("_it")[1][:3]
-        q = E2E / f"tt_run_it{it}_data.star"
+        q = E2E / f"{B_STEM}_it{it}_data.star"
         if not q.exists():
             continue
         row = {}
@@ -180,7 +192,7 @@ def main():
         print(f"  trajectory {ks} -> {rate}   "
               f"{'GROWS (compounding)' if rate[-1] > rate[0] else 'flat or shrinking'}", flush=True)
 
-    out = E2E / "e2e_compare.json"
+    out = E2E / OUT
     out.write_text(json.dumps(res, indent=1, default=float))
     print("\nwrote", out, flush=True)
 
