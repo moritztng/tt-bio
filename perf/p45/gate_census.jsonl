@@ -1,0 +1,1 @@
+{"rung": "R4", "atoms": 6051, "batch": 2, "steps": 4, "wall_s": 7.787082563000013, "sparse_bias_served": 0, "sparse_bias_declined": 0, "fused_served": 27, "rejects": {}, "eligible_calls": [{"batch": 2, "n_heads": 4, "L": 6051, "n_keys": 128, "dtype": "DataType.BFLOAT16", "ok": true, "n": 3}]}
