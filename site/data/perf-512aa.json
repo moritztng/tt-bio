@@ -121,7 +121,7 @@
     "amortisation_basis": "Four years is this page's assumption for how long an AI accelerator earns its keep: one year shorter than the general-purpose server life Amazon reports in its 10-Q, because an accelerator generation lasts about two years. A shorter window favours the cheaper box, so the range below brackets it.",
     "utilisation": "The machine predicts continuously, so every hour of ownership is an hour of throughput.",
     "formula": "Throughput per dollar, with the DGX H200 set to 1.00x, on two bases. Purchase price: predictions per hour / price, with no amortisation window, because the window cancels from that ratio. Total cost of ownership: predictions per hour / cost per hour, where cost per hour = price / (4 x 8766 h) + power kW x $/kWh.",
-    "sensitivity": "Shift the window to 3 or 6 years, or the rate to the 13.54 c/kWh US commercial tariff, and the Tenstorrent figure moves between 2.21x and 3.71x. It does not invert."
+    "sensitivity": "Shift the window to 3 or 6 years, or the rate to the 13.54 c/kWh US commercial tariff, and the Tenstorrent figure moves between 2.47x and 3.71x. It does not invert."
   },
   "models": [
     {
@@ -156,9 +156,9 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 36.103,
+          "s_per_fold": 32.228,
           "parity": "bit-exact",
-          "ref": "Round-robin A/B against the 37.811 s arm it replaces, median of two rounds, A/A noise floor 0.525 s against a 1.708 s delta. Bit-exact: CIF sha256 295867277b9c137f and plDDT 0.9285 identical on every arm, and torch.equal at every replaced op."
+          "ref": "Round-robin A/B on qb2 card 1, ttnn 0.68.0, harvested 11x10 core grid, warm folds one at a time under benchlock, median of n=3: 32.228 s (spread 0.187 s) against 34.059 s (spread 0.058 s) with PAIR_FFN_L1_FC1 off, an A/A noise floor of 0.058 s. That gate ships on as of this measurement. Bit-exact: CIF sha256 295867277b9c137f and plDDT 0.9285 identical on every fold of both arms, and the same byte-identical result at 298, 768 and 1024 aa, where no size regresses."
         },
         "h200": {
           "status": "measured",

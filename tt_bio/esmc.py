@@ -312,10 +312,12 @@ PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)
 # median of 5: 18.095 -> 14.657 ms per call, 1.235x, `torch.equal`
 # (perf/esm3p4/accept_l2_c0.json). At the 512 aa fold it is worth -1.926 s.
 #
-# Ships OFF. It is bit-exact where it was measured, but it changes the matmul program ttnn
-# derives, and the row-block window it rides inside spans 320-1024 aa across two grids of which
-# only 11x10 at 512 aa was checked with this config. Flipping the default is a release call.
-PAIR_FFN_L1_FC1 = False
+# Ships ON. The 320-1024 aa window it rides inside is now checked end to end at 298 / 512 / 768 /
+# 1024 aa on qb2 card 1, ttnn 0.68.0, 11x10: byte-identical CIF and plDDT against the OFF arm at
+# every size, and inert at 298 because that sits below the window
+# (perf/esm3p4close/fold_ab_*_c1.json). Still gated, so an A/B stays one call away. 13x10 is
+# unchecked with this config, the same exposure the row block already ships with.
+PAIR_FFN_L1_FC1 = True
 _PAIR_FFN_L1_FC1 = os.environ.get(
     "TT_BIO_PAIR_FFN_L1_FC1", "1" if PAIR_FFN_L1_FC1 else "0") == "1"
 
