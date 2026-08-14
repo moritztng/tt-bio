@@ -164,7 +164,7 @@ def grid(nx, ny):
 
 
 def build_s2a(sl, coef, selt, w, nx, ny, nb, row_el, offs_bytes, rowidx_of_core, ncontrib,
-              chunk, fmt, page):
+              chunk, fmt, page, compute="compute_bproj_ds.cpp", mid=None, dstacc=None):
     """S2': the forward's stage-2 reader and writer, UNCHANGED, around the adjoint's compute."""
     cg = grid(nx, ny)
     nselt = 3 * SRC_TILES
@@ -187,9 +187,10 @@ def build_s2a(sl, coef, selt, w, nx, ny, nb, row_el, offs_bytes, rowidx_of_core,
             c += 1
     return ttnn.ProgramDescriptor(kernels=[
         mk(KDIR / "reader_fslice.cpp", cg, rct, rrt, ttnn.ReaderConfigDescriptor()),
-        mk(KDIR / "compute_bproj_ds.cpp", cg, cct, crt,
+        mk(KDIR / compute, cg, cct, crt,
            ttnn.ComputeConfigDescriptor(math_fidelity=ttnn.MathFidelity.HiFi4,
-                                        fp32_dest_acc_en=(fmt == ttnn.float32))),
+                                        fp32_dest_acc_en=(fmt == ttnn.float32)
+                                        if dstacc is None else dstacc)),
         mk(KDIR / "writer_fslice.cpp", cg, wct, wrt, ttnn.WriterConfigDescriptor()),
     ], semaphores=[], cbs=cbs(cg, [
         (CB_SRC, ttnn.bfloat16, TILE_B, 4 * BARRIER_EVERY * SRC_TILES),
@@ -199,7 +200,8 @@ def build_s2a(sl, coef, selt, w, nx, ny, nb, row_el, offs_bytes, rowidx_of_core,
         (CB_TIL, ttnn.bfloat16, TILE_B, 2 * SRC_TILES),
         (CB_COEF, ttnn.bfloat16, TILE_B, 3),
         (CB_SELT, ttnn.bfloat16, TILE_B, nselt),
-        (CB_MID, ttnn.bfloat16, TILE_B, 2 * 3 * SRC_TILES * chunk),
+        (CB_MID, mid or ttnn.bfloat16, TILE_B if mid is None else page,
+         2 * 3 * SRC_TILES * chunk),
         (CB_ACC, fmt, page, 2),
         (CB_OUT, fmt, page, 2)]))
 
@@ -442,4 +444,5 @@ def main():
         ttnn.close_device(dev)
 
 
-main()
+if __name__ == "__main__":
+    main()
