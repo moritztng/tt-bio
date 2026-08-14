@@ -1,0 +1,39 @@
+{
+ "lever_d": [
+  {
+   "box": 256,
+   "grid": 16,
+   "tiles": 256,
+   "frac_tiles_dilated": 0.921875,
+   "frac_tiles_raw_disc": 0.875,
+   "frac_area": 0.7853981633974483
+  },
+  {
+   "box": 384,
+   "grid": 24,
+   "tiles": 576,
+   "frac_tiles_dilated": 0.8819444444444444,
+   "frac_tiles_raw_disc": 0.8402777777777778,
+   "frac_area": 0.7853981633974483
+  },
+  {
+   "box": 512,
+   "grid": 32,
+   "tiles": 1024,
+   "frac_tiles_dilated": 0.87109375,
+   "frac_tiles_raw_disc": 0.8359375,
+   "frac_area": 0.7853981633974483
+  }
+ ],
+ "lever_b": {
+  "t_run": 5.0266,
+  "psi": 96,
+  "theta_max_deg": 45.0,
+  "D_mean": 1.1228419797581257,
+  "D_max": 1.414213562373095,
+  "r_mean": 0.6636184183727325,
+  "r_min": 0.6025792782397644,
+  "r_max": 0.8083984919031194,
+  "assemblies_speedup_mean": 1.5068900625936712
+ }
+}

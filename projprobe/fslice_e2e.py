@@ -60,7 +60,15 @@ A = 1.31
 # A half-space slice is pi*(N/2)^2/2 output points -- RELION's Friedel storage. 25,736 at box
 # 256, and it scales with the box, so it cannot stay the constant the stage-2 harness used.
 tiles_per_slice = lambda box: math.pi * (box / 2.0) ** 2 / 2.0 / 1024.0
-FLOOR_SLICES_S = {256: 3.206e6, 384: 1.425e6, 512: 0.801e6}
+# The floor, on roofs MEASURED on this card (projprobe/b0_roofs.json: read 406.6, write 173.7,
+# rmw 297.3 GB/s) and the overlap the rmw arm implies, T = max(R, W) + 0.394*min(R, W).
+# At box 256 the irreducible traffic is a 305,835 B band read (752.2 ns) and a 102,944 B slice
+# write (592.6 ns), so the floor is 985.7 ns/slice. Both terms scale exactly as box^2.
+# The old {256: 3.206e6, 384: 1.425e6, 512: 0.801e6} priced the slice WRITE with ttnn.add's
+# 420.2 GB/s two-read-one-write number and was 2.24x too generous.
+FLOOR_NS_256 = 985.7
+FLOOR_READ_NS_256 = 752.2          # the read channel alone: the ceiling any lever can reach
+floor_slices_s = lambda box, ns=FLOOR_NS_256: 1e9 / (ns * (box / 256.0) ** 2)
 NX, NY = 13, 10
 
 
@@ -144,33 +152,43 @@ def build_stage1(v, m, w, nx, ny, nstrip, row_el, hoist, strip_of_core, shift_re
                                      (CB_MID2, TILE_B, 2)]))
 
 
-def build_stage2(w, sel, frac, out, nx, ny, nb, row_el, offs_bytes, rowidx_of_core):
+def build_stage2(w, sel, frac, out, nx, ny, nb, row_el, offs_bytes, rowidx_of_core,
+                 mode=13, fid="HiFi4", cbtil=2, cbsrc=4):
+    """`nb` is the number of OUTPUT TILES per core that mode 13 produces.
+
+    The reader issues the SAME 2*nb assemblies whatever the mode, so a screen mode prices the
+    same transaction stream as the built kernel and the two are comparable. What differs is what
+    the compute engine does with them: mode 13 takes two per output tile, modes 5/6 one, and
+    mode 0 only tilizes and packs (src_tiles out per assembly, hence the wider writer block).
+    """
     cg = ttnn.CoreRangeSet([ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(nx - 1, ny - 1))])
-    mode = 13
+    asm = nb * 2                          # assemblies per core -- fixed across modes
+    nblk = nb if mode == 13 else asm      # compute-loop trips
+    tpb = SRC_TILES if mode == 0 else 1   # cb_out tiles the compute pushes per trip
     rct = ([CB_SRC, WIN * ELEM, NROWS, row_el * ELEM, SRC_TILES, BARRIER_EVERY, mode,
             CB_SEL, CB_FRAC, 3 * SRC_TILES, TILE_B, 3]
            + list(ttnn.TensorAccessorArgs(w).get_compile_time_args())
            + list(ttnn.TensorAccessorArgs(sel).get_compile_time_args())
            + list(ttnn.TensorAccessorArgs(frac).get_compile_time_args()))
     cct = [CB_SRC, CB_TIL, CB_SEL, CB_FRAC, CB_OUT, SRC_TILES, mode, CB_MID, CB_INT, CB_INT2]
-    wct = [CB_OUT, TILE_B, 1] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
+    wct = [CB_OUT, TILE_B, tpb] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
     rrt, crt, wrt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     c = 0
     for cy in range(ny):
         for cx in range(nx):
-            rrt[cx][cy] = ([w.buffer_address(), nb * 2, 0] + [int(o) for o in offs_bytes]
+            rrt[cx][cy] = ([w.buffer_address(), asm, 0] + [int(o) for o in offs_bytes]
                            + [sel.buffer_address(), frac.buffer_address()]
                            + [int(i) for i in rowidx_of_core[c]])
-            crt[cx][cy] = [nb]
-            wrt[cx][cy] = [out.buffer_address(), nb, c * nb]
+            crt[cx][cy] = [nblk]
+            wrt[cx][cy] = [out.buffer_address(), nblk, c * nblk * tpb]
             c += 1
     return ttnn.ProgramDescriptor(kernels=[
         mk(KDIR / "reader_fslice.cpp", cg, rct, rrt, ttnn.ReaderConfigDescriptor()),
         mk(KDIR / "compute_fslice.cpp", cg, cct, crt,
-           ttnn.ComputeConfigDescriptor(math_fidelity=ttnn.MathFidelity.HiFi4)),
+           ttnn.ComputeConfigDescriptor(math_fidelity=getattr(ttnn.MathFidelity, fid))),
         mk(KDIR / "writer_fslice.cpp", cg, wct, wrt, ttnn.WriterConfigDescriptor()),
-    ], semaphores=[], cbs=cbset(cg, [(CB_SRC, TILE_B, 4 * BARRIER_EVERY * SRC_TILES),
-                                     (CB_TIL, TILE_B, 2 * SRC_TILES), (CB_SEL, TILE_B, 3 * SRC_TILES),
+    ], semaphores=[], cbs=cbset(cg, [(CB_SRC, TILE_B, cbsrc * BARRIER_EVERY * SRC_TILES),
+                                     (CB_TIL, TILE_B, cbtil * SRC_TILES), (CB_SEL, TILE_B, 3 * SRC_TILES),
                                      (CB_FRAC, TILE_B, 4), (CB_OUT, TILE_B, 4), (CB_MID, TILE_B, 2),
                                      (CB_INT, TILE_B, 4), (CB_INT2, TILE_B, 4)]))
 
@@ -292,6 +310,14 @@ def main():
                     help="1 = the replicated copies carry their real shifts; 0 = section 28.2's cost probe")
     ap.add_argument("--reps", type=int, default=5)
     ap.add_argument("--skip-parity", action="store_true")
+    ap.add_argument("--mode", type=int, default=13, help="stage-2 compute mode; 13 is the built kernel")
+    ap.add_argument("--fid", default="HiFi4", choices=["LoFi", "HiFi2", "HiFi3", "HiFi4"],
+                    help="stage-2 math fidelity (lever F)")
+    ap.add_argument("--cbtil", type=int, default=2, help="cb_til depth in units of SRC_TILES (lever O)")
+    ap.add_argument("--cbsrc", type=int, default=4,
+                    help="cb_src depth in units of BARRIER_EVERY*SRC_TILES (lever O)")
+    ap.add_argument("--split", action="store_true",
+                    help="also time the two stages separately, after the chained arm")
     a = ap.parse_args()
 
     global STRIP_TILES
@@ -300,7 +326,8 @@ def main():
     dev = ttnn.open_device(device_id=0)
     res = {"box": a.box, "row_el": row_el, "strips_per_dir": strips_per_dir, "nplane": NPLANE,
            "psi": PSI, "ncopy": NCOPY, "nstrip": a.nstrip, "components": a.components,
-           "hoist_init": a.hoist, "ncore": ncore}
+           "hoist_init": a.hoist, "ncore": ncore, "mode": a.mode, "fid": a.fid,
+           "cbtil": a.cbtil, "cbsrc": a.cbsrc}
     try:
         rng = np.random.default_rng(61)
         vol = rng.integers(-100, 100, size=(NPAGES * 32, 32)).astype(np.float32)
@@ -352,13 +379,18 @@ def main():
                               dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
         frac = ttnn.from_torch(torch.from_numpy(frac_tiles(h).reshape(1, 1, 96, 32)).to(torch.bfloat16),
                                dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
-        out = ttnn.from_torch(torch.zeros(1, 1, 32 * nb * ncore, 32).to(torch.bfloat16),
+        # A screen mode produces a different number of output tiles per core from the same reader
+        # stream, so the destination has to be sized for the mode or the writer walks off the end.
+        nblk = nb if a.mode == 13 else nb * 2
+        tpb = SRC_TILES if a.mode == 0 else 1
+        out = ttnn.from_torch(torch.zeros(1, 1, 32 * nblk * tpb * ncore, 32).to(torch.bfloat16),
                               dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
         strip_of_core = list(range(ncore))
         rowidx_of_core = [((c * 32 + np.arange(NROWS)) * NCOPY + rho).tolist() for c in range(ncore)]
         pd1 = build_stage1(vol_t, m_t, w, NX, NY, a.nstrip, row_el, a.hoist, strip_of_core,
                            a.shift, nmask)
-        pd2 = build_stage2(w, sel, frac, out, NX, NY, nb, row_el, offs_el * ELEM, rowidx_of_core)
+        pd2 = build_stage2(w, sel, frac, out, NX, NY, nb, row_el, offs_el * ELEM, rowidx_of_core,
+                           a.mode, a.fid, a.cbtil, a.cbsrc)
 
         ins1, ins2 = [vol_t, m_t, w], [w, sel, frac, out]
         ttnn.generic_op(ins1, pd1)
@@ -374,9 +406,24 @@ def main():
             dt = time.perf_counter() - t0
             times.append(dt)
             best = min(best, dt)
+        if a.split:
+            # The two stages are separate programs and cannot overlap, so timing them apart adds one
+            # device sync (~50 us against a 9 ms arm) and does not change what either one costs.
+            def stage_ns(ins, pd):
+                ttnn.generic_op(ins, pd); ttnn.synchronize_device(dev)
+                bs = float("inf")
+                for _ in range(a.reps):
+                    t0 = time.perf_counter(); ttnn.generic_op(ins, pd)
+                    ttnn.synchronize_device(dev); bs = min(bs, time.perf_counter() - t0)
+                return bs * 1e9 / nslice
+            s1_ns, s2_ns = stage_ns(ins1, pd1), stage_ns(ins2, pd2)
+            res.update({"stage1_ns_per_slice": s1_ns, "stage2_ns_per_slice": s2_ns})
+            print(f"  split: stage 1 {s1_ns:7.1f} + stage 2 {s2_ns:7.1f} = {s1_ns + s2_ns:7.1f} "
+                  f"ns/slice (chained {best * 1e9 / nslice:.1f})", flush=True)
+
         sha = hashlib.sha256(ttnn.to_torch(out).view(torch.int16).numpy().tobytes()).hexdigest()
         rate = nslice / best
-        floor = FLOOR_SLICES_S[a.box]
+        floor = floor_slices_s(a.box)
         res.update({"wall_s": best, "all_wall_s": times, "sha256": sha,
                     "k_slices_per_s": rate / 1e3, "pct_of_floor": 100 * rate / floor,
                     "ns_per_slice_per_core": best * 1e9 / nslice})
@@ -384,10 +431,13 @@ def main():
         print(f"  wall {best * 1e3:8.3f} ms for {nslice:.0f} slices   (runs "
               f"{', '.join(f'{t*1e3:.2f}' for t in times)} ms)")
         print(f"  {rate / 1e3:9.1f} k slices/s   {100 * rate / floor:5.2f}% of the "
-              f"{floor / 1e6:.3f} M floor   {best * 1e9 / nslice:8.1f} ns/slice/core")
+              f"{floor / 1e6:.4f} M measured-overlap floor   {best * 1e9 / nslice:8.1f} ns/slice/core")
         print(f"  sha256 {sha}")
-        json.dump(res, open(HERE / f"fslice_e2e_box{a.box}_c{a.components}_h{a.hoist}_s{a.shift}.json", "w"),
-                  indent=1)
+        tag = (f"fslice_e2e_box{a.box}_c{a.components}_h{a.hoist}_s{a.shift}"
+               + (f"_m{a.mode}" if a.mode != 13 else "")
+               + (f"_{a.fid}" if a.fid != "HiFi4" else "")
+               + (f"_t{a.cbtil}" if a.cbtil != 2 else "") + (f"_r{a.cbsrc}" if a.cbsrc != 4 else ""))
+        json.dump(res, open(HERE / f"{tag}.json", "w"), indent=1)
     finally:
         ttnn.close_device(dev)
 
