@@ -1,0 +1,84 @@
+{
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "0",
+ "model": "esmfold2",
+ "size": 512,
+ "recycling_steps": 10,
+ "sampling_steps": 100,
+ "threads": 8,
+ "timers_installed": [
+  "phase:model",
+  "phase:confidence_head",
+  "host:RowAttentionPooling",
+  "host:nn.Linear",
+  "host:nn.LayerNorm",
+  "host:nn.Embedding",
+  "host:F.linear",
+  "wrap:FoldingTrunk",
+  "wrap:MSAEncoder",
+  "wrap:InputsEmbedder",
+  "wrap:RelPosEncoding",
+  "wrap:LanguageModelShim",
+  "wrap:DistogramHeadModel",
+  "wrap:DiffusionConditioning",
+  "wrap:DiffusionTransformer",
+  "wrap:SWAAtomTransformer",
+  "wrap:DiffusionModule",
+  "wrap:StructureHead",
+  "phase:structure_sample",
+  "wrap:_Adapter",
+  "xfer:from_torch",
+  "xfer:to_torch",
+  "stage:ESMC-6B",
+  "stage:LMShim",
+  "stage:MSAEncoder",
+  "stage:FoldingTrunk*",
+  "stage:DiffusionModule",
+  "stage:DiffusionConditioning",
+  "stage:DistogramHead",
+  "block:PairUpdateBlock",
+  "body:TriangleMultiplication",
+  "body:SwiGLUFFN",
+  "block:TokenDiT",
+  "body:AttentionPairBias",
+  "body:CondTransition",
+  "leaf:_attn_fp32",
+  "body:AtomEncoder",
+  "body:AtomDecoder",
+  "body:SWAAtomTransformer",
+  "leaf:SWAAttention",
+  "body:OuterProductMean",
+  "body:MSAPWA",
+  "phase:prepare_input",
+  "phase:decode"
+ ],
+ "runs": [
+  {
+   "arm": "plain0",
+   "fold_s": 32.18,
+   "plddt": 0.9285,
+   "n_tokens": null,
+   "cif": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "loadavg": "1.15"
+  },
+  {
+   "arm": "timed0",
+   "fold_s": 32.755,
+   "plddt": 0.9285,
+   "n_tokens": null,
+   "cif": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "loadavg": "1.09"
+  }
+ ],
+ "grid": [
+  11,
+  10
+ ],
+ "cold_s": 44.952859404000264,
+ "plain_median": 32.18
+}

@@ -26,8 +26,7 @@ sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
 # width of None is the pre-L2 behaviour, where the gate refuses an L1 destination for the fc1
 # operand class and both halves fall back to a DRAM `ttnn.linear(core_grid=...)`.
 # arm -> (rows, fc1 L1 block width on/off, host round-trip elision on/off)
-ARMS = {"base": (0, False, False), "armc": (32, False, False),
-        "l2": (32, True, False), "arm1": (32, True, True)}
+ARMS = {"base": (0, False), "armc": (32, False), "l2": (32, True)}
 
 
 def sha_dir(d):
@@ -87,16 +86,19 @@ def main():
     fc1_block_w = EC._PAIR_FFN_FC1_BLOCK_W
 
     def run(tag, arm):
-        rows, fc1, xfer = ARMS[arm]
+        rows, fc1 = ARMS[arm]
         EC.set_pair_l1_rows(rows)
         EC._PAIR_FFN_FC1_BLOCK_W = fc1_block_w if fc1 else None
-        T.set_xfer_passthrough(xfer)
         RP.STATS_GATED[0] = RP.STATS_GATED[1] = 0
-        T.XFER_STATS[:] = [0] * len(T.XFER_STATS); T.XFER_SKIP.clear()
+        RP.STATS[0] = RP.STATS[1] = 0
+        RP.STATS_BACK[0] = RP.STATS_BACK[1] = 0
         fold_s, m = one_fold()
         row = {"tag": tag, "arm": arm, "pair_l1_rows": rows,
                "fc1_out_block_w": EC._PAIR_FFN_FC1_BLOCK_W,
-               "xfer": list(T.XFER_STATS), "xfer_skip": dict(T.XFER_SKIP),
+               # served/declined for the two moves that are NOT the gated one: the ungated
+               # forward still keys its work unit on (row-tile, col-tile) and the back one does
+               # not, so this census is what decides whether the re-key is worth porting again.
+               "fwd_move": list(RP.STATS), "back_move": list(RP.STATS_BACK),
                "fold_s": round(fold_s, 3), "plddt": m.get("plddt"), "cif": sha_dir(struct_dir),
                "e6_served": RP.STATS_GATED[0], "e6_declined": RP.STATS_GATED[1],
                "l1_out_refused": len(T._L1_OUT_REFUSED),
@@ -105,8 +107,7 @@ def main():
         a.out.write_text(json.dumps(res, indent=1))
         print(f"  {tag:16s} {fold_s:8.3f}s plddt={m.get('plddt')} "
               f"e6={RP.STATS_GATED[0]}/{RP.STATS_GATED[1]} l1refused={row['l1_out_refused']} "
-              f"xfer=elide{T.XFER_STATS[1]}/reg{T.XFER_STATS[0]} "
-              f"to{T.XFER_STATS[2]}/from{T.XFER_STATS[3]} "
+              f"fwd={RP.STATS[0]}/{RP.STATS[1]} back={RP.STATS_BACK[0]}/{RP.STATS_BACK[1]} "
               f"cif={list(row['cif'].values())[0] if row['cif'] else '-'} "
               f"load={row['loadavg']}", flush=True)
         return fold_s

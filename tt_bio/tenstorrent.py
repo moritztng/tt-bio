@@ -1,6 +1,5 @@
 import os
 import contextlib
-import weakref
 import torch, ttnn, atexit
 from torch import nn
 from typing import Callable, Mapping
@@ -4442,85 +4441,6 @@ class Diffusion(Module):
         return r_update
 
 
-# Host round trips between two submodules that BOTH run on device. `esmfold2-to-4x` §3 measured
-# 2.805 s of a 512 aa esmfold2 fold in `from_torch` + `to_torch` over 242 boundaries, and at most
-# of them the host does no arithmetic at all: the reference hands what one wrapper returned
-# straight to the next. `_to_torch` registers the host tensor it produced against the device
-# tensor it came from, and `_from_torch` returns that device tensor when it is handed back the
-# SAME host object at the SAME `_version` and the SAME dtype.
-#
-# Why that key is the bit-exact subset. An out-of-place host op produces a new object and misses.
-# An in-place mutation bumps `_version` and misses. A slice, a reshape, a `.to()` that actually
-# converts -- all new objects, all miss. What is left is the case where the host received a
-# tensor and passed it on untouched, and there the elision does not merely round-trip losslessly,
-# it moves zero bytes. (bf16 -> fp32 -> bf16 through the host is itself bit-exact, memory
-# `bf16-roundtrip-bit-exact`, so a hit and a miss agree on the values either way.)
-#
-# A hit CONSUMES the entry, for two reasons. It hands ownership of the device buffer to exactly
-# one consumer, so a consumer that mutates its input in place cannot corrupt a second reader --
-# the second reader misses and uploads from the host tensor, which no device op can have touched.
-# And it bounds how long the entry pins device memory: a registered tensor stays allocated until
-# the host tensor it is keyed on dies, and at 512 aa a pair track is 268 MB.
-_XFER_PASSTHROUGH = bool(int(os.environ.get("TT_BIO_XFER_PASSTHROUGH", "0")))
-# (registered, elided, to_torch calls, from_torch calls) since the last reset. The kill gate on
-# this lever is a hit count against the round trips actually taken, not a wall clock, so the
-# denominator has to be counted too.
-XFER_STATS = [0, 0, 0, 0]
-XFER_SKIP = {}
-_XFER: dict[int, tuple] = {}
-
-
-def set_xfer_passthrough(on: bool) -> bool:
-    """Elide a host round trip between two device submodules. Returns the previous value."""
-    global _XFER_PASSTHROUGH
-    prev, _XFER_PASSTHROUGH = _XFER_PASSTHROUGH, bool(on)
-    if not _XFER_PASSTHROUGH:
-        _XFER.clear()
-    return prev
-
-
-def _xfer_register(host: torch.Tensor, dev: ttnn.Tensor) -> None:
-    if not _XFER_PASSTHROUGH:
-        return
-    try:
-        if dev.layout != ttnn.TILE_LAYOUT or dev.memory_config().buffer_type != ttnn.BufferType.DRAM:
-            XFER_SKIP["guard: " + str(dev.layout) + " " + str(dev.memory_config().buffer_type)] = (
-                XFER_SKIP.get("guard: " + str(dev.layout) + " " + str(dev.memory_config().buffer_type), 0) + 1)
-            return
-        key = id(host)
-        old = _XFER.pop(key, None)
-        if old is not None:
-            old[2].detach()  # a recycled id whose owner died without running its finalizer
-        _XFER[key] = (dev, host._version, weakref.finalize(host, _XFER.pop, key, None),
-                      weakref.ref(host))
-        XFER_STATS[0] += 1
-    except Exception as e:
-        XFER_SKIP[type(e).__name__ + ": " + str(e)[:70]] = XFER_SKIP.get(
-            type(e).__name__ + ": " + str(e)[:70], 0) + 1
-        _XFER.pop(id(host), None)
-
-
-def _xfer_take(host: torch.Tensor, dtype) -> "ttnn.Tensor | None":
-    """The device tensor `host` was read out of, if nothing has happened to it since."""
-    if not _XFER_PASSTHROUGH:
-        return None
-    entry = _XFER.get(id(host))
-    if entry is None:
-        return None
-    dev, version, fin, ref = entry
-    if ref() is not host or host._version != version or dev.dtype != dtype:
-        return None
-    try:
-        if not dev.is_allocated():
-            return None
-    except Exception:
-        return None
-    _XFER.pop(id(host), None)
-    fin.detach()
-    XFER_STATS[1] += 1
-    return dev
-
-
 class TorchWrapper(nn.Module):
     def __init__(self):
         super().__init__()
@@ -4541,10 +4461,6 @@ class TorchWrapper(nn.Module):
         )
 
     def _from_torch(self, x: torch.Tensor, dtype=ttnn.bfloat16) -> ttnn.Tensor:
-        XFER_STATS[3] += 1
-        dev = _xfer_take(x, dtype)
-        if dev is not None:
-            return dev
         return ttnn.from_torch(
             x,
             device=self.tt_device,
@@ -4553,10 +4469,7 @@ class TorchWrapper(nn.Module):
         )
 
     def _to_torch(self, x: ttnn.Tensor) -> torch.Tensor:
-        XFER_STATS[2] += 1
-        out = torch.Tensor(ttnn.to_torch(x)).to(torch.float32)
-        _xfer_register(out, x)
-        return out
+        return torch.Tensor(ttnn.to_torch(x)).to(torch.float32)
 
     def _cache_set(self, key: str, value):
         self._runtime_cache[key] = value
