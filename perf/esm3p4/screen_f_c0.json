@@ -1,0 +1,15 @@
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "L": 512,
+ "n": 7,
+ "arms": {
+  "chunk_x16": 0.7386,
+  "slice_x16": 0.737,
+  "concat_x16": 0.7265
+ },
+ "loadavg": "0.15",
+ "chunk_plus_concat_ms": 1.4651,
+ "linear_signature": "(*function_args, **function_kwargs)",
+ "linear_has_output_tensor": false
+}

@@ -1,0 +1,45 @@
+{
+ "host": "tt-quietbox2",
+ "card": "3",
+ "grid": [
+  11,
+  10
+ ],
+ "L": 512,
+ "n": 7,
+ "arms": {
+  "shipped": {
+   "ms": 0.9575,
+   "equal": true,
+   "pct_of_roof": 66.3
+  },
+  "lofi": {
+   "ms": 0.758,
+   "equal": false,
+   "pct_of_roof": 83.7,
+   "x_vs_shipped": 1.2631
+  },
+  "no_fp32_acc": {
+   "ms": 0.8846,
+   "equal": false,
+   "pct_of_roof": 71.8,
+   "x_vs_shipped": 1.0824
+  },
+  "approx": {
+   "ms": 0.9153,
+   "equal": false,
+   "pct_of_roof": 69.3,
+   "x_vs_shipped": 1.0461
+  },
+  "default_ck": {
+   "ms": 0.9499,
+   "equal": true,
+   "pct_of_roof": 66.8,
+   "x_vs_shipped": 1.008
+  }
+ },
+ "bytes_mb": 268.4,
+ "roof_gbs": 422.9,
+ "loadavg": "1.29",
+ "roof_ms": 0.6347
+}
