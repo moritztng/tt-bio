@@ -38,6 +38,12 @@ Two independent follower ranks, 1,104 and 1,116 particles, agreeing to 0.3 perce
 is 90.4% of its own accelerated E-step. The fine pass is 3.5%.** The kernel the bridge already
 offloads is not a slice of the problem, it is nearly all of it.
 
+**A/A on the arm, MEASURED this pass:** the same iteration ran twice under `benchlock.sh` at
+**142.50 s** and **140.98 s**, **1.1% apart**, both acquiring the lock at loadavg 0.17-0.52. So the
+noise floor on this arm under a clean lock is ~1%, against the 2.01x that `relion-acc-backend` §4.8
+measured for an *unlocked* arm on this same host. The second run exits `rc=0`; the first exited 139
+after printing a correct table, which is the atexit bug in §8.
+
 **And the instrument is nearly free**, which is what makes the share believable rather than an
 observer effect: this run's `expectation_6` is **131.826 s** against P1's un-instrumented iteration 13
 at **132.756 s** (`relion-acc-backend.md` §3.1), **0.7% apart**, on the same continue from the same
@@ -246,6 +252,16 @@ python3 p3_compare.py e2e/ref_run_it017 e2e/tt_run_it017
 | cross-FSC, ref half-k against tt half-k | min FSC over all shells ≥ 0.999 |
 | **sha256 of each output half-map** | **reported per arm, and NOT used as an identity check** |
 
+**Parity verdict, stated with its scope rather than borrowed whole.** What is MEASURED today is
+one-iteration parity: with the coarse compare running in our code, all 4,452 particles get
+**bit-identical** orientations and offsets on all five assignment columns, the unmasked gold-standard
+FSC 0.143 crossing is **3.4125 Å in both arms (Δ = −0.0000 Å)**, and `relion_postprocess` prints
+**3.50195 Å** for both — `relion-acc-backend` §4.5, re-checked after the mutex fix in §4.7. **What is
+OWED is trajectory-level parity: whether that survives 17 iterations of feedback**, which no
+measurement in this lineage has, because a bit-exact single iteration says nothing about a loop whose
+output is its own next input. E3 is that verdict and this task does not have it yet. **The one-iteration
+result must not be quoted as if it were the refinement's.**
+
 **That last row is not a formality.** `relion-acc-backend` §4.8 ran the reference arm twice and the
 half-map sha256 differed while all 4,452 assignments and the FSC crossing were identical: **RELION's
 ALTCPU reconstruction is not bit-reproducible run to run.** A doc that reads a sha difference here as
@@ -413,5 +429,13 @@ changes RELION's answer. Those two facts together mean the next work is measurem
   exact-trilinear-on-device route was closed by citing a scatter/gather figure measured on a different
   access pattern; carried through this workload's own numbers the same citation gives 13x, not a dead
   end. Same failure family as the 254.5 TFLOP/s matmul roof that turned out to be 212.7 on UBB silicon.
+- **This task's DONE_CHECK passes on a planning document, and it should not.** Run against this doc
+  before a single line of E1-E6 existed, `relion-end-to-end_donecheck.py` printed `DONE`. Every clause
+  it checks is satisfied by a doc that *describes* an A/B, a floor, a GO/NO-GO and a parity scope
+  honestly — it has no way to tell a plan from a result, because the tokens it greps for are the same
+  either way. Flagged rather than exploited: **no DONE is claimed by this pass.** The gate is
+  orchestrator-owned, so the fix is not made here, and the honest strengthening is a clause requiring
+  the doc to name an output tree that exists on disk (`ref_run_it017_*`), not a keyword. Same
+  keyword-grep failure family as `donecheck-keyword-grep-lets-multistage-task-conclude-early`.
 - **A Blackhole Galaxy now has a public list price ($110,000, 32 chips, 6U), so "per dollar has no
   defensible source" is retired.** Re-check a "cannot be sourced" verdict when the product ships.
