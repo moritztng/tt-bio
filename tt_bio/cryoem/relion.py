@@ -28,6 +28,12 @@ _CHECK = os.environ.get("TT_RELION_CHECK", "") not in ("", "0")
 # hash of the reference. Answers "is the coarse orientation set shared across particles" from a
 # real run rather than from reading RELION's sampling code.
 _TRACE = os.environ.get("TT_RELION_TRACE", "")
+# TT_RELION_DUMP=<path>: write the first call's raw inputs to <path>.<pid>.npz and keep going.
+# The separable-interpolant study needs RELION's own padded model and its own orientation set at
+# the real operating point; reconstructing either from RELION's source is guesswork.
+_DUMP = os.environ.get("TT_RELION_DUMP", "")
+_DUMP_N = int(os.environ.get("TT_RELION_DUMP_N", "1"))
+_dumped = [0]
 _stats = {"handled": 0, "declined": 0, "resid_max": 0.0, "resid_n": 0}
 
 
@@ -134,6 +140,15 @@ def diff2_coarse(mdl_mv, eul_mv, tx_mv, ty_mv, re_mv, im_mv, corr_mv, out_mv,
             d2 = ((dr * dr + di * di) * w).sum(-1)
             acc[o0 * translation_num:o1 * translation_num] = d2.reshape(-1).numpy()
 
+        if _DUMP and _dumped[0] < _DUMP_N:
+            _dumped[0] += 1
+            np.savez("%s.%d.%d.npz" % (_DUMP, os.getpid(), _dumped[0]),
+                     mdl=mdl.numpy(), eul=eul.numpy(), tx=tx.numpy(), ty=ty.numpy(),
+                     img_r=img_r.numpy(), img_i=img_i.numpy(), w=w.numpy(),
+                     diff2=acc,
+                     geom=np.array([mdlX, mdlY, mdlZ, mdlInitY, mdlInitZ, maxR, maxR2_padded,
+                                    padding_factor, imgX, imgY, orientation_num,
+                                    translation_num, image_size], dtype=np.int64))
         if _TRACE:
             import hashlib
             eh = hashlib.sha256(np.frombuffer(eul_mv, dtype=np.float32).tobytes()).hexdigest()[:16]
