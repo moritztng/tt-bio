@@ -1,0 +1,82 @@
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "grid": [
+  11,
+  10
+ ],
+ "ttnn": "0.68.0",
+ "cases": {
+  "N128_C256": {
+   "torch_equal_vs_main_key": true,
+   "max_abs_vs_torch_ref": 0.03125,
+   "shape": [
+    1,
+    256,
+    128,
+    128
+   ]
+  },
+  "N256_C256": {
+   "torch_equal_vs_main_key": true,
+   "max_abs_vs_torch_ref": 0.03125,
+   "shape": [
+    1,
+    256,
+    256,
+    256
+   ]
+  },
+  "N298_C256": {
+   "torch_equal_vs_main_key": true,
+   "max_abs_vs_torch_ref": 0.015625,
+   "shape": [
+    1,
+    256,
+    298,
+    298
+   ]
+  },
+  "N320_C256": {
+   "torch_equal_vs_main_key": true,
+   "max_abs_vs_torch_ref": 0.03125,
+   "shape": [
+    1,
+    256,
+    320,
+    320
+   ]
+  },
+  "N512_C256": {
+   "torch_equal_vs_main_key": true,
+   "max_abs_vs_torch_ref": 0.03125,
+   "shape": [
+    1,
+    256,
+    512,
+    512
+   ]
+  },
+  "N384_C128": {
+   "torch_equal_vs_main_key": true,
+   "max_abs_vs_torch_ref": 0.015625,
+   "shape": [
+    1,
+    128,
+    384,
+    384
+   ]
+  },
+  "N256_C384": {
+   "torch_equal_vs_main_key": true,
+   "max_abs_vs_torch_ref": 0.03125,
+   "shape": [
+    1,
+    384,
+    256,
+    256
+   ]
+  }
+ },
+ "all_bit_exact": true
+}
