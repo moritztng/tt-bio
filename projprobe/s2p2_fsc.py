@@ -40,24 +40,28 @@ from pathlib import Path
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
-N = int(sys.argv[1]) if len(sys.argv) > 1 else 128     # box
-NORIENT = int(sys.argv[2]) if len(sys.argv) > 2 else 1500
+# argv is read ONLY when this file is run directly, so the weight functions below can be imported
+# by the precision harness (p3_precision_fsc.py) without its own argv reaching this parser. Run
+# directly the CLI is unchanged, and the box-96 seed-11 regression check confirms it.
+_A = sys.argv[1:] if __name__ == "__main__" else []
+N = int(_A[0]) if len(_A) > 0 else 128                 # box
+NORIENT = int(_A[1]) if len(_A) > 1 else 1500
 APIX = 1.0                                             # Angstrom per pixel
-SNR = float(sys.argv[3]) if len(sys.argv) > 3 else 0.1  # per-pixel signal-to-noise
-SEED = int(sys.argv[4]) if len(sys.argv) > 4 else 97
+SNR = float(_A[2]) if len(_A) > 2 else 0.1             # per-pixel signal-to-noise
+SEED = int(_A[3]) if len(_A) > 3 else 97
 # Which separable variant is on trial against trilinear. Section 15.3 measured three
 # interpolants against a continuum: trilinear 1.00x, separable-2D 1.16-1.21x, two-pass
 # 1.23-1.27x. The kernel implements the two-pass, the worst of the three, and it failed the
 # gate at 0.0589 A. sep2d is the same z-collapse followed by a true 2D bilinear instead of
 # two 1D passes -- more accurate, and never cost-measured because section 15.3 treated it
 # only as the family's floor.
-VARIANT = sys.argv[5] if len(sys.argv) > 5 else "twopass"   # twopass|twopass_bal|sep2d|twopass_cubic
+VARIANT = _A[4] if len(_A) > 4 else "twopass"          # twopass|twopass_bal|sep2d|twopass_cubic
 NATOM, SIGMA = 400, 1.5
 # RELION's padding_factor, and it is a PARAMETER of the method rather than a property of the
 # kernel. Finer Fourier sampling makes every interpolant more accurate, so raising it is a lever
 # on the accuracy gate that needs no change to the tile-native form at all -- unlike switching
 # interpolant, which section 33 showed trades accuracy against implementability.
-PAD = int(sys.argv[6]) if len(sys.argv) > 6 else 2
+PAD = int(_A[5]) if len(_A) > 5 else 2
 CUBIC = VARIANT == "twopass_cubic"
 
 
@@ -381,4 +385,5 @@ def main():
         print(f"   {k:4d} : {ft[k]:6.3f} / {fs[k]:6.3f}")
 
 
-main()
+if __name__ == "__main__":
+    main()
