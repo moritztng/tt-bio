@@ -84,6 +84,47 @@ def build(dev, x, out, chunk, offs, strides, nreads=NREADS):
     ], semaphores=[], cbs=[cb(IN_CB, total, BE + 1), cb(OUT_CB, 2048, 2)])
 
 
+SCRATCH_CB = 1                  # the writer RISC's own gather destination in the dual arm
+
+
+def build_dual(dev, x, out, chunk, offs, strides, nreads=NREADS):
+    """Both dataflow RISCs gathering. The reader (NCRISC) and the writer (BRISC) run the same loop
+    on different phases into different CBs, so if the ~47-cycle issue cost is per-RISC rather than
+    per-core the measured rate per assembly stays flat while twice the reads happen."""
+    g = dev.compute_with_storage_grid_size()
+    cg = ttnn.CoreRangeSet([ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(g.x - 1, g.y - 1))])
+    total = nreads * chunk
+
+    def cb(i, nb, d):
+        f = ttnn.CBFormatDescriptor(buffer_index=i, data_format=ttnn.bfloat16, page_size=nb)
+        return ttnn.CBDescriptor(total_size=d * nb, core_ranges=cg, format_descriptors=[f])
+
+    sa = list(ttnn.TensorAccessorArgs(x).get_compile_time_args())
+    da = list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
+    rct = [IN_CB, total, nreads, chunk, BE, PAGE] + sa
+    wct = [SCRATCH_CB, total, nreads, chunk, BE, PAGE, OUT_CB, 2048] + sa + da
+    rrt, crt, wrt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
+    tail = [int(o) for o in offs[:nreads]] + [int(s) for s in strides[:nreads]]
+    c = 0
+    for cy in range(g.y):
+        for cx in range(g.x):
+            rrt[cx][cy] = [x.buffer_address(), NPAGES, OUTER, c] + tail
+            crt[cx][cy] = [0]
+            wrt[cx][cy] = [x.buffer_address(), NPAGES, OUTER, c,
+                           out.buffer_address(), c] + tail
+            c += 1
+    mk = lambda p, ct, rt, cfg: ttnn.KernelDescriptor(
+        kernel_source=str(p), source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
+        core_ranges=cg, compile_time_args=ct, runtime_args=rt, config=cfg)
+    return ttnn.ProgramDescriptor(kernels=[
+        mk(KDIR / "reader_e4_gather.cpp", rct, rrt, ttnn.ReaderConfigDescriptor()),
+        mk(KDIR / "compute_s1_drain.cpp", [IN_CB, OUT_CB], crt,
+           ttnn.ComputeConfigDescriptor(math_fidelity=ttnn.MathFidelity.HiFi4)),
+        mk(KDIR / "writer_e4_gather.cpp", wct, wrt, ttnn.WriterConfigDescriptor()),
+    ], semaphores=[], cbs=[cb(IN_CB, total, BE + 1), cb(SCRATCH_CB, total, BE + 1),
+                           cb(OUT_CB, 2048, 2)])
+
+
 def main():
     dev = ttnn.open_device(device_id=0)
     res = {"outer": OUTER, "barrier_every": BE, "nreads": NREADS, "page_bytes": PAGE,
@@ -172,6 +213,39 @@ def main():
             except Exception as e:                                       # noqa: BLE001
                 res["control_nreads_at_16B"][str(nr)] = {"error": str(e)[:200]}
                 print(f"control {nr:3d}x16B  FAIL {str(e)[:150]}", flush=True)
+        # E4b: is the second dataflow RISC free? Same 16 B arm, both RISCs gathering.
+        print()
+        try:
+            pd = build_dual(dev, x, out, 16, offs, strides)
+            ttnn.generic_op([x, out], pd)
+            ttnn.synchronize_device(dev)
+            best = float("inf")
+            for _ in range(5):
+                t0 = time.perf_counter()
+                ttnn.generic_op([x, out], pd)
+                ttnn.synchronize_device(dev)
+                best = min(best, time.perf_counter() - t0)
+            nz = bool(ttnn.to_torch(out).abs().sum() > 0)
+            ns = best * 1e9 / OUTER
+            reads = 2 * NREADS                       # both RISCs did a full assembly
+            g_core = 2 / (ns / reads) * 1e9 / 1e6    # 2 corners per 16 B read
+            one = res["arms"][f"{NREADS}x16B"]["m_gathers_per_s_core"]
+            res["dual_risc_16B"] = {
+                "ns_per_assembly_pair": ns, "ns_per_read": ns / reads, "nonzero": nz,
+                "m_gathers_per_s_core": g_core, "g_gathers_per_s_chip": g_core * nc / 1e3,
+                "gain_over_single_risc": g_core / one,
+                "vs_bar": g_core * 1e6 / (BAR_GATHERS_PER_S_CHIP / nc),
+                "iter_seconds": GATHERS_PER_ITER / (g_core * nc * 1e6),
+                "second_risc_is_free": bool(g_core / one > 1.8)}
+            d = res["dual_risc_16B"]
+            print(f"dual-RISC 32x16B  {ns/reads:6.2f} ns/read  {g_core:7.1f} M gathers/s/core  "
+                  f"{g_core*nc/1e3:6.2f} G/s chip  {d['gain_over_single_risc']:.2f}x one RISC  "
+                  f"{d['vs_bar']:.3f}x bar  coarse E-step {d['iter_seconds']:.2f} s", flush=True)
+        except Exception as e:                                           # noqa: BLE001
+            res["dual_risc_16B"] = {"error": str(e)[:400]}
+            print(f"dual-RISC FAIL {str(e)[:300]}", flush=True)
+        json.dump(res, open(HERE / "e4_gather_rate.json", "w"), indent=1)
+
         c = res["control_nreads_at_16B"]
         if all("ns_per_assembly" in c.get(str(n), {}) for n in (1, 32)):
             # Two-point fit: slope is the marginal read, intercept is everything else in the loop.

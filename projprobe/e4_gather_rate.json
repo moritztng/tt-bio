@@ -13,88 +13,99 @@
  },
  "arms": {
   "32x8B": {
-   "ns_per_assembly": 1174.2889999368344,
-   "ns_per_read": 36.696531248026076,
+   "ns_per_assembly": 1169.1229999996722,
+   "ns_per_read": 36.535093749989755,
    "corners_per_read": 1,
    "nonzero": true,
-   "m_gathers_per_s_core": 27.25053202552463,
-   "g_gathers_per_s_chip": 3.542569163318202,
-   "gbs_chip": 28.34055330654562,
-   "vs_bar": 0.4135294743172998,
-   "iter_seconds": 36.27310973362578
+   "m_gathers_per_s_core": 27.370943861346472,
+   "g_gathers_per_s_chip": 3.5582227019750414,
+   "gbs_chip": 28.46578161580033,
+   "vs_bar": 0.41535673563910985,
+   "iter_seconds": 36.11353497595142
   },
   "32x16B": {
-   "ns_per_assembly": 1179.0499999733584,
-   "ns_per_read": 36.84531249916745,
+   "ns_per_assembly": 1168.2594000376412,
+   "ns_per_read": 36.50810625117629,
    "corners_per_read": 2,
    "nonzero": true,
-   "m_gathers_per_s_core": 54.28098893299363,
-   "g_gathers_per_s_chip": 7.056528561289172,
-   "gbs_chip": 56.452228490313374,
-   "vs_bar": 0.82371928731002,
-   "iter_seconds": 18.210087139011602
+   "m_gathers_per_s_core": 54.78235398571407,
+   "g_gathers_per_s_chip": 7.121706018142829,
+   "gbs_chip": 56.97364814514263,
+   "vs_bar": 0.8313275507559722,
+   "iter_seconds": 18.04342943567751
   },
   "32x32B": {
-   "ns_per_assembly": 1180.941399979929,
-   "ns_per_read": 36.90441874937278,
+   "ns_per_assembly": 1180.7928000052925,
+   "ns_per_read": 36.89977500016539,
    "corners_per_read": 4,
    "nonzero": true,
-   "m_gathers_per_s_core": 108.38810461058902,
-   "g_gathers_per_s_chip": 14.090453599376573,
-   "gbs_chip": 112.72362879501259,
-   "vs_bar": 1.644800031055631,
-   "iter_seconds": 9.119649633258465
+   "m_gathers_per_s_core": 108.40174499660421,
+   "g_gathers_per_s_chip": 14.092226849558546,
+   "gbs_chip": 112.73781479646838,
+   "vs_bar": 1.645007025240297,
+   "iter_seconds": 9.118502091387025
   },
   "32x64B": {
-   "ns_per_assembly": 1175.55180004274,
-   "ns_per_read": 36.73599375133563,
+   "ns_per_assembly": 1181.0234000222408,
+   "ns_per_read": 36.906981250695026,
    "corners_per_read": 8,
    "nonzero": true,
-   "m_gathers_per_s_core": 217.77007188512877,
-   "g_gathers_per_s_chip": 28.31010934506674,
-   "gbs_chip": 226.4808747605339,
-   "vs_bar": 3.3046820247159614,
-   "iter_seconds": 4.539014612544834
+   "m_gathers_per_s_core": 216.76115815755983,
+   "g_gathers_per_s_chip": 28.17895056048278,
+   "gbs_chip": 225.43160448386223,
+   "vs_bar": 3.2893716607567445,
+   "iter_seconds": 4.560141433379145
   }
  },
  "ncores": 130,
  "control_nreads_at_16B": {
   "1": {
-   "ns_per_assembly": 98.97639993141638,
-   "ns_per_read": 98.97639993141638
+   "ns_per_assembly": 112.39020004722988,
+   "ns_per_read": 112.39020004722988
   },
   "2": {
-   "ns_per_assembly": 142.86619998529204,
-   "ns_per_read": 71.43309999264602
+   "ns_per_assembly": 147.73800003240467,
+   "ns_per_read": 73.86900001620234
   },
   "4": {
-   "ns_per_assembly": 225.1654000247072,
-   "ns_per_read": 56.2913500061768
+   "ns_per_assembly": 218.45020000910154,
+   "ns_per_read": 54.612550002275384
   },
   "8": {
-   "ns_per_assembly": 359.5216000576329,
-   "ns_per_read": 44.94020000720411
+   "ns_per_assembly": 356.0916000424186,
+   "ns_per_read": 44.51145000530232
   },
   "16": {
-   "ns_per_assembly": 625.6274000406847,
-   "ns_per_read": 39.101712502542796
+   "ns_per_assembly": 627.1702000049117,
+   "ns_per_read": 39.198137500306984
   },
   "32": {
-   "ns_per_assembly": 1178.7376000029326,
-   "ns_per_read": 36.835550000091644
+   "ns_per_assembly": 1177.616799941461,
+   "ns_per_read": 36.80052499817066
   }
  },
+ "dual_risc_16B": {
+  "ns_per_assembly_pair": 1213.6241999542108,
+  "ns_per_read": 18.962878124284543,
+  "nonzero": true,
+  "m_gathers_per_s_core": 105.46922186030021,
+  "g_gathers_per_s_chip": 13.710998841839027,
+  "gain_over_single_risc": 1.9252407789523625,
+  "vs_bar": 1.6005057013819874,
+  "iter_seconds": 9.372037842194477,
+  "second_risc_is_free": true
+ },
  "control_fit": {
-  "marginal_ns_per_read": 34.831006453919876,
-  "loop_intercept_ns": 64.1453934774965
+  "marginal_ns_per_read": 34.362148383684875,
+  "loop_intercept_ns": 78.028051663545
  },
  "verdict": {
   "arm": "32x16B, 2 corners per read, the trilinear packing on the natural layout",
-  "m_gathers_per_s_core": 54.28098893299363,
+  "m_gathers_per_s_core": 54.78235398571407,
   "bar_m_gathers_per_s_core": 65.8974358974359,
-  "vs_bar": 0.82371928731002,
-  "coarse_estep_seconds_1_chip": 18.210087139011602,
-  "speedup_vs_cpu_coarse_119_2s": 6.54582260315696,
+  "vs_bar": 0.8313275507559722,
+  "coarse_estep_seconds_1_chip": 18.04342943567751,
+  "speedup_vs_cpu_coarse_119_2s": 6.606282936674127,
   "issue_bound": true,
   "route_dead": false
  }
