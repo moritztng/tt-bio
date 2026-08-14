@@ -1,0 +1,101 @@
+{
+ "outer": 5000,
+ "barrier_every": 4,
+ "nreads": 32,
+ "page_bytes": 4096,
+ "model_bytes": 31719424,
+ "npages": 7744,
+ "bar": {
+  "gathers_per_iter": 128500000000.0,
+  "budget_s": 15.0,
+  "gathers_per_s_chip": 8566666666.666667,
+  "gathers_per_s_core": 65897435.8974359
+ },
+ "arms": {
+  "32x8B": {
+   "ns_per_assembly": 1174.2889999368344,
+   "ns_per_read": 36.696531248026076,
+   "corners_per_read": 1,
+   "nonzero": true,
+   "m_gathers_per_s_core": 27.25053202552463,
+   "g_gathers_per_s_chip": 3.542569163318202,
+   "gbs_chip": 28.34055330654562,
+   "vs_bar": 0.4135294743172998,
+   "iter_seconds": 36.27310973362578
+  },
+  "32x16B": {
+   "ns_per_assembly": 1179.0499999733584,
+   "ns_per_read": 36.84531249916745,
+   "corners_per_read": 2,
+   "nonzero": true,
+   "m_gathers_per_s_core": 54.28098893299363,
+   "g_gathers_per_s_chip": 7.056528561289172,
+   "gbs_chip": 56.452228490313374,
+   "vs_bar": 0.82371928731002,
+   "iter_seconds": 18.210087139011602
+  },
+  "32x32B": {
+   "ns_per_assembly": 1180.941399979929,
+   "ns_per_read": 36.90441874937278,
+   "corners_per_read": 4,
+   "nonzero": true,
+   "m_gathers_per_s_core": 108.38810461058902,
+   "g_gathers_per_s_chip": 14.090453599376573,
+   "gbs_chip": 112.72362879501259,
+   "vs_bar": 1.644800031055631,
+   "iter_seconds": 9.119649633258465
+  },
+  "32x64B": {
+   "ns_per_assembly": 1175.55180004274,
+   "ns_per_read": 36.73599375133563,
+   "corners_per_read": 8,
+   "nonzero": true,
+   "m_gathers_per_s_core": 217.77007188512877,
+   "g_gathers_per_s_chip": 28.31010934506674,
+   "gbs_chip": 226.4808747605339,
+   "vs_bar": 3.3046820247159614,
+   "iter_seconds": 4.539014612544834
+  }
+ },
+ "ncores": 130,
+ "control_nreads_at_16B": {
+  "1": {
+   "ns_per_assembly": 98.97639993141638,
+   "ns_per_read": 98.97639993141638
+  },
+  "2": {
+   "ns_per_assembly": 142.86619998529204,
+   "ns_per_read": 71.43309999264602
+  },
+  "4": {
+   "ns_per_assembly": 225.1654000247072,
+   "ns_per_read": 56.2913500061768
+  },
+  "8": {
+   "ns_per_assembly": 359.5216000576329,
+   "ns_per_read": 44.94020000720411
+  },
+  "16": {
+   "ns_per_assembly": 625.6274000406847,
+   "ns_per_read": 39.101712502542796
+  },
+  "32": {
+   "ns_per_assembly": 1178.7376000029326,
+   "ns_per_read": 36.835550000091644
+  }
+ },
+ "control_fit": {
+  "marginal_ns_per_read": 34.831006453919876,
+  "loop_intercept_ns": 64.1453934774965
+ },
+ "verdict": {
+  "arm": "32x16B, 2 corners per read, the trilinear packing on the natural layout",
+  "m_gathers_per_s_core": 54.28098893299363,
+  "bar_m_gathers_per_s_core": 65.8974358974359,
+  "vs_bar": 0.82371928731002,
+  "coarse_estep_seconds_1_chip": 18.210087139011602,
+  "speedup_vs_cpu_coarse_119_2s": 6.54582260315696,
+  "issue_bound": true,
+  "route_dead": false
+ }
+}
