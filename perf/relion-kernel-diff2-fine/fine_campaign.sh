@@ -57,7 +57,7 @@ run_arm() {
   [ -f "$S/fine/$arm.done" ] && return 0        # relaunch-safe: never repeat a finished arm
   rm -f "$S/fine/$arm".* 2>/dev/null
   uptime > "$S/fine/$arm.loadavg"
-  BENCHLOCK_MAXLOAD=3.0 BENCHLOCK_WAIT_S=3600 "$BL" worker:relion-kernel-diff2-fine -- \
+  BENCHLOCK_MAXLOAD=3.0 BENCHLOCK_WAIT_S=${BENCHLOCK_WAIT_S:-3600} "$BL" worker:relion-kernel-diff2-fine -- \
     bash "$0" inner "$arm" "$bk" "$extra"
   bl=$?
   uptime >> "$S/fine/$arm.loadavg"
