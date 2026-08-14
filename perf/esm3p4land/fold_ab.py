@@ -77,19 +77,22 @@ def main():
         elif want:
             raise SystemExit("arm %s needs set_pair_ffn_l1_fc1, absent here" % arm)
         RP.STATS_GATED[0] = RP.STATS_GATED[1] = 0
+        EC.L1_FC1_STATS[0] = EC.L1_FC1_STATS[1] = 0
         RP.STATS[0] = RP.STATS[1] = 0
         RP.STATS_BACK[0] = RP.STATS_BACK[1] = 0
         fold_s, m = one_fold()
         row = {"tag": tag, "arm": arm, "l1_fc1": want,
                "fold_s": round(fold_s, 3), "plddt": m.get("plddt"), "cif": sha_dir(struct_dir),
                "e6_served": RP.STATS_GATED[0], "e6_declined": RP.STATS_GATED[1],
+               "l1_fc1_stats": list(EC.L1_FC1_STATS),
                "fwd_move": list(RP.STATS), "back_move": list(RP.STATS_BACK),
                "l1_out_refused": len(T._L1_OUT_REFUSED),
                "loadavg": open("/proc/loadavg").read().split()[0]}
         res["runs"].append(row)
         a.out.write_text(json.dumps(res, indent=1))
-        print("  %-14s %8.3fs plddt=%s e6=%d/%d l1refused=%d cif=%s load=%s"
+        print("  %-14s %8.3fs plddt=%s e6=%d/%d l1fc1=%d/%d l1refused=%d cif=%s load=%s"
               % (tag, fold_s, m.get("plddt"), RP.STATS_GATED[0], RP.STATS_GATED[1],
+                 EC.L1_FC1_STATS[0], EC.L1_FC1_STATS[1],
                  row["l1_out_refused"],
                  list(row["cif"].values())[0] if row["cif"] else "-", row["loadavg"]),
               flush=True)

@@ -319,6 +319,10 @@ PAIR_FFN_L1_FC1 = False
 _PAIR_FFN_L1_FC1 = os.environ.get(
     "TT_BIO_PAIR_FFN_L1_FC1", "1" if PAIR_FFN_L1_FC1 else "0") == "1"
 
+# [served, declined] `_pair_proj_linear` calls, so a consumer census counts what executed rather
+# than what greps. Same idiom as `reblock_permute.STATS_GATED`.
+L1_FC1_STATS = [0, 0]
+
 
 def set_split_swiglu(on: bool) -> bool:
     """A/B switch for the split-fc1 SwiGLU path. Returns the previous state."""
@@ -410,12 +414,14 @@ class SwiGLUFFN(Module):
             ttnn.deallocate(x_norm)
         elif split:
             if l1_gated and _PAIR_FFN_L1_FC1:
+                L1_FC1_STATS[0] += 2
                 l1 = dict(l1_out=True, l1_bw=_PAIR_FFN_FC1_BW,
                           l1_block_w=_PAIR_FFN_FC1_BLOCK_W)
                 dt = _dtype()
                 h1 = _pair_proj_linear(x_norm, self.fc1_a_weight, ck, dt, **l1)
                 h2 = _pair_proj_linear(x_norm, self.fc1_b_weight, ck, dt, **l1)
             else:
+                L1_FC1_STATS[1] += 2 * bool(l1_gated)
                 h1 = self._lin(x_norm, self.fc1_a_weight)
                 h2 = self._lin(x_norm, self.fc1_b_weight)
             ttnn.deallocate(x_norm)
