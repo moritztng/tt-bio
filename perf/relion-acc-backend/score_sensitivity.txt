@@ -1,0 +1,8 @@
+shape No=186 Nt=9 P=19404, 12 particles per eps
+bf16 round-off is ~4e-3 relative and is settled free (+0.000016 A), so 4e-3 is the control row
+eps       argmin moved  orientation chg median rel d(diff2)
+4e-03     0/12          0/12            1.206e-05     
+1e-02     0/12          0/12            2.995e-05     
+3e-02     0/12          0/12            9.801e-05     
+1e-01     1/12          1/12            7.148e-04     
+3e-01     4/12          4/12            8.309e-03     
