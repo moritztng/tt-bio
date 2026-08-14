@@ -285,7 +285,7 @@
           "p150a": {
             "status": "measured",
             "s_per_design": 167.189,
-            "ref": "Median of n=3 warm forwards, 334.081 / 334.379 / 334.862 s per forward of 2, spread 0.23 %, 1671.9 ms per timestep. qb2, Blackhole p150a physical card 0, ttnn 0.68.0, under a run lock. The run asked for the shipped batch of 8; the runtime clamps it to 2 at this target size, so the eight designs come out as four forwards of two and the cold forward is dropped. All eight wrote 6051 atoms and 685 residues and passed validation."
+            "ref": "Median of n=3 warm forwards, 334.081 / 334.379 / 334.862 s per forward of 2, spread 0.23 %, 1671.9 ms per timestep. qb2, Blackhole p150a physical card 0, ttnn 0.68.0, under a run lock. The run asked for the shipped batch of 8; the runtime clamps it to 2 at this target size, so the eight designs come out as four forwards of two and the cold forward is dropped. All eight wrote 6051 atoms and 685 residues and passed validation. The same target at --batch_size 1 returns 144.044 s per design, so the clamped batch of 2 is 1.16x slower per design than the batch below it; this cell holds the shipped default."
           },
           "h200": {
             "status": "measured",
