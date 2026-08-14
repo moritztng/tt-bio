@@ -51,9 +51,14 @@ SEED = int(sys.argv[4]) if len(sys.argv) > 4 else 97
 # gate at 0.0589 A. sep2d is the same z-collapse followed by a true 2D bilinear instead of
 # two 1D passes -- more accurate, and never cost-measured because section 15.3 treated it
 # only as the family's floor.
-VARIANT = sys.argv[5] if len(sys.argv) > 5 else "twopass"   # twopass | twopass_bal | sep2d
+VARIANT = sys.argv[5] if len(sys.argv) > 5 else "twopass"   # twopass|twopass_bal|sep2d|twopass_cubic
 NATOM, SIGMA = 400, 1.5
-PAD = 2
+# RELION's padding_factor, and it is a PARAMETER of the method rather than a property of the
+# kernel. Finer Fourier sampling makes every interpolant more accurate, so raising it is a lever
+# on the accuracy gate that needs no change to the tile-native form at all -- unlike switching
+# interpolant, which section 33 showed trades accuracy against implementability.
+PAD = int(sys.argv[6]) if len(sys.argv) > 6 else 2
+CUBIC = VARIANT == "twopass_cubic"
 
 
 def build_volume(P, rng):
@@ -166,7 +171,7 @@ def sep_weights(uu, vv, u3, v3, P):
         Z = aa * X + bb * Y
         Z0 = np.floor(Z)
         t = Z - Z0
-        for dz, wz in ((0.0, 1 - t), (1.0, t)):
+        for dz, wz in _taps(t, CUBIC):
             cc = (np.stack([X, Y, Z0 + dz], -1)[:, inv] + c).astype(np.int64)
             np.clip(cc, 0, P - 1, out=cc)
             out_i.append((cc[:, 0] * P + cc[:, 1]) * P + cc[:, 2])
@@ -177,24 +182,24 @@ def sep_weights(uu, vv, u3, v3, P):
         Yr = u1 * su + v1 * sv
         Y0 = np.floor(Yr)
         ty = Yr - Y0
-        for dy, wy in ((0.0, 1 - ty), (1.0, ty)):
+        for dy, wy in _taps(ty, CUBIC):
             Y = Y0 + dy
             Xr = alpha * su + beta * Y
             X0 = np.floor(Xr)
             tx = Xr - X0
-            for dx, wx in ((0.0, 1 - tx), (1.0, tx)):
+            for dx, wx in _taps(tx, CUBIC):
                 emit(X0 + dx, Y, wy * wx)
     else:
         gam, dlt = u1 / u0, v1 - v0 * u1 / u0
         Xr = u0 * su + v0 * sv
         X0 = np.floor(Xr)
         tx = Xr - X0
-        for dx, wx in ((0.0, 1 - tx), (1.0, tx)):
+        for dx, wx in _taps(tx, CUBIC):
             X = X0 + dx
             Yr = gam * X + dlt * sv
             Y0 = np.floor(Yr)
             ty = Yr - Y0
-            for dy, wy in ((0.0, 1 - ty), (1.0, ty)):
+            for dy, wy in _taps(ty, CUBIC):
                 emit(X, Y0 + dy, wx * wy)
     return np.array(out_i), np.array(out_w)
 
@@ -236,6 +241,25 @@ def sep2d_weights(uu, vv, u3, v3, P):
     return np.array(out_i), np.array(out_w)
 
 
+def _taps(t, cubic):
+    """Interpolation taps and weights for a fractional offset t.
+
+    Linear is the 2-tap kernel RELION uses. Cubic is Catmull-Rom, 4 taps -- and it is STILL exactly
+    tile-native: a 1D resample with 4 taps has the same structure as one with 2, just more r-independent
+    selection matmuls and more coefficient tiles. Section 27.2 measured the kernel bandwidth-bound with
+    the interpolation arithmetic at about 13% of an output tile, so extra taps are nearly free in
+    wall-clock. That is what makes this worth trying where switching interpolant was not: it buys
+    accuracy without giving up the property the whole design rests on.
+    """
+    if not cubic:
+        return ((0.0, 1 - t), (1.0, t))
+    t2, t3 = t * t, t * t * t
+    return ((-1.0, -0.5 * t3 + t2 - 0.5 * t),
+            (0.0, 1.5 * t3 - 2.5 * t2 + 1.0),
+            (1.0, -1.5 * t3 + 2.0 * t2 + 0.5 * t),
+            (2.0, 0.5 * t3 - 0.5 * t2))
+
+
 def rand_rot(rng):
     a = rng.normal(size=(3, 3))
     q, r = np.linalg.qr(a)
@@ -275,7 +299,7 @@ def main():
     rng = np.random.default_rng(SEED)
     t0 = time.time()
     V = build_volume(P, rng)
-    print(f"box {N} [{VARIANT}], padded {P}, {NORIENT} orientations, SNR {SNR}, built in "
+    print(f"box {N} [{VARIANT}, pad {PAD}], padded {P}, {NORIENT} orient, SNR {SNR}, built in "
           f"{time.time()-t0:.1f}s", flush=True)
     Vf = V.reshape(-1)
 
@@ -321,7 +345,11 @@ def main():
             # weighted value and the weight, then divides.
             buf[kind]["i"].append(idx.reshape(-1))
             buf[kind]["v"].append((wt * val[None, :]).reshape(-1))
-            buf[kind]["w"].append(wt.reshape(-1))
+            # Normalise by the sum of |w|. For any NON-NEGATIVE kernel this equals the sum of w, so
+            # every linear arm is bit-unchanged. It matters only for Catmull-Rom, whose negative lobes
+            # let the signed sum cancel to near zero and make the gridding divide explode -- the first
+            # cubic run returned +11.7 A, which was this and not the interpolant.
+            buf[kind]["w"].append(np.abs(wt).reshape(-1))
         if (o + 1) % FLUSH == 0:
             for kind in ("tri", "sep"):
                 flush(kind)
@@ -346,7 +374,7 @@ def main():
     print(f"\nseparable minus trilinear: {d:+.4f} A   (gate: 0.05 A)  -> "
           f"{'PASS' if abs(d) <= 0.05 else 'FAIL'}", flush=True)
     tag = "" if VARIANT == "twopass" else "_" + VARIANT
-    json.dump(res, open(HERE / (f"s2p2_fsc_box{N}_snr{SNR}_s{SEED}" + tag + ".json"), "w"), indent=1)
+    json.dump(res, open(HERE / (f"s2p2_fsc_box{N}_snr{SNR}_s{SEED}" + tag + (f"_pad{PAD}" if PAD != 2 else "") + ".json"), "w"), indent=1)
     ft, fs = res["arms"]["tri"]["fsc"], res["arms"]["sep"]["fsc"]
     print("  shell : FSC tri / FSC sep, upper half of the spectrum")
     for k in range(len(ft) // 2, len(ft), max(1, len(ft) // 16)):
