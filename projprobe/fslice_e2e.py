@@ -249,7 +249,8 @@ def frac_tiles(h):
     return f5
 
 
-def parity(dev, res, row_el, mkn, vol_t, voln, m_t, shift_real, nmask, bs, cs):
+def parity(dev, res, row_el, mkn, vol_t, voln, m_t, shift_real, nmask, bs, cs,
+           mode=13, fid="HiFi4"):
     """One core, one strip: does the chain compute the right thing end to end?"""
     w = ttnn.from_torch(torch.zeros(1, 1, 32 * NCOPY, row_el).to(torch.bfloat16),
                         dtype=ttnn.bfloat16, layout=ttnn.ROW_MAJOR_LAYOUT, device=dev,
@@ -284,7 +285,20 @@ def parity(dev, res, row_el, mkn, vol_t, voln, m_t, shift_real, nmask, bs, cs):
     out = ttnn.from_torch(torch.zeros(1, 1, 32, 32).to(torch.bfloat16), dtype=ttnn.bfloat16,
                           layout=ttnn.TILE_LAYOUT, device=dev)
     rowidx = [(np.arange(NROWS) * NCOPY + rho).tolist()]
-    pd2 = build_stage2(w, sel, frac, out, 1, 1, 1, row_el, offs_el * ELEM, rowidx)
+    # The mode and the fidelity under test have to reach the parity build, or this arm certifies a
+    # kernel nobody ran: until 2026-08-14 it took neither, so every --fid and every --mode arm printed
+    # the mode-13/HiFi4 residual and the four lever arms shared one byte-identical parity line.
+    # Mode 14 is not reachable here and is not silently downgraded either: its window index advances
+    # per block while this reader holds one `bo[]`/`ri[]` for every block, so a one-tile arm cannot
+    # exercise it. Say so, and score what does run.
+    p_mode = mode
+    if mode == 14:
+        p_mode = 13
+        print("  NOTE: mode 14 has no one-tile parity arm (the reader has no per-block base); "
+              "the residual below is mode 13's and does NOT certify mode 14.", flush=True)
+    res["parity_mode"], res["parity_fid"] = p_mode, fid
+    pd2 = build_stage2(w, sel, frac, out, 1, 1, 1, row_el, offs_el * ELEM, rowidx,
+                       mode=p_mode, fid=fid)
     ttnn.generic_op([w, sel, frac, out], pd2)
     ttnn.synchronize_device(dev)
     g = ttnn.to_torch(out).reshape(32, 32).to(torch.float64).numpy()
@@ -373,7 +387,7 @@ def main():
         if not a.skip_parity:
             print("PARITY", flush=True)
             parity(dev, res, row_el, mkn, vol_t, voln, m_t, a.shift, nmask,
-                   *((0.77, 5.3) if a.shift else (8.0, 0.0)))
+                   *((0.77, 5.3) if a.shift else (8.0, 0.0)), mode=a.mode, fid=a.fid)
 
         # --- the integrated arm ---
         # W holds one strip per core. A batch longer than that wraps, which keeps the addresses and

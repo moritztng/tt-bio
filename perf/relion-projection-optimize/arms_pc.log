@@ -1,0 +1,639 @@
+=== ARM: projprobe/b0_roofs.py ===
+2026-08-14 14:01:51.398 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/moritz/.cache/ttnn,model_cache_path=/home/moritz/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+2026-08-14 14:01:51.495 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:01:51.498 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:01:51.498 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:01:51.502 | info     |          Device | Opening user mode device driver (tt_cluster.cpp:224)
+2026-08-14 14:01:51.502 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:01:51.505 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:01:51.505 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:01:51.508 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:01:51.511 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:01:51.511 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:01:51.520 | info     |             UMD | Harvesting masks for chip 0 tensix: 0x0 dram: 0x0 eth: 0x120 pcie: 0x2 l2cpu: 0x0 (cluster.cpp:325)
+2026-08-14 14:01:51.536 | info     |             UMD | Opening local chip ids/PCIe ids: {0}/[0] and remote chip ids {} (cluster.cpp:180)
+2026-08-14 14:01:51.536 | info     |             UMD | IOMMU: disabled (cluster.cpp:155)
+2026-08-14 14:01:51.536 | info     |             UMD | KMD version: 2.8.0 (cluster.cpp:158)
+2026-08-14 14:01:51.536 | info     |             UMD | Starting devices in cluster (cluster.cpp:951)
+2026-08-14 14:01:51.537 | info     |             UMD | Mapped hugepage 0x280000000 to NOC address 0x1000000000000000 (silicon_sysmem_manager.cpp:215)
+2026-08-14 14:01:51.698 | info     |     Distributed | Using auto discovery to generate mesh graph. (metal_env.cpp:330)
+2026-08-14 14:01:51.698 | info     |     Distributed | Constructing control plane using auto-discovery (no mesh graph descriptor). (metal_env.cpp:392)
+2026-08-14 14:01:51.698 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:01:51.699 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:01:51.699 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:01:51.702 | info     |          Fabric | TopologyMapper: Logical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1474)
+2026-08-14 14:01:51.702 | info     |          Fabric | 
+=== Logical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:01:51.702 | info     |          Fabric | 
+=== Logical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:01:51.702 | info     |          Fabric | TopologyMapper: Physical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1485)
+2026-08-14 14:01:51.702 | info     |          Fabric | 
+=== Physical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:01:51.702 | info     |          Fabric | 
+=== Physical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:01:51.702 | info     |          Fabric | Starting multi-mesh mapping: 1 logical mesh(es) to 1 physical mesh(es) (topology_mapper_utils.cpp:1117)
+2026-08-14 14:01:51.702 | info     |          Fabric | Multi-mesh mapping attempt 1/2: Trying inter-mesh mapping (topology_mapper_utils.cpp:1158)
+2026-08-14 14:01:51.702 | info     |          Fabric | Attempt 1: Inter-mesh mapping succeeded, found 1 mesh pair(s) (topology_mapper_utils.cpp:1187)
+2026-08-14 14:01:51.702 | info     |          Fabric | Multi-mesh mapping succeeded after 1 attempt(s): 1 mesh pair(s) mapped (topology_mapper_utils.cpp:1326)
+grid 13x10 = 130 cores
+buffer 66560 pages x 2048 B = 130 MiB
+read/2048B/be1            2.819 ms    386.9 GB/s     688.1 ns/page   688.14 ns/xact
+read/2048B/be4            2.706 ms    402.9 GB/s     660.7 ns/page   660.75 ns/xact
+read/2048B/be16           2.712 ms    402.2 GB/s     662.0 ns/page   662.03 ns/xact
+write/2048B/be1           6.939 ms    157.2 GB/s    1694.0 ns/page  1693.99 ns/xact
+write/2048B/be4           6.313 ms    172.7 GB/s    1541.3 ns/page  1541.29 ns/xact
+write/2048B/be16          6.221 ms    175.3 GB/s    1518.8 ns/page  1518.76 ns/xact
+rmw/2048B/be1             7.821 ms    278.9 GB/s    1909.5 ns/page  1909.46 ns/xact
+rmw/2048B/be4             7.498 ms    290.9 GB/s    1830.5 ns/page  1830.47 ns/xact
+rmw/2048B/be16            7.334 ms    297.4 GB/s    1790.5 ns/page  1790.49 ns/xact
+read/128B/be1            19.745 ms     55.2 GB/s    4820.5 ns/page   301.28 ns/xact
+read/128B/be4            18.373 ms     59.4 GB/s    4485.5 ns/page   280.34 ns/xact
+read/128B/be16           18.295 ms     59.6 GB/s    4466.6 ns/page   279.17 ns/xact
+write/128B/be1            9.654 ms    113.0 GB/s    2357.0 ns/page   147.31 ns/xact
+write/128B/be4            9.535 ms    114.4 GB/s    2327.9 ns/page   145.49 ns/xact
+write/128B/be16           9.454 ms    115.4 GB/s    2308.1 ns/page   144.25 ns/xact
+rmw/128B/be1             30.872 ms     70.6 GB/s    7537.1 ns/page   471.07 ns/xact
+rmw/128B/be4             28.251 ms     77.2 GB/s    6897.3 ns/page   431.08 ns/xact
+rmw/128B/be16            27.227 ms     80.1 GB/s    6647.2 ns/page   415.45 ns/xact
+
+write check: 100.0% of the buffer is exactly 1.0
+
+--- B0: the three roofs, best over barrier depth, 2048 B pages ---
+read     402.9 GB/s  (best at be4)
+write    175.3 GB/s  (best at be16)
+rmw      297.4 GB/s  (best at be16)
+2026-08-14 14:02:01.063 | info     |          Device | Closing user mode device drivers (tt_cluster.cpp:478)
+2026-08-14 14:02:01.063 | info     |             UMD | Closing devices in cluster (cluster.cpp:962)
+--- rc=0 12:02:01 ---
+=== ARM: projprobe/fslice_e2e.py 256 --reps 5 --split ===
+2026-08-14 14:02:01.892 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/moritz/.cache/ttnn,model_cache_path=/home/moritz/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+2026-08-14 14:02:01.999 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:02.002 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:02.002 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:02.005 | info     |          Device | Opening user mode device driver (tt_cluster.cpp:224)
+2026-08-14 14:02:02.005 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:02.008 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:02.008 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:02.011 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:02.014 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:02.014 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:02.024 | info     |             UMD | Harvesting masks for chip 0 tensix: 0x0 dram: 0x0 eth: 0x120 pcie: 0x2 l2cpu: 0x0 (cluster.cpp:325)
+2026-08-14 14:02:02.039 | info     |             UMD | Opening local chip ids/PCIe ids: {0}/[0] and remote chip ids {} (cluster.cpp:180)
+2026-08-14 14:02:02.039 | info     |             UMD | IOMMU: disabled (cluster.cpp:155)
+2026-08-14 14:02:02.039 | info     |             UMD | KMD version: 2.8.0 (cluster.cpp:158)
+2026-08-14 14:02:02.040 | info     |             UMD | Starting devices in cluster (cluster.cpp:951)
+2026-08-14 14:02:02.040 | info     |             UMD | Mapped hugepage 0x280000000 to NOC address 0x1000000000000000 (silicon_sysmem_manager.cpp:215)
+2026-08-14 14:02:02.195 | info     |     Distributed | Using auto discovery to generate mesh graph. (metal_env.cpp:330)
+2026-08-14 14:02:02.195 | info     |     Distributed | Constructing control plane using auto-discovery (no mesh graph descriptor). (metal_env.cpp:392)
+2026-08-14 14:02:02.195 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:02.196 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:02.196 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:02.199 | info     |          Fabric | TopologyMapper: Logical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1474)
+2026-08-14 14:02:02.199 | info     |          Fabric | 
+=== Logical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:02.199 | info     |          Fabric | 
+=== Logical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:02.199 | info     |          Fabric | TopologyMapper: Physical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1485)
+2026-08-14 14:02:02.199 | info     |          Fabric | 
+=== Physical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:02.199 | info     |          Fabric | 
+=== Physical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:02.199 | info     |          Fabric | Starting multi-mesh mapping: 1 logical mesh(es) to 1 physical mesh(es) (topology_mapper_utils.cpp:1117)
+2026-08-14 14:02:02.199 | info     |          Fabric | Multi-mesh mapping attempt 1/2: Trying inter-mesh mapping (topology_mapper_utils.cpp:1158)
+2026-08-14 14:02:02.199 | info     |          Fabric | Attempt 1: Inter-mesh mapping succeeded, found 1 mesh pair(s) (topology_mapper_utils.cpp:1187)
+2026-08-14 14:02:02.199 | info     |          Fabric | Multi-mesh mapping succeeded after 1 attempt(s): 1 mesh pair(s) mapped (topology_mapper_utils.cpp:1326)
+PARITY
+  stage 1 -> row-major W strip vs fp64: rel L2 3.2704e-03   max|diff| 9.180e-01
+  chained stage 1 -> stage 2 slice tile vs fp64: rel L2 4.8826e-03   max|diff| 8.620e-01
+
+W buffer: 130 strips x 32 rows x 8 copies x 512 el = 32.5 MB L1
+batch: 40.6 directions x 96 psi = 3900 slices; stage 1 10 strips/core, stage 2 1508 tiles/core
+  split: stage 1   840.3 + stage 2  1599.6 =  2440.0 ns/slice (chained 2403.7)
+
+INTEGRATED, box 256, 2 component(s), general shear, shifts REAL:
+  wall    9.374 ms for 3900 slices   (runs 9.40, 9.37, 9.41, 9.42, 9.44 ms)
+      416.0 k slices/s   41.01% of the 1.0145 M measured-overlap floor     2403.7 ns/slice/core
+  sha256 1755f03399482400c6a0bd6bb33f5fa350d53b857861c55c775d45d7e37f62df
+2026-08-14 14:02:05.537 | info     |          Device | Closing user mode device drivers (tt_cluster.cpp:478)
+2026-08-14 14:02:05.537 | info     |             UMD | Closing devices in cluster (cluster.cpp:962)
+--- rc=0 12:02:05 ---
+=== ARM: projprobe/fslice_e2e.py 256 --reps 5 --skip-parity ===
+2026-08-14 14:02:06.348 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/moritz/.cache/ttnn,model_cache_path=/home/moritz/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+2026-08-14 14:02:06.446 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:06.449 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:06.449 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:06.452 | info     |          Device | Opening user mode device driver (tt_cluster.cpp:224)
+2026-08-14 14:02:06.452 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:06.455 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:06.455 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:06.459 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:06.461 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:06.461 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:06.471 | info     |             UMD | Harvesting masks for chip 0 tensix: 0x0 dram: 0x0 eth: 0x120 pcie: 0x2 l2cpu: 0x0 (cluster.cpp:325)
+2026-08-14 14:02:06.486 | info     |             UMD | Opening local chip ids/PCIe ids: {0}/[0] and remote chip ids {} (cluster.cpp:180)
+2026-08-14 14:02:06.486 | info     |             UMD | IOMMU: disabled (cluster.cpp:155)
+2026-08-14 14:02:06.486 | info     |             UMD | KMD version: 2.8.0 (cluster.cpp:158)
+2026-08-14 14:02:06.486 | info     |             UMD | Starting devices in cluster (cluster.cpp:951)
+2026-08-14 14:02:06.487 | info     |             UMD | Mapped hugepage 0x280000000 to NOC address 0x1000000000000000 (silicon_sysmem_manager.cpp:215)
+2026-08-14 14:02:06.595 | info     |     Distributed | Using auto discovery to generate mesh graph. (metal_env.cpp:330)
+2026-08-14 14:02:06.595 | info     |     Distributed | Constructing control plane using auto-discovery (no mesh graph descriptor). (metal_env.cpp:392)
+2026-08-14 14:02:06.595 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:06.596 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:06.596 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:06.599 | info     |          Fabric | TopologyMapper: Logical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1474)
+2026-08-14 14:02:06.599 | info     |          Fabric | 
+=== Logical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:06.599 | info     |          Fabric | 
+=== Logical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:06.599 | info     |          Fabric | TopologyMapper: Physical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1485)
+2026-08-14 14:02:06.599 | info     |          Fabric | 
+=== Physical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:06.599 | info     |          Fabric | 
+=== Physical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:06.599 | info     |          Fabric | Starting multi-mesh mapping: 1 logical mesh(es) to 1 physical mesh(es) (topology_mapper_utils.cpp:1117)
+2026-08-14 14:02:06.599 | info     |          Fabric | Multi-mesh mapping attempt 1/2: Trying inter-mesh mapping (topology_mapper_utils.cpp:1158)
+2026-08-14 14:02:06.599 | info     |          Fabric | Attempt 1: Inter-mesh mapping succeeded, found 1 mesh pair(s) (topology_mapper_utils.cpp:1187)
+2026-08-14 14:02:06.599 | info     |          Fabric | Multi-mesh mapping succeeded after 1 attempt(s): 1 mesh pair(s) mapped (topology_mapper_utils.cpp:1326)
+
+W buffer: 130 strips x 32 rows x 8 copies x 512 el = 32.5 MB L1
+batch: 40.6 directions x 96 psi = 3900 slices; stage 1 10 strips/core, stage 2 1508 tiles/core
+
+INTEGRATED, box 256, 2 component(s), general shear, shifts REAL:
+  wall    9.418 ms for 3900 slices   (runs 9.46, 9.42, 9.43, 9.47, 9.45 ms)
+      414.1 k slices/s   40.82% of the 1.0145 M measured-overlap floor     2414.8 ns/slice/core
+  sha256 1755f03399482400c6a0bd6bb33f5fa350d53b857861c55c775d45d7e37f62df
+2026-08-14 14:02:08.238 | info     |          Device | Closing user mode device drivers (tt_cluster.cpp:478)
+2026-08-14 14:02:08.238 | info     |             UMD | Closing devices in cluster (cluster.cpp:962)
+--- rc=0 12:02:08 ---
+=== ARM: projprobe/fslice_e2e.py 256 --reps 5 --skip-parity --mode 0 ===
+2026-08-14 14:02:09.142 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/moritz/.cache/ttnn,model_cache_path=/home/moritz/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+2026-08-14 14:02:09.240 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:09.243 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:09.243 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:09.246 | info     |          Device | Opening user mode device driver (tt_cluster.cpp:224)
+2026-08-14 14:02:09.246 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:09.249 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:09.249 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:09.252 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:09.255 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:09.255 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:09.265 | info     |             UMD | Harvesting masks for chip 0 tensix: 0x0 dram: 0x0 eth: 0x120 pcie: 0x2 l2cpu: 0x0 (cluster.cpp:325)
+2026-08-14 14:02:09.280 | info     |             UMD | Opening local chip ids/PCIe ids: {0}/[0] and remote chip ids {} (cluster.cpp:180)
+2026-08-14 14:02:09.280 | info     |             UMD | IOMMU: disabled (cluster.cpp:155)
+2026-08-14 14:02:09.280 | info     |             UMD | KMD version: 2.8.0 (cluster.cpp:158)
+2026-08-14 14:02:09.281 | info     |             UMD | Starting devices in cluster (cluster.cpp:951)
+2026-08-14 14:02:09.281 | info     |             UMD | Mapped hugepage 0x280000000 to NOC address 0x1000000000000000 (silicon_sysmem_manager.cpp:215)
+2026-08-14 14:02:09.395 | info     |     Distributed | Using auto discovery to generate mesh graph. (metal_env.cpp:330)
+2026-08-14 14:02:09.395 | info     |     Distributed | Constructing control plane using auto-discovery (no mesh graph descriptor). (metal_env.cpp:392)
+2026-08-14 14:02:09.395 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:09.396 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:09.396 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:09.400 | info     |          Fabric | TopologyMapper: Logical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1474)
+2026-08-14 14:02:09.400 | info     |          Fabric | 
+=== Logical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:09.400 | info     |          Fabric | 
+=== Logical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:09.400 | info     |          Fabric | TopologyMapper: Physical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1485)
+2026-08-14 14:02:09.400 | info     |          Fabric | 
+=== Physical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:09.400 | info     |          Fabric | 
+=== Physical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:09.400 | info     |          Fabric | Starting multi-mesh mapping: 1 logical mesh(es) to 1 physical mesh(es) (topology_mapper_utils.cpp:1117)
+2026-08-14 14:02:09.400 | info     |          Fabric | Multi-mesh mapping attempt 1/2: Trying inter-mesh mapping (topology_mapper_utils.cpp:1158)
+2026-08-14 14:02:09.400 | info     |          Fabric | Attempt 1: Inter-mesh mapping succeeded, found 1 mesh pair(s) (topology_mapper_utils.cpp:1187)
+2026-08-14 14:02:09.400 | info     |          Fabric | Multi-mesh mapping succeeded after 1 attempt(s): 1 mesh pair(s) mapped (topology_mapper_utils.cpp:1326)
+
+W buffer: 130 strips x 32 rows x 8 copies x 512 el = 32.5 MB L1
+batch: 40.6 directions x 96 psi = 3900 slices; stage 1 10 strips/core, stage 2 1508 tiles/core
+
+INTEGRATED, box 256, 2 component(s), general shear, shifts REAL:
+  wall    9.575 ms for 3900 slices   (runs 9.86, 9.64, 9.60, 9.61, 9.57 ms)
+      407.3 k slices/s   40.15% of the 1.0145 M measured-overlap floor     2455.0 ns/slice/core
+  sha256 5b540e318b01dbc3a969d3e538e8e8cbc0ab665c8a797d61ebe6762c6ef46a63
+2026-08-14 14:02:14.577 | info     |          Device | Closing user mode device drivers (tt_cluster.cpp:478)
+2026-08-14 14:02:14.577 | info     |             UMD | Closing devices in cluster (cluster.cpp:962)
+--- rc=0 12:02:14 ---
+=== ARM: projprobe/fslice_e2e.py 256 --reps 5 --skip-parity --fid HiFi2 ===
+2026-08-14 14:02:15.406 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/moritz/.cache/ttnn,model_cache_path=/home/moritz/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+2026-08-14 14:02:15.519 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:15.522 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:15.522 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:15.525 | info     |          Device | Opening user mode device driver (tt_cluster.cpp:224)
+2026-08-14 14:02:15.525 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:15.528 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:15.528 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:15.531 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:15.534 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:15.534 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:15.544 | info     |             UMD | Harvesting masks for chip 0 tensix: 0x0 dram: 0x0 eth: 0x120 pcie: 0x2 l2cpu: 0x0 (cluster.cpp:325)
+2026-08-14 14:02:15.559 | info     |             UMD | Opening local chip ids/PCIe ids: {0}/[0] and remote chip ids {} (cluster.cpp:180)
+2026-08-14 14:02:15.559 | info     |             UMD | IOMMU: disabled (cluster.cpp:155)
+2026-08-14 14:02:15.559 | info     |             UMD | KMD version: 2.8.0 (cluster.cpp:158)
+2026-08-14 14:02:15.559 | info     |             UMD | Starting devices in cluster (cluster.cpp:951)
+2026-08-14 14:02:15.560 | info     |             UMD | Mapped hugepage 0x280000000 to NOC address 0x1000000000000000 (silicon_sysmem_manager.cpp:215)
+2026-08-14 14:02:15.714 | info     |     Distributed | Using auto discovery to generate mesh graph. (metal_env.cpp:330)
+2026-08-14 14:02:15.714 | info     |     Distributed | Constructing control plane using auto-discovery (no mesh graph descriptor). (metal_env.cpp:392)
+2026-08-14 14:02:15.714 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:15.715 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:15.715 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:15.720 | info     |          Fabric | TopologyMapper: Logical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1474)
+2026-08-14 14:02:15.720 | info     |          Fabric | 
+=== Logical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:15.720 | info     |          Fabric | 
+=== Logical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:15.720 | info     |          Fabric | TopologyMapper: Physical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1485)
+2026-08-14 14:02:15.720 | info     |          Fabric | 
+=== Physical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:15.720 | info     |          Fabric | 
+=== Physical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:15.720 | info     |          Fabric | Starting multi-mesh mapping: 1 logical mesh(es) to 1 physical mesh(es) (topology_mapper_utils.cpp:1117)
+2026-08-14 14:02:15.720 | info     |          Fabric | Multi-mesh mapping attempt 1/2: Trying inter-mesh mapping (topology_mapper_utils.cpp:1158)
+2026-08-14 14:02:15.720 | info     |          Fabric | Attempt 1: Inter-mesh mapping succeeded, found 1 mesh pair(s) (topology_mapper_utils.cpp:1187)
+2026-08-14 14:02:15.720 | info     |          Fabric | Multi-mesh mapping succeeded after 1 attempt(s): 1 mesh pair(s) mapped (topology_mapper_utils.cpp:1326)
+
+W buffer: 130 strips x 32 rows x 8 copies x 512 el = 32.5 MB L1
+batch: 40.6 directions x 96 psi = 3900 slices; stage 1 10 strips/core, stage 2 1508 tiles/core
+
+INTEGRATED, box 256, 2 component(s), general shear, shifts REAL:
+  wall    8.367 ms for 3900 slices   (runs 8.41, 8.38, 8.37, 8.37, 8.37 ms)
+      466.1 k slices/s   45.95% of the 1.0145 M measured-overlap floor     2145.3 ns/slice/core
+  sha256 e7da4f38617a23bf161445fceb4099b79fc07cc7ee151f45d1bef7b39afb15a9
+2026-08-14 14:02:17.973 | info     |          Device | Closing user mode device drivers (tt_cluster.cpp:478)
+2026-08-14 14:02:17.973 | info     |             UMD | Closing devices in cluster (cluster.cpp:962)
+--- rc=0 12:02:18 ---
+=== ARM: projprobe/fslice_e2e.py 256 --reps 5 --skip-parity --cbtil 8 ===
+2026-08-14 14:02:18.750 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/moritz/.cache/ttnn,model_cache_path=/home/moritz/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+2026-08-14 14:02:18.852 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:18.855 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:18.855 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:18.858 | info     |          Device | Opening user mode device driver (tt_cluster.cpp:224)
+2026-08-14 14:02:18.858 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:18.861 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:18.861 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:18.864 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:18.867 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:18.867 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:18.877 | info     |             UMD | Harvesting masks for chip 0 tensix: 0x0 dram: 0x0 eth: 0x120 pcie: 0x2 l2cpu: 0x0 (cluster.cpp:325)
+2026-08-14 14:02:18.892 | info     |             UMD | Opening local chip ids/PCIe ids: {0}/[0] and remote chip ids {} (cluster.cpp:180)
+2026-08-14 14:02:18.892 | info     |             UMD | IOMMU: disabled (cluster.cpp:155)
+2026-08-14 14:02:18.892 | info     |             UMD | KMD version: 2.8.0 (cluster.cpp:158)
+2026-08-14 14:02:18.892 | info     |             UMD | Starting devices in cluster (cluster.cpp:951)
+2026-08-14 14:02:18.893 | info     |             UMD | Mapped hugepage 0x280000000 to NOC address 0x1000000000000000 (silicon_sysmem_manager.cpp:215)
+2026-08-14 14:02:18.996 | info     |     Distributed | Using auto discovery to generate mesh graph. (metal_env.cpp:330)
+2026-08-14 14:02:18.996 | info     |     Distributed | Constructing control plane using auto-discovery (no mesh graph descriptor). (metal_env.cpp:392)
+2026-08-14 14:02:18.996 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:18.997 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:18.997 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:19.000 | info     |          Fabric | TopologyMapper: Logical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1474)
+2026-08-14 14:02:19.000 | info     |          Fabric | 
+=== Logical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:19.000 | info     |          Fabric | 
+=== Logical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:19.000 | info     |          Fabric | TopologyMapper: Physical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1485)
+2026-08-14 14:02:19.000 | info     |          Fabric | 
+=== Physical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:19.000 | info     |          Fabric | 
+=== Physical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:19.000 | info     |          Fabric | Starting multi-mesh mapping: 1 logical mesh(es) to 1 physical mesh(es) (topology_mapper_utils.cpp:1117)
+2026-08-14 14:02:19.000 | info     |          Fabric | Multi-mesh mapping attempt 1/2: Trying inter-mesh mapping (topology_mapper_utils.cpp:1158)
+2026-08-14 14:02:19.000 | info     |          Fabric | Attempt 1: Inter-mesh mapping succeeded, found 1 mesh pair(s) (topology_mapper_utils.cpp:1187)
+2026-08-14 14:02:19.000 | info     |          Fabric | Multi-mesh mapping succeeded after 1 attempt(s): 1 mesh pair(s) mapped (topology_mapper_utils.cpp:1326)
+
+W buffer: 130 strips x 32 rows x 8 copies x 512 el = 32.5 MB L1
+batch: 40.6 directions x 96 psi = 3900 slices; stage 1 10 strips/core, stage 2 1508 tiles/core
+
+INTEGRATED, box 256, 2 component(s), general shear, shifts REAL:
+  wall    9.403 ms for 3900 slices   (runs 9.45, 9.42, 9.42, 9.40, 9.41 ms)
+      414.8 k slices/s   40.88% of the 1.0145 M measured-overlap floor     2411.0 ns/slice/core
+  sha256 1755f03399482400c6a0bd6bb33f5fa350d53b857861c55c775d45d7e37f62df
+2026-08-14 14:02:20.531 | info     |          Device | Closing user mode device drivers (tt_cluster.cpp:478)
+2026-08-14 14:02:20.531 | info     |             UMD | Closing devices in cluster (cluster.cpp:962)
+--- rc=0 12:02:20 ---
+=== ARM: projprobe/fslice_e2e.py 256 --reps 5 --mode 14 --dscale 1.1228 ===
+2026-08-14 14:02:21.358 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/moritz/.cache/ttnn,model_cache_path=/home/moritz/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+2026-08-14 14:02:21.457 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:21.460 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:21.460 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:21.463 | info     |          Device | Opening user mode device driver (tt_cluster.cpp:224)
+2026-08-14 14:02:21.463 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:21.466 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:21.466 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:21.469 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:21.471 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:21.471 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:21.481 | info     |             UMD | Harvesting masks for chip 0 tensix: 0x0 dram: 0x0 eth: 0x120 pcie: 0x2 l2cpu: 0x0 (cluster.cpp:325)
+2026-08-14 14:02:21.496 | info     |             UMD | Opening local chip ids/PCIe ids: {0}/[0] and remote chip ids {} (cluster.cpp:180)
+2026-08-14 14:02:21.496 | info     |             UMD | IOMMU: disabled (cluster.cpp:155)
+2026-08-14 14:02:21.496 | info     |             UMD | KMD version: 2.8.0 (cluster.cpp:158)
+2026-08-14 14:02:21.496 | info     |             UMD | Starting devices in cluster (cluster.cpp:951)
+2026-08-14 14:02:21.497 | info     |             UMD | Mapped hugepage 0x280000000 to NOC address 0x1000000000000000 (silicon_sysmem_manager.cpp:215)
+2026-08-14 14:02:21.597 | info     |     Distributed | Using auto discovery to generate mesh graph. (metal_env.cpp:330)
+2026-08-14 14:02:21.597 | info     |     Distributed | Constructing control plane using auto-discovery (no mesh graph descriptor). (metal_env.cpp:392)
+2026-08-14 14:02:21.597 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:21.598 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:21.598 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:21.601 | info     |          Fabric | TopologyMapper: Logical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1474)
+2026-08-14 14:02:21.601 | info     |          Fabric | 
+=== Logical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:21.601 | info     |          Fabric | 
+=== Logical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:21.601 | info     |          Fabric | TopologyMapper: Physical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1485)
+2026-08-14 14:02:21.601 | info     |          Fabric | 
+=== Physical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:21.601 | info     |          Fabric | 
+=== Physical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:21.601 | info     |          Fabric | Starting multi-mesh mapping: 1 logical mesh(es) to 1 physical mesh(es) (topology_mapper_utils.cpp:1117)
+2026-08-14 14:02:21.601 | info     |          Fabric | Multi-mesh mapping attempt 1/2: Trying inter-mesh mapping (topology_mapper_utils.cpp:1158)
+2026-08-14 14:02:21.601 | info     |          Fabric | Attempt 1: Inter-mesh mapping succeeded, found 1 mesh pair(s) (topology_mapper_utils.cpp:1187)
+2026-08-14 14:02:21.601 | info     |          Fabric | Multi-mesh mapping succeeded after 1 attempt(s): 1 mesh pair(s) mapped (topology_mapper_utils.cpp:1326)
+PARITY
+  stage 1 -> row-major W strip vs fp64: rel L2 3.2704e-03   max|diff| 9.180e-01
+  chained stage 1 -> stage 2 slice tile vs fp64: rel L2 4.8826e-03   max|diff| 8.620e-01
+
+W buffer: 130 strips x 32 rows x 8 copies x 512 el = 32.5 MB L1
+batch: 40.6 directions x 96 psi = 3900 slices; stage 1 10 strips/core, stage 2 1508 tiles/core
+lever B: D = 1.1228, run 5 -> 1810 assemblies/core against 3016, r = 0.6001
+
+INTEGRATED, box 256, 2 component(s), general shear, shifts REAL:
+  wall    7.508 ms for 3900 slices   (runs 7.58, 7.58, 7.61, 7.51, 7.55 ms)
+      519.4 k slices/s   51.20% of the 1.0145 M measured-overlap floor     1925.2 ns/slice/core
+  sha256 d91c5dc3e4fb00f22bbd020326dcdbf37617cd2533a9e59518b3e505776a784c
+2026-08-14 14:02:23.885 | info     |          Device | Closing user mode device drivers (tt_cluster.cpp:478)
+2026-08-14 14:02:23.885 | info     |             UMD | Closing devices in cluster (cluster.cpp:962)
+--- rc=0 12:02:24 ---
+=== ARM: projprobe/fslice_e2e.py 256 --reps 5 --skip-parity --mode 14 --dscale 1.4142 ===
+2026-08-14 14:02:24.732 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/moritz/.cache/ttnn,model_cache_path=/home/moritz/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+2026-08-14 14:02:24.832 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:24.834 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:24.834 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:24.838 | info     |          Device | Opening user mode device driver (tt_cluster.cpp:224)
+2026-08-14 14:02:24.838 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:24.840 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:24.840 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:24.844 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:24.847 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:24.847 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:24.856 | info     |             UMD | Harvesting masks for chip 0 tensix: 0x0 dram: 0x0 eth: 0x120 pcie: 0x2 l2cpu: 0x0 (cluster.cpp:325)
+2026-08-14 14:02:24.871 | info     |             UMD | Opening local chip ids/PCIe ids: {0}/[0] and remote chip ids {} (cluster.cpp:180)
+2026-08-14 14:02:24.871 | info     |             UMD | IOMMU: disabled (cluster.cpp:155)
+2026-08-14 14:02:24.871 | info     |             UMD | KMD version: 2.8.0 (cluster.cpp:158)
+2026-08-14 14:02:24.872 | info     |             UMD | Starting devices in cluster (cluster.cpp:951)
+2026-08-14 14:02:24.872 | info     |             UMD | Mapped hugepage 0x280000000 to NOC address 0x1000000000000000 (silicon_sysmem_manager.cpp:215)
+2026-08-14 14:02:24.996 | info     |     Distributed | Using auto discovery to generate mesh graph. (metal_env.cpp:330)
+2026-08-14 14:02:24.996 | info     |     Distributed | Constructing control plane using auto-discovery (no mesh graph descriptor). (metal_env.cpp:392)
+2026-08-14 14:02:24.996 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:24.997 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:24.997 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:25.000 | info     |          Fabric | TopologyMapper: Logical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1474)
+2026-08-14 14:02:25.000 | info     |          Fabric | 
+=== Logical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:25.000 | info     |          Fabric | 
+=== Logical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:25.000 | info     |          Fabric | TopologyMapper: Physical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1485)
+2026-08-14 14:02:25.000 | info     |          Fabric | 
+=== Physical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:25.000 | info     |          Fabric | 
+=== Physical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:25.001 | info     |          Fabric | Starting multi-mesh mapping: 1 logical mesh(es) to 1 physical mesh(es) (topology_mapper_utils.cpp:1117)
+2026-08-14 14:02:25.001 | info     |          Fabric | Multi-mesh mapping attempt 1/2: Trying inter-mesh mapping (topology_mapper_utils.cpp:1158)
+2026-08-14 14:02:25.001 | info     |          Fabric | Attempt 1: Inter-mesh mapping succeeded, found 1 mesh pair(s) (topology_mapper_utils.cpp:1187)
+2026-08-14 14:02:25.001 | info     |          Fabric | Multi-mesh mapping succeeded after 1 attempt(s): 1 mesh pair(s) mapped (topology_mapper_utils.cpp:1326)
+
+W buffer: 130 strips x 32 rows x 8 copies x 512 el = 32.5 MB L1
+batch: 40.6 directions x 96 psi = 3900 slices; stage 1 10 strips/core, stage 2 1508 tiles/core
+lever B: D = 1.4142, run 5 -> 2111 assemblies/core against 3016, r = 0.6999
+
+INTEGRATED, box 256, 2 component(s), general shear, shifts REAL:
+  wall    7.956 ms for 3900 slices   (runs 7.98, 7.96, 8.00, 8.00, 7.99 ms)
+      490.2 k slices/s   48.32% of the 1.0145 M measured-overlap floor     2040.0 ns/slice/core
+  sha256 4ff0c25aaf6154641b85530c217f7ee5623f6da4c850144730192e9f168494d0
+2026-08-14 14:02:26.542 | info     |          Device | Closing user mode device drivers (tt_cluster.cpp:478)
+2026-08-14 14:02:26.542 | info     |             UMD | Closing devices in cluster (cluster.cpp:962)
+--- rc=0 12:02:26 ---
+=== ARM: projprobe/fslice_e2e.py 256 --reps 5 --skip-parity --mode 5 ===
+2026-08-14 14:02:27.347 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/moritz/.cache/ttnn,model_cache_path=/home/moritz/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+2026-08-14 14:02:27.446 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:27.449 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:27.449 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:27.452 | info     |          Device | Opening user mode device driver (tt_cluster.cpp:224)
+2026-08-14 14:02:27.453 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:27.455 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:27.455 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:27.458 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:27.461 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:27.461 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:27.471 | info     |             UMD | Harvesting masks for chip 0 tensix: 0x0 dram: 0x0 eth: 0x120 pcie: 0x2 l2cpu: 0x0 (cluster.cpp:325)
+2026-08-14 14:02:27.486 | info     |             UMD | Opening local chip ids/PCIe ids: {0}/[0] and remote chip ids {} (cluster.cpp:180)
+2026-08-14 14:02:27.486 | info     |             UMD | IOMMU: disabled (cluster.cpp:155)
+2026-08-14 14:02:27.486 | info     |             UMD | KMD version: 2.8.0 (cluster.cpp:158)
+2026-08-14 14:02:27.486 | info     |             UMD | Starting devices in cluster (cluster.cpp:951)
+2026-08-14 14:02:27.487 | info     |             UMD | Mapped hugepage 0x280000000 to NOC address 0x1000000000000000 (silicon_sysmem_manager.cpp:215)
+2026-08-14 14:02:27.597 | info     |     Distributed | Using auto discovery to generate mesh graph. (metal_env.cpp:330)
+2026-08-14 14:02:27.597 | info     |     Distributed | Constructing control plane using auto-discovery (no mesh graph descriptor). (metal_env.cpp:392)
+2026-08-14 14:02:27.597 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:27.598 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:27.598 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:27.601 | info     |          Fabric | TopologyMapper: Logical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1474)
+2026-08-14 14:02:27.601 | info     |          Fabric | 
+=== Logical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:27.601 | info     |          Fabric | 
+=== Logical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:27.601 | info     |          Fabric | TopologyMapper: Physical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1485)
+2026-08-14 14:02:27.601 | info     |          Fabric | 
+=== Physical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:27.601 | info     |          Fabric | 
+=== Physical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:27.601 | info     |          Fabric | Starting multi-mesh mapping: 1 logical mesh(es) to 1 physical mesh(es) (topology_mapper_utils.cpp:1117)
+2026-08-14 14:02:27.601 | info     |          Fabric | Multi-mesh mapping attempt 1/2: Trying inter-mesh mapping (topology_mapper_utils.cpp:1158)
+2026-08-14 14:02:27.601 | info     |          Fabric | Attempt 1: Inter-mesh mapping succeeded, found 1 mesh pair(s) (topology_mapper_utils.cpp:1187)
+2026-08-14 14:02:27.601 | info     |          Fabric | Multi-mesh mapping succeeded after 1 attempt(s): 1 mesh pair(s) mapped (topology_mapper_utils.cpp:1326)
+
+W buffer: 130 strips x 32 rows x 8 copies x 512 el = 32.5 MB L1
+batch: 40.6 directions x 96 psi = 3900 slices; stage 1 10 strips/core, stage 2 1508 tiles/core
+
+INTEGRATED, box 256, 2 component(s), general shear, shifts REAL:
+  wall    7.088 ms for 3900 slices   (runs 7.10, 7.16, 7.09, 7.13, 7.09 ms)
+      550.2 k slices/s   54.23% of the 1.0145 M measured-overlap floor     1817.5 ns/slice/core
+  sha256 fa2d0fb0c8d2ec9cdb9d1714d7a650ef2676e1843406ae4320518a3da4ef2700
+2026-08-14 14:02:30.791 | info     |          Device | Closing user mode device drivers (tt_cluster.cpp:478)
+2026-08-14 14:02:30.791 | info     |             UMD | Closing devices in cluster (cluster.cpp:962)
+--- rc=0 12:02:30 ---
+=== ARM: projprobe/fslice_e2e.py 256 --reps 5 --skip-parity --mode 6 ===
+2026-08-14 14:02:31.633 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/moritz/.cache/ttnn,model_cache_path=/home/moritz/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+2026-08-14 14:02:31.753 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:31.756 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:31.756 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:31.760 | info     |          Device | Opening user mode device driver (tt_cluster.cpp:224)
+2026-08-14 14:02:31.760 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:31.762 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:31.762 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:31.766 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:31.768 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:31.768 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:31.779 | info     |             UMD | Harvesting masks for chip 0 tensix: 0x0 dram: 0x0 eth: 0x120 pcie: 0x2 l2cpu: 0x0 (cluster.cpp:325)
+2026-08-14 14:02:31.794 | info     |             UMD | Opening local chip ids/PCIe ids: {0}/[0] and remote chip ids {} (cluster.cpp:180)
+2026-08-14 14:02:31.794 | info     |             UMD | IOMMU: disabled (cluster.cpp:155)
+2026-08-14 14:02:31.794 | info     |             UMD | KMD version: 2.8.0 (cluster.cpp:158)
+2026-08-14 14:02:31.794 | info     |             UMD | Starting devices in cluster (cluster.cpp:951)
+2026-08-14 14:02:31.795 | info     |             UMD | Mapped hugepage 0x280000000 to NOC address 0x1000000000000000 (silicon_sysmem_manager.cpp:215)
+2026-08-14 14:02:31.898 | info     |     Distributed | Using auto discovery to generate mesh graph. (metal_env.cpp:330)
+2026-08-14 14:02:31.898 | info     |     Distributed | Constructing control plane using auto-discovery (no mesh graph descriptor). (metal_env.cpp:392)
+2026-08-14 14:02:31.898 | info     |             UMD | Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)
+2026-08-14 14:02:31.899 | info     |             UMD | Established firmware bundle version: 19.8.1 (topology_discovery.cpp:471)
+2026-08-14 14:02:31.899 | info     |             UMD | Firmware bundle version 19.8.1 on the system is newer than the latest fully tested version 19.5.0 for blackhole architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-08-14 14:02:31.902 | info     |          Fabric | TopologyMapper: Logical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1474)
+2026-08-14 14:02:31.902 | info     |          Fabric | 
+=== Logical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:31.902 | info     |          Fabric | 
+=== Logical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:31.902 | info     |          Fabric | TopologyMapper: Physical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1485)
+2026-08-14 14:02:31.902 | info     |          Fabric | 
+=== Physical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:31.902 | info     |          Fabric | 
+=== Physical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-08-14 14:02:31.902 | info     |          Fabric | Starting multi-mesh mapping: 1 logical mesh(es) to 1 physical mesh(es) (topology_mapper_utils.cpp:1117)
+2026-08-14 14:02:31.902 | info     |          Fabric | Multi-mesh mapping attempt 1/2: Trying inter-mesh mapping (topology_mapper_utils.cpp:1158)
+2026-08-14 14:02:31.902 | info     |          Fabric | Attempt 1: Inter-mesh mapping succeeded, found 1 mesh pair(s) (topology_mapper_utils.cpp:1187)
+2026-08-14 14:02:31.902 | info     |          Fabric | Multi-mesh mapping succeeded after 1 attempt(s): 1 mesh pair(s) mapped (topology_mapper_utils.cpp:1326)
+
+W buffer: 130 strips x 32 rows x 8 copies x 512 el = 32.5 MB L1
+batch: 40.6 directions x 96 psi = 3900 slices; stage 1 10 strips/core, stage 2 1508 tiles/core
+
+INTEGRATED, box 256, 2 component(s), general shear, shifts REAL:
+  wall    6.562 ms for 3900 slices   (runs 6.73, 6.57, 6.56, 7.05, 6.58 ms)
+      594.4 k slices/s   58.59% of the 1.0145 M measured-overlap floor     1682.5 ns/slice/core
+  sha256 fa2d0fb0c8d2ec9cdb9d1714d7a650ef2676e1843406ae4320518a3da4ef2700
+2026-08-14 14:02:35.088 | info     |          Device | Closing user mode device drivers (tt_cluster.cpp:478)
+2026-08-14 14:02:35.088 | info     |             UMD | Closing devices in cluster (cluster.cpp:962)
+--- rc=0 12:02:35 ---
+=== BATCH DONE 2026-08-14T12:02:35Z ===
