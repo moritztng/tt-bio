@@ -31,6 +31,8 @@ import math
 import time
 from pathlib import Path
 
+import sys
+
 import numpy as np
 import torch
 import ttnn
@@ -42,7 +44,14 @@ NROWS, SRC_TILES = 32, 2
 WIN = 32 * SRC_TILES
 ELEM = 2
 TILE_B = 32 * 32 * ELEM
-SRC_W, SRC_ROWS = 1024, 64
+SRC_W = 1024
+# Source rows, so the replicated W plane can be sized to a real box. At box N the padded
+# plane is (2N)^2 complex bf16 = 4N^2 x 4 B, and the general shear needs 8 copies of it:
+#   box 256 ->  8 MB      box 384 -> 19 MB      box 512 -> 34 MB
+# All three fit the 195 MB of chip L1, which is the claim being tested here -- if the
+# per-tile cost holds as the source grows, stage 2 is box-independent and the fraction of
+# floor carries to 384 and 512 unchanged.
+SRC_ROWS = int(sys.argv[1]) if len(sys.argv) > 1 else 64
 NCOPY = 8
 BARRIER_EVERY = 4
 A = 1.31
@@ -131,7 +140,8 @@ def main():
         offs_el = 8 * (k0 // NCOPY)
         offs_by = offs_el * ELEM
         rowidx = np.arange(NROWS) * NCOPY + rho
-        print(f"general shear B={Bs} C={Cs}: residues mod 8 hit = {sorted(set(rho.tolist()))}",
+        print(f"source {SRC_ROWS} rows x {NCOPY} copies = "
+              f"{SRC_ROWS*NCOPY*SRC_W*ELEM/1e6:.1f} MB; residues hit {sorted(set(rho.tolist()))}",
               flush=True)
         f5 = np.zeros((3, 32, 32), dtype=np.float32)
         for r in range(NROWS):
@@ -204,7 +214,7 @@ def main():
             print(f"mode {mode} {lbl:15s}: {ns:8.1f} ns per FINAL output tile per core", flush=True)
             res["arms"][f"mode{mode}_ns"] = ns
             ttnn.deallocate(out)
-            json.dump(res, open(HERE / "fslice_fused.json", "w"), indent=1)
+            json.dump(res, open(HERE / f"fslice_fused_rows{SRC_ROWS}.json", "w"), indent=1)
 
         # Per FINAL output tile per core, a target of R slices/s allows 5.18/R microseconds
         # (25,736 output points = 25.1 output tiles per slice at box 256, over 130 cores).
@@ -221,7 +231,7 @@ def main():
         res["derived_k_slices_per_s"] = sl(derived)
         res["fused_k_slices_per_s"] = sl(t[13])
         res["fused_pct_of_floor"] = 100 * sl(t[13]) * 1e3 / FLOOR_SLICES_S
-        json.dump(res, open(HERE / "fslice_fused.json", "w"), indent=1)
+        json.dump(res, open(HERE / f"fslice_fused_rows{SRC_ROWS}.json", "w"), indent=1)
     finally:
         ttnn.close_device(dev)
 

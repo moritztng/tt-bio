@@ -87,9 +87,19 @@ def main():
         vol = rng.integers(-100, 100, size=(NPAGES * 32, 32)).astype(np.float32)
         vt = torch.from_numpy(vol).to(torch.bfloat16)
         voln = vt.to(torch.float64).numpy().reshape(NPAGES, 32, 32)
-        mc = ttnn.MemoryConfig(ttnn.TensorMemoryLayout.INTERLEAVED, ttnn.BufferType.L1)
-        v = ttnn.from_torch(vt.reshape(1, 1, NPAGES * 32, 32), dtype=ttnn.bfloat16,
-                            layout=ttnn.TILE_LAYOUT, device=dev, memory_config=mc)
+        # THE VOLUME DOES NOT FIT L1 AT ANY REAL BOX. The padded half-volume is 268 MB at box 256,
+        # 906 MB at 384 and 2.147 GB at 512, against 130 x 1.5 MB = 195 MB of chip L1. What IS
+        # L1-resident is the sliding plane WINDOW -- 28 tiles per core is 7.5 MB chip-wide -- so the
+        # slab loop of section 4.3 streams the volume through L1 and the reuse happens inside it.
+        # Measuring both bounds: an L1 source is the steady state where the slab is already resident,
+        # a DRAM source is the pessimistic case where every entering plane comes from DRAM. The truth
+        # is between, and closer to the L1 end as the walk gets shallower.
+        vols = {}
+        for tag, bt in (("l1", ttnn.BufferType.L1), ("dram", ttnn.BufferType.DRAM)):
+            vols[tag] = ttnn.from_torch(
+                vt.reshape(1, 1, NPAGES * 32, 32), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
+                device=dev, memory_config=ttnn.MemoryConfig(ttnn.TensorMemoryLayout.INTERLEAVED, bt))
+        v = vols["l1"]
         a, b = 0.43, 0.29
         mk = np.zeros((NPLANE, 32, 32), dtype=np.float32)
         for X in range(32):
@@ -170,6 +180,26 @@ def main():
                 print(f"   stage 1 emitting 8 replicated copies: {ns8:9.1f} ns/tile "
                       f"({ns8/ns:5.2f}x)  -> {ps8:7.1f} ns/slice/core", flush=True)
                 ttnn.deallocate(o8)
+            # Same arm from DRAM: the pessimistic bound on where the entering planes come from.
+            if shift in (7, 28):
+                od = ttnn.from_torch(torch.zeros(1, 1, 32 * NB * n, 32).to(torch.bfloat16),
+                                     dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
+                pdd = build(dev, vols["dram"], m, od, nx, ny, NB, shift)
+                ttnn.generic_op([vols["dram"], m, od], pdd)
+                ttnn.synchronize_device(dev)
+                bd = float("inf")
+                for _ in range(5):
+                    t0 = time.perf_counter()
+                    ttnn.generic_op([vols["dram"], m, od], pdd)
+                    ttnn.synchronize_device(dev)
+                    bd = min(bd, time.perf_counter() - t0)
+                nsd = bd * 1e9 / NB
+                psd = nsd * TILES_PER_DIRECTION / n / PSI_PER_DIRECTION
+                res["arms"][str(shift)]["ns_dram_source"] = nsd
+                res["arms"][str(shift)]["dram_over_l1"] = nsd / ns
+                print(f"      DRAM source: {nsd:9.1f} ns/tile ({nsd/ns:5.2f}x L1)  -> "
+                      f"stage1 {psd:7.1f} ns/slice/core", flush=True)
+                ttnn.deallocate(od)
             json.dump(res, open(HERE / "fslice_reuse.json", "w"), indent=1)
             ttnn.deallocate(out)
     finally:
