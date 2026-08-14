@@ -82,7 +82,17 @@ TRAJ = [
     (15, 196,  145,  9,  1160,  36),
 ]
 NPART = 4452
-NSIG = 20      # UNMEASURED planning value; term E scales linearly in it
+
+# MEASURED, per iteration, from RELION's OWN _rlnNrOfSignificantSamples in run_it0NN_data.star
+# (projprobe/e6_nsig.json). This closes the deliverable's section 9 item 2, which was the
+# highest-value open number in the whole task: term E scales linearly in it and it was a guess of 20.
+#
+# CAVEAT that makes this conservative: RELION counts significant poses in the FULL hidden-variable
+# space, orientation x translation. Term E backprojects once per significant ORIENTATION, because
+# translations are applied by phase-shifting the image rather than by a separate slice. So the true
+# orientation count is <= this, and term E below is an UPPER bound.
+NSIG = {1: 1.0, 2: 192.3, 3: 9.2, 4: 7.0, 5: 2.1, 6: 2.1, 7: 5.2, 8: 2.2,
+        9: 2.1, 10: 3.6, 11: 1.9, 12: 3.5, 13: 3.1, 14: 8.0, 15: 8.5}
 
 
 def npix_of(size):
@@ -112,10 +122,10 @@ def price(route, shift):
         d = NPART * ntp * no_c * NS_PER_SCORE / 1e9
         a = NPART / FFT_IMG_S
         b = no_c / PROJ_SLICE_S
-        e = NPART * NSIG / BPROJ_SLICE_S
+        e = NPART * NSIG[it] / BPROJ_SLICE_S
         r = dict(it=it, size=size, npix=npix, no=no_c, nt=nt_c, ntp=ntp, side=side, gemm_n=gemm_n,
                  A=a, B=b, S=s, C=c, D=d, E=e, total=a + b + s + c + d + e,
-                 fine_multiplier=(no_f * nt_f) / (no_c * nt_c))
+                 nsig=NSIG[it], fine_multiplier=(no_f * nt_f) / (no_c * nt_c))
         rows.append(r)
         for k in ("A", "B", "S", "C", "D", "E", "total"):
             tot[k] = tot.get(k, 0.0) + r[k]
@@ -132,11 +142,11 @@ def main():
         key = f"{shift}_{route}"
         out[key] = dict(rows=rows, total=tot)
         print(f"\n=== {tag} ===", flush=True)
-        print("  it  size  N_pix   N_o     N_t   side     gemm_n     S ms      C ms      E ms   total ms", flush=True)
+        print("  it  size  N_pix   N_o    side      N_sig     S ms      C ms      E ms   total ms", flush=True)
         for r in rows:
-            print("  %2d  %4d %6d %6d %3d->%-3d %-9s %6d %8.1f  %8.1f  %8.1f   %8.1f"
-                  % (r["it"], r["size"], r["npix"], r["no"], r["nt"], r["ntp"], r["side"],
-                     r["gemm_n"], r["S"] * 1e3, r["C"] * 1e3, r["E"] * 1e3, r["total"] * 1e3), flush=True)
+            print("  %2d  %4d %6d %6d  %-9s %6.1f %8.1f  %8.1f  %8.1f   %8.1f"
+                  % (r["it"], r["size"], r["npix"], r["no"], r["side"], r["nsig"],
+                     r["S"] * 1e3, r["C"] * 1e3, r["E"] * 1e3, r["total"] * 1e3), flush=True)
         print("  TOTAL, 15 iterations, coarse pass, ONE p150:", flush=True)
         print("    A %6.2f s   B %6.2f s   S %6.2f s   C %6.2f s   D %6.2f s   E %6.2f s"
               % (tot["A"], tot["B"], tot["S"], tot["C"], tot["D"], tot["E"]), flush=True)
