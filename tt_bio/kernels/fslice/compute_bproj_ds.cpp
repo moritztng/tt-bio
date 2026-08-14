@@ -106,16 +106,20 @@ void kernel_main() {
             const uint32_t cb_dst = last ? cb_out : cb_acc;
             cb_wait_front(cb_mid, nmid * chunk);
             cb_reserve_back(cb_dst, one);
-            if (c) {
-                cb_wait_front(cb_acc, one);
+            if constexpr (nchunk > 1) {
+                if (c) {
+                    cb_wait_front(cb_acc, one);
+                }
             }
             // OUTSIDE the acquire: this resets the dest section, so nothing in DST survives it.
             mm_init(cb_mid, cb_selt, cb_dst, 0);
             tile_regs_acquire();
-            if (c) {
-                copy_tile_to_dst_init_short_with_dt(cb_selt, cb_acc);
-                copy_tile(cb_acc, 0, DST_W);
-                mm_init_short_with_dt(cb_mid, cb_selt, cb_acc, 0);
+            if constexpr (nchunk > 1) {
+                if (c) {
+                    copy_tile_to_dst_init_short_with_dt(cb_selt, cb_acc);
+                    copy_tile(cb_acc, 0, DST_W);
+                    mm_init_short_with_dt(cb_mid, cb_selt, cb_acc, 0);
+                }
             }
             for (uint32_t n = 0; n < chunk; ++n) {
                 for (uint32_t i = 0; i < nmid; ++i) {
@@ -127,8 +131,10 @@ void kernel_main() {
             pack_reconfig_data_format(cb_dst);
             pack_tile(DST_W, cb_dst);
             tile_regs_release();
-            if (c) {
-                cb_pop_front(cb_acc, one);
+            if constexpr (nchunk > 1) {
+                if (c) {
+                    cb_pop_front(cb_acc, one);
+                }
             }
             cb_push_back(cb_dst, one);
             cb_pop_front(cb_mid, nmid * chunk);

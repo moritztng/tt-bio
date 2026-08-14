@@ -18,8 +18,7 @@ import torch
 import ttnn
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from bproj_e2e import (A, ELEM, F32_TILE_B, NCOPY, NROWS, WIN, WPAGES, build_s2a, coef_tiles,
-                       selt_matrices, shear)
+from bproj_e2e import (A, ELEM, NCOPY, NROWS, WIN, build_s2a, coef_tiles, selt_matrices, shear)
 
 
 def push(x, dev):
@@ -31,11 +30,12 @@ ACC = {}
 
 
 def run(dev, sl, coef, selt, row_el, offs_el, rowidx1, nc, ch, kern):
-    fmt, page, tdt = ACC["fmt"], ACC["page"], ACC["tdt"]
-    w1 = ttnn.from_torch(torch.zeros(1, 1, 32 * WPAGES, 32).to(tdt), dtype=fmt,
+    # The W store is bf16 unconditionally now: section 8.3's rule is that every CB the compute
+    # kernel packs into carries ONE format and the accumulator lives in fp32 DST instead.
+    w1 = ttnn.from_torch(torch.zeros(1, 1, 32 * 64, 32).to(torch.bfloat16), dtype=ttnn.bfloat16,
                          layout=ttnn.TILE_LAYOUT, device=dev)
     pd = build_s2a(sl, coef, selt, w1, 1, 1, 1, row_el, offs_el * ELEM, rowidx1, nc, ch,
-                   fmt, page, compute=kern, mid=ACC["mid"], dstacc=ACC["dstacc"])
+                   compute=kern, mid=ACC["mid"], dstacc=ACC["dstacc"])
     ttnn.generic_op([sl, coef, selt, w1], pd)
     ttnn.synchronize_device(dev)
     got = ttnn.to_torch(w1)[0, 0, :32, :].to(torch.float64).numpy()
@@ -47,14 +47,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dstacc", choices=["auto", "on", "off"], default="auto")
     ap.add_argument("--mid", choices=["bf16", "fp32"], default="bf16")
-    ap.add_argument("--acc", choices=["fp32", "bf16"], default="fp32")
     ap.add_argument("--kernels", default="compute_bproj_ds.cpp,compute_bproj_ds_v1.cpp,compute_bproj_ds_v2.cpp")
     a = ap.parse_args()
-    ACC["fmt"] = ttnn.float32 if a.acc == "fp32" else ttnn.bfloat16
-    ACC["page"] = F32_TILE_B if a.acc == "fp32" else F32_TILE_B // 2
-    ACC["dstacc"] = None if a.dstacc == "auto" else (a.dstacc == "on")
+    ACC["dstacc"] = a.dstacc != "off"
     ACC["mid"] = None if a.mid == "bf16" else ttnn.float32
-    ACC["tdt"] = torch.float32 if a.acc == "fp32" else torch.bfloat16
     row_el, ncore = 512, 1
     dev = ttnn.open_device(device_id=0)
     try:

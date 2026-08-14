@@ -65,6 +65,19 @@ void kernel_main() {
     // 0 = init/uninit the packer around every single untilize, which is the pattern mode 12 was
     // proven correct with. 1 = hoist it to once per strip. The difference is a named lever, not a
     // free choice: pack_untilize_dest_init is documented as an expensive MMIO write.
+    //
+    // 1 IS INVALID WHENEVER shift_real IS ON, and it fails silently. The shift pass calls mm_init and
+    // pack_tile between untilizes, both of which reconfigure the packer, so an init hoisted to once
+    // per strip is stale from the second tile onwards: measured rel L2 1.2 on copy 0 -- the IDENTITY
+    // shift -- and 18 on the odd copies, against 0.0 for mode 0 (projprobe/bproj_e2e.py, S0' parity).
+    // It is not a slow-but-correct alternative to 0, it is wrong, and it is 1.58x faster than 0,
+    // which is exactly the shape of a lever that gets believed.
+    //
+    // 2 = TWO SWEEPS, which is how the hoist is actually bought. Shift the whole copy into cb_mid2
+    // first, then untilize the whole copy under ONE init. The packer is then configured once per
+    // copy instead of once per tile -- strip_tiles fewer MMIO writes, 16x at box 256 -- and nothing
+    // reconfigures it in between. cb_mid2 has to hold a whole strip rather than one tile for this,
+    // which is the only cost: strip_tiles more L1 tiles, 65 KB at box 512.
     constexpr uint32_t hoist_init = get_compile_time_arg_val(8);
     // 0 = copies 1..7 are the unshifted strip (cost probe). 1 = they are the real shifted strips.
     constexpr uint32_t shift_real = get_compile_time_arg_val(9);
@@ -95,7 +108,48 @@ void kernel_main() {
         cb_push_back(cb_mid, strip_tiles);
 
         cb_wait_front(cb_mid, strip_tiles);
-        if constexpr (hoist_init) {
+        if constexpr (hoist_init == 2) {
+            // Two sweeps per copy: shift the strip, then untilize the strip.
+            for (uint32_t q = 0; q < ncopy; ++q) {
+                if constexpr (shift_real) {
+                    cb_reserve_back(cb_mid2, strip_tiles);
+                    mm_init(cb_mid, cb_mask, cb_mid2, 0);
+                    for (uint32_t b = 0; b < strip_tiles; ++b) {
+                        tile_regs_acquire();
+                        matmul_tiles(cb_mid, cb_mask, b, nplane + 2 * q, 0);
+                        if (b + 1 < strip_tiles) {
+                            matmul_tiles(cb_mid, cb_mask, b + 1, nplane + 2 * q + 1, 0);
+                        }
+                        tile_regs_commit();
+                        tile_regs_wait();
+                        pack_tile(0, cb_mid2, b);
+                        tile_regs_release();
+                    }
+                    cb_push_back(cb_mid2, strip_tiles);
+                    cb_wait_front(cb_mid2, strip_tiles);
+                }
+                const uint32_t src_cb = shift_real ? cb_mid2 : cb_mid;
+                cb_reserve_back(cb_out, strip_tiles);
+                pack_untilize_dest_init<1, strip_tiles>(cb_out);
+                for (uint32_t b = 0; b < strip_tiles; ++b) {
+                    tile_regs_acquire();
+                    copy_tile_to_dst_init_short(src_cb);
+                    copy_tile(src_cb, b, 0);
+                    tile_regs_commit();
+                    tile_regs_wait();
+                    pack_untilize_dest<1, strip_tiles>(cb_out, 1, b);
+                    tile_regs_release();
+                }
+                pack_untilize_uninit(cb_out);
+                cb_push_back(cb_out, strip_tiles);
+                if constexpr (shift_real) {
+                    cb_pop_front(cb_mid2, strip_tiles);
+                }
+            }
+            cb_pop_front(cb_mid, strip_tiles);
+            continue;
+        }
+        if constexpr (hoist_init == 1) {
             pack_untilize_dest_init<1, strip_tiles>(cb_out);
         }
         for (uint32_t q = 0; q < ncopy; ++q) {

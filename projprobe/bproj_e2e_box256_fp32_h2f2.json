@@ -10,6 +10,8 @@
  "src_tiles": 1,
  "strip_tiles": 16,
  "shift_real": 1,
+ "hoist": 2,
+ "s0_fid": "HiFi2",
  "strips_per_slice": 4,
  "s0": true,
  "read_roof_gbs": 404.5,
@@ -98,18 +100,18 @@
    "100": 0.0
   }
  },
- "wall_s": 0.0036444349971134216,
+ "wall_s": 0.0024032729997998103,
  "all_wall_s": [
-  0.0036444349971134216,
-  0.0037206940032774583,
-  0.0037164430104894564
+  0.0024032729997998103,
+  0.002497190987924114,
+  0.0024912719964049757
  ],
  "sha256": "b9cfe4c7c9adfdd544782ed21eb871a9248fbb6f20bdb6a089d6c9a434340786",
  "sha_stable": true,
- "aa_delta_pct": 2.092478154348691,
- "k_slices_per_s": 272.50502359900344,
- "pct_of_floor": 10.552358612607579,
- "ns_per_slice": 3669.657119684957,
+ "aa_delta_pct": 3.9079200794968685,
+ "k_slices_per_s": 413.2392969821377,
+ "pct_of_floor": 16.002087583508715,
+ "ns_per_slice": 2419.9053848531375,
  "traffic_bytes": {
   "s0_dram_read": 132055040,
   "s0_l1_write": 1056440320,
@@ -126,7 +128,7 @@
   "s1_dram_read": 12599.880935997464,
   "s1_dram_write": 10723.302924253161
  },
- "implied_dram_read_gbs": 39.66823941557621,
- "implied_dram_write_gbs": 3.506584699719444,
- "implied_l1_gbs": 317.93034610789624
+ "implied_dram_read_gbs": 60.154763945686724,
+ "implied_dram_write_gbs": 5.317548194093854,
+ "implied_l1_gbs": 482.1243695978427
 }
