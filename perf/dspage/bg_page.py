@@ -35,6 +35,7 @@ OUT = pathlib.Path("perf/dspage/results/bg_page.jsonl")
 PY = "/home/ttuser/tt-bio-dev/env/bin/python3"
 N_DESIGNS = 6
 EXP_STEPS = 500                  # the shipped design.yaml default, asserted not passed
+EXP_STAMPS = EXP_STEPS + 1       # the progress line prints k=0 as well as 1..500
 EXP_CHAINS = {100, 414}          # 100 designed binder + 414 target residues
 BATCH = re.compile(r"batch (\d+)/(\d+)")
 DIFF = re.compile(r"diff (\d+)/(\d+)")
@@ -51,7 +52,7 @@ def run(out_dir):
     t0 = time.time()
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                          text=True, bufsize=1, env=env)
-    stamps, steps, switched, cur, tail = {}, {}, set(), 0, []
+    stamps, steps, diff_t, switched, cur, tail = {}, {}, {}, set(), 0, []
     for line in p.stdout:
         tail.append(line)
         if len(tail) > 80:
@@ -61,12 +62,14 @@ def run(out_dir):
             cur = int(mb.group(1))
             stamps[cur] = time.time()
             continue
-        if DIFF.search(line):
-            steps.setdefault(cur + 1, []).append(int(DIFF.search(line).group(2)))
+        md = DIFF.search(line)
+        if md:
+            steps.setdefault(cur + 1, []).append(int(md.group(2)))
+            diff_t.setdefault(cur + 1, []).append(time.time())
         elif "Switched checkpoint" in line:
             switched.add(cur + 1)
     p.wait()
-    return stamps, steps, switched, time.time() - t0, p.returncode, "".join(tail)
+    return stamps, steps, diff_t, switched, time.time() - t0, p.returncode, "".join(tail)
 
 
 def validate(out_dir):
@@ -98,7 +101,7 @@ def main():
         return
     out_dir = "/tmp/bg_page"
     os.system("rm -rf %s" % out_dir)
-    stamps, steps, switched, wall, rc, tail = run(out_dir)
+    stamps, steps, diff_t, switched, wall, rc, tail = run(out_dir)
     if rc != 0 or len(stamps) < N_DESIGNS + 1:
         print("[bg] FAILED rc=%d, %d stamps\n%s" % (rc, len(stamps), tail[-3000:]), flush=True)
         sys.exit(1)
@@ -111,8 +114,12 @@ def main():
             dropped[k] = "pays the checkpoint switch"
     warm = [per[k] for k in sorted(per) if k not in dropped]
     med = statistics.median(warm)
-    bad_steps = {k: sorted(set(v)) for k, v in steps.items()
-                 if sorted(set(v)) != [EXP_STEPS] or len(v) != EXP_STEPS}
+    bad_steps = {k: (sorted(set(v)), len(v)) for k, v in steps.items()
+                 if sorted(set(v)) != [EXP_STEPS] or len(v) != EXP_STAMPS}
+    # The denoising loop on its own, first to last step stamp, so the trunk's share of a
+    # design is visible rather than inferred from another host's ladder.
+    diff_span = {k: v[-1] - v[0] for k, v in diff_t.items() if len(v) > 1}
+    warm_diff = [diff_span[k] for k in sorted(diff_span) if k not in dropped]
     ok, bad, atoms = validate(out_dir)
     rec = {
         "fixture": FIXTURE, "rung": "R3", "num_designs": N_DESIGNS,
@@ -126,7 +133,9 @@ def main():
         "s_per_design_min": round(min(warm), 3), "s_per_design_max": round(max(warm), 3),
         "spread_pct": round(100 * (max(warm) - min(warm)) / med, 2),
         "designs_per_hour": round(3600 / med, 1),
-        "ms_per_step": round(1000 * med / EXP_STEPS, 3),
+        "diffusion_s_median": round(statistics.median(warm_diff), 3),
+        "ms_per_step": round(1000 * statistics.median(warm_diff) / EXP_STEPS, 3),
+        "trunk_and_post_s": round(med - statistics.median(warm_diff), 3),
         "proc_wall_s": round(wall, 1), "atoms": atoms,
         "output_ok": ok, "output_fail": bad,
         "host": HOST, "card": CARD, "ttnn": TTNN,
