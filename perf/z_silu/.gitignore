@@ -1,6 +1,0 @@
-pkg/
-kcache_*/
-generated/
-ic_*/
-out_*.npy
-orig/

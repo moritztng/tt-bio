@@ -2275,33 +2275,6 @@ def build_token_initializer(state_dict, compute_kernel_config=None, dtype=None):
     return TokenInitializer(state_dict, compute_kernel_config, dtype=dtype)
 
 
-def build_atom_encoder(state_dict, compute_kernel_config=None, dtype=None, trace=False):
-    compute_kernel_config = compute_kernel_config or _default_compute_kernel_config()
-    return LocalAtomTransformer(
-        state_dict, compute_kernel_config, n_blocks=3, dtype=dtype, trace=trace
-    )
-
-
-def build_decoder(state_dict, compute_kernel_config=None, dtype=None, trace=False):
-    compute_kernel_config = compute_kernel_config or _default_compute_kernel_config()
-    return CompactStreamingDecoder(state_dict, compute_kernel_config, dtype=dtype, trace=trace)
-
-
-def build_sequence_head(state_dict, compute_kernel_config=None, dtype=None):
-    compute_kernel_config = compute_kernel_config or _default_compute_kernel_config()
-    return LinearSequenceHead(state_dict, compute_kernel_config, dtype=dtype)
-
-
-def build_diffusion_token_encoder(state_dict, compute_kernel_config=None, dtype=None, sigma_data=16.0):
-    compute_kernel_config = compute_kernel_config or _default_compute_kernel_config()
-    return DiffusionTokenEncoder(state_dict, compute_kernel_config, sigma_data=sigma_data, dtype=dtype)
-
-
-def build_dit(state_dict, compute_kernel_config=None, dtype=None, n_block=18):
-    compute_kernel_config = compute_kernel_config or _default_compute_kernel_config()
-    return LocalTokenTransformer(state_dict, compute_kernel_config, n_block=n_block, dtype=dtype)
-
-
 # --- Host-side attention-index builder (vendored from foundry block_utils) ---
 def _build_index_mask(tok_idx, n_seq_neighbours, k_max, chain_id=None, base_mask=None):
     """Build the full-token local mask without atom-grid counting and sorting."""

@@ -1360,11 +1360,8 @@ def _spawn_shard(idx: int, device: int, shard: list[tuple[str, str]], workdir: s
     # fanout paths, a single-chip worker needs the 1x1 Blackhole mesh-graph
     # descriptor or ttnn.open_device aborts with "Custom fabric mesh graph
     # descriptor path must be specified".
-    from tt_bio.main import _detect_p300_devices, _find_ttnn_mesh_graph_descriptor
-    if device in _detect_p300_devices() and not env.get("TT_MESH_GRAPH_DESC_PATH"):
-        mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
-        if mgd:
-            env["TT_MESH_GRAPH_DESC_PATH"] = mgd
+    from tt_bio.main import ensure_p300_mesh_descriptor
+    ensure_p300_mesh_descriptor(env, device)
     logf = open(log_path, "w")
     proc = subprocess.Popen(
         [sys.executable, "-c",

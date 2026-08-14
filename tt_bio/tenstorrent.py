@@ -1903,12 +1903,8 @@ def _open_and_init_device(trace_region_size):
     # script -- did not, and got the TT_FATAL. Setting it here covers both, and an explicit
     # TT_MESH_GRAPH_DESC_PATH still wins. The import is function-local because tt_bio.main
     # imports this module.
-    if not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
-        from .main import _detect_p300_devices, _find_ttnn_mesh_graph_descriptor
-        if _detect_p300_devices():
-            mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
-            if mgd:
-                os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
+    from .main import ensure_p300_mesh_descriptor
+    ensure_p300_mesh_descriptor()
     # Wormhole: dispatch on Ethernet cores so the full 8x8 Tensix grid
     # (rather than 8x7 after worker-dispatch reservation) is available.
     # BUT on a multi-chip system (Galaxy / multi-card mesh) the ETH cores are
