@@ -29,6 +29,10 @@ from e3_fsc_relion import fsc, read_mrc, resolution  # noqa: E402
 
 P3 = Path("/home/ttuser/relion-scratch/p3")
 ARMS = {"A_bridge_declines": "a_run", "T_bridge_active": "t_run"}
+# Either arm can be pointed at another directory: ARM=<label>:<dir>:<stem>
+for _a in sys.argv[1:]:
+    _lab, _dir, _stem = _a.split(":")
+    ARMS[_lab] = (Path(_dir), _stem)
 
 
 def sha(p):
@@ -71,9 +75,10 @@ def main():
     res = {}
     vols = {}
     print("=== per-arm gold-standard FSC (half1 vs half2, unmasked) ===", flush=True)
-    for name, stem in ARMS.items():
-        h1p = P3 / f"{stem}_it013_half1_class001.mrc"
-        h2p = P3 / f"{stem}_it013_half2_class001.mrc"
+    for name, spec in ARMS.items():
+        d, stem = spec if isinstance(spec, tuple) else (P3, spec)
+        h1p = d / f"{stem}_it013_half1_class001.mrc"
+        h2p = d / f"{stem}_it013_half2_class001.mrc"
         if not h1p.exists():
             print(f"  {name}: MISSING {h1p.name}", flush=True)
             continue
@@ -92,11 +97,12 @@ def main():
               flush=True)
 
     if len(vols) == 2:
-        (a1, a2, apix) = vols["A_bridge_declines"]
-        (t1, t2, _) = vols["T_bridge_active"]
+        vk = list(vols)
+        (a1, a2, apix) = vols[vk[0]]
+        (t1, t2, _) = vols[vk[-1]]
         N = a1.shape[0]
         print("\n=== arm-to-arm resolution difference at FSC 0.143 ===", flush=True)
-        d = res["T_bridge_active"]["resol_A"] - res["A_bridge_declines"]["resol_A"]
+        d = res[vk[-1]]["resol_A"] - res[vk[0]]["resol_A"]
         print(f"  T - A = {d:+.4f} A   (bar from relion-precision-fsc.md: within 0.1 A)", flush=True)
         res["delta_resol_A"] = d
         res["within_0.1A"] = bool(abs(d) <= 0.1)
@@ -115,8 +121,9 @@ def main():
                   f"0.143 crossing {r:.4f} A   rel L2 {rl2:.3e}", flush=True)
 
     print("\n=== RELION's own in-refinement _rlnGoldStandardFsc, arm to arm ===", flush=True)
-    for name, stem in ARMS.items():
-        p = P3 / f"{stem}_it013_model.star"
+    for name, spec in ARMS.items():
+        d, stem = spec if isinstance(spec, tuple) else (P3, spec)
+        p = d / f"{stem}_it013_half1_model.star"
         if not p.exists():
             print(f"  {name}: MISSING {p.name}", flush=True)
             continue
@@ -130,8 +137,11 @@ def main():
     print("\n=== per-particle assignments from run_it013_data.star ===", flush=True)
     cols = ("_rlnAngleRot", "_rlnAngleTilt", "_rlnAnglePsi",
             "_rlnOriginXAngst", "_rlnOriginYAngst")
-    pa = P3 / "a_run_it013_data.star"
-    pt = P3 / "t_run_it013_data.star"
+    ks = list(ARMS)
+    da, sa = ARMS[ks[0]] if isinstance(ARMS[ks[0]], tuple) else (P3, ARMS[ks[0]])
+    dt, st = ARMS[ks[-1]] if isinstance(ARMS[ks[-1]], tuple) else (P3, ARMS[ks[-1]])
+    pa = da / f"{sa}_it013_data.star"
+    pt = dt / f"{st}_it013_data.star"
     if pa.exists() and pt.exists():
         for c in cols:
             va = np.array([float(x) for x in star_col(pa, c)])
@@ -145,7 +155,7 @@ def main():
             else:
                 print(f"  {c:20s} size mismatch {va.size} vs {vt.size}", flush=True)
 
-    out = P3 / "p3_compare.json"
+    out = Path("/home/ttuser/relion-scratch") / "p_compare.json"
     out.write_text(json.dumps(res, indent=1, default=float))
     print("\nwrote", out, flush=True)
 

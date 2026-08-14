@@ -4,28 +4,35 @@
 
 #include <Python.h>
 
+#include <atomic>
 #include <cstdio>
 #include <cstdlib>
 #include <mutex>
 
-// One interpreter per process. RELION runs one MPI rank per card, so one interpreter per card, and
-// the GIL is not a throughput concern at --j 1. At --j > 1 the TBB worker threads serialise through
-// PyGILState_Ensure, which is correct but slow; the batched path in a later pass removes the
-// per-particle call entirely and with it the contention.
+// One interpreter per process. RELION runs one MPI rank per card, so one interpreter per card.
+//
+// Only initialisation is mutexed. The call itself is not: PyGILState_Ensure already serialises the
+// Python bytecode, and the tensor work underneath releases the GIL, so RELION's TBB worker threads
+// overlap inside the heavy part. An earlier version held a std::mutex across the whole call, which
+// serialised the threads a second time and independently of the GIL.
 
 namespace
 {
-	std::mutex g_mutex;
-	bool  g_tried    = false;   // init attempted
-	bool  g_usable   = false;   // init succeeded
-	PyObject *g_diff2 = nullptr;
-	long  g_handled  = 0;
-	long  g_declined = 0;
+	std::mutex g_init_mutex;
+	bool g_tried  = false;                  // init attempted, guarded by g_init_mutex
+	std::atomic<bool> g_usable{false};      // read on every call, so atomic
+	PyObject *g_diff2 = nullptr;            // set once under g_init_mutex, read-only after
+	std::atomic<long> g_handled{0};
+	std::atomic<long> g_declined{0};
 
-	void initLocked()
+	// Returns true when the Python entry point is ready to call.
+	bool ensureReady()
 	{
+		if (g_usable.load(std::memory_order_acquire))
+			return true;
+		std::lock_guard<std::mutex> lock(g_init_mutex);
 		if (g_tried)
-			return;
+			return g_usable.load(std::memory_order_acquire);
 		g_tried = true;
 
 		if (!Py_IsInitialized())
@@ -34,7 +41,7 @@ namespace
 			if (!Py_IsInitialized())
 			{
 				std::fprintf(stderr, "TTBridge: Py_InitializeEx failed, falling back to CPU\n");
-				return;
+				return false;
 			}
 			PyEval_SaveThread();         // drop the GIL the main thread now holds
 		}
@@ -47,22 +54,23 @@ namespace
 			                     "(is PYTHONPATH set to the tt-bio checkout?)\n");
 			PyErr_Print();
 			PyGILState_Release(gil);
-			return;
+			return false;
 		}
-		g_diff2 = PyObject_GetAttrString(mod, "diff2_coarse");
+		PyObject *fn = PyObject_GetAttrString(mod, "diff2_coarse");
 		Py_DECREF(mod);
-		if (g_diff2 == nullptr || !PyCallable_Check(g_diff2))
+		if (fn == nullptr || !PyCallable_Check(fn))
 		{
 			std::fprintf(stderr, "TTBridge: tt_bio.cryoem.relion.diff2_coarse missing\n");
 			PyErr_Print();
-			Py_XDECREF(g_diff2);
-			g_diff2 = nullptr;
+			Py_XDECREF(fn);
 			PyGILState_Release(gil);
-			return;
+			return false;
 		}
 		PyGILState_Release(gil);
-		g_usable = true;
+		g_diff2 = fn;
+		g_usable.store(true, std::memory_order_release);
 		std::fprintf(stderr, "TTBridge: tt_bio.cryoem.relion loaded\n");
+		return true;
 	}
 }
 
@@ -80,11 +88,9 @@ bool diff2Coarse(
 		float *diff2s,
 		long orientation_num, long translation_num, long image_size)
 {
-	std::lock_guard<std::mutex> lock(g_mutex);
-	initLocked();
-	if (!g_usable)
+	if (!ensureReady())
 	{
-		g_declined++;
+		g_declined.fetch_add(1);
 		return false;
 	}
 
@@ -121,7 +127,7 @@ bool diff2Coarse(
 		// the run finishes on the CPU path instead of drowning the log.
 		PyErr_Print();
 		std::fprintf(stderr, "TTBridge: diff2_coarse raised, disabling the device path\n");
-		g_usable = false;
+		g_usable.store(false, std::memory_order_release);
 	}
 	else
 	{
@@ -130,13 +136,14 @@ bool diff2Coarse(
 	}
 	PyGILState_Release(gil);
 
-	if (handled) g_handled++; else g_declined++;
+	if (handled) g_handled.fetch_add(1); else g_declined.fetch_add(1);
 	return handled;
 }
 
 void report()
 {
-	std::fprintf(stderr, "TTBridge: diff2Coarse handled=%ld declined=%ld\n", g_handled, g_declined);
+	std::fprintf(stderr, "TTBridge: diff2Coarse handled=%ld declined=%ld\n",
+	             g_handled.load(), g_declined.load());
 }
 
 }
