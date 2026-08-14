@@ -29,13 +29,27 @@
 // one.
 //
 // `ncopy` is section 19's replication: the general shear needs the source held at all 8 sub-offsets
-// because a per-row read offset is quantised to 8 bf16 elements from L1. COST PROBE -- the copies
-// emitted here are unshifted, so the byte count is right and the contents of copies 1..7 are not.
+// because a per-row read offset is quantised to 8 bf16 elements from L1.
+//
+// With `shift_real` off the copies are a COST PROBE -- the byte count and the addresses are right
+// and the contents of copies 1..7 are not. With it on they are the real thing: copy q of a strip is
+// the strip shifted left by q elements, which for tile b draws columns q..31 from tile b and the
+// remainder from tile b+1, so it is two matmuls against fixed 0/1 shift matrices,
+//     out = T_b . S_q + T_{b+1} . S'_q,   S_q[c+q, c] = 1,   S'_q[c+q-32, c] = 1
+// with matmul_tiles' DST accumulation doing the sum for free. The last tile of a strip drops the
+// second term, which is correct rather than a shortcut: past the end of the padded plane row there
+// is nothing but the pad.
+//
+// The shift matrices are fixed for the whole run exactly as the masks are, so they are appended to
+// the mask tensor and ride in on the same one-off load. And because matmul-written DST is precisely
+// what pack_untilize_dest cannot read, the shifted tile needs its own staging round trip before the
+// untilize -- the same laundering, one level further in.
 #include <cstdint>
 
 #include "api/compute/common.h"
 #include "api/compute/compute_kernel_api.h"
 #include "api/compute/eltwise_binary.h"
+#include "api/compute/matmul.h"
 #include "api/compute/pack_untilize.h"
 #include "api/compute/tile_move_copy.h"
 
@@ -52,6 +66,9 @@ void kernel_main() {
     // proven correct with. 1 = hoist it to once per strip. The difference is a named lever, not a
     // free choice: pack_untilize_dest_init is documented as an expensive MMIO write.
     constexpr uint32_t hoist_init = get_compile_time_arg_val(8);
+    // 0 = copies 1..7 are the unshifted strip (cost probe). 1 = they are the real shifted strips.
+    constexpr uint32_t shift_real = get_compile_time_arg_val(9);
+    constexpr uint32_t cb_mid2 = get_compile_time_arg_val(10);
 
     const uint32_t nstrip = get_arg_val<uint32_t>(0);
 
@@ -84,9 +101,26 @@ void kernel_main() {
         for (uint32_t q = 0; q < ncopy; ++q) {
             cb_reserve_back(cb_out, strip_tiles);
             for (uint32_t b = 0; b < strip_tiles; ++b) {
+                if constexpr (shift_real) {
+                    cb_reserve_back(cb_mid2, 1);
+                    tile_regs_acquire();
+                    mm_init(cb_mid, cb_mask, cb_mid2, 0);
+                    matmul_tiles(cb_mid, cb_mask, b, nplane + 2 * q, 0);
+                    if (b + 1 < strip_tiles) {
+                        matmul_tiles(cb_mid, cb_mask, b + 1, nplane + 2 * q + 1, 0);
+                    }
+                    tile_regs_commit();
+                    tile_regs_wait();
+                    pack_tile(0, cb_mid2);
+                    tile_regs_release();
+                    cb_push_back(cb_mid2, 1);
+                    cb_wait_front(cb_mid2, 1);
+                }
+                const uint32_t src_cb = shift_real ? cb_mid2 : cb_mid;
+                const uint32_t src_idx = shift_real ? 0 : b;
                 tile_regs_acquire();
-                copy_tile_to_dst_init_short(cb_mid);
-                copy_tile(cb_mid, b, 0);
+                copy_tile_to_dst_init_short(src_cb);
+                copy_tile(src_cb, src_idx, 0);
                 tile_regs_commit();
                 tile_regs_wait();
                 if constexpr (!hoist_init) {
@@ -97,6 +131,9 @@ void kernel_main() {
                     pack_untilize_uninit(cb_out);
                 }
                 tile_regs_release();
+                if constexpr (shift_real) {
+                    cb_pop_front(cb_mid2, 1);
+                }
             }
             cb_push_back(cb_out, strip_tiles);
         }

@@ -43,7 +43,7 @@ HERE = Path(__file__).resolve().parent
 KDIR = HERE.parent / "tt_bio" / "kernels" / "fslice"
 
 # --- stage 1 CBs / stage 2 CBs (disjoint, the two programs never run at once) ---
-CB_V, CB_MASK, CB_MID1, CB_OUT1 = 0, 4, 8, 12
+CB_V, CB_MASK, CB_MID1, CB_OUT1, CB_MID2 = 0, 4, 8, 12, 16
 CB_SRC, CB_TIL, CB_SEL, CB_FRAC, CB_OUT, CB_MID, CB_INT, CB_INT2 = 0, 4, 8, 12, 16, 20, 24, 28
 
 ELEM = 2
@@ -97,13 +97,29 @@ def mk(p, cg, ct, rt, cfg):
                                  core_ranges=cg, compile_time_args=ct, runtime_args=rt, config=cfg)
 
 
-def build_stage1(v, m, w, nx, ny, nstrip, row_el, hoist, strip_of_core):
+def shift_matrices():
+    """S_q and S'_q for q = 0..NCOPY-1: copy q of a strip is the strip shifted left by q."""
+    out = []
+    for q in range(NCOPY):
+        s0 = np.zeros((32, 32), dtype=np.float32)
+        s1 = np.zeros((32, 32), dtype=np.float32)
+        for c in range(32):
+            if c + q < 32:
+                s0[c + q, c] = 1.0
+            else:
+                s1[c + q - 32, c] = 1.0
+        out += [s0, s1]
+    return np.stack(out)
+
+
+def build_stage1(v, m, w, nx, ny, nstrip, row_el, hoist, strip_of_core, shift_real, nmask):
     cg = ttnn.CoreRangeSet([ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(nx - 1, ny - 1))])
     ncore = nx * ny
-    rct = ([CB_V, CB_MASK, NPLANE, TILE_B, BARRIER_EVERY, NPLANE]
+    rct = ([CB_V, CB_MASK, NPLANE, TILE_B, BARRIER_EVERY, NPLANE, nmask]
            + list(ttnn.TensorAccessorArgs(v).get_compile_time_args())
            + list(ttnn.TensorAccessorArgs(m).get_compile_time_args()))
-    cct = [CB_V, CB_MASK, CB_MID1, CB_OUT1, NPLANE, NPLANE, NCOPY, STRIP_TILES, hoist]
+    cct = [CB_V, CB_MASK, CB_MID1, CB_OUT1, NPLANE, NPLANE, NCOPY, STRIP_TILES, hoist,
+           shift_real, CB_MID2]
     wct = ([CB_OUT1, row_el * ELEM, 32, NCOPY, STRIP_TILES, ncore]
            + list(ttnn.TensorAccessorArgs(w).get_compile_time_args()))
     rrt, crt, wrt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
@@ -122,9 +138,10 @@ def build_stage1(v, m, w, nx, ny, nstrip, row_el, hoist, strip_of_core):
         mk(KDIR / "compute_zcollapse_rm.cpp", cg, cct, crt,
            ttnn.ComputeConfigDescriptor(math_fidelity=ttnn.MathFidelity.HiFi4)),
         mk(KDIR / "writer_strip.cpp", cg, wct, wrt, ttnn.WriterConfigDescriptor()),
-    ], semaphores=[], cbs=cbset(cg, [(CB_V, TILE_B, 2 * NPLANE), (CB_MASK, TILE_B, NPLANE),
+    ], semaphores=[], cbs=cbset(cg, [(CB_V, TILE_B, 2 * NPLANE), (CB_MASK, TILE_B, nmask),
                                      (CB_MID1, TILE_B, 2 * STRIP_TILES),
-                                     (CB_OUT1, TILE_B, 2 * STRIP_TILES)]))
+                                     (CB_OUT1, TILE_B, 2 * STRIP_TILES),
+                                     (CB_MID2, TILE_B, 2)]))
 
 
 def build_stage2(w, sel, frac, out, nx, ny, nb, row_el, offs_bytes, rowidx_of_core):
@@ -193,13 +210,13 @@ def frac_tiles(h):
     return f5
 
 
-def parity(dev, res, row_el, mkn, vol_t, voln, m_t):
+def parity(dev, res, row_el, mkn, vol_t, voln, m_t, shift_real, nmask, bs, cs):
     """One core, one strip: does the chain compute the right thing end to end?"""
     w = ttnn.from_torch(torch.zeros(1, 1, 32 * NCOPY, row_el).to(torch.bfloat16),
                         dtype=ttnn.bfloat16, layout=ttnn.ROW_MAJOR_LAYOUT, device=dev,
                         memory_config=ttnn.MemoryConfig(ttnn.TensorMemoryLayout.INTERLEAVED,
                                                         ttnn.BufferType.L1))
-    pd1 = build_stage1(vol_t, m_t, w, 1, 1, 1, row_el, 0, [0])
+    pd1 = build_stage1(vol_t, m_t, w, 1, 1, 1, row_el, 0, [0], shift_real, nmask)
     ttnn.generic_op([vol_t, m_t, w], pd1)
     ttnn.synchronize_device(dev)
     got = ttnn.to_torch(w).reshape(32 * NCOPY, row_el).to(torch.float64).numpy()
@@ -213,10 +230,12 @@ def parity(dev, res, row_el, mkn, vol_t, voln, m_t):
           f"max|diff| {np.abs(g0 - ref).max():.3e}", flush=True)
     res["parity_stage1_rel_l2"] = rel1
 
-    # Restricted shear: every per-row offset is a multiple of 8, so rho == 0 and only copy 0 (the
-    # one the cost probe writes correctly) is read. That is what makes the CHAIN checkable.
-    k0, h, rho, offs_el = shear(8.0, 0.0)
-    assert (rho == 0).all()
+    # With the cost-probe replication only copy 0 is real, so the chain can only be checked under a
+    # restricted shear (every per-row offset a multiple of 8, rho == 0). With the real shifts on, the
+    # GENERAL shear is checkable -- and that is the configuration the timed arm actually runs.
+    k0, h, rho, offs_el = shear(bs, cs)
+    if not shift_real:
+        assert (rho == 0).all()
     sel_np = sel_matrices(A, WIN)
     selt = np.concatenate([sel_np[d].reshape(SRC_TILES, 32, 32).reshape(-1, 32) for d in range(3)], 0)
     sel = ttnn.from_torch(torch.from_numpy(selt).to(torch.bfloat16).reshape(1, 1, -1, 32),
@@ -244,6 +263,8 @@ def parity(dev, res, row_el, mkn, vol_t, voln, m_t):
                 o[r, u] = (1 - f) * win[r, j] + f * win[r, j + 1]
         return o
 
+    # Row r reads copy rho[r] at element offset offs_el[r], and copy q is the strip shifted left by
+    # q, so the window starts at offs_el[r] + rho[r] = k0[r] of the unshifted strip either way.
     w0 = np.stack([wn[r, k0[r]:k0[r] + WIN] for r in range(NROWS)])
     it = np.concatenate([p1(w0), p1(w0)], axis=0).T
     ref2 = np.zeros((32, 32))
@@ -267,6 +288,8 @@ def main():
     ap.add_argument("--nstrip", type=int, default=10)
     ap.add_argument("--components", type=int, default=2)
     ap.add_argument("--hoist", type=int, default=0)
+    ap.add_argument("--shift", type=int, default=1,
+                    help="1 = the replicated copies carry their real shifts; 0 = section 28.2's cost probe")
     ap.add_argument("--reps", type=int, default=5)
     ap.add_argument("--skip-parity", action="store_true")
     a = ap.parse_args()
@@ -287,12 +310,18 @@ def main():
                                 layout=ttnn.TILE_LAYOUT, device=dev)
         mkf = masks()
         mkn = torch.from_numpy(mkf).to(torch.bfloat16).to(torch.float64).numpy()
-        m_t = ttnn.from_torch(torch.from_numpy(mkf.reshape(1, 1, NPLANE * 32, 32)).to(torch.bfloat16),
+        # The shift matrices ride in on the mask tensor's one-off load.
+        mstack = np.concatenate([mkf, shift_matrices()], 0) if a.shift else mkf
+        nmask = mstack.shape[0]
+        m_t = ttnn.from_torch(torch.from_numpy(mstack.reshape(1, 1, nmask * 32, 32)).to(torch.bfloat16),
                               dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
+        res["nmask"] = nmask
+        res["shift_real"] = a.shift
 
         if not a.skip_parity:
             print("PARITY", flush=True)
-            parity(dev, res, row_el, mkn, vol_t, voln, m_t)
+            parity(dev, res, row_el, mkn, vol_t, voln, m_t, a.shift, nmask,
+                   *((0.77, 5.3) if a.shift else (8.0, 0.0)))
 
         # --- the integrated arm ---
         # W holds one strip per core. A batch longer than that wraps, which keeps the addresses and
@@ -327,7 +356,8 @@ def main():
                               dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
         strip_of_core = list(range(ncore))
         rowidx_of_core = [((c * 32 + np.arange(NROWS)) * NCOPY + rho).tolist() for c in range(ncore)]
-        pd1 = build_stage1(vol_t, m_t, w, NX, NY, a.nstrip, row_el, a.hoist, strip_of_core)
+        pd1 = build_stage1(vol_t, m_t, w, NX, NY, a.nstrip, row_el, a.hoist, strip_of_core,
+                           a.shift, nmask)
         pd2 = build_stage2(w, sel, frac, out, NX, NY, nb, row_el, offs_el * ELEM, rowidx_of_core)
 
         ins1, ins2 = [vol_t, m_t, w], [w, sel, frac, out]
@@ -350,13 +380,13 @@ def main():
         res.update({"wall_s": best, "all_wall_s": times, "sha256": sha,
                     "k_slices_per_s": rate / 1e3, "pct_of_floor": 100 * rate / floor,
                     "ns_per_slice_per_core": best * 1e9 / nslice})
-        print(f"\nINTEGRATED, box {a.box}, {a.components} component(s), general shear:")
+        print(f"\nINTEGRATED, box {a.box}, {a.components} component(s), general shear, shifts {'REAL' if a.shift else 'COST PROBE'}:")
         print(f"  wall {best * 1e3:8.3f} ms for {nslice:.0f} slices   (runs "
               f"{', '.join(f'{t*1e3:.2f}' for t in times)} ms)")
         print(f"  {rate / 1e3:9.1f} k slices/s   {100 * rate / floor:5.2f}% of the "
               f"{floor / 1e6:.3f} M floor   {best * 1e9 / nslice:8.1f} ns/slice/core")
         print(f"  sha256 {sha}")
-        json.dump(res, open(HERE / f"fslice_e2e_box{a.box}_c{a.components}_h{a.hoist}.json", "w"),
+        json.dump(res, open(HERE / f"fslice_e2e_box{a.box}_c{a.components}_h{a.hoist}_s{a.shift}.json", "w"),
                   indent=1)
     finally:
         ttnn.close_device(dev)
