@@ -22,29 +22,40 @@ from pathlib import Path
 
 
 def spans(trace):
-    """Top-level ops in one capture: (name, bytes by buffer type, duration_ns)."""
+    """Top-level ops in one capture: (name, bytes by buffer type, duration_ns).
+
+    A span ends at its own `function_end`, OR at the next top-level `function_start`, whichever
+    comes first. The second clause is not defensive padding: in the first Wormhole capture a single
+    `ttnn.concat` had no matching level-1 end, so the unbounded scan swallowed every tensor after it
+    and reported 704.84 GB for one call out of a 718.24 GB total. That is the whole over-count, and
+    the bytes/time sanity check is what caught it -- 718 GB in 1.31 s is 547 GB/s against a measured
+    218.5 GB/s roof. An unmatched span is now flagged rather than silently absorbing the rest.
+    """
     out, i, n = [], 0, len(trace)
     while i < n:
         nd = trace[i]
         if nd["node_type"] == "function_start" and nd["stacking_level"] == 1:
             name = nd["params"]["name"]
             j, seen, by = i + 1, set(), {}
-            dur = None
+            dur, matched = None, False
             while j < n:
                 m = trace[j]
                 if m["node_type"] == "function_end" and m["stacking_level"] == 1:
-                    dur = m.get("duration_ns")
+                    dur, matched = m.get("duration_ns"), True
                     break
+                if m["node_type"] == "function_start" and m["stacking_level"] == 1:
+                    break                       # unmatched: stop at the next top-level op
                 if m["node_type"] == "tensor":
-                    p = m["params"]
-                    tid = p.get("tensor_id")
+                    q = m["params"]
+                    tid = q.get("tensor_id")
                     if tid not in seen:
                         seen.add(tid)
-                        bt = "DRAM" if "DRAM" in str(p.get("buffer_type", "")) else "L1"
-                        by[bt] = by.get(bt, 0) + int(p.get("size", 0))
+                        bt = "DRAM" if "DRAM" in str(q.get("buffer_type", "")) else "L1"
+                        by[bt] = by.get(bt, 0) + int(q.get("size", 0))
                 j += 1
-            out.append({"name": name, "bytes": by, "duration_ns": dur, "n_tensors": len(seen)})
-            i = j + 1
+            out.append({"name": name, "bytes": by, "duration_ns": dur,
+                        "n_tensors": len(seen), "matched": matched})
+            i = j if not matched else j + 1
             continue
         i += 1
     return out
@@ -60,9 +71,16 @@ def summarise(trace):
         a["l1_b"] += o["bytes"].get("L1", 0)
         a["ns"] += o["duration_ns"] or 0
     tot = {"ops": len(ops),
+           "unmatched": sum(1 for o in ops if not o.get("matched")),
            "dram_b": sum(a["dram_b"] for a in agg.values()),
            "l1_b": sum(a["l1_b"] for a in agg.values()),
            "ns": sum(a["ns"] for a in agg.values())}
+    # The sanity check the method demands, computed here so a bad capture cannot be quoted by
+    # accident. Both directions: over the roof means the model over-counts, far under it means it
+    # is missing traffic (the first capture ran in fast-runtime mode and recorded 12 MB for a
+    # trimul projection that must move ~134 MB).
+    if tot["ns"]:
+        tot["implied_gbs"] = round(tot["dram_b"] / (tot["ns"] * 1e-9) / 1e9, 1)
     top = sorted(agg.items(), key=lambda kv: -kv[1]["dram_b"])
     return {"total": tot, "by_op": dict(top)}
 
@@ -99,6 +117,10 @@ def main():
 
     res = {"size": a.size, "recycles": B.RECYCLING_STEPS, "steps": B.SAMPLING_STEPS,
            "host": os.uname().nodename, "card": os.environ.get("TT_VISIBLE_DEVICES"),
+           # Fast runtime mode makes graph capture record arguments and tensor ids but not the
+           # per-op sub-graphs, so the byte totals come out roughly an order of magnitude short.
+           # Capture is only usable with it OFF (TTNN_CONFIG_OVERRIDES). Recorded, not assumed.
+           "fast_runtime_mode": bool(getattr(ttnn.CONFIG, "enable_fast_runtime_mode", True)),
            "units": {}}
     armed = {"on": False}
     counts = {"trunk": 0, "step": 0}
