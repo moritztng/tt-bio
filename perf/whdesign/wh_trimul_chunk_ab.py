@@ -49,7 +49,8 @@ STEPS = int(os.environ.get("WTC_STEPS", "60"))
 OUT = pathlib.Path(os.environ.get("WTC_OUT", "perf/whdesign/results/wh_trimul_chunk_ab.json"))
 HOST = os.environ.get("WTC_HOST", "galaxy")
 
-state = {"arm": ARMS[0], "design": 1, "stamps": {}, "widths": {}, "capture": None}
+state = {"arm": ARMS[0], "design": 1, "stamps": {}, "widths": {}, "capture": None,
+         "last_call": None, "shapes_seen": {}, "error": None}
 _orig_chunk = T._trimul_chunk_size
 
 
@@ -76,7 +77,12 @@ _orig_call = T.TriangleMultiplication.__call__
 
 
 def tapped_call(self, x, mask=None):
-    if state["capture"] is None and int(x.shape[1]) > 128:
+    shp = [int(v) for v in x.shape]
+    # Recorded on every call so that a throw inside the trimul names the shape it threw at: the
+    # interesting failure here is an L1 clash, and "which shape" is the whole finding.
+    state["last_call"] = {"x_shape": shp, "hidden": int(self._hidden), "arm_cores": state["arm"]}
+    state["shapes_seen"][str((shp[1], int(self._hidden)))] = shp
+    if state["capture"] is None and shp[1] > 128:
         state["capture"] = (self, ttnn.to_torch(x).clone(), None if mask is None else ttnn.to_torch(mask).clone())
     return _orig_call(self, x, mask)
 
@@ -102,8 +108,12 @@ class Tap(P.Reporter):
         if kind == "batch":
             state["design"] = n
             state["arm"] = ARMS[(n - 1) % len(ARMS)]
-        elif kind == "diffusion":
-            state["stamps"].setdefault((state["design"], state["arm"]), []).append(time.perf_counter())
+        elif kind in ("diffusion", "trunk"):
+            # The trimul is a Pairformer op and the Pairformer is in the TRUNK, not in the diffusion
+            # step, so a chunk-width A/B read off diffusion steps is reading a term the change does
+            # not touch. Both are stamped: trunk is where the lever can pay, diffusion is the
+            # control that should not move.
+            state["stamps"].setdefault((kind, state["design"], state["arm"]), []).append(time.perf_counter())
         self.inner.step(kind, n, total)
 
 
@@ -122,25 +132,39 @@ try:
     app(standalone_mode=False)
 except SystemExit:
     pass
+except Exception as e:                                    # noqa: BLE001
+    # A throw is a result here, not an accident: an arm whose width does not fit L1 has answered
+    # the question. Record it with the call it died on and keep whatever timing already landed.
+    state["error"] = {"type": type(e).__name__, "msg": str(e)[:600], "at_call": state["last_call"]}
+    print("[wtc] ARM FAILED: %s" % json.dumps(state["error"]), flush=True)
 wall = time.time() - t0
 
-# ---- per-arm step medians, first design of each arm dropped ------------------------------------
-per_design = {}
-for (d, arm), ts in sorted(state["stamps"].items()):
-    if len(ts) < 8:
-        continue
-    steps = [ts[i + 1] - ts[i] for i in range(3, len(ts) - 1)]
-    per_design[(d, arm)] = statistics.median(steps) * 1000.0
+# ---- per-arm medians, first design of each arm dropped -----------------------------------------
+def summarise(kind, drop):
+    """Median interval between consecutive `kind` emits, per design, then per arm."""
+    per_design = {}
+    for (k, d, arm), ts in sorted(state["stamps"].items()):
+        if k != kind or len(ts) < drop + 3:
+            continue
+        iv = [ts[i + 1] - ts[i] for i in range(drop, len(ts) - 1)]
+        per_design[(d, arm)] = statistics.median(iv) * 1000.0
+    out = {}
+    for c in ARMS:
+        ds = sorted(d for (d, a) in per_design if a == c)
+        kept = ds[1:]                   # drop this arm's first design: it carries kernel compile
+        vals = [per_design[(d, c)] for d in kept]
+        out[c] = {"cores": c, "designs_kept": kept, "designs_all": ds,
+                  "ms_per_design": [round(per_design[(d, c)], 3) for d in ds],
+                  "ms_median": round(statistics.median(vals), 3) if vals else None,
+                  "n_designs": len(vals)}
+    return out
 
-arms = {}
-for c in ARMS:
-    ds = sorted(d for (d, a) in per_design if a == c)
-    kept = ds[1:]                       # drop this arm's first design: it carries kernel compile
-    vals = [per_design[(d, c)] for d in kept]
-    arms[c] = {"cores": c, "designs_kept": kept, "designs_all": ds,
-               "step_ms_per_design": [round(per_design[(d, c)], 3) for d in ds],
-               "step_ms_median": round(statistics.median(vals), 3) if vals else None,
-               "n_designs": len(vals)}
+
+arms = summarise("diffusion", 3)
+trunk = summarise("trunk", 0)
+for c in ARMS:                          # keep the old key name so existing readers do not break
+    arms[c]["step_ms_median"] = arms[c]["ms_median"]
+    arms[c]["step_ms_per_design"] = arms[c]["ms_per_design"]
 
 # ---- module-level bit-exactness on one captured input ------------------------------------------
 # The timing is the deliverable and the replay needs a live device the CLI may already have closed,
@@ -171,12 +195,15 @@ rec = {"host": HOST, "rung": RUNG, "designs": DESIGNS, "sampling_steps": STEPS,
        "l1_chunk_budget": T.TRIANGLE_MULT_L1_CHUNK_BUDGET,
        "widths_seen": state["widths"],
        "arms": {str(c): arms[c] for c in ARMS},
+       "trunk": {str(c): trunk[c] for c in ARMS},
+       "shapes_seen": state["shapes_seen"], "error": state["error"],
        "loadavg": float(open("/proc/loadavg").read().split()[0]),
        "proc_wall_s": round(wall, 1), "bit_exact": exact}
-if all(arms[c]["step_ms_median"] for c in ARMS):
-    rec["speedup_vs_%dcores" % ARMS[0]] = {
-        str(c): round(arms[ARMS[0]]["step_ms_median"] / arms[c]["step_ms_median"], 4) for c in ARMS}
+for label, tbl in (("diffusion", arms), ("trunk", trunk)):
+    if all(tbl[c]["ms_median"] for c in ARMS):
+        rec["speedup_%s_vs_%dcores" % (label, ARMS[0])] = {
+            str(c): round(tbl[ARMS[0]]["ms_median"] / tbl[c]["ms_median"], 4) for c in ARMS}
 OUT.parent.mkdir(parents=True, exist_ok=True)
 OUT.write_text(json.dumps(rec, indent=1) + "\n")
-print("[wtc] " + json.dumps({k: rec[k] for k in ("grid", "arm_cores", "widths_seen", "arms", "bit_exact") if k in rec}), flush=True)
+print("[wtc] " + json.dumps({k: rec[k] for k in ("grid", "arm_cores", "widths_seen", "shapes_seen", "arms", "trunk", "bit_exact", "error") if k in rec}), flush=True)
 print("[wtc] wrote %s" % OUT, flush=True)
