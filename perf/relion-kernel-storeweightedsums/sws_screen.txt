@@ -1,0 +1,43 @@
+inside-radius fraction, box196 / box256: 0.7775 / 0.7793
+(orientation,pixel) pairs per refinement
+  coarse : 9.162e+10 raw, 7.128e+10 inside radius
+  fine / wavg / backproject : 2.155e+10 raw, 1.677e+10 inside radius
+
+-- calibration: does this model reproduce the coarse leg's own extrapolation? --
+  coarse, current kernel :  250.8 s  (50.2 s/iteration; coarse 8.17 said ~50)
+  coarse, optimistic     :  157.5 s  (31.5 s/iteration; coarse 8.17 said ~30)
+  RELION CPU coarse      :  681.3 s  -> device/CPU 0.368, speedup 2.72x
+
+-- SCREEN 1: the wavg half (dense, no scatter, it is a PROJECTION) --
+  current kernel, dense 36 trans     79.1 s   vs RELION CPU 38.2 s -> 2.07x SLOWER
+  optimistic kernel, dense           57.1 s   vs RELION CPU 38.2 s -> 1.50x SLOWER
+  optimistic + density-sparse        38.5 s   vs RELION CPU 38.2 s -> 1.01x SLOWER
+
+-- SCREEN 2: the backproject half, against the MEASURED roofs --
+  corner touches: 1.342e+11   (x3 volumes = 4.025e+11 fp32 read-modify-writes)
+  (a) DRAM read-modify-write, measured 128 B rmw roof 80.1 GB/s :   643.1 s -> 15.3x CPU
+  (b) destination L1-resident, NoC issue-bound at 37.0 ns/xact       :   114.5 s -> 2.7x CPU
+  (c) destination-stationary GATHER, forward kernel's own rate      :    57.2 s -> 1.4x CPU
+      same, optimistic kernel                                       :    35.2 s -> 0.8x CPU
+
+-- the device/CPU ratio, against §5's assumed 0.0688 --
+  storeWeightedSums, best available route : 73.8 s / 80.1 s = 0.92  (13x §5's 0.0688)
+  storeWeightedSums, current primitives   : 193.6 s / 80.1 s = 2.42  (35x §5's 0.0688)
+
+-- the refinement wall, revised (device-kernel arithmetic only, bridge excluded) --
+  nothing on device (MEASURED)             922.2 s   1.00x
+  coarse                                   491.7 s   1.88x
+  coarse+fine                              494.2 s   1.87x
+  coarse+fine+sws, best route              487.9 s   1.89x
+  coarse+fine+sws, current primitives      607.7 s   1.52x
+  (§5 predicted for coarse+fine+sws)       154.7 s   5.96x
+
+  fine on device: 64.5 s vs RELION CPU 61.9 s -> 1.04x
+
+-- the ceiling, which no kernel can beat --
+  a FREE storeWeightedSums: 842.09 s -> 1.095x on the refinement
+
+-- RELION's own two CPU kernels, cost per (orientation,pixel) pair --
+  coarse    6265.5 thread-s/rank / 2.290e+10 pairs =  273.5 ns/pair
+  wavg       340.2 thread-s/rank / 5.388e+09 pairs =   63.1 ns/pair
+  fine       556.3 thread-s/rank / 5.388e+09 pairs =  103.2 ns/pair
