@@ -488,7 +488,46 @@ def _sdpa_chunks_shipped(q_len: int, k_len: int) -> tuple:
     # _tri_att_q_chunks, which is bit-exact, and k stays exactly here.
     if 256 < q_len <= 384 and 256 < k_len <= 384:
         return (64, 64)
-    return (_capped_sdpa_chunk_size(q_len), _capped_sdpa_chunk_size(k_len))
+    return (_capped_sdpa_chunk_size(q_len), _dividing_sdpa_chunk_size(k_len))
+
+
+# K3: the k_chunk has to DIVIDE the padded sequence or the fused K1/K2 kernel refuses the call.
+# `sdpa_generic.plan` sets `use_padded_mask = (div_up(Sk, k_chunk) * k_chunk != Sk)`, and
+# `triatt_sdpa.sdpa` rejects on `fill_preconditions` whenever that is true. `_capped_sdpa_chunk_size`
+# returns `min(SDPA_CHUNK_MAX, S)` = 256 above the band, and 256 divides only every fourth multiple
+# of 64 -- so with `PAIRFORMER_PAD_MULTIPLE = 64` the fused kernel was silently declining at padded
+# 448, 576, 640, 704, 832, 896 and 960 on BOTH architectures while 256/512/768/1024 were served.
+# 640 is in that list and it is the first size past Wormhole's `SEQ_LEN_MORE_CHUNKING = 608`.
+#
+# MEASURED off-fold at Boltz-2's tri-attention shape (h=4, d=32), fused kernel against the stock op
+# the fold falls back to today, arms interleaved, A/A control on every unchanged size reading
+# 0.9957-1.0004 (perf/whb2/out/divk_qb1c1.json, qb1 13x10; the Wormhole arm is its counterpart):
+#
+#     padded   448     576     640
+#     speedup  2.349x  3.422x  2.577x
+#
+# Only sizes whose current pick does NOT divide are changed, so 256, 512, 768, 1024 and the whole
+# 64/64 band return exactly what they return today, byte for byte, and neutrality there is by
+# construction rather than by measurement. The `>= cap/2` floor is why 704 and 832 keep today's pick:
+# their largest 32-aligned divisor is 64, a quarter of the cap, and collapsing the chunk that far
+# trades one refusal for a different one -- both measured an L1 circular-buffer throw in the screen.
+#
+# NOT bit-exact: k_chunk sets the online-softmax reduction order. The fold-level accuracy arm is
+# pLDDT, not a digest.
+_SDPA_DIV_K = os.environ.get("TT_BIO_SDPA_DIV_K", "1") != "0"
+
+
+@lru_cache(maxsize=None)
+def _dividing_sdpa_chunk_size(seq_len: int) -> int:
+    """The capped k_chunk, or the largest 32-aligned divisor of the padded sequence below it."""
+    cap = _capped_sdpa_chunk_size(seq_len)
+    padded = _padded_sdpa_len(seq_len)
+    if not _SDPA_DIV_K or padded % cap == 0:
+        return cap
+    for c in range(cap - SDPA_CHUNK_TILE, cap // 2 - 1, -SDPA_CHUNK_TILE):
+        if padded % c == 0:
+            return c
+    return cap
 
 
 @lru_cache(maxsize=None)
