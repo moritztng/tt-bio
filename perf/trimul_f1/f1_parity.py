@@ -24,7 +24,9 @@ import tt_bio.trimul_tail as F1                                           # noqa
 from tt_bio.tenstorrent import get_device                                 # noqa: E402
 
 CZ = 256
-SHAPES = [int(a) for a in sys.argv[1:]] or [512, 32, 64, 96, 128, 160, 224, 288, 384, 448, 576]
+# 298 leads the list: the non-tile-aligned fixture size whose padded-logical-shape crash
+# shipped past this sweep when every default was a multiple of 32 (fix 92044e97).
+SHAPES = [int(a) for a in sys.argv[1:]] or [298, 512, 32, 64, 96, 128, 160, 224, 288, 384, 448, 576]
 
 dev = get_device()
 ckc = ttnn.init_device_compute_kernel_config(
