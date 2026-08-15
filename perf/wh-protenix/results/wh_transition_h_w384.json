@@ -1,0 +1,79 @@
+{
+ "meta": {
+  "arch": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "cores": 72,
+  "l1_per_core": 1466080,
+  "H": 384,
+  "W": 384,
+  "c": 256,
+  "hidden": 1024,
+  "host": "UF-EV-A13-GWH02"
+ },
+ "rows": [
+  {
+   "h": 8,
+   "n_chunks": 48,
+   "chunk_elems": 786432,
+   "est_l1_bytes_per_core": 196608,
+   "status": "ok",
+   "ms_median": 24.3271,
+   "ms_all": [
+    24.5104,
+    24.2915,
+    24.3271
+   ],
+   "bit_exact_vs_ref": null,
+   "ref_h": 8
+  },
+  {
+   "h": 13,
+   "n_chunks": 30,
+   "chunk_elems": 1277952,
+   "est_l1_bytes_per_core": 319488,
+   "status": "ok",
+   "ms_median": 23.2718,
+   "ms_all": [
+    23.1718,
+    23.2718,
+    23.293
+   ],
+   "bit_exact_vs_ref": true
+  },
+  {
+   "h": 16,
+   "n_chunks": 24,
+   "chunk_elems": 1572864,
+   "est_l1_bytes_per_core": 393216,
+   "status": "ok",
+   "ms_median": 22.2136,
+   "ms_all": [
+    22.1688,
+    22.2182,
+    22.2136
+   ],
+   "bit_exact_vs_ref": true
+  },
+  {
+   "h": 21,
+   "n_chunks": 19,
+   "chunk_elems": 2064384,
+   "est_l1_bytes_per_core": 516096,
+   "status": "THROW",
+   "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception info: Statically allocated circular buffers in program 285 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=8)]. L1 buffer allocated at 1212416 and static circular buffer region ends at 1316128 backtrace:  --- /home/cust-team/mthuening/whbase/tt-bio/env/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d3",
+   "is_cb_clash": true
+  },
+  {
+   "h": 24,
+   "n_chunks": 16,
+   "chunk_elems": 2359296,
+   "est_l1_bytes_per_core": 589824,
+   "status": "THROW",
+   "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception info: Statically allocated circular buffers in program 323 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=8)]. L1 buffer allocated at 909312 and static circular buffer region ends at 1037600 backtrace:  --- /home/cust-team/mthuening/whbase/tt-bio/env/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d3f",
+   "is_cb_clash": true
+  }
+ ]
+}
