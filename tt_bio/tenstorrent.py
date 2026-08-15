@@ -821,6 +821,12 @@ FP32_SOFTMAX_STATS = {"calls": 0, "blocked": 0, "blocks": 0, "fused": 0, "unfuse
 # silent dark gate: `l1_blocks` vs `l1_refused` in the census says which path a size took.
 _FP32_SOFTMAX_L1_REFUSED: set = set()
 
+# The additive pair bias does not depend on the row block, but the tail re-derives its fp32
+# copy inside every one of them: 43 blocks per call at 512 aa, so the same 4 MB typecast and
+# multiply run 43 times over identical inputs. Hoisting it out of the loop is the same
+# recompute elimination as the template and AdaLN hoists, and the same bits.
+FP32_SOFTMAX_BIAS_HOIST = True
+
 
 def _fp32_softmax_l1_rows(per_row: int, height_per_row: int) -> int:
     """Largest leading-dim block whose fp32 score copy is L1-resident. 0 when none is.
@@ -904,6 +910,8 @@ def _fp32_softmax_attention(
                                              out_dtype, bias_scale_inv, sh, l1_key)
     FP32_SOFTMAX_STATS["blocked"] += 1
     parts = []
+    # the bias is the same tensor in every block, so its fp32 copy is made once per call
+    bias_f = _fp32_softmax_bias(bias, scale_inv, bias_scale_inv) if FP32_SOFTMAX_BIAS_HOIST else None
     for s in range(0, rows, blk):
         e = min(s + blk, rows)
         qs, ks, vs = q[s:e], k[s:e], v[s:e]
@@ -911,18 +919,28 @@ def _fp32_softmax_attention(
         FP32_SOFTMAX_STATS["l1_blocks"] += sh is not None
         parts.append(_fp32_softmax_attention_block(qs, ks, vs, bias, scale_inv,
                                                    compute_kernel_config, out_dtype,
-                                                   bias_scale_inv, sh, l1_key))
+                                                   bias_scale_inv, sh, l1_key, bias_f))
         for t in (qs, ks, vs):
             ttnn.deallocate(t)
     FP32_SOFTMAX_STATS["blocks"] += len(parts)
+    if bias_f is not None:
+        ttnn.deallocate(bias_f)
     o = ttnn.concat(parts, dim=0)
     for part in parts:
         ttnn.deallocate(part)
     return o
 
 
+def _fp32_softmax_bias(bias, scale_inv, bias_scale_inv):
+    """The tail's fp32 bias: cast, then undo the pair-bias pre-bake. A pure function of
+    ``bias``, so a blocked call makes it once instead of once per block."""
+    bias_f = ttnn.typecast(bias, ttnn.float32, memory_config=bias.memory_config())
+    return ttnn.multiply(bias_f, scale_inv if bias_scale_inv is None else bias_scale_inv)
+
+
 def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_config,
-                                  out_dtype, bias_scale_inv, shard=None, l1_key=None):
+                                  out_dtype, bias_scale_inv, shard=None, l1_key=None,
+                                  bias_f=None):
     """One row block of `_fp32_softmax_attention`. The whole tensor is one block below the budget.
 
     ``shard`` height-shards the block so the four steps between the two matmuls stay in L1. Both
@@ -935,7 +953,7 @@ def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_confi
     attn_bf = None
     if shard is not None:
         try:
-            attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, shard)
+            attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, shard, bias_f)
         except RuntimeError:
             # The shard allocated but the sharded softmax could not fit its circular buffers
             # around it. Retire this geometry and take the interleaved tail, which is the same
@@ -944,14 +962,14 @@ def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_confi
             FP32_SOFTMAX_STATS["l1_refused"] += 1
             attn_bf = None
     if attn_bf is None:
-        attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, None)
+        attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, None, bias_f)
     ttnn.deallocate(sc)
     o = batched_matmul(attn_bf, v, compute_kernel_config=compute_kernel_config, dtype=out_dtype)
     ttnn.deallocate(attn_bf)
     return o
 
 
-def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard):
+def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None):
     """bf16 scores -> bf16 attention weights, both interleaved. ``shard`` keeps the middle in L1.
 
     ``sc0`` is left allocated either way, so a caller can retry interleaved after a refusal.
@@ -966,9 +984,11 @@ def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard):
         ttnn.deallocate(sc_l1)
     else:
         sc = ttnn.typecast(sc0, ttnn.float32, memory_config=sc0.memory_config())
-    bias_f = ttnn.typecast(bias, ttnn.float32, memory_config=bias.memory_config())
-    # undo the pair-bias pre-bake (sqrt(h) for Boltz/Protenix, 1.0 for openfold3)
-    bias_f = ttnn.multiply(bias_f, scale_inv if bias_scale_inv is None else bias_scale_inv)
+    # undo the pair-bias pre-bake (sqrt(h) for Boltz/Protenix, 1.0 for openfold3). A blocked
+    # call hands the same fp32 copy to every block; ``own`` says who frees it.
+    own = bias_f is None
+    if own:
+        bias_f = _fp32_softmax_bias(bias, scale_inv, bias_scale_inv)
     if _FP32_SOFTMAX_FUSED_ADD:
         # The score scale rides the add's input-a activation instead of taking a pass of its own,
         # and the softmax reduces into the same buffer. Both are bit-exact; the bias is O(S**2) so
@@ -976,7 +996,8 @@ def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard):
         FP32_SOFTMAX_STATS["fused"] += 1
         attn = ttnn.add_(sc, bias_f, input_tensor_a_activations=[
             ttnn.UnaryWithParam(ttnn.UnaryOpType.MUL_UNARY_SFPU, scale_inv)])
-        ttnn.deallocate(bias_f)
+        if own:
+            ttnn.deallocate(bias_f)
         try:
             attn = ttnn.softmax_in_place(attn)
         except RuntimeError:
@@ -986,7 +1007,8 @@ def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard):
         FP32_SOFTMAX_STATS["unfused"] += 1
         sc = ttnn.multiply(sc, scale_inv)
         sc = ttnn.add(sc, bias_f)
-        ttnn.deallocate(bias_f)
+        if own:
+            ttnn.deallocate(bias_f)
         attn = ttnn.softmax(sc, dim=-1)  # fp32 softmax reduction
         ttnn.deallocate(sc)
     attn_bf = ttnn.typecast(attn, ttnn.bfloat16, memory_config=attn.memory_config())
