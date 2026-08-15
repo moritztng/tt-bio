@@ -365,6 +365,9 @@ def _no_host_pad(x: ttnn.Tensor, dtype, n: int, n_pad: int) -> ttnn.Tensor | Non
     return x if x.dtype == dtype else ttnn.typecast(x, dtype)
 
 
+ADALN_S_HOIST = True      # hoist the AdaLN conditioning half out of the diffusion rollout
+
+
 def _cached(cache, key, make):
     """``make()``, reused across calls while ``cache`` is a live dict.
 
@@ -4317,14 +4320,16 @@ class AdaLN(Module):
         self.s_scale_bias = self.torch_to_tt("s_scale.bias", dtype=dtype)
         self.s_bias_weight = self.torch_to_tt("s_bias.weight", dtype=dtype)
 
-    def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False) -> ttnn.Tensor:
+    def s_terms(self, s: ttnn.Tensor, large_seq_len: bool = False):
+        """``(s_scale, s_bias)``: the conditioning half, a pure function of ``s``.
+
+        Split out so a caller whose ``s`` is a loop invariant computes it once instead of
+        once per call. The diffusion rollout is exactly that case: 401 atom-transformer
+        calls per fold, 9 AdaLNs each, and ``s`` is the atom conditioning ``cl``, which
+        does not depend on the noise level or the noisy coordinates."""
         memory_config = _adaln_memory_config(self.atom_level, large_seq_len)
         if self.atom_level:
-            a = ttnn.to_memory_config(a, memory_config=memory_config)
             s = ttnn.to_memory_config(s, memory_config=memory_config)
-        a = ttnn.layer_norm(
-            a, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config
-        )
         s = ttnn.layer_norm(
             s,
             weight=self.s_norm_weight,
@@ -4346,10 +4351,23 @@ class AdaLN(Module):
             memory_config=memory_config,
             #core_grid=ttnn.CoreGrid(y=10, x=11), CAUSES ACCURACY ISSUE
         )
+        return s_scale, s_bias
+
+    def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False,
+                 s_terms=None) -> ttnn.Tensor:
+        memory_config = _adaln_memory_config(self.atom_level, large_seq_len)
+        if self.atom_level:
+            a = ttnn.to_memory_config(a, memory_config=memory_config)
+        a = ttnn.layer_norm(
+            a, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config
+        )
+        own = s_terms is None
+        s_scale, s_bias = self.s_terms(s, large_seq_len) if own else s_terms
         a = ttnn.multiply_(a, s_scale, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-        ttnn.deallocate(s_scale)
         a = ttnn.add_(a, s_bias)
-        ttnn.deallocate(s_bias)
+        if own:                     # a cached pair belongs to the caller
+            ttnn.deallocate(s_scale)
+            ttnn.deallocate(s_bias)
         a = ttnn.to_memory_config(a, memory_config=ttnn.DRAM_MEMORY_CONFIG)
         return a
 

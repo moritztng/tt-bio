@@ -27,6 +27,7 @@ from __future__ import annotations
 import torch
 import ttnn
 
+from . import tenstorrent as _T
 from .tenstorrent import Module, AdaLN, CORE_GRID_MAIN, _dtype, _cached, batched_matmul
 
 
@@ -138,7 +139,13 @@ class OF3AtomTransformer(Module):
         cg_raw = [self._lin(s, f"blocks.{b}.conditioned_transition.linear_g.weight",
                             f"blocks.{b}.conditioned_transition.linear_g.bias")
                   for b in range(3)]
-        return z_bias, s_q, s_k, ada_raw, cg_raw
+        # The AdaLN conditioning half reads s_q / s_k / s, all three invariant, so the nine
+        # layer_norm + 2-linear groups are nine tensor pairs per rollout, not per call.
+        ada_s = ()          # a cached None would break the sampler free walk
+        if _T.ADALN_S_HOIST:
+            ada_s = [(self.adaln_q[b].s_terms(s_q), self.adaln_k[b].s_terms(s_k),
+                      self.adaln_t[b].s_terms(s)) for b in range(3)]
+        return z_bias, s_q, s_k, ada_raw, cg_raw, ada_s
 
     def __call__(self, a, s, z, atom_mask_col, key_block_idxs_tt, valid_mask,
                  mask_bias, n_atom, NP, nb, cache=None):
@@ -150,7 +157,7 @@ class OF3AtomTransformer(Module):
         scale = self.HEAD_DIM ** -0.5
         nq, nk, H, dh = self.N_QUERY, self.N_KEY, self.N_HEADS, self.HEAD_DIM
 
-        z_bias, s_q, s_k, ada_raw, cg_raw = _cached(
+        z_bias, s_q, s_k, ada_raw, cg_raw, ada_s = _cached(
             cache, (id(self), "block_invariants"),
             lambda: self._invariants(s, z, key_block_idxs_tt, valid_mask, nb))
 
@@ -163,8 +170,8 @@ class OF3AtomTransformer(Module):
             x_q = ttnn.to_layout(x_q, ttnn.TILE_LAYOUT)
             x_k = self._gather_keys(x, key_block_idxs_tt, valid_mask, nb)
 
-            a_qn = self.adaln_q[b](x_q, s_q)
-            a_kn = self.adaln_k[b](x_k, s_k)
+            a_qn = self.adaln_q[b](x_q, s_q, s_terms=ada_s[b][0] if ada_s else None)
+            a_kn = self.adaln_k[b](x_k, s_k, s_terms=ada_s[b][1] if ada_s else None)
             Q = self._heads(self._lin(a_qn, apb + "mha.linear_q.weight", apb + "mha.linear_q.bias"), nb, nq)
             K = self._heads(self._lin(a_kn, apb + "mha.linear_k.weight"), nb, nk)
             V = self._heads(self._lin(a_kn, apb + "mha.linear_v.weight"), nb, nk)
@@ -196,7 +203,7 @@ class OF3AtomTransformer(Module):
             ttnn.deallocate(o)
 
             ct = P + "conditioned_transition."
-            an = self.adaln_t[b](x, s)
+            an = self.adaln_t[b](x, s, s_terms=ada_s[b][2] if ada_s else None)
             b1 = self._lin(an, ct + "swiglu.linear_a.weight", activation="silu")
             b2 = self._lin(an, ct + "swiglu.linear_b.weight")
             bb = ttnn.multiply(b1, b2)
@@ -210,7 +217,8 @@ class OF3AtomTransformer(Module):
 
         if cache is None:
             # Uncached path owns the group; the cached one is freed by the sampler.
-            for t in (*z_bias, s_q, s_k, *ada_raw, *cg_raw):
+            for t in (*z_bias, s_q, s_k, *ada_raw, *cg_raw,
+                      *(v for g in ada_s for pair in g for v in pair)):
                 ttnn.deallocate(t)
 
         x = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
