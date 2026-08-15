@@ -1,0 +1,184 @@
+{
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "chip": "2",
+ "note": "qb1 (tt-quietbox) is ttnn 0.67.4 and qb2 is 0.68.0 -- never put an absolute from one in a table with the other; the arms in THIS file share a process",
+ "model": "esmfold2",
+ "recycling_steps": 10,
+ "sampling_steps": 100,
+ "runs": [
+  {
+   "size": 512,
+   "arm": "nof1",
+   "fold_s": 39.021,
+   "n_tokens": null,
+   "plddt": 0.9285,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "grid": [
+    11,
+    10
+   ],
+   "pair_proj_mm": true,
+   "mm_block_8": [
+    4,
+    8,
+    1,
+    4,
+    1
+   ],
+   "trimul_inproj_group": 12,
+   "back_kernel": [
+    true,
+    [
+     2168,
+     0
+    ]
+   ],
+   "gated_kernel": [
+    false,
+    [
+     0,
+     0
+    ]
+   ],
+   "head_major_qkv": {
+    "enabled": true,
+    "served": 0,
+    "declined": 0,
+    "rejects": {},
+    "tail_enabled": true,
+    "tail_over_l1": true,
+    "tail_served": 0,
+    "tail_declined": 0,
+    "tail_rejects": {}
+   },
+   "persistent_mask": {
+    "enabled": true,
+    "served": 0,
+    "declined": 0,
+    "rejects": {}
+   },
+   "trimul_tail_f1": {
+    "enabled": false,
+    "served": 0,
+    "declined": 0,
+    "rejects": {}
+   },
+   "sdpa_wide_q": true,
+   "triatt_bias_b8": false,
+   "sdpa_q_chunk_over_l1": [],
+   "fidelity": {},
+   "loadavg": [
+    "2.76",
+    "3.22",
+    "3.30"
+   ],
+   "wall_ms": {
+    "body:TriangleMultiplication": {
+     "calls": 1084,
+     "ms": 19711.77
+    }
+   },
+   "decisions": {
+    "pair_proj_out_l1|1x32x512x256@1024": {
+     "L1": 17216
+    },
+    "pair_proj_out_l1|1x512x512x256@256": {
+     "DRAM": 2168
+    }
+   },
+   "l1_out_refused": [],
+   "block_wall_ms": null,
+   "block_calls": null,
+   "triatt_wall_ms": null,
+   "triatt_calls": null
+  },
+  {
+   "size": 512,
+   "arm": "f1",
+   "fold_s": 39.013,
+   "n_tokens": null,
+   "plddt": 0.9285,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "grid": [
+    11,
+    10
+   ],
+   "pair_proj_mm": true,
+   "mm_block_8": [
+    4,
+    8,
+    1,
+    4,
+    1
+   ],
+   "trimul_inproj_group": 12,
+   "back_kernel": [
+    true,
+    [
+     3252,
+     0
+    ]
+   ],
+   "gated_kernel": [
+    false,
+    [
+     0,
+     0
+    ]
+   ],
+   "head_major_qkv": {
+    "enabled": true,
+    "served": 0,
+    "declined": 0,
+    "rejects": {},
+    "tail_enabled": true,
+    "tail_over_l1": true,
+    "tail_served": 0,
+    "tail_declined": 0,
+    "tail_rejects": {}
+   },
+   "persistent_mask": {
+    "enabled": true,
+    "served": 0,
+    "declined": 0,
+    "rejects": {}
+   },
+   "trimul_tail_f1": {
+    "enabled": true,
+    "served": 1084,
+    "declined": 0,
+    "rejects": {}
+   },
+   "sdpa_wide_q": true,
+   "triatt_bias_b8": false,
+   "sdpa_q_chunk_over_l1": [],
+   "fidelity": {},
+   "loadavg": [
+    "2.90",
+    "3.25",
+    "3.30"
+   ],
+   "wall_ms": {
+    "body:TriangleMultiplication": {
+     "calls": 1084,
+     "ms": 20051.05
+    }
+   },
+   "decisions": {
+    "pair_proj_out_l1|1x32x512x256@1024": {
+     "L1": 17216
+    }
+   },
+   "l1_out_refused": [],
+   "block_wall_ms": null,
+   "block_calls": null,
+   "triatt_wall_ms": null,
+   "triatt_calls": null
+  }
+ ]
+}

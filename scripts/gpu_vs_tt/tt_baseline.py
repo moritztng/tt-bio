@@ -114,7 +114,7 @@ def seed_msa_cache(target: Path, a3m: Path, msa_dir: Path) -> int:
 
 def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
                samples: int = DIFFUSION_SAMPLES, hoist: bool = False,
-               instrument: bool = False):
+               instrument: bool = False, fast: bool = False, trace: bool = False):
     """Open the card, load the model, seed the MSA cache; return ``(one_fold, meta)``.
 
     Split out of ``measure`` so the multi-card fan-out driver (``tt_concurrency.py``)
@@ -149,7 +149,9 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
     _noop = lambda *a, **k: None
     _E.set_progress(_noop)
 
-    get_device()  # open the chip once (lease enforced here)
+    # --trace replays a captured ttnn trace of the per-step diffusion device graph, and
+    # opendde.py:481 refuses to fold with trace=True unless the device carries a region.
+    get_device(trace_region_size=(1 << 30) if trace else 0)  # open the chip once (lease enforced here)
     hw = arch_name()
 
     work = Path(tempfile.mkdtemp(prefix=f"ttbase-{model}-"))
@@ -158,9 +160,9 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
     msa_dir.mkdir(parents=True, exist_ok=True)
 
     cfg = dict(
-        model=model, fast=False, output_format="cif",
+        model=model, fast=fast, output_format="cif",
         recycling_steps=RECYCLING_STEPS, sampling_steps=SAMPLING_STEPS,
-        diffusion_samples=samples, seed=SEED, trace=False,
+        diffusion_samples=samples, seed=SEED, trace=trace,
         msa_dir=str(msa_dir), struct_dir=str(struct_dir),
         use_msa_server=True, msa_db_path=None, use_envdb=False, msa_endpoint=None,
         single_sequence=False, msa_server_url="https://api.colabfold.com",
@@ -282,8 +284,9 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
 
 
 def measure(model: str, repeat: int, msa_dir: Path, out_path: Path,
-            target: Path, a3m: Path, label: str) -> dict:
-    one_fold, meta, state = build_fold(model, msa_dir, target, a3m)
+            target: Path, a3m: Path, label: str, fast: bool = False,
+            keep_cif: Path | None = None, trace: bool = False) -> dict:
+    one_fold, meta, state = build_fold(model, msa_dir, target, a3m, fast=fast, trace=trace)
     from tt_bio.tenstorrent import cleanup
     hw, load_s, n_msa = meta["hardware"], meta["load_s"], meta["n_msa"]
 
@@ -304,6 +307,13 @@ def measure(model: str, repeat: int, msa_dir: Path, out_path: Path,
         cifs = {}
         for f in sorted(Path(meta["struct_dir"]).glob("*.cif")):
             cifs[f.name] = hashlib.sha256(f.read_bytes()).hexdigest()[:16]
+        if keep_cif is not None:
+            # struct_dir is cleared at the start of the next fold, so the copy happens here or
+            # never. One directory per arm, named by the caller, so an RMSD control has a file.
+            import shutil
+            keep_cif.mkdir(parents=True, exist_ok=True)
+            for f in sorted(Path(meta["struct_dir"]).glob("*.cif")):
+                shutil.copy2(f, keep_cif / f.name)
         return {"s": round(t, 3), "plddt": m.get("plddt"), "cif_sha256": cifs,
                 "loadavg": open("/proc/loadavg").read().split()[:3]}
 
@@ -362,9 +372,16 @@ def main() -> int:
     ap.add_argument("--label", default="117 aa",
                     help="size label recorded in the result JSON")
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--fast", action="store_true",
+                    help="fold with the shipped --fast block-fp8 path (not the default arm)")
+    ap.add_argument("--trace", action="store_true",
+                    help="replay a captured ttnn trace of the diffusion step (reserves 1 GiB)")
+    ap.add_argument("--keep-cif", type=Path, default=None,
+                    help="copy each fold's CIF here, so an arm can be scored against another")
     args = ap.parse_args()
     measure(args.model, args.repeat, args.msa_dir, args.out,
-            args.target, args.msa_a3m, args.label)
+            args.target, args.msa_a3m, args.label, fast=args.fast, keep_cif=args.keep_cif,
+            trace=args.trace)
     return 0
 
 

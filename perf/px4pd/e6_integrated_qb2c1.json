@@ -1,0 +1,131 @@
+{
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "chip": "1",
+ "size": 512,
+ "grid": [
+  11,
+  10
+ ],
+ "n_trimul_instances": 116,
+ "wall": 0,
+ "master_switch": true,
+ "shipped_default_gated_move": [
+  true
+ ],
+ "timed_region": "predict_one (featurize + fold + CIF write)",
+ "runs": [
+  {
+   "arm": "off",
+   "fold_s": 57.972,
+   "plddt": 0.828628,
+   "n_tokens": 512,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "98c33a481fa1fd27"
+   },
+   "transpose": {
+    "headroom": 2.5,
+    "l1": 160,
+    "dram": 1048,
+    "refused": 0
+   },
+   "gated": {
+    "enabled": true,
+    "served": 0,
+    "declined": 0,
+    "rejects": {}
+   },
+   "wall_ms": {},
+   "phases": {
+    "feat": 0.0198,
+    "fold": 57.8946,
+    "write": 0.0493,
+    "total": 57.9723
+   }
+  },
+  {
+   "arm": "ontr",
+   "fold_s": 51.021,
+   "plddt": 0.828628,
+   "n_tokens": 512,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "98c33a481fa1fd27"
+   },
+   "transpose": {
+    "headroom": 1.25,
+    "l1": 1208,
+    "dram": 0,
+    "refused": 0
+   },
+   "gated": {
+    "enabled": true,
+    "served": 2416,
+    "declined": 0,
+    "rejects": {}
+   },
+   "wall_ms": {},
+   "phases": {
+    "feat": 0.0188,
+    "fold": 50.9432,
+    "write": 0.05,
+    "total": 51.0205
+   }
+  },
+  {
+   "arm": "off",
+   "fold_s": 57.916,
+   "plddt": 0.828628,
+   "n_tokens": 512,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "98c33a481fa1fd27"
+   },
+   "transpose": {
+    "headroom": 2.5,
+    "l1": 160,
+    "dram": 1048,
+    "refused": 0
+   },
+   "gated": {
+    "enabled": true,
+    "served": 0,
+    "declined": 0,
+    "rejects": {}
+   },
+   "wall_ms": {},
+   "phases": {
+    "feat": 0.019,
+    "fold": 57.8387,
+    "write": 0.0493,
+    "total": 57.9156
+   }
+  },
+  {
+   "arm": "ontr",
+   "fold_s": 51.003,
+   "plddt": 0.828628,
+   "n_tokens": 512,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "98c33a481fa1fd27"
+   },
+   "transpose": {
+    "headroom": 1.25,
+    "l1": 1208,
+    "dram": 0,
+    "refused": 0
+   },
+   "gated": {
+    "enabled": true,
+    "served": 2416,
+    "declined": 0,
+    "rejects": {}
+   },
+   "wall_ms": {},
+   "phases": {
+    "feat": 0.0185,
+    "fold": 50.9267,
+    "write": 0.0496,
+    "total": 51.0031
+   }
+  }
+ ]
+}

@@ -1,0 +1,279 @@
+{
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "2",
+ "model": "esmfold2",
+ "size": 512,
+ "git_head": "6b0f92da",
+ "has_l1_fc1_gate": true,
+ "recycling_steps": 10,
+ "sampling_steps": 100,
+ "arms": [
+  "nof1",
+  "f1"
+ ],
+ "rounds": 3,
+ "runs": [
+  {
+   "tag": "warm:nof1",
+   "arm": "nof1",
+   "l1_fc1": true,
+   "fold_s": 46.064,
+   "plddt": 0.9285,
+   "cif": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "e6_served": 2152,
+   "e6_declined": 0,
+   "l1_fc1_stats": [
+    17216,
+    0
+   ],
+   "fwd_move": [
+    16,
+    0
+   ],
+   "back_move": [
+    1084,
+    0
+   ],
+   "l1_out_refused": 0,
+   "trimul_tail_f1": [
+    0,
+    0
+   ],
+   "loadavg": "1.63"
+  },
+  {
+   "tag": "warm:f1",
+   "arm": "f1",
+   "l1_fc1": true,
+   "fold_s": 31.989,
+   "plddt": 0.9285,
+   "cif": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "e6_served": 2152,
+   "e6_declined": 0,
+   "l1_fc1_stats": [
+    17216,
+    0
+   ],
+   "fwd_move": [
+    16,
+    0
+   ],
+   "back_move": [
+    1084,
+    0
+   ],
+   "l1_out_refused": 0,
+   "trimul_tail_f1": [
+    1084,
+    0
+   ],
+   "loadavg": "1.75"
+  },
+  {
+   "tag": "r0:nof1",
+   "arm": "nof1",
+   "l1_fc1": true,
+   "fold_s": 32.329,
+   "plddt": 0.9285,
+   "cif": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "e6_served": 2152,
+   "e6_declined": 0,
+   "l1_fc1_stats": [
+    17216,
+    0
+   ],
+   "fwd_move": [
+    16,
+    0
+   ],
+   "back_move": [
+    1084,
+    0
+   ],
+   "l1_out_refused": 0,
+   "trimul_tail_f1": [
+    0,
+    0
+   ],
+   "loadavg": "1.50"
+  },
+  {
+   "tag": "r0:f1",
+   "arm": "f1",
+   "l1_fc1": true,
+   "fold_s": 32.164,
+   "plddt": 0.9285,
+   "cif": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "e6_served": 2152,
+   "e6_declined": 0,
+   "l1_fc1_stats": [
+    17216,
+    0
+   ],
+   "fwd_move": [
+    16,
+    0
+   ],
+   "back_move": [
+    1084,
+    0
+   ],
+   "l1_out_refused": 0,
+   "trimul_tail_f1": [
+    1084,
+    0
+   ],
+   "loadavg": "1.30"
+  },
+  {
+   "tag": "r1:nof1",
+   "arm": "nof1",
+   "l1_fc1": true,
+   "fold_s": 32.303,
+   "plddt": 0.9285,
+   "cif": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "e6_served": 2152,
+   "e6_declined": 0,
+   "l1_fc1_stats": [
+    17216,
+    0
+   ],
+   "fwd_move": [
+    16,
+    0
+   ],
+   "back_move": [
+    1084,
+    0
+   ],
+   "l1_out_refused": 0,
+   "trimul_tail_f1": [
+    0,
+    0
+   ],
+   "loadavg": "1.73"
+  },
+  {
+   "tag": "r1:f1",
+   "arm": "f1",
+   "l1_fc1": true,
+   "fold_s": 31.994,
+   "plddt": 0.9285,
+   "cif": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "e6_served": 2152,
+   "e6_declined": 0,
+   "l1_fc1_stats": [
+    17216,
+    0
+   ],
+   "fwd_move": [
+    16,
+    0
+   ],
+   "back_move": [
+    1084,
+    0
+   ],
+   "l1_out_refused": 0,
+   "trimul_tail_f1": [
+    1084,
+    0
+   ],
+   "loadavg": "1.44"
+  },
+  {
+   "tag": "r2:nof1",
+   "arm": "nof1",
+   "l1_fc1": true,
+   "fold_s": 32.339,
+   "plddt": 0.9285,
+   "cif": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "e6_served": 2152,
+   "e6_declined": 0,
+   "l1_fc1_stats": [
+    17216,
+    0
+   ],
+   "fwd_move": [
+    16,
+    0
+   ],
+   "back_move": [
+    1084,
+    0
+   ],
+   "l1_out_refused": 0,
+   "trimul_tail_f1": [
+    0,
+    0
+   ],
+   "loadavg": "1.24"
+  },
+  {
+   "tag": "r2:f1",
+   "arm": "f1",
+   "l1_fc1": true,
+   "fold_s": 31.989,
+   "plddt": 0.9285,
+   "cif": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "e6_served": 2152,
+   "e6_declined": 0,
+   "l1_fc1_stats": [
+    17216,
+    0
+   ],
+   "fwd_move": [
+    16,
+    0
+   ],
+   "back_move": [
+    1084,
+    0
+   ],
+   "l1_out_refused": 0,
+   "trimul_tail_f1": [
+    1084,
+    0
+   ],
+   "loadavg": "1.15"
+  }
+ ],
+ "grid": [
+  11,
+  10
+ ],
+ "summary": {
+  "nof1": {
+   "n": 3,
+   "median": 32.329,
+   "min": 32.303,
+   "max": 32.339,
+   "spread": 0.036
+  },
+  "f1": {
+   "n": 3,
+   "median": 31.994,
+   "min": 31.989,
+   "max": 32.164,
+   "spread": 0.175
+  }
+ },
+ "cif_identical_across_arms": true
+}

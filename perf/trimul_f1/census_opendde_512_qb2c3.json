@@ -1,0 +1,18 @@
+{
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "chip": "3",
+ "note": "qb1 (tt-quietbox) is ttnn 0.67.4 and qb2 is 0.68.0 -- never put an absolute from one in a table with the other; the arms in THIS file share a process",
+ "model": "opendde",
+ "recycling_steps": 10,
+ "sampling_steps": 200,
+ "runs": [
+  {
+   "size": 512,
+   "arm": "cold",
+   "error": "TypeError: main.<locals>.ppc() got an unexpected keyword argument 'block_w'"
+  }
+ ],
+ "ratios": {},
+ "arm_medians": {}
+}
