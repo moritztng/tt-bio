@@ -156,9 +156,10 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 32.228,
+          "s_per_fold": 31.994,
           "parity": "bit-exact",
-          "ref": "Round-robin A/B on qb2 card 1, ttnn 0.68.0, harvested 11x10 core grid, warm folds one at a time under benchlock, median of n=3: 32.228 s (spread 0.187 s) against 34.059 s (spread 0.058 s) with PAIR_FFN_L1_FC1 off, an A/A noise floor of 0.058 s. That gate ships on as of this measurement. Bit-exact: CIF sha256 295867277b9c137f and plDDT 0.9285 identical on every fold of both arms, and the same byte-identical result at 298, 768 and 1024 aa, where no size regresses."
+          "ref": "Round-robin A/B on qb2 card 2, ttnn 0.68.0, harvested 11x10 core grid, warm folds one at a time under benchlock, median of n=3: 31.994 s (spread 0.175 s) against 32.329 s (spread 0.036 s) with TRIMUL_TAIL_F1 off, an A/A noise floor of 0.036 s (perf/trimul_f1/page_esmfold2_f1_qb2c2.json). That trimul tail fusion ships on as of this measurement. Bit-exact: CIF sha256 295867277b9c137f and plDDT 0.9285 identical on every fold of both arms.",
+          "updated": "2026-08-15"
         },
         "h200": {
           "status": "measured",
