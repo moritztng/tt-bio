@@ -136,8 +136,10 @@ for c in CHUNKS:
                "n_designs": len(vals)}
 
 # ---- module-level bit-exactness on one captured input ------------------------------------------
+# The timing is the deliverable and the replay needs a live device the CLI may already have closed,
+# so a failed replay records itself and does not take the run down with it.
 exact = {"checked": False}
-if state["capture"] is not None:
+try:
     tm, x_h, m_h = state["capture"]
     dev = T.get_device()
     xt = ttnn.from_torch(x_h, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
@@ -154,6 +156,8 @@ if state["capture"] is not None:
              "ref_chunk": CHUNKS[0],
              "torch_equal": {str(c): bool(torch.equal(outs[c], ref)) for c in CHUNKS},
              "max_abs": {str(c): float((outs[c] - ref).abs().max()) for c in CHUNKS}}
+except Exception as e:                                    # noqa: BLE001
+    exact = {"checked": False, "error": "%s: %s" % (type(e).__name__, e)}
 
 rec = {"host": HOST, "rung": RUNG, "designs": DESIGNS, "sampling_steps": STEPS,
        "chunks": CHUNKS, "grid": list(T.COMPUTE_GRID_MAIN),
