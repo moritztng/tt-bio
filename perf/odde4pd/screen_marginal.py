@@ -60,18 +60,23 @@ CG = T.CORE_GRID_MAIN
 L1 = ttnn.L1_MEMORY_CONFIG
 kw = dict(compute_kernel_config=ckc)
 
-# persistent operands for the deletion arms, allocated once and never freed inside a call
-c_fixed = x_dev[:, 0:h]
-n_fixed = ttnn.layer_norm(c_fixed, weight=nw, bias=nb, epsilon=1e-5, memory_config=L1, **kw)
+# Persistent operands for the deletion arms, allocated once and never freed inside a call.
+# The last chunk is ragged (51 x 10 + 1 x 2 at H = 512), and the fold issues it that way, so the
+# deletion arms need a tail-shaped stand-in too rather than folding 8 rows of extra work into it.
+TAIL = H - h * (n_chunks - 1)
+c_fixed = {h: x_dev[:, 0:h], TAIL: x_dev[:, 0:TAIL]}
+n_fixed = {k: ttnn.layer_norm(v, weight=nw, bias=nb, epsilon=1e-5, memory_config=L1, **kw)
+           for k, v in c_fixed.items()}
 
 
 def call(slice_=True, ln=True, mul=True):
     for s in starts:
-        c = x_dev[:, s:s + h] if slice_ else c_fixed
+        rows = min(h, H - s)
+        c = x_dev[:, s:s + rows] if slice_ else c_fixed[rows]
         if ln:
             n = ttnn.layer_norm(c, weight=nw, bias=nb, epsilon=1e-5, memory_config=L1, **kw)
         else:
-            n = n_fixed
+            n = n_fixed[rows]
         p = ttnn.linear(n, w1, activation="silu", memory_config=L1, dtype=ttnn.bfloat16,
                         core_grid=CG, **kw)
         q = ttnn.linear(n, w2, memory_config=L1, dtype=ttnn.bfloat16, core_grid=CG, **kw)
