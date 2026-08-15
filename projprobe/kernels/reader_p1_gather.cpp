@@ -31,7 +31,8 @@ void kernel_main() {
     constexpr uint32_t mdlXY = get_compile_time_arg_val(5);
     constexpr uint32_t cb_mdl = get_compile_time_arg_val(6);
     constexpr uint32_t mdl_pages = get_compile_time_arg_val(7);
-    constexpr auto a_args = TensorAccessorArgs<8>();
+    constexpr uint32_t cb_scr = get_compile_time_arg_val(8);
+    constexpr auto a_args = TensorAccessorArgs<9>();
     constexpr auto m_args = TensorAccessorArgs<a_args.next_compile_time_args_offset()>();
 
     const uint32_t a_addr = get_arg_val<uint32_t>(0);
@@ -66,21 +67,19 @@ void kernel_main() {
     // slot tiles 2j and 2j+1.
     const uint32_t xoff[4] = {0, mdlX, mdlXY, mdlXY + mdlX};
 
-    // A NoC read needs 16 B alignment at BOTH ends and silently returns the neighbouring aligned
-    // block otherwise (§8.9) -- it does not error, assert or hang. A complex voxel is 8 B, so an
-    // arbitrary voxel is only 8 B aligned and cannot be fetched directly. Instead each x-pair reads
-    // the two aligned 16 B blocks that can contain (x0, x0+1) into a scratch, and the wanted 8 B are
-    // copied out by plain pointer writes, which carry no alignment constraint because they never
-    // touch the NoC.
+    // A NoC transfer needs 16 B alignment at BOTH ends (§8.9). A misaligned SOURCE silently returns
+    // the neighbouring aligned block; a misaligned DESTINATION hangs the device. A complex voxel is
+    // 8 B, so an arbitrary corner is only 8 B aligned and cannot be fetched directly. Each x-pair
+    // therefore reads the two aligned 16 B blocks that can contain (x0, x0+1), and the wanted 8 B are
+    // copied out by plain pointer writes, which have no alignment constraint because they never touch
+    // the NoC.
     //
-    // Correctness first: this barriers once per x-pair, which serialises the gather and is NOT the
-    // shape the assembled kernel should ship. Batching the reads and barriering once per pair is the
-    // obvious next step and does not change what is fetched.
-    // 16 B aligned, because it is a NoC DESTINATION and the same rule applies at that end. A plain
-    // stack array is only 4 B aligned; with it, the first version of this kernel hung the device
-    // rather than returning wrong data, so the two failure modes of a misaligned NoC transfer are
-    // "silently wrong" (source) and "hang" (destination).
-    __attribute__((aligned(16))) uint32_t scratch[8];
+    // The staging buffer is a CB, not a stack array. A stack array is 4 B aligned and lives wherever
+    // the compiler puts it; using one hung the device. A CB write pointer is a real, tile-aligned L1
+    // address, which is what a NoC destination has to be.
+    cb_reserve_back(cb_scr, 1);
+    const uint32_t scr = get_write_ptr(cb_scr);
+    volatile tt_l1_ptr uint32_t *sc = reinterpret_cast<volatile tt_l1_ptr uint32_t *>(scr);
 
     for (uint32_t b = 0; b < n_blocks; ++b) {
         cb_reserve_back(cb_addr, 1);
@@ -99,31 +98,35 @@ void kernel_main() {
         }
 
         volatile tt_l1_ptr uint32_t *av = reinterpret_cast<volatile tt_l1_ptr uint32_t *>(ap);
-        volatile tt_l1_ptr uint32_t *sc = reinterpret_cast<volatile tt_l1_ptr uint32_t *>(scratch);
 
         for (uint32_t k = 0; k < PAIRS; ++k) {
             const uint32_t idx = av[2 * k] & SENTINEL;
             if (idx == SENTINEL) {
                 continue;
             }
-            const uint32_t dst_w = 2 * k;                  // word offset, same in every slot tile
+            // All eight reads for the pair are issued before a single barrier. Barriering per x-pair
+            // instead serialises the gather and is the wrong shape for the assembled kernel.
+            uint32_t base[4];
             for (uint32_t j = 0; j < 4; ++j) {
                 const uint32_t v0 = idx + xoff[j];
-                const uint32_t a = v0 & ~1u;               // 16 B aligned block, in voxels
-                noc_async_read(get_noc_addr(mdl_l1 + (a << 3)),
-                               reinterpret_cast<uint32_t>(scratch), 16);
-                noc_async_read(get_noc_addr(mdl_l1 + ((a + 2) << 3)),
-                               reinterpret_cast<uint32_t>(scratch) + 16, 16);
-                noc_async_read_barrier();
-                const uint32_t o0 = (v0 - a) * 2;          // 0 when x0 is even, 2 when odd
+                const uint32_t a = v0 & ~1u;               // aligned block start, in voxels
+                base[j] = (v0 - a) * 2;                    // 0 when x0 is even, 2 when odd
+                noc_async_read(get_noc_addr(mdl_l1 + (a << 3)), scr + j * 32, 16);
+                noc_async_read(get_noc_addr(mdl_l1 + ((a + 2) << 3)), scr + j * 32 + 16, 16);
+            }
+            noc_async_read_barrier();
+
+            const uint32_t dst_w = 2 * k;                  // word offset, same in every slot tile
+            for (uint32_t j = 0; j < 4; ++j) {
+                const uint32_t o = j * 8 + base[j];
                 volatile tt_l1_ptr uint32_t *d0 =
                     reinterpret_cast<volatile tt_l1_ptr uint32_t *>(sp + (2 * j) * tile_bytes) + dst_w;
                 volatile tt_l1_ptr uint32_t *d1 =
                     reinterpret_cast<volatile tt_l1_ptr uint32_t *>(sp + (2 * j + 1) * tile_bytes) + dst_w;
-                d0[0] = sc[o0];
-                d0[1] = sc[o0 + 1];
-                d1[0] = sc[o0 + 2];
-                d1[1] = sc[o0 + 3];
+                d0[0] = sc[o];
+                d0[1] = sc[o + 1];
+                d1[0] = sc[o + 2];
+                d1[1] = sc[o + 3];
             }
         }
         cb_push_back(cb_slot, 8);

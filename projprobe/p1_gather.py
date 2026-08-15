@@ -21,7 +21,7 @@ import ttnn
 
 HERE = Path(__file__).resolve().parent
 KDIR = HERE / "kernels"
-CB_A, CB_MDL, CB_SLOT = 0, 1, 16
+CB_A, CB_MDL, CB_SCR, CB_SLOT = 0, 1, 2, 16
 TB = 4096
 MDLX, MDLY, MDLZ = 8, 8, 8          # 512 complex voxels, 4 kB, comfortably L1-resident
 MDLXY = MDLX * MDLY
@@ -112,11 +112,11 @@ def main():
             core_ranges=cg, compile_time_args=ct, runtime_args=rt, config=cfg)
         pd = ttnn.ProgramDescriptor(kernels=[
             mk(KDIR / "reader_p1_gather.cpp",
-               [CB_A, CB_SLOT, TB, N_BLOCKS, MDLX, MDLXY, CB_MDL, 1] + aa + ma, rrt,
+               [CB_A, CB_SLOT, TB, N_BLOCKS, MDLX, MDLXY, CB_MDL, 1, CB_SCR] + aa + ma, rrt,
                ttnn.ReaderConfigDescriptor()),
             mk(KDIR / "writer_p1_slots.cpp", [CB_SLOT, TB, N_BLOCKS] + da, wrt,
                ttnn.WriterConfigDescriptor()),
-        ], semaphores=[], cbs=[cb(CB_A, 2), cb(CB_MDL, 1), cb(CB_SLOT, 16)])
+        ], semaphores=[], cbs=[cb(CB_A, 2), cb(CB_MDL, 1), cb(CB_SCR, 1), cb(CB_SLOT, 16)])
         ttnn.generic_op([ta, tm, tout], pd)
         ttnn.synchronize_device(dev)
         got = ttnn.to_torch(tout).numpy().reshape(N_BLOCKS, 8, 32, 32)
@@ -135,6 +135,13 @@ def main():
                   % (k, idx_f[0, 2 * k], g0[0, 2 * k], w0[0, 2 * k],
                      g0[1, 2 * k], w0[1, 2 * k]), flush=True)
             shown += 1
+    # The no-op trap: a gather that wrote nothing would match an all-zero expectation and report
+    # bit-exact. Both sides have to be substantially non-zero before the comparison means anything.
+    nz_want = float((want_t != 0).mean())
+    nz_got = float((got != 0).mean())
+    print("non-zero fraction: want %.3f  got %.3f" % (nz_want, nz_got), flush=True)
+    assert nz_want > 0.5 and nz_got > 0.5, "vacuous comparison -- one side is mostly zero"
+
     res, ok = {}, True
     for s in range(8):
         e = float(np.abs(got[:, s] - want_t[:, s]).max())
@@ -142,6 +149,7 @@ def main():
         res["slot%d" % s] = e
         print("slot %d  max_abs_err %.6e" % (s, e), flush=True)
     res["all_bit_exact"] = bool(ok)
+    res["nonzero_fraction"] = {"want": nz_want, "got": nz_got}
     print("ALL BIT-EXACT: %s" % ok, flush=True)
     (HERE / "p1_gather.json").write_text(json.dumps(res, indent=1))
 
