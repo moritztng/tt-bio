@@ -1,0 +1,149 @@
+{
+ "outer": 5000,
+ "barrier_every": 4,
+ "nreads": 32,
+ "page_bytes": 4096,
+ "model_bytes": 31719424,
+ "npages": 7744,
+ "bar": {
+  "gathers_per_iter": 128500000000.0,
+  "budget_s": 15.0,
+  "gathers_per_s_chip": 8566666666.666667,
+  "gathers_per_s_core": 65897435.8974359
+ },
+ "arms": {
+  "32x16B": {
+   "ns_per_assembly": 1192.9527972824872,
+   "ns_per_read": 37.279774915077724,
+   "corners_per_read": 2,
+   "nonzero": true,
+   "m_gathers_per_s_core": 53.64839258165973,
+   "g_gathers_per_s_chip": 6.974291035615765,
+   "gbs_chip": 55.79432828492611,
+   "vs_bar": 0.814119576141918,
+   "iter_seconds": 18.424811833028798
+  },
+  "32x32B": {
+   "ns_per_assembly": 1199.016801547259,
+   "ns_per_read": 37.46927504835185,
+   "corners_per_read": 4,
+   "nonzero": true,
+   "m_gathers_per_s_core": 106.75413374927165,
+   "g_gathers_per_s_chip": 13.878037387405312,
+   "gbs_chip": 111.02429909924251,
+   "vs_bar": 1.620004364288558,
+   "iter_seconds": 9.259234314833101
+  },
+  "32x64B": {
+   "ns_per_assembly": 1194.7845981922,
+   "ns_per_read": 37.33701869350625,
+   "corners_per_read": 8,
+   "nonzero": true,
+   "m_gathers_per_s_core": 214.2645631583697,
+   "g_gathers_per_s_chip": 27.85439321058806,
+   "gbs_chip": 222.8351456847045,
+   "vs_bar": 3.251485588784598,
+   "iter_seconds": 4.6132758674188015
+  },
+  "32x128B": {
+   "ns_per_assembly": 1198.302605189383,
+   "ns_per_read": 37.44695641216822,
+   "corners_per_read": 16,
+   "nonzero": true,
+   "m_gathers_per_s_core": 427.2710397046012,
+   "g_gathers_per_s_chip": 55.545235161598164,
+   "gbs_chip": 444.3618812927853,
+   "vs_bar": 6.483879590848034,
+   "iter_seconds": 2.313429759117123
+  },
+  "32x256B": {
+   "ns_per_assembly": 1179.833000060171,
+   "ns_per_read": 36.86978125188034,
+   "corners_per_read": 32,
+   "nonzero": true,
+   "m_gathers_per_s_core": 867.9194427921379,
+   "g_gathers_per_s_chip": 112.82952756297793,
+   "gbs_chip": 902.6362205038234,
+   "vs_bar": 13.170761972332054,
+   "iter_seconds": 1.1388862718429384
+  }
+ },
+ "ncores": 130,
+ "control_nreads_at_16B": {
+  "1": {
+   "ns_per_assembly": 100.74619785882533,
+   "ns_per_read": 100.74619785882533
+  },
+  "2": {
+   "ns_per_assembly": 145.0973970349878,
+   "ns_per_read": 72.5486985174939
+  },
+  "4": {
+   "ns_per_assembly": 221.43999813124537,
+   "ns_per_read": 55.359999532811344
+  },
+  "8": {
+   "ns_per_assembly": 357.4816044420004,
+   "ns_per_read": 44.68520055525005
+  },
+  "16": {
+   "ns_per_assembly": 628.6550022196025,
+   "ns_per_read": 39.290937638725154
+  },
+  "32": {
+   "ns_per_assembly": 1177.4129990953952,
+   "ns_per_read": 36.7941562217311
+  }
+ },
+ "dual_risc_16B": {
+  "ns_per_assembly_pair": 1211.3244039937854,
+  "ns_per_read": 18.926943812402897,
+  "nonzero": true,
+  "m_gathers_per_s_core": 105.6694635871108,
+  "g_gathers_per_s_chip": 13.737030266324403,
+  "gain_over_single_risc": 1.9696669089622458,
+  "vs_bar": 1.6035443890651053,
+  "iter_seconds": 9.354277999591432,
+  "second_risc_is_free": true
+ },
+ "overlap_ops_at_16B_dual": {
+  "0": {
+   "ns_per_assembly_pair": 1211.7463978938758,
+   "vs_gather_only": 1.000348373977028
+  },
+  "8": {
+   "ns_per_assembly_pair": 1223.416201537475,
+   "vs_gather_only": 1.009982295001919
+  },
+  "16": {
+   "ns_per_assembly_pair": 1224.3680015671998,
+   "vs_gather_only": 1.0107680465533504
+  },
+  "32": {
+   "ns_per_assembly_pair": 2107.7484008856118,
+   "vs_gather_only": 1.740036272641978
+  },
+  "64": {
+   "ns_per_assembly_pair": 4060.5876012705266,
+   "vs_gather_only": 3.352188388083824
+  },
+  "128": {
+   "ns_per_assembly_pair": 7952.334196306765,
+   "vs_gather_only": 6.56499131866542
+  }
+ },
+ "control_fit": {
+  "marginal_ns_per_read": 34.73118713666354,
+  "loop_intercept_ns": 66.01501072216178
+ },
+ "verdict": {
+  "arm": "32x16B, 2 corners per read, the trilinear packing on the natural layout",
+  "m_gathers_per_s_core": 53.64839258165973,
+  "bar_m_gathers_per_s_core": 65.8974358974359,
+  "vs_bar": 0.814119576141918,
+  "coarse_estep_seconds_1_chip": 18.424811833028798,
+  "speedup_vs_cpu_coarse_119_2s": 6.4695368984077755,
+  "issue_bound": true,
+  "route_dead": false
+ }
+}
