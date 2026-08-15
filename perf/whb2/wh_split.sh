@@ -14,7 +14,12 @@
 set -u
 TREE=/home/cust-team/mthuening/whbase/tt-bio
 OUT=/home/cust-team/mthuening/whbase/out/split
-CARD=${CARD:-27}
+. /home/cust-team/mthuening/whbase/pick_card.sh
+# One card for the whole block: the arms are compared against each other, so they cannot straddle
+# two chips. Picked here rather than at launch because this runs inside the lock, at the front of
+# the queue, which is the last moment the answer is still true.
+CARD=$(pick_card) || { echo "no free card"; exit 70; }
+echo "block $1 on UMD $CARD"
 mkdir -p "$OUT"
 cd "$TREE" || exit 1
 

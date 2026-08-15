@@ -11,17 +11,18 @@ export BENCHLOCK_MAXLOAD=9.0
 export BENCHLOCK_LOAD_WAIT_S=600
 export BENCHLOCK_WAIT_S=10800
 export BENCHLOCK_FOREIGN_RE='whbase/|wt-esmfold2'
-export CARD=${CARD:-27}
+. $W/pick_card.sh
 LOG=$W/out/split/chain.log
 mkdir -p "$W/out/split" "$W/out/bytes"
 cd "$T" || exit 1
 {
-  echo "chain start $(date -u -Is) card=$CARD"
+  echo "chain start $(date -u -Is), card picked per job"
 
   for S in 512 1024; do
     echo "=== bytes $S $(date -u +%H:%M:%S)"
     bash "$W/benchlock.sh" "wh-perf-boltz2-bytes$S" -- \
-      env TT_VISIBLE_DEVICES=$CARD TT_METAL_LOGGER_LEVEL=FATAL \
+      bash -c '. /home/cust-team/mthuening/whbase/pick_card.sh; C=$(pick_card) || exit 70; echo "bytes on UMD $C" >&2; exec env TT_VISIBLE_DEVICES=$C "$@"' _ \
+      env TT_METAL_LOGGER_LEVEL=FATAL \
           TT_BIO_LEASE_HOLDER=worker:wh-perf-boltz2 HF_HUB_CACHE=$W/hfcache \
       ./env/bin/python perf/whb2/wh_bytes.py --tree "$T" --size $S --recycles 3 --steps 4 \
         --out "$W/out/bytes/b2_$S.json" > "$W/out/bytes/b2_$S.log" 2>&1
