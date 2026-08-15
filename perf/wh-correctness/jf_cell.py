@@ -72,7 +72,14 @@ def main() -> int:
     payload = json.loads(a.payload.read_text())
     ep = {"predict": "/v1/predictions", "design": "/v1/designs", "embed": "/v1/embeddings"}[a.kind]
     t0 = time.time()
-    status, resp = call("POST", ep, a.key, payload)
+    # 429 on submit is the rate limiter, not an answer about the input: keyless callers get
+    # 12 submits/min and 3 active jobs per session. Back off and retry, so a cell records
+    # what the service thinks of the payload rather than how fast the runner was going.
+    for attempt in range(12):
+        status, resp = call("POST", ep, a.key, payload)
+        if status != 429:
+            break
+        time.sleep(10 + 5 * attempt)
     row = {"cell": a.cell, "kind": a.kind, "expect": a.expect, "submit_status": status,
            "submitted_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
 
