@@ -33,7 +33,10 @@ from tt_bio.rfd3.sampler import RFD3Sampler                            # noqa: E
 # is, and a change tuned at one size behaving differently at another is a named failure mode
 # (tt-bio-tuned-at-512-l1-gates-go-dark-above-640aa).
 RUNG = sys.argv[2] if len(sys.argv) > 2 else "R4"
-FIXTURE = pathlib.Path("perf/dsfix/fixtures/rfd3_%s.json" % RUNG)
+# a rung name, or a path to any spec json -- the smallest fixtures in this lineage are not on
+# the ladder, and a wider gather is exactly the kind of change that can invert at small I.
+FIXTURE = (pathlib.Path(RUNG) if RUNG.endswith(".json")
+           else pathlib.Path("perf/dsfix/fixtures/rfd3_%s.json" % RUNG))
 CKPT = "/home/ttuser/.boltz/rfd3/weights"
 OUT = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "perf/p54/concat_fold_ab.json")
 STEPS, SEED = 200, 42

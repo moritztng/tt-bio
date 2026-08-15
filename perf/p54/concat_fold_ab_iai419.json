@@ -1,0 +1,44 @@
+{
+  "rows": [
+    {
+      "arm": "shipped",
+      "rep": 0,
+      "sampler_s": 21.995,
+      "cif_sha256_16": "13ddc32a18c05c7d",
+      "n_cifs": 1
+    },
+    {
+      "arm": "aligned",
+      "rep": 1,
+      "sampler_s": 7.653,
+      "cif_sha256_16": "13ddc32a18c05c7d",
+      "n_cifs": 1
+    },
+    {
+      "arm": "shipped",
+      "rep": 2,
+      "sampler_s": 7.531,
+      "cif_sha256_16": "13ddc32a18c05c7d",
+      "n_cifs": 1
+    },
+    {
+      "arm": "aligned",
+      "rep": 3,
+      "sampler_s": 7.553,
+      "cif_sha256_16": "13ddc32a18c05c7d",
+      "n_cifs": 1
+    }
+  ],
+  "num_timesteps": 200,
+  "seed": 42,
+  "rung": "scripts/rfd3_port/p44_spec419.json",
+  "batch": 1,
+  "bit_exact": true,
+  "shipped_s_median": 14.763,
+  "aligned_s_median": 7.603,
+  "ratio": 1.9417,
+  "host": "qb2",
+  "card": 0,
+  "ttnn": "0.68.0",
+  "torch": "2.13.0+cpu"
+}
