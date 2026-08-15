@@ -9,6 +9,11 @@ tolerance.
 Arms alternate off/on/off/on in one process on one lease (`rfd3-p14` rule 4: a blocked A/B is biased
 by card warmth). Shipped 200 timesteps, one design per arm, same seed.
 
+One fold is run and discarded before the arms start. Without it the first arm pays the kernel
+compile for any shape not already in the ttnn cache, and at a small fixture that dwarfs the
+effect being measured: at 419 atoms rep0 read 21.995 s against 7.5 for every warm fold, and the
+arm medians turned a neutral result into a printed 1.94x.
+
     ~/.coworker/scripts/benchlock.sh rfd3-page-gap-rootcause -- env TT_VISIBLE_DEVICES=0 \
       TT_BIO_LEASE_HOLDER=worker:rfd3-page-gap-rootcause PYTHONPATH=$PWD \
       /home/ttuser/tt-bio-dev/env/bin/python3 -u scripts/rfd3_port/p54_concat_fold_ab.py
@@ -62,6 +67,16 @@ RFD3Sampler.sample = _timed
 
 def main():
     specs = json.loads(FIXTURE.read_text())
+
+    M._CONCAT_ALIGNED = False
+    os.system("rm -rf /tmp/rfd3_p54_warm")
+    WALLS.clear()
+    rfd3_design.run_design(specs, "/tmp/rfd3_p54_warm", checkpoint_dir=CKPT, from_pdb=True,
+                           num_timesteps=STEPS, seed=SEED, num_designs=BATCH,
+                           batch_size=BATCH, verbose=False)
+    print("[p54] warmup fold %.3f s, discarded" % WALLS[0], flush=True)
+    warm = round(WALLS[0], 3)
+
     rows = []
     for i, aligned in enumerate(ARMS):
         M._CONCAT_ALIGNED = aligned
@@ -96,6 +111,7 @@ def main():
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps({"rows": rows, "num_timesteps": STEPS, "seed": SEED,
+                               "discarded_warmup_s": warm,
                                "rung": RUNG, "batch": BATCH, "bit_exact": exact,
                                "shipped_s_median": round(off, 3),
                                "aligned_s_median": round(on, 3),

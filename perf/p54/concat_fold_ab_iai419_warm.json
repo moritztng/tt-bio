@@ -1,0 +1,45 @@
+{
+  "rows": [
+    {
+      "arm": "shipped",
+      "rep": 0,
+      "sampler_s": 7.419,
+      "cif_sha256_16": "13ddc32a18c05c7d",
+      "n_cifs": 1
+    },
+    {
+      "arm": "aligned",
+      "rep": 1,
+      "sampler_s": 7.408,
+      "cif_sha256_16": "13ddc32a18c05c7d",
+      "n_cifs": 1
+    },
+    {
+      "arm": "shipped",
+      "rep": 2,
+      "sampler_s": 7.459,
+      "cif_sha256_16": "13ddc32a18c05c7d",
+      "n_cifs": 1
+    },
+    {
+      "arm": "aligned",
+      "rep": 3,
+      "sampler_s": 7.595,
+      "cif_sha256_16": "13ddc32a18c05c7d",
+      "n_cifs": 1
+    }
+  ],
+  "num_timesteps": 200,
+  "seed": 42,
+  "discarded_warmup_s": 7.581,
+  "rung": "scripts/rfd3_port/p44_spec419.json",
+  "batch": 1,
+  "bit_exact": true,
+  "shipped_s_median": 7.439,
+  "aligned_s_median": 7.502,
+  "ratio": 0.9917,
+  "host": "qb2",
+  "card": 0,
+  "ttnn": "0.68.0",
+  "torch": "2.13.0+cpu"
+}
