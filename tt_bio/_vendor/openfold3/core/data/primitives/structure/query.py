@@ -17,6 +17,7 @@ Contains code related to parsing Query objects into AtomArrays and processed ref
 molecules.
 """
 
+import dataclasses
 import logging
 from collections.abc import Iterable
 from functools import lru_cache
@@ -177,6 +178,39 @@ def atom_array_from_mol(
     atom_array.set_annotation("atom_name", atom_names)
 
     return atom_array
+
+
+# One reference conformer per residue TYPE instead of one per residue. A 512-residue
+# protein draws on about 20 types, and each conformer costs an RDKit ETKDG embedding
+# (3.2 ms) plus a biotite -> rdkit conversion and a sanitize.
+#
+# NOT bit-exact, and it cannot be: `_compute_conformer` draws
+# `strategy.randomSeed = random.randint(0, 10**9)` per call, so today every one of the
+# 512 residues gets its own randomly seeded conformer and two ALA residues in the same
+# chain do not carry the same reference geometry. Serving them from one cached embedding
+# changes ref_pos, which is a model input. Off by default; the caller turns it on.
+REF_MOL_MEMO = False
+_REF_MOL_CACHE: dict = {}
+
+
+def _memo_processed_reference_molecule(res_array, leaving_atoms, key):
+    """``processed_reference_molecule_from_atom_array`` memoised on the residue type.
+
+    Returns a copy every time: the caller owns the molecule and the pipeline sets
+    atom-wise annotations on it downstream.
+    """
+    import copy as _copy
+    hit = _REF_MOL_CACHE.get(key)
+    if hit is None:
+        hit = processed_reference_molecule_from_atom_array(
+            res_array, atoms_to_mask=leaving_atoms)
+        _REF_MOL_CACHE[key] = hit
+    return dataclasses.replace(
+        hit, mol=Chem.Mol(hit.mol),
+        in_crop_mask=np.array(hit.in_crop_mask, copy=True),
+        permutations=None if hit.permutations is None
+        else [np.array(p, copy=True) for p in hit.permutations],
+        component_id=_copy.copy(hit.component_id))
 
 
 def processed_reference_molecule_from_atom_array(
@@ -368,9 +402,14 @@ def structure_with_ref_mols_from_sequence(
         )
 
         # Parse into RDKit mol and compute conformer
-        processed_ref_mol = processed_reference_molecule_from_atom_array(
-            res_array, atoms_to_mask=leaving_atoms
-        )
+        if REF_MOL_MEMO:
+            processed_ref_mol = _memo_processed_reference_molecule(
+                res_array, leaving_atoms,
+                (resname_3, tuple(leaving_atoms), poly_type))
+        else:
+            processed_ref_mol = processed_reference_molecule_from_atom_array(
+                res_array, atoms_to_mask=leaving_atoms
+            )
         processed_reference_mols.append(processed_ref_mol)
 
         # Remove the leaving atoms from the atom array
