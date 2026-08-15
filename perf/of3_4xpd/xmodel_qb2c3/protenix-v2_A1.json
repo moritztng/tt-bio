@@ -1,0 +1,109 @@
+{
+ "label": "A1",
+ "model": "protenix-v2",
+ "tree": "/home/ttuser/.coworker/wt/openfold3-4x-shared-flag-verify-and-land/.ab/main",
+ "size": 512,
+ "census": false,
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "3",
+ "grid": [
+  11,
+  10
+ ],
+ "recycling_steps": 10,
+ "sampling_steps": 200,
+ "flags": {
+  "ADALN_S_HOIST": "absent",
+  "FP32_SOFTMAX_BIAS_HOIST": "absent",
+  "TRIMUL_TAIL_F1": true,
+  "TRANSPOSE_L1_HEADROOM": 1.25
+ },
+ "started": "2026-08-15T17:13:44+0000",
+ "loadavg": [
+  "2.14",
+  "1.89",
+  "1.23"
+ ],
+ "folds": [
+  {
+   "tag": "warm0",
+   "fold_s": 50.614,
+   "plddt": 0.828628,
+   "n_tokens": 512,
+   "n_atoms": 4117,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "98c33a481fa1fd27"
+   },
+   "loadavg": [
+    "1.46",
+    "1.79",
+    "1.28"
+   ]
+  },
+  {
+   "tag": "warm1",
+   "fold_s": 50.581,
+   "plddt": 0.828628,
+   "n_tokens": 512,
+   "n_atoms": 4117,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "98c33a481fa1fd27"
+   },
+   "loadavg": [
+    "1.20",
+    "1.66",
+    "1.26"
+   ]
+  },
+  {
+   "tag": "warm2",
+   "fold_s": 50.587,
+   "plddt": 0.828628,
+   "n_tokens": 512,
+   "n_atoms": 4117,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "98c33a481fa1fd27"
+   },
+   "loadavg": [
+    "1.13",
+    "1.57",
+    "1.25"
+   ]
+  }
+ ],
+ "cold": {
+  "tag": "cold",
+  "fold_s": 76.815,
+  "plddt": 0.828628,
+  "n_tokens": 512,
+  "n_atoms": 4117,
+  "cif_sha256": {
+   "cdk2x2_512.cif": "98c33a481fa1fd27"
+  },
+  "loadavg": [
+   "2.07",
+   "1.93",
+   "1.30"
+  ]
+ },
+ "median_s": 50.587,
+ "spread_s": 0.033,
+ "reach": {
+  "adaln_calls": 0,
+  "adaln_with_s_terms": 0,
+  "adaln_s_terms_calls": 0
+ },
+ "fp32_softmax_stats": {
+  "calls": 0,
+  "blocked": 0,
+  "blocks": 0,
+  "fused": 0,
+  "unfused": 0,
+  "l1": 0,
+  "l1_blocks": 0,
+  "l1_refused": 0
+ },
+ "fp32_softmax_l1_refused_keys": [],
+ "transpose_l1_refused_keys": []
+}
