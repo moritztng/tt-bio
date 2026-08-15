@@ -1,0 +1,66 @@
+{
+ "anchor": {
+  "plddt": 0.554642,
+  "cif": "283be8b29b15adc0"
+ },
+ "host": "tt-quietbox",
+ "card": "1",
+ "legs": [
+  {
+   "leg": "cold/both-off",
+   "T2_hoist_opm0": false,
+   "P_device_pad": false,
+   "fold_s": 54.097,
+   "plddt": 0.554642,
+   "cif": {
+    "cdk2x2_512.cif": "283be8b29b15adc0"
+   },
+   "matches_anchor": true
+  },
+  {
+   "leg": "both-off",
+   "T2_hoist_opm0": false,
+   "P_device_pad": false,
+   "fold_s": 46.629,
+   "plddt": 0.554642,
+   "cif": {
+    "cdk2x2_512.cif": "283be8b29b15adc0"
+   },
+   "matches_anchor": true
+  },
+  {
+   "leg": "T2-only",
+   "T2_hoist_opm0": true,
+   "P_device_pad": false,
+   "fold_s": 46.579,
+   "plddt": 0.554642,
+   "cif": {
+    "cdk2x2_512.cif": "283be8b29b15adc0"
+   },
+   "matches_anchor": true
+  },
+  {
+   "leg": "P-only",
+   "T2_hoist_opm0": false,
+   "P_device_pad": true,
+   "fold_s": 45.969,
+   "plddt": 0.330907,
+   "cif": {
+    "cdk2x2_512.cif": "95912b35a50ab9a1"
+   },
+   "matches_anchor": false
+  },
+  {
+   "leg": "both-on",
+   "T2_hoist_opm0": true,
+   "P_device_pad": true,
+   "fold_s": 45.999,
+   "plddt": 0.330907,
+   "cif": {
+    "cdk2x2_512.cif": "95912b35a50ab9a1"
+   },
+   "matches_anchor": false
+  }
+ ],
+ "host_build_features_profile": "         672658 function calls (672526 primitive calls) in 3.448 seconds\n\n   Ordered by: cumulative time\n   List reduced from 588 to 28 due to restriction <28>\n\n   ncalls  tottime  percall  cumtime  percall filename:lineno(function)\n        1    0.000    0.000    3.449    3.449 /home/ttuser/.coworker/wt/openfold3-to-4x-per-dollar/tt_bio/openfold3_data.py:160(build_openfold3_features)\n        1    0.000    0.000    3.074    3.074 /home/ttuser/.coworker/wt/openfold3-to-4x-per-dollar/tt_bio/openfold3_data.py:151(_get_structure_with_ref_mols)\n        1    0.000    0.000    3.071    3.071 /home/ttuser/.coworker/wt/openfold3-to-4x-per-dollar/tt_bio/_vendor/openfold3/core/data/primitives/structure/query.py:519(structure_with_ref_mols_from_query)\n        1    0.080    0.080    3.070    3.070 /home/ttuser/.coworker/wt/openfold3-to-4x-per-dollar/tt_bio/_vendor/openfold3/core/data/primitives/structure/query.py:283(structure_with_ref_mols_from_sequence)\n      512    0.039    0.000    2.532    0.005 /home/ttuser/.coworker/wt/openfold3-to-4x-per-dollar/tt_bio/_vendor/openfold3/core/data/primitives/structure/query.py:182(processed_reference_molecule_from_atom_array)\n      512    0.005    0.000    2.025    0.004 /home/ttuser/.coworker/wt/openfold3-to-4x-per-dollar/tt_bio/_vendor/openfold3/core/data/primitives/structure/query.py:223(processed_reference_molecule_from_mol)\n      512    0.050    0.000    1.910    0.004 /home/ttuser/.coworker/wt/openfold3-to-4x-per-dollar/tt_bio/_vendor/openfold3/core/data/primitives/structure/conformer.py:156(multistrategy_compute_conformer)\n      512    0.050    0.000    1.855    0.004 /home/ttuser/.coworker/wt/openfold3-to-4x-per-dollar/tt_bio/_vendor/openfold3/core/data/primitives/structure/conformer.py:75(_compute_conformer)\n      512    0.005    0.000    1.737    0.003 /home/ttuser/.local/lib/python3.10/site-packages/func_timeout/dafunc.py:33(func_timeout)\n     2560    1.658    0.001    1.658    0.001 {method 'acquire' of '_thread.lock' objects}\n     1024    0.004    0.000    1.643    0.002 /usr/lib/python3.10/threading.py:1064(join)\n     1024    0.002    0.000    1.636    0.002 /usr/lib/python3.10/threading.py:1102(_wait_for_tstate_lock)\n      512    0.003    0.000    0.450    0.001 /home/ttuser/.local/lib/python3.10/site-packages/biotite/interface/version.py:46(wrapper)\n      512    0.291    0.001    0.447    0.001 /home/ttuser/.local/lib/python3.10/site-packages/biotite/interface/rdkit/mol.py:68(to_mol)\n     16/7    0.000    0.000    0.376    0.054 /home/ttuser/.coworker/wt/openfold3-to-4x-per-dollar/tt_bio/_vendor/openfold3/core/data/primitives/quality_control/logging_utils.py:248(wrapper)\n        1    0.016    0.016    0.225    0.225 /home/ttuser/.coworker/wt/openfold3-to-4x-per-dollar/tt_bio/_vendor/openfold3/core/data/pipelines/featurization/template.py:48(featurize_template_structures_of3)\n        1    0.139    0.139    0.204    0.204 /home/ttuser/.coworker/wt/openfold3-to-4x-per-dollar/tt_bio/_vendor/openfold3/core/data/primitives/featurization/template.py:195(create_template_distogram)\n     1033    0.003    0.000    0.192    0.000 /home/ttuser/.local/lib/python3.10/site-packages/biotite/structure/atoms.py:746(__getitem__)\n     1033    0.080    0.000    0.185    0.000 /home/ttuser/.local/lib/python3.10/site-packages/biotite/structure/atoms.py:201(_subarray)\n      511    0.001    0.000    0.170    0.000 /home/ttuser/.local/lib/python3.10/site-packages/biotite/structure/atoms.py:427(__add__)\n      511    0.094    0.000    0.169    0.000 /home/ttuser/.local/lib/python3.10/site-packages/biotite/structure/atoms.py:1289(concatenate)\n      512    0.009    0.000    0.140    0.000 /home/ttuser/.coworker/wt/openfold3-to-4x-per-dollar/tt_bio/_vendor/openfold3/core/data/primitives/structure/query.py:99(atom_array_from_ccd_code)\n        1    0.047    0.047    0.131    0.131 /home/ttuser/.coworker/wt/openfold3-to-4x-per-dollar/tt_bio/_vendor/openfold3/core/data/pipelines/featurization/conformer.py:34(featurize_reference_conformers_of3)\n      512    0.002    0.000    0.118    0.000 /home/ttuser/.coworker/wt/openfold3-to-4x-per-dollar/tt_bio/_vendor/openfold3/core/data/primitives/structure/cleanup.py:57(wrapper)\n      512    0.006    0.000    0.116    0.000 /home/ttuser/.coworker/wt/openfold3-to-4x-per-dollar/tt_bio/_vendor/openfold3/core/data/primitives/structure/cleanup.py:231(remove_hydrogens)\n     1024    0.043    0.000    0.109    0.000 /home/ttuser/.coworker/wt/openfold3-to-4x-per-dollar/tt_bio/_vendor/openfold3/core/data/primitives/structure/component.py:106(set_atomwise_annotation)\n    15420    0.012    0.000    0.074    0.000 /home/ttuser/.local/lib/python3.10/site-packages/rdkit/Chem/__init__.py:78(__iter__)\n      512    0.003    0.000    0.071    0.000 /usr/lib/python3.10/threading.py:916(start)\n\n\n"
+}

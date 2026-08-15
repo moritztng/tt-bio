@@ -1,0 +1,15 @@
+{
+ "shape": [
+  512,
+  4,
+  512,
+  32
+ ],
+ "blk": 12,
+ "blocks_per_call": 43,
+ "shard_config": "MemoryConfig(memory_layout=TensorMemoryLayout::HEIGHT_SHARDED,buffer_type=BufferType::L1,shard_spec=ShardSpec{grid=[{\"start\":{\"x\":0,\"y\":0},\"end\":{\"x\":7,\"y\":7}], shape=[384, 32], orientation=ShardOrientation::ROW_MAJOR},nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+ "slice_accepts_sharded_memory_config": true,
+ "slice+to_memory_config_ms_per_call": 3.0507,
+ "slice_into_shard_ms_per_call": 1.5661,
+ "ratio": 1.948
+}
