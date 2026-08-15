@@ -1,0 +1,107 @@
+{
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "chip": "1",
+ "size": 512,
+ "grid": [
+  11,
+  10
+ ],
+ "n_trimul_instances": 116,
+ "wall": 0,
+ "master_switch": true,
+ "shipped_default_gated_move": [
+  true
+ ],
+ "timed_region": "predict_one (featurize + fold + CIF write)",
+ "runs": [
+  {
+   "arm": "off",
+   "fold_s": 57.826,
+   "plddt": 0.828628,
+   "n_tokens": 512,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "98c33a481fa1fd27"
+   },
+   "gated": {
+    "enabled": true,
+    "served": 0,
+    "declined": 0,
+    "rejects": {}
+   },
+   "wall_ms": {},
+   "phases": {
+    "feat": 0.0181,
+    "fold": 57.7526,
+    "write": 0.0483,
+    "total": 57.8264
+   }
+  },
+  {
+   "arm": "on",
+   "fold_s": 52.266,
+   "plddt": 0.828628,
+   "n_tokens": 512,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "98c33a481fa1fd27"
+   },
+   "gated": {
+    "enabled": true,
+    "served": 2416,
+    "declined": 0,
+    "rejects": {}
+   },
+   "wall_ms": {},
+   "phases": {
+    "feat": 0.0179,
+    "fold": 52.1935,
+    "write": 0.0484,
+    "total": 52.2664
+   }
+  },
+  {
+   "arm": "off",
+   "fold_s": 57.86,
+   "plddt": 0.828628,
+   "n_tokens": 512,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "98c33a481fa1fd27"
+   },
+   "gated": {
+    "enabled": true,
+    "served": 0,
+    "declined": 0,
+    "rejects": {}
+   },
+   "wall_ms": {},
+   "phases": {
+    "feat": 0.0183,
+    "fold": 57.7843,
+    "write": 0.0491,
+    "total": 57.8604
+   }
+  },
+  {
+   "arm": "on",
+   "fold_s": 52.306,
+   "plddt": 0.828628,
+   "n_tokens": 512,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "98c33a481fa1fd27"
+   },
+   "gated": {
+    "enabled": true,
+    "served": 2416,
+    "declined": 0,
+    "rejects": {}
+   },
+   "wall_ms": {},
+   "phases": {
+    "feat": 0.0183,
+    "fold": 52.2318,
+    "write": 0.049,
+    "total": 52.306
+   }
+  }
+ ]
+}

@@ -24,6 +24,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
 
 WALL = defaultdict(lambda: {"n": 0, "s": 0.0})
+TR = {"l1": 0, "dram": 0}
 STATE = {"dev": None, "model": None}
 
 
@@ -68,6 +69,10 @@ def main():
     ap.add_argument("--arms", default="off,on,off,on,off,on")
     ap.add_argument("--size", type=int, default=512)
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--instrument", type=int, default=0,
+                    help="1 = split every fold into featurize / model.fold / CIF write. The "
+                         "page's GPU leg times runner.predict + cuda.synchronize() only, so "
+                         "this is what says whether the two legs share a boundary.")
     ap.add_argument("--wall", type=int, default=1,
                     help="0 = no per-module sync walls. The walls cost ~4.8 s/fold in BOTH arms "
                          "(tt-bio-isolated-op-timing-oversync-inflates-cost), so only --wall 0 "
@@ -77,6 +82,15 @@ def main():
     import tt_bio.tenstorrent as T
     import tt_bio.reblock_permute as RB
     import tt_baseline as B
+    import ttnn as _tn
+
+    _pt = T._pair_transpose
+
+    def _counted(t, mc):
+        TR["l1" if mc.buffer_type == _tn.BufferType.L1 else "dram"] += 1
+        return _pt(t, mc)
+
+    T._pair_transpose = _counted
 
     saved = []
     if a.wall:
@@ -88,47 +102,67 @@ def main():
 
     fixdir = ROOT / "perf" / "size512" / "fixtures"
     tgt, a3m = fixdir / f"cdk2x2_{a.size}.yaml", fixdir / f"cdk2x2_{a.size}.a3m"
-    one_fold, meta, state = B.build_fold("protenix-v2", ROOT / f".msa_px4pd_{a.size}", tgt, a3m)
+    one_fold, meta, state = B.build_fold("protenix-v2", ROOT / f".msa_px4pd_{a.size}", tgt, a3m,
+                                         instrument=bool(a.instrument))
     STATE["dev"] = T.get_device()
     STATE["model"] = state.model
     struct_dir = Path(meta["struct_dir"])
 
     tms = walk_trimuls(state.model, T.TriangleMultiplication)
+    # As CONSTRUCTED, before this harness touches anything: this is the shipped default.
+    shipped_default = sorted({bool(getattr(m, "gated_move", False)) for m in tms})
     import importlib.metadata as im, os, socket
     res = {"ttnn": im.version("ttnn"), "host": socket.gethostname(),
            "chip": os.environ.get("TT_VISIBLE_DEVICES", "?"), "size": a.size,
            "grid": list(T.COMPUTE_GRID_MAIN), "n_trimul_instances": len(tms), "wall": a.wall,
-           "master_switch": RB._ENABLED_GATED, "runs": []}
-    print(f"trimul instances reachable: {len(tms)}, master gate {RB._ENABLED_GATED}", flush=True)
+           "master_switch": RB._ENABLED_GATED,
+           "shipped_default_gated_move": shipped_default,
+           "timed_region": meta["timed_region"], "runs": []}
+    print(f"trimul instances reachable: {len(tms)}, master gate {RB._ENABLED_GATED}, "
+          f"shipped default gated_move {shipped_default}", flush=True)
 
-    def set_arm(on):
-        RB.set_enabled_gated(True)      # master switch on in both arms; the instance flag is the arm
+    def set_arm(arm):
+        """off = E6 off. on = E6 on. ontr = E6 on + the tight L1 transpose headroom.
+
+        The transpose lever is the second unlanded lever from wk/integrated-ab-h200-gap: at
+        the shipped 2.5 the 512 aa pair tensor (134.22 MB of 168.57 MB of grid L1) can never
+        take the L1 route, so every pair transpose pays DRAM. 1.25 lets it in and
+        `_pair_transpose`'s refusal fallback is what makes it safe.
+        """
+        RB.set_enabled_gated(True)      # master switch on in every arm; the instance flag is the arm
         for m in tms:
-            m.gated_move = bool(on)
+            m.gated_move = arm in ("on", "ontr")
+        T._TRANSPOSE_L1_HEADROOM = 1.25 if arm == "ontr" else 2.5
+        T._TRANSPOSE_L1_REFUSED.clear()
+        TR["l1"] = TR["dram"] = 0
         RB.STATS_GATED[0] = RB.STATS_GATED[1] = 0
         RB.REJECTS.clear()
 
-    set_arm(False)
+    set_arm("off")
     print("=== cold fold (discarded) ===", flush=True)
     cold_s, cold_m = one_fold()
     print(f"  cold {cold_s:.2f}s plddt={cold_m.get('plddt')}", flush=True)
 
     for arm in a.arms.split(","):
-        set_arm(arm == "on")
+        set_arm(arm)
         WALL.clear()
         fold_s, m = one_fold()
         rec = {"arm": arm, "fold_s": round(fold_s, 3), "plddt": m.get("plddt"),
                "n_tokens": m.get("n_tokens"), "cif_sha256": sha_dir(struct_dir),
+               "transpose": {"headroom": T._TRANSPOSE_L1_HEADROOM, "l1": TR["l1"],
+                             "dram": TR["dram"], "refused": len(T._TRANSPOSE_L1_REFUSED)},
                "gated": {"enabled": RB._ENABLED_GATED, "served": RB.STATS_GATED[0],
                          "declined": RB.STATS_GATED[1],
                          "rejects": {f"{k}": v for k, v in RB.REJECTS.items()}},
                "wall_ms": {k: {"calls": v["n"], "ms": round(v["s"] * 1e3, 2)}
-                           for k, v in sorted(WALL.items())}}
+                           for k, v in sorted(WALL.items())},
+               "phases": (meta["phase_times"] or [None])[-1] if a.instrument else None}
         res["runs"].append(rec)
         a.out.parent.mkdir(parents=True, exist_ok=True)
         a.out.write_text(json.dumps(res, indent=1))
         print(f"  {arm}: {fold_s:.3f}s plddt={rec['plddt']} sha={list(rec['cif_sha256'].values())} "
               f"gated served={rec['gated']['served']} declined={rec['gated']['declined']} "
+              f"tr={rec['transpose']} "
               f"trimul={rec['wall_ms'].get('body:TriangleMultiplication')}", flush=True)
 
 

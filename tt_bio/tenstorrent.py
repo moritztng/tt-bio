@@ -1013,8 +1013,31 @@ _PT_ROW_MAJOR = os.environ.get(
     "TT_BIO_PAIR_TRANSPOSE_RM", "1" if PAIR_TRANSPOSE_VIA_ROW_MAJOR else "0") == "1"
 
 
+# Pair-tensor shape classes whose L1 transpose destination the allocator refused once. The
+# static budget in `_l1_memory_config_if_it_fits` cannot see what the live block already holds,
+# so the honest test is the allocation itself; remembering the refusal keeps it to one attempt
+# per class per process, the same pattern `_L1_OUT_REFUSED` uses for the projections.
+_TRANSPOSE_L1_REFUSED: set = set()
+
+
 def _pair_transpose(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.Tensor:
-    """``permute(t, (1, 0, 2))``, through ROW_MAJOR where that wins. Bit-exact either way."""
+    """``permute(t, (1, 0, 2))``, through ROW_MAJOR where that wins. Bit-exact either way.
+
+    An L1 destination is asked for by `_transpose_memory_config` and can still be refused at
+    the call site, so the L1 attempt falls back to DRAM rather than killing the fold.
+    """
+    if memory_config.buffer_type == ttnn.BufferType.L1:
+        key = (tuple(t.padded_shape), str(t.dtype))
+        if key not in _TRANSPOSE_L1_REFUSED:
+            try:
+                return _pair_transpose_impl(t, memory_config)
+            except Exception:                                                   # noqa: BLE001
+                _TRANSPOSE_L1_REFUSED.add(key)
+        memory_config = ttnn.DRAM_MEMORY_CONFIG
+    return _pair_transpose_impl(t, memory_config)
+
+
+def _pair_transpose_impl(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.Tensor:
     if (_PT_ROW_MAJOR and len(t.shape) == 3
             and memory_config.buffer_type == ttnn.BufferType.DRAM
             and t.dtype == ttnn.bfloat16 and t.layout == ttnn.TILE_LAYOUT):
