@@ -508,9 +508,13 @@ def _sdpa_chunks_shipped(q_len: int, k_len: int) -> tuple:
 #
 # Only sizes whose current pick does NOT divide are changed, so 256, 512, 768, 1024 and the whole
 # 64/64 band return exactly what they return today, byte for byte, and neutrality there is by
-# construction rather than by measurement. The `>= cap/2` floor is why 704 and 832 keep today's pick:
-# their largest 32-aligned divisor is 64, a quarter of the cap, and collapsing the chunk that far
-# trades one refusal for a different one -- both measured an L1 circular-buffer throw in the screen.
+# construction rather than by measurement.
+#
+# The `>= cap/2` floor keeps today's pick at padded 704 and 832, whose largest 32-aligned divisor is
+# 64 -- a quarter of the cap. The fused kernel DOES serve there at 64 (measured: 704 served at
+# q=352), so this floor is a precaution, not a measured refusal: a k_chunk that small multiplies the
+# per-call chunk count and the screen has not yet priced it against the stock fallback those sizes
+# take today. Lower the floor only behind that measurement.
 #
 # NOT bit-exact: k_chunk sets the online-softmax reduction order. The fold-level accuracy arm is
 # pLDDT, not a digest.

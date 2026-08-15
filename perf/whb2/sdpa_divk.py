@@ -106,6 +106,26 @@ def main():
                         return qc
                 return None
 
+            def stock_q(kc):
+                """The q the STOCK op would end on, walking the ladder as _tri_att_sdpa_at does.
+
+                Taking q_ladder[0] instead threw at padded 704 and 896 in the first run and cost
+                both sizes their number -- the widest q blows L1 there and the real ladder steps
+                down. The fused arm had served fine at both; the failure was the control, not the
+                kernel.
+                """
+                for qc in rec["q_ladder"]:
+                    try:
+                        o = ttnn.transformer.scaled_dot_product_attention(
+                            q, k, v, attn_mask=bias, is_causal=False, scale=scale,
+                            program_config=T._sdpa_program_config(qc, kc))
+                        ttnn.deallocate(o)
+                        return qc
+                    except Exception as exc:               # noqa: BLE001
+                        if "circular buffers" not in str(exc):
+                            raise
+                return None
+
             rec["q_shipped"] = first_q(shipped_k)
             rec["q_divk"] = first_q(dk) if dk else None
             rec["shipped_served"] = rec["q_shipped"] is not None
@@ -115,7 +135,11 @@ def main():
                 # The case this script exists for: shipped declines, a dividing k_chunk serves.
                 # Time the fused kernel at div_k against the stock op the fold falls back to today.
                 qd = rec["q_divk"]
-                qs = rec["q_ladder"][0]
+                qs = stock_q(shipped_k)
+                rec["q_stock_fallback"] = qs
+                if qs is None:
+                    rec["note"] = "stock op refuses every ladder q at the shipped k_chunk"
+                    raise RuntimeError("no stock fallback at this shape")
                 rec["divk_fused"], rec["stock_today"] = timed_pair(
                     lambda: F.sdpa(q, k, v, bias, scale, qd, dk),
                     lambda: ttnn.transformer.scaled_dot_product_attention(
