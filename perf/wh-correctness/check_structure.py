@@ -43,6 +43,13 @@ N_CA_BAND = (1.40, 1.52)   # ideal 1.458
 CA_C_BAND = (1.47, 1.58)   # ideal 1.525
 CLASH_DIST = 2.0         # heavy atoms >=2 residues apart never get this close
 CLASH_MAX_FRAC = 0.001   # tolerate 0.1% of atoms in a marginal contact, not more
+# A fraction alone is size-dependent, and it fails small structures for what a crystal
+# structure does too. Measured on the experimental structures in
+# examples/ground_truth_structures/: 1ahw 1 pair / 4915 atoms, 9dsg 2 / 5062, 9fte 1 / 2786,
+# 9gei and 9ck4 none, worst separation 1.332 A. A 64 aa dimer with the same ONE pair is
+# 0.10% and was failing on it. So allow the larger of the fraction and the absolute count
+# real structures show, and nothing above it.
+CLASH_MAX_ABS = 2        # 9dsg, the worst measured experimental structure
 RG_COEF, RG_EXP = 2.2, 0.38  # Rg ~ 2.2 * N^0.38 A for a compact globular domain
 RG_BAND = (0.55, 2.0)    # ratio to that estimate: <0.55 collapsed blob, >2 unfolded
 PLDDT_STD_MIN = 0.01     # a constant-confidence output is the garbage signature
@@ -304,7 +311,9 @@ def main() -> int:
     n_clash, n_heavy, worst = clashes(st)
     rep["checks"]["clashes"] = {"n": n_clash, "heavy_atoms": n_heavy, "worst_dist": worst,
                                 "threshold": CLASH_DIST}
-    if n_heavy and n_clash > CLASH_MAX_FRAC * n_heavy:
+    clash_budget = max(CLASH_MAX_ABS, CLASH_MAX_FRAC * n_heavy)
+    rep["checks"]["clashes"]["budget"] = clash_budget
+    if n_heavy and n_clash > clash_budget:
         rep["fail"].append(f"{n_clash} heavy-atom clashes < {CLASH_DIST} A "
                            f"({n_clash / n_heavy:.2%} of atoms, worst {worst} A)")
     elif n_clash:

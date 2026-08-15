@@ -1,0 +1,1 @@
+{"model": "protenix-v2", "name": "ligand_ccd", "input": "sequences:\n  - protein: {id: A, sequence: MTYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTEKPEVIDAS}\n  - ligand: {id: L, ccd: ATP}\n"}

@@ -37,6 +37,11 @@ P64 = ("MTYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTEKPEVIDAS")
 # A different 60 aa chain, for the heterodimer cell.
 Q60 = ("MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNI")
 
+# The repo's own 1ahw antibody-antigen fixture (examples/1ahw_abag.yaml), comments and
+# the version key stripped: the API takes the sequences block.
+ABAG_1AHW = 'sequences:\n  - protein:\n      id: A\n      sequence: TNTVAAYNLTWKSTNFKTILEWEPKPVNQVYTVQISTKSGDWKSKCFYTTDTECDLTDEIVKDVKQTYLARVFSYPAGNEPLYENSPEFTPYLETNLGQPTIQSFEQVGTKVNVTVEDERTLVRRNNTFLSLRDVFGKDLIYTLYYWKSSSSGKKTAKTNTNEFLIDVDKGENYCFSVQAVIPSRTVNRKSTDSPVECMG\n  - protein:\n      id: H\n      sequence: EIQLQQSGAELVRPGALVKLSCKASGFNIKDYYMHWVKQRPEQGLEWIGLIDPENGNTIYDPKFQGKASITADTSSNTAYLQLSSLTSEDTAVYYCARDNSYYFDYWGQGTTLTVSSAKTTPPSVYPLAPGSAAQTNSMVTLGCLVKGYFPEPVTVTWNSGSLSSGVHTFPAVLQSDLYTLSSSVTVPSSTWPSETVTCNVAHPASSTKVDKKI\n  - protein:\n      id: L\n      sequence: DIKMTQSPSSMYASLGERVTITCKASQDIRKYLNWYQQKPWKSPKTLIYYATSLADGVPSRFSGSGSGQDYSLTISSLESDDTATYYCLQHGESPYTFGGGTKLEINRADAAPTVSIFPPSSEQLTSGGASVVCFLNNFYPKDINVKWKIDGSERQNGVLNSWTDQDSKDSTYSMSSTLTLTKDEYERHNSYTCEATHKTSTSPIVKSFNRNEC\n'
+
+
 
 def yaml_cell(body: str) -> str:
     return body
@@ -66,6 +71,10 @@ COMPOSITIONS = {
                     "  - ligand: {id: L, smiles: 'CC(=O)Oc1ccccc1C(=O)O'}\n"
                     "constraints:\n  - pocket: {binder: L, contacts: [[A, 10], [A, 14]]}\n",
                     {"constraints"}),
+    # 1ahw: tissue-factor antigen + Fab 5G9 heavy/light, the repo's own antibody-antigen
+    # fixture. It is the only composition here that is in OpenDDE's distribution, so it is
+    # what separates "OpenDDE is broken" from "OpenDDE was handed a target it is not for".
+    "abag":        (ABAG_1AHW, {"multichain"}),
     # The gap read out of limits.py: `modifications` is advertised for boltz2 and the two
     # esmfold2 ids only, and `_check_model_caps` has no branch for it, so a modified residue
     # sent to protenix-v2 or either opendde is neither served nor refused by contract.

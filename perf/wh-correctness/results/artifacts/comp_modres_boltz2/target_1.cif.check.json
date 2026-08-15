@@ -27,7 +27,8 @@
    "n": 0,
    "heavy_atoms": 496,
    "worst_dist": 0.0,
-   "threshold": 2.0
+   "threshold": 2.0,
+   "budget": 2
   },
   "confidence": {
    "source": "b_factor",

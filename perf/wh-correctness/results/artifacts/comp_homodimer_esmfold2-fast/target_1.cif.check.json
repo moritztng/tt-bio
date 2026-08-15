@@ -1,5 +1,5 @@
 {
- "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/comp_homodimer_esmfold2-fast/target_1.cif",
+ "struct": "results/artifacts/comp_homodimer_esmfold2-fast/target_1.cif",
  "checks": {
   "n_atoms": 988,
   "bbox_diagonal": 70.53,
@@ -45,7 +45,8 @@
    "n": 1,
    "heavy_atoms": 988,
    "worst_dist": 1.896,
-   "threshold": 2.0
+   "threshold": 2.0,
+   "budget": 2
   },
   "confidence": {
    "source": "b_factor",
@@ -62,9 +63,9 @@
   },
   "ligand_residues_seen": 0
  },
- "fail": [
-  "1 heavy-atom clashes < 2.0 A (0.10% of atoms, worst 1.896 A)"
+ "fail": [],
+ "warn": [
+  "1 marginal contacts < 2.0 A (worst 1.896 A)"
  ],
- "warn": [],
- "verdict": "FAIL"
+ "verdict": "WARN"
 }

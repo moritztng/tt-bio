@@ -1,5 +1,5 @@
 {
- "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/comp_homodimer_opendde-abag/target_1.cif",
+ "struct": "results/artifacts/comp_homodimer_opendde-abag/target_1.cif",
  "checks": {
   "n_atoms": 990,
   "bbox_diagonal": 86.92,
@@ -45,7 +45,8 @@
    "n": 7,
    "heavy_atoms": 990,
    "worst_dist": 1.047,
-   "threshold": 2.0
+   "threshold": 2.0,
+   "budget": 2
   },
   "confidence": {
    "source": "b_factor",

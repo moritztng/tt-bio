@@ -1,0 +1,69 @@
+{
+ "struct": "results/artifacts/comp_heterodimer_protenix-v2/target_1.cif",
+ "checks": {
+  "n_atoms": 978,
+  "bbox_diagonal": 75.86,
+  "chains": [
+   {
+    "chain": "A",
+    "kind": "protein",
+    "n_res": 64,
+    "sequence": "MTYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTEKPEVIDAS",
+    "step_median": 3.822,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 1.0,
+    "breaks": 0,
+    "rg": 13.23,
+    "rg_expected": 10.68,
+    "rg_ratio": 1.238,
+    "n_ca_bond_median": 1.464,
+    "ca_c_bond_median": 1.524
+   },
+   {
+    "chain": "B",
+    "kind": "protein",
+    "n_res": 61,
+    "sequence": "MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNI",
+    "step_median": 3.818,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 1.0,
+    "breaks": 0,
+    "rg": 10.62,
+    "rg_expected": 10.49,
+    "rg_ratio": 1.013,
+    "n_ca_bond_median": 1.462,
+    "ca_c_bond_median": 1.525
+   }
+  ],
+  "clashes": {
+   "n": 0,
+   "heavy_atoms": 978,
+   "worst_dist": 0.0,
+   "threshold": 2.0,
+   "budget": 2
+  },
+  "confidence": {
+   "source": "b_factor",
+   "n": 978,
+   "min": 0.5973,
+   "max": 0.9824,
+   "mean": 0.9097,
+   "std": 0.0604,
+   "scale": 100.0
+  },
+  "expected": {
+   "chains": 2,
+   "ligands": 0
+  },
+  "ligand_residues_seen": 0
+ },
+ "fail": [],
+ "warn": [],
+ "verdict": "PASS"
+}

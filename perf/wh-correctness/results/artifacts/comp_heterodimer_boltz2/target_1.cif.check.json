@@ -1,5 +1,5 @@
 {
- "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/comp_heterodimer_boltz2/target_1.cif",
+ "struct": "results/artifacts/comp_heterodimer_boltz2/target_1.cif",
  "checks": {
   "n_atoms": 976,
   "bbox_diagonal": 68.61,
@@ -45,7 +45,8 @@
    "n": 1,
    "heavy_atoms": 976,
    "worst_dist": 1.943,
-   "threshold": 2.0
+   "threshold": 2.0,
+   "budget": 2
   },
   "confidence": {
    "source": "b_factor",
@@ -62,9 +63,9 @@
   },
   "ligand_residues_seen": 0
  },
- "fail": [
-  "1 heavy-atom clashes < 2.0 A (0.10% of atoms, worst 1.943 A)"
+ "fail": [],
+ "warn": [
+  "1 marginal contacts < 2.0 A (worst 1.943 A)"
  ],
- "warn": [],
- "verdict": "FAIL"
+ "verdict": "WARN"
 }
