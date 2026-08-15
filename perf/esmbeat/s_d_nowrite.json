@@ -1,0 +1,127 @@
+{
+ "predictions": "S-D: price the DRAM-write half of the trimul in-projection, and screen a dual-NOC drain.\n\nThe in-projection `[512,512,256] x [256,1024]` reads 128 MiB and writes 512 MiB, measures\n2.722 ms/call against a 1.562 ms byte floor, and sits at 52 % of the compute roof and 57 % of the\nbyte roof at the same time (state/esmfold2-to-4x-per-dollar.md 4.0/4.1). Those two add to 109 %,\nwhich is the additive `time = compute + write` signature rather than `max(...)`. 1084 calls per\nfold, so the headroom is ~1.26 s.\n\nFour arms, one process, alternating, batched timing (8 back-to-back calls, ONE synchronize at the\nend, median of 5 batches). Never per-op-synced: the same tape read the same op at 28.9 ms and\n2.2 ms in two arms, a 13x instrument artefact (memory\n`tt-bio-isolated-op-timing-oversync-inflates-cost`).\n\n  native    ttnn.experimental.minimal_matmul, the shipped call\n  generic   tt_bio/mm_generic.py's transcription, unmodified. The transcription check.\n  nowrite   same, the output CB drained and popped but the DRAM write not issued. Prices the\n            write half. Output is garbage by construction, so this arm is a stopwatch.\n  dualnoc   same, every second output tile issued on the other NOC. The writer RISC carries\n            512 MiB on NOC_1 while the reader RISC carries 128 MiB on NOC_0, so half the drain\n            moves onto an idle wire. Same tiles, same addresses, same bytes: bit-exact or broken,\n            nothing in between.\n\nPREDICTIONS, WRITTEN BEFORE THE RUN:\n  generic reproduces native within 5 % and torch.equal.\n  write half (generic - nowrite) is 0.9-1.3 ms of the 2.722 ms.\n  dualnoc recovers >= 1.25x of the write half, 0.35-0.50 ms/call = 0.38-0.54 s of fold.\n\nKILL GATES, all pre-committed:\n  1. generic not torch.equal against native, or slower than 1.10x: the generic_op route is dead\n     for this op. Stop and report.\n  2. write half below 0.35 ms/call: the serialisation diagnosis is wrong for this shape, D is\n     worth < 0.4 s, NO-GO.\n  3. dualnoc below 1.25x on the write half: NO-GO, record it and move on.\n",
+ "arms": [
+  {
+   "arm": "native",
+   "round": 0,
+   "ms": 3.019004625002708,
+   "batch_spread": 0.0489685818005389
+  },
+  {
+   "arm": "generic",
+   "round": 0,
+   "ms": 3.112108875029662,
+   "batch_spread": 0.02161472420058041
+  },
+  {
+   "arm": "nowrite",
+   "round": 0,
+   "ms": 2.1114186251907086,
+   "batch_spread": 0.048890648098960404
+  },
+  {
+   "arm": "native",
+   "round": 1,
+   "ms": 3.2246981249954842,
+   "batch_spread": 0.036670448046729316
+  },
+  {
+   "arm": "generic",
+   "round": 1,
+   "ms": 3.1555482501062215,
+   "batch_spread": 0.02405176342672716
+  },
+  {
+   "arm": "nowrite",
+   "round": 1,
+   "ms": 2.128467499915132,
+   "batch_spread": 0.048731540493124205
+  },
+  {
+   "arm": "native",
+   "round": 2,
+   "ms": 3.2376352498886263,
+   "batch_spread": 0.04396603974460021
+  },
+  {
+   "arm": "generic",
+   "round": 2,
+   "ms": 3.1405597501361626,
+   "batch_spread": 0.019830581125421146
+  },
+  {
+   "arm": "nowrite",
+   "round": 2,
+   "ms": 2.129598375177011,
+   "batch_spread": 0.046048647563434505
+  }
+ ],
+ "meta": {
+  "shape": [
+   512,
+   512,
+   256,
+   1024
+  ],
+  "grid": [
+   11,
+   10
+  ],
+  "card": "0",
+  "loadavg": [
+   1.38427734375,
+   2.142578125,
+   2.0693359375
+  ],
+  "ttnn": null,
+  "calls_per_fold": 1084,
+  "mm_config": "None",
+  "block": [
+   8,
+   8,
+   8,
+   2,
+   2
+  ],
+  "native_unconfigured": true
+ },
+ "parity": [
+  {
+   "arm": "generic",
+   "torch_equal": true,
+   "first_call_s": 0.006150204000732629
+  },
+  {
+   "arm": "nowrite",
+   "torch_equal": false,
+   "first_call_s": 0.003849684000670095,
+   "max_abs_err": 103.0,
+   "nonzero_frac": 0.0
+  }
+ ],
+ "aa_pair_generic_ms": [
+  3.216925749939037,
+  3.17283387516909
+ ],
+ "summary": {
+  "median_ms": {
+   "native": 3.2246981249954842,
+   "generic": 3.1405597501361626,
+   "nowrite": 2.128467499915132
+  },
+  "aa_pair_generic_ms": [
+   3.216925749939037,
+   3.17283387516909
+  ],
+  "aa_floor_ms": 0.044091874769947026,
+  "generic_vs_native": 0.9739081391193976,
+  "write_half_ms": 1.0120922502210306,
+  "dualnoc_saving_ms": 0.0,
+  "dualnoc_x_on_write_half": 1.0,
+  "fold_s_if_shipped": 0.0,
+  "gate1_transcription_ok": true,
+  "gate2_write_half_ok": true,
+  "gate3_dualnoc_ok": false,
+  "dualnoc_bit_exact": true
+ }
+}
