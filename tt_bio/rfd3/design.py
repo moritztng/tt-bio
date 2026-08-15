@@ -35,7 +35,8 @@ from typing import Mapping, Sequence
 
 import torch
 
-from .model import build_diffusion_module, build_token_initializer
+from .model import (build_diffusion_module, build_token_initializer,
+                    set_tune_matmul_for_atoms)
 from .input import InputSpecification
 from .sampler import RFD3Sampler
 
@@ -355,6 +356,7 @@ def _run_design_jobs(jobs, specs, out_dir, *, checkpoint_dir, from_pdb, num_time
             spec_feat[spec_id] = (f, init, L, is_motif, coord0)
         f_used, init_used, L, is_motif, coord0 = spec_feat[spec_id]
         sp_t = spec.partial_t if spec.partial_t is not None else partial_t
+        set_tune_matmul_for_atoms(L)
         effective_batch = min(
             batch_size,
             _BATCH_DESIGN_CEILING,

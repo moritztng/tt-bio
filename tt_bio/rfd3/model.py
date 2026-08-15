@@ -124,7 +124,41 @@ _TUNED_MM_CACHE = {}
 # inside a noise floor the D=1 null control puts at +-7%. Flip it once calibration is cheap: the
 # dominant cost is compiling candidates that then fail L1 validation, and `_mm_candidates` can
 # reject those arithmetically instead of via try/except.
-_TUNE_MATMUL = os.environ.get("RFD3_TUNE_MATMUL") == "1"
+# Whether to calibrate at all is a property of the TARGET, not of the build, so it is resolved
+# per run from the atom count (`set_tune_matmul_for_atoms`, called by rfd3.design.run_design).
+# Calibration is bit-exact -- `_calibrate_linear` keeps only a program config whose output is
+# bitwise equal to the default's -- so this switch carries no numerics, only wall clock.
+#
+# End to end, seconds per design at the shipped 200 timesteps, qb2, ttnn 0.68.0, under a run
+# lock, warm median of 2 after a discarded cold forward, and the whole three-forward
+# invocation wall alongside it (perf/dsfix/results/rfd3_batch_e2e.jsonl):
+#
+#     atoms  batch     warm off -> on            whole invocation off -> on
+#      2299      8   21.885 -> 21.066  1.039x     553.5 -> 564.0   WORSE by 1.9 %
+#      3844      1   59.967 -> 57.863  1.036x     222.9 -> 207.6   better by 6.9 %
+#      6051      1  143.646 -> 123.185  1.166x    452.7 -> 418.3   better by 7.6 %
+#
+# The per-design win is real at every size, but at 2299 atoms the wall time calibration itself
+# spends does not come back inside a 24-design invocation, which is what the old default-off
+# note predicted for small fixtures. So it defaults on above 2952 atoms and off at or below,
+# which regresses nothing measured. The threshold is bounded by a measured loss at 2299 and a
+# measured win at 3844 and is NOT itself measured; it is the same breakpoint the batch speed cap
+# uses, for the same reason -- that is where this model stops behaving like a small one.
+#
+# RFD3_TUNE_MATMUL=1 forces it on and =0 forces it off, at any size.
+_TUNE_MATMUL_MIN_ATOMS = 2952
+_TUNE_MATMUL_ENV = os.environ.get("RFD3_TUNE_MATMUL")
+_TUNE_MATMUL = _TUNE_MATMUL_ENV == "1"
+
+
+def set_tune_matmul_for_atoms(n_atoms):
+    """Resolve matmul calibration for a target of `n_atoms`. The env var wins if it is set."""
+    global _TUNE_MATMUL
+    if _TUNE_MATMUL_ENV in ("0", "1"):
+        _TUNE_MATMUL = _TUNE_MATMUL_ENV == "1"
+    else:
+        _TUNE_MATMUL = n_atoms > _TUNE_MATMUL_MIN_ATOMS
+    return _TUNE_MATMUL
 # Debug: re-check every cached config against ttnn's default on every call and print any
 # divergence. Doubles the matmul work, so it is for locating a break, not for production.
 _TUNE_AUDIT = os.environ.get("RFD3_TUNE_AUDIT") == "1"
