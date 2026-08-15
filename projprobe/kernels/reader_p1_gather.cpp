@@ -62,6 +62,26 @@ void kernel_main() {
     constexpr uint32_t PAIRS = 512;              // 32 rows x 16 pixels, two columns each
     constexpr uint32_t SENTINEL = 0x7FFFFFu;
 
+    // The four x-pairs of the trilinear cell. Each supplies two corners, (x0) and (x0+1), which go to
+    // slot tiles 2j and 2j+1.
+    const uint32_t xoff[4] = {0, mdlX, mdlXY, mdlXY + mdlX};
+
+    // A NoC read needs 16 B alignment at BOTH ends and silently returns the neighbouring aligned
+    // block otherwise (§8.9) -- it does not error, assert or hang. A complex voxel is 8 B, so an
+    // arbitrary voxel is only 8 B aligned and cannot be fetched directly. Instead each x-pair reads
+    // the two aligned 16 B blocks that can contain (x0, x0+1) into a scratch, and the wanted 8 B are
+    // copied out by plain pointer writes, which carry no alignment constraint because they never
+    // touch the NoC.
+    //
+    // Correctness first: this barriers once per x-pair, which serialises the gather and is NOT the
+    // shape the assembled kernel should ship. Batching the reads and barriering once per pair is the
+    // obvious next step and does not change what is fetched.
+    // 16 B aligned, because it is a NoC DESTINATION and the same rule applies at that end. A plain
+    // stack array is only 4 B aligned; with it, the first version of this kernel hung the device
+    // rather than returning wrong data, so the two failure modes of a misaligned NoC transfer are
+    // "silently wrong" (source) and "hang" (destination).
+    __attribute__((aligned(16))) uint32_t scratch[8];
+
     for (uint32_t b = 0; b < n_blocks; ++b) {
         cb_reserve_back(cb_addr, 1);
         noc_async_read_page(b, sa, get_write_ptr(cb_addr));
@@ -73,30 +93,39 @@ void kernel_main() {
         cb_reserve_back(cb_slot, 8);
         const uint32_t sp = get_write_ptr(cb_slot);
 
-        // Skipped pairs must read as zero rather than as whatever the CB held last time round.
-        // The assembled kernel does not need this -- the radius mask multiplies the blend result --
-        // but leaving stale data here would make a grading failure unattributable.
         volatile tt_l1_ptr uint32_t *sz = reinterpret_cast<volatile tt_l1_ptr uint32_t *>(sp);
         for (uint32_t i = 0; i < 8 * (tile_bytes / 4); ++i) {
             sz[i] = 0;
         }
 
         volatile tt_l1_ptr uint32_t *av = reinterpret_cast<volatile tt_l1_ptr uint32_t *>(ap);
+        volatile tt_l1_ptr uint32_t *sc = reinterpret_cast<volatile tt_l1_ptr uint32_t *>(scratch);
+
         for (uint32_t k = 0; k < PAIRS; ++k) {
-            const uint32_t idx = av[2 * k] & SENTINEL;     // the mantissa is the voxel index
+            const uint32_t idx = av[2 * k] & SENTINEL;
             if (idx == SENTINEL) {
-                continue;                                  // outside the radius: leave it zero
+                continue;
             }
-            const uint32_t dst_off = 2 * k * 4;            // same linear offset in every slot tile
-            for (uint32_t s = 0; s < 8; ++s) {
-                // The production kernel reads another core's L1 shard (§4.1); this arm reads its
-                // own, which is the same NoC path with the same issue cost, and lets the screen run
-                // against a model small enough to be resident on one core.
-                const uint64_t src = get_noc_addr(mdl_l1 + ((idx + off[s]) << 3));
-                noc_async_read(src, sp + s * tile_bytes + dst_off, 8);
+            const uint32_t dst_w = 2 * k;                  // word offset, same in every slot tile
+            for (uint32_t j = 0; j < 4; ++j) {
+                const uint32_t v0 = idx + xoff[j];
+                const uint32_t a = v0 & ~1u;               // 16 B aligned block, in voxels
+                noc_async_read(get_noc_addr(mdl_l1 + (a << 3)),
+                               reinterpret_cast<uint32_t>(scratch), 16);
+                noc_async_read(get_noc_addr(mdl_l1 + ((a + 2) << 3)),
+                               reinterpret_cast<uint32_t>(scratch) + 16, 16);
+                noc_async_read_barrier();
+                const uint32_t o0 = (v0 - a) * 2;          // 0 when x0 is even, 2 when odd
+                volatile tt_l1_ptr uint32_t *d0 =
+                    reinterpret_cast<volatile tt_l1_ptr uint32_t *>(sp + (2 * j) * tile_bytes) + dst_w;
+                volatile tt_l1_ptr uint32_t *d1 =
+                    reinterpret_cast<volatile tt_l1_ptr uint32_t *>(sp + (2 * j + 1) * tile_bytes) + dst_w;
+                d0[0] = sc[o0];
+                d0[1] = sc[o0 + 1];
+                d1[0] = sc[o0 + 2];
+                d1[1] = sc[o0 + 3];
             }
         }
-        noc_async_read_barrier();
         cb_push_back(cb_slot, 8);
         cb_pop_front(cb_addr, 1);
     }

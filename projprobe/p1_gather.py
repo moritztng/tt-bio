@@ -59,11 +59,10 @@ def main():
     want = np.zeros((N_BLOCKS, 8, 1024), dtype=np.float32)
     top = NVOX - MDLXY - MDLX - 2
     for b in range(N_BLOCKS):
-        base = (rng.integers(0, top // 2, size=512) * 2).astype(np.uint32)   # even -> src 16 B aligned
+        base = rng.integers(0, top, size=512).astype(np.uint32)   # arbitrary parity, as the real kernel has
         sent = rng.random(512) < 0.25
         base[sent] = SENTINEL
-        idx_f[b, :] = SENTINEL                 # odd pairs stay disabled for this alignment arm
-        for k in range(0, 512, 2):             # even k -> destination offset 8k is 16 B aligned
+        for k in range(512):
             idx_f[b, 2 * k] = base[k]
             idx_f[b, 2 * k + 1] = base[k]
             if base[k] == SENTINEL:
