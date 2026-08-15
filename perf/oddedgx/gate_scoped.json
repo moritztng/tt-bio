@@ -1,0 +1,68 @@
+{
+  "legs": [
+    {
+      "leg": "protenix-prot-msa",
+      "verdict": "PASS",
+      "detail": "prot: X=2.691 R=2.763 D=2.566 within=True",
+      "wall": 241.8816067560001,
+      "committed": "GAP-evidenced",
+      "report": "protenix-prot-msa.json"
+    },
+    {
+      "leg": "protenix-ubq-msa",
+      "verdict": "PASS",
+      "detail": "ubq: X=1.790 R=1.923 D=1.440 within=True",
+      "wall": 227.17226052099977,
+      "committed": "GAP-evidenced",
+      "report": "protenix-ubq-msa.json"
+    },
+    {
+      "leg": "protenix-hsa-msa",
+      "verdict": "PASS",
+      "detail": "hsa: X=0.697 R=0.695 D=0.575 within=True",
+      "wall": 895.3610647109999,
+      "committed": "NO-DATA",
+      "report": "protenix-hsa-msa.json"
+    },
+    {
+      "leg": "opendde-trpcage-nomsa",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "fixture incomplete: seed0, seed1, seed2, seed3, seed4 missing structures/trpcage_no_msa.cif (run scripts/fetch_parity_fixtures.sh to restore the externalized reference binaries)",
+      "wall": 0
+    },
+    {
+      "leg": "opendde-prot-prod",
+      "verdict": "PASS",
+      "detail": "prot_no_msa: X=5.384 R=1.499 D=6.851 within=True",
+      "wall": 139.761154789001,
+      "committed": "GAP-evidenced",
+      "report": "opendde-prot-prod.json"
+    },
+    {
+      "leg": "opendde-abag",
+      "verdict": "ERROR",
+      "detail": "ImportError: cannot import name 'MSA_DEFAULT_MODELS' from 'tt_bio.main' (/home/ttuser/tt-bio-release-v0.3.3/tt_bio/main.py)",
+      "wall": 0.0027987530011159834,
+      "committed": "PASS",
+      "report": "opendde-abag.json"
+    },
+    {
+      "leg": "capacity",
+      "verdict": "PASS",
+      "detail": "peak 8.72 GiB, 58 CIFs / 2 PAEs (capacity:9j4c_abag 8.72 GiB; capacity:9ivj 5.48 GiB)",
+      "wall": 1311.489852917999,
+      "committed": null,
+      "report": "capacity.json"
+    }
+  ],
+  "tally": {
+    "PASS": 5,
+    "BLOCKED-REF-REGEN-NEEDED": 1,
+    "ERROR": 1
+  },
+  "scored": 6,
+  "total_wall_s": 2815.6699415699995,
+  "workers": [
+    "tt-quietbox2:2"
+  ]
+}
