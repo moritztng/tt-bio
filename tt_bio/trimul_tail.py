@@ -156,7 +156,7 @@ def fused_tail(xa, xb, wa, wb, ckc, grid):
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = (spec(xa), spec(wa), tuple(grid), tuple(str(c) for c in ckc), ROUND, SKIP_SIGMOID)
     out = ttnn.allocate_tensor_on_device(
-        ttnn.Shape([int(d) for d in xa.padded_shape][:-1] + [int(wa.shape[-1])]),
+        ttnn.Shape([int(d) for d in xa.shape][:-1] + [int(wa.shape[-1])]),
         ttnn.bfloat16, ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
 
     entry = _CACHE.get(key)
