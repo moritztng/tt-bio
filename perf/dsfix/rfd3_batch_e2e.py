@@ -39,7 +39,9 @@ CKPT = "/home/ttuser/.boltz/rfd3/weights"
 OUT = pathlib.Path("perf/dsfix/results/rfd3_batch_e2e.jsonl")
 STEPS = 200                    # upstream production default, what every page arm ran
 SEED = 42                      # the CLI default
-N_WARM = 2                     # chunks kept after the cold one; R4 spread was 0.06-0.23 %
+# chunks kept after the cold one; R4 spread was 0.06-0.23 %. A cell that goes on the perf
+# page needs n >= 3 (workstream rule, 2026-08-15), so RFD3_E2E_NWARM raises it for those runs.
+N_WARM = int(os.environ.get("RFD3_E2E_NWARM", "2"))
 HOST, CARD, TTNN = "qb2", 0, "0.68.0"
 
 # atoms and target residues per rung, from perf/dsfix/results/rfd3_tt.jsonl. The binder is
