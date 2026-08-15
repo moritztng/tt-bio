@@ -147,6 +147,40 @@ def main():
               flush=True)
 
     res["reach"] = dict(reach)
+    # Which fused kernels actually served a call, and why the declines. Every one of them is
+    # gated on a constant fitted on a 130-core Blackhole grid, so "ships default-ON" says nothing
+    # about whether it fired on an 8x9 Wormhole. These counters live inside the kernels, so
+    # reading them is free -- unlike the --census wrappers above they are always on.
+    import importlib
+
+    def _kern(name):
+        try:
+            mod = importlib.import_module("tt_bio." + name)
+        except Exception as e:                                  # a tree without the kernel
+            return {"absent": repr(e)}
+        d = {}
+        for attr, leg in (("STATS", "fwd"), ("STATS_BACK", "back"), ("STATS_GATED", "gated")):
+            st = getattr(mod, attr, None)
+            if st is not None:
+                d[leg] = {"served": int(st[0]), "declined": int(st[1])}
+        rej = getattr(mod, "REJECTS", None)
+        if rej:
+            d["rejects"] = {str(k): int(v) for k, v in rej.items()}
+        pm = getattr(mod, "_PM_OVER_L1", None)
+        if pm is not None:
+            d["pm_over_l1"] = sorted(str(x) for x in pm)
+        return d
+
+    res["kernels"] = {n: _kern(n) for n in
+                      ("triatt_sdpa", "trimul_tail", "reblock_permute", "rfd3_bias")}
+    # The grid-derived thresholds in effect in this process. _apply_grid_thresholds runs at
+    # device open, not at import, so this has to be read after a fold, not from the source.
+    res["thresholds"] = {k: getattr(T, k, "absent") for k in (
+        "_IS_SMALL_GRID", "SEQ_LEN_MORE_CHUNKING", "TRANSITION_BATCH_CHUNKING_THRESHOLD",
+        "TRANSITION_W_CHUNKING_THRESHOLD", "TRIANGLE_ATT_CHUNK_SIZE_FAST",
+        "TRANSITION_W_CHUNK_SIZE", "TRIANGLE_MULT_L1_MAX_SEQ_FAST", "TRIANGLE_MULT_L1_MAX_SEQ",
+        "SMALL_GRID_SEQ_TILE", "SMALL_GRID_PAIR_TILE_AREA", "SDPA_CHUNK_MAX",
+        "PAIRFORMER_PAD_MULTIPLE", "TRIANGLE_MULT_CHUNK_SIZE")}
     res["fp32_softmax_stats"] = dict(T.FP32_SOFTMAX_STATS)
     res["fp32_softmax_l1_refused_keys"] = sorted(str(k) for k in T._FP32_SOFTMAX_L1_REFUSED)
     res["transpose_l1_refused_keys"] = sorted(
