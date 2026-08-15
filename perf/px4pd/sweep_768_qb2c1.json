@@ -1,0 +1,65 @@
+{
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "chip": "1",
+ "size": 768,
+ "grid": [
+  11,
+  10
+ ],
+ "n_trimul_instances": 116,
+ "wall": 0,
+ "master_switch": true,
+ "shipped_default_gated_move": [
+  true
+ ],
+ "timed_region": "predict_one (featurize + fold + CIF write)",
+ "runs": [
+  {
+   "arm": "off",
+   "fold_s": 132.922,
+   "plddt": 0.787723,
+   "n_tokens": 768,
+   "cif_sha256": {
+    "cdk2x2_768.cif": "6697ecc2892d2993"
+   },
+   "transpose": {
+    "headroom": 2.5,
+    "l1": 0,
+    "dram": 1208,
+    "refused": 0
+   },
+   "gated": {
+    "enabled": true,
+    "served": 0,
+    "declined": 0,
+    "rejects": {}
+   },
+   "wall_ms": {},
+   "phases": null
+  },
+  {
+   "arm": "ontr",
+   "fold_s": 121.934,
+   "plddt": 0.787723,
+   "n_tokens": 768,
+   "cif_sha256": {
+    "cdk2x2_768.cif": "6697ecc2892d2993"
+   },
+   "transpose": {
+    "headroom": 1.25,
+    "l1": 160,
+    "dram": 1048,
+    "refused": 0
+   },
+   "gated": {
+    "enabled": true,
+    "served": 4512,
+    "declined": 0,
+    "rejects": {}
+   },
+   "wall_ms": {},
+   "phases": null
+  }
+ ]
+}

@@ -1,0 +1,164 @@
+{
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "chip": "1",
+ "size": 512,
+ "grid": [
+  11,
+  10
+ ],
+ "n_trimul_instances": 116,
+ "master_switch": true,
+ "runs": [
+  {
+   "arm": "off",
+   "fold_s": 58.228,
+   "plddt": 0.828628,
+   "n_tokens": 512,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "98c33a481fa1fd27"
+   },
+   "gated": {
+    "enabled": true,
+    "served": 0,
+    "declined": 0,
+    "rejects": {}
+   },
+   "wall_ms": {
+    "body:TriangleAttention": {
+     "calls": 1208,
+     "ms": 12432.5
+    },
+    "body:TriangleMultiplication": {
+     "calls": 1208,
+     "ms": 19873.1
+    }
+   }
+  },
+  {
+   "arm": "on",
+   "fold_s": 53.181,
+   "plddt": 0.828628,
+   "n_tokens": 512,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "98c33a481fa1fd27"
+   },
+   "gated": {
+    "enabled": true,
+    "served": 2416,
+    "declined": 0,
+    "rejects": {}
+   },
+   "wall_ms": {
+    "body:TriangleAttention": {
+     "calls": 1208,
+     "ms": 12447.61
+    },
+    "body:TriangleMultiplication": {
+     "calls": 1208,
+     "ms": 14754.02
+    }
+   }
+  },
+  {
+   "arm": "off",
+   "fold_s": 58.227,
+   "plddt": 0.828628,
+   "n_tokens": 512,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "98c33a481fa1fd27"
+   },
+   "gated": {
+    "enabled": true,
+    "served": 0,
+    "declined": 0,
+    "rejects": {}
+   },
+   "wall_ms": {
+    "body:TriangleAttention": {
+     "calls": 1208,
+     "ms": 12430.11
+    },
+    "body:TriangleMultiplication": {
+     "calls": 1208,
+     "ms": 19875.47
+    }
+   }
+  },
+  {
+   "arm": "on",
+   "fold_s": 52.664,
+   "plddt": 0.828628,
+   "n_tokens": 512,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "98c33a481fa1fd27"
+   },
+   "gated": {
+    "enabled": true,
+    "served": 2416,
+    "declined": 0,
+    "rejects": {}
+   },
+   "wall_ms": {
+    "body:TriangleAttention": {
+     "calls": 1208,
+     "ms": 12439.15
+    },
+    "body:TriangleMultiplication": {
+     "calls": 1208,
+     "ms": 14268.2
+    }
+   }
+  },
+  {
+   "arm": "off",
+   "fold_s": 58.273,
+   "plddt": 0.828628,
+   "n_tokens": 512,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "98c33a481fa1fd27"
+   },
+   "gated": {
+    "enabled": true,
+    "served": 0,
+    "declined": 0,
+    "rejects": {}
+   },
+   "wall_ms": {
+    "body:TriangleAttention": {
+     "calls": 1208,
+     "ms": 12440.72
+    },
+    "body:TriangleMultiplication": {
+     "calls": 1208,
+     "ms": 19882.7
+    }
+   }
+  },
+  {
+   "arm": "on",
+   "fold_s": 52.67,
+   "plddt": 0.828628,
+   "n_tokens": 512,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "98c33a481fa1fd27"
+   },
+   "gated": {
+    "enabled": true,
+    "served": 2416,
+    "declined": 0,
+    "rejects": {}
+   },
+   "wall_ms": {
+    "body:TriangleAttention": {
+     "calls": 1208,
+     "ms": 12434.72
+    },
+    "body:TriangleMultiplication": {
+     "calls": 1208,
+     "ms": 14269.31
+    }
+   }
+  }
+ ]
+}
