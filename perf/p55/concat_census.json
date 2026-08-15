@@ -1,0 +1,26 @@
+{
+  "rows": [
+    {
+      "site": "model.py:2279",
+      "dim": -1,
+      "logical_widths": [
+        128,
+        160
+      ],
+      "padded_widths": [
+        128,
+        160
+      ],
+      "aligned": true,
+      "calls_per_step": 2.0,
+      "ms_per_step": 3.061
+    }
+  ],
+  "counted_steps": 3,
+  "atoms": 6051,
+  "misaligned_ms_per_step": 0,
+  "host": "qb2",
+  "card": 0,
+  "ttnn": "0.68.0",
+  "torch": "2.13.0+cpu"
+}
