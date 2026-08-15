@@ -41,17 +41,24 @@ def main() -> int:
     seq = (UBIQUITIN * reps)[:args.residues]
     sequences = {f"seq{i}": seq for i in range(args.n_seqs)}
 
+    # Probe each accessor on its own: a MeshDevice does not expose the same set a Device
+    # does (num_dram_channels is absent on the mesh handle), and one missing name must not
+    # cost the others. None of this decides the availability answer.
     try:
-        import ttnn
-
         from tt_bio.tenstorrent import get_device
         dev = get_device()
-        res["dram_channels"] = int(dev.num_dram_channels())
-        res["dram_bytes_per_channel"] = int(dev.dram_size_per_channel())
-        res["dram_total_GB"] = round(
-            res["dram_channels"] * res["dram_bytes_per_channel"] / 1e9, 2)
-        res["arch_str"] = str(dev.arch())
-    except Exception as exc:  # a probe of the budget must not decide the availability answer
+        for name in ("arch", "dram_grid_size", "num_dram_channels",
+                     "dram_size_per_channel", "compute_with_storage_grid_size"):
+            try:
+                res[name] = str(getattr(dev, name)())
+            except Exception as exc:
+                res[name] = f"unavailable: {type(exc).__name__}"
+        try:
+            chans = dev.dram_grid_size().x * dev.dram_grid_size().y
+            res["dram_total_GB"] = round(chans * dev.dram_size_per_channel() / 1e9, 2)
+        except Exception as exc:
+            res["dram_total_GB"] = f"unavailable: {type(exc).__name__}"
+    except Exception as exc:
         res["dram_probe_error"] = f"{type(exc).__name__}: {exc}"
 
     try:

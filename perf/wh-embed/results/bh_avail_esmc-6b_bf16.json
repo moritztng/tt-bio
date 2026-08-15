@@ -1,0 +1,20 @@
+{
+  "model": "esmc-6b",
+  "fast": false,
+  "arch": "blackhole",
+  "visible_devices": "2",
+  "n_seqs": 2,
+  "residues": 76,
+  "loaded": true,
+  "embedded": true,
+  "error": null,
+  "error_type": null,
+  "dram_probe_error": "AttributeError: 'MeshDevice' object has no attribute 'num_dram_channels'",
+  "load_s": 25.4,
+  "embed_s": 1.19,
+  "d_model": 2560,
+  "per_residue_shape": [
+    76,
+    2560
+  ]
+}
