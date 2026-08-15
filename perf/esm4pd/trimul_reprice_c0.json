@@ -1,0 +1,209 @@
+{
+ "host": "tt-quietbox",
+ "card": "0",
+ "ttnn": "?",
+ "grid": [
+  13,
+  10
+ ],
+ "L": 512,
+ "c_z": 256,
+ "n": 6,
+ "warm": 3,
+ "reps": 3,
+ "pair_mb": 128.0,
+ "roofs": {
+  "add_2r1w": {
+   "ms": 0.9413,
+   "MB": 384.0,
+   "GBps": 427.7
+  },
+  "clone_1r1w": {
+   "ms": 0.6585,
+   "MB": 256.0,
+   "GBps": 407.6
+  },
+  "mul_2r1w": {
+   "ms": 0.9557,
+   "MB": 384.0,
+   "GBps": 421.3
+  }
+ },
+ "dram_roof_GBps": 427.7,
+ "shape": {
+  "hidden": 256,
+  "chunk_size": 32,
+  "n_pairs": 8,
+  "group": 8,
+  "groups": 1,
+  "dram": true,
+  "host_concat": false,
+  "SEQ_LEN_MORE_CHUNKING": 1536,
+  "row_norm": false
+ },
+ "trimul": {
+  "start": {
+   "wall_ms_batched": 14.0023,
+   "taped_sum_ms": 43.3215,
+   "oversync_ratio": 3.0939,
+   "scale": 0.3232,
+   "reblock_stats_served_declined": {
+    "gated": [
+     2,
+     0
+    ],
+    "fwd": [
+     0,
+     0
+    ],
+    "back": [
+     1,
+     0
+    ]
+   },
+   "reblock_back_inner_ms": {
+    "REBLOCK_back[1x256x512x512]->-": 1.5759
+   },
+   "ops": [
+    {
+     "tag": "linear[1x512x512x256@256x256]->DRAM",
+     "n": 2,
+     "ms": 28.9124,
+     "ms_scaled": 9.345,
+     "share": 0.6674
+    },
+    {
+     "tag": "E6_gated_move[1x512x512x1024]->DRAM",
+     "n": 2,
+     "ms": 3.9059,
+     "ms_scaled": 1.2625,
+     "share": 0.0902
+    },
+    {
+     "tag": "minimal_matmul[1x512x512x256@256x1024]->DRAM",
+     "n": 1,
+     "ms": 2.9219,
+     "ms_scaled": 0.9444,
+     "share": 0.0674
+    },
+    {
+     "tag": "layer_norm[1x512x512x256]",
+     "n": 2,
+     "ms": 1.977,
+     "ms_scaled": 0.639,
+     "share": 0.0456
+    },
+    {
+     "tag": "matmul[1x256x512x512@1x256x512x512]->DRAM",
+     "n": 1,
+     "ms": 1.9119,
+     "ms_scaled": 0.618,
+     "share": 0.0441
+    },
+    {
+     "tag": "_channel_move_back[1x256x512x512]",
+     "n": 1,
+     "ms": 1.6977,
+     "ms_scaled": 0.5487,
+     "share": 0.0392
+    },
+    {
+     "tag": "multiply_[1x512x512x256]",
+     "n": 1,
+     "ms": 1.076,
+     "ms_scaled": 0.3478,
+     "share": 0.0248
+    },
+    {
+     "tag": "transpose(-2,-1)[1x256x512x512]->DRAM",
+     "n": 1,
+     "ms": 0.9187,
+     "ms_scaled": 0.2969,
+     "share": 0.0212
+    }
+   ]
+  },
+  "end": {
+   "wall_ms_batched": 13.9977,
+   "taped_sum_ms": 16.6046,
+   "oversync_ratio": 1.1862,
+   "scale": 0.843,
+   "reblock_stats_served_declined": {
+    "gated": [
+     2,
+     0
+    ],
+    "fwd": [
+     0,
+     0
+    ],
+    "back": [
+     1,
+     0
+    ]
+   },
+   "reblock_back_inner_ms": {
+    "REBLOCK_back[1x256x512x512]->-": 1.6408
+   },
+   "ops": [
+    {
+     "tag": "E6_gated_move[1x512x512x1024]->DRAM",
+     "n": 2,
+     "ms": 3.8847,
+     "ms_scaled": 3.2748,
+     "share": 0.234
+    },
+    {
+     "tag": "minimal_matmul[1x512x512x256@256x1024]->DRAM",
+     "n": 1,
+     "ms": 2.9902,
+     "ms_scaled": 2.5207,
+     "share": 0.1801
+    },
+    {
+     "tag": "linear[1x512x512x256@256x256]->DRAM",
+     "n": 2,
+     "ms": 2.1521,
+     "ms_scaled": 1.8142,
+     "share": 0.1296
+    },
+    {
+     "tag": "layer_norm[1x512x512x256]",
+     "n": 2,
+     "ms": 2.0185,
+     "ms_scaled": 1.7016,
+     "share": 0.1216
+    },
+    {
+     "tag": "matmul[1x256x512x512@1x256x512x512]->DRAM",
+     "n": 1,
+     "ms": 1.8201,
+     "ms_scaled": 1.5343,
+     "share": 0.1096
+    },
+    {
+     "tag": "_channel_move_back[1x256x512x512]",
+     "n": 1,
+     "ms": 1.7378,
+     "ms_scaled": 1.465,
+     "share": 0.1047
+    },
+    {
+     "tag": "multiply_[1x512x512x256]",
+     "n": 1,
+     "ms": 1.0782,
+     "ms_scaled": 0.9089,
+     "share": 0.0649
+    },
+    {
+     "tag": "transpose(-2,-1)[1x256x512x512]->DRAM",
+     "n": 1,
+     "ms": 0.923,
+     "ms_scaled": 0.7781,
+     "share": 0.0556
+    }
+   ]
+  }
+ },
+ "mean_wall_ms": 14.0
+}
