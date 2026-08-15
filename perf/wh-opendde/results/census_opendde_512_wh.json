@@ -1,0 +1,193 @@
+{
+ "ttnn": "0.68.0",
+ "host": "UF-EV-A13-GWH02",
+ "card": "27",
+ "model": "opendde",
+ "recycling_steps": 10,
+ "sampling_steps": 200,
+ "timers_installed": [
+  "L1:trunk_cond",
+  "L1:expand_refine",
+  "L1:diff_pair_cond",
+  "L1:denoise",
+  "L1:denoise_mult",
+  "L1:denoise_traced",
+  "L1:confidence",
+  "L1:confidence_dev",
+  "L1:plddt",
+  "L2:Trunk",
+  "L2:trunk_msa",
+  "L2:trunk_template",
+  "L2:TrunkInput",
+  "L2:expander",
+  "L2:atom_cond",
+  "L3:Pairformer",
+  "L3:TriangleMultiplication",
+  "L3:TriangleAttention",
+  "L3:AttentionPairBias",
+  "L3:PairWeightedAveraging",
+  "L3:Transition"
+ ],
+ "timers_missing": [],
+ "runs": [
+  {
+   "size": 512,
+   "tag": "512",
+   "iter": 0,
+   "instrumented_fold_s": 193.916,
+   "n_tokens": 512,
+   "plddt": 0.767214,
+   "cif_sha256": "1063e5fed9af3cec",
+   "l1_partition_ms": {
+    "L1:denoise": {
+     "calls": 200,
+     "ms": 25217.49
+    },
+    "L1:expand_refine": {
+     "calls": 1,
+     "ms": 9476.65
+    },
+    "L1:confidence": {
+     "calls": 1,
+     "ms": 2996.83
+    },
+    "L1:diff_pair_cond": {
+     "calls": 1,
+     "ms": 2173.48
+    }
+   },
+   "l1_sum_ms": 39864.45,
+   "l1_remainder_ms": 154051.19,
+   "l1_closure_pct": 20.56,
+   "trimul_inproj_groups": {
+    "S=512,n_pairs=2->g=2": 160,
+    "S=512,n_pairs=12->g=12": 1048,
+    "S=995,n_pairs=12->g=4": 16
+   },
+   "reblock_fwd": [
+    true,
+    [
+     0,
+     48
+    ]
+   ],
+   "gated_kernel": [
+    true,
+    [
+     4928,
+     0
+    ]
+   ],
+   "head_major_qkv": {
+    "enabled": true,
+    "served": 2112,
+    "declined": 336,
+    "rejects": {
+     "no_mm_config:(512, 512, 64)": 320,
+     "no_mm_config:(483, 995, 384)": 16
+    },
+    "tail_served": 2112,
+    "tail_declined": 0
+   },
+   "persistent_mask": {
+    "enabled": true,
+    "served": 2448,
+    "declined": 64,
+    "rejects": {
+     "l1_budget:(512, 12, 995, 32)": 2,
+     "pm_over_l1:(483, 12, 995, 32)": 32,
+     "pm_over_l1:(512, 12, 995, 32)": 30
+    }
+   },
+   "fp32_softmax_chain": {
+    "calls": 0,
+    "blocked": 0,
+    "blocks": 0,
+    "fused": 0,
+    "unfused": 0,
+    "l1": 0,
+    "l1_blocks": 0,
+    "l1_refused": 0
+   },
+   "loadavg": [
+    "9.37",
+    "7.49",
+    "7.73"
+   ],
+   "wall_ms": {
+    "L2:Trunk": {
+     "calls": 1,
+     "ms": 149957.62
+    },
+    "L3:Pairformer|S=512": {
+     "calls": 11,
+     "ms": 130101.33
+    },
+    "L3:TriangleMultiplication": {
+     "calls": 1216,
+     "ms": 54024.25
+    },
+    "L3:TriangleAttention": {
+     "calls": 1216,
+     "ms": 44643.83
+    },
+    "L3:Transition": {
+     "calls": 1538,
+     "ms": 41079.68
+    },
+    "L1:denoise": {
+     "calls": 200,
+     "ms": 25217.49
+    },
+    "L3:AttentionPairBias": {
+     "calls": 5288,
+     "ms": 16573.27
+    },
+    "L2:trunk_msa": {
+     "calls": 10,
+     "ms": 15149.37
+    },
+    "L1:expand_refine": {
+     "calls": 1,
+     "ms": 9476.65
+    },
+    "L3:Pairformer|S=995": {
+     "calls": 1,
+     "ms": 6825.23
+    },
+    "L2:trunk_template": {
+     "calls": 10,
+     "ms": 3827.53
+    },
+    "L1:confidence": {
+     "calls": 1,
+     "ms": 2996.83
+    },
+    "L2:expander": {
+     "calls": 1,
+     "ms": 2651.0
+    },
+    "L1:diff_pair_cond": {
+     "calls": 1,
+     "ms": 2173.48
+    },
+    "L3:PairWeightedAveraging": {
+     "calls": 40,
+     "ms": 1545.52
+    },
+    "L2:atom_cond": {
+     "calls": 200,
+     "ms": 247.23
+    },
+    "L2:TrunkInput": {
+     "calls": 1,
+     "ms": 24.22
+    }
+   }
+  }
+ ],
+ "grid": [
+  8,
+  9
+ ]
+}
