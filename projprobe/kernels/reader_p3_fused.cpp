@@ -26,7 +26,11 @@ void kernel_main() {
     constexpr uint32_t mdlX = get_compile_time_arg_val(9);
     constexpr uint32_t mdlXY = get_compile_time_arg_val(10);
     constexpr uint32_t mdl_pages = get_compile_time_arg_val(11);
-    constexpr auto e_args = TensorAccessorArgs<12>();
+    // Ablation selector, for §8.15's cost attribution. Bit 0 drops the per-block zero-fill, bit 1
+    // drops the NoC reads, bit 2 drops the parity-select pointer copies. Any nonzero value makes the
+    // kernel WRONG on purpose; these arms measure where the time goes, nothing else.
+    constexpr uint32_t abl = get_compile_time_arg_val(12);
+    constexpr auto e_args = TensorAccessorArgs<13>();
     constexpr auto x_args = TensorAccessorArgs<e_args.next_compile_time_args_offset()>();
     constexpr auto c_args = TensorAccessorArgs<x_args.next_compile_time_args_offset()>();
     constexpr auto m_args = TensorAccessorArgs<c_args.next_compile_time_args_offset()>();
@@ -82,9 +86,17 @@ void kernel_main() {
         cb_reserve_back(cb_slot, 8);
         const uint32_t sp = get_write_ptr(cb_slot);
 
-        volatile tt_l1_ptr uint32_t *sz = reinterpret_cast<volatile tt_l1_ptr uint32_t *>(sp);
-        for (uint32_t i = 0; i < 8 * (tile_bytes / 4); ++i) {
-            sz[i] = 0;
+        // The zero-fill is hoisted: it only has to run while the CB slots are still uninitialised
+        // L1, because after that any stale value a skipped pair leaves behind is a finite number from
+        // an earlier block and the radius mask multiplies it out. Running it every block cost
+        // 35.5 ns/pair (§8.15) for nothing.
+        if constexpr ((abl & 1u) == 0u) {
+            if (b < 2) {
+                volatile tt_l1_ptr uint32_t *sz = reinterpret_cast<volatile tt_l1_ptr uint32_t *>(sp);
+                for (uint32_t i = 0; i < 8 * (tile_bytes / 4); ++i) {
+                    sz[i] = 0;
+                }
+            }
         }
 
         volatile tt_l1_ptr uint32_t *av = reinterpret_cast<volatile tt_l1_ptr uint32_t *>(ap);
@@ -98,12 +110,14 @@ void kernel_main() {
                 const uint32_t v0 = idx + xoff[j];
                 const uint32_t a = v0 & ~1u;
                 base[j] = (v0 - a) * 2;
-                noc_async_read(get_noc_addr(mdl_l1 + (a << 3)), scr + j * 32, 16);
-                noc_async_read(get_noc_addr(mdl_l1 + ((a + 2) << 3)), scr + j * 32 + 16, 16);
+                if constexpr ((abl & 2u) == 0u) {
+                    noc_async_read(get_noc_addr(mdl_l1 + (a << 3)), scr + j * 32, 16);
+                    noc_async_read(get_noc_addr(mdl_l1 + ((a + 2) << 3)), scr + j * 32 + 16, 16);
+                }
             }
             noc_async_read_barrier();
             const uint32_t dst_w = 2 * k;
-            for (uint32_t j = 0; j < 4; ++j) {
+            for (uint32_t j = 0; j < 4 && ((abl & 4u) == 0u); ++j) {
                 const uint32_t o = j * 8 + base[j];
                 volatile tt_l1_ptr uint32_t *d0 =
                     reinterpret_cast<volatile tt_l1_ptr uint32_t *>(sp + (2 * j) * tile_bytes) + dst_w;

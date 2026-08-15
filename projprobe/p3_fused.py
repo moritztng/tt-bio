@@ -134,7 +134,7 @@ def main():
         pd = ttnn.ProgramDescriptor(kernels=[
             mk(KDIR / "reader_p3_fused.cpp",
                [CB_E, CB_XY, CB_C, CB_ADDR, CB_SLOT, CB_MDL, CB_SCR, TB, N_BLOCKS,
-                MDLX, MDLXY, mdl_pages] + ea + xa + ca + ma, rrt, ttnn.ReaderConfigDescriptor()),
+                MDLX, MDLXY, mdl_pages, 0] + ea + xa + ca + ma, rrt, ttnn.ReaderConfigDescriptor()),
             mk(KDIR / "compute_p3_fused.cpp", [N_BLOCKS], crt, cc_),
             mk(KDIR / "writer_p1_out.cpp", [CB_OUT, TB, N_BLOCKS, 1] + oa, wrt,
                ttnn.WriterConfigDescriptor()),

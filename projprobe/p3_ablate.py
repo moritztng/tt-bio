@@ -46,6 +46,8 @@ NVOX = MDLXY * MDLZ
 INIT = -8
 ORIGIN = -INIT * MDLXY - INIT * MDLX
 MAXR2 = 49
+import os
+ABL = int(os.environ.get('ABL', '0'))
 N_BLOCKS = 200        # enough blocks that the per-block cost dominates program setup
 PPT = 16
 
@@ -148,7 +150,7 @@ def main():
         pd = ttnn.ProgramDescriptor(kernels=[
             mk(KDIR / "reader_p3_fused.cpp",
                [CB_E, CB_XY, CB_C, CB_ADDR, CB_SLOT, CB_MDL, CB_SCR, TB, N_BLOCKS,
-                MDLX, MDLXY, mdl_pages, 0] + ea + xa + ca + ma, rrt, ttnn.ReaderConfigDescriptor()),
+                MDLX, MDLXY, mdl_pages, ABL] + ea + xa + ca + ma, rrt, ttnn.ReaderConfigDescriptor()),
             mk(KDIR / "compute_p3_fused.cpp", [N_BLOCKS], crt, cc_),
             mk(KDIR / "writer_p1_out.cpp", [CB_OUT, TB, N_BLOCKS, 1] + oa, wrt,
                ttnn.WriterConfigDescriptor()),
@@ -167,16 +169,15 @@ def main():
         got = ttnn.to_torch(tout).numpy().reshape(N_BLOCKS, 32, 32)
         pairs = N_BLOCKS * 512
         ns_pair = best / pairs * 1e9
-        print("fused wall %.3f ms for %d pairs -> %.1f ns/pair (1 core, 1 gather RISC)"
-              % (best * 1e3, pairs, ns_pair), flush=True)
-        print("composed estimate for this configuration: 8 reads x 36.7 ns = 293.6 ns/pair gather, "
-              "single-RISC", flush=True)
+        print("ABL=%d  %.1f ns/pair" % (ABL, ns_pair), flush=True)
+
     finally:
         ttnn.close_device(dev)
 
     nz_w, nz_g = float((want != 0).mean()), float((got != 0).mean())
     print("non-zero fraction: want %.3f  got %.3f" % (nz_w, nz_g), flush=True)
-    assert nz_w > 0.4 and nz_g > 0.4, "vacuous comparison -- one side is mostly zero"
+    if ABL == 0:
+        assert nz_w > 0.4 and nz_g > 0.4, "vacuous comparison -- one side is mostly zero"
     e = float(np.abs(got - want).max())
     r = e / float(np.abs(want).max())
     print("fused ref  max_abs %.6e  max_rel %.6e  bit-exact %s" % (e, r, e == 0.0), flush=True)
