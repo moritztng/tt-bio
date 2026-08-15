@@ -1,0 +1,119 @@
+{
+ "anchor": {
+  "plddt": 0.547851,
+  "cif": "da9b4ed68f8c0405"
+ },
+ "host": "tt-quietbox2",
+ "card": "3",
+ "folds": [
+  {
+   "tag": "cold0",
+   "pool": false,
+   "threads": 0,
+   "fold_s": 41.453,
+   "build_features_s": 1.83,
+   "plddt": 0.547851,
+   "cif": [
+    "da9b4ed68f8c0405"
+   ],
+   "matches_anchor": true
+  },
+  {
+   "tag": "cold1",
+   "pool": true,
+   "threads": 24,
+   "fold_s": 39.287,
+   "build_features_s": 0.492,
+   "plddt": 0.547851,
+   "cif": [
+    "da9b4ed68f8c0405"
+   ],
+   "matches_anchor": true
+  },
+  {
+   "tag": "w0a",
+   "pool": false,
+   "threads": 0,
+   "fold_s": 39.967,
+   "build_features_s": 1.175,
+   "plddt": 0.547851,
+   "cif": [
+    "da9b4ed68f8c0405"
+   ],
+   "matches_anchor": true
+  },
+  {
+   "tag": "w0b",
+   "pool": true,
+   "threads": 24,
+   "fold_s": 39.29,
+   "build_features_s": 0.481,
+   "plddt": 0.547851,
+   "cif": [
+    "da9b4ed68f8c0405"
+   ],
+   "matches_anchor": true
+  },
+  {
+   "tag": "w1a",
+   "pool": false,
+   "threads": 0,
+   "fold_s": 39.942,
+   "build_features_s": 1.171,
+   "plddt": 0.547851,
+   "cif": [
+    "da9b4ed68f8c0405"
+   ],
+   "matches_anchor": true
+  },
+  {
+   "tag": "w1b",
+   "pool": true,
+   "threads": 24,
+   "fold_s": 39.253,
+   "build_features_s": 0.475,
+   "plddt": 0.547851,
+   "cif": [
+    "da9b4ed68f8c0405"
+   ],
+   "matches_anchor": true
+  },
+  {
+   "tag": "w2a",
+   "pool": false,
+   "threads": 0,
+   "fold_s": 39.902,
+   "build_features_s": 1.167,
+   "plddt": 0.547851,
+   "cif": [
+    "da9b4ed68f8c0405"
+   ],
+   "matches_anchor": true
+  },
+  {
+   "tag": "w2b",
+   "pool": true,
+   "threads": 24,
+   "fold_s": 39.407,
+   "build_features_s": 0.615,
+   "plddt": 0.547851,
+   "cif": [
+    "da9b4ed68f8c0405"
+   ],
+   "matches_anchor": true
+  }
+ ],
+ "pool_False": {
+  "fold_median": 39.942,
+  "fold_spread": 0.065,
+  "feat_median": 1.171
+ },
+ "pool_True": {
+  "fold_median": 39.29,
+  "fold_spread": 0.154,
+  "feat_median": 0.481
+ },
+ "fold_delta_s": 0.652,
+ "feat_delta_s": 0.69,
+ "ratio": 1.01659
+}

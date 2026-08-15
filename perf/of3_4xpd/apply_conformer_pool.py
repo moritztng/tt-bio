@@ -77,11 +77,12 @@ import threading''')
 # ---- query.py: compute the residues' reference molecules on a pool ----
 sub(Q,
 '''# One reference conformer per residue TYPE instead of one per residue.''',
-'''# Residues whose reference conformer is computed concurrently. 0 keeps the sequential
-# path. Every conformer is still computed -- this changes WHERE the work runs, not what it
-# produces, so it is bit-exact whenever no residue redraws its seed (0 of 512 on the page
-# fixture, and on any all-canonical protein).
-CONFORMER_THREADS = 0
+'''# Residues whose reference conformer is computed concurrently. Every conformer is still
+# computed -- this changes WHERE the work runs, not what it produces, so it is bit-exact
+# whenever no residue redraws its seed (0 of 512 on the page fixture, and on any
+# all-canonical protein). 0 keeps the sequential path. 24 is where the scaling stops on a
+# 32-core host; a smaller box gets its own core count.
+CONFORMER_THREADS = min(24, os.cpu_count() or 1)
 
 
 def _pooled_reference_molecules(jobs: list) -> list:
@@ -118,6 +119,7 @@ sub(Q,
 import logging''',
 '''import dataclasses
 import logging
+import os
 import random
 from concurrent.futures import ThreadPoolExecutor''')
 
