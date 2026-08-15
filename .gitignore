@@ -79,3 +79,4 @@ perf/p2/
 /bench_*.sh
 /ab_*.sh
 scratch/
+.msa_px4pd_*/

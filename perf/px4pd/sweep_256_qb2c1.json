@@ -1,0 +1,119 @@
+{
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "chip": "1",
+ "size": 256,
+ "grid": [
+  11,
+  10
+ ],
+ "n_trimul_instances": 116,
+ "wall": 0,
+ "master_switch": true,
+ "shipped_default_gated_move": [
+  true
+ ],
+ "timed_region": "predict_one (featurize + fold + CIF write)",
+ "runs": [
+  {
+   "arm": "off",
+   "fold_s": 17.016,
+   "plddt": 0.606308,
+   "n_tokens": 256,
+   "cif_sha256": {
+    "cdk2x2_256.cif": "bb96c8642c096d4a"
+   },
+   "transpose": {
+    "headroom": 2.5,
+    "l1": 1208,
+    "dram": 0,
+    "refused": 0
+   },
+   "gated": {
+    "enabled": true,
+    "served": 0,
+    "declined": 0,
+    "rejects": {
+     "('window_BufferType.L1', (1, 256, 256, 64))": 4352
+    }
+   },
+   "wall_ms": {},
+   "phases": null
+  },
+  {
+   "arm": "ontr",
+   "fold_s": 17.065,
+   "plddt": 0.606308,
+   "n_tokens": 256,
+   "cif_sha256": {
+    "cdk2x2_256.cif": "bb96c8642c096d4a"
+   },
+   "transpose": {
+    "headroom": 1.25,
+    "l1": 1208,
+    "dram": 0,
+    "refused": 0
+   },
+   "gated": {
+    "enabled": true,
+    "served": 0,
+    "declined": 0,
+    "rejects": {
+     "('window_BufferType.L1', (1, 256, 256, 64))": 4352
+    }
+   },
+   "wall_ms": {},
+   "phases": null
+  },
+  {
+   "arm": "off",
+   "fold_s": 17.044,
+   "plddt": 0.606308,
+   "n_tokens": 256,
+   "cif_sha256": {
+    "cdk2x2_256.cif": "bb96c8642c096d4a"
+   },
+   "transpose": {
+    "headroom": 2.5,
+    "l1": 1208,
+    "dram": 0,
+    "refused": 0
+   },
+   "gated": {
+    "enabled": true,
+    "served": 0,
+    "declined": 0,
+    "rejects": {
+     "('window_BufferType.L1', (1, 256, 256, 64))": 4352
+    }
+   },
+   "wall_ms": {},
+   "phases": null
+  },
+  {
+   "arm": "ontr",
+   "fold_s": 17.027,
+   "plddt": 0.606308,
+   "n_tokens": 256,
+   "cif_sha256": {
+    "cdk2x2_256.cif": "bb96c8642c096d4a"
+   },
+   "transpose": {
+    "headroom": 1.25,
+    "l1": 1208,
+    "dram": 0,
+    "refused": 0
+   },
+   "gated": {
+    "enabled": true,
+    "served": 0,
+    "declined": 0,
+    "rejects": {
+     "('window_BufferType.L1', (1, 256, 256, 64))": 4352
+    }
+   },
+   "wall_ms": {},
+   "phases": null
+  }
+ ]
+}

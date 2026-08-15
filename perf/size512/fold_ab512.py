@@ -106,6 +106,7 @@ def sha_dir(d: Path):
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--model", default="protenix-v2", help="any model tt_baseline.build_fold loads")
     ap.add_argument("--sizes", default="512", help="comma list of fixture token counts")
     ap.add_argument("--arms", default="on,on,off", help="comma list, run in this order per size")
     ap.add_argument("--fixdir", type=Path, default=ROOT / "perf" / "size512" / "fixtures")
@@ -116,6 +117,20 @@ def main():
     import tt_bio.tenstorrent as T
     import tt_bio.protenix as P
     import tt_baseline as B
+
+    import os
+    from tt_bio.main import (_detect_p300_devices, _find_ttnn_mesh_graph_descriptor,
+                             _resolve_recycling_steps, _resolve_sampling_steps)
+    if _detect_p300_devices() and not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
+        mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
+        if mgd:
+            os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
+    B.RECYCLING_STEPS = _resolve_recycling_steps(None, a.model)
+    B.SAMPLING_STEPS = _resolve_sampling_steps(None, a.model)
+    if a.model == "boltz2":
+        sys.path.insert(0, str(ROOT / "perf" / "other512"))
+        import fold_ab_multi as _FAM
+        _FAM.patch_boltz2_cfg()
 
     # ---- decision counters: read the branch actually taken, do not infer it from the shape ----
     ORIG_TMC = T._transpose_memory_config
@@ -136,8 +151,8 @@ def main():
             "L1" if in_l1 else "DRAM"] += 1
         return out, in_l1
 
-    def ppc(x, w, bw_cap=-1, out_l1=False):
-        cfg = ORIG_PPC(x, w, bw_cap=bw_cap, out_l1=out_l1)
+    def ppc(x, w, bw_cap=-1, out_l1=False, **kw):
+        cfg = ORIG_PPC(x, w, bw_cap=bw_cap, out_l1=out_l1, **kw)
         if out_l1:
             DEC[f"pair_proj_out_l1|{'x'.join(str(int(d)) for d in x.shape)}"
                 f"@{int(list(w.shape)[-1])}"]["L1" if cfg is not None else "DRAM"] += 1
@@ -261,7 +276,8 @@ def main():
         m = STATE["model"]
         if m is None:
             return {}
-        out = {"trunk": str(m.trunk.compute_kernel_config.math_fidelity)}
+        trunk = getattr(m, "trunk", None)
+        out = {"trunk": str(trunk.compute_kernel_config.math_fidelity)} if trunk is not None else {}
         dit = getattr(getattr(m, "diffusion", None), "_dit_ckc", None)
         if dit is not None:
             out["diffusion"] = str(dit.math_fidelity)
@@ -276,13 +292,14 @@ def main():
            "chip": os.environ.get("TT_VISIBLE_DEVICES", "?"),
            "note": "qb1 (tt-quietbox) is ttnn 0.67.4 and qb2 is 0.68.0 -- never put an absolute "
                    "from one in a table with the other; the arms in THIS file share a process",
-           "runs": []}
+           "model": a.model, "recycling_steps": B.RECYCLING_STEPS,
+           "sampling_steps": B.SAMPLING_STEPS, "runs": []}
 
     for size in [int(s) for s in a.sizes.split(",")]:
         tgt = a.fixdir / f"cdk2x2_{size}.yaml"
         a3m = a.fixdir / f"cdk2x2_{size}.a3m"
         set_arm("on")
-        one_fold, meta, state = B.build_fold("protenix-v2", ROOT / f".msa_s512_{size}", tgt, a3m)
+        one_fold, meta, state = B.build_fold(a.model, ROOT / f".msa_s512_{a.model}_{size}", tgt, a3m)
         STATE["dev"] = T.get_device()
         STATE["model"] = state.model
         struct_dir = Path(meta["struct_dir"])
@@ -294,7 +311,8 @@ def main():
             a.out.write_text(json.dumps(res, indent=1))
             print(f"  COLD FOLD FAILED at {size}: {type(e).__name__}: {str(e)[:300]}", flush=True)
             continue
-        assert cold_m.get("msa"), "fold ran without an MSA"
+        assert (a.model.startswith("esmfold2") or cold_m.get("msa")
+            or (a.model == "boltz2" and meta.get("n_msa"))), "fold ran without an MSA"
         print(f"  cold {cold_s:.2f}s n_tokens={cold_m.get('n_tokens')} plddt={cold_m.get('plddt')}",
               flush=True)
         WALL.clear()

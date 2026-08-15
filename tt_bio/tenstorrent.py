@@ -1013,8 +1013,31 @@ _PT_ROW_MAJOR = os.environ.get(
     "TT_BIO_PAIR_TRANSPOSE_RM", "1" if PAIR_TRANSPOSE_VIA_ROW_MAJOR else "0") == "1"
 
 
+# Pair-tensor shape classes whose L1 transpose destination the allocator refused once. The
+# static budget in `_l1_memory_config_if_it_fits` cannot see what the live block already holds,
+# so the honest test is the allocation itself; remembering the refusal keeps it to one attempt
+# per class per process, the same pattern `_L1_OUT_REFUSED` uses for the projections.
+_TRANSPOSE_L1_REFUSED: set = set()
+
+
 def _pair_transpose(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.Tensor:
-    """``permute(t, (1, 0, 2))``, through ROW_MAJOR where that wins. Bit-exact either way."""
+    """``permute(t, (1, 0, 2))``, through ROW_MAJOR where that wins. Bit-exact either way.
+
+    An L1 destination is asked for by `_transpose_memory_config` and can still be refused at
+    the call site, so the L1 attempt falls back to DRAM rather than killing the fold.
+    """
+    if memory_config.buffer_type == ttnn.BufferType.L1:
+        key = (tuple(t.padded_shape), str(t.dtype))
+        if key not in _TRANSPOSE_L1_REFUSED:
+            try:
+                return _pair_transpose_impl(t, memory_config)
+            except Exception:                                                   # noqa: BLE001
+                _TRANSPOSE_L1_REFUSED.add(key)
+        memory_config = ttnn.DRAM_MEMORY_CONFIG
+    return _pair_transpose_impl(t, memory_config)
+
+
+def _pair_transpose_impl(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.Tensor:
     if (_PT_ROW_MAJOR and len(t.shape) == 3
             and memory_config.buffer_type == ttnn.BufferType.DRAM
             and t.dtype == ttnn.bfloat16 and t.layout == ttnn.TILE_LAYOUT):
@@ -1033,10 +1056,17 @@ def _pair_transpose(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.Te
     return ttnn.permute(t, (1, 0, 2), memory_config=memory_config)
 
 
-# A/B knob only; the shipped value is 2.5 and nothing in the repo sets this. L1 total on an
-# 11x10 Blackhole grid is 168.57 MB (110 x 1 532 416 B), so the 512 aa pair tensor at
-# 134.22 MB is 79.6 % of it and the largest headroom that fits at all is 1.2559.
-_TRANSPOSE_L1_HEADROOM = float(os.environ.get("TT_BIO_TRANSPOSE_L1_HEADROOM", "2.5"))
+# L1 total on an 11x10 Blackhole grid is 168.57 MB (110 x 1 532 416 B), so the 512 aa pair
+# tensor at 134.22 MB is 79.6 % of it and the largest headroom that fits at all is 1.2559. At
+# the old 2.5 only 160 of protenix-v2's 1208 pair transposes per 512 aa fold could take the L1
+# route and the other 1048 always paid DRAM. 1.25 admits all 1208 with no allocator refusal,
+# and is worth 52.407 -> 51.062 s/fold on qb2 card 1, byte-identical
+# (perf/px4pd/e6_tr_qb2c1.json). 1.25 rather than 1.2559: the consumer's circular buffers come
+# out of the same banks, and the refusal fallback in `_pair_transpose` is what makes the
+# tight value safe.
+TRANSPOSE_L1_HEADROOM = 1.25
+_TRANSPOSE_L1_HEADROOM = float(
+    os.environ.get("TT_BIO_TRANSPOSE_L1_HEADROOM", str(TRANSPOSE_L1_HEADROOM)))
 
 
 def _transpose_memory_config(t: ttnn.Tensor) -> ttnn.MemoryConfig:
@@ -2124,12 +2154,17 @@ def _trimul_out_proj(
 # `p_out` and `g_out` never become tensors, so the tail reads 2 pair tensors and writes 1 instead of
 # 4 and 3. Bit-exact against the three ops it replaces -- `torch.equal` at 11 shapes from N=32 to
 # 576, `perf/trimul_f1/f1_parity.py`.
-# Default OFF. It is real but small: -679.47 ms on the trimul body wall at 512 aa, against a 33.46 ms
+# It is real but small: -679.47 ms on the trimul body wall at 512 aa, against a 33.46 ms
 # A/A floor, byte-identical CIF (`perf/trimul_f1/fold_ab_f1_main_qb1c1.json`). Deleted bytes
 # at this site return ~39 % of what the 271.5 GB/s write roof prices them at, which is why the
 # levers that would have been stacked on top of it (both layer norms inside the same kernel) were
-# repriced to ~-0.39 s each and not built. Flipping it on is a release-gate decision, not a default.
-TRIMUL_TAIL_F1 = False
+# repriced to ~-0.39 s each and not built.
+# Default ON since 2026-08-15, when the release gate ran: `torch.equal` at 14 shapes from N=32 to
+# 1024 on the release box, and at 512 aa esmfold2/protenix-v2 fire it with byte-identical CIFs
+# while boltz2/opendde/openfold3 never fire it at all (their trimuls are not kt=8, so the three
+# ops below run unchanged). ESMFold2 512 aa page cell 32.329 -> 31.994 s, median of 3
+# (`perf/trimul_f1/page_esmfold2_f1_qb2c2.json`).
+TRIMUL_TAIL_F1 = True
 _TRIMUL_TAIL_F1 = os.environ.get(
     "TT_BIO_TRIMUL_TAIL_F1", "1" if TRIMUL_TAIL_F1 else "0") == "1"
 

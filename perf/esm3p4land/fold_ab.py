@@ -21,7 +21,7 @@ sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
 
 # `ship` leaves the gate alone, so it measures whatever the module default currently is. That is
 # the arm the page publishes, and it is the only one that catches a default that did not land.
-ARMS = {"base": False, "l2": True, "ship": None}
+ARMS = {"base": False, "l2": True, "ship": None, "f1": None, "nof1": None}
 
 
 def sha_dir(d):
@@ -84,6 +84,12 @@ def main():
         EC.L1_FC1_STATS[0] = EC.L1_FC1_STATS[1] = 0
         RP.STATS[0] = RP.STATS[1] = 0
         RP.STATS_BACK[0] = RP.STATS_BACK[1] = 0
+        f1 = {"f1": True, "nof1": False}.get(arm)
+        if f1 is not None:
+            T._TRIMUL_TAIL_F1 = f1
+            import tt_bio.trimul_tail as F1M
+            F1M.STATS[0] = F1M.STATS[1] = 0
+            F1M.REJECTS.clear()
         fold_s, m = one_fold()
         row = {"tag": tag, "arm": arm, "l1_fc1": want,
                "fold_s": round(fold_s, 3), "plddt": m.get("plddt"), "cif": sha_dir(struct_dir),
@@ -91,6 +97,7 @@ def main():
                "l1_fc1_stats": list(EC.L1_FC1_STATS),
                "fwd_move": list(RP.STATS), "back_move": list(RP.STATS_BACK),
                "l1_out_refused": len(T._L1_OUT_REFUSED),
+               "trimul_tail_f1": (arm in ("f1", "nof1")) and list(F1M.STATS) or None,
                "loadavg": open("/proc/loadavg").read().split()[0]}
         res["runs"].append(row)
         a.out.write_text(json.dumps(res, indent=1))
