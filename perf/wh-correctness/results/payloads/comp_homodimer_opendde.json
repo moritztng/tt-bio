@@ -1,0 +1,1 @@
+{"model": "opendde", "name": "homodimer", "input": "sequences:\n  - protein: {id: [A, B], sequence: MTYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTEKPEVIDAS}\n"}

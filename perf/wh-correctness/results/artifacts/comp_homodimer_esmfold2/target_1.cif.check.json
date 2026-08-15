@@ -1,0 +1,70 @@
+{
+ "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/comp_homodimer_esmfold2/target_1.cif",
+ "checks": {
+  "n_atoms": 988,
+  "bbox_diagonal": 68.26,
+  "chains": [
+   {
+    "chain": "A",
+    "kind": "protein",
+    "n_res": 64,
+    "sequence": "MTYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTEKPEVIDAS",
+    "step_median": 3.787,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 0.9841,
+    "breaks": 0,
+    "rg": 12.84,
+    "rg_expected": 10.68,
+    "rg_ratio": 1.202,
+    "n_ca_bond_median": 1.457,
+    "ca_c_bond_median": 1.511
+   },
+   {
+    "chain": "B",
+    "kind": "protein",
+    "n_res": 64,
+    "sequence": "MTYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTEKPEVIDAS",
+    "step_median": 3.784,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 0.9841,
+    "breaks": 0,
+    "rg": 12.81,
+    "rg_expected": 10.68,
+    "rg_ratio": 1.199,
+    "n_ca_bond_median": 1.454,
+    "ca_c_bond_median": 1.512
+   }
+  ],
+  "clashes": {
+   "n": 2,
+   "heavy_atoms": 988,
+   "worst_dist": 1.39,
+   "threshold": 2.0
+  },
+  "confidence": {
+   "source": "b_factor",
+   "n": 988,
+   "min": 0.355,
+   "max": 0.8619,
+   "mean": 0.679,
+   "std": 0.1448,
+   "scale": 100.0
+  },
+  "expected": {
+   "chains": 2,
+   "ligands": 0
+  },
+  "ligand_residues_seen": 0
+ },
+ "fail": [
+  "2 heavy-atom clashes < 2.0 A (0.20% of atoms, worst 1.39 A)"
+ ],
+ "warn": [],
+ "verdict": "FAIL"
+}

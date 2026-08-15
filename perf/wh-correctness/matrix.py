@@ -180,6 +180,9 @@ def main() -> int:
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--run", action="store_true")
     ap.add_argument("--report", action="store_true")
+    ap.add_argument("--markdown", action="store_true",
+                    help="the composition x model table, generated from the JSONL so the "
+                         "state doc is never hand-transcribed")
     ap.add_argument("--group", default="all")
     ap.add_argument("--only", help="comma-separated cell-name substrings")
     ap.add_argument("--expect-only", choices=("ok", "reject", "unknown"),
@@ -202,6 +205,38 @@ def main() -> int:
         for c in todo:
             print(f"{c['cell']:44s} {c['expect']}")
         print(f"{len(todo)} cells")
+        return 0
+
+    if a.markdown:
+        rows = {}
+        if a.out.exists():
+            for line in a.out.read_text().splitlines():
+                if line.strip():
+                    r = json.loads(line)
+                    rows[r["cell"]] = r
+        # A cell is one of: PASS, FAIL (with the reason), 400 (refused as the catalog says),
+        # or "-" for not yet run. The reason column is the point, so it goes underneath.
+        print("| input | " + " | ".join(FOLD_MODELS) + " |")
+        print("|---" * (len(FOLD_MODELS) + 1) + "|")
+        notes = []
+        for cname in COMPOSITIONS:
+            cells_out = []
+            for model in FOLD_MODELS:
+                r = rows.get(f"comp_{cname}_{model}")
+                if r is None:
+                    cells_out.append("-")
+                elif r.get("submit_status") == 400:
+                    cells_out.append("400" if r.get("pass") else "**400 unexpected**")
+                elif r.get("pass"):
+                    cells_out.append("fold")
+                else:
+                    cells_out.append("**FAIL**")
+                    what = r.get("status") or f"submit {r.get('submit_status')}"
+                    notes.append(f"- `comp_{cname}_{model}`: {what} -- {r.get('why', '')[:220]}")
+            print(f"| {cname} | " + " | ".join(cells_out) + " |")
+        if notes:
+            print("\nFailures:\n")
+            print("\n".join(notes))
         return 0
 
     if a.report:
