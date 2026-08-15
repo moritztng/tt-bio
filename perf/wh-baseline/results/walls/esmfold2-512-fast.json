@@ -1,0 +1,110 @@
+{
+ "label": "wh-esmfold2-512-fast",
+ "model": "esmfold2",
+ "tree": "/home/cust-team/mthuening/whbase/tt-bio",
+ "size": 512,
+ "census": false,
+ "fast": true,
+ "ttnn": "0.68.0",
+ "host": "UF-EV-A13-GWH02",
+ "card": "26",
+ "grid": [
+  8,
+  9
+ ],
+ "recycling_steps": 10,
+ "sampling_steps": 100,
+ "flags": {
+  "ADALN_S_HOIST": true,
+  "FP32_SOFTMAX_BIAS_HOIST": true,
+  "TRIMUL_TAIL_F1": true,
+  "TRANSPOSE_L1_HEADROOM": 1.25
+ },
+ "started": "2026-08-15T21:34:19+0000",
+ "loadavg": [
+  "2.37",
+  "4.34",
+  "5.86"
+ ],
+ "folds": [
+  {
+   "tag": "warm0",
+   "fold_s": 93.489,
+   "plddt": 0.9295,
+   "n_tokens": null,
+   "n_atoms": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "076a373d3ab331f8"
+   },
+   "loadavg": [
+    "2.99",
+    "4.39",
+    "5.57"
+   ]
+  },
+  {
+   "tag": "warm1",
+   "fold_s": 93.352,
+   "plddt": 0.9295,
+   "n_tokens": null,
+   "n_atoms": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "076a373d3ab331f8"
+   },
+   "loadavg": [
+    "4.83",
+    "4.50",
+    "5.49"
+   ]
+  },
+  {
+   "tag": "warm2",
+   "fold_s": 93.485,
+   "plddt": 0.9295,
+   "n_tokens": null,
+   "n_atoms": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "076a373d3ab331f8"
+   },
+   "loadavg": [
+    "5.99",
+    "4.49",
+    "5.36"
+   ]
+  }
+ ],
+ "cold": {
+  "tag": "cold",
+  "fold_s": 171.681,
+  "plddt": 0.9295,
+  "n_tokens": null,
+  "n_atoms": null,
+  "cif_sha256": {
+   "cdk2x2_512.cif": "076a373d3ab331f8"
+  },
+  "loadavg": [
+   "5.96",
+   "5.12",
+   "5.90"
+  ]
+ },
+ "median_s": 93.485,
+ "spread_s": 0.137,
+ "reach": {
+  "adaln_calls": 0,
+  "adaln_with_s_terms": 0,
+  "adaln_s_terms_calls": 0
+ },
+ "fp32_softmax_stats": {
+  "calls": 0,
+  "blocked": 0,
+  "blocks": 0,
+  "fused": 0,
+  "unfused": 0,
+  "l1": 0,
+  "l1_blocks": 0,
+  "l1_refused": 0
+ },
+ "fp32_softmax_l1_refused_keys": [],
+ "transpose_l1_refused_keys": []
+}
