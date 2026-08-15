@@ -18,7 +18,7 @@ noise draw, so two designs are not comparable, but one trimul module called twic
 input is. The first live call at the production shape is stashed and replayed under both arms with
 `torch.equal`.
 
-    WTC_CHUNKS=32,64 WTC_RUNG=R0 WTC_DESIGNS=10 TT_VISIBLE_DEVICES=<umd> \
+    WTC_ARMS=72,110 WTC_RUNG=R0 WTC_DESIGNS=10 TT_VISIBLE_DEVICES=<umd> \
       PYTHONPATH=$PWD python3 perf/whdesign/wh_trimul_chunk_ab.py
 """
 import json
@@ -36,34 +36,41 @@ import ttnn
 import tt_bio.tenstorrent as T
 import tt_bio.boltzgen.progress as P
 
-CHUNKS = [int(c) for c in os.environ.get("WTC_CHUNKS", "32,64").split(",")]
+# An arm is a CORE COUNT, not a chunk width, and that is the whole point. The candidate change is
+# to the budget's scaling rule, so arm 110 means "compute the width the way an 11x10 Blackhole grid
+# would" and arm 72 means "the way this Wormhole grid does". Pinning a width instead is a different
+# and wrong experiment: forcing 64 at every L1-path call on the Galaxy throws
+# "statically allocated circular buffers clash with L1 buffers" out of the trunk's
+# token-distance pairformer, at a shape where Blackhole's own rule would not have widened either.
+ARMS = [int(c) for c in os.environ.get("WTC_ARMS", "72,110").split(",")]
 RUNG = os.environ.get("WTC_RUNG", "R0")
 DESIGNS = int(os.environ.get("WTC_DESIGNS", "10"))
 STEPS = int(os.environ.get("WTC_STEPS", "60"))
 OUT = pathlib.Path(os.environ.get("WTC_OUT", "perf/whdesign/results/wh_trimul_chunk_ab.json"))
 HOST = os.environ.get("WTC_HOST", "galaxy")
 
-state = {"arm": CHUNKS[0], "design": 1, "stamps": {}, "widths": {}, "capture": None}
+state = {"arm": ARMS[0], "design": 1, "stamps": {}, "widths": {}, "capture": None}
 _orig_chunk = T._trimul_chunk_size
 
 
-def forced(seq_len, hidden, batch=1):
-    """The shipped rule, except that the L1 path's width is pinned to the current arm.
+def at_cores(seq_len, hidden, batch=1):
+    """`_trimul_chunk_size` verbatim, with the grid term taken from the arm instead of the device.
 
-    Only the L1 path is pinned: above `_trimul_l1_max_seq` the shipped code does not widen at all,
-    and forcing a width there would be measuring a different change from the one that would ship.
+    Every other clause is the shipped one: the DRAM path does not widen, the width must divide the
+    hidden dimension, and the budget is the same constant. Only `gx * gy` changes, which is exactly
+    the term §5 flags as fitted on one grid and never checked on another.
     """
-    shipped = _orig_chunk(seq_len, hidden, batch)
     if seq_len > T._trimul_l1_max_seq():
-        return shipped
-    c = state["arm"]
-    if hidden % c or (hidden // c) * c != hidden:
-        return shipped
-    state["widths"].setdefault((seq_len, hidden, batch), {})[c] = shipped
+        return T.TRIANGLE_MULT_CHUNK_SIZE
+    budget = T.TRIANGLE_MULT_L1_CHUNK_BUDGET * state["arm"] / (T.COMPUTE_GRID_X_13 * 10)
+    c = T.TRIANGLE_MULT_CHUNK_SIZE
+    while hidden % (c * 2) == 0 and batch * (c * 2) * seq_len * seq_len <= budget:
+        c *= 2
+    state["widths"].setdefault(str((seq_len, hidden, batch)), {})[str(state["arm"])] = c
     return c
 
 
-T._trimul_chunk_size = forced
+T._trimul_chunk_size = at_cores
 
 _orig_call = T.TriangleMultiplication.__call__
 
@@ -94,7 +101,7 @@ class Tap(P.Reporter):
     def step(self, kind, n, total):
         if kind == "batch":
             state["design"] = n
-            state["arm"] = CHUNKS[(n - 1) % len(CHUNKS)]
+            state["arm"] = ARMS[(n - 1) % len(ARMS)]
         elif kind == "diffusion":
             state["stamps"].setdefault((state["design"], state["arm"]), []).append(time.perf_counter())
         self.inner.step(kind, n, total)
@@ -126,11 +133,11 @@ for (d, arm), ts in sorted(state["stamps"].items()):
     per_design[(d, arm)] = statistics.median(steps) * 1000.0
 
 arms = {}
-for c in CHUNKS:
+for c in ARMS:
     ds = sorted(d for (d, a) in per_design if a == c)
     kept = ds[1:]                       # drop this arm's first design: it carries kernel compile
     vals = [per_design[(d, c)] for d in kept]
-    arms[c] = {"chunk": c, "designs_kept": kept, "designs_all": ds,
+    arms[c] = {"cores": c, "designs_kept": kept, "designs_all": ds,
                "step_ms_per_design": [round(per_design[(d, c)], 3) for d in ds],
                "step_ms_median": round(statistics.median(vals), 3) if vals else None,
                "n_designs": len(vals)}
@@ -145,31 +152,31 @@ try:
     xt = ttnn.from_torch(x_h, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
     mt = None if m_h is None else ttnn.from_torch(m_h, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
     outs = {}
-    for c in CHUNKS:
+    for c in ARMS:
         state["arm"] = c
         o = _orig_call(tm, xt, mt)
         ttnn.synchronize_device(dev)
         outs[c] = ttnn.to_torch(o).clone()
         ttnn.deallocate(o)
-    ref = outs[CHUNKS[0]]
+    ref = outs[ARMS[0]]
     exact = {"checked": True, "shape": [int(v) for v in x_h.shape],
-             "ref_chunk": CHUNKS[0],
-             "torch_equal": {str(c): bool(torch.equal(outs[c], ref)) for c in CHUNKS},
-             "max_abs": {str(c): float((outs[c] - ref).abs().max()) for c in CHUNKS}}
+             "ref_arm_cores": ARMS[0],
+             "torch_equal": {str(c): bool(torch.equal(outs[c], ref)) for c in ARMS},
+             "max_abs": {str(c): float((outs[c] - ref).abs().max()) for c in ARMS}}
 except Exception as e:                                    # noqa: BLE001
     exact = {"checked": False, "error": "%s: %s" % (type(e).__name__, e)}
 
 rec = {"host": HOST, "rung": RUNG, "designs": DESIGNS, "sampling_steps": STEPS,
-       "chunks": CHUNKS, "grid": list(T.COMPUTE_GRID_MAIN),
+       "arm_cores": ARMS, "grid": list(T.COMPUTE_GRID_MAIN),
        "l1_chunk_budget": T.TRIANGLE_MULT_L1_CHUNK_BUDGET,
-       "widths_seen": {str(k): v for k, v in state["widths"].items()},
-       "arms": {str(c): arms[c] for c in CHUNKS},
+       "widths_seen": state["widths"],
+       "arms": {str(c): arms[c] for c in ARMS},
        "loadavg": float(open("/proc/loadavg").read().split()[0]),
        "proc_wall_s": round(wall, 1), "bit_exact": exact}
-if all(arms[c]["step_ms_median"] for c in CHUNKS):
-    rec["speedup_vs_%d" % CHUNKS[0]] = {
-        str(c): round(arms[CHUNKS[0]]["step_ms_median"] / arms[c]["step_ms_median"], 4) for c in CHUNKS}
+if all(arms[c]["step_ms_median"] for c in ARMS):
+    rec["speedup_vs_%dcores" % ARMS[0]] = {
+        str(c): round(arms[ARMS[0]]["step_ms_median"] / arms[c]["step_ms_median"], 4) for c in ARMS}
 OUT.parent.mkdir(parents=True, exist_ok=True)
 OUT.write_text(json.dumps(rec, indent=1) + "\n")
-print("[wtc] " + json.dumps({k: rec[k] for k in ("grid", "chunks", "arms", "bit_exact") if k in rec}), flush=True)
+print("[wtc] " + json.dumps({k: rec[k] for k in ("grid", "arm_cores", "widths_seen", "arms", "bit_exact") if k in rec}), flush=True)
 print("[wtc] wrote %s" % OUT, flush=True)
