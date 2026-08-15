@@ -1,0 +1,8 @@
+TTBridge: diff2Coarse handled=5580 declined=0
+TTBridge: diff2Fine   handled=5580 declined=0
+TTBridge: diff2Coarse handled=5532 declined=0
+TTBridge: diff2Fine   handled=5532 declined=0
+TTBridge: diff2Coarse handled=5580 declined=0
+TTBridge: diff2Fine   handled=5580 declined=0
+TTBridge: diff2Coarse handled=5568 declined=0
+TTPROF maximization                                    1471.3096         55TTBridge: diff2Fine   handled=5568 declined=0
