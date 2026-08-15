@@ -1,0 +1,109 @@
+{
+ "label": "A1",
+ "model": "esmfold2",
+ "tree": "/home/ttuser/.coworker/wt/openfold3-4x-shared-flag-verify-and-land/.ab/main",
+ "size": 512,
+ "census": false,
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "3",
+ "grid": [
+  11,
+  10
+ ],
+ "recycling_steps": 10,
+ "sampling_steps": 100,
+ "flags": {
+  "ADALN_S_HOIST": "absent",
+  "FP32_SOFTMAX_BIAS_HOIST": "absent",
+  "TRIMUL_TAIL_F1": true,
+  "TRANSPOSE_L1_HEADROOM": 1.25
+ },
+ "started": "2026-08-15T16:56:11+0000",
+ "loadavg": [
+  "0.22",
+  "0.09",
+  "0.10"
+ ],
+ "folds": [
+  {
+   "tag": "warm0",
+   "fold_s": 31.748,
+   "plddt": 0.9285,
+   "n_tokens": null,
+   "n_atoms": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "loadavg": [
+    "0.88",
+    "0.32",
+    "0.18"
+   ]
+  },
+  {
+   "tag": "warm1",
+   "fold_s": 31.739,
+   "plddt": 0.9285,
+   "n_tokens": null,
+   "n_atoms": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "loadavg": [
+    "1.00",
+    "0.41",
+    "0.21"
+   ]
+  },
+  {
+   "tag": "warm2",
+   "fold_s": 31.94,
+   "plddt": 0.9285,
+   "n_tokens": null,
+   "n_atoms": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "loadavg": [
+    "1.00",
+    "0.47",
+    "0.24"
+   ]
+  }
+ ],
+ "cold": {
+  "tag": "cold",
+  "fold_s": 46.486,
+  "plddt": 0.9285,
+  "n_tokens": null,
+  "n_atoms": null,
+  "cif_sha256": {
+   "cdk2x2_512.cif": "295867277b9c137f"
+  },
+  "loadavg": [
+   "0.64",
+   "0.22",
+   "0.14"
+  ]
+ },
+ "median_s": 31.748,
+ "spread_s": 0.201,
+ "reach": {
+  "adaln_calls": 0,
+  "adaln_with_s_terms": 0,
+  "adaln_s_terms_calls": 0
+ },
+ "fp32_softmax_stats": {
+  "calls": 0,
+  "blocked": 0,
+  "blocks": 0,
+  "fused": 0,
+  "unfused": 0,
+  "l1": 0,
+  "l1_blocks": 0,
+  "l1_refused": 0
+ },
+ "fp32_softmax_l1_refused_keys": [],
+ "transpose_l1_refused_keys": []
+}

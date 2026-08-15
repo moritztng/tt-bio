@@ -1,0 +1,109 @@
+{
+ "label": "B1",
+ "model": "esmfold2",
+ "tree": "/home/ttuser/.coworker/wt/openfold3-4x-shared-flag-verify-and-land",
+ "size": 512,
+ "census": false,
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "3",
+ "grid": [
+  11,
+  10
+ ],
+ "recycling_steps": 10,
+ "sampling_steps": 100,
+ "flags": {
+  "ADALN_S_HOIST": true,
+  "FP32_SOFTMAX_BIAS_HOIST": true,
+  "TRIMUL_TAIL_F1": true,
+  "TRANSPOSE_L1_HEADROOM": 1.25
+ },
+ "started": "2026-08-15T16:58:49+0000",
+ "loadavg": [
+  "1.00",
+  "0.50",
+  "0.26"
+ ],
+ "folds": [
+  {
+   "tag": "warm0",
+   "fold_s": 31.88,
+   "plddt": 0.9285,
+   "n_tokens": null,
+   "n_atoms": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "loadavg": [
+    "1.04",
+    "0.63",
+    "0.32"
+   ]
+  },
+  {
+   "tag": "warm1",
+   "fold_s": 32.075,
+   "plddt": 0.9285,
+   "n_tokens": null,
+   "n_atoms": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "loadavg": [
+    "1.36",
+    "0.78",
+    "0.39"
+   ]
+  },
+  {
+   "tag": "warm2",
+   "fold_s": 31.844,
+   "plddt": 0.9285,
+   "n_tokens": null,
+   "n_atoms": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "loadavg": [
+    "1.28",
+    "0.81",
+    "0.41"
+   ]
+  }
+ ],
+ "cold": {
+  "tag": "cold",
+  "fold_s": 46.768,
+  "plddt": 0.9285,
+  "n_tokens": null,
+  "n_atoms": null,
+  "cif_sha256": {
+   "cdk2x2_512.cif": "295867277b9c137f"
+  },
+  "loadavg": [
+   "1.06",
+   "0.59",
+   "0.30"
+  ]
+ },
+ "median_s": 31.88,
+ "spread_s": 0.231,
+ "reach": {
+  "adaln_calls": 0,
+  "adaln_with_s_terms": 0,
+  "adaln_s_terms_calls": 0
+ },
+ "fp32_softmax_stats": {
+  "calls": 0,
+  "blocked": 0,
+  "blocks": 0,
+  "fused": 0,
+  "unfused": 0,
+  "l1": 0,
+  "l1_blocks": 0,
+  "l1_refused": 0
+ },
+ "fp32_softmax_l1_refused_keys": [],
+ "transpose_l1_refused_keys": []
+}
