@@ -1,0 +1,10 @@
+{
+ "max_abs": 0.0,
+ "max_rel": 0.0,
+ "bit_exact": true,
+ "nonzero": {
+  "want": 1.0,
+  "got": 1.0
+ },
+ "n_blocks": 3
+}
