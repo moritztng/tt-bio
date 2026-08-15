@@ -63,23 +63,34 @@ def main():
         t = torch.randn(shape, dtype=torch.float32).to(torch.bfloat16)
         return t, ttnn.from_torch(t, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=device)
 
-    def timed(fn):
-        for _ in range(a.warmup):
-            o = fn()
-            if o is None:
-                return None, None
-            o.deallocate()
+    def timed_pair(fa, fb):
+        """Interleave the two arms block by block, never all-A-then-all-B.
+
+        Two bugs made the first version unusable and the N=256 control caught both: it kept only
+        the last output of each block, leaking iters-1 tensors per block into the next arm's DRAM,
+        and it ran the arms in sequence so the second inherited the first's allocator state. Two
+        BYTE-IDENTICAL configs at N=256 (band == capped == (256,256)) then measured 0.689 ms
+        against 0.354 ms, a 1.95x A/A spread on a control that must read 1.00x. Every output is
+        freed here, and the arms alternate, so the control is the instrument's own floor.
+        """
+        for f in (fa, fb):
+            for _ in range(a.warmup):
+                o = f()
+                if o is None:
+                    return None, None
+                ttnn.deallocate(o)
         ttnn.synchronize_device(device)
-        ms = []
+        ms = {"a": [], "b": []}
         for _ in range(a.blocks):
-            t0 = time.perf_counter()
-            for _ in range(a.iters):
-                o = fn()
-            ttnn.synchronize_device(device)
-            ms.append((time.perf_counter() - t0) * 1e3 / a.iters)
-            o.deallocate()
-        return {"best": round(min(ms), 4), "median": round(statistics.median(ms), 4),
-                "all": [round(x, 4) for x in ms]}, True
+            for tag, f in (("a", fa), ("b", fb)):
+                t0 = time.perf_counter()
+                outs = [f() for _ in range(a.iters)]
+                ttnn.synchronize_device(device)
+                ms[tag].append((time.perf_counter() - t0) * 1e3 / a.iters)
+                for o in outs:
+                    ttnn.deallocate(o)
+        return tuple({"best": round(min(v), 4), "median": round(statistics.median(v), 4),
+                      "all": [round(x, 4) for x in v]} for v in (ms["a"], ms["b"]))
 
     for N in SIZES:
         S = T._padded_sdpa_len(N)
@@ -96,6 +107,7 @@ def main():
 
             # The fold's own q pick: widest candidate the fused kernel accepts, band k_chunk.
             q_used = None
+            before = dict(getattr(F, "REJECTS", {}))
             for qc in rec["q_ladder"]:
                 o = F.sdpa(q, k, v, bias, scale, qc, band[1])
                 if o is not None:
@@ -103,31 +115,46 @@ def main():
                     o.deallocate()
                     break
             rec["q_used_by_fused"] = q_used
+            after = dict(getattr(F, "REJECTS", {}))
+            rec["ladder_rejects"] = {str(kk): int(after[kk] - before.get(kk, 0))
+                                     for kk in after if after[kk] - before.get(kk, 0)}
 
             if q_used is None:
                 rec["note"] = "fused kernel declines every ladder q at this shape; band is stock-op only"
             else:
+                refs = {}
                 for leg, kc in (("band_k", band[1]), ("capped_k", capped[1])):
                     served = F.sdpa(q, k, v, bias, scale, q_used, kc)
                     rec[leg + "_served"] = served is not None
                     if served is None:
                         rec[leg] = None
                         continue
-                    ref = ttnn.to_torch(served).float()
-                    served.deallocate()
-                    rec[leg + "_out_mean"] = round(float(ref.mean()), 6)
-                    rec[leg + "_ref"] = ref
-                    rec[leg], _ok = timed(lambda kc=kc: F.sdpa(q, k, v, bias, scale, q_used, kc))
-                if rec.get("band_k") and rec.get("capped_k"):
+                    refs[leg] = ttnn.to_torch(served).float()
+                    ttnn.deallocate(served)
+                    rec[leg + "_out_mean"] = round(float(refs[leg].mean()), 6)
+                if rec.get("band_k_served") and rec.get("capped_k_served"):
+                    rec["band_k"], rec["capped_k"] = timed_pair(
+                        lambda: F.sdpa(q, k, v, bias, scale, q_used, band[1]),
+                        lambda: F.sdpa(q, k, v, bias, scale, q_used, capped[1]))
                     rec["ratio_band_over_capped"] = round(
                         rec["band_k"]["median"] / rec["capped_k"]["median"], 4)
-                    x, y = rec.pop("band_k_ref"), rec.pop("capped_k_ref")
-                    d = (x - y).abs()
-                    rec["max_abs_diff"] = round(float(d.max()), 6)
+                    x, y = refs["band_k"], refs["capped_k"]
+                    rec["max_abs_diff"] = round(float((x - y).abs().max()), 6)
                     rec["rmsd_over_std"] = round(float(((x - y) ** 2).mean().sqrt() / x.std()), 6)
                     rec["bit_exact"] = bool((x == y).all())
-                else:
-                    rec.pop("band_k_ref", None); rec.pop("capped_k_ref", None)
+                elif rec.get("band_k_served"):
+                    # The wider k_chunk is REFUSED by the fused kernel, so the band is not a choice
+                    # between two configs of one op: dropping it drops the whole fused path. Time
+                    # the band arm against the stock op the fold would fall back to.
+                    rec["capped_k_falls_back_to_stock"] = True
+                    rec["band_k"], rec["stock_capped_k"] = timed_pair(
+                        lambda: F.sdpa(q, k, v, bias, scale, q_used, band[1]),
+                        lambda: ttnn.transformer.scaled_dot_product_attention(
+                            q, k, v, attn_mask=bias, is_causal=False, scale=scale,
+                            program_config=T._sdpa_program_config(q_used, capped[1])))
+                    if rec["band_k"] and rec["stock_capped_k"]:
+                        rec["ratio_band_over_stock"] = round(
+                            rec["band_k"]["median"] / rec["stock_capped_k"]["median"], 4)
             for t in (q, k, v, bias):
                 t.deallocate()
         except Exception as e:                      # a config the wheel refuses is itself a result
