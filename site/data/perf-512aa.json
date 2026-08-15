@@ -181,9 +181,9 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 51.012,
+          "s_per_fold": 50.543,
           "parity": "byte-identical",
-          "ref": "Median of an interleaved A/B against main, A/A floor 0.018 s, byte-identical output against its reference. qb2, Blackhole p150a physical card 1, ttnn 0.68.0. Two bit-exact levers folded into the shipped default: the E6 fused chunk+gate forward move (already the default for OpenDDE/ESMFold2, now opted in here too) and a tightened L1 transpose headroom (2.5 -> 1.25) with a safe DRAM fallback on allocator refusal. Swept at 256/298/512/640/768 aa, nothing goes dark above 512 and nothing costs anything below it."
+          "ref": "Median of 10 warm folds across two independent sessions (per-session medians 50.588 and 50.512 s, run-to-run spread 0.68 %), byte-identical output on all 12 folds: CIF sha 98c33a481fa1fd27, plDDT 0.828628. qb2, Blackhole p150a physical card 3, ttnn 0.68.0, tt-bio c05026ab. Card 3 rather than card 1 (card 1 was in use); the two cards agree to 0.26 % at this size, inside card 3s own run-to-run spread. Swept at 256/298/512/640/768 aa, nothing goes dark above 512 and nothing costs anything below it."
         },
         "h200": {
           "status": "measured",
