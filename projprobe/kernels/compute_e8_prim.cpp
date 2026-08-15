@@ -25,6 +25,15 @@
 //   7 matmul_tiles
 //   8 trunc_tile   (SFPU; the radius test's rounding)
 //   9 frac_tile    (SFPU; would replace floor+subtract if it costs the same as floor)
+//  10 mul_binary_tile  (SFPU, DST-to-DST)
+//  11 add_binary_tile  (SFPU, DST-to-DST)
+//  12 sub_binary_tile  (SFPU, DST-to-DST)
+//  13 reduce_tile<SUM, REDUCE_COL, enforce_fp32_accumulation=true>
+//
+// 10-12 are the ones that matter now. E8g showed every FPU op truncates its operand to ~11 mantissa
+// bits and that only the SFPU, with unpack_to_dest, holds fp32 exactly. So the coarse kernel's
+// numeric path has to be built from these three, and §4.3's budget -- written in FPU tile ops --
+// has to be re-priced in them.
 #include <cstdint>
 
 #define REDUCE_OP (PoolType::SUM)
@@ -34,6 +43,7 @@
 #include "api/compute/compute_kernel_api.h"
 #include "api/compute/bcast.h"
 #include "api/compute/eltwise_binary.h"
+#include "api/compute/eltwise_binary_sfpu.h"
 #include "api/compute/eltwise_unary/eltwise_unary.h"
 #include "api/compute/eltwise_unary/rounding.h"
 #include "api/compute/matmul.h"
@@ -49,7 +59,8 @@ void kernel_main() {
     constexpr uint32_t sc_cb = get_compile_time_arg_val(4);
     constexpr uint32_t prim = get_compile_time_arg_val(5);
 
-    constexpr bool is_sfpu = (prim >= 8);
+    constexpr bool is_sfpu = (prim >= 8 && prim <= 12);   // 13 is a reduce, which is FPU
+    constexpr bool is_sfpu_binary = (prim >= 10 && prim <= 12);
 
     if constexpr (is_sfpu) {
         init_sfpu(in_cb, out_cb);
@@ -64,7 +75,33 @@ void kernel_main() {
         for (uint32_t i = 0; i < outer; ++i) {
             cb_reserve_back(sc_cb, 1);
             tile_regs_acquire();
-            if constexpr (is_sfpu) {
+            if constexpr (is_sfpu_binary) {
+                copy_tile_to_dst_init_short(in_cb);
+                copy_tile(in_cb, 0, 0);
+                copy_tile(in_cb, 0, 1);
+                if constexpr (prim == 10) {
+                    mul_binary_tile_init();
+                } else if constexpr (prim == 11) {
+                    add_binary_tile_init();
+                } else {
+                    sub_binary_tile_init();
+                }
+                for (uint32_t k = 0; k < ops; ++k) {
+                    if constexpr (prim == 10) {
+                        mul_binary_tile(0, 1, 0);
+                    } else if constexpr (prim == 11) {
+                        add_binary_tile(0, 1, 0);
+                    } else {
+                        sub_binary_tile(0, 1, 0);
+                    }
+                }
+            } else if constexpr (prim == 13) {
+                reduce_init<PoolType::SUM, ReduceDim::REDUCE_COL, true>(in_cb, in_cb, sc_cb);
+                for (uint32_t k = 0; k < ops; ++k) {
+                    reduce_tile<PoolType::SUM, ReduceDim::REDUCE_COL, true>(in_cb, in_cb, 0, 0, 0);
+                }
+                reduce_uninit<true>();
+            } else if constexpr (is_sfpu) {
                 copy_tile_to_dst_init_short(in_cb);
                 copy_tile(in_cb, 0, 0);
                 rounding_op_tile_init();

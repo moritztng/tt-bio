@@ -1,0 +1,146 @@
+{
+ "outer": 5000,
+ "ops_sweep": [
+  0,
+  32,
+  64,
+  128
+ ],
+ "arm": "fp32_hifi4_fp32acc",
+ "prims": {
+  "mul_tiles": {
+   "0": 15.5,
+   "32": 2106.45,
+   "64": 4056.54,
+   "128": 7952.88,
+   "ns_per_tile_op": 60.9,
+   "nonzero_out": true
+  },
+  "transpose_wh_tile": {
+   "0": 17.5,
+   "32": 1013.77,
+   "64": 1877.79,
+   "128": 3610.61,
+   "ns_per_tile_op": 27.05,
+   "nonzero_out": true
+  },
+  "reduce_sum_col": {
+   "0": 19.21,
+   "32": 2137.21,
+   "64": 4105.28,
+   "128": 8048.63,
+   "ns_per_tile_op": 61.577,
+   "nonzero_out": true
+  },
+  "reduce_sum_row": {
+   "0": 17.05,
+   "32": 3257.25,
+   "64": 6332.57,
+   "128": 12518.99,
+   "ns_per_tile_op": 96.476,
+   "nonzero_out": true
+  },
+  "mul_tiles_bcast_rows": {
+   "0": 16.67,
+   "32": 2117.73,
+   "64": 4073.08,
+   "128": 7959.94,
+   "ns_per_tile_op": 60.856,
+   "nonzero_out": true
+  },
+  "add_tiles_bcast_rows": {
+   "0": 15.26,
+   "32": 962.65,
+   "64": 1780.02,
+   "128": 3372.86,
+   "ns_per_tile_op": 25.106,
+   "nonzero_out": true
+  },
+  "mul_tiles_bcast_cols": {
+   "0": 17.42,
+   "32": 2153.2,
+   "64": 4153.74,
+   "128": 8149.79,
+   "ns_per_tile_op": 62.464,
+   "nonzero_out": true
+  },
+  "matmul_tiles": {
+   "0": 16.15,
+   "32": 1849.37,
+   "64": 3444.49,
+   "128": 6637.75,
+   "ns_per_tile_op": 49.879,
+   "nonzero_out": true
+  },
+  "trunc_tile_sfpu": {
+   "0": 12.0,
+   "32": 9393.24,
+   "64": 18579.31,
+   "128": 36928.97,
+   "ns_per_tile_op": 286.831,
+   "nonzero_out": true
+  },
+  "frac_tile_sfpu": {
+   "0": 16.16,
+   "32": 10150.06,
+   "64": 20092.67,
+   "128": 39957.3,
+   "ns_per_tile_op": 310.492,
+   "nonzero_out": true
+  },
+  "mul_binary_tile_sfpu": {
+   "0": 17.41,
+   "32": 5282.39,
+   "64": 10271.55,
+   "128": 20242.28,
+   "ns_per_tile_op": 155.832,
+   "nonzero_out": true
+  },
+  "add_binary_tile_sfpu": {
+   "0": 17.46,
+   "32": 5287.98,
+   "64": 10281.64,
+   "128": 20237.6,
+   "ns_per_tile_op": 155.725,
+   "nonzero_out": true
+  },
+  "sub_binary_tile_sfpu": {
+   "0": 15.72,
+   "32": 5281.92,
+   "64": 10281.08,
+   "128": 20240.61,
+   "ns_per_tile_op": 155.82,
+   "nonzero_out": true
+  },
+  "reduce_sum_col_fp32acc": {
+   "0": 16.57,
+   "32": 2146.03,
+   "64": 4118.04,
+   "128": 8059.31,
+   "ns_per_tile_op": 61.597,
+   "nonzero_out": true
+  }
+ },
+ "grid": [
+  13,
+  10
+ ],
+ "ncores": 130,
+ "mul_tiles_baseline_ns": 60.9,
+ "in_mul_tiles": {
+  "mul_tiles": 1.0,
+  "transpose_wh_tile": 0.44,
+  "reduce_sum_col": 1.01,
+  "reduce_sum_row": 1.58,
+  "mul_tiles_bcast_rows": 1.0,
+  "add_tiles_bcast_rows": 0.41,
+  "mul_tiles_bcast_cols": 1.03,
+  "matmul_tiles": 0.82,
+  "trunc_tile_sfpu": 4.71,
+  "frac_tile_sfpu": 5.1,
+  "mul_binary_tile_sfpu": 2.56,
+  "add_binary_tile_sfpu": 2.56,
+  "sub_binary_tile_sfpu": 2.56,
+  "reduce_sum_col_fp32acc": 1.01
+ }
+}
