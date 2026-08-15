@@ -1,0 +1,20 @@
+{
+  "legs": [
+    {
+      "leg": "opendde-abag",
+      "verdict": "ERROR",
+      "detail": "ImportError: cannot import name 'MSA_DEFAULT_MODELS' from 'tt_bio.main' (/home/ttuser/tt-bio-release-v0.3.3/tt_bio/main.py)",
+      "wall": 0.00021247699987725355,
+      "committed": "PASS",
+      "report": "opendde-abag.json"
+    }
+  ],
+  "tally": {
+    "ERROR": 1
+  },
+  "scored": 1,
+  "total_wall_s": 0.0002567930005170638,
+  "workers": [
+    "tt-quietbox2:2"
+  ]
+}

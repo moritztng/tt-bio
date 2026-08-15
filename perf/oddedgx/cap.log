@@ -1,0 +1,249 @@
+=== capacity 256/298/640, noglue vs glue, card 2 2026-08-15T20:25:08+00:00 ===
+benchlock: opendde-beat-dgx-h200 acquired after 0s, loadavg 0.21 0.86 1.09
+2026-08-15 20:25:08.912 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+=== size 256: cold fold ===
+  cold 59.18s n_tokens=256 plddt=0.678554
+  noglue: fold 25.74s  block 18090.78 ms over 608 calls  plddt 0.678554  (26s)
+      DEC l1_layer_norm|h=1.5|1x256x256x384                    {'L1': 494}
+      DEC l1_layer_norm|h=1.5|1x497x497x384                    {'DRAM': 4}
+      DEC l1_layer_norm|h=1.5|256x256x384                      {'L1': 40}
+      DEC pair_proj_out_l1|1x256x256x384@16                    {'L1': 484}
+      DEC pair_proj_out_l1|1x256x256x384@384                   {'DRAM': 2096}
+      DEC pair_proj_out_l1|1x256x256x384@64                    {'L1': 40}
+      DEC pair_proj_out_l1|1x256x256x64@64                     {'L1': 320}
+      DEC pair_proj_out_l1|1x497x497x384@384                   {'DRAM': 16}
+      DEC pair_proj_out_l1|256x256x384@1                       {'L1': 320}
+      DEC pair_proj_out_l1|256x256x64@64                       {'L1': 160}
+      DEC transpose|256x256x384                                {'L1': 1048}
+      DEC transpose|256x256x64                                 {'L1': 160}
+      DEC transpose|497x497x384                                {'DRAM': 8}
+      DEC tri_att_sdpa|q256k256                                {'q_chunk=256 k_chunk=256 bias=bf16': 1208}
+      DEC tri_att_sdpa|q497k497                                {'q_chunk=512 k_chunk=256 bias=bf16': 8}
+  glue: fold 25.62s  block 18086.27 ms over 608 calls  plddt 0.678554  (26s)
+      DEC l1_layer_norm|h=1.5|1x256x256x384                    {'L1': 494}
+      DEC l1_layer_norm|h=1.5|1x497x497x384                    {'DRAM': 4}
+      DEC l1_layer_norm|h=1.5|256x256x384                      {'L1': 40}
+      DEC pair_proj_out_l1|1x256x256x384@16                    {'L1': 484}
+      DEC pair_proj_out_l1|1x256x256x384@384                   {'DRAM': 2096}
+      DEC pair_proj_out_l1|1x256x256x384@64                    {'L1': 40}
+      DEC pair_proj_out_l1|1x256x256x64@64                     {'L1': 320}
+      DEC pair_proj_out_l1|1x497x497x384@384                   {'DRAM': 16}
+      DEC pair_proj_out_l1|256x256x384@1                       {'L1': 320}
+      DEC pair_proj_out_l1|256x256x64@64                       {'L1': 160}
+      DEC transpose|256x256x384                                {'L1': 1048}
+      DEC transpose|256x256x64                                 {'L1': 160}
+      DEC transpose|497x497x384                                {'DRAM': 8}
+      DEC tri_att_sdpa|q256k256                                {'q_chunk=256 k_chunk=256 bias=bf16': 1208}
+      DEC tri_att_sdpa|q497k497                                {'q_chunk=512 k_chunk=256 bias=bf16': 8}
+=== size 298: cold fold ===
+  cold 44.12s n_tokens=298 plddt=0.801496
+  noglue: fold 39.70s  block 29356.17 ms over 608 calls  plddt 0.801496  (40s)
+      DEC l1_layer_norm|h=1.5|1x298x298x384                    {'L1': 494}
+      DEC l1_layer_norm|h=1.5|1x580x580x384                    {'DRAM': 4}
+      DEC l1_layer_norm|h=1.5|298x298x384                      {'L1': 40}
+      DEC pair_proj_out_l1|1x298x298x384@16                    {'L1': 484}
+      DEC pair_proj_out_l1|1x298x298x384@384                   {'DRAM': 2096}
+      DEC pair_proj_out_l1|1x298x298x384@64                    {'L1': 40}
+      DEC pair_proj_out_l1|1x298x298x64@64                     {'L1': 320}
+      DEC pair_proj_out_l1|1x580x580x384@384                   {'DRAM': 16}
+      DEC pair_proj_out_l1|298x298x384@1                       {'L1': 320}
+      DEC pair_proj_out_l1|298x298x64@64                       {'L1': 160}
+      DEC pair_proj_out_l1|580x580x384@384                     {'DRAM': 8}
+      DEC transpose|298x298x384                                {'L1': 1048}
+      DEC transpose|298x298x64                                 {'L1': 160}
+      DEC transpose|580x580x384                                {'DRAM': 8}
+      DEC tri_att_sdpa|q298k298                                {'q_chunk=320 k_chunk=64 bias=bf16': 1208}
+      DEC tri_att_sdpa|q580k580                                {'q_chunk=608 k_chunk=256 bias=bf16': 8}
+  glue: fold 39.61s  block 29381.94 ms over 608 calls  plddt 0.801496  (40s)
+      DEC l1_layer_norm|h=1.5|1x298x298x384                    {'L1': 494}
+      DEC l1_layer_norm|h=1.5|1x580x580x384                    {'DRAM': 4}
+      DEC l1_layer_norm|h=1.5|298x298x384                      {'L1': 40}
+      DEC pair_proj_out_l1|1x298x298x384@16                    {'L1': 484}
+      DEC pair_proj_out_l1|1x298x298x384@384                   {'DRAM': 2096}
+      DEC pair_proj_out_l1|1x298x298x384@64                    {'L1': 40}
+      DEC pair_proj_out_l1|1x298x298x64@64                     {'L1': 320}
+      DEC pair_proj_out_l1|1x580x580x384@384                   {'DRAM': 16}
+      DEC pair_proj_out_l1|298x298x384@1                       {'L1': 320}
+      DEC pair_proj_out_l1|298x298x64@64                       {'L1': 160}
+      DEC pair_proj_out_l1|580x580x384@384                     {'DRAM': 8}
+      DEC transpose|298x298x384                                {'L1': 1048}
+      DEC transpose|298x298x64                                 {'L1': 160}
+      DEC transpose|580x580x384                                {'DRAM': 8}
+      DEC tri_att_sdpa|q298k298                                {'q_chunk=320 k_chunk=64 bias=bf16': 1208}
+      DEC tri_att_sdpa|q580k580                                {'q_chunk=608 k_chunk=256 bias=bf16': 8}
+=== size 640: cold fold ===
+2026-08-15 20:29:11.519 | critical |          Always | TT_FATAL: Failed to assign all 40 requested cores (assert.hpp:104)
+2026-08-15 20:29:11.527 | critical |          Always | TT_FATAL: Failed to assign all 80 requested cores (assert.hpp:104)
+2026-08-15 20:29:12.034 | critical |          Always | TT_FATAL: Failed to assign all 20 requested cores (assert.hpp:104)
+2026-08-15 20:31:29.248 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2816512 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+  cold 164.56s n_tokens=640 plddt=0.724514
+  noglue: fold 159.87s  block 135875.23 ms over 608 calls  plddt 0.724514  (160s)
+      DEC l1_layer_norm|h=1.5|1x1243x1243x384                  {'DRAM': 4}
+      DEC l1_layer_norm|h=1.5|1x640x640x384                    {'DRAM': 494}
+      DEC l1_layer_norm|h=1.5|640x640x384                      {'DRAM': 40}
+      DEC pair_proj_out_l1|1243x1243x384@384                   {'DRAM': 8}
+      DEC pair_proj_out_l1|1x1243x1243x384@384                 {'DRAM': 16}
+      DEC pair_proj_out_l1|1x640x640x384@384                   {'DRAM': 2096}
+      DEC pair_proj_out_l1|1x640x640x64@64                     {'L1': 320}
+      DEC pair_proj_out_l1|640x640x64@64                       {'L1': 160}
+      DEC transpose|1243x1243x384                              {'DRAM': 8}
+      DEC transpose|640x640x384                                {'DRAM': 1048}
+      DEC transpose|640x640x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q1243k1243                              {'q_chunk=416 k_chunk=256 bias=bf16': 8}
+      DEC tri_att_sdpa|q640k640                                {'q_chunk=640 k_chunk=256 bias=bf16': 1208}
+  glue: fold 159.25s  block 135907.4 ms over 608 calls  plddt 0.724514  (159s)
+      DEC l1_layer_norm|h=1.5|1x1243x1243x384                  {'DRAM': 4}
+      DEC l1_layer_norm|h=1.5|1x640x640x384                    {'DRAM': 494}
+      DEC l1_layer_norm|h=1.5|640x640x384                      {'DRAM': 40}
+      DEC pair_proj_out_l1|1243x1243x384@384                   {'DRAM': 8}
+      DEC pair_proj_out_l1|1x1243x1243x384@384                 {'DRAM': 16}
+      DEC pair_proj_out_l1|1x640x640x384@384                   {'DRAM': 2096}
+      DEC pair_proj_out_l1|1x640x640x64@64                     {'L1': 320}
+      DEC pair_proj_out_l1|640x640x64@64                       {'L1': 160}
+      DEC transpose|1243x1243x384                              {'DRAM': 8}
+      DEC transpose|640x640x384                                {'DRAM': 1048}
+      DEC transpose|640x640x64                                 {'L1': 160}
+      DEC tri_att_sdpa|q1243k1243                              {'q_chunk=416 k_chunk=256 bias=bf16': 8}
+      DEC tri_att_sdpa|q640k640                                {'q_chunk=640 k_chunk=256 bias=bf16': 1208}
+{
+ "ratios": {
+  "256": {
+   "on_block_ms": [],
+   "off_block_ms": [],
+   "on_fold_s": [],
+   "off_fold_s": []
+  },
+  "298": {
+   "on_block_ms": [],
+   "off_block_ms": [],
+   "on_fold_s": [],
+   "off_fold_s": []
+  },
+  "640": {
+   "on_block_ms": [],
+   "off_block_ms": [],
+   "on_fold_s": [],
+   "off_fold_s": []
+  }
+ },
+ "arm_medians": {
+  "256": {
+   "noglue": {
+    "block_ms": [
+     18090.78
+    ],
+    "fold_s": [
+     25.738
+    ],
+    "plddt": [
+     0.678554
+    ],
+    "n": 1,
+    "block_ms_median": 18090.78,
+    "fold_s_median": 25.738,
+    "block_ms_min": 18090.78,
+    "fold_s_min": 25.738,
+    "block_ms_spread": 0.0,
+    "fold_s_spread": 0.0
+   },
+   "glue": {
+    "block_ms": [
+     18086.27
+    ],
+    "fold_s": [
+     25.62
+    ],
+    "plddt": [
+     0.678554
+    ],
+    "n": 1,
+    "block_ms_median": 18086.27,
+    "fold_s_median": 25.62,
+    "block_ms_min": 18086.27,
+    "fold_s_min": 25.62,
+    "block_ms_spread": 0.0,
+    "fold_s_spread": 0.0
+   }
+  },
+  "298": {
+   "noglue": {
+    "block_ms": [
+     29356.17
+    ],
+    "fold_s": [
+     39.704
+    ],
+    "plddt": [
+     0.801496
+    ],
+    "n": 1,
+    "block_ms_median": 29356.17,
+    "fold_s_median": 39.704,
+    "block_ms_min": 29356.17,
+    "fold_s_min": 39.704,
+    "block_ms_spread": 0.0,
+    "fold_s_spread": 0.0
+   },
+   "glue": {
+    "block_ms": [
+     29381.94
+    ],
+    "fold_s": [
+     39.611
+    ],
+    "plddt": [
+     0.801496
+    ],
+    "n": 1,
+    "block_ms_median": 29381.94,
+    "fold_s_median": 39.611,
+    "block_ms_min": 29381.94,
+    "fold_s_min": 39.611,
+    "block_ms_spread": 0.0,
+    "fold_s_spread": 0.0
+   }
+  },
+  "640": {
+   "noglue": {
+    "block_ms": [
+     135875.23
+    ],
+    "fold_s": [
+     159.874
+    ],
+    "plddt": [
+     0.724514
+    ],
+    "n": 1,
+    "block_ms_median": 135875.23,
+    "fold_s_median": 159.874,
+    "block_ms_min": 135875.23,
+    "fold_s_min": 159.874,
+    "block_ms_spread": 0.0,
+    "fold_s_spread": 0.0
+   },
+   "glue": {
+    "block_ms": [
+     135907.4
+    ],
+    "fold_s": [
+     159.246
+    ],
+    "plddt": [
+     0.724514
+    ],
+    "n": 1,
+    "block_ms_median": 135907.4,
+    "fold_s_median": 159.246,
+    "block_ms_min": 135907.4,
+    "fold_s_min": 159.246,
+    "block_ms_spread": 0.0,
+    "fold_s_spread": 0.0
+   }
+  }
+ }
+}
+wrote /home/ttuser/.coworker/wt/opendde-beat-dgx-h200/perf/oddedgx/cap_ab_c2.json
+benchlock: opendde-beat-dgx-h200 released, rc=0, loadavg 1.56 1.23 1.21
+RC=0 2026-08-15T20:37:14+00:00
