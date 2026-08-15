@@ -1,0 +1,2 @@
+/home/ttuser/relion-scratch/pp/fine_check.log:  + FINAL RESOLUTION:              4.0339
+/home/ttuser/relion-scratch/pp/pp_fine_check.star:_rlnFinalResolution                         4.033896
