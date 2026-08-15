@@ -43,6 +43,48 @@ ABAG_1AHW = 'sequences:\n  - protein:\n      id: A\n      sequence: TNTVAAYNLTWK
 
 
 
+# CDK2 (PDB 1HCL) apo, 298 aa, the fleet's own size fixture. `perf/size512/fixtures/cdk2x2_<N>`
+# is this sequence tiled and truncated to N, so building sizes the same way keeps this axis
+# comparable with what wh-perf-* measures on the same box.
+CDK2_298 = ("MENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLLDVIHTENKLYLVFEF"
+            "LHQDLKKFMDASALTGIPLPLIKSYLFQLLQGLAFCHSHRVLHRDLKPQNLLINTEGAIKLADFGLARAFGVPVRTYTHEVV"
+            "TLWYRAPEILLGCKYYSTAVDIWSLGCIFAEMVTRRALFPGDSEIDQLFRIFRTLGTPDEVVWPGVTSMPDYKPSFPKWARQ"
+            "DFSKVVPPLDEDGRSLLSQMLHYDPNKRISAKAALAHPFFQDVTKPVPHLRL")
+
+
+def cdk2(n: int) -> str:
+    """The fleet fixture's sequence at length n: tile the 298 aa domain, truncate."""
+    return (CDK2_298 * (n // len(CDK2_298) + 1))[:n]
+
+
+# Size x model. Sizes are chosen against known boundaries, not round numbers, and every
+# model is run at its own advertised cap and one past it -- the brief's "at the limit it
+# must work, past it it must fail cleanly".
+#
+# Depth differs per model on purpose:
+#   esmfold2 / esmfold2-fast  a full ladder, because 0.6/0.8 measured esmfold2 running out
+#                             of DRAM at both 124 and 620 aa while 64 aa folds. The two ids
+#                             are the same target on the same ladder, so the pair is its own
+#                             A/B for whether --fast is what saves it.
+#   boltz2                    the control: the only model that failed nothing on composition.
+#                             640/641 is where three L1 gates go dark (memory
+#                             `tt-bio-tuned-at-512-l1-gates-go-dark-above-640aa`).
+#   protenix-v2               coarse. 193-384 aa is a known defect owned by
+#                             wh-perf-protenix-v2; 256 is in it, and prod runs the unpatched
+#                             tree, so this measures what a user hits rather than re-deriving
+#                             someone else's root cause.
+#   opendde / opendde-abag    two points plus the cap. Composition already showed zero good
+#                             structures from six cells, so depth here buys little.
+SIZE_LADDER = {
+    "boltz2":        [128, 256, 512, 640, 641, 1024],
+    "esmfold2":      [128, 192, 256, 384, 512, 640, 1024],
+    "esmfold2-fast": [128, 192, 256, 384, 512, 640, 1024],
+    "protenix-v2":   [128, 256, 512, 640, 980],
+    "opendde":       [128, 512, 788],
+    "opendde-abag":  [128, 512, 779],
+}
+
+
 def yaml_cell(body: str) -> str:
     return body
 
@@ -159,6 +201,21 @@ def cells(group: str) -> list[dict]:
                             "expect": expect,
                             "payload": {"model": model, "name": cname, "input": yml},
                             "yaml": yml, "group": "composition"})
+    if group in ("size", "all"):
+        for model, sizes in SIZE_LADDER.items():
+            for n in sizes:
+                out.append({"cell": f"size_{n}_{model}", "kind": "predict", "expect": "ok",
+                            "payload": {"model": model, "name": f"cdk2_{n}",
+                                        "input": f"sequences:\n  - protein: {{id: A, "
+                                                 f"sequence: {cdk2(n)}}}\n"},
+                            "yaml": f"sequences:\n  - protein: {{id: A, sequence: {cdk2(n)}}}\n",
+                            "group": "size"})
+            # One past this model's own cap must be a 400 that names the limit.
+            over = MAX_RESIDUES[model] + 1
+            yml = f"sequences:\n  - protein: {{id: A, sequence: {cdk2(over)}}}\n"
+            out.append({"cell": f"size_over_{over}_{model}", "kind": "predict", "expect": "reject",
+                        "payload": {"model": model, "name": f"cdk2_{over}", "input": yml},
+                        "yaml": yml, "group": "size"})
     if group in ("hostile", "all"):
         for hname, (yml, why) in HOSTILE.items():
             out.append({"cell": f"hostile_{hname}", "kind": "predict", "expect": "unknown",
