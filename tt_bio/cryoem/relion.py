@@ -17,8 +17,17 @@ matrix, over a different (significant) orientation set, plus a per-image constan
 core, _dense_diff2, and two entry points.
 
 Backend selected by TT_RELION_BACKEND:
-  torch   torch on the host. Exact, slow, and the arm that proves the plumbing.
-  ttnn    the device path.
+  torch     torch on the host. Exact, slow, and the arm that proves the plumbing.
+  ttnn      the device path.
+  nullbase  decline the instant the hook is entered. Computes nothing, touches no buffer.
+  null      do the buffer traffic the device path will do, then decline.
+
+nullbase and null exist to price the bridge itself. A device kernel cannot beat RELION's own coarse
+kernel if merely entering Python costs more than the kernel does, and neither the reference wall nor
+the shape arm answers that: the reference never crosses into Python, and the shape arm crosses AND
+writes a log line with an np.unique per fine call, so its wall carries an instrument the real path
+does not have. Three walls -- reference, nullbase, null -- separate the crossing from the marshalling
+from the compute.
 """
 from __future__ import annotations
 
@@ -180,11 +189,42 @@ def _dense_diff2(t, mdl_mv, eul_mv, tx_mv, ty_mv, re_mv, im_mv, corr_mv,
     return acc
 
 
+def _model_key(mdl_mv):
+    """Cheap identity for the model buffer, for the device path's upload cache.
+
+    The model is 31.68 MB and byte-identical across every call in a process, so a per-call sha256
+    (~50 ms) would cost more than the kernel it feeds. 1024 evenly spaced samples plus the length
+    take ~10 us and a miss only costs a re-upload.
+    """
+    a = np.frombuffer(mdl_mv, dtype=np.float32)
+    return (len(a), a[::max(1, len(a) // 1024)][:1024].tobytes())
+
+
+def _marshal(mdl_mv, eul_mv, tx_mv, ty_mv, re_mv, im_mv, corr_mv, orientation_num):
+    """The buffer traffic the device path does before any compute, and nothing else.
+
+    The model is keyed, not copied: §2.1 of the design measured it byte-identical across every call
+    in a process, so it uploads once per iteration and the per-call cost is the key.
+    """
+    return (_model_key(mdl_mv),
+            np.frombuffer(eul_mv, dtype=np.float32).reshape(orientation_num, 9).copy(),
+            np.frombuffer(tx_mv, dtype=np.float32).copy(),
+            np.frombuffer(ty_mv, dtype=np.float32).copy(),
+            np.frombuffer(re_mv, dtype=np.float32).copy(),
+            np.frombuffer(im_mv, dtype=np.float32).copy(),
+            np.frombuffer(corr_mv, dtype=np.float32).copy())
+
+
 def diff2_coarse(mdl_mv, eul_mv, tx_mv, ty_mv, re_mv, im_mv, corr_mv, out_mv,
                  mdlX, mdlY, mdlZ, mdlInitY, mdlInitZ, maxR, maxR2_padded,
                  padding_factor, imgX, imgY,
                  orientation_num, translation_num, image_size):
     """runDiff2KernelCoarse, 3D reference and 2D data. Accumulates onto out_mv."""
+    if _BACKEND in ("nullbase", "null"):
+        if _BACKEND == "null":
+            _marshal(mdl_mv, eul_mv, tx_mv, ty_mv, re_mv, im_mv, corr_mv, orientation_num)
+        _stats["declined"] += 1
+        return False
     if _BACKEND == "ttnn":
         _stats["declined"] += 1
         return False        # not wired yet, so RELION keeps its own kernel
@@ -227,7 +267,9 @@ def diff2_fine(mdl_mv, eul_mv, tx_mv, ty_mv, re_mv, im_mv, corr_mv,
             fh.write("F %d %d %d %d %d %d\n"
                      % (orientation_num, translation_num, significant_num, job_num_count,
                         image_size, len(np.unique(rot_idx))))
-    if _BACKEND == "ttnn":
+    if _BACKEND in ("ttnn", "nullbase", "null"):
+        # The fine hook is leg 1's territory; here it only has to cost what an entry-and-decline
+        # costs, so that the coarse arms differ in one term.
         _stats["fine_declined"] += 1
         return False
     try:

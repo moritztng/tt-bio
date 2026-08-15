@@ -1,0 +1,110 @@
+{
+ "outer": 5000,
+ "ops_sweep": [
+  0,
+  32,
+  64,
+  128
+ ],
+ "arm": "fp32_hifi4_fp32acc",
+ "prims": {
+  "mul_tiles": {
+   "0": 19.33,
+   "32": 2103.21,
+   "64": 4071.06,
+   "128": 7963.98,
+   "ns_per_tile_op": 61.05,
+   "nonzero_out": true
+  },
+  "transpose_wh_tile": {
+   "0": 18.81,
+   "32": 1035.08,
+   "64": 1897.69,
+   "128": 3626.65,
+   "ns_per_tile_op": 26.996,
+   "nonzero_out": true
+  },
+  "reduce_sum_col": {
+   "0": 19.37,
+   "32": 2153.67,
+   "64": 4120.53,
+   "128": 8060.6,
+   "ns_per_tile_op": 61.531,
+   "nonzero_out": true
+  },
+  "reduce_sum_row": {
+   "0": 16.21,
+   "32": 3264.73,
+   "64": 6344.07,
+   "128": 12512.3,
+   "ns_per_tile_op": 96.329,
+   "nonzero_out": true
+  },
+  "mul_tiles_bcast_rows": {
+   "0": 19.7,
+   "32": 2108.43,
+   "64": 4078.47,
+   "128": 7977.32,
+   "ns_per_tile_op": 61.134,
+   "nonzero_out": true
+  },
+  "add_tiles_bcast_rows": {
+   "0": 18.83,
+   "32": 962.44,
+   "64": 1782.05,
+   "128": 3362.21,
+   "ns_per_tile_op": 24.998,
+   "nonzero_out": true
+  },
+  "mul_tiles_bcast_cols": {
+   "0": 17.41,
+   "32": 2164.64,
+   "64": 4149.03,
+   "128": 8157.16,
+   "ns_per_tile_op": 62.422,
+   "nonzero_out": true
+  },
+  "matmul_tiles": {
+   "0": 9.94,
+   "32": 1848.85,
+   "64": 3458.13,
+   "128": 6637.15,
+   "ns_per_tile_op": 49.878,
+   "nonzero_out": true
+  },
+  "trunc_tile_sfpu": {
+   "0": 14.97,
+   "32": 9375.81,
+   "64": 18564.4,
+   "128": 36911.94,
+   "ns_per_tile_op": 286.835,
+   "nonzero_out": true
+  },
+  "frac_tile_sfpu": {
+   "0": 19.25,
+   "32": 10132.75,
+   "64": 20081.38,
+   "128": 39944.61,
+   "ns_per_tile_op": 310.54,
+   "nonzero_out": true
+  }
+ },
+ "grid": [
+  13,
+  10
+ ],
+ "ncores": 130,
+ "mul_tiles_baseline_ns": 61.05,
+ "in_mul_tiles": {
+  "mul_tiles": 1.0,
+  "transpose_wh_tile": 0.44,
+  "reduce_sum_col": 1.01,
+  "reduce_sum_row": 1.58,
+  "mul_tiles_bcast_rows": 1.0,
+  "add_tiles_bcast_rows": 0.41,
+  "mul_tiles_bcast_cols": 1.02,
+  "matmul_tiles": 0.82,
+  "trunc_tile_sfpu": 4.7,
+  "frac_tile_sfpu": 5.09
+ }
+}
