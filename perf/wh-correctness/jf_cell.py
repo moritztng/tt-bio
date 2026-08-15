@@ -62,7 +62,10 @@ def main() -> int:
     ap.add_argument("--kind", required=True, choices=("predict", "design", "embed"))
     ap.add_argument("--expect", default="ok", choices=("ok", "reject"))
     ap.add_argument("--payload", type=Path, required=True)
-    ap.add_argument("--input", type=Path, help="the target file, for the composition check")
+    ap.add_argument("--input", type=Path, help="the target file, for the composition check; "
+                                              "for --kind embed a JSON {id: sequence} map")
+    ap.add_argument("--pool", default="mean", choices=("mean", "max", "cls"),
+                    help="the pooling the embed job was submitted with")
     ap.add_argument("--key")
     ap.add_argument("--out", type=Path, default=Path("results.jsonl"))
     ap.add_argument("--artifacts", type=Path, default=Path("artifacts"))
@@ -127,15 +130,34 @@ def main() -> int:
 
     _, res = call("GET", f"/v1/jobs/{job}/results", a.key)
     row["rows"] = res.get("rows")
+    # For an embed job `--input` is a JSON {id: sequence} map, so the checker can hold
+    # the returned vector against the sequence that was actually submitted.
+    submitted = {}
+    if a.kind == "embed" and a.input and a.input.suffix == ".json":
+        submitted = json.loads(a.input.read_text())
     checks = []
+    want_type = "embedding" if a.kind == "embed" else "structure"
     for art in res.get("artifacts", []):
-        if art.get("type") != "structure":
+        if art.get("type") != want_type:
             continue
         dest = a.artifacts / a.cell / art["path"]
         if not fetch_artifact(job, art["path"], dest, a.key):
             checks.append({"path": art["path"], "verdict": "FAIL", "fail": ["artifact download failed"]})
             continue
         rep = dest.with_suffix(dest.suffix + ".check.json")
+        if a.kind == "embed":
+            cmd = [sys.executable, str(HERE / "check_embed.py"), str(dest),
+                   "--pool", a.pool, "--json", str(rep), "--quiet"]
+            seq = submitted.get(art.get("id"))
+            if seq:
+                cmd += ["--sequence", seq]
+            elif submitted:
+                cmd += ["--expect-ids", ",".join(submitted)]
+            subprocess.run(cmd, check=False)
+            checks.append(json.loads(rep.read_text()) if rep.exists()
+                          else {"struct": art["path"], "verdict": "FAIL",
+                                "fail": ["checker produced nothing"]})
+            continue
         cmd = [sys.executable, str(HERE / "check_structure.py"), str(dest),
                "--kind", "design" if a.kind == "design" else "predict",
                "--json", str(rep), "--quiet"]
@@ -147,8 +169,14 @@ def main() -> int:
     row["checks"] = [{"path": c.get("struct"), "verdict": c.get("verdict"), "fail": c.get("fail")}
                      for c in checks]
     bad = [c for c in checks if c.get("verdict") == "FAIL"]
-    if a.kind != "embed" and not checks:
-        row["pass"], row["why"] = False, "job succeeded but returned no structure"
+    # An accepted job that produced nothing to look at is a failure, on every kind.
+    # Exempting embed here is what made every embed cell a vacuous pass: the loop only
+    # collected `type: structure`, embed artifacts are `type: embedding`, so `checks`
+    # was always empty and `not bad` was always true.
+    if not checks:
+        row["pass"] = False
+        row["why"] = ("job succeeded but returned no embedding" if a.kind == "embed"
+                      else "job succeeded but returned no structure")
     else:
         row["pass"] = not bad
         row["why"] = "; ".join(f for c in bad for f in c.get("fail", []))[:400]
