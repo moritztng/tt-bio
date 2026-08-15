@@ -1,0 +1,27 @@
+# Independent reproduction, 2026-08-15, execution pass (opus5), qb1.
+# Rebuilt from source via build.sh against the same librelion_lib.a, then re-run.
+# Purpose: confirm the 67-72x and the bit-exactness without trusting nzp_screen.out.
+
+sampling      : /home/ttuser/relion-scratch/e2e/prof_run_it013_sampling.star
+healpix_order : 6
+sym           : D2   R_repository=4  L_repository=4  isRelax=0
+directions    : 12384     psi samples: 384
+rottilt_step  : 0.9375 deg -> sigma 1.875 deg, cutoff 5.625 deg
+ctx build     : 0.604 ms   (once per sampling change, not per particle)
+kept/call     : 119.2 directions of 12384 scanned
+EXACTNESS     : index-set mismatches 0/200 ; prior-value mismatches 0 ; max rel diff 0.000e+00
+RELION        :      7.436 ms/call      600.4 ns/direction
+rewrite       :      0.110 ms/call        8.8 ns/direction
+SPEEDUP       : 67.87x  (direction loop only; the psi loop below it is untouched)
+
+sampling      : /home/ttuser/relion-scratch/e2e/prof_run_it013_sampling.star
+healpix_order : 7
+sym           : D2   R_repository=4  L_repository=4  isRelax=0
+directions    : 49344     psi samples: 768
+rottilt_step  : 0.46875 deg -> sigma 0.9375 deg, cutoff 2.8125 deg
+ctx build     : 2.330 ms   (once per sampling change, not per particle)
+kept/call     : 118.3 directions of 49344 scanned
+EXACTNESS     : index-set mismatches 0/100 ; prior-value mismatches 0 ; max rel diff 0.000e+00
+RELION        :     29.046 ms/call      588.7 ns/direction
+rewrite       :      0.421 ms/call        8.5 ns/direction
+SPEEDUP       : 68.98x  (direction loop only; the psi loop below it is untouched)
