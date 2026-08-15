@@ -33,6 +33,13 @@ TB = 4096
 N_S = 35          # exactly the number of intermediates one block pushes: any larger and the
                   # blocks after the first straddle a partial wrap of the scratch CB
 EUL_COLS = (0, 1, 3, 4, 6, 7)
+# Pixels per tile. Each pixel owns TWO adjacent columns, re and im, so that one 8 B gather -- a
+# complex voxel, whose real and imaginary parts are contiguous in RELION's model -- lands inside a
+# single dense slot tile. Splitting them across two tiles would need 4 B reads, and E4's chunk sweep
+# prices a read at 36.7 ns whatever its size, so that would double the gather. Every per-pair
+# quantity comes out already replicated across the pair's two columns, which is what the blend wants:
+# the trilinear weights multiply re and im alike and only the Friedel sign distinguishes them.
+PPT = 16
 
 
 def dense_inputs(eul, x, y, n_ob, n_pb):
@@ -93,10 +100,8 @@ def main():
     n_ob, n_pb = 5, 32
     eul_p = np.zeros((n_ob * 32, 9), dtype=np.float32)
     eul_p[:min(O, n_ob * 32)] = eul[:n_ob * 32]
-    xp_ = np.zeros(n_pb * 32, dtype=np.float32)
-    yp_ = np.zeros(n_pb * 32, dtype=np.float32)
-    xp_[:n_pb * 32] = x[:n_pb * 32]
-    yp_[:n_pb * 32] = y[:n_pb * 32]
+    xp_ = np.repeat(x[:n_pb * PPT], 2).astype(np.float32)
+    yp_ = np.repeat(y[:n_pb * PPT], 2).astype(np.float32)
 
     e_np, xy_np = dense_inputs(eul_p, xp_, yp_, n_ob, n_pb)
     n_blocks = n_ob * n_pb
