@@ -22,12 +22,16 @@ sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
 # `ship` leaves the gate alone, so it measures whatever the module default currently is. That is
 # the arm the page publishes, and it is the only one that catches a default that did not land.
 ARMS = {"base": False, "l2": True, "ship": None, "f1": None, "nof1": None,
-        "B": None, "A": None, "AB": None}
+        "B": None, "A": None, "AB": None, "D": None, "ABD": None}
 
 # Device-resident pair handoffs (esmfold2 only): B is the LM shim -> LM encoder
 # handoff, A is parcae_coda -> distogram head. Every arm sets both explicitly, so
 # no arm inherits the previous one's gate.
-DEVPAIR = {"B": (True, False), "A": (False, True), "AB": (True, True)}
+DEVPAIR = {"B": (True, False), "A": (False, True), "AB": (True, True),
+           "ABD": (True, True)}
+
+# D: half the trimul in-projection's output drain on the other NOC (tt_bio/mm_dualnoc.py).
+DUALNOC = {"D": True, "ABD": True}
 
 
 def sha_dir(d):
@@ -50,6 +54,7 @@ def main():
     import tt_bio.esmc as EC
     import tt_bio.reblock_permute as RP
     import tt_bio.esmfold2_runtime as RT
+    import tt_bio.mm_dualnoc as DN
     import tt_baseline as B
     from tt_bio.main import _resolve_recycling_steps, _resolve_sampling_steps
     from tt_bio.main import _detect_p300_devices, _find_ttnn_mesh_graph_descriptor
@@ -90,6 +95,9 @@ def main():
         lm_h, dev_z = DEVPAIR.get(arm, (False, False))
         RT.set_device_lm_handoff(lm_h)
         RT.set_device_z(dev_z)
+        DN.set_enabled(DUALNOC.get(arm, False))
+        DN.STATS[0] = DN.STATS[1] = 0
+        DN.REJECTS.clear()
         RT.LM_HANDOFF_STATS[0] = RT.LM_HANDOFF_STATS[1] = 0
         RT.Z_STATS[0] = RT.Z_STATS[1] = 0
         RP.STATS_GATED[0] = RP.STATS_GATED[1] = 0
@@ -110,16 +118,19 @@ def main():
                "lm_handoff": list(RT.LM_HANDOFF_STATS), "dev_z": list(RT.Z_STATS),
                "fwd_move": list(RP.STATS), "back_move": list(RP.STATS_BACK),
                "l1_out_refused": len(T._L1_OUT_REFUSED),
+               "dual_noc": list(DN.STATS),
+               "dual_noc_rejects": {str(k): v for k, v in DN.REJECTS.items()},
                "trimul_tail_f1": (arm in ("f1", "nof1")) and list(F1M.STATS) or None,
                "loadavg": open("/proc/loadavg").read().split()[0]}
         res["runs"].append(row)
         a.out.write_text(json.dumps(res, indent=1))
-        print("  %-14s %8.3fs plddt=%s e6=%d/%d l1fc1=%d/%d lmh=%d/%d zdev=%d/%d "
+        print("  %-14s %8.3fs plddt=%s e6=%d/%d l1fc1=%d/%d lmh=%d/%d zdev=%d/%d dn=%d/%d "
               "l1refused=%d cif=%s load=%s"
               % (tag, fold_s, m.get("plddt"), RP.STATS_GATED[0], RP.STATS_GATED[1],
                  EC.L1_FC1_STATS[0], EC.L1_FC1_STATS[1],
                  RT.LM_HANDOFF_STATS[0], RT.LM_HANDOFF_STATS[1],
                  RT.Z_STATS[0], RT.Z_STATS[1],
+                 DN.STATS[0], DN.STATS[1],
                  row["l1_out_refused"],
                  list(row["cif"].values())[0] if row["cif"] else "-", row["loadavg"]),
               flush=True)
