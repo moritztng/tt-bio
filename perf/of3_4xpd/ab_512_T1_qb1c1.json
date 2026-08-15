@@ -1,0 +1,60 @@
+{
+ "label": "T1",
+ "ttnn": "0.67.4",
+ "host": "tt-quietbox",
+ "card": "1",
+ "size": 512,
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "loadavg": [
+  "0.09",
+  "0.33",
+  "0.77"
+ ],
+ "folds": [
+  {
+   "run": 0,
+   "fold_s": 46.396,
+   "plddt": 0.554642,
+   "n_tokens": 512,
+   "n_atoms": 4116,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "283be8b29b15adc0"
+   },
+   "loadavg": [
+    "3.33",
+    "1.26",
+    "1.05"
+   ]
+  },
+  {
+   "run": 1,
+   "fold_s": 46.44,
+   "plddt": 0.554642,
+   "n_tokens": 512,
+   "n_atoms": 4116,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "283be8b29b15adc0"
+   },
+   "loadavg": [
+    "2.17",
+    "1.23",
+    "1.05"
+   ]
+  }
+ ],
+ "cold_s": 54.317,
+ "median_s": 46.418,
+ "spread_s": 0.044,
+ "fp32_softmax_stats": {
+  "calls": 1320,
+  "blocked": 1320,
+  "blocks": 56760,
+  "fused": 56760,
+  "unfused": 0,
+  "l1": 1320,
+  "l1_blocks": 56760,
+  "l1_refused": 0
+ },
+ "fp32_softmax_l1_refused_keys": []
+}

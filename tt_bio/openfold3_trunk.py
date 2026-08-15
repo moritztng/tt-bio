@@ -143,7 +143,7 @@ class OF3Trunk(Module):
                           layout=ttnn.TILE_LAYOUT)
 
     def __call__(self, s_init, z_init, template_feat, msa_feat, s_input,
-                 progress_fn=None):
+                 progress_fn=None, template_slots=None):
         """Fully-device assembled trunk forward.
 
         s_init, z_init: device bf16 [1,N,384] / [1,N,N,128] (InputEmbedder constants).
@@ -160,11 +160,14 @@ class OF3Trunk(Module):
         z = self._zeros_like(z_init)
         # m is identical across cycles (verified in the reference golden); compute once.
         m = self.msa_embedder(msa_feat, s_input)
+        # the template feature half is a function of template_feat alone, so it is the
+        # same tensor in every cycle -- compute it once, exactly like m above.
+        a_tmpl = self.template.features(template_feat)
         for cyc in range(self.num_cycles):
             if progress_fn:
                 progress_fn("trunk", step=cyc, total=self.num_cycles)
             z = self.glue.glue_z(z, z_init)              # device z-glue
-            z_tmpl = self.template(template_feat, z)     # device TemplateEmbedderAllAtom
+            z_tmpl = self.template(template_feat, z, template_slots, a_tmpl)
             z = ttnn.add(z, z_tmpl)
             ttnn.deallocate(z_tmpl)
             z = self.msa_module(m, z)[1]               # device 4-block MSA module (degraded z); m reused next cycle

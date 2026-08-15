@@ -290,7 +290,8 @@ class OpenFold3(Module):
 
     def fold(self, *, template_feat, msa_feat, s_input, relpos, token_bonds,
              token_mask, dm_aux_host, n_atom, n_token, no_rollout_steps, seed,
-             no_samples=1, confidence_aux_host=None, progress_fn=None):
+             no_samples=1, confidence_aux_host=None, progress_fn=None,
+             template_slots=None):
         """Run the device input glue + trunk and confidence-rank fresh rollouts.
 
         ``msa_feat`` is the searched, post-subsample 34-channel MSA input. The returned
@@ -308,7 +309,8 @@ class OpenFold3(Module):
         tmpl_d = {k: ft(v) for k, v in template_feat.items()}
         msa_d = ft(msa_feat.unsqueeze(0))
         s_trunk_d, z_trunk_d = self.trunk(s_init_d, z_init_d, tmpl_d, msa_d, s_input_d,
-                                          progress_fn=progress_fn)
+                                          progress_fn=progress_fn,
+                                          template_slots=template_slots)
         si_trunk_d = s_trunk_d
         zij_trunk_d = z_trunk_d
 

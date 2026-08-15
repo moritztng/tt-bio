@@ -76,6 +76,32 @@ def derive_template_feat(features: dict) -> dict:
     }
 
 
+def dedup_template_slots(feat: dict) -> tuple[dict, list[int]]:
+    """Drop template slots that repeat an earlier one, and say where each slot went.
+
+    A query with fewer real templates than ``n_templates`` fills the rest of the slots
+    from the same GAP/NaN precursor, so every derived feature is byte-identical across
+    them and the pair stack runs the same two blocks on the same values several times.
+    Returns the feature dict restricted to the distinct slots plus, per original slot,
+    the row of that dict it maps to. Slots that genuinely differ are all kept, so a
+    query with real templates takes the unchanged path.
+    """
+    nt = int(next(iter(feat.values())).shape[0])
+    reps: list[int] = []          # original index of each distinct slot
+    slot_index: list[int] = []    # per original slot, its row in the returned dict
+    for t in range(nt):
+        for j, r in enumerate(reps):
+            if all(torch.equal(v[t], v[r]) for v in feat.values()):
+                slot_index.append(j)
+                break
+        else:
+            slot_index.append(len(reps))
+            reps.append(t)
+    if len(reps) == nt:
+        return feat, slot_index
+    return {k: v[reps].contiguous() for k, v in feat.items()}, slot_index
+
+
 def derive_relpos(features: dict) -> torch.Tensor:
     """139-d ``relpos_complex`` feature, input-embedder clipping config."""
     return relpos_complex(

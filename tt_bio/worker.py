@@ -1007,8 +1007,8 @@ class _WorkerState:
         from tt_bio.openfold3_data import (
             build_openfold3_features, make_openfold3_msa_features)
         from tt_bio.openfold3_host_prep import (
-            derive_block_aux, derive_relpos, derive_template_feat, ref_atom_embed,
-            run_input_atom_encoder)
+            dedup_template_slots, derive_block_aux, derive_relpos,
+            derive_template_feat, ref_atom_embed, run_input_atom_encoder)
         from tt_bio.openfold3_weights import _sub
 
         with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
@@ -1066,7 +1066,8 @@ class _WorkerState:
         msa_feat = make_openfold3_msa_features(
             features, max_sequences=int(cfg.get("of3_max_msa_seqs") or 16384), seed=0)
         aux = derive_block_aux(features)
-        template_feat = derive_template_feat(features)
+        template_feat, template_slots = dedup_template_slots(
+            derive_template_feat(features))
         relpos = derive_relpos(features)
 
         model = self.model
@@ -1102,7 +1103,8 @@ class _WorkerState:
 
         n_sample = int(cfg["diffusion_samples"])
         result = model.fold(
-            template_feat=template_feat, msa_feat=msa_feat, s_input=s_input,
+            template_feat=template_feat, template_slots=template_slots,
+            msa_feat=msa_feat, s_input=s_input,
             relpos=relpos, token_bonds=features["token_bonds"],
             token_mask=features["token_mask"], dm_aux_host=dm_aux_host,
             n_atom=aux["n_atom"], n_token=aux["n_token"],

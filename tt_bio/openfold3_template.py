@@ -69,13 +69,10 @@ class TemplatePairFeatureEmbedder(Module):
         self.b_lnz = self.torch_to_tt("layer_norm_z.bias")
         self.w_linz = self.torch_to_tt("linear_z.weight")
 
-    def __call__(self, feat, z):
+    def features(self, feat):
+        """``a``: the eight feature linears summed. A function of ``feat`` alone, so the
+        trunk computes it once and hands it back on every later recycle."""
         lin = self._lin
-        zln = ttnn.layer_norm(
-            z, weight=self.w_lnz, bias=self.b_lnz, epsilon=1e-5,
-            compute_kernel_config=self.compute_kernel_config)
-        z_bias = lin(zln, self.w_linz)                       # [1, N, N, 64]
-
         a = lin(feat["distogram"], self.w_dgram)
         a = ttnn.add(a, lin(feat["pseudo_beta_pair_mask"], self.w_pbm))
         a = ttnn.add(a, lin(feat["restype_ti"], self.w_aa1))
@@ -83,7 +80,16 @@ class TemplatePairFeatureEmbedder(Module):
         a = ttnn.add(a, lin(feat["unit_vec_x"], self.w_x))
         a = ttnn.add(a, lin(feat["unit_vec_y"], self.w_y))
         a = ttnn.add(a, lin(feat["unit_vec_z"], self.w_z))
-        a = ttnn.add(a, lin(feat["backbone_frame_pair_mask"], self.w_bb))
+        return ttnn.add(a, lin(feat["backbone_frame_pair_mask"], self.w_bb))
+
+    def __call__(self, feat, z, a=None):
+        lin = self._lin
+        zln = ttnn.layer_norm(
+            z, weight=self.w_lnz, bias=self.b_lnz, epsilon=1e-5,
+            compute_kernel_config=self.compute_kernel_config)
+        z_bias = lin(zln, self.w_linz)                       # [1, N, N, 64]
+        if a is None:
+            a = self.features(feat)
         ttnn.deallocate(zln)
 
         t_embed = ttnn.add(a, z_bias)                        # broadcast over N_templ
@@ -124,6 +130,8 @@ class TemplatePairStack(Module):
                 v, weight=self.ln_w, bias=self.ln_b, epsilon=1e-5,
                 compute_kernel_config=self.compute_kernel_config)
             outs.append(v)
+        if len(outs) == 1:
+            return outs[0]
         return ttnn.concat(outs, dim=0)                     # [N_templ, N, N, c_t]
 
 
@@ -142,13 +150,23 @@ class TemplateEmbedder(Module):
         self.ps = TemplatePairStack(state_dict, compute_kernel_config)
         self.w_lt = self.torch_to_tt("linear_t.weight")
 
-    def __call__(self, feat, z):
-        t_embed, _ = self.fe(feat, z)                       # [nt, N, N, 64]
-        t_stack = self.ps(t_embed)                          # [nt, N, N, 64]
-        nt = t_stack.shape[0]
-        u = t_stack[0:1]
-        for t in range(1, nt):
+    def features(self, feat):
+        """The z-independent half of leg 1, hoistable out of the recycle loop."""
+        return self.fe.features(feat)
+
+    def __call__(self, feat, z, slots=None, a=None):
+        """``slots`` maps every original template slot to its row in ``feat`` after
+        ``dedup_template_slots``. The aggregation still sums one term per ORIGINAL slot
+        and divides by their count, in the original order, so a deduplicated stack is
+        bit-identical to the full one: ``((v+v)+v)+v`` packs to bf16 at every step and
+        ``3v`` does not fit in 8 mantissa bits, so the sum cannot be collapsed."""
+        t_embed, _ = self.fe(feat, z, a)                    # [n_distinct, N, N, 64]
+        t_stack = self.ps(t_embed)                          # [n_distinct, N, N, 64]
+        if slots is None:
+            slots = list(range(int(t_stack.shape[0])))
+        u = t_stack[slots[0]:slots[0] + 1]
+        for t in slots[1:]:
             u = ttnn.add(u, t_stack[t:t + 1])
-        u = ttnn.multiply(u, 1.0 / nt)
+        u = ttnn.multiply(u, 1.0 / len(slots))
         u = ttnn.relu(u)
         return self._lin(u, self.w_lt)                      # [1, N, N, 128]
