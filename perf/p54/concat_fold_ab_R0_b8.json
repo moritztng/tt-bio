@@ -1,0 +1,30 @@
+{
+  "rows": [
+    {
+      "arm": "shipped",
+      "rep": 0,
+      "sampler_s": 176.644,
+      "cif_sha256_16": "8265530a814e9224|b86f814d5c597f7d|450ee2f38a615add|3ce496b34c9ecda2|07299689fcb79ed5|afda9adb62dc9318|5def07c50e9e8ddb|43a86c9ccb646612",
+      "n_cifs": 8
+    },
+    {
+      "arm": "aligned",
+      "rep": 1,
+      "sampler_s": 168.833,
+      "cif_sha256_16": "8265530a814e9224|b86f814d5c597f7d|450ee2f38a615add|3ce496b34c9ecda2|07299689fcb79ed5|afda9adb62dc9318|5def07c50e9e8ddb|43a86c9ccb646612",
+      "n_cifs": 8
+    }
+  ],
+  "num_timesteps": 200,
+  "seed": 42,
+  "rung": "R0",
+  "batch": 8,
+  "bit_exact": true,
+  "shipped_s_median": 176.644,
+  "aligned_s_median": 168.833,
+  "ratio": 1.0463,
+  "host": "qb2",
+  "card": 0,
+  "ttnn": "0.68.0",
+  "torch": "2.13.0+cpu"
+}

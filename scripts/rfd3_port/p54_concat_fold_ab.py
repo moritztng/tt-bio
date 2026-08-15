@@ -37,7 +37,11 @@ FIXTURE = pathlib.Path("perf/dsfix/fixtures/rfd3_%s.json" % RUNG)
 CKPT = "/home/ttuser/.boltz/rfd3/weights"
 OUT = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "perf/p54/concat_fold_ab.json")
 STEPS, SEED = 200, 42
-ARMS = [False, True, False, True]
+# argv[3] is the batch. Small targets ship at 8, and the combined one-hot reshapes to
+# (batch, I, I, 160) from a flat gather, so the batch dim is the other axis the change has to
+# be checked on. At batch > 1 every design's CIF is digested, not just the first.
+BATCH = int(sys.argv[3]) if len(sys.argv) > 3 else 1
+ARMS = [False, True] if BATCH > 1 else [False, True, False, True]
 
 WALLS = []
 _sample = RFD3Sampler.sample
@@ -62,15 +66,16 @@ def main():
         os.system("rm -rf %s" % out_dir)
         WALLS.clear()
         rfd3_design.run_design(specs, out_dir, checkpoint_dir=CKPT, from_pdb=True,
-                               num_timesteps=STEPS, seed=SEED, num_designs=1, batch_size=1,
-                               verbose=False)
+                               num_timesteps=STEPS, seed=SEED, num_designs=BATCH,
+                               batch_size=BATCH, verbose=False)
         cifs = sorted(pathlib.Path(out_dir).glob("*.cif"))
-        dig = hashlib.sha256(cifs[0].read_bytes()).hexdigest()[:16] if cifs else "NO CIF"
+        dig = ("|".join(hashlib.sha256(c.read_bytes()).hexdigest()[:16] for c in cifs)
+               if cifs else "NO CIF")
         rows.append({"arm": "aligned" if aligned else "shipped", "rep": i,
                      "sampler_s": round(WALLS[0], 3), "cif_sha256_16": dig,
                      "n_cifs": len(cifs)})
-        print("[p54] %s rep%d %-8s %8.3f s  cif %s"
-          % (RUNG, i, rows[-1]["arm"], WALLS[0], dig), flush=True)
+        print("[p54] %s b=%d rep%d %-8s %8.3f s  %d cif  %s"
+          % (RUNG, BATCH, i, rows[-1]["arm"], WALLS[0], len(cifs), dig[:70]), flush=True)
 
     def med(name):
         v = [r["sampler_s"] for r in rows if r["arm"] == name]
@@ -88,7 +93,7 @@ def main():
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps({"rows": rows, "num_timesteps": STEPS, "seed": SEED,
-                               "rung": RUNG, "batch": 1, "bit_exact": exact,
+                               "rung": RUNG, "batch": BATCH, "bit_exact": exact,
                                "shipped_s_median": round(off, 3),
                                "aligned_s_median": round(on, 3),
                                "ratio": round(off / on, 4),
