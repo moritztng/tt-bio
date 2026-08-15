@@ -25,11 +25,21 @@ The fix is `integrations/relion/relion5-coarse-blocking.patch`, one line.
 **1.986x on the wall, 2.985x on the kernel**, against a run-to-run control that reproduces to 0.22%
 on the wall and 0.10% on the kernel.
 
+Stacking the `nonZeroProb` rewrite (`relion5-nonzeroprob.patch`) on top takes it further:
+
+| arm | wall, s | coarse kernel, thread-s | postprocess |
+|---|---|---|---|
+| nzp (coarse fix + `nonZeroProb`) | **399.22** | 4,828.04 | 4.033896 Å |
+
+42.96 s more, 1.108x, bit-exact (it013 byte-identical to e16). **878.18 s -> 399.22 s, 2.200x, from
+two host patches with no accelerator involved.** `nonZeroProb` is shared host code that RELION's CUDA
+backend pays too, so it compresses every column and moves no relative standing.
+
 ## Parity
 
-`relion_postprocess` unmasked at `--angpix 1.244835` gives **4.033896 Å on all three arms**, the
+`relion_postprocess` unmasked at `--angpix 1.244835` gives **4.033896 Å on all four arms**, the
 standing gate value. The it013 `_data.star` — the first E-step after the change — is **byte-identical
-across all three runs**, and the replay harness has `diff2s` bit-exact at every E.
+across all three E-arms**, and the replay harness has `diff2s` bit-exact at every E.
 
 From it014 the star files differ between arms **and equally between e1 and e1b**, so the divergence
 is RELION's own: `backprojectRef3D` accumulates under a `tbb::spin_mutex` in thread-arrival order,
