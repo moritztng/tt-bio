@@ -28,7 +28,12 @@ from tt_bio.rfd3 import design as rfd3_design                          # noqa: E
 from tt_bio.rfd3 import model as M                                     # noqa: E402
 from tt_bio.rfd3.sampler import RFD3Sampler                            # noqa: E402
 
-FIXTURE = pathlib.Path("perf/dsfix/fixtures/rfd3_R4.json")
+# argv[2] picks the rung. The concat change is default-ON at every size, not just the page
+# fixture, so it needs a digest at a small rung too: the combined table is 160 wide whatever I
+# is, and a change tuned at one size behaving differently at another is a named failure mode
+# (tt-bio-tuned-at-512-l1-gates-go-dark-above-640aa).
+RUNG = sys.argv[2] if len(sys.argv) > 2 else "R4"
+FIXTURE = pathlib.Path("perf/dsfix/fixtures/rfd3_%s.json" % RUNG)
 CKPT = "/home/ttuser/.boltz/rfd3/weights"
 OUT = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "perf/p54/concat_fold_ab.json")
 STEPS, SEED = 200, 42
@@ -64,7 +69,8 @@ def main():
         rows.append({"arm": "aligned" if aligned else "shipped", "rep": i,
                      "sampler_s": round(WALLS[0], 3), "cif_sha256_16": dig,
                      "n_cifs": len(cifs)})
-        print("[p54] rep%d %-8s %8.3f s  cif %s" % (i, rows[-1]["arm"], WALLS[0], dig), flush=True)
+        print("[p54] %s rep%d %-8s %8.3f s  cif %s"
+          % (RUNG, i, rows[-1]["arm"], WALLS[0], dig), flush=True)
 
     def med(name):
         v = [r["sampler_s"] for r in rows if r["arm"] == name]
@@ -82,7 +88,7 @@ def main():
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps({"rows": rows, "num_timesteps": STEPS, "seed": SEED,
-                               "atoms": 6051, "batch": 1, "bit_exact": exact,
+                               "rung": RUNG, "batch": 1, "bit_exact": exact,
                                "shipped_s_median": round(off, 3),
                                "aligned_s_median": round(on, 3),
                                "ratio": round(off / on, 4),
