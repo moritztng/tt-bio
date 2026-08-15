@@ -1,0 +1,19 @@
+{
+ "source": "harvested from the four live follower ranks of the check arm via /proc/PID/mem, 2026-08-15T00:58Z, because TTBridge::report() was never registered and the counters would have died with the process",
+ "arm": "check (TT_RELION_BACKEND=torch, TT_RELION_CHECK=1)",
+ "coverage": "it13-it16 complete, it17 in flight at harvest time",
+ "n": 4375232,
+ "bit_identical": 577374,
+ "bit_identical_frac": 0.13196,
+ "max_rel": 1.070173e-06,
+ "bucket_meaning": "bucket[k] counts NON-identical entries with relative residual in [1e-(k+1), 1e-k); bit-identical entries are counted separately and are in no bucket",
+ "bucket": [0, 0, 0, 0, 0, 1, 2709369, 1088488, 0, 0],
+ "per_rank": [
+  {"pid": 3027641, "n": 1106528, "bit_identical": 146237, "max_rel": 1.070e-06},
+  {"pid": 3027642, "n": 1087168, "bit_identical": 143142, "max_rel": 9.748e-07},
+  {"pid": 3027643, "n": 1096384, "bit_identical": 144502, "max_rel": 9.837e-07},
+  {"pid": 3027645, "n": 1085152, "bit_identical": 143493, "max_rel": 9.955e-07}
+ ],
+ "median_decade": "[1e-7, 1e-6)",
+ "median_derivation": "sorted ascending, 577374 exact then 1088488 in [1e-8,1e-7) = 1665862 < n/2 = 2187616, so the median entry lies in the [1e-7,1e-6) decade"
+}

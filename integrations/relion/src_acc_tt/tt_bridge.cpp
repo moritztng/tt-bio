@@ -33,6 +33,7 @@ namespace
 	std::atomic<long> g_fine_declined{0};
 
 	bool g_check = false;                   // TT_RELION_CHECK, read once at init
+	long   g_res_flushed = 0;               // g_res_n at the last flush, guarded by g_res_mutex
 
 	// TT_RELION_CHECK only. diff2Fine stashes its own answer here and declines; diff2FineCheck
 	// grades it against RELION's once RELION's kernel has run. Thread-local because RELION calls
@@ -45,6 +46,16 @@ namespace
 	long   g_res_n = 0;
 	long   g_res_exact = 0;                 // entries that came out bit-identical anyway
 	long   g_res_bucket[10] = {0};          // count by floor(-log10(relative residual))
+
+	void reportResidualLocked()
+	{
+		std::fprintf(stderr, "TTBridge: fine residual n=%ld bit_identical=%ld max_rel=%.3e\n",
+		             g_res_n, g_res_exact, g_res_max);
+		std::fprintf(stderr, "TTBridge: fine residual by -log10(rel):");
+		for (int k = 0; k < 10; k++) std::fprintf(stderr, " %d:%ld", k, g_res_bucket[k]);
+		std::fprintf(stderr, "\n");
+		std::fflush(stderr);
+	}
 
 	// Returns true when the Python entry points are ready to call.
 	bool ensureReady()
@@ -109,6 +120,7 @@ namespace
 		}
 		std::fprintf(stderr, "TTBridge: tt_bio.cryoem.relion loaded (fine=%s check=%s)\n",
 		             g_fine_usable.load() ? "yes" : "no", g_check ? "yes" : "no");
+		std::atexit(&TTBridge::report);  // nothing else calls it, and the no-op trap needs the line
 		return true;
 	}
 }
@@ -290,6 +302,11 @@ void diff2FineCheck(const float *diff2s, long significant_num)
 	g_res_n += significant_num;
 	g_res_exact += exact;
 	for (int k = 0; k < 10; k++) g_res_bucket[k] += bucket[k];
+	if (g_res_n - g_res_flushed >= 500000)
+	{
+		g_res_flushed = g_res_n;
+		reportResidualLocked();
+	}
 }
 
 void report()
@@ -301,11 +318,7 @@ void report()
 	if (g_check && g_res_n > 0)
 	{
 		std::lock_guard<std::mutex> lock(g_res_mutex);
-		std::fprintf(stderr, "TTBridge: fine residual n=%ld bit_identical=%ld max_rel=%.3e\n",
-		             g_res_n, g_res_exact, g_res_max);
-		std::fprintf(stderr, "TTBridge: fine residual by -log10(rel):");
-		for (int k = 0; k < 10; k++) std::fprintf(stderr, " %d:%ld", k, g_res_bucket[k]);
-		std::fprintf(stderr, "\n");
+		reportResidualLocked();
 	}
 }
 

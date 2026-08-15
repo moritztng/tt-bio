@@ -1,0 +1,42 @@
+{
+ "base": "ref_run",
+ "pairs": {
+  "shape_run": {
+   "_rlnAngleRot": {
+    "n": 4452,
+    "identical": 4428,
+    "median": 0.0,
+    "p99": 0.0,
+    "max": 0.604391000000021
+   },
+   "_rlnAngleTilt": {
+    "n": 4452,
+    "identical": 4428,
+    "median": 0.0,
+    "p99": 0.0,
+    "max": 0.19978400000000107
+   },
+   "_rlnAnglePsi": {
+    "n": 4452,
+    "identical": 4424,
+    "median": 0.0,
+    "p99": 0.0,
+    "max": 0.4729280000000031
+   },
+   "_rlnOriginXAngst": {
+    "n": 4452,
+    "identical": 4446,
+    "median": 0.0,
+    "p99": 0.0,
+    "max": 0.3960720000000002
+   },
+   "_rlnOriginYAngst": {
+    "n": 4452,
+    "identical": 4452,
+    "median": 0.0,
+    "p99": 0.0,
+    "max": 0.0
+   }
+  }
+ }
+}
