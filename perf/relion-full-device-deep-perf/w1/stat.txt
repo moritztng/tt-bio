@@ -1,0 +1,12 @@
+
+ Performance counter stats for process id '3254207':
+
+   277,556,816,697      cycles                                                                
+   696,289,184,013      instructions                     #    2.51  insn per cycle            
+   218,345,725,798      L1-dcache-loads                                                       
+     3,038,856,244      L1-dcache-load-misses            #    1.39% of all L1-dcache accesses 
+   <not supported>      LLC-loads                                                             
+   <not supported>      LLC-load-misses                                                       
+
+      20.003478055 seconds time elapsed
+

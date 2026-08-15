@@ -1,0 +1,60 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 167K of event 'cycles:P'
+# Event count (approx.): 824626903903
+#
+# Overhead  Command          Shared Object        Symbol                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+# ........  ...............  ...................  ...........................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................
+#
+    40.99%  relion_refine_m  relion_refine_mpi    [.] runDiff2KernelCoarse(AccProjectorKernel&, float*, float*, float*, float*, float*, float*, float*, float*, float, unsigned long, unsigned long, unsigned long, float, bool, bool)
+            |          
+            |--25.52%--runDiff2KernelCoarse(AccProjectorKernel&, float*, float*, float*, float*, float*, float*, float*, float*, float, unsigned long, unsigned long, unsigned long, float, bool, bool)
+            |          void getAllSquaredDifferencesCoarse<MlOptimiserCpu>(unsigned int, OptimisationParamters&, SamplingParameters&, MlOptimiser*, MlOptimiserCpu*, AccPtr<float>&, AccPtrFactory, int) [clone .isra.0]
+            |          void accDoExpectationOneParticle<MlOptimiserCpu>(MlOptimiserCpu*, unsigned long, int, AccPtrFactory)
+            |          tbb::detail::d1::start_for<tbb::detail::d1::blocked_range<long>, tbb::detail::d1::parallel_for_body_wrapper<MlOptimiser::expectationSomeParticles(long, long)::{lambda(long)#1}, long>, tbb::detail::d1::auto_partitioner const>::execute(tbb::detail::d1::execution_data&)
+            |          0
+            |          
+            |--11.24%--__sincosf_fma
+            |          void getAllSquaredDifferencesCoarse<MlOptimiserCpu>(unsigned int, OptimisationParamters&, SamplingParameters&, MlOptimiser*, MlOptimiserCpu*, AccPtr<float>&, AccPtrFactory, int) [clone .isra.0]
+            |          void accDoExpectationOneParticle<MlOptimiserCpu>(MlOptimiserCpu*, unsigned long, int, AccPtrFactory)
+            |          tbb::detail::d1::start_for<tbb::detail::d1::blocked_range<long>, tbb::detail::d1::parallel_for_body_wrapper<MlOptimiser::expectationSomeParticles(long, long)::{lambda(long)#1}, long>, tbb::detail::d1::auto_partitioner const>::execute(tbb::detail::d1::execution_data&)
+            |          0
+            |          
+            |--3.57%--CpuKernels::complex3D(std::complex<float>*, float&, float&, float, float, float, int, int, int, int)
+            |          void getAllSquaredDifferencesCoarse<MlOptimiserCpu>(unsigned int, OptimisationParamters&, SamplingParameters&, MlOptimiser*, MlOptimiserCpu*, AccPtr<float>&, AccPtrFactory, int) [clone .isra.0]
+            |          void accDoExpectationOneParticle<MlOptimiserCpu>(MlOptimiserCpu*, unsigned long, int, AccPtrFactory)
+            |          tbb::detail::d1::start_for<tbb::detail::d1::blocked_range<long>, tbb::detail::d1::parallel_for_body_wrapper<MlOptimiser::expectationSomeParticles(long, long)::{lambda(long)#1}, long>, tbb::detail::d1::auto_partitioner const>::execute(tbb::detail::d1::execution_data&)
+            |          0
+            |          
+             --0.65%--sincosf@plt
+                       void getAllSquaredDifferencesCoarse<MlOptimiserCpu>(unsigned int, OptimisationParamters&, SamplingParameters&, MlOptimiser*, MlOptimiserCpu*, AccPtr<float>&, AccPtrFactory, int) [clone .isra.0]
+                       void accDoExpectationOneParticle<MlOptimiserCpu>(MlOptimiserCpu*, unsigned long, int, AccPtrFactory)
+                       tbb::detail::d1::start_for<tbb::detail::d1::blocked_range<long>, tbb::detail::d1::parallel_for_body_wrapper<MlOptimiser::expectationSomeParticles(long, long)::{lambda(long)#1}, long>, tbb::detail::d1::auto_partitioner const>::execute(tbb::detail::d1::execution_data&)
+                       0
+
+    19.94%  relion_refine_m  libm.so.6            [.] __sincosf_fma
+            |          
+            |--13.65%--runDiff2KernelCoarse(AccProjectorKernel&, float*, float*, float*, float*, float*, float*, float*, float*, float, unsigned long, unsigned long, unsigned long, float, bool, bool)
+            |          void getAllSquaredDifferencesCoarse<MlOptimiserCpu>(unsigned int, OptimisationParamters&, SamplingParameters&, MlOptimiser*, MlOptimiserCpu*, AccPtr<float>&, AccPtrFactory, int) [clone .isra.0]
+            |          void accDoExpectationOneParticle<MlOptimiserCpu>(MlOptimiserCpu*, unsigned long, int, AccPtrFactory)
+            |          tbb::detail::d1::start_for<tbb::detail::d1::blocked_range<long>, tbb::detail::d1::parallel_for_body_wrapper<MlOptimiser::expectationSomeParticles(long, long)::{lambda(long)#1}, long>, tbb::detail::d1::auto_partitioner const>::execute(tbb::detail::d1::execution_data&)
+            |          0
+            |          
+            |--5.87%--__sincosf_fma
+            |          |          
+            |           --5.81%--void getAllSquaredDifferencesCoarse<MlOptimiserCpu>(unsigned int, OptimisationParamters&, SamplingParameters&, MlOptimiser*, MlOptimiserCpu*, AccPtr<float>&, AccPtrFactory, int) [clone .isra.0]
+            |                     void accDoExpectationOneParticle<MlOptimiserCpu>(MlOptimiserCpu*, unsigned long, int, AccPtrFactory)
+            |                     tbb::detail::d1::start_for<tbb::detail::d1::blocked_range<long>, tbb::detail::d1::parallel_for_body_wrapper<MlOptimiser::expectationSomeParticles(long, long)::{lambda(long)#1}, long>, tbb::detail::d1::auto_partitioner const>::execute(tbb::detail::d1::execution_data&)
+            |                     0
+            |          
+             --0.41%--sincosf@plt
+                       |          
+                        --0.41%--void getAllSquaredDifferencesCoarse<MlOptimiserCpu>(unsigned int, OptimisationParamters&, SamplingParameters&, MlOptimiser*, MlOptimiserCpu*, AccPtr<float>&, AccPtrFactory, int) [clone .isra.0]
+                                  void accDoExpectationOneParticle<MlOptimiserCpu>(MlOptimiserCpu*, unsigned long, int, AccPtrFactory)
+                                  tbb::detail::d1::start_for<tbb::detail::d1::blocked_range<long>, tbb::detail::d1::parallel_for_body_wrapper<MlOptimiser::expectationSomeParticles(long, long)::{lambda(long)#1}, long>, tbb::detail::d1::auto_partitioner const>::execute(tbb::detail::d1::execution_data&)
+                                  0
+
+    18.22%  relion_refine_m  relion_refine_mpi    [.] CpuKernels::complex3D(std::complex<float>*, float&, float&, float, float, float, int, int, int, int)

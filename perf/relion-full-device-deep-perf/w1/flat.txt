@@ -1,0 +1,32 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 167K of event 'cycles:P'
+# Event count (approx.): 824626903903
+#
+# Overhead  Command          Shared Object        Symbol                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+# ........  ...............  ...................  ...........................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................
+#
+    40.99%  relion_refine_m  relion_refine_mpi    [.] runDiff2KernelCoarse(AccProjectorKernel&, float*, float*, float*, float*, float*, float*, float*, float*, float, unsigned long, unsigned long, unsigned long, float, bool, bool)
+    19.94%  relion_refine_m  libm.so.6            [.] __sincosf_fma
+    18.22%  relion_refine_m  relion_refine_mpi    [.] CpuKernels::complex3D(std::complex<float>*, float&, float&, float, float, float, int, int, int, int)
+     5.58%  relion_refine_m  relion_refine_mpi    [.] void CpuKernels::backprojectRef3D<false>(unsigned long, float*, float*, float*, float*, float*, float*, float*, unsigned long, float, float, float*, float*, float*, float*, int, int, float, unsigned int, unsigned int, unsigned int, unsigned long, unsigned int, unsigned int, int, int, tbb::detail::d1::spin_mutex*) [clone .isra.0]
+     4.36%  relion_refine_m  relion_refine_mpi    [.] runDiff2KernelFine(AccProjectorKernel&, float*, float*, float*, float*, float*, float*, float*, unsigned long*, unsigned long*, unsigned long*, unsigned long*, unsigned long*, float*, OptimisationParamters&, MlOptimiser*, unsigned long, unsigned long, unsigned long, unsigned long, int, int, float, unsigned long, bool, bool)
+     1.91%  relion_refine_m  relion_refine_mpi    [.] runWavgKernel(AccProjectorKernel&, float*, float*, float*, float*, float*, float*, float*, float*, float*, float*, float*, OptimisationParamters&, unsigned long, unsigned long, unsigned long, int, int, int, float, bool, bool, bool, float)
+     1.30%  relion_refine_m  relion_refine_mpi    [.] sincosf@plt
+     1.01%  relion_refine_m  libc.so.6            [.] _int_free
+     0.66%  relion_refine_m  libc.so.6            [.] malloc
+     0.66%  relion_refine_m  relion_refine_mpi    [.] HealpixSampling::selectOrientationsWithNonZeroPriorProbability(double, double, double, double, double, double, std::vector<int, std::allocator<int> >&, std::vector<double, std::allocator<double> >&, std::vector<int, std::allocator<int> >&, std::vector<double, std::allocator<double> >&, bool, double, double, double)
+     0.55%  relion_refine_m  libm.so.6            [.] __sincos
+     0.52%  relion_refine_m  relion_refine_mpi    [.] Matrix1D<double>::operator*(Matrix2D<double> const&)
+     0.49%  relion_refine_m  relion_refine_mpi    [.] Matrix2D<double>::operator*(Matrix1D<double> const&) const
+     0.45%  relion_refine_m  libc.so.6            [.] cfree@GLIBC_2.2.5
+     0.37%  relion_refine_m  relion_refine_mpi    [.] Matrix1D<double>::resize(int)
+     0.35%  relion_refine_m  libc.so.6            [.] __memset_avx512_unaligned_erms
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#
