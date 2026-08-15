@@ -68,6 +68,10 @@ def main():
     ap.add_argument("--arms", default="off,on,off,on,off,on")
     ap.add_argument("--size", type=int, default=512)
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--wall", type=int, default=1,
+                    help="0 = no per-module sync walls. The walls cost ~4.8 s/fold in BOTH arms "
+                         "(tt-bio-isolated-op-timing-oversync-inflates-cost), so only --wall 0 "
+                         "measures the shipped path a page cell may quote.")
     a = ap.parse_args()
 
     import tt_bio.tenstorrent as T
@@ -75,11 +79,12 @@ def main():
     import tt_baseline as B
 
     saved = []
-    for cls, nm in ((T.TriangleMultiplication, "TriangleMultiplication"),
-                    (T.TriangleAttention, "TriangleAttention")):
-        f = cls.__call__
-        saved.append((cls, f))
-        cls.__call__ = (lambda g, n: lambda self, *x, **k: timed(f"body:{n}", g, self, *x, **k))(f, nm)
+    if a.wall:
+        for cls, nm in ((T.TriangleMultiplication, "TriangleMultiplication"),
+                        (T.TriangleAttention, "TriangleAttention")):
+            f = cls.__call__
+            saved.append((cls, f))
+            cls.__call__ = (lambda g, n: lambda self, *x, **k: timed(f"body:{n}", g, self, *x, **k))(f, nm)
 
     fixdir = ROOT / "perf" / "size512" / "fixtures"
     tgt, a3m = fixdir / f"cdk2x2_{a.size}.yaml", fixdir / f"cdk2x2_{a.size}.a3m"
@@ -92,7 +97,7 @@ def main():
     import importlib.metadata as im, os, socket
     res = {"ttnn": im.version("ttnn"), "host": socket.gethostname(),
            "chip": os.environ.get("TT_VISIBLE_DEVICES", "?"), "size": a.size,
-           "grid": list(T.COMPUTE_GRID_MAIN), "n_trimul_instances": len(tms),
+           "grid": list(T.COMPUTE_GRID_MAIN), "n_trimul_instances": len(tms), "wall": a.wall,
            "master_switch": RB._ENABLED_GATED, "runs": []}
     print(f"trimul instances reachable: {len(tms)}, master gate {RB._ENABLED_GATED}", flush=True)
 
