@@ -183,6 +183,100 @@ HOSTILE = {
               "the garbage canary: a constant confidence field must be caught"),
 }
 
+# One malformed target among ten valid ones. The brief names it and the other hostile
+# cells do not reach it: they are all single-target, so none of them can tell whether a
+# batch is validated as a whole or dispatched target by target. Pass = one 400 at submit
+# naming the bad target; fail = 202 followed by nine structures and a silent tenth hole.
+MIXED_BATCH = [f"sequences:\n  - protein: {{id: A, sequence: {P64}}}\n"] * 9 + [
+    "sequences:\n  - protein: {id: A, sequence: ''}\n"]
+
+# --- variants: the served knobs nothing has ever tested -----------------------
+# `fast`, `use_msa_server`, `output_format`, `diffusion_samples`, `recycling_steps` and
+# `sampling_steps` all reach the engine through `params`. Every cell here is the 64 aa
+# fixture unless stated, so the axis is cheap; what it is looking for is a knob that is
+# silently ignored, which returns a successful-looking wrong answer.
+VARIANTS = {
+    "var_fast_off_boltz2":         ("boltz2", {"fast": False}, "ok"),
+    "var_fast_off_esmfold2-fast":  ("esmfold2-fast", {"fast": False}, "unknown"),
+    "var_msa_off_boltz2":          ("boltz2", {"use_msa_server": False}, "ok"),
+    "var_msa_on_esmfold2-fast":    ("esmfold2-fast", {"use_msa_server": True}, "unknown"),
+    "var_msa_off_protenix-v2":     ("protenix-v2", {"use_msa_server": False}, "ok"),
+    "var_pdb_boltz2":              ("boltz2", {"output_format": "pdb"}, "ok"),
+    "var_pdb_esmfold2-fast":       ("esmfold2-fast", {"output_format": "pdb"}, "ok"),
+    "var_samples5_boltz2":         ("boltz2", {"diffusion_samples": 5}, "ok"),
+    "var_samples5_protenix-v2":    ("protenix-v2", {"diffusion_samples": 5}, "ok"),
+    "var_recycle10_boltz2":        ("boltz2", {"recycling_steps": 10}, "ok"),
+    "var_steps500_boltz2":         ("boltz2", {"sampling_steps": 500}, "ok"),
+}
+
+# --- design ------------------------------------------------------------------
+# Shapes read off the deployed api_v1.py: BoltzGen takes {protocol, spec}, RFD3 takes
+# {protocol, structure, contig}. Every payload below was dry-run against the deployed
+# limits.py (validate_payloads.py, 16/16 reach the engine).
+LYSOZYME = ("KVFGRCELAAAMKRHGLDNYRGYSLGNWVCAAKFESNFNTQATNRNTDGSTDYGILQINSRWWCNDGRTPGSRNLCNIPCS"
+            "ALLSSDITASVNCAKKIVSDGNGMNAWVAWRNRCKGTDVQAWIRGCRL")
+LAC_O1, LAC_O1_C = "AATTGTGAGCGGATAACAATT", "AATTGTTATCCGCTCACAATT"
+HIV_TAR = "GGCAGAUCUGAGCCUGGGAGCUCUCUGGC"
+
+# cell -> (protocol, spec, designed-chain range). The range is the assertion: a binder
+# outside its own requested `NN..MM` is a silent wrong answer.
+BG_DESIGNS = {
+    "des_bg_protein": ("nanobody-anything", f"""entities:
+  - protein:
+      id: B
+      sequence: 110..130
+  - protein:
+      id: A
+      msa: empty
+      sequence: {LYSOZYME}
+""", ("B", 110, 130)),
+    "des_bg_sm": ("protein-small_molecule", """entities:
+  - protein:
+      id: B
+      sequence: 80..120
+  - ligand:
+      id: A
+      smiles: 'CN1C=NC2=C1C(=O)N(C(=O)N2C)C'
+""", ("B", 80, 120)),
+    "des_bg_dna": ("protein-anything", f"""entities:
+  - protein:
+      id: B
+      sequence: 60..90
+  - dna:
+      id: A
+      sequence: {LAC_O1}
+  - dna:
+      id: C
+      sequence: {LAC_O1_C}
+""", ("B", 60, 90)),
+    "des_bg_rna": ("protein-anything", f"""entities:
+  - protein:
+      id: B
+      sequence: 60..90
+  - rna:
+      id: A
+      sequence: {HIV_TAR}
+""", ("B", 60, 90)),
+}
+
+# cell -> (protocol, fixture, contig, total-residue range). RFD3 does not name the
+# designed chain the way a BoltzGen spec does, so the assertion is on the whole polymer:
+# a contig is an exact statement of how many residues come out. `A1-150,60-80` is 150
+# kept plus 60..80 designed = 210..230; `A1-10,20,A31-40` is 10+20+10 = 40 exactly;
+# `A1-12,B1-12,60-80` is 24 nucleotides plus 60..80 designed = 84..104.
+RFD3_DESIGNS = {
+    "des_rfd3_binder":   ("rfd3-binder", "iai_protein.pdb", "A1-150,60-80", (210, 230)),
+    "des_rfd3_scaffold": ("rfd3-scaffold", "iai_protein.pdb", "A1-10,20,A31-40", (40, 40)),
+    "des_rfd3_na":       ("rfd3-na-binder", "1bna_dna.pdb", "A1-12,B1-12,60-80", (84, 104)),
+}
+
+# --- embed -------------------------------------------------------------------
+# Three genuinely different real chains, so "no two pooled vectors are equal" is a real
+# question and not an artefact of three copies of one sequence.
+EMB3 = {"p64": P64, "q60": Q60, "cdk2": CDK2_298}
+EMB_CAPS = {"esmc-300m": 2000, "esmc-600m": 2000, "esmc-6b": 1968,
+            "saprot-650m": 2000, "saprot-1.3b": 2000}
+
 
 def cells(group: str) -> list[dict]:
     out = []
@@ -221,6 +315,65 @@ def cells(group: str) -> list[dict]:
             out.append({"cell": f"hostile_{hname}", "kind": "predict", "expect": "unknown",
                         "payload": {"model": "boltz2", "name": hname, "input": yml},
                         "yaml": yml, "why": why, "group": "hostile"})
+        out.append({"cell": "hostile_mixed_batch", "kind": "predict", "expect": "reject",
+                    "payload": {"model": "boltz2", "name": "mixed_batch",
+                                "targets": MIXED_BATCH},
+                    "yaml": MIXED_BATCH[-1], "group": "hostile",
+                    "why": "one empty sequence among ten targets must refuse the whole "
+                           "submission, not dispatch nine and drop one"})
+    if group in ("variants", "all"):
+        yml = f"sequences:\n  - protein: {{id: A, sequence: {P64}}}\n"
+        for cell, (model, params, expect) in VARIANTS.items():
+            out.append({"cell": cell, "kind": "predict", "expect": expect,
+                        "payload": {"model": model, "name": cell, "input": yml,
+                                    "params": params},
+                        "yaml": yml, "group": "variants"})
+    if group in ("design", "all"):
+        for cell, (protocol, spec, rng) in BG_DESIGNS.items():
+            out.append({"cell": cell, "kind": "design", "expect": "ok",
+                        "payload": {"model": "boltzgen", "protocol": protocol, "name": cell,
+                                    "spec": spec,
+                                    "params": {"num_designs": 10, "budget": 10}},
+                        "yaml": spec, "group": "design",
+                        "design_chain": rng[0], "design_min": rng[1], "design_max": rng[2]})
+        for cell, (protocol, fixture, contig, rng) in RFD3_DESIGNS.items():
+            struct = (FIX / fixture).read_text()
+            out.append({"cell": cell, "kind": "design", "expect": "ok",
+                        "payload": {"model": "rfd3", "protocol": protocol, "name": cell,
+                                    "structure": struct, "contig": contig,
+                                    "params": {"num_designs": 5, "num_timesteps": 200}},
+                        "yaml": contig, "group": "design",
+                        "design_min": rng[0], "design_max": rng[1]})
+    if group in ("embed", "all"):
+        for model, n in EMB_CAPS.items():
+            seqs = {f"s{i}": cdk2(n) for i in range(50)}
+            out.append({"cell": f"emb_cap_{model}", "kind": "embed", "expect": "ok",
+                        "payload": {"model": model, "name": f"cap_{model}",
+                                    "sequences": [{"id": k, "sequence": v}
+                                                  for k, v in seqs.items()]},
+                        "json": seqs, "group": "embed"})
+        over = {"s0": cdk2(EMB_CAPS["esmc-6b"] + 1)}
+        out.append({"cell": "emb_over_esmc-6b", "kind": "embed", "expect": "reject",
+                    "payload": {"model": "esmc-6b", "name": "over",
+                                "sequences": [{"id": "s0", "sequence": over["s0"]}]},
+                    "json": over, "group": "embed"})
+        three = [{"id": k, "sequence": v} for k, v in EMB3.items()]
+        # `distinct` and `determinism` submit the SAME payload twice on purpose: the
+        # first asks whether three different sequences give three different vectors,
+        # the second whether the served path is deterministic. analyze_embed.py holds
+        # the two artifact sets against each other.
+        for cell in ("emb_distinct_esmc-600m", "emb_determinism_esmc-600m"):
+            out.append({"cell": cell, "kind": "embed", "expect": "ok",
+                        "payload": {"model": "esmc-600m", "name": cell, "sequences": three},
+                        "json": EMB3, "group": "embed"})
+        out.append({"cell": "emb_pool_cls_esmc-600m", "kind": "embed", "expect": "ok",
+                    "payload": {"model": "esmc-600m", "name": "pool_cls",
+                                "sequences": three, "params": {"pool": "cls"}},
+                    "json": EMB3, "pool": "cls", "group": "embed"})
+        out.append({"cell": "emb_parquet_esmc-600m", "kind": "embed", "expect": "ok",
+                    "payload": {"model": "esmc-600m", "name": "parquet",
+                                "sequences": three, "params": {"format": "parquet"}},
+                    "json": EMB3, "group": "embed"})
     return out
 
 
@@ -229,8 +382,14 @@ def run_cell(c: dict, outjs: Path, deadline: int) -> int:
     d.mkdir(parents=True, exist_ok=True)
     pf = d / f"{c['cell']}.json"
     pf.write_text(json.dumps(c["payload"]))
-    inf = d / f"{c['cell']}.input.yaml"
-    inf.write_text(c["yaml"])
+    # An embed cell's "input" is the {id: sequence} map the checker holds the returned
+    # vector against; everything else submits a YAML target and checks composition.
+    if "json" in c:
+        inf = d / f"{c['cell']}.input.json"
+        inf.write_text(json.dumps(c["json"]))
+    else:
+        inf = d / f"{c['cell']}.input.yaml"
+        inf.write_text(c["yaml"])
     # "unknown" cells are recorded, not graded: the point is to observe what the service
     # does with an input nobody has decided the contract for yet.
     expect = "ok" if c["expect"] == "unknown" else c["expect"]
@@ -238,6 +397,12 @@ def run_cell(c: dict, outjs: Path, deadline: int) -> int:
            "--expect", expect, "--payload", str(pf), "--input", str(inf),
            "--out", str(outjs), "--artifacts", str(RESULTS / "artifacts"),
            "--deadline", str(deadline)]
+    if "pool" in c:
+        cmd += ["--pool", c["pool"]]
+    for k, flag in (("design_chain", "--design-chain"), ("design_min", "--design-min"),
+                    ("design_max", "--design-max")):
+        if k in c:
+            cmd += [flag, str(c[k])]
     return subprocess.run(cmd).returncode
 
 

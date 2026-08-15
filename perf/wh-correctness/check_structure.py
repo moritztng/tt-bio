@@ -280,6 +280,33 @@ def confidence(st: gemmi.Structure, conf_json: dict | None,
     return info, fails, warns
 
 
+def interface_clashes(st: gemmi.Structure, design_chain: str) -> tuple[int, int]:
+    """Heavy-atom pairs under CLASH_DIST *between* the designed chain and everything
+    else. An interface is contacts at 3-4 A; sub-2 A across it is interpenetration --
+    a binder modelled inside its target rather than against it. Returns
+    (n_pairs, n_heavy_atoms_in_the_designed_chain)."""
+    model = st[0]
+    ns = gemmi.NeighborSearch(st, 5.0).populate()
+    n, heavy = 0, 0
+    for chain in model:
+        if chain.name != design_chain:
+            continue
+        for res in chain:
+            for atom in res:
+                if atom.element == gemmi.Element("H"):
+                    continue
+                heavy += 1
+                for m in ns.find_atoms(atom.pos, "\0", radius=CLASH_DIST):
+                    cra = m.to_cra(model)
+                    if cra.chain.name == design_chain or cra.atom.element == gemmi.Element("H"):
+                        continue
+                    d = cra.atom.pos.dist(atom.pos)
+                    if d < CLASH_DIST and (d >= DISULFIDE_MAX or atom.name != "SG"
+                                           or cra.atom.name != "SG"):
+                        n += 1
+    return n, heavy
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("struct", type=Path)
@@ -289,6 +316,13 @@ def main() -> int:
     ap.add_argument("--kind", default="predict", choices=("predict", "design"),
                     help="design outputs carry no pLDDT (they are scored by a separate "
                          "filter model), so confidence is reported but not required")
+    ap.add_argument("--design-chain", help="the chain the spec asked to be designed. With "
+                                           "it, --design-min/--design-max bound that "
+                                           "chain's length; without it they bound the "
+                                           "whole polymer, which is what an RFD3 contig "
+                                           "specifies")
+    ap.add_argument("--design-min", type=int)
+    ap.add_argument("--design-max", type=int)
     ap.add_argument("--quiet", action="store_true")
     a = ap.parse_args()
 
@@ -383,6 +417,34 @@ def main() -> int:
                             f"chain {want_ch['id']}: modification {ccd} at position {pos} "
                             f"was not applied, the output carries {got_name}")
                 rep["checks"]["modifications"] = {"requested": mods, "observed": seen}
+
+    # A design that ignores its own requested length is a silent wrong answer: the file
+    # parses, the chemistry is sane, and it is not the thing that was asked for.
+    if a.design_min is not None:
+        if a.design_chain:
+            got = next((g for g in geo if g["chain"] == a.design_chain), None)
+            n_res = got["n_res"] if got else None
+            what = f"designed chain {a.design_chain}"
+        else:
+            n_res = sum(g["n_res"] for g in geo)
+            what = "the designed structure"
+        rep["checks"]["design_length"] = {"observed": n_res, "min": a.design_min,
+                                          "max": a.design_max, "scope": what}
+        if n_res is None:
+            rep["fail"].append(f"chain {a.design_chain} is not in the output: "
+                               f"{sorted(g['chain'] for g in geo)}")
+        elif not (a.design_min <= n_res <= a.design_max):
+            rep["fail"].append(f"{what} is {n_res} residues, outside the requested "
+                               f"{a.design_min}..{a.design_max}")
+    if a.design_chain:
+        n_if, n_hv = interface_clashes(st, a.design_chain)
+        budget = max(CLASH_MAX_ABS, CLASH_MAX_FRAC * n_hv)
+        rep["checks"]["interface"] = {"pairs_below": n_if, "threshold": CLASH_DIST,
+                                      "designed_heavy_atoms": n_hv, "budget": budget}
+        if n_hv and n_if > budget:
+            rep["fail"].append(f"{n_if} heavy-atom pairs < {CLASH_DIST} A between chain "
+                               f"{a.design_chain} and the target -- the binder is modelled "
+                               f"inside it, not against it")
 
     rep["verdict"] = "FAIL" if rep["fail"] else ("WARN" if rep["warn"] else "PASS")
     if a.json:

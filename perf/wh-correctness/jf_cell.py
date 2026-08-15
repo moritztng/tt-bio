@@ -66,6 +66,11 @@ def main() -> int:
                                               "for --kind embed a JSON {id: sequence} map")
     ap.add_argument("--pool", default="mean", choices=("mean", "max", "cls"),
                     help="the pooling the embed job was submitted with")
+    ap.add_argument("--design-chain", help="the chain id the design spec asked to be "
+                                           "designed; omit for RFD3, which returns the "
+                                           "designed span as its only polymer")
+    ap.add_argument("--design-min", type=int, help="the designed chain's shortest allowed length")
+    ap.add_argument("--design-max", type=int, help="the designed chain's longest allowed length")
     ap.add_argument("--key")
     ap.add_argument("--out", type=Path, default=Path("results.jsonl"))
     ap.add_argument("--artifacts", type=Path, default=Path("artifacts"))
@@ -161,8 +166,15 @@ def main() -> int:
         cmd = [sys.executable, str(HERE / "check_structure.py"), str(dest),
                "--kind", "design" if a.kind == "design" else "predict",
                "--json", str(rep), "--quiet"]
-        if a.input:
+        # A design spec is not a target: it says `entities:` with a `110..130` length
+        # range where a sequence would be, so the composition check has nothing to hold
+        # the output against. The designed-length range is the assertion instead.
+        if a.input and a.kind != "design":
             cmd += ["--input", str(a.input)]
+        if a.design_chain:
+            cmd += ["--design-chain", a.design_chain]
+        if a.design_min is not None:
+            cmd += ["--design-min", str(a.design_min), "--design-max", str(a.design_max)]
         subprocess.run(cmd, check=False)
         checks.append(json.loads(rep.read_text()) if rep.exists()
                       else {"path": art["path"], "verdict": "FAIL", "fail": ["checker produced nothing"]})

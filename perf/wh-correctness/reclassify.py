@@ -10,8 +10,15 @@ picks the cell up again.
     reclassify.py            # report what would move
     reclassify.py --apply
 
-Only the mesh-device signature moves. An OOM, an L1/CB clash or a bad structure is a real
+Three signatures move, and only three. An OOM, an L1/CB clash or a bad structure is a real
 answer about the input and stays where it is.
+
+  mesh_device_remote_only  the 0.2 throw, ~15 s into the job
+  server_restart           the job died with "Interrupted by server restart": the pool was
+                           bounced under it, so the input was never answered
+  pool_offline             submit got a 503 saying the accelerators are offline. That is
+                           the service being down, and a cell that was never submitted has
+                           measured nothing about its input
 """
 from __future__ import annotations
 
@@ -25,6 +32,7 @@ MATRIX = HERE / "results" / "matrix.jsonl"
 FAULTS = HERE / "results" / "fleet_faults.jsonl"
 API = "https://api.japanfold.com"
 SIG = "SubDeviceManagerTracker is not initialized"
+RESTART = "Interrupted by server restart"
 
 
 def job_log(job: str) -> str:
@@ -40,7 +48,18 @@ def main() -> int:
     rows = [json.loads(l) for l in MATRIX.read_text().splitlines() if l.strip()]
     keep, moved = [], []
     for r in rows:
-        if r.get("status") == "failed" and r.get("job") and not r.get("pass"):
+        if r.get("pass"):
+            keep.append(r)
+            continue
+        if r.get("submit_status") == 503:
+            r["fleet_fault"] = "pool_offline"
+            moved.append(r)
+            continue
+        if r.get("status") == "failed" and RESTART in str(r.get("error", "")):
+            r["fleet_fault"] = "server_restart"
+            moved.append(r)
+            continue
+        if r.get("status") == "failed" and r.get("job"):
             log = job_log(r["job"])
             if SIG in log:
                 dev = next((ln.split("MeshDevice")[1].split(".")[0].strip()
@@ -52,7 +71,9 @@ def main() -> int:
         keep.append(r)
 
     for r in moved:
-        print(f"  fleet fault: {r['cell']:32s} MeshDevice {r['mesh_device']}  ({r.get('wall_s')}s)")
+        detail = (f"MeshDevice {r['mesh_device']}" if r.get("mesh_device")
+                  else r["fleet_fault"])
+        print(f"  fleet fault: {r['cell']:32s} {detail}  ({r.get('wall_s')}s)")
     print(f"{len(moved)} fleet faults, {len(keep)} real cells")
     if a.apply and moved:
         with FAULTS.open("a") as f:
