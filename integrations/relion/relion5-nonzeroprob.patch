@@ -1,0 +1,320 @@
+Speed up HealpixSampling::selectOrientationsWithNonZeroPriorProbability
+
+The direction loop in this function is called once per particle per class and scans the whole
+sampling grid to keep about 118 directions: 12,384 candidates at healpix order 6, 49,344 at
+order 7. In a RELION-5 tutorial auto-refinement it is 968.0 of the 1074.0 cumulative CPU-seconds
+inside getFourierTransformsAndCtfs, 90.1% of that region and roughly 42.7 s of a 922 s
+refinement. The scan grows as 4^order while the kept set stays flat, so it grows into the
+largest host term on higher-resolution jobs.
+
+Per direction the loop recomputed the prior's Euler transform, which does not depend on the
+direction, rebuilt the grid direction, which does not depend on the particle, and allocated
+roughly sixteen Matrix1D/Matrix2D temporaries for the symmetry search. That is ~600 ns per
+direction for what is a handful of multiply-adds.
+
+This caches the grid unit vectors and the symmetry products M_j = L_j R_j^T once per sampling
+change (2.4 ms at order 7, against 22,260 particle calls per refinement) and reduces the inner
+loop to nsym+1 dot products on plain doubles: 8.5-11 ns per direction, 54x faster measured
+against the original function linked from the same library.
+
+The result is bit-identical, not approximate:
+
+  * The cache is only marked usable when every M_j is an exact signed permutation matrix. Under
+    that condition L_j (d^T R_j)^T is exactly a signed component permutation of d, so the cached
+    form performs the same IEEE operations rather than an algebraically equal rearrangement. Any
+    other symmetry group leaves nzp_usable false and falls through to the original loop.
+  * The dot products accumulate from 0 in the same index order as dotProduct().
+  * Folding the operator signs into the prior is exact, since multiplying by +-1 only flips a
+    sign bit.
+  * ACOSD is strictly decreasing on [-1,1], so tracking the maximum dot product selects the same
+    nearest direction as tracking the minimum angle, with the same first-wins tie order.
+  * Membership is never decided by a cosine threshold. The cosine gate only admits candidates to
+    the real ACOSD test, with a 1e-6 degree guard band, and the original `diffang < cutoff`
+    comparison then decides. A boundary case cannot be dropped.
+
+The fast path is entered only for a 3D sampling with a prior on both rot and tilt, without
+symmetry relaxation, without a bimodal psi search and without the multi-body (0,90) prior.
+Everything else, including the whole psi loop, is untouched.
+
+Verified elementwise against the unpatched function over 14.8M direction evaluations at healpix
+orders 6 and 7 with D2 symmetry: 0 index-set mismatches, 0 prior-value mismatches, maximum
+relative difference 0.000e+00.
+
+Applies to a clean 3dem/relion ver5.0 checkout and is independent of relion5-tt.patch. It
+changes RELION's shared host code, so it speeds up every backend, CPU and GPU alike. Any
+benchmark must apply it to both arms or to neither.
+
+--- a/src/healpix_sampling.h
++++ b/src/healpix_sampling.h
+@@ -91,6 +91,33 @@
+     /** vector with sampling points described by angles */
+     std::vector<RFLOAT > rot_angles, tilt_angles;
+ 
++    /** Cached invariants of the direction loop in selectOrientationsWithNonZeroPriorProbability.
++     *
++     * That loop is called once per particle per class and scans the whole direction grid (49,344
++     * points at healpix order 7) to keep ~118 of them. Per direction it recomputed a
++     * prior-only Euler transform, rebuilt the grid direction, and allocated a handful of
++     * Matrix1D/Matrix2D temporaries for the symmetry search, none of which depend on the
++     * particle. Caching them makes the inner loop a few dot products on plain doubles.
++     *
++     * nzp_dir{x,y,z} are the grid unit vectors, one per idir.
++     * nzp_perm/nzp_sgn describe M_j = L_j R_j^T for each symmetry operator, as a permutation
++     * index and a sign per output component.
++     *
++     * nzp_usable is false unless every M_j is an exact signed permutation matrix. That is the
++     * condition under which the cached loop performs the identical sequence of IEEE operations
++     * as the original, rather than an algebraically equal one, so the selection and the priors
++     * are bit-identical and not merely close. Any other symmetry group falls through to the
++     * original loop untouched.
++     *
++     * Built lazily; invalidated by clear() and setOrientations(), which are the only places
++     * rot_angles/tilt_angles change. resetRandomlyPerturbedSampling() only moves a scalar and
++     * the direction loop reads the unperturbed angles, so it does not invalidate the cache.
++     */
++    bool nzp_built, nzp_usable;
++    std::vector<RFLOAT> nzp_dirx, nzp_diry, nzp_dirz;
++    std::vector<int> nzp_perm;
++    std::vector<RFLOAT> nzp_sgn;
++
+     /** vector with the psi-samples */
+     std::vector<RFLOAT> psi_angles;
+ 
+@@ -114,7 +141,9 @@
+ 		limit_tilt(0),
+ 		healpix_order(0),
+ 		pgOrder(0),
+-		pgOrderRelaxSym(0)
++		pgOrderRelaxSym(0),
++		nzp_built(false),
++		nzp_usable(false)
+     {}
+ 
+     // Destructor
+@@ -171,6 +200,11 @@
+     		int & pgOrder_, std::vector <Matrix2D<RFLOAT> > & R_repository,
+ 			std::vector <Matrix2D<RFLOAT> > & L_repository);
+ 
++    /** Build the direction-loop cache described above. Sets nzp_usable. Cheap: 2.4 ms at
++     * healpix order 7, once per sampling change, against 22,260 particle calls per refinement.
++     */
++    void buildNonZeroPriorCache();
++
+     // Reset the random perturbation
+     void resetRandomlyPerturbedSampling();
+ 
+--- a/src/healpix_sampling.cpp
++++ b/src/healpix_sampling.cpp
+@@ -45,9 +45,74 @@
+ 	R_repository_relax.clear();
+ 	pgGroup = pgOrder = 0;
+ 	pgGroupRelaxSym = pgOrderRelaxSym = 0;
++	nzp_built = nzp_usable = false;
++	nzp_dirx.clear();
++	nzp_diry.clear();
++	nzp_dirz.clear();
++	nzp_perm.clear();
++	nzp_sgn.clear();
+ 
+ }
+ 
++void HealpixSampling::buildNonZeroPriorCache()
++{
++	nzp_built = true;
++	nzp_usable = false;
++	nzp_dirx.clear();
++	nzp_diry.clear();
++	nzp_dirz.clear();
++	nzp_perm.clear();
++	nzp_sgn.clear();
++
++	// M_j = L_j R_j^T must be an exact signed permutation matrix for every operator, otherwise
++	// the cached loop is only algebraically equal to the original and not bit-identical.
++	const int nsym = R_repository.size();
++	std::vector<int> perm(3 * nsym, -1);
++	std::vector<RFLOAT> sgn(3 * nsym, 0.);
++	for (int j = 0; j < nsym; j++)
++	{
++		bool colused[3] = {false, false, false};
++		for (int a = 0; a < 3; a++)
++		{
++			int nz = 0;
++			for (int b = 0; b < 3; b++)
++			{
++				RFLOAT acc = 0.;
++				for (int k = 0; k < 3; k++)
++					acc += MAT_ELEM(L_repository[j], a, k) * MAT_ELEM(R_repository[j], b, k);
++				if (acc == 0.)
++					continue;
++				if (acc != 1. && acc != -1.)
++					return;             // not a signed permutation
++				if (colused[b])
++					return;             // two nonzeros in one column
++				colused[b] = true;
++				perm[3 * j + a] = b;
++				sgn[3 * j + a] = acc;
++				nz++;
++			}
++			if (nz != 1)
++				return;                 // row empty or with two nonzeros
++		}
++	}
++
++	const size_t n = rot_angles.size();
++	nzp_dirx.resize(n);
++	nzp_diry.resize(n);
++	nzp_dirz.resize(n);
++	for (size_t i = 0; i < n; i++)
++	{
++		Matrix1D<RFLOAT> v;
++		Euler_angles2direction(rot_angles[i], tilt_angles[i], v);
++		nzp_dirx[i] = XX(v);
++		nzp_diry[i] = YY(v);
++		nzp_dirz[i] = ZZ(v);
++	}
++	nzp_perm = perm;
++	nzp_sgn = sgn;
++	nzp_usable = true;
++}
++
+ void HealpixSampling::initialise(
+ 		int ref_dim,
+ 		bool do_3d_trans,
+@@ -555,6 +620,11 @@
+ 	writeAllOrientationsToBild("orients_final.bild", "1 0 0 ", 0.020);
+ #endif
+ 
++	// The direction grid just changed, so the cached direction loop invariants are stale.
++	// This also covers removeSymmetryEquivalentPoints() and removePointsOutsideLimitedTiltAngles(),
++	// which are only ever called from here.
++	nzp_built = nzp_usable = false;
++
+ }
+ 
+ /* Set only a single orientation */
+@@ -585,6 +655,7 @@
+ 	// in-plane rotation
+ 	psi_angles.push_back(psi);
+ 
++	nzp_built = nzp_usable = false;
+ 
+ }
+ 
+@@ -705,7 +776,107 @@
+ 	// Do not check the mates again
+ 	std::vector<bool> idir_flag(rot_angles.size(), false);
+ 
+-	if (is_3D)
++	bool nzp_done = false;
++
++	// Cached direction loop. Handles the case the refinement actually spends its time in: a 3D
++	// sampling with a prior on both rot and tilt, no symmetry relaxation, no bimodal psi search
++	// and no multi-body (0,90) prior. Everything else falls through to the original loop below.
++	//
++	// This is bit-identical, not approximate. The cache is only marked usable when every
++	// M_j = L_j R_j^T is an exact signed permutation, and the dot products below are accumulated
++	// from 0 in the same index order as dotProduct(), so the selection and the priors match the
++	// original to the last bit. Verified elementwise against the original loop over 14.8M
++	// direction evaluations at healpix orders 6 and 7.
++	if (is_3D && sigma_rot > 0. && sigma_tilt > 0. && !isRelax && !do_bimodal_search_psi
++	    && sigma_tilt_from_ninety <= 0.)
++	{
++		if (!nzp_built || nzp_dirx.size() != rot_angles.size())
++			buildNonZeroPriorCache();
++
++		if (nzp_usable)
++		{
++			Matrix1D<RFLOAT> prior_direction;
++			Euler_angles2direction(prior_rot, prior_tilt, prior_direction);
++			const RFLOAT p[3] = {XX(prior_direction), YY(prior_direction), ZZ(prior_direction)};
++
++			// Fold each operator's signs into the prior. Multiplying by +-1 is exact, so this
++			// cannot change a bit of the products below.
++			const int nsym = R_repository.size();
++			std::vector<RFLOAT> cf(3 * nsym);
++			for (int j = 0; j < 3 * nsym; j++)
++				cf[j] = p[j % 3] * nzp_sgn[j];
++
++			const RFLOAT biggest_sigma = XMIPP_MAX(sigma_rot, sigma_tilt);
++			const RFLOAT cut = sigma_cutoff * biggest_sigma;
++			// Guard band. Only directions whose dot clears cos(cut + 1e-6 deg) are given the real
++			// ACOSD, and membership is then decided by the original `diffang < cut` test on that
++			// ACOSD. So this skips transcendentals that cannot matter, it does not decide anything.
++			const double cos_gate = cos(((double)cut + 1e-6) * PI / 180.);
++
++			RFLOAT sumprior = 0.;
++			RFLOAT best_dot = -2.;
++			long int best_idir = -999;
++
++			for (long int idir = 0; idir < (long int)nzp_dirx.size(); idir++)
++			{
++				const RFLOAT d[3] = {nzp_dirx[idir], nzp_diry[idir], nzp_dirz[idir]};
++
++				RFLOAT acc = 0.;
++				acc += p[0] * d[0];
++				acc += p[1] * d[1];
++				acc += p[2] * d[2];
++				RFLOAT best = acc;
++
++				for (int j = 0; j < nsym; j++)
++				{
++					const int *pm = &nzp_perm[3 * j];
++					const RFLOAT *cj = &cf[3 * j];
++					RFLOAT a2 = 0.;
++					a2 += cj[0] * d[pm[0]];
++					a2 += cj[1] * d[pm[1]];
++					a2 += cj[2] * d[pm[2]];
++					// strict >, so the first operator wins a tie exactly as the original does
++					if (a2 > best)
++						best = a2;
++				}
++
++				if (best > cos_gate)
++				{
++					RFLOAT diffang = ACOSD(best);
++					if (diffang > 180.)
++						diffang = ABS(diffang - 360.);
++					if (diffang < cut)
++					{
++						pointer_dir_nonzeroprior.push_back(idir);
++						RFLOAT prior = gaussian1D(diffang, biggest_sigma, 0.);
++						sumprior += prior;
++						directions_prior.push_back(prior);
++					}
++				}
++				// argmax of the dot is argmin of ACOSD(dot), with the same first-wins tie order
++				if (best > best_dot)
++				{
++					best_dot = best;
++					best_idir = idir;
++				}
++			}
++
++			for (long int idir = 0; idir < (long int)directions_prior.size(); idir++)
++				directions_prior[idir] /= sumprior;
++
++			if (directions_prior.size() == 0)
++			{
++				if (best_idir < 0)
++					REPORT_ERROR("HealpixSampling::selectOrientationsWithNonZeroPriorProbability BUG: best_idir < 0");
++				pointer_dir_nonzeroprior.push_back(best_idir);
++				directions_prior.push_back(1.);
++			}
++
++			nzp_done = true;
++		}
++	}
++
++	if (!nzp_done && is_3D)
+ 	{
+ 		//std::cerr<<"sigma_rot "<<sigma_rot<<" sigma_tilt "<<sigma_tilt<<std::endl;
+ 		Matrix1D<RFLOAT> prior90_direction;
+@@ -963,7 +1134,7 @@
+ #endif
+ 
+ 	}
+-	else
++	else if (!nzp_done)
+ 	{
+ 		pointer_dir_nonzeroprior.push_back(0);
+ 		directions_prior.push_back(1.);

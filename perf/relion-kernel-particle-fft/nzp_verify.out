@@ -1,0 +1,24 @@
+# nzp_verify -- the LANDED algorithm (signed-permutation gated, RELION dot order)
+# checked against the UNPATCHED librelion_lib.a from build-e2e. 2026-08-15, qb1.
+
+sampling      : /home/ttuser/relion-scratch/e2e/prof_run_it013_sampling.star
+healpix_order : 6
+sym           : D2   R_repository=4  isRelax=0
+directions    : 12384
+signed-perm gate : PASS -- fast path enabled   (cache build 0.590 ms, once per sampling change)
+kept/call     : 119.2 directions of 12384 scanned
+EXACTNESS     : index-set mismatches 0/200 ; prior values compared 23850, mismatches 0 ; max rel diff 0.000e+00
+RELION        :      7.357 ms/call      594.1 ns/direction
+landed path   :      0.138 ms/call       11.1 ns/direction
+SPEEDUP       : 53.36x  (direction loop only; the psi loop below it is untouched)
+
+sampling      : /home/ttuser/relion-scratch/e2e/prof_run_it013_sampling.star
+healpix_order : 7
+sym           : D2   R_repository=4  isRelax=0
+directions    : 49344
+signed-perm gate : PASS -- fast path enabled   (cache build 2.326 ms, once per sampling change)
+kept/call     : 118.3 directions of 49344 scanned
+EXACTNESS     : index-set mismatches 0/100 ; prior values compared 11832, mismatches 0 ; max rel diff 0.000e+00
+RELION        :     29.993 ms/call      607.8 ns/direction
+landed path   :      0.531 ms/call       10.8 ns/direction
+SPEEDUP       : 56.51x  (direction loop only; the psi loop below it is untouched)
