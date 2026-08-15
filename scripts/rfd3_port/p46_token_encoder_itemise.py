@@ -37,7 +37,9 @@ from tt_bio.rfd3 import model as M                                 # noqa: E402
 
 FIXTURE = pathlib.Path("perf/dsfix/fixtures/rfd3_R4.json")
 CKPT = "/home/ttuser/.boltz/rfd3/weights"
-OUT = pathlib.Path("perf/p46/token_encoder_itemise.json")
+# argv[1] overrides the artifact path, so a re-run under different defaults does not
+# overwrite the record of the run that justified a landed decision.
+OUT = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "perf/p46/token_encoder_itemise.json")
 STEPS = 8                 # 2 discarded as cold, 6 counted; ranking does not need 200
 WARM_CALLS = 4            # run_device is called twice per step, so 2 steps of warmup
 ROOF_GBS = 385.0          # MEASURED clone roof for this card, not the datasheet 435

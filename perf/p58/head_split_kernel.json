@@ -1,0 +1,10 @@
+{
+  "tokens": 685,
+  "n_head": 16,
+  "head_dim": 24,
+  "n_rep": 10,
+  "ms_shipped_chain": 0.2596,
+  "nlp_create_qkv_heads_present": true,
+  "nlp_error": "TT_THROW @ /project/tt_metal/common/shape_base.cpp:16: tt::exception",
+  "ms_fused_single_chain": 0.2369
+}

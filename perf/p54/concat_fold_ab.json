@@ -1,0 +1,44 @@
+{
+  "rows": [
+    {
+      "arm": "shipped",
+      "rep": 0,
+      "sampler_s": 134.155,
+      "cif_sha256_16": "382e7b23ae8cfc75",
+      "n_cifs": 1
+    },
+    {
+      "arm": "aligned",
+      "rep": 1,
+      "sampler_s": 121.178,
+      "cif_sha256_16": "382e7b23ae8cfc75",
+      "n_cifs": 1
+    },
+    {
+      "arm": "shipped",
+      "rep": 2,
+      "sampler_s": 126.157,
+      "cif_sha256_16": "382e7b23ae8cfc75",
+      "n_cifs": 1
+    },
+    {
+      "arm": "aligned",
+      "rep": 3,
+      "sampler_s": 115.714,
+      "cif_sha256_16": "382e7b23ae8cfc75",
+      "n_cifs": 1
+    }
+  ],
+  "num_timesteps": 200,
+  "seed": 42,
+  "atoms": 6051,
+  "batch": 1,
+  "bit_exact": true,
+  "shipped_s_median": 130.156,
+  "aligned_s_median": 118.446,
+  "ratio": 1.0989,
+  "host": "qb2",
+  "card": 0,
+  "ttnn": "0.68.0",
+  "torch": "2.13.0+cpu"
+}

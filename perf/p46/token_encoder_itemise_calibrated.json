@@ -1,0 +1,182 @@
+{
+  "fixture": "perf/dsfix/fixtures/rfd3_R4.json",
+  "atoms": 6051,
+  "tokens": 685,
+  "batch": 1,
+  "steps_counted": 5.0,
+  "calls_counted": 10,
+  "num_timesteps": 8,
+  "roof_GB_s_measured": 385.0,
+  "rows": [
+    {
+      "region": "transition_2 x2",
+      "n": 10,
+      "ms_per_call": 29.752,
+      "ms_per_step": 59.504,
+      "MB_per_call": null,
+      "GB_s": null,
+      "pct_of_roof": null
+    },
+    {
+      "region": "pairformer[1]",
+      "n": 10,
+      "ms_per_call": 25.473,
+      "ms_per_step": 50.947,
+      "MB_per_call": null,
+      "GB_s": null,
+      "pct_of_roof": null
+    },
+    {
+      "region": "ttnn.concat[B,I,I,258]",
+      "n": 10,
+      "ms_per_call": 25.357,
+      "ms_per_step": 50.713,
+      "MB_per_call": 570.6,
+      "GB_s": 22.5,
+      "pct_of_roof": 5.8
+    },
+    {
+      "region": "pairformer[0]",
+      "n": 10,
+      "ms_per_call": 25.315,
+      "ms_per_step": 50.63,
+      "MB_per_call": null,
+      "GB_s": null,
+      "pct_of_roof": null
+    },
+    {
+      "region": "ttnn.linear 258->128",
+      "n": 10,
+      "ms_per_call": 6.417,
+      "ms_per_step": 12.834,
+      "MB_per_call": 390.4,
+      "GB_s": 60.8,
+      "pct_of_roof": 15.8
+    },
+    {
+      "region": "d.ttnn.embedding",
+      "n": 10,
+      "ms_per_call": 3.531,
+      "ms_per_step": 7.063,
+      "MB_per_call": 62.9,
+      "GB_s": 17.8,
+      "pct_of_roof": 4.6
+    },
+    {
+      "region": "self.ttnn.embedding",
+      "n": 5,
+      "ms_per_call": 6.383,
+      "ms_per_step": 6.383,
+      "MB_per_call": 62.9,
+      "GB_s": 9.8,
+      "pct_of_roof": 2.6
+    },
+    {
+      "region": "ttnn.rms_norm(258)",
+      "n": 10,
+      "ms_per_call": 1.812,
+      "ms_per_step": 3.623,
+      "MB_per_call": 540.5,
+      "GB_s": 298.4,
+      "pct_of_roof": 77.5
+    },
+    {
+      "region": "d.to_layout(TILE)",
+      "n": 10,
+      "ms_per_call": 1.147,
+      "ms_per_step": 2.294,
+      "MB_per_call": 151.1,
+      "GB_s": 131.7,
+      "pct_of_roof": 34.2
+    },
+    {
+      "region": "host._scaled_distogram_bins",
+      "n": 10,
+      "ms_per_call": 1.1,
+      "ms_per_step": 2.2,
+      "MB_per_call": null,
+      "GB_s": null,
+      "pct_of_roof": null
+    },
+    {
+      "region": "self.to_layout(TILE)",
+      "n": 5,
+      "ms_per_call": 1.142,
+      "ms_per_step": 1.142,
+      "MB_per_call": 151.1,
+      "GB_s": 132.3,
+      "pct_of_roof": 34.4
+    },
+    {
+      "region": "s.upload+transition_1",
+      "n": 10,
+      "ms_per_call": 0.422,
+      "ms_per_step": 0.844,
+      "MB_per_call": null,
+      "GB_s": null,
+      "pct_of_roof": null
+    },
+    {
+      "region": "d.idx upload",
+      "n": 10,
+      "ms_per_call": 0.422,
+      "ms_per_step": 0.844,
+      "MB_per_call": 1.9,
+      "GB_s": 4.4,
+      "pct_of_roof": 1.2
+    },
+    {
+      "region": "self.idx upload",
+      "n": 5,
+      "ms_per_call": 0.395,
+      "ms_per_step": 0.395,
+      "MB_per_call": 1.9,
+      "GB_s": 4.7,
+      "pct_of_roof": 1.2
+    },
+    {
+      "region": "z.upload+_batched",
+      "n": 10,
+      "ms_per_call": 0.023,
+      "ms_per_step": 0.047,
+      "MB_per_call": null,
+      "GB_s": null,
+      "pct_of_roof": null
+    },
+    {
+      "region": "d.ttnn.reshape",
+      "n": 10,
+      "ms_per_call": 0.013,
+      "ms_per_step": 0.026,
+      "MB_per_call": null,
+      "GB_s": null,
+      "pct_of_roof": null
+    },
+    {
+      "region": "self._zeros_dev (cached)",
+      "n": 5,
+      "ms_per_call": 0.014,
+      "ms_per_step": 0.014,
+      "MB_per_call": null,
+      "GB_s": null,
+      "pct_of_roof": null
+    },
+    {
+      "region": "self.ttnn.reshape",
+      "n": 5,
+      "ms_per_call": 0.013,
+      "ms_per_step": 0.013,
+      "MB_per_call": null,
+      "GB_s": null,
+      "pct_of_roof": null
+    }
+  ],
+  "synced_sum_ms_per_step": 249.516,
+  "unsynced_region_ms_per_step": 249.976,
+  "oversync_inflation": 0.998,
+  "total_wall_s": 30.9,
+  "host": "qb2",
+  "card": 0,
+  "ttnn": "0.68.0",
+  "torch": "2.13.0+cpu"
+}

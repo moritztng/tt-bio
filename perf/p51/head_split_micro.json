@@ -1,0 +1,60 @@
+{
+  "rows": [
+    {
+      "arm": "DiT shipped   I=685  16x24",
+      "length": 685,
+      "n_head": 16,
+      "head_dim": 24,
+      "MB": 0.526,
+      "ms_reshape": 0.0824,
+      "ms_reshape_permute": 0.0998,
+      "GB_s_both": 5.3
+    },
+    {
+      "arm": "tile-aligned  I=685  16x32",
+      "length": 685,
+      "n_head": 16,
+      "head_dim": 32,
+      "MB": 0.701,
+      "ms_reshape": 0.0962,
+      "ms_reshape_permute": 0.1124,
+      "GB_s_both": 6.2
+    },
+    {
+      "arm": "tile-aligned  I=685  12x32",
+      "length": 685,
+      "n_head": 12,
+      "head_dim": 32,
+      "MB": 0.526,
+      "ms_reshape": 0.0779,
+      "ms_reshape_permute": 0.0928,
+      "GB_s_both": 5.7
+    },
+    {
+      "arm": "half-width    I=685  8x24",
+      "length": 685,
+      "n_head": 8,
+      "head_dim": 24,
+      "MB": 0.263,
+      "ms_reshape": 0.0532,
+      "ms_reshape_permute": 0.0693,
+      "GB_s_both": 3.8
+    },
+    {
+      "arm": "atom shipped  L=6051 4x32",
+      "length": 6051,
+      "n_head": 4,
+      "head_dim": 32,
+      "MB": 1.549,
+      "ms_reshape": 0.2031,
+      "ms_reshape_permute": 0.2516,
+      "GB_s_both": 6.2
+    }
+  ],
+  "n_warm": 3,
+  "n_rep": 10,
+  "host": "qb2",
+  "card": 0,
+  "ttnn": "0.68.0",
+  "read_roof_GB_s_measured": 390.0
+}

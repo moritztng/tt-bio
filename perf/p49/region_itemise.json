@@ -1,0 +1,555 @@
+{
+  "fixture": "perf/dsfix/fixtures/rfd3_R4.json",
+  "atoms": 6051,
+  "tokens": 685,
+  "batch": 1,
+  "num_timesteps": 8,
+  "counted_steps": 4,
+  "host": "qb2",
+  "card": 0,
+  "ttnn": "0.68.0",
+  "torch": "2.13.0+cpu",
+  "total_wall_s": 31.4,
+  "regions": {
+    "token_dit": {
+      "rows": [
+        {
+          "op": "linear@265",
+          "n_per_step": 432.0,
+          "ms_per_step": 46.951
+        },
+        {
+          "op": "reshape@1461",
+          "n_per_step": 108.0,
+          "ms_per_step": 21.154
+        },
+        {
+          "op": "permute@1484",
+          "n_per_step": 36.0,
+          "ms_per_step": 14.032
+        },
+        {
+          "op": "add@1534",
+          "n_per_step": 36.0,
+          "ms_per_step": 8.867
+        },
+        {
+          "op": "pad@979",
+          "n_per_step": 108.0,
+          "ms_per_step": 8.066
+        },
+        {
+          "op": "reshape@995",
+          "n_per_step": 36.0,
+          "ms_per_step": 7.492
+        },
+        {
+          "op": "softmax@1536",
+          "n_per_step": 36.0,
+          "ms_per_step": 7.019
+        },
+        {
+          "op": "typecast@1522",
+          "n_per_step": 36.0,
+          "ms_per_step": 5.674
+        },
+        {
+          "op": "typecast@1491",
+          "n_per_step": 36.0,
+          "ms_per_step": 5.655
+        },
+        {
+          "op": "permute@1464",
+          "n_per_step": 108.0,
+          "ms_per_step": 5.506
+        },
+        {
+          "op": "matmul@1487",
+          "n_per_step": 36.0,
+          "ms_per_step": 5.126
+        },
+        {
+          "op": "add@1486",
+          "n_per_step": 36.0,
+          "ms_per_step": 5.027
+        },
+        {
+          "op": "typecast@1537",
+          "n_per_step": 36.0,
+          "ms_per_step": 4.81
+        },
+        {
+          "op": "matmul@1515",
+          "n_per_step": 36.0,
+          "ms_per_step": 2.957
+        },
+        {
+          "op": "linear@1561",
+          "n_per_step": 36.0,
+          "ms_per_step": 2.766
+        },
+        {
+          "op": "multiply@1369",
+          "n_per_step": 72.0,
+          "ms_per_step": 2.725
+        },
+        {
+          "op": "add@1369",
+          "n_per_step": 72.0,
+          "ms_per_step": 2.569
+        },
+        {
+          "op": "sigmoid@1369",
+          "n_per_step": 72.0,
+          "ms_per_step": 2.294
+        },
+        {
+          "op": "rms_norm@1361",
+          "n_per_step": 72.0,
+          "ms_per_step": 2.138
+        },
+        {
+          "op": "permute@995",
+          "n_per_step": 36.0,
+          "ms_per_step": 2.044
+        },
+        {
+          "op": "rms_norm@1362",
+          "n_per_step": 72.0,
+          "ms_per_step": 1.825
+        },
+        {
+          "op": "multiply@1569",
+          "n_per_step": 36.0,
+          "ms_per_step": 1.602
+        },
+        {
+          "op": "linear@1546",
+          "n_per_step": 36.0,
+          "ms_per_step": 1.561
+        },
+        {
+          "op": "linear@1572",
+          "n_per_step": 36.0,
+          "ms_per_step": 1.53
+        },
+        {
+          "op": "multiply@1542",
+          "n_per_step": 36.0,
+          "ms_per_step": 1.42
+        },
+        {
+          "op": "multiply@1550",
+          "n_per_step": 36.0,
+          "ms_per_step": 1.349
+        },
+        {
+          "op": "multiply@1576",
+          "n_per_step": 36.0,
+          "ms_per_step": 1.331
+        },
+        {
+          "op": "add@1554",
+          "n_per_step": 36.0,
+          "ms_per_step": 1.306
+        },
+        {
+          "op": "add@1580",
+          "n_per_step": 36.0,
+          "ms_per_step": 1.289
+        },
+        {
+          "op": "sigmoid@1542",
+          "n_per_step": 36.0,
+          "ms_per_step": 1.187
+        },
+        {
+          "op": "permute@1488",
+          "n_per_step": 36.0,
+          "ms_per_step": 1.134
+        },
+        {
+          "op": "rms_norm@1457",
+          "n_per_step": 36.0,
+          "ms_per_step": 1.131
+        },
+        {
+          "op": "sigmoid@1550",
+          "n_per_step": 36.0,
+          "ms_per_step": 1.125
+        },
+        {
+          "op": "sigmoid@1576",
+          "n_per_step": 36.0,
+          "ms_per_step": 1.114
+        },
+        {
+          "op": "rms_norm@1458",
+          "n_per_step": 36.0,
+          "ms_per_step": 1.082
+        }
+      ],
+      "synced_sum_ms_per_step": 182.858,
+      "unsynced_wall_ms_per_step": 133.87,
+      "calls_per_step": 2.0
+    },
+    "decoder": {
+      "rows": [
+        {
+          "op": "softmax@1536",
+          "n_per_step": 6.0,
+          "ms_per_step": 31.811
+        },
+        {
+          "op": "typecast@1537",
+          "n_per_step": 6.0,
+          "ms_per_step": 11.908
+        },
+        {
+          "op": "matmul@1514",
+          "n_per_step": 6.0,
+          "ms_per_step": 6.544
+        },
+        {
+          "op": "matmul@1515",
+          "n_per_step": 6.0,
+          "ms_per_step": 4.835
+        },
+        {
+          "op": "reshape@1272",
+          "n_per_step": 24.0,
+          "ms_per_step": 4.422
+        },
+        {
+          "op": "linear@265",
+          "n_per_step": 69.0,
+          "ms_per_step": 4.405
+        },
+        {
+          "op": "reshape@1461",
+          "n_per_step": 18.0,
+          "ms_per_step": 3.71
+        },
+        {
+          "op": "permute@1275",
+          "n_per_step": 24.0,
+          "ms_per_step": 3.608
+        },
+        {
+          "op": "from_torch@418",
+          "n_per_step": 8.0,
+          "ms_per_step": 1.918
+        },
+        {
+          "op": "permute@1464",
+          "n_per_step": 18.0,
+          "ms_per_step": 1.258
+        },
+        {
+          "op": "linear@1264",
+          "n_per_step": 8.0,
+          "ms_per_step": 1.252
+        },
+        {
+          "op": "linear@1267",
+          "n_per_step": 8.0,
+          "ms_per_step": 1.201
+        },
+        {
+          "op": "linear@1299",
+          "n_per_step": 8.0,
+          "ms_per_step": 1.124
+        },
+        {
+          "op": "linear@1266",
+          "n_per_step": 8.0,
+          "ms_per_step": 1.114
+        },
+        {
+          "op": "linear@1265",
+          "n_per_step": 8.0,
+          "ms_per_step": 1.109
+        },
+        {
+          "op": "permute@1388",
+          "n_per_step": 3.0,
+          "ms_per_step": 0.929
+        },
+        {
+          "op": "rms_norm@1262",
+          "n_per_step": 8.0,
+          "ms_per_step": 0.831
+        },
+        {
+          "op": "matmul@1295",
+          "n_per_step": 8.0,
+          "ms_per_step": 0.801
+        },
+        {
+          "op": "embedding@1780",
+          "n_per_step": 8.0,
+          "ms_per_step": 0.717
+        },
+        {
+          "op": "rms_norm@1263",
+          "n_per_step": 8.0,
+          "ms_per_step": 0.663
+        },
+        {
+          "op": "softmax@1294",
+          "n_per_step": 8.0,
+          "ms_per_step": 0.659
+        },
+        {
+          "op": "matmul@1285",
+          "n_per_step": 8.0,
+          "ms_per_step": 0.593
+        },
+        {
+          "op": "pad@1776",
+          "n_per_step": 8.0,
+          "ms_per_step": 0.583
+        },
+        {
+          "op": "multiply@1298",
+          "n_per_step": 8.0,
+          "ms_per_step": 0.568
+        },
+        {
+          "op": "multiply@1289",
+          "n_per_step": 8.0,
+          "ms_per_step": 0.538
+        },
+        {
+          "op": "sigmoid@1298",
+          "n_per_step": 8.0,
+          "ms_per_step": 0.523
+        },
+        {
+          "op": "to_layout@1789",
+          "n_per_step": 8.0,
+          "ms_per_step": 0.516
+        },
+        {
+          "op": "multiply@1369",
+          "n_per_step": 12.0,
+          "ms_per_step": 0.516
+        },
+        {
+          "op": "rms_norm@1362",
+          "n_per_step": 12.0,
+          "ms_per_step": 0.494
+        },
+        {
+          "op": "rms_norm@1268",
+          "n_per_step": 8.0,
+          "ms_per_step": 0.488
+        },
+        {
+          "op": "rms_norm@1269",
+          "n_per_step": 8.0,
+          "ms_per_step": 0.487
+        },
+        {
+          "op": "pad@979",
+          "n_per_step": 12.0,
+          "ms_per_step": 0.472
+        },
+        {
+          "op": "linear@1561",
+          "n_per_step": 6.0,
+          "ms_per_step": 0.465
+        },
+        {
+          "op": "add@1369",
+          "n_per_step": 12.0,
+          "ms_per_step": 0.459
+        },
+        {
+          "op": "rms_norm@1361",
+          "n_per_step": 12.0,
+          "ms_per_step": 0.458
+        },
+        {
+          "op": "permute@1286",
+          "n_per_step": 8.0,
+          "ms_per_step": 0.451
+        },
+        {
+          "op": "to_layout@1775",
+          "n_per_step": 8.0,
+          "ms_per_step": 0.427
+        },
+        {
+          "op": "add@1818",
+          "n_per_step": 6.0,
+          "ms_per_step": 0.421
+        },
+        {
+          "op": "add@1291",
+          "n_per_step": 6.0,
+          "ms_per_step": 0.41
+        },
+        {
+          "op": "to_layout@1794",
+          "n_per_step": 6.0,
+          "ms_per_step": 0.388
+        },
+        {
+          "op": "sigmoid@1369",
+          "n_per_step": 12.0,
+          "ms_per_step": 0.38
+        },
+        {
+          "op": "to_layout@420",
+          "n_per_step": 8.0,
+          "ms_per_step": 0.347
+        },
+        {
+          "op": "reshape@1815",
+          "n_per_step": 2.0,
+          "ms_per_step": 0.331
+        },
+        {
+          "op": "multiply@1569",
+          "n_per_step": 6.0,
+          "ms_per_step": 0.33
+        },
+        {
+          "op": "embedding@1798",
+          "n_per_step": 6.0,
+          "ms_per_step": 0.297
+        },
+        {
+          "op": "multiply@1542",
+          "n_per_step": 6.0,
+          "ms_per_step": 0.282
+        },
+        {
+          "op": "linear@1546",
+          "n_per_step": 6.0,
+          "ms_per_step": 0.272
+        },
+        {
+          "op": "rms_norm@1457",
+          "n_per_step": 6.0,
+          "ms_per_step": 0.261
+        },
+        {
+          "op": "linear@1572",
+          "n_per_step": 6.0,
+          "ms_per_step": 0.254
+        },
+        {
+          "op": "multiply@1550",
+          "n_per_step": 6.0,
+          "ms_per_step": 0.251
+        },
+        {
+          "op": "multiply@1576",
+          "n_per_step": 6.0,
+          "ms_per_step": 0.249
+        },
+        {
+          "op": "to_layout@1805",
+          "n_per_step": 6.0,
+          "ms_per_step": 0.248
+        },
+        {
+          "op": "add@1580",
+          "n_per_step": 6.0,
+          "ms_per_step": 0.239
+        },
+        {
+          "op": "add@1554",
+          "n_per_step": 6.0,
+          "ms_per_step": 0.238
+        },
+        {
+          "op": "rms_norm@1458",
+          "n_per_step": 6.0,
+          "ms_per_step": 0.23
+        },
+        {
+          "op": "sigmoid@1542",
+          "n_per_step": 6.0,
+          "ms_per_step": 0.216
+        },
+        {
+          "op": "reshape@1276",
+          "n_per_step": 24.0,
+          "ms_per_step": 0.204
+        },
+        {
+          "op": "sigmoid@1550",
+          "n_per_step": 6.0,
+          "ms_per_step": 0.197
+        },
+        {
+          "op": "permute@1515",
+          "n_per_step": 6.0,
+          "ms_per_step": 0.191
+        },
+        {
+          "op": "sigmoid@1576",
+          "n_per_step": 6.0,
+          "ms_per_step": 0.189
+        },
+        {
+          "op": "add@2078",
+          "n_per_step": 4.0,
+          "ms_per_step": 0.153
+        },
+        {
+          "op": "reshape@994",
+          "n_per_step": 14.0,
+          "ms_per_step": 0.152
+        },
+        {
+          "op": "add@1293",
+          "n_per_step": 2.0,
+          "ms_per_step": 0.139
+        },
+        {
+          "op": "linear@2074",
+          "n_per_step": 2.0,
+          "ms_per_step": 0.091
+        },
+        {
+          "op": "reshape@1777",
+          "n_per_step": 8.0,
+          "ms_per_step": 0.075
+        },
+        {
+          "op": "reshape@1795",
+          "n_per_step": 6.0,
+          "ms_per_step": 0.06
+        },
+        {
+          "op": "rms_norm@2071",
+          "n_per_step": 2.0,
+          "ms_per_step": 0.06
+        },
+        {
+          "op": "reshape@1786",
+          "n_per_step": 8.0,
+          "ms_per_step": 0.056
+        },
+        {
+          "op": "reshape@1804",
+          "n_per_step": 6.0,
+          "ms_per_step": 0.048
+        }
+      ],
+      "synced_sum_ms_per_step": 100.116,
+      "unsynced_wall_ms_per_step": 102.817,
+      "calls_per_step": 2.0
+    },
+    "atom_encoder": {
+      "rows": [],
+      "synced_sum_ms_per_step": 0,
+      "unsynced_wall_ms_per_step": 0.0,
+      "calls_per_step": 0.0
+    }
+  }
+}

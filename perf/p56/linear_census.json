@@ -1,0 +1,573 @@
+{
+  "rows": [
+    {
+      "site": "model.py:1492",
+      "in": [
+        1,
+        685,
+        704,
+        128
+      ],
+      "w": [
+        128,
+        32
+      ],
+      "M": 482240,
+      "calls_per_step": 36.0,
+      "ms_per_step": 26.742,
+      "TFLOP_s": 5.32,
+      "pct_compute": 5.2,
+      "pct_read": 42.6,
+      "pct_write": 15.4
+    },
+    {
+      "site": "model.py:534",
+      "in": [
+        1,
+        685,
+        704,
+        512
+      ],
+      "w": [
+        512,
+        128
+      ],
+      "M": 482240,
+      "calls_per_step": 4.0,
+      "ms_per_step": 17.608,
+      "TFLOP_s": 14.36,
+      "pct_compute": 14.1,
+      "pct_read": 28.8,
+      "pct_write": 10.4
+    },
+    {
+      "site": "model.py:529",
+      "in": [
+        1,
+        685,
+        704,
+        128
+      ],
+      "w": [
+        128,
+        512
+      ],
+      "M": 482240,
+      "calls_per_step": 4.0,
+      "ms_per_step": 17.456,
+      "TFLOP_s": 14.48,
+      "pct_compute": 14.2,
+      "pct_read": 7.3,
+      "pct_write": 42.0
+    },
+    {
+      "site": "model.py:534",
+      "in": [
+        1,
+        685,
+        704,
+        256
+      ],
+      "w": [
+        256,
+        128
+      ],
+      "M": 482240,
+      "calls_per_step": 4.0,
+      "ms_per_step": 10.596,
+      "TFLOP_s": 11.93,
+      "pct_compute": 11.7,
+      "pct_read": 23.9,
+      "pct_write": 17.3
+    },
+    {
+      "site": "model.py:529",
+      "in": [
+        1,
+        685,
+        704,
+        128
+      ],
+      "w": [
+        128,
+        256
+      ],
+      "M": 482240,
+      "calls_per_step": 4.0,
+      "ms_per_step": 9.189,
+      "TFLOP_s": 13.76,
+      "pct_compute": 13.5,
+      "pct_read": 13.8,
+      "pct_write": 39.9
+    },
+    {
+      "site": "model.py:1374",
+      "in": [
+        1,
+        704,
+        384
+      ],
+      "w": [
+        384,
+        768
+      ],
+      "M": 704,
+      "calls_per_step": 72.0,
+      "ms_per_step": 3.848,
+      "TFLOP_s": 7.77,
+      "pct_compute": 7.6,
+      "pct_read": 5.4,
+      "pct_write": 7.5
+    },
+    {
+      "site": "model.py:1377",
+      "in": [
+        1,
+        704,
+        384
+      ],
+      "w": [
+        384,
+        768
+      ],
+      "M": 704,
+      "calls_per_step": 72.0,
+      "ms_per_step": 3.563,
+      "TFLOP_s": 8.39,
+      "pct_compute": 8.2,
+      "pct_read": 5.9,
+      "pct_write": 8.1
+    },
+    {
+      "site": "model.py:587",
+      "in": [
+        1,
+        685,
+        704,
+        128
+      ],
+      "w": [
+        128,
+        32
+      ],
+      "M": 482240,
+      "calls_per_step": 4.0,
+      "ms_per_step": 3.005,
+      "TFLOP_s": 5.26,
+      "pct_compute": 5.2,
+      "pct_read": 42.1,
+      "pct_write": 15.2
+    },
+    {
+      "site": "model.py:1395",
+      "in": [
+        1,
+        6051,
+        128,
+        32
+      ],
+      "w": [
+        32,
+        32
+      ],
+      "M": 774528,
+      "calls_per_step": 6.0,
+      "ms_per_step": 2.887,
+      "TFLOP_s": 3.3,
+      "pct_compute": 3.2,
+      "pct_read": 26.4,
+      "pct_write": 38.2
+    },
+    {
+      "site": "model.py:1579",
+      "in": [
+        1,
+        704,
+        1536
+      ],
+      "w": [
+        1536,
+        768
+      ],
+      "M": 704,
+      "calls_per_step": 36.0,
+      "ms_per_step": 2.854,
+      "TFLOP_s": 20.95,
+      "pct_compute": 20.5,
+      "pct_read": 14.6,
+      "pct_write": 5.1
+    },
+    {
+      "site": "model.py:1576",
+      "in": [
+        1,
+        704,
+        768
+      ],
+      "w": [
+        768,
+        1536
+      ],
+      "M": 704,
+      "calls_per_step": 36.0,
+      "ms_per_step": 2.587,
+      "TFLOP_s": 23.11,
+      "pct_compute": 22.7,
+      "pct_read": 12.3,
+      "pct_write": 11.2
+    },
+    {
+      "site": "model.py:1554",
+      "in": [
+        1,
+        704,
+        768
+      ],
+      "w": [
+        768,
+        768
+      ],
+      "M": 704,
+      "calls_per_step": 36.0,
+      "ms_per_step": 2.37,
+      "TFLOP_s": 12.62,
+      "pct_compute": 12.4,
+      "pct_read": 8.8,
+      "pct_write": 6.1
+    },
+    {
+      "site": "model.py:1464",
+      "in": [
+        1,
+        704,
+        768
+      ],
+      "w": [
+        768,
+        768
+      ],
+      "M": 704,
+      "calls_per_step": 36.0,
+      "ms_per_step": 2.08,
+      "TFLOP_s": 14.38,
+      "pct_compute": 14.1,
+      "pct_read": 10.0,
+      "pct_write": 6.9
+    },
+    {
+      "site": "model.py:1467",
+      "in": [
+        1,
+        704,
+        768
+      ],
+      "w": [
+        768,
+        768
+      ],
+      "M": 704,
+      "calls_per_step": 36.0,
+      "ms_per_step": 2.055,
+      "TFLOP_s": 14.55,
+      "pct_compute": 14.3,
+      "pct_read": 10.2,
+      "pct_write": 7.0
+    },
+    {
+      "site": "model.py:1466",
+      "in": [
+        1,
+        704,
+        768
+      ],
+      "w": [
+        768,
+        768
+      ],
+      "M": 704,
+      "calls_per_step": 36.0,
+      "ms_per_step": 2.053,
+      "TFLOP_s": 14.56,
+      "pct_compute": 14.3,
+      "pct_read": 10.2,
+      "pct_write": 7.0
+    },
+    {
+      "site": "model.py:1465",
+      "in": [
+        1,
+        704,
+        768
+      ],
+      "w": [
+        768,
+        768
+      ],
+      "M": 704,
+      "calls_per_step": 36.0,
+      "ms_per_step": 2.016,
+      "TFLOP_s": 14.83,
+      "pct_compute": 14.5,
+      "pct_read": 10.4,
+      "pct_write": 7.2
+    },
+    {
+      "site": "model.py:1374",
+      "in": [
+        1,
+        6080,
+        128
+      ],
+      "w": [
+        128,
+        128
+      ],
+      "M": 6080,
+      "calls_per_step": 18.0,
+      "ms_per_step": 1.071,
+      "TFLOP_s": 3.35,
+      "pct_compute": 3.3,
+      "pct_read": 6.9,
+      "pct_write": 9.7
+    },
+    {
+      "site": "model.py:1377",
+      "in": [
+        1,
+        6080,
+        128
+      ],
+      "w": [
+        128,
+        128
+      ],
+      "M": 6080,
+      "calls_per_step": 18.0,
+      "ms_per_step": 0.93,
+      "TFLOP_s": 3.86,
+      "pct_compute": 3.8,
+      "pct_read": 7.9,
+      "pct_write": 11.2
+    },
+    {
+      "site": "model.py:1576",
+      "in": [
+        1,
+        6080,
+        128
+      ],
+      "w": [
+        128,
+        256
+      ],
+      "M": 6080,
+      "calls_per_step": 9.0,
+      "ms_per_step": 0.578,
+      "TFLOP_s": 6.21,
+      "pct_compute": 6.1,
+      "pct_read": 6.5,
+      "pct_write": 18.0
+    },
+    {
+      "site": "model.py:1579",
+      "in": [
+        1,
+        6080,
+        256
+      ],
+      "w": [
+        256,
+        128
+      ],
+      "M": 6080,
+      "calls_per_step": 9.0,
+      "ms_per_step": 0.552,
+      "TFLOP_s": 6.5,
+      "pct_compute": 6.4,
+      "pct_read": 13.3,
+      "pct_write": 9.4
+    },
+    {
+      "site": "model.py:1554",
+      "in": [
+        1,
+        6080,
+        128
+      ],
+      "w": [
+        128,
+        128
+      ],
+      "M": 6080,
+      "calls_per_step": 9.0,
+      "ms_per_step": 0.53,
+      "TFLOP_s": 3.39,
+      "pct_compute": 3.3,
+      "pct_read": 6.9,
+      "pct_write": 9.8
+    },
+    {
+      "site": "model.py:1465",
+      "in": [
+        1,
+        6080,
+        128
+      ],
+      "w": [
+        128,
+        128
+      ],
+      "M": 6080,
+      "calls_per_step": 9.0,
+      "ms_per_step": 0.45,
+      "TFLOP_s": 3.98,
+      "pct_compute": 3.9,
+      "pct_read": 8.1,
+      "pct_write": 11.5
+    },
+    {
+      "site": "model.py:1464",
+      "in": [
+        1,
+        6080,
+        128
+      ],
+      "w": [
+        128,
+        128
+      ],
+      "M": 6080,
+      "calls_per_step": 9.0,
+      "ms_per_step": 0.441,
+      "TFLOP_s": 4.06,
+      "pct_compute": 4.0,
+      "pct_read": 8.3,
+      "pct_write": 11.8
+    },
+    {
+      "site": "model.py:1466",
+      "in": [
+        1,
+        6080,
+        128
+      ],
+      "w": [
+        128,
+        128
+      ],
+      "M": 6080,
+      "calls_per_step": 9.0,
+      "ms_per_step": 0.409,
+      "TFLOP_s": 4.38,
+      "pct_compute": 4.3,
+      "pct_read": 9.0,
+      "pct_write": 12.7
+    },
+    {
+      "site": "model.py:1467",
+      "in": [
+        1,
+        6080,
+        128
+      ],
+      "w": [
+        128,
+        128
+      ],
+      "M": 6080,
+      "calls_per_step": 9.0,
+      "ms_per_step": 0.4,
+      "TFLOP_s": 4.48,
+      "pct_compute": 4.4,
+      "pct_read": 9.2,
+      "pct_write": 13.0
+    },
+    {
+      "site": "model.py:529",
+      "in": [
+        1,
+        704,
+        384
+      ],
+      "w": [
+        384,
+        1536
+      ],
+      "M": 704,
+      "calls_per_step": 4.0,
+      "ms_per_step": 0.265,
+      "TFLOP_s": 12.56,
+      "pct_compute": 12.3,
+      "pct_read": 6.7,
+      "pct_write": 12.1
+    },
+    {
+      "site": "model.py:534",
+      "in": [
+        1,
+        704,
+        1536
+      ],
+      "w": [
+        1536,
+        384
+      ],
+      "M": 704,
+      "calls_per_step": 4.0,
+      "ms_per_step": 0.256,
+      "TFLOP_s": 13.0,
+      "pct_compute": 12.7,
+      "pct_read": 13.4,
+      "pct_write": 3.1
+    },
+    {
+      "site": "model.py:529",
+      "in": [
+        1,
+        704,
+        384
+      ],
+      "w": [
+        384,
+        768
+      ],
+      "M": 704,
+      "calls_per_step": 4.0,
+      "ms_per_step": 0.223,
+      "TFLOP_s": 7.45,
+      "pct_compute": 7.3,
+      "pct_read": 5.2,
+      "pct_write": 7.2
+    },
+    {
+      "site": "model.py:534",
+      "in": [
+        1,
+        704,
+        768
+      ],
+      "w": [
+        768,
+        384
+      ],
+      "M": 704,
+      "calls_per_step": 4.0,
+      "ms_per_step": 0.204,
+      "TFLOP_s": 8.15,
+      "pct_compute": 8.0,
+      "pct_read": 8.4,
+      "pct_write": 3.9
+    }
+  ],
+  "counted_steps": 3,
+  "atoms": 6051,
+  "roofs": {
+    "TFLOP_s": 102.02,
+    "read_GB_s": 390.0,
+    "write_GB_s": 269.6
+  },
+  "host": "qb2",
+  "card": 0,
+  "ttnn": "0.68.0",
+  "torch": "2.13.0+cpu"
+}

@@ -1,0 +1,55 @@
+{
+  "rows": [
+    {
+      "fn": "_scatter_mean",
+      "body_ms_per_step": 6.633,
+      "inflight_ms_per_step": 0.034,
+      "calls_per_step": 1.0,
+      "overlappable_ms_per_step": 0.034
+    },
+    {
+      "fn": "_scaled_distogram_bins",
+      "body_ms_per_step": 4.35,
+      "inflight_ms_per_step": 0.111,
+      "calls_per_step": 4.0,
+      "overlappable_ms_per_step": 0.111
+    },
+    {
+      "fn": "_extend_with_neighbours",
+      "body_ms_per_step": 17.582,
+      "inflight_ms_per_step": 0.1,
+      "calls_per_step": 3.0,
+      "overlappable_ms_per_step": 0.1
+    },
+    {
+      "fn": "_sparse_pair_gather",
+      "body_ms_per_step": 0.827,
+      "inflight_ms_per_step": 0.02,
+      "calls_per_step": 1.0,
+      "overlappable_ms_per_step": 0.02
+    },
+    {
+      "fn": "_dense_attention_mask",
+      "body_ms_per_step": 0.248,
+      "inflight_ms_per_step": 0.251,
+      "calls_per_step": 2.0,
+      "overlappable_ms_per_step": 0.248
+    },
+    {
+      "fn": "_create_attention_indices",
+      "body_ms_per_step": 53.904,
+      "inflight_ms_per_step": 0.061,
+      "calls_per_step": 3.0,
+      "overlappable_ms_per_step": 0.061
+    }
+  ],
+  "counted_steps": 3,
+  "atoms": 6051,
+  "host_body_ms_per_step": 83.544,
+  "inflight_ms_per_step": 0.577,
+  "overlappable_ms_per_step": 0.574,
+  "host": "qb2",
+  "card": 0,
+  "ttnn": "0.68.0",
+  "torch": "2.13.0+cpu"
+}
