@@ -57,6 +57,19 @@ def main():
     B.RECYCLING_STEPS = _resolve_recycling_steps(None, a.model)
     B.SAMPLING_STEPS = _resolve_sampling_steps(None, a.model)
 
+    # `build_fold`'s cfg carries no Boltz-2 hyperparameters, so `_WorkerState.load_model`
+    # raises KeyError('conf_kwargs'). `perf/other512/fold_ab_multi.py` already carries the
+    # injector, holding exactly what `tt_bio.main` builds; import it rather than restate the
+    # hyperparameters, so both arms cannot drift apart. It must run AFTER the two lines above,
+    # because it reads them. Its module body inserts THIS tree's root at sys.path[0], which
+    # would shadow `--tree` for the main arm, so the path is snapshotted and restored.
+    if a.model == "boltz2":
+        snap = list(sys.path)
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "other512"))
+        from fold_ab_multi import patch_boltz2_cfg
+        sys.path[:] = snap
+        patch_boltz2_cfg()
+
     # Reachability counters. Installed only for --census: they wrap a function the diffusion
     # rollout calls tens of thousands of times, so they are host cost inside the timed region.
     reach = {"adaln_calls": 0, "adaln_with_s_terms": 0, "adaln_s_terms_calls": 0}
