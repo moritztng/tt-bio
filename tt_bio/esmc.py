@@ -298,6 +298,16 @@ _PAIR_FFN_ROW_BLOCK = int(os.environ.get("TT_BIO_PAIR_FFN_ROW_BLOCK", PAIR_FFN_R
 # derives different matmul programs and does its own row blocking through `pair_row_tile`, so the
 # parity above says nothing there and the shipped unsplit chain keeps running.
 SPLIT_SWIGLU_MIN_SEQ = 144
+
+# ...and the small grid gets its own opt-in, because "no evidence there" is not "measured slower
+# there". The Wormhole Galaxy JapanFold runs on is 8x9 = 72 cores, so `_IS_SMALL_GRID` is True and
+# the whole family above -- split fc1, the 32-row block, the L1-resident fc1 -- is dead on the one
+# machine that serves users. This flag is read ONLY when `_IS_SMALL_GRID` is True, so on any grid
+# >= 110 cores the expression below is byte-for-byte the one that shipped before it existed.
+# Measured on 8x9: state/wh-perf-esmfold2.md.
+SPLIT_SWIGLU_SMALL_GRID = False
+_SPLIT_SWIGLU_SMALL_GRID = os.environ.get(
+    "TT_BIO_SPLIT_SWIGLU_SMALL_GRID", "1" if SPLIT_SWIGLU_SMALL_GRID else "0") == "1"
 PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)
 
 # Inside the row block, fc1's two halves can also write their OUTPUT to L1, so fc2's operand never
@@ -330,6 +340,14 @@ def set_split_swiglu(on: bool) -> bool:
     """A/B switch for the split-fc1 SwiGLU path. Returns the previous state."""
     global _SPLIT_SWIGLU
     prev, _SPLIT_SWIGLU = _SPLIT_SWIGLU, bool(on)
+    return prev
+
+
+def set_split_swiglu_small_grid(on: bool) -> bool:
+    """A/B switch for the split-fc1 SwiGLU family on a small (< 110 core) grid. Returns the
+    previous state. Inert on Blackhole: the flag is only consulted when `_IS_SMALL_GRID`."""
+    global _SPLIT_SWIGLU_SMALL_GRID
+    prev, _SPLIT_SWIGLU_SMALL_GRID = _SPLIT_SWIGLU_SMALL_GRID, bool(on)
     return prev
 
 
@@ -455,7 +473,8 @@ class SwiGLUFFN(Module):
         L = x.shape[1]
         split = bool(
             self.split_swiglu and _SPLIT_SWIGLU
-            and not getattr(tenstorrent, "_IS_SMALL_GRID", False)
+            and (_SPLIT_SWIGLU_SMALL_GRID
+                 or not getattr(tenstorrent, "_IS_SMALL_GRID", False))
             and x.shape[-2] >= SPLIT_SWIGLU_MIN_SEQ
         )
         lo, hi = PAIR_FFN_ROW_BLOCK_SEQ
