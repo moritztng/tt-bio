@@ -1,0 +1,76 @@
+{
+ "ttnn": "0.68.0",
+ "host": "qb2",
+ "card": 1,
+ "n": 512,
+ "c": 256,
+ "grid": [
+  11,
+  10
+ ],
+ "reps": 8,
+ "trials": 5,
+ "loadavg": [
+  "1.08",
+  "2.37",
+  "2.62"
+ ],
+ "budget_ms_per_call": 0.6056,
+ "prologue_passes": 5,
+ "arms": {
+  "full": {
+   "ms": 3.20508,
+   "min_ms": 3.20143,
+   "max_ms": 3.21791
+  },
+  "f1": {
+   "ms": 2.34321,
+   "min_ms": 2.31934,
+   "max_ms": 2.36119
+  },
+  "f1_nosig": {
+   "ms": 1.68016,
+   "min_ms": 1.64637,
+   "max_ms": 1.71396
+  },
+  "f1_noround": {
+   "ms": 2.14562,
+   "min_ms": 2.11842,
+   "max_ms": 2.17946
+  },
+  "f1_bare": {
+   "ms": 1.48073,
+   "min_ms": 1.44094,
+   "max_ms": 1.51595
+  },
+  "ln_only": {
+   "ms": 0.94168,
+   "min_ms": 0.92746,
+   "max_ms": 0.96503
+  },
+  "f1_2": {
+   "ms": 2.38199,
+   "min_ms": 2.37336,
+   "max_ms": 2.39165
+  },
+  "full_2": {
+   "ms": 3.27567,
+   "min_ms": 3.2597,
+   "max_ms": 3.30623
+  }
+ },
+ "aa_floor_f1_ms": 0.03878,
+ "aa_floor_full_ms": 0.07059,
+ "sigmoid_pass_ms": 0.66305,
+ "round_pass_ms": 0.19759,
+ "both_passes_ms": 0.86248,
+ "per_pass_unit_ms": 0.66305,
+ "predicted_prologue_ms": 3.31525,
+ "deletable_ms": 0.86187,
+ "verdict": "NO-GO on cost",
+ "loadavg_end": [
+  "1.63",
+  "2.46",
+  "2.65"
+ ]
+}

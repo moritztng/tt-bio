@@ -1,0 +1,77 @@
+{
+  "model": "protenix-v2",
+  "side": "tenstorrent",
+  "hardware": "blackhole",
+  "machine": "tt-quietbox2",
+  "visible_devices": "1",
+  "tt_bio_git": "16126a20a62edce8ca755e1e66139bf5305af1ba",
+  "ttnn_version": "0.68.0",
+  "input": "cdk2x2_298.yaml (298 aa guard, single protein, MSA on)",
+  "target": "perf/size512/fixtures/cdk2x2_298.yaml",
+  "n_msa": 35,
+  "n_tokens": 298,
+  "n_residues": 298,
+  "msa_cache": [
+    "11089c03897aec55.a3m",
+    "4e5c2b391bde62d4.a3m",
+    "5aea09ad55732820.a3m",
+    "a9d8b30a10868887.a3m",
+    "fe22d91e18cd544a.a3m"
+  ],
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "seed": 0,
+  "load_s": 1.45,
+  "cold_s": 27.59,
+  "warm_times_s": [
+    26.147
+  ],
+  "warm_min_s": 26.147,
+  "warm_median_s": 26.147,
+  "warm_max_s": 26.147,
+  "cold_metrics": {
+    "complex_plddt": 0.859489,
+    "plddt": 0.859489,
+    "ptm": 0.924467,
+    "iptm": 0.0,
+    "confidence_score": 0.924467,
+    "n_residues": 298,
+    "n_chains": 1,
+    "n_tokens": 298,
+    "msa": true,
+    "n_atoms": 2398,
+    "samples": 1
+  },
+  "warm_folds": [
+    {
+      "s": 27.589,
+      "plddt": 0.859489,
+      "cif_sha256": {
+        "cdk2x2_298.cif": "8139d61b6c90f893"
+      },
+      "loadavg": [
+        "2.23",
+        "1.60",
+        "1.25"
+      ],
+      "arm_fold": "cold"
+    },
+    {
+      "s": 26.147,
+      "plddt": 0.859489,
+      "cif_sha256": {
+        "cdk2x2_298.cif": "8139d61b6c90f893"
+      },
+      "loadavg": [
+        "2.22",
+        "1.65",
+        "1.27"
+      ]
+    }
+  ],
+  "runtime_root": "<unset>",
+  "kernel_cache": "/home/ttuser/.cache/tt-metal-cache-tt-bio/ttnn-0.68.0",
+  "uptime": "20:04:58 up  1:01,  7 users,  load average: 2.22, 1.65, 1.27",
+  "date": "2026-08-15"
+}
