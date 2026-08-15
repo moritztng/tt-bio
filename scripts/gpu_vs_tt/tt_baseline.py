@@ -114,7 +114,7 @@ def seed_msa_cache(target: Path, a3m: Path, msa_dir: Path) -> int:
 
 def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
                samples: int = DIFFUSION_SAMPLES, hoist: bool = False,
-               instrument: bool = False):
+               instrument: bool = False, fast: bool = False):
     """Open the card, load the model, seed the MSA cache; return ``(one_fold, meta)``.
 
     Split out of ``measure`` so the multi-card fan-out driver (``tt_concurrency.py``)
@@ -158,7 +158,7 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
     msa_dir.mkdir(parents=True, exist_ok=True)
 
     cfg = dict(
-        model=model, fast=False, output_format="cif",
+        model=model, fast=fast, output_format="cif",
         recycling_steps=RECYCLING_STEPS, sampling_steps=SAMPLING_STEPS,
         diffusion_samples=samples, seed=SEED, trace=False,
         msa_dir=str(msa_dir), struct_dir=str(struct_dir),
