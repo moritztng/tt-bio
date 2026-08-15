@@ -49,18 +49,31 @@ def digests(rec):
 
 
 def reaches(rec):
-    """True when this arm ran any line the branch changed."""
-    return any(rec["reach"].values()) or rec["fp32_softmax_stats"]["calls"] > 0
+    """Whether this run touched a changed line: True, False, or None for "cannot tell".
+
+    `FP32_SOFTMAX_STATS` is the library's own counter and increments whether or not anyone
+    is watching, so a zero there is a real zero. `reach` is not: xmodel_ab.py installs those
+    wrappers only under --census, so an A/B run reports adaln_calls 0 because nothing was
+    counting. Reading that as "AdaLN was never called" is a vacuous zero, and it would have
+    classified every model here as a null control, OpenFold3 included.
+    """
+    if rec["fp32_softmax_stats"]["calls"] > 0:
+        return True
+    if not rec["census"]:
+        return None                     # fp32 tail is a measured null; AdaLN is unmeasured
+    return any(rec["reach"].values())
 
 
-def score(arms):
+def score(arms, census):
     walls = {k: [f["fold_s"] for f in v["folds"]] for k, v in arms.items()}
     med = lambda *k: statistics.median(sum((walls[x] for x in k), []))
     mA, mB = med("A1", "A2"), med("B1", "B2")
+    seen = [reaches(v) for v in arms.values()] + ([reaches(census)] if census else [])
     return dict(
         mA=mA, mB=mB, delta=mB - mA,
         aa=abs(med("A1") - med("A2")), bb=abs(med("B1") - med("B2")),
-        reach=any(reaches(v) for v in arms.values()),
+        reach=True if any(r is True for r in seen)
+              else (None if any(r is None for r in seen) else False),
         seen=set().union(*(digests(v) for v in arms.values())),
         l1={(tuple(sorted(v["fp32_softmax_l1_refused_keys"])),
              tuple(sorted(v["transpose_l1_refused_keys"]))) for v in arms.values()},
@@ -83,10 +96,16 @@ def main():
             print(f"{m:12s} INCOMPLETE ({sorted(arms)})")
             bad += 1
         else:
-            done[m] = score(arms)
+            p = a.outdir / f"{m}_census.json"
+            done[m] = score(arms, json.loads(p.read_text()) if p.exists() else None)
 
     # The null controls set the band, as a rate, from the legs whose true delta is zero.
-    nulls = {m: s for m, s in done.items() if not s["reach"]}
+    # A model qualifies only on a census that measured it, never on an unwatched zero.
+    nulls = {m: s for m, s in done.items() if s["reach"] is False}
+    unknown = sorted(m for m, s in done.items() if s["reach"] is None)
+    if unknown:
+        print(f"reachability not yet measured (no census): {', '.join(unknown)} "
+              f"-- their fp32 tail is a measured null, their AdaLN is not")
     band = max((abs(s["delta"]) / s["mA"] for s in nulls.values()), default=0.0)
     if nulls:
         print("null controls (no changed line executed, so their delta is this harness's noise): "
@@ -106,7 +125,7 @@ def main():
               f"floor {floor:6.3f}  digest {'SAME' if ok_d else 'MOVED'}  "
               f"L1 {'SAME' if ok_l1 else 'MOVED'}  "
               f"perf {'ok' if ok_p else 'REGRESSED'}"
-              f"{'' if s['reach'] else '   [null control]'}")
+              f"{'   [null control]' if s['reach'] is False else ''}")
         if not ok_d:
             for sha, plddt in sorted(s["seen"]):
                 print(f"             {dict(sha)} plddt={plddt}")
