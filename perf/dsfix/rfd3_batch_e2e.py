@@ -94,6 +94,9 @@ def validate(out_dir, n_expected, exp_atoms, exp_res):
 def main():
     rung = sys.argv[1]
     batches = [int(b) for b in sys.argv[2].split(",")]
+    # An optional arm tag keys an env-flag arm separately, so RFD3_TUNE_MATMUL=1 at R4 does
+    # not collide with the shipped-default row for the same (rung, batch).
+    tag = sys.argv[3] if len(sys.argv) > 3 else ""
     exp_atoms, target_res = RUNGS[rung]
     exp_res = target_res + 100
     fixture = pathlib.Path("perf/dsfix/fixtures/rfd3_%s.json" % rung)
@@ -108,11 +111,11 @@ def main():
                 done.add((r["rung"], r["batch_size_requested"]))
 
     for bs in batches:
-        if (rung, bs) in done:
+        if (rung + tag, bs) in done:
             print("[e2e] %s b=%d cached" % (rung, bs), flush=True)
             continue
         nd = bs * (N_WARM + 1)
-        out_dir = "/tmp/rfd3_e2e_%s_b%d" % (rung, bs)
+        out_dir = "/tmp/rfd3_e2e_%s%s_b%d" % (rung, tag.replace("+", "_"), bs)
         os.system("rm -rf %s" % out_dir)
         WALLS.clear()
         t0 = time.perf_counter()
@@ -130,7 +133,8 @@ def main():
         med = statistics.median(warm)
         ok, bad, atoms = validate(out_dir, nd, exp_atoms, exp_res)
         rec = {
-            "rung": rung, "atoms": exp_atoms, "fixture": str(fixture), "num_designs": nd,
+            "rung": rung + tag, "atoms": exp_atoms,
+            "env": {k: os.environ[k] for k in sorted(os.environ) if k.startswith("RFD3_")}, "fixture": str(fixture), "num_designs": nd,
             "batch_size_requested": bs, "effective_batch": eff, "num_timesteps": STEPS,
             "seed": SEED, "n_chunks": len(walls), "cold_chunk_s": round(walls[0], 3),
             "warm_chunks_s": [round(w, 3) for w in warm], "n_warm": len(warm),
