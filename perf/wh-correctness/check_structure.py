@@ -97,8 +97,15 @@ def parse_input(path: Path) -> dict:
             ids = [str(x) for x in idv] if isinstance(idv, list) else [str(idv)]
             if k in ("protein", "dna", "rna"):
                 seq = re.sub(r"[^A-Za-z]", "", str(body.get("sequence") or ""))
+                # A declared modification legitimately changes the residue at that position,
+                # so the sequence check has to know about it or it reports every correctly
+                # applied modification as a mismatch. Positions are 1-based.
+                mods = {int(m["position"]): str(m.get("ccd") or "")
+                        for m in (body.get("modifications") or [])
+                        if isinstance(m, dict) and m.get("position") is not None}
                 for cid in ids:
-                    want["chains"].append({"id": cid, "type": k, "sequence": seq})
+                    want["chains"].append({"id": cid, "type": k, "sequence": seq,
+                                           "modifications": mods})
             elif k == "ligand":
                 for cid in ids:
                     want["ligands"].append({"id": cid, "smiles": body.get("smiles"),
@@ -335,10 +342,28 @@ def main() -> int:
                 rep["fail"].append(f"chain {want_ch['id']}: {len(obs)} residues out, "
                                    f"{len(exp)} in -- silently truncated or padded")
                 continue
-            mism = sum(1 for x, y in zip(exp, obs) if y not in (x, "X"))
+            mods = want_ch.get("modifications") or {}
+            mism = sum(1 for i, (x, y) in enumerate(zip(exp, obs), 1)
+                       if y not in (x, "X") and i not in mods)
             if mism:
                 rep["fail"].append(f"chain {want_ch['id']}: {mism} residue(s) differ from "
                                    f"the submitted sequence")
+            # A model that advertises `modifications` and quietly returns the unmodified
+            # residue is the exact failure this sweep exists to hunt: the structure is
+            # chemically sane, the confidence is real, and it answers a different question
+            # than the one that was asked.
+            if mods:
+                by_name = {c.name: c for c in st[0]}
+                res = list(by_name[want_ch["id"]]) if want_ch["id"] in by_name else []
+                seen = {}
+                for pos, ccd in sorted(mods.items()):
+                    got_name = res[pos - 1].name.upper() if 0 < pos <= len(res) else "?"
+                    seen[pos] = got_name
+                    if ccd and got_name != ccd.upper():
+                        rep["fail"].append(
+                            f"chain {want_ch['id']}: modification {ccd} at position {pos} "
+                            f"was not applied, the output carries {got_name}")
+                rep["checks"]["modifications"] = {"requested": mods, "observed": seen}
 
     rep["verdict"] = "FAIL" if rep["fail"] else ("WARN" if rep["warn"] else "PASS")
     if a.json:

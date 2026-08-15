@@ -71,6 +71,12 @@ COMPOSITIONS = {
     # sent to protenix-v2 or either opendde is neither served nor refused by contract.
     "modres":      (f"sequences:\n  - protein: {{id: A, sequence: {P64}, modifications: "
                     "[{position: 12, ccd: SEP}]}\n", {"modifications"}),
+    # Position 11 is THR and TPO is phosphothreonine, so this is the modification a user
+    # would actually ask for. It exists to remove the one objection to the `modres` cell,
+    # whose L->SEP is a chemically odd substitution: if a model drops this one too, the
+    # drop is about the model and not about the request.
+    "modres_tpo":  (f"sequences:\n  - protein: {{id: A, sequence: {P64}, modifications: "
+                    "[{position: 11, ccd: TPO}]}\n", {"modifications"}),
 }
 
 # What each model advertises, as of 2026-08-16 on the live catalog. Every expectation in
@@ -138,7 +144,7 @@ def cells(group: str) -> list[dict]:
                 # refused. Measured 2026-08-16: protenix-v2, opendde and opendde-abag all
                 # return 202. The contract is undefined, so the cell observes and does not grade.
                 expect = "ok" if served else "reject"
-                if cname == "modres" and not served:
+                if cname.startswith("modres") and not served:
                     expect = "unknown"
                 out.append({"cell": f"comp_{cname}_{model}", "kind": "predict",
                             "expect": expect,

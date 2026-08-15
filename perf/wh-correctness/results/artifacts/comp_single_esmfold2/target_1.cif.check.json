@@ -1,0 +1,50 @@
+{
+ "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/comp_single_esmfold2/target_1.cif",
+ "checks": {
+  "n_atoms": 494,
+  "bbox_diagonal": 58.01,
+  "chains": [
+   {
+    "chain": "A",
+    "kind": "protein",
+    "n_res": 64,
+    "sequence": "MTYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTEKPEVIDAS",
+    "step_median": 3.79,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 1.0,
+    "breaks": 0,
+    "rg": 12.65,
+    "rg_expected": 10.68,
+    "rg_ratio": 1.184,
+    "n_ca_bond_median": 1.46,
+    "ca_c_bond_median": 1.511
+   }
+  ],
+  "clashes": {
+   "n": 0,
+   "heavy_atoms": 494,
+   "worst_dist": 0.0,
+   "threshold": 2.0
+  },
+  "confidence": {
+   "source": "b_factor",
+   "n": 494,
+   "min": 0.4846,
+   "max": 0.8751,
+   "mean": 0.7659,
+   "std": 0.0988,
+   "scale": 100.0
+  },
+  "expected": {
+   "chains": 1,
+   "ligands": 0
+  },
+  "ligand_residues_seen": 0
+ },
+ "fail": [],
+ "warn": [],
+ "verdict": "PASS"
+}
