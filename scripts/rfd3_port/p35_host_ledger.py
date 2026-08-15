@@ -74,9 +74,11 @@ def _wrap(mod, name, label):
     setattr(mod, name, w)
 
 
-def instrument():
+def instrument(by_site=False):
     for n in TT_OPS:
         _wrap(ttnn, n, f"tt.{n}")
+    if by_site:
+        _wrap_by_site()
     for n in ("_scatter_mean", "_dense_attention_mask", "_sparse_qk_host", "_sparse_pair_gather",
               "_sparse_attn_index", "_scaled_distogram_bins", "_attention_index_prefix",
               "_extend_with_neighbours", "_grouping_indices"):
@@ -92,6 +94,22 @@ def instrument():
             ACC[lbl] += time.perf_counter() - t0
             CNT[lbl] += 1
     R._create_attention_indices = w
+
+
+def _wrap_by_site():
+    """Re-wrap to_torch so its wall is keyed by caller line as well as in total."""
+    fn = ttnn.to_torch
+    def w(*a, **k):
+        fr = sys._getframe(1)
+        site = "site.%s:%d" % (fr.f_code.co_filename.rsplit("/", 1)[-1], fr.f_lineno)
+        t0 = time.perf_counter()
+        try:
+            return fn(*a, **k)
+        finally:
+            dt = time.perf_counter() - t0
+            ACC[site] += dt
+            CNT[site] += 1
+    ttnn.to_torch = w
 
 
 def freeze_indices():
@@ -113,6 +131,10 @@ def main():
     ap.add_argument("--ckpt", default="/home/ttuser/.boltz/rfd3/weights")
     ap.add_argument("--num_timesteps", type=int, default=30)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--spec", type=Path,
+                    help="perf/dsfix fixture json; its first entry replaces --pdb/--contig")
+    ap.add_argument("--by_site", action="store_true",
+                    help="also split the tt.to_torch drain by the line that issued the read")
     ap.add_argument("--plain", action="store_true")
     ap.add_argument("--freeze-indices", action="store_true")
     ap.add_argument("--out", type=Path)
@@ -121,11 +143,15 @@ def main():
     if a.freeze_indices:
         freeze_indices()
     if not a.plain:
-        instrument()
+        instrument(by_site=a.by_site)
 
-    spec = InputSpecification.from_dict({"input": a.pdb, "contig": a.contig})
+    if a.spec:
+        sdict = next(iter(json.loads(a.spec.read_text()).values()))
+        spec = InputSpecification.from_dict(sdict)
+    else:
+        spec = InputSpecification.from_dict({"input": a.pdb, "contig": a.contig})
     spec.validate()
-    f = featurize(a.pdb, spec)
+    f = featurize(spec.input, spec)
     cap = Path(a.ckpt)
     ti_w = torch.load(cap / "token_initializer.real_weights.pt", map_location="cpu", weights_only=True)
     dm_w = torch.load(cap / "diffusion_module.real_weights.pt", map_location="cpu", weights_only=True)
@@ -135,6 +161,8 @@ def main():
         init = dev_ti({k: (v.clone() if torch.is_tensor(v) else v) for k, v in f.items()})
     L = init["Q_L_init"].shape[0]
     coord0 = f["motif_pos"].float().unsqueeze(0) if "motif_pos" in f else torch.zeros(1, L, 3)
+    tuned = R.set_tune_matmul_for_atoms(L)
+    print(f"[ledger] tune_matmul={tuned} at L={L}", flush=True)
     ACC.clear(); CNT.clear()
 
     # Per-step snapshots. A 40-step run's MEAN is meaningless here: step 1 registers ~3400
@@ -186,7 +214,7 @@ def main():
     base = med_step if med_ms else per
     rows = sorted(med_ms.items(), key=lambda kv: -kv[1]) if med_ms else \
         [(k, v / steps * 1e3) for k, v in sorted(ACC.items(), key=lambda kv: -kv[1])]
-    acc_ms = sum(v for _, v in rows)
+    acc_ms = sum(v for k, v in rows if not k.startswith("site."))
     print(f"{'row (median warm step)':34s} {'ms/step':>8s} {'% step':>7s} {'calls/step':>11s}")
     for k, ms in rows:
         if ms < 0.05:
@@ -208,7 +236,8 @@ def main():
         a.out.parent.mkdir(parents=True, exist_ok=True)
         a.out.write_text(json.dumps({
             "atoms": L, "steps": steps, "wall_s": wall, "ms_per_step": per,
-            "plain": a.plain, "freeze_indices": a.freeze_indices,
+            "plain": a.plain, "freeze_indices": a.freeze_indices, "tune_matmul": tuned,
+            "spec": str(a.spec) if a.spec else None,
             "median_warm_step_ms": med_step, "step_walls_ms": step_walls,
             "rows_ms_per_step": med_ms or {k: v / steps * 1e3 for k, v in ACC.items()},
             "calls_per_step": med_cnt or {k: CNT[k] / steps for k in CNT},
