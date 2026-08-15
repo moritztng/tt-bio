@@ -181,9 +181,9 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 53.46,
+          "s_per_fold": 51.012,
           "parity": "byte-identical",
-          "ref": "Median of n=3, noise floor 0.058 s. Byte-identical output against its reference."
+          "ref": "Median of an interleaved A/B against main, A/A floor 0.018 s, byte-identical output against its reference. qb2, Blackhole p150a physical card 1, ttnn 0.68.0. Two bit-exact levers folded into the shipped default: the E6 fused chunk+gate forward move (already the default for OpenDDE/ESMFold2, now opted in here too) and a tightened L1 transpose headroom (2.5 -> 1.25) with a safe DRAM fallback on allocator refusal. Swept at 256/298/512/640/768 aa, nothing goes dark above 512 and nothing costs anything below it."
         },
         "h200": {
           "status": "measured",
@@ -248,9 +248,9 @@
   ],
   "design": {
     "deck": "BoltzGen and RFdiffusion3, seconds per binder design on one AI Processor, each on its own pinned target.",
-    "cond": "Wall-clock seconds to return one binder design on a single AI Processor, warm, at each model's shipped defaults. Shorter is better. Both sides run the same target and ask for the same designs; RFdiffusion3's eight come out of one forward of 8 on the GPUs and eight forwards of 1 on the p150a, the fastest batch measured at this target.",
-    "note": "No throughput-per-dollar figure is derived here. The rung above this one overflows L1 on the p150a for BoltzGen, so BoltzGen is measured one rung below it, where the H200 sits at 41 % of its power limit and the B200 at 31 %, and a cost ratio taken on an idle GPU would not survive a bigger target. On both models the B200 is no faster than the H200, 0.6 % slower on RFdiffusion3 and 1.27x slower on BoltzGen. The rows above carry a bit-exact digest; a design draws a new sequence every time, so these two carry per-run output validation instead, and every design counted here wrote, parsed, had finite coordinates and had the residue topology its spec asked for.",
-    "methods": "Two pinned targets, one per model, at the shipped defaults: BoltzGen 500 sampling steps at batch 1, RFdiffusion3 200 timesteps for eight designs. Tenstorrent figures are warm medians on one Blackhole p150a under a run lock, with the cold pass and, for BoltzGen, the design that pays the checkpoint switch dropped. GPU figures come from the same protocol on rented single-GPU nodes. Designs are validated per run rather than digested: chain sizes, residue topology and finite coordinates, never atom equality between siblings, because sibling designs legitimately differ.",
+    "cond": "Wall-clock seconds to return one binder design on a single AI Processor, warm, at each model's shipped defaults. Shorter is better. Every platform runs one design at a time, the same protocol as the folding rows above, on the same target with the same settings.",
+    "note": "No throughput-per-dollar figure is derived here. The rung above this one overflows L1 on the p150a for BoltzGen, so BoltzGen is measured one rung below it, where the H200 sits at 41 % of its power limit and the B200 at 31 %, and a cost ratio taken on an idle GPU would not survive a bigger target. On both models the B200 is no faster than the H200: 18.5 % slower on RFdiffusion3 and 1.27x slower on BoltzGen. Asking for eight designs at once instead of one changes only the GPUs. RFdiffusion3 amortises a batch of eight by 2.12x on the H200 and 2.50x on the B200, so eight designs take 103.79 s on an H200, 104.39 s on a B200 and 987.96 s on a p150a; the p150a gains nothing from batching at this target size and runs one design at a time by default. The rows above carry a bit-exact digest; a design draws a new sequence every time, so these two carry per-run output validation instead, and every design counted here wrote, parsed, had finite coordinates and had the residue topology its spec asked for.",
+    "methods": "Two pinned targets, one per model, at the shipped defaults: BoltzGen 500 sampling steps, RFdiffusion3 200 timesteps, one design at a time on both. Tenstorrent figures are warm medians on one Blackhole p150a under a run lock, with the cold pass and, for BoltzGen, the design that pays the checkpoint switch dropped. GPU figures come from the same protocol on rented single-GPU nodes. Designs are validated per run rather than digested: chain sizes, residue topology and finite coordinates, never atom equality between siblings, because sibling designs legitimately differ.",
     "models": [
       {
         "id": "boltzgen",
@@ -281,7 +281,7 @@
         "name": "RFdiffusion3",
         "target": "Human serum albumin (9q6y chain A), 585 target residues, 100-residue binder, 6051 atoms",
         "sampling_steps": 200,
-        "batch": "8 requested",
+        "batch": 1,
         "cells": {
           "p150a": {
             "status": "measured",
@@ -290,13 +290,13 @@
           },
           "h200": {
             "status": "measured",
-            "s_per_design": 12.974,
-            "ref": "Median of n=3 warm batches, 103.79 s per batch of 8, spread 0.29 %. rc-foundry 0.2.0, torch 2.13.0+cu130, 553.1 W, 79.0 % of the box's own 700 W limit."
+            "s_per_design": 27.490,
+            "ref": "Median of n=3 warm designs, 27.24 / 27.49 / 28.02 s, spread 2.84 %, one design per forward. rc-foundry 0.2.0 with the current production attention path, torch 2.13.0+cu130, 381.5 W, 54.5 % of the box's own 700 W limit at 79 % utilisation. Ask it for eight designs at once instead and it returns them in 103.79 s, 12.974 s each, at 98 % utilisation and 553.1 W: batching is worth 2.12x to an H200 because one design does not fill it."
           },
           "b200": {
             "status": "measured",
-            "s_per_design": 13.049,
-            "ref": "Median of n=3 warm batches, 104.39 s per batch of 8, spread 1.34 %, same stack."
+            "s_per_design": 32.580,
+            "ref": "Median of n=3 warm designs, spread 1.50 %, one design per forward, same stack. 18.5 % slower than the H200 at one design. At eight at once it returns 13.049 s each, an amortisation of 2.50x."
           }
         }
       }

@@ -1636,7 +1636,11 @@ class Protenix:
         ck = torch.load(path, map_location="cpu", weights_only=True)
         ck = ck.get("model", ck)
         sd = {k[len("module."):] if k.startswith("module.") else k: v for k, v in ck.items()}
-        return cls(sd, ckc, dev)
+        # gated_move=True: the E6 fused chunk+gate forward move serves 2416 of 2416 trimul
+        # channel moves at c_z=256 and is torch.equal to the sequence it replaces, so it is
+        # the shipped path. Scoped to this entry point -- OpenDDE builds Protenix directly
+        # and passes its own flag.
+        return cls(sd, ckc, dev, gated_move=True)
 
     def _tt(self, x):
         return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
