@@ -19,6 +19,9 @@ molecules.
 
 import dataclasses
 import logging
+import os
+import random
+from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Iterable
 from functools import lru_cache
 from typing import NamedTuple
@@ -34,6 +37,7 @@ from tt_bio._vendor.openfold3.core.data.pipelines.sample_processing.conformer im
 )
 from tt_bio._vendor.openfold3.core.data.primitives.structure.cleanup import remove_hydrogens
 from tt_bio._vendor.openfold3.core.data.primitives.structure.component import set_atomwise_annotation
+from tt_bio._vendor.openfold3.core.data.primitives.structure import conformer as conformer_mod
 from tt_bio._vendor.openfold3.core.data.primitives.structure.conformer import (
     multistrategy_compute_conformer,
 )
@@ -178,6 +182,41 @@ def atom_array_from_mol(
     atom_array.set_annotation("atom_name", atom_names)
 
     return atom_array
+
+
+# Residues whose reference conformer is computed concurrently. Every conformer is still
+# computed -- this changes WHERE the work runs, not what it produces, so it is bit-exact
+# whenever no residue redraws its seed (0 of 512 on the page fixture, and on any
+# all-canonical protein). 0 keeps the sequential path. 24 is where the scaling stops on a
+# 32-core host; a smaller box gets its own core count.
+CONFORMER_THREADS = min(24, os.cpu_count() or 1)
+
+
+def _pooled_reference_molecules(jobs: list) -> list:
+    """Every job's reference molecule, computed on a thread pool.
+
+    The seeds are pre-drawn in residue order and handed out one per residue, so residue i
+    embeds with exactly the seed the sequential loop would have drawn for it. If any
+    residue retried it consumed a seed the sequential path would have given to the next
+    one, and from there the two streams differ, so the whole sequence is recomputed
+    sequentially -- a valid conformer set, just not the same draw.
+    """
+    seeds = [random.randint(0, 10**9) for _ in jobs]
+    conformer_mod.pool_reset()
+
+    def one(i):
+        conformer_mod.pool_seed(seeds[i])
+        arr, leaving = jobs[i]
+        return processed_reference_molecule_from_atom_array(arr, atoms_to_mask=leaving)
+
+    with ThreadPoolExecutor(max_workers=CONFORMER_THREADS) as ex:
+        out = list(ex.map(one, range(len(jobs))))
+    if conformer_mod.pool_diverged():
+        logger.warning("conformer pool: a residue redrew its seed, recomputing sequentially")
+        conformer_mod.pool_reset()
+        out = [processed_reference_molecule_from_atom_array(a, atoms_to_mask=l)
+               for a, l in jobs]
+    return out
 
 
 # One reference conformer per residue TYPE instead of one per residue. A 512-residue
@@ -364,6 +403,7 @@ def structure_with_ref_mols_from_sequence(
 
     atom_array = None
     processed_reference_mols = []
+    pool_jobs = [] if CONFORMER_THREADS > 0 else None
 
     for res_id, resname_1 in enumerate(sequence, start=1):
         # Swap to non-standard residue if necessary
@@ -402,15 +442,18 @@ def structure_with_ref_mols_from_sequence(
         )
 
         # Parse into RDKit mol and compute conformer
-        if REF_MOL_MEMO:
-            processed_ref_mol = _memo_processed_reference_molecule(
-                res_array, leaving_atoms,
-                (resname_3, tuple(leaving_atoms), poly_type))
+        if pool_jobs is not None:
+            pool_jobs.append((res_array, leaving_atoms))
         else:
-            processed_ref_mol = processed_reference_molecule_from_atom_array(
-                res_array, atoms_to_mask=leaving_atoms
-            )
-        processed_reference_mols.append(processed_ref_mol)
+            if REF_MOL_MEMO:
+                processed_ref_mol = _memo_processed_reference_molecule(
+                    res_array, leaving_atoms,
+                    (resname_3, tuple(leaving_atoms), poly_type))
+            else:
+                processed_ref_mol = processed_reference_molecule_from_atom_array(
+                    res_array, atoms_to_mask=leaving_atoms
+                )
+            processed_reference_mols.append(processed_ref_mol)
 
         # Remove the leaving atoms from the atom array
         leaving_atom_mask = np.isin(res_array.atom_name, leaving_atoms)
@@ -435,6 +478,8 @@ def structure_with_ref_mols_from_sequence(
     # Force coordinates to 0 for consistency
     atom_array.coord[:] = 0.0
 
+    if pool_jobs is not None:
+        processed_reference_mols = _pooled_reference_molecules(pool_jobs)
     return StructureWithReferenceMolecules(
         atom_array=atom_array,
         processed_reference_mols=processed_reference_mols,

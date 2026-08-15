@@ -14,6 +14,7 @@
 
 import logging
 import random
+import threading
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Literal
@@ -70,6 +71,41 @@ def _get_strategy(name: str) -> ConformerStrategy:
     if strat is None:
         raise ValueError(f"Unknown conformer strategy: {name!r}")
     return strat
+
+
+# The ETKDG seed is drawn per call from the global `random`, in residue order, so a caller
+# that wants to run the residues concurrently has to hand each one the seed the sequential
+# path would have given it. `pool_seed` does that for the calling thread. A second draw
+# inside the same residue means the generation retried, which in the sequential path would
+# have consumed the NEXT residue's seed -- that is recorded, not hidden, and the caller
+# recomputes sequentially.
+_POOL = threading.local()
+_POOL_DIVERGED = []
+
+
+def pool_seed(seed: int) -> None:
+    _POOL.seed = seed
+    _POOL.active = True
+
+
+def pool_reset() -> None:
+    _POOL.seed = None
+    _POOL.active = False
+    _POOL_DIVERGED.clear()
+
+
+def pool_diverged() -> bool:
+    return bool(_POOL_DIVERGED)
+
+
+def _etkdg_seed() -> int:
+    seed = getattr(_POOL, "seed", None)
+    if seed is not None:
+        _POOL.seed = None
+        return seed
+    if getattr(_POOL, "active", False):
+        _POOL_DIVERGED.append(1)
+    return random.randint(0, 10**9)
 
 
 def _compute_conformer(
@@ -132,7 +168,7 @@ def _compute_conformer(
     strategy.clearConfs = False
     # RDKit always seems to start from some internal seed instead of a truly random seed
     # initialization if no seed is given, so we set a random seed here
-    strategy.randomSeed = random.randint(0, 10**9)
+    strategy.randomSeed = _etkdg_seed()
 
     # Disable overly verbose conformer generation warnings
     with rdBase.BlockLogs():

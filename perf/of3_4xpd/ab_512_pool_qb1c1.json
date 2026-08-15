@@ -1,0 +1,90 @@
+{
+ "label": "poolqb1",
+ "ttnn": "0.67.4",
+ "host": "tt-quietbox",
+ "card": "1",
+ "size": 512,
+ "altflag": null,
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "loadavg": [
+  "2.94",
+  "8.75",
+  "11.50"
+ ],
+ "folds": [
+  {
+   "tag": "warm0",
+   "arm": null,
+   "fold_s": 42.765,
+   "plddt": 0.554642,
+   "n_tokens": 512,
+   "n_atoms": 4116,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "283be8b29b15adc0"
+   },
+   "loadavg": [
+    "4.22",
+    "7.65",
+    "10.84"
+   ]
+  },
+  {
+   "tag": "warm1",
+   "arm": null,
+   "fold_s": 42.906,
+   "plddt": 0.554642,
+   "n_tokens": 512,
+   "n_atoms": 4116,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "283be8b29b15adc0"
+   },
+   "loadavg": [
+    "4.88",
+    "7.29",
+    "10.58"
+   ]
+  }
+ ],
+ "cold": [
+  {
+   "tag": "cold",
+   "arm": null,
+   "fold_s": 50.448,
+   "plddt": 0.554642,
+   "n_tokens": 512,
+   "n_atoms": 4116,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "283be8b29b15adc0"
+   },
+   "loadavg": [
+    "5.67",
+    "8.45",
+    "11.25"
+   ]
+  }
+ ],
+ "by_arm": {
+  "None": {
+   "walls": [
+    42.765,
+    42.906
+   ],
+   "median": 42.835,
+   "spread": 0.141
+  }
+ },
+ "fp32_softmax_stats": {
+  "calls": 1320,
+  "blocked": 1320,
+  "blocks": 56760,
+  "fused": 56760,
+  "unfused": 0,
+  "l1": 1320,
+  "l1_blocks": 56760,
+  "l1_refused": 0
+ },
+ "fp32_softmax_l1_refused_keys": [],
+ "median_s": 42.835,
+ "spread_s": 0.141
+}
