@@ -50,6 +50,7 @@ CLASH_MAX_FRAC = 0.001   # tolerate 0.1% of atoms in a marginal contact, not mor
 # 0.10% and was failing on it. So allow the larger of the fraction and the absolute count
 # real structures show, and nothing above it.
 CLASH_MAX_ABS = 2        # 9dsg, the worst measured experimental structure
+DISULFIDE_MAX = 2.5      # ideal SG-SG is 2.05 A; predictions run short, measured to 1.635
 RG_COEF, RG_EXP = 2.2, 0.38  # Rg ~ 2.2 * N^0.38 A for a compact globular domain
 RG_BAND = (0.55, 2.0)    # ratio to that estimate: <0.55 collapsed blob, >2 unfolded
 PLDDT_STD_MIN = 0.01     # a constant-confidence output is the garbage signature
@@ -221,6 +222,15 @@ def clashes(st: gemmi.Structure) -> tuple[int, int, float]:
                     if same_chain and abs(cra.residue.seqid.num - res.seqid.num) < 2:
                         continue
                     dist = cra.atom.pos.dist(atom.pos)
+                    # A disulfide is a covalent bond between two cysteines that are far
+                    # apart in sequence or on different chains, which is exactly the pair
+                    # this loop is looking for. Ideal SG-SG is 2.05 A and predictions come
+                    # in a little short, so every one of them scored as a clash: 6 of the 8
+                    # "clashes" in the 1ahw Boltz-2 fold were the Fab's own disulfides.
+                    # Antibodies are full of them, which is the domain that matters most here.
+                    if (dist < DISULFIDE_MAX and atom.name == "SG" and cra.atom.name == "SG"
+                            and res.name == "CYS" and cra.residue.name == "CYS"):
+                        continue
                     if dist < CLASH_DIST and (cra.atom.serial != atom.serial):
                         n_clash += 1
                         worst = min(worst, dist)

@@ -1,78 +1,78 @@
 {
- "struct": "results/artifacts/comp_abag_esmfold2-fast/target_1.cif",
+ "struct": "results/artifacts/comp_abag_boltz2/target_1.cif",
  "checks": {
   "n_atoms": 4913,
-  "bbox_diagonal": 140.4,
+  "bbox_diagonal": 138.66,
   "chains": [
    {
     "chain": "A",
     "kind": "protein",
     "n_res": 200,
     "sequence": "TNTVAAYNLTWKSTNFKTILEWEPKPVNQVYTVQISTKSGDWKSKCFYTTDTECDLTDEIVKDVKQTYLARVFSYPAGNEPLYENSPEFTPYLETNLGQPTIQSFEQVGTKVNVTVEDERTLVRRNNTFLSLRDVFGKDLIYTLYYWKSSSSGKKTAKTNTNEFLIDVDKGENYCFSVQAVIPSRTVNRKSTDSPVECMG",
-    "step_median": 3.797,
+    "step_median": 3.739,
     "step_band": [
      3.6,
      4.1
     ],
-    "in_band_frac": 0.9749,
+    "in_band_frac": 0.995,
     "breaks": 0,
-    "rg": 21.84,
+    "rg": 22.0,
     "rg_expected": 16.47,
-    "rg_ratio": 1.326,
-    "n_ca_bond_median": 1.457,
-    "ca_c_bond_median": 1.516
+    "rg_ratio": 1.336,
+    "n_ca_bond_median": 1.45,
+    "ca_c_bond_median": 1.515
    },
    {
     "chain": "H",
     "kind": "protein",
     "n_res": 214,
     "sequence": "EIQLQQSGAELVRPGALVKLSCKASGFNIKDYYMHWVKQRPEQGLEWIGLIDPENGNTIYDPKFQGKASITADTSSNTAYLQLSSLTSEDTAVYYCARDNSYYFDYWGQGTTLTVSSAKTTPPSVYPLAPGSAAQTNSMVTLGCLVKGYFPEPVTVTWNSGSLSSGVHTFPAVLQSDLYTLSSSVTVPSSTWPSETVTCNVAHPASSTKVDKKI",
-    "step_median": 3.797,
+    "step_median": 3.75,
     "step_band": [
      3.6,
      4.1
     ],
     "in_band_frac": 0.9859,
     "breaks": 0,
-    "rg": 20.76,
+    "rg": 20.07,
     "rg_expected": 16.9,
-    "rg_ratio": 1.228,
-    "n_ca_bond_median": 1.456,
-    "ca_c_bond_median": 1.518
+    "rg_ratio": 1.188,
+    "n_ca_bond_median": 1.45,
+    "ca_c_bond_median": 1.512
    },
    {
     "chain": "L",
     "kind": "protein",
     "n_res": 214,
     "sequence": "DIKMTQSPSSMYASLGERVTITCKASQDIRKYLNWYQQKPWKSPKTLIYYATSLADGVPSRFSGSGSGQDYSLTISSLESDDTATYYCLQHGESPYTFGGGTKLEINRADAAPTVSIFPPSSEQLTSGGASVVCFLNNFYPKDINVKWKIDGSERQNGVLNSWTDQDSKDSTYSMSSTLTLTKDEYERHNSYTCEATHKTSTSPIVKSFNRNEC",
-    "step_median": 3.797,
+    "step_median": 3.746,
     "step_band": [
      3.6,
      4.1
     ],
     "in_band_frac": 0.9859,
     "breaks": 0,
-    "rg": 23.19,
+    "rg": 23.01,
     "rg_expected": 16.9,
-    "rg_ratio": 1.372,
-    "n_ca_bond_median": 1.458,
-    "ca_c_bond_median": 1.518
+    "rg_ratio": 1.361,
+    "n_ca_bond_median": 1.45,
+    "ca_c_bond_median": 1.514
    }
   ],
   "clashes": {
-   "n": 0,
+   "n": 2,
    "heavy_atoms": 4913,
-   "worst_dist": 0.0,
+   "worst_dist": 1.667,
    "threshold": 2.0,
    "budget": 4.913
   },
   "confidence": {
    "source": "b_factor",
    "n": 4913,
-   "min": 0.5108,
-   "max": 0.9824,
-   "mean": 0.9111,
-   "std": 0.0611,
+   "min": 0.5173,
+   "max": 0.988,
+   "mean": 0.9445,
+   "std": 0.0586,
    "scale": 100.0
   },
   "expected": {
@@ -83,7 +83,7 @@
  },
  "fail": [],
  "warn": [
-  "chain A (protein): 97.5% of Ca-Ca steps in band (shipped predictions measure 0.970-1.000)"
+  "2 marginal contacts < 2.0 A (worst 1.667 A)"
  ],
  "verdict": "WARN"
 }

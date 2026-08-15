@@ -1,5 +1,5 @@
 {
- "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/comp_constraints_boltz2/target_1.cif",
+ "struct": "results/artifacts/comp_constraints_boltz2/target_1.cif",
  "checks": {
   "n_atoms": 507,
   "bbox_diagonal": 59.69,
