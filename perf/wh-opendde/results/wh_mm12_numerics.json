@@ -1,0 +1,35 @@
+{
+  "_note": "stdout of perf/wh-opendde/wh_mm12_numerics.py, UF-EV-A13-GWH02, UMD 26, 2026-08-15 22:01Z. Transcribed verbatim from the run's MM12_JSON line.",
+  "arch": "wormhole_b0",
+  "grid": [8, 9],
+  "results": {
+    "S320_384x384": {
+      "entry": [8, 12, 1, 2, 1],
+      "peak_abs_ref": 111.29788208007812,
+      "bf16_ulp_at_peak": 0.5,
+      "max_abs_base_vs_cfg": 64.25,
+      "max_abs_in_ulps": 128.5,
+      "n_elems": 39321600,
+      "n_diff_gt_ulp": 4,
+      "frac_diff_gt_ulp": 1.0172526287988148e-07,
+      "relRMSD_base_vs_fp32": 0.002442820928990841,
+      "relRMSD_cfg_vs_fp32": 0.00237233261577785,
+      "max_abs_base_vs_fp32": 128.1243896484375,
+      "max_abs_cfg_vs_fp32": 128.1243896484375
+    },
+    "S320_384x1152": {
+      "entry": [4, 12, 1, 2, 1],
+      "peak_abs_ref": 112.99696350097656,
+      "bf16_ulp_at_peak": 0.5,
+      "max_abs_base_vs_cfg": 64.16015625,
+      "max_abs_in_ulps": 128.3203125,
+      "n_elems": 117964800,
+      "n_diff_gt_ulp": 11,
+      "frac_diff_gt_ulp": 9.324815408717768e-08,
+      "relRMSD_base_vs_fp32": 0.0023102702107280493,
+      "relRMSD_cfg_vs_fp32": 0.0022843070328235626,
+      "max_abs_base_vs_fp32": 128.44187927246094,
+      "max_abs_cfg_vs_fp32": 128.44187927246094
+    }
+  }
+}

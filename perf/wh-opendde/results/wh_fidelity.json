@@ -1,0 +1,141 @@
+{
+  "arch": "wormhole_b0",
+  "grid": [
+    8,
+    9
+  ],
+  "results": {
+    "S512_384x1152": {
+      "hifi4_fp32acc": {
+        "ms": 8.124991800286807,
+        "TFLOPs": 28.545042220942683,
+        "speedup_vs_hifi4_fp32acc": 1.0,
+        "relRMSD_vs_fp32": 0.001986090326681733,
+        "torch_equal_to_hifi4_fp32acc": true
+      },
+      "hifi3_fp32acc": {
+        "ms": 8.307638100814074,
+        "TFLOPs": 27.91746958275338,
+        "speedup_vs_hifi4_fp32acc": 0.9780146537065246,
+        "relRMSD_vs_fp32": 0.0016912034479901195,
+        "torch_equal_to_hifi4_fp32acc": false
+      },
+      "hifi2_fp32acc": {
+        "ms": 8.336047900957055,
+        "TFLOPs": 27.822325008157947,
+        "speedup_vs_hifi4_fp32acc": 0.9746815153682099,
+        "relRMSD_vs_fp32": 0.004379619844257832,
+        "torch_equal_to_hifi4_fp32acc": false
+      },
+      "lofi_fp32acc": {
+        "ms": 8.378449799783994,
+        "TFLOPs": 27.681520988522173,
+        "speedup_vs_hifi4_fp32acc": 0.9697488192262342,
+        "relRMSD_vs_fp32": 0.02620275504887104,
+        "torch_equal_to_hifi4_fp32acc": false
+      },
+      "hifi4_nofp32acc": {
+        "ms": 7.932926301145926,
+        "TFLOPs": 29.236151349407788,
+        "speedup_vs_hifi4_fp32acc": 1.0242111790592505,
+        "relRMSD_vs_fp32": 0.008666705340147018,
+        "torch_equal_to_hifi4_fp32acc": false
+      },
+      "hifi3_nofp32acc": {
+        "ms": 8.233770800870843,
+        "TFLOPs": 28.16792446535798,
+        "speedup_vs_hifi4_fp32acc": 0.9867886776041263,
+        "relRMSD_vs_fp32": 0.008666952140629292,
+        "torch_equal_to_hifi4_fp32acc": false
+      }
+    },
+    "S512_384x384": {
+      "hifi4_fp32acc": {
+        "ms": 3.86885610059835,
+        "TFLOPs": 19.98249852612597,
+        "speedup_vs_hifi4_fp32acc": 1.0,
+        "relRMSD_vs_fp32": 0.0021638828329741955,
+        "torch_equal_to_hifi4_fp32acc": true
+      },
+      "hifi3_fp32acc": {
+        "ms": 3.3944960989174433,
+        "TFLOPs": 22.7749300853977,
+        "speedup_vs_hifi4_fp32acc": 1.1397438641429543,
+        "relRMSD_vs_fp32": 0.0016911689890548587,
+        "torch_equal_to_hifi4_fp32acc": false
+      },
+      "hifi2_fp32acc": {
+        "ms": 3.2487293996382505,
+        "TFLOPs": 23.79681463670335,
+        "speedup_vs_hifi4_fp32acc": 1.1908828420825543,
+        "relRMSD_vs_fp32": 0.004380316007882357,
+        "torch_equal_to_hifi4_fp32acc": false
+      },
+      "lofi_fp32acc": {
+        "ms": 3.2432270993012935,
+        "TFLOPs": 23.83718714753438,
+        "speedup_vs_hifi4_fp32acc": 1.1929032356173392,
+        "relRMSD_vs_fp32": 0.026225203648209572,
+        "torch_equal_to_hifi4_fp32acc": false
+      },
+      "hifi4_nofp32acc": {
+        "ms": 3.6233329999959096,
+        "TFLOPs": 21.336546027673215,
+        "speedup_vs_hifi4_fp32acc": 1.0677616715335625,
+        "relRMSD_vs_fp32": 0.008668703958392143,
+        "torch_equal_to_hifi4_fp32acc": false
+      },
+      "hifi3_nofp32acc": {
+        "ms": 3.21062000002712,
+        "TFLOPs": 24.079277936145346,
+        "speedup_vs_hifi4_fp32acc": 1.205018376689135,
+        "relRMSD_vs_fp32": 0.008668971247971058,
+        "torch_equal_to_hifi4_fp32acc": false
+      }
+    },
+    "S512_384x1536": {
+      "hifi4_fp32acc": {
+        "ms": 11.01457689946983,
+        "TFLOPs": 28.075308578297246,
+        "speedup_vs_hifi4_fp32acc": 1.0,
+        "relRMSD_vs_fp32": 0.0020129168406128883,
+        "torch_equal_to_hifi4_fp32acc": true
+      },
+      "hifi3_fp32acc": {
+        "ms": 10.808742699737195,
+        "TFLOPs": 28.609955283653747,
+        "speedup_vs_hifi4_fp32acc": 1.0190433064650193,
+        "relRMSD_vs_fp32": 0.0016910111298784614,
+        "torch_equal_to_hifi4_fp32acc": false
+      },
+      "hifi2_fp32acc": {
+        "ms": 10.681208499590866,
+        "TFLOPs": 28.951559678274705,
+        "speedup_vs_hifi4_fp32acc": 1.0312107379882842,
+        "relRMSD_vs_fp32": 0.004379513207823038,
+        "torch_equal_to_hifi4_fp32acc": false
+      },
+      "lofi_fp32acc": {
+        "ms": 10.751889999664854,
+        "TFLOPs": 28.761235961457864,
+        "speedup_vs_hifi4_fp32acc": 1.0244316952473624,
+        "relRMSD_vs_fp32": 0.026216477155685425,
+        "torch_equal_to_hifi4_fp32acc": false
+      },
+      "hifi4_nofp32acc": {
+        "ms": 10.549506900133565,
+        "TFLOPs": 29.312995217632857,
+        "speedup_vs_hifi4_fp32acc": 1.0440845248729471,
+        "relRMSD_vs_fp32": 0.008654912002384663,
+        "torch_equal_to_hifi4_fp32acc": false
+      },
+      "hifi3_nofp32acc": {
+        "ms": 10.583720500289928,
+        "TFLOPs": 29.218236186748204,
+        "speedup_vs_hifi4_fp32acc": 1.0407093516092094,
+        "relRMSD_vs_fp32": 0.008655160665512085,
+        "torch_equal_to_hifi4_fp32acc": false
+      }
+    }
+  }
+}
