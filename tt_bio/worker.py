@@ -128,9 +128,9 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
     if cfg.get("model", "boltz2") in ("esmfold2", "esmfold2-fast"):
         cfg["msa_dir"] = _resolve_msa_dir(cfg.get("msa_dir"), cache)
         return
-    # ESMC embedding: weights come straight from the HF cache (load_esmc), no
-    # Boltz-2 checkpoints/molecule library/MSA dir needed.
-    if _is_esmc_model(cfg.get("model", "boltz2")):
+    # Embedding models (ESMC, SaProt): weights come straight from the HF cache,
+    # no Boltz-2 checkpoints/molecule library/MSA dir needed.
+    if _is_embed_model(cfg.get("model", "boltz2")):
         return
     from tt_bio.main import download_all
 
@@ -328,6 +328,25 @@ def _is_esmc_model(model_id: str) -> bool:
     return model_id in MODELS
 
 
+def _is_saprot_model(model_id: str) -> bool:
+    """True for any SaProt embedding model name (saprot-35m/650m/1.3b)."""
+    from tt_bio.saprot import MODELS
+
+    return model_id in MODELS
+
+
+def _is_embed_model(model_id: str) -> bool:
+    """True for any model this worker serves through the embed path.
+
+    Both families produce ``ESMCEmbedding`` and ship through the same npz/parquet
+    writer; they differ only in loader and tokenizer. Dispatching on the family
+    rather than on ESMC alone is what lets a saprot-* job reach a worker at all --
+    before this, it fell through to the Boltz-2 branch and tried to load Boltz-2
+    checkpoints.
+    """
+    return _is_esmc_model(model_id) or _is_saprot_model(model_id)
+
+
 class _WorkerState:
     """Holds the loaded model and per-run helpers."""
 
@@ -447,6 +466,11 @@ class _WorkerState:
                 if trace_region_size() <= 0:
                     _tt_cleanup()
             self.model = load_esmc(model_id, fast=cfg.get("fast", False))
+        elif _is_saprot_model(model_id):
+            from tt_bio.saprot import load_saprot
+
+            # No trace region: SaProt has no traced forward at any batch size.
+            self.model = load_saprot(model_id, fast=cfg.get("fast", False))
         else:
             from tt_bio.boltz2 import Boltz2
             from tt_bio.data.featurizer import Boltz2Featurizer
@@ -520,7 +544,7 @@ class _WorkerState:
             return self._predict_openfold3_one(path, cfg)
         if cfg.get("model", "boltz2") in ("esmfold2", "esmfold2-fast"):
             return self._predict_esmfold2_one(path, cfg)
-        if _is_esmc_model(cfg.get("model", "boltz2")):
+        if _is_embed_model(cfg.get("model", "boltz2")):
             return self._predict_embed_one(path, cfg)
 
         from tt_bio.main import to_batch, write_result
@@ -1144,7 +1168,10 @@ class _WorkerState:
         return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
 
     def _predict_embed_one(self, path: Path, cfg: dict[str, Any]):
-        """Embed one job's shard of sequences with the resident ESMC model.
+        """Embed one job's shard of sequences with the resident embedding model.
+
+        Serves both families: ESMC reads a ``{id: sequence}`` shard, SaProt a
+        ``{id: [aa, 3di]}`` one.
 
         ``path`` is a YAML ``{id: sequence}`` mapping (one shard of a larger
         --controller embed run). Writes per-sequence ``.npz`` (or one shard
@@ -1154,10 +1181,17 @@ class _WorkerState:
         """
         import types
 
-        from tt_bio.esmc import (embed_sequences, load_sequences, write_npz_many,
-                                 write_parquet)
+        from tt_bio.esmc import write_npz_many, write_parquet
 
-        sequences = load_sequences(path)
+        model_id = cfg.get("model", "")
+        if _is_saprot_model(model_id):
+            from tt_bio.saprot import embed_sequences, read_shard_yaml
+
+            sequences = read_shard_yaml(path)
+        else:
+            from tt_bio.esmc import embed_sequences, load_sequences
+
+            sequences = load_sequences(path)
         t0 = time.perf_counter()
         results = embed_sequences(
             self.model, sequences, return_logits=cfg.get("return_logits", False),

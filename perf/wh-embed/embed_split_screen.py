@@ -51,6 +51,8 @@ def main() -> int:
     ap.add_argument("--fast", action="store_true")
     ap.add_argument("--warmup", type=int, default=WARMUP)
     ap.add_argument("--repeat", type=int, default=REPEAT)
+    ap.add_argument("--roof", action="store_true",
+                    help="also measure the content-matched zlib roof on the real bytes")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -115,6 +117,49 @@ def main() -> int:
         return sorted(xs)[len(xs) // 2]
 
     npz_bytes = sum(p.stat().st_size for p in out_dir.glob("*.npz"))
+
+    # Content-matched roof. A synthetic-content zlib probe bounds this arm from above only
+    # (deflate's cost per byte depends on the content), so measure the roof on the bytes this
+    # model actually emits. Also splits raw zlib from np.savez_compressed's container overhead,
+    # which decides whether the residual is compression or numpy/zipfile bookkeeping.
+    roof = None
+    if args.roof:
+        import zlib
+        from concurrent.futures import ThreadPoolExecutor
+
+        import numpy as np
+        raw = [np.ascontiguousarray(e.per_residue).tobytes() for e in results]
+        in_bytes = sum(len(r) for r in raw)
+        n_workers = max(1, min(32, os.cpu_count() or 8))
+
+        def t(fn, reps=3):
+            fn()
+            xs = []
+            for _ in range(reps):
+                t0 = time.perf_counter()
+                out = fn()
+                xs.append(time.perf_counter() - t0)
+            return med(xs), out
+
+        t_ser, out_ser = t(lambda: [zlib.compress(r, 6) for r in raw])
+
+        def par():
+            with ThreadPoolExecutor(max_workers=n_workers) as ex:
+                return list(ex.map(lambda r: zlib.compress(r, 6), raw))
+
+        t_par, _ = t(par)
+        comp_bytes = sum(len(o) for o in out_ser)
+        roof = dict(
+            per_residue_bytes=in_bytes, compressed_bytes=comp_bytes,
+            compress_ratio=round(comp_bytes / in_bytes, 4), workers=n_workers,
+            zlib_serial_ms=round(t_ser * 1000, 2), zlib_threaded_ms=round(t_par * 1000, 2),
+            zlib_serial_MBps=round(in_bytes / t_ser / 1e6, 2),
+            zlib_threaded_MBps=round(in_bytes / t_par / 1e6, 2),
+            zlib_thread_speedup=round(t_ser / t_par, 3),
+            # what savez_compressed adds on top of the compression itself
+            savez_overhead_ms=round((med(ser_times) - t_ser) * 1000, 2),
+            savez_overhead_share=round(1 - t_ser / med(ser_times), 4),
+        )
     d, s, p_ = med(dev_times), med(ser_times), med(par_times)
     res = dict(
         model=args.model, n_seqs=args.n_seqs, residues=args.residues,
@@ -133,6 +178,7 @@ def main() -> int:
         serial_write_ms_all=[round(x * 1000, 2) for x in ser_times],
         threaded_write_ms_all=[round(x * 1000, 2) for x in par_times],
         npz_bytes=npz_bytes,
+        matched_roof=roof,
         loadavg=loads,
         warmup=args.warmup, repeat=args.repeat,
     )
