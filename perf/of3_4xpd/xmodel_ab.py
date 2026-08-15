@@ -34,6 +34,14 @@ def main():
     ap.add_argument("--repeat", type=int, default=3)
     ap.add_argument("--label", default="arm")
     ap.add_argument("--census", action="store_true")
+    # `build_fold` takes `fast`, but this script never passed it, so esmfold2 could only ever be
+    # folded here in normal precision. On Wormhole that is not a choice: the ESMC-6B LM is ~12.8 GB
+    # and a chip has ~12 GB, and the `--fast` forcing that handles it lives in `main.py`'s CLI path
+    # (main.py:2395), which `build_fold` does not go through. Default False, so every existing
+    # result from this file was produced by the same code path it is recorded against.
+    ap.add_argument("--fast", action="store_true",
+                    help="fold in --fast mode. Required for esmfold2 on Wormhole; a --fast arm is "
+                         "only comparable to another --fast arm.")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
@@ -91,12 +99,13 @@ def main():
     fixdir = tree / "perf" / "size512" / "fixtures"
     tgt, a3m = fixdir / f"cdk2x2_{a.size}.yaml", fixdir / f"cdk2x2_{a.size}.a3m"
     msa_dir = tree / f".msa_xmodel_{a.model}_{a.size}"
-    one_fold, meta = B.build_fold(a.model, msa_dir, tgt, a3m)[:2]
+    one_fold, meta = B.build_fold(a.model, msa_dir, tgt, a3m, fast=a.fast)[:2]
     struct_dir = Path(meta["struct_dir"])
 
     import importlib.metadata as im
     res = {"label": a.label, "model": a.model, "tree": str(tree), "size": a.size,
-           "census": a.census, "ttnn": im.version("ttnn"), "host": os.uname().nodename,
+           "census": a.census, "fast": a.fast, "ttnn": im.version("ttnn"),
+           "host": os.uname().nodename,
            "card": os.environ.get("TT_VISIBLE_DEVICES"),
            "grid": [int(T.COMPUTE_GRID_MAIN[0]), int(T.COMPUTE_GRID_MAIN[1])],
            "recycling_steps": B.RECYCLING_STEPS, "sampling_steps": B.SAMPLING_STEPS,
