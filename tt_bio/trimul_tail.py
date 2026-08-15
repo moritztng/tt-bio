@@ -45,12 +45,22 @@ SKIP_SIGMOID = 0
 # the same `tenstorrent._MM_BLOCK` table production's own projections read, so a served call folds
 # the identical single K block in the identical order the ops it replaces would.
 #
-# The key set is an allow-list, not the whole table, and that is deliberate. `_MM_BLOCK` also holds
-# (4, 4) and (2, 2), so a general lookup would switch F1 ON for boltz2 and openfold3, which decline
-# 100 % of their calls today. That is a four-model default flip inside a one-model change and it
-# needs its own five-model release gate. A trimul tail's weights are square ([c_z, c_z]), so the
-# key is always (kt, kt).
-F1_BLOCK_KEYS = {(8, 8), (12, 12)}
+# The key set is an allow-list, not the whole table, and (8, 8) is the only entry that is SAFE.
+# MEASURED on qb2 card 2, 2026-08-15: at (12, 12) -- `_MM_BLOCK`'s opendde c_z = 384 entry,
+# (8, 12, 1, 2, 1) -- this descriptor builds and runs, returns wrong numbers at N = 32 and 64
+# (max_abs_diff 3.19 and 4.75 against the ops it replaces, on an O(1) distribution) and then
+# HANGS THE DEVICE at N = 128: `generic_op` enqueues, and the sync never returns. The kernels are
+# a transcription of `minimal_matmul` swept only at (4, 8, 1, 4, 1); `out_block` doubles to 8
+# tiles and `subblock_h` halves to 2 at the wider key, and the circular buffers do not follow.
+#
+# So this is an allow-list and not `_mm_block_for`, for two independent reasons. `_MM_BLOCK` also
+# holds (4, 4) and (2, 2), so a general lookup would switch F1 ON for boltz2 and openfold3, which
+# decline 100 % of their calls today -- a four-model default flip inside a one-model change. And
+# it would hand those models a block this kernel does not correctly implement. Widening the set
+# is a kernel fix first, then a five-model release gate, and never a one-line table swap.
+#
+# A trimul tail's weights are square ([c_z, c_z]), so the key is always (kt, kt).
+F1_BLOCK_KEYS = {(8, 8)}
 
 
 def _tiles(n):
