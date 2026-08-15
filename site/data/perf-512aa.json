@@ -1,6 +1,6 @@
 {
   "schema": 2,
-  "updated": "2026-08-14",
+  "updated": "2026-08-15",
   "title": "TT-Bio: biomolecular structure, design and embeddings on Tenstorrent",
   "subtitle": "Five structure-prediction models at 512 residues, measured on Tenstorrent Blackhole and on NVIDIA H200 and B200.",
   "notes": [
@@ -204,9 +204,9 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 87.10,
+          "s_per_fold": 82.942,
           "parity": "0.3248 A CA RMSD, inside the 0.35 A bar fixed before the measurement",
-          "ref": "The 90.874 s arm less the 3.775 s this arm measured against it in a round-robin A/B, noise floor 0.063 s. This is the one cell that is not bit-exact: the triangle-attention matmul folds its contraction in twelve-tile blocks, worth one bf16 unit in the last place, so the CIF digest moves 50aa1e46583bd5a8 to 357c67003bb738ac and plDDT 0.754131 to 0.754110. The structural cost is 0.3248 A Kabsch CA, measured on a monomeric 298-residue control because this fixture's two domains hinge freely and saturate the metric. The byte-identical arm at the same two matmul settings returns 88.61 s."
+          "ref": "Median of three warm folds on one p150a, 82.942 / 82.880 / 82.960 s, spread 0.080 s, measured uninstrumented on the shipped path. The earlier 87.1 s in this cell was a subtraction, not a measurement, and it was 4.158 s stale. This is the one cell that is not bit-exact: the triangle-attention matmul folds its contraction in twelve-tile blocks, worth one bf16 unit in the last place, so the CIF digest moves 50aa1e46583bd5a8 to 357c67003bb738ac and plDDT 0.754131 to 0.754110. The structural cost is 0.3248 A Kabsch CA, measured on a monomeric 298-residue control because this fixture's two domains hinge freely and saturate the metric. The byte-identical arm at the same two matmul settings returns 88.61 s."
         },
         "h200": {
           "status": "measured",
