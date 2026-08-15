@@ -81,6 +81,11 @@ PMASK_DEFAULT = True
 # the three ops it replaces, so `f1` must produce the same CIF sha as `nof1`; the instrument that
 # resolves it is the TriangleMultiplication body wall, not the fold wall.
 TAILF1 = {"f1": True, "nof1": False}
+# Lever B, the host glue: the `_generate_relp` scatter (protenix.py) and the bf16 `z_trunk` seam
+# (opendde.py). Both are bit-exact and both are host-side, so an arm that flips them moves wall
+# clock without moving a single device op. They ride one arm because they land in one commit and
+# neither is separable at the fold: 0.30 s and 0.07 s against an A/A floor of ~0.05 s.
+GLUE = {"glue": True, "noglue": False}
 
 
 def timed_call(key, fn, *a, **kw):
@@ -164,6 +169,8 @@ def main():
     T._pair_proj_config = ppc
 
     SDPA_DEFAULT = (T._SDPA_WIDE_Q, T._TRIATT_BIAS_B8)
+    import tt_bio.opendde as ODEMOD
+    GLUE_DEFAULT = (P._RELP_SCATTER, ODEMOD._SEAM_BF16)
 
     # Record the q_chunk the tri-att SDPA actually ran at, per call. The candidate list is not the
     # answer: a candidate that overflows L1 is dropped into _SDPA_Q_CHUNK_OVER_L1 and the next one
@@ -205,6 +212,7 @@ def main():
         sdpa = SDPA.get(name)
         e6 = E6.get(name)
         f1 = TAILF1.get(name)
+        glue = GLUE.get(name)
         hm = HMQKV.get(name)
         if name in ("hmtail", "hmtail_l1", "k2", "nok2"):
             hm = True
@@ -219,7 +227,7 @@ def main():
         T._MM_BLOCK[(8, 8)] = (2, 8, 1, 2, 1) if prev else (4, 8, 1, 4, 1)
         STATE["gates"] = ("on" if (fid or grp or bk is not None or sdpa or prev
                                    or e6 is not None or f1 is not None or hm is not None
-                                   or hmt is not None)
+                                   or glue is not None or hmt is not None)
                           else name)
         # Every arm sets the tail kernel, so a non-F1 arm provably runs the three shipped ops
         # rather than inheriting the previous arm's flag.
@@ -227,6 +235,13 @@ def main():
         import tt_bio.trimul_tail as F1MOD
         F1MOD.STATS[0] = F1MOD.STATS[1] = 0
         F1MOD.REJECTS.clear()
+        # Every arm sets both glue flags, so a non-glue arm provably runs the shipped fp32 relp and
+        # fp32 z_trunk rather than inheriting the previous arm's. RELP_STATS is reset per arm: the
+        # scatter fires once per fold, so an arm reporting zero served calls is an A/A leg wearing
+        # an A/B label and only the counter says which happened.
+        P._RELP_SCATTER, ODEMOD._SEAM_BF16 = (
+            GLUE_DEFAULT if glue is None else (glue, glue))
+        P.RELP_STATS[0] = P.RELP_STATS[1] = 0
         # Every arm sets the SDPA flags, so an arm that is not an SDPA arm provably runs the
         # production pick rather than inheriting the previous arm's.
         T._SDPA_WIDE_Q, T._TRIATT_BIAS_B8 = sdpa if sdpa else SDPA_DEFAULT
@@ -367,6 +382,10 @@ def main():
                        "declined": F1M.STATS[1],
                        "rejects": {f"{r}:{sh}": n for (r, sh), n in F1M.REJECTS.items()}})(
                        __import__("tt_bio.trimul_tail", fromlist=["x"])),
+                   "host_glue": {"relp_scatter": P._RELP_SCATTER,
+                                 "seam_bf16": ODEMOD._SEAM_BF16,
+                                 "relp_served": P.RELP_STATS[0],
+                                 "relp_legacy": P.RELP_STATS[1]},
                    "sdpa_wide_q": T._SDPA_WIDE_Q,
                    "triatt_bias_b8": T._TRIATT_BIAS_B8,
                    "sdpa_q_chunk_over_l1": sorted(str(k) for k in T._SDPA_Q_CHUNK_OVER_L1),

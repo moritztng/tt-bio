@@ -11,12 +11,14 @@ descriptor is `mm_generic`'s transcription with three circular buffers and one r
 added per data-movement kernel.
 
 Scoped to the class the fold actually issues at 512 aa: bf16 in and out, interleaved DRAM, both
-activations and both weights the same shape/dtype/layout, one K block, no bias, no ternary. Outside
-that `fused_tail` returns None and the caller keeps today's three ops.
+activations and both weights the same shape/dtype/layout, one K block whose (kt, nt) key is in
+`F1_BLOCK_KEYS`, no bias, no ternary. Outside that `fused_tail` returns None and the caller keeps
+today's three ops.
 """
 
 from __future__ import annotations
 
+from functools import lru_cache
 from pathlib import Path
 
 import ttnn
@@ -39,9 +41,41 @@ PASSES = 2
 ROUND = 2
 SKIP_SIGMOID = 0
 
-# Same swept block config the two projections use today (`tenstorrent._MM_BLOCK[8]`), so each pass
-# runs the identical `matmul_blocks` over the identical single K block in the identical order.
-BLOCK = (4, 8, 1, 4, 1)
+# The swept block config each pass runs, resolved per call from the weight's (kt, nt) key through
+# the same `tenstorrent._MM_BLOCK` table production's own projections read, so a served call folds
+# the identical single K block in the identical order the ops it replaces would.
+#
+# The key set is an allow-list, not the whole table, and (8, 8) is the only entry that is SAFE.
+# MEASURED on qb2 card 2, 2026-08-15: at (12, 12) -- `_MM_BLOCK`'s opendde c_z = 384 entry,
+# (8, 12, 1, 2, 1) -- this descriptor builds and runs, returns wrong numbers at N = 32 and 64
+# (max_abs_diff 3.19 and 4.75 against the ops it replaces, on an O(1) distribution) and then
+# HANGS THE DEVICE at N = 128: `generic_op` enqueues, and the sync never returns. The kernels are
+# a transcription of `minimal_matmul` swept only at (4, 8, 1, 4, 1); `out_block` doubles to 8
+# tiles and `subblock_h` halves to 2 at the wider key, and the circular buffers do not follow.
+#
+# So this is an allow-list and not `_mm_block_for`, for two independent reasons. `_MM_BLOCK` also
+# holds (4, 4) and (2, 2), so a general lookup would switch F1 ON for boltz2 and openfold3, which
+# decline 100 % of their calls today -- a four-model default flip inside a one-model change. And
+# it would hand those models a block this kernel does not correctly implement. Widening the set
+# is a kernel fix first, then a five-model release gate, and never a one-line table swap.
+#
+# A trimul tail's weights are square ([c_z, c_z]), so the key is always (kt, kt).
+F1_BLOCK_KEYS = {(8, 8)}
+
+
+def _tiles(n):
+    return (int(n) + TILE - 1) // TILE
+
+
+@lru_cache(maxsize=None)
+def _block_for(kt, nt):
+    from . import tenstorrent as TT    # late: `tenstorrent` imports this module at its own import
+    return TT._MM_BLOCK[(kt, nt)] if (kt, nt) in F1_BLOCK_KEYS else None
+
+
+def _block(w):
+    """F1's block config for this weight, or None when its (kt, nt) key is not allow-listed."""
+    return _block_for(_tiles(w.shape[-2]), _tiles(w.shape[-1]))
 
 STATS = [0, 0]          # served, declined
 REJECTS: dict = {}      # (reason, shape) -> count, so a decline is diagnosable from the fold JSON
@@ -70,14 +104,16 @@ def eligible(xa, xb, wa, wb):
         return "act_memcfg_pair"
     if str(wa.memory_config()) != str(wb.memory_config()):
         return "weight_memcfg_pair"
-    kt = (int(wa.shape[-2]) + TILE - 1) // TILE
-    nt = (int(wa.shape[-1]) + TILE - 1) // TILE
-    M, K, N, _, _ = BLOCK
-    if kt != K:
-        # One K block is the fusion's whole simplification. At 512 aa this declines the
-        # narrow-hidden trimuls (c_hidden 64, kt = 2), which production does not put through
-        # `minimal_matmul` either: `_MM_BLOCK` has no entry for a 2-tile output.
+    kt = _tiles(wa.shape[-2])
+    nt = _tiles(wa.shape[-1])
+    block = _block(wa)
+    if block is None:
+        # One K block is the fusion's whole simplification, and the block has to be the one
+        # production folds with or the fusion is a numerics change rather than a rewrite. At 512 aa
+        # this declines the narrow-hidden trimuls (c_hidden 64, kt = 2), which production does not
+        # put through `minimal_matmul` either: `_MM_BLOCK` has no entry for a 2-tile output.
         return f"k_tiles={kt}"
+    M, K, N, _, _ = block
     if nt % N:
         return f"n_tiles={nt}"
     mt = 1
@@ -99,16 +135,16 @@ def _cb(idx, core_grid, tiles):
         format_descriptors=[fmt])
 
 
-def _build(device, xa, xb, wa, wb, out, grid, ckc):
+def _build(device, xa, xb, wa, wb, out, grid, ckc, block):
     defs = {"TRIMUL_TAIL_PASSES": PASSES, "TRIMUL_TAIL_ROUND": ROUND,
             "TRIMUL_TAIL_SKIP_SIGMOID": SKIP_SIGMOID}
-    entry = MG.build(device, xa, wa, [out], (BLOCK, grid), ckc,
+    entry = MG.build(device, xa, wa, [out], (block, grid), ckc,
                      defines=defs, kernel_dir=KERNEL_DIR)
 
     gx, gy = grid
     core_grid = ttnn.CoreRangeSet(
         [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
-    out_block = BLOCK[0] * BLOCK[2]
+    out_block = block[0] * block[2]
     # c_4 / c_5: the two bf16 GEMM results, double buffered. c_6: the rounded gate, one tile live.
     entry["cbs"] += [_cb(4, core_grid, out_block * 2),
                      _cb(5, core_grid, out_block * 2),
@@ -161,7 +197,7 @@ def fused_tail(xa, xb, wa, wb, ckc, grid):
 
     entry = _CACHE.get(key)
     if entry is None:
-        entry = _CACHE[key] = _build(device, xa, xb, wa, wb, out, grid, ckc)
+        entry = _CACHE[key] = _build(device, xa, xb, wa, wb, out, grid, ckc, _block(wa))
     else:
         # `MG.rebind` repacks the descriptor itself, so only bind B separately when it does not run.
         addrs = (xa.buffer_address(), wa.buffer_address(), (out.buffer_address(),))

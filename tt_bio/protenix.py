@@ -280,6 +280,14 @@ def _window_kv_m(x, M, N, NP, nq=32, nk=128, pad_left=48):
     return ttnn.to_layout(ttnn.concat(cols, dim=0), ttnn.TILE_LAYOUT)          # (M*nb, nk, C)
 
 
+# Build the 139-dim relative-position one-hot by scattering into an fp32 result instead of
+# materialising int64 one-hots and an int64 cat (`_generate_relp`). Bit-exact; ON by default.
+# RELP_STATS is [scatter_calls, legacy_calls] -- a perf arm that flips the flag and serves zero
+# calls is an A/A pair mislabelled as an A/B, and only the counter says which happened.
+_RELP_SCATTER = True
+RELP_STATS = [0, 0]
+
+
 class _KeyedWeights:
     """Mixin: cached weight-upload-by-key + linear / layernorm by key, reading a flat
     {name: torch.Tensor} dict ``self._w``. Weights upload ONCE (TILE/bf16) and are cached
@@ -1646,9 +1654,14 @@ class Protenix:
         return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
 
     @staticmethod
-    def _to_host(t, shape=None):
+    def _to_host(t, shape=None, fp32=True):
+        """Download a device tensor to host. `fp32=False` keeps the bf16 the device held, for
+        call sites whose consumers only cast it back (the OpenDDE z_trunk seam): bf16 -> fp32 is
+        lossless, so the upcast is 402 MB of host writes that buy nothing. Default stays fp32."""
         import torch
-        h = torch.Tensor(ttnn.to_torch(t)).float()
+        h = torch.Tensor(ttnn.to_torch(t))
+        if fp32:
+            h = h.float()
         return h.reshape(shape) if shape is not None else h
 
     @staticmethod
@@ -1666,8 +1679,23 @@ class Protenix:
         d_res = torch.clip(res[:, None] - res[None, :] + r_max, 0, 2 * r_max) * sc + (1 - sc) * (2 * r_max + 1)
         d_tok = torch.clip(tok[:, None] - tok[None, :] + r_max, 0, 2 * r_max) * sc * sr + (1 - sc * sr) * (2 * r_max + 1)
         d_ch = torch.clip(sym[:, None] - sym[None, :] + s_max, 0, 2 * s_max) * se + (1 - se) * (2 * s_max + 1)
-        return torch.cat([F.one_hot(d_res, 2 * (r_max + 1)), F.one_hot(d_tok, 2 * (r_max + 1)),
-                          se[..., None], F.one_hot(d_ch, 2 * (s_max + 1))], dim=-1).float()
+        if not _RELP_SCATTER:
+            RELP_STATS[1] += 1
+            return torch.cat([F.one_hot(d_res, 2 * (r_max + 1)), F.one_hot(d_tok, 2 * (r_max + 1)),
+                              se[..., None], F.one_hot(d_ch, 2 * (s_max + 1))], dim=-1).float()
+        # Same result, built directly in fp32. `F.one_hot` on an int64 index returns int64, so the
+        # cat above materialises 2.6 GB of int64 for a 550 MB fp32 answer at Ns=995; scattering into
+        # the result touches only the 550 MB. Bit-exact by construction: every value written is 0.0
+        # or 1.0 at exactly the column one_hot would have set. MEASURED torch.equal True at both
+        # axes, 0.329 s/fold at 512 aa (perf/oddeb200/screen_hostglue.json).
+        RELP_STATS[0] += 1
+        d1 = 2 * (r_max + 1)
+        out = torch.zeros(*d_res.shape, 2 * d1 + 1 + 2 * (s_max + 1))
+        out.scatter_(-1, d_res.unsqueeze(-1), 1.0)
+        out.scatter_(-1, (d_tok + d1).unsqueeze(-1), 1.0)
+        out[..., 2 * d1] = se.to(out.dtype)
+        out.scatter_(-1, (d_ch + 2 * d1 + 1).unsqueeze(-1), 1.0)
+        return out
 
     @staticmethod
     def _atom_pair_feats(ref_pos, ref_space_uid):
