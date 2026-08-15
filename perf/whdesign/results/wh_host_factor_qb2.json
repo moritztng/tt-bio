@@ -1,0 +1,52 @@
+{
+ "host": "qb2",
+ "torch": "2.13.0+cpu",
+ "threads": 8,
+ "interop_threads": 16,
+ "cpu_count": 16,
+ "loadavg": [
+  "1.02",
+  "1.18",
+  "1.69"
+ ],
+ "reps": 9,
+ "cases": {
+  "matmul_3844x384x384": {
+   "median_ms": 1.8492,
+   "min_ms": 1.8303,
+   "max_ms": 1.8674,
+   "spread_pct": 2.01
+  },
+  "index_select_rows": {
+   "median_ms": 0.0314,
+   "min_ms": 0.0311,
+   "max_ms": 0.0317,
+   "spread_pct": 1.95
+  },
+  "advanced_index_write": {
+   "median_ms": 0.1839,
+   "min_ms": 0.1703,
+   "max_ms": 0.2269,
+   "spread_pct": 30.76
+  },
+  "coords_axpy": {
+   "median_ms": 0.0041,
+   "min_ms": 0.004,
+   "max_ms": 0.0042,
+   "spread_pct": 3.42
+  },
+  "pair_softmax_512": {
+   "median_ms": 7.6693,
+   "min_ms": 6.7082,
+   "max_ms": 7.8589,
+   "spread_pct": 15.0
+  },
+  "clone_pair_512": {
+   "median_ms": 7.5646,
+   "min_ms": 7.4825,
+   "max_ms": 7.7579,
+   "spread_pct": 3.64
+  }
+ },
+ "total_median_ms": 17.3025
+}
