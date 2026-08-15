@@ -1,0 +1,28 @@
+{
+ "doc": "Lever A's one arithmetic change: is the device symmetrisation bit-exact?\n\nEverything else A and B delete is a pure crossing -- bf16 on the device side, so the round trip\nbeing removed is bf16 -> fp32 -> bf16 and lossless. One thing is not. `_ZPair.__add__`\n(tt_bio/esmfold2_runtime.py:317-318) replaces the reference forward's host\n\n    z + z.transpose(-2, -3)          fp32 + fp32, rounded to bf16 by `_from_torch`\n\nwith\n\n    ttnn.add(z, ttnn.permute(z, (0, 2, 1, 3)))       bf16 + bf16, packed to bf16\n\nThat feeds `distogram_logits`, which the CIF sha256 and plDDT anchors do NOT cover, so the fold\nA/B cannot see it. This does.\n\nThe two are equal iff the device packer rounds the fp32 accumulator to bf16 the same way torch\nrounds an fp32 sum to bf16. Both operands are exactly representable in bf16, so nothing else can\ndiffer. Not argued: measured.\n\nChecks the symmetrised pair AND the distogram logits it produces, at three sizes.\n",
+ "card": "0",
+ "rows": [
+  {
+   "n": 298,
+   "sum_torch_equal": false,
+   "sum_max_abs_err": 0.03125,
+   "sum_mismatch_frac": 0.11085068434476852,
+   "sum_ulp_max": 0.0078125
+  },
+  {
+   "n": 512,
+   "sum_torch_equal": false,
+   "sum_max_abs_err": 0.03125,
+   "sum_mismatch_frac": 0.11105981469154358,
+   "sum_ulp_max": 0.0078125
+  },
+  {
+   "n": 640,
+   "sum_torch_equal": false,
+   "sum_max_abs_err": 0.03125,
+   "sum_mismatch_frac": 0.11114785820245743,
+   "sum_ulp_max": 0.0078125
+  }
+ ],
+ "all_bit_exact": false
+}
