@@ -1,0 +1,15 @@
+{
+  "ms_embedding_65": 2.9927,
+  "ms_embedding_160": 3.1825,
+  "ms_concat_128_160": 1.5143,
+  "ms_slice_320_258": 1.4715,
+  "ms_shipped_per_call": 31.335,
+  "ms_proposed_per_call": 6.168,
+  "ms_saved_per_step": 50.33,
+  "concat258_ms_from_p52": 25.35,
+  "tokens": 685,
+  "n_rep": 6,
+  "host": "qb2",
+  "card": 0,
+  "ttnn": "0.68.0"
+}

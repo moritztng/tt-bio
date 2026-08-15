@@ -146,6 +146,17 @@ _TUNED_MM_CACHE = {}
 # uses, for the same reason -- that is where this model stops behaving like a small one.
 #
 # RFD3_TUNE_MATMUL=1 forces it on and =0 forces it off, at any size.
+# ttnn.concat runs 15-20x below its own floor if ANY input piece is narrower than a tile, and
+# neither the output width nor the piece offset matters (perf/p52/concat_width_v2.json: 128+65+65
+# is 25.35 ms where 128+96+96 is 1.68 and a clone of the result is 1.40). The token encoder
+# concatenates z with two 65-wide one-hots, so both are on the slow side of that cliff.
+#
+# The way out is bit-exact rather than approximate: gather ONE combined one-hot, 130 real columns
+# padded to 160, concat it with z into 320 -- both pieces tile multiples, so the fast path -- and
+# slice back to 258. The padding is contiguous at the END, so the slice recovers exactly the
+# tensor the old concat produced, and the rms_norm downstream still reduces over 258.
+# Measured (perf/p53/combined_onehot.json): 31.335 -> 6.168 ms/call, 5.08x, 50.3 ms/step.
+_CONCAT_ALIGNED = os.environ.get("RFD3_CONCAT_ALIGNED", "1") == "1"
 _TUNE_MATMUL_MIN_ATOMS = 2952
 _TUNE_MATMUL_ENV = os.environ.get("RFD3_TUNE_MATMUL")
 _TUNE_MATMUL = _TUNE_MATMUL_ENV == "1"
@@ -2182,6 +2193,37 @@ class DiffusionTokenEncoder(Module):
         oh = ttnn.reshape(oh, (batch, I, I, self.N_BINS))
         return ttnn.to_layout(oh, ttnn.TILE_LAYOUT)
 
+    COMBINED_ONEHOT_W = 160     # 65 + 65 real columns, padded to 5 tiles
+
+    def _combined_onehot_dev(self, bins, bins_self, batch, I):
+        """The distogram and self-conditioning one-hots side by side, padded to a tile multiple.
+
+        Columns 0-64 are the distogram one-hot, 65-129 the self-conditioning one (all zero on the
+        first recycle, where bins_self is None), 130-159 zero. Gathered rows of a constant table,
+        so every value is 0.0 or 1.0 and the result is elementwise what the two separate one-hots
+        produce -- the same argument _onehot_dev makes."""
+        dev, dt, n = self.device, self.dtype, self.N_BINS
+        w = self.COMBINED_ONEHOT_W
+        key = ("comb", bins_self is None, dt)
+        tab = self._const.get(key)
+        if tab is None:
+            ar = torch.arange(n)
+            if bins_self is None:
+                t = torch.zeros(n, w)
+                t[ar, ar] = 1.0
+            else:
+                t = torch.zeros(n * n, w)
+                row = ar.repeat_interleave(n) * n + ar.repeat(n)
+                t[row, ar.repeat_interleave(n)] = 1.0
+                t[row, n + ar.repeat(n)] = 1.0
+            tab = _tt(t, dev, dt)
+            self._const[key] = tab
+        idx = _tt_idx(bins if bins_self is None else bins * n + bins_self, dev)
+        oh = ttnn.embedding(idx, tab, layout=ttnn.ROW_MAJOR_LAYOUT,
+                            memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        oh = ttnn.reshape(oh, (batch, I, I, w))
+        return ttnn.to_layout(oh, ttnn.TILE_LAYOUT)
+
     def _zeros_dev(self, batch, I):
         """The all-zero self-conditioning distogram of the first recycle.
 
@@ -2228,13 +2270,21 @@ class DiffusionTokenEncoder(Module):
             s = ttnn.add(s, ttnn.typecast(upd, ttnn.float32, memory_config=upd.memory_config())) if f32 \
                 else ttnn.add(s, upd)
         bins = _scaled_distogram_bins(R_L_ca, sigma_data=self.sigma_data, n_bins=self.N_BINS)
-        d_dev = self._onehot_dev(bins, B, I)
-        self_dev = (self._zeros_dev(B, I) if D_II_self is None
-                    else self._onehot_dev(D_II_self, B, I))
         if Z_init_II.ndim == 3:
             Z_init_II = Z_init_II.unsqueeze(0)
         z = self._batched(_tt_cached(Z_init_II, dev, dt), B)
-        zcat = ttnn.concat([z, d_dev, self_dev], dim=-1)  # [B,I,I,258]
+        w = 2 * self.N_BINS + self.C_Z
+        if _CONCAT_ALIGNED:
+            dself = self._combined_onehot_dev(bins, D_II_self, B, I)
+            wide = ttnn.concat([z, dself], dim=-1)        # [B,I,I,320], both pieces tile-aligned
+            ttnn.deallocate(dself)
+            zcat = ttnn.slice(wide, [0, 0, 0, 0], [B, I, I, w])
+            ttnn.deallocate(wide)
+        else:
+            d_dev = self._onehot_dev(bins, B, I)
+            self_dev = (self._zeros_dev(B, I) if D_II_self is None
+                        else self._onehot_dev(D_II_self, B, I))
+            zcat = ttnn.concat([z, d_dev, self_dev], dim=-1)  # [B,I,I,258]
         z = ttnn.rms_norm(zcat, weight=self.process_z_n, epsilon=1e-6, compute_kernel_config=ckc)
         z = ttnn.linear(z, self.process_z_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
         ttnn.deallocate(zcat)
