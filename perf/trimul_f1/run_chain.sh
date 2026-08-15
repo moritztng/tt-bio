@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # F1 release-gate chain: parity sweep, per-model censuses, openfold3 control, esmfold2 timing.
 set -u
-cd /home/ttuser/.coworker/wt/tt-bio-trimul-tail-f1-flip-evaluation
+cd "$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 PY=/home/ttuser/tt-bio-dev/env/bin/python3
 LOG=perf/trimul_f1/logs
 run() { echo "=== LEG $1 start $(date -u +%H:%M:%S) ==="; shift; "$@"; echo "=== LEG exit=$? $(date -u +%H:%M:%S) ==="; }

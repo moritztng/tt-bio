@@ -27,8 +27,11 @@ from tt_bio.tenstorrent import get_device                                 # noqa
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--cz", type=int, default=256, help="pair channel width; 256 protenix-v2, 384 opendde")
+# 298 leads: the non-tile-aligned fixture size whose padded-vs-logical-shape crash shipped past this
+# sweep when every default was a multiple of 32 (fix 92044e97). The rest run ascending, so a verdict
+# arrives before the most expensive shape rather than after it.
 ap.add_argument("sizes", type=int, nargs="*",
-                default=[32, 64, 96, 128, 160, 224, 288, 384, 448, 512, 576])
+                default=[298, 32, 64, 96, 128, 160, 224, 288, 384, 448, 512, 576])
 a = ap.parse_args()
 CZ = a.cz
 
