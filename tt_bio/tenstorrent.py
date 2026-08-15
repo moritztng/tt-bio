@@ -73,6 +73,41 @@ TRIMUL_IN_NORM_ROWBLOCK_BYTES = int(os.environ.get(
     "TT_BIO_TRIMUL_IN_NORM_ROWBLOCK_BYTES", 3 * 2 ** 30))  # 3 GiB
 TRANSITION_BATCH_CHUNKING_THRESHOLD = 1024
 TRANSITION_W_CHUNKING_THRESHOLD = 1024
+# Per-chunk element budget for the 4D Transition row loop on a small grid, in place of the
+# compounded channel ratio below it. That ratio divides by the channel twice -- once in
+# `_ref / (w_eff * c)` and again in the small-grid `_ref * 128 // c` -- so the small-grid budget
+# falls as 1/c^2 where Blackhole's falls as 1/c. Nothing intended the square: the comment on the
+# shrink says "in proportion to the channel's excess over 128", and at c=384 it costs a factor of
+# three. MEASURED on the 8x9 Wormhole Galaxy at OpenDDE's c_z=384, real Transition module, 2 warm
+# + 5 timed, spread under 1.4 % (perf/wh-opendde/wh_transition_chunk.py):
+#
+#   W=512  h=3 (shipped) 72.36 ms | h=6 65.53 = 1.1035x | h=7 69.65 | h=8 68.32 | h=9 67.01 | h=10 CLASH
+#   W=995  h=3 (shipped) 340.18   | h=6 308.45 = 1.1025x                                    | h=10 CLASH
+#   W=320  h=5 (shipped) 27.50    | h=6 26.42          | h=10 25.49 = 1.0786x               | h=16 CLASH
+#
+# CLASH is a TT_THROW of statically allocated circular buffers against L1 buffers across the whole
+# 8x9 grid, so the shrink is load-bearing and Blackhole's own chunk height genuinely does not fit
+# here. Two facts the budget has to respect: the wall is NOT monotonic in the chunk height (h=6
+# beats h=7/8/9 at W=512 even though all four fit), and the largest height that fits is therefore
+# not the one to pick. 1179648 = 6 * 512 * 384 lands on the measured optimum at W=512 and inside
+# the measured-fitting bracket at every other width the fold presents (W=320 -> 9, between the
+# measured-fitting 6 and 10; W=640/995/1024 -> 6, measured).
+#
+# Scope, deliberately narrow. Only 256 < c <= 384 takes this path:
+#   c=128 (boltz2, esmfold2) is already unshrunk and its shipped h=16 measured fastest at both
+#     W=512 and W=1024, so there is nothing to win and it stays byte-identical.
+#   c=256 (protenix-v2) measured h=12 = 1.074x at W=512, which is a real win, but protenix-v2 is
+#     mid-repair on this machine in its own task and a shared default moved underneath another
+#     model is how OpenDDE was regressed 60x once already. Left alone on purpose; the measurement
+#     is in perf/wh-opendde/results/transition_chunk_c256_wh.json for whoever owns it.
+#   c > 384 is not measured, so it keeps the shipped expression rather than extrapolating.
+# The W/H guard keeps this to the regime where every arm was torch.equal: above the 608-token
+# thresholds the row loop also W-chunks and the ragged tail block re-rounds with the row height
+# (max abs diff 0.015625 on bf16 at W=640 and W=995). Raising it there is worth a further ~0.13 s
+# at 512 aa and much more at 1024 aa, and it is NOT bit-exact -- flagged, not shipped.
+# Blackhole never reaches any of this: the whole branch is behind _IS_SMALL_GRID.
+SMALL_GRID_TRANSITION_ELEMS = int(os.environ.get("TT_BIO_SMALL_GRID_TRANSITION_ELEMS", 1179648))
+SMALL_GRID_TRANSITION_MAX_C = 384
 TRANSITION_H_CHUNK_SIZE_FAST = 32
 TRANSITION_H_CHUNK_SIZE = 16
 # Measured 1.87x at the protenix pair shape (microbench M4, W=320/c=256) but 32 clashes
@@ -3498,10 +3533,18 @@ class Transition(Module):
         # clamp means this only ever raises the chunk size where it had been shrunk,
         # so W<=threshold shapes (every normal target) are byte-identical to before.
         w_eff = min(W, TRANSITION_W_CHUNK_SIZE) if W > transition_w_chunking_threshold else W
-        _ref = 1024 * 128
-        if _IS_SMALL_GRID:
-            _ref = _ref * 128 // max(128, x.shape[-1])
-        transition_h_chunk_size = max(1, int(transition_h_chunk_size * min(1.0, _ref / (w_eff * x.shape[-1]))))
+        _c = int(x.shape[-1])
+        if (_IS_SMALL_GRID and SMALL_GRID_TRANSITION_ELEMS
+                and 256 < _c <= SMALL_GRID_TRANSITION_MAX_C
+                and W <= transition_w_chunking_threshold and H <= SEQ_LEN_MORE_CHUNKING):
+            # Measured budget, not the compounded ratio. See SMALL_GRID_TRANSITION_ELEMS.
+            transition_h_chunk_size = max(1, min(transition_h_chunk_size,
+                                                 SMALL_GRID_TRANSITION_ELEMS // (w_eff * _c)))
+        else:
+            _ref = 1024 * 128
+            if _IS_SMALL_GRID:
+                _ref = _ref * 128 // max(128, _c)
+            transition_h_chunk_size = max(1, int(transition_h_chunk_size * min(1.0, _ref / (w_eff * _c))))
         if H > SEQ_LEN_MORE_CHUNKING:
             # Large-sequence path: slice row blocks lazily inside the loop. ttnn.chunk
             # would materialise a full second copy of the pair tensor up front, and the

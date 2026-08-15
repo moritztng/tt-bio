@@ -151,7 +151,11 @@ def main():
         if cls is None:
             missing.append(f"L3:{nm}")
             continue
-        (installed if patch_method(cls, "__call__", f"L3:{nm}", by_seq=(nm in ("Pairformer",)))
+        # `Transition` is keyed by W as well: its 1538 calls are spread over the trunk pair
+        # shape, the MSA stack and the S=995 refiner, and the row-chunk lever's landing is a
+        # bound rather than a number until they are split.
+        (installed if patch_method(cls, "__call__", f"L3:{nm}",
+                                   by_seq=(nm in ("Pairformer", "Transition")))
          else missing).append(f"L3:{nm}")
 
     import importlib.metadata as im
