@@ -1,0 +1,98 @@
+{
+ "mul_tiles/LoFi/acc1": {
+  "rel_vs_fp32": 0.054633324449273324,
+  "bf16_would_be": 0.005594505966523219
+ },
+ "mul_tiles/LoFi/acc0": {
+  "rel_vs_fp32": 0.054633324449273324,
+  "bf16_would_be": 0.005594505966523219
+ },
+ "mul_tiles/HiFi2/acc1": {
+  "rel_vs_fp32": 0.012037945494635173,
+  "bf16_would_be": 0.005594505966523219
+ },
+ "mul_tiles/HiFi2/acc0": {
+  "rel_vs_fp32": 0.012241514607210348,
+  "bf16_would_be": 0.005594505966523219
+ },
+ "mul_tiles/HiFi3/acc1": {
+  "rel_vs_fp32": 0.002057890231452515,
+  "bf16_would_be": 0.005594505966523219
+ },
+ "mul_tiles/HiFi3/acc0": {
+  "rel_vs_fp32": 0.0023632439003152803,
+  "bf16_would_be": 0.005594505966523219
+ },
+ "mul_tiles/HiFi4/acc1": {
+  "rel_vs_fp32": 0.0020494081850952156,
+  "bf16_would_be": 0.005594505966523219
+ },
+ "mul_tiles/HiFi4/acc0": {
+  "rel_vs_fp32": 0.0023632439003152803,
+  "bf16_would_be": 0.005594505966523219
+ },
+ "add_tiles/LoFi/acc1": {
+  "rel_vs_fp32": 0.000698946425365427,
+  "bf16_would_be": 0.002795963459962564
+ },
+ "add_tiles/LoFi/acc0": {
+  "rel_vs_fp32": 0.000698946425365427,
+  "bf16_would_be": 0.002795963459962564
+ },
+ "add_tiles/HiFi2/acc1": {
+  "rel_vs_fp32": 0.000698946425365427,
+  "bf16_would_be": 0.002795963459962564
+ },
+ "add_tiles/HiFi2/acc0": {
+  "rel_vs_fp32": 0.000698946425365427,
+  "bf16_would_be": 0.002795963459962564
+ },
+ "add_tiles/HiFi3/acc1": {
+  "rel_vs_fp32": 0.000698946425365427,
+  "bf16_would_be": 0.002795963459962564
+ },
+ "add_tiles/HiFi3/acc0": {
+  "rel_vs_fp32": 0.000698946425365427,
+  "bf16_would_be": 0.002795963459962564
+ },
+ "add_tiles/HiFi4/acc1": {
+  "rel_vs_fp32": 0.000698946425365427,
+  "bf16_would_be": 0.002795963459962564
+ },
+ "add_tiles/HiFi4/acc0": {
+  "rel_vs_fp32": 0.000698946425365427,
+  "bf16_would_be": 0.002795963459962564
+ },
+ "matmul_tiles/LoFi/acc1": {
+  "rel_vs_fp32": 0.02989123821828276,
+  "bf16_would_be": 0.00040275225868956205
+ },
+ "matmul_tiles/LoFi/acc0": {
+  "rel_vs_fp32": 0.029723938253616165,
+  "bf16_would_be": 0.00040275225868956205
+ },
+ "matmul_tiles/HiFi2/acc1": {
+  "rel_vs_fp32": 0.006970956340248544,
+  "bf16_would_be": 0.00040275225868956205
+ },
+ "matmul_tiles/HiFi2/acc0": {
+  "rel_vs_fp32": 0.0073232323075152605,
+  "bf16_would_be": 0.00040275225868956205
+ },
+ "matmul_tiles/HiFi3/acc1": {
+  "rel_vs_fp32": 0.001239003123741788,
+  "bf16_would_be": 0.00040275225868956205
+ },
+ "matmul_tiles/HiFi3/acc0": {
+  "rel_vs_fp32": 0.0020337401954783076,
+  "bf16_would_be": 0.00040275225868956205
+ },
+ "matmul_tiles/HiFi4/acc1": {
+  "rel_vs_fp32": 0.0011039432564328175,
+  "bf16_would_be": 0.00040275225868956205
+ },
+ "matmul_tiles/HiFi4/acc0": {
+  "rel_vs_fp32": 0.0020337401954783076,
+  "bf16_would_be": 0.00040275225868956205
+ }
+}

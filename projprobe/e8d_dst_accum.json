@@ -1,0 +1,20 @@
+{
+ "mul_tiles": {
+  "err_vs_once": 114.86481475830078,
+  "err_vs_twice": 0.4719085693359375,
+  "verdict": "accumulates",
+  "rel_err": 0.004098816370190431
+ },
+ "add_tiles": {
+  "err_vs_once": 0.0149993896484375,
+  "err_vs_twice": 21.466873168945312,
+  "verdict": "overwrites",
+  "rel_err": 0.000698946425365427
+ },
+ "matmul_tiles": {
+  "err_vs_once": 1956.9674072265625,
+  "err_vs_twice": 4.330078125,
+  "verdict": "accumulates",
+  "rel_err": 0.002207762033725258
+ }
+}
