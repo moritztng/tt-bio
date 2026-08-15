@@ -77,6 +77,7 @@ def main():
     ap.add_argument("--k", type=int, default=256)
     ap.add_argument("--nout", type=int, default=1024)
     ap.add_argument("--rounds", type=int, default=2)
+    ap.add_argument("--arms", default="generic,nowrite,dualnoc")
     ap.add_argument("--out", default="perf/esmbeat/s_d_writesplit.json")
     args = ap.parse_args()
     S, K, N = args.n, args.k, args.nout
@@ -102,16 +103,25 @@ def main():
     x = dram(torch.randn(S, S, K).to(torch.bfloat16))
     w = dram(torch.randn(K, N).to(torch.bfloat16))
 
+    # The fold's in-projection (`_in_proj_rows` / `__call__` in tenstorrent.py) calls
+    # `minimal_matmul` with NO `config=`, so its blocking is the op's own
+    # `determine_default_block_sizes`, which returns (8, 8, 8) with subblocks (2, 2) under
+    # fp32_dest_acc_en. `_MM_DEFAULT` is that tuple, and an explicit config equal to it is
+    # byte-identical to `config=None` by construction, measured at max_abs 0.0
+    # (tenstorrent.py, the _MM_DEFAULT comment). There is no (8, 32) entry in `_MM_BLOCK`.
     cfg = T._qkv_mm_config(x, w)
-    blk = T._mm_block_for(w)
-    if cfg is None or blk is None:
-        raise SystemExit("no shipped block config for K=%d N=%d" % (K, N))
+    blk = T._mm_block_for(w) or T._MM_DEFAULT
     gcfg = (blk, tuple(T.COMPUTE_GRID_MAIN))
     res["meta"]["mm_config"] = str(cfg)
     res["meta"]["block"] = list(blk)
+    res["meta"]["native_unconfigured"] = cfg is None
     print(json.dumps(res["meta"]), flush=True)
 
     def native():
+        if cfg is None:
+            return ttnn.experimental.minimal_matmul(
+                x, w, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=ttnn.bfloat16,
+                compute_kernel_config=ckc)
         return ttnn.experimental.minimal_matmul(
             input_tensor=x, weight_tensor=w, compute_kernel_config=ckc,
             dtype=ttnn.bfloat16, config=cfg)
@@ -119,10 +129,17 @@ def main():
     ref = ttnn.to_torch(native())
 
     outs = {}
-    arms = [("generic", {}, None),
-            ("nowrite", {"MM_NOWRITE": 1}, SPLIT_KERNELS),
-            ("dualnoc", {"MM_DUAL_NOC": 1}, SPLIT_KERNELS)]
-    for name, _, _ in arms:
+    want = [a for a in args.arms.split(",") if a]
+    # DM_DYNAMIC_NOC on the dualnoc arm is not a tuning choice. Under the default
+    # DM_DEDICATED_NOC the firmware only runs noc_local_state_init for the kernel's own NOC, so
+    # the alt-NOC write never issues and the barrier spins: MEASURED as a device hang on the
+    # first call, card 0, which cost a tt-smi reset.
+    arms = [a for a in (("generic", {}, None, None),
+                        ("nowrite", {"MM_NOWRITE": 1}, SPLIT_KERNELS, None),
+                        ("dualnoc", {"MM_DUAL_NOC": 1}, SPLIT_KERNELS,
+                         ttnn.NOC_MODE.DM_DYNAMIC_NOC))
+            if a[0] in want]
+    for name, *_ in arms:
         outs[name] = ttnn.allocate_tensor_on_device(
             ttnn.Shape([S, S, N]), ttnn.bfloat16, ttnn.TILE_LAYOUT, dev,
             ttnn.DRAM_MEMORY_CONFIG)
@@ -132,17 +149,17 @@ def main():
                             layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16),
             outs[name])
 
-    def mk(name, defines, kdir):
+    def mk(name, defines, kdir, nmode):
         o = outs[name]
         return lambda: G.generic_minimal_matmul(
-            dev, x, w, o, gcfg, gckc, defines, kdir)
+            dev, x, w, o, gcfg, gckc, defines, kdir, None, nmode)
 
     fns = {"native": native}
-    for name, defines, kdir in arms:
-        fns[name] = mk(name, defines, kdir)
+    for name, defines, kdir, nmode in arms:
+        fns[name] = mk(name, defines, kdir, nmode)
 
     # correctness first, once per arm, before any timing
-    for name, _, _ in arms:
+    for name, *_ in arms:
         t0 = time.perf_counter()
         fns[name]()
         build_s = time.perf_counter() - t0
@@ -157,7 +174,7 @@ def main():
         print(json.dumps(row), flush=True)
         del got
 
-    order = ["native", "generic", "nowrite", "dualnoc"]
+    order = ["native"] + [a[0] for a in arms]
     for rnd in range(args.rounds):
         for name in order:
             ms, spread = timed(fns[name], dev)
@@ -170,8 +187,8 @@ def main():
     res["aa_pair_generic_ms"] = [ms_a, ms_b]
 
     med = {n: st.median([r["ms"] for r in res["arms"] if r["arm"] == n]) for n in order}
-    write_half = med["generic"] - med["nowrite"]
-    dual_gain = (med["generic"] - med["dualnoc"])
+    write_half = med["generic"] - med.get("nowrite", med["generic"])
+    dual_gain = med["generic"] - med.get("dualnoc", med["generic"])
     res["summary"] = {
         "median_ms": med,
         "aa_pair_generic_ms": res["aa_pair_generic_ms"],
