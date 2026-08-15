@@ -55,6 +55,37 @@ from .sampler import RFD3Sampler
 _BATCH_ATOM_PAIR_BUDGET = 8 * 3359 * 3359
 _BATCH_DESIGN_CEILING = 512
 
+# Both bounds above only ask whether a batch FITS. Neither asks whether it is fast, and above
+# about 3000 atoms it is not: a batched design costs more per design than running the designs
+# one at a time. Measured end to end, seconds per design at the shipped 200 timesteps, qb2,
+# one Blackhole p150a, ttnn 0.68.0, under a run lock, two warm forwards after a discarded cold
+# one, every design validated (perf/dsfix/rfd3_batch_e2e.py, rows in
+# perf/dsfix/results/rfd3_batch_e2e.jsonl):
+#
+#     atoms      b=1       b=2      b=4      b=8    fastest measured
+#      2299   24.971         -   22.253   21.885    b=8, 1.141x over b=1
+#      2952   36.625         -        -   34.108    b=8, 1.074x over b=1
+#      3844   59.967    64.890   59.975        -    b=1, 1.082x over b=2 (b=4 ties it)
+#      6051  144.044   167.189        -        -    b=1, 1.161x over b=2
+#
+# Batching stops paying between 2952 and 3844 atoms, so the cap binds above 2952, the largest
+# size where it was measured to still pay. Two things the table says that a monotone reading
+# would miss: at 3844 the curve is not monotone in batch -- 4 ties 1 to 0.01 % while 2 is 8 %
+# worse than both -- and at 6051 the atom-pair budget admits exactly 2, which is the worst arm
+# there. The clamp was landing on the pothole.
+#
+# The cap only ever shrinks the batch, so it cannot OOM, and it cannot change a design: the
+# device forward is bit-identical across batch size, trajectory PCC 1.000000 and maxabs 0 at
+# 200 timesteps (scripts/rfd3_port/verify_batch_trajectory_parity.py).
+#
+# Decided on end-to-end seconds per design and nothing else. The marginal per-step
+# differential in perf/dsfix/results/rfd3_tt.jsonl measures a different quantity, since it
+# subtracts out every per-forward fixed cost by construction, and it gets the sign of this
+# effect wrong at 6051 atoms: it says batch 2 wins by 1.13x where the wall says batch 1 wins
+# by 1.16x. Do not re-decide this from per-step numbers.
+_BATCH_SPEED_CAP_ABOVE_ATOMS = 2952
+_BATCH_SPEED_CAP = 1
+
 
 @dataclass
 class DesignResult:
@@ -328,6 +359,7 @@ def _run_design_jobs(jobs, specs, out_dir, *, checkpoint_dir, from_pdb, num_time
             batch_size,
             _BATCH_DESIGN_CEILING,
             max(1, _BATCH_ATOM_PAIR_BUDGET // max(1, L * L)),
+            _BATCH_SPEED_CAP if L > _BATCH_SPEED_CAP_ABOVE_ATOMS else batch_size,
         )
         for start in range(0, len(spec_jobs), effective_batch):
             chunk = spec_jobs[start : start + effective_batch]
