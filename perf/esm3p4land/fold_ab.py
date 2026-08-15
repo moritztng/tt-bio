@@ -22,16 +22,16 @@ sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
 # `ship` leaves the gate alone, so it measures whatever the module default currently is. That is
 # the arm the page publishes, and it is the only one that catches a default that did not land.
 ARMS = {"base": False, "l2": True, "ship": None, "f1": None, "nof1": None,
-        "B": None, "A": None, "AB": None, "D": None, "ABD": None}
+        "B": None, "A": None, "AB": None, "D": None, "ABD": None, "BD": None}
 
 # Device-resident pair handoffs (esmfold2 only): B is the LM shim -> LM encoder
 # handoff, A is parcae_coda -> distogram head. Every arm sets both explicitly, so
 # no arm inherits the previous one's gate.
 DEVPAIR = {"B": (True, False), "A": (False, True), "AB": (True, True),
-           "ABD": (True, True)}
+           "ABD": (True, True), "BD": (True, False)}
 
 # D: half the trimul in-projection's output drain on the other NOC (tt_bio/mm_dualnoc.py).
-DUALNOC = {"D": True, "ABD": True}
+DUALNOC = {"D": True, "ABD": True, "BD": True}
 
 
 def sha_dir(d):

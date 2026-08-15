@@ -281,6 +281,19 @@ class _ZPair:
     The confidence head needs it on the host, so the download stays. The
     distogram head re-uploads the same tensor plus its transpose; with this it
     reads the device copy instead and the symmetrisation runs on device.
+
+    DO NOT SHIP THIS. Lever A is worth -0.242 s at 512 aa and it is NOT bit-exact.
+    Moving `z + z.transpose(-2, -3)` from the host fp32 add to `ttnn.add` on bf16
+    changes 11.1 % of `distogram_logits` by up to one bf16 ULP, at 298, 512 and 640 aa
+    (`perf/esmbeat/a_distogram_parity.json`). Both operands are exactly representable
+    in bf16, so the difference is purely how the device packs the fp32 accumulator
+    back to bf16.
+
+    The fold A/B cannot see this: the add feeds `distogram_logits` and nothing else,
+    and neither the CIF sha256 nor plDDT covers it, so this arm read as clean across
+    24 folds. There is no reduced version worth keeping either -- the whole win IS the
+    device add, and the host copy of `z` has to be materialised anyway for the
+    structure head and for `ConfidenceHead.z_norm`.
     """
 
     def __init__(self, ftw, dev):
