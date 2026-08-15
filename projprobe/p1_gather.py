@@ -49,17 +49,21 @@ def faces_to_tile(v):
 
 def main():
     rng = np.random.default_rng(0)
-    mdl = (rng.standard_normal((NVOX, 2)) * 0.5).astype(np.float32)
+    # Diagnostic model: each voxel's value IS its index, so a wrong result names the voxel that was
+    # actually fetched instead of just being wrong by an opaque amount.
+    v = np.arange(NVOX, dtype=np.float32)
+    mdl = np.stack([v, -v], axis=1).astype(np.float32)
 
     # One address per pair, duplicated across the pair's two columns, some of them sentinels.
     idx_f = np.zeros((N_BLOCKS, 1024), dtype=np.uint32)
     want = np.zeros((N_BLOCKS, 8, 1024), dtype=np.float32)
     top = NVOX - MDLXY - MDLX - 2
     for b in range(N_BLOCKS):
-        base = rng.integers(0, top, size=512).astype(np.uint32)
+        base = (rng.integers(0, top // 2, size=512) * 2).astype(np.uint32)   # even -> src 16 B aligned
         sent = rng.random(512) < 0.25
         base[sent] = SENTINEL
-        for k in range(512):
+        idx_f[b, :] = SENTINEL                 # odd pairs stay disabled for this alignment arm
+        for k in range(0, 512, 2):             # even k -> destination offset 8k is 16 B aligned
             idx_f[b, 2 * k] = base[k]
             idx_f[b, 2 * k + 1] = base[k]
             if base[k] == SENTINEL:
@@ -120,6 +124,18 @@ def main():
     finally:
         ttnn.close_device(dev)
 
+    # Show what actually landed where, for the first few pairs of block 0, before summarising.
+    g0 = np.array([tile_to_faces(got[0, s]) for s in range(8)])
+    w0 = np.array([tile_to_faces(want_t[0, s]) for s in range(8)])
+    shown = 0
+    for k in range(512):
+        if shown >= 4:
+            break
+        if abs(g0[0, 2 * k] - w0[0, 2 * k]) > 0:
+            print("pair k=%d addr=%d  slot0 got %.0f want %.0f   slot1 got %.0f want %.0f"
+                  % (k, idx_f[0, 2 * k], g0[0, 2 * k], w0[0, 2 * k],
+                     g0[1, 2 * k], w0[1, 2 * k]), flush=True)
+            shown += 1
     res, ok = {}, True
     for s in range(8):
         e = float(np.abs(got[:, s] - want_t[:, s]).max())
