@@ -15,18 +15,27 @@ Three gates, in this order, because only the first is not a judgement call:
   PERF     |median(B) - median(A)| against a noise floor. See below for how the floor is
            built, because the obvious way to build it does not work.
 
-The floor is not one A/A pair. Two models here execute no changed line at all -- Boltz-2
-and ESMFold2 both carry their own AdaLN and never enter the fp32 tail, which their own
-reachability counters confirm rather than assert. Their true delta is exactly zero, so
-whatever they measure IS this harness's noise, and they measured +0.064 s and -0.069 s.
-Meanwhile their single-pair A/A floors came out 0.009 s and 0.143 s: the same estimator,
-the same harness, sixteen times apart. One pair cannot estimate a spread, so the floor a
-reaching model is judged against is the widest of
+The floor is not one A/A pair. Exactly one model here executes no changed line: ESMFold2,
+whose AdaLN is its own ttnn class (esmfold2.py:210) and which never enters the fp32 tail.
+Its census measured adaln_calls 0, so its true delta is exactly zero and what it measured
+is this harness's noise: +0.064 s on a 31.75 s fold, 0.20 %.
+
+Boltz-2 was predicted to be the second null and is not. boltz2.py:1711 defines an AdaLN,
+but that one is the torch reference module; Boltz-2's device path lives in tenstorrent.py
+itself (DiffusionTransformerLayer:4511, ConditionedTransitionBlock:4441) and calls
+tenstorrent.AdaLN 12000 times per fold, which its census measured. A class of the same name
+in the model file is not evidence about the device path. Boltz-2 is a fourth reaching
+model, not a control, and its -0.069 s is a real delta inside its own 0.143 floor.
+
+Even with one null the single-pair estimator is visibly unsafe: the A/A pairs came out
+0.009 s and 0.143 s on the same afternoon and the same harness, sixteen times apart. One
+pair cannot estimate a spread, so the floor a reaching model is judged against is the
+widest of
 
   * its own A/A pair       |median(A1) - median(A2)|
   * its own B/B pair       |median(B1) - median(B2)|,  the arm the A/A floor ignores
-  * the null-control band  max |delta| over the models proven to execute no changed code,
-                           scaled to this model's own wall so it is a rate, not a constant
+  * the null-control band  max |delta| over the models a census proved execute no changed
+                           code, scaled to this model's own wall so it is a rate, not a constant
 
 Digests are compared only inside one output directory, which is one host, one card and one
 wheel. Nothing here compares against a digest recorded anywhere else.
@@ -68,12 +77,18 @@ def score(arms, census):
     walls = {k: [f["fold_s"] for f in v["folds"]] for k, v in arms.items()}
     med = lambda *k: statistics.median(sum((walls[x] for x in k), []))
     mA, mB = med("A1", "A2"), med("B1", "B2")
-    seen = [reaches(v) for v in arms.values()] + ([reaches(census)] if census else [])
+    # The census is the only run that watched AdaLN, so where one exists it is the answer.
+    # Folding it together with the A/B records let their vacuous None outvote a measured
+    # False, which is how ESMFold2 -- the one real null control -- came out "unknown".
+    if census is not None:
+        reach = reaches(census)
+    else:
+        seen = [reaches(v) for v in arms.values()]
+        reach = True if any(r is True for r in seen) else None
     return dict(
         mA=mA, mB=mB, delta=mB - mA,
         aa=abs(med("A1") - med("A2")), bb=abs(med("B1") - med("B2")),
-        reach=True if any(r is True for r in seen)
-              else (None if any(r is None for r in seen) else False),
+        reach=reach,
         seen=set().union(*(digests(v) for v in arms.values())),
         l1={(tuple(sorted(v["fp32_softmax_l1_refused_keys"])),
              tuple(sorted(v["transpose_l1_refused_keys"]))) for v in arms.values()},

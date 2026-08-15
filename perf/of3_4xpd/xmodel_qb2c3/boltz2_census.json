@@ -1,0 +1,61 @@
+{
+ "label": "census",
+ "model": "boltz2",
+ "tree": "/home/ttuser/.coworker/wt/openfold3-4x-shared-flag-verify-and-land",
+ "size": 512,
+ "census": true,
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "3",
+ "grid": [
+  11,
+  10
+ ],
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "flags": {
+  "ADALN_S_HOIST": true,
+  "FP32_SOFTMAX_BIAS_HOIST": true,
+  "TRIMUL_TAIL_F1": true,
+  "TRANSPOSE_L1_HEADROOM": 1.25
+ },
+ "started": "2026-08-15T18:02:13+0000",
+ "loadavg": [
+  "2.07",
+  "1.44",
+  "1.28"
+ ],
+ "folds": [],
+ "cold": {
+  "tag": "cold",
+  "fold_s": 24.807,
+  "plddt": null,
+  "n_tokens": null,
+  "n_atoms": null,
+  "cif_sha256": {
+   "cdk2x2_512.cif": "fca25e32ea181ae2"
+  },
+  "loadavg": [
+   "1.71",
+   "1.40",
+   "1.27"
+  ]
+ },
+ "reach": {
+  "adaln_calls": 12000,
+  "adaln_with_s_terms": 0,
+  "adaln_s_terms_calls": 12000
+ },
+ "fp32_softmax_stats": {
+  "calls": 0,
+  "blocked": 0,
+  "blocks": 0,
+  "fused": 0,
+  "unfused": 0,
+  "l1": 0,
+  "l1_blocks": 0,
+  "l1_refused": 0
+ },
+ "fp32_softmax_l1_refused_keys": [],
+ "transpose_l1_refused_keys": []
+}
