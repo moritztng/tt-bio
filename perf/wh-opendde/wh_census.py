@@ -97,6 +97,10 @@ def main():
     ap.add_argument("--target", type=Path, default=None, help="explicit yaml (abag variants)")
     ap.add_argument("--a3m", type=Path, default=None)
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--timers", default="on", choices=("on", "off"),
+                    help="off installs no timers, so the wall is a CLEAN wall. The stage census "
+                         "needs the timers and pays 2.6 %% for them; a size sweep or an abag wall "
+                         "must not.")
     a = ap.parse_args()
 
     import tt_baseline as B
@@ -120,7 +124,11 @@ def main():
     def P_(obj, name, key, **kw):
         (installed if patch_method(obj, name, key, **kw) else missing).append(key)
 
+    if a.timers == "off":
+        installed, missing = [], ["ALL (--timers off)"]
+        print("timers OFF: this is a clean wall", flush=True)
     # level 1: the partition the closure check reconciles against
+    P_ = P_ if a.timers == "on" else (lambda *x, **k: None)
     P_(P.Protenix, "_trunk_cond", "L1:trunk_cond")
     P_(OD.OpenDDE, "expand_and_refine", "L1:expand_refine")
     P_(P.Protenix, "_diffusion_pair_cond", "L1:diff_pair_cond")
@@ -147,6 +155,8 @@ def main():
     # nobody has asked a question about and inflates the instrumented wall for everyone.
     for nm in ("TriangleMultiplication", "TriangleAttention", "AttentionPairBias",
                "PairWeightedAveraging", "Transition"):
+        if a.timers == "off":
+            break
         cls = getattr(T, nm, None) or getattr(P, nm, None)
         if cls is None:
             missing.append(f"L3:{nm}")
