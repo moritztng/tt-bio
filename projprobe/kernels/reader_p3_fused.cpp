@@ -27,8 +27,10 @@ void kernel_main() {
     constexpr uint32_t mdlXY = get_compile_time_arg_val(10);
     constexpr uint32_t mdl_pages = get_compile_time_arg_val(11);
     // Ablation selector, for §8.15's cost attribution. Bit 0 drops the per-block zero-fill, bit 1
-    // drops the NoC reads, bit 2 drops the parity-select pointer copies. Any nonzero value makes the
-    // kernel WRONG on purpose; these arms measure where the time goes, nothing else.
+    // drops the NoC reads, bit 2 drops the parity-select pointer copies. Bit 3 issues ONE aligned
+    // 16 B read per x-pair instead of two, which is what an x-parity model relayout (§4.7 / §10
+    // item 7) would buy: with x0 always even the pair (x0, x0+1) sits inside a single aligned block.
+    // Any nonzero value makes the kernel WRONG on purpose; these arms measure where the time goes.
     constexpr uint32_t abl = get_compile_time_arg_val(12);
     constexpr auto e_args = TensorAccessorArgs<13>();
     constexpr auto x_args = TensorAccessorArgs<e_args.next_compile_time_args_offset()>();
@@ -112,7 +114,9 @@ void kernel_main() {
                 base[j] = (v0 - a) * 2;
                 if constexpr ((abl & 2u) == 0u) {
                     noc_async_read(get_noc_addr(mdl_l1 + (a << 3)), scr + j * 32, 16);
-                    noc_async_read(get_noc_addr(mdl_l1 + ((a + 2) << 3)), scr + j * 32 + 16, 16);
+                    if constexpr ((abl & 8u) == 0u) {
+                        noc_async_read(get_noc_addr(mdl_l1 + ((a + 2) << 3)), scr + j * 32 + 16, 16);
+                    }
                 }
             }
             noc_async_read_barrier();
