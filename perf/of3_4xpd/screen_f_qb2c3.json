@@ -1,0 +1,14 @@
+{
+ "rows": 12,
+ "heads": 4,
+ "seq": 512,
+ "blocks_per_call": 43,
+ "calls_per_fold": 440,
+ "tail_today_ms_per_block": 0.6723,
+ "shard+cast+softmax_ms_per_block": 0.2849,
+ "softmax_alone_ms_per_block": 0.1291,
+ "blocks_per_fold": 18920,
+ "tail_s_per_fold": 12.72,
+ "floor_s_per_fold": 2.443,
+ "F_ceiling_s": 10.277
+}
