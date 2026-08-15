@@ -37,7 +37,14 @@ I = 685
 NWARM, NREP = 2, 6
 ARMS = [("A shipped   128+65+65", [128, 65, 65]),
         ("B aligned   128+96+96", [128, 96, 96]),
-        ("C aligned   128+64+64", [128, 64, 64])]
+        ("C aligned   128+64+64", [128, 64, 64]),
+        # A and B differ in two things at once -- the width of each piece and the offset each
+        # piece lands at. These separate them. E keeps the shipped pieces and only makes the
+        # OUTPUT a tile multiple by appending zeros, so the real data stays contiguous at
+        # 0..257 and a plain slice would recover it bit-exactly. G aligns only the offset the
+        # last piece starts at (128+96=224) and leaves that piece 65 wide.
+        ("E pad-at-end 128+65+65+62", [128, 65, 65, 62]),
+        ("G offset-fix 128+96+65", [128, 96, 65])]
 
 
 def timeit(fn, dev):

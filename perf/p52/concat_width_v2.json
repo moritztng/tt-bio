@@ -1,0 +1,83 @@
+{
+  "rows": [
+    {
+      "arm": "A shipped   128+65+65",
+      "widths": [
+        128,
+        65,
+        65
+      ],
+      "out_width": 258,
+      "MB_out": 242.1,
+      "ms": 25.3468,
+      "GB_s_rw": 19.1
+    },
+    {
+      "arm": "B aligned   128+96+96",
+      "widths": [
+        128,
+        96,
+        96
+      ],
+      "out_width": 320,
+      "MB_out": 300.3,
+      "ms": 1.683,
+      "GB_s_rw": 356.9
+    },
+    {
+      "arm": "C aligned   128+64+64",
+      "widths": [
+        128,
+        64,
+        64
+      ],
+      "out_width": 256,
+      "MB_out": 240.2,
+      "ms": 1.3431,
+      "GB_s_rw": 357.7
+    },
+    {
+      "arm": "E pad-at-end 128+65+65+62",
+      "widths": [
+        128,
+        65,
+        65,
+        62
+      ],
+      "out_width": 320,
+      "MB_out": 300.3,
+      "ms": 30.7726,
+      "GB_s_rw": 19.5
+    },
+    {
+      "arm": "G offset-fix 128+96+65",
+      "widths": [
+        128,
+        96,
+        65
+      ],
+      "out_width": 289,
+      "MB_out": 271.2,
+      "ms": 27.031,
+      "GB_s_rw": 20.1
+    },
+    {
+      "arm": "D clone of the 258 output",
+      "widths": [
+        258
+      ],
+      "out_width": 258,
+      "MB_out": 242.1,
+      "ms": 1.4007,
+      "GB_s_rw": 345.7
+    }
+  ],
+  "tokens": 685,
+  "n_warm": 2,
+  "n_rep": 6,
+  "host": "qb2",
+  "card": 0,
+  "ttnn": "0.68.0",
+  "read_roof_GB_s_measured": 390.0,
+  "write_roof_GB_s_measured": 269.6
+}
