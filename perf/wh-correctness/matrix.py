@@ -280,6 +280,34 @@ def main() -> int:
                 if line.strip():
                     r = json.loads(line)
                     rows[r["cell"]] = r
+        if a.group == "size":
+            allsizes = sorted({s for v in SIZE_LADDER.values() for s in v})
+            print("| model | " + " | ".join(str(s) for s in allsizes) + " | cap+1 |")
+            print("|---" * (len(allsizes) + 2) + "|")
+            notes = []
+            for model, sizes in SIZE_LADDER.items():
+                out_cells = []
+                for s in allsizes:
+                    if s not in sizes:
+                        out_cells.append("")
+                        continue
+                    r = rows.get(f"size_{s}_{model}")
+                    if r is None:
+                        out_cells.append("-")
+                    elif r.get("pass"):
+                        out_cells.append("fold")
+                    else:
+                        out_cells.append("**FAIL**")
+                        notes.append(f"- `size_{s}_{model}`: {r.get('status') or 'submit ' + str(r.get('submit_status'))}"
+                                     f" -- {r.get('why', '')[:200]}")
+                over = rows.get(f"size_over_{MAX_RESIDUES[model] + 1}_{model}")
+                out_cells.append("-" if over is None else ("400" if over.get("pass") else "**FAIL**"))
+                print(f"| {model} | " + " | ".join(out_cells) + " |")
+            if notes:
+                print("\nFailures:\n")
+                print("\n".join(notes))
+            return 0
+
         # A cell is one of: PASS, FAIL (with the reason), 400 (refused as the catalog says),
         # or "-" for not yet run. The reason column is the point, so it goes underneath.
         print("| input | " + " | ".join(FOLD_MODELS) + " |")
