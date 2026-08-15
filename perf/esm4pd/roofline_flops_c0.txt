@@ -1,0 +1,16 @@
+DEVICE arch=Arch.BLACKHOLE compute_grid=13x10 dram_grid=8x1 num_devices=1
+=== BF16 square matmul FLOP/s ===
+N       fidelity       GFLOP    ms/iter   TFLOP/s
+512     LoFi            0.27      0.034      7.98
+512     HiFi2           0.27      0.033      8.12
+512     HiFi4           0.27      0.038      7.05
+1024    LoFi            2.15      0.044     48.37
+1024    HiFi2           2.15      0.046     46.67
+1024    HiFi4           2.15      0.050     43.32
+2048    LoFi           17.18      0.156    109.86
+2048    HiFi2          17.18      0.167    103.06
+2048    HiFi4          17.18      0.218     78.77
+4096    LoFi          137.44      0.917    149.91
+4096    HiFi2         137.44      1.032    133.21
+4096    HiFi4         137.44      1.422     96.68
+PEAK_BF16_TFLOPs 149.91  (N=4096 fidelity=LoFi)

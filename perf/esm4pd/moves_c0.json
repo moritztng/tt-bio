@@ -1,0 +1,128 @@
+{
+ "host": "tt-quietbox",
+ "card": "0",
+ "grid": [
+  13,
+  10
+ ],
+ "L": 512,
+ "pair_MiB": 128.0,
+ "arms": {
+  "CTRL_clone_pair_256MiB": {
+   "ms": 0.6597,
+   "MiB": 256.0,
+   "GBps": 406.9,
+   "all": [
+    0.6579,
+    0.6597,
+    0.6588,
+    0.664,
+    0.6638
+   ]
+  },
+  "CTRL_add_pair_384MiB": {
+   "ms": 0.9371,
+   "MiB": 384.0,
+   "GBps": 429.7,
+   "all": [
+    0.937,
+    0.9371,
+    0.9355,
+    0.9402,
+    0.9452
+   ]
+  },
+  "fwd_stock_ttnn.permute": {
+   "ms": 4.5701,
+   "MiB": 256.0,
+   "GBps": 58.7,
+   "all": [
+    4.5701,
+    4.5487,
+    4.6049,
+    4.5875,
+    4.5561
+   ]
+  },
+  "fwd_REBLOCK_kernel": {
+   "ms": 1.236,
+   "MiB": 256.0,
+   "GBps": 217.2,
+   "all": [
+    1.2308,
+    1.2378,
+    1.2385,
+    1.2321,
+    1.236
+   ],
+   "vs_shipped": 3.6974,
+   "torch_equal": true
+  },
+  "back_SHIPPED__channel_move_back": {
+   "ms": 1.4297,
+   "MiB": 256.0,
+   "GBps": 187.8,
+   "all": [
+    1.4194,
+    1.4297,
+    1.4312,
+    1.4303,
+    1.4102
+   ]
+  },
+  "back_stock_ttnn.permute(0,2,3,1)": {
+   "ms": 12.9771,
+   "MiB": 256.0,
+   "GBps": 20.7,
+   "all": [
+    12.8628,
+    13.1387,
+    12.9771,
+    12.9555,
+    12.9868
+   ],
+   "vs_shipped": 0.1102,
+   "torch_equal": true
+  },
+  "back_two_transpose_1,2_then_2,3": {
+   "ms": 4.687,
+   "MiB": 512.0,
+   "GBps": 114.5,
+   "all": [
+    4.6793,
+    4.6908,
+    4.6833,
+    4.687,
+    4.6942
+   ],
+   "vs_shipped": 0.305,
+   "torch_equal": true
+  },
+  "back_reshape_transpose_-2-1_first": {
+   "ms": 4.3744,
+   "MiB": 512.0,
+   "GBps": 122.7,
+   "all": [
+    4.3662,
+    4.3726,
+    4.3744,
+    4.3862,
+    4.3847
+   ],
+   "vs_shipped": 0.3268,
+   "torch_equal": false
+  }
+ },
+ "eligible_fwd": true,
+ "eligible_back": true,
+ "split_plan": {
+  "units_C256": "(13, 10, (130, {[(x=0,y=0) - (x=12,y=9)]}, {[(x=0,y=0) - (x=11,y=9)], [(x=12,y=0) - (x=12,y=5)]}, {[(x=12,y=6) - (x=12,y=9)]}, 2, 1))"
+ },
+ "verdict": {
+  "shipped_back_ms": 1.4297,
+  "best_bitexact_alt": "back_two_transpose_1,2_then_2,3",
+  "best_speedup": 0.305,
+  "kill_gate": 1.2,
+  "decision": "NO-GO"
+ }
+}

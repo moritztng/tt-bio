@@ -1,0 +1,26 @@
+{
+ "host": "tt-quietbox",
+ "card": "0",
+ "grid": [
+  13,
+  10
+ ],
+ "model": "esmfold2",
+ "size": 512,
+ "recycling_steps": 10,
+ "sampling_steps": 100,
+ "warm_fold_s": 65.566,
+ "warm_trimul_calls": 1084,
+ "fold_s": [
+  36.32,
+  36.593
+ ],
+ "fold_s_median": 36.457,
+ "plddt": 0.9284,
+ "total_trimul_calls": 1084,
+ "by_shape": {
+  "start|1x512x512x256": 542,
+  "end|1x512x512x256": 542
+ },
+ "per_fold_counts_equal": true
+}
