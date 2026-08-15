@@ -1,0 +1,113 @@
+diff --git a/tt_bio/openfold3_diffusion_module.py b/tt_bio/openfold3_diffusion_module.py
+index 1164efec..7ee47ed4 100644
+--- a/tt_bio/openfold3_diffusion_module.py
++++ b/tt_bio/openfold3_diffusion_module.py
+@@ -39,7 +39,8 @@ import math
+ import torch
+ import ttnn
+ 
+-from .tenstorrent import Module, CORE_GRID_MAIN, _dtype, _cached, _no_host_pad
++from .tenstorrent import (Module, CORE_GRID_MAIN, _dtype, _cached, _no_host_pad,
++                           _device_pad)
+ from .openfold3_atom_transformer import OF3AtomTransformer
+ from .openfold3_diffusion_transformer import OF3DiffusionTransformer
+ from .openfold3_diffusion_decoder import OF3AtomAttentionDecoder
+@@ -251,6 +252,9 @@ class OF3DiffusionModule(Module):
+     @staticmethod
+     def _pad_atoms(x, n_atom, NP, dtype=ttnn.bfloat16):
+         out = _no_host_pad(x, dtype, n_atom, NP)
++        if out is not None:
++            return out
++        out = _device_pad(x, dtype, n_atom, NP)
+         if out is not None:
+             return out
+         th = ttnn.to_torch(x).float()
+diff --git a/tt_bio/openfold3_msa_embedder.py b/tt_bio/openfold3_msa_embedder.py
+index 8769ea5f..26f745f2 100644
+--- a/tt_bio/openfold3_msa_embedder.py
++++ b/tt_bio/openfold3_msa_embedder.py
+@@ -85,8 +85,8 @@ class MSAModuleBlock:
+             *_MSA_TRI_DIMS, None, None, False, block_remap["pair_stack"], ckc,
+             scale_pair_bias=False, fp32_softmax=True)
+ 
+-    def __call__(self, m, z):
+-        z = ttnn.add(z, self.opm(m, None, None))
++    def __call__(self, m, z, opm=None):
++        z = ttnn.add(z, self.opm(m, None, None) if opm is None else opm)
+         if self.has_msa_update:
+             m = ttnn.add(m, ttnn.reshape(self.pwa(m, ttnn.clone(z)), tuple(m.shape)))
+             m = ttnn.add(m, ttnn.reshape(self.msa_transition(m), tuple(m.shape)))
+@@ -114,7 +114,12 @@ class MSAModule:
+             for b in remap_msa_module(state_dict, prefix="msa_module")
+         ]
+ 
+-    def __call__(self, m, z):
+-        for block in self.blocks:
+-            m, z = block(m, z)
++    def first_opm(self, m):
++        """Block 0's outer-product mean. It reads ``m`` before anything touches it and
++        ``m`` is the same tensor in every recycle, so this is one tensor per fold."""
++        return self.blocks[0].opm(m, None, None)
++
++    def __call__(self, m, z, opm0=None):
++        for i, block in enumerate(self.blocks):
++            m, z = block(m, z, opm0 if i == 0 else None)
+         return m, z
+diff --git a/tt_bio/openfold3_trunk.py b/tt_bio/openfold3_trunk.py
+index 9bd78169..cb6329fa 100644
+--- a/tt_bio/openfold3_trunk.py
++++ b/tt_bio/openfold3_trunk.py
+@@ -163,6 +163,9 @@ class OF3Trunk(Module):
+         # the template feature half is a function of template_feat alone, so it is the
+         # same tensor in every cycle -- compute it once, exactly like m above.
+         a_tmpl = self.template.features(template_feat)
++        # block 0 of the MSA module consumes m before the first PairWeightedAveraging
++        # touches it, so its outer-product mean is the same tensor in every cycle too.
++        opm0 = self.msa_module.first_opm(m)
+         for cyc in range(self.num_cycles):
+             if progress_fn:
+                 progress_fn("trunk", step=cyc, total=self.num_cycles)
+@@ -170,7 +173,7 @@ class OF3Trunk(Module):
+             z_tmpl = self.template(template_feat, z, template_slots, a_tmpl)
+             z = ttnn.add(z, z_tmpl)
+             ttnn.deallocate(z_tmpl)
+-            z = self.msa_module(m, z)[1]               # device 4-block MSA module (degraded z); m reused next cycle
++            z = self.msa_module(m, z, opm0)[1]         # device 4-block MSA module (degraded z); m reused next cycle
+             s = self.glue.glue_s(s, s_init)              # device s-glue
+             s, z = self.pairformer(s, z)                 # device 48-block Pairformer
+         return s, z
+diff --git a/tt_bio/tenstorrent.py b/tt_bio/tenstorrent.py
+index 05bb4010..cfb98bdc 100644
+--- a/tt_bio/tenstorrent.py
++++ b/tt_bio/tenstorrent.py
+@@ -365,6 +365,30 @@ def _no_host_pad(x: ttnn.Tensor, dtype, n: int, n_pad: int) -> ttnn.Tensor | Non
+     return x if x.dtype == dtype else ttnn.typecast(x, dtype)
+ 
+ 
++def _device_pad(x: ttnn.Tensor, dtype, n: int, n_pad: int) -> ttnn.Tensor | None:
++    """``x`` zero-padded from ``n`` to ``n_pad`` along dim -2 on device, or None when the
++    host round trip is still needed.
++
++    The atom dim is 4116 at 512 aa and rounds to 4128, so ``_no_host_pad`` declines and
++    the helper falls back to untilize -> host torch pad -> re-tilize, 1.8 ms per
++    diffusion step, 0.37 s over the 200-step rollout with the device idle for all of it.
++    ``ttnn.pad`` writes the same zeros in the same places; the real rows are copied, not
++    recomputed, so the result is bit-identical.
++    """
++    if x.layout != ttnn.TILE_LAYOUT or n_pad <= n or int(x.shape[-2]) != n:
++        return None
++    try:
++        pad = [(0, 0)] * (len(x.shape) - 2) + [(0, n_pad - n), (0, 0)]
++        y = ttnn.pad(x, pad, value=0.0)
++    except (RuntimeError, TypeError):
++        return None
++    if y.dtype != dtype:
++        z = ttnn.typecast(y, dtype)
++        ttnn.deallocate(y)
++        y = z
++    return y
++
++
+ def _cached(cache, key, make):
+     """``make()``, reused across calls while ``cache`` is a live dict.
+ 

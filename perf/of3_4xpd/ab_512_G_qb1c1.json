@@ -1,0 +1,146 @@
+{
+ "label": "G",
+ "ttnn": "0.67.4",
+ "host": "tt-quietbox",
+ "card": "1",
+ "size": 512,
+ "altflag": "_TRIMUL_TAIL_F1",
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "loadavg": [
+  "1.19",
+  "1.33",
+  "1.18"
+ ],
+ "folds": [
+  {
+   "tag": "warm0",
+   "arm": true,
+   "fold_s": 46.623,
+   "plddt": 0.554642,
+   "n_tokens": 512,
+   "n_atoms": 4116,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "283be8b29b15adc0"
+   },
+   "loadavg": [
+    "2.81",
+    "1.76",
+    "1.35"
+   ]
+  },
+  {
+   "tag": "warm1",
+   "arm": false,
+   "fold_s": 46.631,
+   "plddt": 0.554642,
+   "n_tokens": 512,
+   "n_atoms": 4116,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "283be8b29b15adc0"
+   },
+   "loadavg": [
+    "3.90",
+    "2.12",
+    "1.49"
+   ]
+  },
+  {
+   "tag": "warm2",
+   "arm": true,
+   "fold_s": 46.497,
+   "plddt": 0.554642,
+   "n_tokens": 512,
+   "n_atoms": 4116,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "283be8b29b15adc0"
+   },
+   "loadavg": [
+    "3.70",
+    "2.29",
+    "1.57"
+   ]
+  },
+  {
+   "tag": "warm3",
+   "arm": false,
+   "fold_s": 46.459,
+   "plddt": 0.554642,
+   "n_tokens": 512,
+   "n_atoms": 4116,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "283be8b29b15adc0"
+   },
+   "loadavg": [
+    "3.99",
+    "2.57",
+    "1.70"
+   ]
+  }
+ ],
+ "cold": [
+  {
+   "tag": "cold",
+   "arm": true,
+   "fold_s": 53.963,
+   "plddt": 0.554642,
+   "n_tokens": 512,
+   "n_atoms": 4116,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "283be8b29b15adc0"
+   },
+   "loadavg": [
+    "2.40",
+    "1.56",
+    "1.26"
+   ]
+  },
+  {
+   "tag": "cold",
+   "arm": false,
+   "fold_s": 46.628,
+   "plddt": 0.554642,
+   "n_tokens": 512,
+   "n_atoms": 4116,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "283be8b29b15adc0"
+   },
+   "loadavg": [
+    "1.66",
+    "1.48",
+    "1.25"
+   ]
+  }
+ ],
+ "by_arm": {
+  "True": {
+   "walls": [
+    46.497,
+    46.623
+   ],
+   "median": 46.56,
+   "spread": 0.126
+  },
+  "False": {
+   "walls": [
+    46.459,
+    46.631
+   ],
+   "median": 46.545,
+   "spread": 0.172
+  }
+ },
+ "fp32_softmax_stats": {
+  "calls": 2640,
+  "blocked": 2640,
+  "blocks": 113520,
+  "fused": 113520,
+  "unfused": 0,
+  "l1": 2640,
+  "l1_blocks": 113520,
+  "l1_refused": 0
+ },
+ "fp32_softmax_l1_refused_keys": [],
+ "median_s": 46.56,
+ "spread_s": 0.126
+}

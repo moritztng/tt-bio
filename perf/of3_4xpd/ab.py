@@ -5,8 +5,12 @@ No per-region timers, so the number is the uninstrumented fold wall the page cel
 of. Reports the CIF digest and plDDT per fold (bit-exactness is asserted within one host
 and wheel, never across -- qb1/0.67.4 and qb2/0.68.0 fold to different digests), and dumps
 `FP32_SOFTMAX_STATS` so a run says which softmax path it took instead of assuming.
+
+``--altflag NAME`` flips a `tt_bio.tenstorrent` module global between folds and alternates
+the arms in ONE process (cold fold per arm first, then on/off/on/off), which is the
+cheapest honest A/B for a lever that is already behind a runtime gate.
 """
-import argparse, hashlib, json, os, sys, time
+import argparse, hashlib, json, os, statistics, sys, time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -19,6 +23,8 @@ def main():
     ap.add_argument("--size", type=int, default=512)
     ap.add_argument("--repeat", type=int, default=2)
     ap.add_argument("--label", default="arm")
+    ap.add_argument("--altflag", default=None,
+                    help="tt_bio.tenstorrent global to alternate per fold (True/False arms)")
     ap.add_argument("--fixdir", type=Path, default=ROOT / "perf" / "size512" / "fixtures")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
@@ -44,36 +50,52 @@ def main():
     import importlib.metadata as im
     res = {"label": a.label, "ttnn": im.version("ttnn"), "host": os.uname().nodename,
            "card": os.environ.get("TT_VISIBLE_DEVICES"), "size": a.size,
+           "altflag": a.altflag,
            "recycling_steps": B.RECYCLING_STEPS, "sampling_steps": B.SAMPLING_STEPS,
            "loadavg": open("/proc/loadavg").read().split()[:3], "folds": []}
 
-    cold_s, cold_m = one_fold()
-    res["cold_s"] = round(cold_s, 3)
-    print(f"[{a.label}] cold {cold_s:.2f}s plddt={cold_m.get('plddt')}", flush=True)
+    def set_arm(v):
+        if a.altflag:
+            assert hasattr(T, a.altflag), f"no tt_bio.tenstorrent.{a.altflag}"
+            setattr(T, a.altflag, v)
 
-    for i in range(a.repeat):
+    def one(tag, arm):
+        set_arm(arm)
         fold_s, m = one_fold()
-        rec = {"run": i, "fold_s": round(fold_s, 3), "plddt": m.get("plddt"),
-               "n_tokens": m.get("n_tokens"), "n_atoms": m.get("n_atoms"),
-               "cif_sha256": {p.name: hashlib.sha256(p.read_bytes()).hexdigest()[:16]
-                              for p in sorted(struct_dir.glob("*")) if p.is_file()},
-               "loadavg": open("/proc/loadavg").read().split()[:3]}
+        return {"tag": tag, "arm": arm, "fold_s": round(fold_s, 3), "plddt": m.get("plddt"),
+                "n_tokens": m.get("n_tokens"), "n_atoms": m.get("n_atoms"),
+                "cif_sha256": {p.name: hashlib.sha256(p.read_bytes()).hexdigest()[:16]
+                               for p in sorted(struct_dir.glob("*")) if p.is_file()},
+                "loadavg": open("/proc/loadavg").read().split()[:3]}
+
+    arms = [True, False] if a.altflag else [None]
+    for arm in arms:                                  # one cold fold per arm, discarded
+        c = one("cold", arm)
+        print(f"[{a.label}] cold arm={arm} {c['fold_s']:.2f}s plddt={c['plddt']}", flush=True)
+        res.setdefault("cold", []).append(c)
+
+    seq = [arm for _ in range(a.repeat) for arm in arms]
+    for i, arm in enumerate(seq):
+        rec = one(f"warm{i}", arm)
         res["folds"].append(rec)
-        print(f"[{a.label}] warm {i}: {fold_s:.3f}s plddt={m.get('plddt')} "
+        print(f"[{a.label}] warm {i} arm={arm}: {rec['fold_s']:.3f}s plddt={rec['plddt']} "
               f"cif={list(rec['cif_sha256'].values())}", flush=True)
         a.out.parent.mkdir(parents=True, exist_ok=True)
         a.out.write_text(json.dumps(res, indent=1))
 
-    walls = sorted(f["fold_s"] for f in res["folds"])
-    res["median_s"] = walls[len(walls) // 2] if len(walls) % 2 else round(
-        (walls[len(walls) // 2 - 1] + walls[len(walls) // 2]) / 2, 3)
-    res["spread_s"] = round(walls[-1] - walls[0], 3)
+    res["by_arm"] = {}
+    for arm in arms:
+        w = sorted(f["fold_s"] for f in res["folds"] if f["arm"] == arm)
+        res["by_arm"][str(arm)] = {"walls": w, "median": round(statistics.median(w), 3),
+                                   "spread": round(w[-1] - w[0], 3)}
+        print(f"[{a.label}] arm={arm} median {res['by_arm'][str(arm)]['median']:.3f}s "
+              f"spread {res['by_arm'][str(arm)]['spread']:.3f}s", flush=True)
     res["fp32_softmax_stats"] = dict(T.FP32_SOFTMAX_STATS)
     res["fp32_softmax_l1_refused_keys"] = sorted(str(k) for k in T._FP32_SOFTMAX_L1_REFUSED)
+    res["median_s"] = res["by_arm"][str(arms[0])]["median"]
+    res["spread_s"] = res["by_arm"][str(arms[0])]["spread"]
     a.out.write_text(json.dumps(res, indent=1))
-    print(f"[{a.label}] median {res['median_s']:.3f}s spread {res['spread_s']:.3f}s", flush=True)
     print(f"[{a.label}] FP32_SOFTMAX_STATS {res['fp32_softmax_stats']}", flush=True)
-    print(f"[{a.label}] l1_refused_keys {res['fp32_softmax_l1_refused_keys']}", flush=True)
     print("wrote", a.out, flush=True)
     T.cleanup()
 

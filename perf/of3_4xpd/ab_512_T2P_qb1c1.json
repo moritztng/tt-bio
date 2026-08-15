@@ -1,0 +1,107 @@
+{
+ "label": "T2P",
+ "ttnn": "0.67.4",
+ "host": "tt-quietbox",
+ "card": "1",
+ "size": 512,
+ "altflag": null,
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "loadavg": [
+  "1.58",
+  "2.13",
+  "1.60"
+ ],
+ "folds": [
+  {
+   "tag": "warm0",
+   "arm": null,
+   "fold_s": 45.664,
+   "plddt": 0.330907,
+   "n_tokens": 512,
+   "n_atoms": 4116,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "95912b35a50ab9a1"
+   },
+   "loadavg": [
+    "2.87",
+    "2.34",
+    "1.73"
+   ]
+  },
+  {
+   "tag": "warm1",
+   "arm": null,
+   "fold_s": 45.849,
+   "plddt": 0.330907,
+   "n_tokens": 512,
+   "n_atoms": 4116,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "95912b35a50ab9a1"
+   },
+   "loadavg": [
+    "2.94",
+    "2.41",
+    "1.78"
+   ]
+  },
+  {
+   "tag": "warm2",
+   "arm": null,
+   "fold_s": 45.817,
+   "plddt": 0.330907,
+   "n_tokens": 512,
+   "n_atoms": 4116,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "95912b35a50ab9a1"
+   },
+   "loadavg": [
+    "3.02",
+    "2.45",
+    "1.82"
+   ]
+  }
+ ],
+ "cold": [
+  {
+   "tag": "cold",
+   "arm": null,
+   "fold_s": 54.055,
+   "plddt": 0.329758,
+   "n_tokens": 512,
+   "n_atoms": 4116,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "e0f0f1317a62fc05"
+   },
+   "loadavg": [
+    "2.80",
+    "2.28",
+    "1.68"
+   ]
+  }
+ ],
+ "by_arm": {
+  "None": {
+   "walls": [
+    45.664,
+    45.817,
+    45.849
+   ],
+   "median": 45.817,
+   "spread": 0.185
+  }
+ },
+ "fp32_softmax_stats": {
+  "calls": 1760,
+  "blocked": 1760,
+  "blocks": 75680,
+  "fused": 75680,
+  "unfused": 0,
+  "l1": 1760,
+  "l1_blocks": 75680,
+  "l1_refused": 0
+ },
+ "fp32_softmax_l1_refused_keys": [],
+ "median_s": 45.817,
+ "spread_s": 0.185
+}
