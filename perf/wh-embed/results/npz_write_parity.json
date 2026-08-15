@@ -1,0 +1,67 @@
+2026-08-15 22:23:12.560 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+{
+  "n_seqs": 8,
+  "residues": 76,
+  "d_model": 960,
+  "filenames_equal": true,
+  "all_bit_identical": true,
+  "per_file": [
+    {
+      "file": "seq0.npz",
+      "serial_sha256": "d0166b15bf3ab62a4f12fdfffc564ac93d6b8e825079e4567c47ee3084a07a4d",
+      "threaded_sha256": "d0166b15bf3ab62a4f12fdfffc564ac93d6b8e825079e4567c47ee3084a07a4d",
+      "digest_equal": true,
+      "arrays_equal": true
+    },
+    {
+      "file": "seq1.npz",
+      "serial_sha256": "d96efeb6817585c1544a5af5f862d9f6643088a7cc170930a1eecbf5d10950c8",
+      "threaded_sha256": "d96efeb6817585c1544a5af5f862d9f6643088a7cc170930a1eecbf5d10950c8",
+      "digest_equal": true,
+      "arrays_equal": true
+    },
+    {
+      "file": "seq2.npz",
+      "serial_sha256": "557df2c509fafe8bff1e9a49482aa6aed03e14ed88e8bc6552648c8a8bd64d55",
+      "threaded_sha256": "557df2c509fafe8bff1e9a49482aa6aed03e14ed88e8bc6552648c8a8bd64d55",
+      "digest_equal": true,
+      "arrays_equal": true
+    },
+    {
+      "file": "seq3.npz",
+      "serial_sha256": "a21fb86780e9492b1a300a3b155f1039643b3c61450c5edd04b335f0b14c063a",
+      "threaded_sha256": "a21fb86780e9492b1a300a3b155f1039643b3c61450c5edd04b335f0b14c063a",
+      "digest_equal": true,
+      "arrays_equal": true
+    },
+    {
+      "file": "seq4.npz",
+      "serial_sha256": "5097c07df217888cab17335ce1a42979f0505c137d88dc35364814292f320c81",
+      "threaded_sha256": "5097c07df217888cab17335ce1a42979f0505c137d88dc35364814292f320c81",
+      "digest_equal": true,
+      "arrays_equal": true
+    },
+    {
+      "file": "seq5.npz",
+      "serial_sha256": "9dc975d073a113305335865b0f5aec69aa2f54274376b1b6299978f7983b266e",
+      "threaded_sha256": "9dc975d073a113305335865b0f5aec69aa2f54274376b1b6299978f7983b266e",
+      "digest_equal": true,
+      "arrays_equal": true
+    },
+    {
+      "file": "seq6.npz",
+      "serial_sha256": "d4d016e8931643dd08fb6e2731afa809a248d48671dd0d7fd697f7d195a0667a",
+      "threaded_sha256": "d4d016e8931643dd08fb6e2731afa809a248d48671dd0d7fd697f7d195a0667a",
+      "digest_equal": true,
+      "arrays_equal": true
+    },
+    {
+      "file": "seq7.npz",
+      "serial_sha256": "6e396323fa2d13af9a6f1b9287c4504c063dd6344a82918ceda92c7eb698113d",
+      "threaded_sha256": "6e396323fa2d13af9a6f1b9287c4504c063dd6344a82918ceda92c7eb698113d",
+      "digest_equal": true,
+      "arrays_equal": true
+    }
+  ]
+}

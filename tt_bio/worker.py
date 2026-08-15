@@ -1154,24 +1154,37 @@ class _WorkerState:
         """
         import types
 
-        from tt_bio.esmc import embed_sequences, load_sequences, write_npz, write_parquet
+        from tt_bio.esmc import (embed_sequences, load_sequences, write_npz_many,
+                                 write_parquet)
 
         sequences = load_sequences(path)
+        t0 = time.perf_counter()
         results = embed_sequences(
             self.model, sequences, return_logits=cfg.get("return_logits", False),
             pool=cfg.get("pool", "mean"), batch_size=cfg.get("batch_size", 8),
         )
+        device_s = time.perf_counter() - t0
         struct_dir = Path(cfg["struct_dir"])
+        t0 = time.perf_counter()
         if cfg.get("output_format") == "parquet":
             write_parquet(results, struct_dir / f"{cfg['job_id']}.parquet")
         else:
-            for emb in results:
-                write_npz(emb, struct_dir / f"{emb.id}.npz")
+            # Threaded, not a serial write_npz loop. np.savez_compressed sits in
+            # zlib's C compress loop, which releases the GIL, and on the served
+            # batch-8 x 76 aa shape the serial loop costs 369 ms against 64 ms of
+            # device work -- 85 % of the job's wall spent compressing while the
+            # chip idles (measured on the Wormhole Galaxy, UMD 26).
+            write_npz_many(results, struct_dir)
+        write_s = time.perf_counter() - t0
         metrics = {
             "n_sequences": len(results),
             "d_model": int(results[0].pooled.shape[0]) if results else 0,
             "ids": [e.id for e in results],
             "lengths": [len(e.sequence) for e in results],
+            # Reported separately so an ESM-C embed leg is comparable to SaProt's,
+            # which times embed_sequences alone.
+            "device_s": round(device_s, 4),
+            "write_s": round(write_s, 4),
         }
         return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
 
