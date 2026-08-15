@@ -1,0 +1,9 @@
+{
+ "max_abs_err": 0.0,
+ "max_rel": 0.0,
+ "bit_exact": true,
+ "nonzero": {
+  "want": 0.74267578125,
+  "got": 0.74267578125
+ }
+}
