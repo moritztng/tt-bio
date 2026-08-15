@@ -1,0 +1,61 @@
+{
+ "host": "tt-quietbox",
+ "card": "0",
+ "grid": [
+  13,
+  10
+ ],
+ "reps": 5,
+ "shapes": [
+  {
+   "shape": [
+    1,
+    512,
+    512,
+    256
+   ],
+   "mb_bf16": 134.2,
+   "arms": {
+    "shipped": {
+     "s": 0.24847,
+     "gbs_link_bf16": 0.54
+    },
+    "dev_untilize": {
+     "s": 0.23117,
+     "gbs_link_bf16": 0.58,
+     "torch_equal_vs_shipped": true
+    },
+    "bf16_only": {
+     "s": 0.201,
+     "gbs_link_bf16": 0.67
+    },
+    "speedup_dev_untilize": 1.075
+   }
+  },
+  {
+   "shape": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "mb_bf16": 67.1,
+   "arms": {
+    "shipped": {
+     "s": 0.12275,
+     "gbs_link_bf16": 0.55
+    },
+    "dev_untilize": {
+     "s": 0.11894,
+     "gbs_link_bf16": 0.56,
+     "torch_equal_vs_shipped": true
+    },
+    "bf16_only": {
+     "s": 0.09713,
+     "gbs_link_bf16": 0.69
+    },
+    "speedup_dev_untilize": 1.032
+   }
+  }
+ ]
+}
