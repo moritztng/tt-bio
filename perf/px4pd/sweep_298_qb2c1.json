@@ -1,0 +1,111 @@
+{
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "chip": "1",
+ "size": 298,
+ "grid": [
+  11,
+  10
+ ],
+ "n_trimul_instances": 116,
+ "wall": 0,
+ "master_switch": true,
+ "shipped_default_gated_move": [
+  true
+ ],
+ "timed_region": "predict_one (featurize + fold + CIF write)",
+ "runs": [
+  {
+   "arm": "off",
+   "fold_s": 26.22,
+   "plddt": 0.859489,
+   "n_tokens": 298,
+   "cif_sha256": {
+    "cdk2x2_298.cif": "8139d61b6c90f893"
+   },
+   "transpose": {
+    "headroom": 2.5,
+    "l1": 1208,
+    "dram": 0,
+    "refused": 0
+   },
+   "gated": {
+    "enabled": true,
+    "served": 0,
+    "declined": 0,
+    "rejects": {}
+   },
+   "wall_ms": {},
+   "phases": null
+  },
+  {
+   "arm": "ontr",
+   "fold_s": 26.224,
+   "plddt": 0.859489,
+   "n_tokens": 298,
+   "cif_sha256": {
+    "cdk2x2_298.cif": "8139d61b6c90f893"
+   },
+   "transpose": {
+    "headroom": 1.25,
+    "l1": 1208,
+    "dram": 0,
+    "refused": 0
+   },
+   "gated": {
+    "enabled": true,
+    "served": 0,
+    "declined": 0,
+    "rejects": {}
+   },
+   "wall_ms": {},
+   "phases": null
+  },
+  {
+   "arm": "off",
+   "fold_s": 26.235,
+   "plddt": 0.859489,
+   "n_tokens": 298,
+   "cif_sha256": {
+    "cdk2x2_298.cif": "8139d61b6c90f893"
+   },
+   "transpose": {
+    "headroom": 2.5,
+    "l1": 1208,
+    "dram": 0,
+    "refused": 0
+   },
+   "gated": {
+    "enabled": true,
+    "served": 0,
+    "declined": 0,
+    "rejects": {}
+   },
+   "wall_ms": {},
+   "phases": null
+  },
+  {
+   "arm": "ontr",
+   "fold_s": 26.199,
+   "plddt": 0.859489,
+   "n_tokens": 298,
+   "cif_sha256": {
+    "cdk2x2_298.cif": "8139d61b6c90f893"
+   },
+   "transpose": {
+    "headroom": 1.25,
+    "l1": 1208,
+    "dram": 0,
+    "refused": 0
+   },
+   "gated": {
+    "enabled": true,
+    "served": 0,
+    "declined": 0,
+    "rejects": {}
+   },
+   "wall_ms": {},
+   "phases": null
+  }
+ ]
+}
