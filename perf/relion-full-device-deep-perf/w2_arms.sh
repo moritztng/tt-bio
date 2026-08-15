@@ -51,6 +51,7 @@ if [ "${1:-}" = "inner" ]; then inner "$2" "$3"; exit $?; fi
 case "${1:-both}" in
   e1)   run_arm e1  1 ;;
   e16)  run_arm e16 16 ;;
+  e1b)  run_arm e1b 1 ;;      # the run-to-run control: e1 again, so e1-vs-e1b bounds the noise
   both) run_arm e1 1; run_arm e16 16 ;;
 esac
 echo W2_ARMS_DONE > "$O/campaign.done"

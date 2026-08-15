@@ -1,0 +1,8 @@
+[tt_coarse_tune] first coarse call: orientation_num=180 blocks3D=256 rest(%blocks3D)=180 even_orientation_num(RELION)=0  TT_COARSE_E=1
+[tt_coarse_tune] first coarse call: orientation_num=186 blocks3D=256 rest(%blocks3D)=186 even_orientation_num(RELION)=0  TT_COARSE_E=1
+[tt_coarse_tune] first coarse call: orientation_num=180 blocks3D=256 rest(%blocks3D)=180 even_orientation_num(RELION)=0  TT_COARSE_E=1
+[tt_coarse_tune] first coarse call: orientation_num=192 blocks3D=256 rest(%blocks3D)=192 even_orientation_num(RELION)=0  TT_COARSE_E=1
+[tt_coarse_tune] E=1 calls=5544 thread_s=3614.749 pairs=2.186e+10 ns/pair=165.33
+[tt_coarse_tune] E=1 calls=5580 thread_s=3624.658 pairs=2.206e+10 ns/pair=164.31
+[tt_coarse_tune] E=1 calls=5616 thread_s=3655.473 pairs=2.229e+10 ns/pair=164.01
+[tt_coarse_tune] E=1 calls=5520 thread_s=3627.790 pairs=2.183e+10 ns/pair=166.21
