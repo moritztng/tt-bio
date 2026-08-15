@@ -21,7 +21,13 @@ sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
 
 # `ship` leaves the gate alone, so it measures whatever the module default currently is. That is
 # the arm the page publishes, and it is the only one that catches a default that did not land.
-ARMS = {"base": False, "l2": True, "ship": None, "f1": None, "nof1": None}
+ARMS = {"base": False, "l2": True, "ship": None, "f1": None, "nof1": None,
+        "B": None, "A": None, "AB": None}
+
+# Device-resident pair handoffs (esmfold2 only): B is the LM shim -> LM encoder
+# handoff, A is parcae_coda -> distogram head. Every arm sets both explicitly, so
+# no arm inherits the previous one's gate.
+DEVPAIR = {"B": (True, False), "A": (False, True), "AB": (True, True)}
 
 
 def sha_dir(d):
@@ -43,6 +49,7 @@ def main():
     import tt_bio.tenstorrent as T
     import tt_bio.esmc as EC
     import tt_bio.reblock_permute as RP
+    import tt_bio.esmfold2_runtime as RT
     import tt_baseline as B
     from tt_bio.main import _resolve_recycling_steps, _resolve_sampling_steps
     from tt_bio.main import _detect_p300_devices, _find_ttnn_mesh_graph_descriptor
@@ -80,6 +87,11 @@ def main():
             EC.set_pair_ffn_l1_fc1(want)
         elif want:
             raise SystemExit("arm %s needs set_pair_ffn_l1_fc1, absent here" % arm)
+        lm_h, dev_z = DEVPAIR.get(arm, (False, False))
+        RT.set_device_lm_handoff(lm_h)
+        RT.set_device_z(dev_z)
+        RT.LM_HANDOFF_STATS[0] = RT.LM_HANDOFF_STATS[1] = 0
+        RT.Z_STATS[0] = RT.Z_STATS[1] = 0
         RP.STATS_GATED[0] = RP.STATS_GATED[1] = 0
         EC.L1_FC1_STATS[0] = EC.L1_FC1_STATS[1] = 0
         RP.STATS[0] = RP.STATS[1] = 0
@@ -95,15 +107,19 @@ def main():
                "fold_s": round(fold_s, 3), "plddt": m.get("plddt"), "cif": sha_dir(struct_dir),
                "e6_served": RP.STATS_GATED[0], "e6_declined": RP.STATS_GATED[1],
                "l1_fc1_stats": list(EC.L1_FC1_STATS),
+               "lm_handoff": list(RT.LM_HANDOFF_STATS), "dev_z": list(RT.Z_STATS),
                "fwd_move": list(RP.STATS), "back_move": list(RP.STATS_BACK),
                "l1_out_refused": len(T._L1_OUT_REFUSED),
                "trimul_tail_f1": (arm in ("f1", "nof1")) and list(F1M.STATS) or None,
                "loadavg": open("/proc/loadavg").read().split()[0]}
         res["runs"].append(row)
         a.out.write_text(json.dumps(res, indent=1))
-        print("  %-14s %8.3fs plddt=%s e6=%d/%d l1fc1=%d/%d l1refused=%d cif=%s load=%s"
+        print("  %-14s %8.3fs plddt=%s e6=%d/%d l1fc1=%d/%d lmh=%d/%d zdev=%d/%d "
+              "l1refused=%d cif=%s load=%s"
               % (tag, fold_s, m.get("plddt"), RP.STATS_GATED[0], RP.STATS_GATED[1],
                  EC.L1_FC1_STATS[0], EC.L1_FC1_STATS[1],
+                 RT.LM_HANDOFF_STATS[0], RT.LM_HANDOFF_STATS[1],
+                 RT.Z_STATS[0], RT.Z_STATS[1],
                  row["l1_out_refused"],
                  list(row["cif"].values())[0] if row["cif"] else "-", row["loadavg"]),
               flush=True)
@@ -127,12 +143,13 @@ def main():
     for arm, v in by.items():
         summary[arm] = {"n": len(v), "median": round(st.median(v), 3), "min": min(v),
                         "max": max(v), "spread": round(max(v) - min(v), 3)}
-    if "base" in summary:
-        b = summary["base"]["median"]
+    ref = "base" if "base" in summary else ("ship" if "ship" in summary else None)
+    if ref:
+        b = summary[ref]["median"]
         for arm, s in summary.items():
-            s["speedup_vs_base"] = round(b / s["median"], 4)
+            s["speedup_vs_%s" % ref] = round(b / s["median"], 4)
             s["delta_s"] = round(b - s["median"], 3)
-        summary["A/A_noise_floor_s"] = summary["base"]["spread"]
+        summary["A/A_noise_floor_s"] = summary[ref]["spread"]
     res["summary"] = summary
     cifs = {row["arm"]: tuple(sorted(row["cif"].items())) for row in res["runs"]}
     res["cif_identical_across_arms"] = len(set(cifs.values())) == 1
