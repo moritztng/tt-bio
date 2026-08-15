@@ -28,7 +28,7 @@ from tt_bio.tenstorrent import get_device                                 # noqa
 ap = argparse.ArgumentParser()
 ap.add_argument("--cz", type=int, default=256, help="pair channel width; 256 protenix-v2, 384 opendde")
 ap.add_argument("sizes", type=int, nargs="*",
-                default=[512, 32, 64, 96, 128, 160, 224, 288, 384, 448, 576])
+                default=[32, 64, 96, 128, 160, 224, 288, 384, 448, 512, 576])
 a = ap.parse_args()
 CZ = a.cz
 
@@ -60,8 +60,7 @@ for i, N in enumerate(a.sizes):
 
     p = T._trimul_out_proj(xa, wa, ckc)
     g = T._trimul_out_proj(xb, wb, ckc)
-    ref = ttnn.to_torch(
-        ttnn.multiply_(p, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]))
+    ref = ttnn.multiply_(p, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
 
     try:
         out = F1.fused_tail(xa, xb, wa, wb, MG.ckc_args(ckc), (gx, gy))
@@ -73,12 +72,15 @@ for i, N in enumerate(a.sizes):
         print(f"N={N:4d}  DECLINED (out of eligible scope)")
         continue
 
-    got = ttnn.to_torch(out)
-    eq = bool(torch.equal(got, ref))
-    d = (got.float() - ref.float()).abs()
-    nmis = int((d > 0).sum())
-    print(f"N={N:4d}  torch.equal={eq}  mismatched={nmis}/{d.numel()} "
-          f"({100.0 * nmis / d.numel():.3f}%)  max_abs_diff={float(d.max()):.3e}")
+    # Compare on device. `ttnn.to_torch` on a [1,512,512,384] bf16 tensor takes over ten CPU
+    # minutes -- the untilize falls back to one core at this width -- and a full-tensor max over
+    # the difference answers the same question. bf16 subtraction of two bf16 values is exact, so
+    # max_abs_diff == 0.0 is bit-equality, not a tolerance.
+    d = ttnn.abs(ttnn.sub(out, ref))
+    mx = float(ttnn.to_torch(ttnn.max(d)).flatten()[0])
+    ttnn.deallocate(d)
+    eq = mx == 0.0
+    print(f"N={N:4d}  bit_equal={eq}  max_abs_diff={mx:.6e}")
     fails += 0 if eq else 1
 
 print(f"served={F1.STATS[0]} declined={F1.STATS[1]} rejects={F1.REJECTS}")
