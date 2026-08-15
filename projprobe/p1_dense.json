@@ -1,0 +1,43 @@
+{
+ "addr": {
+  "max_abs_err": 0.0,
+  "exact_tiles": 160,
+  "tiles": 160
+ },
+ "fx": {
+  "max_abs_err": 0.0,
+  "exact_tiles": 160,
+  "tiles": 160
+ },
+ "fy": {
+  "max_abs_err": 0.0,
+  "exact_tiles": 160,
+  "tiles": 160
+ },
+ "fz": {
+  "max_abs_err": 0.0,
+  "exact_tiles": 160,
+  "tiles": 160
+ },
+ "mask": {
+  "max_abs_err": 0.0,
+  "exact_tiles": 160,
+  "tiles": 160
+ },
+ "sgn": {
+  "max_abs_err": 0.0,
+  "exact_tiles": 160,
+  "tiles": 160
+ },
+ "all_bit_exact": true,
+ "shape": {
+  "n_ob": 5,
+  "n_pb": 32,
+  "O": 180,
+  "P": 19404,
+  "maxR2": 9604,
+  "mdlX": 100,
+  "mdlXY": 19900,
+  "origin": 1980000
+ }
+}
