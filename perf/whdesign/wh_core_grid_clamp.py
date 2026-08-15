@@ -18,6 +18,7 @@ Run:
     TT_VISIBLE_DEVICES=<card> PYTHONPATH=<worktree> python3 perf/whdesign/wh_core_grid_clamp.py
 """
 import json
+import os
 import pathlib
 import time
 
@@ -26,7 +27,9 @@ import ttnn
 
 import tt_bio.tenstorrent as T
 
-OUT = pathlib.Path("perf/whdesign/results/wh_core_grid_clamp.json")
+# One path per machine: the Blackhole answer and the Wormhole confirmation are two results, and
+# overwriting one with the other would erase the comparison this script exists to make.
+OUT = pathlib.Path(os.environ.get("CLAMP_OUT", "perf/whdesign/results/wh_core_grid_clamp.json"))
 WARMUP, ITERS, BLOCKS = 3, 20, 5
 
 
