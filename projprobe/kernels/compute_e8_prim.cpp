@@ -29,6 +29,10 @@
 //  11 add_binary_tile  (SFPU, DST-to-DST)
 //  12 sub_binary_tile  (SFPU, DST-to-DST)
 //  13 reduce_tile<SUM, REDUCE_COL, enforce_fp32_accumulation=true>
+//  14 unary_bcast<ROW>   15 unary_bcast<COL>  -- bcast.h implements these via unpack-to-dest for
+//     32-bit formats, on its own initiative ("SrcB is only 19bits wide"), so unlike the binary
+//     bcast family they can be exact in fp32. That makes them the only precision-safe broadcast on
+//     this hardware, and §4.3's layout reconciliation depends on having one.
 //
 // 10-12 are the ones that matter now. E8g showed every FPU op truncates its operand to ~11 mantissa
 // bits and that only the SFPU, with unpack_to_dest, holds fp32 exactly. So the coarse kernel's
@@ -94,6 +98,12 @@ void kernel_main() {
                     } else {
                         sub_binary_tile(0, 1, 0);
                     }
+                }
+            } else if constexpr (prim == 14 || prim == 15) {
+                constexpr auto bt = (prim == 14) ? BroadcastType::ROW : BroadcastType::COL;
+                unary_bcast_init<bt>(in_cb, sc_cb);
+                for (uint32_t k = 0; k < ops; ++k) {
+                    unary_bcast<bt>(in_cb, 0, 0);
                 }
             } else if constexpr (prim == 13) {
                 reduce_init<PoolType::SUM, ReduceDim::REDUCE_COL, true>(in_cb, in_cb, sc_cb);

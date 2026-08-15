@@ -1,0 +1,42 @@
+{
+ "FPU  mul_tiles": {
+  "u2d_off": 0.0020494081850952156,
+  "u2d_on": Infinity
+ },
+ "FPU  add_tiles": {
+  "u2d_off": 0.000698946425365427,
+  "u2d_on": 8.129598410514439e+34
+ },
+ "FPU  matmul_tiles": {
+  "u2d_off": 0.0011039432564328175,
+  "u2d_on": Infinity
+ },
+ "SFPU copy_tile passthrough": {
+  "u2d_off": 0.000698946425365427,
+  "u2d_on": 0.0
+ },
+ "SFPU mul_binary_tile": {
+  "u2d_off": 0.0013765433514076023,
+  "u2d_on": 0.0
+ },
+ "SFPU add_binary_tile": {
+  "u2d_off": 0.000698946425365427,
+  "u2d_on": 0.0
+ },
+ "BCAST unary_bcast ROW": {
+  "u2d_off": 0.0005786801544864085,
+  "u2d_on": 1.0
+ },
+ "BCAST unary_bcast COL": {
+  "u2d_off": 0.0007197403809315659,
+  "u2d_on": 1.0
+ },
+ "REDUCE row, fp32-enforced": {
+  "u2d_off": 1.0,
+  "u2d_on": Infinity
+ },
+ "REDUCE row, not enforced": {
+  "u2d_off": 5.786051592018247,
+  "u2d_on": Infinity
+ }
+}

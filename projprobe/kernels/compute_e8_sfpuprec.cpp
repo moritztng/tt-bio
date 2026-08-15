@@ -14,6 +14,11 @@
 #include <cstdint>
 #include "api/compute/common.h"
 #include "api/compute/compute_kernel_api.h"
+#define REDUCE_OP (PoolType::SUM)
+#define REDUCE_DIM (ReduceDim::REDUCE_COL)
+
+#include "api/compute/bcast.h"
+#include "api/compute/reduce.h"
 #include "api/compute/eltwise_binary_sfpu.h"
 #include "api/compute/eltwise_unary/eltwise_unary.h"
 #include "api/compute/tile_move_copy.h"
@@ -37,6 +42,21 @@ void kernel_main() {
     } else if constexpr (op == 1) {
         add_binary_tile_init();
         add_binary_tile(0, 1, 0);
+    } else if constexpr (op == 3) {
+        unary_bcast_init<BroadcastType::ROW>(in_cb, out_cb);
+        unary_bcast<BroadcastType::ROW>(in_cb, 0, 0);
+    } else if constexpr (op == 5 || op == 6) {
+        // The pixel sum in §4.3's compare stage is a reduce. reduce_tile takes an
+        // enforce_fp32_accumulation template flag and E8h priced it at 61.60 ns, the same as the
+        // ordinary one, so it is free if it is exact. 5 = enforced, 6 = not, so the flag's effect is
+        // visible rather than assumed.
+        constexpr bool enf = (op == 5);
+        reduce_init<PoolType::SUM, ReduceDim::REDUCE_ROW, enf>(in_cb, in_cb, out_cb);
+        reduce_tile<PoolType::SUM, ReduceDim::REDUCE_ROW, enf>(in_cb, in_cb, 0, 0, 0);
+        reduce_uninit<enf>();
+    } else if constexpr (op == 4) {
+        unary_bcast_init<BroadcastType::COL>(in_cb, out_cb);
+        unary_bcast<BroadcastType::COL>(in_cb, 0, 0);
     } else {
         // The pass-through control: copy_tile alone, so a residual here would mean the fp32 never
         // reached DST intact and neither SFPU number could be trusted.
