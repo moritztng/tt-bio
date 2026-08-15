@@ -98,7 +98,10 @@ def main():
         _wrap_op(n)
     _wrap_region(M.LocalTokenTransformer, "run_device", "token_dit")
     _wrap_region(M.CompactStreamingDecoder, "run_full_device", "decoder")
-    _wrap_region(M.LocalAtomTransformer, "run_device", "atom_encoder")
+    # __call__, not run_device: run_device is only the dense branch, and the shipped path
+    # takes the sparse one and drives self.blocks directly. The trailing to_torch drain sits
+    # inside the wrap and shows up as its own row.
+    _wrap_region(M.LocalAtomTransformer, "__call__", "atom_encoder")
 
     specs = json.loads(FIXTURE.read_text())
     out_dir = "/tmp/rfd3_p49"
