@@ -19,17 +19,17 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
 
-# `ship` leaves the gate alone, so it measures whatever the module default currently is. That is
-# the arm the page publishes, and it is the only one that catches a default that did not land.
+# `ship` names no lever, so it runs the shipped defaults snapshotted at process start (see
+# SHIPPED below). That is the arm the page publishes, and the only one that catches a default
+# that did not land.
 ARMS = {"base": False, "l2": True, "ship": None, "f1": None, "nof1": None,
         "B": None, "A": None, "AB": None, "D": None, "ABD": None, "BD": None}
 
-# Device-resident pair handoffs (esmfold2 only): B is the LM shim -> LM encoder
-# handoff, A is parcae_coda -> distogram head. A lever arm sets BOTH gates explicitly so it
-# never inherits the previous arm's state; an arm that names neither lever (`ship`, and the
-# fc1/F1 arms) leaves them at the module default, which is the whole point of `ship` -- it is
-# the arm that catches a default that did not land, and it cannot do that if it forces the
-# gate off first. Explicit False here, not a `.get(arm, False)` at the call site.
+# Device-resident pair handoffs (esmfold2 only): B is the LM shim -> LM encoder handoff, A is
+# parcae_coda -> distogram head. Every arm sets both gates on every fold: a lever arm to what it
+# names, any other arm back to the snapshotted shipped default. Neither `.get(arm, False)` (which
+# forces the gate off and makes `ship` blind to a default that did not land) nor leaving the gate
+# alone (which hands `ship` whatever the previous arm mutated) is correct.
 DEVPAIR = {"B": (True, False), "A": (False, True), "AB": (True, True),
            "ABD": (True, True), "BD": (True, False), "D": (False, False)}
 
@@ -88,21 +88,26 @@ def main():
     res["grid"] = [g.x, g.y]
     struct_dir = Path(meta["struct_dir"])
 
+    # The shipped defaults, read ONCE before any arm has mutated them. `set_*` writes a module
+    # global, so an arm that only "leaves the gate alone" actually inherits whatever the previous
+    # arm left there -- the BD arm turns both levers on and the next `ship` then measures BD.
+    # Snapshot here and restore below, so `ship` means the module default and nothing else.
+    SHIPPED = {"l1_fc1": EC._PAIR_FFN_L1_FC1, "lm_handoff": RT._DEVICE_LM_HANDOFF,
+               "dev_z": RT._DEVICE_Z, "dual_noc": DN._ENABLED}
+    res["shipped_defaults"] = dict(SHIPPED)
+
     def run(tag, arm):
         want = ARMS[arm]
         if want is None:
-            want = EC._PAIR_FFN_L1_FC1
-        elif hasattr(EC, "set_pair_ffn_l1_fc1"):
+            want = SHIPPED["l1_fc1"]
+        if want != EC._PAIR_FFN_L1_FC1:
+            if not hasattr(EC, "set_pair_ffn_l1_fc1"):
+                raise SystemExit("arm %s needs set_pair_ffn_l1_fc1, absent here" % arm)
             EC.set_pair_ffn_l1_fc1(want)
-        elif want:
-            raise SystemExit("arm %s needs set_pair_ffn_l1_fc1, absent here" % arm)
-        dp = DEVPAIR.get(arm)
-        if dp is not None:
-            RT.set_device_lm_handoff(dp[0])
-            RT.set_device_z(dp[1])
-        dn = DUALNOC.get(arm)
-        if dn is not None:
-            DN.set_enabled(dn)
+        dp = DEVPAIR.get(arm, (SHIPPED["lm_handoff"], SHIPPED["dev_z"]))
+        RT.set_device_lm_handoff(dp[0])
+        RT.set_device_z(dp[1])
+        DN.set_enabled(DUALNOC.get(arm, SHIPPED["dual_noc"]))
         DN.STATS[0] = DN.STATS[1] = 0
         DN.REJECTS.clear()
         RT.LM_HANDOFF_STATS[0] = RT.LM_HANDOFF_STATS[1] = 0
