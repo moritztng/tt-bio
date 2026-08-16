@@ -1,0 +1,118 @@
+{
+ "base": "https://api.japanfold.com",
+ "rows": [
+  {
+   "label": "boltz2-trpcage",
+   "expect": "ok",
+   "submit_code": 202,
+   "job_id": "7e2dcf7ecf946af38ad52be2f2014395",
+   "submit_resp": null,
+   "progress": 1.0,
+   "terminal": "succeeded",
+   "detail": null,
+   "finished_at": "2026-08-16T07:30:45.351736+00:00"
+  },
+  {
+   "label": "esmfold2-fast-trpcage",
+   "expect": "ok",
+   "submit_code": 202,
+   "job_id": "47e9c69a4d8884f8bf8bdd7544370e4a",
+   "submit_resp": null,
+   "progress": 1.0,
+   "terminal": "succeeded",
+   "detail": null,
+   "finished_at": "2026-08-16T07:31:56.804129+00:00"
+  },
+  {
+   "label": "esmfold2-trpcage",
+   "expect": "fail",
+   "submit_code": 202,
+   "job_id": "2abf12b4bff8dd20974abeda1ecf33a8",
+   "submit_resp": null,
+   "progress": 1.0,
+   "terminal": "succeeded",
+   "detail": null,
+   "finished_at": "2026-08-16T07:31:58.122697+00:00"
+  },
+  {
+   "label": "protenix-v2-trpcage",
+   "expect": "ok",
+   "submit_code": 202,
+   "job_id": "e0bcc69bb5c77dc1eb67eebd4e59159c",
+   "submit_resp": null,
+   "progress": 1.0,
+   "terminal": "succeeded",
+   "detail": null,
+   "finished_at": "2026-08-16T07:31:14.769989+00:00"
+  },
+  {
+   "label": "opendde-trpcage",
+   "expect": "ok",
+   "submit_code": 202,
+   "job_id": "e6a4c9ec46b98d7e46ee34a4f5c1a5e9",
+   "submit_resp": null,
+   "progress": 1.0,
+   "terminal": "succeeded",
+   "detail": null,
+   "finished_at": "2026-08-16T07:31:37.507976+00:00"
+  },
+  {
+   "label": "esmc-300m",
+   "expect": "ok",
+   "submit_code": 202,
+   "job_id": "ff5bf5b9ff7b4557ebb9c6db9020a39c",
+   "submit_resp": null,
+   "progress": 1.0,
+   "terminal": "succeeded",
+   "detail": null,
+   "finished_at": "2026-08-16T07:31:45.118609+00:00"
+  },
+  {
+   "label": "esmc-600m",
+   "expect": "ok",
+   "submit_code": 202,
+   "job_id": "d4255c1dbdcd690d2627e924cd247891",
+   "submit_resp": null,
+   "progress": 1.0,
+   "terminal": "succeeded",
+   "detail": null,
+   "finished_at": "2026-08-16T07:32:05.840679+00:00"
+  },
+  {
+   "label": "esmc-6b",
+   "expect": "ok",
+   "submit_code": 202,
+   "job_id": "74bd8e4feae2b4b18dfedf0629d7300d",
+   "submit_resp": null,
+   "progress": 1.0,
+   "terminal": "succeeded",
+   "detail": null,
+   "finished_at": "2026-08-16T07:32:28.735379+00:00"
+  },
+  {
+   "label": "saprot-650m",
+   "expect": "ok",
+   "submit_code": 202,
+   "job_id": "e95f97c1d9f8b24ce136519a9bb2afbc",
+   "submit_resp": null,
+   "progress": 1.0,
+   "terminal": "succeeded",
+   "detail": null,
+   "finished_at": "2026-08-16T07:32:13.055244+00:00"
+  },
+  {
+   "label": "saprot-1.3b",
+   "expect": "ok",
+   "submit_code": 202,
+   "job_id": "18b0074336637136d643bb8385b23984",
+   "submit_resp": null,
+   "progress": 1.0,
+   "terminal": "succeeded",
+   "detail": null,
+   "finished_at": "2026-08-16T07:32:33.739264+00:00"
+  }
+ ],
+ "mismatches": [
+  "esmfold2-trpcage: expected the known pre-existing failure, it SUCCEEDED -- good news, but \u00a77.5's expectation is stale and must be updated"
+ ]
+}
