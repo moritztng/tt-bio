@@ -292,9 +292,9 @@ An affinity run folds the complex and then runs a second model that has its own
 card. FKBP12+SB3 at the default affinity protocol (200 sampling steps, 5 affinity
 samples, single sequence) takes about 92 s per ligand on one Blackhole p150a, of
 which about 29 s is the structure fold; the same target takes about 134 s on one
-Wormhole chip. The affinity model's own diffusion is the biggest remaining piece, so
-`--sampling_steps_affinity` and `--diffusion_samples_affinity` are the two flags that
-move the wall most.
+Wormhole chip. The rest splits about evenly between the affinity model's diffusion
+and its trunk, so `--sampling_steps_affinity` and `--diffusion_samples_affinity` are
+the two flags that move the wall most: each extra affinity sample costs about 6 s.
 
 The affinity trunk runs in fp32 because the predicted log10(IC50) is sensitive to
 activation precision, and that is not configurable. Earlier releases ran it in fp32

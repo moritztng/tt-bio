@@ -1,0 +1,4 @@
+after affinity_1sample rep1 rc=0 wall=66.888616703
+after affinity_1sample rep2 rc=0 wall=65.822463133
+after affinity_1sample rep3 rc=0 wall=67.858428637
+AFF1_EXIT=0 2026-08-16T23:47:38Z
