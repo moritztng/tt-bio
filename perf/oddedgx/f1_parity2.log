@@ -1,0 +1,9 @@
+=== f1_parity c_z=384 2026-08-15T19:46:19+00:00 ===
+benchlock: opendde-beat-dgx-h200 waiting; currently held by: worker:protenix-v2-beat-dgx-h200 pid=32197 since=2026-08-15T19:45:29+00:00
+benchlock: opendde-beat-dgx-h200 acquired after 45s, loadavg 0.51 0.89 0.96
+2026-08-15 19:47:18.498 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+grid 11x10  c_z=384  key=(12,12)  F1 block=(8, 12, 1, 2, 1)  ttnn 0.68.0
+production tail path: ttnn.linear  (_pair_proj_minimal_matmul returned None)
+N=  32  bit_equal=False  max_abs_diff=3.187500e+00
+N=  64  bit_equal=False  max_abs_diff=4.750000e+00

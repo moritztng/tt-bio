@@ -1,0 +1,36 @@
+{
+ "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/hostile_one_residue/target_1.cif",
+ "checks": {
+  "n_atoms": 8,
+  "bbox_diagonal": 3.73,
+  "chains": [],
+  "clashes": {
+   "n": 0,
+   "heavy_atoms": 8,
+   "worst_dist": 0.0,
+   "threshold": 2.0,
+   "budget": 2
+  },
+  "confidence": {
+   "source": "b_factor",
+   "n": 8,
+   "min": 0.7899,
+   "max": 0.7899,
+   "mean": 0.7899,
+   "std": 0.0,
+   "scale": 100.0
+  },
+  "expected": {
+   "chains": 1,
+   "ligands": 0
+  },
+  "ligand_residues_seen": 1
+ },
+ "fail": [
+  "all atoms within a 3.7 A box -- degenerate output",
+  "confidence is effectively constant (std 0.0000 < 0.01) -- the signature of a garbage fold",
+  "expected 1 polymer chain(s), found 0: []"
+ ],
+ "warn": [],
+ "verdict": "FAIL"
+}

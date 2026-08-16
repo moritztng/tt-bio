@@ -1,0 +1,53 @@
+{
+ "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/hostile_ambiguous_letters/target_1.cif",
+ "checks": {
+  "n_atoms": 228,
+  "bbox_diagonal": 69.57,
+  "chains": [
+   {
+    "chain": "A",
+    "kind": "protein",
+    "n_res": 42,
+    "sequence": "MXXXXXXMXXXXXXMXXXXXXMXXXXXXMXXXXXXMXXXXXX",
+    "step_median": 3.85,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 1.0,
+    "breaks": 0,
+    "rg": 18.66,
+    "rg_expected": 9.1,
+    "rg_ratio": 2.049,
+    "n_ca_bond_median": 1.461,
+    "ca_c_bond_median": 1.524
+   }
+  ],
+  "clashes": {
+   "n": 0,
+   "heavy_atoms": 228,
+   "worst_dist": 0.0,
+   "threshold": 2.0,
+   "budget": 2
+  },
+  "confidence": {
+   "source": "b_factor",
+   "n": 228,
+   "min": 0.6992,
+   "max": 0.8258,
+   "mean": 0.7892,
+   "std": 0.0292,
+   "scale": 100.0
+  },
+  "expected": {
+   "chains": 1,
+   "ligands": 0
+  },
+  "ligand_residues_seen": 0
+ },
+ "fail": [
+  "chain A (protein): Rg 18.7 A is 2.05x the 9.1 A expected for 42 residues -- not a compact fold"
+ ],
+ "warn": [],
+ "verdict": "FAIL"
+}

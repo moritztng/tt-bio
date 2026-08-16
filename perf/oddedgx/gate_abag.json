@@ -1,0 +1,20 @@
+{
+  "legs": [
+    {
+      "leg": "opendde-abag",
+      "verdict": "PASS",
+      "detail": "global DockQ=0.703",
+      "wall": 436.090816730999,
+      "committed": "PASS",
+      "report": "opendde-abag.json"
+    }
+  ],
+  "tally": {
+    "PASS": 1
+  },
+  "scored": 1,
+  "total_wall_s": 436.0909017739996,
+  "workers": [
+    "tt-quietbox2:2"
+  ]
+}

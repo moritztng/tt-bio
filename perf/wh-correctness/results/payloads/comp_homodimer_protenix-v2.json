@@ -1,0 +1,1 @@
+{"model": "protenix-v2", "name": "homodimer", "input": "sequences:\n  - protein: {id: [A, B], sequence: MTYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTEKPEVIDAS}\n"}

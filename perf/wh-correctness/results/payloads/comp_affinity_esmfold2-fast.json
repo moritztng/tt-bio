@@ -1,0 +1,1 @@
+{"model": "esmfold2-fast", "name": "affinity", "input": "sequences:\n  - protein: {id: A, sequence: MTYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTEKPEVIDAS}\n  - ligand: {id: L, smiles: 'CC(=O)Oc1ccccc1C(=O)O'}\nproperties:\n  - affinity: {binder: L}\n"}

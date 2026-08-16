@@ -1,0 +1,1 @@
+{"model": "boltzgen", "protocol": "protein-small_molecule", "name": "des_bg_sm", "spec": "entities:\n  - protein:\n      id: B\n      sequence: 80..120\n  - ligand:\n      id: A\n      smiles: 'CN1C=NC2=C1C(=O)N(C(=O)N2C)C'\n", "params": {"num_designs": 10, "budget": 10}}

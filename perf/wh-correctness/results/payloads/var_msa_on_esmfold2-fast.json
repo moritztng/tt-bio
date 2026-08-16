@@ -1,0 +1,1 @@
+{"model": "esmfold2-fast", "name": "var_msa_on_esmfold2-fast", "input": "sequences:\n  - protein: {id: A, sequence: MTYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTEKPEVIDAS}\n", "params": {"use_msa_server": true}}

@@ -1,0 +1,51 @@
+{
+ "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/comp_ligand_smiles_protenix-v2/target_1.cif",
+ "checks": {
+  "n_atoms": 508,
+  "bbox_diagonal": 50.23,
+  "chains": [
+   {
+    "chain": "A",
+    "kind": "protein",
+    "n_res": 64,
+    "sequence": "MTYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTEKPEVIDAS",
+    "step_median": 3.824,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 0.9841,
+    "breaks": 0,
+    "rg": 10.92,
+    "rg_expected": 10.68,
+    "rg_ratio": 1.022,
+    "n_ca_bond_median": 1.462,
+    "ca_c_bond_median": 1.525
+   }
+  ],
+  "clashes": {
+   "n": 0,
+   "heavy_atoms": 508,
+   "worst_dist": 0.0,
+   "threshold": 2.0,
+   "budget": 2
+  },
+  "confidence": {
+   "source": "b_factor",
+   "n": 508,
+   "min": 0.6448,
+   "max": 0.9891,
+   "mean": 0.9412,
+   "std": 0.0716,
+   "scale": 100.0
+  },
+  "expected": {
+   "chains": 1,
+   "ligands": 1
+  },
+  "ligand_residues_seen": 1
+ },
+ "fail": [],
+ "warn": [],
+ "verdict": "PASS"
+}

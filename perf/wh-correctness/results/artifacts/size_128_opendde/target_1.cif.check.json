@@ -1,0 +1,55 @@
+{
+ "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/size_128_opendde/target_1.cif",
+ "checks": {
+  "n_atoms": 1033,
+  "bbox_diagonal": 75.44,
+  "chains": [
+   {
+    "chain": "A",
+    "kind": "protein",
+    "n_res": 128,
+    "sequence": "MENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLLDVIHTENKLYLVFEFLHQDLKKFMDASALTGIPLPLIKSYLFQLLQGLAFCHSHRVLHRDL",
+    "step_median": 3.846,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 0.8898,
+    "breaks": 10,
+    "rg": 15.54,
+    "rg_expected": 13.9,
+    "rg_ratio": 1.118,
+    "n_ca_bond_median": 1.461,
+    "ca_c_bond_median": 1.52
+   }
+  ],
+  "clashes": {
+   "n": 71,
+   "heavy_atoms": 1033,
+   "worst_dist": 0.426,
+   "threshold": 2.0,
+   "budget": 2
+  },
+  "confidence": {
+   "source": "b_factor",
+   "n": 1033,
+   "min": 0.6199,
+   "max": 0.9834,
+   "mean": 0.9268,
+   "std": 0.0654,
+   "scale": 100.0
+  },
+  "expected": {
+   "chains": 1,
+   "ligands": 0
+  },
+  "ligand_residues_seen": 0
+ },
+ "fail": [
+  "chain A (protein): only 89.0% of consecutive backbone steps in [3.6, 4.1] A (floor 90%)",
+  "chain A (protein): 10 backbone gap(s) > 5.0 A -- chain is broken",
+  "71 heavy-atom clashes < 2.0 A (6.87% of atoms, worst 0.426 A)"
+ ],
+ "warn": [],
+ "verdict": "FAIL"
+}

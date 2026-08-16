@@ -1,0 +1,1 @@
+{"model": "boltz2", "name": "ambiguous_letters", "input": "sequences:\n  - protein: {id: A, sequence: MBJOUXZMBJOUXZMBJOUXZMBJOUXZMBJOUXZMBJOUXZ}\n"}

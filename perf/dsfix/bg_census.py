@@ -22,7 +22,7 @@ import tt_bio.boltzgen.model.modules.diffusion as DIFF
 
 T_D = 19.179e-6
 START_AT = 12
-OUT = pathlib.Path("perf/dsfix/results/bg_census.jsonl")
+OUT = pathlib.Path(os.environ.get("BGC_OUT", "perf/dsfix/results/bg_census.jsonl"))
 OUT.parent.mkdir(parents=True, exist_ok=True)
 RUNG = sys.argv[1]
 
@@ -91,7 +91,7 @@ if len(state["caps"]) < 2:
 k1, k2 = state["caps"][0][0], state["caps"][1][0]
 K = max(k1, k2)
 wall = None
-p = pathlib.Path("perf/dsfix/results/bg_tt.jsonl")
+p = pathlib.Path(os.environ.get("BGC_WALLS", "perf/dsfix/results/bg_tt.jsonl"))
 if p.exists():
     for line in p.read_text().splitlines():
         r = json.loads(line)
@@ -102,7 +102,14 @@ rec = {"rung": RUNG, "K_step1": k1, "K_step2": k2, "K": K, "agree": k1 == k2,
        "D": round(K * T_D / wall, 4) if wall else None,
        "us_per_program": round(wall / K * 1e6, 2) if wall and K else None,
        "top_ops": [{"op": o, "n": c} for o, c in state["tops"][0]],
-       "host": "qb1", "card": 0, "ttnn": "0.67.4"}
+       "grid": None, "host": os.environ.get("BGC_HOST", "qb1"),
+       "card": os.environ.get("TT_VISIBLE_DEVICES", "0"),
+       "ttnn": os.environ.get("BGC_TTNN", "0.67.4")}
+try:
+    import tt_bio.tenstorrent as _T
+    rec["grid"] = list(_T.COMPUTE_GRID_MAIN)
+except Exception:                                         # noqa: BLE001
+    pass
 with OUT.open("a") as fh:
     fh.write(json.dumps(rec) + "\n")
 print("[bgc] %s K=%d (steps %d/%d agree=%s) D=%s us/prog=%s"

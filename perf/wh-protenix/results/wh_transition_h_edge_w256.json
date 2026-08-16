@@ -1,0 +1,75 @@
+{
+ "meta": {
+  "arch": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "cores": 72,
+  "l1_per_core": 1466080,
+  "H": 256,
+  "W": 256,
+  "c": 256,
+  "hidden": 1024,
+  "host": "UF-EV-A13-GWH02"
+ },
+ "rows": [
+  {
+   "h": 22,
+   "n_chunks": 12,
+   "chunk_elems": 1441792,
+   "est_l1_bytes_per_core": 360448,
+   "status": "ok",
+   "ms_median": 10.0945,
+   "ms_all": [
+    10.0303,
+    10.1057,
+    10.0945
+   ],
+   "bit_exact_vs_ref": null,
+   "ref_h": 22
+  },
+  {
+   "h": 23,
+   "n_chunks": 12,
+   "chunk_elems": 1507328,
+   "est_l1_bytes_per_core": 376832,
+   "status": "ok",
+   "ms_median": 10.0739,
+   "ms_all": [
+    9.9745,
+    10.0821,
+    10.0739
+   ],
+   "bit_exact_vs_ref": true
+  },
+  {
+   "h": 24,
+   "n_chunks": 11,
+   "chunk_elems": 1572864,
+   "est_l1_bytes_per_core": 393216,
+   "status": "ok",
+   "ms_median": 10.0008,
+   "ms_all": [
+    9.9965,
+    10.0064,
+    10.0008
+   ],
+   "bit_exact_vs_ref": true
+  },
+  {
+   "h": 25,
+   "n_chunks": 11,
+   "chunk_elems": 1638400,
+   "est_l1_bytes_per_core": 409600,
+   "status": "ok",
+   "ms_median": 9.9617,
+   "ms_all": [
+    9.8858,
+    9.9666,
+    9.9617
+   ],
+   "bit_exact_vs_ref": true
+  }
+ ]
+}

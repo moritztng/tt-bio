@@ -1,0 +1,52 @@
+{
+ "ttnn": "0.68.0",
+ "host": "qb2",
+ "card": 1,
+ "n": 512,
+ "c": 256,
+ "grid": [
+  11,
+  10
+ ],
+ "reps": 8,
+ "trials": 5,
+ "loadavg": [
+  "1.27",
+  "1.29",
+  "1.25"
+ ],
+ "f1_calls_per_fold": 1048,
+ "gate_ms_per_call": 0.25,
+ "arms": {
+  "full": {
+   "ms": 3.20553,
+   "min_ms": 3.20331,
+   "max_ms": 3.2149
+  },
+  "no_ln": {
+   "ms": 2.34987,
+   "min_ms": 2.32528,
+   "max_ms": 2.3743
+  },
+  "ln_only": {
+   "ms": 0.91396,
+   "min_ms": 0.89913,
+   "max_ms": 0.92057
+  },
+  "full_2": {
+   "ms": 3.21625,
+   "min_ms": 3.21407,
+   "max_ms": 3.22313
+  }
+ },
+ "aa_floor_ms": 0.01072,
+ "deletable_ms_per_call": 0.85566,
+ "deletable_s_per_fold": 0.8967,
+ "gate_s_per_fold": 0.262,
+ "verdict": "GO to a kernel",
+ "loadavg_end": [
+  "1.27",
+  "1.29",
+  "1.25"
+ ]
+}

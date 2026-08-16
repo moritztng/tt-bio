@@ -1,0 +1,61 @@
+{
+  "model": "saprot-1.3b",
+  "n_seqs": 8,
+  "residues": 76,
+  "batch_size": 8,
+  "fast": false,
+  "arch": "wormhole_b0",
+  "visible_devices": "30",
+  "load_s": 11.3,
+  "device_ms": 154.2,
+  "serial_write_ms": 493.75,
+  "threaded_write_ms": 80.31,
+  "gate_region_ms": 647.95,
+  "write_share_of_gate": 0.762,
+  "device_seq_s": 51.88,
+  "gate_seq_s": 12.347,
+  "device_ms_all": [
+    153.42,
+    153.41,
+    156.78,
+    155.03,
+    154.2
+  ],
+  "serial_write_ms_all": [
+    492.7,
+    493.75,
+    510.68,
+    492.4,
+    510.19
+  ],
+  "threaded_write_ms_all": [
+    67.46,
+    88.24,
+    80.31,
+    81.61,
+    69.83
+  ],
+  "npz_bytes": 1513152,
+  "matched_roof": {
+    "per_residue_bytes": 3112960,
+    "compressed_bytes": 1471224,
+    "compress_ratio": 0.4726,
+    "workers": 32,
+    "zlib_serial_ms": 463.86,
+    "zlib_threaded_ms": 81.34,
+    "zlib_serial_MBps": 6.71,
+    "zlib_threaded_MBps": 38.27,
+    "zlib_thread_speedup": 5.703,
+    "savez_overhead_ms": 29.88,
+    "savez_overhead_share": 0.0605
+  },
+  "loadavg": [
+    19.0712890625,
+    19.0712890625,
+    19.0712890625,
+    19.0712890625,
+    18.5048828125
+  ],
+  "warmup": 2,
+  "repeat": 5
+}

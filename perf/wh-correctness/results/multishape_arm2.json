@@ -1,0 +1,159 @@
+{
+ "model": "esmfold2-fast",
+ "sizes": [
+  64,
+  128,
+  192,
+  256,
+  320,
+  384,
+  448,
+  512,
+  640,
+  1024
+ ],
+ "fail": [],
+ "warn": [],
+ "batch": {
+  "job": "078825850044bb9df50129c72e92d4eb",
+  "status": "succeeded",
+  "error": null,
+  "rows": {
+   "cdk2_64": 64,
+   "cdk2_256": 256,
+   "cdk2_384": 384,
+   "cdk2_448": 448,
+   "cdk2_512": 512,
+   "cdk2_192": 192,
+   "cdk2_640": 640,
+   "cdk2_128": 128,
+   "cdk2_320": 320,
+   "cdk2_1024": 1024
+  },
+  "per_target": {
+   "cdk2_1024": {
+    "verdict": "WARN",
+    "fail": [],
+    "n_res": 1024
+   },
+   "cdk2_128": {
+    "verdict": "PASS",
+    "fail": [],
+    "n_res": 128
+   },
+   "cdk2_192": {
+    "verdict": "PASS",
+    "fail": [],
+    "n_res": 192
+   },
+   "cdk2_256": {
+    "verdict": "PASS",
+    "fail": [],
+    "n_res": 256
+   },
+   "cdk2_320": {
+    "verdict": "PASS",
+    "fail": [],
+    "n_res": 320
+   },
+   "cdk2_384": {
+    "verdict": "WARN",
+    "fail": [],
+    "n_res": 384
+   },
+   "cdk2_448": {
+    "verdict": "PASS",
+    "fail": [],
+    "n_res": 448
+   },
+   "cdk2_512": {
+    "verdict": "WARN",
+    "fail": [],
+    "n_res": 512
+   },
+   "cdk2_64": {
+    "verdict": "PASS",
+    "fail": [],
+    "n_res": 64
+   },
+   "cdk2_640": {
+    "verdict": "WARN",
+    "fail": [],
+    "n_res": 640
+   }
+  }
+ },
+ "solo": {
+  "64": {
+   "job": "1adeb6116319fbb11f970cce0143d16c",
+   "status": "succeeded",
+   "verdict": "PASS",
+   "n_res": 64,
+   "fail": []
+  },
+  "128": {
+   "job": "25b9ba53c96f5816fed5f25ce79d012f",
+   "status": "succeeded",
+   "verdict": "PASS",
+   "n_res": 128,
+   "fail": []
+  },
+  "192": {
+   "job": "ad7371686403d4e11240134d7e66ca13",
+   "status": "succeeded",
+   "verdict": "PASS",
+   "n_res": 192,
+   "fail": []
+  },
+  "256": {
+   "job": "6f213d13d08182e532daef2ba2cf025b",
+   "status": "succeeded",
+   "verdict": "PASS",
+   "n_res": 256,
+   "fail": []
+  },
+  "320": {
+   "job": "ff93ef68be9be90058c4b0be92552cf8",
+   "status": "succeeded",
+   "verdict": "PASS",
+   "n_res": 320,
+   "fail": []
+  },
+  "384": {
+   "job": "b477e3558ca95678254dcb428a2b5171",
+   "status": "succeeded",
+   "verdict": "WARN",
+   "n_res": 384,
+   "fail": []
+  },
+  "448": {
+   "job": "6752041d2ab78064d0e9ce230c129dcc",
+   "status": "succeeded",
+   "verdict": "PASS",
+   "n_res": 448,
+   "fail": []
+  },
+  "512": {
+   "job": "36fa8376c5d9641d13ec7f3762d28352",
+   "status": "succeeded",
+   "verdict": "WARN",
+   "n_res": 512,
+   "fail": []
+  },
+  "640": {
+   "job": "f0f0b93244b1c1c4e989b2f777a9f423",
+   "status": "succeeded",
+   "verdict": "WARN",
+   "n_res": 640,
+   "fail": []
+  },
+  "1024": {
+   "job": "c597109370bad9def1f099e985df0429",
+   "status": "succeeded",
+   "verdict": "WARN",
+   "n_res": 1024,
+   "fail": []
+  }
+ },
+ "verdict": "PASS"
+}

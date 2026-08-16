@@ -35,14 +35,18 @@ sys.path.insert(0, os.getcwd())
 from tt_bio.rfd3 import design as rfd3_design            # noqa: E402
 from tt_bio.rfd3.sampler import RFD3Sampler              # noqa: E402
 
-CKPT = "/home/ttuser/.boltz/rfd3/weights"
-OUT = pathlib.Path("perf/dsfix/results/rfd3_batch_e2e.jsonl")
+CKPT = os.environ.get("RFD3_CKPT", "/home/ttuser/.boltz/rfd3/weights")
+OUT = pathlib.Path(os.environ.get("RFD3_E2E_OUT", "perf/dsfix/results/rfd3_batch_e2e.jsonl"))
 STEPS = 200                    # upstream production default, what every page arm ran
 SEED = 42                      # the CLI default
 # chunks kept after the cold one; R4 spread was 0.06-0.23 %. A cell that goes on the perf
 # page needs n >= 3 (workstream rule, 2026-08-15), so RFD3_E2E_NWARM raises it for those runs.
 N_WARM = int(os.environ.get("RFD3_E2E_NWARM", "2"))
-HOST, CARD, TTNN = "qb2", 0, "0.68.0"
+# From the environment: this harness has to run on the Wormhole Galaxy too, and the invocation
+# wall is the quantity Lever B's gate is written against.
+HOST = os.environ.get("RFD3_HOST", "qb2")
+CARD = os.environ.get("RFD3_CARD", "0")
+TTNN = os.environ.get("RFD3_TTNN", "0.68.0")
 
 # atoms and target residues per rung, from perf/dsfix/results/rfd3_tt.jsonl. The binder is
 # 100 residues at every rung, so the CIF must carry target_res + 100.

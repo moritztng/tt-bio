@@ -1,0 +1,23 @@
+{
+ "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/emb_cap_saprot-1.3b/s34.npz",
+ "checks": {
+  "keys": [
+   "per_residue",
+   "pooled",
+   "sequence"
+  ],
+  "shape": [
+   2000,
+   1280
+  ],
+  "d_model": 1280,
+  "length_out": 2000,
+  "pooled_ptp": 2.1676673889160156,
+  "per_residue_ptp": 3.859375,
+  "row_spread": 2.453125,
+  "pool_mean_matches": true
+ },
+ "fail": [],
+ "warn": [],
+ "verdict": "PASS"
+}

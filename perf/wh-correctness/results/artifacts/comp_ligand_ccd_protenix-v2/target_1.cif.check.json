@@ -1,0 +1,51 @@
+{
+ "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/comp_ligand_ccd_protenix-v2/target_1.cif",
+ "checks": {
+  "n_atoms": 526,
+  "bbox_diagonal": 63.04,
+  "chains": [
+   {
+    "chain": "A",
+    "kind": "protein",
+    "n_res": 64,
+    "sequence": "MTYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTEKPEVIDAS",
+    "step_median": 3.818,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 1.0,
+    "breaks": 0,
+    "rg": 12.71,
+    "rg_expected": 10.68,
+    "rg_ratio": 1.19,
+    "n_ca_bond_median": 1.458,
+    "ca_c_bond_median": 1.524
+   }
+  ],
+  "clashes": {
+   "n": 0,
+   "heavy_atoms": 526,
+   "worst_dist": 0.0,
+   "threshold": 2.0,
+   "budget": 2
+  },
+  "confidence": {
+   "source": "b_factor",
+   "n": 526,
+   "min": 0.304,
+   "max": 0.9893,
+   "mean": 0.9291,
+   "std": 0.0971,
+   "scale": 100.0
+  },
+  "expected": {
+   "chains": 1,
+   "ligands": 1
+  },
+  "ligand_residues_seen": 1
+ },
+ "fail": [],
+ "warn": [],
+ "verdict": "PASS"
+}

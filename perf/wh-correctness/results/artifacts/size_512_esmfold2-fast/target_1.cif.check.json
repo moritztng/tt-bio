@@ -1,0 +1,53 @@
+{
+ "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/size_512_esmfold2-fast/target_1.cif",
+ "checks": {
+  "n_atoms": 4116,
+  "bbox_diagonal": 123.61,
+  "chains": [
+   {
+    "chain": "A",
+    "kind": "protein",
+    "n_res": 512,
+    "sequence": "MENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLLDVIHTENKLYLVFEFLHQDLKKFMDASALTGIPLPLIKSYLFQLLQGLAFCHSHRVLHRDLKPQNLLINTEGAIKLADFGLARAFGVPVRTYTHEVVTLWYRAPEILLGCKYYSTAVDIWSLGCIFAEMVTRRALFPGDSEIDQLFRIFRTLGTPDEVVWPGVTSMPDYKPSFPKWARQDFSKVVPPLDEDGRSLLSQMLHYDPNKRISAKAALAHPFFQDVTKPVPHLRLMENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLLDVIHTENKLYLVFEFLHQDLKKFMDASALTGIPLPLIKSYLFQLLQGLAFCHSHRVLHRDLKPQNLLINTEGAIKLADFGLARAFGVPVRTYTHEVVTLWYRAPEILLGCKYYSTAVDIWSLGCIFAEMVTRRALFPGDSEIDQLFR",
+    "step_median": 3.836,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 1.0,
+    "breaks": 0,
+    "rg": 27.48,
+    "rg_expected": 23.55,
+    "rg_ratio": 1.167,
+    "n_ca_bond_median": 1.464,
+    "ca_c_bond_median": 1.529
+   }
+  ],
+  "clashes": {
+   "n": 4,
+   "heavy_atoms": 4116,
+   "worst_dist": 1.259,
+   "threshold": 2.0,
+   "budget": 4.116
+  },
+  "confidence": {
+   "source": "b_factor",
+   "n": 4116,
+   "min": 0.5352,
+   "max": 0.989,
+   "mean": 0.8978,
+   "std": 0.0982,
+   "scale": 100.0
+  },
+  "expected": {
+   "chains": 1,
+   "ligands": 0
+  },
+  "ligand_residues_seen": 0
+ },
+ "fail": [],
+ "warn": [
+  "4 marginal contacts < 2.0 A (worst 1.259 A)"
+ ],
+ "verdict": "WARN"
+}

@@ -30,6 +30,8 @@ are freed at the diffusion boundary now, which drops the confidence entry from 1
 5.72 GiB.
 
 Per-cell fold times and peak DRAM are in the release notes of the version that landed this.
-Normal-size targets never enter the blocked path: it is gated on a token-count threshold
-(1536 on Blackhole, 608 on the Wormhole Galaxy) that a 300-residue target does not reach, and the
-before/after timings on the standard 117/298-residue benchmarks are unchanged within noise.
+Normal-size targets never enter the blocked path: it is gated on a token-count threshold that
+a 300-residue target does not reach, and the before/after timings on the standard 117/298-residue
+benchmarks are unchanged within noise. The threshold is 1536 on Blackhole. On Wormhole it is
+derived from the part's usable per-core L1 rather than fixed, so it varies by machine: on the
+Galaxy above it is 608, not the 640 a full-L1 part would give.

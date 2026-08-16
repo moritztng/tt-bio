@@ -1,0 +1,1 @@
+{"model": "boltz2", "name": "rna", "input": "sequences:\n  - rna: {id: A, sequence: GGCUAGCUAGCUAGCUAGCC}\n"}

@@ -1,0 +1,51 @@
+{
+ "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/size_128_boltz2/target_1.cif",
+ "checks": {
+  "n_atoms": 1032,
+  "bbox_diagonal": 71.64,
+  "chains": [
+   {
+    "chain": "A",
+    "kind": "protein",
+    "n_res": 128,
+    "sequence": "MENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLLDVIHTENKLYLVFEFLHQDLKKFMDASALTGIPLPLIKSYLFQLLQGLAFCHSHRVLHRDL",
+    "step_median": 3.775,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 1.0,
+    "breaks": 0,
+    "rg": 16.37,
+    "rg_expected": 13.9,
+    "rg_ratio": 1.178,
+    "n_ca_bond_median": 1.454,
+    "ca_c_bond_median": 1.517
+   }
+  ],
+  "clashes": {
+   "n": 0,
+   "heavy_atoms": 1032,
+   "worst_dist": 0.0,
+   "threshold": 2.0,
+   "budget": 2
+  },
+  "confidence": {
+   "source": "b_factor",
+   "n": 1032,
+   "min": 0.4566,
+   "max": 0.97,
+   "mean": 0.8589,
+   "std": 0.1126,
+   "scale": 100.0
+  },
+  "expected": {
+   "chains": 1,
+   "ligands": 0
+  },
+  "ligand_residues_seen": 0
+ },
+ "fail": [],
+ "warn": [],
+ "verdict": "PASS"
+}

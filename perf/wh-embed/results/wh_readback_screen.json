@@ -1,0 +1,26 @@
+{
+  "arch": "wormhole_b0",
+  "visible_devices": "30",
+  "shape": [
+    1,
+    128,
+    2560
+  ],
+  "bytes": 655360,
+  "reps": 20,
+  "n_discarded": 80,
+  "t_rb_ms": 0.6048,
+  "t_rb_sync_ms": 0.656,
+  "t_rb_ms_all": [
+    0.799,
+    0.8085,
+    0.7354,
+    0.8513,
+    0.6697
+  ],
+  "implied_GBps": 1.08,
+  "implied_GBps_sync": 1.0,
+  "predicted_saving_lower_ms": 48.39,
+  "predicted_saving_upper_ms": 52.48,
+  "loadavg": 15.36
+}

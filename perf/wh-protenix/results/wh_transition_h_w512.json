@@ -1,0 +1,84 @@
+{
+ "meta": {
+  "arch": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "cores": 72,
+  "l1_per_core": 1466080,
+  "H": 512,
+  "W": 512,
+  "c": 256,
+  "hidden": 1024,
+  "host": "UF-EV-A13-GWH02"
+ },
+ "rows": [
+  {
+   "h": 4,
+   "n_chunks": 128,
+   "chunk_elems": 524288,
+   "est_l1_bytes_per_core": 131072,
+   "status": "ok",
+   "ms_median": 46.1015,
+   "ms_all": [
+    47.9386,
+    46.1015,
+    45.9504
+   ],
+   "bit_exact_vs_ref": null,
+   "ref_h": 4
+  },
+  {
+   "h": 8,
+   "n_chunks": 64,
+   "chunk_elems": 1048576,
+   "est_l1_bytes_per_core": 262144,
+   "status": "ok",
+   "ms_median": 42.2777,
+   "ms_all": [
+    42.7851,
+    42.2777,
+    42.2732
+   ],
+   "bit_exact_vs_ref": false
+  },
+  {
+   "h": 10,
+   "n_chunks": 52,
+   "chunk_elems": 1310720,
+   "est_l1_bytes_per_core": 327680,
+   "status": "ok",
+   "ms_median": 42.0848,
+   "ms_all": [
+    42.0393,
+    42.0848,
+    42.1539
+   ],
+   "bit_exact_vs_ref": false
+  },
+  {
+   "h": 12,
+   "n_chunks": 43,
+   "chunk_elems": 1572864,
+   "est_l1_bytes_per_core": 393216,
+   "status": "ok",
+   "ms_median": 39.3884,
+   "ms_all": [
+    39.4095,
+    39.3884,
+    39.3851
+   ],
+   "bit_exact_vs_ref": false
+  },
+  {
+   "h": 16,
+   "n_chunks": 32,
+   "chunk_elems": 2097152,
+   "est_l1_bytes_per_core": 524288,
+   "status": "THROW",
+   "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception info: Statically allocated circular buffers in program 701 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=8)]. L1 buffer allocated at 1206272 and static circular buffer region ends at 1357088 backtrace:  --- /home/cust-team/mthuening/whbase/tt-bio/env/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d3",
+   "is_cb_clash": true
+  }
+ ]
+}

@@ -1,0 +1,1 @@
+{"model": "esmfold2", "name": "single", "input": "sequences:\n  - protein: {id: A, sequence: MTYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTEKPEVIDAS}\n"}
