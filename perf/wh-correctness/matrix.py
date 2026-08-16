@@ -87,12 +87,12 @@ SIZE_LADDER = {
     "esmfold2":      [128, 192, 256, 384, 512, 640, 1024],
     "esmfold2-fast": [128, 192, 256, 384, 512, 640, 1024],
     "protenix-v2":   [128, 256, 512, 640, 980],
-    # 544/576/608/640 are the cap ladder: the catalog publishes 788/779, both of which 500
-    # on this deployment, and the honest number is the last size that folds HERE. 608 is in
-    # because wh-perf-opendde §8.8 puts the caught-throw fallback's limit "above 608 tokens"
-    # — if the crossing is a token count rather than a residue count, that is where it shows.
-    "opendde":       [128, 512, 544, 576, 608, 640, 788],
-    "opendde-abag":  [128, 512, 544, 576, 608, 640, 779],
+    # 544/576/608 are the cap ladder that set `max_residues` to 544 for both ids. Measured
+    # 2026-08-16/17 on the Wormhole pool: 544 folds, 576 throws an L1 static-CB clash on
+    # both checkpoints at the same two addresses, 608 folds. 640 threw on 08-16 and folded
+    # on 08-17, so it is intermittent and stays in the ladder as the sentinel for that.
+    "opendde":       [128, 512, 544, 576, 608, 640],
+    "opendde-abag":  [128, 512, 544, 576, 608, 640],
 }
 
 
@@ -154,7 +154,7 @@ MODEL_CAPS = {
     "opendde-abag":  {"msa", "multichain"},
 }
 MAX_RESIDUES = {"boltz2": 1024, "esmfold2": 1024, "esmfold2-fast": 1024,
-                "protenix-v2": 980, "opendde": 788, "opendde-abag": 779}
+                "protenix-v2": 980, "opendde": 544, "opendde-abag": 544}
 
 
 def assert_catalog_unchanged() -> None:

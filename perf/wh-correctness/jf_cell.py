@@ -12,7 +12,10 @@ returns survives check_structure.py.
 Notes that cost time to rediscover:
   * urllib gets a 403 from the edge; requests/curl with a normal UA do not.
   * The key is optional. Without one the caller is the public tier, scoped to
-    its IP, with a per-IP cap of 8 active jobs and 40 submits/min.
+    its IP, with a per-IP cap of 8 active jobs and 40 submits/min. The binding
+    limit is lower: `max_active_jobs_per_session` is 3, and every keyless
+    submission from one runner shares a session, so run at concurrency <= 3 or
+    the fourth cell comes back 429 without ever folding.
   * Artifacts are listed in /v1/jobs/<id>/results, not guessable from the id.
 """
 from __future__ import annotations
