@@ -1,0 +1,36 @@
+[
+ {
+  "cell": "var_samples5_boltz2",
+  "files": [
+   "target_1.cif",
+   "target_1_model_1.cif",
+   "target_1_model_2.cif",
+   "target_1_model_3.cif",
+   "target_1_model_4.cif"
+  ],
+  "fail": [],
+  "warn": [],
+  "sha256": {
+   "target_1.cif": "f39f67cff16241d2",
+   "target_1_model_1.cif": "eb446b419c7a2eab",
+   "target_1_model_2.cif": "28d87b557b87b26e",
+   "target_1_model_3.cif": "8e73052ff2c1f984",
+   "target_1_model_4.cif": "9691fb7e73ea3cc1"
+  },
+  "pairwise_ca_rmsd": {
+   "target_1.cif|target_1_model_1.cif": 0.8743,
+   "target_1.cif|target_1_model_2.cif": 1.7597,
+   "target_1.cif|target_1_model_3.cif": 0.7801,
+   "target_1.cif|target_1_model_4.cif": 1.1562,
+   "target_1_model_1.cif|target_1_model_2.cif": 1.6938,
+   "target_1_model_1.cif|target_1_model_3.cif": 1.1314,
+   "target_1_model_1.cif|target_1_model_4.cif": 1.1935,
+   "target_1_model_2.cif|target_1_model_3.cif": 1.7553,
+   "target_1_model_2.cif|target_1_model_4.cif": 0.9173,
+   "target_1_model_3.cif|target_1_model_4.cif": 1.0382
+  },
+  "rmsd_min": 0.7801,
+  "rmsd_max": 1.7597,
+  "verdict": "PASS"
+ }
+]

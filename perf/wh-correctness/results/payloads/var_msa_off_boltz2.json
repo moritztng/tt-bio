@@ -1,0 +1,1 @@
+{"model": "boltz2", "name": "var_msa_off_boltz2", "input": "sequences:\n  - protein: {id: A, sequence: MTYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTEKPEVIDAS}\n", "params": {"use_msa_server": false}}

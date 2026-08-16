@@ -203,6 +203,10 @@ VARIANTS = {
     "var_msa_off_protenix-v2":     ("protenix-v2", {"use_msa_server": False}, "ok"),
     "var_pdb_boltz2":              ("boltz2", {"output_format": "pdb"}, "ok"),
     "var_pdb_esmfold2-fast":       ("esmfold2-fast", {"output_format": "pdb"}, "ok"),
+    # Added after esmfold2-fast's PDB came back with every B-factor 0.00 while boltz2's
+    # carried pLDDT: a third model decides whether the dropped confidence is one model's
+    # writer or the PDB path in general.
+    "var_pdb_protenix-v2":         ("protenix-v2", {"output_format": "pdb"}, "ok"),
     "var_samples5_boltz2":         ("boltz2", {"diffusion_samples": 5}, "ok"),
     "var_samples5_protenix-v2":    ("protenix-v2", {"diffusion_samples": 5}, "ok"),
     "var_recycle10_boltz2":        ("boltz2", {"recycling_steps": 10}, "ok"),
