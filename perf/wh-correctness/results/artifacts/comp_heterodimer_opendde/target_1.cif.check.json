@@ -1,0 +1,76 @@
+{
+ "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/comp_heterodimer_opendde/target_1.cif",
+ "checks": {
+  "n_atoms": 978,
+  "bbox_diagonal": 73.8,
+  "chains": [
+   {
+    "chain": "A",
+    "kind": "protein",
+    "n_res": 64,
+    "sequence": "MTYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTEKPEVIDAS",
+    "step_median": 3.827,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 0.873,
+    "breaks": 5,
+    "rg": 12.49,
+    "rg_expected": 10.68,
+    "rg_ratio": 1.169,
+    "n_ca_bond_median": 1.449,
+    "ca_c_bond_median": 1.513
+   },
+   {
+    "chain": "B",
+    "kind": "protein",
+    "n_res": 61,
+    "sequence": "MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNI",
+    "step_median": 3.799,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 0.9,
+    "breaks": 5,
+    "rg": 10.82,
+    "rg_expected": 10.49,
+    "rg_ratio": 1.031,
+    "n_ca_bond_median": 1.457,
+    "ca_c_bond_median": 1.519
+   }
+  ],
+  "clashes": {
+   "n": 81,
+   "heavy_atoms": 978,
+   "worst_dist": 0.351,
+   "threshold": 2.0,
+   "budget": 2
+  },
+  "confidence": {
+   "source": "b_factor",
+   "n": 978,
+   "min": 0.5273,
+   "max": 0.9773,
+   "mean": 0.8896,
+   "std": 0.0788,
+   "scale": 100.0
+  },
+  "expected": {
+   "chains": 2,
+   "ligands": 0
+  },
+  "ligand_residues_seen": 0
+ },
+ "fail": [
+  "chain A (protein): only 87.3% of consecutive backbone steps in [3.6, 4.1] A (floor 90%)",
+  "chain A (protein): 5 backbone gap(s) > 5.0 A -- chain is broken",
+  "chain B (protein): 5 backbone gap(s) > 5.0 A -- chain is broken",
+  "81 heavy-atom clashes < 2.0 A (8.28% of atoms, worst 0.351 A)"
+ ],
+ "warn": [
+  "chain B (protein): 90.0% of Ca-Ca steps in band (shipped predictions measure 0.970-1.000)"
+ ],
+ "verdict": "FAIL"
+}
