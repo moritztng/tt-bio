@@ -23,16 +23,19 @@ sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
 # SHIPPED below). That is the arm the page publishes, and the only one that catches a default
 # that did not land.
 ARMS = {"base": False, "l2": True, "ship": None, "f1": None, "nof1": None,
-        "B": None, "D": None, "BD": None}
+        "B": None, "D": None, "BD": None, "off": None}
 
 # B, the LM shim -> LM encoder handoff (esmfold2 only). Every arm sets the gate on every fold:
 # a lever arm to what it names, any other arm back to the snapshotted shipped default. Neither
 # `.get(arm, False)` (which forces the gate off and makes `ship` blind to a default that did not
 # land) nor leaving the gate alone (which hands `ship` whatever the previous arm mutated) works.
-DEVPAIR = {"B": True, "BD": True, "D": False}
+# `off` is the pre-lever baseline. It is needed because both levers now ship ON, which makes
+# `ship` and `BD` the same arm -- without an explicit both-off arm there is nothing to measure the
+# delta against on a tree where the default has already landed.
+DEVPAIR = {"B": True, "BD": True, "D": False, "off": False}
 
 # D: half the trimul in-projection's output drain on the other NOC (tt_bio/mm_dualnoc.py).
-DUALNOC = {"D": True, "BD": True, "B": False}
+DUALNOC = {"D": True, "BD": True, "B": False, "off": False}
 
 
 def sha_dir(d):

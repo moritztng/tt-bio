@@ -16,5 +16,5 @@ export BENCHLOCK_WAIT_S=5400
 /home/ttuser/.coworker/scripts/benchlock.sh esmfold2-beat-dgx-h200-p2 -- \
   /home/ttuser/tt-bio-dev/env/bin/python3 -u perf/esm3p4land/fold_ab.py \
   --model esmfold2 --size 512 --rounds 4 --arms ship \
-  --out perf/esmbeat/p2_ship_512_c0.json
+  --out perf/esmbeat/p2_ship_512_c0_postmerge.json
 echo "EXIT=$?"

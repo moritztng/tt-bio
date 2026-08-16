@@ -174,9 +174,9 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 31.34,
+          "s_per_fold": 31.448,
           "parity": "bit-exact",
-          "ref": "qb2 card 0, ttnn 0.68.0, harvested 11x10 core grid, warm folds one at a time under benchlock, cold fold discarded. The shipped default, measuring no forced gate: median of n=4 is 31.340 s, spread 0.186 s (perf/esmbeat/p2_ship_512_c0.json). Two levers ship on as of this measurement, the LM shim to LM encoder device handoff and a dual-NOC drain on the triangle-multiplication in-projection. Round-robin A/B against both forced off, median of n=3 each: 32.084 s baseline, 31.800 s with the handoff alone, 31.690 s with the dual-NOC drain alone, 31.417 s with both, an A/A noise floor of 0.172 s (perf/esmbeat/p2_bd_512_c0.json). Bit-exact: CIF sha256 295867277b9c137f and plDDT 0.9285 identical on every fold of every arm, and identical between the two arms at 256, 298, 640 and 768 aa as well (perf/esmbeat/p2_sweep_*_c0.json).",
+          "ref": "qb2 card 0, ttnn 0.68.0, harvested 11x10 core grid, warm folds one at a time under benchlock, cold fold discarded. The shipped default, measuring no forced gate: median of n=4 is 31.448 s, spread 0.196 s (perf/esmbeat/p2_ship_512_c0_postmerge.json). Two levers ship on as of this measurement, the LM shim to LM encoder device handoff and a dual-NOC drain on the triangle-multiplication in-projection. Round-robin A/B in one session against an explicit both-off arm, median of n=3 each: 31.944 s off, 31.637 s with the handoff alone, 31.544 s with the drain alone, 31.330 s with both, 31.300 s at the shipped default, against an A/A noise floor of 0.044 s on the off arm (perf/esmbeat/p2_bd_512_c0_postmerge.json). Bit-exact: CIF sha256 295867277b9c137f and plDDT 0.9285 identical on every fold of every arm, and identical between off and both-on at 256, 298, 640 and 768 aa as well, where the pair is worth 0.079 s and 1.665 s at the ends (perf/esmbeat/p2_sweep_*_c0.json).",
           "updated": "2026-08-16"
         },
         "h200": {
