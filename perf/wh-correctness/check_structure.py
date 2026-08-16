@@ -55,6 +55,13 @@ RG_COEF, RG_EXP = 2.2, 0.38  # Rg ~ 2.2 * N^0.38 A for a compact globular domain
 RG_BAND = (0.55, 2.0)    # ratio to that estimate: <0.55 collapsed blob, >2 unfolded
 PLDDT_STD_MIN = 0.01     # a constant-confidence output is the garbage signature
 AA3 = None  # lazily filled from gemmi
+# RFD3 ships its internal sidechain placeholders in the delivered structure, named V0..V8 --
+# 964 of the 2051 atoms in a 220-residue design. They are not chemical atoms and have no van
+# der Waals radius, and counting them turned 53 real clashes into 222: measured on
+# des_rfd3_binder/design_0.cif, where excluding them also takes design_1 from 9 clashes to 1
+# and design_2 from 17 to 2. Excluded from geometry, not from the record -- 12.9a reports that
+# they ship at all.
+VIRTUAL_ATOM = re.compile(r"V\d+$")
 
 
 def _one_letter(resname: str) -> str:
@@ -211,12 +218,13 @@ def clashes(st: gemmi.Structure) -> tuple[int, int, float]:
     for ci, chain in enumerate(model):
         for res in chain:
             for atom in res:
-                if atom.element == gemmi.Element("H"):
+                if atom.element == gemmi.Element("H") or VIRTUAL_ATOM.match(atom.name):
                     continue
                 heavy += 1
                 for m in ns.find_atoms(atom.pos, "\0", radius=CLASH_DIST):
                     cra = m.to_cra(model)
-                    if cra.atom.element == gemmi.Element("H"):
+                    if (cra.atom.element == gemmi.Element("H")
+                            or VIRTUAL_ATOM.match(cra.atom.name)):
                         continue
                     same_chain = cra.chain.name == chain.name
                     if same_chain and abs(cra.residue.seqid.num - res.seqid.num) < 2:
@@ -293,12 +301,14 @@ def interface_clashes(st: gemmi.Structure, design_chain: str) -> tuple[int, int]
             continue
         for res in chain:
             for atom in res:
-                if atom.element == gemmi.Element("H"):
+                if atom.element == gemmi.Element("H") or VIRTUAL_ATOM.match(atom.name):
                     continue
                 heavy += 1
                 for m in ns.find_atoms(atom.pos, "\0", radius=CLASH_DIST):
                     cra = m.to_cra(model)
-                    if cra.chain.name == design_chain or cra.atom.element == gemmi.Element("H"):
+                    if (cra.chain.name == design_chain
+                            or cra.atom.element == gemmi.Element("H")
+                            or VIRTUAL_ATOM.match(cra.atom.name)):
                         continue
                     d = cra.atom.pos.dist(atom.pos)
                     if d < CLASH_DIST and (d >= DISULFIDE_MAX or atom.name != "SG"
