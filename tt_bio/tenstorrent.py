@@ -3043,13 +3043,25 @@ class TriangleAttention(Module):
                 # slower besides (252.044 -> 257.719 s). A copy is bit-exact, so it is the one
                 # that ships. `host_acc` already frees the device buffer on its own path.
                 out_chunk = gate_and_project(o_chunk, g_chunk)
+                # `not _FAST_MODE` is the whole point, not a tuning knob. Above 608 tokens
+                # --fast ALREADY FOLDS on this grid and the default arm does not, so the only
+                # change that provably cannot move a working answer is one that executes no new
+                # instruction on the working path. It has to be provable rather than measured,
+                # because nothing here is numerically inert: `_pair_proj_linear` accepts or
+                # refuses its L1 output according to what the allocator has left, and refusing
+                # takes a different program config, so relieving L1 pressure changes which
+                # config LATER chunks pick. Measured at 640 aa --fast on one pinned tree, plDDT
+                # 0.796168 unmodified, 0.791786 producing into DRAM, 0.791229 copying out of
+                # L1: three placements, three answers, none of them equal.
+                #
                 # Only when it really came back in L1. `_pair_proj_linear` declines the L1
                 # output whenever the allocator refuses and returns a DRAM tensor instead, and
                 # for a DRAM source `to_memory_config(..., DRAM)` hands back the same buffer --
                 # so an unconditional deallocate here frees the tensor just appended to `parts`
                 # and the concat after the loop dies with "Buffer is not allocated". Same trap
                 # the bias loop above documents for `unsqueeze`.
-                if not host_acc and out_chunk.memory_config().buffer_type == ttnn.BufferType.L1:
+                if (not _FAST_MODE and not host_acc
+                        and out_chunk.memory_config().buffer_type == ttnn.BufferType.L1):
                     out_dram = ttnn.to_memory_config(out_chunk, ttnn.DRAM_MEMORY_CONFIG)
                     ttnn.deallocate(out_chunk)
                     out_chunk = out_dram
