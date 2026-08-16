@@ -304,8 +304,12 @@ SPLIT_SWIGLU_MIN_SEQ = 144
 # the whole family above -- split fc1, the 32-row block, the L1-resident fc1 -- is dead on the one
 # machine that serves users. This flag is read ONLY when `_IS_SMALL_GRID` is True, so on any grid
 # >= 110 cores the expression below is byte-for-byte the one that shipped before it existed.
-# Measured on 8x9: state/wh-perf-esmfold2.md.
-SPLIT_SWIGLU_SMALL_GRID = False
+# Measured on 8x9, --fast, bit-exact at every size (one CIF sha256 per size across both arms):
+# 256 aa 28.727 -> 26.597 s, 298 aa 41.083 -> 36.556, 512 aa 93.512 -> 83.843, 640 aa
+# 155.701 -> 141.117. Inert below SPLIT_SWIGLU_MIN_SEQ, as 128 aa confirms at 0.1 %. The 13x10
+# Blackhole A/A is -0.54 % inside a 0.6 % spread with an identical digest. See
+# state/wh-perf-esmfold2.md.
+SPLIT_SWIGLU_SMALL_GRID = True
 _SPLIT_SWIGLU_SMALL_GRID = os.environ.get(
     "TT_BIO_SPLIT_SWIGLU_SMALL_GRID", "1" if SPLIT_SWIGLU_SMALL_GRID else "0") == "1"
 PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)
