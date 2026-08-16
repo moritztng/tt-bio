@@ -1037,6 +1037,19 @@ class LanguageModelShim(TorchWrapper):
 # ===========================================================================
 
 
+def _msa_row_blocks(L: int, M: int):
+    """Row blocks over L for the MSA encoder's [B,L,M,c] ops, or None for a single
+    pass. Every op split here is row-independent (LayerNorm over the last dim,
+    per-position linears, elementwise), so the split is bit-exact; it exists
+    because one encoder block's transients are ~8x the [B,L,M,c] tensor itself —
+    2 GiB at L=1024, M=8192 — which a 12 GB Wormhole chip cannot hold."""
+    from tt_bio import tenstorrent
+    chunk = tenstorrent.msa_row_tile(L, M)
+    if not chunk:
+        return None
+    return [(s, min(s + chunk, L)) for s in range(0, L, chunk)]
+
+
 class OuterProductMean(Module):
     """MSA -> pair update via outer-product mean (d_hidden=32, tile-aligned -> full ttnn)."""
 
@@ -1056,11 +1069,23 @@ class OuterProductMean(Module):
         out = self._lin(outer, self.Wout, self.Wout_b)  # [B,Bl,L,256]
         return ttnn.multiply(out, recip_blk)
 
+    def _project(self, mm):  # [B,rows,M,128] -> a, b each [B,rows,M,32]
+        ck = self.compute_kernel_config
+        x = self._lin(ttnn.layer_norm(mm, weight=self.norm_w, bias=self.norm_b, epsilon=1e-5, compute_kernel_config=ck), self.W)
+        return ttnn.chunk(x, 2, dim=-1)
+
     def __call__(self, m, recip_nvalid):  # m [B,L,M,128]; recip_nvalid [B,L,L,1]
         ck = self.compute_kernel_config
         B, L, M = m.shape[0], m.shape[1], m.shape[2]
-        x = self._lin(ttnn.layer_norm(m, weight=self.norm_w, bias=self.norm_b, epsilon=1e-5, compute_kernel_config=ck), self.W)
-        a, b = ttnn.chunk(x, 2, dim=-1)  # [B,L,M,32]
+        # The LayerNorm transient is a full [B,L,M,128] (2 GiB at L=1024, M=8192);
+        # rows are independent, so build a/b in row blocks.
+        blocks = _msa_row_blocks(L, M)
+        if blocks:
+            parts = [self._project(m[:, s:e]) for s, e in blocks]
+            a = ttnn.concat([p[0] for p in parts], dim=1)
+            b = ttnn.concat([p[1] for p in parts], dim=1)
+        else:
+            a, b = self._project(m)  # [B,L,M,32]
         b2 = ttnn.reshape(ttnn.permute(b, (0, 2, 1, 3)), (B, M, L * 32))   # [B,M,L*32]
         # The a2@b2 product is [B,L*32,L*32] (~2 GiB at L=1024), which OOMs the
         # 12 GB/chip Wormhole DRAM. Output row i depends only on a[i] and b, so
@@ -1089,22 +1114,30 @@ class MSAPairWeightedAveraging(Module):
         self.Wout = self.torch_to_tt("Wout.weight")
 
     def __call__(self, m, pair):
+        """Returns `m + update`: the residual is folded into the row loop so a
+        second full [B,L,M,c] copy never has to sit on the chip alongside `m`."""
         ck = self.compute_kernel_config
         lin = self._lin
         B, L, M = m.shape[0], m.shape[1], m.shape[2]
         h, dh = self.n_heads, self.head_width
-        mn = ttnn.layer_norm(m, weight=self.ns_w, bias=self.ns_b, epsilon=1e-5, compute_kernel_config=ck)
         bias = lin(ttnn.layer_norm(pair, weight=self.cb_ln_w, bias=self.cb_ln_b, epsilon=1e-5, compute_kernel_config=ck), self.cb_w)  # [B,L,L,8]
-        v = lin(mn, self.Wv)            # [B,L,M,128]
-        gate = ttnn.sigmoid(lin(mn, self.Wgate))
         # non-learned 5D contraction on host (head_width 16 is sub-tile)
         bias_t = torch.Tensor(ttnn.to_torch(bias)).float()
         attn = torch.softmax(bias_t, dim=-2)  # over j
-        v_t = torch.Tensor(ttnn.to_torch(v)).float().reshape(B, L, M, h, dh)
-        gate_t = torch.Tensor(ttnn.to_torch(gate)).float().reshape(B, L, M, h, dh)
-        out = torch.einsum("bijh,bjmhd,bimhd->bimhd", attn, v_t, gate_t).reshape(B, L, M, h * dh)
-        out_tt = ttnn.from_torch(out, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_DTYPE)
-        return lin(out_tt, self.Wout)
+        blocks = _msa_row_blocks(L, M) or [(0, L)]
+        rows = (lambda t, s, e: t) if len(blocks) == 1 else (lambda t, s, e: t[:, s:e])
+        v_t, gate_t = [], []
+        for s, e in blocks:
+            mn = ttnn.layer_norm(rows(m, s, e), weight=self.ns_w, bias=self.ns_b, epsilon=1e-5, compute_kernel_config=ck)
+            v_t.append(torch.Tensor(ttnn.to_torch(lin(mn, self.Wv))).float())          # [B,rows,M,128]
+            gate_t.append(torch.Tensor(ttnn.to_torch(ttnn.sigmoid(lin(mn, self.Wgate)))).float())
+        cat = lambda ts: (ts[0] if len(ts) == 1 else torch.cat(ts, dim=1)).reshape(B, L, M, h, dh)
+        out = torch.einsum("bijh,bjmhd,bimhd->bimhd", attn, cat(v_t), cat(gate_t)).reshape(B, L, M, h * dh)
+        upd = []
+        for s, e in blocks:
+            out_tt = ttnn.from_torch(rows(out, s, e), layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_DTYPE)
+            upd.append(ttnn.add(rows(m, s, e), lin(out_tt, self.Wout)))
+        return upd[0] if len(upd) == 1 else ttnn.concat(upd, dim=1)
 
 
 class MSAEncoderBlock(Module):
@@ -1122,7 +1155,12 @@ class MSAEncoderBlock(Module):
     def __call__(self, m, pair, recip_nvalid):
         pair = ttnn.add(pair, self.opm(m, recip_nvalid))
         if not self.is_final:
-            m = ttnn.add(m, self.mpwa(m, pair))
+            m = self.mpwa(m, pair)  # residual included
+            # msa_transition is deliberately NOT row-blocked here: SwiGLUFFN does
+            # its own dim=1 blocking, and re-partitioning it moves the fc1/fc2
+            # matmul K-accumulation order (measured: 2.8M/4.2M elements differ,
+            # max 192 against a peak of 20608). Its transient is bounded by that
+            # internal block, so leave the arithmetic exactly where it is.
             m = ttnn.add(m, self.msa_transition(m))
         pair = ttnn.add(pair, self.tri_out(pair, None))
         pair = ttnn.add(pair, self.tri_in(pair, None))
