@@ -631,6 +631,13 @@ class _WorkerState:
                     cfg.get("api_key_value"), msa_endpoint=cfg.get("msa_endpoint"))
 
         report_progress("prep")
+        # A deep MSA is what makes an ESMFold2 fold OOM a 12 GB Wormhole chip: every
+        # tensor in the MSA encoder scales with residues*depth, and 788 aa at the default
+        # depth 8192 asks for 1.54 GiB in a single block. Bound that product by the one
+        # measured to fit rather than let the allocation fail. No-op on Blackhole.
+        if self.accelerator == "tenstorrent":
+            from tt_bio.tenstorrent import msa_depth_cap
+            max_msa = msa_depth_cap(sum(len(seq) for _c, seq, _s, _m in chains), max_msa)
         chains = [(cid, seq, resolve_msa(spec, seq, msa_dir, max_sequences=max_msa) if uses_msa else None, mods)
                   for cid, seq, spec, mods in chains]
         ranked = fold_complex(

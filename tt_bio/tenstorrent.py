@@ -1853,6 +1853,31 @@ def msa_row_tile(L: int, M: int) -> int:
     return rows if rows < L else 0
 
 
+# The largest [B,L,M,c] MSA-encoder buffer a 12 GB Wormhole chip is MEASURED to
+# allocate. At L=640 with the default depth 8192 the fold succeeds (230.4 s); at L=788,
+# same depth, it fails on a 1,652,555,776 B request -- which is exactly 788*8192*128*2 --
+# against a 135.9 MiB largest free block (state/japanfold-esmfold2-wh-unusable.md, S15).
+# Both numbers are the same tensor, so the thing to bound is the product L*M, not a
+# residue count: 640*8192 caps that buffer at the 1.25 GiB that demonstrably fits.
+WORMHOLE_MSA_AREA = 640 * 8192
+
+
+def msa_depth_cap(num_residues: int, max_sequences: int) -> int:
+    """MSA depth to actually use for an ESMFold2 fold of this many residues.
+
+    Returns ``max_sequences`` unchanged everywhere except a Wormhole chip asked for an
+    L*M above the measured-good product, where it returns the depth that fits. A 1024 aa
+    fold gets a 5120-deep MSA instead of an allocation failure; anything at or below the
+    proven point, and every Blackhole fold, is untouched.
+
+    A shallower MSA costs accuracy, so this only ever fires where the alternative is no
+    structure at all. Depth is bounded, never raised.
+    """
+    if num_residues <= 0 or max_sequences <= 0 or not is_wormhole():
+        return max_sequences
+    return max(1, min(max_sequences, WORMHOLE_MSA_AREA // num_residues))
+
+
 def pair_row_tile(L: int) -> int:
     """Rows per tile for a pair [B,L,L,*] row-independent op so the transient
     (~rows*L*width) stays bounded as L grows. Returns 0 (single pass) on big
