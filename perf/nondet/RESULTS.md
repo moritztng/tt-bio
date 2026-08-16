@@ -32,3 +32,26 @@ host/card-conditioned, not size-conditioned in the code alone.
 qb1 card 3 is bit-stable with n=7 / n=5 at 256/384 aa — a hash-equality bar on qb1 needs
 no noise-floor allowance at these sizes. pc card 0 shows rmsd 1.05-2.79 A run-to-run at
 160-256 aa (out/solo_160_*, solo_224_*, solo_256_pc_* on the pc worktree).
+
+## Canonical pair-cond probe references (qb1, `paircond_repeat.py`, 2026-08-16)
+
+Per-stage `out_sha16` for the nine pair-cond stages, in order relpe_linear, concat,
+layer_norm, linear_z, transition_z1, add_z1, transition_z2, add_z2, full_paircond. Fixed
+input/weight seeds make these comparable across hosts, cards and processes: any host that
+reproduces these shas is bit-identical to qb1 on this chain.
+
+| N | prec | card | K | shas |
+|---|---|---|---|---|
+| 256 | fp32 | 1, 2, 3 (all equal) | 8 | `4362d54b,b576fe5e,003e9ca9,f02ef7cb,e79944a5,1b9124b5,c2fd7917,fa695ce1,fa695ce1` |
+| 160 | fp32 | 3 | 8 | `3f668b97c9aa9ee4,46a8f05e4bfa899f,5c107a6f4ad140ca,d5e3f6ef691d14bc,e6a5c0f2d9d8737c,80fd2643a4a5b75f,4e27fc896db2761b,ab1a70bd898ca817,ab1a70bd898ca817` |
+| 160 | bf16 | 3 | 8 | `42d9ce218fcfa2f6,468edfaddfbc186c,36f18abc8d7121a4,cdc2b01c8dfc1a45,c745660cb07edbe5,55893e38e1f1510a,07fc151fd2fe70b7,d96f1ac1c8ff7633,d96f1ac1c8ff7633` |
+| 384 | fp32 | 3 | 6 | `08de56b217e6168b,cf0a0c76b64ee29c,ea50d0ae73a21ad8,820ab3d9254546f3,45941a8de3bec19a,d96e115247bef4e2,b5b34844fb6e18f5,12e9985fde81f8ff,12e9985fde81f8ff` |
+
+Every run above: all stages bit-identical across repeats, readback bit-exact, upload control
+bit-exact. 160 aa is the smallest size at which pc card 0 is known unstable, so it is the
+cheapest pc comparison point and now has a reference at both precisions.
+
+`dram_stability.py 256 <iters> <bf16|fp32>` (zero compute: read-read, read-written,
+copy-copy) is clean on qb1 card 3 at both precisions, 2 iters each. 256 MB is ~4x the 256 aa
+fp32 pair_z tensor and is the validated working size; 1024 MB aborts inside ttnn on tensor
+size, not on any fault.
