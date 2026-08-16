@@ -452,7 +452,18 @@ def _trimul_chunk_size(seq_len: int, hidden: int, batch: int = 1) -> int:
     gx, gy = COMPUTE_GRID_MAIN
     budget = TRIANGLE_MULT_L1_CHUNK_BUDGET * gx * gy / (COMPUTE_GRID_X_13 * 10)
     c = TRIANGLE_MULT_CHUNK_SIZE
-    while hidden % (c * 2) == 0 and batch * (c * 2) * seq_len * seq_len <= budget:
+    # Price the chunk on the width it actually occupies. The chunk tensors are
+    # [batch, chunk, seq, seq] TILE tensors, so both seq dims round up to 32 and a logical
+    # seq understates the real footprint by (tile(seq)/seq)^2 -- 29% at 225 aa, where 256^2
+    # against 225^2 is the difference between one doubling and none. That is what still
+    # crashed the confidence Pairformer's trimul (minimal_matmul, the `gp_in_fused` below)
+    # after the Transition's own tile-padding fix landed: at 225 aa the logical arithmetic
+    # bought chunk 64 for a footprint of 4,194,304 against a 3,629,908 budget, while 205 aa
+    # sits at 3,211,264 padded and folds. Small grid only, so Blackhole keeps its measured
+    # widths byte-for-byte. Narrowing is bit-exact -- the chunk width is a partition of an
+    # independent-channel sum, as the note above says -- so this cannot move an output.
+    _sq = (-(-int(seq_len) // 32) * 32) if _IS_SMALL_GRID else seq_len
+    while hidden % (c * 2) == 0 and batch * (c * 2) * _sq * _sq <= budget:
         c *= 2
     return c
 
