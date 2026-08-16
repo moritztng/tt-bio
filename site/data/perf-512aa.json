@@ -1,6 +1,6 @@
 {
   "schema": 2,
-  "updated": "2026-08-15",
+  "updated": "2026-08-16",
   "title": "TT-Bio: biomolecular structure, design and embeddings on Tenstorrent",
   "subtitle": "Five structure-prediction models at 512 residues, measured on Tenstorrent Blackhole and on NVIDIA H200, B200 and A100.",
   "notes": [
@@ -174,10 +174,10 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 31.994,
+          "s_per_fold": 31.448,
           "parity": "bit-exact",
-          "ref": "Round-robin A/B on qb2 card 2, ttnn 0.68.0, harvested 11x10 core grid, warm folds one at a time under benchlock, median of n=3: 31.994 s (spread 0.175 s) against 32.329 s (spread 0.036 s) with TRIMUL_TAIL_F1 off, an A/A noise floor of 0.036 s (perf/trimul_f1/page_esmfold2_f1_qb2c2.json). That trimul tail fusion ships on as of this measurement. Bit-exact: CIF sha256 295867277b9c137f and plDDT 0.9285 identical on every fold of both arms.",
-          "updated": "2026-08-15"
+          "ref": "qb2 card 0, ttnn 0.68.0, harvested 11x10 core grid, warm folds one at a time under benchlock, cold fold discarded. The shipped default, measuring no forced gate: median of n=4 is 31.448 s, spread 0.196 s (perf/esmbeat/p2_ship_512_c0_postmerge.json). Two levers ship on as of this measurement, the LM shim to LM encoder device handoff and a dual-NOC drain on the triangle-multiplication in-projection. Round-robin A/B in one session against an explicit both-off arm, median of n=3 each: 31.944 s off, 31.637 s with the handoff alone, 31.544 s with the drain alone, 31.330 s with both, 31.300 s at the shipped default, against an A/A noise floor of 0.044 s on the off arm (perf/esmbeat/p2_bd_512_c0_postmerge.json). Bit-exact: CIF sha256 295867277b9c137f and plDDT 0.9285 identical on every fold of every arm, and identical between off and both-on at 256, 298, 640 and 768 aa as well, where the pair is worth 0.079 s and 1.665 s at the ends (perf/esmbeat/p2_sweep_*_c0.json).",
+          "updated": "2026-08-16"
         },
         "h200": {
           "status": "measured",

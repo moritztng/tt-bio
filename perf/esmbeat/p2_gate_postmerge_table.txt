@@ -1,0 +1,30 @@
+esmc-300m                         esmc       in-process    PASS                   21s  min per-res PCC=0.99918
+esmc-600m                         esmc       in-process    PASS                   12s  min per-res PCC=0.99938
+saprot-35m                        saprot     in-process    PASS                   19s  X_emb=0.99914
+saprot-650m                       saprot     in-process    PASS                   13s  X_emb=0.99964
+boltz2-trpcage-nomsa              structure  cached        PASS                   84s  envelope worst kabsch_r
+boltz2-prot-nomsa                 structure  cached        GAP                    14s  envelope worst kabsch_r
+boltz2-hsa-nomsa                  structure  cached        PASS                   46s  envelope worst kabsch_r
+boltz2-9ncy-nomsa                 structure  cached        GAP                    34s  envelope worst kabsch_r
+protenix-prot-msa                 structure  cached        PASS                  122s  prot: X=2.691 R=2.763 D
+protenix-ubq-msa                  structure  cached        PASS                  151s  ubq: X=1.790 R=1.923 D=
+protenix-hsa-msa                  structure  cached        PASS                  809s  hsa: X=0.697 R=0.695 D=
+protenix-9ncy-msa                 structure  cached        BLOCKED-REGEN           0s  fixture incomplete (mis
+openfold3-ubq-msa                 structure  no-index      PASS                  251s  ubq: X=1.326 R=1.640 D=
+openfold3-prot-msa                structure  no-index      PASS                  252s  prot: X=1.988 R=1.642 D
+openfold3-7xi5-tmpl               structure  no-index      PASS                  241s  7xi5_tmpl: X=4.420 R=4.
+openfold3-7xi5-notmpl             structure  no-index      GAP                   241s  7xi5_notmpl: X=5.401 R=
+openfold3-8hel-msa                structure  no-index      PASS                  239s  8hel_msa: X=5.610 R=7.5
+openfold3-8hel-nomsa              structure  no-index      PASS                  237s  8hel_nomsa: X=11.661 R=
+openfold3-9bk6-complex-msa        structure  no-index      PASS                  323s  9bk6: X=1.728 R=1.448 D
+boltz2-affinity-fkbp12-nomsa      affinity   cached        PASS                  102s  envelope worst affinity
+boltz2-affinity-fkbp12-msa        affinity   cached        PASS                  166s  envelope worst affinity
+boltz2-affinity-dhfr-nomsa        affinity   cached        PASS                  236s  envelope worst affinity
+boltz2-affinity-dhfr-msa          affinity   cached        PASS                  342s  envelope worst affinity
+boltz2-affinity-tryp-nomsa        affinity   cached        PASS                  204s  envelope worst affinity
+boltz2-affinity-tryp-msa          affinity   cached        PASS                  310s  envelope worst affinity
+opendde-trpcage-nomsa             structure  cached        BLOCKED-REGEN           0s  fixture incomplete (mis
+opendde-prot-prod                 structure  cached        PASS                  102s  prot_no_msa: X=5.384 R=
+opendde-abag                      abag       in-process    PASS                  310s  global DockQ=0.703 [rep
+boltzgen                          boltzgen   in-process    PASS                  198s  scRMSD pass-rate 100% (
+capacity                          capacity   in-process    PASS                 1172s  peak 8.72 GiB, 58 CIFs 
