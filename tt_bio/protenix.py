@@ -1977,6 +1977,28 @@ class Protenix:
         import os as _os, time as _time
         if _os.environ.get("TT_PROTENIX_DBG_COND"):
             self._dbg_cond = cond
+        _dump_dir = _os.environ.get("TT_PROTENIX_DUMP")
+        _dump_fn = None
+        if _dump_dir:
+            # Optional intermediate capture for determinism/parity debugging: dumps the
+            # trunk conditioning once and every sampler frame (noise + per-step coords).
+            import pathlib as _pl
+
+            import ttnn as _tn
+
+            _dd = _pl.Path(_dump_dir)
+            _dd.mkdir(parents=True, exist_ok=True)
+            for _k, _v in sorted(cond.items()):
+                try:
+                    _t = _tn.to_torch(_v) if isinstance(_v, _tn.Tensor) else _v
+                    torch.save(_t, _dd / f"cond_{_k}.pt")
+                except Exception as _e:
+                    (_dd / f"cond_{_k}.txt").write_text(f"{type(_v)}: {_e}")
+
+            def _dump_fn(_step, _x, _dd=_dd):
+                _nm = "noise.pt" if _step == -1 else f"x_step{_step:04d}.pt"
+                torch.save(_x.detach().cpu().clone(), _dd / _nm)
+
         _prof = _os.environ.get("TT_PROTENIX_PROFILE")
         # Multiplicity batching: when the device denoise carries the multiplicity dim
         # (DiffusionModule.supports_multiplicity, flipped on once the batched denoise is
@@ -2000,7 +2022,8 @@ class Protenix:
                 if _prof:
                     import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); _ts = _time.time()
                 coords.append(edm_sample(self.diffusion, cond, N, n_step=n_step, seed=sd_seed,
-                                         trace=trace, progress_fn=progress_fn)[0])
+                                         trace=trace, progress_fn=progress_fn,
+                                         dump_fn=_dump_fn)[0])
                 if _prof:
                     import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); print(f"[PROF] edm_sample[{k}] {_time.time()-_ts:.3f}s", flush=True)
             coords = torch.stack(coords, 0)
