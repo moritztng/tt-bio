@@ -420,30 +420,56 @@ def main() -> int:
 
     # A design that ignores its own requested length is a silent wrong answer: the file
     # parses, the chemistry is sane, and it is not the thing that was asked for.
+    design_chain = None
     if a.design_min is not None:
         if a.design_chain:
-            got = next((g for g in geo if g["chain"] == a.design_chain), None)
+            # The spec's chain id does NOT survive into BoltzGen's output. Measured on two
+            # protocols this pass: `protein-small_molecule` returns the designed binder as
+            # chain A with no ligand chain at all, and `protein-anything` against RNA
+            # returns the designed protein as A (75-82 res) and the RNA target as B (29 nt)
+            # -- the exact reverse of the spec, which named the binder B. Scoring by id
+            # failed twenty correct designs, twice, on the instrument's own assumption.
+            #
+            # So identify the designed chain by what it is rather than what it is called:
+            # the polymer chain whose length is in the requested range. The named chain is
+            # preferred only when it also fits, so a genuinely out-of-range design still
+            # fails -- no chain fits and there is nothing to score.
+            named = next((g for g in geo if g["chain"] == a.design_chain), None)
+            got = named if named and a.design_min <= named["n_res"] <= a.design_max else None
+            if got is None:
+                cands = [g for g in geo if a.design_min <= g["n_res"] <= a.design_max]
+                got = cands[0] if len(cands) == 1 else None
+            if got is None and named is not None:
+                got = named  # nothing fits: score the named chain so the failure names a number
             n_res = got["n_res"] if got else None
-            what = f"designed chain {a.design_chain}"
+            design_chain = got["chain"] if got else None
+            what = f"designed chain {design_chain or a.design_chain}"
         else:
             n_res = sum(g["n_res"] for g in geo)
             what = "the designed structure"
         rep["checks"]["design_length"] = {"observed": n_res, "min": a.design_min,
-                                          "max": a.design_max, "scope": what}
+                                          "max": a.design_max, "scope": what,
+                                          "requested_chain": a.design_chain,
+                                          "scored_chain": design_chain,
+                                          "chains_present": [g["chain"] for g in geo]}
         if n_res is None:
-            rep["fail"].append(f"chain {a.design_chain} is not in the output: "
-                               f"{sorted(g['chain'] for g in geo)}")
+            rep["fail"].append(f"no polymer chain is within the requested "
+                               f"{a.design_min}..{a.design_max} residues; chains present: "
+                               + ", ".join(f"{g['chain']}={g['n_res']}" for g in geo))
         elif not (a.design_min <= n_res <= a.design_max):
             rep["fail"].append(f"{what} is {n_res} residues, outside the requested "
                                f"{a.design_min}..{a.design_max}")
-    if a.design_chain:
-        n_if, n_hv = interface_clashes(st, a.design_chain)
+    # Only meaningful when there is something for the binder to be inside: a design that
+    # came back as a single chain has no interface to interpenetrate.
+    if design_chain and len(geo) > 1:
+        n_if, n_hv = interface_clashes(st, design_chain)
         budget = max(CLASH_MAX_ABS, CLASH_MAX_FRAC * n_hv)
         rep["checks"]["interface"] = {"pairs_below": n_if, "threshold": CLASH_DIST,
-                                      "designed_heavy_atoms": n_hv, "budget": budget}
+                                      "designed_heavy_atoms": n_hv, "budget": budget,
+                                      "chain": design_chain}
         if n_hv and n_if > budget:
             rep["fail"].append(f"{n_if} heavy-atom pairs < {CLASH_DIST} A between chain "
-                               f"{a.design_chain} and the target -- the binder is modelled "
+                               f"{design_chain} and the target -- the binder is modelled "
                                f"inside it, not against it")
 
     rep["verdict"] = "FAIL" if rep["fail"] else ("WARN" if rep["warn"] else "PASS")
