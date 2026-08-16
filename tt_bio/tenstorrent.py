@@ -1707,6 +1707,16 @@ def _apply_grid_thresholds(grid: tuple[int, int]) -> None:
     TRIANGLE_MULT_L1_MAX_SEQ = min(_snap(288), TRIANGLE_MULT_L1_MAX_SEQ_FAST)
     SMALL_GRID_SEQ_TILE = _snap(256)
     SMALL_GRID_PAIR_TILE_AREA = _snap(65536, 1024)  # area = rows*L; rows snapped downstream
+    # Lever C's screen hook. Every budget above is scaled by this part's per-core L1, which is the
+    # right resource for the L1-edge ones and, for SEQ_LEN_MORE_CHUNKING specifically, arguably the
+    # wrong one: that gate bounds how many full pair tensors are live at once, and the resource
+    # behind THAT is DRAM capacity (a Galaxy Wormhole chip has ~12 GB against a p150a's 32 GB), not
+    # per-core L1 (which is 104.5 % of Blackhole's). Whether the chunked path this part takes above
+    # 608 is actually faster than the unchunked one has never been measured, so the screen needs to
+    # force the constant without editing it. Unset in production; the scaled value is unchanged.
+    _c = os.environ.get("TT_BIO_SEQ_LEN_MORE_CHUNKING")
+    if _c:
+        SEQ_LEN_MORE_CHUNKING = int(_c)
 
 
 def _configure_active_compute_grid(device: ttnn.Device) -> None:
