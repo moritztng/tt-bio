@@ -21,3 +21,14 @@ qb1 card 3 shows NO run-to-run nondeterminism at any size 128-512, where pc card
 (japanfold-wh-correctness-close §14.5, ttnn version TBD) showed NONDETERMINISTIC at 256/384
 and the pc-card0-512aa memory shows 4/4 distinct CIFs at 512. The phenomenon is
 host/card-conditioned, not size-conditioned in the code alone.
+
+## n>=5 floor extension (2026-08-16, same setup)
+
+| size | n folds (independent processes) | atom sha |
+|---|---|---|
+| 256 | 7 (a,b + c,d,e,f,g) | ALL 0879651e337c7fcc |
+| 384 | 5 (a,b + c,d,e) | ALL 02acf18a1e279727 |
+
+qb1 card 3 is bit-stable with n=7 / n=5 at 256/384 aa — a hash-equality bar on qb1 needs
+no noise-floor allowance at these sizes. pc card 0 shows rmsd 1.05-2.79 A run-to-run at
+160-256 aa (out/solo_160_*, solo_224_*, solo_256_pc_* on the pc worktree).
