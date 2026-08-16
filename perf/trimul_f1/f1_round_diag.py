@@ -58,7 +58,7 @@ def reference(sigmoid: bool):
 def leg(name, rnd, skip_sig):
     F1.ROUND, F1.SKIP_SIGMOID = rnd, skip_sig
     ref = reference(sigmoid=not skip_sig)
-    got = ttnn.to_torch(F1.fused_tail(xa, xb, wa, wb, MG.ckc_args(ckc), (gx, gy)))
+    got = ttnn.to_torch(F1.fused_tail(xa, xb, wa, wb, MG.ckc_args(ckc), (gx, gy), T._mm_block_for(wa)))
     d = (got.float() - ref.float()).abs()
     n = int((d > 0).sum())
     print(f"{name:26s} torch.equal={bool(torch.equal(got, ref))!s:5s} "

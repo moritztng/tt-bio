@@ -1,0 +1,412 @@
+{
+ "host": "tt-quietbox",
+ "card": "1",
+ "grid": [
+  13,
+  10
+ ],
+ "cores": 130,
+ "arch": "blackhole",
+ "h": 4,
+ "d": 32,
+ "sdpa_chunk_max": 256,
+ "pad_multiple": 64,
+ "warmup": 2,
+ "iters": 3,
+ "blocks": 5,
+ "cases": [
+  {
+   "padded": 256,
+   "shipped_k": 256,
+   "div_k": 256,
+   "shipped_k_divides": true,
+   "q_ladder": [
+    256
+   ],
+   "q_shipped": 256,
+   "q_divk": 256,
+   "shipped_served": true,
+   "divk_served": true,
+   "aa_control": {
+    "a": {
+     "best": 0.3757,
+     "median": 0.4426,
+     "all": [
+      0.3757,
+      0.4426,
+      0.4431,
+      0.4427,
+      0.4393
+     ]
+    },
+    "b": {
+     "best": 0.44,
+     "median": 0.4445,
+     "all": [
+      0.4496,
+      0.4445,
+      0.447,
+      0.44,
+      0.4442
+     ]
+    },
+    "ratio": 0.9957
+   }
+  },
+  {
+   "padded": 320,
+   "shipped_k": 64,
+   "div_k": 160,
+   "shipped_k_divides": true,
+   "q_ladder": [
+    320,
+    160,
+    64
+   ],
+   "q_shipped": 320,
+   "q_divk": 320,
+   "shipped_served": true,
+   "divk_served": true,
+   "divk_fused": {
+    "best": 0.4409,
+    "median": 0.5261,
+    "all": [
+     0.4409,
+     0.5261,
+     0.5269,
+     0.5299,
+     0.5235
+    ]
+   },
+   "shipped_fused": {
+    "best": 0.6013,
+    "median": 0.6836,
+    "all": [
+     0.6013,
+     0.6838,
+     0.6852,
+     0.6836,
+     0.6822
+    ]
+   },
+   "speedup_divk_over_today": 1.2994
+  },
+  {
+   "padded": 384,
+   "shipped_k": 64,
+   "div_k": 192,
+   "shipped_k_divides": true,
+   "q_ladder": [
+    384,
+    192,
+    128,
+    96,
+    64
+   ],
+   "q_shipped": 384,
+   "q_divk": 384,
+   "shipped_served": true,
+   "divk_served": true,
+   "divk_fused": {
+    "best": 0.8321,
+    "median": 1.0057,
+    "all": [
+     0.8321,
+     1.0065,
+     1.0078,
+     0.9987,
+     1.0057
+    ]
+   },
+   "shipped_fused": {
+    "best": 0.9928,
+    "median": 1.1737,
+    "all": [
+     0.9928,
+     1.1791,
+     1.1737,
+     1.1794,
+     1.1726
+    ]
+   },
+   "speedup_divk_over_today": 1.167
+  },
+  {
+   "padded": 448,
+   "shipped_k": 256,
+   "div_k": 224,
+   "shipped_k_divides": false,
+   "q_ladder": [
+    448,
+    256
+   ],
+   "q_shipped": null,
+   "q_divk": 448,
+   "shipped_served": false,
+   "divk_served": true,
+   "divk_fused": {
+    "best": 1.0213,
+    "median": 1.1471,
+    "all": [
+     1.0213,
+     1.1607,
+     1.1471,
+     1.152,
+     1.1449
+    ]
+   },
+   "stock_today": {
+    "best": 2.685,
+    "median": 2.6943,
+    "all": [
+     2.6943,
+     2.6932,
+     2.6976,
+     2.685,
+     2.6999
+    ]
+   },
+   "speedup_divk_over_today": 2.3488
+  },
+  {
+   "padded": 512,
+   "shipped_k": 256,
+   "div_k": 256,
+   "shipped_k_divides": true,
+   "q_ladder": [
+    512,
+    256
+   ],
+   "q_shipped": 512,
+   "q_divk": 512,
+   "shipped_served": true,
+   "divk_served": true,
+   "aa_control": {
+    "a": {
+     "best": 1.318,
+     "median": 1.4123,
+     "all": [
+      1.318,
+      1.4123,
+      1.409,
+      1.4139,
+      1.489
+     ]
+    },
+    "b": {
+     "best": 1.4069,
+     "median": 1.4171,
+     "all": [
+      1.4171,
+      1.4103,
+      1.4069,
+      1.4921,
+      1.4977
+     ]
+    },
+    "ratio": 0.9966
+   }
+  },
+  {
+   "padded": 576,
+   "shipped_k": 256,
+   "div_k": 192,
+   "shipped_k_divides": false,
+   "q_ladder": [
+    576,
+    288,
+    256
+   ],
+   "q_shipped": null,
+   "q_divk": 576,
+   "shipped_served": false,
+   "divk_served": true,
+   "divk_fused": {
+    "best": 1.9334,
+    "median": 2.1196,
+    "all": [
+     1.9334,
+     2.1196,
+     2.1232,
+     2.1168,
+     2.1261
+    ]
+   },
+   "stock_today": {
+    "best": 7.2426,
+    "median": 7.2528,
+    "all": [
+     7.2648,
+     7.2528,
+     7.2426,
+     7.2512,
+     7.2604
+    ]
+   },
+   "speedup_divk_over_today": 3.4218
+  },
+  {
+   "padded": 640,
+   "shipped_k": 256,
+   "div_k": 160,
+   "shipped_k_divides": false,
+   "q_ladder": [
+    640,
+    320,
+    256
+   ],
+   "q_shipped": null,
+   "q_divk": 640,
+   "shipped_served": false,
+   "divk_served": true,
+   "divk_fused": {
+    "best": 2.7318,
+    "median": 2.8913,
+    "all": [
+     2.7318,
+     2.8868,
+     2.8986,
+     2.8934,
+     2.8913
+    ]
+   },
+   "stock_today": {
+    "best": 7.4394,
+    "median": 7.4502,
+    "all": [
+     7.4479,
+     7.4502,
+     7.4515,
+     7.4394,
+     7.4627
+    ]
+   },
+   "speedup_divk_over_today": 2.5768
+  },
+  {
+   "padded": 704,
+   "shipped_k": 256,
+   "div_k": 64,
+   "shipped_k_divides": false,
+   "q_ladder": [
+    704,
+    352,
+    256
+   ],
+   "q_shipped": null,
+   "q_divk": 352,
+   "shipped_served": false,
+   "divk_served": true,
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=12,y=9)] grow to 1667584 B which is beyond max L1 size of 1572864 B\nbacktrace:\n --- /home/ttuser/.local/lib/python3.10/site-packages/ttnn/build/lib/_ttn"
+  },
+  {
+   "padded": 768,
+   "shipped_k": 256,
+   "div_k": 256,
+   "shipped_k_divides": true,
+   "q_ladder": [
+    768,
+    384,
+    256
+   ],
+   "q_shipped": 384,
+   "q_divk": 384,
+   "shipped_served": true,
+   "divk_served": true,
+   "aa_control": {
+    "a": {
+     "best": 3.7381,
+     "median": 3.9293,
+     "all": [
+      3.7381,
+      3.9293,
+      3.9293,
+      3.9334,
+      3.9267
+     ]
+    },
+    "b": {
+     "best": 3.925,
+     "median": 3.9308,
+     "all": [
+      3.9308,
+      3.925,
+      3.9305,
+      3.9424,
+      3.9397
+     ]
+    },
+    "ratio": 0.9996
+   }
+  },
+  {
+   "padded": 896,
+   "shipped_k": 256,
+   "div_k": 224,
+   "shipped_k_divides": false,
+   "q_ladder": [
+    896,
+    448,
+    256
+   ],
+   "q_shipped": null,
+   "q_divk": 448,
+   "shipped_served": false,
+   "divk_served": true,
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=12,y=9)] grow to 2073088 B which is beyond max L1 size of 1572864 B\nbacktrace:\n --- /home/ttuser/.local/lib/python3.10/site-packages/ttnn/build/lib/_ttn"
+  },
+  {
+   "padded": 1024,
+   "shipped_k": 256,
+   "div_k": 256,
+   "shipped_k_divides": true,
+   "q_ladder": [
+    1024,
+    512,
+    256
+   ],
+   "q_shipped": 256,
+   "q_divk": 256,
+   "shipped_served": true,
+   "divk_served": true,
+   "aa_control": {
+    "a": {
+     "best": 8.5088,
+     "median": 8.7432,
+     "all": [
+      8.5088,
+      8.7515,
+      8.7432,
+      8.7389,
+      8.7511
+     ]
+    },
+    "b": {
+     "best": 8.7203,
+     "median": 8.7394,
+     "all": [
+      8.7435,
+      8.7568,
+      8.7372,
+      8.7203,
+      8.7394
+     ]
+    },
+    "ratio": 1.0004
+   }
+  }
+ ],
+ "rejects": {
+  "('fill_preconditions', (448, 4, 448, 32))": 2,
+  "('fill_preconditions', (576, 4, 576, 32))": 3,
+  "('fill_preconditions', (640, 4, 640, 32))": 3,
+  "('fill_preconditions', (704, 4, 704, 32))": 3,
+  "('l1_budget', (704, 4, 704, 32))": 1,
+  "('l1_budget', (768, 4, 768, 32))": 1,
+  "('pm_over_l1', (768, 4, 768, 32))": 1,
+  "('fill_preconditions', (896, 4, 896, 32))": 3,
+  "('l1_budget', (896, 4, 896, 32))": 1,
+  "('l1_budget', (1024, 4, 1024, 32))": 2,
+  "('pm_over_l1', (1024, 4, 1024, 32))": 2
+ }
+}

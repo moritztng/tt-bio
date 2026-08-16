@@ -1,0 +1,48 @@
+{
+ "host": "tt-quietbox",
+ "card": "1",
+ "grid": [
+  13,
+  10
+ ],
+ "cores": 130,
+ "arch": "blackhole",
+ "c_z": 128,
+ "roof_gbs": 409.5,
+ "cases": [
+  {
+   "L": 512,
+   "P_bytes": 67108864,
+   "shipped_bytes": 469762048,
+   "fused_bytes": 201326592,
+   "predicted_shipped_ms": 1.1472,
+   "predicted_fused_ms": 0.4916,
+   "kill_gate_ms": 1.7122,
+   "shipped": {
+    "best": 1.4276,
+    "median": 1.4474,
+    "all": [
+     16.7139,
+     1.4566,
+     1.4474,
+     1.4338,
+     1.4276
+    ]
+   },
+   "achieved_gbs": 324.6,
+   "frac_of_roof": 0.7926,
+   "kill_gate_passes": true,
+   "block": [
+    4,
+    4,
+    1,
+    4,
+    1
+   ],
+   "fused_served": false,
+   "new_rejects": {
+    "('k_tiles=4', '1x512x512x128@128x128')": 1
+   }
+  }
+ ]
+}

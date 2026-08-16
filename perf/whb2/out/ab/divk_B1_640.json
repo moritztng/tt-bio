@@ -1,0 +1,170 @@
+{
+ "label": "divk_B1_640",
+ "model": "boltz2",
+ "tree": "/home/ttuser/.coworker/wt/wh-perf-boltz2",
+ "size": 640,
+ "census": false,
+ "fast": false,
+ "ttnn": "0.67.4",
+ "host": "tt-quietbox",
+ "card": "1",
+ "grid": [
+  13,
+  10
+ ],
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "samples": 1,
+ "flags": {
+  "ADALN_S_HOIST": true,
+  "FP32_SOFTMAX_BIAS_HOIST": true,
+  "TRIMUL_TAIL_F1": true,
+  "TRANSPOSE_L1_HEADROOM": 1.25
+ },
+ "started": "2026-08-15T23:12:27+0000",
+ "loadavg": [
+  "44.00",
+  "32.07",
+  "21.69"
+ ],
+ "folds": [
+  {
+   "tag": "warm0",
+   "fold_s": 59.57,
+   "plddt": 0.866522,
+   "conf": {
+    "confidence_score": 0.816666,
+    "ptm": 0.617241,
+    "iptm": 0.0,
+    "complex_plddt": 0.866522,
+    "complex_iplddt": 0.866522
+   },
+   "n_tokens": null,
+   "n_atoms": null,
+   "cif_sha256": {
+    "cdk2x2_640.cif": "c9be914d1c0cba62"
+   },
+   "loadavg": [
+    "40.49",
+    "34.83",
+    "24.02"
+   ]
+  },
+  {
+   "tag": "warm1",
+   "fold_s": 58.337,
+   "plddt": 0.866522,
+   "conf": {
+    "confidence_score": 0.816666,
+    "ptm": 0.617241,
+    "iptm": 0.0,
+    "complex_plddt": 0.866522,
+    "complex_iplddt": 0.866522
+   },
+   "n_tokens": null,
+   "n_atoms": null,
+   "cif_sha256": {
+    "cdk2x2_640.cif": "c9be914d1c0cba62"
+   },
+   "loadavg": [
+    "40.35",
+    "35.61",
+    "24.91"
+   ]
+  }
+ ],
+ "cold": {
+  "tag": "cold",
+  "fold_s": 62.61,
+  "plddt": 0.866522,
+  "conf": {
+   "confidence_score": 0.816666,
+   "ptm": 0.617241,
+   "iptm": 0.0,
+   "complex_plddt": 0.866522,
+   "complex_iplddt": 0.866522
+  },
+  "n_tokens": null,
+  "n_atoms": null,
+  "cif_sha256": {
+   "cdk2x2_640.cif": "c9be914d1c0cba62"
+  },
+  "loadavg": [
+   "41.46",
+   "33.77",
+   "22.99"
+  ]
+ },
+ "median_s": 58.954,
+ "spread_s": 1.233,
+ "reach": {
+  "adaln_calls": 0,
+  "adaln_with_s_terms": 0,
+  "adaln_s_terms_calls": 0
+ },
+ "kernels": {
+  "triatt_sdpa": {
+   "fwd": {
+    "served": 1680,
+    "declined": 0
+   },
+   "pm_over_l1": []
+  },
+  "trimul_tail": {
+   "fwd": {
+    "served": 0,
+    "declined": 1680
+   },
+   "rejects": {
+    "('k_tiles=4', '1x640x640x128@128x128')": 1680
+   }
+  },
+  "reblock_permute": {
+   "fwd": {
+    "served": 3360,
+    "declined": 0
+   },
+   "back": {
+    "served": 1680,
+    "declined": 0
+   },
+   "gated": {
+    "served": 0,
+    "declined": 0
+   }
+  },
+  "rfd3_bias": {
+   "fwd": {
+    "served": 0,
+    "declined": 0
+   }
+  }
+ },
+ "thresholds": {
+  "_IS_SMALL_GRID": false,
+  "SEQ_LEN_MORE_CHUNKING": 1536,
+  "TRANSITION_BATCH_CHUNKING_THRESHOLD": 1024,
+  "TRANSITION_W_CHUNKING_THRESHOLD": 1024,
+  "TRIANGLE_ATT_CHUNK_SIZE_FAST": 1024,
+  "TRANSITION_W_CHUNK_SIZE": 1024,
+  "TRIANGLE_MULT_L1_MAX_SEQ_FAST": 640,
+  "TRIANGLE_MULT_L1_MAX_SEQ": 352,
+  "SMALL_GRID_SEQ_TILE": 0,
+  "SMALL_GRID_PAIR_TILE_AREA": 0,
+  "SDPA_CHUNK_MAX": 256,
+  "PAIRFORMER_PAD_MULTIPLE": 64,
+  "TRIANGLE_MULT_CHUNK_SIZE": 32
+ },
+ "fp32_softmax_stats": {
+  "calls": 0,
+  "blocked": 0,
+  "blocks": 0,
+  "fused": 0,
+  "unfused": 0,
+  "l1": 0,
+  "l1_blocks": 0,
+  "l1_refused": 0
+ },
+ "fp32_softmax_l1_refused_keys": [],
+ "transpose_l1_refused_keys": []
+}
