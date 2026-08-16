@@ -42,14 +42,6 @@ def main():
     ap.add_argument("--fast", action="store_true",
                     help="fold in --fast mode. Required for esmfold2 on Wormhole; a --fast arm is "
                          "only comparable to another --fast arm.")
-    # Stage ablation: vary the two loop counts and the fold-level walls give the split with no
-    # instrument between the clock and the work. Both are module globals on tt_baseline, set from
-    # the _resolve_* pair below; override AFTER those, never inside the resolver, so an unset flag
-    # reproduces the shipped value exactly.
-    ap.add_argument("--recycles", type=int, default=None)
-    ap.add_argument("--steps", type=int, default=None)
-    # Diffusion multiplicity. build_fold's `samples` reaches n_sample; the service offers up to 5.
-    ap.add_argument("--samples", type=int, default=None)
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
@@ -72,10 +64,6 @@ def main():
 
     B.RECYCLING_STEPS = _resolve_recycling_steps(None, a.model)
     B.SAMPLING_STEPS = _resolve_sampling_steps(None, a.model)
-    if a.recycles is not None:
-        B.RECYCLING_STEPS = a.recycles
-    if a.steps is not None:
-        B.SAMPLING_STEPS = a.steps
 
     # `build_fold`'s cfg carries no Boltz-2 hyperparameters, so `_WorkerState.load_model`
     # raises KeyError('conf_kwargs'). `perf/other512/fold_ab_multi.py` already carries the
@@ -111,8 +99,7 @@ def main():
     fixdir = tree / "perf" / "size512" / "fixtures"
     tgt, a3m = fixdir / f"cdk2x2_{a.size}.yaml", fixdir / f"cdk2x2_{a.size}.a3m"
     msa_dir = tree / f".msa_xmodel_{a.model}_{a.size}"
-    _bf = {} if a.samples is None else {"samples": a.samples}
-    one_fold, meta = B.build_fold(a.model, msa_dir, tgt, a3m, fast=a.fast, **_bf)[:2]
+    one_fold, meta = B.build_fold(a.model, msa_dir, tgt, a3m, fast=a.fast)[:2]
     struct_dir = Path(meta["struct_dir"])
 
     import importlib.metadata as im
@@ -122,7 +109,6 @@ def main():
            "card": os.environ.get("TT_VISIBLE_DEVICES"),
            "grid": [int(T.COMPUTE_GRID_MAIN[0]), int(T.COMPUTE_GRID_MAIN[1])],
            "recycling_steps": B.RECYCLING_STEPS, "sampling_steps": B.SAMPLING_STEPS,
-           "samples": a.samples or B.DIFFUSION_SAMPLES,
            "flags": {k: getattr(T, k, "absent") for k in
                      ("ADALN_S_HOIST", "FP32_SOFTMAX_BIAS_HOIST", "TRIMUL_TAIL_F1",
                       "TRANSPOSE_L1_HEADROOM")},
@@ -131,12 +117,7 @@ def main():
 
     def one(tag):
         fold_s, m = one_fold()
-        plddt = m.get("plddt")
-        if plddt is None:
-            plddt = m.get("complex_plddt")
-        return {"tag": tag, "fold_s": round(fold_s, 3), "plddt": plddt,
-                "conf": {k: m[k] for k in ("confidence_score", "ptm", "iptm", "complex_plddt",
-                                           "complex_iplddt") if k in m},
+        return {"tag": tag, "fold_s": round(fold_s, 3), "plddt": m.get("plddt"),
                 "n_tokens": m.get("n_tokens"), "n_atoms": m.get("n_atoms"),
                 "cif_sha256": {p.name: hashlib.sha256(p.read_bytes()).hexdigest()[:16]
                                for p in sorted(struct_dir.glob("*")) if p.is_file()},
@@ -166,40 +147,6 @@ def main():
               flush=True)
 
     res["reach"] = dict(reach)
-    # Which fused kernels actually served a call, and why the declines. Every one of them is
-    # gated on a constant fitted on a 130-core Blackhole grid, so "ships default-ON" says nothing
-    # about whether it fired on an 8x9 Wormhole. These counters live inside the kernels, so
-    # reading them is free -- unlike the --census wrappers above they are always on.
-    import importlib
-
-    def _kern(name):
-        try:
-            mod = importlib.import_module("tt_bio." + name)
-        except Exception as e:                                  # a tree without the kernel
-            return {"absent": repr(e)}
-        d = {}
-        for attr, leg in (("STATS", "fwd"), ("STATS_BACK", "back"), ("STATS_GATED", "gated")):
-            st = getattr(mod, attr, None)
-            if st is not None:
-                d[leg] = {"served": int(st[0]), "declined": int(st[1])}
-        rej = getattr(mod, "REJECTS", None)
-        if rej:
-            d["rejects"] = {str(k): int(v) for k, v in rej.items()}
-        pm = getattr(mod, "_PM_OVER_L1", None)
-        if pm is not None:
-            d["pm_over_l1"] = sorted(str(x) for x in pm)
-        return d
-
-    res["kernels"] = {n: _kern(n) for n in
-                      ("triatt_sdpa", "trimul_tail", "reblock_permute", "rfd3_bias")}
-    # The grid-derived thresholds in effect in this process. _apply_grid_thresholds runs at
-    # device open, not at import, so this has to be read after a fold, not from the source.
-    res["thresholds"] = {k: getattr(T, k, "absent") for k in (
-        "_IS_SMALL_GRID", "SEQ_LEN_MORE_CHUNKING", "TRANSITION_BATCH_CHUNKING_THRESHOLD",
-        "TRANSITION_W_CHUNKING_THRESHOLD", "TRIANGLE_ATT_CHUNK_SIZE_FAST",
-        "TRANSITION_W_CHUNK_SIZE", "TRIANGLE_MULT_L1_MAX_SEQ_FAST", "TRIANGLE_MULT_L1_MAX_SEQ",
-        "SMALL_GRID_SEQ_TILE", "SMALL_GRID_PAIR_TILE_AREA", "SDPA_CHUNK_MAX",
-        "PAIRFORMER_PAD_MULTIPLE", "TRIANGLE_MULT_CHUNK_SIZE")}
     res["fp32_softmax_stats"] = dict(T.FP32_SOFTMAX_STATS)
     res["fp32_softmax_l1_refused_keys"] = sorted(str(k) for k in T._FP32_SOFTMAX_L1_REFUSED)
     res["transpose_l1_refused_keys"] = sorted(
