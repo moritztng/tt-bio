@@ -32,10 +32,10 @@ def rows(seq640: str, seq1024: str, rfd3=None, boltzgen=None) -> list:
         # contig, not a spec. Both fixtures are supplied by the caller rather than
         # inlined, so this file cannot drift from whatever the deploy pass actually folds.
         design.append(("boltzgen", "designs",
-                       {"model": "boltzgen", "protocol": "binder", "spec": boltzgen}, "ok"))
+                       {"model": "boltzgen", "protocol": "protein-anything", "spec": boltzgen}, "ok"))
     if rfd3:
         design.append(("rfd3", "designs",
-                       {"model": "rfd3", "protocol": "rfd3", "structure": rfd3[0],
+                       {"model": "rfd3", "protocol": "rfd3-scaffold", "structure": rfd3[0],
                         "contig": rfd3[1], "params": {"num_designs": 1, "steps": 20}}, "ok"))
     big = []
     if seq640:
