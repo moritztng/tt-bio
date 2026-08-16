@@ -315,7 +315,7 @@
           "a100": {
             "status": "measured",
             "s_per_design": 21.729,
-            "ref": "Median of n=4 warm designs end-to-end, 21.115 s per design plus the 0.614 s median inter-loop gap; per-design spread 1.58 %, and an independent second process 1.7 % away at 21.419 s. boltzgen 0.3.2, torch 2.13.0+cu130, cuEquivariance 0.11.1. Cold design and the design that pays the 1.9 GB checkpoint switch both dropped, the same two every other arm drops. cueq_trimul 3360 and cueq_triatt 3360; 96 of 3456 triangle-attention calls (2.78 %) miss the kernel through the same upstream plumbing gap seen on H200 and B200. Every design parses to 100 designed plus 414 target residues with no non-finite coordinates. Peak 7229 MiB."
+            "ref": "Median of n=4 warm designs end-to-end, 21.115 s per design plus the 0.614 s median inter-loop gap; per-design spread 1.58 %, and an independent second process 1.76 % away on the same per-design basis, 20.750 s per design or 21.419 s end-to-end. boltzgen 0.3.2, torch 2.13.0+cu130, cuEquivariance 0.11.1. Cold design and the design that pays the 1.9 GB checkpoint switch both dropped, the same two every other arm drops. cueq_trimul 3360 and cueq_triatt 3360; 96 of 3456 triangle-attention calls (2.78 %) miss the kernel through the same upstream plumbing gap seen on H200 and B200. Every design parses to 100 designed plus 414 target residues with no non-finite coordinates. Peak 7229 MiB."
           }
         }
       },
