@@ -10,9 +10,10 @@ trimul call. The kernels are generated from the wheel's own `minimal_matmul` sou
 descriptor is `mm_generic`'s transcription with three circular buffers and one runtime address
 added per data-movement kernel.
 
-Scoped to the class the fold actually issues at 512 aa: bf16 in and out, interleaved DRAM, both
-activations and both weights the same shape/dtype/layout, one K block, no bias, no ternary. Outside
-that `fused_tail` returns None and the caller keeps today's three ops.
+Scoped to the class the fold actually issues: bf16 in and out, interleaved DRAM, both activations
+and both weights the same shape/dtype/layout, one K block, no bias, no ternary, and a weight shape
+`_MM_BLOCK` has a swept entry for. Outside that `fused_tail` returns None and the caller keeps
+today's three ops.
 """
 
 from __future__ import annotations
@@ -39,9 +40,23 @@ PASSES = 2
 ROUND = 2
 SKIP_SIGMOID = 0
 
-# Same swept block config the two projections use today (`tenstorrent._MM_BLOCK[8]`), so each pass
-# runs the identical `matmul_blocks` over the identical single K block in the identical order.
-BLOCK = (4, 8, 1, 4, 1)
+# The block config comes from the caller, which reads `tenstorrent._MM_BLOCK` on the weight's
+# (k_tiles, n_tiles) key -- the same table and the same key every other `minimal_matmul` site
+# uses. It used to be the single tuple `(4, 8, 1, 4, 1)`, that table's entry for a 256-wide
+# hidden.
+#
+# WINS is the (k_tiles, n_tiles) F1 is MEASURED to beat the three ops it replaces at, and it is
+# not every shape it can run. Boltz-2's tail is 128 wide, (4, 4), and there F1 serves and is
+# bit-exact but LOSES: 0.68x at 384 aa, 0.89x at 512, 0.94x at 640, 0.88x at 1024 on qb1 card 1
+# (`perf/whb2/out/leverA_built_qb1c1.json`). The byte model was right that F1 moves 3P against
+# the three ops' 7P and wrong that the saved bytes convert: at (4, 4) F1 sustains 119-126 GB/s
+# where the three ops sustain 309-406 on a measured 409.5 GB/s roof, so 3P at 30 % of roof
+# costs more than 7P at 80 %. A fusion has to be priced at the fused kernel's own achieved
+# rate, never at the roof.
+#
+# The tail weight is square, so nt == kt at this call site and `WINS == {(8, 8)}` accepts and
+# declines exactly what the old `kt != 8` clause did. Production is unchanged.
+WINS = {(8, 8)}
 
 STATS = [0, 0]          # served, declined
 REJECTS: dict = {}      # (reason, shape) -> count, so a decline is diagnosable from the fold JSON
@@ -53,11 +68,13 @@ def _reject(why, shape=""):
     return None
 
 
-def eligible(xa, xb, wa, wb):
+def eligible(xa, xb, wa, wb, block):
     """None when F1's descriptor covers this call, else the reason it does not.
 
     Every clause is a real assumption of the fork, so a decline names which one.
     """
+    if block is None:
+        return "no_block"
     if ttnn.bfloat16 not in (xa.dtype, xb.dtype, wa.dtype, wb.dtype):
         return "dtype"
     if xa.dtype != xb.dtype or wa.dtype != wb.dtype:
@@ -72,12 +89,15 @@ def eligible(xa, xb, wa, wb):
         return "weight_memcfg_pair"
     kt = (int(wa.shape[-2]) + TILE - 1) // TILE
     nt = (int(wa.shape[-1]) + TILE - 1) // TILE
-    M, K, N, _, _ = BLOCK
-    if kt != K:
-        # One K block is the fusion's whole simplification. At 512 aa this declines the
-        # narrow-hidden trimuls (c_hidden 64, kt = 2), which production does not put through
-        # `minimal_matmul` either: `_MM_BLOCK` has no entry for a 2-tile output.
+    if (kt, nt) not in WINS:
+        # Either F1 has never been measured against the three ops at this shape, or it has and
+        # it lost. See WINS. The narrow-hidden trimuls (c_hidden 64, kt = 2) land here too, and
+        # production does not put them through `minimal_matmul` either.
         return f"k_tiles={kt}"
+    M, K, N, _, _ = block
+    if kt != K:
+        # Only reachable if the caller passed a block for a different weight.
+        return f"block_k={K}"
     if nt % N:
         return f"n_tiles={nt}"
     mt = 1
@@ -99,16 +119,16 @@ def _cb(idx, core_grid, tiles):
         format_descriptors=[fmt])
 
 
-def _build(device, xa, xb, wa, wb, out, grid, ckc):
+def _build(device, xa, xb, wa, wb, out, grid, ckc, block):
     defs = {"TRIMUL_TAIL_PASSES": PASSES, "TRIMUL_TAIL_ROUND": ROUND,
             "TRIMUL_TAIL_SKIP_SIGMOID": SKIP_SIGMOID}
-    entry = MG.build(device, xa, wa, [out], (BLOCK, grid), ckc,
+    entry = MG.build(device, xa, wa, [out], (block, grid), ckc,
                      defines=defs, kernel_dir=KERNEL_DIR)
 
     gx, gy = grid
     core_grid = ttnn.CoreRangeSet(
         [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
-    out_block = BLOCK[0] * BLOCK[2]
+    out_block = block[0] * block[2]
     # c_4 / c_5: the two bf16 GEMM results, double buffered. c_6: the rounded gate, one tile live.
     entry["cbs"] += [_cb(4, core_grid, out_block * 2),
                      _cb(5, core_grid, out_block * 2),
@@ -146,22 +166,23 @@ def _repack(entry):
 _CACHE: dict = {}
 
 
-def fused_tail(xa, xb, wa, wb, ckc, grid):
+def fused_tail(xa, xb, wa, wb, ckc, grid, block):
     """`p * sigmoid(g)` for `p = xa @ wa`, `g = xb @ wb`, in one kernel. None if out of scope."""
-    why = eligible(xa, xb, wa, wb)
+    why = eligible(xa, xb, wa, wb, block)
     if why is not None:
         return _reject(why, "x".join(str(int(d)) for d in xa.padded_shape)
                        + "@" + "x".join(str(int(d)) for d in wa.shape))
     device = xa.device()
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
-    key = (spec(xa), spec(wa), tuple(grid), tuple(str(c) for c in ckc), ROUND, SKIP_SIGMOID)
+    key = (spec(xa), spec(wa), tuple(grid), tuple(str(c) for c in ckc), tuple(block),
+           ROUND, SKIP_SIGMOID)
     out = ttnn.allocate_tensor_on_device(
         ttnn.Shape([int(d) for d in xa.shape][:-1] + [int(wa.shape[-1])]),
         ttnn.bfloat16, ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
 
     entry = _CACHE.get(key)
     if entry is None:
-        entry = _CACHE[key] = _build(device, xa, xb, wa, wb, out, grid, ckc)
+        entry = _CACHE[key] = _build(device, xa, xb, wa, wb, out, grid, ckc, block)
     else:
         # `MG.rebind` repacks the descriptor itself, so only bind B separately when it does not run.
         addrs = (xa.buffer_address(), wa.buffer_address(), (out.buffer_address(),))

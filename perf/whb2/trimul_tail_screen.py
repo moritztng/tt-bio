@@ -12,9 +12,14 @@ KILL GATE, written before any build: if the three-op sequence measures above ~3.
 (under 67 % of roof) the sequence is not bandwidth-bound, the byte model does not predict the win,
 and lever A stops. The same clause on Blackhole is ~1.6 ms.
 
-The script also calls `fused_tail` at the production shape to confirm on hardware what the census
-inferred: F1 declines every Boltz-2 tail because `BLOCK = (4, 8, 1, 4, 1)` demands kt == 8 and
-Boltz-2's tail is 128 wide, kt = 4. The reject reason is reported verbatim.
+The script also calls `fused_tail` at the production shape. Before lever A it confirmed on
+hardware what the census inferred: F1 declined every Boltz-2 tail because the block was the
+single tuple `(4, 8, 1, 4, 1)`, which demands kt == 8, and Boltz-2's tail is 128 wide, kt = 4.
+With the block passed in from `_mm_block_for` it serves, and the run then times it and checks
+`torch.equal` against the three ops it replaces. Reject reasons are reported verbatim either way.
+
+SECOND KILL GATE, from state doc 4A: the fused call must beat 75 % of the shipped sequence,
+i.e. return at least a 25 % improvement. Below that, NO-GO.
 
 Run with TT_VISIBLE_DEVICES=<free id>.
 """
@@ -62,7 +67,7 @@ def main():
 
     out = {"host": os.uname().nodename, "card": os.environ.get("TT_VISIBLE_DEVICES"),
            "grid": list(grid), "cores": grid[0] * grid[1], "arch": arch, "c_z": a.cz,
-           "roof_gbs": (roof or 0) / 1e9, "block": list(TT.BLOCK), "cases": []}
+           "roof_gbs": (roof or 0) / 1e9, "cases": []}
 
     def timed(fn):
         for _ in range(a.warmup):
@@ -113,14 +118,42 @@ def main():
                 rec["frac_of_roof"] = round(gbs / (roof / 1e9), 4)
                 rec["kill_gate_passes"] = bool(rec["shipped"]["median"] <= rec["kill_gate_ms"])
 
-            # F1 at the production shape. Expected: None, reject ('k_tiles=4', ...).
+            # F1 at the production shape, with the block the rest of the codebase would pick
+            # for this weight. Before lever A the block argument did not exist and this
+            # declined at ('k_tiles=4', ...).
+            block = T._mm_block_for(wp)
+            rec["block"] = list(block) if block else None
             before = dict(getattr(TT, "REJECTS", {}))
-            f = TT.fused_tail(x, xn, wp, wg, T._mm_generic.ckc_args(ckc), grid)
+            cargs = T._mm_generic.ckc_args(ckc)
+            f = TT.fused_tail(x, xn, wp, wg, cargs, grid, block)
             rec["fused_served"] = f is not None
             if f is not None:
+                # Correctness before speed. The three ops write in place, so the reference is
+                # taken on its own copies and both come back to host as bf16 bit patterns.
+                pr = T._trimul_out_proj(x, wp, ckc)
+                gr = T._trimul_out_proj(xn, wg, ckc)
+                ref = ttnn.multiply_(
+                    pr, gr, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+                ttnn.deallocate(gr)
+                a_t, b_t = ttnn.to_torch(f), ttnn.to_torch(ref)
+                rec["bit_exact"] = bool(torch.equal(a_t, b_t))
+                if not rec["bit_exact"]:
+                    d = (a_t.float() - b_t.float()).abs()
+                    rec["miss"] = {"n": int((d > 0).sum()), "of": int(d.numel()),
+                                   "max_abs": float(d.max()),
+                                   "ref_max_abs": float(b_t.float().abs().max())}
+                ttnn.deallocate(ref)
                 ttnn.deallocate(f)
                 rec["fused"] = timed(lambda: TT.fused_tail(
-                    x, xn, wp, wg, T._mm_generic.ckc_args(ckc), grid))
+                    x, xn, wp, wg, cargs, grid, block))
+                if rec["fused"] and rec.get("shipped"):
+                    sp = rec["shipped"]["median"] / rec["fused"]["median"]
+                    rec["speedup_fused_over_shipped"] = round(sp, 4)
+                    rec["gate2_passes"] = bool(sp >= 1.3333)
+                    if roof:
+                        g2 = 3 * P / (rec["fused"]["median"] * 1e-3) / 1e9
+                        rec["fused_achieved_gbs"] = round(g2, 1)
+                        rec["fused_frac_of_roof"] = round(g2 / (roof / 1e9), 4)
             after = dict(getattr(TT, "REJECTS", {}))
             rec["new_rejects"] = {str(k): int(after[k] - before.get(k, 0))
                                   for k in after if after[k] - before.get(k, 0)}

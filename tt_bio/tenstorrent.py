@@ -2674,11 +2674,13 @@ class TriangleMultiplication(Module):
             compute_kernel_config=self.compute_kernel_config,
         )
         if _TRIMUL_TAIL_F1:
-            # `fused_tail` returns None for any call its descriptor does not cover (at 512 aa that
-            # is the narrow-hidden trimuls, k_tiles=2), and the three ops below run unchanged.
+            # `fused_tail` returns None for any call its descriptor does not cover, which after
+            # the block is passed in is the narrow-hidden trimuls (c_hidden 64, no `_MM_BLOCK`
+            # entry); the three ops below then run unchanged.
             fused = _trimul_tail.fused_tail(
                 x, x_norm_in, self.out_p_weight, self.g_out_weight,
-                _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN))
+                _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN),
+                _mm_block_for(self.out_p_weight))
             if fused is not None:
                 ttnn.deallocate(x)
                 ttnn.deallocate(x_norm_in)
