@@ -1586,6 +1586,38 @@ class ConfidenceHead:
 PAIRCOND_BLOCK_BYTES = int(os.environ.get("TT_BIO_PAIRCOND_BLOCK_BYTES", 5 * 2 ** 28))  # 2.5 GiB
 
 
+def _pz_cond_probe(pz, z_in_sha):
+    """TT_PROTENIX_PZPROBE=<dir> (default off): attribute run-to-run pair_z divergence.
+    Reads the just-written device pz back TWICE and records shas of the z_trunk input and
+    pz. z_in differs across runs -> seed is upstream (trunk). z_in same, pz differs across
+    runs, readback_equal -> the cond-prep compute is racy. readback not equal -> the DRAM
+    readback of those addresses is not stable. Returns the first readback (host, fp32)."""
+    out = os.environ.get("TT_PROTENIX_PZPROBE")
+    if not out:
+        return Protenix._to_host(pz)
+    import hashlib
+    import json
+    import pathlib
+
+    import torch
+
+    r1 = ttnn.to_torch(pz)
+    r2 = ttnn.to_torch(pz)
+    eq = bool(torch.equal(r1, r2))
+    b1 = r1.to(torch.float32).numpy().tobytes()
+    rec = {
+        "z_in_sha16": z_in_sha,
+        "pz_sha16": hashlib.sha256(b1).hexdigest()[:16],
+        "readback_equal": eq,
+        "readback_maxdiff": 0.0 if eq else float((r1.float() - r2.float()).abs().max()),
+        "pz_absmax": float(r1.float().abs().max()),
+    }
+    p = pathlib.Path(out)
+    p.mkdir(parents=True, exist_ok=True)
+    (p / "pz_cond_probe.json").write_text(json.dumps(rec, indent=2))
+    return r1.float()
+
+
 class Protenix:
     """Top-level Protenix-v2 structure predictor on Tenstorrent (inference-only).
 
@@ -1769,6 +1801,11 @@ class Protenix:
         from .tenstorrent import Transition
         C = "diffusion_module.diffusion_conditioning."
         T = self.diffusion._up
+        _z_sha = None
+        if os.environ.get("TT_PROTENIX_PZPROBE"):
+            import hashlib as _hl
+
+            _z_sha = _hl.sha256(ttnn.to_torch(z_trunk_tt).to(torch.float32).numpy().tobytes()).hexdigest()[:16]
         relpe = ttnn.linear(T(relp), T(self._w[C + "relpe.linear_no_bias.weight"].t().contiguous()),
                             compute_kernel_config=self.compute_kernel_config, dtype=self.diffusion.dtype,
                             core_grid=CORE_GRID_MAIN)
@@ -1810,7 +1847,7 @@ class Protenix:
                 t = Transition(PW.remap_transition(sub), self.compute_kernel_config,
                                dtype=self.diffusion.dtype)
                 pz = ttnn.add(pz, t(pz))
-            return self._to_host(pz)
+            return _pz_cond_probe(pz, _z_sha)
         if C + "linear_no_bias_z_trunk.weight" in self._w:
             zt = ttnn.layer_norm(z_trunk_tt, weight=T(self._w[C + "layernorm_z_trunk.weight"]),
                                  epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
@@ -1832,7 +1869,7 @@ class Protenix:
             t = Transition(PW.remap_transition(sub), self.compute_kernel_config,
                            dtype=self.diffusion.dtype)
             pz = ttnn.add(pz, t(pz))
-        return self._to_host(pz)
+        return _pz_cond_probe(pz, _z_sha)
 
     def _plm_z_term(self, pair_z, a2t, nb, nq, nk):
         """broadcast_token_to_local_atom_pair: W_z(LN_z(z_trunk)) gathered into windowed
