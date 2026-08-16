@@ -1,0 +1,54 @@
+{
+ "struct": "/home/moritz/.coworker/wt/japanfold-wh-correctness-close/perf/wh-correctness/results/artifacts/size_608_opendde/target_1.cif",
+ "checks": {
+  "n_atoms": 4895,
+  "bbox_diagonal": 139.42,
+  "chains": [
+   {
+    "chain": "A",
+    "kind": "protein",
+    "n_res": 608,
+    "sequence": "MENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLLDVIHTENKLYLVFEFLHQDLKKFMDASALTGIPLPLIKSYLFQLLQGLAFCHSHRVLHRDLKPQNLLINTEGAIKLADFGLARAFGVPVRTYTHEVVTLWYRAPEILLGCKYYSTAVDIWSLGCIFAEMVTRRALFPGDSEIDQLFRIFRTLGTPDEVVWPGVTSMPDYKPSFPKWARQDFSKVVPPLDEDGRSLLSQMLHYDPNKRISAKAALAHPFFQDVTKPVPHLRLMENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLLDVIHTENKLYLVFEFLHQDLKKFMDASALTGIPLPLIKSYLFQLLQGLAFCHSHRVLHRDLKPQNLLINTEGAIKLADFGLARAFGVPVRTYTHEVVTLWYRAPEILLGCKYYSTAVDIWSLGCIFAEMVTRRALFPGDSEIDQLFRIFRTLGTPDEVVWPGVTSMPDYKPSFPKWARQDFSKVVPPLDEDGRSLLSQMLHYDPNKRISAKAALAHPFFQDVTKPVPHLRLMENFQKVEKIGE",
+    "step_median": 3.851,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 0.9918,
+    "breaks": 2,
+    "rg": 31.1,
+    "rg_expected": 25.14,
+    "rg_ratio": 1.237,
+    "n_ca_bond_median": 1.469,
+    "ca_c_bond_median": 1.534
+   }
+  ],
+  "clashes": {
+   "n": 5,
+   "heavy_atoms": 4895,
+   "worst_dist": 1.556,
+   "threshold": 2.0,
+   "budget": 4.8950000000000005
+  },
+  "confidence": {
+   "source": "b_factor",
+   "n": 4895,
+   "min": 0.4295,
+   "max": 0.9861,
+   "mean": 0.8792,
+   "std": 0.1155,
+   "scale": 100.0
+  },
+  "expected": {
+   "chains": 1,
+   "ligands": 0
+  },
+  "ligand_residues_seen": 0
+ },
+ "fail": [
+  "chain A (protein): 2 backbone gap(s) > 5.0 A -- chain is broken",
+  "5 heavy-atom clashes < 2.0 A (0.10% of atoms, worst 1.556 A)"
+ ],
+ "warn": [],
+ "verdict": "FAIL"
+}

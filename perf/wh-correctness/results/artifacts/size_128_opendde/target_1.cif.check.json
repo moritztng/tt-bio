@@ -1,5 +1,5 @@
 {
- "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/size_128_opendde/target_1.cif",
+ "struct": "/home/ttuser/.coworker/wt/japanfold-wh-correctness-close/perf/wh-correctness/results/artifacts/size_128_opendde/target_1.cif",
  "checks": {
   "n_atoms": 1033,
   "bbox_diagonal": 75.44,
