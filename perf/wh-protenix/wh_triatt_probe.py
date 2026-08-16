@@ -24,6 +24,10 @@ def main():
                     help="force `_qkv_mm_config` to return None (the unconfigured op) and see "
                          "whether the fold gets past the clash")
     ap.add_argument("--tail", type=int, default=14, help="qkv calls to keep in the trace")
+    ap.add_argument("--fast", action="store_true",
+                    help="fold on the shipped --fast block-fp8 path, which is what JapanFold "
+                         "production runs. Halves the resident bytes, so it is a different "
+                         "question from the default arm and has to be measured separately.")
     a = ap.parse_args()
 
     tree = a.tree.resolve()
@@ -101,10 +105,11 @@ def main():
     fixdir = tree / "perf" / "size512" / "fixtures"
     tgt, a3m = fixdir / f"cdk2x2_{a.size}.yaml", fixdir / f"cdk2x2_{a.size}.a3m"
     msa_dir = tree / f".msa_xmodel_protenix-v2_{a.size}"
-    one_fold, meta = B.build_fold("protenix-v2", msa_dir, tgt, a3m, fast=False)[:2]
+    one_fold, meta = B.build_fold("protenix-v2", msa_dir, tgt, a3m, fast=a.fast)[:2]
 
     res = {"size": a.size, "tree": str(tree), "card": os.environ.get("TT_VISIBLE_DEVICES"),
            "no_mm_cfg": a.no_mm_cfg, "grid": list(T.COMPUTE_GRID_MAIN),
+           "fast": a.fast, "_FAST_MODE": T._FAST_MODE, "dtype": str(T._dtype()),
            "l1_unreserved": l1_free(),
            "SEQ_LEN_MORE_CHUNKING": T.SEQ_LEN_MORE_CHUNKING,
            "TRIANGLE_ATT_CHUNK_SIZE": T.TRIANGLE_ATT_CHUNK_SIZE,
