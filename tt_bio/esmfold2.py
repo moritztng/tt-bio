@@ -1050,6 +1050,28 @@ def _msa_row_blocks(L: int, M: int):
     return [(s, min(s + chunk, L)) for s in range(0, L, chunk)]
 
 
+def _msa_transition_residual(m, ffn):
+    """`m + ffn(m)` for the MSA transition, one row block at a time.
+
+    Uses `SwiGLUFFN`'s own dim=1 partition (`pair_row_tile` + `ttnn.chunk`, the
+    identical call it makes internally), so each block sees exactly the tensor it
+    would have seen anyway and the arithmetic is bit-identical. What changes is
+    lifetime: the FFN no longer concatenates a full [B,L,M,c] result that then has
+    to sit next to `m` for the residual add. At L=1024, M=8192 that is two 2 GiB
+    buffers the chip never has to hold."""
+    from tt_bio import tenstorrent
+    L = m.shape[1]
+    chunk = tenstorrent.pair_row_tile(L) if len(m.shape) == 4 else 0
+    if not chunk:
+        return ttnn.add(m, ffn(m))
+    out = []
+    for part in ttnn.chunk(m, -(-L // chunk), dim=1):
+        upd = ffn(part)
+        out.append(ttnn.add(part, upd))
+        ttnn.deallocate(upd)
+    return ttnn.concat(out, dim=1)
+
+
 class OuterProductMean(Module):
     """MSA -> pair update via outer-product mean (d_hidden=32, tile-aligned -> full ttnn)."""
 
@@ -1156,12 +1178,7 @@ class MSAEncoderBlock(Module):
         pair = ttnn.add(pair, self.opm(m, recip_nvalid))
         if not self.is_final:
             m = self.mpwa(m, pair)  # residual included
-            # msa_transition is deliberately NOT row-blocked here: SwiGLUFFN does
-            # its own dim=1 blocking, and re-partitioning it moves the fc1/fc2
-            # matmul K-accumulation order (measured: 2.8M/4.2M elements differ,
-            # max 192 against a peak of 20608). Its transient is bounded by that
-            # internal block, so leave the arithmetic exactly where it is.
-            m = ttnn.add(m, self.msa_transition(m))
+            m = _msa_transition_residual(m, self.msa_transition)
         pair = ttnn.add(pair, self.tri_out(pair, None))
         pair = ttnn.add(pair, self.tri_in(pair, None))
         pair = ttnn.add(pair, self.pair_transition(pair))

@@ -26,7 +26,7 @@ for f in sorted(glob.glob(os.path.join(snap, "*.safetensors"))):
             sd[k[len("msa_encoder."):]] = v
 print(f"loaded {len(sd)} msa_encoder tensors", flush=True)
 
-B, L, M = 1, 128, 256
+B, L, M = 1, 512, 256
 d_pair = sd["blocks.0.outer_product_mean.Wout.weight"].shape[0]
 d_inputs = sd["project_inputs.weight"].shape[1]
 g = torch.Generator().manual_seed(0)
@@ -42,6 +42,10 @@ inputs = dict(
 print(f"d_pair={d_pair} d_inputs={d_inputs}  L={L} M={M}", flush=True)
 
 def run(area):
+    # Both budgets, so the arm also exercises the transition's row loop
+    # (pair_row_tile) and OuterProductMean's existing row tiling.
+    tenstorrent.SMALL_GRID_PAIR_TILE_AREA = 65536 if area else 0
+    tenstorrent.SMALL_GRID_SEQ_TILE = 256 if area else 0
     tenstorrent.SMALL_GRID_MSA_TILE_AREA = area
     mod = E.MSAEncoder(n_layers, n_heads, head_w)
     missing = mod.load_state_dict(sd, strict=False)
@@ -53,6 +57,7 @@ def run(area):
 single, r0 = run(0)
 blocked, r1 = run(8192)
 assert r0 == 0 and r1 == 32, f"arms did not differ: {r0} vs {r1}"
+print(f"  pair_row_tile(L)={tenstorrent.pair_row_tile(L)}", flush=True)
 same = torch.equal(single, blocked)
 diff = (single - blocked).abs().max().item()
 print(f"RESULT: torch.equal={same}  max_abs_diff={diff}  shape={tuple(single.shape)}", flush=True)
