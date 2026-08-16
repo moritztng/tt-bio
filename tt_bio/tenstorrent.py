@@ -486,7 +486,41 @@ def _sdpa_chunks_shipped(q_len: int, k_len: int) -> tuple:
     # online-softmax reduction order (measured PCC 0.9999 vs the 256 config).
     # Both sizes were only ever swept together; q is widened past this pick by
     # _tri_att_q_chunks, which is bit-exact, and k stays exactly here.
+    #
+    # K4 moves the k half of the band, and only the k half. 64 divides both 320 and 384, so
+    # the fused K1/K2 kernel already serves here and this is not the divisibility bug K3 fixes;
+    # it is that 64 is the wrong divisor. MEASURED off-fold at Boltz-2's shape (h=4, d=32),
+    # fused-at-64 against fused-at-the-dividing-pick, arms interleaved, on both architectures:
+    #
+    #     padded            320       384
+    #     k, band / K4      64 / 160  64 / 192
+    #     Wormhole 8x9      1.4232x   1.5612x   (A/A floor 0.16 %, perf/whb2/out/divk_wh.json)
+    #     Blackhole 13x10   1.2994x   1.1670x   (A/A floor 0.5 %, perf/whb2/out/divk_qb1c1.json)
+    #
+    # Both architectures move the same way, so this cannot trade one against the other. It also
+    # does not contradict the 2.45x above: that compares the band against the CAPPED 256 pick,
+    # which makes the fused kernel decline outright (measured 1.75-2.70x worse on Wormhole,
+    # state doc 11.1). Capped 256 < band 64 < K4's dividing pick, consistently.
+    #
+    # PREDICTED at the fold, written before the build. 1120 tri-attention calls per fold:
+    #     Wormhole 384 aa   1120 * (2.8908 - 1.8517) ms = 1.164 s upper, 0.58 s lower
+    #     Wormhole 320 aa   1120 * (1.7529 - 1.2317) ms = 0.584 s upper, 0.29 s lower
+    # against walls of 31.919 s and ~27 s, i.e. 1.8-3.6 % and 1.1-2.2 %. The lower bound halves
+    # the upper because isolated per-op timing over-syncs roughly 2x against batched work.
+    #
+    # NOT bit-exact, same reason as K3: k_chunk sets the online-softmax reduction order. The
+    # accuracy arm is pLDDT. Separate switch from K3 so the two can be A/B'd apart.
     if 256 < q_len <= 384 and 256 < k_len <= 384:
+        if _SDPA_BAND_DIV_K:
+            dk = _dividing_sdpa_chunk_size(k_len)
+            # Only when it really divides. At padded 288 and 352 no 32-aligned divisor
+            # clears the cap/2 floor, so `_dividing_sdpa_chunk_size` hands back the cap,
+            # 256, which does not divide either. Taking it there would leave the fused
+            # kernel declining exactly as it does today AND move the stock fallback from
+            # k=64 to k=256 -- the pick 11.1 measured 1.75-2.70x slower on Wormhole. Those
+            # two sizes keep 64 and are untouched by K4.
+            if _padded_sdpa_len(k_len) % dk == 0:
+                return (64, dk)
         return (64, 64)
     return (_capped_sdpa_chunk_size(q_len), _dividing_sdpa_chunk_size(k_len))
 
@@ -519,6 +553,11 @@ def _sdpa_chunks_shipped(q_len: int, k_len: int) -> tuple:
 # NOT bit-exact: k_chunk sets the online-softmax reduction order. The fold-level accuracy arm is
 # pLDDT, not a digest.
 _SDPA_DIV_K = os.environ.get("TT_BIO_SDPA_DIV_K", "1") != "0"
+
+# K4: the same dividing pick inside the 256 < seq <= 384 band, where the fused kernel already
+# serves at k=64 and 64 is simply not the best divisor. See `_sdpa_chunks_shipped`. Ships OFF
+# until its fold-level A/B and pLDDT arm land on both architectures.
+_SDPA_BAND_DIV_K = os.environ.get("TT_BIO_SDPA_BAND_DIV_K", "0") != "0"
 
 
 @lru_cache(maxsize=None)
