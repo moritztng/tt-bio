@@ -24,7 +24,10 @@ ROOT = Path(__file__).resolve().parents[2]
 SRC_A3M = ROOT / "scripts/gpu_vs_tt/fixtures/prot300.a3m"
 SRC_YAML = ROOT / "examples/prot300.yaml"
 OUT = Path(__file__).resolve().parent / "fixtures"
-SIZES = [128, 256, 298, 320, 352, 384, 448, 512, 768, 1024]
+# Default is the original token-count sweep. Pass sizes on argv for anything else: K3 changes
+# padded 448, 576, 640, 896 and 960, and the last two had no fixture, which silently bounded
+# what the size sweep could show about it.
+SIZES = [int(x) for x in sys.argv[1:]] or [128, 256, 298, 320, 352, 384, 448, 512, 768, 1024]
 REPEAT = lambda L: -(-L // 298)   # tandem copies needed to reach L match columns
 
 

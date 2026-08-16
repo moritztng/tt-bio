@@ -1,0 +1,618 @@
+{
+ "grid_11x10": {
+  "ADALN_S_HOIST": true,
+  "ATOM_DIM": 128,
+  "ATOM_N_HEADS": 4,
+  "ATOM_N_LAYERS": 3,
+  "ATOM_WINDOW": 32,
+  "COMPUTE_GRID_MAIN": [
+   11,
+   10
+  ],
+  "COMPUTE_GRID_X_11": 11,
+  "COMPUTE_GRID_X_13": 13,
+  "COMPUTE_GRID_Y": 10,
+  "CONCAT_HOST_BYTES": 1610612736,
+  "FP32_SOFTMAX_BIAS_HOIST": true,
+  "MAX_ATOMS_PER_TOKEN": 14,
+  "MSA_CHUNK_SIZE": 512,
+  "MSA_PAD_MULTIPLE": 1024,
+  "OPM_CHUNK_SIZE": 256,
+  "OPM_ROW_CHUNK_BUDGET_BYTES": 1073741824,
+  "OPM_Z_BUDGET_BYTES": 268435456,
+  "PAIRFORMER_PAD_MULTIPLE": 64,
+  "PAIR_PROJ_MINIMAL_MATMUL": true,
+  "PAIR_ROW_BLOCK": 128,
+  "PAIR_TRANSPOSE_VIA_ROW_MAJOR": true,
+  "QKV_MM_CONFIG": true,
+  "SDPA_CHUNK_MAX": 256,
+  "SDPA_CHUNK_TILE": 32,
+  "SEQ_LEN_MORE_CHUNKING": 1536,
+  "SMALL_GRID_PAIR_TILE_AREA": 0,
+  "SMALL_GRID_SEQ_TILE": 0,
+  "SMALL_GRID_TRANSITION_ELEMS": 1179648,
+  "SMALL_GRID_TRANSITION_MAX_C": 384,
+  "SMALL_GRID_TRIMUL_BUDGET_SCALE": 1.0,
+  "SMALL_GRID_TRIMUL_L1_MAX_SEQ": 0,
+  "TOKEN_DIM": 768,
+  "TOKEN_N_HEADS": 16,
+  "TOKEN_N_LAYERS": 24,
+  "TRANSITION_BATCH_CHUNKING_THRESHOLD": 1024,
+  "TRANSITION_H_CHUNK_BIG_MAX_W": 384,
+  "TRANSITION_H_CHUNK_SIZE": 16,
+  "TRANSITION_H_CHUNK_SIZE_BIG": 32,
+  "TRANSITION_H_CHUNK_SIZE_FAST": 32,
+  "TRANSITION_L1_CHUNK_BYTES_PER_CORE": 393216,
+  "TRANSITION_W_CHUNKING_THRESHOLD": 1024,
+  "TRANSITION_W_CHUNK_SIZE": 1024,
+  "TRANSPOSE_L1_HEADROOM": 1.25,
+  "TRIANGLE_ATT_CHUNK_SIZE": 512,
+  "TRIANGLE_ATT_CHUNK_SIZE_FAST": 1024,
+  "TRIANGLE_MULT_CHUNK_SIZE": 32,
+  "TRIANGLE_MULT_L1_CHUNK_BUDGET": 6553600,
+  "TRIANGLE_MULT_L1_MAX_SEQ": 352,
+  "TRIANGLE_MULT_L1_MAX_SEQ_FAST": 640,
+  "TRIANGLE_MULT_L1_MAX_SEQ_FAST_13X10": 704,
+  "TRIATT_CHUNK_L1_SPILL_BYTES": 524288,
+  "TRIMUL_IN_NORM_ROWBLOCK_BYTES": 3221225472,
+  "TRIMUL_TAIL_F1": true,
+  "_ATOM_PAD_IN_TILE": true,
+  "_BATCHED_MATMUL_ON": true,
+  "_BATCHED_MATMUL_SATURATION_BLOCKS": 32,
+  "_DEVICE_INIT_LOCK_PATH": "/tmp/tt-bio-device-open.lock",
+  "_DIFFUSION_FP32_DEVICE": false,
+  "_FAST_MODE": false,
+  "_FP32_SOFTMAX": false,
+  "_FP32_SOFTMAX_BLOCK_BYTES": 8589934592,
+  "_FP32_SOFTMAX_FUSED_ADD": true,
+  "_FP32_SOFTMAX_L1_BYTES_PER_CORE": 786432,
+  "_FP32_SOFTMAX_L1_GRID": [
+   8,
+   8
+  ],
+  "_IS_SMALL_GRID": false,
+  "_MIN_L1_SCALE": 0.7,
+  "_MM_CFG": true,
+  "_MM_DEFAULT": [
+   8,
+   8,
+   8,
+   2,
+   2
+  ],
+  "_NARROW_PROJ_BW": 1,
+  "_PAIR_BIAS_L1_NORM": true,
+  "_PAIR_FFN_FC1_BLOCK_W": 16,
+  "_PAIR_FFN_FC1_BW": 1,
+  "_PAIR_PROJ_BW": 16,
+  "_PAIR_PROJ_L1_BW": 16,
+  "_PAIR_PROJ_L1_OUT": true,
+  "_PAIR_PROJ_MM": true,
+  "_PT_ROW_MAJOR": true,
+  "_PWA_L1_NORM": true,
+  "_SDPA_WIDE_Q": true,
+  "_TEMPLATE_L1_NORM": true,
+  "_TEMPLATE_NOOP_GATE": true,
+  "_TRANSITION_L1_CHUNK_BYTES_BASE": 393216,
+  "_TRANSPOSE_L1_HEADROOM": 1.25,
+  "_TRIATT_BIAS_B8": false,
+  "_TRIATT_CHUNK_L1_SPILL_BASE": 524288,
+  "_TRIMUL_INPROJ_FUSED_BYTES": 1073741824,
+  "_TRIMUL_INPROJ_GROUP": 12,
+  "_TRIMUL_MM_OUT": false,
+  "_TRIMUL_OUT_MOVE_DRAM": false,
+  "_TRIMUL_RAW_CHANNEL_MOVES": false,
+  "_TRIMUL_TAIL_F1": true,
+  "_TRUNK_MATH_FIDELITY": "hifi4",
+  "_UNFUSED_SILU": false,
+  "_WH_FULL_L1_PER_CORE": 1572864,
+  "_WH_MEASURED_L1_PER_CORE": 1466080,
+  "_device_generation": 0,
+  "_trace_region_size": 0,
+  "pi": 3.141592653589793
+ },
+ "grid_13x10": {
+  "ADALN_S_HOIST": true,
+  "ATOM_DIM": 128,
+  "ATOM_N_HEADS": 4,
+  "ATOM_N_LAYERS": 3,
+  "ATOM_WINDOW": 32,
+  "COMPUTE_GRID_MAIN": [
+   11,
+   10
+  ],
+  "COMPUTE_GRID_X_11": 11,
+  "COMPUTE_GRID_X_13": 13,
+  "COMPUTE_GRID_Y": 10,
+  "CONCAT_HOST_BYTES": 1610612736,
+  "FP32_SOFTMAX_BIAS_HOIST": true,
+  "MAX_ATOMS_PER_TOKEN": 14,
+  "MSA_CHUNK_SIZE": 512,
+  "MSA_PAD_MULTIPLE": 1024,
+  "OPM_CHUNK_SIZE": 256,
+  "OPM_ROW_CHUNK_BUDGET_BYTES": 1073741824,
+  "OPM_Z_BUDGET_BYTES": 268435456,
+  "PAIRFORMER_PAD_MULTIPLE": 64,
+  "PAIR_PROJ_MINIMAL_MATMUL": true,
+  "PAIR_ROW_BLOCK": 128,
+  "PAIR_TRANSPOSE_VIA_ROW_MAJOR": true,
+  "QKV_MM_CONFIG": true,
+  "SDPA_CHUNK_MAX": 256,
+  "SDPA_CHUNK_TILE": 32,
+  "SEQ_LEN_MORE_CHUNKING": 1536,
+  "SMALL_GRID_PAIR_TILE_AREA": 0,
+  "SMALL_GRID_SEQ_TILE": 0,
+  "SMALL_GRID_TRANSITION_ELEMS": 1179648,
+  "SMALL_GRID_TRANSITION_MAX_C": 384,
+  "SMALL_GRID_TRIMUL_BUDGET_SCALE": 1.0,
+  "SMALL_GRID_TRIMUL_L1_MAX_SEQ": 0,
+  "TOKEN_DIM": 768,
+  "TOKEN_N_HEADS": 16,
+  "TOKEN_N_LAYERS": 24,
+  "TRANSITION_BATCH_CHUNKING_THRESHOLD": 1024,
+  "TRANSITION_H_CHUNK_BIG_MAX_W": 384,
+  "TRANSITION_H_CHUNK_SIZE": 16,
+  "TRANSITION_H_CHUNK_SIZE_BIG": 32,
+  "TRANSITION_H_CHUNK_SIZE_FAST": 32,
+  "TRANSITION_L1_CHUNK_BYTES_PER_CORE": 393216,
+  "TRANSITION_W_CHUNKING_THRESHOLD": 1024,
+  "TRANSITION_W_CHUNK_SIZE": 1024,
+  "TRANSPOSE_L1_HEADROOM": 1.25,
+  "TRIANGLE_ATT_CHUNK_SIZE": 512,
+  "TRIANGLE_ATT_CHUNK_SIZE_FAST": 1024,
+  "TRIANGLE_MULT_CHUNK_SIZE": 32,
+  "TRIANGLE_MULT_L1_CHUNK_BUDGET": 6553600,
+  "TRIANGLE_MULT_L1_MAX_SEQ": 352,
+  "TRIANGLE_MULT_L1_MAX_SEQ_FAST": 640,
+  "TRIANGLE_MULT_L1_MAX_SEQ_FAST_13X10": 704,
+  "TRIATT_CHUNK_L1_SPILL_BYTES": 524288,
+  "TRIMUL_IN_NORM_ROWBLOCK_BYTES": 3221225472,
+  "TRIMUL_TAIL_F1": true,
+  "_ATOM_PAD_IN_TILE": true,
+  "_BATCHED_MATMUL_ON": true,
+  "_BATCHED_MATMUL_SATURATION_BLOCKS": 32,
+  "_DEVICE_INIT_LOCK_PATH": "/tmp/tt-bio-device-open.lock",
+  "_DIFFUSION_FP32_DEVICE": false,
+  "_FAST_MODE": false,
+  "_FP32_SOFTMAX": false,
+  "_FP32_SOFTMAX_BLOCK_BYTES": 8589934592,
+  "_FP32_SOFTMAX_FUSED_ADD": true,
+  "_FP32_SOFTMAX_L1_BYTES_PER_CORE": 786432,
+  "_FP32_SOFTMAX_L1_GRID": [
+   8,
+   8
+  ],
+  "_IS_SMALL_GRID": false,
+  "_MIN_L1_SCALE": 0.7,
+  "_MM_CFG": true,
+  "_MM_DEFAULT": [
+   8,
+   8,
+   8,
+   2,
+   2
+  ],
+  "_NARROW_PROJ_BW": 1,
+  "_PAIR_BIAS_L1_NORM": true,
+  "_PAIR_FFN_FC1_BLOCK_W": 16,
+  "_PAIR_FFN_FC1_BW": 1,
+  "_PAIR_PROJ_BW": 16,
+  "_PAIR_PROJ_L1_BW": 16,
+  "_PAIR_PROJ_L1_OUT": true,
+  "_PAIR_PROJ_MM": true,
+  "_PT_ROW_MAJOR": true,
+  "_PWA_L1_NORM": true,
+  "_SDPA_WIDE_Q": true,
+  "_TEMPLATE_L1_NORM": true,
+  "_TEMPLATE_NOOP_GATE": true,
+  "_TRANSITION_L1_CHUNK_BYTES_BASE": 393216,
+  "_TRANSPOSE_L1_HEADROOM": 1.25,
+  "_TRIATT_BIAS_B8": false,
+  "_TRIATT_CHUNK_L1_SPILL_BASE": 524288,
+  "_TRIMUL_INPROJ_FUSED_BYTES": 1073741824,
+  "_TRIMUL_INPROJ_GROUP": 12,
+  "_TRIMUL_MM_OUT": false,
+  "_TRIMUL_OUT_MOVE_DRAM": false,
+  "_TRIMUL_RAW_CHANNEL_MOVES": false,
+  "_TRIMUL_TAIL_F1": true,
+  "_TRUNK_MATH_FIDELITY": "hifi4",
+  "_UNFUSED_SILU": false,
+  "_WH_FULL_L1_PER_CORE": 1572864,
+  "_WH_MEASURED_L1_PER_CORE": 1466080,
+  "_device_generation": 0,
+  "_trace_region_size": 0,
+  "pi": 3.141592653589793
+ },
+ "grid_8x9": {
+  "ADALN_S_HOIST": true,
+  "ATOM_DIM": 128,
+  "ATOM_N_HEADS": 4,
+  "ATOM_N_LAYERS": 3,
+  "ATOM_WINDOW": 32,
+  "COMPUTE_GRID_MAIN": [
+   11,
+   10
+  ],
+  "COMPUTE_GRID_X_11": 11,
+  "COMPUTE_GRID_X_13": 13,
+  "COMPUTE_GRID_Y": 10,
+  "CONCAT_HOST_BYTES": 1610612736,
+  "FP32_SOFTMAX_BIAS_HOIST": true,
+  "MAX_ATOMS_PER_TOKEN": 14,
+  "MSA_CHUNK_SIZE": 512,
+  "MSA_PAD_MULTIPLE": 1024,
+  "OPM_CHUNK_SIZE": 256,
+  "OPM_ROW_CHUNK_BUDGET_BYTES": 1073741824,
+  "OPM_Z_BUDGET_BYTES": 268435456,
+  "PAIRFORMER_PAD_MULTIPLE": 64,
+  "PAIR_PROJ_MINIMAL_MATMUL": true,
+  "PAIR_ROW_BLOCK": 128,
+  "PAIR_TRANSPOSE_VIA_ROW_MAJOR": true,
+  "QKV_MM_CONFIG": true,
+  "SDPA_CHUNK_MAX": 256,
+  "SDPA_CHUNK_TILE": 32,
+  "SEQ_LEN_MORE_CHUNKING": 608,
+  "SMALL_GRID_PAIR_TILE_AREA": 63488,
+  "SMALL_GRID_SEQ_TILE": 256,
+  "SMALL_GRID_TRANSITION_ELEMS": 1179648,
+  "SMALL_GRID_TRANSITION_MAX_C": 384,
+  "SMALL_GRID_TRIMUL_BUDGET_SCALE": 1.0,
+  "SMALL_GRID_TRIMUL_L1_MAX_SEQ": 0,
+  "TOKEN_DIM": 768,
+  "TOKEN_N_HEADS": 16,
+  "TOKEN_N_LAYERS": 24,
+  "TRANSITION_BATCH_CHUNKING_THRESHOLD": 608,
+  "TRANSITION_H_CHUNK_BIG_MAX_W": 384,
+  "TRANSITION_H_CHUNK_SIZE": 16,
+  "TRANSITION_H_CHUNK_SIZE_BIG": 32,
+  "TRANSITION_H_CHUNK_SIZE_FAST": 32,
+  "TRANSITION_L1_CHUNK_BYTES_PER_CORE": 393216,
+  "TRANSITION_W_CHUNKING_THRESHOLD": 608,
+  "TRANSITION_W_CHUNK_SIZE": 512,
+  "TRANSPOSE_L1_HEADROOM": 1.25,
+  "TRIANGLE_ATT_CHUNK_SIZE": 512,
+  "TRIANGLE_ATT_CHUNK_SIZE_FAST": 512,
+  "TRIANGLE_MULT_CHUNK_SIZE": 32,
+  "TRIANGLE_MULT_L1_CHUNK_BUDGET": 6553600,
+  "TRIANGLE_MULT_L1_MAX_SEQ": 288,
+  "TRIANGLE_MULT_L1_MAX_SEQ_FAST": 320,
+  "TRIANGLE_MULT_L1_MAX_SEQ_FAST_13X10": 704,
+  "TRIATT_CHUNK_L1_SPILL_BYTES": 510805,
+  "TRIMUL_IN_NORM_ROWBLOCK_BYTES": 3221225472,
+  "TRIMUL_TAIL_F1": true,
+  "_ATOM_PAD_IN_TILE": true,
+  "_BATCHED_MATMUL_ON": true,
+  "_BATCHED_MATMUL_SATURATION_BLOCKS": 32,
+  "_DEVICE_INIT_LOCK_PATH": "/tmp/tt-bio-device-open.lock",
+  "_DIFFUSION_FP32_DEVICE": false,
+  "_FAST_MODE": false,
+  "_FP32_SOFTMAX": false,
+  "_FP32_SOFTMAX_BLOCK_BYTES": 8589934592,
+  "_FP32_SOFTMAX_FUSED_ADD": true,
+  "_FP32_SOFTMAX_L1_BYTES_PER_CORE": 786432,
+  "_FP32_SOFTMAX_L1_GRID": [
+   8,
+   8
+  ],
+  "_IS_SMALL_GRID": true,
+  "_MIN_L1_SCALE": 0.7,
+  "_MM_CFG": true,
+  "_MM_DEFAULT": [
+   8,
+   8,
+   8,
+   2,
+   2
+  ],
+  "_NARROW_PROJ_BW": 1,
+  "_PAIR_BIAS_L1_NORM": true,
+  "_PAIR_FFN_FC1_BLOCK_W": 16,
+  "_PAIR_FFN_FC1_BW": 1,
+  "_PAIR_PROJ_BW": 16,
+  "_PAIR_PROJ_L1_BW": 16,
+  "_PAIR_PROJ_L1_OUT": true,
+  "_PAIR_PROJ_MM": true,
+  "_PT_ROW_MAJOR": true,
+  "_PWA_L1_NORM": true,
+  "_SDPA_WIDE_Q": true,
+  "_TEMPLATE_L1_NORM": true,
+  "_TEMPLATE_NOOP_GATE": true,
+  "_TRANSITION_L1_CHUNK_BYTES_BASE": 393216,
+  "_TRANSPOSE_L1_HEADROOM": 1.25,
+  "_TRIATT_BIAS_B8": false,
+  "_TRIATT_CHUNK_L1_SPILL_BASE": 524288,
+  "_TRIMUL_INPROJ_FUSED_BYTES": 1073741824,
+  "_TRIMUL_INPROJ_GROUP": 12,
+  "_TRIMUL_MM_OUT": false,
+  "_TRIMUL_OUT_MOVE_DRAM": false,
+  "_TRIMUL_RAW_CHANNEL_MOVES": false,
+  "_TRIMUL_TAIL_F1": true,
+  "_TRUNK_MATH_FIDELITY": "hifi4",
+  "_UNFUSED_SILU": false,
+  "_WH_FULL_L1_PER_CORE": 1572864,
+  "_WH_MEASURED_L1_PER_CORE": 1466080,
+  "_device_generation": 0,
+  "_trace_region_size": 0,
+  "pi": 3.141592653589793
+ },
+ "head": "f74efa0e39add75d3052e2435ee4ebedecf7252e",
+ "sdpa_picks": {
+  "1024": {
+   "capped": 256,
+   "padded": 1024,
+   "shipped": [
+    256,
+    256
+   ]
+  },
+  "1056": {
+   "capped": 256,
+   "padded": 1056,
+   "shipped": [
+    256,
+    256
+   ]
+  },
+  "1088": {
+   "capped": 256,
+   "padded": 1088,
+   "shipped": [
+    256,
+    256
+   ]
+  },
+  "128": {
+   "capped": 128,
+   "padded": 128,
+   "shipped": [
+    128,
+    128
+   ]
+  },
+  "160": {
+   "capped": 160,
+   "padded": 160,
+   "shipped": [
+    160,
+    160
+   ]
+  },
+  "192": {
+   "capped": 192,
+   "padded": 192,
+   "shipped": [
+    192,
+    192
+   ]
+  },
+  "224": {
+   "capped": 224,
+   "padded": 224,
+   "shipped": [
+    224,
+    224
+   ]
+  },
+  "256": {
+   "capped": 256,
+   "padded": 256,
+   "shipped": [
+    256,
+    256
+   ]
+  },
+  "288": {
+   "capped": 256,
+   "padded": 288,
+   "shipped": [
+    64,
+    64
+   ]
+  },
+  "32": {
+   "capped": 32,
+   "padded": 32,
+   "shipped": [
+    32,
+    32
+   ]
+  },
+  "320": {
+   "capped": 256,
+   "padded": 320,
+   "shipped": [
+    64,
+    64
+   ]
+  },
+  "352": {
+   "capped": 256,
+   "padded": 352,
+   "shipped": [
+    64,
+    64
+   ]
+  },
+  "384": {
+   "capped": 256,
+   "padded": 384,
+   "shipped": [
+    64,
+    64
+   ]
+  },
+  "416": {
+   "capped": 256,
+   "padded": 416,
+   "shipped": [
+    256,
+    256
+   ]
+  },
+  "448": {
+   "capped": 256,
+   "padded": 448,
+   "shipped": [
+    256,
+    256
+   ]
+  },
+  "480": {
+   "capped": 256,
+   "padded": 480,
+   "shipped": [
+    256,
+    256
+   ]
+  },
+  "512": {
+   "capped": 256,
+   "padded": 512,
+   "shipped": [
+    256,
+    256
+   ]
+  },
+  "544": {
+   "capped": 256,
+   "padded": 544,
+   "shipped": [
+    256,
+    256
+   ]
+  },
+  "576": {
+   "capped": 256,
+   "padded": 576,
+   "shipped": [
+    256,
+    256
+   ]
+  },
+  "608": {
+   "capped": 256,
+   "padded": 608,
+   "shipped": [
+    256,
+    256
+   ]
+  },
+  "64": {
+   "capped": 64,
+   "padded": 64,
+   "shipped": [
+    64,
+    64
+   ]
+  },
+  "640": {
+   "capped": 256,
+   "padded": 640,
+   "shipped": [
+    256,
+    256
+   ]
+  },
+  "672": {
+   "capped": 256,
+   "padded": 672,
+   "shipped": [
+    256,
+    256
+   ]
+  },
+  "704": {
+   "capped": 256,
+   "padded": 704,
+   "shipped": [
+    256,
+    256
+   ]
+  },
+  "736": {
+   "capped": 256,
+   "padded": 736,
+   "shipped": [
+    256,
+    256
+   ]
+  },
+  "768": {
+   "capped": 256,
+   "padded": 768,
+   "shipped": [
+    256,
+    256
+   ]
+  },
+  "800": {
+   "capped": 256,
+   "padded": 800,
+   "shipped": [
+    256,
+    256
+   ]
+  },
+  "832": {
+   "capped": 256,
+   "padded": 832,
+   "shipped": [
+    256,
+    256
+   ]
+  },
+  "864": {
+   "capped": 256,
+   "padded": 864,
+   "shipped": [
+    256,
+    256
+   ]
+  },
+  "896": {
+   "capped": 256,
+   "padded": 896,
+   "shipped": [
+    256,
+    256
+   ]
+  },
+  "928": {
+   "capped": 256,
+   "padded": 928,
+   "shipped": [
+    256,
+    256
+   ]
+  },
+  "96": {
+   "capped": 96,
+   "padded": 96,
+   "shipped": [
+    96,
+    96
+   ]
+  },
+  "960": {
+   "capped": 256,
+   "padded": 960,
+   "shipped": [
+    256,
+    256
+   ]
+  },
+  "992": {
+   "capped": 256,
+   "padded": 992,
+   "shipped": [
+    256,
+    256
+   ]
+  }
+ },
+ "switches": {
+  "_SDPA_BAND_DIV_K": null,
+  "_SDPA_DIV_K": null
+ },
+ "tree": "/home/moritz/.coworker/wt/japanfold-wh-cutover-mainref"
+}

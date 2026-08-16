@@ -1,0 +1,462 @@
+{
+ "host": "UF-EV-A13-GWH02",
+ "card": "28",
+ "grid": [
+  8,
+  9
+ ],
+ "cores": 72,
+ "arch": "wormhole_b0",
+ "h": 4,
+ "d": 32,
+ "sdpa_chunk_max": 256,
+ "pad_multiple": 64,
+ "warmup": 2,
+ "iters": 3,
+ "blocks": 5,
+ "cases": [
+  {
+   "padded": 256,
+   "shipped_k": 256,
+   "div_k": 256,
+   "shipped_k_divides": true,
+   "q_ladder": [
+    256
+   ],
+   "q_shipped": 256,
+   "q_divk": 256,
+   "shipped_served": true,
+   "divk_served": true,
+   "aa_control": {
+    "a": {
+     "best": 0.5346,
+     "median": 0.5743,
+     "all": [
+      0.5346,
+      0.5746,
+      0.5743,
+      0.5731,
+      0.7454
+     ]
+    },
+    "b": {
+     "best": 0.5709,
+     "median": 0.5741,
+     "all": [
+      0.5734,
+      0.5741,
+      0.5709,
+      0.5761,
+      0.5796
+     ]
+    },
+    "ratio": 1.0003
+   }
+  },
+  {
+   "padded": 320,
+   "shipped_k": 64,
+   "div_k": 160,
+   "shipped_k_divides": true,
+   "q_ladder": [
+    320,
+    160,
+    64
+   ],
+   "q_shipped": 320,
+   "q_divk": 320,
+   "shipped_served": true,
+   "divk_served": true,
+   "divk_fused": {
+    "best": 1.1624,
+    "median": 1.2317,
+    "all": [
+     1.1624,
+     1.2317,
+     1.2354,
+     1.2338,
+     1.2282
+    ]
+   },
+   "shipped_fused": {
+    "best": 1.6787,
+    "median": 1.7529,
+    "all": [
+     1.6787,
+     1.7607,
+     1.7529,
+     1.7602,
+     1.752
+    ]
+   },
+   "speedup_divk_over_today": 1.4232
+  },
+  {
+   "padded": 384,
+   "shipped_k": 64,
+   "div_k": 192,
+   "shipped_k_divides": true,
+   "q_ladder": [
+    384,
+    192,
+    128,
+    96,
+    64
+   ],
+   "q_shipped": 384,
+   "q_divk": 384,
+   "shipped_served": true,
+   "divk_served": true,
+   "divk_fused": {
+    "best": 1.8056,
+    "median": 1.8517,
+    "all": [
+     1.8056,
+     1.9174,
+     1.8517,
+     1.8706,
+     1.8485
+    ]
+   },
+   "shipped_fused": {
+    "best": 2.8338,
+    "median": 2.8908,
+    "all": [
+     2.8338,
+     2.9058,
+     2.8812,
+     2.8908,
+     2.959
+    ]
+   },
+   "speedup_divk_over_today": 1.5612
+  },
+  {
+   "padded": 448,
+   "shipped_k": 256,
+   "div_k": 224,
+   "shipped_k_divides": false,
+   "q_ladder": [
+    448,
+    256
+   ],
+   "q_shipped": null,
+   "q_divk": 448,
+   "shipped_served": false,
+   "divk_served": true,
+   "q_stock_fallback": 448,
+   "divk_fused": {
+    "best": 2.5518,
+    "median": 2.641,
+    "all": [
+     2.5518,
+     2.6125,
+     2.6823,
+     2.688,
+     2.641
+    ]
+   },
+   "stock_today": {
+    "best": 5.1193,
+    "median": 5.1197,
+    "all": [
+     5.1251,
+     5.1197,
+     5.1193,
+     5.1304,
+     5.1193
+    ]
+   },
+   "speedup_divk_over_today": 1.9385
+  },
+  {
+   "padded": 512,
+   "shipped_k": 256,
+   "div_k": 256,
+   "shipped_k_divides": true,
+   "q_ladder": [
+    512,
+    256
+   ],
+   "q_shipped": 512,
+   "q_divk": 512,
+   "shipped_served": true,
+   "divk_served": true,
+   "aa_control": {
+    "a": {
+     "best": 3.4886,
+     "median": 3.5756,
+     "all": [
+      3.4886,
+      3.5233,
+      3.5825,
+      3.634,
+      3.5756
+     ]
+    },
+    "b": {
+     "best": 3.5638,
+     "median": 3.5698,
+     "all": [
+      3.5672,
+      3.6323,
+      3.5638,
+      3.6787,
+      3.5698
+     ]
+    },
+    "ratio": 1.0016
+   }
+  },
+  {
+   "padded": 576,
+   "shipped_k": 256,
+   "div_k": 192,
+   "shipped_k_divides": false,
+   "q_ladder": [
+    576,
+    288,
+    256
+   ],
+   "q_shipped": null,
+   "q_divk": 576,
+   "shipped_served": false,
+   "divk_served": true,
+   "q_stock_fallback": 576,
+   "divk_fused": {
+    "best": 5.3505,
+    "median": 5.4694,
+    "all": [
+     5.3505,
+     5.478,
+     5.4683,
+     5.4694,
+     5.481
+    ]
+   },
+   "stock_today": {
+    "best": 15.9744,
+    "median": 16.0619,
+    "all": [
+     15.9744,
+     16.0343,
+     16.0619,
+     16.1866,
+     16.0804
+    ]
+   },
+   "speedup_divk_over_today": 2.9367
+  },
+  {
+   "padded": 640,
+   "shipped_k": 256,
+   "div_k": 160,
+   "shipped_k_divides": false,
+   "q_ladder": [
+    640,
+    320,
+    256
+   ],
+   "q_shipped": null,
+   "q_divk": 320,
+   "shipped_served": false,
+   "divk_served": true,
+   "q_stock_fallback": 320,
+   "divk_fused": {
+    "best": 8.0026,
+    "median": 8.02,
+    "all": [
+     8.02,
+     8.0114,
+     8.0776,
+     8.1597,
+     8.0026
+    ]
+   },
+   "stock_today": {
+    "best": 14.8504,
+    "median": 14.9193,
+    "all": [
+     14.8912,
+     14.8504,
+     14.9193,
+     14.9528,
+     14.9321
+    ]
+   },
+   "speedup_divk_over_today": 1.8603
+  },
+  {
+   "padded": 704,
+   "shipped_k": 256,
+   "div_k": 64,
+   "shipped_k_divides": false,
+   "q_ladder": [
+    704,
+    352,
+    256
+   ],
+   "q_shipped": null,
+   "q_divk": 352,
+   "shipped_served": false,
+   "divk_served": true,
+   "q_stock_fallback": 352,
+   "divk_fused": {
+    "best": 17.4256,
+    "median": 17.4552,
+    "all": [
+     17.4423,
+     17.52,
+     17.5281,
+     17.4256,
+     17.4552
+    ]
+   },
+   "stock_today": {
+    "best": 17.3054,
+    "median": 17.3592,
+    "all": [
+     17.4087,
+     17.379,
+     17.3054,
+     17.3332,
+     17.3592
+    ]
+   },
+   "speedup_divk_over_today": 0.9945
+  },
+  {
+   "padded": 768,
+   "shipped_k": 256,
+   "div_k": 256,
+   "shipped_k_divides": true,
+   "q_ladder": [
+    768,
+    384,
+    256
+   ],
+   "q_shipped": 384,
+   "q_divk": 384,
+   "shipped_served": true,
+   "divk_served": true,
+   "aa_control": {
+    "a": {
+     "best": 11.4437,
+     "median": 11.5337,
+     "all": [
+      11.4473,
+      11.5337,
+      11.5501,
+      11.4437,
+      11.5512
+     ]
+    },
+    "b": {
+     "best": 11.4443,
+     "median": 11.5332,
+     "all": [
+      11.5372,
+      11.5214,
+      11.4443,
+      11.5984,
+      11.5332
+     ]
+    },
+    "ratio": 1.0
+   }
+  },
+  {
+   "padded": 896,
+   "shipped_k": 256,
+   "div_k": 224,
+   "shipped_k_divides": false,
+   "q_ladder": [
+    896,
+    448,
+    256
+   ],
+   "q_shipped": null,
+   "q_divk": 448,
+   "shipped_served": false,
+   "divk_served": true,
+   "q_stock_fallback": 448,
+   "divk_fused": {
+    "best": 18.67,
+    "median": 18.6917,
+    "all": [
+     18.67,
+     18.7947,
+     18.8027,
+     18.6914,
+     18.6917
+    ]
+   },
+   "stock_today": {
+    "best": 35.0809,
+    "median": 35.1352,
+    "all": [
+     35.1352,
+     35.1527,
+     35.0809,
+     35.1714,
+     35.127
+    ]
+   },
+   "speedup_divk_over_today": 1.8797
+  },
+  {
+   "padded": 1024,
+   "shipped_k": 256,
+   "div_k": 256,
+   "shipped_k_divides": true,
+   "q_ladder": [
+    1024,
+    512,
+    256
+   ],
+   "q_shipped": 256,
+   "q_divk": 256,
+   "shipped_served": true,
+   "divk_served": true,
+   "aa_control": {
+    "a": {
+     "best": 30.4181,
+     "median": 30.4686,
+     "all": [
+      30.4181,
+      30.4686,
+      30.4612,
+      30.6039,
+      30.6019
+     ]
+    },
+    "b": {
+     "best": 30.4577,
+     "median": 30.4681,
+     "all": [
+      30.4679,
+      30.4577,
+      30.4681,
+      30.6007,
+      30.6152
+     ]
+    },
+    "ratio": 1.0
+   }
+  }
+ ],
+ "rejects": {
+  "('fill_preconditions', (448, 4, 448, 32))": 2,
+  "('fill_preconditions', (576, 4, 576, 32))": 3,
+  "('fill_preconditions', (640, 4, 640, 32))": 3,
+  "('l1_budget', (640, 4, 640, 32))": 1,
+  "('fill_preconditions', (704, 4, 704, 32))": 3,
+  "('l1_budget', (704, 4, 704, 32))": 1,
+  "('l1_budget', (768, 4, 768, 32))": 1,
+  "('pm_over_l1', (768, 4, 768, 32))": 1,
+  "('fill_preconditions', (896, 4, 896, 32))": 3,
+  "('l1_budget', (896, 4, 896, 32))": 1,
+  "('l1_budget', (1024, 4, 1024, 32))": 2,
+  "('pm_over_l1', (1024, 4, 1024, 32))": 2
+ }
+}

@@ -1,0 +1,317 @@
+[DRAM] msa floor [depth=1024 tokens=1024]: 1.922 GiB used (of 12.0 GiB) maxfree=860MiB/bank
+[DRAM] msa m_feat projected [c_m=64]: 2.047 GiB used (of 12.0 GiB) maxfree=849MiB/bank
+[DRAM] transition4d chunked (eager, h=16) [z=1x512x1024x64]: 2.174 GiB used (of 12.0 GiB) maxfree=838MiB/bank
+[DRAM] msalayer chunked: row loop: 2.112 GiB used (of 12.0 GiB) maxfree=844MiB/bank
+[DRAM] transition4d chunked (eager, h=16) [z=1x512x1024x64]: 2.237 GiB used (of 12.0 GiB) maxfree=833MiB/bank
+[DRAM] msalayer chunked: row loop: 2.174 GiB used (of 12.0 GiB) maxfree=838MiB/bank
+[DRAM] msalayer chunked: rows joined: 2.049 GiB used (of 12.0 GiB) maxfree=849MiB/bank
+[DRAM] msalayer chunked: opm: 2.050 GiB used (of 12.0 GiB) maxfree=849MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x1024x1024x128]: 2.300 GiB used (of 12.0 GiB) maxfree=828MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x1024x1024x128]: 2.300 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] trimul(start) tail blocks done [z=1x1024x1024x128]: 2.301 GiB used (of 12.0 GiB) maxfree=801MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x1024x1024x128]: 2.301 GiB used (of 12.0 GiB) maxfree=828MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x1024x1024x128]: 2.301 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] trimul(end) tail blocks done [z=1x1024x1024x128]: 2.301 GiB used (of 12.0 GiB) maxfree=801MiB/bank
+[DRAM] tri_att(start) bias built [z=1024x1024x128]: 2.090 GiB used (of 12.0 GiB) maxfree=843MiB/bank
+[DRAM] tri_att(start) row loop done [z=1024x1024x128]: 2.340 GiB used (of 12.0 GiB) maxfree=822MiB/bank
+[DRAM] tri_att(end) bias built [z=1024x1024x128]: 2.090 GiB used (of 12.0 GiB) maxfree=845MiB/bank
+[DRAM] tri_att(end) row loop done [z=1024x1024x128]: 2.340 GiB used (of 12.0 GiB) maxfree=813MiB/bank
+[DRAM] transition4d loop done (lazy, h=16) [z=1x1024x1024x128]: 2.303 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] msalayer: pairformer layer: 2.053 GiB used (of 12.0 GiB) maxfree=849MiB/bank
+[DRAM] msa block 0 done: 2.053 GiB used (of 12.0 GiB) maxfree=849MiB/bank
+[DRAM] transition4d chunked (eager, h=16) [z=1x512x1024x64]: 2.241 GiB used (of 12.0 GiB) maxfree=833MiB/bank
+[DRAM] msalayer chunked: row loop: 2.178 GiB used (of 12.0 GiB) maxfree=838MiB/bank
+[DRAM] msalayer chunked: rows joined: 2.053 GiB used (of 12.0 GiB) maxfree=849MiB/bank
+[DRAM] msalayer chunked: opm: 2.053 GiB used (of 12.0 GiB) maxfree=849MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x1024x1024x128]: 2.303 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x1024x1024x128]: 2.303 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] trimul(start) tail blocks done [z=1x1024x1024x128]: 2.303 GiB used (of 12.0 GiB) maxfree=801MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x1024x1024x128]: 2.303 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x1024x1024x128]: 2.303 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] trimul(end) tail blocks done [z=1x1024x1024x128]: 2.303 GiB used (of 12.0 GiB) maxfree=801MiB/bank
+[DRAM] tri_att(start) bias built [z=1024x1024x128]: 2.092 GiB used (of 12.0 GiB) maxfree=843MiB/bank
+[DRAM] tri_att(start) row loop done [z=1024x1024x128]: 2.342 GiB used (of 12.0 GiB) maxfree=822MiB/bank
+[DRAM] tri_att(end) bias built [z=1024x1024x128]: 2.092 GiB used (of 12.0 GiB) maxfree=845MiB/bank
+[DRAM] tri_att(end) row loop done [z=1024x1024x128]: 2.342 GiB used (of 12.0 GiB) maxfree=813MiB/bank
+[DRAM] transition4d loop done (lazy, h=16) [z=1x1024x1024x128]: 2.304 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] msalayer: pairformer layer: 2.053 GiB used (of 12.0 GiB) maxfree=849MiB/bank
+[DRAM] msa block 1 done: 2.053 GiB used (of 12.0 GiB) maxfree=849MiB/bank
+[DRAM] transition4d chunked (eager, h=16) [z=1x512x1024x64]: 2.241 GiB used (of 12.0 GiB) maxfree=833MiB/bank
+[DRAM] msalayer chunked: row loop: 2.178 GiB used (of 12.0 GiB) maxfree=838MiB/bank
+[DRAM] msalayer chunked: rows joined: 2.053 GiB used (of 12.0 GiB) maxfree=849MiB/bank
+[DRAM] msalayer chunked: opm: 2.053 GiB used (of 12.0 GiB) maxfree=849MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x1024x1024x128]: 2.303 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x1024x1024x128]: 2.303 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] trimul(start) tail blocks done [z=1x1024x1024x128]: 2.304 GiB used (of 12.0 GiB) maxfree=801MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x1024x1024x128]: 2.303 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x1024x1024x128]: 2.304 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] trimul(end) tail blocks done [z=1x1024x1024x128]: 2.304 GiB used (of 12.0 GiB) maxfree=801MiB/bank
+[DRAM] tri_att(start) bias built [z=1024x1024x128]: 2.093 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] tri_att(start) row loop done [z=1024x1024x128]: 2.343 GiB used (of 12.0 GiB) maxfree=817MiB/bank
+[DRAM] tri_att(end) bias built [z=1024x1024x128]: 2.093 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] tri_att(end) row loop done [z=1024x1024x128]: 2.343 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] transition4d loop done (lazy, h=16) [z=1x1024x1024x128]: 2.304 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] msalayer: pairformer layer: 2.054 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] msa block 2 done: 2.054 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] transition4d chunked (eager, h=16) [z=1x512x1024x64]: 2.242 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] msalayer chunked: row loop: 2.179 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] msalayer chunked: rows joined: 2.054 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] msalayer chunked: opm: 2.054 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x1024x1024x128]: 2.304 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x1024x1024x128]: 2.304 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] trimul(start) tail blocks done [z=1x1024x1024x128]: 2.304 GiB used (of 12.0 GiB) maxfree=801MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x1024x1024x128]: 2.304 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x1024x1024x128]: 2.304 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] trimul(end) tail blocks done [z=1x1024x1024x128]: 2.304 GiB used (of 12.0 GiB) maxfree=801MiB/bank
+[DRAM] tri_att(start) bias built [z=1024x1024x128]: 2.093 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] tri_att(start) row loop done [z=1024x1024x128]: 2.343 GiB used (of 12.0 GiB) maxfree=817MiB/bank
+[DRAM] tri_att(end) bias built [z=1024x1024x128]: 2.093 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] tri_att(end) row loop done [z=1024x1024x128]: 2.343 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] transition4d loop done (lazy, h=16) [z=1x1024x1024x128]: 2.304 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] msalayer: pairformer layer: 2.054 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] msa block 3 done: 2.054 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer enter [z=1x1024x1024x128]: 1.679 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 0 done: 1.696 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 1 done: 1.696 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 2 done: 1.696 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 3 done: 1.697 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 4 done: 1.697 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 5 done: 1.697 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 6 done: 1.697 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 7 done: 1.698 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 8 done: 1.698 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 9 done: 1.698 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 10 done: 1.698 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 11 done: 1.699 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 12 done: 1.699 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 13 done: 1.699 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 14 done: 1.700 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 15 done: 1.700 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 16 done: 1.700 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 17 done: 1.700 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 18 done: 1.701 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 19 done: 1.701 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 20 done: 1.701 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 21 done: 1.702 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 22 done: 1.702 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 23 done: 1.702 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 24 done: 1.702 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 25 done: 1.703 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 26 done: 1.703 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 27 done: 1.703 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 28 done: 1.703 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 29 done: 1.704 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 30 done: 1.704 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 31 done: 1.704 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 32 done: 1.705 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 33 done: 1.705 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 34 done: 1.705 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 35 done: 1.705 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 36 done: 1.706 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 37 done: 1.706 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 38 done: 1.706 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 39 done: 1.706 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 40 done: 1.707 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 41 done: 1.707 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 42 done: 1.707 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 43 done: 1.708 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 44 done: 1.708 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 45 done: 1.708 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 46 done: 1.708 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 47 done: 1.709 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 48 done: 1.709 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 49 done: 1.709 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 50 done: 1.709 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 51 done: 1.710 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 52 done: 1.710 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 53 done: 1.710 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 54 done: 1.711 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 55 done: 1.711 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 56 done: 1.711 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 57 done: 1.711 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 58 done: 1.712 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 59 done: 1.712 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 60 done: 1.712 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 61 done: 1.712 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 62 done: 1.713 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 63 done: 1.713 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer enter [z=1x1024x1024x128]: 2.647 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x1024x1024x128]: 2.897 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x1024x1024x128]: 2.959 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(start) tail blocks done [z=1x1024x1024x128]: 2.959 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x1024x1024x128]: 2.897 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x1024x1024x128]: 2.959 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(end) tail blocks done [z=1x1024x1024x128]: 2.960 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(start) bias built [z=1024x1024x128]: 2.686 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(start) row loop done [z=1024x1024x128]: 2.936 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(end) bias built [z=1024x1024x128]: 2.686 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(end) row loop done [z=1024x1024x128]: 2.936 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] transition4d loop done (lazy, h=16) [z=1x1024x1024x128]: 2.897 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] pairformer block 0 done: 2.647 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x1024x1024x128]: 2.897 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x1024x1024x128]: 2.960 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(start) tail blocks done [z=1x1024x1024x128]: 2.960 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x1024x1024x128]: 2.897 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x1024x1024x128]: 2.960 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(end) tail blocks done [z=1x1024x1024x128]: 2.960 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(start) bias built [z=1024x1024x128]: 2.686 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(start) row loop done [z=1024x1024x128]: 2.936 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(end) bias built [z=1024x1024x128]: 2.686 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(end) row loop done [z=1024x1024x128]: 2.936 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] transition4d loop done (lazy, h=16) [z=1x1024x1024x128]: 2.898 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] pairformer block 1 done: 2.647 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x1024x1024x128]: 2.897 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x1024x1024x128]: 2.960 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(start) tail blocks done [z=1x1024x1024x128]: 2.960 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x1024x1024x128]: 2.897 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x1024x1024x128]: 2.960 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(end) tail blocks done [z=1x1024x1024x128]: 2.960 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(start) bias built [z=1024x1024x128]: 2.687 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(start) row loop done [z=1024x1024x128]: 2.937 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(end) bias built [z=1024x1024x128]: 2.687 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(end) row loop done [z=1024x1024x128]: 2.937 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] transition4d loop done (lazy, h=16) [z=1x1024x1024x128]: 2.898 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] pairformer block 2 done: 2.648 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x1024x1024x128]: 2.898 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x1024x1024x128]: 2.960 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(start) tail blocks done [z=1x1024x1024x128]: 2.960 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x1024x1024x128]: 2.898 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x1024x1024x128]: 2.960 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(end) tail blocks done [z=1x1024x1024x128]: 2.960 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(start) bias built [z=1024x1024x128]: 2.687 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(start) row loop done [z=1024x1024x128]: 2.937 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(end) bias built [z=1024x1024x128]: 2.687 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(end) row loop done [z=1024x1024x128]: 2.937 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] transition4d loop done (lazy, h=16) [z=1x1024x1024x128]: 2.898 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] pairformer block 3 done: 2.648 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x1024x1024x128]: 2.898 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x1024x1024x128]: 2.960 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(start) tail blocks done [z=1x1024x1024x128]: 2.961 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x1024x1024x128]: 2.898 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x1024x1024x128]: 2.961 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(end) tail blocks done [z=1x1024x1024x128]: 2.961 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(start) bias built [z=1024x1024x128]: 2.687 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(start) row loop done [z=1024x1024x128]: 2.937 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(end) bias built [z=1024x1024x128]: 2.687 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(end) row loop done [z=1024x1024x128]: 2.937 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] transition4d loop done (lazy, h=16) [z=1x1024x1024x128]: 2.899 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] pairformer block 4 done: 2.648 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x1024x1024x128]: 2.898 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x1024x1024x128]: 2.961 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(start) tail blocks done [z=1x1024x1024x128]: 2.961 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x1024x1024x128]: 2.898 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x1024x1024x128]: 2.961 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(end) tail blocks done [z=1x1024x1024x128]: 2.961 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(start) bias built [z=1024x1024x128]: 2.687 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(start) row loop done [z=1024x1024x128]: 2.937 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(end) bias built [z=1024x1024x128]: 2.687 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(end) row loop done [z=1024x1024x128]: 2.937 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] transition4d loop done (lazy, h=16) [z=1x1024x1024x128]: 2.899 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] pairformer block 5 done: 2.648 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x1024x1024x128]: 2.898 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x1024x1024x128]: 2.961 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(start) tail blocks done [z=1x1024x1024x128]: 2.961 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x1024x1024x128]: 2.898 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x1024x1024x128]: 2.961 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(end) tail blocks done [z=1x1024x1024x128]: 2.961 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(start) bias built [z=1024x1024x128]: 2.688 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(start) row loop done [z=1024x1024x128]: 2.938 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(end) bias built [z=1024x1024x128]: 2.688 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(end) row loop done [z=1024x1024x128]: 2.938 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] transition4d loop done (lazy, h=16) [z=1x1024x1024x128]: 2.899 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] pairformer block 6 done: 2.649 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x1024x1024x128]: 2.899 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x1024x1024x128]: 2.961 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(start) tail blocks done [z=1x1024x1024x128]: 2.961 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x1024x1024x128]: 2.899 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x1024x1024x128]: 2.961 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(end) tail blocks done [z=1x1024x1024x128]: 2.962 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(start) bias built [z=1024x1024x128]: 2.688 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(start) row loop done [z=1024x1024x128]: 2.938 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(end) bias built [z=1024x1024x128]: 2.688 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] tri_att(end) row loop done [z=1024x1024x128]: 2.938 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] transition4d loop done (lazy, h=16) [z=1x1024x1024x128]: 2.899 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] pairformer block 7 done: 2.649 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] msa floor [depth=1024 tokens=1024]: 1.943 GiB used (of 12.0 GiB) maxfree=828MiB/bank
+[DRAM] msa m_feat projected [c_m=64]: 2.068 GiB used (of 12.0 GiB) maxfree=828MiB/bank
+[DRAM] transition4d chunked (eager, h=16) [z=1x512x1024x64]: 2.258 GiB used (of 12.0 GiB) maxfree=822MiB/bank
+[DRAM] msalayer chunked: row loop: 2.195 GiB used (of 12.0 GiB) maxfree=822MiB/bank
+[DRAM] msalayer chunked: rows joined: 2.070 GiB used (of 12.0 GiB) maxfree=828MiB/bank
+[DRAM] msalayer chunked: opm: 2.071 GiB used (of 12.0 GiB) maxfree=828MiB/bank
+[DRAM] msalayer: pairformer layer: 2.074 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] msa block 0 done: 2.074 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] transition4d chunked (eager, h=16) [z=1x512x1024x64]: 2.262 GiB used (of 12.0 GiB) maxfree=822MiB/bank
+[DRAM] msalayer chunked: row loop: 2.199 GiB used (of 12.0 GiB) maxfree=822MiB/bank
+[DRAM] msalayer chunked: rows joined: 2.074 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] msalayer chunked: opm: 2.074 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] msa block 1 done: 2.074 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] msa block 2 done: 2.074 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] msa block 3 done: 2.074 GiB used (of 12.0 GiB) maxfree=827MiB/bank
+[DRAM] pairformer block 8 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 9 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 10 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 11 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 12 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 13 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 14 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 15 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 16 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 17 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 18 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 19 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 20 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 21 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 22 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 23 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 24 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 25 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 26 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 27 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 28 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 29 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 30 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 31 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 32 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 33 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 34 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 35 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 36 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 37 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 38 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 39 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 40 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 41 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 42 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 43 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 44 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 45 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 46 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 47 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 48 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 49 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 50 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 51 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 52 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 53 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 54 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 55 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 56 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 57 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 58 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 59 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 60 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 61 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 62 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer block 63 done: 1.715 GiB used (of 12.0 GiB) maxfree=806MiB/bank
+[DRAM] pairformer enter [z=1x1024x1024x128]: 2.649 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x1024x1024x128]: 2.899 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x1024x1024x128]: 2.961 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(start) tail blocks done [z=1x1024x1024x128]: 2.962 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x1024x1024x128]: 2.899 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] pairformer block 0 done: 2.649 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] pairformer block 1 done: 2.649 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] pairformer block 2 done: 2.649 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] pairformer block 3 done: 2.649 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] pairformer block 4 done: 2.649 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] pairformer block 5 done: 2.649 GiB used (of 12.0 GiB) maxfree=699MiB/bank
+[DRAM] pairformer block 6 done: 2.649 GiB used (of 12.0 GiB) maxfree=699MiB/bank
