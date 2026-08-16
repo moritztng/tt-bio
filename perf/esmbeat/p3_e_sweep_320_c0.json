@@ -1,0 +1,222 @@
+{
+ "ttnn": "0.67.4",
+ "host": "tt-quietbox",
+ "card": "0",
+ "model": "esmfold2",
+ "size": 320,
+ "git_head": "bfd35b0b",
+ "has_l1_fc1_gate": true,
+ "recycling_steps": 10,
+ "sampling_steps": 100,
+ "arms": [
+  "ship",
+  "noE"
+ ],
+ "rounds": 1,
+ "runs": [
+  {
+   "tag": "warm:ship",
+   "arm": "ship",
+   "l1_fc1": true,
+   "fold_s": 61.338,
+   "plddt": 0.9443,
+   "cif": {
+    "cdk2x2_320.cif": "86a0b34aeb2d4577"
+   },
+   "e6_served": 0,
+   "e6_declined": 0,
+   "l1_fc1_stats": [
+    10760,
+    0
+   ],
+   "l1_ln": true,
+   "l1_ln_stats": [
+    5380,
+    0
+   ],
+   "lm_handoff": [
+    1,
+    0
+   ],
+   "fwd_move": [
+    4336,
+    0
+   ],
+   "back_move": [
+    0,
+    0
+   ],
+   "l1_out_refused": 0,
+   "dual_noc": [
+    0,
+    4336
+   ],
+   "dual_noc_rejects": {
+    "('memory', (1, 320, 320, 256))": 4336
+   },
+   "trimul_tail_f1": null,
+   "loadavg": "1.80"
+  },
+  {
+   "tag": "warm:noE",
+   "arm": "noE",
+   "l1_fc1": true,
+   "fold_s": 15.612,
+   "plddt": 0.9443,
+   "cif": {
+    "cdk2x2_320.cif": "86a0b34aeb2d4577"
+   },
+   "e6_served": 0,
+   "e6_declined": 0,
+   "l1_fc1_stats": [
+    10760,
+    0
+   ],
+   "l1_ln": false,
+   "l1_ln_stats": [
+    0,
+    0
+   ],
+   "lm_handoff": [
+    1,
+    0
+   ],
+   "fwd_move": [
+    4336,
+    0
+   ],
+   "back_move": [
+    0,
+    0
+   ],
+   "l1_out_refused": 0,
+   "dual_noc": [
+    0,
+    4336
+   ],
+   "dual_noc_rejects": {
+    "('memory', (1, 320, 320, 256))": 4336
+   },
+   "trimul_tail_f1": null,
+   "loadavg": "1.69"
+  },
+  {
+   "tag": "r0:ship",
+   "arm": "ship",
+   "l1_fc1": true,
+   "fold_s": 15.314,
+   "plddt": 0.9443,
+   "cif": {
+    "cdk2x2_320.cif": "86a0b34aeb2d4577"
+   },
+   "e6_served": 0,
+   "e6_declined": 0,
+   "l1_fc1_stats": [
+    10760,
+    0
+   ],
+   "l1_ln": true,
+   "l1_ln_stats": [
+    5380,
+    0
+   ],
+   "lm_handoff": [
+    1,
+    0
+   ],
+   "fwd_move": [
+    4336,
+    0
+   ],
+   "back_move": [
+    0,
+    0
+   ],
+   "l1_out_refused": 0,
+   "dual_noc": [
+    0,
+    4336
+   ],
+   "dual_noc_rejects": {
+    "('memory', (1, 320, 320, 256))": 4336
+   },
+   "trimul_tail_f1": null,
+   "loadavg": "1.53"
+  },
+  {
+   "tag": "r0:noE",
+   "arm": "noE",
+   "l1_fc1": true,
+   "fold_s": 15.645,
+   "plddt": 0.9443,
+   "cif": {
+    "cdk2x2_320.cif": "86a0b34aeb2d4577"
+   },
+   "e6_served": 0,
+   "e6_declined": 0,
+   "l1_fc1_stats": [
+    10760,
+    0
+   ],
+   "l1_ln": false,
+   "l1_ln_stats": [
+    0,
+    0
+   ],
+   "lm_handoff": [
+    1,
+    0
+   ],
+   "fwd_move": [
+    4336,
+    0
+   ],
+   "back_move": [
+    0,
+    0
+   ],
+   "l1_out_refused": 0,
+   "dual_noc": [
+    0,
+    4336
+   ],
+   "dual_noc_rejects": {
+    "('memory', (1, 320, 320, 256))": 4336
+   },
+   "trimul_tail_f1": null,
+   "loadavg": "2.32"
+  }
+ ],
+ "grid": [
+  13,
+  10
+ ],
+ "shipped_defaults": {
+  "l1_fc1": true,
+  "lm_handoff": true,
+  "dual_noc": true,
+  "l1_ln": true
+ },
+ "summary": {
+  "ship": {
+   "n": 1,
+   "median": 15.314,
+   "min": 15.314,
+   "max": 15.314,
+   "spread": 0.0,
+   "speedup_vs_ship": 1.0,
+   "delta_s": 0.0
+  },
+  "noE": {
+   "n": 1,
+   "median": 15.645,
+   "min": 15.645,
+   "max": 15.645,
+   "spread": 0.0,
+   "speedup_vs_ship": 0.9788,
+   "delta_s": -0.331
+  },
+  "A/A_noise_floor_s": 0.0
+ },
+ "cif_identical_across_arms": true
+}
