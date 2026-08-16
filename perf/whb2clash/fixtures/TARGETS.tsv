@@ -1,0 +1,19 @@
+# Pre-registered target set for the ring-2 re-adjudication (Part B).
+# Fetched from https://rest.uniprot.org/uniprotkb/<acc>.fasta on 2026-08-16 and
+# length-checked: every band-640 target pads to 640 tokens and every band-768 target
+# to 768, under BOTH the 64-multiple pairformer pad and the 32-multiple SDPA pad, so
+# which lever fires is not a function of which padding rule the call site uses.
+#
+# acc	len	pad	name	fold
+P22303	614	640	acetylcholinesterase	alpha/beta hydrolase
+P27694	616	640	replication protein A 70 kDa subunit	OB-fold ssDNA binding
+P03951	625	640	coagulation factor XI	apple domains + chymotrypsin protease
+P20794	623	640	serine/threonine-protein kinase MAK	protein kinase
+P17405	631	640	acid sphingomyelinase	metallophosphoesterase + saposin
+O14744	637	640	protein arginine N-methyltransferase 5	TIM barrel + Rossmann
+P54802	743	768	alpha-N-acetylglucosaminidase	glycoside hydrolase
+P42224	750	768	signal transducer and activator of transcription 1	SH2 + DNA-binding
+P18074	760	768	TFIIH helicase subunit XPD	superfamily-2 helicase, FeS
+P47712	749	768	cytosolic phospholipase A2	C2 domain + alpha/beta hydrolase
+Q05823	741	768	ribonuclease L	ankyrin repeats + pseudokinase + RNase
+O15111	745	768	IKK-alpha	protein kinase + ULD + scaffold
