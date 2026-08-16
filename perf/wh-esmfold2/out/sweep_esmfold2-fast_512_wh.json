@@ -1,0 +1,126 @@
+{
+ "ttnn": "0.68.0",
+ "host": "UF-EV-A13-GWH02",
+ "card": "30",
+ "model": "esmfold2-fast",
+ "size": 512,
+ "recycling_steps": 10,
+ "sampling_steps": 100,
+ "arms": [
+  "base",
+  "A"
+ ],
+ "rounds": 1,
+ "runs": [
+  {
+   "tag": "warm:base",
+   "arm": "base",
+   "overrides": {},
+   "fold_s": 61.674,
+   "plddt": 0.9,
+   "n_tokens": null,
+   "cif": {
+    "cdk2x2_512.cif": "b7890bcccf72cea6"
+   },
+   "e6_served": 0,
+   "e6_declined": 0,
+   "split_taken": 0,
+   "split_skipped": 354,
+   "l1_fc1_served": 0,
+   "l1_fc1_declined": 0,
+   "trimul_l1_max_seq": 288,
+   "trimul_chunk_size": 32,
+   "loadavg": "4.52"
+  },
+  {
+   "tag": "warm:A",
+   "arm": "A",
+   "overrides": {
+    "split_small_grid": true
+   },
+   "fold_s": 48.913,
+   "plddt": 0.9,
+   "n_tokens": null,
+   "cif": {
+    "cdk2x2_512.cif": "b7890bcccf72cea6"
+   },
+   "e6_served": 0,
+   "e6_declined": 0,
+   "split_taken": 274,
+   "split_skipped": 80,
+   "l1_fc1_served": 8768,
+   "l1_fc1_declined": 0,
+   "trimul_l1_max_seq": 288,
+   "trimul_chunk_size": 32,
+   "loadavg": "4.89"
+  },
+  {
+   "tag": "r0:base",
+   "arm": "base",
+   "overrides": {},
+   "fold_s": 54.63,
+   "plddt": 0.9,
+   "n_tokens": null,
+   "cif": {
+    "cdk2x2_512.cif": "b7890bcccf72cea6"
+   },
+   "e6_served": 0,
+   "e6_declined": 0,
+   "split_taken": 0,
+   "split_skipped": 354,
+   "l1_fc1_served": 0,
+   "l1_fc1_declined": 0,
+   "trimul_l1_max_seq": 288,
+   "trimul_chunk_size": 32,
+   "loadavg": "10.65"
+  },
+  {
+   "tag": "r0:A",
+   "arm": "A",
+   "overrides": {
+    "split_small_grid": true
+   },
+   "fold_s": 49.576,
+   "plddt": 0.9,
+   "n_tokens": null,
+   "cif": {
+    "cdk2x2_512.cif": "b7890bcccf72cea6"
+   },
+   "e6_served": 0,
+   "e6_declined": 0,
+   "split_taken": 274,
+   "split_skipped": 80,
+   "l1_fc1_served": 8768,
+   "l1_fc1_declined": 0,
+   "trimul_l1_max_seq": 288,
+   "trimul_chunk_size": 32,
+   "loadavg": "16.63"
+  }
+ ],
+ "grid": [
+  8,
+  9
+ ],
+ "summary": {
+  "base": {
+   "n": 1,
+   "median": 54.63,
+   "min": 54.63,
+   "max": 54.63,
+   "spread": 0.0,
+   "speedup_vs_base": 1.0,
+   "delta_s": 0.0
+  },
+  "A": {
+   "n": 1,
+   "median": 49.576,
+   "min": 49.576,
+   "max": 49.576,
+   "spread": 0.0,
+   "speedup_vs_base": 1.1019,
+   "delta_s": 5.054
+  },
+  "A/A_noise_floor_s": 0.0
+ },
+ "cif_identical_across_arms": true
+}

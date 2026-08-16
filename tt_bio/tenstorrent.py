@@ -337,6 +337,34 @@ TRIANGLE_MULT_L1_CHUNK_BUDGET = 64 * 320 * 320
 # Set by _apply_grid_thresholds: True on grids smaller than 11x10 (e.g. Wormhole).
 # Tightens the L1-edge chunking thresholds and chunk sizes above this comment block.
 _IS_SMALL_GRID = False
+
+# Wormhole 8x9 re-fit of the two trimul constants above. `_apply_grid_thresholds` derives its
+# small-grid values by scaling the Blackhole ones -- the residency threshold by per-core L1 (which
+# fell 7 %) and the chunk budget by core count (which fell 45 %) -- and neither scaling has ever
+# been measured on a 72-core grid. These two knobs re-fit them from measurement instead. Both are
+# read ONLY when `_IS_SMALL_GRID` is True, so on a 110- or 130-core Blackhole every expression
+# below is byte-for-byte the one that ships today. 0 / 1.0 keep the derived value.
+# The chunk width is a partition of an independent-channel sum, so every width is bit-exact
+# (see `_trimul_chunk_size`); the residency threshold picks a memory config, not an arithmetic.
+# Measured on 8x9: state/wh-perf-esmfold2.md.
+SMALL_GRID_TRIMUL_L1_MAX_SEQ = 0
+SMALL_GRID_TRIMUL_BUDGET_SCALE = 1.0
+
+
+def set_small_grid_trimul_l1_max_seq(seq: int) -> int:
+    """A/B switch for the small-grid trimul L1 residency threshold. Returns the previous value.
+    Inert on Blackhole: read only when `_IS_SMALL_GRID`."""
+    global SMALL_GRID_TRIMUL_L1_MAX_SEQ
+    prev, SMALL_GRID_TRIMUL_L1_MAX_SEQ = SMALL_GRID_TRIMUL_L1_MAX_SEQ, int(seq)
+    return prev
+
+
+def set_small_grid_trimul_budget_scale(scale: float) -> float:
+    """A/B switch for the small-grid trimul chunk-width budget. Returns the previous value.
+    Inert on Blackhole: read only when `_IS_SMALL_GRID`."""
+    global SMALL_GRID_TRIMUL_BUDGET_SCALE
+    prev, SMALL_GRID_TRIMUL_BUDGET_SCALE = SMALL_GRID_TRIMUL_BUDGET_SCALE, float(scale)
+    return prev
 SDPA_CHUNK_TILE = 32
 SDPA_CHUNK_MAX = 256
 # Tiling for row-independent blocks so their activations fit the 12 GB/chip DRAM
@@ -448,6 +476,8 @@ def _adaln_memory_config(atom_level: bool, large_seq_len: bool) -> ttnn.MemoryCo
 def _trimul_l1_max_seq() -> int:
     """Longest sequence whose trimul chunks still live in L1."""
     if _FAST_MODE:
+        if _IS_SMALL_GRID and SMALL_GRID_TRIMUL_L1_MAX_SEQ:
+            return SMALL_GRID_TRIMUL_L1_MAX_SEQ
         return (
             TRIANGLE_MULT_L1_MAX_SEQ_FAST_13X10
             if COMPUTE_GRID_MAIN[0] == COMPUTE_GRID_X_13
@@ -490,6 +520,8 @@ def _trimul_chunk_size(seq_len: int, hidden: int, batch: int = 1) -> int:
         return TRIANGLE_MULT_CHUNK_SIZE
     gx, gy = COMPUTE_GRID_MAIN
     budget = TRIANGLE_MULT_L1_CHUNK_BUDGET * gx * gy / (COMPUTE_GRID_X_13 * 10)
+    if _IS_SMALL_GRID:
+        budget *= SMALL_GRID_TRIMUL_BUDGET_SCALE
     c = TRIANGLE_MULT_CHUNK_SIZE
     # Price the chunk on the width it actually occupies. The chunk tensors are
     # [batch, chunk, seq, seq] TILE tensors, so both seq dims round up to 32 and a logical

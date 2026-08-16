@@ -298,6 +298,20 @@ _PAIR_FFN_ROW_BLOCK = int(os.environ.get("TT_BIO_PAIR_FFN_ROW_BLOCK", PAIR_FFN_R
 # derives different matmul programs and does its own row blocking through `pair_row_tile`, so the
 # parity above says nothing there and the shipped unsplit chain keeps running.
 SPLIT_SWIGLU_MIN_SEQ = 144
+
+# ...and the small grid gets its own opt-in, because "no evidence there" is not "measured slower
+# there". The Wormhole Galaxy JapanFold runs on is 8x9 = 72 cores, so `_IS_SMALL_GRID` is True and
+# the whole family above -- split fc1, the 32-row block, the L1-resident fc1 -- is dead on the one
+# machine that serves users. This flag is read ONLY when `_IS_SMALL_GRID` is True, so on any grid
+# >= 110 cores the expression below is byte-for-byte the one that shipped before it existed.
+# Measured on 8x9, --fast, bit-exact at every size (one CIF sha256 per size across both arms):
+# 256 aa 28.727 -> 26.597 s, 298 aa 41.083 -> 36.556, 512 aa 93.512 -> 83.843, 640 aa
+# 155.701 -> 141.117. Inert below SPLIT_SWIGLU_MIN_SEQ, as 128 aa confirms at 0.1 %. The 13x10
+# Blackhole A/A is -0.54 % inside a 0.6 % spread with an identical digest. See
+# state/wh-perf-esmfold2.md.
+SPLIT_SWIGLU_SMALL_GRID = True
+_SPLIT_SWIGLU_SMALL_GRID = os.environ.get(
+    "TT_BIO_SPLIT_SWIGLU_SMALL_GRID", "1" if SPLIT_SWIGLU_SMALL_GRID else "0") == "1"
 PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)
 
 # Inside the row block, fc1's two halves can also write their OUTPUT to L1, so fc2's operand never
@@ -325,11 +339,24 @@ _PAIR_FFN_L1_FC1 = os.environ.get(
 # than what greps. Same idiom as `reblock_permute.STATS_GATED`.
 L1_FC1_STATS = [0, 0]
 
+# [split, unsplit] `SwiGLUFFN.__call__` invocations. An A/B arm on the small-grid opt-in needs both
+# `_SPLIT_SWIGLU` and `_SPLIT_SWIGLU_SMALL_GRID`, and if either is missed the arm is a silent A/A;
+# this counter is what makes that visible instead of inferred.
+SPLIT_STATS = [0, 0]
+
 
 def set_split_swiglu(on: bool) -> bool:
     """A/B switch for the split-fc1 SwiGLU path. Returns the previous state."""
     global _SPLIT_SWIGLU
     prev, _SPLIT_SWIGLU = _SPLIT_SWIGLU, bool(on)
+    return prev
+
+
+def set_split_swiglu_small_grid(on: bool) -> bool:
+    """A/B switch for the split-fc1 SwiGLU family on a small (< 110 core) grid. Returns the
+    previous state. Inert on Blackhole: the flag is only consulted when `_IS_SMALL_GRID`."""
+    global _SPLIT_SWIGLU_SMALL_GRID
+    prev, _SPLIT_SWIGLU_SMALL_GRID = _SPLIT_SWIGLU_SMALL_GRID, bool(on)
     return prev
 
 
@@ -419,7 +446,17 @@ class SwiGLUFFN(Module):
                 L1_FC1_STATS[0] += 2
                 l1 = dict(l1_out=True, l1_bw=_PAIR_FFN_FC1_BW,
                           l1_block_w=_PAIR_FFN_FC1_BLOCK_W)
-                dt = _dtype()
+                # The unsplit control resolves `_dtype(ttnn.bfloat16)`, so a bare `_dtype()`
+                # here makes turning the split on a PRECISION change as well as a traffic one
+                # whenever fast mode is set: MEASURED max_abs/peak 2.5e-2 at 512 aa on the
+                # 72-core Galaxy, where --fast is forced. The small-grid path is new, so it
+                # takes the control's dtype and stays comparable; Blackhole keeps the dtype
+                # its shipped parity was measured with.
+                from tt_bio import tenstorrent as _T
+                dt = (_dtype(ttnn.bfloat16)
+                      if (_SPLIT_SWIGLU_SMALL_GRID
+                          and getattr(_T, "_IS_SMALL_GRID", False))
+                      else _dtype())
                 h1 = _pair_proj_linear(x_norm, self.fc1_a_weight, ck, dt, **l1)
                 h2 = _pair_proj_linear(x_norm, self.fc1_b_weight, ck, dt, **l1)
             else:
@@ -455,9 +492,11 @@ class SwiGLUFFN(Module):
         L = x.shape[1]
         split = bool(
             self.split_swiglu and _SPLIT_SWIGLU
-            and not getattr(tenstorrent, "_IS_SMALL_GRID", False)
+            and (_SPLIT_SWIGLU_SMALL_GRID
+                 or not getattr(tenstorrent, "_IS_SMALL_GRID", False))
             and x.shape[-2] >= SPLIT_SWIGLU_MIN_SEQ
         )
+        SPLIT_STATS[0 if split else 1] += 1
         lo, hi = PAIR_FFN_ROW_BLOCK_SEQ
         rows = _PAIR_FFN_ROW_BLOCK
         if split and len(x.shape) == 4 and rows and lo <= L <= hi:
