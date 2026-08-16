@@ -65,22 +65,33 @@ def main():
     ap.add_argument("--arm", default="")
     ap.add_argument("--target", default="")
     ap.add_argument("--out", type=Path, default=None)
+    # A CPU/GPU reference run never opens a device, so _apply_grid_thresholds never runs and
+    # there is no probe to write -- and no corner to prove either. That has to be asked for
+    # explicitly, and it is recorded in the row, so the rule stays strict for device arms.
+    ap.add_argument("--no-probe", action="store_true",
+                    help="score a run that has no device probe (reference folds only)")
     a = ap.parse_args()
 
     cifs = sorted(glob.glob(str(a.rundir / "**" / "*.cif"), recursive=True))
     probes = sorted(glob.glob(str(a.rundir / "probe" / "*.json")))
     row = {"target": a.target or a.input.stem, "arm": a.arm, "rundir": str(a.rundir),
            "n_cif": len(cifs), "n_probe": len(probes)}
-    if not probes:
+    if not probes and not a.no_probe:
         row["error"] = "no probe -- run is not scoreable"
         print(json.dumps(row))
         return 1
-    # The fold happens in a spawned child; take the probe that saw the real device grid.
-    pr = [json.load(open(p)) for p in probes]
-    row["probe"] = pr[-1]
-    for k in ("SEQ_LEN_MORE_CHUNKING", "SDPA_DIV_K", "is_small_grid", "grid",
-              "k_chunk_640", "k_chunk_768", "forced_slmc"):
-        row[k] = pr[-1].get(k)
+    if probes:
+        # The fold happens in a spawned child; take the probe that saw the real device grid.
+        pr = [json.load(open(p)) for p in probes]
+        row["probe"] = pr[-1]
+        for k in ("SEQ_LEN_MORE_CHUNKING", "SDPA_DIV_K", "is_small_grid", "grid",
+                  "k_chunk_640", "k_chunk_768", "forced_slmc"):
+            row[k] = pr[-1].get(k)
+    else:
+        row["no_probe"] = True
+        for k in ("SEQ_LEN_MORE_CHUNKING", "SDPA_DIV_K", "is_small_grid", "grid",
+                  "k_chunk_640", "k_chunk_768", "forced_slmc"):
+            row[k] = None
     if not cifs:
         row["error"] = "no structure produced"
         print(json.dumps(row))
