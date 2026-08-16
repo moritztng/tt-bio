@@ -35,7 +35,10 @@ leg () {  # arm k3 slmc samples
   for ACC in $ALL; do
     local OUT=$B/partb/${ACC}_${ARM}
     # Idempotent across relaunches: a leg that already produced a structure is not re-folded.
-    if compgen -G "$OUT/**/*.cif" > /dev/null 2>&1; then
+    # `find`, not a `**` glob: globstar is off by default, so "$OUT/**/*.cif" silently degrades
+    # to one level and never matches the two-level boltz2_results_<id>/structures/<id>.cif
+    # layout -- the skip would never fire and every relaunch would re-fold the whole gate.
+    if [ -n "$(find "$OUT" -name "*.cif" -print -quit 2>/dev/null)" ]; then
       echo "=== $ACC $ARM already done, skipping ==="
       continue
     fi
