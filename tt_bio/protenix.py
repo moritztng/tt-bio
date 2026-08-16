@@ -32,7 +32,8 @@ import ttnn
 from . import protenix_weights as PW
 from .protenix_weights import remap_adaln  # single source of all v2->tt-bio weight remaps
 from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
-                          MSA_CHUNK_SIZE, batched_matmul, _narrow_proj_linear, _l1_layer_norm)
+                          MSA_CHUNK_SIZE, batched_matmul, _narrow_proj_linear, _l1_layer_norm,
+                          device_generation)
 from . import tenstorrent as _T   # for the module-level A/B toggles, which must be read live
 
 
@@ -205,7 +206,11 @@ def _window_q(x, N, NP, nq=32):
     return ttnn.to_layout(ttnn.reshape(x, (NP // nq, nq, x.shape[-1])), ttnn.TILE_LAYOUT)
 
 
-_WIN_KV_IDX = {}  # (NP,nq,nk) -> precomputed (1, nb*nk) uint32 gather index (device tensor)
+_WIN_KV_IDX = {}  # (gen,NP,nq,nk) -> (1, nb*nk) uint32 gather index, device tensor on the
+                  # CURRENT mesh. gen = tenstorrent.device_generation(): a model switch closes
+                  # the mesh and this module-level dict survives, so entries from an older
+                  # generation point at a closed MeshDevice and throw SubDeviceManagerTracker
+                  # ("remote-only") on the next fold. Keyed + pruned by generation instead.
 
 
 def _window_kv(x, N, NP, nq=32, nk=128, pad_left=48):
@@ -231,12 +236,15 @@ def _window_kv(x, N, NP, nq=32, nk=128, pad_left=48):
         ], dim=1)
         return ttnn.to_layout(x, ttnn.TILE_LAYOUT)
     x = ttnn.reshape(x, (Lp, C))                                   # gather table (Lp, C)
-    idx = _WIN_KV_IDX.get((NP, nq, nk))
+    gen = device_generation()
+    if _WIN_KV_IDX and next(iter(_WIN_KV_IDX))[0] != gen:
+        _WIN_KV_IDX.clear()
+    idx = _WIN_KV_IDX.get((gen, NP, nq, nk))
     if idx is None:
         ii = (torch.arange(nb).reshape(nb, 1) * nq + torch.arange(nk).reshape(1, nk)).reshape(1, nb * nk)
         idx = ttnn.from_torch(ii.to(torch.int32), layout=ttnn.ROW_MAJOR_LAYOUT,
                               device=get_device(), dtype=ttnn.uint32)
-        _WIN_KV_IDX[(NP, nq, nk)] = idx
+        _WIN_KV_IDX[(gen, NP, nq, nk)] = idx
     x = ttnn.embedding(idx, x, layout=ttnn.ROW_MAJOR_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG)
     x = ttnn.reshape(x, (nb, nk, C))                               # (nb, nk, C)
     return ttnn.to_layout(x, ttnn.TILE_LAYOUT)
