@@ -1,0 +1,8 @@
+=== verdict: batch vs solo ===
+01_cdk2_128  batch=4467f3c31310fba8  solo=4467f3c31310fba8  IDENTICAL
+02_cdk2_256  batch=b6ec18c8944f2e88  solo=78a9ebb58fbbc500  **DIFFERS**
+03_cdk2_384  batch=85c3fd455add6d14  solo=d471ac7ba2f573ea  **DIFFERS**
+04_cdk2_512  batch=461dd115bba9066a  solo=1aa98c75a1b5fd3f  **DIFFERS**
+05_cdk2_640  batch=bc0781d87c43bfbc  solo=95855cf1ff7f7cd0  **DIFFERS**
+=== verdict: the trailing repeat, same process ===
+128 first=4467f3c31310fba8  128 repeat=4467f3c31310fba8  IDENTICAL
