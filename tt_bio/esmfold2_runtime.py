@@ -169,7 +169,7 @@ class _StructureHeadAdapter(_Adapter):
             seed = torch.initial_seed()
         n = max(1, num_diffusion_samples)
         L = int(s_inputs.shape[1])  # residue (token) count
-        args = (_host_pair(z_trunk).float(), s_inputs.float(), relative_position_encoding.float(),
+        args = (z_trunk.float(), s_inputs.float(), relative_position_encoding.float(),
                 ref_pos.float(), ref_charge.float(), ref_mask.float(), ref_element.float(),
                 ref_atom_name_chars.float(), ref_space_uid, tok_idx)
         budget = _diffusion_budget()
@@ -191,34 +191,35 @@ class _StructureHeadAdapter(_Adapter):
 # Device-resident pair handoffs
 # ---------------------------------------------------------------------------
 # Several places hand a [1,L,L,256] pair tensor from one ttnn module to the next
-# through a host round trip. The device side is bf16 and the host side is fp32,
-# so bf16 -> fp32 -> bf16 is lossless and dropping the round trip is bit-exact by
-# construction. Two of them can go:
-#
-#   B  the LM shim -> LM encoder handoff inside the resident trunk loop
-#   A  parcae_coda -> distogram head
+# through a host round trip. The device side is bf16 and the host side is fp32, so
+# bf16 -> fp32 -> bf16 is lossless and dropping the round trip is bit-exact by
+# construction. One of them is gone: the LM shim -> LM encoder handoff inside the
+# resident trunk loop.
 #
 # What cannot go: `parcae_input_norm` and `confidence_head.z_norm` are host fp32
-# LayerNorms, and moving a reduction onto the device changes the arithmetic. The
-# pair therefore still comes back to the host once; A only deletes a re-upload.
+# LayerNorms, and moving a reduction onto the device changes the arithmetic, so the
+# pair still comes back to the host once.
+#
+# The parcae_coda -> distogram handoff was built, measured at -0.242 s at 512 aa, and
+# then deleted: keeping `z` on the device means `z + z.transpose(-2, -3)` runs as
+# `ttnn.add` on bf16 instead of a host fp32 add, and that moves 11.1 % of
+# `distogram_logits` by up to one bf16 ULP at 298, 512 and 640 aa
+# (`perf/esmbeat/a_distogram_parity.json`). The whole win IS that add, so there is no
+# reduced version to keep. Note what did not catch it: `distogram_logits` reaches
+# neither the CIF nor plDDT, so 24 folds of fold-level A/B read the arm as clean.
 
-_DEVICE_LM_HANDOFF = bool(int(os.environ.get("TT_ESMFOLD2_DEVICE_LM_HANDOFF", "0")))
-_DEVICE_Z = bool(int(os.environ.get("TT_ESMFOLD2_DEVICE_Z", "0")))
+DEVICE_LM_HANDOFF = True
+_DEVICE_LM_HANDOFF = bool(int(os.environ.get(
+    "TT_ESMFOLD2_DEVICE_LM_HANDOFF", "1" if DEVICE_LM_HANDOFF else "0")))
 
-# [served, declined] per lever. A zero in `served` means the arm never fired and
-# any A/B against it is vacuous.
+# [served, declined]. A zero in `served` means the lever never fired and any A/B
+# against it is vacuous.
 LM_HANDOFF_STATS = [0, 0]
-Z_STATS = [0, 0]
 
 
 def set_device_lm_handoff(on: bool) -> None:
     global _DEVICE_LM_HANDOFF
     _DEVICE_LM_HANDOFF = bool(on)
-
-
-def set_device_z(on: bool) -> None:
-    global _DEVICE_Z
-    _DEVICE_Z = bool(on)
 
 
 class _DevPair:
@@ -275,125 +276,6 @@ class _ShimAdapter(_Adapter):
                         int(hs.shape[1]))
 
 
-class _ZPair:
-    """The trunk's final pair state, live on the device and lazily on the host.
-
-    The confidence head needs it on the host, so the download stays. The
-    distogram head re-uploads the same tensor plus its transpose; with this it
-    reads the device copy instead and the symmetrisation runs on device.
-
-    DO NOT SHIP THIS. Lever A is worth -0.242 s at 512 aa and it is NOT bit-exact.
-    Moving `z + z.transpose(-2, -3)` from the host fp32 add to `ttnn.add` on bf16
-    changes 11.1 % of `distogram_logits` by up to one bf16 ULP, at 298, 512 and 640 aa
-    (`perf/esmbeat/a_distogram_parity.json`). Both operands are exactly representable
-    in bf16, so the difference is purely how the device packs the fp32 accumulator
-    back to bf16.
-
-    The fold A/B cannot see this: the add feeds `distogram_logits` and nothing else,
-    and neither the CIF sha256 nor plDDT covers it, so this arm read as clean across
-    24 folds. There is no reduced version worth keeping either -- the whole win IS the
-    device add, and the host copy of `z` has to be materialised anyway for the
-    structure head and for `ConfidenceHead.z_norm`.
-    """
-
-    def __init__(self, ftw, dev):
-        self._ftw, self.dev, self._host = ftw, dev, None
-
-    @property
-    def host(self):
-        if self._host is None:
-            n = self.dev.seq_len
-            self._host = self._ftw._to_torch(self.dev.t)[:, :n, :n, :]
-        return self._host
-
-    @property
-    def shape(self):
-        return self.dev.shape
-
-    def float(self):
-        return self
-
-    def detach(self):
-        return self
-
-    def transpose(self, a, b):
-        if sorted((a % 4, b % 4)) == [1, 2]:
-            return _ZPairT(self)
-        return self.host.transpose(a, b)
-
-    def __add__(self, other):
-        # The only add the reference does on this tensor is the distogram's
-        # symmetrisation, `z + z.transpose(-2, -3)`.
-        if isinstance(other, _ZPairT) and other.z is self:
-            import ttnn
-
-            zt = ttnn.permute(self.dev.t, (0, 2, 1, 3))
-            out = ttnn.add(self.dev.t, zt)
-            ttnn.deallocate(zt)
-            return _DevPair(out, self.dev.seq_len)
-        return self.host + other
-
-    def __radd__(self, other):
-        return other + self.host
-
-
-class _ZPairT:
-    """`z.transpose(-2, -3)` deferred, so the symmetrisation can run on device."""
-
-    __slots__ = ("z",)
-
-    def __init__(self, z):
-        self.z = z
-
-    def __radd__(self, other):
-        return other + self.z.host.transpose(-2, -3)
-
-
-def _host_pair(x):
-    """Host fp32 view of a pair tensor, whichever side it currently lives on."""
-    return x.host if isinstance(x, _ZPair) else x
-
-
-class _CodaAdapter(_Adapter):
-    """parcae_coda: keep the trunk's output on the device as well (lever A)."""
-
-    def forward(self, *args, **kw):
-        if not _DEVICE_Z:
-            Z_STATS[1] += 1
-            return super().forward(*args, **kw)
-        m = self.m
-        z = _to_t(args[0])
-        seq_len = int(z.shape[1])
-        pad = (-seq_len) % E.PAD_MULTIPLE
-        mask = None
-        if pad:
-            z = F.pad(z, (0, 0, 0, pad, 0, pad))
-            real = torch.zeros(1, z.shape[1], z.shape[1])
-            real[:, :seq_len, :seq_len] = 1.0
-            mask = m._from_torch(real)
-        Z_STATS[0] += 1
-        return _ZPair(m, _DevPair(m.module(m._from_torch(z), mask), seq_len))
-
-
-class _DistogramAdapter(_Adapter):
-    """Distogram head that accepts the already-symmetrised device pair (lever A)."""
-
-    def forward(self, *args, **kw):
-        a0 = args[0]
-        if isinstance(a0, _DevPair):
-            m = self.m
-            n = a0.seq_len
-            out = m.module(a0.t)
-            try:
-                import ttnn
-
-                ttnn.deallocate(a0.t)
-            except Exception:
-                pass
-            return m._to_torch(out)[:, :n, :n, :]
-        return super().forward(*args, **kw)
-
-
 # reference attribute -> (ttnn wrapper, state-dict prefix, reference kwarg order).
 # An empty kwarg tuple means "forward the first positional arg" (trunk/shim/
 # distogram). Block counts and MSA head width follow the checkpoint config, so
@@ -434,8 +316,7 @@ def _components(sd, config):
         mod = factory()
         mod.load_state_dict(sub(prefix), strict=False)
         cls = _StructureHeadAdapter if argnames is None else _Adapter
-        cls = {"language_model": _ShimAdapter, "parcae_coda": _CodaAdapter,
-               "distogram_head": _DistogramAdapter}.get(name, cls)
+        cls = _ShimAdapter if name == "language_model" else cls
         built[name] = cls(mod, *(argnames or ()))
     return built
 
@@ -563,9 +444,6 @@ def patch_esmfold2(model, esmc_repo: str = "biohub/ESMC-6B", persistent_lm: bool
         E.report_progress("confidence")  # confidence head runs an on-device pair trunk
         n = int(kw.get("num_diffusion_samples", 1))
         x_pred, z = kw.get("x_pred"), kw.get("z")
-        if isinstance(z, _ZPair):
-            z = z.host
-            kw = dict(kw, z=z)
         if x_pred is None or z is None or n <= 1:
             return _orig_conf(*args, **kw)
         L = int(z.shape[1])

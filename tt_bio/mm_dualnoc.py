@@ -48,7 +48,7 @@ STATS = [0, 0]
 # Why calls were refused, keyed by (reason, shape). A gate that never fires has to say why.
 REJECTS: dict = {}
 
-TRIMUL_IN_PROJ_DUAL_NOC = False
+TRIMUL_IN_PROJ_DUAL_NOC = True
 _ENABLED = os.environ.get(
     "TT_BIO_TRIMUL_DUAL_NOC", "1" if TRIMUL_IN_PROJ_DUAL_NOC else "0") == "1"
 

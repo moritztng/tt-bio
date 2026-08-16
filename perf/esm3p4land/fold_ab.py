@@ -23,19 +23,16 @@ sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
 # SHIPPED below). That is the arm the page publishes, and the only one that catches a default
 # that did not land.
 ARMS = {"base": False, "l2": True, "ship": None, "f1": None, "nof1": None,
-        "B": None, "A": None, "AB": None, "D": None, "ABD": None, "BD": None}
+        "B": None, "D": None, "BD": None}
 
-# Device-resident pair handoffs (esmfold2 only): B is the LM shim -> LM encoder handoff, A is
-# parcae_coda -> distogram head. Every arm sets both gates on every fold: a lever arm to what it
-# names, any other arm back to the snapshotted shipped default. Neither `.get(arm, False)` (which
-# forces the gate off and makes `ship` blind to a default that did not land) nor leaving the gate
-# alone (which hands `ship` whatever the previous arm mutated) is correct.
-DEVPAIR = {"B": (True, False), "A": (False, True), "AB": (True, True),
-           "ABD": (True, True), "BD": (True, False), "D": (False, False)}
+# B, the LM shim -> LM encoder handoff (esmfold2 only). Every arm sets the gate on every fold:
+# a lever arm to what it names, any other arm back to the snapshotted shipped default. Neither
+# `.get(arm, False)` (which forces the gate off and makes `ship` blind to a default that did not
+# land) nor leaving the gate alone (which hands `ship` whatever the previous arm mutated) works.
+DEVPAIR = {"B": True, "BD": True, "D": False}
 
 # D: half the trimul in-projection's output drain on the other NOC (tt_bio/mm_dualnoc.py).
-DUALNOC = {"D": True, "ABD": True, "BD": True,
-           "B": False, "A": False, "AB": False}
+DUALNOC = {"D": True, "BD": True, "B": False}
 
 
 def sha_dir(d):
@@ -93,7 +90,7 @@ def main():
     # arm left there -- the BD arm turns both levers on and the next `ship` then measures BD.
     # Snapshot here and restore below, so `ship` means the module default and nothing else.
     SHIPPED = {"l1_fc1": EC._PAIR_FFN_L1_FC1, "lm_handoff": RT._DEVICE_LM_HANDOFF,
-               "dev_z": RT._DEVICE_Z, "dual_noc": DN._ENABLED}
+               "dual_noc": DN._ENABLED}
     res["shipped_defaults"] = dict(SHIPPED)
 
     def run(tag, arm):
@@ -104,14 +101,11 @@ def main():
             if not hasattr(EC, "set_pair_ffn_l1_fc1"):
                 raise SystemExit("arm %s needs set_pair_ffn_l1_fc1, absent here" % arm)
             EC.set_pair_ffn_l1_fc1(want)
-        dp = DEVPAIR.get(arm, (SHIPPED["lm_handoff"], SHIPPED["dev_z"]))
-        RT.set_device_lm_handoff(dp[0])
-        RT.set_device_z(dp[1])
+        RT.set_device_lm_handoff(DEVPAIR.get(arm, SHIPPED["lm_handoff"]))
         DN.set_enabled(DUALNOC.get(arm, SHIPPED["dual_noc"]))
         DN.STATS[0] = DN.STATS[1] = 0
         DN.REJECTS.clear()
         RT.LM_HANDOFF_STATS[0] = RT.LM_HANDOFF_STATS[1] = 0
-        RT.Z_STATS[0] = RT.Z_STATS[1] = 0
         RP.STATS_GATED[0] = RP.STATS_GATED[1] = 0
         EC.L1_FC1_STATS[0] = EC.L1_FC1_STATS[1] = 0
         RP.STATS[0] = RP.STATS[1] = 0
@@ -127,7 +121,7 @@ def main():
                "fold_s": round(fold_s, 3), "plddt": m.get("plddt"), "cif": sha_dir(struct_dir),
                "e6_served": RP.STATS_GATED[0], "e6_declined": RP.STATS_GATED[1],
                "l1_fc1_stats": list(EC.L1_FC1_STATS),
-               "lm_handoff": list(RT.LM_HANDOFF_STATS), "dev_z": list(RT.Z_STATS),
+               "lm_handoff": list(RT.LM_HANDOFF_STATS),
                "fwd_move": list(RP.STATS), "back_move": list(RP.STATS_BACK),
                "l1_out_refused": len(T._L1_OUT_REFUSED),
                "dual_noc": list(DN.STATS),
@@ -136,12 +130,11 @@ def main():
                "loadavg": open("/proc/loadavg").read().split()[0]}
         res["runs"].append(row)
         a.out.write_text(json.dumps(res, indent=1))
-        print("  %-14s %8.3fs plddt=%s e6=%d/%d l1fc1=%d/%d lmh=%d/%d zdev=%d/%d dn=%d/%d "
+        print("  %-14s %8.3fs plddt=%s e6=%d/%d l1fc1=%d/%d lmh=%d/%d dn=%d/%d "
               "l1refused=%d cif=%s load=%s"
               % (tag, fold_s, m.get("plddt"), RP.STATS_GATED[0], RP.STATS_GATED[1],
                  EC.L1_FC1_STATS[0], EC.L1_FC1_STATS[1],
                  RT.LM_HANDOFF_STATS[0], RT.LM_HANDOFF_STATS[1],
-                 RT.Z_STATS[0], RT.Z_STATS[1],
                  DN.STATS[0], DN.STATS[1],
                  row["l1_out_refused"],
                  list(row["cif"].values())[0] if row["cif"] else "-", row["loadavg"]),
