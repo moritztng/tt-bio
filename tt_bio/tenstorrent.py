@@ -73,6 +73,41 @@ TRIMUL_IN_NORM_ROWBLOCK_BYTES = int(os.environ.get(
     "TT_BIO_TRIMUL_IN_NORM_ROWBLOCK_BYTES", 3 * 2 ** 30))  # 3 GiB
 TRANSITION_BATCH_CHUNKING_THRESHOLD = 1024
 TRANSITION_W_CHUNKING_THRESHOLD = 1024
+# Per-chunk element budget for the 4D Transition row loop on a small grid, in place of the
+# compounded channel ratio below it. That ratio divides by the channel twice -- once in
+# `_ref / (w_eff * c)` and again in the small-grid `_ref * 128 // c` -- so the small-grid budget
+# falls as 1/c^2 where Blackhole's falls as 1/c. Nothing intended the square: the comment on the
+# shrink says "in proportion to the channel's excess over 128", and at c=384 it costs a factor of
+# three. MEASURED on the 8x9 Wormhole Galaxy at OpenDDE's c_z=384, real Transition module, 2 warm
+# + 5 timed, spread under 1.4 % (perf/wh-opendde/wh_transition_chunk.py):
+#
+#   W=512  h=3 (shipped) 72.36 ms | h=6 65.53 = 1.1035x | h=7 69.65 | h=8 68.32 | h=9 67.01 | h=10 CLASH
+#   W=995  h=3 (shipped) 340.18   | h=6 308.45 = 1.1025x                                    | h=10 CLASH
+#   W=320  h=5 (shipped) 27.50    | h=6 26.42          | h=10 25.49 = 1.0786x               | h=16 CLASH
+#
+# CLASH is a TT_THROW of statically allocated circular buffers against L1 buffers across the whole
+# 8x9 grid, so the shrink is load-bearing and Blackhole's own chunk height genuinely does not fit
+# here. Two facts the budget has to respect: the wall is NOT monotonic in the chunk height (h=6
+# beats h=7/8/9 at W=512 even though all four fit), and the largest height that fits is therefore
+# not the one to pick. 1179648 = 6 * 512 * 384 lands on the measured optimum at W=512 and inside
+# the measured-fitting bracket at every other width the fold presents (W=320 -> 9, between the
+# measured-fitting 6 and 10; W=640/995/1024 -> 6, measured).
+#
+# Scope, deliberately narrow. Only 256 < c <= 384 takes this path:
+#   c=128 (boltz2, esmfold2) is already unshrunk and its shipped h=16 measured fastest at both
+#     W=512 and W=1024, so there is nothing to win and it stays byte-identical.
+#   c=256 (protenix-v2) measured h=12 = 1.074x at W=512, which is a real win, but protenix-v2 is
+#     mid-repair on this machine in its own task and a shared default moved underneath another
+#     model is how OpenDDE was regressed 60x once already. Left alone on purpose; the measurement
+#     is in perf/wh-opendde/results/transition_chunk_c256_wh.json for whoever owns it.
+#   c > 384 is not measured, so it keeps the shipped expression rather than extrapolating.
+# The W/H guard keeps this to the regime where every arm was torch.equal: above the 608-token
+# thresholds the row loop also W-chunks and the ragged tail block re-rounds with the row height
+# (max abs diff 0.015625 on bf16 at W=640 and W=995). Raising it there is worth a further ~0.13 s
+# at 512 aa and much more at 1024 aa, and it is NOT bit-exact -- flagged, not shipped.
+# Blackhole never reaches any of this: the whole branch is behind _IS_SMALL_GRID.
+SMALL_GRID_TRANSITION_ELEMS = int(os.environ.get("TT_BIO_SMALL_GRID_TRANSITION_ELEMS", 1179648))
+SMALL_GRID_TRANSITION_MAX_C = 384
 TRANSITION_H_CHUNK_SIZE_FAST = 32
 TRANSITION_H_CHUNK_SIZE = 16
 # Measured 1.87x at the protenix pair shape (microbench M4, W=320/c=256) but 32 clashes
@@ -84,6 +119,15 @@ TRANSITION_H_CHUNK_SIZE_BIG = 32  # verified envelope: W<=384 (298-aa W=320). W=
 # bound by a number measured for a wider channel. Named so it can be measured rather than
 # argued: default 384 keeps every shipped shape byte-identical.
 TRANSITION_H_CHUNK_BIG_MAX_W = 384
+# Measured ceiling for one Transition row chunk on a small grid, in L1 bytes PER CORE.
+# The chunk's live L1 (x_norm + x_1 + x_2) is interleaved across the grid, so what binds is
+# aggregate L1 / cores, and the budget above never sees core count. On UF-EV-A13-GWH02
+# (8x9 = 72 cores, 1,466,080 B unreserved L1 per core) the fc1/fc2 matmuls fit at <= 384 KiB
+# per core and throw a static-CB clash at >= 400 KiB: 14 points over 6 widths, no exceptions
+# (perf/wh-protenix/wh_transition_h.py). Rescaled to a part's own L1 in _apply_grid_thresholds.
+_TRANSITION_L1_CHUNK_BYTES_BASE = 393216
+_WH_MEASURED_L1_PER_CORE = 1466080  # the L1 the base above was measured at
+TRANSITION_L1_CHUNK_BYTES_PER_CORE = _TRANSITION_L1_CHUNK_BYTES_BASE
 
 # A fused activation="silu" on Transition fc1 costs 174.0 us/call at the 298 aa pair shape, while the
 # same silu as a standalone SFPU pass costs 83.7 -- measured on qb1 card 0, ttnn 0.67.4. The penalty
@@ -293,6 +337,34 @@ TRIANGLE_MULT_L1_CHUNK_BUDGET = 64 * 320 * 320
 # Set by _apply_grid_thresholds: True on grids smaller than 11x10 (e.g. Wormhole).
 # Tightens the L1-edge chunking thresholds and chunk sizes above this comment block.
 _IS_SMALL_GRID = False
+
+# Wormhole 8x9 re-fit of the two trimul constants above. `_apply_grid_thresholds` derives its
+# small-grid values by scaling the Blackhole ones -- the residency threshold by per-core L1 (which
+# fell 7 %) and the chunk budget by core count (which fell 45 %) -- and neither scaling has ever
+# been measured on a 72-core grid. These two knobs re-fit them from measurement instead. Both are
+# read ONLY when `_IS_SMALL_GRID` is True, so on a 110- or 130-core Blackhole every expression
+# below is byte-for-byte the one that ships today. 0 / 1.0 keep the derived value.
+# The chunk width is a partition of an independent-channel sum, so every width is bit-exact
+# (see `_trimul_chunk_size`); the residency threshold picks a memory config, not an arithmetic.
+# Measured on 8x9: state/wh-perf-esmfold2.md.
+SMALL_GRID_TRIMUL_L1_MAX_SEQ = 0
+SMALL_GRID_TRIMUL_BUDGET_SCALE = 1.0
+
+
+def set_small_grid_trimul_l1_max_seq(seq: int) -> int:
+    """A/B switch for the small-grid trimul L1 residency threshold. Returns the previous value.
+    Inert on Blackhole: read only when `_IS_SMALL_GRID`."""
+    global SMALL_GRID_TRIMUL_L1_MAX_SEQ
+    prev, SMALL_GRID_TRIMUL_L1_MAX_SEQ = SMALL_GRID_TRIMUL_L1_MAX_SEQ, int(seq)
+    return prev
+
+
+def set_small_grid_trimul_budget_scale(scale: float) -> float:
+    """A/B switch for the small-grid trimul chunk-width budget. Returns the previous value.
+    Inert on Blackhole: read only when `_IS_SMALL_GRID`."""
+    global SMALL_GRID_TRIMUL_BUDGET_SCALE
+    prev, SMALL_GRID_TRIMUL_BUDGET_SCALE = SMALL_GRID_TRIMUL_BUDGET_SCALE, float(scale)
+    return prev
 SDPA_CHUNK_TILE = 32
 SDPA_CHUNK_MAX = 256
 # Tiling for row-independent blocks so their activations fit the 12 GB/chip DRAM
@@ -317,7 +389,11 @@ _MIN_L1_SCALE = 0.7             # floor: keep chunks workable on a very tight pa
 
 PAIRFORMER_PAD_MULTIPLE = 64  # Pad token dim to this multiple to avoid kernel recompilation
 MSA_PAD_MULTIPLE = 1024  # Pad MSA dim to this multiple to avoid kernel recompilation
-MAX_ATOMS_PER_TOKEN = 14  # Upper bound on atoms per residue (Trp=14); ties atom bucket to seq_len bucket
+# Upper bound on heavy atoms per token for PROTEIN residues (Trp=14); ties the atom
+# bucket to the seq_len bucket. Nucleotide tokens carry more (up to 23), so a DNA/RNA
+# target can exceed padded_seq * 14 — _populate_diffusion_cache extends the bucket to
+# cover the real atom count in that case instead of asserting.
+MAX_ATOMS_PER_TOKEN = 14
 
 ATOM_WINDOW = 32
 ATOM_DIM = 128
@@ -400,6 +476,8 @@ def _adaln_memory_config(atom_level: bool, large_seq_len: bool) -> ttnn.MemoryCo
 def _trimul_l1_max_seq() -> int:
     """Longest sequence whose trimul chunks still live in L1."""
     if _FAST_MODE:
+        if _IS_SMALL_GRID and SMALL_GRID_TRIMUL_L1_MAX_SEQ:
+            return SMALL_GRID_TRIMUL_L1_MAX_SEQ
         return (
             TRIANGLE_MULT_L1_MAX_SEQ_FAST_13X10
             if COMPUTE_GRID_MAIN[0] == COMPUTE_GRID_X_13
@@ -442,8 +520,21 @@ def _trimul_chunk_size(seq_len: int, hidden: int, batch: int = 1) -> int:
         return TRIANGLE_MULT_CHUNK_SIZE
     gx, gy = COMPUTE_GRID_MAIN
     budget = TRIANGLE_MULT_L1_CHUNK_BUDGET * gx * gy / (COMPUTE_GRID_X_13 * 10)
+    if _IS_SMALL_GRID:
+        budget *= SMALL_GRID_TRIMUL_BUDGET_SCALE
     c = TRIANGLE_MULT_CHUNK_SIZE
-    while hidden % (c * 2) == 0 and batch * (c * 2) * seq_len * seq_len <= budget:
+    # Price the chunk on the width it actually occupies. The chunk tensors are
+    # [batch, chunk, seq, seq] TILE tensors, so both seq dims round up to 32 and a logical
+    # seq understates the real footprint by (tile(seq)/seq)^2 -- 29% at 225 aa, where 256^2
+    # against 225^2 is the difference between one doubling and none. That is what still
+    # crashed the confidence Pairformer's trimul (minimal_matmul, the `gp_in_fused` below)
+    # after the Transition's own tile-padding fix landed: at 225 aa the logical arithmetic
+    # bought chunk 64 for a footprint of 4,194,304 against a 3,629,908 budget, while 205 aa
+    # sits at 3,211,264 padded and folds. Small grid only, so Blackhole keeps its measured
+    # widths byte-for-byte. Narrowing is bit-exact -- the chunk width is a partition of an
+    # independent-channel sum, as the note above says -- so this cannot move an output.
+    _sq = (-(-int(seq_len) // 32) * 32) if _IS_SMALL_GRID else seq_len
+    while hidden % (c * 2) == 0 and batch * (c * 2) * _sq * _sq <= budget:
         c *= 2
     return c
 
@@ -486,6 +577,30 @@ def _sdpa_chunks_shipped(q_len: int, k_len: int) -> tuple:
     # online-softmax reduction order (measured PCC 0.9999 vs the 256 config).
     # Both sizes were only ever swept together; q is widened past this pick by
     # _tri_att_q_chunks, which is bit-exact, and k stays exactly here.
+    #
+    # CLOSED, do not re-propose without reading this. The band has no grid term and its 2.45x is a
+    # 13x10 Blackhole number, so on an 8x9 Wormhole Galaxy it looks like an obvious defect, and an
+    # op-level screen agrees: timing this function's own return value at OpenDDE's tri-att shape
+    # (h=12, d=32, batch=seq, bf16) says the capped path wins 1.463x at N=384 and 1.524x at N=352,
+    # with both controls at 1.000 (perf/wh-opendde/wh_sdpa_band_odde.py). The audit measured the
+    # same inversion at protenix's h=8 shape.
+    #
+    # The FOLD says the opposite. Gating the band on the grid, A/B'd at 384 aa on the Galaxy,
+    # interleaved legs, cold discarded + 3 warm (perf/wh-opendde/results/wh_ab384/):
+    #
+    #     main            117.942 / 117.855 s  mean 117.899  plDDT 0.798602  cif fc31112e72ed8617
+    #     this lever only  126.323 s                          plDDT 0.796598  cif 0f56595198420f80
+    #     with the Transition budget too  123.821 / 123.788   plDDT 0.796598  cif 0f56595198420f80
+    #     -> the lever alone is 0.9333x, a 6.7 % REGRESSION, and the output moves
+    #
+    # The mechanism is `_tri_att_q_chunks`: it offers only q_chunks that DIVIDE the padded sequence
+    # and treats this function's q value as the production fallback it widens PAST. So the fold
+    # never runs the band's (64, 64) -- it runs (wide_q, k=64), and the only thing this function
+    # decides in practice is k. Moving k from 64 to 256 makes k stop dividing 384, and the padded
+    # q x k mask grid is 84 % of the op's DRAM traffic, so it pads 384 -> 512 and pays it twice.
+    #
+    # The lesson, because it will recur: an op-level screen on this function's return value
+    # measures a configuration the fold never executes. Screen `_tri_att_q_chunks`'s actual pick.
     if 256 < q_len <= 384 and 256 < k_len <= 384:
         return (64, 64)
     return (_capped_sdpa_chunk_size(q_len), _capped_sdpa_chunk_size(k_len))
@@ -1595,6 +1710,7 @@ def _apply_grid_thresholds(grid: tuple[int, int]) -> None:
     global TRANSITION_W_CHUNKING_THRESHOLD, TRIANGLE_ATT_CHUNK_SIZE_FAST
     global TRANSITION_W_CHUNK_SIZE, TRIANGLE_MULT_L1_MAX_SEQ_FAST, SMALL_GRID_SEQ_TILE
     global SMALL_GRID_PAIR_TILE_AREA, TRIANGLE_MULT_L1_MAX_SEQ
+    global TRANSITION_L1_CHUNK_BYTES_PER_CORE
     _IS_SMALL_GRID = grid[0] * grid[1] < COMPUTE_GRID_X_11 * COMPUTE_GRID_Y
     if not _IS_SMALL_GRID:
         return  # Keep Blackhole baseline values
@@ -1625,6 +1741,17 @@ def _apply_grid_thresholds(grid: tuple[int, int]) -> None:
     TRIANGLE_MULT_L1_MAX_SEQ = min(_snap(288), TRIANGLE_MULT_L1_MAX_SEQ_FAST)
     SMALL_GRID_SEQ_TILE = _snap(256)
     SMALL_GRID_PAIR_TILE_AREA = _snap(65536, 1024)  # area = rows*L; rows snapped downstream
+    # Referenced to the L1 it was measured at, not to _WH_FULL_L1_PER_CORE: _s is already a
+    # 1.5 MiB ratio, and reusing it here would shrink a budget that was fitted at 1,466,080 B
+    # a second time. Clamped to 1.0 -- a part with more L1 may well fit a bigger chunk, but
+    # nothing above 384 KiB has been measured to fit, so do not extrapolate upwards.
+    TRANSITION_L1_CHUNK_BYTES_PER_CORE = int(
+        _TRANSITION_L1_CHUNK_BYTES_BASE * min(1.0, _l1 / _WH_MEASURED_L1_PER_CORE))
+    # Same treatment for the tri-att row-chunk spill threshold: a part with less L1 per core
+    # must let go of the block sooner, and one at the calibration L1 keeps the measured value.
+    global TRIATT_CHUNK_L1_SPILL_BYTES
+    TRIATT_CHUNK_L1_SPILL_BYTES = int(
+        _TRIATT_CHUNK_L1_SPILL_BASE * min(1.0, _l1 / _WH_FULL_L1_PER_CORE))
 
 
 def _configure_active_compute_grid(device: ttnn.Device) -> None:
@@ -1723,6 +1850,10 @@ def pair_row_tile(L: int) -> int:
 _device = None
 _trace_region_size = 0
 _device_lease = None
+# Bumped on every device close. Module-level device-tensor caches (e.g.
+# protenix._WIN_KV_IDX) must key on this: a tensor created on a closed MeshDevice
+# keeps the dead mesh alive and throws SubDeviceManagerTracker on next use.
+_device_generation = 0
 
 _DEVICE_INIT_LOCK_PATH = "/tmp/tt-bio-device-open.lock"
 
@@ -1923,6 +2054,27 @@ def _acc_concat(acc: list, dim: int, host: bool) -> ttnn.Tensor:
     return out
 
 
+_TRIATT_CHUNK_L1_SPILL_BASE = 524288          # 512 KiB per core, at full 1.5 MiB L1
+TRIATT_CHUNK_L1_SPILL_BYTES = _TRIATT_CHUNK_L1_SPILL_BASE
+
+
+def _chunk_l1_per_core(t: ttnn.Tensor) -> int:
+    """Bytes of L1 this interleaved block occupies on each core of the main grid.
+
+    Tiles are spread round-robin over the grid, so a core holds ceil(tiles / cores) of them.
+    A bf16 tile is 2048 B and a bfloat8_b tile is 1088 B (1024 mantissa bytes + 64 of shared
+    exponents), which is why the same block is a different budget on the two arms.
+    """
+    tile = 1088 if t.dtype == ttnn.bfloat8_b else (4096 if t.dtype == ttnn.float32 else 2048)
+    shape = [int(d) for d in t.padded_shape]
+    tiles = 1
+    for d in shape[:-2]:
+        tiles *= d
+    tiles *= -(-shape[-2] // 32) * -(-shape[-1] // 32)
+    cores = max(1, COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1])
+    return -(-tiles // cores) * tile
+
+
 def _acc_append(acc: list, t: ttnn.Tensor, host: bool) -> None:
     """Add a produced block to the accumulator, offloading it when host-assembling."""
     if host:
@@ -1991,8 +2143,14 @@ def trace_region_size():
     return _trace_region_size
 
 
+def device_generation():
+    """Monotonic id of the current device lifetime; changes when cleanup() closes
+    the device. Cache keys for module-level device tensors must include it."""
+    return _device_generation
+
+
 def cleanup():
-    global _device, _trace_region_size, _device_lease
+    global _device, _trace_region_size, _device_lease, _device_generation
     if _device is not None:
         try:
             # Drain queued work before closing so teardown is deterministic.
@@ -2006,6 +2164,7 @@ def cleanup():
             ttnn.close_device(_device)
         _device = None
         _trace_region_size = 0
+        _device_generation += 1
     # Release the physical-card lease AFTER the chip is closed, so the card is not
     # advertised as free while UMD teardown is still in flight. The kernel also drops
     # the flock on process exit, so a skipped cleanup (e.g. SIGKILL) still frees it.
@@ -2151,6 +2310,22 @@ class Module:
         return ttnn.squeeze(
             ttnn.experimental.nlp_concat_heads(ctx, memory_config=ttnn.DRAM_MEMORY_CONFIG), 1
         )
+
+
+def _in_proj_matmul(x, w, ckc, memory_config):
+    """The trimul in-projection: the dual-NOC drain where it applies, else today's call.
+
+    `mm_dualnoc.in_proj` is byte-identical to the call below when it fires -- it drives the same
+    kernels through `generic_op` with `_MM_DEFAULT`, which IS the block config
+    `determine_default_block_sizes` returns for an unconfigured `minimal_matmul` under
+    `fp32_dest_acc_en`. It returns None on anything outside the class it was verified on.
+    """
+    from . import mm_dualnoc as DN
+    out = DN.in_proj(x, w, ckc, _dtype(), memory_config)
+    if out is not None:
+        return out
+    return ttnn.experimental.minimal_matmul(
+        x, w, memory_config=memory_config, dtype=_dtype(), compute_kernel_config=ckc)
 
 
 def _trimul_out_proj(
@@ -2382,10 +2557,8 @@ class TriangleMultiplication(Module):
                 epsilon=1e-5,
                 compute_kernel_config=self.compute_kernel_config,
             )
-            _acc_append(blocks, ttnn.experimental.minimal_matmul(
-                rows, w, memory_config=memory_config, dtype=_dtype(),
-                compute_kernel_config=self.compute_kernel_config,
-            ), host)
+            _acc_append(blocks, _in_proj_matmul(
+                rows, w, self.compute_kernel_config, memory_config), host)
             ttnn.deallocate(rows)
         return _acc_concat(blocks, 1, host)
 
@@ -2467,13 +2640,8 @@ class TriangleMultiplication(Module):
             gp_in_fused = (
                 self._in_proj_rows(x_in, gp_in_chunks[i], H, batch, memory_config)
                 if row_norm else
-                ttnn.experimental.minimal_matmul(
-                    x_norm_in,
-                    gp_in_chunks[i],
-                    memory_config=memory_config,
-                    dtype=_dtype(),
-                    compute_kernel_config=self.compute_kernel_config,
-                )
+                _in_proj_matmul(x_norm_in, gp_in_chunks[i],
+                                self.compute_kernel_config, memory_config)
             )
             perm_a = (0, 3) + ((2, 1) if self.ending else (1, 2))
             perm_b = (0, 3) + ((1, 2) if self.ending else (2, 1))
@@ -3005,7 +3173,63 @@ class TriangleAttention(Module):
                     o_chunk = attend(qkv_chunk, triangle_bias, len(g_chunk.shape) == 4)
                 if not isinstance(qkv_chunk, tuple):   # the triple is freed inside attend
                     ttnn.deallocate(qkv_chunk)
-                _acc_append(parts, gate_and_project(o_chunk, g_chunk), host_acc)
+                # The projection keeps its L1 output -- same program config, same numerics --
+                # and the RESULT is moved off L1 before the next chunk runs. Nothing reads it
+                # until the concat after the loop, so holding it in L1 buys nothing and costs
+                # the next chunk its circular buffers. Measured on the 8x9 Galaxy at
+                # 640/768/1024 aa: the first chunk's output ([512, S, 64] bf16 = 285/342/456
+                # tiles per core = 583,680/700,416/933,888 B) sits exactly on top of the free
+                # L1, and the tail chunk's qkv projection needs a 1,152,288 B static CB region
+                # that no longer fits under it -- "L1 buffer allocated at 915456 and static
+                # circular buffer region ends at 1152288". Every size 640-1024 aa threw there;
+                # none reached the trunk. The same tensor is 323,584 B per core on 130
+                # Blackhole cores and clears the CB region with 23,264 B to spare, which is why
+                # it never showed up there -- and Blackhole does not take this branch below
+                # 1536 aa in any case.
+                #
+                # Producing the projection straight into DRAM instead (l1_out=False) also fixes
+                # the crash and is one write cheaper, but it takes a different program config
+                # and so folds the contraction differently: measured at 640 aa --fast on one
+                # pinned tree, plDDT 0.796168 -> 0.791786. Above 608 tokens --fast ALREADY
+                # WORKED, so that is a real accuracy change on a live path, and it was 2.3 %
+                # slower besides (252.044 -> 257.719 s). A copy is bit-exact, so it is the one
+                # that ships. `host_acc` already frees the device buffer on its own path.
+                out_chunk = gate_and_project(o_chunk, g_chunk)
+                # Spill ONLY when holding this block would make the next chunk throw. Nothing
+                # here is numerically inert -- `_pair_proj_linear` accepts or refuses its L1
+                # output according to what the allocator has left, and refusing takes a
+                # different program config, so relieving L1 pressure changes which config LATER
+                # chunks pick. Measured at 640 aa --fast, one pinned tree, one card, against an
+                # A/A floor of 2.5e-5: plDDT 0.796168/0.796143 unmodified, 0.791786 producing
+                # into DRAM, 0.791229 copying unconditionally. So the relief has to fire exactly
+                # where the fold would otherwise produce no output at all, and nowhere else.
+                #
+                # `_FAST_MODE` is NOT that condition and was tried: it is True only around the
+                # trunk (protenix.py wraps `self.trunk(...)` in set_fast_mode) and deliberately
+                # False for the confidence and diffusion stages, so a --fast fold still runs
+                # this loop with the flag down and still moved (0.792931 on the same card).
+                #
+                # The condition is the residency itself, in bytes per core, bracketed by
+                # measurement on the 8x9 Galaxy: --fast holds 290,496 B at 640 aa and 464,576 B
+                # at 1024 aa and folds; the default arm holds 583,680 B at 640 aa, 700,416 at
+                # 768 and 933,888 at 1024 and throws at all three, because the next chunk's qkv
+                # projection needs a 1,152,288 B static CB region that no longer fits under it.
+                # The threshold sits between the largest measured fit and the smallest measured
+                # throw, referenced to this part's own L1 so a roomier part keeps more.
+                #
+                # Only when it really came back in L1. `_pair_proj_linear` declines the L1
+                # output whenever the allocator refuses and returns a DRAM tensor instead, and
+                # for a DRAM source `to_memory_config(..., DRAM)` hands back the same buffer --
+                # so an unconditional deallocate here frees the tensor just appended to `parts`
+                # and the concat after the loop dies with "Buffer is not allocated". Same trap
+                # the bias loop above documents for `unsqueeze`.
+                if (not host_acc
+                        and out_chunk.memory_config().buffer_type == ttnn.BufferType.L1
+                        and _chunk_l1_per_core(out_chunk) >= TRIATT_CHUNK_L1_SPILL_BYTES):
+                    out_dram = ttnn.to_memory_config(out_chunk, ttnn.DRAM_MEMORY_CONFIG)
+                    ttnn.deallocate(out_chunk)
+                    out_chunk = out_dram
+                _acc_append(parts, out_chunk, host_acc)
             dram_peak(f"tri_att({'end' if self.ending else 'start'}) row loop done [z={'x'.join(str(d) for d in x.shape)}]")
             # x here is the reshaped (unpermuted) input -- for the starting variant it can
             # alias the caller's pair tensor, so it must NOT be deallocated.
@@ -3498,10 +3722,57 @@ class Transition(Module):
         # clamp means this only ever raises the chunk size where it had been shrunk,
         # so W<=threshold shapes (every normal target) are byte-identical to before.
         w_eff = min(W, TRANSITION_W_CHUNK_SIZE) if W > transition_w_chunking_threshold else W
+        _base_h = transition_h_chunk_size
         _ref = 1024 * 128
         if _IS_SMALL_GRID:
             _ref = _ref * 128 // max(128, x.shape[-1])
         transition_h_chunk_size = max(1, int(transition_h_chunk_size * min(1.0, _ref / (w_eff * x.shape[-1]))))
+
+        # ...and raise it back where the compounded ratio above over-shrinks. That ratio divides by
+        # the channel TWICE -- once here and again in the small-grid `_ref * 128 // c` -- so the
+        # small-grid budget falls as 1/c^2 where Blackhole's falls as 1/c. At OpenDDE's c_z=384 that
+        # costs a factor of three: the chunk is 3 against Blackhole's 10, i.e. 171 row blocks for a
+        # 512-token pair tensor instead of 52. MEASURED on the Galaxy, real Transition module, 2 warm
+        # + 5 timed, spread under 1.4 % (perf/wh-opendde/wh_transition_chunk.py):
+        #
+        #   W=512  h=3 (shipped) 72.36 ms | h=6 65.53 = 1.1035x | h=7 69.65 | h=8 68.32 | h=9 67.01
+        #   W=320  h=5 (shipped) 27.50    | h=6 26.42 | h=10 25.49 = 1.0786x
+        #
+        # The wall is NOT monotonic in the height -- 7, 8 and 9 all fit at W=512 and are all slower
+        # than 6 -- so this lands on the measured optimum rather than on the largest chunk that fits,
+        # and the per-core cap below still has the last word. Fold-level A/B at 512 aa: 189.398 ->
+        # 185.899 s, 1.0188x, against an A/A floor of 0.235 s, CIF digest identical on both arms.
+        #
+        # Scoped to 256 < c <= 384 on purpose. c=128 is already unshrunk and its shipped h=16
+        # measured fastest with no clash at any height; c=256 measures 1.0738x at W=512 but is
+        # protenix-v2's channel and the cap above is its crash fix, so it is left exactly alone.
+        # The W/H guard keeps this to the regime where every arm was torch.equal: above the
+        # 608-token thresholds the loop also W-chunks and the ragged tail re-rounds with the row
+        # height (max abs diff 0.015625, bf16).
+        _c = int(x.shape[-1])
+        if (_IS_SMALL_GRID and SMALL_GRID_TRANSITION_ELEMS
+                and 256 < _c <= SMALL_GRID_TRANSITION_MAX_C
+                and W <= transition_w_chunking_threshold and H <= SEQ_LEN_MORE_CHUNKING):
+            transition_h_chunk_size = max(transition_h_chunk_size,
+                                          min(_base_h, SMALL_GRID_TRANSITION_ELEMS // (w_eff * _c)))
+        if _IS_SMALL_GRID:
+            # Cap the row chunk by measured per-core L1. The budget above scales by per-core L1
+            # and by the channel excess; neither term sees that the Galaxy has 45% fewer cores
+            # than the 130-core grid these constants were fitted on, so the same nominal chunk
+            # lands as ~1.8x the per-core bytes and clashes. Live per chunk: x_norm (c) plus
+            # x_1 and x_2 (hidden each), bf16. Every extent is TILE-PADDED: a (1,H,W,c) tile
+            # tensor rounds W and c up to 32, so the logical extents understate the real
+            # footprint by up to 32/W. At 298 aa, W pads 298 -> 320 and the same chunk costs
+            # 409,600 B/core, not the 381,440 the logical arithmetic reports -- across the
+            # measured throw edge (perf/wh-protenix/wh_transition_h.py: fits <= 393,216,
+            # throws >= 409,600), which is why 298 aa still clashed in the confidence
+            # Pairformer after the cap landed. Tile-aligned W is unaffected by construction.
+            _gx, _gy = COMPUTE_GRID_MAIN
+            _hid = int(self.fc1_weight.shape[-1])
+            _tile = lambda v: -(-int(v) // 32) * 32
+            _cap = max(1, int(TRANSITION_L1_CHUNK_BYTES_PER_CORE * _gx * _gy
+                              // (2 * _tile(w_eff) * (_tile(x.shape[-1]) + 2 * _tile(_hid)))))
+            transition_h_chunk_size = min(transition_h_chunk_size, _cap)
         if H > SEQ_LEN_MORE_CHUNKING:
             # Large-sequence path: slice row blocks lazily inside the loop. ttnn.chunk
             # would materialise a full second copy of the pair tensor up front, and the
@@ -5757,7 +6028,14 @@ class DiffusionModule(TorchWrapper):
         token_pad = (-seq_len) % PAIRFORMER_PAD_MULTIPLE
         padded_seq = seq_len + token_pad
         N_padded = padded_seq * MAX_ATOMS_PER_TOKEN
-        assert N <= N_padded, f"N={N} exceeds max {N_padded} for padded_seq={padded_seq}. Increase MAX_ATOMS_PER_TOKEN."
+        if N > N_padded:
+            # The protein-derived bucket (Trp=14 atoms/token) under-sizes targets with
+            # nucleic-acid tokens (up to 23 atoms) or large modified residues. Extend to
+            # the next window multiple that covers the real atom count — the padding is
+            # masked out, and the diffusion trace keys on N_padded, so this costs one
+            # recompile per new shape rather than a failure. Protein-only inputs never
+            # take this branch, so their shapes (and compiled caches) are unchanged.
+            N_padded = -(-N // ATOM_WINDOW) * ATOM_WINDOW
         atom_pad = N_padded - N
         NW_padded = N_padded // ATOM_WINDOW
         K_padded = B * NW_padded

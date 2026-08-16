@@ -1,0 +1,213 @@
+"""Lever A: the trimul chunk width at BoltzGen's own production shape, both arms in one process.
+
+`_trimul_chunk_size` doubles the hidden-channel chunk while `batch * (c*2) * seq_len^2` fits a
+budget that scales with core count. At BoltzGen's padded 256 that budget is 5,545,354 elements on a
+110-core Blackhole grid and 3,629,993 on a 72-core Wormhole grid, so Blackhole runs chunk 64 and
+Wormhole runs chunk 32 -- twice the chunk-loop iterations, each carrying one fused input matmul, a
+4-way split, three channel moves and a concat, on a trunk whose binding limit is per-op fixed cost.
+
+The measurement problem this script solves is the box, not the model. The Wormhole Galaxy is
+production and its loadavg moves on prod's schedule, so arm-A-then-arm-B is not a slower measurement
+than interleaving, it is a wrong one. Both arms therefore run inside ONE process and one model load,
+alternating per design: the chunk width is recomputed on every trimul call, so flipping a module
+global at each design boundary switches arms with nothing else changing. The first design of each
+arm is dropped (it carries that arm's kernel compile) and the median is taken over the rest.
+
+Correctness is checked on the module rather than on the output structure: designs differ by their
+noise draw, so two designs are not comparable, but one trimul module called twice on ONE captured
+input is. The first live call at the production shape is stashed and replayed under both arms with
+`torch.equal`.
+
+    WTC_ARMS=72,110 WTC_RUNG=R0 WTC_DESIGNS=10 TT_VISIBLE_DEVICES=<umd> \
+      PYTHONPATH=$PWD python3 perf/whdesign/wh_trimul_chunk_ab.py
+"""
+import json
+import os
+import pathlib
+import statistics
+import sys
+import time
+
+sys.path.insert(0, os.getcwd())
+
+import torch
+import ttnn
+
+import tt_bio.tenstorrent as T
+import tt_bio.boltzgen.progress as P
+
+# An arm is a CORE COUNT, not a chunk width, and that is the whole point. The candidate change is
+# to the budget's scaling rule, so arm 110 means "compute the width the way an 11x10 Blackhole grid
+# would" and arm 72 means "the way this Wormhole grid does". Pinning a width instead is a different
+# and wrong experiment: forcing 64 at every L1-path call on the Galaxy throws
+# "statically allocated circular buffers clash with L1 buffers" out of the trunk's
+# token-distance pairformer, at a shape where Blackhole's own rule would not have widened either.
+ARMS = [int(c) for c in os.environ.get("WTC_ARMS", "72,110").split(",")]
+RUNG = os.environ.get("WTC_RUNG", "R0")
+DESIGNS = int(os.environ.get("WTC_DESIGNS", "10"))
+STEPS = int(os.environ.get("WTC_STEPS", "60"))
+OUT = pathlib.Path(os.environ.get("WTC_OUT", "perf/whdesign/results/wh_trimul_chunk_ab.json"))
+HOST = os.environ.get("WTC_HOST", "galaxy")
+
+state = {"arm": ARMS[0], "arm_idx": 0, "design": 1, "stamps": {}, "widths": {}, "capture": None,
+         "last_call": None, "shapes_seen": {}, "error": None}
+_orig_chunk = T._trimul_chunk_size
+
+
+def at_cores(seq_len, hidden, batch=1):
+    """`_trimul_chunk_size` verbatim, with the grid term taken from the arm instead of the device.
+
+    Every other clause is the shipped one: the DRAM path does not widen, the width must divide the
+    hidden dimension, and the budget is the same constant. Only `gx * gy` changes, which is exactly
+    the term §5 flags as fitted on one grid and never checked on another.
+    """
+    if seq_len > T._trimul_l1_max_seq():
+        return T.TRIANGLE_MULT_CHUNK_SIZE
+    budget = T.TRIANGLE_MULT_L1_CHUNK_BUDGET * state["arm"] / (T.COMPUTE_GRID_X_13 * 10)
+    c = T.TRIANGLE_MULT_CHUNK_SIZE
+    while hidden % (c * 2) == 0 and batch * (c * 2) * seq_len * seq_len <= budget:
+        c *= 2
+    state["widths"].setdefault(str((seq_len, hidden, batch)), {})[str(state["arm"])] = c
+    return c
+
+
+T._trimul_chunk_size = at_cores
+
+_orig_call = T.TriangleMultiplication.__call__
+
+
+def tapped_call(self, x, mask=None):
+    shp = [int(v) for v in x.shape]
+    # Recorded on every call so that a throw inside the trimul names the shape it threw at: the
+    # interesting failure here is an L1 clash, and "which shape" is the whole finding.
+    state["last_call"] = {"x_shape": shp, "hidden": int(self._hidden), "arm_cores": state["arm"]}
+    state["shapes_seen"][str((shp[1], int(self._hidden)))] = shp
+    if state["capture"] is None and shp[1] > 128:
+        state["capture"] = (self, ttnn.to_torch(x).clone(), None if mask is None else ttnn.to_torch(mask).clone())
+    return _orig_call(self, x, mask)
+
+
+T.TriangleMultiplication.__call__ = tapped_call
+
+_orig_set = P.set_reporter
+
+
+class Tap(P.Reporter):
+    """Wraps whatever reporter the CLI installs, so no model code has to be patched to see events."""
+
+    def __init__(self, inner):
+        self.inner = inner
+
+    def stage_start(self, name, idx, total):
+        self.inner.stage_start(name, idx, total)
+
+    def stage_done(self, ok=True):
+        self.inner.stage_done(ok)
+
+    def step(self, kind, n, total):
+        if kind == "batch":
+            state["design"] = n
+            # Keyed by POSITION in ARMS, not by the core count: an A/A control is ARMS=72,72 and
+            # keying by value would collapse both arms into one bucket and silently report no floor.
+            state["arm_idx"] = (n - 1) % len(ARMS)
+            state["arm"] = ARMS[state["arm_idx"]]
+        elif kind in ("diffusion", "trunk"):
+            # The trimul is a Pairformer op and the Pairformer is in the TRUNK, not in the diffusion
+            # step, so a chunk-width A/B read off diffusion steps is reading a term the change does
+            # not touch. Both are stamped: trunk is where the lever can pay, diffusion is the
+            # control that should not move.
+            state["stamps"].setdefault((kind, state["design"], state["arm_idx"]), []).append(time.perf_counter())
+        self.inner.step(kind, n, total)
+
+
+P.set_reporter = lambda r: _orig_set(Tap(r))
+
+sys.argv = ["tt_bio", "design", "perf/dsfix/fixtures/bg_%s.yaml" % RUNG,
+            "--model", "boltzgen", "--steps", "design",
+            "--num_designs", str(DESIGNS), "--out_dir", "/tmp/wtc_%s" % RUNG,
+            "--config", "design", "sampling_steps=%d" % STEPS,
+            "--debug", "--log"]
+
+from tt_bio.main import cli as app  # noqa: E402
+
+t0 = time.time()
+try:
+    app(standalone_mode=False)
+except SystemExit:
+    pass
+except Exception as e:                                    # noqa: BLE001
+    # A throw is a result here, not an accident: an arm whose width does not fit L1 has answered
+    # the question. Record it with the call it died on and keep whatever timing already landed.
+    state["error"] = {"type": type(e).__name__, "msg": str(e)[:600], "at_call": state["last_call"]}
+    print("[wtc] ARM FAILED: %s" % json.dumps(state["error"]), flush=True)
+wall = time.time() - t0
+
+# ---- per-arm medians, first design of each arm dropped -----------------------------------------
+def summarise(kind, drop):
+    """Median interval between consecutive `kind` emits, per design, then per arm."""
+    per_design = {}
+    for (k, d, arm), ts in sorted(state["stamps"].items()):
+        if k != kind or len(ts) < drop + 3:
+            continue
+        iv = [ts[i + 1] - ts[i] for i in range(drop, len(ts) - 1)]
+        per_design[(d, arm)] = statistics.median(iv) * 1000.0
+    out = {}
+    for i, c in enumerate(ARMS):
+        ds = sorted(d for (d, a) in per_design if a == i)
+        kept = ds[1:]                   # drop this arm's first design: it carries kernel compile
+        vals = [per_design[(d, i)] for d in kept]
+        out[i] = {"cores": c, "designs_kept": kept, "designs_all": ds,
+                  "ms_per_design": [round(per_design[(d, i)], 3) for d in ds],
+                  "ms_median": round(statistics.median(vals), 3) if vals else None,
+                  "n_designs": len(vals)}
+    return out
+
+
+arms = summarise("diffusion", 3)
+trunk = summarise("trunk", 0)
+for i in range(len(ARMS)):              # keep the old key name so existing readers do not break
+    arms[i]["step_ms_median"] = arms[i]["ms_median"]
+    arms[i]["step_ms_per_design"] = arms[i]["ms_per_design"]
+
+# ---- module-level bit-exactness on one captured input ------------------------------------------
+# The timing is the deliverable and the replay needs a live device the CLI may already have closed,
+# so a failed replay records itself and does not take the run down with it.
+exact = {"checked": False}
+try:
+    tm, x_h, m_h = state["capture"]
+    dev = T.get_device()
+    xt = ttnn.from_torch(x_h, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    mt = None if m_h is None else ttnn.from_torch(m_h, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    outs = {}
+    for i, c in enumerate(ARMS):
+        state["arm"] = c
+        o = _orig_call(tm, xt, mt)
+        ttnn.synchronize_device(dev)
+        outs[i] = ttnn.to_torch(o).clone()
+        ttnn.deallocate(o)
+    ref = outs[0]
+    exact = {"checked": True, "shape": [int(v) for v in x_h.shape],
+             "ref_arm_cores": ARMS[0],
+             "torch_equal": {"arm%d_%dcores" % (i, c): bool(torch.equal(outs[i], ref)) for i, c in enumerate(ARMS)},
+             "max_abs": {"arm%d_%dcores" % (i, c): float((outs[i] - ref).abs().max()) for i, c in enumerate(ARMS)}}
+except Exception as e:                                    # noqa: BLE001
+    exact = {"checked": False, "error": "%s: %s" % (type(e).__name__, e)}
+
+rec = {"host": HOST, "rung": RUNG, "designs": DESIGNS, "sampling_steps": STEPS,
+       "arm_cores": ARMS, "grid": list(T.COMPUTE_GRID_MAIN),
+       "l1_chunk_budget": T.TRIANGLE_MULT_L1_CHUNK_BUDGET,
+       "widths_seen": state["widths"],
+       "arms": {"arm%d_%dcores" % (i, c): arms[i] for i, c in enumerate(ARMS)},
+       "trunk": {"arm%d_%dcores" % (i, c): trunk[i] for i, c in enumerate(ARMS)},
+       "shapes_seen": state["shapes_seen"], "error": state["error"],
+       "loadavg": float(open("/proc/loadavg").read().split()[0]),
+       "proc_wall_s": round(wall, 1), "bit_exact": exact}
+for label, tbl in (("diffusion", arms), ("trunk", trunk)):
+    if all(tbl[i]["ms_median"] for i in range(len(ARMS))):
+        rec["speedup_%s_vs_arm0" % label] = {
+            "arm%d_%dcores" % (i, c): round(tbl[0]["ms_median"] / tbl[i]["ms_median"], 4)
+            for i, c in enumerate(ARMS)}
+OUT.parent.mkdir(parents=True, exist_ok=True)
+OUT.write_text(json.dumps(rec, indent=1) + "\n")
+print("[wtc] " + json.dumps({k: rec[k] for k in ("grid", "arm_cores", "widths_seen", "shapes_seen", "arms", "trunk", "bit_exact", "error") if k in rec}), flush=True)
+print("[wtc] wrote %s" % OUT, flush=True)

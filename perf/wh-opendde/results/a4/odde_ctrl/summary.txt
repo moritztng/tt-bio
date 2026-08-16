@@ -1,0 +1,6 @@
+EXIT 320 off = 0 throws=1
+EXIT 320 on = 1 throws=0
+EXIT 352 off = 0 throws=1
+EXIT 352 on = 0 throws=1
+EXIT 384 off = 0 throws=1
+EXIT 384 on = 0 throws=1

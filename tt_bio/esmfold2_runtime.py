@@ -187,6 +187,95 @@ class _StructureHeadAdapter(_Adapter):
         return {"sample_atom_coords": torch.cat(out, dim=0)}  # [N, n_atoms, 3]
 
 
+# ---------------------------------------------------------------------------
+# Device-resident pair handoffs
+# ---------------------------------------------------------------------------
+# Several places hand a [1,L,L,256] pair tensor from one ttnn module to the next
+# through a host round trip. The device side is bf16 and the host side is fp32, so
+# bf16 -> fp32 -> bf16 is lossless and dropping the round trip is bit-exact by
+# construction. One of them is gone: the LM shim -> LM encoder handoff inside the
+# resident trunk loop.
+#
+# What cannot go: `parcae_input_norm` and `confidence_head.z_norm` are host fp32
+# LayerNorms, and moving a reduction onto the device changes the arithmetic, so the
+# pair still comes back to the host once.
+#
+# The parcae_coda -> distogram handoff was built, measured at -0.242 s at 512 aa, and
+# then deleted: keeping `z` on the device means `z + z.transpose(-2, -3)` runs as
+# `ttnn.add` on bf16 instead of a host fp32 add, and that moves 11.1 % of
+# `distogram_logits` by up to one bf16 ULP at 298, 512 and 640 aa
+# (`perf/esmbeat/a_distogram_parity.json`). The whole win IS that add, so there is no
+# reduced version to keep. Note what did not catch it: `distogram_logits` reaches
+# neither the CIF nor plDDT, so 24 folds of fold-level A/B read the arm as clean.
+
+DEVICE_LM_HANDOFF = True
+_DEVICE_LM_HANDOFF = bool(int(os.environ.get(
+    "TT_ESMFOLD2_DEVICE_LM_HANDOFF", "1" if DEVICE_LM_HANDOFF else "0")))
+
+# [served, declined]. A zero in `served` means the lever never fired and any A/B
+# against it is vacuous.
+LM_HANDOFF_STATS = [0, 0]
+
+
+def set_device_lm_handoff(on: bool) -> None:
+    global _DEVICE_LM_HANDOFF
+    _DEVICE_LM_HANDOFF = bool(on)
+
+
+class _DevPair:
+    """A pair tensor left on the device, carried through code that only stores it."""
+
+    __slots__ = ("t", "seq_len")
+
+    def __init__(self, t, seq_len):
+        self.t, self.seq_len = t, int(seq_len)
+
+    @property
+    def shape(self):
+        return (1, self.seq_len, self.seq_len, self.t.shape[-1])
+
+
+def _trunk_on_device(ftw, dev):
+    """`E.FoldingTrunk.forward` on an already-resident input, minus the upload.
+
+    The incoming bf16 device tensor is exactly what `_from_torch` would have
+    produced from the host fp32 copy, so this is the same computation.
+    """
+    import ttnn
+
+    seq_len = dev.seq_len
+    pad = (-seq_len) % E.PAD_MULTIPLE
+    z, mask = dev.t, None
+    if pad:
+        n = seq_len + pad
+        z = ttnn.pad(dev.t, [(0, 0), (0, pad), (0, pad), (0, 0)], value=0.0)
+        real = torch.zeros(1, n, n)
+        real[:, :seq_len, :seq_len] = 1.0
+        mask = ftw._from_torch(real)
+    out = ftw.module(z, mask)
+    for t in (z if pad else None, mask):
+        if t is not None:
+            try:
+                ttnn.deallocate(t)
+            except Exception:
+                pass
+    return ftw._to_torch(out)[:, :seq_len, :seq_len, :]
+
+
+class _ShimAdapter(_Adapter):
+    """LM shim that hands its pair tensor straight to the LM encoder (lever B)."""
+
+    def forward(self, *args, **kw):
+        if not _DEVICE_LM_HANDOFF:
+            LM_HANDOFF_STATS[1] += 1
+            return super().forward(*args, **kw)
+        m = self.m
+        hs = _to_t(args[0])
+        LM_HANDOFF_STATS[0] += 1
+        return _DevPair(m.module(m._from_torch(hs), torch.softmax(m._combine, 0)),
+                        int(hs.shape[1]))
+
+
 # reference attribute -> (ttnn wrapper, state-dict prefix, reference kwarg order).
 # An empty kwarg tuple means "forward the first positional arg" (trunk/shim/
 # distogram). Block counts and MSA head width follow the checkpoint config, so
@@ -227,6 +316,7 @@ def _components(sd, config):
         mod = factory()
         mod.load_state_dict(sub(prefix), strict=False)
         cls = _StructureHeadAdapter if argnames is None else _Adapter
+        cls = _ShimAdapter if name == "language_model" else cls
         built[name] = cls(mod, *(argnames or ()))
     return built
 
@@ -260,7 +350,10 @@ def _install_resident_trunk_loop(model):
             msa_pair = self.msa_encoder(x_pair=z_inject, **_msa_kwargs).to(z_init.dtype)
             z_inject = msa_pair if overwrite else (z_inject + msa_pair)
         if lm_z is not None and self.lm_encoder is not None:
-            refined = self.lm_encoder(lm_z.to(z_init.dtype), pair_attention_mask=pair_mask)
+            if isinstance(lm_z, _DevPair):
+                refined = _trunk_on_device(self.lm_encoder.m, lm_z)
+            else:
+                refined = self.lm_encoder(lm_z.to(z_init.dtype), pair_attention_mask=pair_mask)
             z_inject = z_inject + refined.to(z_init.dtype)
         injected = self.parcae_input_norm(z_inject)
         inject_proj = F.linear(injected.to(z.dtype), b_mat)  # [1,L,L,256] (host)
@@ -466,9 +559,14 @@ def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
                  num_diffusion_samples=1, seed=0, return_all=False):
     """Fold one (possibly multi-chain) protein complex on an already-patched model.
 
-    `chains` is a list of ``(chain_id, sequence)`` or ``(chain_id, sequence,
-    msa)`` where ``msa`` is an esm ``MSA`` object (or None for single-sequence).
-    When an MSA is given the on-device MSA encoder runs. Returns the reference
+    `chains` is a list of ``(chain_id, sequence)``, ``(chain_id, sequence,
+    msa)`` or ``(chain_id, sequence, msa, modifications)`` where ``msa`` is an
+    esm ``MSA`` object (or None for single-sequence) and ``modifications`` a
+    list of ``{"position": N, "ccd": CODE}`` dicts (1-indexed, the Boltz YAML
+    convention; the vendored featurizer's ``Modification`` is 0-indexed).
+    A modified residue is atom-tokenized by the input pipeline, so it folds as
+    the modified chemistry rather than being silently dropped. When an MSA is
+    given the on-device MSA encoder runs. Returns the reference
     fold result (with `.complex`, `.plddt`, `.ptm`).
 
     With ``num_diffusion_samples > 1`` the diffusion head emits one structure per
@@ -485,14 +583,25 @@ def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
     single-result callers keep the exact object they had.
     """
     from tt_bio._vendor.esm.models.esmfold2 import (
-        ESMFold2InputBuilder, ProteinInput, StructurePredictionInput)
+        ESMFold2InputBuilder, Modification, ProteinInput, StructurePredictionInput)
 
     def _protein(c):
         msa = c[2] if len(c) > 2 else None
         # Normalise the sequence (strip whitespace, upper-case): otherwise those
         # characters tokenize to unknowns and crash the MSA-feature step. Matches
         # the Boltz-2 parser's behaviour.
-        return ProteinInput(id=c[0], sequence="".join(c[1].split()).upper(), msa=msa)
+        seq = "".join(c[1].split()).upper()
+        mods = None
+        if len(c) > 3 and c[3]:
+            mods = []
+            for mod in c[3]:
+                pos = mod["position"]
+                if not isinstance(pos, int) or not (1 <= pos <= len(seq)) or not mod.get("ccd"):
+                    raise ValueError(
+                        f"Modification {mod!r} on chain {c[0]} needs a 1-indexed position "
+                        f"within the sequence (length {len(seq)}) and a ccd code.")
+                mods.append(Modification(position=pos - 1, ccd=str(mod["ccd"])))
+        return ProteinInput(id=c[0], sequence=seq, msa=msa, modifications=mods)
 
     spi = StructurePredictionInput(sequences=[_protein(c) for c in chains])
     res = ESMFold2InputBuilder().fold(

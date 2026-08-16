@@ -32,7 +32,8 @@ import ttnn
 from . import protenix_weights as PW
 from .protenix_weights import remap_adaln  # single source of all v2->tt-bio weight remaps
 from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
-                          MSA_CHUNK_SIZE, batched_matmul, _narrow_proj_linear, _l1_layer_norm)
+                          MSA_CHUNK_SIZE, batched_matmul, _narrow_proj_linear, _l1_layer_norm,
+                          device_generation)
 from . import tenstorrent as _T   # for the module-level A/B toggles, which must be read live
 
 
@@ -205,7 +206,11 @@ def _window_q(x, N, NP, nq=32):
     return ttnn.to_layout(ttnn.reshape(x, (NP // nq, nq, x.shape[-1])), ttnn.TILE_LAYOUT)
 
 
-_WIN_KV_IDX = {}  # (NP,nq,nk) -> precomputed (1, nb*nk) uint32 gather index (device tensor)
+_WIN_KV_IDX = {}  # (gen,NP,nq,nk) -> (1, nb*nk) uint32 gather index, device tensor on the
+                  # CURRENT mesh. gen = tenstorrent.device_generation(): a model switch closes
+                  # the mesh and this module-level dict survives, so entries from an older
+                  # generation point at a closed MeshDevice and throw SubDeviceManagerTracker
+                  # ("remote-only") on the next fold. Keyed + pruned by generation instead.
 
 
 def _window_kv(x, N, NP, nq=32, nk=128, pad_left=48):
@@ -231,12 +236,15 @@ def _window_kv(x, N, NP, nq=32, nk=128, pad_left=48):
         ], dim=1)
         return ttnn.to_layout(x, ttnn.TILE_LAYOUT)
     x = ttnn.reshape(x, (Lp, C))                                   # gather table (Lp, C)
-    idx = _WIN_KV_IDX.get((NP, nq, nk))
+    gen = device_generation()
+    if _WIN_KV_IDX and next(iter(_WIN_KV_IDX))[0] != gen:
+        _WIN_KV_IDX.clear()
+    idx = _WIN_KV_IDX.get((gen, NP, nq, nk))
     if idx is None:
         ii = (torch.arange(nb).reshape(nb, 1) * nq + torch.arange(nk).reshape(1, nk)).reshape(1, nb * nk)
         idx = ttnn.from_torch(ii.to(torch.int32), layout=ttnn.ROW_MAJOR_LAYOUT,
                               device=get_device(), dtype=ttnn.uint32)
-        _WIN_KV_IDX[(NP, nq, nk)] = idx
+        _WIN_KV_IDX[(gen, NP, nq, nk)] = idx
     x = ttnn.embedding(idx, x, layout=ttnn.ROW_MAJOR_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG)
     x = ttnn.reshape(x, (nb, nk, C))                               # (nb, nk, C)
     return ttnn.to_layout(x, ttnn.TILE_LAYOUT)
@@ -278,6 +286,14 @@ def _window_kv_m(x, M, N, NP, nq=32, nk=128, pad_left=48):
     _window_q_m's layout (no cross-sample bleed)."""
     cols = [_window_kv(x[k:k + 1], N, NP, nq, nk, pad_left) for k in range(M)]  # each (nb, nk, C)
     return ttnn.to_layout(ttnn.concat(cols, dim=0), ttnn.TILE_LAYOUT)          # (M*nb, nk, C)
+
+
+# Build the 139-dim relative-position one-hot by scattering into an fp32 result instead of
+# materialising int64 one-hots and an int64 cat (`_generate_relp`). Bit-exact; ON by default.
+# RELP_STATS is [scatter_calls, legacy_calls] -- a perf arm that flips the flag and serves zero
+# calls is an A/A pair mislabelled as an A/B, and only the counter says which happened.
+_RELP_SCATTER = True
+RELP_STATS = [0, 0]
 
 
 class _KeyedWeights:
@@ -1646,9 +1662,14 @@ class Protenix:
         return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
 
     @staticmethod
-    def _to_host(t, shape=None):
+    def _to_host(t, shape=None, fp32=True):
+        """Download a device tensor to host. `fp32=False` keeps the bf16 the device held, for
+        call sites whose consumers only cast it back (the OpenDDE z_trunk seam): bf16 -> fp32 is
+        lossless, so the upcast is 402 MB of host writes that buy nothing. Default stays fp32."""
         import torch
-        h = torch.Tensor(ttnn.to_torch(t)).float()
+        h = torch.Tensor(ttnn.to_torch(t))
+        if fp32:
+            h = h.float()
         return h.reshape(shape) if shape is not None else h
 
     @staticmethod
@@ -1666,8 +1687,23 @@ class Protenix:
         d_res = torch.clip(res[:, None] - res[None, :] + r_max, 0, 2 * r_max) * sc + (1 - sc) * (2 * r_max + 1)
         d_tok = torch.clip(tok[:, None] - tok[None, :] + r_max, 0, 2 * r_max) * sc * sr + (1 - sc * sr) * (2 * r_max + 1)
         d_ch = torch.clip(sym[:, None] - sym[None, :] + s_max, 0, 2 * s_max) * se + (1 - se) * (2 * s_max + 1)
-        return torch.cat([F.one_hot(d_res, 2 * (r_max + 1)), F.one_hot(d_tok, 2 * (r_max + 1)),
-                          se[..., None], F.one_hot(d_ch, 2 * (s_max + 1))], dim=-1).float()
+        if not _RELP_SCATTER:
+            RELP_STATS[1] += 1
+            return torch.cat([F.one_hot(d_res, 2 * (r_max + 1)), F.one_hot(d_tok, 2 * (r_max + 1)),
+                              se[..., None], F.one_hot(d_ch, 2 * (s_max + 1))], dim=-1).float()
+        # Same result, built directly in fp32. `F.one_hot` on an int64 index returns int64, so the
+        # cat above materialises 2.6 GB of int64 for a 550 MB fp32 answer at Ns=995; scattering into
+        # the result touches only the 550 MB. Bit-exact by construction: every value written is 0.0
+        # or 1.0 at exactly the column one_hot would have set. MEASURED torch.equal True at both
+        # axes, 0.329 s/fold at 512 aa (perf/oddeb200/screen_hostglue.json).
+        RELP_STATS[0] += 1
+        d1 = 2 * (r_max + 1)
+        out = torch.zeros(*d_res.shape, 2 * d1 + 1 + 2 * (s_max + 1))
+        out.scatter_(-1, d_res.unsqueeze(-1), 1.0)
+        out.scatter_(-1, (d_tok + d1).unsqueeze(-1), 1.0)
+        out[..., 2 * d1] = se.to(out.dtype)
+        out.scatter_(-1, (d_ch + 2 * d1 + 1).unsqueeze(-1), 1.0)
+        return out
 
     @staticmethod
     def _atom_pair_feats(ref_pos, ref_space_uid):

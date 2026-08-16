@@ -1,0 +1,61 @@
+{
+  "model": "esmc-600m",
+  "n_seqs": 8,
+  "residues": 76,
+  "batch_size": 8,
+  "fast": false,
+  "arch": "wormhole_b0",
+  "visible_devices": "30",
+  "load_s": 5.8,
+  "device_ms": 93.06,
+  "serial_write_ms": 453.46,
+  "threaded_write_ms": 80.17,
+  "gate_region_ms": 546.52,
+  "write_share_of_gate": 0.8297,
+  "device_seq_s": 85.968,
+  "gate_seq_s": 14.638,
+  "device_ms_all": [
+    102.38,
+    93.06,
+    93.12,
+    92.35,
+    92.63
+  ],
+  "serial_write_ms_all": [
+    441.01,
+    460.06,
+    453.46,
+    448.07,
+    455.63
+  ],
+  "threaded_write_ms_all": [
+    80.17,
+    81.63,
+    61.05,
+    75.58,
+    80.31
+  ],
+  "npz_bytes": 1365168,
+  "matched_roof": {
+    "per_residue_bytes": 2801664,
+    "compressed_bytes": 1326080,
+    "compress_ratio": 0.4733,
+    "workers": 32,
+    "zlib_serial_ms": 416.37,
+    "zlib_threaded_ms": 60.54,
+    "zlib_serial_MBps": 6.73,
+    "zlib_threaded_MBps": 46.28,
+    "zlib_thread_speedup": 6.878,
+    "savez_overhead_ms": 37.09,
+    "savez_overhead_share": 0.0818
+  },
+  "loadavg": [
+    12.07861328125,
+    12.07861328125,
+    11.9921875,
+    11.9921875,
+    11.9921875
+  ],
+  "warmup": 2,
+  "repeat": 5
+}

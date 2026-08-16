@@ -1,0 +1,52 @@
+{
+ "host": "UF-EV-A13-GWH02",
+ "torch": "2.13.0+cpu",
+ "threads": 32,
+ "interop_threads": 32,
+ "cpu_count": 64,
+ "loadavg": [
+  "13.91",
+  "9.35",
+  "9.50"
+ ],
+ "reps": 9,
+ "cases": {
+  "matmul_3844x384x384": {
+   "median_ms": 1.5793,
+   "min_ms": 0.771,
+   "max_ms": 1.5912,
+   "spread_pct": 51.93
+  },
+  "index_select_rows": {
+   "median_ms": 0.0238,
+   "min_ms": 0.0223,
+   "max_ms": 0.0252,
+   "spread_pct": 12.57
+  },
+  "advanced_index_write": {
+   "median_ms": 0.0448,
+   "min_ms": 0.0442,
+   "max_ms": 0.053,
+   "spread_pct": 19.57
+  },
+  "coords_axpy": {
+   "median_ms": 0.0077,
+   "min_ms": 0.0076,
+   "max_ms": 0.0167,
+   "spread_pct": 117.23
+  },
+  "pair_softmax_512": {
+   "median_ms": 11.0924,
+   "min_ms": 9.3575,
+   "max_ms": 12.8885,
+   "spread_pct": 31.83
+  },
+  "clone_pair_512": {
+   "median_ms": 9.762,
+   "min_ms": 9.3419,
+   "max_ms": 11.6763,
+   "spread_pct": 23.91
+  }
+ },
+ "total_median_ms": 22.51
+}

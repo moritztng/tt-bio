@@ -1,12 +1,13 @@
 {
   "schema": 2,
-  "updated": "2026-08-15",
+  "updated": "2026-08-16",
   "title": "TT-Bio: biomolecular structure, design and embeddings on Tenstorrent",
-  "subtitle": "Five structure-prediction models at 512 residues, measured on Tenstorrent Blackhole and on NVIDIA H200 and B200.",
+  "subtitle": "Five structure-prediction models at 512 residues, measured on Tenstorrent Blackhole and on NVIDIA H200, B200 and A100.",
   "notes": [
     "This file is the only place numbers are edited. index.html reads it and derives everything else.",
     "Never write a derived value here. Server throughput, cost per hour and both throughput-per-dollar charts are computed in the page from s_per_fold, accelerators, price and power.",
-    "One cell per model per platform, holding the fastest measured arm that passes parity against its own reference. Every Tenstorrent cell states which parity it holds: bit-exact, byte-identical, or a measured structural delta inside a bar that was fixed before the number existed. A cell with no measurement gets status 'blocked' and a reason. Do not fill it with an estimate."
+    "One cell per model per platform, holding the fastest measured arm that passes parity against its own reference. Every Tenstorrent cell states which parity it holds: bit-exact, byte-identical, or a measured structural delta inside a bar that was fixed before the number existed. A cell with no measurement gets status 'blocked' and a reason. Do not fill it with an estimate.",
+    "The A100 appears twice: as a card, and as the DGX A100 640GB, the eight-GPU box NVIDIA sold that card in. The $175,000 that box carries is an assumed street price, not a vendor list price, and it is labelled as one everywhere it is used."
   ],
   "scope": {
     "size_aa": 512,
@@ -75,6 +76,18 @@
       "note": "Measured on a single-GPU node, Xeon Platinum 8559C, 24 vCPU."
     },
     {
+      "id": "a100",
+      "vendor": "nvidia",
+      "name": "A100 SXM4 80 GB",
+      "short": "A100",
+      "kind": "card",
+      "accelerators": 1,
+      "spec": "Ampere, 80 GB HBM2e, 2.0 TB/s, up to 400 W",
+      "price_usd": null,
+      "price_kind": "no public per-GPU list price",
+      "note": "Measured on a single-GPU node, AMD EPYC 7513, 30.7 vCPU. The card is an A100-SXM4-80GB, which is the part a DGX A100 640GB carries eight of, so the server row below scales from this measurement."
+    },
+    {
       "id": "dgx_h200",
       "vendor": "nvidia",
       "name": "DGX H200",
@@ -109,6 +122,24 @@
       "power_source": "dgx-b200",
       "scaling_efficiency": 1.0,
       "note": "The Blackwell generation of the same system, at $550,000 list."
+    },
+    {
+      "id": "dgx_a100",
+      "vendor": "nvidia",
+      "name": "DGX A100 640GB",
+      "short": "DGX A100",
+      "kind": "server",
+      "accelerators": 8,
+      "per_accelerator": "a100",
+      "spec": "NVIDIA DGX A100 640GB, 8x A100 SXM4 80 GB, 640 GB HBM2e, 6 NVSwitches",
+      "price_usd": 175000,
+      "price_kind": "assumed street price, not a vendor list price",
+      "price_source": "dgx-a100-price",
+      "power_kw": 6.5,
+      "power_kind": "vendor maximum",
+      "power_source": "dgx-a100",
+      "scaling_efficiency": 1.0,
+      "note": "The 640GB configuration, eight A100 SXM4 80 GB, which is the card measured above. The 320GB configuration is the same box with 40 GB GPUs and is not what this row describes. NVIDIA publishes no price for it, so the $175,000 is assumed rather than sourced, and the A100 is a 2020 part where the other two boxes are current."
     }
   ],
   "cost_model": {
@@ -145,6 +176,11 @@
           "status": "measured",
           "s_per_fold": 8.042,
           "ref": "Median of n=3, spread 1.0 %, same stack."
+        },
+        "a100": {
+          "status": "measured",
+          "s_per_fold": 14.395,
+          "ref": "Median of n=3 warm, 14.395 / 14.452 / 14.384 s, spread 0.47 %, cold 18.792 s discarded. boltz 2.2.1, torch 2.13.0+cu130, cuEquivariance 0.11.1, plDDT 0.880. triangle_attention 2304 and triangle_multiplicative_update 2304 through the kernels, torch_sdpa 0."
         }
       }
     },
@@ -156,10 +192,10 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 31.994,
+          "s_per_fold": 31.448,
           "parity": "bit-exact",
-          "ref": "Round-robin A/B on qb2 card 2, ttnn 0.68.0, harvested 11x10 core grid, warm folds one at a time under benchlock, median of n=3: 31.994 s (spread 0.175 s) against 32.329 s (spread 0.036 s) with TRIMUL_TAIL_F1 off, an A/A noise floor of 0.036 s (perf/trimul_f1/page_esmfold2_f1_qb2c2.json). That trimul tail fusion ships on as of this measurement. Bit-exact: CIF sha256 295867277b9c137f and plDDT 0.9285 identical on every fold of both arms.",
-          "updated": "2026-08-15"
+          "ref": "qb2 card 0, ttnn 0.68.0, harvested 11x10 core grid, warm folds one at a time under benchlock, cold fold discarded. The shipped default, measuring no forced gate: median of n=4 is 31.448 s, spread 0.196 s (perf/esmbeat/p2_ship_512_c0_postmerge.json). Two levers ship on as of this measurement, the LM shim to LM encoder device handoff and a dual-NOC drain on the triangle-multiplication in-projection. Round-robin A/B in one session against an explicit both-off arm, median of n=3 each: 31.944 s off, 31.637 s with the handoff alone, 31.544 s with the drain alone, 31.330 s with both, 31.300 s at the shipped default, against an A/A noise floor of 0.044 s on the off arm (perf/esmbeat/p2_bd_512_c0_postmerge.json). Bit-exact: CIF sha256 295867277b9c137f and plDDT 0.9285 identical on every fold of every arm, and identical between off and both-on at 256, 298, 640 and 768 aa as well, where the pair is worth 0.079 s and 1.665 s at the ends (perf/esmbeat/p2_sweep_*_c0.json).",
+          "updated": "2026-08-16"
         },
         "h200": {
           "status": "measured",
@@ -170,6 +206,11 @@
           "status": "measured",
           "s_per_fold": 5.461,
           "ref": "Median of n=3, spread 0.13 %."
+        },
+        "a100": {
+          "status": "measured",
+          "s_per_fold": 14.741,
+          "ref": "Median of n=3 warm, 14.725 / 14.741 / 14.742 s, spread 0.12 %, cold 17.784 s discarded. transformers 4.57.6, esm 3.3.0, torch 2.13.0+cu130, plDDT 0.929. triangle_multiplicative_update 4624 through cuEquivariance; attention via torch SDPA 1964, as on H200."
         }
       }
     },
@@ -181,9 +222,9 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 51.012,
+          "s_per_fold": 50.543,
           "parity": "byte-identical",
-          "ref": "Median of an interleaved A/B against main, A/A floor 0.018 s, byte-identical output against its reference. qb2, Blackhole p150a physical card 1, ttnn 0.68.0. Two bit-exact levers folded into the shipped default: the E6 fused chunk+gate forward move (already the default for OpenDDE/ESMFold2, now opted in here too) and a tightened L1 transpose headroom (2.5 -> 1.25) with a safe DRAM fallback on allocator refusal. Swept at 256/298/512/640/768 aa, nothing goes dark above 512 and nothing costs anything below it."
+          "ref": "Median of 10 warm folds across two independent sessions (per-session medians 50.588 and 50.512 s, run-to-run spread 0.68 %), byte-identical output on all 12 folds: CIF sha 98c33a481fa1fd27, plDDT 0.828628. qb2, Blackhole p150a physical card 3, ttnn 0.68.0, tt-bio c05026ab. Card 3 rather than card 1 (card 1 was in use); the two cards agree to 0.26 % at this size, inside card 3s own run-to-run spread. Swept at 256/298/512/640/768 aa, nothing goes dark above 512 and nothing costs anything below it."
         },
         "h200": {
           "status": "measured",
@@ -194,6 +235,11 @@
           "status": "blocked",
           "reason": "does not run",
           "detail": "The fold hangs after featurization and never completes, inside the cuEquivariance triangle kernels. Protenix-v2 pins cuequivariance-ops-torch 0.8.0; turning off fusion, the shared-vars cache and TF32 does not clear it. No number is estimated for this cell."
+        },
+        "a100": {
+          "status": "measured",
+          "s_per_fold": 22.795,
+          "ref": "Median of n=3 warm, 22.795 / 22.884 / 22.709 s, spread 0.77 %, cold 25.954 s discarded. protenix 2.0.0, torch 2.7.1+cu128, cuEquivariance 0.8.0, plDDT 0.843, n_token 512, n_msa 35. cueq_triatt 1208 and cueq_trimul 1208, torch_attn 0. The cuEquivariance version that hangs on B200 runs clean on Ampere."
         }
       }
     },
@@ -205,9 +251,9 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 82.942,
+          "s_per_fold": 82.393,
           "parity": "0.3248 A CA RMSD, inside the 0.35 A bar fixed before the measurement",
-          "ref": "Median of three warm folds on one p150a, 82.942 / 82.880 / 82.960 s, spread 0.080 s, measured uninstrumented on the shipped path. The earlier 87.1 s in this cell was a subtraction, not a measurement, and it was 4.158 s stale. This is the one cell that is not bit-exact: the triangle-attention matmul folds its contraction in twelve-tile blocks, worth one bf16 unit in the last place, so the CIF digest moves 50aa1e46583bd5a8 to 357c67003bb738ac and plDDT 0.754131 to 0.754110. The structural cost is 0.3248 A Kabsch CA, measured on a monomeric 298-residue control because this fixture's two domains hinge freely and saturate the metric. The byte-identical arm at the same two matmul settings returns 88.61 s."
+          "ref": "Median of three warm folds on one p150a, 82.372 / 82.393 / 82.422 s, spread 0.050 s, measured uninstrumented on the shipped path, cold fold discarded. The 82.942 s this cell carried before is the same measurement without the host-side glue: the relative-position one-hot is now scattered into an fp32 result instead of built from int64 one-hots and an int64 concatenation, and the trunk-to-structural pair copy stays in the bf16 the device already held. Both are bit-exact and both are host time, worth 0.498 s at the fold with the CIF digest unchanged and the device wall flat to inside its own spread. This is the one cell that is not bit-exact against the reference: the triangle-attention matmul folds its contraction in twelve-tile blocks, worth one bf16 unit in the last place, so the CIF digest moves 50aa1e46583bd5a8 to 357c67003bb738ac and plDDT 0.754131 to 0.754110. The structural cost is 0.3248 A Kabsch CA, measured on a monomeric 298-residue control because this fixture's two domains hinge freely and saturate the metric. The byte-identical arm at the same two matmul settings returns 88.61 s."
         },
         "h200": {
           "status": "measured",
@@ -218,6 +264,11 @@
           "status": "blocked",
           "reason": "does not run",
           "detail": "The same hang, same signature. OpenDDE pins cuequivariance-ops-torch 0.10.0. The three models that run clean on the B200 all resolve 0.11.1, so the split follows the cuEquivariance version rather than the model."
+        },
+        "a100": {
+          "status": "measured",
+          "s_per_fold": 40.167,
+          "ref": "Median of n=3 warm, 40.220 / 40.151 / 40.167 s, spread 0.17 %, cold 44.020 s discarded. opendde 1.0.3, torch 2.7.1+cu128, cuEquivariance 0.10.0, plDDT 0.823. cueqops_triangle_attention 1216 and cueqops_triangle_multiplicative_update 1216. The version that hangs on B200 runs clean on Ampere."
         }
       }
     },
@@ -242,6 +293,11 @@
           "status": "measured",
           "s_per_fold": 11.897,
           "ref": "Median of n=3, spread 0.69 %."
+        },
+        "a100": {
+          "status": "measured",
+          "s_per_fold": 16.942,
+          "ref": "Median of n=3 warm, 16.942 / 16.942 / 16.892 s, spread 0.30 %, cold 22.186 s discarded. openfold3 0.4.4, torch 2.13.0+cu130, ckpt of3-p2-155k.pt, plDDT 0.638. triangle_attention 2752 and triangle_multiplicative_update 1702 through the kernels, every torch-fallback counter 0."
         }
       }
     }
@@ -249,7 +305,7 @@
   "design": {
     "deck": "BoltzGen and RFdiffusion3, seconds per binder design on one AI Processor, each on its own pinned target.",
     "cond": "Wall-clock seconds to return one binder design on a single AI Processor, warm, at each model's shipped defaults. Shorter is better. Every platform runs one design at a time, the same protocol as the folding rows above, on the same target with the same settings.",
-    "note": "No throughput-per-dollar figure is derived here. The rung above this one overflows L1 on the p150a for BoltzGen, so BoltzGen is measured one rung below it, where the H200 sits at 41 % of its power limit and the B200 at 31 %, and a cost ratio taken on an idle GPU would not survive a bigger target. On both models the B200 is no faster than the H200: 18.5 % slower on RFdiffusion3 and 1.27x slower on BoltzGen. Asking for eight designs at once instead of one changes only the GPUs. RFdiffusion3 amortises a batch of eight by 2.12x on the H200 and 2.50x on the B200, so eight designs take 103.79 s on an H200, 104.39 s on a B200 and 987.96 s on a p150a; the p150a gains nothing from batching at this target size and runs one design at a time by default. The rows above carry a bit-exact digest; a design draws a new sequence every time, so these two carry per-run output validation instead, and every design counted here wrote, parsed, had finite coordinates and had the residue topology its spec asked for.",
+    "note": "No throughput-per-dollar figure is derived here. The rung above this one overflows L1 on the p150a for BoltzGen, so BoltzGen is measured one rung below it, where the H200 sits at 41 % of its power limit and the B200 at 31 %, and a cost ratio taken on an idle GPU would not survive a bigger target. On both models the B200 is no faster than the H200: 18.5 % slower on RFdiffusion3 and 1.27x slower on BoltzGen. Asking for eight designs at once instead of one changes only the GPUs. RFdiffusion3 amortises a batch of eight by 2.12x on the H200, 2.50x on the B200 and 1.79x on the A100, so eight designs take 103.79 s on an H200, 104.39 s on a B200, 198.20 s on an A100 and 987.96 s on a p150a; the p150a gains nothing from batching at this target size and runs one design at a time by default. The rows above carry a bit-exact digest; a design draws a new sequence every time, so these two carry per-run output validation instead, and every design counted here wrote, parsed, had finite coordinates and had the residue topology its spec asked for.",
     "methods": "Two pinned targets, one per model, at the shipped defaults: BoltzGen 500 sampling steps, RFdiffusion3 200 timesteps, one design at a time on both. Tenstorrent figures are warm medians on one Blackhole p150a under a run lock, with the cold pass and, for BoltzGen, the design that pays the checkpoint switch dropped. GPU figures come from the same protocol on rented single-GPU nodes. Designs are validated per run rather than digested: chain sizes, residue topology and finite coordinates, never atom equality between siblings, because sibling designs legitimately differ.",
     "models": [
       {
@@ -273,6 +329,11 @@
             "status": "measured",
             "s_per_design": 16.092,
             "ref": "Median of n=4 warm designs, spread 0.59 %, end-to-end per design, same stack."
+          },
+          "a100": {
+            "status": "measured",
+            "s_per_design": 21.729,
+            "ref": "Median of n=4 warm designs end-to-end, 21.115 s per design plus the 0.614 s median inter-loop gap; per-design spread 1.58 %, and an independent second process 1.76 % away on the same per-design basis, 20.750 s per design or 21.419 s end-to-end. boltzgen 0.3.2, torch 2.13.0+cu130, cuEquivariance 0.11.1. Cold design and the design that pays the 1.9 GB checkpoint switch both dropped, the same two every other arm drops. cueq_trimul 3360 and cueq_triatt 3360; 96 of 3456 triangle-attention calls (2.78 %) miss the kernel through the same upstream plumbing gap seen on H200 and B200. Every design parses to 100 designed plus 414 target residues with no non-finite coordinates. Peak 7229 MiB."
           }
         }
       },
@@ -286,17 +347,22 @@
           "p150a": {
             "status": "measured",
             "s_per_design": 114.134,
-            "ref": "Median of n=3 warm forwards, 113.649 / 114.706 / 114.134 s per forward of 1, spread 0.93 %, 570.7 ms per timestep. qb2, Blackhole p150a physical card 0, ttnn 0.68.0, under a run lock. The run asked for the shipped batch of 8; the runtime runs 1 at this target size, because batching stops paying above 2952 atoms \u2014 measured at 3844 atoms it is worth 1.04x, under the 1.05x bar to change the default. Two bitwise-identical wins are on by default here: matmul program-config calibration, worth 1.166x, and a tile-aligned pair concat, worth 1.082x. The second one gathers the distogram and self-conditioning one-hots as a single 160-wide table lookup instead of two 65-wide ones, because ttnn.concat runs 15x below its bandwidth floor if any input is narrower than a 32-wide tile: 25.35 ms against 1.68 for the same tensor built from aligned pieces. Four alternating folds, two with the concat change and two without, all wrote CIF sha256 382e7b23ae8cfc75. All four designs of this run wrote 6051 atoms and 685 residues and passed validation."
+            "ref": "Median of n=3 warm forwards, 113.649 / 114.706 / 114.134 s per forward of 1, spread 0.93 %, 570.7 ms per timestep. qb2, Blackhole p150a physical card 0, ttnn 0.68.0, under a run lock. The run asked for the shipped batch of 8; the runtime runs 1 at this target size, because batching stops paying above 2952 atoms — measured at 3844 atoms it is worth 1.04x, under the 1.05x bar to change the default. Two bitwise-identical wins are on by default here: matmul program-config calibration, worth 1.166x, and a tile-aligned pair concat, worth 1.082x. The second one gathers the distogram and self-conditioning one-hots as a single 160-wide table lookup instead of two 65-wide ones, because ttnn.concat runs 15x below its bandwidth floor if any input is narrower than a 32-wide tile: 25.35 ms against 1.68 for the same tensor built from aligned pieces. Four alternating folds, two with the concat change and two without, all wrote CIF sha256 382e7b23ae8cfc75. All four designs of this run wrote 6051 atoms and 685 residues and passed validation."
           },
           "h200": {
             "status": "measured",
-            "s_per_design": 27.490,
+            "s_per_design": 27.49,
             "ref": "Median of n=3 warm designs, 27.24 / 27.49 / 28.02 s, spread 2.84 %, one design per forward. rc-foundry 0.2.0 with the current production attention path, torch 2.13.0+cu130, 381.5 W, 54.5 % of the box's own 700 W limit at 79 % utilisation. Ask it for eight designs at once instead and it returns them in 103.79 s, 12.974 s each, at 98 % utilisation and 553.1 W: batching is worth 2.12x to an H200 because one design does not fill it."
           },
           "b200": {
             "status": "measured",
-            "s_per_design": 32.580,
+            "s_per_design": 32.58,
             "ref": "Median of n=3 warm designs, spread 1.50 %, one design per forward, same stack. 18.5 % slower than the H200 at one design. At eight at once it returns 13.049 s each, an amortisation of 2.50x."
+          },
+          "a100": {
+            "status": "measured",
+            "s_per_design": 44.29,
+            "ref": "Median of n=3 warm batches, 43.91 / 44.29 / 44.44 s, spread 1.20 %, cold 45.18 s discarded, batch 1. rc-foundry 0.2.0 plus the 4010e3e2e attention.py, torch 2.13.0+cu130, checkpoint rfd3_latest.ckpt sha256 9b3f8592. dense_sdpa_pairbias_attention 7164, sparse 28656, cuEquivariance unreachable by code so 0, exactly the split both other GPUs read. Every design is 585 target plus 100 designed residues at seed 7. Peak 32707 MiB of 81920, no memory pressure. At batch 8 it amortises to 24.775 s per design, 1.79x."
           }
         }
       }
@@ -327,6 +393,17 @@
       "accessed": "2026-08-12",
       "detail": "The 8-GPU B200 system, 1,440 GB HBM3e, system power usage stated as ~14.3 kW max. Priced here at the $550,000 DGX B200 list price, on the same basis as the H200 system."
     },
+    "dgx-a100": {
+      "label": "NVIDIA DGX A100 datasheet",
+      "url": "https://images.nvidia.com/aem-dam/Solutions/Data-Center/nvidia-dgx-a100-datasheet.pdf",
+      "accessed": "2026-08-16",
+      "detail": "The 640GB configuration: 8x NVIDIA A100 80GB Tensor Core GPUs, 640 GB total GPU memory, 6 NVSwitches, 6.5 kW maximum system power, dual AMD Rome 7742, 2 TB system memory, 6U. NVIDIA's DGX A100 user guide gives the same 6.5 kW. The 320GB configuration is the same chassis with 40 GB GPUs; this page describes the 640GB one, because the A100 SXM4 80 GB it measured is the card that box carries."
+    },
+    "dgx-a100-price": {
+      "label": "DGX A100 price: an assumption, not a source",
+      "accessed": "2026-08-16",
+      "detail": "$175,000 is what this page assumes a DGX A100 640GB costs. Moritz Thuning supplied it on 2026-08-16. NVIDIA does not post DGX pricing and published no list price for this system, and no vendor quote is cited for it, so it is the one price here that is not a published figure. Every DGX A100 cost bar rests on it."
+    },
     "eia-industrial": {
       "label": "US EIA, Electric Power Monthly, table 5.3",
       "url": "https://www.eia.gov/electricity/monthly/epm_table_grapher.php?t=table_5_03",
@@ -342,6 +419,8 @@
   },
   "caveats": [
     "Rows are not a cross-model ranking. Boltz-2 and OpenFold3 do 3 recycles where ESMFold2, Protenix-v2 and OpenDDE do 10, because that is what each ships. Compare a model to itself across hardware.",
-    "Accuracy is not compared here. Each stack ran its own settings and every run was checked against its own plDDT, but these numbers are wall-clock and cost."
+    "Accuracy is not compared here. Each stack ran its own settings and every run was checked against its own plDDT, but these numbers are wall-clock and cost.",
+    "The A100 ran the same seven cells on the same fixtures. Its host is an AMD EPYC 7513 where the H200 and B200 boxes were Intel Xeon, which matters for the dispatch-bound trunks and is not corrected for.",
+    "The DGX A100 is a previous-generation machine and its row flatters it twice. Its GPUs launched in 2020, and this page gives every server the same four-year window, so a DGX A100 bought today is credited with four more earning years the way a current box is. Its $175,000 is an assumption, not a published price, where the DGX H200 and DGX B200 carry list prices. Read its throughput per dollar as the most favourable case for a used-generation machine, not as a like-for-like comparison."
   ]
 }

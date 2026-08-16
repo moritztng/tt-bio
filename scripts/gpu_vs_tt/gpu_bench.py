@@ -167,6 +167,43 @@ def _build_configs(model_name: str, rung: dict, input_json: str, dump_dir: str,
     return configs
 
 
+def _install_vendor_cueq_counters() -> dict:
+    """Count entries into cuequivariance_ops_torch's triangle kernels directly.
+
+    Model-agnostic, because it wraps the vendor package instead of a model's call
+    site. Re-entrant: run_model calls this once per rung, and the _bench_orig_
+    stash means a second call re-wraps the ORIGINAL rather than nesting another
+    layer on top of the previous rung's closure (which would keep the old rung's
+    dict counting). Returns {} when the package is absent, so a torch-only model
+    reads as "no cueq counters" rather than a crash.
+    """
+    counts: dict[str, int] = {}
+    try:
+        mod = importlib.import_module("cuequivariance_ops_torch")
+    except ImportError:
+        return counts
+    for name in dir(mod):
+        if "triangle" not in name.lower():
+            continue
+        orig_attr = f"_bench_orig_{name}"
+        fn = getattr(mod, orig_attr, None) or getattr(mod, name, None)
+        if not callable(fn):
+            continue
+        counts[f"cueqops_{name}"] = 0
+
+        def make(key, orig):
+            def counted(*a, **kw):
+                counts[key] += 1
+                return orig(*a, **kw)
+            return counted
+        try:
+            setattr(mod, orig_attr, fn)
+            setattr(mod, name, make(f"cueqops_{name}", fn))
+        except Exception:
+            counts.pop(f"cueqops_{name}", None)
+    return counts
+
+
 def _install_kernel_counters(model: str) -> dict | None:
     """Count the triangle kernels each fold actually calls.
 
@@ -176,15 +213,22 @@ def _install_kernel_counters(model: str) -> dict | None:
     -- so a rung that ASKS for a kernel is not evidence the kernel ran. Wrapping
     the four call sites turns "we set the flag" into "the kernel was entered N
     times". Returns None for a codebase whose module layout does not match.
+
+    OpenDDE runs on the protenix-v2 stack, so it gets the same call-site wrap; it
+    was previously excluded by a literal model-name check and reported None. On top
+    of that, every model gets the vendor-package counters, which wrap
+    cuequivariance_ops_torch itself rather than one codebase's call site, so a model
+    whose layout is unknown still produces evidence instead of an assertion.
     """
-    if model != "protenix-v2":
-        return None
+    counts = _install_vendor_cueq_counters()
+    if model not in ("protenix-v2", "opendde"):
+        return counts or None
     try:
         lay = importlib.import_module("protenix.model.triangular.layers")
         tri = importlib.import_module("protenix.model.triangular.triangular")
     except ImportError:
-        return None
-    counts = {"cueq_triatt": 0, "cueq_trimul": 0, "triattention": 0, "torch_attn": 0}
+        return counts or None
+    counts.update({"cueq_triatt": 0, "cueq_trimul": 0, "triattention": 0, "torch_attn": 0})
 
     def wrap(mod, attr, key):
         # Restore first: run_model calls this once per rung, and re-wrapping an
@@ -238,6 +282,99 @@ def _ca_indices(atom_array, n_atoms: int):
         return None
     idx = [i for i, n in enumerate(names) if n == "CA"]
     return idx or None
+
+
+def _confidence(pred) -> dict:
+    """Whatever confidence the vendor reports, as plain numbers.
+
+    Rule 6 of the five-model benchmark: a rung that fails its own accuracy check is not a
+    speed data point, so every run has to carry a confidence read. protenix returns these
+    in the prediction dict, so they cost nothing to record -- the alternative (reading
+    plDDT back off the B-factor column of a written file) is a lossier route to the same
+    number.
+    """
+    import numpy as np
+    out = {}
+    for k, v in (pred or {}).items():
+        if not any(t in k.lower() for t in ("plddt", "ptm", "pae", "confidence", "resolved")):
+            continue
+        try:
+            a = np.asarray(v.cpu() if hasattr(v, "cpu") else v, dtype=np.float64)
+        except Exception:
+            continue
+        if not a.size:
+            continue
+        out[f"{k}_shape"] = list(a.shape)
+        out[k] = round(float(a.mean()), 6)
+    # protenix reports plDDT as per-atom BIN LOGITS, not as a score: 8234 atoms x 25 bins
+    # on this fixture. Averaging those raw gives a negative "plDDT", which is how the
+    # first run of this benchmark read 0.0 through the B-factor column. Softmax over the
+    # bin axis against bin centres is the score every folding tool prints.
+    pl = _plddt_from_logits(pred)
+    if pl is not None:
+        out["plddt_score_mean"] = round(float(pl.mean()), 6)
+        out["plddt_score_n"] = int(pl.size)
+    return out
+
+
+def _plddt_from_logits(pred):
+    """Per-atom plDDT in 0-1 from whatever plddt tensor the vendor returned, or None.
+
+    Handles both conventions: an already-scored [N] vector in 0-1 (or 0-100), and the
+    [N, n_bins] logits protenix and OpenDDE return. Bin centres are (i+0.5)/n_bins, the
+    AF2/AF3 convention these heads are trained against.
+    """
+    import numpy as np
+    v = (pred or {}).get("plddt")
+    if v is None:
+        return None
+    try:
+        a = np.asarray(v.cpu() if hasattr(v, "cpu") else v, dtype=np.float64)
+    except Exception:
+        return None
+    a = a.reshape(-1, a.shape[-1]) if a.ndim > 2 else a
+    if a.ndim == 1:
+        return a / 100.0 if a.max() > 1.5 else a
+    if a.ndim != 2 or a.shape[-1] < 2:
+        return None
+    nb = a.shape[-1]
+    e = np.exp(a - a.max(axis=-1, keepdims=True))
+    p = e / e.sum(axis=-1, keepdims=True)
+    centres = (np.arange(nb) + 0.5) / nb
+    return p @ centres
+
+
+def _save_structure(atom_array, coords, pred, path: Path) -> str:
+    """Write the predicted structure so the shared accuracy gate can read it.
+
+    gpu_bench.py keeps coordinates in memory and never wrote a file, which was fine while
+    the only correctness check was a rung-vs-rung RMSD inside one process. The five-model
+    benchmark needs a structure per cell, checked by the same gate for all five models.
+    """
+    import numpy as np
+    c = np.asarray(coords.cpu() if hasattr(coords, "cpu") else coords, dtype=np.float32)
+    while c.ndim > 2:
+        c = c[0]
+    try:
+        aa = atom_array.copy()
+    except Exception as e:
+        return f"no atom array: {e}"
+    if len(aa) != c.shape[0]:
+        return f"atom count mismatch: array {len(aa)} vs coords {c.shape[0]}"
+    aa.coord = c
+    # Per-atom plDDT into the B-factor column, which is where the gate looks and where
+    # every folding tool puts it. Skip silently if the model reports it per-token instead.
+    pl = _plddt_from_logits(pred)
+    if pl is not None:
+        b = np.asarray(pl, dtype=np.float32).reshape(-1)
+        if b.size == len(aa):
+            aa.set_annotation("b_factor", b)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    import biotite.structure.io.pdb as pdb
+    f = pdb.PDBFile()
+    f.set_structure(aa)
+    f.write(str(path))
+    return str(path)
 
 
 def _kabsch_rmsd(c1, c2, idx=None) -> float:
@@ -350,7 +487,8 @@ def build_fold(model: str, model_name: str, rung: dict, input_json: str,
 
 def run_model(model: str, model_name: str, repeat: int, input_json: str,
               dump_root: Path, checkpoint: str | None, out_path: Path,
-              rungs: list[dict], label: str, n_msa_expected: int) -> dict:
+              rungs: list[dict], label: str, n_msa_expected: int,
+              save_structure: str | None = None) -> dict:
     torch = importlib.import_module("torch")
 
     results = []
@@ -392,6 +530,13 @@ def run_model(model: str, model_name: str, repeat: int, input_json: str,
                 rmsd_all = f"rmsd-error: {e}"
 
         ts = sorted(times)
+        struct, conf = None, _confidence(pred)
+        if save_structure is not None:
+            try:
+                struct = _save_structure(meta["atom_array"], pred["coordinate"], pred,
+                                         Path(save_structure) / f"{rung['name']}.pdb")
+            except Exception as e:
+                struct = f"save-error: {e}"
         results.append(dict(
             rung=rung["name"], rung_config=rung, load_s=load_s,
             resolved_config=meta["resolved_config"],
@@ -404,6 +549,7 @@ def run_model(model: str, model_name: str, repeat: int, input_json: str,
             # name, with CA reported separately when the atom array lines up.
             all_atom_kabsch_rmsd_vs_L0=rmsd_all,
             ca_kabsch_rmsd_vs_L0=rmsd_ca,
+            confidence=conf, structure=struct,
         ))
         print(f"[{model} {rung['name']}] warm median {ts[len(ts)//2]:.2f}s "
               f"(min {ts[0]:.2f}/max {ts[-1]:.2f}) cold {cold_s:.1f}s "
@@ -475,6 +621,8 @@ def main() -> int:
     ap.add_argument("--rungs", default=None,
                     help="comma-separated subset of rung names (default: all)")
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--save-structure", default=None,
+                    help="directory for one PDB per rung, for the shared accuracy gate")
     args = ap.parse_args()
 
     model_name = {"protenix-v2": "protenix-v2", "opendde": "opendde_v1"}[args.model]
@@ -496,7 +644,8 @@ def main() -> int:
     if not rungs:
         ap.error("no rungs selected")
     run_model(args.model, model_name, args.repeat, str(input_json), work / "dump",
-              args.checkpoint, args.out, rungs, args.label, n_msa_expected)
+              args.checkpoint, args.out, rungs, args.label, n_msa_expected,
+              save_structure=args.save_structure)
     return 0
 
 

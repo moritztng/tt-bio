@@ -1,0 +1,3410 @@
+{
+ "ttnn": "0.68.0",
+ "host": "qb2",
+ "card": 1,
+ "size": 512,
+ "grid": [
+  11,
+  10
+ ],
+ "loadavg": [
+  "1.03",
+  "1.02",
+  "1.00"
+ ],
+ "note": "census seconds are synchronised SHARES, not fold gains",
+ "fold_s": 60.114,
+ "n_tokens": 512,
+ "plddt": 0.828628,
+ "sites": [
+  {
+   "site": "tenstorrent.py:3432",
+   "in": [
+    1,
+    16,
+    512,
+    256
+   ],
+   "w": [
+    256,
+    1024
+   ],
+   "n": 16768,
+   "s": 3.9216,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": "silu",
+   "out_buf": "L1",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:3432|in=1x16x512x256|w=256x1024|pc=0|cg=1",
+   "ms_per_call": 0.2339
+  },
+  {
+   "site": "tenstorrent.py:3454",
+   "in": [
+    1,
+    16,
+    512,
+    1024
+   ],
+   "w": [
+    1024,
+    256
+   ],
+   "n": 16768,
+   "s": 1.7881,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:3454|in=1x16x512x1024|w=1024x256|pc=0|cg=1",
+   "ms_per_call": 0.1066
+  },
+  {
+   "site": "tenstorrent.py:3443",
+   "in": [
+    1,
+    16,
+    512,
+    256
+   ],
+   "w": [
+    256,
+    1024
+   ],
+   "n": 16768,
+   "s": 1.2199,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "L1",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:3443|in=1x16x512x256|w=256x1024|pc=0|cg=1",
+   "ms_per_call": 0.0728
+  },
+  {
+   "site": "protenix.py:1129",
+   "in": [
+    1,
+    512,
+    768
+   ],
+   "w": [
+    768,
+    1536
+   ],
+   "n": 9600,
+   "s": 0.6388,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "FLOAT32",
+   "w_dtype": "FLOAT32",
+   "dtype": null,
+   "activation": "silu",
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "protenix.py:1129|in=1x512x768|w=768x1536|pc=0|cg=1",
+   "ms_per_call": 0.0665
+  },
+  {
+   "site": "tenstorrent.py:1446",
+   "in": [
+    512,
+    512,
+    256
+   ],
+   "w": [
+    256,
+    8
+   ],
+   "n": 1048,
+   "s": 0.6323,
+   "has_pc": true,
+   "has_cg": false,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:1446|in=512x512x256|w=256x8|pc=1|cg=0",
+   "ms_per_call": 0.6033
+  },
+  {
+   "site": "tenstorrent.py:4396",
+   "in": [
+    1,
+    512,
+    384
+   ],
+   "w": [
+    384,
+    768
+   ],
+   "n": 9600,
+   "s": 0.4381,
+   "has_pc": false,
+   "has_cg": false,
+   "bias": [
+    768
+   ],
+   "x_dtype": "FLOAT32",
+   "w_dtype": "FLOAT32",
+   "dtype": null,
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "tenstorrent.py:4396|in=1x512x384|w=384x768|pc=0|cg=0",
+   "ms_per_call": 0.0456
+  },
+  {
+   "site": "tenstorrent.py:1478",
+   "in": [
+    1,
+    512,
+    512,
+    256
+   ],
+   "w": [
+    256,
+    16
+   ],
+   "n": 484,
+   "s": 0.4364,
+   "has_pc": true,
+   "has_cg": false,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:1478|in=1x512x512x256|w=256x16|pc=1|cg=0",
+   "ms_per_call": 0.9017
+  },
+  {
+   "site": "tenstorrent.py:3243",
+   "in": [
+    1,
+    512,
+    768
+   ],
+   "w": [
+    768,
+    3072
+   ],
+   "n": 4800,
+   "s": 0.4231,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": [
+    3072
+   ],
+   "x_dtype": "FLOAT32",
+   "w_dtype": "FLOAT32",
+   "dtype": null,
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "tenstorrent.py:3243|in=1x512x768|w=768x3072|pc=0|cg=1",
+   "ms_per_call": 0.0881
+  },
+  {
+   "site": "tenstorrent.py:4404",
+   "in": [
+    1,
+    512,
+    384
+   ],
+   "w": [
+    384,
+    768
+   ],
+   "n": 9600,
+   "s": 0.4114,
+   "has_pc": false,
+   "has_cg": false,
+   "bias": null,
+   "x_dtype": "FLOAT32",
+   "w_dtype": "FLOAT32",
+   "dtype": null,
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "tenstorrent.py:4404|in=1x512x384|w=384x768|pc=0|cg=0",
+   "ms_per_call": 0.0429
+  },
+  {
+   "site": "protenix.py:1129",
+   "in": [
+    1,
+    512,
+    384
+   ],
+   "w": [
+    384,
+    768
+   ],
+   "n": 9600,
+   "s": 0.3981,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": [
+    768
+   ],
+   "x_dtype": "FLOAT32",
+   "w_dtype": "FLOAT32",
+   "dtype": null,
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "protenix.py:1129|in=1x512x384|w=384x768|pc=0|cg=1",
+   "ms_per_call": 0.0415
+  },
+  {
+   "site": "protenix.py:318",
+   "in": [
+    1,
+    4117,
+    128
+   ],
+   "w": [
+    128,
+    128
+   ],
+   "n": 7218,
+   "s": 0.3906,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": [
+    128
+   ],
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "protenix.py:318|in=1x4117x128|w=128x128|pc=0|cg=1",
+   "ms_per_call": 0.0541
+  },
+  {
+   "site": "protenix.py:1129",
+   "in": [
+    1,
+    512,
+    1536
+   ],
+   "w": [
+    1536,
+    768
+   ],
+   "n": 4800,
+   "s": 0.2834,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "FLOAT32",
+   "w_dtype": "FLOAT32",
+   "dtype": null,
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "protenix.py:1129|in=1x512x1536|w=1536x768|pc=0|cg=1",
+   "ms_per_call": 0.059
+  },
+  {
+   "site": "tenstorrent.py:3387",
+   "in": [
+    1,
+    512,
+    768
+   ],
+   "w": [
+    768,
+    768
+   ],
+   "n": 4800,
+   "s": 0.2415,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "FLOAT32",
+   "w_dtype": "FLOAT32",
+   "dtype": null,
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "tenstorrent.py:3387|in=1x512x768|w=768x768|pc=0|cg=1",
+   "ms_per_call": 0.0503
+  },
+  {
+   "site": "tenstorrent.py:3397",
+   "in": [
+    1,
+    512,
+    768
+   ],
+   "w": [
+    768,
+    768
+   ],
+   "n": 4800,
+   "s": 0.2293,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "FLOAT32",
+   "w_dtype": "FLOAT32",
+   "dtype": null,
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "tenstorrent.py:3397|in=1x512x768|w=768x768|pc=0|cg=1",
+   "ms_per_call": 0.0478
+  },
+  {
+   "site": "tenstorrent.py:1478",
+   "in": [
+    512,
+    512,
+    256
+   ],
+   "w": [
+    256,
+    1
+   ],
+   "n": 240,
+   "s": 0.2182,
+   "has_pc": true,
+   "has_cg": false,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:1478|in=512x512x256|w=256x1|pc=1|cg=0",
+   "ms_per_call": 0.9092
+  },
+  {
+   "site": "protenix.py:318",
+   "in": [
+    1,
+    4117,
+    128
+   ],
+   "w": [
+    128,
+    256
+   ],
+   "n": 2406,
+   "s": 0.1992,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": "silu",
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "protenix.py:318|in=1x4117x128|w=128x256|pc=0|cg=1",
+   "ms_per_call": 0.0828
+  },
+  {
+   "site": "tenstorrent.py:4888",
+   "in": [
+    512,
+    512,
+    1024
+   ],
+   "w": [
+    1024,
+    256
+   ],
+   "n": 40,
+   "s": 0.194,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": [
+    256
+   ],
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": null,
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:4888|in=512x512x1024|w=1024x256|pc=0|cg=1",
+   "ms_per_call": 4.85
+  },
+  {
+   "site": "tenstorrent.py:4396",
+   "in": [
+    1,
+    4117,
+    128
+   ],
+   "w": [
+    128,
+    128
+   ],
+   "n": 3609,
+   "s": 0.1845,
+   "has_pc": false,
+   "has_cg": false,
+   "bias": [
+    128
+   ],
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": null,
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "tenstorrent.py:4396|in=1x4117x128|w=128x128|pc=0|cg=0",
+   "ms_per_call": 0.0511
+  },
+  {
+   "site": "tenstorrent.py:4404",
+   "in": [
+    1,
+    4117,
+    128
+   ],
+   "w": [
+    128,
+    128
+   ],
+   "n": 3609,
+   "s": 0.1692,
+   "has_pc": false,
+   "has_cg": false,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": null,
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "tenstorrent.py:4404|in=1x4117x128|w=128x128|pc=0|cg=0",
+   "ms_per_call": 0.0469
+  },
+  {
+   "site": "tenstorrent.py:3432",
+   "in": [
+    1,
+    16,
+    512,
+    64
+   ],
+   "w": [
+    64,
+    128
+   ],
+   "n": 2560,
+   "s": 0.1439,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": "silu",
+   "out_buf": "L1",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:3432|in=1x16x512x64|w=64x128|pc=0|cg=1",
+   "ms_per_call": 0.0562
+  },
+  {
+   "site": "protenix.py:318",
+   "in": [
+    1,
+    4117,
+    256
+   ],
+   "w": [
+    256,
+    128
+   ],
+   "n": 1203,
+   "s": 0.0999,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "protenix.py:318|in=1x4117x256|w=256x128|pc=0|cg=1",
+   "ms_per_call": 0.083
+  },
+  {
+   "site": "tenstorrent.py:3454",
+   "in": [
+    1,
+    16,
+    512,
+    128
+   ],
+   "w": [
+    128,
+    64
+   ],
+   "n": 2560,
+   "s": 0.0973,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:3454|in=1x16x512x128|w=128x64|pc=0|cg=1",
+   "ms_per_call": 0.038
+  },
+  {
+   "site": "tenstorrent.py:3443",
+   "in": [
+    1,
+    16,
+    512,
+    64
+   ],
+   "w": [
+    64,
+    128
+   ],
+   "n": 2560,
+   "s": 0.0825,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "L1",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:3443|in=1x16x512x64|w=64x128|pc=0|cg=1",
+   "ms_per_call": 0.0322
+  },
+  {
+   "site": "tenstorrent.py:3163",
+   "in": [
+    1,
+    512,
+    512,
+    256
+   ],
+   "w": [
+    256,
+    16
+   ],
+   "n": 24,
+   "s": 0.0748,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "FLOAT32",
+   "w_dtype": "FLOAT32",
+   "dtype": null,
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "tenstorrent.py:3163|in=1x512x512x256|w=256x16|pc=0|cg=1",
+   "ms_per_call": 3.1167
+  },
+  {
+   "site": "protenix.py:445",
+   "in": [
+    1,
+    4117,
+    128
+   ],
+   "w": [
+    128,
+    128
+   ],
+   "n": 1203,
+   "s": 0.0728,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": null,
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "protenix.py:445|in=1x4117x128|w=128x128|pc=0|cg=1",
+   "ms_per_call": 0.0605
+  },
+  {
+   "site": "tenstorrent.py:1435",
+   "in": [
+    1,
+    512,
+    512,
+    64
+   ],
+   "w": [
+    64,
+    64
+   ],
+   "n": 320,
+   "s": 0.0624,
+   "has_pc": true,
+   "has_cg": false,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "L1",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:1435|in=1x512x512x64|w=64x64|pc=1|cg=0",
+   "ms_per_call": 0.195
+  },
+  {
+   "site": "tenstorrent.py:1478",
+   "in": [
+    1,
+    512,
+    512,
+    256
+   ],
+   "w": [
+    256,
+    64
+   ],
+   "n": 40,
+   "s": 0.0417,
+   "has_pc": true,
+   "has_cg": false,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:1478|in=1x512x512x256|w=256x64|pc=1|cg=0",
+   "ms_per_call": 1.0425
+  },
+  {
+   "site": "tenstorrent.py:3432",
+   "in": [
+    1,
+    512,
+    384
+   ],
+   "w": [
+    384,
+    1536
+   ],
+   "n": 484,
+   "s": 0.0339,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": "silu",
+   "out_buf": "L1",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:3432|in=1x512x384|w=384x1536|pc=0|cg=1",
+   "ms_per_call": 0.07
+  },
+  {
+   "site": "tenstorrent.py:1446",
+   "in": [
+    512,
+    512,
+    64
+   ],
+   "w": [
+    64,
+    2
+   ],
+   "n": 160,
+   "s": 0.0323,
+   "has_pc": true,
+   "has_cg": false,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:1446|in=512x512x64|w=64x2|pc=1|cg=0",
+   "ms_per_call": 0.2019
+  },
+  {
+   "site": "tenstorrent.py:1435",
+   "in": [
+    512,
+    512,
+    64
+   ],
+   "w": [
+    64,
+    64
+   ],
+   "n": 160,
+   "s": 0.0303,
+   "has_pc": true,
+   "has_cg": false,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "L1",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:1435|in=512x512x64|w=64x64|pc=1|cg=0",
+   "ms_per_call": 0.1894
+  },
+  {
+   "site": "tenstorrent.py:3243",
+   "in": [
+    1,
+    512,
+    384
+   ],
+   "w": [
+    384,
+    1536
+   ],
+   "n": 484,
+   "s": 0.0296,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": [
+    1536
+   ],
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": null,
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:3243|in=1x512x384|w=384x1536|pc=0|cg=1",
+   "ms_per_call": 0.0612
+  },
+  {
+   "site": "tenstorrent.py:3432",
+   "in": [
+    1,
+    512,
+    384
+   ],
+   "w": [
+    384,
+    768
+   ],
+   "n": 400,
+   "s": 0.0256,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "FLOAT32",
+   "w_dtype": "FLOAT32",
+   "dtype": "FLOAT32",
+   "activation": "silu",
+   "out_buf": "L1",
+   "out_dtype": "FLOAT32",
+   "key": "tenstorrent.py:3432|in=1x512x384|w=384x768|pc=0|cg=1",
+   "ms_per_call": 0.064
+  },
+  {
+   "site": "tenstorrent.py:3454",
+   "in": [
+    1,
+    512,
+    1536
+   ],
+   "w": [
+    1536,
+    384
+   ],
+   "n": 484,
+   "s": 0.0238,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:3454|in=1x512x1536|w=1536x384|pc=0|cg=1",
+   "ms_per_call": 0.0492
+  },
+  {
+   "site": "protenix.py:318",
+   "in": [
+    1,
+    4117,
+    128
+   ],
+   "w": [
+    128,
+    768
+   ],
+   "n": 200,
+   "s": 0.0223,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "FLOAT32",
+   "w_dtype": "FLOAT32",
+   "dtype": "FLOAT32",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "protenix.py:318|in=1x4117x128|w=128x768|pc=0|cg=1",
+   "ms_per_call": 0.1115
+  },
+  {
+   "site": "tenstorrent.py:4692",
+   "in": [
+    35,
+    512,
+    8
+   ],
+   "w": [
+    8,
+    128
+   ],
+   "n": 240,
+   "s": 0.0209,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": null,
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:4692|in=35x512x8|w=8x128|pc=0|cg=1",
+   "ms_per_call": 0.0871
+  },
+  {
+   "site": "tenstorrent.py:3443",
+   "in": [
+    1,
+    512,
+    384
+   ],
+   "w": [
+    384,
+    1536
+   ],
+   "n": 484,
+   "s": 0.0206,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "L1",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:3443|in=1x512x384|w=384x1536|pc=0|cg=1",
+   "ms_per_call": 0.0426
+  },
+  {
+   "site": "tenstorrent.py:3454",
+   "in": [
+    1,
+    512,
+    768
+   ],
+   "w": [
+    768,
+    384
+   ],
+   "n": 400,
+   "s": 0.0196,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "FLOAT32",
+   "w_dtype": "FLOAT32",
+   "dtype": "FLOAT32",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "tenstorrent.py:3454|in=1x512x768|w=768x384|pc=0|cg=1",
+   "ms_per_call": 0.049
+  },
+  {
+   "site": "tenstorrent.py:3387",
+   "in": [
+    1,
+    512,
+    384
+   ],
+   "w": [
+    384,
+    384
+   ],
+   "n": 484,
+   "s": 0.0189,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": null,
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:3387|in=1x512x384|w=384x384|pc=0|cg=1",
+   "ms_per_call": 0.039
+  },
+  {
+   "site": "protenix.py:318",
+   "in": [
+    1,
+    512,
+    512,
+    256
+   ],
+   "w": [
+    256,
+    256
+   ],
+   "n": 10,
+   "s": 0.0188,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "protenix.py:318|in=1x512x512x256|w=256x256|pc=0|cg=1",
+   "ms_per_call": 1.88
+  },
+  {
+   "site": "tenstorrent.py:3443",
+   "in": [
+    1,
+    512,
+    384
+   ],
+   "w": [
+    384,
+    768
+   ],
+   "n": 400,
+   "s": 0.0172,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "FLOAT32",
+   "w_dtype": "FLOAT32",
+   "dtype": "FLOAT32",
+   "activation": null,
+   "out_buf": "L1",
+   "out_dtype": "FLOAT32",
+   "key": "tenstorrent.py:3443|in=1x512x384|w=384x768|pc=0|cg=1",
+   "ms_per_call": 0.043
+  },
+  {
+   "site": "tenstorrent.py:3397",
+   "in": [
+    1,
+    512,
+    384
+   ],
+   "w": [
+    384,
+    384
+   ],
+   "n": 484,
+   "s": 0.017,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": null,
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:3397|in=1x512x384|w=384x384|pc=0|cg=1",
+   "ms_per_call": 0.0351
+  },
+  {
+   "site": "tenstorrent.py:4667",
+   "in": [
+    35,
+    512,
+    128
+   ],
+   "w": [
+    128,
+    8
+   ],
+   "n": 240,
+   "s": 0.0144,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": null,
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:4667|in=35x512x128|w=128x8|pc=0|cg=1",
+   "ms_per_call": 0.06
+  },
+  {
+   "site": "tenstorrent.py:3432",
+   "in": [
+    1,
+    16,
+    512,
+    256
+   ],
+   "w": [
+    256,
+    512
+   ],
+   "n": 64,
+   "s": 0.0143,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "FLOAT32",
+   "w_dtype": "FLOAT32",
+   "dtype": "FLOAT32",
+   "activation": "silu",
+   "out_buf": "L1",
+   "out_dtype": "FLOAT32",
+   "key": "tenstorrent.py:3432|in=1x16x512x256|w=256x512|pc=0|cg=1",
+   "ms_per_call": 0.2234
+  },
+  {
+   "site": "tenstorrent.py:4684",
+   "in": [
+    35,
+    512,
+    128
+   ],
+   "w": [
+    128,
+    8
+   ],
+   "n": 240,
+   "s": 0.0135,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": null,
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:4684|in=35x512x128|w=128x8|pc=0|cg=1",
+   "ms_per_call": 0.0563
+  },
+  {
+   "site": "protenix.py:318",
+   "in": [
+    1,
+    512,
+    512,
+    64
+   ],
+   "w": [
+    64,
+    256
+   ],
+   "n": 10,
+   "s": 0.013,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "protenix.py:318|in=1x512x512x64|w=64x256|pc=0|cg=1",
+   "ms_per_call": 1.3
+  },
+  {
+   "site": "protenix.py:318",
+   "in": [
+    512,
+    768
+   ],
+   "w": [
+    768,
+    128
+   ],
+   "n": 200,
+   "s": 0.0123,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "FLOAT32",
+   "w_dtype": "FLOAT32",
+   "dtype": "FLOAT32",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "protenix.py:318|in=512x768|w=768x128|pc=0|cg=1",
+   "ms_per_call": 0.0615
+  },
+  {
+   "site": "protenix.py:318",
+   "in": [
+    1,
+    256
+   ],
+   "w": [
+    256,
+    384
+   ],
+   "n": 200,
+   "s": 0.0121,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "FLOAT32",
+   "w_dtype": "FLOAT32",
+   "dtype": "FLOAT32",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "protenix.py:318|in=1x256|w=256x384|pc=0|cg=1",
+   "ms_per_call": 0.0605
+  },
+  {
+   "site": "protenix.py:318",
+   "in": [
+    512,
+    384
+   ],
+   "w": [
+    384,
+    768
+   ],
+   "n": 200,
+   "s": 0.0119,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "FLOAT32",
+   "w_dtype": "FLOAT32",
+   "dtype": "FLOAT32",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "protenix.py:318|in=512x384|w=384x768|pc=0|cg=1",
+   "ms_per_call": 0.0595
+  },
+  {
+   "site": "tenstorrent.py:3454",
+   "in": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "w": [
+    512,
+    256
+   ],
+   "n": 64,
+   "s": 0.0111,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "FLOAT32",
+   "w_dtype": "FLOAT32",
+   "dtype": "FLOAT32",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "tenstorrent.py:3454|in=1x16x512x512|w=512x256|pc=0|cg=1",
+   "ms_per_call": 0.1734
+  },
+  {
+   "site": "protenix.py:318",
+   "in": [
+    4117,
+    3
+   ],
+   "w": [
+    3,
+    128
+   ],
+   "n": 200,
+   "s": 0.0108,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "FLOAT32",
+   "w_dtype": "FLOAT32",
+   "dtype": "FLOAT32",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "protenix.py:318|in=4117x3|w=3x128|pc=0|cg=1",
+   "ms_per_call": 0.054
+  },
+  {
+   "site": "tenstorrent.py:3432",
+   "in": [
+    1,
+    12,
+    512,
+    128
+   ],
+   "w": [
+    128,
+    512
+   ],
+   "n": 60,
+   "s": 0.0103,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": "silu",
+   "out_buf": "L1",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:3432|in=1x12x512x128|w=128x512|pc=0|cg=1",
+   "ms_per_call": 0.1717
+  },
+  {
+   "site": "protenix.py:618",
+   "in": [
+    528384,
+    3
+   ],
+   "w": [
+    3,
+    16
+   ],
+   "n": 2,
+   "s": 0.01,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "protenix.py:618|in=528384x3|w=3x16|pc=0|cg=1",
+   "ms_per_call": 5.0
+  },
+  {
+   "site": "protenix.py:618",
+   "in": [
+    4117,
+    3
+   ],
+   "w": [
+    3,
+    128
+   ],
+   "n": 2,
+   "s": 0.0088,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "protenix.py:618|in=4117x3|w=3x128|pc=0|cg=1",
+   "ms_per_call": 4.4
+  },
+  {
+   "site": "protenix.py:1787",
+   "in": [
+    512,
+    512,
+    512
+   ],
+   "w": [
+    512,
+    256
+   ],
+   "n": 1,
+   "s": 0.0085,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "FLOAT32",
+   "w_dtype": "FLOAT32",
+   "dtype": "FLOAT32",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "protenix.py:1787|in=512x512x512|w=512x256|pc=0|cg=1",
+   "ms_per_call": 8.5
+  },
+  {
+   "site": "protenix.py:318",
+   "in": [
+    1,
+    4117,
+    128
+   ],
+   "w": [
+    128,
+    3
+   ],
+   "n": 200,
+   "s": 0.0084,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "FLOAT32",
+   "w_dtype": "FLOAT32",
+   "dtype": "FLOAT32",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "protenix.py:318|in=1x4117x128|w=128x3|pc=0|cg=1",
+   "ms_per_call": 0.042
+  },
+  {
+   "site": "tenstorrent.py:3443",
+   "in": [
+    1,
+    16,
+    512,
+    256
+   ],
+   "w": [
+    256,
+    512
+   ],
+   "n": 64,
+   "s": 0.0079,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "FLOAT32",
+   "w_dtype": "FLOAT32",
+   "dtype": "FLOAT32",
+   "activation": null,
+   "out_buf": "L1",
+   "out_dtype": "FLOAT32",
+   "key": "tenstorrent.py:3443|in=1x16x512x256|w=256x512|pc=0|cg=1",
+   "ms_per_call": 0.1234
+  },
+  {
+   "site": "tenstorrent.py:3454",
+   "in": [
+    1,
+    12,
+    512,
+    512
+   ],
+   "w": [
+    512,
+    128
+   ],
+   "n": 60,
+   "s": 0.0072,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:3454|in=1x12x512x512|w=512x128|pc=0|cg=1",
+   "ms_per_call": 0.12
+  },
+  {
+   "site": "protenix.py:618",
+   "in": [
+    4117,
+    385
+   ],
+   "w": [
+    385,
+    128
+   ],
+   "n": 2,
+   "s": 0.0069,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "protenix.py:618|in=4117x385|w=385x128|pc=0|cg=1",
+   "ms_per_call": 3.45
+  },
+  {
+   "site": "protenix.py:618",
+   "in": [
+    528384,
+    1
+   ],
+   "w": [
+    1,
+    16
+   ],
+   "n": 4,
+   "s": 0.0067,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "protenix.py:618|in=528384x1|w=1x16|pc=0|cg=1",
+   "ms_per_call": 1.675
+  },
+  {
+   "site": "tenstorrent.py:3432",
+   "in": [
+    1,
+    11,
+    512,
+    128
+   ],
+   "w": [
+    128,
+    512
+   ],
+   "n": 30,
+   "s": 0.0064,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": "silu",
+   "out_buf": "L1",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:3432|in=1x11x512x128|w=128x512|pc=0|cg=1",
+   "ms_per_call": 0.2133
+  },
+  {
+   "site": "protenix.py:1736",
+   "in": [
+    512,
+    512,
+    139
+   ],
+   "w": [
+    139,
+    256
+   ],
+   "n": 1,
+   "s": 0.0062,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "FLOAT32",
+   "w_dtype": "FLOAT32",
+   "dtype": "FLOAT32",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "protenix.py:1736|in=512x512x139|w=139x256|pc=0|cg=1",
+   "ms_per_call": 6.2
+  },
+  {
+   "site": "tenstorrent.py:4745",
+   "in": [
+    35,
+    512,
+    128
+   ],
+   "w": [
+    128,
+    32
+   ],
+   "n": 40,
+   "s": 0.006,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": null,
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:4745|in=35x512x128|w=128x32|pc=0|cg=1",
+   "ms_per_call": 0.15
+  },
+  {
+   "site": "tenstorrent.py:1478",
+   "in": [
+    1,
+    512,
+    512,
+    108
+   ],
+   "w": [
+    108,
+    64
+   ],
+   "n": 4,
+   "s": 0.0056,
+   "has_pc": true,
+   "has_cg": false,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:1478|in=1x512x512x108|w=108x64|pc=1|cg=0",
+   "ms_per_call": 1.4
+  },
+  {
+   "site": "tenstorrent.py:3443",
+   "in": [
+    1,
+    12,
+    512,
+    128
+   ],
+   "w": [
+    128,
+    512
+   ],
+   "n": 60,
+   "s": 0.0054,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "L1",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:3443|in=1x12x512x128|w=128x512|pc=0|cg=1",
+   "ms_per_call": 0.09
+  },
+  {
+   "site": "protenix.py:318",
+   "in": [
+    512,
+    833
+   ],
+   "w": [
+    833,
+    384
+   ],
+   "n": 1,
+   "s": 0.0052,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "FLOAT32",
+   "w_dtype": "FLOAT32",
+   "dtype": "FLOAT32",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "protenix.py:318|in=512x833|w=833x384|pc=0|cg=1",
+   "ms_per_call": 5.2
+  },
+  {
+   "site": "protenix.py:318",
+   "in": [
+    512,
+    384
+   ],
+   "w": [
+    384,
+    128
+   ],
+   "n": 1,
+   "s": 0.0047,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "FLOAT32",
+   "w_dtype": "FLOAT32",
+   "dtype": "FLOAT32",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "protenix.py:318|in=512x384|w=384x128|pc=0|cg=1",
+   "ms_per_call": 4.7
+  },
+  {
+   "site": "protenix.py:318",
+   "in": [
+    512,
+    512,
+    139
+   ],
+   "w": [
+    139,
+    256
+   ],
+   "n": 1,
+   "s": 0.0046,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "protenix.py:318|in=512x512x139|w=139x256|pc=0|cg=1",
+   "ms_per_call": 4.6
+  },
+  {
+   "site": "protenix.py:618",
+   "in": [
+    4117,
+    1
+   ],
+   "w": [
+    1,
+    128
+   ],
+   "n": 2,
+   "s": 0.0045,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "protenix.py:618|in=4117x1|w=1x128|pc=0|cg=1",
+   "ms_per_call": 2.25
+  },
+  {
+   "site": "protenix.py:318",
+   "in": [
+    512,
+    512,
+    1
+   ],
+   "w": [
+    1,
+    256
+   ],
+   "n": 1,
+   "s": 0.0045,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "protenix.py:318|in=512x512x1|w=1x256|pc=0|cg=1",
+   "ms_per_call": 4.5
+  },
+  {
+   "site": "protenix.py:318",
+   "in": [
+    512,
+    384
+   ],
+   "w": [
+    384,
+    384
+   ],
+   "n": 10,
+   "s": 0.0045,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "protenix.py:318|in=512x384|w=384x384|pc=0|cg=1",
+   "ms_per_call": 0.45
+  },
+  {
+   "site": "protenix.py:318",
+   "in": [
+    129,
+    32,
+    128
+   ],
+   "w": [
+    128,
+    16
+   ],
+   "n": 1,
+   "s": 0.0042,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "FLOAT32",
+   "w_dtype": "FLOAT32",
+   "dtype": "FLOAT32",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "protenix.py:318|in=129x32x128|w=128x16|pc=0|cg=1",
+   "ms_per_call": 4.2
+  },
+  {
+   "site": "protenix.py:318",
+   "in": [
+    129,
+    32,
+    128,
+    16
+   ],
+   "w": [
+    16,
+    4
+   ],
+   "n": 6,
+   "s": 0.0041,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "FLOAT32",
+   "w_dtype": "FLOAT32",
+   "dtype": "FLOAT32",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "protenix.py:318|in=129x32x128x16|w=16x4|pc=0|cg=1",
+   "ms_per_call": 0.6833
+  },
+  {
+   "site": "protenix.py:318",
+   "in": [
+    512,
+    449
+   ],
+   "w": [
+    449,
+    384
+   ],
+   "n": 1,
+   "s": 0.0041,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "protenix.py:318|in=512x449|w=449x384|pc=0|cg=1",
+   "ms_per_call": 4.1
+  },
+  {
+   "site": "protenix.py:318",
+   "in": [
+    512,
+    384
+   ],
+   "w": [
+    384,
+    256
+   ],
+   "n": 2,
+   "s": 0.0041,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "protenix.py:318|in=512x384|w=384x256|pc=0|cg=1",
+   "ms_per_call": 2.05
+  },
+  {
+   "site": "protenix.py:318",
+   "in": [
+    129,
+    32,
+    128,
+    16
+   ],
+   "w": [
+    16,
+    16
+   ],
+   "n": 3,
+   "s": 0.0041,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "FLOAT32",
+   "w_dtype": "FLOAT32",
+   "dtype": "FLOAT32",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "protenix.py:318|in=129x32x128x16|w=16x16|pc=0|cg=1",
+   "ms_per_call": 1.3667
+  },
+  {
+   "site": "protenix.py:318",
+   "in": [
+    1,
+    4117,
+    128
+   ],
+   "w": [
+    128,
+    384
+   ],
+   "n": 1,
+   "s": 0.004,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "protenix.py:318|in=1x4117x128|w=128x384|pc=0|cg=1",
+   "ms_per_call": 4.0
+  },
+  {
+   "site": "protenix.py:318",
+   "in": [
+    512,
+    449
+   ],
+   "w": [
+    449,
+    128
+   ],
+   "n": 1,
+   "s": 0.004,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "protenix.py:318|in=512x449|w=449x128|pc=0|cg=1",
+   "ms_per_call": 4.0
+  },
+  {
+   "site": "tenstorrent.py:3454",
+   "in": [
+    1,
+    11,
+    512,
+    512
+   ],
+   "w": [
+    512,
+    128
+   ],
+   "n": 30,
+   "s": 0.0039,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:3454|in=1x11x512x512|w=512x128|pc=0|cg=1",
+   "ms_per_call": 0.13
+  },
+  {
+   "site": "protenix.py:318",
+   "in": [
+    129,
+    128,
+    128
+   ],
+   "w": [
+    128,
+    16
+   ],
+   "n": 1,
+   "s": 0.0037,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "FLOAT32",
+   "w_dtype": "FLOAT32",
+   "dtype": "FLOAT32",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "FLOAT32",
+   "key": "protenix.py:318|in=129x128x128|w=128x16|pc=0|cg=1",
+   "ms_per_call": 3.7
+  },
+  {
+   "site": "tenstorrent.py:1478",
+   "in": [
+    129,
+    32,
+    128,
+    16
+   ],
+   "w": [
+    16,
+    16
+   ],
+   "n": 3,
+   "s": 0.0037,
+   "has_pc": true,
+   "has_cg": false,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:1478|in=129x32x128x16|w=16x16|pc=1|cg=0",
+   "ms_per_call": 1.2333
+  },
+  {
+   "site": "tenstorrent.py:1478",
+   "in": [
+    129,
+    32,
+    128
+   ],
+   "w": [
+    128,
+    16
+   ],
+   "n": 1,
+   "s": 0.0035,
+   "has_pc": true,
+   "has_cg": false,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:1478|in=129x32x128|w=128x16|pc=1|cg=0",
+   "ms_per_call": 3.5
+  },
+  {
+   "site": "protenix.py:318",
+   "in": [
+    1,
+    35,
+    512,
+    34
+   ],
+   "w": [
+    34,
+    128
+   ],
+   "n": 1,
+   "s": 0.0033,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "protenix.py:318|in=1x35x512x34|w=34x128|pc=0|cg=1",
+   "ms_per_call": 3.3
+  },
+  {
+   "site": "tenstorrent.py:4751",
+   "in": [
+    35,
+    512,
+    128
+   ],
+   "w": [
+    128,
+    32
+   ],
+   "n": 40,
+   "s": 0.0023,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": null,
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:4751|in=35x512x128|w=128x32|pc=0|cg=1",
+   "ms_per_call": 0.0575
+  },
+  {
+   "site": "tenstorrent.py:1478",
+   "in": [
+    129,
+    128,
+    128
+   ],
+   "w": [
+    128,
+    16
+   ],
+   "n": 1,
+   "s": 0.0022,
+   "has_pc": true,
+   "has_cg": false,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:1478|in=129x128x128|w=128x16|pc=1|cg=0",
+   "ms_per_call": 2.2
+  },
+  {
+   "site": "tenstorrent.py:3443",
+   "in": [
+    1,
+    11,
+    512,
+    128
+   ],
+   "w": [
+    128,
+    512
+   ],
+   "n": 30,
+   "s": 0.0016,
+   "has_pc": false,
+   "has_cg": true,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "L1",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:3443|in=1x11x512x128|w=128x512|pc=0|cg=1",
+   "ms_per_call": 0.0533
+  },
+  {
+   "site": "tenstorrent.py:1478",
+   "in": [
+    129,
+    32,
+    128,
+    16
+   ],
+   "w": [
+    16,
+    4
+   ],
+   "n": 3,
+   "s": 0.0014,
+   "has_pc": true,
+   "has_cg": false,
+   "bias": null,
+   "x_dtype": "BFLOAT16",
+   "w_dtype": "BFLOAT16",
+   "dtype": "BFLOAT16",
+   "activation": null,
+   "out_buf": "DRAM",
+   "out_dtype": "BFLOAT16",
+   "key": "tenstorrent.py:1478|in=129x32x128x16|w=16x4|pc=1|cg=0",
+   "ms_per_call": 0.4667
+  }
+ ],
+ "uncalibrated_total_s": 1.2032,
+ "uncalibrated_n_sites": 4,
+ "calibrated_total_s": 12.5206,
+ "sweep": [
+  {
+   "key": "tenstorrent.py:3432|in=1x16x512x256|w=256x1024|pc=0|cg=1",
+   "n": 16768,
+   "in": [
+    1,
+    16,
+    512,
+    256
+   ],
+   "w": [
+    256,
+    1024
+   ],
+   "m_tiles": 256,
+   "k_tiles": 8,
+   "n_tiles": 32,
+   "base_ms": 0.2451,
+   "n_candidates": 20,
+   "arms": [
+    {
+     "cfg": "shipped",
+     "ms": 0.2488,
+     "speedup": 0.985,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid11x10",
+     "ms": 0.2471,
+     "speedup": 0.9917,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid8x8",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically"
+    },
+    {
+     "cfg": "core_grid4x4",
+     "ms": 1.3279,
+     "speedup": 0.1846,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid2x2",
+     "ms": 5.2268,
+     "speedup": 0.0469,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid1x1",
+     "ms": 20.6154,
+     "speedup": 0.0119,
+     "exact": true
+    },
+    {
+     "cfg": "1d/pcm3/obh1/obw1",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/factory/matmul_multicore_reuse_"
+    },
+    {
+     "cfg": "1d/pcm4/obh4/obw1",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/factory/matmul_multicore_reuse_"
+    },
+    {
+     "cfg": "1d/pcm8/obh2/obw1",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/factory/matmul_multicore_reuse_"
+    },
+    {
+     "cfg": "1d/pcm16/obh2/obw1",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/factory/matmul_multicore_reuse_"
+    },
+    {
+     "cfg": "1d/pcm32/obh2/obw1",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/factory/matmul_multicore_reuse_"
+    },
+    {
+     "cfg": "1d/pcm64/obh2/obw2",
+     "ms": 0.4328,
+     "speedup": 0.5663,
+     "exact": false
+    },
+    {
+     "cfg": "1d/pcm128/obh2/obw2",
+     "ms": 0.5115,
+     "speedup": 0.4791,
+     "exact": false
+    },
+    {
+     "cfg": "1d/pcm256/obh2/obw2",
+     "ms": 0.7262,
+     "speedup": 0.3375,
+     "exact": false
+    },
+    {
+     "cfg": "2d/pcm32/pcn4/4x1",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically"
+    },
+    {
+     "cfg": "2d/pcm32/pcn32/1x4",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    },
+    {
+     "cfg": "2d/pcm64/pcn8/4x2",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:111"
+    },
+    {
+     "cfg": "2d/pcm128/pcn4/2x1",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    },
+    {
+     "cfg": "2d/pcm128/pcn16/4x2",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:111"
+    },
+    {
+     "cfg": "2d/pcm256/pcn8/2x1",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    }
+   ],
+   "best": [
+    {
+     "cfg": "core_grid11x10",
+     "ms": 0.2471,
+     "speedup": 0.9917,
+     "exact": true
+    },
+    {
+     "cfg": "shipped",
+     "ms": 0.2488,
+     "speedup": 0.985,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid4x4",
+     "ms": 1.3279,
+     "speedup": 0.1846,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid2x2",
+     "ms": 5.2268,
+     "speedup": 0.0469,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid1x1",
+     "ms": 20.6154,
+     "speedup": 0.0119,
+     "exact": true
+    }
+   ],
+   "site_saving_s": 0.0
+  },
+  {
+   "key": "tenstorrent.py:3454|in=1x16x512x1024|w=1024x256|pc=0|cg=1",
+   "n": 16768,
+   "in": [
+    1,
+    16,
+    512,
+    1024
+   ],
+   "w": [
+    1024,
+    256
+   ],
+   "m_tiles": 256,
+   "k_tiles": 32,
+   "n_tiles": 8,
+   "base_ms": 0.1883,
+   "n_candidates": 20,
+   "arms": [
+    {
+     "cfg": "shipped",
+     "ms": 0.1866,
+     "speedup": 1.0089,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid11x10",
+     "ms": 0.2067,
+     "speedup": 0.9107,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid8x8",
+     "ms": 0.2142,
+     "speedup": 0.8788,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid4x4",
+     "ms": 0.2593,
+     "speedup": 0.726,
+     "exact": false
+    },
+    {
+     "cfg": "core_grid2x2",
+     "ms": 0.9017,
+     "speedup": 0.2088,
+     "exact": false
+    },
+    {
+     "cfg": "core_grid1x1",
+     "ms": 4.0236,
+     "speedup": 0.0468,
+     "exact": false
+    },
+    {
+     "cfg": "1d/pcm3/obh1/obw1",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/factory/matmul_multicore_reuse_"
+    },
+    {
+     "cfg": "1d/pcm4/obh4/obw1",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/factory/matmul_multicore_reuse_"
+    },
+    {
+     "cfg": "1d/pcm8/obh2/obw1",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/factory/matmul_multicore_reuse_"
+    },
+    {
+     "cfg": "1d/pcm16/obh2/obw1",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/factory/matmul_multicore_reuse_"
+    },
+    {
+     "cfg": "1d/pcm32/obh2/obw1",
+     "ms": 0.6735,
+     "speedup": 0.2795,
+     "exact": false
+    },
+    {
+     "cfg": "1d/pcm64/obh2/obw1",
+     "ms": 0.7691,
+     "speedup": 0.2448,
+     "exact": false
+    },
+    {
+     "cfg": "1d/pcm128/obh2/obw1",
+     "ms": 1.0565,
+     "speedup": 0.1782,
+     "exact": false
+    },
+    {
+     "cfg": "1d/pcm256/obh2/obw1",
+     "ms": 1.6499,
+     "speedup": 0.1141,
+     "exact": false
+    },
+    {
+     "cfg": "2d/pcm32/pcn2/1x2",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    },
+    {
+     "cfg": "2d/pcm32/pcn8/2x1",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    },
+    {
+     "cfg": "2d/pcm64/pcn4/1x4",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    },
+    {
+     "cfg": "2d/pcm128/pcn1/4x1",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    },
+    {
+     "cfg": "2d/pcm128/pcn8/1x2",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    },
+    {
+     "cfg": "2d/pcm256/pcn4/1x1",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    }
+   ],
+   "best": [
+    {
+     "cfg": "shipped",
+     "ms": 0.1866,
+     "speedup": 1.0089,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid11x10",
+     "ms": 0.2067,
+     "speedup": 0.9107,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid8x8",
+     "ms": 0.2142,
+     "speedup": 0.8788,
+     "exact": true
+    }
+   ],
+   "site_saving_s": 0.0282
+  },
+  {
+   "key": "tenstorrent.py:3443|in=1x16x512x256|w=256x1024|pc=0|cg=1",
+   "n": 16768,
+   "in": [
+    1,
+    16,
+    512,
+    256
+   ],
+   "w": [
+    256,
+    1024
+   ],
+   "m_tiles": 256,
+   "k_tiles": 8,
+   "n_tiles": 32,
+   "base_ms": 0.0824,
+   "n_candidates": 20,
+   "arms": [
+    {
+     "cfg": "shipped",
+     "ms": 0.0859,
+     "speedup": 0.9592,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid11x10",
+     "ms": 0.0862,
+     "speedup": 0.9554,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid8x8",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically"
+    },
+    {
+     "cfg": "core_grid4x4",
+     "ms": 0.2788,
+     "speedup": 0.2954,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid2x2",
+     "ms": 1.0221,
+     "speedup": 0.0806,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid1x1",
+     "ms": 3.9077,
+     "speedup": 0.0211,
+     "exact": true
+    },
+    {
+     "cfg": "1d/pcm3/obh1/obw1",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/factory/matmul_multicore_reuse_"
+    },
+    {
+     "cfg": "1d/pcm4/obh4/obw1",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/factory/matmul_multicore_reuse_"
+    },
+    {
+     "cfg": "1d/pcm8/obh2/obw1",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/factory/matmul_multicore_reuse_"
+    },
+    {
+     "cfg": "1d/pcm16/obh2/obw1",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/factory/matmul_multicore_reuse_"
+    },
+    {
+     "cfg": "1d/pcm32/obh2/obw1",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/factory/matmul_multicore_reuse_"
+    },
+    {
+     "cfg": "1d/pcm64/obh2/obw2",
+     "ms": 0.3586,
+     "speedup": 0.2297,
+     "exact": false
+    },
+    {
+     "cfg": "1d/pcm128/obh2/obw2",
+     "ms": 0.433,
+     "speedup": 0.1902,
+     "exact": false
+    },
+    {
+     "cfg": "1d/pcm256/obh2/obw2",
+     "ms": 0.6432,
+     "speedup": 0.1281,
+     "exact": false
+    },
+    {
+     "cfg": "2d/pcm32/pcn4/4x1",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically"
+    },
+    {
+     "cfg": "2d/pcm32/pcn32/1x4",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    },
+    {
+     "cfg": "2d/pcm64/pcn8/4x2",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:111"
+    },
+    {
+     "cfg": "2d/pcm128/pcn4/2x1",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    },
+    {
+     "cfg": "2d/pcm128/pcn16/4x2",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:111"
+    },
+    {
+     "cfg": "2d/pcm256/pcn8/2x1",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    }
+   ],
+   "best": [
+    {
+     "cfg": "shipped",
+     "ms": 0.0859,
+     "speedup": 0.9592,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid11x10",
+     "ms": 0.0862,
+     "speedup": 0.9554,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid4x4",
+     "ms": 0.2788,
+     "speedup": 0.2954,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid2x2",
+     "ms": 1.0221,
+     "speedup": 0.0806,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid1x1",
+     "ms": 3.9077,
+     "speedup": 0.0211,
+     "exact": true
+    }
+   ],
+   "site_saving_s": 0.0
+  },
+  {
+   "key": "protenix.py:1129|in=1x512x768|w=768x1536|pc=0|cg=1",
+   "n": 9600,
+   "in": [
+    1,
+    512,
+    768
+   ],
+   "w": [
+    768,
+    1536
+   ],
+   "m_tiles": 16,
+   "k_tiles": 24,
+   "n_tiles": 48,
+   "base_ms": 0.0704,
+   "n_candidates": 20,
+   "arms": [
+    {
+     "cfg": "shipped",
+     "ms": 0.0696,
+     "speedup": 1.0117,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid11x10",
+     "ms": 0.0681,
+     "speedup": 1.0352,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid8x8",
+     "ms": 0.0804,
+     "speedup": 0.8757,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid4x4",
+     "ms": 0.1906,
+     "speedup": 0.3695,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid2x2",
+     "ms": 0.6749,
+     "speedup": 0.1044,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid1x1",
+     "ms": 2.587,
+     "speedup": 0.0272,
+     "exact": true
+    },
+    {
+     "cfg": "1d/pcm1/obh1/obw1",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/factory/matmul_multicore_reuse_"
+    },
+    {
+     "cfg": "1d/pcm2/obh2/obw16",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:111"
+    },
+    {
+     "cfg": "1d/pcm4/obh4/obw16",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:111"
+    },
+    {
+     "cfg": "1d/pcm8/obh1/obw16",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:111"
+    },
+    {
+     "cfg": "1d/pcm8/obh8/obw12",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:111"
+    },
+    {
+     "cfg": "1d/pcm16/obh4/obw12",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:111"
+    },
+    {
+     "cfg": "2d/pcm2/pcn12/1x3",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    },
+    {
+     "cfg": "2d/pcm2/pcn48/2x1",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    },
+    {
+     "cfg": "2d/pcm4/pcn12/1x4",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    },
+    {
+     "cfg": "2d/pcm4/pcn24/4x2",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:111"
+    },
+    {
+     "cfg": "2d/pcm8/pcn8/2x4",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:111"
+    },
+    {
+     "cfg": "2d/pcm8/pcn24/1x3",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    },
+    {
+     "cfg": "2d/pcm16/pcn6/4x1",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    },
+    {
+     "cfg": "2d/pcm16/pcn16/2x2",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    }
+   ],
+   "best": [
+    {
+     "cfg": "core_grid11x10",
+     "ms": 0.0681,
+     "speedup": 1.0352,
+     "exact": true
+    },
+    {
+     "cfg": "shipped",
+     "ms": 0.0696,
+     "speedup": 1.0117,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid8x8",
+     "ms": 0.0804,
+     "speedup": 0.8757,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid4x4",
+     "ms": 0.1906,
+     "speedup": 0.3695,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid2x2",
+     "ms": 0.6749,
+     "speedup": 0.1044,
+     "exact": true
+    }
+   ],
+   "site_saving_s": 0.0225
+  },
+  {
+   "key": "tenstorrent.py:1446|in=512x512x256|w=256x8|pc=1|cg=0",
+   "n": 1048,
+   "in": [
+    512,
+    512,
+    256
+   ],
+   "w": [
+    256,
+    8
+   ],
+   "m_tiles": 8192,
+   "k_tiles": 8,
+   "n_tiles": 1,
+   "base_ms": 0.5755,
+   "n_candidates": 20,
+   "arms": [
+    {
+     "cfg": "shipped",
+     "ms": 0.5929,
+     "speedup": 0.9708,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid11x10",
+     "ms": 1.368,
+     "speedup": 0.4207,
+     "exact": false
+    },
+    {
+     "cfg": "core_grid8x8",
+     "ms": 1.321,
+     "speedup": 0.4357,
+     "exact": false
+    },
+    {
+     "cfg": "core_grid4x4",
+     "ms": 1.1448,
+     "speedup": 0.5027,
+     "exact": false
+    },
+    {
+     "cfg": "core_grid2x2",
+     "ms": 1.4465,
+     "speedup": 0.3979,
+     "exact": false
+    },
+    {
+     "cfg": "core_grid1x1",
+     "ms": 5.3714,
+     "speedup": 0.1071,
+     "exact": true
+    },
+    {
+     "cfg": "1d/pcm75/obh1/obw1",
+     "ms": 0.5799,
+     "speedup": 0.9925,
+     "exact": true
+    },
+    {
+     "cfg": "1d/pcm128/obh1/obw1",
+     "ms": 1.0019,
+     "speedup": 0.5744,
+     "exact": true
+    },
+    {
+     "cfg": "1d/pcm128/obh8/obw1",
+     "ms": 0.6693,
+     "speedup": 0.8599,
+     "exact": true
+    },
+    {
+     "cfg": "1d/pcm256/obh4/obw1",
+     "ms": 0.81,
+     "speedup": 0.7105,
+     "exact": true
+    },
+    {
+     "cfg": "1d/pcm512/obh2/obw1",
+     "ms": 1.0693,
+     "speedup": 0.5382,
+     "exact": true
+    },
+    {
+     "cfg": "1d/pcm1024/obh1/obw1",
+     "ms": 2.1904,
+     "speedup": 0.2628,
+     "exact": true
+    },
+    {
+     "cfg": "1d/pcm1024/obh8/obw1",
+     "ms": 1.6595,
+     "speedup": 0.3468,
+     "exact": true
+    },
+    {
+     "cfg": "1d/pcm2048/obh4/obw1",
+     "ms": 2.5655,
+     "speedup": 0.2243,
+     "exact": true
+    },
+    {
+     "cfg": "1d/pcm4096/obh2/obw1",
+     "ms": 4.752,
+     "speedup": 0.1211,
+     "exact": true
+    },
+    {
+     "cfg": "1d/pcm8192/obh1/obw1",
+     "ms": 12.415,
+     "speedup": 0.0464,
+     "exact": true
+    },
+    {
+     "cfg": "1d/pcm8192/obh8/obw1",
+     "ms": 5.6998,
+     "speedup": 0.101,
+     "exact": true
+    },
+    {
+     "cfg": "2d/pcm1024/pcn1/4x1",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    },
+    {
+     "cfg": "2d/pcm2048/pcn1/4x1",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    },
+    {
+     "cfg": "2d/pcm4096/pcn1/4x1",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    }
+   ],
+   "best": [
+    {
+     "cfg": "1d/pcm75/obh1/obw1",
+     "ms": 0.5799,
+     "speedup": 0.9925,
+     "exact": true
+    },
+    {
+     "cfg": "shipped",
+     "ms": 0.5929,
+     "speedup": 0.9708,
+     "exact": true
+    },
+    {
+     "cfg": "1d/pcm128/obh8/obw1",
+     "ms": 0.6693,
+     "speedup": 0.8599,
+     "exact": true
+    },
+    {
+     "cfg": "1d/pcm256/obh4/obw1",
+     "ms": 0.81,
+     "speedup": 0.7105,
+     "exact": true
+    },
+    {
+     "cfg": "1d/pcm128/obh1/obw1",
+     "ms": 1.0019,
+     "speedup": 0.5744,
+     "exact": true
+    }
+   ],
+   "site_saving_s": 0.0
+  },
+  {
+   "key": "tenstorrent.py:4396|in=1x512x384|w=384x768|pc=0|cg=0",
+   "n": 9600,
+   "in": [
+    1,
+    512,
+    384
+   ],
+   "w": [
+    384,
+    768
+   ],
+   "m_tiles": 16,
+   "k_tiles": 12,
+   "n_tiles": 24,
+   "base_ms": 0.0427,
+   "n_candidates": 20,
+   "arms": [
+    {
+     "cfg": "shipped",
+     "ms": 0.0405,
+     "speedup": 1.0539,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid11x10",
+     "ms": 0.0366,
+     "speedup": 1.168,
+     "exact": false
+    },
+    {
+     "cfg": "core_grid8x8",
+     "ms": 0.0378,
+     "speedup": 1.1293,
+     "exact": false
+    },
+    {
+     "cfg": "core_grid4x4",
+     "ms": 0.0491,
+     "speedup": 0.8689,
+     "exact": false
+    },
+    {
+     "cfg": "core_grid2x2",
+     "ms": 0.1109,
+     "speedup": 0.385,
+     "exact": false
+    },
+    {
+     "cfg": "core_grid1x1",
+     "ms": 0.3479,
+     "speedup": 0.1227,
+     "exact": false
+    },
+    {
+     "cfg": "1d/pcm1/obh1/obw1",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/factory/matmul_multicore_reuse_"
+    },
+    {
+     "cfg": "1d/pcm4/obh1/obw1",
+     "ms": 0.1202,
+     "speedup": 0.3551,
+     "exact": false
+    },
+    {
+     "cfg": "1d/pcm5/obh1/obw1",
+     "ms": 0.1278,
+     "speedup": 0.3341,
+     "exact": false
+    },
+    {
+     "cfg": "1d/pcm8/obh2/obw1",
+     "ms": 0.1194,
+     "speedup": 0.3574,
+     "exact": false
+    },
+    {
+     "cfg": "1d/pcm16/obh1/obw1",
+     "ms": 0.1505,
+     "speedup": 0.2837,
+     "exact": false
+    },
+    {
+     "cfg": "1d/pcm16/obh8/obw2",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:111"
+    },
+    {
+     "cfg": "2d/pcm2/pcn6/2x3",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:111"
+    },
+    {
+     "cfg": "2d/pcm2/pcn24/2x3",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:111"
+    },
+    {
+     "cfg": "2d/pcm4/pcn6/4x1",
+     "ms": 0.0555,
+     "speedup": 0.7694,
+     "exact": false
+    },
+    {
+     "cfg": "2d/pcm4/pcn24/1x2",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    },
+    {
+     "cfg": "2d/pcm8/pcn6/1x1",
+     "ms": 0.082,
+     "speedup": 0.5207,
+     "exact": false
+    },
+    {
+     "cfg": "2d/pcm8/pcn12/2x2",
+     "ms": 0.111,
+     "speedup": 0.3845,
+     "exact": false
+    },
+    {
+     "cfg": "2d/pcm16/pcn4/1x2",
+     "ms": 0.1011,
+     "speedup": 0.4222,
+     "exact": false
+    },
+    {
+     "cfg": "2d/pcm16/pcn8/4x1",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    }
+   ],
+   "best": [
+    {
+     "cfg": "shipped",
+     "ms": 0.0405,
+     "speedup": 1.0539,
+     "exact": true
+    }
+   ],
+   "site_saving_s": 0.021
+  },
+  {
+   "key": "tenstorrent.py:1478|in=1x512x512x256|w=256x16|pc=1|cg=0",
+   "n": 484,
+   "in": [
+    1,
+    512,
+    512,
+    256
+   ],
+   "w": [
+    256,
+    16
+   ],
+   "m_tiles": 8192,
+   "k_tiles": 8,
+   "n_tiles": 1,
+   "base_ms": 0.8879,
+   "n_candidates": 20,
+   "arms": [
+    {
+     "cfg": "shipped",
+     "ms": 0.9132,
+     "speedup": 0.9723,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid11x10",
+     "ms": 1.377,
+     "speedup": 0.6448,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid8x8",
+     "ms": 1.3609,
+     "speedup": 0.6525,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid4x4",
+     "ms": 1.1436,
+     "speedup": 0.7764,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid2x2",
+     "ms": 1.4483,
+     "speedup": 0.6131,
+     "exact": false
+    },
+    {
+     "cfg": "core_grid1x1",
+     "ms": 5.3813,
+     "speedup": 0.165,
+     "exact": false
+    },
+    {
+     "cfg": "1d/pcm75/obh1/obw1",
+     "ms": 0.5972,
+     "speedup": 1.4867,
+     "exact": false
+    },
+    {
+     "cfg": "1d/pcm128/obh1/obw1",
+     "ms": 1.0038,
+     "speedup": 0.8846,
+     "exact": false
+    },
+    {
+     "cfg": "1d/pcm128/obh8/obw1",
+     "ms": 0.6766,
+     "speedup": 1.3124,
+     "exact": false
+    },
+    {
+     "cfg": "1d/pcm256/obh4/obw1",
+     "ms": 0.8103,
+     "speedup": 1.0958,
+     "exact": false
+    },
+    {
+     "cfg": "1d/pcm512/obh2/obw1",
+     "ms": 1.0726,
+     "speedup": 0.8278,
+     "exact": false
+    },
+    {
+     "cfg": "1d/pcm1024/obh1/obw1",
+     "ms": 2.1901,
+     "speedup": 0.4054,
+     "exact": false
+    },
+    {
+     "cfg": "1d/pcm1024/obh8/obw1",
+     "ms": 1.6821,
+     "speedup": 0.5279,
+     "exact": false
+    },
+    {
+     "cfg": "1d/pcm2048/obh4/obw1",
+     "ms": 2.5649,
+     "speedup": 0.3462,
+     "exact": false
+    },
+    {
+     "cfg": "1d/pcm4096/obh2/obw1",
+     "ms": 4.7696,
+     "speedup": 0.1862,
+     "exact": false
+    },
+    {
+     "cfg": "1d/pcm8192/obh1/obw1",
+     "ms": 12.4281,
+     "speedup": 0.0714,
+     "exact": false
+    },
+    {
+     "cfg": "1d/pcm8192/obh8/obw1",
+     "ms": 5.7181,
+     "speedup": 0.1553,
+     "exact": false
+    },
+    {
+     "cfg": "2d/pcm1024/pcn1/4x1",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    },
+    {
+     "cfg": "2d/pcm2048/pcn1/4x1",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    },
+    {
+     "cfg": "2d/pcm4096/pcn1/4x1",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    }
+   ],
+   "best": [
+    {
+     "cfg": "shipped",
+     "ms": 0.9132,
+     "speedup": 0.9723,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid4x4",
+     "ms": 1.1436,
+     "speedup": 0.7764,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid8x8",
+     "ms": 1.3609,
+     "speedup": 0.6525,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid11x10",
+     "ms": 1.377,
+     "speedup": 0.6448,
+     "exact": true
+    }
+   ],
+   "site_saving_s": 0.0
+  },
+  {
+   "key": "tenstorrent.py:3243|in=1x512x768|w=768x3072|pc=0|cg=1",
+   "n": 4800,
+   "in": [
+    1,
+    512,
+    768
+   ],
+   "w": [
+    768,
+    3072
+   ],
+   "m_tiles": 16,
+   "k_tiles": 24,
+   "n_tiles": 96,
+   "base_ms": 0.0895,
+   "n_candidates": 20,
+   "arms": [
+    {
+     "cfg": "shipped",
+     "ms": 0.0863,
+     "speedup": 1.0362,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid11x10",
+     "ms": 0.0864,
+     "speedup": 1.035,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid8x8",
+     "ms": 0.0972,
+     "speedup": 0.9199,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid4x4",
+     "ms": 0.1959,
+     "speedup": 0.4566,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid2x2",
+     "ms": 0.6,
+     "speedup": 0.1491,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid1x1",
+     "ms": 2.2739,
+     "speedup": 0.0393,
+     "exact": true
+    },
+    {
+     "cfg": "1d/pcm1/obh1/obw1",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/factory/matmul_multicore_reuse_"
+    },
+    {
+     "cfg": "1d/pcm4/obh1/obw1",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/factory/matmul_multicore_reuse_"
+    },
+    {
+     "cfg": "1d/pcm5/obh1/obw1",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/factory/matmul_multicore_reuse_"
+    },
+    {
+     "cfg": "1d/pcm8/obh2/obw1",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/factory/matmul_multicore_reuse_"
+    },
+    {
+     "cfg": "1d/pcm16/obh1/obw2",
+     "ms": 0.427,
+     "speedup": 0.2095,
+     "exact": false
+    },
+    {
+     "cfg": "1d/pcm16/obh8/obw2",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:111"
+    },
+    {
+     "cfg": "2d/pcm2/pcn24/1x4",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    },
+    {
+     "cfg": "2d/pcm2/pcn96/2x3",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:111"
+    },
+    {
+     "cfg": "2d/pcm4/pcn24/2x1",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    },
+    {
+     "cfg": "2d/pcm4/pcn96/1x1",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    },
+    {
+     "cfg": "2d/pcm8/pcn16/2x2",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    },
+    {
+     "cfg": "2d/pcm8/pcn48/1x4",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    },
+    {
+     "cfg": "2d/pcm16/pcn12/2x4",
+     "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:111"
+    },
+    {
+     "cfg": "2d/pcm16/pcn32/2x1",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically"
+    }
+   ],
+   "best": [
+    {
+     "cfg": "shipped",
+     "ms": 0.0863,
+     "speedup": 1.0362,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid11x10",
+     "ms": 0.0864,
+     "speedup": 1.035,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid8x8",
+     "ms": 0.0972,
+     "speedup": 0.9199,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid4x4",
+     "ms": 0.1959,
+     "speedup": 0.4566,
+     "exact": true
+    },
+    {
+     "cfg": "core_grid2x2",
+     "ms": 0.6,
+     "speedup": 0.1491,
+     "exact": true
+    }
+   ],
+   "site_saving_s": 0.0151
+  }
+ ],
+ "summed_saving_s": 0.0868,
+ "kill_gate_s": 0.35,
+ "verdict": "NO-GO",
+ "loadavg_end": [
+  "3.39",
+  "1.60",
+  "1.19"
+ ]
+}

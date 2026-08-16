@@ -1,0 +1,74 @@
+{
+ "ttnn": "0.68.0",
+ "host": "qb2",
+ "card": 1,
+ "shape": [
+  1,
+  16,
+  512,
+  256
+ ],
+ "d_ff": 1024,
+ "reps": 40,
+ "trials": 5,
+ "grid": [
+  11,
+  10
+ ],
+ "loadavg": [
+  "1.05",
+  "1.25",
+  "1.25"
+ ],
+ "chunk_calls_per_fold": 16768,
+ "transition_calls_per_fold": 959,
+ "gate_ms_per_call": 0.75,
+ "arms": {
+  "full": {
+   "ms": 0.41779,
+   "min_ms": 0.41707,
+   "max_ms": 0.41827
+  },
+  "no_ln": {
+   "ms": 0.41543,
+   "min_ms": 0.4142,
+   "max_ms": 0.41612
+  },
+  "no_mul": {
+   "ms": 0.36969,
+   "min_ms": 0.36873,
+   "max_ms": 0.37145
+  },
+  "no_fc2": {
+   "ms": 0.37255,
+   "min_ms": 0.36878,
+   "max_ms": 0.3758
+  },
+  "mm_floor": {
+   "ms": 0.36472,
+   "min_ms": 0.35988,
+   "max_ms": 0.36726
+  },
+  "full_2": {
+   "ms": 0.42153,
+   "min_ms": 0.42011,
+   "max_ms": 0.42195
+  }
+ },
+ "aa_floor_ms": 0.00374,
+ "legs_ms_per_chunk": {
+  "layer_norm": 0.00236,
+  "multiply_": 0.0481,
+  "fc2": 0.04524,
+  "norm+mul (fusion upper bound)": 0.05046
+ },
+ "deletable_ms_per_call": 0.8823,
+ "deletable_s_per_fold": 0.8461,
+ "gate_s_per_fold": 0.7192,
+ "verdict": "GO to a generic_op build",
+ "loadavg_end": [
+  "1.05",
+  "1.25",
+  "1.25"
+ ]
+}

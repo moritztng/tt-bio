@@ -1,0 +1,126 @@
+{
+ "grid": [
+  8,
+  9
+ ],
+ "cores": 72,
+ "warmup": 3,
+ "iters": 20,
+ "blocks": 5,
+ "shapes": [
+  {
+   "m": 1024,
+   "k": 512,
+   "n": 512,
+   "points": [
+    {
+     "arm": "device",
+     "core_grid": [
+      8,
+      9
+     ],
+     "median_ms": 0.03655,
+     "min_ms": 0.03579,
+     "bit_exact_vs_device_grid": null
+    },
+    {
+     "arm": "rfd3_snapshot_11x10",
+     "core_grid": [
+      11,
+      10
+     ],
+     "median_ms": 0.03618,
+     "min_ms": 0.03596,
+     "bit_exact_vs_device_grid": true
+    },
+    {
+     "arm": "oversized_14x12",
+     "core_grid": [
+      14,
+      12
+     ],
+     "median_ms": 0.03586,
+     "min_ms": 0.03552,
+     "bit_exact_vs_device_grid": true
+    },
+    {
+     "arm": "undersized_6x6",
+     "core_grid": [
+      6,
+      6
+     ],
+     "median_ms": 0.04271,
+     "min_ms": 0.04224,
+     "bit_exact_vs_device_grid": true
+    },
+    {
+     "arm": "device_repeat",
+     "core_grid": [
+      8,
+      9
+     ],
+     "median_ms": 0.03532,
+     "min_ms": 0.03476,
+     "bit_exact_vs_device_grid": true
+    }
+   ]
+  },
+  {
+   "m": 4096,
+   "k": 512,
+   "n": 256,
+   "points": [
+    {
+     "arm": "device",
+     "core_grid": [
+      8,
+      9
+     ],
+     "median_ms": 0.10524,
+     "min_ms": 0.10412,
+     "bit_exact_vs_device_grid": null
+    },
+    {
+     "arm": "rfd3_snapshot_11x10",
+     "core_grid": [
+      11,
+      10
+     ],
+     "median_ms": 0.1037,
+     "min_ms": 0.10297,
+     "bit_exact_vs_device_grid": true
+    },
+    {
+     "arm": "oversized_14x12",
+     "core_grid": [
+      14,
+      12
+     ],
+     "median_ms": 0.10379,
+     "min_ms": 0.10306,
+     "bit_exact_vs_device_grid": true
+    },
+    {
+     "arm": "undersized_6x6",
+     "core_grid": [
+      6,
+      6
+     ],
+     "median_ms": 0.11457,
+     "min_ms": 0.11438,
+     "bit_exact_vs_device_grid": true
+    },
+    {
+     "arm": "device_repeat",
+     "core_grid": [
+      8,
+      9
+     ],
+     "median_ms": 0.10398,
+     "min_ms": 0.10373,
+     "bit_exact_vs_device_grid": true
+    }
+   ]
+  }
+ ]
+}
