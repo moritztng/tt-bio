@@ -887,16 +887,26 @@ class ESMCHiddenStatesModel(Module):
         self.norm_weight = self.torch_to_tt("transformer.norm.weight")
 
     def __call__(self, tokens: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None,
-                 key_valid: ttnn.Tensor | None = None):
+                 key_valid: ttnn.Tensor | None = None, last_hidden_only: bool = False):
+        """Return the hidden states. With ``last_hidden_only`` only the final-norm one.
+
+        The intermediate ``_to_host`` calls exist for ESMFold2, whose LanguageModelShim
+        consumes all ``n_layers + 1`` states. The standalone embed path uses only the last
+        (``_trunk_forward`` takes ``[-1, 0]``), and for the 6B that means 80 blocking
+        device->host copies per forward whose results are thrown away. Each one is also a
+        pipeline drain -- the host cannot dispatch block ``i+1`` until block ``i``'s copy has
+        returned -- so skipping them recovers the dispatch/compute overlap as well as the
+        traffic. Default is unchanged, so ESMFold2 is untouched by construction.
+        """
         seq_len = tokens.shape[-1]
         head_dim = self.norm_weight.shape[-1] // self.n_heads
         cos, sin = rope_tables(seq_len, head_dim, device=self.device)
 
         x = self.embed(tokens)
-        hidden = [self._to_host(x)]  # hs[0] = embedding output
+        hidden = [] if last_hidden_only else [self._to_host(x)]  # hs[0] = embedding output
         for i, block in enumerate(self.blocks):
             x = block(x, cos, sin, attn_mask, key_valid)
-            if i < self.n_layers - 1:
+            if not last_hidden_only and i < self.n_layers - 1:
                 hidden.append(self._to_host(x))  # hs[i+1] = block i output
         norm_x = ttnn.layer_norm(
             x, weight=self.norm_weight, epsilon=1e-5,
@@ -938,7 +948,13 @@ class ESMCLanguageModel(TorchWrapper):
     def _create_module(self, weights: WeightScope) -> ESMCHiddenStatesModel:
         return ESMCHiddenStatesModel(self.n_heads, self.n_layers, weights, self.compute_kernel_config)
 
-    def forward(self, input_ids: torch.Tensor, attn_mask: torch.Tensor | None = None) -> torch.Tensor:
+    def forward(self, input_ids: torch.Tensor, attn_mask: torch.Tensor | None = None,
+                last_hidden_only: bool = False) -> torch.Tensor:
+        """``[n_layers+1, B, L, d]``, or ``[1, B, L, d]`` with ``last_hidden_only``.
+
+        Either way ``[-1]`` is the final-norm state, which is the whole contract
+        ``_trunk_forward`` depends on.
+        """
         B, Lm = input_ids.shape
         # Bucket the LM length to a multiple of 64 so the 80-layer ESMC kernels
         # are shared across nearby lengths instead of recompiling per length.
@@ -971,7 +987,8 @@ class ESMCLanguageModel(TorchWrapper):
                 kv.to(torch.bfloat16), device=self.tt_device,
                 layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16,
             )
-        hidden = self.module(tokens_tt, mask_tt, key_valid_tt)  # list of [B, Lb, d_model]
+        hidden = self.module(tokens_tt, mask_tt, key_valid_tt,
+                             last_hidden_only=last_hidden_only)  # list of [B, Lb, d_model]
         return torch.stack(hidden, dim=0)[:, :, :Lm, :]  # slice padding -> [n+1, B, Lm, d_model]
 
     def release(self):
@@ -1172,7 +1189,9 @@ def _trunk_forward(model, seq: str, return_logits: bool):
     tokens = tokenize(seq)  # [1, len(seq)+2] with <cls> … <eos>
     logits = None
     if isinstance(model, ESMCLanguageModel):
-        emb = model(tokens)[-1, 0]          # final-norm hidden state [L+2, d]
+        # Only the final-norm state is used, so do not pay for the other n_layers
+        # readbacks (80 for the 6B). See ESMCHiddenStatesModel.__call__.
+        emb = model(tokens, last_hidden_only=True)[-1, 0]   # final-norm hidden state [L+2, d]
     else:
         lg, em = model(tokens)              # [1, L+2, 64], [1, L+2, d]
         emb = em[0]

@@ -1,0 +1,57 @@
+{
+ "ttnn": "0.68.0",
+ "host": "qb2",
+ "card": 1,
+ "grid": [
+  11,
+  10
+ ],
+ "shape": [
+  1,
+  16,
+  512,
+  256
+ ],
+ "d_ff": 1024,
+ "m_tiles": 256,
+ "k_tiles": 8,
+ "n_tiles": 32,
+ "reps": 3,
+ "budget_s": 150,
+ "loadavg": [
+  "7.24",
+  "4.63",
+  "3.35"
+ ],
+ "pair_only_ms": 0.3521,
+ "shipped_block": [
+  4,
+  8,
+  1,
+  4,
+  1
+ ],
+ "note": "perf only; the fused arm computes p*sigmoid(g), not silu(p)*g. No parity claim.",
+ "arms": [
+  {
+   "block": [
+    8,
+    8,
+    16,
+    4,
+    2
+   ],
+   "is_shipped": false,
+   "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=",
+   "wall_s": 0.6
+  }
+ ],
+ "best": [],
+ "best_ms": null,
+ "verdict": "NO-GO: nothing beats pair_only",
+ "loadavg_end": [
+  "7.24",
+  "4.63",
+  "3.35"
+ ]
+}

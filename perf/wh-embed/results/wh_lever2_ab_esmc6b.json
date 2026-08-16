@@ -1,0 +1,92 @@
+{
+  "model": "esmc-6b",
+  "fast": false,
+  "n_seqs": 4,
+  "residues": 76,
+  "arch": "wormhole_b0",
+  "visible_devices": "30",
+  "load_s": 21.7,
+  "aa_control_ms": [
+    1069.32,
+    1145.93
+  ],
+  "aa_noise_pct": 7.16,
+  "arm_A_ms": [
+    1085.38,
+    1212.86,
+    1154.64
+  ],
+  "arm_B_ms": [
+    653.62,
+    653.66,
+    652.85
+  ],
+  "median_A_ms": 1154.64,
+  "median_B_ms": 653.62,
+  "speedup_B_over_A": 1.7665,
+  "ms_per_forward_A": 288.66,
+  "ms_per_forward_B": 163.41,
+  "saved_ms_per_forward": 125.26,
+  "digest_A": "7b7864aa23aa159fb48f289f1e7945a22f18b1b4e2810aeba51cae2d9c72cbd7",
+  "digest_B": "7b7864aa23aa159fb48f289f1e7945a22f18b1b4e2810aeba51cae2d9c72cbd7",
+  "digests_all_equal": true,
+  "bit_exact_torch_equal": true,
+  "runs": [
+    {
+      "i": 0,
+      "arm": "A",
+      "wall_ms": 1069.32,
+      "digest": "7b7864aa23aa159f",
+      "load1": 14.83
+    },
+    {
+      "i": 1,
+      "arm": "A",
+      "wall_ms": 1145.93,
+      "digest": "7b7864aa23aa159f",
+      "load1": 17.0
+    },
+    {
+      "i": 2,
+      "arm": "B",
+      "wall_ms": 653.62,
+      "digest": "7b7864aa23aa159f",
+      "load1": 17.0
+    },
+    {
+      "i": 3,
+      "arm": "A",
+      "wall_ms": 1085.38,
+      "digest": "7b7864aa23aa159f",
+      "load1": 17.0
+    },
+    {
+      "i": 4,
+      "arm": "B",
+      "wall_ms": 653.66,
+      "digest": "7b7864aa23aa159f",
+      "load1": 17.0
+    },
+    {
+      "i": 5,
+      "arm": "A",
+      "wall_ms": 1212.86,
+      "digest": "7b7864aa23aa159f",
+      "load1": 17.0
+    },
+    {
+      "i": 6,
+      "arm": "B",
+      "wall_ms": 652.85,
+      "digest": "7b7864aa23aa159f",
+      "load1": 16.44
+    },
+    {
+      "i": 7,
+      "arm": "A",
+      "wall_ms": 1154.64,
+      "digest": "7b7864aa23aa159f",
+      "load1": 16.44
+    }
+  ]
+}

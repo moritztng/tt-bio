@@ -16,10 +16,19 @@ a production recommendation.
 """
 import json, os, pathlib, re, statistics, subprocess, sys, time
 
-OUT = pathlib.Path("perf/dsfix/results/bg_tt.jsonl")
+# The machine facts every row must carry come from the environment, not from a literal: this
+# ladder now runs on a Blackhole QuietBox and on the Wormhole Galaxy, and a row that does not name
+# its host, card and wheel cannot carry a cross-architecture ratio.
+OUT = pathlib.Path(os.environ.get("BG_OUT", "perf/dsfix/results/bg_tt.jsonl"))
 OUT.parent.mkdir(parents=True, exist_ok=True)
-STEPS = 60
-PY = "/home/ttuser/tt-bio-dev/env/bin/python3"
+STEPS = int(os.environ.get("BG_STEPS", "60"))
+PY = os.environ.get("BG_PY", "/home/ttuser/tt-bio-dev/env/bin/python3")
+DEV = os.environ.get("BG_DEV", "0")
+HOST = os.environ.get("BG_HOST", "qb1")
+CARD = os.environ.get("BG_CARD", "0")
+TTNN = os.environ.get("BG_TTNN", "0.67.4")
+LEASE = os.environ.get("BG_LEASE", "worker:design-representative-fixtures")
+ONLY = os.environ.get("BG_POINTS", "")   # "R0:1:0,R1:1:0" -> rung:batch:trace
 DIFF = re.compile(r"diff (\d+)/(\d+)")
 BATCH = re.compile(r"batch (\d+)/(\d+)")
 
@@ -32,6 +41,8 @@ for rung in ["R0", "R1", "R2", "R3", "R4"]:
         POINTS.append((rung, b, False))
 for rung in ["R0", "R1", "R2", "R3", "R4"]:
     POINTS.append((rung, 1, True))
+if ONLY:
+    POINTS = [(r, int(bt), tr == "1") for r, bt, tr in (x.split(":") for x in ONLY.split(","))]
 
 done = set()
 if OUT.exists():
@@ -53,8 +64,8 @@ def run(rung, b, trace):
            "--debug", "--log"]
     if trace:
         cmd.append("--diffusion_trace")
-    env = dict(os.environ, TT_VISIBLE_DEVICES="0",
-               TT_BIO_LEASE_HOLDER="worker:design-representative-fixtures",
+    env = dict(os.environ, TT_VISIBLE_DEVICES=DEV,
+               TT_BIO_LEASE_HOLDER=LEASE,
                PYTHONPATH=os.getcwd(), PYTHONUNBUFFERED="1")
     t0 = time.time()
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -118,7 +129,8 @@ for rung, b, trace in POINTS:
            "proc_wall_s": round(wall, 1),
            "designs_per_s": round(b / (500 * statistics.median(per)), 5),
            "sanity_ok": ok, "sanity_why": why, "atoms_written": natoms,
-           "host": "qb1", "card": 0, "ttnn": "0.67.4"}
+           "loadavg": float(open("/proc/loadavg").read().split()[0]),
+           "host": HOST, "card": CARD, "ttnn": TTNN}
     with OUT.open("a") as fh:
         fh.write(json.dumps(rec) + "\n")
     print("[bg] %s b=%d trace=%s  %.2f ms/step (n=%d, %.2f-%.2f)  sanity=%s"

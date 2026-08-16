@@ -1,0 +1,61 @@
+{
+  "model": "esmc-300m",
+  "n_seqs": 8,
+  "residues": 76,
+  "batch_size": 8,
+  "fast": false,
+  "arch": "wormhole_b0",
+  "visible_devices": "30",
+  "load_s": 3.9,
+  "device_ms": 64.49,
+  "serial_write_ms": 367.24,
+  "threaded_write_ms": 66.41,
+  "gate_region_ms": 431.74,
+  "write_share_of_gate": 0.8506,
+  "device_seq_s": 124.044,
+  "gate_seq_s": 18.53,
+  "device_ms_all": [
+    63.52,
+    62.78,
+    94.01,
+    92.11,
+    64.49
+  ],
+  "serial_write_ms_all": [
+    367.87,
+    371.65,
+    360.81,
+    360.02,
+    367.24
+  ],
+  "threaded_write_ms_all": [
+    81.11,
+    74.26,
+    53.46,
+    61.25,
+    66.41
+  ],
+  "npz_bytes": 1140304,
+  "matched_roof": {
+    "per_residue_bytes": 2334720,
+    "compressed_bytes": 1106640,
+    "compress_ratio": 0.474,
+    "workers": 32,
+    "zlib_serial_ms": 344.22,
+    "zlib_threaded_ms": 52.31,
+    "zlib_serial_MBps": 6.78,
+    "zlib_threaded_MBps": 44.63,
+    "zlib_thread_speedup": 6.58,
+    "savez_overhead_ms": 23.02,
+    "savez_overhead_share": 0.0627
+  },
+  "loadavg": [
+    24.78662109375,
+    24.78662109375,
+    25.8447265625,
+    25.8447265625,
+    25.8447265625
+  ],
+  "warmup": 2,
+  "repeat": 5
+}

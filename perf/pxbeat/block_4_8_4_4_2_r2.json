@@ -1,0 +1,72 @@
+{
+ "ttnn": "0.68.0",
+ "host": "qb2",
+ "card": 1,
+ "grid": [
+  11,
+  10
+ ],
+ "shape": [
+  1,
+  16,
+  512,
+  256
+ ],
+ "d_ff": 1024,
+ "m_tiles": 256,
+ "k_tiles": 8,
+ "n_tiles": 32,
+ "reps": 7,
+ "budget_s": 150,
+ "loadavg": [
+  "2.86",
+  "3.24",
+  "3.03"
+ ],
+ "pair_only_ms": 0.3607,
+ "shipped_block": [
+  4,
+  8,
+  1,
+  4,
+  1
+ ],
+ "note": "perf only; the fused arm computes p*sigmoid(g), not silu(p)*g. No parity claim.",
+ "arms": [
+  {
+   "block": [
+    4,
+    8,
+    4,
+    4,
+    2
+   ],
+   "is_shipped": false,
+   "ms": 0.3575,
+   "vs_pair_only": 1.0089,
+   "wall_s": 0.0
+  }
+ ],
+ "best": [
+  {
+   "block": [
+    4,
+    8,
+    4,
+    4,
+    2
+   ],
+   "is_shipped": false,
+   "ms": 0.3575,
+   "vs_pair_only": 1.0089,
+   "wall_s": 0.0
+  }
+ ],
+ "best_ms": 0.3575,
+ "verdict": "GO: a block regime beats pair_only",
+ "loadavg_end": [
+  "2.86",
+  "3.24",
+  "3.03"
+ ]
+}

@@ -17,6 +17,7 @@
   --tt: #6249d6;              /* oklch(0.58 0.17 285) */
   --h200: #3d9a5c;            /* oklch(0.62 0.15 150) */
   --b200: #2b7793;            /* oklch(0.55 0.10 205) */
+  --a100: #bb731b;            /* oklch(0.62 0.13 65) */
   --pill-bg: #f0f1f4;
   --pill-fg: #3c414c;
 }
@@ -25,6 +26,7 @@
     --tt: oklch(0.58 0.17 285);
     --h200: oklch(0.62 0.15 150);
     --b200: oklch(0.55 0.10 205);
+    --a100: oklch(0.62 0.13 65);
   }
 }
 @media (prefers-color-scheme: dark) {
@@ -38,6 +40,7 @@
     --tt: #9484ee;
     --h200: #55b876;
     --b200: #4c9cba;
+    --a100: #e39849;
     --pill-bg: #1e222a;
     --pill-fg: #c3c9d4;
   }
@@ -46,6 +49,7 @@
       --tt: oklch(0.72 0.15 285);
       --h200: oklch(0.72 0.15 150);
       --b200: oklch(0.68 0.10 205);
+      --a100: oklch(0.74 0.13 65);
     }
   }
 }
@@ -480,10 +484,15 @@ details.disclose > div { padding-top: 14px; }
   var SER = {
     galaxy_bh: "var(--tt)", p150a: "var(--tt)",
     dgx_h200: "var(--h200)", h200: "var(--h200)",
-    dgx_b200: "var(--b200)", b200: "var(--b200)"
+    dgx_b200: "var(--b200)", b200: "var(--b200)",
+    a100: "var(--a100)"
   };
   var SERVER_OF = { p150a: "galaxy_bh", h200: "dgx_h200", b200: "dgx_b200" };
+  // Two lists on purpose. CELLS drives the server and cost paths, and every id in it must have a
+  // SERVER_OF entry -- the A100 has no DGX counterpart priced on this page, so adding it here would
+  // evaluate plat(undefined) and blank the page. CARD_CELLS drives the per-card charts and tables.
   var CELLS = ["p150a", "h200", "b200"];
+  var CARD_CELLS = ["p150a", "h200", "b200", "a100"];
 
   function serverLabel(p) {
     return p.name + ", " + p.accelerators + (p.id === "galaxy_bh" ? " AI Processors" : " GPUs");
@@ -570,7 +579,7 @@ details.disclose > div { padding-top: 14px; }
   function chartTime() {
     var groups = [], max = 0;
     D.models.forEach(function (m) {
-      var bars = CELLS.map(function (k) {
+      var bars = CARD_CELLS.map(function (k) {
         var c = m.cells[k], p = plat(k);
         if (c.status !== "measured") {
           return { series: p.name, seriesShort: p.short, blocked: true, reason: c.detail };
@@ -589,9 +598,11 @@ details.disclose > div { padding-top: 14px; }
       tickFmt: function (v) { return v.toFixed(0); },
       title: "Seconds to return one 512-residue prediction on one AI Processor, measured",
       desc: D.models.map(function (m) {
-        var b = m.cells.b200.status === "measured" ? fmtSec(m.cells.b200.s_per_fold, 3) + " s" : "does not run";
-        return m.name + ": p150a " + fmtSec(m.cells.p150a.s_per_fold, 3) + " s, H200 " +
-          fmtSec(m.cells.h200.s_per_fold, 3) + " s, B200 " + b + ".";
+        return m.name + ": " + CARD_CELLS.map(function (k) {
+          var c = m.cells[k];
+          return plat(k).short + " " +
+            (c && c.status === "measured" ? fmtSec(c.s_per_fold, 3) + " s" : "does not run");
+        }).join(", ") + ".";
       }).join(" ")
     });
     document.getElementById("c3-cond").textContent =
@@ -602,7 +613,7 @@ details.disclose > div { padding-top: 14px; }
   function chartDesign() {
     var groups = [], max = 0;
     D.design.models.forEach(function (m) {
-      var bars = CELLS.map(function (k) {
+      var bars = CARD_CELLS.map(function (k) {
         var c = m.cells[k], p = plat(k);
         if (c.status !== "measured") {
           return { series: p.name, seriesShort: p.short, blocked: true, reason: c.detail };
@@ -621,8 +632,10 @@ details.disclose > div { padding-top: 14px; }
       tickFmt: function (v) { return v.toFixed(0); },
       title: "Seconds to return one binder design on one AI Processor, measured",
       desc: D.design.models.map(function (m) {
-        return m.name + ": " + CELLS.map(function (k) {
-          return plat(k).name + " " + fmtSec(m.cells[k].s_per_design) + " s";
+        return m.name + ": " + CARD_CELLS.map(function (k) {
+          var c = m.cells[k];
+          return plat(k).name + " " +
+            (c && c.status === "measured" ? fmtSec(c.s_per_design) + " s" : "does not run");
         }).join(", ") + ".";
       }).join(" ")
     });
@@ -670,21 +683,21 @@ details.disclose > div { padding-top: 14px; }
     }
     document.getElementById("t-measured").innerHTML =
       "<thead><tr><th>Model</th><th>Recycles</th><th class=\"n\">Blackhole p150a</th><th class=\"n\">H200</th>" +
-      "<th class=\"n\">B200</th></tr></thead><tbody>" +
+      "<th class=\"n\">B200</th><th class=\"n\">A100</th></tr></thead><tbody>" +
       D.models.map(function (m) {
         return "<tr><td>" + m.name + "</td><td class=\"num\">" + m.recycles + "</td>" +
-          CELLS.map(function (k) {
+          CARD_CELLS.map(function (k) {
             return gpuCell(m.cells[k], function (c) { return fmtSec(c.s_per_fold); });
           }).join("") + "</tr>";
       }).join("") + "</tbody>";
 
     document.getElementById("t-design").innerHTML =
       "<thead><tr><th>Model</th><th class=\"n\">Steps</th><th>Batch</th><th class=\"n\">Blackhole p150a</th>" +
-      "<th class=\"n\">H200</th><th class=\"n\">B200</th></tr></thead><tbody>" +
+      "<th class=\"n\">H200</th><th class=\"n\">B200</th><th class=\"n\">A100</th></tr></thead><tbody>" +
       D.design.models.map(function (m) {
         return "<tr><td>" + m.name + "</td><td class=\"n num\">" + m.sampling_steps + "</td>" +
           "<td class=\"num\">" + m.batch + "</td>" +
-          CELLS.map(function (k) {
+          CARD_CELLS.map(function (k) {
             return gpuCell(m.cells[k], function (c) { return fmtSec(c.s_per_design); });
           }).join("") + "</tr>";
       }).join("") + "</tbody>";
@@ -745,8 +758,8 @@ details.disclose > div { padding-top: 14px; }
     keyRow("c1-keys", ["galaxy_bh", "dgx_h200", "dgx_b200"]);
     keyRow("c1b-keys", ["galaxy_bh", "dgx_h200", "dgx_b200"]);
     keyRow("c2-keys", ["galaxy_bh", "dgx_h200", "dgx_b200"]);
-    keyRow("c3-keys", ["p150a", "h200", "b200"]);
-    keyRow("c5-keys", ["p150a", "h200", "b200"]);
+    keyRow("c3-keys", CARD_CELLS);
+    keyRow("c5-keys", CARD_CELLS);
 
     var md = document.getElementById("methods-dl");
     function mrow(k, v) {

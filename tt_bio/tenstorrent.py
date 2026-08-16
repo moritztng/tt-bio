@@ -119,6 +119,15 @@ TRANSITION_H_CHUNK_SIZE_BIG = 32  # verified envelope: W<=384 (298-aa W=320). W=
 # bound by a number measured for a wider channel. Named so it can be measured rather than
 # argued: default 384 keeps every shipped shape byte-identical.
 TRANSITION_H_CHUNK_BIG_MAX_W = 384
+# Measured ceiling for one Transition row chunk on a small grid, in L1 bytes PER CORE.
+# The chunk's live L1 (x_norm + x_1 + x_2) is interleaved across the grid, so what binds is
+# aggregate L1 / cores, and the budget above never sees core count. On UF-EV-A13-GWH02
+# (8x9 = 72 cores, 1,466,080 B unreserved L1 per core) the fc1/fc2 matmuls fit at <= 384 KiB
+# per core and throw a static-CB clash at >= 400 KiB: 14 points over 6 widths, no exceptions
+# (perf/wh-protenix/wh_transition_h.py). Rescaled to a part's own L1 in _apply_grid_thresholds.
+_TRANSITION_L1_CHUNK_BYTES_BASE = 393216
+_WH_MEASURED_L1_PER_CORE = 1466080  # the L1 the base above was measured at
+TRANSITION_L1_CHUNK_BYTES_PER_CORE = _TRANSITION_L1_CHUNK_BYTES_BASE
 
 # A fused activation="silu" on Transition fc1 costs 174.0 us/call at the 298 aa pair shape, while the
 # same silu as a standalone SFPU pass costs 83.7 -- measured on qb1 card 0, ttnn 0.67.4. The penalty
@@ -478,7 +487,18 @@ def _trimul_chunk_size(seq_len: int, hidden: int, batch: int = 1) -> int:
     gx, gy = COMPUTE_GRID_MAIN
     budget = TRIANGLE_MULT_L1_CHUNK_BUDGET * gx * gy / (COMPUTE_GRID_X_13 * 10)
     c = TRIANGLE_MULT_CHUNK_SIZE
-    while hidden % (c * 2) == 0 and batch * (c * 2) * seq_len * seq_len <= budget:
+    # Price the chunk on the width it actually occupies. The chunk tensors are
+    # [batch, chunk, seq, seq] TILE tensors, so both seq dims round up to 32 and a logical
+    # seq understates the real footprint by (tile(seq)/seq)^2 -- 29% at 225 aa, where 256^2
+    # against 225^2 is the difference between one doubling and none. That is what still
+    # crashed the confidence Pairformer's trimul (minimal_matmul, the `gp_in_fused` below)
+    # after the Transition's own tile-padding fix landed: at 225 aa the logical arithmetic
+    # bought chunk 64 for a footprint of 4,194,304 against a 3,629,908 budget, while 205 aa
+    # sits at 3,211,264 padded and folds. Small grid only, so Blackhole keeps its measured
+    # widths byte-for-byte. Narrowing is bit-exact -- the chunk width is a partition of an
+    # independent-channel sum, as the note above says -- so this cannot move an output.
+    _sq = (-(-int(seq_len) // 32) * 32) if _IS_SMALL_GRID else seq_len
+    while hidden % (c * 2) == 0 and batch * (c * 2) * _sq * _sq <= budget:
         c *= 2
     return c
 
@@ -1654,6 +1674,7 @@ def _apply_grid_thresholds(grid: tuple[int, int]) -> None:
     global TRANSITION_W_CHUNKING_THRESHOLD, TRIANGLE_ATT_CHUNK_SIZE_FAST
     global TRANSITION_W_CHUNK_SIZE, TRIANGLE_MULT_L1_MAX_SEQ_FAST, SMALL_GRID_SEQ_TILE
     global SMALL_GRID_PAIR_TILE_AREA, TRIANGLE_MULT_L1_MAX_SEQ
+    global TRANSITION_L1_CHUNK_BYTES_PER_CORE
     _IS_SMALL_GRID = grid[0] * grid[1] < COMPUTE_GRID_X_11 * COMPUTE_GRID_Y
     if not _IS_SMALL_GRID:
         return  # Keep Blackhole baseline values
@@ -1684,6 +1705,12 @@ def _apply_grid_thresholds(grid: tuple[int, int]) -> None:
     TRIANGLE_MULT_L1_MAX_SEQ = min(_snap(288), TRIANGLE_MULT_L1_MAX_SEQ_FAST)
     SMALL_GRID_SEQ_TILE = _snap(256)
     SMALL_GRID_PAIR_TILE_AREA = _snap(65536, 1024)  # area = rows*L; rows snapped downstream
+    # Referenced to the L1 it was measured at, not to _WH_FULL_L1_PER_CORE: _s is already a
+    # 1.5 MiB ratio, and reusing it here would shrink a budget that was fitted at 1,466,080 B
+    # a second time. Clamped to 1.0 -- a part with more L1 may well fit a bigger chunk, but
+    # nothing above 384 KiB has been measured to fit, so do not extrapolate upwards.
+    TRANSITION_L1_CHUNK_BYTES_PER_CORE = int(
+        _TRANSITION_L1_CHUNK_BYTES_BASE * min(1.0, _l1 / _WH_MEASURED_L1_PER_CORE))
 
 
 def _configure_active_compute_grid(device: ttnn.Device) -> None:
@@ -3557,18 +3584,57 @@ class Transition(Module):
         # clamp means this only ever raises the chunk size where it had been shrunk,
         # so W<=threshold shapes (every normal target) are byte-identical to before.
         w_eff = min(W, TRANSITION_W_CHUNK_SIZE) if W > transition_w_chunking_threshold else W
+        _base_h = transition_h_chunk_size
+        _ref = 1024 * 128
+        if _IS_SMALL_GRID:
+            _ref = _ref * 128 // max(128, x.shape[-1])
+        transition_h_chunk_size = max(1, int(transition_h_chunk_size * min(1.0, _ref / (w_eff * x.shape[-1]))))
+
+        # ...and raise it back where the compounded ratio above over-shrinks. That ratio divides by
+        # the channel TWICE -- once here and again in the small-grid `_ref * 128 // c` -- so the
+        # small-grid budget falls as 1/c^2 where Blackhole's falls as 1/c. At OpenDDE's c_z=384 that
+        # costs a factor of three: the chunk is 3 against Blackhole's 10, i.e. 171 row blocks for a
+        # 512-token pair tensor instead of 52. MEASURED on the Galaxy, real Transition module, 2 warm
+        # + 5 timed, spread under 1.4 % (perf/wh-opendde/wh_transition_chunk.py):
+        #
+        #   W=512  h=3 (shipped) 72.36 ms | h=6 65.53 = 1.1035x | h=7 69.65 | h=8 68.32 | h=9 67.01
+        #   W=320  h=5 (shipped) 27.50    | h=6 26.42 | h=10 25.49 = 1.0786x
+        #
+        # The wall is NOT monotonic in the height -- 7, 8 and 9 all fit at W=512 and are all slower
+        # than 6 -- so this lands on the measured optimum rather than on the largest chunk that fits,
+        # and the per-core cap below still has the last word. Fold-level A/B at 512 aa: 189.398 ->
+        # 185.899 s, 1.0188x, against an A/A floor of 0.235 s, CIF digest identical on both arms.
+        #
+        # Scoped to 256 < c <= 384 on purpose. c=128 is already unshrunk and its shipped h=16
+        # measured fastest with no clash at any height; c=256 measures 1.0738x at W=512 but is
+        # protenix-v2's channel and the cap above is its crash fix, so it is left exactly alone.
+        # The W/H guard keeps this to the regime where every arm was torch.equal: above the
+        # 608-token thresholds the loop also W-chunks and the ragged tail re-rounds with the row
+        # height (max abs diff 0.015625, bf16).
         _c = int(x.shape[-1])
         if (_IS_SMALL_GRID and SMALL_GRID_TRANSITION_ELEMS
                 and 256 < _c <= SMALL_GRID_TRANSITION_MAX_C
                 and W <= transition_w_chunking_threshold and H <= SEQ_LEN_MORE_CHUNKING):
-            # Measured budget, not the compounded ratio. See SMALL_GRID_TRANSITION_ELEMS.
-            transition_h_chunk_size = max(1, min(transition_h_chunk_size,
-                                                 SMALL_GRID_TRANSITION_ELEMS // (w_eff * _c)))
-        else:
-            _ref = 1024 * 128
-            if _IS_SMALL_GRID:
-                _ref = _ref * 128 // max(128, _c)
-            transition_h_chunk_size = max(1, int(transition_h_chunk_size * min(1.0, _ref / (w_eff * _c))))
+            transition_h_chunk_size = max(transition_h_chunk_size,
+                                          min(_base_h, SMALL_GRID_TRANSITION_ELEMS // (w_eff * _c)))
+        if _IS_SMALL_GRID:
+            # Cap the row chunk by measured per-core L1. The budget above scales by per-core L1
+            # and by the channel excess; neither term sees that the Galaxy has 45% fewer cores
+            # than the 130-core grid these constants were fitted on, so the same nominal chunk
+            # lands as ~1.8x the per-core bytes and clashes. Live per chunk: x_norm (c) plus
+            # x_1 and x_2 (hidden each), bf16. Every extent is TILE-PADDED: a (1,H,W,c) tile
+            # tensor rounds W and c up to 32, so the logical extents understate the real
+            # footprint by up to 32/W. At 298 aa, W pads 298 -> 320 and the same chunk costs
+            # 409,600 B/core, not the 381,440 the logical arithmetic reports -- across the
+            # measured throw edge (perf/wh-protenix/wh_transition_h.py: fits <= 393,216,
+            # throws >= 409,600), which is why 298 aa still clashed in the confidence
+            # Pairformer after the cap landed. Tile-aligned W is unaffected by construction.
+            _gx, _gy = COMPUTE_GRID_MAIN
+            _hid = int(self.fc1_weight.shape[-1])
+            _tile = lambda v: -(-int(v) // 32) * 32
+            _cap = max(1, int(TRANSITION_L1_CHUNK_BYTES_PER_CORE * _gx * _gy
+                              // (2 * _tile(w_eff) * (_tile(x.shape[-1]) + 2 * _tile(_hid)))))
+            transition_h_chunk_size = min(transition_h_chunk_size, _cap)
         if H > SEQ_LEN_MORE_CHUNKING:
             # Large-sequence path: slice row blocks lazily inside the loop. ttnn.chunk
             # would materialise a full second copy of the pair tensor up front, and the
