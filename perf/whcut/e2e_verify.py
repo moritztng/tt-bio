@@ -110,6 +110,11 @@ def main():
     ap.add_argument("--rfd3-contig", default="A1-10,20,A31-40")
     ap.add_argument("--submit-backoff", type=int, default=20,
                     help="seconds to wait after a 429, multiplied by the attempt number")
+    # NOTE for anyone reusing this against the deploy: poll each job BY ID, as this script
+    # does. `GET /v1/jobs` is scoped and does not list anonymous submissions -- measured
+    # returning 6 jobs, newest from 2026-08-15, while two freshly-submitted folds were
+    # running. A drain or completion check built on that list reports idle while work is in
+    # flight. The service-wide signal that works is /api/cluster's runs.running.
     a = ap.parse_args()
 
     bg = open(a.boltzgen_spec).read() if a.boltzgen_spec else None
