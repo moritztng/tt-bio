@@ -1669,7 +1669,7 @@ def _qkv_l1_config(x: ttnn.Tensor, w: ttnn.Tensor, dtype) -> object | None:
         return None
 
 
-def _apply_grid_thresholds(grid: tuple[int, int]) -> None:
+def _apply_grid_thresholds(grid: tuple[int, int], device=None) -> None:
     """Retune L1-edge thresholds and chunk sizes for grids smaller than the
     11x10 Blackhole baseline (e.g. Wormhole 8x8 has ~55% of its aggregate L1),
     so chunking kicks in early enough to avoid L1/CB clashes."""
@@ -1707,6 +1707,37 @@ def _apply_grid_thresholds(grid: tuple[int, int]) -> None:
     TRIANGLE_MULT_L1_MAX_SEQ = min(_snap(288), TRIANGLE_MULT_L1_MAX_SEQ_FAST)
     SMALL_GRID_SEQ_TILE = _snap(256)
     SMALL_GRID_PAIR_TILE_AREA = _snap(65536, 1024)  # area = rows*L; rows snapped downstream
+    # SEQ_LEN_MORE_CHUNKING is the one budget above whose resource is NOT per-core L1. It bounds
+    # how many full pair tensors are live at once (the code comment on the path it guards says it
+    # drops "from 3 full pair tensors live to 2"), and that resource is DRAM capacity. Scaling it by
+    # per-core L1 put it at 608 on the Galaxy, so everything from 640 to 1024 aa -- exactly the range
+    # JapanFold's max_residues 1024 opens -- took a chunked path nobody had measured against the
+    # unchunked one.
+    #
+    # MEASURED at 1024 aa on that part. Footprint, perf/whb2/out/cap_wh/: unchunked peaks at
+    # 3.461 GiB of 12.0, chunked at 2.962. Wall, perf/whb2/out/leverC_wh/: 183.371 s unchunked
+    # against 211.532 s chunked, and 77.571 against 87.043 at 640 aa. So the chunking buys 0.499 GiB,
+    # 4.2 % of the part's DRAM, and costs 28.161 s, 15 % of the wall, on a chip with 8.5 GiB spare.
+    # It was protecting nothing in this range.
+    #
+    # Re-expressed against DRAM and anchored on that measurement rather than on a chosen safety
+    # margin: the pair tensors dominate the peak and scale as L^2, so the largest L whose unchunked
+    # trunk sits at the same fraction of DRAM that L=1024 was actually validated at (3.461/12.0 =
+    # 28.8 %, taken as 1/3) is 1024 * sqrt((dram/3) / 3.461 GiB). On this part that is 1088, which
+    # covers every size the service serves with the 640 and 1024 aa points directly measured.
+    # `max` keeps it from ever landing below today's value and `min` from exceeding the Blackhole
+    # baseline. Blackhole does not reach this code at all -- the function returns early on a
+    # full-size grid -- so its neutrality is by construction, not by clamp.
+    _GIB = 2 ** 30
+    try:
+        _mv = ttnn.get_memory_view(device, ttnn.BufferType.DRAM)
+        _dram = int(_mv.total_bytes_per_bank) * int(_mv.num_banks)
+    except Exception:
+        _dram = 0
+    if _dram:
+        _l = int(1024 * ((_dram / 3.0) / (3.461 * _GIB)) ** 0.5)
+        SEQ_LEN_MORE_CHUNKING = min(1536, max(SEQ_LEN_MORE_CHUNKING, (_l // 32) * 32))
+
     # Lever C's screen hook. Every budget above is scaled by this part's per-core L1, which is the
     # right resource for the L1-edge ones and, for SEQ_LEN_MORE_CHUNKING specifically, arguably the
     # wrong one: that gate bounds how many full pair tensors are live at once, and the resource
@@ -1740,7 +1771,7 @@ def _configure_active_compute_grid(device: ttnn.Device) -> None:
 
     CORE_GRID_MAIN = ttnn.CoreGrid(y=gy, x=gx)
     COMPUTE_GRID_MAIN = (gx, gy)
-    _apply_grid_thresholds((gx, gy))
+    _apply_grid_thresholds((gx, gy), device)
     _sdpa_program_config.cache_clear()
     _sdpa_program_config_for_lengths.cache_clear()
     _triangle_mul_program_config.cache_clear()
