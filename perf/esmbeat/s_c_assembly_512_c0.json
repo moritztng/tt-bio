@@ -1,0 +1,73 @@
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "grid": [
+  11,
+  10
+ ],
+ "size": 512,
+ "rows": 32,
+ "blocks": 16,
+ "calls_per_fold": 538,
+ "ms": {
+  "ship": 14.6267,
+  "nochunk": 13.991,
+  "noconcat": 14.0324,
+  "noasm": 13.4556,
+  "lnblocks": 1.01,
+  "lnfull": 0.9334
+ },
+ "raw": {
+  "ship": [
+   14.6055,
+   14.682,
+   14.6326,
+   14.6183,
+   14.6267
+  ],
+  "nochunk": [
+   13.9536,
+   14.0378,
+   13.991,
+   13.9087,
+   13.9987
+  ],
+  "noconcat": [
+   14.1087,
+   14.0795,
+   14.0324,
+   14.0323,
+   13.9948
+  ],
+  "noasm": [
+   13.3449,
+   13.4245,
+   13.4659,
+   13.4556,
+   13.5003
+  ],
+  "lnblocks": [
+   1.0102,
+   1.01,
+   1.01,
+   1.0091,
+   1.003
+  ],
+  "lnfull": [
+   0.9336,
+   0.9378,
+   0.9334,
+   0.9268,
+   0.9286
+  ]
+ },
+ "ln_torch_equal": true,
+ "assembly_ms_per_call": 1.1711,
+ "assembly_s_per_fold": 0.63,
+ "concat_only_s_per_fold": 0.32,
+ "ln_full_vs_blocks_ms": -0.0766,
+ "G1_pass": true,
+ "G2_pass": true,
+ "G3_pass": true,
+ "verdict": "GO"
+}
