@@ -326,7 +326,11 @@ _MIN_L1_SCALE = 0.7             # floor: keep chunks workable on a very tight pa
 
 PAIRFORMER_PAD_MULTIPLE = 64  # Pad token dim to this multiple to avoid kernel recompilation
 MSA_PAD_MULTIPLE = 1024  # Pad MSA dim to this multiple to avoid kernel recompilation
-MAX_ATOMS_PER_TOKEN = 14  # Upper bound on atoms per residue (Trp=14); ties atom bucket to seq_len bucket
+# Upper bound on heavy atoms per token for PROTEIN residues (Trp=14); ties the atom
+# bucket to the seq_len bucket. Nucleotide tokens carry more (up to 23), so a DNA/RNA
+# target can exceed padded_seq * 14 — _populate_diffusion_cache extends the bucket to
+# cover the real atom count in that case instead of asserting.
+MAX_ATOMS_PER_TOKEN = 14
 
 ATOM_WINDOW = 32
 ATOM_DIM = 128
@@ -5802,7 +5806,14 @@ class DiffusionModule(TorchWrapper):
         token_pad = (-seq_len) % PAIRFORMER_PAD_MULTIPLE
         padded_seq = seq_len + token_pad
         N_padded = padded_seq * MAX_ATOMS_PER_TOKEN
-        assert N <= N_padded, f"N={N} exceeds max {N_padded} for padded_seq={padded_seq}. Increase MAX_ATOMS_PER_TOKEN."
+        if N > N_padded:
+            # The protein-derived bucket (Trp=14 atoms/token) under-sizes targets with
+            # nucleic-acid tokens (up to 23 atoms) or large modified residues. Extend to
+            # the next window multiple that covers the real atom count — the padding is
+            # masked out, and the diffusion trace keys on N_padded, so this costs one
+            # recompile per new shape rather than a failure. Protein-only inputs never
+            # take this branch, so their shapes (and compiled caches) are unchanged.
+            N_padded = -(-N // ATOM_WINDOW) * ATOM_WINDOW
         atom_pad = N_padded - N
         NW_padded = N_padded // ATOM_WINDOW
         K_padded = B * NW_padded
