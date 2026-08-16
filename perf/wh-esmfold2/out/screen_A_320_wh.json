@@ -1,0 +1,63 @@
+{
+ "host": "UF-EV-A13-GWH02",
+ "card": "30",
+ "grid": [
+  8,
+  9
+ ],
+ "cores": 72,
+ "L": 320,
+ "fast": true,
+ "small_grid": true,
+ "ttnn": "0.68.0",
+ "gates": {
+  "pair_row_tile": 192,
+  "seq_len_more_chunking": 608,
+  "trimul_l1_max_seq": 288,
+  "trimul_chunk_size": 32,
+  "split_swiglu_min_seq": 144,
+  "pair_ffn_row_block": 32,
+  "pair_ffn_row_block_seq": [
+   320,
+   1024
+  ]
+ },
+ "A": {
+  "split_swiglu_built": true,
+  "fc1_weight_dtype": "DataType.BFLOAT8_B",
+  "arm_off": {
+   "ms": 28.3772,
+   "spread_ms": 0.2337,
+   "l1_fc1_served": 0,
+   "l1_fc1_declined": 0,
+   "out_dtype": "DataType.BFLOAT16",
+   "seen": {
+    "base_fc1_out": "DataType.BFLOAT16"
+   }
+  },
+  "arm_on": {
+   "ms": 14.6587,
+   "spread_ms": 0.0286,
+   "l1_fc1_served": 220,
+   "l1_fc1_declined": 0,
+   "out_dtype": "DataType.BFLOAT16",
+   "seen": {
+    "split_fc1_out": "DataType.BFLOAT8_B",
+    "split_fc1_req": "DataType.BFLOAT8_B",
+    "split_fc1_l1": "BufferType.DRAM"
+   }
+  }
+ },
+ "C1": {},
+ "C2": {},
+ "dtypes": {
+  "base_fc1_out": "DataType.BFLOAT16"
+ },
+ "exact": {
+  "A_on_vs_off": false,
+  "A_ndiff": 24692594,
+  "A_max_abs": 0.01171875,
+  "A_peak": 0.55078125,
+  "A_max_abs_over_peak": 0.02127659574468085
+ }
+}

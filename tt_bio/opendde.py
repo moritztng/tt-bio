@@ -32,6 +32,11 @@ _SIDECHAIN = STRUCTURAL_TOKEN_ROLES["protein_sc"]
 _BASE = (STRUCTURAL_TOKEN_ROLES["dna_base"], STRUCTURAL_TOKEN_ROLES["rna_base"])
 
 
+# Keep the OpenDDE trunk->structural z_trunk host copy in the bf16 the device held instead of
+# upcasting it to fp32 that both consumers immediately undo. Bit-exact; ON by default.
+_SEAM_BF16 = True
+
+
 class StructuralTokenExpander(_KeyedWeights):
     """ttnn port of OpenDDE's residue->structural-token expander (opendde_v1:
     pair_projection_mode="full", 49 role-pair projections, chunked).
@@ -507,7 +512,11 @@ class OpenDDE:
         s_trunk_tt, z_tt = P.trunk(feats, s_inputs, relp, feats["token_bonds"],
                                   n_cycles=n_cycles, progress_fn=progress_fn)
         s_trunk = P._to_host(s_trunk_tt, (NT, s_trunk_tt.shape[-1]))
-        z_trunk = P._to_host(z_tt, (NT, NT, P.trunk.C_Z))
+        # The z_trunk host copy stays bf16 when `_SEAM_BF16` is on. Its two consumers both
+        # accept it: the expander re-uploads it as bf16 (`ttnn.from_torch(..., dtype=bfloat16)`,
+        # a no-op cast), and the confidence head only ever adds it to fp32 tensors, where torch
+        # promotes bf16 -> fp32 exactly. Deletes 402 MB of host fp32 writes per fold.
+        z_trunk = P._to_host(z_tt, (NT, NT, P.trunk.C_Z), fp32=not _SEAM_BF16)
         # The residue-axis device tensors are never read from device again -- the
         # expander, diffusion conditioning and confidence all consume the host copies
         # above. Free them before the expander allocates the structural-scale pair

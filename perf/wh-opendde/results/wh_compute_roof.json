@@ -1,0 +1,81 @@
+{
+  "_note": "stdout of perf/wh-opendde/wh_compute_roof.py, UF-EV-A13-GWH02, UMD 26, 2026-08-15 21:59Z, prod loadavg 10.2. Transcribed verbatim from the run's ROOF_JSON line.",
+  "probe_dev_umd_id": 26,
+  "arch": "wormhole_b0",
+  "grid": [8, 9],
+  "cores": 72,
+  "results": {
+    "S512_384x1152": {
+      "flop": 231928233984,
+      "base_ms": 8.089450499392115,
+      "base_best_ms": 8.042802099953406,
+      "base_TFLOPs": 28.67045592298616,
+      "shipped_entry": [4, 12, 1, 2, 1],
+      "cfg_ms": 8.000991100561805,
+      "cfg_TFLOPs": 28.987438064731098,
+      "ratio_base_over_cfg": 1.0110560551459804,
+      "torch_equal": false,
+      "max_abs": 128.0703125
+    },
+    "S512_384x384": {
+      "flop": 77309411328,
+      "base_ms": 3.869379000389017,
+      "base_best_ms": 3.8515449996339157,
+      "base_TFLOPs": 19.979798133040862,
+      "shipped_entry": [8, 12, 1, 2, 1],
+      "cfg_ms": 3.186952299438417,
+      "cfg_TFLOPs": 24.258101177611895,
+      "ratio_base_over_cfg": 1.2141314449767109,
+      "torch_equal": false,
+      "max_abs": 128.125
+    },
+    "S512_384x1536": {
+      "flop": 309237645312,
+      "base_ms": 11.040268999931868,
+      "base_best_ms": 10.983554500853643,
+      "base_TFLOPs": 28.009973789036152
+    },
+    "S320_384x1152": {
+      "flop": 90596966400,
+      "base_ms": 3.2213472004514188,
+      "base_best_ms": 3.1660027991165407,
+      "base_TFLOPs": 28.123937210898696,
+      "shipped_entry": [4, 12, 1, 2, 1],
+      "cfg_ms": 3.1766939006047323,
+      "cfg_TFLOPs": 28.51926223762179,
+      "ratio_base_over_cfg": 1.0140565321191903,
+      "torch_equal": false,
+      "max_abs": 127.546875
+    },
+    "S320_384x384": {
+      "flop": 30198988800,
+      "base_ms": 1.5312117990106344,
+      "base_best_ms": 1.487125399580691,
+      "base_TFLOPs": 19.722280627351843,
+      "shipped_entry": [8, 12, 1, 2, 1],
+      "cfg_ms": 1.2833914006478153,
+      "cfg_TFLOPs": 23.53061488861193,
+      "ratio_base_over_cfg": 1.1930980667610265,
+      "torch_equal": false,
+      "max_abs": 127.96875
+    },
+    "S320_384x1536": {
+      "flop": 120795955200,
+      "base_ms": 4.3240282000624575,
+      "base_best_ms": 4.295221800566651,
+      "base_TFLOPs": 27.935977660426726
+    },
+    "square2048_hifi4": {
+      "flop": 17179869184,
+      "ms": 0.41490229923510924,
+      "TFLOPs": 41.40702332976185,
+      "TFLOPs_best": 41.6176783252765
+    },
+    "square2048_lofi": {
+      "flop": 17179869184,
+      "ms": 0.3208966998499818,
+      "TFLOPs": 53.53707031587278,
+      "TFLOPs_best": 54.567763794830036
+    }
+  }
+}

@@ -1,0 +1,84 @@
+{
+ "host": "UF-EV-A13-GWH02",
+ "rung": "R3",
+ "designs": 2,
+ "sampling_steps": 6,
+ "arm_cores": [
+  72
+ ],
+ "grid": [
+  8,
+  9
+ ],
+ "l1_chunk_budget": 6553600,
+ "widths_seen": {},
+ "arms": {
+  "arm0_72cores": {
+   "cores": 72,
+   "designs_kept": [
+    1
+   ],
+   "designs_all": [
+    0,
+    1
+   ],
+   "ms_per_design": [
+    99.719,
+    81.448
+   ],
+   "ms_median": 81.448,
+   "n_designs": 1,
+   "step_ms_median": 81.448,
+   "step_ms_per_design": [
+    99.719,
+    81.448
+   ]
+  }
+ },
+ "trunk": {
+  "arm0_72cores": {
+   "cores": 72,
+   "designs_kept": [],
+   "designs_all": [],
+   "ms_per_design": [],
+   "ms_median": null,
+   "n_designs": 0
+  }
+ },
+ "shapes_seen": {
+  "(576, 64)": [
+   1,
+   576,
+   576,
+   64
+  ],
+  "(576, 128)": [
+   1,
+   576,
+   576,
+   128
+  ]
+ },
+ "error": null,
+ "loadavg": 5.39,
+ "proc_wall_s": 116.9,
+ "bit_exact": {
+  "checked": true,
+  "shape": [
+   1,
+   576,
+   576,
+   64
+  ],
+  "ref_arm_cores": 72,
+  "torch_equal": {
+   "arm0_72cores": true
+  },
+  "max_abs": {
+   "arm0_72cores": 0.0
+  }
+ },
+ "speedup_diffusion_vs_arm0": {
+  "arm0_72cores": 1.0
+ }
+}

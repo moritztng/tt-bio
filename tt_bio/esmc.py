@@ -298,6 +298,20 @@ _PAIR_FFN_ROW_BLOCK = int(os.environ.get("TT_BIO_PAIR_FFN_ROW_BLOCK", PAIR_FFN_R
 # derives different matmul programs and does its own row blocking through `pair_row_tile`, so the
 # parity above says nothing there and the shipped unsplit chain keeps running.
 SPLIT_SWIGLU_MIN_SEQ = 144
+
+# ...and the small grid gets its own opt-in, because "no evidence there" is not "measured slower
+# there". The Wormhole Galaxy JapanFold runs on is 8x9 = 72 cores, so `_IS_SMALL_GRID` is True and
+# the whole family above -- split fc1, the 32-row block, the L1-resident fc1 -- is dead on the one
+# machine that serves users. This flag is read ONLY when `_IS_SMALL_GRID` is True, so on any grid
+# >= 110 cores the expression below is byte-for-byte the one that shipped before it existed.
+# Measured on 8x9, --fast, bit-exact at every size (one CIF sha256 per size across both arms):
+# 256 aa 28.727 -> 26.597 s, 298 aa 41.083 -> 36.556, 512 aa 93.512 -> 83.843, 640 aa
+# 155.701 -> 141.117. Inert below SPLIT_SWIGLU_MIN_SEQ, as 128 aa confirms at 0.1 %. The 13x10
+# Blackhole A/A is -0.54 % inside a 0.6 % spread with an identical digest. See
+# state/wh-perf-esmfold2.md.
+SPLIT_SWIGLU_SMALL_GRID = True
+_SPLIT_SWIGLU_SMALL_GRID = os.environ.get(
+    "TT_BIO_SPLIT_SWIGLU_SMALL_GRID", "1" if SPLIT_SWIGLU_SMALL_GRID else "0") == "1"
 PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)
 
 # Inside the row block, fc1's two halves can also write their OUTPUT to L1, so fc2's operand never
@@ -325,11 +339,24 @@ _PAIR_FFN_L1_FC1 = os.environ.get(
 # than what greps. Same idiom as `reblock_permute.STATS_GATED`.
 L1_FC1_STATS = [0, 0]
 
+# [split, unsplit] `SwiGLUFFN.__call__` invocations. An A/B arm on the small-grid opt-in needs both
+# `_SPLIT_SWIGLU` and `_SPLIT_SWIGLU_SMALL_GRID`, and if either is missed the arm is a silent A/A;
+# this counter is what makes that visible instead of inferred.
+SPLIT_STATS = [0, 0]
+
 
 def set_split_swiglu(on: bool) -> bool:
     """A/B switch for the split-fc1 SwiGLU path. Returns the previous state."""
     global _SPLIT_SWIGLU
     prev, _SPLIT_SWIGLU = _SPLIT_SWIGLU, bool(on)
+    return prev
+
+
+def set_split_swiglu_small_grid(on: bool) -> bool:
+    """A/B switch for the split-fc1 SwiGLU family on a small (< 110 core) grid. Returns the
+    previous state. Inert on Blackhole: the flag is only consulted when `_IS_SMALL_GRID`."""
+    global _SPLIT_SWIGLU_SMALL_GRID
+    prev, _SPLIT_SWIGLU_SMALL_GRID = _SPLIT_SWIGLU_SMALL_GRID, bool(on)
     return prev
 
 
@@ -419,7 +446,17 @@ class SwiGLUFFN(Module):
                 L1_FC1_STATS[0] += 2
                 l1 = dict(l1_out=True, l1_bw=_PAIR_FFN_FC1_BW,
                           l1_block_w=_PAIR_FFN_FC1_BLOCK_W)
-                dt = _dtype()
+                # The unsplit control resolves `_dtype(ttnn.bfloat16)`, so a bare `_dtype()`
+                # here makes turning the split on a PRECISION change as well as a traffic one
+                # whenever fast mode is set: MEASURED max_abs/peak 2.5e-2 at 512 aa on the
+                # 72-core Galaxy, where --fast is forced. The small-grid path is new, so it
+                # takes the control's dtype and stays comparable; Blackhole keeps the dtype
+                # its shipped parity was measured with.
+                from tt_bio import tenstorrent as _T
+                dt = (_dtype(ttnn.bfloat16)
+                      if (_SPLIT_SWIGLU_SMALL_GRID
+                          and getattr(_T, "_IS_SMALL_GRID", False))
+                      else _dtype())
                 h1 = _pair_proj_linear(x_norm, self.fc1_a_weight, ck, dt, **l1)
                 h2 = _pair_proj_linear(x_norm, self.fc1_b_weight, ck, dt, **l1)
             else:
@@ -455,9 +492,11 @@ class SwiGLUFFN(Module):
         L = x.shape[1]
         split = bool(
             self.split_swiglu and _SPLIT_SWIGLU
-            and not getattr(tenstorrent, "_IS_SMALL_GRID", False)
+            and (_SPLIT_SWIGLU_SMALL_GRID
+                 or not getattr(tenstorrent, "_IS_SMALL_GRID", False))
             and x.shape[-2] >= SPLIT_SWIGLU_MIN_SEQ
         )
+        SPLIT_STATS[0 if split else 1] += 1
         lo, hi = PAIR_FFN_ROW_BLOCK_SEQ
         rows = _PAIR_FFN_ROW_BLOCK
         if split and len(x.shape) == 4 and rows and lo <= L <= hi:
@@ -887,16 +926,26 @@ class ESMCHiddenStatesModel(Module):
         self.norm_weight = self.torch_to_tt("transformer.norm.weight")
 
     def __call__(self, tokens: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None,
-                 key_valid: ttnn.Tensor | None = None):
+                 key_valid: ttnn.Tensor | None = None, last_hidden_only: bool = False):
+        """Return the hidden states. With ``last_hidden_only`` only the final-norm one.
+
+        The intermediate ``_to_host`` calls exist for ESMFold2, whose LanguageModelShim
+        consumes all ``n_layers + 1`` states. The standalone embed path uses only the last
+        (``_trunk_forward`` takes ``[-1, 0]``), and for the 6B that means 80 blocking
+        device->host copies per forward whose results are thrown away. Each one is also a
+        pipeline drain -- the host cannot dispatch block ``i+1`` until block ``i``'s copy has
+        returned -- so skipping them recovers the dispatch/compute overlap as well as the
+        traffic. Default is unchanged, so ESMFold2 is untouched by construction.
+        """
         seq_len = tokens.shape[-1]
         head_dim = self.norm_weight.shape[-1] // self.n_heads
         cos, sin = rope_tables(seq_len, head_dim, device=self.device)
 
         x = self.embed(tokens)
-        hidden = [self._to_host(x)]  # hs[0] = embedding output
+        hidden = [] if last_hidden_only else [self._to_host(x)]  # hs[0] = embedding output
         for i, block in enumerate(self.blocks):
             x = block(x, cos, sin, attn_mask, key_valid)
-            if i < self.n_layers - 1:
+            if not last_hidden_only and i < self.n_layers - 1:
                 hidden.append(self._to_host(x))  # hs[i+1] = block i output
         norm_x = ttnn.layer_norm(
             x, weight=self.norm_weight, epsilon=1e-5,
@@ -938,7 +987,13 @@ class ESMCLanguageModel(TorchWrapper):
     def _create_module(self, weights: WeightScope) -> ESMCHiddenStatesModel:
         return ESMCHiddenStatesModel(self.n_heads, self.n_layers, weights, self.compute_kernel_config)
 
-    def forward(self, input_ids: torch.Tensor, attn_mask: torch.Tensor | None = None) -> torch.Tensor:
+    def forward(self, input_ids: torch.Tensor, attn_mask: torch.Tensor | None = None,
+                last_hidden_only: bool = False) -> torch.Tensor:
+        """``[n_layers+1, B, L, d]``, or ``[1, B, L, d]`` with ``last_hidden_only``.
+
+        Either way ``[-1]`` is the final-norm state, which is the whole contract
+        ``_trunk_forward`` depends on.
+        """
         B, Lm = input_ids.shape
         # Bucket the LM length to a multiple of 64 so the 80-layer ESMC kernels
         # are shared across nearby lengths instead of recompiling per length.
@@ -971,7 +1026,8 @@ class ESMCLanguageModel(TorchWrapper):
                 kv.to(torch.bfloat16), device=self.tt_device,
                 layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16,
             )
-        hidden = self.module(tokens_tt, mask_tt, key_valid_tt)  # list of [B, Lb, d_model]
+        hidden = self.module(tokens_tt, mask_tt, key_valid_tt,
+                             last_hidden_only=last_hidden_only)  # list of [B, Lb, d_model]
         return torch.stack(hidden, dim=0)[:, :, :Lm, :]  # slice padding -> [n+1, B, Lm, d_model]
 
     def release(self):
@@ -1172,7 +1228,9 @@ def _trunk_forward(model, seq: str, return_logits: bool):
     tokens = tokenize(seq)  # [1, len(seq)+2] with <cls> … <eos>
     logits = None
     if isinstance(model, ESMCLanguageModel):
-        emb = model(tokens)[-1, 0]          # final-norm hidden state [L+2, d]
+        # Only the final-norm state is used, so do not pay for the other n_layers
+        # readbacks (80 for the 6B). See ESMCHiddenStatesModel.__call__.
+        emb = model(tokens, last_hidden_only=True)[-1, 0]   # final-norm hidden state [L+2, d]
     else:
         lg, em = model(tokens)              # [1, L+2, 64], [1, L+2, d]
         emb = em[0]

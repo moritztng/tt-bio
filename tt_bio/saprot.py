@@ -701,6 +701,31 @@ def foldseek_3di(pdb_path: str, foldseek_bin: str | None = None, chains: list | 
                 pass
 
 
+def read_shard_yaml(path) -> dict:
+    """Parse a controller shard's YAML ``{id: [aa, 3di]}`` mapping for SaProt.
+
+    ``esmc.read_yaml`` deliberately rejects non-string values, which is the right
+    validation for ESMC and the wrong one here: a SaProt shard carries the 3Di
+    string alongside the amino-acid string. A bare string value is accepted too
+    and read as sequence-only (3Di = "#"), so a shard written by an ESMC-shaped
+    producer still loads.
+    """
+    import yaml
+
+    doc = yaml.safe_load(Path(path).read_text()) or {}
+    if not isinstance(doc, dict) or not doc:
+        raise ValueError(f"{path}: expected a YAML mapping of {{id: [aa, 3di]}}, got {doc!r}")
+    out: dict[str, tuple[str, str]] = {}
+    for k, v in doc.items():
+        if isinstance(v, str):
+            out[str(k)] = (v.upper(), "#" * len(v))
+        elif isinstance(v, (list, tuple)) and len(v) == 2:
+            out[str(k)] = (str(v[0]).upper(), str(v[1]))
+        else:
+            raise ValueError(f"{path}: entry {k!r} is neither a sequence nor an [aa, 3di] pair")
+    return out
+
+
 def load_sequences_with_structure(data, structure=None) -> dict:
     """Load {id: (aa, struc)} for the SaProt tokenizer.
 

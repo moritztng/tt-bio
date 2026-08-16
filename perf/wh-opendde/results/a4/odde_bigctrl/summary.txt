@@ -1,0 +1,6 @@
+EXIT 640 off = 1 throws=3 firstthrow=grow to 1525024 B
+EXIT 640 on = 1 throws=3 firstthrow=grow to 1525024 B
+EXIT 768 off = 1 throws=3 firstthrow=grow to 2190624 B
+EXIT 768 on = 1 throws=3 firstthrow=grow to 2190624 B
+EXIT 1024 off = 1 throws=4 firstthrow=grow to 3386656 B
+EXIT 1024 on = 1 throws=4 firstthrow=grow to 3386656 B

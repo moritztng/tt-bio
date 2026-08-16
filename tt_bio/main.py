@@ -1778,11 +1778,13 @@ def _read_protein_chains(path):
     where the third field is an optional a3m path (``empty`` / blank = none);
     non-protein typed records are skipped, and comma-separated ids expand to
     repeated chains (sharing the MSA). YAML protein entries may carry an
-    ``msa:`` path. ``msa_spec`` is the a3m path string or None. Each input file
+    ``msa:`` path and a ``modifications:`` list (``{position: N, ccd: CODE}``,
+    1-indexed, the Boltz convention). ``msa_spec`` is the a3m path string or
+    None; ``modifications`` is the list of dicts or None. Each input file
     is one (possibly multi-chain) complex.
     """
     suffix = path.suffix.lower()
-    chains: list[tuple[str, str, str | None]] = []
+    chains: list[tuple[str, str, str | None, list | None]] = []
     if suffix in (".fa", ".fas", ".fasta"):
         cid, buf, msa = None, [], None
         def flush():
@@ -1790,7 +1792,7 @@ def _read_protein_chains(path):
             # chain whose id we auto-assign below — gate on `is not None` so it isn't dropped.
             if cid is not None and buf:
                 for c in cid.split(","):
-                    chains.append((c.strip() or _chain_label(len(chains)), "".join(buf), msa))
+                    chains.append((c.strip() or _chain_label(len(chains)), "".join(buf), msa, None))
         for line in path.read_text().splitlines():
             line = line.strip()
             if line.startswith(">"):
@@ -1813,12 +1815,26 @@ def _read_protein_chains(path):
             if prot and prot.get("sequence"):
                 m = prot.get("msa")
                 m = str(m) if m and str(m).lower() not in ("", "empty") else None
+                mods = prot.get("modifications")
+                if mods:
+                    seq_len = len("".join(prot["sequence"].split()))
+                    for mod in mods:
+                        pos = mod.get("position") if isinstance(mod, dict) else None
+                        if (not isinstance(pos, int) or not (1 <= pos <= seq_len)
+                                or not mod.get("ccd")):
+                            raise click.ClickException(
+                                f"esmfold2: modification {mod!r} on chain "
+                                f"{prot.get('id', 'A')} needs a 1-indexed position within the "
+                                f"sequence (length {seq_len}) and a ccd code.")
+                    mods = [dict(mod) for mod in mods]
+                else:
+                    mods = None
                 # `id` may be a YAML list ([A, C]) or a comma-separated string.
                 ids = prot.get("id", "A")
                 id_list = ([str(x) for x in ids] if isinstance(ids, (list, tuple))
                            else str(ids).split(","))
                 for c in id_list:
-                    chains.append((c.strip(), prot["sequence"], m))
+                    chains.append((c.strip(), prot["sequence"], m, mods))
     else:
         raise click.ClickException(f"Unsupported input for esmfold2: {path.name}")
     return chains
@@ -2015,7 +2031,11 @@ def _write_structure(complex_obj, outpath, output_format):
     import io
     import biotite.structure.io.pdb as _pdb
     import biotite.structure.io.pdbx as _pdbx
-    arr = _pdbx.get_structure(_pdbx.CIFFile.read(io.StringIO(cif_text)), model=1)
+    # extra_fields is required: without it get_structure drops the b_factor column,
+    # and the PDB then carries 0.00 for every atom — the per-residue pLDDT the CIF
+    # just wrote is silently lost (measured on esmfold2-fast, 2026-08-16 sweep).
+    arr = _pdbx.get_structure(_pdbx.CIFFile.read(io.StringIO(cif_text)), model=1,
+                              extra_fields=["b_factor", "occupancy"])
     pf = _pdb.PDBFile()
     pf.set_structure(arr)
     pf.write(str(outpath))
@@ -2817,10 +2837,16 @@ def _dispatch_embed_to_controller(controller_url: str, sequences: dict, *, model
             f"or join one with `tt-bio worker --connect {controller_url}`.")
 
     items = list(sequences.items())
-    shards = esmc._shard_by_length(items, max(1, min(online, len(items))))
+    # SaProt's payload is an (aa, 3di) pair, ESMC's a bare string. Sort on the AA
+    # length either way, and dump the pair as a 2-list: yaml.safe_dump cannot
+    # represent a tuple, and the worker reads it back with saprot.read_shard_yaml.
+    paired = any(not isinstance(v, str) for v in sequences.values())
+    key = (lambda it: len(it[1][0])) if paired else (lambda it: len(it[1]))
+    shards = esmc._shard_by_length(items, max(1, min(online, len(items))), key=key)
     jobs = [
         {"id": f"shard_{i}", "name": f"shard_{i}.yaml",
-         "input_b64": base64.b64encode(yaml.safe_dump(dict(shard)).encode()).decode()}
+         "input_b64": base64.b64encode(yaml.safe_dump(
+             {k: (list(v) if not isinstance(v, str) else v) for k, v in shard}).encode()).decode()}
         for i, shard in enumerate(shards) if shard
     ]
     worker_cfg = {"model": model, "fast": fast, "pool": pool,
@@ -2998,9 +3024,18 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
 @click.option("--devices", default=None,
               help="Comma-separated physical TT card ids to shard the sequences across, "
                    "e.g. '0,1,2,3'. Runs one pinned subprocess per card (data-parallel); "
-                   "results are reassembled in input order. Default: this machine's single card.")
+                   "results are reassembled in input order. Default: this machine's single card. "
+                   "Ignored with --controller.")
+@click.option("--controller", default=None,
+              help="Submit to a running `tt-bio controller` (or a fleet joined via `tt-bio "
+                   "worker --connect`) instead of spawning local subprocess shards. Workers keep "
+                   "the SaProt model resident across calls, so repeated runs against the same "
+                   "controller skip the weight reload.")
+@click.option("--owner", default=None,
+              help="Opaque fairness key the controller uses to fair-share workers across users. "
+                   "Requires --controller.")
 def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits, fast,
-               batch_size, devices):
+               batch_size, devices, controller, owner):
     """Compute SaProt structure-aware protein-language-model embeddings.
 
     SaProt is an ESM-2 encoder over a fused amino-acid + Foldseek-3Di
@@ -3025,6 +3060,16 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
 
     out = Path(out_dir).expanduser()
     out.mkdir(parents=True, exist_ok=True)
+
+    if controller:
+        if devices:
+            click.secho("Note: --devices is ignored with --controller (device topology comes "
+                        "from connected workers).", fg="yellow")
+        _dispatch_embed_to_controller(controller, seqs, model=model, out=out,
+                                      out_format=out_format, pool=pool,
+                                      return_logits=return_logits, fast=fast,
+                                      batch_size=batch_size, owner=owner)
+        return
 
     device_list = None
     if devices:

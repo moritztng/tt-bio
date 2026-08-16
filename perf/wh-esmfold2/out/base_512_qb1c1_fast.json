@@ -1,0 +1,110 @@
+{
+ "label": "arm",
+ "model": "esmfold2",
+ "tree": "/home/ttuser/.coworker/wt/wh-perf-esmfold2",
+ "size": 512,
+ "census": false,
+ "fast": true,
+ "ttnn": "0.67.4",
+ "host": "tt-quietbox",
+ "card": "1",
+ "grid": [
+  13,
+  10
+ ],
+ "recycling_steps": 10,
+ "sampling_steps": 100,
+ "flags": {
+  "ADALN_S_HOIST": true,
+  "FP32_SOFTMAX_BIAS_HOIST": true,
+  "TRIMUL_TAIL_F1": true,
+  "TRANSPOSE_L1_HEADROOM": 1.25
+ },
+ "started": "2026-08-16T01:23:05+0000",
+ "loadavg": [
+  "34.18",
+  "37.30",
+  "35.39"
+ ],
+ "folds": [
+  {
+   "tag": "warm0",
+   "fold_s": 47.275,
+   "plddt": 0.9284,
+   "n_tokens": null,
+   "n_atoms": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "74b4bfd966616e37"
+   },
+   "loadavg": [
+    "34.43",
+    "36.17",
+    "35.24"
+   ]
+  },
+  {
+   "tag": "warm1",
+   "fold_s": 47.994,
+   "plddt": 0.9284,
+   "n_tokens": null,
+   "n_atoms": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "74b4bfd966616e37"
+   },
+   "loadavg": [
+    "35.98",
+    "36.22",
+    "35.29"
+   ]
+  },
+  {
+   "tag": "warm2",
+   "fold_s": 48.431,
+   "plddt": 0.9284,
+   "n_tokens": null,
+   "n_atoms": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "74b4bfd966616e37"
+   },
+   "loadavg": [
+    "37.89",
+    "36.68",
+    "35.49"
+   ]
+  }
+ ],
+ "cold": {
+  "tag": "cold",
+  "fold_s": 90.297,
+  "plddt": 0.9284,
+  "n_tokens": null,
+  "n_atoms": null,
+  "cif_sha256": {
+   "cdk2x2_512.cif": "74b4bfd966616e37"
+  },
+  "loadavg": [
+   "33.55",
+   "36.43",
+   "35.27"
+  ]
+ },
+ "median_s": 47.994,
+ "spread_s": 1.156,
+ "reach": {
+  "adaln_calls": 0,
+  "adaln_with_s_terms": 0,
+  "adaln_s_terms_calls": 0
+ },
+ "fp32_softmax_stats": {
+  "calls": 0,
+  "blocked": 0,
+  "blocks": 0,
+  "fused": 0,
+  "unfused": 0,
+  "l1": 0,
+  "l1_blocks": 0,
+  "l1_refused": 0
+ },
+ "fp32_softmax_l1_refused_keys": [],
+ "transpose_l1_refused_keys": []
+}
