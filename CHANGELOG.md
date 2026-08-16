@@ -7,6 +7,16 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Changed
 
+- Boltz-2 binding affinity runs entirely on the card. The affinity model's 64-block
+  trunk used to run in fp32 on the host CPU by default, which made a single ligand
+  take minutes and look like a CPU bottleneck; it now runs in fp32 on device.
+  FKBP12+SB3 at the default affinity protocol drops from 160 s to 92 s per ligand on
+  one Blackhole p150a and from 162 s to 134 s on one Wormhole chip, and the structure
+  fold beside it is unchanged at 29 s. All four committed affinity parity legs keep
+  their committed verdicts on both arms. `BOLTZ2_AFFINITY_TRUNK_FP32_HOST` and
+  `BOLTZ2_AFFINITY_TRUNK_FP32_DEVICE` are removed; the fp32 affinity trunk is no
+  longer configurable, because a lower precision there shifts the predicted
+  log10(IC50).
 - RFdiffusion3 ships both fused bias kernels on by default (`881704d2`). The sparse
   attention bias is built in one pass instead of a poke walk (5.83x at the op,
   `703d12a1`) and the whole score+bias chain is one kernel (4.42x at the op,
