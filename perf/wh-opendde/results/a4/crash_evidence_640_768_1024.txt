@@ -1,0 +1,25 @@
+===== odde_sizes/size_640.log =====
+2026-08-16 00:19:40.186 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 1525024 B which is beyond max L1 size of 1499136 B (assert.hpp:104)
+2026-08-16 00:19:40.268 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 209 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=8)]. L1 buffer allocated at 915456 and static circular buffer region ends at 1152288 (assert.hpp:104)
+RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception
+EXIT 640 = 1
+===== odde_sizes/size_768.log =====
+2026-08-16 00:19:59.082 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 2190624 B which is beyond max L1 size of 1499136 B (assert.hpp:104)
+2026-08-16 00:20:00.440 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 213 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=8)]. L1 buffer allocated at 798720 and static circular buffer region ends at 1152288 (assert.hpp:104)
+RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception
+EXIT 768 = 1
+===== odde_sizes/size_1024.log =====
+2026-08-16 00:20:22.847 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 3386656 B which is beyond max L1 size of 1499136 B (assert.hpp:104)
+2026-08-16 00:20:24.150 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 1781024 B which is beyond max L1 size of 1499136 B (assert.hpp:104)
+2026-08-16 00:20:25.649 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 197 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=8)]. L1 buffer allocated at 565248 and static circular buffer region ends at 1152288 (assert.hpp:104)
+RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception
+EXIT 1024 = 1
+===== odde_bigctrl/big_640_off.log =====
+2026-08-16 00:21:50.456 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 1525024 B which is beyond max L1 size of 1499136 B (assert.hpp:104)
+2026-08-16 00:21:50.547 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 209 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=8)]. L1 buffer allocated at 915456 and static circular buffer region ends at 1152288 (assert.hpp:104)
+RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception
+===== odde_bigctrl/big_1024_off.log =====
+2026-08-16 00:22:52.118 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 3386656 B which is beyond max L1 size of 1499136 B (assert.hpp:104)
+2026-08-16 00:22:52.142 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 1781024 B which is beyond max L1 size of 1499136 B (assert.hpp:104)
+2026-08-16 00:22:52.197 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 197 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=8)]. L1 buffer allocated at 565248 and static circular buffer region ends at 1152288 (assert.hpp:104)
+RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception
