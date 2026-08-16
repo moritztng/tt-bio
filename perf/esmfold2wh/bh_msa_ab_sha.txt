@@ -1,0 +1,2 @@
+8f7a1ddc83b631d9e982787ae49d1acff1222c02bc3d836bf7a6ecafe7b821cc  /home/ttuser/.coworker/wt/japanfold-esmfold2-wh-msa-cap-p2/perf/esmfold2wh/out_msa_fixed/esmfold2_results_cdk2_512/structures/cdk2_512.cif
+8f7a1ddc83b631d9e982787ae49d1acff1222c02bc3d836bf7a6ecafe7b821cc  /home/ttuser/.coworker/wt/japanfold-esmfold2-wh-msa-cap-p2/perf/esmfold2wh/out_msa_base/esmfold2_results_cdk2_512/structures/cdk2_512.cif

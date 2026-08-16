@@ -28,8 +28,10 @@ def used_gib():
 # existing row tiling, so the shape of every allocation matches a Wormhole run.
 tenstorrent.SMALL_GRID_PAIR_TILE_AREA = 65536
 tenstorrent.SMALL_GRID_SEQ_TILE = 256
+# Tolerated missing on the pre-fix control arm, which has neither name.
 tenstorrent.SMALL_GRID_MSA_TILE_AREA = BLOCK
-print(f"L={L} M={M} msa_tile_area={BLOCK} -> rows={tenstorrent.msa_row_tile(L, M)}", flush=True)
+_rows = getattr(tenstorrent, "msa_row_tile", lambda *a: "n/a")(L, M)
+print(f"L={L} M={M} msa_tile_area={BLOCK} -> rows={_rows}", flush=True)
 
 B = 1
 g = torch.Generator().manual_seed(0)
@@ -40,7 +42,7 @@ inputs = dict(x_pair=mk(B, L, L, 256), x_inputs=mk(B, L, 451),
     msa_mask=torch.ones(B, L, M))
 mod = E.MSAEncoder(4, 8, 16); mod.load_state_dict(sd, strict=False)
 
-peak = [0.0]; where = [None]; top = []
+peak = [0.0]; where = [None]; top = []; big = []
 # Sample after every allocating ttnn op: the block-level sample misses the
 # transient the block is built out of, which is the whole point of the measurement.
 for _name in ("matmul", "layer_norm", "concat", "add", "multiply", "sigmoid",
@@ -53,7 +55,14 @@ for _name in ("matmul", "layer_norm", "concat", "add", "multiply", "sigmoid",
             if u > peak[0]:
                 peak[0] = u
                 where[0] = (getattr(f, "__name__", "?"), tuple(getattr(r, "shape", ()) or ()))
-            top.append((u, getattr(f, "__name__", "?"), tuple(getattr(r, "shape", ()) or ())))
+            sh = tuple(getattr(r, "shape", ()) or ())
+            nb = 1
+            for _d in sh:
+                nb *= _d
+            nb *= 2  # every [B,L,M,c] activation here is bf16
+            top.append((u, getattr(f, "__name__", "?"), sh))
+            if sh:
+                big.append((nb, getattr(f, "__name__", "?"), sh))
             return r
         return g
     setattr(ttnn, _name, _wrap())
@@ -71,3 +80,13 @@ for u, n, sh in top:
     seen.add(k)
     print(f"  {u:7.3f} GiB after {n}{sh}", flush=True)
     if len(seen) >= 12: break
+
+big.sort(reverse=True)
+seen2 = set()
+print("  --- largest single allocations (the contiguity request that OOMs) ---", flush=True)
+for nb, n, sh in big:
+    k = (n, sh)
+    if k in seen2: continue
+    seen2.add(k)
+    print(f"  {nb/2**30:7.3f} GiB  {n}{sh}", flush=True)
+    if len(seen2) >= 6: break
