@@ -1,0 +1,53 @@
+{
+  "host": "tt-quietbox2",
+  "loadavg": [
+    "1.03",
+    "1.05",
+    "1.16"
+  ],
+  "torch": "2.13.0+cpu",
+  "threads": 8,
+  "relp": [
+    {
+      "n": 512,
+      "label": "residue axis NT=512",
+      "torch_equal": true,
+      "a_median_s": 0.0875,
+      "a_min_s": 0.0822,
+      "b_median_s": 0.0113,
+      "b_min_s": 0.0111,
+      "saving_s": 0.0762,
+      "a_bytes_touched_MB": 693.0,
+      "b_bytes_touched_MB": 139.0
+    },
+    {
+      "n": 995,
+      "label": "structural axis Ns=995",
+      "torch_equal": true,
+      "a_median_s": 0.3084,
+      "a_min_s": 0.2991,
+      "b_median_s": 0.0554,
+      "b_min_s": 0.0546,
+      "saving_s": 0.253,
+      "a_bytes_touched_MB": 2617.2,
+      "b_bytes_touched_MB": 525.0
+    }
+  ],
+  "seam": {
+    "shape": [
+      512,
+      512,
+      384
+    ],
+    "torch_equal_after_cast": true,
+    "a_median_s": 0.0581,
+    "b_median_s": 0.0149,
+    "host_saving_s": 0.0432,
+    "pcie_leg_note": "DERIVED, not measured here: the fp32 host copy is 402 MB where bf16 is 201 MB; the download itself needs a device"
+  },
+  "peak_rss_GiB": 2.34,
+  "rss_at_start_GiB": 0.21,
+  "total_host_saving_s": 0.3724,
+  "gate_a_pass": true,
+  "gate_b_pass": false
+}
