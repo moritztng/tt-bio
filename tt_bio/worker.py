@@ -617,7 +617,7 @@ class _WorkerState:
         report_progress("msa")
         if uses_msa and (cfg.get("use_msa_server") or cfg.get("msa_db_path") or cfg.get("msa_endpoint")):
             to_gen = {}
-            for _cid, seq, spec in chains:
+            for _cid, seq, spec, _mods in chains:
                 if spec and Path(spec).expanduser().exists():
                     continue
                 h = hashlib.sha256(seq.encode()).hexdigest()[:16]
@@ -631,8 +631,8 @@ class _WorkerState:
                     cfg.get("api_key_value"), msa_endpoint=cfg.get("msa_endpoint"))
 
         report_progress("prep")
-        chains = [(cid, seq, resolve_msa(spec, seq, msa_dir, max_sequences=max_msa) if uses_msa else None)
-                  for cid, seq, spec in chains]
+        chains = [(cid, seq, resolve_msa(spec, seq, msa_dir, max_sequences=max_msa) if uses_msa else None, mods)
+                  for cid, seq, spec, mods in chains]
         ranked = fold_complex(
             self.model, chains,
             num_loops=cfg["recycling_steps"], num_sampling_steps=cfg["sampling_steps"],

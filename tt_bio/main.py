@@ -1778,11 +1778,13 @@ def _read_protein_chains(path):
     where the third field is an optional a3m path (``empty`` / blank = none);
     non-protein typed records are skipped, and comma-separated ids expand to
     repeated chains (sharing the MSA). YAML protein entries may carry an
-    ``msa:`` path. ``msa_spec`` is the a3m path string or None. Each input file
+    ``msa:`` path and a ``modifications:`` list (``{position: N, ccd: CODE}``,
+    1-indexed, the Boltz convention). ``msa_spec`` is the a3m path string or
+    None; ``modifications`` is the list of dicts or None. Each input file
     is one (possibly multi-chain) complex.
     """
     suffix = path.suffix.lower()
-    chains: list[tuple[str, str, str | None]] = []
+    chains: list[tuple[str, str, str | None, list | None]] = []
     if suffix in (".fa", ".fas", ".fasta"):
         cid, buf, msa = None, [], None
         def flush():
@@ -1790,7 +1792,7 @@ def _read_protein_chains(path):
             # chain whose id we auto-assign below — gate on `is not None` so it isn't dropped.
             if cid is not None and buf:
                 for c in cid.split(","):
-                    chains.append((c.strip() or _chain_label(len(chains)), "".join(buf), msa))
+                    chains.append((c.strip() or _chain_label(len(chains)), "".join(buf), msa, None))
         for line in path.read_text().splitlines():
             line = line.strip()
             if line.startswith(">"):
@@ -1813,12 +1815,26 @@ def _read_protein_chains(path):
             if prot and prot.get("sequence"):
                 m = prot.get("msa")
                 m = str(m) if m and str(m).lower() not in ("", "empty") else None
+                mods = prot.get("modifications")
+                if mods:
+                    seq_len = len("".join(prot["sequence"].split()))
+                    for mod in mods:
+                        pos = mod.get("position") if isinstance(mod, dict) else None
+                        if (not isinstance(pos, int) or not (1 <= pos <= seq_len)
+                                or not mod.get("ccd")):
+                            raise click.ClickException(
+                                f"esmfold2: modification {mod!r} on chain "
+                                f"{prot.get('id', 'A')} needs a 1-indexed position within the "
+                                f"sequence (length {seq_len}) and a ccd code.")
+                    mods = [dict(mod) for mod in mods]
+                else:
+                    mods = None
                 # `id` may be a YAML list ([A, C]) or a comma-separated string.
                 ids = prot.get("id", "A")
                 id_list = ([str(x) for x in ids] if isinstance(ids, (list, tuple))
                            else str(ids).split(","))
                 for c in id_list:
-                    chains.append((c.strip(), prot["sequence"], m))
+                    chains.append((c.strip(), prot["sequence"], m, mods))
     else:
         raise click.ClickException(f"Unsupported input for esmfold2: {path.name}")
     return chains
