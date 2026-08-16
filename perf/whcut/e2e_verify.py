@@ -22,10 +22,28 @@ import urllib.request
 TRPCAGE = "NLYIQWLKDGGPSSGRPPPS"
 UA = "japanfold-e2e-verify/1.0"
 
+# Pre-deploy numbers measured through the live service before the cutover, as
+# (runtime_s, band_lo, band_hi, complex_plddt). A terminal state of "succeeded" is not
+# enough: the deploy has to hold these. Ring 1 is neutral on Boltz-2 (§116), so every band
+# here is a hold-the-line check and NOT a win check -- a 640 aa runtime near 110 s means
+# ring 2 reached production by mistake and is a finding, not a success.
+# 640/1024 bands are §7's; the two Protenix rows carry the same +-10 % convention, since
+# §84 recorded their numbers without a band.
+BASELINE = {
+    "boltz2-640":      (123.8, 112.0, 136.0, 0.832376),
+    "boltz2-1024":     (277.4, 250.0, 305.0, 0.841811),
+    "protenix-v2-298": (89.9, 80.0, 100.0, 0.92989),
+    "protenix-v2-640": (412.8, 370.0, 455.0, 0.85943),
+}
+# §77: on Blackhole the confidence moved 0.07-0.12 % across the levers, so a move of order
+# 0.1 % is expected and one of order 1 % is a finding. Ring 1 is bit-exact on Boltz-2, so
+# these should match outright.
+PLDDT_TOL = 0.01
+
 # Rows: (label, endpoint, body, expect) where expect is "ok" or "fail".
 # The three extra Boltz-2 sizes are the ones the assembled branch actually moves: 640 is
 # where K3 fires, 1024 is lever C's range and the cap the catalog advertises.
-def rows(seq640: str, seq1024: str, rfd3=None, boltzgen=None) -> list:
+def rows(seq640: str, seq1024: str, seq298=None, rfd3=None, boltzgen=None) -> list:
     design = []
     if boltzgen:
         # BoltzGen takes a YAML design spec; RFD3 takes pasted structure text plus a
@@ -44,6 +62,12 @@ def rows(seq640: str, seq1024: str, rfd3=None, boltzgen=None) -> list:
                     {"model": "protenix-v2", "sequence": seq640}, "ok"))
     if seq1024:
         big.append(("boltz2-1024", "predictions", {"model": "boltz2", "sequence": seq1024}, "ok"))
+    if seq298:
+        # Ask 5152's reported Protenix-v2 crash size. It does NOT reproduce on the live
+        # service (§82/§84: 89.9 s, plDDT 0.92989 pre-deploy), so this row holds the line
+        # rather than demonstrating a fix.
+        big.append(("protenix-v2-298", "predictions",
+                    {"model": "protenix-v2", "sequence": seq298}, "ok"))
     if seq640:
         # The esmfold2 defect row. The sweep's ladder runs 128 to 1024 aa and OOMs at all
         # seven points (§0.6), so a size in that band is what tests it. Trp-cage at 20 aa is
@@ -98,6 +122,37 @@ def call(url: str, body=None, timeout=60):
         return 0, {"raw": f"URLError: {e.reason}"}
 
 
+def fetch_results(base: str, jid: str):
+    """The numbers live one call further than the job object. `/v1/jobs/<id>` carries only
+    done/error, so a run that stops there can say "succeeded" and nothing about whether the
+    fold got slower or moved its confidence."""
+    code, d = call(f"{base}/v1/jobs/{jid}/results")
+    rows_ = d.get("rows") or []
+    if code != 200 or not rows_:
+        return {"http": code, "raw": str(d)[:200]}
+    r = rows_[0]
+    return {k: r.get(k) for k in
+            ("status", "runtime_s", "complex_plddt", "confidence_score", "ptm", "error")}
+
+
+def check_baseline(label: str, res: dict) -> list:
+    """Compare one row against its recorded pre-deploy numbers. Returns failure strings."""
+    pre_rt, lo, hi, pre_pl = BASELINE[label]
+    out = []
+    rt, pl = res.get("runtime_s"), res.get("complex_plddt")
+    if rt is None:
+        out.append(f"{label}: no runtime_s in results ({res})")
+    elif not lo <= rt <= hi:
+        out.append(f"{label}: runtime_s {rt} outside band {lo}-{hi} (pre-deploy {pre_rt})")
+    if pl is None:
+        out.append(f"{label}: no complex_plddt in results ({res})")
+    elif abs(pl - pre_pl) > PLDDT_TOL * pre_pl:
+        out.append(f"{label}: complex_plddt {pl} vs pre-deploy {pre_pl}, "
+                   f"moved {100 * (pl - pre_pl) / pre_pl:+.2f} % (tolerance "
+                   f"{100 * PLDDT_TOL:.0f} %)")
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", default="https://api.japanfold.com")
@@ -105,6 +160,7 @@ def main():
     ap.add_argument("--poll-timeout", type=int, default=2400)
     ap.add_argument("--seq640", help="a 640 aa sequence (K3's band). Omit for a smoke run.")
     ap.add_argument("--seq1024", help="a 1024 aa sequence (the catalog cap). Omit for a smoke run.")
+    ap.add_argument("--seq298", help="a 298 aa sequence (ask 5152's Protenix-v2 case)")
     ap.add_argument("--boltzgen-spec", help="path to a BoltzGen YAML design spec")
     ap.add_argument("--rfd3-structure", help="path to a PDB/mmCIF target for RFD3")
     ap.add_argument("--rfd3-contig", default="A1-10,20,A31-40")
@@ -124,7 +180,8 @@ def main():
               "cover all twelve served models.")
 
     submitted = []
-    for label, ep, body, expect in rows(a.seq640, a.seq1024, rfd3=rf, boltzgen=bg):
+    for label, ep, body, expect in rows(a.seq640, a.seq1024, seq298=a.seq298,
+                                        rfd3=rf, boltzgen=bg):
         # The public demo rate-limits, and this submits a dozen jobs back to back. A 429 is
         # the service working as intended, so back off and retry rather than recording it as
         # a model failure.
@@ -169,6 +226,12 @@ def main():
         if r["expect"] == "fail" and ok:
             bad.append(f"{r['label']}: expected the known pre-existing failure, it SUCCEEDED "
                        "-- good news, but §7.5's expectation is stale and must be updated")
+        if ok and r["label"] in BASELINE:
+            r["results"] = fetch_results(a.base, r["job_id"])
+            bad += check_baseline(r["label"], r["results"])
+            print(f"  {r['label']:24s} runtime_s {r['results'].get('runtime_s')} "
+                  f"plddt {r['results'].get('complex_plddt')} "
+                  f"(pre-deploy {BASELINE[r['label']][0]} / {BASELINE[r['label']][3]})")
     json.dump({"base": a.base, "rows": submitted, "mismatches": bad}, open(a.out, "w"), indent=1)
     print("\n" + ("MISMATCHES:\n  " + "\n  ".join(bad) if bad else
                   "every row matched its §7.5 expectation"))
