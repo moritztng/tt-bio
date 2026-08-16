@@ -48,16 +48,21 @@ echo "ESMFOLD2 ROWS DONE $(date -u +%FT%TZ)"
 # §6.3. Sweep finding 0.9: Boltz-2 returns zero sub-2.0 A heavy-atom pairs at 128/256/512 and
 # nine at 640 (0.18 % of atoms, worst 1.521 A) on this same tiled CDK2 fixture. 640 is exactly
 # where K3 and lever C fire, so fold it on both trees and score both with the sweeps own
-# checker. ACCEPT iff whcut is no worse than whpre. The CIFs are located by mtime because
-# build_fold puts them in a struct_dir this script does not need to know.
+# checker. ACCEPT iff whcut is no worse than whpre.
+#
+# Each arm gets a PRIVATE TMPDIR. tt_baseline builds struct_dir with tempfile.mkdtemp under
+# TMPDIR (scripts/gpu_vs_tt/tt_baseline.py:158) and both arms use the same "ttbase-boltz2-"
+# prefix, so with a shared /tmp each arms `find` could pick up the OTHER trees CIF and score
+# a structure against itself -- a comparison that cannot fail and therefore means nothing.
 clash_arm() {  # label tree card
+  local tmp="$OUT/clash640/tmp_$1"; rm -rf "$tmp"; mkdir -p "$tmp"
   local stamp="$OUT/clash640/.stamp_$1"; touch "$stamp"; sleep 1
-  env TT_VISIBLE_DEVICES=$3 TT_METAL_LOGGER_LEVEL=FATAL \
+  env TT_VISIBLE_DEVICES=$3 TT_METAL_LOGGER_LEVEL=FATAL TMPDIR="$tmp" \
       TT_BIO_LEASE_HOLDER=worker:japanfold-wh-cutover \
     "$PY" perf/of3_4xpd/xmodel_ab.py --model boltz2 --tree "$2" --size 640 --repeat 1 \
       --label "clash_$1" --out "$OUT/clash640/$1.json" > "$OUT/clash640/$1.log" 2>&1
   echo "EXIT clash $1 = $?"
-  find "$2" /tmp -name "*.cif" -newer "$stamp" 2>/dev/null | head -3 | while read -r c; do
+  find "$tmp" -name "*.cif" -newer "$stamp" 2>/dev/null | head -3 | while read -r c; do
     cp "$c" "$OUT/clash640/$1_$(basename "$c")"
     "$PY" perf/wh-correctness/check_structure.py "$c" \
       --json "$OUT/clash640/$1_score.json" >> "$OUT/clash640/$1_score.txt" 2>&1
