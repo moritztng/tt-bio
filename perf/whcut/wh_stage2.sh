@@ -17,8 +17,12 @@
 #   esmfold2-fast   512   49.576  (54.630)
 #   esmfold2-fast  1024  203.679 (220.374)
 #
-# fold_ab512.py arms are overrides against the SHIPPED default, so `base` on this tree is
-# what a user now gets and it should land on the recorded `A` column.
+# ARMS. `base` is NOT the shipped default, whatever the harness's own header says. run()
+# does `EC.set_split_swiglu_small_grid(ov.get("split_small_grid", False))`, so an arm with no
+# override forces the small-grid split OFF. A first attempt with `--arms base` measured
+# esmfold2-fast 1024 at 212.887 s with split=0/354 -- the lever never fired, and the run
+# could not have confirmed anything about the win. `base,A` is what chain6.sh used to produce
+# the reference pair, so it reproduces both columns and the delta between them.
 set -u
 TREE=/home/cust-team/mthuening/whbase/wt-whcut
 PRE=/home/cust-team/mthuening/whbase/pxmain
@@ -35,7 +39,7 @@ run_esm() {  # model size card
   env TT_VISIBLE_DEVICES=$3 TT_METAL_LOGGER_LEVEL=FATAL \
       TT_BIO_LEASE_HOLDER=worker:japanfold-wh-cutover \
     "$PY" -u perf/wh-esmfold2/fold_ab512.py --model "$1" --size "$2" --fast \
-      --arms base --rounds 1 --out "$OUT/esm_$1_$2.json" > "$OUT/esm_$1_$2.log" 2>&1
+      --arms base,A --rounds 1 --out "$OUT/esm_$1_$2.json" > "$OUT/esm_$1_$2.log" 2>&1
   echo "EXIT $1 $2 = $?"
 }
 ( run_esm esmfold2 1024 28; run_esm esmfold2 512 28 ) > "$OUT/stage2_c28.log" 2>&1 &
