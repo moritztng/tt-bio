@@ -1,0 +1,102 @@
+{
+ "host": "tt-quietbox",
+ "card": "0",
+ "grid": [
+  13,
+  10
+ ],
+ "rows": 32,
+ "window": [
+  320,
+  1024
+ ],
+ "split_swiglu": true,
+ "sizes": {
+  "768": {
+   "in_window": true,
+   "off_slice_stats": [
+    0,
+    1
+   ],
+   "off_resid_stats": [
+    0,
+    1
+   ],
+   "cin_slice_stats": [
+    1,
+    0
+   ],
+   "cin_resid_stats": [
+    0,
+    1
+   ],
+   "f_slice_stats": [
+    0,
+    1
+   ],
+   "f_resid_stats": [
+    1,
+    0
+   ],
+   "cinf_slice_stats": [
+    1,
+    0
+   ],
+   "cinf_resid_stats": [
+    1,
+    0
+   ],
+   "cin_torch_equal": true,
+   "cin_max_abs_diff": 0.0,
+   "f_torch_equal": true,
+   "f_max_abs_diff": 0.0,
+   "cinf_torch_equal": true,
+   "cinf_max_abs_diff": 0.0,
+   "refused_slice": 0,
+   "refused_resid": 0
+  },
+  "1024": {
+   "in_window": true,
+   "off_slice_stats": [
+    0,
+    1
+   ],
+   "off_resid_stats": [
+    0,
+    1
+   ],
+   "cin_slice_stats": [
+    1,
+    0
+   ],
+   "cin_resid_stats": [
+    0,
+    1
+   ],
+   "f_slice_stats": [
+    0,
+    1
+   ],
+   "f_resid_stats": [
+    1,
+    0
+   ],
+   "cinf_slice_stats": [
+    1,
+    0
+   ],
+   "cinf_resid_stats": [
+    1,
+    0
+   ],
+   "cin_torch_equal": true,
+   "cin_max_abs_diff": 0.0,
+   "f_torch_equal": true,
+   "f_max_abs_diff": 0.0,
+   "cinf_torch_equal": true,
+   "cinf_max_abs_diff": 0.0,
+   "refused_slice": 0,
+   "refused_resid": 0
+  }
+ }
+}
