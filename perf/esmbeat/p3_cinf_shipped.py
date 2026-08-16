@@ -25,7 +25,8 @@ from tt_bio import esmc as EC
 
 C_Z, D_FF = 256, 1024
 CALLS_512 = 538  # ESMFold2's pair-transition call count at 512 aa; the only size it is exact for
-ARMS = (("off", False, False), ("cin", True, False), ("f", False, True), ("cinf", True, True))
+ARMS = (("off", False, False, False), ("cin", True, False, False), ("f", False, True, False),
+        ("cinf", True, True, False), ("cinfg", True, True, True), ("g", False, True, True))
 
 
 def timed(fn, dev, reps=4, batches=5, warm=2):
@@ -77,17 +78,20 @@ def main():
                             memory_config=ttnn.DRAM_MEMORY_CONFIG)
         row = {"in_window": bool(lo <= L <= hi)}
         outs = {}
-        for name, cin, f in ARMS:
+        for name, cin, f, gg in ARMS:
             EC.set_pair_ffn_l1_slice(cin)
             EC.set_pair_ffn_fused_residual(f)
+            EC.set_pair_ffn_fill_assembly(gg)
             EC.L1_SLICE_STATS[0] = EC.L1_SLICE_STATS[1] = 0
             EC.FUSED_RESID_STATS[0] = EC.FUSED_RESID_STATS[1] = 0
+            EC.FILL_ASSEMBLY_STATS[0] = EC.FILL_ASSEMBLY_STATS[1] = 0
             try:
                 r = ffn.residual(x)
                 outs[name] = ttnn.to_torch(r)
                 ttnn.deallocate(r)
                 row[name + "_slice_stats"] = list(EC.L1_SLICE_STATS)
                 row[name + "_resid_stats"] = list(EC.FUSED_RESID_STATS)
+                row[name + "_fill_stats"] = list(EC.FILL_ASSEMBLY_STATS)
                 if L in timed_sizes:
                     m, raw = timed(lambda: ttnn.deallocate(ffn.residual(x)), dev)
                     row[name + "_ms"] = round(m, 4)
@@ -97,8 +101,9 @@ def main():
             finally:
                 EC.set_pair_ffn_l1_slice(True)
                 EC.set_pair_ffn_fused_residual(True)
+                EC.set_pair_ffn_fill_assembly(True)
 
-        for name in ("cin", "f", "cinf"):
+        for name in ("cin", "f", "cinf", "cinfg", "g"):
             if "off" in outs and name in outs:
                 row[name + "_torch_equal"] = bool(torch.equal(outs["off"], outs[name]))
                 row[name + "_max_abs_diff"] = float((outs["off"] - outs[name]).abs().max())
@@ -109,6 +114,7 @@ def main():
                         row[name + "_delta_ms"] * CALLS_512 / 1e3, 3)
         row["refused_slice"] = len(EC._L1_SLICE_REFUSED)
         row["refused_resid"] = len(EC._FUSED_RESID_REFUSED)
+        row["refused_fill"] = len(EC._FILL_ASSEMBLY_REFUSED)
         res["sizes"][L] = row
         print(L, json.dumps({k: v for k, v in row.items() if not k.endswith("_raw")}), flush=True)
         ttnn.deallocate(x)

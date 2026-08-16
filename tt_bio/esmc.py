@@ -419,6 +419,34 @@ _PAIR_FFN_FUSED_RESIDUAL = os.environ.get(
 FUSED_RESID_STATS = [0, 0]
 _FUSED_RESID_REFUSED = set()
 
+# Sixth lever (G). With F in place the block loop still assembled its result with
+# `ttnn.concat`, which reads 134 MB and writes 134 MB per call at 512 aa purely to lay 16 blocks
+# side by side. `ttnn.fill_cache(cache, input, i)` writes `input` into `cache[i]` in place, and
+# under `ttnn.experimental.view` the pair tensor's row block IS a dim-0 index: view the
+# [1, L, L, C] output as [L/rows, rows, L, C] and block `i` is exactly `cache[i]`. So the block's
+# residual add keeps its output in L1 and is written straight into a pre-allocated output, and
+# the concat disappears along with the block's own DRAM write.
+#
+# The output buffer comes from `ttnn.allocate_tensor_on_device` -- a bare allocation, no host
+# copy and no zero fill, which is correct because every one of the nblk blocks is written.
+#
+# MEASURED on qb1 card 2, ttnn 0.68.0, 13x10 grid, 16 blocks of [1,32,512,256], allocation timed
+# INSIDE the arm: concat 1.8005 -> fill 1.3745 ms = -0.230 s of fold, `torch.equal` on the
+# assembled output, max abs diff 0.0 (perf/esmbeat/p3_s_fillcache_512_c2.json). The view was
+# checked to alias (`buffer_address()` equal), and `fill_cache` was checked to accept an L1
+# input -- with a DRAM input it would pay the traffic the concat already pays and return nothing.
+#
+# Rides on F: it needs the block's output to be the final content of its rows. Needs
+# `nblk * rows == L` for the view's volume to match, so a length that does not divide by the row
+# block keeps the concat.
+PAIR_FFN_FILL_ASSEMBLY = True
+_PAIR_FFN_FILL_ASSEMBLY = os.environ.get(
+    "TT_BIO_PAIR_FFN_FILL_ASSEMBLY", "1" if PAIR_FFN_FILL_ASSEMBLY else "0") == "1"
+
+# [served, declined] residual row-blocked calls, same idiom as `FUSED_RESID_STATS`.
+FILL_ASSEMBLY_STATS = [0, 0]
+_FILL_ASSEMBLY_REFUSED = set()
+
 # [split, unsplit] `SwiGLUFFN.__call__` invocations. An A/B arm on the small-grid opt-in needs both
 # `_SPLIT_SWIGLU` and `_SPLIT_SWIGLU_SMALL_GRID`, and if either is missed the arm is a silent A/A;
 # this counter is what makes that visible instead of inferred.
@@ -468,6 +496,14 @@ def set_pair_ffn_fused_residual(on: bool) -> bool:
     the previous state."""
     global _PAIR_FFN_FUSED_RESIDUAL
     prev, _PAIR_FFN_FUSED_RESIDUAL = _PAIR_FFN_FUSED_RESIDUAL, bool(on)
+    return prev
+
+
+def set_pair_ffn_fill_assembly(on: bool) -> bool:
+    """A/B switch for writing each row block into a pre-allocated output instead of concatenating
+    the blocks (lever G). Returns the previous state."""
+    global _PAIR_FFN_FILL_ASSEMBLY
+    prev, _PAIR_FFN_FILL_ASSEMBLY = _PAIR_FFN_FILL_ASSEMBLY, bool(on)
     return prev
 
 
@@ -617,14 +653,17 @@ class SwiGLUFFN(Module):
     def _row_blocked(self, x: ttnn.Tensor, rows: int, residual: bool) -> ttnn.Tensor:
         """The 4-D pair FFN over `rows`-row blocks, optionally with `x +` folded into each block.
 
-        Two levers ride here and both only move a destination, so both are bit-exact: C-in
-        slices each block lazily into L1 instead of cutting all of them into DRAM up front, and
-        F (`residual=True`) keeps fc2's output in L1 so the per-block add reads it on chip.
+        Three levers ride here and all three only move a destination, so all three are
+        bit-exact: C-in slices each block lazily into L1 instead of cutting all of them into DRAM
+        up front, F (`residual=True`) keeps fc2's output in L1 so the per-block add reads it on
+        chip, and G writes each block straight into a pre-allocated output with `fill_cache`
+        instead of concatenating the blocks afterwards.
 
         The try/except is load-bearing, not defensive. Block-sized L1 residents do run out on a
         smaller grid -- 16 of them is a measured `TT_THROW @ program.cpp:1052` even on qb1's
         larger one -- and F keeps the sliced block alive through fc1 on top of that. On a refusal
-        this drops F first, then C-in, and re-runs the loop on the weaker rung; the refusal is
+        this drops G first, then F, then C-in, and re-runs the loop on the weaker rung; the
+        refusal is
         cached per `padded_shape`, so a size that declines costs one exception per fold rather
         than one per block. Each rung is also reachable on its own through its env gate:
         both -0.842 s/fold at 512 aa on qb1, F alone -0.392, C-in alone -0.295.
@@ -633,10 +672,18 @@ class SwiGLUFFN(Module):
         nblk = -(-L // rows)
         lazy = _PAIR_FFN_L1_SLICE and key not in _L1_SLICE_REFUSED
         fused = residual and _PAIR_FFN_FUSED_RESIDUAL and key not in _FUSED_RESID_REFUSED
+        filled = (fused and _PAIR_FFN_FILL_ASSEMBLY and nblk * rows == L
+                  and key not in _FILL_ASSEMBLY_REFUSED)
         while True:
             parts = None if lazy else ttnn.chunk(x, nblk, dim=1)
             outs: list[ttnn.Tensor] = []
+            dst = None
             try:
+                if filled:
+                    dst = ttnn.allocate_tensor_on_device(
+                        ttnn.Shape([1, L, x.shape[2], x.shape[3]]), x.dtype, x.layout,
+                        x.device(), ttnn.DRAM_MEMORY_CONFIG)
+                    view = ttnn.experimental.view(dst, [nblk, rows, x.shape[2], x.shape[3]])
                 for i in range(nblk):
                     part = (ttnn.slice(
                         x, [0, i * rows, 0, 0],
@@ -645,15 +692,26 @@ class SwiGLUFFN(Module):
                     out = self._ffn(part, split=True, l1_gated=True,
                                     out_mc=ttnn.L1_MEMORY_CONFIG if fused else None)
                     if fused:
-                        out, ffn_out = ttnn.add(part, out,
-                                                memory_config=ttnn.DRAM_MEMORY_CONFIG), out
+                        out, ffn_out = ttnn.add(
+                            part, out,
+                            memory_config=(ttnn.L1_MEMORY_CONFIG if filled
+                                           else ttnn.DRAM_MEMORY_CONFIG)), out
                         ttnn.deallocate(ffn_out)
                     ttnn.deallocate(part)
-                    outs.append(out)
+                    if filled:
+                        ttnn.fill_cache(view, out, i)
+                        ttnn.deallocate(out)
+                    else:
+                        outs.append(out)
             except Exception:
                 for tensor in outs:
                     ttnn.deallocate(tensor)
-                if fused:
+                if dst is not None:
+                    ttnn.deallocate(dst)
+                if filled:
+                    _FILL_ASSEMBLY_REFUSED.add(key)
+                    filled = False
+                elif fused:
                     _FUSED_RESID_REFUSED.add(key)
                     fused = False
                 elif lazy:
@@ -666,6 +724,9 @@ class SwiGLUFFN(Module):
         L1_SLICE_STATS[0 if lazy else 1] += 1
         if residual:
             FUSED_RESID_STATS[0 if fused else 1] += 1
+            FILL_ASSEMBLY_STATS[0 if filled else 1] += 1
+        if filled:
+            return dst
         out = ttnn.concat(outs, dim=1)
         for tensor in outs:
             ttnn.deallocate(tensor)

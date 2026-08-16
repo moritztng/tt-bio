@@ -1,0 +1,45 @@
+{
+ "host": "tt-quietbox",
+ "card": "2",
+ "grid": [
+  13,
+  10
+ ],
+ "size": 512,
+ "rows": 32,
+ "nblk": 16,
+ "calls_per_fold": 538,
+ "ms": {
+  "concat": 1.8015,
+  "fill": 1.3745
+ },
+ "raw": {
+  "concat": [
+   1.8059,
+   1.808,
+   1.8015,
+   1.8005,
+   1.7945
+  ],
+  "fill": [
+   1.3739,
+   1.3789,
+   1.3745,
+   1.3695,
+   1.3745
+  ]
+ },
+ "notes": {
+  "experimental.view": "ok, aliases=True"
+ },
+ "view_how": "experimental.view",
+ "view_aliases": true,
+ "fill_ok": true,
+ "fill_input_mc": "L1",
+ "fill_err": null,
+ "torch_equal": true,
+ "max_abs_diff": 0.0,
+ "delta_ms": 0.427,
+ "delta_s_per_fold": 0.23,
+ "verdict": "GO: no-kernel C-out"
+}
