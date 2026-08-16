@@ -448,7 +448,11 @@ class SwiGLUFFN(Module):
                 # 72-core Galaxy, where --fast is forced. The small-grid path is new, so it
                 # takes the control's dtype and stays comparable; Blackhole keeps the dtype
                 # its shipped parity was measured with.
-                dt = _dtype(ttnn.bfloat16) if _SPLIT_SWIGLU_SMALL_GRID else _dtype()
+                from tt_bio import tenstorrent as _T
+                dt = (_dtype(ttnn.bfloat16)
+                      if (_SPLIT_SWIGLU_SMALL_GRID
+                          and getattr(_T, "_IS_SMALL_GRID", False))
+                      else _dtype())
                 h1 = _pair_proj_linear(x_norm, self.fc1_a_weight, ck, dt, **l1)
                 h2 = _pair_proj_linear(x_norm, self.fc1_b_weight, ck, dt, **l1)
             else:
