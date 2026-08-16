@@ -1,0 +1,116 @@
+{
+ "host": "tt-quietbox",
+ "card": "0",
+ "grid": [
+  13,
+  10
+ ],
+ "size": 512,
+ "rows": 32,
+ "calls_per_fold": 538,
+ "ms": {
+  "s": 0.4069,
+  "s_ln": 1.0174,
+  "s_ln_fc1": 5.0069,
+  "s_ln_mul": 8.6429,
+  "s_full": 10.4987,
+  "fc2_l1": null,
+  "cat_l1": null
+ },
+ "raw": {
+  "s": [
+   0.4063,
+   0.4077,
+   0.4085,
+   0.4069,
+   0.4061
+  ],
+  "s_ln": [
+   1.0177,
+   1.015,
+   1.0167,
+   1.0197,
+   1.0174
+  ],
+  "s_ln_fc1": [
+   4.9796,
+   5.0069,
+   5.0035,
+   5.0205,
+   5.0252
+  ],
+  "s_ln_mul": [
+   8.6394,
+   8.6461,
+   8.6439,
+   8.6429,
+   8.6412
+  ],
+  "s_full": [
+   10.457,
+   10.4788,
+   10.4987,
+   10.5038,
+   10.4996
+  ],
+  "fc2_l1": "EXC: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception",
+  "cat_l1": "EXC: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception"
+ },
+ "roofs": {
+  "dram_add_GBps": 422.6,
+  "mm_hifi4_TFLOPs": 139.8
+ },
+ "per_op_ms": {
+  "slice": 0.4069,
+  "ln": 0.6105,
+  "fc1": 3.9895,
+  "mul": 3.636,
+  "fc2": 1.8558
+ },
+ "per_op_s_per_fold": {
+  "slice": 0.219,
+  "ln": 0.328,
+  "fc1": 2.146,
+  "mul": 1.956,
+  "fc2": 0.998
+ },
+ "gflop_per_call": 412.3,
+ "compute_floor_ms": 2.9493,
+ "s_per_fold": {
+  "s": 0.219,
+  "s_ln": 0.547,
+  "s_ln_fc1": 2.694,
+  "s_ln_mul": 4.65,
+  "s_full": 5.648,
+  "fc2_l1": null,
+  "cat_l1": null
+ },
+ "fc2_l1_delta_ms": null,
+ "write_into_candidates": {
+  "ttnn.assign": "Returns a new tensor which is a new copy of input tensor. Alternatively, copies input tensor ``input_a`` to ``input_b`` if their shapes and memory layouts match, and returns input_b tensor. Input tensor must have BFLOAT16 data type. Output tensor will have BFL",
+  "ttnn.assign_bw": "Returns the gradient of assign operation.",
+  "ttnn.copy": "Copies the elements from ``input_a`` into ``input_b``. ``input_b`` is modified in place. Both input tensors must be of equal shape. .. csv-table:: :header: \"Argument\", \"Description\", \"Data type\", \"Valid range\", \"Required\" \"input_a\", \"First tensor to copy\", \"Te",
+  "ttnn.copy_device_to_host_tensor": "Copies a tensor from device to host. Args: device_tensor (ttnn.Tensor): the tensor to be copied from device to host. host_tensor (ttnn.Tensor): the tensor to be copied to. blocking (bool, optional): whether the operation should be blocked until the copy is com",
+  "ttnn.copy_host_to_device_tensor": "Copies a tensor from host to device. Args: host_tensor (ttnn.Tensor): the tensor to be copied from host to device. device_tensor (ttnn.Tensor): the tensor to be copied to. cq_id (ttnn.QueueId, optional): The queue id to use. Defaults to `None`. Note: This oper",
+  "ttnn.fill_bw": "Performs backward operations for fill on :attr:`input_tensor` with given :attr:`grad_tensor`. Args: grad_tensor (ttnn.Tensor): the input gradient tensor. input_tensor (ttnn.Tensor): the input tensor. Keyword args: memory_config (ttnn.MemoryConfig, optional): m",
+  "ttnn.fill_cache": "Fills the cache tensor in place with the values from input at the specified batch_idx. Args: * :attr:`cache_tensor` (ttnn.Tensor): The cache tensor to be written to. * :attr:`input_tensor` (ttnn.Tensor): The token tensor to be written to the cache. * :attr:`ba",
+  "ttnn.fill_implicit_tile_padding": "Fills the implicit padding of a tiled input tensor with the specified value. Specifically, any nD tensor will have the implicit padding of the last 2 dims that exists from [height:tile_height, width:tile_width] filled with the specified value. Args: input_tens",
+  "ttnn.fill_ones_rm": "Same as ``fill_rm``, but ``val_hi`` is set to ``1`` and ``val_lo`` is ``0``. +----------+-----------------------------------------------------------------------+-----------------------+------------------------+----------+ | Argument | Description | Data type |",
+  "ttnn.fill_rm": "Generates an NCHW row-major tensor and fill it with high values up to hOnes, wOnes in each HW tile with the rest padded with high values. So for H=2, W=3, hFill=1, wFill=2 the following tensor will be generated: .. code-block:: +------------> W | hi hi lo | lo",
+  "ttnn.fill_zero_bw": "Performs backward operations for fill zero on :attr:`input_tensor` with given :attr:`grad_tensor`. Returns an tensor of zeros like :attr:`grad_tensor`. .. math:: \\mathrm{{output\\_tensor}}_i = \\verb|fill_zero_bw|(\\mathrm{{grad\\_tensor}}_i, \\mathrm{{input\\_tenso",
+  "ttnn.get_optimal_dram_bank_to_logical_worker_assignment": "get_optimal_dram_bank_to_logical_worker_assignment(device: ttnn._ttnn.multi_device.MeshDevice, noc: ttnn._ttnn.types.NOC) -> list[ttnn._ttnn.tensor.CoreCoord] [EXPERIMENTAL] Returns the optimal DRAM bank to logical worker core assignment. This function returns",
+  "ttnn.reduce_scatter": "Reduce-scatter operation across devices along a selected dimension and optional cluster axis. This operation reduces the mesh tensor across the devices in the mesh, along the specified dimension. It then scatters the reduced tensor back to the devices in the m",
+  "ttnn.scatter": "Scatters the source tensor's values along a given dimension according to the index tensor. Args: input (ttnn.Tensor): the input tensor to scatter values onto. dim (int): the dimension to scatter along. index (ttnn.Tensor): the tensor specifying indices where v",
+  "ttnn.scatter_add": "Scatters the source tensor's values along a given dimension according to the index tensor, adding source values associated with according repeated indices. Args: input (ttnn.Tensor): the input tensor to scatter values onto. dim (int): the dimension to scatter ",
+  "ttnn.tosa_scatter": "Scatters the source tensor's values along a given dimension according to the index tensor. Parameters: * `input` (Tensor): The input tensor to scatter values onto. Must be of rank 3. * `index` (Tensor): The tensor specifying indices where values from the sourc",
+  "ttnn.update_cache": "Updates the cache tensor in place with the values from input at the specified update_idx. When cache has batch less than 32, input is assumed to have batch padded to 32 and [batch_offset:batch_offset+batch] from dim[-2] of input is used to update the cache. Ar",
+  "ttnn.experimental.deepseek_moe_reduce_scatter": "Reduce-scatter operation across devices along a selected dimension and optional cluster axis. This operation reduces the mesh tensor across the devices in the mesh, along the specified dimension. It then scatters the reduced tensor back to the devices in the m",
+  "ttnn.experimental.llama_reduce_scatter": "Reduce_scatter after FF1/3 for Llama70B. Args: input_tensor (ttnn.Tensor): the input tensor. intermediate_packet_buffer (ttnn.Tensor): the intermediate packet buffer tensor. dim (number): the reduce dimension cross_device_semaphore (ttnn.GlobalSemaphore): the ",
+  "ttnn.experimental.matmul_reduce_scatter_async": "Performs an reduce-scatter operation on multi-device :attr:`input_tensor` across all devices. Args: * :attr:`input_tensor` (ttnn.Tensor): multi-device tensor * :attr:`weight_tensor` (ttnn.Tensor): multi-device tensor * :attr:`dim` (int) * :attr:`reduce_scatter",
+  "ttnn.experimental.paged_fill_cache": "Paged fill cache operation. This operation expects the following inputs: cache_tensor, input_tensor, and page_table. It uses either batch_idx_tensor (if provided, kwarg batch_idx_tensor) or batch_idx (kwarg batch_idx) as a fallback to determine the batch index",
+  "ttnn.experimental.paged_fused_update_cache": "Updates the cache tensors `cache_tensor1` and `cache_tensor2` in parallel with values derived from the corresponding input tensors. This function supports fine-grained updates using specified index lists or tensors. Positional Arguments: cache_tensor1 (ttnn.Te",
+  "ttnn.experimental.paged_update_cache": "Paged update cache operation. This operation expects the following inputs: cache_tensor of shape [B, 1, kv_len, head_dim] and input_tensor of shape [1, B, 1[32], head_dim] where input_tensor is height sharded on B cores. update_idxs will specify for each batch",
+  "ttnn.experimental.reduce_scatter_minimal_async": "Performs an reduce-scatter operation on multi-device :attr:`input_tensor` across all devices. Args: input_tensor (ttnn.Tensor): multi-device tensor. dim (int): Dimension to scatter. mesh_device (MeshDevice): Device mesh to perform the line-all-gather operation",
+  "ttnn.experimental.slice_write": "Writes the input tensor to a slice of the output tensor. Constraints: Input & Output must have rank == 4. DType must be bfloat16. Supports only Row Major Tensors. Output Tensor must be interleaved. Input Tensor can be interleaved, height sharded or block shard"
+ }
+}

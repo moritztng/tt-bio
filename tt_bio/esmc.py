@@ -339,6 +339,114 @@ _PAIR_FFN_L1_FC1 = os.environ.get(
 # than what greps. Same idiom as `reblock_permute.STATS_GATED`.
 L1_FC1_STATS = [0, 0]
 
+# Third lever on the same block, and the one that pays best. The block layer_norm wrote its result
+# to DRAM and fc1's two halves each read all 8.39 MB of it back. Giving the norm an L1 destination
+# removes that round trip, but the win is not the removed bytes: fc1's in0 stops stalling on DRAM
+# and the matmul goes from 31 % to ~52 % of the compute roof. So this is not the killed
+# "faster layer_norm config" arm (state/esmfold2-to-3p4x.md 11.15, best bit-exact 1.008x) -- that
+# one changed the reduction's blocking to speed up the norm itself. The kernel and its reduction
+# are untouched here; only the destination moves, and the gain lands in fc1.
+#
+# MEASURED on qb1 card 0, ttnn 0.68.0, 13x10 grid, the whole block body (norm, fc1 x2, SwiGLU,
+# fc2) at c_z=256, d_ff=1024, rows=32, median of 5, batched 4 calls per synchronize:
+#   298 aa  5.4985 -> 4.9290 ms/call     512 aa  12.7100 -> 10.2619
+#   640 aa 18.3031 -> 14.6634            768 aa  31.0049 -> 27.2667
+# `torch.equal` at the BODY output (not just the norm) with max abs diff 0.0 at every size
+# (perf/esmbeat/p3_s_lnl1_c0.json). At 512 aa that is -2.448 ms x 538 calls = -1.317 s of fold.
+#
+# Rides inside `l1_gated`, so it inherits the row block's 320-1024 aa window and cannot reach
+# ESMC's 3-D LM FFN. The refusal cache is load-bearing rather than defensive: at the top of the
+# window the block's L1 residents outgrow a 110-core grid, and `ttnn.layer_norm` RAISES on an L1
+# refusal instead of falling back the way `_pair_proj_linear` does. Keyed on `padded_shape`, so a
+# size that declines costs one exception per fold, not one per block.
+PAIR_FFN_L1_LN = True
+_PAIR_FFN_L1_LN = os.environ.get(
+    "TT_BIO_PAIR_FFN_L1_LN", "1" if PAIR_FFN_L1_LN else "0") == "1"
+
+# [served, declined] block layer_norms, same census idiom as `L1_FC1_STATS`: an A/B arm reading
+# [0, n] is vacuous, and one reading [0, 0] never reached the gate at all.
+L1_LN_STATS = [0, 0]
+_L1_LN_REFUSED = set()
+
+# Fourth lever (C-in). The row block cut all 16 blocks into DRAM up front and lever E's
+# `layer_norm` read each one straight back out. Slicing a block lazily INTO L1 leaves the copy
+# in place and moves only its destination, removing one 8.39 MB DRAM write and one 8.39 MB DRAM
+# read per block at 512 aa.
+#
+# The control is what makes this a mechanism rather than a coincidence: the same lazy per-block
+# slice landing in DRAM returns -0.026 s, i.e. nothing (`cin_dram` in
+# perf/esmbeat/p3_s_cin_512_c0.json). The L1 destination is the whole lever.
+#
+# MEASURED on qb1 card 0, ttnn 0.68.0, 13x10 grid, the shipped chain at [1,512,512,256],
+# 4 calls per synchronize, median of 5: 11.6856 -> 11.1378 ms/call = -0.295 s of fold.
+# `torch.equal` on the assembled output, max abs diff 0.0, and the sliced block is `torch.equal`
+# to the chunked block as well, so a future failure is attributable.
+#
+# Rides inside `l1_gated`, so it inherits the row block's 320-1024 aa window.
+PAIR_FFN_L1_SLICE = True
+_PAIR_FFN_L1_SLICE = os.environ.get(
+    "TT_BIO_PAIR_FFN_L1_SLICE", "1" if PAIR_FFN_L1_SLICE else "0") == "1"
+
+# [served, declined] row-blocked calls, per call and not per block. Same census idiom as
+# `L1_LN_STATS`.
+L1_SLICE_STATS = [0, 0]
+_L1_SLICE_REFUSED = set()
+
+# Fifth lever (F). `PairUpdateBlock` owned `z = z + transition(z)`, a full-tensor add sitting
+# outside the row-block loop that read the FFN output back out of the DRAM the `concat` had just
+# written it to. Folding the add into the block lets fc2's output stay in L1 and never round-trip:
+#
+#   before  slice 134 read | fc2 134 write | concat 134 read + write | add 268 read + 134 write
+#   after   slice 134 read | fc2 -> L1, 0  | add -> 134 write        | concat 134 read + write
+#
+# 402 MB/call of the 938 removed at 512 aa. The add is elementwise and row-independent, so
+# per-block and full-tensor are the same arithmetic in the same order -- measured, not assumed.
+#
+# MEASURED on qb1 card 0, ttnn 0.68.0, 13x10 grid, same protocol as C-in:
+# 12.0471 -> 11.0393 ms/call = -0.542 s of fold, `torch.equal`, max abs diff 0.0
+# (perf/esmbeat/p3_s_resid_512_c0.json). With C-in it is -0.842 s together, slightly better than
+# the sum because F's per-block add reads its first operand out of the L1 slice C-in put there.
+#
+# Why fc2 can write L1 here when holding all 16 block outputs in L1 cannot (that one is measured
+# dead, `TT_THROW @ program.cpp:1052`, perf/esmbeat/p3_s_split_512_c0.json): F consumes each
+# block's output immediately, so L1 holds one 8.39 MB block rather than 134 MB.
+PAIR_FFN_FUSED_RESIDUAL = True
+_PAIR_FFN_FUSED_RESIDUAL = os.environ.get(
+    "TT_BIO_PAIR_FFN_FUSED_RESIDUAL", "1" if PAIR_FFN_FUSED_RESIDUAL else "0") == "1"
+
+# [served, declined] `SwiGLUFFN.residual` calls. A caller that never reaches the row block counts
+# declined, which is what separates "the gate refused" from "the gate was never asked".
+FUSED_RESID_STATS = [0, 0]
+_FUSED_RESID_REFUSED = set()
+
+# Sixth lever (G). With F in place the block loop still assembled its result with
+# `ttnn.concat`, which reads 134 MB and writes 134 MB per call at 512 aa purely to lay 16 blocks
+# side by side. `ttnn.fill_cache(cache, input, i)` writes `input` into `cache[i]` in place, and
+# under `ttnn.experimental.view` the pair tensor's row block IS a dim-0 index: view the
+# [1, L, L, C] output as [L/rows, rows, L, C] and block `i` is exactly `cache[i]`. So the block's
+# residual add keeps its output in L1 and is written straight into a pre-allocated output, and
+# the concat disappears along with the block's own DRAM write.
+#
+# The output buffer comes from `ttnn.allocate_tensor_on_device` -- a bare allocation, no host
+# copy and no zero fill, which is correct because every one of the nblk blocks is written.
+#
+# MEASURED on qb1 card 2, ttnn 0.68.0, 13x10 grid, 16 blocks of [1,32,512,256], allocation timed
+# INSIDE the arm: concat 1.8005 -> fill 1.3745 ms = -0.230 s of fold, `torch.equal` on the
+# assembled output, max abs diff 0.0 (perf/esmbeat/p3_s_fillcache_512_c2.json). The view was
+# checked to alias (`buffer_address()` equal), and `fill_cache` was checked to accept an L1
+# input -- with a DRAM input it would pay the traffic the concat already pays and return nothing.
+#
+# Rides on F: it needs the block's output to be the final content of its rows. Needs
+# `nblk * rows == L` for the view's volume to match, so a length that does not divide by the row
+# block keeps the concat.
+PAIR_FFN_FILL_ASSEMBLY = True
+_PAIR_FFN_FILL_ASSEMBLY = os.environ.get(
+    "TT_BIO_PAIR_FFN_FILL_ASSEMBLY", "1" if PAIR_FFN_FILL_ASSEMBLY else "0") == "1"
+
+# [served, declined] residual row-blocked calls, same idiom as `FUSED_RESID_STATS`.
+FILL_ASSEMBLY_STATS = [0, 0]
+_FILL_ASSEMBLY_REFUSED = set()
+
 # [split, unsplit] `SwiGLUFFN.__call__` invocations. An A/B arm on the small-grid opt-in needs both
 # `_SPLIT_SWIGLU` and `_SPLIT_SWIGLU_SMALL_GRID`, and if either is missed the arm is a silent A/A;
 # this counter is what makes that visible instead of inferred.
@@ -364,6 +472,38 @@ def set_pair_ffn_l1_fc1(on: bool) -> bool:
     """A/B switch for the L1-resident fc1 inside the row-blocked pair FFN. Returns the previous state."""
     global _PAIR_FFN_L1_FC1
     prev, _PAIR_FFN_L1_FC1 = _PAIR_FFN_L1_FC1, bool(on)
+    return prev
+
+
+def set_pair_ffn_l1_ln(on: bool) -> bool:
+    """A/B switch for the L1-resident block layer_norm inside the row-blocked pair FFN. Returns
+    the previous state."""
+    global _PAIR_FFN_L1_LN
+    prev, _PAIR_FFN_L1_LN = _PAIR_FFN_L1_LN, bool(on)
+    return prev
+
+
+def set_pair_ffn_l1_slice(on: bool) -> bool:
+    """A/B switch for the lazy L1 row slice feeding the blocked pair FFN (lever C-in). Returns
+    the previous state."""
+    global _PAIR_FFN_L1_SLICE
+    prev, _PAIR_FFN_L1_SLICE = _PAIR_FFN_L1_SLICE, bool(on)
+    return prev
+
+
+def set_pair_ffn_fused_residual(on: bool) -> bool:
+    """A/B switch for the per-block residual add inside the blocked pair FFN (lever F). Returns
+    the previous state."""
+    global _PAIR_FFN_FUSED_RESIDUAL
+    prev, _PAIR_FFN_FUSED_RESIDUAL = _PAIR_FFN_FUSED_RESIDUAL, bool(on)
+    return prev
+
+
+def set_pair_ffn_fill_assembly(on: bool) -> bool:
+    """A/B switch for writing each row block into a pre-allocated output instead of concatenating
+    the blocks (lever G). Returns the previous state."""
+    global _PAIR_FFN_FILL_ASSEMBLY
+    prev, _PAIR_FFN_FILL_ASSEMBLY = _PAIR_FFN_FILL_ASSEMBLY, bool(on)
     return prev
 
 
@@ -426,12 +566,25 @@ class SwiGLUFFN(Module):
             self.fc1_weight = ttnn.concat([self.fc1_a_weight, self.fc1_b_weight], dim=-1)
         return self.fc1_weight
 
-    def _ffn(self, x: ttnn.Tensor, split: bool = False, l1_gated: bool = False) -> ttnn.Tensor:
+    def _ffn(self, x: ttnn.Tensor, split: bool = False, l1_gated: bool = False,
+             out_mc=None) -> ttnn.Tensor:
+        """`out_mc` is fc2's output memory config; `None` -- every caller but lever F -- leaves
+        the op byte-identical to the call that had no such keyword."""
         ck = self.compute_kernel_config
-        x_norm = ttnn.layer_norm(
-            x, weight=self.norm_weight, bias=self.norm_bias,
-            epsilon=1e-5, compute_kernel_config=ck,
-        )
+        ln = dict(weight=self.norm_weight, bias=self.norm_bias,
+                  epsilon=1e-5, compute_kernel_config=ck)
+        x_norm = None
+        if l1_gated and _PAIR_FFN_L1_LN:
+            key = tuple(x.padded_shape)
+            if key not in _L1_LN_REFUSED:
+                try:
+                    x_norm = ttnn.layer_norm(x, memory_config=ttnn.L1_MEMORY_CONFIG, **ln)
+                    L1_LN_STATS[0] += 1
+                except Exception:
+                    _L1_LN_REFUSED.add(key)
+        if x_norm is None:
+            L1_LN_STATS[1] += bool(l1_gated and _PAIR_FFN_L1_LN)
+            x_norm = ttnn.layer_norm(x, **ln)
         if self.fuse_swiglu:
             gated = ttnn.experimental.minimal_matmul(
                 input_tensor=x_norm,
@@ -477,9 +630,124 @@ class SwiGLUFFN(Module):
             ttnn.deallocate(h)
             gated = ttnn.multiply(ttnn.silu(x1), x2)
             ttnn.deallocate(x1); ttnn.deallocate(x2)
-        out = self._lin(gated, self.fc2_weight)
+        out = self._lin(gated, self.fc2_weight,
+                        **({"memory_config": out_mc} if out_mc is not None else {}))
         ttnn.deallocate(gated)
         return out
+
+    def _split_plan(self, x: ttnn.Tensor) -> tuple[bool, int]:
+        """(split fc1?, rows per block) for this input, 0 rows if the 4-D row-blocked pair path
+        does not apply. Carries no census; the caller owns `SPLIT_STATS`."""
+        from tt_bio import tenstorrent
+        split = bool(
+            self.split_swiglu and _SPLIT_SWIGLU
+            and (_SPLIT_SWIGLU_SMALL_GRID
+                 or not getattr(tenstorrent, "_IS_SMALL_GRID", False))
+            and x.shape[-2] >= SPLIT_SWIGLU_MIN_SEQ
+        )
+        lo, hi = PAIR_FFN_ROW_BLOCK_SEQ
+        rows = _PAIR_FFN_ROW_BLOCK
+        blocked = split and len(x.shape) == 4 and rows and lo <= x.shape[1] <= hi
+        return split, (rows if blocked else 0)
+
+    def _row_blocked(self, x: ttnn.Tensor, rows: int, residual: bool) -> ttnn.Tensor:
+        """The 4-D pair FFN over `rows`-row blocks, optionally with `x +` folded into each block.
+
+        Three levers ride here and all three only move a destination, so all three are
+        bit-exact: C-in slices each block lazily into L1 instead of cutting all of them into DRAM
+        up front, F (`residual=True`) keeps fc2's output in L1 so the per-block add reads it on
+        chip, and G writes each block straight into a pre-allocated output with `fill_cache`
+        instead of concatenating the blocks afterwards.
+
+        The try/except is load-bearing, not defensive. Block-sized L1 residents do run out on a
+        smaller grid -- 16 of them is a measured `TT_THROW @ program.cpp:1052` even on qb1's
+        larger one -- and F keeps the sliced block alive through fc1 on top of that. On a refusal
+        this drops G first, then F, then C-in, and re-runs the loop on the weaker rung; the
+        refusal is
+        cached per `padded_shape`, so a size that declines costs one exception per fold rather
+        than one per block. Each rung is also reachable on its own through its env gate:
+        both -0.842 s/fold at 512 aa on qb1, F alone -0.392, C-in alone -0.295.
+        """
+        L, key = x.shape[1], tuple(x.padded_shape)
+        nblk = -(-L // rows)
+        lazy = _PAIR_FFN_L1_SLICE and key not in _L1_SLICE_REFUSED
+        fused = residual and _PAIR_FFN_FUSED_RESIDUAL and key not in _FUSED_RESID_REFUSED
+        filled = (fused and _PAIR_FFN_FILL_ASSEMBLY and nblk * rows == L
+                  and key not in _FILL_ASSEMBLY_REFUSED)
+        while True:
+            parts = None if lazy else ttnn.chunk(x, nblk, dim=1)
+            outs: list[ttnn.Tensor] = []
+            dst = None
+            try:
+                if filled:
+                    dst = ttnn.allocate_tensor_on_device(
+                        ttnn.Shape([1, L, x.shape[2], x.shape[3]]), x.dtype, x.layout,
+                        x.device(), ttnn.DRAM_MEMORY_CONFIG)
+                    view = ttnn.experimental.view(dst, [nblk, rows, x.shape[2], x.shape[3]])
+                for i in range(nblk):
+                    part = (ttnn.slice(
+                        x, [0, i * rows, 0, 0],
+                        [1, min((i + 1) * rows, L), x.shape[2], x.shape[3]],
+                        memory_config=ttnn.L1_MEMORY_CONFIG) if lazy else parts[i])
+                    out = self._ffn(part, split=True, l1_gated=True,
+                                    out_mc=ttnn.L1_MEMORY_CONFIG if fused else None)
+                    if fused:
+                        out, ffn_out = ttnn.add(
+                            part, out,
+                            memory_config=(ttnn.L1_MEMORY_CONFIG if filled
+                                           else ttnn.DRAM_MEMORY_CONFIG)), out
+                        ttnn.deallocate(ffn_out)
+                    ttnn.deallocate(part)
+                    if filled:
+                        ttnn.fill_cache(view, out, i)
+                        ttnn.deallocate(out)
+                    else:
+                        outs.append(out)
+            except Exception:
+                for tensor in outs:
+                    ttnn.deallocate(tensor)
+                if dst is not None:
+                    ttnn.deallocate(dst)
+                if filled:
+                    _FILL_ASSEMBLY_REFUSED.add(key)
+                    filled = False
+                elif fused:
+                    _FUSED_RESID_REFUSED.add(key)
+                    fused = False
+                elif lazy:
+                    _L1_SLICE_REFUSED.add(key)
+                    lazy = False
+                else:
+                    raise
+                continue
+            break
+        L1_SLICE_STATS[0 if lazy else 1] += 1
+        if residual:
+            FUSED_RESID_STATS[0 if fused else 1] += 1
+            FILL_ASSEMBLY_STATS[0 if filled else 1] += 1
+        if filled:
+            return dst
+        out = ttnn.concat(outs, dim=1)
+        for tensor in outs:
+            ttnn.deallocate(tensor)
+        if residual and not fused:
+            out, ffn_out = ttnn.add(x, out), out
+            ttnn.deallocate(ffn_out)
+        return out
+
+    def residual(self, x: ttnn.Tensor) -> ttnn.Tensor:
+        """`x + ffn(x)`, with the add folded into the row block where that path applies (lever F).
+
+        A separate entry point rather than a change to `__call__`, because `SwiGLUFFN` is shared
+        with ESMC's LM FFN, Boltz-2, Protenix-v2, OpenFold3 and OpenDDE and none of them wants
+        `x + ffn(x)`. Does not free `x`; the caller does, as it did around the add it used to own.
+        """
+        split, rows = self._split_plan(x)
+        if rows:
+            SPLIT_STATS[0] += 1
+            return self._row_blocked(x, rows, residual=True)
+        FUSED_RESID_STATS[1] += 1
+        return ttnn.add(x, self(x))
 
     def __call__(self, x: ttnn.Tensor) -> ttnn.Tensor:
         # The fc1 activation (2*d_ff wide) is several GB at long L and, on top of
@@ -490,20 +758,10 @@ class SwiGLUFFN(Module):
         # tile. Single pass on Blackhole. See tenstorrent._apply_grid_thresholds.
         from tt_bio import tenstorrent
         L = x.shape[1]
-        split = bool(
-            self.split_swiglu and _SPLIT_SWIGLU
-            and (_SPLIT_SWIGLU_SMALL_GRID
-                 or not getattr(tenstorrent, "_IS_SMALL_GRID", False))
-            and x.shape[-2] >= SPLIT_SWIGLU_MIN_SEQ
-        )
+        split, rows = self._split_plan(x)
         SPLIT_STATS[0 if split else 1] += 1
-        lo, hi = PAIR_FFN_ROW_BLOCK_SEQ
-        rows = _PAIR_FFN_ROW_BLOCK
-        if split and len(x.shape) == 4 and rows and lo <= L <= hi:
-            parts = ttnn.chunk(x, -(-L // rows), dim=1)
-            return ttnn.concat(
-                [self._ffn(p, split=True, l1_gated=True) for p in parts], dim=1
-            )
+        if rows:
+            return self._row_blocked(x, rows, residual=False)
         if len(x.shape) == 4:
             chunk = tenstorrent.pair_row_tile(L)
         else:

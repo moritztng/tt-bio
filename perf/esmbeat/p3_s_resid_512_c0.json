@@ -1,0 +1,66 @@
+{
+ "host": "tt-quietbox",
+ "card": "0",
+ "grid": [
+  13,
+  10
+ ],
+ "size": 512,
+ "rows": 32,
+ "calls_per_fold": 538,
+ "ms": {
+  "base": 12.0471,
+  "F": 11.0393,
+  "base_chunk": 12.6036,
+  "F_chunk": 11.8749
+ },
+ "raw": {
+  "base": [
+   12.006,
+   12.0471,
+   12.0599,
+   12.047,
+   12.0508
+  ],
+  "F": [
+   11.0088,
+   11.0193,
+   11.0433,
+   11.0393,
+   11.0483
+  ],
+  "base_chunk": [
+   12.5928,
+   12.6025,
+   12.6214,
+   12.6036,
+   12.6184
+  ],
+  "F_chunk": [
+   11.8749,
+   11.8813,
+   11.8715,
+   11.875,
+   11.8576
+  ]
+ },
+ "roofs": {
+  "dram_add_GBps": 420.3
+ },
+ "F_torch_equal": true,
+ "F_max_abs_diff": 0.0,
+ "F_delta_ms": 1.0078,
+ "F_s_per_fold": 0.542,
+ "F_chunk_delta_ms": 0.7287,
+ "F_chunk_s_per_fold": 0.392,
+ "cin_plus_F_s_per_fold": 0.842,
+ "s_per_fold": {
+  "base": 6.481,
+  "F": 5.939,
+  "base_chunk": 6.781,
+  "F_chunk": 6.389
+ },
+ "J1_pass": true,
+ "J2_pass": true,
+ "verdict": "GO"
+}

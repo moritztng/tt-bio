@@ -1,0 +1,30 @@
+esmc-300m                         esmc       in-process    PASS                   11s  min per-res PCC=0.99918 [reproduces committed]
+esmc-600m                         esmc       in-process    PASS                   15s  min per-res PCC=0.99938 [reproduces committed]
+saprot-35m                        saprot     in-process    PASS                    8s  X_emb=0.99914
+saprot-650m                       saprot     in-process    PASS                   14s  X_emb=0.99964
+esmfold2-trpcage                  esmfold2   in-process    PASS                  887s  4 proteins scored (4 within floor) [reproduces committed]
+boltz2-trpcage-nomsa              structure  cached        PASS                   44s  envelope worst kabsch_rmsd: num=0.0722 env=0.1446 ratio=0.50 [reproduces committed]
+boltz2-prot-nomsa                 structure  cached        GAP                    46s  envelope worst kabsch_rmsd: num=7.0200 env=3.4501 ratio=2.03 [reproduces committed]
+boltz2-hsa-nomsa                  structure  cached        PASS                   70s  envelope worst kabsch_rmsd: num=0.7311 env=1.3315 ratio=0.55 [reproduces committed]
+boltz2-9ncy-nomsa                 structure  cached        GAP                    52s  envelope worst kabsch_rmsd: num=6.7103 env=1.6594 ratio=4.04 [DRIFT vs committed=PASS — investigate, not auto-overwritten]
+protenix-prot-msa                 structure  cached        PASS                  228s  prot: X=2.691 R=2.763 D=2.566 within=True [improves committed GAP-evidenced — not a drift]
+protenix-ubq-msa                  structure  cached        PASS                  274s  ubq: X=1.790 R=1.923 D=1.440 within=True [improves committed GAP-evidenced — not a drift]
+protenix-hsa-msa                  structure  cached        PASS                 1054s  hsa: X=0.697 R=0.695 D=0.575 within=True
+protenix-9ncy-msa                 structure  cached        BLOCKED-REGEN           0s  fixture incomplete (missing structures/ cif)
+openfold3-ubq-msa                 structure  no-index      PASS                  639s  ubq: X=1.335 R=1.640 D=0.797 within=True [reproduces committed]
+openfold3-prot-msa                structure  no-index      PASS                  650s  prot: X=2.063 R=1.642 D=1.230 within=True [reproduces committed]
+openfold3-7xi5-tmpl               structure  no-index      PASS                  642s  7xi5_tmpl: X=4.372 R=4.160 D=0.604 within=True [reproduces committed]
+openfold3-7xi5-notmpl             structure  no-index      GAP                   602s  7xi5_notmpl: X=5.415 R=2.867 D=0.689 within=False [reproduces committed]
+openfold3-8hel-msa                structure  no-index      PASS                  679s  8hel_msa: X=5.610 R=7.585 D=0.383 within=True [reproduces committed]
+openfold3-8hel-nomsa              structure  no-index      PASS                  945s  8hel_nomsa: X=11.618 R=11.571 D=9.309 within=True [reproduces committed]
+openfold3-9bk6-complex-msa        structure  no-index      PASS                  665s  9bk6: X=1.673 R=1.448 D=0.696 within=True [reproduces committed]
+boltz2-affinity-fkbp12-nomsa      affinity   cached        PASS                  164s  envelope worst affinity_probability_binary: num=0.0011 env=0 [improves committed GAP-evidenced — not a drift]
+boltz2-affinity-fkbp12-msa        affinity   cached        PASS                  250s  envelope worst affinity_probability_binary: num=0.0028 env=0 [improves committed GAP-evidenced — not a drift]
+boltz2-affinity-dhfr-nomsa        affinity   cached        PASS                  376s  envelope worst affinity_pred_value: num=0.2950 env=0.1992 ra [reproduces committed]
+boltz2-affinity-dhfr-msa          affinity   cached        PASS                  571s  envelope worst affinity_pred_value: num=0.0306 env=0.0513 ra [reproduces committed]
+boltz2-affinity-tryp-nomsa        affinity   cached        PASS                  340s  envelope worst affinity_pred_value: num=0.0217 env=0.0436 ra [reproduces committed]
+boltz2-affinity-tryp-msa          affinity   cached        PASS                  503s  envelope worst affinity_probability_binary: num=0.0027 env=0 [reproduces committed]
+opendde-trpcage-nomsa             structure  cached        BLOCKED-REGEN           0s  fixture incomplete (missing structures/ cif)
+opendde-prot-prod                 structure  cached        PASS                  216s  prot_no_msa: X=9.175 R=1.499 D=8.812 within=True [improves committed GAP-evidenced — not a drift]
+opendde-abag                      abag       in-process    PASS                  367s  global DockQ=0.832 [reproduces committed]
+boltzgen                          boltzgen   in-process    PASS                  263s  scRMSD pass-rate 100% (median 0.7921750000000001) [reproduces committed]

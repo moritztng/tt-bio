@@ -1,0 +1,277 @@
+{
+ "ttnn": "0.67.4",
+ "host": "tt-quietbox",
+ "card": "2",
+ "model": "esmfold2",
+ "size": 512,
+ "git_head": "5225b579",
+ "has_l1_fc1_gate": true,
+ "recycling_steps": 10,
+ "sampling_steps": 100,
+ "arms": [
+  "ship",
+  "noG"
+ ],
+ "rounds": 1,
+ "runs": [
+  {
+   "tag": "warm:ship",
+   "arm": "ship",
+   "l1_fc1": true,
+   "fold_s": 62.43,
+   "plddt": 0.9284,
+   "cif": {
+    "cdk2x2_512.cif": "8900eafb9cb2984a"
+   },
+   "e6_served": 2152,
+   "e6_declined": 0,
+   "l1_fc1_stats": [
+    17216,
+    0
+   ],
+   "l1_ln": true,
+   "l1_ln_stats": [
+    8608,
+    0
+   ],
+   "l1_slice": true,
+   "l1_slice_stats": [
+    538,
+    0
+   ],
+   "fused_resid": true,
+   "fused_resid_stats": [
+    538,
+    0
+   ],
+   "fill_assembly": true,
+   "fill_assembly_stats": [
+    538,
+    0
+   ],
+   "lm_handoff": [
+    1,
+    0
+   ],
+   "fwd_move": [
+    16,
+    0
+   ],
+   "back_move": [
+    1084,
+    0
+   ],
+   "l1_out_refused": 0,
+   "dual_noc": [
+    1084,
+    0
+   ],
+   "dual_noc_rejects": {},
+   "trimul_tail_f1": null,
+   "loadavg": "4.49"
+  },
+  {
+   "tag": "warm:noG",
+   "arm": "noG",
+   "l1_fc1": true,
+   "fold_s": 33.342,
+   "plddt": 0.9284,
+   "cif": {
+    "cdk2x2_512.cif": "8900eafb9cb2984a"
+   },
+   "e6_served": 2152,
+   "e6_declined": 0,
+   "l1_fc1_stats": [
+    17216,
+    0
+   ],
+   "l1_ln": true,
+   "l1_ln_stats": [
+    8608,
+    0
+   ],
+   "l1_slice": true,
+   "l1_slice_stats": [
+    538,
+    0
+   ],
+   "fused_resid": true,
+   "fused_resid_stats": [
+    538,
+    0
+   ],
+   "fill_assembly": false,
+   "fill_assembly_stats": [
+    0,
+    538
+   ],
+   "lm_handoff": [
+    1,
+    0
+   ],
+   "fwd_move": [
+    16,
+    0
+   ],
+   "back_move": [
+    1084,
+    0
+   ],
+   "l1_out_refused": 0,
+   "dual_noc": [
+    1084,
+    0
+   ],
+   "dual_noc_rejects": {},
+   "trimul_tail_f1": null,
+   "loadavg": "6.25"
+  },
+  {
+   "tag": "r0:ship",
+   "arm": "ship",
+   "l1_fc1": true,
+   "fold_s": 32.937,
+   "plddt": 0.9284,
+   "cif": {
+    "cdk2x2_512.cif": "8900eafb9cb2984a"
+   },
+   "e6_served": 2152,
+   "e6_declined": 0,
+   "l1_fc1_stats": [
+    17216,
+    0
+   ],
+   "l1_ln": true,
+   "l1_ln_stats": [
+    8608,
+    0
+   ],
+   "l1_slice": true,
+   "l1_slice_stats": [
+    538,
+    0
+   ],
+   "fused_resid": true,
+   "fused_resid_stats": [
+    538,
+    0
+   ],
+   "fill_assembly": true,
+   "fill_assembly_stats": [
+    538,
+    0
+   ],
+   "lm_handoff": [
+    1,
+    0
+   ],
+   "fwd_move": [
+    16,
+    0
+   ],
+   "back_move": [
+    1084,
+    0
+   ],
+   "l1_out_refused": 0,
+   "dual_noc": [
+    1084,
+    0
+   ],
+   "dual_noc_rejects": {},
+   "trimul_tail_f1": null,
+   "loadavg": "6.76"
+  },
+  {
+   "tag": "r0:noG",
+   "arm": "noG",
+   "l1_fc1": true,
+   "fold_s": 35.518,
+   "plddt": 0.9284,
+   "cif": {
+    "cdk2x2_512.cif": "8900eafb9cb2984a"
+   },
+   "e6_served": 2152,
+   "e6_declined": 0,
+   "l1_fc1_stats": [
+    17216,
+    0
+   ],
+   "l1_ln": true,
+   "l1_ln_stats": [
+    8608,
+    0
+   ],
+   "l1_slice": true,
+   "l1_slice_stats": [
+    538,
+    0
+   ],
+   "fused_resid": true,
+   "fused_resid_stats": [
+    538,
+    0
+   ],
+   "fill_assembly": false,
+   "fill_assembly_stats": [
+    0,
+    538
+   ],
+   "lm_handoff": [
+    1,
+    0
+   ],
+   "fwd_move": [
+    16,
+    0
+   ],
+   "back_move": [
+    1084,
+    0
+   ],
+   "l1_out_refused": 0,
+   "dual_noc": [
+    1084,
+    0
+   ],
+   "dual_noc_rejects": {},
+   "trimul_tail_f1": null,
+   "loadavg": "9.82"
+  }
+ ],
+ "grid": [
+  13,
+  10
+ ],
+ "shipped_defaults": {
+  "l1_fc1": true,
+  "lm_handoff": true,
+  "dual_noc": true,
+  "l1_ln": true,
+  "l1_slice": true,
+  "fused_resid": true,
+  "fill_assembly": true
+ },
+ "summary": {
+  "ship": {
+   "n": 1,
+   "median": 32.937,
+   "min": 32.937,
+   "max": 32.937,
+   "spread": 0.0,
+   "speedup_vs_ship": 1.0,
+   "delta_s": 0.0
+  },
+  "noG": {
+   "n": 1,
+   "median": 35.518,
+   "min": 35.518,
+   "max": 35.518,
+   "spread": 0.0,
+   "speedup_vs_ship": 0.9273,
+   "delta_s": -2.581
+  },
+  "A/A_noise_floor_s": 0.0
+ },
+ "cif_identical_across_arms": true
+}
