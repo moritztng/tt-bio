@@ -1,0 +1,228 @@
+{
+ "target": "P03951",
+ "arm": "null",
+ "rundir": "/home/cust-team/mthuening/whb2clash/partb/P03951_null",
+ "n_cif": 5,
+ "n_probe": 1,
+ "probe": {
+  "pid": 3058309,
+  "module": "/home/cust-team/mthuening/whb2clash/tree/tt_bio/tenstorrent.py",
+  "grid": [
+   8,
+   9
+  ],
+  "is_small_grid": true,
+  "forced_slmc": 608,
+  "SEQ_LEN_MORE_CHUNKING": 608,
+  "SDPA_DIV_K": false,
+  "k_chunk_640": 256,
+  "k_chunk_768": 256,
+  "fast_mode": false,
+  "env": {
+   "TT_BIO_LEASE_HOLDER": "worker:wh-boltz2-640aa-clash-rootcause",
+   "TT_BIO_LEASE_TIMEOUT": "5400",
+   "TT_BIO_LOGICAL_DEVICE_ID": "0",
+   "TT_BIO_PARENT_PID": "3058100",
+   "TT_BIO_SDPA_DIV_K": "0",
+   "TT_VISIBLE_DEVICES": "28",
+   "WHB2_FORCE_SLMC": "608",
+   "WHB2_PROBE": "/home/cust-team/mthuening/whb2clash/partb/P03951_null/probe",
+   "WHB2_PY": "/home/cust-team/mthuening/tt-bio/env/bin/python"
+  }
+ },
+ "SEQ_LEN_MORE_CHUNKING": 608,
+ "SDPA_DIV_K": false,
+ "is_small_grid": true,
+ "grid": [
+  8,
+  9
+ ],
+ "k_chunk_640": 256,
+ "k_chunk_768": 256,
+ "forced_slmc": 608,
+ "structures": [
+  {
+   "cif": "boltz2_results_P03951/structures/P03951.cif",
+   "digest": "b1acc9d1a28d8487",
+   "n_clash": 1,
+   "n_heavy": 4914,
+   "clash_frac": 0.0002035002035002035,
+   "worst_dist": 1.895,
+   "clash_budget": 4.914,
+   "backbone_gaps": 0,
+   "in_band_frac": 0.9984,
+   "n_res": 625,
+   "fails": [],
+   "warns": [
+    "1 marginal contacts < 2.0 A (worst 1.895 A)"
+   ],
+   "pairs": [
+    [
+     "A/192SER/O",
+     "A/285HIS/NE2",
+     1.895
+    ]
+   ]
+  },
+  {
+   "cif": "boltz2_results_P03951/structures/P03951_model_1.cif",
+   "digest": "5a87c97498b460bd",
+   "n_clash": 1,
+   "n_heavy": 4914,
+   "clash_frac": 0.0002035002035002035,
+   "worst_dist": 1.82,
+   "clash_budget": 4.914,
+   "backbone_gaps": 0,
+   "in_band_frac": 0.9984,
+   "n_res": 625,
+   "fails": [],
+   "warns": [
+    "1 marginal contacts < 2.0 A (worst 1.82 A)"
+   ],
+   "pairs": [
+    [
+     "A/192SER/O",
+     "A/285HIS/NE2",
+     1.82
+    ]
+   ]
+  },
+  {
+   "cif": "boltz2_results_P03951/structures/P03951_model_2.cif",
+   "digest": "559d3d7ca950e0f6",
+   "n_clash": 3,
+   "n_heavy": 4914,
+   "clash_frac": 0.0006105006105006105,
+   "worst_dist": 1.596,
+   "clash_budget": 4.914,
+   "backbone_gaps": 0,
+   "in_band_frac": 0.9984,
+   "n_res": 625,
+   "fails": [],
+   "warns": [
+    "3 marginal contacts < 2.0 A (worst 1.596 A)"
+   ],
+   "pairs": [
+    [
+     "A/192SER/O",
+     "A/285HIS/NE2",
+     1.596
+    ],
+    [
+     "A/14THR/CG2",
+     "A/98TYR/OH",
+     1.68
+    ],
+    [
+     "A/14THR/OG1",
+     "A/88ARG/NE",
+     1.929
+    ]
+   ]
+  },
+  {
+   "cif": "boltz2_results_P03951/structures/P03951_model_3.cif",
+   "digest": "a5748b617e636bc3",
+   "n_clash": 7,
+   "n_heavy": 4914,
+   "clash_frac": 0.0014245014245014246,
+   "worst_dist": 0.931,
+   "clash_budget": 4.914,
+   "backbone_gaps": 0,
+   "in_band_frac": 0.9984,
+   "n_res": 625,
+   "fails": [
+    "7 heavy-atom clashes < 2.0 A (0.14% of atoms, worst 0.931 A)"
+   ],
+   "warns": [],
+   "pairs": [
+    [
+     "A/1MET/CE",
+     "A/301PHE/O",
+     0.931
+    ],
+    [
+     "A/1MET/CE",
+     "A/301PHE/C",
+     1.367
+    ],
+    [
+     "A/347TYR/OH",
+     "A/4LEU/O",
+     1.556
+    ],
+    [
+     "A/340ASN/ND2",
+     "A/345LYS/NZ",
+     1.8
+    ],
+    [
+     "A/106GLN/NE2",
+     "A/377ASP/O",
+     1.805
+    ],
+    [
+     "A/192SER/O",
+     "A/285HIS/NE2",
+     1.872
+    ],
+    [
+     "A/177ARG/NH2",
+     "A/71THR/CG2",
+     1.912
+    ]
+   ]
+  },
+  {
+   "cif": "boltz2_results_P03951/structures/P03951_model_4.cif",
+   "digest": "0bb536f2a1a957b7",
+   "n_clash": 6,
+   "n_heavy": 4914,
+   "clash_frac": 0.001221001221001221,
+   "worst_dist": 1.199,
+   "clash_budget": 4.914,
+   "backbone_gaps": 0,
+   "in_band_frac": 0.9984,
+   "n_res": 625,
+   "fails": [
+    "6 heavy-atom clashes < 2.0 A (0.12% of atoms, worst 1.199 A)"
+   ],
+   "warns": [],
+   "pairs": [
+    [
+     "A/10PHE/CZ",
+     "A/315GLU/O",
+     1.199
+    ],
+    [
+     "A/10PHE/CZ",
+     "A/315GLU/C",
+     1.651
+    ],
+    [
+     "A/177ARG/NH2",
+     "A/71THR/CA",
+     1.722
+    ],
+    [
+     "A/192SER/O",
+     "A/285HIS/NE2",
+     1.742
+    ],
+    [
+     "A/177ARG/NH1",
+     "A/71THR/O",
+     1.829
+    ],
+    [
+     "A/10PHE/CE1",
+     "A/316ALA/CA",
+     1.851
+    ]
+   ]
+  }
+ ],
+ "plddt": 0.919692,
+ "ptm": 0.703044,
+ "runtime_s": 199.5
+}

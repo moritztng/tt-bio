@@ -1,0 +1,106 @@
+{
+ "target": "Q05823",
+ "arm": "base",
+ "rundir": "/home/cust-team/mthuening/whb2clash/partb/Q05823_base",
+ "n_cif": 1,
+ "n_probe": 1,
+ "probe": {
+  "pid": 2694366,
+  "module": "/home/cust-team/mthuening/whb2clash/tree/tt_bio/tenstorrent.py",
+  "grid": [
+   8,
+   9
+  ],
+  "is_small_grid": true,
+  "forced_slmc": 608,
+  "SEQ_LEN_MORE_CHUNKING": 608,
+  "SDPA_DIV_K": false,
+  "k_chunk_640": 256,
+  "k_chunk_768": 256,
+  "fast_mode": false,
+  "env": {
+   "TT_BIO_LEASE_HOLDER": "worker:wh-boltz2-640aa-clash-rootcause",
+   "TT_BIO_LEASE_TIMEOUT": "5400",
+   "TT_BIO_LOGICAL_DEVICE_ID": "0",
+   "TT_BIO_PARENT_PID": "2694149",
+   "TT_BIO_SDPA_DIV_K": "0",
+   "TT_VISIBLE_DEVICES": "28",
+   "WHB2_FORCE_SLMC": "608",
+   "WHB2_PROBE": "/home/cust-team/mthuening/whb2clash/partb/Q05823_base/probe",
+   "WHB2_PY": "/home/cust-team/mthuening/tt-bio/env/bin/python"
+  }
+ },
+ "SEQ_LEN_MORE_CHUNKING": 608,
+ "SDPA_DIV_K": false,
+ "is_small_grid": true,
+ "grid": [
+  8,
+  9
+ ],
+ "k_chunk_640": 256,
+ "k_chunk_768": 256,
+ "forced_slmc": 608,
+ "structures": [
+  {
+   "cif": "boltz2_results_Q05823/structures/Q05823.cif",
+   "digest": "c383ecb5ca65c43b",
+   "n_clash": 8,
+   "n_heavy": 5877,
+   "clash_frac": 0.00136123872724179,
+   "worst_dist": 0.775,
+   "clash_budget": 5.877,
+   "backbone_gaps": 0,
+   "in_band_frac": 0.9986,
+   "n_res": 741,
+   "fails": [
+    "8 heavy-atom clashes < 2.0 A (0.14% of atoms, worst 0.775 A)"
+   ],
+   "warns": [],
+   "pairs": [
+    [
+     "A/578SER/O",
+     "A/734SER/OG",
+     0.775
+    ],
+    [
+     "A/410SER/O",
+     "A/741CYS/O",
+     1.247
+    ],
+    [
+     "A/34GLN/OE1",
+     "A/7ASN/O",
+     1.32
+    ],
+    [
+     "A/578SER/C",
+     "A/734SER/OG",
+     1.617
+    ],
+    [
+     "A/578SER/O",
+     "A/734SER/CB",
+     1.71
+    ],
+    [
+     "A/628SER/OG",
+     "A/698ASP/OD1",
+     1.809
+    ],
+    [
+     "A/565ARG/NH1",
+     "A/730ALA/O",
+     1.862
+    ],
+    [
+     "A/370LYS/NZ",
+     "A/373ASP/OD1",
+     1.933
+    ]
+   ]
+  }
+ ],
+ "plddt": 0.872054,
+ "ptm": 0.690498,
+ "runtime_s": 149.5
+}

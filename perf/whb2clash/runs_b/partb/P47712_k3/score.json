@@ -1,0 +1,96 @@
+{
+ "target": "P47712",
+ "arm": "k3",
+ "rundir": "/home/cust-team/mthuening/whb2clash/partb/P47712_k3",
+ "n_cif": 1,
+ "n_probe": 1,
+ "probe": {
+  "pid": 2870501,
+  "module": "/home/cust-team/mthuening/whb2clash/tree/tt_bio/tenstorrent.py",
+  "grid": [
+   8,
+   9
+  ],
+  "is_small_grid": true,
+  "forced_slmc": 608,
+  "SEQ_LEN_MORE_CHUNKING": 608,
+  "SDPA_DIV_K": true,
+  "k_chunk_640": 160,
+  "k_chunk_768": 256,
+  "fast_mode": false,
+  "env": {
+   "TT_BIO_LEASE_HOLDER": "worker:wh-boltz2-640aa-clash-rootcause",
+   "TT_BIO_LEASE_TIMEOUT": "5400",
+   "TT_BIO_LOGICAL_DEVICE_ID": "0",
+   "TT_BIO_PARENT_PID": "2870298",
+   "TT_BIO_SDPA_DIV_K": "1",
+   "TT_VISIBLE_DEVICES": "28",
+   "WHB2_FORCE_SLMC": "608",
+   "WHB2_PROBE": "/home/cust-team/mthuening/whb2clash/partb/P47712_k3/probe",
+   "WHB2_PY": "/home/cust-team/mthuening/tt-bio/env/bin/python"
+  }
+ },
+ "SEQ_LEN_MORE_CHUNKING": 608,
+ "SDPA_DIV_K": true,
+ "is_small_grid": true,
+ "grid": [
+  8,
+  9
+ ],
+ "k_chunk_640": 160,
+ "k_chunk_768": 256,
+ "forced_slmc": 608,
+ "structures": [
+  {
+   "cif": "boltz2_results_P47712/structures/P47712.cif",
+   "digest": "f548c8feb33e0c62",
+   "n_clash": 6,
+   "n_heavy": 5995,
+   "clash_frac": 0.001000834028356964,
+   "worst_dist": 1.357,
+   "clash_budget": 5.995,
+   "backbone_gaps": 0,
+   "in_band_frac": 0.9987,
+   "n_res": 749,
+   "fails": [
+    "6 heavy-atom clashes < 2.0 A (0.10% of atoms, worst 1.357 A)"
+   ],
+   "warns": [],
+   "pairs": [
+    [
+     "A/14HIS/O",
+     "A/743PHE/CD2",
+     1.357
+    ],
+    [
+     "A/719ARG/NH1",
+     "A/726CYS/SG",
+     1.61
+    ],
+    [
+     "A/14HIS/CD2",
+     "A/740ASN/OD1",
+     1.763
+    ],
+    [
+     "A/403ARG/NH1",
+     "A/412SER/O",
+     1.852
+    ],
+    [
+     "A/506PRO/CD",
+     "A/6PRO/O",
+     1.873
+    ],
+    [
+     "A/379LYS/NZ",
+     "A/442HIS/O",
+     1.918
+    ]
+   ]
+  }
+ ],
+ "plddt": 0.781993,
+ "ptm": 0.83449,
+ "runtime_s": 147.5
+}

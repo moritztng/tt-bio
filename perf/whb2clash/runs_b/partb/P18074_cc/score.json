@@ -1,0 +1,101 @@
+{
+ "target": "P18074",
+ "arm": "cc",
+ "rundir": "/home/cust-team/mthuening/whb2clash/partb/P18074_cc",
+ "n_cif": 1,
+ "n_probe": 1,
+ "probe": {
+  "pid": 2999686,
+  "module": "/home/cust-team/mthuening/whb2clash/tree/tt_bio/tenstorrent.py",
+  "grid": [
+   8,
+   9
+  ],
+  "is_small_grid": true,
+  "forced_slmc": 1088,
+  "SEQ_LEN_MORE_CHUNKING": 1088,
+  "SDPA_DIV_K": false,
+  "k_chunk_640": 256,
+  "k_chunk_768": 256,
+  "fast_mode": false,
+  "env": {
+   "TT_BIO_LEASE_HOLDER": "worker:wh-boltz2-640aa-clash-rootcause",
+   "TT_BIO_LEASE_TIMEOUT": "5400",
+   "TT_BIO_LOGICAL_DEVICE_ID": "0",
+   "TT_BIO_PARENT_PID": "2999472",
+   "TT_BIO_SDPA_DIV_K": "0",
+   "TT_VISIBLE_DEVICES": "28",
+   "WHB2_FORCE_SLMC": "1088",
+   "WHB2_PROBE": "/home/cust-team/mthuening/whb2clash/partb/P18074_cc/probe",
+   "WHB2_PY": "/home/cust-team/mthuening/tt-bio/env/bin/python"
+  }
+ },
+ "SEQ_LEN_MORE_CHUNKING": 1088,
+ "SDPA_DIV_K": false,
+ "is_small_grid": true,
+ "grid": [
+  8,
+  9
+ ],
+ "k_chunk_640": 256,
+ "k_chunk_768": 256,
+ "forced_slmc": 1088,
+ "structures": [
+  {
+   "cif": "boltz2_results_P18074/structures/P18074.cif",
+   "digest": "6bef16042d8332e8",
+   "n_clash": 7,
+   "n_heavy": 6120,
+   "clash_frac": 0.0011437908496732027,
+   "worst_dist": 1.305,
+   "clash_budget": 6.12,
+   "backbone_gaps": 0,
+   "in_band_frac": 0.9987,
+   "n_res": 760,
+   "fails": [
+    "7 heavy-atom clashes < 2.0 A (0.11% of atoms, worst 1.305 A)"
+   ],
+   "warns": [],
+   "pairs": [
+    [
+     "A/223LYS/O",
+     "A/303ALA/O",
+     1.305
+    ],
+    [
+     "A/223LYS/C",
+     "A/303ALA/O",
+     1.691
+    ],
+    [
+     "A/136SER/OG",
+     "A/389THR/O",
+     1.717
+    ],
+    [
+     "A/304HIS/C",
+     "A/450ARG/NH1",
+     1.802
+    ],
+    [
+     "A/223LYS/CA",
+     "A/303ALA/O",
+     1.989
+    ],
+    [
+     "A/304HIS/O",
+     "A/450ARG/NH1",
+     1.991
+    ],
+    [
+     "A/305LEU/N",
+     "A/450ARG/NH1",
+     1.996
+    ]
+   ]
+  }
+ ],
+ "plddt": 0.860661,
+ "ptm": 0.892329,
+ "runtime_s": 121.1
+}

@@ -1,0 +1,131 @@
+{
+ "target": "P42224",
+ "arm": "base",
+ "rundir": "/home/cust-team/mthuening/whb2clash/partb/P42224_base",
+ "n_cif": 1,
+ "n_probe": 1,
+ "probe": {
+  "pid": 2662713,
+  "module": "/home/cust-team/mthuening/whb2clash/tree/tt_bio/tenstorrent.py",
+  "grid": [
+   8,
+   9
+  ],
+  "is_small_grid": true,
+  "forced_slmc": 608,
+  "SEQ_LEN_MORE_CHUNKING": 608,
+  "SDPA_DIV_K": false,
+  "k_chunk_640": 256,
+  "k_chunk_768": 256,
+  "fast_mode": false,
+  "env": {
+   "TT_BIO_LEASE_HOLDER": "worker:wh-boltz2-640aa-clash-rootcause",
+   "TT_BIO_LEASE_TIMEOUT": "5400",
+   "TT_BIO_LOGICAL_DEVICE_ID": "0",
+   "TT_BIO_PARENT_PID": "2662473",
+   "TT_BIO_SDPA_DIV_K": "0",
+   "TT_VISIBLE_DEVICES": "28",
+   "WHB2_FORCE_SLMC": "608",
+   "WHB2_PROBE": "/home/cust-team/mthuening/whb2clash/partb/P42224_base/probe",
+   "WHB2_PY": "/home/cust-team/mthuening/tt-bio/env/bin/python"
+  }
+ },
+ "SEQ_LEN_MORE_CHUNKING": 608,
+ "SDPA_DIV_K": false,
+ "is_small_grid": true,
+ "grid": [
+  8,
+  9
+ ],
+ "k_chunk_640": 256,
+ "k_chunk_768": 256,
+ "forced_slmc": 608,
+ "structures": [
+  {
+   "cif": "boltz2_results_P42224/structures/P42224.cif",
+   "digest": "cee97b1832c4f8f4",
+   "n_clash": 13,
+   "n_heavy": 6147,
+   "clash_frac": 0.0021148527737107534,
+   "worst_dist": 1.421,
+   "clash_budget": 6.147,
+   "backbone_gaps": 0,
+   "in_band_frac": 0.9987,
+   "n_res": 750,
+   "fails": [
+    "13 heavy-atom clashes < 2.0 A (0.21% of atoms, worst 1.421 A)"
+   ],
+   "warns": [],
+   "pairs": [
+    [
+     "A/366LYS/NZ",
+     "A/436GLU/OE2",
+     1.421
+    ],
+    [
+     "A/180ARG/NH1",
+     "A/195GLU/OE2",
+     1.469
+    ],
+    [
+     "A/509VAL/O",
+     "A/701TYR/CE1",
+     1.64
+    ],
+    [
+     "A/711GLU/O",
+     "A/716ARG/NH2",
+     1.68
+    ],
+    [
+     "A/621GLN/OE1",
+     "A/75ASN/ND2",
+     1.732
+    ],
+    [
+     "A/180ARG/NH2",
+     "A/187VAL/CG1",
+     1.744
+    ],
+    [
+     "A/646ASP/OD2",
+     "A/682SER/OG",
+     1.75
+    ],
+    [
+     "A/575ASP/OD2",
+     "A/680TYR/OH",
+     1.786
+    ],
+    [
+     "A/715SER/O",
+     "A/721ASP/OD2",
+     1.791
+    ],
+    [
+     "A/509VAL/O",
+     "A/701TYR/CD1",
+     1.874
+    ],
+    [
+     "A/567LYS/NZ",
+     "A/711GLU/OE2",
+     1.905
+    ],
+    [
+     "A/566LYS/NZ",
+     "A/702ILE/CD1",
+     1.912
+    ],
+    [
+     "A/382ILE/O",
+     "A/386HIS/NE2",
+     1.987
+    ]
+   ]
+  }
+ ],
+ "plddt": 0.834306,
+ "ptm": 0.695697,
+ "runtime_s": 153.8
+}

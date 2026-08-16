@@ -1,0 +1,121 @@
+{
+ "target": "P27694",
+ "arm": "cc",
+ "rundir": "/home/cust-team/mthuening/whb2clash/partb/P27694_cc",
+ "n_cif": 1,
+ "n_probe": 1,
+ "probe": {
+  "pid": 2903978,
+  "module": "/home/cust-team/mthuening/whb2clash/tree/tt_bio/tenstorrent.py",
+  "grid": [
+   8,
+   9
+  ],
+  "is_small_grid": true,
+  "forced_slmc": 1088,
+  "SEQ_LEN_MORE_CHUNKING": 1088,
+  "SDPA_DIV_K": false,
+  "k_chunk_640": 256,
+  "k_chunk_768": 256,
+  "fast_mode": false,
+  "env": {
+   "TT_BIO_LEASE_HOLDER": "worker:wh-boltz2-640aa-clash-rootcause",
+   "TT_BIO_LEASE_TIMEOUT": "5400",
+   "TT_BIO_LOGICAL_DEVICE_ID": "0",
+   "TT_BIO_PARENT_PID": "2903758",
+   "TT_BIO_SDPA_DIV_K": "0",
+   "TT_VISIBLE_DEVICES": "28",
+   "WHB2_FORCE_SLMC": "1088",
+   "WHB2_PROBE": "/home/cust-team/mthuening/whb2clash/partb/P27694_cc/probe",
+   "WHB2_PY": "/home/cust-team/mthuening/tt-bio/env/bin/python"
+  }
+ },
+ "SEQ_LEN_MORE_CHUNKING": 1088,
+ "SDPA_DIV_K": false,
+ "is_small_grid": true,
+ "grid": [
+  8,
+  9
+ ],
+ "k_chunk_640": 256,
+ "k_chunk_768": 256,
+ "forced_slmc": 1088,
+ "structures": [
+  {
+   "cif": "boltz2_results_P27694/structures/P27694.cif",
+   "digest": "e1cba4ef441eee4b",
+   "n_clash": 11,
+   "n_heavy": 4784,
+   "clash_frac": 0.00229933110367893,
+   "worst_dist": 1.128,
+   "clash_budget": 4.784,
+   "backbone_gaps": 0,
+   "in_band_frac": 1.0,
+   "n_res": 616,
+   "fails": [
+    "11 heavy-atom clashes < 2.0 A (0.23% of atoms, worst 1.128 A)"
+   ],
+   "warns": [],
+   "pairs": [
+    [
+     "A/387GLY/O",
+     "A/428SER/O",
+     1.128
+    ],
+    [
+     "A/145GLN/O",
+     "A/238PHE/CZ",
+     1.441
+    ],
+    [
+     "A/412ARG/CG",
+     "A/87LEU/CD2",
+     1.447
+    ],
+    [
+     "A/111LYS/NZ",
+     "A/290GLU/OE2",
+     1.555
+    ],
+    [
+     "A/145GLN/O",
+     "A/238PHE/CE2",
+     1.581
+    ],
+    [
+     "A/293HIS/O",
+     "A/404ASP/OD2",
+     1.664
+    ],
+    [
+     "A/229GLU/OE1",
+     "A/31ARG/CB",
+     1.833
+    ],
+    [
+     "A/141ARG/NH2",
+     "A/277GLU/OE2",
+     1.861
+    ],
+    [
+     "A/430LEU/O",
+     "A/573ARG/NH2",
+     1.862
+    ],
+    [
+     "A/155VAL/O",
+     "A/192PRO/O",
+     1.914
+    ],
+    [
+     "A/425VAL/CG1",
+     "A/440THR/O",
+     1.985
+    ]
+   ]
+  }
+ ],
+ "plddt": 0.73264,
+ "ptm": 0.337338,
+ "runtime_s": 93.1
+}
