@@ -3523,11 +3523,18 @@ class Transition(Module):
             # and by the channel excess; neither term sees that the Galaxy has 45% fewer cores
             # than the 130-core grid these constants were fitted on, so the same nominal chunk
             # lands as ~1.8x the per-core bytes and clashes. Live per chunk: x_norm (c) plus
-            # x_1 and x_2 (hidden each), bf16.
+            # x_1 and x_2 (hidden each), bf16. Every extent is TILE-PADDED: a (1,H,W,c) tile
+            # tensor rounds W and c up to 32, so the logical extents understate the real
+            # footprint by up to 32/W. At 298 aa, W pads 298 -> 320 and the same chunk costs
+            # 409,600 B/core, not the 381,440 the logical arithmetic reports -- across the
+            # measured throw edge (perf/wh-protenix/wh_transition_h.py: fits <= 393,216,
+            # throws >= 409,600), which is why 298 aa still clashed in the confidence
+            # Pairformer after the cap landed. Tile-aligned W is unaffected by construction.
             _gx, _gy = COMPUTE_GRID_MAIN
             _hid = int(self.fc1_weight.shape[-1])
+            _tile = lambda v: -(-int(v) // 32) * 32
             _cap = max(1, int(TRANSITION_L1_CHUNK_BYTES_PER_CORE * _gx * _gy
-                              // (2 * w_eff * (x.shape[-1] + 2 * _hid))))
+                              // (2 * _tile(w_eff) * (_tile(x.shape[-1]) + 2 * _tile(_hid)))))
             transition_h_chunk_size = min(transition_h_chunk_size, _cap)
         if H > SEQ_LEN_MORE_CHUNKING:
             # Large-sequence path: slice row blocks lazily inside the loop. ttnn.chunk
