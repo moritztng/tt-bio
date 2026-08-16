@@ -239,6 +239,10 @@ def pair_row_tile(L: int) -> int:
 
 _device = None
 _trace_region_size = 0
+# Bumped on every device close. Module-level device-tensor caches (e.g.
+# protenix._WIN_KV_IDX) must key on this: a tensor created on a closed MeshDevice
+# keeps the dead mesh alive and throws SubDeviceManagerTracker on next use.
+_device_generation = 0
 
 _DEVICE_INIT_LOCK_PATH = "/tmp/tt-bio-device-open.lock"
 
@@ -375,8 +379,14 @@ def trace_region_size():
     return _trace_region_size
 
 
+def device_generation():
+    """Monotonic id of the current device lifetime; changes when cleanup() closes
+    the device. Cache keys for module-level device tensors must include it."""
+    return _device_generation
+
+
 def cleanup():
-    global _device, _trace_region_size
+    global _device, _trace_region_size, _device_generation
     if _device is not None:
         try:
             # Drain queued work before closing so teardown is deterministic.
@@ -390,6 +400,7 @@ def cleanup():
             ttnn.close_device(_device)
         _device = None
         _trace_region_size = 0
+        _device_generation += 1
 
 
 atexit.register(cleanup)
