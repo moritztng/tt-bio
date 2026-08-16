@@ -442,7 +442,13 @@ class SwiGLUFFN(Module):
                 L1_FC1_STATS[0] += 2
                 l1 = dict(l1_out=True, l1_bw=_PAIR_FFN_FC1_BW,
                           l1_block_w=_PAIR_FFN_FC1_BLOCK_W)
-                dt = _dtype()
+                # The unsplit control resolves `_dtype(ttnn.bfloat16)`, so a bare `_dtype()`
+                # here makes turning the split on a PRECISION change as well as a traffic one
+                # whenever fast mode is set: MEASURED max_abs/peak 2.5e-2 at 512 aa on the
+                # 72-core Galaxy, where --fast is forced. The small-grid path is new, so it
+                # takes the control's dtype and stays comparable; Blackhole keeps the dtype
+                # its shipped parity was measured with.
+                dt = _dtype(ttnn.bfloat16) if _SPLIT_SWIGLU_SMALL_GRID else _dtype()
                 h1 = _pair_proj_linear(x_norm, self.fc1_a_weight, ck, dt, **l1)
                 h2 = _pair_proj_linear(x_norm, self.fc1_b_weight, ck, dt, **l1)
             else:
