@@ -1,0 +1,2 @@
+sequences:
+  - protein: {id: A, sequence: MTYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTEKPEVIDAS, modifications: [{position: 12, ccd: SEP}]}

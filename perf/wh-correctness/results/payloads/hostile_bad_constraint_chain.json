@@ -1,0 +1,1 @@
+{"model": "boltz2", "name": "bad_constraint_chain", "input": "sequences:\n  - protein: {id: A, sequence: MTYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTEKPEVIDAS}\n  - ligand: {id: L, smiles: 'CC(=O)Oc1ccccc1C(=O)O'}\nconstraints:\n  - pocket: {binder: L, contacts: [[Z, 10]]}\n"}

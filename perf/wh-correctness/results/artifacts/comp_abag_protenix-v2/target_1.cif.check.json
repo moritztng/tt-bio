@@ -1,0 +1,89 @@
+{
+ "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/comp_abag_protenix-v2/target_1.cif",
+ "checks": {
+  "n_atoms": 4916,
+  "bbox_diagonal": 147.6,
+  "chains": [
+   {
+    "chain": "A",
+    "kind": "protein",
+    "n_res": 200,
+    "sequence": "TNTVAAYNLTWKSTNFKTILEWEPKPVNQVYTVQISTKSGDWKSKCFYTTDTECDLTDEIVKDVKQTYLARVFSYPAGNEPLYENSPEFTPYLETNLGQPTIQSFEQVGTKVNVTVEDERTLVRRNNTFLSLRDVFGKDLIYTLYYWKSSSSGKKTAKTNTNEFLIDVDKGENYCFSVQAVIPSRTVNRKSTDSPVECMG",
+    "step_median": 3.8,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 0.9899,
+    "breaks": 0,
+    "rg": 22.12,
+    "rg_expected": 16.47,
+    "rg_ratio": 1.343,
+    "n_ca_bond_median": 1.461,
+    "ca_c_bond_median": 1.528
+   },
+   {
+    "chain": "B",
+    "kind": "protein",
+    "n_res": 214,
+    "sequence": "EIQLQQSGAELVRPGALVKLSCKASGFNIKDYYMHWVKQRPEQGLEWIGLIDPENGNTIYDPKFQGKASITADTSSNTAYLQLSSLTSEDTAVYYCARDNSYYFDYWGQGTTLTVSSAKTTPPSVYPLAPGSAAQTNSMVTLGCLVKGYFPEPVTVTWNSGSLSSGVHTFPAVLQSDLYTLSSSVTVPSSTWPSETVTCNVAHPASSTKVDKKI",
+    "step_median": 3.799,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 0.9859,
+    "breaks": 0,
+    "rg": 20.6,
+    "rg_expected": 16.9,
+    "rg_ratio": 1.219,
+    "n_ca_bond_median": 1.461,
+    "ca_c_bond_median": 1.527
+   },
+   {
+    "chain": "C",
+    "kind": "protein",
+    "n_res": 214,
+    "sequence": "DIKMTQSPSSMYASLGERVTITCKASQDIRKYLNWYQQKPWKSPKTLIYYATSLADGVPSRFSGSGSGQDYSLTISSLESDDTATYYCLQHGESPYTFGGGTKLEINRADAAPTVSIFPPSSEQLTSGGASVVCFLNNFYPKDINVKWKIDGSERQNGVLNSWTDQDSKDSTYSMSSTLTLTKDEYERHNSYTCEATHKTSTSPIVKSFNRNEC",
+    "step_median": 3.801,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 0.9859,
+    "breaks": 0,
+    "rg": 23.4,
+    "rg_expected": 16.9,
+    "rg_ratio": 1.384,
+    "n_ca_bond_median": 1.461,
+    "ca_c_bond_median": 1.525
+   }
+  ],
+  "clashes": {
+   "n": 1,
+   "heavy_atoms": 4916,
+   "worst_dist": 1.574,
+   "threshold": 2.0,
+   "budget": 4.916
+  },
+  "confidence": {
+   "source": "b_factor",
+   "n": 4916,
+   "min": 0.4341,
+   "max": 0.9671,
+   "mean": 0.8554,
+   "std": 0.0787,
+   "scale": 100.0
+  },
+  "expected": {
+   "chains": 3,
+   "ligands": 0
+  },
+  "ligand_residues_seen": 0
+ },
+ "fail": [],
+ "warn": [
+  "1 marginal contacts < 2.0 A (worst 1.574 A)"
+ ],
+ "verdict": "WARN"
+}

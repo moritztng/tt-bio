@@ -1,0 +1,48 @@
+{
+  "model": "esmc-300m",
+  "n_seqs": 8,
+  "residues": 76,
+  "batch_size": 8,
+  "fast": false,
+  "arch": "blackhole",
+  "visible_devices": "2",
+  "load_s": 4.6,
+  "device_ms": 47.13,
+  "serial_write_ms": 446.79,
+  "threaded_write_ms": 71.77,
+  "gate_region_ms": 493.91,
+  "write_share_of_gate": 0.9046,
+  "device_seq_s": 169.753,
+  "gate_seq_s": 16.197,
+  "device_ms_all": [
+    34.64,
+    41.99,
+    77.4,
+    49.41,
+    47.13
+  ],
+  "serial_write_ms_all": [
+    447.42,
+    446.01,
+    446.79,
+    445.4,
+    450.2
+  ],
+  "threaded_write_ms_all": [
+    59.15,
+    100.24,
+    71.77,
+    82.96,
+    68.9
+  ],
+  "npz_bytes": 1140296,
+  "loadavg": [
+    15.65283203125,
+    15.65283203125,
+    15.65283203125,
+    15.65283203125,
+    15.65283203125
+  ],
+  "warmup": 2,
+  "repeat": 5
+}

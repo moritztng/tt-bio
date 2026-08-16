@@ -1,0 +1,1 @@
+{"model": "opendde", "name": "constraints", "input": "sequences:\n  - protein: {id: A, sequence: MTYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTEKPEVIDAS}\n  - ligand: {id: L, smiles: 'CC(=O)Oc1ccccc1C(=O)O'}\nconstraints:\n  - pocket: {binder: L, contacts: [[A, 10], [A, 14]]}\n"}

@@ -1,0 +1,1 @@
+{"model": "esmfold2-fast", "name": "dna_duplex", "input": "sequences:\n  - dna: {id: A, sequence: ATGCATGCATGCATGCATGC}\n  - dna: {id: B, sequence: GCATGCATGCATGCATGCAT}\n"}

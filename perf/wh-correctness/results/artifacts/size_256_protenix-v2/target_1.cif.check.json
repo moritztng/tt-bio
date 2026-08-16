@@ -1,0 +1,51 @@
+{
+ "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/size_256_protenix-v2/target_1.cif",
+ "checks": {
+  "n_atoms": 2060,
+  "bbox_diagonal": 90.72,
+  "chains": [
+   {
+    "chain": "A",
+    "kind": "protein",
+    "n_res": 256,
+    "sequence": "MENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLLDVIHTENKLYLVFEFLHQDLKKFMDASALTGIPLPLIKSYLFQLLQGLAFCHSHRVLHRDLKPQNLLINTEGAIKLADFGLARAFGVPVRTYTHEVVTLWYRAPEILLGCKYYSTAVDIWSLGCIFAEMVTRRALFPGDSEIDQLFRIFRTLGTPDEVVWPGVTSMPDYKPSFPKWARQDFSKVVPPLD",
+    "step_median": 3.814,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 1.0,
+    "breaks": 0,
+    "rg": 19.22,
+    "rg_expected": 18.09,
+    "rg_ratio": 1.062,
+    "n_ca_bond_median": 1.46,
+    "ca_c_bond_median": 1.525
+   }
+  ],
+  "clashes": {
+   "n": 0,
+   "heavy_atoms": 2060,
+   "worst_dist": 0.0,
+   "threshold": 2.0,
+   "budget": 2.06
+  },
+  "confidence": {
+   "source": "b_factor",
+   "n": 2060,
+   "min": 0.5047,
+   "max": 0.9893,
+   "mean": 0.9142,
+   "std": 0.0944,
+   "scale": 100.0
+  },
+  "expected": {
+   "chains": 1,
+   "ligands": 0
+  },
+  "ligand_residues_seen": 0
+ },
+ "fail": [],
+ "warn": [],
+ "verdict": "PASS"
+}

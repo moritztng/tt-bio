@@ -1,0 +1,22 @@
+{
+ "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/emb_pool_cls_esmc-600m/q60.npz",
+ "checks": {
+  "keys": [
+   "per_residue",
+   "pooled",
+   "sequence"
+  ],
+  "shape": [
+   61,
+   1152
+  ],
+  "d_model": 1152,
+  "length_out": 61,
+  "pooled_ptp": 1.921875,
+  "per_residue_ptp": 1.19921875,
+  "row_spread": 1.19921875
+ },
+ "fail": [],
+ "warn": [],
+ "verdict": "PASS"
+}

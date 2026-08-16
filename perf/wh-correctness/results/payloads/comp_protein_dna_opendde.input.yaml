@@ -1,0 +1,4 @@
+sequences:
+  - protein: {id: A, sequence: MTYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTEKPEVIDAS}
+  - dna: {id: B, sequence: ATGCATGCATGCATGCATGC}
+  - dna: {id: C, sequence: GCATGCATGCATGCATGCAT}

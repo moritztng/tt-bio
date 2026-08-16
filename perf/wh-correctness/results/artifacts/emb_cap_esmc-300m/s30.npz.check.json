@@ -1,0 +1,23 @@
+{
+ "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/emb_cap_esmc-300m/s30.npz",
+ "checks": {
+  "keys": [
+   "per_residue",
+   "pooled",
+   "sequence"
+  ],
+  "shape": [
+   2000,
+   960
+  ],
+  "d_model": 960,
+  "length_out": 2000,
+  "pooled_ptp": 1.0094162225723267,
+  "per_residue_ptp": 1.73046875,
+  "row_spread": 0.970703125,
+  "pool_mean_matches": true
+ },
+ "fail": [],
+ "warn": [],
+ "verdict": "PASS"
+}

@@ -1,0 +1,17 @@
+{
+  "host": "tt-quietbox",
+  "cpus": 32,
+  "workers": 32,
+  "loadavg": 24.8,
+  "n_seqs": 8,
+  "residues": 76,
+  "d_model": 960,
+  "input_bytes": 2334720,
+  "output_bytes": 2162763,
+  "compress_ratio": 0.9263,
+  "serial_s": 0.0956,
+  "threaded_s": 0.044,
+  "serial_MBps": 24.42,
+  "threaded_MBps": 53.01,
+  "thread_speedup": 2.171
+}

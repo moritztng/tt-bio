@@ -1,0 +1,23 @@
+{
+ "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/emb_distinct_esmc-600m/cdk2.npz",
+ "checks": {
+  "keys": [
+   "per_residue",
+   "pooled",
+   "sequence"
+  ],
+  "shape": [
+   298,
+   1152
+  ],
+  "d_model": 1152,
+  "length_out": 298,
+  "pooled_ptp": 0.5283224582672119,
+  "per_residue_ptp": 1.8671875,
+  "row_spread": 1.8671875,
+  "pool_mean_matches": true
+ },
+ "fail": [],
+ "warn": [],
+ "verdict": "PASS"
+}

@@ -1,0 +1,7 @@
+entities:
+  - protein:
+      id: B
+      sequence: 60..90
+  - rna:
+      id: A
+      sequence: GGCAGAUCUGAGCCUGGGAGCUCUCUGGC

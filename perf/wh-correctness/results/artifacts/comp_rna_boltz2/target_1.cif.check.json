@@ -1,0 +1,51 @@
+{
+ "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/comp_rna_boltz2/target_1.cif",
+ "checks": {
+  "n_atoms": 426,
+  "bbox_diagonal": 51.93,
+  "chains": [
+   {
+    "chain": "A",
+    "kind": "nucleic",
+    "n_res": 20,
+    "sequence": "GGCUAGCUAGCUAGCUAGCC",
+    "step_median": 5.854,
+    "step_band": [
+     5.0,
+     7.8
+    ],
+    "in_band_frac": 1.0,
+    "breaks": 0,
+    "rg": 12.68,
+    "rg_expected": 6.87,
+    "rg_ratio": 1.847,
+    "n_ca_bond_median": null,
+    "ca_c_bond_median": null
+   }
+  ],
+  "clashes": {
+   "n": 0,
+   "heavy_atoms": 426,
+   "worst_dist": 0.0,
+   "threshold": 2.0,
+   "budget": 2
+  },
+  "confidence": {
+   "source": "b_factor",
+   "n": 426,
+   "min": 0.5679,
+   "max": 0.9221,
+   "mean": 0.8601,
+   "std": 0.0964,
+   "scale": 100.0
+  },
+  "expected": {
+   "chains": 1,
+   "ligands": 0
+  },
+  "ligand_residues_seen": 0
+ },
+ "fail": [],
+ "warn": [],
+ "verdict": "PASS"
+}

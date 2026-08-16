@@ -559,9 +559,14 @@ def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
                  num_diffusion_samples=1, seed=0, return_all=False):
     """Fold one (possibly multi-chain) protein complex on an already-patched model.
 
-    `chains` is a list of ``(chain_id, sequence)`` or ``(chain_id, sequence,
-    msa)`` where ``msa`` is an esm ``MSA`` object (or None for single-sequence).
-    When an MSA is given the on-device MSA encoder runs. Returns the reference
+    `chains` is a list of ``(chain_id, sequence)``, ``(chain_id, sequence,
+    msa)`` or ``(chain_id, sequence, msa, modifications)`` where ``msa`` is an
+    esm ``MSA`` object (or None for single-sequence) and ``modifications`` a
+    list of ``{"position": N, "ccd": CODE}`` dicts (1-indexed, the Boltz YAML
+    convention; the vendored featurizer's ``Modification`` is 0-indexed).
+    A modified residue is atom-tokenized by the input pipeline, so it folds as
+    the modified chemistry rather than being silently dropped. When an MSA is
+    given the on-device MSA encoder runs. Returns the reference
     fold result (with `.complex`, `.plddt`, `.ptm`).
 
     With ``num_diffusion_samples > 1`` the diffusion head emits one structure per
@@ -578,14 +583,25 @@ def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
     single-result callers keep the exact object they had.
     """
     from tt_bio._vendor.esm.models.esmfold2 import (
-        ESMFold2InputBuilder, ProteinInput, StructurePredictionInput)
+        ESMFold2InputBuilder, Modification, ProteinInput, StructurePredictionInput)
 
     def _protein(c):
         msa = c[2] if len(c) > 2 else None
         # Normalise the sequence (strip whitespace, upper-case): otherwise those
         # characters tokenize to unknowns and crash the MSA-feature step. Matches
         # the Boltz-2 parser's behaviour.
-        return ProteinInput(id=c[0], sequence="".join(c[1].split()).upper(), msa=msa)
+        seq = "".join(c[1].split()).upper()
+        mods = None
+        if len(c) > 3 and c[3]:
+            mods = []
+            for mod in c[3]:
+                pos = mod["position"]
+                if not isinstance(pos, int) or not (1 <= pos <= len(seq)) or not mod.get("ccd"):
+                    raise ValueError(
+                        f"Modification {mod!r} on chain {c[0]} needs a 1-indexed position "
+                        f"within the sequence (length {len(seq)}) and a ccd code.")
+                mods.append(Modification(position=pos - 1, ccd=str(mod["ccd"])))
+        return ProteinInput(id=c[0], sequence=seq, msa=msa, modifications=mods)
 
     spi = StructurePredictionInput(sequences=[_protein(c) for c in chains])
     res = ESMFold2InputBuilder().fold(

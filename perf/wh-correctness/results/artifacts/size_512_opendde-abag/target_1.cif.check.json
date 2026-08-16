@@ -1,0 +1,53 @@
+{
+ "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/size_512_opendde-abag/target_1.cif",
+ "checks": {
+  "n_atoms": 4117,
+  "bbox_diagonal": 125.44,
+  "chains": [
+   {
+    "chain": "A",
+    "kind": "protein",
+    "n_res": 512,
+    "sequence": "MENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLLDVIHTENKLYLVFEFLHQDLKKFMDASALTGIPLPLIKSYLFQLLQGLAFCHSHRVLHRDLKPQNLLINTEGAIKLADFGLARAFGVPVRTYTHEVVTLWYRAPEILLGCKYYSTAVDIWSLGCIFAEMVTRRALFPGDSEIDQLFRIFRTLGTPDEVVWPGVTSMPDYKPSFPKWARQDFSKVVPPLDEDGRSLLSQMLHYDPNKRISAKAALAHPFFQDVTKPVPHLRLMENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLLDVIHTENKLYLVFEFLHQDLKKFMDASALTGIPLPLIKSYLFQLLQGLAFCHSHRVLHRDLKPQNLLINTEGAIKLADFGLARAFGVPVRTYTHEVVTLWYRAPEILLGCKYYSTAVDIWSLGCIFAEMVTRRALFPGDSEIDQLFR",
+    "step_median": 3.854,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 0.9961,
+    "breaks": 0,
+    "rg": 27.93,
+    "rg_expected": 23.55,
+    "rg_ratio": 1.186,
+    "n_ca_bond_median": 1.46,
+    "ca_c_bond_median": 1.534
+   }
+  ],
+  "clashes": {
+   "n": 5,
+   "heavy_atoms": 4117,
+   "worst_dist": 1.266,
+   "threshold": 2.0,
+   "budget": 4.117
+  },
+  "confidence": {
+   "source": "b_factor",
+   "n": 4117,
+   "min": 0.4265,
+   "max": 0.9741,
+   "mean": 0.8687,
+   "std": 0.1091,
+   "scale": 100.0
+  },
+  "expected": {
+   "chains": 1,
+   "ligands": 0
+  },
+  "ligand_residues_seen": 0
+ },
+ "fail": [
+  "5 heavy-atom clashes < 2.0 A (0.12% of atoms, worst 1.266 A)"
+ ],
+ "warn": [],
+ "verdict": "FAIL"
+}

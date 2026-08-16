@@ -1,0 +1,59 @@
+{
+ "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/des_bg_sm/final_10_designs/rank09_shard-3_design_1.cif",
+ "checks": {
+  "n_atoms": 739,
+  "bbox_diagonal": 59.62,
+  "chains": [
+   {
+    "chain": "A",
+    "kind": "protein",
+    "n_res": 88,
+    "sequence": "SEELKEKLKEIFEEVKACFPENPDPEVKEKFDKVKKKIENGEYKSIDEFLADIEEICDLAKKKNPKDSVYYKAAEKALAVARKRREEL",
+    "step_median": 3.809,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 1.0,
+    "breaks": 0,
+    "rg": 12.33,
+    "rg_expected": 12.06,
+    "rg_ratio": 1.022,
+    "n_ca_bond_median": 1.468,
+    "ca_c_bond_median": 1.524
+   }
+  ],
+  "clashes": {
+   "n": 2,
+   "heavy_atoms": 739,
+   "worst_dist": 1.875,
+   "threshold": 2.0,
+   "budget": 2
+  },
+  "confidence": {
+   "source": "b_factor",
+   "n": 739,
+   "min": 0.197,
+   "max": 0.8101,
+   "mean": 0.7014,
+   "std": 0.0852,
+   "scale": 1.0
+  },
+  "design_length": {
+   "observed": 88,
+   "min": 80,
+   "max": 120,
+   "scope": "designed chain A",
+   "requested_chain": "B",
+   "scored_chain": "A",
+   "chains_present": [
+    "A"
+   ]
+  }
+ },
+ "fail": [],
+ "warn": [
+  "2 marginal contacts < 2.0 A (worst 1.875 A)"
+ ],
+ "verdict": "WARN"
+}

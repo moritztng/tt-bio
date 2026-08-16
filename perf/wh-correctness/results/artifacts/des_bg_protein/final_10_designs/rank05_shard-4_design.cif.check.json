@@ -1,0 +1,83 @@
+{
+ "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/des_bg_protein/final_10_designs/rank05_shard-4_design.cif",
+ "checks": {
+  "n_atoms": 1813,
+  "bbox_diagonal": 92.28,
+  "chains": [
+   {
+    "chain": "A",
+    "kind": "protein",
+    "n_res": 110,
+    "sequence": "DIQLTQSPSSLSASVGDRVTITARASQDISSYLAWYQQKPGQAPKLLIYDASNLASGVPSRFSGSGSGTDFTLTISSLEAEDEADYYAQQSYSTGGATFGQGTKLTVKPA",
+    "step_median": 3.809,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 0.9817,
+    "breaks": 0,
+    "rg": 13.16,
+    "rg_expected": 13.13,
+    "rg_ratio": 1.003,
+    "n_ca_bond_median": 1.46,
+    "ca_c_bond_median": 1.528
+   },
+   {
+    "chain": "B",
+    "kind": "protein",
+    "n_res": 129,
+    "sequence": "KVFGRCELAAAMKRHGLDNYRGYSLGNWVCAAKFESNFNTQATNRNTDGSTDYGILQINSRWWCNDGRTPGSRNLCNIPCSALLSSDITASVNCAKKIVSDGNGMNAWVAWRNRCKGTDVQAWIRGCRL",
+    "step_median": 3.803,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 1.0,
+    "breaks": 0,
+    "rg": 13.75,
+    "rg_expected": 13.95,
+    "rg_ratio": 0.986,
+    "n_ca_bond_median": 1.465,
+    "ca_c_bond_median": 1.529
+   }
+  ],
+  "clashes": {
+   "n": 0,
+   "heavy_atoms": 1813,
+   "worst_dist": 0.0,
+   "threshold": 2.0,
+   "budget": 2
+  },
+  "confidence": {
+   "source": "b_factor",
+   "n": 1813,
+   "min": 0.3826,
+   "max": 0.8991,
+   "mean": 0.7925,
+   "std": 0.0815,
+   "scale": 1.0
+  },
+  "design_length": {
+   "observed": 129,
+   "min": 110,
+   "max": 130,
+   "scope": "designed chain B",
+   "requested_chain": "B",
+   "scored_chain": "B",
+   "chains_present": [
+    "A",
+    "B"
+   ]
+  },
+  "interface": {
+   "pairs_below": 0,
+   "threshold": 2.0,
+   "designed_heavy_atoms": 1000,
+   "budget": 2,
+   "chain": "B"
+  }
+ },
+ "fail": [],
+ "warn": [],
+ "verdict": "PASS"
+}

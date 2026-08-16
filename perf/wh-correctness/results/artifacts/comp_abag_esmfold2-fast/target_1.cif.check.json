@@ -1,0 +1,89 @@
+{
+ "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/comp_abag_esmfold2-fast/target_1.cif",
+ "checks": {
+  "n_atoms": 4913,
+  "bbox_diagonal": 140.4,
+  "chains": [
+   {
+    "chain": "A",
+    "kind": "protein",
+    "n_res": 200,
+    "sequence": "TNTVAAYNLTWKSTNFKTILEWEPKPVNQVYTVQISTKSGDWKSKCFYTTDTECDLTDEIVKDVKQTYLARVFSYPAGNEPLYENSPEFTPYLETNLGQPTIQSFEQVGTKVNVTVEDERTLVRRNNTFLSLRDVFGKDLIYTLYYWKSSSSGKKTAKTNTNEFLIDVDKGENYCFSVQAVIPSRTVNRKSTDSPVECMG",
+    "step_median": 3.797,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 0.9749,
+    "breaks": 0,
+    "rg": 21.84,
+    "rg_expected": 16.47,
+    "rg_ratio": 1.326,
+    "n_ca_bond_median": 1.457,
+    "ca_c_bond_median": 1.516
+   },
+   {
+    "chain": "H",
+    "kind": "protein",
+    "n_res": 214,
+    "sequence": "EIQLQQSGAELVRPGALVKLSCKASGFNIKDYYMHWVKQRPEQGLEWIGLIDPENGNTIYDPKFQGKASITADTSSNTAYLQLSSLTSEDTAVYYCARDNSYYFDYWGQGTTLTVSSAKTTPPSVYPLAPGSAAQTNSMVTLGCLVKGYFPEPVTVTWNSGSLSSGVHTFPAVLQSDLYTLSSSVTVPSSTWPSETVTCNVAHPASSTKVDKKI",
+    "step_median": 3.797,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 0.9859,
+    "breaks": 0,
+    "rg": 20.76,
+    "rg_expected": 16.9,
+    "rg_ratio": 1.228,
+    "n_ca_bond_median": 1.456,
+    "ca_c_bond_median": 1.518
+   },
+   {
+    "chain": "L",
+    "kind": "protein",
+    "n_res": 214,
+    "sequence": "DIKMTQSPSSMYASLGERVTITCKASQDIRKYLNWYQQKPWKSPKTLIYYATSLADGVPSRFSGSGSGQDYSLTISSLESDDTATYYCLQHGESPYTFGGGTKLEINRADAAPTVSIFPPSSEQLTSGGASVVCFLNNFYPKDINVKWKIDGSERQNGVLNSWTDQDSKDSTYSMSSTLTLTKDEYERHNSYTCEATHKTSTSPIVKSFNRNEC",
+    "step_median": 3.797,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 0.9859,
+    "breaks": 0,
+    "rg": 23.19,
+    "rg_expected": 16.9,
+    "rg_ratio": 1.372,
+    "n_ca_bond_median": 1.458,
+    "ca_c_bond_median": 1.518
+   }
+  ],
+  "clashes": {
+   "n": 0,
+   "heavy_atoms": 4913,
+   "worst_dist": 0.0,
+   "threshold": 2.0,
+   "budget": 4.913
+  },
+  "confidence": {
+   "source": "b_factor",
+   "n": 4913,
+   "min": 0.5108,
+   "max": 0.9824,
+   "mean": 0.9111,
+   "std": 0.0611,
+   "scale": 100.0
+  },
+  "expected": {
+   "chains": 3,
+   "ligands": 0
+  },
+  "ligand_residues_seen": 0
+ },
+ "fail": [],
+ "warn": [
+  "chain A (protein): 97.5% of Ca-Ca steps in band (shipped predictions measure 0.970-1.000)"
+ ],
+ "verdict": "WARN"
+}
