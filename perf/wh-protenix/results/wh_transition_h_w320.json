@@ -1,0 +1,120 @@
+{
+ "meta": {
+  "arch": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "cores": 72,
+  "l1_per_core": 1466080,
+  "H": 320,
+  "W": 320,
+  "c": 256,
+  "hidden": 1024,
+  "host": "UF-EV-A13-GWH02"
+ },
+ "rows": [
+  {
+   "h": 4,
+   "n_chunks": 80,
+   "chunk_elems": 327680,
+   "est_l1_bytes_per_core": 81920,
+   "status": "ok",
+   "ms_median": 19.7058,
+   "ms_all": [
+    19.9292,
+    19.7058,
+    19.6582
+   ],
+   "bit_exact_vs_ref": null,
+   "ref_h": 4
+  },
+  {
+   "h": 8,
+   "n_chunks": 40,
+   "chunk_elems": 655360,
+   "est_l1_bytes_per_core": 163840,
+   "status": "ok",
+   "ms_median": 18.2396,
+   "ms_all": [
+    18.0439,
+    18.2417,
+    18.2396
+   ],
+   "bit_exact_vs_ref": false
+  },
+  {
+   "h": 12,
+   "n_chunks": 27,
+   "chunk_elems": 983040,
+   "est_l1_bytes_per_core": 245760,
+   "status": "ok",
+   "ms_median": 16.4382,
+   "ms_all": [
+    16.6735,
+    16.4382,
+    16.4266
+   ],
+   "bit_exact_vs_ref": false
+  },
+  {
+   "h": 16,
+   "n_chunks": 20,
+   "chunk_elems": 1310720,
+   "est_l1_bytes_per_core": 327680,
+   "status": "ok",
+   "ms_median": 16.0621,
+   "ms_all": [
+    16.0834,
+    16.0597,
+    16.0621
+   ],
+   "bit_exact_vs_ref": false
+  },
+  {
+   "h": 20,
+   "n_chunks": 16,
+   "chunk_elems": 1638400,
+   "est_l1_bytes_per_core": 409600,
+   "status": "THROW",
+   "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception info: Statically allocated circular buffers in program 415 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=8)]. L1 buffer allocated at 1087488 and static circular buffer region ends at 1111328 backtrace:  --- /home/cust-team/mthuening/whbase/tt-bio/env/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d3",
+   "is_cb_clash": true
+  },
+  {
+   "h": 24,
+   "n_chunks": 14,
+   "chunk_elems": 1966080,
+   "est_l1_bytes_per_core": 491520,
+   "status": "THROW",
+   "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception info: Statically allocated circular buffers in program 449 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=8)]. L1 buffer allocated at 1024000 and static circular buffer region ends at 1234208 backtrace:  --- /home/cust-team/mthuening/whbase/tt-bio/env/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d3",
+   "is_cb_clash": true
+  },
+  {
+   "h": 25,
+   "n_chunks": 13,
+   "chunk_elems": 2048000,
+   "est_l1_bytes_per_core": 512000,
+   "status": "THROW",
+   "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception info: Statically allocated circular buffers in program 477 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=8)]. L1 buffer allocated at 1212416 and static circular buffer region ends at 1316128 backtrace:  --- /home/cust-team/mthuening/whbase/tt-bio/env/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d3",
+   "is_cb_clash": true
+  },
+  {
+   "h": 32,
+   "n_chunks": 10,
+   "chunk_elems": 2621440,
+   "est_l1_bytes_per_core": 655360,
+   "status": "THROW",
+   "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception info: Statically allocated circular buffers in program 501 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=7)]. L1 buffer allocated at 1132544 and static circular buffer region ends at 1238304 backtrace:  --- /home/cust-team/mthuening/whbase/tt-bio/env/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d3",
+   "is_cb_clash": true
+  },
+  {
+   "h": 40,
+   "n_chunks": 8,
+   "chunk_elems": 3276800,
+   "est_l1_bytes_per_core": 819200,
+   "status": "THROW",
+   "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception info: Statically allocated circular buffers in program 523 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=7)]. L1 buffer allocated at 677888 and static circular buffer region ends at 783648 backtrace:  --- /home/cust-team/mthuening/whbase/tt-bio/env/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d3f5",
+   "is_cb_clash": true
+  }
+ ]
+}
