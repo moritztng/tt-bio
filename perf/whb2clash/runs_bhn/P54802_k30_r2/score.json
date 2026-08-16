@@ -1,0 +1,61 @@
+{
+ "target": "P54802",
+ "arm": "k30_r2",
+ "rundir": "runs_bhn/P54802_k30_r2",
+ "n_cif": 1,
+ "n_probe": 1,
+ "probe": {
+  "pid": 178407,
+  "module": "/home/ttuser/.coworker/wt/wh-boltz2-640aa-clash-rootcause/tt_bio/tenstorrent.py",
+  "grid": [
+   13,
+   10
+  ],
+  "is_small_grid": false,
+  "forced_slmc": null,
+  "SEQ_LEN_MORE_CHUNKING": 1536,
+  "SDPA_DIV_K": false,
+  "k_chunk_640": 256,
+  "k_chunk_768": 256,
+  "fast_mode": false,
+  "env": {
+   "TT_BIO_LEASE_HOLDER": "worker:wh-boltz2-640aa-clash-rootcause",
+   "TT_BIO_LEASE_TIMEOUT": "5400",
+   "TT_BIO_LOGICAL_DEVICE_ID": "0",
+   "TT_BIO_PARENT_PID": "178315",
+   "TT_BIO_SDPA_DIV_K": "0",
+   "TT_VISIBLE_DEVICES": "1",
+   "WHB2_PROBE": "/home/ttuser/.coworker/wt/wh-boltz2-640aa-clash-rootcause/perf/whb2clash/runs_bhn/P54802_k30_r2/probe"
+  }
+ },
+ "SEQ_LEN_MORE_CHUNKING": 1536,
+ "SDPA_DIV_K": false,
+ "is_small_grid": false,
+ "grid": [
+  13,
+  10
+ ],
+ "k_chunk_640": 256,
+ "k_chunk_768": 256,
+ "forced_slmc": null,
+ "structures": [
+  {
+   "cif": "boltz2_results_P54802/structures/P54802.cif",
+   "digest": "79671764ade65315",
+   "n_clash": 0,
+   "n_heavy": 5822,
+   "clash_frac": 0.0,
+   "worst_dist": 0.0,
+   "clash_budget": 5.822,
+   "backbone_gaps": 0,
+   "in_band_frac": 0.9973,
+   "n_res": 743,
+   "fails": [],
+   "warns": [],
+   "pairs": []
+  }
+ ],
+ "plddt": 0.942834,
+ "ptm": 0.950946,
+ "runtime_s": 85.6
+}
