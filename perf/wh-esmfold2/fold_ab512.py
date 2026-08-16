@@ -17,8 +17,20 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
 
-ARMS = {"base": (False, False), "e6": (True, False),
-        "split": (False, True), "both": (True, True)}
+# An arm is a set of overrides against the SHIPPED default, not against a stripped baseline, so a
+# delta measured here is a delta a user would see. `A` and `C` are the two Wormhole levers of
+# state/wh-perf-esmfold2.md; both are inert on a >= 110-core grid by construction, which is exactly
+# what the Blackhole leg of this A/B has to confirm rather than assert.
+#   split_small_grid  esmc.SPLIT_SWIGLU_SMALL_GRID -- the split fc1 family on a 72-core grid
+#   trimul_l1_max_seq tenstorrent.SMALL_GRID_TRIMUL_L1_MAX_SEQ -- pair chunks stay in L1 to here
+ARMS = {
+    "base": {},
+    "A": {"split_small_grid": True},
+    "C": {"trimul_l1_max_seq": 320},
+    "AC": {"split_small_grid": True, "trimul_l1_max_seq": 320},
+    "noe6": {"e6": False},
+    "nosplit": {"split": False},
+}
 
 
 def sha_dir(d):
@@ -74,19 +86,32 @@ def main():
     struct_dir = Path(meta["struct_dir"])
 
     def run(tag, arm):
-        e6, split = ARMS[arm]
-        RP.set_enabled_gated(e6)
-        EC.set_split_swiglu(split)
+        ov = ARMS[arm]
+        prev = [RP.set_enabled_gated(ov["e6"])] if "e6" in ov else []
+        if "split" in ov:
+            EC.set_split_swiglu(ov["split"])
+        EC.set_split_swiglu_small_grid(ov.get("split_small_grid", False))
+        T.set_small_grid_trimul_l1_max_seq(ov.get("trimul_l1_max_seq", 0))
         RP.STATS_GATED[0] = RP.STATS_GATED[1] = 0
+        EC.SPLIT_STATS[0] = EC.SPLIT_STATS[1] = 0
+        EC.L1_FC1_STATS[0] = EC.L1_FC1_STATS[1] = 0
         fold_s, m = one_fold()
-        row = {"tag": tag, "arm": arm, "e6": e6, "split": split,
+        row = {"tag": tag, "arm": arm, "overrides": ov,
                "fold_s": round(fold_s, 3), "plddt": m.get("plddt"),
                "n_tokens": m.get("n_tokens"), "cif": sha_dir(struct_dir),
                "e6_served": RP.STATS_GATED[0], "e6_declined": RP.STATS_GATED[1],
+               # what the arm ACTUALLY did, so a silent A/A cannot be reported as a null result
+               "split_taken": EC.SPLIT_STATS[0], "split_skipped": EC.SPLIT_STATS[1],
+               "l1_fc1_served": EC.L1_FC1_STATS[0], "l1_fc1_declined": EC.L1_FC1_STATS[1],
+               "trimul_l1_max_seq": T._trimul_l1_max_seq(),
+               "trimul_chunk_size": T._trimul_chunk_size(a.size, 256),
                "loadavg": open("/proc/loadavg").read().split()[0]}
+        del prev
         res["runs"].append(row)
         a.out.write_text(json.dumps(res, indent=1))
         print(f"  {tag:16s} {fold_s:8.3f}s plddt={m.get('plddt')} "
+              f"split={EC.SPLIT_STATS[0]}/{EC.SPLIT_STATS[1]} "
+              f"l1fc1={EC.L1_FC1_STATS[0]}/{EC.L1_FC1_STATS[1]} "
               f"e6={RP.STATS_GATED[0]}/{RP.STATS_GATED[1]} "
               f"cif={list(row['cif'].values())[0] if row['cif'] else '-'} "
               f"load={row['loadavg']}", flush=True)

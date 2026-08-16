@@ -31,5 +31,5 @@ are freed at the diffusion boundary now, which drops the confidence entry from 1
 
 Per-cell fold times and peak DRAM are in the release notes of the version that landed this.
 Normal-size targets never enter the blocked path: it is gated on a token-count threshold
-(1536 on Blackhole, 640 on Wormhole) that a 300-residue target does not reach, and the
+(1536 on Blackhole, 608 on the Wormhole Galaxy) that a 300-residue target does not reach, and the
 before/after timings on the standard 117/298-residue benchmarks are unchanged within noise.

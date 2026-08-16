@@ -335,6 +335,11 @@ _PAIR_FFN_L1_FC1 = os.environ.get(
 # than what greps. Same idiom as `reblock_permute.STATS_GATED`.
 L1_FC1_STATS = [0, 0]
 
+# [split, unsplit] `SwiGLUFFN.__call__` invocations. An A/B arm on the small-grid opt-in needs both
+# `_SPLIT_SWIGLU` and `_SPLIT_SWIGLU_SMALL_GRID`, and if either is missed the arm is a silent A/A;
+# this counter is what makes that visible instead of inferred.
+SPLIT_STATS = [0, 0]
+
 
 def set_split_swiglu(on: bool) -> bool:
     """A/B switch for the split-fc1 SwiGLU path. Returns the previous state."""
@@ -477,6 +482,7 @@ class SwiGLUFFN(Module):
                  or not getattr(tenstorrent, "_IS_SMALL_GRID", False))
             and x.shape[-2] >= SPLIT_SWIGLU_MIN_SEQ
         )
+        SPLIT_STATS[0 if split else 1] += 1
         lo, hi = PAIR_FFN_ROW_BLOCK_SEQ
         rows = _PAIR_FFN_ROW_BLOCK
         if split and len(x.shape) == 4 and rows and lo <= L <= hi:
