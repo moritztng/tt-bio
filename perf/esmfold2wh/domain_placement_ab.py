@@ -101,9 +101,9 @@ def segments(ids, mask):
     out, run = [], None
     for i, keep in zip(ids, mask):
         if keep and run is None:
-            run = [i, i]
+            run = [int(i), int(i)]
         elif keep:
-            run[1] = i
+            run[1] = int(i)
         elif run is not None:
             out.append(tuple(run))
             run = None
