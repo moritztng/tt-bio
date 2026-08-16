@@ -73,6 +73,41 @@ TRIMUL_IN_NORM_ROWBLOCK_BYTES = int(os.environ.get(
     "TT_BIO_TRIMUL_IN_NORM_ROWBLOCK_BYTES", 3 * 2 ** 30))  # 3 GiB
 TRANSITION_BATCH_CHUNKING_THRESHOLD = 1024
 TRANSITION_W_CHUNKING_THRESHOLD = 1024
+# Per-chunk element budget for the 4D Transition row loop on a small grid, in place of the
+# compounded channel ratio below it. That ratio divides by the channel twice -- once in
+# `_ref / (w_eff * c)` and again in the small-grid `_ref * 128 // c` -- so the small-grid budget
+# falls as 1/c^2 where Blackhole's falls as 1/c. Nothing intended the square: the comment on the
+# shrink says "in proportion to the channel's excess over 128", and at c=384 it costs a factor of
+# three. MEASURED on the 8x9 Wormhole Galaxy at OpenDDE's c_z=384, real Transition module, 2 warm
+# + 5 timed, spread under 1.4 % (perf/wh-opendde/wh_transition_chunk.py):
+#
+#   W=512  h=3 (shipped) 72.36 ms | h=6 65.53 = 1.1035x | h=7 69.65 | h=8 68.32 | h=9 67.01 | h=10 CLASH
+#   W=995  h=3 (shipped) 340.18   | h=6 308.45 = 1.1025x                                    | h=10 CLASH
+#   W=320  h=5 (shipped) 27.50    | h=6 26.42          | h=10 25.49 = 1.0786x               | h=16 CLASH
+#
+# CLASH is a TT_THROW of statically allocated circular buffers against L1 buffers across the whole
+# 8x9 grid, so the shrink is load-bearing and Blackhole's own chunk height genuinely does not fit
+# here. Two facts the budget has to respect: the wall is NOT monotonic in the chunk height (h=6
+# beats h=7/8/9 at W=512 even though all four fit), and the largest height that fits is therefore
+# not the one to pick. 1179648 = 6 * 512 * 384 lands on the measured optimum at W=512 and inside
+# the measured-fitting bracket at every other width the fold presents (W=320 -> 9, between the
+# measured-fitting 6 and 10; W=640/995/1024 -> 6, measured).
+#
+# Scope, deliberately narrow. Only 256 < c <= 384 takes this path:
+#   c=128 (boltz2, esmfold2) is already unshrunk and its shipped h=16 measured fastest at both
+#     W=512 and W=1024, so there is nothing to win and it stays byte-identical.
+#   c=256 (protenix-v2) measured h=12 = 1.074x at W=512, which is a real win, but protenix-v2 is
+#     mid-repair on this machine in its own task and a shared default moved underneath another
+#     model is how OpenDDE was regressed 60x once already. Left alone on purpose; the measurement
+#     is in perf/wh-opendde/results/transition_chunk_c256_wh.json for whoever owns it.
+#   c > 384 is not measured, so it keeps the shipped expression rather than extrapolating.
+# The W/H guard keeps this to the regime where every arm was torch.equal: above the 608-token
+# thresholds the row loop also W-chunks and the ragged tail block re-rounds with the row height
+# (max abs diff 0.015625 on bf16 at W=640 and W=995). Raising it there is worth a further ~0.13 s
+# at 512 aa and much more at 1024 aa, and it is NOT bit-exact -- flagged, not shipped.
+# Blackhole never reaches any of this: the whole branch is behind _IS_SMALL_GRID.
+SMALL_GRID_TRANSITION_ELEMS = int(os.environ.get("TT_BIO_SMALL_GRID_TRANSITION_ELEMS", 1179648))
+SMALL_GRID_TRANSITION_MAX_C = 384
 TRANSITION_H_CHUNK_SIZE_FAST = 32
 TRANSITION_H_CHUNK_SIZE = 16
 # Measured 1.87x at the protenix pair shape (microbench M4, W=320/c=256) but 32 clashes
@@ -510,6 +545,30 @@ def _sdpa_chunks_shipped(q_len: int, k_len: int) -> tuple:
     # online-softmax reduction order (measured PCC 0.9999 vs the 256 config).
     # Both sizes were only ever swept together; q is widened past this pick by
     # _tri_att_q_chunks, which is bit-exact, and k stays exactly here.
+    #
+    # CLOSED, do not re-propose without reading this. The band has no grid term and its 2.45x is a
+    # 13x10 Blackhole number, so on an 8x9 Wormhole Galaxy it looks like an obvious defect, and an
+    # op-level screen agrees: timing this function's own return value at OpenDDE's tri-att shape
+    # (h=12, d=32, batch=seq, bf16) says the capped path wins 1.463x at N=384 and 1.524x at N=352,
+    # with both controls at 1.000 (perf/wh-opendde/wh_sdpa_band_odde.py). The audit measured the
+    # same inversion at protenix's h=8 shape.
+    #
+    # The FOLD says the opposite. Gating the band on the grid, A/B'd at 384 aa on the Galaxy,
+    # interleaved legs, cold discarded + 3 warm (perf/wh-opendde/results/wh_ab384/):
+    #
+    #     main            117.942 / 117.855 s  mean 117.899  plDDT 0.798602  cif fc31112e72ed8617
+    #     this lever only  126.323 s                          plDDT 0.796598  cif 0f56595198420f80
+    #     with the Transition budget too  123.821 / 123.788   plDDT 0.796598  cif 0f56595198420f80
+    #     -> the lever alone is 0.9333x, a 6.7 % REGRESSION, and the output moves
+    #
+    # The mechanism is `_tri_att_q_chunks`: it offers only q_chunks that DIVIDE the padded sequence
+    # and treats this function's q value as the production fallback it widens PAST. So the fold
+    # never runs the band's (64, 64) -- it runs (wide_q, k=64), and the only thing this function
+    # decides in practice is k. Moving k from 64 to 256 makes k stop dividing 384, and the padded
+    # q x k mask grid is 84 % of the op's DRAM traffic, so it pads 384 -> 512 and pays it twice.
+    #
+    # The lesson, because it will recur: an op-level screen on this function's return value
+    # measures a configuration the fold never executes. Screen `_tri_att_q_chunks`'s actual pick.
     if 256 < q_len <= 384 and 256 < k_len <= 384:
         return (64, 64)
     return (_capped_sdpa_chunk_size(q_len), _capped_sdpa_chunk_size(k_len))
@@ -3529,10 +3588,39 @@ class Transition(Module):
         # clamp means this only ever raises the chunk size where it had been shrunk,
         # so W<=threshold shapes (every normal target) are byte-identical to before.
         w_eff = min(W, TRANSITION_W_CHUNK_SIZE) if W > transition_w_chunking_threshold else W
+        _base_h = transition_h_chunk_size
         _ref = 1024 * 128
         if _IS_SMALL_GRID:
             _ref = _ref * 128 // max(128, x.shape[-1])
         transition_h_chunk_size = max(1, int(transition_h_chunk_size * min(1.0, _ref / (w_eff * x.shape[-1]))))
+
+        # ...and raise it back where the compounded ratio above over-shrinks. That ratio divides by
+        # the channel TWICE -- once here and again in the small-grid `_ref * 128 // c` -- so the
+        # small-grid budget falls as 1/c^2 where Blackhole's falls as 1/c. At OpenDDE's c_z=384 that
+        # costs a factor of three: the chunk is 3 against Blackhole's 10, i.e. 171 row blocks for a
+        # 512-token pair tensor instead of 52. MEASURED on the Galaxy, real Transition module, 2 warm
+        # + 5 timed, spread under 1.4 % (perf/wh-opendde/wh_transition_chunk.py):
+        #
+        #   W=512  h=3 (shipped) 72.36 ms | h=6 65.53 = 1.1035x | h=7 69.65 | h=8 68.32 | h=9 67.01
+        #   W=320  h=5 (shipped) 27.50    | h=6 26.42 | h=10 25.49 = 1.0786x
+        #
+        # The wall is NOT monotonic in the height -- 7, 8 and 9 all fit at W=512 and are all slower
+        # than 6 -- so this lands on the measured optimum rather than on the largest chunk that fits,
+        # and the per-core cap below still has the last word. Fold-level A/B at 512 aa: 189.398 ->
+        # 185.899 s, 1.0188x, against an A/A floor of 0.235 s, CIF digest identical on both arms.
+        #
+        # Scoped to 256 < c <= 384 on purpose. c=128 is already unshrunk and its shipped h=16
+        # measured fastest with no clash at any height; c=256 measures 1.0738x at W=512 but is
+        # protenix-v2's channel and the cap above is its crash fix, so it is left exactly alone.
+        # The W/H guard keeps this to the regime where every arm was torch.equal: above the
+        # 608-token thresholds the loop also W-chunks and the ragged tail re-rounds with the row
+        # height (max abs diff 0.015625, bf16).
+        _c = int(x.shape[-1])
+        if (_IS_SMALL_GRID and SMALL_GRID_TRANSITION_ELEMS
+                and 256 < _c <= SMALL_GRID_TRANSITION_MAX_C
+                and W <= transition_w_chunking_threshold and H <= SEQ_LEN_MORE_CHUNKING):
+            transition_h_chunk_size = max(transition_h_chunk_size,
+                                          min(_base_h, SMALL_GRID_TRANSITION_ELEMS // (w_eff * _c)))
         if _IS_SMALL_GRID:
             # Cap the row chunk by measured per-core L1. The budget above scales by per-core L1
             # and by the channel excess; neither term sees that the Galaxy has 45% fewer cores

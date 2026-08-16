@@ -1,0 +1,147 @@
+{
+ "host": "UF-EV-A13-GWH02",
+ "card": "27",
+ "arch": "WORMHOLE_B0",
+ "grid": [
+  8,
+  9
+ ],
+ "compute_grid_main": [
+  8,
+  9
+ ],
+ "is_small_grid": true,
+ "l1_per_core": 1466080,
+ "transition_h_chunk_size": 16,
+ "c": 384,
+ "iters": 5,
+ "rows": [
+  {
+   "W": 512,
+   "c": 384,
+   "h_chunk": 3,
+   "k": 14,
+   "blocks": 171,
+   "shipped": true,
+   "ms": 72.311,
+   "ms_min": 72.191,
+   "ms_spread_pct": 1.4,
+   "bit_exact_vs_first": true
+  },
+  {
+   "W": 512,
+   "c": 384,
+   "h_chunk": 6,
+   "k": 28,
+   "blocks": 86,
+   "shipped": false,
+   "ms": 65.526,
+   "ms_min": 65.404,
+   "ms_spread_pct": 0.96,
+   "bit_exact_vs_first": true
+  },
+  {
+   "W": 512,
+   "c": 384,
+   "h_chunk": 7,
+   "k": 32,
+   "blocks": 74,
+   "shipped": false,
+   "ms": 69.651,
+   "ms_min": 69.571,
+   "ms_spread_pct": 0.24,
+   "bit_exact_vs_first": false,
+   "max_abs_diff": 2.0
+  },
+  {
+   "W": 512,
+   "c": 384,
+   "h_chunk": 8,
+   "k": 37,
+   "blocks": 64,
+   "shipped": false,
+   "ms": 68.319,
+   "ms_min": 68.209,
+   "ms_spread_pct": 0.33,
+   "bit_exact_vs_first": false,
+   "max_abs_diff": 2.0
+  },
+  {
+   "W": 512,
+   "c": 384,
+   "h_chunk": 9,
+   "k": 41,
+   "blocks": 57,
+   "shipped": false,
+   "ms": 67.008,
+   "ms_min": 66.896,
+   "ms_spread_pct": 0.23,
+   "bit_exact_vs_first": false,
+   "max_abs_diff": 2.0
+  },
+  {
+   "W": 995,
+   "c": 384,
+   "h_chunk": 3,
+   "k": 13,
+   "blocks": 332,
+   "shipped": true,
+   "ms": 340.084,
+   "ms_min": 340.07,
+   "ms_spread_pct": 0.04,
+   "bit_exact_vs_first": true
+  },
+  {
+   "W": 995,
+   "c": 384,
+   "h_chunk": 6,
+   "k": 26,
+   "blocks": 166,
+   "shipped": false,
+   "ms": 308.453,
+   "ms_min": 308.377,
+   "ms_spread_pct": 0.04,
+   "bit_exact_vs_first": false,
+   "max_abs_diff": 0.015625
+  },
+  {
+   "W": 995,
+   "c": 384,
+   "h_chunk": 7,
+   "k": 30,
+   "blocks": 143,
+   "shipped": false,
+   "ms": 302.329,
+   "ms_min": 302.172,
+   "ms_spread_pct": 0.2,
+   "bit_exact_vs_first": false,
+   "max_abs_diff": 0.015625
+  },
+  {
+   "W": 995,
+   "c": 384,
+   "h_chunk": 8,
+   "k": 34,
+   "blocks": 125,
+   "shipped": false,
+   "ms": 314.229,
+   "ms_min": 314.158,
+   "ms_spread_pct": 0.11,
+   "bit_exact_vs_first": false,
+   "max_abs_diff": 4.0
+  },
+  {
+   "W": 995,
+   "c": 384,
+   "h_chunk": 9,
+   "k": 38,
+   "blocks": 111,
+   "shipped": false,
+   "ms": 303.51,
+   "ms_min": 303.372,
+   "ms_spread_pct": 0.34,
+   "bit_exact_vs_first": false,
+   "max_abs_diff": 4.0
+  }
+ ]
+}
