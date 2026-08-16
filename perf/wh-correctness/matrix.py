@@ -57,6 +57,13 @@ def cdk2(n: int) -> str:
     return (CDK2_298 * (n // len(CDK2_298) + 1))[:n]
 
 
+def cdk2_rot(n: int, k: int) -> str:
+    """`cdk2(n)` with the domain rotated k residues before tiling, so a set of these is a
+    set of genuinely different sequences over a real protein alphabet rather than copies."""
+    rotated = CDK2_298[k % len(CDK2_298):] + CDK2_298[:k % len(CDK2_298)]
+    return (rotated * (n // len(rotated) + 1))[:n]
+
+
 # Size x model. Sizes are chosen against known boundaries, not round numbers, and every
 # model is run at its own advertised cap and one past it -- the brief's "at the limit it
 # must work, past it it must fail cleanly".
@@ -350,7 +357,13 @@ def cells(group: str) -> list[dict]:
                         "design_min": rng[0], "design_max": rng[1]})
     if group in ("embed", "all"):
         for model, n in EMB_CAPS.items():
-            seqs = {f"s{i}": cdk2(n) for i in range(50)}
+            # 50 DIFFERENT sequences, not 50 copies of one. The first run of this cell
+            # tiled the same 2000-mer 50 times and got 50 bit-identical vectors back,
+            # which proves the artifacts are keyed and returned but not that the service
+            # can compute 50 distinct ones -- a dedup would serve it from a single
+            # forward pass and the cell could not tell. Rotating the tiling start by i
+            # gives 50 genuine 2000-residue sequences over the same real alphabet.
+            seqs = {f"s{i}": cdk2_rot(n, i) for i in range(50)}
             out.append({"cell": f"emb_cap_{model}", "kind": "embed", "expect": "ok",
                         "payload": {"model": model, "name": f"cap_{model}",
                                     "sequences": [{"id": k, "sequence": v}
