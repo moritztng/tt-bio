@@ -1,0 +1,132 @@
+{
+  "model": "esmc-300m",
+  "n_seqs": 8,
+  "residues": 76,
+  "batch_size": 8,
+  "arch": "wormhole_b0",
+  "visible_devices": "30",
+  "aa_control_ms": [
+    430.96,
+    420.44
+  ],
+  "aa_ratio": 1.025,
+  "aa_noise_pct": 2.5,
+  "arm_A_serial_write_ms": [
+    448.79,
+    414.67,
+    453.2,
+    447.64,
+    445.05
+  ],
+  "arm_B_threaded_write_ms": [
+    136.46,
+    118.31,
+    130.83,
+    136.06,
+    128.79
+  ],
+  "median_A_ms": 447.64,
+  "median_B_ms": 130.83,
+  "speedup_B_over_A": 3.4215,
+  "seq_s_A": 17.872,
+  "seq_s_B": 61.148,
+  "device_s_median": 0.0638,
+  "runs": [
+    {
+      "i": 0,
+      "arm": "A",
+      "wall_ms": 430.96,
+      "device_s": 0.0627,
+      "write_s": 0.3682,
+      "load1": 9.18
+    },
+    {
+      "i": 1,
+      "arm": "A",
+      "wall_ms": 420.44,
+      "device_s": 0.0624,
+      "write_s": 0.3579,
+      "load1": 9.18
+    },
+    {
+      "i": 2,
+      "arm": "B",
+      "wall_ms": 136.46,
+      "device_s": 0.0636,
+      "write_s": 0.0727,
+      "load1": 9.18
+    },
+    {
+      "i": 3,
+      "arm": "A",
+      "wall_ms": 448.79,
+      "device_s": 0.064,
+      "write_s": 0.3846,
+      "load1": 9.18
+    },
+    {
+      "i": 4,
+      "arm": "B",
+      "wall_ms": 118.31,
+      "device_s": 0.0643,
+      "write_s": 0.0539,
+      "load1": 9.18
+    },
+    {
+      "i": 5,
+      "arm": "A",
+      "wall_ms": 414.67,
+      "device_s": 0.0639,
+      "write_s": 0.3505,
+      "load1": 9.18
+    },
+    {
+      "i": 6,
+      "arm": "B",
+      "wall_ms": 130.83,
+      "device_s": 0.0629,
+      "write_s": 0.0677,
+      "load1": 9.18
+    },
+    {
+      "i": 7,
+      "arm": "A",
+      "wall_ms": 453.2,
+      "device_s": 0.0649,
+      "write_s": 0.388,
+      "load1": 9.18
+    },
+    {
+      "i": 8,
+      "arm": "B",
+      "wall_ms": 136.06,
+      "device_s": 0.0626,
+      "write_s": 0.0732,
+      "load1": 9.18
+    },
+    {
+      "i": 9,
+      "arm": "A",
+      "wall_ms": 447.64,
+      "device_s": 0.0647,
+      "write_s": 0.3826,
+      "load1": 9.0
+    },
+    {
+      "i": 10,
+      "arm": "B",
+      "wall_ms": 128.79,
+      "device_s": 0.0625,
+      "write_s": 0.0661,
+      "load1": 9.0
+    },
+    {
+      "i": 11,
+      "arm": "A",
+      "wall_ms": 445.05,
+      "device_s": 0.0714,
+      "write_s": 0.3733,
+      "load1": 9.0
+    }
+  ]
+}

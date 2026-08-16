@@ -1,0 +1,17 @@
+{
+  "host": "UF-EV-A13-GWH02",
+  "cpus": 64,
+  "workers": 32,
+  "loadavg": 8.74,
+  "n_seqs": 8,
+  "residues": 76,
+  "d_model": 960,
+  "input_bytes": 2334720,
+  "output_bytes": 2162763,
+  "compress_ratio": 0.9263,
+  "serial_s": 0.0721,
+  "threaded_s": 0.012,
+  "serial_MBps": 32.37,
+  "threaded_MBps": 195.04,
+  "thread_speedup": 6.025
+}
