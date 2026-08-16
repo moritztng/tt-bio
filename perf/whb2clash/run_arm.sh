@@ -16,7 +16,11 @@ VENV=${WHB2_PY:-/home/ttuser/tt-bio-dev/env/bin/python}
 mkdir -p "$OUT/probe"
 ENVARGS=()
 [ "$SLMC" = "-" ] || ENVARGS+=("WHB2_FORCE_SLMC=$SLMC")
+# The one usable Wormhole spare on the Galaxy is contended with other fleet workers, and the
+# 120 s default lease wait turns "someone else has the card" into a failed leg rather than a
+# queued one. Wait long enough to queue instead.
 env TT_VISIBLE_DEVICES="$DEV" \
+    TT_BIO_LEASE_TIMEOUT="${WHB2_LEASE_WAIT:-5400}" \
     TT_BIO_LEASE_HOLDER=worker:wh-boltz2-640aa-clash-rootcause \
     TT_BIO_SDPA_DIV_K="$K3" \
     WHB2_PROBE="$OUT/probe" \
