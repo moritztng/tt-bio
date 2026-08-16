@@ -1,5 +1,5 @@
 {
- "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/var_pdb_esmfold2-fast/target_1.pdb",
+ "struct": "/home/ttuser/.coworker/wt/japanfold-wh-correctness-close/perf/wh-correctness/results/artifacts/var_pdb_esmfold2-fast/target_1.pdb",
  "checks": {
   "n_atoms": 494,
   "bbox_diagonal": 59.22,
