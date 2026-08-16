@@ -3707,6 +3707,7 @@ class Transition(Module):
             # Cap the row chunk by measured per-core L1. The budget above scales by per-core L1
             # and by the channel excess; neither term sees that the Galaxy has 45% fewer cores
             # than the 130-core grid these constants were fitted on, so the same nominal chunk
+            # lands as ~1.8x the per-core bytes and clashes. Live per chunk: x_norm (c) plus
             # x_1 and x_2 (hidden each), bf16. Every extent is TILE-PADDED: a (1,H,W,c) tile
             # tensor rounds W and c up to 32, so the logical extents understate the real
             # footprint by up to 32/W. At 298 aa, W pads 298 -> 320 and the same chunk costs

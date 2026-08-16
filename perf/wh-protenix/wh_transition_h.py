@@ -30,6 +30,26 @@ def build(dev, ttnn, torch, H, W, c, hidden, seed=0):
     return x, w
 
 
+def l1_hold(dev, ttnn, torch, bytes_per_core, cores):
+    """Occupy `bytes_per_core` of L1 for the whole sweep, the way a real fold does.
+
+    The bare harness runs with an empty L1, so its ceiling is the full unreserved
+    1,466,080 B/core. A served fold reaches the confidence Transition with L1 buffers
+    already resident -- the two live throws put the offending buffer at 1,089,536
+    (225 aa) and 1,087,488 (298 aa), i.e. ~377 KB/core already held -- so the CB region
+    has ~26% less room than the harness sees. Without this the harness cannot reproduce
+    the fold's failure and any law fitted on it is optimistic.
+    """
+    if bytes_per_core <= 0:
+        return None
+    total_elems = int(bytes_per_core) * cores // 2      # bf16
+    cols = 512
+    rows = max(32, -(-(total_elems // cols) // 32) * 32)
+    return ttnn.from_torch(torch.zeros(1, 1, rows, cols), dtype=ttnn.bfloat16,
+                           layout=ttnn.TILE_LAYOUT, device=dev,
+                           memory_config=ttnn.L1_MEMORY_CONFIG)
+
+
 def swiglu(ttnn, ckc, cg, x, w):
     """Byte-for-byte the shipped tt_bio Transition.swiglu (tenstorrent.py:3422-3463)."""
     x_norm = ttnn.layer_norm(x, weight=w["norm_w"], bias=w["norm_b"], epsilon=1e-5,
@@ -65,6 +85,9 @@ def main():
     ap.add_argument("--hs", default="4,8,12,16,20,24,25,32,40")
     ap.add_argument("--iters", type=int, default=3)
     ap.add_argument("--warm", type=int, default=1)
+    ap.add_argument("--l1-hold", type=int, default=0,
+                    help="B/core of L1 to hold resident for the whole sweep, so the harness "
+                         "sees the same headroom a served fold does (~377000)")
     ap.add_argument("--out", default="")
     a = ap.parse_args()
 
@@ -85,6 +108,10 @@ def main():
                 "host": os.uname().nodename}
         print(json.dumps(meta), flush=True)
 
+        hold = l1_hold(dev, ttnn, torch, a.l1_hold, int(g.x) * int(g.y))
+        if hold is not None:
+            meta["l1_held_per_core"] = a.l1_hold
+            print(json.dumps({"l1_hold_bytes_per_core": a.l1_hold}), flush=True)
         x, w = build(dev, ttnn, torch, H, a.w, a.c, a.hidden)
         rows, ref = [], None
         for h in [int(v) for v in a.hs.split(",")]:
