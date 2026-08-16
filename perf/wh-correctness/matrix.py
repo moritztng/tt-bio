@@ -278,7 +278,11 @@ BG_DESIGNS = {
 RFD3_DESIGNS = {
     "des_rfd3_binder":   ("rfd3-binder", "iai_protein.pdb", "A1-150,60-80", (210, 230)),
     "des_rfd3_scaffold": ("rfd3-scaffold", "iai_protein.pdb", "A1-10,20,A31-40", (40, 40)),
-    "des_rfd3_na":       ("rfd3-na-binder", "1bna_dna.pdb", "A1-12,B1-12,60-80", (84, 104)),
+    # B13-24, not B1-12: 1BNA numbers its second strand 13-24 continuing from the first,
+    # so B1 does not exist. The engine said so exactly ("contig indexes B1 not present in
+    # input structure") -- after the job had been dispatched, because limits.check_rfd3_design
+    # parses the contig without holding it against the structure that was submitted with it.
+    "des_rfd3_na":       ("rfd3-na-binder", "1bna_dna.pdb", "A1-12,B13-24,60-80", (84, 104)),
 }
 
 # --- embed -------------------------------------------------------------------

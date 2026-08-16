@@ -1,0 +1,86 @@
+{
+ "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/des_bg_rna/final_10_designs/rank3_shard-1_design.cif",
+ "checks": {
+  "n_atoms": 1294,
+  "bbox_diagonal": 80.59,
+  "chains": [
+   {
+    "chain": "A",
+    "kind": "protein",
+    "n_res": 81,
+    "sequence": "KPPNKTIFVKNLNPKIKKKELKKELHKIFSRFGKIKKIKVPNKKNKNFAYVEFEEISSAEKAVGKKIEFYGKTMKIEYAPE",
+    "step_median": 3.82,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 1.0,
+    "breaks": 0,
+    "rg": 11.5,
+    "rg_expected": 11.69,
+    "rg_ratio": 0.984,
+    "n_ca_bond_median": 1.449,
+    "ca_c_bond_median": 1.517
+   },
+   {
+    "chain": "B",
+    "kind": "nucleic",
+    "n_res": 29,
+    "sequence": "GGCAGAUCUGAGCCUGGGAGCUCUCUGGC",
+    "step_median": 5.981,
+    "step_band": [
+     5.0,
+     7.8
+    ],
+    "in_band_frac": 0.9643,
+    "breaks": 0,
+    "rg": 14.87,
+    "rg_expected": 7.91,
+    "rg_ratio": 1.881,
+    "n_ca_bond_median": null,
+    "ca_c_bond_median": null
+   }
+  ],
+  "clashes": {
+   "n": 6,
+   "heavy_atoms": 1294,
+   "worst_dist": 1.046,
+   "threshold": 2.0,
+   "budget": 2
+  },
+  "confidence": {
+   "source": "b_factor",
+   "n": 1294,
+   "min": 0.3781,
+   "max": 0.6981,
+   "mean": 0.5604,
+   "std": 0.0739,
+   "scale": 1.0
+  },
+  "design_length": {
+   "observed": 81,
+   "min": 60,
+   "max": 90,
+   "scope": "designed chain A",
+   "requested_chain": "B",
+   "scored_chain": "A",
+   "chains_present": [
+    "A",
+    "B"
+   ]
+  },
+  "interface": {
+   "pairs_below": 4,
+   "threshold": 2.0,
+   "designed_heavy_atoms": 673,
+   "budget": 2,
+   "chain": "A"
+  }
+ },
+ "fail": [
+  "6 heavy-atom clashes < 2.0 A (0.46% of atoms, worst 1.046 A)",
+  "4 heavy-atom pairs < 2.0 A between chain A and the target -- the binder is modelled inside it, not against it"
+ ],
+ "warn": [],
+ "verdict": "FAIL"
+}

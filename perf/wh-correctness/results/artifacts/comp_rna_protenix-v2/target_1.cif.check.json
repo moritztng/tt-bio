@@ -1,5 +1,5 @@
 {
- "struct": "results/artifacts/comp_rna_protenix-v2/target_1.cif",
+ "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/comp_rna_protenix-v2/target_1.cif",
  "checks": {
   "n_atoms": 427,
   "bbox_diagonal": 51.23,

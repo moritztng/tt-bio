@@ -1,0 +1,1 @@
+{"model": "boltzgen", "protocol": "protein-anything", "name": "des_bg_dna", "spec": "entities:\n  - protein:\n      id: B\n      sequence: 60..90\n  - dna:\n      id: A\n      sequence: AATTGTGAGCGGATAACAATT\n  - dna:\n      id: C\n      sequence: AATTGTTATCCGCTCACAATT\n", "params": {"num_designs": 10, "budget": 10}}

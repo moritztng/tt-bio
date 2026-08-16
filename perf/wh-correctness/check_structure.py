@@ -142,64 +142,78 @@ def chain_geometry(st: gemmi.Structure) -> tuple[list[dict], list[str], list[str
     warns: list[str] = []
     out: list[dict] = []
     for chain in st[0]:
-        anchors, seq, ncas, cacs = [], [], [], []
-        kind = "protein"
+        # A chain is not always one kind of polymer. RFD3's na-binder output merges the
+        # designed protein and a DNA strand into ONE chain: 12 nucleotides then 70 residues,
+        # 82 in total. Classifying by the chain's first residue and then measuring P-P across
+        # all 82 scored 13.6% in band and failed a design whose two halves are each perfect
+        # (CA-CA median 3.805 A, 100% in band; P-P median 6.69 A). So classify per residue and
+        # measure each polymer type separately. A chain with only one kind, which is every
+        # fold output, produces exactly one entry under its own name as before.
+        by_kind: dict[str, list] = {"protein": [], "nucleic": []}
         for res in chain:
-            a = res.find_atom("CA", "*")
-            if a is None:
-                a = res.find_atom("P", "*") or res.find_atom("C1'", "*")
-                if a is not None:
-                    kind = "nucleic"
-            if a is None:
+            if res.find_atom("CA", "*") is not None:
+                by_kind["protein"].append(res)
+            elif res.find_atom("P", "*") is not None or res.find_atom("C1'", "*") is not None:
+                by_kind["nucleic"].append(res)
+        mixed = all(len(v) >= 2 for v in by_kind.values())
+        for kind, residues in by_kind.items():
+            if len(residues) < 2:
                 continue
-            anchors.append([a.pos.x, a.pos.y, a.pos.z])
-            seq.append(_one_letter(res.name))
-            if kind == "protein":
-                n, c = res.find_atom("N", "*"), res.find_atom("C", "*")
-                if n is not None:
-                    ncas.append(n.pos.dist(a.pos))
-                if c is not None:
-                    cacs.append(a.pos.dist(c.pos))
-        if len(anchors) < 2:
-            continue
-        band, fail_frac, brk = ((CA_CA_BAND, CA_CA_FAIL_FRAC, CA_CA_BREAK) if kind == "protein"
-                                else (PP_BAND, PP_FAIL_FRAC, PP_BREAK))
-        a = np.asarray(anchors)
-        d = np.linalg.norm(a[1:] - a[:-1], axis=1)
-        inband = float(((d >= band[0]) & (d <= band[1])).mean())
-        breaks = int((d > brk).sum())
-        rg = float(np.sqrt(((a - a.mean(0)) ** 2).sum(1).mean()))
-        rg_ref = RG_COEF * len(a) ** RG_EXP
-        info = {"chain": chain.name, "kind": kind, "n_res": len(a), "sequence": "".join(seq),
-                "step_median": round(float(np.median(d)), 3),
-                "step_band": list(band),
-                "in_band_frac": round(inband, 4),
-                "breaks": breaks,
-                "rg": round(rg, 2), "rg_expected": round(rg_ref, 2),
-                "rg_ratio": round(rg / rg_ref, 3),
-                "n_ca_bond_median": round(float(np.median(ncas)), 3) if ncas else None,
-                "ca_c_bond_median": round(float(np.median(cacs)), 3) if cacs else None}
-        out.append(info)
-        tag = f"chain {chain.name} ({kind})"
-        if inband < fail_frac:
-            fails.append(f"{tag}: only {inband:.1%} of consecutive backbone steps in "
-                         f"[{band[0]}, {band[1]}] A (floor {fail_frac:.0%})")
-        elif inband < CA_CA_WARN_FRAC and kind == "protein":
-            warns.append(f"{tag}: {inband:.1%} of Ca-Ca steps in band "
-                         f"(shipped predictions measure 0.970-1.000)")
-        if breaks:
-            fails.append(f"{tag}: {breaks} backbone gap(s) > {brk} A -- chain is broken")
-        # Rg is an empirical globular-protein relation; it says nothing about a
-        # nucleic duplex, which is a rod, so only protein chains are judged on it.
-        if kind == "protein" and not (RG_BAND[0] <= rg / rg_ref <= RG_BAND[1]):
-            fails.append(f"{tag}: Rg {rg:.1f} A is {rg / rg_ref:.2f}x the {rg_ref:.1f} A "
-                         f"expected for {len(a)} residues -- not a compact fold")
-        for label, vals, bnd in (("N-Ca", ncas, N_CA_BAND), ("Ca-C", cacs, CA_C_BAND)):
-            if not vals:
+            anchors, seq, ncas, cacs = [], [], [], []
+            for res in residues:
+                a = (res.find_atom("CA", "*") if kind == "protein"
+                     else (res.find_atom("P", "*") or res.find_atom("C1'", "*")))
+                if a is None:
+                    continue
+                anchors.append([a.pos.x, a.pos.y, a.pos.z])
+                seq.append(_one_letter(res.name))
+                if kind == "protein":
+                    n, c = res.find_atom("N", "*"), res.find_atom("C", "*")
+                    if n is not None:
+                        ncas.append(n.pos.dist(a.pos))
+                    if c is not None:
+                        cacs.append(a.pos.dist(c.pos))
+            if len(anchors) < 2:
                 continue
-            med = float(np.median(vals))
-            if not (bnd[0] <= med <= bnd[1]):
-                fails.append(f"{tag}: median {label} bond {med:.3f} A outside {bnd}")
+            name = f"{chain.name}({kind})" if mixed else chain.name
+            band, fail_frac, brk = ((CA_CA_BAND, CA_CA_FAIL_FRAC, CA_CA_BREAK) if kind == "protein"
+                                    else (PP_BAND, PP_FAIL_FRAC, PP_BREAK))
+            a = np.asarray(anchors)
+            d = np.linalg.norm(a[1:] - a[:-1], axis=1)
+            inband = float(((d >= band[0]) & (d <= band[1])).mean())
+            breaks = int((d > brk).sum())
+            rg = float(np.sqrt(((a - a.mean(0)) ** 2).sum(1).mean()))
+            rg_ref = RG_COEF * len(a) ** RG_EXP
+            info = {"chain": name, "kind": kind, "n_res": len(a), "sequence": "".join(seq),
+                    "step_median": round(float(np.median(d)), 3),
+                    "step_band": list(band),
+                    "in_band_frac": round(inband, 4),
+                    "breaks": breaks,
+                    "rg": round(rg, 2), "rg_expected": round(rg_ref, 2),
+                    "rg_ratio": round(rg / rg_ref, 3),
+                    "n_ca_bond_median": round(float(np.median(ncas)), 3) if ncas else None,
+                    "ca_c_bond_median": round(float(np.median(cacs)), 3) if cacs else None}
+            out.append(info)
+            tag = f"chain {name} ({kind})" if not mixed else f"chain {name}"
+            if inband < fail_frac:
+                fails.append(f"{tag}: only {inband:.1%} of consecutive backbone steps in "
+                             f"[{band[0]}, {band[1]}] A (floor {fail_frac:.0%})")
+            elif inband < CA_CA_WARN_FRAC and kind == "protein":
+                warns.append(f"{tag}: {inband:.1%} of Ca-Ca steps in band "
+                             f"(shipped predictions measure 0.970-1.000)")
+            if breaks:
+                fails.append(f"{tag}: {breaks} backbone gap(s) > {brk} A -- chain is broken")
+            # Rg is an empirical globular-protein relation; it says nothing about a
+            # nucleic duplex, which is a rod, so only protein chains are judged on it.
+            if kind == "protein" and not (RG_BAND[0] <= rg / rg_ref <= RG_BAND[1]):
+                fails.append(f"{tag}: Rg {rg:.1f} A is {rg / rg_ref:.2f}x the {rg_ref:.1f} A "
+                             f"expected for {len(a)} residues -- not a compact fold")
+            for label, vals, bnd in (("N-Ca", ncas, N_CA_BAND), ("Ca-C", cacs, CA_C_BAND)):
+                if not vals:
+                    continue
+                med = float(np.median(vals))
+                if not (bnd[0] <= med <= bnd[1]):
+                    fails.append(f"{tag}: median {label} bond {med:.3f} A outside {bnd}")
     return out, fails, warns
 
 
