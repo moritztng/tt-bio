@@ -522,25 +522,30 @@ def _sdpa_chunks_shipped(q_len: int, k_len: int) -> tuple:
     # Both sizes were only ever swept together; q is widened past this pick by
     # _tri_att_q_chunks, which is bit-exact, and k stays exactly here.
     #
-    # The 2.45x above is a 13x10 Blackhole number and the band had no grid term, so it was taken
-    # verbatim on an 8x9 Wormhole Galaxy, where it INVERTS. MEASURED on the Galaxy at OpenDDE's own
-    # tri-att shape (h=12, d=32, batch=seq, bf16), 2 warm + 5 timed x 5 blocks, as
-    # capped/band -- below 1.0 means the band is losing (perf/wh-opendde/wh_sdpa_band_odde.py):
+    # CLOSED, do not re-propose without reading this. The band has no grid term and its 2.45x is a
+    # 13x10 Blackhole number, so on an 8x9 Wormhole Galaxy it looks like an obvious defect, and an
+    # op-level screen agrees: timing this function's own return value at OpenDDE's tri-att shape
+    # (h=12, d=32, batch=seq, bf16) says the capped path wins 1.463x at N=384 and 1.524x at N=352,
+    # with both controls at 1.000 (perf/wh-opendde/wh_sdpa_band_odde.py). The audit measured the
+    # same inversion at protenix's h=8 shape.
     #
-    #     N=256  1.0002   control, both arms are the same config
-    #     N=288  0.9392   band costs 1.065x
-    #     N=320  0.9885   band costs 1.012x
-    #     N=352  0.6561   band costs 1.524x
-    #     N=384  0.6836   band costs 1.463x
-    #     N=512  0.9996   control
+    # The FOLD says the opposite. Gating the band on the grid, A/B'd at 384 aa on the Galaxy,
+    # interleaved legs, cold discarded + 3 warm (perf/wh-opendde/results/wh_ab384/):
     #
-    # so on a small grid the capped path wins by 1.46-1.52x exactly where the band was supposed to
-    # win by 2.45x. The audit measured the same inversion at protenix's h=8 shape, so this is the
-    # grid and not one model's head count. Gate on the grid rather than editing the band away:
-    # Blackhole reproduces its own pick byte for byte, and only a small grid takes the capped path.
-    # PAIRFORMER_PAD_MULTIPLE is 64, so the reachable padded lengths inside the band are 288, 320
-    # and 384 -- this changes nothing at 512 aa and nothing below 257 aa.
-    if (not _IS_SMALL_GRID or _SDPA_BAND_ON_SMALL_GRID) and 256 < q_len <= 384 and 256 < k_len <= 384:
+    #     main            117.942 / 117.855 s  mean 117.899  plDDT 0.798602  cif fc31112e72ed8617
+    #     this lever only  126.323 s                          plDDT 0.796598  cif 0f56595198420f80
+    #     with the Transition budget too  123.821 / 123.788   plDDT 0.796598  cif 0f56595198420f80
+    #     -> the lever alone is 0.9333x, a 6.7 % REGRESSION, and the output moves
+    #
+    # The mechanism is `_tri_att_q_chunks`: it offers only q_chunks that DIVIDE the padded sequence
+    # and treats this function's q value as the production fallback it widens PAST. So the fold
+    # never runs the band's (64, 64) -- it runs (wide_q, k=64), and the only thing this function
+    # decides in practice is k. Moving k from 64 to 256 makes k stop dividing 384, and the padded
+    # q x k mask grid is 84 % of the op's DRAM traffic, so it pads 384 -> 512 and pays it twice.
+    #
+    # The lesson, because it will recur: an op-level screen on this function's return value
+    # measures a configuration the fold never executes. Screen `_tri_att_q_chunks`'s actual pick.
+    if 256 < q_len <= 384 and 256 < k_len <= 384:
         return (64, 64)
     return (_capped_sdpa_chunk_size(q_len), _capped_sdpa_chunk_size(k_len))
 
@@ -556,10 +561,6 @@ _SDPA_Q_CHUNK_OVER_L1: set = set()
 
 # Kill switch so a fold-level A/B can run both arms without a checkout. Bit-exact either way.
 _SDPA_WIDE_Q = os.environ.get("TT_BIO_SDPA_WIDE_Q", "1") != "0"
-
-# Restores the 64/64 band on a small grid, i.e. main's behaviour, so the fold-level A/B for the
-# grid term above runs both arms out of one tree. Default off: the band loses on 72 cores.
-_SDPA_BAND_ON_SMALL_GRID = os.environ.get("TT_BIO_SDPA_BAND_SMALL_GRID", "0") != "0"
 
 # The atom-level AttentionPairBias widens q from ATOM_WINDOW (32) to ATOM_DIM (128) on dim -2.
 # That pad is tile-aligned (32 -> 128 adds exactly 3 tiles of zeros), so leaving TILE layout to
