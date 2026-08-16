@@ -112,6 +112,13 @@ def main():
     wrap(ttnn.experimental, "minimal_matmul", "ttnn.experimental.minimal_matmul")
 
     import tt_baseline as B
+    # Boltz-2's cfg needs the same patch the byte model applied; without it build_fold
+    # raises KeyError: 'conf_kwargs'. It lives in perf/other512, which is not on the path.
+    _snap = list(sys.path)
+    sys.path.insert(0, str(tree / 'perf' / 'other512'))
+    from fold_ab_multi import patch_boltz2_cfg
+    sys.path[:] = _snap
+    patch_boltz2_cfg()
     B.RECYCLING_STEPS, B.SAMPLING_STEPS = 1, 2
     msa_dir = tree / f".msa_flop_{a.size}"
     tgt = tree / f"perf/size512/fixtures/cdk2x2_{a.size}.yaml"
