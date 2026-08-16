@@ -2031,7 +2031,11 @@ def _write_structure(complex_obj, outpath, output_format):
     import io
     import biotite.structure.io.pdb as _pdb
     import biotite.structure.io.pdbx as _pdbx
-    arr = _pdbx.get_structure(_pdbx.CIFFile.read(io.StringIO(cif_text)), model=1)
+    # extra_fields is required: without it get_structure drops the b_factor column,
+    # and the PDB then carries 0.00 for every atom — the per-residue pLDDT the CIF
+    # just wrote is silently lost (measured on esmfold2-fast, 2026-08-16 sweep).
+    arr = _pdbx.get_structure(_pdbx.CIFFile.read(io.StringIO(cif_text)), model=1,
+                              extra_fields=["b_factor", "occupancy"])
     pf = _pdb.PDBFile()
     pf.set_structure(arr)
     pf.write(str(outpath))
