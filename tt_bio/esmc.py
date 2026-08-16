@@ -339,6 +339,35 @@ _PAIR_FFN_L1_FC1 = os.environ.get(
 # than what greps. Same idiom as `reblock_permute.STATS_GATED`.
 L1_FC1_STATS = [0, 0]
 
+# Third lever on the same block, and the one that pays best. The block layer_norm wrote its result
+# to DRAM and fc1's two halves each read all 8.39 MB of it back. Giving the norm an L1 destination
+# removes that round trip, but the win is not the removed bytes: fc1's in0 stops stalling on DRAM
+# and the matmul goes from 31 % to ~52 % of the compute roof. So this is not the killed
+# "faster layer_norm config" arm (state/esmfold2-to-3p4x.md 11.15, best bit-exact 1.008x) -- that
+# one changed the reduction's blocking to speed up the norm itself. The kernel and its reduction
+# are untouched here; only the destination moves, and the gain lands in fc1.
+#
+# MEASURED on qb1 card 0, ttnn 0.68.0, 13x10 grid, the whole block body (norm, fc1 x2, SwiGLU,
+# fc2) at c_z=256, d_ff=1024, rows=32, median of 5, batched 4 calls per synchronize:
+#   298 aa  5.4985 -> 4.9290 ms/call     512 aa  12.7100 -> 10.2619
+#   640 aa 18.3031 -> 14.6634            768 aa  31.0049 -> 27.2667
+# `torch.equal` at the BODY output (not just the norm) with max abs diff 0.0 at every size
+# (perf/esmbeat/p3_s_lnl1_c0.json). At 512 aa that is -2.448 ms x 538 calls = -1.317 s of fold.
+#
+# Rides inside `l1_gated`, so it inherits the row block's 320-1024 aa window and cannot reach
+# ESMC's 3-D LM FFN. The refusal cache is load-bearing rather than defensive: at the top of the
+# window the block's L1 residents outgrow a 110-core grid, and `ttnn.layer_norm` RAISES on an L1
+# refusal instead of falling back the way `_pair_proj_linear` does. Keyed on `padded_shape`, so a
+# size that declines costs one exception per fold, not one per block.
+PAIR_FFN_L1_LN = True
+_PAIR_FFN_L1_LN = os.environ.get(
+    "TT_BIO_PAIR_FFN_L1_LN", "1" if PAIR_FFN_L1_LN else "0") == "1"
+
+# [served, declined] block layer_norms, same census idiom as `L1_FC1_STATS`: an A/B arm reading
+# [0, n] is vacuous, and one reading [0, 0] never reached the gate at all.
+L1_LN_STATS = [0, 0]
+_L1_LN_REFUSED = set()
+
 # [split, unsplit] `SwiGLUFFN.__call__` invocations. An A/B arm on the small-grid opt-in needs both
 # `_SPLIT_SWIGLU` and `_SPLIT_SWIGLU_SMALL_GRID`, and if either is missed the arm is a silent A/A;
 # this counter is what makes that visible instead of inferred.
@@ -364,6 +393,14 @@ def set_pair_ffn_l1_fc1(on: bool) -> bool:
     """A/B switch for the L1-resident fc1 inside the row-blocked pair FFN. Returns the previous state."""
     global _PAIR_FFN_L1_FC1
     prev, _PAIR_FFN_L1_FC1 = _PAIR_FFN_L1_FC1, bool(on)
+    return prev
+
+
+def set_pair_ffn_l1_ln(on: bool) -> bool:
+    """A/B switch for the L1-resident block layer_norm inside the row-blocked pair FFN. Returns
+    the previous state."""
+    global _PAIR_FFN_L1_LN
+    prev, _PAIR_FFN_L1_LN = _PAIR_FFN_L1_LN, bool(on)
     return prev
 
 
@@ -428,10 +465,20 @@ class SwiGLUFFN(Module):
 
     def _ffn(self, x: ttnn.Tensor, split: bool = False, l1_gated: bool = False) -> ttnn.Tensor:
         ck = self.compute_kernel_config
-        x_norm = ttnn.layer_norm(
-            x, weight=self.norm_weight, bias=self.norm_bias,
-            epsilon=1e-5, compute_kernel_config=ck,
-        )
+        ln = dict(weight=self.norm_weight, bias=self.norm_bias,
+                  epsilon=1e-5, compute_kernel_config=ck)
+        x_norm = None
+        if l1_gated and _PAIR_FFN_L1_LN:
+            key = tuple(x.padded_shape)
+            if key not in _L1_LN_REFUSED:
+                try:
+                    x_norm = ttnn.layer_norm(x, memory_config=ttnn.L1_MEMORY_CONFIG, **ln)
+                    L1_LN_STATS[0] += 1
+                except Exception:
+                    _L1_LN_REFUSED.add(key)
+        if x_norm is None:
+            L1_LN_STATS[1] += bool(l1_gated and _PAIR_FFN_L1_LN)
+            x_norm = ttnn.layer_norm(x, **ln)
         if self.fuse_swiglu:
             gated = ttnn.experimental.minimal_matmul(
                 input_tensor=x_norm,

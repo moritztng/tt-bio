@@ -1,0 +1,291 @@
+{
+ "host": "tt-quietbox",
+ "card": "0",
+ "grid": [
+  13,
+  10
+ ],
+ "rows": 32,
+ "window": [
+  320,
+  1024
+ ],
+ "split_swiglu": true,
+ "fuse_swiglu": false,
+ "sizes": {
+  "256": {
+   "in_window": false,
+   "off_l1_ln_stats": [
+    0,
+    0
+   ],
+   "off_l1_fc1_stats": [
+    0,
+    0
+   ],
+   "off_ms": 4.9547,
+   "off_ms_raw": [
+    4.9405,
+    4.9492,
+    4.9547,
+    4.9702,
+    4.9856
+   ],
+   "on_l1_ln_stats": [
+    0,
+    0
+   ],
+   "on_l1_fc1_stats": [
+    0,
+    0
+   ],
+   "on_ms": 4.9665,
+   "on_ms_raw": [
+    4.9384,
+    4.9455,
+    4.9665,
+    4.9671,
+    4.9836
+   ],
+   "torch_equal": true,
+   "max_abs_diff": 0.0,
+   "delta_ms": 0.0118,
+   "refused_shapes": 0
+  },
+  "298": {
+   "in_window": false,
+   "off_l1_ln_stats": [
+    0,
+    0
+   ],
+   "off_l1_fc1_stats": [
+    0,
+    0
+   ],
+   "off_ms": 7.878,
+   "off_ms_raw": [
+    7.8625,
+    7.8814,
+    7.8768,
+    7.8925,
+    7.878
+   ],
+   "on_l1_ln_stats": [
+    0,
+    0
+   ],
+   "on_l1_fc1_stats": [
+    0,
+    0
+   ],
+   "on_ms": 7.8716,
+   "on_ms_raw": [
+    7.855,
+    7.8716,
+    7.871,
+    7.8789,
+    7.8937
+   ],
+   "torch_equal": true,
+   "max_abs_diff": 0.0,
+   "delta_ms": -0.0064,
+   "refused_shapes": 0
+  },
+  "320": {
+   "in_window": true,
+   "off_l1_ln_stats": [
+    0,
+    0
+   ],
+   "off_l1_fc1_stats": [
+    20,
+    0
+   ],
+   "off_ms": 6.2524,
+   "off_ms_raw": [
+    6.2426,
+    6.2485,
+    6.3136,
+    6.2526,
+    6.2524
+   ],
+   "on_l1_ln_stats": [
+    10,
+    0
+   ],
+   "on_l1_fc1_stats": [
+    20,
+    0
+   ],
+   "on_ms": 5.6093,
+   "on_ms_raw": [
+    5.5981,
+    5.6036,
+    5.6093,
+    5.6095,
+    5.6182
+   ],
+   "torch_equal": true,
+   "max_abs_diff": 0.0,
+   "delta_ms": -0.6431,
+   "refused_shapes": 0
+  },
+  "512": {
+   "in_window": true,
+   "off_l1_ln_stats": [
+    0,
+    0
+   ],
+   "off_l1_fc1_stats": [
+    32,
+    0
+   ],
+   "off_ms": 14.1309,
+   "off_ms_raw": [
+    14.1285,
+    14.1262,
+    14.137,
+    14.1431,
+    14.1309
+   ],
+   "on_l1_ln_stats": [
+    16,
+    0
+   ],
+   "on_l1_fc1_stats": [
+    32,
+    0
+   ],
+   "on_ms": 11.671,
+   "on_ms_raw": [
+    11.6531,
+    11.671,
+    11.66,
+    11.6737,
+    11.6748
+   ],
+   "torch_equal": true,
+   "max_abs_diff": 0.0,
+   "delta_ms": -2.4599,
+   "delta_s_per_fold_512": -1.323,
+   "refused_shapes": 0
+  },
+  "640": {
+   "in_window": true,
+   "off_l1_ln_stats": [
+    0,
+    0
+   ],
+   "off_l1_fc1_stats": [
+    40,
+    0
+   ],
+   "off_ms": 20.4521,
+   "off_ms_raw": [
+    20.4478,
+    20.4765,
+    20.4612,
+    20.4446,
+    20.4521
+   ],
+   "on_l1_ln_stats": [
+    20,
+    0
+   ],
+   "on_l1_fc1_stats": [
+    40,
+    0
+   ],
+   "on_ms": 16.8076,
+   "on_ms_raw": [
+    16.7965,
+    16.8184,
+    16.8186,
+    16.8047,
+    16.8076
+   ],
+   "torch_equal": true,
+   "max_abs_diff": 0.0,
+   "delta_ms": -3.6445,
+   "refused_shapes": 0
+  },
+  "768": {
+   "in_window": true,
+   "off_l1_ln_stats": [
+    0,
+    0
+   ],
+   "off_l1_fc1_stats": [
+    48,
+    0
+   ],
+   "off_ms": 34.0425,
+   "off_ms_raw": [
+    34.0133,
+    34.0374,
+    34.0466,
+    34.0477,
+    34.0425
+   ],
+   "on_l1_ln_stats": [
+    24,
+    0
+   ],
+   "on_l1_fc1_stats": [
+    48,
+    0
+   ],
+   "on_ms": 30.2782,
+   "on_ms_raw": [
+    30.2649,
+    30.271,
+    30.2782,
+    30.282,
+    30.2994
+   ],
+   "torch_equal": true,
+   "max_abs_diff": 0.0,
+   "delta_ms": -3.7643,
+   "refused_shapes": 0
+  },
+  "1024": {
+   "in_window": true,
+   "off_l1_ln_stats": [
+    0,
+    0
+   ],
+   "off_l1_fc1_stats": [
+    64,
+    0
+   ],
+   "off_ms": 70.6331,
+   "off_ms_raw": [
+    70.6067,
+    70.6122,
+    70.6607,
+    70.6331,
+    70.6474
+   ],
+   "on_l1_ln_stats": [
+    32,
+    0
+   ],
+   "on_l1_fc1_stats": [
+    64,
+    0
+   ],
+   "on_ms": 60.9818,
+   "on_ms_raw": [
+    60.9085,
+    60.934,
+    60.9818,
+    61.056,
+    61.0104
+   ],
+   "torch_equal": true,
+   "max_abs_diff": 0.0,
+   "delta_ms": -9.6513,
+   "refused_shapes": 0
+  }
+ }
+}
