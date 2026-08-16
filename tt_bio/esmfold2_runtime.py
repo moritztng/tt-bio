@@ -32,6 +32,7 @@ import torch.nn.functional as F
 
 from tt_bio import esmfold2 as E
 from tt_bio.esmc import ESMCLanguageModel
+from tt_bio.tenstorrent import dram_peak, is_wormhole
 
 
 # The ESMFold2 host-side reference (featurization + mmCIF assembly) and the
@@ -60,6 +61,7 @@ class _ESMCAdapter:
         fold — lets the CLI attribute that time to the 'loading' stage."""
         if self.lm is None:
             self.lm = ESMCLanguageModel.from_pretrained(self._repo)
+            dram_peak("esmfold2/lm-loaded")
 
     def __call__(self, input_ids, sequence_id=None, output_hidden_states=True, **_):
         attn_mask = None
@@ -71,14 +73,17 @@ class _ESMCAdapter:
             attn_mask = torch.where(allow, 0.0, float("-inf"))  # [B,L,L]
         if self.lm is None:
             self.lm = ESMCLanguageModel.from_pretrained(self._repo)
+            dram_peak("esmfold2/lm-loaded")
         hs = self.lm(input_ids, attn_mask=attn_mask)            # [n_layers+1,B,L,D]
+        dram_peak("esmfold2/lm-forward")
         if not self._persistent:
             # Memory-conservative mode: free the ~12.8 GB of 6B device weights
-            # after the single LM forward (reloaded lazily next fold). Not needed
-            # in practice — persistent mode fits the full L<=1024 range — but
-            # available as extra headroom for unusually large inputs.
+            # after the single LM forward (reloaded lazily next fold). fold_complex
+            # turns this on for an MSA fold on Wormhole, where the resident LM and
+            # the MSA encoder's activation do not both fit a 12 GiB chip.
             self.lm.release()
             self.lm = None
+            dram_peak("esmfold2/lm-released")
         return types.SimpleNamespace(hidden_states=hs)
 
 
@@ -184,6 +189,7 @@ class _StructureHeadAdapter(_Adapter):
                 if k == 1 or not _is_oom(exc):
                     raise
                 chunk = max(1, k // 2)  # too big for this length/card — halve and retry
+        dram_peak("esmfold2/diffusion-done")
         return {"sample_atom_coords": torch.cat(out, dim=0)}  # [N, n_atoms, 3]
 
 
@@ -349,6 +355,7 @@ def _install_resident_trunk_loop(model):
             # reference passes x_pair (the current pair state) separately from _msa_kwargs
             msa_pair = self.msa_encoder(x_pair=z_inject, **_msa_kwargs).to(z_init.dtype)
             z_inject = msa_pair if overwrite else (z_inject + msa_pair)
+            dram_peak("esmfold2/msa-encoder")
         if lm_z is not None and self.lm_encoder is not None:
             if isinstance(lm_z, _DevPair):
                 refined = _trunk_on_device(self.lm_encoder.m, lm_z)
@@ -377,6 +384,7 @@ def _install_resident_trunk_loop(model):
             znew = ttnn.add(az, ipt)
             ttnn.deallocate(az)
             zt = ftw.module(znew, mask)  # folding trunk consumes znew, returns new z
+        dram_peak("esmfold2/trunk-done")
         z_out = ftw._to_torch(zt)[:, :Lp, :Lp, :].to(z.dtype)
         for t in (zt, ipt, at, mask):
             if t is not None:
@@ -475,6 +483,7 @@ def patch_esmfold2(model, esmc_repo: str = "biohub/ESMC-6B", persistent_lm: bool
     # loop-invariant LM/MSA/injection work and run the parcae recurrence on
     # device), avoiding per-loop host<->device round-trips of the L²·256 pair.
     _install_resident_trunk_loop(model)
+    dram_peak("esmfold2/head-built")
     return model
 
 
@@ -604,9 +613,27 @@ def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
         return ProteinInput(id=c[0], sequence=seq, msa=msa, modifications=mods)
 
     spi = StructurePredictionInput(sequences=[_protein(c) for c in chains])
-    res = ESMFold2InputBuilder().fold(
-        model, spi, num_loops=num_loops, num_sampling_steps=num_sampling_steps,
-        num_diffusion_samples=num_diffusion_samples, seed=seed)
+    # A 12 GiB Wormhole chip cannot hold the resident block-fp8 ESMC-6B (6.29 GiB)
+    # plus the MSA encoder's [1, L, M, d] activation, which is 1.0 GiB at 128 aa for
+    # the default M=8192 and grows with L: every MSA fold died in the encoder with
+    # ~70 MiB of contiguous DRAM left. Release the language model after its single
+    # forward (it runs once per fold, outside the recycling loop) and pay one reload.
+    # Bit-exact: same weights, same dtype, same order, only the device buffers move.
+    # Blackhole (32 GB), the single-sequence path and ESMFold2-Fast (no MSA encoder)
+    # all keep the LM resident and run byte-identically to before.
+    esmc = getattr(model, "_esmc", None)
+    release_lm = (esmc is not None and getattr(esmc, "_persistent", False)
+                  and any(len(c) > 2 and c[2] is not None for c in chains)
+                  and is_wormhole())
+    if release_lm:
+        esmc._persistent = False
+    try:
+        res = ESMFold2InputBuilder().fold(
+            model, spi, num_loops=num_loops, num_sampling_steps=num_sampling_steps,
+            num_diffusion_samples=num_diffusion_samples, seed=seed)
+    finally:
+        if release_lm:
+            esmc._persistent = True
     if isinstance(res, list):
         ranked = sorted(res, key=lambda r: float(r.plddt.mean()), reverse=True)
         return ranked if return_all else ranked[0]
