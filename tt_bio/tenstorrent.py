@@ -1641,6 +1641,11 @@ def _apply_grid_thresholds(grid: tuple[int, int]) -> None:
     # nothing above 384 KiB has been measured to fit, so do not extrapolate upwards.
     TRANSITION_L1_CHUNK_BYTES_PER_CORE = int(
         _TRANSITION_L1_CHUNK_BYTES_BASE * min(1.0, _l1 / _WH_MEASURED_L1_PER_CORE))
+    # Same treatment for the tri-att row-chunk spill threshold: a part with less L1 per core
+    # must let go of the block sooner, and one at the calibration L1 keeps the measured value.
+    global TRIATT_CHUNK_L1_SPILL_BYTES
+    TRIATT_CHUNK_L1_SPILL_BYTES = int(
+        _TRIATT_CHUNK_L1_SPILL_BASE * min(1.0, _l1 / _WH_FULL_L1_PER_CORE))
 
 
 def _configure_active_compute_grid(device: ttnn.Device) -> None:
@@ -1937,6 +1942,27 @@ def _acc_concat(acc: list, dim: int, host: bool) -> ttnn.Tensor:
     for t in acc:
         ttnn.deallocate(t)
     return out
+
+
+_TRIATT_CHUNK_L1_SPILL_BASE = 524288          # 512 KiB per core, at full 1.5 MiB L1
+TRIATT_CHUNK_L1_SPILL_BYTES = _TRIATT_CHUNK_L1_SPILL_BASE
+
+
+def _chunk_l1_per_core(t: ttnn.Tensor) -> int:
+    """Bytes of L1 this interleaved block occupies on each core of the main grid.
+
+    Tiles are spread round-robin over the grid, so a core holds ceil(tiles / cores) of them.
+    A bf16 tile is 2048 B and a bfloat8_b tile is 1088 B (1024 mantissa bytes + 64 of shared
+    exponents), which is why the same block is a different budget on the two arms.
+    """
+    tile = 1088 if t.dtype == ttnn.bfloat8_b else (4096 if t.dtype == ttnn.float32 else 2048)
+    shape = [int(d) for d in t.padded_shape]
+    tiles = 1
+    for d in shape[:-2]:
+        tiles *= d
+    tiles *= -(-shape[-2] // 32) * -(-shape[-1] // 32)
+    cores = max(1, COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1])
+    return -(-tiles // cores) * tile
 
 
 def _acc_append(acc: list, t: ttnn.Tensor, host: bool) -> None:
@@ -3043,16 +3069,27 @@ class TriangleAttention(Module):
                 # slower besides (252.044 -> 257.719 s). A copy is bit-exact, so it is the one
                 # that ships. `host_acc` already frees the device buffer on its own path.
                 out_chunk = gate_and_project(o_chunk, g_chunk)
-                # `not _FAST_MODE` is the whole point, not a tuning knob. Above 608 tokens
-                # --fast ALREADY FOLDS on this grid and the default arm does not, so the only
-                # change that provably cannot move a working answer is one that executes no new
-                # instruction on the working path. It has to be provable rather than measured,
-                # because nothing here is numerically inert: `_pair_proj_linear` accepts or
-                # refuses its L1 output according to what the allocator has left, and refusing
-                # takes a different program config, so relieving L1 pressure changes which
-                # config LATER chunks pick. Measured at 640 aa --fast on one pinned tree, plDDT
-                # 0.796168 unmodified, 0.791786 producing into DRAM, 0.791229 copying out of
-                # L1: three placements, three answers, none of them equal.
+                # Spill ONLY when holding this block would make the next chunk throw. Nothing
+                # here is numerically inert -- `_pair_proj_linear` accepts or refuses its L1
+                # output according to what the allocator has left, and refusing takes a
+                # different program config, so relieving L1 pressure changes which config LATER
+                # chunks pick. Measured at 640 aa --fast, one pinned tree, one card, against an
+                # A/A floor of 2.5e-5: plDDT 0.796168/0.796143 unmodified, 0.791786 producing
+                # into DRAM, 0.791229 copying unconditionally. So the relief has to fire exactly
+                # where the fold would otherwise produce no output at all, and nowhere else.
+                #
+                # `_FAST_MODE` is NOT that condition and was tried: it is True only around the
+                # trunk (protenix.py wraps `self.trunk(...)` in set_fast_mode) and deliberately
+                # False for the confidence and diffusion stages, so a --fast fold still runs
+                # this loop with the flag down and still moved (0.792931 on the same card).
+                #
+                # The condition is the residency itself, in bytes per core, bracketed by
+                # measurement on the 8x9 Galaxy: --fast holds 290,496 B at 640 aa and 464,576 B
+                # at 1024 aa and folds; the default arm holds 583,680 B at 640 aa, 700,416 at
+                # 768 and 933,888 at 1024 and throws at all three, because the next chunk's qkv
+                # projection needs a 1,152,288 B static CB region that no longer fits under it.
+                # The threshold sits between the largest measured fit and the smallest measured
+                # throw, referenced to this part's own L1 so a roomier part keeps more.
                 #
                 # Only when it really came back in L1. `_pair_proj_linear` declines the L1
                 # output whenever the allocator refuses and returns a DRAM tensor instead, and
@@ -3060,8 +3097,9 @@ class TriangleAttention(Module):
                 # so an unconditional deallocate here frees the tensor just appended to `parts`
                 # and the concat after the loop dies with "Buffer is not allocated". Same trap
                 # the bias loop above documents for `unsqueeze`.
-                if (not _FAST_MODE and not host_acc
-                        and out_chunk.memory_config().buffer_type == ttnn.BufferType.L1):
+                if (not host_acc
+                        and out_chunk.memory_config().buffer_type == ttnn.BufferType.L1
+                        and _chunk_l1_per_core(out_chunk) >= TRIATT_CHUNK_L1_SPILL_BYTES):
                     out_dram = ttnn.to_memory_config(out_chunk, ttnn.DRAM_MEMORY_CONFIG)
                     ttnn.deallocate(out_chunk)
                     out_chunk = out_dram
