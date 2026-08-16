@@ -26,17 +26,22 @@ from tt_bio.rfd3.featurize import featurize
 from tt_bio.rfd3.model import set_tune_matmul_for_atoms
 
 N1, N2, NREP = 8, 40, 3
-CKPT = pathlib.Path("/home/ttuser/.boltz/rfd3/weights")
-OUT = pathlib.Path("perf/dsfix/results/rfd3_tt_qb2.jsonl")
+# Machine facts from the environment: this ladder has to run on the Wormhole Galaxy too, and the
+# tune_matmul arm is per-row, so a row that does not name its host and its arm cannot be compared.
+CKPT = pathlib.Path(os.environ.get("RFD3_CKPT", "/home/ttuser/.boltz/rfd3/weights"))
+OUT = pathlib.Path(os.environ.get("RFD3_OUT", "perf/dsfix/results/rfd3_tt_qb2.jsonl"))
 OUT.parent.mkdir(parents=True, exist_ok=True)
-LADDER = [("R0", [1]), ("R1", [1]), ("R2", [1]), ("R3", [1]), ("R4", [1])]
+HOST = os.environ.get("RFD3_HOST", "qb2")
+CARD = os.environ.get("RFD3_CARD", "0")
+TTNN = os.environ.get("RFD3_TTNN", "0.68.0")
+LADDER = [(r, [1]) for r in os.environ.get("RFD3_RUNGS", "R0,R1,R2,R3,R4").split(",")]
 
 done = set()
 if OUT.exists():
     for line in OUT.read_text().splitlines():
         if line.strip():
             r = json.loads(line)
-            done.add((r["rung"], r["batch"]))
+            done.add((r["rung"], r["batch"], r.get("tune_matmul")))
 print("[ladder] already done: %s" % sorted(done), flush=True)
 
 dm = build_diffusion_module(torch.load(CKPT / "diffusion_module.real_weights.pt",
@@ -55,8 +60,9 @@ def timed(sampler, D, L, coord0, f, init, is_motif, seed0):
 
 
 for rung, batches in LADDER:
-    if all((rung, b) in done for b in batches):
-        continue
+    # The arm is not known until the rung is featurised (set_tune_matmul_for_atoms needs the atom
+    # count), so the rung-level skip is gone: the per-batch check below carries it.
+    pass
     specs = json.loads(pathlib.Path("perf/dsfix/fixtures/rfd3_%s.json" % rung).read_text())
     sid, sdict = next(iter(specs.items()))
     spec = InputSpecification.from_dict(sdict)
@@ -71,7 +77,8 @@ for rung, batches in LADDER:
     print("[ladder] %s featurised L=%d atoms in %.1fs, tune_matmul=%s"
           % (rung, L, time.perf_counter() - t_feat, tuned), flush=True)
     for b in batches:
-        if (rung, b) in done:
+        if (rung, b, tuned) in done:
+            print("[ladder] %s b=%d tune=%s cached" % (rung, b, tuned), flush=True)
             continue
         s1, s2 = RFD3Sampler(num_timesteps=N1), RFD3Sampler(num_timesteps=N2)
         wt, _ = timed(s1, b, L, coord0, f, init, is_motif, 1000)   # discarded cold rep
@@ -101,7 +108,9 @@ for rung, batches in LADDER:
                "designs_per_s_at_200": round(b / (200 * med), 5),
                "N1": N1, "N2": N2, "warmup_s": round(wt, 3),
                "sanity_ok": not bad, "sanity_fail": bad,
-               "host": "qb2", "card": 0, "ttnn": "0.68.0", "tune_matmul": tuned}
+               "loadavg": float(open("/proc/loadavg").read().split()[0]),
+               "tune_matmul_env": os.environ.get("RFD3_TUNE_MATMUL"),
+               "host": HOST, "card": CARD, "ttnn": TTNN, "tune_matmul": tuned}
         with OUT.open("a") as fh:
             fh.write(json.dumps(rec) + "\n")
         print("[ladder] DONE %s b=%d: %.1f ms/step, T=%s designs/s, sanity=%s"
