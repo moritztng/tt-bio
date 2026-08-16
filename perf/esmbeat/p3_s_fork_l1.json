@@ -1,0 +1,72 @@
+{
+ "l1_bank_bytes": 1461760,
+ "ffn_ms_by_obw_qb2": {
+  "32": null,
+  "16": 14.6623,
+  "8": 17.1143,
+  "4": 25.112
+ },
+ "shipped_fc1_l1_out": {
+  "bw": 1,
+  "obh": 5,
+  "obw": 16,
+  "per_core_M": 5,
+  "n_tiles": 32,
+  "need": 1036288,
+  "fits": true,
+  "pct_of_bank": 70.9
+ },
+ "fused_at_shipped_blocking": {
+  "in0": 20480,
+  "w1a+w1b": 131072,
+  "h1+h2": 983040,
+  "w2": 32768,
+  "fc2_out": 245760,
+  "slack": 131072,
+  "total": 1544192,
+  "fits": false,
+  "pct_of_bank": 105.6,
+  "blocking_penalty_ms_per_call": 0.0
+ },
+ "fused_obw8": {
+  "in0": 20480,
+  "w1a+w1b": 65536,
+  "h1+h2": 491520,
+  "w2": 32768,
+  "fc2_out": 245760,
+  "slack": 131072,
+  "total": 987136,
+  "fits": true,
+  "pct_of_bank": 67.5,
+  "blocking_penalty_ms_per_call": 2.452
+ },
+ "fused_obw4": {
+  "in0": 20480,
+  "w1a+w1b": 32768,
+  "h1+h2": 245760,
+  "w2": 32768,
+  "fc2_out": 245760,
+  "slack": 131072,
+  "total": 708608,
+  "fits": true,
+  "pct_of_bank": 48.5,
+  "blocking_penalty_ms_per_call": 10.4497
+ },
+ "verdict": {
+  "ceiling_ms_per_call": 3.61,
+  "prize_ms_per_call": [
+   1.805,
+   2.888
+  ],
+  "widest_obw_that_fits": 8,
+  "penalty_at_that_obw_ms_per_call": 2.452,
+  "net_ms_per_call": [
+   -0.647,
+   0.436
+  ],
+  "net_s_per_fold_538_calls": [
+   -0.348,
+   0.235
+  ]
+ }
+}

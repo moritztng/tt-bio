@@ -1,0 +1,195 @@
+{
+ "target": "P22303",
+ "arm": "null",
+ "rundir": "/home/cust-team/mthuening/whb2clash/partb/P22303_null",
+ "n_cif": 5,
+ "n_probe": 1,
+ "probe": {
+  "pid": 3031818,
+  "module": "/home/cust-team/mthuening/whb2clash/tree/tt_bio/tenstorrent.py",
+  "grid": [
+   8,
+   9
+  ],
+  "is_small_grid": true,
+  "forced_slmc": 608,
+  "SEQ_LEN_MORE_CHUNKING": 608,
+  "SDPA_DIV_K": false,
+  "k_chunk_640": 256,
+  "k_chunk_768": 256,
+  "fast_mode": false,
+  "env": {
+   "TT_BIO_LEASE_HOLDER": "worker:wh-boltz2-640aa-clash-rootcause",
+   "TT_BIO_LEASE_TIMEOUT": "5400",
+   "TT_BIO_LOGICAL_DEVICE_ID": "0",
+   "TT_BIO_PARENT_PID": "3031615",
+   "TT_BIO_SDPA_DIV_K": "0",
+   "TT_VISIBLE_DEVICES": "28",
+   "WHB2_FORCE_SLMC": "608",
+   "WHB2_PROBE": "/home/cust-team/mthuening/whb2clash/partb/P22303_null/probe",
+   "WHB2_PY": "/home/cust-team/mthuening/tt-bio/env/bin/python"
+  }
+ },
+ "SEQ_LEN_MORE_CHUNKING": 608,
+ "SDPA_DIV_K": false,
+ "is_small_grid": true,
+ "grid": [
+  8,
+  9
+ ],
+ "k_chunk_640": 256,
+ "k_chunk_768": 256,
+ "forced_slmc": 608,
+ "structures": [
+  {
+   "cif": "boltz2_results_P22303/structures/P22303.cif",
+   "digest": "612ebe2282670e50",
+   "n_clash": 2,
+   "n_heavy": 4796,
+   "clash_frac": 0.0004170141784820684,
+   "worst_dist": 1.525,
+   "clash_budget": 4.796,
+   "backbone_gaps": 0,
+   "in_band_frac": 0.9951,
+   "n_res": 614,
+   "fails": [],
+   "warns": [
+    "2 marginal contacts < 2.0 A (worst 1.525 A)"
+   ],
+   "pairs": [
+    [
+     "A/10THR/OG1",
+     "A/2ARG/NH2",
+     1.525
+    ],
+    [
+     "A/289PRO/CG",
+     "A/293THR/O",
+     1.89
+    ]
+   ]
+  },
+  {
+   "cif": "boltz2_results_P22303/structures/P22303_model_1.cif",
+   "digest": "a581d5bd50c6b5b0",
+   "n_clash": 1,
+   "n_heavy": 4796,
+   "clash_frac": 0.0002085070892410342,
+   "worst_dist": 1.968,
+   "clash_budget": 4.796,
+   "backbone_gaps": 0,
+   "in_band_frac": 0.9967,
+   "n_res": 614,
+   "fails": [],
+   "warns": [
+    "1 marginal contacts < 2.0 A (worst 1.968 A)"
+   ],
+   "pairs": [
+    [
+     "A/136TYR/OH",
+     "A/35GLU/CG",
+     1.968
+    ]
+   ]
+  },
+  {
+   "cif": "boltz2_results_P22303/structures/P22303_model_2.cif",
+   "digest": "09a5bc327e7a7bd2",
+   "n_clash": 6,
+   "n_heavy": 4796,
+   "clash_frac": 0.0012510425354462051,
+   "worst_dist": 1.383,
+   "clash_budget": 4.796,
+   "backbone_gaps": 0,
+   "in_band_frac": 0.9967,
+   "n_res": 614,
+   "fails": [
+    "6 heavy-atom clashes < 2.0 A (0.13% of atoms, worst 1.383 A)"
+   ],
+   "warns": [],
+   "pairs": [
+    [
+     "A/121ARG/NH2",
+     "A/1MET/CA",
+     1.383
+    ],
+    [
+     "A/121ARG/CZ",
+     "A/1MET/N",
+     1.498
+    ],
+    [
+     "A/121ARG/NE",
+     "A/1MET/N",
+     1.565
+    ],
+    [
+     "A/35GLU/OE1",
+     "A/7LEU/CD1",
+     1.627
+    ],
+    [
+     "A/121ARG/NH2",
+     "A/1MET/N",
+     1.719
+    ],
+    [
+     "A/49ARG/CG",
+     "A/9HIS/NE2",
+     1.889
+    ]
+   ]
+  },
+  {
+   "cif": "boltz2_results_P22303/structures/P22303_model_3.cif",
+   "digest": "020615ea0631f225",
+   "n_clash": 0,
+   "n_heavy": 4796,
+   "clash_frac": 0.0,
+   "worst_dist": 0.0,
+   "clash_budget": 4.796,
+   "backbone_gaps": 0,
+   "in_band_frac": 0.9967,
+   "n_res": 614,
+   "fails": [],
+   "warns": [],
+   "pairs": []
+  },
+  {
+   "cif": "boltz2_results_P22303/structures/P22303_model_4.cif",
+   "digest": "2a7c9cdfdd0e0bab",
+   "n_clash": 3,
+   "n_heavy": 4796,
+   "clash_frac": 0.0006255212677231026,
+   "worst_dist": 1.843,
+   "clash_budget": 4.796,
+   "backbone_gaps": 0,
+   "in_band_frac": 0.9967,
+   "n_res": 614,
+   "fails": [],
+   "warns": [
+    "3 marginal contacts < 2.0 A (worst 1.843 A)"
+   ],
+   "pairs": [
+    [
+     "A/579GLU/OE1",
+     "A/582ARG/NH2",
+     1.843
+    ],
+    [
+     "A/105ASP/OD2",
+     "A/372TYR/OH",
+     1.952
+    ],
+    [
+     "A/10THR/O",
+     "A/509ARG/NH2",
+     1.961
+    ]
+   ]
+  }
+ ],
+ "plddt": 0.903529,
+ "ptm": 0.88797,
+ "runtime_s": 219.5
+}

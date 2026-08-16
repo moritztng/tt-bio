@@ -606,9 +606,91 @@ def _sdpa_chunks_shipped(q_len: int, k_len: int) -> tuple:
     #
     # The lesson, because it will recur: an op-level screen on this function's return value
     # measures a configuration the fold never executes. Screen `_tri_att_q_chunks`'s actual pick.
+    #
+    # K4 moves the k half of the band, and only the k half. 64 divides both 320 and 384, so
+    # the fused K1/K2 kernel already serves here and this is not the divisibility bug K3 fixes;
+    # it is that 64 is the wrong divisor. MEASURED off-fold at Boltz-2's shape (h=4, d=32),
+    # fused-at-64 against fused-at-the-dividing-pick, arms interleaved, on both architectures:
+    #
+    #     padded            320       384
+    #     k, band / K4      64 / 160  64 / 192
+    #     Wormhole 8x9      1.4232x   1.5612x   (A/A floor 0.16 %, perf/whb2/out/divk_wh.json)
+    #     Blackhole 13x10   1.2994x   1.1670x   (A/A floor 0.5 %, perf/whb2/out/divk_qb1c1.json)
+    #
+    # Both architectures move the same way, so this cannot trade one against the other. It also
+    # does not contradict the 2.45x above: that compares the band against the CAPPED 256 pick,
+    # which makes the fused kernel decline outright (measured 1.75-2.70x worse on Wormhole,
+    # state doc 11.1). Capped 256 < band 64 < K4's dividing pick, consistently.
+    #
+    # PREDICTED at the fold, written before the build. 1120 tri-attention calls per fold:
+    #     Wormhole 384 aa   1120 * (2.8908 - 1.8517) ms = 1.164 s upper, 0.58 s lower
+    #     Wormhole 320 aa   1120 * (1.7529 - 1.2317) ms = 0.584 s upper, 0.29 s lower
+    # against walls of 31.919 s and ~27 s, i.e. 1.8-3.6 % and 1.1-2.2 %. The lower bound halves
+    # the upper because isolated per-op timing over-syncs roughly 2x against batched work.
+    #
+    # NOT bit-exact, same reason as K3: k_chunk sets the online-softmax reduction order. The
+    # accuracy arm is pLDDT. Separate switch from K3 so the two can be A/B'd apart.
     if 256 < q_len <= 384 and 256 < k_len <= 384:
+        if _SDPA_BAND_DIV_K:
+            dk = _dividing_sdpa_chunk_size(k_len)
+            # Only when it really divides. At padded 288 and 352 no 32-aligned divisor
+            # clears the cap/2 floor, so `_dividing_sdpa_chunk_size` hands back the cap,
+            # 256, which does not divide either. Taking it there would leave the fused
+            # kernel declining exactly as it does today AND move the stock fallback from
+            # k=64 to k=256 -- the pick 11.1 measured 1.75-2.70x slower on Wormhole. Those
+            # two sizes keep 64 and are untouched by K4.
+            if _padded_sdpa_len(k_len) % dk == 0:
+                return (64, dk)
         return (64, 64)
-    return (_capped_sdpa_chunk_size(q_len), _capped_sdpa_chunk_size(k_len))
+    return (_capped_sdpa_chunk_size(q_len), _dividing_sdpa_chunk_size(k_len))
+
+
+# K3: the k_chunk has to DIVIDE the padded sequence or the fused K1/K2 kernel refuses the call.
+# `sdpa_generic.plan` sets `use_padded_mask = (div_up(Sk, k_chunk) * k_chunk != Sk)`, and
+# `triatt_sdpa.sdpa` rejects on `fill_preconditions` whenever that is true. `_capped_sdpa_chunk_size`
+# returns `min(SDPA_CHUNK_MAX, S)` = 256 above the band, and 256 divides only every fourth multiple
+# of 64 -- so with `PAIRFORMER_PAD_MULTIPLE = 64` the fused kernel was silently declining at padded
+# 448, 576, 640, 704, 832, 896 and 960 on BOTH architectures while 256/512/768/1024 were served.
+# 640 is in that list and it is the first size past Wormhole's `SEQ_LEN_MORE_CHUNKING = 608`.
+#
+# MEASURED off-fold at Boltz-2's tri-attention shape (h=4, d=32), fused kernel against the stock op
+# the fold falls back to today, arms interleaved, A/A control on every unchanged size reading
+# 0.9957-1.0004 (perf/whb2/out/divk_qb1c1.json, qb1 13x10; the Wormhole arm is its counterpart):
+#
+#     padded   448     576     640
+#     speedup  2.349x  3.422x  2.577x
+#
+# Only sizes whose current pick does NOT divide are changed, so 256, 512, 768, 1024 and the whole
+# 64/64 band return exactly what they return today, byte for byte, and neutrality there is by
+# construction rather than by measurement.
+#
+# The `>= cap/2` floor keeps today's pick at padded 704 and 832, whose largest 32-aligned divisor is
+# 64 -- a quarter of the cap. The fused kernel DOES serve there at 64 (measured: 704 served at
+# q=352), so this floor is a precaution, not a measured refusal: a k_chunk that small multiplies the
+# per-call chunk count and the screen has not yet priced it against the stock fallback those sizes
+# take today. Lower the floor only behind that measurement.
+#
+# NOT bit-exact: k_chunk sets the online-softmax reduction order. The fold-level accuracy arm is
+# pLDDT, not a digest.
+_SDPA_DIV_K = os.environ.get("TT_BIO_SDPA_DIV_K", "1") != "0"
+
+# K4: the same dividing pick inside the 256 < seq <= 384 band, where the fused kernel already
+# serves at k=64 and 64 is simply not the best divisor. See `_sdpa_chunks_shipped`. Ships OFF
+# until its fold-level A/B and pLDDT arm land on both architectures.
+_SDPA_BAND_DIV_K = os.environ.get("TT_BIO_SDPA_BAND_DIV_K", "0") != "0"
+
+
+@lru_cache(maxsize=None)
+def _dividing_sdpa_chunk_size(seq_len: int) -> int:
+    """The capped k_chunk, or the largest 32-aligned divisor of the padded sequence below it."""
+    cap = _capped_sdpa_chunk_size(seq_len)
+    padded = _padded_sdpa_len(seq_len)
+    if not _SDPA_DIV_K or padded % cap == 0:
+        return cap
+    for c in range(cap - SDPA_CHUNK_TILE, cap // 2 - 1, -SDPA_CHUNK_TILE):
+        if padded % c == 0:
+            return c
+    return cap
 
 
 @lru_cache(maxsize=None)
@@ -1707,7 +1789,7 @@ def _qkv_l1_config(x: ttnn.Tensor, w: ttnn.Tensor, dtype) -> object | None:
         return None
 
 
-def _apply_grid_thresholds(grid: tuple[int, int]) -> None:
+def _apply_grid_thresholds(grid: tuple[int, int], device=None) -> None:
     """Retune L1-edge thresholds and chunk sizes for grids smaller than the
     11x10 Blackhole baseline (e.g. Wormhole 8x8 has ~55% of its aggregate L1),
     so chunking kicks in early enough to avoid L1/CB clashes."""
@@ -1759,6 +1841,48 @@ def _apply_grid_thresholds(grid: tuple[int, int]) -> None:
     TRIATT_CHUNK_L1_SPILL_BYTES = int(
         _TRIATT_CHUNK_L1_SPILL_BASE * min(1.0, _l1 / _WH_FULL_L1_PER_CORE))
 
+    # SEQ_LEN_MORE_CHUNKING is the one budget above whose resource is NOT per-core L1. It bounds
+    # how many full pair tensors are live at once (the code comment on the path it guards says it
+    # drops "from 3 full pair tensors live to 2"), and that resource is DRAM capacity. Scaling it by
+    # per-core L1 put it at 608 on the Galaxy, so everything from 640 to 1024 aa -- exactly the range
+    # JapanFold's max_residues 1024 opens -- took a chunked path nobody had measured against the
+    # unchunked one.
+    #
+    # MEASURED at 1024 aa on that part. Footprint, perf/whb2/out/cap_wh/: unchunked peaks at
+    # 3.461 GiB of 12.0, chunked at 2.962. Wall, perf/whb2/out/leverC_wh/: 183.371 s unchunked
+    # against 211.532 s chunked, and 77.571 against 87.043 at 640 aa. So the chunking buys 0.499 GiB,
+    # 4.2 % of the part's DRAM, and costs 28.161 s, 15 % of the wall, on a chip with 8.5 GiB spare.
+    # It was protecting nothing in this range.
+    #
+    # Re-expressed against DRAM and anchored on that measurement rather than on a chosen safety
+    # margin: the pair tensors dominate the peak and scale as L^2, so the largest L whose unchunked
+    # trunk sits at the same fraction of DRAM that L=1024 was actually validated at (3.461/12.0 =
+    # 28.8 %, taken as 1/3) is 1024 * sqrt((dram/3) / 3.461 GiB). On this part that is 1088, which
+    # covers every size the service serves with the 640 and 1024 aa points directly measured.
+    # `max` keeps it from ever landing below today's value and `min` from exceeding the Blackhole
+    # baseline. Blackhole does not reach this code at all -- the function returns early on a
+    # full-size grid -- so its neutrality is by construction, not by clamp.
+    _GIB = 2 ** 30
+    try:
+        _mv = ttnn.get_memory_view(device, ttnn.BufferType.DRAM)
+        _dram = int(_mv.total_bytes_per_bank) * int(_mv.num_banks)
+    except Exception:
+        _dram = 0
+    if _dram:
+        _l = int(1024 * ((_dram / 3.0) / (3.461 * _GIB)) ** 0.5)
+        SEQ_LEN_MORE_CHUNKING = min(1536, max(SEQ_LEN_MORE_CHUNKING, (_l // 32) * 32))
+
+    # Lever C's screen hook. Every budget above is scaled by this part's per-core L1, which is the
+    # right resource for the L1-edge ones and, for SEQ_LEN_MORE_CHUNKING specifically, arguably the
+    # wrong one: that gate bounds how many full pair tensors are live at once, and the resource
+    # behind THAT is DRAM capacity (a Galaxy Wormhole chip has ~12 GB against a p150a's 32 GB), not
+    # per-core L1 (which is 104.5 % of Blackhole's). Whether the chunked path this part takes above
+    # 608 is actually faster than the unchunked one has never been measured, so the screen needs to
+    # force the constant without editing it. Unset in production; the scaled value is unchanged.
+    _c = os.environ.get("TT_BIO_SEQ_LEN_MORE_CHUNKING")
+    if _c:
+        SEQ_LEN_MORE_CHUNKING = int(_c)
+
 
 def _configure_active_compute_grid(device: ttnn.Device) -> None:
     """Snap to a tuned 13x10 or 11x10 Blackhole grid when available; on smaller
@@ -1781,7 +1905,7 @@ def _configure_active_compute_grid(device: ttnn.Device) -> None:
 
     CORE_GRID_MAIN = ttnn.CoreGrid(y=gy, x=gx)
     COMPUTE_GRID_MAIN = (gx, gy)
-    _apply_grid_thresholds((gx, gy))
+    _apply_grid_thresholds((gx, gy), device)
     _sdpa_program_config.cache_clear()
     _sdpa_program_config_for_lengths.cache_clear()
     _triangle_mul_program_config.cache_clear()

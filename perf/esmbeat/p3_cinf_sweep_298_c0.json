@@ -1,0 +1,268 @@
+{
+ "ttnn": "0.67.4",
+ "host": "tt-quietbox",
+ "card": "0",
+ "model": "esmfold2",
+ "size": 298,
+ "git_head": "8068ec36",
+ "has_l1_fc1_gate": true,
+ "recycling_steps": 10,
+ "sampling_steps": 100,
+ "arms": [
+  "ship",
+  "noCinF"
+ ],
+ "rounds": 1,
+ "runs": [
+  {
+   "tag": "warm:ship",
+   "arm": "ship",
+   "l1_fc1": true,
+   "fold_s": 32.204,
+   "plddt": 0.9533,
+   "cif": {
+    "cdk2x2_298.cif": "4a3c7d4f7e53a250"
+   },
+   "e6_served": 0,
+   "e6_declined": 0,
+   "l1_fc1_stats": [
+    10760,
+    0
+   ],
+   "l1_ln": true,
+   "l1_ln_stats": [
+    5380,
+    0
+   ],
+   "l1_slice": true,
+   "l1_slice_stats": [
+    538,
+    0
+   ],
+   "fused_resid": true,
+   "fused_resid_stats": [
+    538,
+    0
+   ],
+   "lm_handoff": [
+    1,
+    0
+   ],
+   "fwd_move": [
+    4336,
+    0
+   ],
+   "back_move": [
+    0,
+    0
+   ],
+   "l1_out_refused": 0,
+   "dual_noc": [
+    0,
+    4336
+   ],
+   "dual_noc_rejects": {
+    "('padded_activation', (1, 298, 298, 256))": 32,
+    "('memory', (1, 320, 320, 256))": 4304
+   },
+   "trimul_tail_f1": null,
+   "loadavg": "2.49"
+  },
+  {
+   "tag": "warm:noCinF",
+   "arm": "noCinF",
+   "l1_fc1": true,
+   "fold_s": 16.257,
+   "plddt": 0.9533,
+   "cif": {
+    "cdk2x2_298.cif": "4a3c7d4f7e53a250"
+   },
+   "e6_served": 0,
+   "e6_declined": 0,
+   "l1_fc1_stats": [
+    10760,
+    0
+   ],
+   "l1_ln": true,
+   "l1_ln_stats": [
+    5380,
+    0
+   ],
+   "l1_slice": false,
+   "l1_slice_stats": [
+    0,
+    538
+   ],
+   "fused_resid": false,
+   "fused_resid_stats": [
+    0,
+    538
+   ],
+   "lm_handoff": [
+    1,
+    0
+   ],
+   "fwd_move": [
+    4336,
+    0
+   ],
+   "back_move": [
+    0,
+    0
+   ],
+   "l1_out_refused": 0,
+   "dual_noc": [
+    0,
+    4336
+   ],
+   "dual_noc_rejects": {
+    "('padded_activation', (1, 298, 298, 256))": 32,
+    "('memory', (1, 320, 320, 256))": 4304
+   },
+   "trimul_tail_f1": null,
+   "loadavg": "2.16"
+  },
+  {
+   "tag": "r0:ship",
+   "arm": "ship",
+   "l1_fc1": true,
+   "fold_s": 15.957,
+   "plddt": 0.9533,
+   "cif": {
+    "cdk2x2_298.cif": "4a3c7d4f7e53a250"
+   },
+   "e6_served": 0,
+   "e6_declined": 0,
+   "l1_fc1_stats": [
+    10760,
+    0
+   ],
+   "l1_ln": true,
+   "l1_ln_stats": [
+    5380,
+    0
+   ],
+   "l1_slice": true,
+   "l1_slice_stats": [
+    538,
+    0
+   ],
+   "fused_resid": true,
+   "fused_resid_stats": [
+    538,
+    0
+   ],
+   "lm_handoff": [
+    1,
+    0
+   ],
+   "fwd_move": [
+    4336,
+    0
+   ],
+   "back_move": [
+    0,
+    0
+   ],
+   "l1_out_refused": 0,
+   "dual_noc": [
+    0,
+    4336
+   ],
+   "dual_noc_rejects": {
+    "('padded_activation', (1, 298, 298, 256))": 32,
+    "('memory', (1, 320, 320, 256))": 4304
+   },
+   "trimul_tail_f1": null,
+   "loadavg": "3.11"
+  },
+  {
+   "tag": "r0:noCinF",
+   "arm": "noCinF",
+   "l1_fc1": true,
+   "fold_s": 16.328,
+   "plddt": 0.9533,
+   "cif": {
+    "cdk2x2_298.cif": "4a3c7d4f7e53a250"
+   },
+   "e6_served": 0,
+   "e6_declined": 0,
+   "l1_fc1_stats": [
+    10760,
+    0
+   ],
+   "l1_ln": true,
+   "l1_ln_stats": [
+    5380,
+    0
+   ],
+   "l1_slice": false,
+   "l1_slice_stats": [
+    0,
+    538
+   ],
+   "fused_resid": false,
+   "fused_resid_stats": [
+    0,
+    538
+   ],
+   "lm_handoff": [
+    1,
+    0
+   ],
+   "fwd_move": [
+    4336,
+    0
+   ],
+   "back_move": [
+    0,
+    0
+   ],
+   "l1_out_refused": 0,
+   "dual_noc": [
+    0,
+    4336
+   ],
+   "dual_noc_rejects": {
+    "('padded_activation', (1, 298, 298, 256))": 32,
+    "('memory', (1, 320, 320, 256))": 4304
+   },
+   "trimul_tail_f1": null,
+   "loadavg": "2.64"
+  }
+ ],
+ "grid": [
+  13,
+  10
+ ],
+ "shipped_defaults": {
+  "l1_fc1": true,
+  "lm_handoff": true,
+  "dual_noc": true,
+  "l1_ln": true,
+  "l1_slice": true,
+  "fused_resid": true
+ },
+ "summary": {
+  "ship": {
+   "n": 1,
+   "median": 15.957,
+   "min": 15.957,
+   "max": 15.957,
+   "spread": 0.0,
+   "speedup_vs_ship": 1.0,
+   "delta_s": 0.0
+  },
+  "noCinF": {
+   "n": 1,
+   "median": 16.328,
+   "min": 16.328,
+   "max": 16.328,
+   "spread": 0.0,
+   "speedup_vs_ship": 0.9773,
+   "delta_s": -0.371
+  },
+  "A/A_noise_floor_s": 0.0
+ },
+ "cif_identical_across_arms": true
+}

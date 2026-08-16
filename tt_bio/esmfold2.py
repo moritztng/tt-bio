@@ -156,8 +156,12 @@ class PairUpdateBlock(Module):
     def __call__(self, z: ttnn.Tensor, mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
         z = self._residual(z, self.tri_out(z, mask))
         z = self._residual(z, self.tri_in(z, mask))
-        z = self._residual(z, self.transition(z))
-        return z
+        # `z + transition(z)`, but the add belongs to the transition: on the row-blocked path it
+        # runs per block so fc2's output never round-trips DRAM (lever F, esmc.PAIR_FFN_FUSED_
+        # RESIDUAL). Bit-exact -- the add is elementwise and row-independent.
+        out = self.transition.residual(z)
+        ttnn.deallocate(z)
+        return out
 
 
 class FoldingTrunkModel(Module):

@@ -1,0 +1,125 @@
+{
+ "target": "cdk2_640",
+ "arm": "A2b-wh",
+ "rundir": "/home/cust-team/mthuening/whb2clash/wh/A2b_640_slmc1088",
+ "n_cif": 1,
+ "n_probe": 1,
+ "probe": {
+  "pid": 2432540,
+  "module": "/home/cust-team/mthuening/whb2clash/tree/tt_bio/tenstorrent.py",
+  "grid": [
+   8,
+   9
+  ],
+  "is_small_grid": true,
+  "forced_slmc": 1088,
+  "SEQ_LEN_MORE_CHUNKING": 1088,
+  "SDPA_DIV_K": false,
+  "k_chunk_640": 256,
+  "k_chunk_768": 256,
+  "fast_mode": false,
+  "env": {
+   "TT_BIO_LEASE_HOLDER": "worker:wh-boltz2-640aa-clash-rootcause",
+   "TT_BIO_LOGICAL_DEVICE_ID": "0",
+   "TT_BIO_PARENT_PID": "2432279",
+   "TT_BIO_SDPA_DIV_K": "0",
+   "TT_VISIBLE_DEVICES": "28",
+   "WHB2_FORCE_SLMC": "1088",
+   "WHB2_PROBE": "/home/cust-team/mthuening/whb2clash/wh/A2b_640_slmc1088/probe",
+   "WHB2_PY": "/home/cust-team/mthuening/tt-bio/env/bin/python"
+  }
+ },
+ "SEQ_LEN_MORE_CHUNKING": 1088,
+ "SDPA_DIV_K": false,
+ "is_small_grid": true,
+ "grid": [
+  8,
+  9
+ ],
+ "k_chunk_640": 256,
+ "k_chunk_768": 256,
+ "forced_slmc": 1088,
+ "structures": [
+  {
+   "cif": "boltz2_results_cdk2_640/structures/cdk2_640.cif",
+   "digest": "8691c328e26572da",
+   "n_clash": 12,
+   "n_heavy": 5140,
+   "clash_frac": 0.0023346303501945525,
+   "worst_dist": 1.606,
+   "clash_budget": 5.14,
+   "backbone_gaps": 0,
+   "in_band_frac": 0.9953,
+   "n_res": 640,
+   "fails": [
+    "12 heavy-atom clashes < 2.0 A (0.23% of atoms, worst 1.606 A)"
+   ],
+   "warns": [],
+   "pairs": [
+    [
+     "A/335LEU/O",
+     "A/372ASN/ND2",
+     1.606
+    ],
+    [
+     "A/15TYR/OH",
+     "A/33LYS/NZ",
+     1.614
+    ],
+    [
+     "A/15TYR/OH",
+     "A/33LYS/CE",
+     1.677
+    ],
+    [
+     "A/297ARG/NH2",
+     "A/57GLU/OE1",
+     1.705
+    ],
+    [
+     "A/15TYR/OH",
+     "A/33LYS/CD",
+     1.74
+    ],
+    [
+     "A/310GLU/O",
+     "A/636GLU/O",
+     1.741
+    ],
+    [
+     "A/313TYR/OH",
+     "A/331LYS/CD",
+     1.779
+    ],
+    [
+     "A/158THR/CG2",
+     "A/162GLU/OE2",
+     1.801
+    ],
+    [
+     "A/369HIS/CE1",
+     "A/50ARG/NE",
+     1.885
+    ],
+    [
+     "A/456THR/CG2",
+     "A/460GLU/OE2",
+     1.889
+    ],
+    [
+     "A/150ARG/NH2",
+     "A/157ARG/O",
+     1.908
+    ],
+    [
+     "A/342VAL/CG2",
+     "A/49ILE/CD1",
+     1.959
+    ]
+   ]
+  }
+ ],
+ "plddt": 0.835264,
+ "ptm": 0.59374,
+ "runtime_s": 127.8
+}

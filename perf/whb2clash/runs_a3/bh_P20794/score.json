@@ -1,0 +1,193 @@
+{
+ "target": "P20794",
+ "arm": "A3bh",
+ "rundir": "perf/whb2clash/runs_a3/bh_P20794",
+ "n_cif": 1,
+ "n_probe": 1,
+ "probe": {
+  "pid": 4162668,
+  "module": "/home/ttuser/.coworker/wt/wh-boltz2-640aa-clash-rootcause/tt_bio/tenstorrent.py",
+  "grid": [
+   13,
+   10
+  ],
+  "is_small_grid": false,
+  "forced_slmc": null,
+  "SEQ_LEN_MORE_CHUNKING": 1536,
+  "SDPA_DIV_K": false,
+  "k_chunk_640": 256,
+  "k_chunk_768": 256,
+  "fast_mode": false,
+  "env": {
+   "TT_BIO_LEASE_HOLDER": "worker:wh-boltz2-640aa-clash-rootcause",
+   "TT_BIO_LOGICAL_DEVICE_ID": "0",
+   "TT_BIO_PARENT_PID": "4162602",
+   "TT_BIO_SDPA_DIV_K": "0",
+   "TT_VISIBLE_DEVICES": "2",
+   "WHB2_PROBE": "/home/ttuser/.coworker/wt/wh-boltz2-640aa-clash-rootcause/perf/whb2clash/runs_a3/bh_P20794/probe"
+  }
+ },
+ "SEQ_LEN_MORE_CHUNKING": 1536,
+ "SDPA_DIV_K": false,
+ "is_small_grid": false,
+ "grid": [
+  13,
+  10
+ ],
+ "k_chunk_640": 256,
+ "k_chunk_768": 256,
+ "forced_slmc": null,
+ "structures": [
+  {
+   "cif": "boltz2_results_P20794/structures/P20794.cif",
+   "digest": "dfc9aa4d88df6392",
+   "n_clash": 26,
+   "n_heavy": 4974,
+   "clash_frac": 0.005227181342983514,
+   "worst_dist": 1.496,
+   "clash_budget": 4.974,
+   "backbone_gaps": 0,
+   "in_band_frac": 0.9984,
+   "n_res": 623,
+   "fails": [
+    "26 heavy-atom clashes < 2.0 A (0.52% of atoms, worst 1.496 A)"
+   ],
+   "warns": [],
+   "pairs": [
+    [
+     "A/119HIS/O",
+     "A/574TYR/OH",
+     1.496
+    ],
+    [
+     "A/414ASP/N",
+     "A/491ASN/ND2",
+     1.5
+    ],
+    [
+     "A/10LEU/CB",
+     "A/618LYS/O",
+     1.599
+    ],
+    [
+     "A/234MET/CA",
+     "A/405ASP/OD2",
+     1.611
+    ],
+    [
+     "A/420SER/CB",
+     "A/493LYS/NZ",
+     1.64
+    ],
+    [
+     "A/442GLU/OE1",
+     "A/446SER/OG",
+     1.722
+    ],
+    [
+     "A/149GLU/CG",
+     "A/576TRP/NE1",
+     1.75
+    ],
+    [
+     "A/244ILE/CD1",
+     "A/381THR/O",
+     1.752
+    ],
+    [
+     "A/179SER/OG",
+     "A/311GLU/OE2",
+     1.764
+    ],
+    [
+     "A/244ILE/CG1",
+     "A/381THR/O",
+     1.789
+    ],
+    [
+     "A/414ASP/O",
+     "A/590TYR/CZ",
+     1.789
+    ],
+    [
+     "A/271LYS/O",
+     "A/320GLU/OE2",
+     1.794
+    ],
+    [
+     "A/156TYR/OH",
+     "A/360LYS/NZ",
+     1.813
+    ],
+    [
+     "A/156TYR/O",
+     "A/602ARG/NH2",
+     1.819
+    ],
+    [
+     "A/37ARG/NH2",
+     "A/44GLU/OE2",
+     1.833
+    ],
+    [
+     "A/35MET/SD",
+     "A/585PHE/CE1",
+     1.853
+    ],
+    [
+     "A/149GLU/OE2",
+     "A/576TRP/CD1",
+     1.855
+    ],
+    [
+     "A/218THR/O",
+     "A/336GLN/OE1",
+     1.882
+    ],
+    [
+     "A/509TRP/O",
+     "A/516LYS/NZ",
+     1.886
+    ],
+    [
+     "A/438PHE/O",
+     "A/486TYR/CE2",
+     1.918
+    ],
+    [
+     "A/280LYS/O",
+     "A/345GLN/OE1",
+     1.93
+    ],
+    [
+     "A/36LYS/NZ",
+     "A/540THR/CG2",
+     1.935
+    ],
+    [
+     "A/179SER/OG",
+     "A/311GLU/CD",
+     1.935
+    ],
+    [
+     "A/159TYR/OH",
+     "A/489GLY/CA",
+     1.951
+    ],
+    [
+     "A/129GLU/O",
+     "A/615TRP/CD1",
+     1.995
+    ],
+    [
+     "A/414ASP/O",
+     "A/590TYR/OH",
+     1.995
+    ]
+   ]
+  }
+ ],
+ "plddt": 0.540766,
+ "ptm": 0.50623,
+ "runtime_s": 71.8
+}

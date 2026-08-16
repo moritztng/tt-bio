@@ -23,7 +23,8 @@ sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
 # SHIPPED below). That is the arm the page publishes, and the only one that catches a default
 # that did not land.
 ARMS = {"base": False, "l2": True, "ship": None, "f1": None, "nof1": None,
-        "B": None, "D": None, "BD": None, "off": None}
+        "B": None, "D": None, "BD": None, "off": None, "E": None, "noE": None,
+        "Cin": None, "F": None, "CinF": None, "noCinF": None, "G": None, "noG": None}
 
 # B, the LM shim -> LM encoder handoff (esmfold2 only). Every arm sets the gate on every fold:
 # a lever arm to what it names, any other arm back to the snapshotted shipped default. Neither
@@ -36,6 +37,29 @@ DEVPAIR = {"B": True, "BD": True, "D": False, "off": False}
 
 # D: half the trimul in-projection's output drain on the other NOC (tt_bio/mm_dualnoc.py).
 DUALNOC = {"D": True, "BD": True, "B": False, "off": False}
+
+# E: the L1 destination on the pair FFN's block layer_norm (esmc.set_pair_ffn_l1_ln). E ships ON,
+# so `ship` already contains it and the arm that isolates it is `noE`: ship - noE is E on the
+# current tree, with B and D where they ship. `off` stays the all-levers-off baseline.
+L1LN = {"E": True, "noE": False, "off": False}
+
+# C-in (esmc.set_pair_ffn_l1_slice): the row block sliced lazily into L1 instead of chunked into
+# DRAM. F (esmc.set_pair_ffn_fused_residual): the pair transition's residual add folded into the
+# block so fc2 writes L1. Both ship ON, so the isolating arm is `noCinF` and ship - noCinF is the
+# pair on the current tree. Same rule as L1LN: every arm writes BOTH gates every round, because
+# they compose -- an arm that names C-in and leaves F wherever the previous arm left it is not
+# the C-in arm.
+L1SLICE = {"Cin": True, "CinF": True, "F": False, "noCinF": False, "off": False,
+           "G": True, "noG": True}
+FUSEDRES = {"F": True, "CinF": True, "Cin": False, "noCinF": False, "off": False,
+            "G": True, "noG": True}
+
+# G (esmc.set_pair_ffn_fill_assembly): each row block written into a pre-allocated output with
+# `ttnn.fill_cache` instead of concatenating the blocks. G ships ON and rides on F, so the arm
+# that isolates it is `noG` and ship - noG is G on the current tree. The arms that predate G keep
+# it OFF so they stay the arms they were when they were measured.
+FILL = {"G": True, "noG": False, "Cin": False, "F": False, "CinF": False, "noCinF": False,
+        "off": False}
 
 
 def sha_dir(d):
@@ -93,7 +117,11 @@ def main():
     # arm left there -- the BD arm turns both levers on and the next `ship` then measures BD.
     # Snapshot here and restore below, so `ship` means the module default and nothing else.
     SHIPPED = {"l1_fc1": EC._PAIR_FFN_L1_FC1, "lm_handoff": RT._DEVICE_LM_HANDOFF,
-               "dual_noc": DN._ENABLED}
+               "dual_noc": DN._ENABLED,
+               "l1_ln": getattr(EC, "_PAIR_FFN_L1_LN", None),
+               "l1_slice": getattr(EC, "_PAIR_FFN_L1_SLICE", None),
+               "fused_resid": getattr(EC, "_PAIR_FFN_FUSED_RESIDUAL", None),
+               "fill_assembly": getattr(EC, "_PAIR_FFN_FILL_ASSEMBLY", None)}
     res["shipped_defaults"] = dict(SHIPPED)
 
     def run(tag, arm):
@@ -106,6 +134,23 @@ def main():
             EC.set_pair_ffn_l1_fc1(want)
         RT.set_device_lm_handoff(DEVPAIR.get(arm, SHIPPED["lm_handoff"]))
         DN.set_enabled(DUALNOC.get(arm, SHIPPED["dual_noc"]))
+        if SHIPPED["l1_ln"] is not None:
+            EC.set_pair_ffn_l1_ln(L1LN.get(arm, SHIPPED["l1_ln"]))
+            EC.L1_LN_STATS[0] = EC.L1_LN_STATS[1] = 0
+        elif arm in L1LN:
+            raise SystemExit("arm %s needs set_pair_ffn_l1_ln, absent here" % arm)
+        if SHIPPED["l1_slice"] is not None:
+            EC.set_pair_ffn_l1_slice(L1SLICE.get(arm, SHIPPED["l1_slice"]))
+            EC.set_pair_ffn_fused_residual(FUSEDRES.get(arm, SHIPPED["fused_resid"]))
+            EC.L1_SLICE_STATS[0] = EC.L1_SLICE_STATS[1] = 0
+            EC.FUSED_RESID_STATS[0] = EC.FUSED_RESID_STATS[1] = 0
+        elif arm in L1SLICE:
+            raise SystemExit("arm %s needs set_pair_ffn_l1_slice, absent here" % arm)
+        if SHIPPED["fill_assembly"] is not None:
+            EC.set_pair_ffn_fill_assembly(FILL.get(arm, SHIPPED["fill_assembly"]))
+            EC.FILL_ASSEMBLY_STATS[0] = EC.FILL_ASSEMBLY_STATS[1] = 0
+        elif arm in FILL:
+            raise SystemExit("arm %s needs set_pair_ffn_fill_assembly, absent here" % arm)
         DN.STATS[0] = DN.STATS[1] = 0
         DN.REJECTS.clear()
         RT.LM_HANDOFF_STATS[0] = RT.LM_HANDOFF_STATS[1] = 0
@@ -124,6 +169,15 @@ def main():
                "fold_s": round(fold_s, 3), "plddt": m.get("plddt"), "cif": sha_dir(struct_dir),
                "e6_served": RP.STATS_GATED[0], "e6_declined": RP.STATS_GATED[1],
                "l1_fc1_stats": list(EC.L1_FC1_STATS),
+               "l1_ln": (SHIPPED["l1_ln"] is not None) and EC._PAIR_FFN_L1_LN,
+               "l1_ln_stats": list(getattr(EC, "L1_LN_STATS", [])),
+               "l1_slice": (SHIPPED["l1_slice"] is not None) and EC._PAIR_FFN_L1_SLICE,
+               "l1_slice_stats": list(getattr(EC, "L1_SLICE_STATS", [])),
+               "fused_resid": (SHIPPED["fused_resid"] is not None) and EC._PAIR_FFN_FUSED_RESIDUAL,
+               "fused_resid_stats": list(getattr(EC, "FUSED_RESID_STATS", [])),
+               "fill_assembly": (SHIPPED["fill_assembly"] is not None)
+               and EC._PAIR_FFN_FILL_ASSEMBLY,
+               "fill_assembly_stats": list(getattr(EC, "FILL_ASSEMBLY_STATS", [])),
                "lm_handoff": list(RT.LM_HANDOFF_STATS),
                "fwd_move": list(RP.STATS), "back_move": list(RP.STATS_BACK),
                "l1_out_refused": len(T._L1_OUT_REFUSED),
@@ -133,12 +187,15 @@ def main():
                "loadavg": open("/proc/loadavg").read().split()[0]}
         res["runs"].append(row)
         a.out.write_text(json.dumps(res, indent=1))
-        print("  %-14s %8.3fs plddt=%s e6=%d/%d l1fc1=%d/%d lmh=%d/%d dn=%d/%d "
-              "l1refused=%d cif=%s load=%s"
+        print("  %-14s %8.3fs plddt=%s e6=%d/%d l1fc1=%d/%d lmh=%d/%d dn=%d/%d ln=%s "
+              "sl=%s fr=%s l1refused=%d cif=%s load=%s"
               % (tag, fold_s, m.get("plddt"), RP.STATS_GATED[0], RP.STATS_GATED[1],
                  EC.L1_FC1_STATS[0], EC.L1_FC1_STATS[1],
                  RT.LM_HANDOFF_STATS[0], RT.LM_HANDOFF_STATS[1],
                  DN.STATS[0], DN.STATS[1],
+                 "%d/%d" % tuple(getattr(EC, "L1_LN_STATS", [-1, -1])),
+                 "%d/%d" % tuple(getattr(EC, "L1_SLICE_STATS", [-1, -1])),
+                 "%d/%d" % tuple(getattr(EC, "FUSED_RESID_STATS", [-1, -1])),
                  row["l1_out_refused"],
                  list(row["cif"].values())[0] if row["cif"] else "-", row["loadavg"]),
               flush=True)

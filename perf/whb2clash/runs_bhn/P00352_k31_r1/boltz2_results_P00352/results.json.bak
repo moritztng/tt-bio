@@ -1,0 +1,24 @@
+[
+  {
+    "id": "P00352",
+    "status": "ok",
+    "confidence_score": 0.965201,
+    "ptm": 0.953395,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.968153,
+    "complex_iplddt": 0.968153,
+    "complex_pde": 0.33162,
+    "complex_ipde": 0.0,
+    "pair_chains_iptm": {
+      "0": {
+        "0": 0.953395
+      }
+    },
+    "chains_ptm": {
+      "0": 0.953395
+    },
+    "runtime_s": 55.4
+  }
+]

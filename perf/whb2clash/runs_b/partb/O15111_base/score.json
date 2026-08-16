@@ -1,0 +1,226 @@
+{
+ "target": "O15111",
+ "arm": "base",
+ "rundir": "/home/cust-team/mthuening/whb2clash/partb/O15111_base",
+ "n_cif": 1,
+ "n_probe": 1,
+ "probe": {
+  "pid": 2704633,
+  "module": "/home/cust-team/mthuening/whb2clash/tree/tt_bio/tenstorrent.py",
+  "grid": [
+   8,
+   9
+  ],
+  "is_small_grid": true,
+  "forced_slmc": 608,
+  "SEQ_LEN_MORE_CHUNKING": 608,
+  "SDPA_DIV_K": false,
+  "k_chunk_640": 256,
+  "k_chunk_768": 256,
+  "fast_mode": false,
+  "env": {
+   "TT_BIO_LEASE_HOLDER": "worker:wh-boltz2-640aa-clash-rootcause",
+   "TT_BIO_LEASE_TIMEOUT": "5400",
+   "TT_BIO_LOGICAL_DEVICE_ID": "0",
+   "TT_BIO_PARENT_PID": "2704447",
+   "TT_BIO_SDPA_DIV_K": "0",
+   "TT_VISIBLE_DEVICES": "28",
+   "WHB2_FORCE_SLMC": "608",
+   "WHB2_PROBE": "/home/cust-team/mthuening/whb2clash/partb/O15111_base/probe",
+   "WHB2_PY": "/home/cust-team/mthuening/tt-bio/env/bin/python"
+  }
+ },
+ "SEQ_LEN_MORE_CHUNKING": 608,
+ "SDPA_DIV_K": false,
+ "is_small_grid": true,
+ "grid": [
+  8,
+  9
+ ],
+ "k_chunk_640": 256,
+ "k_chunk_768": 256,
+ "forced_slmc": 608,
+ "structures": [
+  {
+   "cif": "boltz2_results_O15111/structures/O15111.cif",
+   "digest": "59a7db36f06f9ed3",
+   "n_clash": 32,
+   "n_heavy": 5931,
+   "clash_frac": 0.00539538020569887,
+   "worst_dist": 0.653,
+   "clash_budget": 5.931,
+   "backbone_gaps": 0,
+   "in_band_frac": 0.9973,
+   "n_res": 745,
+   "fails": [
+    "32 heavy-atom clashes < 2.0 A (0.54% of atoms, worst 0.653 A)"
+   ],
+   "warns": [],
+   "pairs": [
+    [
+     "A/666LEU/CD1",
+     "A/676THR/O",
+     0.653
+    ],
+    [
+     "A/502ILE/CG1",
+     "A/677PRO/CG",
+     0.669
+    ],
+    [
+     "A/502ILE/CD1",
+     "A/677PRO/CD",
+     0.773
+    ],
+    [
+     "A/490ASP/OD1",
+     "A/695SER/OG",
+     1.095
+    ],
+    [
+     "A/497GLN/OE1",
+     "A/681ALA/O",
+     1.125
+    ],
+    [
+     "A/502ILE/CG1",
+     "A/677PRO/CD",
+     1.152
+    ],
+    [
+     "A/497GLN/CD",
+     "A/682TRP/CA",
+     1.237
+    ],
+    [
+     "A/647GLN/NE2",
+     "A/694LEU/O",
+     1.384
+    ],
+    [
+     "A/497GLN/OE1",
+     "A/681ALA/C",
+     1.492
+    ],
+    [
+     "A/502ILE/CD1",
+     "A/677PRO/CG",
+     1.546
+    ],
+    [
+     "A/497GLN/OE1",
+     "A/682TRP/CA",
+     1.576
+    ],
+    [
+     "A/502ILE/CB",
+     "A/677PRO/CG",
+     1.576
+    ],
+    [
+     "A/656ILE/CG2",
+     "A/676THR/CG2",
+     1.64
+    ],
+    [
+     "A/490ASP/OD2",
+     "A/646ARG/NH1",
+     1.681
+    ],
+    [
+     "A/666LEU/CD1",
+     "A/676THR/C",
+     1.699
+    ],
+    [
+     "A/656ILE/CG2",
+     "A/676THR/OG1",
+     1.722
+    ],
+    [
+     "A/497GLN/OE1",
+     "A/682TRP/N",
+     1.743
+    ],
+    [
+     "A/502ILE/CD1",
+     "A/677PRO/N",
+     1.757
+    ],
+    [
+     "A/502ILE/CG1",
+     "A/677PRO/CB",
+     1.761
+    ],
+    [
+     "A/497GLN/OE1",
+     "A/682TRP/C",
+     1.778
+    ],
+    [
+     "A/490ASP/CG",
+     "A/695SER/OG",
+     1.801
+    ],
+    [
+     "A/657ALA/CB",
+     "A/679THR/CG2",
+     1.802
+    ],
+    [
+     "A/497GLN/NE2",
+     "A/682TRP/N",
+     1.829
+    ],
+    [
+     "A/497GLN/CD",
+     "A/682TRP/N",
+     1.872
+    ],
+    [
+     "A/497GLN/CD",
+     "A/681ALA/O",
+     1.878
+    ],
+    [
+     "A/497GLN/NE2",
+     "A/682TRP/CA",
+     1.907
+    ],
+    [
+     "A/479LYS/CG",
+     "A/716CYS/O",
+     1.909
+    ],
+    [
+     "A/654LEU/CD1",
+     "A/742TRP/CH2",
+     1.912
+    ],
+    [
+     "A/507MET/CE",
+     "A/671LEU/CD1",
+     1.932
+    ],
+    [
+     "A/655LYS/CB",
+     "A/735MET/CE",
+     1.936
+    ],
+    [
+     "A/654LEU/CD1",
+     "A/742TRP/CZ2",
+     1.951
+    ],
+    [
+     "A/679THR/OG1",
+     "A/742TRP/CE2",
+     1.96
+    ]
+   ]
+  }
+ ],
+ "plddt": 0.728776,
+ "ptm": 0.774049,
+ "runtime_s": 147.3
+}
