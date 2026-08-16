@@ -1,0 +1,25 @@
+{
+ "pid": 2479040,
+ "module": "/home/cust-team/mthuening/whb2clash/tree/tt_bio/tenstorrent.py",
+ "grid": [
+  8,
+  9
+ ],
+ "is_small_grid": true,
+ "forced_slmc": 608,
+ "SEQ_LEN_MORE_CHUNKING": 608,
+ "SDPA_DIV_K": false,
+ "k_chunk_640": 256,
+ "k_chunk_768": 256,
+ "fast_mode": false,
+ "env": {
+  "TT_BIO_LEASE_HOLDER": "worker:wh-boltz2-640aa-clash-rootcause",
+  "TT_BIO_LOGICAL_DEVICE_ID": "0",
+  "TT_BIO_PARENT_PID": "2478771",
+  "TT_BIO_SDPA_DIV_K": "0",
+  "TT_VISIBLE_DEVICES": "28",
+  "WHB2_FORCE_SLMC": "608",
+  "WHB2_PROBE": "/home/cust-team/mthuening/whb2clash/wh/A1a_512_slmc608/probe",
+  "WHB2_PY": "/home/cust-team/mthuening/tt-bio/env/bin/python"
+ }
+}
