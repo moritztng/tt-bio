@@ -1,0 +1,86 @@
+{
+ "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/des_bg_protein/final_10_designs/rank10_shard-3_design.cif",
+ "checks": {
+  "n_atoms": 1977,
+  "bbox_diagonal": 91.55,
+  "chains": [
+   {
+    "chain": "A",
+    "kind": "protein",
+    "n_res": 127,
+    "sequence": "KVFGRAELAAAMKRHGLDNYRGYSLGNWVGAAKFESNFNTQATNRNSDGSTDYGILQINSRWWANDGRGSLNLTNIPASALLSSDITASVNAAKKIVSDGNGMNAWVAWRNRVKGTDVQAWIRGARL",
+    "step_median": 3.779,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 0.9921,
+    "breaks": 0,
+    "rg": 13.34,
+    "rg_expected": 13.86,
+    "rg_ratio": 0.962,
+    "n_ca_bond_median": 1.461,
+    "ca_c_bond_median": 1.524
+   },
+   {
+    "chain": "B",
+    "kind": "protein",
+    "n_res": 129,
+    "sequence": "KVFGRCELAAAMKRHGLDNYRGYSLGNWVCAAKFESNFNTQATNRNTDGSTDYGILQINSRWWCNDGRTPGSRNLCNIPCSALLSSDITASVNCAKKIVSDGNGMNAWVAWRNRCKGTDVQAWIRGCRL",
+    "step_median": 3.78,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 0.9922,
+    "breaks": 0,
+    "rg": 13.73,
+    "rg_expected": 13.95,
+    "rg_ratio": 0.985,
+    "n_ca_bond_median": 1.455,
+    "ca_c_bond_median": 1.519
+   }
+  ],
+  "clashes": {
+   "n": 6,
+   "heavy_atoms": 1977,
+   "worst_dist": 1.539,
+   "threshold": 2.0,
+   "budget": 2
+  },
+  "confidence": {
+   "source": "b_factor",
+   "n": 1977,
+   "min": 0.4854,
+   "max": 0.9121,
+   "mean": 0.7885,
+   "std": 0.0877,
+   "scale": 1.0
+  },
+  "design_length": {
+   "observed": 129,
+   "min": 110,
+   "max": 130,
+   "scope": "designed chain B",
+   "requested_chain": "B",
+   "scored_chain": "B",
+   "chains_present": [
+    "A",
+    "B"
+   ]
+  },
+  "interface": {
+   "pairs_below": 3,
+   "threshold": 2.0,
+   "designed_heavy_atoms": 1000,
+   "budget": 2,
+   "chain": "B"
+  }
+ },
+ "fail": [
+  "6 heavy-atom clashes < 2.0 A (0.30% of atoms, worst 1.539 A)",
+  "3 heavy-atom pairs < 2.0 A between chain B and the target -- the binder is modelled inside it, not against it"
+ ],
+ "warn": [],
+ "verdict": "FAIL"
+}

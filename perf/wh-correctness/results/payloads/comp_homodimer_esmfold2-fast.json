@@ -1,0 +1,1 @@
+{"model": "esmfold2-fast", "name": "homodimer", "input": "sequences:\n  - protein: {id: [A, B], sequence: MTYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTEKPEVIDAS}\n"}

@@ -1,0 +1,10 @@
+entities:
+  - protein:
+      id: B
+      sequence: 60..90
+  - dna:
+      id: A
+      sequence: AATTGTGAGCGGATAACAATT
+  - dna:
+      id: C
+      sequence: AATTGTTATCCGCTCACAATT

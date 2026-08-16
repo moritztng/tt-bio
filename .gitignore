@@ -80,3 +80,10 @@ perf/p2/
 /ab_*.sh
 scratch/
 .msa_px4pd_*/
+
+# Correctness-sweep embedding artifacts: one .npz per sequence, and the cap cells are
+# 50 sequences x 2000 residues x d_model float32 each -- 1.3 GB across five models. The
+# evidence is the per-artifact .check.json and results/matrix.jsonl, both of which stay;
+# the raw tensors are reproducible with `matrix.py --run --group embed`.
+perf/wh-correctness/results/artifacts/**/*.npz
+perf/wh-correctness/results/artifacts/**/*.parquet

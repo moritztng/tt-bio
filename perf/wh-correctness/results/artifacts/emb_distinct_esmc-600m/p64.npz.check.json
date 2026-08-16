@@ -1,0 +1,23 @@
+{
+ "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/emb_distinct_esmc-600m/p64.npz",
+ "checks": {
+  "keys": [
+   "per_residue",
+   "pooled",
+   "sequence"
+  ],
+  "shape": [
+   64,
+   1152
+  ],
+  "d_model": 1152,
+  "length_out": 64,
+  "pooled_ptp": 1.294281005859375,
+  "per_residue_ptp": 1.97265625,
+  "row_spread": 1.095703125,
+  "pool_mean_matches": true
+ },
+ "fail": [],
+ "warn": [],
+ "verdict": "PASS"
+}

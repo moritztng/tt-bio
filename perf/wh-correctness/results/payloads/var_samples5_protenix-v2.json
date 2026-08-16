@@ -1,0 +1,1 @@
+{"model": "protenix-v2", "name": "var_samples5_protenix-v2", "input": "sequences:\n  - protein: {id: A, sequence: MTYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTEKPEVIDAS}\n", "params": {"diffusion_samples": 5}}

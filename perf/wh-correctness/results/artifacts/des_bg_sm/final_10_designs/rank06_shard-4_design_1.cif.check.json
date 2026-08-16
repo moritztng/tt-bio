@@ -1,0 +1,57 @@
+{
+ "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/des_bg_sm/final_10_designs/rank06_shard-4_design_1.cif",
+ "checks": {
+  "n_atoms": 986,
+  "bbox_diagonal": 71.34,
+  "chains": [
+   {
+    "chain": "A",
+    "kind": "protein",
+    "n_res": 118,
+    "sequence": "SLEEILSTPLTDMDYILCEMVLMEMESHQDAWPFLQPVDPLEAPDYYTIIKNPMDFATMREKLKARYYKKVSEFIADANLIFSNCKKYNPKDSVFYKMAVNLQKFFEKKLSEFLASLA",
+    "step_median": 3.852,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 1.0,
+    "breaks": 0,
+    "rg": 14.49,
+    "rg_expected": 13.48,
+    "rg_ratio": 1.075,
+    "n_ca_bond_median": 1.459,
+    "ca_c_bond_median": 1.518
+   }
+  ],
+  "clashes": {
+   "n": 0,
+   "heavy_atoms": 986,
+   "worst_dist": 0.0,
+   "threshold": 2.0,
+   "budget": 2
+  },
+  "confidence": {
+   "source": "b_factor",
+   "n": 986,
+   "min": 0.5422,
+   "max": 0.8716,
+   "mean": 0.7729,
+   "std": 0.05,
+   "scale": 1.0
+  },
+  "design_length": {
+   "observed": 118,
+   "min": 80,
+   "max": 120,
+   "scope": "designed chain A",
+   "requested_chain": "B",
+   "scored_chain": "A",
+   "chains_present": [
+    "A"
+   ]
+  }
+ },
+ "fail": [],
+ "warn": [],
+ "verdict": "PASS"
+}

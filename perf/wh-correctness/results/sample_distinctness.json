@@ -1,0 +1,36 @@
+[
+ {
+  "cell": "var_samples5_protenix-v2",
+  "files": [
+   "target_1.cif",
+   "target_1_model_1.cif",
+   "target_1_model_2.cif",
+   "target_1_model_3.cif",
+   "target_1_model_4.cif"
+  ],
+  "fail": [],
+  "warn": [],
+  "sha256": {
+   "target_1.cif": "a3818f76ac7f59a0",
+   "target_1_model_1.cif": "b61760e8a7d18dd9",
+   "target_1_model_2.cif": "5b43c905a88709b9",
+   "target_1_model_3.cif": "42ed20434f2e4559",
+   "target_1_model_4.cif": "9005924e951566b7"
+  },
+  "pairwise_ca_rmsd": {
+   "target_1.cif|target_1_model_1.cif": 1.0169,
+   "target_1.cif|target_1_model_2.cif": 1.8196,
+   "target_1.cif|target_1_model_3.cif": 0.8729,
+   "target_1.cif|target_1_model_4.cif": 1.3004,
+   "target_1_model_1.cif|target_1_model_2.cif": 1.6337,
+   "target_1_model_1.cif|target_1_model_3.cif": 1.1131,
+   "target_1_model_1.cif|target_1_model_4.cif": 1.2286,
+   "target_1_model_2.cif|target_1_model_3.cif": 1.1722,
+   "target_1_model_2.cif|target_1_model_4.cif": 0.742,
+   "target_1_model_3.cif|target_1_model_4.cif": 0.6087
+  },
+  "rmsd_min": 0.6087,
+  "rmsd_max": 1.8196,
+  "verdict": "PASS"
+ }
+]

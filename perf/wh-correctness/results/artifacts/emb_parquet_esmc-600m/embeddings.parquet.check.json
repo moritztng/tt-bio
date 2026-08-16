@@ -1,0 +1,16 @@
+{
+ "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/emb_parquet_esmc-600m/embeddings.parquet",
+ "checks": {
+  "columns": [
+   "id",
+   "length",
+   "pooled",
+   "sequence"
+  ],
+  "rows": 3,
+  "d_model": 1152
+ },
+ "fail": [],
+ "warn": [],
+ "verdict": "PASS"
+}

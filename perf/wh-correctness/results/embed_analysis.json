@@ -1,0 +1,57 @@
+{
+ "fail": [],
+ "warn": [],
+ "checks": {
+  "artifacts_per_cell": {
+   "emb_distinct_esmc-600m": [
+    "cdk2",
+    "p64",
+    "q60"
+   ],
+   "emb_determinism_esmc-600m": [
+    "cdk2",
+    "p64",
+    "q60"
+   ],
+   "emb_pool_cls_esmc-600m": [
+    "cdk2",
+    "p64",
+    "q60"
+   ]
+  },
+  "determinism": {
+   "cdk2": {
+    "bit_identical": true,
+    "max_abs_diff": 0.0
+   },
+   "p64": {
+    "bit_identical": true,
+    "max_abs_diff": 0.0
+   },
+   "q60": {
+    "bit_identical": true,
+    "max_abs_diff": 0.0
+   }
+  },
+  "pairwise_cosine": {
+   "cdk2|p64": 0.25118,
+   "cdk2|q60": 0.691129,
+   "p64|q60": 0.118569
+  },
+  "pool_cls_vs_mean": {
+   "cdk2": {
+    "identical_to_mean": false,
+    "cosine": 0.143111
+   },
+   "p64": {
+    "identical_to_mean": false,
+    "cosine": 0.342714
+   },
+   "q60": {
+    "identical_to_mean": false,
+    "cosine": 0.174558
+   }
+  }
+ },
+ "verdict": "PASS"
+}

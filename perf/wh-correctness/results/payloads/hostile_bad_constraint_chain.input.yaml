@@ -1,0 +1,5 @@
+sequences:
+  - protein: {id: A, sequence: MTYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTEKPEVIDAS}
+  - ligand: {id: L, smiles: 'CC(=O)Oc1ccccc1C(=O)O'}
+constraints:
+  - pocket: {binder: L, contacts: [[Z, 10]]}

@@ -1,0 +1,65 @@
+{
+ "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/comp_modres_opendde-abag/target_1.cif",
+ "checks": {
+  "n_atoms": 495,
+  "bbox_diagonal": 57.77,
+  "chains": [
+   {
+    "chain": "A",
+    "kind": "protein",
+    "n_res": 64,
+    "sequence": "MTYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTEKPEVIDAS",
+    "step_median": 3.839,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 0.9683,
+    "breaks": 1,
+    "rg": 12.45,
+    "rg_expected": 10.68,
+    "rg_ratio": 1.165,
+    "n_ca_bond_median": 1.458,
+    "ca_c_bond_median": 1.529
+   }
+  ],
+  "clashes": {
+   "n": 8,
+   "heavy_atoms": 495,
+   "worst_dist": 1.109,
+   "threshold": 2.0,
+   "budget": 2
+  },
+  "confidence": {
+   "source": "b_factor",
+   "n": 495,
+   "min": 0.5185,
+   "max": 0.9501,
+   "mean": 0.8434,
+   "std": 0.1025,
+   "scale": 100.0
+  },
+  "expected": {
+   "chains": 1,
+   "ligands": 0
+  },
+  "ligand_residues_seen": 0,
+  "modifications": {
+   "requested": {
+    "12": "SEP"
+   },
+   "observed": {
+    "12": "LEU"
+   }
+  }
+ },
+ "fail": [
+  "chain A (protein): 1 backbone gap(s) > 5.0 A -- chain is broken",
+  "8 heavy-atom clashes < 2.0 A (1.62% of atoms, worst 1.109 A)",
+  "chain A: modification SEP at position 12 was not applied, the output carries LEU"
+ ],
+ "warn": [
+  "chain A (protein): 96.8% of Ca-Ca steps in band (shipped predictions measure 0.970-1.000)"
+ ],
+ "verdict": "FAIL"
+}

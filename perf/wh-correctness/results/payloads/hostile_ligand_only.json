@@ -1,0 +1,1 @@
+{"model": "boltz2", "name": "ligand_only", "input": "sequences:\n  - ligand: {id: L, smiles: 'CC(=O)Oc1ccccc1C(=O)O'}\n"}

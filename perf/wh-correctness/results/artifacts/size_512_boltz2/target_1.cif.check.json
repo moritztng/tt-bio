@@ -1,0 +1,51 @@
+{
+ "struct": "/home/moritz/.coworker/wt/wh-correctness-input-sweep/perf/wh-correctness/results/artifacts/size_512_boltz2/target_1.cif",
+ "checks": {
+  "n_atoms": 4116,
+  "bbox_diagonal": 123.49,
+  "chains": [
+   {
+    "chain": "A",
+    "kind": "protein",
+    "n_res": 512,
+    "sequence": "MENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLLDVIHTENKLYLVFEFLHQDLKKFMDASALTGIPLPLIKSYLFQLLQGLAFCHSHRVLHRDLKPQNLLINTEGAIKLADFGLARAFGVPVRTYTHEVVTLWYRAPEILLGCKYYSTAVDIWSLGCIFAEMVTRRALFPGDSEIDQLFRIFRTLGTPDEVVWPGVTSMPDYKPSFPKWARQDFSKVVPPLDEDGRSLLSQMLHYDPNKRISAKAALAHPFFQDVTKPVPHLRLMENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLLDVIHTENKLYLVFEFLHQDLKKFMDASALTGIPLPLIKSYLFQLLQGLAFCHSHRVLHRDLKPQNLLINTEGAIKLADFGLARAFGVPVRTYTHEVVTLWYRAPEILLGCKYYSTAVDIWSLGCIFAEMVTRRALFPGDSEIDQLFR",
+    "step_median": 3.767,
+    "step_band": [
+     3.6,
+     4.1
+    ],
+    "in_band_frac": 0.9941,
+    "breaks": 0,
+    "rg": 27.88,
+    "rg_expected": 23.55,
+    "rg_ratio": 1.184,
+    "n_ca_bond_median": 1.454,
+    "ca_c_bond_median": 1.515
+   }
+  ],
+  "clashes": {
+   "n": 0,
+   "heavy_atoms": 4116,
+   "worst_dist": 0.0,
+   "threshold": 2.0,
+   "budget": 4.116
+  },
+  "confidence": {
+   "source": "b_factor",
+   "n": 4116,
+   "min": 0.3382,
+   "max": 0.9889,
+   "mean": 0.8467,
+   "std": 0.1576,
+   "scale": 100.0
+  },
+  "expected": {
+   "chains": 1,
+   "ligands": 0
+  },
+  "ligand_residues_seen": 0
+ },
+ "fail": [],
+ "warn": [],
+ "verdict": "PASS"
+}

@@ -1,0 +1,1 @@
+{"model": "esmfold2-fast", "name": "var_pdb_esmfold2-fast", "input": "sequences:\n  - protein: {id: A, sequence: MTYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTEKPEVIDAS}\n", "params": {"output_format": "pdb"}}
