@@ -1,0 +1,108 @@
+{
+ "target": "cdk2_640",
+ "arm": "A3bh",
+ "rundir": "perf/whb2clash/runs_a3/bh_640",
+ "n_cif": 1,
+ "n_probe": 1,
+ "probe": {
+  "pid": 4155899,
+  "module": "/home/ttuser/.coworker/wt/wh-boltz2-640aa-clash-rootcause/tt_bio/tenstorrent.py",
+  "grid": [
+   13,
+   10
+  ],
+  "is_small_grid": false,
+  "forced_slmc": null,
+  "SEQ_LEN_MORE_CHUNKING": 1536,
+  "SDPA_DIV_K": false,
+  "k_chunk_640": 256,
+  "k_chunk_768": 256,
+  "fast_mode": false,
+  "env": {
+   "TT_BIO_LEASE_HOLDER": "worker:wh-boltz2-640aa-clash-rootcause",
+   "TT_BIO_LOGICAL_DEVICE_ID": "0",
+   "TT_BIO_PARENT_PID": "4155831",
+   "TT_BIO_SDPA_DIV_K": "0",
+   "TT_VISIBLE_DEVICES": "2",
+   "WHB2_PROBE": "/home/ttuser/.coworker/wt/wh-boltz2-640aa-clash-rootcause/perf/whb2clash/runs_a3/bh_640/probe"
+  }
+ },
+ "SEQ_LEN_MORE_CHUNKING": 1536,
+ "SDPA_DIV_K": false,
+ "is_small_grid": false,
+ "grid": [
+  13,
+  10
+ ],
+ "k_chunk_640": 256,
+ "k_chunk_768": 256,
+ "forced_slmc": null,
+ "structures": [
+  {
+   "cif": "boltz2_results_cdk2_640/structures/cdk2_640.cif",
+   "digest": "44d023123f0b687c",
+   "n_clash": 9,
+   "n_heavy": 5140,
+   "clash_frac": 0.0017509727626459145,
+   "worst_dist": 1.487,
+   "clash_budget": 5.14,
+   "backbone_gaps": 0,
+   "in_band_frac": 0.9953,
+   "n_res": 640,
+   "fails": [
+    "9 heavy-atom clashes < 2.0 A (0.18% of atoms, worst 1.487 A)"
+   ],
+   "warns": [],
+   "pairs": [
+    [
+     "A/335LEU/O",
+     "A/372ASN/ND2",
+     1.487
+    ],
+    [
+     "A/15TYR/OH",
+     "A/51GLU/OE1",
+     1.624
+    ],
+    [
+     "A/297ARG/NH2",
+     "A/57GLU/OE1",
+     1.705
+    ],
+    [
+     "A/456THR/CG2",
+     "A/460GLU/OE2",
+     1.721
+    ],
+    [
+     "A/158THR/CG2",
+     "A/162GLU/OE2",
+     1.775
+    ],
+    [
+     "A/313TYR/OH",
+     "A/349GLU/OE1",
+     1.847
+    ],
+    [
+     "A/348ARG/NH2",
+     "A/71HIS/CE1",
+     1.892
+    ],
+    [
+     "A/369HIS/CE1",
+     "A/50ARG/NE",
+     1.987
+    ],
+    [
+     "A/150ARG/NH2",
+     "A/157ARG/O",
+     1.999
+    ]
+   ]
+  }
+ ],
+ "plddt": 0.833899,
+ "ptm": 0.599962,
+ "runtime_s": 70.4
+}
