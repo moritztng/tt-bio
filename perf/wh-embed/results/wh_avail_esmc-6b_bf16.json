@@ -1,0 +1,24 @@
+{
+  "model": "esmc-6b",
+  "fast": false,
+  "arch": "Arch.WORMHOLE_B0",
+  "visible_devices": "30",
+  "n_seqs": 2,
+  "residues": 76,
+  "loaded": true,
+  "embedded": true,
+  "error": null,
+  "error_type": null,
+  "dram_grid_size": "(x=12,y=1)",
+  "num_dram_channels": "unavailable: AttributeError",
+  "dram_size_per_channel": "unavailable: AttributeError",
+  "compute_with_storage_grid_size": "(x=8,y=9)",
+  "dram_total_GB": "unavailable: AttributeError",
+  "load_s": 21.0,
+  "embed_s": 6.71,
+  "d_model": 2560,
+  "per_residue_shape": [
+    76,
+    2560
+  ]
+}
