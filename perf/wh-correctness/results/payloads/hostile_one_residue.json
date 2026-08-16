@@ -1,0 +1,1 @@
+{"model": "boltz2", "name": "one_residue", "input": "sequences:\n  - protein: {id: A, sequence: M}\n"}
