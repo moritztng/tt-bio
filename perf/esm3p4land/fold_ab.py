@@ -24,7 +24,7 @@ sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
 # that did not land.
 ARMS = {"base": False, "l2": True, "ship": None, "f1": None, "nof1": None,
         "B": None, "D": None, "BD": None, "off": None, "E": None, "noE": None,
-        "Cin": None, "F": None, "CinF": None, "noCinF": None}
+        "Cin": None, "F": None, "CinF": None, "noCinF": None, "G": None, "noG": None}
 
 # B, the LM shim -> LM encoder handoff (esmfold2 only). Every arm sets the gate on every fold:
 # a lever arm to what it names, any other arm back to the snapshotted shipped default. Neither
@@ -49,8 +49,17 @@ L1LN = {"E": True, "noE": False, "off": False}
 # pair on the current tree. Same rule as L1LN: every arm writes BOTH gates every round, because
 # they compose -- an arm that names C-in and leaves F wherever the previous arm left it is not
 # the C-in arm.
-L1SLICE = {"Cin": True, "CinF": True, "F": False, "noCinF": False, "off": False}
-FUSEDRES = {"F": True, "CinF": True, "Cin": False, "noCinF": False, "off": False}
+L1SLICE = {"Cin": True, "CinF": True, "F": False, "noCinF": False, "off": False,
+           "G": True, "noG": True}
+FUSEDRES = {"F": True, "CinF": True, "Cin": False, "noCinF": False, "off": False,
+            "G": True, "noG": True}
+
+# G (esmc.set_pair_ffn_fill_assembly): each row block written into a pre-allocated output with
+# `ttnn.fill_cache` instead of concatenating the blocks. G ships ON and rides on F, so the arm
+# that isolates it is `noG` and ship - noG is G on the current tree. The arms that predate G keep
+# it OFF so they stay the arms they were when they were measured.
+FILL = {"G": True, "noG": False, "Cin": False, "F": False, "CinF": False, "noCinF": False,
+        "off": False}
 
 
 def sha_dir(d):
@@ -111,7 +120,8 @@ def main():
                "dual_noc": DN._ENABLED,
                "l1_ln": getattr(EC, "_PAIR_FFN_L1_LN", None),
                "l1_slice": getattr(EC, "_PAIR_FFN_L1_SLICE", None),
-               "fused_resid": getattr(EC, "_PAIR_FFN_FUSED_RESIDUAL", None)}
+               "fused_resid": getattr(EC, "_PAIR_FFN_FUSED_RESIDUAL", None),
+               "fill_assembly": getattr(EC, "_PAIR_FFN_FILL_ASSEMBLY", None)}
     res["shipped_defaults"] = dict(SHIPPED)
 
     def run(tag, arm):
@@ -136,6 +146,11 @@ def main():
             EC.FUSED_RESID_STATS[0] = EC.FUSED_RESID_STATS[1] = 0
         elif arm in L1SLICE:
             raise SystemExit("arm %s needs set_pair_ffn_l1_slice, absent here" % arm)
+        if SHIPPED["fill_assembly"] is not None:
+            EC.set_pair_ffn_fill_assembly(FILL.get(arm, SHIPPED["fill_assembly"]))
+            EC.FILL_ASSEMBLY_STATS[0] = EC.FILL_ASSEMBLY_STATS[1] = 0
+        elif arm in FILL:
+            raise SystemExit("arm %s needs set_pair_ffn_fill_assembly, absent here" % arm)
         DN.STATS[0] = DN.STATS[1] = 0
         DN.REJECTS.clear()
         RT.LM_HANDOFF_STATS[0] = RT.LM_HANDOFF_STATS[1] = 0
@@ -160,6 +175,9 @@ def main():
                "l1_slice_stats": list(getattr(EC, "L1_SLICE_STATS", [])),
                "fused_resid": (SHIPPED["fused_resid"] is not None) and EC._PAIR_FFN_FUSED_RESIDUAL,
                "fused_resid_stats": list(getattr(EC, "FUSED_RESID_STATS", [])),
+               "fill_assembly": (SHIPPED["fill_assembly"] is not None)
+               and EC._PAIR_FFN_FILL_ASSEMBLY,
+               "fill_assembly_stats": list(getattr(EC, "FILL_ASSEMBLY_STATS", [])),
                "lm_handoff": list(RT.LM_HANDOFF_STATS),
                "fwd_move": list(RP.STATS), "back_move": list(RP.STATS_BACK),
                "l1_out_refused": len(T._L1_OUT_REFUSED),
