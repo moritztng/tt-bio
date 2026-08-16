@@ -2169,6 +2169,22 @@ class Module:
         )
 
 
+def _in_proj_matmul(x, w, ckc, memory_config):
+    """The trimul in-projection: the dual-NOC drain where it applies, else today's call.
+
+    `mm_dualnoc.in_proj` is byte-identical to the call below when it fires -- it drives the same
+    kernels through `generic_op` with `_MM_DEFAULT`, which IS the block config
+    `determine_default_block_sizes` returns for an unconfigured `minimal_matmul` under
+    `fp32_dest_acc_en`. It returns None on anything outside the class it was verified on.
+    """
+    from . import mm_dualnoc as DN
+    out = DN.in_proj(x, w, ckc, _dtype(), memory_config)
+    if out is not None:
+        return out
+    return ttnn.experimental.minimal_matmul(
+        x, w, memory_config=memory_config, dtype=_dtype(), compute_kernel_config=ckc)
+
+
 def _trimul_out_proj(
     x: ttnn.Tensor, weight: ttnn.Tensor, ckc: ttnn.DeviceComputeKernelConfig
 ) -> ttnn.Tensor:
@@ -2398,10 +2414,8 @@ class TriangleMultiplication(Module):
                 epsilon=1e-5,
                 compute_kernel_config=self.compute_kernel_config,
             )
-            _acc_append(blocks, ttnn.experimental.minimal_matmul(
-                rows, w, memory_config=memory_config, dtype=_dtype(),
-                compute_kernel_config=self.compute_kernel_config,
-            ), host)
+            _acc_append(blocks, _in_proj_matmul(
+                rows, w, self.compute_kernel_config, memory_config), host)
             ttnn.deallocate(rows)
         return _acc_concat(blocks, 1, host)
 
@@ -2483,13 +2497,8 @@ class TriangleMultiplication(Module):
             gp_in_fused = (
                 self._in_proj_rows(x_in, gp_in_chunks[i], H, batch, memory_config)
                 if row_norm else
-                ttnn.experimental.minimal_matmul(
-                    x_norm_in,
-                    gp_in_chunks[i],
-                    memory_config=memory_config,
-                    dtype=_dtype(),
-                    compute_kernel_config=self.compute_kernel_config,
-                )
+                _in_proj_matmul(x_norm_in, gp_in_chunks[i],
+                                self.compute_kernel_config, memory_config)
             )
             perm_a = (0, 3) + ((2, 1) if self.ending else (1, 2))
             perm_b = (0, 3) + ((1, 2) if self.ending else (2, 1))
