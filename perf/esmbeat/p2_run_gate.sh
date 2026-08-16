@@ -7,5 +7,5 @@ export TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_HOLDER=worker:esmfold2-beat-dgx-h200-p2
 export PYTHONPATH="$WT"
 export ESM_ROOT=/home/ttuser/esm
 /home/ttuser/tt-bio-dev/env/bin/python3 -u scripts/full_parity_gate.py \
-  --workers qb2:0 --workdir "$WT/.gate_562cf578"
+  --workers localhost:0 --workdir "$WT/.gate_562cf578"
 echo "GATE_RC=$?"
