@@ -26,7 +26,23 @@
   "1.13",
   "1.10"
  ],
- "folds": [],
+ "folds": [
+  {
+   "tag": "warm0",
+   "fold_s": 93.459,
+   "plddt": 0.813686,
+   "n_tokens": 640,
+   "n_atoms": 5141,
+   "cif_sha256": {
+    "cdk2x2_640.cif": "28f33e90b308ff4c"
+   },
+   "loadavg": [
+    "1.30",
+    "1.37",
+    "1.22"
+   ]
+  }
+ ],
  "cold": {
   "tag": "cold",
   "fold_s": 96.488,
@@ -41,5 +57,24 @@
    "1.49",
    "1.24"
   ]
- }
+ },
+ "median_s": 93.459,
+ "spread_s": 0.0,
+ "reach": {
+  "adaln_calls": 0,
+  "adaln_with_s_terms": 0,
+  "adaln_s_terms_calls": 0
+ },
+ "fp32_softmax_stats": {
+  "calls": 0,
+  "blocked": 0,
+  "blocks": 0,
+  "fused": 0,
+  "unfused": 0,
+  "l1": 0,
+  "l1_blocks": 0,
+  "l1_refused": 0
+ },
+ "fp32_softmax_l1_refused_keys": [],
+ "transpose_l1_refused_keys": []
 }
