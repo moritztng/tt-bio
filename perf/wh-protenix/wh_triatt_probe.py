@@ -107,9 +107,15 @@ def main():
     msa_dir = tree / f".msa_xmodel_protenix-v2_{a.size}"
     one_fold, meta = B.build_fold("protenix-v2", msa_dir, tgt, a3m, fast=a.fast)[:2]
 
-    res = {"size": a.size, "tree": str(tree), "card": os.environ.get("TT_VISIBLE_DEVICES"),
+    import subprocess
+    try:
+        head = subprocess.run(["git", "-C", str(tree), "rev-parse", "--short", "HEAD"],
+                              capture_output=True, text=True, timeout=20).stdout.strip()
+    except Exception:
+        head = None
+    res = {"size": a.size, "tree": str(tree), "tree_head": head, "card": os.environ.get("TT_VISIBLE_DEVICES"),
            "no_mm_cfg": a.no_mm_cfg, "grid": list(T.COMPUTE_GRID_MAIN),
-           "fast": a.fast, "_FAST_MODE": T._FAST_MODE, "dtype": str(T._dtype()),
+           "fast": a.fast, "_FAST_MODE_at_build": T._FAST_MODE,
            "l1_unreserved": l1_free(),
            "SEQ_LEN_MORE_CHUNKING": T.SEQ_LEN_MORE_CHUNKING,
            "TRIANGLE_ATT_CHUNK_SIZE": T.TRIANGLE_ATT_CHUNK_SIZE,
@@ -124,6 +130,10 @@ def main():
         res["error"] = str(e).splitlines()[-1][:400]
         res["frames"] = [l.strip() for l in traceback.format_exc().splitlines()
                          if l.strip().startswith("File ")][-8:]
+    # AFTER the fold: build_fold() does not set these, the fold does. Recorded at build time
+    # a --fast arm reports _FAST_MODE False and BFLOAT16, which is simply the wrong moment.
+    res["_FAST_MODE"] = T._FAST_MODE
+    res["dtype"] = str(T._dtype())
     res["n_qkv_events"] = len(calls)
     res["trace_tail"] = calls[-a.tail:]
     a.out.parent.mkdir(parents=True, exist_ok=True)
