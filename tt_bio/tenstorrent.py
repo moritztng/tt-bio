@@ -2959,8 +2959,7 @@ class TriangleAttention(Module):
                 o = ttnn.squeeze(o_heads, 1)
             return o
 
-        def gate_and_project(o_in: ttnn.Tensor, g_in: ttnn.Tensor,
-                             l1_out: bool = True) -> ttnn.Tensor:
+        def gate_and_project(o_in: ttnn.Tensor, g_in: ttnn.Tensor) -> ttnn.Tensor:
             head_major = len(g_in.shape) == 4
             o_in = ttnn.multiply_(o_in, g_in, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
             ttnn.deallocate(g_in)
@@ -2969,7 +2968,7 @@ class TriangleAttention(Module):
                     o_in, self.o_weight, self.compute_kernel_config, _dtype())
             else:
                 x_out = _pair_proj_linear(
-                    o_in, self.o_weight, self.compute_kernel_config, _dtype(), l1_out=l1_out
+                    o_in, self.o_weight, self.compute_kernel_config, _dtype(), l1_out=True
                 )
             ttnn.deallocate(o_in)
             return x_out
@@ -3022,10 +3021,10 @@ class TriangleAttention(Module):
                     o_chunk = attend(qkv_chunk, triangle_bias, len(g_chunk.shape) == 4)
                 if not isinstance(qkv_chunk, tuple):   # the triple is freed inside attend
                     ttnn.deallocate(qkv_chunk)
-                # DRAM, not L1. The unchunked path hands this straight to a consumer that
-                # reads it back on device, so L1 pays there; here it goes into `parts` and is
-                # not read until the concat after the loop, so the residency buys nothing and
-                # costs the NEXT chunk its circular buffers. Measured on the 8x9 Galaxy at
+                # The projection keeps its L1 output -- same program config, same numerics --
+                # and the RESULT is moved off L1 before the next chunk runs. Nothing reads it
+                # until the concat after the loop, so holding it in L1 buys nothing and costs
+                # the next chunk its circular buffers. Measured on the 8x9 Galaxy at
                 # 640/768/1024 aa: the first chunk's output ([512, S, 64] bf16 = 285/342/456
                 # tiles per core = 583,680/700,416/933,888 B) sits exactly on top of the free
                 # L1, and the tail chunk's qkv projection needs a 1,152,288 B static CB region
@@ -3035,7 +3034,20 @@ class TriangleAttention(Module):
                 # Blackhole cores and clears the CB region with 23,264 B to spare, which is why
                 # it never showed up there -- and Blackhole does not take this branch below
                 # 1536 aa in any case.
-                _acc_append(parts, gate_and_project(o_chunk, g_chunk, l1_out=False), host_acc)
+                #
+                # Producing the projection straight into DRAM instead (l1_out=False) also fixes
+                # the crash and is one write cheaper, but it takes a different program config
+                # and so folds the contraction differently: measured at 640 aa --fast on one
+                # pinned tree, plDDT 0.796168 -> 0.791786. Above 608 tokens --fast ALREADY
+                # WORKED, so that is a real accuracy change on a live path, and it was 2.3 %
+                # slower besides (252.044 -> 257.719 s). A copy is bit-exact, so it is the one
+                # that ships. `host_acc` already frees the device buffer on its own path.
+                out_chunk = gate_and_project(o_chunk, g_chunk)
+                if not host_acc:
+                    out_dram = ttnn.to_memory_config(out_chunk, ttnn.DRAM_MEMORY_CONFIG)
+                    ttnn.deallocate(out_chunk)
+                    out_chunk = out_dram
+                _acc_append(parts, out_chunk, host_acc)
             dram_peak(f"tri_att({'end' if self.ending else 'start'}) row loop done [z={'x'.join(str(d) for d in x.shape)}]")
             # x here is the reshaped (unpermuted) input -- for the starting variant it can
             # alias the caller's pair tensor, so it must NOT be deallocated.
