@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TT-Bio: biomolecular structure, design and embeddings on Tenstorrent</title>
-<meta name="description" content="Open biomolecular models on Tenstorrent: folding and binding affinity, binder design, and protein embeddings. Measured throughput per dollar against NVIDIA H200 and B200 at 512 residues, plus seconds per design for the two binder-design models.">
+<meta name="description" content="Open biomolecular models on Tenstorrent: folding and binding affinity, binder design, and protein embeddings. Measured throughput per dollar against NVIDIA H200, B200 and A100 at 512 residues, plus seconds per design for the two binder-design models.">
 <style>
 :root {
   color-scheme: light dark;
@@ -485,14 +485,14 @@ details.disclose > div { padding-top: 14px; }
     galaxy_bh: "var(--tt)", p150a: "var(--tt)",
     dgx_h200: "var(--h200)", h200: "var(--h200)",
     dgx_b200: "var(--b200)", b200: "var(--b200)",
-    a100: "var(--a100)"
+    dgx_a100: "var(--a100)", a100: "var(--a100)"
   };
-  var SERVER_OF = { p150a: "galaxy_bh", h200: "dgx_h200", b200: "dgx_b200" };
-  // Two lists on purpose. CELLS drives the server and cost paths, and every id in it must have a
-  // SERVER_OF entry -- the A100 has no DGX counterpart priced on this page, so adding it here would
-  // evaluate plat(undefined) and blank the page. CARD_CELLS drives the per-card charts and tables.
-  var CELLS = ["p150a", "h200", "b200"];
-  var CARD_CELLS = ["p150a", "h200", "b200", "a100"];
+  var SERVER_OF = { p150a: "galaxy_bh", h200: "dgx_h200", b200: "dgx_b200", a100: "dgx_a100" };
+  // One list, in the order every chart, legend and table reads. Each id is a measured accelerator
+  // and needs a SERVER_OF entry with a price and a power rating: the server and cost paths look the
+  // box up through that map, and an id without one would evaluate plat(undefined) and blank the page.
+  var CELLS = ["p150a", "h200", "b200", "a100"];
+  var SERVERS = CELLS.map(function (k) { return SERVER_OF[k]; });
 
   function serverLabel(p) {
     return p.name + ", " + p.accelerators + (p.id === "galaxy_bh" ? " AI Processors" : " GPUs");
@@ -579,7 +579,7 @@ details.disclose > div { padding-top: 14px; }
   function chartTime() {
     var groups = [], max = 0;
     D.models.forEach(function (m) {
-      var bars = CARD_CELLS.map(function (k) {
+      var bars = CELLS.map(function (k) {
         var c = m.cells[k], p = plat(k);
         if (c.status !== "measured") {
           return { series: p.name, seriesShort: p.short, blocked: true, reason: c.detail };
@@ -598,7 +598,7 @@ details.disclose > div { padding-top: 14px; }
       tickFmt: function (v) { return v.toFixed(0); },
       title: "Seconds to return one 512-residue prediction on one AI Processor, measured",
       desc: D.models.map(function (m) {
-        return m.name + ": " + CARD_CELLS.map(function (k) {
+        return m.name + ": " + CELLS.map(function (k) {
           var c = m.cells[k];
           return plat(k).short + " " +
             (c && c.status === "measured" ? fmtSec(c.s_per_fold, 3) + " s" : "does not run");
@@ -613,7 +613,7 @@ details.disclose > div { padding-top: 14px; }
   function chartDesign() {
     var groups = [], max = 0;
     D.design.models.forEach(function (m) {
-      var bars = CARD_CELLS.map(function (k) {
+      var bars = CELLS.map(function (k) {
         var c = m.cells[k], p = plat(k);
         if (c.status !== "measured") {
           return { series: p.name, seriesShort: p.short, blocked: true, reason: c.detail };
@@ -632,7 +632,7 @@ details.disclose > div { padding-top: 14px; }
       tickFmt: function (v) { return v.toFixed(0); },
       title: "Seconds to return one binder design on one AI Processor, measured",
       desc: D.design.models.map(function (m) {
-        return m.name + ": " + CARD_CELLS.map(function (k) {
+        return m.name + ": " + CELLS.map(function (k) {
           var c = m.cells[k];
           return plat(k).name + " " +
             (c && c.status === "measured" ? fmtSec(c.s_per_design) + " s" : "does not run");
@@ -644,7 +644,7 @@ details.disclose > div { padding-top: 14px; }
   }
 
   function chartCost() {
-    var rows = ["galaxy_bh", "dgx_h200", "dgx_b200"].map(plat);
+    var rows = SERVERS.map(plat);
     var max = 0, groups = [];
     rows.forEach(function (p) {
       max = Math.max(max, p.price_usd);
@@ -667,8 +667,9 @@ details.disclose > div { padding-top: 14px; }
       desc: groups.map(function (g) { return g.label + " " + g.bars[0].label + ", " + g.sub; }).join(". ") + "."
     });
     document.getElementById("c4-cond").textContent =
-      "Hardware only, list price for each system: the Galaxy Blackhole against the two NVIDIA DGX " +
-      "systems a buyer would quote against it. " +
+      "Hardware only: the Galaxy Blackhole against the three NVIDIA DGX systems a buyer would quote " +
+      "against it. The Galaxy, the DGX H200 and the DGX B200 carry list prices. The DGX A100's " +
+      "$175,000 is an assumed street price for a previous-generation machine, not a published one. " +
       "With electricity and " + D.cost_model.amortisation_years + "-year amortisation those come to " +
       rows.map(function (p) { return "$" + usdPerHour(p).toFixed(2); }).join(", ") +
       " per hour of ownership respectively.";
@@ -686,7 +687,7 @@ details.disclose > div { padding-top: 14px; }
       "<th class=\"n\">B200</th><th class=\"n\">A100</th></tr></thead><tbody>" +
       D.models.map(function (m) {
         return "<tr><td>" + m.name + "</td><td class=\"num\">" + m.recycles + "</td>" +
-          CARD_CELLS.map(function (k) {
+          CELLS.map(function (k) {
             return gpuCell(m.cells[k], function (c) { return fmtSec(c.s_per_fold); });
           }).join("") + "</tr>";
       }).join("") + "</tbody>";
@@ -697,13 +698,13 @@ details.disclose > div { padding-top: 14px; }
       D.design.models.map(function (m) {
         return "<tr><td>" + m.name + "</td><td class=\"n num\">" + m.sampling_steps + "</td>" +
           "<td class=\"num\">" + m.batch + "</td>" +
-          CARD_CELLS.map(function (k) {
+          CELLS.map(function (k) {
             return gpuCell(m.cells[k], function (c) { return fmtSec(c.s_per_design); });
           }).join("") + "</tr>";
       }).join("") + "</tbody>";
 
     var head2 = "<thead><tr><th>Model</th>" +
-      ["galaxy_bh", "dgx_h200", "dgx_b200"].map(function (id) {
+      SERVERS.map(function (id) {
         return "<th class=\"n\">" + serverLabel(plat(id)) + "</th>";
       }).join("") + "</tr></thead>";
     function body(basis) {
@@ -755,11 +756,11 @@ details.disclose > div { padding-top: 14px; }
       d2.appendChild(document.createTextNode("does not run"));
       el2.appendChild(d2);
     }
-    keyRow("c1-keys", ["galaxy_bh", "dgx_h200", "dgx_b200"]);
-    keyRow("c1b-keys", ["galaxy_bh", "dgx_h200", "dgx_b200"]);
-    keyRow("c2-keys", ["galaxy_bh", "dgx_h200", "dgx_b200"]);
-    keyRow("c3-keys", CARD_CELLS);
-    keyRow("c5-keys", CARD_CELLS);
+    keyRow("c1-keys", SERVERS);
+    keyRow("c1b-keys", SERVERS);
+    keyRow("c2-keys", SERVERS);
+    keyRow("c3-keys", CELLS);
+    keyRow("c5-keys", CELLS);
 
     var md = document.getElementById("methods-dl");
     function mrow(k, v) {
@@ -785,7 +786,7 @@ details.disclose > div { padding-top: 14px; }
       fmtCents(m.electricity_usd_per_kwh) + " is the US industrial average price of electricity. " +
       m.utilisation + " " + m.sensitivity);
     mrow("Power", "Each server carries its vendor's published maximum system power: " +
-      ["galaxy_bh", "dgx_h200", "dgx_b200"].map(function (id) {
+      SERVERS.map(function (id) {
         var p = plat(id);
         return fmtKw(p.power_kw) + " for the " + p.name;
       }).join(", ") + ".");
@@ -793,10 +794,16 @@ details.disclose > div { padding-top: 14px; }
     var sl = document.getElementById("sources");
     Object.keys(D.sources).forEach(function (k) {
       var s2 = D.sources[k], li = document.createElement("li");
-      var a = document.createElement("a");
-      a.href = s2.url; a.textContent = s2.label; a.rel = "noreferrer";
-      li.appendChild(a);
-      li.appendChild(document.createTextNode(", accessed " + s2.accessed + ". " + s2.detail));
+      /* A source with no url is a figure this page assumes rather than one it read somewhere, and
+       * it says so in its own label. Linking it to a vendor document would dress it as a citation. */
+      if (s2.url) {
+        var a = document.createElement("a");
+        a.href = s2.url; a.textContent = s2.label; a.rel = "noreferrer";
+        li.appendChild(a);
+        li.appendChild(document.createTextNode(", accessed " + s2.accessed + ". " + s2.detail));
+      } else {
+        li.appendChild(document.createTextNode(s2.label + ", stated " + s2.accessed + ". " + s2.detail));
+      }
       sl.appendChild(li);
     });
 
