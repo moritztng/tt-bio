@@ -42,7 +42,7 @@ def main():
     from tt_bio.esmfold2_runtime import load_ttnn_esmfold2, fold_complex
     from tt_bio.main import _read_protein_chains
 
-    chains = [(cid, seq, None) for cid, seq, _ in
+    chains = [(cid, seq, None) for cid, seq, *_ in
               _read_protein_chains(Path(f"examples/abag_xm/{a.target}.yaml"))]
     print(f"chains: {[(c, len(s)) for c, s, _ in chains]}", flush=True)
     print(f"config: loops={a.loops} steps={a.steps} samples={a.samples} seed={a.seed}",
