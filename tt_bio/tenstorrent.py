@@ -376,8 +376,13 @@ SDPA_CHUNK_MAX = 256
 #   SMALL_GRID_PAIR_TILE_AREA — PAIR blocks (ESMFold2 transition / OPM on [B,L,L,c]):
 #     transient ~ rows*L, so bound rows*L by an area budget -> rows shrink as L
 #     grows, keeping the transient flat (else a fixed row count is GBs at L=1024).
+#   SMALL_GRID_MSA_TILE_AREA — MSA blocks (ESMFold2 MSA encoder on [B,L,M,c]):
+#     transient ~ rows*M, so bound rows*M by an area budget -> rows shrink as the
+#     MSA deepens. Without it a 1024 aa fold at M=8192 wants 2 GiB per [B,L,M,c]
+#     tensor and ~8x that across one encoder block.
 SMALL_GRID_SEQ_TILE = 0
 SMALL_GRID_PAIR_TILE_AREA = 0
+SMALL_GRID_MSA_TILE_AREA = 0
 
 # Small-grid chunk budgets are calibrated for a full Wormhole B0 core (~1.5 MiB
 # L1) and scaled to the device's *actual* per-core unreserved L1 — a part that
@@ -1791,7 +1796,7 @@ def _apply_grid_thresholds(grid: tuple[int, int], device=None) -> None:
     global _IS_SMALL_GRID, SEQ_LEN_MORE_CHUNKING, TRANSITION_BATCH_CHUNKING_THRESHOLD
     global TRANSITION_W_CHUNKING_THRESHOLD, TRIANGLE_ATT_CHUNK_SIZE_FAST
     global TRANSITION_W_CHUNK_SIZE, TRIANGLE_MULT_L1_MAX_SEQ_FAST, SMALL_GRID_SEQ_TILE
-    global SMALL_GRID_PAIR_TILE_AREA, TRIANGLE_MULT_L1_MAX_SEQ
+    global SMALL_GRID_PAIR_TILE_AREA, SMALL_GRID_MSA_TILE_AREA, TRIANGLE_MULT_L1_MAX_SEQ
     global TRANSITION_L1_CHUNK_BYTES_PER_CORE
     _IS_SMALL_GRID = grid[0] * grid[1] < COMPUTE_GRID_X_11 * COMPUTE_GRID_Y
     if not _IS_SMALL_GRID:
@@ -1823,6 +1828,7 @@ def _apply_grid_thresholds(grid: tuple[int, int], device=None) -> None:
     TRIANGLE_MULT_L1_MAX_SEQ = min(_snap(288), TRIANGLE_MULT_L1_MAX_SEQ_FAST)
     SMALL_GRID_SEQ_TILE = _snap(256)
     SMALL_GRID_PAIR_TILE_AREA = _snap(65536, 1024)  # area = rows*L; rows snapped downstream
+    SMALL_GRID_MSA_TILE_AREA = _snap(262144, 1024)  # area = rows*M; rows snapped downstream
     # Referenced to the L1 it was measured at, not to _WH_FULL_L1_PER_CORE: _s is already a
     # 1.5 MiB ratio, and reusing it here would shrink a budget that was fitted at 1,466,080 B
     # a second time. Clamped to 1.0 -- a part with more L1 may well fit a bigger chunk, but
@@ -1958,6 +1964,42 @@ def num_chips() -> int:
 
 def is_wormhole() -> bool:
     return arch_name() == "wormhole_b0"
+
+
+def msa_row_tile(L: int, M: int) -> int:
+    """Rows per block for an MSA [B,L,M,*] row-independent op so the transient
+    (~rows*M*width) stays bounded as L and the MSA depth grow. Returns 0 (single
+    pass) on big grids or when L*M is already small enough. 32-tile-aligned."""
+    area = SMALL_GRID_MSA_TILE_AREA
+    if not area or L * M <= area:
+        return 0
+    rows = max(32, (area // max(M, 1) // 32) * 32)
+    return rows if rows < L else 0
+
+
+# The largest [B,L,M,c] MSA-encoder buffer a 12 GB Wormhole chip is MEASURED to
+# allocate. At L=640 with the default depth 8192 the fold succeeds (230.4 s); at L=788,
+# same depth, it fails on a 1,652,555,776 B request -- which is exactly 788*8192*128*2 --
+# against a 135.9 MiB largest free block (state/japanfold-esmfold2-wh-unusable.md, S15).
+# Both numbers are the same tensor, so the thing to bound is the product L*M, not a
+# residue count: 640*8192 caps that buffer at the 1.25 GiB that demonstrably fits.
+WORMHOLE_MSA_AREA = 640 * 8192
+
+
+def msa_depth_cap(num_residues: int, max_sequences: int) -> int:
+    """MSA depth to actually use for an ESMFold2 fold of this many residues.
+
+    Returns ``max_sequences`` unchanged everywhere except a Wormhole chip asked for an
+    L*M above the measured-good product, where it returns the depth that fits. A 1024 aa
+    fold gets a 5120-deep MSA instead of an allocation failure; anything at or below the
+    proven point, and every Blackhole fold, is untouched.
+
+    A shallower MSA costs accuracy, so this only ever fires where the alternative is no
+    structure at all. Depth is bounded, never raised.
+    """
+    if num_residues <= 0 or max_sequences <= 0 or not is_wormhole():
+        return max_sequences
+    return max(1, min(max_sequences, WORMHOLE_MSA_AREA // num_residues))
 
 
 def pair_row_tile(L: int) -> int:
