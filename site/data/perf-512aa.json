@@ -1,13 +1,13 @@
 {
   "schema": 2,
-  "updated": "2026-08-15",
+  "updated": "2026-08-16",
   "title": "TT-Bio: biomolecular structure, design and embeddings on Tenstorrent",
   "subtitle": "Five structure-prediction models at 512 residues, measured on Tenstorrent Blackhole and on NVIDIA H200, B200 and A100.",
   "notes": [
     "This file is the only place numbers are edited. index.html reads it and derives everything else.",
     "Never write a derived value here. Server throughput, cost per hour and both throughput-per-dollar charts are computed in the page from s_per_fold, accelerators, price and power.",
     "One cell per model per platform, holding the fastest measured arm that passes parity against its own reference. Every Tenstorrent cell states which parity it holds: bit-exact, byte-identical, or a measured structural delta inside a bar that was fixed before the number existed. A cell with no measurement gets status 'blocked' and a reason. Do not fill it with an estimate.",
-    "The A100 is a card-only column: it carries no cost figure, because no DGX A100 price and power are sourced here. It appears in the per-card charts and tables and in neither throughput-per-dollar chart."
+    "The A100 appears twice: as a card, and as the DGX A100 640GB, the eight-GPU box NVIDIA sold that card in. The $175,000 that box carries is an assumed street price, not a vendor list price, and it is labelled as one everywhere it is used."
   ],
   "scope": {
     "size_aa": 512,
@@ -85,7 +85,7 @@
       "spec": "Ampere, 80 GB HBM2e, 2.0 TB/s, up to 400 W",
       "price_usd": null,
       "price_kind": "no public per-GPU list price",
-      "note": "Measured on a single-GPU node, AMD EPYC 7513, 30.7 vCPU. Card-only: this page derives no cost figure for the A100, because no DGX A100 price and power are sourced here."
+      "note": "Measured on a single-GPU node, AMD EPYC 7513, 30.7 vCPU. The card is an A100-SXM4-80GB, which is the part a DGX A100 640GB carries eight of, so the server row below scales from this measurement."
     },
     {
       "id": "dgx_h200",
@@ -122,6 +122,24 @@
       "power_source": "dgx-b200",
       "scaling_efficiency": 1.0,
       "note": "The Blackwell generation of the same system, at $550,000 list."
+    },
+    {
+      "id": "dgx_a100",
+      "vendor": "nvidia",
+      "name": "DGX A100 640GB",
+      "short": "DGX A100",
+      "kind": "server",
+      "accelerators": 8,
+      "per_accelerator": "a100",
+      "spec": "NVIDIA DGX A100 640GB, 8x A100 SXM4 80 GB, 640 GB HBM2e, 6 NVSwitches",
+      "price_usd": 175000,
+      "price_kind": "assumed street price, not a vendor list price",
+      "price_source": "dgx-a100-price",
+      "power_kw": 6.5,
+      "power_kind": "vendor maximum",
+      "power_source": "dgx-a100",
+      "scaling_efficiency": 1.0,
+      "note": "The 640GB configuration, eight A100 SXM4 80 GB, which is the card measured above. The 320GB configuration is the same box with 40 GB GPUs and is not what this row describes. NVIDIA publishes no price for it, so the $175,000 is assumed rather than sourced, and the A100 is a 2020 part where the other two boxes are current."
     }
   ],
   "cost_model": {
@@ -174,10 +192,10 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 31.994,
+          "s_per_fold": 31.448,
           "parity": "bit-exact",
-          "ref": "Round-robin A/B on qb2 card 2, ttnn 0.68.0, harvested 11x10 core grid, warm folds one at a time under benchlock, median of n=3: 31.994 s (spread 0.175 s) against 32.329 s (spread 0.036 s) with TRIMUL_TAIL_F1 off, an A/A noise floor of 0.036 s (perf/trimul_f1/page_esmfold2_f1_qb2c2.json). That trimul tail fusion ships on as of this measurement. Bit-exact: CIF sha256 295867277b9c137f and plDDT 0.9285 identical on every fold of both arms.",
-          "updated": "2026-08-15"
+          "ref": "qb2 card 0, ttnn 0.68.0, harvested 11x10 core grid, warm folds one at a time under benchlock, cold fold discarded. The shipped default, measuring no forced gate: median of n=4 is 31.448 s, spread 0.196 s (perf/esmbeat/p2_ship_512_c0_postmerge.json). Two levers ship on as of this measurement, the LM shim to LM encoder device handoff and a dual-NOC drain on the triangle-multiplication in-projection. Round-robin A/B in one session against an explicit both-off arm, median of n=3 each: 31.944 s off, 31.637 s with the handoff alone, 31.544 s with the drain alone, 31.330 s with both, 31.300 s at the shipped default, against an A/A noise floor of 0.044 s on the off arm (perf/esmbeat/p2_bd_512_c0_postmerge.json). Bit-exact: CIF sha256 295867277b9c137f and plDDT 0.9285 identical on every fold of every arm, and identical between off and both-on at 256, 298, 640 and 768 aa as well, where the pair is worth 0.079 s and 1.665 s at the ends (perf/esmbeat/p2_sweep_*_c0.json).",
+          "updated": "2026-08-16"
         },
         "h200": {
           "status": "measured",
@@ -375,6 +393,17 @@
       "accessed": "2026-08-12",
       "detail": "The 8-GPU B200 system, 1,440 GB HBM3e, system power usage stated as ~14.3 kW max. Priced here at the $550,000 DGX B200 list price, on the same basis as the H200 system."
     },
+    "dgx-a100": {
+      "label": "NVIDIA DGX A100 datasheet",
+      "url": "https://images.nvidia.com/aem-dam/Solutions/Data-Center/nvidia-dgx-a100-datasheet.pdf",
+      "accessed": "2026-08-16",
+      "detail": "The 640GB configuration: 8x NVIDIA A100 80GB Tensor Core GPUs, 640 GB total GPU memory, 6 NVSwitches, 6.5 kW maximum system power, dual AMD Rome 7742, 2 TB system memory, 6U. NVIDIA's DGX A100 user guide gives the same 6.5 kW. The 320GB configuration is the same chassis with 40 GB GPUs; this page describes the 640GB one, because the A100 SXM4 80 GB it measured is the card that box carries."
+    },
+    "dgx-a100-price": {
+      "label": "DGX A100 price: an assumption, not a source",
+      "accessed": "2026-08-16",
+      "detail": "$175,000 is what this page assumes a DGX A100 640GB costs. Moritz Thuning supplied it on 2026-08-16. NVIDIA does not post DGX pricing and published no list price for this system, and no vendor quote is cited for it, so it is the one price here that is not a published figure. Every DGX A100 cost bar rests on it."
+    },
     "eia-industrial": {
       "label": "US EIA, Electric Power Monthly, table 5.3",
       "url": "https://www.eia.gov/electricity/monthly/epm_table_grapher.php?t=table_5_03",
@@ -391,6 +420,7 @@
   "caveats": [
     "Rows are not a cross-model ranking. Boltz-2 and OpenFold3 do 3 recycles where ESMFold2, Protenix-v2 and OpenDDE do 10, because that is what each ships. Compare a model to itself across hardware.",
     "Accuracy is not compared here. Each stack ran its own settings and every run was checked against its own plDDT, but these numbers are wall-clock and cost.",
-    "The A100 ran the same seven cells on the same fixtures. Its host is an AMD EPYC 7513 where the H200 and B200 boxes were Intel Xeon, which matters for the dispatch-bound trunks and is not corrected for."
+    "The A100 ran the same seven cells on the same fixtures. Its host is an AMD EPYC 7513 where the H200 and B200 boxes were Intel Xeon, which matters for the dispatch-bound trunks and is not corrected for.",
+    "The DGX A100 is a previous-generation machine and its row flatters it twice. Its GPUs launched in 2020, and this page gives every server the same four-year window, so a DGX A100 bought today is credited with four more earning years the way a current box is. Its $175,000 is an assumption, not a published price, where the DGX H200 and DGX B200 carry list prices. Read its throughput per dollar as the most favourable case for a used-generation machine, not as a like-for-like comparison."
   ]
 }

@@ -19,9 +19,23 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
 
-# `ship` leaves the gate alone, so it measures whatever the module default currently is. That is
-# the arm the page publishes, and it is the only one that catches a default that did not land.
-ARMS = {"base": False, "l2": True, "ship": None, "f1": None, "nof1": None}
+# `ship` names no lever, so it runs the shipped defaults snapshotted at process start (see
+# SHIPPED below). That is the arm the page publishes, and the only one that catches a default
+# that did not land.
+ARMS = {"base": False, "l2": True, "ship": None, "f1": None, "nof1": None,
+        "B": None, "D": None, "BD": None, "off": None}
+
+# B, the LM shim -> LM encoder handoff (esmfold2 only). Every arm sets the gate on every fold:
+# a lever arm to what it names, any other arm back to the snapshotted shipped default. Neither
+# `.get(arm, False)` (which forces the gate off and makes `ship` blind to a default that did not
+# land) nor leaving the gate alone (which hands `ship` whatever the previous arm mutated) works.
+# `off` is the pre-lever baseline. It is needed because both levers now ship ON, which makes
+# `ship` and `BD` the same arm -- without an explicit both-off arm there is nothing to measure the
+# delta against on a tree where the default has already landed.
+DEVPAIR = {"B": True, "BD": True, "D": False, "off": False}
+
+# D: half the trimul in-projection's output drain on the other NOC (tt_bio/mm_dualnoc.py).
+DUALNOC = {"D": True, "BD": True, "B": False, "off": False}
 
 
 def sha_dir(d):
@@ -43,6 +57,8 @@ def main():
     import tt_bio.tenstorrent as T
     import tt_bio.esmc as EC
     import tt_bio.reblock_permute as RP
+    import tt_bio.esmfold2_runtime as RT
+    import tt_bio.mm_dualnoc as DN
     import tt_baseline as B
     from tt_bio.main import _resolve_recycling_steps, _resolve_sampling_steps
     from tt_bio.main import _detect_p300_devices, _find_ttnn_mesh_graph_descriptor
@@ -72,14 +88,27 @@ def main():
     res["grid"] = [g.x, g.y]
     struct_dir = Path(meta["struct_dir"])
 
+    # The shipped defaults, read ONCE before any arm has mutated them. `set_*` writes a module
+    # global, so an arm that only "leaves the gate alone" actually inherits whatever the previous
+    # arm left there -- the BD arm turns both levers on and the next `ship` then measures BD.
+    # Snapshot here and restore below, so `ship` means the module default and nothing else.
+    SHIPPED = {"l1_fc1": EC._PAIR_FFN_L1_FC1, "lm_handoff": RT._DEVICE_LM_HANDOFF,
+               "dual_noc": DN._ENABLED}
+    res["shipped_defaults"] = dict(SHIPPED)
+
     def run(tag, arm):
         want = ARMS[arm]
         if want is None:
-            want = EC._PAIR_FFN_L1_FC1
-        elif hasattr(EC, "set_pair_ffn_l1_fc1"):
+            want = SHIPPED["l1_fc1"]
+        if want != EC._PAIR_FFN_L1_FC1:
+            if not hasattr(EC, "set_pair_ffn_l1_fc1"):
+                raise SystemExit("arm %s needs set_pair_ffn_l1_fc1, absent here" % arm)
             EC.set_pair_ffn_l1_fc1(want)
-        elif want:
-            raise SystemExit("arm %s needs set_pair_ffn_l1_fc1, absent here" % arm)
+        RT.set_device_lm_handoff(DEVPAIR.get(arm, SHIPPED["lm_handoff"]))
+        DN.set_enabled(DUALNOC.get(arm, SHIPPED["dual_noc"]))
+        DN.STATS[0] = DN.STATS[1] = 0
+        DN.REJECTS.clear()
+        RT.LM_HANDOFF_STATS[0] = RT.LM_HANDOFF_STATS[1] = 0
         RP.STATS_GATED[0] = RP.STATS_GATED[1] = 0
         EC.L1_FC1_STATS[0] = EC.L1_FC1_STATS[1] = 0
         RP.STATS[0] = RP.STATS[1] = 0
@@ -95,15 +124,21 @@ def main():
                "fold_s": round(fold_s, 3), "plddt": m.get("plddt"), "cif": sha_dir(struct_dir),
                "e6_served": RP.STATS_GATED[0], "e6_declined": RP.STATS_GATED[1],
                "l1_fc1_stats": list(EC.L1_FC1_STATS),
+               "lm_handoff": list(RT.LM_HANDOFF_STATS),
                "fwd_move": list(RP.STATS), "back_move": list(RP.STATS_BACK),
                "l1_out_refused": len(T._L1_OUT_REFUSED),
+               "dual_noc": list(DN.STATS),
+               "dual_noc_rejects": {str(k): v for k, v in DN.REJECTS.items()},
                "trimul_tail_f1": (arm in ("f1", "nof1")) and list(F1M.STATS) or None,
                "loadavg": open("/proc/loadavg").read().split()[0]}
         res["runs"].append(row)
         a.out.write_text(json.dumps(res, indent=1))
-        print("  %-14s %8.3fs plddt=%s e6=%d/%d l1fc1=%d/%d l1refused=%d cif=%s load=%s"
+        print("  %-14s %8.3fs plddt=%s e6=%d/%d l1fc1=%d/%d lmh=%d/%d dn=%d/%d "
+              "l1refused=%d cif=%s load=%s"
               % (tag, fold_s, m.get("plddt"), RP.STATS_GATED[0], RP.STATS_GATED[1],
                  EC.L1_FC1_STATS[0], EC.L1_FC1_STATS[1],
+                 RT.LM_HANDOFF_STATS[0], RT.LM_HANDOFF_STATS[1],
+                 DN.STATS[0], DN.STATS[1],
                  row["l1_out_refused"],
                  list(row["cif"].values())[0] if row["cif"] else "-", row["loadavg"]),
               flush=True)
@@ -127,12 +162,13 @@ def main():
     for arm, v in by.items():
         summary[arm] = {"n": len(v), "median": round(st.median(v), 3), "min": min(v),
                         "max": max(v), "spread": round(max(v) - min(v), 3)}
-    if "base" in summary:
-        b = summary["base"]["median"]
+    ref = "base" if "base" in summary else ("ship" if "ship" in summary else None)
+    if ref:
+        b = summary[ref]["median"]
         for arm, s in summary.items():
-            s["speedup_vs_base"] = round(b / s["median"], 4)
+            s["speedup_vs_%s" % ref] = round(b / s["median"], 4)
             s["delta_s"] = round(b - s["median"], 3)
-        summary["A/A_noise_floor_s"] = summary["base"]["spread"]
+        summary["A/A_noise_floor_s"] = summary[ref]["spread"]
     res["summary"] = summary
     cifs = {row["arm"]: tuple(sorted(row["cif"].items())) for row in res["runs"]}
     res["cif_identical_across_arms"] = len(set(cifs.values())) == 1

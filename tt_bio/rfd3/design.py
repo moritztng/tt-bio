@@ -170,22 +170,83 @@ def _write_cif(coords, f, out_path: Path, b_factors=None):
     name_idx = anc.argmax(-1).tolist()  # [N_atom, 4]
     names = ["".join(chr(c + 32) for c in chars).strip() for chars in name_idx]
     asym = f["asym_id"].tolist(); resid = f["residue_index"].tolist()
+    is_lig = f["is_ligand"].tolist() if "is_ligand" in f else None
 
-    arr = struc.AtomArray(coords.shape[0])
-    arr.coord = coords.numpy().astype("float32")
+    # Atom14 slots 5..13 always carry the generic "V{i}" template name, for a
+    # designed residue's synthetic pad atom AND for a motif residue's real
+    # side-chain atom alike (featurize.py:490). The delivered CIF used to ship
+    # both verbatim: 964 of des_rfd3_binder's 2051 atoms were named V0..V8.
+    # Only the pad atoms are meant to leave the network, and only they are
+    # flagged by `is_virtual` -- a mask the feature dict has carried since
+    # featurize.py:2263 and that this writer never read. So: drop the pads, and
+    # give the real side-chain atoms their names back.
+    keep, real_names = [], {}
+    for i in range(coords.shape[0]):
+        slot = _virtual_slot(names[i])
+        if slot is not None and _is_virtual(f, i):
+            continue                              # synthetic pad atom, not chemistry
+        keep.append(i)
+        if slot is not None:
+            # A real motif side-chain atom wearing the template name. The name
+            # itself pins the atom14 slot (ATOM14_ATOM_NAMES[5 + i]), so the
+            # dense scheme resolves it exactly, with no reliance on atom order:
+            # all 374 such atoms across the three rfd3 protocols resolve, none
+            # lands on a None slot.
+            real_names[i] = _dense_atom_name(_resname(int(rt[a2t[i]])), slot)
+
+    arr = struc.AtomArray(len(keep))
+    arr.coord = coords.numpy().astype("float32")[keep]
     arr.add_annotation("occupancy", float); arr.occupancy[:] = 1.0
     arr.add_annotation("b_factor", float)
     if b_factors is not None:
-        arr.b_factor[:] = b_factors.numpy().astype("float32")
-    for i in range(coords.shape[0]):
+        arr.b_factor[:] = b_factors.numpy().astype("float32")[keep]
+    for j, i in enumerate(keep):
         t = a2t[i]
-        arr.chain_id[i] = _chain_label(int(asym[t]))
-        arr.res_id[i] = int(resid[t])
-        arr.atom_name[i] = names[i]
-        z = int(z_idx[i])
-        arr.element[i] = z2sym.get(z, "C")
-        arr.res_name[i] = "LIG" if rt[t] == 20 else _resname(rt[t])
+        name = real_names.get(i, names[i])
+        arr.chain_id[j] = _chain_label(int(asym[t]))
+        arr.res_id[j] = int(resid[t])
+        arr.atom_name[j] = name
+        arr.element[j] = _element_of(int(z_idx[i]), name, z2sym)
+        arr.res_name[j] = _resname(int(rt[t]), is_ligand=bool(is_lig[t]) if is_lig else False)
     cf = _pdbx.CIFFile(); _pdbx.set_structure(cf, arr); cf.write(str(out_path))
+
+
+def _virtual_slot(name: str) -> int | None:
+    """atom14 slot index for a generic "V{i}" template name, else None."""
+    if len(name) == 2 and name[0] == "V" and name[1].isdigit():
+        return 5 + int(name[1])
+    return None
+
+
+def _is_virtual(f, i: int) -> bool:
+    iv = f.get("is_virtual") if hasattr(f, "get") else None
+    # Without the mask every V-named atom is treated as a pad, which is the old
+    # all-or-nothing behaviour and still better than shipping "V3" to a user.
+    return True if iv is None else bool(iv[i])
+
+
+def _dense_atom_name(res_name: str, slot: int) -> str:
+    from .featurize import _DENSE_ATOM14_SCHEME
+
+    real = _DENSE_ATOM14_SCHEME.get(res_name, (None,) * 14)[slot]
+    return real or f"V{slot - 5}"
+
+
+def _element_of(z: int, name: str, z2sym) -> str:
+    # ref_element is never filled for protein (featurize.py:32), so z is the
+    # index-0 unknown row for every protein atom and the old `z2sym.get(z, "C")`
+    # labelled backbone N and O as carbon. For z >= 1 (ligand/nucleic, where the
+    # featurizer does fill it) keep the atomic number. For z == 0 fall back to
+    # the mmCIF convention: the leading alphabetic character of the atom name,
+    # which is exact for the N/CA/C/O/CB names a protein atom can carry here.
+    if z >= 1:
+        sym = z2sym.get(z)
+        if sym:
+            return sym
+    for ch in name:
+        if ch.isalpha():
+            return ch.upper()
+    return "C"
 
 
 def _chain_label(asym: int) -> str:
@@ -199,12 +260,20 @@ def _chain_label(asym: int) -> str:
     return chr(ord("A") + asym // 26 - 1) + chr(ord("A") + asym % 26)
 
 
-def _resname(rt_idx: int) -> str:
-    # minimal 20-AA map (restype index order matches AF3/RFD3 standard 20 + UNK)
-    names = ["ALA", "ARG", "ASN", "ASP", "CYS", "GLN", "GLU", "GLY", "HIS", "ILE",
-             "LEU", "LYS", "MET", "PHE", "PRO", "SER", "THR", "TRP", "TYR", "VAL"]
-    if 0 <= rt_idx < 20:
-        return names[rt_idx]
+def _resname(rt_idx: int, *, is_ligand: bool = False) -> str:
+    # featurize._RESTYPE_ORDER is the real AF3 32-token vocabulary and every one
+    # of its first 31 entries is already the mmCIF comp_id: 0-19 the 20 AA, 20
+    # UNK, 21-25 RNA A/C/G/U/N, 26-30 DNA DA/DC/DG/DT/DN. The old 20-entry map
+    # wrote every nucleotide as UNK (all 1466 residues of an rfd3-na-binder
+    # design), and its `rt == 20 -> "LIG"` special case had the index wrong in
+    # both directions: 20 is unknown-AA, while a ligand's CCD code is not in the
+    # vocabulary at all and lands on the GAP slot with the designed residues.
+    from .featurize import _RESTYPE_ORDER, DESIGNED_RESTYPE_IDX
+
+    if rt_idx == DESIGNED_RESTYPE_IDX:
+        return "LIG" if is_ligand else "UNK"
+    if 0 <= rt_idx < len(_RESTYPE_ORDER):
+        return _RESTYPE_ORDER[rt_idx]
     return "UNK"
 
 

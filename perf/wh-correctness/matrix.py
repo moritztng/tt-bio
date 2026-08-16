@@ -87,8 +87,12 @@ SIZE_LADDER = {
     "esmfold2":      [128, 192, 256, 384, 512, 640, 1024],
     "esmfold2-fast": [128, 192, 256, 384, 512, 640, 1024],
     "protenix-v2":   [128, 256, 512, 640, 980],
-    "opendde":       [128, 512, 788],
-    "opendde-abag":  [128, 512, 779],
+    # 544/576/608/640 are the cap ladder: the catalog publishes 788/779, both of which 500
+    # on this deployment, and the honest number is the last size that folds HERE. 608 is in
+    # because wh-perf-opendde §8.8 puts the caught-throw fallback's limit "above 608 tokens"
+    # — if the crossing is a token count rather than a residue count, that is where it shows.
+    "opendde":       [128, 512, 544, 576, 608, 640, 788],
+    "opendde-abag":  [128, 512, 544, 576, 608, 640, 779],
 }
 
 

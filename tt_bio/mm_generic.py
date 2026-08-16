@@ -108,7 +108,8 @@ def _cb(idx, core_grid, page_size, num_tiles, data_format):
         total_size=num_tiles * page_size, core_ranges=core_grid, format_descriptors=[fmt])
 
 
-def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=None):
+def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=None,
+          noc_mode=None):
     """The ProgramDescriptor for ``minimal_matmul(in0, in1) -> outs`` with block config ``cfg``.
 
     ``cfg`` is a 5-tuple ``(M_block, K_block, N_block, subblock_h, subblock_w)`` and a
@@ -122,6 +123,12 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     ``m_k`` overrides the ``(M, K)`` the factory would infer from ``in0``'s shape, which a
     head-major activation reports wrongly: ``[S, 8, S, 32]`` is the same tile grid as
     ``[S*S, 256]`` but its last dim is 32.
+
+    ``noc_mode`` is for a DM kernel that issues transactions on the NOC it was NOT configured
+    with. Under the default ``DM_DEDICATED_NOC`` the firmware only runs ``noc_local_state_init``
+    for the kernel's own NOC, so a write on the other one never issues and the barrier spins
+    forever -- MEASURED as a device hang on the first call, card 0, 2026-08-15.
+    ``DM_DYNAMIC_NOC`` initialises both and arbitrates the command buffers atomically.
     """
     if not isinstance(outs, (list, tuple)):
         outs = [outs]
@@ -272,10 +279,13 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
             rt["compute"].append((cc, [M_start, M_end, N_start, N_end]))
 
     def dm_kernel(src, cores, ct, args, risc, noc):
+        dmc = (ttnn.DataMovementConfigDescriptor(processor=risc, noc=noc)
+               if noc_mode is None else
+               ttnn.DataMovementConfigDescriptor(processor=risc, noc=noc, noc_mode=noc_mode))
         return ttnn.KernelDescriptor(
             kernel_source=src, source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
             core_ranges=cores, compile_time_args=ct, runtime_args=args, defines=defines,
-            config=ttnn.DataMovementConfigDescriptor(processor=risc, noc=noc))
+            config=dmc)
 
     kernels = [
         dm_kernel(in0_src, in0_sender_cores,
@@ -312,24 +322,25 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
                      "transpose_core_grid": transpose, "defines": defines}}
 
 
-def _key(in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k=None):
+def _key(in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k=None, noc_mode=None):
     if not isinstance(outs, (list, tuple)):
         outs = [outs]
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     return (spec(in0), spec(in1), tuple(spec(o) for o in outs),
             cfg, tuple(str(c) for c in ckc),
-            tuple(sorted(dict(defines).items())), str(kernel_dir), m_k)
+            tuple(sorted(dict(defines).items())), str(kernel_dir), m_k, str(noc_mode))
 
 
 def generic_minimal_matmul(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None,
-                           m_k=None):
+                           m_k=None, noc_mode=None):
     """``minimal_matmul`` through ``generic_op``, descriptor cached per shape/config."""
     if not isinstance(outs, (list, tuple)):
         outs = [outs]
-    key = _key(in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k)
+    key = _key(in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k, noc_mode)
     entry = _CACHE.get(key)
     if entry is None:
-        entry = _CACHE[key] = build(device, in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k)
+        entry = _CACHE[key] = build(device, in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k,
+                                    noc_mode)
     addrs = (in0.buffer_address(), in1.buffer_address(),
              tuple(o.buffer_address() for o in outs))
     if addrs != entry["addrs"]:
