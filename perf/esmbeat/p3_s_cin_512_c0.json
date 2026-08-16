@@ -1,0 +1,120 @@
+{
+ "host": "tt-quietbox",
+ "card": "0",
+ "grid": [
+  13,
+  10
+ ],
+ "size": 512,
+ "rows": 32,
+ "c_z": 256,
+ "d_ff": 1024,
+ "calls_per_fold": 538,
+ "ms": {
+  "chain": 11.6856,
+  "cin_l1": 11.1378,
+  "cin_dram": 11.7347,
+  "noconcat": 11.11,
+  "noasm": 10.3043,
+  "cin_noasm": 10.5352,
+  "chunk_only": 0.8151,
+  "slice_l1_only": 0.5672,
+  "slice_dram_only": 0.8129
+ },
+ "raw": {
+  "chain": [
+   11.6708,
+   11.6856,
+   11.6906,
+   11.676,
+   11.6896
+  ],
+  "cin_l1": [
+   11.1126,
+   11.1378,
+   11.1331,
+   11.1469,
+   11.14
+  ],
+  "cin_dram": [
+   11.7017,
+   11.7347,
+   11.7248,
+   11.736,
+   11.7447
+  ],
+  "noconcat": [
+   11.1208,
+   11.1055,
+   11.11,
+   11.9807,
+   11.07
+  ],
+  "noasm": [
+   10.2947,
+   10.3158,
+   10.299,
+   10.3049,
+   10.3043
+  ],
+  "cin_noasm": [
+   10.5205,
+   10.5352,
+   10.5344,
+   10.5648,
+   10.5663
+  ],
+  "chunk_only": [
+   0.8358,
+   0.8172,
+   0.8151,
+   0.8144,
+   0.8126
+  ],
+  "slice_l1_only": [
+   0.561,
+   0.5703,
+   0.5689,
+   0.5672,
+   0.5591
+  ],
+  "slice_dram_only": [
+   0.8157,
+   0.8108,
+   0.8143,
+   0.8129,
+   0.8126
+  ]
+ },
+ "roofs": {
+  "dram_add_GBps": 420.4
+ },
+ "cin_torch_equal": true,
+ "cin_max_abs_diff": 0.0,
+ "slice_block_torch_equal": true,
+ "cin_delta_ms": 0.5478,
+ "cin_s_per_fold": 0.295,
+ "cin_dram_delta_ms": -0.0491,
+ "cin_dram_s_per_fold": -0.026,
+ "cout_delta_ms": 0.5756,
+ "cout_s_per_fold": 0.31,
+ "asm_ceiling_ms": 1.3813,
+ "asm_ceiling_s_per_fold": 0.743,
+ "cin_plus_cout_ms": 1.1504,
+ "cin_plus_cout_s_per_fold": 0.619,
+ "s_per_fold": {
+  "chain": 6.287,
+  "cin_l1": 5.992,
+  "cin_dram": 6.313,
+  "noconcat": 5.977,
+  "noasm": 5.544,
+  "cin_noasm": 5.668,
+  "chunk_only": 0.439,
+  "slice_l1_only": 0.305,
+  "slice_dram_only": 0.437
+ },
+ "H1_pass": true,
+ "H2_pass": true,
+ "H3_pass": true,
+ "verdict": "GO"
+}
