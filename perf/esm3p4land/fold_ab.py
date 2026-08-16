@@ -25,13 +25,17 @@ ARMS = {"base": False, "l2": True, "ship": None, "f1": None, "nof1": None,
         "B": None, "A": None, "AB": None, "D": None, "ABD": None, "BD": None}
 
 # Device-resident pair handoffs (esmfold2 only): B is the LM shim -> LM encoder
-# handoff, A is parcae_coda -> distogram head. Every arm sets both explicitly, so
-# no arm inherits the previous one's gate.
+# handoff, A is parcae_coda -> distogram head. A lever arm sets BOTH gates explicitly so it
+# never inherits the previous arm's state; an arm that names neither lever (`ship`, and the
+# fc1/F1 arms) leaves them at the module default, which is the whole point of `ship` -- it is
+# the arm that catches a default that did not land, and it cannot do that if it forces the
+# gate off first. Explicit False here, not a `.get(arm, False)` at the call site.
 DEVPAIR = {"B": (True, False), "A": (False, True), "AB": (True, True),
-           "ABD": (True, True), "BD": (True, False)}
+           "ABD": (True, True), "BD": (True, False), "D": (False, False)}
 
 # D: half the trimul in-projection's output drain on the other NOC (tt_bio/mm_dualnoc.py).
-DUALNOC = {"D": True, "ABD": True, "BD": True}
+DUALNOC = {"D": True, "ABD": True, "BD": True,
+           "B": False, "A": False, "AB": False}
 
 
 def sha_dir(d):
@@ -92,10 +96,13 @@ def main():
             EC.set_pair_ffn_l1_fc1(want)
         elif want:
             raise SystemExit("arm %s needs set_pair_ffn_l1_fc1, absent here" % arm)
-        lm_h, dev_z = DEVPAIR.get(arm, (False, False))
-        RT.set_device_lm_handoff(lm_h)
-        RT.set_device_z(dev_z)
-        DN.set_enabled(DUALNOC.get(arm, False))
+        dp = DEVPAIR.get(arm)
+        if dp is not None:
+            RT.set_device_lm_handoff(dp[0])
+            RT.set_device_z(dp[1])
+        dn = DUALNOC.get(arm)
+        if dn is not None:
+            DN.set_enabled(dn)
         DN.STATS[0] = DN.STATS[1] = 0
         DN.REJECTS.clear()
         RT.LM_HANDOFF_STATS[0] = RT.LM_HANDOFF_STATS[1] = 0
