@@ -186,11 +186,9 @@ UBIQUITIN = ("MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKEST
 # path is a heavier runtime shape than a structure fold: it folds the complex
 # (conf model) AND re-runs the affinity model's own 64-block trunk + atom
 # diffusion + affinity heads from a separate boltz2_aff.ckpt. The shipped default
-# (BOLTZ2_AFFINITY_TRUNK_FP32_HOST=1, BOLTZ2_AFFINITY_FP32_HOST=1,
-# BOLTZ2_AFFINITY_DIFFUSION_FP32_HOST=0) runs the affinity pairformer + heads in
-# fp32 on host and the 64-block affinity trunk in fp32 on host (~140 s of the
-# ~170 s per-target wall-clock); the gate times the shipped default — no env
-# overrides — so the number reflects what a customer experiences.
+# runs the affinity model's 64-block trunk in fp32 on device and its heads in
+# fp32 on host (BOLTZ2_AFFINITY_FP32_HOST=1); the gate times the shipped default —
+# no env overrides — so the number reflects what a customer experiences.
 AFFINITY = REPO_ROOT / "examples" / "affinity_fkg.yaml"
 
 # ── card-type detection ────────────────────────────────────────────────────
@@ -899,10 +897,10 @@ def _measure_affinity(model: str, spec: dict, out_path: Path) -> dict:
     affinity accuracy leg (docs/implementation-parity.md) folds, with a light sampling
     protocol (1 structure recycle / 10 structure steps / 1 structure sample +
     10 affinity steps / 1 affinity sample) so the gate stays in minutes while
-    exercising the full affinity path. The shipped-default fp32 host gates
-    (BOLTZ2_AFFINITY_TRUNK_FP32_HOST=1, BOLTZ2_AFFINITY_FP32_HOST=1,
-    BOLTZ2_AFFINITY_DIFFUSION_FP32_HOST=0) are left at their defaults (no env
-    overrides) so the timed call matches the shipped config.
+    exercising the full affinity path. The shipped-default precision gates
+    (BOLTZ2_AFFINITY_FP32_HOST=1, BOLTZ2_AFFINITY_DIFFUSION_FP32_HOST=0) are left
+    at their defaults (no env overrides) so the timed call matches the shipped
+    config; the affinity trunk is fp32 on device and has no flag.
     """
     spec_path = AFFINITY
     if not spec_path.exists():

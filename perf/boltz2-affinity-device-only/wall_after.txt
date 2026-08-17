@@ -1,0 +1,8 @@
+after structure rep1 rc=0 wall=28.550933433
+after structure rep2 rc=0 wall=29.088088521
+after structure rep3 rc=0 wall=29.076557009
+after structure rep4 rc=0 wall=29.637951530
+after affinity rep1 rc=0 wall=92.556647012
+after affinity rep2 rc=0 wall=91.514085457
+after affinity rep3 rc=0 wall=92.178505133
+after affinity rep4 rc=0 wall=92.603935787
