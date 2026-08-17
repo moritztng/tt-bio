@@ -206,5 +206,6 @@ class RFD3Sampler:
             d_t = c_t - t_hat
             X_L = X_noisy + self.step_scale * d_t * delta
             traj.append({"X_noisy_L": X_noisy, "X_denoised_L": X_denoised,
-                          "t_hat": t_hat, "X_L": X_L})
+                          "t_hat": t_hat, "X_L": X_L,
+                          "sequence_restype_I": outs["sequence_restype_I"]})
         return X_L, traj

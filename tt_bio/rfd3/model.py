@@ -2903,7 +2903,8 @@ class RFD3DiffusionModule(Module):
         recycled = self._forward_with_recycle(
             n_recycle, X_noisy_L=X_noisy_L, R_L_uniform=R_L_uniform, t_L=t_L, f=f, Q_L=Q_L,
             C_L=C_L, P_LL=P_LL, A_I=A_I, S_I=S_I, Z_II=Z_II)
-        return {"X_L": recycled["X_L"], "sequence_logits_I": recycled["sequence_logits_I"]}
+        return {"X_L": recycled["X_L"], "sequence_logits_I": recycled["sequence_logits_I"],
+                "sequence_restype_I": recycled["sequence_restype_I"]}
 
     def _forward_with_recycle(self, n_recycle, **kw):
         n_recycle = n_recycle if n_recycle is not None else self.N_RECYCLE
@@ -2939,10 +2940,11 @@ class RFD3DiffusionModule(Module):
                                           dtype=self.dtype, core_grid=CORE_GRID_MAIN)).float()
         ttnn.deallocate(Q_L)
         X_out = self.scale_positions_out(R_upd, X_noisy_L, t_L)
-        logits, _ = self.sequence_head(A_I)
+        logits, aatype = self.sequence_head(A_I)
         ttnn.deallocate(A_I)
         D_II_self = _scaled_distogram_bins(X_out[..., is_ca, :].detach(), sigma_data=self.SIGMA_DATA, n_bins=65)
-        return {"X_L": X_out, "D_II_self": D_II_self, "sequence_logits_I": logits}
+        return {"X_L": X_out, "D_II_self": D_II_self, "sequence_logits_I": logits,
+                "sequence_restype_I": aatype}
 
 
 def build_diffusion_module(state_dict, compute_kernel_config=None, dtype=None):

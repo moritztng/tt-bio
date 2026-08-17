@@ -56,6 +56,13 @@ state once before sampling, which on the largest designs costs about a second â€
 so the 4-step smoke setting spends most of its time on setup, and only a real
 run reflects the per-step rate the table below quotes.
 
+Designed positions come back named: RFD3's own sequence head predicts a residue
+identity per designed token, and the CIF carries the prediction from the final
+diffusion step, the one matching the written coordinates. Motif and target
+residues keep their input identities. The built-in sequence is a starting point,
+not a finished design sequence: upstream recommends redesigning it with a
+sequence-design tool such as ProteinMPNN before ordering.
+
 ### Generating multiple designs per spec
 
 `--num_designs N` produces N independent designs per spec (each with a different

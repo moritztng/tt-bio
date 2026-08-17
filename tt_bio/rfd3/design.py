@@ -142,10 +142,12 @@ def _load_golden_f(cap_dir: str) -> dict:
     return f
 
 
-def _write_cif(coords, f, out_path: Path, b_factors=None):
+def _write_cif(coords, f, out_path: Path, b_factors=None, pred_restype=None):
     """Write the designed structure as mmCIF via biotite, reconstructed from the
     feature dict (same approach as _write_protenix_structure; RFD3's `f` shares
-    the AF3-family feature keys)."""
+    the AF3-family feature keys). `pred_restype` is the sequence head's per-token
+    argmax from the final diffusion step ([I] int): designed protein tokens are
+    named from it instead of staying GAP->UNK."""
     import biotite.structure as struc
     import biotite.structure.io.pdbx as _pdbx
 
@@ -163,6 +165,21 @@ def _write_cif(coords, f, out_path: Path, b_factors=None):
     z2sym = getattr(const, "atomic_num_to_element", None) or {z: s for s, z in const.element_to_atomic_num.items()}
     rt = f["restype"].argmax(-1) if f["restype"].ndim == 2 else f["restype"]
     rt = rt.tolist()
+    gly_tok = set()
+    if pred_restype is not None:
+        # A designed position enters as DESIGNED_RESTYPE_IDX (GAP) and would leave
+        # as UNK no matter what the model predicted; name it from the sequence head
+        # instead. Protein tokens only: a ligand or nucleic token keeps its input
+        # identity. GLY has no CB (its atom14 slot 4 is None), so a residue predicted
+        # GLY drops that atom in the keep loop below.
+        from .featurize import DESIGNED_RESTYPE_IDX, _RESTYPE_ORDER
+        is_prot = f["is_protein"].tolist()
+        pred = pred_restype.tolist()
+        for t in range(len(rt)):
+            if rt[t] == DESIGNED_RESTYPE_IDX and is_prot[t]:
+                rt[t] = int(pred[t])
+                if _RESTYPE_ORDER[rt[t]] == "GLY":
+                    gly_tok.add(t)
     # ref_atom_name_chars: [N_atom, 256] = [N_atom, 4, 64] one-hot over 4 chars (idx -> chr(idx+32)).
     anc = f["ref_atom_name_chars"]
     if anc.ndim == 2 and anc.shape[-1] == 256:
@@ -185,6 +202,8 @@ def _write_cif(coords, f, out_path: Path, b_factors=None):
         slot = _virtual_slot(names[i])
         if slot is not None and _is_virtual(f, i):
             continue                              # synthetic pad atom, not chemistry
+        if a2t[i] in gly_tok and names[i] == "CB":
+            continue                              # GLY has no CB
         keep.append(i)
         if slot is not None:
             # A real motif side-chain atom wearing the template name. The name
@@ -439,7 +458,7 @@ def _run_design_jobs(jobs, specs, out_dir, *, checkpoint_dir, from_pdb, num_time
                 for _, _, this_seed in chunk
             ]
             with torch.no_grad():
-                X, _ = sampler.sample(
+                X, traj = sampler.sample(
                     dev_dm,
                     len(chunk),
                     L,
@@ -455,7 +474,8 @@ def _run_design_jobs(jobs, specs, out_dir, *, checkpoint_dir, from_pdb, num_time
                 out_path = _design_out_path(
                     out_dir, spec_id, design_idx, multi=multi_designs
                 )
-                _write_cif(X[offset], f_used, out_path)
+                _write_cif(X[offset], f_used, out_path,
+                           pred_restype=traj[-1]["sequence_restype_I"][offset])
                 results.append(
                     DesignResult(
                         spec_id=spec_id,
