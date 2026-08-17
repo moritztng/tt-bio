@@ -29,6 +29,7 @@ sys.path.insert(0, str(ROOT / "perf" / "other512"))
 WALL = defaultdict(lambda: {"n": 0, "s": 0.0})
 STATS = Counter()
 STATE = {"dev": None}
+NO_TIMERS = [False]
 ARMS = ("on", "l7", "l6", "l7l6", "s6", "l6s6", "l7s6", "l7l6s6")
 
 
@@ -55,6 +56,11 @@ def main():
     ap.add_argument("--arms", default="on,on")
     ap.add_argument("--fixdir", type=Path, default=ROOT / "perf" / "size512" / "fixtures")
     ap.add_argument("--samples", type=int, default=1)
+    ap.add_argument("--no-timers", action="store_true",
+                    help="Fold walls only, no region timers. The 24 600 synced regions the timers "
+                         "install cost ~5 s of fold wall at 512 aa and widen the A/A spread to "
+                         "1.12 s, which is wider than the levers. Attribute with the timers on, "
+                         "time the A/B with them off, never mix the two in one table.")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
@@ -71,6 +77,7 @@ def main():
             os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
     assert Path(T.__file__).resolve().is_relative_to(ROOT), f"tt_bio from {T.__file__}"
 
+    NO_TIMERS[0] = a.no_timers
     B.RECYCLING_STEPS = _resolve_recycling_steps(None, "boltz2")
     B.SAMPLING_STEPS = _resolve_sampling_steps(None, "boltz2")
     patch_boltz2_cfg()
@@ -101,6 +108,8 @@ def main():
         site = "atom" if self.atom_level else ("token" if self.token_dit else "trunk")
         if self.token_dit:
             STATS["s6_fused" if (T._B2_TOKEN_DIT_SDPA and z is not None) else "s6_unfused"] += 1
+        if NO_TIMERS[0]:
+            return ORIG_APB(self, s, z, *x, **k)
         return timed(f"body:AttentionPairBias|{site}", ORIG_APB, self, s, z, *x, **k)
 
     T.AttentionPairBias.__call__ = apb
@@ -129,10 +138,13 @@ def main():
         """block:PairformerLayer"""
         return "block:PairformerLayer"
 
-    patch(T.DiffusionTransformer, dt_key)
-    patch(T.DiffusionTransformerLayer, dtl_key)
-    patch(T.AdaLN, adaln_key)
-    patch(T.PairformerLayer, pfl_key)
+    if not a.no_timers:
+        patch(T.DiffusionTransformer, dt_key)
+        patch(T.DiffusionTransformerLayer, dtl_key)
+        patch(T.AdaLN, adaln_key)
+        patch(T.PairformerLayer, pfl_key)
+    else:
+        installed[:] = []
 
     def set_arm(name):
         assert name in ARMS, f"unknown arm {name}"
