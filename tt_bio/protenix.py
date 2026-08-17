@@ -1586,6 +1586,38 @@ class ConfidenceHead:
 PAIRCOND_BLOCK_BYTES = int(os.environ.get("TT_BIO_PAIRCOND_BLOCK_BYTES", 5 * 2 ** 28))  # 2.5 GiB
 
 
+def _pz_cond_probe(pz, z_in_sha):
+    """TT_PROTENIX_PZPROBE=<dir> (default off): attribute run-to-run pair_z divergence.
+    Reads the just-written device pz back TWICE and records shas of the z_trunk input and
+    pz. z_in differs across runs -> seed is upstream (trunk). z_in same, pz differs across
+    runs, readback_equal -> the cond-prep compute is racy. readback not equal -> the DRAM
+    readback of those addresses is not stable. Returns the first readback (host, fp32)."""
+    out = os.environ.get("TT_PROTENIX_PZPROBE")
+    if not out:
+        return Protenix._to_host(pz)
+    import hashlib
+    import json
+    import pathlib
+
+    import torch
+
+    r1 = ttnn.to_torch(pz)
+    r2 = ttnn.to_torch(pz)
+    eq = bool(torch.equal(r1, r2))
+    b1 = r1.to(torch.float32).numpy().tobytes()
+    rec = {
+        "z_in_sha16": z_in_sha,
+        "pz_sha16": hashlib.sha256(b1).hexdigest()[:16],
+        "readback_equal": eq,
+        "readback_maxdiff": 0.0 if eq else float((r1.float() - r2.float()).abs().max()),
+        "pz_absmax": float(r1.float().abs().max()),
+    }
+    p = pathlib.Path(out)
+    p.mkdir(parents=True, exist_ok=True)
+    (p / "pz_cond_probe.json").write_text(json.dumps(rec, indent=2))
+    return r1.float()
+
+
 class Protenix:
     """Top-level Protenix-v2 structure predictor on Tenstorrent (inference-only).
 
@@ -1769,6 +1801,11 @@ class Protenix:
         from .tenstorrent import Transition
         C = "diffusion_module.diffusion_conditioning."
         T = self.diffusion._up
+        _z_sha = None
+        if os.environ.get("TT_PROTENIX_PZPROBE"):
+            import hashlib as _hl
+
+            _z_sha = _hl.sha256(ttnn.to_torch(z_trunk_tt).to(torch.float32).numpy().tobytes()).hexdigest()[:16]
         relpe = ttnn.linear(T(relp), T(self._w[C + "relpe.linear_no_bias.weight"].t().contiguous()),
                             compute_kernel_config=self.compute_kernel_config, dtype=self.diffusion.dtype,
                             core_grid=CORE_GRID_MAIN)
@@ -1810,7 +1847,7 @@ class Protenix:
                 t = Transition(PW.remap_transition(sub), self.compute_kernel_config,
                                dtype=self.diffusion.dtype)
                 pz = ttnn.add(pz, t(pz))
-            return self._to_host(pz)
+            return _pz_cond_probe(pz, _z_sha)
         if C + "linear_no_bias_z_trunk.weight" in self._w:
             zt = ttnn.layer_norm(z_trunk_tt, weight=T(self._w[C + "layernorm_z_trunk.weight"]),
                                  epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
@@ -1832,7 +1869,7 @@ class Protenix:
             t = Transition(PW.remap_transition(sub), self.compute_kernel_config,
                            dtype=self.diffusion.dtype)
             pz = ttnn.add(pz, t(pz))
-        return self._to_host(pz)
+        return _pz_cond_probe(pz, _z_sha)
 
     def _plm_z_term(self, pair_z, a2t, nb, nq, nk):
         """broadcast_token_to_local_atom_pair: W_z(LN_z(z_trunk)) gathered into windowed
@@ -1977,6 +2014,28 @@ class Protenix:
         import os as _os, time as _time
         if _os.environ.get("TT_PROTENIX_DBG_COND"):
             self._dbg_cond = cond
+        _dump_dir = _os.environ.get("TT_PROTENIX_DUMP")
+        _dump_fn = None
+        if _dump_dir:
+            # Optional intermediate capture for determinism/parity debugging: dumps the
+            # trunk conditioning once and every sampler frame (noise + per-step coords).
+            import pathlib as _pl
+
+            import ttnn as _tn
+
+            _dd = _pl.Path(_dump_dir)
+            _dd.mkdir(parents=True, exist_ok=True)
+            for _k, _v in sorted(cond.items()):
+                try:
+                    _t = _tn.to_torch(_v) if isinstance(_v, _tn.Tensor) else _v
+                    torch.save(_t, _dd / f"cond_{_k}.pt")
+                except Exception as _e:
+                    (_dd / f"cond_{_k}.txt").write_text(f"{type(_v)}: {_e}")
+
+            def _dump_fn(_step, _x, _dd=_dd):
+                _nm = "noise.pt" if _step == -1 else f"x_step{_step:04d}.pt"
+                torch.save(_x.detach().cpu().clone(), _dd / _nm)
+
         _prof = _os.environ.get("TT_PROTENIX_PROFILE")
         # Multiplicity batching: when the device denoise carries the multiplicity dim
         # (DiffusionModule.supports_multiplicity, flipped on once the batched denoise is
@@ -2000,7 +2059,8 @@ class Protenix:
                 if _prof:
                     import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); _ts = _time.time()
                 coords.append(edm_sample(self.diffusion, cond, N, n_step=n_step, seed=sd_seed,
-                                         trace=trace, progress_fn=progress_fn)[0])
+                                         trace=trace, progress_fn=progress_fn,
+                                         dump_fn=_dump_fn)[0])
                 if _prof:
                     import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); print(f"[PROF] edm_sample[{k}] {_time.time()-_ts:.3f}s", flush=True)
             coords = torch.stack(coords, 0)
