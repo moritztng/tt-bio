@@ -1,6 +1,6 @@
 {
   "schema": 2,
-  "updated": "2026-08-16",
+  "updated": "2026-08-17",
   "title": "TT-Bio: biomolecular structure, design and embeddings on Tenstorrent",
   "subtitle": "Five structure-prediction models at 512 residues and one binder-design model, measured on Tenstorrent Blackhole and on NVIDIA H200, B200 and A100.",
   "notes": [
@@ -164,9 +164,9 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 24.822,
+          "s_per_fold": 23.504,
           "parity": "bit-exact",
-          "ref": "Median of n=3 warm, 24.818 / 24.822 / 24.866 s. Bit-exact: CIF sha256 fca25e32ea181ae2, the same structure the reference implementation returns."
+          "ref": "Median of n=3 warm, 23.501 / 23.504 / 23.566 s. Bit-exact: CIF sha256 fca25e32ea181ae2, the same structure the reference implementation returns and the same digest the 24.822 s cell carried. Measured against main in the same process with arms alternated: main without the diffusion bias-slice hoist and the atom AdaLN memo is 24.030 s, so 0.526 s of the drop from 24.822 s is those two defaults and the rest is main since that cell was written."
         },
         "h200": {
           "status": "measured",
