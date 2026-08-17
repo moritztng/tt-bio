@@ -5,19 +5,34 @@ real fold, so reading a default proves half the question. This runs a fold throu
 installed package and reports, per lever, the value the artifact resolved and how many
 times the fast path actually served work.
 
-Most levers keep their own `*_STATS = [served, declined]` counter next to the guard; this
-reads those. Four have no counter (`ADALN_S_HOIST`, `PAIR_TRANSPOSE_VIA_ROW_MAJOR`,
-`PAIR_PROJ_MINIMAL_MATMUL`, `QKV_MM_CONFIG`) and are counted by wrapping their helper here,
-marked `wrap` in the `how` column.
+`tt-bio predict` does not fold in the process you launch it from: it spawns worker
+processes (multiprocessing "spawn"). Counters read in the launcher are therefore always
+zero - measured 2026-08-17, a real protenix-v2 fold left every one of the 24 levers at
+served=0, which reads as "every lever is dark" and is an artifact of where you looked. So
+the census runs the CLI as a subprocess with a generated `sitecustomize.py` on PYTHONPATH.
+Every process of the fold, launcher and workers alike, dumps its own counters into a
+directory, and the census sums them afterwards.
 
-    python3 scripts/lever_census.py --out census_esmfold2.json -- predict foo.yaml --model esmfold2
+Most levers keep a `*_STATS = [served, declined]` counter next to their guard; the hook
+reads those. Four have no counter (ADALN_S_HOIST, PAIR_TRANSPOSE_VIA_ROW_MAJOR,
+PAIR_PROJ_MINIMAL_MATMUL, QKV_MM_CONFIG) and are counted by wrapping their helper, marked
+`wrap` below.
+
+    # one model, from the installed venv (PYTHONPATH is set by this script - do not add
+    # the repo, or tt_bio resolves from the tree instead of the artifact under test)
+    python3 scripts/lever_census.py --tt-bio /venv/bin/tt-bio --label ef2-512 \
+        --out census_ef512.json -- predict t512.yaml --model esmfold2
+
+    # the table across every model
     python3 scripts/lever_census.py --report census_*.json
 """
 
 import argparse
-import importlib
 import json
+import os
+import subprocess
 import sys
+from pathlib import Path
 
 # flag, module, resolved attribute, counter spec, how
 #   counter spec: "MODULE.NAME" for a [served, declined] list, or None
@@ -64,25 +79,28 @@ LEVERS = [
      "tt_bio.triatt_qkv.TAIL_STATS", "stats-shared"),
 ]
 
-WRAP_COUNTS = {}
+HOW = {flag: how for flag, _m, _a, _c, how in LEVERS}
+
+WRAP_KEYS = ("ADALN_S_HOIST", "PAIR_TRANSPOSE_VIA_ROW_MAJOR",
+             "PAIR_PROJ_MINIMAL_MATMUL", "QKV_MM_CONFIG")
+WRAP_COUNTS = {k: [0, 0] for k in WRAP_KEYS}
 
 
-def _resolve(dotted):
-    mod, _, name = dotted.rpartition(".")
-    return getattr(importlib.import_module(mod), name, None)
-
+# ----------------------------------------------------------------- child-side hook
 
 def _install_wraps():
-    """Counters for the four levers whose guard keeps no `*_STATS` of its own."""
-    import ttnn
+    """Counters for the four levers whose guard keeps no `*_STATS` of its own.
 
-    T = importlib.import_module("tt_bio.tenstorrent")
+    Called repeatedly from the hook thread: it is a no-op until `tt_bio.tenstorrent` and
+    `ttnn` are imported, and marks the module so a second call cannot double-wrap.
+    """
+    T = sys.modules.get("tt_bio.tenstorrent")
+    ttnn = sys.modules.get("ttnn")
+    if T is None or ttnn is None or getattr(T, "_census_wrapped", False):
+        return
+    T._census_wrapped = True
 
-    for key in ("ADALN_S_HOIST", "PAIR_TRANSPOSE_VIA_ROW_MAJOR",
-                "PAIR_PROJ_MINIMAL_MATMUL", "QKV_MM_CONFIG"):
-        WRAP_COUNTS[key] = [0, 0]
-
-    # 9: the hoist is the only caller of AdaLN.s_terms outside the rollout, so a call means
+    # The hoist is the only caller of AdaLN.s_terms outside the rollout, so a call means
     # the conditioning half was precomputed rather than recomputed per step.
     inner = T.AdaLN.s_terms
 
@@ -92,7 +110,7 @@ def _install_wraps():
 
     T.AdaLN.s_terms = s_terms
 
-    # 11: `_pair_transpose_impl` takes the row-major route under exactly this predicate.
+    # `_pair_transpose_impl` takes the row-major route under exactly this predicate.
     impl = T._pair_transpose_impl
 
     def _pair_transpose_impl(t, memory_config):
@@ -104,7 +122,7 @@ def _install_wraps():
 
     T._pair_transpose_impl = _pair_transpose_impl
 
-    # 12 and 14 both return None when they decline, so a non-None result is a firing.
+    # Both return None when they decline, so a non-None result is a firing.
     for key, fname in (("PAIR_PROJ_MINIMAL_MATMUL", "_pair_proj_minimal_matmul"),
                        ("QKV_MM_CONFIG", "_qkv_mm_config")):
         orig = getattr(T, fname)
@@ -117,25 +135,109 @@ def _install_wraps():
         setattr(T, fname, wrapper)
 
 
-def snapshot(label):
-    rows = []
+def _snapshot_process():
+    """This process's view: only levers whose module it actually imported."""
+    rows = {}
     for flag, mod, attr, counter, how in LEVERS:
-        try:
-            resolved = getattr(importlib.import_module(mod), attr, "MISSING")
-        except Exception as exc:                                            # noqa: BLE001
-            resolved = f"IMPORT-ERROR {exc}"
+        m = sys.modules.get(mod)
+        if m is None:
+            continue
         served = declined = None
         if how == "wrap":
             served, declined = WRAP_COUNTS.get(flag, [None, None])
         elif counter:
-            c = _resolve(counter)
+            cmod, _, cname = counter.rpartition(".")
+            cm = sys.modules.get(cmod)
+            c = getattr(cm, cname, None) if cm is not None else None
             if isinstance(c, dict):
                 served, declined = c.get("calls"), c.get("blocked")
-            elif isinstance(c, list) and len(c) >= 2:
+            elif isinstance(c, (list, tuple)) and len(c) >= 2:
                 served, declined = c[0], c[1]
-        rows.append({"flag": flag, "resolved": str(resolved), "served": served,
-                     "declined": declined, "how": how, "counter": counter})
-    return {"label": label, "rows": rows}
+        rows[flag] = {"resolved": str(getattr(m, attr, "MISSING")),
+                      "served": served, "declined": declined}
+    return rows
+
+
+def install_child_hook():
+    """Entry point for the generated `sitecustomize.py`. Runs in every process."""
+    outdir = os.environ.get("LEVER_CENSUS_DIR")
+    if not outdir:
+        return
+    import atexit
+    import threading
+    import time
+
+    path = os.path.join(outdir, f"pid{os.getpid()}.json")
+
+    def dump():
+        rows = _snapshot_process()
+        if not rows:
+            return
+        tmp = f"{path}.tmp"
+        with open(tmp, "w") as fh:
+            json.dump({"pid": os.getpid(), "argv": sys.argv[:4], "rows": rows}, fh)
+        os.replace(tmp, path)
+
+    def tick():
+        # Polling rather than an import hook: a worker that dies on a signal never runs
+        # atexit, so the counts have to already be on disk.
+        while True:
+            time.sleep(3)
+            try:
+                _install_wraps()
+                dump()
+            except Exception:                                            # noqa: BLE001
+                pass
+
+    def at_exit():
+        try:
+            dump()
+        except Exception:                                                # noqa: BLE001
+            pass
+
+    threading.Thread(target=tick, daemon=True).start()
+    atexit.register(at_exit)
+
+
+# ----------------------------------------------------------------- parent side
+
+def _write_hookdir(hookdir: Path) -> None:
+    hookdir.mkdir(parents=True, exist_ok=True)
+    scripts_dir = str(Path(__file__).resolve().parent)
+    # Appended, not prepended: nothing in scripts/ may shadow a stdlib or site-packages
+    # module for the process under test.
+    (hookdir / "sitecustomize.py").write_text(
+        "import sys\n"
+        f"sys.path.append({scripts_dir!r})\n"
+        "try:\n"
+        "    from lever_census import install_child_hook\n"
+        "    install_child_hook()\n"
+        "except Exception:\n"
+        "    pass\n")
+
+
+def collect(dumpdir: Path, label: str, cli: list, rc: int) -> dict:
+    agg = {}
+    dumps = sorted(dumpdir.glob("pid*.json"))
+    for p in dumps:
+        try:
+            d = json.loads(p.read_text())
+        except Exception:                                                # noqa: BLE001
+            continue
+        for flag, r in d.get("rows", {}).items():
+            a = agg.setdefault(flag, {"resolved": set(), "served": None, "declined": None})
+            a["resolved"].add(r["resolved"])
+            for k in ("served", "declined"):
+                if r.get(k) is not None:
+                    a[k] = (a[k] or 0) + r[k]
+    rows = []
+    for flag, _m, _a, counter, how in LEVERS:
+        a = agg.get(flag)
+        rows.append({"flag": flag, "how": how, "counter": counter,
+                     "resolved": "/".join(sorted(a["resolved"])) if a else "not-imported",
+                     "served": a["served"] if a else None,
+                     "declined": a["declined"] if a else None})
+    return {"label": label, "cli": cli, "rc": rc, "processes": len(dumps), "rows": rows}
 
 
 def report(paths):
@@ -146,16 +248,17 @@ def report(paths):
         labels.append(d["label"])
         for r in d["rows"]:
             m = merged.setdefault(r["flag"], {"resolved": set(), "how": r["how"], "by": {}})
-            m["resolved"].add(r["resolved"])
+            if r["resolved"] != "not-imported":
+                m["resolved"].add(r["resolved"])
             m["by"][d["label"]] = r["served"]
     width = max(len(f) for f in merged)
-    print(f"{'lever'.ljust(width)}  resolved  how          " +
+    print(f"{'lever'.ljust(width)}  resolved  how           " +
           "  ".join(l.ljust(12) for l in labels))
     dark = []
     for flag, m in merged.items():
-        res = "/".join(sorted(m["resolved"]))
+        res = "/".join(sorted(m["resolved"])) or "?"
         cells = "  ".join(str(m["by"].get(l, "-")).ljust(12) for l in labels)
-        print(f"{flag.ljust(width)}  {res.ljust(8)}  {m['how'].ljust(12)} {cells}")
+        print(f"{flag.ljust(width)}  {res.ljust(8)}  {m['how'].ljust(13)} {cells}")
         if res == "True" and not any((m["by"].get(l) or 0) > 0 for l in labels):
             dark.append(flag)
     print()
@@ -164,6 +267,7 @@ def report(paths):
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--tt-bio", help="path to the installed `tt-bio` entry point")
     ap.add_argument("--out")
     ap.add_argument("--label", default="run")
     ap.add_argument("--report", nargs="+")
@@ -174,24 +278,28 @@ def main():
         report(args.report)
         return
 
-    _install_wraps()
+    if not args.tt_bio or not args.cli:
+        ap.error("give --tt-bio and a CLI after `--`, or --report")
 
-    rc = 0
-    if args.cli:
-        from tt_bio.main import cli
+    work = Path(args.out or "census").resolve().parent / f".census-{args.label}"
+    hookdir, dumpdir = work / "hook", work / "dumps"
+    _write_hookdir(hookdir)
+    dumpdir.mkdir(parents=True, exist_ok=True)
+    for stale in dumpdir.glob("pid*.json"):
+        stale.unlink()
 
-        sys.argv = ["tt-bio", *args.cli]
-        try:
-            cli.main(args=args.cli, standalone_mode=False)
-        except SystemExit as exc:
-            rc = exc.code or 0
-    snap = snapshot(args.label)
-    snap["cli"] = args.cli
-    snap["rc"] = rc
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(hookdir)
+    env["LEVER_CENSUS_DIR"] = str(dumpdir)
+    rc = subprocess.call([args.tt_bio, *args.cli], env=env)
+
+    snap = collect(dumpdir, args.label, args.cli, rc)
     if args.out:
         json.dump(snap, open(args.out, "w"), indent=2)
+    print(f"--- {args.label}: {snap['processes']} processes, cli rc={rc}")
     for r in snap["rows"]:
-        print(f"{r['flag']:32s} {r['resolved']:8s} served={r['served']} declined={r['declined']}")
+        print(f"{r['flag']:32s} {r['resolved']:14s} served={r['served']} "
+              f"declined={r['declined']}")
     sys.exit(rc)
 
 
