@@ -67,7 +67,8 @@ body {
 main { max-width: 1000px; margin: 0 auto; padding: 56px 20px 96px; }
 h1 { font-size: 1.9rem; line-height: 1.2; letter-spacing: -0.02em; margin: 0 0 30px; font-weight: 650; }
 h2 { font-size: 1.45rem; line-height: 1.25; letter-spacing: -0.015em; margin: 0 0 4px; font-weight: 650; }
-  .brandbar { display: flex; align-items: center; line-height: 0; margin: 0 0 30px; }
+  .brandbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; line-height: 0; margin: 0 0 30px; }
+  .brandbar .repo { line-height: 1.3; font-size: 0.95rem; font-weight: 560; white-space: nowrap; }
   .brandbar a { display: inline-flex; align-items: center; }
   .brandbar img { height: 30px; width: auto; display: block; }
   .brandbar .on-dark { display: none; }
@@ -172,6 +173,7 @@ details.disclose section.chart:last-child { margin-bottom: 12px; }
     <img class="on-light" src="assets/tt-logo-light.svg" alt="Tenstorrent">
     <img class="on-dark" src="assets/tt-logo.png" alt="Tenstorrent">
   </a>
+  <a class="repo" href="https://github.com/moritztng/tt-bio">TT-Bio on GitHub &rarr;</a>
 </div>
 <h1>TT-Bio: Biomolecular Models on Tenstorrent</h1>
 
