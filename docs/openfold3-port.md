@@ -61,7 +61,10 @@ comparable across models.
 
 Enumerated against the upstream input schema
 (`of3_all_atom/config/inference_query_format.py`). Every unsupported case is a named
-error, verified by running it — nothing silently degrades.
+error, verified by running it — nothing silently degrades. Upstream's own inference suite
+run against this port is reported in
+[openfold3-upstream-suite.md](openfold3-upstream-suite.md), including the one item that
+fails.
 
 | capability | status |
 |---|---|
@@ -70,6 +73,7 @@ error, verified by running it — nothing silently degrades.
 | RNA, DNA | ported, folds end to end |
 | templates | ported, per-chain alignment npz; no template search |
 | MSA | ported: per-chain file or directory, shared hash-cache search, `--single_sequence`. An MSA that was requested but cannot be resolved raises rather than folding single-sequence |
+| `--single_sequence` accuracy | **known gap.** It switches the MSA stack off, where upstream folds a one-row alignment with the stack on. On ubiquitin that costs 1.50 Å CA-RMSD (2.34 Å vs 0.84 Å). Pass a one-row a3m as the chain's `msa:` to get upstream's behaviour today. See [openfold3-upstream-suite.md](openfold3-upstream-suite.md) |
 | recycling | ported; `--recycling_steps` default 3, i.e. 4 trunk cycles (the upstream default) |
 | sample ranking | ported; confidence-selected best of N, all samples kept |
 | multi-card `--devices` | ported, same fan-out as Protenix-v2 |
