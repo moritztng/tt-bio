@@ -83,3 +83,31 @@ canonical pair-cond answer is a 4-card, 2-process result, not a 3-card one.
 
 Real weights, real data, fresh process, seed 0. The canonical output is cross-card, so pc card
 0 is producing a wrong answer rather than an equally valid alternative reduction order.
+
+## pc card 0 — the fault, measured (2026-08-17, `paircond_repeat.py`)
+
+Same commit and probe as the qb1 references above. `linear_z` is the seed; `concat` and
+`layer_norm` never trip. Every row below has `readback_bitexact=True` and a bit-exact upload
+control, so none of this is the transfer path.
+
+| N | prec | K | linear_z differing | worst cells | worst maxabs | verdict |
+|---|---|---|---|---|---|---|
+| 128 | fp32 | 8 | 1/7 | 1 | 0.125 | unstable |
+| 160 | fp32 | 8 | 0/7 | 0 | 0.0 | clean |
+| 160 | fp32 | 32 | 0/31 | 0 | 0.0 | clean, shas match qb1 exactly |
+| 256 | fp32 | 8 (r1) | 7/7 | 78 | 31.99 | unstable |
+| 256 | fp32 | 8 (r2) | 7/7 | 45 | 32.00 | unstable |
+| 256 | fp32 | 16 | 15/15 | 44 | 16.00 | unstable |
+| 256 | bf16 | 8 | 0/7 | 0 | 0.0 | clean at this K |
+| 256 | bf16 | 32 | 2/31 | 1 | 15.96 | unstable |
+
+pc reproduces the qb1 canonical shas for every stage it gets right: `relpe_linear` `4362d54b`,
+`concat` `b576fe5e`, `layer_norm` `003e9ca9` at 256 aa, and all nine stages at 160 aa fp32.
+
+Matched control: qb1 card 1, 256 aa fp32 K=16, 15/15 identical on all nine stages, shas
+`4362d54b,b576fe5e,003e9ca9,f02ef7cb,e79944a5,1b9124b5,c2fd7917,fa695ce1,fa695ce1`.
+
+Victim locality (`victim_locality.py`, 256 aa fp32 K=16): 40/47 victim tile-rows fall in the
+first half of their core's 16-tile-row block, 23 of 24 victim pair-rows are even, and 64 of the
+130 cores are never hit. The victim row clusters match the real-weight fold dump, so the
+corruption is keyed to location, not to the data.
