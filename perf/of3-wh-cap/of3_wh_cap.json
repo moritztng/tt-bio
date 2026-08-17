@@ -1,0 +1,57 @@
+{
+  "what": "OpenFold3 Wormhole size ceiling for the JapanFold catalog",
+  "date": "2026-08-17",
+  "host": "UF-EV-A13-GWH02 (Wormhole galaxy), card 28, one chip via TT_VISIBLE_DEVICES",
+  "tree": "6329f8ef",
+  "engine_settings": "stock: recycling 3 (4 trunk cycles), 200 sampling steps, 1 sample, no --fast",
+  "published_max_residues": 576,
+  "cap_rule": "largest size below the FIRST failure at any depth, and the largest proven at the worst depth a served fold can carry",
+  "single_sequence_ladder": {
+    "fixtures": "perf/size512/fixtures/cdk2x2_<N>.yaml, --single_sequence (chimeric CDK2 tandem, structure meaningless)",
+    "note": "no failure anywhere; this ladder does NOT bound the served configuration",
+    "folds_s": {"256": 117.7, "384": 132.5, "448": 144.7, "512": 168.8, "576": 213.5, "640": 229.7, "768": 301.4}
+  },
+  "msa_ladder_real_targets": {
+    "fixtures": "real single chains with their own cached ColabFold alignments, --msa_dir <cache> --msa_cache_only",
+    "rungs": [
+      {"aa": 512, "rows": 11641, "status": "ok", "plddt": 0.77465, "ptm": 0.742167, "fold_s": 132.7},
+      {"aa": 614, "rows": 8138, "status": "failed", "error": "DRAM OOM, 2011955200 B requested, 207524000 B free"},
+      {"aa": 641, "rows": 14190, "status": "failed", "error": "DRAM OOM"},
+      {"aa": 745, "rows": 5354, "status": "failed", "error": "DRAM OOM"},
+      {"aa": 760, "rows": 2792, "status": "failed", "error": "DRAM OOM"}
+    ]
+  },
+  "bisect_depth_8138": {
+    "source": "the 614 aa target's own alignment, cut to length",
+    "rungs": [
+      {"aa": 528, "status": "ok", "process_s": 251},
+      {"aa": 544, "status": "ok", "process_s": 224},
+      {"aa": 560, "status": "ok", "process_s": 239},
+      {"aa": 576, "status": "ok", "process_s": 204},
+      {"aa": 592, "status": "ok", "process_s": 287},
+      {"aa": 614, "status": "failed", "error": "DRAM OOM"}
+    ]
+  },
+  "bisect_depth_14190": {
+    "source": "the 641 aa target's alignment, the deepest produced by the serving pipeline on this box, cut to length",
+    "rungs": [
+      {"aa": 448, "status": "ok", "plddt": 0.772114, "ptm": 0.746886, "fold_s": 114.8},
+      {"aa": 512, "status": "ok", "plddt": 0.769717, "ptm": 0.694711, "fold_s": 139.7},
+      {"aa": 544, "status": "ok", "plddt": 0.757256, "ptm": 0.649922, "fold_s": 185.8},
+      {"aa": 576, "status": "ok", "plddt": 0.759977, "ptm": 0.602253, "fold_s": 190.1},
+      {"aa": 641, "status": "failed", "error": "DRAM OOM"}
+    ]
+  },
+  "cap_repeatability": {
+    "aa": 576, "rows": 14190, "runs": 3, "processes": "three separate",
+    "fold_s": [165.4, 164.9, 165.3], "plddt": [0.759977, 0.759977, 0.759977]
+  },
+  "multichain_9bk6": {
+    "msa_on": {"plddt": 0.80244, "ptm": 0.821824, "iptm": 0.779841, "fold_s": 128.6, "check_structure": "PASS"},
+    "single_sequence": {"plddt": 0.586181, "ptm": 0.570524, "iptm": 0.200934, "fold_s": 48.0,
+                        "check_structure": "WARN (one 1.193 A contact)"}
+  },
+  "blackhole_control": {"host": "qb1 p150a card 0", "aa": 512, "fold_s": 61.8,
+                        "reference_s": 57.97, "note": "single sequence, same fixture"},
+  "known_lever_not_pulled": "1c537ed9's msa_depth_cap approach (bound tokens x rows on Wormhole) would raise this ceiling. Not applied: docs/openfold3-port.md:112 records that lowering OF3_MAX_MSA_SEQS is an input divergence, not a memory knob."
+}
