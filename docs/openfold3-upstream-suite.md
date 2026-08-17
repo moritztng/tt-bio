@@ -54,9 +54,10 @@ taking the adapted variant where one exists.
 | `ubiquitin` no_msa, ceiling 1.8 Å (1.197 ± 0.273) | **FAIL** | **2.339 Å** with `--single_sequence`; **0.836 Å** on a one-row alignment | 1.079 Å PASS |
 | `ubiquitin` msa, ceiling 1.9 Å (1.224 ± 0.456) | PASS | **0.813 Å** | 1.108 Å PASS |
 | `ubiquitin` × 2 template modes | NOT APPLICABLE | no template search | — |
-| `query_single_protein_single_ligand` × 4 modes | NOT APPLICABLE as written | ligand chain not ported | — |
+| `query_single_protein_single_ligand` × 2 template modes | NOT APPLICABLE | ligand chain *and* template search | — |
+| `query_single_protein_single_ligand` × 2 no-template modes | NOT APPLICABLE as written; ADAPTED below | ligand chain not ported, so the ligand is dropped | — |
 | ⤷ adapted, protein only, no_msa, floor 8.0 Å (16.002 ± 0.388) | PASS | **14.803 Å** | 14.895 Å PASS |
-| ⤷ adapted, protein only, msa, ceiling 0.6 Å (0.367 ± 0.049) | see note | **0.550 Å** | 0.950 Å, over the ceiling |
+| ⤷ adapted, protein only, msa, ceiling 0.6 Å (0.367 ± 0.049) | PASS, read the caveat below | **0.550 Å** | 0.950 Å, over the ceiling |
 | `test_template_lowers_rmsd[1a8q]`, off > 8.0 / on < 2.0 / gap > 5.0 (16.58 ± 0.68 / 0.26 ± 0.02) | PASS (adapted) | off **16.600 Å**, on **0.244 Å**, gap **16.356 Å** | — |
 | `test_template_lowers_rmsd[1y57]`, off > 18.0 / on < 16.0 / gap > 6.0 (23.77 ± 1.25 / 12.07 ± 2.83) | PASS (adapted) | off **24.482 Å**, on **13.173 Å**, gap **11.309 Å** | — |
 | `test_pocket_constraint_localizes_ligand` | NOT APPLICABLE | ligand, pocket constraint and pocket-guided sampling all unported | — |
