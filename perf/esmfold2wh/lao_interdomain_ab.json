@@ -1,0 +1,78 @@
+{
+  "n_scored_residues": 238,
+  "domain1_segments": [
+    [
+      1,
+      89
+    ],
+    [
+      192,
+      231
+    ],
+    [
+      234,
+      238
+    ]
+  ],
+  "domain2_segments": [
+    [
+      90,
+      191
+    ],
+    [
+      232,
+      233
+    ]
+  ],
+  "domain1_size": 134,
+  "domain2_size": 104,
+  "vs_experiment": {
+    "full": {
+      "global_rmsd": 4.685200159816395,
+      "domain1_rmsd": 0.4983254349526823,
+      "domain2_rmsd": 1.1243655867572537,
+      "domain2_rmsd_on_domain1_frame": 13.041769645315409,
+      "domain1_rmsd_on_domain2_frame": 15.68328667670613,
+      "interdomain_rotation_deg": 49.15273854728114,
+      "tm_score": 0.7014707194371627,
+      "lddt": 93.97611216894582,
+      "mean_abs_dd": 0.3374326631163703,
+      "median_abs_dd": 0.17653841099175693
+    },
+    "cap5120": {
+      "global_rmsd": 4.668928896735303,
+      "domain1_rmsd": 0.5232755568229724,
+      "domain2_rmsd": 1.1189531831222492,
+      "domain2_rmsd_on_domain1_frame": 12.984540838010812,
+      "domain1_rmsd_on_domain2_frame": 15.607558798711635,
+      "interdomain_rotation_deg": 48.91546714006025,
+      "tm_score": 0.7019523499164888,
+      "lddt": 93.73809935952917,
+      "mean_abs_dd": 0.3427603736507853,
+      "median_abs_dd": 0.17914216185406318
+    }
+  },
+  "plddt": {
+    "full": {
+      "mean": 97.8674351027032,
+      "min": 79.44121551513672
+    },
+    "cap5120": {
+      "mean": 97.8374396572594,
+      "min": 70.32013702392578
+    }
+  },
+  "arm_vs_arm": {
+    "global_rmsd": 0.12261331269024775,
+    "domain1_rmsd": 0.15161646423622852,
+    "domain2_rmsd": 0.047537212903651406,
+    "domain2_rmsd_on_domain1_frame": 0.09554957417815203,
+    "domain1_rmsd_on_domain2_frame": 0.1818040990584333,
+    "interdomain_rotation_deg": 0.3553487080017308,
+    "tm_score": 0.9995663903321211,
+    "lddt": 99.93515966931432,
+    "mean_abs_dd": 0.029684670923220868,
+    "median_abs_dd": 0.021916032435642663
+  },
+  "arm_vs_arm_order": "cap5120 onto full"
+}
