@@ -613,8 +613,8 @@
             "boltz2-affinity": {
               "unit": "affinities/s",
               "direction": "higher",
-              "value": 0.019715,
-              "latency_ms": 50723.75,
+              "value": 0.01571,
+              "latency_ms": 63654.31,
               "input": "affinity_fkg.yaml (FKBP12+SB3, L107, single-seq, affinity mode)",
               "sampling_steps": 10,
               "diffusion_samples": 1,
@@ -626,9 +626,9 @@
               "hardware": "blackhole",
               "card_type": "p150a",
               "machine_id": "tt-quietbox",
-              "tt_bio_version": "0.6.2",
-              "date": "2026-08-16",
-              "note": "reseeded 2026-08-16: the fp32 affinity HOST trunk was deleted (09502a94) and the affinity model now runs its 64-block pairformer in fp32 on device. The 2026-08-14 seed timed the host trunk, which was ~140 s of the ~176 s wall on pc. Intentional perf change, parity held: all four committed affinity legs keep their committed verdicts (state/boltz2-affinity-device-only.md). Single-shot leg, +-20-30% rep noise."
+              "tt_bio_version": "0.6.3",
+              "date": "2026-08-17",
+              "note": "reseeded on the runtime a pip install produces (release venv: ttnn 0.68.0, torch 2.13.0). The 0.019715 seed of 67c2f866 was taken under qb1 system python (ttnn 0.67.4, torch 2.11.0), which no user has; 92c286c6 then moved the gate onto the pinned runtime and the same tree reads 63-64 s there against 51 s under system python. ttnn is not the variable: holding torch at 2.13 and dropping ttnn to 0.67.4 also measures 63 s. Steady state is 63-64 s with a 1 s spread over four consecutive reps."
             },
             "rfd3": {
               "unit": "designs/s",
@@ -711,9 +711,9 @@
               "note": "seed p150a/tt-quietbox openfold3 baseline, v0.6.2, quiet host, fp32-DM default"
             }
           },
-          "date": "2026-08-16",
-          "tt_bio_version": "0.6.2",
-          "note": "reseeded 2026-08-16: the fp32 affinity HOST trunk was deleted (09502a94) and the affinity model now runs its 64-block pairformer in fp32 on device. The 2026-08-14 seed timed the host trunk, which was ~140 s of the ~176 s wall on pc. Intentional perf change, parity held: all four committed affinity legs keep their committed verdicts (state/boltz2-affinity-device-only.md). Single-shot leg, +-20-30% rep noise."
+          "date": "2026-08-17",
+          "tt_bio_version": "0.6.3",
+          "note": "reseeded on the runtime a pip install produces (release venv: ttnn 0.68.0, torch 2.13.0). The 0.019715 seed of 67c2f866 was taken under qb1 system python (ttnn 0.67.4, torch 2.11.0), which no user has; 92c286c6 then moved the gate onto the pinned runtime and the same tree reads 63-64 s there against 51 s under system python. ttnn is not the variable: holding torch at 2.13 and dropping ttnn to 0.67.4 also measures 63 s. Steady state is 63-64 s with a 1 s spread over four consecutive reps."
         },
         "pc": {
           "models": {
