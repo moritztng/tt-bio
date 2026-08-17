@@ -5,6 +5,25 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [0.6.3] - 2026-08-17
 
+Binding affinity runs on the card. Boltz-2's affinity model kept its 64-block trunk in
+fp32 on the host CPU, which is why a single ligand took minutes and looked CPU-bound; it
+now runs in fp32 on device, and FKBP12+SB3 at the default protocol costs about 92 s per
+ligand on one Blackhole p150a instead of 160 s.
+
+Large targets fit a 12 GiB card. Every structure model folds targets up to at least 1095
+residues on a single Wormhole chip, OpenDDE included, by switching the pair track to
+row-blocked execution above a size threshold smaller targets never reach. Their speed and
+numerics are unchanged.
+
+`--trace` no longer returns wrong structures. One process folding several same-size
+Protenix-v2 or OpenDDE targets replayed the first target's conditioning for all of them.
+
+### Added
+
+- Targets up to at least 1095 residues fold on a single 12 GiB Wormhole card, on every
+  structure model. The pair track row-blocks above a size threshold; below it nothing
+  changes. See [`docs/large-targets.md`](docs/large-targets.md).
+
 ### Changed
 
 - Boltz-2 binding affinity runs entirely on the card. The affinity model's 64-block
