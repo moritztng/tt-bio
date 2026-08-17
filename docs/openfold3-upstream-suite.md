@@ -59,7 +59,7 @@ taking the adapted variant where one exists.
 | `query_single_protein_single_ligand` × 2 no-template modes | NOT APPLICABLE as written; ADAPTED below | ligand chain not ported, so the ligand is dropped | — |
 | ⤷ adapted, protein only, no_msa, floor 8.0 Å (16.002 ± 0.388) | PASS | **14.803 Å** | 14.895 Å PASS |
 | ⤷ adapted, protein only, msa, ceiling 0.6 Å (0.367 ± 0.049) | PASS, read the caveat below | **0.550 Å** | 0.950 Å, over the ceiling |
-| `test_template_lowers_rmsd[1a8q]`, off > 8.0 / on < 2.0 / gap > 5.0 (16.58 ± 0.68 / 0.26 ± 0.02) | PASS (adapted) | off **16.600 Å**, on **0.244 Å**, gap **16.356 Å** | — |
+| `test_template_lowers_rmsd[1a8q]`, off > 8.0 / on < 2.0 / gap > 5.0 (16.58 ± 0.68 / 0.26 ± 0.02) | PASS (adapted) | off **16.600 Å**, on **0.244 Å**, gap **16.356 Å** | off 16.518 Å, on 0.263 Å, gap 16.254 Å, both PASS |
 | `test_template_lowers_rmsd[1y57]`, off > 18.0 / on < 16.0 / gap > 6.0 (23.77 ± 1.25 / 12.07 ± 2.83) | PASS (adapted) | off **24.482 Å**, on **13.173 Å**, gap **11.309 Å** | — |
 | `test_pocket_constraint_localizes_ligand` | NOT APPLICABLE | ligand, pocket constraint and pocket-guided sampling all unported | — |
 
@@ -148,6 +148,30 @@ faithful arm because that is the condition the test specifies.
 
 1a8q for contrast: our ON range is 0.23-0.26 Å against upstream's 0.26 ± 0.02, tighter and centred a
 touch lower.
+
+## The template npz handoff is validated end to end
+
+The adaptation for the two template items splits the work: upstream's `TemplatePreprocessor` produces the
+alignment, this port consumes it as an npz. That split is the thing most worth checking, so 1a8q was also
+run through upstream's own model on CPU with upstream doing the alignment **directly from the CIF**, no npz
+in the path.
+
+| | OFF | ON | gap |
+|---|---|---|---|
+| upstream, stated (MPS) | 16.58 ± 0.68 | 0.26 ± 0.02 | 16.32 |
+| upstream's model on CPU, its own CIF-direct alignment | 16.518 | 0.2633 | 16.254 |
+| this port, consuming the npz that preprocessor wrote | 16.600 | 0.244 | 16.356 |
+
+The three OFF values span 0.08 Å, the three ON values 0.02 Å, and the three gaps 0.10 Å. The ON agreement
+is the load-bearing one: it is the condition the template actually drives, and going through the npz gives
+the same answer as upstream aligning from the CIF itself. So the handoff is faithful and the adaptation is
+not quietly doing something else.
+
+Two honest details. The CPU arm's OFF spread is wider than ours (sd 2.29 against our 1.31 and upstream's
+stated 0.68), driven by two samples at 19.78 and 20.35 Å; OFF is the unconstrained condition, so a wide
+tail there is expected and it is why the bound is a floor at 8.0 Å rather than a band. And 1y57 has no CPU
+arm: at 447 aa on CPU it is a multi-hour run, and the 1a8q result plus upstream's own published 1y57
+distribution already cover the question this arm was asked to answer.
 
 ## The one FAIL, and its cause
 
