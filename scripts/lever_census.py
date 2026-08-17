@@ -77,12 +77,19 @@ LEVERS = [
      "tt_bio.triatt_qkv.TAIL_STATS", "stats"),
     ("TRIATT_TAIL_OVER_L1", "tt_bio.triatt_qkv", "_TAIL_OVER_L1",
      "tt_bio.triatt_qkv.TAIL_STATS", "stats-shared"),
+    # Boltz-2 diffusion, landed 6c07446f. L7 and L6 default ON, S6 default OFF (not bit-exact).
+    # L7 fires once per bias per fold by design, so a served count of 2-3 is the whole win --
+    # what it replaces is 6000 per-step slices, which the counter cannot see.
+    ("B2_BIAS_SLICE_HOIST", "tt_bio.tenstorrent", "_B2_BIAS_SLICE_HOIST", None, "wrap"),
+    ("B2_ADALN_S_MEMO", "tt_bio.tenstorrent", "_B2_ADALN_S_MEMO", None, "wrap"),
+    ("B2_TOKEN_DIT_SDPA", "tt_bio.tenstorrent", "_B2_TOKEN_DIT_SDPA", None, "off-by-design"),
 ]
 
 HOW = {flag: how for flag, _m, _a, _c, how in LEVERS}
 
 WRAP_KEYS = ("ADALN_S_HOIST", "PAIR_TRANSPOSE_VIA_ROW_MAJOR",
-             "PAIR_PROJ_MINIMAL_MATMUL", "QKV_MM_CONFIG")
+             "PAIR_PROJ_MINIMAL_MATMUL", "QKV_MM_CONFIG",
+             "B2_BIAS_SLICE_HOIST", "B2_ADALN_S_MEMO")
 WRAP_COUNTS = {k: [0, 0] for k in WRAP_KEYS}
 
 
@@ -106,9 +113,26 @@ def _install_wraps():
 
     def s_terms(self, *a, **kw):
         WRAP_COUNTS["ADALN_S_HOIST"][0 if T.ADALN_S_HOIST else 1] += 1
-        return inner(self, *a, **kw)
+        out = inner(self, *a, **kw)
+        # L6 shares this function. The memo returns its stored tuple BY IDENTITY on both the
+        # storing call and every hit, and a fresh tuple otherwise, so identity separates them.
+        if T._B2_ADALN_S_MEMO and getattr(self, "atom_level", False):
+            hit = out is getattr(self, "_s_memo", None)
+            WRAP_COUNTS["B2_ADALN_S_MEMO"][0 if hit else 1] += 1
+        return out
 
     T.AdaLN.s_terms = s_terms
+
+    # L7 returns a list of per-layer head-ranges when it fires and its input tensor when it
+    # declines, so the return type is the verdict.
+    hoist = T.DiffusionModule._hoist_layer_bias
+
+    def _hoist_layer_bias(self, bias, transformer):
+        out = hoist(self, bias, transformer)
+        WRAP_COUNTS["B2_BIAS_SLICE_HOIST"][0 if isinstance(out, list) else 1] += 1
+        return out
+
+    T.DiffusionModule._hoist_layer_bias = _hoist_layer_bias
 
     # `_pair_transpose_impl` takes the row-major route under exactly this predicate.
     impl = T._pair_transpose_impl
