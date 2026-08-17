@@ -1,0 +1,47 @@
+{
+  "label": "item15adapted-7L39-protein_only-msa-qb1card2 (ligand dropped; live ColabFold a3m, 2310 lines)",
+  "pred_dir": "/tmp/of3dev/l39_msa/openfold3_results_pdb_7l39_protein_only/structures",
+  "ref_cif": "7l39.cif",
+  "ref_chains": [
+    "A"
+  ],
+  "n": 8,
+  "values": [
+    0.5624402152279915,
+    0.6077892323665266,
+    0.5360164921497502,
+    0.49135910208647976,
+    0.5004846382408724,
+    0.6500600647787164,
+    0.5359044519501592,
+    0.5134197488497705
+  ],
+  "gdt_ts": [
+    0.9845679012345678,
+    0.9814814814814815,
+    0.9876543209876543,
+    0.9907407407407407,
+    0.9861111111111112,
+    0.970679012345679,
+    0.9891975308641975,
+    0.9922839506172839
+  ],
+  "mean": 0.5496842432062833,
+  "sd": 0.05493949526031635,
+  "ceiling": 0.6,
+  "floor": null,
+  "verdict": "PASS",
+  "layout": "ttbio",
+  "metric": "openfold3.core.metrics.alignment.best_ca_rmsd",
+  "openfold3_commit": "72fc3a9534d37291b1ca7f02f11a8a0b12cd80c9",
+  "cifs": [
+    "pdb_7l39_protein_only.cif",
+    "pdb_7l39_protein_only_model_1.cif",
+    "pdb_7l39_protein_only_model_2.cif",
+    "pdb_7l39_protein_only_model_3.cif",
+    "pdb_7l39_protein_only_model_4.cif",
+    "pdb_7l39_protein_only_model_5.cif",
+    "pdb_7l39_protein_only_model_6.cif",
+    "pdb_7l39_protein_only_model_7.cif"
+  ]
+}
