@@ -13,7 +13,31 @@ on-device gate below. Run device checks serially on an otherwise idle card.
 
 ## Required gates
 
-Run from the repository root:
+Run from the repository root, and run them with the interpreter that carries the
+**pinned** TT-NN, not whatever the gate host's system `python3` happens to have.
+`pyproject.toml` pins an exact `ttnn==` version and that is what a user gets from
+`pip install tt-bio`; a gate run against a different TT-NN certifies a runtime
+nobody ships. The difference is not cosmetic: on a boltz2 no-MSA target, ttnn
+0.67.4 and 0.68.0 disagree by several angstrom of Kabsch RMSD on identical code
+(see the note in `docs/implementation-parity-data/boltz2-9ncy.json`), which reads
+as a parity regression that is not one. Check before you start:
+
+```bash
+python3 -c "import importlib.metadata as m; print(m.version('ttnn'))"   # must equal the pyproject pin
+```
+
+The surest way is to build the release artifacts first and run every gate from the
+venv you installed the wheel into, with `PYTHONPATH="$PWD"` so the tree under test
+stays the repository:
+
+```bash
+python3 -m build && python3 -m venv /tmp/relvenv
+/tmp/relvenv/bin/pip install dist/tt_bio-*.whl
+PYTHONPATH="$PWD" /tmp/relvenv/bin/python3 scripts/full_parity_gate.py ...
+```
+
+`full_parity_gate.py`, `perf_regression.py` and `ux_regression.py` all spawn their
+folds and scorers as `sys.executable`, so the choice propagates to every leg.
 
 ```bash
 python3 -m pytest -v --tb=short

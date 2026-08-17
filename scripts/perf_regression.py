@@ -926,6 +926,13 @@ def _measure_affinity(model: str, spec: dict, out_path: Path) -> dict:
 
     env = dict(os.environ)
     pp = str(REPO_ROOT)
+    # REPO_ROOT goes FIRST on the child's PYTHONPATH so the timed CLI measures this tree, which is
+    # the whole point of the gate. It also means this script cannot be used as a cross-version A/B
+    # harness: running it under a venv that has some other tt-bio installed swaps the dependencies
+    # and not the code, because the child still imports tt_bio from here. That silently reads as
+    # "the two versions measure the same". To compare releases, invoke each venv's own `tt-bio`
+    # console script from a cwd with no tt_bio/ in it, no PYTHONPATH set, and record
+    # tt_bio.__file__ per arm.
     env["PYTHONPATH"] = pp + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
     env.setdefault("TT_VISIBLE_DEVICES", "0")
     env.setdefault("TT_METAL_LOGGER_LEVEL", "FATAL")
