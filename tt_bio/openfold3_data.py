@@ -241,6 +241,17 @@ def build_openfold3_features(
     for chain in query.chains:
         tmpl_path = chain.template_alignment_file_path
         template_ids = chain.template_entry_chain_ids
+        if getattr(chain, "template_cif_paths", None) and tmpl_path is None:
+            # The query schema accepts template CIFs, which ask the implementation to
+            # align them to the query. That search is not ported; only a precomputed
+            # alignment npz is. Without this the fold would run template-free and say
+            # nothing (found by the upstream openfold-3 inference suite, whose
+            # test_templates.py supplies templates in exactly this form).
+            raise RuntimeError(
+                f"--model openfold3: chain {list(chain.chain_ids)} gives "
+                f"`template_cif_paths`, which asks for a template search. That is not "
+                f"ported; supply a precomputed alignment npz via `templates:` instead. "
+                f"See docs/openfold3-port.md.")
         if tmpl_path is not None:
             templates_requested = True
             tmpl_path = Path(str(tmpl_path)).expanduser()
