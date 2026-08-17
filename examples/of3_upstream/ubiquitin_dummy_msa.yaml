@@ -11,4 +11,4 @@ sequences:
   - protein:
       id: A
       sequence: MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG
-      msa: examples/of3_upstream/msa/ubiquitin_dummy/colabfold_main.a3m
+      msa: examples/of3_upstream/dummy_alignments/ubiquitin/colabfold_main.a3m
