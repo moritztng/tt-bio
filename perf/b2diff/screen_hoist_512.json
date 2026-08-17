@@ -1,0 +1,51 @@
+{
+ "ttnn": "0.68.0",
+ "host": "pc",
+ "reps": 100,
+ "note": "pc card 0; timings only, no parity claim",
+ "clone_logits": {
+  "us_per_op": 48.564989992883056,
+  "mb": 16.778,
+  "gb_s": 345.4752076024051
+ },
+ "slice_token_bias": {
+  "us_per_op": 129.83260006876662,
+  "mb": 16.778,
+  "gb_s": 129.22794422289493
+ },
+ "slice_atom_bias": {
+  "us_per_op": 48.45669987844303,
+  "mb": 14.680064,
+  "gb_s": 302.9522034481496
+ },
+ "adaln_atom_to_memcfg": {
+  "us_per_op": 10.85124007659033,
+  "mb": 3.670016,
+  "gb_s": 338.21166743121125
+ },
+ "adaln_atom_layernorm": {
+  "us_per_op": 19.60644993232563,
+  "mb": 3.670016,
+  "gb_s": 187.18411607749323
+ },
+ "adaln_atom_linear": {
+  "us_per_op": 51.673270063474774,
+  "mb": 3.702784,
+  "gb_s": 71.65762870148431
+ },
+ "adaln_token_layernorm": {
+  "us_per_op": 21.70588995795697,
+  "mb": 1.572864,
+  "gb_s": 72.46254371723735
+ },
+ "adaln_token_layernorm_nw": {
+  "us_per_op": 14.45742993382737,
+  "mb": 1.572864,
+  "gb_s": 108.79278040420077
+ },
+ "eltwise_token_add": {
+  "us_per_op": 17.217279819305986,
+  "mb": 2.359296,
+  "gb_s": 137.03070547500118
+ }
+}
