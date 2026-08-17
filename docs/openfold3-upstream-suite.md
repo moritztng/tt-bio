@@ -54,8 +54,8 @@ numbers on both ubiquitin modes, which is what makes it usable as a control.
 | `query_single_protein_single_ligand` × 4 modes | NOT APPLICABLE as written | ligand chain not ported | — |
 | ⤷ adapted, protein only, no_msa, floor 8.0 Å (16.002 ± 0.388) | PASS | **14.803 Å** | 14.895 Å PASS |
 | ⤷ adapted, protein only, msa, ceiling 0.6 Å (0.367 ± 0.049) | see note | **0.550 Å** | 0.950 Å, over the ceiling |
-| `test_template_lowers_rmsd[1a8q]` | NOT APPLICABLE as written; ADAPTED | TEMPLATES_1A8Q | — |
-| `test_template_lowers_rmsd[1y57]` | NOT APPLICABLE as written; ADAPTED | TEMPLATES_1Y57 | — |
+| `test_template_lowers_rmsd[1a8q]`, off > 8.0 / on < 2.0 / gap > 5.0 (16.58 ± 0.68 / 0.26 ± 0.02) | PASS (adapted) | off **16.600 Å**, on **0.244 Å**, gap **16.356 Å** | — |
+| `test_template_lowers_rmsd[1y57]`, off > 18.0 / on < 16.0 / gap > 6.0 (23.77 ± 1.25 / 12.07 ± 2.83) | PASS (adapted) | off **24.482 Å**, on **13.173 Å**, gap **11.309 Å** | — |
 | `test_pocket_constraint_localizes_ligand` | NOT APPLICABLE | ligand, pocket constraint and pocket-guided sampling all unported | — |
 
 Per-leg evidence, including every per-sample value and gdt_ts, is committed under
@@ -100,8 +100,14 @@ more accurate: two wide samples out of eight is a tail draw at n=8.
 
 **Template alignments.** The template tests hand the implementation a CIF and ask it to align. We ran
 upstream's own `TemplatePreprocessor` (`mode="predict"`) on the identical query to produce the alignment
-npz, then folded with it. Upstream does the alignment it owns, this port does the fold. The npz carries
-the same `index` / `release_date` / `idx_map` entries a known-good alignment cache does.
+npz, then folded with it. Upstream does the alignment it owns, this port does the fold. Nothing about the
+query is changed, so upstream's calibrated bounds apply directly, and both cases land inside upstream's
+own measured spread: 1a8q off 16.600 Å against their 16.58 ± 0.68 and on 0.244 Å against their
+0.26 ± 0.02; 1y57 off 24.482 Å against 23.77 ± 1.25 and on 13.173 Å against 12.07 ± 2.83. The 1y57
+alignment is the case with real indels at 61.7% identity, so it exercises the aligner rather than an
+identity map. Both no-MSA arms pass all three assertions: the table reports the one-row-alignment arm,
+and `--single_sequence` gives 1a8q off 17.856 / on 0.270 and 1y57 off 25.499 / on 10.522, so the ubiquitin
+defect below does not reach these targets.
 
 **Output-file assertions.** `test_inference_writes_outputs` names upstream's own layout
 (`msas/<run>/{main,dummy}`, `timing.json`, a per-sample confidences trio). This port writes
