@@ -1,0 +1,68 @@
+{
+  "legs": [
+    {
+      "leg": "openfold3-ubq-msa",
+      "verdict": "PASS",
+      "detail": "ubq: X=1.320 R=1.640 D=0.590 within=True",
+      "wall": 792.5947465480131,
+      "committed": "PASS",
+      "report": "openfold3-ubq-msa.json"
+    },
+    {
+      "leg": "openfold3-prot-msa",
+      "verdict": "PASS",
+      "detail": "prot: X=2.000 R=1.642 D=1.524 within=True",
+      "wall": 837.8444679170207,
+      "committed": "PASS",
+      "report": "openfold3-prot-msa.json"
+    },
+    {
+      "leg": "openfold3-7xi5-tmpl",
+      "verdict": "PASS",
+      "detail": "7xi5_tmpl: X=4.401 R=4.160 D=0.387 within=True",
+      "wall": 744.1801952199894,
+      "committed": "PASS",
+      "report": "openfold3-7xi5-tmpl.json"
+    },
+    {
+      "leg": "openfold3-7xi5-notmpl",
+      "verdict": "PASS",
+      "detail": "7xi5_notmpl: X=5.004 R=2.867 D=2.903 within=True",
+      "wall": 642.106813936989,
+      "committed": "GAP-evidenced",
+      "report": "openfold3-7xi5-notmpl.json"
+    },
+    {
+      "leg": "openfold3-8hel-msa",
+      "verdict": "PASS",
+      "detail": "8hel_msa: X=5.630 R=7.585 D=0.580 within=True",
+      "wall": 674.508661920001,
+      "committed": "PASS",
+      "report": "openfold3-8hel-msa.json"
+    },
+    {
+      "leg": "openfold3-8hel-nomsa",
+      "verdict": "PASS",
+      "detail": "8hel_nomsa: X=11.820 R=11.571 D=10.969 within=True",
+      "wall": 628.4672027390043,
+      "committed": "PASS",
+      "report": "openfold3-8hel-nomsa.json"
+    },
+    {
+      "leg": "openfold3-9bk6-complex-msa",
+      "verdict": "PASS",
+      "detail": "9bk6: X=1.789 R=1.448 D=0.805 within=True",
+      "wall": 599.7731010479911,
+      "committed": "PASS",
+      "report": "openfold3-9bk6-complex-msa.json"
+    }
+  ],
+  "tally": {
+    "PASS": 7
+  },
+  "scored": 7,
+  "total_wall_s": 4919.477438499016,
+  "workers": [
+    "UF-EV-A13-GWH02:28"
+  ]
+}
