@@ -61,12 +61,13 @@ jobs:
   pypi-publish:
     needs: build
     runs-on: ubuntu-latest
-    # Best-effort PyPI publish via Trusted Publishing (no stored token). continue-on-error
-    # so a missing/mismatched PyPI Trusted Publisher can NEVER fail the release — the
-    # GitHub Release (independent sibling job) always ships the wheel regardless. To make
-    # this step actually publish, add a Trusted Publisher on pypi.org for project `tt-bio`:
-    # owner moritztng / repo tt-bio / workflow release.yaml / environment pypi (see RELEASING.md).
-    continue-on-error: true
+    # PyPI publish via Trusted Publishing (no stored token). This job used to carry
+    # continue-on-error so that a release could ship before a Trusted Publisher existed.
+    # v0.6.3 published, so it does exist, and the valve now only hides failures: the run
+    # went green and the GitHub Release shipped the wheel whether or not PyPI ever got it,
+    # which cost a whole verification pass to rule out. A failed publish must be red.
+    # `github-release` stays an independent sibling, so a PyPI failure fails the run
+    # without blocking the GitHub Release.
     environment: pypi
     permissions:
       id-token: write
