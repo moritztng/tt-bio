@@ -390,9 +390,15 @@ class OpenDDE:
         # atom-level tensors, see tt-bio-shared-diffusion-global-env-default-regression).
         # gated_move=True: E6 fires on 1048 of the fold's 1216 trimul channel moves at c_z=384
         # and is torch.equal to the sequence it replaces at both slice widths.
+        #
+        # OPENDDE_DIFFUSION_FP32=1 lifts the bf16 pin for an A/B. The pin is a perf decision,
+        # so it needs an opt-out that does not also flip Protenix-v2 (which is what
+        # PROTENIX_DIFFUSION_FP32_DEVICE would do -- tt-bio-shared-diffusion-global-env-default-regression).
+        # Diagnostic only: fp32 here is >60x slower on OpenDDE's atom-level tensors.
+        import os
         self._protenix = Protenix(
             self._shared, compute_kernel_config, self.dev, c_z=C["c_z"], msa_update_first=True,
-            diffusion_fp32=False, gated_move=True)
+            diffusion_fp32=os.environ.get("OPENDDE_DIFFUSION_FP32", "0") == "1", gated_move=True)
         self.expander = StructuralTokenExpander(
             routed["expander"], compute_kernel_config, c_s=C["c_s"], c_z=C["c_z"],
             c_s_inputs=C["c_s_inputs"], n_roles=C["n_roles"], pair_chunk_size=C["pair_chunk_size"])
