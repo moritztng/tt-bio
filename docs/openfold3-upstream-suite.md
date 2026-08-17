@@ -40,8 +40,9 @@ Those rows are marked ADAPTED.
 
 Bounds and the parenthesised numbers are upstream's own, measured on MPS and written inline in the test
 files. "CPU reference" is upstream's implementation run on CPU in fp32 on the same checkpoint
-(`of3-p2-155k.pt`), same protocol, same input as our device leg; it lands within 0.12 Å of upstream's MPS
-numbers on both ubiquitin modes, which is what makes it usable as a control.
+(`of3-p2-155k.pt`), same protocol, same input as our device leg. It lands within 0.12 Å of upstream's MPS
+means on both ubiquitin modes and brackets their stated per-sample envelope on both CA-RMSD and gdt_ts, so
+it reproduces their distribution rather than just their centre. That is what makes it usable as a control.
 
 Seven items pass, one fails, eleven are NOT APPLICABLE. Each of the 19 collected items is classified once,
 taking the adapted variant where one exists.
@@ -165,8 +166,26 @@ one-row alignment gives:
 | real 19310-row MSA | on | 0.678 | 0.813 Å |
 
 1.50 Å, from an input difference. Upstream's own inline note for this case records ptm 0.67 for
-single-sequence ubiquitin, which is the one-row number. Every `--single_sequence` fold in this repo is on
-the affected path; MSA-mode folds are not. The fix is not landed yet.
+single-sequence ubiquitin, which is the one-row number.
+
+The per-sample distributions say it more sharply than the means do. Upstream states the ubiquitin
+per-sample envelope as CA-RMSD 0.79-1.72 Å with gdt_ts 0.888-0.974:
+
+| arm | per-sample CA-RMSD | per-sample gdt_ts |
+|---|---|---|
+| upstream, stated | 0.79-1.72 | 0.888-0.974 |
+| CPU reference (upstream's model, our run) | 0.51-1.76 | 0.901-0.990 |
+| ours, one-row alignment | 0.58-1.23 | 0.944-0.984 |
+| ours, `--single_sequence` | 0.98, then 2.46-2.59 | 0.961, then 0.704-0.727 |
+
+Seven of our eight `--single_sequence` samples land above upstream's entire observed RMSD range and below
+its entire gdt_ts range. That is a different mode, not a shifted mean, and it is why we treat this as a
+defect rather than a backend offset. Every `--single_sequence` fold in this repo is on the affected path;
+MSA-mode folds are not. The fix is not landed yet.
+
+The same table is the independent check on our CPU control: it brackets upstream's stated envelope on both
+metrics, so it reproduces their distribution and not merely their mean. That is the basis for using it to
+decide which side a disagreement falls on.
 
 The suite also found that a query carrying `template_cif_paths` used to fold template-free in silence,
 with all-zero dummy template features. That contradicted this port's own rule that unsupported input
