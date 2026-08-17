@@ -43,6 +43,9 @@ files. "CPU reference" is upstream's implementation run on CPU in fp32 on the sa
 (`of3-p2-155k.pt`), same protocol, same input as our device leg; it lands within 0.12 Å of upstream's MPS
 numbers on both ubiquitin modes, which is what makes it usable as a control.
 
+Seven items pass, one fails, eleven are NOT APPLICABLE. Each of the 19 collected items is classified once,
+taking the adapted variant where one exists.
+
 | upstream item | verdict | our device | CPU reference, same input |
 |---|---|---|---|
 | `protein_only` × {no_msa, msa}, no templates | PASS (adapted) | structure + confidence record per sample, 68 residues over 2 chains | — |
@@ -66,7 +69,7 @@ Per-leg evidence, including every per-sample value and gdt_ts, is committed unde
 Each is a documented limit of the port, not an inconvenience. The full table is in
 [openfold3-port.md](openfold3-port.md).
 
-- **Ligands.** Roughly half the suite's items carry a SMILES or CCD chain. The port is polymer-only and
+- **Ligands.** Nine of the nineteen items carry a SMILES or CCD chain. The port is polymer-only and
   refuses: `--model openfold3 is polymer-only for now (chain(s) ['C'] are ligands)`. No structure is
   written. Verified by running both ligand-bearing queries.
 - **Pocket constraints.** `test_pocket_constraint_localizes_ligand` needs three unported things at once:
@@ -186,7 +189,7 @@ subset the port does not implement is refused loudly rather than silently degrad
   own runner and has no backend seam. Every scored number comes from a harness that reuses upstream's
   metric, reference and thresholds and substitutes only the model.
 - It says nothing about ligands, covalent bonds, pocket constraints, paired MSAs, template search or PAE
-  output. About half the suite's items are NOT APPLICABLE for that reason. That is a statement about the
+  output. Eleven of the nineteen items are NOT APPLICABLE for those reasons. That is a statement about the
   port's scope, not its accuracy.
 - The accuracy measured is that of the p2-preview checkpoint at 155k steps, not of AF3. Whether that
   checkpoint is good enough for a given target is a separate question the confidence outputs answer.
