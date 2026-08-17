@@ -305,7 +305,7 @@
   ],
   "design": {
     "cond": "Wall-clock seconds to return one binder design on a single AI Processor, warm, at the model's shipped defaults. Shorter is better. Every platform runs one design at a time, the same protocol as the prediction rows.",
-    "note": "One design at a time on all four accelerators, so nothing here compares a batch against a single. The next target size up overflows L1 on the p150a, so this row sits one rung below it, at 514 tokens, where an H200 draws 41 % of its 700 W limit and a B200 31 % of its 1000 W. A larger target would work the GPUs harder, so read the BoltzGen row as the most favourable honest reading rather than a ceiling. The B200 is 1.27x slower than the H200 here. A prediction row carries a bit-exact digest; a design draws a new sequence every time, so every design counted here was validated on its own output: it wrote, parsed, had finite coordinates and had the residue topology its spec asked for.",
+    "note": "One design at a time on every platform, so nothing here compares a batch against a single. Measured at 514 tokens: the next size up overflows L1 on the p150a, and a larger target would work the GPUs harder, so read this row as the most favourable honest reading rather than a ceiling.",
     "methods": "One pinned target at the shipped defaults: BoltzGen, 500 sampling steps, one design at a time on every platform. Tenstorrent figures are warm medians on one Blackhole p150a under a run lock, with the cold pass and the design that pays the checkpoint switch dropped. GPU figures come from the same protocol on rented single-GPU nodes. Designs are validated per run rather than digested: chain sizes, residue topology and finite coordinates, never atom equality between siblings, because sibling designs legitimately differ.",
     "models": [
       {
@@ -421,9 +421,6 @@
   },
   "caveats": [
     "Rows are not a cross-model ranking. Boltz-2 and OpenFold3 do 3 recycles where ESMFold2, Protenix-v2 and OpenDDE do 10, because that is what each ships. Compare a model to itself across hardware. BoltzGen returns a binder design, not a prediction; its bars share an axis with the prediction models but not a unit.",
-    "Accuracy is not compared here. Each stack ran its own settings and every run was checked against its own plDDT, but these numbers are wall-clock and cost.",
-    "The A100 ran every cell on this page, on the same fixtures. Its host is an AMD EPYC 7513 where the H200 and B200 boxes were Intel Xeon, which matters for the dispatch-bound trunks and is not corrected for.",
-    "BoltzGen's row is measured on a 514-token target because the next size up overflows L1 on the p150a. At that size an H200 runs at 41 % of its power limit, so a bigger target or a batch of designs would move the row toward the GPU. Every platform ran one design at a time.",
-    "The DGX A100 is a previous-generation machine and its row flatters it twice. Its GPUs launched in 2020, and this page gives every server the same four-year window, so a DGX A100 bought today is credited with four more earning years the way a current box is. Its $175,000 is an assumption, not a published price, where the DGX H200 and DGX B200 carry list prices. Read its throughput per dollar as the most favourable case for a used-generation machine, not as a like-for-like comparison."
+    "The A100 ran every cell on this page, on the same fixtures. Its host is an AMD EPYC 7513 where the H200 and B200 boxes were Intel Xeon, which matters for the dispatch-bound trunks and is not corrected for."
   ]
 }

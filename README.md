@@ -16,6 +16,10 @@ TT-Bio runs [Boltz-2](https://github.com/jwohlwend/boltz), [ESMFold2](https://gi
 
 Every model TT-Bio serves is validated against its official reference implementation on the same input and reproduces it within that reference's own run-to-run noise. See [`docs/implementation-parity.md`](docs/implementation-parity.md) for the methodology, per-target results, and reproduction commands.
 
+## Performance and cost
+
+Predictions and designs per hour per server, and throughput per dollar of purchase price and of total cost of ownership, measured against NVIDIA DGX systems. See [the performance page](https://moritztng.github.io/tt-bio/) for the numbers, the fixtures they were measured on, and the cost model behind them.
+
 ## Installation
 
 Create a Python virtual environment with Python 3.10 or 3.12, install, then install the matching Tenstorrent system dependencies.
@@ -64,8 +68,8 @@ Every command names its model with `--model`:
 - **`boltz2`**: folds complexes of proteins, DNA, RNA, and ligands and predicts binding affinity. MSA-dependent (uses an MSA by default).
 - **`esmfold2`** / **`esmfold2-fast`**: fold a single protein sequence on-device, no MSA required (`esmfold2-fast` is the lighter, faster checkpoint).
 - **`protenix-v2`**: folds complexes of proteins, RNA, DNA, and ligands (an AlphaFold3-family model, the [Protenix](https://github.com/bytedance/Protenix) reproduction); MSA-dependent for proteins (uses an MSA by default), and also emits a PAE/PDE matrix with `--write_pae`.
-- **`openfold3`**: folds proteins, RNA and DNA (an AlphaFold3-family model, the [OpenFold3](https://github.com/aqlaboratory/openfold-3) reproduction); MSA-dependent (uses an MSA by default), with optional per-chain templates. Polymer chains only — ligands and covalent bonds are not supported yet (raise a clear error). Weights come from the OpenFold consortium; point `OF3_CKPT` at them.
-- **`saprot`**: structure-aware protein embeddings — an ESM-2 encoder over a fused amino-acid + Foldseek-3Di vocabulary (446 tokens). Needs a structure for the 3Di structural tokens (`--structure`); runs sequence-only without it. Use for variant-effect / mutation-fitness scoring and function prediction.
+- **`openfold3`**: folds proteins, RNA and DNA (an AlphaFold3-family model, the [OpenFold3](https://github.com/aqlaboratory/openfold-3) reproduction); MSA-dependent (uses an MSA by default), with optional per-chain templates. Polymer chains only, ligands and covalent bonds are not supported yet (raise a clear error). Weights come from the OpenFold consortium; point `OF3_CKPT` at them.
+- **`saprot`**: structure-aware protein embeddings, an ESM-2 encoder over a fused amino-acid + Foldseek-3Di vocabulary (446 tokens). Needs a structure for the 3Di structural tokens (`--structure`); runs sequence-only without it. Use for variant-effect / mutation-fitness scoring and function prediction.
 - **`opendde`** / **`opendde-abag`**: antibody-antigen co-folding built on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint. Protein-only for now; proteins are MSA-dependent (uses an MSA by default, like Protenix-v2).
 
 ```bash
@@ -155,7 +159,7 @@ Sequences batch automatically on 300M/600M (`--batch_size`, default 8): a
 padded, length-bucketed device forward per batch, masked so results are
 identical to running each sequence alone. Single-sequence calls
 (`--batch_size 1`, e.g. serving one sequence at a time) replay through a
-captured device trace once a length bucket repeats — up to ~1.5x faster per
+captured device trace once a length bucket repeats, up to ~1.5x faster per
 call on QuietBox-class hosts, bit-identical, no flags needed.
 
 To embed a large batch faster, shard it across several cards with
@@ -192,11 +196,11 @@ embs = esmc.embed(sequences, model="esmc-600m", devices=[0, 1, 2, 3])
 
 ### Structure-Aware Protein Embeddings (SaProt)
 
-SaProt is a structure-aware protein language model — an ESM-2 encoder over a fused
+SaProt is a structure-aware protein language model, an ESM-2 encoder over a fused
 amino-acid + Foldseek 3Di vocabulary (446 tokens). Where ESMC is sequence-only, SaProt
 also encodes local structure, so its embeddings and MLM logits reflect both sequence
 and shape. Use it for variant-effect / mutation-fitness scoring and function prediction
-when you have a structure (predicted or experimental — fold it with `tt-bio predict`
+when you have a structure (predicted or experimental: fold it with `tt-bio predict`
 first, then score it with SaProt).
 
 ```bash
@@ -213,13 +217,13 @@ or set `FOLDSEEK_BIN`); it runs off-device. Omit `--structure` for sequence-only
 
 For each sequence you get **per-residue** structure-aware embeddings (`[length, d_model]`
 float32) and a **pooled** vector, plus per-residue MLM logits (`[length, 446]` with
-`--logits`) over the fused vocabulary — the log-likelihoods used for zero-shot mutation
+`--logits`) over the fused vocabulary, the log-likelihoods used for zero-shot mutation
 scoring. Output layout matches `tt-bio embed` (`<id>.npz` / `embeddings.parquet` /
 `manifest.json`).
 
 `--model` selects the variant (`saprot-35m`, `saprot-650m`, `saprot-1.3b`). `--devices 0,1,2,3`
 shards the input across cards data-parallel (one pinned subprocess each, results reassembled in
-input order) — bit-exact vs single-card with `--batch_size 1`. Parity vs the reference HuggingFace
+input order), bit-exact vs single-card with `--batch_size 1`. Parity vs the reference HuggingFace
 checkpoint, the multi-card bit-exactness check, and warm throughput are in
 [`docs/saprot-parity.md`](docs/saprot-parity.md).
 
@@ -632,7 +636,7 @@ Behavior:
 
 ## Design
 
-Design new binders and protein structures from a target or motif specification — one command, two models:
+Design new binders and protein structures from a target or motif specification: one command, two models:
 
 ```bash
 tt-bio design examples/binder.yaml --model boltzgen --num_designs 10
@@ -641,7 +645,7 @@ tt-bio design specs.json --model rfd3 --from_pdb --out_dir designs/
 
 | Model | Designs | Input |
 |-------|---------|-------|
-| `boltzgen` (default) | protein / peptide / nanobody / antibody binders against a target | design YAML — same entity grammar as `predict` |
+| `boltzgen` (default) | protein / peptide / nanobody / antibody binders against a target | design YAML, same entity grammar as `predict` |
 | `rfd3` | all-atom structures: binders, motif scaffolding, nucleic-acid binders | JSON spec with contig strings |
 
 **[BoltzGen](https://github.com/HannesStark/boltzgen)** designs binders against a target structure. The pipeline runs design → inverse folding → folding → analysis → filtering and writes the top-ranked binders to `<out_dir>/final_ranked_designs/`. Input grammar, protocols, pipeline subsets, and options: [`docs/boltzgen-design.md`](docs/boltzgen-design.md). Designability (scRMSD) QA: [`docs/boltzgen-designability.md`](docs/boltzgen-designability.md).

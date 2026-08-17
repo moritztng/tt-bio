@@ -1,0 +1,228 @@
+{
+ "host": "tt-quietbox",
+ "card": "1",
+ "git_head": "72271222",
+ "arch": "blackhole",
+ "grid": [
+  13,
+  10
+ ],
+ "cores": 130,
+ "l1_unreserved_per_core": 1532448,
+ "is_small_grid": false,
+ "fast_mode": true,
+ "rows": 32,
+ "window": [
+  320,
+  1024
+ ],
+ "split_swiglu": true,
+ "fuse_swiglu": false,
+ "sizes": {
+  "512": {
+   "in_window": true,
+   "off": {
+    "ln": [
+     0,
+     0
+    ],
+    "slice": [
+     0,
+     1
+    ],
+    "resid": [
+     0,
+     1
+    ],
+    "fill": [
+     0,
+     1
+    ],
+    "l1_fc1": [
+     32,
+     0
+    ],
+    "split": [
+     1,
+     0
+    ],
+    "refused": {
+     "ln": 0,
+     "slice": 0,
+     "resid": 0,
+     "fill": 0
+    }
+   },
+   "E": {
+    "ln": [
+     16,
+     0
+    ],
+    "slice": [
+     0,
+     1
+    ],
+    "resid": [
+     0,
+     1
+    ],
+    "fill": [
+     0,
+     1
+    ],
+    "l1_fc1": [
+     32,
+     0
+    ],
+    "split": [
+     1,
+     0
+    ],
+    "refused": {
+     "ln": 0,
+     "slice": 0,
+     "resid": 0,
+     "fill": 0
+    },
+    "torch_equal": true,
+    "max_abs_diff": 0.0
+   },
+   "Cin": {
+    "ln": [
+     0,
+     0
+    ],
+    "slice": [
+     1,
+     0
+    ],
+    "resid": [
+     0,
+     1
+    ],
+    "fill": [
+     0,
+     1
+    ],
+    "l1_fc1": [
+     32,
+     0
+    ],
+    "split": [
+     1,
+     0
+    ],
+    "refused": {
+     "ln": 0,
+     "slice": 0,
+     "resid": 0,
+     "fill": 0
+    },
+    "torch_equal": true,
+    "max_abs_diff": 0.0
+   },
+   "F": {
+    "ln": [
+     0,
+     0
+    ],
+    "slice": [
+     0,
+     1
+    ],
+    "resid": [
+     1,
+     0
+    ],
+    "fill": [
+     0,
+     1
+    ],
+    "l1_fc1": [
+     32,
+     0
+    ],
+    "split": [
+     1,
+     0
+    ],
+    "refused": {
+     "ln": 0,
+     "slice": 0,
+     "resid": 0,
+     "fill": 0
+    },
+    "torch_equal": true,
+    "max_abs_diff": 0.0
+   },
+   "G": {
+    "ln": [
+     0,
+     0
+    ],
+    "slice": [
+     0,
+     1
+    ],
+    "resid": [
+     1,
+     0
+    ],
+    "fill": [
+     1,
+     0
+    ],
+    "l1_fc1": [
+     32,
+     0
+    ],
+    "split": [
+     1,
+     0
+    ],
+    "refused": {
+     "ln": 0,
+     "slice": 0,
+     "resid": 0,
+     "fill": 0
+    },
+    "torch_equal": true,
+    "max_abs_diff": 0.0
+   },
+   "ship": {
+    "ln": [
+     16,
+     0
+    ],
+    "slice": [
+     1,
+     0
+    ],
+    "resid": [
+     1,
+     0
+    ],
+    "fill": [
+     1,
+     0
+    ],
+    "l1_fc1": [
+     32,
+     0
+    ],
+    "split": [
+     1,
+     0
+    ],
+    "refused": {
+     "ln": 0,
+     "slice": 0,
+     "resid": 0,
+     "fill": 0
+    },
+    "torch_equal": true,
+    "max_abs_diff": 0.0
+   }
+  }
+ }
+}
