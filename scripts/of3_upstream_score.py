@@ -34,6 +34,16 @@ def sample_cifs(d: Path):
                   key=lambda p: int(p.stem.rsplit("_model_", 1)[1]))
     return stems + rest
 
+
+def upstream_sample_cifs(d: Path):
+    """Sample cifs of an upstream ``run_openfold predict`` seed directory.
+
+    Same ordering rule as ``helpers.predicted_structure_cifs``: numeric on the sample
+    index, so sample 10 does not land between 1 and 2.
+    """
+    return sorted(Path(d).glob("*_sample_*_model.cif"),
+                  key=lambda p: int(p.stem.rsplit("_sample_", 1)[1].split("_")[0]))
+
 def main():
     import argparse
     ap = argparse.ArgumentParser()
@@ -44,17 +54,23 @@ def main():
     ap.add_argument("--ceiling", type=float)
     ap.add_argument("--floor", type=float)
     ap.add_argument("--label", required=True)
+    ap.add_argument("--layout", choices=("ttbio", "upstream"), default="ttbio",
+                    help="ttbio: a tt-bio structures/ dir, read with biotite. "
+                         "upstream: a run_openfold seed_<N> dir, read with upstream's "
+                         "own Structure.from_cif.")
     ap.add_argument("--out")
     a = ap.parse_args()
 
     ref_path = Path(a.ref) if Path(a.ref).exists() else MMCIFS / f"{a.ref}.cif"
-    cifs = sample_cifs(a.pred_dir)
+    upstream_layout = a.layout == "upstream"
+    cifs = (upstream_sample_cifs if upstream_layout else sample_cifs)(a.pred_dir)
     assert len(cifs) == a.expected_samples, (
         f"Expected {a.expected_samples} predicted samples, found {len(cifs)}: "
         f"{[c.name for c in cifs]}")
     ref = Structure.from_cif(ref_path)
     chains = tuple(a.ref_chains.split(","))
-    ms = [best_ca_rmsd(pred=read_prediction(c), ref=ref, ref_chains=chains) for c in cifs]
+    read = Structure.from_cif if upstream_layout else read_prediction
+    ms = [best_ca_rmsd(pred=read(c), ref=ref, ref_chains=chains) for c in cifs]
     vals = [m.rmsd for m in ms]
     gdt = [m.gdt_ts for m in ms]
     mean = statistics.fmean(vals)
@@ -68,7 +84,7 @@ def main():
     rec = {"label": a.label, "pred_dir": str(a.pred_dir), "ref_cif": ref_path.name,
            "ref_chains": chains, "n": len(vals), "values": vals, "gdt_ts": gdt,
            "mean": mean, "sd": sd, "ceiling": a.ceiling, "floor": a.floor,
-           "verdict": verdict,
+           "verdict": verdict, "layout": a.layout,
            "metric": "openfold3.core.metrics.alignment.best_ca_rmsd",
            "openfold3_commit": "72fc3a9534d37291b1ca7f02f11a8a0b12cd80c9",
            "cifs": [c.name for c in cifs]}
