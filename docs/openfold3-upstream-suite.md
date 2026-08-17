@@ -118,6 +118,36 @@ defect below does not reach these targets.
 `openfold3_results_<query>/structures/` plus a `results.json` confidence record, so the portable form of
 the claim is checked: one structure per diffusion sample and a confidence record, in both modes.
 
+## 1y57 checked against upstream's own calibration note
+
+The 1y57 comment in `test_templates.py` says three things we can check directly, and one of the checks
+does not flatter us.
+
+**Templates are active, which is the regression that comment is about.** Upstream notes that when
+templates get silently dropped (their issue #294) the ON condition collapses onto OFF at ~23.7 Å. Ours
+sits at 13.173 Å ON against 24.482 Å OFF, so nothing is being dropped.
+
+**The separation agrees, and upstream calls it the robust claim.** Ours is 11.309 Å. Upstream measured
+11.70 Å on MPS and 10.61 / 11.00 / 11.09 Å on three CUDA-family runs, so ours lands inside their observed
+band. They state explicitly that the with-template max at 16.0 Å is the tightest of the three bounds, at
+3.9 SE above their mean, and that the separation check is the robust one regardless of hardware.
+
+**Our ON distribution has a wider upper tail than theirs.** Upstream reports the MPS per-sample ON range
+as 8.2-15.5 Å, spread continuously. Ours on the faithful arm runs 8.62-19.08 Å, so four of eight samples
+sit above their observed maximum even though the mean passes. Sorted: 8.62, 8.63, 8.73, 11.43, 15.86,
+16.01, 17.03, 19.08. Upstream's own position is that the mean is the meaningful quantity here because the
+ON samples are widely spread, and by that measure we pass; we are flagging the tail because it is a real
+difference and because the 16.0 Å ceiling is the bound with the least room.
+
+One inversion worth stating rather than burying: on this leg the `--single_sequence` arm sits *closer* to
+upstream's distribution than the faithful one-row arm does. It runs 8.57-15.56 Å with a mean of 10.522 Å,
+which is inside their stated envelope and below their mean. We do not have an explanation, both arms clear
+all three bounds, and at sd 2.7-4.3 on eight samples neither ordering is resolvable. The tables quote the
+faithful arm because that is the condition the test specifies.
+
+1a8q for contrast: our ON range is 0.23-0.26 Å against upstream's 0.26 ± 0.02, tighter and centred a
+touch lower.
+
 ## The one FAIL, and its cause
 
 `ubiquitin` in no-MSA mode reads 2.339 Å against a 1.8 Å ceiling. It reproduces: three runs across two
