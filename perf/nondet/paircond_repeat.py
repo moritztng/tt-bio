@@ -68,7 +68,7 @@ def build_weights():
 def diff_report(ref, got):
     """Bit-exactness + the spatial fingerprint used on the pc dump triple."""
     if torch.equal(ref, got):
-        return dict(bitexact=True, maxabs=0.0, cells=0, rows=0)
+        return dict(bitexact=True, maxabs=0.0, cells=0, rows=0, idx=[])
     a, b = ref.float(), got.float()
     d = (a - b).abs()
     flat = d.reshape(-1, d.shape[-1])
@@ -76,7 +76,8 @@ def diff_report(ref, got):
     idx = bad.nonzero().flatten()
     ncol = ref.shape[-2] if ref.dim() >= 3 else 1
     return dict(bitexact=False, maxabs=float(d.max()), cells=int(bad.sum()),
-                rows=int(torch.unique(idx // ncol).numel()))
+                rows=int(torch.unique(idx // ncol).numel()),
+                idx=idx.tolist())
 
 
 def repeat_stage(name, fn, k, results):
@@ -96,6 +97,7 @@ def repeat_stage(name, fn, k, results):
     cmp = [diff_report(outs[0], o) for o in outs[1:]]
     ndiff = sum(0 if c["bitexact"] else 1 for c in cmp)
     worst = max(cmp, key=lambda c: c["maxabs"]) if cmp else dict(maxabs=0.0, cells=0, rows=0)
+    victims = sorted({i for c in cmp for i in c["idx"]})
     sha = hashlib.sha256(outs[0].float().numpy().tobytes()).hexdigest()[:16]
     rec = dict(stage=name, repeats=k, compute_differing=ndiff,
                compute_worst_maxabs=round(worst["maxabs"], 6),
@@ -103,7 +105,9 @@ def repeat_stage(name, fn, k, results):
                readback_bitexact=readback["bitexact"],
                readback_maxabs=round(readback["maxabs"], 6),
                out_sha16=sha,
-               out_absmax=round(float(outs[0].float().abs().max()), 4))
+               out_absmax=round(float(outs[0].float().abs().max()), 4),
+               victim_cells_union=victims[:4096],
+               victim_cells_union_n=len(victims))
     results.append(rec)
     print(f"  {name:22s} compute {k - 1 - ndiff}/{k - 1} identical"
           f"  worst_maxabs={rec['compute_worst_maxabs']:<12} cells={worst['cells']:<6}"
