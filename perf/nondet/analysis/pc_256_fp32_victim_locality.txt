@@ -1,0 +1,46 @@
+perf/nondet/out/paircond_pc_256_fp32_victims.json: host=pc card=0 N=256 prec=fp32 K=16
+flat rows M=65536  tile-rows=2048  cores=130  tile-rows/core=15.75
+
+== linear_z  differing 15/15  union victim cells=72
+   distinct victim tile-rows: 47
+   distinct cores hit: 26 of 130   (uniform-random would hit ~39.6)
+   top cores: [(7, 4), (113, 4), (6, 3), (112, 3), (125, 3), (126, 3), (8, 2), (9, 2), (17, 2), (22, 2), (99, 2), (108, 2)]
+   cores hit: [5, 6, 7, 8, 9, 17, 19, 20, 21, 22, 32, 33, 34, 99, 108, 109, 110, 111, 112, 113, 114, 117, 123, 124, 125, 126]
+   tile-rows: [85, 98, 100, 101, 114, 115, 116, 117, 132, 133, 148, 149, 275, 277, 308, 323, 340, 354, 356, 517, 532, 548, 1587, 1589, 1731, 1732, 1734, 1748, 1764, 1779, 1780, 1781, 1795, 1796, 1797, 1798, 1812, 1867, 1956, 1970, 1972, 1973, 1974, 1986, 1988, 1990, 1991]
+   offset within the core's 16-tile-row block: [(0, 3), (1, 4), (2, 6), (3, 6), (4, 12), (5, 8), (6, 1), (12, 1), (13, 3), (14, 3)]
+   in FIRST half of the block: 40/47
+   victim pair-rows: 24  even/odd 23/1
+   [10, 12, 14, 16, 18, 34, 38, 40, 42, 44, 64, 66, 68, 198, 216, 218, 220, 222, 224, 226, 233, 244, 246, 248]
+
+== transition_z1  differing 3/15  union victim cells=3
+   distinct victim tile-rows: 3
+   distinct cores hit: 3 of 130   (uniform-random would hit ~3.0)
+   top cores: [(48, 1), (95, 1), (127, 1)]
+   cores hit: [48, 95, 127]
+   tile-rows: [780, 1528, 2016]
+   offset within the core's 16-tile-row block: [(8, 1), (12, 1), (13, 1)]
+   in FIRST half of the block: 0/3
+   victim pair-rows: 3  even/odd 1/2
+   [97, 191, 252]
+
+== transition_z2  differing 1/15  union victim cells=1
+   distinct victim tile-rows: 1
+   distinct cores hit: 1 of 130   (uniform-random would hit ~1.0)
+   top cores: [(80, 1)]
+   cores hit: [80]
+   tile-rows: [1294]
+   offset within the core's 16-tile-row block: [(14, 1)]
+   in FIRST half of the block: 0/1
+   victim pair-rows: 1  even/odd 0/1
+   [161]
+
+== full_paircond  differing 15/15  union victim cells=220
+   distinct victim tile-rows: 103
+   distinct cores hit: 44 of 130   (uniform-random would hit ~71.3)
+   top cores: [(4, 6), (126, 6), (6, 5), (7, 5), (17, 4), (113, 4), (114, 4), (5, 3), (8, 3), (19, 3), (21, 3), (22, 3)]
+   cores hit: [4, 5, 6, 7, 8, 9, 10, 16, 17, 18, 19, 20, 21, 22, 23, 32, 33, 34, 35, 47, 48, 81, 85, 96, 97, 99, 101, 107, 108, 109, 110, 111, 112, 113, 114, 115, 122, 123, 124, 125, 126, 127, 128, 129]
+   tile-rows: [66, 67, 68, 69, 70, 71, 84, 85, 87, 98, 99, 100, 101, 103, 114, 115, 116, 117, 118, 130, 132, 133, 148, 149, 165, 263, 275, 277, 279, 281, 292, 307, 308, 309, 323, 340, 341, 342, 354, 356, 358, 374, 517, 530, 532, 534, 548, 550] ...
+   offset within the core's 16-tile-row block: [(0, 4), (1, 6), (2, 15), (3, 12), (4, 21), (5, 15), (6, 12), (7, 6), (9, 1), (12, 2), (13, 4), (14, 5)]
+   in FIRST half of the block: 91/103
+   victim pair-rows: 44  even/odd 41/3
+   [8, 10, 12, 14, 16, 18, 20, 32, 34, 35, 36, 38, 40, 42, 44, 46, 64, 66, 68, 70, 94, 97, 162, 170, 192, 194, 198, 202, 214, 216, 218, 220, 222, 224, 226, 228, 242, 244, 246, 248, 249, 250, 252, 254]
