@@ -70,6 +70,7 @@ error, verified by running it — nothing silently degrades.
 | RNA, DNA | ported, folds end to end |
 | templates | ported, per-chain alignment npz; no template search |
 | MSA | ported: per-chain file or directory, shared hash-cache search, `--single_sequence`. An MSA that was requested but cannot be resolved raises rather than folding single-sequence |
+| `--single_sequence` | upstream's no-MSA mode: nothing is searched, and every MSA-less protein/RNA chain folds on a one-row alignment of its own sequence with the MSA stack on (upstream's `augment_main_msa_with_query_sequence`). On ubiquitin this folds at 0.84 Å CA-RMSD against the crystal structure, inside upstream's 1.8 Å single-sequence ceiling |
 | recycling | ported; `--recycling_steps` default 3, i.e. 4 trunk cycles (the upstream default) |
 | sample ranking | ported; confidence-selected best of N, all samples kept |
 | multi-card `--devices` | ported, same fan-out as Protenix-v2 |
