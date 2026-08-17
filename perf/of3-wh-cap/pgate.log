@@ -1,0 +1,19 @@
+
+##############################################################################
+# FULL PARITY GATE — 7 legs, workers ['UF-EV-A13-GWH02:28']
+##############################################################################
+leg                               kind       ref           verdict               wall  detail
+--------------------------------------------------------------------------------------------------------------
+openfold3-ubq-msa                 structure  no-index      PASS                  793s  ubq: X=1.320 R=1.640 D=0.590 within=True [reproduces committed]
+openfold3-prot-msa                structure  no-index      PASS                  838s  prot: X=2.000 R=1.642 D=1.524 within=True [reproduces committed]
+openfold3-7xi5-tmpl               structure  no-index      PASS                  744s  7xi5_tmpl: X=4.401 R=4.160 D=0.387 within=True [reproduces committed]
+openfold3-7xi5-notmpl             structure  no-index      PASS                  642s  7xi5_notmpl: X=5.004 R=2.867 D=2.903 within=True [improves committed GAP-evidenced — not a drift]
+openfold3-8hel-msa                structure  no-index      PASS                  675s  8hel_msa: X=5.630 R=7.585 D=0.580 within=True [reproduces committed]
+openfold3-8hel-nomsa              structure  no-index      PASS                  628s  8hel_nomsa: X=11.820 R=11.571 D=10.969 within=True [reproduces committed]
+openfold3-9bk6-complex-msa        structure  no-index      PASS                  600s  9bk6: X=1.789 R=1.448 D=0.805 within=True [reproduces committed]
+
+##############################################################################
+# Tally: {'PASS': 7}    total wall 82.0 min
+# GATE PASS — every fast-path leg reproduces within its floor
+##############################################################################
+PGATE-EXIT=0
