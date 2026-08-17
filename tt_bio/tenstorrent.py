@@ -722,14 +722,14 @@ _ATOM_PAD_IN_TILE = os.environ.get("TT_BIO_ATOM_PAD_IN_TILE", "1") != "0"
 # x 24 token layers + 400 x 3 atom layers). Measured in-fold as stage:DiffusionTransformer minus
 # its two layer regions: 449.2 ms. Bit-exact and memory-neutral -- the parts partition the whole
 # and the source is freed.
-_B2_BIAS_SLICE_HOIST = os.environ.get("BOLTZ2_BIAS_SLICE_HOIST", "0") == "1"
+_B2_BIAS_SLICE_HOIST = os.environ.get("BOLTZ2_BIAS_SLICE_HOIST", "1") == "1"
 
 # L6: memoise AdaLN's conditioning half on the atom path. `s` there is the atom conditioning
 # `_c_reshaped`, cached once per fold, so 2400 calls per fold recompute 12 answers. This is
 # 717d36712 (openfold3's atom transformer, -1.565 s at 512 aa, bit-exact) applied to boltz-2.
 # The pair is held in DRAM: 24 retained L1 tensors of 1.83 MB would keep ~44 MB of L1 for the
 # whole rollout and clash with a later op's circular buffers.
-_B2_ADALN_S_MEMO = os.environ.get("BOLTZ2_ADALN_S_MEMO", "0") == "1"
+_B2_ADALN_S_MEMO = os.environ.get("BOLTZ2_ADALN_S_MEMO", "1") == "1"
 
 # S6: route the token-level diffusion transformer's attention through the fused ttnn SDPA,
 # deleting the materialised [1, 16, 512, 512] logits tensor and its five DRAM traversals.
