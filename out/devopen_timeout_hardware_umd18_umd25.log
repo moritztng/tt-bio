@@ -1,0 +1,11 @@
+[   0.0s] spawned worker for UMD 18
+[   0.0s] spawned worker for UMD 25
+[   0.0s] UMD 25: importing ttnn
+[   0.0s] UMD 18: importing ttnn
+[   1.0s] UMD 25: calling get_device()
+[   1.0s] UMD 18: calling get_device()
+[  22.0s] UMD 18: exitcode=-14   <- SIGALRM, the bound fired; the lock is released by this death
+[  42.0s] UMD 25: exitcode=-14   <- SIGALRM, the bound fired; the lock is released by this death
+
+exit codes: {18: -14, 25: -14}
+RESULT: PASS - every bad card terminated at the bound instead of stalling the host
