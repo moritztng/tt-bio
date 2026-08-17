@@ -1,0 +1,9 @@
+# Upstream openfold-3 test case `query_single_protein_single_ligand` (T4 lysozyme L99A
+# + toluene), with the ligand chain X dropped: the tt-bio OpenFold3 port is polymer-only.
+# The input therefore differs from the upstream test's, which is the point of the
+# ADAPTED label. Scored against 7l39.cif chain A.
+version: 1
+sequences:
+  - protein:
+      id: A
+      sequence: MNIFEMLRIDEGLRLKIYKDTEGYYTIGIGHLLTKSPSLNAAKSELDKAIGRNCNGVITKDEAEKLFNQDVDAAVRGILRNAKLKPVYDSLDAVRRCAAINMVFQMGETGVAGFTNSLRMLQQKRWDEAAVNLAKSRWYNQTPNRAKRVITTFRTGTWDAYKNL

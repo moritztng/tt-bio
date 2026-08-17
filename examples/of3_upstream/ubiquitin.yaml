@@ -1,0 +1,7 @@
+# Upstream openfold-3 test case `ubiquitin` (examples/example_inference_inputs/
+# query_ubiquitin.json). Scored against 1ubq.cif chain A.
+version: 1
+sequences:
+  - protein:
+      id: A
+      sequence: MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG
