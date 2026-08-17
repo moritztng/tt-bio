@@ -1,0 +1,15 @@
+# Upstream openfold-3 test case `test_pocket_constraint_localizes_ligand`
+# (query_protein_ligand_pocket_constraint.json, bla_1PZP_FTA). Protein + SMILES ligand
+# plus a pocket constraint. The tt-bio OpenFold3 port implements none of the three.
+version: 1
+sequences:
+  - protein:
+      id: A
+      sequence: HPETLVKVKDAEDQLGARVGYIELDLNSGKILESFRPEERFPMMSTFKVLLCGAVLSRVDAGQEQLGRRIHYSQRDLVEYSPVTEKHLTDGMTVRELCSAAITMSDNTAANLLLTTIGGPKELTAFLHNMGDHVTRLDRWEPELNEAIPNDERDTTMPAAMATTLRKLLTGELLTLASRQQLIDWMEADKVAGPLLRSALPAGWFIADKSGAGERGSRGIIAALGPDGKPSRIVVIYTTGSQATMDERNRQIAEIGASLIKHW
+  - ligand:
+      id: L
+      smiles: 'N(c1ccccc1)c1ccc(cc1)/N=C/[C@H](C#N)c1nnn[nH]1'
+constraints:
+  - bond:
+      atom1: [A, 2, CA]
+      atom2: [L, 1, C1]

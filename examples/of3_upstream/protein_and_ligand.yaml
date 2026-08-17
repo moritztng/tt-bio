@@ -1,0 +1,11 @@
+# Upstream openfold-3 test case `protein_and_ligand` (openfold3/tests/inference/
+# test_inference_full.py CASES). Leucine-zipper fragment as a homodimer plus phenol.
+# tt-bio's OpenFold3 port is polymer-only, so this must be refused, not folded.
+version: 1
+sequences:
+  - protein:
+      id: [A, B]
+      sequence: XRMKQLEDKVEELLSKNYHLENEVARLKKLVGER
+  - ligand:
+      id: C
+      smiles: 'c1ccccc1O'
