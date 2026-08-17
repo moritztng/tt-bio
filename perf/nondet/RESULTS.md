@@ -55,3 +55,21 @@ cheapest pc comparison point and now has a reference at both precisions.
 copy-copy) is clean on qb1 card 3 at both precisions, 2 iters each. 256 MB is ~4x the 256 aa
 fp32 pair_z tensor and is the validated working size; 1024 MB aborts inside ttnn on tensor
 size, not on any fault.
+
+## qb1 card 0 — the last untested fleet card (2026-08-17)
+
+Card 0 is the qb1 chip with a wedge history, so it was the one card that could plausibly have
+broken the "every qb1 card is clean" claim. It does not.
+
+| probe | result |
+|---|---|
+| `dram_stability.py 256 4 fp32` | 0 mismatched elements over 4 x 256 MB (read-read, read-written, copy-copy all 0) |
+| `paircond_repeat.py 256 8 fp32`, process r1 | 9/9 stages bit-identical, readback + upload bit-exact |
+| `paircond_repeat.py 256 8 fp32`, process r2 | 9/9 stages bit-identical; every sha equals r1 |
+
+Card 0 per-stage shas are the canonical values, byte for byte:
+`4362d54b,b576fe5e,003e9ca9,f02ef7cb,e79944a5,1b9124b5,c2fd7917,fa695ce1,fa695ce1`.
+Storage grid 13x10, CORE_GRID_MAIN (13,10), same as cards 1/2/3.
+
+All four qb1 cards now produce the same nine shas, within a process and across processes. The
+canonical pair-cond answer is a 4-card, 2-process result, not a 3-card one.
