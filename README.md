@@ -294,11 +294,10 @@ The `--affinity_mw_correction` flag applies molecular weight correction for more
 An affinity run folds the complex and then runs a second model that has its own
 64-block trunk, so it costs more than a structure-only fold. All of it runs on the
 card. FKBP12+SB3 at the default affinity protocol (200 sampling steps, 5 affinity
-samples, single sequence) takes about 92 s per ligand on one Blackhole p150a, of
-which about 29 s is the structure fold; the same target takes about 134 s on one
-Wormhole chip. The rest splits about evenly between the affinity model's diffusion
-and its trunk, so `--sampling_steps_affinity` and `--diffusion_samples_affinity` are
-the two flags that move the wall most: each extra affinity sample costs about 6 s.
+samples, single sequence) takes about 206 s per ligand on one Blackhole p150a,
+measured as a whole `tt-bio predict` invocation with model load included.
+`--sampling_steps_affinity` and `--diffusion_samples_affinity` are the two flags that
+move that wall most.
 
 The affinity trunk runs in fp32 because the predicted log10(IC50) is sensitive to
 activation precision, and that is not configurable. Earlier releases ran it in fp32

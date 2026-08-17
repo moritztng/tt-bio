@@ -7,8 +7,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 Binding affinity runs on the card. Boltz-2's affinity model kept its 64-block trunk in
 fp32 on the host CPU, which is why a single ligand took minutes and looked CPU-bound; it
-now runs in fp32 on device, and FKBP12+SB3 at the default protocol costs about 92 s per
-ligand on one Blackhole p150a instead of 160 s.
+now runs in fp32 on device, and FKBP12+SB3 at the default affinity protocol goes from
+294 s to 206 s per ligand on one Blackhole p150a.
 
 Large targets fit a 12 GiB card. Every structure model folds targets up to at least 1095
 residues on a single Wormhole chip, OpenDDE included, by switching the pair track to
@@ -29,10 +29,11 @@ Protenix-v2 or OpenDDE targets replayed the first target's conditioning for all 
 - Boltz-2 binding affinity runs entirely on the card. The affinity model's 64-block
   trunk used to run in fp32 on the host CPU by default, which made a single ligand
   take minutes and look like a CPU bottleneck; it now runs in fp32 on device.
-  FKBP12+SB3 at the default affinity protocol drops from 160 s to 92 s per ligand on
-  one Blackhole p150a and from 162 s to 134 s on one Wormhole chip, and the structure
-  fold beside it is unchanged at 29 s. All four committed affinity parity legs keep
-  their committed verdicts on both arms. `BOLTZ2_AFFINITY_TRUNK_FP32_HOST` and
+  A whole `tt-bio predict` on FKBP12+SB3 at the default affinity protocol drops from
+  294 s to 206 s per ligand, 1.43x, on one Blackhole p150a. Three timed reps per arm,
+  0.6.2 installed from its released PyPI wheel and 0.6.3 from this release's wheel, same
+  card and same input; the arms do not overlap. All six committed affinity parity legs
+  keep their committed verdicts. `BOLTZ2_AFFINITY_TRUNK_FP32_HOST` and
   `BOLTZ2_AFFINITY_TRUNK_FP32_DEVICE` are removed; the fp32 affinity trunk is no
   longer configurable, because a lower precision there shifts the predicted
   log10(IC50).
@@ -46,9 +47,23 @@ Protenix-v2 or OpenDDE targets replayed the first target's conditioning for all 
   `docs/rfd3-design.md` was regenerated with them on (`5123065e`).
 - Triangle attention runs the q-split at or below 1024 padded tokens and gates it
   off above (`063f89db`).
+- Three paths ship off on purpose, each behind one environment variable.
+  `BOLTZ2_TOKEN_DIT_SDPA=1` runs Boltz-2's token-DiT attention as a fused SDPA; it is
+  faster and it is not bit-exact, because the exponentiated scores go through a bf16
+  buffer. `TT_PROTENIX_CONF_DEVICE=1` keeps Protenix-v2's confidence head on the card;
+  it correlates 0.98071 against a 0.99 floor, which is why it is not the default.
+  `OPENDDE_DIFFUSION_FP32=1` lifts the bf16 pin on OpenDDE's diffusion for an A/B. Every
+  other lever in this release is on by default.
 
 ### Fixed
 
+- OpenDDE folded with a corrupt pair track, and no host-side check could see it. The
+  pair-init bias was uploaded flat and reshaped at the end, which splits a tiled
+  tensor's row axis whenever the token count is not a multiple of 32. The tensor reads
+  back through `ttnn.to_torch` bit-exact and is wrong only as an operand of the next op,
+  so the reference comparisons all passed while the fold's pair track was wrong.
+  Introduced by `6c3f5eca` on 2026-08-08, the day after 0.6.2 was cut, and fixed by
+  `1ea1e6f3` before this release: no released version ever shipped it.
 - `--trace` with Protenix-v2 or OpenDDE silently returned wrong structures for every
   target after the first when one process folded several targets of the same size: the
   captured trace was keyed on shape alone and replayed the first target's conditioning.
@@ -86,6 +101,13 @@ Protenix-v2 or OpenDDE targets replayed the first target's conditioning for all 
   (`4d07b39e`).
 - ESMFold2's pair-FFN row blocking extends to 1024 residues: -3.858 s (1.0242x) at
   1024 aa, bit-exact (`ca9b6703`).
+- End to end, from the release wheel against 0.6.2's released wheel on the same card and
+  the same input: ESMFold2 at 512 residues single-sequence goes 233.5 -> 197.5 s
+  (1.18x), and Boltz-2 affinity on FKBP12+SB3 goes 294 -> 206 s (1.43x). Both are three
+  timed reps per arm on one Blackhole p150a with the arms interleaved.
+- Boltz-2's diffusion hoists the per-step attention bias slices out of the step loop and
+  memoises the AdaLN `s` terms, both on by default and both bit-exact: 24.822 -> 23.504 s
+  at 512 residues (`bae4d627`, `6c07446f`, `6ce62967`).
 
 ## [0.6.2] - 2026-08-07
 
