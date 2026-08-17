@@ -712,6 +712,32 @@ _SDPA_WIDE_Q = os.environ.get("TT_BIO_SDPA_WIDE_Q", "1") != "0"
 # 160.53 us, pad in TILE 57.31 us (2.8011x). At the fold: -0.124 s at 512 aa, bit-exact.
 _ATOM_PAD_IN_TILE = os.environ.get("TT_BIO_ATOM_PAD_IN_TILE", "1") != "0"
 
+# Boltz-2 diffusion, three levers under A/B. All three are boltz-2-exclusive by construction:
+# DiffusionTransformer is built only by tenstorrent.Diffusion, and atom_level=True AdaLN exists
+# nowhere else (protenix and openfold3 have their own classes and pass atom_level=False).
+#
+# L7: cut each layer's head-range out of the attention bias once per fold instead of once per
+# denoise step. The bias is uploaded by _populate_diffusion_cache and is constant across all
+# sampling steps, so at 512 aa the shipped code issues 6000 identical slices per fold (200 steps
+# x 24 token layers + 400 x 3 atom layers). Measured in-fold as stage:DiffusionTransformer minus
+# its two layer regions: 449.2 ms. Bit-exact and memory-neutral -- the parts partition the whole
+# and the source is freed.
+_B2_BIAS_SLICE_HOIST = os.environ.get("BOLTZ2_BIAS_SLICE_HOIST", "0") == "1"
+
+# L6: memoise AdaLN's conditioning half on the atom path. `s` there is the atom conditioning
+# `_c_reshaped`, cached once per fold, so 2400 calls per fold recompute 12 answers. This is
+# 717d36712 (openfold3's atom transformer, -1.565 s at 512 aa, bit-exact) applied to boltz-2.
+# The pair is held in DRAM: 24 retained L1 tensors of 1.83 MB would keep ~44 MB of L1 for the
+# whole rollout and clash with a later op's circular buffers.
+_B2_ADALN_S_MEMO = os.environ.get("BOLTZ2_ADALN_S_MEMO", "0") == "1"
+
+# S6: route the token-level diffusion transformer's attention through the fused ttnn SDPA,
+# deleting the materialised [1, 16, 512, 512] logits tensor and its five DRAM traversals.
+# NOT bit-exact: the fused kernel keeps the exponentiated scores in a bf16 circular buffer.
+# The trunk's 264 calls are deliberately NOT rerouted -- the trunk hands its pair bias over in
+# L1, where ttnn SDPA TT_FATALs, and the forced spill is what confounded the predecessor's arm.
+_B2_TOKEN_DIT_SDPA = os.environ.get("BOLTZ2_TOKEN_DIT_SDPA", "0") == "1"
+
 # C2, the triangle bias cast to bfloat8_b before the SDPA. OFF by default and it stays off until a
 # fold-level parity gate clears it: at N=512 the op-level error is rmsd/std 0.002547 at PCC
 # 1.000000, but W9 measured z rmsd/std 0.04179 on a block at N=320 against a shipped band of
@@ -3488,6 +3514,9 @@ class AttentionPairBias(Module):
         self.n_heads = n_heads
         self.compute_pair_bias = compute_pair_bias
         self.atom_level = atom_level
+        # Set by DiffusionTransformerLayer for the token-level diffusion DiT only. S6 reads it,
+        # so no trunk / MSA / template / confidence site can be rerouted by that flag.
+        self.token_dit = False
         if atom_level:
             self.q_weight = self.torch_to_tt("proj_q.weight", dtype=self.dtype)
             self.q_bias = self.torch_to_tt("proj_q.bias", dtype=self.dtype)
@@ -3697,6 +3726,20 @@ class AttentionPairBias(Module):
                                    compute_kernel_config=self.compute_kernel_config)
                 ttnn.deallocate(attn)
                 ttnn.deallocate(sc)
+            elif (self.token_dit and _B2_TOKEN_DIT_SDPA and z is not None
+                  and seq_mask is None):
+                # S6. The bias is the token DiT's own rollout-invariant `bias_token`, already
+                # DRAM-resident, so nothing is spilled to reach the fused kernel. SDPA scales its
+                # additive mask along with QK, so scale=head_dim**-0.5 reproduces the unfused
+                # chain's (q@k^T + z) * head_dim**-0.5 exactly in exact arithmetic; what differs
+                # is the bf16 exponentiated-score buffer, hence the accuracy gate on this arm.
+                o = ttnn.transformer.scaled_dot_product_attention(
+                    q, k, v,
+                    attn_mask=z,
+                    is_causal=False,
+                    scale=self.head_dim**-0.5,
+                    program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2]),
+                )
             else:
                 if seq_mask is not None:
                     z = ttnn.add_(z, seq_mask)
@@ -4809,6 +4852,10 @@ class AdaLN(Module):
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.atom_level = atom_level
+        # L6's memo: the (s_scale, s_bias) pair and the identity of the `s` it was computed from.
+        # Kept apart so a reset can free the pair without touching the caller's `s`.
+        self._s_memo = None
+        self._s_memo_src = None
         self.s_norm_weight = self.torch_to_tt("s_norm.weight", dtype=dtype)
         self.s_scale_weight = self.torch_to_tt("s_scale.weight", dtype=dtype)
         self.s_scale_bias = self.torch_to_tt("s_scale.bias", dtype=dtype)
@@ -4821,6 +4868,14 @@ class AdaLN(Module):
         once per call. The diffusion rollout is exactly that case: 401 atom-transformer
         calls per fold, 9 AdaLNs each, and ``s`` is the atom conditioning ``cl``, which
         does not depend on the noise level or the noisy coordinates."""
+        memo = self.atom_level and _B2_ADALN_S_MEMO
+        if memo and self._s_memo is not None and self._s_memo_src is s:
+            return self._s_memo
+        # The memo keys on the CALLER's `s` and is taken before the L1 conversion below. Keying
+        # on the converted copy instead both misses every time (the copy is fresh per call) and
+        # pins 12 x 1.83 MB of L1 for the whole rollout, which throws `Statically allocated
+        # circular buffers ... clash with L1 buffers` in the confidence stack downstream.
+        s_src = s
         memory_config = _adaln_memory_config(self.atom_level, large_seq_len)
         if self.atom_level:
             s = ttnn.to_memory_config(s, memory_config=memory_config)
@@ -4845,6 +4900,17 @@ class AdaLN(Module):
             memory_config=memory_config,
             #core_grid=ttnn.CoreGrid(y=10, x=11), CAUSES ACCURACY ISSUE
         )
+        if memo:
+            # DRAM, not the L1 `memory_config` above: 24 pairs of 1.83 MB retained for the whole
+            # rollout would hold ~44 MB of L1 and clash with a later op's circular buffers.
+            # A memory config does not change values, so the pair stays bit-identical.
+            s_scale = ttnn.to_memory_config(s_scale, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            s_bias = ttnn.to_memory_config(s_bias, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            self._s_memo = (s_scale, s_bias)
+            self._s_memo_src = s_src
+            # Return the memo OBJECT, not a fresh tuple: `__call__` decides ownership by identity
+            # against it, and a fresh tuple makes the storing call deallocate what it just stored.
+            return self._s_memo
         return s_scale, s_bias
 
     def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False,
@@ -4856,7 +4922,11 @@ class AdaLN(Module):
             a, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config
         )
         own = s_terms is None
-        s_scale, s_bias = self.s_terms(s, large_seq_len) if own else s_terms
+        if own:
+            s_terms = self.s_terms(s, large_seq_len)
+            # A memoised pair belongs to the memo and must survive this call.
+            own = self._s_memo is not s_terms
+        s_scale, s_bias = s_terms
         a = ttnn.multiply_(a, s_scale, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         a = ttnn.add_(a, s_bias)
         if own:                     # a cached pair belongs to the caller
@@ -4956,6 +5026,7 @@ class DiffusionTransformerLayer(Module):
             state_dict=self.scope("pair_bias_attn"),
             compute_kernel_config=compute_kernel_config,
         )
+        self.attn_pair_bias.token_dit = not atom_level
         self.output_projection_weight = self.torch_to_tt(
             "output_projection_linear.weight"
         )
@@ -5029,6 +5100,12 @@ class DiffusionTransformer(Module):
         keys_indexing: ttnn.Tensor | None = None,
         large_seq_len: bool = False,
     ) -> ttnn.Tensor:
+        if isinstance(z, (list, tuple)):
+            # L7: the head-ranges were cut once per fold (AtomDiffusion._hoist_layer_bias),
+            # because z is constant across the whole denoise rollout.
+            for layer, z_layer in zip(self.layers, z):
+                a = layer(a, s, z_layer, keys_indexing, large_seq_len=large_seq_len)
+            return a
         dim = z.shape[1] // len(self.layers)
         for i, layer in enumerate(self.layers):
             a = layer(
@@ -6273,8 +6350,10 @@ class DiffusionModule(TorchWrapper):
                 bias = ttnn.add_(bias, mask)
                 return ttnn.multiply_(bias, ATOM_WINDOW ** 0.5)
 
-            self._cache_set("bias_encoder", prepare_atom_bias(bias_encoder))
-            self._cache_set("bias_decoder", prepare_atom_bias(bias_decoder))
+            self._cache_set("bias_encoder", self._hoist_layer_bias(
+                prepare_atom_bias(bias_encoder), self.module.encoder))
+            self._cache_set("bias_decoder", self._hoist_layer_bias(
+                prepare_atom_bias(bias_decoder), self.module.decoder))
 
             if token_pad:
                 bias_token = torch.nn.functional.pad(bias_token, (0, 0, 0, token_pad, 0, token_pad))
@@ -6288,7 +6367,9 @@ class DiffusionModule(TorchWrapper):
                 seq_mask = torch.zeros(1, 1, 1, padded_seq)
                 seq_mask[..., seq_len:] = -1e9
                 bias_token_tt = ttnn.add_(bias_token_tt, self._from_torch(seq_mask))
-            self._cache_set("bias_token", bias_token_tt)
+            self._cache_set("bias_token", self._hoist_layer_bias(
+                bias_token_tt,
+                None if self.module.token_transformer_fp32 else self.module.token_transformer))
 
             if atom_pad or token_pad:
                 atom_to_token = torch.nn.functional.pad(atom_to_token, (0, token_pad, 0, atom_pad))
@@ -6306,6 +6387,26 @@ class DiffusionModule(TorchWrapper):
             self._cache_set("cond_ref", cond_key)
             self._first_forward_pass = False
         return seq_len, N, N_padded
+
+    def _hoist_layer_bias(self, bias: ttnn.Tensor, transformer):
+        """L7: cut the per-layer head-ranges once, here, instead of once per denoise step.
+
+        ``DiffusionTransformer.__call__`` slices its layer's head-range out of the shared
+        attention bias on every call, and the bias is a rollout invariant. At 512 aa that is
+        6000 identical slices per fold, measured in-fold as 449.2 ms of the 8279.3 ms the stage
+        spends inside the transformer. Bit-exact: the same deterministic op on the same input.
+        Memory-neutral: the parts partition the whole and the source is freed.
+
+        ``transformer=None`` disables the hoist for that bias (the fp32 token path typecasts the
+        whole tensor and has no list form).
+        """
+        if not _B2_BIAS_SLICE_HOIST or transformer is None:
+            return bias
+        n_layers = len(transformer.layers)
+        dim = bias.shape[1] // n_layers
+        parts = [bias[:, i * dim : (i + 1) * dim, :, :] for i in range(n_layers)]
+        ttnn.deallocate(bias)
+        return parts
 
     def _run_diffusion_device(
         self, r_dev: ttnn.Tensor, times_dev: ttnn.Tensor, large_seq_len: bool
@@ -6452,6 +6553,11 @@ class DiffusionModule(TorchWrapper):
             self._clear_cached_attrs(self.module, ("_s_conditioned", "_c_reshaped"))
             for layer in self.module.encoder.layers + self.module.decoder.layers:
                 self._clear_cached_attrs(layer, ("s_o",))
+                for adaln in (layer.adaln, layer.transition.adaln):
+                    # The pair is owned by the memo; `_s_memo_src` is the caller's `s`
+                    # (`_c_reshaped`, freed just above) so it is dropped, never deallocated.
+                    self._clear_cached_attrs(adaln, ("_s_memo",))
+                    adaln._s_memo_src = None
 
 
 class MSAModule(TorchWrapper):

@@ -240,8 +240,13 @@ def main():
             "L1" if in_l1 else "DRAM"] += 1
         return out, in_l1
 
-    def ppc(x, w, bw_cap=-1, out_l1=False):
-        cfg = ORIG_PPC(x, w, bw_cap=bw_cap, out_l1=out_l1)
+    def ppc(x, w, bw_cap=-1, out_l1=False, **kw):
+        # `**kw`, because this wrapper is a census and must not pin the signature it wraps.
+        # `_pair_proj_config` gained `block_w` after this harness was written and every model this
+        # script folds died on `ppc() got an unexpected keyword argument 'block_w'` before the cold
+        # fold finished -- a census wrapper that rejects a new argument turns a neutrality check
+        # into a TypeError.
+        cfg = ORIG_PPC(x, w, bw_cap=bw_cap, out_l1=out_l1, **kw)
         if out_l1:
             DEC[f"pair_proj_out_l1|{'x'.join(str(int(d)) for d in x.shape)}"
                 f"@{int(list(w.shape)[-1])}"]["L1" if cfg is not None else "DRAM"] += 1
