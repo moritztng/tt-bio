@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TT-Bio: biomolecular structure, design and embeddings on Tenstorrent</title>
-<meta name="description" content="Open biomolecular models on Tenstorrent: folding and binding affinity, binder design, and protein embeddings. Measured throughput per dollar against NVIDIA H200, B200 and A100 at 512 residues, plus seconds per design for the two binder-design models.">
+<meta name="description" content="Open biomolecular models on Tenstorrent: folding and binding affinity, binder design, and protein embeddings. Measured throughput per dollar against NVIDIA H200, B200 and A100 at 512 residues, and BoltzGen binder design, with the single-accelerator times behind a disclosure.">
 <style>
 :root {
   color-scheme: light dark;
@@ -141,6 +141,7 @@ details.disclose[open] > summary::after { content: "\2013"; }
 details.disclose > summary:focus-visible { outline: 2px solid var(--tt); outline-offset: 3px; }
 details.disclose .sum-note { font-weight: 400; font-size: 0.83rem; color: var(--fg-faint); }
 details.disclose > div { padding-top: 14px; }
+details.disclose section.chart:last-child { margin-bottom: 12px; }
 @media (max-width: 620px) {
   main { padding: 34px 16px 72px; }
   h1 { font-size: 1.5rem; }
@@ -235,20 +236,11 @@ details.disclose > div { padding-top: 14px; }
 
 <section class="chart" id="c2">
   <div class="chart-head">
-    <div class="chart-title"><h3>Predictions per hour, per server</h3><span class="pill">Derived</span></div>
+    <div class="chart-title"><h3>Predictions and designs per hour, per server</h3><span class="pill">Derived</span></div>
     <p class="cond" id="c2-cond"></p>
   </div>
   <div class="keys" id="c2-keys"></div>
   <figure><div id="c2-svg"></div></figure>
-</section>
-
-<section class="chart" id="c3">
-  <div class="chart-head">
-    <div class="chart-title"><h3>Prediction time, one AI Processor</h3><span class="pill">Measured</span></div>
-    <p class="cond" id="c3-cond"></p>
-  </div>
-  <div class="keys" id="c3-keys"></div>
-  <figure><div id="c3-svg"></div></figure>
 </section>
 
 <section class="chart" id="c4">
@@ -259,34 +251,40 @@ details.disclose > div { padding-top: 14px; }
   <figure><div id="c4-svg"></div></figure>
 </section>
 
-</section>
+<details class="disclose" id="single">
+  <summary>One AI Processor <span class="sum-note">the measured seconds per prediction and per design that every server figure above is built from</span></summary>
+  <div>
+    <section class="chart" id="c3">
+      <div class="chart-head">
+        <div class="chart-title"><h4>Prediction time, one AI Processor</h4><span class="pill">Measured</span></div>
+        <p class="cond" id="c3-cond"></p>
+      </div>
+      <div class="keys" id="c3-keys"></div>
+      <figure><div id="c3-svg"></div></figure>
+    </section>
 
-<section class="band" id="design">
-  <div class="band-head">
-    <h2>Binder design</h2>
-    <p class="band-deck" id="design-deck"></p>
+    <section class="chart" id="c5">
+      <div class="chart-head">
+        <div class="chart-title"><h4>Seconds per design, one AI Processor</h4><span class="pill">Measured</span></div>
+        <p class="cond" id="c5-cond"></p>
+      </div>
+      <div class="keys" id="c5-keys"></div>
+      <figure><div id="c5-svg"></div></figure>
+      <p class="cond" id="c5-note"></p>
+    </section>
   </div>
-
-<section class="chart" id="c5">
-  <div class="chart-head">
-    <div class="chart-title"><h3>Seconds per design, one AI Processor</h3><span class="pill">Measured</span></div>
-    <p class="cond" id="c5-cond"></p>
-  </div>
-  <div class="keys" id="c5-keys"></div>
-  <figure><div id="c5-svg"></div></figure>
-  <p class="cond" id="c5-note"></p>
-</section>
+</details>
 
 </section>
 
 <details class="disclose" id="exact">
-  <summary>The exact figures <span class="sum-note">measured seconds per prediction, and the two derived tables</span></summary>
+  <summary>The exact figures <span class="sum-note">the measured seconds behind every bar, and the derived tables</span></summary>
   <div>
     <h4>Measured, seconds per prediction on one AI Processor</h4>
     <div class="tablewrap"><table id="t-measured"></table></div>
     <h4 style="margin-top:24px">Measured, seconds per design on one AI Processor</h4>
     <div class="tablewrap"><table id="t-design"></table></div>
-    <h4 style="margin-top:24px">Derived, predictions per hour per server</h4>
+    <h4 style="margin-top:24px">Derived, predictions and designs per hour per server</h4>
     <div class="tablewrap"><table id="t-derived"></table></div>
     <h4 style="margin-top:24px">Derived, throughput per dollar of purchase price</h4>
     <div class="tablewrap"><table id="t-perdollar-capex"></table></div>
@@ -307,7 +305,7 @@ details.disclose > div { padding-top: 14px; }
 </details>
 
 <footer>
-  <p>Every seconds-per-prediction figure is measured on the hardware named. Everything else is derived
+  <p>Every seconds-per-prediction and seconds-per-design figure is measured on the hardware named. Everything else is derived
   from those measurements and from the published prices and power ratings listed above. Nothing is
   estimated. Updated <span class="num" id="foot-date"></span>.</p>
   <p>Every model here reproduces its reference implementation within that reference's own run-to-run
@@ -350,12 +348,31 @@ details.disclose > div { padding-top: 14px; }
   function perDollar(sPerFold, p, basis) {
     return perHour(sPerFold, p) / (basis === "capex" ? p.price_usd : usdPerHour(p));
   }
+  /* One measured value per cell. A prediction cell holds seconds per fold, a design cell seconds
+   * per design, and everything downstream derives from whichever one is there. */
+  function secs(c) { return c.s_per_fold === undefined ? c.s_per_design : c.s_per_fold; }
   /* Index every cell against the same reference server, which is 1.00x by construction. */
   function perDollarIndex(m, key, basis) {
     var p = plat(SERVER_OF[key]), ref = plat(D.cost_model.index_platform);
     var refCell = null;
     for (var k in SERVER_OF) if (SERVER_OF[k] === ref.id) refCell = m.cells[k];
-    return perDollar(m.cells[key].s_per_fold, p, basis) / perDollar(refCell.s_per_fold, ref, basis);
+    return perDollar(secs(m.cells[key]), p, basis) / perDollar(secs(refCell), ref, basis);
+  }
+
+  /* A design model carrying "hidden": true keeps every measured cell in the JSON and is drawn
+   * nowhere. Delete that one line to publish the row again. */
+  function shown(m) { return !m.hidden; }
+  function designModels() { return D.design.models.filter(shown); }
+
+  /* Every row the cost and server charts draw: the prediction models, then any design model that
+   * is not hidden. A row carries its own noun, because a design is not a prediction and the two
+   * share an axis here. */
+  function rows() {
+    return D.models.map(function (m) {
+      return { m: m, one: "prediction", many: "predictions" };
+    }).concat(designModels().map(function (m) {
+      return { m: m, one: "design", many: "designs", sub: "binder design, one at a time" };
+    }));
   }
 
   /* Everything a bar can tell you on hover, built from that cell's own provenance. */
@@ -504,7 +521,8 @@ details.disclose > div { padding-top: 14px; }
   /* Charts 1 and 2 share their shape: one measured accelerator scaled to its server. */
   function serverChart(hostId, valueOf, fmt, spec) {
     var groups = [], max = 0;
-    D.models.forEach(function (m) {
+    rows().forEach(function (row) {
+      var m = row.m;
       var bars = CELLS.map(function (k) {
         var c = m.cells[k], p = plat(SERVER_OF[k]);
         if (c.status !== "measured") {
@@ -514,18 +532,18 @@ details.disclose > div { padding-top: 14px; }
         max = Math.max(max, v);
         return {
           series: serverLabel(p), seriesShort: serverShort(p), color: SER[p.id], value: v,
-          label: fmt(v), tip: tip(m, k, fmt(v) + " " + spec.tipUnit + ", from " + fmtSec(c.s_per_fold) +
-            " s per prediction on one accelerator")
+          label: fmt(v), tip: tip(m, k, fmt(v) + " " + spec.tipUnit(row) + ", from " + fmtSec(secs(c)) +
+            " s per " + row.one + " on one accelerator")
         };
       });
-      groups.push({ label: m.name, bars: bars });
+      groups.push({ label: m.name, sub: row.sub, bars: bars });
     });
     drawBars(document.getElementById(hostId), {
       id: spec.id, groups: groups, max: niceMax(max), unit: spec.unit, unitShort: spec.unitShort,
       tickFmt: spec.tickFmt,
       title: spec.title,
       desc: groups.map(function (g) {
-        return g.label + ": " + g.bars.map(function (b) {
+        return g.label + (g.sub ? ", " + g.sub : "") + ": " + g.bars.map(function (b) {
           return b.series + " " + (b.blocked ? "does not run" : b.label);
         }).join(", ") + ".";
       }).join(" ")
@@ -538,26 +556,26 @@ details.disclose > div { padding-top: 14px; }
   function chartPerDollar(host, basis) {
     var m = D.cost_model, ref = plat(m.index_platform), capex = basis === "capex";
     serverChart(host + "-svg", function (mo, k) { return perDollarIndex(mo, k, basis); }, fmtX, {
-      id: host, unit: "predictions per dollar", unitShort: "pred/$",
-      tipUnit: "the reference server's predictions per dollar",
+      id: host, unit: "predictions or designs per dollar", unitShort: "per $",
+      tipUnit: function (row) { return "the reference server's " + row.many + " per dollar"; },
       tickFmt: function (v) { return v.toFixed(1) + "x"; },
       title: "Throughput per dollar of " + (capex ? "purchase price" : "total cost of ownership") +
-        " at 512 residues, the " + ref.name + " set to 1.00x, derived"
+        ", the " + ref.name + " set to 1.00x, derived"
     });
     document.getElementById(host + "-cond").innerHTML = capex
-      ? "Hardware only: <span class=\"num\">predictions per hour &divide; purchase price</span>, with the " +
+      ? "Hardware only: <span class=\"num\">predictions or designs per hour &divide; purchase price</span>, with the " +
         ref.name + " set to <span class=\"num\">1.00x</span>. No amortisation window, because it " +
         "cancels from this ratio. Electricity is not counted here."
-      : "Total cost of ownership: <span class=\"num\">predictions per hour &divide; cost per hour</span>, " +
+      : "Total cost of ownership: <span class=\"num\">predictions or designs per hour &divide; cost per hour</span>, " +
         "with the " + ref.name + " set to <span class=\"num\">1.00x</span>. Cost per hour is the purchase " +
         "price spread over " + m.amortisation_years + " years plus electricity at " +
         fmtCents(m.electricity_usd_per_kwh) + ", with the machine predicting around the clock.";
     var adv = [];
-    D.models.forEach(function (mo) { adv.push(perDollarIndex(mo, "p150a", basis)); });
+    rows().forEach(function (row) { adv.push(perDollarIndex(row.m, "p150a", basis)); });
     adv.sort(function (x, y) { return x - y; });
     document.getElementById(host + "-note").textContent =
-      "Across the five models the Galaxy Blackhole returns " + fmtX(adv[0]) + " to " +
-      fmtX(adv[adv.length - 1]) + " the predictions per dollar of the " + ref.name +
+      "The Galaxy Blackhole returns " + fmtX(adv[0]) + " to " +
+      fmtX(adv[adv.length - 1]) + " the throughput per dollar of the " + ref.name +
       (capex ? " on purchase price alone. Electricity is a larger share of the Galaxy's hourly cost " +
                "than of the " + ref.name + "'s, because the Galaxy is so much cheaper to buy, so the " +
                "total cost of ownership chart below is the narrower of the two."
@@ -565,14 +583,15 @@ details.disclose > div { padding-top: 14px; }
   }
 
   function chartThroughput() {
-    serverChart("c2-svg", function (mo, k, p) { return perHour(mo.cells[k].s_per_fold, p); }, fmtInt, {
-      id: "c2", unit: "predictions per hour", unitShort: "pred/hr", tipUnit: "predictions per hour",
+    serverChart("c2-svg", function (mo, k, p) { return perHour(secs(mo.cells[k]), p); }, fmtInt, {
+      id: "c2", unit: "predictions or designs per hour", unitShort: "per hour",
+      tipUnit: function (row) { return row.many + " per hour"; },
       tickFmt: function (v) { return v >= 1000 ? fmtInt(v) : v.toFixed(0); },
-      title: "Predictions per hour per server at 512 residues, derived"
+      title: "Predictions and designs per hour per server, derived"
     });
     document.getElementById("c2-cond").innerHTML =
       "One measured accelerator times the accelerators in the box, on both sides: " +
-      "<span class=\"num\">3600 / seconds per prediction &times; accelerators</span>. " +
+      "<span class=\"num\">3600 / seconds per prediction or design &times; accelerators</span>. " +
       "32 Blackhole AI Processors against 8 GPUs.";
   }
 
@@ -612,7 +631,7 @@ details.disclose > div { padding-top: 14px; }
 
   function chartDesign() {
     var groups = [], max = 0;
-    D.design.models.forEach(function (m) {
+    designModels().forEach(function (m) {
       var bars = CELLS.map(function (k) {
         var c = m.cells[k], p = plat(k);
         if (c.status !== "measured") {
@@ -631,7 +650,7 @@ details.disclose > div { padding-top: 14px; }
       id: "c5", groups: groups, max: niceMax(max), unit: "seconds per design", unitShort: "s",
       tickFmt: function (v) { return v.toFixed(0); },
       title: "Seconds to return one binder design on one AI Processor, measured",
-      desc: D.design.models.map(function (m) {
+      desc: designModels().map(function (m) {
         return m.name + ": " + CELLS.map(function (k) {
           var c = m.cells[k];
           return plat(k).name + " " +
@@ -695,7 +714,7 @@ details.disclose > div { padding-top: 14px; }
     document.getElementById("t-design").innerHTML =
       "<thead><tr><th>Model</th><th class=\"n\">Steps</th><th>Batch</th><th class=\"n\">Blackhole p150a</th>" +
       "<th class=\"n\">H200</th><th class=\"n\">B200</th><th class=\"n\">A100</th></tr></thead><tbody>" +
-      D.design.models.map(function (m) {
+      designModels().map(function (m) {
         return "<tr><td>" + m.name + "</td><td class=\"n num\">" + m.sampling_steps + "</td>" +
           "<td class=\"num\">" + m.batch + "</td>" +
           CELLS.map(function (k) {
@@ -708,11 +727,12 @@ details.disclose > div { padding-top: 14px; }
         return "<th class=\"n\">" + serverLabel(plat(id)) + "</th>";
       }).join("") + "</tr></thead>";
     function body(basis) {
-      return D.models.map(function (m) {
+      return rows().map(function (row) {
+        var m = row.m;
         return "<tr><td>" + m.name + "</td>" + CELLS.map(function (k) {
           var p = plat(SERVER_OF[k]);
           return gpuCell(m.cells[k], function (c) {
-            return basis ? fmtX(perDollarIndex(m, k, basis)) : fmtInt(perHour(c.s_per_fold, p));
+            return basis ? fmtX(perDollarIndex(m, k, basis)) : fmtInt(perHour(secs(c), p));
           });
         }).join("") + "</tr>";
       }).join("");
@@ -728,14 +748,15 @@ details.disclose > div { padding-top: 14px; }
      * the tab title word for word. */
     document.title = D.title;
     document.getElementById("perf-deck").textContent = D.subtitle;
-    document.getElementById("design-deck").textContent = D.design.deck;
     document.getElementById("foot-date").textContent = D.updated;
 
     var s = D.scope, m = D.cost_model;
     var dl = document.getElementById("scope-dl");
-    [["Target", s.description],
-     ["Run", s.protocol],
-     ["Updated", D.updated]].forEach(function (kv) {
+    var design = designModels();
+    var scopeRows = [["Target", s.description]];
+    if (design.length) scopeRows.push(["Design target", design.map(function (x) { return x.target; }).join("; ")]);
+    scopeRows.push(["Run", s.protocol], ["Updated", D.updated]);
+    scopeRows.forEach(function (kv) {
       dl.appendChild(Object.assign(document.createElement("dt"), { textContent: kv[0] }));
       dl.appendChild(Object.assign(document.createElement("dd"), { textContent: kv[1] }));
     });
@@ -768,11 +789,13 @@ details.disclose > div { padding-top: 14px; }
       md.appendChild(Object.assign(document.createElement("dd"), { textContent: v }));
     }
     mrow("Models", D.models.map(function (x) { return x.name; }).join(", ") +
-      ", each at its own recycle and sampling-step settings.");
+      ", each at its own recycle and sampling-step settings" +
+      (design.length ? ", plus " + design.map(function (x) { return x.name; }).join(", ") +
+        " for binder design." : "."));
     mrow("Size", s.size_aa + " residues. " + s.description);
     mrow("Input", s.fixture + " with " + s.msa_file + ", seed " + s.seed + ", templates " + s.templates +
       ", " + s.diffusion_samples + " diffusion sample. Both sides ran these same two files.");
-    mrow("Measured", "Wall-clock seconds for one prediction on one accelerator, warm. " +
+    mrow("Measured", "Wall-clock seconds for one prediction or one design on one accelerator, warm. " +
       "Hover any bar for the run behind it.");
     mrow("Parity", "Each Tenstorrent figure carries the parity it holds against that model's own " +
       "reference on this input: " + D.models.map(function (x) {
@@ -824,8 +847,9 @@ details.disclose > div { padding-top: 14px; }
     if (rt) clearTimeout(rt);
     rt = setTimeout(function () { if (D) renderAll(); }, 120);
   });
+  /* A chart drawn inside a closed <details> measures a zero-width host, so redraw on open. */
   document.addEventListener("toggle", function (e) {
-    if (e.target.id === "exact" && e.target.open && D) tables();
+    if (D && e.target.open && e.target.classList.contains("disclose")) renderAll();
   }, true);
 
   fetch("./data/perf-512aa.json", { cache: "no-store" })

@@ -2,12 +2,13 @@
   "schema": 2,
   "updated": "2026-08-16",
   "title": "TT-Bio: biomolecular structure, design and embeddings on Tenstorrent",
-  "subtitle": "Five structure-prediction models at 512 residues, measured on Tenstorrent Blackhole and on NVIDIA H200, B200 and A100.",
+  "subtitle": "Five structure-prediction models at 512 residues and one binder-design model, measured on Tenstorrent Blackhole and on NVIDIA H200, B200 and A100.",
   "notes": [
     "This file is the only place numbers are edited. index.html reads it and derives everything else.",
     "Never write a derived value here. Server throughput, cost per hour and both throughput-per-dollar charts are computed in the page from s_per_fold, accelerators, price and power.",
     "One cell per model per platform, holding the fastest measured arm that passes parity against its own reference. Every Tenstorrent cell states which parity it holds: bit-exact, byte-identical, or a measured structural delta inside a bar that was fixed before the number existed. A cell with no measurement gets status 'blocked' and a reason. Do not fill it with an estimate.",
-    "The A100 appears twice: as a card, and as the DGX A100 640GB, the eight-GPU box NVIDIA sold that card in. The $175,000 that box carries is an assumed street price, not a vendor list price, and it is labelled as one everywhere it is used."
+    "The A100 appears twice: as a card, and as the DGX A100 640GB, the eight-GPU box NVIDIA sold that card in. The $175,000 that box carries is an assumed street price, not a vendor list price, and it is labelled as one everywhere it is used.",
+    "A design model carrying 'hidden': true keeps every measured cell here and is drawn nowhere. Delete that one line to publish the row again."
   ],
   "scope": {
     "size_aa": 512,
@@ -303,10 +304,9 @@
     }
   ],
   "design": {
-    "deck": "BoltzGen and RFdiffusion3, seconds per binder design on one AI Processor, each on its own pinned target.",
-    "cond": "Wall-clock seconds to return one binder design on a single AI Processor, warm, at each model's shipped defaults. Shorter is better. Every platform runs one design at a time, the same protocol as the folding rows above, on the same target with the same settings.",
-    "note": "No throughput-per-dollar figure is derived here. The rung above this one overflows L1 on the p150a for BoltzGen, so BoltzGen is measured one rung below it, where the H200 sits at 41 % of its power limit and the B200 at 31 %, and a cost ratio taken on an idle GPU would not survive a bigger target. On both models the B200 is no faster than the H200: 18.5 % slower on RFdiffusion3 and 1.27x slower on BoltzGen. Asking for eight designs at once instead of one changes only the GPUs. RFdiffusion3 amortises a batch of eight by 2.12x on the H200, 2.50x on the B200 and 1.79x on the A100, so eight designs take 103.79 s on an H200, 104.39 s on a B200, 198.20 s on an A100 and 987.96 s on a p150a; the p150a gains nothing from batching at this target size and runs one design at a time by default. The rows above carry a bit-exact digest; a design draws a new sequence every time, so these two carry per-run output validation instead, and every design counted here wrote, parsed, had finite coordinates and had the residue topology its spec asked for.",
-    "methods": "Two pinned targets, one per model, at the shipped defaults: BoltzGen 500 sampling steps, RFdiffusion3 200 timesteps, one design at a time on both. Tenstorrent figures are warm medians on one Blackhole p150a under a run lock, with the cold pass and, for BoltzGen, the design that pays the checkpoint switch dropped. GPU figures come from the same protocol on rented single-GPU nodes. Designs are validated per run rather than digested: chain sizes, residue topology and finite coordinates, never atom equality between siblings, because sibling designs legitimately differ.",
+    "cond": "Wall-clock seconds to return one binder design on a single AI Processor, warm, at the model's shipped defaults. Shorter is better. Every platform runs one design at a time, the same protocol as the prediction rows.",
+    "note": "One design at a time on all four accelerators, so nothing here compares a batch against a single. The next target size up overflows L1 on the p150a, so this row sits one rung below it, at 514 tokens, where an H200 draws 41 % of its 700 W limit and a B200 31 % of its 1000 W. A larger target would work the GPUs harder, so read the BoltzGen row as the most favourable honest reading rather than a ceiling. The B200 is 1.27x slower than the H200 here. A prediction row carries a bit-exact digest; a design draws a new sequence every time, so every design counted here was validated on its own output: it wrote, parsed, had finite coordinates and had the residue topology its spec asked for.",
+    "methods": "One pinned target at the shipped defaults: BoltzGen, 500 sampling steps, one design at a time on every platform. Tenstorrent figures are warm medians on one Blackhole p150a under a run lock, with the cold pass and the design that pays the checkpoint switch dropped. GPU figures come from the same protocol on rented single-GPU nodes. Designs are validated per run rather than digested: chain sizes, residue topology and finite coordinates, never atom equality between siblings, because sibling designs legitimately differ.",
     "models": [
       {
         "id": "boltzgen",
@@ -340,9 +340,11 @@
       {
         "id": "rfd3",
         "name": "RFdiffusion3",
+        "hidden": true,
         "target": "Human serum albumin (9q6y chain A), 585 target residues, 100-residue binder, 6051 atoms",
         "sampling_steps": 200,
         "batch": 1,
+        "note": "Asking for eight designs at once instead of one changes only the GPUs. A batch of eight amortises by 2.12x on the H200, 2.50x on the B200 and 1.79x on the A100, so eight designs take 103.79 s on an H200, 104.39 s on a B200 and 198.20 s on an A100. The p150a gains nothing from batching at this target size and runs one design at a time by default. At one design the B200 is 18.5 % slower than the H200.",
         "cells": {
           "p150a": {
             "status": "measured",
@@ -418,9 +420,10 @@
     }
   },
   "caveats": [
-    "Rows are not a cross-model ranking. Boltz-2 and OpenFold3 do 3 recycles where ESMFold2, Protenix-v2 and OpenDDE do 10, because that is what each ships. Compare a model to itself across hardware.",
+    "Rows are not a cross-model ranking. Boltz-2 and OpenFold3 do 3 recycles where ESMFold2, Protenix-v2 and OpenDDE do 10, because that is what each ships. Compare a model to itself across hardware. BoltzGen returns a binder design, not a prediction; its bars share an axis with the prediction models but not a unit.",
     "Accuracy is not compared here. Each stack ran its own settings and every run was checked against its own plDDT, but these numbers are wall-clock and cost.",
-    "The A100 ran the same seven cells on the same fixtures. Its host is an AMD EPYC 7513 where the H200 and B200 boxes were Intel Xeon, which matters for the dispatch-bound trunks and is not corrected for.",
+    "The A100 ran every cell on this page, on the same fixtures. Its host is an AMD EPYC 7513 where the H200 and B200 boxes were Intel Xeon, which matters for the dispatch-bound trunks and is not corrected for.",
+    "BoltzGen's row is measured on a 514-token target because the next size up overflows L1 on the p150a. At that size an H200 runs at 41 % of its power limit, so a bigger target or a batch of designs would move the row toward the GPU. Every platform ran one design at a time.",
     "The DGX A100 is a previous-generation machine and its row flatters it twice. Its GPUs launched in 2020, and this page gives every server the same four-year window, so a DGX A100 bought today is credited with four more earning years the way a current box is. Its $175,000 is an assumption, not a published price, where the DGX H200 and DGX B200 carry list prices. Read its throughput per dollar as the most favourable case for a used-generation machine, not as a like-for-like comparison."
   ]
 }
