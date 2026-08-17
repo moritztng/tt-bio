@@ -1,0 +1,44 @@
+{
+  "legs": [
+    {
+      "leg": "boltz2-affinity-fkbp12-nomsa",
+      "verdict": "PASS",
+      "detail": "envelope worst affinity_probability_binary: num=0.0011 env=0.0005 ratio=2.01; affinity_pred_value r=1.31, affinity_probability_binary r=2.01",
+      "wall": 164.2096975199529,
+      "committed": "GAP-evidenced",
+      "report": "boltz2-affinity-fkbp12-nomsa.json"
+    },
+    {
+      "leg": "boltz2-affinity-fkbp12-msa",
+      "verdict": "PASS",
+      "detail": "envelope worst affinity_probability_binary: num=0.0028 env=0.0034 ratio=0.84; affinity_pred_value r=0.09, affinity_probability_binary r=0.84",
+      "wall": 288.3549867529655,
+      "committed": "GAP-evidenced",
+      "report": "boltz2-affinity-fkbp12-msa.json"
+    },
+    {
+      "leg": "boltz2-affinity-dhfr-nomsa",
+      "verdict": "PASS",
+      "detail": "envelope worst affinity_pred_value: num=0.2950 env=0.1992 ratio=1.48; affinity_pred_value r=1.48, affinity_probability_binary r=1.00",
+      "wall": 734.8535906170146,
+      "committed": "PASS-caveated",
+      "report": "boltz2-affinity-dhfr-nomsa.json"
+    },
+    {
+      "leg": "boltz2-affinity-dhfr-msa",
+      "verdict": "PASS",
+      "detail": "envelope worst affinity_pred_value: num=0.0306 env=0.0513 ratio=0.60; affinity_pred_value r=0.60, affinity_probability_binary r=0.25",
+      "wall": 564.7620306870085,
+      "committed": "PASS-caveated",
+      "report": "boltz2-affinity-dhfr-msa.json"
+    }
+  ],
+  "tally": {
+    "PASS": 4
+  },
+  "scored": 4,
+  "total_wall_s": 1752.1820787860197,
+  "workers": [
+    "localhost:0"
+  ]
+}

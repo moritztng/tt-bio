@@ -613,20 +613,22 @@
             "boltz2-affinity": {
               "unit": "affinities/s",
               "direction": "higher",
-              "value": 0.008903,
-              "latency_ms": 112321.3,
+              "value": 0.019715,
+              "latency_ms": 50723.75,
               "input": "affinity_fkg.yaml (FKBP12+SB3, L107, single-seq, affinity mode)",
               "sampling_steps": 10,
               "diffusion_samples": 1,
               "recycling_steps": 1,
+              "num_timesteps": null,
+              "num_designs": null,
               "warmup": 0,
-              "repeat": 1,
+              "repeat": 3,
               "hardware": "blackhole",
               "card_type": "p150a",
               "machine_id": "tt-quietbox",
-              "tt_bio_version": "0.3.2",
-              "date": "2026-07-20",
-              "note": "seed tt-quietbox p150a boltz2-affinity perf baseline: the leg was only baselined on machine pc, so the full perf gate FAILed loudly with NO BASELINE on tt-quietbox (a gate-config gap, not a regression -- all 10 real perf models PASS within +/-15%). Seed the machine-specific entry from this warm run so the full all-models perf gate goes green on qb1."
+              "tt_bio_version": "0.6.2",
+              "date": "2026-08-16",
+              "note": "reseeded 2026-08-16: the fp32 affinity HOST trunk was deleted (09502a94) and the affinity model now runs its 64-block pairformer in fp32 on device. The 2026-08-14 seed timed the host trunk, which was ~140 s of the ~176 s wall on pc. Intentional perf change, parity held: all four committed affinity legs keep their committed verdicts (state/boltz2-affinity-device-only.md). Single-shot leg, +-20-30% rep noise."
             },
             "rfd3": {
               "unit": "designs/s",
@@ -709,30 +711,30 @@
               "note": "seed p150a/tt-quietbox openfold3 baseline, v0.6.2, quiet host, fp32-DM default"
             }
           },
-          "date": "2026-08-07",
+          "date": "2026-08-16",
           "tt_bio_version": "0.6.2",
-          "note": "seed p150a/tt-quietbox openfold3 baseline, v0.6.2, quiet host, fp32-DM default"
+          "note": "reseeded 2026-08-16: the fp32 affinity HOST trunk was deleted (09502a94) and the affinity model now runs its 64-block pairformer in fp32 on device. The 2026-08-14 seed timed the host trunk, which was ~140 s of the ~176 s wall on pc. Intentional perf change, parity held: all four committed affinity legs keep their committed verdicts (state/boltz2-affinity-device-only.md). Single-shot leg, +-20-30% rep noise."
         },
         "pc": {
           "models": {
-          "boltz2-affinity": {
-            "unit": "affinities/s",
-            "direction": "higher",
-            "value": 0.005688,
-            "latency_ms": 175822.0,
-            "input": "affinity_fkg.yaml (FKBP12+SB3, L107, single-seq, affinity mode)",
-            "sampling_steps": 10,
-            "diffusion_samples": 1,
-            "recycling_steps": 1,
-            "warmup": 0,
-            "repeat": 1,
-            "hardware": "blackhole",
-            "card_type": "p150a",
-            "machine_id": "pc",
-            "tt_bio_version": "0.6.2",
-            "date": "2026-08-14",
-            "note": "reseeded 2026-08-14: the 2026-07-20 seed (0.009498) predates the shipped fp32-host affinity path. Clean interleaved endpoint A/B on pc card 0 (benchlocked, quiet host, 5 reps/arm): v0.3.1 reproduces the seed (0.0094 median) while origin/main 7431d6e39 measures 0.0057; HEAD with BOLTZ2_AFFINITY_TRUNK_FP32_HOST=0 runs 23 s, so the affinity model's 64-block fp32 host trunk (372f55b9c, default ON since 2026-07-21, load-bearing for the affinity parity legs) is ~140 s of the ~176 s wall. Intentional accuracy/perf tradeoff, not a code regression; baseline moved to the honest shipped-config number (median rep)."
-          },
+            "boltz2-affinity": {
+              "unit": "affinities/s",
+              "direction": "higher",
+              "value": 0.005688,
+              "latency_ms": 175822.0,
+              "input": "affinity_fkg.yaml (FKBP12+SB3, L107, single-seq, affinity mode)",
+              "sampling_steps": 10,
+              "diffusion_samples": 1,
+              "recycling_steps": 1,
+              "warmup": 0,
+              "repeat": 1,
+              "hardware": "blackhole",
+              "card_type": "p150a",
+              "machine_id": "pc",
+              "tt_bio_version": "0.6.2",
+              "date": "2026-08-14",
+              "note": "reseeded 2026-08-14: the 2026-07-20 seed (0.009498) predates the shipped fp32-host affinity path. Clean interleaved endpoint A/B on pc card 0 (benchlocked, quiet host, 5 reps/arm): v0.3.1 reproduces the seed (0.0094 median) while origin/main 7431d6e39 measures 0.0057; HEAD with BOLTZ2_AFFINITY_TRUNK_FP32_HOST=0 runs 23 s, so the affinity model's 64-block fp32 host trunk (372f55b9c, default ON since 2026-07-21, load-bearing for the affinity parity legs) is ~140 s of the ~176 s wall. Intentional accuracy/perf tradeoff, not a code regression; baseline moved to the honest shipped-config number (median rep). SUPERSEDED 2026-08-16: the fp32 host affinity trunk was deleted (09502a94) and the affinity trunk now runs in fp32 on device, so this value no longer describes the shipped path on pc and understates it (qb1 reseeded 2.21x). Reseed on pc."
+            },
             "rfd3": {
               "unit": "designs/s",
               "direction": "higher",

@@ -220,9 +220,9 @@ def _boltz2_struct_args(recycling=3, steps=200, samples=1, msa="none"):
     return tuple(base)  # staged: --msa_dir appended at run time
 
 
-# Every boltz2 affinity fold runs the affinity model's 64-block pairformer trunk in fp32 ON
-# HOST (BOLTZ2_AFFINITY_TRUNK_FP32_HOST, boltz2.py — a deliberate accuracy fix), with a fresh
-# torch.compile per seed process: CPU-bound and contention-fragile. In the 2026-08-11 gate
+# Every boltz2 affinity fold runs the affinity model's own 64-block pairformer trunk in fp32
+# on device, plus its own atom diffusion and heads: the heaviest fold shape in the gate. In the
+# 2026-08-11 gate
 # refresh a co-tenanted kernel campaign pushed dhfr (largest affinity target, L187) seed folds
 # past the 2400s default while the same folds took ~600-700s on a quiet host — a flake, not a
 # regression. The whole affinity class shares the mechanism, so the whole class gets 3x the

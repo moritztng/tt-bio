@@ -4137,8 +4137,8 @@ class Pairformer(Module):
 
 
 # ---------------------------------------------------------------------------
-# fp32-on-device pairformer for the Boltz-2 affinity trunk. Gated by
-# BOLTZ2_AFFINITY_TRUNK_FP32_DEVICE (boltz2.py), affinity model only.
+# fp32-on-device pairformer for the Boltz-2 affinity trunk. Affinity model only
+# (Boltz2.affinity_trunk_fp32); the structure model keeps the bf16 Pairformer.
 #
 # Composed ttnn fp32 ops, reference-exact against tt_bio/reference.py's
 # PairformerLayer. Deliberately separate from the shipped bf16 Pairformer: that
@@ -5969,8 +5969,9 @@ class PairformerModule(TorchWrapper):
 
 
 class Fp32PairformerModule(TorchWrapper):
-    """fp32-on-device pairformer trunk for the affinity model
-    (BOLTZ2_AFFINITY_TRUNK_FP32_DEVICE). Same call signature as
+    """fp32-on-device pairformer trunk for the affinity model.
+
+    Same call signature as
     PairformerModule; activations and weights stay fp32 end to end, so the z
     that feeds the affinity head carries no bf16 storage rounding. The host
     recycle loop in Boltz2.forward is reused unchanged: s/z arrive as host

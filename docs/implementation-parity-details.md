@@ -245,8 +245,10 @@ Switching the primary comparison to the GPU reference cannot manufacture a
 PASS out of a backend-divergence: device-vs-GPU X is bounded by the same
 ~0.09-0.13 backend-divergence scale, vs a ~0.005-0.012 GPU self-floor — EXCEPT
 for FKBP12 under the device-fp32 hybrid diffusion gate
-(`BOLTZ2_AFFINITY_TRUNK_FP32_HOST=1 BOLTZ2_AFFINITY_DIFFUSION_FP32_DEVICE=1`,
-200-step/5-sample/3-recycle, 5+5 seeds), where the device pocket specifically
+(`BOLTZ2_AFFINITY_DIFFUSION_FP32_DEVICE=1` on top of the then-default fp32 HOST
+affinity trunk, `BOLTZ2_AFFINITY_TRUNK_FP32_HOST=1`; that trunk flag no longer
+exists and the trunk now runs in fp32 on device, which reproduces the same
+verdict — 200-step/5-sample/3-recycle, 5+5 seeds), where the device pocket specifically
 lands in the GPU bf16 basin: pocket-lDDT X 0.011 within the 0.011 GPU floor
 (X/floor 0.94), and the affinity scalar, affinity probability, and ligand-pose
 RMSD also pass (X/floor 0.77 / 0.77 / 0.85). JSON:

@@ -5088,41 +5088,19 @@ class Boltz2(nn.Module):
 
         # Pairwise stack
         self.use_templates = use_templates
-        # Pass 2 (release-gated): the affinity model re-runs its own 64-block trunk
-        # in bf16 on device to produce the z that feeds the (now fp32, pass 1)
-        # affinity head. That bf16 trunk z carries a small systematic bias that the
-        # affinity scalar's mean-over-pooled-pair reduction amplifies into the
-        # residual ~0.19 log10(IC50) offset. Running the affinity model's TRUNK
-        # (MSA + 64-block pairformer) in fp32 on host closes that, while the expensive
-        # diffusion + confidence stay on device. Scoped to the affinity model only
-        # (affinity_prediction=True): the structure model has affinity_prediction=False
-        # so _trunk_use_tt == use_tenstorrent and its trunk is byte-for-byte unchanged.
-        # Gated by BOLTZ2_AFFINITY_TRUNK_FP32_HOST (default on; set =0 to A/B the old
-        # bf16 device trunk).
-        import os as _os_trunk
-        self.affinity_trunk_fp32_host = (
-            affinity_prediction
-            and _os_trunk.environ.get("BOLTZ2_AFFINITY_TRUNK_FP32_HOST", "1") != "0"
-        )
-        # Release-gated (DEFAULT OFF): run the affinity model's 64-block
-        # pairformer in fp32 ON DEVICE (Fp32PairformerModule) instead of on the
-        # host. The MSA module and the recycle projections follow the HOST flag
-        # (default on -> host fp32, byte-identical to shipped); only the
-        # pairformer moves. Keeps the affinity parity the host trunk was built
-        # for while giving the pairformer's compute back to the card.
-        self.affinity_trunk_fp32_device = (
-            affinity_prediction
-            and use_tenstorrent
-            and _os_trunk.environ.get("BOLTZ2_AFFINITY_TRUNK_FP32_DEVICE", "0") == "1"
-        )
-        if self.affinity_trunk_fp32_device:
-            print("[boltz2] affinity pairformer trunk: fp32 ON DEVICE "
-                  "(BOLTZ2_AFFINITY_TRUNK_FP32_DEVICE=1)")
-        _trunk_use_tt = use_tenstorrent and not self.affinity_trunk_fp32_host
+        # The affinity model re-runs its own 64-block pairformer trunk to make the z
+        # that feeds the affinity head, and that head is unusually precision
+        # sensitive: the affinity scalar's mean-over-pooled-pair reduction turns
+        # bf16 storage rounding in z into a ~0.19 log10(IC50) offset. So the affinity
+        # trunk's pairformer runs in fp32 on device (Fp32PairformerModule); MSA,
+        # templates, recycle projections, diffusion and confidence take the ordinary
+        # device path. The structure model has affinity_prediction=False and is
+        # byte-for-byte unchanged.
+        self.affinity_trunk_fp32 = affinity_prediction and use_tenstorrent
         if use_templates:
             if use_templates_v2:
                 self.template_module = TemplateV2Module(
-                    token_z, use_tenstorrent=_trunk_use_tt, **template_args
+                    token_z, use_tenstorrent=use_tenstorrent, **template_args
                 )
             else:
                 self.template_module = TemplateModule(token_z, **template_args)
@@ -5143,7 +5121,7 @@ class Boltz2(nn.Module):
                 tri_att_head_dim=32,
                 tri_att_n_heads=4,
             )
-            if _trunk_use_tt
+            if use_tenstorrent
             else MSAModule_(
                 token_z=token_z,
                 token_s=token_s,
@@ -5159,9 +5137,9 @@ class Boltz2(nn.Module):
             )
         self.pairformer_module = (
             tenstorrent.Fp32PairformerModule(64, 32, 4, 24, 16, True)
-            if self.affinity_trunk_fp32_device
+            if self.affinity_trunk_fp32
             else tenstorrent.PairformerModule(64, 32, 4, 24, 16, True)
-            if _trunk_use_tt
+            if use_tenstorrent
             else PairformerModule_(token_s, token_z, **pairformer_args)
         )
         if compile_pairformer:
@@ -5420,8 +5398,9 @@ class Boltz2(nn.Module):
             and self.use_tenstorrent
             and not self.is_msa_compiled
             and not self.is_pairformer_compiled
-            and not self.affinity_trunk_fp32_host
-            and not self.affinity_trunk_fp32_device
+            # The resident trunk builds the bf16 pairformer and has no fp32 variant,
+            # so the affinity model runs the host recycle loop with device modules.
+            and not self.affinity_trunk_fp32
         )
         if use_resident_trunk:
             _trunk = self._tt_trunk_module()
@@ -5466,26 +5445,6 @@ class Boltz2(nn.Module):
                     pairformer_module = self.pairformer_module._orig_mod  # noqa: SLF001
                 else:
                     pairformer_module = self.pairformer_module
-
-                # Diagnostic (dev-only): capture the affinity trunk's real inputs at
-                # the first recycle for offline component verification, then exit.
-                import os as _os_dump
-                if (
-                    i == 0
-                    and self.affinity_prediction
-                    and _os_dump.environ.get("BOLTZ2_DUMP_TRUNK_IO")
-                ):
-                    torch.save(
-                        {
-                            "s": s.detach().cpu(),
-                            "z": z.detach().cpu(),
-                            "mask": mask.detach().cpu(),
-                            "pair_mask": pair_mask.detach().cpu(),
-                        },
-                        _os_dump.environ["BOLTZ2_DUMP_TRUNK_IO"],
-                    )
-                    print("[boltz2] BOLTZ2_DUMP_TRUNK_IO: wrote trunk I/O, exiting")
-                    raise SystemExit(0)
 
                 s, z = pairformer_module(
                     s,
