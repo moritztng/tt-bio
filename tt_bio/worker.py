@@ -1381,6 +1381,16 @@ def run_worker_loop(
     # happens at startup, never during active operation, which is what keeps us
     # off the UMD concurrent-device-init deadlock (see tenstorrent._device_init_lock).
     if state.accelerator == "tenstorrent":
+        # Name the card before opening it, not after. A card that hangs the native open is killed
+        # by SIGALRM from tenstorrent._arm_open_timeout, and the kernel does the killing, so no
+        # Python runs at death and nothing can be logged from a handler. This line is therefore the
+        # last thing in the journal before a hard device death, and it has to identify the chip on
+        # its own: py-spy device_id, /dev/tenstorrent/N and AIAND_BIO_DEVICE_IDS are three
+        # namespaces that disagree, so print the id we were actually given alongside the
+        # TT_VISIBLE_DEVICES it became.
+        _report_fatal(f"tt-bio worker {worker_info['label']}: opening UMD device "
+                      f"{worker_info.get('visible_devices') or worker_info['device_id']} "
+                      f"(TT_VISIBLE_DEVICES={os.environ.get('TT_VISIBLE_DEVICES')})\n")
         try:
             from tt_bio.tenstorrent import get_device as _get_device
             _get_device()
@@ -1388,11 +1398,14 @@ def run_worker_loop(
             _report_fatal(f"tt-bio worker {worker_info['label']}: device open failed\n"
                           f"{traceback.format_exc()}")
             # The chip didn't come up with working local dispatch (e.g. a raced
-            # "remote-only" bring-up). Do NOT stay online serving jobs we'd fail:
-            # exit so the pool supervisor respawns us. The respawn reopens under the
-            # host-wide device-init lock (one chip at a time), which is exactly what
-            # clears the concurrent-init race behind a bad bring-up.
-            return
+            # "remote-only" bring-up). Do NOT stay online serving jobs we'd fail.
+            #
+            # os._exit(75), not return: a bare return exits 0, so the supervisor logged "code=0"
+            # for a fatal device error and could not tell it apart from a clean shutdown - it
+            # respawned, the respawn reopened the same bad card, and the loop sustained itself. 75
+            # (EX_TEMPFAIL) says "this card, not this process", and the supervisor drops the slot
+            # on it instead of respawning.
+            os._exit(75)
     try:
         while True:
             if _dispatcher_pid and os.getppid() != _dispatcher_pid:

@@ -2023,6 +2023,59 @@ _device_generation = 0
 
 _DEVICE_INIT_LOCK_PATH = "/tmp/tt-bio-device-open.lock"
 
+# How long one process may hold the host-wide device-init lock before the kernel kills it.
+# 300 s because a healthy serialized open on a Galaxy takes seconds and a whole 24-worker pool is
+# expected back inside 600 s, so this is ~2 orders of magnitude above a good open and cannot fire on
+# a slow-but-working card. Env-tunable so a test can set it to 5. 0 disables the bound.
+_DEVICE_OPEN_TIMEOUT_S = int(os.environ.get("TT_BIO_DEVICE_OPEN_TIMEOUT_S", "300"))
+
+_NOT_ARMED = object()
+
+
+def _arm_open_timeout():
+    """Bound the time this process can hold the device-init lock, using SIGALRM at SIG_DFL.
+
+    A card that stops completing ``ttnn.open_device`` does not fail, it spins inside the native
+    call while holding the host-wide lock, and every other worker queues behind it. The pool then
+    bleeds down instead of merely starting short, and killing the holder just hands the lock to the
+    next bad card, so no sequence of kills ends it (measured twice, 2026-08-16).
+
+    SIGALRM with the *default* disposition, not a threading.Timer and not a Python handler, because
+    both of those need the interpreter to run. If ``ttnn.open_device`` holds the GIL for its whole
+    duration - very plausible for a native bring-up call stuck in a cross-process mutex - neither
+    would ever fire. ``signal.alarm`` is enforced by the kernel and terminates the process whatever
+    the interpreter is doing; multiprocessing then reports exitcode -SIGALRM. The cost is that no
+    Python runs at death, so nothing can be logged from a handler, which is why the worker prints
+    the card identity *before* the open rather than after the timeout.
+
+    Returns an opaque token for ``_disarm_open_timeout``. Arming is skipped off the main thread,
+    where signal.alarm is not permitted; that path keeps today's unbounded behaviour."""
+    import signal
+    import threading
+
+    if _DEVICE_OPEN_TIMEOUT_S <= 0:
+        return _NOT_ARMED
+    if threading.current_thread() is not threading.main_thread():
+        return _NOT_ARMED
+    try:
+        prev = signal.signal(signal.SIGALRM, signal.SIG_DFL)
+    except (ValueError, OSError):
+        return _NOT_ARMED
+    signal.alarm(_DEVICE_OPEN_TIMEOUT_S)
+    return prev
+
+
+def _disarm_open_timeout(token) -> None:
+    import signal
+
+    if token is _NOT_ARMED:
+        return
+    signal.alarm(0)
+    try:
+        signal.signal(signal.SIGALRM, token)
+    except (ValueError, OSError, TypeError):
+        pass
+
 
 @contextlib.contextmanager
 def _device_init_lock():
@@ -2043,11 +2096,13 @@ def _device_init_lock():
     every job routed to them). Serializing the opens is the fix.
 
     A single host-wide advisory lock makes every open/close strictly one-at-a-time,
-    so the UMD init path is never raced. Blocking on purpose: a best-effort timeout
-    that let opens proceed concurrently after waiting is exactly what reintroduced
-    the deadlock. The kernel drops the lock if a holder dies, and the pool
-    supervisor + per-run stall watchdog bound any pathological case, so this can
-    never wedge worse than opening unserialized. Opens are one-time per worker (the
+    so the UMD init path is never raced. The *wait* is unbounded on purpose: a
+    best-effort timeout that let opens proceed concurrently after waiting is exactly
+    what reintroduced the deadlock. What is bounded instead is how long a process may
+    *hold* the lock (``_arm_open_timeout``), which is the half that was missing - an
+    open that never returns used to stall every other worker on the host forever. The
+    kernel drops the lock when the holder dies, so bounding the holder is what lets
+    the queue behind it drain. Opens are one-time per worker (the
     chip is reused for every job, predict AND design — design runs in-process on the
     already-open chip, never cold-opening), so serialization only lengthens startup
     slightly and never adds any runtime latency."""
@@ -2059,7 +2114,11 @@ def _device_init_lock():
         return
     try:
         fcntl.flock(f, fcntl.LOCK_EX)  # wait our turn; do NOT proceed concurrently
-        yield
+        token = _arm_open_timeout()    # but do not hold it forever
+        try:
+            yield
+        finally:
+            _disarm_open_timeout(token)
     finally:
         try:
             fcntl.flock(f, fcntl.LOCK_UN)

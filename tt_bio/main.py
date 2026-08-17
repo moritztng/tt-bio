@@ -1106,7 +1106,9 @@ def _supervise_worker_processes(controller_url: str, workers: list, debug: bool,
     fresh process reopens its chip and rejoins the controller, so a transient
     failure self-heals instead of silently shrinking the fleet (the 31/32 drop).
     A per-slot budget (``max_restarts`` within ``restart_window``) drops and logs a
-    permanently-bad device rather than crash-looping it forever. Respawns happen
+    permanently-bad device rather than crash-looping it forever, and a worker that
+    failed to open its chip at all is dropped immediately rather than respawned onto
+    the same bad card. Respawns happen
     one slot at a time, so they never re-trigger the concurrent-open contention of
     a bulk startup. Blocks until interrupted; SIGINT stops the whole fleet cleanly."""
     ctx = mp.get_context("spawn")
@@ -1132,6 +1134,19 @@ def _supervise_worker_processes(controller_url: str, workers: list, debug: bool,
                 if i in dropped or proc.is_alive():
                     continue
                 label = getattr(workers[i], "label", f"worker {i}")
+                # A worker that could not open its chip is a bad card, not a bad process, so
+                # respawning it is what made the stall self-sustaining: the new process reopened the
+                # same card and re-took the host-wide device-init lock, and every healthy worker
+                # queued behind it again. Drop the slot instead and the remaining chips keep
+                # serving. 75 is the worker exiting on a failed open; -SIGALRM is the kernel killing
+                # it for holding the device-init lock too long, which is the case where the open
+                # never returned at all.
+                if proc.exitcode in (75, -signal.SIGALRM):
+                    dropped.add(i)
+                    click.echo(f"[supervisor] {label} could not open its chip "
+                               f"(exit {proc.exitcode}) — dropping it from the pool; the other "
+                               f"{len(procs) - len(dropped)} continue", err=True)
+                    continue
                 now = time.monotonic()
                 recent = [t for t in restarts.get(i, []) if now - t < restart_window]
                 if len(recent) >= max_restarts:
