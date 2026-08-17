@@ -1,0 +1,47 @@
+{
+  "label": "item17-1a8q-template-OFF-one_row_alignment-qb1card0 (faithful upstream no-MSA condition)",
+  "pred_dir": "/tmp/of3dev/tmpl_1a8q_off_dummymsa/openfold3_results_1a8q_template_off_dummymsa/structures",
+  "ref_cif": "1a8q.cif",
+  "ref_chains": [
+    "A"
+  ],
+  "n": 8,
+  "values": [
+    15.425625369251245,
+    15.738989621472047,
+    17.43339463805681,
+    16.68467340416111,
+    15.693380942645481,
+    15.35575290936519,
+    17.36584955029065,
+    19.10311306715249
+  ],
+  "gdt_ts": [
+    0.0948905109489051,
+    0.1104014598540146,
+    0.10766423357664233,
+    0.06843065693430657,
+    0.052919708029197085,
+    0.03467153284671533,
+    0.1031021897810219,
+    0.03193430656934307
+  ],
+  "mean": 16.600097437799377,
+  "sd": 1.3117284276742716,
+  "ceiling": null,
+  "floor": 8.0,
+  "verdict": "PASS",
+  "layout": "ttbio",
+  "metric": "openfold3.core.metrics.alignment.best_ca_rmsd",
+  "openfold3_commit": "72fc3a9534d37291b1ca7f02f11a8a0b12cd80c9",
+  "cifs": [
+    "1a8q_template_off_dummymsa.cif",
+    "1a8q_template_off_dummymsa_model_1.cif",
+    "1a8q_template_off_dummymsa_model_2.cif",
+    "1a8q_template_off_dummymsa_model_3.cif",
+    "1a8q_template_off_dummymsa_model_4.cif",
+    "1a8q_template_off_dummymsa_model_5.cif",
+    "1a8q_template_off_dummymsa_model_6.cif",
+    "1a8q_template_off_dummymsa_model_7.cif"
+  ]
+}
