@@ -73,3 +73,13 @@ Storage grid 13x10, CORE_GRID_MAIN (13,10), same as cards 1/2/3.
 
 All four qb1 cards now produce the same nine shas, within a process and across processes. The
 canonical pair-cond answer is a 4-card, 2-process result, not a 3-card one.
+
+### Cross-card fold-level agreement (qb1 card 0 vs card 3)
+
+| N | card 3 canonical | card 0 | rmsd | atoms moved >1e-6 A |
+|---|---|---|---|---|
+| 160 | `c7d24c5ae42893f1` (n=2) | `c7d24c5ae42893f1` | 0.0000 A | 0/1278 |
+| 256 | `0879651e337c7fcc` (n=7) | `0879651e337c7fcc` | 0.0000 A | 0/2060 |
+
+Real weights, real data, fresh process, seed 0. The canonical output is cross-card, so pc card
+0 is producing a wrong answer rather than an equally valid alternative reduction order.
