@@ -124,11 +124,22 @@ class StructuralTokenExpander(_KeyedWeights):
         the host's order in fp32, and one fp32->bf16 cast rounds at the end --
         bit-identical to the old host fp32 gather/sum + from_torch upload
         (IEEE fp32 adds, both casts round-to-nearest-even). Per chunk only the
-        five (clen*Ns,1) index grids upload instead of a (clen,Ns,c_z) fp32
+        five (clen,Ns,1) index grids upload instead of a (clen,Ns,c_z) fp32
         gather+sum+upload. (ttnn.embedding is bf16-only and ttnn.matmul rounds
-        fp32 inputs to bf16, hence the where-chain.)"""
+        fp32 inputs to bf16, hence the where-chain.)
+
+        The index grid uploads already shaped (clen, Ns, 1) so the where-chain
+        result comes out (clen, Ns, c_z) directly. The first version of this
+        uploaded it flat and reshaped the (1, clen*Ns, c_z) result at the end,
+        which splits a TILE tensor's row axis on Ns=249 -- not a multiple of 32.
+        That tensor reads back through ttnn.to_torch bit-exact and computes
+        WRONG as an operand of the ttnn.add below, so every host-side check
+        passed while the fold's pair track was corrupted (`6c3f5ecaf`; the
+        isolated shapes do not reproduce it, only a fold does --
+        perf/wh-correctness/pairbias_wherechain_probe.py)."""
         dev = get_device()
         C = self.c_z
+        clen, Ns = pf["role_pair_type"].shape
         b = None
         for tkey, ikey, n in (("same_parent_embedding.weight", "same_parent_residue", 2),
                               ("same_residue_twin_embedding.weight", "same_residue_twin", 2),
@@ -136,16 +147,14 @@ class StructuralTokenExpander(_KeyedWeights):
                               ("next_bb_chain_embedding.weight", "next_bb_chain", 2),
                               ("role_pair_type_embedding.weight", "role_pair_type", 8)):
             tab = self._emb_tt(tkey)
-            idx = ttnn.from_torch(pf[ikey].reshape(1, -1, 1).to(torch.int32),
+            idx = ttnn.from_torch(pf[ikey].reshape(clen, Ns, 1).to(torch.int32),
                                   layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.uint32)
             g = ttnn.reshape(ttnn.slice(tab, [n - 1, 0], [n, C]), (1, 1, C))
             for k in range(n - 2, -1, -1):
                 rowk = ttnn.reshape(ttnn.slice(tab, [k, 0], [k + 1, C]), (1, 1, C))
                 g = ttnn.where(ttnn.eq(idx, k), rowk, g)
             b = g if b is None else ttnn.add(b, g)
-        clen, Ns = pf["role_pair_type"].shape
-        b = ttnn.typecast(b, getattr(self, "dtype", ttnn.bfloat16))
-        return ttnn.reshape(b, (clen, Ns, C))
+        return ttnn.typecast(b, getattr(self, "dtype", ttnn.bfloat16))
 
     def _attn_bias(self, pf):
         """Scalar-weighted mask sum + role-pair-type bias -> ttnn (clen, Ns).
@@ -390,9 +399,15 @@ class OpenDDE:
         # atom-level tensors, see tt-bio-shared-diffusion-global-env-default-regression).
         # gated_move=True: E6 fires on 1048 of the fold's 1216 trimul channel moves at c_z=384
         # and is torch.equal to the sequence it replaces at both slice widths.
+        #
+        # OPENDDE_DIFFUSION_FP32=1 lifts the bf16 pin for an A/B. The pin is a perf decision,
+        # so it needs an opt-out that does not also flip Protenix-v2 (which is what
+        # PROTENIX_DIFFUSION_FP32_DEVICE would do -- tt-bio-shared-diffusion-global-env-default-regression).
+        # Diagnostic only: fp32 here is >60x slower on OpenDDE's atom-level tensors.
+        import os
         self._protenix = Protenix(
             self._shared, compute_kernel_config, self.dev, c_z=C["c_z"], msa_update_first=True,
-            diffusion_fp32=False, gated_move=True)
+            diffusion_fp32=os.environ.get("OPENDDE_DIFFUSION_FP32", "0") == "1", gated_move=True)
         self.expander = StructuralTokenExpander(
             routed["expander"], compute_kernel_config, c_s=C["c_s"], c_z=C["c_z"],
             c_s_inputs=C["c_s_inputs"], n_roles=C["n_roles"], pair_chunk_size=C["pair_chunk_size"])
