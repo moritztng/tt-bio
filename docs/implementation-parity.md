@@ -154,6 +154,14 @@ an opt-in device self-consistency (D) diagnostic via `--legacy-rdx`.
 **Full matrix complete as of 2026-07-24.** Every envelope leg's `ref_fp32`/`ref_bf16` CPU
 reference is now regenerated (the last 9: `boltz2-hsa-nomsa`, all 3 `protenix-v2-*-msa`
 structure legs, all 3 `boltz2-affinity-*-msa` legs, and both `opendde-*-nomsa` legs).
+
+Correction (issue #10): the 5 Protenix-v2/OpenDDE legs in that regen list never got CPU
+references. `--accelerator cpu` was silently ignored for ttnn-only models, so their
+`ref_fp32`/`ref_bf16` pairs are device folds (autocast off/on) and every envelope verdict
+measured against them is an instrument artifact, not a floor measurement. Those legs are
+`legacy_rdx` now (the 2026-08-11 paragraph below) and their fixture meta.json no longer
+claims a `tt-bio-cpu-torch` reference. The Boltz-2 legs in the same list are unaffected:
+Boltz-2 has a real torch CPU path, so its regenerated references are genuine.
 A full non-dry `full_parity_gate.py` run against every one of the 21 wired
 legs gives:
 
