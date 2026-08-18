@@ -3,7 +3,7 @@
   "date": "2026-07-21",
   "envelope": {
     "reference_commit": "1e053791a",
-    "reference_impl": "tt-bio-cpu-torch",
+    "reference_impl": "tt-bio device fold (ttnn), NOT a CPU reference: --accelerator cpu was silently ignored for this ttnn-only model until b245eedd0 (issue #10), so these fp32/bf16 shared-draw refs were computed on the card (autocast off/on) and the envelope denominator collapsed to ~0. The leg is legacy_rdx now and scores against the harvested external reference (top-level provenance); this block is retained only as the fixture cache key and must not be read as a CPU-torch reference.",
     "reference_version": "1e053791a",
     "seeds": [
       0

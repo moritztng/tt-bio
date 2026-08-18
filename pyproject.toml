@@ -57,11 +57,17 @@ dependencies = [
     "func_timeout",       # RDKit conformer-embedding timeout guard
     "networkx",           # CCD bond-graph connected components
     "packaging",          # tt_bio/_vendor/openfold3/__init__.py version check
-    "ttnn==0.68.0",
+    # ttnn is NOT here on purpose: it only publishes wheels for TT-supported
+    # platforms, and the Boltz-2 CPU/GPU path + CLI must install and run without
+    # it (issue #6). It lives in the `tenstorrent` extra below.
 ]
 
 [project.optional-dependencies]
 test = ["pytest"]
+# Tenstorrent execution (the default --accelerator): pip install 'tt-bio[tenstorrent]'.
+# Without it, `tt-bio --help` and --accelerator cpu/gpu still work; requesting a card
+# fails with a clear message naming this extra.
+tenstorrent = ["ttnn==0.68.0"]
 
 [project.scripts]
 tt-bio = "tt_bio.main:cli"

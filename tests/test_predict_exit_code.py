@@ -135,3 +135,38 @@ def test_exit_code_mapping():
     with pytest.raises(SystemExit) as partial:
         _exit_for_failed_jobs(1, 3)
     assert partial.value.code == 2
+
+
+# --- issue #10: --accelerator cpu/gpu on a ttnn-only model must refuse, not fold on the card ---
+
+TTNN_ONLY_MODELS = ("esmfold2", "esmfold2-fast", "protenix-v2", "openfold3",
+                    "opendde", "opendde-abag")
+
+
+@pytest.mark.parametrize("model", TTNN_ONLY_MODELS)
+@pytest.mark.parametrize("accelerator", ["cpu", "gpu"])
+def test_ttnn_only_model_refuses_cpu_gpu_accelerator(host_predict, tmp_path, model, accelerator):
+    """Before b245eedd0 these flags were silently ignored and the fold ran on the
+    card; the parity gate's 'CPU references' were device folds. The refusal must
+    fire before any dispatch (total stays None) for local AND --controller runs."""
+    for extra in ([], ["--controller", "http://127.0.0.1:1"]):
+        result = CliRunner().invoke(
+            cli, ["predict", str(_target(tmp_path / "t.yaml")), "--model", model,
+                  "--accelerator", accelerator, "--single_sequence",
+                  "--out_dir", str(tmp_path / "out")] + extra)
+        assert result.exit_code == 2, (model, accelerator, extra, result.output)
+        assert "Tenstorrent only" in result.output
+        assert host_predict["total"] is None
+
+
+def test_ttnn_only_model_refused_on_cpu_worker():
+    """Worker-side half of the guard: a CPU/GPU worker joined to a controller must
+    reject a ttnn-only job instead of opening a card (the CLI refusal is client-side
+    only; a controller accepts payloads from any client)."""
+    import types
+
+    from tt_bio.worker import _WorkerState
+
+    state = types.SimpleNamespace(accelerator="cpu")
+    with pytest.raises(RuntimeError, match="Tenstorrent only"):
+        _WorkerState.load_model(state, {"model": "protenix-v2"})

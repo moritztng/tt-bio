@@ -1,8 +1,8 @@
 {
-  "note": "9ncy AbAg complex (505 tokens, former [385,506] crash band); envelope refs pending generation (--regen-refs)",
-  "reference_commit": "7b9d0b427",
-  "reference_impl": "tt-bio-cpu-torch",
-  "reference_version": "7b9d0b427",
+  "note": "9ncy AbAg complex (505 tokens, former [385,506] crash band). NO reference has ever been harvested for this fixture: the planned tt-bio-cpu-torch envelope refs cannot exist (protenix-v2 is ttnn-only; --accelerator cpu is refused since b245eedd0, issue #10). To score this leg, harvest an official ByteDance Protenix reference like the other protenix-v2 legs, then move provenance to the top level.",
+  "reference_commit": "none",
+  "reference_impl": "none (reference never generated; see note)",
+  "reference_version": "none",
   "seeds": [
     0
   ],

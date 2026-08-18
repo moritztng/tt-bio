@@ -15,11 +15,16 @@ import sys as _sys
 
 _sys.modules.setdefault("boltzgen", _sys.modules[__name__])
 
-from tt_bio.boltzgen.adapter import (  # noqa: E402
-    load_boltz_checkpoint,
-    TTPairformerNoSeqModule,
-    TTScoreModelAdapter,
-)
+# The adapter pulls in tt_bio.tenstorrent (ttnn) at module scope. Import it lazily
+# so importing anything else under this package (e.g. tt_bio.data.mol ->
+# boltzgen.model.geometry) works on hosts without the Tenstorrent SDK (issue #6).
+def __getattr__(name):
+    if name in __all__:
+        from tt_bio.boltzgen import adapter
+
+        return getattr(adapter, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     "load_boltz_checkpoint",
