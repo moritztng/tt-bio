@@ -1415,6 +1415,16 @@ def _dispatch_to_controller(controller_url: str, run_payload: dict, *, total: in
     return failed
 
 
+def _exit_for_failed_jobs(failed: int, total: int) -> None:
+    """Exit the CLI nonzero when a run lost targets: 1 when every job failed,
+    2 when some succeeded and some failed. Callers (release gate, CI, fleet
+    scripts) gate on the process exit status, so a run that lost targets must
+    not report success."""
+    if failed <= 0:
+        return
+    raise SystemExit(1 if failed >= total else 2)
+
+
 def _write_job_outputs(client: ControllerClient, run_id: str, job_id: str,
                        struct_dir: Path) -> None:
     """Fetch a completed job's output files and write them under struct_dir."""
@@ -2353,6 +2363,12 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         <model>_results_<name>/   # e.g. protenix_results_prot, boltz2_results_trpcage
             structures/     # one CIF per complex (pLDDT in B-factors)
             results.json    # confidence metrics + affinity
+
+    \b
+    Exit status:
+        0   every target folded
+        1   every target failed
+        2   some targets failed, some folded
     """
     # These are counts of things to generate; <1 crashes deep in the model
     # (e.g. "reshape tensor of 0 elements" / "Dimension size must be
@@ -2479,8 +2495,9 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             ckpt_cache = Path(os.environ.get("BOLTZ_CACHE", str(Path("~/.boltz").expanduser())))
             hf_artifact(PROTENIX_REPO, "protenix-v2.pt", ckpt_cache)
         if controller:
-            _dispatch_to_controller(controller, run_payload, total=len(jobs), results_path=results_path,
-                                    struct_dir=struct_dir, model=model, debug=debug, log=log, run_id=run_id)
+            failed = _dispatch_to_controller(controller, run_payload, total=len(jobs), results_path=results_path,
+                                             struct_dir=struct_dir, model=model, debug=debug, log=log, run_id=run_id)
+            _exit_for_failed_jobs(failed, len(jobs))
             return
         # Every model on this branch is a ttnn-only port: load_model imports ttnn and opens a
         # chip, with no torch fallback. Passing "tenstorrent" below regardless of --accelerator
@@ -2498,8 +2515,9 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             )
         workers = _local_workers("tenstorrent", num_devices, device_ids, max_workers=max(len(jobs), 1))
         _cap_worker_threads(len(workers), host_threads)
-        _dispatch_run(run_payload, workers, total=len(jobs), results_path=results_path,
-                      struct_dir=struct_dir, model=model, listen=listen, debug=debug, log=log)
+        failed = _dispatch_run(run_payload, workers, total=len(jobs), results_path=results_path,
+                               struct_dir=struct_dir, model=model, listen=listen, debug=debug, log=log)
+        _exit_for_failed_jobs(failed, len(jobs))
         return
 
     os.environ.setdefault("CUEQ_DEFAULT_CONFIG", "1")
@@ -2622,8 +2640,9 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         # no devices, no energy profiling on this host.
         if report_energy:
             click.echo("Energy profiling is unavailable in --controller mode (no local device); skipping")
-        _dispatch_to_controller(controller, run_payload, total=len(jobs), results_path=results_path,
-                                struct_dir=struct_dir, model=model, debug=debug, log=log, run_id=run_id)
+        failed = _dispatch_to_controller(controller, run_payload, total=len(jobs), results_path=results_path,
+                                         struct_dir=struct_dir, model=model, debug=debug, log=log, run_id=run_id)
+        _exit_for_failed_jobs(failed, len(jobs))
         return
 
     workers = _local_workers(
@@ -2655,8 +2674,8 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
                 click.echo(f"Energy profiler unavailable: {e}")
                 energy_profiler = None
 
-    _dispatch_run(run_payload, workers, total=len(jobs), results_path=results_path,
-                  struct_dir=struct_dir, model=model, listen=listen, debug=debug, log=log)
+    failed = _dispatch_run(run_payload, workers, total=len(jobs), results_path=results_path,
+                           struct_dir=struct_dir, model=model, listen=listen, debug=debug, log=log)
 
     if energy_profiler is not None:
         energy_profiler.stop()
@@ -2696,6 +2715,8 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             title=f"TT device {devices[0]} power vs time",
         )
         click.echo(f"  power_plot:     {energy_plot_path}" if wrote_plot else "  power_plot:     failed (matplotlib not available)")
+
+    _exit_for_failed_jobs(failed, len(jobs))
 
 
 @cli.command()
