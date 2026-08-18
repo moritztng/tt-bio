@@ -30,9 +30,39 @@ Seed/protocol verification: the port seeds each diffusion sample as seed+sample_
 values match within 0.022 Å; two moved (19.08→18.14, 11.43→10.76), consistent with chaotic
 trajectory amplification across hosts (qb1 p150a vs qb2 P300), not a protocol difference.
 
-## CPU control, N=24 (running)
+## CPU control, N=24 (done 2026-08-18/19)
 
-Upstream openfold3 0.4.4, fp32, checkpoint of3-p2-155k, on pc (the calibrated control host):
-3 × 8 samples, seeds 42/43/44, same query, same alignment (the template cache npz the runner
-consumes is array-identical to the committed `1y57.npz`: index, release_date, idx_map all equal).
-One-row dummy MSA is upstream's own no-MSA behavior, matching the faithful arm.
+Upstream openfold3 (0.4.6.dev12+g72fc3a953, the calibrated control env), fp32, checkpoint
+of3-p2-155k, on pc: 3 × 8 samples, seeds 42/43/44, same query, same alignment (the template cache
+npz the runner consumes is array-identical to the committed `1y57.npz`: index, release_date, idx_map
+all equal). One-row dummy MSA is upstream's own no-MSA behavior, matching the faithful arm. Scored
+with the same `scripts/of3_upstream_score.py`, `--layout upstream`: `cpu_on_s{42,43,44}_scored.json`.
+
+Combined N=24: mean **12.524 Å**, sd 2.657, max **15.84**. Sorted:
+8.21, 9.19, 9.27, 9.40, 9.51, 9.52, 9.57, 9.97, 10.53, 10.59, 13.41, 13.46, 13.55, 14.15, 14.16,
+14.18, 14.61, 14.70, 14.94, 15.12, 15.43, 15.43, 15.83, 15.84.
+0 of 24 above 16 Å; 2 of 24 above upstream's MPS observed max (15.5). This reproduces upstream's
+MPS band (8.2-15.5, 12.07 ± 2.83) almost exactly.
+
+## Verdict: (a) model/input property, not a port defect
+
+- Upstream's own calibration note (`test_templates.py`, 1y57 case) records their CUDA-family runs
+  spreading ON per-sample over **8.6-22.8 Å** (5 distinct draws replayed across two machines). Our
+  entire device range (8.36-22.21) sits inside upstream's own envelope, at a matching tail rate
+  (>=1/5 above 16 Å vs our 4/24).
+- The tight band is specific to CPU/MPS-class numerics: our matched-N CPU control of upstream's own
+  model stays <= 15.84. Upstream's eval default enables triton triangle kernels on CUDA; CPU/MPS run
+  the reference path. The wide family is upstream-CUDA + this port's ttnn kernels.
+- Port-specific suspects all controlled: same npz both arms (array-identical), same one-row dummy
+  MSA, same checkpoint, same metric (upstream's own `best_ca_rmsd`), diffusion sampler fp32 on device
+  (`OF3_DIFFUSION_FP32_DEVICE=1` default, no override in the run), noise drawn host-side on MT19937
+  (same RNG backend as the CPU control), per-sample seeding replays committed values across hosts to
+  0.022 Å, confidence ranking does not enter the per-sample distribution.
+- Stats: means indistinguishable (13.356 vs 12.524, Welch t 0.869, p 0.39). Tail rate >= 16 Å:
+  device 4/24 vs CPU 0/24, Fisher p 0.055 (borderline). Upstream's own internal split is the same
+  order: CUDA 1/5 vs MPS 0/8, Fisher p 0.38. Pooled wide family (device 24 + upstream CUDA 5) vs
+  tight family (CPU 24 + upstream MPS 8): Fisher p 0.020. KS D 0.375, p 0.051.
+- Not (b): the tail persists at N=24 on device and appears in upstream's own n=5. Not (c): no
+  port-specific suspect survives; our max is below upstream's own observed max.
+
+Result JSON: `verdict.json` here; state `~/.coworker/state/of3-1y57-template-tail-rootcause.md`.

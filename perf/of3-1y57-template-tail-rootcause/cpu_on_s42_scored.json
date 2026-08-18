@@ -1,0 +1,47 @@
+{
+  "label": "item18-1y57-ON-upstream044-cpu-fp32-seed42",
+  "pred_dir": "cpu_on_s42/1y57_template_on/seed_42",
+  "ref_cif": "1y57.cif",
+  "ref_chains": [
+    "A"
+  ],
+  "n": 8,
+  "values": [
+    8.210172302509584,
+    14.183372500842566,
+    15.428732422700854,
+    13.54671188096969,
+    10.529364675458792,
+    14.16051390799707,
+    15.83978529962644,
+    9.402062943787998
+  ],
+  "gdt_ts": [
+    0.18008948545861297,
+    0.0749440715883669,
+    0.05592841163310962,
+    0.08780760626398211,
+    0.12136465324384788,
+    0.08389261744966442,
+    0.05089485458612976,
+    0.14205816554809844
+  ],
+  "mean": 12.662589491736624,
+  "sd": 2.880725383513661,
+  "ceiling": null,
+  "floor": null,
+  "verdict": "MEASURED",
+  "layout": "upstream",
+  "metric": "openfold3.core.metrics.alignment.best_ca_rmsd",
+  "openfold3_commit": "72fc3a9534d37291b1ca7f02f11a8a0b12cd80c9",
+  "cifs": [
+    "1y57_template_on_seed_42_sample_1_model.cif",
+    "1y57_template_on_seed_42_sample_2_model.cif",
+    "1y57_template_on_seed_42_sample_3_model.cif",
+    "1y57_template_on_seed_42_sample_4_model.cif",
+    "1y57_template_on_seed_42_sample_5_model.cif",
+    "1y57_template_on_seed_42_sample_6_model.cif",
+    "1y57_template_on_seed_42_sample_7_model.cif",
+    "1y57_template_on_seed_42_sample_8_model.cif"
+  ]
+}
