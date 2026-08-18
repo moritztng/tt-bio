@@ -6,7 +6,9 @@
 <title>TT-Bio</title>
 <meta name="description" content="Open-source biomolecular AI on Tenstorrent. A Blackhole Galaxy matches an NVIDIA DGX B200 on throughput at a fifth of the purchase price, with accuracy matched to reference implementations.">
 <link rel="preload" href="assets/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="assets/galaxy.webp" as="image" type="image/webp" fetchpriority="high">
+<link rel="preload" as="image" type="image/webp" fetchpriority="high"
+      imagesrcset="assets/galaxy-520.webp 520w, assets/galaxy-1040.webp 1040w"
+      imagesizes="(max-width:900px) min(90vw,440px), 520px">
 <link rel="stylesheet" href="assets/site.css">
 <style>
 
@@ -126,9 +128,11 @@ h2{font-size:clamp(1.85rem,3.5vw,2.5rem);margin:0 0 18px;max-width:22ch}
     </div>
     <div class="stage">
       <picture>
-        <source srcset="assets/galaxy.webp" type="image/webp">
-        <img src="assets/galaxy.jpg" alt="A Tenstorrent Galaxy unit being installed into a rack"
-             width="1600" height="1066" fetchpriority="high" decoding="async">
+        <source type="image/webp"
+                srcset="assets/galaxy-520.webp 520w, assets/galaxy-1040.webp 1040w"
+                sizes="(max-width:900px) min(90vw,440px), 520px">
+        <img src="assets/galaxy-1040.jpg" alt="A Tenstorrent Galaxy unit being installed into a rack"
+             width="1040" height="693" fetchpriority="high" decoding="async">
       </picture>
     </div>
   </div>
