@@ -2977,6 +2977,11 @@ class TriangleMultiplication(Module):
                 for _t in x_chunks:
                     ttnn.deallocate(_t)
                 x_chunks = []
+                # Drop the interrupted iteration's intermediates: whatever was live
+                # at the throw still holds L1, and the retry must allocate against a
+                # clean slate, not against the corpse of the failed attempt.
+                gp_in_fused = g_in_a = g_in_b = p_in_a = p_in_b = None
+                a_chunk = b_chunk = x_chunk = None
                 _record_trimul_clash(H, self._hidden, batch, chunk_size)
                 if chunk_size > TRIANGLE_MULT_CHUNK_SIZE:
                     chunk_size = _trimul_chunk_size(H, self._hidden, batch)
