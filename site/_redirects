@@ -1,0 +1,3 @@
+# /benchmarks.html was the URL for a few hours on 2026-08-18 before the page
+# moved to a directory index. Keep it working.
+/benchmarks.html   /benchmarks/   301
