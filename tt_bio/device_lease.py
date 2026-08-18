@@ -77,9 +77,12 @@ def physical_card():
     """
     logical = int(os.environ.get("TT_BIO_LOGICAL_DEVICE_ID", "0"))
     visible = os.environ.get("TT_VISIBLE_DEVICES", "")
-    cards = [c for c in visible.split(",") if c != ""]
-    if cards:
-        return cards[logical] if logical < len(cards) else cards[0]
+    if visible.strip():
+        # Tokens may be PCI BDFs, which ttnn also accepts; resolve to UMD indices so
+        # the lease file keeps the fleet's <host>-card<N>.json naming (issue #11).
+        from tt_bio.runtime import visible_device_indices
+        cards = visible_device_indices(visible)
+        return str(cards[logical] if logical < len(cards) else cards[0])
     return str(logical)
 
 
