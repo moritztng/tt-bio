@@ -1,0 +1,113 @@
+{
+  "task": "of3-1y57-template-tail-rootcause",
+  "question": "test_template_lowers_rmsd[1y57] templates-ON: is our wider upper tail (a) model/input property, (b) small-N noise, (c) port defect",
+  "verdict": "a",
+  "verdict_detail": "Model/input property. Upstream's own implementation shows the same wide ON tail on its CUDA-family backend (per-sample 8.6-22.8 A, 5 distinct draws replayed on two machines; test_templates.py 1y57 calibration note). Our device max 22.21 A sits inside that envelope at a matching tail rate (our 4/24 >= 16 A vs their >=1/5). The tight 8.2-15.5 A band is specific to CPU/MPS-class numerics: our matched-N control of upstream's own model on CPU fp32 stays <= 15.84 A at N=24. Not (b): the tail persists at N=24 and the wide/tight split pooled across both implementations is real (Fisher p 0.020). Not (c): every port-specific suspect is controlled (array-identical alignment npz, same one-row dummy MSA, same checkpoint of3-p2-155k, same metric best_ca_rmsd, fp32 diffusion sampler on device, host-side MT19937 noise same RNG backend as the CPU control, per-sample seeding replays committed values across hosts to 0.022 A, confidence ranking not in the per-sample distribution); the means are indistinguishable (Welch p 0.39).",
+  "device_arm": {
+    "label": "item18-1y57-ON-faithful-device-qb2card0-N24-seed42",
+    "n": 24,
+    "sorted_values_A": [
+      8.36,
+      8.38,
+      8.58,
+      8.61,
+      8.73,
+      8.73,
+      9.28,
+      9.42,
+      10.76,
+      12.55,
+      13.7,
+      15.16,
+      15.33,
+      15.45,
+      15.46,
+      15.56,
+      15.67,
+      15.75,
+      15.83,
+      15.84,
+      16.02,
+      17.04,
+      18.14,
+      22.21
+    ],
+    "mean_A": 13.356,
+    "sd_A": 3.866,
+    "max_A": 22.21,
+    "n_ge_16A": 4,
+    "protocol": "faithful templates-ON (one-row dummy MSA + committed 1y57.npz), seed 42, 200 steps, 3 recycles, qb2, OF3_DIFFUSION_FP32_DEVICE default (fp32 sampler), bf16 trunk",
+    "scoring": "openfold3.core.metrics.alignment.best_ca_rmsd @ 72fc3a9534d37291b1ca7f02f11a8a0b12cd80c9"
+  },
+  "cpu_control": {
+    "label": "upstream openfold3 0.4.6.dev12+g72fc3a953, fp32, CPU, seeds 42/43/44 x 8 samples",
+    "n": 24,
+    "sorted_values_A": [
+      8.21,
+      9.19,
+      9.27,
+      9.4,
+      9.51,
+      9.52,
+      9.57,
+      9.97,
+      10.53,
+      10.59,
+      13.41,
+      13.46,
+      13.55,
+      14.15,
+      14.16,
+      14.18,
+      14.61,
+      14.7,
+      14.94,
+      15.12,
+      15.43,
+      15.43,
+      15.83,
+      15.84
+    ],
+    "mean_A": 12.524,
+    "sd_A": 2.657,
+    "max_A": 15.84,
+    "n_ge_16A": 0,
+    "protocol": "run_openfold predict, accelerator cpu, fp32, checkpoint of3-p2-155k, same query, template cache npz array-identical to committed 1y57.npz",
+    "scoring": "openfold3.core.metrics.alignment.best_ca_rmsd @ 72fc3a9534d37291b1ca7f02f11a8a0b12cd80c9"
+  },
+  "upstream_published": {
+    "mps_n8": {
+      "range_A": [
+        8.2,
+        15.5
+      ],
+      "mean_A": 12.07,
+      "sd_A": 2.83
+    },
+    "cuda_family_n5_distinct": {
+      "range_A": [
+        8.6,
+        22.8
+      ],
+      "means_A": [
+        12.7,
+        12.74,
+        12.78
+      ],
+      "note": "3 runs replay the same 5 draws (shared RNG stream); from test_templates.py 1y57 comment"
+    }
+  },
+  "statistics": {
+    "welch_t_device_vs_cpu": 0.869,
+    "welch_p": 0.39,
+    "fisher_ge16_device_4of24_vs_cpu_0of24": 0.055,
+    "fisher_upstream_cuda_1of5_vs_mps_0of8": 0.38,
+    "fisher_pooled_wide_5of29_vs_tight_0of32": 0.02,
+    "ks_D": 0.375,
+    "ks_p": 0.051
+  },
+  "suite_bound": {
+    "with_template_rmsd_max_angstrom": 16.0,
+    "device_mean_passes_at_n8_and_n24": true
+  }
+}

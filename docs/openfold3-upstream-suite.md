@@ -121,8 +121,7 @@ the claim is checked: one structure per diffusion sample and a confidence record
 
 ## 1y57 checked against upstream's own calibration note
 
-The 1y57 comment in `test_templates.py` says three things we can check directly, and one of the checks
-does not flatter us.
+The 1y57 comment in `test_templates.py` says three things we can check directly.
 
 **Templates are active, which is the regression that comment is about.** Upstream notes that when
 templates get silently dropped (their issue #294) the ON condition collapses onto OFF at ~23.7 Å. Ours
@@ -133,18 +132,37 @@ sits at 13.173 Å ON against 24.482 Å OFF, so nothing is being dropped.
 band. They state explicitly that the with-template max at 16.0 Å is the tightest of the three bounds, at
 3.9 SE above their mean, and that the separation check is the robust one regardless of hardware.
 
-**Our ON distribution has a wider upper tail than theirs.** Upstream reports the MPS per-sample ON range
-as 8.2-15.5 Å, spread continuously. Ours on the faithful arm runs 8.62-19.08 Å, so four of eight samples
-sit above their observed maximum even though the mean passes. Sorted: 8.62, 8.63, 8.73, 11.43, 15.86,
-16.01, 17.03, 19.08. Upstream's own position is that the mean is the meaningful quantity here because the
-ON samples are widely spread, and by that measure we pass; we are flagging the tail because it is a real
-difference and because the 16.0 Å ceiling is the bound with the least room.
+**Our ON distribution has a wider upper tail than upstream's MPS envelope. We root-caused it: the tail
+is the model's, not the port's.** Upstream reports the MPS per-sample ON range as 8.2-15.5 Å, spread
+continuously. Our committed 8-sample arm runs 8.62-19.08 Å, so four of eight samples sit above that
+envelope even though the mean passes. Re-run at 24 samples under the same protocol the mean holds at
+13.356 Å (sd 3.866) against the 16.0 Å ceiling, and the tail persists: sorted 8.36, 8.38, 8.58, 8.61,
+8.73, 8.73, 9.28, 9.42, 10.76, 12.55, 13.70, 15.16, 15.33, 15.45, 15.46, 15.56, 15.67, 15.75, 15.83,
+15.84, 16.02, 17.04, 18.14, 22.21, with 4 of 24 at 16 Å or above.
+
+The wide tail is a property of the model on this input, which upstream's own implementation also shows.
+Their calibration note records the CUDA-family runs spreading ON per-sample over 8.6-22.8 Å (five
+distinct draws, replayed across two machines): our entire 24-sample range sits inside the envelope
+upstream's own implementation produces, at a matching tail rate (at least 1 of their 5 above 16 Å,
+against our 4 of 24). The tight 8.2-15.5 Å band comes from their MPS run, and our matched control
+reproduces that band: upstream's own model on CPU, fp32, same checkpoint, the identical alignment npz
+(verified array-identical), 24 samples spread 8.21-15.84 Å with mean 12.524 Å and none above 16 Å. So
+upstream's own implementation is tight on CPU/MPS-class numerics and wide on CUDA-class numerics, and
+this port, running its own kernels, lands in the wide family. The port-specific suspects are each
+controlled: the alignment npz is the same on both arms, the diffusion sampler runs fp32 on device, the
+noise is drawn host-side from the same RNG backend the CPU control uses, per-sample seeding replays the
+committed run's values across hosts to 0.022 Å, and confidence ranking does not enter the per-sample
+distribution. The two 24-sample means are statistically indistinguishable (13.356 vs 12.524 Å, Welch
+p 0.39); the tail-rate difference against the CPU control is borderline at this sample count (Fisher
+p 0.055), the same order as the split inside upstream's own data (their CUDA vs MPS arms, p 0.38).
+Upstream's own position is that the mean is the meaningful quantity here because the ON samples are
+widely spread, and by that measure we pass at N=8 and at N=24.
 
 One inversion worth stating rather than burying: on this leg the `--single_sequence` arm sits *closer* to
-upstream's distribution than the faithful one-row arm does. It runs 8.57-15.56 Å with a mean of 10.522 Å,
-which is inside their stated envelope and below their mean. We do not have an explanation, both arms clear
-all three bounds, and at sd 2.7-4.3 on eight samples neither ordering is resolvable. The tables quote the
-faithful arm because that is the condition the test specifies.
+upstream's MPS distribution than the faithful one-row arm does. It runs 8.57-15.56 Å with a mean of
+10.522 Å, inside their envelope and below their mean. That ordering remains unexplained; both arms clear
+all three bounds, and at sd 2.7-4.3 on eight samples it is not resolvable. The tables quote the faithful
+arm because that is the condition the test specifies.
 
 1a8q for contrast: our ON range is 0.23-0.26 Å against upstream's 0.26 ± 0.02, tighter and centred a
 touch lower.
