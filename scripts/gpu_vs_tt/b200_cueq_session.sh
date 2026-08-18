@@ -1,12 +1,32 @@
 #!/usr/bin/env bash
-# Protenix-v2 + OpenDDE at 512 aa on a B200, with cuEquivariance upgraded to 0.11.1.
+# Protenix-v2 + OpenDDE at 512 aa on a B200. The sm_100 blocker is triton, not cuEquivariance.
 #
-# Both models hang on sm_100 in their shipped cuEquivariance configuration (protenix 2.0.0
-# pulls 0.8.0, opendde 1.0.3 pulls 0.10.0); 0.11.1 is the version that runs clean. A
-# production user hitting the hang would upgrade, so 0.11.1 is the configuration measured
-# here. Everything else is the shipped default: dtype, kernel selectors, fusion/cache,
-# TF32 untouched, 10 cycles / 200 steps / 1 sample / seed 0, the pinned cdk2x2_512 fixture
-# with its 35-row alignment.
+# Both models hang on sm_100 in their shipped configuration. The blocker is ONE package and
+# it is not cuEquivariance: cuEquivariance's fused_sigmoid_gated_dual_gemm is a triton kernel
+# behind an autotuner, and triton 3.3.1 -- the version torch 2.7.1 pins, and which protenix
+# 2.0.0 pins explicitly -- hangs in its own CUDA launcher on sm_100 when launching it.
+# triton 3.4.0 runs it. Measured on a B200 2026-08-18: with both models held at every shipped
+# pin (torch 2.7.1+cu128, cueq-ops 0.8.0 cu12 for protenix / 0.10.0 cu12 for opendde) and
+# triton alone raised to 3.4.0, all three triangle primitives complete.
+#
+# How that was localised, because the obvious readings are all wrong:
+#   * triangle_attention (a precompiled cubin in libcue_ops.so) never hung -- 25 ms at 512 aa
+#     on the shipped cu12 build. Only triangle_multiplicative_update hung.
+#   * WITHOUT CUDA_LAUNCH_BLOCKING the faulthandler frame is torch.functional.einsum, which is
+#     a red herring: the triton launch had already wedged asynchronously and the CPU raced on
+#     to the next synchronising call. Set CUDA_LAUNCH_BLOCKING=1 before believing a frame.
+#   * The cu13 route (below) is NOT the fix and is not needed. protenix's own source says the
+#     Blackwell-optimized kernels ship only in cu13 builds, which is true but irrelevant: the
+#     kernel that hangs is triton-JIT from Python source, so the cu12/cu13 split -- which only
+#     decides which cubins libcue_ops.so carries -- cannot reach it. cu13 also drags in
+#     libcublas.so.13 / libcublasLt.so.13 / libnvrtc.so.13, absent from a torch 2.7.1+cu128
+#     install, for nothing.
+#   * cueq 0.11.1 is not needed either. It requires torch>=2.11 against both models'
+#     torch==2.7.1, so reaching it overrides two pins per model; triton overrides one.
+#
+# Everything else is the shipped default: dtype, kernel selectors, fusion/cache, TF32
+# untouched, 10 cycles / 200 steps / 1 sample / seed 0, the pinned cdk2x2_512 fixture with its
+# 35-row alignment.
 #
 # Image: pytorch/pytorch:2.7.1-cuda12.8-cudnn9-devel. protenix 2.0.0 pins torch==2.7.1, so
 # the image IS the pin, and the devel variant already carries nvcc plus the CUDA headers
@@ -14,7 +34,8 @@
 # multi-GB conda cuda-toolkit install for that).
 #
 #   bash b200_cueq_session.sh setup        # venvs + weights + the shipped cueq
-#   bash b200_cueq_session.sh cu13         # route A: same cueq version, CUDA-13 build
+#   bash b200_cueq_session.sh triton       # THE FIX: triton 3.3.1 -> 3.4.0, all else shipped
+#   bash b200_cueq_session.sh cu13         # rejected route A: same cueq version, CUDA-13 build
 #   bash b200_cueq_session.sh torchup      # route B: torch 2.13.0 + cueq 0.11.1 cu13
 #   bash b200_cueq_session.sh run          # both cells + gate
 set -uo pipefail   # NOT -e: one model failing must leave the other measured
@@ -27,6 +48,7 @@ CUEQ_TARGET=${CUEQ_TARGET:-0.11.1}
 REPEAT=${REPEAT:-4}
 PER_MODEL_S=${PER_MODEL_S:-1200}
 TORCH_TARGET=${TORCH_TARGET:-2.13.0}
+TRITON_TARGET=${TRITON_TARGET:-3.4.0}
 export CUDA_HOME=${CUDA_HOME:-/usr/local/cuda}
 export HF_HUB_ENABLE_HF_TRANSFER=0
 # Which venv each cell runs in. protenix/opendde are the shipped-pin venvs (torch 2.7.1);
@@ -152,7 +174,32 @@ stage_cu13() {
   say "stage cu13 done"
 }
 
-# Route B, run only if route A does not fold. cueq 0.11.1 will NOT run against the torch
+# THE FIX. One package, applied to both shipped-pin venvs: triton 3.3.1 -> TRITON_TARGET.
+# Nothing else moves -- torch stays at the 2.7.1 both models pin, cuEquivariance stays at the
+# version and the cu12 build each model pins. pip prints a dependency-conflict warning for
+# protenix's own triton==3.3.1 pin; that warning IS the deviation this stage makes, and it is
+# the whole deviation, so it belongs in the page's ref string rather than being suppressed.
+stage_triton() {
+  say "stage triton: raise triton to $TRITON_TARGET, hold every other shipped pin"
+  for V in protenix opendde; do
+    say "triton $V"
+    /root/venv-$V/bin/pip install --no-cache-dir -q "triton==$TRITON_TARGET" 2>&1 | tail -3 | tee -a "$LOG"
+    versions_json $V "$R/cueq_triton_$V.json" | tee -a "$LOG"
+  done
+  # Smoke the two primitives directly before spending a fold: a hang costs 20 min at the fold
+  # level and 60 s here. triangle_multiplicative_update is the one that hangs on sm_100.
+  [ -s "$HERE/kernel_smoke.py" ] && {
+    say "triton: direct sm_100 primitive smoke"
+    timeout 300 /root/venv-protenix/bin/python3 "$HERE/kernel_smoke.py" 2>&1 \
+      | tee "$R/kernel_smoke_triton.txt" | tail -6
+  }
+  say "stage triton done"
+}
+
+# REJECTED route B. Superseded by stage_triton, which fixes the hang moving one package
+# instead of two pins. Kept only so the doc's claim that it was tested stays checkable.
+#
+# Original note: run only if route A does not fold. cueq 0.11.1 will NOT run against the torch
 # both models pin: its attention_pair_bias imports
 # torch.fx._symbolic_trace.is_fx_symbolic_tracing, which does not exist in torch 2.7.1, so a
 # --no-deps install of 0.11.1 dies at import before a single kernel launches. That is what
@@ -238,6 +285,7 @@ stage_run() {
 for s in "$@"; do
   case "$s" in
     setup)   stage_setup ;;
+    triton)  stage_triton ;;
     cu13)    stage_cu13 ;;
     torchup) stage_torchup ;;
     run)     stage_run ;;
