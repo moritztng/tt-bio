@@ -1,884 +1,328 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TT-Bio: biomolecular structure, design and embeddings on Tenstorrent</title>
-<meta name="description" content="Open biomolecular models on Tenstorrent: folding and binding affinity, binder design, and protein embeddings. Measured throughput per dollar against NVIDIA H200, B200 and A100 at 512 residues, and BoltzGen binder design, with the single-accelerator times behind a disclosure.">
+<title>TT-Bio</title>
+<meta name="description" content="Open-source biomolecular AI on Tenstorrent. A Blackhole Galaxy matches an NVIDIA DGX B200 on throughput at a fifth of the purchase price, with accuracy matched to reference implementations.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root {
-  color-scheme: light dark;
-  --bg: #fbfbfc;
-  --fg: #14161a;
-  --fg-muted: #5c6270;
-  --fg-faint: #8b919e;
-  --line: #e3e5ea;
-  --line-strong: #c9ccd4;
-  --tt: #6249d6;              /* oklch(0.58 0.17 285) */
-  --h200: #3d9a5c;            /* oklch(0.62 0.15 150) */
-  --b200: #2b7793;            /* oklch(0.55 0.10 205) */
-  --a100: #bb731b;            /* oklch(0.62 0.13 65) */
-  --pill-bg: #f0f1f4;
-  --pill-fg: #3c414c;
+:root{
+  --paper:#fbfbfc; --white:#ffffff; --wash:#f1f2f4;
+  --ink:#15171a; --ink-2:#484d54; --ink-3:#7e848c; --ink-4:#b4b9bf;
+  --rule:#e6e8ea; --rule-2:#d2d6da;
+  --accent:#15171a; --accent-2:#000000; --accent-wash:#f1f2f4;
+  --display:"Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --sans:"Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
 }
-@supports (color: oklch(0.5 0.1 200)) {
-  :root {
-    --tt: oklch(0.58 0.17 285);
-    --h200: oklch(0.62 0.15 150);
-    --b200: oklch(0.55 0.10 205);
-    --a100: oklch(0.62 0.13 65);
-  }
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0e1014;
-    --fg: #eceef2;
-    --fg-muted: #a0a7b4;
-    --fg-faint: #757c8a;
-    --line: #23272f;
-    --line-strong: #3a404b;
-    --tt: #9484ee;
-    --h200: #55b876;
-    --b200: #4c9cba;
-    --a100: #e39849;
-    --pill-bg: #1e222a;
-    --pill-fg: #c3c9d4;
-  }
-  @supports (color: oklch(0.5 0.1 200)) {
-    :root {
-      --tt: oklch(0.72 0.15 285);
-      --h200: oklch(0.72 0.15 150);
-      --b200: oklch(0.68 0.10 205);
-      --a100: oklch(0.74 0.13 65);
-    }
-  }
-}
-* { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--fg);
-  font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  line-height: 1.55;
-  -webkit-font-smoothing: antialiased;
-}
-main { max-width: 1000px; margin: 0 auto; padding: 56px 20px 96px; }
-h1 { font-size: 1.9rem; line-height: 1.2; letter-spacing: -0.02em; margin: 0 0 30px; font-weight: 650; }
-h2 { font-size: 1.45rem; line-height: 1.25; letter-spacing: -0.015em; margin: 0 0 4px; font-weight: 650; }
-  .brandbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; line-height: 0; margin: 0 0 30px; }
-  .brandbar .repo { line-height: 1.3; font-size: 0.95rem; font-weight: 560; white-space: nowrap; }
-  .brandbar a { display: inline-flex; align-items: center; }
-  .brandbar img { height: 30px; width: auto; display: block; }
-  .brandbar .on-dark { display: none; }
-  @media (prefers-color-scheme: dark) {
-    .brandbar .on-light { display: none; }
-    .brandbar .on-dark { display: block; }
-  }
-  h3.lead { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.018em; }
-  h3 { font-size: 1.18rem; line-height: 1.3; letter-spacing: -0.01em; margin: 0 0 4px; font-weight: 620; }
-h4 { font-size: 0.95rem; margin: 0 0 6px; font-weight: 620; }
-p { margin: 0 0 12px; }
-a { color: inherit; text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 2px; }
-a:hover { text-decoration-color: currentColor; }
-section.band { margin: 0 0 44px; }
-section.band + section.band { border-top: 1px solid var(--line); padding-top: 34px; }
-.band-head { margin: 0 0 24px; }
-.band-deck { color: var(--fg-muted); font-size: 0.95rem; margin: 6px 0 0; }
-.mgroup { margin: 0 0 30px; }
-.mgroup:last-child { margin-bottom: 0; }
-.mgroup .tablewrap { margin: 10px 0 0; }
-.mtable { font-size: 0.9rem; }
-.mtable th { font-size: 0.76rem; }
-/* Capability cells wrap at every width. They are lists, so a narrow window should fold them onto a
- * second line rather than push the last column into a horizontal scroll a reader will not find. */
-.mtable td, .mtable th { padding-right: 26px; white-space: normal; }
-.mtable td:last-child, .mtable th:last-child { padding-right: 0; }
-.mtable td:first-child, .mtable th:first-child {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; text-transform: none; letter-spacing: 0;
-  white-space: nowrap;
-}
-.mtable td:first-child { color: var(--tt); font-weight: 600; font-size: 0.84rem; }
-.mtable th:first-child { font-size: 0.78rem; }
-.mnote { color: var(--fg-faint); font-size: 0.83rem; margin: 12px 0 0; }
-.mnote code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.94em; }
-.num, td.n, th.n { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
-.scope { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 14px 0; margin: 0 0 34px; }
-.scope dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 18px; margin: 0; font-size: 0.875rem; }
-.scope dt { color: var(--fg-faint); }
-.scope dd { margin: 0; color: var(--fg-muted); }
-.pill {
-  display: inline-block; padding: 2px 8px; border-radius: 999px;
-  background: var(--pill-bg); color: var(--pill-fg);
-  font-size: 0.685rem; font-weight: 650; letter-spacing: 0.07em; text-transform: uppercase;
-  white-space: nowrap;
-}
-section.chart { margin: 0 0 52px; }
-.chart-head { margin-bottom: 12px; }
-.chart-title { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.cond { color: var(--fg-muted); font-size: 0.83rem; margin: 4px 0 0; }
-.cond .num { font-size: 0.83rem; }
-.keys { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 10px 0 2px; font-size: 0.79rem; color: var(--fg-muted); }
-.key { display: inline-flex; align-items: center; gap: 6px; }
-.swatch { width: 11px; height: 11px; border-radius: 2px; display: inline-block; }
-.swatch.dash { background: transparent; border: 1px dashed var(--line-strong); }
-figure { margin: 0; }
-svg { display: block; width: 100%; height: auto; }
-.tablewrap { overflow-x: auto; margin: 0 0 14px; -webkit-overflow-scrolling: touch; }
-table { border-collapse: collapse; font-size: 0.83rem; min-width: 100%; }
-th, td { padding: 6px 12px 6px 0; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--line); vertical-align: baseline; }
-th { color: var(--fg-faint); font-weight: 600; font-size: 0.74rem; letter-spacing: 0.04em; text-transform: uppercase; }
-th.n, td.n { text-align: right; }
-tbody tr:last-child td { border-bottom: 0; }
-td.blocked { color: var(--fg-faint); }
-.notes { color: var(--fg-muted); font-size: 0.85rem; }
-.notes ul { margin: 0 0 14px; padding-left: 18px; }
-.notes li { margin: 0 0 6px; }
-.methods dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 20px; margin: 0 0 18px; font-size: 0.85rem; }
-.methods dt { color: var(--fg-faint); }
-.methods dd { margin: 0; color: var(--fg-muted); }
-dd, .notes li { overflow-wrap: anywhere; }
-footer { color: var(--fg-faint); font-size: 0.8rem; border-top: 1px solid var(--line); padding-top: 16px; margin-top: 44px; }
-details.disclose { border-top: 1px solid var(--line); padding: 14px 0 2px; }
-details.disclose > summary {
-  cursor: pointer; list-style: none; font-weight: 620; font-size: 1.05rem;
-  display: flex; align-items: baseline; gap: 8px;
-}
-details.disclose > summary::-webkit-details-marker { display: none; }
-details.disclose > summary::after { content: "+"; color: var(--fg-faint); font-weight: 500; }
-details.disclose[open] > summary::after { content: "\2013"; }
-details.disclose > summary:focus-visible { outline: 2px solid var(--tt); outline-offset: 3px; }
-details.disclose .sum-note { font-weight: 400; font-size: 0.83rem; color: var(--fg-faint); }
-details.disclose > div { padding-top: 14px; }
-details.disclose section.chart:last-child { margin-bottom: 12px; }
-@media (max-width: 620px) {
-  main { padding: 34px 16px 72px; }
-  h1 { font-size: 1.5rem; }
-  h2 { font-size: 1.22rem; }
-  .scope dl, .methods dl { grid-template-columns: 1fr; gap: 2px; }
-  .scope dt, .methods dt { margin-top: 8px; }
-  section.chart { margin-bottom: 40px; }
-  section.band + section.band { padding-top: 26px; }
-  .mtable { font-size: 0.83rem; }
-  .mtable td, .mtable th { padding-right: 18px; }
-}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
+  font-size:17px;font-weight:400;line-height:1.6;letter-spacing:-.005em;-webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility}
+.wrap{max-width:1120px;margin:0 auto;padding:0 32px}
+.measure{max-width:60ch}
+a{color:inherit}
+
+nav{display:flex;align-items:center;gap:26px;padding:30px 0 0}
+nav .brand{display:inline-flex;line-height:0}
+nav .brand img{height:24px;width:auto;display:block}
+nav .sp{margin-left:auto}
+nav a.lnk{font-size:.94rem;color:var(--ink-2);text-decoration:none}
+nav a.lnk:hover{color:var(--ink)}
+
+/* hero: one composed unit, type and motion side by side */
+.hero{padding:70px 0 8px;display:grid;grid-template-columns:1.08fr .92fr;gap:64px;align-items:center}
+@media (max-width:900px){.hero{grid-template-columns:1fr;gap:38px;padding-top:48px;text-align:center}}
+.kicker{font-size:.78rem;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--ink-3);font-weight:600;margin:0 0 20px}
+h1{font-family:var(--display);font-weight:300;font-size:clamp(2.5rem,5.4vw,4.05rem);line-height:1.03;
+  letter-spacing:-.038em;margin:0 0 22px;max-width:13ch;text-wrap:balance}
+@media (max-width:900px){h1{margin-left:auto;margin-right:auto}}
+h1 em{font-style:normal;font-weight:600;color:var(--ink)}
+.lede{font-size:1.14rem;color:var(--ink-2);margin:0 0 32px;max-width:46ch;line-height:1.55}
+@media (max-width:900px){.lede{margin-left:auto;margin-right:auto}}
+.cta{display:flex;gap:14px;flex-wrap:wrap}
+@media (max-width:900px){.cta{justify-content:center}}
+.btn{display:inline-block;font:inherit;font-size:.98rem;font-weight:600;text-decoration:none;
+  padding:12px 26px;border:1px solid transparent;border-radius:2px;transition:.18s}
+.btn.solid{background:var(--ink);color:var(--paper)}
+.btn.solid:hover{background:#000}
+.btn.line{border-color:var(--rule-2);color:var(--ink-2)}
+.btn.line:hover{border-color:var(--ink);color:var(--ink)}
+.stage{margin:0;justify-self:center;width:100%;max-width:520px}
+.stage picture{display:block}
+.stage img{width:100%;height:auto;display:block;border-radius:3px;
+  box-shadow:0 1px 2px rgba(20,24,28,.06),0 12px 34px -10px rgba(20,24,28,.22)}
+@media (max-width:900px){.stage{max-width:440px}}
+
+/* the three facts, as type not boxes */
+.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:0;
+  padding:52px 0 56px;margin-top:8px;border-bottom:1px solid var(--rule)}
+.facts>div{padding-left:26px;border-left:1px solid var(--rule)}
+.facts>div:first-child{padding-left:0;border-left:0}
+@media (max-width:800px){.facts{grid-template-columns:1fr;gap:26px;padding:40px 0 44px}
+  .facts>div{padding-left:0;border-left:0}}
+.facts .n{font-family:var(--display);font-weight:300;font-size:clamp(2.4rem,5vw,3.2rem);
+  line-height:1;letter-spacing:-.035em;color:var(--ink);font-variant-numeric:tabular-nums}
+.facts .k{font-size:1.02rem;color:var(--ink);margin-top:12px;font-weight:500}
+.facts .s{font-size:.88rem;color:var(--ink-3);margin-top:4px;max-width:22ch}
+
+section{padding:76px 0}
+section+section{border-top:1px solid var(--rule)}
+.eyebrow{font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);
+  font-weight:600;margin:0 0 16px}
+h2{font-family:var(--display);font-weight:300;font-size:clamp(1.85rem,3.5vw,2.5rem);line-height:1.12;
+  letter-spacing:-.032em;margin:0 0 18px;max-width:22ch;text-wrap:balance}
+.say{font-size:1.08rem;color:var(--ink-2);margin:0 0 8px}
+
+/* charts, open, no cards */
+.metricline{margin:30px 0 30px}
+.unit{font-size:.86rem;color:var(--ink-3);margin:12px 0 0}
+.unit b{color:var(--ink-2);font-weight:600}
+.seg{display:inline-flex;border-bottom:1px solid var(--rule-2);gap:24px}
+.seg button{font:inherit;font-size:.95rem;padding:0 0 10px;border:0;background:0;cursor:pointer;
+  color:var(--ink-3);border-bottom:2px solid transparent;margin-bottom:-1px}
+.seg button:hover{color:var(--ink-2)}
+.seg button[aria-pressed="true"]{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.mgroup{padding:22px 0}
+.mgroup+.mgroup{border-top:1px solid var(--rule)}
+.mname{font-family:var(--display);font-size:1.05rem;font-weight:600;letter-spacing:-.012em;margin-bottom:14px}
+.bars{display:grid;gap:9px}
+.brow{display:grid;grid-template-columns:158px 1fr 76px;gap:18px;align-items:center}
+@media (max-width:640px){.brow{grid-template-columns:118px 1fr 62px;gap:11px}}
+.blabel{font-size:.92rem;color:var(--ink-3)}
+.brow.us .blabel{color:var(--ink);font-weight:600}
+.btrack{height:9px;background:var(--wash);border-radius:99px;overflow:hidden}
+.bfill{height:100%;background:var(--ink-4);border-radius:99px;transition:width .6s cubic-bezier(.2,.7,.3,1)}
+.brow.us .bfill{background:var(--accent)}
+.bval{font-size:.92rem;font-variant-numeric:tabular-nums;text-align:right;color:var(--ink-2)}
+.brow.us .bval{color:var(--ink);font-weight:600}
+.bna{font-size:.85rem;color:var(--ink-4)}
+.caption{font-size:.85rem;color:var(--ink-4);margin-top:22px;max-width:66ch}
+
+/* models as a typographic index, not boxes */
+.cats{display:grid;grid-template-columns:1fr 1fr;gap:0 64px;margin-top:28px}
+@media (max-width:760px){.cats{grid-template-columns:1fr}}
+.ctitle{font-size:.76rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);font-weight:600;margin:0 0 4px}
+.ientry{display:flex;gap:16px;align-items:baseline;padding:14px 0;border-top:1px solid var(--rule)}
+.ientry .nm{font-family:var(--display);font-size:1.02rem;font-weight:600;letter-spacing:-.012em;min-width:6.6em}
+.ientry .ds{font-size:.95rem;color:var(--ink-3)}
+
+.two{display:grid;grid-template-columns:1fr 1fr;gap:34px 56px;margin-top:30px}
+@media (max-width:800px){.two{grid-template-columns:1fr}}
+.pt h3{font-family:var(--display);font-size:1.06rem;font-weight:600;letter-spacing:-.012em;margin:0 0 7px}
+.pt p{margin:0;color:var(--ink-2);font-size:1rem;max-width:44ch}
+
+.finale{text-align:center;padding:86px 0 96px}
+.finale h2{margin:0 auto 18px}
+.finale .say{margin:0 auto 30px;max-width:46ch}
+footer{border-top:1px solid var(--rule);padding:30px 0 64px;color:var(--ink-3);font-size:.9rem;
+  display:flex;gap:24px;flex-wrap:wrap;align-items:center}
+footer a{color:var(--ink-2);text-decoration:none}
+footer a:hover{color:var(--ink)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.reveal{opacity:0;transform:translateY(12px);transition:opacity .7s ease,transform .7s ease}
+.reveal.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none}
+  .bfill{transition:none}html{scroll-behavior:auto}}
+
+.deeper{display:flex;align-items:baseline;justify-content:space-between;gap:24px;
+  margin-top:34px;padding:20px 0 0;border-top:1px solid var(--rule);text-decoration:none}
+.deeper .dl{font-size:1rem;color:var(--ink-2);font-weight:300}
+.deeper .dr{font-size:1rem;color:var(--ink);font-weight:600;white-space:nowrap}
+.deeper:hover .dl{color:var(--ink)}
+.deeper:hover .dr{text-decoration:underline;text-underline-offset:4px}
+@media(max-width:640px){.deeper{flex-direction:column;gap:8px}}
 </style>
 </head>
 <body>
-<main>
+<div class="wrap">
+  <nav>
+    <a class="brand" href="https://tenstorrent.com" aria-label="Tenstorrent">
+      <img src="assets/tt-logo-light.svg" alt="Tenstorrent"></a>
+    <span class="sp"></span>
+    <a class="lnk" href="#numbers">Benchmarks</a>
+    <a class="lnk" href="#models">Models</a>
+    <a class="lnk" href="https://github.com/moritztng/tt-bio">GitHub</a>
+  </nav>
 
-<div class="brandbar">
-  <a href="https://tenstorrent.com" aria-label="Tenstorrent">
-    <img class="on-light" src="assets/tt-logo-light.svg" alt="Tenstorrent">
-    <img class="on-dark" src="assets/tt-logo.png" alt="Tenstorrent">
-  </a>
-  <a class="repo" href="https://github.com/moritztng/tt-bio">TT-Bio on GitHub &rarr;</a>
+  <div class="hero">
+    <div>
+    <p class="kicker">Open source</p>
+    <h1>Biomolecular AI at <em>a fifth</em> of the cost</h1>
+    <p class="lede">TT-Bio runs folding, binder design and protein embeddings on Tenstorrent.
+      One Blackhole Galaxy matches an NVIDIA DGX B200 on throughput, for a fifth of the price.</p>
+    <div class="cta">
+      <a class="btn solid" href="https://japanfold.com">Try it free</a>
+      <a class="btn line" href="https://github.com/moritztng/tt-bio">Read the code</a>
+    </div>
+    </div>
+    <div class="stage">
+      <picture>
+        <source srcset="assets/galaxy.webp" type="image/webp">
+        <img src="assets/galaxy.jpg" alt="A Tenstorrent Galaxy unit being installed into a rack" width="1600" height="1066">
+      </picture>
+    </div>
+  </div>
+
+  <div class="facts">
+    <div><div class="n">5&times;</div><div class="k">throughput per dollar</div>
+      <div class="s">of purchase price, against a DGX B200</div></div>
+    <div><div class="n">One</div><div class="k">codebase</div>
+      <div class="s">optimized from silicon to serving</div></div>
+    <div><div class="n">1:1</div><div class="k">accuracy parity</div>
+      <div class="s">measured against every reference</div></div>
+  </div>
+
+  <section class="reveal" id="numbers">
+    <p class="eyebrow">Benchmarks</p>
+    <h2>Throughput, every model, every system</h2>
+    <p class="say measure">Predictions per hour, measured on the same 512-residue protein, with each
+      stack on its own shipped settings. Then divided by what the hardware costs.</p>
+    <div class="metricline">
+      <div class="seg" id="metric">
+        <button data-m="perk" aria-pressed="true">Purchase price</button>
+        <button data-m="tco" aria-pressed="false">Total cost of ownership</button>
+        <button data-m="tph" aria-pressed="false">Raw throughput</button>
+      </div>
+      <p class="unit" id="unit"></p>
+    </div>
+    <div id="bars"></div>
+    <p class="caption" id="cap"></p>
+    <a class="deeper" href="benchmarks.html">
+      <span class="dl">Every number on this chart, and how it was measured</span>
+      <span class="dr">Benchmarks &rarr;</span>
+    </a>
+  </section>
+
+  <section class="reveal" id="models">
+    <p class="eyebrow">Coverage</p>
+    <h2>Every model, one codebase</h2>
+    <p class="say measure">Every model runs on the same stack, from the kernels on the chip up to the
+      serving layer. Speed up one part and every model gains.</p>
+    <div class="cats">
+      <div class="cat">
+        <p class="ctitle">Structure prediction</p>
+        <div class="ientry"><span class="nm">Boltz-2</span><span class="ds">Structure and binding affinity</span></div>
+        <div class="ientry"><span class="nm">OpenFold3</span><span class="ds">AlphaFold3-family all-atom</span></div>
+        <div class="ientry"><span class="nm">Protenix-v2</span><span class="ds">All-atom complex prediction</span></div>
+        <div class="ientry"><span class="nm">ESMFold2</span><span class="ds">Rapid single-sequence folding</span></div>
+        <div class="ientry"><span class="nm">OpenDDE</span><span class="ds">Multi-chain protein complexes</span></div>
+      </div>
+      <div class="cat">
+        <p class="ctitle">Binder design</p>
+        <div class="ientry"><span class="nm">BoltzGen</span><span class="ds">Binders against any target</span></div>
+        <div class="ientry"><span class="nm">RFdiffusion3</span><span class="ds">All-atom design and scaffolds</span></div>
+        <p class="ctitle" style="margin-top:26px">Embeddings</p>
+        <div class="ientry"><span class="nm">ESM-C</span><span class="ds">Sequence embeddings, to 6B</span></div>
+        <div class="ientry"><span class="nm">SaProt</span><span class="ds">Structure-aware embeddings</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="reveal">
+    <p class="eyebrow">Accuracy</p>
+    <h2>The same answer as the reference</h2>
+    <p class="say measure">Every model reproduces its official reference implementation, within that
+      reference's own run-to-run spread.</p>
+    <div class="two" style="margin-top:26px">
+      <div class="pt"><h3>The bar moves, so we measure it</h3>
+        <p>A single reference run is not a target. The reference itself varies between seeds, so we
+          measure that spread and land inside it.</p></div>
+      <div class="pt"><h3>Checked three ways</h3>
+        <p>Submodule activations by correlation, end-to-end outputs on identical noise, and published
+          benchmarks reproduced.</p></div>
+      <div class="pt"><h3>Published, including the misses</h3>
+        <p>Per-target results, thresholds and reproduction commands are in the repository, along with
+          the legs that do not yet pass.</p></div>
+    </div>
+  </section>
+
+  <section class="reveal">
+    <p class="eyebrow">Why it works</p>
+    <h2>Free your GPUs for the work they are still best at</h2>
+    <div class="two">
+      <div class="pt"><h3>Inference is the half worth moving</h3>
+        <p>Serving is steady, predictable and large. Move it to Tenstorrent and your GPU fleet is left
+          for training and model development, where it earns the most.</p></div>
+      <div class="pt"><h3>Every model fits on one card</h3>
+        <p>No sharding and no interconnect ceiling. A prediction runs on a single AI Processor, so
+          throughput scales linearly with the number of them.</p></div>
+      <div class="pt"><h3>Bring your own models</h3>
+        <p>Agents port a model to the card in a day or two, on your machine. Your weights never leave
+          you.</p></div>
+      <div class="pt"><h3>No HBM, so you can actually buy it</h3>
+        <p>Blackhole pairs GDDR6 with large on-chip SRAM, so the HBM shortage does not gate delivery.</p></div>
+    </div>
+  </section>
+
+  <div class="finale reveal">
+    <h2>Try it on real targets, free</h2>
+    <p class="say">JapanFold runs TT-Bio on Tenstorrent Galaxy hardware as a public service. Fold
+      something today, with no account and no card.</p>
+    <div class="cta">
+      <a class="btn solid" href="https://japanfold.com">Open JapanFold</a>
+      <a class="btn line" href="benchmarks.html">See the full benchmarks</a>
+    </div>
+  </div>
+
+  <footer>
+    <span>TT-Bio, open source, on Tenstorrent</span>
+    <a href="https://github.com/moritztng/tt-bio">GitHub</a>
+    <a href="benchmarks.html">Performance</a>
+    <a href="https://japanfold.com">JapanFold</a>
+    <a href="https://tenstorrent.com">Tenstorrent</a>
+  </footer>
 </div>
-<h1>TT-Bio: Biomolecular Models on Tenstorrent</h1>
-
-<section class="band" id="models">
-  <div class="band-head">
-    <h2>What TT-Bio runs</h2>
-  </div>
-
-  <div class="mgroup">
-    <h3>Structure and binding affinity prediction</h3>
-    <div class="tablewrap"><table class="mtable">
-      <thead><tr><th>--model</th><th>Folds</th><th>Affinity</th><th>MSA</th></tr></thead>
-      <tbody>
-        <tr><td>boltz2</td><td>protein, DNA, RNA, ligand</td><td>yes</td><td>on by default</td></tr>
-        <tr><td>protenix-v2</td><td>protein, DNA, RNA, ligand</td><td>no</td><td>on by default</td></tr>
-        <tr><td>openfold3</td><td>protein, RNA, DNA</td><td>no</td><td>on by default</td></tr>
-        <tr><td>esmfold2</td><td>single protein chain</td><td>no</td><td>not needed</td></tr>
-        <tr><td>opendde</td><td>multi-chain protein complexes</td><td>no</td><td>on by default</td></tr>
-      </tbody>
-    </table></div>
-    <p class="mnote">Protenix-v2 and OpenFold3 are AlphaFold3-family. OpenDDE runs the Protenix-v2 stack
-    plus a structural-token expander. <code>esmfold2-fast</code> is lighter, <code>opendde-abag</code>
-    is the antibody-antigen checkpoint.</p>
-  </div>
-
-  <div class="mgroup">
-    <h3>Protein design</h3>
-    <div class="tablewrap"><table class="mtable">
-      <thead><tr><th>--model</th><th>Model</th><th>Designs</th><th>Input</th></tr></thead>
-      <tbody>
-        <tr><td>boltzgen</td><td>BoltzGen</td><td>protein, peptide, nanobody, antibody binders</td><td>target structure in a design YAML</td></tr>
-        <tr><td>rfd3</td><td>RFdiffusion3</td><td>all-atom binders, motif scaffolds, nucleic-acid binders</td><td>JSON spec with contig strings</td></tr>
-      </tbody>
-    </table></div>
-  </div>
-
-  <div class="mgroup">
-    <h3>Protein embeddings</h3>
-    <div class="tablewrap"><table class="mtable">
-      <thead><tr><th>--model</th><th>Embeddings</th><th>Output</th><th>Sizes</th></tr></thead>
-      <tbody>
-        <tr><td>esmc</td><td>sequence, ESMC language model</td><td>per-residue, pooled</td><td>300M, 600M, 6B</td></tr>
-        <tr><td>saprot</td><td>structure-aware, ESM-2 over a fused amino-acid and Foldseek-3Di vocabulary</td><td>per-residue, pooled</td><td>35M, 650M, 1.3B</td></tr>
-      </tbody>
-    </table></div>
-    <p class="mnote">SaProt's structure input is optional; sequence-only costs accuracy below 1.3B.</p>
-  </div>
-</section>
-
-<section class="band" id="perf">
-  <div class="band-head">
-    <h2>Performance and cost</h2>
-    <p class="band-deck" id="perf-deck"></p>
-  </div>
-
-<div class="scope"><dl id="scope-dl"></dl></div>
-
-<section class="chart" id="c1">
-  <div class="chart-head">
-    <div class="chart-title"><h3 class="lead">Throughput per dollar, purchase price</h3><span class="pill">Derived</span></div>
-    <p class="cond" id="c1-cond"></p>
-  </div>
-  <div class="keys" id="c1-keys"></div>
-  <figure><div id="c1-svg"></div></figure>
-  <p class="cond" id="c1-note"></p>
-</section>
-
-<section class="chart" id="c1b">
-  <div class="chart-head">
-    <div class="chart-title"><h3 class="lead">Throughput per dollar, total cost of ownership</h3><span class="pill">Derived</span></div>
-    <p class="cond" id="c1b-cond"></p>
-  </div>
-  <div class="keys" id="c1b-keys"></div>
-  <figure><div id="c1b-svg"></div></figure>
-  <p class="cond" id="c1b-note"></p>
-</section>
-
-<section class="chart" id="c2">
-  <div class="chart-head">
-    <div class="chart-title"><h3>Predictions and designs per hour, per server</h3><span class="pill">Derived</span></div>
-    <p class="cond" id="c2-cond"></p>
-  </div>
-  <div class="keys" id="c2-keys"></div>
-  <figure><div id="c2-svg"></div></figure>
-</section>
-
-<section class="chart" id="c4">
-  <div class="chart-head">
-    <div class="chart-title"><h3>What the server costs</h3><span class="pill">Price and power</span></div>
-    <p class="cond" id="c4-cond"></p>
-  </div>
-  <figure><div id="c4-svg"></div></figure>
-</section>
-
-<details class="disclose" id="single">
-  <summary>One AI Processor <span class="sum-note">the measured seconds per prediction and per design that every server figure above is built from</span></summary>
-  <div>
-    <section class="chart" id="c3">
-      <div class="chart-head">
-        <div class="chart-title"><h4>Prediction time, one AI Processor</h4><span class="pill">Measured</span></div>
-        <p class="cond" id="c3-cond"></p>
-      </div>
-      <div class="keys" id="c3-keys"></div>
-      <figure><div id="c3-svg"></div></figure>
-    </section>
-
-    <section class="chart" id="c5">
-      <div class="chart-head">
-        <div class="chart-title"><h4>Seconds per design, one AI Processor</h4><span class="pill">Measured</span></div>
-        <p class="cond" id="c5-cond"></p>
-      </div>
-      <div class="keys" id="c5-keys"></div>
-      <figure><div id="c5-svg"></div></figure>
-      <p class="cond" id="c5-note"></p>
-    </section>
-  </div>
-</details>
-
-</section>
-
-<details class="disclose" id="exact">
-  <summary>The exact figures <span class="sum-note">the measured seconds behind every bar, and the derived tables</span></summary>
-  <div>
-    <h4>Measured, seconds per prediction on one AI Processor</h4>
-    <div class="tablewrap"><table id="t-measured"></table></div>
-    <h4 style="margin-top:24px">Measured, seconds per design on one AI Processor</h4>
-    <div class="tablewrap"><table id="t-design"></table></div>
-    <h4 style="margin-top:24px">Derived, predictions and designs per hour per server</h4>
-    <div class="tablewrap"><table id="t-derived"></table></div>
-    <h4 style="margin-top:24px">Derived, throughput per dollar of purchase price</h4>
-    <div class="tablewrap"><table id="t-perdollar-capex"></table></div>
-    <h4 style="margin-top:24px">Derived, throughput per dollar of total cost of ownership</h4>
-    <div class="tablewrap"><table id="t-perdollar"></table></div>
-  </div>
-</details>
-
-<details class="disclose methods" id="methods">
-  <summary>Methods and sources <span class="sum-note">what was run, how cost is computed, where every price and power figure comes from</span></summary>
-  <div>
-    <dl id="methods-dl"></dl>
-    <h4>Sources</h4>
-    <div class="notes"><ul id="sources"></ul></div>
-    <h4>Caveats</h4>
-    <div class="notes"><ul id="caveats"></ul></div>
-  </div>
-</details>
-
-<footer>
-  <p>Every seconds-per-prediction and seconds-per-design figure is measured on the hardware named. Everything else is derived
-  from those measurements and from the published prices and power ratings listed above. Nothing is
-  estimated. Updated <span class="num" id="foot-date"></span>.</p>
-  <p>Every model here reproduces its reference implementation within that reference's own run-to-run
-  noise.</p>
-</footer>
-
-</main>
-
 <script>
-(function () {
-  "use strict";
-
-  var D = null;
-
-  /* ---------- formatting ---------- */
-  function fmtInt(v) { return Math.round(v).toLocaleString("en-US"); }
-  function fmtSec(v, dp) { return v.toFixed(dp === undefined ? 3 : dp); }
-  function fmtUsd(v) { return "$" + Math.round(v).toLocaleString("en-US"); }
-  function fmtX(v) { return v.toFixed(2) + "x"; }
-  function fmtKw(v) { return (v % 1 ? v.toFixed(1) : v.toFixed(0)) + " kW"; }
-  function fmtCents(v) { return (v * 100).toFixed(2) + " c/kWh"; }
-
-  /* ---------- derivation, the only place a number is computed ---------- */
-  function plat(id) {
-    for (var i = 0; i < D.platforms.length; i++) if (D.platforms[i].id === id) return D.platforms[i];
-    return null;
-  }
-  function perHour(sPerFold, p) {
-    var eff = p.scaling_efficiency === undefined ? 1.0 : p.scaling_efficiency;
-    return 3600.0 / sPerFold * p.accelerators * eff;
-  }
-  /* What the box costs, on the two bases, and the units differ on purpose. Purchase price is the
-   * one-off dollar amount: spreading it over a window would cancel from every ratio on that chart,
-   * so no window is applied. Ownership is dollars per hour, where the window and the electricity
-   * price do change the answer. */
-  function usdPerHour(p) {
-    var m = D.cost_model;
-    return p.price_usd / (m.amortisation_years * m.hours_per_year) + p.power_kw * m.electricity_usd_per_kwh;
-  }
-  function perDollar(sPerFold, p, basis) {
-    return perHour(sPerFold, p) / (basis === "capex" ? p.price_usd : usdPerHour(p));
-  }
-  /* One measured value per cell. A prediction cell holds seconds per fold, a design cell seconds
-   * per design, and everything downstream derives from whichever one is there. */
-  function secs(c) { return c.s_per_fold === undefined ? c.s_per_design : c.s_per_fold; }
-  /* Index every cell against the same reference server, which is 1.00x by construction. */
-  function perDollarIndex(m, key, basis) {
-    var p = plat(SERVER_OF[key]), ref = plat(D.cost_model.index_platform);
-    var refCell = null;
-    for (var k in SERVER_OF) if (SERVER_OF[k] === ref.id) refCell = m.cells[k];
-    return perDollar(secs(m.cells[key]), p, basis) / perDollar(secs(refCell), ref, basis);
-  }
-
-  /* A design model carrying "hidden": true keeps every measured cell in the JSON and is drawn
-   * nowhere. Delete that one line to publish the row again. */
-  function shown(m) { return !m.hidden; }
-  function designModels() { return D.design.models.filter(shown); }
-
-  /* Every row the cost and server charts draw: the prediction models, then any design model that
-   * is not hidden. A row carries its own noun, because a design is not a prediction and the two
-   * share an axis here. */
-  function rows() {
-    return D.models.map(function (m) {
-      return { m: m, one: "prediction", many: "predictions" };
-    }).concat(designModels().map(function (m) {
-      return { m: m, one: "design", many: "designs", sub: "binder design, one at a time" };
-    }));
-  }
-
-  /* Everything a bar can tell you on hover, built from that cell's own provenance. */
-  function tip(m, key, headline) {
-    var c = m.cells[key], p = plat(key), bits = [m.name + " on " + p.name, headline];
-    if (c.parity) bits.push("parity: " + c.parity);
-    if (c.ref) bits.push(c.ref);
-    return bits.join("\n");
-  }
-
-  /* ---------- chart engine: grouped horizontal bars, inline SVG ---------- */
-  var NS = "http://www.w3.org/2000/svg";
-  function el(name, attrs, text) {
-    var n = document.createElementNS(NS, name);
-    for (var k in attrs) if (attrs[k] !== null && attrs[k] !== undefined) n.setAttribute(k, String(attrs[k]));
-    if (text !== undefined && text !== null) n.textContent = text;
-    return n;
-  }
-
-  /* spec = { groups: [{ label, sub, bars: [{ series, seriesShort, color, value, label, labelShort,
-   *          tip, blocked, reason }] }], unit, max, tickFmt, title, desc } */
-  function drawBars(host, spec) {
-    var W = Math.max(300, host.clientWidth || 900);
-    var narrow = W < 620;
-    var labelW = narrow ? 90 : 264;   /* fits the longest series label, "Galaxy Blackhole, 32 AI Processors" */
-    var gutter = narrow ? 70 : 116;
-    var rowH = narrow ? 26 : 31;
-    var barH = narrow ? 17 : 21;
-    var headH = narrow ? 25 : 28;
-    var groupGap = narrow ? 14 : 18;
-    var axisH = 22;
-    var fsLab = narrow ? 11.5 : 13;
-    var fsGrp = narrow ? 13 : 15;
-    var fsVal = narrow ? 11.5 : 13.5;
-    var plotX = labelW;
-    var plotW = Math.max(60, W - labelW - gutter);
-    var nTicks = narrow ? 3 : 5;
-
-    var y = axisH + 6, i, j;
-    var rows = [];
-    for (i = 0; i < spec.groups.length; i++) {
-      var g = spec.groups[i];
-      var gh = g.sub ? headH + 16 : headH;
-      rows.push({ kind: "group", label: g.label, sub: g.sub, y: y, h: gh });
-      y += gh;
-      for (j = 0; j < g.bars.length; j++) { rows.push({ kind: "bar", bar: g.bars[j], y: y }); y += rowH; }
-      y += groupGap;
-    }
-    var H = y - groupGap + 4;
-
-    var svg = el("svg", {
-      viewBox: "0 0 " + W + " " + H, width: W, height: H, role: "img",
-      "aria-labelledby": spec.id + "-t " + spec.id + "-d", "font-family": "inherit"
-    });
-    svg.appendChild(el("title", { id: spec.id + "-t" }, spec.title));
-    svg.appendChild(el("desc", { id: spec.id + "-d" }, spec.desc));
-
-    var scale = function (v) { return Math.max(0, v) / spec.max * plotW; };
-
-    for (i = 0; i <= nTicks; i++) {
-      var tv = spec.max * i / nTicks;
-      var tx = plotX + scale(tv);
-      svg.appendChild(el("line", { x1: tx, x2: tx, y1: axisH, y2: H - 2, stroke: "var(--line)", "stroke-width": 1 }));
-      svg.appendChild(el("text", {
-        x: tx, y: axisH - 7, "text-anchor": i === 0 ? "start" : (i === nTicks ? "end" : "middle"),
-        "font-size": narrow ? 10 : 11.5, fill: "var(--fg-faint)",
-        "font-family": "ui-monospace, SFMono-Regular, Menlo, monospace"
-      }, spec.tickFmt(tv)));
-    }
-    svg.appendChild(el("text", { x: 0, y: axisH - 7, "font-size": narrow ? 10 : 11.5, fill: "var(--fg-faint)" },
-      narrow && spec.unitShort ? spec.unitShort : spec.unit));
-
-    for (i = 0; i < rows.length; i++) {
-      var r = rows[i];
-      if (r.kind === "group") {
-        svg.appendChild(el("text", {
-          x: 0, y: r.y + headH - 8, "font-size": fsGrp, "font-weight": 620, fill: "var(--fg)"
-        }, r.label));
-        if (r.sub) svg.appendChild(el("text", {
-          x: 0, y: r.y + r.h - 5, "font-size": narrow ? 10 : 11.5, fill: "var(--fg-faint)"
-        }, r.sub));
-        continue;
-      }
-      var b = r.bar, by = r.y + (rowH - barH) / 2;
-      var grp = el("g", null);
-      if (b.tip || b.reason) grp.appendChild(el("title", null, b.tip || b.reason));
-      grp.appendChild(el("text", {
-        x: 0, y: r.y + rowH / 2 + 4, "font-size": fsLab, fill: "var(--fg-muted)"
-      }, narrow && b.seriesShort ? b.seriesShort : b.series));
-
-      if (b.blocked) {
-        grp.appendChild(el("rect", {
-          x: plotX, y: by, width: plotW, height: barH, rx: 3,
-          fill: "none", stroke: "var(--fg-faint)", "stroke-width": 1, "stroke-dasharray": "3 3"
-        }));
-        grp.appendChild(el("text", {
-          x: plotX + 8, y: by + barH - 5, "font-size": narrow ? 10 : 11.5, fill: "var(--fg-faint)"
-        }, "does not run"));
-        svg.appendChild(grp);
-        continue;
-      }
-
-      grp.appendChild(el("rect", {
-        x: plotX, y: by, width: Math.max(1, scale(b.value)), height: barH, rx: 2, fill: b.color
-      }));
-      grp.appendChild(el("text", {
-        x: plotX + scale(b.value) + 7, y: by + barH - 5, "font-size": fsVal, fill: "var(--fg)",
-        "font-family": "ui-monospace, SFMono-Regular, Menlo, monospace"
-      }, narrow && b.labelShort ? b.labelShort : b.label));
-      svg.appendChild(grp);
-    }
-
-    host.textContent = "";
-    host.appendChild(svg);
-  }
-
-  function niceMax(v) {
-    if (v <= 0) return 1;
-    var mag = Math.pow(10, Math.floor(Math.log(v) / Math.LN10));
-    var n = v / mag, ladder = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
-    for (var i = 0; i < ladder.length; i++) if (n <= ladder[i] + 1e-9) return ladder[i] * mag;
-    return 10 * mag;
-  }
-
-  /* ---------- the four charts ---------- */
-  var SER = {
-    galaxy_bh: "var(--tt)", p150a: "var(--tt)",
-    dgx_h200: "var(--h200)", h200: "var(--h200)",
-    dgx_b200: "var(--b200)", b200: "var(--b200)",
-    dgx_a100: "var(--a100)", a100: "var(--a100)"
+const CH = {"Boltz-2":{"Blackhole Galaxy":[4901,44.56,33.42],"DGX H200":[3946,9.63,8.95],"DGX B200":[3581,6.51,6.03],"DGX A100":[2001,11.43,10.27]},"ESMFold2":{"Blackhole Galaxy":[3919,35.63,26.73],"DGX H200":[3969,9.68,9.0],"DGX B200":[5274,9.59,8.88],"DGX A100":[1954,11.16,10.03]},"Protenix-v2":{"Blackhole Galaxy":[2279,20.72,15.54],"DGX H200":[2363,5.76,5.36],"DGX B200":[2649,4.82,4.46],"DGX A100":[1263,7.22,6.48]},"OpenDDE":{"Blackhole Galaxy":[1398,12.71,9.53],"DGX H200":[1395,3.4,3.16],"DGX B200":[1628,2.96,2.74],"DGX A100":[717,4.1,3.68]},"OpenFold3":{"Blackhole Galaxy":[3011,27.38,20.54],"DGX H200":[2806,6.84,6.36],"DGX B200":[2421,4.4,4.08],"DGX A100":[1700,9.71,8.72]},"BoltzGen":{"Blackhole Galaxy":[2544,23.12,17.35],"DGX H200":[2277,5.55,5.16],"DGX B200":[1790,3.25,3.01],"DGX A100":[1325,7.57,6.8]}};
+const ORDER = ["Blackhole Galaxy","DGX H200","DGX B200","DGX A100"];
+const IDX = {tph:0, perk:1, tco:2};
+let metric = "perk";
+function groupHTML(model){
+  const row = CH[model];
+  const vals = ORDER.map(s => row[s] ? row[s][IDX[metric]] : null);
+  const max = Math.max(...vals.filter(v => v != null));
+  const bars = ORDER.map((s,i) => {
+    const v = vals[i], us = s === "Blackhole Galaxy";
+    if (v == null) return `<div class="brow ${us?"us":""}"><div class="blabel">${s}</div>
+      <div class="bna">not yet measured</div><div class="bval"></div></div>`;
+    const txt = metric==="perk" ? v.toFixed(1) : Math.round(v).toLocaleString("en-US");
+    return `<div class="brow ${us?"us":""}"><div class="blabel">${s}</div>
+      <div class="btrack"><div class="bfill" style="width:${Math.round(100*v/max)}%"></div></div>
+      <div class="bval">${txt}</div></div>`;
+  }).join("");
+  return `<div class="mgroup"><div class="mname">${model}</div><div class="bars">${bars}</div></div>`;
+}
+function drawChart(){
+  document.getElementById("bars").innerHTML = Object.keys(CH).map(groupHTML).join("");
+  const UNIT = {
+    perk:"<b>Predictions per hour, per $1,000 of purchase price.</b> What the hardware costs to buy.",
+    tco:"<b>Predictions per hour, per $1,000 of four-year ownership.</b> Purchase price plus electricity, over four years.",
+    tph:"<b>Predictions per hour, per server.</b> 32 Blackhole processors against 8 GPUs."
   };
-  var SERVER_OF = { p150a: "galaxy_bh", h200: "dgx_h200", b200: "dgx_b200", a100: "dgx_a100" };
-  // One list, in the order every chart, legend and table reads. Each id is a measured accelerator
-  // and needs a SERVER_OF entry with a price and a power rating: the server and cost paths look the
-  // box up through that map, and an id without one would evaluate plat(undefined) and blank the page.
-  var CELLS = ["p150a", "h200", "b200", "a100"];
-  var SERVERS = CELLS.map(function (k) { return SERVER_OF[k]; });
-
-  function serverLabel(p) {
-    return p.name + ", " + p.accelerators + (p.id === "galaxy_bh" ? " AI Processors" : " GPUs");
-  }
-  function serverShort(p) {
-    return p.id === "galaxy_bh" ? p.accelerators + "x Blackhole" : p.short;
-  }
-
-  /* Charts 1 and 2 share their shape: one measured accelerator scaled to its server. */
-  function serverChart(hostId, valueOf, fmt, spec) {
-    var groups = [], max = 0;
-    rows().forEach(function (row) {
-      var m = row.m;
-      var bars = CELLS.map(function (k) {
-        var c = m.cells[k], p = plat(SERVER_OF[k]);
-        if (c.status !== "measured") {
-          return { series: serverLabel(p), seriesShort: serverShort(p), blocked: true, reason: c.detail };
-        }
-        var v = valueOf(m, k, p);
-        max = Math.max(max, v);
-        return {
-          series: serverLabel(p), seriesShort: serverShort(p), color: SER[p.id], value: v,
-          label: fmt(v), tip: tip(m, k, fmt(v) + " " + spec.tipUnit(row) + ", from " + fmtSec(secs(c)) +
-            " s per " + row.one + " on one accelerator")
-        };
-      });
-      groups.push({ label: m.name, sub: row.sub, bars: bars });
-    });
-    drawBars(document.getElementById(hostId), {
-      id: spec.id, groups: groups, max: niceMax(max), unit: spec.unit, unitShort: spec.unitShort,
-      tickFmt: spec.tickFmt,
-      title: spec.title,
-      desc: groups.map(function (g) {
-        return g.label + (g.sub ? ", " + g.sub : "") + ": " + g.bars.map(function (b) {
-          return b.series + " " + (b.blocked ? "does not run" : b.label);
-        }).join(", ") + ".";
-      }).join(" ")
-    });
-    return groups;
-  }
-
-  /* Same chart twice, on the two cost bases. Purchase price first, then purchase price plus
-   * electricity, so the reader sees what the hardware costs before what running it costs. */
-  function chartPerDollar(host, basis) {
-    var m = D.cost_model, ref = plat(m.index_platform), capex = basis === "capex";
-    serverChart(host + "-svg", function (mo, k) { return perDollarIndex(mo, k, basis); }, fmtX, {
-      id: host, unit: "predictions or designs per dollar", unitShort: "per $",
-      tipUnit: function (row) { return "the reference server's " + row.many + " per dollar"; },
-      tickFmt: function (v) { return v.toFixed(1) + "x"; },
-      title: "Throughput per dollar of " + (capex ? "purchase price" : "total cost of ownership") +
-        ", the " + ref.name + " set to 1.00x, derived"
-    });
-    document.getElementById(host + "-cond").innerHTML = capex
-      ? "Hardware only: <span class=\"num\">predictions or designs per hour &divide; purchase price</span>, with the " +
-        ref.name + " set to <span class=\"num\">1.00x</span>. No amortisation window, because it " +
-        "cancels from this ratio. Electricity is not counted here."
-      : "Total cost of ownership: <span class=\"num\">predictions or designs per hour &divide; cost per hour</span>, " +
-        "with the " + ref.name + " set to <span class=\"num\">1.00x</span>. Cost per hour is the purchase " +
-        "price spread over " + m.amortisation_years + " years plus electricity at " +
-        fmtCents(m.electricity_usd_per_kwh) + ", with the machine predicting around the clock.";
-    var adv = [];
-    rows().forEach(function (row) { adv.push(perDollarIndex(row.m, "p150a", basis)); });
-    adv.sort(function (x, y) { return x - y; });
-    document.getElementById(host + "-note").textContent =
-      "The Galaxy Blackhole returns " + fmtX(adv[0]) + " to " +
-      fmtX(adv[adv.length - 1]) + " the throughput per dollar of the " + ref.name +
-      (capex ? " on purchase price alone. Electricity is a larger share of the Galaxy's hourly cost " +
-               "than of the " + ref.name + "'s, because the Galaxy is so much cheaper to buy, so the " +
-               "total cost of ownership chart below is the narrower of the two."
-             : " once electricity is included. " + m.sensitivity);
-  }
-
-  function chartThroughput() {
-    serverChart("c2-svg", function (mo, k, p) { return perHour(secs(mo.cells[k]), p); }, fmtInt, {
-      id: "c2", unit: "predictions or designs per hour", unitShort: "per hour",
-      tipUnit: function (row) { return row.many + " per hour"; },
-      tickFmt: function (v) { return v >= 1000 ? fmtInt(v) : v.toFixed(0); },
-      title: "Predictions and designs per hour per server, derived"
-    });
-    document.getElementById("c2-cond").innerHTML =
-      "One measured accelerator times the accelerators in the box, on both sides: " +
-      "<span class=\"num\">3600 / seconds per prediction or design &times; accelerators</span>. " +
-      "32 Blackhole AI Processors against 8 GPUs.";
-  }
-
-  function chartTime() {
-    var groups = [], max = 0;
-    D.models.forEach(function (m) {
-      var bars = CELLS.map(function (k) {
-        var c = m.cells[k], p = plat(k);
-        if (c.status !== "measured") {
-          return { series: p.name, seriesShort: p.short, blocked: true, reason: c.detail };
-        }
-        max = Math.max(max, c.s_per_fold);
-        return {
-          series: p.name, seriesShort: p.short, color: SER[k], value: c.s_per_fold,
-          label: fmtSec(c.s_per_fold, 1) + " s",
-          tip: tip(m, k, fmtSec(c.s_per_fold) + " s per prediction")
-        };
-      });
-      groups.push({ label: m.name + ", " + m.recycles + " recycles", bars: bars });
-    });
-    drawBars(document.getElementById("c3-svg"), {
-      id: "c3", groups: groups, max: niceMax(max), unit: "seconds per prediction", unitShort: "s",
-      tickFmt: function (v) { return v.toFixed(0); },
-      title: "Seconds to return one 512-residue prediction on one AI Processor, measured",
-      desc: D.models.map(function (m) {
-        return m.name + ": " + CELLS.map(function (k) {
-          var c = m.cells[k];
-          return plat(k).short + " " +
-            (c && c.status === "measured" ? fmtSec(c.s_per_fold, 3) + " s" : "does not run");
-        }).join(", ") + ".";
-      }).join(" ")
-    });
-    document.getElementById("c3-cond").textContent =
-      "Wall-clock seconds to return one 512-residue prediction on a single AI Processor. Shorter is " +
-      "better. One prediction at a time, warm, each model at its own shipped precision and recycle count.";
-  }
-
-  function chartDesign() {
-    var groups = [], max = 0;
-    designModels().forEach(function (m) {
-      var bars = CELLS.map(function (k) {
-        var c = m.cells[k], p = plat(k);
-        if (c.status !== "measured") {
-          return { series: p.name, seriesShort: p.short, blocked: true, reason: c.detail };
-        }
-        max = Math.max(max, c.s_per_design);
-        return {
-          series: p.name, seriesShort: p.short, color: SER[k], value: c.s_per_design,
-          label: fmtSec(c.s_per_design, 1) + " s",
-          tip: [m.name + " on " + p.name, fmtSec(c.s_per_design) + " s per design", m.target, c.ref].join("\n")
-        };
-      });
-      groups.push({ label: m.name, sub: m.target, bars: bars });
-    });
-    drawBars(document.getElementById("c5-svg"), {
-      id: "c5", groups: groups, max: niceMax(max), unit: "seconds per design", unitShort: "s",
-      tickFmt: function (v) { return v.toFixed(0); },
-      title: "Seconds to return one binder design on one AI Processor, measured",
-      desc: designModels().map(function (m) {
-        return m.name + ": " + CELLS.map(function (k) {
-          var c = m.cells[k];
-          return plat(k).name + " " +
-            (c && c.status === "measured" ? fmtSec(c.s_per_design) + " s" : "does not run");
-        }).join(", ") + ".";
-      }).join(" ")
-    });
-    document.getElementById("c5-cond").textContent = D.design.cond;
-    document.getElementById("c5-note").textContent = D.design.note;
-  }
-
-  function chartCost() {
-    var rows = SERVERS.map(plat);
-    var max = 0, groups = [];
-    rows.forEach(function (p) {
-      max = Math.max(max, p.price_usd);
-      groups.push({
-        label: serverLabel(p),
-        sub: fmtKw(p.power_kw) + " maximum system power",
-        bars: [{
-          series: "", seriesShort: "", color: SER[p.id], value: p.price_usd,
-          label: fmtUsd(p.price_usd), labelShort: "$" + Math.round(p.price_usd / 1000) + "k",
-          tip: p.name + "\n" + fmtUsd(p.price_usd) + ", " + p.price_kind + "\n" +
-               fmtKw(p.power_kw) + " maximum system power\n" +
-               "$" + usdPerHour(p).toFixed(2) + " per hour to own and run\n" + p.note
-        }]
-      });
-    });
-    drawBars(document.getElementById("c4-svg"), {
-      id: "c4", groups: groups, max: niceMax(max), unit: "USD",
-      tickFmt: function (v) { return v >= 1000 ? Math.round(v / 1000) + "k" : fmtInt(v); },
-      title: "Server price and maximum system power",
-      desc: groups.map(function (g) { return g.label + " " + g.bars[0].label + ", " + g.sub; }).join(". ") + "."
-    });
-    document.getElementById("c4-cond").textContent =
-    "Hardware only. With electricity and " + D.cost_model.amortisation_years
-    + "-year amortisation: " + rows.map(function (p) { return p.short + " $" + usdPerHour(p).toFixed(2); }).join(", ")
-    + " per hour of ownership. The DGX A100 price is an assumed street price, not a list price.";
-  }
-
-  /* ---------- tables ---------- */
-  function tables() {
-    function gpuCell(c, render) {
-      return c.status === "measured"
-        ? "<td class=\"n num\">" + render(c) + "</td>"
-        : "<td class=\"n blocked\" title=\"" + c.detail.replace(/"/g, "&quot;") + "\">does not run</td>";
-    }
-    document.getElementById("t-measured").innerHTML =
-      "<thead><tr><th>Model</th><th>Recycles</th><th class=\"n\">Blackhole p150a</th><th class=\"n\">H200</th>" +
-      "<th class=\"n\">B200</th><th class=\"n\">A100</th></tr></thead><tbody>" +
-      D.models.map(function (m) {
-        return "<tr><td>" + m.name + "</td><td class=\"num\">" + m.recycles + "</td>" +
-          CELLS.map(function (k) {
-            return gpuCell(m.cells[k], function (c) { return fmtSec(c.s_per_fold); });
-          }).join("") + "</tr>";
-      }).join("") + "</tbody>";
-
-    document.getElementById("t-design").innerHTML =
-      "<thead><tr><th>Model</th><th class=\"n\">Steps</th><th>Batch</th><th class=\"n\">Blackhole p150a</th>" +
-      "<th class=\"n\">H200</th><th class=\"n\">B200</th><th class=\"n\">A100</th></tr></thead><tbody>" +
-      designModels().map(function (m) {
-        return "<tr><td>" + m.name + "</td><td class=\"n num\">" + m.sampling_steps + "</td>" +
-          "<td class=\"num\">" + m.batch + "</td>" +
-          CELLS.map(function (k) {
-            return gpuCell(m.cells[k], function (c) { return fmtSec(c.s_per_design); });
-          }).join("") + "</tr>";
-      }).join("") + "</tbody>";
-
-    var head2 = "<thead><tr><th>Model</th>" +
-      SERVERS.map(function (id) {
-        return "<th class=\"n\">" + serverLabel(plat(id)) + "</th>";
-      }).join("") + "</tr></thead>";
-    function body(basis) {
-      return rows().map(function (row) {
-        var m = row.m;
-        return "<tr><td>" + m.name + "</td>" + CELLS.map(function (k) {
-          var p = plat(SERVER_OF[k]);
-          return gpuCell(m.cells[k], function (c) {
-            return basis ? fmtX(perDollarIndex(m, k, basis)) : fmtInt(perHour(secs(c), p));
-          });
-        }).join("") + "</tr>";
-      }).join("");
-    }
-    document.getElementById("t-derived").innerHTML = head2 + "<tbody>" + body(null) + "</tbody>";
-    document.getElementById("t-perdollar-capex").innerHTML = head2 + "<tbody>" + body("capex") + "</tbody>";
-    document.getElementById("t-perdollar").innerHTML = head2 + "<tbody>" + body("tco") + "</tbody>";
-  }
-
-  /* ---------- static text ---------- */
-  function statics() {
-    /* The h1 is static markup and stays that way: writing it from D.title once made the page repeat
-     * the tab title word for word. */
-    document.title = D.title;
-    document.getElementById("perf-deck").textContent = D.subtitle;
-    document.getElementById("foot-date").textContent = D.updated;
-
-    var s = D.scope, m = D.cost_model;
-    var dl = document.getElementById("scope-dl");
-    var design = designModels();
-    var scopeRows = [["Target", s.description]];
-    if (design.length) scopeRows.push(["Design target", design.map(function (x) { return x.target; }).join("; ")]);
-    scopeRows.push(["Run", s.protocol], ["Updated", D.updated]);
-    scopeRows.forEach(function (kv) {
-      dl.appendChild(Object.assign(document.createElement("dt"), { textContent: kv[0] }));
-      dl.appendChild(Object.assign(document.createElement("dd"), { textContent: kv[1] }));
-    });
-
-    function keyRow(host, ids) {
-      var el2 = document.getElementById(host);
-      el2.textContent = "";
-      ids.forEach(function (id) {
-        var p = plat(id), k = document.createElement("span");
-        k.className = "key";
-        k.innerHTML = "<span class=\"swatch\" style=\"background:" + SER[id] + "\"></span>";
-        k.appendChild(document.createTextNode(p.kind === "server" ? serverLabel(p) : p.name));
-        el2.appendChild(k);
-      });
-      var d2 = document.createElement("span");
-      d2.className = "key";
-      d2.innerHTML = "<span class=\"swatch dash\"></span>";
-      d2.appendChild(document.createTextNode("does not run"));
-      el2.appendChild(d2);
-    }
-    keyRow("c1-keys", SERVERS);
-    keyRow("c1b-keys", SERVERS);
-    keyRow("c2-keys", SERVERS);
-    keyRow("c3-keys", CELLS);
-    keyRow("c5-keys", CELLS);
-
-    var md = document.getElementById("methods-dl");
-    function mrow(k, v) {
-      md.appendChild(Object.assign(document.createElement("dt"), { textContent: k }));
-      md.appendChild(Object.assign(document.createElement("dd"), { textContent: v }));
-    }
-    mrow("Models", D.models.map(function (x) { return x.name; }).join(", ") +
-      ", each at its own recycle and sampling-step settings" +
-      (design.length ? ", plus " + design.map(function (x) { return x.name; }).join(", ") +
-        " for binder design." : "."));
-    mrow("Size", s.size_aa + " residues. " + s.description);
-    mrow("Input", s.fixture + " with " + s.msa_file + ", seed " + s.seed + ", templates " + s.templates +
-      ", " + s.diffusion_samples + " diffusion sample. Both sides ran these same two files.");
-    mrow("Measured", "Wall-clock seconds for one prediction or one design on one accelerator, warm. " +
-      "Hover any bar for the run behind it.");
-    mrow("Parity", "Each Tenstorrent figure carries the parity it holds against that model's own " +
-      "reference on this input: " + D.models.map(function (x) {
-        var c = x.cells.p150a;
-        return x.name + " " + (c && c.parity ? c.parity : "not measured");
-      }).join("; ") + ".");
-    mrow("Binder design", D.design.methods);
-    mrow("Servers", "A server bar is one measured accelerator times the accelerators in the box, on " +
-      "both sides: 32 Blackhole AI Processors against 8 GPUs.");
-    mrow("Cost", m.formula + " Only the second basis uses the window. " + m.amortisation_basis + " " +
-      fmtCents(m.electricity_usd_per_kwh) + " is the US industrial average price of electricity. " +
-      m.utilisation + " " + m.sensitivity);
-    mrow("Power", "Each server carries its vendor's published maximum system power: " +
-      SERVERS.map(function (id) {
-        var p = plat(id);
-        return fmtKw(p.power_kw) + " for the " + p.name;
-      }).join(", ") + ".");
-
-    var sl = document.getElementById("sources");
-    Object.keys(D.sources).forEach(function (k) {
-      var s2 = D.sources[k], li = document.createElement("li");
-      /* A source with no url is a figure this page assumes rather than one it read somewhere, and
-       * it says so in its own label. Linking it to a vendor document would dress it as a citation. */
-      if (s2.url) {
-        var a = document.createElement("a");
-        a.href = s2.url; a.textContent = s2.label; a.rel = "noreferrer";
-        li.appendChild(a);
-        li.appendChild(document.createTextNode(", accessed " + s2.accessed + ". " + s2.detail));
-      } else {
-        li.appendChild(document.createTextNode(s2.label + ", stated " + s2.accessed + ". " + s2.detail));
-      }
-      sl.appendChild(li);
-    });
-
-    var cv = document.getElementById("caveats");
-    D.caveats.forEach(function (x) {
-      cv.appendChild(Object.assign(document.createElement("li"), { textContent: x }));
-    });
-  }
-
-  function renderAll() {
-    chartPerDollar("c1", "capex");
-    chartPerDollar("c1b", "tco");
-    chartThroughput(); chartTime(); chartDesign(); chartCost(); tables();
-  }
-
-  var rt = null;
-  window.addEventListener("resize", function () {
-    if (rt) clearTimeout(rt);
-    rt = setTimeout(function () { if (D) renderAll(); }, 120);
-  });
-  /* A chart drawn inside a closed <details> measures a zero-width host, so redraw on open. */
-  document.addEventListener("toggle", function (e) {
-    if (D && e.target.open && e.target.classList.contains("disclose")) renderAll();
-  }, true);
-
-  fetch("./data/perf-512aa.json", { cache: "no-store" })
-    .then(function (r) { return r.json(); })
-    .then(function (json) {
-      D = json;
-      statics();
-      renderAll();
-    })
-    .catch(function (e) {
-      document.getElementById("perf-deck").textContent =
-        "Could not load data/perf-512aa.json (" + e.message + "). Serve this directory over HTTP; " +
-        "a file:// open blocks the fetch.";
-    });
-})();
+  const CAP = {
+    perk:"Galaxy $110k, DGX A100 $175k, DGX H200 $410k, DGX B200 $550k, at list.",
+    tco:"Over four years that is $147k, $195k, $441k and $594k respectively.",
+    tph:"Same 512-residue protein, each stack on its own shipped settings. 12 kW against the DGX B200's 14.3 kW."
+  };
+  document.getElementById("unit").innerHTML = UNIT[metric];
+  document.getElementById("cap").textContent = CAP[metric] + " Bars scale within each model.";
+}
+document.getElementById("metric").addEventListener("click", e => {
+  const b = e.target.closest("button[data-m]"); if(!b) return;
+  metric = b.dataset.m;
+  [...e.currentTarget.children].forEach(x => x.setAttribute("aria-pressed", x===b));
+  drawChart();
+});
+drawChart();
+const io = new IntersectionObserver(es => es.forEach(e => {
+  if (e.isIntersecting){ e.target.classList.add("in"); io.unobserve(e.target); }
+}), {rootMargin:"0px 0px -6% 0px", threshold:.05});
+document.querySelectorAll(".reveal").forEach(el => io.observe(el));
 </script>
 </body>
 </html>
