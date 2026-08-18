@@ -1,0 +1,12 @@
+# Upstream openfold-3 test case test_template_lowers_rmsd[1y57], template ON,
+# folded the way upstream folds it: with no MSA file upstream builds a one-row alignment
+# and keeps the MSA stack on, so this is the faithful condition. The --single_sequence
+# sibling (1y57_template_on.yaml) is what a tt-bio user gets today and is reported
+# next to it.
+version: 1
+sequences:
+  - protein:
+      id: A
+      sequence: DIIVVALYDYEAIHHEDLSFQKGDQMVVLEESGEWWKARSLATRKEGYIPSNYVARVDSLETEEWFFKGISRKDAERQLLAPGNMLGSFMIRDSETTKGSYSLSVRDYDPRQGDTVKHYKIRTLDNGGFYISPRSTFSTLQELVDHYKKGNDGLCQKLSVPCMSSKPQKPWEKDAWEIPRESLKLEKKLGAGQFGEVWMATYNKHTKVAVKTMKPGSMSVEAFLAEANVMKTLQHDKLVKLHAVVTKEPIYIITEFMAKGSLLDFLKSDEGSKQPLPKLIDFSAQIAEGMAFIEQRNYIHRDLRAANILVSASLVCKIADFGLARVIEDNEYTAREGAKFPIKWTAPEAINFGSFTIKSDVWSFGILLMEIVTYGRIPYPGMSNPEVIRALERGYRMPRPENCPEELYNIMMRCWKNRPEERPTFEYIQSVLDDFYTATESQYQQQP
+      msa: examples/of3_upstream/dummy_alignments/1y57/colabfold_main.a3m
+      templates: examples/of3_upstream/template_alignments/1y57.npz

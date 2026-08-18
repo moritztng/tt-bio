@@ -1,0 +1,47 @@
+{
+  "label": "REFERENCE-ARM-cpu-fp32 item17-1a8q-template-ON (upstream's model + upstream's own CIF-direct template alignment)",
+  "pred_dir": "/tmp/of3tmpl/ref1a8q_on/1a8q_template_on/seed_42",
+  "ref_cif": "1a8q.cif",
+  "ref_chains": [
+    "A"
+  ],
+  "n": 8,
+  "values": [
+    0.29087783427516795,
+    0.23661322782940594,
+    0.25465596132262613,
+    0.2819988817988055,
+    0.25392013651667816,
+    0.2639224972012187,
+    0.25836567754908374,
+    0.2661765803401923
+  ],
+  "gdt_ts": [
+    0.9963503649635037,
+    0.9990875912408759,
+    0.9981751824817519,
+    0.9972627737226277,
+    0.9990875912408759,
+    0.9981751824817517,
+    0.9972627737226277,
+    0.9981751824817517
+  ],
+  "mean": 0.2633163496041473,
+  "sd": 0.016979305863035102,
+  "ceiling": 2.0,
+  "floor": null,
+  "verdict": "PASS",
+  "layout": "upstream",
+  "metric": "openfold3.core.metrics.alignment.best_ca_rmsd",
+  "openfold3_commit": "72fc3a9534d37291b1ca7f02f11a8a0b12cd80c9",
+  "cifs": [
+    "1a8q_template_on_seed_42_sample_1_model.cif",
+    "1a8q_template_on_seed_42_sample_2_model.cif",
+    "1a8q_template_on_seed_42_sample_3_model.cif",
+    "1a8q_template_on_seed_42_sample_4_model.cif",
+    "1a8q_template_on_seed_42_sample_5_model.cif",
+    "1a8q_template_on_seed_42_sample_6_model.cif",
+    "1a8q_template_on_seed_42_sample_7_model.cif",
+    "1a8q_template_on_seed_42_sample_8_model.cif"
+  ]
+}

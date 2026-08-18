@@ -1,0 +1,31 @@
+{
+  "label": "items01+03-protein_only-no_msa-and-msa-qb1card3",
+  "upstream_claim": "test_inference_writes_outputs: per-sample structure + confidence files written, one MSA run directory of the mode-appropriate kind. No accuracy expectation declared for this case.",
+  "adaptation": "The file-existence assertion names upstream's own layout (msas/<run>/{main,dummy}, <query>/seed_<seed>/timing.json, <stem>_confidences.json, <stem>_confidences_aggregated.json, <stem>_model.cif). tt-bio writes openfold3_results_<query>/structures/<query>.cif plus a results.json confidence record, so the portable form of the claim is checked: one structure per diffusion sample and a confidence record, in both modes.",
+  "verdict": "PASS (adapted)",
+  "legs": [
+    {
+      "mode": "no_msa",
+      "cifs": 1,
+      "expected_samples": 1,
+      "n_chains": 2,
+      "n_residues": 68,
+      "plddt": 0.860787,
+      "ptm": 0.805489,
+      "iptm": 0.776204,
+      "runtime_s": 182.1,
+      "msa": false
+    },
+    {
+      "mode": "msa",
+      "cifs": 1,
+      "expected_samples": 1,
+      "n_chains": 2,
+      "n_residues": 68,
+      "plddt": 0.85929,
+      "msa": true
+    }
+  ],
+  "note": "The leading X of the leucine-zipper sequence (XRMKQLEDKVEELLSKNYHLENEVARLKKLVGER) is accepted by the port's featurization, not rejected: both chains fold, 68 residues over 2 chains. That was an open risk before this run.",
+  "openfold3_commit": "72fc3a9534d37291b1ca7f02f11a8a0b12cd80c9"
+}

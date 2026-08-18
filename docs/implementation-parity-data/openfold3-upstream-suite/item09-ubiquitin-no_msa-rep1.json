@@ -1,0 +1,46 @@
+{
+  "label": "item9-ubiquitin-no_msa-rep1-qb2card0",
+  "pred_dir": "/tmp/of3d/ubq_nomsa_r1/openfold3_results_ubiquitin/structures",
+  "ref_cif": "1ubq.cif",
+  "ref_chains": [
+    "A"
+  ],
+  "n": 8,
+  "values": [
+    2.5371594421999513,
+    2.4913191970820816,
+    2.5663881742761765,
+    2.559697653086188,
+    2.603842842127523,
+    2.5210789751530367,
+    2.4668150650710023,
+    1.0119949428833024
+  ],
+  "gdt_ts": [
+    0.7171052631578947,
+    0.7269736842105263,
+    0.7269736842105263,
+    0.7269736842105263,
+    0.7203947368421053,
+    0.7236842105263158,
+    0.694078947368421,
+    0.9572368421052632
+  ],
+  "mean": 2.3447870364849077,
+  "sd": 0.540262742504881,
+  "ceiling": 1.8,
+  "floor": null,
+  "verdict": "FAIL",
+  "metric": "openfold3.core.metrics.alignment.best_ca_rmsd",
+  "openfold3_commit": "72fc3a9534d37291b1ca7f02f11a8a0b12cd80c9",
+  "cifs": [
+    "ubiquitin.cif",
+    "ubiquitin_model_1.cif",
+    "ubiquitin_model_2.cif",
+    "ubiquitin_model_3.cif",
+    "ubiquitin_model_4.cif",
+    "ubiquitin_model_5.cif",
+    "ubiquitin_model_6.cif",
+    "ubiquitin_model_7.cif"
+  ]
+}

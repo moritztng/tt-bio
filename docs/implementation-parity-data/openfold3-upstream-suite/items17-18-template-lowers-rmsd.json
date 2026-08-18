@@ -1,0 +1,75 @@
+{
+  "metric": "openfold3.core.metrics.alignment.best_ca_rmsd",
+  "openfold3_commit": "72fc3a9534d37291b1ca7f02f11a8a0b12cd80c9",
+  "adaptation": "The upstream test passes template_cif_paths and asks the implementation to align the CIF to the query; that search is not ported. The alignment npz was produced by upstream's own TemplatePreprocessor (mode=predict) from the same CIF and chain, so upstream does the alignment and the port does the fold.",
+  "arms": {
+    "one_row_alignment": "upstream's own no-MSA condition: a one-row a3m with use_msas on. This is the faithful arm and carries the verdict.",
+    "single_sequence": "what a tt-bio user gets from --single_sequence today; use_msas off. See the ubiquitin no-MSA finding."
+  },
+  "cases": {
+    "1a8q": {
+      "bounds": {
+        "off_min_angstrom": 8.0,
+        "on_max_angstrom": 2.0,
+        "gap_min_angstrom": 5.0
+      },
+      "upstream_measured_mps": "off 16.58 +/- 0.68, on 0.26 +/- 0.02",
+      "arms": {
+        "one_row_alignment": {
+          "off": 16.6001,
+          "on": 0.2441,
+          "gap": 16.356,
+          "checks": {
+            "off_above_floor": true,
+            "on_below_ceiling": true,
+            "gap_above_min": true
+          },
+          "verdict": "PASS"
+        },
+        "single_sequence": {
+          "off": 17.8562,
+          "on": 0.2704,
+          "gap": 17.5858,
+          "checks": {
+            "off_above_floor": true,
+            "on_below_ceiling": true,
+            "gap_above_min": true
+          },
+          "verdict": "PASS"
+        }
+      }
+    },
+    "1y57": {
+      "bounds": {
+        "off_min_angstrom": 18.0,
+        "on_max_angstrom": 16.0,
+        "gap_min_angstrom": 6.0
+      },
+      "upstream_measured_mps": "off 23.77 +/- 1.25, on 12.07 +/- 2.83",
+      "arms": {
+        "one_row_alignment": {
+          "off": 24.4821,
+          "on": 13.1733,
+          "gap": 11.3088,
+          "checks": {
+            "off_above_floor": true,
+            "on_below_ceiling": true,
+            "gap_above_min": true
+          },
+          "verdict": "PASS"
+        },
+        "single_sequence": {
+          "off": 25.499,
+          "on": 10.5221,
+          "gap": 14.9768,
+          "checks": {
+            "off_above_floor": true,
+            "on_below_ceiling": true,
+            "gap_above_min": true
+          },
+          "verdict": "PASS"
+        }
+      }
+    }
+  }
+}

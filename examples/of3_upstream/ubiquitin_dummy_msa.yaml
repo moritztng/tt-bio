@@ -1,0 +1,14 @@
+# The upstream `ubiquitin` case in no-MSA mode, folded the way upstream folds it.
+#
+# With no MSA file, upstream does not turn the MSA stack off: augment_main_msa_with_
+# query_sequence (core/data/tools/colabfold_msa_server.py:1379) writes a one-row a3m
+# holding the query sequence and feeds it in with use_msas still True. tt-bio's
+# --single_sequence instead sets use_msas/use_main_msas False (worker.py:1085).
+# Pointing --single_sequence at the one-row a3m below keeps the MSA stack on, which
+# is what upstream's dummy path does, so this yaml isolates that difference.
+version: 1
+sequences:
+  - protein:
+      id: A
+      sequence: MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG
+      msa: examples/of3_upstream/dummy_alignments/ubiquitin/colabfold_main.a3m

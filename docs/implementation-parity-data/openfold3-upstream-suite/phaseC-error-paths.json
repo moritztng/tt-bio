@@ -1,0 +1,19 @@
+{
+  "label": "phase-C-error-paths",
+  "host": "pc", "card": 0,
+  "cases": [
+    {"item": "protein_and_ligand (upstream test_inference_full CASES, 4 modes)",
+     "yaml": "examples/of3_upstream/protein_and_ligand.yaml",
+     "status": "refused",
+     "error": "--model openfold3 is polymer-only for now (chain(s) ['C'] are ligands); see docs/openfold3-port.md.",
+     "structures_written": 0},
+    {"item": "test_pocket_constraint_localizes_ligand (bla_1PZP_FTA)",
+     "yaml": "examples/of3_upstream/pocket_1pzp.yaml",
+     "status": "refused",
+     "error": "--model openfold3 is polymer-only for now (chain(s) ['L'] are ligands); see docs/openfold3-port.md.",
+     "structures_written": 0,
+     "note": "the ligand guard fires before the constraints guard, so the pocket/constraint path is never reached on this input"}
+  ],
+  "process_exit_code": 0,
+  "exit_code_note": "tt-bio predict exits 0 even when every target failed; the failure is loud in stdout and results.json but not in the exit status"
+}

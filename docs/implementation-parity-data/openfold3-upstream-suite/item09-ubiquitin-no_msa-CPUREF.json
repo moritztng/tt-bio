@@ -1,0 +1,47 @@
+{
+  "label": "REFERENCE-ARM-cpu-fp32 item9-ubiquitin-no_msa upstream openfold3 0.4.6.dev12+g72fc3a953, accelerator=cpu, seed 42",
+  "pred_dir": "/tmp/of3ref/ubq_nomsa_seed42/ubiquitin/seed_42",
+  "ref_cif": "1ubq.cif",
+  "ref_chains": [
+    "A"
+  ],
+  "n": 8,
+  "values": [
+    1.4085965661807573,
+    1.7611567830909503,
+    0.7205125979866343,
+    0.7945569226270727,
+    1.0485652879966094,
+    0.8279434305640389,
+    0.5093882587177986,
+    1.5594803389811962
+  ],
+  "gdt_ts": [
+    0.9276315789473685,
+    0.9375,
+    0.9638157894736842,
+    0.9703947368421053,
+    0.944078947368421,
+    0.9638157894736842,
+    0.9901315789473684,
+    0.9013157894736842
+  ],
+  "mean": 1.0787750232681321,
+  "sd": 0.44763936610565114,
+  "ceiling": 1.8,
+  "floor": null,
+  "verdict": "PASS",
+  "layout": "upstream",
+  "metric": "openfold3.core.metrics.alignment.best_ca_rmsd",
+  "openfold3_commit": "72fc3a9534d37291b1ca7f02f11a8a0b12cd80c9",
+  "cifs": [
+    "ubiquitin_seed_42_sample_1_model.cif",
+    "ubiquitin_seed_42_sample_2_model.cif",
+    "ubiquitin_seed_42_sample_3_model.cif",
+    "ubiquitin_seed_42_sample_4_model.cif",
+    "ubiquitin_seed_42_sample_5_model.cif",
+    "ubiquitin_seed_42_sample_6_model.cif",
+    "ubiquitin_seed_42_sample_7_model.cif",
+    "ubiquitin_seed_42_sample_8_model.cif"
+  ]
+}

@@ -61,7 +61,10 @@ comparable across models.
 
 Enumerated against the upstream input schema
 (`of3_all_atom/config/inference_query_format.py`). Every unsupported case is a named
-error, verified by running it — nothing silently degrades.
+error, verified by running it — nothing silently degrades. Upstream's own inference suite
+run against this port is reported in
+[openfold3-upstream-suite.md](openfold3-upstream-suite.md), including the `--single_sequence`
+defect it found, which is fixed.
 
 | capability | status |
 |---|---|

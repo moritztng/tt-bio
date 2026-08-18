@@ -1,0 +1,47 @@
+{
+  "label": "REFERENCE-ARM-cpu-fp32 item15adapted-7L39-protein_only-msa (ligand dropped, same a3m bytes as our device leg)",
+  "pred_dir": "/tmp/of3ref/l39_msa_seed42/pdb_7L39/seed_42",
+  "ref_cif": "7l39.cif",
+  "ref_chains": [
+    "A"
+  ],
+  "n": 8,
+  "values": [
+    0.6486596987124189,
+    0.46173520961406,
+    0.5736699478628849,
+    0.5940028753286292,
+    0.7177002040451491,
+    1.9489904078181504,
+    0.43113064667076045,
+    2.224634517005272
+  ],
+  "gdt_ts": [
+    0.9799382716049383,
+    0.9891975308641975,
+    0.9876543209876543,
+    0.9830246913580247,
+    0.9675925925925926,
+    0.691358024691358,
+    0.9907407407407407,
+    0.6466049382716049
+  ],
+  "mean": 0.9500654383821656,
+  "sd": 0.7114803779292034,
+  "ceiling": 0.6,
+  "floor": null,
+  "verdict": "FAIL",
+  "layout": "upstream",
+  "metric": "openfold3.core.metrics.alignment.best_ca_rmsd",
+  "openfold3_commit": "72fc3a9534d37291b1ca7f02f11a8a0b12cd80c9",
+  "cifs": [
+    "pdb_7L39_seed_42_sample_1_model.cif",
+    "pdb_7L39_seed_42_sample_2_model.cif",
+    "pdb_7L39_seed_42_sample_3_model.cif",
+    "pdb_7L39_seed_42_sample_4_model.cif",
+    "pdb_7L39_seed_42_sample_5_model.cif",
+    "pdb_7L39_seed_42_sample_6_model.cif",
+    "pdb_7L39_seed_42_sample_7_model.cif",
+    "pdb_7L39_seed_42_sample_8_model.cif"
+  ]
+}

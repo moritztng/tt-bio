@@ -1,0 +1,47 @@
+{
+  "label": "item09-ubiquitin-no_msa-DUMMY-ONE-ROW-MSA-ARM-qb1card3 (use_msas stays True, upstream's dummy path)",
+  "pred_dir": "/tmp/of3dev/ubq_dummymsa/openfold3_results_ubiquitin_dummy_msa/structures",
+  "ref_cif": "1ubq.cif",
+  "ref_chains": [
+    "A"
+  ],
+  "n": 8,
+  "values": [
+    0.7685033889167754,
+    0.804779370631715,
+    0.8420556544672603,
+    0.8842830952613274,
+    0.5830497169858192,
+    0.9327022708677314,
+    0.6442359717978701,
+    1.2260432153633924
+  ],
+  "gdt_ts": [
+    0.9736842105263158,
+    0.9736842105263158,
+    0.9736842105263158,
+    0.9769736842105263,
+    0.9835526315789473,
+    0.9703947368421053,
+    0.9736842105263157,
+    0.944078947368421
+  ],
+  "mean": 0.8357065855364864,
+  "sd": 0.196447043732905,
+  "ceiling": 1.8,
+  "floor": null,
+  "verdict": "PASS",
+  "layout": "ttbio",
+  "metric": "openfold3.core.metrics.alignment.best_ca_rmsd",
+  "openfold3_commit": "72fc3a9534d37291b1ca7f02f11a8a0b12cd80c9",
+  "cifs": [
+    "ubiquitin_dummy_msa.cif",
+    "ubiquitin_dummy_msa_model_1.cif",
+    "ubiquitin_dummy_msa_model_2.cif",
+    "ubiquitin_dummy_msa_model_3.cif",
+    "ubiquitin_dummy_msa_model_4.cif",
+    "ubiquitin_dummy_msa_model_5.cif",
+    "ubiquitin_dummy_msa_model_6.cif",
+    "ubiquitin_dummy_msa_model_7.cif"
+  ]
+}

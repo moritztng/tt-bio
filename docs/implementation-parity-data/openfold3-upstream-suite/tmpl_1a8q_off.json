@@ -1,0 +1,47 @@
+{
+  "label": "item17-1a8q-template-OFF-single_sequence-qb1card0",
+  "pred_dir": "/tmp/of3dev/tmpl_1a8q_off/openfold3_results_1a8q_template_off/structures",
+  "ref_cif": "1a8q.cif",
+  "ref_chains": [
+    "A"
+  ],
+  "n": 8,
+  "values": [
+    20.476772122796856,
+    15.140430080716799,
+    18.410215903461307,
+    18.56225001048102,
+    14.595583747176523,
+    17.522688092173482,
+    20.230642641895148,
+    17.911310757772405
+  ],
+  "gdt_ts": [
+    0.048357664233576646,
+    0.1177007299270073,
+    0.05656934306569343,
+    0.020985401459854013,
+    0.07572992700729927,
+    0.09762773722627738,
+    0.023722627737226276,
+    0.017335766423357664
+  ],
+  "mean": 17.85623666955919,
+  "sd": 2.1190330789977065,
+  "ceiling": null,
+  "floor": 8.0,
+  "verdict": "PASS",
+  "layout": "ttbio",
+  "metric": "openfold3.core.metrics.alignment.best_ca_rmsd",
+  "openfold3_commit": "72fc3a9534d37291b1ca7f02f11a8a0b12cd80c9",
+  "cifs": [
+    "1a8q_template_off.cif",
+    "1a8q_template_off_model_1.cif",
+    "1a8q_template_off_model_2.cif",
+    "1a8q_template_off_model_3.cif",
+    "1a8q_template_off_model_4.cif",
+    "1a8q_template_off_model_5.cif",
+    "1a8q_template_off_model_6.cif",
+    "1a8q_template_off_model_7.cif"
+  ]
+}

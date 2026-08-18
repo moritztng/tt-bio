@@ -1,0 +1,47 @@
+{
+  "label": "item11a-ubiquitin-msa-live-qb1card1",
+  "pred_dir": "/tmp/of3dev/ubq_msa_live/openfold3_results_ubiquitin/structures",
+  "ref_cif": "1ubq.cif",
+  "ref_chains": [
+    "A"
+  ],
+  "n": 8,
+  "values": [
+    1.1379004982380663,
+    0.8201935696170187,
+    0.8001643035277061,
+    0.9130138639574595,
+    0.9059906363996785,
+    0.7619525281323619,
+    0.6310909587431948,
+    0.5345844000417784
+  ],
+  "gdt_ts": [
+    0.9671052631578947,
+    0.9769736842105263,
+    0.9769736842105263,
+    0.9736842105263158,
+    0.9769736842105263,
+    0.9736842105263158,
+    0.9736842105263157,
+    0.9835526315789473
+  ],
+  "mean": 0.8131113448321581,
+  "sd": 0.18425089979954606,
+  "ceiling": 1.9,
+  "floor": null,
+  "verdict": "PASS",
+  "layout": "ttbio",
+  "metric": "openfold3.core.metrics.alignment.best_ca_rmsd",
+  "openfold3_commit": "72fc3a9534d37291b1ca7f02f11a8a0b12cd80c9",
+  "cifs": [
+    "ubiquitin.cif",
+    "ubiquitin_model_1.cif",
+    "ubiquitin_model_2.cif",
+    "ubiquitin_model_3.cif",
+    "ubiquitin_model_4.cif",
+    "ubiquitin_model_5.cif",
+    "ubiquitin_model_6.cif",
+    "ubiquitin_model_7.cif"
+  ]
+}
