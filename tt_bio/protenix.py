@@ -1806,12 +1806,33 @@ class Protenix:
             import hashlib as _hl
 
             _z_sha = _hl.sha256(ttnn.to_torch(z_trunk_tt).to(torch.float32).numpy().tobytes()).hexdigest()[:16]
+        _pcdbg = os.environ.get("TT_PROTENIX_PAIRCOND_DEBUG")
+        if _pcdbg:
+            import pathlib as _pl
+            _d = _pl.Path(os.environ.get("TT_PROTENIX_PAIRCOND_DEBUG_DIR", "/tmp/issue9"))
+            _d.mkdir(parents=True, exist_ok=True)
+            torch.save({"z_trunk": ttnn.to_torch(z_trunk_tt), "relp": relp,
+                        "dtype": str(self.diffusion.dtype)},
+                       _d / "paircond_inputs.pt")
+            print(f"[pcdbg] dumped paircond inputs shape={tuple(z_trunk_tt.shape)} "
+                  f"dtype={self.diffusion.dtype}", flush=True)
+
+        def _sync(tag):
+            if _pcdbg:
+                ttnn.synchronize_device(self.dev)
+                with open(os.path.join(os.environ.get("TT_PROTENIX_PAIRCOND_DEBUG_DIR", "/tmp/issue9"),
+                                       "pcdbg_markers.log"), "a") as _f:
+                    _f.write(f"{tag} done\n")
+
         relpe = ttnn.linear(T(relp), T(self._w[C + "relpe.linear_no_bias.weight"].t().contiguous()),
                             compute_kernel_config=self.compute_kernel_config, dtype=self.diffusion.dtype,
                             core_grid=CORE_GRID_MAIN)
+        _sync("relpe linear")
         if self.diffusion._diffusion_fp32:
             z_trunk_tt = ttnn.typecast(z_trunk_tt, self.diffusion.dtype)
+            _sync("typecast")
         z_trunk_tt = ttnn.reshape(z_trunk_tt, (relpe.shape[0], relpe.shape[1], -1))
+        _sync("reshape-3d")
         N, W, cz = (int(d) for d in z_trunk_tt.shape)
         if N * W * cz * 2 > PAIRCOND_BLOCK_BYTES and self.diffusion.dtype == ttnn.bfloat16:
             # Row-blocked chain (see PAIRCOND_BLOCK_BYTES): no full-size LN'd z or channel
@@ -1854,21 +1875,27 @@ class Protenix:
             z_trunk_tt = ttnn.linear(zt, T(self._w[C + "linear_no_bias_z_trunk.weight"].t().contiguous()),
                                      compute_kernel_config=self.compute_kernel_config,
                                      dtype=self.diffusion.dtype, core_grid=CORE_GRID_MAIN)
+            _sync("z_trunk LN+proj")
         zc = ttnn.concat([z_trunk_tt, relpe], dim=-1)
+        _sync("concat")
         zc = ttnn.layer_norm(zc, weight=T(self._w[C + "layernorm_z.weight"]), epsilon=1e-5,
                              compute_kernel_config=self.compute_kernel_config)
+        _sync("layernorm_z")
         pz = ttnn.linear(zc, T(self._w[C + "linear_no_bias_z.weight"].t().contiguous()),
                          compute_kernel_config=self.compute_kernel_config, dtype=self.diffusion.dtype,
                          core_grid=CORE_GRID_MAIN)
+        _sync("linear_z")
         # keep the pair tensor 4D (1,N,N,c) so Transition uses its chunked H/W path
         # (the 3D path doesn't chunk pair tensors -> OOM at large N).
         N = relpe.shape[0]
         pz = ttnn.reshape(pz, (1, N, N, pz.shape[-1]))
+        _sync("reshape")
         for nm in ("transition_z1", "transition_z2"):
             sub = {k[len(C + nm + "."):]: v for k, v in self._w.items() if k.startswith(C + nm + ".")}
             t = Transition(PW.remap_transition(sub), self.compute_kernel_config,
                            dtype=self.diffusion.dtype)
             pz = ttnn.add(pz, t(pz))
+            _sync(nm)
         return _pz_cond_probe(pz, _z_sha)
 
     def _plm_z_term(self, pair_z, a2t, nb, nq, nk):
@@ -1943,6 +1970,12 @@ class Protenix:
         fold() does before the sampler. Returns (cond, aux); aux carries what the confidence
         head needs. fold() and fold_many() share this so a batched fold runs the same trunk
         as a single one."""
+        if os.environ.get("TT_PROTENIX_DUMP_FEATS"):
+            import pathlib as _pl
+            _d = _pl.Path(os.environ.get("TT_PROTENIX_PAIRCOND_DEBUG_DIR", "/tmp/issue9"))
+            _d.mkdir(parents=True, exist_ok=True)
+            torch.save(feats, _d / "feats_dump.pt")
+
         fi = self._atom_feat_inputs(feats)
         N, NT, nb, nq, nk = fi["N"], fi["NT"], fi["nb"], fi["nq"], fi["nk"]
         mt = fi["mt"]; S = fi["S"]

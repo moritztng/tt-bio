@@ -1925,6 +1925,11 @@ def _configure_active_compute_grid(device: ttnn.Device) -> None:
             gx, gy = ax, ay
     except Exception:
         pass
+    # TT_BIO_FORCE_GRID="x,y" (default off): pin the main grid, e.g. 11,10 on a 13x10
+    # p150a to discriminate grid-path defects from hardware (issue #9).
+    _force = os.environ.get("TT_BIO_FORCE_GRID")
+    if _force:
+        gx, gy = (int(v) for v in _force.split(","))
 
     if (gx, gy) == COMPUTE_GRID_MAIN:
         return
