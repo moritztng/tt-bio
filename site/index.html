@@ -15,29 +15,32 @@
 
 /* hero: one composed unit, type and motion side by side */
 .hero{padding:70px 0 8px;display:grid;grid-template-columns:1.08fr .92fr;gap:64px;align-items:center}
-@media (max-width:900px){.hero{grid-template-columns:1fr;gap:38px;padding-top:48px;text-align:center}}
+@media (max-width:900px){.hero{grid-template-columns:1fr;gap:34px;padding-top:44px}}
 .kicker{font-size:.78rem;letter-spacing:.15em;text-transform:uppercase;
   color:var(--ink-3);font-weight:600;margin:0 0 20px}
 h1{font-size:clamp(2.5rem,5.4vw,4.05rem);margin:0 0 22px;max-width:13ch}
-@media (max-width:900px){h1{margin-left:auto;margin-right:auto}}
+
 h1 em{font-style:normal;font-weight:600;color:var(--ink)}
 .lede{font-size:1.14rem;color:var(--ink-2);margin:0 0 32px;max-width:46ch;line-height:1.55}
-@media (max-width:900px){.lede{margin-left:auto;margin-right:auto}}
+
 .cta{display:flex;gap:14px;flex-wrap:wrap}
-@media (max-width:900px){.cta{justify-content:center}}
+
 .stage{margin:0;justify-self:center;width:100%;max-width:520px}
 .stage picture{display:block}
 .stage img{width:100%;height:auto;display:block;border-radius:3px;
   box-shadow:0 1px 2px rgba(20,24,28,.06),0 12px 34px -10px rgba(20,24,28,.22)}
-@media (max-width:900px){.stage{max-width:440px}}
+@media (max-width:900px){.stage{max-width:440px;justify-self:start}}
 
 /* the three facts, as type not boxes */
 .facts{display:grid;grid-template-columns:repeat(3,1fr);gap:0;
   padding:52px 0 56px;margin-top:8px;border-bottom:1px solid var(--rule)}
 .facts>div{padding-left:26px;border-left:1px solid var(--rule)}
 .facts>div:first-child{padding-left:0;border-left:0}
-@media (max-width:800px){.facts{grid-template-columns:1fr;gap:26px;padding:40px 0 44px}
-  .facts>div{padding-left:0;border-left:0}}
+@media (max-width:800px){.facts{grid-template-columns:1fr;gap:24px;padding:40px 0 44px}
+  .facts>div{padding-left:0;border-left:0}
+  .facts>div+div{border-top:1px solid var(--rule);padding-top:24px}
+  .facts .n{font-size:2.6rem}
+  .facts .s{max-width:34ch}}
 .facts .n{font-family:var(--display);font-weight:300;font-size:clamp(2.4rem,5vw,3.2rem);
   line-height:1;letter-spacing:-.035em;color:var(--ink);font-variant-numeric:tabular-nums}
 .facts .k{font-size:1.02rem;color:var(--ink);margin-top:12px;font-weight:500}
@@ -75,7 +78,7 @@ h2{font-size:clamp(1.85rem,3.5vw,2.5rem);margin:0 0 18px;max-width:22ch}
 
 /* models as a typographic index, not boxes */
 .cats{display:grid;grid-template-columns:1fr 1fr;gap:0 64px;margin-top:28px}
-@media (max-width:760px){.cats{grid-template-columns:1fr}}
+@media (max-width:760px){.cats{grid-template-columns:1fr;gap:38px 0}}
 .ctitle{font-size:.76rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);font-weight:600;margin:0 0 4px}
 .ientry{display:flex;gap:16px;align-items:baseline;padding:14px 0;border-top:1px solid var(--rule)}
 .ientry .nm{font-family:var(--display);font-size:1.02rem;font-weight:600;letter-spacing:-.012em;min-width:6.6em}
@@ -101,6 +104,20 @@ h2{font-size:clamp(1.85rem,3.5vw,2.5rem);margin:0 0 18px;max-width:22ch}
 .deeper .ds{font-size:.96rem;color:var(--ink-3);margin:0}
 .deeper .dbtn{white-space:nowrap;flex:none}
 @media(max-width:700px){.deeper{flex-direction:column;align-items:flex-start;gap:20px}}
+
+@media (max-width:640px){
+  /* each tab keeps its label on one line and wraps as a group, rather than
+     breaking every label across two lines in a rail too narrow to hold them */
+  .seg{flex-wrap:wrap;gap:10px 20px;border-bottom:0}
+  .seg button{white-space:nowrap;padding-bottom:7px;font-size:.92rem}
+  .metricline{margin:24px 0 22px}
+  .hero{padding-top:36px;gap:30px}
+  section{padding:56px 0}
+  .finale{padding:64px 0 72px}
+  .deeper{margin-top:32px;padding-top:24px}
+  .deeper .dbtn{width:100%;text-align:center}
+  .cta .btn{flex:1 1 auto;text-align:center}
+}
 </style>
 </head>
 <body>

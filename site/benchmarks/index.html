@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TT-Bio: biomolecular structure, design and embeddings on Tenstorrent</title>
 <meta name="description" content="Open biomolecular models on Tenstorrent: folding and binding affinity, binder design, and protein embeddings. Measured throughput per dollar against NVIDIA H200, B200 and A100 at 512 residues, and BoltzGen binder design, with the single-accelerator times behind a disclosure.">
+<link rel="preload" href="../assets/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../assets/site.css">
 <style>
 /* Platform ramp. Ours in near-black, the three GPUs stepping lighter, so the
    Tenstorrent bar reads first in every chart without introducing a hue.
@@ -120,6 +122,15 @@ details.disclose > div{ padding-top:var(--s-4); }
 .endnote p:last-child{ margin-bottom:0; }
 
 @media (max-width:640px){
+  /* The model tables are prose, not figures: let them wrap to the screen
+     instead of scrolling sideways with half a sentence cut off. The data
+     tables inside the disclosures keep nowrap, because wrapped numbers stop
+     lining up. */
+  .mtable{ width:100%; font-size:.84rem; }
+  .mtable th, .mtable td{ white-space:normal; padding:8px 12px 8px 0; vertical-align:top;
+                          overflow-wrap:break-word; hyphens:auto; }
+  .mtable th:first-child, .mtable td:first-child{ white-space:nowrap; }
+  .mtable th:last-child, .mtable td:last-child{ padding-right:0; }
   .pagehead{ padding:var(--s-5) 0 var(--s-4); }
   section.band{ padding-top:var(--s-5); }
   section.band + section.band{ margin-top:var(--s-5); }
@@ -129,10 +140,15 @@ details.disclose > div{ padding-top:var(--s-4); }
   .scope dt:first-child, .methods dt:first-child{ margin-top:0; }
   table{ font-size:.84rem; }
   th, td{ padding-right:22px; }
+  h1{ margin-bottom:26px; }
+  .lede{ font-size:1.06rem; }
+  .keys{ gap:6px 16px; font-size:.8rem; }
+  .cond{ font-size:.88rem; }
+  details.disclose > summary{ font-size:1rem; gap:8px; }
+  details.disclose .sum-note{ font-size:.84rem; }
+  footer{ font-size:.85rem; }
 }
 </style>
-<link rel="preload" href="../assets/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="../assets/site.css">
 </head>
 <body>
 <div class="wrap">
