@@ -20,17 +20,9 @@
 
 main{ display:block; padding-bottom:var(--s-5); }
 
-/* Title block */
-.pagehead{ padding:var(--s-6) 0 0; }
-h1{ font-size:clamp(2.15rem,4.2vw,2.9rem); margin:0 0 40px; max-width:20ch; }
-.lede{ font-size:1.14rem; line-height:1.58; font-weight:300; color:var(--ink-2);
-       max-width:58ch; margin:0; }
-.lede a{ color:var(--ink); text-decoration:underline; text-underline-offset:3px;
-         text-decoration-color:var(--rule-2); }
-.lede a:hover{ text-decoration-color:var(--ink); }
-
 /* Sections, on the shared spacing scale */
 section.band{ padding:var(--s-6) 0 0; }
+section.band:first-of-type{ padding-top:var(--s-5); }
 section.band + section.band{ margin-top:var(--s-6); border-top:1px solid var(--rule); }
 .band-head{ margin-bottom:var(--s-4); }
 h2{ font-size:clamp(1.6rem,2.6vw,2rem); margin:0 0 var(--s-3); }
@@ -131,7 +123,6 @@ details.disclose > div{ padding-top:var(--s-4); }
                           overflow-wrap:break-word; hyphens:auto; }
   .mtable th:first-child, .mtable td:first-child{ white-space:nowrap; }
   .mtable th:last-child, .mtable td:last-child{ padding-right:0; }
-  .pagehead{ padding:var(--s-5) 0 var(--s-4); }
   section.band{ padding-top:var(--s-5); }
   section.band + section.band{ margin-top:var(--s-5); }
   section.chart{ margin-bottom:var(--s-5); }
@@ -140,8 +131,6 @@ details.disclose > div{ padding-top:var(--s-4); }
   .scope dt:first-child, .methods dt:first-child{ margin-top:0; }
   table{ font-size:.84rem; }
   th, td{ padding-right:22px; }
-  h1{ margin-bottom:26px; }
-  .lede{ font-size:1.06rem; }
   .keys{ gap:6px 16px; font-size:.8rem; }
   .cond{ font-size:.88rem; }
   details.disclose > summary{ font-size:1rem; gap:8px; }
@@ -163,11 +152,7 @@ details.disclose > div{ padding-top:var(--s-4); }
   </nav>
 <main>
 
-<header class="pagehead">
-<p class="eyebrow">Benchmarks</p>
-<h1>TT-Bio: Biomolecular Models on Tenstorrent</h1>
-<p class="lede">Every model and every system we measured, with the method and the raw numbers behind the headline figures on the <a href="../">overview</a>.</p>
-</header>
+<h1 class="vh">TT-Bio benchmarks: biomolecular models on Tenstorrent</h1>
 
 <section class="band" id="models">
   <div class="band-head">

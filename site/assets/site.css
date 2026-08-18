@@ -82,6 +82,10 @@ h3,h4{font-family:var(--display);font-weight:600;letter-spacing:-.014em;line-hei
 .num,td.n,th.n,.bval,.facts .n{font-variant-numeric:tabular-nums}
 code,kbd,samp,pre{font-family:var(--mono)}
 
+/* present to screen readers and to the document outline, not to the eye */
+.vh{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;
+  clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0}
+
 nav{display:flex;align-items:center;gap:26px;padding:30px 0 0;flex-wrap:wrap;row-gap:12px}
 nav .brand{display:inline-flex;line-height:0}
 nav .brand img{height:24px;width:auto;display:block}
