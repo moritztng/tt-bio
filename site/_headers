@@ -1,0 +1,19 @@
+# Cloudflare Pages edge caching. Content-stable assets are cached hard; the
+# stylesheet and the pages themselves stay short so a deploy is visible.
+/assets/*.woff2
+  Cache-Control: public, max-age=31536000, immutable
+  Access-Control-Allow-Origin: *
+/assets/*.webp
+  Cache-Control: public, max-age=2592000
+/assets/*.jpg
+  Cache-Control: public, max-age=2592000
+/assets/*.svg
+  Cache-Control: public, max-age=2592000
+/assets/site.css
+  Cache-Control: public, max-age=3600
+/data/*
+  Cache-Control: public, max-age=600
+/*
+  Cache-Control: public, max-age=300
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin

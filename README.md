@@ -12,13 +12,18 @@
 
 TT-Bio runs [Boltz-2](https://github.com/jwohlwend/boltz), [ESMFold2](https://github.com/Biohub/esm), [Protenix-v2](https://github.com/bytedance/Protenix), [OpenFold3](https://github.com/aqlaboratory/openfold-3), and [OpenDDE](#structure-prediction) structure prediction, [BoltzGen](#design) and [RFdiffusion3](#design) binder/protein design, and [ESMC protein embeddings](#protein-embeddings-esmc), and [SaProt structure-aware protein embeddings](#structure-aware-protein-embeddings-saprot) on Tenstorrent Blackhole and Wormhole, supporting single-card and multi-card configurations (e.g. QuietBox with 4 cards or Galaxy server with 32 cards). Multiple machines can also be combined into a single prediction run.
 
+**Benchmarks: [tt-bio.com](https://tt-bio.com)** has throughput and cost for every model against
+NVIDIA DGX H200, B200 and A100. The [full benchmark page](https://tt-bio.com/benchmarks.html) has the
+measured seconds behind every figure, the fixtures they were run on, the run conditions and the cost
+model.
+
 ## Accuracy
 
 Every model TT-Bio serves is validated against its official reference implementation on the same input and reproduces it within that reference's own run-to-run noise. See [`docs/implementation-parity.md`](docs/implementation-parity.md) for the methodology, per-target results, and reproduction commands.
 
 ## Performance and cost
 
-Predictions and designs per hour per server, and throughput per dollar of purchase price and of total cost of ownership, measured against NVIDIA DGX systems. See [the performance page](https://moritztng.github.io/tt-bio/) for the numbers, the fixtures they were measured on, and the cost model behind them.
+Predictions and designs per hour per server, and throughput per dollar of purchase price and of total cost of ownership, measured against NVIDIA DGX systems. See [the benchmark page](https://tt-bio.com/benchmarks.html) for the numbers, the fixtures they were measured on, and the cost model behind them.
 
 ## Installation
 

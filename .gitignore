@@ -87,3 +87,6 @@ scratch/
 # the raw tensors are reproducible with `matrix.py --run --group embed`.
 perf/wh-correctness/results/artifacts/**/*.npz
 perf/wh-correctness/results/artifacts/**/*.parquet
+
+# wrangler local cache
+.wrangler/
