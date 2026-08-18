@@ -1081,6 +1081,17 @@ class _WorkerState:
                 raise RuntimeError(
                     f"MSA was requested but none resolved for protein chain(s) {missing} "
                     "-- refusing to silently fold single-sequence.")
+        if cfg.get("single_sequence"):
+            # --single_sequence is upstream's no-MSA mode, not an MSA-stack
+            # disable: upstream substitutes a one-row alignment holding the
+            # query sequence and keeps use_msas on
+            # (augment_main_msa_with_query_sequence). Folding the same chain
+            # with the stack off instead costs 1.50 A CA-RMSD on ubiquitin
+            # (2.34 A against the 1.8 A ceiling, vs 0.84 A one-row).
+            from tt_bio.openfold3_data import (
+                augment_openfold3_msas_with_query_sequence,
+            )
+            of3_query = augment_openfold3_msas_with_query_sequence(of3_query, msa_dir)
         if not any(c.main_msa_file_paths for c in of3_query.chains):
             of3_query.use_msas = False
             of3_query.use_main_msas = False

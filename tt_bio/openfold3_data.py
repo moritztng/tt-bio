@@ -128,6 +128,47 @@ def resolve_openfold3_msas(
     return query
 
 
+def augment_openfold3_msas_with_query_sequence(
+    query: Query,
+    msa_dir: str | Path,
+) -> Query:
+    """Give every MSA-less protein/RNA chain a one-row alignment holding just
+    its own sequence — upstream's no-MSA mode
+    (``augment_main_msa_with_query_sequence``, colabfold_msa_server.py), which
+    leaves the MSA stack ON rather than disabling it.
+
+    A one-row MSA and no MSA are different inputs to the model: on ubiquitin
+    (76 aa) the one-row arm folds at 0.84 A CA-RMSD against the crystal
+    structure where the MSA-stack-off arm folds at 2.34 A, outside upstream's
+    own 1.8 A single-sequence ceiling. Chains that already carry an alignment
+    (YAML ``msa:`` key, or a cached a3m attached by ``resolve_openfold3_msas``)
+    are kept as-is, matching upstream, which only fills chains whose
+    ``main_msa_file_paths`` are unset.
+
+    The dummy a3m lives under ``<msa_dir>/of3/dummy/`` and NOT in the shared
+    hash-named cache at ``<msa_dir>/<hash>.a3m``: a one-row alignment must
+    never satisfy a later run's real-MSA cache lookup. Content is the exact
+    bytes upstream writes (``">query\\n" + sequence``, no trailing newline);
+    the write is tmp-file + rename so concurrent workers never expose a
+    partial file.
+    """
+    msa_dir = Path(msa_dir).expanduser()
+    for chain in query.chains:
+        if chain.molecule_type.name not in ("PROTEIN", "RNA"):
+            continue
+        if chain.main_msa_file_paths:
+            continue
+        seq_hash = hashlib.sha256(chain.sequence.encode()).hexdigest()[:16]
+        a3m = msa_dir / "of3" / "dummy" / seq_hash / "colabfold_main.a3m"
+        if not a3m.exists():
+            a3m.parent.mkdir(parents=True, exist_ok=True)
+            tmp = a3m.parent / f".{a3m.name}.{os.getpid()}.tmp"
+            tmp.write_text(">query\n" + chain.sequence)
+            os.replace(tmp, a3m)
+        chain.main_msa_file_paths = [a3m]
+    return query
+
+
 def make_openfold3_msa_features(
     features: dict[str, torch.Tensor], *, max_sequences: int = 1024, seed: int = 0
 ) -> torch.Tensor:

@@ -162,3 +162,63 @@ def test_of3_chains_reject_ligands_blank_and_empty():
         _validate_openfold3_chains([("A", "MKVL", None, "protein"), ("B", "", None, "rna")])
     # valid polymer chains pass; unknown residue codes are upstream-compatible (UNK warning)
     _validate_openfold3_chains([("A", "MKVLXXX", None, "protein"), ("R", "ACGU", None, "rna")])
+
+
+def _of3_query(chains):
+    from tt_bio._vendor.openfold3.projects.of3_all_atom.config.inference_query_format import (
+        InferenceQuerySet,
+    )
+
+    iqs = InferenceQuerySet.model_validate({"queries": {"q": {
+        "query_name": "q", "use_msas": True, "use_paired_msas": False,
+        "use_main_msas": True, "covalent_bonds": None, "chains": chains}}})
+    return next(iter(iqs.queries.values()))
+
+
+def _chain(cid, seq, mtype, msa=None):
+    return {"molecule_type": mtype, "chain_ids": [cid], "sequence": seq,
+            "non_canonical_residues": None, "smiles": None, "ccd_codes": None,
+            "paired_msa_file_paths": None,
+            "main_msa_file_paths": [str(msa)] if msa else None,
+            "template_alignment_file_path": None, "template_entry_chain_ids": None,
+            "sdf_file_path": None}
+
+
+def test_single_sequence_augment_writes_upstream_one_row_a3m(tmp_path):
+    """--single_sequence = upstream's no-MSA mode: every MSA-less protein/RNA
+    chain gets a one-row a3m holding exactly its sequence (upstream's bytes,
+    no trailing newline) and the MSA stack stays on."""
+    from tt_bio.openfold3_data import augment_openfold3_msas_with_query_sequence
+
+    q = _of3_query([_chain("A", "MKVL", "PROTEIN"), _chain("R", "ACGU", "RNA")])
+    q = augment_openfold3_msas_with_query_sequence(q, tmp_path)
+    for chain, seq in zip(q.chains, ("MKVL", "ACGU")):
+        (path,) = chain.main_msa_file_paths
+        assert path.name == "colabfold_main.a3m"  # canonical basename OF3 filters on
+        assert path.read_bytes() == b">query\n" + seq.encode()
+        # the dummy must not sit in the shared hash cache: a one-row alignment
+        # is not a real MSA and must never satisfy a later run's cache lookup
+        assert path.parent.parent.name == "dummy"
+    assert q.use_msas and q.use_main_msas
+
+    # idempotent + content-addressed: a second call reuses the same file
+    again = augment_openfold3_msas_with_query_sequence(q, tmp_path)
+    assert [str(p) for c in again.chains for p in c.main_msa_file_paths] == [
+        str(p) for c in q.chains for p in c.main_msa_file_paths]
+
+
+def test_single_sequence_augment_preserves_user_and_cached_msas(tmp_path):
+    """Chains that already carry an alignment keep it (upstream only fills
+    chains whose main_msa_file_paths are unset); DNA gets no dummy."""
+    from tt_bio.openfold3_data import augment_openfold3_msas_with_query_sequence
+
+    user_a3m = tmp_path / "real.a3m"
+    user_a3m.write_text(">1\nMKVL\n")
+    q = _of3_query([_chain("A", "MKVL", "PROTEIN", msa=user_a3m),
+                    _chain("B", "GACG", "PROTEIN"),
+                    _chain("D", "ACGT", "DNA")])
+    q = augment_openfold3_msas_with_query_sequence(q, tmp_path)
+    a, b, d = q.chains
+    assert [str(p) for p in a.main_msa_file_paths] == [str(user_a3m)]
+    assert b.main_msa_file_paths[0].read_text() == ">query\nGACG"
+    assert d.main_msa_file_paths is None
