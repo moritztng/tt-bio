@@ -12,9 +12,16 @@
   "boltz2-trpcage-nomsa": "cbf9b4c32da1360b",
   "boltz2-ubiquitin-msa": "0b36b642a7dbab05",
   "opendde-prot-prod": "f5f19dcc2140fd15",
-  "opendde-trpcage-nomsa": "bad3d1a8fb8b902e",
-  "protenix-9ncy-msa": "46983f20066dbfa7",
-  "protenix-hsa-msa": "929f66eba5e87ebd",
-  "protenix-prot-msa": "33db62fb5e770b98",
-  "protenix-ubq-msa": "7b148b8e7f031faa"
+  "opendde-trpcage-nomsa": "7ab7b5d7144d8d11",
+  "openfold3-7xi5-notmpl": "512022905e50aaca",
+  "openfold3-7xi5-tmpl": "76df450a257c8bca",
+  "openfold3-8hel-msa": "512022905e50aaca",
+  "openfold3-8hel-nomsa": "512022905e50aaca",
+  "openfold3-9bk6-complex-msa": "512022905e50aaca",
+  "openfold3-prot-msa": "512022905e50aaca",
+  "openfold3-ubq-msa": "512022905e50aaca",
+  "protenix-9ncy-msa": "30200757179b2f98",
+  "protenix-hsa-msa": "b33357185238037d",
+  "protenix-prot-msa": "7361f09d46583448",
+  "protenix-ubq-msa": "9b41d8fd141d913e"
 }

@@ -1020,10 +1020,28 @@ def _build_worker_device_assignments(devices: list[int]) -> dict[int, dict[str, 
     return assignments
 
 
+def _require_ttnn() -> None:
+    """Clear error when Tenstorrent execution is requested without the ttnn wheel.
+
+    ttnn is an optional dependency (the ``tenstorrent`` extra): it only publishes
+    wheels for TT-supported platforms, so a CPU/GPU-only install omits it. Everything
+    device-side funnels through here early enough to say so plainly instead of dying
+    on a raw ModuleNotFoundError deep inside model load."""
+    try:
+        import ttnn  # noqa: F401
+    except ImportError:
+        raise click.UsageError(
+            "Tenstorrent execution needs the ttnn wheel, which is not installed. "
+            "Install it with: pip install 'tt-bio[tenstorrent]' (on a Tenstorrent "
+            "host), or use --accelerator cpu/gpu."
+        )
+
+
 def _local_workers(accelerator: str, num_devices: int, device_ids: str | None, max_workers: int) -> list:
     """Build a list of WorkerSlot objects covering this host's accelerators."""
     if accelerator != "tenstorrent":
         return build_local_workers(accelerator, [object()], [0])
+    _require_ttnn()
     devices = detect_tenstorrent_devices(device_ids, num_devices, max_workers=max_workers)
     if not devices:
         raise RuntimeError(
@@ -1517,6 +1535,7 @@ def _run_boltzgen_cli(prog: str, args) -> None:
     import-time --device_ids -> TT_VISIBLE_DEVICES scan sees the final argv."""
     import sys
 
+    _require_ttnn()  # BoltzGen is Tenstorrent-only; fail clearly without the wheel
     sys.argv = [prog, *args]
     from tt_bio.boltzgen.cli.boltzgen import main as _bg_main
 
@@ -1548,6 +1567,7 @@ def gen(args):
 @cli.command("install-deps")
 def install_deps():
     """Install system dependencies that match the installed ttnn wheel."""
+    _require_ttnn()
     from tt_bio.install_system_deps import main as install_system_deps
 
     install_system_deps()
@@ -2413,6 +2433,22 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         # progress path as Boltz-2: build a run config, then fan jobs across devices via
         # _local_workers + _dispatch_run (or submit to a remote --controller). Only the
         # per-model config differs.
+        #
+        # Every model on this branch is a ttnn-only port: load_model imports ttnn and opens a
+        # chip, with no torch fallback. Passing "tenstorrent" below regardless of --accelerator
+        # meant `--accelerator cpu` was accepted and then silently folded ON THE CARD. That is
+        # how scripts/full_parity_gate.py's "CPU references" for protenix-v2 and opendde became
+        # device folds: fp32 and bf16 references are then the same computation, the integration
+        # envelope denominator collapses to 0 and every device residual reads as a false GAP
+        # (2026-08-11: a --accelerator cpu regen fold was observed holding /dev/tenstorrent/0
+        # open, and its fp32/bf16 references agreed to six decimals). Refuse instead, before
+        # any download, job discovery, or controller submission.
+        if not use_tt:
+            raise click.UsageError(
+                f"--model {model} runs on Tenstorrent only (tt-bio has no torch/CPU path for "
+                f"it), so --accelerator {accelerator} cannot be honored. Drop the flag to fold "
+                f"on the card; --model boltz2 is the one model with a CPU/GPU path."
+            )
         for n, on in [("--use_potentials", use_potentials),
                       ("--write_embeddings", write_embeddings), ("--checkpoint", bool(checkpoint))]:
             if on:
@@ -2499,20 +2535,6 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
                                              struct_dir=struct_dir, model=model, debug=debug, log=log, run_id=run_id)
             _exit_for_failed_jobs(failed, len(jobs))
             return
-        # Every model on this branch is a ttnn-only port: load_model imports ttnn and opens a
-        # chip, with no torch fallback. Passing "tenstorrent" below regardless of --accelerator
-        # meant `--accelerator cpu` was accepted and then silently folded ON THE CARD. That is
-        # how scripts/full_parity_gate.py's "CPU references" for protenix-v2 and opendde became
-        # device folds: fp32 and bf16 references are then the same computation, the integration
-        # envelope denominator collapses to 0 and every device residual reads as a false GAP
-        # (2026-08-11: a --accelerator cpu regen fold was observed holding /dev/tenstorrent/0
-        # open, and its fp32/bf16 references agreed to six decimals). Refuse instead.
-        if not use_tt:
-            raise click.UsageError(
-                f"--model {model} runs on Tenstorrent only (tt-bio has no torch/CPU path for "
-                f"it), so --accelerator {accelerator} cannot be honored. Drop the flag to fold "
-                f"on the card; --model boltz2 is the one model with a CPU/GPU path."
-            )
         workers = _local_workers("tenstorrent", num_devices, device_ids, max_workers=max(len(jobs), 1))
         _cap_worker_threads(len(workers), host_threads)
         failed = _dispatch_run(run_payload, workers, total=len(jobs), results_path=results_path,
@@ -2728,6 +2750,7 @@ def warmup(max_seq, max_msa, n_samples, cache):
     """Pre-compile all ttnn kernels for Boltz-2 inference."""
     import gc
 
+    _require_ttnn()
     from tt_bio.tenstorrent import (
         WeightScope, PairformerModule, MSAModule, DiffusionModule,
         PAIRFORMER_PAD_MULTIPLE as SEQ_PAD, MSA_PAD_MULTIPLE as MSA_PAD,
@@ -2951,6 +2974,7 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
         embeddings.parquet  # pooled vectors, one row per sequence (--format parquet)
         manifest.json       # model/pool/shapes/dtype + which file holds each sequence
     """
+    _require_ttnn()  # ESMC runs on the TT device only; fail clearly without the wheel
     if devices and "TT_VISIBLE_DEVICES" not in os.environ:
         _ids = [x for x in str(devices).split(",") if x.strip()]
         if len(_ids) == 1:
@@ -3071,6 +3095,7 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
         embeddings.parquet  # pooled vectors, one row per sequence (--format parquet)
         manifest.json       # model/pool/shapes/dtype + which file holds each sequence
     """
+    _require_ttnn()  # SaProt runs on the TT device only; fail clearly without the wheel
     from tt_bio import saprot, esmc
 
     torch.set_grad_enabled(False)

@@ -27,28 +27,31 @@ Predictions and designs per hour per server, and throughput per dollar of purcha
 
 ## Installation
 
-Create a Python virtual environment with Python 3.10 or 3.12, install, then install the matching Tenstorrent system dependencies.
+Create a Python virtual environment with Python 3.10 or 3.12, install with the Tenstorrent extra, then install the matching Tenstorrent system dependencies.
 
 ```bash
 python3.10 -m venv env
 source env/bin/activate
-pip install tt-bio
+pip install 'tt-bio[tenstorrent]'
 tt-bio install-deps
 ```
 
 `tt-bio install-deps` installs the Tenstorrent system dependencies that match this release. It may ask for your sudo password.
 
+On a host without a Tenstorrent card, plain `pip install tt-bio` is enough: the Boltz-2 CPU/GPU path (`--accelerator cpu` / `--accelerator gpu`) and the CLI work without the Tenstorrent SDK. The other models run on Tenstorrent only.
+
 ### From GitHub / source
 Pin to a tagged release, track nightly `main` (may be untested), or work from an editable clone:
 ```bash
-pip install "tt-bio @ git+https://github.com/moritztng/tt-bio.git@v0.6.3"   # pinned release, see Releases for the latest
-pip install "tt-bio @ git+https://github.com/moritztng/tt-bio.git@main"     # nightly
+pip install "tt-bio[tenstorrent] @ git+https://github.com/moritztng/tt-bio.git@v0.6.3"   # pinned release, see Releases for the latest
+pip install "tt-bio[tenstorrent] @ git+https://github.com/moritztng/tt-bio.git@main"     # nightly
 # or
 git clone https://github.com/moritztng/tt-bio.git
 cd tt-bio
-pip install -e .
+pip install -e '.[tenstorrent]'
 tt-bio install-deps
 ```
+Drop the `[tenstorrent]` extra on a host without a Tenstorrent card.
 
 ### Optional: Build TT-Metal / TT-NN from Source
 If you need to build from source, follow the [Tenstorrent Installation Guide](https://github.com/tenstorrent/tt-metal/blob/main/INSTALLING.md).

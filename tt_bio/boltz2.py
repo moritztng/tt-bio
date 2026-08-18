@@ -24,8 +24,25 @@ from torch import nn, Tensor
 from torch.nn import Linear as TorchLinear, Module, ModuleList, Sequential
 from torch.nn.functional import one_hot, pad
 
-from tt_bio import tenstorrent
 from tt_bio.data import const
+
+
+class _LazyTenstorrent:
+    """Lazy handle on tt_bio.tenstorrent, imported on first attribute access.
+
+    A module-scope ``from tt_bio import tenstorrent`` here made ``import
+    tt_bio.boltz2`` require the ttnn wheel, which broke ``tt-bio --help`` and the
+    Boltz-2 CPU/GPU path on hosts without the Tenstorrent SDK (issue #6). The
+    ttnn modules are only ever constructed on the ``use_tenstorrent=True`` path,
+    so deferring the import to first use loses nothing."""
+
+    def __getattr__(self, name):
+        from tt_bio import tenstorrent as _t
+
+        return getattr(_t, name)
+
+
+tenstorrent = _LazyTenstorrent()
 
 # Lazy imports for fallback modules to avoid circular imports
 # These are imported inside classes that use them

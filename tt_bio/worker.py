@@ -9,6 +9,7 @@ multi-host runs; only the scheduler URL differs.
 from __future__ import annotations
 
 import base64
+import contextlib
 import gc
 import json
 import os
@@ -320,19 +321,21 @@ def _err_text(exc: BaseException, limit: int = 2000) -> str:
 def _is_esmc_model(model_id: str) -> bool:
     """True for any ESMC embedding model name (esmc-300m/600m/6b).
 
-    Lazily imports tt_bio.esmc (which imports ttnn at module scope) so a
-    worker that never handles embed jobs never pays that import cost.
+    Reads the name registry from tt_bio.main, NOT tt_bio.esmc: esmc.py imports
+    ttnn at module scope, and this check runs for every model (including a
+    boltz2 CPU fold), so importing esmc here would make the CPU/GPU path
+    require the ttnn wheel (issue #6).
     """
-    from tt_bio.esmc import MODELS
+    from tt_bio.main import EMBED_MODELS
 
-    return model_id in MODELS
+    return model_id in EMBED_MODELS
 
 
 def _is_saprot_model(model_id: str) -> bool:
     """True for any SaProt embedding model name (saprot-35m/650m/1.3b)."""
-    from tt_bio.saprot import MODELS
+    from tt_bio.main import SAPROT_MODELS
 
-    return model_id in MODELS
+    return model_id in SAPROT_MODELS
 
 
 def _is_embed_model(model_id: str) -> bool:
@@ -420,6 +423,19 @@ class _WorkerState:
             set_fast_mode(cfg.get("fast", False))
 
         model_id = cfg.get("model", "boltz2")
+        # Boltz-2 is the only model with a torch CPU/GPU path. Every other port is
+        # ttnn-only: its load imports ttnn and opens a chip no matter what accelerator
+        # this worker was started with, which is how a `--accelerator cpu` submission
+        # used to silently fold on the card (issue #10). The CLI refuses these models
+        # off-card up front; this is the same guard worker-side, so a CPU/GPU worker
+        # joined to a controller cannot be handed a ttnn-only job by any client.
+        if model_id != "boltz2" and self.accelerator != "tenstorrent":
+            raise RuntimeError(
+                f"model {model_id!r} runs on Tenstorrent only (tt-bio has no torch/CPU "
+                f"path for it), but this worker was started with --accelerator "
+                f"{self.accelerator}. Start the worker with --accelerator tenstorrent; "
+                f"boltz2 is the one model a CPU/GPU worker can serve."
+            )
         if model_id in ("esmfold2", "esmfold2-fast"):
             from tt_bio.esmfold2_runtime import load_ttnn_esmfold2
 
@@ -480,12 +496,19 @@ class _WorkerState:
             self._tokenizer, self._featurizer = Boltz2Tokenizer(), Boltz2Featurizer()
             self._mol_dir = Path(cfg["mol_dir"])
             self._ccd = load_canonicals(self._mol_dir)
-            from tt_bio.tenstorrent import diffusion_fp32_device
+            # diffusion_fp32_device scopes a ttnn-only hybrid flag; off-card it is a
+            # no-op, and importing tt_bio.tenstorrent here would make the CPU/GPU path
+            # require the ttnn wheel (issue #6).
+            if self.accelerator == "tenstorrent":
+                from tt_bio.tenstorrent import diffusion_fp32_device
 
-            struct_fp32_device = (
-                os.environ.get("BOLTZ2_STRUCTURE_DIFFUSION_FP32_DEVICE", "0") == "1"
-            )
-            with diffusion_fp32_device(struct_fp32_device):
+                struct_fp32_device = (
+                    os.environ.get("BOLTZ2_STRUCTURE_DIFFUSION_FP32_DEVICE", "0") == "1"
+                )
+                ctx = diffusion_fp32_device(struct_fp32_device)
+            else:
+                ctx = contextlib.nullcontext()
+            with ctx:
                 self.model = (
                     Boltz2.load_from_checkpoint(cfg["conf_ckpt"], **cfg["conf_kwargs"])
                     .eval()
@@ -1245,12 +1268,17 @@ class _WorkerState:
         from tt_bio.main import to_batch
 
         if self.aff_model is None:
-            from tt_bio.tenstorrent import diffusion_fp32_device
+            # Same ttnn-only flag as the structure load above; see that comment.
+            if self.accelerator == "tenstorrent":
+                from tt_bio.tenstorrent import diffusion_fp32_device
 
-            fp32_device = (
-                os.environ.get("BOLTZ2_AFFINITY_DIFFUSION_FP32_DEVICE", "0") == "1"
-            )
-            with diffusion_fp32_device(fp32_device):
+                fp32_device = (
+                    os.environ.get("BOLTZ2_AFFINITY_DIFFUSION_FP32_DEVICE", "0") == "1"
+                )
+                ctx = diffusion_fp32_device(fp32_device)
+            else:
+                ctx = contextlib.nullcontext()
+            with ctx:
                 self.aff_model = (
                     Boltz2.load_from_checkpoint(cfg["aff_ckpt"], **cfg["aff_kwargs"])
                     .eval()
