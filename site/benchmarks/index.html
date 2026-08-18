@@ -131,17 +131,17 @@ details.disclose > div{ padding-top:var(--s-4); }
   th, td{ padding-right:22px; }
 }
 </style>
-<link rel="preload" href="assets/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="assets/site.css">
+<link rel="preload" href="../assets/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../assets/site.css">
 </head>
 <body>
 <div class="wrap">
   <nav>
-    <a class="brand" href="index.html" aria-label="TT-Bio home">
-      <img src="assets/tt-logo-light.svg" alt="Tenstorrent"></a>
+    <a class="brand" href="../" aria-label="TT-Bio home">
+      <img src="../assets/tt-logo-light.svg" alt="Tenstorrent"></a>
     <span class="sp"></span>
-    <a class="lnk" href="index.html">Overview</a>
-    <a class="lnk" aria-current="page" href="benchmarks.html">Benchmarks</a>
+    <a class="lnk" href="../">Overview</a>
+    <a class="lnk" aria-current="page" href="./">Benchmarks</a>
     <a class="lnk" href="https://japanfold.com">JapanFold</a>
     <a class="lnk" href="https://github.com/moritztng/tt-bio">GitHub</a>
   </nav>
@@ -150,7 +150,7 @@ details.disclose > div{ padding-top:var(--s-4); }
 <header class="pagehead">
 <p class="eyebrow">Benchmarks</p>
 <h1>TT-Bio: Biomolecular Models on Tenstorrent</h1>
-<p class="lede">Every model and every system we measured, with the method and the raw numbers behind the headline figures on the <a href="index.html">overview</a>.</p>
+<p class="lede">Every model and every system we measured, with the method and the raw numbers behind the headline figures on the <a href="../">overview</a>.</p>
 </header>
 
 <section class="band" id="models">
@@ -308,7 +308,7 @@ details.disclose > div{ padding-top:var(--s-4); }
 <footer>
   <span>TT-Bio, open source, on Tenstorrent</span>
   <a href="https://github.com/moritztng/tt-bio">GitHub</a>
-  <a href="index.html">Overview</a>
+  <a href="../">Overview</a>
   <a href="https://japanfold.com">JapanFold</a>
   <a href="https://tenstorrent.com">Tenstorrent</a>
 </footer>
@@ -851,7 +851,7 @@ details.disclose > div{ padding-top:var(--s-4); }
     if (D && e.target.open && e.target.classList.contains("disclose")) renderAll();
   }, true);
 
-  fetch("./data/perf-512aa.json", { cache: "no-store" })
+  fetch("../data/perf-512aa.json", { cache: "no-store" })
     .then(function (r) { return r.json(); })
     .then(function (json) {
       D = json;
