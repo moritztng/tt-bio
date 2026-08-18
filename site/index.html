@@ -8,50 +8,22 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
 <style>
-:root{
-  --paper:#fbfbfc; --white:#ffffff; --wash:#f1f2f4;
-  --ink:#15171a; --ink-2:#484d54; --ink-3:#7e848c; --ink-4:#b4b9bf;
-  --rule:#e6e8ea; --rule-2:#d2d6da;
-  --accent:#15171a; --accent-2:#000000; --accent-wash:#f1f2f4;
-  --display:"Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  --sans:"Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-}
-*{box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
-  font-size:17px;font-weight:400;line-height:1.6;letter-spacing:-.005em;-webkit-font-smoothing:antialiased;
-  text-rendering:optimizeLegibility}
-.wrap{max-width:1120px;margin:0 auto;padding:0 32px}
-.measure{max-width:60ch}
-a{color:inherit}
 
-nav{display:flex;align-items:center;gap:26px;padding:30px 0 0}
-nav .brand{display:inline-flex;line-height:0}
-nav .brand img{height:24px;width:auto;display:block}
-nav .sp{margin-left:auto}
-nav a.lnk{font-size:.94rem;color:var(--ink-2);text-decoration:none}
-nav a.lnk:hover{color:var(--ink)}
 
 /* hero: one composed unit, type and motion side by side */
 .hero{padding:70px 0 8px;display:grid;grid-template-columns:1.08fr .92fr;gap:64px;align-items:center}
 @media (max-width:900px){.hero{grid-template-columns:1fr;gap:38px;padding-top:48px;text-align:center}}
 .kicker{font-size:.78rem;letter-spacing:.15em;text-transform:uppercase;
   color:var(--ink-3);font-weight:600;margin:0 0 20px}
-h1{font-family:var(--display);font-weight:300;font-size:clamp(2.5rem,5.4vw,4.05rem);line-height:1.03;
-  letter-spacing:-.038em;margin:0 0 22px;max-width:13ch;text-wrap:balance}
+h1{font-size:clamp(2.5rem,5.4vw,4.05rem);margin:0 0 22px;max-width:13ch}
 @media (max-width:900px){h1{margin-left:auto;margin-right:auto}}
 h1 em{font-style:normal;font-weight:600;color:var(--ink)}
 .lede{font-size:1.14rem;color:var(--ink-2);margin:0 0 32px;max-width:46ch;line-height:1.55}
 @media (max-width:900px){.lede{margin-left:auto;margin-right:auto}}
 .cta{display:flex;gap:14px;flex-wrap:wrap}
 @media (max-width:900px){.cta{justify-content:center}}
-.btn{display:inline-block;font:inherit;font-size:.98rem;font-weight:600;text-decoration:none;
-  padding:12px 26px;border:1px solid transparent;border-radius:2px;transition:.18s}
-.btn.solid{background:var(--ink);color:var(--paper)}
-.btn.solid:hover{background:#000}
-.btn.line{border-color:var(--rule-2);color:var(--ink-2)}
-.btn.line:hover{border-color:var(--ink);color:var(--ink)}
 .stage{margin:0;justify-self:center;width:100%;max-width:520px}
 .stage picture{display:block}
 .stage img{width:100%;height:auto;display:block;border-radius:3px;
@@ -72,10 +44,7 @@ h1 em{font-style:normal;font-weight:600;color:var(--ink)}
 
 section{padding:76px 0}
 section+section{border-top:1px solid var(--rule)}
-.eyebrow{font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);
-  font-weight:600;margin:0 0 16px}
-h2{font-family:var(--display);font-weight:300;font-size:clamp(1.85rem,3.5vw,2.5rem);line-height:1.12;
-  letter-spacing:-.032em;margin:0 0 18px;max-width:22ch;text-wrap:balance}
+h2{font-size:clamp(1.85rem,3.5vw,2.5rem);margin:0 0 18px;max-width:22ch}
 .say{font-size:1.08rem;color:var(--ink-2);margin:0 0 8px}
 
 /* charts, open, no cards */
@@ -118,12 +87,8 @@ h2{font-family:var(--display);font-weight:300;font-size:clamp(1.85rem,3.5vw,2.5r
 
 .finale{text-align:center;padding:86px 0 96px}
 .finale h2{margin:0 auto 18px}
-.finale .say{margin:0 auto 30px;max-width:46ch}
-footer{border-top:1px solid var(--rule);padding:30px 0 64px;color:var(--ink-3);font-size:.9rem;
-  display:flex;gap:24px;flex-wrap:wrap;align-items:center}
-footer a{color:var(--ink-2);text-decoration:none}
-footer a:hover{color:var(--ink)}
-:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.finale .say{margin:0 auto 30px;max-width:44ch;text-wrap:pretty}
+.finale .cta{justify-content:center}
 .reveal{opacity:0;transform:translateY(12px);transition:opacity .7s ease,transform .7s ease}
 .reveal.in{opacity:1;transform:none}
 @media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none}
@@ -141,11 +106,12 @@ footer a:hover{color:var(--ink)}
 <body>
 <div class="wrap">
   <nav>
-    <a class="brand" href="https://tenstorrent.com" aria-label="Tenstorrent">
+    <a class="brand" href="index.html" aria-label="TT-Bio home">
       <img src="assets/tt-logo-light.svg" alt="Tenstorrent"></a>
     <span class="sp"></span>
-    <a class="lnk" href="#numbers">Benchmarks</a>
-    <a class="lnk" href="#models">Models</a>
+    <a class="lnk" aria-current="page" href="index.html">Overview</a>
+    <a class="lnk" href="benchmarks.html">Benchmarks</a>
+    <a class="lnk" href="https://japanfold.com">JapanFold</a>
     <a class="lnk" href="https://github.com/moritztng/tt-bio">GitHub</a>
   </nav>
 
@@ -272,7 +238,7 @@ footer a:hover{color:var(--ink)}
   <footer>
     <span>TT-Bio, open source, on Tenstorrent</span>
     <a href="https://github.com/moritztng/tt-bio">GitHub</a>
-    <a href="benchmarks.html">Performance</a>
+    <a href="benchmarks.html">Benchmarks</a>
     <a href="https://japanfold.com">JapanFold</a>
     <a href="https://tenstorrent.com">Tenstorrent</a>
   </footer>

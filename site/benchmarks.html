@@ -6,149 +6,154 @@
 <title>TT-Bio: biomolecular structure, design and embeddings on Tenstorrent</title>
 <meta name="description" content="Open biomolecular models on Tenstorrent: folding and binding affinity, binder design, and protein embeddings. Measured throughput per dollar against NVIDIA H200, B200 and A100 at 512 residues, and BoltzGen binder design, with the single-accelerator times behind a disclosure.">
 <style>
-:root{
-  --bg:#fbfbfc; --surface:#ffffff; --wash:#f1f2f4;
-  --fg:#15171a; --fg-muted:#484d54; --fg-faint:#7e848c;
-  --line:#e6e8ea; --line-strong:#d2d6da;
-  --tt:#15171a; --h200:#6b727a; --b200:#9aa1a9; --a100:#c2c7cd;
-  --pill-bg:#f1f2f4; --pill-fg:#484d54;
-  --sans:"Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-}
-@supports (color: oklch(0.5 0.1 200)) {
-  :root {
-    --tt: oklch(0.20 0.008 260);
-    --h200: oklch(0.53 0.008 260);
-    --b200: oklch(0.70 0.007 260);
-    --a100: oklch(0.83 0.005 260);
-  }
-}
-* { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--fg);
-  font-family: var(--sans);
-  font-size: 16px;
-  line-height: 1.55;
-  -webkit-font-smoothing: antialiased;
-}
-main { max-width: 1000px; margin: 0 auto; padding: 56px 20px 96px; }
-h1 { font-size: 1.9rem; line-height: 1.2; letter-spacing: -0.02em; margin: 0 0 30px; font-weight: 650; }
-h2 { font-size: 1.45rem; line-height: 1.25; letter-spacing: -0.015em; margin: 0 0 4px; font-weight: 650; }
-  .brandbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; line-height: 0; margin: 0 0 30px; }
-  .brandbar .repo { line-height: 1.3; font-size: 0.95rem; font-weight: 560; white-space: nowrap; }
-  .brandbar a { display: inline-flex; align-items: center; }
-  .brandbar img { height: 30px; width: auto; display: block; }
-  .brandbar .on-dark { display: none; }
-  .mtable td:first-child { color: var(--tt); font-weight: 600; font-size: 0.84rem; }
-.mtable th:first-child { font-size: 0.78rem; }
-.mnote { color: var(--fg-faint); font-size: 0.83rem; margin: 12px 0 0; }
-.mnote code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.94em; }
-.num, td.n, th.n { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
-.scope { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 14px 0; margin: 0 0 34px; }
-.scope dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 18px; margin: 0; font-size: 0.875rem; }
-.scope dt { color: var(--fg-faint); }
-.scope dd { margin: 0; color: var(--fg-muted); }
-.pill {
-  display: inline-block; padding: 2px 8px; border-radius: 999px;
-  background: var(--pill-bg); color: var(--pill-fg);
-  font-size: 0.685rem; font-weight: 650; letter-spacing: 0.07em; text-transform: uppercase;
-  white-space: nowrap;
-}
-section.chart { margin: 0 0 52px; }
-.chart-head { margin-bottom: 12px; }
-.chart-title { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.cond { color: var(--fg-muted); font-size: 0.83rem; margin: 4px 0 0; }
-.cond .num { font-size: 0.83rem; }
-.keys { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 10px 0 2px; font-size: 0.79rem; color: var(--fg-muted); }
-.key { display: inline-flex; align-items: center; gap: 6px; }
-.swatch { width: 11px; height: 11px; border-radius: 2px; display: inline-block; }
-.swatch.dash { background: transparent; border: 1px dashed var(--line-strong); }
-figure { margin: 0; }
-svg { display: block; width: 100%; height: auto; }
-.tablewrap { overflow-x: auto; margin: 0 0 14px; -webkit-overflow-scrolling: touch; }
-table { border-collapse: collapse; font-size: 0.83rem; min-width: 100%; }
-th, td { padding: 6px 12px 6px 0; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--line); vertical-align: baseline; }
-th { color: var(--fg-faint); font-weight: 600; font-size: 0.74rem; letter-spacing: 0.04em; text-transform: uppercase; }
-th.n, td.n { text-align: right; }
-tbody tr:last-child td { border-bottom: 0; }
-td.blocked { color: var(--fg-faint); }
-.notes { color: var(--fg-muted); font-size: 0.85rem; }
-.notes ul { margin: 0 0 14px; padding-left: 18px; }
-.notes li { margin: 0 0 6px; }
-.methods dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 20px; margin: 0 0 18px; font-size: 0.85rem; }
-.methods dt { color: var(--fg-faint); }
-.methods dd { margin: 0; color: var(--fg-muted); }
-dd, .notes li { overflow-wrap: anywhere; }
-footer { color: var(--fg-faint); font-size: 0.8rem; border-top: 1px solid var(--line); padding-top: 16px; margin-top: 44px; }
-details.disclose { border-top: 1px solid var(--line); padding: 14px 0 2px; }
-details.disclose > summary {
-  cursor: pointer; list-style: none; font-weight: 620; font-size: 1.05rem;
-  display: flex; align-items: baseline; gap: 8px;
-}
-details.disclose > summary::-webkit-details-marker { display: none; }
-details.disclose > summary::after { content: "+"; color: var(--fg-faint); font-weight: 500; }
-details.disclose[open] > summary::after { content: "\2013"; }
-details.disclose > summary:focus-visible { outline: 2px solid var(--tt); outline-offset: 3px; }
-details.disclose .sum-note { font-weight: 400; font-size: 0.83rem; color: var(--fg-faint); }
-details.disclose > div { padding-top: 14px; }
-details.disclose section.chart:last-child { margin-bottom: 12px; }
-@media (max-width: 620px) {
-  main { padding: 34px 16px 72px; }
-  h1 { font-size: 1.5rem; }
-  h2 { font-size: 1.22rem; }
-  .scope dl, .methods dl { grid-template-columns: 1fr; gap: 2px; }
-  .scope dt, .methods dt { margin-top: 8px; }
-  section.chart { margin-bottom: 40px; }
-  section.band + section.band { padding-top: 26px; }
-  .mtable { font-size: 0.83rem; }
-  .mtable td, .mtable th { padding-right: 18px; }
+/* Platform ramp. Ours in near-black, the three GPUs stepping lighter, so the
+   Tenstorrent bar reads first in every chart without introducing a hue.
+   The chart JS writes these as var(--tt) etc. into SVG fill attributes, so
+   the @supports block below must always be changed together with this one. */
+:root{ --tt:#15171a; --h200:#6b727a; --b200:#9aa1a9; --a100:#c2c7cd; }
+@supports (color: oklch(0.5 0.1 200)){
+  :root{ --tt:oklch(0.20 0.008 260); --h200:oklch(0.53 0.008 260);
+         --b200:oklch(0.70 0.007 260); --a100:oklch(0.83 0.005 260); }
 }
 
-/* --- aligned with the landing page --- */
-body{font-family:var(--sans);letter-spacing:-.005em}
-h1{font-weight:300;letter-spacing:-.036em}
-h2{font-weight:300;letter-spacing:-.03em}
-h3,h4{font-weight:600;letter-spacing:-.012em}
-.sitenav{display:flex;align-items:center;gap:26px;padding:30px 0 0;max-width:1000px;margin:0 auto}
-.sitenav .brand{display:inline-flex;line-height:0}
-.sitenav .brand img{height:24px;width:auto;display:block}
-.sitenav .sp{margin-left:auto}
-.sitenav a.lnk{font-size:.94rem;color:var(--fg-muted);text-decoration:none}
-.sitenav a.lnk:hover{color:var(--fg)}
+main{ display:block; padding-bottom:var(--s-5); }
 
-.eyebrow{font-size:.78rem;font-weight:600;letter-spacing:.13em;text-transform:uppercase;
-  color:var(--fg-faint);margin:52px 0 14px}
-h1{font-size:clamp(2.1rem,4.4vw,3rem);line-height:1.06;margin:0 0 20px}
-.lede{font-size:1.12rem;line-height:1.62;color:var(--fg-muted);max-width:38em;margin:0 0 8px;font-weight:300}
-.lede a{color:var(--fg);text-underline-offset:3px}
-.band-head h2{font-size:clamp(1.45rem,2.4vw,1.9rem);line-height:1.15}
+/* Title block */
+.pagehead{ padding:var(--s-6) 0 0; }
+h1{ font-size:clamp(2.15rem,4.2vw,2.9rem); margin:0 0 40px; max-width:20ch; }
+.lede{ font-size:1.14rem; line-height:1.58; font-weight:300; color:var(--ink-2);
+       max-width:58ch; margin:0; }
+.lede a{ color:var(--ink); text-decoration:underline; text-underline-offset:3px;
+         text-decoration-color:var(--rule-2); }
+.lede a:hover{ text-decoration-color:var(--ink); }
 
-/* section rhythm, matching the landing page's 76px sections and hairline rules */
-section.band{padding:70px 0 0}
-section.band + section.band{padding-top:70px;border-top:1px solid var(--line);margin-top:70px}
-.band-head{margin-bottom:8px}
-.band-head h2{margin:0 0 10px}
-h3{margin-top:44px}
+/* Sections, on the shared spacing scale */
+section.band{ padding:var(--s-6) 0 0; }
+section.band + section.band{ margin-top:var(--s-6); border-top:1px solid var(--rule); }
+.band-head{ margin-bottom:var(--s-4); }
+h2{ font-size:clamp(1.6rem,2.6vw,2rem); margin:0 0 var(--s-3); }
+.band-deck{ font-size:1.06rem; color:var(--ink-2); margin:0; max-width:64ch; }
+h3{ font-size:1.06rem; margin:0 0 26px; }
+section.band h3{ margin-top:var(--s-5); }
+section.band .band-head + h3{ margin-top:0; }
+
+/* Run conditions */
+.scope{ border-top:1px solid var(--rule); border-bottom:1px solid var(--rule);
+        padding:var(--s-3) 0; margin:var(--s-4) 0 0; }
+.scope dl, .methods dl{ display:grid; grid-template-columns:150px 1fr; gap:7px 24px;
+                        margin:0; font-size:.9rem; }
+.methods dl{ margin:0 0 var(--s-3); }
+.scope dt, .methods dt{ color:var(--ink-3); }
+.scope dd, .methods dd{ margin:0; color:var(--ink-2); max-width:74ch; }
+
+/* Charts */
+section.chart{ margin:0 0 var(--s-5); }
+section.chart:last-child{ margin-bottom:0; }
+.chart-head{ margin-bottom:var(--s-3); }
+.chart-title{ display:flex; flex-wrap:wrap; gap:10px; align-items:baseline; }
+.cond{ color:var(--ink-2); font-size:.9rem; margin:var(--s-1) 0 0; max-width:78ch; }
+.keys{ display:flex; flex-wrap:wrap; gap:7px 20px; margin:var(--s-2) 0 0;
+       font-size:.82rem; color:var(--ink-2); }
+.key{ display:inline-flex; align-items:center; gap:7px; }
+.swatch{ width:11px; height:11px; border-radius:2px; display:inline-block; flex:none; }
+.swatch.dash{ background:transparent; border:1px dashed var(--rule-2); }
+figure{ margin:0; }
+svg{ display:block; width:100%; height:auto; }
+
+/* Inline figures and formulas keep a monospace voice, sized to sit level
+   with Manrope rather than jumping a step larger */
+.num{ font-family:var(--mono); font-size:.93em; letter-spacing:-.01em;
+      font-variant-numeric:tabular-nums; }
+
+.pill{ display:inline-block; padding:3px 9px; border-radius:999px;
+       background:var(--wash); color:var(--ink-2); font-size:.66rem; font-weight:700;
+       letter-spacing:.09em; text-transform:uppercase; white-space:nowrap; }
+
+/* Tables */
+/* A table wider than the shell scrolls, and says so: the edge shadows appear
+   only on the side that still has content hidden past it. */
+.tablewrap{
+  overflow-x:auto; margin:0; -webkit-overflow-scrolling:touch;
+  background:
+    linear-gradient(to right, var(--paper) 40%, rgba(251,251,252,0)) left center/34px 100% no-repeat,
+    linear-gradient(to left,  var(--paper) 40%, rgba(251,251,252,0)) right center/34px 100% no-repeat,
+    radial-gradient(farthest-side at 0 50%, rgba(21,23,26,.13), rgba(21,23,26,0)) left center/13px 100% no-repeat,
+    radial-gradient(farthest-side at 100% 50%, rgba(21,23,26,.13), rgba(21,23,26,0)) right center/13px 100% no-repeat;
+  background-attachment: local, local, scroll, scroll;
+}
+table{ border-collapse:collapse; width:auto; font-size:.89rem;
+       font-variant-numeric:tabular-nums; }
+th, td{ padding:9px 40px 9px 0; text-align:left; white-space:nowrap;
+        border-bottom:1px solid var(--rule); vertical-align:baseline; }
+th:last-child, td:last-child{ padding-right:0; }
+th{ color:var(--ink-3); font-weight:600; font-size:.72rem; letter-spacing:.09em;
+    text-transform:uppercase; padding-bottom:11px; }
+th.n, td.n{ text-align:right; }
+thead th{ border-bottom-color:var(--rule-2); }
+td.blocked{ color:var(--ink-4); }
+.mtable td:first-child{ font-weight:600; }
+.mnote{ color:var(--ink-3); font-size:.88rem; margin:var(--s-2) 0 0; max-width:78ch; }
+.mnote code{ font-size:.94em; }
+
+.notes{ color:var(--ink-2); font-size:.9rem; }
+.notes ul{ margin:0 0 var(--s-2); padding-left:18px; }
+.notes li{ margin:0 0 7px; max-width:78ch; }
+dd, .notes li{ overflow-wrap:anywhere; }
+
+/* Disclosure panels */
+details.disclose{ border-top:1px solid var(--rule); padding:var(--s-3) 0 var(--s-3); }
+details.disclose:last-of-type{ border-bottom:1px solid var(--rule); }
+details.disclose[open]{ padding-bottom:var(--s-4); }
+details.disclose > summary:hover{ color:var(--ink); }
+details.disclose > summary{ cursor:pointer; list-style:none; font-weight:600;
+  font-size:1.06rem; letter-spacing:-.014em; display:flex; align-items:baseline; gap:10px; }
+details.disclose > summary::-webkit-details-marker{ display:none; }
+details.disclose > summary::after{ content:"+"; color:var(--ink-3); font-weight:400;
+  margin-left:auto; font-size:1.1rem; line-height:1; }
+details.disclose[open] > summary::after{ content:"\2013"; }
+details.disclose .sum-note{ font-weight:400; font-size:.88rem; color:var(--ink-3); }
+details.disclose > div{ padding-top:var(--s-4); }
+
+.endnote{ color:var(--ink-3); font-size:.88rem; border-top:1px solid var(--rule);
+          padding-top:var(--s-3); margin-top:var(--s-6); }
+.endnote p{ margin:0 0 var(--s-1); max-width:80ch; }
+.endnote p:last-child{ margin-bottom:0; }
+
+@media (max-width:640px){
+  .pagehead{ padding:var(--s-5) 0 var(--s-4); }
+  section.band{ padding-top:var(--s-5); }
+  section.band + section.band{ margin-top:var(--s-5); }
+  section.chart{ margin-bottom:var(--s-5); }
+  .scope dl, .methods dl{ grid-template-columns:1fr; gap:2px; }
+  .scope dt, .methods dt{ margin-top:10px; }
+  .scope dt:first-child, .methods dt:first-child{ margin-top:0; }
+  table{ font-size:.84rem; }
+  th, td{ padding-right:22px; }
+}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
 </head>
 <body>
-<nav class="sitenav">
-  <a class="brand" href="index.html" aria-label="TT-Bio"><img src="assets/tt-logo-light.svg" alt="Tenstorrent"></a>
-  <span class="sp"></span>
-  <a class="lnk" href="index.html">Overview</a>
-  <a class="lnk" href="https://github.com/moritztng/tt-bio">GitHub</a>
-  <a class="lnk" href="https://japanfold.com">JapanFold</a>
-</nav>
+<div class="wrap">
+  <nav>
+    <a class="brand" href="index.html" aria-label="TT-Bio home">
+      <img src="assets/tt-logo-light.svg" alt="Tenstorrent"></a>
+    <span class="sp"></span>
+    <a class="lnk" href="index.html">Overview</a>
+    <a class="lnk" aria-current="page" href="benchmarks.html">Benchmarks</a>
+    <a class="lnk" href="https://japanfold.com">JapanFold</a>
+    <a class="lnk" href="https://github.com/moritztng/tt-bio">GitHub</a>
+  </nav>
 <main>
 
+<header class="pagehead">
 <p class="eyebrow">Benchmarks</p>
 <h1>TT-Bio: Biomolecular Models on Tenstorrent</h1>
 <p class="lede">Every model and every system we measured, with the method and the raw numbers behind the headline figures on the <a href="index.html">overview</a>.</p>
+</header>
 
 <section class="band" id="models">
   <div class="band-head">
@@ -294,15 +299,24 @@ h3{margin-top:44px}
   </div>
 </details>
 
-<footer>
+<div class="endnote">
   <p>Every seconds-per-prediction and seconds-per-design figure is measured on the hardware named. Everything else is derived
   from those measurements and from the published prices and power ratings listed above. Nothing is
   estimated. Updated <span class="num" id="foot-date"></span>.</p>
   <p>Every model here reproduces its reference implementation within that reference's own run-to-run
   noise.</p>
+</div>
+
+<footer>
+  <span>TT-Bio, open source, on Tenstorrent</span>
+  <a href="https://github.com/moritztng/tt-bio">GitHub</a>
+  <a href="index.html">Overview</a>
+  <a href="https://japanfold.com">JapanFold</a>
+  <a href="https://tenstorrent.com">Tenstorrent</a>
 </footer>
 
 </main>
+</div>
 
 <script>
 (function () {
