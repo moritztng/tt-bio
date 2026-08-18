@@ -44,7 +44,7 @@ files. "CPU reference" is upstream's implementation run on CPU in fp32 on the sa
 means on both ubiquitin modes and brackets their stated per-sample envelope on both CA-RMSD and gdt_ts, so
 it reproduces their distribution rather than just their centre. That is what makes it usable as a control.
 
-Seven items pass, one fails, eleven are NOT APPLICABLE. Each of the 19 collected items is classified once,
+Eight items pass, eleven are NOT APPLICABLE. Each of the 19 collected items is classified once,
 taking the adapted variant where one exists.
 
 | upstream item | verdict | our device | CPU reference, same input |
@@ -52,7 +52,7 @@ taking the adapted variant where one exists.
 | `protein_only` × {no_msa, msa}, no templates | PASS (adapted) | structure + confidence record per sample, 68 residues over 2 chains | — |
 | `protein_only` × 2 template modes | NOT APPLICABLE | no template search in the port | — |
 | `protein_and_ligand` × 4 modes | NOT APPLICABLE | ligands not ported, refused loudly | — |
-| `ubiquitin` no_msa, ceiling 1.8 Å (1.197 ± 0.273) | **FAIL** | **2.339 Å** with `--single_sequence`; **0.836 Å** on a one-row alignment | 1.079 Å PASS |
+| `ubiquitin` no_msa, ceiling 1.8 Å (1.197 ± 0.273) | PASS | **0.824 Å** with `--single_sequence` post-fix (was **2.339 Å** pre-fix; **0.836 Å** on a one-row alignment) | 1.079 Å PASS |
 | `ubiquitin` msa, ceiling 1.9 Å (1.224 ± 0.456) | PASS | **0.813 Å** | 1.108 Å PASS |
 | `ubiquitin` × 2 template modes | NOT APPLICABLE | no template search | — |
 | `query_single_protein_single_ligand` × 2 template modes | NOT APPLICABLE | ligand chain *and* template search | — |
@@ -173,39 +173,45 @@ tail there is expected and it is why the bound is a floor at 8.0 Å rather than 
 arm: at 447 aa on CPU it is a multi-hour run, and the 1a8q result plus upstream's own published 1y57
 distribution already cover the question this arm was asked to answer.
 
-## The one FAIL, and its cause
+## The FAIL the suite found, and the fix
 
-`ubiquitin` in no-MSA mode reads 2.339 Å against a 1.8 Å ceiling. It reproduces: three runs across two
-hosts and two cards span 0.006 Å, and two runs on the same card are identical to every printed digit.
+`ubiquitin` in no-MSA mode read 2.339 Å against a 1.8 Å ceiling when the suite ran. It reproduced:
+three runs across two hosts and two cards spanned 0.006 Å, and two runs on the same card were
+identical to every printed digit.
 
-The cause is an input difference, not the model. Upstream does not switch the MSA stack off when a chain
-has no MSA file: it writes a one-row alignment holding the query sequence and leaves `use_msas` on.
-`--single_sequence` in this port sets `use_msas=False` instead. Folding the same ubiquitin through a
-one-row alignment gives:
+The cause was an input difference, not the model. Upstream does not switch the MSA stack off when a
+chain has no MSA file: it writes a one-row alignment holding the query sequence and leaves `use_msas`
+on. `--single_sequence` in this port set `use_msas=False` instead. Folding the same ubiquitin through
+a one-row alignment gave:
 
 | | MSA stack | ptm | CA-RMSD, mean of 8 |
 |---|---|---|---|
-| `--single_sequence` | off | 0.628 | 2.339 Å |
+| `--single_sequence`, pre-fix | off | 0.628 | 2.339 Å |
 | one-row alignment | on | 0.677 | 0.836 Å |
 | real 19310-row MSA | on | 0.678 | 0.813 Å |
 
 1.50 Å, from an input difference. Upstream's own inline note for this case records ptm 0.67 for
 single-sequence ubiquitin, which is the one-row number.
 
-The per-sample distributions say it more sharply than the means do. Upstream states the ubiquitin
+The fix is landed. `--single_sequence` now routes every MSA-less protein/RNA chain through a one-row
+alignment of its own sequence, upstream's no-MSA mode exactly, and leaves the MSA stack on. The same
+fold post-fix reads **0.824 Å** (sd 0.184, ptm 0.667), inside the 1.8 Å ceiling, and the real-MSA arm
+is unmoved at 0.815 Å against the pre-fix 0.813 Å.
+
+The per-sample distributions said it more sharply than the means did. Upstream states the ubiquitin
 per-sample envelope as CA-RMSD 0.79-1.72 Å with gdt_ts 0.888-0.974:
 
 | arm | per-sample CA-RMSD | per-sample gdt_ts |
 |---|---|---|
 | upstream, stated | 0.79-1.72 | 0.888-0.974 |
 | CPU reference (upstream's model, our run) | 0.51-1.76 | 0.901-0.990 |
-| ours, one-row alignment | 0.58-1.23 | 0.944-0.984 |
-| ours, `--single_sequence` | 0.98, then 2.46-2.59 | 0.961, then 0.704-0.727 |
+| ours, `--single_sequence`, fixed | 0.59-1.18 | 0.954-0.984 |
+| ours, one-row alignment (what the fix routes to) | 0.58-1.23 | 0.944-0.984 |
+| ours, `--single_sequence`, pre-fix | 0.98, then 2.46-2.59 | 0.961, then 0.704-0.727 |
 
-Seven of our eight `--single_sequence` samples land above upstream's entire observed RMSD range and below
-its entire gdt_ts range. That is a different mode, not a shifted mean, and it is why we treat this as a
-defect rather than a backend offset. Every `--single_sequence` fold in this repo is on the affected path;
-MSA-mode folds are not. The fix is not landed yet.
+Seven of the eight pre-fix samples landed above upstream's entire observed RMSD range and below its
+entire gdt_ts range: a different mode, not a shifted mean, which is why we treated it as a defect
+rather than a backend offset. MSA-mode folds were never on the affected path.
 
 The same table is the independent check on our CPU control: it brackets upstream's stated envelope on both
 metrics, so it reproduces their distribution and not merely their mean. That is the basis for using it to
