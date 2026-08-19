@@ -963,8 +963,13 @@ def _size_ladder_compare_levers(base: dict, cur: dict, where: str) -> list:
         if fb is None or fc is None:
             continue  # not-imported; the resolved equality above gates import drift
         if (fb == 0.0) != (fc == 0.0):
+            # Name the clause it went dark ON: that is the mechanism, and it is the
+            # difference between "K2 stopped firing" and "K2 stopped firing because
+            # fill_preconditions rejects a padded mask", which is the actual defect.
+            clause = ", ".join(sorted(c.get("rejects") or {})) if fc == 0.0 else ""
             findings.append(f"{where} {flag}: frac {fb:.3f} -> {fc:.3f} "
-                            f"({'went dark' if fc == 0.0 else 'started firing'})")
+                            f"({'went dark' if fc == 0.0 else 'started firing'}"
+                            + (f" on {clause}" if clause else "") + ")")
         elif sorted((b.get("rejects") or {})) != sorted((c.get("rejects") or {})):
             # Same fired fraction, different clause: the guard is refusing for a reason
             # it did not refuse for when the baseline was taken. That is a behaviour
