@@ -97,7 +97,12 @@ def main() -> int:
         # [1, windows, 32, 32] and does not match, which is what the first run of this harness
         # captured by mistake.
         shp = tuple(int(d) for d in q.shape)
-        if len(shp) == 4 and shp[0] == shp[2] and shp[0] > 1:
+        # Triangle attention is the only caller whose batch dim IS the sequence dim. The extra
+        # scale test picks out the 48-block Pairformer specifically: the template embedder and the
+        # MSA module build their pair bias with scale_pair_bias=False, so their two scales differ
+        # and the fused kernel cannot stand in for them at all.
+        if (len(shp) == 4 and shp[0] == shp[2] and shp[0] > 1
+                and abs(scale_inv - (bias_scale_inv if bias_scale_inv else scale_inv)) < 1e-12):
             seen[shp] = seen.get(shp, 0) + 1
             if not grab or args.which == "last":
                 grab.clear()

@@ -73,6 +73,12 @@ def main() -> int:
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--golden", help="real trunk I/O from capture_trunk_io.py; "
                                      "without it the input is synthetic N(0,1)")
+    ap.add_argument("--crop", type=int, default=0,
+                    help="crop the golden input to N tokens. Every captured fixture is 8-53 "
+                         "tokens, i.e. 17-75%% tile padding on the device, and a padded row is "
+                         "not a row both attention paths compute the same way. A crop to a "
+                         "multiple of 32 is the same real trunk input with the padding gone, and "
+                         "the torch golden is recomputed on it, so it stays a real measurement.")
     args = ap.parse_args()
 
     import ttnn
@@ -99,6 +105,8 @@ def main() -> int:
         # [I, I, C]; both sides here want a leading batch dim.
         s = s.float().unsqueeze(0) if s.dim() == 2 else s.float()
         z = z.float().unsqueeze(0) if z.dim() == 3 else z.float()
+        if args.crop:
+            s, z = s[:, :args.crop], z[:, :args.crop, :args.crop]
         N = z.shape[-2]
     else:
         torch.manual_seed(args.seed)
@@ -132,6 +140,7 @@ def main() -> int:
     rep = {
         "input": "real-trunk" if args.golden else "synthetic-N(0,1)",
         "tokens": N,
+        "tile_pad_frac": round((-N % 32) / (N + (-N % 32)), 4),
         "s_pcc": round(pcc(s_dev, s_ref), 6),
         "z_pcc": round(pcc(z_dev, z_ref), 6),
         # The bf16 ceiling on this same input: how well torch itself does against
