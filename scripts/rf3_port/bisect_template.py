@@ -59,27 +59,35 @@ def main() -> int:
     ref.load_state_dict(block_sd, strict=False)
     ref.eval()
 
-    taps: dict[str, torch.Tensor] = {}
+    def run_taps(autocast: bool) -> dict:
+        taps: dict[str, torch.Tensor] = {}
 
-    def tap(name):
-        def hook(_m, _i, o):
-            t = o[1] if isinstance(o, tuple) else o
-            taps[name] = t.detach().float()
-        return hook
+        def tap(name):
+            def hook(_m, _i, o):
+                t = o[1] if isinstance(o, tuple) else o
+                taps[name] = t.detach().float()
+            return hook
 
-    handles = [
-        ref.emb_templ.register_forward_hook(tap("emb_templ")),
-        ref.pairformer[0].register_forward_hook(tap("pairformer.0")),
-        ref.pairformer[1].register_forward_hook(tap("pairformer.1")),
-        ref.norm_after_pairformer.register_forward_hook(tap("norm_after")),
-        ref.agg_emb.register_forward_hook(tap("agg_emb")),
-    ]
-    try:
-        with torch.no_grad(), torch.autocast("cpu", dtype=torch.bfloat16):
-            ref(dict(f_in), z_in.clone())
-    finally:
-        for h in handles:
-            h.remove()
+        handles = [
+            ref.emb_templ.register_forward_hook(tap("emb_templ")),
+            ref.pairformer[0].register_forward_hook(tap("pairformer.0")),
+            ref.pairformer[1].register_forward_hook(tap("pairformer.1")),
+            ref.norm_after_pairformer.register_forward_hook(tap("norm_after")),
+            ref.agg_emb.register_forward_hook(tap("agg_emb")),
+        ]
+        try:
+            with torch.no_grad(), torch.autocast("cpu", dtype=torch.bfloat16,
+                                                 enabled=autocast):
+                ref(dict(f_in), z_in.clone())
+        finally:
+            for h in handles:
+                h.remove()
+        return taps
+
+    taps = run_taps(True)
+    # The same walk in fp32: the per-stage bf16 ceiling. Without it a stage that
+    # degrades cannot be told apart from a stage where torch itself degrades.
+    taps32 = run_taps(False)
 
     dev = get_device()
     cfg = ttnn.init_device_compute_kernel_config(
@@ -100,10 +108,32 @@ def main() -> int:
             mapped[key] = value
     mod = TemplateEmbedder(mapped, cfg)
 
-    out: dict[str, float] = {}
+    out: dict[str, dict] = {}
+
+    # The template pair map is mostly exact zeros: only the token pairs carrying a
+    # condition are populated. PCC mean-centres over the whole tensor, so a tiny
+    # absolute error spread over that zero background can dominate it. Report the
+    # absolute error and the PCC restricted to the active pairs alongside, so a
+    # sparse-background artefact cannot be mistaken for a real divergence.
+    active_mask = f_in["has_distogram_condition"].bool()
+
+    def record(name: str, got: torch.Tensor) -> None:
+        ref_t = taps[name]
+        diff = (got - ref_t).abs()
+        entry = {
+            "device": round(pcc(got, ref_t), 6),
+            "ceiling": round(pcc(ref_t, taps32[name]), 6),
+            "maxabs": round(float(diff.max()), 6),
+            "rel_rms": round(float(diff.pow(2).mean().sqrt() / ref_t.std()), 6),
+        }
+        if ref_t.dim() >= 3 and ref_t.shape[0] == active_mask.shape[0] \
+                and ref_t.shape[1] == active_mask.shape[1]:
+            entry["device_active_only"] = round(
+                pcc(got[active_mask], ref_t[active_mask]), 6)
+        out[name] = entry
 
     tc = mod.embed_template_feats(to_tt(template_features(f_in)))
-    out["emb_templ"] = round(pcc(back(tc, taps["emb_templ"]), taps["emb_templ"]), 6)
+    record("emb_templ", back(tc, taps["emb_templ"]))
 
     z_norm = ttnn.layer_norm(to_tt(z_in), weight=mod.pre_norm_weight,
                              bias=mod.pre_norm_bias, epsilon=1e-5,
@@ -114,15 +144,15 @@ def main() -> int:
     for i, block in enumerate(mod.blocks):
         v = block(None, v)[1]
         name = f"pairformer.{i}"
-        out[name] = round(pcc(back(v, taps[name]), taps[name]), 6)
+        record(name, back(v, taps[name]))
 
     v = ttnn.layer_norm(v, weight=mod.post_norm_weight, bias=mod.post_norm_bias,
                         epsilon=1e-5, compute_kernel_config=cfg)
-    out["norm_after"] = round(pcc(back(v, taps["norm_after"]), taps["norm_after"]), 6)
+    record("norm_after", back(v, taps["norm_after"]))
 
     v = ttnn.relu(v)
     final = ttnn.linear(v, mod.agg_emb_weight, compute_kernel_config=cfg)
-    out["agg_emb (final)"] = round(pcc(back(final, taps["agg_emb"]), taps["agg_emb"]), 6)
+    record("agg_emb", back(final, taps["agg_emb"]))
 
     print(json.dumps({"tokens": int(z_in.shape[-2]),
                       "active": int(f_in["has_distogram_condition"].sum()),

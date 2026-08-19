@@ -23,6 +23,16 @@ sys.path.insert(0, str(REPO))
 STACK = "shadow.recycler.pairformer_stack."
 C_Z = 128
 
+#: Named pairformer stacks in the checkpoint and their channel widths. The trunk and
+#: the MSA module are c=128 with triangle-attention head_dim 32; the template
+#: embedder's two blocks are c=64 with head_dim 64, which is the only place that
+#: configuration appears and the only component not sitting at its bf16 ceiling.
+STACKS = {
+    "trunk": (f"{STACK}0.", 128, 32, 128),
+    "template0": ("shadow.recycler.template_embedder.pairformer.0.", 64, 64, 64),
+    "template1": ("shadow.recycler.template_embedder.pairformer.1.", 64, 64, 64),
+}
+
 
 def pcc(a, b) -> float:
     a = a.flatten().double(); b = b.flatten().double()
@@ -36,7 +46,11 @@ def main() -> int:
     ap.add_argument("--ckpt", required=True)
     ap.add_argument("--n", type=int, default=64)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--stack", default="trunk", choices=sorted(STACKS),
+                    help="which pairformer block to bisect")
     args = ap.parse_args()
+
+    prefix, c_z, tri_head_dim, tri_hidden = STACKS[args.stack]
 
     import ttnn
 
@@ -51,12 +65,15 @@ def main() -> int:
     )
 
     sd = torch.load(args.ckpt, map_location="cpu", weights_only=False)["model"]
-    pre = f"{STACK}0."
-    block = {k[len(pre):]: v.float() for k, v in sd.items() if k.startswith(pre)}
+    block = {k[len(prefix):]: v.float() for k, v in sd.items()
+             if k.startswith(prefix)}
+    if not block:
+        print(f"no weights at {prefix}")
+        return 1
     mapped = remap_pairformer_block(block)
 
     torch.manual_seed(args.seed)
-    z = torch.randn(1, args.n, args.n, C_Z)
+    z = torch.randn(1, args.n, args.n, c_z)
 
     dev = get_device()
     cfg = ttnn.init_device_compute_kernel_config(
@@ -80,21 +97,24 @@ def main() -> int:
     out = {}
     cases = [
         ("tri_mul_out", "tri_mul_outgoing",
-         lambda: RefTriMul(d_pair=C_Z, d_hidden=128, direction="outgoing", bias=True),
+         lambda: RefTriMul(d_pair=c_z, d_hidden=tri_hidden, direction="outgoing",
+                           bias=True),
          lambda w: TriangleMultiplication(False, w, cfg)),
         ("tri_mul_in", "tri_mul_incoming",
-         lambda: RefTriMul(d_pair=C_Z, d_hidden=128, direction="incoming", bias=True),
+         lambda: RefTriMul(d_pair=c_z, d_hidden=tri_hidden, direction="incoming",
+                           bias=True),
          lambda w: TriangleMultiplication(True, w, cfg)),
         ("tri_att_start", "tri_attn_start",
-         lambda: RefTriAtt(C_Z, n_head=4, d_hidden=32, start_node=True),
-         lambda w: TriangleAttention(32, 4, False, w, cfg, scale_pair_bias=False,
-                                     fp32_softmax=True)),
+         lambda: RefTriAtt(c_z, n_head=4, d_hidden=tri_head_dim, start_node=True),
+         lambda w: TriangleAttention(tri_head_dim, 4, False, w, cfg,
+                                     scale_pair_bias=False, fp32_softmax=True)),
         ("tri_att_end", "tri_attn_end",
-         lambda: RefTriAtt(C_Z, n_head=4, d_hidden=32, start_node=False),
-         lambda w: TriangleAttention(32, 4, True, w, cfg, scale_pair_bias=False,
-                                     fp32_softmax=True, transpose_bias=False)),
+         lambda: RefTriAtt(c_z, n_head=4, d_hidden=tri_head_dim, start_node=False),
+         lambda w: TriangleAttention(tri_head_dim, 4, True, w, cfg,
+                                     scale_pair_bias=False, fp32_softmax=True,
+                                     transpose_bias=False)),
         ("transition_z", "z_transition",
-         lambda: RefTransition(c=C_Z, n=4),
+         lambda: RefTransition(c=c_z, n=4),
          lambda w: Transition(w, cfg)),
     ]
 
