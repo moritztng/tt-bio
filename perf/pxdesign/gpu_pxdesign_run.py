@@ -136,20 +136,10 @@ def install_kernel_counters(report):
     count_only(prim, "DS4Sci_EvoformerAttention", "ds4sci_evo_attention")
     count_only(prim, "_deepspeed_evo_attn", "deepspeed_evo_attn_fn")
 
-    # LayerNorm census: count the CLASS the factory picks, per construction.
-    for cls_name, counter in (("FusedLayerNorm", "layernorm_fused"),
-                              ("OpenFoldLayerNorm", "layernorm_openfold")):
-        cls = getattr(prim, cls_name, None)
-        if cls is None:
-            continue
-
-        def make(cls=cls, counter=counter):
-            def factory(*a, **kw):
-                _bump(counter)
-                return cls(*a, **kw)
-            return factory
-
-        setattr(prim, cls_name, make())
+    # The LayerNorm branch is censused after the fact (layernorm_census) rather than by wrapping
+    # the classes: OpenFoldLayerNorm.__init__ calls the explicit super(OpenFoldLayerNorm, self),
+    # which resolves the name from module globals at call time, so replacing the class with a
+    # factory makes that super() call fail.
 
     orig_sdpa = F.scaled_dot_product_attention
 
@@ -224,6 +214,25 @@ def install_stage_timers():
 
 
 # ---------------------------------------------------------------------------------------------
+def layernorm_census():
+    """Which LayerNorm implementation is actually INSTANTIATED, counted over every live module.
+    --use_fast_ln only sets LAYERNORM_TYPE; the fused path falls back silently if the compiled
+    extension is missing, so the flag is not evidence."""
+    import gc
+
+    import torch.nn as nn
+    tally = {}
+    for o in gc.get_objects():
+        try:
+            if isinstance(o, nn.Module):
+                n = type(o).__name__
+                if "LayerNorm" in n or "Attention" in n:
+                    tally[n] = tally.get(n, 0) + 1
+        except ReferenceError:
+            pass
+    return tally
+
+
 def gpu_state():
     """Every compute app on the card. A vast.ai 'single GPU' box can have a co-tenant on the same
     physical card, which silently inflates every number (root-caused on rf3-gpu-reference-vast)."""
@@ -400,10 +409,13 @@ def main():
     report["patch_targets_found"] = found
     report["counter_info"] = counter_info
 
-    argv = ["--preset", a.preset, "-o", a.out_dir, "-i", a.yaml,
+    # pipeline.main() is the argparse layer BELOW click, so it wants the long names click's
+    # build_argv emits (--dump_dir / --input_json_path), not click's -o / -i.
+    argv = ["--preset", a.preset, "--dump_dir", a.out_dir, "--input_json_path", a.yaml,
             "--N_sample", str(a.n_sample), "--N_step", str(a.n_step),
             "--dtype", a.dtype, "--use_fast_ln", a.fast_ln,
             "--use_deepspeed_evo_attention", a.ds_evo,
+            "--eta_type", "const", "--eta_min", "2.5", "--eta_max", "2.5",
             "--seeds", str(a.seed), "--N_max_runs", "1"]
     if a.preset == "preview":
         argv += ["--eval.binder.eval_complex", "true", "--eval.binder.eval_binder_monomer", "true",
@@ -416,7 +428,6 @@ def main():
     argv += ["--min_total_return", str(a.n_sample), "--max_success_return", str(a.n_sample)]
     if a.extra:
         argv += a.extra.split()
-    # --preset is consumed by pipeline.parse_pipeline_args, so it must not also reach get_configs
     report["argv"] = argv
 
     t0 = time.time()
@@ -438,6 +449,7 @@ def main():
                         for k, v in STAGES.items()}
     report["windows"] = WINDOWS
     report["counts"] = COUNTS
+    report["module_census"] = layernorm_census()
     report["subprocesses"] = subprocs
     report["peak_vram_alloc_B"] = int(torch.cuda.max_memory_allocated())
     report["peak_vram_reserved_B"] = int(torch.cuda.max_memory_reserved())
