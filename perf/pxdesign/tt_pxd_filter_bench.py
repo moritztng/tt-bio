@@ -289,6 +289,7 @@ def main():
         "triatt_tail_K1": list(_TQ.TAIL_STATS),
         "triatt_sdpa": list(_TS.STATS),
         "mm_dualnoc": list(_DN.STATS),
+        "sdpa_q_chunk": list(T.SDPA_Q_CHUNK_STATS),
     }
     rec["rejects"] = {
         "trimul_tail_F1": {str(k): v for k, v in _TT.REJECTS.items()},
@@ -305,10 +306,12 @@ def main():
     # have been. This is where to look instead.
     rec["l1_out_refused_keys"] = sorted(str(k) for k in T._L1_OUT_REFUSED)
     rec["bmm_cfg_refused"] = sorted(str(k) for k in T._BMM_CFG_REFUSED)
+    rec["sdpa_q_chunk_over_l1"] = sorted(str(k) for k in T._SDPA_Q_CHUNK_OVER_L1)
     print(json.dumps({"census": rec["census"],
                       "fp32_softmax_l1_refused_keys": rec["fp32_softmax_l1_refused_keys"],
                       "l1_out_refused_keys": rec["l1_out_refused_keys"],
-                      "bmm_cfg_refused": rec["bmm_cfg_refused"]}), flush=True)
+                      "bmm_cfg_refused": rec["bmm_cfg_refused"],
+                      "sdpa_q_chunk_over_l1": rec["sdpa_q_chunk_over_l1"]}), flush=True)
     print(json.dumps(rec["rejects"])[:1200], flush=True)
     rec["clashes"] = {str(k): v for k, v in T._TRIMUL_CHUNK_CLASH.items()}
     rec["dram_shapes"] = sorted(str(x) for x in T._TRIMUL_DRAM_SHAPES)
