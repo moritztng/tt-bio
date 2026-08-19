@@ -15,7 +15,7 @@ WORK="${1:-/work}"
 mkdir -p "$WORK"
 cd "$WORK"
 
-if ! command -v conda >/dev/null 2>&1; then
+if ! command -v conda >/dev/null 2>&1 && [ ! -d "$WORK/miniforge" ]; then
   echo "== installing miniforge"
   wget -qO /tmp/miniforge.sh https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
   bash /tmp/miniforge.sh -b -p "$WORK/miniforge"
@@ -31,9 +31,17 @@ cd FreeBindCraft
 # to not need it. Do not add it back to "make the comparison fair".
 # CONDA_OVERRIDE_CUDA (-c) only tells the solver which cuda-variant jaxlib to pick; the driver on
 # the box decides what actually runs, so the jax.devices() check below is the real verification.
-bash ./install_bindcraft.sh --pkg_manager mamba --cuda '12.6' --no-pyrosetta
+if [ -d "$CONDA_BASE/envs/BindCraft" ] && [ -s params/params_model_1_multimer_v3.npz ]; then
+  echo "== BindCraft env and AF2 params already present, skipping install"
+else
+  bash ./install_bindcraft.sh --pkg_manager mamba --cuda '12.6' --no-pyrosetta
+fi
 
+# conda's activate.d hooks are not `set -u` clean (the cuda-nvcc hook reads an unset
+# NVCC_PREPEND_FLAGS), so drop -u across the activation and restore it after.
+set +u
 conda activate BindCraft
+set -u
 python "$(dirname "$(readlink -f "$0")")/fbc_stage_timing.py" --repo "$PWD"
 
 echo "== versions"

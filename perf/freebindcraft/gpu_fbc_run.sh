@@ -23,7 +23,11 @@ mkdir -p "$OUT"
 CONDA_BASE="$(conda info --base)"
 # shellcheck disable=SC1091
 source "$CONDA_BASE/etc/profile.d/conda.sh"
+# conda's activate.d hooks are not `set -u` clean (the cuda-nvcc hook reads an unset
+# NVCC_PREPEND_FLAGS), so drop -u across the activation and restore it after.
+set +u
 conda activate BindCraft
+set -u
 cd "$WORK/FreeBindCraft"
 
 DESIGN_PATH="$OUT/pdl1"
