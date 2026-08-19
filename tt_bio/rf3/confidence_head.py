@@ -18,6 +18,8 @@ published code omits it despite the pseudocode.
 
 from __future__ import annotations
 
+import os
+
 import torch
 import ttnn
 
@@ -27,20 +29,46 @@ from tt_bio.tenstorrent import CORE_GRID_MAIN, Module, Pairformer, _dtype
 
 EPS = 1e-5
 
+#: Fold the global layer norm's flatten into rows instead of one long row. OFF by default:
+#: it is NOT bit-exact with the shipped one-row flatten above 128 tokens (measured, up to
+#: 6.8e-3 relative), because the reduction blocking changes. ON is what makes 1024 aa run
+#: at all -- see `global_layer_norm`. Both arms sit inside bf16 output noise of the torch
+#: reference, and on the largest tensor the row fold is 228x closer to it (7.670e-03 ->
+#: 3.363e-05 rel_rms at 768 tokens), but "more accurate" is still "different", so this is
+#: release-gated and stays opt-in until the head is re-scored against its capture.
+_GLN_ROW_FOLD = os.environ.get("TT_BIO_RF3_GLN_ROW_FOLD", "0") == "1"
+
 
 
 def global_layer_norm(x: ttnn.Tensor, compute_kernel_config) -> ttnn.Tensor:
     """F.layer_norm(x, normalized_shape=x.shape): one mean and one variance for the
     whole tensor, no affine. `ttnn.layer_norm` normalises the last axis per position,
-    which is a different function -- see the probe."""
+    which is a different function -- see the probe.
+
+    Flattening to a single row, `(1, 1, 1, n)`, costs 32x the tensor: TILE_LAYOUT pads
+    that one row up to a full 32-row tile. At 1024 aa the pair rep is 0.268 GB and the
+    allocator was asked for 8.590 GB to normalise it, which is where the fold died --
+    not a memory requirement of the model, a shape choice. `_GLN_ROW_FOLD` keeps the
+    last axis and folds the rest into rows, which pads nothing, and reduces over the two
+    axes in turn: the same mean of the same equal-size groups, in a different order, so
+    it is not bit-exact and is opt-in.
+    """
     shape = tuple(x.shape)
     n = 1
     for d in shape:
         n *= d
-    flat = ttnn.reshape(x, (1, 1, 1, n))
-    m = ttnn.mean(flat, dim=-1, keepdim=True)
-    xc = ttnn.subtract(flat, m)
-    v = ttnn.mean(ttnn.multiply(xc, xc), dim=-1, keepdim=True)
+    if _GLN_ROW_FOLD:
+        flat = ttnn.reshape(x, (1, 1, n // shape[-1], shape[-1]))
+        m = ttnn.mean(ttnn.mean(flat, dim=-1, keepdim=True), dim=-2, keepdim=True)
+        xc = ttnn.subtract(flat, m)
+        sq = ttnn.multiply(xc, xc)
+        v = ttnn.mean(ttnn.mean(sq, dim=-1, keepdim=True), dim=-2, keepdim=True)
+        ttnn.deallocate(sq)
+    else:
+        flat = ttnn.reshape(x, (1, 1, 1, n))
+        m = ttnn.mean(flat, dim=-1, keepdim=True)
+        xc = ttnn.subtract(flat, m)
+        v = ttnn.mean(ttnn.multiply(xc, xc), dim=-1, keepdim=True)
     out = ttnn.multiply(xc, ttnn.rsqrt(ttnn.add(v, EPS)))
     return ttnn.reshape(out, shape)
 
