@@ -1,11 +1,18 @@
 {
   "__diffusion_batch_size__": 5,
+  "__env__": {
+    "biotite": "1.2.0",
+    "numpy": "1.26.4",
+    "python": "3.10.12",
+    "rdkit": "2025.09.6",
+    "torch": "2.11.0+cpu"
+  },
   "__example_id__": "9dfn_subset",
   "__input__": "9dfn_subset.cif",
   "__n_recycles__": 10,
   "__non_tensor__": {
     "atom_array": {
-      "__repr__": "AtomArray([\n\tAtom(np.array([34.97 , 28.851, 84.792], dtype=float32), chain_id=\"A\", res_id=22, ins_code=\"\", res_name=\"SER\", hetero=False, atom_name=\"N\", element=\"N\", chain_type=6, uses_alt_atom_id=False, is_polymer=True, is_aromatic=False, alt_atom_id=\"N\", b_factor=37.96, stereo=\"N\", is_backbone_atom=True, charge=0, occupancy=1.0, pn_unit_id=\"A\", molecule_id=0, chain_entity=0, pn_unit_entity=0, molecule_entity=0, atomic_number=7, transformation_id=\"1\", chain_iid=\"A_1\", pn_unit_iid=\"A_1\", molecule",
+      "__repr__": "AtomArray([\n\tAtom(np.array([34.97 , 28.851, 84.792], dtype=float32), chain_id=\"A\", res_id=22, ins_code=\"\", res_name=\"SER\", hetero=False, atom_name=\"N\", element=\"N\", uses_alt_atom_id=False, stereo=\"N\", is_backbone_atom=True, chain_type=6, alt_atom_id=\"N\", charge=0, is_polymer=True, is_aromatic=False, b_factor=37.96, occupancy=1.0, pn_unit_id=\"A\", molecule_id=0, chain_entity=0, pn_unit_entity=0, molecule_entity=0, atomic_number=7, transformation_id=\"1\", chain_iid=\"A_1\", pn_unit_iid=\"A_1\", molecule",
       "__type__": "<class 'biotite.structure.AtomArray'>"
     },
     "automorphisms": {

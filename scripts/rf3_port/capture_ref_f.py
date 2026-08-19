@@ -54,6 +54,23 @@ def _split(obj, prefix="", tensors=None, plain=None):
     return tensors, plain
 
 
+def _env() -> dict:
+    """Versions the captured values actually depend on."""
+    import platform
+
+    import biotite
+    import numpy
+    import rdkit
+
+    return {
+        "python": platform.python_version(),
+        "rdkit": rdkit.__version__,
+        "biotite": biotite.__version__,
+        "numpy": numpy.__version__,
+        "torch": torch.__version__,
+    }
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--input", required=True, help="cif/pdb/json input path")
@@ -117,6 +134,10 @@ def main() -> int:
     meta["__n_recycles__"] = args.n_recycles
     meta["__diffusion_batch_size__"] = args.diffusion_batch_size
     meta["__seed__"] = args.seed
+    # The reference conformer and, for some ligands, the perceived chiral centres
+    # come out of RDKit and move between RDKit releases, so the capture is only a
+    # bit-exact target for a matching version. Record what produced it.
+    meta["__env__"] = _env()
 
     torch.save(flat, os.path.join(args.out_dir, "ref_f.pt"))
     with open(os.path.join(args.out_dir, "ref_f.meta.json"), "w") as fh:

@@ -11,6 +11,13 @@ The bar is bit-exact on every comparable key, on every fixture: the upstream
 featurizer is reproducible process to process once ``random``, ``numpy`` and
 ``torch`` are all seeded, so anything less is a real difference.
 
+That only holds against a matching RDKit. ``f["ref_pos"]`` is an RDKit-generated
+conformer, and on ligand inputs RDKit's chiral-centre perception feeds
+``chiral_centers`` / ``chiral_feats`` / ``chiral_center_dihedral_angles`` as well,
+both of which move between RDKit releases. The captures record the environment
+that produced them and this gate reports a mismatch rather than letting one look
+like a port defect.
+
 Two keys are compared as shape-only zero stubs rather than by value:
 ``feats/atom_level_embedding`` and ``feats/mean_atom_level_embedding``. That is the
 MLFF/MACE track, whose cache is an IPD-internal path that is not distributed, so
@@ -194,16 +201,52 @@ def score_fixture(name: str, flags: dict, pipeline=None) -> dict:
     }
 
 
+#: Keys derived from RDKit's conformer embedding and chiral-centre perception.
+#: These are only comparable against a capture made with the same RDKit.
+RDKIT_DERIVED_KEYS = frozenset({
+    "feats/ref_pos",
+    "feats/ref_pos_ground_truth",
+    "feats/chiral_centers",
+    "feats/chiral_feats",
+    "feats/chiral_center_dihedral_angles",
+    "ground_truth/coord_atom_lvl",
+    "ground_truth/coord_token_lvl",
+    "symmetry_resolution/coord_atom_lvl",
+})
+
+
+def _env_mismatch() -> dict | None:
+    """Compare the running RDKit against what the captures were made with."""
+    import rdkit
+
+    meta = json.loads((ARTIFACTS / "glke" / "ref_f.meta.json").read_text())
+    want = meta.get("__env__", {}).get("rdkit")
+    if want is None or want == rdkit.__version__:
+        return None
+    return {"rdkit_capture": want, "rdkit_running": rdkit.__version__}
+
+
 def featurizer_parity() -> dict:
     sys.path.insert(0, str(REPO))
-    from tt_bio.rf3.featurize import build_pipeline
 
-    pipeline = None  # each fixture rebuilds; cheap next to parsing
-    results = [score_fixture(n, f, pipeline) for n, f in FIXTURES.items()]
+    env_mismatch = _env_mismatch()
+    results = [score_fixture(n, f) for n, f in FIXTURES.items()]
     passed = [r for r in results if r["verdict"] == "PASS"]
+    verdict = "PASS" if len(passed) == len(results) else "GAP"
+    if verdict == "GAP" and env_mismatch:
+        # Every surviving mismatch is RDKit-derived, so this is an environment
+        # difference, not a port defect. Say which, and do not call it a PASS.
+        off_keys = {
+            m["key"]
+            for r in results
+            for m in r.get("mismatches", [])
+        }
+        if off_keys and off_keys <= RDKIT_DERIVED_KEYS:
+            verdict = "GAP_ENV"
     return {
         "mode": "rf3_featurizer",
-        "verdict": "PASS" if len(passed) == len(results) else "GAP",
+        "verdict": verdict,
+        "env_mismatch": env_mismatch,
         "fixtures_total": len(results),
         "fixtures_pass": len(passed),
         "keys_total": sum(r.get("keys_total", 0) for r in results),

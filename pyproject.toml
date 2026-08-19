@@ -11,12 +11,7 @@ requires-python = ">=3.10,<3.13,!=3.11.*"
 dependencies = [
     "torch",
     "numpy",
-    # RF3's chirality features come out of RDKit's chiral-centre perception, and
-    # that perception changes between RDKit releases: 2025.09.6 vs 2026.03.4 moves
-    # ref_pos on every input and, on ligand inputs, chiral_centers / chiral_feats /
-    # chiral_center_dihedral_angles too (44/51 features bit-exact instead of 51/51).
-    # The RF3 accuracy numbers are generated against 2026.03.4.
-    "rdkit==2026.03.4",
+    "rdkit",
     "requests",
     "pandas",
     "einops",

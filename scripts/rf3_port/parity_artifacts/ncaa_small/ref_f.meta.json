@@ -1,11 +1,18 @@
 {
   "__diffusion_batch_size__": 5,
+  "__env__": {
+    "biotite": "1.2.0",
+    "numpy": "1.26.4",
+    "python": "3.10.12",
+    "rdkit": "2025.09.6",
+    "torch": "2.11.0+cpu"
+  },
   "__example_id__": "ncaa_small",
   "__input__": "ncaa_small.json",
   "__n_recycles__": 10,
   "__non_tensor__": {
     "atom_array": {
-      "__repr__": "AtomArray([\n\tAtom(np.array([-1., -1., -1.], dtype=float32), chain_id=\"A\", res_id=1, ins_code=\"\", res_name=\"GLY\", hetero=False, atom_name=\"N\", element=\"N\", is_aromatic=False, chain_iid=\"A_1\", b_factor=nan, occupancy=1.0, charge=0, uses_alt_atom_id=False, is_backbone_atom=True, stereo=\"N\", alt_atom_id=\"N\", chain_type=6, is_polymer=True, pn_unit_id=\"A\", molecule_id=0, chain_entity=0, pn_unit_entity=0, molecule_entity=0, atomic_number=7, transformation_id=\"1\", pn_unit_iid=\"A_1\", molecule_iid=0, is_i",
+      "__repr__": "AtomArray([\n\tAtom(np.array([-1., -1., -1.], dtype=float32), chain_id=\"A\", res_id=1, ins_code=\"\", res_name=\"GLY\", hetero=False, atom_name=\"N\", element=\"N\", chain_type=6, chain_iid=\"A_1\", alt_atom_id=\"N\", charge=0, is_backbone_atom=True, is_polymer=True, occupancy=1.0, b_factor=nan, uses_alt_atom_id=False, is_aromatic=False, stereo=\"N\", pn_unit_id=\"A\", molecule_id=0, chain_entity=0, pn_unit_entity=0, molecule_entity=0, atomic_number=7, transformation_id=\"1\", pn_unit_iid=\"A_1\", molecule_iid=0, is_i",
       "__type__": "<class 'biotite.structure.AtomArray'>"
     },
     "automorphisms": {
