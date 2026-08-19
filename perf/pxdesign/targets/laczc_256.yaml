@@ -1,0 +1,7 @@
+target:
+  file: "/work/targets2/laczc_256.cif"
+  chains:
+    A:
+      hotspots: [128, 129, 130]
+      msa: /work/msa_sliced/lacz_256
+binder_length: 80

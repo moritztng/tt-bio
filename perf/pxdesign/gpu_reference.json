@@ -1,0 +1,6113 @@
+{
+  "model": "pxdesign",
+  "what": "PXDesign GPU reference: seconds per design on one H200, split per pipeline stage",
+  "measured_utc": "2026-08-19",
+  "gpu": "H200",
+  "stack": {
+    "pxdesign": "0.1.0",
+    "protenix": "0.5.0+pxd",
+    "pxdbench": "0.1.2",
+    "torch": "2.3.1",
+    "jax": "0.4.29",
+    "jaxlib": "0.4.29",
+    "deepspeed": "0.15.4",
+    "numpy": "1.26.3",
+    "transformers": "4.51.3",
+    "dm-haiku": "0.0.13",
+    "optax": "0.2.5",
+    "biotite": "1.0.1",
+    "rdkit": "2026.3.5",
+    "colabdesign": "1.1.3",
+    "torch_version": "2.3.1",
+    "torch_cuda": "12.1",
+    "cudnn": 8902,
+    "gpu": "NVIDIA H200",
+    "gpu_capability": [
+      9,
+      0
+    ],
+    "jax_platform": "gpu",
+    "jax_devices": "[cuda(id=0)]",
+    "env_DEEPSPEED_EVO": "true",
+    "env_LAYERNORM_TYPE": "fast_layernorm",
+    "env_CUTLASS_PATH": "/work/cutlass",
+    "env_TOOL_WEIGHTS_ROOT": "/work/tool_weights",
+    "env_PROTENIX_DATA_ROOT_DIR": "/work/release_data/ccd_cache",
+    "env_CUDA_VISIBLE_DEVICES": null,
+    "nvidia_smi": "NVIDIA H200, 580.173.02, 700.00 W, 143771 MiB"
+  },
+  "harness": {
+    "runner": "perf/pxdesign/gpu_pxdesign_run.py",
+    "sweep": "perf/pxdesign/gpu_pxdesign_sweep.py",
+    "targets": "perf/pxdesign/make_targets.py",
+    "setup": [
+      "perf/pxdesign/gpu_pxdesign_setup.sh",
+      "perf/pxdesign/gpu_pxdesign_setup_p2.sh",
+      "perf/pxdesign/gpu_pxdesign_setup_p3.sh",
+      "perf/pxdesign/gpu_pxdesign_setup_p4.sh",
+      "perf/pxdesign/gpu_pxdesign_setup_p5.sh"
+    ]
+  },
+  "protocol": {
+    "reps": "rep 0 discarded as cold (two CUDA extensions JIT-compile on first use), median over the warm reps",
+    "batch": "batch is --N_sample, the number of backbones from one diffusion call; a cell is comparable only against a cell with the same target length AND the same N_sample",
+    "presets": "extended = AF2-IG + Protenix base filter; preview = AF2-IG only. Recorded separately, never pooled",
+    "stage_split": "leaf stages partition the run; gen_total and eval_total are umbrellas over leaves and are never summed into the split",
+    "kernel_paths": "counted, not inferred: DS4Sci_EvoformerAttention call count per run",
+    "exclusivity": "every compute app on the card is recorded before and after each cell"
+  },
+  "how_to_read": {
+    "the_bar": "tt_target_s_4x_device is the org's 4x rule applied to the device-busy portion. tt_target_s_4x_wall is the same rule on wall clock and is only meaningful if both arms' host CPUs are comparable, because most of a PXDesign run is host work the TT port inherits unchanged.",
+    "device_s": "wall x mean GPU utilisation over the stage's own sampling window",
+    "batch": "always compare against a cell with the same target_residues AND the same batch_n_sample"
+  },
+  "target_manifest": {
+    "cif_source": "https://files.rcsb.org/download/1DP0.CIF",
+    "cif_sha256": "a39564ee430ad50e1afef0c14bb80ecc27eea22f3c7f3e3255ecf130e48b6643",
+    "chain": "A",
+    "chain_residues": 1011,
+    "binder_length": 80,
+    "hotspots_global": [
+      526,
+      527,
+      528
+    ],
+    "note": "each rung is its own single-chain CIF cut from 1DP0 chain A around one fixed epitope and renumbered 1..N, because PXDesign leaves the entity sequence uncropped when the yaml uses target.chains.<id>.crop",
+    "rungs": {
+      "laczc_128": {
+        "yaml": "laczc_128.yaml",
+        "target_residues": 128,
+        "cif": "laczc_128.cif",
+        "hotspots_local": "64, 65, 66"
+      },
+      "laczc_256": {
+        "yaml": "laczc_256.yaml",
+        "target_residues": 256,
+        "cif": "laczc_256.cif",
+        "hotspots_local": "128, 129, 130"
+      },
+      "laczc_512": {
+        "yaml": "laczc_512.yaml",
+        "target_residues": 512,
+        "cif": "laczc_512.cif",
+        "hotspots_local": "256, 257, 258"
+      },
+      "laczc_768": {
+        "yaml": "laczc_768.yaml",
+        "target_residues": 768,
+        "cif": "laczc_768.cif",
+        "hotspots_local": "384, 385, 386"
+      }
+    }
+  },
+  "cells": [
+    {
+      "gpu": "H200",
+      "label": "laczc128_exte_n1_msa",
+      "target": "beta-galactosidase 1DP0 A",
+      "target_residues": 128,
+      "binder_length": 80,
+      "preset": "extended",
+      "batch_n_sample": 1,
+      "n_step": 400,
+      "dtype": "bf16",
+      "extra_argv": null,
+      "yaml": "/work/targets2/laczc_128.yaml",
+      "yaml_sha256": "6f43b437357131c06bbf30c49bd657e520435af1b229fdb8f0d26bd29617b715",
+      "reps_total": 2,
+      "reps_warm": 1,
+      "cold_rep_total_s": 149.4148,
+      "total_s_median": 149.4506,
+      "total_s_min": 149.4506,
+      "total_s_max": 149.4506,
+      "total_s_all_warm": [
+        149.4506
+      ],
+      "s_per_design": 149.4506,
+      "stages_s": {
+        "prep_host_s": 5.037,
+        "model_init_s": 15.2312,
+        "gen_feat_s": 1.1015,
+        "gen_device_s": 24.3035,
+        "gen_write_s": 0.0265,
+        "tgt_template_s": 40.6908,
+        "mpnn_s": 8.0961,
+        "af2_complex_s": 21.2327,
+        "af2_monomer_s": 18.6095,
+        "ptx_mini_s": null,
+        "ptx_s": 13.4999,
+        "metrics_host_s": 0.0204,
+        "rank_host_s": 1.1291,
+        "gen_total_s": 25.4315,
+        "eval_total_s": 61.5775
+      },
+      "split_s": {
+        "pxdesign_d_s": 24.3035,
+        "protenix_s": 54.1907,
+        "af2ig_s": 39.8422,
+        "proteinmpnn_s": 8.0961,
+        "host_data_s": 23.0181
+      },
+      "split_pct": {
+        "pxdesign_d_pct": 16.26,
+        "protenix_pct": 36.26,
+        "af2ig_pct": 26.66,
+        "proteinmpnn_pct": 5.42,
+        "host_data_pct": 15.4
+      },
+      "unattributed_s": 0.4724,
+      "gpu_util_pct_mean": 5.6,
+      "gpu_power_W_median": 120.8,
+      "gpu_power_W_max": 288.1,
+      "gpu_per_stage_util": {
+        "prep_host": {
+          "power_W_median": 120.4,
+          "power_W_max": 120.6,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.1,
+          "mem_MiB_max": 527,
+          "clock_sm_median": 1980,
+          "n_samples": 26
+        },
+        "model_init": {
+          "power_W_median": 120.6,
+          "power_W_max": 120.9,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.2,
+          "mem_MiB_max": 1635,
+          "clock_sm_median": 1980,
+          "n_samples": 76
+        },
+        "gen_device": {
+          "power_W_median": 171.1,
+          "power_W_max": 173.5,
+          "util_pct_median": 28.0,
+          "util_pct_mean": 27.1,
+          "mem_MiB_max": 1803,
+          "clock_sm_median": 1980,
+          "n_samples": 121
+        },
+        "gen_total": {
+          "power_W_median": 171.0,
+          "power_W_max": 173.5,
+          "util_pct_median": 28.0,
+          "util_pct_mean": 26.3,
+          "mem_MiB_max": 1803,
+          "clock_sm_median": 1980,
+          "n_samples": 127
+        },
+        "tgt_template": {
+          "power_W_median": 120.4,
+          "power_W_max": 150.7,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 1.5,
+          "mem_MiB_max": 4159,
+          "clock_sm_median": 1980,
+          "n_samples": 203
+        },
+        "mpnn": {
+          "power_W_median": 120.7,
+          "power_W_max": 137.0,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.2,
+          "mem_MiB_max": 3893,
+          "clock_sm_median": 1980,
+          "n_samples": 40
+        },
+        "af2_complex": {
+          "power_W_median": 120.7,
+          "power_W_max": 288.1,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 2.3,
+          "mem_MiB_max": 4977,
+          "clock_sm_median": 1980,
+          "n_samples": 106
+        },
+        "af2_monomer": {
+          "power_W_median": 121.0,
+          "power_W_max": 136.4,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 1.0,
+          "mem_MiB_max": 5675,
+          "clock_sm_median": 1980,
+          "n_samples": 93
+        },
+        "ptx": {
+          "power_W_median": 124.7,
+          "power_W_max": 178.0,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 2.9,
+          "mem_MiB_max": 3043,
+          "clock_sm_median": 1980,
+          "n_samples": 68
+        },
+        "eval_total": {
+          "power_W_median": 121.3,
+          "power_W_max": 288.1,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 1.8,
+          "mem_MiB_max": 5675,
+          "clock_sm_median": 1980,
+          "n_samples": 308
+        },
+        "rank_host": {
+          "power_W_median": 134.5,
+          "power_W_max": 157.1,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 1949,
+          "clock_sm_median": 1980,
+          "n_samples": 5
+        }
+      },
+      "device_s_per_stage": {
+        "prep_host": 0.005,
+        "model_init": 0.03,
+        "gen_device": 6.586,
+        "tgt_template": 0.61,
+        "mpnn": 0.016,
+        "af2_complex": 0.488,
+        "af2_monomer": 0.186,
+        "ptx": 0.391,
+        "rank_host": 0.0
+      },
+      "device_s_total": 8.312,
+      "host_s_total": 141.139,
+      "device_pct_of_wall": 5.56,
+      "tt_target_s_4x_wall": 597.8,
+      "tt_target_s_4x_device": 33.25,
+      "peak_vram_alloc_GiB": 3.407,
+      "counts": {
+        "pxd_predict": 1,
+        "target_template_probe": 1,
+        "deepspeed_evo_attn_fn": 1424,
+        "ds4sci_evo_attention": 1424,
+        "pxdbench_subprocesses": 3,
+        "af2_complex_calls": 1,
+        "af2_monomer_calls": 1,
+        "protenix_filter_calls_large": 1
+      },
+      "subprocess_walls_s": [
+        {
+          "script": "main_mpnn.py",
+          "wall_s": 8.096
+        },
+        {
+          "script": "main_af2_complex.py",
+          "wall_s": 21.232
+        },
+        {
+          "script": "main_af2_monomer.py",
+          "wall_s": 18.609
+        }
+      ],
+      "validation_ok": true,
+      "n_designs_returned": 1,
+      "filters_passed": {
+        "AF2-IG-easy-success": 0,
+        "AF2-IG-success": 0,
+        "Protenix-success": 0,
+        "Protenix-basic-success": 0
+      },
+      "metrics": {
+        "af2_plddt": {
+          "min": 0.95,
+          "median": 0.95,
+          "max": 0.95,
+          "n": 1
+        },
+        "af2_ptm": {
+          "min": 0.49,
+          "median": 0.49,
+          "max": 0.49,
+          "n": 1
+        },
+        "af2_iptm": {
+          "min": 0.09,
+          "median": 0.09,
+          "max": 0.09,
+          "n": 1
+        },
+        "af2_ipAE": {
+          "min": 26.84,
+          "median": 26.84,
+          "max": 26.84,
+          "n": 1
+        },
+        "af2_monomer_plddt": {
+          "min": 0.909,
+          "median": 0.909,
+          "max": 0.909,
+          "n": 1
+        },
+        "af2_bound_unbound_RMSD": {
+          "min": 0.26,
+          "median": 0.26,
+          "max": 0.26,
+          "n": 1
+        },
+        "af2_binder_pred_design_rmsd": {
+          "min": 1.12,
+          "median": 1.12,
+          "max": 1.12,
+          "n": 1
+        },
+        "af2_complex_pred_design_rmsd": {
+          "min": 19.61,
+          "median": 19.61,
+          "max": 19.61,
+          "n": 1
+        },
+        "ptx_plddt": {
+          "min": 81.5961,
+          "median": 81.5961,
+          "max": 81.5961,
+          "n": 1
+        },
+        "ptx_iptm_binder": {
+          "min": 0.2535,
+          "median": 0.2535,
+          "max": 0.2535,
+          "n": 1
+        },
+        "ptx_ptm_binder": {
+          "min": 0.7901,
+          "median": 0.7901,
+          "max": 0.7901,
+          "n": 1
+        },
+        "ptx_iptm": {
+          "min": 0.2535,
+          "median": 0.2535,
+          "max": 0.2535,
+          "n": 1
+        },
+        "ptx_ptm": {
+          "min": 0.6697,
+          "median": 0.6697,
+          "max": 0.6697,
+          "n": 1
+        },
+        "ptx_pred_design_rmsd": {
+          "min": 30.23,
+          "median": 30.23,
+          "max": 30.23,
+          "n": 1
+        },
+        "alpha": {
+          "min": 0.85,
+          "median": 0.85,
+          "max": 0.85,
+          "n": 1
+        },
+        "beta": {
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0,
+          "n": 1
+        },
+        "loop": {
+          "min": 0.15,
+          "median": 0.15,
+          "max": 0.15,
+          "n": 1
+        },
+        "Rg": {
+          "min": 13.23,
+          "median": 13.23,
+          "max": 13.23,
+          "n": 1
+        }
+      },
+      "design_sequences": [
+        "ALTPEQQALLAQMDAVRRRLLARLAQDPAVTPAQRAAFAAALEAIRADALAALQAGTPADAVLAAALAAAQAALDAVRAA"
+      ],
+      "gpu_exclusive": true,
+      "sanity_ok": true,
+      "why": []
+    },
+    {
+      "gpu": "H200",
+      "label": "laczc128_prev_n1",
+      "target": "beta-galactosidase 1DP0 A",
+      "target_residues": 128,
+      "binder_length": 80,
+      "preset": "preview",
+      "batch_n_sample": 1,
+      "n_step": 400,
+      "dtype": "bf16",
+      "extra_argv": null,
+      "yaml": "/work/targets2/laczc_128.yaml",
+      "yaml_sha256": "e154bd16cd05a3cecb60e9bdf3a381ae2d37e6e0db0131679df9ae6625e3067a",
+      "reps_total": 2,
+      "reps_warm": 1,
+      "cold_rep_total_s": 95.7656,
+      "total_s_median": 96.3063,
+      "total_s_min": 96.3063,
+      "total_s_max": 96.3063,
+      "total_s_all_warm": [
+        96.3063
+      ],
+      "s_per_design": 96.3063,
+      "stages_s": {
+        "prep_host_s": 5.1363,
+        "model_init_s": 15.7878,
+        "gen_feat_s": 1.1934,
+        "gen_device_s": 24.3274,
+        "gen_write_s": 0.0268,
+        "tgt_template_s": null,
+        "mpnn_s": 8.0553,
+        "af2_complex_s": 21.723,
+        "af2_monomer_s": 18.8176,
+        "ptx_mini_s": null,
+        "ptx_s": null,
+        "metrics_host_s": 0.0168,
+        "rank_host_s": 0.939,
+        "gen_total_s": 25.5476,
+        "eval_total_s": 48.6233
+      },
+      "split_s": {
+        "pxdesign_d_s": 24.3274,
+        "protenix_s": 0.0,
+        "af2ig_s": 40.5406,
+        "proteinmpnn_s": 8.0553,
+        "host_data_s": 23.383
+      },
+      "split_pct": {
+        "pxdesign_d_pct": 25.26,
+        "protenix_pct": 0.0,
+        "af2ig_pct": 42.1,
+        "proteinmpnn_pct": 8.36,
+        "host_data_pct": 24.28
+      },
+      "unattributed_s": 0.2829,
+      "gpu_util_pct_mean": 7.7,
+      "gpu_power_W_median": 120.8,
+      "gpu_power_W_max": 285.6,
+      "gpu_per_stage_util": {
+        "prep_host": {
+          "power_W_median": 119.9,
+          "power_W_max": 120.1,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 527,
+          "clock_sm_median": 1980,
+          "n_samples": 26
+        },
+        "model_init": {
+          "power_W_median": 119.8,
+          "power_W_max": 120.1,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.1,
+          "mem_MiB_max": 1493,
+          "clock_sm_median": 1980,
+          "n_samples": 79
+        },
+        "gen_device": {
+          "power_W_median": 171.8,
+          "power_W_max": 174.2,
+          "util_pct_median": 28.0,
+          "util_pct_mean": 27.2,
+          "mem_MiB_max": 1803,
+          "clock_sm_median": 1980,
+          "n_samples": 122
+        },
+        "gen_total": {
+          "power_W_median": 171.8,
+          "power_W_max": 174.4,
+          "util_pct_median": 28.0,
+          "util_pct_mean": 26.2,
+          "mem_MiB_max": 1803,
+          "clock_sm_median": 1980,
+          "n_samples": 128
+        },
+        "mpnn": {
+          "power_W_median": 120.8,
+          "power_W_max": 152.2,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.7,
+          "mem_MiB_max": 2317,
+          "clock_sm_median": 1980,
+          "n_samples": 40
+        },
+        "af2_complex": {
+          "power_W_median": 120.7,
+          "power_W_max": 285.6,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 2.3,
+          "mem_MiB_max": 3401,
+          "clock_sm_median": 1980,
+          "n_samples": 109
+        },
+        "af2_monomer": {
+          "power_W_median": 120.7,
+          "power_W_max": 134.3,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.5,
+          "mem_MiB_max": 4099,
+          "clock_sm_median": 1980,
+          "n_samples": 94
+        },
+        "eval_total": {
+          "power_W_median": 120.8,
+          "power_W_max": 285.6,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 1.4,
+          "mem_MiB_max": 4099,
+          "clock_sm_median": 1980,
+          "n_samples": 243
+        },
+        "rank_host": {
+          "power_W_median": 123.1,
+          "power_W_max": 124.8,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.2,
+          "mem_MiB_max": 1467,
+          "clock_sm_median": 1980,
+          "n_samples": 5
+        }
+      },
+      "device_s_per_stage": {
+        "prep_host": 0.0,
+        "model_init": 0.016,
+        "gen_device": 6.617,
+        "mpnn": 0.056,
+        "af2_complex": 0.5,
+        "af2_monomer": 0.094,
+        "rank_host": 0.002
+      },
+      "device_s_total": 7.285,
+      "host_s_total": 89.021,
+      "device_pct_of_wall": 7.56,
+      "tt_target_s_4x_wall": 385.23,
+      "tt_target_s_4x_device": 29.14,
+      "peak_vram_alloc_GiB": 1.08,
+      "counts": {
+        "pxd_predict": 1,
+        "pxdbench_subprocesses": 3,
+        "af2_complex_calls": 1,
+        "af2_monomer_calls": 1
+      },
+      "subprocess_walls_s": [
+        {
+          "script": "main_mpnn.py",
+          "wall_s": 8.055
+        },
+        {
+          "script": "main_af2_complex.py",
+          "wall_s": 21.723
+        },
+        {
+          "script": "main_af2_monomer.py",
+          "wall_s": 18.817
+        }
+      ],
+      "validation_ok": true,
+      "n_designs_returned": 1,
+      "filters_passed": {
+        "AF2-IG-easy-success": 0,
+        "AF2-IG-success": 0
+      },
+      "metrics": {
+        "af2_plddt": {
+          "min": 0.95,
+          "median": 0.95,
+          "max": 0.95,
+          "n": 1
+        },
+        "af2_ptm": {
+          "min": 0.49,
+          "median": 0.49,
+          "max": 0.49,
+          "n": 1
+        },
+        "af2_iptm": {
+          "min": 0.09,
+          "median": 0.09,
+          "max": 0.09,
+          "n": 1
+        },
+        "af2_ipAE": {
+          "min": 26.84,
+          "median": 26.84,
+          "max": 26.84,
+          "n": 1
+        },
+        "af2_monomer_plddt": {
+          "min": 0.909,
+          "median": 0.909,
+          "max": 0.909,
+          "n": 1
+        },
+        "af2_bound_unbound_RMSD": {
+          "min": 0.26,
+          "median": 0.26,
+          "max": 0.26,
+          "n": 1
+        },
+        "af2_binder_pred_design_rmsd": {
+          "min": 1.12,
+          "median": 1.12,
+          "max": 1.12,
+          "n": 1
+        },
+        "af2_complex_pred_design_rmsd": {
+          "min": 19.61,
+          "median": 19.61,
+          "max": 19.61,
+          "n": 1
+        },
+        "alpha": {
+          "min": 0.85,
+          "median": 0.85,
+          "max": 0.85,
+          "n": 1
+        },
+        "beta": {
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0,
+          "n": 1
+        },
+        "loop": {
+          "min": 0.15,
+          "median": 0.15,
+          "max": 0.15,
+          "n": 1
+        },
+        "Rg": {
+          "min": 13.23,
+          "median": 13.23,
+          "max": 13.23,
+          "n": 1
+        }
+      },
+      "design_sequences": [
+        "ALTPEQQALLAQMDAVRRRLLARLAQDPAVTPAQRAAFAAALEAIRADALAALQAGTPADAVLAAALAAAQAALDAVRAA"
+      ],
+      "gpu_exclusive": true,
+      "sanity_ok": true,
+      "why": []
+    },
+    {
+      "gpu": "H200",
+      "label": "laczc128_prev_n1_msa",
+      "target": "beta-galactosidase 1DP0 A",
+      "target_residues": 128,
+      "binder_length": 80,
+      "preset": "preview",
+      "batch_n_sample": 1,
+      "n_step": 400,
+      "dtype": "bf16",
+      "extra_argv": null,
+      "yaml": "/work/targets2/laczc_128.yaml",
+      "yaml_sha256": "6f43b437357131c06bbf30c49bd657e520435af1b229fdb8f0d26bd29617b715",
+      "reps_total": 2,
+      "reps_warm": 1,
+      "cold_rep_total_s": 95.7767,
+      "total_s_median": 96.5822,
+      "total_s_min": 96.5822,
+      "total_s_max": 96.5822,
+      "total_s_all_warm": [
+        96.5822
+      ],
+      "s_per_design": 96.5822,
+      "stages_s": {
+        "prep_host_s": 5.0526,
+        "model_init_s": 15.5957,
+        "gen_feat_s": 1.1482,
+        "gen_device_s": 24.4515,
+        "gen_write_s": 0.0271,
+        "tgt_template_s": null,
+        "mpnn_s": 8.3144,
+        "af2_complex_s": 21.8312,
+        "af2_monomer_s": 18.9017,
+        "ptx_mini_s": null,
+        "ptx_s": null,
+        "metrics_host_s": 0.0171,
+        "rank_host_s": 0.9607,
+        "gen_total_s": 25.6268,
+        "eval_total_s": 49.0752
+      },
+      "split_s": {
+        "pxdesign_d_s": 24.4515,
+        "protenix_s": 0.0,
+        "af2ig_s": 40.7329,
+        "proteinmpnn_s": 8.3144,
+        "host_data_s": 23.0834
+      },
+      "split_pct": {
+        "pxdesign_d_pct": 25.32,
+        "protenix_pct": 0.0,
+        "af2ig_pct": 42.17,
+        "proteinmpnn_pct": 8.61,
+        "host_data_pct": 23.9
+      },
+      "unattributed_s": 0.282,
+      "gpu_util_pct_mean": 7.7,
+      "gpu_power_W_median": 120.6,
+      "gpu_power_W_max": 284.4,
+      "gpu_per_stage_util": {
+        "prep_host": {
+          "power_W_median": 120.4,
+          "power_W_max": 120.6,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 527,
+          "clock_sm_median": 1980,
+          "n_samples": 25
+        },
+        "model_init": {
+          "power_W_median": 120.4,
+          "power_W_max": 120.5,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.1,
+          "mem_MiB_max": 1553,
+          "clock_sm_median": 1980,
+          "n_samples": 78
+        },
+        "gen_device": {
+          "power_W_median": 171.5,
+          "power_W_max": 175.7,
+          "util_pct_median": 28.0,
+          "util_pct_mean": 27.2,
+          "mem_MiB_max": 1803,
+          "clock_sm_median": 1980,
+          "n_samples": 122
+        },
+        "gen_total": {
+          "power_W_median": 171.4,
+          "power_W_max": 175.7,
+          "util_pct_median": 28.0,
+          "util_pct_mean": 26.2,
+          "mem_MiB_max": 1803,
+          "clock_sm_median": 1980,
+          "n_samples": 128
+        },
+        "mpnn": {
+          "power_W_median": 120.4,
+          "power_W_max": 148.2,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.1,
+          "mem_MiB_max": 2317,
+          "clock_sm_median": 1980,
+          "n_samples": 42
+        },
+        "af2_complex": {
+          "power_W_median": 120.5,
+          "power_W_max": 284.4,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 2.4,
+          "mem_MiB_max": 3401,
+          "clock_sm_median": 1980,
+          "n_samples": 109
+        },
+        "af2_monomer": {
+          "power_W_median": 120.8,
+          "power_W_max": 134.3,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 1.0,
+          "mem_MiB_max": 4099,
+          "clock_sm_median": 1980,
+          "n_samples": 94
+        },
+        "eval_total": {
+          "power_W_median": 120.6,
+          "power_W_max": 284.4,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 1.4,
+          "mem_MiB_max": 4099,
+          "clock_sm_median": 1980,
+          "n_samples": 246
+        },
+        "rank_host": {
+          "power_W_median": 123.0,
+          "power_W_max": 124.2,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 1.8,
+          "mem_MiB_max": 1467,
+          "clock_sm_median": 1980,
+          "n_samples": 4
+        }
+      },
+      "device_s_per_stage": {
+        "prep_host": 0.0,
+        "model_init": 0.016,
+        "gen_device": 6.651,
+        "mpnn": 0.008,
+        "af2_complex": 0.524,
+        "af2_monomer": 0.189,
+        "rank_host": 0.017
+      },
+      "device_s_total": 7.405,
+      "host_s_total": 89.177,
+      "device_pct_of_wall": 7.67,
+      "tt_target_s_4x_wall": 386.33,
+      "tt_target_s_4x_device": 29.62,
+      "peak_vram_alloc_GiB": 1.08,
+      "counts": {
+        "pxd_predict": 1,
+        "pxdbench_subprocesses": 3,
+        "af2_complex_calls": 1,
+        "af2_monomer_calls": 1
+      },
+      "subprocess_walls_s": [
+        {
+          "script": "main_mpnn.py",
+          "wall_s": 8.314
+        },
+        {
+          "script": "main_af2_complex.py",
+          "wall_s": 21.831
+        },
+        {
+          "script": "main_af2_monomer.py",
+          "wall_s": 18.901
+        }
+      ],
+      "validation_ok": true,
+      "n_designs_returned": 1,
+      "filters_passed": {
+        "AF2-IG-easy-success": 0,
+        "AF2-IG-success": 0
+      },
+      "metrics": {
+        "af2_plddt": {
+          "min": 0.95,
+          "median": 0.95,
+          "max": 0.95,
+          "n": 1
+        },
+        "af2_ptm": {
+          "min": 0.49,
+          "median": 0.49,
+          "max": 0.49,
+          "n": 1
+        },
+        "af2_iptm": {
+          "min": 0.09,
+          "median": 0.09,
+          "max": 0.09,
+          "n": 1
+        },
+        "af2_ipAE": {
+          "min": 26.84,
+          "median": 26.84,
+          "max": 26.84,
+          "n": 1
+        },
+        "af2_monomer_plddt": {
+          "min": 0.909,
+          "median": 0.909,
+          "max": 0.909,
+          "n": 1
+        },
+        "af2_bound_unbound_RMSD": {
+          "min": 0.26,
+          "median": 0.26,
+          "max": 0.26,
+          "n": 1
+        },
+        "af2_binder_pred_design_rmsd": {
+          "min": 1.12,
+          "median": 1.12,
+          "max": 1.12,
+          "n": 1
+        },
+        "af2_complex_pred_design_rmsd": {
+          "min": 19.61,
+          "median": 19.61,
+          "max": 19.61,
+          "n": 1
+        },
+        "alpha": {
+          "min": 0.85,
+          "median": 0.85,
+          "max": 0.85,
+          "n": 1
+        },
+        "beta": {
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0,
+          "n": 1
+        },
+        "loop": {
+          "min": 0.15,
+          "median": 0.15,
+          "max": 0.15,
+          "n": 1
+        },
+        "Rg": {
+          "min": 13.23,
+          "median": 13.23,
+          "max": 13.23,
+          "n": 1
+        }
+      },
+      "design_sequences": [
+        "ALTPEQQALLAQMDAVRRRLLARLAQDPAVTPAQRAAFAAALEAIRADALAALQAGTPADAVLAAALAAAQAALDAVRAA"
+      ],
+      "gpu_exclusive": true,
+      "sanity_ok": true,
+      "why": []
+    },
+    {
+      "gpu": "H200",
+      "label": "laczc256_exte_n1_msa",
+      "target": "beta-galactosidase 1DP0 A",
+      "target_residues": 256,
+      "binder_length": 80,
+      "preset": "extended",
+      "batch_n_sample": 1,
+      "n_step": 400,
+      "dtype": "bf16",
+      "extra_argv": null,
+      "yaml": "/work/targets2/laczc_256.yaml",
+      "yaml_sha256": "889e5d9b24ab45302d080ff6a229947271b4f133fa1b77281024dfbf1c1a6a43",
+      "reps_total": 2,
+      "reps_warm": 1,
+      "cold_rep_total_s": 178.8629,
+      "total_s_median": 177.641,
+      "total_s_min": 177.641,
+      "total_s_max": 177.641,
+      "total_s_all_warm": [
+        177.641
+      ],
+      "s_per_design": 177.641,
+      "stages_s": {
+        "prep_host_s": 5.2223,
+        "model_init_s": 15.1943,
+        "gen_feat_s": 1.3942,
+        "gen_device_s": 25.4956,
+        "gen_write_s": 0.0431,
+        "tgt_template_s": 41.8737,
+        "mpnn_s": 8.2684,
+        "af2_complex_s": 21.7574,
+        "af2_monomer_s": 18.6379,
+        "ptx_mini_s": null,
+        "ptx_s": 38.1496,
+        "metrics_host_s": 0.0251,
+        "rank_host_s": 1.0423,
+        "gen_total_s": 26.9329,
+        "eval_total_s": 86.9386
+      },
+      "split_s": {
+        "pxdesign_d_s": 25.4956,
+        "protenix_s": 80.0233,
+        "af2ig_s": 40.3953,
+        "proteinmpnn_s": 8.2684,
+        "host_data_s": 23.4584
+      },
+      "split_pct": {
+        "pxdesign_d_pct": 14.35,
+        "protenix_pct": 45.05,
+        "af2ig_pct": 22.74,
+        "proteinmpnn_pct": 4.65,
+        "host_data_pct": 13.21
+      },
+      "unattributed_s": 0.5371,
+      "gpu_util_pct_mean": 8.6,
+      "gpu_power_W_median": 121.7,
+      "gpu_power_W_max": 567.1,
+      "gpu_per_stage_util": {
+        "prep_host": {
+          "power_W_median": 120.7,
+          "power_W_max": 120.8,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.1,
+          "mem_MiB_max": 527,
+          "clock_sm_median": 1980,
+          "n_samples": 26
+        },
+        "model_init": {
+          "power_W_median": 120.6,
+          "power_W_max": 120.7,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.2,
+          "mem_MiB_max": 1313,
+          "clock_sm_median": 1980,
+          "n_samples": 76
+        },
+        "gen_device": {
+          "power_W_median": 218.9,
+          "power_W_max": 224.7,
+          "util_pct_median": 42.0,
+          "util_pct_mean": 40.3,
+          "mem_MiB_max": 1897,
+          "clock_sm_median": 1980,
+          "n_samples": 127
+        },
+        "gen_total": {
+          "power_W_median": 218.7,
+          "power_W_max": 224.7,
+          "util_pct_median": 41.0,
+          "util_pct_mean": 38.3,
+          "mem_MiB_max": 1897,
+          "clock_sm_median": 1980,
+          "n_samples": 135
+        },
+        "tgt_template": {
+          "power_W_median": 121.4,
+          "power_W_max": 218.4,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 3.1,
+          "mem_MiB_max": 4183,
+          "clock_sm_median": 1980,
+          "n_samples": 209
+        },
+        "mpnn": {
+          "power_W_median": 120.6,
+          "power_W_max": 166.8,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.8,
+          "mem_MiB_max": 3951,
+          "clock_sm_median": 1980,
+          "n_samples": 42
+        },
+        "af2_complex": {
+          "power_W_median": 120.5,
+          "power_W_max": 567.1,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 5.7,
+          "mem_MiB_max": 6059,
+          "clock_sm_median": 1980,
+          "n_samples": 108
+        },
+        "af2_monomer": {
+          "power_W_median": 121.0,
+          "power_W_max": 135.1,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 1.5,
+          "mem_MiB_max": 5733,
+          "clock_sm_median": 1980,
+          "n_samples": 93
+        },
+        "ptx": {
+          "power_W_median": 124.8,
+          "power_W_max": 268.5,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 5.0,
+          "mem_MiB_max": 4457,
+          "clock_sm_median": 1980,
+          "n_samples": 191
+        },
+        "eval_total": {
+          "power_W_median": 124.6,
+          "power_W_max": 567.1,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 4.0,
+          "mem_MiB_max": 6059,
+          "clock_sm_median": 1980,
+          "n_samples": 434
+        },
+        "rank_host": {
+          "power_W_median": 155.3,
+          "power_W_max": 204.7,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 3215,
+          "clock_sm_median": 1980,
+          "n_samples": 5
+        }
+      },
+      "device_s_per_stage": {
+        "prep_host": 0.005,
+        "model_init": 0.03,
+        "gen_device": 10.275,
+        "tgt_template": 1.298,
+        "mpnn": 0.066,
+        "af2_complex": 1.24,
+        "af2_monomer": 0.28,
+        "ptx": 1.907,
+        "rank_host": 0.0
+      },
+      "device_s_total": 15.101,
+      "host_s_total": 162.54,
+      "device_pct_of_wall": 8.5,
+      "tt_target_s_4x_wall": 710.56,
+      "tt_target_s_4x_device": 60.4,
+      "peak_vram_alloc_GiB": 3.394,
+      "counts": {
+        "pxd_predict": 1,
+        "target_template_probe": 1,
+        "deepspeed_evo_attn_fn": 4240,
+        "ds4sci_evo_attention": 4240,
+        "pxdbench_subprocesses": 3,
+        "af2_complex_calls": 1,
+        "af2_monomer_calls": 1,
+        "protenix_filter_calls_large": 1
+      },
+      "subprocess_walls_s": [
+        {
+          "script": "main_mpnn.py",
+          "wall_s": 8.268
+        },
+        {
+          "script": "main_af2_complex.py",
+          "wall_s": 21.757
+        },
+        {
+          "script": "main_af2_monomer.py",
+          "wall_s": 18.638
+        }
+      ],
+      "validation_ok": true,
+      "n_designs_returned": 1,
+      "filters_passed": {
+        "AF2-IG-easy-success": 0,
+        "AF2-IG-success": 0,
+        "Protenix-success": 0,
+        "Protenix-basic-success": 0
+      },
+      "metrics": {
+        "af2_plddt": {
+          "min": 0.96,
+          "median": 0.96,
+          "max": 0.96,
+          "n": 1
+        },
+        "af2_ptm": {
+          "min": 0.64,
+          "median": 0.64,
+          "max": 0.64,
+          "n": 1
+        },
+        "af2_iptm": {
+          "min": 0.14,
+          "median": 0.14,
+          "max": 0.14,
+          "n": 1
+        },
+        "af2_ipAE": {
+          "min": 25.95,
+          "median": 25.95,
+          "max": 25.95,
+          "n": 1
+        },
+        "af2_monomer_plddt": {
+          "min": 0.976,
+          "median": 0.976,
+          "max": 0.976,
+          "n": 1
+        },
+        "af2_bound_unbound_RMSD": {
+          "min": 0.15,
+          "median": 0.15,
+          "max": 0.15,
+          "n": 1
+        },
+        "af2_binder_pred_design_rmsd": {
+          "min": 0.65,
+          "median": 0.65,
+          "max": 0.65,
+          "n": 1
+        },
+        "af2_complex_pred_design_rmsd": {
+          "min": 15.74,
+          "median": 15.74,
+          "max": 15.74,
+          "n": 1
+        },
+        "ptx_plddt": {
+          "min": 89.3381,
+          "median": 89.3381,
+          "max": 89.3381,
+          "n": 1
+        },
+        "ptx_iptm_binder": {
+          "min": 0.0851,
+          "median": 0.0851,
+          "max": 0.0851,
+          "n": 1
+        },
+        "ptx_ptm_binder": {
+          "min": 0.9204,
+          "median": 0.9204,
+          "max": 0.9204,
+          "n": 1
+        },
+        "ptx_iptm": {
+          "min": 0.0851,
+          "median": 0.0851,
+          "max": 0.0851,
+          "n": 1
+        },
+        "ptx_ptm": {
+          "min": 0.7236,
+          "median": 0.7236,
+          "max": 0.7236,
+          "n": 1
+        },
+        "ptx_pred_design_rmsd": {
+          "min": 20.25,
+          "median": 20.25,
+          "max": 20.25,
+          "n": 1
+        },
+        "alpha": {
+          "min": 0.95,
+          "median": 0.95,
+          "max": 0.95,
+          "n": 1
+        },
+        "beta": {
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0,
+          "n": 1
+        },
+        "loop": {
+          "min": 0.05,
+          "median": 0.05,
+          "max": 0.05,
+          "n": 1
+        },
+        "Rg": {
+          "min": 13.18,
+          "median": 13.18,
+          "max": 13.18,
+          "n": 1
+        }
+      },
+      "design_sequences": [
+        "SALLAEARATIAALSAAADAAIAAGDLEAAIALVRELERRTTALAVRAIEAGEEETAIEIMRTADATINALWARIVAAYK"
+      ],
+      "gpu_exclusive": true,
+      "sanity_ok": true,
+      "why": []
+    },
+    {
+      "gpu": "H200",
+      "label": "laczc256_prev_n1",
+      "target": "beta-galactosidase 1DP0 A",
+      "target_residues": 256,
+      "binder_length": 80,
+      "preset": "preview",
+      "batch_n_sample": 1,
+      "n_step": 400,
+      "dtype": "bf16",
+      "extra_argv": null,
+      "yaml": "/work/targets2/laczc_256.yaml",
+      "yaml_sha256": "8249db30a2fc20d69e4ec8c6a617efec2ae6c9fc51ac5172e31e13b725075e86",
+      "reps_total": 2,
+      "reps_warm": 1,
+      "cold_rep_total_s": 98.58,
+      "total_s_median": 98.1225,
+      "total_s_min": 98.1225,
+      "total_s_max": 98.1225,
+      "total_s_all_warm": [
+        98.1225
+      ],
+      "s_per_design": 98.1225,
+      "stages_s": {
+        "prep_host_s": 5.2572,
+        "model_init_s": 15.0673,
+        "gen_feat_s": 1.4166,
+        "gen_device_s": 25.4776,
+        "gen_write_s": 0.0429,
+        "tgt_template_s": null,
+        "mpnn_s": 8.4146,
+        "af2_complex_s": 22.0067,
+        "af2_monomer_s": 18.8423,
+        "ptx_mini_s": null,
+        "ptx_s": null,
+        "metrics_host_s": 0.0283,
+        "rank_host_s": 1.0301,
+        "gen_total_s": 26.9371,
+        "eval_total_s": 49.3018
+      },
+      "split_s": {
+        "pxdesign_d_s": 25.4776,
+        "protenix_s": 0.0,
+        "af2ig_s": 40.849,
+        "proteinmpnn_s": 8.4146,
+        "host_data_s": 23.3813
+      },
+      "split_pct": {
+        "pxdesign_d_pct": 25.97,
+        "protenix_pct": 0.0,
+        "af2ig_pct": 41.63,
+        "proteinmpnn_pct": 8.58,
+        "host_data_pct": 23.83
+      },
+      "unattributed_s": 0.5389,
+      "gpu_util_pct_mean": 12.2,
+      "gpu_power_W_median": 120.8,
+      "gpu_power_W_max": 573.4,
+      "gpu_per_stage_util": {
+        "prep_host": {
+          "power_W_median": 120.3,
+          "power_W_max": 120.5,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.1,
+          "mem_MiB_max": 527,
+          "clock_sm_median": 1980,
+          "n_samples": 27
+        },
+        "model_init": {
+          "power_W_median": 120.4,
+          "power_W_max": 120.6,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.1,
+          "mem_MiB_max": 1553,
+          "clock_sm_median": 1980,
+          "n_samples": 75
+        },
+        "gen_device": {
+          "power_W_median": 218.5,
+          "power_W_max": 224.5,
+          "util_pct_median": 42.0,
+          "util_pct_mean": 40.7,
+          "mem_MiB_max": 1897,
+          "clock_sm_median": 1980,
+          "n_samples": 127
+        },
+        "gen_total": {
+          "power_W_median": 218.2,
+          "power_W_max": 224.5,
+          "util_pct_median": 42.0,
+          "util_pct_mean": 38.9,
+          "mem_MiB_max": 1897,
+          "clock_sm_median": 1980,
+          "n_samples": 134
+        },
+        "mpnn": {
+          "power_W_median": 120.8,
+          "power_W_max": 147.2,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.9,
+          "mem_MiB_max": 2645,
+          "clock_sm_median": 1980,
+          "n_samples": 42
+        },
+        "af2_complex": {
+          "power_W_median": 120.4,
+          "power_W_max": 573.4,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 5.4,
+          "mem_MiB_max": 4753,
+          "clock_sm_median": 1980,
+          "n_samples": 110
+        },
+        "af2_monomer": {
+          "power_W_median": 120.8,
+          "power_W_max": 134.8,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 1.3,
+          "mem_MiB_max": 4427,
+          "clock_sm_median": 1980,
+          "n_samples": 94
+        },
+        "eval_total": {
+          "power_W_median": 120.7,
+          "power_W_max": 573.4,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 3.1,
+          "mem_MiB_max": 4753,
+          "clock_sm_median": 1980,
+          "n_samples": 247
+        },
+        "rank_host": {
+          "power_W_median": 123.5,
+          "power_W_max": 125.0,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 1.4,
+          "mem_MiB_max": 1795,
+          "clock_sm_median": 1980,
+          "n_samples": 5
+        }
+      },
+      "device_s_per_stage": {
+        "prep_host": 0.005,
+        "model_init": 0.015,
+        "gen_device": 10.369,
+        "mpnn": 0.076,
+        "af2_complex": 1.188,
+        "af2_monomer": 0.245,
+        "rank_host": 0.014
+      },
+      "device_s_total": 11.912,
+      "host_s_total": 86.21,
+      "device_pct_of_wall": 12.14,
+      "tt_target_s_4x_wall": 392.49,
+      "tt_target_s_4x_device": 47.65,
+      "peak_vram_alloc_GiB": 1.08,
+      "counts": {
+        "pxd_predict": 1,
+        "pxdbench_subprocesses": 3,
+        "af2_complex_calls": 1,
+        "af2_monomer_calls": 1
+      },
+      "subprocess_walls_s": [
+        {
+          "script": "main_mpnn.py",
+          "wall_s": 8.414
+        },
+        {
+          "script": "main_af2_complex.py",
+          "wall_s": 22.006
+        },
+        {
+          "script": "main_af2_monomer.py",
+          "wall_s": 18.842
+        }
+      ],
+      "validation_ok": true,
+      "n_designs_returned": 1,
+      "filters_passed": {
+        "AF2-IG-easy-success": 0,
+        "AF2-IG-success": 0
+      },
+      "metrics": {
+        "af2_plddt": {
+          "min": 0.96,
+          "median": 0.96,
+          "max": 0.96,
+          "n": 1
+        },
+        "af2_ptm": {
+          "min": 0.64,
+          "median": 0.64,
+          "max": 0.64,
+          "n": 1
+        },
+        "af2_iptm": {
+          "min": 0.14,
+          "median": 0.14,
+          "max": 0.14,
+          "n": 1
+        },
+        "af2_ipAE": {
+          "min": 25.95,
+          "median": 25.95,
+          "max": 25.95,
+          "n": 1
+        },
+        "af2_monomer_plddt": {
+          "min": 0.976,
+          "median": 0.976,
+          "max": 0.976,
+          "n": 1
+        },
+        "af2_bound_unbound_RMSD": {
+          "min": 0.15,
+          "median": 0.15,
+          "max": 0.15,
+          "n": 1
+        },
+        "af2_binder_pred_design_rmsd": {
+          "min": 0.65,
+          "median": 0.65,
+          "max": 0.65,
+          "n": 1
+        },
+        "af2_complex_pred_design_rmsd": {
+          "min": 15.74,
+          "median": 15.74,
+          "max": 15.74,
+          "n": 1
+        },
+        "alpha": {
+          "min": 0.95,
+          "median": 0.95,
+          "max": 0.95,
+          "n": 1
+        },
+        "beta": {
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0,
+          "n": 1
+        },
+        "loop": {
+          "min": 0.05,
+          "median": 0.05,
+          "max": 0.05,
+          "n": 1
+        },
+        "Rg": {
+          "min": 13.18,
+          "median": 13.18,
+          "max": 13.18,
+          "n": 1
+        }
+      },
+      "design_sequences": [
+        "SALLAEARATIAALSAAADAAIAAGDLEAAIALVRELERRTTALAVRAIEAGEEETAIEIMRTADATINALWARIVAAYK"
+      ],
+      "gpu_exclusive": true,
+      "sanity_ok": true,
+      "why": []
+    },
+    {
+      "gpu": "H200",
+      "label": "laczc256_prev_n1_msa",
+      "target": "beta-galactosidase 1DP0 A",
+      "target_residues": 256,
+      "binder_length": 80,
+      "preset": "preview",
+      "batch_n_sample": 1,
+      "n_step": 400,
+      "dtype": "bf16",
+      "extra_argv": null,
+      "yaml": "/work/targets2/laczc_256.yaml",
+      "yaml_sha256": "889e5d9b24ab45302d080ff6a229947271b4f133fa1b77281024dfbf1c1a6a43",
+      "reps_total": 2,
+      "reps_warm": 1,
+      "cold_rep_total_s": 98.4875,
+      "total_s_median": 98.8409,
+      "total_s_min": 98.8409,
+      "total_s_max": 98.8409,
+      "total_s_all_warm": [
+        98.8409
+      ],
+      "s_per_design": 98.8409,
+      "stages_s": {
+        "prep_host_s": 5.1225,
+        "model_init_s": 15.3678,
+        "gen_feat_s": 1.3758,
+        "gen_device_s": 25.6507,
+        "gen_write_s": 0.0443,
+        "tgt_template_s": null,
+        "mpnn_s": 8.2605,
+        "af2_complex_s": 22.0149,
+        "af2_monomer_s": 19.428,
+        "ptx_mini_s": null,
+        "ptx_s": null,
+        "metrics_host_s": 0.0282,
+        "rank_host_s": 1.0136,
+        "gen_total_s": 27.0708,
+        "eval_total_s": 49.7415
+      },
+      "split_s": {
+        "pxdesign_d_s": 25.6507,
+        "protenix_s": 0.0,
+        "af2ig_s": 41.4429,
+        "proteinmpnn_s": 8.2605,
+        "host_data_s": 23.4868
+      },
+      "split_pct": {
+        "pxdesign_d_pct": 25.95,
+        "protenix_pct": 0.0,
+        "af2ig_pct": 41.93,
+        "proteinmpnn_pct": 8.36,
+        "host_data_pct": 23.76
+      },
+      "unattributed_s": 0.5346,
+      "gpu_util_pct_mean": 11.9,
+      "gpu_power_W_median": 121.4,
+      "gpu_power_W_max": 568.4,
+      "gpu_per_stage_util": {
+        "prep_host": {
+          "power_W_median": 120.4,
+          "power_W_max": 120.5,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.1,
+          "mem_MiB_max": 527,
+          "clock_sm_median": 1980,
+          "n_samples": 26
+        },
+        "model_init": {
+          "power_W_median": 120.3,
+          "power_W_max": 120.4,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.1,
+          "mem_MiB_max": 1293,
+          "clock_sm_median": 1980,
+          "n_samples": 76
+        },
+        "gen_device": {
+          "power_W_median": 217.4,
+          "power_W_max": 223.8,
+          "util_pct_median": 42.0,
+          "util_pct_mean": 40.0,
+          "mem_MiB_max": 1897,
+          "clock_sm_median": 1980,
+          "n_samples": 128
+        },
+        "gen_total": {
+          "power_W_median": 217.3,
+          "power_W_max": 223.8,
+          "util_pct_median": 41.0,
+          "util_pct_mean": 38.2,
+          "mem_MiB_max": 1897,
+          "clock_sm_median": 1980,
+          "n_samples": 135
+        },
+        "mpnn": {
+          "power_W_median": 121.3,
+          "power_W_max": 156.9,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.2,
+          "mem_MiB_max": 2645,
+          "clock_sm_median": 1980,
+          "n_samples": 42
+        },
+        "af2_complex": {
+          "power_W_median": 121.2,
+          "power_W_max": 568.4,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 5.7,
+          "mem_MiB_max": 4753,
+          "clock_sm_median": 1980,
+          "n_samples": 109
+        },
+        "af2_monomer": {
+          "power_W_median": 121.2,
+          "power_W_max": 135.1,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.9,
+          "mem_MiB_max": 4427,
+          "clock_sm_median": 1980,
+          "n_samples": 97
+        },
+        "metrics_host": {
+          "power_W_median": 125.0,
+          "power_W_max": 125.0,
+          "util_pct_median": 1.0,
+          "util_pct_mean": 1.0,
+          "mem_MiB_max": 1795,
+          "clock_sm_median": 1980,
+          "n_samples": 1
+        },
+        "eval_total": {
+          "power_W_median": 121.2,
+          "power_W_max": 568.4,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 2.9,
+          "mem_MiB_max": 4753,
+          "clock_sm_median": 1980,
+          "n_samples": 249
+        },
+        "rank_host": {
+          "power_W_median": 123.8,
+          "power_W_max": 125.1,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 1795,
+          "clock_sm_median": 1980,
+          "n_samples": 5
+        }
+      },
+      "device_s_per_stage": {
+        "prep_host": 0.005,
+        "model_init": 0.015,
+        "gen_device": 10.26,
+        "mpnn": 0.017,
+        "af2_complex": 1.255,
+        "af2_monomer": 0.175,
+        "metrics_host": 0.0,
+        "rank_host": 0.0
+      },
+      "device_s_total": 11.727,
+      "host_s_total": 87.114,
+      "device_pct_of_wall": 11.86,
+      "tt_target_s_4x_wall": 395.36,
+      "tt_target_s_4x_device": 46.91,
+      "peak_vram_alloc_GiB": 1.08,
+      "counts": {
+        "pxd_predict": 1,
+        "pxdbench_subprocesses": 3,
+        "af2_complex_calls": 1,
+        "af2_monomer_calls": 1
+      },
+      "subprocess_walls_s": [
+        {
+          "script": "main_mpnn.py",
+          "wall_s": 8.26
+        },
+        {
+          "script": "main_af2_complex.py",
+          "wall_s": 22.015
+        },
+        {
+          "script": "main_af2_monomer.py",
+          "wall_s": 19.428
+        }
+      ],
+      "validation_ok": true,
+      "n_designs_returned": 1,
+      "filters_passed": {
+        "AF2-IG-easy-success": 0,
+        "AF2-IG-success": 0
+      },
+      "metrics": {
+        "af2_plddt": {
+          "min": 0.96,
+          "median": 0.96,
+          "max": 0.96,
+          "n": 1
+        },
+        "af2_ptm": {
+          "min": 0.64,
+          "median": 0.64,
+          "max": 0.64,
+          "n": 1
+        },
+        "af2_iptm": {
+          "min": 0.14,
+          "median": 0.14,
+          "max": 0.14,
+          "n": 1
+        },
+        "af2_ipAE": {
+          "min": 25.95,
+          "median": 25.95,
+          "max": 25.95,
+          "n": 1
+        },
+        "af2_monomer_plddt": {
+          "min": 0.976,
+          "median": 0.976,
+          "max": 0.976,
+          "n": 1
+        },
+        "af2_bound_unbound_RMSD": {
+          "min": 0.15,
+          "median": 0.15,
+          "max": 0.15,
+          "n": 1
+        },
+        "af2_binder_pred_design_rmsd": {
+          "min": 0.65,
+          "median": 0.65,
+          "max": 0.65,
+          "n": 1
+        },
+        "af2_complex_pred_design_rmsd": {
+          "min": 15.74,
+          "median": 15.74,
+          "max": 15.74,
+          "n": 1
+        },
+        "alpha": {
+          "min": 0.95,
+          "median": 0.95,
+          "max": 0.95,
+          "n": 1
+        },
+        "beta": {
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0,
+          "n": 1
+        },
+        "loop": {
+          "min": 0.05,
+          "median": 0.05,
+          "max": 0.05,
+          "n": 1
+        },
+        "Rg": {
+          "min": 13.18,
+          "median": 13.18,
+          "max": 13.18,
+          "n": 1
+        }
+      },
+      "design_sequences": [
+        "SALLAEARATIAALSAAADAAIAAGDLEAAIALVRELERRTTALAVRAIEAGEEETAIEIMRTADATINALWARIVAAYK"
+      ],
+      "gpu_exclusive": true,
+      "sanity_ok": true,
+      "why": []
+    },
+    {
+      "gpu": "H200",
+      "label": "laczc512_exte_n1_msa",
+      "target": "beta-galactosidase 1DP0 A",
+      "target_residues": 512,
+      "binder_length": 80,
+      "preset": "extended",
+      "batch_n_sample": 1,
+      "n_step": 400,
+      "dtype": "bf16",
+      "extra_argv": null,
+      "yaml": "/work/targets2/laczc_512.yaml",
+      "yaml_sha256": "1f40d52b66bf38fcf15ccc0c371878685d5986e228b4757cf7ce39268a9a13a1",
+      "reps_total": 2,
+      "reps_warm": 1,
+      "cold_rep_total_s": 171.3689,
+      "total_s_median": 170.928,
+      "total_s_min": 170.928,
+      "total_s_max": 170.928,
+      "total_s_all_warm": [
+        170.928
+      ],
+      "s_per_design": 170.928,
+      "stages_s": {
+        "prep_host_s": 5.3908,
+        "model_init_s": 15.5307,
+        "gen_feat_s": 2.0831,
+        "gen_device_s": 28.2632,
+        "gen_write_s": 0.078,
+        "tgt_template_s": 44.2291,
+        "mpnn_s": 8.3853,
+        "af2_complex_s": 31.068,
+        "af2_monomer_s": 19.0,
+        "ptx_mini_s": null,
+        "ptx_s": 14.6436,
+        "metrics_host_s": 0.044,
+        "rank_host_s": 1.3251,
+        "gen_total_s": 30.4243,
+        "eval_total_s": 73.2407
+      },
+      "split_s": {
+        "pxdesign_d_s": 28.2632,
+        "protenix_s": 58.8727,
+        "af2ig_s": 50.068,
+        "proteinmpnn_s": 8.3853,
+        "host_data_s": 25.3388
+      },
+      "split_pct": {
+        "pxdesign_d_pct": 16.54,
+        "protenix_pct": 34.44,
+        "af2ig_pct": 29.29,
+        "proteinmpnn_pct": 4.91,
+        "host_data_pct": 14.82
+      },
+      "unattributed_s": 0.8871,
+      "gpu_util_pct_mean": 20.7,
+      "gpu_power_W_median": 121.7,
+      "gpu_power_W_max": 443.2,
+      "gpu_per_stage_util": {
+        "prep_host": {
+          "power_W_median": 120.5,
+          "power_W_max": 120.8,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 527,
+          "clock_sm_median": 1980,
+          "n_samples": 27
+        },
+        "model_init": {
+          "power_W_median": 120.4,
+          "power_W_max": 120.5,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 1393,
+          "clock_sm_median": 1980,
+          "n_samples": 77
+        },
+        "gen_device": {
+          "power_W_median": 332.3,
+          "power_W_max": 341.4,
+          "util_pct_median": 73.0,
+          "util_pct_mean": 70.2,
+          "mem_MiB_max": 2895,
+          "clock_sm_median": 1980,
+          "n_samples": 141
+        },
+        "gen_write": {
+          "power_W_median": 280.0,
+          "power_W_max": 280.0,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 2895,
+          "clock_sm_median": 1980,
+          "n_samples": 1
+        },
+        "gen_total": {
+          "power_W_median": 331.5,
+          "power_W_max": 341.4,
+          "util_pct_median": 73.0,
+          "util_pct_mean": 65.7,
+          "mem_MiB_max": 2895,
+          "clock_sm_median": 1980,
+          "n_samples": 152
+        },
+        "tgt_template": {
+          "power_W_median": 121.2,
+          "power_W_max": 443.2,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 9.2,
+          "mem_MiB_max": 5945,
+          "clock_sm_median": 1980,
+          "n_samples": 221
+        },
+        "mpnn": {
+          "power_W_median": 121.1,
+          "power_W_max": 122.3,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.1,
+          "mem_MiB_max": 4545,
+          "clock_sm_median": 1980,
+          "n_samples": 42
+        },
+        "af2_complex": {
+          "power_W_median": 122.9,
+          "power_W_max": 363.9,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 29.8,
+          "mem_MiB_max": 6401,
+          "clock_sm_median": 1980,
+          "n_samples": 155
+        },
+        "af2_monomer": {
+          "power_W_median": 121.5,
+          "power_W_max": 134.6,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.5,
+          "mem_MiB_max": 6071,
+          "clock_sm_median": 1980,
+          "n_samples": 95
+        },
+        "ptx": {
+          "power_W_median": 124.8,
+          "power_W_max": 437.3,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 13.9,
+          "mem_MiB_max": 5781,
+          "clock_sm_median": 1980,
+          "n_samples": 73
+        },
+        "eval_total": {
+          "power_W_median": 122.3,
+          "power_W_max": 437.3,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 15.5,
+          "mem_MiB_max": 6401,
+          "clock_sm_median": 1980,
+          "n_samples": 366
+        },
+        "rank_host": {
+          "power_W_median": 121.5,
+          "power_W_max": 290.8,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 2501,
+          "clock_sm_median": 1980,
+          "n_samples": 7
+        }
+      },
+      "device_s_per_stage": {
+        "prep_host": 0.0,
+        "model_init": 0.0,
+        "gen_device": 19.841,
+        "gen_write": 0.0,
+        "tgt_template": 4.069,
+        "mpnn": 0.008,
+        "af2_complex": 9.258,
+        "af2_monomer": 0.095,
+        "ptx": 2.035,
+        "rank_host": 0.0
+      },
+      "device_s_total": 35.306,
+      "host_s_total": 135.622,
+      "device_pct_of_wall": 20.66,
+      "tt_target_s_4x_wall": 683.71,
+      "tt_target_s_4x_device": 141.22,
+      "peak_vram_alloc_GiB": 4.304,
+      "counts": {
+        "pxd_predict": 1,
+        "target_template_probe": 1,
+        "deepspeed_evo_attn_fn": 4832,
+        "ds4sci_evo_attention": 4832,
+        "pxdbench_subprocesses": 3,
+        "af2_complex_calls": 1,
+        "af2_monomer_calls": 1,
+        "protenix_filter_calls_large": 1
+      },
+      "subprocess_walls_s": [
+        {
+          "script": "main_mpnn.py",
+          "wall_s": 8.385
+        },
+        {
+          "script": "main_af2_complex.py",
+          "wall_s": 31.068
+        },
+        {
+          "script": "main_af2_monomer.py",
+          "wall_s": 19.0
+        }
+      ],
+      "validation_ok": true,
+      "n_designs_returned": 1,
+      "filters_passed": {
+        "AF2-IG-easy-success": 0,
+        "AF2-IG-success": 0,
+        "Protenix-success": 0,
+        "Protenix-basic-success": 0
+      },
+      "metrics": {
+        "af2_plddt": {
+          "min": 0.93,
+          "median": 0.93,
+          "max": 0.93,
+          "n": 1
+        },
+        "af2_ptm": {
+          "min": 0.73,
+          "median": 0.73,
+          "max": 0.73,
+          "n": 1
+        },
+        "af2_iptm": {
+          "min": 0.18,
+          "median": 0.18,
+          "max": 0.18,
+          "n": 1
+        },
+        "af2_ipAE": {
+          "min": 27.31,
+          "median": 27.31,
+          "max": 27.31,
+          "n": 1
+        },
+        "af2_monomer_plddt": {
+          "min": 0.955,
+          "median": 0.955,
+          "max": 0.955,
+          "n": 1
+        },
+        "af2_bound_unbound_RMSD": {
+          "min": 0.51,
+          "median": 0.51,
+          "max": 0.51,
+          "n": 1
+        },
+        "af2_binder_pred_design_rmsd": {
+          "min": 0.77,
+          "median": 0.77,
+          "max": 0.77,
+          "n": 1
+        },
+        "af2_complex_pred_design_rmsd": {
+          "min": 19.08,
+          "median": 19.08,
+          "max": 19.08,
+          "n": 1
+        },
+        "ptx_plddt": {
+          "min": 91.4691,
+          "median": 91.4691,
+          "max": 91.4691,
+          "n": 1
+        },
+        "ptx_iptm_binder": {
+          "min": 0.1225,
+          "median": 0.1225,
+          "max": 0.1225,
+          "n": 1
+        },
+        "ptx_ptm_binder": {
+          "min": 0.8278,
+          "median": 0.8278,
+          "max": 0.8278,
+          "n": 1
+        },
+        "ptx_iptm": {
+          "min": 0.1225,
+          "median": 0.1225,
+          "max": 0.1225,
+          "n": 1
+        },
+        "ptx_ptm": {
+          "min": 0.8245,
+          "median": 0.8245,
+          "max": 0.8245,
+          "n": 1
+        },
+        "ptx_pred_design_rmsd": {
+          "min": 18.57,
+          "median": 18.57,
+          "max": 18.57,
+          "n": 1
+        },
+        "alpha": {
+          "min": 0.925,
+          "median": 0.925,
+          "max": 0.925,
+          "n": 1
+        },
+        "beta": {
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0,
+          "n": 1
+        },
+        "loop": {
+          "min": 0.075,
+          "median": 0.075,
+          "max": 0.075,
+          "n": 1
+        },
+        "Rg": {
+          "min": 13.57,
+          "median": 13.57,
+          "max": 13.57,
+          "n": 1
+        }
+      },
+      "design_sequences": [
+        "SPEREALIARLRELTAALLARAAELAAKASPEERARLERLVEYLRARVARLVAGVEAGDPEAIEAARRLVRRLEATLAAL"
+      ],
+      "gpu_exclusive": true,
+      "sanity_ok": true,
+      "why": []
+    },
+    {
+      "gpu": "H200",
+      "label": "laczc512_prev_n1",
+      "target": "beta-galactosidase 1DP0 A",
+      "target_residues": 512,
+      "binder_length": 80,
+      "preset": "preview",
+      "batch_n_sample": 1,
+      "n_step": 400,
+      "dtype": "bf16",
+      "extra_argv": null,
+      "yaml": "/work/targets2/laczc_512.yaml",
+      "yaml_sha256": "48a6b5c0c5d9ca9b36bccda5a9f2258a9b5b8569b4631754cc724e1985b8f713",
+      "reps_total": 2,
+      "reps_warm": 1,
+      "cold_rep_total_s": 112.5151,
+      "total_s_median": 112.3986,
+      "total_s_min": 112.3986,
+      "total_s_max": 112.3986,
+      "total_s_all_warm": [
+        112.3986
+      ],
+      "s_per_design": 112.3986,
+      "stages_s": {
+        "prep_host_s": 5.6419,
+        "model_init_s": 15.5572,
+        "gen_feat_s": 2.1528,
+        "gen_device_s": 28.5825,
+        "gen_write_s": 0.0776,
+        "tgt_template_s": null,
+        "mpnn_s": 8.5706,
+        "af2_complex_s": 30.8477,
+        "af2_monomer_s": 18.995,
+        "ptx_mini_s": null,
+        "ptx_s": null,
+        "metrics_host_s": 0.0477,
+        "rank_host_s": 1.2232,
+        "gen_total_s": 30.8129,
+        "eval_total_s": 58.4708
+      },
+      "split_s": {
+        "pxdesign_d_s": 28.5825,
+        "protenix_s": 0.0,
+        "af2ig_s": 49.8427,
+        "proteinmpnn_s": 8.5706,
+        "host_data_s": 25.4028
+      },
+      "split_pct": {
+        "pxdesign_d_pct": 25.43,
+        "protenix_pct": 0.0,
+        "af2ig_pct": 44.34,
+        "proteinmpnn_pct": 7.63,
+        "host_data_pct": 22.6
+      },
+      "unattributed_s": 0.7024,
+      "gpu_util_pct_mean": 26.1,
+      "gpu_power_W_median": 122.8,
+      "gpu_power_W_max": 366.1,
+      "gpu_per_stage_util": {
+        "prep_host": {
+          "power_W_median": 120.2,
+          "power_W_max": 120.3,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 527,
+          "clock_sm_median": 1980,
+          "n_samples": 29
+        },
+        "model_init": {
+          "power_W_median": 120.1,
+          "power_W_max": 120.3,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.1,
+          "mem_MiB_max": 1313,
+          "clock_sm_median": 1980,
+          "n_samples": 77
+        },
+        "gen_device": {
+          "power_W_median": 326.8,
+          "power_W_max": 335.6,
+          "util_pct_median": 71.0,
+          "util_pct_mean": 69.2,
+          "mem_MiB_max": 2895,
+          "clock_sm_median": 1980,
+          "n_samples": 142
+        },
+        "gen_write": {
+          "power_W_median": 284.4,
+          "power_W_max": 284.4,
+          "util_pct_median": 36.0,
+          "util_pct_mean": 36.0,
+          "mem_MiB_max": 2895,
+          "clock_sm_median": 1980,
+          "n_samples": 1
+        },
+        "gen_total": {
+          "power_W_median": 326.5,
+          "power_W_max": 335.6,
+          "util_pct_median": 71.0,
+          "util_pct_mean": 64.5,
+          "mem_MiB_max": 2895,
+          "clock_sm_median": 1980,
+          "n_samples": 154
+        },
+        "mpnn": {
+          "power_W_median": 122.6,
+          "power_W_max": 123.6,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 4001,
+          "clock_sm_median": 1980,
+          "n_samples": 43
+        },
+        "af2_complex": {
+          "power_W_median": 123.9,
+          "power_W_max": 366.1,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 29.9,
+          "mem_MiB_max": 5857,
+          "clock_sm_median": 1980,
+          "n_samples": 154
+        },
+        "af2_monomer": {
+          "power_W_median": 122.3,
+          "power_W_max": 135.8,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.9,
+          "mem_MiB_max": 5527,
+          "clock_sm_median": 1980,
+          "n_samples": 94
+        },
+        "metrics_host": {
+          "power_W_median": 125.2,
+          "power_W_max": 125.2,
+          "util_pct_median": 1.0,
+          "util_pct_mean": 1.0,
+          "mem_MiB_max": 2895,
+          "clock_sm_median": 1980,
+          "n_samples": 1
+        },
+        "eval_total": {
+          "power_W_median": 122.5,
+          "power_W_max": 366.1,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 16.0,
+          "mem_MiB_max": 5857,
+          "clock_sm_median": 1980,
+          "n_samples": 292
+        },
+        "rank_host": {
+          "power_W_median": 124.8,
+          "power_W_max": 125.6,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 2895,
+          "clock_sm_median": 1980,
+          "n_samples": 6
+        }
+      },
+      "device_s_per_stage": {
+        "prep_host": 0.0,
+        "model_init": 0.016,
+        "gen_device": 19.779,
+        "gen_write": 0.028,
+        "mpnn": 0.0,
+        "af2_complex": 9.223,
+        "af2_monomer": 0.171,
+        "metrics_host": 0.0,
+        "rank_host": 0.0
+      },
+      "device_s_total": 29.217,
+      "host_s_total": 83.182,
+      "device_pct_of_wall": 25.99,
+      "tt_target_s_4x_wall": 449.59,
+      "tt_target_s_4x_device": 116.87,
+      "peak_vram_alloc_GiB": 2.078,
+      "counts": {
+        "pxd_predict": 1,
+        "pxdbench_subprocesses": 3,
+        "af2_complex_calls": 1,
+        "af2_monomer_calls": 1
+      },
+      "subprocess_walls_s": [
+        {
+          "script": "main_mpnn.py",
+          "wall_s": 8.57
+        },
+        {
+          "script": "main_af2_complex.py",
+          "wall_s": 30.847
+        },
+        {
+          "script": "main_af2_monomer.py",
+          "wall_s": 18.995
+        }
+      ],
+      "validation_ok": true,
+      "n_designs_returned": 1,
+      "filters_passed": {
+        "AF2-IG-easy-success": 0,
+        "AF2-IG-success": 0
+      },
+      "metrics": {
+        "af2_plddt": {
+          "min": 0.93,
+          "median": 0.93,
+          "max": 0.93,
+          "n": 1
+        },
+        "af2_ptm": {
+          "min": 0.73,
+          "median": 0.73,
+          "max": 0.73,
+          "n": 1
+        },
+        "af2_iptm": {
+          "min": 0.18,
+          "median": 0.18,
+          "max": 0.18,
+          "n": 1
+        },
+        "af2_ipAE": {
+          "min": 27.31,
+          "median": 27.31,
+          "max": 27.31,
+          "n": 1
+        },
+        "af2_monomer_plddt": {
+          "min": 0.955,
+          "median": 0.955,
+          "max": 0.955,
+          "n": 1
+        },
+        "af2_bound_unbound_RMSD": {
+          "min": 0.51,
+          "median": 0.51,
+          "max": 0.51,
+          "n": 1
+        },
+        "af2_binder_pred_design_rmsd": {
+          "min": 0.77,
+          "median": 0.77,
+          "max": 0.77,
+          "n": 1
+        },
+        "af2_complex_pred_design_rmsd": {
+          "min": 19.08,
+          "median": 19.08,
+          "max": 19.08,
+          "n": 1
+        },
+        "alpha": {
+          "min": 0.925,
+          "median": 0.925,
+          "max": 0.925,
+          "n": 1
+        },
+        "beta": {
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0,
+          "n": 1
+        },
+        "loop": {
+          "min": 0.075,
+          "median": 0.075,
+          "max": 0.075,
+          "n": 1
+        },
+        "Rg": {
+          "min": 13.57,
+          "median": 13.57,
+          "max": 13.57,
+          "n": 1
+        }
+      },
+      "design_sequences": [
+        "SPEREALIARLRELTAALLARAAELAAKASPEERARLERLVEYLRARVARLVAGVEAGDPEAIEAARRLVRRLEATLAAL"
+      ],
+      "gpu_exclusive": true,
+      "sanity_ok": true,
+      "why": []
+    },
+    {
+      "gpu": "H200",
+      "label": "laczc512_prev_n1_fastln",
+      "target": "beta-galactosidase 1DP0 A",
+      "target_residues": 512,
+      "binder_length": 80,
+      "preset": "preview",
+      "batch_n_sample": 1,
+      "n_step": 400,
+      "dtype": "bf16",
+      "extra_argv": null,
+      "yaml": "/work/targets2/laczc_512.yaml",
+      "yaml_sha256": "1f40d52b66bf38fcf15ccc0c371878685d5986e228b4757cf7ce39268a9a13a1",
+      "reps_total": 2,
+      "reps_warm": 1,
+      "cold_rep_total_s": 112.4021,
+      "total_s_median": 112.666,
+      "total_s_min": 112.666,
+      "total_s_max": 112.666,
+      "total_s_all_warm": [
+        112.666
+      ],
+      "s_per_design": 112.666,
+      "stages_s": {
+        "prep_host_s": 5.5738,
+        "model_init_s": 15.3658,
+        "gen_feat_s": 2.1301,
+        "gen_device_s": 29.609,
+        "gen_write_s": 0.0772,
+        "tgt_template_s": null,
+        "mpnn_s": 8.2707,
+        "af2_complex_s": 30.9736,
+        "af2_monomer_s": 18.656,
+        "ptx_mini_s": null,
+        "ptx_s": null,
+        "metrics_host_s": 0.0473,
+        "rank_host_s": 1.2121,
+        "gen_total_s": 31.8163,
+        "eval_total_s": 57.9574
+      },
+      "split_s": {
+        "pxdesign_d_s": 29.609,
+        "protenix_s": 0.0,
+        "af2ig_s": 49.6296,
+        "proteinmpnn_s": 8.2707,
+        "host_data_s": 25.1567
+      },
+      "split_pct": {
+        "pxdesign_d_pct": 26.28,
+        "protenix_pct": 0.0,
+        "af2ig_pct": 44.05,
+        "proteinmpnn_pct": 7.34,
+        "host_data_pct": 22.33
+      },
+      "unattributed_s": 0.7504,
+      "gpu_util_pct_mean": 20.3,
+      "gpu_power_W_median": 122.2,
+      "gpu_power_W_max": 364.2,
+      "gpu_per_stage_util": {
+        "prep_host": {
+          "power_W_median": 121.4,
+          "power_W_max": 121.6,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 527,
+          "clock_sm_median": 1980,
+          "n_samples": 28
+        },
+        "model_init": {
+          "power_W_median": 120.9,
+          "power_W_max": 121.0,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 1273,
+          "clock_sm_median": 1980,
+          "n_samples": 76
+        },
+        "gen_device": {
+          "power_W_median": 288.2,
+          "power_W_max": 295.7,
+          "util_pct_median": 46.0,
+          "util_pct_mean": 45.1,
+          "mem_MiB_max": 2895,
+          "clock_sm_median": 1980,
+          "n_samples": 147
+        },
+        "gen_write": {
+          "power_W_median": 257.5,
+          "power_W_max": 257.5,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 2895,
+          "clock_sm_median": 1980,
+          "n_samples": 1
+        },
+        "gen_total": {
+          "power_W_median": 288.0,
+          "power_W_max": 295.7,
+          "util_pct_median": 46.0,
+          "util_pct_mean": 42.1,
+          "mem_MiB_max": 2895,
+          "clock_sm_median": 1980,
+          "n_samples": 159
+        },
+        "mpnn": {
+          "power_W_median": 121.9,
+          "power_W_max": 125.3,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 1.4,
+          "mem_MiB_max": 4001,
+          "clock_sm_median": 1980,
+          "n_samples": 42
+        },
+        "af2_complex": {
+          "power_W_median": 123.2,
+          "power_W_max": 364.2,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 29.9,
+          "mem_MiB_max": 5857,
+          "clock_sm_median": 1980,
+          "n_samples": 154
+        },
+        "af2_monomer": {
+          "power_W_median": 121.7,
+          "power_W_max": 135.1,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.7,
+          "mem_MiB_max": 5527,
+          "clock_sm_median": 1980,
+          "n_samples": 93
+        },
+        "metrics_host": {
+          "power_W_median": 131.1,
+          "power_W_max": 131.1,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 2895,
+          "clock_sm_median": 1980,
+          "n_samples": 1
+        },
+        "eval_total": {
+          "power_W_median": 121.9,
+          "power_W_max": 364.2,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 16.3,
+          "mem_MiB_max": 5857,
+          "clock_sm_median": 1980,
+          "n_samples": 290
+        },
+        "rank_host": {
+          "power_W_median": 124.6,
+          "power_W_max": 125.6,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 2895,
+          "clock_sm_median": 1980,
+          "n_samples": 6
+        }
+      },
+      "device_s_per_stage": {
+        "prep_host": 0.0,
+        "model_init": 0.0,
+        "gen_device": 13.354,
+        "gen_write": 0.0,
+        "mpnn": 0.116,
+        "af2_complex": 9.261,
+        "af2_monomer": 0.131,
+        "metrics_host": 0.0,
+        "rank_host": 0.0
+      },
+      "device_s_total": 22.862,
+      "host_s_total": 89.804,
+      "device_pct_of_wall": 20.29,
+      "tt_target_s_4x_wall": 450.66,
+      "tt_target_s_4x_device": 91.45,
+      "peak_vram_alloc_GiB": 2.078,
+      "counts": {
+        "pxd_predict": 1,
+        "pxdbench_subprocesses": 3,
+        "af2_complex_calls": 1,
+        "af2_monomer_calls": 1
+      },
+      "subprocess_walls_s": [
+        {
+          "script": "main_mpnn.py",
+          "wall_s": 8.27
+        },
+        {
+          "script": "main_af2_complex.py",
+          "wall_s": 30.973
+        },
+        {
+          "script": "main_af2_monomer.py",
+          "wall_s": 18.656
+        }
+      ],
+      "validation_ok": true,
+      "n_designs_returned": 1,
+      "filters_passed": {
+        "AF2-IG-easy-success": 0,
+        "AF2-IG-success": 0
+      },
+      "metrics": {
+        "af2_plddt": {
+          "min": 0.93,
+          "median": 0.93,
+          "max": 0.93,
+          "n": 1
+        },
+        "af2_ptm": {
+          "min": 0.73,
+          "median": 0.73,
+          "max": 0.73,
+          "n": 1
+        },
+        "af2_iptm": {
+          "min": 0.18,
+          "median": 0.18,
+          "max": 0.18,
+          "n": 1
+        },
+        "af2_ipAE": {
+          "min": 27.31,
+          "median": 27.31,
+          "max": 27.31,
+          "n": 1
+        },
+        "af2_monomer_plddt": {
+          "min": 0.955,
+          "median": 0.955,
+          "max": 0.955,
+          "n": 1
+        },
+        "af2_bound_unbound_RMSD": {
+          "min": 0.51,
+          "median": 0.51,
+          "max": 0.51,
+          "n": 1
+        },
+        "af2_binder_pred_design_rmsd": {
+          "min": 0.77,
+          "median": 0.77,
+          "max": 0.77,
+          "n": 1
+        },
+        "af2_complex_pred_design_rmsd": {
+          "min": 19.09,
+          "median": 19.09,
+          "max": 19.09,
+          "n": 1
+        },
+        "alpha": {
+          "min": 0.925,
+          "median": 0.925,
+          "max": 0.925,
+          "n": 1
+        },
+        "beta": {
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0,
+          "n": 1
+        },
+        "loop": {
+          "min": 0.075,
+          "median": 0.075,
+          "max": 0.075,
+          "n": 1
+        },
+        "Rg": {
+          "min": 13.57,
+          "median": 13.57,
+          "max": 13.57,
+          "n": 1
+        }
+      },
+      "design_sequences": [
+        "SPEREALIARLRELTAALLARAAELAAKASPEERARLERLVEYLRARVARLVAGVEAGDPEAIEAARRLVRRLEATLAAL"
+      ],
+      "gpu_exclusive": true,
+      "sanity_ok": true,
+      "why": []
+    },
+    {
+      "gpu": "H200",
+      "label": "laczc512_prev_n1_msa",
+      "target": "beta-galactosidase 1DP0 A",
+      "target_residues": 512,
+      "binder_length": 80,
+      "preset": "preview",
+      "batch_n_sample": 1,
+      "n_step": 400,
+      "dtype": "bf16",
+      "extra_argv": null,
+      "yaml": "/work/targets2/laczc_512.yaml",
+      "yaml_sha256": "1f40d52b66bf38fcf15ccc0c371878685d5986e228b4757cf7ce39268a9a13a1",
+      "reps_total": 2,
+      "reps_warm": 1,
+      "cold_rep_total_s": 112.8933,
+      "total_s_median": 112.5772,
+      "total_s_min": 112.5772,
+      "total_s_max": 112.5772,
+      "total_s_all_warm": [
+        112.5772
+      ],
+      "s_per_design": 112.5772,
+      "stages_s": {
+        "prep_host_s": 5.4536,
+        "model_init_s": 15.5612,
+        "gen_feat_s": 2.1276,
+        "gen_device_s": 28.7204,
+        "gen_write_s": 0.0771,
+        "tgt_template_s": null,
+        "mpnn_s": 8.3966,
+        "af2_complex_s": 31.2909,
+        "af2_monomer_s": 18.9788,
+        "ptx_mini_s": null,
+        "ptx_s": null,
+        "metrics_host_s": 0.0475,
+        "rank_host_s": 1.2148,
+        "gen_total_s": 30.9251,
+        "eval_total_s": 58.7236
+      },
+      "split_s": {
+        "pxdesign_d_s": 28.7204,
+        "protenix_s": 0.0,
+        "af2ig_s": 50.2697,
+        "proteinmpnn_s": 8.3966,
+        "host_data_s": 25.1905
+      },
+      "split_pct": {
+        "pxdesign_d_pct": 25.51,
+        "protenix_pct": 0.0,
+        "af2ig_pct": 44.65,
+        "proteinmpnn_pct": 7.46,
+        "host_data_pct": 22.38
+      },
+      "unattributed_s": 0.7087,
+      "gpu_util_pct_mean": 26.2,
+      "gpu_power_W_median": 122.8,
+      "gpu_power_W_max": 363.8,
+      "gpu_per_stage_util": {
+        "prep_host": {
+          "power_W_median": 120.7,
+          "power_W_max": 120.8,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.1,
+          "mem_MiB_max": 527,
+          "clock_sm_median": 1980,
+          "n_samples": 27
+        },
+        "model_init": {
+          "power_W_median": 120.5,
+          "power_W_max": 120.7,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.2,
+          "mem_MiB_max": 1593,
+          "clock_sm_median": 1980,
+          "n_samples": 78
+        },
+        "gen_device": {
+          "power_W_median": 325.1,
+          "power_W_max": 332.9,
+          "util_pct_median": 71.0,
+          "util_pct_mean": 68.9,
+          "mem_MiB_max": 2895,
+          "clock_sm_median": 1980,
+          "n_samples": 144
+        },
+        "gen_write": {
+          "power_W_median": 310.5,
+          "power_W_max": 310.5,
+          "util_pct_median": 56.0,
+          "util_pct_mean": 56.0,
+          "mem_MiB_max": 2895,
+          "clock_sm_median": 1980,
+          "n_samples": 1
+        },
+        "gen_total": {
+          "power_W_median": 324.4,
+          "power_W_max": 332.9,
+          "util_pct_median": 71.0,
+          "util_pct_mean": 64.8,
+          "mem_MiB_max": 2895,
+          "clock_sm_median": 1980,
+          "n_samples": 154
+        },
+        "mpnn": {
+          "power_W_median": 122.7,
+          "power_W_max": 147.5,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 1.4,
+          "mem_MiB_max": 4001,
+          "clock_sm_median": 1980,
+          "n_samples": 42
+        },
+        "af2_complex": {
+          "power_W_median": 123.7,
+          "power_W_max": 363.8,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 29.7,
+          "mem_MiB_max": 5857,
+          "clock_sm_median": 1980,
+          "n_samples": 156
+        },
+        "af2_monomer": {
+          "power_W_median": 122.1,
+          "power_W_max": 135.4,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.4,
+          "mem_MiB_max": 5527,
+          "clock_sm_median": 1980,
+          "n_samples": 95
+        },
+        "eval_total": {
+          "power_W_median": 122.6,
+          "power_W_max": 363.8,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 16.2,
+          "mem_MiB_max": 5857,
+          "clock_sm_median": 1980,
+          "n_samples": 293
+        },
+        "rank_host": {
+          "power_W_median": 124.2,
+          "power_W_max": 125.4,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.2,
+          "mem_MiB_max": 2895,
+          "clock_sm_median": 1980,
+          "n_samples": 6
+        }
+      },
+      "device_s_per_stage": {
+        "prep_host": 0.005,
+        "model_init": 0.031,
+        "gen_device": 19.788,
+        "gen_write": 0.043,
+        "mpnn": 0.118,
+        "af2_complex": 9.293,
+        "af2_monomer": 0.076,
+        "rank_host": 0.002
+      },
+      "device_s_total": 29.356,
+      "host_s_total": 83.221,
+      "device_pct_of_wall": 26.08,
+      "tt_target_s_4x_wall": 450.31,
+      "tt_target_s_4x_device": 117.42,
+      "peak_vram_alloc_GiB": 2.078,
+      "counts": {
+        "pxd_predict": 1,
+        "pxdbench_subprocesses": 3,
+        "af2_complex_calls": 1,
+        "af2_monomer_calls": 1
+      },
+      "subprocess_walls_s": [
+        {
+          "script": "main_mpnn.py",
+          "wall_s": 8.396
+        },
+        {
+          "script": "main_af2_complex.py",
+          "wall_s": 31.291
+        },
+        {
+          "script": "main_af2_monomer.py",
+          "wall_s": 18.979
+        }
+      ],
+      "validation_ok": true,
+      "n_designs_returned": 1,
+      "filters_passed": {
+        "AF2-IG-easy-success": 0,
+        "AF2-IG-success": 0
+      },
+      "metrics": {
+        "af2_plddt": {
+          "min": 0.93,
+          "median": 0.93,
+          "max": 0.93,
+          "n": 1
+        },
+        "af2_ptm": {
+          "min": 0.73,
+          "median": 0.73,
+          "max": 0.73,
+          "n": 1
+        },
+        "af2_iptm": {
+          "min": 0.18,
+          "median": 0.18,
+          "max": 0.18,
+          "n": 1
+        },
+        "af2_ipAE": {
+          "min": 27.31,
+          "median": 27.31,
+          "max": 27.31,
+          "n": 1
+        },
+        "af2_monomer_plddt": {
+          "min": 0.955,
+          "median": 0.955,
+          "max": 0.955,
+          "n": 1
+        },
+        "af2_bound_unbound_RMSD": {
+          "min": 0.51,
+          "median": 0.51,
+          "max": 0.51,
+          "n": 1
+        },
+        "af2_binder_pred_design_rmsd": {
+          "min": 0.77,
+          "median": 0.77,
+          "max": 0.77,
+          "n": 1
+        },
+        "af2_complex_pred_design_rmsd": {
+          "min": 19.08,
+          "median": 19.08,
+          "max": 19.08,
+          "n": 1
+        },
+        "alpha": {
+          "min": 0.925,
+          "median": 0.925,
+          "max": 0.925,
+          "n": 1
+        },
+        "beta": {
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0,
+          "n": 1
+        },
+        "loop": {
+          "min": 0.075,
+          "median": 0.075,
+          "max": 0.075,
+          "n": 1
+        },
+        "Rg": {
+          "min": 13.57,
+          "median": 13.57,
+          "max": 13.57,
+          "n": 1
+        }
+      },
+      "design_sequences": [
+        "SPEREALIARLRELTAALLARAAELAAKASPEERARLERLVEYLRARVARLVAGVEAGDPEAIEAARRLVRRLEATLAAL"
+      ],
+      "gpu_exclusive": true,
+      "sanity_ok": true,
+      "why": []
+    },
+    {
+      "gpu": "H200",
+      "label": "laczc768_ext_n8_msa",
+      "target": "beta-galactosidase 1DP0 A",
+      "target_residues": 768,
+      "binder_length": 80,
+      "preset": "extended",
+      "batch_n_sample": 8,
+      "n_step": 400,
+      "dtype": "bf16",
+      "extra_argv": null,
+      "yaml": "/work/targets2/laczc_768.yaml",
+      "yaml_sha256": "9dd8fcfa1aebf663a2525f98799880ad5c28f73322c3430b48e8b8bd2ffc10e0",
+      "reps_total": 1,
+      "reps_warm": 1,
+      "cold_rep_total_s": 564.5183,
+      "total_s_median": 564.5183,
+      "total_s_min": 564.5183,
+      "total_s_max": 564.5183,
+      "total_s_all_warm": [
+        564.5183
+      ],
+      "s_per_design": 70.5648,
+      "stages_s": {
+        "prep_host_s": 5.8216,
+        "model_init_s": 15.7359,
+        "gen_feat_s": 3.2042,
+        "gen_device_s": 209.7535,
+        "gen_write_s": 0.8174,
+        "tgt_template_s": 51.9295,
+        "mpnn_s": 10.7664,
+        "af2_complex_s": 175.933,
+        "af2_monomer_s": 21.098,
+        "ptx_mini_s": null,
+        "ptx_s": 59.7263,
+        "metrics_host_s": 0.5432,
+        "rank_host_s": 6.0473,
+        "gen_total_s": 213.7751,
+        "eval_total_s": 268.1679
+      },
+      "split_s": {
+        "pxdesign_d_s": 209.7535,
+        "protenix_s": 111.6558,
+        "af2ig_s": 197.031,
+        "proteinmpnn_s": 10.7664,
+        "host_data_s": 35.3116
+      },
+      "split_pct": {
+        "pxdesign_d_pct": 37.16,
+        "protenix_pct": 19.78,
+        "af2ig_pct": 34.9,
+        "proteinmpnn_pct": 1.91,
+        "host_data_pct": 6.26
+      },
+      "unattributed_s": 3.142,
+      "gpu_util_pct_mean": 70.7,
+      "gpu_power_W_median": 448.9,
+      "gpu_power_W_max": 499.5,
+      "gpu_per_stage_util": {
+        "prep_host": {
+          "power_W_median": 120.2,
+          "power_W_max": 120.4,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 527,
+          "clock_sm_median": 1980,
+          "n_samples": 30
+        },
+        "model_init": {
+          "power_W_median": 120.3,
+          "power_W_max": 120.5,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.1,
+          "mem_MiB_max": 1353,
+          "clock_sm_median": 1980,
+          "n_samples": 78
+        },
+        "gen_device": {
+          "power_W_median": 455.7,
+          "power_W_max": 485.0,
+          "util_pct_median": 100.0,
+          "util_pct_mean": 99.5,
+          "mem_MiB_max": 10245,
+          "clock_sm_median": 1980,
+          "n_samples": 1047
+        },
+        "gen_write": {
+          "power_W_median": 325.8,
+          "power_W_max": 426.8,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 23.0,
+          "mem_MiB_max": 10245,
+          "clock_sm_median": 1980,
+          "n_samples": 4
+        },
+        "gen_total": {
+          "power_W_median": 455.3,
+          "power_W_max": 485.0,
+          "util_pct_median": 100.0,
+          "util_pct_mean": 97.8,
+          "mem_MiB_max": 10245,
+          "clock_sm_median": 1980,
+          "n_samples": 1068
+        },
+        "tgt_template": {
+          "power_W_median": 122.3,
+          "power_W_max": 476.4,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 18.4,
+          "mem_MiB_max": 10803,
+          "clock_sm_median": 1980,
+          "n_samples": 259
+        },
+        "mpnn": {
+          "power_W_median": 123.4,
+          "power_W_max": 128.1,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 7.8,
+          "mem_MiB_max": 5593,
+          "clock_sm_median": 1980,
+          "n_samples": 53
+        },
+        "af2_complex": {
+          "power_W_median": 466.4,
+          "power_W_max": 476.6,
+          "util_pct_median": 100.0,
+          "util_pct_mean": 82.2,
+          "mem_MiB_max": 9499,
+          "clock_sm_median": 1980,
+          "n_samples": 879
+        },
+        "af2_monomer": {
+          "power_W_median": 125.1,
+          "power_W_max": 184.0,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 3.6,
+          "mem_MiB_max": 7119,
+          "clock_sm_median": 1980,
+          "n_samples": 105
+        },
+        "ptx": {
+          "power_W_median": 384.5,
+          "power_W_max": 499.5,
+          "util_pct_median": 100.0,
+          "util_pct_mean": 56.6,
+          "mem_MiB_max": 10155,
+          "clock_sm_median": 1980,
+          "n_samples": 299
+        },
+        "metrics_host": {
+          "power_W_median": 263.2,
+          "power_W_max": 338.8,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 3799,
+          "clock_sm_median": 1980,
+          "n_samples": 3
+        },
+        "eval_total": {
+          "power_W_median": 459.6,
+          "power_W_max": 499.5,
+          "util_pct_median": 100.0,
+          "util_pct_mean": 67.2,
+          "mem_MiB_max": 10155,
+          "clock_sm_median": 1980,
+          "n_samples": 1339
+        },
+        "rank_host": {
+          "power_W_median": 124.5,
+          "power_W_max": 125.7,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 3799,
+          "clock_sm_median": 1980,
+          "n_samples": 30
+        }
+      },
+      "device_s_per_stage": {
+        "prep_host": 0.0,
+        "model_init": 0.016,
+        "gen_device": 208.705,
+        "gen_write": 0.188,
+        "tgt_template": 9.555,
+        "mpnn": 0.84,
+        "af2_complex": 144.617,
+        "af2_monomer": 0.76,
+        "ptx": 33.805,
+        "metrics_host": 0.0,
+        "rank_host": 0.0
+      },
+      "device_s_total": 398.486,
+      "host_s_total": 166.032,
+      "device_pct_of_wall": 70.59,
+      "tt_target_s_4x_wall": 2258.07,
+      "tt_target_s_4x_device": 1593.94,
+      "peak_vram_alloc_GiB": 7.647,
+      "counts": {
+        "pxd_predict": 1,
+        "target_template_probe": 1,
+        "deepspeed_evo_attn_fn": 21216,
+        "ds4sci_evo_attention": 21216,
+        "pxdbench_subprocesses": 3,
+        "af2_complex_calls": 1,
+        "af2_monomer_calls": 1,
+        "protenix_filter_calls_large": 1
+      },
+      "subprocess_walls_s": [
+        {
+          "script": "main_mpnn.py",
+          "wall_s": 10.766
+        },
+        {
+          "script": "main_af2_complex.py",
+          "wall_s": 175.933
+        },
+        {
+          "script": "main_af2_monomer.py",
+          "wall_s": 21.098
+        }
+      ],
+      "validation_ok": true,
+      "n_designs_returned": 8,
+      "filters_passed": {
+        "AF2-IG-easy-success": 0,
+        "AF2-IG-success": 0,
+        "Protenix-success": 0,
+        "Protenix-basic-success": 0
+      },
+      "metrics": {
+        "af2_plddt": {
+          "min": 0.84,
+          "median": 0.92,
+          "max": 0.93,
+          "n": 8
+        },
+        "af2_ptm": {
+          "min": 0.76,
+          "median": 0.76,
+          "max": 0.76,
+          "n": 8
+        },
+        "af2_iptm": {
+          "min": 0.19,
+          "median": 0.19,
+          "max": 0.21,
+          "n": 8
+        },
+        "af2_ipAE": {
+          "min": 27.87,
+          "median": 27.96,
+          "max": 28.03,
+          "n": 8
+        },
+        "af2_monomer_plddt": {
+          "min": 0.798,
+          "median": 0.94,
+          "max": 0.967,
+          "n": 8
+        },
+        "af2_bound_unbound_RMSD": {
+          "min": 0.24,
+          "median": 0.28,
+          "max": 1.75,
+          "n": 8
+        },
+        "af2_binder_pred_design_rmsd": {
+          "min": 0.42,
+          "median": 0.685,
+          "max": 1.95,
+          "n": 8
+        },
+        "af2_complex_pred_design_rmsd": {
+          "min": 3.36,
+          "median": 4.595000000000001,
+          "max": 8.72,
+          "n": 8
+        },
+        "ptx_plddt": {
+          "min": 92.8495,
+          "median": 93.34004999999999,
+          "max": 93.5848,
+          "n": 8
+        },
+        "ptx_iptm_binder": {
+          "min": 0.1636,
+          "median": 0.24115,
+          "max": 0.3772,
+          "n": 8
+        },
+        "ptx_ptm_binder": {
+          "min": 0.7675,
+          "median": 0.8429500000000001,
+          "max": 0.8534,
+          "n": 8
+        },
+        "ptx_iptm": {
+          "min": 0.1636,
+          "median": 0.24115,
+          "max": 0.3772,
+          "n": 8
+        },
+        "ptx_ptm": {
+          "min": 0.8881,
+          "median": 0.8949,
+          "max": 0.909,
+          "n": 8
+        },
+        "ptx_pred_design_rmsd": {
+          "min": 11.59,
+          "median": 14.785,
+          "max": 21.85,
+          "n": 8
+        },
+        "alpha": {
+          "min": 0.838,
+          "median": 0.888,
+          "max": 0.9,
+          "n": 8
+        },
+        "beta": {
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0,
+          "n": 8
+        },
+        "loop": {
+          "min": 0.1,
+          "median": 0.112,
+          "max": 0.162,
+          "n": 8
+        },
+        "Rg": {
+          "min": 11.53,
+          "median": 12.435,
+          "max": 13.34,
+          "n": 8
+        }
+      },
+      "design_sequences": [
+        "SAEAVIAELRAEAAARLDAALAAATDPAARAALARLRALAAEAFDRLAALAGQMTPEEARLSAESLVAEVTARAAAVLAK",
+        "EEERAALAAQLDAAAAELATLSPEEAQGYAAAVLDALRERFLRMGREAEAAALAALRAQLLADPSQVAALLAQARALVAA",
+        "SVRDEVLALLRAAAASTDPAEMAALLAQAEALLAADPSLADEARAMALLLAALRAAAAAGDEETVRTLQRRIAARAARLA"
+      ],
+      "gpu_exclusive": true,
+      "sanity_ok": true,
+      "why": []
+    },
+    {
+      "gpu": "H200",
+      "label": "laczc768_exte_n1_msa",
+      "target": "beta-galactosidase 1DP0 A",
+      "target_residues": 768,
+      "binder_length": 80,
+      "preset": "extended",
+      "batch_n_sample": 1,
+      "n_step": 400,
+      "dtype": "bf16",
+      "extra_argv": null,
+      "yaml": "/work/targets2/laczc_768.yaml",
+      "yaml_sha256": "9dd8fcfa1aebf663a2525f98799880ad5c28f73322c3430b48e8b8bd2ffc10e0",
+      "reps_total": 2,
+      "reps_warm": 1,
+      "cold_rep_total_s": 198.9946,
+      "total_s_median": 197.6272,
+      "total_s_min": 197.6272,
+      "total_s_max": 197.6272,
+      "total_s_all_warm": [
+        197.6272
+      ],
+      "s_per_design": 197.6272,
+      "stages_s": {
+        "prep_host_s": 5.8794,
+        "model_init_s": 15.8021,
+        "gen_feat_s": 3.2418,
+        "gen_device_s": 34.9772,
+        "gen_write_s": 0.1109,
+        "tgt_template_s": 50.4934,
+        "mpnn_s": 8.5897,
+        "af2_complex_s": 39.9849,
+        "af2_monomer_s": 18.6915,
+        "ptx_mini_s": null,
+        "ptx_s": 17.2262,
+        "metrics_host_s": 0.0614,
+        "rank_host_s": 1.686,
+        "gen_total_s": 38.3299,
+        "eval_total_s": 84.6602
+      },
+      "split_s": {
+        "pxdesign_d_s": 34.9772,
+        "protenix_s": 67.7196,
+        "af2ig_s": 58.6764,
+        "proteinmpnn_s": 8.5897,
+        "host_data_s": 27.6643
+      },
+      "split_pct": {
+        "pxdesign_d_pct": 17.7,
+        "protenix_pct": 34.27,
+        "af2ig_pct": 29.69,
+        "proteinmpnn_pct": 4.35,
+        "host_data_pct": 14.0
+      },
+      "unattributed_s": 0.8827,
+      "gpu_util_pct_mean": 33.2,
+      "gpu_power_W_median": 123.9,
+      "gpu_power_W_max": 482.0,
+      "gpu_per_stage_util": {
+        "prep_host": {
+          "power_W_median": 121.1,
+          "power_W_max": 121.2,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.1,
+          "mem_MiB_max": 527,
+          "clock_sm_median": 1980,
+          "n_samples": 29
+        },
+        "model_init": {
+          "power_W_median": 121.0,
+          "power_W_max": 121.2,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.1,
+          "mem_MiB_max": 1473,
+          "clock_sm_median": 1980,
+          "n_samples": 79
+        },
+        "gen_device": {
+          "power_W_median": 433.3,
+          "power_W_max": 451.1,
+          "util_pct_median": 99.0,
+          "util_pct_mean": 95.6,
+          "mem_MiB_max": 4621,
+          "clock_sm_median": 1980,
+          "n_samples": 175
+        },
+        "gen_total": {
+          "power_W_median": 432.6,
+          "power_W_max": 451.1,
+          "util_pct_median": 99.0,
+          "util_pct_mean": 88.0,
+          "mem_MiB_max": 4621,
+          "clock_sm_median": 1980,
+          "n_samples": 191
+        },
+        "tgt_template": {
+          "power_W_median": 122.8,
+          "power_W_max": 476.6,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 18.8,
+          "mem_MiB_max": 9381,
+          "clock_sm_median": 1980,
+          "n_samples": 253
+        },
+        "mpnn": {
+          "power_W_median": 121.9,
+          "power_W_max": 123.1,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.2,
+          "mem_MiB_max": 5593,
+          "clock_sm_median": 1980,
+          "n_samples": 43
+        },
+        "af2_complex": {
+          "power_W_median": 132.2,
+          "power_W_max": 471.7,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 45.3,
+          "mem_MiB_max": 9499,
+          "clock_sm_median": 1980,
+          "n_samples": 199
+        },
+        "af2_monomer": {
+          "power_W_median": 123.7,
+          "power_W_max": 136.4,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.6,
+          "mem_MiB_max": 7119,
+          "clock_sm_median": 1980,
+          "n_samples": 94
+        },
+        "ptx": {
+          "power_W_median": 125.7,
+          "power_W_max": 482.0,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 25.0,
+          "mem_MiB_max": 9663,
+          "clock_sm_median": 1980,
+          "n_samples": 86
+        },
+        "eval_total": {
+          "power_W_median": 125.4,
+          "power_W_max": 482.0,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 26.6,
+          "mem_MiB_max": 9663,
+          "clock_sm_median": 1980,
+          "n_samples": 422
+        },
+        "rank_host": {
+          "power_W_median": 123.2,
+          "power_W_max": 342.2,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 3387,
+          "clock_sm_median": 1980,
+          "n_samples": 9
+        }
+      },
+      "device_s_per_stage": {
+        "prep_host": 0.006,
+        "model_init": 0.016,
+        "gen_device": 33.438,
+        "tgt_template": 9.493,
+        "mpnn": 0.017,
+        "af2_complex": 18.113,
+        "af2_monomer": 0.112,
+        "ptx": 4.307,
+        "rank_host": 0.0
+      },
+      "device_s_total": 65.502,
+      "host_s_total": 132.125,
+      "device_pct_of_wall": 33.14,
+      "tt_target_s_4x_wall": 790.51,
+      "tt_target_s_4x_device": 262.01,
+      "peak_vram_alloc_GiB": 6.885,
+      "counts": {
+        "pxd_predict": 1,
+        "target_template_probe": 1,
+        "deepspeed_evo_attn_fn": 7104,
+        "ds4sci_evo_attention": 7104,
+        "pxdbench_subprocesses": 3,
+        "af2_complex_calls": 1,
+        "af2_monomer_calls": 1,
+        "protenix_filter_calls_large": 1
+      },
+      "subprocess_walls_s": [
+        {
+          "script": "main_mpnn.py",
+          "wall_s": 8.589
+        },
+        {
+          "script": "main_af2_complex.py",
+          "wall_s": 39.985
+        },
+        {
+          "script": "main_af2_monomer.py",
+          "wall_s": 18.691
+        }
+      ],
+      "validation_ok": true,
+      "n_designs_returned": 1,
+      "filters_passed": {
+        "AF2-IG-easy-success": 0,
+        "AF2-IG-success": 0,
+        "Protenix-success": 0,
+        "Protenix-basic-success": 0
+      },
+      "metrics": {
+        "af2_plddt": {
+          "min": 0.92,
+          "median": 0.92,
+          "max": 0.92,
+          "n": 1
+        },
+        "af2_ptm": {
+          "min": 0.76,
+          "median": 0.76,
+          "max": 0.76,
+          "n": 1
+        },
+        "af2_iptm": {
+          "min": 0.19,
+          "median": 0.19,
+          "max": 0.19,
+          "n": 1
+        },
+        "af2_ipAE": {
+          "min": 28.08,
+          "median": 28.08,
+          "max": 28.08,
+          "n": 1
+        },
+        "af2_monomer_plddt": {
+          "min": 0.927,
+          "median": 0.927,
+          "max": 0.927,
+          "n": 1
+        },
+        "af2_bound_unbound_RMSD": {
+          "min": 0.25,
+          "median": 0.25,
+          "max": 0.25,
+          "n": 1
+        },
+        "af2_binder_pred_design_rmsd": {
+          "min": 0.37,
+          "median": 0.37,
+          "max": 0.37,
+          "n": 1
+        },
+        "af2_complex_pred_design_rmsd": {
+          "min": 6.32,
+          "median": 6.32,
+          "max": 6.32,
+          "n": 1
+        },
+        "ptx_plddt": {
+          "min": 93.8515,
+          "median": 93.8515,
+          "max": 93.8515,
+          "n": 1
+        },
+        "ptx_iptm_binder": {
+          "min": 0.5032,
+          "median": 0.5032,
+          "max": 0.5032,
+          "n": 1
+        },
+        "ptx_ptm_binder": {
+          "min": 0.8731,
+          "median": 0.8731,
+          "max": 0.8731,
+          "n": 1
+        },
+        "ptx_iptm": {
+          "min": 0.5032,
+          "median": 0.5032,
+          "max": 0.5032,
+          "n": 1
+        },
+        "ptx_ptm": {
+          "min": 0.9181,
+          "median": 0.9181,
+          "max": 0.9181,
+          "n": 1
+        },
+        "ptx_pred_design_rmsd": {
+          "min": 13.5,
+          "median": 13.5,
+          "max": 13.5,
+          "n": 1
+        },
+        "alpha": {
+          "min": 0.925,
+          "median": 0.925,
+          "max": 0.925,
+          "n": 1
+        },
+        "beta": {
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0,
+          "n": 1
+        },
+        "loop": {
+          "min": 0.075,
+          "median": 0.075,
+          "max": 0.075,
+          "n": 1
+        },
+        "Rg": {
+          "min": 11.36,
+          "median": 11.36,
+          "max": 11.36,
+          "n": 1
+        }
+      },
+      "design_sequences": [
+        "PEAAWREDVRLTGEGIIEAVKAGDLTLVKQYFRSLIARSPPEAAAIITAGQEAAVAAMNAGDKDKAIAIVNATTAQVIAA"
+      ],
+      "gpu_exclusive": true,
+      "sanity_ok": true,
+      "why": []
+    },
+    {
+      "gpu": "H200",
+      "label": "laczc768_prev_n1",
+      "target": "beta-galactosidase 1DP0 A",
+      "target_residues": 768,
+      "binder_length": 80,
+      "preset": "preview",
+      "batch_n_sample": 1,
+      "n_step": 400,
+      "dtype": "bf16",
+      "extra_argv": null,
+      "yaml": "/work/targets2/laczc_768.yaml",
+      "yaml_sha256": "eb877f9ec41608c631f15c9bd3a7f6fe6b59c9807ab1cb2b6e3ca9b7825d11ae",
+      "reps_total": 2,
+      "reps_warm": 1,
+      "cold_rep_total_s": 129.6507,
+      "total_s_median": 130.1339,
+      "total_s_min": 130.1339,
+      "total_s_max": 130.1339,
+      "total_s_all_warm": [
+        130.1339
+      ],
+      "s_per_design": 130.1339,
+      "stages_s": {
+        "prep_host_s": 5.7433,
+        "model_init_s": 15.3928,
+        "gen_feat_s": 3.2944,
+        "gen_device_s": 35.0834,
+        "gen_write_s": 0.1142,
+        "tgt_template_s": null,
+        "mpnn_s": 8.584,
+        "af2_complex_s": 40.4787,
+        "af2_monomer_s": 19.0641,
+        "ptx_mini_s": null,
+        "ptx_s": null,
+        "metrics_host_s": 0.0684,
+        "rank_host_s": 1.4507,
+        "gen_total_s": 38.492,
+        "eval_total_s": 68.2049
+      },
+      "split_s": {
+        "pxdesign_d_s": 35.0834,
+        "protenix_s": 0.0,
+        "af2ig_s": 59.5428,
+        "proteinmpnn_s": 8.584,
+        "host_data_s": 26.9237
+      },
+      "split_pct": {
+        "pxdesign_d_pct": 26.96,
+        "protenix_pct": 0.0,
+        "af2ig_pct": 45.76,
+        "proteinmpnn_pct": 6.6,
+        "host_data_pct": 20.69
+      },
+      "unattributed_s": 0.8599,
+      "gpu_util_pct_mean": 40.1,
+      "gpu_power_W_median": 125.8,
+      "gpu_power_W_max": 471.2,
+      "gpu_per_stage_util": {
+        "prep_host": {
+          "power_W_median": 121.3,
+          "power_W_max": 121.6,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 527,
+          "clock_sm_median": 1980,
+          "n_samples": 28
+        },
+        "model_init": {
+          "power_W_median": 120.8,
+          "power_W_max": 121.2,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.2,
+          "mem_MiB_max": 1333,
+          "clock_sm_median": 1980,
+          "n_samples": 77
+        },
+        "gen_device": {
+          "power_W_median": 430.2,
+          "power_W_max": 441.9,
+          "util_pct_median": 99.0,
+          "util_pct_mean": 95.4,
+          "mem_MiB_max": 4621,
+          "clock_sm_median": 1980,
+          "n_samples": 176
+        },
+        "gen_total": {
+          "power_W_median": 428.9,
+          "power_W_max": 441.9,
+          "util_pct_median": 99.0,
+          "util_pct_mean": 87.8,
+          "mem_MiB_max": 4621,
+          "clock_sm_median": 1980,
+          "n_samples": 192
+        },
+        "mpnn": {
+          "power_W_median": 124.3,
+          "power_W_max": 125.8,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 1.5,
+          "mem_MiB_max": 5727,
+          "clock_sm_median": 1980,
+          "n_samples": 43
+        },
+        "af2_complex": {
+          "power_W_median": 127.8,
+          "power_W_max": 471.2,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 44.6,
+          "mem_MiB_max": 9631,
+          "clock_sm_median": 1980,
+          "n_samples": 202
+        },
+        "af2_monomer": {
+          "power_W_median": 123.4,
+          "power_W_max": 135.4,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 1.0,
+          "mem_MiB_max": 7253,
+          "clock_sm_median": 1980,
+          "n_samples": 95
+        },
+        "metrics_host": {
+          "power_W_median": 125.9,
+          "power_W_max": 125.9,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 4621,
+          "clock_sm_median": 1980,
+          "n_samples": 1
+        },
+        "eval_total": {
+          "power_W_median": 124.6,
+          "power_W_max": 471.2,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 26.9,
+          "mem_MiB_max": 9631,
+          "clock_sm_median": 1980,
+          "n_samples": 341
+        },
+        "rank_host": {
+          "power_W_median": 125.2,
+          "power_W_max": 125.7,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.9,
+          "mem_MiB_max": 4621,
+          "clock_sm_median": 1980,
+          "n_samples": 7
+        }
+      },
+      "device_s_per_stage": {
+        "prep_host": 0.0,
+        "model_init": 0.031,
+        "gen_device": 33.47,
+        "mpnn": 0.129,
+        "af2_complex": 18.054,
+        "af2_monomer": 0.191,
+        "metrics_host": 0.0,
+        "rank_host": 0.013
+      },
+      "device_s_total": 51.888,
+      "host_s_total": 78.246,
+      "device_pct_of_wall": 39.87,
+      "tt_target_s_4x_wall": 520.54,
+      "tt_target_s_4x_device": 207.55,
+      "peak_vram_alloc_GiB": 3.659,
+      "counts": {
+        "pxd_predict": 1,
+        "pxdbench_subprocesses": 3,
+        "af2_complex_calls": 1,
+        "af2_monomer_calls": 1
+      },
+      "subprocess_walls_s": [
+        {
+          "script": "main_mpnn.py",
+          "wall_s": 8.584
+        },
+        {
+          "script": "main_af2_complex.py",
+          "wall_s": 40.478
+        },
+        {
+          "script": "main_af2_monomer.py",
+          "wall_s": 19.064
+        }
+      ],
+      "validation_ok": true,
+      "n_designs_returned": 1,
+      "filters_passed": {
+        "AF2-IG-easy-success": 0,
+        "AF2-IG-success": 0
+      },
+      "metrics": {
+        "af2_plddt": {
+          "min": 0.92,
+          "median": 0.92,
+          "max": 0.92,
+          "n": 1
+        },
+        "af2_ptm": {
+          "min": 0.76,
+          "median": 0.76,
+          "max": 0.76,
+          "n": 1
+        },
+        "af2_iptm": {
+          "min": 0.19,
+          "median": 0.19,
+          "max": 0.19,
+          "n": 1
+        },
+        "af2_ipAE": {
+          "min": 28.08,
+          "median": 28.08,
+          "max": 28.08,
+          "n": 1
+        },
+        "af2_monomer_plddt": {
+          "min": 0.927,
+          "median": 0.927,
+          "max": 0.927,
+          "n": 1
+        },
+        "af2_bound_unbound_RMSD": {
+          "min": 0.25,
+          "median": 0.25,
+          "max": 0.25,
+          "n": 1
+        },
+        "af2_binder_pred_design_rmsd": {
+          "min": 0.37,
+          "median": 0.37,
+          "max": 0.37,
+          "n": 1
+        },
+        "af2_complex_pred_design_rmsd": {
+          "min": 6.32,
+          "median": 6.32,
+          "max": 6.32,
+          "n": 1
+        },
+        "alpha": {
+          "min": 0.925,
+          "median": 0.925,
+          "max": 0.925,
+          "n": 1
+        },
+        "beta": {
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0,
+          "n": 1
+        },
+        "loop": {
+          "min": 0.075,
+          "median": 0.075,
+          "max": 0.075,
+          "n": 1
+        },
+        "Rg": {
+          "min": 11.36,
+          "median": 11.36,
+          "max": 11.36,
+          "n": 1
+        }
+      },
+      "design_sequences": [
+        "PEAAWREDVRLTGEGIIEAVKAGDLTLVKQYFRSLIARSPPEAAAIITAGQEAAVAAMNAGDKDKAIAIVNATTAQVIAA"
+      ],
+      "gpu_exclusive": true,
+      "sanity_ok": true,
+      "why": []
+    },
+    {
+      "gpu": "H200",
+      "label": "laczc768_prev_n1_msa",
+      "target": "beta-galactosidase 1DP0 A",
+      "target_residues": 768,
+      "binder_length": 80,
+      "preset": "preview",
+      "batch_n_sample": 1,
+      "n_step": 400,
+      "dtype": "bf16",
+      "extra_argv": null,
+      "yaml": "/work/targets2/laczc_768.yaml",
+      "yaml_sha256": "9dd8fcfa1aebf663a2525f98799880ad5c28f73322c3430b48e8b8bd2ffc10e0",
+      "reps_total": 2,
+      "reps_warm": 1,
+      "cold_rep_total_s": 130.0922,
+      "total_s_median": 130.0157,
+      "total_s_min": 130.0157,
+      "total_s_max": 130.0157,
+      "total_s_all_warm": [
+        130.0157
+      ],
+      "s_per_design": 130.0157,
+      "stages_s": {
+        "prep_host_s": 5.7298,
+        "model_init_s": 15.7664,
+        "gen_feat_s": 3.1937,
+        "gen_device_s": 35.037,
+        "gen_write_s": 0.1111,
+        "tgt_template_s": null,
+        "mpnn_s": 8.4914,
+        "af2_complex_s": 40.0764,
+        "af2_monomer_s": 19.096,
+        "ptx_mini_s": null,
+        "ptx_s": null,
+        "metrics_host_s": 0.0701,
+        "rank_host_s": 1.4765,
+        "gen_total_s": 38.3418,
+        "eval_total_s": 67.7441
+      },
+      "split_s": {
+        "pxdesign_d_s": 35.037,
+        "protenix_s": 0.0,
+        "af2ig_s": 59.1724,
+        "proteinmpnn_s": 8.4914,
+        "host_data_s": 27.3149
+      },
+      "split_pct": {
+        "pxdesign_d_pct": 26.95,
+        "protenix_pct": 0.0,
+        "af2ig_pct": 45.51,
+        "proteinmpnn_pct": 6.53,
+        "host_data_pct": 21.01
+      },
+      "unattributed_s": 0.9673,
+      "gpu_util_pct_mean": 40.1,
+      "gpu_power_W_median": 126.2,
+      "gpu_power_W_max": 470.6,
+      "gpu_per_stage_util": {
+        "prep_host": {
+          "power_W_median": 121.4,
+          "power_W_max": 121.7,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 527,
+          "clock_sm_median": 1980,
+          "n_samples": 28
+        },
+        "model_init": {
+          "power_W_median": 120.8,
+          "power_W_max": 121.4,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.1,
+          "mem_MiB_max": 1513,
+          "clock_sm_median": 1980,
+          "n_samples": 79
+        },
+        "gen_device": {
+          "power_W_median": 435.8,
+          "power_W_max": 446.4,
+          "util_pct_median": 98.0,
+          "util_pct_mean": 95.4,
+          "mem_MiB_max": 4621,
+          "clock_sm_median": 1980,
+          "n_samples": 175
+        },
+        "gen_write": {
+          "power_W_median": 399.3,
+          "power_W_max": 399.3,
+          "util_pct_median": 16.0,
+          "util_pct_mean": 16.0,
+          "mem_MiB_max": 4621,
+          "clock_sm_median": 1980,
+          "n_samples": 1
+        },
+        "gen_total": {
+          "power_W_median": 435.3,
+          "power_W_max": 446.4,
+          "util_pct_median": 98.0,
+          "util_pct_mean": 88.0,
+          "mem_MiB_max": 4621,
+          "clock_sm_median": 1980,
+          "n_samples": 191
+        },
+        "mpnn": {
+          "power_W_median": 125.3,
+          "power_W_max": 126.2,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 1.2,
+          "mem_MiB_max": 5727,
+          "clock_sm_median": 1980,
+          "n_samples": 43
+        },
+        "af2_complex": {
+          "power_W_median": 129.8,
+          "power_W_max": 470.6,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 45.2,
+          "mem_MiB_max": 9631,
+          "clock_sm_median": 1980,
+          "n_samples": 200
+        },
+        "af2_monomer": {
+          "power_W_median": 123.8,
+          "power_W_max": 135.9,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 1.2,
+          "mem_MiB_max": 7253,
+          "clock_sm_median": 1980,
+          "n_samples": 95
+        },
+        "metrics_host": {
+          "power_W_median": 129.0,
+          "power_W_max": 129.0,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 4621,
+          "clock_sm_median": 1980,
+          "n_samples": 1
+        },
+        "eval_total": {
+          "power_W_median": 125.5,
+          "power_W_max": 470.6,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 27.2,
+          "mem_MiB_max": 9631,
+          "clock_sm_median": 1980,
+          "n_samples": 339
+        },
+        "rank_host": {
+          "power_W_median": 125.7,
+          "power_W_max": 126.0,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 1.0,
+          "mem_MiB_max": 4621,
+          "clock_sm_median": 1980,
+          "n_samples": 7
+        }
+      },
+      "device_s_per_stage": {
+        "prep_host": 0.0,
+        "model_init": 0.016,
+        "gen_device": 33.425,
+        "gen_write": 0.018,
+        "mpnn": 0.102,
+        "af2_complex": 18.115,
+        "af2_monomer": 0.229,
+        "metrics_host": 0.0,
+        "rank_host": 0.015
+      },
+      "device_s_total": 51.92,
+      "host_s_total": 78.096,
+      "device_pct_of_wall": 39.93,
+      "tt_target_s_4x_wall": 520.06,
+      "tt_target_s_4x_device": 207.68,
+      "peak_vram_alloc_GiB": 3.659,
+      "counts": {
+        "pxd_predict": 1,
+        "pxdbench_subprocesses": 3,
+        "af2_complex_calls": 1,
+        "af2_monomer_calls": 1
+      },
+      "subprocess_walls_s": [
+        {
+          "script": "main_mpnn.py",
+          "wall_s": 8.491
+        },
+        {
+          "script": "main_af2_complex.py",
+          "wall_s": 40.076
+        },
+        {
+          "script": "main_af2_monomer.py",
+          "wall_s": 19.096
+        }
+      ],
+      "validation_ok": true,
+      "n_designs_returned": 1,
+      "filters_passed": {
+        "AF2-IG-easy-success": 0,
+        "AF2-IG-success": 0
+      },
+      "metrics": {
+        "af2_plddt": {
+          "min": 0.92,
+          "median": 0.92,
+          "max": 0.92,
+          "n": 1
+        },
+        "af2_ptm": {
+          "min": 0.76,
+          "median": 0.76,
+          "max": 0.76,
+          "n": 1
+        },
+        "af2_iptm": {
+          "min": 0.19,
+          "median": 0.19,
+          "max": 0.19,
+          "n": 1
+        },
+        "af2_ipAE": {
+          "min": 28.08,
+          "median": 28.08,
+          "max": 28.08,
+          "n": 1
+        },
+        "af2_monomer_plddt": {
+          "min": 0.927,
+          "median": 0.927,
+          "max": 0.927,
+          "n": 1
+        },
+        "af2_bound_unbound_RMSD": {
+          "min": 0.25,
+          "median": 0.25,
+          "max": 0.25,
+          "n": 1
+        },
+        "af2_binder_pred_design_rmsd": {
+          "min": 0.37,
+          "median": 0.37,
+          "max": 0.37,
+          "n": 1
+        },
+        "af2_complex_pred_design_rmsd": {
+          "min": 6.32,
+          "median": 6.32,
+          "max": 6.32,
+          "n": 1
+        },
+        "alpha": {
+          "min": 0.925,
+          "median": 0.925,
+          "max": 0.925,
+          "n": 1
+        },
+        "beta": {
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0,
+          "n": 1
+        },
+        "loop": {
+          "min": 0.075,
+          "median": 0.075,
+          "max": 0.075,
+          "n": 1
+        },
+        "Rg": {
+          "min": 11.36,
+          "median": 11.36,
+          "max": 11.36,
+          "n": 1
+        }
+      },
+      "design_sequences": [
+        "PEAAWREDVRLTGEGIIEAVKAGDLTLVKQYFRSLIARSPPEAAAIITAGQEAAVAAMNAGDKDKAIAIVNATTAQVIAA"
+      ],
+      "gpu_exclusive": true,
+      "sanity_ok": true,
+      "why": []
+    },
+    {
+      "gpu": "H200",
+      "label": "pdl1_ext_n1",
+      "target": "PD-L1 5o45 A",
+      "target_residues": 116,
+      "binder_length": 80,
+      "preset": "extended",
+      "batch_n_sample": 1,
+      "n_step": 400,
+      "dtype": "bf16",
+      "extra_argv": null,
+      "yaml": "/work/PXDesign/examples/PDL1_quick_start.yaml",
+      "yaml_sha256": "fecb982ec0a6787a301b625e296b60671ae4f5ce9f747379e83f7bea17d88dc8",
+      "reps_total": 3,
+      "reps_warm": 2,
+      "cold_rep_total_s": 174.3371,
+      "total_s_median": 176.5231,
+      "total_s_min": 173.8758,
+      "total_s_max": 179.1705,
+      "total_s_all_warm": [
+        179.1705,
+        173.8758
+      ],
+      "s_per_design": 176.5231,
+      "stages_s": {
+        "prep_host_s": 5.0462,
+        "model_init_s": 15.5339,
+        "gen_feat_s": 1.0661,
+        "gen_device_s": 24.2428,
+        "gen_write_s": 0.0278,
+        "tgt_template_s": 41.1509,
+        "mpnn_s": 8.2361,
+        "af2_complex_s": 21.6503,
+        "af2_monomer_s": 18.9769,
+        "ptx_mini_s": null,
+        "ptx_s": 39.0603,
+        "metrics_host_s": 0.0145,
+        "rank_host_s": 1.0591,
+        "gen_total_s": 25.3366,
+        "eval_total_s": 88.0409
+      },
+      "split_s": {
+        "pxdesign_d_s": 24.2428,
+        "protenix_s": 80.2113,
+        "af2ig_s": 40.6273,
+        "proteinmpnn_s": 8.2361,
+        "host_data_s": 23.2058
+      },
+      "split_pct": {
+        "pxdesign_d_pct": 13.73,
+        "protenix_pct": 45.44,
+        "af2ig_pct": 23.02,
+        "proteinmpnn_pct": 4.67,
+        "host_data_pct": 13.15
+      },
+      "unattributed_s": 0.4583,
+      "gpu_util_pct_mean": 4.95,
+      "gpu_power_W_median": 120.65,
+      "gpu_power_W_max": 289.75,
+      "gpu_per_stage_util": {
+        "prep_host": {
+          "power_W_median": 120.4,
+          "power_W_max": 120.6,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 527,
+          "clock_sm_median": 1980,
+          "n_samples": 25
+        },
+        "model_init": {
+          "power_W_median": 120.5,
+          "power_W_max": 120.7,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.1,
+          "mem_MiB_max": 1333,
+          "clock_sm_median": 1980,
+          "n_samples": 76
+        },
+        "gen_device": {
+          "power_W_median": 169.5,
+          "power_W_max": 172.3,
+          "util_pct_median": 28.0,
+          "util_pct_mean": 26.6,
+          "mem_MiB_max": 1803,
+          "clock_sm_median": 1980,
+          "n_samples": 119
+        },
+        "gen_total": {
+          "power_W_median": 169.3,
+          "power_W_max": 172.3,
+          "util_pct_median": 28.0,
+          "util_pct_mean": 25.8,
+          "mem_MiB_max": 1803,
+          "clock_sm_median": 1980,
+          "n_samples": 124
+        },
+        "tgt_template": {
+          "power_W_median": 120.1,
+          "power_W_max": 159.7,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 1.3,
+          "mem_MiB_max": 4161,
+          "clock_sm_median": 1980,
+          "n_samples": 205
+        },
+        "mpnn": {
+          "power_W_median": 120.2,
+          "power_W_max": 133.4,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 3943,
+          "clock_sm_median": 1980,
+          "n_samples": 41
+        },
+        "af2_complex": {
+          "power_W_median": 120.5,
+          "power_W_max": 289.1,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 2.4,
+          "mem_MiB_max": 5027,
+          "clock_sm_median": 1980,
+          "n_samples": 108
+        },
+        "af2_monomer": {
+          "power_W_median": 120.7,
+          "power_W_max": 134.7,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.6,
+          "mem_MiB_max": 5725,
+          "clock_sm_median": 1980,
+          "n_samples": 94
+        },
+        "ptx": {
+          "power_W_median": 124.5,
+          "power_W_max": 175.8,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 2.4,
+          "mem_MiB_max": 4159,
+          "clock_sm_median": 1980,
+          "n_samples": 187
+        },
+        "metrics_host": {
+          "power_W_median": 169.0,
+          "power_W_max": 169.0,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 3051,
+          "clock_sm_median": 1980,
+          "n_samples": 1
+        },
+        "eval_total": {
+          "power_W_median": 124.4,
+          "power_W_max": 289.1,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 1.8,
+          "mem_MiB_max": 5725,
+          "clock_sm_median": 1980,
+          "n_samples": 431
+        },
+        "rank_host": {
+          "power_W_median": 139.3,
+          "power_W_max": 159.1,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 3051,
+          "clock_sm_median": 1980,
+          "n_samples": 5
+        }
+      },
+      "device_s_per_stage": {
+        "prep_host": 0.0,
+        "model_init": 0.016,
+        "gen_device": 6.449,
+        "tgt_template": 0.535,
+        "mpnn": 0.0,
+        "af2_complex": 0.52,
+        "af2_monomer": 0.114,
+        "ptx": 0.937,
+        "metrics_host": 0.0,
+        "rank_host": 0.0
+      },
+      "device_s_total": 8.571,
+      "host_s_total": 167.952,
+      "device_pct_of_wall": 4.86,
+      "tt_target_s_4x_wall": 706.09,
+      "tt_target_s_4x_device": 34.28,
+      "peak_vram_alloc_GiB": 3.409,
+      "counts": {
+        "pxd_predict": 1,
+        "target_template_probe": 1,
+        "deepspeed_evo_attn_fn": 2544,
+        "ds4sci_evo_attention": 2544,
+        "pxdbench_subprocesses": 3,
+        "af2_complex_calls": 1,
+        "af2_monomer_calls": 1,
+        "protenix_filter_calls_large": 1
+      },
+      "subprocess_walls_s": [
+        {
+          "script": "main_mpnn.py",
+          "wall_s": 8.24
+        },
+        {
+          "script": "main_af2_complex.py",
+          "wall_s": 21.527
+        },
+        {
+          "script": "main_af2_monomer.py",
+          "wall_s": 18.866
+        }
+      ],
+      "validation_ok": true,
+      "n_designs_returned": 1,
+      "filters_passed": {
+        "AF2-IG-easy-success": 1,
+        "AF2-IG-success": 0,
+        "Protenix-success": 0,
+        "Protenix-basic-success": 0
+      },
+      "metrics": {
+        "af2_plddt": {
+          "min": 0.94,
+          "median": 0.94,
+          "max": 0.94,
+          "n": 1
+        },
+        "af2_ptm": {
+          "min": 0.77,
+          "median": 0.77,
+          "max": 0.77,
+          "n": 1
+        },
+        "af2_iptm": {
+          "min": 0.63,
+          "median": 0.63,
+          "max": 0.63,
+          "n": 1
+        },
+        "af2_ipAE": {
+          "min": 9.59,
+          "median": 9.59,
+          "max": 9.59,
+          "n": 1
+        },
+        "af2_monomer_plddt": {
+          "min": 0.976,
+          "median": 0.976,
+          "max": 0.976,
+          "n": 1
+        },
+        "af2_bound_unbound_RMSD": {
+          "min": 0.17,
+          "median": 0.17,
+          "max": 0.17,
+          "n": 1
+        },
+        "af2_binder_pred_design_rmsd": {
+          "min": 0.44,
+          "median": 0.44,
+          "max": 0.44,
+          "n": 1
+        },
+        "af2_complex_pred_design_rmsd": {
+          "min": 1.03,
+          "median": 1.03,
+          "max": 1.03,
+          "n": 1
+        },
+        "ptx_plddt": {
+          "min": 87.5736,
+          "median": 87.5736,
+          "max": 87.5736,
+          "n": 1
+        },
+        "ptx_iptm_binder": {
+          "min": 0.4357,
+          "median": 0.4357,
+          "max": 0.4357,
+          "n": 1
+        },
+        "ptx_ptm_binder": {
+          "min": 0.9424,
+          "median": 0.9424,
+          "max": 0.9424,
+          "n": 1
+        },
+        "ptx_iptm": {
+          "min": 0.4357,
+          "median": 0.4357,
+          "max": 0.4357,
+          "n": 1
+        },
+        "ptx_ptm": {
+          "min": 0.7333,
+          "median": 0.7333,
+          "max": 0.7333,
+          "n": 1
+        },
+        "ptx_pred_design_rmsd": {
+          "min": 2.35,
+          "median": 2.35,
+          "max": 2.35,
+          "n": 1
+        },
+        "alpha": {
+          "min": 0.862,
+          "median": 0.862,
+          "max": 0.862,
+          "n": 1
+        },
+        "beta": {
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0,
+          "n": 1
+        },
+        "loop": {
+          "min": 0.138,
+          "median": 0.138,
+          "max": 0.138,
+          "n": 1
+        },
+        "Rg": {
+          "min": 11.57,
+          "median": 11.57,
+          "max": 11.57,
+          "n": 1
+        }
+      },
+      "design_sequences": [
+        "SREAALLALLDELEAVAEELGRKAEANFARTLREELLAGRISVEEALAAARELARLLAEDFPGNERIAALLARLDALAAA"
+      ],
+      "gpu_exclusive": true,
+      "sanity_ok": true,
+      "why": []
+    },
+    {
+      "gpu": "H200",
+      "label": "pdl1_ext_n1_fastln",
+      "target": "PD-L1 5o45 A",
+      "target_residues": 116,
+      "binder_length": 80,
+      "preset": "extended",
+      "batch_n_sample": 1,
+      "n_step": 400,
+      "dtype": "bf16",
+      "extra_argv": null,
+      "yaml": "/work/PXDesign/examples/PDL1_quick_start.yaml",
+      "yaml_sha256": "fecb982ec0a6787a301b625e296b60671ae4f5ce9f747379e83f7bea17d88dc8",
+      "reps_total": 2,
+      "reps_warm": 1,
+      "cold_rep_total_s": 177.0159,
+      "total_s_median": 175.1333,
+      "total_s_min": 175.1333,
+      "total_s_max": 175.1333,
+      "total_s_all_warm": [
+        175.1333
+      ],
+      "s_per_design": 175.1333,
+      "stages_s": {
+        "prep_host_s": 5.137,
+        "model_init_s": 15.3836,
+        "gen_feat_s": 1.1727,
+        "gen_device_s": 25.0834,
+        "gen_write_s": 0.0254,
+        "tgt_template_s": 41.1511,
+        "mpnn_s": 8.1419,
+        "af2_complex_s": 21.7704,
+        "af2_monomer_s": 18.8849,
+        "ptx_mini_s": null,
+        "ptx_s": 36.8975,
+        "metrics_host_s": 0.0145,
+        "rank_host_s": 1.0245,
+        "gen_total_s": 26.2815,
+        "eval_total_s": 85.8116
+      },
+      "split_s": {
+        "pxdesign_d_s": 25.0834,
+        "protenix_s": 78.0486,
+        "af2ig_s": 40.6553,
+        "proteinmpnn_s": 8.1419,
+        "host_data_s": 23.2041
+      },
+      "split_pct": {
+        "pxdesign_d_pct": 14.32,
+        "protenix_pct": 44.57,
+        "af2ig_pct": 23.21,
+        "proteinmpnn_pct": 4.65,
+        "host_data_pct": 13.25
+      },
+      "unattributed_s": 0.4464,
+      "gpu_util_pct_mean": 4.3,
+      "gpu_power_W_median": 120.8,
+      "gpu_power_W_max": 291.1,
+      "gpu_per_stage_util": {
+        "prep_host": {
+          "power_W_median": 120.7,
+          "power_W_max": 120.8,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 527,
+          "clock_sm_median": 1980,
+          "n_samples": 26
+        },
+        "model_init": {
+          "power_W_median": 120.5,
+          "power_W_max": 120.7,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.2,
+          "mem_MiB_max": 1513,
+          "clock_sm_median": 1980,
+          "n_samples": 77
+        },
+        "gen_device": {
+          "power_W_median": 159.7,
+          "power_W_max": 163.2,
+          "util_pct_median": 21.0,
+          "util_pct_mean": 20.6,
+          "mem_MiB_max": 1803,
+          "clock_sm_median": 1980,
+          "n_samples": 126
+        },
+        "gen_total": {
+          "power_W_median": 159.6,
+          "power_W_max": 163.2,
+          "util_pct_median": 21.0,
+          "util_pct_mean": 20.0,
+          "mem_MiB_max": 1803,
+          "clock_sm_median": 1980,
+          "n_samples": 131
+        },
+        "tgt_template": {
+          "power_W_median": 120.6,
+          "power_W_max": 146.8,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 1.3,
+          "mem_MiB_max": 4161,
+          "clock_sm_median": 1980,
+          "n_samples": 206
+        },
+        "mpnn": {
+          "power_W_median": 120.6,
+          "power_W_max": 131.6,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.3,
+          "mem_MiB_max": 3941,
+          "clock_sm_median": 1980,
+          "n_samples": 40
+        },
+        "af2_complex": {
+          "power_W_median": 120.5,
+          "power_W_max": 291.1,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 2.7,
+          "mem_MiB_max": 5025,
+          "clock_sm_median": 1980,
+          "n_samples": 109
+        },
+        "af2_monomer": {
+          "power_W_median": 120.4,
+          "power_W_max": 134.0,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 1.4,
+          "mem_MiB_max": 5723,
+          "clock_sm_median": 1980,
+          "n_samples": 94
+        },
+        "ptx": {
+          "power_W_median": 124.2,
+          "power_W_max": 171.4,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 2.2,
+          "mem_MiB_max": 4157,
+          "clock_sm_median": 1980,
+          "n_samples": 185
+        },
+        "eval_total": {
+          "power_W_median": 124.1,
+          "power_W_max": 291.1,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 2.0,
+          "mem_MiB_max": 5723,
+          "clock_sm_median": 1980,
+          "n_samples": 428
+        },
+        "rank_host": {
+          "power_W_median": 142.5,
+          "power_W_max": 163.7,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 3.4,
+          "mem_MiB_max": 3051,
+          "clock_sm_median": 1980,
+          "n_samples": 5
+        }
+      },
+      "device_s_per_stage": {
+        "prep_host": 0.0,
+        "model_init": 0.031,
+        "gen_device": 5.167,
+        "tgt_template": 0.535,
+        "mpnn": 0.024,
+        "af2_complex": 0.588,
+        "af2_monomer": 0.264,
+        "ptx": 0.812,
+        "rank_host": 0.035
+      },
+      "device_s_total": 7.456,
+      "host_s_total": 167.677,
+      "device_pct_of_wall": 4.26,
+      "tt_target_s_4x_wall": 700.53,
+      "tt_target_s_4x_device": 29.82,
+      "peak_vram_alloc_GiB": 3.409,
+      "counts": {
+        "pxd_predict": 1,
+        "target_template_probe": 1,
+        "deepspeed_evo_attn_fn": 2544,
+        "ds4sci_evo_attention": 2544,
+        "pxdbench_subprocesses": 3,
+        "af2_complex_calls": 1,
+        "af2_monomer_calls": 1,
+        "protenix_filter_calls_large": 1
+      },
+      "subprocess_walls_s": [
+        {
+          "script": "main_mpnn.py",
+          "wall_s": 8.142
+        },
+        {
+          "script": "main_af2_complex.py",
+          "wall_s": 21.77
+        },
+        {
+          "script": "main_af2_monomer.py",
+          "wall_s": 18.885
+        }
+      ],
+      "validation_ok": true,
+      "n_designs_returned": 1,
+      "filters_passed": {
+        "AF2-IG-easy-success": 1,
+        "AF2-IG-success": 0,
+        "Protenix-success": 0,
+        "Protenix-basic-success": 0
+      },
+      "metrics": {
+        "af2_plddt": {
+          "min": 0.94,
+          "median": 0.94,
+          "max": 0.94,
+          "n": 1
+        },
+        "af2_ptm": {
+          "min": 0.78,
+          "median": 0.78,
+          "max": 0.78,
+          "n": 1
+        },
+        "af2_iptm": {
+          "min": 0.64,
+          "median": 0.64,
+          "max": 0.64,
+          "n": 1
+        },
+        "af2_ipAE": {
+          "min": 9.31,
+          "median": 9.31,
+          "max": 9.31,
+          "n": 1
+        },
+        "af2_monomer_plddt": {
+          "min": 0.976,
+          "median": 0.976,
+          "max": 0.976,
+          "n": 1
+        },
+        "af2_bound_unbound_RMSD": {
+          "min": 0.17,
+          "median": 0.17,
+          "max": 0.17,
+          "n": 1
+        },
+        "af2_binder_pred_design_rmsd": {
+          "min": 0.44,
+          "median": 0.44,
+          "max": 0.44,
+          "n": 1
+        },
+        "af2_complex_pred_design_rmsd": {
+          "min": 1.01,
+          "median": 1.01,
+          "max": 1.01,
+          "n": 1
+        },
+        "ptx_plddt": {
+          "min": 87.5204,
+          "median": 87.5204,
+          "max": 87.5204,
+          "n": 1
+        },
+        "ptx_iptm_binder": {
+          "min": 0.4288,
+          "median": 0.4288,
+          "max": 0.4288,
+          "n": 1
+        },
+        "ptx_ptm_binder": {
+          "min": 0.9423,
+          "median": 0.9423,
+          "max": 0.9423,
+          "n": 1
+        },
+        "ptx_iptm": {
+          "min": 0.4288,
+          "median": 0.4288,
+          "max": 0.4288,
+          "n": 1
+        },
+        "ptx_ptm": {
+          "min": 0.7313,
+          "median": 0.7313,
+          "max": 0.7313,
+          "n": 1
+        },
+        "ptx_pred_design_rmsd": {
+          "min": 2.34,
+          "median": 2.34,
+          "max": 2.34,
+          "n": 1
+        },
+        "alpha": {
+          "min": 0.862,
+          "median": 0.862,
+          "max": 0.862,
+          "n": 1
+        },
+        "beta": {
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0,
+          "n": 1
+        },
+        "loop": {
+          "min": 0.138,
+          "median": 0.138,
+          "max": 0.138,
+          "n": 1
+        },
+        "Rg": {
+          "min": 11.57,
+          "median": 11.57,
+          "max": 11.57,
+          "n": 1
+        }
+      },
+      "design_sequences": [
+        "SREAALLALLDELEAVAEELGRKAEANFARTLREELLAGRISVEEALAAARELARLLAEDFPGNERIAALLARLDALAAA"
+      ],
+      "gpu_exclusive": true,
+      "sanity_ok": true,
+      "why": []
+    },
+    {
+      "gpu": "H200",
+      "label": "pdl1_ext_n1_nomsa",
+      "target": "PD-L1 5o45 A",
+      "target_residues": 116,
+      "binder_length": 80,
+      "preset": "extended",
+      "batch_n_sample": 1,
+      "n_step": 400,
+      "dtype": "bf16",
+      "extra_argv": "--eval.binder.tools.ptx.use_msa false",
+      "yaml": "/work/PXDesign/examples/PDL1_quick_start.yaml",
+      "yaml_sha256": "fecb982ec0a6787a301b625e296b60671ae4f5ce9f747379e83f7bea17d88dc8",
+      "reps_total": 2,
+      "reps_warm": 1,
+      "cold_rep_total_s": 174.2078,
+      "total_s_median": 175.1106,
+      "total_s_min": 175.1106,
+      "total_s_max": 175.1106,
+      "total_s_all_warm": [
+        175.1106
+      ],
+      "s_per_design": 175.1106,
+      "stages_s": {
+        "prep_host_s": 5.1135,
+        "model_init_s": 16.0021,
+        "gen_feat_s": 1.2724,
+        "gen_device_s": 24.2235,
+        "gen_write_s": 0.0255,
+        "tgt_template_s": 41.1166,
+        "mpnn_s": 8.2514,
+        "af2_complex_s": 21.5843,
+        "af2_monomer_s": 18.6653,
+        "ptx_mini_s": null,
+        "ptx_s": 37.2727,
+        "metrics_host_s": 0.0186,
+        "rank_host_s": 1.0625,
+        "gen_total_s": 25.5214,
+        "eval_total_s": 85.8988
+      },
+      "split_s": {
+        "pxdesign_d_s": 24.2235,
+        "protenix_s": 78.3893,
+        "af2ig_s": 40.2496,
+        "proteinmpnn_s": 8.2514,
+        "host_data_s": 23.9968
+      },
+      "split_pct": {
+        "pxdesign_d_pct": 13.83,
+        "protenix_pct": 44.77,
+        "af2ig_pct": 22.99,
+        "proteinmpnn_pct": 4.71,
+        "host_data_pct": 13.7
+      },
+      "unattributed_s": 0.5022,
+      "gpu_util_pct_mean": 4.9,
+      "gpu_power_W_median": 120.8,
+      "gpu_power_W_max": 292.9,
+      "gpu_per_stage_util": {
+        "prep_host": {
+          "power_W_median": 120.7,
+          "power_W_max": 120.7,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 527,
+          "clock_sm_median": 1980,
+          "n_samples": 26
+        },
+        "model_init": {
+          "power_W_median": 120.6,
+          "power_W_max": 120.8,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.1,
+          "mem_MiB_max": 1643,
+          "clock_sm_median": 1980,
+          "n_samples": 80
+        },
+        "gen_device": {
+          "power_W_median": 168.4,
+          "power_W_max": 170.5,
+          "util_pct_median": 28.0,
+          "util_pct_mean": 26.3,
+          "mem_MiB_max": 1803,
+          "clock_sm_median": 1980,
+          "n_samples": 121
+        },
+        "gen_write": {
+          "power_W_median": 158.1,
+          "power_W_max": 158.1,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 1447,
+          "clock_sm_median": 1980,
+          "n_samples": 1
+        },
+        "gen_total": {
+          "power_W_median": 168.2,
+          "power_W_max": 170.5,
+          "util_pct_median": 28.0,
+          "util_pct_mean": 25.3,
+          "mem_MiB_max": 1803,
+          "clock_sm_median": 1980,
+          "n_samples": 127
+        },
+        "tgt_template": {
+          "power_W_median": 120.2,
+          "power_W_max": 147.7,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 1.4,
+          "mem_MiB_max": 4161,
+          "clock_sm_median": 1980,
+          "n_samples": 205
+        },
+        "mpnn": {
+          "power_W_median": 120.6,
+          "power_W_max": 133.6,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.1,
+          "mem_MiB_max": 3943,
+          "clock_sm_median": 1980,
+          "n_samples": 41
+        },
+        "af2_complex": {
+          "power_W_median": 120.6,
+          "power_W_max": 292.9,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 2.2,
+          "mem_MiB_max": 5027,
+          "clock_sm_median": 1980,
+          "n_samples": 108
+        },
+        "af2_monomer": {
+          "power_W_median": 120.9,
+          "power_W_max": 134.3,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.5,
+          "mem_MiB_max": 5725,
+          "clock_sm_median": 1980,
+          "n_samples": 93
+        },
+        "ptx": {
+          "power_W_median": 124.4,
+          "power_W_max": 174.0,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 2.4,
+          "mem_MiB_max": 4159,
+          "clock_sm_median": 1980,
+          "n_samples": 186
+        },
+        "eval_total": {
+          "power_W_median": 124.3,
+          "power_W_max": 292.9,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 1.7,
+          "mem_MiB_max": 5725,
+          "clock_sm_median": 1980,
+          "n_samples": 428
+        },
+        "rank_host": {
+          "power_W_median": 139.1,
+          "power_W_max": 161.3,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 5.5,
+          "mem_MiB_max": 3055,
+          "clock_sm_median": 1980,
+          "n_samples": 6
+        }
+      },
+      "device_s_per_stage": {
+        "prep_host": 0.0,
+        "model_init": 0.016,
+        "gen_device": 6.371,
+        "gen_write": 0.0,
+        "tgt_template": 0.576,
+        "mpnn": 0.008,
+        "af2_complex": 0.475,
+        "af2_monomer": 0.093,
+        "ptx": 0.895,
+        "rank_host": 0.058
+      },
+      "device_s_total": 8.492,
+      "host_s_total": 166.619,
+      "device_pct_of_wall": 4.85,
+      "tt_target_s_4x_wall": 700.44,
+      "tt_target_s_4x_device": 33.97,
+      "peak_vram_alloc_GiB": 3.409,
+      "counts": {
+        "pxd_predict": 1,
+        "target_template_probe": 1,
+        "deepspeed_evo_attn_fn": 2544,
+        "ds4sci_evo_attention": 2544,
+        "pxdbench_subprocesses": 3,
+        "af2_complex_calls": 1,
+        "af2_monomer_calls": 1,
+        "protenix_filter_calls_large": 1
+      },
+      "subprocess_walls_s": [
+        {
+          "script": "main_mpnn.py",
+          "wall_s": 8.251
+        },
+        {
+          "script": "main_af2_complex.py",
+          "wall_s": 21.584
+        },
+        {
+          "script": "main_af2_monomer.py",
+          "wall_s": 18.665
+        }
+      ],
+      "validation_ok": true,
+      "n_designs_returned": 1,
+      "filters_passed": {
+        "AF2-IG-easy-success": 1,
+        "AF2-IG-success": 0,
+        "Protenix-success": 0,
+        "Protenix-basic-success": 0
+      },
+      "metrics": {
+        "af2_plddt": {
+          "min": 0.94,
+          "median": 0.94,
+          "max": 0.94,
+          "n": 1
+        },
+        "af2_ptm": {
+          "min": 0.77,
+          "median": 0.77,
+          "max": 0.77,
+          "n": 1
+        },
+        "af2_iptm": {
+          "min": 0.63,
+          "median": 0.63,
+          "max": 0.63,
+          "n": 1
+        },
+        "af2_ipAE": {
+          "min": 9.59,
+          "median": 9.59,
+          "max": 9.59,
+          "n": 1
+        },
+        "af2_monomer_plddt": {
+          "min": 0.976,
+          "median": 0.976,
+          "max": 0.976,
+          "n": 1
+        },
+        "af2_bound_unbound_RMSD": {
+          "min": 0.17,
+          "median": 0.17,
+          "max": 0.17,
+          "n": 1
+        },
+        "af2_binder_pred_design_rmsd": {
+          "min": 0.44,
+          "median": 0.44,
+          "max": 0.44,
+          "n": 1
+        },
+        "af2_complex_pred_design_rmsd": {
+          "min": 1.03,
+          "median": 1.03,
+          "max": 1.03,
+          "n": 1
+        },
+        "ptx_plddt": {
+          "min": 57.2533,
+          "median": 57.2533,
+          "max": 57.2533,
+          "n": 1
+        },
+        "ptx_iptm_binder": {
+          "min": 0.1161,
+          "median": 0.1161,
+          "max": 0.1161,
+          "n": 1
+        },
+        "ptx_ptm_binder": {
+          "min": 0.9473,
+          "median": 0.9473,
+          "max": 0.9473,
+          "n": 1
+        },
+        "ptx_iptm": {
+          "min": 0.1161,
+          "median": 0.1161,
+          "max": 0.1161,
+          "n": 1
+        },
+        "ptx_ptm": {
+          "min": 0.4648,
+          "median": 0.4648,
+          "max": 0.4648,
+          "n": 1
+        },
+        "ptx_pred_design_rmsd": {
+          "min": 27.74,
+          "median": 27.74,
+          "max": 27.74,
+          "n": 1
+        },
+        "alpha": {
+          "min": 0.862,
+          "median": 0.862,
+          "max": 0.862,
+          "n": 1
+        },
+        "beta": {
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0,
+          "n": 1
+        },
+        "loop": {
+          "min": 0.138,
+          "median": 0.138,
+          "max": 0.138,
+          "n": 1
+        },
+        "Rg": {
+          "min": 11.57,
+          "median": 11.57,
+          "max": 11.57,
+          "n": 1
+        }
+      },
+      "design_sequences": [
+        "SREAALLALLDELEAVAEELGRKAEANFARTLREELLAGRISVEEALAAARELARLLAEDFPGNERIAALLARLDALAAA"
+      ],
+      "gpu_exclusive": true,
+      "sanity_ok": true,
+      "why": []
+    },
+    {
+      "gpu": "H200",
+      "label": "pdl1_ext_n8",
+      "target": "PD-L1 5o45 A",
+      "target_residues": 116,
+      "binder_length": 80,
+      "preset": "extended",
+      "batch_n_sample": 8,
+      "n_step": 400,
+      "dtype": "bf16",
+      "extra_argv": null,
+      "yaml": "/work/PXDesign/examples/PDL1_quick_start.yaml",
+      "yaml_sha256": "fecb982ec0a6787a301b625e296b60671ae4f5ce9f747379e83f7bea17d88dc8",
+      "reps_total": 3,
+      "reps_warm": 2,
+      "cold_rep_total_s": 217.7785,
+      "total_s_median": 216.9806,
+      "total_s_min": 216.7283,
+      "total_s_max": 217.233,
+      "total_s_all_warm": [
+        216.7283,
+        217.233
+      ],
+      "s_per_design": 27.1226,
+      "stages_s": {
+        "prep_host_s": 5.1631,
+        "model_init_s": 15.5406,
+        "gen_feat_s": 1.0802,
+        "gen_device_s": 37.3092,
+        "gen_write_s": 0.1871,
+        "tgt_template_s": 40.9079,
+        "mpnn_s": 8.4826,
+        "af2_complex_s": 25.9128,
+        "af2_monomer_s": 19.9102,
+        "ptx_mini_s": null,
+        "ptx_s": 59.7323,
+        "metrics_host_s": 0.104,
+        "rank_host_s": 1.7509,
+        "gen_total_s": 38.5765,
+        "eval_total_s": 114.2545
+      },
+      "split_s": {
+        "pxdesign_d_s": 37.3092,
+        "protenix_s": 100.6402,
+        "af2ig_s": 45.823,
+        "proteinmpnn_s": 8.4826,
+        "host_data_s": 24.7255
+      },
+      "split_pct": {
+        "pxdesign_d_pct": 17.19,
+        "protenix_pct": 46.38,
+        "af2ig_pct": 21.12,
+        "proteinmpnn_pct": 3.91,
+        "host_data_pct": 11.4
+      },
+      "unattributed_s": 0.8998,
+      "gpu_util_pct_mean": 18.0,
+      "gpu_power_W_median": 124.3,
+      "gpu_power_W_max": 443.95,
+      "gpu_per_stage_util": {
+        "prep_host": {
+          "power_W_median": 120.0,
+          "power_W_max": 120.3,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 527,
+          "clock_sm_median": 1980,
+          "n_samples": 26
+        },
+        "model_init": {
+          "power_W_median": 120.0,
+          "power_W_max": 120.3,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.1,
+          "mem_MiB_max": 1641,
+          "clock_sm_median": 1980,
+          "n_samples": 77
+        },
+        "gen_device": {
+          "power_W_median": 314.4,
+          "power_W_max": 326.9,
+          "util_pct_median": 72.0,
+          "util_pct_mean": 70.8,
+          "mem_MiB_max": 2295,
+          "clock_sm_median": 1980,
+          "n_samples": 187
+        },
+        "gen_write": {
+          "power_W_median": 289.4,
+          "power_W_max": 289.4,
+          "util_pct_median": 65.0,
+          "util_pct_mean": 65.0,
+          "mem_MiB_max": 2295,
+          "clock_sm_median": 1980,
+          "n_samples": 1
+        },
+        "gen_total": {
+          "power_W_median": 314.2,
+          "power_W_max": 326.9,
+          "util_pct_median": 72.0,
+          "util_pct_mean": 69.0,
+          "mem_MiB_max": 2295,
+          "clock_sm_median": 1980,
+          "n_samples": 193
+        },
+        "tgt_template": {
+          "power_W_median": 121.1,
+          "power_W_max": 214.4,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 1.4,
+          "mem_MiB_max": 4117,
+          "clock_sm_median": 1980,
+          "n_samples": 206
+        },
+        "mpnn": {
+          "power_W_median": 120.8,
+          "power_W_max": 126.5,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 2.6,
+          "mem_MiB_max": 3837,
+          "clock_sm_median": 1980,
+          "n_samples": 43
+        },
+        "af2_complex": {
+          "power_W_median": 120.8,
+          "power_W_max": 443.3,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 14.5,
+          "mem_MiB_max": 4921,
+          "clock_sm_median": 1980,
+          "n_samples": 129
+        },
+        "af2_monomer": {
+          "power_W_median": 121.1,
+          "power_W_max": 212.3,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 4.5,
+          "mem_MiB_max": 5619,
+          "clock_sm_median": 1980,
+          "n_samples": 99
+        },
+        "ptx": {
+          "power_W_median": 124.5,
+          "power_W_max": 178.9,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 11.4,
+          "mem_MiB_max": 4113,
+          "clock_sm_median": 1980,
+          "n_samples": 299
+        },
+        "metrics_host": {
+          "power_W_median": 162.4,
+          "power_W_max": 162.4,
+          "util_pct_median": 2.0,
+          "util_pct_mean": 2.0,
+          "mem_MiB_max": 3105,
+          "clock_sm_median": 1980,
+          "n_samples": 1
+        },
+        "eval_total": {
+          "power_W_median": 124.4,
+          "power_W_max": 443.3,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 10.2,
+          "mem_MiB_max": 5619,
+          "clock_sm_median": 1980,
+          "n_samples": 571
+        },
+        "rank_host": {
+          "power_W_median": 120.7,
+          "power_W_max": 156.0,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 3105,
+          "clock_sm_median": 1980,
+          "n_samples": 9
+        }
+      },
+      "device_s_per_stage": {
+        "prep_host": 0.0,
+        "model_init": 0.016,
+        "gen_device": 26.415,
+        "gen_write": 0.122,
+        "tgt_template": 0.573,
+        "mpnn": 0.221,
+        "af2_complex": 3.757,
+        "af2_monomer": 0.896,
+        "ptx": 6.809,
+        "metrics_host": 0.002,
+        "rank_host": 0.0
+      },
+      "device_s_total": 38.811,
+      "host_s_total": 178.17,
+      "device_pct_of_wall": 17.89,
+      "tt_target_s_4x_wall": 867.92,
+      "tt_target_s_4x_device": 155.24,
+      "peak_vram_alloc_GiB": 3.373,
+      "counts": {
+        "pxd_predict": 1,
+        "target_template_probe": 1,
+        "deepspeed_evo_attn_fn": 14416,
+        "ds4sci_evo_attention": 14416,
+        "pxdbench_subprocesses": 3,
+        "af2_complex_calls": 1,
+        "af2_monomer_calls": 1,
+        "protenix_filter_calls_large": 1
+      },
+      "subprocess_walls_s": [
+        {
+          "script": "main_mpnn.py",
+          "wall_s": 8.605
+        },
+        {
+          "script": "main_af2_complex.py",
+          "wall_s": 25.962
+        },
+        {
+          "script": "main_af2_monomer.py",
+          "wall_s": 19.812
+        }
+      ],
+      "validation_ok": true,
+      "n_designs_returned": 8,
+      "filters_passed": {
+        "AF2-IG-easy-success": 1,
+        "AF2-IG-success": 1,
+        "Protenix-success": 0,
+        "Protenix-basic-success": 0
+      },
+      "metrics": {
+        "af2_plddt": {
+          "min": 0.88,
+          "median": 0.925,
+          "max": 0.94,
+          "n": 8
+        },
+        "af2_ptm": {
+          "min": 0.55,
+          "median": 0.55,
+          "max": 0.83,
+          "n": 8
+        },
+        "af2_iptm": {
+          "min": 0.08,
+          "median": 0.09,
+          "max": 0.74,
+          "n": 8
+        },
+        "af2_ipAE": {
+          "min": 6.47,
+          "median": 25.875,
+          "max": 26.56,
+          "n": 8
+        },
+        "af2_monomer_plddt": {
+          "min": 0.887,
+          "median": 0.9325,
+          "max": 0.968,
+          "n": 8
+        },
+        "af2_bound_unbound_RMSD": {
+          "min": 0.12,
+          "median": 0.235,
+          "max": 0.57,
+          "n": 8
+        },
+        "af2_binder_pred_design_rmsd": {
+          "min": 0.41,
+          "median": 0.5900000000000001,
+          "max": 0.83,
+          "n": 8
+        },
+        "af2_complex_pred_design_rmsd": {
+          "min": 1.04,
+          "median": 9.335,
+          "max": 11.44,
+          "n": 8
+        },
+        "ptx_plddt": {
+          "min": 80.0456,
+          "median": 85.20259999999999,
+          "max": 93.3734,
+          "n": 8
+        },
+        "ptx_iptm_binder": {
+          "min": 0.1581,
+          "median": 0.2547,
+          "max": 0.8898,
+          "n": 8
+        },
+        "ptx_ptm_binder": {
+          "min": 0.7257,
+          "median": 0.88705,
+          "max": 0.9415,
+          "n": 8
+        },
+        "ptx_iptm": {
+          "min": 0.1581,
+          "median": 0.2547,
+          "max": 0.8898,
+          "n": 8
+        },
+        "ptx_ptm": {
+          "min": 0.6333,
+          "median": 0.669,
+          "max": 0.9313,
+          "n": 8
+        },
+        "ptx_pred_design_rmsd": {
+          "min": 1.43,
+          "median": 5.495,
+          "max": 18.57,
+          "n": 8
+        },
+        "alpha": {
+          "min": 0.75,
+          "median": 0.8685,
+          "max": 0.912,
+          "n": 8
+        },
+        "beta": {
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.062,
+          "n": 8
+        },
+        "loop": {
+          "min": 0.088,
+          "median": 0.1315,
+          "max": 0.188,
+          "n": 8
+        },
+        "Rg": {
+          "min": 11.4,
+          "median": 11.795,
+          "max": 13.51,
+          "n": 8
+        }
+      },
+      "design_sequences": [
+        "AAEVEAELKAAKNFAKLTIEYLEKNLETVTDEEIDGLLELIKKLFEDVIAKAKDPEMKKEAKKLLEETKKKFEELKKKRA",
+        "SERERVRETLERLLELARARGDAEAVALAERMREAAEKTTDSERLRTLRSLAQALATGLELDDADLVAGARAMAEKELEA",
+        "MSVEEIKASIEAKMEEINVPQEARDEIMAVIDANRDKSIEEIASALMRKVAELLRQGKITPEQAGKLLLHIVELRKKALA"
+      ],
+      "gpu_exclusive": true,
+      "sanity_ok": true,
+      "why": []
+    },
+    {
+      "gpu": "H200",
+      "label": "pdl1_prev_n1",
+      "target": "PD-L1 5o45 A",
+      "target_residues": 116,
+      "binder_length": 80,
+      "preset": "preview",
+      "batch_n_sample": 1,
+      "n_step": 400,
+      "dtype": "bf16",
+      "extra_argv": null,
+      "yaml": "/work/PXDesign/examples/PDL1_quick_start.yaml",
+      "yaml_sha256": "fecb982ec0a6787a301b625e296b60671ae4f5ce9f747379e83f7bea17d88dc8",
+      "reps_total": 3,
+      "reps_warm": 2,
+      "cold_rep_total_s": 97.8755,
+      "total_s_median": 97.2387,
+      "total_s_min": 96.6951,
+      "total_s_max": 97.7822,
+      "total_s_all_warm": [
+        97.7822,
+        96.6951
+      ],
+      "s_per_design": 97.2387,
+      "stages_s": {
+        "prep_host_s": 5.3507,
+        "model_init_s": 15.5874,
+        "gen_feat_s": 1.1113,
+        "gen_device_s": 24.3466,
+        "gen_write_s": 0.0253,
+        "tgt_template_s": null,
+        "mpnn_s": 8.3877,
+        "af2_complex_s": 22.006,
+        "af2_monomer_s": 18.8872,
+        "ptx_mini_s": null,
+        "ptx_s": null,
+        "metrics_host_s": 0.0158,
+        "rank_host_s": 1.2362,
+        "gen_total_s": 25.483,
+        "eval_total_s": 49.3068
+      },
+      "split_s": {
+        "pxdesign_d_s": 24.3466,
+        "protenix_s": 0.0,
+        "af2ig_s": 40.8932,
+        "proteinmpnn_s": 8.3877,
+        "host_data_s": 23.6111
+      },
+      "split_pct": {
+        "pxdesign_d_pct": 25.04,
+        "protenix_pct": 0.0,
+        "af2ig_pct": 42.05,
+        "proteinmpnn_pct": 8.63,
+        "host_data_pct": 24.28
+      },
+      "unattributed_s": 0.2845,
+      "gpu_util_pct_mean": 7.35,
+      "gpu_power_W_median": 120.9,
+      "gpu_power_W_max": 289.65,
+      "gpu_per_stage_util": {
+        "prep_host": {
+          "power_W_median": 120.0,
+          "power_W_max": 120.3,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 527,
+          "clock_sm_median": 1980,
+          "n_samples": 25
+        },
+        "model_init": {
+          "power_W_median": 120.0,
+          "power_W_max": 120.3,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.1,
+          "mem_MiB_max": 1643,
+          "clock_sm_median": 1980,
+          "n_samples": 78
+        },
+        "gen_device": {
+          "power_W_median": 168.4,
+          "power_W_max": 171.2,
+          "util_pct_median": 27.0,
+          "util_pct_mean": 26.6,
+          "mem_MiB_max": 1803,
+          "clock_sm_median": 1980,
+          "n_samples": 121
+        },
+        "gen_total": {
+          "power_W_median": 168.4,
+          "power_W_max": 171.2,
+          "util_pct_median": 27.0,
+          "util_pct_mean": 25.6,
+          "mem_MiB_max": 1803,
+          "clock_sm_median": 1980,
+          "n_samples": 126
+        },
+        "mpnn": {
+          "power_W_median": 121.0,
+          "power_W_max": 144.7,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.1,
+          "mem_MiB_max": 2297,
+          "clock_sm_median": 1980,
+          "n_samples": 41
+        },
+        "af2_complex": {
+          "power_W_median": 120.8,
+          "power_W_max": 288.4,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 2.0,
+          "mem_MiB_max": 3381,
+          "clock_sm_median": 1980,
+          "n_samples": 110
+        },
+        "af2_monomer": {
+          "power_W_median": 120.7,
+          "power_W_max": 134.7,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.7,
+          "mem_MiB_max": 4079,
+          "clock_sm_median": 1980,
+          "n_samples": 95
+        },
+        "eval_total": {
+          "power_W_median": 120.9,
+          "power_W_max": 288.4,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 1.2,
+          "mem_MiB_max": 4079,
+          "clock_sm_median": 1980,
+          "n_samples": 246
+        },
+        "rank_host": {
+          "power_W_median": 123.4,
+          "power_W_max": 124.7,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 1447,
+          "clock_sm_median": 1980,
+          "n_samples": 6
+        }
+      },
+      "device_s_per_stage": {
+        "prep_host": 0.0,
+        "model_init": 0.016,
+        "gen_device": 6.476,
+        "mpnn": 0.008,
+        "af2_complex": 0.44,
+        "af2_monomer": 0.132,
+        "rank_host": 0.0
+      },
+      "device_s_total": 7.072,
+      "host_s_total": 90.167,
+      "device_pct_of_wall": 7.27,
+      "tt_target_s_4x_wall": 388.95,
+      "tt_target_s_4x_device": 28.29,
+      "peak_vram_alloc_GiB": 1.08,
+      "counts": {
+        "pxd_predict": 1,
+        "pxdbench_subprocesses": 3,
+        "af2_complex_calls": 1,
+        "af2_monomer_calls": 1
+      },
+      "subprocess_walls_s": [
+        {
+          "script": "main_mpnn.py",
+          "wall_s": 8.331
+        },
+        {
+          "script": "main_af2_complex.py",
+          "wall_s": 21.95
+        },
+        {
+          "script": "main_af2_monomer.py",
+          "wall_s": 18.897
+        }
+      ],
+      "validation_ok": true,
+      "n_designs_returned": 1,
+      "filters_passed": {
+        "AF2-IG-easy-success": 1,
+        "AF2-IG-success": 0
+      },
+      "metrics": {
+        "af2_plddt": {
+          "min": 0.94,
+          "median": 0.94,
+          "max": 0.94,
+          "n": 1
+        },
+        "af2_ptm": {
+          "min": 0.77,
+          "median": 0.77,
+          "max": 0.77,
+          "n": 1
+        },
+        "af2_iptm": {
+          "min": 0.63,
+          "median": 0.63,
+          "max": 0.63,
+          "n": 1
+        },
+        "af2_ipAE": {
+          "min": 9.59,
+          "median": 9.59,
+          "max": 9.59,
+          "n": 1
+        },
+        "af2_monomer_plddt": {
+          "min": 0.976,
+          "median": 0.976,
+          "max": 0.976,
+          "n": 1
+        },
+        "af2_bound_unbound_RMSD": {
+          "min": 0.17,
+          "median": 0.17,
+          "max": 0.17,
+          "n": 1
+        },
+        "af2_binder_pred_design_rmsd": {
+          "min": 0.44,
+          "median": 0.44,
+          "max": 0.44,
+          "n": 1
+        },
+        "af2_complex_pred_design_rmsd": {
+          "min": 1.03,
+          "median": 1.03,
+          "max": 1.03,
+          "n": 1
+        },
+        "alpha": {
+          "min": 0.862,
+          "median": 0.862,
+          "max": 0.862,
+          "n": 1
+        },
+        "beta": {
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0,
+          "n": 1
+        },
+        "loop": {
+          "min": 0.138,
+          "median": 0.138,
+          "max": 0.138,
+          "n": 1
+        },
+        "Rg": {
+          "min": 11.57,
+          "median": 11.57,
+          "max": 11.57,
+          "n": 1
+        }
+      },
+      "design_sequences": [
+        "SREAALLALLDELEAVAEELGRKAEANFARTLREELLAGRISVEEALAAARELARLLAEDFPGNERIAALLARLDALAAA"
+      ],
+      "gpu_exclusive": true,
+      "sanity_ok": true,
+      "why": []
+    },
+    {
+      "gpu": "H200",
+      "label": "pdl1_prev_n8",
+      "target": "PD-L1 5o45 A",
+      "target_residues": 116,
+      "binder_length": 80,
+      "preset": "preview",
+      "batch_n_sample": 8,
+      "n_step": 400,
+      "dtype": "bf16",
+      "extra_argv": null,
+      "yaml": "/work/PXDesign/examples/PDL1_quick_start.yaml",
+      "yaml_sha256": "fecb982ec0a6787a301b625e296b60671ae4f5ce9f747379e83f7bea17d88dc8",
+      "reps_total": 3,
+      "reps_warm": 2,
+      "cold_rep_total_s": 116.6971,
+      "total_s_median": 116.1175,
+      "total_s_min": 116.0681,
+      "total_s_max": 116.167,
+      "total_s_all_warm": [
+        116.0681,
+        116.167
+      ],
+      "s_per_design": 14.5147,
+      "stages_s": {
+        "prep_host_s": 5.0718,
+        "model_init_s": 15.4589,
+        "gen_feat_s": 1.0935,
+        "gen_device_s": 37.3603,
+        "gen_write_s": 0.2122,
+        "tgt_template_s": null,
+        "mpnn_s": 8.426,
+        "af2_complex_s": 26.0374,
+        "af2_monomer_s": 19.958,
+        "ptx_mini_s": null,
+        "ptx_s": null,
+        "metrics_host_s": 0.115,
+        "rank_host_s": 1.5436,
+        "gen_total_s": 38.6659,
+        "eval_total_s": 54.547
+      },
+      "split_s": {
+        "pxdesign_d_s": 37.3603,
+        "protenix_s": 0.0,
+        "af2ig_s": 45.9954,
+        "proteinmpnn_s": 8.426,
+        "host_data_s": 24.3359
+      },
+      "split_pct": {
+        "pxdesign_d_pct": 32.17,
+        "protenix_pct": 0.0,
+        "af2ig_pct": 39.61,
+        "proteinmpnn_pct": 7.26,
+        "host_data_pct": 20.96
+      },
+      "unattributed_s": 0.8408,
+      "gpu_util_pct_mean": 27.35,
+      "gpu_power_W_median": 123.8,
+      "gpu_power_W_max": 446.55,
+      "gpu_per_stage_util": {
+        "prep_host": {
+          "power_W_median": 120.6,
+          "power_W_max": 120.7,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 527,
+          "clock_sm_median": 1980,
+          "n_samples": 25
+        },
+        "model_init": {
+          "power_W_median": 120.4,
+          "power_W_max": 120.6,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.1,
+          "mem_MiB_max": 1643,
+          "clock_sm_median": 1980,
+          "n_samples": 78
+        },
+        "gen_device": {
+          "power_W_median": 316.9,
+          "power_W_max": 326.2,
+          "util_pct_median": 72.0,
+          "util_pct_mean": 71.1,
+          "mem_MiB_max": 2295,
+          "clock_sm_median": 1980,
+          "n_samples": 186
+        },
+        "gen_write": {
+          "power_W_median": 276.5,
+          "power_W_max": 276.5,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 2295,
+          "clock_sm_median": 1980,
+          "n_samples": 1
+        },
+        "gen_total": {
+          "power_W_median": 316.6,
+          "power_W_max": 326.2,
+          "util_pct_median": 72.0,
+          "util_pct_mean": 69.3,
+          "mem_MiB_max": 2295,
+          "clock_sm_median": 1980,
+          "n_samples": 192
+        },
+        "mpnn": {
+          "power_W_median": 123.5,
+          "power_W_max": 125.4,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 1.8,
+          "mem_MiB_max": 3145,
+          "clock_sm_median": 1980,
+          "n_samples": 43
+        },
+        "af2_complex": {
+          "power_W_median": 122.8,
+          "power_W_max": 447.0,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 15.2,
+          "mem_MiB_max": 4229,
+          "clock_sm_median": 1980,
+          "n_samples": 130
+        },
+        "af2_monomer": {
+          "power_W_median": 122.1,
+          "power_W_max": 216.8,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 4.4,
+          "mem_MiB_max": 4927,
+          "clock_sm_median": 1980,
+          "n_samples": 100
+        },
+        "metrics_host": {
+          "power_W_median": 122.3,
+          "power_W_max": 122.3,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.0,
+          "mem_MiB_max": 2295,
+          "clock_sm_median": 1980,
+          "n_samples": 1
+        },
+        "eval_total": {
+          "power_W_median": 123.2,
+          "power_W_max": 447.0,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 9.1,
+          "mem_MiB_max": 4927,
+          "clock_sm_median": 1980,
+          "n_samples": 274
+        },
+        "rank_host": {
+          "power_W_median": 125.2,
+          "power_W_max": 125.3,
+          "util_pct_median": 0.0,
+          "util_pct_mean": 0.9,
+          "mem_MiB_max": 2295,
+          "clock_sm_median": 1980,
+          "n_samples": 8
+        }
+      },
+      "device_s_per_stage": {
+        "prep_host": 0.0,
+        "model_init": 0.015,
+        "gen_device": 26.563,
+        "gen_write": 0.0,
+        "mpnn": 0.152,
+        "af2_complex": 3.958,
+        "af2_monomer": 0.878,
+        "metrics_host": 0.0,
+        "rank_host": 0.014
+      },
+      "device_s_total": 31.58,
+      "host_s_total": 84.538,
+      "device_pct_of_wall": 27.2,
+      "tt_target_s_4x_wall": 464.47,
+      "tt_target_s_4x_device": 126.32,
+      "peak_vram_alloc_GiB": 1.339,
+      "counts": {
+        "pxd_predict": 1,
+        "pxdbench_subprocesses": 3,
+        "af2_complex_calls": 1,
+        "af2_monomer_calls": 1
+      },
+      "subprocess_walls_s": [
+        {
+          "script": "main_mpnn.py",
+          "wall_s": 8.494
+        },
+        {
+          "script": "main_af2_complex.py",
+          "wall_s": 26.159
+        },
+        {
+          "script": "main_af2_monomer.py",
+          "wall_s": 19.971
+        }
+      ],
+      "validation_ok": true,
+      "n_designs_returned": 8,
+      "filters_passed": {
+        "AF2-IG-easy-success": 1,
+        "AF2-IG-success": 1
+      },
+      "metrics": {
+        "af2_plddt": {
+          "min": 0.88,
+          "median": 0.925,
+          "max": 0.94,
+          "n": 8
+        },
+        "af2_ptm": {
+          "min": 0.55,
+          "median": 0.55,
+          "max": 0.83,
+          "n": 8
+        },
+        "af2_iptm": {
+          "min": 0.08,
+          "median": 0.09,
+          "max": 0.74,
+          "n": 8
+        },
+        "af2_ipAE": {
+          "min": 6.47,
+          "median": 25.875,
+          "max": 26.56,
+          "n": 8
+        },
+        "af2_monomer_plddt": {
+          "min": 0.887,
+          "median": 0.9325,
+          "max": 0.968,
+          "n": 8
+        },
+        "af2_bound_unbound_RMSD": {
+          "min": 0.12,
+          "median": 0.235,
+          "max": 0.57,
+          "n": 8
+        },
+        "af2_binder_pred_design_rmsd": {
+          "min": 0.41,
+          "median": 0.5900000000000001,
+          "max": 0.83,
+          "n": 8
+        },
+        "af2_complex_pred_design_rmsd": {
+          "min": 1.04,
+          "median": 9.335,
+          "max": 11.44,
+          "n": 8
+        },
+        "alpha": {
+          "min": 0.75,
+          "median": 0.8685,
+          "max": 0.912,
+          "n": 8
+        },
+        "beta": {
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.062,
+          "n": 8
+        },
+        "loop": {
+          "min": 0.088,
+          "median": 0.1315,
+          "max": 0.188,
+          "n": 8
+        },
+        "Rg": {
+          "min": 11.4,
+          "median": 11.795,
+          "max": 13.51,
+          "n": 8
+        }
+      },
+      "design_sequences": [
+        "AAEVEAELKAAKNFAKLTIEYLEKNLETVTDEEIDGLLELIKKLFEDVIAKAKDPEMKKEAKKLLEETKKKFEELKKKRA",
+        "SERERVRETLERLLELARARGDAEAVALAERMREAAEKTTDSERLRTLRSLAQALATGLELDDADLVAGARAMAEKELEA",
+        "GAAVTVTPAQAAAAIAMIDAVRAENGGKITAEDVARLAEQLKAEMPDNEFLIAMVKRVAQSPDPAAAMDTLRAALRRTAA"
+      ],
+      "gpu_exclusive": true,
+      "sanity_ok": true,
+      "why": []
+    }
+  ]
+}

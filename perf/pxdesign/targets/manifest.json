@@ -1,53 +1,39 @@
 {
-  "cif": "1dp0.cif",
-  "cif_sha256": "a39564ee430ad50e1afef0c14bb80ecc27eea22f3c7f3e3255ecf130e48b6643",
   "cif_source": "https://files.rcsb.org/download/1DP0.CIF",
+  "cif_sha256": "a39564ee430ad50e1afef0c14bb80ecc27eea22f3c7f3e3255ecf130e48b6643",
   "chain": "A",
   "chain_residues": 1011,
-  "hotspots": [
-    527,
-    528,
-    526
-  ],
-  "hotspot_exposure": {
-    "527": 4,
-    "528": 6,
-    "526": 11
-  },
-  "centre_residue": 527,
   "binder_length": 80,
+  "hotspots_global": [
+    526,
+    527,
+    528
+  ],
+  "note": "each rung is its own single-chain CIF cut from 1DP0 chain A around one fixed epitope and renumbered 1..N, because PXDesign leaves the entity sequence uncropped when the yaml uses target.chains.<id>.crop",
   "rungs": {
-    "lacz_128": {
-      "yaml": "lacz_128.yaml",
-      "crop": [
-        463,
-        590
-      ],
-      "target_residues": 128
+    "laczc_128": {
+      "yaml": "laczc_128.yaml",
+      "target_residues": 128,
+      "cif": "laczc_128.cif",
+      "hotspots_local": "64, 65, 66"
     },
-    "lacz_256": {
-      "yaml": "lacz_256.yaml",
-      "crop": [
-        399,
-        654
-      ],
-      "target_residues": 256
+    "laczc_256": {
+      "yaml": "laczc_256.yaml",
+      "target_residues": 256,
+      "cif": "laczc_256.cif",
+      "hotspots_local": "128, 129, 130"
     },
-    "lacz_512": {
-      "yaml": "lacz_512.yaml",
-      "crop": [
-        271,
-        782
-      ],
-      "target_residues": 512
+    "laczc_512": {
+      "yaml": "laczc_512.yaml",
+      "target_residues": 512,
+      "cif": "laczc_512.cif",
+      "hotspots_local": "256, 257, 258"
     },
-    "lacz_768": {
-      "yaml": "lacz_768.yaml",
-      "crop": [
-        143,
-        910
-      ],
-      "target_residues": 768
+    "laczc_768": {
+      "yaml": "laczc_768.yaml",
+      "target_residues": 768,
+      "cif": "laczc_768.cif",
+      "hotspots_local": "384, 385, 386"
     }
   }
 }
