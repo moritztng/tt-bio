@@ -2393,6 +2393,11 @@ class WeightScope:
     def __getitem__(self, key: str) -> torch.Tensor:
         return self._data[key]
 
+    def __contains__(self, key: object) -> bool:
+        # Without this, `key in scope` falls back to iterating __getitem__ with
+        # integer indices and dies with KeyError: 0. Optional weights need it.
+        return key in self._data
+
     def child(self, scope: str, strip_prefix: str = "") -> "WeightScope":
         if not scope:
             return self
@@ -3181,6 +3186,22 @@ class TriangleAttention(Module):
             dtype=_dtype(),
         )
         self.g_weight = self.torch_to_tt("linear_g.weight", dtype=_dtype())
+        # RF3 biases both the gate and the output projection; Boltz-2, Protenix-v2 and
+        # OpenFold3 bias neither. Read them only when the weights carry them: with no
+        # bias present every branch below is the one it always was, fused kernels
+        # included. The gate bias sits inside the sigmoid so it cannot be folded into
+        # linear_g.weight, and the fused gate/qkv kernels take no bias input, so a
+        # biased block runs the plain path instead. That costs RF3 the fused kernels;
+        # correctness first, and perf is its own workstream.
+        self.g_bias = (
+            self.torch_to_tt("linear_g.bias", dtype=_dtype())
+            if "linear_g.bias" in self.weights else None
+        )
+        self.o_bias = (
+            self.torch_to_tt("linear_o.bias")
+            if "linear_o.bias" in self.weights else None
+        )
+        self.biased = self.g_bias is not None or self.o_bias is not None
 
     def __call__(self, x: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
         x = ttnn.reshape(x, tuple(x.shape)[1:])
@@ -3320,6 +3341,8 @@ class TriangleAttention(Module):
                     o_in, self.o_weight, self.compute_kernel_config, _dtype(), l1_out=True
                 )
             ttnn.deallocate(o_in)
+            if self.o_bias is not None:
+                x_out = ttnn.add_(x_out, self.o_bias)
             return x_out
 
         if need_chunk:
@@ -3348,7 +3371,7 @@ class TriangleAttention(Module):
                     )
                 g_cfg_chunk = _qkv_mm_config(x_chunk, self.g_weight)
                 g_chunk = None
-                if isinstance(qkv_chunk, tuple):
+                if isinstance(qkv_chunk, tuple) and not self.biased:
                     g_chunk = _triatt_qkv.gate_proj(
                         x_chunk, self.g_weight, self.o_weight, self.compute_kernel_config,
                         self.n_heads, self.head_dim, _dtype(), g_cfg_chunk,
@@ -3361,6 +3384,8 @@ class TriangleAttention(Module):
                         dtype=_dtype(),
                         config=g_cfg_chunk,
                     )
+                if self.g_bias is not None:
+                    g_chunk = ttnn.add_(g_chunk, self.g_bias)
                 ttnn.deallocate(x_chunk)
                 if self.affinity:
                     bias = ttnn.add(triangle_bias, attn_mask[s:end, :, :])
@@ -3447,7 +3472,7 @@ class TriangleAttention(Module):
             qkv_cfg = _qkv_l1_config(x, self.qkv_weight, _dtype())
             # When the head-major projection takes the call, `qkv` is already the (q, k, v)
             # triple and no head split follows. It declines an L1 projection outright.
-            qkv = None if qkv_cfg is not None else _triatt_qkv.qkv_heads(
+            qkv = None if (qkv_cfg is not None or self.biased) else _triatt_qkv.qkv_heads(
                 x, self.qkv_weight, self.compute_kernel_config,
                 self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.qkv_weight),
             )
@@ -3470,7 +3495,7 @@ class TriangleAttention(Module):
                         config=_qkv_mm_config(x, self.qkv_weight),
                     )
             g = None
-            if isinstance(qkv, tuple):
+            if isinstance(qkv, tuple) and not self.biased:
                 g = _triatt_qkv.gate_proj(
                     x, self.g_weight, self.o_weight, self.compute_kernel_config,
                     self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.g_weight),
@@ -3483,6 +3508,8 @@ class TriangleAttention(Module):
                     dtype=_dtype(),
                     config=_qkv_mm_config(x, self.g_weight),
                 )
+            if self.g_bias is not None:
+                g = ttnn.add_(g, self.g_bias)
             ttnn.deallocate(x)
             if attn_mask is not None:
                 triangle_bias = ttnn.add(triangle_bias, attn_mask)

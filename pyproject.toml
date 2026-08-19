@@ -60,6 +60,7 @@ dependencies = [
     # RF3 vendors AtomWorks (see NOTICE #7) for host featurization. Everything it
     # imports is already here transitively except cytoolz; typing_extensions backs
     # the 3.10 shim for typing.Never.
+    "toolz",          # atomworks imports toolz directly, cytoolz is separate
     "cytoolz",
     "typing_extensions",
     # RF3's torch reference (tt_bio/_vendor/rf3/model, the thing the ttnn port is
