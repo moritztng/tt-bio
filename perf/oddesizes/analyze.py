@@ -16,7 +16,8 @@ for size, fn in LEGS.items():
     d = json.loads(p.read_text())
     meta[size] = {k: d.get(k) for k in ("ttnn", "host", "card", "grid")}
     for r in d["runs"]:
-        runs.setdefault(size, []).append(r)
+        if r.get("size") == size:
+            runs.setdefault(size, []).append(r)
 
 def on_arms(size):
     return [r for r in runs.get(size, []) if r.get("arm") == "on" and "error" not in r]
@@ -48,7 +49,12 @@ for size in sorted(runs):
     nq = [r for r in runs[size] if r.get("arm") == "noqsplit" and "error" not in r]
     nqs = "%.3f" % nq[0]["fold_s"] if nq else "-"
     dq = "%+.3f" % (nq[0]["fold_s"]-med) if nq else "-"
-    cifs = {r.get("cif_sha256", "")[:16] for r in runs[size] if "error" not in r}
+    def cif16(r):
+        v = r.get("cif_sha256", "")
+        if isinstance(v, dict):
+            return ",".join("%s:%s" % (k, h[:12]) for k, h in sorted(v.items()))
+        return str(v)[:16]
+    cifs = {cif16(r) for r in runs[size] if "error" not in r}
     table[size] = med
     print("%5s %28s %9.3f %7.3f %9s %8s %18s" % (size, str(["%.3f" % t for t in times]), med, aa, nqs, dq, str(cifs)))
 
