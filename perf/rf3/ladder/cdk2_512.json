@@ -1,0 +1,99 @@
+{
+  "fixture": "cdk2_512",
+  "recycles": 1,
+  "steps": 8,
+  "force_bfloat16_modules": 85,
+  "ref_trunk_bf16_s": 157.0,
+  "ref_trunk_fp32_s": 319.0,
+  "stages": [
+    {
+      "tensor": "S_inputs",
+      "shape": [
+        512,
+        449
+      ],
+      "pcc": 0.9999937,
+      "rel_rms": 0.003575,
+      "ceiling": 0.002762,
+      "x_ceiling": 1.29
+    },
+    {
+      "tensor": "S_trunk",
+      "shape": [
+        512,
+        384
+      ],
+      "pcc": 0.9999564,
+      "rel_rms": 0.016578,
+      "ceiling": 0.006642,
+      "x_ceiling": 2.5
+    },
+    {
+      "tensor": "Z_trunk",
+      "shape": [
+        512,
+        512,
+        128
+      ],
+      "pcc": 0.9962894,
+      "rel_rms": 0.112592,
+      "ceiling": 0.048732,
+      "x_ceiling": 2.31
+    },
+    {
+      "tensor": "distogram",
+      "shape": [
+        512,
+        512,
+        65
+      ],
+      "pcc": 0.9983143,
+      "rel_rms": 0.078748,
+      "ceiling": 0.032656,
+      "x_ceiling": 2.41
+    },
+    {
+      "tensor": "distogram_on_ref_Z",
+      "shape": [
+        512,
+        512,
+        65
+      ],
+      "pcc": 0.9999955,
+      "rel_rms": 0.003213,
+      "ceiling": 0.032656,
+      "x_ceiling": 0.1
+    },
+    {
+      "tensor": "denoiser_1step_on_ref_trunk",
+      "shape": [
+        1,
+        4116,
+        3
+      ],
+      "t": 25.993,
+      "pcc": 0.9999798,
+      "rel_rms": 0.006443,
+      "ceiling": 0.004523,
+      "x_ceiling": 1.42
+    },
+    {
+      "tensor": "denoiser_1step",
+      "shape": [
+        1,
+        4116,
+        3
+      ],
+      "t": 25.993,
+      "pcc": 0.999903,
+      "rel_rms": 0.013938,
+      "ceiling": 0.004523,
+      "x_ceiling": 3.08
+    }
+  ],
+  "load_s": 5.0,
+  "atoms": 4116,
+  "tokens": 512,
+  "atoms_padded": 4128,
+  "trunk_s": 42.1
+}

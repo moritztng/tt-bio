@@ -1104,50 +1104,77 @@ class _WorkerState:
                 f"{path.name} -- refusing to silently fold single-sequence.")
 
         n_recycles = int(cfg.get("recycling_steps") or 10)
+        n_sample = max(1, int(cfg.get("diffusion_samples") or 1))
         seed = int(cfg.get("seed") or 0)
         with tempfile.TemporaryDirectory() as td:
             spec_path = Path(td) / f"{path.stem}.json"
             spec_path.write_text(_json.dumps(
                 [{"name": path.stem, "components": components}]))
             out = featurize(spec_path, n_recycles=n_recycles,
-                            diffusion_batch_size=1, seed=seed)[0]
+                            diffusion_batch_size=n_sample, seed=seed)[0]
 
         f = out["feats"]
         atom_array = out["atom_array"]
+        is_real_atom = out["confidence_feats"]["is_real_atom"]
+        chain_iid = out["ground_truth"]["chain_iid_token_lvl"]
         report_progress("trunk")
+        torch.manual_seed(seed)
         got = self.model.predict(
-            f, n_recycles=n_recycles, diffusion_batch_size=1,
+            f, n_recycles=n_recycles, diffusion_batch_size=n_sample,
             rep_atom_idxs=out.get("ground_truth", {}).get("rep_atom_idxs"))
 
-        coord = got["X_L"][0].detach().cpu().numpy().astype("float32")
-        is_real_atom = out["confidence_feats"]["is_real_atom"]
-        plddt = rf3_confidence.atomwise_plddt(got["plddt_logits"], is_real_atom)
-        summary = rf3_confidence.summary(
-            got, f, is_real_atom, out["ground_truth"]["chain_iid_token_lvl"],
-            atom_array, coord)
+        # The trunk runs once and the diffusion batch is D independent rollouts off it,
+        # each with its own confidence. Rank them by upstream's ranking score
+        # (0.8*ipTM + 0.2*pTM - 100*clash) and write the winner as {stem}.{fmt} with the
+        # rest as {stem}_model_{rank}.{fmt} -- the convention Protenix-v2, OpenDDE and
+        # ESMFold2 already use, so one dataset harness reads every model's output.
+        def one(d):
+            # predict() returns the logits bare for one sample and stacked on a leading
+            # sample axis for more than one.
+            per = {k: (v[d] if n_sample > 1 else v)
+                   for k, v in got.items() if k.endswith("_logits")}
+            coord = got["X_L"][d].detach().cpu().numpy().astype("float32")
+            plddt = rf3_confidence.atomwise_plddt(per["plddt_logits"], is_real_atom)
+            summary = rf3_confidence.summary(per, f, is_real_atom, chain_iid,
+                                             atom_array, coord)
+            return {"d": d, "coord": got["X_L"][d], "plddt": plddt,
+                    "summary": summary, "score": summary["ranking_score"]}
 
+        samples = sorted((one(d) for d in range(n_sample)),
+                         key=lambda r: -r["score"])
         fmt = cfg["output_format"]
         struct_dir = Path(cfg["struct_dir"])
-        _write_atom_array_structure(atom_array, got["X_L"][0],
-                                    struct_dir / f"{path.stem}.{fmt}", fmt,
-                                    b_factors=plddt * 100.0)
-        (struct_dir / f"{path.stem}_summary_confidences.json").write_text(
-            _json.dumps(summary, indent=2) + "\n")
+        for rank, r in enumerate(samples):
+            stem = path.stem if rank == 0 else f"{path.stem}_model_{rank}"
+            _write_atom_array_structure(atom_array, r["coord"],
+                                        struct_dir / f"{stem}.{fmt}", fmt,
+                                        b_factors=r["plddt"] * 100.0)
+            (struct_dir / f"{stem}_summary_confidences.json").write_text(
+                _json.dumps(r["summary"], indent=2) + "\n")
 
-        metrics = {
+        def scalars(r):
+            sm = r["summary"]
             # pLDDT is [0, 1] out of the head; report it on the 0-100 scale every other
             # model in this repo reports, so one dataset harness reads them all.
-            "plddt": round(float(plddt.mean()) * 100, 4),
-            "ptm": round(summary["ptm"], 4),
-            "iptm": (round(summary["iptm"], 4) if summary["iptm"] is not None else None),
-            "ranking_score": summary["ranking_score"],
-            "has_clash": summary["has_clash"],
+            return {"plddt": round(float(r["plddt"].mean()) * 100, 4),
+                    "ptm": round(sm["ptm"], 4),
+                    "iptm": round(sm["iptm"], 4) if sm["iptm"] is not None else None,
+                    "ranking_score": sm["ranking_score"],
+                    "has_clash": sm["has_clash"]}
+
+        best = samples[0]
+        metrics = {
+            **scalars(best),
             "n_tokens": int(f["asym_id"].reshape(-1).shape[0]),
             "n_atoms": int(atom_array.array_length()),
             "n_chains": len({c[0] for c in chains}),
             "msa": msa_used,
             "recycling_steps": n_recycles,
+            "samples": len(samples),
         }
+        if len(samples) > 1:
+            metrics["all_runs"] = [{"rank": i, **scalars(r)}
+                                   for i, r in enumerate(samples)]
         return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
 
     def _predict_openfold3_one(self, path: Path, cfg: dict[str, Any]):

@@ -243,11 +243,22 @@ class RF3(Module):
 
         out = {"X_L": x_pred, "distogram": distogram, "draws": draws}
         if self.confidence_head is not None and rep_atom_idxs is not None:
-            out.update({k: torch.Tensor(ttnn.to_torch(v)).float()
-                        for k, v in self.confidence_head(
-                            s_inputs, s, z,
-                            distance_onehot(x_pred, rep_atom_idxs, self.device)
-                        ).items()})
+            # One head call per diffusion sample. The head reads the trunk (shared across
+            # the batch) plus this sample's own distance one-hot, so a batch of D samples
+            # is D calls rather than one wider one -- which also keeps every tensor the
+            # exact shape the head was scored at.
+            per_sample = [
+                {k: torch.Tensor(ttnn.to_torch(v)).float().squeeze(0)
+                 for k, v in self.confidence_head(
+                     s_inputs, s, z,
+                     distance_onehot(x_pred[d:d + 1], rep_atom_idxs, self.device)
+                 ).items()}
+                for d in range(x_pred.shape[0])]
+            # D == 1 returns the tensors bare, D > 1 stacks them on a leading sample
+            # axis, so a single-sample fold has no vestigial axis to strip.
+            out.update({k: (per_sample[0][k] if len(per_sample) == 1
+                            else torch.stack([p[k] for p in per_sample]))
+                        for k in per_sample[0]})
         return out
 
 
