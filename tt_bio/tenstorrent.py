@@ -3719,19 +3719,26 @@ class AttentionPairBias(Module):
         self.k_layer_norm_weight = self.torch_to_tt("key_layer_norm.weight")
         self.k_layer_norm_bias = self.torch_to_tt("key_layer_norm.bias")
 
+    def _kq_norm_one(self, t: ttnn.Tensor, which: str) -> ttnn.Tensor:
+        """Layer-norm one tensor whose last dim is exactly n_heads * head_dim.
+
+        RF3 norms over the flattened head dimension, so anywhere the heads are
+        still fused into the last axis this is a plain last-dim layer norm.
+        """
+        w, b = ((self.q_layer_norm_weight, self.q_layer_norm_bias) if which == "q"
+                else (self.k_layer_norm_weight, self.k_layer_norm_bias))
+        return ttnn.layer_norm(
+            t, weight=w, bias=b, epsilon=1e-5,
+            compute_kernel_config=self.compute_kernel_config,
+        )
+
     def _apply_kq_norm(self, qkv: ttnn.Tensor) -> ttnn.Tensor:
-        """Norm the Q and V-preceding K slices of the fused qkv, in place of a split."""
+        """Norm the Q and K slices of the fused qkv, in place of an unfused split."""
         width = self.n_heads * self.head_dim
         parts = []
-        for i, (w, b) in enumerate((
-            (self.q_layer_norm_weight, self.q_layer_norm_bias),
-            (self.k_layer_norm_weight, self.k_layer_norm_bias),
-        )):
+        for i, which in enumerate(("q", "k")):
             part = qkv[..., i * width:(i + 1) * width]
-            parts.append(ttnn.layer_norm(
-                part, weight=w, bias=b, epsilon=1e-5,
-                compute_kernel_config=self.compute_kernel_config,
-            ))
+            parts.append(self._kq_norm_one(part, which))
             ttnn.deallocate(part)
         parts.append(qkv[..., 2 * width:])
         out = ttnn.concat(parts, dim=-1)
@@ -3739,6 +3746,25 @@ class AttentionPairBias(Module):
             ttnn.deallocate(pt)
         ttnn.deallocate(qkv)
         return out
+
+    def _apply_kq_norm_atom(self, q: ttnn.Tensor, kv: ttnn.Tensor):
+        """Same norm on the atom-level branch, where q and kv are separate tensors.
+
+        q carries n_heads * head_dim in its last dim; kv carries K then V, so only
+        its first half is normed.
+
+        RF3 norms K on the full atom axis and only then gathers it into windows
+        (`K_IH[:, indicesK]`), whereas this branch gathers first and projects after.
+        Layer norm is per-position over channels, so norm-then-gather and
+        gather-then-norm agree exactly.
+        """
+        width = self.n_heads * self.head_dim
+        k_part, v_part = kv[..., :width], kv[..., width:]
+        kv_out = ttnn.concat([self._kq_norm_one(k_part, "k"), v_part], dim=-1)
+        ttnn.deallocate(k_part)
+        ttnn.deallocate(v_part)
+        ttnn.deallocate(kv)
+        return self._kq_norm_one(q, "q"), kv_out
 
     def __call__(
         self,
@@ -3889,6 +3915,9 @@ class AttentionPairBias(Module):
                 core_grid=CORE_GRID_MAIN,
                 dtype=_dtype(),
             )
+
+            if self.kq_norm:
+                q, kv = self._apply_kq_norm_atom(q, kv)
 
             if _ATOM_PAD_IN_TILE:
                 q = ttnn.pad(q, [[0, 0], [0, 0], [0, ATOM_DIM - ATOM_WINDOW], [0, 0]], 0.0)

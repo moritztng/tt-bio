@@ -97,6 +97,24 @@ def main() -> int:
         qkv, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16))
     got = torch.Tensor(ttnn.to_torch(got_tt)).float().reshape(want.shape)
 
+    # --- atom-level branch: q and kv are separate tensors, not one fused qkv ---
+    # This is the branch RF3's atom transformer actually takes, and the first cut of
+    # kq_norm missed it entirely because this probe drove the helper rather than the
+    # code path. Score it explicitly.
+    B, K, W, ATOM_DIM = 1, 2, 32, 128
+    q_t = torch.randn(B, K, W, width)
+    kv_t = torch.randn(B, K, ATOM_DIM, 2 * width)
+    want_q = ref_norm(q_t, "query_layer_norm")
+    want_kv = torch.cat(
+        [ref_norm(kv_t[..., :width], "key_layer_norm"), kv_t[..., width:]], dim=-1)
+
+    def to_tt(x):
+        return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+
+    got_q_tt, got_kv_tt = attn._apply_kq_norm_atom(to_tt(q_t), to_tt(kv_t))
+    got_q = torch.Tensor(ttnn.to_torch(got_q_tt)).float().reshape(want_q.shape)
+    got_kv = torch.Tensor(ttnn.to_torch(got_kv_tt)).float().reshape(want_kv.shape)
+
     diff = (got - want).abs()
     rep = {
         "tokens": args.n,
@@ -106,8 +124,14 @@ def main() -> int:
         "rel_rms": round(float(diff.pow(2).mean().sqrt() / want.std()), 6),
         # the V slice must be untouched
         "v_slice_pcc": round(pcc(got[..., 2 * width:], qkv[..., 2 * width:]), 6),
+        "atom_q_pcc": round(pcc(got_q, want_q), 6),
+        "atom_kv_pcc": round(pcc(got_kv, want_kv), 6),
+        # the V half of kv must be untouched
+        "atom_v_half_pcc": round(pcc(got_kv[..., width:], kv_t[..., width:]), 6),
     }
-    rep["verdict"] = "PASS" if rep["pcc"] > 0.999 and rep["v_slice_pcc"] > 0.999 else "GAP"
+    rep["verdict"] = "PASS" if min(
+        rep["pcc"], rep["v_slice_pcc"], rep["atom_q_pcc"],
+        rep["atom_kv_pcc"], rep["atom_v_half_pcc"]) > 0.999 else "GAP"
     print(json.dumps(rep, indent=2))
     return 0 if rep["verdict"] == "PASS" else 1
 
