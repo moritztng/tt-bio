@@ -3578,6 +3578,7 @@ class AttentionPairBias(Module):
             )
             head_dim_padding = -head_dim % 32
             padded_head_dim = head_dim + head_dim_padding
+            self.padded_head_dim = padded_head_dim
             qkv_weight = qkv_weight.reshape(3 * self.n_heads, head_dim, -1)
             qkv_weight = torch.nn.functional.pad(qkv_weight, (0, 0, 0, head_dim_padding), mode='constant', value=0)
             qkv_weight = qkv_weight.reshape(3 * self.n_heads * padded_head_dim, -1)
@@ -3712,13 +3713,9 @@ class AttentionPairBias(Module):
         self.kq_norm = "query_layer_norm.weight" in self.weights
         if not self.kq_norm:
             return
-        # RF3 norms over n_heads * head_dim. The fused qkv slices carry
-        # n_heads * padded_head_dim, so a padded head_dim would put zeros inside
-        # the reduction and silently change the result.
-        assert self.head_dim % 32 == 0, (
-            f"kq_norm needs a tile-aligned head_dim, got {self.head_dim}: the fused "
-            "qkv layout would pad the norm's reduction axis with zeros"
-        )
+        # RF3 norms over n_heads * head_dim, but the fused qkv slices carry
+        # n_heads * padded_head_dim. When those differ the padding lanes sit inside
+        # the reduction, so the slice has to be un-padded first (_kq_norm_unpadded).
         self.q_layer_norm_weight = self.torch_to_tt("query_layer_norm.weight")
         self.q_layer_norm_bias = self.torch_to_tt("query_layer_norm.bias")
         self.k_layer_norm_weight = self.torch_to_tt("key_layer_norm.weight")
@@ -3737,13 +3734,35 @@ class AttentionPairBias(Module):
             compute_kernel_config=self.compute_kernel_config,
         )
 
+    def _kq_norm_unpadded(self, t: ttnn.Tensor, which: str) -> ttnn.Tensor:
+        """Same norm when the slice carries n_heads * PADDED head_dim.
+
+        Drop the pad lanes, norm over the real n_heads * head_dim the reference
+        norms over, then put zero lanes back -- not the normed values, because the
+        pad lanes reach the attention and a non-zero there adds layer-norm bias to
+        every q.k.
+        """
+        pad = self.padded_head_dim - self.head_dim
+        if not pad:
+            return self._kq_norm_one(t, which)
+        lead = tuple(t.shape)[:-1]
+        x = ttnn.reshape(t, lead + (self.n_heads, self.padded_head_dim))
+        x = x[..., : self.head_dim]
+        x = ttnn.reshape(x, lead + (self.n_heads * self.head_dim,))
+        x = self._kq_norm_one(x, which)
+        x = ttnn.reshape(x, lead + (self.n_heads, self.head_dim))
+        z = ttnn.zeros(lead + (self.n_heads, pad), layout=ttnn.TILE_LAYOUT,
+                       device=self.device, dtype=x.dtype)
+        x = ttnn.concat([x, z], dim=-1)
+        return ttnn.reshape(x, lead + (self.n_heads * self.padded_head_dim,))
+
     def _apply_kq_norm(self, qkv: ttnn.Tensor) -> ttnn.Tensor:
         """Norm the Q and K slices of the fused qkv, in place of an unfused split."""
-        width = self.n_heads * self.head_dim
+        width = self.n_heads * getattr(self, "padded_head_dim", self.head_dim)
         parts = []
         for i, which in enumerate(("q", "k")):
             part = qkv[..., i * width:(i + 1) * width]
-            parts.append(self._kq_norm_one(part, which))
+            parts.append(self._kq_norm_unpadded(part, which))
             ttnn.deallocate(part)
         parts.append(qkv[..., 2 * width:])
         out = ttnn.concat(parts, dim=-1)
