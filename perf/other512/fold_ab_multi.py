@@ -102,7 +102,7 @@ ARMS = ("on", "e6", "noe6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hi
         "noshard",
         # qsplit: the triatt_sdpa q-split lever (TT_BIO_TRIATT_MASK_Q_SPLIT), written explicitly
         # per arm so "on" stays a pre-lever reference whatever the shipped default is.
-        "qsplit")
+        "qsplit", "noqsplit")
 
 # Which sites each arm routes onto the fused SDPA. The confidence head is never in a flip set:
 # it stays on `_fp32_softmax_attention` on every arm, deliberately, so plDDT reports on the
@@ -117,6 +117,7 @@ FLIP = {"nofp32":         {"trunk", "msa", "template"},
 # 1.4048 ms for the shipped fused config and 62.5789 ms for _fp32_softmax_attention -- so the whole
 # precision ladder costs 0.305 ms/call and still runs 36.6x faster than the path it replaces.
 CKC_HIFI = None            # bound in main() once ttnn is imported
+Q_SPLIT_SHIPPED = True     # rebound in main() from the module default, before any arm runs
 
 
 # `oldkey` is the control for the (kt, nt) re-key: main's lookup, verbatim. main keys `_MM_BLOCK`
@@ -205,6 +206,9 @@ def main():
     import ttnn
     import tt_bio.tenstorrent as T
     import tt_baseline as B
+    import tt_bio.triatt_sdpa as _PM0
+    global Q_SPLIT_SHIPPED
+    Q_SPLIT_SHIPPED = _PM0._Q_SPLIT          # read before any arm writes it
     global CKC_HIFI
     CKC_HIFI = (ttnn.MathFidelity.HiFi4, False, True, False)
     from tt_bio.main import _resolve_recycling_steps, _resolve_sampling_steps
@@ -367,7 +371,10 @@ def main():
         HM.TAIL_REJECTS.clear()
 
         PM._ENABLED = name != "nok2"
-        PM._Q_SPLIT = name == "qsplit"
+        # Bound to the shipped default. `name == "qsplit"` predated the flip to default-ON
+        # (`triatt_sdpa.py:58`), so every `on` arm ran with the q-split OFF and was not main.
+        # `noqsplit` is now the ablation; `qsplit` stays as an explicit-on arm.
+        PM._Q_SPLIT = {"qsplit": True, "noqsplit": False}.get(name, Q_SPLIT_SHIPPED)
         PM.STATS[0] = PM.STATS[1] = 0
         PM.REJECTS.clear()
 

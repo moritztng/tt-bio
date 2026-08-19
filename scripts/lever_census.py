@@ -292,6 +292,9 @@ def report(paths):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--tt-bio", help="path to the installed `tt-bio` entry point")
+    ap.add_argument("--pythonpath", help="prepend this to the child PYTHONPATH, after the hook "
+                                         "dir -- the only way to census a WORKTREE rather than an "
+                                         "installed artifact (the venv still supplies ttnn)")
     ap.add_argument("--out")
     ap.add_argument("--label", default="run")
     ap.add_argument("--report", nargs="+")
@@ -313,7 +316,11 @@ def main():
         stale.unlink()
 
     env = dict(os.environ)
-    env["PYTHONPATH"] = str(hookdir)
+    # The hook dir must come first or `sitecustomize` resolves to something else. Anything the
+    # caller adds goes after it and before site-packages, which is what makes `--pythonpath <wt>`
+    # census the tree under test while ttnn still comes from the venv the entry point belongs to.
+    env["PYTHONPATH"] = os.pathsep.join([str(hookdir)] +
+                                        ([args.pythonpath] if args.pythonpath else []))
     env["LEVER_CENSUS_DIR"] = str(dumpdir)
     rc = subprocess.call([args.tt_bio, *args.cli], env=env)
 
