@@ -41,7 +41,15 @@ def main() -> int:
     ap.add_argument("--module", default="recycler.pairformer_stack.0",
                     help="dotted path of the module to hook, relative to the network")
     ap.add_argument("--seed", type=int, default=42)
+    # Without these the template and cyclic fixtures capture with their track OFF,
+    # and a module scored on that all-off condition passes while proving nothing.
+    ap.add_argument("--template_selection", default=None)
+    ap.add_argument("--ground_truth_conformer_selection", default=None)
+    ap.add_argument("--cyclic_chains", default=None)
     args = ap.parse_args()
+
+    def sel(v):
+        return [x.strip() for x in v.split(",")] if v else None
 
     from tt_bio.rf3.featurize import featurize, n_cycle, network_input
     from tt_bio.rf3.weights import load_reference
@@ -51,7 +59,11 @@ def main() -> int:
     os.chdir(inp.parent)  # fixture inputs use paths relative to their own directory
     try:
         out = featurize(inp.name, n_recycles=args.n_recycles, diffusion_batch_size=1,
-                        seed=args.seed)[0]
+                        seed=args.seed,
+                        template_selection=sel(args.template_selection),
+                        ground_truth_conformer_selection=sel(
+                            args.ground_truth_conformer_selection),
+                        cyclic_chains=sel(args.cyclic_chains))[0]
     finally:
         os.chdir(prev)
 
