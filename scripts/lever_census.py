@@ -83,13 +83,19 @@ LEVERS = [
     ("B2_BIAS_SLICE_HOIST", "tt_bio.tenstorrent", "_B2_BIAS_SLICE_HOIST", None, "wrap"),
     ("B2_ADALN_S_MEMO", "tt_bio.tenstorrent", "_B2_ADALN_S_MEMO", None, "wrap"),
     ("B2_TOKEN_DIT_SDPA", "tt_bio.tenstorrent", "_B2_TOKEN_DIT_SDPA", None, "off-by-design"),
+    # The two size-conditioned L1 gates that `tt-bio-tuned-at-512-l1-gates-go-dark-above-640aa`
+    # root-caused alongside K2. K2 has a counter of its own (TRIATT_PERSISTENT_MASK); these two
+    # had none, so a census built on the table above could see one third of that defect.
+    ("TRANSPOSE_L1_RESIDENT", "tt_bio.tenstorrent", "_TRANSPOSE_L1_HEADROOM", None, "wrap"),
+    ("SDPA_Q_CHUNK_FITS", "tt_bio.tenstorrent", "_SDPA_WIDE_Q",
+     "tt_bio.tenstorrent._SDPA_Q_CHUNK_OVER_L1", "setlen"),
 ]
 
 HOW = {flag: how for flag, _m, _a, _c, how in LEVERS}
 
 WRAP_KEYS = ("ADALN_S_HOIST", "PAIR_TRANSPOSE_VIA_ROW_MAJOR",
              "PAIR_PROJ_MINIMAL_MATMUL", "QKV_MM_CONFIG",
-             "B2_BIAS_SLICE_HOIST", "B2_ADALN_S_MEMO")
+             "B2_BIAS_SLICE_HOIST", "B2_ADALN_S_MEMO", "TRANSPOSE_L1_RESIDENT")
 WRAP_COUNTS = {k: [0, 0] for k in WRAP_KEYS}
 
 
@@ -146,6 +152,18 @@ def _install_wraps():
 
     T._pair_transpose_impl = _pair_transpose_impl
 
+    # `_transpose_memory_config` returns L1_MEMORY_CONFIG or DRAM_MEMORY_CONFIG and nothing else, so
+    # the buffer type IS the verdict on `_TRANSPOSE_L1_HEADROOM`. This is the gate that stopped
+    # answering L1 at N>=560 with no error and no log line.
+    tmc = T._transpose_memory_config
+
+    def _transpose_memory_config(t):
+        out = tmc(t)
+        WRAP_COUNTS["TRANSPOSE_L1_RESIDENT"][0 if out.buffer_type == ttnn.BufferType.L1 else 1] += 1
+        return out
+
+    T._transpose_memory_config = _transpose_memory_config
+
     # Both return None when they decline, so a non-None result is a firing.
     for key, fname in (("PAIR_PROJ_MINIMAL_MATMUL", "_pair_proj_minimal_matmul"),
                        ("QKV_MM_CONFIG", "_qkv_mm_config")):
@@ -169,6 +187,14 @@ def _snapshot_process():
         served = declined = None
         if how == "wrap":
             served, declined = WRAP_COUNTS.get(flag, [None, None])
+        elif how == "setlen":
+            # A set of shapes that overflowed their circular-buffer budget and fell back. It only
+            # grows, and every member is a fold silently taking the slow path, so its size is the
+            # decline count; there is no served counterpart to read.
+            cmod, _, cname = counter.rpartition(".")
+            cm = sys.modules.get(cmod)
+            c = getattr(cm, cname, None) if cm is not None else None
+            served, declined = (0, len(c)) if c is not None else (None, None)
         elif counter:
             cmod, _, cname = counter.rpartition(".")
             cm = sys.modules.get(cmod)

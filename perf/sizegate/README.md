@@ -23,3 +23,22 @@ proof-of-catch condition; it needs no code edit.
 Timings are pc card 0 figures and are not comparable to a qb1/qb2 absolute. pc card 0 also
 miscomputes some matmuls, so nothing here is a digest or parity claim — these are fired/dark counts
 and one timing ratio.
+
+## The two levers the census was missing
+
+`census_boltz2_768_newlevers_pc0.json` and `census_boltz2_768_headroom100_pc0.json` are the same
+768-aa fold with and without `TT_BIO_TRANSPOSE_L1_HEADROOM=100`, run after `TRANSPOSE_L1_RESIDENT`
+and `SDPA_Q_CHUNK_FITS` were added to `scripts/lever_census.py`.
+
+`tt-bio-tuned-at-512-l1-gates-go-dark-above-640aa` named three gates that go dark above 640 aa. The
+census could only see one of them: K2 has a `STATS` counter, `_TRANSPOSE_L1_HEADROOM` and
+`_SDPA_Q_CHUNK_OVER_L1` had none. Both now do.
+
+On today's main only K2 is still dark. The transpose answers L1 at 768 (560/0) and the q-chunk
+overflow set is empty, so two of the three gates are closed. Forcing the headroom to 100 flips
+`TRANSPOSE_L1_RESIDENT` to 0/560, which is what proves the counter works rather than being wired to
+nothing. `SDPA_Q_CHUNK_FITS` reads 0/0 = healthy; its red state is unproven, since it needs a shape
+that actually overflows its circular-buffer budget.
+
+`TRANSPOSE_L1_RESIDENT`'s `resolved` field is the headroom float itself, so the census also records
+the threshold constant's value at every size it is run at.
