@@ -373,9 +373,15 @@ CAPACITY_LEGS = [
 # with the measured numbers as the reason — a measured "cannot be gated
 # cheaply" beats a flaky arm.
 #
-# One warm-up fold at the smallest rung per model precedes the ladder: the
-# first fold of a session reads ~24% slow (JIT + program caches), larger than
-# the noise floor, and a cold first rung biases every exponent downward.
+# The first fold AT EACH RUNG is discarded. The JIT kernel cache is keyed by
+# shape, so folding 256 aa does not warm 512 aa, and the old policy (one warm-up
+# at the smallest rung) left every other rung's first measured fold cold.
+# Measured on esmfold2 at 512 aa, five reps after a 256 aa warm-up: 82.3, 47.9,
+# 49.8, 51.0, 52.5 s -- keeping the first reads sigma 25.4% and a +-2.66 band,
+# which records the model as ungateable; dropping it reads 3.9% and +-0.40,
+# tighter than boltz-2. That policy was calibrated on boltz-2, where one fold is
+# enough: the same one-size-fits-all mistake this arm exists to catch, in the arm.
+# Cost is one extra fold per rung per model.
 #
 # Baselines are PER CARD TYPE (cards.<board_type>.models...), same discipline
 # as docs/perf_baselines.json: the issue #11 fix scales L1 budgets to the
@@ -989,22 +995,34 @@ def _size_ladder_compare_levers(base: dict, cur: dict, where: str) -> list:
 
 def _size_ladder_measure_model(model: str, rungs, workdir: Path,
                                reps_512: int, reps_other: int) -> dict:
-    """Warm up once (the first fold of a session reads ~24% slow, larger than the
-    noise floor), then census-fold every rung. Returns {"levers": {rung: ...},
-    "runtime_s": {rung: median}, "sigma": relative runtime noise at 512 | None,
-    "census_jsons": {rung: path}} or {"error": ...}."""
-    warm = _run_census_fold(model, rungs[0], workdir, "warmup")
-    if warm.get("error"):
-        return {"error": f"warm-up: {warm['error']}"}
+    """Census-fold every rung, discarding the first fold AT EACH RUNG, then report.
+
+    Returns {"levers": {rung: ...}, "runtime_s": {rung: median}, "sigma": relative
+    runtime noise at 512 | None, "census_jsons": {rung: path}} or {"error": ...}.
+
+    The discard is per rung, not one warm-up at the smallest rung, because the JIT
+    kernel cache is keyed by SHAPE: folding 256 aa does not warm 512 aa. Measured on
+    esmfold2 at 512 aa, five reps after a 256 aa warm-up: 82.3, 47.9, 49.8, 51.0,
+    52.5 s. Keeping the first reads sigma = 25.4 % and a +-2.66 exponent band, which
+    would have recorded esmfold2 as "cannot be gated cheaply"; dropping it reads
+    sigma = 3.9 % and +-0.40, tighter than boltz-2. The old one-warm-up-per-model
+    policy was calibrated on boltz-2, where a single fold is enough -- the same
+    one-size-fits-all mistake this whole arm exists to catch, in the arm itself.
+    """
     levers, runtimes, census_jsons = {}, {}, {}
     sigma = None
     for rung in rungs:
         reps = reps_512 if rung == 512 else reps_other
         runs = []
-        for rep in range(reps):
-            r = _run_census_fold(model, rung, workdir, f"rep{rep}")
+        for rep in range(reps + 1):
+            r = _run_census_fold(model, rung, workdir,
+                                 "warmup" if rep == 0 else f"rep{rep - 1}")
             if r.get("error"):
-                return {"error": f"rung {rung} rep {rep}: {r['error']}"}
+                return {"error": f"rung {rung} "
+                                 f"{'warm-up' if rep == 0 else f'rep {rep - 1}'}: "
+                                 f"{r['error']}"}
+            if rep == 0:
+                continue          # cold: kernels for this shape compile on this fold
             runs.append(r)
         counts = [{f: (l["served"], l["declined"]) for f, l in r["levers"].items()}
                   for r in runs]
