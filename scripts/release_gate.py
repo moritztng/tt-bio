@@ -88,14 +88,19 @@ Between 2026-08-13 and 2026-08-19 every perf decision on main was screened at
 512 aa only, and the 512-tuned L1 gates went silently dark above 640 aa — no
 error, no log line, the fold just got slower (N^2.0 -> N^3.6 over 512->768). A
 one-off sweep does not survive contact with merges, so the check is a standing
-arm: fold each model at 256/512/768 aa through ``scripts/lever_census.py`` and
-fail when the fired/dark lever set or the log-log runtime exponent between
+arm: fold each model at 256/512/640/768 aa through ``scripts/lever_census.py``
+and fail when the fired/dark lever set or the log-log runtime exponent between
 rungs drifts from the checked-in baseline (``docs/size_ladder_baseline.json``).
+640 is the off-lattice rung: the other three all have a padded length the SDPA
+chunk size divides, so a ladder of 256-multiples cannot see the class of defect
+where the fused kernel declines at 448/576/640/704/832/896/960 only.
 It is a change detector, not a purity check: legitimately dark levers carry a
 one-line exemption reason in the baseline, and re-recording
-(``--size-ladder-record``) is an explicit human action that runs all three
-rungs, so flipping a default forces measuring three sizes. Baselines are per
-card type, same discipline as ``docs/perf_baselines.json``. See
+(``--size-ladder-record``) is an explicit human action that runs every rung, so
+flipping a default forces measuring four sizes. Baselines are per card type,
+same discipline as ``docs/perf_baselines.json`` — a resource figure calibrated
+on one board type and shipped everywhere is this same rule on the other axis,
+so state a constant's board validity where you state its size validity. See
 docs/size-generality.md.
 
     # gate everything (five fold models + BoltzGen designability + ESMC embed parity
