@@ -200,6 +200,20 @@ def main() -> int:
                 "tensor": name, "shape": list(t.shape),
                 "finite": bool(torch.isfinite(g).all()),
                 "std": round(float(g.std()), 6)})
+        # One denoiser call too: a size whose trunk runs but whose diffusion module does
+        # not cannot fold, so "does this size run" is not answered by the trunk alone.
+        gen = torch.Generator().manual_seed(0)
+        sched = tt.sampler.noise_schedule()
+        t_mid = sched[len(sched) // 2].reshape(1)
+        t0 = time.time()
+        one = tt.diffusion_module(
+            host, t_mid * torch.randn(1, host.n_atom, 3, generator=gen),
+            t_mid, s_inputs, s, z)
+        report["denoiser_s"] = round(time.time() - t0, 1)
+        report["stages"].append({
+            "tensor": "denoiser_1step", "shape": list(one.shape),
+            "finite": bool(torch.isfinite(one).all()),
+            "std": round(float(one.std()), 6)})
         print(json.dumps(report, indent=2))
         if args.out:
             Path(args.out).write_text(json.dumps(report, indent=2) + "\n")
