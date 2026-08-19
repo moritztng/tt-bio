@@ -53,7 +53,7 @@ cannot see that class of defect at all. 640 is the off-lattice control, and it i
 own red-condition proof fires at.
 
 640 is a lever rung only, not a timing rung. Run-to-run noise is measured per model when the
-baseline is recorded: 5.2 % on boltz-2, 3.9 % on esmfold2. At a 6.5 % floor a 3-sigma exponent band
+baseline is recorded, and it ranges from 0.7 % to 7.1 % across the five models. At a 6.5 % floor a 3-sigma exponent band
 over 512 to 640 is +-1.24 and over 640 to 768 is +-1.51, both at or past the size of the cliff worth
 catching, so an exponent gate on either half would be a coin flip, and splitting 512 to 768 would
 also destroy the one interval that is gateable. The exponent is checked over 256 to 512 (+-0.50 on
@@ -62,60 +62,54 @@ as skipped, with the measured noise as the reason, rather than getting a gate th
 
 ## What the 2026-08-19 sweep found
 
-Five models, re-measured after 703 commits had landed with every perf decision screened at 512 aa
-only. Wall times are not comparable across models (different fixtures, recycle counts and hosts);
-the exponent and the lever columns are the point.
+The gate's own baseline, recorded on one p150a at a 13x10 grid, current main, single-sequence folds at
+6 sampling steps. Wall times are comparable down a column but not across models. `k` is the log-log
+runtime exponent between rungs.
 
-| model | rung | wall s | exponent vs prev | levers dark | status |
-|---|---:|---:|---|---|---|
-| boltz-2 | 128 | 8.85 | — | K1, K1 tail, K2, E6 | K2 dark at the small end since at least 08-13, on `memory_config`, not the gate this campaign is named after |
-| boltz-2 | 256 | 7.8 | — | F1 tail, and 5 more | |
-| boltz-2 | 512 | 18.7 | N^1.26 over 256 to 512 | none but F1 | the tuned anchor; run-to-run noise here is 5.2 % over 5 reps |
-| boltz-2 | 640 | 28.3 | — | F1, and 4 more | off-lattice rung; K2 fires here on today's main |
-| boltz-2 | 768 | 38.9 | N^1.81 over 512 to 768 | K2 half-dark, 560 of 1120 calls declined | **the 08-13 N^3.6 cliff does not reproduce warm.** An earlier reading of 79.3 s at this rung gave N^3.48, but it came from a card that was then found to be running folds about 2x slow and was reset; the 38.9 s here is one warm fold after that reset, on the same tip and config. The 512 leg agrees between the two (18.7 vs 19.37 s), so it is the 768 leg that moved. Needs a repeat before anyone concludes the cliff is gone |
-| protenix-v2 | 128 | 12.32 | — | E6, K1, K1 tail, K2 | honest dark: the E6 window excludes 128 and the L1 leg measures a real loss there |
-| protenix-v2 | 256 | 22.74 | N^0.89 | E6 not even offered | unexplained by the window; live lead |
-| protenix-v2 | 512 | 44.0 | N^1.48 over 256 to 512 | none | E6 serves 2416 calls here. An earlier reading had it serving only at this size; the gate baseline does not reproduce that (see the 640 and 768 rows) |
-| protenix-v2 | 640 | 68.8 | — | none new | E6 serves 2416 calls here too |
-| protenix-v2 | 768 | 104.9 | N^2.14 over 512 to 768 | K2 half-dark, 1208 of 2416 calls declined | E6 serves 4512 calls. **K2 degrades to half-dark here, the same signature boltz-2 shows at 768** |
-| openfold3 | all | — | in progress | — | no rung measured yet this pass; 1024 aa OOMs on allocation count, not size |
-| opendde | 128 | 14.50 | — | — | 08-13 reference ladder |
-| opendde | 256 | 28.93 | N^1.00 | transition big-chunk fires | |
-| opendde | 512 | 88.76 | N^1.62 | transition big-chunk dark | only the current transpose headroom admits L1 here |
-| opendde | 768 | 267.50 | N^2.72 | K2 dark, refiner q-split dark | the refiner track runs ~1.945x the token count, so it leaves the q-split cap a rung before the main track does |
-| opendde | 1024 | 705.50 | N^3.37 | K2 dark, refiner q-split dark | the q-split cap was raised to 1024 on boltz-2 numbers alone and has never been folded here |
-| esmfold2 | 256 | 19.6 | — | ESMC pair-FFN L1 path not yet entered | |
-| esmfold2 | 512 | 47.7 | N^1.28 over 256 to 512 | none new | run-to-run noise here is 0.9 %, the tightest of any model |
-| esmfold2 | 640 | 67.9 | — | none new | |
-| esmfold2 | 768 | 109.6 | N^2.05 over 512 to 768 | both matmul-config guards, all 25823 calls | **the pair track switches to row-blocked execution here and there is no tuned matmul block for the shapes it then presents.** Neither guard is reached at all below 768, so no smaller size could have shown it |
+| model | 256 aa | 512 aa | 640 aa | 768 aa | k 256→512 | k 512→768 | noise at 512 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| boltz-2 | 6.9 s | 19.6 s | 28.0 s | 37.3 s | 1.51 | 1.59 | 7.1 % |
+| esmfold2 | 19.6 s | 47.7 s | 67.9 s | 109.6 s | 1.28 | 2.05 | 0.9 % |
+| protenix-v2 | 15.8 s | 44.0 s | 68.8 s | 104.9 s | 1.48 | 2.14 | 0.7 % |
+| openfold3 | 11.3 s | 32.3 s | 54.6 s | 84.6 s | 1.51 | 2.38 | 2.8 % |
+| opendde | 25.2 s | 71.4 s | 120.0 s | 191.8 s | 1.50 | 2.44 | 0.8 % |
 
-Rows marked in progress are owed by the three measurement tasks running alongside this one; the
-gate baseline in `docs/size_ladder_baseline.json` is the machine-readable version of the same
-matrix and is complete for every model it lists.
+Every model scales between N^1.3 and N^2.5. **Nothing shows the N^3.6 cliff** the 2026-08-13 sweep
+recorded over 512→768, and boltz-2, where that cliff was measured, is now the flattest model in the
+table at N^1.59. An earlier reading in this campaign did reproduce N^3.48, but it came from a card
+later found to be running folds about 2x slow. Warm, on a freshly reset card, the cliff is not there.
 
-Three findings generalise beyond their own model.
+What the lever census found at each rung, per model:
 
-**Whether a lever is single-size is itself a per-card question, so measure it where you run.**
-protenix-v2's E6 channel move was reported as serving only at 512 aa. On the gate's own baseline
-(13x10 p150a, current main) it serves at 512, 640 and 768 and is dark only at 256, so the
-single-size reading does not hold on this card. Both measurements are real; what travels is the
-method, not the verdict. This is why the baseline is keyed by grid and re-recorded per card rather
-than asserted once.
+| model | levers dark | worth knowing |
+|---|---|---|
+| boltz-2 | TriMul F1 at every rung; 5 more at 256 | K2 fires at 256 through 768 on this card |
+| esmfold2 | both matmul-config guards at 768 only, all 25823 calls | the pair track switches to row-blocked execution at 768 and there is no tuned matmul block for the shapes it then presents. Neither guard is reached at all below 768, so no smaller size could have shown it |
+| protenix-v2 | K2 half-dark at 768, 1208 of 2416 calls | E6 serves 2416 calls at 512 and 640 and 4512 at 768, and is dark only at 256 |
+| openfold3 | TriMul F1 at every rung; E6 never offered at any rung | the declined matmul-config count rises 440 → 1288 at 640, the row-blocked path again |
+| opendde | TriMul F1 at every rung; **the SDPA q-chunk overflow set is non-empty at 640 and 768** | one shape overflows its per-core buffer budget and silently takes the slow path. The set is empty at 256 and 512. This is the third gate of the 2026-08-13 above-640 defect, closed on boltz-2 and still open here |
 
-**The dark end is not only the large end.** Seven levers that serve every call at 512 aa serve zero
-at 128 aa on boltz-2, and four of them decline explicitly rather than never being reached. The
-512-aa tuning window is bounded on both sides and only the upper bound had ever been written down.
+Four findings generalise beyond their own model.
 
-**A lever can be default-ON and inert.** The TriMul F1 tail fusion declines every one of its 560
-calls on boltz-2 at 256, 512, 640 and 768 aa, because it allow-lists a single matmul block key and
-boltz-2's trimul tail resolves a different one. It serves on protenix-v2. Nothing was slower than it
-should have been in a way anyone would notice, and no config said so; the counter did.
+**A default-ON lever can be inert on most of the models it ships to.** The TriMul F1 tail fusion
+declines 100 % of its calls at every rung on boltz-2, openfold3 and opendde — three of the five. It
+allow-lists a single matmul block shape, and those three models' triangle-multiplication tails
+present a different one, which is a property of the hidden channel count and not of sequence length.
+It serves on protenix-v2, so the kernel works. Nothing is visibly broken, no config says so, and only
+a counter finds it.
 
-**A lever's validity range widened on one model's numbers applies to every model.** The SDPA
-q-split cap went from 768 to 1024 padded tokens on boltz-2 measurements, and it ships default-ON to
-models whose refiner track crosses that cap a whole rung earlier than their main track does. That
-is this page's rule broken inside the codebase the rule is for, which is why the rule is now a gate
-arm and not a paragraph.
+**The dark end is not only the large end.** Seven levers that serve every call at 512 aa serve zero at
+128 aa on boltz-2, and four decline explicitly rather than never being reached. Most models have their
+largest dark set at 256, not at 768.
+
+**Whether a lever is single-size is itself a per-card question.** protenix-v2's E6 channel move was
+reported as serving only at 512 aa; on this card it serves at 512, 640 and 768. Both measurements are
+real. What travels is the method, not the verdict, which is why the baseline is keyed by grid and
+re-recorded per card rather than asserted once.
+
+**A model can carry a defect that its siblings have already fixed.** The SDPA q-chunk overflow closed
+on boltz-2 and is still open on opendde at 640 and 768. Fixing a size-conditioned gate on the model
+where it was found says nothing about the other four.
 
 ## Running it
 
