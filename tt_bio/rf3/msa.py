@@ -100,6 +100,8 @@ class MSAModule(Module):
             compute_kernel_config,
             scale_pair_bias=False,
             transpose_bias=False,
+            # See template.py: the reference's softmax stays fp32 under autocast.
+            fp32_softmax=True,
         )
 
     def __call__(

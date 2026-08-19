@@ -84,6 +84,10 @@ class TemplateEmbedder(Module):
                 TRI_ATT_HEAD_DIM, TRI_ATT_N_HEADS, None, None, False,
                 self.scope(f"pairformer.{i}"), compute_kernel_config,
                 scale_pair_bias=False, transpose_bias=False,
+                # The reference runs its triangle-attention softmax in fp32:
+                # torch.autocast casts matmuls to bf16 but leaves softmax alone.
+                # Without this the attention output is 60-85% relative RMS off.
+                fp32_softmax=True,
             )
             for i in range(N_BLOCK)
         ]
