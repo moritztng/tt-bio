@@ -61,3 +61,28 @@ MIT-licensed and credited in the top-level LICENSE.
    License:       Apache-2.0 — Copyright 2026 AlQuraishi Laboratory. Upstream
                   states the project is free for academic and commercial use and
                   publishes no separate parameter license.
+
+7. tt_bio/_vendor/atomworks/ — AtomWorks: the AF3-style structure-processing and
+   transform pipeline RF3 featurizes with (CCD lookup, bond perception,
+   atomization, chirality perception, MSA pairing, templating). Host-side only.
+   Source:        github.com/RosettaCommons/atomworks, PyPI `atomworks` 2.2.1
+   License:       BSD-3-Clause — Copyright (c) 2025, Institute for Protein Design,
+                  University of Washington (tt_bio/_vendor/atomworks/LICENSE)
+   Modifications: absolute imports repointed at the vendor namespace, and two
+                  Python 3.11-only imports replaced so the package runs on 3.10,
+                  which is tt-bio's deployed runtime: `enum.StrEnum` via
+                  tt_bio/_vendor/atomworks/_compat.py, and `typing.Never` via
+                  typing_extensions. Verified bit-exact against the upstream 3.12
+                  behaviour; see scripts/rf3_port/.
+
+8. tt_bio/_vendor/rf3/ and tt_bio/_vendor/foundry/ — the RF3-specific host
+   transforms (ground-truth templating, cyclic chains, the AF3 pipeline
+   definition) and three helpers they call. No model or training code.
+   Source:        github.com/RosettaCommons/foundry, models/rf3 and src/foundry
+   License:       BSD-3-Clause — Copyright (c) 2025, Institute for Protein Design,
+                  University of Washington (tt_bio/_vendor/rf3/LICENSE)
+   Modifications: only the featurization subset is included. `foundry/__init__.py`,
+                  a .env / beartype / jaxtyping / cuEquivariance bootstrap, and
+                  `foundry.utils.ddp`, which is Lightning-based, are replaced by
+                  minimal stubs, so no Lightning, hydra or environs dependency is
+                  pulled in.

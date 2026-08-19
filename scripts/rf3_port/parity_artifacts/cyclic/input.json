@@ -1,0 +1,8 @@
+[
+    {
+        "name": "cyclic_peptide",
+        "components": [
+            {"seq": "GLKEATRW", "chain_id": "A"}
+        ]
+    }
+]
