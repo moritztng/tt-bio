@@ -1,0 +1,7 @@
+target:
+  file: "/work/targets2/laczc_768.cif"
+  chains:
+    A:
+      hotspots: [384, 385, 386]
+      msa: /work/msa_sliced/lacz_768
+binder_length: 80
