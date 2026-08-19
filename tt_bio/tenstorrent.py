@@ -3599,6 +3599,11 @@ class AttentionPairBias(Module):
                 dtype=self.dtype,
             )
         self.g_weight = self.torch_to_tt("proj_g.weight", dtype=self.dtype)
+        # A caller that passes an already-computed bias still reaches the fp32-softmax
+        # path, which divides by this. Undefined here meant that combination raised
+        # AttributeError instead of running; 1.0 is the right value, since a
+        # precomputed bias has already absorbed whatever scaling it needed.
+        self._bias_scale = 1.0
         if compute_pair_bias:
             self.z_norm_weight = self.torch_to_tt("proj_z.0.weight", dtype=self.dtype)
             self.z_norm_bias = self.torch_to_tt("proj_z.0.bias", dtype=self.dtype)
@@ -5149,6 +5154,7 @@ class DiffusionTransformerLayer(Module):
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
         no_residual: bool = False,
         a_to_b_gate: bool = True,
+        fp32_softmax: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.atom_level = atom_level
@@ -5166,6 +5172,7 @@ class DiffusionTransformerLayer(Module):
             atom_level=atom_level,
             state_dict=self.scope("pair_bias_attn"),
             compute_kernel_config=compute_kernel_config,
+            fp32_softmax=fp32_softmax,
         )
         self.attn_pair_bias.token_dit = not atom_level
         self.output_projection_weight = self.torch_to_tt(
@@ -5229,6 +5236,7 @@ class DiffusionTransformer(Module):
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
         no_residual: bool = False,
         a_to_b_gate: bool = True,
+        fp32_softmax: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.layers = [
@@ -5240,6 +5248,7 @@ class DiffusionTransformer(Module):
                 compute_kernel_config,
                 no_residual=no_residual,
                 a_to_b_gate=a_to_b_gate,
+                fp32_softmax=fp32_softmax,
             )
             for i in range(n_layers)
         ]
