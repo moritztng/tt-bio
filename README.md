@@ -100,6 +100,8 @@ Targets up to at least 1095 residues fold on a single 12 GiB Wormhole card, on e
 model including OpenDDE, whose structural-token expander makes it the strictest case. The pair
 track switches to row-blocked execution at a size threshold smaller targets never reach, so
 their speed and numerics are untouched. See [docs/large-targets.md](docs/large-targets.md).
+Perf levers are gated at several sequence lengths, not just one; the release gate re-checks the
+ladder against a recorded baseline. See [docs/size-generality.md](docs/size-generality.md).
 
 All structure models support the sampling, output-format, and scheduling options.
 MSA, affinity, constraint, and auxiliary-output options apply only where listed

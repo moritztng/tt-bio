@@ -376,7 +376,9 @@ SIZE_LADDER_EXP_TOL_FLOOR = 0.50
 # tolerance wider than that cannot catch the cliff, so the model's exponent check
 # is skipped (with the measured numbers) instead of shipping a coin flip.
 SIZE_LADDER_EXP_MAX_TOL = 1.40
-SIZE_LADDER_WORKDIR = REPO_ROOT / "size_ladder_work"
+# Transient fold/census scratch; deleted after the run unless --keep. Lives under
+# perf/sizegate, never the repo root (the 08-13 run_*.sh lesson).
+SIZE_LADDER_WORKDIR = REPO_ROOT / "perf" / "sizegate" / "work"
 # Record mode keeps the per-rung census artifacts here as the evidence behind
 # docs/size_ladder_baseline.json — the first thing to diff when the arm goes red.
 SIZE_LADDER_PROVENANCE = REPO_ROOT / "perf" / "sizegate" / "baseline"
@@ -1085,9 +1087,31 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
     legs = []
     if record:
         old_models = baseline.get("cards", {}).get(card, {}).get("models", {})
+        # Seeded with the card's existing models, not empty: recording a subset
+        # (--size-ladder-models) then UPDATES those models and leaves the rest of
+        # the card block intact. A 5-model record is ~40 min of device time, so it
+        # has to be resumable a model at a time instead of all-or-nothing.
         new_card = {"recorded": time.strftime("%Y-%m-%d"), "host": socket.gethostname(),
-                    "commit": _repo_commit(), "models": {}}
+                    "commit": _repo_commit(), "models": dict(old_models)}
         todos = 0
+
+        def _flush_baseline():
+            baseline.setdefault("cards", {})[card] = new_card
+            baseline.update({
+                "format": 1,
+                "what": "size-ladder release-gate baseline: per-model lever census and "
+                        "runtime scaling exponents at every rung, per card type",
+                "rule": "a perf lever may not land default-ON on the strength of one "
+                        "sequence length; re-record after any size-affecting change",
+                "record_with": "python3 scripts/release_gate.py --model size-ladder "
+                               "--size-ladder-record",
+                "rungs": list(rungs),
+                "fold": {"single_sequence": True, "sampling_steps": SIZE_LADDER_STEPS,
+                         "diffusion_samples": 1, "seed": SEED},
+            })
+            baseline_path.parent.mkdir(parents=True, exist_ok=True)
+            baseline_path.write_text(json.dumps(baseline, indent=2) + "\n")
+
         for m in models:
             meas = _size_ladder_measure_model(m, rungs, workdir,
                                               SIZE_LADDER_SIGMA_REPS, 1)
@@ -1113,21 +1137,9 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
             SIZE_LADDER_PROVENANCE.mkdir(parents=True, exist_ok=True)
             for rung, cj in meas["census_jsons"].items():
                 shutil.copy(cj, SIZE_LADDER_PROVENANCE / f"census_{m}_{rung}_{card}.json")
-        baseline.setdefault("cards", {})[card] = new_card
-        baseline.update({
-            "format": 1,
-            "what": "size-ladder release-gate baseline: per-model lever census and "
-                    "runtime scaling exponents at every rung, per card type",
-            "rule": "a perf lever may not land default-ON on the strength of one "
-                    "sequence length; re-record after any size-affecting change",
-            "record_with": "python3 scripts/release_gate.py --model size-ladder "
-                           "--size-ladder-record",
-            "rungs": list(rungs),
-            "fold": {"single_sequence": True, "sampling_steps": SIZE_LADDER_STEPS,
-                     "diffusion_samples": 1, "seed": SEED},
-        })
-        baseline_path.parent.mkdir(parents=True, exist_ok=True)
-        baseline_path.write_text(json.dumps(baseline, indent=2) + "\n")
+            # After every model, so a run that dies at model 4 keeps models 1-3.
+            _flush_baseline()
+        _flush_baseline()
         if todos:
             print(f"[size-ladder] {todos} dark lever(s) need a one-line exemption "
                   f"reason — search TODO in {baseline_path} and fill them in; the "
