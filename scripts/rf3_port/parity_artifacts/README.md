@@ -6,6 +6,10 @@ Ten capability classes, captured from the upstream RF3 featurizer
 `../pack_fixture.py`. 4.8 MB total, self-contained: the parity gate needs neither a
 foundry install nor a device.
 
+Captured on tt-bio's deployed runtime — Python 3.10.12, rdkit 2025.09.6, biotite
+1.2.0 — recorded per fixture under `__env__` in `ref_f.meta.json`. That matters:
+see the RDKit note at the bottom.
+
 Every column below is measured from the committed capture, not asserted. A fixture
 earns its place only if it actually turns its track on.
 
@@ -72,3 +76,21 @@ and once without: exactly the 27 SAM atom rows of `ref_pos_ground_truth` change,
 `ref_pos` and `ref_pos_is_ground_truth` are bit-identical. So `ref_pos_is_ground_truth`
 stays all-False on anything the public inference API can express, and a port that
 scored only that flag would conclude the track was unsupported.
+
+## These are only bit-exact against a matching RDKit
+
+`feats/ref_pos` is an RDKit-generated conformer, and on ligand inputs RDKit's
+chiral-centre perception also feeds `chiral_centers`, `chiral_feats` and
+`chiral_center_dihedral_angles`. Both move between RDKit releases. Running the gate
+on rdkit 2026.03.4 against these 2025.09.6 captures gives 494/510, with all seven
+differing keys in the RDKit-derived set, and `ligands` perceiving 9 chiral centres
+where the other version perceives 21.
+
+The gate reads `__env__`, compares the running rdkit, and reports `GAP_ENV` with
+both versions named when that is the whole story. It still exits non-zero — an
+environment difference is not a pass — but it will not be misread as a port defect.
+
+The fixtures are deliberately captured on the runtime rather than pinning rdkit to
+the reference environment's version. `../rdkit_pin_impact.py` measures why: pinning
+to 2026.03.4 moves Protenix-v2's and OpenFold3's reference conformers on every
+ligand tested, by up to 4.3 Å RMSD.
