@@ -117,7 +117,7 @@ where it was found says nothing about the other four.
 TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" python3 scripts/release_gate.py --model size-ladder
 ```
 
-Roughly 20 to 30 minutes for five models. Folds are single-sequence at 6 sampling steps: enough to
+About an hour for five models, measured at 3444 s on a p150a. Folds are single-sequence at 6 sampling steps: enough to
 resolve every guard, cheap enough that nobody skips the arm for cost. The price of hermetic folds is
 that a cliff living only in the MSA path is invisible here.
 
