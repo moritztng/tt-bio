@@ -1,0 +1,7 @@
+target:
+  file: "/tmp/1dp0.cif"
+  chains:
+    A:
+      crop: ["143-910"]
+      hotspots: [527, 528, 526]
+binder_length: 80

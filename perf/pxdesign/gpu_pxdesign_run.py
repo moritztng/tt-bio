@@ -82,6 +82,14 @@ class stage:
         return False
 
 
+CENSUS = {}
+
+
+def census_once(tag):
+    if tag not in CENSUS:
+        CENSUS[tag] = layernorm_census()
+
+
 def wrap(obj, attr, name, counter=None):
     """Wrap a callable attribute in a stage timer. Returns True if the target existed."""
     fn = getattr(obj, attr, None)
@@ -92,7 +100,10 @@ def wrap(obj, attr, name, counter=None):
         if counter:
             _bump(counter)
         with stage(name):
-            return fn(*a, **kw)
+            r = fn(*a, **kw)
+        if name in ("gen_device", "tgt_template"):
+            census_once(name)
+        return r
 
     inner.__name__ = getattr(fn, "__name__", attr)
     setattr(obj, attr, inner)
@@ -190,7 +201,9 @@ def install_stage_timers():
     def ptx(self, data_list, orig_seqs=None, is_large=False):
         _bump("protenix_filter_calls_large" if is_large else "protenix_filter_calls_mini")
         with stage("ptx" if is_large else "ptx_mini"):
-            return ptx_fn(self, data_list, orig_seqs=orig_seqs, is_large=is_large)
+            r = ptx_fn(self, data_list, orig_seqs=orig_seqs, is_large=is_large)
+        census_once("ptx")
+        return r
 
     PB_BASE.BaseTask.protenix_predict = ptx
     found["protenix_predict"] = True
@@ -283,10 +296,24 @@ def env_stack():
 
 def validate_outputs(out_dir, task_name, expect_designs):
     """A design model that emits garbage fast is not a reference. Read the pipeline's OWN reported
-    metrics and check the designs are real binders before any second is recorded."""
+    metrics and check the designs are real binders before any second is recorded.
+
+    The authoritative table is design_outputs/<task>/summary.csv (one row per returned design,
+    scalar columns). sample_level_output.csv stores the same AF2 metrics as one-element list
+    STRINGS ("[0.91]"), because AF2 can run several models per design, so it needs unwrapping."""
+    import ast
     import math
 
     import pandas as pd
+
+    def unwrap(x):
+        if isinstance(x, str) and x.startswith("["):
+            try:
+                v = ast.literal_eval(x)
+                return float(v[0]) if v else None
+            except Exception:
+                return None
+        return x
 
     v = {"ok": True, "why": []}
     root = pathlib.Path(out_dir)
@@ -299,12 +326,10 @@ def validate_outputs(out_dir, task_name, expect_designs):
         v["ok"] = False
         v["why"].append("expected %d generated cif, found %d" % (expect_designs, len(samples)))
 
-    # coordinates must be finite and the binder must actually have atoms
-    bad = 0
-    n_atoms = []
-    for p in samples:
+    bad, n_atoms = 0, []
+    for p_ in samples:
         na = 0
-        for line in p.read_text().splitlines():
+        for line in p_.read_text().splitlines():
             if line.startswith("ATOM"):
                 na += 1
                 for tok in line.split()[10:13]:
@@ -323,52 +348,56 @@ def validate_outputs(out_dir, task_name, expect_designs):
         v["ok"] = False
         v["why"].append("a design has only %d atoms" % min(n_atoms))
 
-    csvs = sorted(root.glob("global_run_*/*/seed_*/predictions/sample_level_output.csv"))
-    v["sample_csvs"] = [str(c) for c in csvs]
-    if not csvs:
+    summ = design_dir / "summary.csv"
+    v["summary_csv"] = str(summ)
+    if not summ.exists():
         v["ok"] = False
-        v["why"].append("no sample_level_output.csv written")
+        v["why"].append("no design_outputs summary.csv - ranking never ran")
         return v
+    sdf = pd.read_csv(summ)
+    v["summary_rows"] = int(len(sdf))
+    v["columns"] = list(sdf.columns)
 
-    df = pd.concat([pd.read_csv(c) for c in csvs], ignore_index=True)
-    v["n_scored_rows"] = int(len(df))
-    v["columns"] = list(df.columns)
-    metric_cols = [c for c in ("pLDDT", "i_pTM", "i_pAE", "unscaled_i_pAE",
-                               "bound_unbound_RMSD", "af2_binder_pred_design_rmsd",
-                               "ptx_iptm_binder", "ptx_ptm_binder", "ptx_pred_design_rmsd",
-                               "ptx_mini_iptm_binder", "ptx_mini_ptm_binder",
-                               "alpha", "beta", "loop", "Rg") if c in df.columns]
+    METRICS = ("af2_plddt", "af2_ptm", "af2_iptm", "af2_ipAE", "af2_monomer_plddt",
+               "af2_bound_unbound_RMSD", "af2_binder_pred_design_rmsd",
+               "af2_complex_pred_design_rmsd", "ptx_plddt", "ptx_iptm_binder",
+               "ptx_ptm_binder", "ptx_iptm", "ptx_ptm", "ptx_pred_design_rmsd",
+               "alpha", "beta", "loop", "Rg")
     v["metrics"] = {}
-    for c in metric_cols:
-        col = pd.to_numeric(df[c], errors="coerce").dropna()
+    for c in METRICS:
+        if c not in sdf.columns:
+            continue
+        col = pd.to_numeric(sdf[c].map(unwrap), errors="coerce").dropna()
         if len(col):
             v["metrics"][c] = {"min": float(col.min()), "median": float(col.median()),
                                "max": float(col.max()), "n": int(len(col))}
-    for c in [c for c in df.columns if c.endswith("_success")]:
-        try:
-            v["metrics"][c + ".count"] = int(df[c].fillna(0).astype(bool).sum())
-        except Exception:
-            pass
-    v["sequences"] = [str(s) for s in df.get("sequence", pd.Series(dtype=str)).head(3)]
+    v["filters"] = {}
+    for c in ("AF2-IG-easy-success", "AF2-IG-success", "Protenix-success",
+              "Protenix-basic-success"):
+        if c in sdf.columns:
+            v["filters"][c] = int(sdf[c].astype(str).str.lower().eq("true").sum())
+    v["sequences"] = [str(x) for x in sdf.get("sequence", pd.Series(dtype=str)).head(3)]
+    v["seq_lengths"] = sorted({len(str(x)) for x in sdf.get("sequence", pd.Series(dtype=str))})
 
-    # the confidence metrics must exist and be in range, or the timing measured nothing real
-    if "pLDDT" not in v["metrics"]:
-        v["ok"] = False
-        v["why"].append("no AF2 pLDDT column - eval did not run")
-    else:
-        p = v["metrics"]["pLDDT"]
-        if not (0.0 <= p["min"] <= p["max"] <= 1.0):
-            v["ok"] = False
-            v["why"].append("pLDDT out of [0,1]: %s" % p)
-
-    summ = design_dir / "summary.csv"
-    v["summary_csv_exists"] = summ.exists()
-    if summ.exists():
-        sdf = pd.read_csv(summ)
-        v["summary_rows"] = int(len(sdf))
     ti = design_dir / "task_info.json"
     if ti.exists():
         v["task_info"] = json.loads(ti.read_text())
+
+    # the run measured nothing real unless the confidence metrics exist and are in range
+    if "af2_plddt" not in v["metrics"]:
+        v["ok"] = False
+        v["why"].append("no af2_plddt in summary.csv - AF2-IG did not score anything")
+    else:
+        m = v["metrics"]["af2_plddt"]
+        if not (0.0 <= m["min"] <= m["max"] <= 1.0):
+            v["ok"] = False
+            v["why"].append("af2_plddt out of [0,1]: %s" % m)
+        if m["median"] < 0.5:
+            v["ok"] = False
+            v["why"].append("median af2_plddt %.3f - designs are not folded" % m["median"])
+    if v["seq_lengths"] and min(v["seq_lengths"]) < 10:
+        v["ok"] = False
+        v["why"].append("a design sequence is %d residues" % min(v["seq_lengths"]))
     return v
 
 
@@ -449,7 +478,9 @@ def main():
                         for k, v in STAGES.items()}
     report["windows"] = WINDOWS
     report["counts"] = COUNTS
-    report["module_census"] = layernorm_census()
+    report["module_census"] = CENSUS
+    report["kernel_env_at_end"] = {k: os.environ.get(k) for k in
+                                   ("DEEPSPEED_EVO", "LAYERNORM_TYPE", "CUTLASS_PATH")}
     report["subprocesses"] = subprocs
     report["peak_vram_alloc_B"] = int(torch.cuda.max_memory_allocated())
     report["peak_vram_reserved_B"] = int(torch.cuda.max_memory_reserved())

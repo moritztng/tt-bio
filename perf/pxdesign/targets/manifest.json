@@ -1,0 +1,53 @@
+{
+  "cif": "1dp0.cif",
+  "cif_sha256": "a39564ee430ad50e1afef0c14bb80ecc27eea22f3c7f3e3255ecf130e48b6643",
+  "cif_source": "https://files.rcsb.org/download/1DP0.CIF",
+  "chain": "A",
+  "chain_residues": 1011,
+  "hotspots": [
+    527,
+    528,
+    526
+  ],
+  "hotspot_exposure": {
+    "527": 4,
+    "528": 6,
+    "526": 11
+  },
+  "centre_residue": 527,
+  "binder_length": 80,
+  "rungs": {
+    "lacz_128": {
+      "yaml": "lacz_128.yaml",
+      "crop": [
+        463,
+        590
+      ],
+      "target_residues": 128
+    },
+    "lacz_256": {
+      "yaml": "lacz_256.yaml",
+      "crop": [
+        399,
+        654
+      ],
+      "target_residues": 256
+    },
+    "lacz_512": {
+      "yaml": "lacz_512.yaml",
+      "crop": [
+        271,
+        782
+      ],
+      "target_residues": 512
+    },
+    "lacz_768": {
+      "yaml": "lacz_768.yaml",
+      "crop": [
+        143,
+        910
+      ],
+      "target_residues": 768
+    }
+  }
+}
