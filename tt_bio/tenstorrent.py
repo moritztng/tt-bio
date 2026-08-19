@@ -3694,6 +3694,52 @@ class AttentionPairBias(Module):
         ttnn.deallocate(out_bf16)
         return out
 
+    def _load_kq_norm(self) -> None:
+        """Read RF3's optional query/key layer norms.
+
+        Called lazily from __call__ so the weights are read once and only when the
+        checkpoint carries them: Boltz-2, Protenix-v2 and OpenFold3 do not, and take
+        exactly the path they always did.
+        """
+        if getattr(self, "_kq_norm_loaded", False):
+            return
+        self._kq_norm_loaded = True
+        self.kq_norm = "query_layer_norm.weight" in self.weights
+        if not self.kq_norm:
+            return
+        # RF3 norms over n_heads * head_dim. The fused qkv slices carry
+        # n_heads * padded_head_dim, so a padded head_dim would put zeros inside
+        # the reduction and silently change the result.
+        assert self.head_dim % 32 == 0, (
+            f"kq_norm needs a tile-aligned head_dim, got {self.head_dim}: the fused "
+            "qkv layout would pad the norm's reduction axis with zeros"
+        )
+        self.q_layer_norm_weight = self.torch_to_tt("query_layer_norm.weight")
+        self.q_layer_norm_bias = self.torch_to_tt("query_layer_norm.bias")
+        self.k_layer_norm_weight = self.torch_to_tt("key_layer_norm.weight")
+        self.k_layer_norm_bias = self.torch_to_tt("key_layer_norm.bias")
+
+    def _apply_kq_norm(self, qkv: ttnn.Tensor) -> ttnn.Tensor:
+        """Norm the Q and V-preceding K slices of the fused qkv, in place of a split."""
+        width = self.n_heads * self.head_dim
+        parts = []
+        for i, (w, b) in enumerate((
+            (self.q_layer_norm_weight, self.q_layer_norm_bias),
+            (self.k_layer_norm_weight, self.k_layer_norm_bias),
+        )):
+            part = qkv[..., i * width:(i + 1) * width]
+            parts.append(ttnn.layer_norm(
+                part, weight=w, bias=b, epsilon=1e-5,
+                compute_kernel_config=self.compute_kernel_config,
+            ))
+            ttnn.deallocate(part)
+        parts.append(qkv[..., 2 * width:])
+        out = ttnn.concat(parts, dim=-1)
+        for pt in parts:
+            ttnn.deallocate(pt)
+        ttnn.deallocate(qkv)
+        return out
+
     def __call__(
         self,
         s: ttnn.Tensor,
@@ -3702,6 +3748,7 @@ class AttentionPairBias(Module):
         seq_mask: ttnn.Tensor | None = None,
         bias_precomputed: bool = False,
     ) -> ttnn.Tensor:
+        self._load_kq_norm()
         if not self.atom_level:
             qkv = ttnn.linear(
                 s,
@@ -3710,6 +3757,8 @@ class AttentionPairBias(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
             )
+            if self.kq_norm:
+                qkv = self._apply_kq_norm(qkv)
             qkv = ttnn.unsqueeze(qkv, 1)
             q, k, v = ttnn.experimental.nlp_create_qkv_heads(
                 qkv,
