@@ -154,3 +154,62 @@ def check_coverage(block: dict[str, torch.Tensor]) -> dict:
         "extra": extra,
         "ok": not missing,
     }
+
+
+# --- MSA module -------------------------------------------------------------
+# The MSA module spells triangle multiplication `tri_mult_*` where the Pairformer
+# stack spells it `tri_mul_*`, so PAIRFORMER_RENAMES silently would not match. It
+# also has no block index: one set of weights drives all n_block iterations.
+MSA_SCOPES: dict[str, str] = {
+    "msa_subsampler": "msa_subsampler",
+    "outer_product": "outer_product",
+    "msa_pair_weighted_averaging": "msa_pair_weighted_averaging",
+    "msa_transition": "msa_transition",
+    # the inner pairformer's five sub-blocks all live under one scope in the port
+    "tri_mult_outgoing": "pairformer_layer.tri_mul_out",
+    "tri_mult_incoming": "pairformer_layer.tri_mul_in",
+    "tri_attn_start": "pairformer_layer.tri_att_start",
+    "tri_attn_end": "pairformer_layer.tri_att_end",
+    "pair_transition": "pairformer_layer.transition_z",
+}
+
+OUTER_PRODUCT_LEAVES = {
+    "proj_left": "proj_a",
+    "proj_right": "proj_b",
+    "proj_out": "proj_o",
+}
+PWA_LEAVES = {
+    "norm_msa": "norm_m",
+    "norm_pair": "norm_z",
+    "to_v": "proj_m",
+    "to_bias": "proj_z",
+    "to_gate": "proj_g",
+    "to_out": "proj_o",
+}
+
+
+def remap_msa_module(block: dict) -> dict:
+    """Remap RF3's `recycler.msa_module` weights onto the ported MSA module.
+
+    Args:
+        block: module-relative RF3 weights, e.g. ``outer_product.proj_left.weight``.
+    """
+    out: dict = {}
+    for key, value in block.items():
+        scope, rest = _leaf(key)
+        if scope not in MSA_SCOPES:
+            raise KeyError(f"unmapped RF3 msa_module scope: {scope!r} (from {key!r})")
+        new_scope = MSA_SCOPES[scope]
+
+        if scope == "outer_product":
+            rest = _sub(rest, OUTER_PRODUCT_LEAVES)
+        elif scope == "msa_pair_weighted_averaging":
+            rest = _sub(rest, PWA_LEAVES)
+        elif scope in ("msa_transition", "pair_transition"):
+            rest = _sub(rest, TRANSITION_LEAVES)
+        elif scope in ("tri_attn_start", "tri_attn_end"):
+            rest = _sub(rest, TRI_ATT_LEAVES)
+        # tri_mult_* leaves and msa_subsampler leaves already match
+
+        out[f"{new_scope}.{rest}"] = value
+    return out
