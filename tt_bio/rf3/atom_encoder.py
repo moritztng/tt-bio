@@ -51,6 +51,44 @@ def window_mask(n_atom: int, n_atom_padded: int) -> torch.Tensor:
         .expand(k, 1, ATOM_WINDOW, ATOM_KEYS).contiguous()
 
 
+def windowed_bias(p, ln0_w, ln0_b, to_b, mask, n_pad, compute_kernel_config, device):
+    """Windowed, masked pair bias for one block: [1, K*n_heads, W, ATOM_KEYS].
+
+    Shared by the encoder and the decoder, which run the same 3-block atom transformer
+    over the same pair track.
+
+    Shifting the bias right by PAD_LEFT makes each 128-key window the contiguous slice
+    [32k, 32k+128); the shifted-in columns are exactly the out-of-range slots, and the
+    additive `mask` puts -1e9 there. Padding with zeros rather than -1e9 is fine because
+    the mask lands on top -- what matters is that these lanes never reach the softmax
+    carrying a real value.
+    """
+    b = ttnn.layer_norm(p, weight=ln0_w, bias=ln0_b, epsilon=1e-5,
+                        compute_kernel_config=compute_kernel_config)
+    b = ttnn.linear(b, to_b, compute_kernel_config=compute_kernel_config)
+    b = ttnn.permute(b, (0, 3, 1, 2))                     # [1, heads, L, L]
+    k = n_pad // ATOM_WINDOW
+    blocks = []
+    for j in range(k):
+        lo, hi = j * ATOM_WINDOW - PAD_LEFT, j * ATOM_WINDOW - PAD_LEFT + ATOM_KEYS
+        lo_c, hi_c = max(lo, 0), min(hi, n_pad)
+        piece = b[:, :, j * ATOM_WINDOW:(j + 1) * ATOM_WINDOW, lo_c:hi_c]
+        pads = []
+        if lo_c > lo:
+            pads.append(ttnn.zeros((1, N_HEADS, ATOM_WINDOW, lo_c - lo),
+                                   layout=ttnn.TILE_LAYOUT, device=device,
+                                   dtype=piece.dtype))
+        pads.append(piece)
+        if hi > hi_c:
+            pads.append(ttnn.zeros((1, N_HEADS, ATOM_WINDOW, hi - hi_c),
+                                   layout=ttnn.TILE_LAYOUT, device=device,
+                                   dtype=piece.dtype))
+        blocks.append(ttnn.concat(pads, dim=-1) if len(pads) > 1 else piece)
+    w = ttnn.concat(blocks, dim=0)                        # [K, heads, W, KEYS]
+    w = ttnn.add(w, mask)                                 # additive -1e9
+    return ttnn.reshape(w, (1, k * N_HEADS, ATOM_WINDOW, ATOM_KEYS))
+
+
 class AtomAttentionEncoder(Module):
     def __init__(self, state_dict, compute_kernel_config, mlff_const: torch.Tensor,
                  n_block: int = 3):
@@ -127,31 +165,8 @@ class AtomAttentionEncoder(Module):
         return ttnn.add(p, m)
 
     def bias(self, p: ttnn.Tensor, i: int, mask: ttnn.Tensor, n_pad: int) -> ttnn.Tensor:
-        """Windowed, masked pair bias for block i: [1, K*n_heads, W, ATOM_KEYS]."""
-        b = ttnn.layer_norm(p, weight=self.ln0_w[i], bias=self.ln0_b[i], epsilon=1e-5,
-                            compute_kernel_config=self.compute_kernel_config)
-        b = ttnn.linear(b, self.to_b[i], compute_kernel_config=self.compute_kernel_config)
-        b = ttnn.permute(b, (0, 3, 1, 2))                     # [1, heads, L, L]
-        k = n_pad // ATOM_WINDOW
-        blocks = []
-        for j in range(k):
-            lo, hi = j * ATOM_WINDOW - PAD_LEFT, j * ATOM_WINDOW - PAD_LEFT + ATOM_KEYS
-            lo_c, hi_c = max(lo, 0), min(hi, n_pad)
-            piece = b[:, :, j * ATOM_WINDOW:(j + 1) * ATOM_WINDOW, lo_c:hi_c]
-            pads = []
-            if lo_c > lo:
-                pads.append(ttnn.zeros((1, N_HEADS, ATOM_WINDOW, lo_c - lo),
-                                       layout=ttnn.TILE_LAYOUT, device=self.device,
-                                       dtype=piece.dtype))
-            pads.append(piece)
-            if hi > hi_c:
-                pads.append(ttnn.zeros((1, N_HEADS, ATOM_WINDOW, hi - hi_c),
-                                       layout=ttnn.TILE_LAYOUT, device=self.device,
-                                       dtype=piece.dtype))
-            blocks.append(ttnn.concat(pads, dim=-1) if len(pads) > 1 else piece)
-        w = ttnn.concat(blocks, dim=0)                        # [K, heads, W, KEYS]
-        w = ttnn.add(w, mask)                                 # additive -1e9
-        return ttnn.reshape(w, (1, k * N_HEADS, ATOM_WINDOW, ATOM_KEYS))
+        return windowed_bias(p, self.ln0_w[i], self.ln0_b[i], self.to_b[i], mask, n_pad,
+                             self.compute_kernel_config, self.device)
 
     # ----------------------------------------------------------------- forward
 
