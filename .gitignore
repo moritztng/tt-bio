@@ -13,6 +13,8 @@ env/
 
 # Project outputs
 boltz_results_*/
+l1_budget_gate_*/
+l1_budget_gate_*.log
 binder/
 out_binder/
 eval_data/
