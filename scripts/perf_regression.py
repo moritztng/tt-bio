@@ -113,6 +113,17 @@ code, same card, warm kernel cache):
     CPU-contended host with a +59.6% rebound once idle (2026-08-02, qb1)
   * boltz2-affinity: flagged at -40.7% against its baseline on an unchanged
     tree (2026-08-14, pc)
+  * boltz2-affinity again, and wider than anything else in this list: 52 / 68 /
+    110 s across three back-to-back runs of ONE unchanged tree (2026-08-19, qb2
+    card 2) -- a 2.1x spread inside a single median-of-3 triple. The same day, the
+    same code on the same host's card 0 ran 98-104 s. So this leg carries a
+    per-card-INDEX offset on top of its draw noise, while the baseline keys on card
+    TYPE: qb2 card 0 cannot satisfy the p300c cell (-28 to -33%) whatever the code
+    does, and card 2 clears it comfortably. Treat a FAIL here as unproven until a
+    same-card same-session A/B against the merge base reproduces it. On 2026-08-19
+    that A/B read 98 s branch vs 99 s main on card 0 (neutral) against a -32.7%
+    gate flag, and the fix under test was faster on card 2. See the note on the
+    p300c boltz2-affinity cell in docs/perf_baselines.json.
 
 i.e. ±20-30% with fatter tails — above the 15% threshold, so a one-draw verdict
 false-alarmed repeatedly (three documented false alarms 2026-08-02…08-14). The
