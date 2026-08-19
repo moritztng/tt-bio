@@ -151,6 +151,7 @@ def _wreject(flag, reason):
     d = WRAP_REJECTS.setdefault(flag, {})
     d[reason] = d.get(reason, 0) + 1
 
+
 WRAP_KEYS = ("ADALN_S_HOIST", "PAIR_TRANSPOSE_VIA_ROW_MAJOR",
              "PAIR_PROJ_MINIMAL_MATMUL", "QKV_MM_CONFIG",
              "B2_BIAS_SLICE_HOIST", "B2_ADALN_S_MEMO", "TRANSPOSE_L1_RESIDENT")
