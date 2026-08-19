@@ -183,6 +183,39 @@ _ATTN_ROW_BLOCK = int(os.environ.get("RFD3_ATTN_ROWBLOCK", "256"))
 # RFD3_PAIRBIAS_FUSED=0 restores the per-block projection so the fold A/B has an arm.
 _PAIRBIAS_FUSED = os.environ.get("RFD3_PAIRBIAS_FUSED", "1") == "1"
 _PAIRBIAS_SLOT = 32
+
+# The pair `Transition` is 37 % of every step's DRAM traffic (23.70 of 63.43 GB,
+# perf/p63/traffic_census.json) against an irreducible 1.98 GB, because all of its intermediates
+# round-trip DRAM and are dead the instant `fc3` consumes them. Row-chunking on dim 1 -- which is
+# NOT a tiled dimension, so a slice has no sub-tile cliff and no padding -- makes `fc2`'s output
+# and the gated product small enough to keep in L1, so `b` and `m` are never written out and never
+# read back: 1975 of the 3951 MB an H=512 call moves.
+#
+# Only those two. `x_norm` and `fc1`'s output stay in DRAM, and that is what makes this bit-exact
+# rather than nearly so -- see `Transition._swiglu`. Chasing them as well measured 16.10 ms/call at
+# H=512 instead of 18.55, and diverged (perf/p66/audit_perop.json).
+#
+# MEASURED on the built code path at the page fixture's pair shape [1, 685, 704, 128], warm, synced
+# both sides, n=6, under benchlock on card 2 (perf/p64/pinned_l1_heights.json). ms/call:
+#
+#   H=512  shipped 21.91 | h=32 18.68  h=64 18.55  h=96 19.04  h=128 does not fit (185 MB)
+#   H=256  shipped 13.30 | h=64 11.83  h=128 12.04  h=192 12.27  h=256 does not fit
+#
+# h=64 at BOTH widths, which is not the constant-`h x hidden` rule the wider variant followed: with
+# only two residents the footprint is comfortable at either width (92 MB at H=512, 46 at H=256) and
+# the optimum is set by the chunk count, not by the fit. The byte cap below is a safety net for an
+# unmeasured shape, bracketed by measurement -- 138 MB of live L1 fits, 185 MB throws.
+#
+# Eight calls per step (transition_2.{0,1} at H=256 and pairformer_stack.{0,1}.z_transition at
+# H=512, each twice for the two recycles): 140.8 -> 121.5 ms/step, -19.3 ms/step.
+#
+# The chunking is NOT where the win is. With the intermediates left in DRAM, chunking alone is a
+# LOSS of 1.3-1.5 ms/call (perf/p64/pair_transition_l1.json arm B): the slice, the closing concat
+# and the extra op count cost more than they return. All of the result is the L1 residency.
+_PAIR_TRANSITION_L1 = os.environ.get("RFD3_PAIR_TRANSITION_L1", "1") == "1"
+_PAIR_TRANSITION_H_CHUNK = 64                   # measured optimum at both hidden widths
+_PAIR_TRANSITION_L1_BYTES = 138_000_000         # fits at 138 MB live, throws at 185
+_PAIR_TRANSITION_MIN_W = 512                    # token pair is 704 wide; atom pair is 128
 _TUNE_MATMUL_MIN_ATOMS = 2952
 _TUNE_MATMUL_ENV = os.environ.get("RFD3_TUNE_MATMUL")
 _TUNE_MATMUL = _TUNE_MATMUL_ENV == "1"
@@ -282,11 +315,23 @@ def _tunable(x, w):
     return all(d == 1 for d in ws[:-2])
 
 
-def _tuned_linear(x, w, *, bias=None, ckc=None, dtype=None, core_grid=BATCH_INVARIANT_GRID):
+def _tuned_linear(x, w, *, bias=None, ckc=None, dtype=None, core_grid=BATCH_INVARIANT_GRID,
+                  mem=None):
     """`ttnn.linear` with a calibrated, bit-exact program config where one helps.
 
     No `activation=`: ttnn wants a fused activation on the program config instead, so the two
     silu-gated linears keep the default path (they are the cheap half of a Transition anyway).
+
+    `mem` asks for the output in L1. It is deliberately NOT part of the cache key and it is
+    honoured ONLY once an explicit program config has been chosen, because that is the whole
+    reason it is safe: an L1 buffer competes for the same cores' L1 that ttnn's matmul heuristic
+    budgets `in0_block_w` from, so a heuristic-picked matmul re-blocks K -- and re-rounds its bf16
+    accumulation -- when its operands or its output move to L1. Measured, at this model's pair
+    shape: 0.03125 at hidden=512 and 0.0 at hidden=256 (perf/p66/audit_perop.json). An explicit
+    program config fixes the blocking, so the same config with an L1 output does the identical
+    arithmetic and only the destination changes. If calibration declined this shape there is no
+    config to pin, so the request is dropped and the output goes to DRAM rather than silently
+    taking the heuristic's word for it.
     """
     kw = dict(compute_kernel_config=ckc, dtype=dtype)
     if bias is not None:
@@ -300,9 +345,12 @@ def _tuned_linear(x, w, *, bias=None, ckc=None, dtype=None, core_grid=BATCH_INVA
     pc = _TUNED_MM_CACHE[key]
     if pc is None:
         return ttnn.linear(x, w, core_grid=core_grid, **kw)
+    if mem is not None:
+        kw["memory_config"] = mem
     out = ttnn.linear(x, w, program_config=pc, **kw)
     if _TUNE_AUDIT:
-        ref = ttnn.linear(x, w, core_grid=core_grid, **kw)
+        ref = ttnn.linear(x, w, core_grid=core_grid,
+                          **{k: v for k, v in kw.items() if k != "memory_config"})
         m = _mm_maxabs(out, ref)
         ttnn.deallocate(ref)
         if m != 0.0:
@@ -547,15 +595,54 @@ class Transition(Module):
         self.fc3_w = self.torch_to_tt("linear_3.weight", dtype=self.dtype)
 
     def __call__(self, x):
-        x = ttnn.rms_norm(x, weight=self.norm_w, epsilon=1e-6,
+        """Whole-tensor by default; L1-resident row blocks on the token pair tensor.
+
+        See `_PAIR_TRANSITION_L1` for the measurements. `RFD3_PAIR_TRANSITION_L1=0` restores
+        the whole-tensor path op for op.
+        """
+        if not (_PAIR_TRANSITION_L1 and len(x.shape) == 4
+                and x.shape[2] >= _PAIR_TRANSITION_MIN_W):
+            return self._swiglu(x, None)
+        H, hidden = x.shape[1], int(self.fc1_w.shape[-1])
+        # Live per chunk is `b` + `m`, both [1, h, W_pad, hidden] bf16.
+        cap = _PAIR_TRANSITION_L1_BYTES // (4 * int(x.padded_shape[2]) * hidden)
+        h = max(1, min(H, _PAIR_TRANSITION_H_CHUNK, cap))
+        # Slice lazily rather than `ttnn.chunk`, which materialises a second full copy of the
+        # pair tensor up front. The 685-row tail is ragged at every h and gets its own shape,
+        # hence its own program-config cache entry, which is what keeps it exact.
+        parts = []
+        for s in range(0, H, h):
+            c = x[:, s:min(s + h, H)]
+            parts.append(self._swiglu(c, ttnn.L1_MEMORY_CONFIG))
+            ttnn.deallocate(c)
+        out = ttnn.concat(parts, dim=1)
+        for p in parts:
+            ttnn.deallocate(p)
+        return out
+
+    def _swiglu(self, x, mem):
+        """RMSNorm + silu-gated SwiGLU. `mem=None` keeps every intermediate in DRAM.
+
+        With `mem` set, `fc2`'s output and the gated product stay in L1, so `b` and `m` are never
+        written to DRAM and never read back: 1975 of the 3951 MB an H=512 call moves.
+
+        `x_norm` and `fc1`'s output stay in DRAM on purpose, and that is the whole reason this is
+        bit-exact. `fc1` is heuristic-blocked (its fused silu cannot ride on an explicit program
+        config, and no bit-exact config for it exists -- closed in `rfd3-close-the-page-gap`), so
+        it re-blocks K and re-rounds when either its input or its output moves to L1: measured
+        0.03125 at hidden=512 either way (perf/p66/audit_perop.json). `fc2` goes through
+        `_tuned_linear`, whose pinned config makes the blocking independent of L1 pressure, and
+        the multiply is elementwise. Hence L1 for those two and DRAM for the other two.
+        """
+        xn = ttnn.rms_norm(x, weight=self.norm_w, epsilon=1e-6,
                             compute_kernel_config=self.compute_kernel_config)
-        a = ttnn.linear(x, self.fc1_w, activation="silu",
+        a = ttnn.linear(xn, self.fc1_w, activation="silu",
                          compute_kernel_config=self.compute_kernel_config,
                          dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID)
-        b = _tuned_linear(x, self.fc2_w, ckc=self.compute_kernel_config,
-                          dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID)
-        ttnn.deallocate(x)
-        m = ttnn.multiply(a, b)
+        b = _tuned_linear(xn, self.fc2_w, ckc=self.compute_kernel_config,
+                          dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID, mem=mem)
+        ttnn.deallocate(xn)
+        m = ttnn.multiply(a, b) if mem is None else ttnn.multiply(a, b, memory_config=mem)
         ttnn.deallocate(b)
         out = _tuned_linear(m, self.fc3_w, ckc=self.compute_kernel_config,
                             dtype=self.dtype, core_grid=CORE_GRID_MAIN)

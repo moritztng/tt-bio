@@ -1,0 +1,132 @@
+{
+  "rows": [
+    {
+      "arm": "A  shipped whole-tensor",
+      "hidden": 512,
+      "h": null,
+      "ms_median": 21.9091,
+      "ms_min": 21.8382,
+      "ms_max": 22.314,
+      "spread_pct": 2.17,
+      "note": "baseline"
+    },
+    {
+      "arm": "C3 pinned fc2+mul -> L1",
+      "hidden": 512,
+      "h": 32,
+      "ms_median": 18.6797,
+      "ms_min": 18.6388,
+      "ms_max": 18.733,
+      "spread_pct": 0.5,
+      "note": "46 MB live in L1",
+      "l1_MB": 46.1
+    },
+    {
+      "arm": "C3 pinned fc2+mul -> L1",
+      "hidden": 512,
+      "h": 64,
+      "ms_median": 18.5459,
+      "ms_min": 18.4688,
+      "ms_max": 18.622,
+      "spread_pct": 0.83,
+      "note": "92 MB live in L1",
+      "l1_MB": 92.3
+    },
+    {
+      "arm": "C3 pinned fc2+mul -> L1",
+      "hidden": 512,
+      "h": 96,
+      "ms_median": 19.0387,
+      "ms_min": 18.9267,
+      "ms_max": 19.0827,
+      "spread_pct": 0.82,
+      "note": "138 MB live in L1",
+      "l1_MB": 138.4
+    },
+    {
+      "arm": "C3 pinned fc2+mul -> L1",
+      "hidden": 512,
+      "h": 128,
+      "ms_median": null,
+      "l1_MB": 184.5,
+      "note": "L1 clash"
+    },
+    {
+      "arm": "A  shipped whole-tensor",
+      "hidden": 256,
+      "h": null,
+      "ms_median": 13.2972,
+      "ms_min": 13.2134,
+      "ms_max": 13.3211,
+      "spread_pct": 0.81,
+      "note": "baseline"
+    },
+    {
+      "arm": "C3 pinned fc2+mul -> L1",
+      "hidden": 256,
+      "h": 64,
+      "ms_median": 11.8291,
+      "ms_min": 11.7583,
+      "ms_max": 11.8503,
+      "spread_pct": 0.78,
+      "note": "46 MB live in L1",
+      "l1_MB": 46.1
+    },
+    {
+      "arm": "C3 pinned fc2+mul -> L1",
+      "hidden": 256,
+      "h": 128,
+      "ms_median": 12.042,
+      "ms_min": 12.0341,
+      "ms_max": 12.1226,
+      "spread_pct": 0.73,
+      "note": "92 MB live in L1",
+      "l1_MB": 92.3
+    },
+    {
+      "arm": "C3 pinned fc2+mul -> L1",
+      "hidden": 256,
+      "h": 192,
+      "ms_median": 12.2721,
+      "ms_min": 12.2508,
+      "ms_max": 12.2953,
+      "spread_pct": 0.36,
+      "note": "138 MB live in L1",
+      "l1_MB": 138.4
+    },
+    {
+      "arm": "C3 pinned fc2+mul -> L1",
+      "hidden": 256,
+      "h": 256,
+      "ms_median": null,
+      "l1_MB": 184.5,
+      "note": "L1 clash"
+    }
+  ],
+  "shipped_ms_call": {
+    "512": 21.9091,
+    "256": 13.2972
+  },
+  "best": {
+    "512": {
+      "h": 64,
+      "ms": 18.5459
+    },
+    "256": {
+      "h": 64,
+      "ms": 11.8291
+    }
+  },
+  "screen": {
+    "shipped_ms_step": 140.83,
+    "route_ms_step": 121.5,
+    "net_ms_step": 19.33,
+    "net_s_design": 3.865
+  },
+  "tokens": 685,
+  "n_warm": 2,
+  "n_rep": 6,
+  "host": "qb2",
+  "card": 2,
+  "tune_matmul": true
+}
