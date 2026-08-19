@@ -22,6 +22,12 @@ grid sweep is what pinpointed the threshold.
   part class in `L1_BUDGET_PARTS` and folds #11's own target across the grid ladder the
   running card can express, so a budget fitted on one card cannot ship unchecked on a
   card with fewer cores. `docs/part-l1-budgets.md` carries the measured per-part figures.
+- OpenFold3 `--single_sequence` folds upstream's no-MSA mode through a one-row
+  alignment, and upstream's own OpenFold3 inference suite now runs against this port
+  with committed verdicts (`docs/openfold3-upstream-suite.md`).
+- The release gate checks `RELEASE_GATE_MSA_DIR` before it opens a device and names the
+  a3m files to seed. A dir that covered one target used to fail an unrelated-looking
+  accuracy arm an hour into the run.
 
 ### Fixed
 
@@ -41,12 +47,6 @@ grid sweep is what pinpointed the threshold.
   no longer requires the ttnn wheel. (#10)
 - `tt-bio predict` exits nonzero when a run loses targets instead of reporting success
   on an empty result set.
-
-### Added
-
-- OpenFold3 `--single_sequence` folds upstream's no-MSA mode through a one-row
-  alignment, and upstream's own OpenFold3 inference suite now runs against this port
-  with committed verdicts (`docs/openfold3-upstream-suite.md`).
 
 ## [0.6.3] - 2026-08-17
 
