@@ -1061,7 +1061,7 @@ def _size_ladder_fill_reasons(levers: dict, old_levers: dict) -> int:
             if old and not old.startswith("TODO"):
                 e["reason"] = old
             else:
-                clause = ", ".join(f"{k}={v}" for k, v in
+                clause = ", ".join(f"{k} x{v}" for k, v in
                                    sorted((e.get("rejects") or {}).items(),
                                           key=lambda kv: -kv[1])[:3])
                 e["reason"] = ("TODO: say why this is legitimate at this size"
