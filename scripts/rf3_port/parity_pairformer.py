@@ -140,6 +140,17 @@ def main() -> int:
         "z_ceiling_cpu_bf16_vs_fp32": round(pcc(z_ref, z_f32), 6),
         "s_ref_std": round(float(s_ref.std()), 4),
         "z_ref_std": round(float(z_ref.std()), 4),
+        # PCC differences near 1.0 are unreadable and PCC is blind to a few entries
+        # going badly wrong. A missing fp32_softmax showed up as PCC 0.9928 on the
+        # template embedder while carrying 12% relative RMS.
+        "s_rel_rms_device": round(
+            float((s_dev - s_ref).pow(2).mean().sqrt() / s_ref.std()), 6),
+        "z_rel_rms_device": round(
+            float((z_dev - z_ref).pow(2).mean().sqrt() / z_ref.std()), 6),
+        "s_rel_rms_reference": round(
+            float((s_ref - s_f32).pow(2).mean().sqrt() / s_f32.std()), 6),
+        "z_rel_rms_reference": round(
+            float((z_ref - z_f32).pow(2).mean().sqrt() / z_f32.std()), 6),
     }
     rep["s_at_ceiling"] = rep["s_pcc"] >= rep["s_ceiling_cpu_bf16_vs_fp32"] - 0.002
     rep["z_at_ceiling"] = rep["z_pcc"] >= rep["z_ceiling_cpu_bf16_vs_fp32"] - 0.002

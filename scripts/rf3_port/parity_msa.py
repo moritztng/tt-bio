@@ -103,11 +103,20 @@ def main() -> int:
     z_out = mod(to_tt(f_in["msa"]), to_tt(z_in), to_tt(s_in))
     z_dev = torch.Tensor(ttnn.to_torch(z_out)).float().reshape(z_ref.shape)
 
+    # PCC alone is not a correctness gate: differences near 1.0 are unreadable, and
+    # it is blind to a few entries going badly wrong. A missing fp32_softmax read as
+    # PCC 0.9993 here while carrying real error, so report relative RMS beside it.
+    diff = (z_dev - z_ref).abs()
+    ref_diff = (z_ref - z_f32).abs()
     rep = {
         "tokens": int(z_in.shape[-2]),
         "msa_depth": int(f_in["msa"].shape[0]),
         "z_pcc": round(pcc(z_dev, z_ref), 6),
         "z_ceiling_cpu_bf16_vs_fp32": round(pcc(z_ref, z_f32), 6),
+        "maxabs": round(float(diff.max()), 6),
+        "rel_rms_device": round(float(diff.pow(2).mean().sqrt() / z_ref.std()), 6),
+        "rel_rms_reference": round(
+            float(ref_diff.pow(2).mean().sqrt() / z_f32.std()), 6),
         "z_ref_std": round(float(z_ref.std()), 4),
     }
     rep["at_ceiling"] = rep["z_pcc"] >= rep["z_ceiling_cpu_bf16_vs_fp32"] - 0.002
