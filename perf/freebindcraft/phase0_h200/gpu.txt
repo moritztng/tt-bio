@@ -1,0 +1,2 @@
+name, memory.total [MiB], driver_version
+NVIDIA H200 NVL, 143771 MiB, 595.84

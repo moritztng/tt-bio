@@ -1,5 +1,10 @@
 """Turn one instrumented FreeBindCraft run into the wall split the feasibility gate asks for.
 
+SUPERSEDED for the split itself by `analyze_measured_split.py`. This script sums each stage
+independently, and on a real run `pr_relax` turns out to be called from inside
+`predict_binder_complex`, so it counts those seconds twice and reports a negative `unattributed_s`.
+Kept because its `[AF2]`-timer decomposition of the hallucination stages is what the analyzer reads.
+
 Inputs are whatever `gpu_fbc_run.sh` left behind: the stage JSONL from the timing shim, the
 `--verbose` stdout log, the nvidia-smi memory samples, and the run's own CSVs.
 

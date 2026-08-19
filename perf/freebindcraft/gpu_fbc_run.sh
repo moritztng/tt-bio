@@ -63,8 +63,14 @@ time python -u ./bindcraft.py \
   --no-pyrosetta --verbose 2>&1 | tee "$OUT/run.log"
 
 kill $SMI_PID 2>/dev/null || true
-python "$(dirname "$(readlink -f "$0")")/parse_fbc_run.py" \
+HERE="$(dirname "$(readlink -f "$0")")"
+python "$HERE/parse_fbc_run.py" \
   --run-dir "$OUT" --design-path "$DESIGN_PATH" --report "$OUT/split.json"
+# The split to actually quote. parse_fbc_run.py sums stages independently, which double-counts the
+# relaxes that run nested inside predict_binder_complex; this one rebuilds it from the interval
+# timestamps and separates XLA compile from compute.
+python "$HERE/analyze_measured_split.py" \
+  --run-dir "$OUT" --report "$OUT/measured_split.json"
 
 # gpu-benchmark-harness-transfer-must-include-hashed-files: hash before the instance dies.
 ( cd "$OUT" && find . -type f -name '*.json' -o -name '*.log' -o -name '*.csv' -o -name '*.jsonl' ) | sort > "$OUT/manifest.txt"
