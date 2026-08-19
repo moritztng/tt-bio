@@ -120,6 +120,14 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
         cfg["of3_template_structures"] = str(tmpl_struct_dir)
         cfg["of3_max_msa_seqs"] = os.environ.get("OF3_MAX_MSA_SEQS")
         return
+    # RF3: checkpoint from files.ipd.uw.edu (or $RF3_CKPT), MSA dir like the rest.
+    # main.py pre-fetches in the parent before fanning out, so this is normally a
+    # cache hit; a worker joined to a remote controller fetches on its own host.
+    if cfg.get("model") == "rf3":
+        cfg["msa_dir"] = _resolve_msa_dir(cfg.get("msa_dir"), cache)
+        from tt_bio.main import ensure_rf3_weights
+        cfg["rf3_ckpt"] = os.environ.get("RF3_CKPT") or str(ensure_rf3_weights(cache))
+        return
     # OpenDDE loads its weights from HF on the first fold.
     if cfg.get("model", "boltz2") in ("opendde", "opendde-abag"):
         cfg["opendde_ckpt"] = os.environ.get("OPENDDE_CKPT")
@@ -155,11 +163,12 @@ def _resolve_msa_dir(requested: str | None, cache: Path) -> str:
     return str(fallback)
 
 
-def _write_openfold3_structure(atom_array, coords, outpath, output_format,
-                               b_factors=None):
-    """Write an OpenFold3 prediction as PDB/mmCIF: the featurization's biotite
-    AtomArray carries all atom metadata; only the coordinates and the per-atom
-    pLDDT B-factors (0-100, the AF/Boltz convention) are replaced."""
+def _write_atom_array_structure(atom_array, coords, outpath, output_format,
+                                b_factors=None):
+    """Write a prediction as PDB/mmCIF from a biotite AtomArray: the featurization's
+    array carries all atom metadata, and only the coordinates and the per-atom pLDDT
+    B-factors (0-100, the AF/Boltz convention) are replaced. Used by OpenFold3 and RF3,
+    both of which featurize into an AtomArray."""
     import biotite.structure.io.pdb as _pdb
     import biotite.structure.io.pdbx as _pdbx
 
@@ -459,6 +468,19 @@ class _WorkerState:
             sd = torch.load(cfg["of3_ckpt"], map_location="cpu", weights_only=False)
             # CLI --recycling_steps counts recycles; the trunk runs recycles+1 cycles.
             self.model = OpenFold3(sd, ckc, num_cycles=int(cfg.get("recycling_steps") or 3) + 1)
+        elif model_id == "rf3":
+            import ttnn
+
+            from tt_bio.rf3 import model as rf3_model
+            from tt_bio.tenstorrent import get_device
+
+            dev = get_device()
+            ckc = ttnn.init_device_compute_kernel_config(
+                dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
+                fp32_dest_acc_en=True, packer_l1_acc=True)
+            self.model = rf3_model.load(
+                cfg["rf3_ckpt"], ckc,
+                num_timesteps=int(cfg.get("sampling_steps") or 200))
         elif model_id in ("opendde", "opendde-abag"):
             from tt_bio.opendde import OpenDDE
 
@@ -565,6 +587,8 @@ class _WorkerState:
             return self._predict_protenix_one(path, cfg)
         if cfg.get("model") == "openfold3":
             return self._predict_openfold3_one(path, cfg)
+        if cfg.get("model") == "rf3":
+            return self._predict_rf3_one(path, cfg)
         if cfg.get("model", "boltz2") in ("esmfold2", "esmfold2-fast"):
             return self._predict_esmfold2_one(path, cfg)
         if _is_embed_model(cfg.get("model", "boltz2")):
@@ -1005,6 +1029,127 @@ class _WorkerState:
                 for b, p in enumerate(paths)]
 
 
+    def _predict_rf3_one(self, path: Path, cfg: dict[str, Any]):
+        """RF3 fold: chains -> RF3 input spec -> vendored featurizer -> on-device trunk,
+        diffusion and confidence -> structure + summary_confidences.json.
+
+        RF3 reads its own documented JSON input spec, and `tt_bio.rf3.featurize` runs the
+        real upstream pipeline on it, so this builds a spec from the tt-bio input rather
+        than reimplementing featurization. Protein, RNA, DNA and ligand (CCD code or
+        SMILES) chains all go through the same path. MSA is the shared stage every other
+        model uses: any uncached protein chain is searched into msa_dir and attached to
+        its component as `msa_path`.
+        """
+        import hashlib
+        import json as _json
+        import tempfile
+        import types
+
+        import numpy as np
+
+        from tt_bio.esmfold2 import report_progress
+        from tt_bio.main import (_generate_esmfold2_a3m, _read_bio_chains,
+                                 _resolve_a3m_path)
+        from tt_bio.rf3 import confidence as rf3_confidence
+        from tt_bio.rf3.featurize import featurize
+
+        chains = _read_bio_chains(path)
+        if not chains:
+            raise RuntimeError("no sequences")
+        msa_dir = Path(cfg["msa_dir"])
+
+        report_progress("msa")
+        want_msa = (cfg.get("use_msa_server") or cfg.get("msa_db_path")
+                    or cfg.get("msa_endpoint")) and not cfg.get("single_sequence")
+        need = {}
+        for _cid, cseq, spec, mt in chains:
+            if mt != "protein" or not want_msa:
+                continue
+            if spec and Path(spec).expanduser().exists():
+                continue
+            h = hashlib.sha256(cseq.encode()).hexdigest()[:16]
+            if not (msa_dir / f"{h}.a3m").exists():
+                need[h] = cseq
+        if need:
+            _generate_esmfold2_a3m(
+                need, path.stem, msa_dir, cfg.get("msa_db_path"),
+                cfg.get("use_envdb", False), cfg.get("msa_server_url"),
+                cfg.get("msa_pairing_strategy"), cfg.get("msa_server_username"),
+                cfg.get("msa_server_password"), cfg.get("api_key_value"),
+                msa_endpoint=cfg.get("msa_endpoint"))
+
+        report_progress("prep")
+        _CHAIN_TYPE = {"rna": "POLYRIBONUCLEOTIDE", "dna": "POLYDEOXYRIBONUCLEOTIDE"}
+        components, msa_used = [], False
+        for cid, cseq, spec, mt in chains:
+            if mt == "ligand":
+                # _read_bio_chains carries a CCD code as "CCD_<code>" and a SMILES raw.
+                components.append({"ccd_code": cseq[4:]} if cseq.startswith("CCD_")
+                                  else {"smiles": cseq})
+                continue
+            comp = {"seq": cseq, "chain_id": cid}
+            if mt in _CHAIN_TYPE:
+                comp["chain_type"] = _CHAIN_TYPE[mt]
+            elif not cfg.get("single_sequence"):
+                a3m = _resolve_a3m_path(spec, cseq, msa_dir)
+                if a3m:
+                    # absolute: upstream resolves a component's msa_path against the
+                    # process cwd, not against the input file
+                    comp["msa_path"] = str(a3m.resolve())
+                    msa_used = True
+            components.append(comp)
+        if cfg.get("msa_cache_only") and want_msa and not msa_used:
+            raise RuntimeError(
+                "--msa_cache_only: no cached a3m for any protein chain of "
+                f"{path.name} -- refusing to silently fold single-sequence.")
+
+        n_recycles = int(cfg.get("recycling_steps") or 10)
+        seed = int(cfg.get("seed") or 0)
+        with tempfile.TemporaryDirectory() as td:
+            spec_path = Path(td) / f"{path.stem}.json"
+            spec_path.write_text(_json.dumps(
+                [{"name": path.stem, "components": components}]))
+            out = featurize(spec_path, n_recycles=n_recycles,
+                            diffusion_batch_size=1, seed=seed)[0]
+
+        f = out["feats"]
+        atom_array = out["atom_array"]
+        report_progress("trunk")
+        got = self.model.predict(
+            f, n_recycles=n_recycles, diffusion_batch_size=1,
+            rep_atom_idxs=out.get("ground_truth", {}).get("rep_atom_idxs"))
+
+        coord = got["X_L"][0].detach().cpu().numpy().astype("float32")
+        is_real_atom = out["confidence_feats"]["is_real_atom"]
+        plddt = rf3_confidence.atomwise_plddt(got["plddt_logits"], is_real_atom)
+        summary = rf3_confidence.summary(
+            got, f, is_real_atom, out["ground_truth"]["chain_iid_token_lvl"],
+            atom_array, coord)
+
+        fmt = cfg["output_format"]
+        struct_dir = Path(cfg["struct_dir"])
+        _write_atom_array_structure(atom_array, got["X_L"][0],
+                                    struct_dir / f"{path.stem}.{fmt}", fmt,
+                                    b_factors=plddt * 100.0)
+        (struct_dir / f"{path.stem}_summary_confidences.json").write_text(
+            _json.dumps(summary, indent=2) + "\n")
+
+        metrics = {
+            # pLDDT is [0, 1] out of the head; report it on the 0-100 scale every other
+            # model in this repo reports, so one dataset harness reads them all.
+            "plddt": round(float(plddt.mean()) * 100, 4),
+            "ptm": round(summary["ptm"], 4),
+            "iptm": (round(summary["iptm"], 4) if summary["iptm"] is not None else None),
+            "ranking_score": summary["ranking_score"],
+            "has_clash": summary["has_clash"],
+            "n_tokens": int(f["asym_id"].reshape(-1).shape[0]),
+            "n_atoms": int(atom_array.array_length()),
+            "n_chains": len({c[0] for c in chains}),
+            "msa": msa_used,
+            "recycling_steps": n_recycles,
+        }
+        return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
+
     def _predict_openfold3_one(self, path: Path, cfg: dict[str, Any]):
         """OpenFold3 fold: sequence(s) -> per-chain MSA -> fixture-free on-device fold
         (host featurization + device glue/trunk/diffusion/confidence) -> structure.
@@ -1187,7 +1332,7 @@ class _WorkerState:
         for k in range(len(confs)):
             r = rank_of[k]
             name = f"{stem}.{fmt}" if r == 0 else f"{stem}_model_{r}.{fmt}"
-            _write_openfold3_structure(
+            _write_atom_array_structure(
                 features["atom_array"], result.samples[k], struct_dir / name, fmt,
                 b_factors=confs[k]["plddt_atom"] * 100.0)
 
