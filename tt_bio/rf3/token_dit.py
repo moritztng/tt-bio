@@ -21,6 +21,7 @@ from tt_bio.tenstorrent import CORE_GRID_MAIN, DiffusionTransformer, Module, _dt
 
 N_HEADS = 16
 C_TOKEN = 768
+HEAD_DIM = C_TOKEN // N_HEADS      # 48, deliberately not tile-aligned
 
 
 def remap_block(src: dict, i: int) -> dict:
@@ -48,7 +49,12 @@ def remap_block(src: dict, i: int) -> dict:
 
 class TokenDiffusionTransformer(Module):
     def __init__(self, state_dict, compute_kernel_config, n_block: int = 24,
-                 fp32_softmax: bool = True):
+                 fp32_softmax: bool = False):
+        # NOTE fp32_softmax is INERT for this stack. The non-atom branch of
+        # AttentionPairBias.__call__ has its own attention implementation and never
+        # calls _attention, which is where the flag is read -- which is why both arms
+        # scored identically to 7 digits. Kept as a parameter only so the signature
+        # matches the atom stacks; do not read anything into it here.
         super().__init__(state_dict, compute_kernel_config)
         raw = self.weights.as_dict()
         self.n_block = n_block
@@ -64,8 +70,16 @@ class TokenDiffusionTransformer(Module):
             self.ln0_b.append(ttnn.from_torch(
                 raw[f"{p}ln_0.bias"].float(), layout=ttnn.TILE_LAYOUT,
                 device=self.device, dtype=_dtype(ttnn.bfloat16)))
+            # tt-bio's token attention adds the bias to the raw q@k^T and scales the
+            # SUM by head_dim**-0.5 (matching SDPA, which scales its additive mask along
+            # with QK). RF3 adds the bias unscaled, having already divided Q by sqrt(c).
+            # So the bias has to carry sqrt(head_dim) to survive the shared scale -- the
+            # same compensation AttentionPairBias bakes into z_weight when it computes
+            # the bias itself. Without it the bias arrives 1/sqrt(48) too small, which
+            # is worth 34.65x the ceiling and still reads as pcc 0.996.
             self.to_b.append(ttnn.from_torch(
-                raw[f"{p}to_b.weight"].t().contiguous(), layout=ttnn.TILE_LAYOUT,
+                (raw[f"{p}to_b.weight"] * (HEAD_DIM ** 0.5)).t().contiguous(),
+                layout=ttnn.TILE_LAYOUT,
                 device=self.device, dtype=_dtype(ttnn.bfloat16)))
         self.stack = DiffusionTransformer(
             n_layers=n_block, dim=C_TOKEN, n_heads=N_HEADS, atom_level=False,

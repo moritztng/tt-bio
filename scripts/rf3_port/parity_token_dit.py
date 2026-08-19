@@ -55,7 +55,11 @@ def main() -> int:
             blk.attention_pair_bias.force_bfloat16 = True
         return out
 
-    ceil = rel_rms(run(True).reshape(want.shape), run(False).reshape(want.shape))
+    lo, hi = run(True).reshape(want.shape), run(False).reshape(want.shape)
+    ceil = rel_rms(lo, hi)
+    # the reference's own bf16-vs-fp32 pcc, so an alarming-looking absolute pcc on this
+    # stack can be read against what torch alone achieves on it
+    ceil_pcc = pcc(lo, hi)
 
     sd = {k[len(PREFIX):]: v.float()
           for k, v in torch.load(args.ckpt, map_location="cpu",
@@ -80,6 +84,7 @@ def main() -> int:
         rows.append({"fp32_softmax": arm, "pcc": round(pcc(got, want), 7),
                      "rel_rms": round(e, 6), "x_ceiling": round(e / ceil, 2)})
     print(json.dumps({"shape": list(want.shape), "bf16_ceiling": round(ceil, 6),
+                      "bf16_ceiling_pcc": round(ceil_pcc, 6),
                       "arms": rows}, indent=2))
     return 0
 
