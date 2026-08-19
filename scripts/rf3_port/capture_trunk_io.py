@@ -113,6 +113,12 @@ def main() -> int:
 
     def describe(obj, label):
         if isinstance(obj, torch.Tensor):
+            # Integer tensors have no std; they are index features, and their range is
+            # the informative thing about them.
+            if not obj.is_floating_point():
+                lo = int(obj.min()) if obj.numel() else 0
+                hi = int(obj.max()) if obj.numel() else 0
+                return [f"{label} {list(obj.shape)} {obj.dtype} [{lo}..{hi}]"]
             return [f"{label} {list(obj.shape)} std={float(obj.std()):.4f}"]
         if isinstance(obj, (list, tuple)):
             rows = []
