@@ -1417,8 +1417,14 @@ def main() -> int:
               f"{','.join(map(str, rungs))}, {SIZE_LADDER_STEPS} steps / 1 sample, "
               f"seed {SEED}, single-sequence, card {sl.get('card', '?')})"
               + ("  [RECORD]" if args.size_ladder_record else "") + f"\n{'#'*78}")
+        # Exponent columns are the intervals the arm actually gates, i.e. consecutive
+        # pairs of SIZE_LADDER_EXP_RUNGS -- NOT of every rung. Pairing consecutive rungs
+        # printed a k512->640 / k640->768 that is never computed and left k512->768, the
+        # one interval with a real tolerance, without a column at all.
+        exp_rungs = [n for n in rungs if n in SIZE_LADDER_EXP_RUNGS]
+        intervals = list(zip(exp_rungs, exp_rungs[1:]))
         hdr = f"{'model':<15}" + "".join(f"{str(n) + 'aa':>9}" for n in rungs)
-        hdr += "".join(f"{f'k{a}->{b}':>11}" for a, b in zip(rungs, rungs[1:]))
+        hdr += "".join(f"{f'k{a}->{b}':>11}" for a, b in intervals)
         hdr += f"{'wall':>9}  result"
         print(hdr)
         for l in sl["legs"]:
@@ -1426,7 +1432,7 @@ def main() -> int:
             ex = l.get("exponents") or {}
             cells = "".join(f"{(f'{rt[str(n)]:.1f}s' if rt.get(str(n)) is not None else '-'):>9}"
                             for n in rungs)
-            for a, b in zip(rungs, rungs[1:]):
+            for a, b in intervals:
                 k = ex.get(f"{a}->{b}")
                 cells += f"{(f'{k:.2f}' if k is not None else '-'):>11}"
             wall = f"{sl['seconds']:.0f}s" if sl.get("seconds") is not None else "-"

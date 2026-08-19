@@ -104,8 +104,11 @@ HOW = {flag: how for flag, _m, _a, _c, how in LEVERS}
 REJECTS_ATTR = {
     "TRIMUL_IN_PROJ_DUAL_NOC": "tt_bio.mm_dualnoc.REJECTS",
     "TRIMUL_TAIL_F1": "tt_bio.trimul_tail.REJECTS",
+    # Only the ungated lever. reblock_permute.eligible and eligible_gated share one
+    # REJECTS dict, so attributing it to both reported the ungated lever's clause against
+    # a gated lever that was never even offered (0 served / 0 declined) -- a measured
+    # clause is worth nothing if it is attributed to the wrong guard.
     "REBLOCK_PERMUTE": "tt_bio.reblock_permute.REJECTS",
-    "REBLOCK_PERMUTE_GATED": "tt_bio.reblock_permute.REJECTS",
     "TRIATT_PERSISTENT_MASK": "tt_bio.triatt_sdpa.REJECTS",
     "TRIATT_HEAD_MAJOR_QKV": "tt_bio.triatt_qkv.REJECTS",
     "TRIATT_HEAD_MAJOR_TAIL": "tt_bio.triatt_qkv.TAIL_REJECTS",
