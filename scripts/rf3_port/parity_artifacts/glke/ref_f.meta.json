@@ -1,0 +1,360 @@
+{
+  "__diffusion_batch_size__": 5,
+  "__example_id__": "glke_from_json",
+  "__input__": "glke_from_json.json",
+  "__n_recycles__": 10,
+  "__seed__": 42,
+  "__zero_stub_keys__": {
+    "feats/atom_level_embedding": {
+      "dtype": "torch.float32",
+      "shape": [
+        8,
+        30,
+        384
+      ]
+    },
+    "feats/mean_atom_level_embedding": {
+      "dtype": "torch.float32",
+      "shape": [
+        30,
+        384
+      ]
+    }
+  },
+  "confidence_feats/atom_frames": {
+    "dtype": "torch.int64",
+    "shape": [
+      0,
+      3,
+      2
+    ]
+  },
+  "confidence_feats/is_real_atom": {
+    "dtype": "torch.bool",
+    "shape": [
+      4,
+      36
+    ]
+  },
+  "confidence_feats/pae_frame_idx_token_lvl_from_atom_lvl": {
+    "dtype": "torch.int64",
+    "shape": [
+      4,
+      3
+    ]
+  },
+  "confidence_feats/rf2aa_seq": {
+    "dtype": "torch.int64",
+    "shape": [
+      4
+    ]
+  },
+  "coord_atom_lvl_to_be_noised": {
+    "dtype": "torch.float32",
+    "shape": [
+      5,
+      30,
+      3
+    ]
+  },
+  "feats/asym_id": {
+    "dtype": "torch.int64",
+    "shape": [
+      4
+    ]
+  },
+  "feats/atom_level_embedding": {
+    "dtype": "torch.float32",
+    "shape": [
+      8,
+      30,
+      384
+    ]
+  },
+  "feats/atom_to_token_map": {
+    "dtype": "torch.int32",
+    "shape": [
+      30
+    ]
+  },
+  "feats/chiral_center_dihedral_angles": {
+    "dtype": "torch.float32",
+    "shape": [
+      9
+    ]
+  },
+  "feats/chiral_centers": {
+    "dtype": "torch.int64",
+    "shape": [
+      9,
+      4
+    ]
+  },
+  "feats/chiral_feats": {
+    "dtype": "torch.float32",
+    "shape": [
+      9,
+      5
+    ]
+  },
+  "feats/deletion_mean": {
+    "dtype": "torch.float32",
+    "shape": [
+      4
+    ]
+  },
+  "feats/distogram_condition": {
+    "dtype": "torch.float32",
+    "shape": [
+      4,
+      4,
+      64
+    ]
+  },
+  "feats/distogram_condition_noise_scale": {
+    "dtype": "torch.float32",
+    "shape": [
+      4
+    ]
+  },
+  "feats/entity_id": {
+    "dtype": "torch.int64",
+    "shape": [
+      4
+    ]
+  },
+  "feats/has_atom_level_embedding": {
+    "dtype": "torch.bool",
+    "shape": [
+      30
+    ]
+  },
+  "feats/has_distogram_condition": {
+    "dtype": "torch.bool",
+    "shape": [
+      4,
+      4
+    ]
+  },
+  "feats/is_atomized": {
+    "dtype": "torch.bool",
+    "shape": [
+      4
+    ]
+  },
+  "feats/is_atomized_atom_level": {
+    "dtype": "torch.bool",
+    "shape": [
+      30
+    ]
+  },
+  "feats/is_dna": {
+    "dtype": "torch.bool",
+    "shape": [
+      4
+    ]
+  },
+  "feats/is_ligand": {
+    "dtype": "torch.bool",
+    "shape": [
+      4
+    ]
+  },
+  "feats/is_protein": {
+    "dtype": "torch.bool",
+    "shape": [
+      4
+    ]
+  },
+  "feats/is_rna": {
+    "dtype": "torch.bool",
+    "shape": [
+      4
+    ]
+  },
+  "feats/mean_atom_level_embedding": {
+    "dtype": "torch.float32",
+    "shape": [
+      30,
+      384
+    ]
+  },
+  "feats/msa_stack": {
+    "dtype": "torch.float32",
+    "shape": [
+      10,
+      1,
+      4,
+      35
+    ]
+  },
+  "feats/profile": {
+    "dtype": "torch.float32",
+    "shape": [
+      4,
+      32
+    ]
+  },
+  "feats/ref_atom_name_chars": {
+    "dtype": "torch.int64",
+    "shape": [
+      30,
+      4,
+      64
+    ]
+  },
+  "feats/ref_charge": {
+    "dtype": "torch.int8",
+    "shape": [
+      30
+    ]
+  },
+  "feats/ref_element": {
+    "dtype": "torch.int64",
+    "shape": [
+      30,
+      128
+    ]
+  },
+  "feats/ref_mask": {
+    "dtype": "torch.bool",
+    "shape": [
+      30
+    ]
+  },
+  "feats/ref_pos": {
+    "dtype": "torch.float32",
+    "shape": [
+      30,
+      3
+    ]
+  },
+  "feats/ref_pos_ground_truth": {
+    "dtype": "torch.float32",
+    "shape": [
+      30,
+      3
+    ]
+  },
+  "feats/ref_pos_is_ground_truth": {
+    "dtype": "torch.bool",
+    "shape": [
+      30
+    ]
+  },
+  "feats/ref_space_uid": {
+    "dtype": "torch.int64",
+    "shape": [
+      30
+    ]
+  },
+  "feats/residue_index": {
+    "dtype": "torch.int32",
+    "shape": [
+      4
+    ]
+  },
+  "feats/restype": {
+    "dtype": "torch.int64",
+    "shape": [
+      4,
+      32
+    ]
+  },
+  "feats/sym_id": {
+    "dtype": "torch.int32",
+    "shape": [
+      4
+    ]
+  },
+  "feats/token_bonds": {
+    "dtype": "torch.bool",
+    "shape": [
+      4,
+      4
+    ]
+  },
+  "feats/token_index": {
+    "dtype": "torch.int64",
+    "shape": [
+      4
+    ]
+  },
+  "ground_truth/coord_atom_lvl": {
+    "dtype": "torch.float32",
+    "shape": [
+      30,
+      3
+    ]
+  },
+  "ground_truth/coord_token_lvl": {
+    "dtype": "torch.float32",
+    "shape": [
+      4,
+      3
+    ]
+  },
+  "ground_truth/mask_atom_lvl": {
+    "dtype": "torch.bool",
+    "shape": [
+      30
+    ]
+  },
+  "ground_truth/mask_token_lvl": {
+    "dtype": "torch.bool",
+    "shape": [
+      4
+    ]
+  },
+  "ground_truth/rep_atom_idxs": {
+    "dtype": "torch.int64",
+    "shape": [
+      4
+    ]
+  },
+  "noise": {
+    "dtype": "torch.float32",
+    "shape": [
+      5,
+      30,
+      3
+    ]
+  },
+  "symmetry_resolution/coord_atom_lvl": {
+    "dtype": "torch.float32",
+    "shape": [
+      30,
+      3
+    ]
+  },
+  "symmetry_resolution/crop_mask": {
+    "dtype": "torch.int64",
+    "shape": [
+      30
+    ]
+  },
+  "symmetry_resolution/mask_atom_lvl": {
+    "dtype": "torch.bool",
+    "shape": [
+      30
+    ]
+  },
+  "symmetry_resolution/molecule_entity": {
+    "dtype": "torch.int64",
+    "shape": [
+      30
+    ]
+  },
+  "symmetry_resolution/molecule_iid": {
+    "dtype": "torch.int16",
+    "shape": [
+      30
+    ]
+  },
+  "t": {
+    "dtype": "torch.float32",
+    "shape": [
+      5
+    ]
+  }
+}
