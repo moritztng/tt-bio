@@ -27,6 +27,13 @@ prot8/
 !docs/implementation-parity-data/ref-fixtures/boltzgen/binder/
 !docs/implementation-parity-data/ref-fixtures/boltzgen/binder/**
 
+# ...and keep vendored packages that happen to be named after an output directory.
+# The msa/ rule above is for MSA output caches, but atomworks ships
+# ml/preprocessing/msa/ and ml/transforms/msa/. Without this, they are dropped
+# silently at commit and RF3 dies with ModuleNotFoundError on a clean checkout.
+!tt_bio/_vendor/**/msa/
+!tt_bio/_vendor/**/msa/**
+
 # Parity reference fixtures: externalize the large binaries (CIF structures, A3M
 # MSAs, NPZ coordinate tensors) to GitHub Release assets and fetch on demand
 # (scripts/fetch_parity_fixtures.sh). The small provenance JSONs/yaml/csv stay

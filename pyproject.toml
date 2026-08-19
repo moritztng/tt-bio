@@ -11,7 +11,12 @@ requires-python = ">=3.10,<3.13,!=3.11.*"
 dependencies = [
     "torch",
     "numpy",
-    "rdkit",
+    # RF3's chirality features come out of RDKit's chiral-centre perception, and
+    # that perception changes between RDKit releases: 2025.09.6 vs 2026.03.4 moves
+    # ref_pos on every input and, on ligand inputs, chiral_centers / chiral_feats /
+    # chiral_center_dihedral_angles too (44/51 features bit-exact instead of 51/51).
+    # The RF3 accuracy numbers are generated against 2026.03.4.
+    "rdkit==2026.03.4",
     "requests",
     "pandas",
     "einops",
@@ -57,6 +62,11 @@ dependencies = [
     "func_timeout",       # RDKit conformer-embedding timeout guard
     "networkx",           # CCD bond-graph connected components
     "packaging",          # tt_bio/_vendor/openfold3/__init__.py version check
+    # RF3 vendors AtomWorks (see NOTICE #7) for host featurization. Everything it
+    # imports is already here transitively except cytoolz; typing_extensions backs
+    # the 3.10 shim for typing.Never.
+    "cytoolz",
+    "typing_extensions",
     # ttnn is NOT here on purpose: it only publishes wheels for TT-supported
     # platforms, and the Boltz-2 CPU/GPU path + CLI must install and run without
     # it (issue #6). It lives in the `tenstorrent` extra below.
@@ -83,6 +93,9 @@ include = ["tt_bio*"]
 "tt_bio._vendor.esm" = ["LICENSE"]
 "tt_bio._vendor.esmfold2_hf" = ["LICENSE"]
 "tt_bio._vendor.openfold3" = ["LICENSE"]
+"tt_bio._vendor.atomworks" = ["LICENSE", "py.typed", "io/tools/*.smirks", "ml/datasets/*.md"]
+"tt_bio._vendor.rf3" = ["LICENSE"]
+"tt_bio._vendor.foundry" = ["LICENSE"]
 # runtime data files the package loads by path at import/featurize time — these
 # MUST ship in the wheel/sdist or a clean `pip install` crashes (see v0.3.4 changelog):
 #   - tt_bio/data/protein_ref_conformers.json: protenix-v2 + opendde featurization
