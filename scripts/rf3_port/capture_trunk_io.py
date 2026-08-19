@@ -76,6 +76,12 @@ def main() -> int:
 
     def detach(obj):
         if isinstance(obj, torch.Tensor):
+            # Integer tensors are INDEX features (chiral_centers, atom_to_token_map,
+            # residue_index, ...). Blanket .float() makes them unusable as indices and
+            # the failure surfaces far from here -- `chiral_centers` came back float and
+            # IndexError'd inside the loss module. Only cast what is actually float.
+            if not obj.is_floating_point():
+                return obj.detach().cpu()
             return obj.detach().float().cpu()
         if isinstance(obj, (list, tuple)):
             return tuple(detach(o) for o in obj)
