@@ -142,11 +142,24 @@ def main() -> int:
             got = torch.Tensor(ttnn.to_torch(
                 make_tt(scope(tt_name))(to_tt(real)))).float().reshape(rb.shape)
             diff = (got - rb).abs()
+            ref_diff = (rb - rf).abs()
+            dev_rel = float(diff.pow(2).mean().sqrt() / rb.std())
+            ref_rel = float(ref_diff.pow(2).mean().sqrt() / rf.std())
             out[tt_name] = {
                 "device": round(pcc(got, rb), 6),
                 "ceiling": round(pcc(rb, rf), 6),
                 "maxabs": round(float(diff.max()), 6),
-                "rel_rms": round(float(diff.pow(2).mean().sqrt() / rb.std()), 6),
+                # Device relative RMS against torch-bf16, and torch-bf16's own
+                # against torch-fp32. Their RATIO is the number that matters: PCC
+                # differences near 1.0 are hard to read, and it was reading them
+                # that produced a wrong "2x" estimate.
+                "rel_rms_device": round(dev_rel, 6),
+                "rel_rms_reference": round(ref_rel, 6),
+                "ratio": round(dev_rel / ref_rel, 2) if ref_rel else None,
+                # How big is the update next to its input? If comparable, the
+                # residual does not dilute error and per-op error compounds.
+                "update_over_input": round(
+                    float(rb.std() / real.std()), 4),
             }
         except Exception as exc:
             out[tt_name] = {"error": f"{type(exc).__name__}: {exc}"[:200]}
