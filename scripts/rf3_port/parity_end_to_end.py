@@ -59,10 +59,15 @@ def main() -> int:
     from tt_bio.tenstorrent import get_device
 
     d = REPO / "scripts/rf3_port/parity_artifacts" / args.fixture
+    # the template fixture's input is a .cif, the rest are .json -- both go through the
+    # same pipeline, so pick whichever the fixture actually has rather than assuming
+    inp = next((n for n in ("input.json", "input.cif") if (d / n).exists()), None)
+    if inp is None:
+        raise SystemExit(f"{d}: no input.json or input.cif")
     prev = os.getcwd()
     os.chdir(d)
     try:
-        out = featurize("input.json", n_recycles=args.recycles, diffusion_batch_size=1,
+        out = featurize(inp, n_recycles=args.recycles, diffusion_batch_size=1,
                         seed=42, **SEL.get(args.fixture, {}))[0]
     finally:
         os.chdir(prev)
