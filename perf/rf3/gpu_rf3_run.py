@@ -17,14 +17,21 @@ Rep 0 is the cold rep (cuDNN/cueq autotune, allocator growth) and is reported se
 folded into the median.
 
 Phases are wall-clock around cuda-synchronised boundaries:
-  prep        the AtomWorks transform pipeline (host featurisation)
+  prep        the AtomWorks transform pipeline, host featurisation (engine.pipeline)
   featinit    RF3.pre_recycle
   trunk       RF3.recycle, summed over the recycles
   distogram   DistogramHead
   diffusion   SampleDiffusion.sample_diffusion_like_af3, the full rollout
   confidence  ConfidenceHead
-Anything in the fold that is not one of these (structure assembly, metrics, CIF writing) shows up
-as `other_s` = fold_s - sum(phases), so the breakdown always closes.
+  assemble    predicted coords -> AtomArrayStack
+  confcompile plddt/pae/pde logits -> AF3-style confidence dicts
+  write       ranking scores, top-ranked model, per-sample CIF + confidence JSON
+`network` (the trainer validation_step) is timed as a cross-check that featinit + trunk +
+distogram + diffusion + confidence accounts for what the network actually spent. Whatever is left
+is `other_s` = fold_s - sum(leaf phases), so the breakdown always closes.
+
+The first cut of this harness timed only the device phases and left 29-46% of the fold
+unattributed. On RF3 at these sizes the host half is not a rounding error, so it is named.
 """
 
 import argparse
@@ -62,8 +69,8 @@ def count_only(obj, name: str, label: str | None = None):
     setattr(obj, name, wrapper)
 
 
-def timed(obj, name: str, phase: str):
-    """Count AND time calls to obj.name, cuda-synchronised on both sides."""
+def timed(obj, name: str, phase: str, sync: bool = True):
+    """Count AND time calls to obj.name, cuda-synchronised on both sides by default."""
     fn = getattr(obj, name, None)
     if fn is None:
         COUNTS["phase_missing:" + phase] = -1
@@ -72,15 +79,40 @@ def timed(obj, name: str, phase: str):
 
     def wrapper(*a, **kw):
         COUNTS["calls:" + phase] += 1
-        _sync()
+        if sync:
+            _sync()
         t0 = time.perf_counter()
         try:
             return fn(*a, **kw)
         finally:
-            _sync()
+            if sync:
+                _sync()
             PHASE["%d/%s" % (_ACTIVE_REP[0], phase)].append(time.perf_counter() - t0)
 
     setattr(obj, name, wrapper)
+
+
+def compute_apps() -> list[dict]:
+    """Every process holding memory on this GPU, ours included.
+
+    A rented "single GPU" box can have a co-tenant on the same physical card. That is not a
+    hypothetical: the first instrumented run of this ladder read 9.7-15.2 s at a rung whose clean
+    spread is under 4%, at 578 W where the clean draw was 362 W, and the cause was a second
+    compute app holding 12486 MiB. Absolute timings from a shared card are void, so the condition
+    is recorded per rung instead of assumed away.
+    """
+    try:
+        out = subprocess.run(["nvidia-smi", "--query-compute-apps=pid,used_gpu_memory",
+                              "--format=csv,noheader,nounits"],
+                             capture_output=True, text=True, timeout=30).stdout
+        apps = []
+        for line in out.strip().splitlines():
+            parts = [x.strip() for x in line.split(",")]
+            if len(parts) == 2 and parts[0].isdigit():
+                apps.append({"pid": int(parts[0]), "used_MiB": int(parts[1])})
+        return apps
+    except Exception as e:                                    # noqa: BLE001
+        return [{"error": repr(e)}]
 
 
 def gpu_static() -> dict:
@@ -182,6 +214,18 @@ def main() -> None:
     timed(S.SampleDiffusion, "sample_diffusion_like_af3", "diffusion")
     timed(AUX.ConfidenceHead, "forward", "confidence")
 
+    # Host side. The engine calls these as module globals of rf3.inference_engines.rf3, which is
+    # what the call sites resolve, so patching the module attribute is enough.
+    import rf3.inference_engines.rf3 as ENG
+    import rf3.trainers.rf3 as TR
+
+    timed(TR.RF3TrainerWithConfidence, "validation_step", "network")
+    timed(ENG, "build_stack_from_atom_array_and_batched_coords", "assemble")
+    timed(ENG, "compile_af3_style_confidence_outputs", "confcompile")
+    timed(ENG, "dump_ranking_scores", "write")
+    timed(ENG, "dump_top_ranked_outputs", "write")
+    timed(ENG.RF3Output, "dump", "write")
+
     env = {"rf3_config_dir": str(config_dir),
            "should_use_cuequivariance": bool(getattr(foundry, "SHOULD_USE_CUEQUIVARIANCE", False)),
            "torch": torch.__version__,
@@ -192,7 +236,8 @@ def main() -> None:
            "cudnn_tf32": torch.backends.cudnn.allow_tf32,
            "float32_matmul_precision": torch.get_float32_matmul_precision(),
            "python": sys.version.split()[0],
-           "gpu_static": gpu_static()}
+           "gpu_static": gpu_static(),
+           "compute_apps_before": compute_apps()}
     from importlib.metadata import PackageNotFoundError, version
     for pkg_name in ("rc-foundry", "atomworks", "cuequivariance-torch",
                      "cuequivariance-ops-torch-cu12", "cuequivariance-ops-cu12",
@@ -208,7 +253,8 @@ def main() -> None:
               "early_stop_plddt": args.early_stop_plddt, "seed": args.seed,
               "env": env, "rep_s": [], "phases": {}, "counts": None,
               "peak_vram_alloc_B": None, "peak_vram_reserved_B": None,
-              "load_s": None, "ok": False, "why": ""}
+              "load_s": None, "ok": False, "why": "",
+              "compute_apps_after": None, "gpu_exclusive": None}
 
     def dump():
         report["counts"] = dict(COUNTS)
@@ -227,6 +273,19 @@ def main() -> None:
         t0 = time.perf_counter()
         engine = instantiate(init_cfg, _convert_="partial", _recursive_=False)
         engine.initialize()
+        _pipeline = engine.pipeline
+
+        def pipeline_timed(*aa, **kk):
+            COUNTS["calls:prep"] = COUNTS.get("calls:prep", 0) + 1
+            _sync()
+            t0 = time.perf_counter()
+            try:
+                return _pipeline(*aa, **kk)
+            finally:
+                _sync()
+                PHASE["%d/prep" % _ACTIVE_REP[0]].append(time.perf_counter() - t0)
+
+        engine.pipeline = pipeline_timed
         _sync()
         report["load_s"] = round(time.perf_counter() - t0, 3)
 
@@ -252,8 +311,18 @@ def main() -> None:
             print("[rf3] %s rep%d %.3fs" % (args.label, rep, dt), flush=True)
             dump()
 
+        # --- was this card ours alone for the whole sweep? ----------------------------------
+        after = compute_apps()
+        report["compute_apps_after"] = after
+        before = env.get("compute_apps_before") or []
+        report["gpu_exclusive"] = (len([a for a in after if "pid" in a]) <= 1
+                                   and len([a for a in before if "pid" in a]) <= 1)
+
         # --- sanity: a real structure, finite coords, no early stop -------------------------
         ok, why = check_output(base_out / ("rep%d" % (args.reps - 1)))
+        if ok and not report["gpu_exclusive"]:
+            ok, why = False, ("GPU NOT EXCLUSIVE: compute apps before=%r after=%r -- timings on "
+                              "a shared card are void" % (before, after))
         report["ok"], report["why"] = ok, why
         report.update(read_confidence(base_out / ("rep%d" % (args.reps - 1))))
     except Exception as e:                                    # noqa: BLE001

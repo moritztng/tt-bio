@@ -94,12 +94,16 @@ def run_rung(a, n: int, batch: int) -> dict | None:
     win = [s for s in samples if len(rep_end) >= 2 and rep_end[0] <= s[0] <= rep_end[-1]]
     phases = rep.get("phases", {})
     warm_phase_keys = [str(i) for i in range(1, len(reps))]
-    phase_names = ("featinit", "trunk", "distogram", "diffusion", "confidence")
+    # LEAF phases partition the fold; `network` overlaps them (it is the trainer step that
+    # contains featinit..confidence) so it is timed and reported but never summed into other_s.
+    leaf_names = ("prep", "featinit", "trunk", "distogram", "diffusion", "confidence",
+                  "assemble", "confcompile", "write")
+    phase_names = leaf_names + ("network",)
     phase_med = {}
     for name in phase_names:
         xs = [phases[k][name] for k in warm_phase_keys if k in phases and name in phases[k]]
         phase_med[name + "_s"] = round(statistics.median(xs), 4) if xs else None
-    accounted = sum(v for v in phase_med.values() if v)
+    accounted = sum(phase_med[n + "_s"] or 0 for n in leaf_names)
     med = statistics.median(warm)
 
     rec = {"model": "rf3", "rung_aa": n, "batch": batch, "label": label,
@@ -120,6 +124,8 @@ def run_rung(a, n: int, batch: int) -> dict | None:
            "n_power_samples": len(win),
            "counts": rep.get("counts"), "confidence": rep.get("confidence"),
            "sanity_ok": rep.get("ok"), "sanity_why": rep.get("why"),
+           "gpu_exclusive": rep.get("gpu_exclusive"),
+           "compute_apps_after": rep.get("compute_apps_after"),
            "proc_wall_s": round(wall, 1), "rc": rc, "env": rep.get("env")}
     rec.update(phase_med)
     return rec
@@ -157,10 +163,12 @@ def main() -> None:
                 continue
             with out.open("a") as fh:
                 fh.write(json.dumps(rec) + "\n")
-            print("[sweep] == %d aa b=%d  fold=%.3fs  trunk=%s diff=%s conf=%s  %sW  "
-                  "vram=%.1fGiB  cueq_tri_att=%s cueq_tri_mul=%s  sanity=%s"
-                  % (n, batch, rec["fold_s_median"], rec["trunk_s"], rec["diffusion_s"],
-                     rec["confidence_s"], rec["power_W_median"],
+            print("[sweep] == %d aa b=%d  fold=%.3fs | prep=%s trunk=%s diff=%s conf=%s "
+                  "write=%s | net=%s unattr=%s | %sW vram=%.1fGiB "
+                  "cueq_att=%s cueq_mul=%s sanity=%s"
+                  % (n, batch, rec["fold_s_median"], rec["prep_s"], rec["trunk_s"],
+                     rec["diffusion_s"], rec["confidence_s"], rec["write_s"],
+                     rec["network_s"], rec["other_s"], rec["power_W_median"],
                      rec["peak_vram_alloc_GiB"],
                      (rec["counts"] or {}).get("triangle_attention_cueq"),
                      (rec["counts"] or {}).get("triangle_multiply_cueq"),
