@@ -16,7 +16,8 @@ directory, and the census sums them afterwards.
 Most levers keep a `*_STATS = [served, declined]` counter next to their guard; the hook
 reads those. Four have no counter (ADALN_S_HOIST, PAIR_TRANSPOSE_VIA_ROW_MAJOR,
 PAIR_PROJ_MINIMAL_MATMUL, QKV_MM_CONFIG) and are counted by wrapping their helper, marked
-`wrap` below.
+`wrap` below. Every decline also carries the reason its guard refused, so a lever that
+reads served=0 can be told apart from one that is correctly declining.
 
     # one model, from the installed venv (PYTHONPATH is set by this script - do not add
     # the repo, or tt_bio resolves from the tree instead of the artifact under test)
@@ -87,6 +88,18 @@ LEVERS = [
 
 HOW = {flag: how for flag, _m, _a, _c, how in LEVERS}
 
+# Why a wrap-counted lever declined, keyed flag -> {reason: count}. A guard that never fires
+# has to say which of its terms refused, or "dark" cannot be told from "correctly declined":
+# PAIR_TRANSPOSE_VIA_ROW_MAJOR counts an L1 destination as a decline even though L1 is the
+# strictly faster route, so the bare counter reads as a defect and is not one.
+WRAP_REJECTS: dict = {}
+
+
+def _wreject(flag, reason):
+    d = WRAP_REJECTS.setdefault(flag, {})
+    d[reason] = d.get(reason, 0) + 1
+
+
 WRAP_KEYS = ("ADALN_S_HOIST", "PAIR_TRANSPOSE_VIA_ROW_MAJOR",
              "PAIR_PROJ_MINIMAL_MATMUL", "QKV_MM_CONFIG",
              "B2_BIAS_SLICE_HOIST", "B2_ADALN_S_MEMO")
@@ -142,6 +155,20 @@ def _install_wraps():
               and memory_config.buffer_type == ttnn.BufferType.DRAM
               and t.dtype == ttnn.bfloat16 and t.layout == ttnn.TILE_LAYOUT)
         WRAP_COUNTS["PAIR_TRANSPOSE_VIA_ROW_MAJOR"][0 if rm else 1] += 1
+        if not rm:
+            if not T._PT_ROW_MAJOR:
+                why = "flag_off"
+            elif len(t.shape) != 3:
+                why = "rank=%d" % len(t.shape)
+            elif memory_config.buffer_type != ttnn.BufferType.DRAM:
+                # NOT a defect: the L1 destination is 2.47-2.74x against this route's 1.60x.
+                why = "l1_dest_is_faster"
+            elif t.dtype != ttnn.bfloat16:
+                why = "dtype"
+            else:
+                why = "layout"
+            _wreject("PAIR_TRANSPOSE_VIA_ROW_MAJOR",
+                     why + ":" + "x".join(str(int(d)) for d in t.padded_shape))
         return impl(t, memory_config)
 
     T._pair_transpose_impl = _pair_transpose_impl
@@ -154,9 +181,44 @@ def _install_wraps():
         def wrapper(*a, _orig=orig, _key=key, **kw):
             out = _orig(*a, **kw)
             WRAP_COUNTS[_key][0 if out is not None else 1] += 1
+            if out is None:
+                try:
+                    _wreject(_key, _pp_reason(T, _key, *a))
+                except Exception:                                        # noqa: BLE001
+                    _wreject(_key, "unknown")
             return out
 
         setattr(T, fname, wrapper)
+
+
+def _pp_reason(T, key, x, w, *rest):
+    """Which term of the pair-proj / qkv guard refused, as `reason:(kt,nt,mt)`."""
+    import ttnn
+    kt = (int(w.shape[-2]) + 31) // 32
+    nt = (int(w.shape[-1]) + 31) // 32
+    tag = "(%d,%d)" % (kt, nt)
+    if key == "PAIR_PROJ_MINIMAL_MATMUL" and not T._PAIR_PROJ_MM:
+        return "flag_off"
+    if key == "QKV_MM_CONFIG" and not T._MM_CFG:
+        return "flag_off"
+    if x.dtype != ttnn.bfloat16 or w.dtype != ttnn.bfloat16:
+        return "dtype:" + tag
+    if len(w.shape) != 2:
+        return "weight_rank:" + tag
+    # `_pair_proj_minimal_matmul` is scoped to a single K block, kt == 8.
+    if key == "PAIR_PROJ_MINIMAL_MATMUL" and kt != 8:
+        return "k_tiles=%d:%s" % (kt, tag)
+    blk = T._mm_block_for(w)
+    if blk is None:
+        return "no_mm_block:" + tag
+    mt = 1
+    for d in [int(d) for d in x.shape][:-1]:
+        mt *= d
+    mt = (mt + 31) // 32
+    M, K, N, _sh, _sw = blk
+    if blk is not T._MM_DEFAULT and (kt % K or mt % M or nt % N):
+        return "block_divisibility:(%d,%d,%d)" % (kt, nt, mt)
+    return "op_threw:" + tag
 
 
 def _snapshot_process():
@@ -177,8 +239,20 @@ def _snapshot_process():
                 served, declined = c.get("calls"), c.get("blocked")
             elif isinstance(c, (list, tuple)) and len(c) >= 2:
                 served, declined = c[0], c[1]
+        # A module that keeps a `_reject()` records its reasons in a module-level REJECTS
+        # dict; wrap-counted levers use WRAP_REJECTS. Either way the reason is already on
+        # hand and only the emit was missing.
+        rej = dict(WRAP_REJECTS.get(flag, {}))
+        if counter:
+            cmod = counter.rpartition(".")[0]
+            cm = sys.modules.get(cmod)
+            src = getattr(cm, "REJECTS", None) if cm is not None else None
+            if isinstance(src, dict):
+                for k, v in src.items():
+                    rej[":".join(str(i) for i in k) if isinstance(k, tuple) else str(k)] = v
         rows[flag] = {"resolved": str(getattr(m, attr, "MISSING")),
-                      "served": served, "declined": declined}
+                      "served": served, "declined": declined,
+                      "rejects": rej or None}
     return rows
 
 
@@ -249,18 +323,22 @@ def collect(dumpdir: Path, label: str, cli: list, rc: int) -> dict:
         except Exception:                                                # noqa: BLE001
             continue
         for flag, r in d.get("rows", {}).items():
-            a = agg.setdefault(flag, {"resolved": set(), "served": None, "declined": None})
+            a = agg.setdefault(flag, {"resolved": set(), "served": None,
+                                      "declined": None, "rejects": {}})
             a["resolved"].add(r["resolved"])
             for k in ("served", "declined"):
                 if r.get(k) is not None:
                     a[k] = (a[k] or 0) + r[k]
+            for why, n in (r.get("rejects") or {}).items():
+                a["rejects"][why] = a["rejects"].get(why, 0) + n
     rows = []
     for flag, _m, _a, counter, how in LEVERS:
         a = agg.get(flag)
         rows.append({"flag": flag, "how": how, "counter": counter,
                      "resolved": "/".join(sorted(a["resolved"])) if a else "not-imported",
                      "served": a["served"] if a else None,
-                     "declined": a["declined"] if a else None})
+                     "declined": a["declined"] if a else None,
+                     "rejects": (a["rejects"] or None) if a else None})
     return {"label": label, "cli": cli, "rc": rc, "processes": len(dumps), "rows": rows}
 
 
@@ -331,6 +409,8 @@ def main():
     for r in snap["rows"]:
         print(f"{r['flag']:32s} {r['resolved']:14s} served={r['served']} "
               f"declined={r['declined']}")
+        for why, n in sorted((r.get("rejects") or {}).items(), key=lambda kv: -kv[1])[:6]:
+            print(f"{'':34s}  why {why} x{n}")
     sys.exit(rc)
 
 
