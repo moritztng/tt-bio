@@ -151,6 +151,17 @@ def main() -> int:
             float((s_ref - s_f32).pow(2).mean().sqrt() / s_f32.std()), 6),
         "z_rel_rms_reference": round(
             float((z_ref - z_f32).pow(2).mean().sqrt() / z_f32.std()), 6),
+        # The same device output against the FP32 golden. The bf16 golden above is the right
+        # target for "does the port reproduce what upstream runs", and the wrong one for
+        # "which of two device paths is more accurate": a path that mimics torch's autocast
+        # rounding scores better against it than a path that is simply closer to the truth.
+        # Reporting both is what separates those two questions.
+        "s_rel_rms_device_vs_fp32": round(
+            float((s_dev - s_f32).pow(2).mean().sqrt() / s_f32.std()), 6),
+        "z_rel_rms_device_vs_fp32": round(
+            float((z_dev - z_f32).pow(2).mean().sqrt() / z_f32.std()), 6),
+        "s_pcc_vs_fp32": round(pcc(s_dev, s_f32), 6),
+        "z_pcc_vs_fp32": round(pcc(z_dev, z_f32), 6),
     }
     rep["s_at_ceiling"] = rep["s_pcc"] >= rep["s_ceiling_cpu_bf16_vs_fp32"] - 0.002
     rep["z_at_ceiling"] = rep["z_pcc"] >= rep["z_ceiling_cpu_bf16_vs_fp32"] - 0.002
