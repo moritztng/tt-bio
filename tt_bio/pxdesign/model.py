@@ -31,16 +31,25 @@ from ..protenix import (AtomAttentionEncoder, AtomFeaturization, DiffusionModule
                         edm_sample)
 from .featurize import condition_template_index
 
-# Upstream `pxdesign/configs/configs_base.py`: 400 steps and a piecewise eta that switches
-# from 1.0 to 2.5 at 65% of the trajectory. Both differ from Protenix's fold defaults
-# (200 steps, constant 1.5), so they live here rather than in the sampler.
+# Upstream's sampler settings, as an actual `pxdesign` run uses them. 400 steps and a
+# constant eta of 2.5 both differ from Protenix's fold defaults (200 steps, eta 1.5).
+#
+# The eta is the one to be careful about, because `configs_base.py` and the CLI disagree and
+# the CLI wins. `configs_base.py` declares `eta_schedule = piecewise_65, 1.0 -> 2.5`, but
+# `pxdesign/runner/cli.py common_run_options` defaults `--eta_type const --eta_min 2.5
+# --eta_max 2.5` and `pxdesign/utils/infer.py ALIASES` remaps those three flags straight onto
+# `sample_diffusion.eta_schedule`. Both `pxdesign infer` and `pxdesign pipeline` go through
+# that wrapper on every invocation, and neither preset overrides it, so piecewise_65 never
+# reaches a real run. Verified against the upstream reference on the PD-L1 anchor
+# (`scripts/pxdesign_port/upstream_ref.py`): const 2.5 reproduces the conditioned target to
+# 0.62 / 0.63 A, piecewise_65 to 0.69 / 8.34 A. Pass the `eta_schedule` argument to run the
+# config's declared schedule instead.
 DESIGN_N_STEP = 400
-DESIGN_ETA_SCHEDULE = {"type": "piecewise_65", "min": 1.0, "max": 2.5}
-# The churn parameters differ from Protenix-v2 too, and unlike the eta schedule they are easy
-# to miss because `edm_sample` already carries defaults for them. gamma_min 0.01 keeps the
-# noise re-injection on for effectively the whole trajectory instead of stopping once sigma
-# drops below 1.0. MEASURED on the PD-L1 anchor: with v2's 0.8/1.0 the binder never reaches
-# its target (>=14 A away, 0 contacts in 4/4 samples).
+DESIGN_ETA_SCHEDULE = {"type": "const", "min": 2.5, "max": 2.5}
+DESIGN_ETA_SCHEDULE_CONFIG = {"type": "piecewise_65", "min": 1.0, "max": 2.5}
+# Churn. These have no CLI flag, so `configs_base.py` is the last word on them and they
+# differ from Protenix-v2's 0.8 / 1.0. gamma_min 0.01 keeps the noise re-injection on for
+# effectively the whole trajectory instead of stopping once sigma drops below 1.0.
 DESIGN_GAMMA0 = 1.0
 DESIGN_GAMMA_MIN = 0.01
 
@@ -196,9 +205,9 @@ class ProtenixDesign(Protenix):
                eta_schedule=None, progress_fn=None, max_parallel_samples=None):
         """Generate binder coordinates. Returns (n_sample, N_atom, 3) host fp32.
 
-        Defaults are upstream's: 400 steps and the piecewise_65 eta schedule. The
-        design_token_mask half of the output is the designed binder; the rest reproduces
-        the conditioned target."""
+        Defaults are what an upstream run uses: 400 steps, eta constant 2.5, gamma0 1.0,
+        gamma_min 0.01. The design_token_mask half of the output is the designed binder;
+        the rest reproduces the conditioned target."""
         cond, aux = self._trunk_cond(feats, progress_fn=progress_fn)
         eta = DESIGN_ETA_SCHEDULE if eta_schedule is None else eta_schedule
         M = int(n_sample)

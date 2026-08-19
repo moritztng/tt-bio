@@ -80,8 +80,18 @@ def main():
     ap.add_argument("--pxdesign_src", required=True)
     ap.add_argument("--yaml", required=True, help="path relative to --pxdesign_src")
     ap.add_argument("--out_dir", required=True)
+    ap.add_argument("--protenix05", default=None,
+                    help="unpacked protenix 0.5.5 wheel, prepended to sys.path. PXDesign is "
+                         "written against protenix 0.5; capturing on the box's installed 2.0 "
+                         "needs the shim's module re-pointing, and whether that changes any "
+                         "feature VALUE is a thing to measure, not to assume. Needs "
+                         "PROTENIX_DATA_ROOT_DIR to hold components.cif.")
     args = ap.parse_args()
 
+    if args.protenix05:
+        p05 = os.path.abspath(os.path.expanduser(args.protenix05))
+        assert os.path.isdir(os.path.join(p05, "protenix")), p05
+        sys.path.insert(0, p05)
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import upstream_shim
     shims = upstream_shim.install()
@@ -130,8 +140,11 @@ def main():
         "is_resolved": torch.tensor(np.asarray(disto.is_resolved).astype(bool)),
     }
 
+    import protenix as _ptx
     meta = {
         "yaml": args.yaml,
+        "protenix": {"file": _ptx.__file__,
+                     "version": getattr(_ptx, "__version__", "?")},
         "n_token": int(feats["token_index"].shape[0]),
         "n_atom": int(feats["atom_to_token_idx"].shape[0]),
         "n_distogram_atom": len(disto),

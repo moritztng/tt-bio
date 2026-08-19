@@ -10,6 +10,12 @@ honest first end-to-end rather than a stub.
 
     TT_VISIBLE_DEVICES=1 python3 scripts/pxdesign_port/design_e2e.py --n_step 20
     TT_VISIBLE_DEVICES=1 python3 scripts/pxdesign_port/design_e2e.py --determinism
+
+`--score_coords` scores a saved coordinate tensor instead of generating one, so the upstream
+CPU reference (`upstream_ref.py --stage traj`) goes through these exact metrics rather than
+through a second implementation of them. Needs no device.
+
+    python3 scripts/pxdesign_port/design_e2e.py --score_coords /tmp/ref_traj_s0.pt
 """
 from __future__ import annotations
 
@@ -108,6 +114,35 @@ def _stats(coords, feats):
     return out, int(at_binder.sum()), int((~at_binder).sum())
 
 
+def score_only(args, feats):
+    """Score coordinates produced elsewhere, through the same two functions the device path
+    uses. An upstream reference and the port are then never compared through two different
+    implementations of the same metric."""
+    import torch
+    blob = torch.load(args.score_coords, weights_only=False)
+    coords = blob["coords"] if isinstance(blob, dict) else blob
+    coords = coords.reshape(-1, coords.shape[-2], coords.shape[-1]).float()
+    st, n_b, n_t = _stats(coords, feats)
+    repro = target_reproduction(coords, feats)
+    rec = {"source": args.score_coords, "coords_shape": list(coords.shape),
+           "binder_atoms": n_b, "target_atoms": n_t, "stats": st,
+           "target_reproduction": repro,
+           "finite": bool(torch.isfinite(coords).all())}
+    print(f"[score] {args.score_coords}  shape={rec['coords_shape']}  "
+          f"binder/target atoms {n_b}/{n_t}  finite={rec['finite']}", flush=True)
+    for sv, r in zip(st, repro):
+        print(f"[score]   Rg all {sv['rg_all']:.2f} A | target {sv['rg_target']:.2f} A | "
+              f"binder {sv['rg_binder']:.2f} A", flush=True)
+        print(f"[score]   target reproduction RMSD {r['target_rmsd']:.2f} A over "
+              f"{r['n_scored']} conditioned tokens | closest binder-target atom "
+              f"{r['min_binder_target_dist']:.2f} A | {r['n_contacts_below_5A']} binder "
+              f"atoms within 5 A", flush=True)
+    if args.out:
+        Path(args.out).write_text(json.dumps(rec, indent=1))
+        print(f"[score] -> {args.out}", flush=True)
+    return rec
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--n_step", type=int, default=400)
@@ -115,12 +150,17 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--determinism", action="store_true",
                     help="two solo runs at the same seed in one process; report the floor")
+    ap.add_argument("--score_coords", default=None,
+                    help="score a saved (n_sample, N_atom, 3) tensor, or a dict with a "
+                         "'coords' key, instead of generating one; no device needed")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
     sys.path.insert(0, str(REPO))
 
     import torch
     feats = load_design_inputs()
+    if args.score_coords:
+        return score_only(args, feats)
     NT = int(feats["atom_to_token_idx"].max()) + 1
     print(f"[e2e] PD-L1 anchor: {NT} tokens, {feats['ref_pos'].shape[0]} atoms, "
           f"n_step={args.n_step} n_sample={args.n_sample} seed={args.seed}", flush=True)

@@ -50,6 +50,18 @@ def test_piecewise_65_switches_where_upstream_switches():
     assert got.count(1.0) == 261 and got.count(2.5) == 139
 
 
+def test_the_shipped_default_is_the_one_a_pxdesign_run_actually_uses():
+    """`configs_base.py` declares piecewise_65 but `cli.py common_run_options` defaults
+    --eta_type/--eta_min/--eta_max to const 2.5 and ALIASES remaps them onto
+    sample_diffusion.eta_schedule, so const 2.5 is what every `pxdesign infer` /
+    `pxdesign pipeline` invocation runs. The config's declared schedule stays reachable."""
+    from tt_bio.pxdesign.model import DESIGN_ETA_SCHEDULE, DESIGN_ETA_SCHEDULE_CONFIG
+    assert DESIGN_ETA_SCHEDULE == {"type": "const", "min": 2.5, "max": 2.5}
+    assert step_scale_schedule(DESIGN_ETA_SCHEDULE, 400) == [2.5] * 400
+    assert DESIGN_ETA_SCHEDULE_CONFIG == {"type": "piecewise_65", "min": 1.0, "max": 2.5}
+    assert step_scale_schedule(DESIGN_ETA_SCHEDULE_CONFIG, 400) != [2.5] * 400
+
+
 @pytest.mark.parametrize("kind", ["linear", "poly", "cos", "piecewise", "piecewise_70"])
 def test_every_upstream_schedule_kind_is_monotone_between_its_bounds(kind):
     got = step_scale_schedule({"type": kind, "min": 1.0, "max": 2.5}, 100)
