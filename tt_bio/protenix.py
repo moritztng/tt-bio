@@ -1338,6 +1338,11 @@ class ConfidenceHead:
         apb_nh = self._w[b0 + "attention_pair_bias.linear_nobias_z.weight"].shape[0]
         self.pf = Pairformer(nb, chpa, nhp, 384 // apb_nh, apb_nh, True, comb,
                              compute_kernel_config, gated_move=gated_move)
+        # The head's pair width is the trunk's: z_base adds z_trunk to s1(s_inputs), so
+        # `linear_no_bias_s1.weight` is (c_z, c_s_inputs). Read it off the weights rather than
+        # assume Protenix-v2's 256 -- the PXDesign-pinned variants are c_z=128, and the device
+        # confidence path used to reshape to a literal 256 and die on the volume check.
+        self.C_Z = int(self._w["linear_no_bias_s1.weight"].shape[0])
 
     def _g(self, k):
         return self._w[k].float()
@@ -1513,9 +1518,9 @@ class ConfidenceHead:
         z = ttnn.add(rc["z_base"], self._dev_lin(oh, "linear_no_bias_d.weight"))
         z = ttnn.add(z, self._dev_lin(d3, "linear_no_bias_d_wo_onehot.weight"))
         # ---- confidence Pairformer (device, z stays resident) ----
-        so, zo = self.pf(rc["s_t"], z)                                       # (1,N,384),(1,N,N,256)
+        so, zo = self.pf(rc["s_t"], z)                                       # (1,N,384),(1,N,N,c_z)
         # ---- heads on device ----
-        zof = ttnn.reshape(zo, (1, N, N, 256))
+        zof = ttnn.reshape(zo, (1, N, N, self.C_Z))
         pae_ln = ttnn.layer_norm(zof, weight=self._wtt("pae_ln.weight", False),
                                  bias=(self._wtt("pae_ln.bias", False) if "pae_ln.bias" in self._w else None),
                                  epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)

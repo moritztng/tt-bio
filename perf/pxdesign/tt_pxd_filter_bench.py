@@ -15,10 +15,15 @@ Cells (shapes from the GPU reference's own fixtures and its runtime model choice
   probe  : 768 tokens = bare target,                                  base,     one fold
 Settings are the reference's eval defaults: N_cycle=4, N_sample=1, N_step=2.
 
-Single sequence per chain: the filter fires with `use_msa=False` when it picks mini_tmpl, and
-the reference measured the MSA axis at under 1% anyway. Template conditioning is NOT exercised
--- every PXDesign-pinned checkpoint ships a template embedder that is projections only, no
-pairformer stack, so tt-bio derives 0 template blocks from it.
+MSA depth is 1 by default (the filter fires with `use_msa=False` when it picks mini_tmpl);
+`--msa-depth D` attaches a synthetic D-row a3m per chain to price the probe leg's real MSA.
+
+Template conditioning IS exercised, contrary to pass 2's note. `build_complex_features` calls
+`dummy_template_features(N)` unconditionally, so `template_aatype` is always present and nt is
+4, not 0 -- the template embedder runs 4 slots x 4 cycles on every leg. What the pinned
+checkpoints lack is a template PAIRFORMER STACK (n_template=0 blocks), which is a different
+thing from the embedder being skipped; the projections still run. `shape_facts` records nt off
+the tensors so this cannot be assumed again.
 
 Rep 0 of every cell is a discarded warm-up. It pays the ttnn kernel JIT and the weight upload,
 and `pxdesign-port` pass 2 already recorded a cold single-shot leg on this exact comparison
@@ -73,6 +78,33 @@ def gates(T, trunk, N):
     }
 
 
+def shape_facts(feats):
+    """Template slots and MSA depth actually present in the features.
+
+    `build_complex_features` calls `dummy_template_features(N)` unconditionally, so
+    `template_aatype` is ALWAYS there and nt is 4, not 0: the template embedder runs on every
+    leg. Read off the tensors rather than assumed, so a feature change shows up here."""
+    return {
+        "nt_template_slots": (int(feats["template_aatype"].shape[0])
+                              if "template_aatype" in feats else 0),
+        "msa_depth": int(feats["msa"].shape[0]) if "msa" in feats else 0,
+    }
+
+
+def a3m(query, depth, mutate=6):
+    """An a3m of `depth` rows aligned to `query`. Row 0 is the query; each further row
+    substitutes every `mutate`-th column with a rotated residue. Match columns only (no
+    lowercase insertions), so every row is len(query) wide and the MSA is (depth, len(query)).
+    The values are synthetic; the depth, width and op sequence are what the MSA module costs."""
+    rows = [">q\n" + query]
+    for r in range(1, depth):
+        q = list(query)
+        for i in range(r % mutate, len(q), mutate):
+            q[i] = _AA[(_AA.index(q[i]) + r) % 20]
+        rows.append(">h%d\n" % r + "".join(q))
+    return "\n".join(rows) + "\n"
+
+
 def fold_split(model, feats, *, n_cycles, n_step, seed):
     """fold()'s body with a sync-bracketed timer on each of its three device stages."""
     import ttnn
@@ -84,8 +116,11 @@ def fold_split(model, feats, *, n_cycles, n_step, seed):
     ttnn.synchronize_device(dev); t1 = time.time()
     coords = edm_sample(model.diffusion, cond, aux["N"], n_step=n_step, seed=seed)
     ttnn.synchronize_device(dev); t2 = time.time()
-    conf = model.confidence_head.confidence(aux["s_inputs"], aux["s_trunk"], aux["z_trunk"],
-                                            coords[0], feats)
+    # Through fold()'s OWN dispatch, not the host head directly. Calling
+    # `confidence_head.confidence(...)` here pins the host path whatever
+    # TT_PROTENIX_CONF_DEVICE says, so a device-path A/B would come back a silent A/A
+    # (`two-level-optin-ab-arm-and-page-provenance-drop`).
+    conf = model._confidence_for(aux, feats, coords[0])
     ttnn.synchronize_device(dev); t3 = time.time()
     if isinstance(cond.get("dit_z"), ttnn.Tensor):
         ttnn.deallocate(cond["dit_z"])
@@ -101,6 +136,14 @@ def main():
     ap.add_argument("--n-cycle", type=int, default=4)
     ap.add_argument("--n-step", type=int, default=2)
     ap.add_argument("--reps", type=int, default=3)
+    ap.add_argument("--msa-depth", type=int, default=1,
+                    help="rows in the synthetic a3m per chain (1 = single sequence)")
+    ap.add_argument("--conf-arms", default=None,
+                    help="comma list of confidence arms to interleave in ONE process, e.g. "
+                         "host,device. `device_confidence_enabled()` reads os.environ on every "
+                         "call, so both arms run on the same weights, the same program cache and "
+                         "the same box state, which removes the ~1%% cross-process drift pass 2 "
+                         "measured on this cell. Omit for a single arm off the env.")
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
 
@@ -112,8 +155,10 @@ def main():
 
     variant = "mini_tmpl" if a.cell == "filter" else "base"
     path = os.path.join(CKPT_DIR, VARIANTS[variant])
-    chains = ([(seq(a.target), None), (seq(a.binder, phase=3), None)] if a.cell == "filter"
-              else [(seq(a.target), None)])
+    tseq, bseq = seq(a.target), seq(a.binder, phase=3)
+    ta = a3m(tseq, a.msa_depth) if a.msa_depth > 1 else None
+    ba = a3m(bseq, a.msa_depth) if a.msa_depth > 1 else None
+    chains = ([(tseq, ta), (bseq, ba)] if a.cell == "filter" else [(tseq, ta)])
 
     t0 = time.time()
     feats = build_complex_features(chains)
@@ -131,20 +176,47 @@ def main():
     t_build = round(time.time() - t0, 3)
     del sd
 
+    # The arm has to be asserted, not assumed. TT_PROTENIX_CONF_DEVICE=1 is only half the
+    # opt-in: `device_confidence_enabled()` also feature-detects ttnn, and the call site adds
+    # NT>=128. If the flag is set and the path is not actually live, this is not a null result,
+    # it is a broken arm, so it stops here.
+    def conf_arm_state():
+        asked = os.environ.get("TT_PROTENIX_CONF_DEVICE", "0") in ("1", "true", "True")
+        enabled = bool(model.confidence_head.device_confidence_enabled())
+        active = enabled and NT >= 128
+        if asked and not active:
+            raise SystemExit(f"TT_PROTENIX_CONF_DEVICE=1 but the device path is not live "
+                             f"(enabled={enabled}, NT={NT}). An A/A is not a null result.")
+        return asked, active
+
+    conf_asked, conf_active = conf_arm_state()
+
     rec = dict(cell=a.cell, variant=variant, ckpt=os.path.basename(path),
+               conf_device_asked=conf_asked, conf_device_active=conf_active,
                target_aa=a.target, binder_aa=(a.binder if a.cell == "filter" else 0),
                n_tokens=NT, n_atoms=N_atom, n_cycle=a.n_cycle, n_step=a.n_step,
                feat_host_s=t_feat, build_s=t_build,
-               gates=gates(T, model.trunk, NT), reps=[], error=None,
+               gates=gates(T, model.trunk, NT), shape_facts=shape_facts(feats),
+               msa_depth_arg=a.msa_depth, reps=[], error=None,
                force_grid=os.environ.get("TT_BIO_FORCE_GRID"))
-    print(json.dumps({k: rec[k] for k in ("cell", "variant", "n_tokens", "n_atoms", "gates")}),
-          flush=True)
+    print(json.dumps({k: rec[k] for k in ("cell", "variant", "n_tokens", "n_atoms", "gates",
+                                          "shape_facts", "conf_device_active")}), flush=True)
 
-    for r in range(a.reps + 1):
+    arms = [x.strip() for x in a.conf_arms.split(",")] if a.conf_arms else [None]
+    # Interleaved: warm-up, then arm0 arm1 arm0 arm1 ... so neither ordering nor program-cache
+    # state can be mistaken for the effect (`perf-gate-single-shot-legs-recurring-false-alarm`).
+    schedule = [arms[0]] + [arms[i % len(arms)] for i in range(a.reps * len(arms))]
+    for r, arm in enumerate(schedule):
         try:
+            if arm is not None:
+                os.environ["TT_PROTENIX_CONF_DEVICE"] = "1" if arm == "device" else "0"
+                _, act = conf_arm_state()
+                assert act == (arm == "device"), f"arm {arm} did not take (active={act})"
             split, coords, conf = fold_split(model, feats, n_cycles=a.n_cycle,
                                              n_step=a.n_step, seed=r)
             split["cold"] = (r == 0)
+            split["arm"] = arm
+            split["conf_device_active"] = (arm == "device") if arm is not None else conf_active
             rg = float((coords[0] - coords[0].mean(0)).pow(2).sum(-1).mean().sqrt())
             split["rg"] = round(rg, 2)
             split["finite"] = bool(torch.isfinite(coords).all())
@@ -157,6 +229,29 @@ def main():
             break
 
     warm = [x for x in rec["reps"] if not x["cold"]]
+    if a.conf_arms:
+        rec["arms"] = {}
+        for arm in arms:
+            w = [x for x in warm if x["arm"] == arm]
+            if not w:
+                continue
+            med = lambda k, w=w: sorted(x[k] for x in w)[len(w) // 2]
+            rec["arms"][arm] = {
+                "n": len(w),
+                "median": {k: med(k) for k in ("trunk", "diffusion", "confidence", "total")},
+                "conf_legs": sorted(x["confidence"] for x in w),
+                "total_legs": sorted(x["total"] for x in w),
+                "plddt": sorted({x["plddt"] for x in w}),
+            }
+        if "host" in rec["arms"] and "device" in rec["arms"]:
+            h, d = rec["arms"]["host"], rec["arms"]["device"]
+            rec["arms"]["delta"] = {
+                "confidence_x": round(h["median"]["confidence"] / d["median"]["confidence"], 4),
+                "total_x": round(h["median"]["total"] / d["median"]["total"], 4),
+                "total_pct": round(100 * (h["median"]["total"] - d["median"]["total"])
+                                   / h["median"]["total"], 3),
+            }
+        print(json.dumps(rec["arms"]), flush=True)
     if warm:
         med = lambda k: sorted(x[k] for x in warm)[len(warm) // 2]
         rec["warm_median"] = {k: med(k) for k in ("trunk", "diffusion", "confidence", "total")}
@@ -175,12 +270,46 @@ def main():
     # circular-buffer overflow at 848 tokens lands.
     import tt_bio.protenix as _P
     import tt_bio.triatt_qkv as _TQ
+    import tt_bio.triatt_sdpa as _TS
+    import tt_bio.trimul_tail as _TT
+    import tt_bio.reblock_permute as _RB
+    import tt_bio.mm_dualnoc as _DN
+    # Every [served, declined] counter on the trunk's pair path, so a lever that is never
+    # invoked is distinguishable from one that is invoked and refuses. The three pass 2 read
+    # are not the whole set: TriMul E6 lives in reblock_permute.STATS_GATED, the fused output
+    # tail in trimul_tail.STATS, and TriAtt K1/K2 in triatt_qkv.{STATS,TAIL_STATS}.
     rec["census"] = {
         "FP32_SOFTMAX_STATS": dict(T.FP32_SOFTMAX_STATS),
         "RELP_STATS": list(_P.RELP_STATS),
-        "TAIL_STATS": list(_TQ.TAIL_STATS),
+        "trimul_E6_gated_move": list(_RB.STATS_GATED),
+        "reblock_fwd": list(_RB.STATS),
+        "reblock_back": list(_RB.STATS_BACK),
+        "trimul_tail_F1": list(_TT.STATS),
+        "triatt_qkv_K2": list(_TQ.STATS),
+        "triatt_tail_K1": list(_TQ.TAIL_STATS),
+        "triatt_sdpa": list(_TS.STATS),
+        "mm_dualnoc": list(_DN.STATS),
     }
-    print(json.dumps(rec["census"]), flush=True)
+    rec["rejects"] = {
+        "trimul_tail_F1": {str(k): v for k, v in _TT.REJECTS.items()},
+        "triatt_qkv_K2": {str(k): v for k, v in _TQ.REJECTS.items()},
+        "triatt_tail_K1": {str(k): v for k, v in _TQ.TAIL_REJECTS.items()},
+        "reblock": {str(k): v for k, v in _RB.REJECTS.items()},
+        "triatt_sdpa": {str(k): v for k, v in _TS.REJECTS.items()},
+    }
+    rec["fp32_softmax_l1_refused_keys"] = sorted(str(k) for k in T._FP32_SOFTMAX_L1_REFUSED)
+    # The other silent L1-output refusal on the pair path. It catches bare `Exception` and
+    # records only a shape key -- no served/declined counter -- so a refusal here is invisible
+    # to the census proper. Pass 2 attributed the 2005504 B circular-buffer TT_THROW at 848
+    # tokens to the fp32-softmax shard; that path reports calls=0 on this stage, so it cannot
+    # have been. This is where to look instead.
+    rec["l1_out_refused_keys"] = sorted(str(k) for k in T._L1_OUT_REFUSED)
+    rec["bmm_cfg_refused"] = sorted(str(k) for k in T._BMM_CFG_REFUSED)
+    print(json.dumps({"census": rec["census"],
+                      "fp32_softmax_l1_refused_keys": rec["fp32_softmax_l1_refused_keys"],
+                      "l1_out_refused_keys": rec["l1_out_refused_keys"],
+                      "bmm_cfg_refused": rec["bmm_cfg_refused"]}), flush=True)
+    print(json.dumps(rec["rejects"])[:1200], flush=True)
     rec["clashes"] = {str(k): v for k, v in T._TRIMUL_CHUNK_CLASH.items()}
     rec["dram_shapes"] = sorted(str(x) for x in T._TRIMUL_DRAM_SHAPES)
     print(json.dumps({"clashes": rec["clashes"], "dram_shapes": rec["dram_shapes"]}), flush=True)
