@@ -1,0 +1,74 @@
+{
+  "fixture": "5vht_from_json",
+  "recycles": 1,
+  "steps": 8,
+  "force_bfloat16_modules": 85,
+  "ref_trunk_bf16_s": 8.8,
+  "ref_trunk_fp32_s": 27.9,
+  "stages": [
+    {
+      "tensor": "S_inputs",
+      "shape": [
+        234,
+        449
+      ],
+      "pcc": 0.9999839,
+      "rel_rms": 0.005721,
+      "ceiling": 0.003793,
+      "x_ceiling": 1.51
+    },
+    {
+      "tensor": "S_trunk",
+      "shape": [
+        234,
+        384
+      ],
+      "pcc": 0.9999523,
+      "rel_rms": 0.015579,
+      "ceiling": 0.007294,
+      "x_ceiling": 2.14
+    },
+    {
+      "tensor": "Z_trunk",
+      "shape": [
+        234,
+        234,
+        128
+      ],
+      "pcc": 0.9989121,
+      "rel_rms": 0.070684,
+      "ceiling": 0.022712,
+      "x_ceiling": 3.11
+    },
+    {
+      "tensor": "distogram",
+      "shape": [
+        234,
+        234,
+        65
+      ],
+      "pcc": 0.9995726,
+      "rel_rms": 0.067161,
+      "ceiling": 0.015204,
+      "x_ceiling": 4.42
+    },
+    {
+      "tensor": "denoiser_1step",
+      "shape": [
+        1,
+        1640,
+        3
+      ],
+      "t": 25.993,
+      "pcc": 0.9999832,
+      "rel_rms": 0.0061,
+      "ceiling": 0.003789,
+      "x_ceiling": 1.61
+    }
+  ],
+  "load_s": 5.0,
+  "atoms": 1640,
+  "tokens": 234,
+  "atoms_padded": 1664,
+  "trunk_s": 56.8
+}
