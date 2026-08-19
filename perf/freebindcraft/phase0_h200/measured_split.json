@@ -1,0 +1,47 @@
+{
+  "instrumented_span_s": 3382.6,
+  "naive_sum_of_stages_s": 3467.1,
+  "double_counted_s": {
+    "pr_relax_inside_predict_binder_complex": 188.2,
+    "align_pdbs_inside_predict_binder_alone": 0.6
+  },
+  "calls": {
+    "binder_hallucination": 9,
+    "pr_relax": 18,
+    "score_interface": 18,
+    "mpnn_gen_sequence": 6,
+    "predict_binder_complex": 74,
+    "align_pdbs": 12,
+    "predict_binder_alone": 6
+  },
+  "split_s": {
+    "hallucination_gradient": 2111.0,
+    "hallucination_semigreedy_forward": 57.0,
+    "hallucination_other": 63.4,
+    "validation_af2_inference": 398.1,
+    "proteinmpnn": 79.0,
+    "openmm_relax": 302.1,
+    "scoring": 267.2,
+    "uninstrumented_host": 104.3
+  },
+  "compile_vs_compute_s": {
+    "xla_compile_in_gradient_loop": 1535.9,
+    "xla_compile_in_validation_inference": 339.6,
+    "validation_inference_compute": 59.1
+  },
+  "split_pct": {
+    "hallucination_gradient": 62.4,
+    "hallucination_semigreedy_forward": 1.7,
+    "hallucination_other": 1.9,
+    "validation_af2_inference": 11.8,
+    "proteinmpnn": 2.3,
+    "openmm_relax": 8.9,
+    "scoring": 7.9,
+    "uninstrumented_host": 3.1
+  },
+  "closes_to_pct": 100.0,
+  "gradient_pct": 62.4,
+  "ttnn_portable_compute_s": 138.1,
+  "ttnn_portable_compute_pct": 4.1,
+  "ttnn_portable_including_compile_pct": 14.1
+}
