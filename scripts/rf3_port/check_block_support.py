@@ -38,6 +38,17 @@ TT_BIO_READS = {
         "proj_g.weight", "proj_o.weight", "proj_z.0.weight", "proj_z.0.bias",
         "proj_z.1.weight",
     },
+    # The AF3 DiT block. It owns an AdaLN, an AttentionPairBias, the adaLN-Zero
+    # output gate and a ConditionedTransitionBlock, so an RF3 atom-transformer
+    # block must be compared against THIS, not against AttentionPairBias alone.
+    "DiffusionTransformerLayer": {
+        "output_projection_linear.weight", "output_projection_linear.bias",
+    } | {f"adaln.{k}" for k in
+         ("s_norm.weight", "s_bias.weight", "s_scale.weight", "s_scale.bias")}
+      | {f"pair_bias_attn.{k}" for k in
+         ("proj_q.weight", "proj_q.bias", "proj_k.weight", "proj_v.weight",
+          "proj_g.weight", "proj_o.weight", "proj_z.0.weight", "proj_z.0.bias",
+          "proj_z.1.weight")},
     "AdaLN": {"s_norm.weight", "s_bias.weight", "s_scale.weight", "s_scale.bias"},
     "ConditionedTransitionBlock": {
         "a_to_b.weight", "b_to_a.weight", "swish_gate.0.weight",
@@ -57,15 +68,19 @@ TT_BIO_READS = {
 #: RF3 sub-module leaf -> the tt-bio block that would be reused for it, plus the
 #: leaf renames needed to compare like with like.
 TARGETS = [
+    # RF3's atom-transformer block is the AF3 DiT block: AdaLN in, attention,
+    # adaLN-Zero output gate from S, conditioned transition. Compare it against
+    # tt-bio's DiffusionTransformerLayer as a whole.
     ("feature_initializer.input_feature_embedder.atom_attention_encoder"
      ".atom_transformer.diffusion_transformer.blocks.0.attention_pair_bias",
-     "AttentionPairBias",
-     {"to_q": "proj_q", "to_k": "proj_k", "to_v": "proj_v", "to_g.0": "proj_g",
-      "to_a": "proj_o", "ln_0": "proj_z.0", "to_b": "proj_z.1"}),
-    ("feature_initializer.input_feature_embedder.atom_attention_encoder"
-     ".atom_transformer.diffusion_transformer.blocks.0.attention_pair_bias.ada_ln_1",
-     "AdaLN",
-     {"ln_s": "s_norm", "to_bias": "s_bias", "to_gain.0": "s_scale"}),
+     "DiffusionTransformerLayer",
+     {"to_q": "pair_bias_attn.proj_q", "to_k": "pair_bias_attn.proj_k",
+      "to_v": "pair_bias_attn.proj_v", "to_g.0": "pair_bias_attn.proj_g",
+      "to_a": "pair_bias_attn.proj_o", "ln_0": "pair_bias_attn.proj_z.0",
+      "to_b": "pair_bias_attn.proj_z.1",
+      "linear_output_project.0": "output_projection_linear",
+      "ada_ln_1.ln_s": "adaln.s_norm", "ada_ln_1.to_bias": "adaln.s_bias",
+      "ada_ln_1.to_gain.0": "adaln.s_scale"}),
     ("feature_initializer.input_feature_embedder.atom_attention_encoder"
      ".atom_transformer.diffusion_transformer.blocks.0.conditioned_transition_block",
      "ConditionedTransitionBlock",
@@ -74,10 +89,10 @@ TARGETS = [
 ]
 
 
-#: Sub-module names that are their own block and are scored separately. RF3 nests an
-#: AdaLN inside both the attention and the conditioned transition block; it maps to
-#: tt-bio's AdaLN cleanly (0 unread) and should not be re-reported under its parent.
-NESTED_BLOCKS = {"ada_ln", "ada_ln_1"}
+#: Sub-module names scored under their own entry, so their keys must not be
+#: re-reported as gaps under the parent. ConditionedTransitionBlock nests an
+#: AdaLN that maps cleanly on its own.
+NESTED_BLOCKS = {"ada_ln"}
 
 
 def rename(leaf: str, table: dict) -> str:
