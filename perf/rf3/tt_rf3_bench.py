@@ -104,7 +104,7 @@ def one_fold(tt, f, rep_atom_idxs, device, tm: Timer, *, n_recycles: int,
              diffusion_batch_size: int, want_confidence: bool, breakdown: bool):
     """`RF3.predict` unrolled so each phase can be timed on its own."""
     import ttnn
-    from tt_bio.rf3.host import HostInputs, distance_onehot
+    from tt_bio.rf3.host import HostInputs
     from tt_bio.rf3.sampler import Draws
 
     with tm.span("upload"):
@@ -144,10 +144,8 @@ def one_fold(tt, f, rep_atom_idxs, device, tm: Timer, *, n_recycles: int,
            "n_atom_padded": host.n_atom_padded, "n_token": host.n_token}
     if want_confidence and rep_atom_idxs is not None:
         with tm.span("confidence"):
-            conf = tt.confidence_head(s_inputs, s, z,
-                                      distance_onehot(x_pred, rep_atom_idxs, device))
-            out["plddt_logit_mean"] = float(
-                torch.Tensor(ttnn.to_torch(conf["plddt_logits"])).float().mean())
+            conf = tt.confidence(s_inputs, s, z, x_pred, rep_atom_idxs)
+            out["plddt_logit_mean"] = float(conf["plddt_logits"].mean())
     return out
 
 

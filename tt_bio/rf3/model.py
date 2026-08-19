@@ -243,12 +243,27 @@ class RF3(Module):
 
         out = {"X_L": x_pred, "distogram": distogram, "draws": draws}
         if self.confidence_head is not None and rep_atom_idxs is not None:
-            out.update({k: torch.Tensor(ttnn.to_torch(v)).float()
-                        for k, v in self.confidence_head(
-                            s_inputs, s, z,
-                            distance_onehot(x_pred, rep_atom_idxs, self.device)
-                        ).items()})
+            out.update(self.confidence(s_inputs, s, z, x_pred, rep_atom_idxs))
         return out
+
+    def confidence(self, s_inputs, s, z, x_pred: torch.Tensor,
+                   rep_atom_idxs: torch.Tensor) -> dict:
+        """The four confidence heads over the diffusion batch, stacked on dim 0.
+
+        One structure per batch member and one head pass per member: the binned distances
+        that drive the head are the member's own coordinates. The head is batch-1 by
+        construction -- its Pairformer's triangle attention drops a leading singleton
+        axis -- so a D-wide `x_pred` used to reach it as a D-wide `z` and fail a reshape
+        volume check instead of quietly folding D into the token axis.
+        """
+        outs = []
+        for d in range(x_pred.shape[0]):
+            got = self.confidence_head(
+                s_inputs, s, z,
+                distance_onehot(x_pred[d:d + 1], rep_atom_idxs, self.device))
+            outs.append({k: torch.Tensor(ttnn.to_torch(v)).float()
+                         for k, v in got.items()})
+        return {k: torch.cat([o[k] for o in outs], dim=0) for k in outs[0]}
 
 
 def load(ckpt_path, compute_kernel_config, *, use_ema: bool = True, **kw) -> RF3:
