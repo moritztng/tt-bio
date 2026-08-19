@@ -875,6 +875,69 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float):
 
 
 
+# Triangle attention through the FUSED SDPA at the model's own fidelity, for the blocks that today
+# take `_fp32_softmax_attention`.
+#
+# `_fp32_softmax_attention` below is correct and slow for the same reason: it writes the whole
+# `[batch, heads, S, S]` score tensor to DRAM in bf16, reads it back as fp32, adds the bias, reduces
+# and writes the weights back down to bf16 -- five DRAM traversals of an O(S^3) tensor for a
+# reduction the fused kernel already does in L1. At 512 aa RF3's triangle attention moves ~10 GB per
+# call against a measured 440.4 GB/s and lands at 2.39 TF/s against a 17.41 TF/s K-thin roof.
+#
+# The reason the fused kernel was rejected for these blocks is a conflation, and it is measured in
+# `tt_bio/triatt_sdpa.py`: the fused path's DEFAULT compute config is `(HiFi2, math_approx, no
+# fp32_dest_acc)`, and that -- not bf16 softmax storage -- is where its error came from. Run at the
+# same `HiFi4 / fp32_dest_acc` the model's other matmuls already use, the fused kernel is 1.88x MORE
+# accurate than the materialised fp32 softmax and 20.2x faster at 512 aa, because fidelity is free
+# on a bandwidth-bound op.
+#
+# NOT bit-exact against `_fp32_softmax_attention`, and cannot be: an online softmax reduces over k
+# in chunks against a running max, and the materialised one reduces each row in a single pass. The
+# bar is the port's own parity anchors against the torch reference, not a digest against the arm it
+# replaces.
+_TRIATT_FUSED_HIFI = os.environ.get("TT_BIO_TRIATT_FUSED_HIFI", "0") != "0"
+
+# `fp32_dest_acc` is load-bearing rather than a knob: it is what keeps the qk product, the bias add,
+# the row max and the cross-chunk sum in a 32-bit DST between CB round trips. `math_approx` off and
+# HiFi4 are worth 2.5x and 1.3x on the op's error respectively, both for free (see the table in
+# triatt_sdpa.py). Fields are `(fidelity, math_approx, fp32_dest_acc, dst_full_sync)`.
+_TRIATT_FUSED_HIFI_CKC = (ttnn.MathFidelity.HiFi4, False, True, False)
+
+# (q_len, k_len, q_chunk) triples whose program the device refused at this config. Deliberately not
+# `_SDPA_Q_CHUNK_OVER_L1`: writing a refusal into the shared memo would retire a q_chunk the stock
+# ladder runs perfectly well, which is the mistake `_PM_OVER_L1` exists to avoid.
+_TRIATT_HIFI_OVER_L1: set = set()
+
+TRIATT_FUSED_HIFI_STATS = {"served": 0, "declined": 0}
+
+
+def _tri_att_sdpa_hifi(q, k, v, bias, scale: float):
+    """Triangle attention through the fused SDPA at `_TRIATT_FUSED_HIFI_CKC`, or None to decline.
+
+    Declining is the caller's cue to run `_fp32_softmax_attention`, NOT the stock bf16 SDPA: the
+    stock op carries the op default's 2.7x worse error, so a silent fall-through to it would be an
+    accuracy regression wearing a performance win's clothes.
+    """
+    q_len, k_len = int(q.shape[2]), int(k.shape[2])
+    k_chunk = _sdpa_chunks_shipped(q_len, k_len)[1]
+    for q_chunk in _tri_att_q_chunks(q_len, k_len):
+        if (q_len, k_len, q_chunk) in _TRIATT_HIFI_OVER_L1:
+            continue
+        try:
+            o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk,
+                                  ckc_default=_TRIATT_FUSED_HIFI_CKC)
+        except Exception as exc:  # noqa: BLE001 -- an L1 refusal retires the chunk, nothing else
+            if "circular buffers" not in str(exc):
+                raise
+            o = None
+        if o is not None:
+            TRIATT_FUSED_HIFI_STATS["served"] += 1
+            return o
+        _TRIATT_HIFI_OVER_L1.add((q_len, k_len, q_chunk))
+    TRIATT_FUSED_HIFI_STATS["declined"] += 1
+    return None
+
+
 # Kill switch for the batched program config, so a parity gate that spawns one fold per leg can
 # A/B it without a checkout.
 _BATCHED_MATMUL_ON = os.environ.get("TT_BIO_BATCHED_MATMUL", "1") != "0"
@@ -3402,13 +3465,22 @@ class TriangleAttention(Module):
 
         def _attend_heads(q, k, v, bias, keep_heads=False):
             if _FP32_SOFTMAX or self.fp32_softmax:
-                o = _fp32_softmax_attention(
-                    q, k, v, bias,
-                    scale_inv=self.scale ** -1,
-                    compute_kernel_config=self.compute_kernel_config,
-                    out_dtype=_dtype(),
-                    bias_scale_inv=1.0 / self._bias_scale,
-                )
+                o = None
+                # The kernel adds the bias BEFORE applying `scale` (compute_common.hpp: the scale
+                # rides the exp, `exp((qk + mask - max) * scale)`), so it wants the bias pre-baked
+                # by sqrt(head_dim) -- which is exactly what `scale_pair_bias=True` already did to
+                # `bias_weight`. A block that did not pre-bake would need its own multiply, so it
+                # keeps the materialised path rather than paying one.
+                if _TRIATT_FUSED_HIFI and self._bias_scale == self.scale:
+                    o = _tri_att_sdpa_hifi(q, k, v, bias, self.scale ** -1)
+                if o is None:
+                    o = _fp32_softmax_attention(
+                        q, k, v, bias,
+                        scale_inv=self.scale ** -1,
+                        compute_kernel_config=self.compute_kernel_config,
+                        out_dtype=_dtype(),
+                        bias_scale_inv=1.0 / self._bias_scale,
+                    )
             else:
                 o = _tri_att_sdpa(q, k, v, bias, self.scale**-1)
             ttnn.deallocate(q)
