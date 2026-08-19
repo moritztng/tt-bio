@@ -1,0 +1,41 @@
+{
+ "host": "tt-quietbox2",
+ "torch_threads": 8,
+ "k": 48,
+ "hidden": 128,
+ "num_seqs": 1,
+ "cells": [
+  {
+   "target_residues": 116,
+   "binder_length": 80,
+   "n_nodes": 196,
+   "decode_steps": 196,
+   "cold_s": null,
+   "median_s": 0.19686629199713934,
+   "min_s": 0.19344656501198187,
+   "max_s": 0.19832591200247407,
+   "all_warm_s": [
+    0.19344656501198187,
+    0.19686629199713934,
+    0.19832591200247407
+   ]
+  },
+  {
+   "target_residues": 768,
+   "binder_length": 80,
+   "n_nodes": 848,
+   "decode_steps": 848,
+   "cold_s": null,
+   "median_s": 0.971239714010153,
+   "min_s": 0.9706055729911895,
+   "max_s": 0.9893840510048904,
+   "all_warm_s": [
+    0.9706055729911895,
+    0.971239714010153,
+    0.9893840510048904
+   ]
+  }
+ ],
+ "model_construct_s": 0.008871397003531456,
+ "params_M": 1.660485
+}
