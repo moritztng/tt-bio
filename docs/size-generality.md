@@ -76,6 +76,7 @@ the exponent and the lever columns are the point.
 | opendde | 768 | 267.50 | N^2.72 | K2 dark, refiner q-split dark | the refiner track runs ~1.945x the token count, so it leaves the q-split cap a rung before the main track does |
 | opendde | 1024 | 705.50 | N^3.37 | K2 dark, refiner q-split dark | the q-split cap was raised to 1024 on boltz-2 numbers alone and has never been folded here |
 | esmfold2 | all | — | in progress | — | |
+| boltz-2 | 256/512/640/768 | — | — | TriMul F1 tail fusion, all 560 calls | **default-ON and inert on this model at every size**: the fusion allow-lists one block key and boltz-2's trimul tail resolves a different one. It serves 1048 calls on protenix-v2, so the kernel works; it just never runs here |
 
 Rows marked in progress are owed by the three measurement tasks running alongside this one; the
 gate baseline in `docs/size_ladder_baseline.json` is the machine-readable version of the same
@@ -90,6 +91,11 @@ config says so; the counter does.
 **The dark end is not only the large end.** Seven levers that serve every call at 512 aa serve zero
 at 128 aa on boltz-2, and four of them decline explicitly rather than never being reached. The
 512-aa tuning window is bounded on both sides and only the upper bound had ever been written down.
+
+**A lever can be default-ON and inert.** The TriMul F1 tail fusion declines every one of its 560
+calls on boltz-2 at 256, 512, 640 and 768 aa, because it allow-lists a single matmul block key and
+boltz-2's trimul tail resolves a different one. It serves on protenix-v2. Nothing was slower than it
+should have been in a way anyone would notice, and no config said so; the counter did.
 
 **A lever's validity range widened on one model's numbers applies to every model.** The SDPA
 q-split cap went from 768 to 1024 padded tokens on boltz-2 measurements, and it ships default-ON to
