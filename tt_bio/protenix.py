@@ -26,6 +26,7 @@ scripts/protenix_predict.py -> PDB). Remaining (packaging): data-pipeline vendor
 (sequence/CCD -> feats dict), worker/CLI --model protenix-v2, unified README.
 """
 import os
+import re
 import torch
 import ttnn
 
@@ -344,6 +345,20 @@ class _KeyedWeights:
         if l1 and _T._TEMPLATE_L1_NORM:
             return _l1_layer_norm(x, 1.5, **kw)[0]
         return ttnn.layer_norm(x, **kw)
+
+
+def n_blocks(state_dict, prefix):
+    """1 + max block index under `prefix` + '.blocks.<i>.', or 0 when the stack is absent.
+
+    Block counts come from the weights rather than from a constant. The v2 family ships at
+    several depths -- Protenix-v2 and OpenDDE 24 DiT / 3 atom blocks, PXDesign's generator
+    16 / 4, the Protenix mini variants 8 / 1 -- and a hardcoded depth silently drops blocks
+    (too few) or builds them from empty dicts (too many). `Trunk` already derived its
+    pairformer depth this way; this generalises it to the other four stacks.
+    """
+    pat = re.compile(re.escape(prefix) + r"\.blocks\.(\d+)\.")
+    idx = {int(m.group(1)) for k in state_dict if (m := pat.match(k))}
+    return 1 + max(idx) if idx else 0
 
 
 class AtomTransformer(_KeyedWeights, Module):
@@ -746,6 +761,10 @@ class DiffusionModule(_KeyedWeights):
 
     SIGMA_DATA = 16.0
     NQ, NK, PAD_LEFT = 32, 128, 48
+    # DIT_BLOCKS is Protenix-v2's / OpenDDE's depth and stays here as the documented default;
+    # the depth actually used is read off the checkpoint in __init__ (PXDesign-d 16, Protenix
+    # mini 8). head_dim 48 x 16 heads = c_token 768 in every family member measured, so those
+    # two are genuinely constant.
     DIT_BLOCKS, DIT_HEAD_DIM, DIT_N_HEADS = 24, 48, 16
     supports_multiplicity = True   # ON: verified on qb2 card0
 
@@ -759,11 +778,16 @@ class DiffusionModule(_KeyedWeights):
         self._diffusion_fp32 = (os.environ.get("PROTENIX_DIFFUSION_FP32_DEVICE", "1") == "1"
                                  if diffusion_fp32 is None else diffusion_fp32)
         self.dtype = ttnn.float32 if self._diffusion_fp32 else ttnn.bfloat16
-        self.atxE = AtomTransformer(3, {k[len("atom_attention_encoder.atom_transformer."):]: v
+        # Depths from the weights. For protenix-v2 and OpenDDE these resolve to the class
+        # defaults (24/3/3), so this is a no-op for both shipped models.
+        self.DIT_BLOCKS = n_blocks(self._w, "diffusion_transformer") or self.DIT_BLOCKS
+        nbE = n_blocks(self._w, "atom_attention_encoder.atom_transformer.diffusion_transformer") or 3
+        nbD = n_blocks(self._w, "atom_attention_decoder.atom_transformer.diffusion_transformer") or 3
+        self.atxE = AtomTransformer(nbE, {k[len("atom_attention_encoder.atom_transformer."):]: v
                                         for k, v in self._w.items()
                                         if k.startswith("atom_attention_encoder.atom_transformer.")},
                                     compute_kernel_config, dtype=self.dtype)
-        self.atxD = AtomTransformer(3, {k[len("atom_attention_decoder.atom_transformer."):]: v
+        self.atxD = AtomTransformer(nbD, {k[len("atom_attention_decoder.atom_transformer."):]: v
                                         for k, v in self._w.items()
                                         if k.startswith("atom_attention_decoder.atom_transformer.")},
                                     compute_kernel_config, dtype=self.dtype)
@@ -2146,7 +2170,6 @@ class Trunk(_KeyedWeights):
         c_z: pair channel width (default 256, Protenix-v2's; OpenDDE's shared Trunk subtree
         is c_z=384 -- same architecture, wider pair, head_dim fixed at 32 so n_tri_heads
         scales as c_z // 32)."""
-        import re
         from .tenstorrent import (get_device, Pairformer, PairformerLayer,
                                    OuterProductMean, PairWeightedAveraging, Transition)
         self._w = model_state_dict
@@ -2160,9 +2183,10 @@ class Trunk(_KeyedWeights):
                    "linear_no_bias_token_bond", "relative_position_encoding")
         ti_sd = {k: v for k, v in self._w.items() if any(k.startswith(p) for p in ti_keys)}
         self.trunk_input = TrunkInput(ti_sd, compute_kernel_config)
-        # 48-block pairformer
-        nb_pf = 1 + max(int(re.search(r"pairformer_stack\.blocks\.(\d+)\.", k).group(1))
-                        for k in self._w if "pairformer_stack.blocks." in k)
+        # Pairformer depth from the weights (Protenix-v2 and OpenDDE 48, Protenix mini 16).
+        # n_blocks anchors the prefix, so template_embedder.pairformer_stack and
+        # confidence_head.pairformer_stack cannot leak into this count.
+        nb_pf = n_blocks(self._w, "pairformer_stack")
         comb = {}
         for i in range(nb_pf):
             blk = {k[len(f"pairformer_stack.blocks.{i}."):]: v for k, v in self._w.items()
@@ -2171,18 +2195,20 @@ class Trunk(_KeyedWeights):
                 comb[f"layers.{i}.{k}"] = v
         self.PF = Pairformer(nb_pf, self.TRI_HEAD_DIM, n_tri_heads, 384 // 16, 16, True, comb,
                              compute_kernel_config, gated_move=gated_move)
-        # template embedder: 2 pair-only PairformerLayers
-        tpl = {k[len(f"template_embedder.pairformer_stack.blocks.{b}."):]: v for b in range(2)
-               for k, v in self._w.items()
-               if k.startswith(f"template_embedder.pairformer_stack.blocks.{b}.")}
+        # Template embedder: pair-only PairformerLayers, count from the weights. Protenix-v2
+        # has 2. Every PXDesign-pinned Protenix variant ships a template embedder that is only
+        # its five projections (layernorm_v, layernorm_z, linear_no_bias_{a,u,z}) with NO
+        # pairformer stack, so 0 is a real answer and _template's `for pl in self.TPL` loop
+        # correctly degenerates to the projections alone.
+        nb_tpl = n_blocks(self._w, "template_embedder.pairformer_stack")
         self.TPL = [PairformerLayer(32, 2, None, None, False,
                     PW.remap_msa_pair_stack({k[len(f"template_embedder.pairformer_stack.blocks.{b}."):]: v
                                              for k, v in self._w.items()
                                              if k.startswith(f"template_embedder.pairformer_stack.blocks.{b}.")}),
-                    compute_kernel_config, gated_move=gated_move) for b in range(2)]
-        # 4-block MSA module
+                    compute_kernel_config, gated_move=gated_move) for b in range(nb_tpl)]
+        # MSA module: count from the weights (Protenix-v2 4, Protenix mini 1).
         self.MSA = []
-        nb_msa = 4
+        nb_msa = n_blocks(self._w, "msa_module")
         for i in range(nb_msa):
             P = f"msa_module.blocks.{i}."
             sub = lambda pp: {k[len(pp):]: v for k, v in self._w.items() if k.startswith(pp)}
