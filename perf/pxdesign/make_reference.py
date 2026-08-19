@@ -77,6 +77,19 @@ def main():
         total = med([r.get("total_s") for r in warm])
         pct = {k.replace("_s", "_pct"): (round(100.0 * v / total, 2) if v is not None and total
                                         else None) for k, v in split.items()}
+        # device occupancy per stage: nvidia-smi utilization.gpu is the fraction of sampled
+        # instants with at least one kernel resident, so util x wall is the stage's device-busy
+        # time. It is the only device/host split available for AF2-IG and ProteinMPNN, which
+        # pxdbench runs in processes we do not instrument.
+        per_stage = ref.get("gpu_per_stage") or {}
+        device_s = {}
+        for name in LEAVES:
+            wall = stages.get(name + "_s")
+            u = (per_stage.get(name) or {}).get("util_pct_mean")
+            if wall is not None and u is not None:
+                device_s[name] = round(wall * u / 100.0, 3)
+        dev_total = round(sum(device_s.values()), 3) if device_s else None
+
         val = ref.get("validation") or {}
         cell = {
             "gpu": a.gpu,
@@ -111,6 +124,15 @@ def main():
             "gpu_power_W_max": med([(r.get("gpu_whole_run") or {}).get("power_W_max")
                                     for r in warm]),
             "gpu_per_stage_util": ref.get("gpu_per_stage"),
+            "device_s_per_stage": device_s,
+            "device_s_total": dev_total,
+            "host_s_total": (round(total - dev_total, 3)
+                             if total is not None and dev_total is not None else None),
+            "device_pct_of_wall": (round(100.0 * dev_total / total, 2)
+                                   if total and dev_total is not None else None),
+            "tt_target_s_4x_wall": round(4.0 * total, 2) if total else None,
+            "tt_target_s_4x_device": (round(4.0 * dev_total, 2)
+                                      if dev_total is not None else None),
             "peak_vram_alloc_GiB": med([r.get("peak_vram_alloc_GiB") for r in warm]),
             "counts": ref.get("counts"),
             "subprocess_walls_s": ref.get("subprocesses"),
@@ -151,6 +173,15 @@ def main():
                            "over leaves and are never summed into the split",
             "kernel_paths": "counted, not inferred: DS4Sci_EvoformerAttention call count per run",
             "exclusivity": "every compute app on the card is recorded before and after each cell",
+        },
+        "how_to_read": {
+            "the_bar": "tt_target_s_4x_device is the org's 4x rule applied to the device-busy "
+                       "portion. tt_target_s_4x_wall is the same rule on wall clock and is only "
+                       "meaningful if both arms' host CPUs are comparable, because most of a "
+                       "PXDesign run is host work the TT port inherits unchanged.",
+            "device_s": "wall x mean GPU utilisation over the stage's own sampling window",
+            "batch": "always compare against a cell with the same target_residues AND the same "
+                     "batch_n_sample",
         },
         "target_manifest": manifest,
         "cells": cells,
