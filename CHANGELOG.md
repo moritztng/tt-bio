@@ -15,12 +15,22 @@ sum), and the failing width is remembered per shape, so a process pays one faile
 compile and every later call starts narrow. Reported by Taylor Singletary in #11; his
 grid sweep is what pinpointed the threshold.
 
+### Added
+
+- `scripts/release_gate.py --model l1-budget`, in the default arm set: a release leg for
+  the class of defect #11 belonged to. It runs the trimul chunk-width budget for every
+  part class in `L1_BUDGET_PARTS` and folds #11's own target across the grid ladder the
+  running card can express, so a budget fitted on one card cannot ship unchecked on a
+  card with fewer cores. `docs/part-l1-budgets.md` carries the measured per-part figures.
+
 ### Fixed
 
 - Mid-size targets no longer die with an L1 circular-buffer clash on 110-core
   Blackhole grids (P300/P300C). The triangle multiplication's channel chunk narrows to
   the widest width that fits, falling back to DRAM residency at the floor, and outputs
   are bit-identical to grids that never clashed. (#11)
+- A caught trimul clash now says so on stderr. tt-metal logs the clash at `critical`
+  before raising, which reads like a fatal error even though the retry succeeds. (#11)
 - `TT_VISIBLE_DEVICES` accepts PCI bus addresses (`0000:01:00.0`), the form ttnn's
   device open takes, resolving them to device indices; an unknown entry fails with a
   message naming the index form. (#11)

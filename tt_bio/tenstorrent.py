@@ -1,4 +1,5 @@
 import os
+import sys
 import contextlib
 import torch, ttnn, atexit
 from torch import nn
@@ -351,6 +352,14 @@ _IS_SMALL_GRID = False
 # the width is a partition of an independent-channel sum (see `_trimul_chunk_size`).
 # Value: the smallest width known to clash for the key.
 _TRIMUL_CHUNK_CLASH: dict = {}
+# Test-only (scripts/release_gate.py's l1-budget leg): start the channel loop at this width
+# instead of the one the budget picks, so a fold can be pinned to the width a clash would
+# narrow it to and the two runs compared byte for byte. Unset in production. This is the
+# knob the l1-budget leg needs and a per-core-L1 override is not: on the part that broke
+# issue #11 the per-core unreserved L1 is 1,532,416 B, the same as a p150a's — what differs
+# is core count, and TT_BIO_FORCE_GRID already forces that.
+_TRIMUL_CHUNK_CAP = int(os.environ.get("TT_BIO_TRIMUL_CHUNK_CAP", "") or 0)
+
 # Seq lengths whose trimul does not fit in L1 even at the minimum width take the DRAM
 # path instead: same ops, same arithmetic, the residency threshold's other side.
 _TRIMUL_DRAM_SHAPES: set = set()
@@ -572,6 +581,8 @@ def _trimul_chunk_size(seq_len: int, hidden: int, batch: int = 1) -> int:
     _sq = (-(-int(seq_len) // 32) * 32) if _IS_SMALL_GRID else seq_len
     while hidden % (c * 2) == 0 and batch * (c * 2) * _sq * _sq <= budget:
         c *= 2
+    while _TRIMUL_CHUNK_CAP and c > _TRIMUL_CHUNK_CAP and c > TRIANGLE_MULT_CHUNK_SIZE:
+        c //= 2
     # Clamp below any width already seen to clash at this exact call shape (issue
     # 11): the budget is a 130-core calibration, and a tighter grid learns its
     # ceiling from the clash itself. Monotonic: a narrower chunk always holds less
@@ -2983,6 +2994,12 @@ class TriangleMultiplication(Module):
                 gp_in_fused = g_in_a = g_in_b = p_in_a = p_in_b = None
                 a_chunk = b_chunk = x_chunk = None
                 _record_trimul_clash(H, self._hidden, batch, chunk_size)
+                # tt-metal logs the clash at `critical` before raising, which reads like a
+                # fatal error to anyone watching the fold. Say what actually happened.
+                print(f"[tt-bio] trimul L1/circular-buffer clash at chunk width {chunk_size} "
+                      f"(seq {H}, {COMPUTE_GRID_MAIN[0]}x{COMPUTE_GRID_MAIN[1]} grid): "
+                      f"retrying narrower. The tt-metal 'critical' line above is expected and "
+                      f"handled; the result is unchanged.", file=sys.stderr, flush=True)
                 if chunk_size > TRIANGLE_MULT_CHUNK_SIZE:
                     chunk_size = _trimul_chunk_size(H, self._hidden, batch)
                     n_pairs = self._hidden // chunk_size
