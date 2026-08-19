@@ -1,0 +1,23 @@
+{
+  "note": "p66 per-op L1 divergence audit, card 2 on qb2, 2026-08-19. max|variant - shipped| on the live weights of every real Transition call site. Both runs were killed before the script's own JSON write -- the first by a 1-timestep harness IndexError after printing, the second by its 1500 s timeout while calibrating the remaining variants' new (shape, memory_config) keys. These are the printed values, transcribed verbatim from the console.",
+  "script": "scripts/rfd3_port/p66_pair_transition_audit.py",
+  "host": "qb2", "card": 2, "seed": 42, "fixture": "perf/dsfix/fixtures/rfd3_R4.json",
+  "sites": {
+    "1x685x685x128|H=512|h=32": {
+      "chunk_dram": 0.0,
+      "l1_norm": 0.03125,
+      "l1_fc1": 0.03125,
+      "l1_mul": 0.0,
+      "chunk_l1": 0.03125,
+      "chunk_l1fc2": 0.03125,
+      "whole_l1": "ERR: L1 OOM, 493.8 MB across 110 banks"
+    },
+    "1x685x685x128|H=256|h=64": {
+      "chunk_dram": 0.0,
+      "chunk_l1": 0.0,
+      "chunk_l1fc2": 0.0,
+      "whole_l1": "ERR: L1 OOM, 246.9 MB across 110 banks"
+    }
+  },
+  "reading": "The row-chunking on dim 1 is bit-exact at both hidden widths. The memory_config=L1 placement diverges at hidden=512 only, and localises to fc1: l1_norm places only x_norm in L1 and still reads 0.03125, so fc1 reading its INPUT from L1 re-blocks it exactly as placing its OUTPUT there does. An L1 buffer occupies the L1 ttnn's matmul heuristic budgets in0_block_w from, so the bf16 accumulation grouping over K=4 tiles changes. l1_mul is 0.0, so fc3 (K=16 tiles) is not sensitive."
+}
