@@ -58,7 +58,15 @@ def main() -> int:
     from tt_bio.rf3.weights import load_reference
     from tt_bio.tenstorrent import get_device
 
-    d = REPO / "scripts/rf3_port/parity_artifacts" / args.fixture
+    # capability fixtures ship a captured ref_f.pt next to their input; the size-ladder
+    # rungs ship only the input, because this harness runs the featurizer live and a
+    # 1024-token capture would be hundreds of megabytes nobody needs committed
+    roots = [REPO / "scripts/rf3_port/parity_artifacts",
+             REPO / "scripts/rf3_port/size_ladder"]
+    d = next((r / args.fixture for r in roots if (r / args.fixture).is_dir()), None)
+    if d is None:
+        raise SystemExit(f"{args.fixture}: not under any of "
+                         f"{[str(r) for r in roots]}")
     # the template fixture's input is a .cif, the rest are .json -- both go through the
     # same pipeline, so pick whichever the fixture actually has rather than assuming
     inp = next((n for n in ("input.json", "input.cif") if (d / n).exists()), None)
