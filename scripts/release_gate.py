@@ -121,12 +121,24 @@ docs/size-generality.md.
 Exit code 0 iff every requested model PASSES its gate; 1 otherwise. Runs on the
 device serially (one card context per run); no CPU shortcut for the fold/design.
 
+The l1-budget leg is the only one that gates a PART, not a number. Every L1-edge budget
+in ``tt_bio/tenstorrent.py`` was fitted on a 130-core p150a, and ``_apply_grid_thresholds``
+returns early on any grid of 110 cores or more, so a 110-core Blackhole (p300/p300c) runs
+budgets fitted for 130 cores and the trimul in-projection's circular buffers stop fitting
+beside the pair tensors (issue #11, Taylor Singletary). The legs above cannot see that: they
+compare numbers, and a part that dies at program creation produces no numbers. This leg runs
+the budget arithmetic for every part class we have a measured per-core-L1 figure for, and
+folds the input that died on his p300c across this part's grid ladder. THE RULE it enforces:
+a part-specific resource figure entering ``tenstorrent.py`` gets a row in ``L1_BUDGET_PARTS``
+in the same commit.
+
 This is the *accuracy* leg of the release gate. The *UX* leg lives in
 ``scripts/ux_regression.py`` (live-progress phases, output parsing, CLI shape) —
 see RELEASING.md. The two are independent; both must exit 0 before a tag.
 """
 
 import argparse
+import hashlib
 import importlib.util
 import json
 import math
@@ -427,6 +439,60 @@ SIZE_LADDER_WORKDIR = REPO_ROOT / "perf" / "sizegate" / "work"
 SIZE_LADDER_PROVENANCE = REPO_ROOT / "perf" / "sizegate" / "baseline"
 
 
+# ---------------------------------------------------------------------------
+# L1-budget leg — the structural blind spot issue #11 fell through.
+#
+# Every L1-edge budget in tt_bio/tenstorrent.py was fitted on a 130-core p150a, and
+# `_apply_grid_thresholds` returns early on any grid of >= 110 cores ("keep Blackhole
+# baseline values"). A 110-core Blackhole (p300/p300c) therefore runs budgets fitted for
+# 130 cores: the same bytes on fewer cores, so the trimul in-projection's static circular
+# buffers take more per core and the width the budget picks does not fit beside the pair
+# tensors live at the call site. Nothing in the other legs can see that. They compare
+# numbers, and a part that dies at program creation produces no numbers to compare.
+#
+# One row per part class we have a per-core unreserved-L1 figure for, with the compute grid
+# tt-bio selects on it. THE RULE, and the reason this leg exists: a part-specific resource
+# figure entering tenstorrent.py gets a row here in the same commit.
+L1_BUDGET_PARTS = (
+    # (name, grid, per-core unreserved L1 bytes, provenance)
+    ("p150a", (13, 10), 1532416,
+     "measured on pc 2026-08-19, ttnn.get_max_worker_l1_unreserved_size()"),
+    ("p300c", (11, 10), 1532416,
+     "measured on tt-quietbox2 device 0 2026-08-19, same call. Identical to p150a — the "
+     "p300 difference that broke issue #11 is core count (110 vs 130), not per-core L1"),
+    ("wormhole", (8, 8), 1466080, "_WH_MEASURED_L1_PER_CORE (the L1 the WH re-fit was measured at)"),
+    ("wormhole-full", (8, 8), 1572864, "_WH_FULL_L1_PER_CORE (1.5 MiB, the WH scaling reference)"),
+)
+
+# Trimul chunk widths MEASURED to clash on real hardware, per part and call shape
+# (seq, hidden, batch). Not derived: each is a tt-metal "clash with L1 buffers" throw
+# observed in a log. The arithmetic leg asserts the code can get below every one of them.
+L1_BUDGET_MEASURED_CLASHES = (
+    ("p300c", (140, 256, 1), 256,
+     "issue #11 and tt-quietbox2 native 11x10 2026-08-19: 'Statically allocated circular "
+     "buffers in program N clash with L1 buffers', L1 buffer at 1155072, CB region ends "
+     "1159680 — byte-identical addresses on Taylor Singletary's p300c and on ours"),
+)
+
+# Shapes the arithmetic leg sweeps. The invariant it checks is shape-independent, so it
+# sweeps rather than picking a favourite: every 32-multiple seq the trunk can present up
+# to the L1 residency ceiling, at both trimul hidden widths.
+L1_BUDGET_SEQ_LENS = tuple(range(64, 641, 32))
+L1_BUDGET_HIDDEN = (128, 256)
+
+# The live leg folds Taylor's own target: 107 aa + CCD ligand SB3, msa: empty, the input
+# that died on his p300c. Cheap enough for a default arm (~15 s a grid).
+L1_BUDGET_DATA = REPO_ROOT / "examples" / "affinity_fkg.yaml"
+L1_BUDGET_MODEL = "protenix-v2"
+DEFAULT_ARMS = ("boltzgen", "opendde-abag", "capacity", "l1-budget")
+
+L1_BUDGET_STEPS = 200
+# The width measured to fit at the issue-#11 call shape on a 110-core grid: the
+# clash-and-narrow fold lands here, so a fold pinned here from the start is the
+# same computation without the interrupted attempt.
+L1_BUDGET_CAP = 128
+
+
 def _msa_args(model: str) -> list:
     """MSA source for one model's gate fold — the way that model is ACTUALLY used.
 
@@ -442,6 +508,52 @@ def _msa_args(model: str) -> list:
     if model not in MSA_DEFAULT_MODELS:
         return []
     return ["--msa_dir", MSA_DIR] if MSA_DIR else ["--use_msa_server"]
+
+
+def _preflight_msa_cache(models: list) -> None:
+    """Fail before any device work if the offline MSA dir cannot serve a target it will fold.
+
+    A missing a3m does not surface as a missing-input error. The fold falls through to
+    colabfold_search, which is not installed on the gate hosts, so the leg dies with
+    "colabfold_search not found" and the summary reads as a missed accuracy floor: an hour
+    into the run, on an arm whose numbers were never computed. That is how a
+    seeded-for-7ROA-only RELEASE_GATE_MSA_DIR failed the opendde-abag arm on the first
+    v0.6.4 gate run. Keyed off MSA_DEFAULT_MODELS, the same source of truth _msa_args uses,
+    so the check cannot drift from what the folds actually request.
+    """
+    if not MSA_DIR:
+        return
+    import yaml
+    from tt_bio.main import MSA_DEFAULT_MODELS
+
+    targets = []
+    if any(m in MODELS and m in MSA_DEFAULT_MODELS for m in models):
+        targets.append(DATA)
+    if "opendde-abag" in models:
+        targets.append(OPENDDE_ABAG_DATA)
+
+    missing = []
+    for path in targets:
+        if not path.exists():
+            continue
+        doc = yaml.safe_load(path.read_text()) or {}
+        for entry in doc.get("sequences") or []:
+            prot = entry.get("protein") if isinstance(entry, dict) else None
+            seq = (prot or {}).get("sequence")
+            if not seq:
+                continue
+            a3m = Path(MSA_DIR) / f"{hashlib.sha256(seq.encode()).hexdigest()[:16]}.a3m"
+            if not (a3m.exists() and a3m.stat().st_size > 0):
+                cid = (prot or {}).get("id", "?")
+                missing.append(f"{path.name} chain {cid} ({len(seq)} aa) -> {a3m}")
+    if missing:
+        sys.exit(
+            f"RELEASE_GATE_MSA_DIR={MSA_DIR} cannot serve every MSA-dependent gate target.\n"
+            "Missing cached a3m (the file name is sha256(sequence)[:16]):\n  "
+            + "\n  ".join(missing)
+            + "\nSeed them, or unset RELEASE_GATE_MSA_DIR to fold against the ColabFold "
+              "server. See RELEASING.md."
+        )
 
 
 def _run_fold(cmd: list, timeout: float, **popen_kw) -> tuple:
@@ -1261,6 +1373,258 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
     return row
 
 
+# --- L1-budget leg (issue #11) ------------------------------------------------
+
+# Module globals `tt_bio.tenstorrent._apply_grid_thresholds` rewrites, plus the active grid
+# and the two clash memos. The arithmetic leg installs a part's grid/L1, so it must put the
+# module back exactly as it found it: the live leg and every other in-process leg share it.
+_L1_BUDGET_SAVED = (
+    "_IS_SMALL_GRID", "SEQ_LEN_MORE_CHUNKING", "TRANSITION_BATCH_CHUNKING_THRESHOLD",
+    "TRANSITION_W_CHUNKING_THRESHOLD", "TRIANGLE_ATT_CHUNK_SIZE_FAST", "TRANSITION_W_CHUNK_SIZE",
+    "TRIANGLE_MULT_L1_MAX_SEQ_FAST", "SMALL_GRID_SEQ_TILE", "SMALL_GRID_PAIR_TILE_AREA",
+    "SMALL_GRID_MSA_TILE_AREA", "TRIANGLE_MULT_L1_MAX_SEQ", "TRANSITION_L1_CHUNK_BYTES_PER_CORE",
+    "TRIATT_CHUNK_L1_SPILL_BYTES", "COMPUTE_GRID_MAIN", "CORE_GRID_MAIN",
+)
+
+
+def _l1_budget_ladder(tt, seq: int, hidden: int, batch: int, part: str) -> list:
+    """Walk the trimul retry ladder for one call shape. Returns failure strings.
+
+    The invariant: a width that clashes on this part must be escapable. The budget picks a
+    width; if that width throws at program creation the next pick must be strictly narrower,
+    still a divisor of `hidden` (narrowing is only bit-exact because the width partitions an
+    independent-channel sum), and the ladder must reach the minimum width in finitely many
+    steps, where the shape leaves L1 for DRAM. Issue #11 was exactly the absence of this:
+    the 130-core budget picked 256 on a 110-core grid, 256 threw, and nothing in the code
+    could pick anything else, so the fold was dead.
+    """
+    import ttnn
+    fails = []
+    shape = f"seq={seq} hidden={hidden} batch={batch}"
+    tt._TRIMUL_CHUNK_CLASH.clear()
+    tt._TRIMUL_DRAM_SHAPES.clear()
+    width = tt._trimul_chunk_size(seq, hidden, batch)
+    if hidden % width:
+        fails.append(f"{part} {shape}: budget picked width {width}, not a divisor of hidden "
+                     f"{hidden} — narrowing would not be bit-exact")
+    steps = 0
+    while width > tt.TRIANGLE_MULT_CHUNK_SIZE:
+        steps += 1
+        if steps > 16:
+            fails.append(f"{part} {shape}: retry ladder did not reach the minimum width in "
+                         f"16 steps (stuck at {width})")
+            break
+        tt._record_trimul_clash(seq, hidden, batch, width)
+        nxt = tt._trimul_chunk_size(seq, hidden, batch)
+        if nxt >= width:
+            fails.append(f"{part} {shape}: width {width} clashed and the budget still picks "
+                         f"{nxt} — a clash on this part has no way out (issue #11)")
+            break
+        if hidden % nxt:
+            fails.append(f"{part} {shape}: narrowed {width} -> {nxt}, not a divisor of hidden "
+                         f"{hidden} — narrowing would not be bit-exact")
+            break
+        width = nxt
+    # At the minimum width the only remaining move is to leave L1 altogether.
+    tt._TRIMUL_DRAM_SHAPES.add(seq)
+    if tt._triangle_mul_memory_config(seq).buffer_type != ttnn.BufferType.DRAM:
+        fails.append(f"{part} {shape}: at the minimum width the shape cannot fall back to "
+                     f"DRAM — the ladder has no floor")
+    tt._TRIMUL_CHUNK_CLASH.clear()
+    tt._TRIMUL_DRAM_SHAPES.clear()
+    return fails
+
+
+def run_l1_budget_static() -> dict:
+    """Arithmetic leg — no device, no fold. Runs tt_bio.tenstorrent's own trimul budget at
+    every part class in L1_BUDGET_PARTS and checks the issue-#11 invariant on each."""
+    import ttnn
+    import tt_bio.tenstorrent as tt
+
+    row = {"model": "l1-budget:arith", "seconds": None, "parts": len(L1_BUDGET_PARTS),
+           "checks": 0, "gate": False, "error": None, "fails": []}
+    t0 = time.monotonic()
+    # A build with no clash-narrowing mechanism at all fails the leg, it does not crash it:
+    # that build is exactly the one issue #11 was filed against.
+    missing = [n for n in ("_record_trimul_clash", "_TRIMUL_CHUNK_CLASH", "_TRIMUL_DRAM_SHAPES")
+               if not hasattr(tt, n)]
+    if missing:
+        row["seconds"] = time.monotonic() - t0
+        row["fails"] = [f"tt_bio.tenstorrent has no {', '.join(missing)}: a trimul chunk width "
+                        f"that clashes on this part cannot be narrowed, so the fold dies at "
+                        f"program creation with no way out (issue #11)"]
+        return row
+    saved = {n: getattr(tt, n) for n in _L1_BUDGET_SAVED}
+    saved_clash = dict(tt._TRIMUL_CHUNK_CLASH)
+    saved_dram = set(tt._TRIMUL_DRAM_SHAPES)
+    real_l1 = ttnn.get_max_worker_l1_unreserved_size
+    fails = []
+    try:
+        for part, grid, l1, _prov in L1_BUDGET_PARTS:
+            ttnn.get_max_worker_l1_unreserved_size = lambda _l1=l1: _l1
+            tt.COMPUTE_GRID_MAIN = grid
+            tt.CORE_GRID_MAIN = ttnn.CoreGrid(y=grid[1], x=grid[0])
+            tt._apply_grid_thresholds(grid)
+            for name in ("_trimul_l1_max_seq", "_triangle_mul_program_config"):
+                fn = getattr(tt, name, None)
+                if hasattr(fn, "cache_clear"):
+                    fn.cache_clear()
+            for hidden in L1_BUDGET_HIDDEN:
+                for seq in L1_BUDGET_SEQ_LENS:
+                    fails += _l1_budget_ladder(tt, seq, hidden, 1, part)
+                    row["checks"] += 1
+            for cpart, (seq, hidden, batch), width, _src in L1_BUDGET_MEASURED_CLASHES:
+                if cpart != part:
+                    continue
+                # A width measured to clash on this part must be escapable, from whatever
+                # the budget picks down to below it.
+                tt._TRIMUL_CHUNK_CLASH.clear()
+                tt._record_trimul_clash(seq, hidden, batch, width)
+                got = tt._trimul_chunk_size(seq, hidden, batch)
+                tt._TRIMUL_CHUNK_CLASH.clear()
+                row["checks"] += 1
+                if got >= width:
+                    fails.append(f"{part} seq={seq} hidden={hidden}: width {width} is MEASURED "
+                                 f"to clash here and the budget still picks {got}")
+        # The rule the leg exists to enforce: no grid tt-bio can select is unrepresented.
+        table_grids = {g for _n, g, _l, _p in L1_BUDGET_PARTS}
+        for grid in ((tt.COMPUTE_GRID_X_13, tt.COMPUTE_GRID_Y),
+                     (tt.COMPUTE_GRID_X_11, tt.COMPUTE_GRID_Y)):
+            if grid not in table_grids:
+                fails.append(f"grid {grid[0]}x{grid[1]} is selectable by "
+                             f"_configure_active_compute_grid but has no L1_BUDGET_PARTS row — "
+                             f"add the part and its measured per-core L1 in the same commit")
+    except Exception as e:
+        row["error"] = f"{type(e).__name__}: {e}"
+    finally:
+        ttnn.get_max_worker_l1_unreserved_size = real_l1
+        for n, v in saved.items():
+            setattr(tt, n, v)
+        tt._TRIMUL_CHUNK_CLASH.clear()
+        tt._TRIMUL_CHUNK_CLASH.update(saved_clash)
+        tt._TRIMUL_DRAM_SHAPES.clear()
+        tt._TRIMUL_DRAM_SHAPES.update(saved_dram)
+    row["seconds"] = time.monotonic() - t0
+    row["fails"] = fails
+    row["gate"] = not fails and row["error"] is None
+    return row
+
+
+def _l1_budget_physical_grid() -> tuple:
+    """The running part's compute grid, read in a throwaway subprocess so this driver never
+    holds a device while the fold legs below need it."""
+    code = ("import ttnn;d=ttnn.open_device(device_id=0);g=d.compute_with_storage_grid_size();"
+            "print(int(g.x),int(g.y));ttnn.close_device(d)")
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
+                         cwd=REPO_ROOT, timeout=600)
+    for line in reversed(out.stdout.strip().splitlines()):
+        parts = line.split()
+        if len(parts) == 2 and all(p.isdigit() for p in parts):
+            return (int(parts[0]), int(parts[1]))
+    raise RuntimeError(f"could not read the compute grid: {out.stdout[-500:]} {out.stderr[-500:]}")
+
+
+def _l1_budget_fold(label: str, grid, cap: int, keep: bool) -> dict:
+    """One fkg fold at a forced grid and/or a forced trimul chunk width."""
+    out = REPO_ROOT / f"l1_budget_gate_{label}"
+    if out.exists():
+        shutil.rmtree(out)
+    env = os.environ.copy()
+    env.pop("TT_BIO_FORCE_GRID", None)
+    if grid is not None:
+        env["TT_BIO_FORCE_GRID"] = f"{grid[0]},{grid[1]}"
+    if cap:
+        env["TT_BIO_TRIMUL_CHUNK_CAP"] = str(cap)
+    else:
+        env.pop("TT_BIO_TRIMUL_CHUNK_CAP", None)
+    cmd = [sys.executable, "-m", "tt_bio.main", "predict", str(L1_BUDGET_DATA),
+           "--model", L1_BUDGET_MODEL, "--single_sequence",
+           "--sampling_steps", str(L1_BUDGET_STEPS), "--diffusion_samples", "1",
+           "--seed", str(SEED), "--out_dir", str(out), "--debug"]
+    print(f"\n{'='*70}\n[l1-budget] folding {L1_BUDGET_DATA.name} on {L1_BUDGET_MODEL}, "
+          f"grid {'native' if grid is None else f'{grid[0]}x{grid[1]}'}"
+          f"{f', trimul width capped at {cap}' if cap else ''}\n{'='*70}", flush=True)
+
+    row = {"model": f"l1-budget:{label}", "grid": grid, "cap": cap, "seconds": None,
+           "clashes": None, "md5": None, "gate": False, "error": None}
+    log = REPO_ROOT / f"l1_budget_gate_{label}.log"
+    t0 = time.monotonic()
+    with open(log, "wb") as fh:
+        rc, timed_out = _run_fold(cmd, FOLD_TIMEOUT_S, cwd=REPO_ROOT, env=env,
+                                  stdout=fh, stderr=subprocess.STDOUT)
+    row["seconds"] = time.monotonic() - t0
+    text = log.read_text(errors="replace")
+    # Every clash tt-metal threw. The fix catches these and retries narrower, so a nonzero
+    # count is not a failure -- an escaped one shows up as a nonzero exit code below.
+    row["clashes"] = text.count("clash with L1 buffers")
+    if timed_out:
+        row["error"] = f"predict timed out after {FOLD_TIMEOUT_S}s"
+        return row
+    if rc != 0:
+        tail = [l for l in text.splitlines() if "clash with L1 buffers" in l]
+        row["error"] = (f"predict exited {rc}"
+                        + (f" — an L1/CB clash escaped: {tail[-1][-160:]}" if tail else ""))
+        return row
+    results = out / _l1_budget_results_dir()
+    cifs = sorted((results / "structures").glob("*.cif")) if (results / "structures").exists() else []
+    if not cifs:
+        row["error"] = f"predict wrote no CIF under {results}"
+        return row
+    try:
+        _parse_gate(cifs, name=L1_BUDGET_DATA.stem)
+    except Exception as e:
+        row["error"] = f"CIF parse failed: {e}"
+        return row
+    h = hashlib.md5()
+    for cif in cifs:
+        h.update(cif.read_bytes())
+    row["md5"] = h.hexdigest()
+    row["gate"] = True
+    if not keep:
+        shutil.rmtree(out, ignore_errors=True)
+        log.unlink(missing_ok=True)
+    return row
+
+
+def _l1_budget_results_dir() -> str:
+    from tt_bio.main import predict_results_dir_name
+    return predict_results_dir_name(L1_BUDGET_MODEL, L1_BUDGET_DATA.stem)
+
+
+def run_l1_budget_fold(keep: bool) -> list:
+    """Live leg — fold Taylor's target on this part's grid ladder, and prove the retry is
+    numerics-neutral.
+
+    Two things no other leg can see:
+      1. Grid classes. Every grid in L1_BUDGET_PARTS that fits inside the physical grid gets
+         a fold, so the >=110-core baseline-budget path and the <110-core scaled path are both
+         exercised on whatever part the gate runs on. On a 110-core p300 the native leg IS
+         issue #11's crash: pre-fix it dies here.
+      2. Retry neutrality. The cold native fold reaches its width by clashing and narrowing;
+         the capped fold starts at that narrow width and never clashes. Same numbers or the
+         retry is contaminated by the interrupted attempt.
+    """
+    phys = _l1_budget_physical_grid()
+    legs = [("native", None, 0)]
+    for name, grid, _l1, _prov in L1_BUDGET_PARTS:
+        if grid == phys or grid[0] > phys[0] or grid[1] > phys[1]:
+            continue  # native already covers phys; a bigger grid than the part has cannot be forced
+        if any(grid == g for _lbl, g, _c in legs):
+            continue
+        legs.append((f"{grid[0]}x{grid[1]}", grid, 0))
+    legs.append(("narrow", None, L1_BUDGET_CAP))
+    rows = [_l1_budget_fold(label, grid, cap, keep) for label, grid, cap in legs]
+
+    # Neutrality: the clash-and-narrow fold must match the never-clashed one byte for byte.
+    cold = next((r for r in rows if r["model"] == "l1-budget:native"), None)
+    narrow = next((r for r in rows if r["model"] == "l1-budget:narrow"), None)
+    if cold and narrow and cold["md5"] and narrow["md5"] and cold["md5"] != narrow["md5"]:
+        narrow["gate"] = False
+        narrow["error"] = (f"retry is NOT numerics-neutral: clash-and-narrow {cold['md5']} != "
+                           f"width-capped {narrow['md5']}")
+    return rows
+
+
 def main() -> int:
     # Scorers, folds and predict CLIs we spawn arm their parent-death guard off this,
     # so none of them can outlive this driver still holding a card. Inherited through
@@ -1268,13 +1632,12 @@ def main() -> int:
     os.environ["TT_BIO_PARENT_PID"] = str(os.getpid())
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--model",
-                    choices=list(MODELS) + ["boltzgen", "opendde-abag", "capacity",
-                                            "size-ladder"]
+                    choices=list(MODELS) + list(DEFAULT_ARMS) + ["size-ladder"]
                     + ESMC_DEFAULT + ESMC_OPT_IN,
                     action="append",
                     help="Gate only this model (repeatable). Default: the five fold "
-                         "models + boltzgen + opendde-abag + capacity + size-ladder + "
-                         "ESMC 300m/600m embed parity. "
+                         "models + boltzgen + opendde-abag + capacity + l1-budget + "
+                         "size-ladder + ESMC 300m/600m embed parity. "
                          "esmc-6b is opt-in (slow ~13 GB load).")
     ap.add_argument("--keep", action="store_true", help="Keep run output dirs for inspection.")
     ap.add_argument("--size-ladder-record", action="store_true",
@@ -1310,14 +1673,15 @@ def main() -> int:
         if mgd:
             os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
 
-    models = args.model or list(MODELS) + ["boltzgen", "opendde-abag", "capacity",
-                                           "size-ladder"] + ESMC_DEFAULT
+    models = args.model or list(MODELS) + list(DEFAULT_ARMS) + ["size-ladder"] + ESMC_DEFAULT
     fold_models = [m for m in models if m in MODELS]
     want_boltzgen = "boltzgen" in models
     want_opendde_abag = "opendde-abag" in models
     want_capacity = "capacity" in models
+    want_l1_budget = "l1-budget" in models
     want_size_ladder = "size-ladder" in models
     esmc_models = [m for m in models if m in ESMC_DEFAULT + ESMC_OPT_IN]
+    _preflight_msa_cache(models)
 
     rows = []
     if fold_models:
@@ -1454,6 +1818,42 @@ def main() -> int:
                   "baseline at every rung" if sl["gate"] else
                   "GATE FAIL — size-ladder drift vs the recorded baseline (see above); "
                   "if this change is intentional, re-record with --size-ladder-record")
+
+    if want_l1_budget:
+        if not L1_BUDGET_DATA.exists():
+            sys.exit(f"missing l1-budget gate target {L1_BUDGET_DATA}")
+        ar = run_l1_budget_static()
+        frows = run_l1_budget_fold(args.keep)
+        md5s = {r["md5"] for r in frows if r["md5"]}
+        if len(md5s) > 1:
+            for r in frows:
+                r["gate"] = False
+                r["error"] = r["error"] or (
+                    f"grid/width ladder is NOT numerics-neutral: {sorted(md5s)}")
+        print(f"\n{'#'*78}\nRELEASE GATE — L1 budgets vs part "
+              f"({L1_BUDGET_DATA.name} on {L1_BUDGET_MODEL}, "
+              f"{len(L1_BUDGET_PARTS)} part classes)\n{'#'*78}")
+        print(f"{'leg':<22}{'clashes':>9}{'CIF md5':>36}{'wall':>9}  result")
+        arv = "PASS" if ar["gate"] else "FAIL"
+        checks = f"{ar['checks']} checks / {ar['parts']} parts"
+        print(f"{'l1-budget:arith':<22}{'-':>9}{checks:>36}{ar['seconds']:>8.0f}s  {arv}")
+        for f in ar["fails"][:8]:
+            print(f"    {f}")
+        if ar["error"]:
+            print(f"    {ar['error']}")
+        for r in frows:
+            cl = str(r["clashes"]) if r["clashes"] is not None else "-"
+            md5 = r["md5"] or "  -  "
+            wall = f"{r['seconds']:.0f}s" if r["seconds"] is not None else "-"
+            verdict = "PASS" if r["gate"] else f"FAIL ({r['error']})" if r["error"] else "FAIL"
+            print(f"{r['model']:<22}{cl:>9}{md5:>36}{wall:>9}  {verdict}")
+        l1_pass = ar["gate"] and all(r["gate"] for r in frows)
+        all_pass &= l1_pass
+        print(f"{'#'*78}")
+        print("GATE PASS — every part class can narrow out of a clash, and the ladder is "
+              "numerics-neutral" if l1_pass else
+              "GATE FAIL — a part class cannot escape an L1/CB clash, or the ladder changed "
+              "the numbers (see above)")
 
     if esmc_models:
         if "ESM_ROOT" not in os.environ:

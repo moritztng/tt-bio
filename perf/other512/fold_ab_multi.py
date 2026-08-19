@@ -92,6 +92,9 @@ def _collect_fp32(root, seen=None, depth=0):
 
 ARMS = ("on", "e6", "noe6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hifi",
         "nonewmm", "oldkey", "nofp32_trunk", "nofp32_msatmpl", "nos2",
+        # sizes-recheck. `noqsplit` ablates the SDPA q-split that main ships ON up to
+        # 1024 padded tokens; `tr250` restores the pre-227cdb41 transpose headroom.
+        "noqsplit", "tr250",
         # openfold3-sizes-perf. `nofuse` is the pre-change baseline for the fp32-softmax chain
         # (scale as its own pass, out-of-place softmax); `norowblk` lifts the row-block budget so
         # the score tensor is one allocation whatever its size, which is what refuses at 1024 aa.
@@ -101,7 +104,8 @@ ARMS = ("on", "e6", "noe6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hi
         # tail runs DRAM-interleaved, i.e. main verbatim. `on` is the shipped default.
         "noshard",
         # qsplit: the triatt_sdpa q-split lever (TT_BIO_TRIATT_MASK_Q_SPLIT), written explicitly
-        # per arm so "on" stays a pre-lever reference whatever the shipped default is.
+        # per arm so "on" stays a pre-lever reference whatever the shipped default is (`noqsplit`
+        # above is the same ablation, added first).
         "qsplit")
 
 # Which sites each arm routes onto the fused SDPA. The confidence head is never in a flip set:
@@ -343,6 +347,14 @@ def main():
     for nm in ("TriangleAttention", "AttentionPairBias"):
         census(T, nm)
 
+    # Arm `on` has to BE main, so read the shipped defaults off the module instead of
+    # restating them as literals here. Both literals this replaced had gone stale: main moved
+    # _TRANSPOSE_L1_HEADROOM 2.5 -> 1.25 at 227cdb41 (2026-08-15) and defaulted the SDPA q-split
+    # ON at d31c1fa0/063f89db, so every `on` arm run after 08-15 measured a configuration main
+    # does not ship -- and both levers are size-conditional, which is exactly where it matters.
+    SHIPPED = {"headroom": T.TRANSPOSE_L1_HEADROOM,
+               "q_split": __import__("tt_bio.triatt_sdpa", fromlist=["x"])._Q_SPLIT}
+
     def set_arm(name):
         """Every lever is written on every arm, so an arm provably runs its own state."""
         assert name in ARMS, f"unknown arm {name}"
@@ -367,11 +379,12 @@ def main():
         HM.TAIL_REJECTS.clear()
 
         PM._ENABLED = name != "nok2"
-        PM._Q_SPLIT = name == "qsplit"
+        PM._Q_SPLIT = {"noqsplit": False, "qsplit": True}.get(name, SHIPPED["q_split"])
         PM.STATS[0] = PM.STATS[1] = 0
         PM.REJECTS.clear()
 
-        T._TRANSPOSE_L1_HEADROOM = 1.25 if name == "tr125" else 2.5
+        T._TRANSPOSE_L1_HEADROOM = {"tr125": 1.25, "tr250": 2.5}.get(
+            name, SHIPPED["headroom"])
         T._PAIR_PROJ_MM = name != "nomm"
         T._mm_block_for = _mm_block_old if name == "oldkey" else ORIG_MM_BLOCK_FOR
         OLDKEY_HITS[0] = OLDKEY_HITS[1] = 0

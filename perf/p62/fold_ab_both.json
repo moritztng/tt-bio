@@ -1,0 +1,50 @@
+{
+  "rows": [
+    {
+      "arm": "off",
+      "rep": 0,
+      "sampler_s": 116.156,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1
+    },
+    {
+      "arm": "on",
+      "rep": 1,
+      "sampler_s": 109.041,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1
+    },
+    {
+      "arm": "off",
+      "rep": 2,
+      "sampler_s": 116.145,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1
+    },
+    {
+      "arm": "on",
+      "rep": 3,
+      "sampler_s": 108.141,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1
+    }
+  ],
+  "which": "both",
+  "row_block": 256,
+  "num_timesteps": 200,
+  "seed": 42,
+  "batch": 1,
+  "rung": "R4",
+  "discarded_warmup_s": 121.139,
+  "bit_exact": true,
+  "matches_page_digest": false,
+  "off_s_median": 116.15,
+  "on_s_median": 108.591,
+  "ratio": 1.0696,
+  "bar_s": 109.96,
+  "clears_bar": true,
+  "host": "qb2",
+  "card": 2,
+  "ttnn": "0.68.0",
+  "torch": "2.13.0+cpu"
+}

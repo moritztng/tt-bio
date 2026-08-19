@@ -120,6 +120,19 @@ the largest supported target (`examples/abag_pilot_expansion/9j4c_abag.yaml`,
 it exceeds the budget or if the run writes fewer structures than it was asked
 for. Set `RELEASE_GATE_CAPACITY_MAX_GIB` to gate a card with a different budget.
 
+The **l1-budget** leg gates a part rather than a number. Every L1-edge budget in
+`tt_bio/tenstorrent.py` was fitted on a 130-core p150a, and `_apply_grid_thresholds`
+keeps those values on any grid of 110 cores or more, so a P300's 110 cores ran budgets
+fitted for 130 and a mid-size target died at program creation with an L1
+circular-buffer clash (#11). No other leg could see it: they compare numbers, and a
+part that dies before any kernel runs produces none. The leg runs the trimul chunk-width
+arithmetic for every part class in `L1_BUDGET_PARTS` and folds the target from that
+issue across the grid ladder the running part can express, checking that a clash can
+always be narrowed out of and that the narrow path returns the same bytes as a run that
+never clashed. **A part-specific resource figure entering `tenstorrent.py` gets a row in
+`L1_BUDGET_PARTS` in the same commit** — the leg fails if a selectable grid has no row.
+See `docs/part-l1-budgets.md` for the measured figures and their provenance.
+
 `scripts/release_gate.py` remains as a fast single-target smoke proxy (one
 7ROA fold per model + a BoltzGen/OpenDDE-abag/ESMC quick check) for a quick
 sanity look, but it is no longer the parity gate of record — `full_parity_gate.py`
@@ -147,7 +160,11 @@ each leg, not two.
 - **Offline MSA fallback.** When the public ColabFold service is down or flaky,
   set `RELEASE_GATE_MSA_DIR` to a directory holding the cached
   `{sha256(sequence)[:16]}.a3m` files; the network-MSA legs then fold with
-  `--msa_dir` and never touch the network. `RELEASE_GATE_FOLD_TIMEOUT` tunes the
+  `--msa_dir` and never touch the network. It must cover **every** chain of every
+  MSA-dependent target you select, `examples/prot.yaml` and `examples/1ahw_abag.yaml`
+  both, not just the single-chain fold legs. `release_gate.py` checks this up front and
+  prints the exact files to seed; a dir seeded for one target only used to fail an hour
+  in, as a missed accuracy floor. `RELEASE_GATE_FOLD_TIMEOUT` tunes the
   `release_gate.py` fold timeout for a slow host.
 
 ### Verdict semantics

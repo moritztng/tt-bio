@@ -1,0 +1,122 @@
+{
+  "label": "cdk2_256_b1",
+  "inputs": "/work/perf/rf3/inputs/rf3_256.json",
+  "reps": 4,
+  "n_recycles": 10,
+  "num_steps": 50,
+  "diffusion_batch_size": 1,
+  "early_stop_plddt": 0.0,
+  "seed": 42,
+  "env": {
+    "rf3_config_dir": "/work/v_rf3/lib/python3.12/site-packages/rf3/configs",
+    "should_use_cuequivariance": true,
+    "torch": "2.13.0+cu130",
+    "torch_cuda": "13.0",
+    "cudnn": 92000,
+    "cuda_device": "NVIDIA H200",
+    "matmul_tf32": false,
+    "cudnn_tf32": true,
+    "float32_matmul_precision": "highest",
+    "python": "3.12.14",
+    "gpu_static": {
+      "name": "NVIDIA H200",
+      "driver_version": "580.173.02",
+      "memory.total": "143771",
+      "power.limit": "700.00",
+      "clocks.max.sm": "1980",
+      "compute_cap": "9.0",
+      "pcie.link.gen.max": "5"
+    },
+    "rc-foundry": "0.2.0",
+    "atomworks": "2.2.1",
+    "cuequivariance-torch": "0.11.1",
+    "cuequivariance-ops-torch-cu12": "0.11.1",
+    "cuequivariance-ops-cu12": "0.11.1",
+    "lightning": "2.6.5",
+    "numpy": "2.5.2"
+  },
+  "rep_s": [
+    12.167,
+    8.2028,
+    8.0358,
+    7.8917
+  ],
+  "phases": {
+    "0": {
+      "featinit": 0.61492,
+      "featinit_n": 1,
+      "trunk": 2.52058,
+      "trunk_n": 10,
+      "distogram": 0.00014,
+      "distogram_n": 1,
+      "diffusion": 2.10412,
+      "diffusion_n": 1,
+      "confidence": 0.02945,
+      "confidence_n": 1
+    },
+    "1": {
+      "featinit": 0.01005,
+      "featinit_n": 1,
+      "trunk": 2.2258,
+      "trunk_n": 10,
+      "distogram": 0.00013,
+      "distogram_n": 1,
+      "diffusion": 1.94451,
+      "diffusion_n": 1,
+      "confidence": 0.02698,
+      "confidence_n": 1
+    },
+    "2": {
+      "featinit": 0.00962,
+      "featinit_n": 1,
+      "trunk": 2.02391,
+      "trunk_n": 10,
+      "distogram": 0.00012,
+      "distogram_n": 1,
+      "diffusion": 1.89871,
+      "diffusion_n": 1,
+      "confidence": 0.0274,
+      "confidence_n": 1
+    },
+    "3": {
+      "featinit": 0.00979,
+      "featinit_n": 1,
+      "trunk": 2.04334,
+      "trunk_n": 10,
+      "distogram": 0.00012,
+      "distogram_n": 1,
+      "diffusion": 1.83492,
+      "diffusion_n": 1,
+      "confidence": 0.02679,
+      "confidence_n": 1
+    }
+  },
+  "counts": {
+    "triangle_attention_cueq": 4352,
+    "triangle_attention_vanilla": 0,
+    "triangle_multiply_cueq": 4352,
+    "triangle_multiply_vanilla": 0,
+    "cuet.triangle_attention": 4352,
+    "cuet.triangle_multiplicative_update": 4352,
+    "scaled_dot_product_attention": 0,
+    "calls:featinit": 4,
+    "calls:trunk": 40,
+    "calls:distogram": 4,
+    "calls:diffusion": 4,
+    "calls:confidence": 4
+  },
+  "peak_vram_alloc_B": 3790655488,
+  "peak_vram_reserved_B": 3965714432,
+  "load_s": 4.541,
+  "ok": true,
+  "why": "2059 atoms in cdk2_256_model.cif",
+  "confidence": {
+    "overall_plddt": 0.6808,
+    "overall_pde": 7.426,
+    "overall_pae": 19.4828,
+    "ptm": 0.32405319809913635,
+    "iptm": 0.0,
+    "has_clash": false,
+    "ranking_score": 0.0648
+  }
+}

@@ -3,6 +3,51 @@
 All notable changes to TT-Bio are recorded here. Versioning is [SemVer](https://semver.org);
 releases are cut from a commit that has passed the on-hardware test suite (see `RELEASING.md`).
 
+## [0.6.4] - 2026-08-19
+
+P300 Blackhole cards fold again. On a 110-core grid (every P300), a mid-size
+protein+ligand target died in the triangle multiplication with "statically allocated
+circular buffers clash with L1 buffers": the chunk-width budget behind that op was
+measured on a 130-core card and admits widths that do not fit on a tighter one. The
+trimul now catches the clash, which throws before anything runs, and retries one chunk
+width narrower. Narrowing is bit-exact (the width only partitions an independent-channel
+sum), and the failing width is remembered per shape, so a process pays one failed
+compile and every later call starts narrow. Reported by Taylor Singletary in #11; his
+grid sweep is what pinpointed the threshold.
+
+### Added
+
+- `scripts/release_gate.py --model l1-budget`, in the default arm set: a release leg for
+  the class of defect #11 belonged to. It runs the trimul chunk-width budget for every
+  part class in `L1_BUDGET_PARTS` and folds #11's own target across the grid ladder the
+  running card can express, so a budget fitted on one card cannot ship unchecked on a
+  card with fewer cores. `docs/part-l1-budgets.md` carries the measured per-part figures.
+- OpenFold3 `--single_sequence` folds upstream's no-MSA mode through a one-row
+  alignment, and upstream's own OpenFold3 inference suite now runs against this port
+  with committed verdicts (`docs/openfold3-upstream-suite.md`).
+- The release gate checks `RELEASE_GATE_MSA_DIR` before it opens a device and names the
+  a3m files to seed. A dir that covered one target used to fail an unrelated-looking
+  accuracy arm an hour into the run.
+
+### Fixed
+
+- Mid-size targets no longer die with an L1 circular-buffer clash on 110-core
+  Blackhole grids (P300/P300C). The triangle multiplication's channel chunk narrows to
+  the widest width that fits, falling back to DRAM residency at the floor, and outputs
+  are bit-identical to grids that never clashed. (#11)
+- A caught trimul clash now says so on stderr. tt-metal logs the clash at `critical`
+  before raising, which reads like a fatal error even though the retry succeeds. (#11)
+- `TT_VISIBLE_DEVICES` accepts PCI bus addresses (`0000:01:00.0`), the form ttnn's
+  device open takes, resolving them to device indices; an unknown entry fails with a
+  message naming the index form. (#11)
+- Opening a whole P300 board pair no longer fails with "Physical chip id 0 not found
+  in control plane chip mapping". The 1x1 mesh-graph descriptor a lone P300 chip needs
+  is now applied only when exactly one chip is visible. (#11)
+- ttnn-only models refuse `--accelerator cpu/gpu` on every path, and the CPU/GPU path
+  no longer requires the ttnn wheel. (#10)
+- `tt-bio predict` exits nonzero when a run loses targets instead of reporting success
+  on an empty result set.
+
 ## [0.6.3] - 2026-08-17
 
 Binding affinity runs on the card. Boltz-2's affinity model kept its 64-block trunk in

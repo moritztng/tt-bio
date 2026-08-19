@@ -103,3 +103,64 @@ def test_batch_one_is_a_no_op_on_every_grid(monkeypatch, grid, fast):
             want = _pre_fix_width(seq, hidden)
             assert T._trimul_chunk_size(seq, hidden, 1) == want, (grid, fast, hidden, seq)
             assert T._trimul_chunk_size(seq, hidden) == want, (grid, fast, hidden, seq)
+
+
+@pytest.fixture
+def clean_memos():
+    """The clash memos are module-level process state; every test gets them empty."""
+    saved_clash = dict(T._TRIMUL_CHUNK_CLASH)
+    saved_dram = set(T._TRIMUL_DRAM_SHAPES)
+    T._TRIMUL_CHUNK_CLASH.clear()
+    T._TRIMUL_DRAM_SHAPES.clear()
+    yield
+    T._TRIMUL_CHUNK_CLASH.clear()
+    T._TRIMUL_CHUNK_CLASH.update(saved_clash)
+    T._TRIMUL_DRAM_SHAPES.clear()
+    T._TRIMUL_DRAM_SHAPES.update(saved_dram)
+
+
+def test_empty_memo_is_a_no_op_on_the_incident_shape(grid, clean_memos):
+    """Neutrality: with nothing recorded, the issue-11 shape keeps its 0.6.3 width.
+
+    (140 tokens, hidden 256) is the fold Taylor reported; the budget alone picks 256
+    there, and an untouched memo must not move it.
+    """
+    assert T.COMPUTE_GRID_MAIN == GRID
+    assert T._trimul_chunk_size(140, 256, 1) == _pre_fix_width(140, 256) == 256
+
+
+def test_recorded_clash_clamps_below_it(grid, clean_memos):
+    """The retry's whole mechanism: a recorded clash narrows the next pick, floored at 32."""
+    T._record_trimul_clash(140, 256, 1, 256)
+    assert T._trimul_chunk_size(140, 256, 1) == 128
+    T._record_trimul_clash(140, 256, 1, 128)
+    assert T._trimul_chunk_size(140, 256, 1) == 64
+    T._record_trimul_clash(140, 256, 1, T.TRIANGLE_MULT_CHUNK_SIZE)
+    assert T._trimul_chunk_size(140, 256, 1) == T.TRIANGLE_MULT_CHUNK_SIZE
+
+
+def test_clash_memo_keeps_the_minimum(grid, clean_memos):
+    """The narrowest observed clash is the binding one, regardless of record order."""
+    T._record_trimul_clash(140, 256, 1, 256)
+    T._record_trimul_clash(140, 256, 1, 64)
+    T._record_trimul_clash(140, 256, 1, 128)
+    assert T._TRIMUL_CHUNK_CLASH[T._trimul_chunk_key(140, 256, 1)] == 64
+    assert T._trimul_chunk_size(140, 256, 1) == 32
+
+
+def test_memo_is_keyed_per_shape_and_grid(monkeypatch, clean_memos):
+    """A clash on one grid or shape says nothing about another: no cross-talk."""
+    monkeypatch.setattr(T, "COMPUTE_GRID_MAIN", (11, 10))
+    T._record_trimul_clash(140, 256, 1, 256)
+    assert T._trimul_chunk_size(140, 256, 1) == 128      # same key: clamped
+    assert T._trimul_chunk_size(140, 128, 1) == 128      # other hidden: untouched
+    assert T._trimul_chunk_size(224, 256, 1) == 64       # other seq: untouched
+    monkeypatch.setattr(T, "COMPUTE_GRID_MAIN", (13, 10))
+    assert T._trimul_chunk_size(140, 256, 1) == 256      # other grid: untouched
+
+
+def test_dram_shapes_force_the_dram_config(grid, clean_memos):
+    """The terminal escape: a shape that clashes at the minimum width leaves L1."""
+    assert T._triangle_mul_memory_config(140) is T.ttnn.L1_MEMORY_CONFIG
+    T._TRIMUL_DRAM_SHAPES.add(140)
+    assert T._triangle_mul_memory_config(140) is T.ttnn.DRAM_MEMORY_CONFIG

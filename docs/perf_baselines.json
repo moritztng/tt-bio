@@ -160,7 +160,7 @@
           "card_type": "p300c",
           "tt_bio_version": "0.3.1",
           "date": "2026-07-19",
-          "note": "seed boltz2-affinity baseline"
+          "note": "seed boltz2-affinity baseline. STALE, AND NOT SATISFIABLE ON BOTH CARDS OF ONE HOST; value deliberately left alone. It is a single draw (warmup 0, repeat 1) on 0.3.1, never reseeded when 09502a94 moved the affinity trunk from fp32-on-host to fp32-on-device, the change that forced two p150a reseeds (67c2f866, 5b531069). Measured 2026-08-19 on qb2 under the pinned release runtime, median of 3 per endpoint: card 0 runs this leg at 98-104 s and card 2 at 50-68 s, same host, same code, same interpreter. A single per-card-TYPE figure (69.8 s here) sits between them, so card 0 fails it whatever the code does. Pre-fix main measured -29.1% on card 0 and +2.5% on card 2, so a FAIL here is not by itself evidence of a regression: reproduce it with a same-card same-session A/B against the merge base first. Reseeding needs a decision on whether single-shot legs key on card index rather than card type."
         },
         "esmc-300m": {
           "unit": "seq/s",
