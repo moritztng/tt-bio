@@ -172,6 +172,14 @@ def main() -> int:
         "s_pcc_vs_fp32": round(pcc(s_dev, s_f32), 6),
         "z_pcc_vs_fp32": round(pcc(z_dev, z_f32), 6),
     }
+    # Which attention path actually ran. Without this a declined fused arm is bit-identical to the
+    # materialised one and reads as a clean A/A rather than as "the lever never fired"
+    # (`two-level-optin-ab-arm-and-page-provenance-drop`). The block routes qkv through L1 at some
+    # sizes, and the fused kernel wants DRAM operands, so declining is size-conditioned and silent.
+    import tt_bio.tenstorrent as _T
+    rep["fused_hifi_enabled"] = _T._TRIATT_FUSED_HIFI
+    rep["fused_hifi_stats"] = dict(_T.TRIATT_FUSED_HIFI_STATS)
+    rep["fused_kernel_rejects"] = {str(k): v for k, v in _T._triatt_sdpa.REJECTS.items()}
     rep["s_at_ceiling"] = rep["s_pcc"] >= rep["s_ceiling_cpu_bf16_vs_fp32"] - 0.002
     rep["z_at_ceiling"] = rep["z_pcc"] >= rep["z_ceiling_cpu_bf16_vs_fp32"] - 0.002
     rep["verdict"] = (

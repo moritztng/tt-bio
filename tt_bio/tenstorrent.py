@@ -908,7 +908,33 @@ _TRIATT_FUSED_HIFI_CKC = (ttnn.MathFidelity.HiFi4, False, True, False)
 # ladder runs perfectly well, which is the mistake `_PM_OVER_L1` exists to avoid.
 _TRIATT_HIFI_OVER_L1: set = set()
 
-TRIATT_FUSED_HIFI_STATS = {"served": 0, "declined": 0}
+# Shortest sequence this path is allowed to serve. The fused SDPA loses an order of magnitude of
+# accuracy on a one- or two-tile sequence and gains ~1.5x on everything above, and that is a cliff
+# rather than a slope, so it is a floor rather than a tuning knob.
+#
+# MEASURED two ways. One captured triangle-attention call sliced down the length ladder, both arms
+# against fp64 on the same bf16 operands (perf/rf3/triatt_len_ladder.py), as fused / materialised
+# rel_rms -- below 1.0 means the fused arm is the more accurate one:
+#
+#     n        8      12      32      41      53      64     128     256     384     512
+#     ratio  16.29   13.02   12.87    0.48    0.53    0.66    0.67    0.67    0.72    0.69
+#
+# and the whole Pairformer block against its torch golden on real trunk input
+# (scripts/rf3_port/parity_pairformer.py), as z rel_rms materialised -> fused:
+#
+#     32 tokens    0.003646 -> 0.004670    1.28x worse
+#     41 tokens    0.004038 -> 0.021512    5.33x worse
+#     53 tokens    0.004042 -> 0.013854    3.43x worse
+#     256 tokens   0.003530 -> 0.003533    **1.0008x, neutral to four figures**
+#
+# The two disagree between 41 and 64 tokens because the sliced ladder zero-pads and a real short
+# block pads with layer-norm bias instead, so the block is the one to believe there. 128 is the
+# first length with block-level evidence of neutrality on one side of it and degradation on the
+# other; the port's four original fixtures are all 8-53 tokens and every one of them sits in the
+# degraded band, which is why they read as a 3.4-5.3x regression and why they cannot score this.
+_TRIATT_FUSED_HIFI_MIN_S = 128
+
+TRIATT_FUSED_HIFI_STATS = {"served": 0, "declined": 0, "too_short": 0}
 
 
 def _tri_att_sdpa_hifi(q, k, v, bias, scale: float):
@@ -919,6 +945,9 @@ def _tri_att_sdpa_hifi(q, k, v, bias, scale: float):
     accuracy regression wearing a performance win's clothes.
     """
     q_len, k_len = int(q.shape[2]), int(k.shape[2])
+    if min(q_len, k_len) < _TRIATT_FUSED_HIFI_MIN_S:
+        TRIATT_FUSED_HIFI_STATS["too_short"] += 1
+        return None
     k_chunk = _sdpa_chunks_shipped(q_len, k_len)[1]
     for q_chunk in _tri_att_q_chunks(q_len, k_len):
         if (q_len, k_len, q_chunk) in _TRIATT_HIFI_OVER_L1:
