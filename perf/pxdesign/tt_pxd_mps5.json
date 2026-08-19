@@ -1,0 +1,36 @@
+{
+ "chip": "p150a (Blackhole)",
+ "ckpt": "pxdesign_v0.1.0.pt",
+ "depths": {
+  "dit": 16,
+  "atom_enc": 4,
+  "atom_dec": 4
+ },
+ "diffusion_fp32": true,
+ "dtype": "DataType.FLOAT32",
+ "trace": false,
+ "target_n_step": 400,
+ "cells": [
+  {
+   "cell": "laczc768",
+   "target_aa": 768,
+   "n_tokens": 848,
+   "n_atoms": 6455,
+   "multiplicity": 8,
+   "trace": false,
+   "max_parallel_samples": 5,
+   "cond_hoist_s": 0.482358260996989,
+   "warmup_s": 14.703616095008329,
+   "warmup_steps": 4,
+   "n_step_a": 8,
+   "sampler_s_a": 4.648494831009884,
+   "n_step_b": 24,
+   "sampler_s_b": 14.001908371996251,
+   "per_step_s": 0.5845883463116479,
+   "fixed_s": -0.02821193948329892,
+   "extrap_s": 233.80712658517587,
+   "extrap_s_per_design": 29.225890823146983,
+   "ok": true
+  }
+ ]
+}
