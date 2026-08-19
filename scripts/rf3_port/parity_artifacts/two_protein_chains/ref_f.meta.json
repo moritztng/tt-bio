@@ -3,6 +3,22 @@
   "__example_id__": "two_protein_chains",
   "__input__": "two_protein_chains.json",
   "__n_recycles__": 10,
+  "__non_tensor__": {
+    "atom_array": {
+      "__repr__": "AtomArray([\n\tAtom(np.array([-1., -1., -1.], dtype=float32), chain_id=\"A\", res_id=1, ins_code=\"\", res_name=\"GLY\", hetero=False, atom_name=\"N\", element=\"N\", uses_alt_atom_id=False, is_backbone_atom=True, occupancy=1.0, chain_iid=\"A_1\", b_factor=nan, is_polymer=True, stereo=\"N\", is_aromatic=False, charge=0, chain_type=6, alt_atom_id=\"N\", pn_unit_id=\"A\", molecule_id=0, chain_entity=0, pn_unit_entity=0, molecule_entity=0, atomic_number=7, transformation_id=\"1\", pn_unit_iid=\"A_1\", molecule_iid=0, is_i",
+      "__type__": "<class 'biotite.structure.AtomArray'>"
+    },
+    "automorphisms": {
+      "__repr__": "[array([[0, 1, 2, 3]]), array([[ 4,  5,  6,  7,  8,  9, 10, 11],\n       [ 4,  5,  6,  7,  8,  9, 11, 10]]), array([[12, 13, 14, 15, 16, 17, 18, 19, 20]]), array([[21, 22, 23, 24, 25, 26, 27, 28, 29],\n       [21, 22, 23, 24, 25, 26, 27, 29, 28]]), array([[30, 31, 32, 33]]), array([[34, 35, 36, 37, 38, 39, 40, 41],\n       [34, 35, 36, 37, 38, 39, 41, 40]]), array([[42, 43, 44, 45, 46, 47, 48, 49, 50]]), array([[51, 52, 53, 54, 55, 56, 57, 58, 59],\n       [51, 52, 53, 54, 55, 56, 57, 59, 58]])]",
+      "__type__": "<class 'list'>"
+    },
+    "example_id": "two_protein_chains",
+    "feats/cyclic_asym_ids": [],
+    "ground_truth/chain_iid_token_lvl": {
+      "__repr__": "array(['A_1', 'A_1', 'A_1', 'A_1', 'B_1', 'B_1', 'B_1', 'B_1'],\n      dtype='<U3')",
+      "__type__": "<class 'numpy.ndarray'>"
+    }
+  },
   "__seed__": 42,
   "__zero_stub_keys__": {
     "feats/atom_level_embedding": {

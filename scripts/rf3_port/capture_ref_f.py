@@ -25,18 +25,33 @@ import traceback
 import torch
 
 
-def _flatten(obj, prefix=""):
-    """Flatten nested dicts of tensors into {"a/b": tensor}."""
-    out = {}
+def _split(obj, prefix="", tensors=None, plain=None):
+    """Split the pipeline output into {"a/b": tensor} and {"a/b": json-able value}.
+
+    Not every feature is a tensor: ``feats/cyclic_asym_ids`` is a plain Python list
+    and the model reads it (``pairformer_layers.py`` RelativePositionEncoding). A
+    tensors-only capture drops it silently, so keep both halves.
+    """
+    tensors = {} if tensors is None else tensors
+    plain = {} if plain is None else plain
+    key = prefix.rstrip("/")
     if isinstance(obj, torch.Tensor):
-        out[prefix.rstrip("/")] = obj
+        tensors[key] = obj
     elif isinstance(obj, dict):
         for k, v in obj.items():
-            out.update(_flatten(v, f"{prefix}{k}/"))
-    elif isinstance(obj, (list, tuple)):
+            _split(v, f"{prefix}{k}/", tensors, plain)
+    elif isinstance(obj, (list, tuple)) and any(
+        isinstance(v, (torch.Tensor, dict)) for v in obj
+    ):
         for i, v in enumerate(obj):
-            out.update(_flatten(v, f"{prefix}{i}/"))
-    return out
+            _split(v, f"{prefix}{i}/", tensors, plain)
+    else:
+        try:
+            json.dumps(obj)
+            plain[key] = obj
+        except (TypeError, ValueError):
+            plain[key] = {"__repr__": repr(obj)[:500], "__type__": str(type(obj))}
+    return tensors, plain
 
 
 def main() -> int:
@@ -94,8 +109,9 @@ def main() -> int:
     torch.manual_seed(args.seed)
     pipeline_output = engine.pipeline(spec.to_pipeline_input())
 
-    flat = _flatten(pipeline_output)
+    flat, plain = _split(pipeline_output)
     meta = {k: {"shape": list(v.shape), "dtype": str(v.dtype)} for k, v in flat.items()}
+    meta["__non_tensor__"] = plain
     meta["__example_id__"] = spec.example_id
     meta["__input__"] = os.path.basename(args.input)
     meta["__n_recycles__"] = args.n_recycles
@@ -105,7 +121,8 @@ def main() -> int:
     torch.save(flat, os.path.join(args.out_dir, "ref_f.pt"))
     with open(os.path.join(args.out_dir, "ref_f.meta.json"), "w") as fh:
         json.dump(meta, fh, indent=2, sort_keys=True)
-    print(f"[capture] saved {len(flat)} tensors -> {args.out_dir}/ref_f.pt", flush=True)
+    print(f"[capture] saved {len(flat)} tensors + {len(plain)} non-tensor values "
+          f"-> {args.out_dir}/ref_f.pt", flush=True)
 
     f = pipeline_output.get("feats", pipeline_output.get("f"))
     if isinstance(f, dict):
