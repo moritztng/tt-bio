@@ -157,6 +157,32 @@ _TUNED_MM_CACHE = {}
 # tensor the old concat produced, and the rms_norm downstream still reduces over 258.
 # Measured (perf/p53/combined_onehot.json): 31.335 -> 6.168 ms/call, 5.08x, 50.3 ms/step.
 _CONCAT_ALIGNED = os.environ.get("RFD3_CONCAT_ALIGNED", "1") == "1"
+# The per-step neighbour graph is the largest single host cost in a design. At the page fixture
+# (6051 atoms) the ledger puts it at 51.9 + 19.8 ms of an 84.8 ms host body, and P3.7 measured
+# 54.3 ms/step of that reaching the wall. It is one chain -- cdist -> masked_fill_ -> topk -- over
+# an [L, L] fp32 matrix, 146 MB here, written once and read twice through DRAM. Computing it in
+# row blocks keeps each slab in cache instead. An output row reads only its own row of distances,
+# of the mask and of seq_idx, so blocking cannot change a value; it is checked torch.equal on the
+# full index tensor at the production shape and by the fold CIF digest.
+# RFD3_ATTN_ROWBLOCK=0 restores the unblocked chain so the fold A/B has an arm; a positive value
+# overrides the block size. R=256 measured on the production mask and coordinates by
+# scripts/rfd3_port/p61_attn_indices_prod.py (perf/p61/attn_indices_prod.json, L=6051, k=128,
+# mask density 0.0078, n=5 medians): it is the fastest block size at both 8 and 16 threads,
+# 53.82 -> 20.59 ms at 8 and 48.81 -> 18.60 at 16, and R=512/1024/2048 are all slower.
+_ATTN_ROW_BLOCK = int(os.environ.get("RFD3_ATTN_ROWBLOCK", "256"))
+# The 18 DiT blocks project the SAME pair tensor with their own [c_pair, n_head] weight, and that
+# projection is the largest single op in the model: 36 calls/step (18 blocks x 2 recycles),
+# 26.742 ms/step, 42.6 % of this card's measured 390.0 GB/s read roof (perf/p56/linear_census.json).
+# `LocalTokenTransformer.run_device` loops one `z` over the blocks, so the 123 MB input is read 18
+# times to write 18 disjoint 16-wide slabs. Fused, it is one matmul that reads `z` once and each
+# block slices its own columns back out.
+# Each block gets a 32-wide slot rather than a 16-wide one so every slice starts tile-aligned:
+# p52 measured a sub-tile piece putting a whole op 15-20x below its bandwidth floor. The write
+# volume is unchanged, because the 18 shipped outputs are logically 16 wide and already tile-padded
+# to 32. Screened in scripts/rfd3_port/p60_pairbias_fusion.py.
+# RFD3_PAIRBIAS_FUSED=0 restores the per-block projection so the fold A/B has an arm.
+_PAIRBIAS_FUSED = os.environ.get("RFD3_PAIRBIAS_FUSED", "1") == "1"
+_PAIRBIAS_SLOT = 32
 _TUNE_MATMUL_MIN_ATOMS = 2952
 _TUNE_MATMUL_ENV = os.environ.get("RFD3_TUNE_MATMUL")
 _TUNE_MATMUL = _TUNE_MATMUL_ENV == "1"
@@ -1447,7 +1473,8 @@ class RFD3AtomBlock(Module):
             cache[id(self)] = (key, p, bias_f)
         return bias_f
 
-    def __call__(self, q, c, p, additive_mask=None, sparse_qk=None, bias_cache=None):
+    def __call__(self, q, c, p, additive_mask=None, sparse_qk=None, bias_cache=None,
+                 pair_bias=None):
         ckc, dt = self.compute_kernel_config, self.dtype
         f32 = self.fp32_residual
         if f32 and q.dtype != ttnn.float32:
@@ -1489,9 +1516,12 @@ class RFD3AtomBlock(Module):
         vv = _pad_key_axis(vv, n_key, 2, 0.0)
         fused = False
         if sparse_qk is None:
-            pair_bias = _tuned_linear(
-                p, self.b_w, ckc=ckc, dtype=dt, core_grid=CORE_GRID_MAIN,
-            )
+            # `pair_bias` arrives precomputed when the caller hoisted all of its blocks'
+            # projections into one matmul; see _PAIRBIAS_FUSED.
+            if pair_bias is None:
+                pair_bias = _tuned_linear(
+                    p, self.b_w, ckc=ckc, dtype=dt, core_grid=CORE_GRID_MAIN,
+                )
             pair_bias = ttnn.permute(pair_bias, (0, 3, 1, 2))
             bias = _pad_key_axis(
                 ttnn.add(pair_bias, additive_mask), n_key, 3, -1e4)
@@ -2315,9 +2345,33 @@ class LocalTokenTransformer(Module):
                         dtype=self.dtype, fp32_residual=fp32_residual)
                        for i in range(n_block)]
 
+        # One [c_pair, 32 * n_block] weight holding every block's pair-bias projection, block i
+        # in columns [32*i, 32*i + N_HEAD) and zeros in the rest. Built straight from the torch
+        # weights rather than through torch_to_tt, which advances the shared tiled-weight cache
+        # counter and would shift every later weight's cache key.
+        self.b_w_fused = None
+        if _PAIRBIAS_FUSED:
+            cols = torch.zeros(self.C_PAIR, _PAIRBIAS_SLOT * n_block)
+            for i in range(n_block):
+                w = self.weights[f"blocks.{i}.attention_pair_bias.to_b.weight"].t()
+                cols[:, _PAIRBIAS_SLOT * i:_PAIRBIAS_SLOT * i + self.N_HEAD] = w.float()
+            self.b_w_fused = ttnn.from_torch(cols, layout=ttnn.TILE_LAYOUT, device=self.device,
+                                             dtype=self.dtype)
+
     def run_device(self, a, s, z, additive_mask):
-        for block in self.blocks:
-            a = block(a, s, z, additive_mask)
+        fused, end = None, None
+        if self.b_w_fused is not None:
+            fused = _tuned_linear(z, self.b_w_fused, ckc=self.compute_kernel_config,
+                                  dtype=self.dtype, core_grid=CORE_GRID_MAIN)
+            end = [int(fused.shape[i]) for i in range(3)]
+        for i, block in enumerate(self.blocks):
+            pb = None
+            if fused is not None:
+                lo = _PAIRBIAS_SLOT * i
+                pb = ttnn.slice(fused, [0, 0, 0, lo], end + [lo + self.N_HEAD])
+            a = block(a, s, z, additive_mask, pair_bias=pb)
+        if fused is not None:
+            ttnn.deallocate(fused)
         return a
 
     def __call__(self, a_host, s_host, z, indices):
@@ -2416,6 +2470,27 @@ def _extend_with_neighbours(mask, seq_idx, D_LL, k, inplace=False):
     return idx.long()
 
 
+def _neighbours_row_blocked(mask, seq_idx, x, k, block=None):
+    """`_extend_with_neighbours` over `torch.cdist(x, x)`, one row block at a time.
+
+    Same arithmetic as the unblocked chain, but the [L, L] fp32 distance matrix is never
+    materialised: cdist writes an [R, L] slab, the mask and the topk consume it while it is
+    still in cache, and only the [R, k] indices survive. See the note at _ATTN_ROW_BLOCK.
+    """
+    length = x.shape[1]
+    k = min(k, length)
+    block = block or _ATTN_ROW_BLOCK
+    inf = torch.tensor(float("inf"), dtype=x.dtype, device=x.device)
+    out = torch.empty(1, length, k, dtype=torch.long, device=x.device)
+    for r0 in range(0, length, block):
+        r1 = min(r0 + block, length)
+        d = torch.cdist(x[:, r0:r1], x, p=2).masked_fill_(mask[r0:r1], inf)
+        fill = torch.topk(d, k, dim=-1, largest=False).indices.flip(dims=[-1])
+        s = seq_idx[r0:r1].unsqueeze(0)
+        out[:, r0:r1] = torch.where((s == length).expand_as(fill), fill, s.expand_as(fill))
+    return out
+
+
 def _mask_and_seq_idx(tok_idx, n_seq_neighbours, k, chain, base_mask, length):
     mask = _build_index_mask(tok_idx, n_seq_neighbours, k, chain, base_mask).contiguous()
     rows = torch.arange(length, device=tok_idx.device).unsqueeze(0).expand(length, length)
@@ -2482,6 +2557,7 @@ def _create_attention_indices(f, X_L, tok_idx, n_keys, n_seq_neighbours):
         # Measured bit-identical indices and 220.7 -> 152.5 ms at 3359 atoms D=8,
         # 142.5 -> 68.9 ms at 2702 (scripts/rfd3_port/p24_attn_indices_variants.py).
         idx = torch.cat([
+            _neighbours_row_blocked(mask, seq_idx, x, parts["k"]) if _ATTN_ROW_BLOCK else
             _extend_with_neighbours(mask, seq_idx, torch.cdist(x, x, p=2), parts["k"],
                                     inplace=True)
             for x in X_L.unsqueeze(1)], dim=0)

@@ -1,0 +1,134 @@
+{
+  "L": 6051,
+  "k": 128,
+  "exactness": [
+    {
+      "arm": "exactness R=256",
+      "exact": true
+    },
+    {
+      "arm": "exactness R=512",
+      "exact": true
+    },
+    {
+      "arm": "exactness R=1024",
+      "exact": true
+    },
+    {
+      "arm": "exactness R=2048",
+      "exact": true
+    }
+  ],
+  "timings": [
+    {
+      "arm": "shipped",
+      "threads": 1,
+      "ms": 165.549,
+      "min": 165.313,
+      "max": 167.935
+    },
+    {
+      "arm": "blocked R=256",
+      "threads": 1,
+      "ms": 118.528,
+      "min": 118.284,
+      "max": 118.818
+    },
+    {
+      "arm": "blocked R=512",
+      "threads": 1,
+      "ms": 123.333,
+      "min": 123.098,
+      "max": 123.933
+    },
+    {
+      "arm": "blocked R=1024",
+      "threads": 1,
+      "ms": 139.49,
+      "min": 138.943,
+      "max": 145.63
+    },
+    {
+      "arm": "blocked R=2048",
+      "threads": 1,
+      "ms": 164.179,
+      "min": 164.087,
+      "max": 165.091
+    },
+    {
+      "arm": "shipped",
+      "threads": 8,
+      "ms": 53.824,
+      "min": 52.674,
+      "max": 57.678
+    },
+    {
+      "arm": "blocked R=256",
+      "threads": 8,
+      "ms": 20.585,
+      "min": 20.345,
+      "max": 20.785
+    },
+    {
+      "arm": "blocked R=512",
+      "threads": 8,
+      "ms": 21.347,
+      "min": 21.016,
+      "max": 21.438
+    },
+    {
+      "arm": "blocked R=1024",
+      "threads": 8,
+      "ms": 29.133,
+      "min": 28.845,
+      "max": 29.333
+    },
+    {
+      "arm": "blocked R=2048",
+      "threads": 8,
+      "ms": 43.725,
+      "min": 43.508,
+      "max": 44.251
+    },
+    {
+      "arm": "shipped",
+      "threads": 16,
+      "ms": 48.809,
+      "min": 48.446,
+      "max": 49.519
+    },
+    {
+      "arm": "blocked R=256",
+      "threads": 16,
+      "ms": 18.6,
+      "min": 18.293,
+      "max": 18.886
+    },
+    {
+      "arm": "blocked R=512",
+      "threads": 16,
+      "ms": 18.985,
+      "min": 18.636,
+      "max": 22.956
+    },
+    {
+      "arm": "blocked R=1024",
+      "threads": 16,
+      "ms": 26.961,
+      "min": 26.405,
+      "max": 27.803
+    },
+    {
+      "arm": "blocked R=2048",
+      "threads": 16,
+      "ms": 42.563,
+      "min": 42.437,
+      "max": 43.176
+    }
+  ],
+  "mask_density": 0.007752,
+  "host": "qb2",
+  "torch": "2.13.0+cpu",
+  "cpu_count": 16,
+  "reps": 5
+}

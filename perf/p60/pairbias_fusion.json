@@ -1,0 +1,61 @@
+{
+  "rows": [
+    {
+      "arm": "A shipped 18 x linear[128,16]",
+      "ms_per_recycle": 12.8318,
+      "min": 12.79,
+      "max": 12.853,
+      "ms_per_step": 25.6636,
+      "note": ""
+    },
+    {
+      "arm": "B fused 1 x linear[128,576]",
+      "ms_per_recycle": 4.9268,
+      "min": 4.7471,
+      "max": 5.0021,
+      "ms_per_step": 9.8535,
+      "note": ""
+    },
+    {
+      "arm": "C 18 x slice 16-wide @ tile-aligned 32*i",
+      "ms_per_recycle": 3.6716,
+      "min": 3.6616,
+      "max": 3.6846,
+      "ms_per_step": 7.3432,
+      "note": ""
+    },
+    {
+      "arm": "D fused + 18 slices (the route)",
+      "ms_per_recycle": 8.4991,
+      "min": 8.3789,
+      "max": 8.992,
+      "ms_per_step": 16.9982,
+      "note": ""
+    },
+    {
+      "arm": "E 18 x slice 16-wide @ mid-tile 16*i",
+      "ms_per_recycle": 43.4088,
+      "min": 43.3415,
+      "max": 43.4744,
+      "ms_per_step": 86.8177,
+      "note": "naive packing"
+    }
+  ],
+  "tokens": 685,
+  "c_pair": 128,
+  "n_head": 16,
+  "n_block": 18,
+  "slot": 32,
+  "n_warm": 2,
+  "n_rep": 6,
+  "host": "qb2",
+  "card": 2,
+  "ttnn": "0.68.0",
+  "tune_matmul": "1",
+  "saved_ms_per_step": 8.6654,
+  "saved_s_per_design": 1.7331,
+  "kill_gate_ms_per_step": 8.0,
+  "verdict": "GO",
+  "read_roof_GB_s_measured": 390.0,
+  "write_roof_GB_s_measured": 269.6
+}
