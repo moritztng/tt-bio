@@ -138,7 +138,11 @@ def mlff_constant(process_atom_level_embedding, n_conformers: int = 8,
         out = process_atom_level_embedding(
             torch.zeros(n_conformers, 1, embedding_dim)
         )
-    return out[0].float().clone()
+    # Returned in the dtype the reference produces it in, NOT upcast: under autocast
+    # the reference adds a bf16 constant to a bf16 C_L, and handing back an fp32 copy
+    # promotes that addition and changes the result. Cast at the device boundary
+    # instead, where ttnn does it anyway.
+    return out[0].clone()
 
 
 def assert_mlff_inputs_zero(f: dict) -> None:
