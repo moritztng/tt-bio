@@ -87,7 +87,7 @@ class ConfidenceHead(Module):
         # and the default scores z_pcc 0.82 instead of 0.99.
         self.pairformer = Pairformer(
             n_layers, *PAIRFORMER_DIMS, True, remapped, compute_kernel_config,
-            scale_pair_bias=False, fp32_softmax=True, transpose_bias=False)
+            scale_pair_bias=True, fp32_softmax=True, transpose_bias=False)
         self._n_layers = n_layers
 
     def _norm_proj(self, x, name, core_grid=None):

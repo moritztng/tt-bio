@@ -119,7 +119,7 @@ def main() -> int:
     # transpose_bias=False: RF3 builds the ending pair bias from the un-transposed
     # tensor. With the default the block scores z_pcc 0.82 instead of 0.99.
     pf = Pairformer(1, *DIMS, True, remapped, cfg,
-                    scale_pair_bias=False, fp32_softmax=True, transpose_bias=False)
+                    scale_pair_bias=True, fp32_softmax=True, transpose_bias=False)
 
     def to_tt(x):
         return ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, device=dev,
