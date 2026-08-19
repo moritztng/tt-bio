@@ -173,6 +173,51 @@ MSA_SCOPES: dict[str, str] = {
     "pair_transition": "pairformer_layer.transition_z",
 }
 
+#: trunk / confidence Pairformer geometry: tri-att head_dim / heads, then the
+#: attention-pair-bias head_dim / heads.
+PAIRFORMER_DIMS = (32, 4, 24, 16)
+
+#: The three conventions RF3 needs from tt-bio's shared pairformer blocks, wherever a
+#: pair bias appears. `scale_pair_bias=True` compensates RF3 dividing Q by sqrt(c) and
+#: adding the bias UNSCALED -- getting it wrong left the s-track 11x off its ceiling for
+#: several passes. `transpose_bias=False` because RF3 builds the ending pair bias from
+#: the un-transposed tensor. `fp32_softmax=True` because torch autocast casts matmuls to
+#: bf16 and leaves softmax in fp32, and matching that was worth 18x on one component.
+PAIRFORMER_FLAGS = dict(scale_pair_bias=True, fp32_softmax=True, transpose_bias=False)
+
+
+def remap_pairformer_stack(raw: dict, n_layers: int, prefix: str = "pairformer.",
+                           ) -> dict[str, torch.Tensor]:
+    """Remap `n_layers` RF3 pairformer blocks under `prefix` onto `Pairformer`'s scope.
+
+    Three call sites want this -- the trunk stack, the confidence head's four layers and
+    the template embedder's two -- and they differ only in the prefix.
+    """
+    out: dict[str, torch.Tensor] = {}
+    for i in range(n_layers):
+        pre = f"{prefix}{i}."
+        block = {k[len(pre):]: v for k, v in raw.items() if k.startswith(pre)}
+        if not block:
+            raise KeyError(f"no weights under {pre!r}")
+        out.update({f"layers.{i}.{k}": v
+                    for k, v in remap_pairformer_block(block).items()})
+    return out
+
+
+def remap_template_embedder(sd: dict) -> dict[str, torch.Tensor]:
+    """The template embedder's own weights pass through; its pairformer sub-blocks
+    need the shared-block leaf rename, keeping the `pairformer.<i>.` scope."""
+    out: dict[str, torch.Tensor] = {}
+    for key, value in sd.items():
+        if key.startswith("pairformer."):
+            idx, rest = key[len("pairformer."):].split(".", 1)
+            for k2, v2 in remap_pairformer_block({rest: value}).items():
+                out[f"pairformer.{idx}.{k2}"] = v2
+        else:
+            out[key] = value
+    return out
+
+
 OUTER_PRODUCT_LEAVES = {
     "proj_left": "proj_a",
     "proj_right": "proj_b",

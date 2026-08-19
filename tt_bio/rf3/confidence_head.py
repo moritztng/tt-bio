@@ -21,11 +21,12 @@ from __future__ import annotations
 import torch
 import ttnn
 
+from tt_bio.rf3.remap import (PAIRFORMER_DIMS, PAIRFORMER_FLAGS,
+                              remap_pairformer_stack)
 from tt_bio.tenstorrent import CORE_GRID_MAIN, Module, Pairformer, _dtype
 
 EPS = 1e-5
-# tri_att head_dim / heads, attention-pair-bias head_dim / heads -- same as the trunk
-PAIRFORMER_DIMS = (32, 4, 24, 16)
+
 
 
 def global_layer_norm(x: ttnn.Tensor, compute_kernel_config) -> ttnn.Tensor:
@@ -74,20 +75,13 @@ class ConfidenceHead(Module):
                           self.torch_to_tt(f"layernorm_{n}.bias"))
         self.pred = {n: self.torch_to_tt(f"predict_{n}.weight")
                      for n in ("pae", "pde", "plddt", "exp_resolved")}
-        from tt_bio.rf3.remap import remap_pairformer_block
-        raw = self.weights.as_dict()
-        remapped = {}
-        for i in range(n_layers):
-            pre = f"pairformer.{i}."
-            block = {k[len(pre):]: v for k, v in raw.items() if k.startswith(pre)}
-            remapped.update({f"layers.{i}.{k}": v
-                             for k, v in remap_pairformer_block(block).items()})
-        # Same three RF3 conventions the trunk Pairformer needed. transpose_bias=False
-        # in particular: RF3 builds the ending pair bias from the UN-transposed tensor,
-        # and the default scores z_pcc 0.82 instead of 0.99.
+        # PAIRFORMER_FLAGS carries the three RF3 conventions the trunk needed, and the
+        # remap is the same leaf rename; both live in remap.py so the trunk, this head
+        # and the template embedder cannot drift apart.
         self.pairformer = Pairformer(
-            n_layers, *PAIRFORMER_DIMS, True, remapped, compute_kernel_config,
-            scale_pair_bias=True, fp32_softmax=True, transpose_bias=False)
+            n_layers, *PAIRFORMER_DIMS, True,
+            remap_pairformer_stack(self.weights.as_dict(), n_layers),
+            compute_kernel_config, **PAIRFORMER_FLAGS)
         self._n_layers = n_layers
 
     def _norm_proj(self, x, name, core_grid=None):

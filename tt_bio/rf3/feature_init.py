@@ -145,6 +145,48 @@ def mlff_constant(process_atom_level_embedding, n_conformers: int = 8,
     return out[0].clone()
 
 
+#: the downcast MLP's layer widths, read off the checkpoint
+_MLFF_WIDTHS = (384, 192, 96, 48, 16)
+
+
+def mlff_constant_from_weights(weights: dict, n_conformers: int = 8,
+                               autocast: bool = True) -> torch.Tensor:
+    """`mlff_constant` straight off an atom-encoder state dict.
+
+    The MLP is rebuilt here rather than imported from the reference so that computing
+    this constant does not need the upstream package installed -- the same reason the
+    featurizer fixtures are committed. Every parity harness on this port previously
+    carried its own copy of this module; they should call this instead.
+    """
+    pre = "process_atom_level_embedding."
+    sub = {k[len(pre):]: v for k, v in weights.items() if k.startswith(pre)}
+    if not sub:
+        raise KeyError(f"no weights under {pre!r}")
+
+    layers: list[torch.nn.Module] = []
+    for i, (a, b) in enumerate(zip(_MLFF_WIDTHS, _MLFF_WIDTHS[1:])):
+        layers.append(torch.nn.Linear(a, b))
+        if i < len(_MLFF_WIDTHS) - 2:
+            layers += [torch.nn.ReLU(), torch.nn.Dropout(0.1)]
+
+    class _Downcast(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.process_atom_level_embedding = torch.nn.Sequential(*layers)
+            self.conformers_to_atom_single_embedding = torch.nn.Sequential(
+                torch.nn.Linear(128, 128, bias=False), torch.nn.LayerNorm(128))
+
+        def forward(self, x):
+            y = self.process_atom_level_embedding(x)
+            # conformers fold into the channel axis, so [C, L, 16] -> [L, C*16]
+            y = y.permute(1, 0, 2).reshape(y.shape[1], -1)
+            return self.conformers_to_atom_single_embedding(y)
+
+    m = _Downcast().eval()
+    m.load_state_dict(sub, strict=True)
+    return mlff_constant(m, n_conformers=n_conformers, autocast=autocast)
+
+
 def assert_mlff_inputs_zero(f: dict) -> None:
     """Fail loudly rather than silently folding in a constant that no longer applies."""
     ale = f.get("atom_level_embedding")
