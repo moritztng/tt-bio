@@ -93,6 +93,47 @@ LEVERS = [
 
 HOW = {flag: how for flag, _m, _a, _c, how in LEVERS}
 
+# Six modules already keep a `(reason, shape) -> count` reject dict, and every one of them built it
+# on purpose: `trimul_tail.eligible`'s docstring says "every clause is a real assumption of the fork,
+# so a decline names which one". The census read the served/declined counts and threw the reason
+# away, so "why is this lever dark at this size" had to be argued from source instead of read off
+# the counter -- the same defect as the two size-conditioned L1 gates that had no counter at all.
+# The reason is what makes a size-ladder exemption entry evidence rather than an opinion, so record
+# it. Aggregated by reason with the shape dropped: the shape is per-call noise, the clause is the
+# finding, and a gate baseline has to stay diffable.
+REJECTS_ATTR = {
+    "TRIMUL_IN_PROJ_DUAL_NOC": "tt_bio.mm_dualnoc.REJECTS",
+    "TRIMUL_TAIL_F1": "tt_bio.trimul_tail.REJECTS",
+    "REBLOCK_PERMUTE": "tt_bio.reblock_permute.REJECTS",
+    "REBLOCK_PERMUTE_GATED": "tt_bio.reblock_permute.REJECTS",
+    "TRIATT_PERSISTENT_MASK": "tt_bio.triatt_sdpa.REJECTS",
+    "TRIATT_HEAD_MAJOR_QKV": "tt_bio.triatt_qkv.REJECTS",
+    "TRIATT_HEAD_MAJOR_TAIL": "tt_bio.triatt_qkv.TAIL_REJECTS",
+    "RFD3_SPARSE_BIAS": "tt_bio.rfd3_bias.REJECTS",
+    "RFD3_FUSED_SCORES": "tt_bio.rfd3_bias.REJECTS",
+}
+
+
+def _reject_reasons(flag):
+    """{reason: count} for one lever, or None when its module keeps no reject dict.
+
+    Keys are `(reason, shape)` in all six modules; the shape is dropped so the result is stable
+    across folds of the same model at the same size and small enough to live in a gate baseline.
+    """
+    attr = REJECTS_ATTR.get(flag)
+    if not attr:
+        return None
+    mod, _, name = attr.rpartition(".")
+    m = sys.modules.get(mod)
+    d = getattr(m, name, None) if m is not None else None
+    if not isinstance(d, dict):
+        return None
+    out = {}
+    for k, v in d.items():
+        reason = k[0] if isinstance(k, tuple) and k else str(k)
+        out[str(reason)] = out.get(str(reason), 0) + v
+    return out or None
+
 WRAP_KEYS = ("ADALN_S_HOIST", "PAIR_TRANSPOSE_VIA_ROW_MAJOR",
              "PAIR_PROJ_MINIMAL_MATMUL", "QKV_MM_CONFIG",
              "B2_BIAS_SLICE_HOIST", "B2_ADALN_S_MEMO", "TRANSPOSE_L1_RESIDENT")
@@ -204,7 +245,8 @@ def _snapshot_process():
             elif isinstance(c, (list, tuple)) and len(c) >= 2:
                 served, declined = c[0], c[1]
         rows[flag] = {"resolved": str(getattr(m, attr, "MISSING")),
-                      "served": served, "declined": declined}
+                      "served": served, "declined": declined,
+                      "rejects": _reject_reasons(flag)}
     return rows
 
 
@@ -275,18 +317,22 @@ def collect(dumpdir: Path, label: str, cli: list, rc: int) -> dict:
         except Exception:                                                # noqa: BLE001
             continue
         for flag, r in d.get("rows", {}).items():
-            a = agg.setdefault(flag, {"resolved": set(), "served": None, "declined": None})
+            a = agg.setdefault(flag, {"resolved": set(), "served": None, "declined": None,
+                                      "rejects": {}})
             a["resolved"].add(r["resolved"])
             for k in ("served", "declined"):
                 if r.get(k) is not None:
                     a[k] = (a[k] or 0) + r[k]
+            for reason, n in (r.get("rejects") or {}).items():
+                a["rejects"][reason] = a["rejects"].get(reason, 0) + n
     rows = []
     for flag, _m, _a, counter, how in LEVERS:
         a = agg.get(flag)
         rows.append({"flag": flag, "how": how, "counter": counter,
                      "resolved": "/".join(sorted(a["resolved"])) if a else "not-imported",
                      "served": a["served"] if a else None,
-                     "declined": a["declined"] if a else None})
+                     "declined": a["declined"] if a else None,
+                     "rejects": (a["rejects"] or None) if a else None})
     return {"label": label, "cli": cli, "rc": rc, "processes": len(dumps), "rows": rows}
 
 

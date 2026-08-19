@@ -344,7 +344,15 @@ CAPACITY_LEGS = [
 #   4. a dark-and-ON lever with no one-line exemption reason in the baseline is
 #      a FAIL, not a pass by silence;
 #   5. setlen levers (SDPA_Q_CHUNK_FITS) gate the overflow-set size exactly —
-#      every member is a fold that silently took the slow path.
+#      every member is a fold that silently took the slow path;
+#   6. the set of decline CLAUSES changed. Six of these modules keep a
+#      (reason, shape) reject dict and the census now records the reason, so a
+#      guard that refuses for a clause it did not refuse for before is a
+#      behaviour change with no fired-fraction and no timing signature —
+#      nothing else in this arm can see it. It is also what makes an exemption
+#      entry evidence: the TODO the recorder writes carries the measured clause
+#      ("declines on m_tiles=64"), so the human is confirming a fact instead of
+#      reconstructing one from source.
 #
 # The exponent check uses runtime_s from the fold's own results.json, which
 # excludes model load and process startup (the subprocess wall is
@@ -887,6 +895,11 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str) -> dict:
         frac = (served / total) if total else (0.0 if served == 0 else None)
         levers[r["flag"]] = {"resolved": r["resolved"], "served": served,
                              "declined": declined, "frac": frac, "how": r["how"]}
+        # The clause the guard declined on, aggregated by reason (see
+        # lever_census.REJECTS_ATTR). This is what makes an exemption entry evidence:
+        # "dark because m_tiles=64 does not divide the tuned block" instead of a story.
+        if r.get("rejects"):
+            levers[r["flag"]]["rejects"] = r["rejects"]
     results = out_dir / predict_results_dir_name(model, fixture.stem) / "results.json"
     runtime_s = None
     if results.exists():
@@ -952,6 +965,13 @@ def _size_ladder_compare_levers(base: dict, cur: dict, where: str) -> list:
         if (fb == 0.0) != (fc == 0.0):
             findings.append(f"{where} {flag}: frac {fb:.3f} -> {fc:.3f} "
                             f"({'went dark' if fc == 0.0 else 'started firing'})")
+        elif sorted((b.get("rejects") or {})) != sorted((c.get("rejects") or {})):
+            # Same fired fraction, different clause: the guard is refusing for a reason
+            # it did not refuse for when the baseline was taken. That is a behaviour
+            # change with no timing signature at all, so nothing else in this arm sees it.
+            findings.append(f"{where} {flag}: decline clause "
+                            f"{sorted(b.get('rejects') or {})} -> "
+                            f"{sorted(c.get('rejects') or {})}")
         elif abs(fc - fb) > SIZE_LADDER_FRAC_TOL:
             findings.append(f"{where} {flag}: frac {fb:.3f} -> {fc:.3f} exceeds the "
                             f"{SIZE_LADDER_FRAC_TOL} band (partial darkness)")
@@ -1036,8 +1056,11 @@ def _size_ladder_fill_reasons(levers: dict, old_levers: dict) -> int:
             if old and not old.startswith("TODO"):
                 e["reason"] = old
             else:
-                e["reason"] = ("TODO: one line on why this lever is legitimately "
-                               "dark at this size")
+                clause = ", ".join(f"{k}={v}" for k, v in
+                                   sorted((e.get("rejects") or {}).items(),
+                                          key=lambda kv: -kv[1])[:3])
+                e["reason"] = ("TODO: say why this is legitimate at this size"
+                               + (f" (declines on {clause})" if clause else ""))
                 todo += 1
     return todo
 
