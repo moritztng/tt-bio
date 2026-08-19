@@ -88,8 +88,12 @@ def validate(out_dir, n_expected, exp_atoms, exp_res):
         nf = sum(1 for ch in st[0] for r in ch for a in r
                  if not all(abs(v) < 1e6 and v == v for v in (a.pos.x, a.pos.y, a.pos.z)))
         atoms.append(na)
-        if na != exp_atoms:
-            bad.append("%s: %d atoms != %d" % (c.name, na, exp_atoms))
+        # Atom count is recorded, never asserted. 16dfe4db wired the sequence head through to
+        # the CIF and 9a401c01 stopped writing template atom names with all-carbon elements, so
+        # the written structure now carries the designed residues real side chains and its atom
+        # count varies per design (5112-5129 at R4). The rung atom figure is the fixture input
+        # size and stopped matching the output at those two commits. Residue topology and
+        # finiteness are the design invariants, which is what the docstring above already says.
         if nr != exp_res:
             bad.append("%s: %d residues != %d" % (c.name, nr, exp_res))
         if nf:
