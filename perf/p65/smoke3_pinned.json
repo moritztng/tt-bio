@@ -1,0 +1,67 @@
+{
+  "rows": [
+    {
+      "arm": "off",
+      "rep": 0,
+      "sampler_s": 3.791,
+      "cif_sha256_16": "8f77ad6bd4e3f846",
+      "n_cifs": 1
+    },
+    {
+      "arm": "on",
+      "rep": 1,
+      "sampler_s": 3.736,
+      "cif_sha256_16": "8f77ad6bd4e3f846",
+      "n_cifs": 1
+    },
+    {
+      "arm": "off",
+      "rep": 2,
+      "sampler_s": 3.818,
+      "cif_sha256_16": "8f77ad6bd4e3f846",
+      "n_cifs": 1
+    },
+    {
+      "arm": "on",
+      "rep": 3,
+      "sampler_s": 3.707,
+      "cif_sha256_16": "8f77ad6bd4e3f846",
+      "n_cifs": 1
+    }
+  ],
+  "num_timesteps": 3,
+  "seed": 42,
+  "arms": [
+    "off",
+    "on",
+    "off",
+    "on"
+  ],
+  "discarded_warmup_s": 8.97,
+  "bit_exact": true,
+  "digests": {
+    "on": [
+      "8f77ad6bd4e3f846"
+    ],
+    "off": [
+      "8f77ad6bd4e3f846"
+    ]
+  },
+  "aa_control_s": [
+    3.791,
+    3.818
+  ],
+  "aa_spread_s": 0.027000000000000135,
+  "off_median_s": 3.8045,
+  "off_min_s": 3.791,
+  "off_max_s": 3.818,
+  "on_median_s": 3.7215,
+  "on_min_s": 3.707,
+  "on_max_s": 3.736,
+  "delta_s": -0.083,
+  "ratio": 1.0223,
+  "predicted_delta_s": -7.24,
+  "host": "qb2",
+  "card": 2,
+  "torch": "2.13.0+cpu"
+}

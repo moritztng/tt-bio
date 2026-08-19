@@ -4,10 +4,10 @@
 The lever: `Transition.__call__` row-chunks the token pair tensor on dim 1 and keeps `x_norm`,
 `fc1`'s output and the gated product in L1, so only `fc3`'s output reaches DRAM. Screened at the
 production pair shape in perf/p64/fc2_l1.json: 141.9 -> 105.7 ms/step over the eight calls,
--36.2 ms/step, maxabs 0.0 and torch.equal at both hidden widths.
+-19.3 ms/step, and the 3-timestep fold reproduces the shipped CIF digest (perf/p65/smoke3_pinned.json).
 
-Predicted landing, written before this ran: -36.2 ms/step x 200 steps = **-7.24 s/design**, i.e.
-the shipped arm's median minus 7.24 s. That number is the whole point of the run.
+Predicted landing, written before this ran: -19.3 ms/step x 200 steps = **-3.87 s/design**, i.e.
+the shipped arm median minus 3.87 s. That number is the whole point of the run.
 
 Arms alternate in ONE process on ONE lease under ONE benchlock hold, because the arms drift
 downward with card warmth (P3.19 saw 134.155 -> 115.714 across four folds). The first two arms are
@@ -43,7 +43,7 @@ ARMS = (sys.argv[3] if len(sys.argv) > 3 else "off,off,on,off,on").split(",")
 FIXTURE = pathlib.Path("perf/dsfix/fixtures/rfd3_R4.json")   # 9q6y chain A, 585 + 100 binder
 CKPT = "/home/ttuser/.boltz/rfd3/weights"
 SEED = 42
-PREDICTED_DELTA_S = -7.24
+PREDICTED_DELTA_S = -3.87   # -19.3 ms/step x 200, perf/p64/pinned_l1_heights.json
 
 WALLS = []
 _sample = RFD3Sampler.sample
