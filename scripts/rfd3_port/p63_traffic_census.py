@@ -25,7 +25,7 @@ The cost model is three MEASURED roofs plus one fitted constant:
 
 Units: MB/(GB/s) = ms and GFLOP/(TFLOP/s) = ms, so every term is already ms.
 """
-import json, sys
+import json, os, sys
 
 READ_ROOF = 390.0        # GB/s
 WRITE_DRAIN = 163.9      # GB/s, measured single-RISC out-CB drain
@@ -84,7 +84,10 @@ def op(region, label, n, r, w, g, ir, iw, ig, note, wkind="copy"):
 
 
 # ---------------------------------------------------------------- transition helper
-def transition(region, label, n, unit, hidden, chan, note_extra=""):
+LEVER = os.environ.get("P63_LEVER") == "1"
+
+
+def transition(region, label, n, unit, hidden, chan, note_extra="", l1=False):
     """One RFD3 Transition (model.py:514): rms_norm, fc1(silu), fc2, multiply, fc3, residual add.
 
     `unit` is the bytes of one [.., chan] tensor; the hidden tensors are unit*hidden/chan.
@@ -95,6 +98,29 @@ def transition(region, label, n, unit, hidden, chan, note_extra=""):
     h = unit * hidden / c32(chan)
     m = PAIRROWS if unit >= 100 else IP
     fl = 3 * mm_gflop(m, c32(chan), hidden)
+    if LEVER and l1:
+        # RFD3_PAIR_TRANSITION_L1 (model.py:189). Row-chunked on dim 1; `fc2`'s output and the
+        # gated product live in L1, so `b` is never written or read back and `m` is never written
+        # or read back. `x_norm` and `fc1`'s output stay in DRAM -- `fc1` cannot take a pinned
+        # program config and re-blocks when either side of it moves to L1 (perf/p66). The chunking
+        # adds a slice and a closing concat, each one read and one write of the pair tensor, and
+        # those are priced here and not hidden.
+        op(region, f"{label}: row slice (dim 1, untiled)", n, unit, unit, 0, 0, 0, 0,
+           "the chunking's cost, not its prize")
+        op(region, f"{label}: rms_norm", n, unit, unit, 0, 0, 0, 0, "folded into the fused block")
+        op(region, f"{label}: fc1 silu [{chan}->{hidden}]", n, unit, h, fl / 3, 0, 0, fl / 3,
+           "still DRAM: fc1 re-blocks on L1", "mm")
+        op(region, f"{label}: fc2 [{chan}->{hidden}] -> L1", n, unit, 0, fl / 3, 0, 0, fl / 3,
+           "pinned config, output resident", "mm")
+        op(region, f"{label}: multiply a*b -> L1", n, h, 0, 0, 0, 0, 0,
+           "reads a from DRAM, b from L1, result resident")
+        op(region, f"{label}: fc3 [{hidden}->{chan}]", n, 0, unit, fl / 3, 0, 0, fl / 3,
+           "reads m from L1", "mm")
+        op(region, f"{label}: closing concat (dim 1)", n, unit, unit, 0, 0, 0, 0,
+           "the chunking's cost, not its prize")
+        op(region, f"{label}: residual add", n, 2 * unit, unit, 0, unit, unit, 0,
+           "the ONE read and ONE write the whole Transition needs" + note_extra)
+        return
     op(region, f"{label}: rms_norm", n, unit, unit, 0, 0, 0, 0, "folded into the fused block")
     op(region, f"{label}: fc1 silu [{chan}->{hidden}]", n, unit, h, fl / 3, 0, 0, fl / 3, "compute stays", "mm")
     op(region, f"{label}: fc2 [{chan}->{hidden}]", n, unit, h, fl / 3, 0, 0, fl / 3, "compute stays", "mm")
@@ -127,8 +153,8 @@ op(R1, "process_z linear 258->128", 2,
    U + 2 * 1.93, U, mm_gflop(PAIRROWS, 288, 128),
    "IRREDUCIBLE: read z + the two bin maps once, write z once. The one-hot half of the "
    "matmul is two weight-row gathers, so its FLOPs are kept as an upper bound.", "mm")
-transition(R1, "transition_2 x2 [z,128,H=256]", 4, U, 256, 128)
-transition(R1, "pairformer z_transition x2 [z,128,H=512]", 4, U, 512, 128)
+transition(R1, "transition_2 x2 [z,128,H=256]", 4, U, 256, 128, l1=True)
+transition(R1, "pairformer z_transition x2 [z,128,H=512]", 4, U, 512, 128, l1=True)
 # PairformerAttention x2 x 2 recycles
 op(R1, "pf attn: rms_norm(z)", 4, U, U, 0, 0, 0, 0, "fused into the pair pass")
 op(R1, "pf attn: to_b linear 128->16", 4, U, PAIR(32), mm_gflop(PAIRROWS, 128, 32),
