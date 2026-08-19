@@ -972,15 +972,29 @@ def _find_ttnn_mesh_graph_descriptor(filename: str) -> str | None:
     return None
 
 
+def _visible_tt_devices() -> list[int]:
+    """UMD indices a device open sees right now: ``TT_VISIBLE_DEVICES`` if set
+    (index or PCI BDF tokens), else every card under /dev/tenstorrent."""
+    visible = os.environ.get("TT_VISIBLE_DEVICES")
+    if visible and visible.strip():
+        from tt_bio.runtime import visible_device_indices
+        return visible_device_indices(visible)
+    return sorted(int(p.name) for p in Path("/dev/tenstorrent").glob("[0-9]*"))
+
+
 def _p300_mesh_descriptor(device: int | None = None) -> str | None:
     """The 1x1 mesh-graph descriptor a lone P300 chip needs to open, or None.
 
     A single P300 chip is a custom topology and ttnn refuses to open it without one
     ("Custom fabric mesh graph descriptor path must be specified for CUSTOM cluster
-    type"). Pass ``device`` to ask about one chip rather than the host.
+    type"). With more than one chip visible the descriptor must NOT be set: ttnn
+    opens the board as a mesh, and a 1x1 graph then fails with "Physical chip id 0
+    not found in control plane chip mapping" (issue #11). Pass ``device`` to ask
+    about one chip rather than the visible set.
     """
     p300 = _detect_p300_devices()
-    if not p300 or (device is not None and device not in p300):
+    visible = [device] if device is not None else _visible_tt_devices()
+    if len(visible) != 1 or visible[0] not in p300:
         return None
     return _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
 
@@ -1009,7 +1023,13 @@ def _build_worker_device_assignments(devices: list[int]) -> dict[int, dict[str, 
     chip is a custom topology, those workers also get a 1x1 Blackhole MGD.
     """
     p300_devices = set(_detect_p300_devices())
-    p300_mgd = None if os.environ.get("TT_MESH_GRAPH_DESC_PATH") else _p300_mesh_descriptor()
+    # Each worker is pinned to exactly one chip, so a P300 worker always needs the
+    # 1x1 descriptor regardless of how many chips the parent can see.
+    p300_mgd = (
+        None
+        if os.environ.get("TT_MESH_GRAPH_DESC_PATH") or not p300_devices
+        else _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
+    )
 
     assignments: dict[int, dict[str, object]] = {}
     for device in devices:

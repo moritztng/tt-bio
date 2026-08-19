@@ -1,4 +1,5 @@
 import os
+import sys
 import contextlib
 import torch, ttnn, atexit
 from torch import nn
@@ -338,6 +339,43 @@ TRIANGLE_MULT_L1_CHUNK_BUDGET = 64 * 320 * 320
 # Tightens the L1-edge chunking thresholds and chunk sizes above this comment block.
 _IS_SMALL_GRID = False
 
+# Per-process record of trimul chunk widths that threw an L1/circular-buffer clash at
+# program creation, keyed by call shape. The budget above was measured on a 130-core
+# p150a; on a 110-core Blackhole (p300/p300c) the in-projection's static circular
+# buffers take more per core and the budget admits widths that do not fit beside the
+# pair tensors live at the call site (issue #11: a 140-token protein+ligand dies in
+# the MSA stack's pair layer at the width the budget picks, 256, and even at 128).
+# What the budget cannot see is that the live set differs by call site, so no single
+# measured constant separates fit from clash on every grid; the clash itself can.
+# It throws at program validation, before any kernel runs, so catching it and
+# re-running the channel loop at a narrower width is safe, and narrowing is bit-exact:
+# the width is a partition of an independent-channel sum (see `_trimul_chunk_size`).
+# Value: the smallest width known to clash for the key.
+_TRIMUL_CHUNK_CLASH: dict = {}
+# Test-only (scripts/release_gate.py's l1-budget leg): start the channel loop at this width
+# instead of the one the budget picks, so a fold can be pinned to the width a clash would
+# narrow it to and the two runs compared byte for byte. Unset in production. This is the
+# knob the l1-budget leg needs and a per-core-L1 override is not: on the part that broke
+# issue #11 the per-core unreserved L1 is 1,532,416 B, the same as a p150a's — what differs
+# is core count, and TT_BIO_FORCE_GRID already forces that.
+_TRIMUL_CHUNK_CAP = int(os.environ.get("TT_BIO_TRIMUL_CHUNK_CAP", "") or 0)
+
+# Seq lengths whose trimul does not fit in L1 even at the minimum width take the DRAM
+# path instead: same ops, same arithmetic, the residency threshold's other side.
+_TRIMUL_DRAM_SHAPES: set = set()
+
+
+def _trimul_chunk_key(seq_len: int, hidden: int, batch: int) -> tuple:
+    return (int(seq_len), int(hidden), int(batch), bool(_FAST_MODE),
+            tuple(COMPUTE_GRID_MAIN))
+
+
+def _record_trimul_clash(seq_len: int, hidden: int, batch: int, width: int) -> None:
+    key = _trimul_chunk_key(seq_len, hidden, batch)
+    prev = _TRIMUL_CHUNK_CLASH.get(key)
+    if prev is None or width < prev:
+        _TRIMUL_CHUNK_CLASH[key] = width
+
 # Wormhole 8x9 re-fit of the two trimul constants above. `_apply_grid_thresholds` derives its
 # small-grid values by scaling the Blackhole ones -- the residency threshold by per-core L1 (which
 # fell 7 %) and the chunk budget by core count (which fell 45 %) -- and neither scaling has ever
@@ -492,6 +530,8 @@ def _trimul_l1_max_seq() -> int:
 
 
 def _triangle_mul_memory_config(seq_len: int) -> ttnn.MemoryConfig:
+    if seq_len in _TRIMUL_DRAM_SHAPES:
+        return ttnn.DRAM_MEMORY_CONFIG
     return ttnn.L1_MEMORY_CONFIG if seq_len <= _trimul_l1_max_seq() else ttnn.DRAM_MEMORY_CONFIG
 
 
@@ -541,6 +581,15 @@ def _trimul_chunk_size(seq_len: int, hidden: int, batch: int = 1) -> int:
     _sq = (-(-int(seq_len) // 32) * 32) if _IS_SMALL_GRID else seq_len
     while hidden % (c * 2) == 0 and batch * (c * 2) * _sq * _sq <= budget:
         c *= 2
+    while _TRIMUL_CHUNK_CAP and c > _TRIMUL_CHUNK_CAP and c > TRIANGLE_MULT_CHUNK_SIZE:
+        c //= 2
+    # Clamp below any width already seen to clash at this exact call shape (issue
+    # 11): the budget is a 130-core calibration, and a tighter grid learns its
+    # ceiling from the clash itself. Monotonic: a narrower chunk always holds less
+    # L1, so below a recorded clash is the safe side.
+    failed = _TRIMUL_CHUNK_CLASH.get(_trimul_chunk_key(seq_len, hidden, batch))
+    while failed is not None and c >= failed and c > TRIANGLE_MULT_CHUNK_SIZE:
+        c //= 2
     return c
 
 
@@ -2832,97 +2881,139 @@ class TriangleMultiplication(Module):
         # enough that the concat's full-size allocation would risk a fragmented-DRAM
         # refusal; the loop then holds at most one chunk on device (CONCAT_HOST_BYTES).
         host_acc = large_seq and _host_concat(x_in)
+        # The channel loop's L1 footprint is set by chunk_size, and the budget that
+        # picked it is a 130-core calibration: on a tighter grid (110-core p300/p300c)
+        # the picked width can clash at program creation (issue #11). The clash throws
+        # at program validation, before anything runs, so re-running the loop at a
+        # narrower width is safe, and narrowing is bit-exact (a partition of an
+        # independent-channel sum). The clash is recorded, so a shape pays one failed
+        # compile per process and every later call starts narrow.
         x_chunks = []
-        for i in range(n_pairs // group):
-            gp_in_fused = (
-                self._in_proj_rows(x_in, gp_in_chunks[i], H, batch, memory_config)
-                if row_norm else
-                _in_proj_matmul(x_norm_in, gp_in_chunks[i],
-                                self.compute_kernel_config, memory_config)
-            )
-            perm_a = (0, 3) + ((2, 1) if self.ending else (1, 2))
-            perm_b = (0, 3) + ((1, 2) if self.ending else (2, 1))
-            slice_c = int(gp_in_fused.shape[-1]) // 4
-            # The fused path only replaces the (0,3,1,2) move, which is the leg `_transform_chunk`
-            # decomposes to on the DRAM path. A mask multiply or --fast's typecasts would have to
-            # ride inside the kernel too, so those keep the four-way split.
-            gated = (
-                self.gated_move
-                and mask_u is None
-                and not _FAST_MODE
-                and not _TRIMUL_RAW_CHANNEL_MOVES
-                and memory_config.buffer_type == ttnn.BufferType.DRAM
-                and _reblock.eligible_gated(gp_in_fused, slice_c, memory_config)
-            )
-            if gated:
-                a_chunk = self._transform_chunk_gated(
-                    gp_in_fused, (2 * slice_c, 0, slice_c), perm_a, memory_config,
-                    n_pairs // group > 1,
-                )
-                b_chunk = self._transform_chunk_gated(
-                    gp_in_fused, (3 * slice_c, slice_c, slice_c), perm_b, memory_config,
-                    n_pairs // group > 1,
-                )
-                ttnn.deallocate(gp_in_fused)
-            else:
-                g_in_a, g_in_b, p_in_a, p_in_b = ttnn.chunk(gp_in_fused, chunks=4, dim=-1)
-                ttnn.deallocate(gp_in_fused)
-                a_chunk = ttnn.multiply_(
-                    p_in_a, g_in_a, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
-                )
-                b_chunk = ttnn.multiply_(
-                    p_in_b, g_in_b, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
-                )
-                ttnn.deallocate(g_in_a)
-                ttnn.deallocate(g_in_b)
-                if mask_u is not None:
-                    a_chunk = ttnn.multiply_(a_chunk, mask_u)
+        while True:
+            try:
+                for i in range(n_pairs // group):
+                    gp_in_fused = (
+                        self._in_proj_rows(x_in, gp_in_chunks[i], H, batch, memory_config)
+                        if row_norm else
+                        _in_proj_matmul(x_norm_in, gp_in_chunks[i],
+                                        self.compute_kernel_config, memory_config)
+                    )
+                    perm_a = (0, 3) + ((2, 1) if self.ending else (1, 2))
+                    perm_b = (0, 3) + ((1, 2) if self.ending else (2, 1))
+                    slice_c = int(gp_in_fused.shape[-1]) // 4
+                    # The fused path only replaces the (0,3,1,2) move, which is the leg `_transform_chunk`
+                    # decomposes to on the DRAM path. A mask multiply or --fast's typecasts would have to
+                    # ride inside the kernel too, so those keep the four-way split.
+                    gated = (
+                        self.gated_move
+                        and mask_u is None
+                        and not _FAST_MODE
+                        and not _TRIMUL_RAW_CHANNEL_MOVES
+                        and memory_config.buffer_type == ttnn.BufferType.DRAM
+                        and _reblock.eligible_gated(gp_in_fused, slice_c, memory_config)
+                    )
+                    if gated:
+                        a_chunk = self._transform_chunk_gated(
+                            gp_in_fused, (2 * slice_c, 0, slice_c), perm_a, memory_config,
+                            n_pairs // group > 1,
+                        )
+                        b_chunk = self._transform_chunk_gated(
+                            gp_in_fused, (3 * slice_c, slice_c, slice_c), perm_b, memory_config,
+                            n_pairs // group > 1,
+                        )
+                        ttnn.deallocate(gp_in_fused)
+                    else:
+                        g_in_a, g_in_b, p_in_a, p_in_b = ttnn.chunk(gp_in_fused, chunks=4, dim=-1)
+                        ttnn.deallocate(gp_in_fused)
+                        a_chunk = ttnn.multiply_(
+                            p_in_a, g_in_a, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
+                        )
+                        b_chunk = ttnn.multiply_(
+                            p_in_b, g_in_b, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
+                        )
+                        ttnn.deallocate(g_in_a)
+                        ttnn.deallocate(g_in_b)
+                        if mask_u is not None:
+                            a_chunk = ttnn.multiply_(a_chunk, mask_u)
 
-                a_chunk = self._transform_chunk(
-                    a_chunk, perm_a, memory_config=memory_config, realloc=n_pairs // group > 1,
-                )
-                b_chunk = self._transform_chunk(
-                    b_chunk, perm_b, memory_config=memory_config, realloc=n_pairs // group > 1,
-                )
-            x_chunk = ttnn.matmul(
-                a_chunk,
-                b_chunk,
-                compute_kernel_config=self.compute_kernel_config,
-                memory_config=memory_config,
-                program_config=program_config,
-                dtype=ttnn.bfloat16,
-            )
-            ttnn.deallocate(a_chunk)
-            ttnn.deallocate(b_chunk)
-            # Move the channel chunk from the batch axis back to the last axis:
-            # permute(0,2,3,1). On the large-L DRAM path, a single permute is a
-            # 3-way rotation of the last three axes (~6ms at L=1024); the
-            # equivalent transpose(1,2) then transpose(2,3) is ~2.6ms (the inner
-            # transpose is tile-local) and BIT-EXACT. On the small-L L1 path the
-            # single permute is marginally faster, so keep it there.
-            if large_seq and not _TRIMUL_RAW_CHANNEL_MOVES:
-                x_chunk_t = _channel_move_back(x_chunk, memory_config)
-                ttnn.deallocate(x_chunk)
-                x_chunk = x_chunk_t
-            else:
-                # The channel move is the last touch of the chunk before the concat, so
-                # on the L1 path it writes its result straight to DRAM: the separate
-                # clone that used to move it there was a whole extra round trip of the
-                # chunk (13.1 MB each way at 298 aa) for no arithmetic. Index-only, so
-                # bit-exact either way.
-                x_chunk = ttnn.permute(
-                    x_chunk, (0, 2, 3, 1),
-                    memory_config=ttnn.DRAM_MEMORY_CONFIG if _TRIMUL_OUT_MOVE_DRAM
-                    else memory_config,
-                )
-            if large_seq or _TRIMUL_OUT_MOVE_DRAM:
-                _acc_append(x_chunks, x_chunk, host_acc)
-            else:
-                # L1-resident chunk: move it to DRAM so all n_pairs can be held at
-                # once for the single concat.
-                moved = ttnn.clone(x_chunk, memory_config=ttnn.DRAM_MEMORY_CONFIG)
-                ttnn.deallocate(x_chunk)
-                x_chunks.append(moved)
+                        a_chunk = self._transform_chunk(
+                            a_chunk, perm_a, memory_config=memory_config, realloc=n_pairs // group > 1,
+                        )
+                        b_chunk = self._transform_chunk(
+                            b_chunk, perm_b, memory_config=memory_config, realloc=n_pairs // group > 1,
+                        )
+                    x_chunk = ttnn.matmul(
+                        a_chunk,
+                        b_chunk,
+                        compute_kernel_config=self.compute_kernel_config,
+                        memory_config=memory_config,
+                        program_config=program_config,
+                        dtype=ttnn.bfloat16,
+                    )
+                    ttnn.deallocate(a_chunk)
+                    ttnn.deallocate(b_chunk)
+                    # Move the channel chunk from the batch axis back to the last axis:
+                    # permute(0,2,3,1). On the large-L DRAM path, a single permute is a
+                    # 3-way rotation of the last three axes (~6ms at L=1024); the
+                    # equivalent transpose(1,2) then transpose(2,3) is ~2.6ms (the inner
+                    # transpose is tile-local) and BIT-EXACT. On the small-L L1 path the
+                    # single permute is marginally faster, so keep it there.
+                    if large_seq and not _TRIMUL_RAW_CHANNEL_MOVES:
+                        x_chunk_t = _channel_move_back(x_chunk, memory_config)
+                        ttnn.deallocate(x_chunk)
+                        x_chunk = x_chunk_t
+                    else:
+                        # The channel move is the last touch of the chunk before the concat, so
+                        # on the L1 path it writes its result straight to DRAM: the separate
+                        # clone that used to move it there was a whole extra round trip of the
+                        # chunk (13.1 MB each way at 298 aa) for no arithmetic. Index-only, so
+                        # bit-exact either way.
+                        x_chunk = ttnn.permute(
+                            x_chunk, (0, 2, 3, 1),
+                            memory_config=ttnn.DRAM_MEMORY_CONFIG if _TRIMUL_OUT_MOVE_DRAM
+                            else memory_config,
+                        )
+                    if large_seq or _TRIMUL_OUT_MOVE_DRAM:
+                        _acc_append(x_chunks, x_chunk, host_acc)
+                    else:
+                        # L1-resident chunk: move it to DRAM so all n_pairs can be held at
+                        # once for the single concat.
+                        moved = ttnn.clone(x_chunk, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+                        ttnn.deallocate(x_chunk)
+                        x_chunks.append(moved)
+                break
+            except RuntimeError as e:
+                if large_seq or "clash with L1 buffers" not in str(e):
+                    raise
+                for _t in x_chunks:
+                    ttnn.deallocate(_t)
+                x_chunks = []
+                # Drop the interrupted iteration's intermediates: whatever was live
+                # at the throw still holds L1, and the retry must allocate against a
+                # clean slate, not against the corpse of the failed attempt.
+                gp_in_fused = g_in_a = g_in_b = p_in_a = p_in_b = None
+                a_chunk = b_chunk = x_chunk = None
+                _record_trimul_clash(H, self._hidden, batch, chunk_size)
+                # tt-metal logs the clash at `critical` before raising, which reads like a
+                # fatal error to anyone watching the fold. Say what actually happened.
+                print(f"[tt-bio] trimul L1/circular-buffer clash at chunk width {chunk_size} "
+                      f"(seq {H}, {COMPUTE_GRID_MAIN[0]}x{COMPUTE_GRID_MAIN[1]} grid): "
+                      f"retrying narrower. The tt-metal 'critical' line above is expected and "
+                      f"handled; the result is unchanged.", file=sys.stderr, flush=True)
+                if chunk_size > TRIANGLE_MULT_CHUNK_SIZE:
+                    chunk_size = _trimul_chunk_size(H, self._hidden, batch)
+                    n_pairs = self._hidden // chunk_size
+                    gp_in_chunks = self._gp_in_chunks(chunk_size, group)
+                else:
+                    # Minimum width still clashes: this shape's trimul does not fit in
+                    # L1 on this grid at all. Take the residency threshold's other
+                    # side -- the same ops with the pair tensors in DRAM.
+                    _TRIMUL_DRAM_SHAPES.add(H)
+                    memory_config = ttnn.DRAM_MEMORY_CONFIG
+                    large_seq = True
+                    host_acc = _host_concat(x_in)
+                    group = _trimul_inproj_group(H, chunk_size, batch, n_pairs)
+                    gp_in_chunks = self._gp_in_chunks(chunk_size, group)
         if x_norm_in is not None and H > SEQ_LEN_MORE_CHUNKING:
             # x_norm_in is dead on the row-blocked tail path (both norms are
             # recomputed per row block from x_in). Freeing it before the concat

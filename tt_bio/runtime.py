@@ -121,6 +121,50 @@ def discover_jobs(data: Path, structure_dir: Path, output_format: str, override:
     return [PredictionJob(id=p.stem, path=p) for p in files]
 
 
+def tt_bdf_to_index() -> dict[str, int]:
+    """PCI BDF -> UMD index for every Tenstorrent card, from the sysfs class."""
+    out: dict[str, int] = {}
+    for entry in glob.glob("/sys/class/tenstorrent/tenstorrent!*/device"):
+        idx = int(os.path.basename(os.path.dirname(entry)).rsplit("!", 1)[-1])
+        out[os.path.basename(os.path.realpath(entry)).lower()] = idx
+    return out
+
+
+def visible_device_indices(visible: str) -> list[int]:
+    """Parse a ``TT_VISIBLE_DEVICES`` value into UMD device indices.
+
+    ttnn's device open accepts either form per token: a UMD index (``0``) or a PCI
+    BDF (``0000:01:00.0``). BDFs resolve through the tenstorrent sysfs class, whose
+    per-card ``device`` symlink names the card's PCI address; a token that matches
+    no card raises a ValueError naming the index form, so a typo fails here with a
+    clear message instead of at device open (issue #11).
+    """
+    indices: list[int] = []
+    bdfs: list[str] = []
+    for tok in visible.split(","):
+        tok = tok.strip()
+        if not tok:
+            continue
+        try:
+            indices.append(int(tok))
+        except ValueError:
+            bdfs.append(tok.lower())
+    if bdfs:
+        by_bdf = tt_bdf_to_index()
+        for bdf in bdfs:
+            match = next((idx for full, idx in by_bdf.items()
+                          if full == bdf or full.endswith(":" + bdf)), None)
+            if match is None:
+                known = ", ".join(f"{idx} ({full})" for full, idx in sorted(by_bdf.items()))
+                raise ValueError(
+                    f"TT_VISIBLE_DEVICES entry '{bdf}' matches no Tenstorrent card "
+                    f"(present: {known or 'none detected'}). Use the UMD index form, "
+                    "e.g. TT_VISIBLE_DEVICES=0."
+                )
+            indices.append(match)
+    return indices
+
+
 def detect_tenstorrent_devices(device_ids: str | None, num_devices: int, max_workers: int) -> list[int]:
     """Return TT device IDs selected for this run without importing ttnn.
 
@@ -139,7 +183,7 @@ def detect_tenstorrent_devices(device_ids: str | None, num_devices: int, max_wor
     # ambient-visible set).
     visible = os.environ.get("TT_VISIBLE_DEVICES")
     if visible is not None:
-        allowed = {int(d.strip()) for d in visible.split(",") if d.strip()}
+        allowed = set(visible_device_indices(visible))
         all_devices = [d for d in all_devices if d in allowed]
     if device_ids:
         requested = [int(d.strip()) for d in device_ids.split(",") if d.strip()]
