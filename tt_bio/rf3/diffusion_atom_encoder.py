@@ -22,8 +22,8 @@ from __future__ import annotations
 import torch
 import ttnn
 
-from tt_bio.rf3.atom_encoder import AtomAttentionEncoder
-from tt_bio.tenstorrent import CORE_GRID_MAIN, _dtype
+from tt_bio.rf3.atom_encoder import (ATOM_KEYS, ATOM_WINDOW, AtomAttentionEncoder)
+from tt_bio.tenstorrent import CORE_GRID_MAIN, _dtype, batched_matmul
 
 C_TOKEN_DIFFUSION = 768
 
@@ -52,35 +52,40 @@ class DiffusionAtomEncoder(AtomAttentionEncoder):
                         core_grid=CORE_GRID_MAIN)
         return ttnn.matmul(a2t, s, compute_kernel_config=self.compute_kernel_config)
 
-    def _trunk_pair(self, z: ttnn.Tensor, a2t: ttnn.Tensor,
-                    a2t_t: ttnn.Tensor) -> ttnn.Tensor:
-        """process_z(Z)[..., tok_idx, :, :][..., tok_idx, :].
+    def _trunk_pair(self, z: ttnn.Tensor, a2t: ttnn.Tensor, a2t_win: ttnn.Tensor,
+                    n_pad: int) -> ttnn.Tensor:
+        """process_z(Z)[..., tok_idx, :, :][..., tok_idx, :], windowed.
 
         With `broadcast_trunk_feats_on_1dim_old=False` this checkpoint takes the DOUBLE
         gather, i.e. both axes are expanded token->atom. As a matmul that is
-        A @ Z @ A^T per channel, which is what the two matmuls below do.
+        A @ Z @ A^T per channel.
+
+        The query gather has to produce every atom row, so it is the dense
+        [Lp, I] @ [I, I*c] and is unchanged. The key gather only ever needs each query
+        block's own 128 keys, so it becomes a batched [K, 32c, I] @ [K, I, 128] against
+        the windowed one-hot -- the Lp/128 saving, on the one matmul that carried the
+        atom-pair track's cost. Folding the channel axis into the row axis keeps both
+        operands rank 4 with matching leading dims, which is what `batched_matmul`
+        needs to spread the K windows over the core grid.
         """
         p = ttnn.layer_norm(z, weight=self.z_norm_w, bias=self.z_norm_b, epsilon=1e-5,
                             compute_kernel_config=self.compute_kernel_config)
         p = ttnn.linear(p, self.z_w, compute_kernel_config=self.compute_kernel_config)
         _, i_tok, _, c_pair = p.shape
-        l_atom = a2t.shape[1]
-        # Both gathers are done as rank-3 matmuls. Folding the channel axis into the
-        # non-gathered token axis keeps every operand rank 3: ttnn's matmul requires
-        # equal ranks and will not broadcast a [1, L, I] map against a
-        # [1, c_pair, I, I] batch.
+        k = n_pad // ATOM_WINDOW
         g = ttnn.matmul(a2t, ttnn.reshape(p, (1, i_tok, i_tok * c_pair)),
                         compute_kernel_config=self.compute_kernel_config)
-        g = ttnn.reshape(g, (1, l_atom, i_tok, c_pair))
-        g = ttnn.permute(g, (0, 1, 3, 2))                      # [1, L, c_pair, I]
-        g = ttnn.reshape(g, (1, l_atom * c_pair, i_tok))
-        g = ttnn.matmul(g, a2t_t, compute_kernel_config=self.compute_kernel_config)
-        g = ttnn.reshape(g, (1, l_atom, c_pair, l_atom))
-        return ttnn.permute(g, (0, 1, 3, 2))                   # [1, L, L, c_pair]
+        g = ttnn.reshape(g, (1, n_pad, i_tok, c_pair))
+        g = ttnn.permute(g, (0, 1, 3, 2))                      # [1, Lp, c_pair, I]
+        g = ttnn.reshape(g, (1, k, ATOM_WINDOW * c_pair, i_tok))
+        g = batched_matmul(g, a2t_win,
+                           compute_kernel_config=self.compute_kernel_config)
+        g = ttnn.reshape(g, (k, ATOM_WINDOW, c_pair, ATOM_KEYS))
+        return ttnn.permute(g, (0, 1, 3, 2))                   # [K, W, KEYS, c_pair]
 
     def __call__(self, single_in, pair_in, v, keys_indexing, atom_to_token,
                  mask, n_pad, s_trunk, z_trunk, r_noisy, chiral, a2t_onehot,
-                 a2t_onehot_t):
+                 a2t_win):
         c = self.single(single_in)
         p = ttnn.multiply(
             ttnn.linear(pair_in, self.pair_w,
@@ -88,7 +93,7 @@ class DiffusionAtomEncoder(AtomAttentionEncoder):
 
         q = c                                        # PRE-trunk, deliberately
         c = ttnn.add(c, self._trunk_single(s_trunk, a2t_onehot))
-        p = ttnn.add(p, self._trunk_pair(z_trunk, a2t_onehot, a2t_onehot_t))
+        p = ttnn.add(p, self._trunk_pair(z_trunk, a2t_onehot, a2t_win, n_pad))
 
         q = ttnn.add(ttnn.linear(r_noisy, self.r_w,
                                  compute_kernel_config=self.compute_kernel_config), q)
@@ -96,16 +101,7 @@ class DiffusionAtomEncoder(AtomAttentionEncoder):
             q = ttnn.add(ttnn.linear(chiral, self.ch_w,
                                      compute_kernel_config=self.compute_kernel_config), q)
 
-        rc = ttnn.relu(c)
-        p = ttnn.add(p, ttnn.unsqueeze(
-            ttnn.linear(rc, self.sl, compute_kernel_config=self.compute_kernel_config), -2))
-        p = ttnn.add(p, ttnn.unsqueeze(
-            ttnn.linear(rc, self.sm, compute_kernel_config=self.compute_kernel_config), -3))
-        m = p
-        for w in self.mlp:
-            m = ttnn.linear(ttnn.relu(m), w,
-                            compute_kernel_config=self.compute_kernel_config)
-        p = ttnn.add(p, m)
+        p = self.pair_terms(p, c, keys_indexing, n_pad)
 
         biases = [self.bias(p, i, mask, n_pad) for i in range(self.n_block)]
         k = n_pad // 32

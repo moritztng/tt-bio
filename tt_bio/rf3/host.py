@@ -22,8 +22,9 @@ import ttnn
 from tt_bio.boltz2 import get_indexing_matrix
 from tt_bio.rf3.atom_encoder import window_mask
 from tt_bio.rf3.atom_encoder_host import (ATOM_KEYS, ATOM_WINDOW,
-                                          atom_to_token_mean, pair_inputs,
-                                          single_features)
+                                          atom_to_token_mean,
+                                          pair_inputs_windowed, single_features,
+                                          token_to_atom_windowed)
 from tt_bio.rf3.confidence_head import predicted_distance_onehot
 from tt_bio.rf3.feature_init import (assert_mlff_inputs_zero, relpos_features,
                                      token_bond_features)
@@ -50,13 +51,19 @@ class HostInputs:
     n_token: int
 
     single_in: ttnn.Tensor
+    #: the pair track is windowed: [K, ATOM_WINDOW, ATOM_KEYS, C_PAIR_IN], not
+    #: [1, Lp, Lp, C_PAIR_IN]. The atom transformer reads Lp x 128 of the Lp^2 pairs a
+    #: dense build produces, so the dense one is 32.5x too big at 512 aa and 4.40 GB at
+    #: 1024 aa, where it did not fit at all.
     pair_in: ttnn.Tensor
     pair_v: ttnn.Tensor
     keys_indexing: ttnn.Tensor
     window_mask: ttnn.Tensor
     atom_to_token_mean: ttnn.Tensor
     atom_to_token: ttnn.Tensor
-    token_to_atom: ttnn.Tensor
+    #: [1, K, I, ATOM_KEYS]: the token->atom one-hot restricted to each window's keys,
+    #: for the second gather in the diffusion encoder's `_trunk_pair`.
+    token_to_atom_win: ttnn.Tensor
 
     token_feats: ttnn.Tensor
     relpos_feat: ttnn.Tensor
@@ -88,11 +95,9 @@ class HostInputs:
 
         s_in = torch.zeros(1, Lp, C_SINGLE_IN)
         s_in[0, :L] = single_features(ff, L)
-        p_raw, v_raw = pair_inputs(ff, L)
-        p_in = torch.zeros(1, Lp, Lp, C_PAIR_IN)
-        p_in[0, :L, :L, :p_raw.shape[-1]] = p_raw
-        v_in = torch.zeros(1, Lp, Lp, 1)
-        v_in[0, :L, :L] = v_raw
+        p_raw, v_in = pair_inputs_windowed(ff, L, Lp)
+        p_in = torch.zeros(K, ATOM_WINDOW, ATOM_KEYS, C_PAIR_IN)
+        p_in[..., :p_raw.shape[-1]] = p_raw
 
         # Two different matrices, and the difference matters. The encoder aggregates
         # atoms into tokens by MEAN (so its rows sum to 1); the decoder broadcasts a
@@ -114,7 +119,7 @@ class HostInputs:
             window_mask=to_device(window_mask(L, Lp), device),
             atom_to_token_mean=to_device(a2t_mean, device),
             atom_to_token=to_device(a2t, device),
-            token_to_atom=to_device(a2t.transpose(1, 2).contiguous(), device),
+            token_to_atom_win=to_device(token_to_atom_windowed(a2t, Lp), device),
             token_feats=to_device(token_features(ff, I).reshape(1, I, -1), device),
             relpos_feat=to_device(
                 relpos_features(ff, r_max=r_max, s_max=s_max).unsqueeze(0), device),

@@ -15,6 +15,12 @@ all three are load-bearing (see the state file):
     L=115 that is 30% of key slots
   * the blocks set `no_residual=True` (transition reads the block input) and
     `a_to_b_gate=False` (2-factor SwiGLU, not Boltz-2's 3-factor one)
+
+Because the attention is local, the pair track is carried WINDOWED end to end, as
+[K, 32, 128, c] rather than [L_atom, L_atom, c]. Nothing outside this module and the
+decoder ever reads it, and every operation on it is elementwise in the pair index or a
+matmul over the channel axis, so the windowed track holds the same numbers the dense one
+held at the entries the attention reads -- 1/32.5 of them at 512 aa.
 """
 
 from __future__ import annotations
@@ -51,42 +57,44 @@ def window_mask(n_atom: int, n_atom_padded: int) -> torch.Tensor:
         .expand(k, 1, ATOM_WINDOW, ATOM_KEYS).contiguous()
 
 
-def windowed_bias(p, ln0_w, ln0_b, to_b, mask, n_pad, compute_kernel_config, device):
-    """Windowed, masked pair bias for one block: [1, K*n_heads, W, ATOM_KEYS].
+def key_window(x, keys_indexing, n_pad: int, compute_kernel_config) -> ttnn.Tensor:
+    """[1, n_pad, c] -> [K, 1, ATOM_KEYS, c]: a key-indexed term, gathered per window.
+
+    The same one-hot matmul the atom transformer already applies to its own key track
+    (`boltz2.single_to_keys`). A window's 128 keys are eight consecutive 16-atom
+    half-blocks, so `keys_indexing` maps 2K half-blocks to 8K window slots in one
+    matmul, with all-zero columns where the window runs off the end. It is a one-hot, so
+    each gathered value is carried through exactly.
+    """
+    k, c = n_pad // ATOM_WINDOW, x.shape[-1]
+    y = ttnn.reshape(x, (1, 2 * k, ATOM_WINDOW // 2, c))
+    y = ttnn.permute(y, (0, 2, 3, 1))                     # [1, W/2, c, 2K]
+    y = ttnn.matmul(y, keys_indexing, compute_kernel_config=compute_kernel_config,
+                    core_grid=CORE_GRID_MAIN)             # [1, W/2, c, 8K]
+    y = ttnn.permute(y, (0, 3, 1, 2))                     # [1, 8K, W/2, c]
+    return ttnn.reshape(y, (k, 1, ATOM_KEYS, c))
+
+
+def windowed_bias(p, ln0_w, ln0_b, to_b, mask, n_pad, compute_kernel_config):
+    """Masked pair bias for one block: [1, K*n_heads, W, ATOM_KEYS].
 
     Shared by the encoder and the decoder, which run the same 3-block atom transformer
     over the same pair track.
 
-    Shifting the bias right by PAD_LEFT makes each 128-key window the contiguous slice
-    [32k, 32k+128); the shifted-in columns are exactly the out-of-range slots, and the
-    additive `mask` puts -1e9 there. Padding with zeros rather than -1e9 is fine because
-    the mask lands on top -- what matters is that these lanes never reach the softmax
-    carrying a real value.
+    The pair track is already windowed -- [K, W, ATOM_KEYS, c] -- so this is the
+    projection, a permute and the additive mask, with no per-window gather left to do.
+    `mask` puts -1e9 on the key slots that exist only because the window overhangs the
+    sequence or the atom count was padded up to a multiple of the window; those lanes
+    leave the softmax at exactly zero, so whatever the pair track holds there does not
+    reach the output.
     """
     b = ttnn.layer_norm(p, weight=ln0_w, bias=ln0_b, epsilon=1e-5,
                         compute_kernel_config=compute_kernel_config)
     b = ttnn.linear(b, to_b, compute_kernel_config=compute_kernel_config)
-    b = ttnn.permute(b, (0, 3, 1, 2))                     # [1, heads, L, L]
-    k = n_pad // ATOM_WINDOW
-    blocks = []
-    for j in range(k):
-        lo, hi = j * ATOM_WINDOW - PAD_LEFT, j * ATOM_WINDOW - PAD_LEFT + ATOM_KEYS
-        lo_c, hi_c = max(lo, 0), min(hi, n_pad)
-        piece = b[:, :, j * ATOM_WINDOW:(j + 1) * ATOM_WINDOW, lo_c:hi_c]
-        pads = []
-        if lo_c > lo:
-            pads.append(ttnn.zeros((1, N_HEADS, ATOM_WINDOW, lo_c - lo),
-                                   layout=ttnn.TILE_LAYOUT, device=device,
-                                   dtype=piece.dtype))
-        pads.append(piece)
-        if hi > hi_c:
-            pads.append(ttnn.zeros((1, N_HEADS, ATOM_WINDOW, hi - hi_c),
-                                   layout=ttnn.TILE_LAYOUT, device=device,
-                                   dtype=piece.dtype))
-        blocks.append(ttnn.concat(pads, dim=-1) if len(pads) > 1 else piece)
-    w = ttnn.concat(blocks, dim=0)                        # [K, heads, W, KEYS]
-    w = ttnn.add(w, mask)                                 # additive -1e9
-    return ttnn.reshape(w, (1, k * N_HEADS, ATOM_WINDOW, ATOM_KEYS))
+    b = ttnn.permute(b, (0, 3, 1, 2))                     # [K, heads, W, KEYS]
+    b = ttnn.add(b, mask)                                 # additive -1e9
+    return ttnn.reshape(b, (1, (n_pad // ATOM_WINDOW) * N_HEADS,
+                            ATOM_WINDOW, ATOM_KEYS))
 
 
 class AtomAttentionEncoder(Module):
@@ -148,16 +156,28 @@ class AtomAttentionEncoder(Module):
                         core_grid=CORE_GRID_MAIN)
         return ttnn.add(c, self.mlff)
 
-    def pair(self, pair_in: ttnn.Tensor, v: ttnn.Tensor, c: ttnn.Tensor) -> ttnn.Tensor:
+    def pair(self, pair_in, v, c, keys_indexing, n_pad: int) -> ttnn.Tensor:
         p = ttnn.linear(pair_in, self.pair_w,
                         compute_kernel_config=self.compute_kernel_config)
-        p = ttnn.multiply(p, v)
+        return self.pair_terms(ttnn.multiply(p, v), c, keys_indexing, n_pad)
+
+    def pair_terms(self, p, c, keys_indexing, n_pad: int) -> ttnn.Tensor:
+        """The two single-track terms and the 3-layer MLP, shared with the diffusion
+        encoder, which reaches the same tail after adding its trunk terms.
+
+        `sl` indexes the QUERY atom and `sm` the KEY atom. The query axis is the window's
+        own 32 rows, so that term is added through the flat [1, Lp, KEYS, c] view of the
+        same buffer -- a leading-dim reshape, no relayout. The key axis is the one that
+        needs the windowed gather.
+        """
+        k, cp = n_pad // ATOM_WINDOW, p.shape[-1]
         rc = ttnn.relu(c)
         sl = ttnn.linear(rc, self.sl, compute_kernel_config=self.compute_kernel_config)
         sm = ttnn.linear(rc, self.sm, compute_kernel_config=self.compute_kernel_config)
-        # unsqueeze(-2) indexes the QUERY atom, unsqueeze(-3) the KEY atom
-        p = ttnn.add(p, ttnn.unsqueeze(sl, -2))
-        p = ttnn.add(p, ttnn.unsqueeze(sm, -3))
+        p = ttnn.add(ttnn.reshape(p, (1, n_pad, ATOM_KEYS, cp)),
+                     ttnn.unsqueeze(sl, -2))
+        p = ttnn.add(ttnn.reshape(p, (k, ATOM_WINDOW, ATOM_KEYS, cp)),
+                     key_window(sm, keys_indexing, n_pad, self.compute_kernel_config))
         m = p
         for w in self.mlp:
             m = ttnn.linear(ttnn.relu(m), w,
@@ -166,14 +186,14 @@ class AtomAttentionEncoder(Module):
 
     def bias(self, p: ttnn.Tensor, i: int, mask: ttnn.Tensor, n_pad: int) -> ttnn.Tensor:
         return windowed_bias(p, self.ln0_w[i], self.ln0_b[i], self.to_b[i], mask, n_pad,
-                             self.compute_kernel_config, self.device)
+                             self.compute_kernel_config)
 
     # ----------------------------------------------------------------- forward
 
     def __call__(self, single_in, pair_in, v, keys_indexing, atom_to_token,
                  mask, n_pad: int):
         c = self.single(single_in)
-        p = self.pair(pair_in, v, c)
+        p = self.pair(pair_in, v, c, keys_indexing, n_pad)
         biases = [self.bias(p, i, mask, n_pad) for i in range(self.n_block)]
         # tt-bio's atom-level path takes the single track ALREADY windowed as
         # [B, K, W, D], not flat [B, L, D].

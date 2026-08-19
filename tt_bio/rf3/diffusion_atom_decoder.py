@@ -55,6 +55,10 @@ class DiffusionAtomDecoder(Module):
             no_residual=True, a_to_b_gate=False, fp32_softmax=True,
         )
 
+    def bias(self, p: ttnn.Tensor, i: int, mask: ttnn.Tensor, n_pad: int) -> ttnn.Tensor:
+        return windowed_bias(p, self.ln0_w[i], self.ln0_b[i], self.to_b[i], mask, n_pad,
+                             self.compute_kernel_config)
+
     def __call__(self, a_i, q_skip, c_skip, p_skip, a2t_onehot, keys_indexing,
                  mask, n_pad):
         q = ttnn.linear(a_i, self.linear_1,
@@ -64,9 +68,7 @@ class DiffusionAtomDecoder(Module):
                         compute_kernel_config=self.compute_kernel_config)
         q = ttnn.add(q, q_skip)
 
-        biases = [windowed_bias(p_skip, self.ln0_w[i], self.ln0_b[i], self.to_b[i],
-                                mask, n_pad, self.compute_kernel_config, self.device)
-                  for i in range(self.n_block)]
+        biases = [self.bias(p_skip, i, mask, n_pad) for i in range(self.n_block)]
         k = n_pad // ATOM_WINDOW
         out = self.transformer(ttnn.reshape(q, (1, k, ATOM_WINDOW, C_ATOM)),
                                ttnn.reshape(c_skip, (1, k, ATOM_WINDOW, C_ATOM)),

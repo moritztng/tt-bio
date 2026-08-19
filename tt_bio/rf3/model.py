@@ -144,7 +144,7 @@ class DiffusionModule(Module):
             a_i, q_skip, c_skip, p_skip = self.encoder(
                 host.single_in, host.pair_in, host.pair_v, host.keys_indexing,
                 host.atom_to_token_mean, host.window_mask, host.n_atom_padded,
-                s_trunk, z_cond, r_in, ch_in, host.atom_to_token, host.token_to_atom)
+                s_trunk, z_cond, r_in, ch_in, host.atom_to_token, host.token_to_atom_win)
 
             a_i = ttnn.add_(a_i, self.process_s(s_cond))
             a_i = self.transformer(a_i, s_cond, z_cond)
