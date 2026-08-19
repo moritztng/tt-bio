@@ -305,6 +305,16 @@ CAPACITY_LEGS = [
 # which is how arms get disabled. Override for a single-rung debug run:
 # RELEASE_GATE_SIZE_RUNGS=640.
 #
+# 640 is the fourth rung and it is not decoration. 256/512/768/1024 all have a
+# padded length that 256 divides, and _capped_sdpa_chunk_size returns 256, so
+# they all sit on the lattice the fused K1/K2 kernel is SERVED on. 6dbdcf1f
+# records the same kernel silently declining at padded 448, 576, 640, 704, 832,
+# 896 and 960 while 256/512/768/1024 were served: a ladder built only from
+# multiples of 256 holds "N padded is a multiple of the SDPA chunk" constant at
+# every rung and is blind to that whole defect class (the size-axis form of
+# correctness-sweep-tiled-fixture-measures-one-input). 640 is the off-lattice
+# control, and it is the rung the arm's own RED proof fires at.
+#
 # Fold config: --single_sequence --sampling_steps 6 --diffusion_samples 1
 # --seed 0. Single-sequence makes the arm hermetic (no MSA server, no
 # RELEASE_GATE_MSA_DIR precondition, nothing that can fail for a reason
@@ -364,8 +374,17 @@ CAPACITY_LEGS = [
 # it); the census counts are shape/config-determined and machine-independent.
 SIZE_LADDER_MODELS = ("boltz2", "esmfold2", "protenix-v2", "openfold3", "opendde")
 SIZE_LADDER_RUNGS = tuple(int(x) for x in
-                          os.environ.get("RELEASE_GATE_SIZE_RUNGS", "256,512,768").split(",")
+                          os.environ.get("RELEASE_GATE_SIZE_RUNGS", "256,512,640,768").split(",")
                           if x.strip())
+# Exponent intervals are taken over these rungs only; every other rung is
+# census-only. 640 is in the ladder but not here on measured grounds: at the
+# sigma = 6.5% noise floor a 3-sigma band over ln(640/512) = 0.223 is +-1.24 and
+# over ln(768/640) = 0.182 is +-1.51, both at or past the ~1.40 cliff signal, so
+# an exponent gate on those two intervals is a coin flip. Splitting 512->768
+# into two ungateable halves would also destroy the one interval that IS
+# gateable (+-0.68 over ln(768/512) = 0.405). So 640 earns its place as a lever
+# rung and stays out of the timing chain.
+SIZE_LADDER_EXP_RUNGS = (256, 512, 768)
 SIZE_LADDER_BASELINE = REPO_ROOT / "docs" / "size_ladder_baseline.json"
 SIZE_LADDER_STEPS = 6
 SIZE_LADDER_FRAC_TOL = 0.05
@@ -975,7 +994,7 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
 def _size_ladder_exponent_block(runtimes: dict, sigma):
     """Baseline exponent entries per consecutive rung pair: k with a tolerance
     derived from the measured noise floor. Returns (block, skip_reason)."""
-    rungs = sorted(int(r) for r in runtimes)
+    rungs = sorted(int(r) for r in runtimes if int(r) in SIZE_LADDER_EXP_RUNGS)
     if len(rungs) < 2:
         return None, "single rung — no interval to exponent over"
     if sigma is None:
