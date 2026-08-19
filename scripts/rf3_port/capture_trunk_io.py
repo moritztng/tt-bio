@@ -1,14 +1,22 @@
 #!/usr/bin/env python3
-"""Capture the real (S, Z) entering and leaving RF3's first Pairformer block.
+"""Capture what a module really sees during an RF3 reference forward.
 
-The block-0 parity number was measured on synthetic N(0,1), which this block
-amplifies to output std 735 -- so far off-manifold that torch's own bf16 only
-reaches 0.982 against its own fp32. This hooks the vendored torch model during a
-real forward and saves what the block actually sees, so the port can be scored on
-its real operating point instead.
+Scoring a ported block on synthetic tensors measures the input as much as the port.
+The first Pairformer block turns N(0,1) into output std 735 where its real operating
+point is 79, and that far off-manifold torch's own bf16 only reaches 0.982 against
+its own fp32 -- so a synthetic score was capped below the gate before the device was
+involved. This hooks the vendored torch model during a real forward and saves the
+module's actual input and output, to score against instead.
 
     python scripts/rf3_port/capture_trunk_io.py --ckpt ... \\
         --input scripts/rf3_port/parity_artifacts/glke/input.json --out golden.pt
+
+`--module` takes a dotted path relative to the network, so any block can be captured:
+
+    --module recycler.pairformer_stack.0     (default)
+    --module recycler.msa_module
+    --module feature_initializer
+    --module diffusion_module.diffusion_transformer
 """
 from __future__ import annotations
 
@@ -30,7 +38,8 @@ def main() -> int:
     ap.add_argument("--ckpt", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--n_recycles", type=int, default=2)
-    ap.add_argument("--block", type=int, default=0)
+    ap.add_argument("--module", default="recycler.pairformer_stack.0",
+                    help="dotted path of the module to hook, relative to the network")
     ap.add_argument("--seed", type=int, default=42)
     args = ap.parse_args()
 
@@ -47,16 +56,27 @@ def main() -> int:
         os.chdir(prev)
 
     net, _ = load_reference(args.ckpt, num_steps=2)
-    block = net.recycler.pairformer_stack[args.block]
+    block = net
+    for part in args.module.split("."):
+        block = block[int(part)] if part.isdigit() else getattr(block, part)
 
     captured = {}
 
+    def detach(obj):
+        if isinstance(obj, torch.Tensor):
+            return obj.detach().float().cpu()
+        if isinstance(obj, (list, tuple)):
+            return tuple(detach(o) for o in obj)
+        if isinstance(obj, dict):
+            return {k: detach(v) for k, v in obj.items()
+                    if isinstance(v, (torch.Tensor, list, tuple))}
+        return None
+
     def hook(_mod, inputs, output):
-        # Keep the LAST recycle: that is the operating point the trunk converges to.
-        s_in, z_in = inputs[0], inputs[1]
-        s_out, z_out = output
-        captured["in"] = (s_in.detach().float().cpu(), z_in.detach().float().cpu())
-        captured["out"] = (s_out.detach().float().cpu(), z_out.detach().float().cpu())
+        # Overwritten each recycle, so what lands is the LAST one: the operating
+        # point the trunk has converged to, which is what the port has to match.
+        captured["in"] = detach(inputs)
+        captured["out"] = detach(output)
 
     handle = block.register_forward_hook(hook)
     try:
@@ -68,21 +88,30 @@ def main() -> int:
         handle.remove()
 
     if "in" not in captured:
-        print("block never fired; wrong index?")
+        print(f"{args.module} never fired; wrong path?")
         return 1
 
     torch.save(captured, args.out)
-    s_in, z_in = captured["in"]
-    s_out, z_out = captured["out"]
-    print(json.dumps({
-        "block": args.block,
-        "tokens": int(z_in.shape[-2]),
-        "s_in_std": round(float(s_in.std()), 4),
-        "z_in_std": round(float(z_in.std()), 4),
-        "s_out_std": round(float(s_out.std()), 4),
-        "z_out_std": round(float(z_out.std()), 4),
-        "out": args.out,
-    }, indent=2))
+
+    def describe(obj, label):
+        if isinstance(obj, torch.Tensor):
+            return [f"{label} {list(obj.shape)} std={float(obj.std()):.4f}"]
+        if isinstance(obj, (list, tuple)):
+            rows = []
+            for i, o in enumerate(obj):
+                rows += describe(o, f"{label}[{i}]")
+            return rows
+        if isinstance(obj, dict):
+            rows = []
+            for k, v in obj.items():
+                rows += describe(v, f"{label}[{k!r}]")
+            return rows
+        return []
+
+    print(f"module: {args.module}")
+    for row in describe(captured["in"], "in") + describe(captured["out"], "out"):
+        print("  " + row)
+    print(f"saved -> {args.out}")
     return 0
 
 
