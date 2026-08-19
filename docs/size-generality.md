@@ -36,9 +36,12 @@ rung, and the baseline stores each lever's resolved value at each one. So flippi
 fails the arm until someone re-records, and re-recording measures four sequence lengths. The rule
 enforces itself instead of relying on a reviewer noticing.
 
-Baselines are per board type. The L1 budgets scale to the part's measured per-core L1, so two
-boards can legitimately fire different levers at the same sequence length. A board with no recorded
-baseline is a loud failure, never a silent skip.
+Baselines are per board type and per core grid. The L1 budgets scale to the part's measured per-core
+L1, and some guards are sized against the grid, so two cards can legitimately fire different levers
+at the same sequence length. Board type alone does not pin the grid, because harvesting means one
+board type presents several. A card with no recorded baseline, or one whose grid differs from the
+baseline's, is a loud failure telling you to re-record rather than a silent skip or a false drift
+report.
 
 ## Why the ladder includes 640
 
