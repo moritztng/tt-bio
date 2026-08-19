@@ -76,6 +76,36 @@ def make_cond(NT, N, c_s=384, c_s_inputs=449, c_z=128, c_atom=128, c_atompair=16
     }
 
 
+def census():
+    """Every tt_bio lever counter currently loaded, read in-process.
+
+    `scripts/lever_census.py` is the org instrument for this, but it drives `tt-bio
+    predict` and PXDesign has no CLI path yet. Its counters are plain module-level
+    `[served, declined]` lists though, and this bench folds in the process it runs in (no
+    multiprocessing spawn), so they can be read directly. Reported per cell, so a gate that
+    admits work at 128 aa and silently declines at 768 aa shows up as a decline count that
+    moves with size -- the failure mode of
+    `tt-bio-tuned-at-512-l1-gates-go-dark-above-640aa`.
+    """
+    import sys
+    out = {}
+    for mod_name, mod in list(sys.modules.items()):
+        if not mod_name.startswith("tt_bio.") or mod is None:
+            continue
+        for attr in dir(mod):
+            if not attr.endswith("_STATS"):
+                continue
+            try:
+                v = getattr(mod, attr)
+            except Exception:
+                continue
+            if isinstance(v, (list, tuple)) and v and all(isinstance(x, int) for x in v):
+                out[mod_name + "." + attr] = list(v)
+            elif isinstance(v, dict):
+                out[mod_name + "." + attr] = {str(k): v[k] for k in v}
+    return out
+
+
 def build(ckpt, device, ckc, fp32=None):
     from tt_bio.protenix import DiffusionModule, n_blocks
     raw = torch.load(ckpt, map_location="cpu")
@@ -183,6 +213,7 @@ def main():
                 # set by _capture_trace. denoise_traced falls back silently when the
                 # device_dit bias path is missing, so a trace A/B that never captured would
                 # otherwise read as "trace buys nothing".
+                cell["lever_census"] = census()
                 _tr = getattr(mod, "_trace", None)
                 cell["trace_captured"] = _tr is not None
                 if _tr is not None:
