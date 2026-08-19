@@ -1,0 +1,50 @@
+{
+  "rows": [
+    {
+      "arm": "off",
+      "rep": 0,
+      "sampler_s": 3.8,
+      "cif_sha256_16": "8f77ad6bd4e3f846",
+      "n_cifs": 1
+    },
+    {
+      "arm": "on",
+      "rep": 1,
+      "sampler_s": 3.804,
+      "cif_sha256_16": "2a39a19205709503",
+      "n_cifs": 1
+    }
+  ],
+  "num_timesteps": 3,
+  "seed": 42,
+  "arms": [
+    "off",
+    "on"
+  ],
+  "discarded_warmup_s": 9.33,
+  "bit_exact": false,
+  "digests": {
+    "off": [
+      "8f77ad6bd4e3f846"
+    ],
+    "on": [
+      "2a39a19205709503"
+    ]
+  },
+  "aa_control_s": [
+    3.8
+  ],
+  "aa_spread_s": null,
+  "off_median_s": 3.8,
+  "off_min_s": 3.8,
+  "off_max_s": 3.8,
+  "on_median_s": 3.804,
+  "on_min_s": 3.804,
+  "on_max_s": 3.804,
+  "delta_s": 0.004,
+  "ratio": 0.9989,
+  "predicted_delta_s": -7.24,
+  "host": "qb2",
+  "card": 2,
+  "torch": "2.13.0+cpu"
+}

@@ -157,6 +157,48 @@ _TUNED_MM_CACHE = {}
 # tensor the old concat produced, and the rms_norm downstream still reduces over 258.
 # Measured (perf/p53/combined_onehot.json): 31.335 -> 6.168 ms/call, 5.08x, 50.3 ms/step.
 _CONCAT_ALIGNED = os.environ.get("RFD3_CONCAT_ALIGNED", "1") == "1"
+
+# The pair `Transition` is 37 % of every step's DRAM traffic (23.70 of 63.43 GB,
+# perf/p63/traffic_census.json) against an irreducible 1.98 GB, because all three of its
+# intermediates round-trip DRAM and are dead the instant `fc3` consumes them. Row-chunking on
+# dim 1 -- which is NOT a tiled dimension, so a slice has no sub-tile cliff and no padding --
+# makes them small enough to keep in L1, and only `fc3`'s output is written out. The same recipe
+# already ships for four other models in `tenstorrent.py`'s Transition; RFD3's is a separate
+# reimplementation that never got it.
+#
+# MEASURED at the page fixture's pair shape [1, 685, 704, 128], warm, synced both sides, n=6,
+# under benchlock (perf/p64/fc2_l1.json, perf/p64/fc2_l1_heights.json). ms/call:
+#
+#   H=512  shipped 22.17 | h=24 16.24  h=32 16.10  h=40 28.29 (cliff)
+#   H=256  shipped 13.30 | h=48 10.60  h=64 10.33  h=80 13.85 (cliff)
+#
+# Not monotonic in h, and the cliff is sharp: one row block too tall and the chunk's circular
+# buffers clash with the L1 residents, so the optimum is the largest block that fits. Both
+# measured optima are the same `h * W_pad * hidden`, which is the mechanism -- `fc1`'s and
+# `fc2`'s outputs are the two big residents -- so the chunk height is derived from that product
+# rather than tabulated, and it shrinks correctly for a wider pair channel or a longer target.
+# Eight calls per step (transition_2.{0,1} at H=256 and pairformer_stack.{0,1}.z_transition at
+# H=512, each twice for the two recycles): 141.9 -> 105.7 ms/step, -36.2 ms/step.
+#
+# Bit-exact, not close: dim 1 folds into the matmuls' M and ttnn's default heuristic blocks by
+# K alone, so a row block rounds identically to the whole tensor. maxabs 0.0 and torch.equal on
+# the full [1, 685, 685, 128] output at both hidden widths.
+#
+# Scoped to the TOKEN pair tensor by the width guard. The atom-path pair Transitions
+# (transition_1.{0,1}) are 128 wide, were never measured here, and would pay the per-chunk op
+# cost on a tensor whose intermediates already fit; they stay on the shipped path.
+# DEFAULT OFF, and it stays off until the divergence below is resolved. The 3-timestep fold
+# digest MOVED (perf/p65/smoke3.json: 8f77ad6bd4e3f846 -> 2a39a19205709503) even though the
+# microbenchmark was maxabs 0.0 and torch.equal at both hidden widths -- which is
+# `tt-bio-ttnn-slice-not-a-view-and-allocation-order-sensitivity` verbatim. perf/p66/audit.json
+# attributes it: the row-chunking ALONE is exact at both widths (chunk_dram = 0.0), and it is the
+# `memory_config=L1` placement that diverges, by 0.03125 at hidden=512 and by 0.0 at hidden=256.
+# An L1 output buffer occupies the same cores' L1 that ttnn's matmul heuristic budgets its in0
+# block from, so the K-blocking -- and with it the bf16 accumulation grouping -- changes at the
+# wider hidden width and not at the narrower one.
+_PAIR_TRANSITION_L1 = os.environ.get("RFD3_PAIR_TRANSITION_L1", "0") == "1"
+_PAIR_TRANSITION_CHUNK_ELEMS = 32 * 704 * 512   # h=32 at H=512, h=64 at H=256, both measured
+_PAIR_TRANSITION_MIN_W = 512                    # token pair is 704 wide; atom pair is 128
 _TUNE_MATMUL_MIN_ATOMS = 2952
 _TUNE_MATMUL_ENV = os.environ.get("RFD3_TUNE_MATMUL")
 _TUNE_MATMUL = _TUNE_MATMUL_ENV == "1"
@@ -256,19 +298,26 @@ def _tunable(x, w):
     return all(d == 1 for d in ws[:-2])
 
 
-def _tuned_linear(x, w, *, bias=None, ckc=None, dtype=None, core_grid=BATCH_INVARIANT_GRID):
+def _tuned_linear(x, w, *, bias=None, ckc=None, dtype=None, core_grid=BATCH_INVARIANT_GRID,
+                  mem=None):
     """`ttnn.linear` with a calibrated, bit-exact program config where one helps.
 
     No `activation=`: ttnn wants a fused activation on the program config instead, so the two
     silu-gated linears keep the default path (they are the cheap half of a Transition anyway).
+
+    `mem` places the output; it is part of the cache key because a calibrated config is only
+    certified bitwise-equal against the default it was timed against, and that default was
+    timed writing to the same place.
     """
     kw = dict(compute_kernel_config=ckc, dtype=dtype)
+    if mem is not None:
+        kw["memory_config"] = mem
     if bias is not None:
         kw["bias"] = bias
     if not _TUNE_MATMUL or not _tunable(x, w):
         return ttnn.linear(x, w, core_grid=core_grid, **kw)
     key = (tuple(list(x.padded_shape)), tuple(list(w.padded_shape)), x.dtype, dtype,
-           bias is not None, core_grid)
+           bias is not None, core_grid, mem)
     if key not in _TUNED_MM_CACHE:
         _TUNED_MM_CACHE[key] = _calibrate_linear(x, w, kw, core_grid)
     pc = _TUNED_MM_CACHE[key]
@@ -521,15 +570,51 @@ class Transition(Module):
         self.fc3_w = self.torch_to_tt("linear_3.weight", dtype=self.dtype)
 
     def __call__(self, x):
-        x = ttnn.rms_norm(x, weight=self.norm_w, epsilon=1e-6,
-                            compute_kernel_config=self.compute_kernel_config)
-        a = ttnn.linear(x, self.fc1_w, activation="silu",
+        """Whole-tensor by default; L1-resident row blocks on the token pair tensor.
+
+        See `_PAIR_TRANSITION_L1` for the measurements. `RFD3_PAIR_TRANSITION_L1=0` restores
+        the whole-tensor path op for op.
+        """
+        if not (_PAIR_TRANSITION_L1 and len(x.shape) == 4
+                and x.shape[2] >= _PAIR_TRANSITION_MIN_W):
+            return self._swiglu(x, None)
+        H, hidden = x.shape[1], int(self.fc1_w.shape[-1])
+        h = max(1, min(H, _PAIR_TRANSITION_CHUNK_ELEMS
+                       // (int(x.padded_shape[2]) * hidden)))
+        if h >= H:
+            return self._swiglu(x, ttnn.L1_MEMORY_CONFIG)
+        # Slice lazily rather than `ttnn.chunk`, which materialises a second full copy of the
+        # pair tensor up front. The 685-row tail is ragged at every h and gets its own shape,
+        # hence its own program-config cache entry, which is what keeps it exact.
+        parts = []
+        for s in range(0, H, h):
+            c = x[:, s:min(s + h, H)]
+            parts.append(self._swiglu(c, ttnn.L1_MEMORY_CONFIG))
+            ttnn.deallocate(c)
+        out = ttnn.concat(parts, dim=1)
+        for p in parts:
+            ttnn.deallocate(p)
+        return out
+
+    def _swiglu(self, x, mem):
+        """RMSNorm + silu-gated SwiGLU. `mem=None` keeps every intermediate in DRAM.
+
+        With `mem` set, `x_norm`, `fc1`'s output and the gated product never leave L1 and only
+        `fc3`'s output is written out -- 17 reads and 15 writes of the pair tensor's worth of
+        bytes become 1 and 1. The multiply lands in `a`'s buffer, as the shared Transition's
+        `multiply_` does, so the product does not need a third live resident.
+        """
+        mc = {} if mem is None else {"memory_config": mem}
+        xn = ttnn.rms_norm(x, weight=self.norm_w, epsilon=1e-6,
+                            compute_kernel_config=self.compute_kernel_config, **mc)
+        a = ttnn.linear(xn, self.fc1_w, activation="silu",
                          compute_kernel_config=self.compute_kernel_config,
-                         dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID)
-        b = _tuned_linear(x, self.fc2_w, ckc=self.compute_kernel_config,
-                          dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID)
-        ttnn.deallocate(x)
-        m = ttnn.multiply(a, b)
+                         dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID, **mc)
+        b = _tuned_linear(xn, self.fc2_w, ckc=self.compute_kernel_config,
+                          dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID, mem=mem)
+        ttnn.deallocate(xn)
+        m = ttnn.multiply(a, b) if mem is None else \
+            ttnn.multiply(a, b, memory_config=mem, output_tensor=a)
         ttnn.deallocate(b)
         out = _tuned_linear(m, self.fc3_w, ckc=self.compute_kernel_config,
                             dtype=self.dtype, core_grid=CORE_GRID_MAIN)

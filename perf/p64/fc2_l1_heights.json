@@ -1,0 +1,181 @@
+{
+  "rows": [
+    {
+      "arm": "A  shipped whole-tensor",
+      "hidden": 512,
+      "h": null,
+      "ms_median": 22.1714,
+      "ms_min": 22.0277,
+      "ms_max": 22.3221,
+      "spread_pct": 1.33,
+      "note": "baseline"
+    },
+    {
+      "arm": "C  fc2->DRAM",
+      "hidden": 512,
+      "h": 24,
+      "ms_median": 18.6498,
+      "ms_min": 18.6384,
+      "ms_max": 18.6766,
+      "spread_pct": 0.2,
+      "note": ""
+    },
+    {
+      "arm": "C2 fc2->L1  ",
+      "hidden": 512,
+      "h": 24,
+      "ms_median": 16.2434,
+      "ms_min": 16.2232,
+      "ms_max": 16.2735,
+      "spread_pct": 0.31,
+      "note": ""
+    },
+    {
+      "arm": "C  fc2->DRAM",
+      "hidden": 512,
+      "h": 32,
+      "ms_median": 18.6872,
+      "ms_min": 18.6683,
+      "ms_max": 18.7063,
+      "spread_pct": 0.2,
+      "note": ""
+    },
+    {
+      "arm": "C2 fc2->L1  ",
+      "hidden": 512,
+      "h": 32,
+      "ms_median": 16.0999,
+      "ms_min": 16.091,
+      "ms_max": 16.1083,
+      "spread_pct": 0.11,
+      "note": ""
+    },
+    {
+      "arm": "C  fc2->DRAM",
+      "hidden": 512,
+      "h": 40,
+      "ms_median": 18.5344,
+      "ms_min": 18.4697,
+      "ms_max": 18.5693,
+      "spread_pct": 0.54,
+      "note": ""
+    },
+    {
+      "arm": "C2 fc2->L1  ",
+      "hidden": 512,
+      "h": 40,
+      "ms_median": 28.2871,
+      "ms_min": 28.2483,
+      "ms_max": 28.3101,
+      "spread_pct": 0.22,
+      "note": ""
+    },
+    {
+      "arm": "A  shipped whole-tensor",
+      "hidden": 256,
+      "h": null,
+      "ms_median": 13.2986,
+      "ms_min": 13.1388,
+      "ms_max": 13.3881,
+      "spread_pct": 1.88,
+      "note": "baseline"
+    },
+    {
+      "arm": "C  fc2->DRAM",
+      "hidden": 256,
+      "h": 64,
+      "ms_median": 11.6475,
+      "ms_min": 11.6192,
+      "ms_max": 11.7015,
+      "spread_pct": 0.71,
+      "note": ""
+    },
+    {
+      "arm": "C2 fc2->L1  ",
+      "hidden": 256,
+      "h": 64,
+      "ms_median": 10.3255,
+      "ms_min": 10.3019,
+      "ms_max": 10.3377,
+      "spread_pct": 0.35,
+      "note": ""
+    },
+    {
+      "arm": "C  fc2->DRAM",
+      "hidden": 256,
+      "h": 80,
+      "ms_median": 11.7529,
+      "ms_min": 11.7049,
+      "ms_max": 11.7721,
+      "spread_pct": 0.57,
+      "note": ""
+    },
+    {
+      "arm": "C2 fc2->L1  ",
+      "hidden": 256,
+      "h": 80,
+      "ms_median": 13.8541,
+      "ms_min": 13.8161,
+      "ms_max": 13.88,
+      "spread_pct": 0.46,
+      "note": ""
+    },
+    {
+      "arm": "C  fc2->DRAM",
+      "hidden": 256,
+      "h": 96,
+      "ms_median": 11.7916,
+      "ms_min": 11.7632,
+      "ms_max": 11.8598,
+      "spread_pct": 0.82,
+      "note": ""
+    },
+    {
+      "arm": "C2 fc2->L1  ",
+      "hidden": 256,
+      "h": 96,
+      "ms_median": 14.2559,
+      "ms_min": 14.2092,
+      "ms_max": 14.2682,
+      "spread_pct": 0.41,
+      "note": ""
+    }
+  ],
+  "bit_exact": {
+    "512": {
+      "h": 32,
+      "maxabs": 0.0,
+      "torch_equal": true
+    },
+    "256": {
+      "h": 64,
+      "maxabs": 0.0,
+      "torch_equal": true
+    }
+  },
+  "best": {
+    "C |512": [
+      40,
+      18.534350499976426
+    ],
+    "C2|512": [
+      32,
+      16.099862499686424
+    ],
+    "C |256": [
+      64,
+      11.647534996882314
+    ],
+    "C2|256": [
+      64,
+      10.325454499252373
+    ]
+  },
+  "shipped_ms_call": {
+    "512": 22.1714,
+    "256": 13.2986
+  },
+  "tokens": 685,
+  "host": "qb2",
+  "card": 2
+}
