@@ -1,0 +1,58 @@
+{
+  "fixture": "cdk2_1024",
+  "recycles": 1,
+  "steps": 8,
+  "force_bfloat16_modules": 85,
+  "ref_trunk_bf16_s": null,
+  "ref_trunk_fp32_s": null,
+  "stages": [
+    {
+      "tensor": "S_inputs",
+      "shape": [
+        1,
+        1024,
+        449
+      ],
+      "finite": true,
+      "std": 0.199364
+    },
+    {
+      "tensor": "S_trunk",
+      "shape": [
+        1,
+        1024,
+        384
+      ],
+      "finite": true,
+      "std": 876.053833
+    },
+    {
+      "tensor": "Z_trunk",
+      "shape": [
+        1,
+        1024,
+        1024,
+        128
+      ],
+      "finite": true,
+      "std": 25.786175
+    },
+    {
+      "tensor": "distogram",
+      "shape": [
+        1,
+        1024,
+        1024,
+        65
+      ],
+      "finite": true,
+      "std": 12.948039
+    }
+  ],
+  "load_s": 5.0,
+  "atoms": 8239,
+  "tokens": 1024,
+  "atoms_padded": 8256,
+  "trunk_s": 150.5,
+  "port_only": true
+}
