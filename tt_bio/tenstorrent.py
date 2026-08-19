@@ -5137,9 +5137,13 @@ class DiffusionTransformerLayer(Module):
         atom_level: bool,
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+        no_residual: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.atom_level = atom_level
+        # RF3's `no_residual_connection_between_attention_and_transition`: the
+        # transition reads the block input rather than the post-attention residual.
+        self.no_residual = no_residual
         self.s_o = None
         self.adaln = AdaLN(
             atom_level, self.scope("adaln"), compute_kernel_config
@@ -5190,9 +5194,15 @@ class DiffusionTransformerLayer(Module):
         else:
             s_o = self.s_o
         b = ttnn.multiply(s_o, b)
-        a = ttnn.add(a, b)
-        a_t = self.transition(a, s, large_seq_len=large_seq_len)
-        a = ttnn.add(a, a_t)
+        if self.no_residual:
+            # transition reads the block input, so it must be evaluated BEFORE a
+            # absorbs the attention output
+            a_t = self.transition(a, s, large_seq_len=large_seq_len)
+            a = ttnn.add(ttnn.add(a, b), a_t)
+        else:
+            a = ttnn.add(a, b)
+            a_t = self.transition(a, s, large_seq_len=large_seq_len)
+            a = ttnn.add(a, a_t)
         return a
 
 
@@ -5205,6 +5215,7 @@ class DiffusionTransformer(Module):
         atom_level: bool,
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+        no_residual: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.layers = [
@@ -5214,6 +5225,7 @@ class DiffusionTransformer(Module):
                 atom_level,
                 self.scope(f"layers.{i}"),
                 compute_kernel_config,
+                no_residual=no_residual,
             )
             for i in range(n_layers)
         ]
