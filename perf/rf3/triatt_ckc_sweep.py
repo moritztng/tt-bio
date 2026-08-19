@@ -54,6 +54,10 @@ def main() -> int:
     ap.add_argument("--reps", type=int, default=5)
     ap.add_argument("--calls", type=int, default=4, help="back-to-back calls per timed leg")
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--site", choices=("pairformer", "other"), default="pairformer",
+                    help="pairformer: the 48-block stack, whose bias is pre-baked by "
+                         "sqrt(head_dim). other: the MSA module and template embedder, which "
+                         "pass scale_pair_bias=False, so the fused arm has to pre-bake it itself.")
     ap.add_argument("--sweep", choices=("ckc",), default=None,
                     help="walk fidelity x math_approx x fp32_dest_acc instead of the one config")
     ap.add_argument("--which", choices=("first", "last"), default="last",
@@ -101,8 +105,9 @@ def main() -> int:
         # scale test picks out the 48-block Pairformer specifically: the template embedder and the
         # MSA module build their pair bias with scale_pair_bias=False, so their two scales differ
         # and the fused kernel cannot stand in for them at all.
-        if (len(shp) == 4 and shp[0] == shp[2] and shp[0] > 1
-                and abs(scale_inv - (bias_scale_inv if bias_scale_inv else scale_inv)) < 1e-12):
+        matched = abs(scale_inv - (bias_scale_inv if bias_scale_inv else scale_inv)) < 1e-12
+        want = matched if args.site == "pairformer" else not matched
+        if len(shp) == 4 and shp[0] == shp[2] and shp[0] > 1 and want:
             seen[shp] = seen.get(shp, 0) + 1
             if not grab or args.which == "last":
                 grab.clear()
@@ -128,10 +133,11 @@ def main() -> int:
     scale_inv, bias_scale_inv = grab["scale_inv"], grab["bias_scale_inv"]
     print(f"captured call {grab['index']} of {seen} -- q{list(qh.shape)} bias{list(bh.shape)} "
           f"scale_inv={scale_inv:.6f} bias_scale_inv={bias_scale_inv:.6f}", flush=True)
-    # The fused kernel adds the mask before applying `scale`, so it can only stand in for the
-    # materialised path where the two scales agree. They do here because scale_pair_bias=True
-    # pre-bakes sqrt(head_dim) into the bias weight.
-    assert abs(scale_inv - bias_scale_inv) < 1e-12, (scale_inv, bias_scale_inv)
+    # The fused kernel adds the mask before applying `scale`. Where the two scales already agree
+    # (scale_pair_bias=True pre-baked sqrt(head_dim) into the bias weight) it can stand in as is;
+    # where they do not, the fused arm multiplies the bias itself, which is what `bias_mul` is.
+    bias_mul = bias_scale_inv / scale_inv
+    print(f"  bias pre-multiply for the fused arm: {bias_mul:.6f}", flush=True)
 
     # The reference: the SAME bf16 operands, evaluated in fp64. Chunked over the batch so a
     # [512, 4, 512, 512] fp64 score tensor never exists.
@@ -157,6 +163,8 @@ def main() -> int:
     up = lambda t: ttnn.from_torch(t, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
                                    device=device, memory_config=ttnn.DRAM_MEMORY_CONFIG)
     qd, kd, vd, bd = up(qh), up(kh), up(vh), up(bh)
+    # the fused arm's own bias, scaled on device exactly as the model scales it
+    bd_f = bd if abs(bias_mul - 1.0) < 1e-12 else ttnn.multiply(bd, bias_mul)
 
     def run_materialised():
         return T._fp32_softmax_attention(qd, kd, vd, bd, scale_inv=scale_inv,
@@ -164,12 +172,12 @@ def main() -> int:
                                          bias_scale_inv=bias_scale_inv)
 
     def run_fused_bf16():
-        return T._tri_att_sdpa(qd, kd, vd, bd, scale_inv)
+        return T._tri_att_sdpa(qd, kd, vd, bd_f, scale_inv)
 
     def fused(ckc):
         def run():
             T._TRIATT_FUSED_HIFI_CKC = ckc
-            return T._tri_att_sdpa_hifi(qd, kd, vd, bd, scale_inv)
+            return T._tri_att_sdpa_hifi(qd, kd, vd, bd_f, scale_inv)
         return run
 
     HF = {"HiFi2": ttnn.MathFidelity.HiFi2, "HiFi4": ttnn.MathFidelity.HiFi4,

@@ -3497,11 +3497,18 @@ class TriangleAttention(Module):
                 o = None
                 # The kernel adds the bias BEFORE applying `scale` (compute_common.hpp: the scale
                 # rides the exp, `exp((qk + mask - max) * scale)`), so it wants the bias pre-baked
-                # by sqrt(head_dim) -- which is exactly what `scale_pair_bias=True` already did to
-                # `bias_weight`. A block that did not pre-bake would need its own multiply, so it
-                # keeps the materialised path rather than paying one.
-                if _TRIATT_FUSED_HIFI and self._bias_scale == self.scale:
-                    o = _tri_att_sdpa_hifi(q, k, v, bias, self.scale ** -1)
+                # by sqrt(head_dim). `scale_pair_bias=True` already did that to `bias_weight`;
+                # where it did not -- RF3's MSA module and template embedder both pass False -- one
+                # multiply on the [1, heads, S, S] bias recovers it. That is O(S^2) against the
+                # O(S^3) score tensor the fused path deletes, so it is three orders below the win
+                # rather than a cost to weigh: 2.1 MB at 512 aa against ~10 GB.
+                if _TRIATT_FUSED_HIFI:
+                    b = bias
+                    if self._bias_scale != self.scale:
+                        b = ttnn.multiply(bias, self.scale / self._bias_scale)
+                    o = _tri_att_sdpa_hifi(q, k, v, b, self.scale ** -1)
+                    if b is not bias:
+                        ttnn.deallocate(b)
                 if o is None:
                     o = _fp32_softmax_attention(
                         q, k, v, bias,
