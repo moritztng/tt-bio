@@ -23,6 +23,42 @@ REPO = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO))
 
 PREFIX = "shadow.recycler.msa_module."
+
+
+#: Semantic flags on tt-bio's shared blocks. A wrong one is a different computation,
+#: not a rounding difference: a missing `fp32_softmax` cost the template embedder 17%
+#: relative RMS and took four passes to find, because every probe constructed its own
+#: correctly-configured op instead of reading the module's. Echo them in the report so
+#: a config drift is visible in every run.
+CONFIG_FLAGS = ("fp32_softmax", "scale_pair_bias", "transpose_bias", "ending",
+                "biased", "gated_move", "affinity")
+
+
+def module_config(mod) -> dict:
+    """Read the semantic flags off a module's own sub-blocks, recursively."""
+    seen = {}
+
+    def walk(obj, path):
+        for name in CONFIG_FLAGS:
+            if hasattr(obj, name):
+                seen[f"{path}.{name}" if path else name] = getattr(obj, name)
+        for attr in dir(obj):
+            if attr.startswith("_"):
+                continue
+            try:
+                child = getattr(obj, attr)
+            except Exception:
+                continue
+            if isinstance(child, list):
+                for i, c in enumerate(child):
+                    if hasattr(c, "compute_kernel_config"):
+                        walk(c, f"{path}.{attr}[{i}]" if path else f"{attr}[{i}]")
+            elif hasattr(child, "compute_kernel_config") and child is not obj:
+                walk(child, f"{path}.{attr}" if path else attr)
+
+    walk(mod, "")
+    return {k: (bool(v) if isinstance(v, bool) else v) for k, v in sorted(seen.items())}
+
 N_BLOCK = 4
 
 
@@ -109,6 +145,7 @@ def main() -> int:
     diff = (z_dev - z_ref).abs()
     ref_diff = (z_ref - z_f32).abs()
     rep = {
+        "config": module_config(mod),
         "tokens": int(z_in.shape[-2]),
         "msa_depth": int(f_in["msa"].shape[0]),
         "z_pcc": round(pcc(z_dev, z_ref), 6),

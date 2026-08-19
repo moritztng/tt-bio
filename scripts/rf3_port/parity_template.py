@@ -26,6 +26,42 @@ sys.path.insert(0, str(REPO))
 PREFIX = "shadow.recycler.template_embedder."
 
 
+#: Semantic flags on tt-bio's shared blocks. A wrong one is a different computation,
+#: not a rounding difference: a missing `fp32_softmax` cost the template embedder 17%
+#: relative RMS and took four passes to find, because every probe constructed its own
+#: correctly-configured op instead of reading the module's. Echo them in the report so
+#: a config drift is visible in every run.
+CONFIG_FLAGS = ("fp32_softmax", "scale_pair_bias", "transpose_bias", "ending",
+                "biased", "gated_move", "affinity")
+
+
+def module_config(mod) -> dict:
+    """Read the semantic flags off a module's own sub-blocks, recursively."""
+    seen = {}
+
+    def walk(obj, path):
+        for name in CONFIG_FLAGS:
+            if hasattr(obj, name):
+                seen[f"{path}.{name}" if path else name] = getattr(obj, name)
+        for attr in dir(obj):
+            if attr.startswith("_"):
+                continue
+            try:
+                child = getattr(obj, attr)
+            except Exception:
+                continue
+            if isinstance(child, list):
+                for i, c in enumerate(child):
+                    if hasattr(c, "compute_kernel_config"):
+                        walk(c, f"{path}.{attr}[{i}]" if path else f"{attr}[{i}]")
+            elif hasattr(child, "compute_kernel_config") and child is not obj:
+                walk(child, f"{path}.{attr}" if path else attr)
+
+    walk(mod, "")
+    return {k: (bool(v) if isinstance(v, bool) else v) for k, v in sorted(seen.items())}
+
+
+
 def pcc(a, b) -> float:
     a = a.flatten().double(); b = b.flatten().double()
     a = a - a.mean(); b = b - b.mean()
@@ -100,6 +136,7 @@ def main() -> int:
 
     active = int(f_in["has_distogram_condition"].sum())
     rep = {
+        "config": module_config(mod),
         "tokens": int(z_in.shape[-2]),
         "template_entries_active": active,
         "pcc": round(pcc(got, ref), 6),
