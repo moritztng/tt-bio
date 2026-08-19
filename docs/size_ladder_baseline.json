@@ -990,7 +990,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded"
+                "reason": "never reached at this size, 0 offered and 0 declined: _pair_transpose_impl is not called during an esmfold2 fold"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -998,7 +998,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
+                "reason": "never reached at this size, 0 offered and 0 declined: the wrapped helper is not called anywhere in this model's fold at this rung; it is reached only once the pair track switches to row-blocked execution at 768"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -1013,7 +1013,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: no _MM_BLOCK entry for this shape; wrap-counted, so the failing clause is not recorded"
+                "reason": "never reached at this size, 0 offered and 0 declined: the wrapped helper is not called anywhere in this model's fold at this rung; it is reached only once the pair track switches to row-blocked execution at 768"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -1213,7 +1213,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded"
+                "reason": "never reached at this size, 0 offered and 0 declined: _pair_transpose_impl is not called during an esmfold2 fold"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -1221,7 +1221,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
+                "reason": "never reached at this size, 0 offered and 0 declined: the wrapped helper is not called anywhere in this model's fold at this rung; it is reached only once the pair track switches to row-blocked execution at 768"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -1236,7 +1236,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: no _MM_BLOCK entry for this shape; wrap-counted, so the failing clause is not recorded"
+                "reason": "never reached at this size, 0 offered and 0 declined: the wrapped helper is not called anywhere in this model's fold at this rung; it is reached only once the pair track switches to row-blocked execution at 768"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -1430,7 +1430,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded"
+                "reason": "never reached at this size, 0 offered and 0 declined: _pair_transpose_impl is not called during an esmfold2 fold"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -1438,7 +1438,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
+                "reason": "never reached at this size, 0 offered and 0 declined: the wrapped helper is not called anywhere in this model's fold at this rung; it is reached only once the pair track switches to row-blocked execution at 768"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -1453,7 +1453,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: no _MM_BLOCK entry for this shape; wrap-counted, so the failing clause is not recorded"
+                "reason": "never reached at this size, 0 offered and 0 declined: the wrapped helper is not called anywhere in this model's fold at this rung; it is reached only once the pair track switches to row-blocked execution at 768"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -1647,7 +1647,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded"
+                "reason": "never reached at this size, 0 offered and 0 declined: _pair_transpose_impl is not called during an esmfold2 fold"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
