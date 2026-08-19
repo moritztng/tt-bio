@@ -104,7 +104,8 @@ ARMS = ("on", "e6", "noe6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hi
         # tail runs DRAM-interleaved, i.e. main verbatim. `on` is the shipped default.
         "noshard",
         # qsplit: the triatt_sdpa q-split lever (TT_BIO_TRIATT_MASK_Q_SPLIT), written explicitly
-        # per arm so "on" stays a pre-lever reference whatever the shipped default is.
+        # per arm so "on" stays a pre-lever reference whatever the shipped default is (`noqsplit`
+        # above is the same ablation, added first).
         "qsplit")
 
 # Which sites each arm routes onto the fused SDPA. The confidence head is never in a flip set:

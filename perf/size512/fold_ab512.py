@@ -86,6 +86,11 @@ TAILF1 = {"f1": True, "nof1": False}
 # clock without moving a single device op. They ride one arm because they land in one commit and
 # neither is separable at the fold: 0.30 s and 0.07 s against an A/A floor of ~0.05 s.
 GLUE = {"glue": True, "noglue": False}
+# `base4` takes all four landed tri-attention kernels out at once -- E6, K1, K1b, K2 -- with every
+# capacity gate at its production default and `_TRANSPOSE_L1_HEADROOM` untouched. That is exactly the
+# `main` arm of the 512 run, so `base4`/`on` at any size is directly comparable to 512's
+# 65.647 / 54.760 = 1.1988x and to the 2026-08-13 size curve, which is a curve of this ratio.
+BASE4 = ("base4",)
 
 
 def timed_call(key, fn, *a, **kw):
@@ -219,6 +224,8 @@ def main():
         if name in ("k2", "nok2"):
             hmt = True
         hmt = HMTAIL.get(name)
+        if name in BASE4:
+            e6, hm, hmt = False, False, False
         # `prev` reverts the two extracted engine fixes (the `_MM_BLOCK[8]` block config and the
         # pair-projection `minimal_matmul` leg) and holds every capacity gate at the production
         # default, so the arm difference is exactly those two and nothing else.
@@ -231,7 +238,10 @@ def main():
                           else name)
         # Every arm sets the tail kernel, so a non-F1 arm provably runs the three shipped ops
         # rather than inheriting the previous arm's flag.
-        T._TRIMUL_TAIL_F1 = bool(f1)
+        # Bound to the SHIPPED constant, never to `bool(dict.get(name))`. F1 flipped default-ON in
+        # `dbcb8e4f` and `bool(None)` kept every `on` arm on the pre-flip path, so `on` was no longer
+        # main. protenix-v2 is a consumer that fires it (kt=8), so this moved real seconds.
+        T._TRIMUL_TAIL_F1 = T.TRIMUL_TAIL_F1 if f1 is None else f1
         import tt_bio.trimul_tail as F1MOD
         F1MOD.STATS[0] = F1MOD.STATS[1] = 0
         F1MOD.REJECTS.clear()
@@ -278,10 +288,14 @@ def main():
         # Every arm sets the fused gate, so a non-E6 arm provably runs without it rather than
         # inheriting the previous arm's state.
         import tt_bio.reblock_permute as _RB
-        if e6 is not None:
+        if e6 is not None and name not in BASE4:
             T._TRIMUL_INPROJ_GROUP = 8
-        _RB.set_enabled_gated(bool(e6))
+        # Same binding rule as F1 above: the gated channel move ships ON
+        # (`reblock_permute.REBLOCK_PERMUTE_GATED`), and `bool(None)` had the `on` arm running with
+        # it off. `protenix-v2-sizes-perf` 3.2 flagged this at 128/256 aa and left it owed.
+        _RB.set_enabled_gated(_RB.REBLOCK_PERMUTE_GATED if e6 is None else e6)
         _RB.STATS_GATED[0] = _RB.STATS_GATED[1] = 0
+        _RB.REJECTS.clear()      # per arm, or the reasons read cumulatively across arms
         if fid:
             ckc = STATE["model"].trunk.compute_kernel_config
             ckc.math_fidelity = getattr(ttnn.MathFidelity, fid)
@@ -362,6 +376,14 @@ def main():
                    "mm_block_8": list(T._MM_BLOCK[(8, 8)]),
                    "trimul_inproj_group": T._TRIMUL_INPROJ_GROUP,
                    "back_kernel": (lambda RB: [RB._ENABLED_BACK, list(RB.STATS_BACK)])(
+                       __import__("tt_bio.reblock_permute", fromlist=["x"])),
+                   # The reject reasons, not just the counts. `[0, 0]` is ambiguous on its own:
+                   # it means either "never offered" or "offered and refused", and at 256, 768
+                   # and 1024 aa on the 13x10 grid E6 reads [0, 0] while its window admits the
+                   # shape, so only the reason separates a closed window from a work-split
+                   # refusal. Keyed `reason:shape`, same encoding as head_major_qkv.
+                   "reblock_rejects": (lambda RB: {"%s:%s" % (r, "x".join(map(str, sh))): n
+                                                   for (r, sh), n in RB.REJECTS.items()})(
                        __import__("tt_bio.reblock_permute", fromlist=["x"])),
                    "gated_kernel": (lambda RB: [RB._ENABLED_GATED, list(RB.STATS_GATED)])(
                        __import__("tt_bio.reblock_permute", fromlist=["x"])),
