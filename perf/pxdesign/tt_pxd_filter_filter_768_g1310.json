@@ -1,0 +1,33 @@
+{
+ "cell": "filter",
+ "variant": "mini_tmpl",
+ "ckpt": "protenix_mini_tmpl_v0.5.0.pt",
+ "target_aa": 768,
+ "binder_aa": 80,
+ "n_tokens": 848,
+ "n_atoms": 7078,
+ "n_cycle": 4,
+ "n_step": 2,
+ "feat_host_s": 0.039,
+ "build_s": 0.214,
+ "gates": {
+  "c_z": 128,
+  "trimul_chunk": 32,
+  "trimul_l1_max_seq": 352,
+  "trimul_l1_resident": false,
+  "trimul_inproj_group": 4,
+  "n_tri_heads": 4,
+  "grid": [
+   13,
+   10
+  ],
+  "n_pairformer": null,
+  "n_msa": 1,
+  "n_template": 0
+ },
+ "reps": [],
+ "error": "RuntimeError: No core coordinate found at location: (12, 3, TENSIX, LOGICAL)",
+ "force_grid": "13,10",
+ "clashes": {},
+ "dram_shapes": []
+}

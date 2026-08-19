@@ -169,6 +169,18 @@ def main():
         print(json.dumps({k: rec[k] for k in ("warm_median", "warm_spread_pct",
                                               "h200_device_s", "ratio_vs_h200_device",
                                               "bar_4x_s")}), flush=True)
+    # Lever census on the filter path. Pass 1 read these on the GENERATOR path and got
+    # served=0 AND declined=0 everywhere, because that path has no trunk. The filter has one,
+    # so this is the first time these counters can say anything, and `l1_refused` is where the
+    # circular-buffer overflow at 848 tokens lands.
+    import tt_bio.protenix as _P
+    import tt_bio.triatt_qkv as _TQ
+    rec["census"] = {
+        "FP32_SOFTMAX_STATS": dict(T.FP32_SOFTMAX_STATS),
+        "RELP_STATS": list(_P.RELP_STATS),
+        "TAIL_STATS": list(_TQ.TAIL_STATS),
+    }
+    print(json.dumps(rec["census"]), flush=True)
     rec["clashes"] = {str(k): v for k, v in T._TRIMUL_CHUNK_CLASH.items()}
     rec["dram_shapes"] = sorted(str(x) for x in T._TRIMUL_DRAM_SHAPES)
     print(json.dumps({"clashes": rec["clashes"], "dram_shapes": rec["dram_shapes"]}), flush=True)

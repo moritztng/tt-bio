@@ -1,0 +1,57 @@
+{
+ "chip": "p150a (Blackhole)",
+ "ckpt": "pxdesign_v0.1.0.pt",
+ "depths": {
+  "dit": 16,
+  "atom_enc": 4,
+  "atom_dec": 4
+ },
+ "diffusion_fp32": true,
+ "dtype": "DataType.FLOAT32",
+ "trace": false,
+ "target_n_step": 400,
+ "cells": [
+  {
+   "cell": "laczc768",
+   "target_aa": 768,
+   "n_tokens": 848,
+   "n_atoms": 6455,
+   "multiplicity": 8,
+   "trace": false,
+   "max_parallel_samples": 5,
+   "cond_hoist_s": 0.49380183599714655,
+   "warmup_s": 3.134686782999779,
+   "warmup_steps": 4,
+   "n_step_a": 8,
+   "sampler_s_a": 4.629647509005736,
+   "n_step_b": 24,
+   "sampler_s_b": 13.883384807995753,
+   "per_step_s": 0.5783585811868761,
+   "fixed_s": 0.002778859510726761,
+   "extrap_s": 231.34621133426117,
+   "extrap_s_per_design": 28.918276416782646,
+   "lever_census": {
+    "tt_bio.triatt_qkv.TAIL_STATS": [
+     0,
+     0
+    ],
+    "tt_bio.tenstorrent.FP32_SOFTMAX_STATS": {
+     "calls": 0,
+     "blocked": 0,
+     "blocks": 0,
+     "fused": 0,
+     "unfused": 0,
+     "l1": 0,
+     "l1_blocks": 0,
+     "l1_refused": 0
+    },
+    "tt_bio.protenix.RELP_STATS": [
+     0,
+     0
+    ]
+   },
+   "trace_captured": false,
+   "ok": true
+  }
+ ]
+}

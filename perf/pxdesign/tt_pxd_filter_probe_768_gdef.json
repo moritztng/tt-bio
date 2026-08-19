@@ -1,0 +1,84 @@
+{
+ "cell": "probe",
+ "variant": "base",
+ "ckpt": "protenix_base_default_v0.5.0.pt",
+ "target_aa": 768,
+ "binder_aa": 0,
+ "n_tokens": 768,
+ "n_atoms": 6409,
+ "n_cycle": 4,
+ "n_step": 2,
+ "feat_host_s": 0.037,
+ "build_s": 0.574,
+ "gates": {
+  "c_z": 128,
+  "trimul_chunk": 32,
+  "trimul_l1_max_seq": 352,
+  "trimul_l1_resident": false,
+  "trimul_inproj_group": 4,
+  "n_tri_heads": 4,
+  "grid": [
+   11,
+   10
+  ],
+  "n_pairformer": null,
+  "n_msa": 4,
+  "n_template": 0
+ },
+ "reps": [
+  {
+   "trunk": 38.859,
+   "diffusion": 6.666,
+   "confidence": 1.502,
+   "total": 47.028,
+   "cold": true,
+   "rg": 1708.99,
+   "finite": true,
+   "plddt": 0.1173
+  },
+  {
+   "trunk": 22.645,
+   "diffusion": 0.364,
+   "confidence": 1.481,
+   "total": 24.49,
+   "cold": false,
+   "rg": 1720.19,
+   "finite": true,
+   "plddt": 0.1165
+  },
+  {
+   "trunk": 22.651,
+   "diffusion": 0.365,
+   "confidence": 1.478,
+   "total": 24.495,
+   "cold": false,
+   "rg": 1710.5,
+   "finite": true,
+   "plddt": 0.117
+  },
+  {
+   "trunk": 22.644,
+   "diffusion": 0.365,
+   "confidence": 1.493,
+   "total": 24.502,
+   "cold": false,
+   "rg": 1721.02,
+   "finite": true,
+   "plddt": 0.1195
+  }
+ ],
+ "error": null,
+ "force_grid": null,
+ "warm_median": {
+  "trunk": 22.645,
+  "diffusion": 0.365,
+  "confidence": 1.481,
+  "total": 24.495
+ },
+ "warm_spread_pct": 0.05,
+ "h200_device_s": 9.55,
+ "ratio_vs_h200_device": 2.565,
+ "bar_4x_s": 38.2,
+ "clashes": {},
+ "dram_shapes": []
+}
