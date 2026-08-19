@@ -47,6 +47,10 @@ def main() -> int:
                          "usable, --steps 200 is the shipping configuration")
     ap.add_argument("--recycles", type=int, default=1)
     ap.add_argument("--trunk-only", action="store_true")
+    ap.add_argument("--port-only", action="store_true",
+                    help="run the port with no reference arm and score nothing: answers "
+                         "'does this size run on the card at all' when the CPU reference "
+                         "is the expensive half (at 1024 tokens it is ~25x the port)")
     ap.add_argument("--ref-trunk-arm", action="store_true",
                     help="also score the distogram head and one denoiser call on the "
                          "REFERENCE trunk tensors instead of the port's. A head fed the "
@@ -130,12 +134,16 @@ def main() -> int:
             return ({k: v.float() for k, v in ro.items()},
                     net.distogram_head(ro["Z_II"]).float())
 
-    t0 = time.time()
-    ref_trunk, ref_disto = ref_trunk_run(True)
-    ref_bf16_s = round(time.time() - t0, 1)
-    t0 = time.time()
-    f32_trunk, f32_disto = ref_trunk_run(False)
-    ref_f32_s = round(time.time() - t0, 1)
+    if args.port_only:
+        ref_trunk = ref_disto = f32_trunk = f32_disto = None
+        ref_bf16_s = ref_f32_s = None
+    else:
+        t0 = time.time()
+        ref_trunk, ref_disto = ref_trunk_run(True)
+        ref_bf16_s = round(time.time() - t0, 1)
+        t0 = time.time()
+        f32_trunk, f32_disto = ref_trunk_run(False)
+        ref_f32_s = round(time.time() - t0, 1)
 
     report = {"fixture": args.fixture, "recycles": args.recycles,
               "steps": args.steps, "force_bfloat16_modules": len(forced),
@@ -179,6 +187,23 @@ def main() -> int:
             "pcc": round(pcc(g, want), 7), "rel_rms": round(e, 6),
             "ceiling": round(ceil, 6),
             "x_ceiling": round(e / ceil, 2) if ceil else None})
+
+    if args.port_only:
+        # Nothing to score against, so record what ran and what it cost. A size that
+        # allocates, dispatches and returns finite tensors has cleared the L1 / grid
+        # question this arm exists for.
+        report["port_only"] = True
+        for name, t in (("S_inputs", s_inputs), ("S_trunk", s), ("Z_trunk", z),
+                        ("distogram", tt.distogram_head(z))):
+            g = back(t, (-1,))
+            report["stages"].append({
+                "tensor": name, "shape": list(t.shape),
+                "finite": bool(torch.isfinite(g).all()),
+                "std": round(float(g.std()), 6)})
+        print(json.dumps(report, indent=2))
+        if args.out:
+            Path(args.out).write_text(json.dumps(report, indent=2) + "\n")
+        return 0
 
     score("S_inputs", s_inputs, ref_trunk["S_inputs_I"], f32_trunk["S_inputs_I"])
     score("S_trunk", s, ref_trunk["S_I"], f32_trunk["S_I"])
