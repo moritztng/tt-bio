@@ -5068,9 +5068,13 @@ class ConditionedTransitionBlock(Module):
         atom_level: bool,
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+        a_to_b_gate: bool = True,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.atom_level = atom_level
+        # Boltz-2 multiplies a third projection of `a` into b; the plain AF3/RF3 SwiGLU
+        # transition does not, and carries no a_to_b weight at all.
+        self.a_to_b_gate = a_to_b_gate
         self.adaln = AdaLN(
             atom_level, self.scope("adaln"), compute_kernel_config
         )
@@ -5079,7 +5083,9 @@ class ConditionedTransitionBlock(Module):
             ttnn.from_torch(chunk.t(), layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_dtype(ttnn.bfloat16))
             for chunk in [swish_chunk, gates_chunk]
         ]
-        self.a_to_b_weight = self.torch_to_tt("a_to_b.weight")
+        self.a_to_b_weight = (
+            self.torch_to_tt("a_to_b.weight") if a_to_b_gate else None
+        )
         self.b_to_a_weight = self.torch_to_tt("b_to_a.weight")
         self.output_projection_weight = self.torch_to_tt("output_projection.0.weight")
         self.output_projection_bias = self.torch_to_tt("output_projection.0.bias")
@@ -5101,15 +5107,19 @@ class ConditionedTransitionBlock(Module):
             core_grid=CORE_GRID_MAIN,
         )
         a_swish = ttnn.multiply_(gates, a_swish, input_tensor_a_activations=[ttnn.UnaryOpType.SILU])
-        a_b = ttnn.linear(
-            a,
-            self.a_to_b_weight,
-            compute_kernel_config=self.compute_kernel_config,
-            core_grid=CORE_GRID_MAIN,
-        )
-        ttnn.deallocate(a)
-        b = ttnn.multiply_(a_swish, a_b)
-        ttnn.deallocate(a_b)
+        if self.a_to_b_gate:
+            a_b = ttnn.linear(
+                a,
+                self.a_to_b_weight,
+                compute_kernel_config=self.compute_kernel_config,
+                core_grid=CORE_GRID_MAIN,
+            )
+            ttnn.deallocate(a)
+            b = ttnn.multiply_(a_swish, a_b)
+            ttnn.deallocate(a_b)
+        else:
+            ttnn.deallocate(a)
+            b = a_swish
         s = ttnn.linear(
             s,
             self.output_projection_weight,
@@ -5138,6 +5148,7 @@ class DiffusionTransformerLayer(Module):
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
         no_residual: bool = False,
+        a_to_b_gate: bool = True,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.atom_level = atom_level
@@ -5165,6 +5176,7 @@ class DiffusionTransformerLayer(Module):
             atom_level,
             self.scope("transition"),
             compute_kernel_config,
+            a_to_b_gate=a_to_b_gate,
         )
 
     def __call__(
@@ -5216,6 +5228,7 @@ class DiffusionTransformer(Module):
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
         no_residual: bool = False,
+        a_to_b_gate: bool = True,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.layers = [
@@ -5226,6 +5239,7 @@ class DiffusionTransformer(Module):
                 self.scope(f"layers.{i}"),
                 compute_kernel_config,
                 no_residual=no_residual,
+                a_to_b_gate=a_to_b_gate,
             )
             for i in range(n_layers)
         ]
