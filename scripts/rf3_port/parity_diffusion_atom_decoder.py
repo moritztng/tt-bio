@@ -30,7 +30,8 @@ def main() -> int:
     import ttnn
     from tt_bio.boltz2 import get_indexing_matrix
     from tt_bio.rf3.atom_encoder import window_mask
-    from tt_bio.rf3.atom_encoder_host import ATOM_KEYS, ATOM_WINDOW
+    from tt_bio.rf3.atom_encoder_host import (ATOM_KEYS, ATOM_WINDOW,
+                                              window_pair)
     from tt_bio.rf3.diffusion_atom_decoder import DiffusionAtomDecoder
     from tt_bio.rf3.weights import load_reference
     from tt_bio.tenstorrent import get_device
@@ -60,6 +61,7 @@ def main() -> int:
     qs = torch.zeros(1, Lp, c_skip.shape[-1]); qs[0, :L] = q_skip.reshape(-1, c_skip.shape[-1])[:L]
     cs = torch.zeros(1, Lp, c_skip.shape[-1]); cs[0, :L] = c_skip
     ps = torch.zeros(1, Lp, Lp, p_skip.shape[-1]); ps[0, :L, :L] = p_skip
+    ps = window_pair(ps)
 
     dev = get_device()
     cfg = ttnn.init_device_compute_kernel_config(

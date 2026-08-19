@@ -32,7 +32,7 @@ def main() -> int:
     import ttnn
     from tt_bio.boltz2 import get_indexing_matrix
     from tt_bio.rf3.atom_encoder import window_mask
-    from tt_bio.rf3.atom_encoder_host import (ATOM_KEYS, ATOM_WINDOW,
+    from tt_bio.rf3.atom_encoder_host import (ATOM_KEYS, ATOM_WINDOW, window_pair,
                                               atom_to_token_mean, pair_inputs,
                                               single_features)
     from tt_bio.rf3.feature_init import mlff_constant, relpos_features, token_bond_features
@@ -77,6 +77,8 @@ def main() -> int:
     p_raw, v_raw = pair_inputs(ff, L)
     p_in = torch.zeros(1, Lp, Lp, 32); p_in[0, :L, :L, :5] = p_raw
     v_in = torch.zeros(1, Lp, Lp, 1); v_in[0, :L, :L] = v_raw
+    p_in = window_pair(p_in)
+    v_in = window_pair(v_in)
     a2t = torch.zeros(1, I, Lp); a2t[0, :, :L] = atom_to_token_mean(ff, L, I)
 
     dev = get_device()

@@ -31,7 +31,9 @@ def main() -> int:
     from tt_bio._vendor.rf3.loss.loss import calc_chiral_grads_flat_impl
     from tt_bio.boltz2 import get_indexing_matrix
     from tt_bio.rf3.atom_encoder import window_mask
-    from tt_bio.rf3.atom_encoder_host import (ATOM_KEYS, ATOM_WINDOW,
+    from tt_bio.rf3.atom_encoder_host import (ATOM_KEYS, ATOM_WINDOW, pad_pair,
+                                              token_to_atom_windowed, window_pair,
+                                              window_pair_valid,
                                               atom_to_token_mean, pair_inputs,
                                               single_features)
     from tt_bio.rf3.diffusion_atom_encoder import DiffusionAtomEncoder
@@ -63,6 +65,8 @@ def main() -> int:
     p_raw, v_raw = pair_inputs(f, L)
     p_in = torch.zeros(1, Lp, Lp, 32); p_in[0, :L, :L, :5] = p_raw
     v_in = torch.zeros(1, Lp, Lp, 1); v_in[0, :L, :L] = v_raw
+    p_in = window_pair(p_in)
+    v_in = window_pair(v_in)
     a2t_mean = torch.zeros(1, I, Lp); a2t_mean[0, :, :L] = atom_to_token_mean(f, L, I)
     a2t = torch.zeros(1, Lp, I)
     idx = f["atom_to_token_map"].long()[:L]
@@ -117,7 +121,7 @@ def main() -> int:
         tt(get_indexing_matrix(K, ATOM_WINDOW, ATOM_KEYS, torch.device("cpu"))),
         tt(a2t_mean), tt(window_mask(L, Lp)), Lp,
         tt(s_trunk.reshape(1, I, -1)), tt(z_trunk.reshape(1, I, I, -1)),
-        tt(r_in), tt(ch_in), tt(a2t), tt(a2t.transpose(1, 2).contiguous()))
+        tt(r_in), tt(ch_in), tt(a2t), tt(token_to_atom_windowed(a2t, Lp)))
 
     def back(x):
         return torch.Tensor(ttnn.to_torch(x)).float()
@@ -125,7 +129,9 @@ def main() -> int:
     rows = []
     for name, got, want, h, l in (
         ("C_L", back(c_l)[0, :L], want_C, hi[2], lo[2]),
-        ("P_LL", back(p_ll)[0, :L, :L, :16], want_P, hi[3], lo[3]),
+        ("P_LL", window_pair_valid(back(p_ll)[..., :16], L),
+         *(window_pair_valid(window_pair(pad_pair(x, Lp)), L)
+           for x in (want_P, hi[3], lo[3]))),
         ("Q_L", back(q_l)[0, :L], want_Q.reshape(-1, want_Q.shape[-1]), hi[1], lo[1]),
         ("A_I", back(a_i)[0], want_A.reshape(-1, want_A.shape[-1]), hi[0], lo[0]),
     ):

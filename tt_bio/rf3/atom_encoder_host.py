@@ -173,3 +173,23 @@ def token_to_atom_windowed(a2t: torch.Tensor, n_atom_padded: int) -> torch.Tenso
     k = n_atom_padded // ATOM_WINDOW
     return torch.stack([t[:, i * ATOM_WINDOW:i * ATOM_WINDOW + ATOM_KEYS]
                         for i in range(k)]).unsqueeze(0)
+
+
+
+def pad_pair(x: torch.Tensor, n_atom_padded: int) -> torch.Tensor:
+    """[L, L, c] -> [1, Lp, Lp, c]: the padding the dense pair path used to take."""
+    l, _, c = x.shape
+    y = torch.zeros(1, n_atom_padded, n_atom_padded, c, dtype=x.dtype)
+    y[0, :l, :l] = x
+    return y
+
+
+def window_pair_valid(x_win: torch.Tensor, n_atom: int) -> torch.Tensor:
+    """The in-range entries of a [K, ATOM_WINDOW, ATOM_KEYS, c] track, flattened.
+
+    Out-of-window slots hold whatever the arithmetic produced there and the -1e9 mask
+    means nothing reads them, so a parity score has to drop them rather than compare
+    them.
+    """
+    ok = window_valid(n_atom, x_win.shape[0] * ATOM_WINDOW)[..., 0].bool()
+    return x_win[ok]

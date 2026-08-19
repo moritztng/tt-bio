@@ -45,7 +45,8 @@ def main() -> int:
     import ttnn
     from tt_bio.boltz2 import get_indexing_matrix
     from tt_bio.rf3.atom_encoder import AtomAttentionEncoder, window_mask
-    from tt_bio.rf3.atom_encoder_host import (ATOM_KEYS, ATOM_WINDOW,
+    from tt_bio.rf3.atom_encoder_host import (ATOM_KEYS, ATOM_WINDOW, pad_pair,
+                                              window_pair, window_pair_valid,
                                               atom_to_token_mean, pair_inputs,
                                               single_features)
     from tt_bio.tenstorrent import get_device
@@ -67,6 +68,8 @@ def main() -> int:
     p_raw, v_raw = pair_inputs(f, L)
     p_in = torch.zeros(1, Lp, Lp, 32); p_in[0, :L, :L, :5] = p_raw
     v_in = torch.zeros(1, Lp, Lp, 1); v_in[0, :L, :L] = v_raw
+    p_in = window_pair(p_in)
+    v_in = window_pair(v_in)
     a2t = torch.zeros(1, I, Lp); a2t[0, :, :L] = atom_to_token_mean(f, L, I)
 
     dev = get_device()
@@ -111,7 +114,8 @@ def main() -> int:
 
     rows = [
         score(back(c_l)[0, :L], want_C, "C_L"),
-        score(back(p_ll)[0, :L, :L, :16], want_P, "P_LL"),
+        score(window_pair_valid(back(p_ll)[..., :16], L),
+              window_pair_valid(window_pair(pad_pair(want_P, Lp)), L), "P_LL"),
         score(back(q_l)[0, :L], want_Q.reshape(-1, want_Q.shape[-1]), "Q_L"),
         score(back(a_i)[0], want_A.reshape(-1, want_A.shape[-1]), "A_I"),
     ]
