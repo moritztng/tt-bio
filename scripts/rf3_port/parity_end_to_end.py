@@ -159,6 +159,37 @@ def main() -> int:
     score("distogram", tt.distogram_head(z), ref_disto, f32_disto)
 
     if not args.trunk_only:
+        # ONE denoiser call, before the rollout. A rollout RMSD alone cannot separate a
+        # wrong denoiser from a correct one whose small error is amplified over N steps
+        # along a soft coordinate -- the relative placement of two unbonded chains is
+        # exactly such a coordinate. Scoring a single call against its own bf16 ceiling
+        # does separate them: at the ceiling here, a large rollout RMSD is amplification.
+        gen = torch.Generator().manual_seed(0)
+        sched = tt.sampler.noise_schedule()
+        t_mid = sched[len(sched) // 2].reshape(1)
+        x_probe = t_mid * torch.randn(1, host.n_atom, 3, generator=gen)
+
+        def ref_denoise_at(bf16):
+            ctx = (torch.autocast("cpu", dtype=torch.bfloat16) if bf16
+                   else torch.autocast("cpu", enabled=False))
+            from contextlib import nullcontext
+            with torch.no_grad(), ctx, (nullcontext() if bf16 else _no_force()):
+                return net.diffusion_module(
+                    X_noisy_L=x_probe.clone(), t=t_mid, f=f,
+                    S_inputs_I=ref_trunk["S_inputs_I"], S_trunk_I=ref_trunk["S_I"],
+                    Z_trunk_II=ref_trunk["Z_II"]).float()
+
+        one_bf16, one_f32 = ref_denoise_at(True), ref_denoise_at(False)
+        one_got = tt.diffusion_module(host, x_probe, t_mid, s_inputs, s, z)
+        report["stages"].append({
+            "tensor": "denoiser_1step", "shape": list(one_bf16.shape),
+            "t": round(float(t_mid), 3),
+            "pcc": round(pcc(one_got, one_bf16), 7),
+            "rel_rms": round(rel_rms(one_got, one_bf16), 6),
+            "ceiling": round(rel_rms(one_bf16, one_f32), 6),
+            "x_ceiling": round(rel_rms(one_got, one_bf16)
+                               / rel_rms(one_bf16, one_f32), 2)})
+
         # Record the reference's draws, then replay them into the port.
         rec = Draws()
         coord = torch.zeros(1, host.n_atom, 3)
