@@ -12,14 +12,19 @@ The two guarantees this test exists to hold:
   2. It reports the PXDesign numbers, so a regression back to a constant is caught here
      rather than as a silently wrong fold.
 
-Device-free: reads key names only, no ttnn, no forward pass.
+The same argument applies to the pair WIDTH: c_z is 256 for protenix-v2, 384 for OpenDDE and
+128 for every PXDesign-pinned Protenix, and `Trunk` used to need it threaded in by hand.
+`Trunk._derive_c_z` reads it off `layernorm_z_cycle`, and the arms below pin that it returns
+the shipped models' existing widths.
+
+Device-free: reads key names and tensor shapes only, no ttnn, no forward pass.
 """
 import os
 
 import pytest
 import torch
 
-from tt_bio.protenix import n_blocks
+from tt_bio.protenix import Trunk, n_blocks
 
 _CKPT_DIR = os.path.expanduser("~/pxdesign_release_data/checkpoint")
 _V2 = os.path.expanduser("~/protenix_ckpt/protenix-v2.pt")
@@ -93,3 +98,30 @@ def test_pxdesign_family_depths(case):
     assert n_blocks(dm, "diffusion_transformer") == dit
     assert n_blocks(dm, "atom_attention_encoder.atom_transformer.diffusion_transformer") == enc
     assert n_blocks(dm, "atom_attention_decoder.atom_transformer.diffusion_transformer") == dec
+
+
+def test_c_z_derivation_is_none_without_trunk_keys():
+    """No trunk in the dict (PXDesign's generator) -> None, so the class default still applies."""
+    assert Trunk._derive_c_z({}) is None
+    assert Trunk.C_Z == 256
+
+
+def test_c_z_derivation_reads_the_norm_it_is_given():
+    """384 is OpenDDE's width. No OpenDDE checkpoint lives on the gate hosts, so the arm is
+    synthetic -- what it pins is that the derivation is the norm's length and nothing else."""
+    assert Trunk._derive_c_z({"layernorm_z_cycle.weight": torch.zeros(384)}) == 384
+    assert Trunk._derive_c_z({"layernorm_z_cycle.weight": torch.zeros(256)}) == 256
+
+
+@pytest.mark.skipif(not os.path.exists(_V2), reason="needs ~/protenix_ckpt/protenix-v2.pt")
+def test_c_z_derivation_reproduces_the_v2_default():
+    """The no-op guarantee for the width, matching the one above for the depths."""
+    assert Trunk._derive_c_z(_load(_V2)) == Trunk.C_Z == 256
+
+
+@pytest.mark.parametrize("name", [c[0] for c in _EXPECTED[1:]])
+def test_pxdesign_protenix_variants_are_c_z_128(name):
+    path = os.path.join(_CKPT_DIR, name)
+    if not os.path.exists(path):
+        pytest.skip(f"{name} missing; fetch via scripts/pxdesign_port/fetch_release_data.sh")
+    assert Trunk._derive_c_z(_load(path)) == 128

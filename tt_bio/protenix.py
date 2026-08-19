@@ -2167,15 +2167,16 @@ class Trunk(_KeyedWeights):
     def __init__(self, model_state_dict, compute_kernel_config, c_z=None,
                  msa_update_first=False, gated_move=False):
         """model_state_dict: full v2-family model dict with the 'module.' prefix STRIPPED.
-        c_z: pair channel width (default 256, Protenix-v2's; OpenDDE's shared Trunk subtree
-        is c_z=384 -- same architecture, wider pair, head_dim fixed at 32 so n_tri_heads
-        scales as c_z // 32)."""
+        c_z: pair channel width. None reads it off the weights (`layernorm_z_cycle`, the
+        recycling norm every v2-family trunk carries), which is 256 for Protenix-v2, 384 for
+        OpenDDE and 128 for every PXDesign-pinned Protenix. Head_dim is fixed at 32, so
+        n_tri_heads follows as c_z // 32. Pass a value only to override the weights."""
         from .tenstorrent import (get_device, Pairformer, PairformerLayer,
                                    OuterProductMean, PairWeightedAveraging, Transition)
         self._w = model_state_dict
         self.compute_kernel_config = compute_kernel_config
         self.dev = get_device()
-        self.C_Z = c_z or self.C_Z
+        self.C_Z = c_z or self._derive_c_z(model_state_dict) or self.C_Z
         self._msa_update_first = msa_update_first
         n_tri_heads = self.C_Z // self.TRI_HEAD_DIM
         self._wc = {}  # cached device weights (upload once; reused every recycle cycle)
@@ -2222,6 +2223,18 @@ class Trunk(_KeyedWeights):
                 pwa = PairWeightedAveraging(8, 8, PW.remap_pair_weighted_averaging(sub(P + "msa_stack.msa_pair_weighted_averaging.")), compute_kernel_config)
                 tm = Transition(PW.remap_transition(sub(P + "msa_stack.transition_m.")), compute_kernel_config)
             self.MSA.append((opm, pwa, tm, pl))
+
+    @staticmethod
+    def _derive_c_z(state_dict):
+        """Pair width off the weights, or None when the trunk keys are absent.
+
+        Same principle as `n_blocks`: a width the caller has to remember to pass can disagree
+        with the checkpoint it is passed alongside, and c_z spans 128/256/384 across the
+        v2-family checkpoints tt-bio loads. `layernorm_z_cycle` is the per-recycle pair norm,
+        so its length is c_z by construction and `__call__` already depends on the key.
+        """
+        w = state_dict.get("layernorm_z_cycle.weight")
+        return int(w.shape[0]) if w is not None else None
 
     def _template(self, z3, tpl_a, N, nt):
         # nt template projections read this whole normed pair tensor to write two tiles of
