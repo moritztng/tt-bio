@@ -3,7 +3,7 @@
     "p150a": {
       "recorded": "2026-08-19",
       "host": "pc",
-      "commit": "0ba673ec7",
+      "commit": "89253efcf",
       "models": {
         "boltz2": {
           "grid": "13x10",
@@ -1795,6 +1795,936 @@
             },
             "512->768": {
               "k": 2.052,
+              "tol": 0.5
+            }
+          }
+        },
+        "protenix-v2": {
+          "grid": "13x10",
+          "runtime_s": {
+            "256": 15.8,
+            "512": 44.0,
+            "640": 68.8,
+            "768": 104.9
+          },
+          "levers": {
+            "256": {
+              "SPLIT_SWIGLU": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever; protenix-v2 does not run that module"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever; protenix-v2 does not run that module"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; protenix-v2 does not run that module"
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; protenix-v2 does not run that module"
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; protenix-v2 does not run that module"
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; protenix-v2 does not run that module"
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; protenix-v2 does not run that module"
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 4352,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "memory": 4352
+                },
+                "reason": "declines all 4352 calls on memory x4352: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and the pair buffer is L1-resident at this size"
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 405,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "never reached at this size, 0 offered and 0 declined: protenix-v2 does not take the hoisted-bias softmax path"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 1208,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 1208 calls: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor, and it serves at 640 and 768, so the pair buffer is L1-resident here; wrap-counted, so the clause is not recorded"
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 1208,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 1208 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 1048,
+                "declined": 160,
+                "frac": 0.8675496688741722,
+                "how": "stats",
+                "rejects": {
+                  "k_tiles=2": 160
+                }
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 2256,
+                "declined": 1048,
+                "frac": 0.6828087167070218,
+                "how": "wrap"
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 4352,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "window_BufferType.L1": 4352
+                },
+                "reason": "declines all 4352 calls on window_BufferType.L1 x4352: the gate's L1 leg admits 288 <= N <= 352 only, and its own docstring records N=256 on an L1 output measuring 0.952x, a real loss"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size, 0 offered and 0 declined: the move back only runs when a forward move fired, and at this rung neither the gated nor the ungated move did"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size, 0 offered and 0 declined: not offered at this rung; it serves every call from 512 upward"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 1048,
+                "declined": 160,
+                "frac": 0.8675496688741722,
+                "how": "stats",
+                "rejects": {
+                  "memory_config": 160
+                }
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 1048,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 1048,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 1048,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; protenix-v2 does not run that module"
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; protenix-v2 does not run that module"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "False",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "off-by-design"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 1208,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "setlen"
+              }
+            },
+            "512": {
+              "SPLIT_SWIGLU": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever; protenix-v2 does not run that module"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever; protenix-v2 does not run that module"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; protenix-v2 does not run that module"
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; protenix-v2 does not run that module"
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; protenix-v2 does not run that module"
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; protenix-v2 does not run that module"
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; protenix-v2 does not run that module"
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 1208,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 405,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "never reached at this size, 0 offered and 0 declined: protenix-v2 does not take the hoisted-bias softmax path"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 1208,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 1208 calls: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor, and it serves at 640 and 768, so the pair buffer is L1-resident here; wrap-counted, so the clause is not recorded"
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 1208,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 1208 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 1048,
+                "declined": 160,
+                "frac": 0.8675496688741722,
+                "how": "stats",
+                "rejects": {
+                  "k_tiles=2": 160
+                }
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 2256,
+                "declined": 1368,
+                "frac": 0.6225165562913907,
+                "how": "wrap"
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size, 0 offered and 0 declined: the gated channel move serves this size instead (REBLOCK_PERMUTE_GATED, 2416 calls at 512 and 640, 4512 at 768), so the ungated call site is not reached"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 1208,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 2416,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 1208,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 1048,
+                "declined": 160,
+                "frac": 0.8675496688741722,
+                "how": "stats",
+                "rejects": {
+                  "no_mm_config": 160
+                }
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 1048,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 1048,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; protenix-v2 does not run that module"
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; protenix-v2 does not run that module"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "False",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "off-by-design"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 1208,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "setlen"
+              }
+            },
+            "640": {
+              "SPLIT_SWIGLU": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever; protenix-v2 does not run that module"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever; protenix-v2 does not run that module"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; protenix-v2 does not run that module"
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; protenix-v2 does not run that module"
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; protenix-v2 does not run that module"
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; protenix-v2 does not run that module"
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; protenix-v2 does not run that module"
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 1208,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 405,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "never reached at this size, 0 offered and 0 declined: protenix-v2 does not take the hoisted-bias softmax path"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 1048,
+                "declined": 160,
+                "frac": 0.8675496688741722,
+                "how": "wrap"
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 1208,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 1208 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 1048,
+                "declined": 160,
+                "frac": 0.8675496688741722,
+                "how": "stats",
+                "rejects": {
+                  "k_tiles=2": 160
+                }
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 2256,
+                "declined": 1368,
+                "frac": 0.6225165562913907,
+                "how": "wrap"
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size, 0 offered and 0 declined: the gated channel move serves this size instead (REBLOCK_PERMUTE_GATED, 2416 calls at 512 and 640, 4512 at 768), so the ungated call site is not reached"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 1208,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 2416,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 1208,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 1048,
+                "declined": 160,
+                "frac": 0.8675496688741722,
+                "how": "stats",
+                "rejects": {
+                  "no_mm_config": 160
+                }
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 1048,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 1048,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; protenix-v2 does not run that module"
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; protenix-v2 does not run that module"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "False",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "off-by-design"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 160,
+                "declined": 1048,
+                "frac": 0.13245033112582782,
+                "how": "wrap"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "setlen"
+              }
+            },
+            "768": {
+              "SPLIT_SWIGLU": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever; protenix-v2 does not run that module"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever; protenix-v2 does not run that module"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; protenix-v2 does not run that module"
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; protenix-v2 does not run that module"
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; protenix-v2 does not run that module"
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; protenix-v2 does not run that module"
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; protenix-v2 does not run that module"
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 2256,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 405,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "never reached at this size, 0 offered and 0 declined: protenix-v2 does not take the hoisted-bias softmax path"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 1048,
+                "declined": 160,
+                "frac": 0.8675496688741722,
+                "how": "wrap"
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 1208,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 1208 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 1048,
+                "declined": 160,
+                "frac": 0.8675496688741722,
+                "how": "stats",
+                "rejects": {
+                  "k_tiles=2": 160
+                }
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 2256,
+                "declined": 1368,
+                "frac": 0.6225165562913907,
+                "how": "wrap"
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size, 0 offered and 0 declined: the gated channel move serves this size instead (REBLOCK_PERMUTE_GATED, 2416 calls at 512 and 640, 4512 at 768), so the ungated call site is not reached"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 2256,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 4512,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 1208,
+                "declined": 1208,
+                "frac": 0.5,
+                "how": "stats",
+                "rejects": {
+                  "l1_budget": 1,
+                  "pm_over_l1": 1207
+                }
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 1048,
+                "declined": 160,
+                "frac": 0.8675496688741722,
+                "how": "stats",
+                "rejects": {
+                  "no_mm_config": 160
+                }
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 1048,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 1048,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; protenix-v2 does not run that module"
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; protenix-v2 does not run that module"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "False",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "off-by-design"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 160,
+                "declined": 1048,
+                "frac": 0.13245033112582782,
+                "how": "wrap"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "setlen"
+              }
+            }
+          },
+          "reps": 1,
+          "sigma_runtime_512": 0.0069,
+          "exponents": {
+            "256->512": {
+              "k": 1.478,
+              "tol": 0.5
+            },
+            "512->768": {
+              "k": 2.143,
               "tol": 0.5
             }
           }

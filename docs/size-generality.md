@@ -75,15 +75,19 @@ the exponent and the lever columns are the point.
 | boltz-2 | 768 | 38.9 | N^1.81 over 512 to 768 | K2 half-dark, 560 of 1120 calls declined | **the 08-13 N^3.6 cliff does not reproduce warm.** An earlier reading of 79.3 s at this rung gave N^3.48, but it came from a card that was then found to be running folds about 2x slow and was reset; the 38.9 s here is one warm fold after that reset, on the same tip and config. The 512 leg agrees between the two (18.7 vs 19.37 s), so it is the 768 leg that moved. Needs a repeat before anyone concludes the cliff is gone |
 | protenix-v2 | 128 | 12.32 | — | E6, K1, K1 tail, K2 | honest dark: the E6 window excludes 128 and the L1 leg measures a real loss there |
 | protenix-v2 | 256 | 22.74 | N^0.89 | E6 not even offered | unexplained by the window; live lead |
-| protenix-v2 | 512 | 55.06 | N^1.28 | none | **E6 serves 2416 calls here and zero at every other rung — a single-size lever, found by counter** |
-| protenix-v2 | 768 | — | in progress | E6, K2 | the pair output is DRAM and the window admits the size, so something downstream refuses |
+| protenix-v2 | 512 | 44.0 | N^1.48 over 256 to 512 | none | E6 serves 2416 calls here. An earlier reading had it serving only at this size; the gate baseline does not reproduce that (see the 640 and 768 rows) |
+| protenix-v2 | 640 | 68.8 | — | none new | E6 serves 2416 calls here too |
+| protenix-v2 | 768 | 104.9 | N^2.14 over 512 to 768 | K2 half-dark, 1208 of 2416 calls declined | E6 serves 4512 calls. **K2 degrades to half-dark here, the same signature boltz-2 shows at 768** |
 | openfold3 | all | — | in progress | — | no rung measured yet this pass; 1024 aa OOMs on allocation count, not size |
 | opendde | 128 | 14.50 | — | — | 08-13 reference ladder |
 | opendde | 256 | 28.93 | N^1.00 | transition big-chunk fires | |
 | opendde | 512 | 88.76 | N^1.62 | transition big-chunk dark | only the current transpose headroom admits L1 here |
 | opendde | 768 | 267.50 | N^2.72 | K2 dark, refiner q-split dark | the refiner track runs ~1.945x the token count, so it leaves the q-split cap a rung before the main track does |
 | opendde | 1024 | 705.50 | N^3.37 | K2 dark, refiner q-split dark | the q-split cap was raised to 1024 on boltz-2 numbers alone and has never been folded here |
-| esmfold2 | all | — | in progress | — | |
+| esmfold2 | 256 | 19.6 | — | ESMC pair-FFN L1 path not yet entered | |
+| esmfold2 | 512 | 47.7 | N^1.28 over 256 to 512 | none new | run-to-run noise here is 0.9 %, the tightest of any model |
+| esmfold2 | 640 | 67.9 | — | none new | |
+| esmfold2 | 768 | 109.6 | N^2.05 over 512 to 768 | both matmul-config guards, all 25823 calls | **the pair track switches to row-blocked execution here and there is no tuned matmul block for the shapes it then presents.** Neither guard is reached at all below 768, so no smaller size could have shown it |
 
 Rows marked in progress are owed by the three measurement tasks running alongside this one; the
 gate baseline in `docs/size_ladder_baseline.json` is the machine-readable version of the same
@@ -91,9 +95,12 @@ matrix and is complete for every model it lists.
 
 Three findings generalise beyond their own model.
 
-**Single-size levers are real and they are found by counting, not by arguing.** protenix-v2's E6
-channel move serves every call at 512 aa and none at 128, 256, 768 or 1024. Nothing about the
-config says so; the counter does.
+**Whether a lever is single-size is itself a per-card question, so measure it where you run.**
+protenix-v2's E6 channel move was reported as serving only at 512 aa. On the gate's own baseline
+(13x10 p150a, current main) it serves at 512, 640 and 768 and is dark only at 256, so the
+single-size reading does not hold on this card. Both measurements are real; what travels is the
+method, not the verdict. This is why the baseline is keyed by grid and re-recorded per card rather
+than asserted once.
 
 **The dark end is not only the large end.** Seven levers that serve every call at 512 aa serve zero
 at 128 aa on boltz-2, and four of them decline explicitly rather than never being reached. The
