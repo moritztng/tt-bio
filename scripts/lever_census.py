@@ -218,6 +218,22 @@ def _install_wraps():
         setattr(T, fname, wrapper)
 
 
+def _compute_grid():
+    """The main compute grid this process opened, as "13x10", or None before device open.
+
+    Recorded because a lever's fired/dark verdict is NOT machine-independent: the same board
+    type can present a different grid after harvesting, and a guard sized against the grid
+    flips with it (protenix-v2's K2 is admitted on 11x10 and refused on 13x10). A census
+    compared across grids is a false alarm waiting to happen.
+    """
+    m = sys.modules.get("tt_bio.tenstorrent")
+    g = getattr(m, "COMPUTE_GRID_MAIN", None) if m is not None else None
+    try:
+        return f"{int(g[0])}x{int(g[1])}" if g else None
+    except Exception:                                                    # noqa: BLE001
+        return None
+
+
 def _snapshot_process():
     """This process's view: only levers whose module it actually imported."""
     rows = {}
@@ -267,7 +283,8 @@ def install_child_hook():
             return
         tmp = f"{path}.tmp"
         with open(tmp, "w") as fh:
-            json.dump({"pid": os.getpid(), "argv": sys.argv[:4], "rows": rows}, fh)
+            json.dump({"pid": os.getpid(), "argv": sys.argv[:4], "rows": rows,
+                       "grid": _compute_grid()}, fh)
         os.replace(tmp, path)
 
     def tick():
@@ -310,12 +327,15 @@ def _write_hookdir(hookdir: Path) -> None:
 
 def collect(dumpdir: Path, label: str, cli: list, rc: int) -> dict:
     agg = {}
+    grids = set()
     dumps = sorted(dumpdir.glob("pid*.json"))
     for p in dumps:
         try:
             d = json.loads(p.read_text())
         except Exception:                                                # noqa: BLE001
             continue
+        if d.get("grid"):
+            grids.add(d["grid"])
         for flag, r in d.get("rows", {}).items():
             a = agg.setdefault(flag, {"resolved": set(), "served": None, "declined": None,
                                       "rejects": {}})
@@ -333,7 +353,8 @@ def collect(dumpdir: Path, label: str, cli: list, rc: int) -> dict:
                      "served": a["served"] if a else None,
                      "declined": a["declined"] if a else None,
                      "rejects": (a["rejects"] or None) if a else None})
-    return {"label": label, "cli": cli, "rc": rc, "processes": len(dumps), "rows": rows}
+    return {"label": label, "cli": cli, "rc": rc, "processes": len(dumps), "rows": rows,
+            "grid": "/".join(sorted(grids)) or None}
 
 
 def report(paths):

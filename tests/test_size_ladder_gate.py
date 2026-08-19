@@ -50,10 +50,10 @@ def _baseline(levers=None):
     }
 
 
-def _check(rg, runtime_s, levers=None, base=None):
+def _check(rg, runtime_s, levers=None, base=None, grid="13x10"):
     lv = dict(levers or FIRING)
     meas = {"levers": {str(r): {"K2": dict(lv)} for r in RUNGS},
-            "runtime_s": runtime_s, "sigma": 0.05, "census_jsons": {}}
+            "runtime_s": runtime_s, "sigma": 0.05, "census_jsons": {}, "grid": grid}
     rg._size_ladder_measure_model = lambda *a, **k: meas
     return rg._size_ladder_check_model("boltz2", RUNGS, base or _baseline(),
                                        pathlib.Path("/tmp"))
@@ -159,6 +159,22 @@ def test_off_lattice_rung_is_in_the_ladder_but_not_the_timing_chain(rg):
     ln(640/512) is wider than the cliff signal it would be gating."""
     assert 640 in rg.SIZE_LADDER_RUNGS
     assert 640 not in rg.SIZE_LADDER_EXP_RUNGS
+
+
+def test_cross_grid_comparison_is_refused_not_reported_as_drift(rg):
+    """A guard sized against the core grid flips with the grid (protenix-v2's K2 is admitted
+    on 11x10 and refused on 13x10), and board type does not pin the grid because harvesting
+    means one board type presents several. Comparing across grids would report levers as newly
+    dark that never went dark, which is how an arm gets switched off."""
+    base = {**_baseline(), "grid": "11x10"}
+    r = _check(rg, dict(BASE_RUNTIME), base=base, grid="13x10")
+    assert r["gate"] is False
+    assert "grid" in r["error"] and "re-record" in r["error"]
+
+
+def test_same_grid_still_compares(rg):
+    base = {**_baseline(), "grid": "13x10"}
+    assert _check(rg, dict(BASE_RUNTIME), base=base, grid="13x10")["gate"] is True
 
 
 def test_size_ladder_is_in_the_default_arm_set(rg):

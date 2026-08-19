@@ -390,7 +390,12 @@ CAPACITY_LEGS = [
 # baseline is a loud NO BASELINE failure, never a silent skip. The exponent is
 # a runtime RATIO, so it transfers across same-type machines to first order
 # (qb1's p150a reads ~30% slower than pc's in absolute terms; the ratio cancels
-# it); the census counts are shape/config-determined and machine-independent.
+# it). The census counts do NOT transfer as freely as an earlier version of this
+# comment claimed: a guard sized against the core grid flips with the grid, and
+# protenix-v2's K2 is admitted on 11x10 and refused on 13x10. Board type does not
+# pin the grid either, because harvesting means one board type presents several.
+# So each model's block records the grid its census ran on and the check REFUSES
+# a cross-grid comparison outright instead of reporting levers as newly dark.
 SIZE_LADDER_MODELS = ("boltz2", "esmfold2", "protenix-v2", "openfold3", "opendde")
 SIZE_LADDER_RUNGS = tuple(int(x) for x in
                           os.environ.get("RELEASE_GATE_SIZE_RUNGS", "256,512,640,768").split(",")
@@ -919,7 +924,7 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str) -> dict:
     if runtime_s is None:
         return {"error": f"no runtime_s in {results.name} (fold ok but timing missing)"}
     return {"levers": levers, "runtime_s": runtime_s, "wall": wall,
-            "census_json": census_json}
+            "census_json": census_json, "grid": census.get("grid")}
 
 
 def _size_ladder_dark(entry: dict) -> bool:
@@ -1010,7 +1015,7 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
     one-size-fits-all mistake this whole arm exists to catch, in the arm itself.
     """
     levers, runtimes, census_jsons = {}, {}, {}
-    sigma = None
+    sigma, grid = None, None
     for rung in rungs:
         reps = reps_512 if rung == 512 else reps_other
         runs = []
@@ -1023,6 +1028,7 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
                                  f"{r['error']}"}
             if rep == 0:
                 continue          # cold: kernels for this shape compile on this fold
+            grid = grid or r.get("grid")
             runs.append(r)
         counts = [{f: (l["served"], l["declined"]) for f, l in r["levers"].items()}
                   for r in runs]
@@ -1036,7 +1042,7 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
         if rung == 512 and len(ts) > 1:
             sigma = statistics.stdev(ts) / statistics.mean(ts)
     return {"levers": levers, "runtime_s": runtimes, "sigma": sigma,
-            "census_jsons": census_jsons}
+            "census_jsons": census_jsons, "grid": grid}
 
 
 def _size_ladder_exponent_block(runtimes: dict, sigma):
@@ -1095,6 +1101,18 @@ def _size_ladder_check_model(model: str, rungs, base_model: dict, workdir: Path)
         return {"model": model, "gate": False, "error": meas["error"],
                 "findings": [meas["error"]]}
     findings = []
+    b_grid, c_grid = base_model.get("grid"), meas.get("grid")
+    if b_grid and c_grid and b_grid != c_grid:
+        # Not a warning. A guard sized against the core grid flips with it (protenix-v2's K2 is
+        # admitted on 11x10 and refused on 13x10), so a census compared across grids reports
+        # levers going dark that never went dark. Board type alone does not pin the grid:
+        # harvesting means one board type presents several.
+        return {"model": model, "gate": False,
+                "error": f"baseline recorded on a {b_grid} grid, this card presents {c_grid} — "
+                         f"lever verdicts are grid-dependent, so re-record on this grid "
+                         f"(--size-ladder-record) rather than comparing across them",
+                "findings": [f"{model}: grid {b_grid} -> {c_grid}"],
+                "runtime_s": meas["runtime_s"], "exponents": {}}
     for rung in rungs:
         b_levers = base_model.get("levers", {}).get(str(rung))
         where = f"{model}/{rung}"
@@ -1192,7 +1210,8 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
             block, skip = _size_ladder_exponent_block(meas["runtime_s"], meas["sigma"])
             todos += _size_ladder_fill_reasons(meas["levers"],
                                                old_models.get(m, {}).get("levers"))
-            entry = {"runtime_s": meas["runtime_s"], "levers": meas["levers"]}
+            entry = {"grid": meas.get("grid"),
+                     "runtime_s": meas["runtime_s"], "levers": meas["levers"]}
             if block:
                 entry.update(block)
             else:
