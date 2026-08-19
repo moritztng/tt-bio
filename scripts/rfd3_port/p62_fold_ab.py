@@ -38,7 +38,7 @@ FIXTURE = (pathlib.Path(RUNG) if RUNG.endswith(".json")
            else pathlib.Path("perf/dsfix/fixtures/rfd3_%s.json" % RUNG))
 CKPT = "/home/ttuser/.boltz/rfd3/weights"
 STEPS, SEED, BATCH = 200, 42, 1
-ROWBLOCK = int(os.environ.get("RFD3_ATTN_ROWBLOCK", "512"))
+ROWBLOCK = int(os.environ.get("RFD3_ATTN_ROWBLOCK", "256"))
 ARMS = [False, True, False, True]
 # the digest four alternating folds agreed on for the published 114.134 cell
 PAGE_DIGEST = "382e7b23ae8cfc75"

@@ -165,9 +165,11 @@ _CONCAT_ALIGNED = os.environ.get("RFD3_CONCAT_ALIGNED", "1") == "1"
 # of the mask and of seq_idx, so blocking cannot change a value; it is checked torch.equal on the
 # full index tensor at the production shape and by the fold CIF digest.
 # RFD3_ATTN_ROWBLOCK=0 restores the unblocked chain so the fold A/B has an arm; a positive value
-# overrides the block size. R picked on the production chain by
-# scripts/rfd3_port/p61_attn_indices_prod.py.
-_ATTN_ROW_BLOCK = int(os.environ.get("RFD3_ATTN_ROWBLOCK", "512"))
+# overrides the block size. R=256 measured on the production mask and coordinates by
+# scripts/rfd3_port/p61_attn_indices_prod.py (perf/p61/attn_indices_prod.json, L=6051, k=128,
+# mask density 0.0078, n=5 medians): it is the fastest block size at both 8 and 16 threads,
+# 53.82 -> 20.59 ms at 8 and 48.81 -> 18.60 at 16, and R=512/1024/2048 are all slower.
+_ATTN_ROW_BLOCK = int(os.environ.get("RFD3_ATTN_ROWBLOCK", "256"))
 # The 18 DiT blocks project the SAME pair tensor with their own [c_pair, n_head] weight, and that
 # projection is the largest single op in the model: 36 calls/step (18 blocks x 2 recycles),
 # 26.742 ms/step, 42.6 % of this card's measured 390.0 GB/s read roof (perf/p56/linear_census.json).
@@ -2361,7 +2363,7 @@ class LocalTokenTransformer(Module):
         if self.b_w_fused is not None:
             fused = _tuned_linear(z, self.b_w_fused, ckc=self.compute_kernel_config,
                                   dtype=self.dtype, core_grid=CORE_GRID_MAIN)
-            end = [int(v) for v in fused.shape[:3]]
+            end = [int(fused.shape[i]) for i in range(3)]
         for i, block in enumerate(self.blocks):
             pb = None
             if fused is not None:
