@@ -111,7 +111,7 @@ def token_bond_features(f: dict) -> torch.Tensor:
 
 
 def mlff_constant(process_atom_level_embedding, n_conformers: int = 8,
-                  embedding_dim: int = 384) -> torch.Tensor:
+                  embedding_dim: int = 384, autocast: bool = True) -> torch.Tensor:
     """The constant this checkpoint's MLFF track adds to every atom's C_L.
 
     `use_atom_level_embedding` is True, but at public inference the MACE cache is
@@ -122,14 +122,23 @@ def mlff_constant(process_atom_level_embedding, n_conformers: int = 8,
     constant [c_atom] vector, identical for every atom -- so it is precomputed here
     instead of running the MLP on device.
 
+    A precomputed constant has to be precomputed the way the reference computes it.
+    The reference forward runs under `torch.autocast("cpu", bfloat16)`, so evaluating
+    this MLP in fp32 yields a slightly different vector -- and because it is added to
+    every atom, that difference is exactly the residual that kept C_L off bit-exact
+    (rel_rms 0.0025) until the autocast was matched. `autocast=False` is offered only
+    for an fp32 reference run.
+
     Callers MUST check the embeddings really are all-zero (see `assert_mlff_inputs_zero`);
     with real embeddings this constant is wrong.
     """
-    with torch.no_grad():
+    ctx = (torch.autocast("cpu", dtype=torch.bfloat16) if autocast
+           else torch.autocast("cpu", enabled=False))
+    with torch.no_grad(), ctx:
         out = process_atom_level_embedding(
             torch.zeros(n_conformers, 1, embedding_dim)
         )
-    return out[0].clone()
+    return out[0].float().clone()
 
 
 def assert_mlff_inputs_zero(f: dict) -> None:
