@@ -18,8 +18,10 @@ the reader to assume it was checked.
 `scripts/release_gate.py --model size-ladder` enforces the size half of this, and it is in the
 default arm set, so a release runs it whether or not anyone remembers to. It folds each structure
 model at 256, 512, 640 and 768 aa, counts which perf levers actually fire at each rung by effect,
-and fails when the fired set or the runtime scaling exponent moved away from
-`docs/size_ladder_baseline.json`.
+and fails when the fired set, the clause a guard declines on, or the runtime scaling exponent moved
+away from `docs/size_ladder_baseline.json`. The clause matters on its own: a guard that starts
+refusing for a different reason has changed behaviour without changing either the fired count or the
+wall time, so nothing else in the arm can see it.
 
 Two properties are worth knowing before you read a red run:
 
@@ -113,5 +115,7 @@ TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" python3 scripts/release_gate.py --model s
     --size-ladder-record
 ```
 
-A dark lever with no reason is a failure, not a pass by silence. Per-rung census artifacts land in
+A dark lever with no reason is a failure, not a pass by silence. Recording pre-fills each one with
+the clause the guard actually declined on, so the reason you write is a confirmation rather than an
+archaeology exercise. Per-rung census artifacts land in
 `perf/sizegate/baseline/` and are the first thing to diff when the arm goes red.
