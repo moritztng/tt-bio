@@ -90,3 +90,6 @@ perf/wh-correctness/results/artifacts/**/*.parquet
 
 # wrangler local cache
 .wrangler/
+
+# size-ladder gate scratch (folds + censuses); the baseline evidence is perf/sizegate/baseline/
+perf/sizegate/work/
