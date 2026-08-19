@@ -5280,6 +5280,15 @@ class OuterProductMean(Module):
         self.norm_bias = self.torch_to_tt("norm.bias")
         self.a_weight = self.torch_to_tt("proj_a.weight")
         self.b_weight = self.torch_to_tt("proj_b.weight")
+        # RF3 biases both projections; the AF3-lineage models already here do not, so
+        # these are read only when present. They cannot be folded into the weights:
+        # the outer product of (Wx + c) and (W'x + c') carries cross terms.
+        self.a_bias = (
+            self.torch_to_tt("proj_a.bias") if "proj_a.bias" in self.weights else None
+        )
+        self.b_bias = (
+            self.torch_to_tt("proj_b.bias") if "proj_b.bias" in self.weights else None
+        )
         self.o_weight = self.torch_to_tt("proj_o.weight")
         self.o_bias = self.torch_to_tt("proj_o.bias")
 
@@ -5307,12 +5316,14 @@ class OuterProductMean(Module):
             ac = ttnn.linear(
                 mc,
                 self.a_weight,
+                bias=self.a_bias,
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
             )
             bc = ttnn.linear(
                 mc,
                 self.b_weight,
+                bias=self.b_bias,
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
             )
