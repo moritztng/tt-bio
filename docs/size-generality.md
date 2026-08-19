@@ -63,8 +63,10 @@ the exponent and the lever columns are the point.
 | model | rung | wall s | exponent vs prev | levers dark | status |
 |---|---:|---:|---|---|---|
 | boltz-2 | 128 | 8.85 | — | K1, K1 tail, K2, E6 | K2 dark at the small end since at least 08-13, on `memory_config`, not the gate this campaign is named after |
-| boltz-2 | 512 | 26.55 | N^1.58 over the pair track | none | the tuned anchor |
-| boltz-2 | 768 | — | N^3.48 (256 to 768, gate arm) | K2 half-dark, 560 of 1120 calls declined | the cliff is still on main six days later; the transpose and q-chunk gates have since closed |
+| boltz-2 | 256 | 7.8 | — | F1 tail, and 5 more | |
+| boltz-2 | 512 | 18.7 | N^1.26 over 256 to 512 | none but F1 | the tuned anchor; run-to-run noise here is 5.2 % over 5 reps |
+| boltz-2 | 640 | 28.3 | — | F1, and 4 more | off-lattice rung; K2 fires here on today's main |
+| boltz-2 | 768 | 38.9 | N^1.81 over 512 to 768 | K2 half-dark, 560 of 1120 calls declined | **the 08-13 N^3.6 cliff does not reproduce warm.** An earlier reading of 79.3 s at this rung gave N^3.48, but it came from a card that was then found to be running folds about 2x slow and was reset; the 38.9 s here is one warm fold after that reset, on the same tip and config. The 512 leg agrees between the two (18.7 vs 19.37 s), so it is the 768 leg that moved. Needs a repeat before anyone concludes the cliff is gone |
 | protenix-v2 | 128 | 12.32 | — | E6, K1, K1 tail, K2 | honest dark: the E6 window excludes 128 and the L1 leg measures a real loss there |
 | protenix-v2 | 256 | 22.74 | N^0.89 | E6 not even offered | unexplained by the window; live lead |
 | protenix-v2 | 512 | 55.06 | N^1.28 | none | **E6 serves 2416 calls here and zero at every other rung — a single-size lever, found by counter** |
