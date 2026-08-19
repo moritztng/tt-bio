@@ -92,7 +92,7 @@ def main() -> int:
         ("tri_att_end", "tri_attn_end",
          lambda: RefTriAtt(C_Z, n_head=4, d_hidden=32, start_node=False),
          lambda w: TriangleAttention(32, 4, True, w, cfg, scale_pair_bias=False,
-                                     fp32_softmax=True)),
+                                     fp32_softmax=True, transpose_bias=False)),
         ("transition_z", "z_transition",
          lambda: RefTransition(c=C_Z, n=4),
          lambda w: Transition(w, cfg)),

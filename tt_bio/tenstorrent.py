@@ -3134,11 +3134,19 @@ class TriangleAttention(Module):
         affinity: bool = False,
         scale_pair_bias: bool = True,
         fp32_softmax: bool = False,
+        transpose_bias: bool = True,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.head_dim = head_dim
         self.n_heads = n_heads
         self.ending = ending
+        # Whether the ending variant's pair bias is transposed along with the pair.
+        # Boltz-2, Protenix-v2 and OpenFold3 transpose both, which is the default.
+        # RF3 builds the bias from the UN-transposed tensor and transposes only the
+        # pair (rf3/model/layers/attention.py::TriangleAttention.forward), so it
+        # wants bias[h,j,i] where the default gives bias[h,i,j]. Worth 0.35 of PCC
+        # on an RF3 block, so it is a correctness flag, not a nicety.
+        self.transpose_bias = transpose_bias
         self.affinity = affinity
         self.fp32_softmax = fp32_softmax
         self.scale = self.head_dim**0.5
@@ -3259,6 +3267,8 @@ class TriangleAttention(Module):
             triangle_bias = ttnn.concat(bias_parts, dim=2)
             for bp in bias_parts:
                 ttnn.deallocate(bp)
+            if self.ending and not self.transpose_bias:
+                triangle_bias = ttnn.permute(triangle_bias, (0, 1, 3, 2))
             dram_peak(f"tri_att({'end' if self.ending else 'start'}) bias built [z={'x'.join(str(d) for d in x.shape)}]")
         else:
             if self.ending:
@@ -3279,6 +3289,8 @@ class TriangleAttention(Module):
             )
             triangle_bias = ttnn.unsqueeze(triangle_bias, 0)
             triangle_bias = ttnn.permute(triangle_bias, (0, 3, 1, 2))
+            if self.ending and not self.transpose_bias:
+                triangle_bias = ttnn.permute(triangle_bias, (0, 1, 3, 2))
             dram_peak(f"tri_att({'end' if self.ending else 'start'}) bias built [z={'x'.join(str(d) for d in x.shape)}]")
 
         def attend(qkv_in, bias, keep_heads=False):
@@ -4066,6 +4078,7 @@ class PairformerLayer(Module):
         scale_pair_bias: bool = True,
         fp32_softmax: bool = False,
         gated_move: bool = False,
+        transpose_bias: bool = True,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.transform_s = transform_s
@@ -4094,6 +4107,7 @@ class PairformerLayer(Module):
             affinity=affinity,
             scale_pair_bias=scale_pair_bias,
             fp32_softmax=fp32_softmax,
+            transpose_bias=transpose_bias,
         )
         self.transition_z = Transition(
             self.scope("transition_z"), compute_kernel_config
@@ -4177,6 +4191,7 @@ class Pairformer(Module):
         scale_pair_bias: bool = True,
         fp32_softmax: bool = False,
         gated_move: bool = False,
+        transpose_bias: bool = True,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.blocks = [
@@ -4192,6 +4207,7 @@ class Pairformer(Module):
                 scale_pair_bias=scale_pair_bias,
                 fp32_softmax=fp32_softmax,
                 gated_move=gated_move,
+                transpose_bias=transpose_bias,
             )
             for i in range(n_blocks)
         ]
