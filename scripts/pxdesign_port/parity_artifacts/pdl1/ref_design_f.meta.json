@@ -291,7 +291,7 @@
     3
    ],
    "dtype": "torch.float32",
-   "sha256_16": "ecbe1f180b7108fe"
+   "sha256_16": "bf01595359afa2b2"
   },
   "ref_space_uid": {
    "shape": [
@@ -396,5 +396,43 @@
    "dtype": "torch.int64",
    "sha256_16": "96bdb95018ff1ad8"
   }
+ },
+ "model_input_keys": [
+  "ref_pos",
+  "ref_charge",
+  "ref_element",
+  "ref_atom_name_chars",
+  "ref_mask",
+  "ref_space_uid",
+  "atom_to_token_idx",
+  "restype",
+  "hotspot",
+  "deletion_mean",
+  "asym_id",
+  "residue_index",
+  "entity_id",
+  "sym_id",
+  "token_index",
+  "conditional_templ",
+  "conditional_templ_mask"
+ ],
+ "model_input_store_dtype": {
+  "ref_pos": "torch.float32",
+  "ref_charge": "torch.float32",
+  "ref_element": "torch.uint8",
+  "ref_atom_name_chars": "torch.uint8",
+  "ref_mask": "torch.uint8",
+  "ref_space_uid": "torch.int32",
+  "atom_to_token_idx": "torch.int32",
+  "restype": "torch.float32",
+  "hotspot": "torch.float32",
+  "deletion_mean": "torch.float32",
+  "asym_id": "torch.int32",
+  "residue_index": "torch.int32",
+  "entity_id": "torch.int32",
+  "sym_id": "torch.int32",
+  "token_index": "torch.int32",
+  "conditional_templ": "torch.uint8",
+  "conditional_templ_mask": "torch.bool"
  }
 }

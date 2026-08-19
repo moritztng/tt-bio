@@ -25,6 +25,7 @@ structures within sample variance of the reference (scripts/protenix_fold_e2e.py
 scripts/protenix_predict.py -> PDB). Remaining (packaging): data-pipeline vendoring
 (sequence/CCD -> feats dict), worker/CLI --model protenix-v2, unified README.
 """
+import math
 import os
 import re
 import torch
@@ -704,10 +705,16 @@ class AtomAttentionEncoder(_KeyedWeights, Module):
         return ttnn.add(p, m)
 
     def __call__(self, ref_pos, ref_charge_asinh, ref_mask, f_in, d_lm, v_lm, invd,
-                 mask_trunked, atom_to_token_mean, restype, profile, deletion_mean):
+                 mask_trunked, atom_to_token_mean, *token_feats):
         """All tensors on device except mask_trunked (host, for the attn pad bias) and
         atom_to_token_mean ((N_token,N) host averaging matrix). p_lm built in windowed
-        flat form then reshaped to (nb,nq,nk,16)."""
+        flat form then reshaped to (nb,nq,nk,16).
+
+        `token_feats` are the per-token channels concatenated onto the pooled atom
+        embedding. Protenix-v2 and OpenDDE pass (restype, profile, deletion_mean) for
+        c_s_inputs=449; PXDesign's InputFeatureEmbedderDesign passes a different set and
+        then projects (tt_bio.pxdesign.model). Only the concat differs, so only the concat
+        is parameterised."""
         N = ref_pos.shape[1] if len(ref_pos.shape) == 3 else ref_pos.shape[0]
         NP = ((N + self.NQ - 1) // self.NQ) * self.NQ
         nb = NP // self.NQ
@@ -724,7 +731,7 @@ class AtomAttentionEncoder(_KeyedWeights, Module):
         q = ttnn.reshape(q, (N, q.shape[-1]))
         a = ttnn.matmul(atom_to_token_mean, q, compute_kernel_config=self.compute_kernel_config,
                         core_grid=CORE_GRID_MAIN)                            # (N_token,384)
-        return ttnn.concat([a, restype, profile, deletion_mean], dim=-1)     # (N_token,449)
+        return ttnn.concat([a, *token_feats], dim=-1)                        # (N_token,449) for v2
 
 
 class DiffusionModule(_KeyedWeights):
@@ -2511,6 +2518,37 @@ def merge_conds(diffusion_module, conds):
     return m
 
 
+def step_scale_schedule(step_scale, n_step):
+    """Per-step eta for the AF3 Alg-18 Euler update, as a list of `n_step` floats.
+
+    A float (Protenix-v2, OpenDDE) gives a constant schedule and the identical arithmetic
+    it always had. PXDesign passes upstream's dict form, `{"type", "min", "max"}`; the
+    fraction is `step / (n_step + 1)` because upstream indexes by position in the
+    noise schedule, which is one longer than the step count.
+    Reference: pxdesign/model/generator.py sample_diffusion."""
+    if not isinstance(step_scale, dict):
+        return [float(step_scale)] * n_step
+    lo, hi = float(step_scale["min"]), float(step_scale["max"])
+    kind, T = step_scale["type"], n_step + 1
+    if kind == "const":
+        if lo != hi:
+            raise ValueError(f"const eta schedule needs min == max, got {lo} and {hi}")
+        return [lo] * n_step
+    fracs = [k / T for k in range(n_step)]
+    if kind == "linear":
+        return [lo + (hi - lo) * f for f in fracs]
+    if kind == "poly":
+        return [lo + (hi - lo) * f ** 2 for f in fracs]
+    if kind == "cos":
+        return [lo + 0.5 * (hi - lo) * (1 - math.cos(math.pi * f)) for f in fracs]
+    if kind.startswith("piecewise"):
+        cut = {"piecewise": 0.5, "piecewise_65": 0.65, "piecewise_70": 0.70}.get(kind)
+        if cut is None:
+            raise ValueError(f"unsupported eta schedule {kind!r}")
+        return [lo if f < cut else hi for f in fracs]
+    raise ValueError(f"unsupported eta schedule {kind!r}")
+
+
 def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_samples=None,
                member_seeds=None, n_step=200, gamma0=0.8, gamma_min=1.0,
                noise_scale=1.003, step_scale=1.5, sigma_data=16.0, s_max=160.0, s_min=4e-4,
@@ -2542,6 +2580,9 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
     draw but is statistically equivalent; the fold lands in the same basin within the
     seed-to-seed noise floor (PCC parity, the established diffusion-leg bar). This matches
     boltz2.AtomDiffusion.sample, which also uses one stream for its multiplicity batch.
+
+    step_scale (eta) is a float by default; PXDesign passes upstream's schedule dict
+    ({"type": "piecewise_65", "min": 1.0, "max": 2.5}) -- see step_scale_schedule.
 
     trace=True replays a captured ttnn trace of the denoise device stream (lossless;
     collapses per-step dispatch on dispatch-bound diffusion). The captured trace is fixed
@@ -2612,6 +2653,7 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
     # is over the multiplicity dim only -- cond is shared (sample-invariant), so it is
     # NOT replicated; the device denoise is responsible for carrying the chunk's leading
     # dim through the atom encoder / DiT / decoder (see DiffusionModule.denoise).
+    etas = step_scale_schedule(step_scale, n_step)
     sample_ids = torch.arange(M)
     n_chunks = max(1, (M + max_parallel_samples - 1) // max_parallel_samples)
     chunks = [c for c in sample_ids.chunk(n_chunks) if c.numel() > 0]
@@ -2643,7 +2685,7 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
         dram_peak(f"edm step {k}")
         trunk_tap_host(f"edm_denoised[step{k}]", denoised)
         d = (x_noisy - denoised) / t_hat
-        x = x_noisy + step_scale * (sigma_t - t_hat) * d
+        x = x_noisy + etas[k] * (sigma_t - t_hat) * d
         trunk_tap_host(f"edm_x[step{k}]", x)
         if dump_fn is not None:                      # per-step coords (noise -> structure)
             for _m in range(M):

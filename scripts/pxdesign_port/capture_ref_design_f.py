@@ -5,6 +5,10 @@ Writes a SMALL committed reference so the parity gate needs no upstream install,
 network and no device: the design-specific tensors in full, plus shape/dtype/sha256 for
 every key the upstream featurizer produced, so an unexpected key set is caught too.
 
+It also writes `ref_design_inputs.pt`: the model-ready input dict for a generation-only
+run, so `ProtenixDesign.design` can be driven end-to-end from an input upstream itself
+produced, without a CIF parser in tt-bio.
+
 It also captures the exact INPUTS to `DesignFeaturizer.get_condition_template_feature`
 (distogram-atom coords, res_name, mol_type, is_resolved). That function is the port's
 sharpest correctness edge -- a 64-bin distogram written only into the sub-block of
@@ -36,6 +40,31 @@ COMMITTED_KEYS = [
     "asym_id", "entity_id", "sym_id", "residue_index", "token_index",
     "atom_to_token_idx", "is_protein", "is_ligand", "is_dna", "is_rna",
 ]
+
+# The model-ready input dict for a generation-only run: everything ProtenixDesign.design
+# reads, and nothing else. Stored in compact dtypes (see COMPACT) because the two big
+# one-hots are int64 upstream and 3.8 MB of the 4.0 MB; `load_design_inputs` casts them
+# back. The trunk-only keys (msa, profile, token_bonds, template_*) are deliberately
+# absent: PXDesign-d has no trunk and upstream deletes them before the sampler.
+MODEL_INPUT_KEYS = [
+    # atom level
+    "ref_pos", "ref_charge", "ref_element", "ref_atom_name_chars", "ref_mask",
+    "ref_space_uid", "atom_to_token_idx",
+    # token level
+    "restype", "hotspot", "deletion_mean",
+    "asym_id", "residue_index", "entity_id", "sym_id", "token_index",
+    # pair level (the structural conditioning)
+    "conditional_templ", "conditional_templ_mask",
+]
+
+# key -> storage dtype. Values are one-hots, small counts or bin indices, so nothing here
+# loses information; `load_design_inputs` in tt_bio.pxdesign.fixtures asserts round-trip.
+COMPACT = {
+    "ref_element": "uint8", "ref_atom_name_chars": "uint8", "ref_mask": "uint8",
+    "conditional_templ": "uint8", "conditional_templ_mask": "bool",
+    "ref_charge": "float32", "ref_pos": "float32", "restype": "float32",
+    "hotspot": "float32", "deletion_mean": "float32",
+}
 
 
 def sha(t):
@@ -111,13 +140,31 @@ def main():
         "all_keys": {k: {"shape": list(v.shape), "dtype": str(v.dtype), "sha256_16": sha(v)}
                      for k, v in sorted(feats.items()) if torch.is_tensor(v)},
     }
+    missing = [k for k in MODEL_INPUT_KEYS if k not in feats]
+    assert not missing, f"upstream did not produce model inputs {missing}"
+    inputs = {}
+    for k in MODEL_INPUT_KEYS:
+        v = feats[k]
+        dt = COMPACT.get(k)
+        if dt is None:
+            inputs[k] = v.to(torch.int32)
+            assert torch.equal(inputs[k].long(), v.long()), f"{k} does not fit int32"
+            continue
+        c = v.to(getattr(torch, dt))
+        assert torch.equal(c.to(v.dtype), v), f"{k} is not exactly representable as {dt}"
+        inputs[k] = c
+    meta["model_input_keys"] = MODEL_INPUT_KEYS
+    meta["model_input_store_dtype"] = {k: str(v.dtype) for k, v in inputs.items()}
+    torch.save(inputs, os.path.join(out_dir, "ref_design_inputs.pt"))
+
     torch.save({k: feats[k] for k in COMMITTED_KEYS}, os.path.join(out_dir, "ref_design_f.pt"))
     torch.save(cond_in, os.path.join(out_dir, "ref_condition_inputs.pt"))
     json.dump(meta, open(os.path.join(out_dir, "ref_design_f.meta.json"), "w"), indent=1)
     shutil.rmtree(work, ignore_errors=True)
 
     print(f"[capture] {meta['n_token']} tokens, {meta['n_atom']} atoms, "
-          f"{len(meta['all_keys'])} upstream keys, {len(COMMITTED_KEYS)} committed")
+          f"{len(meta['all_keys'])} upstream keys, {len(COMMITTED_KEYS)} committed, "
+          f"{len(MODEL_INPUT_KEYS)} model inputs")
     print(f"[capture] -> {out_dir}")
 
 
