@@ -82,6 +82,8 @@ def run_rep(a, cell, rep):
            "--report", str(report), "--preset", preset, "--n-sample", str(n_sample),
            "--n-step", str(a.n_step), "--dtype", a.dtype, "--seed", str(a.seed),
            "--label", tag]
+    if a.extra:
+        cmd += ["--extra", a.extra]
 
     samples, stop = [], threading.Event()
     th = threading.Thread(target=sample_power, args=(stop, samples), daemon=True)
@@ -110,7 +112,7 @@ def run_rep(a, cell, rep):
     rec = {"model": "pxdesign", "label": label, "rep": rep, "cold": rep == 0,
            "preset": preset, "n_sample": n_sample, "yaml": yaml_path,
            "yaml_sha256": r.get("yaml_sha256"), "n_step": a.n_step, "dtype": a.dtype,
-           "seed": a.seed, "total_s": r.get("total_s"), "s_per_design": r.get("s_per_design"),
+           "seed": a.seed, "extra": a.extra, "total_s": r.get("total_s"), "s_per_design": r.get("s_per_design"),
            "stages": r.get("stages"), "split": r.get("split"), "split_pct": r.get("split_pct"),
            "unattributed_s": r.get("unattributed_s"), "counts": r.get("counts"),
            "module_census": r.get("module_census"), "counter_info": r.get("counter_info"),
@@ -151,15 +153,20 @@ def main():
     ap.add_argument("--n-step", type=int, default=400)
     ap.add_argument("--dtype", default="bf16")
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--extra", default="",
+                    help="extra argv forwarded to pxdesign pipeline, e.g. a hydra-style override")
+    ap.add_argument("--label-suffix", default="",
+                    help="appended to every cell label, so an --extra arm cannot collide with the "
+                         "same cell measured without it")
     a = ap.parse_args()
 
     if a.cells == "anchor":
-        cells = ANCHOR
+        cells = [(lb + a.label_suffix, y, p_, n) for lb, y, p_, n in ANCHOR]
     else:
         cells = []
         for spec in a.cells.split(","):
             label, yaml_rel, preset, n = spec.split(":")
-            cells.append((label, yaml_rel, preset, int(n)))
+            cells.append((label + a.label_suffix, yaml_rel, preset, int(n)))
 
     out = pathlib.Path(a.results)
     out.parent.mkdir(parents=True, exist_ok=True)
