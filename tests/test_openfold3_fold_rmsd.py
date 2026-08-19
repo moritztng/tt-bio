@@ -8,6 +8,8 @@ import pytest
 import torch
 
 _CKPT = os.path.expanduser("~/of3-weights/of3-p2-155k.pt")
+import of3_golden
+
 _GOLD = os.path.expanduser("~/of3_ref_out.pkl")
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _QUERY = os.path.join(_REPO, "tests/fixtures/of3_ubiquitin_query.json")
@@ -33,7 +35,7 @@ def test_of3_msa_confidence_selected_fold_rmsd():
     torch.manual_seed(0)
     np.random.seed(0)
     sd = torch.load(_CKPT, map_location="cpu", weights_only=False)
-    I = pickle.load(open(_GOLD, "rb"))["intermediates"]
+    I = of3_golden.intermediates(_GOLD)
     ie = I["input_embedder_real"]
     te = I["template_embedder_real"]["feat"]
     xl = I["diffusion_module_xlout_real"]

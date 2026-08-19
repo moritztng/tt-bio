@@ -31,6 +31,8 @@ Two gates (see docs/openfold3-port.md):
 import os, pickle, pytest, torch, ttnn
 
 _CKPT = os.path.expanduser("~/of3-weights/of3-p2-155k.pt")
+import of3_golden
+
 _GOLD = os.path.expanduser("~/of3_ref_out.pkl")
 pytestmark = pytest.mark.skipif(not (os.path.exists(_CKPT) and os.path.exists(_GOLD)),
                                 reason="of3 ckpt or golden pkl missing")
@@ -55,7 +57,7 @@ def test_of3_trunk_glue_on_device():
     from tt_bio.openfold3_trunk import OF3TrunkGlue
 
     sd = torch.load(_CKPT, map_location="cpu", weights_only=False)
-    g = pickle.load(open(_GOLD, "rb"))["intermediates"]["trunk_real"]
+    g = of3_golden.intermediates(_GOLD)["trunk_real"]
     nc = g["num_cycles"]
     s_init_ref, z_init_ref = g["s_init"], g["z_init"]
 
@@ -114,7 +116,7 @@ def test_of3_trunk_assembly_on_device():
     from tt_bio.openfold3_trunk import OF3Trunk
 
     sd = torch.load(_CKPT, map_location="cpu", weights_only=False)
-    inter = pickle.load(open(_GOLD, "rb"))["intermediates"]
+    inter = of3_golden.intermediates(_GOLD)
     g = inter["trunk_real"]
     nc = g["num_cycles"]
     s_init_ref, z_init_ref = g["s_init"], g["z_init"]

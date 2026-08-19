@@ -16,6 +16,8 @@ P7 AtomTransformer.
 import os, pickle, pytest, torch, ttnn
 
 _CKPT = os.path.expanduser("~/of3-weights/of3-p2-155k.pt")
+import of3_golden
+
 _GOLD = os.path.expanduser("~/of3_ref_out.pkl")
 pytestmark = pytest.mark.skipif(not (os.path.exists(_CKPT) and os.path.exists(_GOLD)),
                                 reason="of3 ckpt or golden pkl missing")
@@ -41,7 +43,7 @@ def test_of3_diffusion_conditioning_on_device():
 
     sd = torch.load(_CKPT, map_location="cpu", weights_only=False)
     dc_sd = _sub(_sub(sd, "diffusion_module"), "diffusion_conditioning")
-    g = pickle.load(open(_GOLD, "rb"))["intermediates"]["diffusion_conditioning_real"]
+    g = of3_golden.intermediates(_GOLD)["diffusion_conditioning_real"]
     si_input, si_trunk, zij_trunk = g["si_input"], g["si_trunk"], g["zij_trunk"]
     relpos, n_emb, tok = g["relpos"], g["n_emb"], g["token_mask"]
     si_ref, zij_ref = g["si_ref"], g["zij_ref"]

@@ -24,6 +24,8 @@ device.
 import os, pickle, math, pytest, torch, ttnn
 
 _CKPT = os.path.expanduser("~/of3-weights/of3-p2-155k.pt")
+import of3_golden
+
 _GOLD = os.path.expanduser("~/of3_ref_out.pkl")
 pytestmark = pytest.mark.skipif(not (os.path.exists(_CKPT) and os.path.exists(_GOLD)),
                                 reason="of3 ckpt or golden pkl missing")
@@ -48,7 +50,7 @@ def test_of3_sample_diffusion_rollout_on_device():
     from tt_bio.openfold3_weights import _sub
 
     sd = torch.load(_CKPT, map_location="cpu", weights_only=False)
-    I = pickle.load(open(_GOLD, "rb"))["intermediates"]
+    I = of3_golden.intermediates(_GOLD)
     g = I["sample_diffusion_rollout_real"]
     xlout = I["diffusion_module_xlout_real"]
     cond = I["diffusion_conditioning_real"]

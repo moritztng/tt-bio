@@ -32,6 +32,8 @@ input, and the trunk no longer compounds inter-chain error across cycles.
 import os, pickle, pytest, torch, ttnn
 
 _CKPT = os.path.expanduser("~/of3-weights/of3-p2-155k.pt")
+import of3_golden
+
 _GOLD = os.path.expanduser("~/of3_ref_out.pkl")
 pytestmark = pytest.mark.skipif(not (os.path.exists(_CKPT) and os.path.exists(_GOLD)),
                                 reason="of3 ckpt or golden pkl missing")
@@ -79,7 +81,7 @@ def test_of3_msa_block0_on_device():
     ckc = _cfg(dev)
     sd = torch.load(_CKPT, map_location="cpu", weights_only=False)
     block_remap = remap_msa_block(_sub(sd, "msa_module.blocks.0"))
-    gold = pickle.load(open(_GOLD, "rb"))["intermediates"]["msa_block0_real"]
+    gold = of3_golden.intermediates(_GOLD)["msa_block0_real"]
     (m_in, z_in) = gold["in"]; (m_gold, z_gold) = gold["out"]
     ft = lambda x: ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
     m, z = _run_block(block_remap, ft(m_in.unsqueeze(0)), ft(z_in.unsqueeze(0)), ckc)
@@ -99,7 +101,7 @@ def test_of3_msa_stack_on_device():
     ckc = _cfg(dev)
     sd = torch.load(_CKPT, map_location="cpu", weights_only=False)
     blocks = remap_msa_module(sd)
-    gold = pickle.load(open(_GOLD, "rb"))["intermediates"]["msa_stack_real"]
+    gold = of3_golden.intermediates(_GOLD)["msa_stack_real"]
     (m_in, z_in) = gold["in"]; z_gold = gold["out"]
     ft = lambda x: ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
     m, z = ft(m_in.unsqueeze(0)), ft(z_in.unsqueeze(0))

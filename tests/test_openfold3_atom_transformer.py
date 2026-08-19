@@ -17,6 +17,8 @@ s_input). Here ql and ai are gated independently.
 import os, pickle, pytest, torch, ttnn
 
 _CKPT = os.path.expanduser("~/of3-weights/of3-p2-155k.pt")
+import of3_golden
+
 _GOLD = os.path.expanduser("~/of3_ref_out.pkl")
 pytestmark = pytest.mark.skipif(not (os.path.exists(_CKPT) and os.path.exists(_GOLD)),
                                 reason="of3 ckpt or golden pkl missing")
@@ -46,7 +48,7 @@ def test_of3_atom_transformer_on_device():
     at_sd = _sub(enc, "atom_transformer")
     lq_w = _sub(enc, "linear_q")["0.weight"]  # (384, 128); aggregation linear (ReLU follows)
 
-    g = pickle.load(open(_GOLD, "rb"))["intermediates"]["input_embedder_atom_transformer_real"]
+    g = of3_golden.intermediates(_GOLD)["input_embedder_atom_transformer_real"]
     n_atom, n_token = g["n_atom"], g["n_token"]
     nb, NP = g["nb"], g["NP"]
     s_full, z, ql_ref, ai_ref = g["s_full"], g["z"], g["ql_ref"], g["ai_ref"]
