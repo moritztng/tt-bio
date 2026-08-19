@@ -52,10 +52,13 @@ only from multiples of 256 holds "padded length divides the chunk size" constant
 cannot see that class of defect at all. 640 is the off-lattice control, and it is the rung the arm's
 own red-condition proof fires at.
 
-640 is a lever rung only, not a timing rung. At the measured 6.5 % run-to-run noise floor, a
-3-sigma exponent band over 512 to 640 is +-1.24 and over 640 to 768 is +-1.51, both at or past the
-size of the cliff worth catching, so an exponent gate there would be a coin flip. The exponent is
-checked over 256 to 512 (+-0.50) and 512 to 768 (+-0.68).
+640 is a lever rung only, not a timing rung. Run-to-run noise is measured per model when the
+baseline is recorded: 5.2 % on boltz-2, 3.9 % on esmfold2. At a 6.5 % floor a 3-sigma exponent band
+over 512 to 640 is +-1.24 and over 640 to 768 is +-1.51, both at or past the size of the cliff worth
+catching, so an exponent gate on either half would be a coin flip, and splitting 512 to 768 would
+also destroy the one interval that is gateable. The exponent is checked over 256 to 512 (+-0.50 on
+boltz-2) and 512 to 768 (+-0.54). A model too noisy for a meaningful band has its exponent recorded
+as skipped, with the measured noise as the reason, rather than getting a gate that cries wolf.
 
 ## What the 2026-08-19 sweep found
 
@@ -81,7 +84,6 @@ the exponent and the lever columns are the point.
 | opendde | 768 | 267.50 | N^2.72 | K2 dark, refiner q-split dark | the refiner track runs ~1.945x the token count, so it leaves the q-split cap a rung before the main track does |
 | opendde | 1024 | 705.50 | N^3.37 | K2 dark, refiner q-split dark | the q-split cap was raised to 1024 on boltz-2 numbers alone and has never been folded here |
 | esmfold2 | all | — | in progress | — | |
-| boltz-2 | 256/512/640/768 | — | — | TriMul F1 tail fusion, all 560 calls | **default-ON and inert on this model at every size**: the fusion allow-lists one block key and boltz-2's trimul tail resolves a different one. It serves 1048 calls on protenix-v2, so the kernel works; it just never runs here |
 
 Rows marked in progress are owed by the three measurement tasks running alongside this one; the
 gate baseline in `docs/size_ladder_baseline.json` is the machine-readable version of the same
