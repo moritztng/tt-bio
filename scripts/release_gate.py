@@ -81,8 +81,25 @@ against a budget — plus the per-sample output contract, since a fold that quie
 fewer structures than it was asked for is the other face of the same failure. Six sampling
 steps and single-sequence on purpose; see the constants for why.
 
+Size-ladder is the size-generality arm. STANDING RULE: a perf lever may not land
+default-ON on the strength of ONE sequence length, and any threshold constant in
+``tt_bio/tenstorrent.py`` carries a validity range stated where it is defined.
+Between 2026-08-13 and 2026-08-19 every perf decision on main was screened at
+512 aa only, and the 512-tuned L1 gates went silently dark above 640 aa — no
+error, no log line, the fold just got slower (N^2.0 -> N^3.6 over 512->768). A
+one-off sweep does not survive contact with merges, so the check is a standing
+arm: fold each model at 256/512/768 aa through ``scripts/lever_census.py`` and
+fail when the fired/dark lever set or the log-log runtime exponent between
+rungs drifts from the checked-in baseline (``docs/size_ladder_baseline.json``).
+It is a change detector, not a purity check: legitimately dark levers carry a
+one-line exemption reason in the baseline, and re-recording
+(``--size-ladder-record``) is an explicit human action that runs all three
+rungs, so flipping a default forces measuring three sizes. Baselines are per
+card type, same discipline as ``docs/perf_baselines.json``. See
+docs/size-generality.md.
+
     # gate everything (five fold models + BoltzGen designability + ESMC embed parity
-    # + OpenDDE-abag docking) on card 1
+    # + OpenDDE-abag docking + capacity + size-ladder) on card 1
     TT_VISIBLE_DEVICES=1 PYTHONPATH=<worktree> ESM_ROOT=/path/to/esm \
         OPENDDE_DOCKQ_PYTHON=/path/to/dockq_venv/bin/python \
         python scripts/release_gate.py
@@ -92,6 +109,9 @@ steps and single-sequence on purpose; see the constants for why.
     python scripts/release_gate.py --model esmc-300m
     python scripts/release_gate.py --model opendde-abag
     python scripts/release_gate.py --model capacity
+    python scripts/release_gate.py --model size-ladder
+    # re-record the size-ladder baseline after an intentional size-affecting change
+    python scripts/release_gate.py --model size-ladder --size-ladder-record
 
 Exit code 0 iff every requested model PASSES its gate; 1 otherwise. Runs on the
 device serially (one card context per run); no CPU shortcut for the fold/design.
@@ -103,9 +123,13 @@ see RELEASING.md. The two are independent; both must exit 0 before a tag.
 
 import argparse
 import importlib.util
+import json
+import math
 import os
 import re
 import shutil
+import socket
+import statistics
 import subprocess
 import sys
 import time
@@ -255,6 +279,107 @@ CAPACITY_LEGS = [
     ("examples/abag_xm/9ivj.yaml", "opendde-abag", 891, 8, 2,
      float(os.environ.get("RELEASE_GATE_CAPACITY_MAX_GIB_2", "12.0"))),
 ]
+
+# --- size-ladder leg ---------------------------------------------------------
+# The accuracy legs above compare NUMBERS at one small target, so a perf lever
+# that only fires at the sequence length it was tuned at — and silently stops
+# firing at every other length — is invisible to them. That is not hypothetical:
+# every perf decision of 2026-08-13..19 was screened at 512 aa only, and the
+# 512-tuned L1 gates (K2 fill_preconditions, _TRANSPOSE_L1_HEADROOM, the SDPA
+# q-chunk budget) went dark outside that window with no error and no log line.
+# This leg folds each model at three rungs through scripts/lever_census.py and
+# fails when the fired/dark lever set or the runtime scaling exponent drifts
+# from the checked-in baseline. It is a CHANGE DETECTOR against a recorded
+# baseline, not a purity check: some levers are legitimately dark at some sizes,
+# so the baseline ships today's dark set with a one-line exemption reason per
+# dark lever, and re-recording (--size-ladder-record) is an explicit human
+# action that runs all three rungs — flipping a default forces measuring three
+# sizes. The standing rule this enforces is in the module docstring.
+#
+# Rungs 256/512/768: 512 is the anchor every lever was tuned at; 256 is inside
+# the compute-bound regime (128 aa is fixed-cost dominated — ~3 s of prep /
+# confidence / save against ~5 s of fold — and sits below grid saturation, so
+# half its dark levers are uninteresting); 768 is where the measured N^3.6
+# cliff and the SDPA q-chunk overflow live. 1024 is excluded: OpenFold3 OOMs
+# there on allocation COUNT, so the arm would be red on arrival for one model,
+# which is how arms get disabled. Override for a single-rung debug run:
+# RELEASE_GATE_SIZE_RUNGS=640.
+#
+# Fold config: --single_sequence --sampling_steps 6 --diffusion_samples 1
+# --seed 0. Single-sequence makes the arm hermetic (no MSA server, no
+# RELEASE_GATE_MSA_DIR precondition, nothing that can fail for a reason
+# unrelated to what is gated). None of the census levers live in an MSA module,
+# so this costs no lever coverage; the price is that a cliff living ONLY in the
+# MSA module is invisible here. Six steps because the census counts guard
+# decisions, not trajectory statistics.
+#
+# The comparison per (model, rung, lever):
+#   1. resolved changed            — a default flip, an import change, or a
+#                                    threshold constant edited (the census
+#                                    records the constant's VALUE, e.g.
+#                                    TRANSPOSE_L1_RESIDENT resolves to 1.25);
+#   2. fired fraction crosses zero — a dark lever starts firing, or a firing
+#                                    lever goes dark (both directions fail:
+#                                    a threshold quietly widening into a size
+#                                    it was never measured at is a change too);
+#   3. |frac - baseline| > 0.05    — partial darkness. K2 on main reads 560/0 at
+#                                    512 and 560/560 at 768; a fired-SET
+#                                    comparison calls that "still firing" and
+#                                    passes, the fraction rule fails it;
+#   4. a dark-and-ON lever with no one-line exemption reason in the baseline is
+#      a FAIL, not a pass by silence;
+#   5. setlen levers (SDPA_Q_CHUNK_FITS) gate the overflow-set size exactly —
+#      every member is a fold that silently took the slow path.
+#
+# The exponent check uses runtime_s from the fold's own results.json, which
+# excludes model load and process startup (the subprocess wall is
+# load-dominated: measured k=0.35 vs the true k=1.09 over 128->512). runtime_s
+# still carries a ~3 s size-independent term, which biases k DOWNWARD, so a
+# recorded cliff is a lower bound on the true exponent. Tolerance per interval:
+#
+#     tol = max(0.50, 3 * sqrt(2) * sigma / ln(N2/N1))
+#
+# with sigma the measured relative noise of one rung's runtime_s (record mode
+# measures it with SIZE_LADDER_SIGMA_REPS reps at 512 aa; boltz2 reads 6.5% on
+# pc card 0, giving tol 0.50 on 256->512 and 0.68 on 512->768 against a
+# measured cliff signal of 1.4-1.6). The 0.50 floor keeps a suspiciously quiet
+# model from getting an unfalsifiably tight band. Above sigma = 12% the arm
+# switches the model to median-of-3 (the repo's own answer to single-shot
+# noise, merged 7431d6e39); if even that leaves the 512->768 tolerance wider
+# than the ~1.4 cliff signal, exponents are recorded as SKIPPED for that model
+# with the measured numbers as the reason — a measured "cannot be gated
+# cheaply" beats a flaky arm.
+#
+# One warm-up fold at the smallest rung per model precedes the ladder: the
+# first fold of a session reads ~24% slow (JIT + program caches), larger than
+# the noise floor, and a cold first rung biases every exponent downward.
+#
+# Baselines are PER CARD TYPE (cards.<board_type>.models...), same discipline
+# as docs/perf_baselines.json: the issue #11 fix scales L1 budgets to the
+# part's measured per-core L1, so a p300c legitimately fires a different lever
+# set than a p150a at the same sequence length. A card type with no recorded
+# baseline is a loud NO BASELINE failure, never a silent skip. The exponent is
+# a runtime RATIO, so it transfers across same-type machines to first order
+# (qb1's p150a reads ~30% slower than pc's in absolute terms; the ratio cancels
+# it); the census counts are shape/config-determined and machine-independent.
+SIZE_LADDER_MODELS = ("boltz2", "esmfold2", "protenix-v2", "openfold3", "opendde")
+SIZE_LADDER_RUNGS = tuple(int(x) for x in
+                          os.environ.get("RELEASE_GATE_SIZE_RUNGS", "256,512,768").split(",")
+                          if x.strip())
+SIZE_LADDER_BASELINE = REPO_ROOT / "docs" / "size_ladder_baseline.json"
+SIZE_LADDER_STEPS = 6
+SIZE_LADDER_FRAC_TOL = 0.05
+SIZE_LADDER_SIGMA_REPS = 5
+SIZE_LADDER_EXP_TOL_FLOOR = 0.50
+# The diluted N^2 -> N^3.6 cliff reads as an apparent exponent jump of ~1.4 once
+# the size-independent term in runtime_s biases both exponents downward. A 3-sigma
+# tolerance wider than that cannot catch the cliff, so the model's exponent check
+# is skipped (with the measured numbers) instead of shipping a coin flip.
+SIZE_LADDER_EXP_MAX_TOL = 1.40
+SIZE_LADDER_WORKDIR = REPO_ROOT / "size_ladder_work"
+# Record mode keeps the per-rung census artifacts here as the evidence behind
+# docs/size_ladder_baseline.json — the first thing to diff when the arm goes red.
+SIZE_LADDER_PROVENANCE = REPO_ROOT / "perf" / "sizegate" / "baseline"
 
 
 def _msa_args(model: str) -> list:
@@ -662,6 +787,379 @@ def run_capacity_all(keep: bool) -> dict:
             "legs": rows}
 
 
+def _repo_commit() -> str:
+    try:
+        return subprocess.check_output(["git", "rev-parse", "--short", "HEAD"],
+                                       cwd=REPO_ROOT, text=True, timeout=5).strip()
+    except Exception:
+        return "unknown"
+
+
+def _size_ladder_card_type() -> str:
+    """Board-type key ('p150a', 'p300c', ...) for the per-card baseline lookup,
+    reusing perf_regression's detector (tt-smi first, sysfs fallback; opens no
+    device) so both gates key their baselines identically."""
+    path = REPO_ROOT / "scripts" / "perf_regression.py"
+    spec = importlib.util.spec_from_file_location("tt_bio_perf_regression", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.detect_card_type()
+
+
+def _run_census_fold(model: str, rung: int, workdir: Path, tag: str) -> dict:
+    """One lever-census-wrapped fold of the cdk2x2_<rung> fixture. Returns
+    {"levers": {flag: {resolved, served, declined, frac, how}}, "runtime_s": ...,
+    "wall": ...} or {"error": ...}.
+
+    scripts/lever_census.py wraps the predict CLI so every spawned worker dumps
+    its lever counters (predict folds in spawned processes, so counters read in
+    the launcher are always zero); the fold itself is the arm's cheap config
+    (single-sequence, 6 steps, 1 sample, seed 0) — enough to resolve every guard
+    without paying for a production fold. runtime_s comes from the fold's own
+    results.json, which excludes model load and process startup.
+    """
+    from tt_bio.main import predict_results_dir_name
+    fixture = REPO_ROOT / "perf" / "size512" / "fixtures" / f"cdk2x2_{rung}.yaml"
+    if not fixture.exists():
+        return {"error": f"missing size-ladder fixture {fixture}"}
+    label = f"{model}-{rung}-{tag}"
+    census_json = workdir / f"census_{label}.json"
+    out_dir = workdir / f"out_{label}"
+    log = workdir / f"{label}.log"
+    shutil.rmtree(out_dir, ignore_errors=True)
+    workdir.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        sys.executable, str(REPO_ROOT / "scripts" / "lever_census.py"),
+        "--tt-bio", sys.executable, "--label", label, "--out", str(census_json),
+        "--", "-m", "tt_bio.main", "predict", str(fixture),
+        "--model", model,
+        "--single_sequence",
+        "--sampling_steps", str(SIZE_LADDER_STEPS),
+        "--diffusion_samples", "1",
+        "--seed", str(SEED),
+        "--out_dir", str(out_dir),
+    ]
+    t0 = time.monotonic()
+    with open(log, "w") as fp:
+        rc, timed_out = _run_fold(cmd, FOLD_TIMEOUT_S, cwd=REPO_ROOT,
+                                  stdout=fp, stderr=subprocess.STDOUT)
+    wall = time.monotonic() - t0
+    if timed_out:
+        return {"error": f"census fold timed out after {FOLD_TIMEOUT_S}s"}
+    if rc != 0:
+        tail = " / ".join(log.read_text(errors="replace").strip().splitlines()[-3:])[:200]
+        return {"error": f"census fold exited {rc}: {tail}"}
+    try:
+        census = json.loads(census_json.read_text())
+    except Exception as e:
+        return {"error": f"census artifact unreadable: {e}"}
+    levers = {}
+    for r in census["rows"]:
+        served, declined = r["served"], r["declined"]
+        total = (served or 0) + (declined or 0)
+        # never-reached (0/0) reads as frac 0.0 = dark; not-imported stays None
+        frac = (served / total) if total else (0.0 if served == 0 else None)
+        levers[r["flag"]] = {"resolved": r["resolved"], "served": served,
+                             "declined": declined, "frac": frac, "how": r["how"]}
+    results = out_dir / predict_results_dir_name(model, fixture.stem) / "results.json"
+    runtime_s = None
+    if results.exists():
+        try:
+            rows = json.loads(results.read_text())
+            ts = [row["runtime_s"] for row in rows
+                  if row.get("status") == "ok" and row.get("runtime_s") is not None]
+            runtime_s = max(ts) if ts else None
+        except Exception:
+            runtime_s = None
+    if runtime_s is None:
+        return {"error": f"no runtime_s in {results.name} (fold ok but timing missing)"}
+    return {"levers": levers, "runtime_s": runtime_s, "wall": wall,
+            "census_json": census_json}
+
+
+def _size_ladder_dark(entry: dict) -> bool:
+    """A lever counts as dark when it resolved ON yet served no call. setlen
+    levers have no served counter; their dark state is a non-empty overflow set.
+    not-imported / False / off-by-design levers are absent, not dark."""
+    if entry["resolved"] in ("False", "not-imported", "MISSING", "None", ""):
+        return False
+    if entry.get("how") == "setlen":
+        return bool(entry.get("declined"))
+    return entry.get("served") == 0
+
+
+def _size_ladder_exemption_findings(base_levers: dict, where: str) -> list:
+    """Every dark-and-ON lever in the baseline must carry a one-line reason."""
+    findings = []
+    for flag, b in base_levers.items():
+        if _size_ladder_dark(b):
+            reason = (b.get("reason") or "").strip()
+            if not reason or reason.startswith("TODO"):
+                findings.append(f"{where} {flag}: dark (resolved {b['resolved']}, "
+                                f"served {b['served']}, declined {b['declined']}) with no "
+                                f"exemption reason in the baseline")
+    return findings
+
+
+def _size_ladder_compare_levers(base: dict, cur: dict, where: str) -> list:
+    """Findings comparing one rung's lever census against the baseline. The rules
+    are the five in the SIZE_LADDER comment block above."""
+    findings = []
+    for flag, b in base.items():
+        c = cur.get(flag)
+        if c is None:
+            findings.append(f"{where} {flag}: in baseline but missing from the census "
+                            f"(lever removed? re-record the baseline)")
+            continue
+        if c["resolved"] != b["resolved"]:
+            findings.append(f"{where} {flag}: resolved '{b['resolved']}' -> "
+                            f"'{c['resolved']}' (default or threshold constant changed)")
+            continue
+        if b.get("how") == "setlen":
+            if (c["declined"] or 0) != (b["declined"] or 0):
+                findings.append(f"{where} {flag}: overflow-set size "
+                                f"{b['declined']} -> {c['declined']}")
+            continue
+        fb, fc = b["frac"], c["frac"]
+        if fb is None or fc is None:
+            continue  # not-imported; the resolved equality above gates import drift
+        if (fb == 0.0) != (fc == 0.0):
+            findings.append(f"{where} {flag}: frac {fb:.3f} -> {fc:.3f} "
+                            f"({'went dark' if fc == 0.0 else 'started firing'})")
+        elif abs(fc - fb) > SIZE_LADDER_FRAC_TOL:
+            findings.append(f"{where} {flag}: frac {fb:.3f} -> {fc:.3f} exceeds the "
+                            f"{SIZE_LADDER_FRAC_TOL} band (partial darkness)")
+    for flag in cur:
+        if flag not in base:
+            findings.append(f"{where} {flag}: new lever not in the baseline "
+                            f"(re-record with --size-ladder-record)")
+    return findings
+
+
+def _size_ladder_measure_model(model: str, rungs, workdir: Path,
+                               reps_512: int, reps_other: int) -> dict:
+    """Warm up once (the first fold of a session reads ~24% slow, larger than the
+    noise floor), then census-fold every rung. Returns {"levers": {rung: ...},
+    "runtime_s": {rung: median}, "sigma": relative runtime noise at 512 | None,
+    "census_jsons": {rung: path}} or {"error": ...}."""
+    warm = _run_census_fold(model, rungs[0], workdir, "warmup")
+    if warm.get("error"):
+        return {"error": f"warm-up: {warm['error']}"}
+    levers, runtimes, census_jsons = {}, {}, {}
+    sigma = None
+    for rung in rungs:
+        reps = reps_512 if rung == 512 else reps_other
+        runs = []
+        for rep in range(reps):
+            r = _run_census_fold(model, rung, workdir, f"rep{rep}")
+            if r.get("error"):
+                return {"error": f"rung {rung} rep {rep}: {r['error']}"}
+            runs.append(r)
+        counts = [{f: (l["served"], l["declined"]) for f, l in r["levers"].items()}
+                  for r in runs]
+        if any(c != counts[0] for c in counts[1:]):
+            print(f"  [size-ladder] WARNING: {model}/{rung} census counts differ "
+                  f"across reps — counts were assumed deterministic", flush=True)
+        levers[str(rung)] = runs[0]["levers"]
+        census_jsons[str(rung)] = runs[0]["census_json"]
+        ts = [r["runtime_s"] for r in runs]
+        runtimes[str(rung)] = round(statistics.median(ts), 2)
+        if rung == 512 and len(ts) > 1:
+            sigma = statistics.stdev(ts) / statistics.mean(ts)
+    return {"levers": levers, "runtime_s": runtimes, "sigma": sigma,
+            "census_jsons": census_jsons}
+
+
+def _size_ladder_exponent_block(runtimes: dict, sigma):
+    """Baseline exponent entries per consecutive rung pair: k with a tolerance
+    derived from the measured noise floor. Returns (block, skip_reason)."""
+    rungs = sorted(int(r) for r in runtimes)
+    if len(rungs) < 2:
+        return None, "single rung — no interval to exponent over"
+    if sigma is None:
+        return None, "no noise measurement (rung 512 absent from the ladder)"
+    reps, sigma_eff = 1, sigma
+    if sigma > 0.12:
+        # median-of-3, the repo's standing answer to single-shot noise
+        # (perf-gate-single-shot-legs-recurring-false-alarm, merged 7431d6e39)
+        reps, sigma_eff = 3, sigma / math.sqrt(3)
+    exps = {}
+    for n1, n2 in zip(rungs, rungs[1:]):
+        k = math.log(runtimes[str(n2)] / runtimes[str(n1)]) / math.log(n2 / n1)
+        tol = max(SIZE_LADDER_EXP_TOL_FLOOR,
+                  3 * math.sqrt(2) * sigma_eff / math.log(n2 / n1))
+        exps[f"{n1}->{n2}"] = {"k": round(k, 3), "tol": round(tol, 3)}
+    worst = max(e["tol"] for e in exps.values())
+    if worst > SIZE_LADDER_EXP_MAX_TOL:
+        return None, (f"measured sigma {sigma:.1%} needs a ±{worst:.2f} band, wider "
+                      f"than the ~{SIZE_LADDER_EXP_MAX_TOL} cliff signal — an exponent "
+                      f"gate would be a coin flip for this model")
+    return {"reps": reps, "sigma_runtime_512": round(sigma, 4), "exponents": exps}, None
+
+
+def _size_ladder_fill_reasons(levers: dict, old_levers: dict) -> int:
+    """Carry exemption reasons forward from the previous baseline; newly dark
+    levers get a TODO. Returns the number of dark levers still needing a reason."""
+    todo = 0
+    for rung, table in levers.items():
+        for flag, e in table.items():
+            if not _size_ladder_dark(e):
+                e.pop("reason", None)
+                continue
+            old = ((old_levers or {}).get(rung, {}).get(flag, {})).get("reason", "")
+            if old and not old.startswith("TODO"):
+                e["reason"] = old
+            else:
+                e["reason"] = ("TODO: one line on why this lever is legitimately "
+                               "dark at this size")
+                todo += 1
+    return todo
+
+
+def _size_ladder_check_model(model: str, rungs, base_model: dict, workdir: Path) -> dict:
+    reps = base_model.get("reps", 1)
+    meas = _size_ladder_measure_model(model, rungs, workdir, reps, reps)
+    if meas.get("error"):
+        return {"model": model, "gate": False, "error": meas["error"],
+                "findings": [meas["error"]]}
+    findings = []
+    for rung in rungs:
+        b_levers = base_model.get("levers", {}).get(str(rung))
+        where = f"{model}/{rung}"
+        if b_levers is None:
+            findings.append(f"{where}: rung not recorded in the baseline")
+            continue
+        findings.extend(_size_ladder_exemption_findings(b_levers, where))
+        findings.extend(_size_ladder_compare_levers(b_levers, meas["levers"][str(rung)],
+                                                    where))
+    measured_k = {}
+    for interval, be in (base_model.get("exponents") or {}).items():
+        n1, n2 = (int(x) for x in interval.split("->"))
+        t1 = meas["runtime_s"].get(str(n1))
+        t2 = meas["runtime_s"].get(str(n2))
+        if t1 is None or t2 is None:
+            continue  # custom RELEASE_GATE_SIZE_RUNGS narrower than the baseline
+        k = math.log(t2 / t1) / math.log(n2 / n1)
+        measured_k[interval] = round(k, 3)
+        if abs(k - be["k"]) > be["tol"]:
+            findings.append(f"{model} {interval}: exponent {be['k']:.2f} -> {k:.2f} "
+                            f"outside ±{be['tol']:.2f}")
+    return {"model": model, "gate": not findings,
+            "error": "; ".join(findings) or None, "findings": findings,
+            "runtime_s": meas["runtime_s"], "exponents": measured_k}
+
+
+def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
+                    models=None) -> dict:
+    """The size-generality arm (see the SIZE_LADDER comment block and the module
+    docstring for the standing rule it enforces).
+
+    Check mode folds every model at every rung through the lever census and
+    fails on any divergence from the checked-in baseline. Record mode
+    (--size-ladder-record) re-measures the baseline for THIS card type,
+    preserving other cards' blocks and carrying existing exemption reasons
+    forward; dark levers with no carried reason are written as TODO and the
+    check mode refuses to pass until each carries a real one-line reason.
+    """
+    models = list(models or SIZE_LADDER_MODELS)
+    rungs = SIZE_LADDER_RUNGS
+    card = _size_ladder_card_type()
+    workdir = SIZE_LADDER_WORKDIR
+    baseline = {}
+    if baseline_path.exists():
+        try:
+            baseline = json.loads(baseline_path.read_text())
+        except Exception as e:
+            return {"model": "size-ladder", "seconds": 0, "gate": False, "card": card,
+                    "error": f"baseline {baseline_path} unreadable: {e}", "legs": []}
+    if not record and not baseline:
+        return {"model": "size-ladder", "seconds": 0, "gate": False, "card": card,
+                "error": f"no baseline at {baseline_path} — record one with "
+                         f"--size-ladder-record", "legs": []}
+
+    print(f"\n{'='*70}\n[size-ladder] {'RECORDING baseline' if record else 'checking'} "
+          f"for card {card}: {', '.join(models)} at rungs "
+          f"{','.join(map(str, rungs))} ({SIZE_LADDER_STEPS} steps, 1 sample, "
+          f"seed {SEED}, single-sequence)\n{'='*70}", flush=True)
+    t0 = time.monotonic()
+    legs = []
+    if record:
+        old_models = baseline.get("cards", {}).get(card, {}).get("models", {})
+        new_card = {"recorded": time.strftime("%Y-%m-%d"), "host": socket.gethostname(),
+                    "commit": _repo_commit(), "models": {}}
+        todos = 0
+        for m in models:
+            meas = _size_ladder_measure_model(m, rungs, workdir,
+                                              SIZE_LADDER_SIGMA_REPS, 1)
+            if meas.get("error"):
+                legs.append({"model": m, "gate": False, "error": meas["error"],
+                             "findings": [meas["error"]]})
+                continue
+            block, skip = _size_ladder_exponent_block(meas["runtime_s"], meas["sigma"])
+            todos += _size_ladder_fill_reasons(meas["levers"],
+                                               old_models.get(m, {}).get("levers"))
+            entry = {"runtime_s": meas["runtime_s"], "levers": meas["levers"]}
+            if block:
+                entry.update(block)
+            else:
+                entry["exponents_skipped"] = skip
+            new_card["models"][m] = entry
+            legs.append({"model": m, "gate": True, "error": None, "findings": [],
+                         "runtime_s": meas["runtime_s"],
+                         "exponents": {k: v["k"] for k, v in block["exponents"].items()}
+                         if block else {}})
+            if skip:
+                legs[-1]["exponents_skipped"] = skip
+            SIZE_LADDER_PROVENANCE.mkdir(parents=True, exist_ok=True)
+            for rung, cj in meas["census_jsons"].items():
+                shutil.copy(cj, SIZE_LADDER_PROVENANCE / f"census_{m}_{rung}_{card}.json")
+        baseline.setdefault("cards", {})[card] = new_card
+        baseline.update({
+            "format": 1,
+            "what": "size-ladder release-gate baseline: per-model lever census and "
+                    "runtime scaling exponents at every rung, per card type",
+            "rule": "a perf lever may not land default-ON on the strength of one "
+                    "sequence length; re-record after any size-affecting change",
+            "record_with": "python3 scripts/release_gate.py --model size-ladder "
+                           "--size-ladder-record",
+            "rungs": list(rungs),
+            "fold": {"single_sequence": True, "sampling_steps": SIZE_LADDER_STEPS,
+                     "diffusion_samples": 1, "seed": SEED},
+        })
+        baseline_path.parent.mkdir(parents=True, exist_ok=True)
+        baseline_path.write_text(json.dumps(baseline, indent=2) + "\n")
+        if todos:
+            print(f"[size-ladder] {todos} dark lever(s) need a one-line exemption "
+                  f"reason — search TODO in {baseline_path} and fill them in; the "
+                  f"check FAILS on any dark lever without a reason.", flush=True)
+    else:
+        card_block = baseline.get("cards", {}).get(card)
+        if card_block is None:
+            return {"model": "size-ladder", "seconds": time.monotonic() - t0,
+                    "gate": False, "card": card,
+                    "error": f"NO BASELINE for card type '{card}' in "
+                             f"{baseline_path.name} — record one on this card type: "
+                             f"--model size-ladder --size-ladder-record", "legs": []}
+        for m in models:
+            base_model = card_block.get("models", {}).get(m)
+            if base_model is None:
+                err = f"model not in the {card} baseline (added to " \
+                      f"SIZE_LADDER_MODELS after recording? re-record)"
+                legs.append({"model": m, "gate": False, "error": err,
+                             "findings": [err]})
+                continue
+            legs.append(_size_ladder_check_model(m, rungs, base_model, workdir))
+
+    gate = bool(legs) and all(l["gate"] for l in legs)
+    row = {"model": "size-ladder", "seconds": time.monotonic() - t0, "gate": gate,
+           "card": card,
+           "error": next((l["error"] for l in legs if l["error"]), None),
+           "legs": legs}
+    if not keep:
+        shutil.rmtree(workdir, ignore_errors=True)
+    return row
+
+
 def main() -> int:
     # Scorers, folds and predict CLIs we spawn arm their parent-death guard off this,
     # so none of them can outlive this driver still holding a card. Inherited through
@@ -669,13 +1167,25 @@ def main() -> int:
     os.environ["TT_BIO_PARENT_PID"] = str(os.getpid())
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--model",
-                    choices=list(MODELS) + ["boltzgen", "opendde-abag", "capacity"]
+                    choices=list(MODELS) + ["boltzgen", "opendde-abag", "capacity",
+                                            "size-ladder"]
                     + ESMC_DEFAULT + ESMC_OPT_IN,
                     action="append",
                     help="Gate only this model (repeatable). Default: the five fold "
-                         "models + boltzgen + opendde-abag + ESMC 300m/600m embed parity. "
+                         "models + boltzgen + opendde-abag + capacity + size-ladder + "
+                         "ESMC 300m/600m embed parity. "
                          "esmc-6b is opt-in (slow ~13 GB load).")
     ap.add_argument("--keep", action="store_true", help="Keep run output dirs for inspection.")
+    ap.add_argument("--size-ladder-record", action="store_true",
+                    help="Re-record the size-ladder baseline for THIS card type instead "
+                         "of checking against it. Explicit human action after an "
+                         "intentional size-affecting change; runs all rungs and "
+                         "measures the runtime noise floor. Never automatic.")
+    ap.add_argument("--size-ladder-baseline", default=str(SIZE_LADDER_BASELINE),
+                    help="Baseline JSON path (default docs/size_ladder_baseline.json).")
+    ap.add_argument("--size-ladder-models", default=None,
+                    help="Comma-separated subset of SIZE_LADDER_MODELS for a debug or "
+                         "demo run (default: all five).")
     ap.add_argument("--fast", action="store_true",
                     help="Fold with --fast so the gate exercises the block-fp8 trunk path "
                          "(bf8 weights + bf8 matmul output). Defaults off (full precision).")
@@ -699,11 +1209,13 @@ def main() -> int:
         if mgd:
             os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
 
-    models = args.model or list(MODELS) + ["boltzgen", "opendde-abag", "capacity"] + ESMC_DEFAULT
+    models = args.model or list(MODELS) + ["boltzgen", "opendde-abag", "capacity",
+                                           "size-ladder"] + ESMC_DEFAULT
     fold_models = [m for m in models if m in MODELS]
     want_boltzgen = "boltzgen" in models
     want_opendde_abag = "opendde-abag" in models
     want_capacity = "capacity" in models
+    want_size_ladder = "size-ladder" in models
     esmc_models = [m for m in models if m in ESMC_DEFAULT + ESMC_OPT_IN]
 
     rows = []
@@ -792,6 +1304,49 @@ def main() -> int:
         print("GATE PASS — largest-input folds fit the DRAM budget and wrote every sample"
               if all(cr["gate"] for cr in rows) else
               "GATE FAIL — capacity regression at the largest supported input (see above)")
+
+    if want_size_ladder:
+        sl = run_size_ladder(args.keep, args.size_ladder_record,
+                             Path(args.size_ladder_baseline),
+                             args.size_ladder_models.split(",")
+                             if args.size_ladder_models else None)
+        all_pass &= sl["gate"]
+        rungs = SIZE_LADDER_RUNGS
+        print(f"\n{'#'*78}\nRELEASE GATE — size-ladder (rungs "
+              f"{','.join(map(str, rungs))}, {SIZE_LADDER_STEPS} steps / 1 sample, "
+              f"seed {SEED}, single-sequence, card {sl.get('card', '?')})"
+              + ("  [RECORD]" if args.size_ladder_record else "") + f"\n{'#'*78}")
+        hdr = f"{'model':<15}" + "".join(f"{str(n) + 'aa':>9}" for n in rungs)
+        hdr += "".join(f"{f'k{a}->{b}':>11}" for a, b in zip(rungs, rungs[1:]))
+        hdr += f"{'wall':>9}  result"
+        print(hdr)
+        for l in sl["legs"]:
+            rt = l.get("runtime_s") or {}
+            ex = l.get("exponents") or {}
+            cells = "".join(f"{(f'{rt[str(n)]:.1f}s' if rt.get(str(n)) is not None else '-'):>9}"
+                            for n in rungs)
+            for a, b in zip(rungs, rungs[1:]):
+                k = ex.get(f"{a}->{b}")
+                cells += f"{(f'{k:.2f}' if k is not None else '-'):>11}"
+            wall = f"{sl['seconds']:.0f}s" if sl.get("seconds") is not None else "-"
+            verdict = ("PASS" if l["gate"] else f"FAIL ({l['error']})" if l["error"]
+                       else "FAIL")
+            print(f"{l['model']:<15}{cells}{wall:>9}  {verdict}")
+            for f in (l.get("findings") or []):
+                print(f"    FAIL {f}")
+        if not sl["legs"] and sl.get("error"):
+            print(f"    FAIL {sl['error']}")
+        print(f"{'#'*78}")
+        if args.size_ladder_record:
+            print("BASELINE RECORDED — fill every TODO exemption reason in "
+                  f"{args.size_ladder_baseline}, then re-run without --size-ladder-record"
+                  if sl["gate"] else
+                  "BASELINE RECORD FAILED — a model did not fold (see above)")
+        else:
+            print("GATE PASS — lever census and scaling exponents match the recorded "
+                  "baseline at every rung" if sl["gate"] else
+                  "GATE FAIL — size-ladder drift vs the recorded baseline (see above); "
+                  "if this change is intentional, re-record with --size-ladder-record")
 
     if esmc_models:
         if "ESM_ROOT" not in os.environ:
