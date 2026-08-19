@@ -71,6 +71,8 @@ def main() -> int:
     ap.add_argument("--ckpt", required=True)
     ap.add_argument("--n", type=int, default=64, help="tokens")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--golden", help="real trunk I/O from capture_trunk_io.py; "
+                                     "without it the input is synthetic N(0,1)")
     args = ap.parse_args()
 
     import ttnn
@@ -85,10 +87,24 @@ def main() -> int:
         print(f"no weights at {pre}")
         return 1
 
-    torch.manual_seed(args.seed)
-    N = args.n
-    s = torch.randn(1, N, C_S)
-    z = torch.randn(1, N, N, C_Z)
+    if args.golden:
+        # Real operating point: what the block actually sees mid-trunk. Synthetic
+        # N(0,1) drives this block far off-manifold (output std 735 against ~79 for
+        # real input), and torch's own bf16 only reaches 0.982 against its fp32
+        # there, so the synthetic number bounds the port's apparent quality rather
+        # than measuring it.
+        gold = torch.load(args.golden, weights_only=False)
+        s, z = gold["in"]
+        # The reference runs the trunk unbatched, so the hook captures [I, C] and
+        # [I, I, C]; both sides here want a leading batch dim.
+        s = s.float().unsqueeze(0) if s.dim() == 2 else s.float()
+        z = z.float().unsqueeze(0) if z.dim() == 3 else z.float()
+        N = z.shape[-2]
+    else:
+        torch.manual_seed(args.seed)
+        N = args.n
+        s = torch.randn(1, N, C_S)
+        z = torch.randn(1, N, N, C_Z)
 
     s_ref, z_ref = torch_golden(block_sd, s.clone(), z.clone())
     s_f32, z_f32 = torch_golden(block_sd, s.clone(), z.clone(), autocast=False)
@@ -114,6 +130,7 @@ def main() -> int:
     z_dev = torch.Tensor(ttnn.to_torch(z_out)).float().reshape(z_ref.shape)
 
     rep = {
+        "input": "real-trunk" if args.golden else "synthetic-N(0,1)",
         "tokens": N,
         "s_pcc": round(pcc(s_dev, s_ref), 6),
         "z_pcc": round(pcc(z_dev, z_ref), 6),
