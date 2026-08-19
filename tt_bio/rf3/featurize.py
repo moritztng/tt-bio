@@ -150,3 +150,36 @@ def featurize(
         seed_everything(seed)
         out.append(pipeline(spec.to_pipeline_input()))
     return out
+
+
+def network_input(out: dict) -> dict:
+    """Assemble the model input from one pipeline output.
+
+    Mirrors upstream's ``RF3Trainer._assemble_network_inputs`` and the
+    with-confidence override on top of it. Two things to note: the feature dict
+    goes under ``f``, not ``feats``, and the three confidence keys are pulled from
+    ``confidence_feats`` / ``ground_truth``, not from ``feats``. The ttnn port has
+    to build exactly this.
+    """
+    inp = {
+        "X_noisy_L": out["coord_atom_lvl_to_be_noised"] + out["noise"],
+        "t": out["t"],
+        "f": out["feats"],
+    }
+    conf = out.get("confidence_feats")
+    if conf is not None:
+        inp.update({
+            "seq": conf["rf2aa_seq"],
+            "rep_atom_idxs": out["ground_truth"]["rep_atom_idxs"],
+            "frame_atom_idxs": conf["pae_frame_idx_token_lvl_from_atom_lvl"],
+        })
+    return inp
+
+
+def n_cycle(out: dict) -> int:
+    """Recycle count the features were built for.
+
+    Upstream reads it off the MSA stack rather than the config, because the
+    featurizer draws one i.i.d. MSA sample per recycle.
+    """
+    return int(out["feats"]["msa_stack"].shape[0])

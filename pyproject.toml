@@ -62,6 +62,11 @@ dependencies = [
     # the 3.10 shim for typing.Never.
     "cytoolz",
     "typing_extensions",
+    # RF3's torch reference (tt_bio/_vendor/rf3/model, the thing the ttnn port is
+    # scored against) contracts with opt_einsum rather than torch.einsum. Keeping
+    # it means the reference's contraction order, and so its float results, match
+    # upstream exactly.
+    "opt_einsum",
     # ttnn is NOT here on purpose: it only publishes wheels for TT-supported
     # platforms, and the Boltz-2 CPU/GPU path + CLI must install and run without
     # it (issue #6). It lives in the `tenstorrent` extra below.

@@ -8,8 +8,9 @@ Three upstream pieces, all BSD:
   ``biotite==1.4.0``, while tt-bio runs 3.10 with biotite unpinned. Both are
   conservative metadata: with two small shims it is bit-exact on 3.10 + biotite
   1.2.0 (see ``scripts/rf3_port/ab_pipeline.py`` and the state file).
-- ``rf3.data`` + ``rf3.utils.{inference,io}`` (RosettaCommons/foundry, models/rf3)
-  -- the RF3-specific transforms and the input-spec plumbing.
+- ``rf3`` (RosettaCommons/foundry, models/rf3) -- the RF3-specific host transforms
+  and input-spec plumbing, plus the torch reference model the ttnn port is scored
+  against. Inference only: no losses, no trainers, no Lightning.
 - three helpers out of ``foundry.utils``. ``foundry/__init__.py`` itself is an
   env/typecheck/cuEquivariance bootstrap pulling environs, beartype.claw and
   jaxtyping import hooks, so it is replaced by a minimal stub rather than vendored.
@@ -31,6 +32,7 @@ VENDOR_NS = "tt_bio._vendor"
 PKGS = ("atomworks", "rf3", "foundry")
 
 RF3_KEEP = (
+    # host featurization
     "data/__init__.py",
     "data/cyclic_transform.py",
     "data/extra_xforms.py",
@@ -40,11 +42,39 @@ RF3_KEEP = (
     "utils/__init__.py",
     "utils/inference.py",
     "utils/io.py",
+    # torch reference model (inference only -- the ttnn port is scored against this)
+    "model/__init__.py",
+    "model/RF3.py",
+    "model/RF3_blocks.py",
+    "model/RF3_structure.py",
+    "model/layers/__init__.py",
+    "model/layers/af3_auxiliary_heads.py",
+    "model/layers/af3_diffusion_transformer.py",
+    "model/layers/attention.py",
+    "model/layers/layer_utils.py",
+    "model/layers/mlff.py",
+    "model/layers/outer_product.py",
+    "model/layers/pairformer_layers.py",
+    "model/layers/structure_bias.py",
+    "diffusion_samplers/__init__.py",
+    "diffusion_samplers/inference_sampler.py",
+    "util_module.py",
+    # `loss/loss.py` is named for training but `calc_chiral_grads_flat_impl` is on
+    # the inference path: the diffusion transformer's chiral conditioning calls it.
+    "loss/__init__.py",
+    "loss/loss.py",
 )
 FOUNDRY_KEEP = (
     "common.py",
     "utils/alignment.py",
     "utils/torch.py",
+    "model/__init__.py",
+    "model/layers/__init__.py",
+    "model/layers/blocks.py",
+    "training/__init__.py",
+    "training/checkpoint.py",
+    "utils/rigid.py",
+    "utils/rotation_augmentation.py",
 )
 
 STRENUM_SHIM = '''"""``enum.StrEnum`` backport.
@@ -262,9 +292,15 @@ def main() -> int:
     )
     (dst / "utils" / "ddp.py").write_text(FOUNDRY_DDP)
     for rel in FOUNDRY_KEEP:
+        target = dst / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
         source = fo_src / "src" / "foundry" / rel
         if source.exists():
-            shutil.copy2(source, dst / rel)
+            shutil.copy2(source, target)
+        elif not target.exists():
+            target.write_text(
+                '"""Namespace package for the vendored foundry subset."""\n'
+            )
 
     # rewrite imports everywhere
     n = 0
