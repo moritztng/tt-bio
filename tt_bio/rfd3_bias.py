@@ -471,3 +471,198 @@ RFD3_FUSED_SCORES = True    # default-on: torch.equal on the result and on the s
 _FUSED_ENABLED = os.environ.get(
     "RFD3_FUSED_SCORES", "1" if RFD3_FUSED_SCORES else "0"
 ) == "1"
+
+
+# --- L2: the same fusion for the DENSE score path --------------------------------------------
+# The DiT (`LocalTokenTransformer`) takes `RFD3AtomBlock`'s dense branch, where the bias is a
+# full [1, H, I, n_key] tensor rather than a gathered [1, H, L, K] one, so the sparse kernel above
+# does not apply. What is left to fuse there is the tail: two typecasts and the scaled add.
+#
+# Measured at the page fixture's shape, [1, 16, 685, 704], card 1 under benchlock, warm, n=5
+# (perf/p71/bias_prep_arms.json):
+#
+#   typecast + typecast + scaled add            0.4986 ms/call   17.948 ms/step over 36 calls
+#   ttnn.add(bf16, bf16, dtype=fp32, act=scale) 0.1857 ms/call    6.685 ms/step
+#
+# The second is the traffic this kernel moves -- r 30.9, w 30.9 MB -- and it is what says the
+# fusion is worth ~11 ms/step. ttnn's own folded form is NOT usable, though: it is 2.55 maxabs
+# away from the three-op chain, because the activation pass packs the scaled operand back into an
+# intermediate CB at the INPUT dtype and rounds it to bf16. See the note at model.py's dense
+# branch. This kernel keeps the scaled tile in an fp32 DST instead, which is exactly what the
+# three-op chain's fp32 intermediate does, so it is bit-exact rather than close.
+#
+# Two ops that the DiT chain also runs were screened and left alone. The (0, 3, 1, 2) permute is
+# 13.969 ms/step and cannot be absorbed: in the pre-permute [1, I, J, H] layout a tile is
+# [32 j x 32 h], so one output tile needs column h of 32 separate pages and assembling it is a
+# per-element strided gather of 7.7 M elements per call, which the sparse kernel's own measured
+# poke rate prices at ~2.1 ms/call -- worse than the whole shipped chain. Batching the permute
+# across all 18 blocks' slots is worse still: 576-wide measured 80.0 GB/s against 148.2 for
+# 16-wide, so one permute of 1059.6 MB costs 12.94 ms where 18 of 58.9 MB cost 6.98.
+D_SCORES_CB, D_BIAS_CB, D_OUT_CB = 0, 1, 16
+# Ring depth and pages per barrier. SLOTS must be a power of two (both kernels mask with it) and
+# WINDOW must not exceed it. The whole footprint is 8 x (2 + 2 + 4) KB = 64 KB of L1.
+D_SLOTS = int(os.environ.get("RFD3_DENSE_SLOTS", "8"))
+D_WINDOW = int(os.environ.get("RFD3_DENSE_WINDOW", "4"))
+
+_DCACHE: dict = {}
+DSTATS = [0, 0]
+
+
+def _dbuild(scores, bias, out, device, scale, acc):
+    """Descriptor for the dense fusion. Cached: everything here but the three addresses is a pure
+    function of (padded shape, dtypes, grid, scale)."""
+    pages = 1
+    for d in out.padded_shape:
+        pages *= int(d)
+    pages //= TILE_H * TILE_W
+
+    g = device.compute_with_storage_grid_size()
+    core_grid = ttnn.CoreRangeSet(
+        [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(g.x - 1, g.y - 1))]
+    )
+    cores = [(cx, cy) for cx in range(g.x) for cy in range(g.y)]
+    counts = _even_split(pages, cores)
+
+    def cb(idx_, fmt, page_size, depth):
+        return ttnn.CBDescriptor(
+            total_size=depth * page_size,
+            core_ranges=core_grid,
+            format_descriptors=[
+                ttnn.CBFormatDescriptor(buffer_index=idx_, data_format=fmt, page_size=page_size)
+            ],
+        )
+
+    cbs = [
+        cb(D_SCORES_CB, ttnn.bfloat16, TILE_H * TILE_W * 2, D_SLOTS),
+        cb(D_BIAS_CB, ttnn.bfloat16, TILE_H * TILE_W * 2, D_SLOTS),
+        cb(D_OUT_CB, ttnn.float32, TILE_H * TILE_W * 4, D_SLOTS),
+    ]
+
+    reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
+    start = 0
+    for (cx, cy), n in zip(cores, counts):
+        reader_rt[cx][cy] = [start, n]
+        writer_rt[cx][cy] = [start, n]
+        compute_rt[cx][cy] = [n]
+        start += n
+    assert start == pages, (start, pages)
+
+    n_scores_acc = len(ttnn.TensorAccessorArgs(scores).get_compile_time_args())
+    n_bias_acc = len(ttnn.TensorAccessorArgs(bias).get_compile_time_args())
+
+    reader = ttnn.KernelDescriptor(
+        kernel_source=str(KERNEL_DIR / "reader_dense_scores.cpp"),
+        source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
+        core_ranges=core_grid,
+        compile_time_args=[D_SCORES_CB, D_BIAS_CB, D_SLOTS, D_WINDOW]
+        + list(acc[: n_scores_acc + n_bias_acc]),
+        runtime_args=reader_rt, common_runtime_args=[0, 0],
+        config=ttnn.ReaderConfigDescriptor(),
+    )
+    writer = ttnn.KernelDescriptor(
+        kernel_source=str(KERNEL_DIR / "writer_dense_scores.cpp"),
+        source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
+        core_ranges=core_grid,
+        compile_time_args=[D_OUT_CB, D_SLOTS, D_WINDOW]
+        + list(acc[n_scores_acc + n_bias_acc:]),
+        runtime_args=writer_rt, common_runtime_args=[0],
+        config=ttnn.WriterConfigDescriptor(),
+    )
+    compute = ttnn.KernelDescriptor(
+        kernel_source=str(KERNEL_DIR / "compute_fused_scores.cpp"),
+        source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
+        core_ranges=core_grid,
+        compile_time_args=[D_SCORES_CB, D_BIAS_CB, D_OUT_CB, _scale_bits(scale), 0],
+        runtime_args=compute_rt,
+        # fp32_dest_acc_en is the parity condition, not a tuning knob: with a 16-bit DST the
+        # scaled scores would be rounded to bf16 here where the three-op chain keeps them fp32.
+        # See compute_fused_scores.cpp.
+        config=ttnn.ComputeConfigDescriptor(
+            math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+            fp32_dest_acc_en=True, dst_full_sync_en=False,
+        ),
+    )
+    kernels = [reader, writer, compute]
+    pd = ttnn.ProgramDescriptor(kernels=kernels, semaphores=[], cbs=cbs)
+
+    # Same probe as _build/_fbuild: whether a descriptor accepts an address rewrite in place, or
+    # has to be rebuilt per call. It is a property of the wheel, so the first builder to run wins.
+    global ADDR_WRITE_MODE
+    if ADDR_WRITE_MODE is None:
+        probe = [0xABCD1234, 0x1234ABCD]
+        pd.kernels[0].common_runtime_args = probe
+        ADDR_WRITE_MODE = (
+            "in_place" if list(pd.kernels[0].common_runtime_args) == probe else "rebuild_pd"
+        )
+        pd.kernels[0].common_runtime_args = [0, 0]
+    return {"pd": pd, "kernels": kernels, "cbs": cbs}
+
+
+def dense_fused_scores_bias_fp32(scores, bias, scale, out=None, memory_config=None):
+    """``add(typecast(scores, fp32), typecast(bias, fp32), a_activations=[MUL_UNARY_SFPU(scale)])``.
+
+    ``scores`` and ``bias`` are the same bf16 TILE shape, ``[1, H, I, n_key]`` with ``n_key`` a tile
+    multiple, and the output is that shape in fp32. Both inputs and the output share a tile-page
+    layout, which is the whole reason the kernel needs no band geometry.
+    """
+    device = scores.device()
+    if out is None:
+        mc = memory_config or ttnn.DRAM_MEMORY_CONFIG
+        out = ttnn.allocate_tensor_on_device(
+            ttnn.Shape([int(d) for d in scores.shape]), ttnn.float32, ttnn.TILE_LAYOUT, device, mc
+        )
+
+    acc = (
+        list(ttnn.TensorAccessorArgs(scores).get_compile_time_args())
+        + list(ttnn.TensorAccessorArgs(bias).get_compile_time_args())
+        + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
+    )
+    key = _cache_key(scores, bias, out, device, tuple(acc)) + (
+        tuple(int(d) for d in out.padded_shape), _scale_bits(scale), D_SLOTS, D_WINDOW,
+    )
+    entry = _DCACHE.get(key)
+    if entry is None:
+        entry = _DCACHE[key] = _dbuild(scores, bias, out, device, scale, acc)
+
+    per_kernel = [[scores.buffer_address(), bias.buffer_address()], [out.buffer_address()]]
+    if ADDR_WRITE_MODE == "in_place":
+        pd = entry["pd"]
+        for k, a in zip(pd.kernels, per_kernel):
+            k.common_runtime_args = a
+    else:
+        for k, a in zip(entry["kernels"], per_kernel):
+            k.common_runtime_args = a
+        pd = entry["pd"] = ttnn.ProgramDescriptor(
+            kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"]
+        )
+    DSTATS[0] += 1
+    return ttnn.generic_op([scores, bias, out], pd)
+
+
+def dense_eligible(scores, bias) -> bool:
+    """Whether the dense fusion may serve this call, from the tensors alone."""
+    if not _DENSE_ENABLED:
+        return False
+    if scores.dtype != ttnn.bfloat16 or bias.dtype != ttnn.bfloat16:
+        DSTATS[1] += 1
+        return False
+    if tuple(int(d) for d in scores.padded_shape) != tuple(int(d) for d in bias.padded_shape):
+        DSTATS[1] += 1
+        return False
+    if int(scores.shape[-1]) % TILE_W:
+        DSTATS[1] += 1
+        return False
+    return True
+
+
+RFD3_DENSE_BIAS_FUSED = True   # default-on: torch.equal at the production shape, digest unchanged
+_DENSE_ENABLED = os.environ.get(
+    "RFD3_DENSE_BIAS_FUSED", "1" if RFD3_DENSE_BIAS_FUSED else "0"
+) == "1"
+
+
+def set_dense_enabled(on: bool) -> bool:
+    """A/B switch for the fold harness. Returns the previous state."""
+    global _DENSE_ENABLED
+    prev, _DENSE_ENABLED = _DENSE_ENABLED, bool(on)
+    return prev

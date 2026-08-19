@@ -1,0 +1,170 @@
+{
+  "shape": {
+    "I": 685,
+    "J": 685,
+    "H": 16,
+    "n_key": 704,
+    "c_wide": 576,
+    "head_dim": 48
+  },
+  "n": 5,
+  "arms": {
+    "I_permute_16wide": {
+      "ms": 0.388,
+      "all": [
+        0.388,
+        0.387,
+        0.3898,
+        0.3747,
+        0.3944
+      ],
+      "mb": 58.9,
+      "gb_s": 148.2,
+      "calls_per_step": 36,
+      "ms_per_step": 13.969,
+      "note": "the shipped per-block permute"
+    },
+    "J_add_mask_16wide": {
+      "ms": 0.1339,
+      "all": [
+        0.1322,
+        0.1344,
+        0.1339,
+        0.1296,
+        0.1342
+      ],
+      "mb": 31.2,
+      "gb_s": 227.5,
+      "calls_per_step": 36,
+      "ms_per_step": 4.821,
+      "note": "the shipped per-block mask add"
+    },
+    "J2_pad_16wide": {
+      "ms": 0.1192,
+      "all": [
+        0.1204,
+        0.1236,
+        0.1192,
+        0.1187,
+        0.1181
+      ],
+      "mb": 30.2,
+      "gb_s": 247.9,
+      "calls_per_step": 36,
+      "ms_per_step": 4.29,
+      "note": "the shipped per-block key-axis pad"
+    },
+    "E_permute_576wide": {
+      "ms": 12.9393,
+      "all": [
+        12.9663,
+        12.9005,
+        12.9393,
+        13.0201,
+        12.9337
+      ],
+      "mb": 1059.6,
+      "gb_s": 80.0,
+      "calls_per_step": 2,
+      "ms_per_step": 25.879,
+      "note": "one permute for all 18 blocks"
+    },
+    "F_add_mask_576wide": {
+      "ms": 3.846,
+      "all": [
+        3.8498,
+        3.8338,
+        3.846,
+        3.8468,
+        3.8269
+      ],
+      "mb": 1089.9,
+      "gb_s": 276.8,
+      "calls_per_step": 2,
+      "ms_per_step": 7.692,
+      "note": "one mask add, broadcast over dim 1"
+    },
+    "G_pad_576wide": {
+      "ms": 1.2331,
+      "all": [
+        1.2532,
+        1.2331,
+        1.2108,
+        1.2106,
+        1.2406
+      ],
+      "mb": 1089.0,
+      "gb_s": 862.5,
+      "calls_per_step": 2,
+      "ms_per_step": 2.466,
+      "note": "one key-axis pad"
+    },
+    "H_slice_dim1_16": {
+      "ms": 0.1078,
+      "all": [
+        0.1215,
+        0.1149,
+        0.1057,
+        0.1042,
+        0.1078
+      ],
+      "mb": 30.2,
+      "gb_s": 273.9,
+      "calls_per_step": 36,
+      "ms_per_step": 3.882,
+      "note": "per-block dim-1 slice, needed ONLY if no kernel reads at an offset"
+    },
+    "L_shipped_tail_3op": {
+      "ms": 0.4986,
+      "all": [
+        0.4986,
+        0.4982,
+        0.4968,
+        0.5075,
+        0.4988
+      ],
+      "mb": 211.8,
+      "gb_s": 414.8,
+      "calls_per_step": 36,
+      "ms_per_step": 17.948,
+      "note": "typecast + typecast + scaled add: what the kernel replaces"
+    },
+    "K_bf16_add_fp32_out": {
+      "ms": 0.1857,
+      "all": [
+        0.185,
+        0.187,
+        0.1773,
+        0.1868,
+        0.1857
+      ],
+      "mb": 90.8,
+      "gb_s": 477.2,
+      "calls_per_step": 36,
+      "ms_per_step": 6.685,
+      "note": "ttnn's folded form -- the zero-kernel candidate"
+    },
+    "exactness": {
+      "K_vs_shipped_tail": {
+        "torch_equal": false,
+        "maxabs": 2.554769992828369
+      },
+      "batched_prep_shape": [
+        1,
+        16,
+        685,
+        704
+      ]
+    },
+    "arithmetic": {
+      "p70_chain_ms_per_step": 38.916,
+      "shipped_prep_ms_per_step": 23.08,
+      "shipped_tail_ms_per_step": 17.95,
+      "batched_prep_ms_per_step": 36.037,
+      "dim1_slices_ms_per_step": 3.881,
+      "A_batched_prep_plus_slices_no_kernel": -16.838,
+      "B_batched_prep_no_slices_kernel_reads_at_offset": -12.957,
+      "C_tail_replaced_by_arm_K": 11.265
+    }
+  }
+}
