@@ -183,7 +183,13 @@ PAIRFORMER_DIMS = (32, 4, 24, 16)
 #: several passes. `transpose_bias=False` because RF3 builds the ending pair bias from
 #: the un-transposed tensor. `fp32_softmax=True` because torch autocast casts matmuls to
 #: bf16 and leaves softmax in fp32, and matching that was worth 18x on one component.
-PAIRFORMER_FLAGS = dict(scale_pair_bias=True, fp32_softmax=True, transpose_bias=False)
+# `gated_move` is the TriMul E6 fused chunk+gate forward move. It is a per-instance
+# opt-in because it wins on some call mixes and loses on others, and RF3 was never
+# opted in. Measured per recycle over the 48-block stack, bit-exact on z at every rung:
+# 1.0009x at 128 aa, 1.0001x at 256, 1.0441x at 512, 1.0263x at 768, 1.0161x at 1024.
+# Never negative, so it is on everywhere rather than gated on length.
+PAIRFORMER_FLAGS = dict(scale_pair_bias=True, fp32_softmax=True, transpose_bias=False,
+                        gated_move=True)
 
 
 def remap_pairformer_stack(raw: dict, n_layers: int, prefix: str = "pairformer.",
