@@ -151,7 +151,11 @@ each leg, not two.
 - **Offline MSA fallback.** When the public ColabFold service is down or flaky,
   set `RELEASE_GATE_MSA_DIR` to a directory holding the cached
   `{sha256(sequence)[:16]}.a3m` files; the network-MSA legs then fold with
-  `--msa_dir` and never touch the network. `RELEASE_GATE_FOLD_TIMEOUT` tunes the
+  `--msa_dir` and never touch the network. It must cover **every** chain of every
+  MSA-dependent target you select, `examples/prot.yaml` and `examples/1ahw_abag.yaml`
+  both, not just the single-chain fold legs. `release_gate.py` checks this up front and
+  prints the exact files to seed; a dir seeded for one target only used to fail an hour
+  in, as a missed accuracy floor. `RELEASE_GATE_FOLD_TIMEOUT` tunes the
   `release_gate.py` fold timeout for a slow host.
 
 ### Verdict semantics

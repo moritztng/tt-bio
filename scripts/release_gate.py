@@ -340,6 +340,52 @@ def _msa_args(model: str) -> list:
     return ["--msa_dir", MSA_DIR] if MSA_DIR else ["--use_msa_server"]
 
 
+def _preflight_msa_cache(models: list) -> None:
+    """Fail before any device work if the offline MSA dir cannot serve a target it will fold.
+
+    A missing a3m does not surface as a missing-input error. The fold falls through to
+    colabfold_search, which is not installed on the gate hosts, so the leg dies with
+    "colabfold_search not found" and the summary reads as a missed accuracy floor: an hour
+    into the run, on an arm whose numbers were never computed. That is how a
+    seeded-for-7ROA-only RELEASE_GATE_MSA_DIR failed the opendde-abag arm on the first
+    v0.6.4 gate run. Keyed off MSA_DEFAULT_MODELS, the same source of truth _msa_args uses,
+    so the check cannot drift from what the folds actually request.
+    """
+    if not MSA_DIR:
+        return
+    import yaml
+    from tt_bio.main import MSA_DEFAULT_MODELS
+
+    targets = []
+    if any(m in MODELS and m in MSA_DEFAULT_MODELS for m in models):
+        targets.append(DATA)
+    if "opendde-abag" in models:
+        targets.append(OPENDDE_ABAG_DATA)
+
+    missing = []
+    for path in targets:
+        if not path.exists():
+            continue
+        doc = yaml.safe_load(path.read_text()) or {}
+        for entry in doc.get("sequences") or []:
+            prot = entry.get("protein") if isinstance(entry, dict) else None
+            seq = (prot or {}).get("sequence")
+            if not seq:
+                continue
+            a3m = Path(MSA_DIR) / f"{hashlib.sha256(seq.encode()).hexdigest()[:16]}.a3m"
+            if not (a3m.exists() and a3m.stat().st_size > 0):
+                cid = (prot or {}).get("id", "?")
+                missing.append(f"{path.name} chain {cid} ({len(seq)} aa) -> {a3m}")
+    if missing:
+        sys.exit(
+            f"RELEASE_GATE_MSA_DIR={MSA_DIR} cannot serve every MSA-dependent gate target.\n"
+            "Missing cached a3m (the file name is sha256(sequence)[:16]):\n  "
+            + "\n  ".join(missing)
+            + "\nSeed them, or unset RELEASE_GATE_MSA_DIR to fold against the ColabFold "
+              "server. See RELEASING.md."
+        )
+
+
 def _run_fold(cmd: list, timeout: float, **popen_kw) -> tuple:
     """Run a fold subprocess in its OWN process group; on timeout kill the whole group so a
     hung MSA-server wait or a hung multiprocessing shutdown cannot orphan device-holding
@@ -1025,6 +1071,7 @@ def main() -> int:
     want_capacity = "capacity" in models
     want_l1_budget = "l1-budget" in models
     esmc_models = [m for m in models if m in ESMC_DEFAULT + ESMC_OPT_IN]
+    _preflight_msa_cache(models)
 
     rows = []
     if fold_models:
