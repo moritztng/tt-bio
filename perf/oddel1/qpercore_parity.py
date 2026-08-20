@@ -26,11 +26,19 @@ def main():
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
+    import os
     import torch
     import ttnn
     import tt_bio.tenstorrent as T
     import tt_bio.triatt_sdpa as PM
     assert Path(T.__file__).resolve().is_relative_to(ROOT), f"tt_bio from {T.__file__}"
+
+    # qb2 is two dual-chip p300 boards; a bare single-chip open fails without the mesh descriptor.
+    from tt_bio.main import _detect_p300_devices, _find_ttnn_mesh_graph_descriptor
+    if _detect_p300_devices() and not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
+        mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
+        if mgd:
+            os.environ["TT_MESH_GRAPH_DESC_PATH"] = str(mgd)
 
     dev = T.get_device()
     g = dev.compute_with_storage_grid_size()
