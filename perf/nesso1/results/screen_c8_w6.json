@@ -1,0 +1,183 @@
+{
+  "label": "screen_c8_w6",
+  "inputs": "/work/shards/c8/w6",
+  "reps": 2,
+  "recycling_steps": 5,
+  "precision": "bf16-mixed",
+  "no_kernels": false,
+  "refine": "on",
+  "seed": 42,
+  "num_workers": 2,
+  "env": {
+    "torch": "2.11.0+cu128",
+    "torch_cuda": "12.8",
+    "cudnn": 91900,
+    "cuda_device": "NVIDIA H200 NVL",
+    "compute_cap": [
+      9,
+      0
+    ],
+    "matmul_tf32": false,
+    "float32_matmul_precision": "highest",
+    "python": "3.12.3",
+    "effective_cpus": 30.71999,
+    "gpu_static": {
+      "name": "NVIDIA H200 NVL",
+      "driver_version": "595.58.03",
+      "memory.total": "143771",
+      "power.limit": "600.00",
+      "clocks.max.sm": "1785",
+      "compute_cap": "9.0",
+      "pcie.link.gen.max": "5"
+    },
+    "compute_apps_before": [],
+    "nesso": "1.0.0",
+    "triton": "3.6.0",
+    "cuequivariance-torch": "0.11.1",
+    "cuequivariance-ops-torch-cu12": "0.11.1",
+    "lightning": "2.6.5",
+    "transformers": "5.15.1",
+    "rdkit": "2026.3.5",
+    "numpy": "2.5.2",
+    "safetensors": "0.8.0"
+  },
+  "n_records": 8,
+  "n_unique_seqs": 1,
+  "preprocess_s": 2.9876,
+  "esm_s": 1.935,
+  "model_load_s": 13.7958,
+  "rep_s": [
+    53.5237,
+    54.9915
+  ],
+  "rep_windows": [
+    [
+      1787225163.5972,
+      1787225217.1209
+    ],
+    [
+      1787225217.1429,
+      1787225272.1344
+    ]
+  ],
+  "phases": {
+    "0": {
+      "embed": 0.281,
+      "embed_n": 8,
+      "esm_module": 0.71686,
+      "esm_module_n": 48,
+      "pairformer": 44.45707,
+      "pairformer_n": 64,
+      "crop": 0.92611,
+      "crop_n": 8,
+      "affinity": 1.11795,
+      "affinity_n": 16,
+      "forward": 48.12499,
+      "forward_n": 8,
+      "predict_step": 48.4037,
+      "predict_step_n": 8,
+      "write": 0.00285,
+      "write_n": 8
+    },
+    "1": {
+      "embed": 0.12007,
+      "embed_n": 8,
+      "esm_module": 0.71331,
+      "esm_module_n": 48,
+      "pairformer": 45.3232,
+      "pairformer_n": 64,
+      "crop": 0.85013,
+      "crop_n": 8,
+      "affinity": 1.22928,
+      "affinity_n": 16,
+      "forward": 48.64173,
+      "forward_n": 8,
+      "predict_step": 48.96448,
+      "predict_step_n": 8,
+      "write": 0.00286,
+      "write_n": 8
+    }
+  },
+  "counts": {
+    "cueq.triangle_attention": 9728,
+    "cueq.triangle_multiplicative_update": 9728,
+    "cuequivariance_available": 1,
+    "callsite.triangle_attention": 9728,
+    "callsite.tri_mul_out": 4864,
+    "callsite.tri_mul_in": 4864,
+    "callsite.tri_att_start": 9728,
+    "callsite.tri_att_end": 4864,
+    "scaled_dot_product_attention": 33,
+    "calls:embed": 16,
+    "calls:esm_module": 96,
+    "calls:pairformer": 128,
+    "calls:crop": 16,
+    "calls:affinity": 32,
+    "calls:forward": 16,
+    "calls:predict_step": 16,
+    "calls:write": 16
+  },
+  "gpu_dynamic": [
+    {
+      "power.draw": "357.77",
+      "utilization.gpu": "99",
+      "clocks.sm": "1785",
+      "temperature.gpu": "73"
+    },
+    {
+      "power.draw": "372.27",
+      "utilization.gpu": "55",
+      "clocks.sm": "1785",
+      "temperature.gpu": "77"
+    }
+  ],
+  "peak_vram_alloc_B": 3067500032,
+  "peak_vram_reserved_B": 3632267264,
+  "affinity": {
+    "n": 8,
+    "mean": 0.9282983765006065,
+    "min": 0.5381320714950562,
+    "max": 1.2546439170837402,
+    "spread": 0.7165118455886841,
+    "entropy_crop_pl_zero": 0,
+    "sha256_of_values": "fa7d874406ea2c2e"
+  },
+  "ok": false,
+  "why": "GPU NOT EXCLUSIVE: compute apps before=[] after=[{'pid': 16211, 'used_MiB': 682}, {'pid': 16210, 'used_MiB': 680}, {'pid': 16214, 'used_MiB': 680}, {'pid': 16208, 'used_MiB': 680}, {'pid': 16212, 'used_MiB': 680}, {'pid': 16213, 'used_MiB': 680}] -- timings on a shared card are void",
+  "compute_apps_after": [
+    {
+      "pid": 16211,
+      "used_MiB": 682
+    },
+    {
+      "pid": 16210,
+      "used_MiB": 680
+    },
+    {
+      "pid": 16214,
+      "used_MiB": 680
+    },
+    {
+      "pid": 16208,
+      "used_MiB": 680
+    },
+    {
+      "pid": 16212,
+      "used_MiB": 680
+    },
+    {
+      "pid": 16213,
+      "used_MiB": 680
+    }
+  ],
+  "gpu_exclusive": false,
+  "model_revision": "v1.0.0",
+  "ckpt_dir": "/work/cache/huggingface/models--recursionpharma--nesso/snapshots/1896c84c7186c506c7efd79051480809d51098bf/v1.0.0",
+  "seq_lens": [
+    256
+  ],
+  "ckpt_use_kernels": true,
+  "affinity_head_present": true,
+  "effective_use_kernels": true,
+  "dataloader_batch_size": 1
+}

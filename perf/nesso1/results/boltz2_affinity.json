@@ -1,0 +1,67 @@
+{
+  "arm": "boltz-2 upstream, single sequence, tt-bio's shipped affinity settings",
+  "boltz_version": "",
+  "boltz_args": [
+    "--recycling_steps",
+    "3",
+    "--sampling_steps",
+    "200",
+    "--diffusion_samples",
+    "1",
+    "--sampling_steps_affinity",
+    "200",
+    "--diffusion_samples_affinity",
+    "5",
+    "--affinity_mw_correction",
+    "--output_format",
+    "mmcif",
+    "--num_workers",
+    "2",
+    "--accelerator",
+    "gpu"
+  ],
+  "gpu": {
+    "name": "NVIDIA H200 NVL",
+    "driver_version": "595.58.03",
+    "power.limit": "600.00",
+    "compute_cap": "9.0"
+  },
+  "cells": [
+    {
+      "aa": 128,
+      "ligand_heavy": 22,
+      "rep_s": [
+        34.647,
+        32.583
+      ],
+      "affinity": {
+        "affinity_pred_value": 0.9491337537765503,
+        "affinity_probability_binary": 0.2439880669116974,
+        "affinity_pred_value1": 0.8921128511428833,
+        "affinity_probability_binary1": 0.2939915359020233,
+        "affinity_pred_value2": 1.7741469144821167,
+        "affinity_probability_binary2": 0.19398461282253265
+      },
+      "ok": true,
+      "why": ""
+    },
+    {
+      "aa": 256,
+      "ligand_heavy": 22,
+      "rep_s": [
+        36.614,
+        36.35
+      ],
+      "affinity": {
+        "affinity_pred_value": 0.7764649391174316,
+        "affinity_probability_binary": 0.28503620624542236,
+        "affinity_pred_value1": 1.2955970764160156,
+        "affinity_probability_binary1": 0.37805622816085815,
+        "affinity_pred_value2": 1.0370866060256958,
+        "affinity_probability_binary2": 0.19201619923114777
+      },
+      "ok": true,
+      "why": ""
+    }
+  ]
+}

@@ -1,0 +1,324 @@
+{
+  "inputs": "/work/perf/nesso1/inputs/screen",
+  "n_records": 64,
+  "reps": 2,
+  "cells": [
+    {
+      "concurrency": 1,
+      "records_per_worker": 64,
+      "n_records": 64,
+      "e2e_wall_s": 110.702,
+      "workers": [
+        {
+          "ok": true,
+          "why": "64 predictions, 0 with entropy_crop_pl == 0",
+          "rep_s": [
+            50.2496,
+            48.5699
+          ],
+          "n": 64,
+          "preprocess_s": 2.7768,
+          "esm_s": 0.9392,
+          "model_load_s": 1.1466,
+          "peak_vram_alloc_B": 3064396288,
+          "forward_s": 45.67732,
+          "predict_step_s": 45.72068
+        }
+      ],
+      "ok": true,
+      "why": "",
+      "warm_union_s": 48.57,
+      "warm_records": 64,
+      "steady_pred_per_hour": 4743.7,
+      "steady_s_per_pred": 0.7589,
+      "e2e_pred_per_hour": 2081.3,
+      "e2e_s_per_pred": 1.72972,
+      "gpu": {
+        "n_samples": 55,
+        "power_W_mean": 375.4,
+        "power_W_max": 443.39,
+        "util_pct_mean": 78.1,
+        "mem_MiB_max": 4379.0
+      }
+    },
+    {
+      "concurrency": 2,
+      "records_per_worker": 32,
+      "n_records": 64,
+      "e2e_wall_s": 119.305,
+      "workers": [
+        {
+          "ok": false,
+          "why": "GPU NOT EXCLUSIVE: compute apps before=[] after=[{'pid': 14234, 'used_MiB': 682}, {'pid': 14232, 'used_MiB': 682}] -- timings on a shared card are void",
+          "rep_s": [
+            54.1556,
+            53.2233
+          ],
+          "n": 32,
+          "preprocess_s": 2.4425,
+          "esm_s": 1.0879,
+          "model_load_s": 1.2941,
+          "peak_vram_alloc_B": 3064396288,
+          "forward_s": 50.07514,
+          "predict_step_s": 50.2597
+        },
+        {
+          "ok": false,
+          "why": "GPU NOT EXCLUSIVE: compute apps before=[] after=[{'pid': 14234, 'used_MiB': 682}, {'pid': 14232, 'used_MiB': 682}] -- timings on a shared card are void",
+          "rep_s": [
+            54.0585,
+            53.1653
+          ],
+          "n": 32,
+          "preprocess_s": 2.4574,
+          "esm_s": 1.0807,
+          "model_load_s": 1.3057,
+          "peak_vram_alloc_B": 3065370112,
+          "forward_s": 49.88558,
+          "predict_step_s": 50.11889
+        }
+      ],
+      "ok": true,
+      "why": "",
+      "warm_union_s": 53.224,
+      "warm_records": 64,
+      "steady_pred_per_hour": 4328.9,
+      "steady_s_per_pred": 0.83162,
+      "e2e_pred_per_hour": 1931.2,
+      "e2e_s_per_pred": 1.86414,
+      "gpu": {
+        "n_samples": 59,
+        "power_W_mean": 357.6,
+        "power_W_max": 414.14,
+        "util_pct_mean": 82.1,
+        "mem_MiB_max": 9009.0
+      }
+    },
+    {
+      "concurrency": 4,
+      "records_per_worker": 16,
+      "n_records": 64,
+      "e2e_wall_s": 122.046,
+      "workers": [
+        {
+          "ok": false,
+          "why": "GPU NOT EXCLUSIVE: compute apps before=[] after=[{'pid': 15093, 'used_MiB': 1842}, {'pid': 15094, 'used_MiB': 1840}, {'pid': 15091, 'used_MiB': 682}, {'pid': 15",
+          "rep_s": [
+            53.458,
+            53.6828
+          ],
+          "n": 16,
+          "preprocess_s": 2.4512,
+          "esm_s": 1.3972,
+          "model_load_s": 2.6208,
+          "peak_vram_alloc_B": 3064396288,
+          "forward_s": 49.07281,
+          "predict_step_s": 49.40311
+        },
+        {
+          "ok": false,
+          "why": "GPU NOT EXCLUSIVE: compute apps before=[] after=[{'pid': 15093, 'used_MiB': 682}, {'pid': 15094, 'used_MiB': 680}, {'pid': 15091, 'used_MiB': 682}] -- timings o",
+          "rep_s": [
+            53.8094,
+            53.8501
+          ],
+          "n": 16,
+          "preprocess_s": 2.3688,
+          "esm_s": 1.2743,
+          "model_load_s": 2.7261,
+          "peak_vram_alloc_B": 3065370112,
+          "forward_s": 49.42943,
+          "predict_step_s": 49.66375
+        },
+        {
+          "ok": false,
+          "why": "GPU NOT EXCLUSIVE: compute apps before=[] after=[{'pid': 15093, 'used_MiB': 682}, {'pid': 15094, 'used_MiB': 680}, {'pid': 15091, 'used_MiB': 682}] -- timings o",
+          "rep_s": [
+            53.8385,
+            53.8568
+          ],
+          "n": 16,
+          "preprocess_s": 2.4015,
+          "esm_s": 1.3035,
+          "model_load_s": 2.6321,
+          "peak_vram_alloc_B": 3065370112,
+          "forward_s": 49.42601,
+          "predict_step_s": 49.72694
+        },
+        {
+          "ok": false,
+          "why": "GPU NOT EXCLUSIVE: compute apps before=[] after=[{'pid': 15093, 'used_MiB': 1842}, {'pid': 15094, 'used_MiB': 1840}, {'pid': 15091, 'used_MiB': 1834}, {'pid': 1",
+          "rep_s": [
+            49.8423,
+            57.358
+          ],
+          "n": 16,
+          "preprocess_s": 2.3317,
+          "esm_s": 1.157,
+          "model_load_s": 2.3262,
+          "peak_vram_alloc_B": 3067500032,
+          "forward_s": 48.74399,
+          "predict_step_s": 49.08512
+        }
+      ],
+      "ok": true,
+      "why": "",
+      "warm_union_s": 58.626,
+      "warm_records": 64,
+      "steady_pred_per_hour": 3930.0,
+      "steady_s_per_pred": 0.91603,
+      "e2e_pred_per_hour": 1887.8,
+      "e2e_s_per_pred": 1.90697,
+      "gpu": {
+        "n_samples": 60,
+        "power_W_mean": 352.4,
+        "power_W_max": 410.95,
+        "util_pct_mean": 82.0,
+        "mem_MiB_max": 17540.0
+      }
+    },
+    {
+      "concurrency": 8,
+      "records_per_worker": 8,
+      "n_records": 64,
+      "e2e_wall_s": 136.847,
+      "workers": [
+        {
+          "ok": false,
+          "why": "GPU NOT EXCLUSIVE: compute apps before=[] after=[{'pid': 16206, 'used_MiB': 680}, {'pid': 16211, 'used_MiB': 1842}, {'pid': 16210, 'used_MiB': 1608}, {'pid': 16",
+          "rep_s": [
+            46.8312,
+            61.0583
+          ],
+          "n": 8,
+          "preprocess_s": 2.7771,
+          "esm_s": 1.8834,
+          "model_load_s": 11.4514,
+          "peak_vram_alloc_B": 3064396288,
+          "forward_s": 47.13224,
+          "predict_step_s": 47.4965
+        },
+        {
+          "ok": false,
+          "why": "GPU NOT EXCLUSIVE: compute apps before=[] after=[{'pid': 16211, 'used_MiB': 682}, {'pid': 16210, 'used_MiB': 680}, {'pid': 16214, 'used_MiB': 1854}, {'pid': 162",
+          "rep_s": [
+            51.5935,
+            56.8486
+          ],
+          "n": 8,
+          "preprocess_s": 3.0438,
+          "esm_s": 1.7587,
+          "model_load_s": 13.9556,
+          "peak_vram_alloc_B": 3065370112,
+          "forward_s": 48.91379,
+          "predict_step_s": 49.22761
+        },
+        {
+          "ok": false,
+          "why": "GPU NOT EXCLUSIVE: compute apps before=[] after=[{'pid': 16206, 'used_MiB': 1832}, {'pid': 16211, 'used_MiB': 1842}, {'pid': 16210, 'used_MiB': 1608}, {'pid': 1",
+          "rep_s": [
+            46.2632,
+            60.6226
+          ],
+          "n": 8,
+          "preprocess_s": 2.8084,
+          "esm_s": 1.8747,
+          "model_load_s": 11.0573,
+          "peak_vram_alloc_B": 3065370112,
+          "forward_s": 46.32913,
+          "predict_step_s": 46.68898
+        },
+        {
+          "ok": false,
+          "why": "GPU NOT EXCLUSIVE: compute apps before=[] after=[{'pid': 16211, 'used_MiB': 682}, {'pid': 16210, 'used_MiB': 680}, {'pid': 16214, 'used_MiB': 1854}, {'pid': 162",
+          "rep_s": [
+            53.4934,
+            54.8836
+          ],
+          "n": 8,
+          "preprocess_s": 3.0266,
+          "esm_s": 1.7766,
+          "model_load_s": 13.9906,
+          "peak_vram_alloc_B": 3067500032,
+          "forward_s": 48.72602,
+          "predict_step_s": 49.04651
+        },
+        {
+          "ok": false,
+          "why": "GPU NOT EXCLUSIVE: compute apps before=[] after=[{'pid': 16211, 'used_MiB': 682}, {'pid': 16210, 'used_MiB': 680}, {'pid': 16214, 'used_MiB': 1854}, {'pid': 162",
+          "rep_s": [
+            53.3925,
+            54.9528
+          ],
+          "n": 8,
+          "preprocess_s": 2.9905,
+          "esm_s": 1.9231,
+          "model_load_s": 13.929,
+          "peak_vram_alloc_B": 3065370112,
+          "forward_s": 48.70089,
+          "predict_step_s": 49.02479
+        },
+        {
+          "ok": false,
+          "why": "GPU NOT EXCLUSIVE: compute apps before=[] after=[{'pid': 16211, 'used_MiB': 682}, {'pid': 16210, 'used_MiB': 680}, {'pid': 16214, 'used_MiB': 680}, {'pid': 1620",
+          "rep_s": [
+            53.4017,
+            55.0459
+          ],
+          "n": 8,
+          "preprocess_s": 3.0218,
+          "esm_s": 1.974,
+          "model_load_s": 13.875,
+          "peak_vram_alloc_B": 3067500032,
+          "forward_s": 48.72767,
+          "predict_step_s": 49.04293
+        },
+        {
+          "ok": false,
+          "why": "GPU NOT EXCLUSIVE: compute apps before=[] after=[{'pid': 16211, 'used_MiB': 682}, {'pid': 16210, 'used_MiB': 680}, {'pid': 16214, 'used_MiB': 680}, {'pid': 1620",
+          "rep_s": [
+            53.5237,
+            54.9915
+          ],
+          "n": 8,
+          "preprocess_s": 2.9876,
+          "esm_s": 1.935,
+          "model_load_s": 13.7958,
+          "peak_vram_alloc_B": 3067500032,
+          "forward_s": 48.64173,
+          "predict_step_s": 48.96448
+        },
+        {
+          "ok": false,
+          "why": "GPU NOT EXCLUSIVE: compute apps before=[] after=[{'pid': 16211, 'used_MiB': 682}, {'pid': 16210, 'used_MiB': 680}, {'pid': 16214, 'used_MiB': 680}, {'pid': 1620",
+          "rep_s": [
+            53.5284,
+            54.9639
+          ],
+          "n": 8,
+          "preprocess_s": 2.9898,
+          "esm_s": 1.9518,
+          "model_load_s": 13.8885,
+          "peak_vram_alloc_B": 3068405760,
+          "forward_s": 48.78768,
+          "predict_step_s": 49.11464
+        }
+      ],
+      "ok": true,
+      "why": "",
+      "warm_union_s": 64.148,
+      "warm_records": 64,
+      "steady_pred_per_hour": 3591.7,
+      "steady_s_per_pred": 1.00232,
+      "e2e_pred_per_hour": 1683.6,
+      "e2e_s_per_pred": 2.13823,
+      "gpu": {
+        "n_samples": 67,
+        "power_W_mean": 327.0,
+        "power_W_max": 416.12,
+        "util_pct_mean": 77.1,
+        "mem_MiB_max": 34124.0
+      }
+    }
+  ]
+}

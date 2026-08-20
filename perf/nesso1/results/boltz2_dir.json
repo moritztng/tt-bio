@@ -1,0 +1,46 @@
+{
+  "arm": "boltz-2 upstream over a 4-compound directory, one target, no MSA, tt-bio shipped affinity settings",
+  "boltz_args": [
+    "--recycling_steps",
+    "3",
+    "--sampling_steps",
+    "200",
+    "--diffusion_samples",
+    "1",
+    "--sampling_steps_affinity",
+    "200",
+    "--diffusion_samples_affinity",
+    "5",
+    "--affinity_mw_correction",
+    "--output_format",
+    "mmcif",
+    "--num_workers",
+    "2",
+    "--accelerator",
+    "gpu"
+  ],
+  "protein_aa": 256,
+  "ligand_codes": [
+    "GGGGGG",
+    "GGGGGA",
+    "GGGGAG",
+    "GGGGAA"
+  ],
+  "reps": [
+    {
+      "wall_s": 77.866,
+      "rc": 0,
+      "n_written": 4,
+      "s_per_pred": 19.4664
+    },
+    {
+      "wall_s": 78.198,
+      "rc": 0,
+      "n_written": 4,
+      "s_per_pred": 19.5496
+    }
+  ],
+  "warm_s_per_pred": 19.5496,
+  "pred_per_hour": 184.1,
+  "ok": true
+}

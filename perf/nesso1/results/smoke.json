@@ -1,0 +1,163 @@
+{
+  "label": "smoke",
+  "inputs": "perf/nesso1/inputs/ladder/aa128",
+  "reps": 2,
+  "recycling_steps": 5,
+  "precision": "bf16-mixed",
+  "no_kernels": false,
+  "refine": "on",
+  "seed": 42,
+  "num_workers": 2,
+  "env": {
+    "torch": "2.11.0+cu128",
+    "torch_cuda": "12.8",
+    "cudnn": 91900,
+    "cuda_device": "NVIDIA H200 NVL",
+    "compute_cap": [
+      9,
+      0
+    ],
+    "matmul_tf32": false,
+    "float32_matmul_precision": "highest",
+    "python": "3.12.3",
+    "effective_cpus": 30.71999,
+    "gpu_static": {
+      "name": "NVIDIA H200 NVL",
+      "driver_version": "595.58.03",
+      "memory.total": "143771",
+      "power.limit": "600.00",
+      "clocks.max.sm": "1785",
+      "compute_cap": "9.0",
+      "pcie.link.gen.max": "5"
+    },
+    "compute_apps_before": [],
+    "nesso": "1.0.0",
+    "triton": "3.6.0",
+    "cuequivariance-torch": "0.11.1",
+    "cuequivariance-ops-torch-cu12": "0.11.1",
+    "lightning": "2.6.5",
+    "transformers": "5.15.1",
+    "rdkit": "2026.3.5",
+    "numpy": "2.5.2",
+    "safetensors": "0.8.0"
+  },
+  "n_records": 1,
+  "n_unique_seqs": 1,
+  "preprocess_s": 1.9956,
+  "esm_s": 1.0204,
+  "model_load_s": 1.3749,
+  "rep_s": [
+    5.1085,
+    3.2605
+  ],
+  "rep_windows": [
+    [
+      1787223631.8535,
+      1787223636.9619
+    ],
+    [
+      1787223637.0009,
+      1787223640.2614
+    ]
+  ],
+  "phases": {
+    "0": {
+      "embed": 0.10433,
+      "embed_n": 1,
+      "esm_module": 0.00334,
+      "esm_module_n": 6,
+      "pairformer": 2.29215,
+      "pairformer_n": 8,
+      "crop": 0.0264,
+      "crop_n": 1,
+      "affinity": 0.03003,
+      "affinity_n": 2,
+      "forward": 2.43615,
+      "forward_n": 1,
+      "predict_step": 2.43706,
+      "predict_step_n": 1,
+      "write": 0.00033,
+      "write_n": 1
+    },
+    "1": {
+      "embed": 0.00367,
+      "embed_n": 1,
+      "esm_module": 0.00095,
+      "esm_module_n": 6,
+      "pairformer": 0.36834,
+      "pairformer_n": 8,
+      "crop": 0.00109,
+      "crop_n": 1,
+      "affinity": 0.01743,
+      "affinity_n": 2,
+      "forward": 0.37699,
+      "forward_n": 1,
+      "predict_step": 0.37755,
+      "predict_step_n": 1,
+      "write": 0.00036,
+      "write_n": 1
+    }
+  },
+  "counts": {
+    "cueq.triangle_attention": 1216,
+    "cueq.triangle_multiplicative_update": 1216,
+    "cuequivariance_available": 1,
+    "callsite.triangle_attention": 1216,
+    "callsite.tri_mul_out": 608,
+    "callsite.tri_mul_in": 608,
+    "callsite.tri_att_start": 1216,
+    "callsite.tri_att_end": 608,
+    "scaled_dot_product_attention": 33,
+    "calls:embed": 2,
+    "calls:esm_module": 12,
+    "calls:pairformer": 16,
+    "calls:crop": 2,
+    "calls:affinity": 4,
+    "calls:forward": 2,
+    "calls:predict_step": 2,
+    "calls:write": 2
+  },
+  "gpu_dynamic": [
+    {
+      "power.draw": "151.53",
+      "utilization.gpu": "44",
+      "clocks.sm": "1785",
+      "temperature.gpu": "40"
+    },
+    {
+      "power.draw": "153.17",
+      "utilization.gpu": "82",
+      "clocks.sm": "1785",
+      "temperature.gpu": "40"
+    }
+  ],
+  "peak_vram_alloc_B": 340265472,
+  "peak_vram_reserved_B": 2810183680,
+  "affinity": {
+    "n": 1,
+    "mean": 1.6167736053466797,
+    "min": 1.6167736053466797,
+    "max": 1.6167736053466797,
+    "spread": 0.0,
+    "entropy_crop_pl_zero": 0,
+    "sha256_of_values": "7afcc7a12edc9937"
+  },
+  "ok": true,
+  "why": "1 predictions, 0 with entropy_crop_pl == 0",
+  "compute_apps_after": [
+    {
+      "pid": 3594,
+      "used_MiB": 680
+    }
+  ],
+  "gpu_exclusive": true,
+  "model_revision": "v1.0.0",
+  "ckpt_dir": "/work/cache/huggingface/models--recursionpharma--nesso/snapshots/1896c84c7186c506c7efd79051480809d51098bf/v1.0.0",
+  "seq_lens": [
+    128
+  ],
+  "ckpt_use_kernels": true,
+  "affinity_head_present": true,
+  "effective_use_kernels": true,
+  "dataloader_batch_size": 1
+}

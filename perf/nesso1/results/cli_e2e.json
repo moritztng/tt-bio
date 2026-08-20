@@ -1,0 +1,40 @@
+{
+  "arm": "nesso predict CLI, wall clock around the real command, fresh out_dir every run",
+  "note": "The as-shipped `nesso predict` CLI, wall-clocked around the real command, fresh out_dir per run.\n\nTimed the same way as the Boltz-2 arm on purpose: comparing an in-process steady state against a\nfull CLI invocation would inflate the ratio by one side's entire fixed cost.\n\nAn earlier pass of this leg reported 6.43 s for the 64-compound directory and ~5.5 s for a single\nrecord. Neither reproduces: a clean re-run of the identical command took 58.95 s for the same 64\ncompounds, with Lightning's own progress bar showing 46 s at 1.42 it/s, which agrees with the\nin-process steady state of 0.754 s/prediction measured three independent ways. Those figures are\ndiscarded rather than explained.",
+  "cells": [
+    {
+      "tag": "single_aa256",
+      "inputs": "/work/perf/nesso1/inputs/ladder/aa256",
+      "n_records": 1,
+      "rep_s": [
+        12.809,
+        13.142
+      ],
+      "n_written": [
+        1,
+        1
+      ],
+      "ok": true,
+      "warm_s": 13.142,
+      "warm_s_per_pred": 13.142,
+      "pred_per_hour": 273.9
+    },
+    {
+      "tag": "screen64_aa256",
+      "inputs": "/work/perf/nesso1/inputs/screen",
+      "n_records": 64,
+      "rep_s": [
+        58.323,
+        58.618
+      ],
+      "n_written": [
+        64,
+        64
+      ],
+      "ok": true,
+      "warm_s": 58.618,
+      "warm_s_per_pred": 0.9159,
+      "pred_per_hour": 3930.5
+    }
+  ]
+}

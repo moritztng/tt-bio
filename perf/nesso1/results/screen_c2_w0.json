@@ -1,0 +1,167 @@
+{
+  "label": "screen_c2_w0",
+  "inputs": "/work/shards/c2/w0",
+  "reps": 2,
+  "recycling_steps": 5,
+  "precision": "bf16-mixed",
+  "no_kernels": false,
+  "refine": "on",
+  "seed": 42,
+  "num_workers": 2,
+  "env": {
+    "torch": "2.11.0+cu128",
+    "torch_cuda": "12.8",
+    "cudnn": 91900,
+    "cuda_device": "NVIDIA H200 NVL",
+    "compute_cap": [
+      9,
+      0
+    ],
+    "matmul_tf32": false,
+    "float32_matmul_precision": "highest",
+    "python": "3.12.3",
+    "effective_cpus": 30.71999,
+    "gpu_static": {
+      "name": "NVIDIA H200 NVL",
+      "driver_version": "595.58.03",
+      "memory.total": "143771",
+      "power.limit": "600.00",
+      "clocks.max.sm": "1785",
+      "compute_cap": "9.0",
+      "pcie.link.gen.max": "5"
+    },
+    "compute_apps_before": [],
+    "nesso": "1.0.0",
+    "triton": "3.6.0",
+    "cuequivariance-torch": "0.11.1",
+    "cuequivariance-ops-torch-cu12": "0.11.1",
+    "lightning": "2.6.5",
+    "transformers": "5.15.1",
+    "rdkit": "2026.3.5",
+    "numpy": "2.5.2",
+    "safetensors": "0.8.0"
+  },
+  "n_records": 32,
+  "n_unique_seqs": 1,
+  "preprocess_s": 2.4425,
+  "esm_s": 1.0879,
+  "model_load_s": 1.2941,
+  "rep_s": [
+    54.1556,
+    53.2233
+  ],
+  "rep_windows": [
+    [
+      1787224906.2565,
+      1787224960.4121
+    ],
+    [
+      1787224960.4542,
+      1787225013.6775
+    ]
+  ],
+  "phases": {
+    "0": {
+      "embed": 0.25614,
+      "embed_n": 32,
+      "esm_module": 0.43303,
+      "esm_module_n": 192,
+      "pairformer": 49.09399,
+      "pairformer_n": 256,
+      "crop": 0.3778,
+      "crop_n": 32,
+      "affinity": 1.18379,
+      "affinity_n": 64,
+      "forward": 51.21087,
+      "forward_n": 32,
+      "predict_step": 51.40245,
+      "predict_step_n": 32,
+      "write": 0.00985,
+      "write_n": 32
+    },
+    "1": {
+      "embed": 0.12603,
+      "embed_n": 32,
+      "esm_module": 0.44783,
+      "esm_module_n": 192,
+      "pairformer": 47.90083,
+      "pairformer_n": 256,
+      "crop": 0.49096,
+      "crop_n": 32,
+      "affinity": 1.03242,
+      "affinity_n": 64,
+      "forward": 50.07514,
+      "forward_n": 32,
+      "predict_step": 50.2597,
+      "predict_step_n": 32,
+      "write": 0.00974,
+      "write_n": 32
+    }
+  },
+  "counts": {
+    "cueq.triangle_attention": 38912,
+    "cueq.triangle_multiplicative_update": 38912,
+    "cuequivariance_available": 1,
+    "callsite.triangle_attention": 38912,
+    "callsite.tri_mul_out": 19456,
+    "callsite.tri_mul_in": 19456,
+    "callsite.tri_att_start": 38912,
+    "callsite.tri_att_end": 19456,
+    "scaled_dot_product_attention": 33,
+    "calls:embed": 64,
+    "calls:esm_module": 384,
+    "calls:pairformer": 512,
+    "calls:crop": 64,
+    "calls:affinity": 128,
+    "calls:forward": 64,
+    "calls:predict_step": 64,
+    "calls:write": 64
+  },
+  "gpu_dynamic": [
+    {
+      "power.draw": "384.27",
+      "utilization.gpu": "100",
+      "clocks.sm": "1785",
+      "temperature.gpu": "78"
+    },
+    {
+      "power.draw": "362.42",
+      "utilization.gpu": "37",
+      "clocks.sm": "1785",
+      "temperature.gpu": "78"
+    }
+  ],
+  "peak_vram_alloc_B": 3064396288,
+  "peak_vram_reserved_B": 3867148288,
+  "affinity": {
+    "n": 32,
+    "mean": 0.9197329878807068,
+    "min": 0.5003705024719238,
+    "max": 1.7676560878753662,
+    "spread": 1.2672855854034424,
+    "entropy_crop_pl_zero": 0,
+    "sha256_of_values": "e736b648f475e379"
+  },
+  "ok": false,
+  "why": "GPU NOT EXCLUSIVE: compute apps before=[] after=[{'pid': 14234, 'used_MiB': 682}, {'pid': 14232, 'used_MiB': 682}] -- timings on a shared card are void",
+  "compute_apps_after": [
+    {
+      "pid": 14234,
+      "used_MiB": 682
+    },
+    {
+      "pid": 14232,
+      "used_MiB": 682
+    }
+  ],
+  "gpu_exclusive": false,
+  "model_revision": "v1.0.0",
+  "ckpt_dir": "/work/cache/huggingface/models--recursionpharma--nesso/snapshots/1896c84c7186c506c7efd79051480809d51098bf/v1.0.0",
+  "seq_lens": [
+    256
+  ],
+  "ckpt_use_kernels": true,
+  "affinity_head_present": true,
+  "effective_use_kernels": true,
+  "dataloader_batch_size": 1
+}
