@@ -1298,27 +1298,35 @@ def _print_table(rows: list[dict], baselines: dict, card_type: str, machine_id: 
            f"{'delta':>10}{'verdict':>10}")
     print(hdr)
     print("-" * len(hdr))
+    unbacked: list[str] = []
+    measure_failed: list[str] = []
+    regressed: list[str] = []
     for r in rows:
         unit = r["unit"]
         if not have_card:
             cur = f"{r['throughput']:.4g}" if not r.get("failed") else "FAILED"
             print(f"{r['model']:<16}{unit:<16}{'(none)':>11}{cur:>11}{'n/a':>10}{'NO BASELINE':>10}")
             all_pass = False
+            unbacked.append(r["model"])
             continue
         b = bm.get(r["model"])
         if b is None:
             cur = f"{r['throughput']:.4g}" if not r.get("failed") else "FAILED"
             print(f"{r['model']:<16}{unit:<16}{'(none)':>11}{cur:>11}{'n/a':>10}{'NO BASELINE':>10}")
             all_pass = False
+            unbacked.append(r["model"])
             continue
         if r.get("failed"):
             print(f"{r['model']:<16}{unit:<16}{float(b['value']):>11.4g}{'FAILED':>11}{'n/a':>10}{'FAIL':>10}")
             all_pass = False
+            measure_failed.append(r["model"])
             continue
         base = float(b["value"])
         pct, delta = _delta_str(base, r["throughput"], r["direction"])
         ok = _passes(base, r["throughput"], r["direction"], threshold)
         all_pass &= ok
+        if not ok:
+            regressed.append(r["model"])
         verdict = "PASS" if ok else "FAIL"
         print(f"{r['model']:<16}{unit:<16}{base:>11.4g}{r['throughput']:>11.4g}"
               f"{delta:>10}{verdict:>10}")
@@ -1330,9 +1338,21 @@ def _print_table(rows: list[dict], baselines: dict, card_type: str, machine_id: 
                f"{BASELINE_FILE.relative_to(REPO_ROOT)}. Seed it on a {card_type} "
                f"card with: python3 scripts/perf_regression.py --update-baseline "
                f"--note \"seed {card_type} baseline\"")
+    elif all_pass:
+        msg = "GATE PASS — no model regressed beyond ±{:.0f}%".format(threshold)
     else:
-        msg = ("GATE PASS — no model regressed beyond ±{:.0f}%".format(threshold) if all_pass
-               else "GATE FAIL — a model regressed beyond ±{:.0f}% (see above)".format(threshold))
+        # Name the actual cause. A model with no baseline for this machine is uncovered,
+        # not slower, and reporting it as a regression sends the reader hunting for one.
+        why = []
+        if regressed:
+            why.append(f"regressed beyond ±{threshold:.0f}%: {', '.join(regressed)}")
+        if measure_failed:
+            why.append(f"failed to measure: {', '.join(measure_failed)}")
+        if unbacked:
+            why.append(f"no baseline for {machine_id}, so uncovered: {', '.join(unbacked)}"
+                       f" (seed with: python3 scripts/perf_regression.py --update-baseline"
+                       f" {' '.join('--model ' + m for m in unbacked)} --note \"<why>\")")
+        msg = "GATE FAIL — " + "; ".join(why)
     print(f"{'#' * 78}\n{msg}")
     return all_pass
 

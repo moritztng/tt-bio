@@ -774,11 +774,51 @@
               "tt_bio_version": "0.5.0",
               "date": "2026-08-03",
               "note": "esmc-300m single-seq embed leg (batch_size 1 through the worker path, device opened with a 256MB trace region so ESMC.forward replays via ttnn trace capture). Seeded on pc/p150a after the trace-capture implementation landed; the traced path is device-bound so this baseline travels across hosts, while the eager fallback it guards against is host-dispatch-bound (much slower on qb1-class hosts)."
+            },
+            "openfold3": {
+              "unit": "structures/s",
+              "direction": "higher",
+              "value": 1.859527,
+              "latency_ms": 537.77,
+              "input": "trpcage (20 aa, single-seq)",
+              "sampling_steps": 10,
+              "diffusion_samples": 1,
+              "recycling_steps": 1,
+              "num_timesteps": null,
+              "num_designs": null,
+              "warmup": 2,
+              "repeat": 5,
+              "hardware": "blackhole",
+              "card_type": "p150a",
+              "machine_id": "pc",
+              "tt_bio_version": "0.6.5",
+              "date": "2026-08-21",
+              "note": "seed the pc p150a baselines for openfold3 and opendde-abag: both had qb1-only entries, so the pc perf gate has never covered them"
+            },
+            "opendde-abag": {
+              "unit": "structures/s",
+              "direction": "higher",
+              "value": 2.119967,
+              "latency_ms": 471.71,
+              "input": "trpcage (20 aa, single-seq)",
+              "sampling_steps": 10,
+              "diffusion_samples": 1,
+              "recycling_steps": 1,
+              "num_timesteps": null,
+              "num_designs": null,
+              "warmup": 2,
+              "repeat": 5,
+              "hardware": "blackhole",
+              "card_type": "p150a",
+              "machine_id": "pc",
+              "tt_bio_version": "0.6.5",
+              "date": "2026-08-21",
+              "note": "seed the pc p150a baselines for openfold3 and opendde-abag: both had qb1-only entries, so the pc perf gate has never covered them"
             }
           },
-          "date": "2026-08-03",
-          "tt_bio_version": "0.5.0",
-          "note": "esmc-300m single-seq embed leg (batch_size 1 through the worker path, device opened with a 256MB trace region so ESMC.forward replays via ttnn trace capture). Seeded on pc/p150a after the trace-capture implementation landed; the traced path is device-bound so this baseline travels across hosts, while the eager fallback it guards against is host-dispatch-bound (much slower on qb1-class hosts)."
+          "date": "2026-08-21",
+          "tt_bio_version": "0.6.5",
+          "note": "seed the pc p150a baselines for openfold3 and opendde-abag: both had qb1-only entries, so the pc perf gate has never covered them"
         }
       }
     }
