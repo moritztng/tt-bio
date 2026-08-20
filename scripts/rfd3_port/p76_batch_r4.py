@@ -146,13 +146,24 @@ def main():
     # difference scales with the step count). With two b=2 reps the median is their mean, so a
     # cold first rep inflates b=2 by ~19 s/design at 200 steps and reads as a batching penalty
     # that is really a compile. Both arms warm or the comparison is not a comparison.
-    for b in sorted(set(ARMS)):
+    # First-appearance order, NOT sorted: b=2 at 6051 atoms OOMs in the token encoder's
+    # pair transition when a b=1 run has already fragmented L1, so 'sorted' would deny the
+    # batched arm the fresh allocator that production actually gives it.
+    for b in dict.fromkeys(ARMS):
         t, sizes, v = run(specs, "/tmp/rfd3_p76_warm_b%d" % b, b, max(b, 1))
         print("[p76] warmup b=%d %.3f s (sizes %s), discarded" % (b, t, sizes), flush=True)
 
     rows = []
     for i, b in enumerate(ARMS):
-        t, sizes, v = run(specs, "/tmp/rfd3_p76_%d" % i, b, NDESIGN)
+        try:
+            t, sizes, v = run(specs, "/tmp/rfd3_p76_%d" % i, b, NDESIGN)
+        except RuntimeError as e:
+            # b=2 at this size can exhaust L1. Record it as the arm's result and keep the
+            # other arm's reps, instead of losing the whole run to one allocator failure.
+            msg = str(e).splitlines()[0][:200]
+            rows.append({"arm": "b%d" % b, "batch": b, "rep": i, "failed": msg})
+            print("[p76] rep%d b=%d  FAILED: %s" % (i, b, msg), flush=True)
+            continue
         per = t / NDESIGN
         rows.append({"arm": "b%d" % b, "batch": b, "rep": i, "total_s": round(t, 3),
                      "s_per_design": round(per, 3), "forward_sizes": sizes, "validation": v})
@@ -162,11 +173,12 @@ def main():
     rfd3_design._BATCH_SPEED_CAP = cap_before
 
     def med(b):
-        v = sorted(r["s_per_design"] for r in rows if r["batch"] == b)
+        v = sorted(r["s_per_design"] for r in rows if r["batch"] == b and "s_per_design" in r)
         return statistics.median(v) if v else None
 
     b1, b2 = med(1), med(2)
-    aa = [r["s_per_design"] for r in rows if r["batch"] == 1]
+    failed = [r for r in rows if "failed" in r]
+    aa = [r["s_per_design"] for r in rows if r["batch"] == 1 and "s_per_design" in r]
     aa_spread = abs(aa[1] - aa[0]) if len(aa) > 1 else None
     ratio = (b1 / b2) if (b1 and b2) else None
     verdict = None
@@ -186,7 +198,7 @@ def main():
               % (b2, ratio, GATE, verdict))
         print("vs the H200 b=8 amortised 12.974: %.3fx  (do NOT compare against their b=1)"
               % (b2 / 12.974))
-    all_valid = all(r["validation"]["ok"] for r in rows)
+    all_valid = all(r["validation"]["ok"] for r in rows if "validation" in r)
     print("output validation: %s" % ("all designs parse with finite coords" if all_valid
                                      else "FAILED -- see the json"))
 
@@ -198,7 +210,7 @@ def main():
         "speed_cap_above_atoms": rfd3_design._BATCH_SPEED_CAP_ABOVE_ATOMS,
         "b1_median_s_per_design": b1, "b2_median_s_per_design": b2,
         "aa_control_s": aa, "aa_spread_s": aa_spread, "ratio": ratio, "gate": GATE,
-        "verdict": verdict, "all_valid": all_valid,
+        "verdict": verdict, "all_valid": all_valid, "failed_arms": failed,
         "h200_b8_amortised_s": 12.974,
         "ratio_to_h200_b8": (b2 / 12.974) if b2 else None,
         "host": os.uname().nodename, "ttnn": _ttnn_version(), "card": CARD,

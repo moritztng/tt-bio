@@ -1,0 +1,37 @@
+{
+  "rows": [
+    {
+      "arm": "dense_shipped",
+      "ms_per_call": 16.2657,
+      "exact": true,
+      "note": "the chain the model runs today"
+    },
+    {
+      "arm": "sparse_K128",
+      "ms_per_call": 0.4291,
+      "exact": false,
+      "note": "gathered scores; the softmax row sum is over 128 terms, not 6080"
+    },
+    {
+      "arm": "sdpa_flash",
+      "ms_per_call": 2.3207,
+      "exact": false,
+      "note": "no per-row pair bias; online softmax, different reduction order"
+    }
+  ],
+  "H": 4,
+  "L": 6051,
+  "n_key": 6080,
+  "head_dim": 32,
+  "k_sparse": 128,
+  "calls_per_step": 9,
+  "num_timesteps": 200,
+  "sparse_saved_ms_per_step": 142.529,
+  "sparse_saved_s_per_design": 28.506,
+  "sdpa_saved_ms_per_step": 125.505,
+  "sdpa_saved_s_per_design": 25.101,
+  "sdpa_error": null,
+  "host": "tt-quietbox2",
+  "ttnn": "0.68.0",
+  "card": 1
+}
