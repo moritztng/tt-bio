@@ -1,0 +1,48 @@
+{
+ "host": "tt-quietbox2",
+ "tt_visible_devices": "2",
+ "census": [],
+ "timing": [
+  {
+   "seq_len": 256,
+   "n_blocks": 48,
+   "reps_warm": 3,
+   "module_s_median": 0.62508,
+   "spread_max_over_min": 1.0043,
+   "per_block_ms": 13.022
+  },
+  {
+   "seq_len": 265,
+   "n_blocks": 48,
+   "reps_warm": 3,
+   "module_s_median": 1.05219,
+   "spread_max_over_min": 1.0069,
+   "per_block_ms": 21.921
+  },
+  {
+   "seq_len": 281,
+   "n_blocks": 48,
+   "reps_warm": 3,
+   "module_s_median": 1.05189,
+   "spread_max_over_min": 1.0066,
+   "per_block_ms": 21.914
+  },
+  {
+   "seq_len": 305,
+   "n_blocks": 48,
+   "reps_warm": 3,
+   "module_s_median": 1.05583,
+   "spread_max_over_min": 1.0015,
+   "per_block_ms": 21.996
+  },
+  {
+   "seq_len": 337,
+   "n_blocks": 48,
+   "reps_warm": 3,
+   "module_s_median": 1.55458,
+   "spread_max_over_min": 1.0059,
+   "per_block_ms": 32.387
+  }
+ ],
+ "regions": []
+}

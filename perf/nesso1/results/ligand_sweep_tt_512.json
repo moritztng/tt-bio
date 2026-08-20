@@ -1,0 +1,32 @@
+{
+ "host": "tt-quietbox2",
+ "tt_visible_devices": "2",
+ "census": [],
+ "timing": [
+  {
+   "seq_len": 512,
+   "n_blocks": 48,
+   "reps_warm": 3,
+   "module_s_median": 2.9428,
+   "spread_max_over_min": 1.0005,
+   "per_block_ms": 61.308
+  },
+  {
+   "seq_len": 521,
+   "n_blocks": 48,
+   "reps_warm": 3,
+   "module_s_median": 3.88443,
+   "spread_max_over_min": 1.0008,
+   "per_block_ms": 80.926
+  },
+  {
+   "seq_len": 593,
+   "n_blocks": 48,
+   "reps_warm": 3,
+   "module_s_median": 5.02465,
+   "spread_max_over_min": 1.0008,
+   "per_block_ms": 104.68
+  }
+ ],
+ "regions": []
+}
