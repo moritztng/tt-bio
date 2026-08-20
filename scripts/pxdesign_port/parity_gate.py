@@ -2,11 +2,11 @@
 """PXDesign design-featurizer value-parity scorer (card-free, CPU-only, no upstream install).
 
 Scores `tt_bio.pxdesign.featurize` against a COMMITTED capture of the upstream PXDesign
-featurizer on the PD-L1 quick-start target (`parity_artifacts/pdl1/`, 196 tokens, 1250
-atoms). Every comparison is bit-exact -- these are integer bins, boolean masks and one-hots,
+featurizer on the PD-L1 quick-start target (`parity_artifacts/pdl1_protenix05_noH/`, 196
+tokens, 1250 atoms; pass `--art` to score another). Every comparison is bit-exact -- these are integer bins, boolean masks and one-hots,
 so there is no tolerance to argue about.
 
-Three arms:
+Four arms:
 
   1. `conditional_templ` / `conditional_templ_mask` from the captured inputs to upstream's
      own `get_condition_template_feature`. This is the port's sharpest edge.
@@ -17,13 +17,17 @@ Three arms:
      placeholder NOT excluded must produce a DIFFERENT feature. An arm that cannot fail on
      the bug it is named after is not an arm.
   3. `restype`, 36-way, recovered from the captured one-hot's own column order.
+  4. The origin arm. Arms 1-3 recompute from the captured inputs, so they all pass on a
+     capture whose coordinates are wrong -- the port and upstream agree on the same bad
+     arithmetic. This arm scores the capture: no conditioned token may sit at the origin.
+     It fails on `parity_artifacts/pdl1/` and passes on `pdl1_protenix05_noH/`.
 
 What this gate does NOT cover, stated so it is not mistaken for coverage: the atom-array
 construction upstream of these functions (CIF parse, tokenization, crop, hotspot annotation).
 It scores the design-specific arithmetic on captured inputs. `hotspot` and the token-level
 identity keys are captured and shape-checked but not yet recomputed by a tt-bio path.
 
-    python3 scripts/pxdesign_port/parity_gate.py
+    python3 scripts/pxdesign_port/parity_gate.py [--art <capture dir name>]
 """
 from __future__ import annotations
 
@@ -32,18 +36,26 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent.parent
-ART = REPO / "scripts" / "pxdesign_port" / "parity_artifacts" / "pdl1"
-REF_F = ART / "ref_design_f.pt"
-REF_IN = ART / "ref_condition_inputs.pt"
-META = ART / "ref_design_f.meta.json"
+ARTS = REPO / "scripts" / "pxdesign_port" / "parity_artifacts"
+
+# The PD-L1 quick-start CIF ships with explicit hydrogens, and PXDesign's CIF path
+# (protenix `DistillationMMCIFParser`) has no hydrogen filter, so 61 of the target's 116
+# residues are parsed as fully unresolved and their conditioning coordinates land on the
+# origin. `pdl1_protenix05_noH` is the same target captured from a hydrogen-stripped copy
+# and is the only capture that conditions on the real 116-residue domain. The other two
+# are kept so the defect stays diffable, and scored by passing `--art`.
+DEFAULT_ART = "pdl1_protenix05_noH"
 
 
-def featurizer_parity() -> dict:
+def featurizer_parity(art: str = DEFAULT_ART) -> dict:
     import torch
     sys.path.insert(0, str(REPO))
     from tt_bio.pxdesign.featurize import (RESTYPE_VOCAB, condition_template,
                                            condition_template_index, restype_onehot)
 
+    ART = ARTS / art
+    REF_F, REF_IN, META = (ART / "ref_design_f.pt", ART / "ref_condition_inputs.pt",
+                           ART / "ref_design_f.meta.json")
     for p in (REF_F, REF_IN, META):
         if not p.exists():
             return {"mode": "pxdesign_featurizer", "verdict": "ERROR",
@@ -103,6 +115,25 @@ def featurizer_parity() -> dict:
                                     "produced an identical feature, so this arm proves "
                                     "nothing on this fixture"})
 
+    # 4. the origin arm. Every arm above recomputes from the captured inputs, so all of
+    # them pass on a capture whose conditioning coordinates are wrong -- the port and
+    # upstream agree on the same bad arithmetic. This arm scores the CAPTURE instead: a
+    # token that is conditioned on must carry a real coordinate. PXDesign's CIF path drops
+    # a residue whose hydrogens outnumber its heavy atoms (protenix
+    # `DistillationMMCIFParser` runs no hydrogen filter before CCD name matching, and the
+    # matcher keeps a residue only if more than half its atoms match), and a dropped
+    # residue is conditioned on at the origin rather than excluded.
+    coord = torch.as_tensor(cin["coord"])
+    at_origin = (coord.abs().sum(dim=-1) == 0) & expect
+    checks.append("no_conditioned_token_at_origin")
+    if int(at_origin.sum()):
+        mismatches.append({
+            "key": "no_conditioned_token_at_origin",
+            "error": f"{int(at_origin.sum())} of {int(expect.sum())} conditioned tokens sit "
+                     f"at the origin, so the distogram encodes a target that does not "
+                     f"exist. Strip hydrogens from the input CIF and re-capture.",
+        })
+
     # 3. restype, 36-way
     want_rt = ref["restype"]
     checks.append("restype_vocab_width")
@@ -117,10 +148,12 @@ def featurizer_parity() -> dict:
     return {
         "mode": "pxdesign_featurizer",
         "verdict": "PASS" if not mismatches else "FAIL",
+        "capture": art,
         "fixture": meta["yaml"],
         "n_token": meta["n_token"], "n_atom": meta["n_atom"],
         "n_binder_placeholder_tokens": n_xpb,
         "n_conditioned_tokens": int(expect.sum()),
+        "n_conditioned_tokens_at_origin": int(at_origin.sum()),
         "upstream_keys_captured": len(meta["all_keys"]),
         "checks_total": len(checks), "checks_passed": len(checks) - len(mismatches),
         "mismatches": mismatches,
@@ -128,6 +161,9 @@ def featurizer_parity() -> dict:
 
 
 if __name__ == "__main__":
-    r = featurizer_parity()
+    art = DEFAULT_ART
+    if "--art" in sys.argv:
+        art = sys.argv[sys.argv.index("--art") + 1]
+    r = featurizer_parity(art)
     print(json.dumps(r, indent=1))
     sys.exit(0 if r.get("verdict") == "PASS" else 1)

@@ -7,8 +7,8 @@ a plausible structure. Nothing downstream complains. So it is gated here, agains
 capture of the upstream featurizer on the PD-L1 quick-start target.
 
 Device-free and install-free: the reference is committed
-(`scripts/pxdesign_port/parity_artifacts/pdl1/`), so this needs no upstream PXDesign, no
-protenix and no card.
+(`scripts/pxdesign_port/parity_artifacts/pdl1_protenix05_noH/`), so this needs no upstream
+PXDesign, no protenix and no card.
 """
 import importlib.util
 from pathlib import Path
@@ -21,7 +21,10 @@ from tt_bio.pxdesign.featurize import (RESTYPE_VOCAB, condition_template,
 
 REPO = Path(__file__).resolve().parent.parent
 GATE = REPO / "scripts" / "pxdesign_port" / "parity_gate.py"
-ART = REPO / "scripts" / "pxdesign_port" / "parity_artifacts" / "pdl1"
+ARTS = REPO / "scripts" / "pxdesign_port" / "parity_artifacts"
+ART = ARTS / "pdl1_protenix05_noH"       # the capture that conditions on the real target
+ART_WITH_HYDROGENS = ARTS / "pdl1"       # the same target from the shipped CIF, with its
+                                         # hydrogens, kept so the defect stays gateable
 
 
 @pytest.fixture(scope="module")
@@ -42,6 +45,19 @@ def report(gate):
 def test_gate_passes(report):
     assert report["verdict"] == "PASS", report["mismatches"]
     assert report["checks_passed"] == report["checks_total"] > 0
+
+
+def test_the_origin_arm_fails_on_a_capture_from_the_hydrogen_bearing_cif(gate):
+    """PXDesign's CIF path runs no hydrogen filter, so a residue whose hydrogens outnumber
+    its heavy atoms is parsed as fully unresolved and conditioned on at the origin. Arms 1-3
+    cannot see that -- they recompute from the same bad inputs and agree with upstream. This
+    is the arm that can, and 61 of the shipped PD-L1 CIF's 116 target residues trip it."""
+    if not (ART_WITH_HYDROGENS / "ref_design_f.pt").exists():
+        pytest.skip("hydrogen-bearing capture missing")
+    r = gate.featurizer_parity("pdl1")
+    assert r["verdict"] == "FAIL"
+    assert r["n_conditioned_tokens_at_origin"] == 61
+    assert [m["key"] for m in r["mismatches"]] == ["no_conditioned_token_at_origin"]
 
 
 def test_fixture_is_the_pdl1_anchor(report):
