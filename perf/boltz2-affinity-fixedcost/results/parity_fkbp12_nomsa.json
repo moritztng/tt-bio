@@ -1,0 +1,20 @@
+{
+  "legs": [
+    {
+      "leg": "boltz2-affinity-fkbp12-nomsa",
+      "verdict": "PASS",
+      "detail": "envelope worst affinity_probability_binary: num=0.0081 env=0.0005 ratio=15.09; affinity_pred_value r=0.18, affinity_probability_binary r=15.09",
+      "wall": 138.1981950820009,
+      "committed": "GAP-evidenced",
+      "report": "boltz2-affinity-fkbp12-nomsa.json"
+    }
+  ],
+  "tally": {
+    "PASS": 1
+  },
+  "scored": 1,
+  "total_wall_s": 138.19839277799838,
+  "workers": [
+    "tt-quietbox2:1"
+  ]
+}
