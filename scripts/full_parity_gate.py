@@ -1406,16 +1406,20 @@ def _af2ig_trunk_verdict(report: dict) -> tuple[str, str]:
     if not rows:
         return "NO-DATA", "no taps scored"
     worst = min(rows, key=lambda r: r.get("pcc", -1.0))
-    detail = ("%s: %d taps, %d failed; worst %s pcc=%.6f"
-              % (report.get("stage", "?"), report["taps_scored"], report["taps_failed"],
-                 worst["tap"], worst.get("pcc", float("nan"))))
-    # A tap that vanished and a scalar that drifted both fail with zero failing taps, so the
-    # detail has to name them or the line reads as a pass.
+    # The caveat count and a vanished tap lead, because the table truncates the detail to 60
+    # characters and both are cases where the leg passes for a reason that must not be silent.
+    head = "%s: %d taps, %d failed" % (report.get("stage", "?"), report["taps_scored"],
+                                       report["taps_failed"])
     missing = report.get("not_implemented") or []
     if missing:
-        detail += "; %d taps not produced, first %s" % (len(missing), missing[0])
+        head += ", %d NOT PRODUCED (%s)" % (len(missing), missing[0])
+    if report.get("in_envelope"):
+        head += ", %d in the %s envelope" % (report["in_envelope"],
+                                             report.get("envelope_arm", "?"))
+    detail = "%s; worst %s pcc=%.6f" % (head, worst["tap"], worst.get("pcc", float("nan")))
     if report.get("scalars_failed"):
-        off = [s for s in report.get("scalars", []) if s["verdict"] != "PASS"]
+        off = [s for s in report.get("scalars", []) if s["verdict"] not in ("PASS",
+                                                                            "IN-ENVELOPE")]
         detail += "; scalars off: " + ", ".join(
             "%s %+.2e" % (s["scalar"], s["got"] - s["want"]) for s in off)
     return report.get("verdict", "NO-DATA"), detail
