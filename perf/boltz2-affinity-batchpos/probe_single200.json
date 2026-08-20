@@ -1,0 +1,23 @@
+[
+  {
+    "pos": 1,
+    "target": "t1.yaml",
+    "aff_model_loaded_before": false,
+    "rng_before_structure_fwd": "196e4b2066b53992",
+    "feats_structure": "d90f8180e173f185",
+    "rng_after_structure_fwd": "f38af99afc7eae19",
+    "coords": "93feee2af0ffe8f3",
+    "rng_after_structure_job": "f38af99afc7eae19",
+    "rng_before_affinity_fwd": "8b6ef1a512c2bb04",
+    "feats_affinity": "6d565bf18e993417",
+    "rng_after_affinity_fwd": "f45d87d35b056f4d",
+    "rng_after_affinity_job": "f45d87d35b056f4d",
+    "affinity_pred_value": 0.697898,
+    "affinity_probability_binary": 0.265459,
+    "affinity_pred_value1": 1.256665,
+    "affinity_probability_binary1": 0.323012,
+    "affinity_pred_value2": 0.924237,
+    "affinity_probability_binary2": 0.207906,
+    "wall_s": 105.4
+  }
+]

@@ -1,0 +1,12 @@
+
+##############################################################################
+# FULL PARITY GATE — 1 legs, workers ['tt-quietbox:2']
+##############################################################################
+leg                               kind       ref           verdict               wall  detail
+--------------------------------------------------------------------------------------------------------------
+boltz2-affinity-fkbp12-nomsa      affinity   cached        PASS                  150s  envelope worst affinity_probability_binary: num=0.0052 env=0 [improves committed GAP-evidenced — not a drift]
+
+##############################################################################
+# Tally: {'PASS': 1}    total wall 2.5 min
+# GATE PASS — every fast-path leg reproduces within its floor
+##############################################################################
