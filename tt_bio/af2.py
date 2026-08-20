@@ -68,6 +68,43 @@ PAIR_BIAS_ROWBLOCK_BYTES = 128 * 2 ** 20
 TRANSITION_ROWBLOCK_BYTES = 256 * 2 ** 20
 
 
+#: The op classes `scripts/af2_port/tap_gate.py --substitute` moves to host torch, one class per
+#: run. A class is every attribute running the same arithmetic, so both triangle-multiplication
+#: directions are one class and both triangle attentions are another. `all` is the control: with
+#: every op substituted the device blocks only carry the residual adds, so the arm has to
+#: reproduce the torch trunk's error growth or the instrument is not measuring what it claims.
+SUBSTITUTION_CLASSES = {
+    "trimul": ("tri_mul_out", "tri_mul_in"),
+    "triatt": ("tri_att_start", "tri_att_end"),
+    "msa_row": ("msa_row_attn",),
+    "msa_col": ("msa_col_attn",),
+    "transitions": ("pair_transition", "msa_transition"),
+    "opm": ("opm",),
+}
+SUBSTITUTION_CLASSES["all"] = tuple(
+    name for names in list(SUBSTITUTION_CLASSES.values()) for name in names)
+
+
+def _host_twins(block, msa_mask: torch.Tensor, pair_mask: torch.Tensor) -> dict:
+    """Each substitutable op's reference module, curried with the masks the reference takes.
+
+    The ttnn blocks take their masks implicitly -- all ones for every fold this port serves --
+    and `af2_reference` takes them as arguments, so the currying is where the two signatures
+    meet.
+    """
+    return {
+        "tri_mul_out": lambda z: block.tri_mul_out(z, pair_mask),
+        "tri_mul_in": lambda z: block.tri_mul_in(z, pair_mask),
+        "tri_att_start": lambda z: block.tri_att_start(z, pair_mask),
+        "tri_att_end": lambda z: block.tri_att_end(z, pair_mask),
+        "pair_transition": lambda z: block.pair_transition(z),
+        "msa_row_attn": lambda m, z: block.msa_row_attn(m, msa_mask, z),
+        "msa_col_attn": lambda m: block.msa_col_attn(m, msa_mask),
+        "msa_transition": lambda m: block.msa_transition(m),
+        "opm": lambda m: block.opm(m, msa_mask),
+    }
+
+
 def compute_kernel_config() -> ttnn.DeviceComputeKernelConfig:
     """The repo's trunk kernel config: HiFi4 with an fp32 accumulator, per part."""
     device = get_device()
@@ -151,6 +188,42 @@ class AF2PairBlock(Module):
     `gated_move=False` because the fused chunk+gate forward move takes no bias.
     """
 
+    #: Op attribute names whose ttnn output is replaced, in chain, by the host-torch twin's.
+    #: `AF2DeviceModel._install_substitution` sets it together with `host_ops`; a fold leaves it
+    #: empty and pays nothing for it.
+    substitute: frozenset = frozenset()
+
+    #: `(download, upload, twins)`, the bridge a substituted op crosses.
+    host_ops: tuple | None = None
+
+    #: True routes every residual add through float32 so the bfloat16 result rounds ties to even,
+    #: which is what torch and JAX do. `ttnn.add` breaks them away from zero and its bfloat16
+    #: datapath is narrower than float32, so it disagrees with the reference on 11.2% of elements
+    #: at equal operand magnitudes -- 1 ulp each, 9 adds per Evoformer block, 432 over the stack
+    #: (`scripts/af2_port/residual_add_probe.py`). Off by default: it costs three extra
+    #: elementwise passes per add and the trunk has not been re-timed with it.
+    rne_residual = False
+
+    def _residual(self, x: ttnn.Tensor, update: ttnn.Tensor) -> ttnn.Tensor:
+        """`x + update`, and it owns `update`.
+
+        The wide path is bit-identical to torch's bfloat16 add at every operand ratio measured,
+        which the in-place `ttnn.add_` is not.
+        """
+        if not self.rne_residual:
+            out = ttnn.add_(x, update)
+            ttnn.deallocate(update)
+            return out
+        wide = ttnn.typecast(x, ttnn.float32)
+        other = ttnn.typecast(update, ttnn.float32)
+        ttnn.deallocate(update)
+        ttnn.deallocate(x)
+        wide = ttnn.add_(wide, other)
+        ttnn.deallocate(other)
+        out = ttnn.typecast(wide, ttnn.bfloat16)
+        ttnn.deallocate(wide)
+        return out
+
     def __init__(
         self,
         state_dict: Weights,
@@ -174,17 +247,30 @@ class AF2PairBlock(Module):
         self.pair_transition = ReluTransition(
             self.scope("pair_transition"), compute_kernel_config)
 
+    def _update(self, name: str, device, x: ttnn.Tensor, *args: ttnn.Tensor) -> ttnn.Tensor:
+        """One op's residual update: from the card, or from its host-torch twin if substituted.
+
+        The residual add stays on card either way, so a substitution changes exactly one op's
+        arithmetic and nothing about how the block is chained. That is the whole point of the
+        instrument: an isolated per-op screen scores an op against its own captured input and
+        measures how much error it injects, while this one leaves the op in the chain and
+        measures how fast the block's error grows with it swapped out.
+        """
+        if name not in self.substitute:
+            return device(x, *args)
+        down, up, twins = self.host_ops
+        return up(twins[name](*[down(t) for t in (x, *args)]))
+
     def __call__(self, z: ttnn.Tensor, mask: ttnn.Tensor | None = None,
                  attn_mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
-        order = ((self.tri_mul_out, mask), (self.tri_mul_in, mask),
-                 (self.tri_att_start, attn_mask), (self.tri_att_end, attn_mask))
+        order = [("tri_mul_out", lambda t: self.tri_mul_out(t, mask)),
+                 ("tri_mul_in", lambda t: self.tri_mul_in(t, mask)),
+                 ("tri_att_start", lambda t: self.tri_att_start(t, attn_mask)),
+                 ("tri_att_end", lambda t: self.tri_att_end(t, attn_mask))]
         if not self.evoformer_order:
             order = order[2:] + order[:2]
-        for module, module_mask in order + ((self.pair_transition, None),):
-            update = (module(z) if module is self.pair_transition
-                      else module(z, module_mask))
-            z = ttnn.add_(z, update)
-            ttnn.deallocate(update)
+        for name, device in order + [("pair_transition", self.pair_transition)]:
+            z = self._residual(z, self._update(name, device, z))
         return z
 class AF2Attention(Module):
     """AF2's MSA attention: row-wise with a pair bias, and column-wise, in one class.
@@ -337,10 +423,10 @@ class AF2EvoformerBlock(AF2PairBlock):
             self.scope("opm"), compute_kernel_config, scale_bias=True)
 
     def _msa_track(self, msa: ttnn.Tensor, pair: ttnn.Tensor) -> ttnn.Tensor:
-        for module in (self.msa_row_attn, self.msa_col_attn, self.msa_transition):
-            update = module(msa, pair) if module is self.msa_row_attn else module(msa)
-            msa = ttnn.add_(msa, update)
-            ttnn.deallocate(update)
+        msa = self._residual(msa, self._update("msa_row_attn", self.msa_row_attn, msa, pair))
+        for name, module in (("msa_col_attn", self.msa_col_attn),
+                             ("msa_transition", self.msa_transition)):
+            msa = self._residual(msa, self._update(name, module, msa))
         return msa
 
     def __call__(self, msa: ttnn.Tensor, z: ttnn.Tensor,
@@ -354,9 +440,7 @@ class AF2EvoformerBlock(AF2PairBlock):
         # the spacing scales with the value. Adding it anyway measures 1.7x worse on card at
         # Evoformer 0 and 47 (`device_gate.py --opm-eps 1e-3`). `None` reads the depth off the
         # tensor, which is that divisor.
-        update = self.opm(msa, None)
-        z = ttnn.add_(z, update)
-        ttnn.deallocate(update)
+        z = self._residual(z, self._update("opm", lambda m: self.opm(m, None), msa))
         return msa, super().__call__(z, mask, attn_mask)
 
 
@@ -389,6 +473,17 @@ class AF2DeviceModel(AF2Model):
     #: recompute -- so the device leg owes exactly the taps the torch leg owes. A fold never
     #: sets it and never pays for any of it.
     block_tap = None
+
+    #: True runs the four extra-MSA blocks in host torch instead of on card. That stack sets
+    #: the pair representation the 48 Evoformer blocks start from, so this is the other half of
+    #: the substitution instrument: it moves the block-0 input between the two arms without
+    #: touching anything in the 48 blocks that follow.
+    extra_msa_host = False
+
+    #: Op classes the Evoformer stack runs in host torch instead of on card, from
+    #: `SUBSTITUTION_CLASSES`. Set by `scripts/af2_port/tap_gate.py --substitute` and empty for
+    #: every fold.
+    substitute: frozenset = frozenset()
 
     #: Off recomputes the template every pass. It must change no number anywhere, which is what
     #: `tap_gate.py --device --no-template-cache` checks against the same reference taps.
@@ -434,6 +529,31 @@ class AF2DeviceModel(AF2Model):
         assert tuple(x.shape) == tuple(shape), f"device gave {tuple(x.shape)}, want {shape}"
         return x.to(self.trunk_dtype)
 
+    def set_rne_residual(self, enabled: bool) -> None:
+        """Route every residual add in both trunk stacks through float32. See
+        `AF2PairBlock.rne_residual`."""
+        for block in self.device_extra_msa + self.device_evoformer:
+            block.rne_residual = enabled
+
+    def _down_unshaped(self, t: ttnn.Tensor) -> torch.Tensor:
+        """`_down` for the substitution bridge, which knows the op but not the rank."""
+        x = torch.Tensor(ttnn.to_torch(t))
+        while x.dim() > 3 and x.shape[0] == 1:
+            x = x.squeeze(0)
+        return x.to(self.trunk_dtype)
+
+    def _install_substitution(self, msa_mask: torch.Tensor, pair_mask: torch.Tensor) -> None:
+        """Point every Evoformer block's substituted ops at their host-torch twins.
+
+        The Evoformer stack only, deliberately: the number being measured is the 48-block error
+        growth rate, so leaving the extra-MSA stack entirely on card gives every arm the same
+        block-0 input and the same intercept, and a substitution can then only move the slope.
+        """
+        for block, host in zip(self.device_evoformer, self.evoformer):
+            block.substitute = self.substitute
+            block.host_ops = (self._down_unshaped, self._up,
+                              _host_twins(host, msa_mask, pair_mask))
+
     def _tap(self, tag: str, **payload) -> None:
         if self.block_tap is not None:
             self.block_tap(tag, payload)
@@ -442,6 +562,14 @@ class AF2DeviceModel(AF2Model):
 
     def extra_msa_stack(self, extra: torch.Tensor, pair: torch.Tensor,
                         extra_mask: torch.Tensor, pair_mask: torch.Tensor) -> torch.Tensor:
+        if self.extra_msa_host:
+            # `AF2Model.extra_msa_stack`'s loop, with the taps the device path would emit. The
+            # dead MSA track runs for real here rather than collapsing to its constant, which
+            # `scripts/af2_port/host_screen.py` already proved is the same pair either way.
+            for block in self.extra_msa:
+                extra, pair = block(extra, pair, extra_mask, pair_mask)
+                self._tap("extra_msa_stack", msa=extra, pair=pair)
+            return pair
         assert bool((extra_mask == 0).all()), (
             "this port replaces the extra-MSA track with the constant its outer product mean "
             "collapses to under an all-zero mask; a real extra MSA needs the track written")
@@ -453,8 +581,7 @@ class AF2DeviceModel(AF2Model):
                 # reads the block's INPUT pair, which is what the reference hands it.
                 extra = self.extra_msa[index]._msa_track(extra, self._down(z, shape), extra_mask)
             const = self._up(self.opm_constant[index].reshape(1, 1, -1))
-            z = block(ttnn.add_(z, const))
-            ttnn.deallocate(const)
+            z = block(block._residual(z, const))
             if self.block_tap is not None:
                 self._tap("extra_msa_stack", msa=extra, pair=self._down(z, shape))
         out = self._down(z, shape)
@@ -464,6 +591,8 @@ class AF2DeviceModel(AF2Model):
     def evoformer_stack(self, msa: torch.Tensor, pair: torch.Tensor, msa_mask: torch.Tensor,
                         pair_mask: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         assert bool((msa_mask == 1).all()), "a masked AF2 MSA is not wired up; see AF2Attention"
+        if self.substitute:
+            self._install_substitution(msa_mask, pair_mask)
         msa_shape, pair_shape = tuple(msa.shape), tuple(pair.shape)
         m, z = self._up(msa), self._up(pair)
         for block in self.device_evoformer:

@@ -268,17 +268,70 @@ def round_norm_affine(stacks) -> int:
     return count
 
 
+def tie_away_adds() -> None:
+    """Give the torch trunk the card's residual-add rounding, and change nothing else.
+
+    Both arms carry a bfloat16 residual chain, so every one of the 9 adds per Evoformer block
+    takes two bfloat16 operands to a bfloat16 result and the only freedom left is how a tie is
+    broken. `scripts/af2_port/residual_add_probe.py` measured the card breaking them away from
+    zero where torch and JAX break them to even: 11.2% of elements at equal operand magnitudes,
+    1 ulp each. This applies that one rule to the torch arm's two trunk stacks and leaves the
+    ops, the parameters and the template stack alone.
+    """
+    from tt_bio import af2_reference as ref
+
+    def add(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+        bits = (a.float() + b.float()).view(torch.int32).to(torch.int64) + 0x8000
+        return (bits & ~0xFFFF).to(torch.int32).view(torch.float32).to(a.dtype)
+
+    def pair_track(self, pair, pair_mask):
+        order = ((self.tri_mul_out, self.tri_mul_in, self.tri_att_start, self.tri_att_end)
+                 if self.evoformer_order
+                 else (self.tri_att_start, self.tri_att_end, self.tri_mul_out, self.tri_mul_in))
+        for module in order:
+            pair = add(pair, module(pair, pair_mask))
+        return add(pair, self.pair_transition(pair))
+
+    def msa_track(self, msa, pair, msa_mask):
+        msa = add(msa, self.msa_row_attn(msa, msa_mask, pair))
+        msa = add(msa, self.msa_col_attn(msa, msa_mask))
+        return add(msa, self.msa_transition(msa))
+
+    def forward(self, msa, pair, msa_mask, pair_mask):
+        msa = self._msa_track(msa, pair, msa_mask)
+        pair = add(pair, self.opm(msa, msa_mask))
+        return msa, self._pair_track(pair, pair_mask)
+
+    # `EvoformerBlock` only, which is both trunk stacks and not the template pair stack.
+    ref.EvoformerBlock._pair_track = pair_track
+    ref.EvoformerBlock._msa_track = msa_track
+    ref.EvoformerBlock.forward = forward
+
+
 def run_arm(state, feats: dict, prev: dict, *, template: bool, dtype: torch.dtype,
             keep: set[str] | None, recycles: int, device: bool = False,
             mutate: str | None = None, template_cache: bool = True,
-            bf16_norm_affine: bool = False) -> tuple[dict, dict]:
+            bf16_norm_affine: bool = False,
+            substitute: str | None = None,
+            extra_msa_host: bool = False,
+            tie_away: bool = False,
+            rne_residual: bool = False) -> tuple[dict, dict]:
     """One precision realisation of the model: its collected taps and its last pass's output."""
     from tt_bio.af2_reference import load_af2_model, run_recycles
 
+    if tie_away:
+        tie_away_adds()
     if device:
         from tt_bio.af2 import load_af2_device_model
         model = load_af2_device_model(state, template=template, trunk_dtype=dtype)
         model.template_cached = template_cache
+        model.extra_msa_host = extra_msa_host
+        model.set_rne_residual(rne_residual)
+        if substitute:
+            from tt_bio.af2 import SUBSTITUTION_CLASSES
+            model.substitute = frozenset(SUBSTITUTION_CLASSES[substitute])
+            print(f"# substituting {sorted(model.substitute)} into host torch in all "
+                  f"{len(model.device_evoformer)} Evoformer blocks", file=sys.stderr)
         if mutate == "extra-const":
             model.opm_constant = [torch.zeros_like(c) for c in model.opm_constant]
         elif mutate == "block-order":
@@ -317,6 +370,18 @@ def main() -> int:
                     help="break one device-leg claim; the gate has to FAIL or it is blind")
     ap.add_argument("--no-template-cache", action="store_true",
                     help="recompute the template every pass; must change no number")
+    ap.add_argument("--substitute", default=None,
+                    help="run one op class in host torch inside the otherwise-on-card Evoformer "
+                         "blocks; `all` is the control. See tt_bio.af2.SUBSTITUTION_CLASSES")
+    ap.add_argument("--rne-residual", action="store_true",
+                    help="route the device trunk's residual adds through float32 so they round "
+                         "the way the reference does")
+    ap.add_argument("--tie-away-adds", action="store_true",
+                    help="round the torch trunk's residual adds the way the card does; isolates "
+                         "the bfloat16 tie-breaking rule and nothing else")
+    ap.add_argument("--extra-msa-host", action="store_true",
+                    help="run the four extra-MSA blocks in host torch; moves the pair the "
+                         "Evoformer starts from between the two arms")
     ap.add_argument("--bf16-norm-affine", action="store_true",
                     help="round the trunk stacks' LayerNorm scale/offset to bfloat16 on the "
                          "torch arm; isolates the one dtype the ttnn trunk gets wrong")
@@ -343,11 +408,17 @@ def main() -> int:
     # The monomer stage is the model_3_ptm config: same checkpoint, template stack dropped.
     template = args.stage == "complex"
     assert not (args.mutate and not args.device), "--mutate is a device-leg control"
+    assert not (args.substitute and not args.device), "--substitute is a device-leg instrument"
+    assert not (args.extra_msa_host and not args.device), "--extra-msa-host is a device-leg arm"
     taps, last = run_arm(state, feats, prev, template=template, dtype=torch.bfloat16,
                          keep=set(bases) if ref else None, recycles=args.recycles,
                          device=args.device, mutate=args.mutate,
                          template_cache=not args.no_template_cache,
-                         bf16_norm_affine=args.bf16_norm_affine)
+                         bf16_norm_affine=args.bf16_norm_affine,
+                         substitute=args.substitute,
+                         extra_msa_host=args.extra_msa_host,
+                         tie_away=args.tie_away_adds,
+                         rne_residual=args.rne_residual)
     if args.drop_tap:
         taps.values.pop(args.drop_tap, None)
 
@@ -455,6 +526,10 @@ def main() -> int:
         "envelope_ratio_max": max((r.get("envelope_ratio", 0.0) for r in rows + scalars),
                                   default=0.0),
         "mutate": args.mutate,
+        "substitute": args.substitute,
+        "extra_msa_host": args.extra_msa_host,
+        "tie_away_adds": args.tie_away_adds,
+        "rne_residual": args.rne_residual,
         "bf16_norm_affine": args.bf16_norm_affine,
         "template_cached": not args.no_template_cache,
         "verdict": verdict,
