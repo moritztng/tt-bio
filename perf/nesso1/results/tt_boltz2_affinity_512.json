@@ -1,0 +1,64 @@
+{
+  "arm": "boltz-2 affinity on one Blackhole p150a, tt-bio's shipped affinity settings",
+  "host": "tt-quietbox2",
+  "card": "2",
+  "loadavg_at_start": [
+    16.02099609375,
+    20.81005859375,
+    22.14306640625
+  ],
+  "protein_aa": 512,
+  "cli_args": [
+    "--recycling_steps",
+    "3",
+    "--sampling_steps",
+    "200",
+    "--diffusion_samples",
+    "1",
+    "--sampling_steps_affinity",
+    "200",
+    "--diffusion_samples_affinity",
+    "5",
+    "--affinity_mw_correction",
+    "--output_format",
+    "cif",
+    "--single_sequence",
+    "--override",
+    "--accelerator",
+    "tenstorrent",
+    "--model",
+    "boltz2"
+  ],
+  "single": {
+    "ligand_heavy": 22,
+    "reps_s": [
+      386.251
+    ],
+    "affinity": {
+      "cdk2_512": {
+        "affinity_pred_value": 0.916277,
+        "affinity_probability_binary": 0.340874,
+        "affinity_pred_value1": 1.053995,
+        "affinity_probability_binary1": 0.496491,
+        "affinity_pred_value2": 1.548789,
+        "affinity_probability_binary2": 0.185257
+      }
+    },
+    "rc": 0
+  },
+  "directory": {
+    "ligand_codes": [
+      "GGGGGG",
+      "GGGGGA",
+      "GGGGAG",
+      "GGGGAA"
+    ],
+    "ligand_heavy": [
+      25,
+      26,
+      26,
+      27
+    ],
+    "reps": []
+  }
+}

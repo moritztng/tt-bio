@@ -1,0 +1,59 @@
+{
+  "n": 64,
+  "c_z": 128,
+  "block_key": [
+    4,
+    4
+  ],
+  "host": "tt-quietbox2",
+  "card": "2",
+  "loadavg": [
+    4.75390625,
+    16.21484375,
+    20.7900390625
+  ],
+  "status": "ok",
+  "ckc": "<ttnn._ttnn.operations.core.WormholeComputeKernelConfig object at 0x7a899e77cf00>",
+  "w_shape": [
+    128,
+    128
+  ],
+  "w_dtype": "DataType.BFLOAT16",
+  "block": [
+    4,
+    4,
+    1,
+    4,
+    1
+  ],
+  "out_block": 4,
+  "subblock_h": 4,
+  "declined_before_widening": "k_tiles=4",
+  "declined_after_widening": null,
+  "grid": [
+    11,
+    10
+  ],
+  "equal": true,
+  "max_abs_diff": 0.0,
+  "ref_abs_max": 0.0,
+  "mismatch_elems": 0,
+  "n_elems": 524288,
+  "ref_ms": 0.0625,
+  "f1_ms": 0.0893,
+  "ref_ms_all": [
+    0.0666,
+    0.0602,
+    0.0644,
+    0.0625,
+    0.0604
+  ],
+  "f1_ms_all": [
+    0.0964,
+    0.0871,
+    0.0902,
+    0.086,
+    0.0893
+  ],
+  "speedup": 0.6999
+}
