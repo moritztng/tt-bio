@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generation-only end-to-end for PXDesign-d on the PD-L1 anchor.
+"""Generation-only end-to-end for PXDesign-d on a captured anchor.
 
 Drives `tt_bio.pxdesign.model.ProtenixDesign` from `parity_artifacts/pdl1_protenix05_noH/
 ref_design_inputs.pt` -- the model-ready input dict captured from the upstream featurizer
@@ -171,7 +171,7 @@ def main():
     if args.score_coords:
         return score_only(args, feats)
     NT = int(feats["atom_to_token_idx"].max()) + 1
-    print(f"[e2e] PD-L1 anchor: {NT} tokens, {feats['ref_pos'].shape[0]} atoms, "
+    print(f"[e2e] {Path(args.art or ART).name}: {NT} tokens, {feats['ref_pos'].shape[0]} atoms, "
           f"n_step={args.n_step} n_sample={args.n_sample} seed={args.seed}", flush=True)
 
     t0 = time.time()
