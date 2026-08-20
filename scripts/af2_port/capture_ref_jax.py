@@ -80,9 +80,24 @@ def _keep(tag: str, n: int) -> bool:
     return want is None or n in want
 
 
+def _numeric(dtype) -> bool:
+    """True for anything the store can cast to float32.
+
+    `dtype.kind` is not enough: the trunk runs in bfloat16, and `ml_dtypes.bfloat16` reports
+    kind `V`, so a plain kind test silently drops every trunk-internal tap and leaves only the
+    float32 boundaries. That is exactly what the first capture did.
+    """
+    if dtype is None:
+        return False
+    if getattr(dtype, "kind", "") in "biuf":
+        return True
+    name = str(dtype)
+    return "float" in name or "int" in name or name == "bool"
+
+
 def _store(key: str, arr) -> None:
     a = np.asarray(arr)
-    if a.dtype.kind not in "fiub" or a.size == 0:
+    if not _numeric(a.dtype) or a.size == 0:
         return
     flat = np.asarray(a, dtype=np.float32).reshape(-1)
     OUT[f"{key}/shape"] = np.asarray(a.shape, dtype=np.int64)
@@ -104,8 +119,7 @@ def _flat_leaves(prefix: str, value, out: dict) -> None:
         for k, v in value.items():
             _flat_leaves(f"{prefix}/{k}" if prefix else str(k), v, out)
         return
-    dtype = getattr(value, "dtype", None)
-    if dtype is None or dtype.kind not in "biuf":
+    if not _numeric(getattr(value, "dtype", None)):
         return
     if getattr(value, "size", 0) == 0 or value.size > 8_000_000:
         return

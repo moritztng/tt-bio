@@ -455,7 +455,12 @@ LEGS += [
     # scripts/af2_port/parity_artifacts/laczc128_b80/) ---
     Leg("af2ig-featurizer", "af2ig", "af2ig", "",
         note="AF2-IG host featurizer value-parity vs committed ColabDesign capture "
-             "(33/33 keys bit-exact); card-free, in-process"),
+             "(60/60 keys bit-exact over both stages); card-free, in-process"),
+    # --- AF2-IG torch trunk vs the captured JAX activations (card-free, needs the
+    # checkpoint; GAP rather than FAIL when it is absent) ---
+    Leg("af2ig-trunk", "af2ig_trunk", "af2ig", "",
+        note="AF2-IG torch trunk vs committed JAX activation taps from the production "
+             "forward pass; card-free, needs params_model_1_ptm.npz"),
 ]
 
 LEGS_BY_ID = {l.id: l for l in LEGS}
@@ -1181,6 +1186,24 @@ def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
         out_json.write_text(json.dumps(rep, indent=2, default=str))
         return rep
 
+    if leg.kind == "af2ig_trunk":
+        # Card-free but NOT checkpoint-free: unlike the featurizer leg this one needs the
+        # 373 MB parameter file, so a host without it reports a GAP instead of failing.
+        params = Path(os.path.expanduser("~/pxd_tool_weights/af2/params_model_1_ptm.npz"))
+        if not params.exists():
+            return {"mode": "af2ig_taps", "verdict": "GAP",
+                    "error": f"checkpoint absent: {params}"}
+        cmd = [sys.executable, "scripts/af2_port/tap_gate.py", "--params", str(params)]
+        proc = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True,
+                              env={**os.environ, "PYTHONPATH": str(REPO)})
+        try:
+            rep = json.loads(proc.stdout)
+        except json.JSONDecodeError:
+            return {"mode": "af2ig_taps", "verdict": "ERROR",
+                    "error": (proc.stderr or proc.stdout)[-600:]}
+        out_json.write_text(json.dumps(rep, indent=2, default=str))
+        return rep
+
     if leg.kind == "esmc":
         script = "scripts/esmc6b_embed_parity.py" if leg.model == "esmc-6b" else "scripts/esmc_embed_parity.py"
         # esmc_embed_parity multi-leg mode: --seqs + --out writes the pharma-style targets
@@ -1354,6 +1377,26 @@ def _featurizer_verdict(report: dict) -> tuple[str, str]:
     return verdict, detail
 
 
+def _af2ig_trunk_verdict(report: dict) -> tuple[str, str]:
+    """AF2-IG torch trunk vs the captured JAX activations.
+
+    PASS iff every scored tap clears the correlation and the full-array statistics bars. The
+    detail names the worst tap, because a single failing block localises a transcription error
+    where an aggregate cannot.
+    """
+    if report.get("verdict") == "GAP":
+        return "GAP", str(report.get("error", "checkpoint absent"))
+    if report.get("error") or report.get("verdict") == "ERROR":
+        return "ERROR", str(report.get("error"))
+    rows = report.get("rows") or []
+    if not rows:
+        return "NO-DATA", "no taps scored"
+    worst = min(rows, key=lambda r: r.get("pcc", -1.0))
+    detail = (f"{report[taps_scored]} taps, {report[taps_failed]} failed; "
+              f"worst {worst[tap]} pcc={worst.get(pcc, float(nan)):.6f}")
+    return report.get("verdict", "NO-DATA"), detail
+
+
 def _envelope_verdict_row(report: dict) -> tuple[str, str]:
     """Verdict for an integration_envelope report: PASS iff every metric is within the measured
     bf16 envelope; else GAP (a real residual exceeding the envelope — to hunt, not excuse). The
@@ -1400,6 +1443,8 @@ def extract_verdict(leg: Leg, report: dict | None) -> tuple[str, str]:
         return _capacity_verdict(report)
     if leg.kind in ("rfd3", "af2ig"):
         return _featurizer_verdict(report)
+    if leg.kind == "af2ig_trunk":
+        return _af2ig_trunk_verdict(report)
     if leg.kind == "esmfold2":
         # esmfold2_e2e_parity summary.json is a list of per-protein dicts (each with a
         # kabsch_rmsd block). The gate's recorded behavior is PASS-if-scored (the
