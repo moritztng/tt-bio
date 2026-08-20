@@ -23,8 +23,10 @@ Sk_chunk_t` tiles against the stock `Sq_chunk_t * Sk_chunk_t * 2` for double buf
 way), 1.5x at three (768 aa, 288 against 192, and it fits) and 2x at four (1024 aa, 512 against 256,
 and L1 refuses it). It does NOT hold flat, and a refusal is handled below rather than predicted.
 
-The gate is narrow on purpose. It needs one head and one q chunk per core, a batch-broadcast mask,
-no padded mask, and bf16 interleaved DRAM throughout; anything else falls through to the stock op.
+The gate is narrow on purpose. It needs one head per core, a batch-broadcast mask, no padded mask,
+and bf16 interleaved DRAM throughout; anything else falls through to the stock op. A core may own
+several q chunks -- `_q_split` picks how many and the CB holds one mask block per (q chunk, k chunk)
+pair it owns.
 """
 
 from __future__ import annotations
@@ -58,11 +60,13 @@ _ENABLED = os.environ.get(
 _Q_SPLIT = os.environ.get("TT_BIO_TRIATT_MASK_Q_SPLIT", "1") == "1"
 _Q_SPLIT_MAX_S = 1024
 
-# q_chunks whose PERSISTENT mask CB does not fit. Deliberately not `_SDPA_Q_CHUNK_OVER_L1`: that set
-# is the wide-q ladder memo of q_chunks the STOCK op cannot fit, and `_tri_att_sdpa_at` filters its
-# candidate list with it. This kernel allocates a strictly larger mask CB -- `k_num_chunks *
-# Sq_chunk_t * Sk_chunk_t` tiles against the stock `2 * Sq_chunk_t * Sk_chunk_t` -- so a refusal here
-# says nothing about what the stock op fits. Writing it into the shared set retires a q_chunk the
+# `(Sq, Sk, q_chunk, q_per_core)` whose PERSISTENT mask CB does not fit. Deliberately not
+# `_SDPA_Q_CHUNK_OVER_L1`: that set is the wide-q ladder memo of q_chunks the STOCK op cannot fit,
+# and `_tri_att_sdpa_at` filters its candidate list with it. This kernel allocates a strictly larger
+# mask CB -- `q_per_core * k_num_chunks * Sq_chunk_t * Sk_chunk_t` tiles against the stock
+# `2 * Sq_chunk_t * Sk_chunk_t` -- so a refusal here says nothing about what the stock op fits.
+# `q_per_core` is in the key because the widest work split is tried first and a refusal there must
+# fall back to a narrower one, not retire the shape. Writing it into the shared set retires a q_chunk the
 # stock op runs perfectly well, and the fold loses the wide-q win (1.08-1.81x) on every later call at
 # that shape. MEASURED at 512 aa: the 995-token refiner fell from q_chunk 512 to 256 after one such
 # throw and the fold lost 3.129 s against an A/A floor of 0.056 s.
@@ -75,6 +79,46 @@ _PM_OVER_L1: set = set()
 # the fused kernel already threads fp32_dest_acc through dst_size and every subblock, so the fp32
 # reduction is a config and not a kernel edit. Inert by default: nothing reads it unless it is set.
 _CKC_OVERRIDE = None
+
+
+# Let a core own more than one q chunk when the one-chunk-per-core split leaves the grid idle.
+# "0" forces the pre-lever split back. Default set from the fold A/B below.
+_Q_PER_CORE = os.environ.get("TT_BIO_TRIATT_MASK_Q_PER_CORE", "0") == "1"
+
+
+def _q_split(qnc, H, cores, B):
+    """`(q_pf, q_per_core)` candidates, cheapest makespan first, in q-chunk units.
+
+    A core serves one (head, q chunk) pair per batch row, so the split granularity is `H * q_pf`
+    cores and the makespan is `ceil(B / (cores // (H * q_pf))) * q_per_core` q-chunk units. Giving
+    every q chunk its own factor (`q_per_core = 1`) is the widest split and usually the best, but
+    `cores // (H * q_pf)` floors, and where it floors hard the grid goes idle: at 1024 aa on a
+    130-core grid, `H = 12` and `qnc = 4` make the granularity 48 cores, so 96 cores get work and
+    each owns 512 rows. Two q chunks per core drop the granularity to 24, use 120 cores at 205 rows,
+    and 205 * 2 = 410 < 512.
+
+    VALIDITY: searched per call, never gated on a size, because it is arithmetic and not a tuned
+    constant. It can only bite where `cores // (H * qnc)` wastes a slice of the grid, and ties go to
+    the smallest `q_per_core`, i.e. to the pre-lever split. So: `qnc = 1` (up to 640 aa here, and up
+    to 512 aa on any grid) has no `c > 1` at all; `qnc = 2` at 130 cores (768 aa) ties at 154 units
+    and keeps `c = 1`. 1024 aa on 130 cores is the only shipped point it moves. Other grids are
+    covered by the ranking rather than by a threshold: on 110 cores it does prefer `c = 4` at
+    1024 aa, whose mask CB refuses L1, and the caller then walks down this list instead of retiring
+    the shape.
+    """
+    if not _Q_PER_CORE:
+        return [(qnc, 1)]
+    cand = []
+    for c in range(1, qnc + 1):
+        if qnc % c:
+            continue
+        pf = qnc // c
+        b_pf = cores // (H * pf)
+        if b_pf < 1:
+            continue
+        cand.append((-(-B // b_pf) * c, c, pf))
+    cand.sort()
+    return [(pf, c) for _, c, pf in cand]
 
 
 def _reject(reason, shape):
@@ -106,24 +150,24 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None):
     l1_key = (int(q.shape[2]), int(k.shape[2]), q_chunk)
     if l1_key in _SDPA_Q_CHUNK_OVER_L1:
         return _reject("q_chunk_over_l1", shape)
-    if l1_key in _PM_OVER_L1:
-        return _reject("pm_over_l1", shape)
     H = shape[1]
     cores = grid[0] * grid[1]
     if cores // H < 1:
         return _reject("grid_too_small", shape)
-    # One q chunk per core is a precondition of the hoisted fill, and `q_pf = 1` hands a core every
-    # q chunk there is. That is free while the widest q_chunk spans the sequence, which is true up to
-    # 512 aa and false above it -- L1 refuses a full-S chunk at 768, the ladder drops to S/2, and the
-    # gate then declines the whole fold (0 of 2424 calls served at 768, 0 of 2528 at 1024, all
-    # `fill_preconditions`, all on this one term). Give the q chunks their own factor instead. Tiles
-    # per core are unchanged: the batch factor shrinks by exactly the amount the q factor grows.
-    q_pf = 1
+    # `q_pf = 1` hands a core every q chunk there is. That is free while the widest q_chunk spans
+    # the sequence, which is true up to 512 aa and false above it -- L1 refuses a full-S chunk at
+    # 768, the ladder drops to S/2, and the gate then declined the whole fold (0 of 2424 calls
+    # served at 768, 0 of 2528 at 1024, all `fill_preconditions`, all on this one term). So the q
+    # chunks get their own factor. How many of them one core owns is then a makespan search
+    # (`_q_split`), widest split first, narrowing on an L1 refusal.
+    cands = [(1, 1)]
     if _Q_SPLIT and shape[2] <= _Q_SPLIT_MAX_S:
         qnc = -(-shape[2] // q_chunk)
         if qnc > 1 and cores // (H * qnc) >= 1:
-            q_pf = qnc
-    split = (cores // (H * q_pf), H, q_pf)
+            cands = _q_split(qnc, H, cores, shape[0])
+    cands = [c for c in cands if l1_key + (c[1],) not in _PM_OVER_L1]
+    if not cands:
+        return _reject("pm_over_l1", shape)
 
     dev = q.device()
     out = ttnn.allocate_tensor_on_device(
@@ -131,25 +175,29 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None):
     # The op's own default compute kernel config, not the trunk's -- see perf/triatt_fused/s4_gate.py
     ckc = ckc_default or _CKC_OVERRIDE or (ttnn.MathFidelity.HiFi2, True, False, False)
 
-    p = SG.plan(q, k, v, bias, out, q_chunk, k_chunk, grid, ckc, scale, split)
-    # everything the hoisted fill assumes
-    if not (p["nh_per_core"] == 1 and p["q_per_core"] == 1 and p["bcast_batch"]
-            and not p["use_padded_mask"] and p["NKH"] == H and p["NVH"] == H):
-        ttnn.deallocate(out)
-        return _reject("fill_preconditions", shape)
+    for q_pf, q_per_core in cands:
+        split = (cores // (H * q_pf), H, q_pf)
+        p = SG.plan(q, k, v, bias, out, q_chunk, k_chunk, grid, ckc, scale, split)
+        # everything the hoisted fill assumes
+        if not (p["nh_per_core"] == 1 and p["q_per_core"] == q_per_core and p["bcast_batch"]
+                and not p["use_padded_mask"] and p["NKH"] == H and p["NVH"] == H):
+            ttnn.deallocate(out)
+            return _reject("fill_preconditions", shape)
 
-    persistent = p["k_num_chunks"] * p["Sq_chunk_t"] * p["Sk_chunk_t"]
-    try:
-        SG.sdpa(dev, q, k, v, bias, out, q_chunk, k_chunk, grid, ckc, scale, split=split,
-                kernel_dir=KERNEL_DIR, mask_cb_tiles=persistent,
-                defines_extra={"PERSISTENT_MASK": p["k_num_chunks"]})
-    except Exception as exc:  # noqa: BLE001 -- an L1 refusal must reach the stock op, not the caller
-        ttnn.deallocate(out)
-        if "circular buffers" not in str(exc):
-            raise
-        # Remember it here only, so the next call declines instead of re-throwing while the stock
-        # ladder keeps the q_chunk it fits.
-        _PM_OVER_L1.add(l1_key)
-        return _reject("l1_budget", shape)
-    STATS[0] += 1
-    return out
+        persistent = p["q_per_core"] * p["k_num_chunks"] * p["Sq_chunk_t"] * p["Sk_chunk_t"]
+        try:
+            SG.sdpa(dev, q, k, v, bias, out, q_chunk, k_chunk, grid, ckc, scale, split=split,
+                    kernel_dir=KERNEL_DIR, mask_cb_tiles=persistent,
+                    defines_extra={"PERSISTENT_MASK": p["k_num_chunks"]})
+        except Exception as exc:  # noqa: BLE001 -- an L1 refusal must reach the stock op
+            if "circular buffers" not in str(exc):
+                ttnn.deallocate(out)
+                raise
+            # Remember it here only, so the next call goes straight to the next-narrowest split
+            # while the stock ladder keeps the q_chunk it fits.
+            _PM_OVER_L1.add(l1_key + (q_per_core,))
+            continue
+        STATS[0] += 1
+        return out
+    ttnn.deallocate(out)
+    return _reject("l1_budget", shape)

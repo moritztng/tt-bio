@@ -106,7 +106,11 @@ ARMS = ("on", "e6", "noe6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hi
         # qsplit: the triatt_sdpa q-split lever (TT_BIO_TRIATT_MASK_Q_SPLIT), written explicitly
         # per arm so "on" stays a pre-lever reference whatever the shipped default is (`noqsplit`
         # above is the same ablation, added first).
-        "qsplit")
+        "qsplit",
+        # opendde-size-generality. `qpercore` lets a core own more than one q chunk in the
+        # persistent-mask SDPA (TT_BIO_TRIATT_MASK_Q_PER_CORE); `noqpercore` forces main's
+        # one-chunk split. Inert below 768 aa by arithmetic -- see `triatt_sdpa._q_split`.
+        "qpercore", "noqpercore")
 
 # Which sites each arm routes onto the fused SDPA. The confidence head is never in a flip set:
 # it stays on `_fp32_softmax_attention` on every arm, deliberately, so plDDT reports on the
@@ -352,8 +356,9 @@ def main():
     # _TRANSPOSE_L1_HEADROOM 2.5 -> 1.25 at 227cdb41 (2026-08-15) and defaulted the SDPA q-split
     # ON at d31c1fa0/063f89db, so every `on` arm run after 08-15 measured a configuration main
     # does not ship -- and both levers are size-conditional, which is exactly where it matters.
+    _PMMOD = __import__("tt_bio.triatt_sdpa", fromlist=["x"])
     SHIPPED = {"headroom": T.TRANSPOSE_L1_HEADROOM,
-               "q_split": __import__("tt_bio.triatt_sdpa", fromlist=["x"])._Q_SPLIT}
+               "q_split": _PMMOD._Q_SPLIT, "q_per_core": _PMMOD._Q_PER_CORE}
 
     def set_arm(name):
         """Every lever is written on every arm, so an arm provably runs its own state."""
@@ -380,6 +385,9 @@ def main():
 
         PM._ENABLED = name != "nok2"
         PM._Q_SPLIT = {"noqsplit": False, "qsplit": True}.get(name, SHIPPED["q_split"])
+        PM._Q_PER_CORE = {"noqpercore": False, "qpercore": True}.get(
+            name, SHIPPED["q_per_core"])
+        PM._PM_OVER_L1.clear()   # the memo keys on q_per_core, so it must not cross arms
         PM.STATS[0] = PM.STATS[1] = 0
         PM.REJECTS.clear()
 
@@ -520,6 +528,7 @@ def main():
                                       "tail_rejects": {f"{r}:{sh}": n
                                                        for (r, sh), n in HM.TAIL_REJECTS.items()}},
                    "persistent_mask": {"enabled": PM._ENABLED, "q_split": PM._Q_SPLIT,
+                                       "q_per_core": PM._Q_PER_CORE,
                                        "served": PM.STATS[0],
                                        "declined": PM.STATS[1],
                                        "rejects": {f"{r}:{sh}": n for (r, sh), n in PM.REJECTS.items()},

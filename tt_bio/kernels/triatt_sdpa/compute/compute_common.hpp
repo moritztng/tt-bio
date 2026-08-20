@@ -1656,6 +1656,12 @@ void sdpa_inner_loop(
     const uint32_t q_per_core = iter_q_end - iter_q_start;
 
     for (uint32_t q_iter = iter_q_start; q_iter < iter_q_end; ++q_iter) {
+#ifdef PERSISTENT_MASK
+        // Base of this q chunk's fronted mask blocks. Both call sites define q_chunk as
+        // `local_q_start + (q_iter - iter_q_start)`, so this is the core-local q index times the
+        // k-chunk count. BALANCED_Q_PARALLEL would break that identity; the host never sets it.
+        const uint32_t pm_q_block = (q_iter - iter_q_start) * PERSISTENT_MASK;
+#endif
         uint32_t q_low_idx;
         uint32_t q_high_idx;
         if constexpr (sdpa_type == STANDARD) {
@@ -1809,10 +1815,10 @@ void sdpa_inner_loop(
                         joint_n_mask_chunk_id);
                 } else {
 #ifdef PERSISTENT_MASK
-                    // The whole head's mask is fronted once; index block k_chunk
-                    // and never pop, so the next batch reuses the same tiles.
+                    // The core's whole mask is fronted once; index block
+                    // (local q chunk, k_chunk) and never pop, so the next batch reuses it.
                     add_block_inplace<false>(
-                        cb_qk_im, cb_mask_in, qk_chunk_tiles, k_chunk * qk_chunk_tiles);
+                        cb_qk_im, cb_mask_in, qk_chunk_tiles, (pm_q_block + k_chunk) * qk_chunk_tiles);
 #else
                     add_block_inplace(cb_qk_im, cb_mask_in, qk_chunk_tiles);
 #endif
