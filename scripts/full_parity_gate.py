@@ -1409,6 +1409,15 @@ def _af2ig_trunk_verdict(report: dict) -> tuple[str, str]:
     detail = ("%s: %d taps, %d failed; worst %s pcc=%.6f"
               % (report.get("stage", "?"), report["taps_scored"], report["taps_failed"],
                  worst["tap"], worst.get("pcc", float("nan"))))
+    # A tap that vanished and a scalar that drifted both fail with zero failing taps, so the
+    # detail has to name them or the line reads as a pass.
+    missing = report.get("not_implemented") or []
+    if missing:
+        detail += "; %d taps not produced, first %s" % (len(missing), missing[0])
+    if report.get("scalars_failed"):
+        off = [s for s in report.get("scalars", []) if s["verdict"] != "PASS"]
+        detail += "; scalars off: " + ", ".join(
+            "%s %+.2e" % (s["scalar"], s["got"] - s["want"]) for s in off)
     return report.get("verdict", "NO-DATA"), detail
 
 
@@ -1551,8 +1560,12 @@ def finalize_leg(leg: Leg, verdict: str, detail: str, wall: float) -> tuple[dict
         else:
             drift = f" [DRIFT vs committed={committed} — investigate, not auto-overwritten]"
             ok = False
-    # a live ERROR/GAP/NO-DATA fails the gate unless the GAP reproduces a committed GAP-evidenced
-    if verdict in ("ERROR", "GAP", "NO-DATA") and not (verdict == "GAP" and committed == "GAP-evidenced"):
+    # A live ERROR/FAIL/GAP/NO-DATA fails the gate unless the GAP reproduces a committed
+    # GAP-evidenced. FAIL belongs here and was missing: without a committed verdict to drift
+    # against -- which is every newly added leg -- a scorer returning FAIL left gate_ok True, so
+    # the run printed GATE PASS and exited 0 with a red row in the table.
+    if (verdict in ("ERROR", "FAIL", "GAP", "NO-DATA")
+            and not (verdict == "GAP" and committed == "GAP-evidenced")):
         ok = False
     row = {"leg": leg.id, "verdict": verdict, "detail": detail, "wall": wall,
            "committed": committed, "report": leg.id + ".json"}
