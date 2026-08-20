@@ -42,6 +42,10 @@ def main() -> int:
     ap.add_argument("--diffusion_batch_size", type=int, default=1)
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--feat_cache", default="/home/ttuser/rf3_perf_work/featcache")
+    ap.add_argument("--lever", choices=("hoist", "dit_bias"), default="hoist",
+                    help="hoist: arm B hoists the t-independent half of the denoiser. "
+                         "dit_bias: both arms hoist, arm B also builds the token DiT's 24 "
+                         "pair biases once instead of on every call.")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
 
@@ -76,8 +80,18 @@ def main() -> int:
     D = args.diffusion_batch_size
     dm = tt.diffusion_module
 
+    def prep(arm_b: bool):
+        """The prepared state each arm runs with, for whichever lever is under test."""
+        if args.lever == "hoist":
+            return dm.prepare(host, s_inputs, s, z) if arm_b else None
+        rf3_model._HOIST_DIT_BIAS = arm_b
+        try:
+            return dm.prepare(host, s_inputs, s, z)
+        finally:
+            rf3_model._HOIST_DIT_BIAS = True
+
     def roll(hoist: bool, draws):
-        prepared = dm.prepare(host, s_inputs, s, z) if hoist else None
+        prepared = prep(hoist)
         calls = [0]
 
         def denoise(x_noisy, t):
@@ -97,8 +111,7 @@ def main() -> int:
     t_fixed = torch.full((D,), 4.0)
 
     def one_call(hoist: bool):
-        prepared = dm.prepare(host, s_inputs, s, z) if hoist else None
-        return dm(host, x_fixed, t_fixed, s_inputs, s, z, prepared)
+        return dm(host, x_fixed, t_fixed, s_inputs, s, z, prep(hoist))
 
     ca, cb, ca2 = one_call(False), one_call(True), one_call(False)
     call_ab = float((ca.double() - cb.double()).abs().max())
@@ -112,7 +125,7 @@ def main() -> int:
 
     d_ab = float((xa.double() - xb.double()).abs().max())
     d_aa = float((xa.double() - xa2.double()).abs().max())
-    rep = {"aa": args.aa, "n_token": host.n_token, "n_atom": host.n_atom,
+    rep = {"lever": args.lever, "aa": args.aa, "n_token": host.n_token, "n_atom": host.n_atom,
            "diffusion_batch_size": D, "denoiser_calls": na,
            "one_call_max_abs_diff": {"hoisted_vs_base": call_ab,
                                      "base_vs_base": call_aa},

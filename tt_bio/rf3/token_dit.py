@@ -94,5 +94,14 @@ class TokenDiffusionTransformer(Module):
                         compute_kernel_config=self.compute_kernel_config)
         return ttnn.permute(b, (0, 3, 1, 2))          # [1, heads, I, I]
 
-    def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, z: ttnn.Tensor) -> ttnn.Tensor:
-        return self.stack(a, s, [self.bias(z, i) for i in range(self.n_block)])
+    def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, z: ttnn.Tensor,
+                 bias: list | None = None) -> ttnn.Tensor:
+        """`bias` is the 24 per-head pair biases, built once per fold by the caller.
+
+        They are a pure function of `z`, which is the diffusion pair conditioning: no `t`
+        and no diffusion-batch index reaches them, so rebuilding them per denoiser call
+        produced the same bytes 49 x D times over.
+        """
+        if bias is None:
+            bias = [self.bias(z, i) for i in range(self.n_block)]
+        return self.stack(a, s, bias)

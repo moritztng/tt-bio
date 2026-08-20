@@ -109,6 +109,11 @@ class Recycler(Module):
 #: set TT_BIO_RF3_HOIST_ROLLOUT=0 to get the per-step path back.
 _HOIST_ROLLOUT = os.environ.get("TT_BIO_RF3_HOIST_ROLLOUT", "1") != "0"
 
+#: The token DiT's 24 pair biases are the same t- and batch-invariant function of `z_cond`
+#: the hoist above already banks, and they were rebuilt on every denoiser call. Bit-exact
+#: to build once; set TT_BIO_RF3_DIT_BIAS_HOIST=0 to rebuild them per call.
+_HOIST_DIT_BIAS = os.environ.get("TT_BIO_RF3_DIT_BIAS_HOIST", "1") != "0"
+
 
 class DiffusionModule(Module):
     """The denoiser: conditioning, atom encoder, token DiT, atom decoder, EDM scaling."""
@@ -144,11 +149,18 @@ class DiffusionModule(Module):
         outlive the fold that owns it.
         """
         z_cond = self.conditioning.pair(host.relpos_feat, z_trunk)
+        # The token DiT turns `z_cond` into 24 per-head biases with a layer_norm, a
+        # projection and a permute each, and did it inside every denoiser call. Same
+        # tensor in, same bytes out, 49 x D times per fold. Hoisting them is the same
+        # arithmetic on the same operands -- bit-exact by construction -- and costs
+        # n_block x n_heads x I^2 x 2 B of residency for the length of the rollout.
+        bias = ([self.transformer.bias(z_cond, i)
+                 for i in range(self.transformer.n_block)] if _HOIST_DIT_BIAS else None)
         enc = self.encoder.prepare(
             host.single_in, host.pair_in, host.pair_v, host.keys_indexing,
             host.window_mask, host.n_atom_padded, s_trunk, z_cond,
             host.atom_to_token, host.token_to_atom_win)
-        return {"z_cond": z_cond, "enc": enc,
+        return {"z_cond": z_cond, "dit_bias": bias, "enc": enc,
                 "dec": self.decoder.prepare(enc["c"], enc["p"], host.window_mask,
                                             host.n_atom_padded)}
 
@@ -187,7 +199,8 @@ class DiffusionModule(Module):
                 prepared=None if prepared is None else prepared["enc"])
 
             a_i = ttnn.add_(a_i, self.process_s(s_cond))
-            a_i = self.transformer(a_i, s_cond, z_cond)
+            a_i = self.transformer(a_i, s_cond, z_cond,
+                                   bias=None if prepared is None else prepared["dit_bias"])
             a_i = ttnn.layer_norm(a_i, weight=self.ln1_w, bias=self.ln1_b,
                                   epsilon=1e-5,
                                   compute_kernel_config=self.compute_kernel_config)
