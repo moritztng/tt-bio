@@ -27,6 +27,8 @@ packer's rounding is the same rounding.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import ttnn
 
 TILE = 32
@@ -162,6 +164,16 @@ def build(device, x, out, grid, ckc, numeric_stable=True):
     compute_defines = list(dm_defines) + [("EXP_APPROX", "1" if approx else "0"),
                                           ("ENABLE_FP32_DEST_ACC", "1" if fp32_dest_acc else "0")]
 
+    # When the output dtype differs from the input's, the packer's own fp32 -> bf16 rounding is
+    # NOT the rounding `ttnn.typecast` does (measured 0.00195 maxabs, one bf16 ULP, p74 S2), so the
+    # compute kernel has to do typecast's SFPU conversion itself and pack a DST that is already
+    # bf16-valued. `tt_bio/kernels/rfd3_softmax/` holds the wheel's two compute kernels with that
+    # one insertion behind `PACK_BF16_TYPECAST`; everything else is byte-identical to the wheel.
+    cast_in_sfpu = out.dtype != x.dtype
+    if cast_in_sfpu:
+        assert x.dtype == ttnn.float32 and out.dtype == ttnn.bfloat16, (x.dtype, out.dtype)
+        compute_defines.append(("PACK_BF16_TYPECAST", "1"))
+
     kd = _kdir()
     if p["use_large"]:
         reader_src = str(kd / "dataflow/reader_unary_interleaved_sm_large_tensor.cpp")
@@ -169,6 +181,10 @@ def build(device, x, out, grid, ckc, numeric_stable=True):
     else:
         reader_src = str(kd / "dataflow/reader_unary_interleaved_sm.cpp")
         compute_src = str(kd / "compute/softmax.cpp")
+    if cast_in_sfpu:
+        local = Path(__file__).resolve().parent / "kernels" / "rfd3_softmax"
+        compute_src = str(local / ("softmax_large_tensor.cpp" if p["use_large"]
+                                   else "softmax.cpp"))
     writer_src = str(kd / "dataflow/writer_unary_interleaved_start_id_blocked_sm.cpp")
 
     src_a, out_a = x.buffer_address(), out.buffer_address()

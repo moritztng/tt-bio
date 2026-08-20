@@ -1,0 +1,122 @@
+{
+  "rows": [
+    {
+      "name": "dit_128",
+      "shape": [
+        1,
+        16,
+        128,
+        128
+      ],
+      "calls_per_step": 36,
+      "Wt": 4,
+      "Ht": 64,
+      "block_size": 4,
+      "use_large": false,
+      "units": 64,
+      "target_cores": 64,
+      "s1_equal": true,
+      "s1_maxabs": 0.0,
+      "s2_equal": false,
+      "s2_maxabs": 0.97265625,
+      "ms_shipped_softmax_plus_typecast": 0.0334,
+      "ms_native_softmax": 0.0269,
+      "ms_generic_fp32": 0.0419,
+      "ms_generic_bf16": 0.0397,
+      "s1_speed_ratio": 1.559,
+      "saved_ms_per_call": -0.0063,
+      "saved_ms_per_step": -0.2251
+    },
+    {
+      "name": "dit_512",
+      "shape": [
+        1,
+        16,
+        512,
+        512
+      ],
+      "calls_per_step": 36,
+      "Wt": 16,
+      "Ht": 256,
+      "block_size": 4,
+      "use_large": false,
+      "units": 256,
+      "target_cores": 110,
+      "s1_equal": true,
+      "s1_maxabs": 0.0,
+      "s2_equal": false,
+      "s2_maxabs": 0.97265625,
+      "ms_shipped_softmax_plus_typecast": 0.1681,
+      "ms_native_softmax": 0.1105,
+      "ms_generic_fp32": 0.1219,
+      "ms_generic_bf16": 0.0948,
+      "s1_speed_ratio": 1.1031,
+      "saved_ms_per_call": 0.0733,
+      "saved_ms_per_step": 2.6384
+    },
+    {
+      "name": "dit_685",
+      "shape": [
+        1,
+        16,
+        685,
+        704
+      ],
+      "calls_per_step": 36,
+      "Wt": 22,
+      "Ht": 352,
+      "block_size": 2,
+      "use_large": false,
+      "units": 352,
+      "target_cores": 110,
+      "s1_equal": true,
+      "s1_maxabs": 0.0,
+      "s2_equal": false,
+      "s2_maxabs": 0.97265625,
+      "ms_shipped_softmax_plus_typecast": 0.3054,
+      "ms_native_softmax": 0.191,
+      "ms_generic_fp32": 0.1976,
+      "ms_generic_bf16": 0.1496,
+      "s1_speed_ratio": 1.0347,
+      "saved_ms_per_call": 0.1558,
+      "saved_ms_per_step": 5.6076
+    },
+    {
+      "name": "atom_6051",
+      "shape": [
+        1,
+        4,
+        6051,
+        6080
+      ],
+      "calls_per_step": 9,
+      "Wt": 190,
+      "Ht": 760,
+      "block_size": 2,
+      "use_large": true,
+      "units": 760,
+      "target_cores": 110,
+      "s1_equal": true,
+      "s1_maxabs": 0.0,
+      "s2_equal": true,
+      "s2_maxabs": 0.0,
+      "ms_shipped_softmax_plus_typecast": 7.3112,
+      "ms_native_softmax": 5.333,
+      "ms_generic_fp32": 5.3425,
+      "ms_generic_bf16": 4.7984,
+      "s1_speed_ratio": 1.0018,
+      "saved_ms_per_call": 2.5128,
+      "saved_ms_per_step": 22.6151
+    }
+  ],
+  "grid": [
+    11,
+    10
+  ],
+  "s1_all_equal": true,
+  "s2_all_equal": false,
+  "saved_ms_per_step_page_fixture": 28.2227,
+  "saved_s_per_design_200_steps": 5.6445,
+  "host": "qb2",
+  "card": 1
+}
