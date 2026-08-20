@@ -73,4 +73,11 @@ other = [r for r in out["rows"] if r["flag"] == "TRIMUL_IN_PROJ_DUAL_NOC"][0]
 check("absent lever row", (other["served"], other["rejects"]), (None, None))
 
 print("\nALL OK" if ok else "\nFAILURES")
-sys.exit(0 if ok else 1)
+
+
+def test_lever_census_reasons():
+    assert ok, "a check above printed FAIL"
+
+
+if __name__ == "__main__":
+    sys.exit(0 if ok else 1)
