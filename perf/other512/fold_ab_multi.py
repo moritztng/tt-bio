@@ -32,7 +32,7 @@ So this harness is that one generalised on exactly three axes and nothing else:
 A lever that reports `served 0, declined 0` is UNTESTED, not inactive -- the counters distinguish
 "gated off with a reason" from "fired and did nothing", which is the whole point of Phase 0.
 """
-import argparse, hashlib, json, shutil, statistics as st, sys, time
+import argparse, hashlib, json, os, shutil, statistics as st, sys, time
 from collections import defaultdict, Counter
 from pathlib import Path
 
@@ -138,6 +138,21 @@ def _mm_block_old(w):
     return blk
 
 
+# `TT_BIO_AB_TRIMUL_POP=1` splits the TriangleMultiplication timer by call population instead of
+# lumping all 1216 calls under one key. OpenDDE drives three of them -- trunk (H = seq, hidden 384),
+# a narrow-hidden one, and the refiner at H ~ 1.95 * seq -- and only the refiner's fused
+# in-projection loses a doubling between 640 and 768 aa. Off by default: every other arm in this
+# harness shares the WALL key set and must keep seeing one key per class.
+POP_SPLIT = os.environ.get("TT_BIO_AB_TRIMUL_POP", "0") == "1"
+
+
+def _trimul_pop(key, self, args):
+    try:
+        return f"{key}|H={int(args[0].shape[1])}|hid={self._hidden}"
+    except Exception:  # noqa: BLE001 -- a timer must never be the thing that fails a fold
+        return key
+
+
 def timed_call(key, fn, *a, **kw):
     import ttnn
     ttnn.synchronize_device(STATE["dev"])
@@ -214,7 +229,6 @@ def main():
     from tt_bio.main import _resolve_recycling_steps, _resolve_sampling_steps
 
     # qb2 is two dual-chip p300 boards; a bare single-chip open fails without the mesh descriptor.
-    import os
     from tt_bio.main import _detect_p300_devices, _find_ttnn_mesh_graph_descriptor
     if _detect_p300_devices() and not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
         mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
@@ -305,19 +319,24 @@ def main():
     installed = []
     import tt_bio.esmfold2 as E2
 
-    def patch(mod, name, key):
+    def patch(mod, name, key, keyfn=None):
         cls = getattr(mod, name, None)
         if cls is None or not hasattr(cls, "__call__"):
             return
         f = cls.__call__
-        cls.__call__ = (lambda g: lambda self, *x, **k: timed_call(key, g, self, *x, **k))(f)
+        if keyfn is None:
+            cls.__call__ = (lambda g: lambda self, *x, **k: timed_call(key, g, self, *x, **k))(f)
+        else:
+            cls.__call__ = (lambda g: lambda self, *x, **k:
+                            timed_call(keyfn(key, self, x), g, self, *x, **k))(f)
         installed.append(key)
 
     patch(T, "Pairformer", "stage:Pairformer")
     patch(T, "PairformerLayer", "block:PairformerLayer")
     for nm in ("TriangleMultiplication", "TriangleAttention", "AttentionPairBias",
                "PairWeightedAveraging"):
-        patch(T, nm, f"body:{nm}")
+        patch(T, nm, f"body:{nm}",
+              _trimul_pop if POP_SPLIT and nm == "TriangleMultiplication" else None)
     if a.model.startswith("esmfold2"):
         patch(E2, "PairUpdateBlock", "block:PairUpdateBlock")
         patch(E2, "FoldingTrunkModel", "stage:FoldingTrunk")
