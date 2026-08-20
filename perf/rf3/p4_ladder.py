@@ -54,6 +54,15 @@ ARMS = {
     "b5_noqkv": {"hoist": True, "gln": True, "opm": True, "hifi": True, "qkv": False},
     "b5_all": {"hoist": True, "gln": True, "opm": True, "hifi": True, "qkv": True},
     "b5_all_aa": {"hoist": True, "gln": True, "opm": True, "hifi": True, "qkv": True},
+    # Pass 6. Lever 7 is the token DiT pair-bias hoist. `p5` is every lever pass 5 shipped
+    # with it OFF, which is what the 128/256/512 cells in the state doc were measured at, so
+    # the ladder stays comparable rung to rung; `p5_l7` adds it; `p5_aa` repeats `p5` last.
+    "p5": {"hoist": True, "gln": True, "opm": True, "hifi": True, "qkv": True,
+           "ditbias": False},
+    "p5_l7": {"hoist": True, "gln": True, "opm": True, "hifi": True, "qkv": True,
+              "ditbias": True},
+    "p5_aa": {"hoist": True, "gln": True, "opm": True, "hifi": True, "qkv": True,
+              "ditbias": False},
 }
 
 
@@ -148,6 +157,8 @@ def main() -> int:
             tts._TRIATT_FUSED_HIFI = cfg_arm["hifi"]
         if "qkv" in cfg_arm:
             triatt_qkv._ENABLED = cfg_arm["qkv"]
+        if "ditbias" in cfg_arm:
+            rf3_model._HOIST_DIT_BIAS = cfg_arm["ditbias"]
         reps = []
         failed = None
         for rep in range(args.reps):
