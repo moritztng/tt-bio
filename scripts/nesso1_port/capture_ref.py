@@ -9,7 +9,8 @@ for one committed fixture YAML:
                         needs neither an upstream install nor a matching RDKit
   ref_feats.pt          every tensor the featurizer produces, for bit-exact scoring
   ref_acts.pt           module activations captured by forward hook, for per-block parity
-  ref_out.json          the affinity scalars the CLI writes
+  ref_scalars.json      every scalar THIS seeded prediction reports -- the parity target
+  ref_out.json          the scalars the CLI wrote, under its own featurization draw
   meta.json             package versions + a sha256 per artifact
 
 Why the preprocessed dir is committed rather than regenerated: RDKit ETKDG conformer
@@ -161,6 +162,18 @@ def main() -> int:
     model = Nesso1.from_pretrained(args.checkpoint)
     model.eval()
     model.use_kernels = False
+    # predict_step reads these; the checkpoint's hparams carry only two of them, so
+    # without this the capture would crop at the code default 196 rather than the
+    # CLI default 256 and the two references would diverge above 196 tokens.
+    model.predict_args.update({
+        "pose_protein_cutoff": 15.0,
+        "affinity_protein_cutoff": 15.0,
+        "recycling_steps": args.recycling_steps,
+        "refine_protein_inference": True,
+        "refine_protein_cutoff": 22.0,
+        "refine_protein_tokens_budget": 256,
+        "save_metadata": False,
+    })
 
     acts: dict[str, torch.Tensor] = {}
     counters: dict[str, int] = {}
@@ -183,26 +196,37 @@ def main() -> int:
         mod = getattr(model, attr, None)
         if mod is not None:
             handles.append(mod.register_forward_hook(make_hook(tag)))
+    handles.append(model.register_forward_hook(make_hook("out")))
 
     batch = {k: (v.unsqueeze(0) if isinstance(v, torch.Tensor) else [v])
              for k, v in feats.items()}
+    # predict_step, not forward: it is what the CLI runs, so the entropies and the
+    # pocket masks come from upstream's own derivation rather than a reimplementation.
     with torch.no_grad():
-        out = model(batch, recycling_steps=args.recycling_steps,
-                    refine_protein_inference=True)
+        pred = model.predict_step(batch, 0)
     for h in handles:
         h.remove()
-
-    for k, v in out.items():
-        if isinstance(v, torch.Tensor):
-            acts[f"out.{k}"] = v.detach().clone()
     print(f"captured {len(acts)} activation tensors")
 
     torch.save(ref_feats, fixture / "ref_feats.pt")
     torch.save(acts, fixture / "ref_acts.pt")
 
+    # The seeded forward above is the parity target: it shares its
+    # center_random_augmentation draws with the gate, which reseeds to feat_seed.
+    # The CLI ran under the dataloader's own RNG state, so its scalars come from a
+    # DIFFERENT draw -- measured 0.043 apart on affinity_pred_value1 for tyr48, with
+    # every module activation bit-exact. Keep both, and only gate on the seeded one.
+    seeded = {
+        k: float(v.reshape(-1)[0])
+        for k, v in pred.items()
+        if isinstance(v, torch.Tensor) and v.numel() == 1
+    }
+    (fixture / "ref_scalars.json").write_text(json.dumps(seeded, indent=2) + "\n")
+
     pred = sorted((out_dir / "predictions").glob("*/affinity.json"))
     scalars = json.loads(pred[0].read_text()) if pred else {}
-    (fixture / "ref_out.json").write_text(json.dumps(scalars, indent=2) + "\n")
+    if scalars:
+        (fixture / "ref_out.json").write_text(json.dumps(scalars, indent=2) + "\n")
 
     import numpy, rdkit, transformers
     meta = {
@@ -212,6 +236,7 @@ def main() -> int:
         "recycling_steps": args.recycling_steps,
         "feat_seed": FEAT_SEED,
         "n_tokens": int(ref_feats["token_pad_mask"].shape[-1]),
+        "predict_args": dict(model.predict_args),
         "versions": {
             "torch": torch.__version__,
             "numpy": numpy.__version__,
@@ -224,7 +249,7 @@ def main() -> int:
         "sha256": {
             p.name: sha256(p)
             for p in [fixture / "ref_feats.pt", fixture / "ref_acts.pt",
-                      fixture / "ref_out.json",
+                      fixture / "ref_scalars.json",
                       fixture / "standard_aa_mols.pkl"]
         },
     }
