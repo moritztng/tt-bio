@@ -19,13 +19,13 @@
       "s1_maxabs": 0.0,
       "s2_equal": false,
       "s2_maxabs": 0.97265625,
-      "ms_shipped_softmax_plus_typecast": 0.0334,
-      "ms_native_softmax": 0.0269,
-      "ms_generic_fp32": 0.0419,
-      "ms_generic_bf16": 0.0397,
-      "s1_speed_ratio": 1.559,
-      "saved_ms_per_call": -0.0063,
-      "saved_ms_per_step": -0.2251
+      "ms_shipped_softmax_plus_typecast": 0.0391,
+      "ms_native_softmax": 0.0268,
+      "ms_generic_fp32": 0.0414,
+      "ms_generic_bf16": 0.0394,
+      "s1_speed_ratio": 1.5479,
+      "saved_ms_per_call": -0.0003,
+      "saved_ms_per_step": -0.0126
     },
     {
       "name": "dit_512",
@@ -46,13 +46,13 @@
       "s1_maxabs": 0.0,
       "s2_equal": false,
       "s2_maxabs": 0.97265625,
-      "ms_shipped_softmax_plus_typecast": 0.1681,
-      "ms_native_softmax": 0.1105,
-      "ms_generic_fp32": 0.1219,
-      "ms_generic_bf16": 0.0948,
-      "s1_speed_ratio": 1.1031,
-      "saved_ms_per_call": 0.0733,
-      "saved_ms_per_step": 2.6384
+      "ms_shipped_softmax_plus_typecast": 0.1695,
+      "ms_native_softmax": 0.1138,
+      "ms_generic_fp32": 0.1236,
+      "ms_generic_bf16": 0.0995,
+      "s1_speed_ratio": 1.0861,
+      "saved_ms_per_call": 0.07,
+      "saved_ms_per_step": 2.5205
     },
     {
       "name": "dit_685",
@@ -73,13 +73,13 @@
       "s1_maxabs": 0.0,
       "s2_equal": false,
       "s2_maxabs": 0.97265625,
-      "ms_shipped_softmax_plus_typecast": 0.3054,
-      "ms_native_softmax": 0.191,
-      "ms_generic_fp32": 0.1976,
-      "ms_generic_bf16": 0.1496,
-      "s1_speed_ratio": 1.0347,
-      "saved_ms_per_call": 0.1558,
-      "saved_ms_per_step": 5.6076
+      "ms_shipped_softmax_plus_typecast": 0.2989,
+      "ms_native_softmax": 0.1973,
+      "ms_generic_fp32": 0.2187,
+      "ms_generic_bf16": 0.1498,
+      "s1_speed_ratio": 1.1084,
+      "saved_ms_per_call": 0.1491,
+      "saved_ms_per_step": 5.3686
     },
     {
       "name": "atom_6051",
@@ -100,13 +100,13 @@
       "s1_maxabs": 0.0,
       "s2_equal": true,
       "s2_maxabs": 0.0,
-      "ms_shipped_softmax_plus_typecast": 7.3112,
-      "ms_native_softmax": 5.333,
-      "ms_generic_fp32": 5.3425,
-      "ms_generic_bf16": 4.7984,
-      "s1_speed_ratio": 1.0018,
-      "saved_ms_per_call": 2.5128,
-      "saved_ms_per_step": 22.6151
+      "ms_shipped_softmax_plus_typecast": 7.3089,
+      "ms_native_softmax": 5.3174,
+      "ms_generic_fp32": 5.329,
+      "ms_generic_bf16": 4.767,
+      "s1_speed_ratio": 1.0022,
+      "saved_ms_per_call": 2.5419,
+      "saved_ms_per_step": 22.8772
     }
   ],
   "grid": [
@@ -115,8 +115,8 @@
   ],
   "s1_all_equal": true,
   "s2_all_equal": false,
-  "saved_ms_per_step_page_fixture": 28.2227,
-  "saved_s_per_design_200_steps": 5.6445,
+  "saved_ms_per_step_page_fixture": 28.2458,
+  "saved_s_per_design_200_steps": 5.6492,
   "host": "qb2",
   "card": 1
 }
