@@ -1,0 +1,29 @@
+{
+  "lever": "dit_bias",
+  "aa": 512,
+  "n_token": 512,
+  "n_atom": 4116,
+  "diffusion_batch_size": 1,
+  "denoiser_calls": 49,
+  "one_call_max_abs_diff": {
+    "hoisted_vs_base": 0.0,
+    "base_vs_base": 0.0
+  },
+  "one_call_bit_exact": true,
+  "rollout_s": {
+    "base": 5.7485,
+    "hoisted": 3.6258,
+    "base_again": 5.7565
+  },
+  "per_call_ms": {
+    "base": 117.316,
+    "hoisted": 73.997
+  },
+  "speedup": 1.5854,
+  "aa_floor": 0.9986,
+  "rollout_max_abs_diff_coords": {
+    "hoisted_vs_base": 0.0,
+    "base_vs_base": 0.0
+  },
+  "rollout_bit_exact": true
+}
