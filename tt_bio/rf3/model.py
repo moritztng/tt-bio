@@ -98,11 +98,16 @@ class Recycler(Module):
         return self.pairformer(s, z)
 
 
-#: Hoist the t-independent half of the denoiser out of the diffusion rollout. Bit-exact by
-#: construction -- the same arithmetic on the same inputs, evaluated once per fold instead of
-#: once per step -- but it keeps the atom-pair track and both bias stacks resident for the
-#: whole rollout, so it is a residency lever and gated on its ladder rather than asserted.
-_HOIST_ROLLOUT = os.environ.get("TT_BIO_RF3_HOIST_ROLLOUT", "0") != "0"
+#: Hoist the t-independent half of the denoiser out of the diffusion rollout: `z_cond`, the
+#: atom-pair track and both windowed bias stacks are the same arithmetic on the same inputs on
+#: every step, so a 50-step rollout was rebuilding all of it 49 times. Bit-exact, verified two
+#: ways (one denoiser call on fixed inputs, and the full 49-step rollout with the draws replayed)
+#: at 128, 256, 512 and 1024 aa: max abs diff 0.0 everywhere. It keeps that state resident for
+#: the whole rollout, so it was held off by default until the two large rungs were measured;
+#: they are, it is 1.63x to 1.96x on the rollout across the ladder and never negative, and
+#: 1024 aa (this port's historical residency wall) folds with room to spare. On by default;
+#: set TT_BIO_RF3_HOIST_ROLLOUT=0 to get the per-step path back.
+_HOIST_ROLLOUT = os.environ.get("TT_BIO_RF3_HOIST_ROLLOUT", "1") != "0"
 
 
 class DiffusionModule(Module):
