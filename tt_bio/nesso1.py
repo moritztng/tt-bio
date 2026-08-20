@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import math
+import time
 from pathlib import Path
 from typing import Any, Optional
 
@@ -727,3 +728,106 @@ class Nesso1(nn.Module):
         model.load_state_dict(load_file(str(weights_path), device="cpu"), strict=True)
         model.eval()
         return model
+
+# ---------------------------------------------------------------------------
+# batch driver
+# ---------------------------------------------------------------------------
+
+REPORTED_SCALARS = (
+    "affinity_pred_value",
+    "affinity_pred_value1",
+    "affinity_pred_value2",
+    "affinity_logits_binary",
+    "affinity_probability_binary",
+    "entropy_pp",
+    "entropy_pl",
+    "entropy_ll",
+    "entropy_crop_pp",
+    "entropy_crop_pl",
+    "entropy_crop_ll",
+)
+
+DEFAULT_SEED = 20260820
+
+
+def screen(
+    data: "Path | str",
+    out_dir: "Path | str",
+    weights: str = "recursionpharma/nesso",
+    *,
+    use_tenstorrent: bool = True,
+    trunk_fp32: bool = True,
+    affinity_fp32: bool = True,
+    recycling_steps: int = 5,
+    tokens_budget: int = 256,
+    num_workers: int = 2,
+    ccd_pkl: "Path | None" = None,
+    cache: "Path | None" = None,
+    seed: int | None = DEFAULT_SEED,
+    progress=None,
+) -> list[dict]:
+    """Score every YAML under ``data``, one record at a time, and return the rows.
+
+    The model loads once and stays resident, which is the whole point for a screen:
+    one target against many ligands pays the weight load and the kernel compile once.
+
+    ``seed`` pins the featurization draw. It is not cosmetic: the featurizer applies a
+    random roto-translation to each conformer off the global torch RNG, so upstream is
+    not reproducible run to run (the reference differed on 64/64 affinity values, max
+    0.058). Seeding makes a tt-bio screen repeatable. Pass None for upstream behaviour.
+    """
+    from tt_bio.nesso1_input import CLI_PREDICT_ARGS, collate, prepare
+
+    out = Path(out_dir).expanduser()
+    out.mkdir(parents=True, exist_ok=True)
+    dataset, manifest, failed = prepare(
+        Path(data).expanduser(),
+        out,
+        ccd_pkl=ccd_pkl,
+        num_workers=num_workers,
+        esm_cache=cache,
+    )
+    model = Nesso1.from_pretrained(
+        weights,
+        use_tenstorrent=use_tenstorrent,
+        trunk_fp32=trunk_fp32,
+        affinity_fp32=affinity_fp32,
+        cache_dir=cache,
+    )
+    # The checkpoint ships use_kernels: true, which routes the triangle ops through
+    # cuEquivariance. There is no cueq here and none is wanted: tt-bio's own
+    # TriangleMultiplication and TriangleAttention (both with fused kernels, both
+    # default-on) are what replace it on device, and upstream force-disables the flag on
+    # CPU for the same reason.
+    model.use_kernels = False
+    model.predict_args.update(CLI_PREDICT_ARGS)
+    model.predict_args["recycling_steps"] = recycling_steps
+    model.predict_args["refine_protein_tokens_budget"] = tokens_budget
+
+    rows: list[dict] = []
+    for idx, record in enumerate(manifest.records):
+        if seed is not None:
+            torch.manual_seed(seed)
+        item = dataset[idx]
+        if item.get("exception"):
+            rows.append({"id": record.id, "error": "featurizer raised"})
+            continue
+        feats = collate(item)
+        t0 = time.perf_counter()
+        with torch.no_grad():
+            pred = model.predict(feats)
+        row = {
+            "id": record.id,
+            "n_tokens": int(feats["token_pad_mask"].shape[-1]),
+            "seconds": time.perf_counter() - t0,
+        }
+        row.update(
+            {k: float(pred[k].reshape(-1)[0]) for k in REPORTED_SCALARS if k in pred}
+        )
+        (out / f"{record.id}_affinity.json").write_text(json.dumps(row, indent=2) + "\n")
+        rows.append(row)
+        if progress is not None:
+            progress(row)
+    for stem in failed:
+        rows.append({"id": stem, "error": "could not be parsed"})
+    return rows

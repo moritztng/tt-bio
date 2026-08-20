@@ -12,9 +12,26 @@ weights `recursionpharma/nesso` on the Hub. The host featurization pipeline is v
 
 ## Status
 
-The torch reference is complete and bit-exact against upstream. The device path runs and is
-deterministic run to run. **Not yet wired to the `tt-bio predict` CLI** — use it as a library
-module for now. This page is updated as the port lands.
+The torch reference is bit-exact against upstream. On device the model is deterministic run to run
+and, with the fp32 trunk, 0.0089 off the torch reference at 148 tokens against upstream's own
+0.058 run-to-run spread. `tt-bio affinity` is the CLI.
+
+Speed is the open problem, not accuracy: 18 s per prediction at 148 tokens on one Blackhole p150a,
+against 0.7 s of H200 device time at 256 aa. The model issues ~93,000 unfused ops per prediction
+across 320 cheap pairformer layers, so it is dispatch-bound rather than FLOP-bound.
+
+## Running it
+
+```bash
+tt-bio affinity complex.yaml                       # one input
+tt-bio affinity ligands/ --out_dir screen          # a directory: model stays resident
+tt-bio affinity complex.yaml --trunk bf16          # ~4x faster, measurably less accurate
+tt-bio affinity complex.yaml --accelerator cpu     # the torch reference
+```
+
+Writes `<id>_affinity.json` per input and one `affinity.csv` for the run, plus a `processed/`
+directory holding the parsed structures, the RDKit conformers and the ESM-2 embeddings so a
+re-run skips them.
 
 ## What it takes as input
 
@@ -58,7 +75,7 @@ Not supported, and these are all upstream limits rather than porting gaps:
 missing SDF, a binder that names a protein chain, an unknown entity kind and an unrecognized
 residue code all raise rather than degrade.
 
-## Two things that will bite you when comparing numbers
+## Three things that will bite you when comparing numbers
 
 **Featurization samples.** `center_random_augmentation` applies a random roto-translation to
 every ligand conformer, drawn from the global torch RNG. Two runs of the same input on the same
@@ -71,6 +88,14 @@ RDKit 2025.09.6 and 2026.03.5 for the same ligand with the same atom order, whic
 affinity value by 0.0007. Pickled molecules are not forward-compatible either: 2025.09.6 cannot
 read a mol pickled by 2026.03.5. For a reproducible comparison, feed a committed conformer
 (`conformer:` or `sdf:`) rather than regenerating it.
+
+**`--num_workers` changes the ligand.** RDKit's ETKDG takes its embedding seed from the process
+RNG state, so parsing a SMILES ligand in a worker process and parsing it inline give the same atoms
+in the same order with different coordinates. Keep `--num_workers` fixed across runs you intend to
+compare, or feed a committed conformer.
+
+`tt-bio affinity` pins the featurization seed by default so a screen is repeatable, which upstream
+is not. `--seed -1` restores upstream behaviour.
 
 ## Checking the port
 
