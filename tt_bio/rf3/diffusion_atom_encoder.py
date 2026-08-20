@@ -83,31 +83,49 @@ class DiffusionAtomEncoder(AtomAttentionEncoder):
         g = ttnn.reshape(g, (k, ATOM_WINDOW, c_pair, ATOM_KEYS))
         return ttnn.permute(g, (0, 1, 3, 2))                   # [K, W, KEYS, c_pair]
 
-    def __call__(self, single_in, pair_in, v, keys_indexing, atom_to_token,
-                 mask, n_pad, s_trunk, z_trunk, r_noisy, chiral, a2t_onehot,
-                 a2t_win):
-        c = self.single(single_in)
+    def prepare(self, single_in, pair_in, v, keys_indexing, mask, n_pad,
+                s_trunk, z_trunk, a2t_onehot, a2t_win) -> dict:
+        """Everything here that depends on neither `t` nor the diffusion-batch index.
+
+        The noisy coordinates and the chirality feature reach the SINGLE track only, so
+        the whole pair track -- the projection, the trunk gather, `pair_terms` and all
+        `n_block` windowed biases -- is the same arithmetic on the same inputs on every
+        one of the 49 x D denoiser calls a fold makes. `q0`, the PRE-trunk single track,
+        and the windowed post-trunk one are t-independent too.
+
+        Owned by the caller for the length of one rollout rather than cached on the
+        module: a per-fold cache on a module with no key is how the atom-level `s_o`
+        became a cross-length correctness bug.
+        """
+        q0 = self.single(single_in)
         p = ttnn.multiply(
             ttnn.linear(pair_in, self.pair_w,
                         compute_kernel_config=self.compute_kernel_config), v)
-
-        q = c                                        # PRE-trunk, deliberately
-        c = ttnn.add(c, self._trunk_single(s_trunk, a2t_onehot))
+        c = ttnn.add(q0, self._trunk_single(s_trunk, a2t_onehot))
         p = ttnn.add(p, self._trunk_pair(z_trunk, a2t_onehot, a2t_win, n_pad))
+        p = self.pair_terms(p, c, keys_indexing, n_pad)
+        return {"q0": q0, "c": c, "p": p,
+                "biases": [self.bias(p, i, mask, n_pad) for i in range(self.n_block)],
+                "cw": ttnn.reshape(c, (1, n_pad // 32, 32, -1))}
 
+    def __call__(self, single_in, pair_in, v, keys_indexing, atom_to_token,
+                 mask, n_pad, s_trunk, z_trunk, r_noisy, chiral, a2t_onehot,
+                 a2t_win, prepared=None):
+        if prepared is None:
+            prepared = self.prepare(single_in, pair_in, v, keys_indexing, mask, n_pad,
+                                    s_trunk, z_trunk, a2t_onehot, a2t_win)
+        c, p = prepared["c"], prepared["p"]
+
+        # q0 is the PRE-trunk single track, deliberately: see the module docstring.
         q = ttnn.add(ttnn.linear(r_noisy, self.r_w,
-                                 compute_kernel_config=self.compute_kernel_config), q)
+                                 compute_kernel_config=self.compute_kernel_config),
+                     prepared["q0"])
         if self.ch_w is not None and chiral is not None:
             q = ttnn.add(ttnn.linear(chiral, self.ch_w,
                                      compute_kernel_config=self.compute_kernel_config), q)
 
-        p = self.pair_terms(p, c, keys_indexing, n_pad)
-
-        biases = [self.bias(p, i, mask, n_pad) for i in range(self.n_block)]
-        k = n_pad // 32
-        qw = ttnn.reshape(q, (1, k, 32, -1))
-        cw = ttnn.reshape(c, (1, k, 32, -1))
-        out = self.transformer(qw, cw, biases, keys_indexing)
+        qw = ttnn.reshape(q, (1, n_pad // 32, 32, -1))
+        out = self.transformer(qw, prepared["cw"], prepared["biases"], keys_indexing)
         out = ttnn.reshape(out, (1, n_pad, -1))
         a = ttnn.linear(out, self.proc_q,
                         compute_kernel_config=self.compute_kernel_config,

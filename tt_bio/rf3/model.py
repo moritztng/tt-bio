@@ -23,6 +23,8 @@ hard-coded, because they are what `load_reference` already reads.
 
 from __future__ import annotations
 
+import os
+
 import torch
 import ttnn
 
@@ -96,6 +98,13 @@ class Recycler(Module):
         return self.pairformer(s, z)
 
 
+#: Hoist the t-independent half of the denoiser out of the diffusion rollout. Bit-exact by
+#: construction -- the same arithmetic on the same inputs, evaluated once per fold instead of
+#: once per step -- but it keeps the atom-pair track and both bias stacks resident for the
+#: whole rollout, so it is a residency lever and gated on its ladder rather than asserted.
+_HOIST_ROLLOUT = os.environ.get("TT_BIO_RF3_HOIST_ROLLOUT", "0") != "0"
+
+
 class DiffusionModule(Module):
     """The denoiser: conditioning, atom encoder, token DiT, atom decoder, EDM scaling."""
 
@@ -118,8 +127,29 @@ class DiffusionModule(Module):
         self.decoder = DiffusionAtomDecoder(
             self.scope("atom_attention_decoder"), compute_kernel_config)
 
+    def prepare(self, host: HostInputs, s_inputs, s_trunk, z_trunk) -> dict:
+        """The part of a denoiser call that depends on neither `t` nor the batch index.
+
+        `DiffusionConditioning.pair` takes no `t` at all, and inside the atom encoder and
+        decoder the noisy coordinates reach the single track only, so `z_cond`, the whole
+        atom-pair track and both stacks of windowed biases are the same arithmetic on the
+        same inputs every time. A 50-step rollout at batch D rebuilt them 49 x D times.
+
+        Returned to the caller rather than cached on the module, so the state cannot
+        outlive the fold that owns it.
+        """
+        z_cond = self.conditioning.pair(host.relpos_feat, z_trunk)
+        enc = self.encoder.prepare(
+            host.single_in, host.pair_in, host.pair_v, host.keys_indexing,
+            host.window_mask, host.n_atom_padded, s_trunk, z_cond,
+            host.atom_to_token, host.token_to_atom_win)
+        return {"z_cond": z_cond, "enc": enc,
+                "dec": self.decoder.prepare(enc["c"], enc["p"], host.window_mask,
+                                            host.n_atom_padded)}
+
     def __call__(self, host: HostInputs, x_noisy: torch.Tensor, t: torch.Tensor,
-                 s_inputs, s_trunk, z_trunk) -> torch.Tensor:
+                 s_inputs, s_trunk, z_trunk, prepared: dict | None = None
+                 ) -> torch.Tensor:
         """`x_noisy [D, L, 3]`, `t [D]` on host; returns the denoised `[D, L, 3]`.
 
         D is the diffusion batch. The conditioning depends on t, which varies over D,
@@ -128,8 +158,12 @@ class DiffusionModule(Module):
         out = []
         for d in range(x_noisy.shape[0]):
             t_d = t[d:d + 1]
-            s_cond, z_cond = self.conditioning(
-                host.relpos_feat, z_trunk, s_trunk, s_inputs, t_d)
+            if prepared is None:
+                s_cond, z_cond = self.conditioning(
+                    host.relpos_feat, z_trunk, s_trunk, s_inputs, t_d)
+            else:
+                z_cond = prepared["z_cond"]
+                s_cond = self.conditioning.single_at(s_trunk, s_inputs, t_d)
             # The conditioning's Fourier term carries the diffusion-batch axis, so its
             # single output comes back rank 4 as [1, D, I, c_s]. Every component harness
             # reshaped to the reference's shape before scoring, so none of them saw it;
@@ -144,7 +178,8 @@ class DiffusionModule(Module):
             a_i, q_skip, c_skip, p_skip = self.encoder(
                 host.single_in, host.pair_in, host.pair_v, host.keys_indexing,
                 host.atom_to_token_mean, host.window_mask, host.n_atom_padded,
-                s_trunk, z_cond, r_in, ch_in, host.atom_to_token, host.token_to_atom_win)
+                s_trunk, z_cond, r_in, ch_in, host.atom_to_token, host.token_to_atom_win,
+                prepared=None if prepared is None else prepared["enc"])
 
             a_i = ttnn.add_(a_i, self.process_s(s_cond))
             a_i = self.transformer(a_i, s_cond, z_cond)
@@ -154,7 +189,8 @@ class DiffusionModule(Module):
 
             r_update = self.decoder(
                 a_i, q_skip, c_skip, p_skip, host.atom_to_token,
-                host.keys_indexing, host.window_mask, host.n_atom_padded)
+                host.keys_indexing, host.window_mask, host.n_atom_padded,
+                prepared=None if prepared is None else prepared["dec"])
             r_update = torch.Tensor(ttnn.to_torch(r_update)).float()[
                 0, :host.n_atom].reshape(1, host.n_atom, 3)
 
@@ -235,8 +271,11 @@ class RF3(Module):
         if coord_to_be_noised is None:
             coord_to_be_noised = torch.zeros(diffusion_batch_size, host.n_atom, 3)
 
+        prepared = (self.diffusion_module.prepare(host, s_inputs, s, z)
+                    if _HOIST_ROLLOUT else None)
+
         def denoise(x_noisy: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
-            return self.diffusion_module(host, x_noisy, t, s_inputs, s, z)
+            return self.diffusion_module(host, x_noisy, t, s_inputs, s, z, prepared)
 
         x_pred, draws = self.sampler.sample(
             denoise, coord_to_be_noised, diffusion_batch_size, draws=draws)

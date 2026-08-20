@@ -59,8 +59,21 @@ class DiffusionAtomDecoder(Module):
         return windowed_bias(p, self.ln0_w[i], self.ln0_b[i], self.to_b[i], mask, n_pad,
                              self.compute_kernel_config)
 
+    def prepare(self, c_skip, p_skip, mask, n_pad) -> dict:
+        """The decoder's own `n_block` windowed biases and its windowed single track.
+
+        Both come off the encoder's skips, which are t-independent, so like the encoder's
+        they were being rebuilt identically 49 x D times per fold.
+        """
+        k = n_pad // ATOM_WINDOW
+        return {"biases": [self.bias(p_skip, i, mask, n_pad)
+                           for i in range(self.n_block)],
+                "cw": ttnn.reshape(c_skip, (1, k, ATOM_WINDOW, C_ATOM))}
+
     def __call__(self, a_i, q_skip, c_skip, p_skip, a2t_onehot, keys_indexing,
-                 mask, n_pad):
+                 mask, n_pad, prepared: dict | None = None):
+        if prepared is None:
+            prepared = self.prepare(c_skip, p_skip, mask, n_pad)
         q = ttnn.linear(a_i, self.linear_1,
                         compute_kernel_config=self.compute_kernel_config,
                         core_grid=CORE_GRID_MAIN)
@@ -68,11 +81,10 @@ class DiffusionAtomDecoder(Module):
                         compute_kernel_config=self.compute_kernel_config)
         q = ttnn.add(q, q_skip)
 
-        biases = [self.bias(p_skip, i, mask, n_pad) for i in range(self.n_block)]
         k = n_pad // ATOM_WINDOW
         out = self.transformer(ttnn.reshape(q, (1, k, ATOM_WINDOW, C_ATOM)),
-                               ttnn.reshape(c_skip, (1, k, ATOM_WINDOW, C_ATOM)),
-                               biases, keys_indexing)
+                               prepared["cw"], prepared["biases"],
+                               keys_indexing)
         out = ttnn.reshape(out, (1, n_pad, C_ATOM))
         out = ttnn.layer_norm(out, weight=self.r_norm_w, bias=self.r_norm_b,
                               epsilon=1e-5,

@@ -131,9 +131,13 @@ def one_fold(tt, f, rep_atom_idxs, device, tm: Timer, *, n_recycles: int,
 
     calls = [0]
 
+    from tt_bio.rf3.model import _HOIST_ROLLOUT
+    prepared = (tt.diffusion_module.prepare(host, s_inputs, s, z)
+                if _HOIST_ROLLOUT else None)
+
     def denoise(x_noisy, t):
         calls[0] += 1
-        return tt.diffusion_module(host, x_noisy, t, s_inputs, s, z)
+        return tt.diffusion_module(host, x_noisy, t, s_inputs, s, z, prepared)
 
     coord = torch.zeros(diffusion_batch_size, host.n_atom, 3)
     with tm.span("diffusion"):
