@@ -95,6 +95,10 @@ def instrument_denoiser(tt, host, tm: Timer):
     tm.wrap(dm.conditioning, "single", "dn.cond_single")
     tm.wrap(dm, "encoder", "dn.encoder")
     tm.wrap(dm, "transformer", "dn.dit")
+    # The token DiT rebuilds its 24 per-head pair biases from `z_cond` on every call, and
+    # `z_cond` is the tensor the rollout hoist already established is t- and batch-invariant.
+    # Split the build out of `dn.dit` so the share is measured rather than argued.
+    tm.wrap(dm.transformer, "bias", "dn.dit_bias")
     tm.wrap(dm, "decoder", "dn.decoder")
     tm.wrap(dm, "process_s", "dn.process_s")
     tm.wrap(host, "step_inputs", "dn.step_inputs_host")
