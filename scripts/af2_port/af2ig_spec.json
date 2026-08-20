@@ -29,12 +29,19 @@
     "extra_msa": {"rows": 1, "mask": "all zero", "channels": 64, "feat_width": 25, "blocks": 4, "col_attn": "global, 8 heads x 8"},
     "evoformer": {"blocks": 48, "msa_row_attn": "8 x 32 + pair bias (feat_2d_norm, feat_2d_weights 128x8)", "msa_col_attn": "8 x 32", "msa_transition": [256, 1024, 256], "opm": [256, 32, 32, 128], "trimul_hidden": 128, "tri_att": "4 x 32 (feat_2d_weights 128x4)", "pair_transition": [128, 512, 128]},
     "template": {"embedding2d": [88, 64], "pair_stack_blocks": 2, "pair_stack_channels": 64, "pair_stack_tri_att": "4 x 16", "pair_stack_transition_factor": 2, "pointwise_attention": {"q": [128, 4, 16], "kv": [64, 4, 16], "gating": false, "out": [4, 16, 128]}, "single_embedding": [57, 256], "projection": [256, 256], "dgram_bins": 39, "dgram_min": 3.25, "dgram_max": 50.75, "use_template_unit_vector": false},
-    "recycling_dgram": {"bins": 39, "min": 3.25, "max": 50.75},
+    "recycling_dgram": {"bins": 15, "min": 3.25, "max": 20.75, "source": "config.py:230-234; prev_pos_linear//weights is [15,128] in params_model_1_ptm.npz. NOT the template dgram, which is 39 bins to 50.75"},
     "relpos_max_relative_feature": 32,
     "structure_module": {"num_layer": 8, "shared_weights": true, "num_channel": 384, "num_head": 12, "num_scalar_qk": 16, "num_scalar_v": 16, "num_point_qk": 4, "num_point_v": 8, "position_scale": 10.0, "num_layer_in_transition": 3, "sidechain_channels": 128, "sidechain_residual_blocks": 2, "output_projection_in": 2112},
     "heads": {"predicted_lddt": {"norm": 384, "layers": [384, 128, 128, 50]}, "predicted_aligned_error": {"in": 128, "bins": 64, "max_error_bin": 31}},
     "transitions_are_relu_not_swiglu": true,
-    "trimul_and_triatt_have_biases": true
+    "trimul_and_triatt_have_biases": true,
+    "trimul_branch": "fused. fuse_projection_weights is True at every site (config.py:205,213,283,291), and ColabDesign concatenates the checkpoint's left_*/right_* into [left|right] at load (utils.py::flat_params_to_haiku, fuse=True), renaming layer_norm_input->left_norm_input and center_layer_norm->center_norm",
+    "trimul_incoming_swaps_left_and_right": "AF2 incoming is einsum('kjc,kic->ijc', left, right), so a=right and b=left (modules.py:990-992). tt-bio's first p_in half is a",
+    "opm_divides_bias_too": "act /= 1e-3 + norm applies to output_b as well (modules.py:1181-1183), so OuterProductMean(scale_bias=True), epsilon 1e-3",
+    "triatt_pair_bias_is_unscaled": "q is pre-scaled by key_dim**-0.5 and the bias is added raw (modules.py:357-362), so TriangleAttention(scale_pair_bias=False)",
+    "layer_norm_upcasts": "common_modules.LayerNorm casts bf16 to fp32, normalises, casts back, with use_fast_variance=True (common_modules.py:126-180). Every trunk LayerNorm runs fp32 internally even though the trunk is bf16",
+    "attention_qkv_have_no_bias": "query_w/key_w/value_w are bare hk.get_parameter; gating_b and output_b are the only attention biases (modules.py:344-402)",
+    "attention_logits_clipped": "logits are clipped to [-1e8, 1e8] before softmax (modules.py:365)"
   },
   "filters": {
     "af2_easy": {"pLDDT": [">", 0.8], "i_pTM": [">", 0.5], "i_pAE": ["<", 0.35], "bound_unbound_RMSD": ["<", 3.5]},
