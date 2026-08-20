@@ -3694,7 +3694,14 @@ class TriangleAttention(Module):
             qkv_cfg = _qkv_l1_config(x, self.qkv_weight, _dtype())
             # When the head-major projection takes the call, `qkv` is already the (q, k, v)
             # triple and no head split follows. It declines an L1 projection outright.
-            qkv = None if (qkv_cfg is not None or self.biased) else _triatt_qkv.qkv_heads(
+            #
+            # `self.biased` is NOT a condition here, and used to be. The biases RF3 carries sit on
+            # `linear_g` and `linear_o`; the qkv projection has none, in any model. This kernel
+            # replaces that projection and its head split and touches neither the gate nor the
+            # output, so gating it on `self.biased` refused the one model whose triangle attention
+            # is 31.5 % of its trunk for a property of two other matmuls. `gate_proj` below keeps
+            # the condition, because the gate bias really does sit inside its sigmoid.
+            qkv = None if qkv_cfg is not None else _triatt_qkv.qkv_heads(
                 x, self.qkv_weight, self.compute_kernel_config,
                 self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.qkv_weight),
             )

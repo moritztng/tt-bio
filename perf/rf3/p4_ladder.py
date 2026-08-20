@@ -38,6 +38,13 @@ ARMS = {
     "gln": {"hoist": False, "gln": True},
     "levers": {"hoist": True, "gln": True},
     "levers_opm": {"hoist": True, "gln": True, "opm": True},
+    # Pass 5. `p4` is everything pass 4 recommends, which is the only honest base for a pass-5
+    # lever: scoring against `base` would re-bank four levers that are already banked. `p4_aa` is
+    # the same arm again at the end, so the A/A floor is measured on the fold and not assumed --
+    # qb2's co-tenant load ran 15-28 through this pass and the effect here is 3-4 %.
+    "p4": {"hoist": True, "gln": True, "opm": True, "hifi": True, "qkv": False},
+    "p4_qkv": {"hoist": True, "gln": True, "opm": True, "hifi": True, "qkv": True},
+    "p4_aa": {"hoist": True, "gln": True, "opm": True, "hifi": True, "qkv": False},
 }
 
 
@@ -80,6 +87,7 @@ def main() -> int:
     from tt_bio.rf3 import model as rf3_model
     from tt_bio.rf3 import confidence_head as rf3_conf
     from tt_bio import tenstorrent as tts
+    from tt_bio import triatt_qkv
     from tt_bio.tenstorrent import get_device
     from perf.rf3.featcache import featurized
     from perf.rf3.tt_rf3_bench import PHASES, Timer, net_config, one_fold
@@ -125,6 +133,12 @@ def main() -> int:
         rf3_model._HOIST_ROLLOUT = cfg_arm["hoist"]
         rf3_conf._GLN_ROW_FOLD = cfg_arm["gln"]
         tts._OPM_SMALL_DEPTH = cfg_arm.get("opm", False)
+        # Absent keys leave the module default (and so the env flag) alone, so every pre-pass-5
+        # arm above measures exactly what it measured before.
+        if "hifi" in cfg_arm:
+            tts._TRIATT_FUSED_HIFI = cfg_arm["hifi"]
+        if "qkv" in cfg_arm:
+            triatt_qkv._ENABLED = cfg_arm["qkv"]
         reps = []
         failed = None
         for rep in range(args.reps):
