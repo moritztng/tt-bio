@@ -65,6 +65,15 @@ WALLS = []
 _sample = RFD3Sampler.sample
 
 
+def _ttnn_version():
+    """Provenance: this task is dispatched to qb2 and qb1, which carry different wheels."""
+    import importlib.metadata as md
+    try:
+        return md.version("ttnn")
+    except Exception:
+        return "unknown"
+
+
 def _timed(self, dm, n, *a, **k):
     t0 = time.perf_counter()
     out = _sample(self, dm, n, *a, **k)
@@ -185,7 +194,7 @@ def main():
         "verdict": verdict, "all_valid": all_valid,
         "h200_b8_amortised_s": 12.974,
         "ratio_to_h200_b8": (b2 / 12.974) if b2 else None,
-        "host": "qb2", "card": CARD,
+        "host": os.uname().nodename, "ttnn": _ttnn_version(), "card": CARD,
     }, indent=2))
 
 

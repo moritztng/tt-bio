@@ -46,6 +46,15 @@ STEPS = 200
 SCALE = DH ** -0.5
 
 
+def _ttnn_version():
+    """Provenance: this task is dispatched to qb2 and qb1, which carry different wheels."""
+    import importlib.metadata as md
+    try:
+        return md.version("ttnn")
+    except Exception:
+        return "unknown"
+
+
 def timeit(fn, dev, n=N, warm=2):
     for _ in range(warm):
         fn()
@@ -157,7 +166,7 @@ def main():
         "sparse_saved_ms_per_step": sp_step, "sparse_saved_s_per_design": sp_design,
         "sdpa_saved_ms_per_step": sd_step, "sdpa_saved_s_per_design": sd_design,
         "sdpa_error": sdpa_err,
-        "host": "qb2", "card": int(os.environ.get("TT_VISIBLE_DEVICES", "1")),
+        "host": os.uname().nodename, "ttnn": _ttnn_version(), "card": int(os.environ.get("TT_VISIBLE_DEVICES", "1")),
     }, indent=2))
 
 
