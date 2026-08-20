@@ -196,13 +196,14 @@ class AF2PairBlock(Module):
     #: `(download, upload, twins)`, the bridge a substituted op crosses.
     host_ops: tuple | None = None
 
-    #: True routes every residual add through float32 so the bfloat16 result rounds ties to even,
-    #: which is what torch and JAX do. `ttnn.add` breaks them away from zero and its bfloat16
-    #: datapath is narrower than float32, so it disagrees with the reference on 11.2% of elements
-    #: at equal operand magnitudes -- 1 ulp each, 9 adds per Evoformer block, 432 over the stack
-    #: (`scripts/af2_port/residual_add_probe.py`). Off by default: it costs three extra
-    #: elementwise passes per add and the trunk has not been re-timed with it.
-    rne_residual = False
+    #: Route every residual add through float32 so the bfloat16 result rounds ties to even, which
+    #: is what torch and JAX do. `ttnn.add` breaks them away from zero and its bfloat16 datapath
+    #: is narrower than float32, so it disagrees with the reference on 11.2% of elements at equal
+    #: operand magnitudes -- 1 ulp each, 9 adds per Evoformer block, 432 over the stack
+    #: (`scripts/af2_port/residual_add_probe.py`). On by default because it is the whole of this
+    #: trunk's error growth: it takes the four-recycle device leg from 52 failed taps of 94 and
+    #: 0.084555 of i_pTM to 9 and 0.002605, and costs 0.42 s over four trunk passes.
+    rne_residual = True
 
     def _residual(self, x: ttnn.Tensor, update: ttnn.Tensor) -> ttnn.Tensor:
         """`x + update`, and it owns `update`.

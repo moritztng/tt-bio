@@ -315,7 +315,7 @@ def run_arm(state, feats: dict, prev: dict, *, template: bool, dtype: torch.dtyp
             substitute: str | None = None,
             extra_msa_host: bool = False,
             tie_away: bool = False,
-            rne_residual: bool = False) -> tuple[dict, dict]:
+            rne_residual: bool = True) -> tuple[dict, dict]:
     """One precision realisation of the model: its collected taps and its last pass's output."""
     from tt_bio.af2_reference import load_af2_model, run_recycles
 
@@ -373,9 +373,9 @@ def main() -> int:
     ap.add_argument("--substitute", default=None,
                     help="run one op class in host torch inside the otherwise-on-card Evoformer "
                          "blocks; `all` is the control. See tt_bio.af2.SUBSTITUTION_CLASSES")
-    ap.add_argument("--rne-residual", action="store_true",
-                    help="route the device trunk's residual adds through float32 so they round "
-                         "the way the reference does")
+    ap.add_argument("--ttnn-residual", action="store_true",
+                    help="leave the device trunk's residual adds on `ttnn.add_`, which rounds "
+                         "bfloat16 ties away from zero where the reference rounds to even")
     ap.add_argument("--tie-away-adds", action="store_true",
                     help="round the torch trunk's residual adds the way the card does; isolates "
                          "the bfloat16 tie-breaking rule and nothing else")
@@ -418,7 +418,7 @@ def main() -> int:
                          substitute=args.substitute,
                          extra_msa_host=args.extra_msa_host,
                          tie_away=args.tie_away_adds,
-                         rne_residual=args.rne_residual)
+                         rne_residual=not args.ttnn_residual)
     if args.drop_tap:
         taps.values.pop(args.drop_tap, None)
 
@@ -529,7 +529,7 @@ def main() -> int:
         "substitute": args.substitute,
         "extra_msa_host": args.extra_msa_host,
         "tie_away_adds": args.tie_away_adds,
-        "rne_residual": args.rne_residual,
+        "rne_residual": not args.ttnn_residual,
         "bf16_norm_affine": args.bf16_norm_affine,
         "template_cached": not args.no_template_cache,
         "verdict": verdict,
