@@ -5601,9 +5601,9 @@ class OuterProductMean(Module):
             z = ttnn.reshape(z, (rows, C * D, J))
             z = ttnn.to_layout(z, ttnn.TILE_LAYOUT)
             z = ttnn.permute(z, (0, 2, 1))
-            # `n_msa` is a float, not the row count: AF2 divides by `eps + norm`, and at
-            # an all-ones mask that is `depth + 1e-3` everywhere. Passing the integer
-            # depth is a systematic 5e-4 relative high on every output.
+            # `n_msa` is a float so a caller can divide by something other than the row
+            # count. AF2 wants `eps + norm`, which at an all-ones bfloat16 mask rounds
+            # back to the depth, so it passes None; the float is what its A/B arm uses.
             scale = 1 / (n_msa if n_msa is not None else S)
             z = ttnn.multiply_(z, scale)
             o_bias = self.o_bias

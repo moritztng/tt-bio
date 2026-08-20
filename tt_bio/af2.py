@@ -2,7 +2,7 @@
 
 Everything AF2 shares with the four models already in `tenstorrent.py` -- the triangle
 multiplication, the triangle attention, the outer product mean -- is that module's class, driven
-through its constructor flags. What lives here is the two things AF2 does differently:
+through its constructor flags. What lives here is what AF2 does differently:
 
 * `ReluTransition`. Every other model in the repo has a SwiGLU transition; AF2 has LayerNorm,
   linear, ReLU, linear. One caller, so it does not belong on a hot shared file.
@@ -11,6 +11,11 @@ through its constructor flags. What lives here is the two things AF2 does differ
   that class needs three new constructor hooks (transition class, transition scope, bias
   plumbing) on a class four other models run through, and the reuse would end at the MSA track,
   which `PairformerLayer` does not model at all.
+* `AF2Attention`. The MSA track's two attention users in one class. Its row variant is the
+  shared `TriangleAttention` with the bias taken from a second tensor through a second
+  LayerNorm, and its column variant softmaxes over the MSA depth, which needs a compute kernel
+  config the shared fp32-softmax helper does not pass.
+* `AF2EvoformerBlock`. `AF2PairBlock` plus the MSA track and the outer product mean.
 
 The reference is `tt_bio/af2_reference.py`, scored against a captured JAX run by
 `scripts/af2_port/tap_gate.py`. This file is scored against the reference's own activations by
@@ -25,14 +30,19 @@ difference resolved first.
 """
 from __future__ import annotations
 
+import torch
 import ttnn
 
 from .tenstorrent import (
     PAIR_ROW_BLOCK,
     Module,
+    OuterProductMean,
     TriangleAttention,
     TriangleMultiplication,
     Weights,
+    _fp32_softmax_attention,
+    _pair_bias_from_z,
+    batched_matmul,
     get_device,
 )
 
@@ -43,6 +53,12 @@ TRI_MUL_HIDDEN = 128
 TRI_ATT_HEADS = 4
 TRI_ATT_HEAD_DIM = 32
 PAIR_TRANSITION_FACTOR = 4
+MSA_ATT_HEADS = 8
+MSA_ATT_HEAD_DIM = 32
+
+# Row-block the MSA row attentions pair bias once LN(pair) would be the biggest tensor in the
+# block. It is 11 MB at 208 tokens and 184 MB at 848, and the norm is row-local.
+PAIR_BIAS_ROWBLOCK_BYTES = 128 * 2 ** 20
 
 # Row-block the transition once its hidden activation would be the biggest tensor in the block.
 # `factor` is 4, so the hidden is 4 pair tensors; at 208 tokens that is 88 MB and fits, and the
@@ -169,3 +185,175 @@ class AF2PairBlock(Module):
             z = ttnn.add_(z, update)
             ttnn.deallocate(update)
         return z
+class AF2Attention(Module):
+    """AF2's MSA attention: row-wise with a pair bias, and column-wise, in one class.
+
+    Both are `af2_reference.Attention` with a LayerNorm in front, and the two flags are exactly
+    what the reference's two subclasses differ by:
+
+    * `pair_bias` adds `linear(pair_norm(z))` to the logits. That is the only thing separating
+      the row variant from the shared `TriangleAttention` -- its bias comes from a second tensor
+      through a second LayerNorm instead of from its own input -- and it is why this class exists
+      rather than a `bias_from=` hook on a class four other models run through.
+    * `column` attends over the MSA depth axis instead of the residue axis.
+
+    The softmax is the one place the two paths genuinely differ. The row softmax is L wide and
+    takes `_fp32_softmax_attention` with the bias RAW (`bias_scale_inv=1.0`): AF2 scales q by
+    `key_dim**-0.5` and adds the bias unscaled, so a raw bias handed to the fused SDPA arrives
+    sqrt(32) = 5.66x too flat. The column softmax is only as wide as the MSA is deep, so its
+    exp-sum sits in (1, depth] -- the regime where `ttnn.softmax` called without a compute kernel
+    config loses up to 2.9e-2, and `_fp32_softmax_attention` passes none. The column path
+    therefore writes its four ops out here with the config attached: 4.9e-4 instead of 2.9e-2 on
+    a probability, measured by `scripts/af2_port/softmax_ckc_probe.py`. Fixing the shared helper
+    instead would move shipped numbers on Boltz-2, Protenix-v2, OpenFold3 and ESMFold2.
+
+    `msa_mask` is all ones for every fold this port serves, so AF2s `1e9 * (msa_mask - 1)` logit
+    bias is identically zero and is not built. ttnn masks its own tile padding, so a sequence
+    length that is not a multiple of 32 needs no mask either (measured: an explicit -1e9 fill is
+    bit-identical).
+    """
+
+    def __init__(
+        self,
+        state_dict: Weights,
+        compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+        n_heads: int = MSA_ATT_HEADS,
+        head_dim: int = MSA_ATT_HEAD_DIM,
+        pair_bias: bool = False,
+        column: bool = False,
+    ):
+        super().__init__(state_dict, compute_kernel_config)
+        self.n_heads = n_heads
+        self.head_dim = head_dim
+        self.pair_bias = pair_bias
+        self.column = column
+        self.scale_inv = head_dim**-0.5
+        self.norm_weight = self.torch_to_tt("layer_norm.weight")
+        self.norm_bias = self.torch_to_tt("layer_norm.bias")
+        # One fused q/k/v weight, as `TriangleAttention.__init__` builds it. AF2s q/k/v are
+        # `Projection`, so there is no bias to fuse. The key names the first of the three; the
+        # transform argument is unused because the weight is a concatenation of all three.
+        self.qkv_weight = self.torch_to_tt(
+            "linear_q.weight",
+            lambda _: torch.cat([self.weights[f"linear_{p}.weight"] for p in "qkv"], dim=0).t(),
+        )
+        self.g_weight = self.torch_to_tt("linear_g.weight")
+        self.g_bias = self.torch_to_tt("linear_g.bias")
+        self.o_weight = self.torch_to_tt("linear_o.weight")
+        self.o_bias = self.torch_to_tt("linear_o.bias")
+        if pair_bias:
+            self.pair_norm_weight = self.torch_to_tt("pair_norm.weight")
+            self.pair_norm_bias = self.torch_to_tt("pair_norm.bias")
+            # No sqrt(head_dim) pre-scale, which is `TriangleAttention`s own
+            # `scale_pair_bias=False`: AF2 adds the bias raw.
+            self.bias_weight = self.torch_to_tt("linear.weight")
+
+    def _bias(self, z: ttnn.Tensor) -> ttnn.Tensor:
+        if len(z.shape) == 4:
+            z = ttnn.reshape(z, tuple(z.shape)[1:])
+        rows, cols, channels = (int(d) for d in z.shape)
+        chunk = (None if rows * cols * channels * 2 <= PAIR_BIAS_ROWBLOCK_BYTES
+                 else PAIR_ROW_BLOCK)
+        return _pair_bias_from_z(z, self.pair_norm_weight, self.pair_norm_bias, self.bias_weight,
+                                 self.compute_kernel_config, chunk)
+
+    def _attend(self, q: ttnn.Tensor, k: ttnn.Tensor, v: ttnn.Tensor,
+                bias: ttnn.Tensor | None) -> ttnn.Tensor:
+        if bias is not None:
+            out = _fp32_softmax_attention(
+                q, k, v, bias, scale_inv=self.scale_inv,
+                compute_kernel_config=self.compute_kernel_config,
+                out_dtype=ttnn.bfloat16, bias_scale_inv=1.0)
+        else:
+            kt = ttnn.permute(k, (0, 1, 3, 2))
+            scores = batched_matmul(q, kt, compute_kernel_config=self.compute_kernel_config)
+            ttnn.deallocate(kt)
+            scores = ttnn.multiply_(scores, self.scale_inv)
+            probs = ttnn.softmax(scores, dim=-1,
+                                 compute_kernel_config=self.compute_kernel_config)
+            ttnn.deallocate(scores)
+            out = batched_matmul(probs, v, compute_kernel_config=self.compute_kernel_config,
+                                 dtype=ttnn.bfloat16)
+            ttnn.deallocate(probs)
+        for t in (q, k, v):
+            ttnn.deallocate(t)
+        return out
+
+    def __call__(self, msa: ttnn.Tensor, pair: ttnn.Tensor | None = None,
+                 msa_mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
+        assert (pair is not None) == self.pair_bias, "pair_bias and the pair argument disagree"
+        assert msa_mask is None, "a masked AF2 MSA is not wired up; see the class docstring"
+        if len(msa.shape) == 4:
+            msa = ttnn.reshape(msa, tuple(msa.shape)[1:])
+        if self.column:
+            msa = ttnn.permute(msa, (1, 0, 2))
+        x = ttnn.layer_norm(
+            msa, weight=self.norm_weight, bias=self.norm_bias, epsilon=1e-5,
+            compute_kernel_config=self.compute_kernel_config,
+            memory_config=ttnn.DRAM_MEMORY_CONFIG,
+        )
+        if self.column:
+            ttnn.deallocate(msa)  # the permutes own copy, not the callers tensor
+        qkv = self._lin(x, self.qkv_weight, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        out = self._attend(*self._split_heads(qkv, self.n_heads),
+                           self._bias(pair) if self.pair_bias else None)
+        out = self._merge_heads(out)
+        gate = self._lin(x, self.g_weight, bias=self.g_bias,
+                         memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        ttnn.deallocate(x)
+        out = ttnn.multiply_(out, gate, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+        ttnn.deallocate(gate)
+        projected = self._lin(out, self.o_weight, bias=self.o_bias,
+                              memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        ttnn.deallocate(out)
+        if self.column:
+            transposed = ttnn.permute(projected, (1, 0, 2))
+            ttnn.deallocate(projected)
+            projected = transposed
+        return projected
+
+
+class AF2EvoformerBlock(AF2PairBlock):
+    """One `EvoformerIteration`: the MSA track, the outer product mean, then the pair track.
+
+    Subclasses `AF2PairBlock` for the reason the reference subclasses too. The checkpoint remap
+    makes `evoformer.0.tri_mul_out` and `evoformer.0.opm` siblings, so a flat scope is the
+    checkpoints own layout, and `outer_product_mean.first` is False so the MSA track runs first.
+    """
+
+    def __init__(self, state_dict: Weights,
+                 compute_kernel_config: ttnn.DeviceComputeKernelConfig, **kwargs):
+        super().__init__(state_dict, compute_kernel_config, **kwargs)
+        self.msa_row_attn = AF2Attention(
+            self.scope("msa_row_attn"), compute_kernel_config, pair_bias=True)
+        self.msa_col_attn = AF2Attention(
+            self.scope("msa_col_attn"), compute_kernel_config, column=True)
+        self.msa_transition = ReluTransition(
+            self.scope("msa_transition"), compute_kernel_config)
+        # `scale_bias=True` puts the proj_o bias inside the division by the pair norm, which is
+        # AF2s own semantics.
+        self.opm = OuterProductMean(
+            self.scope("opm"), compute_kernel_config, scale_bias=True)
+
+    def _msa_track(self, msa: ttnn.Tensor, pair: ttnn.Tensor) -> ttnn.Tensor:
+        for module in (self.msa_row_attn, self.msa_col_attn, self.msa_transition):
+            update = module(msa, pair) if module is self.msa_row_attn else module(msa)
+            msa = ttnn.add_(msa, update)
+            ttnn.deallocate(update)
+        return msa
+
+    def __call__(self, msa: ttnn.Tensor, z: ttnn.Tensor,
+                 msa_mask: ttnn.Tensor | None = None, mask: ttnn.Tensor | None = None,
+                 attn_mask: ttnn.Tensor | None = None) -> tuple[ttnn.Tensor, ttnn.Tensor]:
+        assert msa_mask is None, "a masked AF2 MSA is not wired up; see AF2Attention"
+        msa = self._msa_track(msa, z)
+        # AF2 divides the outer product mean by `eps + norm`, and at an all-ones mask the norm
+        # is the MSA depth everywhere. `eps` is 1e-3 and the trunk is bfloat16, whose spacing at
+        # 2.0 is 0.0078, so `eps + norm` rounds back to the depth exactly -- at any depth, since
+        # the spacing scales with the value. Adding it anyway measures 1.7x worse on card at
+        # Evoformer 0 and 47 (`device_gate.py --opm-eps 1e-3`). `None` reads the depth off the
+        # tensor, which is that divisor.
+        update = self.opm(msa, None)
+        z = ttnn.add_(z, update)
+        ttnn.deallocate(update)
+        return msa, super().__call__(z, mask, attn_mask)
