@@ -7,8 +7,10 @@ and the fold falls back to the stock op reading a mask padded out again. `TT_BIO
 offers those wider dividing `k_chunk`s, widest first, with today's pick last.
 
 Off by default. Turning it on changes the online-softmax reduction order, so it is **not
-bit-exact**, which is why it is gated the same way `--fast` is (see
-[boltz2-fast-parity.md](boltz2-fast-parity.md)) rather than flipped silently.
+bit-exact**. It is gated on evidence rather than flipped silently, like `--fast`
+(see [boltz2-fast-parity.md](boltz2-fast-parity.md)), but it does not inherit `--fast`s argument:
+the models `--fast` was accepted on are nondeterministic at a fixed seed and this path is not.
+See Accuracy below.
 
 ## Which sizes it touches
 
@@ -30,8 +32,38 @@ attention, so none of those four is affected either way.
 
 ## Performance
 
-Op level, qb1 card 3 (Blackhole p150a, 13x10), h=8 d=32, batch=seq, arms interleaved, median of
-three blocks of three (`perf/sdpa_widek/out_qfix/`):
+Op level, qb1 card 3 (Blackhole p150a, 13x10), batch=seq, arms interleaved, median of three blocks
+of three (`perf/sdpa_widek/out_qfix/`). Measured at all three head counts the shipped models use,
+since each is a different model:
+
+| padded | Boltz-2 / BoltzGen (h=4) | Protenix-v2 (h=8) | OpenDDE (h=12) |
+|--:|--:|--:|--:|
+| 288 | not reachable | 2.83x | 3.01x |
+| 352 | not reachable | 2.23x | not measured |
+| 416 | not reachable | 3.34x | not measured |
+| 704 | **3.41x** | 2.45x | 3.51x |
+| 832 | **1.33x** | 1.27x | 1.32x |
+| 864 | not reachable | 4.39x | 4.01x |
+| 1056 | not reachable | 1.28x | not measured |
+| 1088, 1216, 1472 | bit-exact | bit-exact | bit-exact |
+| 1248 | not reachable | 1.01x, numerics change | not measured |
+| 544, 608, 736, 928, 992, 1184, 1312, 1376, 1504 | not reachable | bit-exact | not measured |
+
+The speedup tracks the padded length, not the model: 832 reads 1.33 / 1.27 / 1.32 across the three
+head counts, 704 reads 3.41 / 2.45 / 3.51, and the numerical perturbation matches to five digits
+(rmsd/std 0.017081 / 0.017083 / 0.017083 at 832). Heads are the batch dimension of this SDPA, which
+is what the mechanism predicts.
+
+**Boltz-2 and BoltzGen have the smallest blast radius of the affected models.** Their 64-multiple
+token pad can only present five of the twenty firing lengths, and only two of those five gain, 704
+and 832. At 1088, 1216 and 1472 the ladder falls through and the arms are `torch.equal`.
+
+**Padded 1248 changes numerics for nothing.** It accepts q416/k416 on the stock op and reads 1.0090x,
+inside the instrument's own floor. Documented rather than allow-listed out: a hard-coded length list
+would be calibrated on this 13x10 grid alone, and that is how the reblock_permute lever became a
+0.62x loss on the other part.
+
+Per-length h=8 detail:
 
 | padded | default pick | wide-k pick | speedup |
 |--:|---|---|--:|
@@ -92,9 +124,28 @@ reason the flag is opt-in rather than the default. Reproduce with `perf/sdpa_wid
 legs, asserts out of each worker process which pair it actually served) then
 `perf/sdpa_widek/widek_fold_score.py`.
 
-## Why it is still opt-in
+## Should it be the default?
 
-The envelope above covers one model at one affected length. The lever is neutral by construction
-everywhere it does not fire, and where it does fire it has now been measured safe on this cell, but
-Boltz-2, BoltzGen and OpenDDE have not been folded under it, and 832's 1.27x is the one op-level win
-close to the instrument floor. Default-ON needs those cells, not a stronger argument from these.
+Not yet, on three specific grounds rather than on caution.
+
+**The determinism floor is zero.** Protenix-v2 reproduces bit-exactly at a fixed seed today. Flipping
+this default would silently end that at seven padded lengths, so a user comparing a new run against a
+stored one would see a change with no flag to explain it. A default that alters previously
+reproducible output needs its own release-gate arm, not an inherited one.
+
+**The fold-level envelope covers one of four affected model entries.** Protenix-v2 at padded 704
+passed 3/3 seeds. Boltz-2, BoltzGen and OpenDDE have op-level wins and no fold-level accuracy arm.
+Their op numbers are strong (Boltz-2/BoltzGen 3.41x at 704) and the mechanism is shown to be
+head-count independent, but "the mechanism generalises" is not the same evidence as a fold that ran.
+
+**One length pays without being paid.** Padded 1248 changes numerics for 1.01x. A default should not
+do that anywhere, and the fix is a measurement on the other grid rather than a length list.
+
+What would change the answer: a fold-level envelope on Boltz-2 or BoltzGen at padded 704 (their
+biggest win and the smallest blast radius of any affected model, five reachable lengths of which
+three are already bit-exact), the same on OpenDDE, and a Wormhole run to check the wins are not
+13x10-specific. With those, default-ON is a two-length change for Boltz-2/BoltzGen and defensible.
+
+Until then the flag is the honest surface: opt in, get 1.1x on a Protenix-v2 trunk and up to 4.4x on
+the op, and accept a 0.15 A structural change you can measure and a reproducibility break you cannot
+un-see.
