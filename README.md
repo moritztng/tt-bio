@@ -418,6 +418,9 @@ For affinity targets, the same `results.json` entry also contains:
 - `affinity_pred_value`: Predicted binding affinity as log10(IC50) in μM. Use for ligand optimization (lower = stronger binding). Only compare between known active molecules
 - `affinity_pred_value1`, `affinity_pred_value2`: Individual model predictions for binding affinity
 - `affinity_probability_binary1`, `affinity_probability_binary2`: Individual model predictions for binding probability
+- `runtime_s`: Wall-clock seconds for the whole target, structure and affinity together. Affinity
+  targets also carry `structure_runtime_s` and `affinity_runtime_s`; the affinity leg is normally the
+  larger of the two by several times, so read the split before pricing a screen
 
 ## Advanced Usage
 
