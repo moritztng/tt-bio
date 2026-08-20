@@ -1,4 +1,4 @@
-"""The Nesso-1 port's de-hardcodes must not move Boltz-2.
+"""Nesso-1 port: the de-hardcodes must not move Boltz-2, and bad input must fail loudly.
 
 ``tt_bio/nesso1.py`` reuses Boltz-2's ``AtomEncoder``, ``InputEmbedder`` and
 ``AffinityHeadsTransformer``, which needed three new keyword arguments: Nesso-1's
@@ -173,3 +173,35 @@ def test_input_embedder_without_msa_profile_drops_the_module():
     emb = new.InputEmbedder(**CFG, use_msa_profile=False)
     assert not hasattr(emb, "msa_profile_encoding")
     assert not any("msa_profile" in k for k in emb.state_dict())
+
+
+def test_unknown_residue_code_raises_instead_of_degrading_to_unk():
+    """Upstream maps any unmapped one-letter code to UNK with no warning.
+
+    The map covers all 26 letters plus '-', and X already means "unknown residue",
+    so a miss is always an input error: lowercase, a digit, whitespace. Silently
+    substituting UNK turns a typo into a confident prediction on a different
+    sequence.
+    """
+    from tt_bio._vendor.nesso.data.yaml_input import _protein_residues
+
+    for seq, offender in (("ACDxG", "x"), ("ACD1G", "1"), ("ACD G", " ")):
+        with pytest.raises(ValueError, match="unrecognized residue code"):
+            _protein_residues(seq, None, ccd_dict={})
+        # and the message names the offending character, not just its position
+        try:
+            _protein_residues(seq, None, ccd_dict={})
+        except ValueError as exc:
+            assert repr(offender) in str(exc)
+
+
+def test_x_and_gap_are_still_accepted():
+    """X is a legitimate unknown residue and '-' a legitimate gap."""
+    from tt_bio._vendor.nesso.data import const
+    from tt_bio._vendor.nesso.data.yaml_input import _protein_residues
+
+    for c in ("X", "-"):
+        assert c in const.prot_letter_to_token
+    # validation happens before any RDKit lookup, so getting past it means accepted
+    with pytest.raises(FileNotFoundError):
+        _protein_residues("ACDX-G", None, ccd_dict={})

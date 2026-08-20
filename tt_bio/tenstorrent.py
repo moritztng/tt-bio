@@ -6033,6 +6033,18 @@ class TorchWrapper(nn.Module):
             self._deallocate_tensor_like(value)
         self._runtime_cache.clear()
 
+    def invalidate_masks(self):
+        """Drop the cached masks so the next forward rebuilds them.
+
+        Masks are cached on the first forward and reused, which is right for a model
+        whose token count is fixed for the run. Nesso-1's is not: it crops to the
+        pocket after the first trunk pass, so the remaining recycles run at a
+        different N with a different pad mask. Call this whenever the mask or the
+        sequence length changes between two forwards of the same module.
+        """
+        self._clear_runtime_cache()
+        self._first_forward_pass = True
+
     def _load_from_state_dict(self, state_dict, prefix, _local_metadata, _strict, _missing_keys, _unexpected_keys, _error_msgs):
         self.module = self._create_module(WeightScope.wrap(state_dict).child(prefix[:-1]))
 

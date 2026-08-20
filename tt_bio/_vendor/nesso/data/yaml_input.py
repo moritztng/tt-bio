@@ -164,10 +164,21 @@ def _protein_residues(
     ccd_dict: dict[str, Chem.Mol] | None = None,
 ) -> tuple[int, list[dict[str, Any]]]:
     cmap = const.prot_letter_to_token
-    unk = const.unk_token["PROTEIN"]
     mol_type = const.chain_type_ids["PROTEIN"]
+    # Upstream falls back to UNK for anything not in the map, which silently turns a
+    # typo into a real prediction on a different sequence. The map already covers all
+    # 26 letters plus '-', and X is a legitimate unknown residue, so a miss here is
+    # always an input error -- lowercase, a digit, whitespace, a gap character.
+    bad = sorted({c for c in raw_seq if c not in cmap})
+    if bad:
+        first = next(i for i, c in enumerate(raw_seq) if c in bad)
+        raise ValueError(
+            f"protein sequence has {len(bad)} unrecognized residue code(s) "
+            f"{bad!r}, first at position {first}. Use the 20 standard one-letter "
+            f"codes, X for an unknown residue, or '-' for a gap."
+        )
     residues = [
-        _standard_residue(cmap.get(c, unk), mol_dir, j, ccd_dict=ccd_dict)
+        _standard_residue(cmap[c], mol_dir, j, ccd_dict=ccd_dict)
         for j, c in enumerate(raw_seq)
     ]
     return mol_type, residues

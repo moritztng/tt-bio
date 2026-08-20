@@ -37,6 +37,7 @@ from tt_bio.boltz2 import (
     PairwiseConditioning,
     RelativePositionEncoder,
     init,
+    tenstorrent,
 )
 from tt_bio.reference import PairformerNoSeqModule
 
@@ -133,6 +134,25 @@ def compute_distogram_entropy(
 # ---------------------------------------------------------------------------
 
 
+def _pairformer(use_tenstorrent: bool, fp32: bool, token_z: int, args: dict):
+    """The pair-only pairformer, on host or on device.
+
+    ``transform_s=False`` with ``affinity=True`` IS the no-seq pairformer: the affinity
+    flag selects the cross-chain ``pair_mask`` path over a 1D token mask, which is what
+    both of Nesso-1's stacks want. ``Fp32PairformerModule`` takes ``pair_mask`` directly
+    and needs no such flag.
+    """
+    if not use_tenstorrent:
+        return PairformerNoSeqModule(token_z, **args)
+    if fp32:
+        return tenstorrent.Fp32PairformerModule(
+            args["num_blocks"], 32, 4, None, None, False
+        )
+    return tenstorrent.PairformerModule(
+        args["num_blocks"], 32, 4, None, None, False, affinity=True
+    )
+
+
 class ESMModule(nn.Module):
     """Fold the ESM-2 sequence embedding into the pair track.
 
@@ -205,6 +225,8 @@ class AffinityModule(nn.Module):
         num_dist_bins: int = 64,
         max_dist: float = 22.0,
         esm_embed_dim: int = 1280,
+        use_tenstorrent: bool = False,
+        fp32: bool = True,
         **kwargs,
     ) -> None:
         super().__init__()
@@ -232,7 +254,10 @@ class AffinityModule(nn.Module):
             num_transitions=2,
         )
 
-        self.pairformer_stack = PairformerNoSeqModule(token_z, **pairformer_args)
+        self.pairformer_stack = _pairformer(
+            use_tenstorrent, fp32, token_z, pairformer_args
+        )
+        self.use_tenstorrent = use_tenstorrent
 
         self.affinity_heads = AffinityHeadsTransformer(
             token_z=token_z,
@@ -279,7 +304,12 @@ class AffinityModule(nn.Module):
             + lig_mask[:, :, None] * lig_mask[:, None, :]
         )
 
-        z = self.pairformer_stack(z, pair_mask=cross_pair_mask, use_kernels=use_kernels)
+        if self.use_tenstorrent:
+            _, z = self.pairformer_stack(None, z, pair_mask=cross_pair_mask)
+        else:
+            z = self.pairformer_stack(
+                z, pair_mask=cross_pair_mask, use_kernels=use_kernels
+            )
         return self.affinity_heads(z=z, feats=feats)
 
 
@@ -310,10 +340,14 @@ class Nesso1(nn.Module):
         affinity_prediction: bool = False,
         affinity_model_args: Optional[dict[str, Any]] = None,
         affinity_model_args2: Optional[dict[str, Any]] = None,
+        use_tenstorrent: bool = False,
+        trunk_fp32: bool = True,
+        affinity_fp32: bool = True,
         **kwargs,
     ) -> None:
         super().__init__()
         self.predict_args = dict(predict_args or {})
+        self.use_tenstorrent = use_tenstorrent
         self.affinity_prediction = affinity_prediction
         self.use_kernels = use_kernels
         self.num_dist_bins = num_dist_bins
@@ -351,18 +385,24 @@ class Nesso1(nn.Module):
         self.esm_module = ESMModule(
             token_s=token_s, token_z=token_z, **dict(esm_module_args or {})
         )
-        self.pairformer_module = PairformerNoSeqModule(
-            token_z=token_z, **pairformer_model_args
+        self.pairformer_module = _pairformer(
+            use_tenstorrent, trunk_fp32, token_z, pairformer_model_args
         )
         self.distogram_head = Linear(token_z, num_dist_bins)
 
         if affinity_prediction:
             self.affinity_module = AffinityModule(
-                token_s=token_s, token_z=token_z, **(affinity_model_args or {})
+                token_s=token_s,
+                token_z=token_z,
+                use_tenstorrent=use_tenstorrent,
+                fp32=affinity_fp32,
+                **(affinity_model_args or {}),
             )
             self.affinity_module2 = AffinityModule(
                 token_s=token_s,
                 token_z=token_z,
+                use_tenstorrent=use_tenstorrent,
+                fp32=affinity_fp32,
                 **(affinity_model_args2 or affinity_model_args or {}),
             )
 
@@ -471,9 +511,7 @@ class Nesso1(nn.Module):
                 pair_mask=pair_mask,
                 use_kernels=self.use_kernels,
             )
-            z = self.pairformer_module(
-                z, pair_mask=pair_mask, use_kernels=self.use_kernels
-            )
+            z = self._trunk(z, mask, pair_mask)
 
             if refine_pocket and i == 0:
                 # One crop, after the first trunk pass: the remaining recycles run on
@@ -502,6 +540,10 @@ class Nesso1(nn.Module):
                 s_esm = feats["s_esm"]
                 mask = feats["token_pad_mask"].float()
                 pair_mask = mask[:, :, None] * mask[:, None, :]
+                if self.use_tenstorrent:
+                    # N just changed, so the cached device masks no longer describe
+                    # this input.
+                    self.pairformer_module.invalidate_masks()
 
         pdistogram_local = self.distogram_head(z + z.transpose(1, 2))
 
@@ -518,6 +560,14 @@ class Nesso1(nn.Module):
                 self._affinity(s_inputs, z, pdistogram_local, feats)
             )
         return dict_out
+
+    def _trunk(self, z: Tensor, mask: Tensor, pair_mask: Tensor) -> Tensor:
+        if self.use_tenstorrent:
+            _, z = self.pairformer_module(None, z, mask=mask, pair_mask=pair_mask)
+            return z
+        return self.pairformer_module(
+            z, pair_mask=pair_mask, use_kernels=self.use_kernels
+        )
 
     def _affinity(
         self,
@@ -644,6 +694,8 @@ class Nesso1(nn.Module):
         *,
         revision: str = "v1.0.0",
         cache_dir: str | Path | None = None,
+        use_tenstorrent: bool = False,
+        **model_kwargs,
     ) -> "Nesso1":
         """Load from a local directory or the ``recursionpharma/nesso`` Hub repo.
 
@@ -671,7 +723,7 @@ class Nesso1(nn.Module):
             )
 
         hparams = json.loads(Path(hparams_path).read_text())
-        model = cls(**hparams)
+        model = cls(**hparams, use_tenstorrent=use_tenstorrent, **model_kwargs)
         model.load_state_dict(load_file(str(weights_path), device="cpu"), strict=True)
         model.eval()
         return model

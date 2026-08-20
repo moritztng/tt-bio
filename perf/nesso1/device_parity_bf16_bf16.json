@@ -1,0 +1,149 @@
+{
+  "gate": "nesso1_device_parity",
+  "fixture": "tyr48",
+  "n_tokens": 61,
+  "repeats": 3,
+  "R_upstream_spread": 0.058,
+  "D_device_solo_floor": 0.0,
+  "D_device_solo_floor_key": "",
+  "X_device_vs_torch": 0.18394482135772705,
+  "X_device_vs_torch_key": "affinity_pred_value1",
+  "X_over_R": 3.1714624372021905,
+  "wall_s": {
+    "torch": 8.547852060000878,
+    "device": [
+      2.5638613939991046,
+      0.8679941490008787,
+      0.8626837470001192
+    ]
+  },
+  "scalars": [
+    {
+      "key": "affinity_pred_value",
+      "torch": 1.5524084568023682,
+      "device": [
+        1.3821742534637451,
+        1.3821742534637451,
+        1.3821742534637451
+      ],
+      "max_abs_delta_vs_torch": 0.17023420333862305,
+      "device_spread": 0.0
+    },
+    {
+      "key": "affinity_pred_value1",
+      "torch": 1.7319294214248657,
+      "device": [
+        1.5479846000671387,
+        1.5479846000671387,
+        1.5479846000671387
+      ],
+      "max_abs_delta_vs_torch": 0.18394482135772705,
+      "device_spread": 0.0
+    },
+    {
+      "key": "affinity_pred_value2",
+      "torch": 1.3728876113891602,
+      "device": [
+        1.2163640260696411,
+        1.2163640260696411,
+        1.2163640260696411
+      ],
+      "max_abs_delta_vs_torch": 0.15652358531951904,
+      "device_spread": 0.0
+    },
+    {
+      "key": "affinity_logits_binary",
+      "torch": -0.482992559671402,
+      "device": [
+        -0.6127691268920898,
+        -0.6127691268920898,
+        -0.6127691268920898
+      ],
+      "max_abs_delta_vs_torch": 0.12977656722068787,
+      "device_spread": 0.0
+    },
+    {
+      "key": "affinity_probability_binary",
+      "torch": 0.3815457224845886,
+      "device": [
+        0.3514277935028076,
+        0.3514277935028076,
+        0.3514277935028076
+      ],
+      "max_abs_delta_vs_torch": 0.030117928981781006,
+      "device_spread": 0.0
+    },
+    {
+      "key": "entropy_pp",
+      "torch": 0.5481131076812744,
+      "device": [
+        0.5287302732467651,
+        0.5287302732467651,
+        0.5287302732467651
+      ],
+      "max_abs_delta_vs_torch": 0.019382834434509277,
+      "device_spread": 0.0
+    },
+    {
+      "key": "entropy_pl",
+      "torch": 0.6867183446884155,
+      "device": [
+        0.678020179271698,
+        0.678020179271698,
+        0.678020179271698
+      ],
+      "max_abs_delta_vs_torch": 0.00869816541671753,
+      "device_spread": 0.0
+    },
+    {
+      "key": "entropy_ll",
+      "torch": 0.21018992364406586,
+      "device": [
+        0.20891506969928741,
+        0.20891506969928741,
+        0.20891506969928741
+      ],
+      "max_abs_delta_vs_torch": 0.0012748539447784424,
+      "device_spread": 0.0
+    },
+    {
+      "key": "entropy_crop_pp",
+      "torch": 0.726640522480011,
+      "device": [
+        0.7138830423355103,
+        0.7138830423355103,
+        0.7138830423355103
+      ],
+      "max_abs_delta_vs_torch": 0.012757480144500732,
+      "device_spread": 0.0
+    },
+    {
+      "key": "entropy_crop_pl",
+      "torch": 0.9056439995765686,
+      "device": [
+        0.9028767347335815,
+        0.9028767347335815,
+        0.9028767347335815
+      ],
+      "max_abs_delta_vs_torch": 0.0027672648429870605,
+      "device_spread": 0.0
+    },
+    {
+      "key": "entropy_crop_ll",
+      "torch": 0.21018992364406586,
+      "device": [
+        0.20891506969928741,
+        0.20891506969928741,
+        0.20891506969928741
+      ],
+      "max_abs_delta_vs_torch": 0.0012748539447784424,
+      "device_spread": 0.0
+    }
+  ],
+  "verdict": "FAIL",
+  "arm": {
+    "trunk": "bf16",
+    "affinity": "bf16"
+  },
+  "note": "measured before the --trunk/--affinity flags existed; arm recorded after the fact"
+}
