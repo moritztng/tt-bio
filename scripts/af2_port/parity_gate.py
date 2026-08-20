@@ -8,7 +8,8 @@ model, so it is what AF2 actually consumed). This scorer rebuilds the same fixtu
 every key bit-exact. Bit-exact is the right bar: the featurizer is integer and mask construction,
 one-hots, and a coordinate copy.
 
-The capture holds 78 arrays. 33 belong to the featurizer and are compared here. The other 45 are
+There are two captures, one per PXDesign stage. The complex capture holds 78 arrays; 33 belong
+to the featurizer and are compared here. The other 45 are
 ColabDesign design-loop state that a predict-only port never consumes, and they are enumerated
 below rather than skipped silently -- a gate that only counts the keys it recognises cannot tell a
 complete capture from a truncated one.
@@ -26,10 +27,23 @@ import numpy as np
 REPO = Path(__file__).resolve().parent.parent.parent
 FIXTURE_DIR = REPO / "scripts" / "af2_port" / "parity_artifacts" / "laczc128_b80"
 REF_NPZ = FIXTURE_DIR / "ref_inputs.npz"
+REF_MONOMER_NPZ = FIXTURE_DIR / "ref_inputs_monomer.npz"
 TARGET_CIF = REPO / "perf" / "pxdesign" / "targets" / "laczc_128.cif"
 BINDER_RESIDUES = 80
 
-# The 33 keys tt_bio.af2_data owns.
+# The 27 keys the monomer stage has: no template block is filled, no `batch`, no `rm_*`.
+MONOMER_KEYS = [
+    "aatype", "target_feat", "msa_feat", "seq_mask", "msa_mask", "msa_row_mask",
+    "atom14_atom_exists", "atom37_atom_exists",
+    "residx_atom14_to_atom37", "residx_atom37_to_atom14", "residue_index",
+    "extra_deletion_value", "extra_has_deletion", "extra_msa", "extra_msa_mask",
+    "extra_msa_row_mask", "all_atom_positions",
+    "template_aatype", "template_all_atom_mask", "template_all_atom_positions",
+    "template_mask", "template_pseudo_beta", "template_pseudo_beta_mask",
+    "asym_id", "sym_id", "entity_id", "mask_template_interchain",
+]
+
+# The 33 keys tt_bio.af2_data owns for the complex stage.
 FEATURE_KEYS = [
     "aatype", "target_feat", "msa_feat", "seq_mask", "msa_mask", "msa_row_mask",
     "atom14_atom_exists", "atom37_atom_exists",
@@ -128,24 +142,41 @@ def featurizer_parity(work_dir: str | None = None) -> dict:
     if not all(prev_ok.values()):
         mismatches.append({"key": "_initial_recycle_state", "reason": "VALUE", **prev_ok})
 
-    # The monomer stage takes no structure, so it has no capture to score against. What can be
-    # checked card-free is that its sequence block is the complex's binder block verbatim: the
-    # two stages must agree on the sequence or every RMSD between them is meaningless.
+    # The monomer stage has its own capture (protocol="hallucination", no PDB), scored the same
+    # way. On top of that the two stages must agree on the sequence, or every RMSD computed
+    # between a monomer and a complex prediction is meaningless.
     monomer = monomer_features(fixture["binder_seq"])
+    monomer_bitexact = 0
+    if REF_MONOMER_NPZ.exists():
+        ref_monomer = np.load(REF_MONOMER_NPZ)
+        for key in MONOMER_KEYS:
+            a, b = monomer.get(key), ref_monomer[key] if key in ref_monomer else None
+            if a is None or b is None:
+                mismatches.append({"key": f"monomer:{key}", "reason": "MISSING"})
+            elif a.shape != b.shape or a.dtype != b.dtype:
+                mismatches.append({"key": f"monomer:{key}", "reason": "SHAPE_OR_DTYPE",
+                                   "ported": [list(a.shape), str(a.dtype)],
+                                   "ref": [list(b.shape), str(b.dtype)]})
+            elif np.array_equal(a, b):
+                monomer_bitexact += 1
+            else:
+                mismatches.append({"key": f"monomer:{key}", "reason": "VALUE",
+                                   "pcc": _pcc(a, b)})
+    else:
+        mismatches.append({"key": "_monomer_capture", "reason": "MISSING",
+                           "path": str(REF_MONOMER_NPZ)})
+
     target_len = fixture["target_residues"]
-    monomer_ok = (np.array_equal(monomer["aatype"], got["aatype"][target_len:])
-                  and np.array_equal(monomer["msa_feat"], got["msa_feat"][:, target_len:])
-                  and np.array_equal(monomer["residue_index"],
-                                     np.arange(fixture["binder_residues"], dtype=np.int32))
-                  and monomer["template_mask"].sum() == 0)
-    if not monomer_ok:
-        mismatches.append({"key": "_monomer_consistency", "reason": "VALUE"})
+    if not (np.array_equal(monomer["aatype"], got["aatype"][target_len:])
+            and np.array_equal(monomer["msa_feat"], got["msa_feat"][:, target_len:])):
+        mismatches.append({"key": "_stages_disagree_on_sequence", "reason": "VALUE"})
 
     report = {
         "mode": "af2ig_featurizer",
-        "verdict": "PASS" if bitexact == len(FEATURE_KEYS) and not mismatches else "GAP",
-        "keys_total": len(FEATURE_KEYS),
-        "keys_bitexact": bitexact,
+        "verdict": ("PASS" if bitexact == len(FEATURE_KEYS)
+                    and monomer_bitexact == len(MONOMER_KEYS) and not mismatches else "GAP"),
+        "keys_total": len(FEATURE_KEYS) + len(MONOMER_KEYS),
+        "keys_bitexact": bitexact + monomer_bitexact,
         "mismatches": mismatches,
         "fixture": {k: v for k, v in fixture.items() if k != "target_seq"},
         "capture_arrays": len(ref.files),

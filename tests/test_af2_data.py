@@ -59,12 +59,13 @@ def features(fixture):
 
 
 def test_every_featurizer_key_is_bit_exact():
-    """The whole bar in one line, via the gate's own scorer."""
-    from parity_gate import FEATURE_KEYS, featurizer_parity
+    """The whole bar in one line, via the gate's own scorer: 33 complex keys + 27 monomer."""
+    from parity_gate import FEATURE_KEYS, MONOMER_KEYS, featurizer_parity
 
     report = featurizer_parity()
     assert report["verdict"] == "PASS", report["mismatches"]
-    assert report["keys_bitexact"] == len(FEATURE_KEYS) == 33
+    assert (len(FEATURE_KEYS), len(MONOMER_KEYS)) == (33, 27)
+    assert report["keys_bitexact"] == report["keys_total"] == 60
 
 
 def test_capture_reproduces_the_measured_production_run(ref):
@@ -177,6 +178,24 @@ def test_initial_guess_seeds_prev_pos_with_the_design(features, ref):
     assert np.array_equal(prev["prev_pos"], features["batch/all_atom_positions"])
     assert prev["prev_pair"].sum() == 0 and prev["prev_msa_first_row"].sum() == 0
     assert not initial_recycle_state(features, initial_guess=False)["prev_pos"].any()
+
+
+def test_monomer_capture_is_the_hallucination_protocol():
+    """The monomer stage is a different model, not the complex with templates off. The capture's
+    own provenance has to say so, or the 27 monomer keys are scored against the wrong thing."""
+    import json
+
+    path = (REPO / "scripts" / "af2_port" / "parity_artifacts" / "laczc128_b80"
+            / "ref_inputs_monomer.npz")
+    if not path.exists():
+        pytest.skip("committed monomer capture is absent")
+    meta = json.loads(bytes(np.load(path)["_meta/json"]).decode())
+    assert meta["stage"] == "monomer"
+    assert meta["production"]["protocol"] == "hallucination"
+    assert meta["production"]["use_templates"] is False
+    assert meta["production"]["use_initial_guess"] is False
+    assert meta["log"]["recycles"] == 3.0
+    assert meta["log"]["i_ptm"] == 0.0, "a single chain cannot have an interface pTM"
 
 
 def test_monomer_stage_is_template_free_and_structure_free(fixture, features):
