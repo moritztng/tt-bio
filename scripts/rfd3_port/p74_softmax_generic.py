@@ -43,6 +43,14 @@ SHAPES = [
     ("dit_128", (1, 16, 128, 128), 36),
     ("dit_512", (1, 16, 512, 512), 36),
     ("dit_685", (1, 16, 685, 704), 36),
+    # The atom rungs of the size ladder. `eligible()` only takes shapes that cross the factory's
+    # large-kernel trip, and solving `(3*Wt + 9) * 4096 > 0.9 * 1499136` puts that at Wt = 107,
+    # i.e. about 3400 atoms. So R0 (~1917 atoms) and R1 (~2615) fall back and cannot regress,
+    # atom_trip is the smallest shape that does take the kernel and therefore the one with the
+    # least room to win, and R2/R3/R4 are the rungs a real target hits.
+    ("atom_trip", (1, 4, 3400, 3424), 9),
+    ("atom_R2", (1, 4, 3692, 3712), 9),
+    ("atom_R3", (1, 4, 4540, 4544), 9),
     ("atom_6051", (1, 4, 6051, 6080), 9),
 ]
 
