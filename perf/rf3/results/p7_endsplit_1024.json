@@ -1,0 +1,53 @@
+{
+  "aa": 1024,
+  "tokens": 1024,
+  "reps": 5,
+  "rows": [
+    {
+      "which": "start",
+      "total_ms": 33.34278399779578,
+      "totals_ms": [
+        33.54,
+        33.2,
+        33.499,
+        32.448,
+        33.343
+      ]
+    },
+    {
+      "which": "end",
+      "total_ms": 49.47634700147319,
+      "totals_ms": [
+        49.515,
+        49.4,
+        49.541,
+        49.476,
+        49.429
+      ],
+      "bias_permute_ms": 0.068,
+      "bias_permute.shape": [
+        1,
+        4,
+        1024,
+        1024
+      ],
+      "pair_transpose.1_ms": 7.839,
+      "pair_transpose.1.dest": "DRAM",
+      "pair_transpose.1.shape": [
+        1024,
+        1024,
+        128
+      ],
+      "pair_transpose.2_ms": 7.836,
+      "pair_transpose.2.dest": "DRAM",
+      "pair_transpose.2.shape": [
+        1024,
+        1024,
+        128
+      ]
+    }
+  ],
+  "excess_end_over_start_ms": 16.13356300367741,
+  "transpose_and_bias_ms": 15.743,
+  "explained_frac": 0.9757918939797499
+}

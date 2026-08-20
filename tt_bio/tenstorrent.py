@@ -1425,11 +1425,20 @@ _PT_ROW_MAJOR = os.environ.get(
 _TRANSPOSE_L1_REFUSED: set = set()
 
 
-def _pair_transpose(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.Tensor:
-    """``permute(t, (1, 0, 2))``, through ROW_MAJOR where that wins. Bit-exact either way.
+def _pair_transpose(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig,
+                    l1_stage_reserve: int = 0) -> ttnn.Tensor:
+    """``permute(t, (1, 0, 2))``, through ROW_MAJOR or through L1 where that wins. Bit-exact.
 
     An L1 destination is asked for by `_transpose_memory_config` and can still be refused at
     the call site, so the L1 attempt falls back to DRAM rather than killing the fold.
+
+    `l1_stage_reserve` opts a caller into the third route: the permute writes L1 and the result
+    is copied to DRAM. The copy is a coalesced whole-tile move and the permute is not, which is
+    the whole point -- the scattered write is what costs, and it costs far less into L1.
+    Measured on qb2 at [768, 768, 128] bf16, torch.equal against ttnn.permute:
+    4.222 ms tiled to DRAM, 4.404 through ROW_MAJOR, **2.237 ms staged through L1**. It is a
+    separate opt-in from the L1 DESTINATION because the caller whose consumer cannot take an
+    L1 operand can still take this.
     """
     if memory_config.buffer_type == ttnn.BufferType.L1:
         key = (tuple(t.padded_shape), str(t.dtype))
@@ -1439,6 +1448,18 @@ def _pair_transpose(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.Te
             except Exception:                                                   # noqa: BLE001
                 _TRANSPOSE_L1_REFUSED.add(key)
         memory_config = ttnn.DRAM_MEMORY_CONFIG
+    if (l1_stage_reserve
+            and _l1_memory_config_if_it_fits(
+                t, 1.0, reserve_per_core=l1_stage_reserve).buffer_type == ttnn.BufferType.L1):
+        key = ("stage", tuple(t.padded_shape), str(t.dtype))
+        if key not in _TRANSPOSE_L1_REFUSED:
+            try:
+                stage = _pair_transpose_impl(t, ttnn.L1_MEMORY_CONFIG)
+                out = ttnn.to_memory_config(stage, memory_config)
+                ttnn.deallocate(stage)
+                return out
+            except Exception:                                                   # noqa: BLE001
+                _TRANSPOSE_L1_REFUSED.add(key)
     return _pair_transpose_impl(t, memory_config)
 
 
@@ -1474,7 +1495,33 @@ _TRANSPOSE_L1_HEADROOM = float(
     os.environ.get("TT_BIO_TRANSPOSE_L1_HEADROOM", str(TRANSPOSE_L1_HEADROOM)))
 
 
-def _transpose_memory_config(t: ttnn.Tensor) -> ttnn.MemoryConfig:
+# What the consumer needs on top of the transpose result is its circular buffers, and those are a
+# per-core cost that does not grow with the tensor. A multiplicative headroom prices them as a
+# fraction of it instead, so 1.25 reserves 343 KB per core on a 144 MB pair tensor and 45 KB on a
+# 20 MB one -- stingiest exactly where the tensor is largest and the L1 route worth most. This is
+# the same budget expressed the way the resource behaves, and the value is the one 1.25 was
+# validated at rather than a new guess: protenix-v2's 298 aa pair tensor is 52.4 MB, where 1.25
+# leaves 119 KB per core across 1208 transposes with no allocator refusal.
+#
+# It is an opt-in per Pairformer instance (`transpose_l1_reserve`), not a global default. The only
+# tensors whose route changes are those between budget/1.25 and budget - reserve, which on an 11x10
+# Blackhole grid is 118-147 MB, and RF3's 768 aa pair tensor at 144 MB is the one that lands there.
+# Flipping it globally would move Boltz-2, Protenix-v2, OpenFold3 and OpenDDE at their own sizes in
+# the same change; the route is bit-exact either way, but an L1 residency change is not.
+#
+# It applies to the ending variant's SECOND transpose only -- the one on the module's output, whose
+# consumer is the caller's `ttnn.add_` into the pair tensor. The first transpose is consumed by
+# `ttnn.layer_norm` over the whole [S, S, c_z] tensor, and that op's static circular buffers are
+# 274 944 B per core at 768 aa: measured, by leaving 196 608 B and getting "Statically allocated
+# circular buffers in program 599 clash with L1 buffers ... static circular buffer region ends at
+# 274944". No reserve that admits a 144 MB tensor also leaves room for it, so that site keeps the
+# multiplicative headroom and its DRAM route.
+TRANSPOSE_L1_RESERVE_PER_CORE = 128 * 1024
+_TRANSPOSE_L1_RESERVE_PER_CORE = int(
+    os.environ.get("TT_BIO_TRANSPOSE_L1_RESERVE", str(TRANSPOSE_L1_RESERVE_PER_CORE)))
+
+
+def _transpose_memory_config(t: ttnn.Tensor, reserve_per_core: int = 0) -> ttnn.MemoryConfig:
     """L1 for a pair-tensor dim0/dim1 transpose when it fits, else DRAM.
 
     ttnn's dim0/dim1 permute is a real element transpose, not a tile-block copy: tiling
@@ -1494,7 +1541,13 @@ def _transpose_memory_config(t: ttnn.Tensor) -> ttnn.MemoryConfig:
     every call and pin every tensor it ever saw for the life of the process.
     """
     # 2.5x headroom: the consumer still needs its circular buffers on every core.
-    return _l1_memory_config_if_it_fits(t, _TRANSPOSE_L1_HEADROOM)
+    mc = _l1_memory_config_if_it_fits(t, _TRANSPOSE_L1_HEADROOM)
+    if mc.buffer_type == ttnn.BufferType.L1 or not reserve_per_core:
+        return mc
+    # The caller opted into pricing those buffers per core instead of per byte; see
+    # TRANSPOSE_L1_RESERVE_PER_CORE. The allocation itself is still the real test, and
+    # `_pair_transpose` falls back to DRAM per shape class when it is refused.
+    return _l1_memory_config_if_it_fits(t, 1.0, reserve_per_core=reserve_per_core)
 
 
 def _l1_layer_norm(x: ttnn.Tensor, headroom: float, **kw):
@@ -1514,11 +1567,14 @@ def _l1_layer_norm(x: ttnn.Tensor, headroom: float, **kw):
     return ttnn.layer_norm(x, memory_config=ttnn.DRAM_MEMORY_CONFIG, **kw), False
 
 
-def _l1_memory_config_if_it_fits(t: ttnn.Tensor, headroom: float) -> ttnn.MemoryConfig:
+def _l1_memory_config_if_it_fits(t: ttnn.Tensor, headroom: float,
+                                 reserve_per_core: int = 0) -> ttnn.MemoryConfig:
     """L1 when `headroom` copies of `t` fit across the grid's banks, else DRAM.
 
     `headroom` is what the consumer needs on top of the tensor itself: its circular buffers, and
     for a producer whose result is read in place, the other operands that stay live beside it.
+    `reserve_per_core` prices that same need in bytes per core instead, for a caller whose
+    consumer's buffers do not grow with the tensor.
     """
     try:
         per_core = int(ttnn.get_max_worker_l1_unreserved_size())
@@ -1532,7 +1588,8 @@ def _l1_memory_config_if_it_fits(t: ttnn.Tensor, headroom: float) -> ttnn.Memory
         volume *= d
     volume *= ((shape[-2] + 31) // 32) * 32 * ((shape[-1] + 31) // 32) * 32
     elem = 4 if t.dtype == ttnn.float32 else 2
-    if headroom * volume * elem <= per_core * COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]:
+    cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
+    if headroom * volume * elem <= max(per_core - reserve_per_core, 0) * cores:
         return ttnn.L1_MEMORY_CONFIG
     return ttnn.DRAM_MEMORY_CONFIG
 
@@ -3329,11 +3386,16 @@ class TriangleAttention(Module):
         scale_pair_bias: bool = True,
         fp32_softmax: bool = False,
         transpose_bias: bool = True,
+        transpose_l1_reserve: int = 0,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.head_dim = head_dim
         self.n_heads = n_heads
         self.ending = ending
+        # Bytes per core to keep free when the ending variant's pair transpose asks for L1,
+        # instead of the multiplicative headroom. 0 keeps the headroom rule. See
+        # TRANSPOSE_L1_RESERVE_PER_CORE: it is what makes the 768 aa transpose L1-resident.
+        self.transpose_l1_reserve = transpose_l1_reserve
         # Whether the ending variant's pair bias is transposed along with the pair.
         # Boltz-2, Protenix-v2 and OpenFold3 transpose both, which is the default.
         # RF3 builds the bias from the UN-transposed tensor and transposes only the
@@ -3466,7 +3528,15 @@ class TriangleAttention(Module):
             dram_peak(f"tri_att({'end' if self.ending else 'start'}) bias built [z={'x'.join(str(d) for d in x.shape)}]")
         else:
             if self.ending:
-                x = _pair_transpose(x, _transpose_memory_config(x))
+                # The DESTINATION stays DRAM here: this transpose's consumer is the layer_norm
+                # below, whose static circular buffers are 274 944 B per core at 768 aa and do not
+                # fit under a pair tensor that size. Norming first instead was tried and is worse
+                # still -- an L1-resident normed x fails `_common_ok` in the head-major qkv kernel
+                # (it requires a DRAM operand), so the projection falls back to `minimal_matmul`,
+                # which inherits L1 for its own 432 MB output and dies. What DOES apply is the L1
+                # staging route inside `_pair_transpose`: same DRAM result, 1.887x.
+                x = _pair_transpose(x, _transpose_memory_config(x),
+                                    l1_stage_reserve=self.transpose_l1_reserve)
             # Explicit DRAM: for the ending variant x is the L1 transpose result
             # (_transpose_memory_config) and ttnn would otherwise inherit L1 here and again
             # for the qkv projection, whose 157 MB does not fit.
@@ -3748,7 +3818,8 @@ class TriangleAttention(Module):
             ttnn.deallocate(triangle_bias)
             x = gate_and_project(o, g)
         if self.ending:
-            x = _pair_transpose(x, _transpose_memory_config(x))
+            x = _pair_transpose(
+                x, _transpose_memory_config(x, self.transpose_l1_reserve))
         x = ttnn.reshape(x, (1, *x.shape))
         return x
 
@@ -4398,6 +4469,7 @@ class PairformerLayer(Module):
         fp32_softmax: bool = False,
         gated_move: bool = False,
         transpose_bias: bool = True,
+        transpose_l1_reserve: int = 0,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.transform_s = transform_s
@@ -4427,6 +4499,7 @@ class PairformerLayer(Module):
             scale_pair_bias=scale_pair_bias,
             fp32_softmax=fp32_softmax,
             transpose_bias=transpose_bias,
+            transpose_l1_reserve=transpose_l1_reserve,
         )
         self.transition_z = Transition(
             self.scope("transition_z"), compute_kernel_config
@@ -4511,6 +4584,7 @@ class Pairformer(Module):
         fp32_softmax: bool = False,
         gated_move: bool = False,
         transpose_bias: bool = True,
+        transpose_l1_reserve: int = 0,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.blocks = [
@@ -4527,6 +4601,7 @@ class Pairformer(Module):
                 fp32_softmax=fp32_softmax,
                 gated_move=gated_move,
                 transpose_bias=transpose_bias,
+                transpose_l1_reserve=transpose_l1_reserve,
             )
             for i in range(n_blocks)
         ]

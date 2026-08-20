@@ -1,0 +1,61 @@
+{
+  "aa": 1024,
+  "n_token": 1024,
+  "n_blocks": 48,
+  "n_recycles": 2,
+  "synced_per_recycle_s": 10.271294372500051,
+  "per_recycle_s": {
+    "trunk.process_zh": 0.00524,
+    "trunk.template": 0.36617,
+    "trunk.msa": 0.89374,
+    "trunk.process_sh": 9e-05,
+    "block.tri_mul_start": 1.48965,
+    "block.tri_mul_end": 1.48681,
+    "block.tri_att_start": 1.60457,
+    "block.tri_att_end": 2.35766,
+    "block.transition_z": 1.32573,
+    "block.attn_pair_bias": 0.28185,
+    "block.transition_s": 0.00796
+  },
+  "calls_per_recycle": {
+    "trunk.process_zh": 1,
+    "trunk.template": 1,
+    "trunk.msa": 1,
+    "trunk.process_sh": 1,
+    "block.tri_mul_start": 48,
+    "block.tri_mul_end": 48,
+    "block.tri_att_start": 48,
+    "block.tri_att_end": 48,
+    "block.transition_z": 48,
+    "block.attn_pair_bias": 48,
+    "block.transition_s": 48
+  },
+  "unattributed_s": 0.4518404644604743,
+  "per_block_ms": {
+    "block.tri_mul_start": 31.034,
+    "block.tri_mul_end": 30.975,
+    "block.tri_att_start": 33.429,
+    "block.tri_att_end": 49.118,
+    "block.transition_z": 27.619,
+    "block.attn_pair_bias": 5.872,
+    "block.transition_s": 0.166
+  },
+  "roofline": {
+    "tri_mul": {
+      "gflop": 377.957122048,
+      "contract_share": 0.7272727272727273,
+      "gbyte": 1.879048192,
+      "floor_s_square": 0.0036584756756170744,
+      "floor_s_kthin": 0.021709197130844342,
+      "floor_s_dram": 0.004266685267938238
+    },
+    "tri_att": {
+      "gflop": 687.19476736,
+      "attn_share": 0.8,
+      "gbyte": 1.610612736,
+      "floor_s_square": 0.006651773955667409,
+      "floor_s_kthin": 0.03947126751062608,
+      "floor_s_dram": 0.0036571588010899186
+    }
+  }
+}

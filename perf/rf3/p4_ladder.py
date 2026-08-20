@@ -63,7 +63,39 @@ ARMS = {
               "ditbias": True},
     "p5_aa": {"hoist": True, "gln": True, "opm": True, "hifi": True, "qkv": True,
               "ditbias": False},
+    # Pass 7. Lever 8 is the L1-resident / L1-staged pair transpose in the ending variant of
+    # triangle attention. `p6` is everything pass 6 shipped with it off, `p6_l8` adds it,
+    # `p6_aa` repeats `p6` last for the floor.
+    "p6": {"hoist": True, "gln": True, "opm": True, "hifi": True, "qkv": True,
+           "ditbias": True, "trl1": False},
+    "p6_l8": {"hoist": True, "gln": True, "opm": True, "hifi": True, "qkv": True,
+              "ditbias": True, "trl1": True},
+    "p6_aa": {"hoist": True, "gln": True, "opm": True, "hifi": True, "qkv": True,
+              "ditbias": True, "trl1": False},
 }
+
+
+def set_transpose_reserve(root, value: int) -> int:
+    """Set `transpose_l1_reserve` on every TriangleAttention reachable from `root`.
+
+    It is a constructor argument, not a module global, so an arm has to reach the live modules:
+    the 48-block trunk, the confidence head's four layers and the template embedder's two.
+    Walking for the attribute finds all three without naming any of them.
+    """
+    seen, stack, n = set(), [root], 0
+    while stack:
+        o = stack.pop()
+        if id(o) in seen:
+            continue
+        seen.add(id(o))
+        if hasattr(o, "transpose_l1_reserve"):
+            o.transpose_l1_reserve = value
+            n += 1
+        if isinstance(o, (list, tuple)):
+            stack.extend(o)
+        elif hasattr(o, "__dict__"):
+            stack.extend(o.__dict__.values())
+    return n
 
 
 def dram_peak(device):
@@ -159,6 +191,10 @@ def main() -> int:
             triatt_qkv._ENABLED = cfg_arm["qkv"]
         if "ditbias" in cfg_arm:
             rf3_model._HOIST_DIT_BIAS = cfg_arm["ditbias"]
+        if "trl1" in cfg_arm:
+            n = set_transpose_reserve(
+                tt, tts._TRANSPOSE_L1_RESERVE_PER_CORE if cfg_arm["trl1"] else 0)
+            print(f"[{arm}] transpose_l1_reserve set on {n} modules", flush=True)
         reps = []
         failed = None
         for rep in range(args.reps):

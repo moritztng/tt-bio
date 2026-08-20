@@ -23,6 +23,8 @@ from __future__ import annotations
 
 import torch
 
+from tt_bio.tenstorrent import _TRANSPOSE_L1_RESERVE_PER_CORE
+
 #: RF3 block-relative name -> tt-bio block-relative name.
 #: Triangle multiplication is absent because its six weights already match.
 PAIRFORMER_RENAMES: dict[str, str] = {
@@ -188,8 +190,17 @@ PAIRFORMER_DIMS = (32, 4, 24, 16)
 # opted in. Measured per recycle over the 48-block stack, bit-exact on z at every rung:
 # 1.0009x at 128 aa, 1.0001x at 256, 1.0441x at 512, 1.0263x at 768, 1.0161x at 1024.
 # Never negative, so it is on everywhere rather than gated on length.
+# `transpose_l1_reserve` prices the pair transpose's L1 headroom per core rather than as a
+# fraction of the tensor, which is what the consumer's circular buffers actually cost. Only
+# RF3 opts in: on an 11x10 Blackhole grid the rule changes the route for pair tensors between
+# 118 and 147 MB, and RF3's 768 aa tensor at 144 MB is the one that lands there. The ending
+# variant of triangle attention transposes the pair tensor twice per block, 4.424 ms each into
+# DRAM against 1.7 into L1, and at 48 blocks x 10 recycles that is 2.6 s of a 61 s fold.
+# Bit-exact: a memory config cannot change a value, and it is measured with torch.equal rather
+# than argued.
 PAIRFORMER_FLAGS = dict(scale_pair_bias=True, fp32_softmax=True, transpose_bias=False,
-                        gated_move=True)
+                        gated_move=True,
+                        transpose_l1_reserve=_TRANSPOSE_L1_RESERVE_PER_CORE)
 
 
 def remap_pairformer_stack(raw: dict, n_layers: int, prefix: str = "pairformer.",
