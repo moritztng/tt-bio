@@ -72,6 +72,12 @@ ARMS = {
               "ditbias": True, "trl1": True},
     "p6_aa": {"hoist": True, "gln": True, "opm": True, "hifi": True, "qkv": True,
               "ditbias": True, "trl1": False},
+    # Pass 8. The shipped configuration is everything through lever 8, so that is the arm the
+    # batch-5 ladder is quoted at, and `p6_l8_aa` is it a second time for the floor. At batch 5
+    # the fold is rollout-dominated and the rollout is the host-in-the-loop phase, so a measured
+    # floor is what says whether a 1-4 % delta is readable at all.
+    "p6_l8_aa": {"hoist": True, "gln": True, "opm": True, "hifi": True, "qkv": True,
+                 "ditbias": True, "trl1": True},
 }
 
 
