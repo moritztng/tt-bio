@@ -3,6 +3,26 @@
 All notable changes to TT-Bio are recorded here. Versioning is [SemVer](https://semver.org);
 releases are cut from a commit that has passed the on-hardware test suite (see `RELEASING.md`).
 
+## Unreleased
+
+### Fixed
+
+- Predictions no longer depend on a target's position in a multi-target job. Two
+  byte-identical inputs folded by one worker returned different affinity values
+  (0.648724 / 0.722511 / 0.687149 for three copies of one CDK2 + ligand YAML); they now
+  return the same value, bit-identical to folding either one on its own. Two causes.
+  Ligand conformer generation left ETKDG's seed unset, so RDKit drew from a stream that
+  advances on every embedding and the same SMILES got a different reference conformer
+  each time it was parsed — that moved the structure prediction too, not just the
+  affinity scalar, and it applies to BoltzGen as well. And the affinity checkpoint loads
+  lazily inside the first affinity target of a run, which advanced the RNG the diffusion
+  samples from, so target 1 sampled differently from every target after it.
+  Ligand numbers move once with this fix: a pinned conformer is not the one the old
+  stream happened to hand the first target, and the spread across conformers of one
+  ligand is about 0.074 log10(IC50). Set `TT_BIO_ETKDG_SEED` to draw a different
+  conformer. `scripts/boltz2_affinity_batch_position_repro.py` folds N targets in one
+  process and fails if identical ones disagree. CCD-bound ligands are unaffected.
+
 ## [0.6.4] - 2026-08-19
 
 P300 Blackhole cards fold again. On a 110-core grid (every P300), a mid-size

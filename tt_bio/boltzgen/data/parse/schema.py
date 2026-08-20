@@ -2,6 +2,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from collections import defaultdict
 from pathlib import Path
+import os
 import random
 import re
 from typing import Optional
@@ -216,7 +217,13 @@ class Alignment:
 ####################################################################################################
 
 
-def compute_3d_conformer(mol: Mol, version: str = "v3") -> bool:
+# Same defect and same fix as tt_bio/data/parse.py's copy of this function: ETKDG's default
+# randomSeed of -1 draws from a process-global stream, so a design job with two SMILES ligands
+# gives the second one a different reference conformer than it would get on its own.
+ETKDG_SEED = int(os.environ.get("TT_BIO_ETKDG_SEED", 0xF00D))
+
+
+def compute_3d_conformer(mol: Mol, version: str = "v3", seed: int | None = None) -> bool:
     """Generate 3D coordinates using EKTDG method.
 
     Taken from `pdbeccdutils.core.component.Component`.
@@ -227,6 +234,8 @@ def compute_3d_conformer(mol: Mol, version: str = "v3") -> bool:
         The RDKit molecule to process
     version: str, optional
         The ETKDG version, defaults ot v3
+    seed: int, optional
+        ETKDG random seed; defaults to ``ETKDG_SEED``.
 
     Returns
     -------
@@ -242,6 +251,7 @@ def compute_3d_conformer(mol: Mol, version: str = "v3") -> bool:
         options = AllChem.ETKDGv2()
 
     options.clearConfs = False
+    options.randomSeed = ETKDG_SEED if seed is None else seed
     conf_id = -1
 
     try:
