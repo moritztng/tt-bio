@@ -342,7 +342,7 @@ class Nesso1(nn.Module):
         affinity_model_args: Optional[dict[str, Any]] = None,
         affinity_model_args2: Optional[dict[str, Any]] = None,
         use_tenstorrent: bool = False,
-        trunk_fp32: bool = True,
+        trunk_fp32: bool = False,
         affinity_fp32: bool = True,
         **kwargs,
     ) -> None:
@@ -778,7 +778,7 @@ def screen(
     weights: str = "recursionpharma/nesso",
     *,
     use_tenstorrent: bool = True,
-    trunk_fp32: bool = True,
+    trunk_fp32: bool = False,
     affinity_fp32: bool = True,
     recycling_steps: int = 5,
     tokens_budget: int = 256,

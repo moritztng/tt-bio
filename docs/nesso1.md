@@ -12,20 +12,46 @@ weights `recursionpharma/nesso` on the Hub. The host featurization pipeline is v
 
 ## Status
 
-The torch reference is bit-exact against upstream. On device the model is deterministic run to run
-and, with the fp32 trunk, 0.0089 off the torch reference at 148 tokens against upstream's own
-0.058 run-to-run spread. `tt-bio affinity` is the CLI.
+The torch reference is bit-exact against upstream, and `tt-bio affinity` reproduces the committed
+upstream scalars end to end from a YAML. On device the model is deterministic run to run: the
+solo-vs-solo delta is exactly 0.0 at every size and in both precisions.
 
-Speed is the open problem, not accuracy: 18 s per prediction at 148 tokens on one Blackhole p150a,
-against 0.7 s of H200 device time at 256 aa. The model issues ~93,000 unfused ops per prediction
-across 320 cheap pairformer layers, so it is dispatch-bound rather than FLOP-bound.
+Speed is the open problem, not accuracy: 8.4 s per prediction at 532 tokens on one Blackhole p150a
+with the default bf16 trunk, against 1.05 s of H200 device time at 512 aa. The model issues ~93,000
+unfused ops per prediction across 320 cheap pairformer layers, so it is dispatch-bound rather than
+FLOP-bound.
+
+## Which trunk precision
+
+bf16 is the default. The table is the worst of eleven output scalars, device against the torch CPU
+fp32 reference on the same input, divided by upstream's own 0.058 run-to-run spread on the same
+scalar (so 1.0 means "as far off as upstream is from itself"):
+
+| tokens | target | fp32 | bf16 | bf16 speedup |
+|---|---|---|---|---|
+| 61 | tyr48 | 1.30 | 3.17 | 2.8x |
+| 148 | CDK2 128 aa | 0.15 | 2.38 | 4.4x |
+| 276 | CDK2 256 aa | 0.18 | 0.88 | 6.5x |
+| 337 | AURKC + DAVIS binder | 2.86 | 3.01 | 5.9x |
+| 532 | CDK2 512 aa | 2.04 | 1.13 | 6.1x |
+| 1044 | CDK2 1024 aa | out of DRAM | 25.5 s | - |
+
+Two things decide it. From 276 tokens up bf16 is not the worse arm: it wins outright at 532, and at
+337 the two are within 5% of each other on the worst scalar while bf16 is closer on nine of the
+eleven (both arms are offset the same way there, which is a device-vs-CPU difference and not a dtype
+one). And fp32 cannot be the default everywhere regardless of accuracy, because at 1044 tokens it
+asks for a 20.6 GB DRAM buffer against a 4.28 GB bank and dies.
+
+Below ~150 tokens fp32 is clearly the more faithful arm (0.15 against 2.38 xR at 148 tokens) and it
+only costs a few seconds there, so `--trunk fp32` is the right choice for a small complex you are
+reporting rather than ranking.
 
 ## Running it
 
 ```bash
 tt-bio affinity complex.yaml                       # one input
 tt-bio affinity ligands/ --out_dir screen          # a directory: model stays resident
-tt-bio affinity complex.yaml --trunk bf16          # ~4x faster, measurably less accurate
+tt-bio affinity complex.yaml --trunk fp32          # more faithful under ~150 tokens, ~6x slower
 tt-bio affinity complex.yaml --accelerator cpu     # the torch reference
 ```
 

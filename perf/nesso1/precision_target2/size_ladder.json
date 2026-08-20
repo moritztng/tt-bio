@@ -1,0 +1,85 @@
+{
+  "gate": "nesso1_size_ladder",
+  "R_upstream_spread": 0.058,
+  "rungs": [
+    {
+      "rung": "aa309",
+      "yaml": "aurkc_davis.yaml",
+      "n_tokens": 337,
+      "featurize_s": 14.477406869998958,
+      "conformer_sha256": {
+        "aurkc_davis__B.pkl": "6f9711ec942ea37b5a4ceb9b57366613abb2b0877cb0b7404f7525f68560fd50"
+      },
+      "arms": {
+        "fp32": {
+          "trunk": "fp32",
+          "affinity": "fp32",
+          "wall_s": [
+            47.89305892000266,
+            34.489390276998165
+          ],
+          "warm_wall_s": 34.489390276998165,
+          "D_device_solo_floor": 0.0,
+          "D_device_solo_floor_key": "",
+          "scalars": {
+            "affinity_pred_value": -0.8408479690551758,
+            "affinity_pred_value1": -0.7791211009025574,
+            "affinity_pred_value2": -0.9025748372077942,
+            "affinity_logits_binary": 2.322044610977173,
+            "affinity_probability_binary": 0.9106863737106323,
+            "entropy_pp": 0.21851642429828644,
+            "entropy_pl": 0.26308563351631165,
+            "entropy_ll": 0.20539388060569763,
+            "entropy_crop_pp": 0.35963016748428345,
+            "entropy_crop_pl": 0.40877765417099,
+            "entropy_crop_ll": 0.20539388060569763
+          },
+          "X_device_vs_torch": 0.16566485166549683,
+          "X_device_vs_torch_key": "affinity_pred_value2",
+          "X_over_R": 2.8562905459568415
+        },
+        "bf16": {
+          "trunk": "bf16",
+          "affinity": "fp32",
+          "wall_s": [
+            11.711505358001887,
+            5.801980336997076
+          ],
+          "warm_wall_s": 5.801980336997076,
+          "D_device_solo_floor": 0.0,
+          "D_device_solo_floor_key": "",
+          "scalars": {
+            "affinity_pred_value": -0.8913856744766235,
+            "affinity_pred_value1": -0.8458986878395081,
+            "affinity_pred_value2": -0.9368726015090942,
+            "affinity_logits_binary": 2.342677354812622,
+            "affinity_probability_binary": 0.9123504161834717,
+            "entropy_pp": 0.21047483384609222,
+            "entropy_pl": 0.2481832206249237,
+            "entropy_ll": 0.19827055931091309,
+            "entropy_crop_pp": 0.35393717885017395,
+            "entropy_crop_pl": 0.3984118402004242,
+            "entropy_crop_ll": 0.19827055931091309
+          },
+          "X_device_vs_torch": 0.17474079132080078,
+          "X_device_vs_torch_key": "affinity_logits_binary",
+          "X_over_R": 3.0127722641517374
+        }
+      },
+      "torch_fp32_s": 208.30490689399812,
+      "torch_scalars": {
+        "affinity_pred_value": -0.9595280289649963,
+        "affinity_pred_value1": -0.8508163690567017,
+        "affinity_pred_value2": -1.068239688873291,
+        "affinity_logits_binary": 2.1679365634918213,
+        "affinity_probability_binary": 0.897333025932312,
+        "entropy_pp": 0.19496899843215942,
+        "entropy_pl": 0.22868330776691437,
+        "entropy_ll": 0.21114730834960938,
+        "entropy_crop_pp": 0.32218632102012634,
+        "entropy_crop_pl": 0.3809736967086792,
+        "entropy_crop_ll": 0.21114730834960938
+      }
+    }
+  ]
+}

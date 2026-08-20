@@ -3076,10 +3076,10 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
 @click.option("--out_dir", default="./affinity", show_default=True, type=click.Path(path_type=Path))
 @click.option("--accelerator", type=click.Choice(["tenstorrent", "cpu"]), default="tenstorrent",
               show_default=True, help="cpu runs the torch reference; it is ~5x slower.")
-@click.option("--trunk", type=click.Choice(["fp32", "bf16"]), default="fp32", show_default=True,
-              help="Precision of the 48-block trunk. bf16 is ~4x faster and measurably "
-                   "less accurate (0.138 vs 0.009 off the torch reference at 148 tokens, "
-                   "against upstream's own 0.058 run-to-run spread); see docs/nesso1.md.")
+@click.option("--trunk", type=click.Choice(["fp32", "bf16"]), default="bf16", show_default=True,
+              help="Precision of the 48-block trunk. bf16 is ~6x faster and no less accurate "
+                   "from 276 tokens up; fp32 is the more faithful arm below ~150 tokens and "
+                   "runs out of DRAM at 1044. See docs/nesso1.md.")
 @click.option("--recycling_steps", default=5, show_default=True,
               help="Trunk recycling iterations; the shipped checkpoint uses 5 (6 passes).")
 @click.option("--tokens_budget", default=256, show_default=True,

@@ -331,8 +331,9 @@ weight load and the kernel compile once. Output is one `<id>_affinity.json` per 
 member), a binary binder probability, and six distogram entropies.
 
 Use it to rank a series; use `predict --model boltz2` when you need the pose. Proteins and ligands
-only, one ligand scored per input. The trunk runs fp32 by default because bf16 costs real accuracy
-here; `--trunk bf16` is about 4x faster if you are ranking rather than reporting. See
+only, one ligand scored per input. The trunk runs bf16 by default: it is about 6x faster than fp32
+and no less accurate from 276 tokens up, and fp32 runs out of DRAM around 1000 tokens. On inputs
+under ~150 tokens fp32 is the more faithful arm, and `--trunk fp32` switches back. See
 [`docs/nesso1.md`](docs/nesso1.md) for the input schema, the four upstream limits, and what to watch
 when comparing numbers against another implementation.
 
