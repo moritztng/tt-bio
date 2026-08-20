@@ -88,3 +88,29 @@ def test_ccd_atom_names_survive_unpickling():
     assert out.returncode == 0, out.stderr[-2000:]
     names = out.stdout.strip().splitlines()[-1].split()
     assert "CA" in names and "OH" in names, names
+
+
+def test_given_esm_path_is_used_and_a_missing_one_raises(tmp_path):
+    """An ``esm:`` path only takes effect if it lands in the featurizer's esm dir under
+    md5(sequence) before the encoder runs. prepare() collected the path and dropped it, so
+    the 650M encoder recomputed the embedding and the supplied file was silently ignored.
+    Upstream symlinks and swallows every failure, which makes a typo'd path a silently
+    different model input; here it raises."""
+    import hashlib
+
+    from tt_bio.nesso1_input import link_given_esm
+
+    seq = "MENFQKVEKIGEGTYGVVYKA"
+    mid = hashlib.md5(seq.encode("utf-8")).hexdigest()
+    src = tmp_path / "given.safetensors"
+    src.write_bytes(b"not really a tensor, but link_given_esm never reads it")
+    esm_dir = tmp_path / "esm"
+    esm_dir.mkdir()
+
+    assert link_given_esm({mid: str(src)}, esm_dir) == 1
+    dst = esm_dir / f"{mid}.safetensors"
+    assert dst.exists() and dst.read_bytes() == src.read_bytes()
+    assert link_given_esm({mid: str(src)}, esm_dir) == 0  # already there, left alone
+
+    with pytest.raises(FileNotFoundError):
+        link_given_esm({mid: str(tmp_path / "nope.safetensors")}, tmp_path / "esm2")

@@ -102,6 +102,31 @@ def collect_esm(yaml_paths: list[Path]) -> tuple[dict[str, str], dict[str, str]]
     return seqs, given
 
 
+def link_given_esm(given: dict[str, str], esm_dir: Path) -> int:
+    """Put a user-supplied ``esm:`` embedding where the featurizer looks for it.
+
+    The featurizer reads ``<esm_dir>/<md5(sequence)>.safetensors``, so an ``esm:`` path in
+    the YAML only has an effect if it lands there before ``run_esm``; otherwise the 650M
+    encoder recomputes the embedding and the supplied file is ignored. Upstream symlinks
+    and swallows every failure, which turns a typo in the path into a silently different
+    model input, so a missing path raises here instead.
+    """
+    linked = 0
+    for mid, src in sorted(given.items()):
+        source = Path(src).expanduser()
+        if not source.exists():
+            raise FileNotFoundError(f"esm: {src} does not exist")
+        dst = esm_dir / f"{mid}.safetensors"
+        if dst.exists():
+            continue
+        try:
+            dst.symlink_to(source.resolve())
+        except OSError:
+            dst.write_bytes(source.read_bytes())
+        linked += 1
+    return linked
+
+
 def run_esm(
     seqs: dict[str, str],
     esm_dir: Path,
@@ -220,7 +245,8 @@ def prepare(
     paths = resolve_paths(out_dir)
     ccd = Path(ccd_pkl) if ccd_pkl else find_ccd()
     manifest, failed = preprocess(yaml_paths, paths, ccd, num_workers=num_workers)
-    seqs, _ = collect_esm(yaml_paths)
+    seqs, given = collect_esm(yaml_paths)
+    link_given_esm(given, paths.esm_dir)
     run_esm(seqs, paths.esm_dir, cache_dir=esm_cache)
     return build_dataset(paths, manifest, ccd, max_dist=max_dist), manifest, failed
 
