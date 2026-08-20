@@ -27,6 +27,7 @@ packer's rounding is the same rounding.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import ttnn
@@ -257,4 +258,63 @@ def softmax_into(device, x, out, grid=None, ckc=None, numeric_stable=True):
         e["pd"] = ttnn.ProgramDescriptor(kernels=e["kernels"], semaphores=[], cbs=e["cbs"])
         e["addrs"] = addrs
     ttnn.generic_op([x, out], e["pd"])
+    return out
+
+
+# --- the model-facing entry point ------------------------------------------------------------
+
+SSTATS = [0]                       # calls served, so an A/B arm cannot silently decline
+
+_ENABLED = os.environ.get("RFD3_SOFTMAX_BF16", "1") not in ("0", "false", "False")
+
+
+def set_enabled(on: bool) -> bool:
+    """Flip the lever, returning the previous state. For A/B harnesses."""
+    global _ENABLED
+    prev, _ENABLED = _ENABLED, bool(on)
+    return prev
+
+
+# `softmax_large_tensor.cpp`'s bf16 pack is bit-exact against `typecast(softmax(x))`
+# (p74 S2, maxabs 0 at [1,4,6051,6080]). The small kernel's is not yet, so shapes that do not
+# cross the factory's large-kernel trip fall back to the shipped pair until p74's S2 column is
+# green at the DiT rungs too. Flip with `RFD3_SOFTMAX_BF16_SMALL=1` once it is.
+_SMALL_OK = os.environ.get("RFD3_SOFTMAX_BF16_SMALL", "0") not in ("0", "false", "False")
+
+
+def set_small_enabled(on: bool) -> bool:
+    global _SMALL_OK
+    prev, _SMALL_OK = _SMALL_OK, bool(on)
+    return prev
+
+
+def eligible(x, dtype) -> bool:
+    """Only the shape family this module transcribes: rank-4, fp32 in, bf16 out, tile-aligned W."""
+    if not _ENABLED:
+        return False
+    if dtype != ttnn.bfloat16 or x.dtype != ttnn.float32:
+        return False
+    if len(x.shape) != 4:
+        return False
+    if int(x.shape[-1]) != int(x.padded_shape[-1]):
+        return False
+    if _SMALL_OK:
+        return True
+    try:
+        g = x.device().compute_with_storage_grid_size()
+        return bool(plan(x, x, (g.x, g.y), True, True)["use_large"])
+    except Exception:
+        return False
+
+
+def softmax_bf16(x, dtype):
+    """`ttnn.typecast(ttnn.softmax(x, dim=-1), dtype)` in one kernel, bit-exactly.
+
+    Falls back to the shipped pair whenever the shape is outside what the transcription covers.
+    """
+    if not eligible(x, dtype):
+        return ttnn.typecast(ttnn.softmax(x, dim=-1), dtype, memory_config=x.memory_config())
+    out = ttnn.empty(list(x.shape), dtype, ttnn.TILE_LAYOUT, x.device(), x.memory_config())
+    softmax_into(x.device(), x, out)
+    SSTATS[0] += 1
     return out

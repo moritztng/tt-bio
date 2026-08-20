@@ -317,9 +317,6 @@ void kernel_main() {
         pack_reconfig_data_format(cb_out0);
         // now cb_sumexps has exp tiles, need to multiply by our DST[2]
         // by now we already did a cumulative wait for Wt tiles in cb_exps
-#ifdef PACK_BF16_TYPECAST
-        typecast_tile_init<(uint32_t)DataFormat::Float32, (uint32_t)DataFormat::Float16_b>();
-#endif
         mul_bcast_cols_init_short(cb_exps, cb_recipsumexps);
         for (uint32_t wt = 0; wt < Wt; wt += ndst) {
             tile_regs_acquire();
@@ -334,6 +331,8 @@ void kernel_main() {
             // then pack), and its rounding is not the packer s. Doing the same SFPU conversion
             // here and packing an already-bf16-valued DST reproduces it exactly.
             for (uint32_t wt8 = 0; wt8 < ndst; wt8++) {
+                typecast_tile_init<(uint32_t)DataFormat::Float32,
+                                   (uint32_t)DataFormat::Float16_b>();
                 typecast_tile<(uint32_t)DataFormat::Float32, (uint32_t)DataFormat::Float16_b>(wt8);
             }
 #endif

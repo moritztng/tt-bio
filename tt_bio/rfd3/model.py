@@ -24,7 +24,7 @@ import torch.nn.functional as F
 
 import ttnn
 
-from .. import rfd3_bias
+from .. import rfd3_bias, softmax_generic
 from ..tenstorrent import Module, get_device, CORE_GRID_MAIN, attn_value_matmul
 
 # This is a SNAPSHOT, and deliberately left as one. `_configure_active_compute_grid` widens
@@ -710,9 +710,9 @@ class PairformerAttention(Module):
         bias_f = ttnn.typecast(bias, ttnn.float32, memory_config=bias.memory_config())
         sc = ttnn.add(sc, bias_f)
         ttnn.deallocate(bias_f)
-        attn = ttnn.softmax(sc, dim=-1)                    # fp32 softmax reduction
-        attn_bf = ttnn.typecast(attn, self.dtype, memory_config=attn.memory_config())
-        ttnn.deallocate(attn)
+        # fp32 softmax reduction, packing bf16 straight out of DST -- one kernel, and the
+        # typecast it replaces read the whole score tensor back out of DRAM.
+        attn_bf = softmax_generic.softmax_bf16(sc, self.dtype)
         o = attn_value_matmul(attn_bf, v, ckc, self.dtype)  # [1,16,I,24]
         ttnn.deallocate(attn_bf)
         # merge heads: [1,16,I,24] -> [1,I,384], then gate. The gate is elementwise, so
@@ -932,8 +932,7 @@ class TokenInitializer(Module):
         mask = _tt(mask, dev, ttnn.float32)
         sc = ttnn.add(sc, mask)
         ttnn.deallocate(mask)
-        attn = ttnn.softmax(sc, dim=-1)
-        attn = ttnn.typecast(attn, dt, memory_config=attn.memory_config())
+        attn = softmax_generic.softmax_bf16(sc, dt)
         o = ttnn.matmul(attn, vv, compute_kernel_config=ckc, dtype=dt,
                         core_grid=_grid_if_single_k_tile(attn))                      # [I,4,1,32]
         ttnn.deallocate(attn); ttnn.deallocate(vv)
@@ -1677,10 +1676,7 @@ class RFD3AtomBlock(Module):
             # split form rounds the scaled scores to bf16 before the add and the folded form does not.
             scores = ttnn.add(scores, bias_f, input_tensor_a_activations=[
                 ttnn.UnaryWithParam(ttnn.UnaryOpType.MUL_UNARY_SFPU, self.head_dim**-0.5)])
-        attention = ttnn.softmax(scores, dim=-1)
-        attention = ttnn.typecast(
-            attention, dt, memory_config=attention.memory_config()
-        )
+        attention = softmax_generic.softmax_bf16(scores, dt)
         out = attn_value_matmul(attention, vv, ckc, dt)
         out = _merge_heads(out, (batch, length, self.n_head * self.head_dim))
         out = ttnn.multiply(out, ttnn.sigmoid(gg))
