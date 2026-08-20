@@ -16,12 +16,11 @@ fused triangle multiplication's two LayerNorms use the `mean(x^2) - mean(x)^2` v
 (`modules.py:913-923`); every other LayerNorm in the trunk uses `mean((x - mean)^2)`. The heads
 run in float32 on the float32 trunk output, because `bfloat16_output` is False.
 
-**What is here and what is not.** The trunk (input embedder, recycling embedder, relpos, the
-template stack, the 4 extra-MSA blocks, the 48 Evoformer blocks, `single_activations`) and the
-predicted-aligned-error head, which reads the pair representation. The predicted-LDDT head reads
-`representations['structure_module']`, not the trunk's single representation
-(`modules.py:806`), so it lands with the structure module. `load_trunk` names both deferred
-prefixes explicitly, so a real typo in a key still fails loudly.
+**The whole model is here.** The trunk (input embedder, recycling embedder, relpos, the
+template stack, the 4 extra-MSA blocks, the 48 Evoformer blocks, `single_activations`), the
+8-layer structure module, and the three heads. `load_af2_model` accounts for every parameter in
+the checkpoint, so a typo in a key fails loudly rather than silently leaving a module at zero.
+The structure module and the heads run in float32: `bfloat16_context` wraps the Evoformer only.
 
 Two upstream details that read like bugs and are not:
 
@@ -39,7 +38,10 @@ import torch.nn.functional as F
 from torch import nn
 
 from tt_bio._vendor.esm.utils import residue_constants as _rc
-from tt_bio.af2_data import ATOM_ORDER, NUM_ATOM
+from tt_bio.af2_data import (ATOM_ORDER, NUM_ATOM, RESTYPE_ATOM14_MASK,
+                             RESTYPE_ATOM14_RIGID_GROUP_POSITIONS,
+                             RESTYPE_ATOM14_TO_RIGID_GROUP,
+                             RESTYPE_RIGID_GROUP_DEFAULT_FRAME)
 
 C_M = 256
 C_Z = 128
@@ -57,9 +59,6 @@ TEMPLATE_DGRAM = (39, 3.25, 50.75)
 PAE_BINS = 64
 PAE_MAX_ERROR_BIN = 31.0
 PLDDT_BINS = 50
-
-# Keys of the remapped checkpoint this module deliberately does not consume yet.
-DEFERRED_PREFIXES = ("structure.", "heads.plddt.")
 
 
 def _chi_atom_indices() -> np.ndarray:
@@ -554,14 +553,346 @@ class TemplateEmbedding(nn.Module):
         return rows, ret["torsion_angles_mask"][:, :, 2].to(dtype)
 
 
+# ---------------------------------------------------------------------- the structure module
+
+
+def _quat_tables() -> tuple[np.ndarray, np.ndarray]:
+    """`quat_affine.QUAT_TO_ROT` and `QUAT_MULTIPLY`, transcribed as written."""
+    to_rot = np.zeros((4, 4, 3, 3), np.float32)
+    to_rot[0, 0] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+    to_rot[1, 1] = [[1, 0, 0], [0, -1, 0], [0, 0, -1]]
+    to_rot[2, 2] = [[-1, 0, 0], [0, 1, 0], [0, 0, -1]]
+    to_rot[3, 3] = [[-1, 0, 0], [0, -1, 0], [0, 0, 1]]
+    to_rot[1, 2] = [[0, 2, 0], [2, 0, 0], [0, 0, 0]]
+    to_rot[1, 3] = [[0, 0, 2], [0, 0, 0], [2, 0, 0]]
+    to_rot[2, 3] = [[0, 0, 0], [0, 0, 2], [0, 2, 0]]
+    to_rot[0, 1] = [[0, 0, 0], [0, 0, -2], [0, 2, 0]]
+    to_rot[0, 2] = [[0, 0, 2], [0, 0, 0], [-2, 0, 0]]
+    to_rot[0, 3] = [[0, -2, 0], [2, 0, 0], [0, 0, 0]]
+
+    multiply = np.zeros((4, 4, 4), np.float32)
+    multiply[:, :, 0] = [[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, -1]]
+    multiply[:, :, 1] = [[0, 1, 0, 0], [1, 0, 0, 0], [0, 0, 0, 1], [0, 0, -1, 0]]
+    multiply[:, :, 2] = [[0, 0, 1, 0], [0, 0, 0, -1], [1, 0, 0, 0], [0, 1, 0, 0]]
+    multiply[:, :, 3] = [[0, 0, 0, 1], [0, 0, 1, 0], [0, -1, 0, 0], [1, 0, 0, 0]]
+    return to_rot, multiply
+
+
+_TO_ROT, _MULTIPLY = _quat_tables()
+QUAT_TO_ROT = torch.from_numpy(_TO_ROT.reshape(4, 4, 9))
+QUAT_MULTIPLY_BY_VEC = torch.from_numpy(_MULTIPLY[:, 1:, :])
+
+RIGID_GROUP_DEFAULT_FRAME = torch.from_numpy(RESTYPE_RIGID_GROUP_DEFAULT_FRAME)
+RIGID_GROUP_POSITIONS = torch.from_numpy(RESTYPE_ATOM14_RIGID_GROUP_POSITIONS)
+ATOM14_TO_RIGID_GROUP = torch.from_numpy(RESTYPE_ATOM14_TO_RIGID_GROUP)
+ATOM14_MASK = torch.from_numpy(RESTYPE_ATOM14_MASK)
+
+
+def quat_to_rot(quaternion: torch.Tensor) -> torch.Tensor:
+    """A unit quaternion `[..., 4]` as a rotation matrix `[..., 3, 3]`."""
+    flat = torch.einsum("abk,...a,...b->...k", QUAT_TO_ROT.to(quaternion.dtype),
+                        quaternion, quaternion)
+    return flat.unflatten(-1, (3, 3))
+
+
+def quat_multiply_by_vec(quaternion: torch.Tensor, vec: torch.Tensor) -> torch.Tensor:
+    """`quaternion` times the pure-vector quaternion `(0, vec)`."""
+    return torch.einsum("abk,...a,...b->...k", QUAT_MULTIPLY_BY_VEC.to(quaternion.dtype),
+                        quaternion, vec)
+
+
+class QuatAffine:
+    """`quat_affine.QuatAffine` with the three vector components in one trailing axis.
+
+    Rotation is `[..., 3, 3]`, translation `[..., 3]`, and a point set is `[..., num_point, 3]`,
+    which is AlphaFold's `extra_dims=1`: one frame per residue applied to that residue's points.
+    Transcribed rather than adapted from `_vendor/openfold3`'s `Rigid`, whose conventions and
+    normalisation policy differ enough that a mismatch would look like a plausible 0.99 PCC.
+    """
+
+    def __init__(self, quaternion: torch.Tensor, translation: torch.Tensor,
+                 rotation: torch.Tensor | None = None, normalize: bool = True):
+        if normalize:
+            quaternion = quaternion / quaternion.norm(dim=-1, keepdim=True)
+        self.quaternion = quaternion
+        self.translation = translation
+        self.rotation = quat_to_rot(quaternion) if rotation is None else rotation
+
+    @classmethod
+    def identity(cls, num_res: int, dtype: torch.dtype = torch.float32) -> "QuatAffine":
+        """`folding.generate_new_affine`: the identity quaternion and a zero translation."""
+        quaternion = torch.zeros(num_res, 4, dtype=dtype)
+        quaternion[:, 0] = 1.0
+        return cls(quaternion, torch.zeros(num_res, 3, dtype=dtype))
+
+    def to_tensor(self) -> torch.Tensor:
+        return torch.cat([self.quaternion, self.translation], dim=-1)
+
+    def scale_translation(self, position_scale: float) -> "QuatAffine":
+        return QuatAffine(self.quaternion, self.translation * position_scale,
+                          rotation=self.rotation, normalize=False)
+
+    def pre_compose(self, update: torch.Tensor) -> "QuatAffine":
+        """Apply a 6-vector update: a pure-vector quaternion, then a local-frame translation.
+
+        The translation update is rotated by the *old* rotation before it is added, and the new
+        quaternion is renormalised unconditionally, which is `QuatAffine.__init__`'s default.
+        """
+        vector_update, trans_update = update.split(3, dim=-1)
+        quaternion = self.quaternion + quat_multiply_by_vec(self.quaternion, vector_update)
+        translation = self.translation + self.rotate(trans_update.unsqueeze(-2))[..., 0, :]
+        return QuatAffine(quaternion, translation)
+
+    def rotate(self, points: torch.Tensor) -> torch.Tensor:
+        return torch.einsum("...ij,...nj->...ni", self.rotation, points)
+
+    def apply_to_point(self, points: torch.Tensor) -> torch.Tensor:
+        return self.rotate(points) + self.translation.unsqueeze(-2)
+
+    def invert_point(self, points: torch.Tensor) -> torch.Tensor:
+        centred = points - self.translation.unsqueeze(-2)
+        return torch.einsum("...ji,...nj->...ni", self.rotation, centred)
+
+
+def _compose(rot_a: torch.Tensor, trans_a: torch.Tensor,
+             rot_b: torch.Tensor, trans_b: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    """`r3.rigids_mul_rigids`: apply b first, then a."""
+    return rot_a @ rot_b, trans_a + torch.einsum("...ij,...j->...i", rot_a, trans_b)
+
+
+class InvariantPointAttention(nn.Module):
+    """AlphaFold's `InvariantPointAttention` (`folding.py:37`), Suppl. Alg. 22.
+
+    Three logit terms of equal variance: scalar q.k, the squared distance between query and key
+    points pushed into the global frame, and a projection of the pair representation. The value
+    points come back into the query residue's local frame before the output projection.
+    """
+
+    def __init__(self, c_s: int = C_S, c_z: int = C_Z, num_head: int = 12,
+                 num_scalar_qk: int = 16, num_scalar_v: int = 16,
+                 num_point_qk: int = 4, num_point_v: int = 8):
+        super().__init__()
+        self.num_head = num_head
+        self.num_scalar_qk, self.num_scalar_v = num_scalar_qk, num_scalar_v
+        self.num_point_qk, self.num_point_v = num_point_qk, num_point_v
+        self.q_scalar = Linear(c_s, num_head * num_scalar_qk)
+        self.kv_scalar = Linear(c_s, num_head * (num_scalar_qk + num_scalar_v))
+        self.q_point_local = Linear(c_s, num_head * 3 * num_point_qk)
+        self.kv_point_local = Linear(c_s, num_head * 3 * (num_point_qk + num_point_v))
+        self.attention_2d = Linear(c_z, num_head)
+        self.point_weights = nn.Parameter(torch.zeros(num_head))
+        self.output_projection = Linear(num_head * (num_scalar_v + 4 * num_point_v + c_z), c_s)
+
+    @staticmethod
+    def _as_points(flat: torch.Tensor) -> torch.Tensor:
+        """`split(3, axis=-1)` then stack: x-block, y-block, z-block, not interleaved."""
+        return torch.stack(flat.chunk(3, dim=-1), dim=-1)
+
+    def forward(self, act: torch.Tensor, act_2d: torch.Tensor, mask: torch.Tensor,
+                affine: QuatAffine) -> torch.Tensor:
+        num_res = act.shape[0]
+        h, sqk, sv = self.num_head, self.num_scalar_qk, self.num_scalar_v
+        pqk, pv = self.num_point_qk, self.num_point_v
+
+        q_scalar = self.q_scalar(act).view(num_res, h, sqk).transpose(0, 1)
+        kv_scalar = self.kv_scalar(act).view(num_res, h, sqk + sv).transpose(0, 1)
+        k_scalar, v_scalar = kv_scalar.split([sqk, sv], dim=-1)
+
+        q_point = affine.apply_to_point(self._as_points(self.q_point_local(act)))
+        q_point = q_point.view(num_res, h, pqk, 3).transpose(0, 1)
+        kv_point = affine.apply_to_point(self._as_points(self.kv_point_local(act)))
+        kv_point = kv_point.view(num_res, h, pqk + pv, 3).transpose(0, 1)
+        k_point, v_point = kv_point.split([pqk, pv], dim=2)
+
+        # Equal variance for each of the three logit terms; a point pair contributes 9/2.
+        scalar_weights = (1.0 / (3 * max(sqk, 1))) ** 0.5
+        point_weights = (1.0 / (3 * max(pqk, 1) * 4.5)) ** 0.5 * F.softplus(self.point_weights)
+
+        dist2 = (q_point[:, :, None] - k_point[:, None]).square().sum(-1)
+        logits = torch.einsum("hqc,hkc->hqk", scalar_weights * q_scalar, k_scalar)
+        logits = logits - 0.5 * (point_weights[:, None, None, None] * dist2).sum(-1)
+        logits = logits + (1.0 / 3) ** 0.5 * self.attention_2d(act_2d).permute(2, 0, 1)
+        logits = logits - 1e5 * (1.0 - mask * mask.transpose(-1, -2))
+        attn = torch.softmax(logits, dim=-1)
+
+        scalar_out = torch.einsum("hqk,hkc->qhc", attn, v_scalar).reshape(num_res, h * sv)
+        point_global = torch.einsum("hqk,hkpc->qhpc", attn, v_point)
+        point_local = affine.invert_point(point_global.reshape(num_res, h * pv, 3))
+        pair_out = torch.einsum("hij,ijc->ihc", attn, act_2d).reshape(num_res, -1)
+        features = torch.cat([
+            scalar_out,
+            point_local[..., 0], point_local[..., 1], point_local[..., 2],
+            (1e-8 + point_local.square().sum(-1)).sqrt(),
+            pair_out,
+        ], dim=-1)
+        return self.output_projection(features)
+
+
+def torsion_angles_to_frames(aatype: torch.Tensor, backb_rot: torch.Tensor,
+                             backb_trans: torch.Tensor, angles: torch.Tensor
+                             ) -> tuple[torch.Tensor, torch.Tensor]:
+    """`all_atom.torsion_angles_to_frames`: the 8 rigid-group frames, in the global frame.
+
+    A zero rotation is prepended for the backbone group, chi2 to chi4 chain onto the previous chi
+    frame rather than onto the backbone, and the result is composed with `backb_to_global`.
+    """
+    default = RIGID_GROUP_DEFAULT_FRAME.to(angles.dtype)[aatype]
+    num_res = aatype.shape[0]
+    ones = torch.ones(num_res, 1, dtype=angles.dtype)
+    zeros = torch.zeros(num_res, 1, dtype=angles.dtype)
+    sin = torch.cat([zeros, angles[..., 0]], dim=-1)
+    cos = torch.cat([ones, angles[..., 1]], dim=-1)
+    zero, one = torch.zeros_like(sin), torch.ones_like(sin)
+    rot_x = torch.stack([one, zero, zero, zero, cos, -sin, zero, sin, cos], -1).unflatten(-1, (3, 3))
+
+    rot = list((default[..., :3, :3] @ rot_x).unbind(1))
+    trans = list(default[..., :3, 3].unbind(1))
+    for i in (5, 6, 7):
+        rot[i], trans[i] = _compose(rot[i - 1], trans[i - 1], rot[i], trans[i])
+    return _compose(backb_rot[:, None], backb_trans[:, None],
+                    torch.stack(rot, 1), torch.stack(trans, 1))
+
+
+def frames_to_atom14_positions(aatype: torch.Tensor, rot: torch.Tensor,
+                               trans: torch.Tensor) -> torch.Tensor:
+    """`all_atom.frames_and_literature_positions_to_atom14_pos`: one frame per atom14 slot."""
+    group_mask = F.one_hot(ATOM14_TO_RIGID_GROUP[aatype], 8).to(rot.dtype)
+    atom_rot = torch.einsum("rgij,rag->raij", rot, group_mask)
+    atom_trans = torch.einsum("rgi,rag->rai", trans, group_mask)
+    literature = RIGID_GROUP_POSITIONS.to(rot.dtype)[aatype]
+    positions = torch.einsum("raij,raj->rai", atom_rot, literature) + atom_trans
+    return positions * ATOM14_MASK.to(rot.dtype)[aatype].unsqueeze(-1)
+
+
+def atom14_to_atom37(atom14: torch.Tensor, feats: dict) -> torch.Tensor:
+    """`all_atom.atom14_to_atom37`, masked by `atom37_atom_exists` as production does."""
+    index = feats["residx_atom37_to_atom14"].long().unsqueeze(-1).expand(-1, -1, 3)
+    atom37 = torch.gather(atom14, 1, index)
+    return atom37 * feats["atom37_atom_exists"].to(atom37.dtype).unsqueeze(-1)
+
+
+class MultiRigidSidechain(nn.Module):
+    """AlphaFold's `MultiRigidSidechain` (`folding.py:900`): 7 torsion angles, then atom14.
+
+    The two input projections read `[act, initial_act]` in that order and are summed, which is
+    the concatenation the checkpoint's two weight blocks encode.
+    """
+
+    def __init__(self, c_s: int = C_S, c_hidden: int = 128, num_residual_block: int = 2):
+        super().__init__()
+        self.input_projection = nn.ModuleList([Linear(c_s, c_hidden) for _ in range(2)])
+        self.resblock = nn.ModuleList([
+            nn.ModuleList([Linear(c_hidden, c_hidden) for _ in range(2)])
+            for _ in range(num_residual_block)])
+        self.angles = Linear(c_hidden, 14)
+
+    def forward(self, affine: QuatAffine, representations: list[torch.Tensor],
+                aatype: torch.Tensor) -> dict[str, torch.Tensor]:
+        act = sum(projection(F.relu(x))
+                  for projection, x in zip(self.input_projection, representations))
+        for first, second in self.resblock:
+            act = act + second(F.relu(first(F.relu(act))))
+        unnormalized = self.angles(F.relu(act)).view(-1, 7, 2)
+        angles = unnormalized / unnormalized.square().sum(-1, keepdim=True).clamp(min=1e-12).sqrt()
+        rot, trans = torsion_angles_to_frames(aatype, affine.rotation, affine.translation, angles)
+        return {
+            "angles_sin_cos": angles,
+            "unnormalized_angles_sin_cos": unnormalized,
+            "atom_pos": frames_to_atom14_positions(aatype, rot, trans),
+        }
+
+
+class AF2StructureModule(nn.Module):
+    """`folding.StructureModule`: 8 weight-sharing IPA layers over an initially identity frame.
+
+    Float32 throughout: `bfloat16_context` wraps `EmbeddingsAndEvoformer` only
+    (`modules.py:1387`) and the trunk hands back float32 (`:1583`). The initial guess reaches the
+    model through the recycling embedder, not through here, because `use_initial_atom_pos` is
+    False in production and every residue starts at the identity quaternion.
+    """
+
+    def __init__(self, c_s: int = C_S, c_z: int = C_Z, num_layer: int = 8,
+                 position_scale: float = 10.0):
+        super().__init__()
+        self.num_layer, self.position_scale = num_layer, position_scale
+        self.single_norm = LayerNorm(c_s)
+        self.pair_norm = LayerNorm(c_z)
+        self.initial_projection = Linear(c_s, c_s)
+        self.ipa = InvariantPointAttention(c_s, c_z)
+        self.attention_norm = LayerNorm(c_s)
+        self.transition = nn.ModuleList([Linear(c_s, c_s) for _ in range(3)])
+        self.transition_norm = LayerNorm(c_s)
+        self.affine_update = Linear(c_s, 6)
+        self.sidechain = MultiRigidSidechain(c_s)
+
+    def forward(self, single: torch.Tensor, pair: torch.Tensor, feats: dict) -> dict:
+        act = self.single_norm(single)
+        initial_act = act
+        act = self.initial_projection(act)
+        act_2d = self.pair_norm(pair)
+        mask = feats["seq_mask"].to(act.dtype)[:, None]
+        aatype = feats["aatype"].long()
+        affine = QuatAffine.identity(act.shape[0], dtype=act.dtype)
+
+        affines, sidechains = [], []
+        for _ in range(self.num_layer):
+            act = act + self.ipa(act, act_2d, mask, affine)
+            act = self.attention_norm(act)
+            residual = act
+            for i, layer in enumerate(self.transition):
+                act = layer(act)
+                if i < len(self.transition) - 1:
+                    act = F.relu(act)
+            act = self.transition_norm(act + residual)
+            affine = affine.pre_compose(self.affine_update(act))
+            sidechains.append(self.sidechain(affine.scale_translation(self.position_scale),
+                                             [act, initial_act], aatype))
+            affines.append(affine.to_tensor())
+
+        scale = torch.tensor([1.0] * 4 + [self.position_scale] * 3, dtype=act.dtype)
+        traj = torch.stack(affines) * scale
+        atom14 = sidechains[-1]["atom_pos"]
+        # `sidechains/angles` and `sidechains/angles_sin_cos` are one array under two names.
+        angles = torch.stack([sc["angles_sin_cos"] for sc in sidechains])
+        return {
+            "representations/structure_module": act,
+            "traj": traj,
+            "final_affines": traj[-1],
+            "sidechains/angles": angles,
+            "sidechains/angles_sin_cos": angles,
+            "sidechains/unnormalized_angles_sin_cos":
+                torch.stack([sc["unnormalized_angles_sin_cos"] for sc in sidechains]),
+            "final_atom14_positions": atom14,
+            "final_atom14_mask": feats["atom14_atom_exists"].to(act.dtype),
+            "final_atom_positions": atom14_to_atom37(atom14, feats),
+            "final_atom_mask": feats["atom37_atom_exists"].to(act.dtype),
+        }
+
+
+class PredictedLDDTHead(nn.Module):
+    """`modules.PredictedLDDTHead`: 50 pLDDT bins off the last fold layer's activations."""
+
+    def __init__(self, c_s: int = C_S, c_hidden: int = 128, num_bins: int = PLDDT_BINS):
+        super().__init__()
+        self.norm = LayerNorm(c_s)
+        self.act = nn.ModuleList([Linear(c_s, c_hidden), Linear(c_hidden, c_hidden)])
+        self.logits = Linear(c_hidden, num_bins)
+
+    def forward(self, act: torch.Tensor) -> torch.Tensor:
+        act = self.norm(act)
+        for layer in self.act:
+            act = F.relu(layer(act))
+        return self.logits(act)
+
+
 # ---------------------------------------------------------------------------- the trunk
 
 
-class AF2Trunk(nn.Module):
-    """`EmbeddingsAndEvoformer` plus the predicted-aligned-error head.
+class AF2Model(nn.Module):
+    """The whole of `model_1_ptm`: the trunk, the structure module and the two confidence heads.
 
     One call is one recycling pass. ColabDesign's `recycle_mode="last"` loops in python rather
-    than in graph (`design.py:147-205`), so the loop belongs to the caller and `prev` is an
+    than in graph (`design.py:147-205`), so the loop lives in `run_recycles` and `prev` is an
     argument.
     """
 
@@ -590,7 +921,9 @@ class AF2Trunk(nn.Module):
         self.evoformer = nn.ModuleList(
             [EvoformerBlock(C_M, C_Z, extra_msa=False) for _ in range(num_evoformer_blocks)])
         self.single_activations = Linear(C_M, C_S)
-        self.heads = nn.ModuleDict({"pae": nn.ModuleDict({"logits": Linear(C_Z, PAE_BINS)})})
+        self.structure = AF2StructureModule()
+        self.heads = nn.ModuleDict({"pae": nn.ModuleDict({"logits": Linear(C_Z, PAE_BINS)}),
+                                    "plddt": PredictedLDDTHead()})
 
     def forward(self, feats: dict, prev: dict) -> dict:
         dtype = self.trunk_dtype
@@ -648,6 +981,10 @@ class AF2Trunk(nn.Module):
             "msa_first_row": msa[0].float(),
         }
         out["pae_logits"] = self.heads["pae"]["logits"](out["pair"])
+        out["pae_breaks"] = torch.linspace(0.0, PAE_MAX_ERROR_BIN, PAE_BINS - 1)
+        out["structure"] = self.structure(out["single"], out["pair"], feats)
+        out["plddt_logits"] = self.heads["plddt"](
+            out["structure"]["representations/structure_module"])
         return out
 
 
@@ -659,30 +996,45 @@ def _extra_msa_feature(feats: dict) -> torch.Tensor:
                       feats["extra_deletion_value"].float().unsqueeze(-1)], dim=-1)
 
 
-def load_trunk(state_dict: dict[str, torch.Tensor], *, template: bool = True,
-               **kwargs) -> AF2Trunk:
-    """Build an `AF2Trunk` and load a remapped checkpoint into it.
+def load_af2_model(state_dict: dict[str, torch.Tensor], *, template: bool = True,
+                   **kwargs) -> AF2Model:
+    """Build an `AF2Model` and load a remapped checkpoint into it.
 
-    Keys under `DEFERRED_PREFIXES` are the structure module and the predicted-LDDT head, which
-    this pass does not implement, and with `template=False` the template stack the monomer config
-    drops. Anything else left over is a remap or transcription mistake and raises. Nothing may be
-    missing.
+    Every parameter in the checkpoint has a home here, so nothing may be missing and nothing may
+    be left over. The one exception is the template stack under `template=False`: the monomer
+    stage runs the model_3_ptm config and ColabDesign drops those parameters at load
+    (`af/model.py:112-120`) from the same params_model_1_ptm.npz.
     """
-    model = AF2Trunk(template=template, **kwargs)
-    # The monomer stage runs the model_3_ptm config, where the template stack is absent.
-    # ColabDesign drops the template parameters at load (`af/model.py:112-120`) from the same
-    # params_model_1_ptm.npz, so the monomer trunk leaves them unconsumed by design.
-    allowed = DEFERRED_PREFIXES if template else DEFERRED_PREFIXES + ("template.",)
+    model = AF2Model(template=template, **kwargs)
+    allowed = () if template else ("template.",)
     wanted = set(model.state_dict())
     consumed = {k: v for k, v in state_dict.items() if k in wanted}
     leftover = [k for k in state_dict if k not in wanted and not k.startswith(allowed)]
     if leftover:
-        raise AssertionError(f"{len(leftover)} checkpoint keys have no home in AF2Trunk and are "
-                             f"not deliberately deferred: {sorted(leftover)[:12]}")
+        raise AssertionError(f"{len(leftover)} checkpoint keys have no home in AF2Model: "
+                             f"{sorted(leftover)[:12]}")
     missing = sorted(wanted - set(consumed))
     if missing:
-        raise AssertionError(f"{len(missing)} AF2Trunk parameters are not in the checkpoint: "
+        raise AssertionError(f"{len(missing)} AF2Model parameters are not in the checkpoint: "
                              f"{missing[:12]}")
     model.load_state_dict(consumed, strict=True)
     model.eval()
     return model
+
+
+@torch.no_grad()
+def run_recycles(model: AF2Model, feats: dict, prev: dict, num_recycles: int = 3) -> list[dict]:
+    """`num_recycles + 1` forward passes with `prev` threaded through (`design.py:147-205`).
+
+    Returns every pass's output dict, not just the last, because the reference taps score the
+    first and the fourth. The first `prev` is `af2_data.initial_recycle_state`, which already
+    carries the initial guess; nothing else changes between passes.
+    """
+    outputs = []
+    for _ in range(num_recycles + 1):
+        out = model(feats, prev)
+        outputs.append(out)
+        prev = {"prev_msa_first_row": out["msa_first_row"],
+                "prev_pair": out["pair"],
+                "prev_pos": out["structure"]["final_atom_positions"]}
+    return outputs

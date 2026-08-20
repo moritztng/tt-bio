@@ -76,6 +76,30 @@ RESTYPE_ATOM14_MASK, RESTYPE_ATOM37_MASK, RESTYPE_ATOM14_TO_ATOM37, RESTYPE_ATOM
     _atom_tables()
 
 
+def _rigid_group_tables() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """The three tables the structure module gathers per residue type.
+
+    `restype_rigid_group_default_frame` is each residue's 8 rigid-group frames in homogeneous
+    coordinates, `restype_atom14_to_rigid_group` says which group an atom14 slot belongs to, and
+    `restype_atom14_rigid_group_positions` is each atom's literature position inside its group.
+
+    Same `UNK` divergence as `_atom_tables`: AF2 gives restype 20 no atoms and an all-zero row,
+    the vendored ESM copy gives it N/CA/C. Zeroing row 20 reproduces AlphaFold bit-exactly on all
+    three, which `tests/test_af2_reference.py` pins against AlphaFold's own dump.
+    """
+    frames = np.array(_rc.restype_rigid_group_default_frame, np.float32)
+    group = np.array(_rc.restype_atom14_to_rigid_group, np.int64)
+    positions = np.array(_rc.restype_atom14_rigid_group_positions, np.float32)
+    frames[UNKNOWN_RESTYPE] = 0.0
+    group[UNKNOWN_RESTYPE] = 0
+    positions[UNKNOWN_RESTYPE] = 0.0
+    return frames, group, positions
+
+
+RESTYPE_RIGID_GROUP_DEFAULT_FRAME, RESTYPE_ATOM14_TO_RIGID_GROUP, \
+    RESTYPE_ATOM14_RIGID_GROUP_POSITIONS = _rigid_group_tables()
+
+
 @dataclass(frozen=True)
 class Chain:
     """One parsed PDB chain in atom37 layout. Coordinates are float64 of float32 values."""

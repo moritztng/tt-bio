@@ -34,33 +34,22 @@ def _remapped_shapes() -> dict[str, list[int]]:
 
 
 def test_parameter_tree_matches_the_remap_exactly():
-    """Every remapped key has a home in the trunk, and nothing in the trunk is unfed.
+    """Every remapped key has a home in the model, and nothing in the model is unfed.
 
     This is the structural half of the parity story: it catches a wrong channel count, a missing
-    bias, a module nested one level too deep. The two deferred prefixes are the structure module
-    and the predicted-LDDT head, which reads the structure module's single representation rather
-    than the trunk's.
+    bias, a module nested one level too deep. Nothing is deferred any more, so the comparison is
+    over the whole 93,208,926-parameter checkpoint rather than a subset of it.
     """
-    trunk = {k: list(v.shape) for k, v in ref.AF2Trunk().state_dict().items()}
-    remapped = _remapped_shapes()
-    deferred = {k: v for k, v in remapped.items() if k.startswith(ref.DEFERRED_PREFIXES)}
-    expected = {k: v for k, v in remapped.items() if k not in deferred}
-    assert trunk == expected
-    assert deferred, "the deferred prefixes matched nothing -- has the remap been renamed?"
+    model = {k: list(v.shape) for k, v in ref.AF2Model().state_dict().items()}
+    assert model == _remapped_shapes()
 
 
-def test_deferred_prefixes_are_only_the_structure_module_and_lddt_head():
-    scopes = {k.split(".")[0] + "." + k.split(".")[1] for k in _remapped_shapes()
-              if k.startswith(ref.DEFERRED_PREFIXES)}
-    assert scopes == {"structure.single_norm", "structure.pair_norm",
-                      "structure.initial_projection", "structure.ipa",
-                      "structure.attention_norm", "structure.transition_norm",
-                      "structure.transition", "structure.affine_update",
-                      "structure.sidechain", "heads.plddt"}
+def test_the_model_is_the_whole_checkpoint():
+    assert sum(p.numel() for p in ref.AF2Model().parameters()) == 93_208_926
 
 
-def test_monomer_trunk_drops_the_template_stack():
-    keys = set(ref.AF2Trunk(template=False).state_dict())
+def test_monomer_model_drops_the_template_stack():
+    keys = set(ref.AF2Model(template=False).state_dict())
     assert not any(k.startswith("template.") for k in keys)
     assert any(k.startswith("evoformer.47.") for k in keys)
 
@@ -217,7 +206,7 @@ def test_recycling_distogram_is_15_bins_to_20_75_angstrom():
     """Not the template distogram's 39 bins to 50.75. The plan had these swapped."""
     assert ref.RECYCLE_DGRAM == (15, 3.25, 20.75)
     assert ref.TEMPLATE_DGRAM == (39, 3.25, 50.75)
-    assert ref.AF2Trunk().recycle["prev_pos_linear"].weight.shape[1] == 15
+    assert ref.AF2Model().recycle["prev_pos_linear"].weight.shape[1] == 15
 
 
 def test_dgram_is_one_hot_and_the_last_bin_catches_everything():
@@ -311,3 +300,172 @@ def test_pseudo_beta_takes_ca_for_glycine_and_cb_otherwise():
     out = ref.pseudo_beta(aatype, positions)
     assert torch.equal(out[0], torch.tensor([1.0, 0.0, 0.0]))
     assert torch.equal(out[1], torch.tensor([0.0, 1.0, 0.0]))
+
+
+# ------------------------------------------------------- the structure module and its algebra
+
+
+RIGID_TABLES = ARTIFACTS / "af2_rigid_group_tables.npz"
+
+
+def test_rigid_group_tables_are_alphafolds_not_the_vendored_copys():
+    """Pinned against AlphaFold's own dump, so a vendor bump breaks a test not the coordinates.
+
+    The vendored ESM constants agree on restypes 0-19 and give `UNK` N/CA/C where AlphaFold
+    gives it nothing; `af2_data` zeroes row 20 to match. Checking the derivation against
+    colabdesign's values makes this a pin rather than a self-consistency check.
+    """
+    from tt_bio import af2_data
+
+    with np.load(RIGID_TABLES) as want:
+        for name, got in (
+            ("restype_rigid_group_default_frame", af2_data.RESTYPE_RIGID_GROUP_DEFAULT_FRAME),
+            ("restype_atom14_to_rigid_group", af2_data.RESTYPE_ATOM14_TO_RIGID_GROUP),
+            ("restype_atom14_rigid_group_positions",
+             af2_data.RESTYPE_ATOM14_RIGID_GROUP_POSITIONS),
+            ("restype_atom14_mask", af2_data.RESTYPE_ATOM14_MASK),
+        ):
+            assert np.array_equal(got, want[name]), name
+            assert not np.any(np.asarray(got)[20]), f"{name} row 20 must be AlphaFold's empty UNK"
+
+
+def test_quat_to_rot_of_the_identity_quaternion_is_the_identity():
+    quaternion = torch.tensor([[1.0, 0.0, 0.0, 0.0]])
+    assert torch.allclose(ref.quat_to_rot(quaternion)[0], torch.eye(3), atol=1e-6)
+
+
+def test_quat_to_rot_is_orthonormal_with_determinant_one():
+    quaternion = torch.randn(5, 4)
+    quaternion = quaternion / quaternion.norm(dim=-1, keepdim=True)
+    rot = ref.quat_to_rot(quaternion)
+    assert torch.allclose(rot @ rot.transpose(-1, -2), torch.eye(3).expand(5, 3, 3), atol=1e-5)
+    assert torch.allclose(torch.linalg.det(rot), torch.ones(5), atol=1e-5)
+
+
+def test_pre_compose_rotates_the_translation_update_by_the_old_rotation():
+    """Adding the update unrotated is the mistake this catches; it is a no-op at the identity."""
+    torch.manual_seed(0)
+    quaternion = torch.randn(4, 4)
+    affine = ref.QuatAffine(quaternion, torch.zeros(4, 3))
+    update = torch.cat([torch.zeros(4, 3), torch.randn(4, 3)], dim=-1)
+    composed = affine.pre_compose(update)
+    rotated = torch.einsum("nij,nj->ni", affine.rotation, update[:, 3:])
+    assert torch.allclose(composed.translation, rotated, atol=1e-6)
+    assert not torch.allclose(composed.translation, update[:, 3:], atol=1e-3)
+
+
+def test_pre_compose_renormalises_the_quaternion():
+    affine = ref.QuatAffine(torch.tensor([[1.0, 0.0, 0.0, 0.0]]), torch.zeros(1, 3))
+    composed = affine.pre_compose(torch.tensor([[0.7, -0.4, 0.2, 0.0, 0.0, 0.0]]))
+    assert torch.allclose(composed.quaternion.norm(), torch.tensor(1.0), atol=1e-6)
+
+
+def test_invert_point_undoes_apply_to_point():
+    torch.manual_seed(1)
+    affine = ref.QuatAffine(torch.randn(3, 4), torch.randn(3, 3))
+    points = torch.randn(3, 5, 3)
+    assert torch.allclose(affine.invert_point(affine.apply_to_point(points)), points, atol=1e-5)
+
+
+def test_ipa_point_split_is_block_wise_not_interleaved():
+    """`q_point_local` splits into an x-block, a y-block and a z-block, in that order."""
+    flat = torch.arange(12.0).reshape(1, 12)
+    points = ref.InvariantPointAttention._as_points(flat)
+    assert points.shape == (1, 4, 3)
+    assert torch.equal(points[0, :, 0], torch.tensor([0.0, 1.0, 2.0, 3.0]))
+    assert torch.equal(points[0, :, 2], torch.tensor([8.0, 9.0, 10.0, 11.0]))
+
+
+def test_ipa_output_projection_reads_scalars_points_norms_and_the_pair_track():
+    ipa = ref.InvariantPointAttention()
+    assert ipa.output_projection.weight.shape[1] == 12 * 16 + 3 * 12 * 8 + 12 * 8 + 12 * 128
+
+
+def test_ipa_ignores_masked_residues():
+    """A masked residue must not reach an unmasked query, through the logits or the pair track."""
+    torch.manual_seed(2)
+    ipa = ref.InvariantPointAttention()
+    for parameter in ipa.parameters():
+        torch.nn.init.normal_(parameter, std=0.1)
+    act, act_2d = torch.randn(6, ref.C_S), torch.randn(6, 6, ref.C_Z)
+    mask = torch.tensor([[1.0], [1.0], [1.0], [0.0], [0.0], [0.0]])
+    affine = ref.QuatAffine.identity(6)
+    before = ipa(act, act_2d, mask, affine)
+    act_2d[3:, :] = torch.randn(3, 6, ref.C_Z)
+    act_2d[:, 3:] = torch.randn(6, 3, ref.C_Z)
+    after = ipa(act, act_2d, mask, affine)
+    assert torch.allclose(before[:3], after[:3], atol=1e-5)
+
+
+def test_torsion_angles_to_frames_chains_chi2_onto_chi1():
+    torch.manual_seed(3)
+    aatype = torch.tensor([4])                       # PHE, which has two chi angles
+    angles = torch.randn(1, 7, 2)
+    angles = angles / angles.norm(dim=-1, keepdim=True)
+    rot, trans = ref.torsion_angles_to_frames(aatype, torch.eye(3)[None], torch.zeros(1, 3),
+                                              angles)
+    default = ref.RIGID_GROUP_DEFAULT_FRAME[aatype]
+    sin, cos = angles[0, 4, 0], angles[0, 4, 1]
+    rot_x = torch.tensor([[1.0, 0.0, 0.0], [0.0, cos, -sin], [0.0, sin, cos]])
+    chi2_alone = default[0, 6, :3, :3] @ rot_x
+    assert torch.allclose(rot[0, 6], rot[0, 5] @ chi2_alone, atol=1e-5)
+
+
+def test_torsion_angles_to_frames_leaves_the_backbone_group_unrotated():
+    aatype = torch.tensor([0])
+    angles = torch.zeros(1, 7, 2)
+    angles[..., 1] = 1.0
+    rot, trans = ref.torsion_angles_to_frames(aatype, torch.eye(3)[None], torch.zeros(1, 3),
+                                              angles)
+    assert torch.allclose(rot[0, 0], torch.eye(3), atol=1e-6)
+
+
+def test_frames_to_atom14_positions_zeroes_atoms_the_residue_does_not_have():
+    aatype = torch.tensor([7, 20])                   # GLY has 4 atoms, UNK has none
+    rot = torch.eye(3).expand(2, 8, 3, 3).contiguous()
+    trans = torch.zeros(2, 8, 3)
+    positions = ref.frames_to_atom14_positions(aatype, rot, trans)
+    assert not torch.any(positions[0, 4:])
+    assert not torch.any(positions[1])
+
+
+def test_atom14_to_atom37_gathers_by_the_index_map_and_masks():
+    atom14 = torch.arange(2 * 14 * 3, dtype=torch.float32).reshape(2, 14, 3)
+    feats = {"residx_atom37_to_atom14": torch.zeros(2, 37, dtype=torch.long),
+             "atom37_atom_exists": torch.zeros(2, 37)}
+    feats["residx_atom37_to_atom14"][:, 5] = 3
+    feats["atom37_atom_exists"][:, 5] = 1.0
+    atom37 = ref.atom14_to_atom37(atom14, feats)
+    assert torch.equal(atom37[:, 5], atom14[:, 3])
+    assert not torch.any(atom37[:, :5])
+
+
+def test_structure_module_starts_at_the_identity_and_scales_the_trajectory():
+    """Zero-initialised weights leave the affine at the identity, which pins the traj layout."""
+    module = ref.AF2StructureModule()
+    feats = {"seq_mask": torch.ones(4), "aatype": torch.zeros(4, dtype=torch.long),
+             "atom14_atom_exists": torch.ones(4, 14), "atom37_atom_exists": torch.ones(4, 37),
+             "residx_atom37_to_atom14": torch.zeros(4, 37, dtype=torch.long)}
+    out = module(torch.randn(4, ref.C_S), torch.randn(4, 4, ref.C_Z), feats)
+    assert out["traj"].shape == (8, 4, 7)
+    assert torch.allclose(out["traj"][:, :, :4], torch.tensor([1.0, 0.0, 0.0, 0.0]), atol=1e-6)
+    assert not torch.any(out["traj"][:, :, 4:])
+    assert torch.equal(out["final_affines"], out["traj"][-1])
+    assert out["sidechains/angles"] is out["sidechains/angles_sin_cos"]
+
+
+def test_lddt_head_reads_the_structure_module_not_the_trunk_single():
+    head = ref.PredictedLDDTHead()
+    assert head.norm.weight.shape == (ref.C_S,)
+    assert head.logits.weight.shape == (ref.PLDDT_BINS, 128)
+
+
+def test_run_recycles_threads_prev_and_returns_every_pass():
+    class Counter(torch.nn.Module):
+        def forward(self, feats, prev):
+            step = prev["prev_pair"] + 1
+            return {"msa_first_row": step, "pair": step, "single": step,
+                    "structure": {"final_atom_positions": step}}
+
+    passes = ref.run_recycles(Counter(), {}, {"prev_pair": torch.zeros(1)}, num_recycles=3)
+    assert [float(p["pair"]) for p in passes] == [1.0, 2.0, 3.0, 4.0]
