@@ -54,9 +54,27 @@ def run(cmd, timeout):
     return round(time.time() - t0, 3), p
 
 
+AFF_KEYS = ("affinity_pred_value", "affinity_probability_binary", "affinity_pred_value1",
+            "affinity_probability_binary1", "affinity_pred_value2", "affinity_probability_binary2")
+
+
 def affinity_values(out_dir: pathlib.Path):
-    """Every affinity_*.json Boltz-2 wrote under out_dir, keyed by target stem."""
+    """The affinity scalars tt-bio wrote, keyed by target id.
+
+    tt-bio writes one results.json per run holding a LIST of per-target records with the affinity
+    scalars inline; upstream boltz writes a separate affinity_<stem>.json. Read both, because the
+    output guard for this arm is the affinity scalars and a run that produced none measures nothing.
+    """
     vals = {}
+    for f in sorted(out_dir.rglob("results.json")):
+        try:
+            recs = json.loads(f.read_text())
+        except Exception as e:
+            vals[str(f)] = {"unreadable": str(e)}
+            continue
+        for r in (recs if isinstance(recs, list) else [recs]):
+            if isinstance(r, dict) and "affinity_pred_value" in r:
+                vals[r.get("id", f.parent.name)] = {k: r[k] for k in AFF_KEYS if k in r}
     for f in sorted(out_dir.rglob("affinity_*.json")):
         try:
             vals[f.stem.replace("affinity_", "")] = json.loads(f.read_text())
