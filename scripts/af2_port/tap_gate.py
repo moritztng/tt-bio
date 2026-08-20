@@ -246,9 +246,32 @@ def _in_envelope(row: dict, envelope: dict, slack: float = 1.0) -> bool:
 DEVICE_MUTATIONS = ("extra-const", "block-order")
 
 
+def round_norm_affine(stacks) -> int:
+    """Round every LayerNorm scale and offset in these stacks to bfloat16 and back.
+
+    AF2's LayerNorm upcasts a bfloat16 input to float32 and only then reads its parameters, so
+    scale and offset carry full float32 precision even inside the bfloat16 trunk
+    (`colabdesign/af/alphafold/model/common_modules.py:158-177`, and `af2_reference.LayerNorm`
+    follows it). The ttnn trunk builds the same tensors through `Module.torch_to_tt`, which
+    defaults to `ttnn.bfloat16` (`tenstorrent.py:2516`). This applies that one difference to the
+    torch arm and nothing else: same blocks, same activations, same host arithmetic, so a
+    coherent error it reproduces is the affine dtype rather than anything about the card.
+    """
+    from tt_bio.af2_reference import LayerNorm
+    count = 0
+    for stack in stacks:
+        for module in stack.modules():
+            if isinstance(module, LayerNorm):
+                module.weight.data = module.weight.data.to(torch.bfloat16).float()
+                module.bias.data = module.bias.data.to(torch.bfloat16).float()
+                count += 1
+    return count
+
+
 def run_arm(state, feats: dict, prev: dict, *, template: bool, dtype: torch.dtype,
             keep: set[str] | None, recycles: int, device: bool = False,
-            mutate: str | None = None, template_cache: bool = True) -> tuple[dict, dict]:
+            mutate: str | None = None, template_cache: bool = True,
+            bf16_norm_affine: bool = False) -> tuple[dict, dict]:
     """One precision realisation of the model: its collected taps and its last pass's output."""
     from tt_bio.af2_reference import load_af2_model, run_recycles
 
@@ -262,6 +285,11 @@ def run_arm(state, feats: dict, prev: dict, *, template: bool, dtype: torch.dtyp
             model.device_evoformer = model.device_evoformer[::-1]
     else:
         model = load_af2_model(state, template=template, trunk_dtype=dtype)
+    if bf16_norm_affine:
+        stacks = [model.extra_msa, model.evoformer]
+        print(f"# bf16 norm affine applied to {round_norm_affine(stacks)} LayerNorms in the "
+              f"{len(model.extra_msa)} extra-MSA + {len(model.evoformer)} Evoformer blocks",
+              file=sys.stderr)
     taps = Taps(keep=keep)
     handles = taps.install(model)
     last = None
@@ -289,6 +317,9 @@ def main() -> int:
                     help="break one device-leg claim; the gate has to FAIL or it is blind")
     ap.add_argument("--no-template-cache", action="store_true",
                     help="recompute the template every pass; must change no number")
+    ap.add_argument("--bf16-norm-affine", action="store_true",
+                    help="round the trunk stacks' LayerNorm scale/offset to bfloat16 on the "
+                         "torch arm; isolates the one dtype the ttnn trunk gets wrong")
     ap.add_argument("--no-envelope", action="store_true",
                     help="skip the float32 arm and report every miss as a bare FAIL")
     args = ap.parse_args()
@@ -315,7 +346,8 @@ def main() -> int:
     taps, last = run_arm(state, feats, prev, template=template, dtype=torch.bfloat16,
                          keep=set(bases) if ref else None, recycles=args.recycles,
                          device=args.device, mutate=args.mutate,
-                         template_cache=not args.no_template_cache)
+                         template_cache=not args.no_template_cache,
+                         bf16_norm_affine=args.bf16_norm_affine)
     if args.drop_tap:
         taps.values.pop(args.drop_tap, None)
 
@@ -423,6 +455,7 @@ def main() -> int:
         "envelope_ratio_max": max((r.get("envelope_ratio", 0.0) for r in rows + scalars),
                                   default=0.0),
         "mutate": args.mutate,
+        "bf16_norm_affine": args.bf16_norm_affine,
         "template_cached": not args.no_template_cache,
         "verdict": verdict,
         "taps_scored": len(rows),

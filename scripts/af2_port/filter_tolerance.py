@@ -15,10 +15,19 @@ sequence while keeping its backbone as the template and the initial guess is exa
 AF2-IG sees from PXDesign, a design's own coordinates plus a sequence that is good or bad, and it
 sweeps the confidence metrics through the thresholds.
 
+That population turned out not to answer the question: a sequence-contiguous chain split is not
+an interface, so all nine rungs are rejected by a wide margin on all three criteria and the
+ladder is flat (`parity_artifacts/laczc128_b80/filter_tolerance_scramble.json`). `--mode pose`
+is the second population and it varies the one thing that was already known to sit on the
+boundary. The port's own parity fixture -- the laczc_128 crop as chain A, its first 80 residues
+as chain B translated 60 A clear -- scores i_pTM 0.490, ten thousandths below the accept line,
+so walking that translation in from 60 A toward contact sweeps a real pose coordinate through
+the threshold with the sequence held native. One variable, no generator.
+
 Each rung is scored by the torch reference arm (bfloat16 trunk, four passes), then re-scored with
 the measured device deltas added, and the two verdicts are compared.
 
-    PYTHONPATH=. env/bin/python3 -u scripts/af2_port/filter_tolerance.py --out /tmp/tol.jsonl
+    PYTHONPATH=. env/bin/python3 -u scripts/af2_port/filter_tolerance.py --mode pose --out /tmp/tol.jsonl
 """
 from __future__ import annotations
 
@@ -38,6 +47,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from af2_fixture import read_crop_cif, seq_of, write_complex_pdb  # noqa: E402
 
 TARGET_CIF = REPO / "perf" / "pxdesign" / "targets" / "laczc_256.cif"
+FIXTURE_CIF = REPO / "perf" / "pxdesign" / "targets" / "laczc_128.cif"
+FIXTURE_BINDER = 80         # == the parity fixture, af2_fixture.build_fixture's default
 TARGET_SLICE = (64, 192)    # == laczc_128.cif, verified equal residue for residue
 BINDER_SLICE = (192, 256)   # the 64 residues that follow the crop, native pose
 DEFAULT_PARAMS = "/home/ttuser/pxd_tool_weights/af2/params_model_1_ptm.npz"
@@ -61,6 +72,42 @@ def mutate(sequence: str, fraction: float, seed: int) -> str:
     for i in rng.choice(len(sequence), size=count, replace=False):
         out[i] = AA20[int(rng.integers(20))]
     return "".join(out)
+
+
+def min_interchain_distance(target_res: list[dict], binder_res: list[dict], shift: float) -> float:
+    """Closest approach between the two chains, so a rung records its own geometry."""
+    t = np.array([[a[2], a[3], a[4]] for r in target_res for a in r["atoms"]])
+    b = np.array([[a[2], a[3], a[4]] for r in binder_res for a in r["atoms"]])
+    b = b + np.array([shift, 0.0, 0.0])
+    return float(np.linalg.norm(t[:, None, :] - b[None, :, :], axis=-1).min())
+
+
+def scramble_population(work: Path, levels: list[float], seed: int):
+    """Pass 7's population: one native interface, binder sequence randomised in nine steps."""
+    residues = read_crop_cif(str(TARGET_CIF))
+    target = residues[TARGET_SLICE[0]:TARGET_SLICE[1]]
+    binder = residues[BINDER_SLICE[0]:BINDER_SLICE[1]]
+    native = seq_of(binder)
+    pdb = str(work / "native_complex.pdb")
+    write_complex_pdb(pdb, target, binder, shift=0.0)
+    for level in levels:
+        seq = mutate(native, level, seed + int(level * 1000))
+        yield {"level": level,
+               "identity": sum(a == b for a, b in zip(seq, native)) / len(native)}, pdb, seq
+
+
+def pose_population(work: Path, shifts: list[float]):
+    """The pose ladder: the parity fixture's binder walked in from 60 A, sequence held native."""
+    residues = read_crop_cif(str(FIXTURE_CIF))
+    binder = residues[:FIXTURE_BINDER]
+    native = seq_of(binder)
+    for shift in shifts:
+        pdb = str(work / ("pose_%05.1f.pdb" % shift))
+        write_complex_pdb(pdb, residues, binder, shift=shift)
+        yield {"level": shift,
+               "shift_a": shift,
+               "min_interchain_a": round(min_interchain_distance(residues, binder, shift), 2)}, \
+              pdb, native
 
 
 def passes(scalars: dict) -> dict:
@@ -98,23 +145,24 @@ def main() -> int:
     ap.add_argument("--out", required=True)
     ap.add_argument("--params", default=DEFAULT_PARAMS)
     ap.add_argument("--recycles", type=int, default=3)
-    ap.add_argument("--levels", default="0,0.05,0.1,0.15,0.2,0.3,0.5,0.75,1.0")
+    ap.add_argument("--mode", default="scramble", choices=["scramble", "pose"])
+    ap.add_argument("--levels", default=None,
+                    help="scramble: mutation fractions. pose: binder shifts in angstrom.")
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--work", default="/tmp/af2ig_tolerance")
     args = ap.parse_args()
 
+    default_levels = {"scramble": "0,0.05,0.1,0.15,0.2,0.3,0.5,0.75,1.0",
+                      "pose": "60,50,46,44,42,40,38,36,34,32"}
+    levels = [float(x) for x in (args.levels or default_levels[args.mode]).split(",")]
+
     from tt_bio.af2_reference import load_af2_model
     from tt_bio.af2_weights import load_af2_state_dict
 
-    residues = read_crop_cif(str(TARGET_CIF))
-    target = residues[TARGET_SLICE[0]:TARGET_SLICE[1]]
-    binder = residues[BINDER_SLICE[0]:BINDER_SLICE[1]]
-    native_seq = seq_of(binder)
-
     work = Path(args.work)
     work.mkdir(parents=True, exist_ok=True)
-    pdb = str(work / "native_complex.pdb")
-    write_complex_pdb(pdb, target, binder, shift=0.0)
+    population = (scramble_population(work, levels, args.seed) if args.mode == "scramble"
+                  else pose_population(work, levels))
 
     model = load_af2_model(load_af2_state_dict(args.params), template=True,
                            trunk_dtype=torch.bfloat16)
@@ -124,18 +172,18 @@ def main() -> int:
     if out.exists():
         done = {json.loads(line)["level"] for line in out.read_text().splitlines() if line.strip()}
 
-    for level in [float(x) for x in args.levels.split(",")]:
-        if level in done:
+    for label, pdb, seq in population:
+        if label["level"] in done:
             continue
-        seq = mutate(native_seq, level, args.seed + int(level * 1000))
         t0 = time.time()
         ref = score(model, pdb, seq, args.recycles)
         dev = {k: ref[k] + d for k, d in DEVICE_DELTA.items()}
         row = {
-            "level": level,
-            "identity": sum(a == b for a, b in zip(seq, native_seq)) / len(native_seq),
+            "mode": args.mode,
+            **label,
             "seconds": round(time.time() - t0, 1),
             "ref": {k: round(v, 6) for k, v in ref.items()},
+            "dev": {k: round(v, 6) for k, v in dev.items()},
             "ref_pass": passes(ref),
             "dev_pass": passes(dev),
         }
