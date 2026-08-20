@@ -86,7 +86,15 @@ class Timer:
         `self.decoder.prepare(...)`. A bare function has no `prepare`, so instrumenting
         the denoiser used to make --breakdown and the hoist mutually exclusive.
         """
-        setattr(obj, attr, _Timed(getattr(obj, attr), self, name))
+        cur = getattr(obj, attr)
+        if isinstance(cur, _Timed):
+            # One fold per rep re-instruments the same module tree. Re-point the existing
+            # proxy at this rep's Timer instead of stacking a second one on top of it: a
+            # stacked proxy writes into the PREVIOUS rep's dict, which silently drops every
+            # nested span (dn.dit_bias) from every rep after the first.
+            cur._tm, cur._name = self, name
+            return
+        setattr(obj, attr, _Timed(cur, self, name))
 
 
 class _Timed:
