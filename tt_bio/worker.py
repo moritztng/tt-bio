@@ -1559,13 +1559,22 @@ def _execute_job(
         if metrics:
             row.update(metrics)
             row["status"] = "ok"
-            row["runtime_s"] = round(time.time() - t0, 1)
+            # runtime_s is the whole job, affinity included. Stamping it here, before
+            # predict_affinity, made results.json report the structure leg only: a 191 s
+            # affinity prediction read 32 s, so anyone pricing the affinity path off the
+            # result file was off by ~6x. The split is reported too, because the two legs
+            # have very different cost drivers.
+            structure_runtime_s = round(time.time() - t0, 1)
             if feats["record"].affinity and best is not None:
+                t_aff = time.time()
                 try:
                     aff = state.predict_affinity(input_path, best, job_cfg)
                     row.update(aff)
                 except Exception:
                     traceback.print_exc()
+                row["structure_runtime_s"] = structure_runtime_s
+                row["affinity_runtime_s"] = round(time.time() - t_aff, 1)
+            row["runtime_s"] = round(time.time() - t0, 1)
         outputs = _read_outputs(output_dir, _shared_outputs_dir(cfg))
     except Exception as exc:
         traceback.print_exc()
