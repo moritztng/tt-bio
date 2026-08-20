@@ -1,0 +1,82 @@
+{
+  "rows": [
+    {
+      "arm": "off",
+      "rep": 0,
+      "sampler_s": 98.445,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1,
+      "kernel_calls": 0
+    },
+    {
+      "arm": "off",
+      "rep": 1,
+      "sampler_s": 98.877,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1,
+      "kernel_calls": 0
+    },
+    {
+      "arm": "on",
+      "rep": 2,
+      "sampler_s": 94.512,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1,
+      "kernel_calls": 1791
+    },
+    {
+      "arm": "off",
+      "rep": 3,
+      "sampler_s": 98.789,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1,
+      "kernel_calls": 0
+    },
+    {
+      "arm": "on",
+      "rep": 4,
+      "sampler_s": 94.012,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1,
+      "kernel_calls": 1791
+    }
+  ],
+  "num_timesteps": 200,
+  "seed": 42,
+  "arms": [
+    "off",
+    "off",
+    "on",
+    "off",
+    "on"
+  ],
+  "flag": "RFD3_SOFTMAX_BF16",
+  "arms_distinct": true,
+  "discarded_warmup_s": 100.561,
+  "bit_exact": true,
+  "digests": {
+    "off": [
+      "5295e526ebd0b757"
+    ],
+    "on": [
+      "5295e526ebd0b757"
+    ]
+  },
+  "aa_control_s": [
+    98.445,
+    98.877
+  ],
+  "aa_spread_s": 0.43200000000000216,
+  "off_median_s": 98.789,
+  "off_min_s": 98.445,
+  "off_max_s": 98.877,
+  "on_median_s": 94.262,
+  "on_min_s": 94.012,
+  "on_max_s": 94.512,
+  "delta_s": -4.527,
+  "ratio": 1.048,
+  "predicted_delta_s": -4.523,
+  "host": "qb2",
+  "card": 1,
+  "torch": "2.13.0+cpu"
+}

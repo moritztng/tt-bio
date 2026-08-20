@@ -1,0 +1,71 @@
+{
+  "shape": {
+    "I": 685,
+    "J": 685,
+    "H": 16,
+    "n_key": 704,
+    "head_dim": 48
+  },
+  "calls_per_step": 36,
+  "n": 6,
+  "arms": {
+    "A_chain_6op": {
+      "ms_per_call": 1.081,
+      "all": [
+        1.0881,
+        1.0809,
+        1.0783,
+        1.0675,
+        1.0812,
+        1.0931
+      ],
+      "ms_per_step": 38.918
+    },
+    "B_typecast_proxy": {
+      "ms_per_call": 0.1537,
+      "all": [
+        0.1523,
+        0.1585,
+        0.1534,
+        0.1541,
+        0.1523,
+        0.156
+      ],
+      "mb_moved": 45.38,
+      "gb_s": 288.2
+    },
+    "C_bias_clone": {
+      "ms_per_call": 0.1718,
+      "all": [
+        0.1741,
+        0.1719,
+        0.1722,
+        0.1717,
+        0.1698,
+        0.1715
+      ],
+      "mb_moved": 58.87,
+      "gb_s": 334.6
+    },
+    "D_fp32_scaled_add": {
+      "ms_per_call": 0.2371,
+      "all": [
+        0.2375,
+        0.2379,
+        0.2341,
+        0.2366,
+        0.2357,
+        0.2407
+      ],
+      "mb_moved": 90.75
+    }
+  },
+  "prediction": {
+    "kernel_ms_per_call": 0.2396,
+    "kernel_basis": "arm B (same write, first read) + half arm C (the compact bias read)",
+    "net_ms_per_step": 30.291,
+    "net_s_per_design_200_steps": 6.058,
+    "gate_ms_per_step": 10.0,
+    "verdict": "GO"
+  }
+}

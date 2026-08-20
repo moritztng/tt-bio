@@ -1,0 +1,73 @@
+{
+  "rows": [
+    {
+      "arm": "off",
+      "rep": 0,
+      "sampler_s": 3.659,
+      "cif_sha256_16": "8f77ad6bd4e3f846",
+      "n_cifs": 1,
+      "kernel_calls": 0
+    },
+    {
+      "arm": "on",
+      "rep": 1,
+      "sampler_s": 3.661,
+      "cif_sha256_16": "8f77ad6bd4e3f846",
+      "n_cifs": 1,
+      "kernel_calls": 72
+    },
+    {
+      "arm": "off",
+      "rep": 2,
+      "sampler_s": 3.646,
+      "cif_sha256_16": "8f77ad6bd4e3f846",
+      "n_cifs": 1,
+      "kernel_calls": 0
+    },
+    {
+      "arm": "on",
+      "rep": 3,
+      "sampler_s": 3.621,
+      "cif_sha256_16": "8f77ad6bd4e3f846",
+      "n_cifs": 1,
+      "kernel_calls": 72
+    }
+  ],
+  "num_timesteps": 3,
+  "seed": 42,
+  "arms": [
+    "off",
+    "on",
+    "off",
+    "on"
+  ],
+  "flag": "RFD3_DENSE_BIAS_FUSED",
+  "arms_distinct": true,
+  "discarded_warmup_s": 5.61,
+  "bit_exact": true,
+  "digests": {
+    "off": [
+      "8f77ad6bd4e3f846"
+    ],
+    "on": [
+      "8f77ad6bd4e3f846"
+    ]
+  },
+  "aa_control_s": [
+    3.659,
+    3.646
+  ],
+  "aa_spread_s": 0.0129999999999999,
+  "off_median_s": 3.6525,
+  "off_min_s": 3.646,
+  "off_max_s": 3.659,
+  "on_median_s": 3.641,
+  "on_min_s": 3.621,
+  "on_max_s": 3.661,
+  "delta_s": -0.011,
+  "ratio": 1.0032,
+  "predicted_delta_s": -0.033,
+  "host": "qb2",
+  "card": 1,
+  "torch": "2.13.0+cpu"
+}
