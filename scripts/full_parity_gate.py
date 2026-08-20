@@ -201,6 +201,9 @@ class Leg:
     msa: str = "none"
     committed_json: str = ""
     target_id: str = ""          # for affinity scoring (affinity_<t>) and structures tid
+    stage: str = ""              # AF2-IG only: which captured stage the leg scores
+                                 # ("complex" or "monomer"). Deliberately NOT `fixture`, which
+                                 # the preflight resolves to a ref-fixture directory.
     opt_in: bool = False         # slow / network legs (esmc-6b, MSA-server legs) — not default
     legacy_rdx: bool = False     # ttnn-only model with NO tt-bio torch path (openfold3): score
                                  # vs the harvested external reference (legacy R/D/X), never the
@@ -458,9 +461,12 @@ LEGS += [
              "(60/60 keys bit-exact over both stages); card-free, in-process"),
     # --- AF2-IG torch trunk vs the captured JAX activations (card-free, needs the
     # checkpoint; GAP rather than FAIL when it is absent) ---
-    Leg("af2ig-trunk", "af2ig", "af2ig_trunk", "",
-        note="AF2-IG torch trunk vs committed JAX activation taps from the production "
-             "forward pass; card-free, needs params_model_1_ptm.npz"),
+    Leg("af2ig-trunk", "af2ig", "af2ig_trunk", "", stage="complex",
+        note="AF2-IG torch trunk (complex stage, templates on) vs committed JAX activation "
+             "taps from the production forward pass; card-free, needs params_model_1_ptm.npz"),
+    Leg("af2ig-trunk-monomer", "af2ig", "af2ig_trunk", "", stage="monomer",
+        note="AF2-IG torch trunk (monomer stage, model_3_ptm, template stack dropped) vs its "
+             "own captured taps; card-free, needs params_model_1_ptm.npz"),
 ]
 
 LEGS_BY_ID = {l.id: l for l in LEGS}
@@ -1192,8 +1198,8 @@ def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
         if not params.exists():
             return {"mode": "af2ig_taps", "verdict": "GAP",
                     "error": f"checkpoint absent: {params}"}
-        return _af2ig_subprocess(["scripts/af2_port/tap_gate.py", "--params", str(params)],
-                                 out_json, "af2ig_taps")
+        return _af2ig_subprocess(["scripts/af2_port/tap_gate.py", "--params", str(params),
+                                  "--stage", leg.stage or "complex"], out_json, "af2ig_taps")
 
     if leg.kind == "esmc":
         script = "scripts/esmc6b_embed_parity.py" if leg.model == "esmc-6b" else "scripts/esmc_embed_parity.py"
@@ -1400,9 +1406,9 @@ def _af2ig_trunk_verdict(report: dict) -> tuple[str, str]:
     if not rows:
         return "NO-DATA", "no taps scored"
     worst = min(rows, key=lambda r: r.get("pcc", -1.0))
-    detail = ("%d taps, %d failed; worst %s pcc=%.6f"
-              % (report["taps_scored"], report["taps_failed"], worst["tap"],
-                 worst.get("pcc", float("nan"))))
+    detail = ("%s: %d taps, %d failed; worst %s pcc=%.6f"
+              % (report.get("stage", "?"), report["taps_scored"], report["taps_failed"],
+                 worst["tap"], worst.get("pcc", float("nan"))))
     return report.get("verdict", "NO-DATA"), detail
 
 
