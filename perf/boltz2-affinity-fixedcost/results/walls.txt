@@ -1,0 +1,2 @@
+wall_s=215.726582313 rc=0 tag=base aa=256 steps_aff=200 samples_aff=5
+wall_s=220.797005728 rc=0 tag=trace1 aa=256 steps_aff=200 samples_aff=5
