@@ -5380,6 +5380,14 @@ class DiffusionTransformerLayer(Module):
         # transition reads the block input rather than the post-attention residual.
         self.no_residual = no_residual
         self.s_o = None
+        # Keyed by the shape of the `s` it was built from. The atom-level output
+        # projection is reused across a fold because `s` is t-independent there, but the
+        # cache used to have no key at all, so a second fold at a different length in the
+        # same process multiplied a stale window count against the current bias -- loud if
+        # the window counts differ, silent and wrong if two lengths round to the same one.
+        # tt-bio's wrapper path clears this in `reset_static_cache`; RF3 uses the raw
+        # modules and never reaches it.
+        self._s_o_key = None
         self.adaln = AdaLN(
             atom_level, self.scope("adaln"), compute_kernel_config
         )
@@ -5417,7 +5425,8 @@ class DiffusionTransformerLayer(Module):
             b = self.attn_pair_bias(b, z)
         else:
             b = self.attn_pair_bias(b, z, keys_indexing)
-        if self.s_o is None:
+        key = tuple(s.shape)
+        if self.s_o is None or self._s_o_key != key:
             s_o = ttnn.linear(
                 s,
                 self.output_projection_weight,
@@ -5427,7 +5436,7 @@ class DiffusionTransformerLayer(Module):
                 activation="sigmoid",
             )
             if self.atom_level:
-                self.s_o = s_o
+                self.s_o, self._s_o_key = s_o, key
         else:
             s_o = self.s_o
         b = ttnn.multiply(s_o, b)
