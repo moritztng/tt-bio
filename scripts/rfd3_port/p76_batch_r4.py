@@ -181,8 +181,18 @@ def main():
     aa = [r["s_per_design"] for r in rows if r["batch"] == 1 and "s_per_design" in r]
     aa_spread = abs(aa[1] - aa[0]) if len(aa) > 1 else None
     ratio = (b1 / b2) if (b1 and b2) else None
+    # A verdict must be gated on its own A/A control. The qb1 run of 2026-08-20 had its second
+    # b=1 rep contaminated by an unlocked 20-core JAX job on the same host (106.201 -> 288.503,
+    # spread 182.302 s), which inflated the b=1 median to 197.352 and printed "ratio 1.3278x GO"
+    # for an arm that is really a wash-to-worse. An A/A spread wider than the gate's own
+    # resolution means the box moved under the run, so there is no ratio to report.
+    AA_TOL = GATE - 1.0
+    aa_rel = (aa_spread / b1) if (aa_spread is not None and b1) else None
     verdict = None
-    if ratio is not None:
+    if aa_rel is not None and aa_rel > AA_TOL:
+        verdict = ("VOID -- A/A spread %.1f%% exceeds the %.1f%% gate resolution; the host moved "
+                   "under the run, re-run on a quiet box" % (100 * aa_rel, 100 * AA_TOL))
+    elif ratio is not None:
         if ratio >= GATE:
             verdict = "GO"
         elif ratio < 1.0:
@@ -192,6 +202,8 @@ def main():
 
     if aa_spread is not None:
         print("\nA/A control (the two b=1 reps): %s -> spread %.3f s" % (aa, aa_spread))
+    if verdict and verdict.startswith("VOID"):
+        print("*** %s ***" % verdict)
     print("b=1 median %8.3f s/design" % b1)
     if b2:
         print("b=2 median %8.3f s/design   ratio %.4fx   gate %.2fx   %s"
@@ -209,7 +221,7 @@ def main():
         "speed_cap_shipped": cap_before,
         "speed_cap_above_atoms": rfd3_design._BATCH_SPEED_CAP_ABOVE_ATOMS,
         "b1_median_s_per_design": b1, "b2_median_s_per_design": b2,
-        "aa_control_s": aa, "aa_spread_s": aa_spread, "ratio": ratio, "gate": GATE,
+        "aa_control_s": aa, "aa_spread_s": aa_spread, "aa_spread_rel": aa_rel, "ratio": ratio, "gate": GATE,
         "verdict": verdict, "all_valid": all_valid, "failed_arms": failed,
         "h200_b8_amortised_s": 12.974,
         "ratio_to_h200_b8": (b2 / 12.974) if b2 else None,
