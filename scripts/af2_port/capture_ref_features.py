@@ -36,14 +36,28 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from af2_fixture import build_fixture  # noqa: E402
 
-# PXDesign's production AF2 block, verbatim (`pxdbench/pxd_configs/eval.py:53`), and the
-# num_recycles hardcoded at `pxdbench/tools/af2/main_af2_complex.py:76,136`.
+# PXDesign's two AF2 stages, verbatim. The complex stage is `pxd_configs/eval.py:53` plus the
+# num_recycles hardcoded at `tools/af2/main_af2_complex.py:76,136`; the monomer stage is
+# `tools/af2/main_af2_monomer.py:120-128` and is NOT the same model with templates off -- it is
+# `protocol="hallucination"` and takes no PDB at all, so it has no template, no batch and no
+# initial guess. `use_templates=False` still loads params_model_1_ptm.npz and drops every
+# `template*` key at load (`colabdesign/af/model.py:112-120`), under the model_3_ptm config.
 PRODUCTION = {
-    "protocol": "binder",
-    "num_recycles": 3,
-    "use_multimer": False,
-    "use_initial_guess": True,
-    "use_initial_atom_pos": False,
+    "complex": {
+        "protocol": "binder",
+        "num_recycles": 3,
+        "use_multimer": False,
+        "use_initial_guess": True,
+        "use_initial_atom_pos": False,
+    },
+    "monomer": {
+        "protocol": "hallucination",
+        "num_recycles": 3,
+        "use_multimer": False,
+        "use_templates": False,
+        "use_initial_guess": False,
+        "use_initial_atom_pos": False,
+    },
 }
 PREP = {
     "use_binder_template": True,
@@ -110,23 +124,22 @@ def main() -> None:
 
         jax.debug.callback(receive, flat)
 
+    production = PRODUCTION[args.stage]
     clear_mem()
     t0 = time.perf_counter()
     model = mk_afdesign_model(
-        data_dir=args.params, pre_callback=pre_callback,
-        **{k: v for k, v in PRODUCTION.items() if k != "num_recycles"},
-        num_recycles=PRODUCTION["num_recycles"],
+        data_dir=args.params, pre_callback=pre_callback, **production,
     )
     print(f"model constructed in {time.perf_counter() - t0:.2f} s", flush=True)
 
     if args.stage == "complex":
         model.prep_inputs(pdb_filename=fixture["pdb"], chain="A", binder_chain="B", **PREP)
     else:
-        model.prep_inputs(pdb_filename=fixture["pdb"], chain="B")
+        model.prep_inputs(length=len(fixture["binder_seq"]))
 
     t0 = time.perf_counter()
     model.predict(seq=fixture["binder_seq"], models=[0],
-                  num_recycles=PRODUCTION["num_recycles"], verbose=False)
+                  num_recycles=production["num_recycles"], verbose=False)
     print(f"predict {time.perf_counter() - t0:.2f} s, captured {len(captured)} arrays", flush=True)
     assert captured, "pre_callback never delivered a value"
 
@@ -137,7 +150,8 @@ def main() -> None:
     payload = dict(captured)
     payload["_meta/json"] = np.frombuffer(
         json.dumps({
-            "fixture": fixture, "production": PRODUCTION, "prep": PREP, "stage": args.stage,
+            "fixture": fixture, "production": production, "stage": args.stage,
+            "prep": PREP if args.stage == "complex" else {},
             "jax_version": jax.__version__, "log": log,
             "cif": os.path.basename(args.cif),
         }, sort_keys=True).encode(), dtype=np.uint8)
