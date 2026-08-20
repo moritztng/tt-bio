@@ -1,0 +1,128 @@
+{
+  "rows": [
+    {
+      "H": 16,
+      "I": 128,
+      "n_key": 128,
+      "torch_equal": true,
+      "maxabs": 0.0,
+      "n_differing": 0,
+      "shipped_ms": 0.0498,
+      "fused_ms": 0.0458,
+      "ratio": 1.0872,
+      "shipped_all": [
+        0.0553,
+        0.0588,
+        0.0497,
+        0.0499,
+        0.0495,
+        0.0498
+      ],
+      "fused_all": [
+        0.0466,
+        0.0451,
+        0.0501,
+        0.0492,
+        0.0439,
+        0.0436
+      ],
+      "fused_mb": 2.0,
+      "fused_gb_s": 42.6
+    },
+    {
+      "H": 16,
+      "I": 298,
+      "n_key": 320,
+      "torch_equal": true,
+      "maxabs": 0.0,
+      "n_differing": 0,
+      "shipped_ms": 0.1219,
+      "fused_ms": 0.0745,
+      "ratio": 1.6362,
+      "shipped_all": [
+        0.1297,
+        0.1215,
+        0.1202,
+        0.1212,
+        0.1223,
+        0.1231
+      ],
+      "fused_all": [
+        0.084,
+        0.0748,
+        0.0742,
+        0.0723,
+        0.0777,
+        0.0711
+      ],
+      "fused_mb": 11.64,
+      "fused_gb_s": 152.6
+    },
+    {
+      "H": 16,
+      "I": 512,
+      "n_key": 512,
+      "torch_equal": true,
+      "maxabs": 0.0,
+      "n_differing": 0,
+      "shipped_ms": 0.2839,
+      "fused_ms": 0.1353,
+      "ratio": 2.0985,
+      "shipped_all": [
+        0.3328,
+        0.2857,
+        0.2821,
+        0.2782,
+        0.2812,
+        0.2869
+      ],
+      "fused_all": [
+        0.2609,
+        0.1387,
+        0.1371,
+        0.1335,
+        0.1291,
+        0.1241
+      ],
+      "fused_mb": 32.0,
+      "fused_gb_s": 231.0
+    },
+    {
+      "H": 16,
+      "I": 685,
+      "n_key": 704,
+      "torch_equal": true,
+      "maxabs": 0.0,
+      "n_differing": 0,
+      "shipped_ms": 0.5093,
+      "fused_ms": 0.2038,
+      "ratio": 2.4985,
+      "shipped_all": [
+        0.523,
+        0.5352,
+        0.5087,
+        0.5099,
+        0.505,
+        0.503
+      ],
+      "fused_all": [
+        0.2086,
+        0.2021,
+        0.2005,
+        0.2056,
+        0.2073,
+        0.1982
+      ],
+      "fused_mb": 58.87,
+      "fused_gb_s": 282.0
+    }
+  ],
+  "n": 6,
+  "scale": 0.14433756729740643,
+  "all_exact": true,
+  "slots": 8,
+  "window": 4,
+  "addr_write_mode": "in_place",
+  "page_fixture_ms_per_step_saved": 10.998,
+  "page_fixture_s_per_design_saved": 2.2
+}

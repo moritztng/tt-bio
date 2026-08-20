@@ -1,0 +1,98 @@
+{
+  "n": 6,
+  "host": "qb2",
+  "card": 1,
+  "torch": "2.13.0+cpu",
+  "tune_matmul": true,
+  "prediction": "M2: ms/call flat within 25pct from R=32 to R=685",
+  "arm_a": [
+    {
+      "rows": 32,
+      "ms": 0.0347,
+      "min": 0.0339,
+      "max": 0.056,
+      "gflop": 0.038,
+      "tflops": 1.09,
+      "pct_of_102_roof": 1.1
+    },
+    {
+      "rows": 64,
+      "ms": 0.0365,
+      "min": 0.0362,
+      "max": 0.0462,
+      "gflop": 0.075,
+      "tflops": 2.07,
+      "pct_of_102_roof": 2.0
+    },
+    {
+      "rows": 128,
+      "ms": 0.0406,
+      "min": 0.0401,
+      "max": 0.0529,
+      "gflop": 0.151,
+      "tflops": 3.72,
+      "pct_of_102_roof": 3.6
+    },
+    {
+      "rows": 342,
+      "ms": 0.0471,
+      "min": 0.0464,
+      "max": 0.0596,
+      "gflop": 0.403,
+      "tflops": 8.56,
+      "pct_of_102_roof": 8.4
+    },
+    {
+      "rows": 685,
+      "ms": 0.0516,
+      "min": 0.0509,
+      "max": 0.0619,
+      "gflop": 0.808,
+      "tflops": 15.67,
+      "pct_of_102_roof": 15.4
+    },
+    {
+      "rows": 1370,
+      "ms": 0.0662,
+      "min": 0.0653,
+      "max": 0.0756,
+      "gflop": 1.616,
+      "tflops": 24.42,
+      "pct_of_102_roof": 23.9
+    },
+    {
+      "rows": 2740,
+      "ms": 0.0965,
+      "min": 0.0935,
+      "max": 0.1196,
+      "gflop": 3.232,
+      "tflops": 33.5,
+      "pct_of_102_roof": 32.8
+    },
+    {
+      "rows": 5480,
+      "ms": 0.1528,
+      "min": 0.1502,
+      "max": 0.1867,
+      "gflop": 6.464,
+      "tflops": 42.32,
+      "pct_of_102_roof": 41.5
+    }
+  ],
+  "arm_b": {
+    "four_ms": 0.1379,
+    "one_ms": 0.0851,
+    "slice4_ms": 0.0434,
+    "one_plus_slice_ms": 0.1285,
+    "saved_ms_per_call": 0.0094,
+    "bit_exact": true,
+    "maxabs": 0.0
+  },
+  "arm_c": {
+    "two_ms": 0.0576,
+    "one_ms": 0.0504,
+    "saved_ms_per_call": 0.0072,
+    "bit_exact": true,
+    "maxabs": 0.0
+  }
+}

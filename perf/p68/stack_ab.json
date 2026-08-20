@@ -1,0 +1,83 @@
+{
+  "rows": [
+    {
+      "arm": "off",
+      "rep": 0,
+      "sampler_s": 116.25,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1
+    },
+    {
+      "arm": "off",
+      "rep": 1,
+      "sampler_s": 116.325,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1
+    },
+    {
+      "arm": "on",
+      "rep": 2,
+      "sampler_s": 103.184,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1
+    },
+    {
+      "arm": "off",
+      "rep": 3,
+      "sampler_s": 116.663,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1
+    },
+    {
+      "arm": "on",
+      "rep": 4,
+      "sampler_s": 102.14,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1
+    }
+  ],
+  "num_timesteps": 200,
+  "seed": 42,
+  "arms": [
+    "off",
+    "off",
+    "on",
+    "off",
+    "on"
+  ],
+  "flags_toggled": [
+    "_PAIR_TRANSITION_L1",
+    "_PAIRBIAS_FUSED",
+    "_ATTN_ROW_BLOCK"
+  ],
+  "flags_on_in_both_arms": [
+    "_CONCAT_ALIGNED"
+  ],
+  "discarded_warmup_s": 121.445,
+  "bit_exact": true,
+  "digests": {
+    "on": [
+      "5295e526ebd0b757"
+    ],
+    "off": [
+      "5295e526ebd0b757"
+    ]
+  },
+  "aa_control_s": [
+    116.25,
+    116.325
+  ],
+  "aa_spread_s": 0.07500000000000284,
+  "off_median_s": 116.325,
+  "off_min_s": 116.25,
+  "off_max_s": 116.663,
+  "on_median_s": 102.662,
+  "on_min_s": 102.14,
+  "on_max_s": 103.184,
+  "delta_s": -13.663,
+  "ratio": 1.1331,
+  "predicted_on_s": 101.6,
+  "host": "qb2",
+  "card": 1,
+  "torch": "2.13.0+cpu"
+}
