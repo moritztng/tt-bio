@@ -3086,10 +3086,11 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
               help="Pocket crop budget. The crop runs after the first trunk pass and pins "
                    "the token count for the remaining passes; it is load-bearing for "
                    "correctness on large targets, not just for speed.")
-@click.option("--num_workers", default=2, show_default=True,
-              help="Processes for YAML parsing. 0 parses inline. Note that this changes the "
-                   "RDKit conformer for a SMILES ligand (the embedding seed comes off the "
-                   "process RNG state), so keep it fixed across runs you intend to compare.")
+@click.option("--num_workers", default=0, show_default=True,
+              help="Processes for YAML parsing; 0 parses inline. Inline is the default because "
+                   "it is the reproducible one: RDKit takes its conformer embedding seed from "
+                   "the process RNG state, so a pool changes the ligand geometry. Parsing is "
+                   "milliseconds against a multi-second forward, so the pool buys nothing here.")
 @click.option("--seed", default=None, type=int,
               help="Featurization seed. Defaults to a fixed value so a screen is repeatable; "
                    "the featurizer applies a random roto-translation per conformer, which is "

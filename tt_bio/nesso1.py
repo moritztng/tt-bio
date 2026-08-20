@@ -760,7 +760,7 @@ def screen(
     affinity_fp32: bool = True,
     recycling_steps: int = 5,
     tokens_budget: int = 256,
-    num_workers: int = 2,
+    num_workers: int = 0,
     ccd_pkl: "Path | None" = None,
     cache: "Path | None" = None,
     seed: int | None = DEFAULT_SEED,

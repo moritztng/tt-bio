@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
 """Nesso-1 torch-reference parity: our ``tt_bio.nesso1.Nesso1`` vs the upstream capture.
 
-Card-free and upstream-free. Featurizes from the committed ``processed/`` directory
-(so no RDKit conformer regeneration), runs our assembly, and scores two legs:
+Card-free and upstream-free. By default it featurizes from the committed ``processed/``
+directory, so the RDKit conformer is the captured one and never regenerated. With
+``--from-yaml`` it instead runs the shipped host pipeline (``tt_bio.nesso1_input``) from
+the fixture YAML, which puts the parse, the conformer embedding and the ESM-2 encoder
+inside the gate -- the part the committed-``processed/`` path cannot see. That leg needs
+``ccd.pkl`` (413 MB, next to the checkpoint) and downloads ESM-2 once. Measured bit-exact
+on tyr48: 11/11 scalars, delta 0.0.
+
+Legs:
 
   scalars   the affinity values and distogram entropies from the committed
             ``ref_scalars.json``, i.e. upstream's own ``predict_step`` under the SAME
@@ -93,6 +100,32 @@ def load_feats(fixture: Path) -> tuple[dict, dict]:
     return feats, meta
 
 
+def load_feats_from_yaml(fixture: Path, work: Path | None, ccd: Path | None):
+    """Featurize through the shipped host pipeline, YAML in, batch out.
+
+    num_workers=0 on purpose: RDKit takes its conformer embedding seed from the process
+    RNG state, so a pool would produce a different ligand geometry than the committed
+    capture and the leg would be scoring the parse topology rather than the pipeline.
+    """
+    import tempfile
+
+    from tt_bio.nesso1_input import collate, prepare
+
+    yamls = sorted(fixture.glob("*.yaml"))
+    if len(yamls) != 1:
+        raise SystemExit(f"expected one yaml in {fixture}, found {len(yamls)}")
+    meta = json.loads((fixture / "meta.json").read_text())
+    out = Path(work).expanduser() if work else Path(tempfile.mkdtemp(prefix="nesso1_gate_"))
+    dataset, manifest, failed = prepare(yamls[0], out, ccd_pkl=ccd, num_workers=0)
+    if failed:
+        raise SystemExit(f"host pipeline failed to parse {failed}")
+    torch.manual_seed(int(meta.get("feat_seed", FEAT_SEED)))
+    item = dataset[0]
+    if item.get("exception"):
+        raise SystemExit("host pipeline featurizer raised")
+    return collate(item), meta
+
+
 def build_model(weights: str | Path, recycling_steps: int):
     from tt_bio.nesso1 import Nesso1
 
@@ -170,11 +203,22 @@ def main() -> int:
     ap.add_argument("--tol", type=float, default=0.0,
                     help="scalar tolerance against the shared-draw reference; "
                          "0.0 because the torch assembly is bit-exact")
+    ap.add_argument("--from-yaml", action="store_true",
+                    help="featurize from the fixture YAML through tt_bio.nesso1_input "
+                         "instead of the committed processed/ dir, so the parse, the "
+                         "RDKit conformer and the ESM-2 encoder are inside the gate")
+    ap.add_argument("--work", type=Path, default=None,
+                    help="scratch dir for --from-yaml (default: a temp dir)")
+    ap.add_argument("--ccd", type=Path, default=None,
+                    help="ccd.pkl for --from-yaml; auto-discovered under NESSO_CACHE if omitted")
     ap.add_argument("--json", type=Path, default=None)
     args = ap.parse_args()
 
     fixture = args.fixture.resolve()
-    feats, meta = load_feats(fixture)
+    if args.from_yaml:
+        feats, meta = load_feats_from_yaml(fixture, args.work, args.ccd)
+    else:
+        feats, meta = load_feats(fixture)
     model = build_model(args.weights, meta.get("recycling_steps", 5))
 
     acts: dict[str, torch.Tensor] = {}
@@ -203,6 +247,7 @@ def main() -> int:
     report = {
         "gate": "nesso1_model_parity",
         "fixture": fixture.name,
+        "input_path": "yaml_via_nesso1_input" if args.from_yaml else "committed_processed",
         "n_tokens": int(feats["token_pad_mask"].shape[-1]),
         "recycling_steps": meta.get("recycling_steps", 5),
         "scalars": score_scalars(
