@@ -43,9 +43,9 @@ _UPSTREAM_DTYPE = {
 }
 
 
-def load_inputs():
+def load_inputs(art=None):
     import torch
-    raw = torch.load(os.path.join(ART, "ref_design_inputs.pt"), weights_only=False)
+    raw = torch.load(os.path.join(art or ART, "ref_design_inputs.pt"), weights_only=False)
     return {k: v.to(getattr(torch, _UPSTREAM_DTYPE[k])) for k, v in raw.items()}
 
 
@@ -96,6 +96,7 @@ def main():
                     help="unpacked protenix 0.5.5 wheel; PXDesign's pinned model API")
     ap.add_argument("--stage", required=True, choices=("cond", "denoise", "traj"))
     ap.add_argument("--out", required=True)
+    ap.add_argument("--art", default=None, help="capture directory; default is the committed one")
     ap.add_argument("--n_step", type=int, default=400)
     ap.add_argument("--steps", default="0,40,120,260,399",
                     help="denoise: which schedule indices to evaluate")
@@ -115,7 +116,7 @@ def main():
     import torch
     torch.set_grad_enabled(False)
     out_path = os.path.abspath(args.out)
-    feats = load_inputs()
+    feats = load_inputs(args.art)
     model, cfg = build_model(os.path.abspath(os.path.expanduser(args.pxdesign_src)),
                              os.path.abspath(os.path.expanduser(args.protenix05))
                              if args.protenix05 else None)

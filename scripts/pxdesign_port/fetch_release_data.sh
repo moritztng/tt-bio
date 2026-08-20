@@ -13,18 +13,25 @@ DEST="${1:?usage: fetch_release_data.sh <dest_dir> [name ...]}"; shift || true
 BASE=https://pxdesign.tos-cn-beijing.volces.com
 N=16
 
+# The names are the same ones pxdesign/utils/infer.py URL maps, so a name here is a name
+# upstream recognises. The CCD pair is needed to run the upstream featurizer at its pinned
+# protenix: a substituted components.cif silently drops residues that fail CCD lookup (a
+# 2024-06 CCD against a later one lost 61 of the PD-L1 target's 116 residues, and the only
+# symptom was a smaller token count).
 declare -A URLS=(
   [pxdesign_v0.1.0]="$BASE/release_model/pxdesign_v0.1.0.pt"
   [protenix_base_default_v0.5.0]="$BASE/release_model/protenix_base_default_v0.5.0.pt"
   [protenix_mini_default_v0.5.0]="$BASE/release_model/protenix_mini_default_v0.5.0.pt"
   [protenix_mini_tmpl_v0.5.0]="$BASE/release_model/protenix_mini_tmpl_v0.5.0.pt"
+  [ccd_components_file]="$BASE/release_data/components.v20240608.cif"
+  [ccd_components_rdkit_mol_file]="$BASE/release_data/components.v20240608.cif.rdkit_mol.pkl"
 )
 NAMES=("$@"); [ ${#NAMES[@]} -eq 0 ] && NAMES=("${!URLS[@]}")
 
 mkdir -p "$DEST"
 for name in "${NAMES[@]}"; do
   url="${URLS[$name]:?unknown name $name}"
-  out="$DEST/$name.pt"
+  out="$DEST/$(basename "$url")"
   total=$(curl -sI "$url" | tr -d "\r" | awk "/^[Cc]ontent-[Ll]ength:/{print \$2}")
   if [ -f "$out" ] && [ "$(stat -c%s "$out")" = "$total" ]; then
     echo "[skip] $name already complete ($total bytes)"; continue
@@ -45,10 +52,36 @@ for name in "${NAMES[@]}"; do
   cat $(ls "$out".part* | sort) > "$out" && rm -f "$out".part*
   got=$(stat -c%s "$out")
   if [ "$got" != "$total" ]; then echo "[FAIL] $name got $got want $total" >&2; exit 1; fi
-  # Size alone does not prove a correct reassembly. Assert the file actually opens.
-  if ! python3 -c "import sys,torch; torch.load(sys.argv[1], map_location=\"cpu\", weights_only=False)" "$out" 2>/dev/null; then
-    echo "[FAIL] $name is $got bytes but torch.load failed -- corrupt reassembly" >&2; exit 1
+  # Size alone does not prove a correct reassembly, so parse the file. One check per
+  # format, each of which fails on out-of-order parts rather than merely on truncation.
+  case "$out" in
+    *.pt)
+      check='import sys,torch; torch.load(sys.argv[1], map_location="cpu", weights_only=False)'
+      what="torch.load" ;;
+    *.pkl)
+      # Walk the whole pickle stream without needing the classes it names (rdkit).
+      check='import sys,pickle
+class Any:
+    def __new__(cls, *a, **k): return object.__new__(cls)
+    def __init__(self, *a, **k): pass
+    def __setstate__(self, st): pass
+class U(pickle.Unpickler):
+    def find_class(self, m, n): return type(n, (Any,), {})
+U(open(sys.argv[1], "rb")).load()'
+      what="pickle stream" ;;
+    *.cif)
+      # CCD blocks are emitted in ascending id order, so a scrambled concat shows up as a
+      # descending step -- which a size check cannot see.
+      check='import sys
+ids = [l.split("_", 1)[1].strip() for l in open(sys.argv[1]) if l.startswith("data_")]
+assert len(ids) > 30000, f"only {len(ids)} CCD blocks"
+assert ids == sorted(ids), "CCD block ids are out of order: parts reassembled wrongly"'
+      what="CCD block order" ;;
+    *) check='import sys'; what="nothing (unknown format)" ;;
+  esac
+  if ! python3 -c "$check" "$out"; then
+    echo "[FAIL] $name is $got bytes but $what failed -- corrupt reassembly" >&2; exit 1
   fi
-  echo "[done] $name $got bytes, torch.load ok"
+  echo "[done] $name $got bytes, $what ok"
 done
 echo "[all done]"

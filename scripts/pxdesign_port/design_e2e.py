@@ -37,10 +37,10 @@ _LONG = ("ref_space_uid", "atom_to_token_idx", "asym_id", "residue_index", "enti
          "sym_id", "token_index", "conditional_templ")
 
 
-def load_design_inputs(path=ART / "ref_design_inputs.pt") -> dict:
+def load_design_inputs(path=None) -> dict:
     """The captured input dict, in the dtypes tt_bio.protenix expects."""
     import torch
-    raw = torch.load(path, weights_only=False)
+    raw = torch.load(path or (ART / "ref_design_inputs.pt"), weights_only=False)
     feats = {}
     for k, v in raw.items():
         feats[k] = v.float() if k in _FLOAT else (v.long() if k in _LONG else v)
@@ -64,7 +64,7 @@ def _kabsch_rmsd(a, b):
     return float((a @ r - b).pow(2).sum(-1).mean().sqrt())
 
 
-def target_reproduction(coords, feats):
+def target_reproduction(coords, feats, art=None):
     """The end-to-end correctness signal for the conditioning path.
 
     PXDesign is handed a 64-bin distogram of the target and nothing else about its
@@ -78,8 +78,9 @@ def target_reproduction(coords, feats):
     Also reports the closest binder-to-target atom distance: a design that never touches its
     target is a failure the RMSD cannot see."""
     import torch
-    ref = torch.load(ART / "ref_condition_inputs.pt", weights_only=False)
-    gate = torch.load(ART / "ref_design_f.pt", weights_only=False)
+    art = Path(art) if art else ART
+    ref = torch.load(art / "ref_condition_inputs.pt", weights_only=False)
+    gate = torch.load(art / "ref_design_f.pt", weights_only=False)
     disto = gate["distogram_rep_atom_mask"].bool()
     conditioned = torch.tensor([r != "xpb" for r in ref["res_name"]]) & ref["is_resolved"].bool()
     out = []
@@ -123,8 +124,8 @@ def score_only(args, feats):
     coords = blob["coords"] if isinstance(blob, dict) else blob
     coords = coords.reshape(-1, coords.shape[-2], coords.shape[-1]).float()
     st, n_b, n_t = _stats(coords, feats)
-    repro = target_reproduction(coords, feats)
-    rec = {"source": args.score_coords, "coords_shape": list(coords.shape),
+    repro = target_reproduction(coords, feats, art=args.art)
+    rec = {"source": args.score_coords, "art": str(args.art or ART), "coords_shape": list(coords.shape),
            "binder_atoms": n_b, "target_atoms": n_t, "stats": st,
            "target_reproduction": repro,
            "finite": bool(torch.isfinite(coords).all())}
@@ -150,6 +151,9 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--determinism", action="store_true",
                     help="two solo runs at the same seed in one process; report the floor")
+    ap.add_argument("--art", default=None,
+                    help="capture directory to read the input dict and the scoring reference "
+                         "from; defaults to the committed parity_artifacts/pdl1")
     ap.add_argument("--score_coords", default=None,
                     help="score a saved (n_sample, N_atom, 3) tensor, or a dict with a "
                          "'coords' key, instead of generating one; no device needed")
@@ -158,7 +162,8 @@ def main():
     sys.path.insert(0, str(REPO))
 
     import torch
-    feats = load_design_inputs()
+    art = Path(args.art) if args.art else ART
+    feats = load_design_inputs(art / "ref_design_inputs.pt")
     if args.score_coords:
         return score_only(args, feats)
     NT = int(feats["atom_to_token_idx"].max()) + 1
@@ -180,8 +185,8 @@ def main():
     rec["coords_sha16"] = hashlib.sha256(
         coords.contiguous().numpy().tobytes()).hexdigest()[:16]
     st, n_b, n_t = _stats(coords, feats)
-    repro = target_reproduction(coords, feats)
-    rec.update({"coords_shape": list(coords.shape), "binder_atoms": n_b, "target_atoms": n_t,
+    repro = target_reproduction(coords, feats, art=args.art)
+    rec.update({"art": str(args.art or ART), "coords_shape": list(coords.shape), "binder_atoms": n_b, "target_atoms": n_t,
                 "stats": st, "target_reproduction": repro,
                 "finite": bool(torch.isfinite(coords).all())})
     print(f"[e2e] {rec['seconds']}s  shape={rec['coords_shape']}  "
