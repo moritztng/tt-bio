@@ -1,0 +1,433 @@
+[
+  {
+    "S": 512,
+    "c": 128,
+    "arm": "tiled_dram",
+    "ms": 1.875,
+    "eff_gbs": 66.67,
+    "bit_exact": true
+  },
+  {
+    "S": 512,
+    "c": 128,
+    "arm": "rm_dram",
+    "ms": 1.9775,
+    "eff_gbs": 63.21,
+    "bit_exact": true
+  },
+  {
+    "S": 512,
+    "c": 128,
+    "arm": "l1_whole",
+    "ms": 0.9939,
+    "eff_gbs": 125.77,
+    "bit_exact": true
+  },
+  {
+    "S": 512,
+    "c": 128,
+    "arm": "chunk_col_l1_64",
+    "ms": 1.7503,
+    "eff_gbs": 71.42,
+    "bit_exact": true
+  },
+  {
+    "S": 512,
+    "c": 128,
+    "arm": "chunk_col_dram_64",
+    "ms": 2.2969,
+    "eff_gbs": 54.42,
+    "bit_exact": true
+  },
+  {
+    "S": 512,
+    "c": 128,
+    "arm": "chunk_rm_64",
+    "ms": 2.78,
+    "eff_gbs": 44.96,
+    "bit_exact": true
+  },
+  {
+    "S": 512,
+    "c": 128,
+    "arm": "chunk_col_l1_128",
+    "ms": 1.7169,
+    "eff_gbs": 72.8,
+    "bit_exact": true
+  },
+  {
+    "S": 512,
+    "c": 128,
+    "arm": "chunk_col_dram_128",
+    "ms": 2.4556,
+    "eff_gbs": 50.9,
+    "bit_exact": true
+  },
+  {
+    "S": 512,
+    "c": 128,
+    "arm": "chunk_rm_128",
+    "ms": 2.7101,
+    "eff_gbs": 46.12,
+    "bit_exact": true
+  },
+  {
+    "S": 512,
+    "c": 128,
+    "arm": "chunk_col_l1_192",
+    "ms": 1.732,
+    "eff_gbs": 72.17,
+    "bit_exact": true
+  },
+  {
+    "S": 512,
+    "c": 128,
+    "arm": "chunk_col_dram_192",
+    "ms": 2.5124,
+    "eff_gbs": 49.75,
+    "bit_exact": true
+  },
+  {
+    "S": 512,
+    "c": 128,
+    "arm": "chunk_rm_192",
+    "ms": 2.7413,
+    "eff_gbs": 45.6,
+    "bit_exact": true
+  },
+  {
+    "S": 512,
+    "c": 128,
+    "arm": "chunk_col_l1_256",
+    "ms": 1.7028,
+    "eff_gbs": 73.41,
+    "bit_exact": true
+  },
+  {
+    "S": 512,
+    "c": 128,
+    "arm": "chunk_col_dram_256",
+    "ms": 2.5322,
+    "eff_gbs": 49.36,
+    "bit_exact": true
+  },
+  {
+    "S": 512,
+    "c": 128,
+    "arm": "chunk_rm_256",
+    "ms": 2.7248,
+    "eff_gbs": 45.87,
+    "bit_exact": true
+  },
+  {
+    "S": 512,
+    "c": 128,
+    "arm": "chunk_col_l1_384",
+    "ms": 1.7145,
+    "eff_gbs": 72.91,
+    "bit_exact": true
+  },
+  {
+    "S": 512,
+    "c": 128,
+    "arm": "chunk_col_dram_384",
+    "ms": 2.5364,
+    "eff_gbs": 49.28,
+    "bit_exact": true
+  },
+  {
+    "S": 512,
+    "c": 128,
+    "arm": "chunk_rm_384",
+    "ms": 2.6989,
+    "eff_gbs": 46.32,
+    "bit_exact": true
+  },
+  {
+    "S": 768,
+    "c": 128,
+    "arm": "tiled_dram",
+    "ms": 4.2218,
+    "eff_gbs": 66.62,
+    "bit_exact": true
+  },
+  {
+    "S": 768,
+    "c": 128,
+    "arm": "rm_dram",
+    "ms": 4.4035,
+    "eff_gbs": 63.87,
+    "bit_exact": true
+  },
+  {
+    "S": 768,
+    "c": 128,
+    "arm": "l1_whole",
+    "ms": 2.2369,
+    "eff_gbs": 125.73,
+    "bit_exact": true
+  },
+  {
+    "S": 768,
+    "c": 128,
+    "arm": "chunk_col_l1_64",
+    "ms": 3.9416,
+    "eff_gbs": 71.35,
+    "bit_exact": true
+  },
+  {
+    "S": 768,
+    "c": 128,
+    "arm": "chunk_col_dram_64",
+    "ms": 5.3738,
+    "eff_gbs": 52.34,
+    "bit_exact": true
+  },
+  {
+    "S": 768,
+    "c": 128,
+    "arm": "chunk_rm_64",
+    "ms": 6.2077,
+    "eff_gbs": 45.31,
+    "bit_exact": true
+  },
+  {
+    "S": 768,
+    "c": 128,
+    "arm": "chunk_col_l1_128",
+    "ms": 3.8831,
+    "eff_gbs": 72.43,
+    "bit_exact": true
+  },
+  {
+    "S": 768,
+    "c": 128,
+    "arm": "chunk_col_dram_128",
+    "ms": 5.6372,
+    "eff_gbs": 49.89,
+    "bit_exact": true
+  },
+  {
+    "S": 768,
+    "c": 128,
+    "arm": "chunk_rm_128",
+    "ms": 6.1442,
+    "eff_gbs": 45.77,
+    "bit_exact": true
+  },
+  {
+    "S": 768,
+    "c": 128,
+    "arm": "chunk_col_l1_192",
+    "ms": 3.8628,
+    "eff_gbs": 72.81,
+    "bit_exact": true
+  },
+  {
+    "S": 768,
+    "c": 128,
+    "arm": "chunk_col_dram_192",
+    "ms": 5.7128,
+    "eff_gbs": 49.23,
+    "bit_exact": true
+  },
+  {
+    "S": 768,
+    "c": 128,
+    "arm": "chunk_rm_192",
+    "ms": 6.0664,
+    "eff_gbs": 46.36,
+    "bit_exact": true
+  },
+  {
+    "S": 768,
+    "c": 128,
+    "arm": "chunk_col_l1_256",
+    "ms": 3.83,
+    "eff_gbs": 73.43,
+    "bit_exact": true
+  },
+  {
+    "S": 768,
+    "c": 128,
+    "arm": "chunk_col_dram_256",
+    "ms": 5.7144,
+    "eff_gbs": 49.22,
+    "bit_exact": true
+  },
+  {
+    "S": 768,
+    "c": 128,
+    "arm": "chunk_rm_256",
+    "ms": 6.0497,
+    "eff_gbs": 46.49,
+    "bit_exact": true
+  },
+  {
+    "S": 768,
+    "c": 128,
+    "arm": "chunk_col_l1_384",
+    "ms": 3.8256,
+    "eff_gbs": 73.52,
+    "bit_exact": true
+  },
+  {
+    "S": 768,
+    "c": 128,
+    "arm": "chunk_col_dram_384",
+    "ms": 5.7796,
+    "eff_gbs": 48.66,
+    "bit_exact": true
+  },
+  {
+    "S": 768,
+    "c": 128,
+    "arm": "chunk_rm_384",
+    "ms": 6.0112,
+    "eff_gbs": 46.79,
+    "bit_exact": true
+  },
+  {
+    "S": 1024,
+    "c": 128,
+    "arm": "tiled_dram",
+    "ms": 7.9064,
+    "eff_gbs": 63.24,
+    "bit_exact": true
+  },
+  {
+    "S": 1024,
+    "c": 128,
+    "arm": "rm_dram",
+    "ms": 7.873,
+    "eff_gbs": 63.51,
+    "bit_exact": true
+  },
+  {
+    "S": 1024,
+    "c": 128,
+    "arm": "l1_whole",
+    "ms": null,
+    "error": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false"
+  },
+  {
+    "S": 1024,
+    "c": 128,
+    "arm": "chunk_col_l1_64",
+    "ms": 6.861,
+    "eff_gbs": 72.88,
+    "bit_exact": true
+  },
+  {
+    "S": 1024,
+    "c": 128,
+    "arm": "chunk_col_dram_64",
+    "ms": 9.9536,
+    "eff_gbs": 50.23,
+    "bit_exact": true
+  },
+  {
+    "S": 1024,
+    "c": 128,
+    "arm": "chunk_rm_64",
+    "ms": 10.7771,
+    "eff_gbs": 46.39,
+    "bit_exact": true
+  },
+  {
+    "S": 1024,
+    "c": 128,
+    "arm": "chunk_col_l1_128",
+    "ms": 6.7683,
+    "eff_gbs": 73.87,
+    "bit_exact": true
+  },
+  {
+    "S": 1024,
+    "c": 128,
+    "arm": "chunk_col_dram_128",
+    "ms": 10.3837,
+    "eff_gbs": 48.15,
+    "bit_exact": true
+  },
+  {
+    "S": 1024,
+    "c": 128,
+    "arm": "chunk_rm_128",
+    "ms": 10.8496,
+    "eff_gbs": 46.08,
+    "bit_exact": true
+  },
+  {
+    "S": 1024,
+    "c": 128,
+    "arm": "chunk_col_l1_192",
+    "ms": 6.8232,
+    "eff_gbs": 73.28,
+    "bit_exact": true
+  },
+  {
+    "S": 1024,
+    "c": 128,
+    "arm": "chunk_col_dram_192",
+    "ms": 10.5336,
+    "eff_gbs": 47.47,
+    "bit_exact": true
+  },
+  {
+    "S": 1024,
+    "c": 128,
+    "arm": "chunk_rm_192",
+    "ms": 10.7617,
+    "eff_gbs": 46.46,
+    "bit_exact": true
+  },
+  {
+    "S": 1024,
+    "c": 128,
+    "arm": "chunk_col_l1_256",
+    "ms": 6.7435,
+    "eff_gbs": 74.15,
+    "bit_exact": true
+  },
+  {
+    "S": 1024,
+    "c": 128,
+    "arm": "chunk_col_dram_256",
+    "ms": 10.5456,
+    "eff_gbs": 47.41,
+    "bit_exact": true
+  },
+  {
+    "S": 1024,
+    "c": 128,
+    "arm": "chunk_rm_256",
+    "ms": 10.6807,
+    "eff_gbs": 46.81,
+    "bit_exact": true
+  },
+  {
+    "S": 1024,
+    "c": 128,
+    "arm": "chunk_col_l1_384",
+    "ms": 6.7786,
+    "eff_gbs": 73.76,
+    "bit_exact": true
+  },
+  {
+    "S": 1024,
+    "c": 128,
+    "arm": "chunk_col_dram_384",
+    "ms": 10.6716,
+    "eff_gbs": 46.85,
+    "bit_exact": true
+  },
+  {
+    "S": 1024,
+    "c": 128,
+    "arm": "chunk_rm_384",
+    "ms": 10.7464,
+    "eff_gbs": 46.53,
+    "bit_exact": true
+  }
+]

@@ -1,0 +1,527 @@
+data_9dfn_subset.cif
+#
+_entry.id       9dfn_subset.cif
+_entry.author   ttuser
+_entry.date     2026-08-19
+_entry.time     12:30:57
+#
+_entity_poly.entity_id                      0
+_entity_poly.type                           polypeptide(l)
+_entity_poly.nstd_linkage                   no
+_entity_poly.nstd_monomer                   no
+_entity_poly.pdbx_seq_one_letter_code       SMGQIPVSVNYFFT
+_entity_poly.pdbx_seq_one_letter_code_can   SMGQIPVSVNYFFT
+_entity_poly.pdbx_strand_id                 A
+_entity_poly.pdbx_target_identifier         ?
+#
+loop_
+_chem_comp_bond.pdbx_ordinal 
+_chem_comp_bond.comp_id 
+_chem_comp_bond.atom_id_1 
+_chem_comp_bond.atom_id_2 
+_chem_comp_bond.value_order 
+_chem_comp_bond.pdbx_aromatic_flag 
+_chem_comp_bond.pdbx_stereo_config 
+1   SER N     CA     SING N ?
+2   SER N     H      SING N ?
+3   SER CA    C      SING N ?
+4   SER CA    CB     SING N ?
+5   SER CA    HA     SING N ?
+6   SER C     O      DOUB N ?
+7   SER CB    OG     SING N ?
+8   SER CB    HB2    SING N ?
+9   SER CB    HB3    SING N ?
+10  SER OG    HG     SING N ?
+11  MET N     CA     SING N ?
+12  MET N     H      SING N ?
+13  MET CA    C      SING N ?
+14  MET CA    CB     SING N ?
+15  MET CA    HA     SING N ?
+16  MET C     O      DOUB N ?
+17  MET CB    CG     SING N ?
+18  MET CB    HB2    SING N ?
+19  MET CB    HB3    SING N ?
+20  MET CG    SD     SING N ?
+21  MET CG    HG2    SING N ?
+22  MET CG    HG3    SING N ?
+23  MET SD    CE     SING N ?
+24  MET CE    HE1    SING N ?
+25  MET CE    HE2    SING N ?
+26  MET CE    HE3    SING N ?
+27  GLY N     CA     SING N ?
+28  GLY N     H      SING N ?
+29  GLY CA    C      SING N ?
+30  GLY CA    HA2    SING N ?
+31  GLY CA    HA3    SING N ?
+32  GLY C     O      DOUB N ?
+33  GLN N     CA     SING N ?
+34  GLN N     H      SING N ?
+35  GLN CA    C      SING N ?
+36  GLN CA    CB     SING N ?
+37  GLN CA    HA     SING N ?
+38  GLN C     O      DOUB N ?
+39  GLN CB    CG     SING N ?
+40  GLN CB    HB2    SING N ?
+41  GLN CB    HB3    SING N ?
+42  GLN CG    CD     SING N ?
+43  GLN CG    HG2    SING N ?
+44  GLN CG    HG3    SING N ?
+45  GLN CD    OE1    DOUB N ?
+46  GLN CD    NE2    SING N ?
+47  GLN NE2   HE21   SING N ?
+48  GLN NE2   HE22   SING N ?
+49  ILE N     CA     SING N ?
+50  ILE N     H      SING N ?
+51  ILE CA    C      SING N ?
+52  ILE CA    CB     SING N ?
+53  ILE CA    HA     SING N ?
+54  ILE C     O      DOUB N ?
+55  ILE CB    CG1    SING N ?
+56  ILE CB    CG2    SING N ?
+57  ILE CB    HB     SING N ?
+58  ILE CG1   CD1    SING N ?
+59  ILE CG1   HG12   SING N ?
+60  ILE CG1   HG13   SING N ?
+61  ILE CG2   HG21   SING N ?
+62  ILE CG2   HG22   SING N ?
+63  ILE CG2   HG23   SING N ?
+64  ILE CD1   HD11   SING N ?
+65  ILE CD1   HD12   SING N ?
+66  ILE CD1   HD13   SING N ?
+67  PRO N     CA     SING N ?
+68  PRO N     CD     SING N ?
+69  PRO CA    C      SING N ?
+70  PRO CA    CB     SING N ?
+71  PRO CA    HA     SING N ?
+72  PRO C     O      DOUB N ?
+73  PRO CB    CG     SING N ?
+74  PRO CB    HB2    SING N ?
+75  PRO CB    HB3    SING N ?
+76  PRO CG    CD     SING N ?
+77  PRO CG    HG2    SING N ?
+78  PRO CG    HG3    SING N ?
+79  PRO CD    HD2    SING N ?
+80  PRO CD    HD3    SING N ?
+81  VAL N     CA     SING N ?
+82  VAL N     H      SING N ?
+83  VAL CA    C      SING N ?
+84  VAL CA    CB     SING N ?
+85  VAL CA    HA     SING N ?
+86  VAL C     O      DOUB N ?
+87  VAL CB    CG1    SING N ?
+88  VAL CB    CG2    SING N ?
+89  VAL CB    HB     SING N ?
+90  VAL CG1   HG11   SING N ?
+91  VAL CG1   HG12   SING N ?
+92  VAL CG1   HG13   SING N ?
+93  VAL CG2   HG21   SING N ?
+94  VAL CG2   HG22   SING N ?
+95  VAL CG2   HG23   SING N ?
+96  ASN N     CA     SING N ?
+97  ASN N     H      SING N ?
+98  ASN CA    C      SING N ?
+99  ASN CA    CB     SING N ?
+100 ASN CA    HA     SING N ?
+101 ASN C     O      DOUB N ?
+102 ASN CB    CG     SING N ?
+103 ASN CB    HB2    SING N ?
+104 ASN CB    HB3    SING N ?
+105 ASN CG    OD1    DOUB N ?
+106 ASN CG    ND2    SING N ?
+107 ASN ND2   HD21   SING N ?
+108 ASN ND2   HD22   SING N ?
+109 TYR N     CA     SING N ?
+110 TYR N     H      SING N ?
+111 TYR CA    C      SING N ?
+112 TYR CA    CB     SING N ?
+113 TYR CA    HA     SING N ?
+114 TYR C     O      DOUB N ?
+115 TYR CB    CG     SING N ?
+116 TYR CB    HB2    SING N ?
+117 TYR CB    HB3    SING N ?
+118 TYR CG    CD1    DOUB Y ?
+119 TYR CG    CD2    SING Y ?
+120 TYR CD1   CE1    SING Y ?
+121 TYR CD1   HD1    SING N ?
+122 TYR CD2   CE2    DOUB Y ?
+123 TYR CD2   HD2    SING N ?
+124 TYR CE1   CZ     DOUB Y ?
+125 TYR CE1   HE1    SING N ?
+126 TYR CE2   CZ     SING Y ?
+127 TYR CE2   HE2    SING N ?
+128 TYR CZ    OH     SING N ?
+129 TYR OH    HH     SING N ?
+130 PHE N     CA     SING N ?
+131 PHE N     H      SING N ?
+132 PHE CA    C      SING N ?
+133 PHE CA    CB     SING N ?
+134 PHE CA    HA     SING N ?
+135 PHE C     O      DOUB N ?
+136 PHE CB    CG     SING N ?
+137 PHE CB    HB2    SING N ?
+138 PHE CB    HB3    SING N ?
+139 PHE CG    CD1    DOUB Y ?
+140 PHE CG    CD2    SING Y ?
+141 PHE CD1   CE1    SING Y ?
+142 PHE CD1   HD1    SING N ?
+143 PHE CD2   CE2    DOUB Y ?
+144 PHE CD2   HD2    SING N ?
+145 PHE CE1   CZ     DOUB Y ?
+146 PHE CE1   HE1    SING N ?
+147 PHE CE2   CZ     SING Y ?
+148 PHE CE2   HE2    SING N ?
+149 PHE CZ    HZ     SING N ?
+150 THR N     CA     SING N ?
+151 THR N     H      SING N ?
+152 THR CA    C      SING N ?
+153 THR CA    CB     SING N ?
+154 THR CA    HA     SING N ?
+155 THR C     O      DOUB N ?
+156 THR CB    OG1    SING N ?
+157 THR CB    CG2    SING N ?
+158 THR CB    HB     SING N ?
+159 THR OG1   HG1    SING N ?
+160 THR CG2   HG21   SING N ?
+161 THR CG2   HG22   SING N ?
+162 THR CG2   HG23   SING N ?
+163 SAM N     CA     SING N ?
+164 SAM N     HN1    SING N ?
+165 SAM N     HN2    SING N ?
+166 SAM CA    C      SING N ?
+167 SAM CA    CB     SING N ?
+168 SAM CA    HA     SING N ?
+169 SAM C     O      DOUB N ?
+170 SAM C     OXT    SING N ?
+171 SAM CB    CG     SING N ?
+172 SAM CB    HB1    SING N ?
+173 SAM CB    HB2    SING N ?
+174 SAM CG    SD     SING N ?
+175 SAM CG    HG1    SING N ?
+176 SAM CG    HG2    SING N ?
+177 SAM SD    CE     SING N ?
+178 SAM SD    "C5'"  SING N ?
+179 SAM CE    HE1    SING N ?
+180 SAM CE    HE2    SING N ?
+181 SAM CE    HE3    SING N ?
+182 SAM "C5'" "C4'"  SING N ?
+183 SAM "C5'" "H5'1" SING N ?
+184 SAM "C5'" "H5'2" SING N ?
+185 SAM "C4'" "O4'"  SING N ?
+186 SAM "C4'" "C3'"  SING N ?
+187 SAM "C4'" "H4'"  SING N ?
+188 SAM "O4'" "C1'"  SING N ?
+189 SAM "C3'" "O3'"  SING N ?
+190 SAM "C3'" "C2'"  SING N ?
+191 SAM "C3'" "H3'"  SING N ?
+192 SAM "O3'" "HO3'" SING N ?
+193 SAM "C2'" "O2'"  SING N ?
+194 SAM "C2'" "C1'"  SING N ?
+195 SAM "C2'" "H2'"  SING N ?
+196 SAM "O2'" "HO2'" SING N ?
+197 SAM "C1'" N9     SING N ?
+198 SAM "C1'" "H1'"  SING N ?
+199 SAM N9    C8     SING Y ?
+200 SAM N9    C4     SING Y ?
+201 SAM C8    N7     DOUB Y ?
+202 SAM C8    H8     SING N ?
+203 SAM N7    C5     SING Y ?
+204 SAM C5    C6     SING Y ?
+205 SAM C5    C4     DOUB Y ?
+206 SAM C6    N6     SING N ?
+207 SAM C6    N1     DOUB Y ?
+208 SAM N6    HN61   SING N ?
+209 SAM N6    HN62   SING N ?
+210 SAM N1    C2     SING Y ?
+211 SAM C2    N3     DOUB Y ?
+212 SAM C2    H2     SING N ?
+213 SAM N3    C4     SING Y ?
+#
+loop_
+_atom_site.group_PDB 
+_atom_site.type_symbol 
+_atom_site.label_atom_id 
+_atom_site.label_alt_id 
+_atom_site.label_comp_id 
+_atom_site.label_asym_id 
+_atom_site.label_entity_id 
+_atom_site.label_seq_id 
+_atom_site.pdbx_PDB_ins_code 
+_atom_site.auth_seq_id 
+_atom_site.auth_comp_id 
+_atom_site.auth_asym_id 
+_atom_site.auth_atom_id 
+_atom_site.B_iso_or_equiv 
+_atom_site.occupancy 
+_atom_site.pdbx_formal_charge 
+_atom_site.Cartn_x 
+_atom_site.Cartn_y 
+_atom_site.Cartn_z 
+_atom_site.pdbx_PDB_model_num 
+_atom_site.id 
+ATOM   N N      . SER A 0 22  . 22  SER A N      37.96 1.0 ?  34.97  28.851 84.792 1 1
+ATOM   C CA     . SER A 0 22  . 22  SER A CA     40.4  1.0 ?  34.408 28.934 83.419 1 2
+ATOM   C C      . SER A 0 22  . 22  SER A C      41.7  1.0 ?  34.105 30.388 83.082 1 3
+ATOM   O O      . SER A 0 22  . 22  SER A O      33.42 1.0 ?  33.843 31.205 83.967 1 4
+ATOM   C CB     . SER A 0 22  . 22  SER A CB     42.58 1.0 ?  33.148 28.119 83.305 1 5
+ATOM   O OG     . SER A 0 22  . 22  SER A OG     42.51 1.0 ?  32.238 28.509 84.32  1 6
+ATOM   H H      . SER A 0 22  . 22  SER A H      nan   0.0 ?  nan    nan    nan    1 7
+ATOM   H HA     . SER A 0 22  . 22  SER A HA     nan   0.0 ?  nan    nan    nan    1 8
+ATOM   H HB2    . SER A 0 22  . 22  SER A HB2    nan   0.0 ?  nan    nan    nan    1 9
+ATOM   H HB3    . SER A 0 22  . 22  SER A HB3    nan   0.0 ?  nan    nan    nan    1 10
+ATOM   H HG     . SER A 0 22  . 22  SER A HG     nan   0.0 ?  nan    nan    nan    1 11
+ATOM   N N      . MET A 0 23  . 23  MET A N      39.38 1.0 ?  34.036 30.682 81.786 1 12
+ATOM   C CA     . MET A 0 23  . 23  MET A CA     40.8  1.0 ?  33.573 31.995 81.398 1 13
+ATOM   C C      . MET A 0 23  . 23  MET A C      42.38 1.0 ?  32.78  31.924 80.1   1 14
+ATOM   O O      . MET A 0 23  . 23  MET A O      49.19 1.0 ?  33.191 31.259 79.153 1 15
+ATOM   C CB     . MET A 0 23  . 23  MET A CB     43.18 1.0 ?  34.755 32.934 81.185 1 16
+ATOM   C CG     . MET A 0 23  . 23  MET A CG     47.93 1.0 ?  34.295 34.372 81.21  1 17
+ATOM   S SD     . MET A 0 23  . 23  MET A SD     53.39 1.0 ?  35.519 35.5   80.538 1 18
+ATOM   C CE     . MET A 0 23  . 23  MET A CE     48.31 1.0 ?  34.586 37.028 80.66  1 19
+ATOM   H H      . MET A 0 23  . 23  MET A H      nan   0.0 ?  nan    nan    nan    1 20
+ATOM   H HA     . MET A 0 23  . 23  MET A HA     nan   0.0 ?  nan    nan    nan    1 21
+ATOM   H HB2    . MET A 0 23  . 23  MET A HB2    nan   0.0 ?  nan    nan    nan    1 22
+ATOM   H HB3    . MET A 0 23  . 23  MET A HB3    nan   0.0 ?  nan    nan    nan    1 23
+ATOM   H HG2    . MET A 0 23  . 23  MET A HG2    nan   0.0 ?  nan    nan    nan    1 24
+ATOM   H HG3    . MET A 0 23  . 23  MET A HG3    nan   0.0 ?  nan    nan    nan    1 25
+ATOM   H HE1    . MET A 0 23  . 23  MET A HE1    nan   0.0 ?  nan    nan    nan    1 26
+ATOM   H HE2    . MET A 0 23  . 23  MET A HE2    nan   0.0 ?  nan    nan    nan    1 27
+ATOM   H HE3    . MET A 0 23  . 23  MET A HE3    nan   0.0 ?  nan    nan    nan    1 28
+ATOM   N N      . GLY A 0 24  . 24  GLY A N      40.38 1.0 ?  31.659 32.647 80.066 1 29
+ATOM   C CA     . GLY A 0 24  . 24  GLY A CA     36.73 1.0 ?  30.951 32.876 78.822 1 30
+ATOM   C C      . GLY A 0 24  . 24  GLY A C      36.25 1.0 ?  31.787 33.706 77.848 1 31
+ATOM   O O      . GLY A 0 24  . 24  GLY A O      36.38 1.0 ?  32.654 34.477 78.247 1 32
+ATOM   H H      . GLY A 0 24  . 24  GLY A H      nan   0.0 ?  nan    nan    nan    1 33
+ATOM   H HA2    . GLY A 0 24  . 24  GLY A HA2    nan   0.0 ?  nan    nan    nan    1 34
+ATOM   H HA3    . GLY A 0 24  . 24  GLY A HA3    nan   0.0 ?  nan    nan    nan    1 35
+ATOM   N N      . GLN A 0 25  . 25  GLN A N      31.66 1.0 ?  31.483 33.583 76.55  1 36
+ATOM   C CA     . GLN A 0 25  . 25  GLN A CA     27.4  1.0 ?  32.146 34.391 75.545 1 37
+ATOM   C C      . GLN A 0 25  . 25  GLN A C      23.26 1.0 ?  31.495 35.768 75.509 1 38
+ATOM   O O      . GLN A 0 25  . 25  GLN A O      26.41 1.0 ?  30.322 35.905 75.842 1 39
+ATOM   C CB     . GLN A 0 25  . 25  GLN A CB     27.07 1.0 ?  32.007 33.698 74.197 1 40
+ATOM   C CG     . GLN A 0 25  . 25  GLN A CG     24.95 1.0 ?  32.46  32.256 74.229 1 41
+ATOM   C CD     . GLN A 0 25  . 25  GLN A CD     26.32 1.0 ?  32.048 31.558 72.96  1 42
+ATOM   O OE1    . GLN A 0 25  . 25  GLN A OE1    29.92 1.0 ?  30.862 31.365 72.691 1 43
+ATOM   N NE2    . GLN A 0 25  . 25  GLN A NE2    25.57 1.0 ?  33.038 31.146 72.192 1 44
+ATOM   H H      . GLN A 0 25  . 25  GLN A H      nan   0.0 ?  nan    nan    nan    1 45
+ATOM   H HA     . GLN A 0 25  . 25  GLN A HA     nan   0.0 ?  nan    nan    nan    1 46
+ATOM   H HB2    . GLN A 0 25  . 25  GLN A HB2    nan   0.0 ?  nan    nan    nan    1 47
+ATOM   H HB3    . GLN A 0 25  . 25  GLN A HB3    nan   0.0 ?  nan    nan    nan    1 48
+ATOM   H HG2    . GLN A 0 25  . 25  GLN A HG2    nan   0.0 ?  nan    nan    nan    1 49
+ATOM   H HG3    . GLN A 0 25  . 25  GLN A HG3    nan   0.0 ?  nan    nan    nan    1 50
+ATOM   H HE21   . GLN A 0 25  . 25  GLN A HE21   nan   0.0 ?  nan    nan    nan    1 51
+ATOM   H HE22   . GLN A 0 25  . 25  GLN A HE22   nan   0.0 ?  nan    nan    nan    1 52
+ATOM   N N      . ILE A 0 26  . 26  ILE A N      21.51 1.0 ?  32.274 36.761 75.119 1 53
+ATOM   C CA     . ILE A 0 26  . 26  ILE A CA     22.49 1.0 ?  31.846 38.145 75.1   1 54
+ATOM   C C      . ILE A 0 26  . 26  ILE A C      21.62 1.0 ?  31.349 38.492 73.7   1 55
+ATOM   O O      . ILE A 0 26  . 26  ILE A O      22.39 1.0 ?  32.121 38.439 72.758 1 56
+ATOM   C CB     . ILE A 0 26  . 26  ILE A CB     22.97 1.0 ?  33.016 39.06  75.458 1 57
+ATOM   C CG1    . ILE A 0 26  . 26  ILE A CG1    25.74 1.0 ?  33.61  38.676 76.821 1 58
+ATOM   C CG2    . ILE A 0 26  . 26  ILE A CG2    21.76 1.0 ?  32.589 40.52  75.395 1 59
+ATOM   C CD1    . ILE A 0 26  . 26  ILE A CD1    29.92 1.0 ?  34.816 39.499 77.169 1 60
+ATOM   H H      . ILE A 0 26  . 26  ILE A H      nan   0.0 ?  nan    nan    nan    1 61
+ATOM   H HA     . ILE A 0 26  . 26  ILE A HA     nan   0.0 ?  nan    nan    nan    1 62
+ATOM   H HB     . ILE A 0 26  . 26  ILE A HB     nan   0.0 ?  nan    nan    nan    1 63
+ATOM   H HG12   . ILE A 0 26  . 26  ILE A HG12   nan   0.0 ?  nan    nan    nan    1 64
+ATOM   H HG13   . ILE A 0 26  . 26  ILE A HG13   nan   0.0 ?  nan    nan    nan    1 65
+ATOM   H HG21   . ILE A 0 26  . 26  ILE A HG21   nan   0.0 ?  nan    nan    nan    1 66
+ATOM   H HG22   . ILE A 0 26  . 26  ILE A HG22   nan   0.0 ?  nan    nan    nan    1 67
+ATOM   H HG23   . ILE A 0 26  . 26  ILE A HG23   nan   0.0 ?  nan    nan    nan    1 68
+ATOM   H HD11   . ILE A 0 26  . 26  ILE A HD11   nan   0.0 ?  nan    nan    nan    1 69
+ATOM   H HD12   . ILE A 0 26  . 26  ILE A HD12   nan   0.0 ?  nan    nan    nan    1 70
+ATOM   H HD13   . ILE A 0 26  . 26  ILE A HD13   nan   0.0 ?  nan    nan    nan    1 71
+ATOM   N N      . PRO A 0 27  . 27  PRO A N      20.71 1.0 ?  30.063 38.859 73.546 1 72
+ATOM   C CA     . PRO A 0 27  . 27  PRO A CA     17.35 1.0 ?  29.482 39.044 72.216 1 73
+ATOM   C C      . PRO A 0 27  . 27  PRO A C      15.03 1.0 ?  29.841 40.397 71.635 1 74
+ATOM   O O      . PRO A 0 27  . 27  PRO A O      16.81 1.0 ?  29.01  41.295 71.56  1 75
+ATOM   C CB     . PRO A 0 27  . 27  PRO A CB     19.56 1.0 ?  27.981 38.94  72.481 1 76
+ATOM   C CG     . PRO A 0 27  . 27  PRO A CG     20.23 1.0 ?  27.836 39.498 73.918 1 77
+ATOM   C CD     . PRO A 0 27  . 27  PRO A CD     19.77 1.0 ?  29.071 38.981 74.622 1 78
+ATOM   H HA     . PRO A 0 27  . 27  PRO A HA     nan   0.0 ?  nan    nan    nan    1 79
+ATOM   H HB2    . PRO A 0 27  . 27  PRO A HB2    nan   0.0 ?  nan    nan    nan    1 80
+ATOM   H HB3    . PRO A 0 27  . 27  PRO A HB3    nan   0.0 ?  nan    nan    nan    1 81
+ATOM   H HG2    . PRO A 0 27  . 27  PRO A HG2    nan   0.0 ?  nan    nan    nan    1 82
+ATOM   H HG3    . PRO A 0 27  . 27  PRO A HG3    nan   0.0 ?  nan    nan    nan    1 83
+ATOM   H HD2    . PRO A 0 27  . 27  PRO A HD2    nan   0.0 ?  nan    nan    nan    1 84
+ATOM   H HD3    . PRO A 0 27  . 27  PRO A HD3    nan   0.0 ?  nan    nan    nan    1 85
+ATOM   N N      . VAL A 0 28  . 28  VAL A N      13.64 1.0 ?  31.086 40.517 71.203 1 86
+ATOM   C CA     . VAL A 0 28  . 28  VAL A CA     14.86 1.0 ?  31.615 41.82  70.874 1 87
+ATOM   C C      . VAL A 0 28  . 28  VAL A C      14.27 1.0 ?  30.937 42.388 69.615 1 88
+ATOM   O O      . VAL A 0 28  . 28  VAL A O      16.08 1.0 ?  30.861 43.597 69.431 1 89
+ATOM   C CB     . VAL A 0 28  . 28  VAL A CB     17.44 1.0 ?  33.142 41.776 70.744 1 90
+ATOM   C CG1    . VAL A 0 28  . 28  VAL A CG1    17.9  1.0 ?  33.639 40.954 69.568 1 91
+ATOM   C CG2    . VAL A 0 28  . 28  VAL A CG2    20.76 1.0 ?  33.7   43.172 70.66  1 92
+ATOM   H H      . VAL A 0 28  . 28  VAL A H      nan   0.0 ?  nan    nan    nan    1 93
+ATOM   H HA     . VAL A 0 28  . 28  VAL A HA     nan   0.0 ?  nan    nan    nan    1 94
+ATOM   H HB     . VAL A 0 28  . 28  VAL A HB     nan   0.0 ?  nan    nan    nan    1 95
+ATOM   H HG11   . VAL A 0 28  . 28  VAL A HG11   nan   0.0 ?  nan    nan    nan    1 96
+ATOM   H HG12   . VAL A 0 28  . 28  VAL A HG12   nan   0.0 ?  nan    nan    nan    1 97
+ATOM   H HG13   . VAL A 0 28  . 28  VAL A HG13   nan   0.0 ?  nan    nan    nan    1 98
+ATOM   H HG21   . VAL A 0 28  . 28  VAL A HG21   nan   0.0 ?  nan    nan    nan    1 99
+ATOM   H HG22   . VAL A 0 28  . 28  VAL A HG22   nan   0.0 ?  nan    nan    nan    1 100
+ATOM   H HG23   . VAL A 0 28  . 28  VAL A HG23   nan   0.0 ?  nan    nan    nan    1 101
+ATOM   N N      . SER A 0 29  . 29  SER A N      14.23 1.0 ?  30.525 41.52  68.702 1 102
+ATOM   C CA     . SER A 0 29  . 29  SER A CA     13.3  1.0 ?  30.058 41.946 67.388 1 103
+ATOM   C C      . SER A 0 29  . 29  SER A C      12.61 1.0 ?  28.896 41.058 66.997 1 104
+ATOM   O O      . SER A 0 29  . 29  SER A O      12.72 1.0 ?  29.086 39.847 66.929 1 105
+ATOM   C CB     . SER A 0 29  . 29  SER A CB     14.01 1.0 ?  31.157 41.85  66.339 1 106
+ATOM   O OG     . SER A 0 29  . 29  SER A OG     13.24 1.0 ?  30.716 42.381 65.088 1 107
+ATOM   H H      . SER A 0 29  . 29  SER A H      nan   0.0 ?  nan    nan    nan    1 108
+ATOM   H HA     . SER A 0 29  . 29  SER A HA     nan   0.0 ?  nan    nan    nan    1 109
+ATOM   H HB2    . SER A 0 29  . 29  SER A HB2    nan   0.0 ?  nan    nan    nan    1 110
+ATOM   H HB3    . SER A 0 29  . 29  SER A HB3    nan   0.0 ?  nan    nan    nan    1 111
+ATOM   H HG     . SER A 0 29  . 29  SER A HG     nan   0.0 ?  nan    nan    nan    1 112
+ATOM   N N      . VAL A 0 30  . 30  VAL A N      13.61 1.0 ?  27.706 41.66  66.886 1 113
+ATOM   C CA     . VAL A 0 30  . 30  VAL A CA     13.46 1.0 ?  26.452 40.923 66.832 1 114
+ATOM   C C      . VAL A 0 30  . 30  VAL A C      12.59 1.0 ?  25.639 41.353 65.615 1 115
+ATOM   O O      . VAL A 0 30  . 30  VAL A O      13.52 1.0 ?  25.551 42.542 65.284 1 116
+ATOM   C CB     . VAL A 0 30  . 30  VAL A CB     14.59 1.0 ?  25.617 41.127 68.107 1 117
+ATOM   C CG1    . VAL A 0 30  . 30  VAL A CG1    15.17 1.0 ?  24.3   40.374 68.033 1 118
+ATOM   C CG2    . VAL A 0 30  . 30  VAL A CG2    15.53 1.0 ?  26.385 40.688 69.347 1 119
+ATOM   H H      . VAL A 0 30  . 30  VAL A H      nan   0.0 ?  nan    nan    nan    1 120
+ATOM   H HA     . VAL A 0 30  . 30  VAL A HA     nan   0.0 ?  nan    nan    nan    1 121
+ATOM   H HB     . VAL A 0 30  . 30  VAL A HB     nan   0.0 ?  nan    nan    nan    1 122
+ATOM   H HG11   . VAL A 0 30  . 30  VAL A HG11   nan   0.0 ?  nan    nan    nan    1 123
+ATOM   H HG12   . VAL A 0 30  . 30  VAL A HG12   nan   0.0 ?  nan    nan    nan    1 124
+ATOM   H HG13   . VAL A 0 30  . 30  VAL A HG13   nan   0.0 ?  nan    nan    nan    1 125
+ATOM   H HG21   . VAL A 0 30  . 30  VAL A HG21   nan   0.0 ?  nan    nan    nan    1 126
+ATOM   H HG22   . VAL A 0 30  . 30  VAL A HG22   nan   0.0 ?  nan    nan    nan    1 127
+ATOM   H HG23   . VAL A 0 30  . 30  VAL A HG23   nan   0.0 ?  nan    nan    nan    1 128
+ATOM   N N      . ASN A 0 31  . 31  ASN A N      11.2  1.0 ?  25.025 40.354 64.99  1 129
+ATOM   C CA     . ASN A 0 31  . 31  ASN A CA     12.21 1.0 ?  24.064 40.577 63.913 1 130
+ATOM   C C      . ASN A 0 31  . 31  ASN A C      12.4  1.0 ?  22.649 40.388 64.449 1 131
+ATOM   O O      . ASN A 0 31  . 31  ASN A O      13.74 1.0 ?  22.321 39.298 64.899 1 132
+ATOM   C CB     . ASN A 0 31  . 31  ASN A CB     11.96 1.0 ?  24.27  39.621 62.724 1 133
+ATOM   C CG     . ASN A 0 31  . 31  ASN A CG     13.32 1.0 ?  25.393 40.071 61.814 1 134
+ATOM   O OD1    . ASN A 0 31  . 31  ASN A OD1    14.84 1.0 ?  25.143 40.625 60.746 1 135
+ATOM   N ND2    . ASN A 0 31  . 31  ASN A ND2    12.66 1.0 ?  26.627 39.9   62.25  1 136
+ATOM   H H      . ASN A 0 31  . 31  ASN A H      nan   0.0 ?  nan    nan    nan    1 137
+ATOM   H HA     . ASN A 0 31  . 31  ASN A HA     nan   0.0 ?  nan    nan    nan    1 138
+ATOM   H HB2    . ASN A 0 31  . 31  ASN A HB2    nan   0.0 ?  nan    nan    nan    1 139
+ATOM   H HB3    . ASN A 0 31  . 31  ASN A HB3    nan   0.0 ?  nan    nan    nan    1 140
+ATOM   H HD21   . ASN A 0 31  . 31  ASN A HD21   nan   0.0 ?  nan    nan    nan    1 141
+ATOM   H HD22   . ASN A 0 31  . 31  ASN A HD22   nan   0.0 ?  nan    nan    nan    1 142
+ATOM   N N      . TYR A 0 32  . 32  TYR A N      12.38 1.0 ?  21.85  41.435 64.341 1 143
+ATOM   C CA     . TYR A 0 32  . 32  TYR A CA     12.37 1.0 ?  20.432 41.406 64.685 1 144
+ATOM   C C      . TYR A 0 32  . 32  TYR A C      11.25 1.0 ?  19.609 41.433 63.401 1 145
+ATOM   O O      . TYR A 0 32  . 32  TYR A O      12.01 1.0 ?  19.528 42.442 62.706 1 146
+ATOM   C CB     . TYR A 0 32  . 32  TYR A CB     11.94 1.0 ?  20.076 42.552 65.632 1 147
+ATOM   C CG     . TYR A 0 32  . 32  TYR A CG     12.99 1.0 ?  18.609 42.684 65.996 1 148
+ATOM   C CD1    . TYR A 0 32  . 32  TYR A CD1    12.67 1.0 ?  17.769 41.586 66.081 1 149
+ATOM   C CD2    . TYR A 0 32  . 32  TYR A CD2    13.75 1.0 ?  18.085 43.929 66.276 1 150
+ATOM   C CE1    . TYR A 0 32  . 32  TYR A CE1    12.58 1.0 ?  16.43  41.737 66.454 1 151
+ATOM   C CE2    . TYR A 0 32  . 32  TYR A CE2    13.91 1.0 ?  16.748 44.099 66.619 1 152
+ATOM   C CZ     . TYR A 0 32  . 32  TYR A CZ     12.97 1.0 ?  15.929 42.996 66.678 1 153
+ATOM   O OH     . TYR A 0 32  . 32  TYR A OH     15.02 1.0 ?  14.617 43.181 67.014 1 154
+ATOM   H H      . TYR A 0 32  . 32  TYR A H      nan   0.0 ?  nan    nan    nan    1 155
+ATOM   H HA     . TYR A 0 32  . 32  TYR A HA     nan   0.0 ?  nan    nan    nan    1 156
+ATOM   H HB2    . TYR A 0 32  . 32  TYR A HB2    nan   0.0 ?  nan    nan    nan    1 157
+ATOM   H HB3    . TYR A 0 32  . 32  TYR A HB3    nan   0.0 ?  nan    nan    nan    1 158
+ATOM   H HD1    . TYR A 0 32  . 32  TYR A HD1    nan   0.0 ?  nan    nan    nan    1 159
+ATOM   H HD2    . TYR A 0 32  . 32  TYR A HD2    nan   0.0 ?  nan    nan    nan    1 160
+ATOM   H HE1    . TYR A 0 32  . 32  TYR A HE1    nan   0.0 ?  nan    nan    nan    1 161
+ATOM   H HE2    . TYR A 0 32  . 32  TYR A HE2    nan   0.0 ?  nan    nan    nan    1 162
+ATOM   H HH     . TYR A 0 32  . 32  TYR A HH     nan   0.0 ?  nan    nan    nan    1 163
+ATOM   N N      . PHE A 0 33  . 33  PHE A N      12.82 1.0 ?  19.058 40.279 63.104 1 164
+ATOM   C CA     . PHE A 0 33  . 33  PHE A CA     13.49 1.0 ?  18.157 40.066 61.983 1 165
+ATOM   C C      . PHE A 0 33  . 33  PHE A C      13.97 1.0 ?  16.745 40.439 62.425 1 166
+ATOM   O O      . PHE A 0 33  . 33  PHE A O      14.12 1.0 ?  15.967 39.595 62.838 1 167
+ATOM   C CB     . PHE A 0 33  . 33  PHE A CB     12.79 1.0 ?  18.215 38.602 61.547 1 168
+ATOM   C CG     . PHE A 0 33  . 33  PHE A CG     13.46 1.0 ?  19.53  37.994 61.126 1 169
+ATOM   C CD1    . PHE A 0 33  . 33  PHE A CD1    14.83 1.0 ?  20.435 37.534 62.057 1 170
+ATOM   C CD2    . PHE A 0 33  . 33  PHE A CD2    13.21 1.0 ?  19.808 37.779 59.777 1 171
+ATOM   C CE1    . PHE A 0 33  . 33  PHE A CE1    14.88 1.0 ?  21.601 36.911 61.659 1 172
+ATOM   C CE2    . PHE A 0 33  . 33  PHE A CE2    14.25 1.0 ?  20.961 37.122 59.387 1 173
+ATOM   C CZ     . PHE A 0 33  . 33  PHE A CZ     14.64 1.0 ?  21.825 36.651 60.332 1 174
+ATOM   H H      . PHE A 0 33  . 33  PHE A H      nan   0.0 ?  nan    nan    nan    1 175
+ATOM   H HA     . PHE A 0 33  . 33  PHE A HA     nan   0.0 ?  nan    nan    nan    1 176
+ATOM   H HB2    . PHE A 0 33  . 33  PHE A HB2    nan   0.0 ?  nan    nan    nan    1 177
+ATOM   H HB3    . PHE A 0 33  . 33  PHE A HB3    nan   0.0 ?  nan    nan    nan    1 178
+ATOM   H HD1    . PHE A 0 33  . 33  PHE A HD1    nan   0.0 ?  nan    nan    nan    1 179
+ATOM   H HD2    . PHE A 0 33  . 33  PHE A HD2    nan   0.0 ?  nan    nan    nan    1 180
+ATOM   H HE1    . PHE A 0 33  . 33  PHE A HE1    nan   0.0 ?  nan    nan    nan    1 181
+ATOM   H HE2    . PHE A 0 33  . 33  PHE A HE2    nan   0.0 ?  nan    nan    nan    1 182
+ATOM   H HZ     . PHE A 0 33  . 33  PHE A HZ     nan   0.0 ?  nan    nan    nan    1 183
+ATOM   N N      . PHE A 0 34  . 34  PHE A N      13.28 1.0 ?  16.437 41.734 62.446 1 184
+ATOM   C CA     . PHE A 0 34  . 34  PHE A CA     13.28 1.0 ?  15.213 42.126 63.108 1 185
+ATOM   C C      . PHE A 0 34  . 34  PHE A C      13.56 1.0 ?  13.951 41.781 62.315 1 186
+ATOM   O O      . PHE A 0 34  . 34  PHE A O      14.4  1.0 ?  12.864 41.813 62.886 1 187
+ATOM   C CB     . PHE A 0 34  . 34  PHE A CB     14.58 1.0 ?  15.273 43.607 63.446 1 188
+ATOM   C CG     . PHE A 0 34  . 34  PHE A CG     16.94 1.0 ?  15.176 44.556 62.287 1 189
+ATOM   C CD1    . PHE A 0 34  . 34  PHE A CD1    18.25 1.0 ?  13.946 44.91  61.76  1 190
+ATOM   C CD2    . PHE A 0 34  . 34  PHE A CD2    18.62 1.0 ?  16.32  45.094 61.737 1 191
+ATOM   C CE1    . PHE A 0 34  . 34  PHE A CE1    16.8  1.0 ?  13.867 45.772 60.68  1 192
+ATOM   C CE2    . PHE A 0 34  . 34  PHE A CE2    20.66 1.0 ?  16.241 45.985 60.677 1 193
+ATOM   C CZ     . PHE A 0 34  . 34  PHE A CZ     18.71 1.0 ?  15.008 46.347 60.18  1 194
+ATOM   H H      . PHE A 0 34  . 34  PHE A H      nan   0.0 ?  nan    nan    nan    1 195
+ATOM   H HA     . PHE A 0 34  . 34  PHE A HA     nan   0.0 ?  nan    nan    nan    1 196
+ATOM   H HB2    . PHE A 0 34  . 34  PHE A HB2    nan   0.0 ?  nan    nan    nan    1 197
+ATOM   H HB3    . PHE A 0 34  . 34  PHE A HB3    nan   0.0 ?  nan    nan    nan    1 198
+ATOM   H HD1    . PHE A 0 34  . 34  PHE A HD1    nan   0.0 ?  nan    nan    nan    1 199
+ATOM   H HD2    . PHE A 0 34  . 34  PHE A HD2    nan   0.0 ?  nan    nan    nan    1 200
+ATOM   H HE1    . PHE A 0 34  . 34  PHE A HE1    nan   0.0 ?  nan    nan    nan    1 201
+ATOM   H HE2    . PHE A 0 34  . 34  PHE A HE2    nan   0.0 ?  nan    nan    nan    1 202
+ATOM   H HZ     . PHE A 0 34  . 34  PHE A HZ     nan   0.0 ?  nan    nan    nan    1 203
+ATOM   N N      . THR A 0 35  . 35  THR A N      13.3  1.0 ?  14.092 41.546 61.003 1 204
+ATOM   C CA     . THR A 0 35  . 35  THR A CA     13.64 1.0 ?  12.992 41.074 60.167 1 205
+ATOM   C C      . THR A 0 35  . 35  THR A C      14.43 1.0 ?  13.516 39.983 59.238 1 206
+ATOM   O O      . THR A 0 35  . 35  THR A O      14.23 1.0 ?  14.711 39.992 58.892 1 207
+ATOM   C CB     . THR A 0 35  . 35  THR A CB     15.0  1.0 ?  12.377 42.209 59.326 1 208
+ATOM   O OG1    . THR A 0 35  . 35  THR A OG1    15.03 1.0 ?  11.278 41.66  58.573 1 209
+ATOM   C CG2    . THR A 0 35  . 35  THR A CG2    16.19 1.0 ?  13.36  42.883 58.4   1 210
+ATOM   H H      . THR A 0 35  . 35  THR A H      nan   0.0 ?  nan    nan    nan    1 211
+ATOM   H HA     . THR A 0 35  . 35  THR A HA     nan   0.0 ?  nan    nan    nan    1 212
+ATOM   H HB     . THR A 0 35  . 35  THR A HB     nan   0.0 ?  nan    nan    nan    1 213
+ATOM   H HG1    . THR A 0 35  . 35  THR A HG1    nan   0.0 ?  nan    nan    nan    1 214
+ATOM   H HG21   . THR A 0 35  . 35  THR A HG21   nan   0.0 ?  nan    nan    nan    1 215
+ATOM   H HG22   . THR A 0 35  . 35  THR A HG22   nan   0.0 ?  nan    nan    nan    1 216
+ATOM   H HG23   . THR A 0 35  . 35  THR A HG23   nan   0.0 ?  nan    nan    nan    1 217
+HETATM N N      . SAM C 2 402 . 402 SAM C N      15.76 1.0 ?  18.853 41.54  52.374 1 218
+HETATM C CA     . SAM C 2 402 . 402 SAM C CA     14.92 1.0 ?  20.146 42.201 52.712 1 219
+HETATM C C      . SAM C 2 402 . 402 SAM C C      14.69 1.0 ?  21.197 41.868 51.632 1 220
+HETATM O O      . SAM C 2 402 . 402 SAM C O      14.81 1.0 ?  20.964 40.917 50.846 1 221
+HETATM O OXT    . SAM C 2 402 . 402 SAM C OXT    13.78 1.0 -1 22.242 42.505 51.667 1 222
+HETATM C CB     . SAM C 2 402 . 402 SAM C CB     14.17 1.0 ?  20.644 41.789 54.1   1 223
+HETATM C CG     . SAM C 2 402 . 402 SAM C CG     15.94 1.0 ?  20.423 40.348 54.54  1 224
+HETATM S SD     . SAM C 2 402 . 402 SAM C SD     17.88 1.0 +1 21.409 39.182 53.57  1 225
+HETATM C CE     . SAM C 2 402 . 402 SAM C CE     19.98 1.0 ?  20.781 37.61  54.151 1 226
+HETATM C "C5'"  . SAM C 2 402 . 402 SAM C "C5'"  18.08 1.0 ?  23.034 39.398 54.431 1 227
+HETATM C "C4'"  . SAM C 2 402 . 402 SAM C "C4'"  16.22 1.0 ?  24.272 38.968 53.644 1 228
+HETATM O "O4'"  . SAM C 2 402 . 402 SAM C "O4'"  15.77 1.0 ?  24.297 37.517 53.479 1 229
+HETATM C "C3'"  . SAM C 2 402 . 402 SAM C "C3'"  13.83 1.0 ?  24.309 39.553 52.242 1 230
+HETATM O "O3'"  . SAM C 2 402 . 402 SAM C "O3'"  13.45 1.0 ?  25.548 40.134 51.847 1 231
+HETATM C "C2'"  . SAM C 2 402 . 402 SAM C "C2'"  13.8  1.0 ?  23.921 38.337 51.395 1 232
+HETATM O "O2'"  . SAM C 2 402 . 402 SAM C "O2'"  15.09 1.0 ?  24.245 38.434 50.031 1 233
+HETATM C "C1'"  . SAM C 2 402 . 402 SAM C "C1'"  13.47 1.0 ?  24.636 37.225 52.153 1 234
+HETATM N N9     . SAM C 2 402 . 402 SAM C N9     12.19 1.0 ?  24.177 35.873 51.879 1 235
+HETATM C C8     . SAM C 2 402 . 402 SAM C C8     12.41 1.0 ?  22.877 35.477 51.659 1 236
+HETATM N N7     . SAM C 2 402 . 402 SAM C N7     12.07 1.0 ?  22.735 34.18  51.518 1 237
+HETATM C C5     . SAM C 2 402 . 402 SAM C C5     10.78 1.0 ?  24.031 33.69  51.598 1 238
+HETATM C C6     . SAM C 2 402 . 402 SAM C C6     10.37 1.0 ?  24.552 32.395 51.477 1 239
+HETATM N N6     . SAM C 2 402 . 402 SAM C N6     10.91 1.0 ?  23.795 31.327 51.256 1 240
+HETATM N N1     . SAM C 2 402 . 402 SAM C N1     10.76 1.0 ?  25.875 32.223 51.671 1 241
+HETATM C C2     . SAM C 2 402 . 402 SAM C C2     11.41 1.0 ?  26.608 33.317 51.902 1 242
+HETATM N N3     . SAM C 2 402 . 402 SAM C N3     10.67 1.0 ?  26.235 34.58  52.058 1 243
+HETATM C C4     . SAM C 2 402 . 402 SAM C C4     11.86 1.0 ?  24.916 34.709 51.875 1 244
+HETATM H HN1    . SAM C 2 402 . 402 SAM C HN1    nan   0.0 ?  nan    nan    nan    1 245
+HETATM H HN2    . SAM C 2 402 . 402 SAM C HN2    nan   0.0 ?  nan    nan    nan    1 246
+HETATM H HA     . SAM C 2 402 . 402 SAM C HA     nan   0.0 ?  nan    nan    nan    1 247
+HETATM H HB1    . SAM C 2 402 . 402 SAM C HB1    nan   0.0 ?  nan    nan    nan    1 248
+HETATM H HB2    . SAM C 2 402 . 402 SAM C HB2    nan   0.0 ?  nan    nan    nan    1 249
+HETATM H HG1    . SAM C 2 402 . 402 SAM C HG1    nan   0.0 ?  nan    nan    nan    1 250
+HETATM H HG2    . SAM C 2 402 . 402 SAM C HG2    nan   0.0 ?  nan    nan    nan    1 251
+HETATM H HE1    . SAM C 2 402 . 402 SAM C HE1    nan   0.0 ?  nan    nan    nan    1 252
+HETATM H HE2    . SAM C 2 402 . 402 SAM C HE2    nan   0.0 ?  nan    nan    nan    1 253
+HETATM H HE3    . SAM C 2 402 . 402 SAM C HE3    nan   0.0 ?  nan    nan    nan    1 254
+HETATM H "H5'1" . SAM C 2 402 . 402 SAM C "H5'1" nan   0.0 ?  nan    nan    nan    1 255
+HETATM H "H5'2" . SAM C 2 402 . 402 SAM C "H5'2" nan   0.0 ?  nan    nan    nan    1 256
+HETATM H "H4'"  . SAM C 2 402 . 402 SAM C "H4'"  nan   0.0 ?  nan    nan    nan    1 257
+HETATM H "H3'"  . SAM C 2 402 . 402 SAM C "H3'"  nan   0.0 ?  nan    nan    nan    1 258
+HETATM H "HO3'" . SAM C 2 402 . 402 SAM C "HO3'" nan   0.0 ?  nan    nan    nan    1 259
+HETATM H "H2'"  . SAM C 2 402 . 402 SAM C "H2'"  nan   0.0 ?  nan    nan    nan    1 260
+HETATM H "HO2'" . SAM C 2 402 . 402 SAM C "HO2'" nan   0.0 ?  nan    nan    nan    1 261
+HETATM H "H1'"  . SAM C 2 402 . 402 SAM C "H1'"  nan   0.0 ?  nan    nan    nan    1 262
+HETATM H H8     . SAM C 2 402 . 402 SAM C H8     nan   0.0 ?  nan    nan    nan    1 263
+HETATM H HN61   . SAM C 2 402 . 402 SAM C HN61   nan   0.0 ?  nan    nan    nan    1 264
+HETATM H HN62   . SAM C 2 402 . 402 SAM C HN62   nan   0.0 ?  nan    nan    nan    1 265
+HETATM H H2     . SAM C 2 402 . 402 SAM C H2     nan   0.0 ?  nan    nan    nan    1 266
+#

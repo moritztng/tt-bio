@@ -1,0 +1,53 @@
+{
+  "aa": 768,
+  "tokens": 768,
+  "arms": {
+    "headroom": {
+      "per_recycle_s": 5.376718241001072,
+      "total_s": 10.753436482002144,
+      "reps_s": [
+        10.7534,
+        10.7483,
+        10.759
+      ],
+      "transpose_dest": {
+        "L1": 8,
+        "DRAM": 208
+      }
+    },
+    "reserve": {
+      "per_recycle_s": 5.135507185001188,
+      "total_s": 10.271014370002376,
+      "reps_s": [
+        10.2674,
+        10.2763,
+        10.271
+      ],
+      "transpose_dest": {
+        "L1": 104,
+        "DRAM": 112
+      }
+    },
+    "headroom_aa": {
+      "per_recycle_s": 5.379186118500002,
+      "total_s": 10.758372237000003,
+      "reps_s": [
+        10.7657,
+        10.7584,
+        10.7545
+      ],
+      "transpose_dest": {
+        "L1": 8,
+        "DRAM": 208
+      }
+    }
+  },
+  "bit_exact": {
+    "s": true,
+    "z": true,
+    "max_abs_z": 0.0,
+    "max_abs_s": 0.0
+  },
+  "speedup": 1.0469692763169267,
+  "aa_floor": 0.999541217306008
+}
