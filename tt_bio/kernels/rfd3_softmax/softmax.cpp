@@ -320,7 +320,9 @@ void kernel_main() {
         mul_bcast_cols_init_short(cb_exps, cb_recipsumexps);
         for (uint32_t wt = 0; wt < Wt; wt += ndst) {
             tile_regs_acquire();
+#ifndef PACK_BF16_TYPECAST
             cb_out0_obj.reserve_back(ndst);
+#endif
             for (uint32_t wt8 = 0; wt8 < ndst; wt8++) {
                 // wt+wt8 since we pop Wt after the entire loop
                 mul_tiles_bcast<BroadcastType::COL>(
@@ -338,6 +340,11 @@ void kernel_main() {
 #endif
             tile_regs_commit();
             tile_regs_wait();
+#ifdef PACK_BF16_TYPECAST
+            // candidate 1: `apply_recip` in the large kernel reserves AFTER the commit and is
+            // bit-exact; this loop reserved inside the acquire block and is not.
+            cb_out0_obj.reserve_back(ndst);
+#endif
             for (uint32_t wt8 = 0; wt8 < ndst; wt8++) {
                 pack_tile(wt8, cb_out0);
             }
