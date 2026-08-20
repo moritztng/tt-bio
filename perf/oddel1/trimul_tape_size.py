@@ -12,8 +12,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
+# (group, memory_config) as `sizes-recheck-opendde` and `pop_640_768_qb1c2.json` recorded them
+# in-fold. The first six are trunk rungs (N = seq). 1243 and 1494 are OpenDDE's REFINER, whose H is
+# ~1.95x the sequence length -- the population that carries 70.2 % of the 640 -> 768 aa interval
+# delta (state doc section 18), so its tape runs through this same script with the same defaults:
+# n_pairs and hidden are 12 and 384 at the refiner too, and only H differs.
 EXPECT = {512: (12, "DRAM"), 640: (6, "DRAM"), 672: (6, "DRAM"), 704: (6, "DRAM"),
-          768: (6, "DRAM"), 1024: (4, "DRAM")}
+          768: (6, "DRAM"), 1024: (4, "DRAM"), 1243: (2, "DRAM"), 1494: (1, "DRAM"),
+          1993: (1, "DRAM")}
 
 
 def main():
