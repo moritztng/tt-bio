@@ -350,6 +350,22 @@ def _is_embed_model(model_id: str) -> bool:
     return _is_esmc_model(model_id) or _is_saprot_model(model_id)
 
 
+@contextlib.contextmanager
+def _rng_state_preserved():
+    """Run a block without letting it advance the global RNG streams."""
+    import random as _random
+
+    import numpy as _np
+
+    states = (_random.getstate(), _np.random.get_state(), torch.random.get_rng_state())
+    try:
+        yield
+    finally:
+        _random.setstate(states[0])
+        _np.random.set_state(states[1])
+        torch.random.set_rng_state(states[2])
+
+
 class _WorkerState:
     """Holds the loaded model and per-run helpers."""
 
@@ -1278,7 +1294,15 @@ class _WorkerState:
                 ctx = diffusion_fp32_device(fp32_device)
             else:
                 ctx = contextlib.nullcontext()
-            with ctx:
+            # Building a Boltz2 draws heavily from the global RNG (every nn.Linear
+            # initialises its weights before load_state_dict overwrites them), and this
+            # load happens lazily inside the FIRST affinity target of a run. That left
+            # target 1's affinity diffusion drawing its noise from a different RNG state
+            # than every later target's, so identical compounds got different scalars
+            # depending on position in the job. Later targets are also the ones that match
+            # the reference, which loads both checkpoints before it seeds. Keep the load
+            # invisible to the sampler.
+            with ctx, _rng_state_preserved():
                 self.aff_model = (
                     Boltz2.load_from_checkpoint(cfg["aff_ckpt"], **cfg["aff_kwargs"])
                     .eval()

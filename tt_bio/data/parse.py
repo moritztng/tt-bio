@@ -15,6 +15,7 @@ from rdkit.Chem.rdchem import Mol
 from tt_bio.data.types import Target
 import yaml
 import contextlib
+import os
 from collections import defaultdict
 from dataclasses import dataclass, replace
 import gemmi
@@ -1926,7 +1927,17 @@ def convert_atom_name(name: str) -> tuple[int, int, int, int]:
     return tuple(name)
 
 
-def compute_3d_conformer(mol: Mol, version: str = "v3") -> bool:
+# ETKDG leaves ``randomSeed`` at -1, which makes RDKit draw from a stream that advances on
+# every embedding in the process. The same ligand parsed twice in one worker therefore gets
+# two different reference conformers, and the conformer moves the prediction: three
+# byte-identical 256 aa CDK2 + ligand inputs in one Boltz-2 affinity job returned
+# affinity_pred_value 0.648724 / 0.722511 / 0.687149 purely by position in the batch. Pin the
+# seed so a conformer is a function of the ligand alone. Set TT_BIO_ETKDG_SEED to draw a
+# different conformer (e.g. to measure how much of a prediction rides on the conformer).
+ETKDG_SEED = int(os.environ.get("TT_BIO_ETKDG_SEED", 0xF00D))
+
+
+def compute_3d_conformer(mol: Mol, version: str = "v3", seed: int | None = None) -> bool:
     """Generate 3D coordinates using EKTDG method.
 
     Taken from `pdbeccdutils.core.component.Component`.
@@ -1937,6 +1948,8 @@ def compute_3d_conformer(mol: Mol, version: str = "v3") -> bool:
         The RDKit molecule to process
     version: str, optional
         The ETKDG version, defaults ot v3
+    seed: int, optional
+        ETKDG random seed; defaults to ``ETKDG_SEED``.
 
     Returns
     -------
@@ -1952,6 +1965,7 @@ def compute_3d_conformer(mol: Mol, version: str = "v3") -> bool:
         options = AllChem.ETKDGv2()
 
     options.clearConfs = False
+    options.randomSeed = ETKDG_SEED if seed is None else seed
     conf_id = -1
 
     try:
