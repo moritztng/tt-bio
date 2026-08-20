@@ -142,6 +142,34 @@ def main():
         t_model = time.perf_counter() - t0
 
         prep_s, pred_s = [], []
+
+        def snapshot():
+            """Cell record from whatever designs have completed so far."""
+            per = [p + q for p, q in zip(prep_s, pred_s)]
+            w = sorted(per[1:]) if len(per) > 1 else []
+            med = w[len(w) // 2] if w else None
+            return {
+                "target_residues": tgt, "n_tokens": ntok, "complex_atoms": natoms,
+                "model_construct_s": t_model,
+                "designs_done": len(per),
+                "cold_design_s": per[0] if per else None,
+                "prep_s": prep_s, "predict_s": pred_s, "per_design_s": per,
+                "warm_per_design_s": w,
+                "marginal_s_per_design": med,
+                "aa_spread_s": (w[-1] - w[0]) if w else None,
+                "aa_spread_pct": (100.0 * (w[-1] - w[0]) / med) if w else None,
+                "fixed_s": t_model + (per[0] - med) if (per and med) else None,
+                "loadavg": open("/proc/loadavg").read().split()[:3],
+            }
+
+        def checkpoint():
+            if not args.out:
+                return
+            os.makedirs(os.path.dirname(args.out), exist_ok=True)
+            done = [c for c in rec["cells"] if c["target_residues"] != tgt]
+            with open(args.out, "w") as fh:
+                json.dump(dict(rec, cells=done + [snapshot()]), fh, indent=1)
+
         for d in range(args.ndesign):
             t0 = time.perf_counter()
             model.prep_inputs(pdb_filename=pdb, chain="A", binder_chain="B",
@@ -157,22 +185,10 @@ def main():
                   "   plddt %.3f i_ptm %.3f"
                   % (tgt, ntok, d, args.ndesign - 1, prep_s[-1], pred_s[-1],
                      log["plddt"], log.get("i_ptm", float("nan"))), flush=True)
+            checkpoint()
 
-        per_design = [p + q for p, q in zip(prep_s, pred_s)]
-        warm = sorted(per_design[1:]) if len(per_design) > 1 else []
-        cell = {
-            "target_residues": tgt, "n_tokens": ntok, "complex_atoms": natoms,
-            "model_construct_s": t_model,
-            "cold_design_s": per_design[0],
-            "prep_s": prep_s, "predict_s": pred_s, "per_design_s": per_design,
-            "warm_per_design_s": warm,
-            "marginal_s_per_design": warm[len(warm) // 2] if warm else None,
-            "aa_spread_s": (warm[-1] - warm[0]) if warm else None,
-            "aa_spread_pct": (100.0 * (warm[-1] - warm[0]) / warm[len(warm) // 2]
-                              if warm else None),
-            "fixed_s": t_model + (per_design[0] - (warm[len(warm) // 2] if warm else 0.0)),
-            "loadavg": open("/proc/loadavg").read().split()[:3],
-        }
+        cell = snapshot()
+        warm = cell["warm_per_design_s"]
         rec["cells"].append(cell)
         print("target %4d (%4d tok): marginal %s s/design, cold %.2f, construct %.2f, "
               "A/A spread %s"

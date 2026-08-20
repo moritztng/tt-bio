@@ -1,0 +1,65 @@
+{
+ "host": "tt-quietbox2",
+ "stage": "complex",
+ "jax_version": "0.4.29",
+ "jax_devices": [
+  "TFRT_CPU_0"
+ ],
+ "xla_flags": "--xla_gpu_enable_triton_gemm=false",
+ "nproc": 16,
+ "loadavg_start": [
+  "1.01",
+  "3.76",
+  "7.24"
+ ],
+ "num_recycles": 3,
+ "af2_cfg": {
+  "use_multimer": false,
+  "model_ids": [
+   0
+  ],
+  "use_initial_guess": true,
+  "use_initial_atom_pos": false,
+  "use_binder_template": true
+ },
+ "binder_length": 80,
+ "ndesign": 3,
+ "cells": [
+  {
+   "target_residues": 128,
+   "n_tokens": 208,
+   "complex_atoms": 1653,
+   "model_construct_s": 0.7287589110001136,
+   "designs_done": 3,
+   "cold_design_s": 664.9022952750001,
+   "prep_s": [
+    0.024646609999763314,
+    0.013886284999898635,
+    0.012866074000157823
+   ],
+   "predict_s": [
+    664.8776486650004,
+    656.8668830730003,
+    656.9727330610003
+   ],
+   "per_design_s": [
+    664.9022952750001,
+    656.8807693580002,
+    656.9855991350005
+   ],
+   "warm_per_design_s": [
+    656.8807693580002,
+    656.9855991350005
+   ],
+   "marginal_s_per_design": 656.9855991350005,
+   "aa_spread_s": 0.1048297770003046,
+   "aa_spread_pct": 0.015956175772851862,
+   "fixed_s": 8.645455050999772,
+   "loadavg": [
+    "15.04",
+    "14.86",
+    "13.95"
+   ]
+  }
+ ]
+}
