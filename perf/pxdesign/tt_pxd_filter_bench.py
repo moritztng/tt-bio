@@ -144,6 +144,11 @@ def main():
                          "call, so both arms run on the same weights, the same program cache and "
                          "the same box state, which removes the ~1%% cross-process drift pass 2 "
                          "measured on this cell. Omit for a single arm off the env.")
+    ap.add_argument("--wide-k-arms", default=None,
+                    help="comma list of on/off arms for K5, the dividing-and-wider SDPA k_chunk, "
+                         "interleaved in ONE process. `_tri_att_k_chunks` reads the env live and "
+                         "is not memoised, so an arm takes on the next call; the pick it lands on "
+                         "is asserted per leg out of SDPA_CHUNK_PICKS rather than assumed.")
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
 
@@ -202,16 +207,27 @@ def main():
     print(json.dumps({k: rec[k] for k in ("cell", "variant", "n_tokens", "n_atoms", "gates",
                                           "shape_facts", "conf_device_active")}), flush=True)
 
-    arms = [x.strip() for x in a.conf_arms.split(",")] if a.conf_arms else [None]
+    if a.conf_arms and a.wide_k_arms:
+        raise SystemExit("one arm axis at a time: --conf-arms or --wide-k-arms")
+    axis = "wide_k" if a.wide_k_arms else "conf"
+    arms = [x.strip() for x in (a.wide_k_arms or a.conf_arms).split(",")] \
+        if (a.wide_k_arms or a.conf_arms) else [None]
+    rec["arm_axis"] = axis
     # Interleaved: warm-up, then arm0 arm1 arm0 arm1 ... so neither ordering nor program-cache
     # state can be mistaken for the effect (`perf-gate-single-shot-legs-recurring-false-alarm`).
     schedule = [arms[0]] + [arms[i % len(arms)] for i in range(a.reps * len(arms))]
     for r, arm in enumerate(schedule):
         try:
-            if arm is not None:
+            if arm is not None and axis == "conf":
                 os.environ["TT_PROTENIX_CONF_DEVICE"] = "1" if arm == "device" else "0"
                 _, act = conf_arm_state()
                 assert act == (arm == "device"), f"arm {arm} did not take (active={act})"
+            if arm is not None and axis == "wide_k":
+                os.environ["TT_BIO_SDPA_WIDE_K"] = "1" if arm == "on" else "0"
+                assert (len(T._tri_att_k_chunks(NT, NT)) > 1) == (arm == "on"), \
+                    f"K5 arm {arm} did not take: ladder {T._tri_att_k_chunks(NT, NT)}"
+                T.SDPA_CHUNK_PICKS.clear()
+                k_before = list(T.SDPA_K_CHUNK_STATS)
             split, coords, conf = fold_split(model, feats, n_cycles=a.n_cycle,
                                              n_step=a.n_step, seed=r)
             split["cold"] = (r == 0)
@@ -221,6 +237,17 @@ def main():
             split["rg"] = round(rg, 2)
             split["finite"] = bool(torch.isfinite(coords).all())
             split["plddt"] = round(float(conf["plddt"]), 4)
+            if axis == "wide_k" and arm is not None:
+                # Which (q_chunk, k_chunk) the trunk actually served, per shape, and how many
+                # calls took the wide-k path. An arm that did not take must not read as a null.
+                split["sdpa_picks"] = {str(kk): vv for kk, vv in T.SDPA_CHUNK_PICKS.items()}
+                split["sdpa_k_served_delta"] = [T.SDPA_K_CHUNK_STATS[i] - k_before[i]
+                                                for i in range(2)]
+                pick = T.SDPA_CHUNK_PICKS.get((NT, NT))
+                assert pick is not None, "no SDPA pick recorded at the token shape"
+                divides = T._padded_sdpa_len(NT) % pick[1] == 0
+                assert divides == (arm == "on"), \
+                    f"arm {arm} served k_chunk {pick[1]} (divides={divides})"
             rec["reps"].append(split)
             print(json.dumps(split), flush=True)
         except Exception as e:
@@ -243,14 +270,20 @@ def main():
                 "total_legs": sorted(x["total"] for x in w),
                 "plddt": sorted({x["plddt"] for x in w}),
             }
-        if "host" in rec["arms"] and "device" in rec["arms"]:
-            h, d = rec["arms"]["host"], rec["arms"]["device"]
+        pair = ("host", "device") if axis == "conf" else ("off", "on")
+        if pair[0] in rec["arms"] and pair[1] in rec["arms"]:
+            h, d = rec["arms"][pair[0]], rec["arms"][pair[1]]
             rec["arms"]["delta"] = {
-                "confidence_x": round(h["median"]["confidence"] / d["median"]["confidence"], 4),
+                "base_arm": pair[0], "lever_arm": pair[1],
+                "trunk_x": round(h["median"]["trunk"] / d["median"]["trunk"], 4),
                 "total_x": round(h["median"]["total"] / d["median"]["total"], 4),
                 "total_pct": round(100 * (h["median"]["total"] - d["median"]["total"])
                                    / h["median"]["total"], 3),
+                "trunk_s_saved": round(h["median"]["trunk"] - d["median"]["trunk"], 3),
             }
+            if axis == "conf":
+                rec["arms"]["delta"]["confidence_x"] = round(
+                    h["median"]["confidence"] / d["median"]["confidence"], 4)
         print(json.dumps(rec["arms"]), flush=True)
     if warm:
         med = lambda k: sorted(x[k] for x in warm)[len(warm) // 2]
@@ -290,7 +323,10 @@ def main():
         "triatt_sdpa": list(_TS.STATS),
         "mm_dualnoc": list(_DN.STATS),
         "sdpa_q_chunk": list(T.SDPA_Q_CHUNK_STATS),
+        "sdpa_k_chunk_wide": list(T.SDPA_K_CHUNK_STATS),
     }
+    rec["sdpa_picks"] = {str(kk): vv for kk, vv in T.SDPA_CHUNK_PICKS.items()}
+    rec["sdpa_qk_over_l1"] = sorted(str(kk) for kk in T._SDPA_QK_OVER_L1)
     rec["rejects"] = {
         "trimul_tail_F1": {str(k): v for k, v in _TT.REJECTS.items()},
         "triatt_qkv_K2": {str(k): v for k, v in _TQ.REJECTS.items()},
@@ -307,6 +343,8 @@ def main():
     rec["l1_out_refused_keys"] = sorted(str(k) for k in T._L1_OUT_REFUSED)
     rec["bmm_cfg_refused"] = sorted(str(k) for k in T._BMM_CFG_REFUSED)
     rec["sdpa_q_chunk_over_l1"] = sorted(str(k) for k in T._SDPA_Q_CHUNK_OVER_L1)
+    print(json.dumps({"sdpa_picks": rec["sdpa_picks"],
+                      "sdpa_qk_over_l1": rec["sdpa_qk_over_l1"]}), flush=True)
     print(json.dumps({"census": rec["census"],
                       "fp32_softmax_l1_refused_keys": rec["fp32_softmax_l1_refused_keys"],
                       "l1_out_refused_keys": rec["l1_out_refused_keys"],

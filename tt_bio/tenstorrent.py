@@ -853,9 +853,100 @@ def _tri_att_sdpa(q, k, v, bias, scale: float):
     return _tri_att_sdpa_at(q, k, v, bias, scale)
 
 
+# K5: a k_chunk that DIVIDES the padded sequence even when the only divisors are WIDER than the
+# 256 cap. `_dividing_sdpa_chunk_size` searches downward from the cap and stops at cap/2, so at a
+# padded length whose 32-aligned divisors straddle that window it hands back the non-dividing cap and
+# two things go wrong at once: `sdpa_generic.plan` sets `use_padded_mask`, which makes the fused
+# K1/K2 kernel decline every call on `fill_preconditions`, and the stock op it falls back to reads a
+# mask padded out to the next multiple of the k_chunk. At 848 tokens (padded 864 = 2^5 * 27, whose
+# only 32-aligned divisors are 32, 96, 288 and 864) that is the whole difference between the
+# PXDesign filter cell and the 768-token probe cell, where 256 divides 768 and the fused kernel
+# serves 100% of calls.
+#
+# The affected padded lengths are exactly those with no 32-aligned divisor in [128, 256): 704, 736,
+# 832, 864, 928 and 992 up to 1024. Everything else returns what it returns today, byte for byte,
+# because the ladder is a single entry whenever the shipped pick already divides.
+#
+# MEASURED at the filter cell's shape [848, 4, 848, 32] bf16, one q/k pair per arm, arms interleaved
+# round-robin, the incumbent run twice as its own A/A control (0.02%), and the incumbent is the pair
+# the fold actually serves (q=288 after 864 is retired over L1), not `_sdpa_chunks_shipped`:
+#
+#     arm                       path    ms      vs incumbent   rmsd/std vs fp32
+#     q288 k256  (incumbent)    stock   17.583  1.000x         0.032688
+#     q288 k864                 fused    4.900  3.588x         0.029419
+#     q288 k288                 fused    5.992  2.934x         0.032149
+#     q288 k96                  fused    8.747  2.010x         0.035024
+#     q864 k96                  stock   14.156  1.242x         0.035024
+#
+# Widest-k wins and it is also the arm CLOSEST to a torch fp32 reference, which follows from one k
+# chunk needing no online-softmax rescale at all. (perf/pxdesign/tt_pxd_p4_sdpa_chunks_848.json)
+#
+# So the ladder is k widest-first and the q ladder runs INSIDE it: at 848 the best pair is the
+# widest k with the fold's own q, and q-outer ordering would settle on (864, 96) at 14.156 ms
+# instead. NOT bit-exact -- k_chunk sets the online-softmax reduction order -- so it ships OFF and
+# the accuracy arm is the fold's pLDDT.
+_SDPA_WIDE_K_DEFAULT = "0"
+
+
+def _sdpa_wide_k() -> bool:
+    """Read live rather than at import so one process can A/B both arms (`_tri_att_k_chunks` is
+    deliberately not memoised for the same reason; its divisor loop is ~27 iterations)."""
+    return os.environ.get("TT_BIO_SDPA_WIDE_K", _SDPA_WIDE_K_DEFAULT) != "0"
+
+
+def _tri_att_k_chunks(q_len: int, k_len: int) -> tuple:
+    """k_chunks to try, widest first, production pick last. One entry unless the shipped pick fails
+    to divide the padded sequence, which is the only case K5 changes."""
+    prod = _sdpa_chunks_shipped(q_len, k_len)[1]
+    padded = _padded_sdpa_len(k_len)
+    if not _sdpa_wide_k() or padded % prod == 0:
+        return (prod,)
+    wider = [padded // n for n in range(1, padded // SDPA_CHUNK_TILE + 1)
+             if padded % n == 0 and (padded // n) % SDPA_CHUNK_TILE == 0
+             and padded // n > prod]
+    return tuple(sorted(wider, reverse=True)) + (prod,)
+
+
+# [calls served at a k_chunk wider than the shipped pick, calls served at the shipped pick].
+# Same reason `SDPA_Q_CHUNK_STATS` exists: a silently-declined config is indistinguishable from an
+# absent one, and this path can only be believed if the fold says which pair it ran.
+SDPA_K_CHUNK_STATS = [0, 0]
+# (q_len, k_len) -> [q_chunk, k_chunk, "fused"|"stock"], the pair actually served at that shape.
+SDPA_CHUNK_PICKS: dict = {}
+# Circular-buffer refusals on the wide-k path, keyed by the FULL config. Deliberately not
+# `_SDPA_Q_CHUNK_OVER_L1`: that set is keyed on q_chunk alone, so writing a (q, wide k) refusal into
+# it would retire a q_chunk the shipped k runs perfectly well.
+_SDPA_QK_OVER_L1: set = set()
+
+
 def _tri_att_sdpa_at(q, k, v, bias, scale: float):
     q_len, k_len = q.shape[2], k.shape[2]
-    k_chunk = _sdpa_chunks_shipped(q_len, k_len)[1]
+    k_chunks = _tri_att_k_chunks(q_len, k_len)
+    if len(k_chunks) > 1:
+        for k_chunk in k_chunks[:-1]:
+            for q_chunk in _tri_att_q_chunks(q_len, k_len):
+                cfg = (q_len, k_len, q_chunk, k_chunk)
+                if cfg in _SDPA_QK_OVER_L1:
+                    continue
+                o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk)
+                if o is not None:
+                    SDPA_K_CHUNK_STATS[0] += 1
+                    SDPA_CHUNK_PICKS[(q_len, k_len)] = [q_chunk, k_chunk, "fused"]
+                    return o
+                try:
+                    o = ttnn.transformer.scaled_dot_product_attention(
+                        q, k, v, attn_mask=bias, is_causal=False, scale=scale,
+                        program_config=_sdpa_program_config(q_chunk, k_chunk),
+                    )
+                    SDPA_K_CHUNK_STATS[0] += 1
+                    SDPA_CHUNK_PICKS[(q_len, k_len)] = [q_chunk, k_chunk, "stock"]
+                    return o
+                except Exception as exc:  # noqa: BLE001 -- re-raised unless it is the L1 budget
+                    if "circular buffers" not in str(exc):
+                        raise
+                    _SDPA_QK_OVER_L1.add(cfg)
+        SDPA_K_CHUNK_STATS[1] += 1
+    k_chunk = k_chunks[-1]
     fits = [qc for qc in _tri_att_q_chunks(q_len, k_len)
             if (q_len, k_len, qc) not in _SDPA_Q_CHUNK_OVER_L1]
     # The bias is re-read once per batch row by the stock reader; hold it instead. Same
@@ -864,6 +955,7 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float):
     for q_chunk in fits:
         o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk)
         if o is not None:
+            SDPA_CHUNK_PICKS[(q_len, k_len)] = [q_chunk, k_chunk, "fused"]
             return o
     for q_chunk in fits[:-1]:
         try:
@@ -872,6 +964,7 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float):
                 program_config=_sdpa_program_config(q_chunk, k_chunk),
             )
             SDPA_Q_CHUNK_STATS[0] += 1
+            SDPA_CHUNK_PICKS[(q_len, k_len)] = [q_chunk, k_chunk, "stock"]
             return o
         except Exception as exc:  # noqa: BLE001 -- re-raised unless it is the L1 budget
             if "circular buffers" not in str(exc):
@@ -883,6 +976,7 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float):
         program_config=_sdpa_program_config(fits[-1], k_chunk),
     )
     SDPA_Q_CHUNK_STATS[0 if len(fits) > 1 else 1] += 1
+    SDPA_CHUNK_PICKS[(q_len, k_len)] = [fits[-1], k_chunk, "stock"]
     return o
 
 

@@ -1,0 +1,396 @@
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "grid": [
+  11,
+  10
+ ],
+ "cores": 110,
+ "arch": "blackhole",
+ "tokens": 848,
+ "padded": 864,
+ "h": 4,
+ "d": 32,
+ "aligned_divisors_of_padded": [
+  864,
+  288,
+  96,
+  32
+ ],
+ "shipped_chunks": [
+  256,
+  256
+ ],
+ "q_ladder": [
+  864,
+  288,
+  256
+ ],
+ "dividing_k": 256,
+ "sdpa_chunk_max": 256,
+ "warmup": 2,
+ "iters": 3,
+ "blocks": 4,
+ "arms": [
+  {
+   "arm": "incumbent",
+   "q_chunk": 288,
+   "k_chunk": 256,
+   "q_divides": true,
+   "k_divides": false,
+   "fused_served": false,
+   "fused_rejects": {
+    "('fill_preconditions', (848, 4, 848, 32))": 1
+   },
+   "stock_ok": true,
+   "path": "stock",
+   "ms_median": 17.5827,
+   "ms_best": 17.5262,
+   "ms_all": [
+    17.7419,
+    17.5931,
+    17.5724,
+    17.5262
+   ],
+   "speedup_vs_incumbent": 1.0,
+   "max_abs_diff": 0.0,
+   "rmsd_over_std": 0.0,
+   "bit_exact_vs_incumbent": true,
+   "rmsd_over_std_vs_torch": 0.691022,
+   "max_abs_diff_vs_torch": 1.454212
+  },
+  {
+   "arm": "incumbent_aa",
+   "q_chunk": 288,
+   "k_chunk": 256,
+   "q_divides": true,
+   "k_divides": false,
+   "fused_served": false,
+   "fused_rejects": {
+    "('fill_preconditions', (848, 4, 848, 32))": 1
+   },
+   "stock_ok": true,
+   "path": "stock",
+   "ms_median": 17.5788,
+   "ms_best": 17.5081,
+   "ms_all": [
+    17.5754,
+    17.5822,
+    17.6681,
+    17.5081
+   ],
+   "speedup_vs_incumbent": 1.0002
+  },
+  {
+   "arm": "shipped_fallback",
+   "q_chunk": 256,
+   "k_chunk": 256,
+   "q_divides": false,
+   "k_divides": false,
+   "fused_served": false,
+   "fused_rejects": {
+    "('fill_preconditions', (848, 4, 848, 32))": 1
+   },
+   "stock_ok": true,
+   "path": "stock",
+   "ms_median": 23.5294,
+   "ms_best": 23.4991,
+   "ms_all": [
+    23.4991,
+    23.5134,
+    23.5453,
+    23.5892
+   ],
+   "speedup_vs_incumbent": 0.7473,
+   "max_abs_diff": 0.0,
+   "rmsd_over_std": 0.0,
+   "bit_exact_vs_incumbent": true,
+   "rmsd_over_std_vs_torch": 0.691022,
+   "max_abs_diff_vs_torch": 1.454212
+  },
+  {
+   "arm": "q864_k864",
+   "q_chunk": 864,
+   "k_chunk": 864,
+   "q_divides": true,
+   "k_divides": true,
+   "fused_served": false,
+   "fused_rejects": {
+    "('l1_budget', (848, 4, 848, 32))": 1
+   },
+   "stock_ok": false,
+   "stock_error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 5313024 B which is beyond max L1 size of 1572864 B\nbacktrace:",
+   "stock_over_l1": true
+  },
+  {
+   "arm": "q864_k288",
+   "q_chunk": 864,
+   "k_chunk": 288,
+   "q_divides": true,
+   "k_divides": true,
+   "fused_served": false,
+   "fused_rejects": {
+    "('pm_over_l1', (848, 4, 848, 32))": 1
+   },
+   "stock_ok": false,
+   "stock_error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2179584 B which is beyond max L1 size of 1572864 B\nbacktrace:",
+   "stock_over_l1": true
+  },
+  {
+   "arm": "q864_k96",
+   "q_chunk": 864,
+   "k_chunk": 96,
+   "q_divides": true,
+   "k_divides": true,
+   "fused_served": false,
+   "fused_rejects": {
+    "('pm_over_l1', (848, 4, 848, 32))": 1
+   },
+   "stock_ok": true,
+   "path": "stock",
+   "ms_median": 14.1556,
+   "ms_best": 14.155,
+   "ms_all": [
+    14.155,
+    14.1562,
+    14.1551,
+    14.1634
+   ],
+   "speedup_vs_incumbent": 1.2421,
+   "max_abs_diff": 0.017578,
+   "rmsd_over_std": 0.015492,
+   "bit_exact_vs_incumbent": false,
+   "rmsd_over_std_vs_torch": 0.69139,
+   "max_abs_diff_vs_torch": 1.454212
+  },
+  {
+   "arm": "q864_k32",
+   "q_chunk": 864,
+   "k_chunk": 32,
+   "q_divides": true,
+   "k_divides": true,
+   "fused_served": false,
+   "fused_rejects": {
+    "('pm_over_l1', (848, 4, 848, 32))": 1
+   },
+   "stock_ok": true,
+   "path": "stock",
+   "ms_median": 15.2905,
+   "ms_best": 15.2444,
+   "ms_all": [
+    15.2999,
+    15.2444,
+    15.2812,
+    15.3182
+   ],
+   "speedup_vs_incumbent": 1.1499,
+   "max_abs_diff": 0.039062,
+   "rmsd_over_std": 0.019661,
+   "bit_exact_vs_incumbent": false,
+   "rmsd_over_std_vs_torch": 0.691904,
+   "max_abs_diff_vs_torch": 1.458119
+  },
+  {
+   "arm": "q288_k864",
+   "q_chunk": 288,
+   "k_chunk": 864,
+   "q_divides": true,
+   "k_divides": true,
+   "fused_served": true,
+   "fused_rejects": {},
+   "stock_ok": false,
+   "stock_error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2013696 B which is beyond max L1 size of 1572864 B\nbacktrace:",
+   "stock_over_l1": true,
+   "path": "fused",
+   "ms_median": 4.8997,
+   "ms_best": 4.8904,
+   "ms_all": [
+    4.8945,
+    4.8904,
+    4.9072,
+    4.905
+   ],
+   "speedup_vs_incumbent": 3.5885,
+   "max_abs_diff": 0.03125,
+   "rmsd_over_std": 0.025304,
+   "bit_exact_vs_incumbent": false,
+   "rmsd_over_std_vs_torch": 0.689946,
+   "max_abs_diff_vs_torch": 1.442494
+  },
+  {
+   "arm": "q288_k288",
+   "q_chunk": 288,
+   "k_chunk": 288,
+   "q_divides": true,
+   "k_divides": true,
+   "fused_served": true,
+   "fused_rejects": {},
+   "stock_ok": true,
+   "path": "fused",
+   "ms_median": 5.9921,
+   "ms_best": 5.9594,
+   "ms_all": [
+    5.9873,
+    5.9969,
+    6.0037,
+    5.9594
+   ],
+   "speedup_vs_incumbent": 2.9343,
+   "max_abs_diff": 0.023438,
+   "rmsd_over_std": 0.013021,
+   "bit_exact_vs_incumbent": false,
+   "rmsd_over_std_vs_torch": 0.690912,
+   "max_abs_diff_vs_torch": 1.450306
+  },
+  {
+   "arm": "q288_k96",
+   "q_chunk": 288,
+   "k_chunk": 96,
+   "q_divides": true,
+   "k_divides": true,
+   "fused_served": true,
+   "fused_rejects": {},
+   "stock_ok": true,
+   "path": "fused",
+   "ms_median": 8.7468,
+   "ms_best": 8.6816,
+   "ms_all": [
+    8.7369,
+    8.759,
+    8.7567,
+    8.6816
+   ],
+   "speedup_vs_incumbent": 2.0102,
+   "max_abs_diff": 0.017578,
+   "rmsd_over_std": 0.015492,
+   "bit_exact_vs_incumbent": false,
+   "rmsd_over_std_vs_torch": 0.69139,
+   "max_abs_diff_vs_torch": 1.454212
+  },
+  {
+   "arm": "q288_k32",
+   "q_chunk": 288,
+   "k_chunk": 32,
+   "q_divides": true,
+   "k_divides": true,
+   "fused_served": true,
+   "fused_rejects": {},
+   "stock_ok": true,
+   "path": "fused",
+   "ms_median": 16.7768,
+   "ms_best": 16.7048,
+   "ms_all": [
+    16.802,
+    16.7636,
+    16.7901,
+    16.7048
+   ],
+   "speedup_vs_incumbent": 1.048,
+   "max_abs_diff": 0.039062,
+   "rmsd_over_std": 0.019661,
+   "bit_exact_vs_incumbent": false,
+   "rmsd_over_std_vs_torch": 0.691904,
+   "max_abs_diff_vs_torch": 1.458119
+  },
+  {
+   "arm": "q96_k864",
+   "q_chunk": 96,
+   "k_chunk": 864,
+   "q_divides": true,
+   "k_divides": true,
+   "fused_served": true,
+   "fused_rejects": {},
+   "stock_ok": true,
+   "path": "fused",
+   "ms_median": 9.2618,
+   "ms_best": 9.2522,
+   "ms_all": [
+    9.2522,
+    9.2702,
+    9.2788,
+    9.2534
+   ],
+   "speedup_vs_incumbent": 1.8984,
+   "max_abs_diff": 0.03125,
+   "rmsd_over_std": 0.025304,
+   "bit_exact_vs_incumbent": false,
+   "rmsd_over_std_vs_torch": 0.689946,
+   "max_abs_diff_vs_torch": 1.442494
+  },
+  {
+   "arm": "q96_k288",
+   "q_chunk": 96,
+   "k_chunk": 288,
+   "q_divides": true,
+   "k_divides": true,
+   "fused_served": true,
+   "fused_rejects": {},
+   "stock_ok": true,
+   "path": "fused",
+   "ms_median": 9.3909,
+   "ms_best": 9.3663,
+   "ms_all": [
+    9.3663,
+    9.3928,
+    9.389,
+    9.3935
+   ],
+   "speedup_vs_incumbent": 1.8723,
+   "max_abs_diff": 0.023438,
+   "rmsd_over_std": 0.013021,
+   "bit_exact_vs_incumbent": false,
+   "rmsd_over_std_vs_torch": 0.690912,
+   "max_abs_diff_vs_torch": 1.450306
+  },
+  {
+   "arm": "q96_k96",
+   "q_chunk": 96,
+   "k_chunk": 96,
+   "q_divides": true,
+   "k_divides": true,
+   "fused_served": true,
+   "fused_rejects": {},
+   "stock_ok": true,
+   "path": "fused",
+   "ms_median": 10.5881,
+   "ms_best": 10.5545,
+   "ms_all": [
+    10.5545,
+    10.5882,
+    10.6006,
+    10.588
+   ],
+   "speedup_vs_incumbent": 1.6606,
+   "max_abs_diff": 0.017578,
+   "rmsd_over_std": 0.015492,
+   "bit_exact_vs_incumbent": false,
+   "rmsd_over_std_vs_torch": 0.69139,
+   "max_abs_diff_vs_torch": 1.454212
+  },
+  {
+   "arm": "q96_k32",
+   "q_chunk": 96,
+   "k_chunk": 32,
+   "q_divides": true,
+   "k_divides": true,
+   "fused_served": true,
+   "fused_rejects": {},
+   "stock_ok": true,
+   "path": "fused",
+   "ms_median": 22.4816,
+   "ms_best": 22.4635,
+   "ms_all": [
+    22.4635,
+    22.4779,
+    22.4854,
+    22.5122
+   ],
+   "speedup_vs_incumbent": 0.7821,
+   "max_abs_diff": 0.039062,
+   "rmsd_over_std": 0.019661,
+   "bit_exact_vs_incumbent": false,
+   "rmsd_over_std_vs_torch": 0.691904,
+   "max_abs_diff_vs_torch": 1.458119
+  }
+ ]
+}

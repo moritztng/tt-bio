@@ -1,0 +1,72 @@
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "grid": [
+  11,
+  10
+ ],
+ "tokens": 848,
+ "padded": 864,
+ "batch": 8,
+ "pad_keys": 16,
+ "arms": [
+  {
+   "arm": "stock_q288_k256",
+   "path": "stock",
+   "q_chunk": 288,
+   "k_chunk": 256,
+   "served": true,
+   "rmsd_over_std_vs_ref848": 0.693636,
+   "rmsd_over_std_vs_ref864": 0.693086,
+   "rmsd_over_std_vs_refconv": 0.032688
+  },
+  {
+   "arm": "stock_q864_k96",
+   "path": "stock",
+   "q_chunk": 864,
+   "k_chunk": 96,
+   "served": true,
+   "rmsd_over_std_vs_ref848": 0.694004,
+   "rmsd_over_std_vs_ref864": 0.693442,
+   "rmsd_over_std_vs_refconv": 0.035024
+  },
+  {
+   "arm": "fused_q288_k864",
+   "path": "fused",
+   "q_chunk": 288,
+   "k_chunk": 864,
+   "served": true,
+   "rmsd_over_std_vs_ref848": 0.692569,
+   "rmsd_over_std_vs_ref864": 0.692055,
+   "rmsd_over_std_vs_refconv": 0.029419
+  },
+  {
+   "arm": "fused_q288_k288",
+   "path": "fused",
+   "q_chunk": 288,
+   "k_chunk": 288,
+   "served": true,
+   "rmsd_over_std_vs_ref848": 0.693525,
+   "rmsd_over_std_vs_ref864": 0.692978,
+   "rmsd_over_std_vs_refconv": 0.032149
+  },
+  {
+   "arm": "fused_q288_k96",
+   "path": "fused",
+   "q_chunk": 288,
+   "k_chunk": 96,
+   "served": true,
+   "rmsd_over_std_vs_ref848": 0.694004,
+   "rmsd_over_std_vs_ref864": 0.693442,
+   "rmsd_over_std_vs_refconv": 0.035024
+  }
+ ],
+ "ref864_vs_ref848": {
+  "rmsd_over_std": 0.006712,
+  "max_abs": 0.00583
+ },
+ "refconv_vs_ref848": {
+  "rmsd_over_std": 0.691167,
+  "max_abs": 1.145033
+ }
+}
