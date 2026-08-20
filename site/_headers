@@ -7,6 +7,10 @@
   Cache-Control: public, max-age=2592000
 /assets/*.jpg
   Cache-Control: public, max-age=2592000
+/assets/*.ico
+  Cache-Control: public, max-age=2592000
+/assets/*.png
+  Cache-Control: public, max-age=2592000
 /assets/*.svg
   Cache-Control: public, max-age=2592000
 /assets/site.css
