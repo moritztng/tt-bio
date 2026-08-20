@@ -43,13 +43,14 @@ def main() -> int:
     ap.add_argument("--ckpt", default="/home/ttuser/rf3_perf_work/rf3_latest.ckpt")
     ap.add_argument("--n_recycles", type=int, default=2)
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--feat_cache", default="/home/ttuser/rf3_perf_work/featcache")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
 
-    from tt_bio.rf3.featurize import featurize
-    fo = featurize(str(REPO / f"perf/rf3/inputs/rf3_{args.aa}.json"),
-                   n_recycles=max(args.n_recycles, 2), diffusion_batch_size=1,
-                   seed=args.seed)[0]
+    from perf.rf3.featcache import featurized
+    fo = featurized(str(REPO / f"perf/rf3/inputs/rf3_{args.aa}.json"),
+                    n_recycles=max(args.n_recycles, 2), diffusion_batch_size=1,
+                    seed=args.seed, cache_dir=args.feat_cache or None)
     f = fo["feats"]
 
     import ttnn

@@ -69,20 +69,24 @@ def main() -> int:
     ap.add_argument("--reps", type=int, default=2,
                     help="rep 0 discarded as cold, as every harness in this campaign does")
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--feat_cache", default="/home/ttuser/rf3_perf_work/featcache",
+                    help="empty string disables; featurisation is host work and must not "
+                         "run inside the box lock")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
 
     import ttnn
     from tt_bio.rf3 import model as rf3_model
     from tt_bio.rf3 import confidence_head as rf3_conf
-    from tt_bio.rf3.featurize import featurize
     from tt_bio.tenstorrent import get_device
+    from perf.rf3.featcache import featurized
     from perf.rf3.tt_rf3_bench import PHASES, Timer, net_config, one_fold
 
     inp = str(REPO / f"perf/rf3/inputs/rf3_{args.aa}.json")
     t0 = time.perf_counter()
-    fo = featurize(inp, n_recycles=args.n_recycles,
-                   diffusion_batch_size=args.diffusion_batch_size, seed=args.seed)[0]
+    fo = featurized(inp, n_recycles=args.n_recycles,
+                    diffusion_batch_size=args.diffusion_batch_size, seed=args.seed,
+                    cache_dir=args.feat_cache or None)
     featurize_s = time.perf_counter() - t0
     f = fo["feats"]
     rep_atom_idxs = fo.get("ground_truth", {}).get("rep_atom_idxs")
