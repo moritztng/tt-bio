@@ -149,6 +149,10 @@ def main():
                          "interleaved in ONE process. `_tri_att_k_chunks` reads the env live and "
                          "is not memoised, so an arm takes on the next call; the pick it lands on "
                          "is asserted per leg out of SDPA_CHUNK_PICKS rather than assumed.")
+    ap.add_argument("--seed", type=int, default=None,
+                    help="force one diffusion seed on every leg. Default is seed=rep, which makes "
+                         "a plDDT comparison across interleaved arms carry a seed confound; pin it "
+                         "and the only difference between arms is the arithmetic.")
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
 
@@ -202,7 +206,7 @@ def main():
                n_tokens=NT, n_atoms=N_atom, n_cycle=a.n_cycle, n_step=a.n_step,
                feat_host_s=t_feat, build_s=t_build,
                gates=gates(T, model.trunk, NT), shape_facts=shape_facts(feats),
-               msa_depth_arg=a.msa_depth, reps=[], error=None,
+               msa_depth_arg=a.msa_depth, seed_arg=a.seed, reps=[], error=None,
                force_grid=os.environ.get("TT_BIO_FORCE_GRID"))
     print(json.dumps({k: rec[k] for k in ("cell", "variant", "n_tokens", "n_atoms", "gates",
                                           "shape_facts", "conf_device_active")}), flush=True)
@@ -229,7 +233,8 @@ def main():
                 T.SDPA_CHUNK_PICKS.clear()
                 k_before = list(T.SDPA_K_CHUNK_STATS)
             split, coords, conf = fold_split(model, feats, n_cycles=a.n_cycle,
-                                             n_step=a.n_step, seed=r)
+                                             n_step=a.n_step,
+                                             seed=(r if a.seed is None else a.seed))
             split["cold"] = (r == 0)
             split["arm"] = arm
             split["conf_device_active"] = (arm == "device") if arm is not None else conf_active

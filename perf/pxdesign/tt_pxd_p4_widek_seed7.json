@@ -1,0 +1,254 @@
+{
+ "cell": "filter",
+ "variant": "mini_tmpl",
+ "ckpt": "protenix_mini_tmpl_v0.5.0.pt",
+ "conf_device_asked": false,
+ "conf_device_active": false,
+ "target_aa": 768,
+ "binder_aa": 80,
+ "n_tokens": 848,
+ "n_atoms": 7078,
+ "n_cycle": 4,
+ "n_step": 2,
+ "feat_host_s": 0.044,
+ "build_s": 0.21,
+ "gates": {
+  "c_z": 128,
+  "trimul_chunk": 32,
+  "trimul_l1_max_seq": 352,
+  "trimul_l1_resident": false,
+  "trimul_inproj_group": 4,
+  "n_tri_heads": 4,
+  "grid": [
+   11,
+   10
+  ],
+  "n_pairformer": null,
+  "n_msa": 1,
+  "n_template": 0
+ },
+ "shape_facts": {
+  "nt_template_slots": 4,
+  "msa_depth": 1
+ },
+ "msa_depth_arg": 1,
+ "seed_arg": 7,
+ "reps": [
+  {
+   "trunk": 14.67,
+   "diffusion": 1.008,
+   "confidence": 1.966,
+   "total": 17.644,
+   "cold": true,
+   "arm": "off",
+   "conf_device_active": false,
+   "rg": 1712.58,
+   "finite": true,
+   "plddt": 0.689,
+   "sdpa_picks": {
+    "(848, 848)": [
+     288,
+     256,
+     "stock"
+    ]
+   },
+   "sdpa_k_served_delta": [
+    0,
+    0
+   ]
+  },
+  {
+   "trunk": 14.357,
+   "diffusion": 0.202,
+   "confidence": 1.966,
+   "total": 16.525,
+   "cold": false,
+   "arm": "off",
+   "conf_device_active": false,
+   "rg": 1712.58,
+   "finite": true,
+   "plddt": 0.689,
+   "sdpa_picks": {
+    "(848, 848)": [
+     288,
+     256,
+     "stock"
+    ]
+   },
+   "sdpa_k_served_delta": [
+    0,
+    0
+   ]
+  },
+  {
+   "trunk": 12.667,
+   "diffusion": 0.21,
+   "confidence": 1.879,
+   "total": 14.755,
+   "cold": false,
+   "arm": "on",
+   "conf_device_active": false,
+   "rg": 1712.57,
+   "finite": true,
+   "plddt": 0.6889,
+   "sdpa_picks": {
+    "(848, 848)": [
+     288,
+     864,
+     "fused"
+    ]
+   },
+   "sdpa_k_served_delta": [
+    144,
+    0
+   ]
+  },
+  {
+   "trunk": 14.358,
+   "diffusion": 0.206,
+   "confidence": 1.987,
+   "total": 16.551,
+   "cold": false,
+   "arm": "off",
+   "conf_device_active": false,
+   "rg": 1712.58,
+   "finite": true,
+   "plddt": 0.689,
+   "sdpa_picks": {
+    "(848, 848)": [
+     288,
+     256,
+     "stock"
+    ]
+   },
+   "sdpa_k_served_delta": [
+    0,
+    0
+   ]
+  },
+  {
+   "trunk": 12.651,
+   "diffusion": 0.206,
+   "confidence": 1.865,
+   "total": 14.722,
+   "cold": false,
+   "arm": "on",
+   "conf_device_active": false,
+   "rg": 1712.57,
+   "finite": true,
+   "plddt": 0.6889,
+   "sdpa_picks": {
+    "(848, 848)": [
+     288,
+     864,
+     "fused"
+    ]
+   },
+   "sdpa_k_served_delta": [
+    144,
+    0
+   ]
+  }
+ ],
+ "error": null,
+ "force_grid": null,
+ "arm_axis": "wide_k",
+ "warm_median": {
+  "trunk": 14.357,
+  "diffusion": 0.206,
+  "confidence": 1.966,
+  "total": 16.525
+ },
+ "warm_spread_pct": 11.07,
+ "h200_device_s": 4.225,
+ "ratio_vs_h200_device": 3.911,
+ "bar_4x_s": 16.9,
+ "census": {
+  "FP32_SOFTMAX_STATS": {
+   "calls": 0,
+   "blocked": 0,
+   "blocks": 0,
+   "fused": 0,
+   "unfused": 0,
+   "l1": 0,
+   "l1_blocks": 0,
+   "l1_refused": 0
+  },
+  "RELP_STATS": [
+   5,
+   0
+  ],
+  "trimul_E6_gated_move": [
+   1440,
+   0
+  ],
+  "reblock_fwd": [
+   0,
+   720
+  ],
+  "reblock_back": [
+   0,
+   0
+  ],
+  "trimul_tail_F1": [
+   0,
+   720
+  ],
+  "triatt_qkv_K2": [
+   720,
+   0
+  ],
+  "triatt_tail_K1": [
+   720,
+   0
+  ],
+  "triatt_sdpa": [
+   288,
+   866
+  ],
+  "mm_dualnoc": [
+   0,
+   720
+  ],
+  "sdpa_q_chunk": [
+   432,
+   1
+  ],
+  "sdpa_k_chunk_wide": [
+   288,
+   0
+  ]
+ },
+ "sdpa_picks": {
+  "(848, 848)": [
+   288,
+   864,
+   "fused"
+  ]
+ },
+ "sdpa_qk_over_l1": [
+  "(848, 848, 864, 864)"
+ ],
+ "rejects": {
+  "trimul_tail_F1": {
+   "('k_tiles=4', '1x848x864x128@128x128')": 720
+  },
+  "triatt_qkv_K2": {},
+  "triatt_tail_K1": {},
+  "reblock": {
+   "('back_ragged', (1, 128, 848, 848))": 720
+  },
+  "triatt_sdpa": {
+   "('fill_preconditions', (848, 4, 848, 32))": 865,
+   "('q_chunk_over_l1', (848, 4, 848, 32))": 1
+  }
+ },
+ "fp32_softmax_l1_refused_keys": [],
+ "l1_out_refused_keys": [],
+ "bmm_cfg_refused": [],
+ "sdpa_q_chunk_over_l1": [
+  "(848, 848, 864)"
+ ],
+ "clashes": {},
+ "dram_shapes": []
+}
