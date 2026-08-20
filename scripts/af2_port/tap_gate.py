@@ -17,6 +17,16 @@ A tap the torch side never produced is a FAIL at full recycles, not a silent omi
 reference names every tap the model owes, so a disappearing one has to be loud. `--recycles 0`
 is a single-pass smoke test and only reports which taps it skipped.
 
+**A miss is adjudicated, not asserted.** The reference is a bfloat16 run, and two equally valid
+bfloat16 realisations of the same model disagree by some amount that no correct implementation
+can get below. So when a tap or a scalar misses its bar, the gate runs the same model again in
+float32 and asks whether the reference sits closer to the bfloat16 arm than the float32 arm does.
+If it does, the residual is the arithmetic, not the transcription, and the leg reports
+PASS-caveated with the count named rather than a bare PASS. A transcription error fails this
+test rather than hiding behind it: a wrong module is wrong in both dtypes, so the two arms agree
+with each other, the envelope collapses, and the miss lands outside it. The second arm only runs
+when something actually missed, so a clean stage never pays for it.
+
     PYTHONPATH=. env/bin/python3 scripts/af2_port/tap_gate.py
 """
 from __future__ import annotations
@@ -143,6 +153,32 @@ class Taps:
         self.emit("predicted_lddt_head", {"logits": out["plddt_logits"]})
 
 
+def _stored(ref, base: str, flat: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """The reference's stored elements of `base`, and the matching elements of `flat`."""
+    if f"{base}/full" in ref:
+        return ref[f"{base}/full"].astype(np.float64), flat
+    idx = ref[f"{base}/idx"]
+    return ref[f"{base}/val"].astype(np.float64), flat[idx]
+
+
+def as_reference(ref, base: str, arr: torch.Tensor) -> dict:
+    """Package one arm's tap in the reference's own format, so `score_one` can score against it.
+
+    Subsampled taps keep the reference's element positions, so the two comparisons are over the
+    same elements and their residuals are directly comparable.
+    """
+    flat = arr.reshape(-1).float().numpy().astype(np.float64)
+    out = {f"{base}/shape": ref[f"{base}/shape"],
+           f"{base}/stats": np.array([flat.mean(), flat.std(), flat.min(), flat.max(),
+                                      float((flat * flat).sum())])}
+    if f"{base}/full" in ref:
+        out[f"{base}/full"] = flat
+    else:
+        out[f"{base}/idx"] = ref[f"{base}/idx"]
+        out[f"{base}/val"] = flat[ref[f"{base}/idx"]]
+    return out
+
+
 def score_one(ref, base: str, arr: torch.Tensor) -> dict:
     flat = arr.reshape(-1).float().numpy().astype(np.float64)
     shape = tuple(int(x) for x in ref[f"{base}/shape"])
@@ -150,13 +186,8 @@ def score_one(ref, base: str, arr: torch.Tensor) -> dict:
     if math.prod(shape) != flat.size:
         out["verdict"] = "SHAPE"
         return out
-    if f"{base}/full" in ref:
-        want, got = ref[f"{base}/full"].astype(np.float64), flat
-        out["sampled"] = int(got.size)
-    else:
-        idx = ref[f"{base}/idx"]
-        want, got = ref[f"{base}/val"].astype(np.float64), flat[idx]
-        out["sampled"] = int(idx.size)
+    want, got = _stored(ref, base, flat)
+    out["sampled"] = int(got.size)
     if want.std() < 1e-12 and got.std() < 1e-12:
         pcc = 1.0 if abs(want.mean() - got.mean()) < 1e-6 else 0.0
     else:
@@ -174,6 +205,38 @@ def score_one(ref, base: str, arr: torch.Tensor) -> dict:
     return out
 
 
+def _in_envelope(row: dict, envelope: dict) -> bool:
+    """Every measure that broke its bar has to be no worse than the two arms are from each other.
+
+    Only the measures that actually missed are adjudicated: a tap that fails on correlation and
+    passes on the statistics does not have to justify its statistics as well.
+    """
+    checks = []
+    if row.get("pcc", 0.0) < PCC_BAR:
+        checks.append((1 - row["pcc"]) <= (1 - envelope["pcc"]))
+    for key in ("d_mean", "d_std", "d_sumsq"):
+        if row.get(key, 0.0) > STATS_BAR:
+            checks.append(row[key] <= envelope[key])
+    return bool(checks) and all(checks)
+
+
+def run_arm(state, feats: dict, prev: dict, *, template: bool, dtype: torch.dtype,
+            keep: set[str] | None, recycles: int) -> tuple[dict, dict]:
+    """One precision realisation of the model: its collected taps and its last pass's output."""
+    from tt_bio.af2_reference import load_af2_model, run_recycles
+
+    model = load_af2_model(state, template=template, trunk_dtype=dtype)
+    taps = Taps(keep=keep)
+    handles = taps.install(model)
+    last = None
+    for out in run_recycles(model, feats, prev, num_recycles=recycles):
+        taps.collect(out)
+        last = out
+    for handle in handles:
+        handle.remove()
+    return taps, last
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--stage", default="complex", choices=["complex", "monomer"])
@@ -184,20 +247,19 @@ def main() -> int:
                     help="0 runs a single pass; only the first recycle's taps are then scored")
     ap.add_argument("--drop-tap", default=None,
                     help="discard one tap by name, to prove the missing-tap branch really fails")
-    ap.add_argument("--json", action="store_true")
+    ap.add_argument("--no-envelope", action="store_true",
+                    help="skip the float32 arm and report every miss as a bare FAIL")
     args = ap.parse_args()
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from tt_bio.af2_confidence import PAE_MAX_ERROR_BIN, confidence_scalars
-    from tt_bio.af2_reference import load_af2_model, run_recycles
     from tt_bio.af2_weights import load_af2_state_dict
 
     suffix = "" if args.stage == "complex" else "_monomer"
     inputs = Path(args.inputs or ARTIFACTS / f"ref_inputs{suffix}.npz")
     taps_path = Path(args.taps or ARTIFACTS / f"ref_taps{suffix}.npz")
     feats, prev = load_inputs(inputs)
-    # The monomer stage is the model_3_ptm config: same checkpoint, template stack dropped.
-    model = load_af2_model(load_af2_state_dict(args.params), template=args.stage == "complex")
+    state = load_af2_state_dict(args.params)
 
     ref = None
     if taps_path.exists():
@@ -205,13 +267,10 @@ def main() -> int:
             ref = {k: npz[k] for k in npz.files}
     bases = sorted({k.rsplit("/", 1)[0] for k in ref if k.endswith("/shape")}) if ref else []
 
-    taps = Taps(keep=set(bases) if ref else None)
-    handles = taps.install(model)
-    for out in run_recycles(model, feats, prev, num_recycles=args.recycles):
-        taps.collect(out)
-        last = out
-    for handle in handles:
-        handle.remove()
+    # The monomer stage is the model_3_ptm config: same checkpoint, template stack dropped.
+    template = args.stage == "complex"
+    taps, last = run_arm(state, feats, prev, template=template, dtype=torch.bfloat16,
+                         keep=set(bases) if ref else None, recycles=args.recycles)
     if args.drop_tap:
         taps.values.pop(args.drop_tap, None)
 
@@ -236,7 +295,7 @@ def main() -> int:
     failed = [r for r in rows if r["verdict"] != "PASS"]
 
     # The scalars come off the last recycle, so they only mean anything at full recycles.
-    scalars, scalars_failed = [], []
+    scalars = []
     if full:
         meta = json.loads(bytes(ref["_meta/json"]).decode())
         binder = (meta["fixture"]["binder_residues"]
@@ -253,25 +312,59 @@ def main() -> int:
                    "delta": abs(value - want[name]), "bar": SCALAR_BARS[name]}
             row["verdict"] = "PASS" if row["delta"] <= row["bar"] else "FAIL"
             scalars.append(row)
-        scalars_failed = [r for r in scalars if r["verdict"] != "PASS"]
+
+    # Adjudicate whatever missed against a second precision realisation of the same model. It
+    # costs a second forward pass, so it only runs when there is something to adjudicate.
+    scalars_failed = [r for r in scalars if r["verdict"] != "PASS"]
+    envelope_arm = None
+    if (failed or scalars_failed) and not args.no_envelope:
+        envelope_arm = "float32"
+        other, other_last = run_arm(state, feats, prev, template=template,
+                                    dtype=torch.float32, keep=set(bases),
+                                    recycles=args.recycles)
+        for row in failed:
+            base = row["tap"]
+            if base not in other.values or base not in taps.values:
+                continue
+            width = score_one(as_reference(ref, base, other.values[base]), base,
+                              taps.values[base])
+            row["envelope_pcc"] = width.get("pcc")
+            if _in_envelope(row, width):
+                row["verdict"] = "IN-ENVELOPE"
+        if scalars_failed:
+            other_got = confidence_scalars(other_last["plddt_logits"], other_last["pae_logits"],
+                                           other_last["pae_breaks"], feats["seq_mask"],
+                                           feats["asym_id"], binder_len=binder)
+            for row in scalars_failed:
+                row["envelope"] = abs(got[row["scalar"]] - other_got[row["scalar"]])
+                if row["delta"] <= row["envelope"]:
+                    row["verdict"] = "IN-ENVELOPE"
+        failed = [r for r in failed if r["verdict"] != "IN-ENVELOPE"]
+        scalars_failed = [r for r in scalars_failed if r["verdict"] != "IN-ENVELOPE"]
+
+    excused = ([r for r in rows if r["verdict"] == "IN-ENVELOPE"]
+               + [r for r in scalars if r["verdict"] == "IN-ENVELOPE"])
     report = {
         "mode": "af2ig_taps",
         "stage": args.stage,
         "recycles": args.recycles,
-        "verdict": ("PASS" if rows and not failed and not scalars_failed
-                    and not (full and skipped) else "FAIL"),
+        "verdict": (("PASS-caveated" if excused else "PASS")
+                    if rows and not failed and not scalars_failed and not (full and skipped)
+                    else "FAIL"),
         "taps_scored": len(rows),
         "taps_failed": len(failed),
         "taps_produced": taps.produced,
         "pcc_min": min((r["pcc"] for r in rows if "pcc" in r), default=None),
         "scalars": scalars,
         "scalars_failed": len(scalars_failed),
+        "envelope_arm": envelope_arm,
+        "in_envelope": len(excused),
         "not_implemented": skipped,
         "failures": failed[:12],
         "rows": rows,
     }
     print(json.dumps(report, indent=1, default=float))
-    return 0 if report["verdict"] == "PASS" else 1
+    return 0 if report["verdict"] in ("PASS", "PASS-caveated") else 1
 
 
 if __name__ == "__main__":
