@@ -3264,6 +3264,54 @@ def _qkv_mm_config(inp, w):
         compute_with_storage_grid_size=_mm_core_coord(*COMPUTE_GRID_MAIN))
 
 
+def _pair_bias_from_z(z, ln_weight, ln_bias, bias_weight, compute_kernel_config,
+                      chunk: int | None = None, ending: bool = False) -> ttnn.Tensor:
+    """The `[1, heads, S, S]` attention bias `linear(layer_norm(z))`, row-blocked.
+
+    Row-blocking is the reason this is a function. layer_norm is row-local and the projection is
+    per row, so norming a row block is bit-identical to slicing the full normed tensor, and
+    `LN(z)` never has to exist whole -- 184 MB at 848 tokens and 128 channels. For the ending
+    variant a row block of the transposed pair tensor is a column strip of the input followed by
+    the same transpose, which is pure reordering.
+
+    `chunk=None` is one block over the whole tensor, returned without a concat. AF2's MSA row
+    attention needs that path: its bias comes from a second tensor through a second LayerNorm, so
+    nothing else consumes the norm. It is also the one-part case the chunked caller could reach,
+    where concat-of-one followed by deallocating the part frees the concat's own buffer.
+    """
+    S = int(z.shape[1] if ending else z.shape[0])
+    step = chunk or S
+    parts = []
+    for s in range(0, S, step):
+        e = min(s + step, S)
+        # A ttnn slice copies, so a full-width block takes the tensor itself.
+        blk = z if e - s == S else (z[:, s:e, :] if ending else z[s:e, :, :])
+        if ending:
+            blk = _pair_transpose(blk, _transpose_memory_config(blk))
+        zn = ttnn.layer_norm(
+            blk,
+            weight=ln_weight,
+            bias=ln_bias,
+            epsilon=1e-5,
+            compute_kernel_config=compute_kernel_config,
+            memory_config=ttnn.DRAM_MEMORY_CONFIG,
+        )
+        b = _pair_proj_linear(zn, bias_weight, compute_kernel_config, ttnn.bfloat16)
+        ttnn.deallocate(zn)
+        # No explicit deallocate of b/bp: unsqueeze shares b's buffer, and an explicit
+        # ttnn.deallocate force-frees the buffer even while the view is still referenced, so the
+        # permute would read recycled memory (measured: bias garbage at PCC 0.87 with the
+        # deallocates, bit-exact without). Rebinding on the next iteration frees it by refcount.
+        bp = ttnn.unsqueeze(b, 0)
+        parts.append(ttnn.permute(bp, (0, 3, 1, 2)))
+    if len(parts) == 1:
+        return parts[0]
+    bias = ttnn.concat(parts, dim=2)
+    for bp in parts:
+        ttnn.deallocate(bp)
+    return bias
+
+
 class TriangleAttention(Module):
     def __init__(
         self,
@@ -3376,24 +3424,9 @@ class TriangleAttention(Module):
                     memory_config=ttnn.DRAM_MEMORY_CONFIG,
                 )
 
-            bias_parts = []
-            for s in range(0, S, chunk):
-                e = min(s + chunk, S)
-                xc = normed_rows(s, e)
-                b = _pair_proj_linear(
-                    xc, self.bias_weight, self.compute_kernel_config, ttnn.bfloat16
-                )
-                ttnn.deallocate(xc)
-                # No explicit deallocate of b/bp: unsqueeze shares b's buffer, and an
-                # explicit ttnn.deallocate force-frees the buffer even while the view is
-                # still referenced, so the permute would read recycled memory (measured:
-                # bias garbage at PCC 0.87 with the deallocates, bit-exact without).
-                # Rebinding on the next iteration frees the buffer via refcount.
-                bp = ttnn.unsqueeze(b, 0)
-                bias_parts.append(ttnn.permute(bp, (0, 3, 1, 2)))
-            triangle_bias = ttnn.concat(bias_parts, dim=2)
-            for bp in bias_parts:
-                ttnn.deallocate(bp)
+            triangle_bias = _pair_bias_from_z(
+                x, self.layer_norm_weight, self.layer_norm_bias, self.bias_weight,
+                self.compute_kernel_config, chunk, self.ending)
             dram_peak(f"tri_att({'end' if self.ending else 'start'}) bias built [z={'x'.join(str(d) for d in x.shape)}]")
         else:
             if self.ending:
@@ -5406,7 +5439,8 @@ class OuterProductMean(Module):
         self.o_weight = self.torch_to_tt("proj_o.weight")
         self.o_bias = self.torch_to_tt("proj_o.bias")
 
-    def __call__(self, x: ttnn.Tensor, msa_mask: ttnn.Tensor | None = None, n_msa: int | None = None) -> ttnn.Tensor:
+    def __call__(self, x: ttnn.Tensor, msa_mask: ttnn.Tensor | None = None,
+                 n_msa: float | None = None) -> ttnn.Tensor:
         # `x` may arrive as a LIST of depth chunks. The MSA trunk keeps its representation chunked
         # so it never has to exist contiguously: materialising it costs a full extra copy at the
         # join, which is what made a 1.78 GiB m_feat OOM on a 12 GiB part even WITH chunking. This
@@ -5567,6 +5601,9 @@ class OuterProductMean(Module):
             z = ttnn.reshape(z, (rows, C * D, J))
             z = ttnn.to_layout(z, ttnn.TILE_LAYOUT)
             z = ttnn.permute(z, (0, 2, 1))
+            # `n_msa` is a float, not the row count: AF2 divides by `eps + norm`, and at
+            # an all-ones mask that is `depth + 1e-3` everywhere. Passing the integer
+            # depth is a systematic 5e-4 relative high on every output.
             scale = 1 / (n_msa if n_msa is not None else S)
             z = ttnn.multiply_(z, scale)
             o_bias = self.o_bias
