@@ -140,8 +140,15 @@ def main():
     # Override the CAP, never the budget: the budget is the OOM bound.
     rfd3_design._BATCH_SPEED_CAP = max(ARMS)
 
-    t, sizes, v = run(specs, "/tmp/rfd3_p76_warm", 1, 1)
-    print("[p76] warmup %.3f s (sizes %s), discarded" % (t, sizes), flush=True)
+    # Warm EVERY arm, not just b=1. ttnn's program cache is keyed by shape, so the b=2 arm's
+    # first rep compiles its whole program set from scratch. The qb1 3-step smoke priced that
+    # one-time cost at ~77 s (b=1 forward 3.441 s, b=2 forward 84.397 s, and only ~3.5 s of the
+    # difference scales with the step count). With two b=2 reps the median is their mean, so a
+    # cold first rep inflates b=2 by ~19 s/design at 200 steps and reads as a batching penalty
+    # that is really a compile. Both arms warm or the comparison is not a comparison.
+    for b in sorted(set(ARMS)):
+        t, sizes, v = run(specs, "/tmp/rfd3_p76_warm_b%d" % b, b, max(b, 1))
+        print("[p76] warmup b=%d %.3f s (sizes %s), discarded" % (b, t, sizes), flush=True)
 
     rows = []
     for i, b in enumerate(ARMS):
