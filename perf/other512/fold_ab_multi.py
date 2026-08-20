@@ -106,7 +106,12 @@ ARMS = ("on", "e6", "noe6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hi
         # qsplit: the triatt_sdpa q-split lever (TT_BIO_TRIATT_MASK_Q_SPLIT), written explicitly
         # per arm so "on" stays a pre-lever reference whatever the shipped default is (`noqsplit`
         # above is the same ablation, added first).
-        "qsplit")
+        "qsplit",
+        # opendde-size-generality. `devcat` resolves the host-concat budget per part (the shipped
+        # form of concat_host_bytes()); `on` pins it at the 12 GiB-Wormhole base, which is what
+        # main shipped to every part. On a 31.875 GiB p150a that is 3.984 vs 1.5 GiB, so the
+        # OpenDDE refiner's pair channel join runs on device from 768 aa up instead of on the host.
+        "devcat")
 
 # Which sites each arm routes onto the fused SDPA. The confidence head is never in a flip set:
 # it stays on `_fp32_softmax_attention` on every arm, deliberately, so plDDT reports on the
@@ -434,6 +439,10 @@ def main():
         # the default is set.
         T._ATOM_PAD_IN_TILE = name != "nos2"
 
+        # None means "resolve from this part's DRAM", i.e. exactly what a shipped fold does.
+        # `on` pins the pre-change base so the A/B is the fix, not an unbounded budget.
+        T._CONCAT_HOST_BYTES = None if name == "devcat" else T.CONCAT_HOST_BYTES_BASE
+
         T._PAIR_PROJ_L1_OUT = T._PAIR_BIAS_L1_NORM = True
         T._PWA_L1_NORM = T._TEMPLATE_L1_NORM = True
         # openfold3-sizes-perf arms. These come AFTER the blanket _PAIR_PROJ_L1_OUT assignment
@@ -544,6 +553,8 @@ def main():
                                        "rejects": {f"{r}:{sh}": n for (r, sh), n in PM.REJECTS.items()},
                                        "pm_over_l1": sorted(str(k) for k in PM._PM_OVER_L1)},
                    "transpose_l1_headroom": T._TRANSPOSE_L1_HEADROOM,
+                   # must differ between arms; equal values mean the arm did not take
+                   "concat_host_bytes": T.concat_host_bytes(),
                    "fp32_softmax_chain": {"block_bytes": T._FP32_SOFTMAX_BLOCK_BYTES,
                                           "fused_add": T._FP32_SOFTMAX_FUSED_ADD,
                                           "l1_bytes_per_core": T._FP32_SOFTMAX_L1_BYTES_PER_CORE,
