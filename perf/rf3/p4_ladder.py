@@ -45,6 +45,15 @@ ARMS = {
     "p4": {"hoist": True, "gln": True, "opm": True, "hifi": True, "qkv": False},
     "p4_qkv": {"hoist": True, "gln": True, "opm": True, "hifi": True, "qkv": True},
     "p4_aa": {"hoist": True, "gln": True, "opm": True, "hifi": True, "qkv": False},
+    # Batch 5. Both new levers are unscored there and both should pay more than at batch 1: the
+    # rollout hoist deletes work the denoiser repeated 49 x D times, and the trunk runs ONCE per
+    # fold whatever D is, so lever 6's fixed -1.097 s is spread over a longer wall. `all_aa` is
+    # `all` again at the end -- with 5 members the fold is diffusion-dominated, and the diffusion
+    # rollout is the host-in-the-loop phase, so the floor is what says whether a delta is readable.
+    "b5_nohoist": {"hoist": False, "gln": True, "opm": True, "hifi": True, "qkv": True},
+    "b5_noqkv": {"hoist": True, "gln": True, "opm": True, "hifi": True, "qkv": False},
+    "b5_all": {"hoist": True, "gln": True, "opm": True, "hifi": True, "qkv": True},
+    "b5_all_aa": {"hoist": True, "gln": True, "opm": True, "hifi": True, "qkv": True},
 }
 
 
