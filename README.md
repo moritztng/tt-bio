@@ -333,6 +333,11 @@ member), a binary binder probability, and six distogram entropies.
 On DAVIS it reaches 0.662 mean within-target Pearson against measured Kd (0.175 for a
 molecular-weight-only control), matching the 0.636 the upstream implementation gets on an H200.
 
+It is far cheaper than folding for the same question: 6.5 s per prediction at 512 aa on one
+Blackhole card, against 386 s for Boltz-2 affinity, which is what tt-bio shipped for this before.
+Against a GPU it is 6.2x off an H200 at that size, so choose it for what the answer costs on this
+hardware rather than expecting it to beat a GPU.
+
 Use it to rank a series; use `predict --model boltz2` when you need the pose. Proteins and ligands
 only, one ligand scored per input. The trunk runs bf16 by default: it is about 6x faster than fp32
 and no less accurate from 276 tokens up, and fp32 runs out of DRAM around 1000 tokens. On inputs

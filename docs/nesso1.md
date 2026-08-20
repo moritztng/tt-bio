@@ -16,10 +16,18 @@ The torch reference is bit-exact against upstream, and `tt-bio affinity` reprodu
 upstream scalars end to end from a YAML. On device the model is deterministic run to run: the
 solo-vs-solo delta is exactly 0.0 at every size and in both precisions.
 
-Speed is the open problem, not accuracy: 8.4 s per prediction at 532 tokens on one Blackhole p150a
-with the default bf16 trunk, against 1.05 s of H200 device time at 512 aa. The model issues ~93,000
-unfused ops per prediction across 320 cheap pairformer layers, so it is dispatch-bound rather than
-FLOP-bound.
+Speed is settled, and it is not a win against a GPU. The device work is 6.50 s at 512 aa against
+1.05 s of H200 device time, so the port sits **6.19x off an H200** and does not clear the 4x gap
+tt-bio holds itself to. That is a floor rather than a first attempt: the workload is tt-bio's own
+tuned pair-only pairformer block run 304 times per prediction with both fused kernels on, and the
+last named lever left (the trimul tail fused at `k_tiles=4`) came out bit-exact and 1.74x slower.
+End to end one prediction is 8.4 s at 532 tokens on one p150a.
+
+It is still the right model to run here, because the alternative is much worse. Scoring the same
+protein-ligand pair through Boltz-2 affinity costs 386.25 s per prediction at 512 aa on the same
+card, so Nesso-1 is **59x cheaper for the same question** and still 3.35x cheaper than Boltz-2
+affinity on an H200. Pick it for the cost of the answer on this hardware, not because it beats a
+GPU.
 
 ## Does it rank binders
 

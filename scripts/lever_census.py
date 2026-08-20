@@ -90,6 +90,13 @@ LEVERS = [
     ("TRANSPOSE_L1_RESIDENT", "tt_bio.tenstorrent", "_TRANSPOSE_L1_HEADROOM", None, "wrap"),
     ("SDPA_Q_CHUNK_FITS", "tt_bio.tenstorrent", "_SDPA_WIDE_Q",
      "tt_bio.tenstorrent._SDPA_Q_CHUNK_OVER_L1", "setlen"),
+    # The third gate of the same family, added 2026-08-20. The pair projections' L1-destination
+    # leg refuses through a bare except that memoises the operand class, so a fold whose trimul
+    # out-projection does not fit runs the whole rest of the process on the DRAM leg with no
+    # counter and no log line. Found in Nesso-1 at 576 padded tokens on a 13x10 grid; the code
+    # is shared, so every model on the pair track can hit it.
+    ("PAIR_PROJ_L1_OUT", "tt_bio.tenstorrent", "_PAIR_PROJ_L1_OUT",
+     "tt_bio.tenstorrent.PAIR_PROJ_L1_OUT_STATS", "stats"),
 ]
 
 HOW = {flag: how for flag, _m, _a, _c, how in LEVERS}
@@ -115,6 +122,7 @@ REJECTS_ATTR = {
     "TRIATT_HEAD_MAJOR_TAIL": "tt_bio.triatt_qkv.TAIL_REJECTS",
     "RFD3_SPARSE_BIAS": "tt_bio.rfd3_bias.REJECTS",
     "RFD3_FUSED_SCORES": "tt_bio.rfd3_bias.REJECTS",
+    "PAIR_PROJ_L1_OUT": "tt_bio.tenstorrent.PAIR_PROJ_L1_OUT_REJECTS",
 }
 
 
