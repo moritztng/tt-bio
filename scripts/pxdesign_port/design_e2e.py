@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generation-only end-to-end for PXDesign-d on the PD-L1 anchor.
 
-Drives `tt_bio.pxdesign.model.ProtenixDesign` from `parity_artifacts/pdl1/
+Drives `tt_bio.pxdesign.model.ProtenixDesign` from `parity_artifacts/pdl1_protenix05_noH/
 ref_design_inputs.pt` -- the model-ready input dict captured from the upstream featurizer
 itself (`capture_ref_design_f.py`). tt-bio has no CIF parser for Protenix features, and the
 design-specific arithmetic on top of that atom array is already gated bit-exact
@@ -26,7 +26,11 @@ import time
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent.parent
-ART = REPO / "scripts" / "pxdesign_port" / "parity_artifacts" / "pdl1"
+# The shipped PD-L1 CIF carries explicit hydrogens and PXDesign's CIF path has no
+# hydrogen filter, so 61 of the target's 116 residues parse as unresolved and get
+# conditioned on at the origin (see strip_cif_hydrogens.py). Default to the capture
+# taken from the hydrogen-stripped copy; `--art` selects another.
+ART = REPO / "scripts" / "pxdesign_port" / "parity_artifacts" / "pdl1_protenix05_noH"
 CKPT = Path("~/pxdesign_release_data/checkpoint/pxdesign_v0.1.0.pt").expanduser()
 
 # tt-bio's atom encoder concatenates the one-hots with the float channels, so the stored
@@ -153,7 +157,7 @@ def main():
                     help="two solo runs at the same seed in one process; report the floor")
     ap.add_argument("--art", default=None,
                     help="capture directory to read the input dict and the scoring reference "
-                         "from; defaults to the committed parity_artifacts/pdl1")
+                         "from; defaults to parity_artifacts/pdl1_protenix05_noH")
     ap.add_argument("--score_coords", default=None,
                     help="score a saved (n_sample, N_atom, 3) tensor, or a dict with a "
                          "'coords' key, instead of generating one; no device needed")

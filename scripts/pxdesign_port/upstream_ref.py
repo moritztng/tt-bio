@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run the upstream PXDesign generator on CPU and dump the tensors the port must match.
 
-The captured PD-L1 input (`parity_artifacts/pdl1/ref_design_inputs.pt`) is exactly what
+The captured PD-L1 input (`parity_artifacts/pdl1_protenix05_noH/ref_design_inputs.pt`) is what
 `design_e2e.py` feeds `tt_bio.pxdesign.model.ProtenixDesign`, so both sides start from the
 same 17 features and nothing about the comparison depends on a featurizer.
 
@@ -29,7 +29,12 @@ os.environ.setdefault("LAYERNORM_TYPE", "torch_layernorm")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
-ART = os.path.join(REPO, "scripts", "pxdesign_port", "parity_artifacts", "pdl1")
+# The shipped PD-L1 CIF carries explicit hydrogens and PXDesign's CIF path has no
+# hydrogen filter, so 61 of the target's 116 residues parse as unresolved and get
+# conditioned on at the origin (see strip_cif_hydrogens.py). Default to the capture
+# taken from the hydrogen-stripped copy; `--art` selects another.
+ART = os.path.join(REPO, "scripts", "pxdesign_port", "parity_artifacts",
+                   "pdl1_protenix05_noH")
 CKPT = os.path.expanduser("~/pxdesign_release_data/checkpoint/pxdesign_v0.1.0.pt")
 
 # Stored dtypes in the capture are compact; upstream's own featurizer dtypes are these.

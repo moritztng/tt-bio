@@ -1,0 +1,27 @@
+{
+ "source": "runs/ref_traj_noH.pt",
+ "art": "scripts/pxdesign_port/parity_artifacts/pdl1_protenix05_noH",
+ "coords_shape": [
+  1,
+  1250,
+  3
+ ],
+ "binder_atoms": 321,
+ "target_atoms": 929,
+ "stats": [
+  {
+   "rg_all": 15.984152793884277,
+   "rg_target": 13.947880744934082,
+   "rg_binder": 11.523770332336426
+  }
+ ],
+ "target_reproduction": [
+  {
+   "target_rmsd": 0.06673382059447844,
+   "n_scored": 116,
+   "min_binder_target_dist": 2.355990171432495,
+   "n_contacts_below_5A": 47
+  }
+ ],
+ "finite": true
+}
