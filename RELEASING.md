@@ -133,6 +133,17 @@ never clashed. **A part-specific resource figure entering `tenstorrent.py` gets 
 `L1_BUDGET_PARTS` in the same commit** — the leg fails if a selectable grid has no row.
 See `docs/part-l1-budgets.md` for the measured figures and their provenance.
 
+The **batch-position** leg gates a job shape rather than a target. Every other leg
+folds one target per process, so a result that depends on where a target sits in the
+batch has nothing to differ from and none of them can see it. v0.6.4 shipped exactly
+that: three byte-identical Boltz-2 affinity targets in one job scored 0.648724 /
+0.722511 / 0.687149, because unseeded RDKit ETKDG redrew the ligand conformer on every
+parse and the affinity checkpoint's lazy load advanced the RNG the first target's
+diffusion drew from. The leg folds three identical targets plus one genuinely different
+control in a single process and requires the three to agree exactly on the structure and
+both affinity heads while the control does not. The control is what keeps the leg honest:
+without it, a run where every fold collapsed to one constant would also pass.
+
 `scripts/release_gate.py` remains as a fast single-target smoke proxy (one
 7ROA fold per model + a BoltzGen/OpenDDE-abag/ESMC quick check) for a quick
 sanity look, but it is no longer the parity gate of record — `full_parity_gate.py`

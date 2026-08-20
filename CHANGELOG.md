@@ -21,7 +21,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   stream happened to hand the first target, and the spread across conformers of one
   ligand is about 0.074 log10(IC50). Set `TT_BIO_ETKDG_SEED` to draw a different
   conformer. `scripts/boltz2_affinity_batch_position_repro.py` folds N targets in one
-  process and fails if identical ones disagree. CCD-bound ligands are unaffected.
+  process and fails if identical ones disagree, and `tt-bio` gates it as
+  `scripts/release_gate.py --model batch-position`. CCD-bound ligands are unaffected.
+  If you ran a multi-target SMILES-ligand job on 0.6.4 or earlier, re-run it: every
+  target after the first one in that job got the wrong number.
 
 - An affinity run's `results.json` reported only the structure leg's time, so the
   number was short by however long the affinity trunk ran. It now reports both.
