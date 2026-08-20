@@ -468,6 +468,23 @@ class Nesso1(nn.Module):
         )
         return torch.tensor(keep, device=pdistogram.device, dtype=torch.long)
 
+    def _invalidate_device_masks(self) -> None:
+        """Drop cached device masks on every pairformer that has them.
+
+        Device modules cache their pad and pair masks on the first forward, which is
+        right for a model whose token count is fixed for the life of the module.
+        Nesso-1 breaks that invariant twice per prediction: it crops to the pocket
+        after the first trunk pass, and the next prediction starts back at the full
+        count. Both transitions have to invalidate, and the affinity stacks need it as
+        much as the trunk because two inputs rarely crop to the same size.
+        """
+        if not self.use_tenstorrent:
+            return
+        for module in self.modules():
+            invalidate = getattr(module, "invalidate_masks", None)
+            if invalidate is not None:
+                invalidate()
+
     def pocket_crop(self, z: Tensor, feats: dict[str, Any]) -> tuple[Tensor, Tensor]:
         pdistogram_full = self.distogram_head(z + z.transpose(1, 2))
         keep_t = self._select_pocket_indices(
@@ -502,6 +519,12 @@ class Nesso1(nn.Module):
         pdistogram_full: Optional[Tensor] = None
         keep_for_merge: Optional[Tensor] = None
         refine_pocket = refine_protein_inference and recycling_steps >= 1
+
+        # The trunk always starts at the full token count, but a previous prediction
+        # left its device masks at the cropped count. Restore the invariant here, not
+        # only at the crop: without this, prediction 1 works and prediction 2 dies in
+        # an eltwise broadcast, padded-N against the crop budget.
+        self._invalidate_device_masks()
 
         for i in range(recycling_steps + 1):
             z = z_init + self.z_recycle(self.z_norm(z))
@@ -541,10 +564,9 @@ class Nesso1(nn.Module):
                 s_esm = feats["s_esm"]
                 mask = feats["token_pad_mask"].float()
                 pair_mask = mask[:, :, None] * mask[:, None, :]
-                if self.use_tenstorrent:
-                    # N just changed, so the cached device masks no longer describe
-                    # this input.
-                    self.pairformer_module.invalidate_masks()
+                # N just changed, so the cached device masks no longer describe
+                # this input.
+                self._invalidate_device_masks()
 
         pdistogram_local = self.distogram_head(z + z.transpose(1, 2))
 
