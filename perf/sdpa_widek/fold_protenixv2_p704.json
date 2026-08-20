@@ -101,6 +101,23 @@
     ]
    },
    "out_dir": "/home/ttuser/widek_fold_704/off_s2"
+  },
+  {
+   "arm": "on",
+   "seed": 2,
+   "tag": "on_s2",
+   "rc": 0,
+   "wall_s": 171.648,
+   "wide_k_served": 1208,
+   "fell_back": 0,
+   "picks": {
+    "686x686": [
+     352,
+     704,
+     "fused"
+    ]
+   },
+   "out_dir": "/home/ttuser/widek_fold_704/on_s2"
   }
  ]
 }

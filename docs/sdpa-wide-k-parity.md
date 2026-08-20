@@ -53,13 +53,13 @@ further than the effect does. Measure the trunk stage instead. Protenix-v2, `exa
 
 | | trunk stage |
 |---|--:|
-| default | 120.5 s |
-| `TT_BIO_SDPA_WIDE_K=1` | 108.0 s |
-| | **1.116x** |
+| default | 120.0 s |
+| `TT_BIO_SDPA_WIDE_K=1` | 106.3 s |
+| | **1.1285x** |
 
 The fold serves exactly one triangle-attention shape, `686x686`, at `(352, 256, stock)` by default
 and `(352, 704, fused)` with the lever on, 1208 calls per fold with zero fall-backs. The op screen
-predicted 1208 x 11.05 ms = 13.35 s; the trunk moved 12.5 s, so predicted and measured agree to 6%.
+predicted 1208 x 11.05 ms = 13.35 s; the trunk moved 13.7 s, so predicted and measured agree to 2.6%.
 
 ## Accuracy
 
@@ -69,12 +69,15 @@ global and per-chain coincide and no inter-chain placement enters):
 
 | comparison | RMSD (Å) | coord PCC | lDDT | ΔpLDDT |
 |---|--:|--:|--:|--:|
-| seed spread, default seed 0 vs seed 1 | 7.28 | 0.9689 | 0.934 | +0.0005 |
+| seed spread, default s0 vs s1 | 7.28 | 0.9689 | 0.934 | +0.0005 |
+| seed spread, default s0 vs s2 | 7.19 | 0.9714 | 0.900 | +0.0041 |
+| seed spread, default s1 vs s2 | 3.69 | 0.9925 | 0.934 | +0.0036 |
 | **lever, seed 0** | **0.113** | 0.999992 | 0.9992 | +0.000099 |
 | **lever, seed 1** | **0.060** | 0.999998 | 0.9997 | +0.000101 |
+| **lever, seed 2** | **0.146** | 0.999988 | 0.9977 | +0.000076 |
 
-The lever moves the structure 65-122x less than changing the seed does, and it moves pLDDT by
-0.0001 against a seed-to-seed 0.0005. Reproduce with `perf/sdpa_widek/widek_fold_ab.py` (runs the
+The worst lever leg is 25x inside the smallest of the three seed-spread controls and 50x inside the
+largest, and it moves pLDDT by 0.0001 against a seed-to-seed 0.0041. Reproduce with `perf/sdpa_widek/widek_fold_ab.py` (runs the
 legs, asserts out of each worker process which pair it actually served) then
 `perf/sdpa_widek/widek_fold_score.py`.
 
