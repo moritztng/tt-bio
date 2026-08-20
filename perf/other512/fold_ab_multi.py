@@ -111,7 +111,13 @@ ARMS = ("on", "e6", "noe6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hi
         # form of concat_host_bytes()); `on` pins it at the 12 GiB-Wormhole base, which is what
         # main shipped to every part. On a 31.875 GiB p150a that is 3.984 vs 1.5 GiB, so the
         # OpenDDE refiner's pair channel join runs on device from 768 aa up instead of on the host.
-        "devcat")
+        # `devcat` is not byte-identical at 768 aa (p2_fold_ab_768_qb1c0.json), and there are two
+        # live sites: the trimul channel join in tenstorrent.py and opendde.py's z_struct assembly
+        # at the trunk-to-refiner seam. `devcat_trimul` widens the budget everywhere EXCEPT the
+        # seam, `devcat_zstruct` widens ONLY the seam, so one 768 aa fold each says which site
+        # carries the difference. Both work by rebinding the name opendde.py imported, so no
+        # product code exists for the screen.
+        "devcat", "devcat_trimul", "devcat_zstruct")
 
 # Which sites each arm routes onto the fused SDPA. The confidence head is never in a flip set:
 # it stays on `_fp32_softmax_attention` on every arm, deliberately, so plDDT reports on the
@@ -441,7 +447,15 @@ def main():
 
         # None means "resolve from this part's DRAM", i.e. exactly what a shipped fold does.
         # `on` pins the pre-change base so the A/B is the fix, not an unbounded budget.
-        T._CONCAT_HOST_BYTES = None if name == "devcat" else T.CONCAT_HOST_BYTES_BASE
+        import tt_bio.opendde as OD
+        T._CONCAT_HOST_BYTES = (None if name in ("devcat", "devcat_trimul")
+                                else T.CONCAT_HOST_BYTES_BASE)
+        # opendde.py from-imports the accessor, so rebinding it here moves the z_struct seam
+        # alone. Resolved at call time, after the device is open, so it never reads 0.
+        OD.concat_host_bytes = {
+            "devcat_trimul": lambda: T.CONCAT_HOST_BYTES_BASE,
+            "devcat_zstruct": lambda: T._concat_host_budget(T._dram_total_bytes()),
+        }.get(name, T.concat_host_bytes)
 
         T._PAIR_PROJ_L1_OUT = T._PAIR_BIAS_L1_NORM = True
         T._PWA_L1_NORM = T._TEMPLATE_L1_NORM = True
@@ -553,8 +567,11 @@ def main():
                                        "rejects": {f"{r}:{sh}": n for (r, sh), n in PM.REJECTS.items()},
                                        "pm_over_l1": sorted(str(k) for k in PM._PM_OVER_L1)},
                    "transpose_l1_headroom": T._TRANSPOSE_L1_HEADROOM,
-                   # must differ between arms; equal values mean the arm did not take
+                   # must differ between arms; equal values mean the arm did not take. The
+                   # second is the z_struct seam, which the two isolation arms move on its own.
                    "concat_host_bytes": T.concat_host_bytes(),
+                   "concat_host_bytes_zstruct": __import__(
+                       "tt_bio.opendde", fromlist=["x"]).concat_host_bytes(),
                    "fp32_softmax_chain": {"block_bytes": T._FP32_SOFTMAX_BLOCK_BYTES,
                                           "fused_add": T._FP32_SOFTMAX_FUSED_ADD,
                                           "l1_bytes_per_core": T._FP32_SOFTMAX_L1_BYTES_PER_CORE,
