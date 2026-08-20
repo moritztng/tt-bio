@@ -69,6 +69,8 @@ LEVERS = [
      "tt_bio.reblock_permute.STATS_GATED", "stats"),
     ("TRIATT_PERSISTENT_MASK", "tt_bio.triatt_sdpa", "_ENABLED",
      "tt_bio.triatt_sdpa.STATS", "stats"),
+    ("SDPA_WIDE_K", "tt_bio.tenstorrent", "SDPA_WIDE_K",
+     "tt_bio.tenstorrent.SDPA_K_CHUNK_STATS", "stats"),
     ("RFD3_SPARSE_BIAS", "tt_bio.rfd3_bias", "_ENABLED", "tt_bio.rfd3_bias.STATS", "stats"),
     ("RFD3_FUSED_SCORES", "tt_bio.rfd3_bias", "_FUSED_ENABLED",
      "tt_bio.rfd3_bias.FSTATS", "stats"),

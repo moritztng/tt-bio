@@ -887,6 +887,12 @@ def _sdpa_wide_k() -> bool:
     return os.environ.get("TT_BIO_SDPA_WIDE_K", _SDPA_WIDE_K_DEFAULT) != "0"
 
 
+# What THIS process resolved at import, for `scripts/lever_census.py` to report next to the served
+# count. The live read above is what decides behaviour; a fold runs one arm per process, so the two
+# agree there, and the op screen that flips arms mid-process is the only place they can differ.
+SDPA_WIDE_K = _sdpa_wide_k()
+
+
 def _tri_att_k_chunks(q_len: int, k_len: int) -> tuple:
     """k_chunks to try, widest first, production pick last. One entry unless the shipped pick fails
     to divide the padded sequence, which is the only case K5 changes."""
@@ -916,8 +922,19 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float):
     q_len, k_len = q.shape[2], k.shape[2]
     k_chunks = _tri_att_k_chunks(q_len, k_len)
     if len(k_chunks) > 1:
+        # Only q_chunks that DIVIDE the padded sequence are offered against a wide k. The q ladder's
+        # last entry is the production cap, which is the one entry that need not divide, and pairing
+        # it with a wide k is the only way this path can lose: it pays the padded q mask twice (the
+        # 0.797x the `_tri_att_q_chunks` docstring measures) while today's path serves a q that
+        # spans the whole sequence. MEASURED on qb1 card 1 at h=8 d=32 with the cap still offered --
+        # padded 544 read 0.9314x and 608 read 0.9104x, both landing on (q256, wide k) against
+        # today's (q544/q608, k256), while every length whose widest dividing q fits kept its win
+        # (704 3.6954x, 832 1.3201x). Dropping the cap from this loop turns both losses into the
+        # single-entry fall-through, which is byte for byte today's path.
+        _qs = tuple(qc for qc in _tri_att_q_chunks(q_len, k_len)
+                    if _padded_sdpa_len(q_len) % qc == 0)
         for k_chunk in k_chunks[:-1]:
-            for q_chunk in _tri_att_q_chunks(q_len, k_len):
+            for q_chunk in _qs:
                 cfg = (q_len, k_len, q_chunk, k_chunk)
                 if cfg in _SDPA_QK_OVER_L1:
                     continue
