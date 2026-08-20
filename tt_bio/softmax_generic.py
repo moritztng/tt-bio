@@ -313,7 +313,12 @@ def softmax_bf16(x, dtype):
     Falls back to the shipped pair whenever the shape is outside what the transcription covers.
     """
     if not eligible(x, dtype):
-        return ttnn.typecast(ttnn.softmax(x, dim=-1), dtype, memory_config=x.memory_config())
+        # The off arm has to be the shipped chain exactly, down to freeing the fp32 intermediate
+        # before the caller continues -- at [1,4,6051,6080] that tensor is 588.6 MB.
+        sm = ttnn.softmax(x, dim=-1)
+        out = ttnn.typecast(sm, dtype, memory_config=sm.memory_config())
+        ttnn.deallocate(sm)
+        return out
     out = ttnn.empty(list(x.shape), dtype, ttnn.TILE_LAYOUT, x.device(), x.memory_config())
     softmax_into(x.device(), x, out)
     SSTATS[0] += 1
