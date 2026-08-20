@@ -1,0 +1,10 @@
+arm=A keep=0 rc=0 wall_s=287.519511171
+14:58:55  [tt-quietbox2:tt1] ✓ t1 — 183.2s
+15:00:17  [tt-quietbox2:tt1] ✓ t2 — 81.9s
+t1 runtime_s 183.2 struct 27.7 aff 155.4 pred 0.653522
+t2 runtime_s 81.9 struct 15.1 aff 66.8 pred 0.675317
+arm=B keep=1 rc=0 wall_s=180.490481598
+15:01:59  [tt-quietbox2:tt1] ✓ t1 — 82.3s
+15:03:18  [tt-quietbox2:tt1] ✓ t2 — 79.1s
+t1 runtime_s 82.3 struct 13.7 aff 68.6 pred 0.653522
+t2 runtime_s 79.1 struct 12.8 aff 66.3 pred 0.675317

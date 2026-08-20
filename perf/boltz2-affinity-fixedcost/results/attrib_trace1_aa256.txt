@@ -1,0 +1,61 @@
+== timeline (depth-indented, s) ==
+    4.32  tt.cleanup                 dt=   0.001 excl=   0.001 pce 1->None 
+    4.32  load_model                 dt=  19.951 excl=  15.082 pce None->2 
+   19.40    load_from_checkpoint       dt=   4.869 excl=   4.869 pce None->2 {'ckpt': '/home/ttuser/.boltz/boltz2_conf.ckpt'}
+   24.27  bind_run                   dt=   0.000 excl=   0.000 pce 2->2 
+   24.28  predict_one                dt=  28.414 excl=   0.439 pce 2->253 
+   24.67    Boltz2.predict_step        dt=  27.974 excl=   0.004 pce 2->253 
+   24.67      Boltz2.forward             dt=  27.970 excl=   0.540 pce 2->253 {'recycling_steps': 3, 'num_sampling_steps': 200, 'diffusion_samples': 1, 'n_tok': 276, 'n_atom': 2080}
+   24.67        InputEmbedder              dt=   1.587 excl=   1.587 pce 0->0 
+   26.77        TrunkModule                dt=   6.238 excl=   0.358 pce 0->152 
+   33.01        DistogramModule            dt=   0.019 excl=   0.019 pce 152->152 
+   33.04        DiffusionConditioning      dt=   1.364 excl=   1.364 pce 152->152 
+   34.40        AtomDiffusion.sample       dt=  16.489 excl=  11.383 pce 152->253 {'num_sampling_steps': 200, 'multiplicity': 1, 'max_parallel_samples': 5, 'default_steps': 5}
+   50.90        ConfidenceModule           dt=   1.733 excl=   1.506 pce 253->253 
+   52.70  predict_affinity           dt= 152.567 excl=   0.300 pce 253->298 
+   52.70    load_from_checkpoint       dt=   5.502 excl=   5.502 pce 253->253 {'ckpt': '/home/ttuser/.boltz/boltz2_aff.ckpt'}
+   58.50    Boltz2.predict_step        dt= 146.765 excl=   0.003 pce 253->298 
+   58.50      Boltz2.forward             dt= 146.762 excl=   0.874 pce 253->298 {'affinity': True, 'recycling_steps': 5, 'num_sampling_steps': 200, 'diffusion_samples': 5, 'trunk_fp32': True, 'n_tok': 220, 'n_atom': 1632}
+   58.51        InputEmbedder              dt=   1.620 excl=   1.620 pce 0->0 
+   60.67        MSAModule                  dt=   0.373 excl=   0.373 pce 0->130 
+   61.05        Fp32PairformerModule       dt=   6.223 excl=   6.223 pce 130->179 
+   67.33        MSAModule                  dt=   0.264 excl=   0.264 pce 179->179 
+   67.60        Fp32PairformerModule       dt=   6.038 excl=   6.038 pce 179->179 
+   73.66        MSAModule                  dt=   0.247 excl=   0.247 pce 179->179 
+   73.92        Fp32PairformerModule       dt=   6.027 excl=   6.027 pce 179->179 
+   80.00        MSAModule                  dt=   0.274 excl=   0.274 pce 179->179 
+   80.28        Fp32PairformerModule       dt=   6.041 excl=   6.041 pce 179->179 
+   86.37        MSAModule                  dt=   0.267 excl=   0.267 pce 179->179 
+   86.65        Fp32PairformerModule       dt=   6.041 excl=   6.041 pce 179->179 
+   92.74        MSAModule                  dt=   0.266 excl=   0.266 pce 179->179 
+   93.02        Fp32PairformerModule       dt=   6.040 excl=   6.040 pce 179->179 
+   99.06        DistogramModule            dt=   0.018 excl=   0.018 pce 179->179 
+   99.08        DiffusionConditioning      dt=   1.100 excl=   1.100 pce 179->179 
+  100.18        AtomDiffusion.sample       dt=  25.772 excl=   4.621 pce 179->281 {'num_sampling_steps': 200, 'multiplicity': 5, 'max_parallel_samples': 1, 'default_steps': 5}
+  125.95        ConfidenceModule           dt=   6.921 excl=   0.120 pce 281->298 
+  132.90        InputEmbedder              dt=   1.574 excl=   1.574 pce 298->298 
+  134.47        AffinityModule             dt=  46.972 excl=  46.972 pce 298->298 
+  181.45        AffinityModule             dt=  23.811 excl=  23.811 pce 298->298 
+  217.88  tt.cleanup                 dt=   0.019 excl=   0.019 pce 298->None 
+
+== totals by op (inclusive / exclusive / n) ==
+AffinityModule             incl=   70.783 excl=   70.783 n=2
+Fp32PairformerModule       incl=   36.410 excl=   36.410 n=6
+DiffusionModule            incl=   26.256 excl=   26.256 n=1200
+AtomDiffusion.sample       incl=   42.261 excl=   16.005 n=2
+load_model                 incl=   19.951 excl=   15.082 n=1
+load_from_checkpoint       incl=   10.372 excl=   10.372 n=2
+ConfidenceModule           incl=   15.455 excl=    7.747 n=7
+TrunkModule.iter           incl=    5.880 excl=    5.880 n=4
+InputEmbedder              incl=    4.781 excl=    4.781 n=3
+DiffusionConditioning      incl=    2.464 excl=    2.464 n=2
+MSAModule                  incl=    1.691 excl=    1.691 n=6
+Boltz2.forward             incl=  174.733 excl=    1.414 n=2
+PairformerModule           incl=    0.907 excl=    0.907 n=6
+predict_one                incl=   28.414 excl=    0.439 n=1
+TrunkModule                incl=    6.238 excl=    0.358 n=1
+predict_affinity           incl=  152.567 excl=    0.300 n=1
+DistogramModule            incl=    0.037 excl=    0.037 n=2
+tt.cleanup                 incl=    0.020 excl=    0.020 n=2
+Boltz2.predict_step        incl=  174.739 excl=    0.007 n=2
+bind_run                   incl=    0.000 excl=    0.000 n=1
