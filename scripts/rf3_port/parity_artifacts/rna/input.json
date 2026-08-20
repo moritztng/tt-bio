@@ -1,0 +1,9 @@
+[
+    {
+        "name": "protein_rna_complex",
+        "components": [
+            {"seq": "GLKE", "chain_id": "A"},
+            {"seq": "GAUC", "chain_type": "POLYRIBONUCLEOTIDE", "chain_id": "B"}
+        ]
+    }
+]
