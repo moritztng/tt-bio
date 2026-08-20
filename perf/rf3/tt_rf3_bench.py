@@ -79,13 +79,28 @@ class Timer:
             self.n[name] = self.n.get(name, 0) + 1
 
     def wrap(self, obj, attr, name):
-        """Time every call to `obj.attr` under `name`. Used by --breakdown."""
-        fn = getattr(obj, attr)
+        """Time every call to `obj.attr` under `name`. Used by --breakdown.
 
-        def timed(*a, **kw):
-            with self.span(name):
-                return fn(*a, **kw)
-        setattr(obj, attr, timed)
+        A proxy, not a closure: the attributes being wrapped are sub-MODULES, and the
+        rollout hoist reaches past the call to `self.encoder.prepare(...)` and
+        `self.decoder.prepare(...)`. A bare function has no `prepare`, so instrumenting
+        the denoiser used to make --breakdown and the hoist mutually exclusive.
+        """
+        setattr(obj, attr, _Timed(getattr(obj, attr), self, name))
+
+
+class _Timed:
+    """Callable stand-in for a sub-module: times the call, forwards everything else."""
+
+    def __init__(self, inner, tm, name):
+        self._inner, self._tm, self._name = inner, tm, name
+
+    def __call__(self, *a, **kw):
+        with self._tm.span(self._name):
+            return self._inner(*a, **kw)
+
+    def __getattr__(self, k):
+        return getattr(self._inner, k)
 
 
 def instrument_denoiser(tt, host, tm: Timer):
