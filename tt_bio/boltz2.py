@@ -5357,8 +5357,13 @@ class Boltz2(nn.Module):
         if self.use_tenstorrent:
             try:
                 dev = tenstorrent.get_device()
-                dev.disable_and_clear_program_cache()
-                dev.enable_program_cache()
+                # 8859d7e1 clears here to avoid stale program-cache state across
+                # variable-shape sweeps. TT_BIO_BOLTZ2_KEEP_PROGRAM_CACHE=1 suppresses
+                # the clear so the screen in perf/boltz2-affinity-fixedcost can price
+                # what it costs; unset in production, so the shipped path is unchanged.
+                if os.environ.get("TT_BIO_BOLTZ2_KEEP_PROGRAM_CACHE", "0") != "1":
+                    dev.disable_and_clear_program_cache()
+                    dev.enable_program_cache()
             except Exception:
                 pass
 
