@@ -1,0 +1,64 @@
+{
+ "host": "tt-quietbox",
+ "card": "3",
+ "grid": [
+  13,
+  10
+ ],
+ "cores": 130,
+ "arch": "blackhole",
+ "label": "protenix-v2",
+ "h": 8,
+ "d": 32,
+ "padded": 512,
+ "shipped_chunks": [
+  256,
+  256
+ ],
+ "q_ladder": [
+  512,
+  256
+ ],
+ "warmup": 2,
+ "iters": 3,
+ "blocks": 3,
+ "arms": {
+  "off": {
+   "pick": [
+    512,
+    256,
+    "fused"
+   ],
+   "ms_median": 3.0125,
+   "ms_all": [
+    3.0714,
+    3.0125,
+    2.7282
+   ]
+  },
+  "on": {
+   "pick": [
+    512,
+    256,
+    "fused"
+   ],
+   "ms_median": 2.9858,
+   "ms_all": [
+    3.9235,
+    2.9858,
+    2.5865
+   ]
+  }
+ },
+ "ladder_off": [
+  256
+ ],
+ "ladder_on": [
+  256
+ ],
+ "ladder_fires": false,
+ "bit_exact": true,
+ "max_abs_diff": 0.0,
+ "rmsd_over_std": 0.0,
+ "speedup": 1.0089
+}
