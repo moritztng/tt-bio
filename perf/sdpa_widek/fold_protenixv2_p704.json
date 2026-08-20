@@ -1,0 +1,145 @@
+{
+ "model": "protenix-v2",
+ "input": "examples/686.yaml",
+ "card": "3",
+ "seeds": [
+  0,
+  1,
+  2
+ ],
+ "extra": [
+  "--sampling_steps",
+  "200",
+  "--diffusion_samples",
+  "1",
+  "--msa_dir",
+  "/home/ttuser/widek_msa"
+ ],
+ "host": "tt-quietbox",
+ "legs": [
+  {
+   "arm": "off",
+   "seed": 0,
+   "tag": "off_s0",
+   "rc": 0,
+   "wall_s": 186.022,
+   "wide_k_served": 0,
+   "fell_back": 0,
+   "picks": {
+    "686x686": [
+     352,
+     256,
+     "stock"
+    ]
+   },
+   "out_dir": "/home/ttuser/widek_fold_704/off_s0"
+  },
+  {
+   "arm": "on",
+   "seed": 0,
+   "tag": "on_s0",
+   "rc": 0,
+   "wall_s": 195.772,
+   "wide_k_served": 1208,
+   "fell_back": 0,
+   "picks": {
+    "686x686": [
+     352,
+     704,
+     "fused"
+    ]
+   },
+   "out_dir": "/home/ttuser/widek_fold_704/on_s0"
+  },
+  {
+   "arm": "off",
+   "seed": 1,
+   "tag": "off_s1",
+   "rc": 0,
+   "wall_s": 203.624,
+   "wide_k_served": 0,
+   "fell_back": 0,
+   "picks": {
+    "686x686": [
+     352,
+     256,
+     "stock"
+    ]
+   },
+   "out_dir": "/home/ttuser/widek_fold_704/off_s1"
+  },
+  {
+   "arm": "on",
+   "seed": 1,
+   "tag": "on_s1",
+   "rc": 0,
+   "wall_s": 178.084,
+   "wide_k_served": 1208,
+   "fell_back": 0,
+   "picks": {
+    "686x686": [
+     352,
+     704,
+     "fused"
+    ]
+   },
+   "out_dir": "/home/ttuser/widek_fold_704/on_s1"
+  },
+  {
+   "arm": "off",
+   "seed": 2,
+   "tag": "off_s2",
+   "rc": 0,
+   "wall_s": 194.706,
+   "wide_k_served": 0,
+   "fell_back": 0,
+   "picks": {
+    "686x686": [
+     352,
+     256,
+     "stock"
+    ]
+   },
+   "out_dir": "/home/ttuser/widek_fold_704/off_s2"
+  },
+  {
+   "arm": "on",
+   "seed": 2,
+   "tag": "on_s2",
+   "rc": 0,
+   "wall_s": 171.648,
+   "wide_k_served": 1208,
+   "fell_back": 0,
+   "picks": {
+    "686x686": [
+     352,
+     704,
+     "fused"
+    ]
+   },
+   "out_dir": "/home/ttuser/widek_fold_704/on_s2"
+  },
+  {
+   "arm": "off",
+   "seed": 0,
+   "tag": "off_s0_repeat",
+   "rc": 0,
+   "wall_s": 179.236,
+   "wide_k_served": 0,
+   "fell_back": 0,
+   "picks": {
+    "686x686": [
+     352,
+     256,
+     "stock"
+    ]
+   },
+   "out_dir": "/home/ttuser/widek_fold_704/off_s0_repeat"
+  }
+ ],
+ "mean_wall_off_s": 194.784,
+ "mean_wall_on_s": 181.835,
+ "speedup": 1.0712,
+ "arm_took": true,
+ "arm_off_clean": true
+}

@@ -1,0 +1,174 @@
+{
+ "workdir": "/home/ttuser/widek_fold_704",
+ "ab": "perf/sdpa_widek/fold_protenixv2_p704.json",
+ "seeds": [
+  0,
+  1,
+  2
+ ],
+ "controls": {
+  "determinism": {
+   "off_s0 vs off_s0_repeat": {
+    "686": {
+     "kabsch_rmsd": 0.0,
+     "coord_pcc": 1.0,
+     "tm_score": 1.0,
+     "lddt": 1.0,
+     "n_matched": 5300,
+     "per_chain": {
+      "A": 0.0
+     },
+     "conf_delta": {
+      "plddt": 0.0,
+      "ptm": 0.0,
+      "iptm": 0.0,
+      "confidence_score": 0.0,
+      "complex_plddt": 0.0
+     }
+    }
+   }
+  },
+  "seed_spread": {
+   "off_s0 vs off_s1": {
+    "686": {
+     "kabsch_rmsd": 7.2769,
+     "coord_pcc": 0.968857,
+     "tm_score": 0.903823,
+     "lddt": 0.933573,
+     "n_matched": 5300,
+     "per_chain": {
+      "A": 7.2769
+     },
+     "conf_delta": {
+      "plddt": 0.0005,
+      "ptm": 0.022527,
+      "iptm": 0.0,
+      "confidence_score": 0.022527,
+      "complex_plddt": 0.0005
+     }
+    }
+   },
+   "off_s0 vs off_s2": {
+    "686": {
+     "kabsch_rmsd": 7.1942,
+     "coord_pcc": 0.971353,
+     "tm_score": 0.899639,
+     "lddt": 0.900429,
+     "n_matched": 5300,
+     "per_chain": {
+      "A": 7.1942
+     },
+     "conf_delta": {
+      "plddt": 0.004082,
+      "ptm": 0.018517,
+      "iptm": 0.0,
+      "confidence_score": 0.018517,
+      "complex_plddt": 0.004082
+     }
+    }
+   },
+   "off_s1 vs off_s2": {
+    "686": {
+     "kabsch_rmsd": 3.6939,
+     "coord_pcc": 0.992518,
+     "tm_score": 0.968998,
+     "lddt": 0.933488,
+     "n_matched": 5300,
+     "per_chain": {
+      "A": 3.6939
+     },
+     "conf_delta": {
+      "plddt": 0.003582,
+      "ptm": -0.00401,
+      "iptm": 0.0,
+      "confidence_score": -0.00401,
+      "complex_plddt": 0.003582
+     }
+    }
+   }
+  }
+ },
+ "lever": {
+  "off_s0 vs on_s0": {
+   "686": {
+    "kabsch_rmsd": 0.1126,
+    "coord_pcc": 0.999992,
+    "tm_score": 0.999968,
+    "lddt": 0.999218,
+    "n_matched": 5300,
+    "per_chain": {
+     "A": 0.1126
+    },
+    "conf_delta": {
+     "plddt": 9.9e-05,
+     "ptm": 0.000929,
+     "iptm": 0.0,
+     "confidence_score": 0.000929,
+     "complex_plddt": 9.9e-05
+    }
+   }
+  },
+  "off_s1 vs on_s1": {
+   "686": {
+    "kabsch_rmsd": 0.0597,
+    "coord_pcc": 0.999998,
+    "tm_score": 0.999991,
+    "lddt": 0.999652,
+    "n_matched": 5300,
+    "per_chain": {
+     "A": 0.0597
+    },
+    "conf_delta": {
+     "plddt": 0.000101,
+     "ptm": 0.000644,
+     "iptm": 0.0,
+     "confidence_score": 0.000644,
+     "complex_plddt": 0.000101
+    }
+   }
+  },
+  "off_s2 vs on_s2": {
+   "686": {
+    "kabsch_rmsd": 0.1462,
+    "coord_pcc": 0.999988,
+    "tm_score": 0.999947,
+    "lddt": 0.997746,
+    "n_matched": 5300,
+    "per_chain": {
+     "A": 0.1462
+    },
+    "conf_delta": {
+     "plddt": 7.6e-05,
+     "ptm": 0.000628,
+     "iptm": 0.0,
+     "confidence_score": 0.000628,
+     "complex_plddt": 7.6e-05
+    }
+   }
+  }
+ },
+ "summary": {
+  "det_floor_rmsd": [
+   0.0
+  ],
+  "seed_spread_rmsd": [
+   7.2769,
+   7.1942,
+   3.6939
+  ],
+  "lever_rmsd": [
+   0.1126,
+   0.0597,
+   0.1462
+  ],
+  "control_ceiling_rmsd": 7.2769,
+  "lever_max_rmsd": 0.1462,
+  "plddt_control_max": 0.004082,
+  "plddt_lever_max": 0.000101,
+  "geometry_pass": true,
+  "plddt_pass": true,
+  "arm_took": true,
+  "arm_off_clean": true,
+  "verdict": "GATE PASS"
+ }
+}

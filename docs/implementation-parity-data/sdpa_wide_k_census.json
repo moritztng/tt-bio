@@ -1,0 +1,468 @@
+{
+ "max_len": 1536,
+ "sdpa_chunk_max": 256,
+ "pairformer_pad_multiple": 64,
+ "rows": [
+  {
+   "padded": 32,
+   "shipped_k": 32,
+   "divides": true,
+   "wide_ladder": [
+    32
+   ],
+   "affected": false
+  },
+  {
+   "padded": 64,
+   "shipped_k": 64,
+   "divides": true,
+   "wide_ladder": [
+    64
+   ],
+   "affected": false
+  },
+  {
+   "padded": 96,
+   "shipped_k": 96,
+   "divides": true,
+   "wide_ladder": [
+    96
+   ],
+   "affected": false
+  },
+  {
+   "padded": 128,
+   "shipped_k": 128,
+   "divides": true,
+   "wide_ladder": [
+    128
+   ],
+   "affected": false
+  },
+  {
+   "padded": 160,
+   "shipped_k": 160,
+   "divides": true,
+   "wide_ladder": [
+    160
+   ],
+   "affected": false
+  },
+  {
+   "padded": 192,
+   "shipped_k": 192,
+   "divides": true,
+   "wide_ladder": [
+    192
+   ],
+   "affected": false
+  },
+  {
+   "padded": 224,
+   "shipped_k": 224,
+   "divides": true,
+   "wide_ladder": [
+    224
+   ],
+   "affected": false
+  },
+  {
+   "padded": 256,
+   "shipped_k": 256,
+   "divides": true,
+   "wide_ladder": [
+    256
+   ],
+   "affected": false
+  },
+  {
+   "padded": 288,
+   "shipped_k": 64,
+   "divides": false,
+   "wide_ladder": [
+    288,
+    96,
+    64
+   ],
+   "affected": true
+  },
+  {
+   "padded": 320,
+   "shipped_k": 64,
+   "divides": true,
+   "wide_ladder": [
+    64
+   ],
+   "affected": false
+  },
+  {
+   "padded": 352,
+   "shipped_k": 64,
+   "divides": false,
+   "wide_ladder": [
+    352,
+    64
+   ],
+   "affected": true
+  },
+  {
+   "padded": 384,
+   "shipped_k": 64,
+   "divides": true,
+   "wide_ladder": [
+    64
+   ],
+   "affected": false
+  },
+  {
+   "padded": 416,
+   "shipped_k": 256,
+   "divides": false,
+   "wide_ladder": [
+    416,
+    256
+   ],
+   "affected": true
+  },
+  {
+   "padded": 448,
+   "shipped_k": 224,
+   "divides": true,
+   "wide_ladder": [
+    224
+   ],
+   "affected": false
+  },
+  {
+   "padded": 480,
+   "shipped_k": 160,
+   "divides": true,
+   "wide_ladder": [
+    160
+   ],
+   "affected": false
+  },
+  {
+   "padded": 512,
+   "shipped_k": 256,
+   "divides": true,
+   "wide_ladder": [
+    256
+   ],
+   "affected": false
+  },
+  {
+   "padded": 544,
+   "shipped_k": 256,
+   "divides": false,
+   "wide_ladder": [
+    544,
+    256
+   ],
+   "affected": true
+  },
+  {
+   "padded": 576,
+   "shipped_k": 192,
+   "divides": true,
+   "wide_ladder": [
+    192
+   ],
+   "affected": false
+  },
+  {
+   "padded": 608,
+   "shipped_k": 256,
+   "divides": false,
+   "wide_ladder": [
+    608,
+    256
+   ],
+   "affected": true
+  },
+  {
+   "padded": 640,
+   "shipped_k": 160,
+   "divides": true,
+   "wide_ladder": [
+    160
+   ],
+   "affected": false
+  },
+  {
+   "padded": 672,
+   "shipped_k": 224,
+   "divides": true,
+   "wide_ladder": [
+    224
+   ],
+   "affected": false
+  },
+  {
+   "padded": 704,
+   "shipped_k": 256,
+   "divides": false,
+   "wide_ladder": [
+    704,
+    352,
+    256
+   ],
+   "affected": true
+  },
+  {
+   "padded": 736,
+   "shipped_k": 256,
+   "divides": false,
+   "wide_ladder": [
+    736,
+    256
+   ],
+   "affected": true
+  },
+  {
+   "padded": 768,
+   "shipped_k": 256,
+   "divides": true,
+   "wide_ladder": [
+    256
+   ],
+   "affected": false
+  },
+  {
+   "padded": 800,
+   "shipped_k": 160,
+   "divides": true,
+   "wide_ladder": [
+    160
+   ],
+   "affected": false
+  },
+  {
+   "padded": 832,
+   "shipped_k": 256,
+   "divides": false,
+   "wide_ladder": [
+    832,
+    416,
+    256
+   ],
+   "affected": true
+  },
+  {
+   "padded": 864,
+   "shipped_k": 256,
+   "divides": false,
+   "wide_ladder": [
+    864,
+    288,
+    256
+   ],
+   "affected": true
+  },
+  {
+   "padded": 896,
+   "shipped_k": 224,
+   "divides": true,
+   "wide_ladder": [
+    224
+   ],
+   "affected": false
+  },
+  {
+   "padded": 928,
+   "shipped_k": 256,
+   "divides": false,
+   "wide_ladder": [
+    928,
+    256
+   ],
+   "affected": true
+  },
+  {
+   "padded": 960,
+   "shipped_k": 192,
+   "divides": true,
+   "wide_ladder": [
+    192
+   ],
+   "affected": false
+  },
+  {
+   "padded": 992,
+   "shipped_k": 256,
+   "divides": false,
+   "wide_ladder": [
+    992,
+    256
+   ],
+   "affected": true
+  },
+  {
+   "padded": 1024,
+   "shipped_k": 256,
+   "divides": true,
+   "wide_ladder": [
+    256
+   ],
+   "affected": false
+  },
+  {
+   "padded": 1056,
+   "shipped_k": 256,
+   "divides": false,
+   "wide_ladder": [
+    1056,
+    352,
+    256
+   ],
+   "affected": true
+  },
+  {
+   "padded": 1088,
+   "shipped_k": 256,
+   "divides": false,
+   "wide_ladder": [
+    1088,
+    544,
+    256
+   ],
+   "affected": true
+  },
+  {
+   "padded": 1120,
+   "shipped_k": 224,
+   "divides": true,
+   "wide_ladder": [
+    224
+   ],
+   "affected": false
+  },
+  {
+   "padded": 1152,
+   "shipped_k": 192,
+   "divides": true,
+   "wide_ladder": [
+    192
+   ],
+   "affected": false
+  },
+  {
+   "padded": 1184,
+   "shipped_k": 256,
+   "divides": false,
+   "wide_ladder": [
+    1184,
+    256
+   ],
+   "affected": true
+  },
+  {
+   "padded": 1216,
+   "shipped_k": 256,
+   "divides": false,
+   "wide_ladder": [
+    1216,
+    608,
+    256
+   ],
+   "affected": true
+  },
+  {
+   "padded": 1248,
+   "shipped_k": 256,
+   "divides": false,
+   "wide_ladder": [
+    1248,
+    416,
+    256
+   ],
+   "affected": true
+  },
+  {
+   "padded": 1280,
+   "shipped_k": 256,
+   "divides": true,
+   "wide_ladder": [
+    256
+   ],
+   "affected": false
+  },
+  {
+   "padded": 1312,
+   "shipped_k": 256,
+   "divides": false,
+   "wide_ladder": [
+    1312,
+    256
+   ],
+   "affected": true
+  },
+  {
+   "padded": 1344,
+   "shipped_k": 224,
+   "divides": true,
+   "wide_ladder": [
+    224
+   ],
+   "affected": false
+  },
+  {
+   "padded": 1376,
+   "shipped_k": 256,
+   "divides": false,
+   "wide_ladder": [
+    1376,
+    256
+   ],
+   "affected": true
+  },
+  {
+   "padded": 1408,
+   "shipped_k": 128,
+   "divides": true,
+   "wide_ladder": [
+    128
+   ],
+   "affected": false
+  },
+  {
+   "padded": 1440,
+   "shipped_k": 160,
+   "divides": true,
+   "wide_ladder": [
+    160
+   ],
+   "affected": false
+  },
+  {
+   "padded": 1472,
+   "shipped_k": 256,
+   "divides": false,
+   "wide_ladder": [
+    1472,
+    736,
+    256
+   ],
+   "affected": true
+  },
+  {
+   "padded": 1504,
+   "shipped_k": 256,
+   "divides": false,
+   "wide_ladder": [
+    1504,
+    256
+   ],
+   "affected": true
+  },
+  {
+   "padded": 1536,
+   "shipped_k": 256,
+   "divides": true,
+   "wide_ladder": [
+    256
+   ],
+   "affected": false
+  }
+ ]
+}
