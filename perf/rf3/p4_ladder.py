@@ -37,6 +37,7 @@ ARMS = {
     "hoist": {"hoist": True, "gln": False},
     "gln": {"hoist": False, "gln": True},
     "levers": {"hoist": True, "gln": True},
+    "levers_opm": {"hoist": True, "gln": True, "opm": True},
 }
 
 
@@ -78,6 +79,7 @@ def main() -> int:
     import ttnn
     from tt_bio.rf3 import model as rf3_model
     from tt_bio.rf3 import confidence_head as rf3_conf
+    from tt_bio import tenstorrent as tts
     from tt_bio.tenstorrent import get_device
     from perf.rf3.featcache import featurized
     from perf.rf3.tt_rf3_bench import PHASES, Timer, net_config, one_fold
@@ -122,6 +124,7 @@ def main() -> int:
         cfg_arm = ARMS[arm]
         rf3_model._HOIST_ROLLOUT = cfg_arm["hoist"]
         rf3_conf._GLN_ROW_FOLD = cfg_arm["gln"]
+        tts._OPM_SMALL_DEPTH = cfg_arm.get("opm", False)
         reps = []
         failed = None
         for rep in range(args.reps):

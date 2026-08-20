@@ -37,6 +37,17 @@ OPM_ROW_CHUNK_BUDGET_BYTES = 1 << 30      # 1.0 GiB
 # row blocks to 5. It does NOT make 9i3p fold -- the target then hits the pair representation
 # (980*992*384*2) instead, which is a separate limit this constant has no bearing on.
 OPM_Z_BUDGET_BYTES = 1 << 28              # 0.25 GiB
+
+# Fold `proj_o` into the outer product's own projection instead of materialising the
+# [I, J, C, D] product in order to project it. Same algebra --
+# `sum_cd a_ic b_jd W_cdk = sum_d b_jd (sum_c a_ic W_cdk)` -- but the arithmetic drops from
+# 2 I J (C D) c_z to 2 I J D c_z, i.e. by C, and the intermediate (537 MB at 512 tokens,
+# C = D = 32) never exists. It costs one pass per MSA row, so it wins below depth ~C and
+# loses above it: the deep-MSA models keep the materialised form, which is what it is for.
+_OPM_SMALL_DEPTH = os.environ.get("TT_BIO_OPM_SMALL_DEPTH", "0") != "0"
+OPM_SMALL_DEPTH_MAX = int(os.environ.get("TT_BIO_OPM_SMALL_DEPTH_MAX", "8"))
+#: [served, declined], so a census can tell a dark gate from a correctly declining one.
+OPM_SMALL_DEPTH_STATS = [0, 0]
 # Pair-tensor byte size above which a chunked path's row/channel blocks are assembled
 # on the HOST instead of by ttnn.concat on device. The concat needs a fresh
 # full-pair-tensor allocation while the input and every block are still live (k=3
@@ -5631,6 +5642,65 @@ class OuterProductMean(Module):
         )
         self.o_weight = self.torch_to_tt("proj_o.weight")
         self.o_bias = self.torch_to_tt("proj_o.bias")
+        self._o_folded: dict[tuple[int, int], ttnn.Tensor] = {}
+
+    def _proj_o_folded(self, C: int, D: int) -> ttnn.Tensor:
+        """`proj_o` as [C, D * c_z]. Its row index is `c * D + d`, so this is a plain
+        row-major reshape and not a permutation: (c*D + d) * c_z + k == c * (D*c_z) + d*c_z + k."""
+        w = self._o_folded.get((C, D))
+        if w is None:
+            w = ttnn.to_layout(self.o_weight, ttnn.ROW_MAJOR_LAYOUT)
+            w = ttnn.reshape(w, (C, -1))
+            w = ttnn.to_layout(w, ttnn.TILE_LAYOUT)
+            self._o_folded[(C, D)] = w
+        return w
+
+    def _small_depth(self, a: ttnn.Tensor, b: ttnn.Tensor, n_msa: int | None) -> ttnn.Tensor:
+        """The outer product mean without the outer product, one pass per MSA row.
+
+        `out_ijk = sum_cd a_ic b_jd W_cdk` is evaluated as `sum_d b_jd (sum_c a_ic W_cdk)`:
+        fold `proj_o` into the c projection, which is [I, C] x [C, D*c_z] and 4 MB of result,
+        then contract over d. Nothing of size I x J x C x D is ever built. Not bit-exact with
+        the materialised form -- the sum over (c, d) becomes a sum over c then a sum over d,
+        with one bf16 rounding of the partial in between -- so it is scored on-manifold rather
+        than by md5, the same way the chunked depth path above is.
+        """
+        S, I, C = a.shape
+        _, J, D = b.shape
+        scale = 1.0 / (n_msa if n_msa is not None else S)
+        w = self._proj_o_folded(C, D)
+        c_z = w.shape[1] // D
+        out = None
+        for s in range(S):
+            a_s = ttnn.reshape(a if S == 1 else a[s:s + 1], (I, C))
+            # The scale is linear and folds into the smallest tensor in the chain.
+            a_s = ttnn.multiply(a_s, scale)
+            A = ttnn.matmul(a_s, w, compute_kernel_config=self.compute_kernel_config,
+                            core_grid=CORE_GRID_MAIN)
+            ttnn.deallocate(a_s)
+            A = ttnn.to_layout(A, ttnn.ROW_MAJOR_LAYOUT)
+            A = ttnn.reshape(A, (I, D, c_z))
+            A = ttnn.to_layout(A, ttnn.TILE_LAYOUT)
+            # in1 carries the I batch, so in0 has to as well: ttnn broadcasts in1 over in0's
+            # batch and not the other way round. b is 16 MB expanded at 512 tokens against the
+            # 67 MB the transpose-free output layout saves.
+            b_s = ttnn.reshape(b if S == 1 else b[s:s + 1], (1, J, D))
+            b_exp = ttnn.repeat(b_s, (I, 1, 1))
+            part = ttnn.matmul(b_exp, A, compute_kernel_config=self.compute_kernel_config)
+            ttnn.deallocate(b_exp)
+            ttnn.deallocate(A)
+            if out is None:
+                out = part
+            else:
+                ttnn.add_(out, part)
+                ttnn.deallocate(part)
+        ttnn.deallocate(a)
+        ttnn.deallocate(b)
+        bias = ttnn.multiply(self.o_bias, scale) if self.scale_bias else self.o_bias
+        out = ttnn.add_(out, bias)
+        if self.scale_bias:
+            ttnn.deallocate(bias)
+        return ttnn.reshape(out, (1, *out.shape))
 
     def __call__(self, x: ttnn.Tensor, msa_mask: ttnn.Tensor | None = None, n_msa: int | None = None) -> ttnn.Tensor:
         # `x` may arrive as a LIST of depth chunks. The MSA trunk keeps its representation chunked
@@ -5738,7 +5808,11 @@ class OuterProductMean(Module):
             b = ttnn.concat(b_parts, dim=0)
             for p in b_parts:
                 ttnn.deallocate(p)
+        if depth_parts is None and _OPM_SMALL_DEPTH and a.shape[0] <= OPM_SMALL_DEPTH_MAX:
+            OPM_SMALL_DEPTH_STATS[0] += 1
+            return self._small_depth(a, b, n_msa)
         if depth_parts is None:
+            OPM_SMALL_DEPTH_STATS[1] += 1
             S, I, C = a.shape
             _, J, D = b.shape
             a = ttnn.permute(a, (1, 2, 0))  # (I, C, S)
