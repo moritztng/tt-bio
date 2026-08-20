@@ -458,7 +458,7 @@ LEGS += [
              "(60/60 keys bit-exact over both stages); card-free, in-process"),
     # --- AF2-IG torch trunk vs the captured JAX activations (card-free, needs the
     # checkpoint; GAP rather than FAIL when it is absent) ---
-    Leg("af2ig-trunk", "af2ig_trunk", "af2ig", "",
+    Leg("af2ig-trunk", "af2ig", "af2ig_trunk", "",
         note="AF2-IG torch trunk vs committed JAX activation taps from the production "
              "forward pass; card-free, needs params_model_1_ptm.npz"),
 ]
@@ -1174,17 +1174,16 @@ def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
         return rep
 
     if leg.kind == "af2ig":
-        # Card-free in-process: rebuild the AF2-IG feature dict for the committed
-        # laczc128_b80 fixture and compare all 33 featurizer keys bit-exact vs the
-        # captured production forward pass (scripts/af2_port/parity_gate.py).
-        sys.path.insert(0, str(REPO / "scripts" / "af2_port"))
-        try:
-            import importlib
-            rep = importlib.import_module("parity_gate").featurizer_parity()
-        except Exception as e:
-            return {"error": f"{type(e).__name__}: {e}"}
-        out_json.write_text(json.dumps(rep, indent=2, default=str))
-        return rep
+        # Card-free: rebuild the AF2-IG feature dict for the committed laczc128_b80 fixture and
+        # compare every featurizer key bit-exact against the captured production forward pass.
+        #
+        # A subprocess with PYTHONPATH=REPO, not an in-process import. `scripts/` is what Python
+        # puts on sys.path[0] for this file, so an in-process `import tt_bio` resolves through
+        # the editable install to the SHARED checkout -- the gate would score installed code
+        # rather than the tree it lives in, and on a worktree whose tt_bio is newer than the
+        # install it fails outright (`tt-bio-worktree-run-recipe`).
+        return _af2ig_subprocess(["scripts/af2_port/parity_gate.py"], out_json,
+                                 "af2ig_featurizer")
 
     if leg.kind == "af2ig_trunk":
         # Card-free but NOT checkpoint-free: unlike the featurizer leg this one needs the
@@ -1193,16 +1192,8 @@ def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
         if not params.exists():
             return {"mode": "af2ig_taps", "verdict": "GAP",
                     "error": f"checkpoint absent: {params}"}
-        cmd = [sys.executable, "scripts/af2_port/tap_gate.py", "--params", str(params)]
-        proc = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True,
-                              env={**os.environ, "PYTHONPATH": str(REPO)})
-        try:
-            rep = json.loads(proc.stdout)
-        except json.JSONDecodeError:
-            return {"mode": "af2ig_taps", "verdict": "ERROR",
-                    "error": (proc.stderr or proc.stdout)[-600:]}
-        out_json.write_text(json.dumps(rep, indent=2, default=str))
-        return rep
+        return _af2ig_subprocess(["scripts/af2_port/tap_gate.py", "--params", str(params)],
+                                 out_json, "af2ig_taps")
 
     if leg.kind == "esmc":
         script = "scripts/esmc6b_embed_parity.py" if leg.model == "esmc-6b" else "scripts/esmc_embed_parity.py"
@@ -1358,6 +1349,23 @@ def _capacity_verdict(report: dict) -> tuple[str, str]:
     return ("PASS" if report.get("gate") else "GAP"), detail
 
 
+def _af2ig_subprocess(argv: list[str], out_json: Path, mode: str) -> dict:
+    """Run an AF2-IG scorer in a subprocess rooted at this checkout.
+
+    PYTHONPATH is the point: both AF2-IG legs must score the tt_bio in the repo they are run
+    from, not whichever one the venv has installed editable.
+    """
+    proc = subprocess.run([sys.executable, *argv], cwd=REPO, capture_output=True, text=True,
+                          env={**os.environ, "PYTHONPATH": str(REPO)})
+    try:
+        rep = json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        return {"mode": mode, "verdict": "ERROR",
+                "error": (proc.stderr or proc.stdout or "no output")[-600:]}
+    out_json.write_text(json.dumps(rep, indent=2, default=str))
+    return rep
+
+
 def _featurizer_verdict(report: dict) -> tuple[str, str]:
     """Host-featurizer value parity (rfd3, af2ig): PASS iff every comparable key is
     bit-exact vs the committed upstream capture. Both ports set that bar themselves -- a
@@ -1392,8 +1400,9 @@ def _af2ig_trunk_verdict(report: dict) -> tuple[str, str]:
     if not rows:
         return "NO-DATA", "no taps scored"
     worst = min(rows, key=lambda r: r.get("pcc", -1.0))
-    detail = (f"{report[taps_scored]} taps, {report[taps_failed]} failed; "
-              f"worst {worst[tap]} pcc={worst.get(pcc, float(nan)):.6f}")
+    detail = ("%d taps, %d failed; worst %s pcc=%.6f"
+              % (report["taps_scored"], report["taps_failed"], worst["tap"],
+                 worst.get("pcc", float("nan"))))
     return report.get("verdict", "NO-DATA"), detail
 
 
