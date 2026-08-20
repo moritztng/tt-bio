@@ -1,0 +1,144 @@
+#!/usr/bin/env python3
+"""Score RF3's FeatureInitializer end of the trunk, ceiling measured in the same run."""
+from __future__ import annotations
+import argparse, json, os, sys
+from pathlib import Path
+import torch
+
+REPO = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(REPO))
+PREFIX = "shadow.feature_initializer."
+SEL = {"template": dict(template_selection=["9dfn_A"]), "cyclic": dict(cyclic_chains=["A"])}
+
+
+def pcc(a, b):
+    a, b = a.flatten().double(), b.flatten().double()
+    a, b = a - a.mean(), b - b.mean()
+    d = a.norm() * b.norm()
+    return float((a * b).sum() / d) if d else float("nan")
+
+
+def rel_rms(a, b):
+    return float((a - b).pow(2).mean().sqrt() / b.std())
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--ckpt", required=True)
+    ap.add_argument("--fixture", default="rna")
+    ap.add_argument("--capture", default="/home/ttuser/rf3_ref_work/fi/rna_fi.pt")
+    args = ap.parse_args()
+
+    import ttnn
+    from tt_bio.boltz2 import get_indexing_matrix
+    from tt_bio.rf3.atom_encoder import window_mask
+    from tt_bio.rf3.atom_encoder_host import (ATOM_KEYS, ATOM_WINDOW, window_pair,
+                                              atom_to_token_mean, pair_inputs,
+                                              single_features)
+    from tt_bio.rf3.feature_init import mlff_constant, relpos_features, token_bond_features
+    from tt_bio.rf3.feature_initializer import FeatureInitializer, token_features
+    from tt_bio.rf3.featurize import featurize
+    from tt_bio.rf3.weights import load_reference
+    from tt_bio.tenstorrent import get_device
+
+    cap = torch.load(args.capture, weights_only=False)
+    f_cap = cap["in"][0]
+    want_s_inputs, want_s_init, want_z_init = cap["out"]
+
+    net, _ = load_reference(args.ckpt, num_steps=2)
+    ref = net.feature_initializer
+
+    d = REPO / "scripts/rf3_port/parity_artifacts" / args.fixture
+    prev = os.getcwd(); os.chdir(d)
+    try:
+        out = featurize("input.json", n_recycles=2, diffusion_batch_size=1, seed=42,
+                        **SEL.get(args.fixture, {}))[0]
+    finally:
+        os.chdir(prev)
+    f = out["feats"]
+
+    def run(bf16):
+        ff = {k: (v.clone() if isinstance(v, torch.Tensor) else v) for k, v in f.items()}
+        ctx = (torch.autocast("cpu", dtype=torch.bfloat16) if bf16
+               else torch.autocast("cpu", enabled=False))
+        with torch.no_grad(), ctx:
+            return [t.float() for t in ref(ff)]
+
+    hi, lo = run(False), run(True)
+
+    L = int(f["atom_to_token_map"].shape[0])
+    I = int(f["atom_to_token_map"].max()) + 1
+    Lp = ((L + ATOM_WINDOW - 1) // ATOM_WINDOW) * ATOM_WINDOW
+    K = Lp // ATOM_WINDOW
+
+    ff = {k: (v.clone() if isinstance(v, torch.Tensor) else v) for k, v in f.items()}
+    ff["ref_atom_name_chars"] = ff["ref_atom_name_chars"].reshape(L, -1)
+    s_in = torch.zeros(1, Lp, 393); s_in[0, :L] = single_features(ff, L)
+    p_raw, v_raw = pair_inputs(ff, L)
+    p_in = torch.zeros(1, Lp, Lp, 32); p_in[0, :L, :L, :5] = p_raw
+    v_in = torch.zeros(1, Lp, Lp, 1); v_in[0, :L, :L] = v_raw
+    p_in = window_pair(p_in)
+    v_in = window_pair(v_in)
+    a2t = torch.zeros(1, I, Lp); a2t[0, :, :L] = atom_to_token_mean(ff, L, I)
+
+    dev = get_device()
+    cfg = ttnn.init_device_compute_kernel_config(
+        dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
+        fp32_dest_acc_en=True, packer_l1_acc=True)
+
+    def tt(x):
+        return ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, device=dev,
+                               dtype=ttnn.bfloat16)
+
+    w = {k[len(PREFIX):]: v.float()
+         for k, v in torch.load(args.ckpt, map_location="cpu",
+                                weights_only=False)["model"].items()
+         if k.startswith(PREFIX)}
+
+    class _M(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.process_atom_level_embedding = torch.nn.Sequential(
+                torch.nn.Linear(384, 192), torch.nn.ReLU(), torch.nn.Dropout(0.1),
+                torch.nn.Linear(192, 96), torch.nn.ReLU(), torch.nn.Dropout(0.1),
+                torch.nn.Linear(96, 48), torch.nn.ReLU(), torch.nn.Dropout(0.1),
+                torch.nn.Linear(48, 16))
+            self.conformers_to_atom_single_embedding = torch.nn.Sequential(
+                torch.nn.Linear(128, 128, bias=False), torch.nn.LayerNorm(128))
+        def forward(self, x):
+            y = self.process_atom_level_embedding(x)
+            y = y.permute(1, 0, 2).reshape(y.shape[1], -1)
+            return self.conformers_to_atom_single_embedding(y)
+
+    pre = "input_feature_embedder.atom_attention_encoder.process_atom_level_embedding."
+    m = _M().eval()
+    m.load_state_dict({k[len(pre):]: v for k, v in w.items() if k.startswith(pre)},
+                      strict=True)
+
+    fi = FeatureInitializer(w, cfg, mlff_constant(m))
+    got = fi(tt(s_in), tt(p_in), tt(v_in),
+             tt(get_indexing_matrix(K, ATOM_WINDOW, ATOM_KEYS, torch.device("cpu"))),
+             tt(a2t), tt(window_mask(L, Lp)), Lp,
+             tt(token_features(ff, I).reshape(1, I, -1)),
+             tt(relpos_features(ff).unsqueeze(0)),
+             tt(token_bond_features(ff).unsqueeze(0)))
+
+    rows = []
+    for name, g, want, h, l in (
+        ("S_inputs", got[0], want_s_inputs, hi[0], lo[0]),
+        ("S_init", got[1], want_s_init, hi[1], lo[1]),
+        ("Z_init", got[2], want_z_init, hi[2], lo[2]),
+    ):
+        gg = torch.Tensor(ttnn.to_torch(g)).float().reshape(want.shape)
+        ceil = rel_rms(l.reshape(want.shape), h.reshape(want.shape))
+        e = rel_rms(gg, want)
+        rows.append({"tensor": name, "shape": list(want.shape),
+                     "pcc": round(pcc(gg, want), 7), "rel_rms": round(e, 6),
+                     "ceiling": round(ceil, 6),
+                     "x_ceiling": round(e / ceil, 2) if ceil else None})
+    print(json.dumps({"L": L, "I": I, "scores": rows}, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
