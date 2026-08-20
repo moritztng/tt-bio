@@ -145,8 +145,9 @@ def score_one(ref, base: str, arr: torch.Tensor) -> dict:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--inputs", default=str(ARTIFACTS / "ref_inputs.npz"))
-    ap.add_argument("--taps", default=str(ARTIFACTS / "ref_taps.npz"))
+    ap.add_argument("--stage", default="complex", choices=["complex", "monomer"])
+    ap.add_argument("--inputs", default=None)
+    ap.add_argument("--taps", default=None)
     ap.add_argument("--params", default=DEFAULT_PARAMS)
     ap.add_argument("--evoformer-blocks", type=int, default=None,
                     help="truncate the Evoformer for a smoke test; scoring skips missing taps")
@@ -157,9 +158,14 @@ def main() -> int:
     from tt_bio.af2_reference import NUM_EVOFORMER_BLOCKS, load_trunk
     from tt_bio.af2_weights import load_af2_state_dict
 
-    feats, prev = load_inputs(Path(args.inputs))
+    suffix = "" if args.stage == "complex" else "_monomer"
+    inputs = Path(args.inputs or ARTIFACTS / f"ref_inputs{suffix}.npz")
+    taps_path = Path(args.taps or ARTIFACTS / f"ref_taps{suffix}.npz")
+    feats, prev = load_inputs(inputs)
     blocks = args.evoformer_blocks or NUM_EVOFORMER_BLOCKS
-    model = load_trunk(load_af2_state_dict(args.params), num_evoformer_blocks=blocks)
+    # The monomer stage is the model_3_ptm config: same checkpoint, template stack dropped.
+    model = load_trunk(load_af2_state_dict(args.params), template=args.stage == "complex",
+                       num_evoformer_blocks=blocks)
 
     taps = Taps()
     handles = taps.install(model)
@@ -173,14 +179,15 @@ def main() -> int:
     taps.add("evoformer#0/msa_first_row", out["msa_first_row"])
     taps.add("predicted_aligned_error_head#0/logits", out["pae_logits"])
 
-    if not Path(args.taps).exists():
-        print(json.dumps({"mode": "af2ig_taps", "verdict": "NO_REFERENCE",
+    if not taps_path.exists():
+        print(json.dumps({"mode": "af2ig_taps", "stage": args.stage,
+                          "verdict": "NO_REFERENCE",
                           "taps_produced": sorted(taps.values),
                           "finite": {k: bool(torch.isfinite(v).all())
                                      for k, v in taps.values.items()}}, indent=1))
         return 0
 
-    with np.load(args.taps, allow_pickle=False) as npz:
+    with np.load(taps_path, allow_pickle=False) as npz:
         ref = {k: npz[k] for k in npz.files}
     bases = sorted({k.rsplit("/", 1)[0] for k in ref if k.endswith("/shape")})
     rows, skipped = [], []
@@ -193,6 +200,7 @@ def main() -> int:
     failed = [r for r in rows if r["verdict"] != "PASS"]
     report = {
         "mode": "af2ig_taps",
+        "stage": args.stage,
         "verdict": "PASS" if rows and not failed else "FAIL",
         "taps_scored": len(rows),
         "taps_failed": len(failed),

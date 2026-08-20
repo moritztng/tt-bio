@@ -664,14 +664,18 @@ def load_trunk(state_dict: dict[str, torch.Tensor], *, template: bool = True,
     """Build an `AF2Trunk` and load a remapped checkpoint into it.
 
     Keys under `DEFERRED_PREFIXES` are the structure module and the predicted-LDDT head, which
-    this pass does not implement; anything else left over is a remap or transcription mistake and
-    raises. Nothing may be missing.
+    this pass does not implement, and with `template=False` the template stack the monomer config
+    drops. Anything else left over is a remap or transcription mistake and raises. Nothing may be
+    missing.
     """
     model = AF2Trunk(template=template, **kwargs)
+    # The monomer stage runs the model_3_ptm config, where the template stack is absent.
+    # ColabDesign drops the template parameters at load (`af/model.py:112-120`) from the same
+    # params_model_1_ptm.npz, so the monomer trunk leaves them unconsumed by design.
+    allowed = DEFERRED_PREFIXES if template else DEFERRED_PREFIXES + ("template.",)
     wanted = set(model.state_dict())
     consumed = {k: v for k, v in state_dict.items() if k in wanted}
-    leftover = [k for k in state_dict
-                if k not in wanted and not k.startswith(DEFERRED_PREFIXES)]
+    leftover = [k for k in state_dict if k not in wanted and not k.startswith(allowed)]
     if leftover:
         raise AssertionError(f"{len(leftover)} checkpoint keys have no home in AF2Trunk and are "
                              f"not deliberately deferred: {sorted(leftover)[:12]}")
