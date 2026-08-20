@@ -40,7 +40,9 @@ PYTHONPATH="$PWD" /tmp/relvenv/bin/python3 scripts/full_parity_gate.py ...
 folds and scorers as `sys.executable`, so the choice propagates to every leg.
 
 ```bash
-python3 -m pytest -v --tb=short
+# Pin the card. Much of the suite opens a device, and with TT_VISIBLE_DEVICES unset
+# it takes the whole mesh, which collides with anything else running on the host.
+TT_VISIBLE_DEVICES=0 python3 -m pytest -v --tb=short
 
 # Packaging guard — catches a dropped data file in the wheel/sdist before it
 # ships to PyPI (the v0.3.3 bug class: protenix-v2/opendde/boltzgen crashed on
