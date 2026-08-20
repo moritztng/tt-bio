@@ -10,7 +10,7 @@
 > [!IMPORTANT]
 > **TT-Boltz is now TT-Bio**
 
-TT-Bio runs [Boltz-2](https://github.com/jwohlwend/boltz), [ESMFold2](https://github.com/Biohub/esm), [Protenix-v2](https://github.com/bytedance/Protenix), [OpenFold3](https://github.com/aqlaboratory/openfold-3), and [OpenDDE](#structure-prediction) structure prediction, [BoltzGen](#design) and [RFdiffusion3](#design) binder/protein design, and [ESMC protein embeddings](#protein-embeddings-esmc), and [SaProt structure-aware protein embeddings](#structure-aware-protein-embeddings-saprot) on Tenstorrent Blackhole and Wormhole, supporting single-card and multi-card configurations (e.g. QuietBox with 4 cards or Galaxy server with 32 cards). Multiple machines can also be combined into a single prediction run.
+TT-Bio runs [Boltz-2](https://github.com/jwohlwend/boltz), [ESMFold2](https://github.com/Biohub/esm), [Protenix-v2](https://github.com/bytedance/Protenix), [OpenFold3](https://github.com/aqlaboratory/openfold-3), and [OpenDDE](#structure-prediction) structure prediction, [BoltzGen](#design) and [RFdiffusion3](#design) binder/protein design, and [ESMC protein embeddings](#protein-embeddings-esmc), [SaProt structure-aware protein embeddings](#structure-aware-protein-embeddings-saprot), and [Nesso-1 structure-free binding affinity](#binding-affinity-without-a-structure-nesso-1) on Tenstorrent Blackhole and Wormhole, supporting single-card and multi-card configurations (e.g. QuietBox with 4 cards or Galaxy server with 32 cards). Multiple machines can also be combined into a single prediction run.
 
 **Benchmarks: [tt-bio.com](https://tt-bio.com)** has throughput and cost for every model against
 NVIDIA DGX H200, B200 and A100. The [full benchmark page](https://tt-bio.com/benchmarks/) has the
@@ -78,6 +78,7 @@ Every command names its model with `--model`:
 - **`protenix-v2`**: folds complexes of proteins, RNA, DNA, and ligands (an AlphaFold3-family model, the [Protenix](https://github.com/bytedance/Protenix) reproduction); MSA-dependent for proteins (uses an MSA by default), and also emits a PAE/PDE matrix with `--write_pae`.
 - **`openfold3`**: folds proteins, RNA and DNA (an AlphaFold3-family model, the [OpenFold3](https://github.com/aqlaboratory/openfold-3) reproduction); MSA-dependent (uses an MSA by default), with optional per-chain templates. Polymer chains only, ligands and covalent bonds are not supported yet (raise a clear error). Weights come from the OpenFold consortium; point `OF3_CKPT` at them.
 - **`saprot`**: structure-aware protein embeddings, an ESM-2 encoder over a fused amino-acid + Foldseek-3Di vocabulary (446 tokens). Needs a structure for the 3Di structural tokens (`--structure`); runs sequence-only without it. Use for variant-effect / mutation-fitness scoring and function prediction.
+- **`nesso1`** (`tt-bio affinity`): protein-ligand binding affinity without a structure. Predicts a soft distogram and reads the affinity off that, so it is much cheaper than folding and it returns no coordinates. Proteins and ligands only.
 - **`opendde`** / **`opendde-abag`**: antibody-antigen co-folding built on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint. Protein-only for now; proteins are MSA-dependent (uses an MSA by default, like Protenix-v2).
 
 ```bash
@@ -313,6 +314,31 @@ The affinity trunk runs in fp32 because the predicted log10(IC50) is sensitive t
 activation precision, and that is not configurable. Earlier releases ran it in fp32
 on the host CPU instead, which is why affinity used to take minutes per ligand and
 looked CPU-bound.
+
+### Binding Affinity Without a Structure (Nesso-1)
+
+`tt-bio affinity` predicts protein-ligand affinity without folding anything. Nesso-1 has no
+structure module, so it returns a number, not coordinates:
+
+```bash
+tt-bio affinity examples/affinity.yaml                  # one complex
+tt-bio affinity ligands/ --out_dir screen               # a directory is a screen
+```
+
+A directory keeps the model resident across inputs, so a ligand series against one target pays the
+weight load and the kernel compile once. Output is one `<id>_affinity.json` per input plus an
+`affinity.csv` for the whole run: the affinity value (mean of a two-member ensemble, and each
+member), a binary binder probability, and six distogram entropies.
+
+On DAVIS it reaches 0.662 mean within-target Pearson against measured Kd (0.175 for a
+molecular-weight-only control), matching the 0.636 the upstream implementation gets on an H200.
+
+Use it to rank a series; use `predict --model boltz2` when you need the pose. Proteins and ligands
+only, one ligand scored per input. The trunk runs bf16 by default: it is about 6x faster than fp32
+and no less accurate from 276 tokens up, and fp32 runs out of DRAM around 1000 tokens. On inputs
+under ~150 tokens fp32 is the more faithful arm, and `--trunk fp32` switches back. See
+[`docs/nesso1.md`](docs/nesso1.md) for the input schema, the four upstream limits, and what to watch
+when comparing numbers against another implementation.
 
 ### Input Format
 
