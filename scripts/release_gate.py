@@ -1644,6 +1644,33 @@ def run_l1_budget_fold(keep: bool) -> list:
     return rows
 
 
+def batch_position_failures(rows: list, n: int) -> list:
+    """Why a batch-position run fails, or [] if it passes. Pure, so it is testable.
+
+    ``rows[:n]`` are byte-identical targets and must agree on every field in
+    BATCH_POSITION_FIELDS. ``rows[n:]`` is the differing control, which must NOT match
+    them: without that check a run where every fold collapsed to one constant would also
+    report agreement, which is the right answer for the wrong reason.
+    """
+    same = rows[:n]
+    if len(same) < n:
+        return [f"only {len(same)}/{n} identical targets folded"]
+    fails = []
+    for f in BATCH_POSITION_FIELDS:
+        vals = [r.get(f) for r in same]
+        if len(set(map(repr, vals))) != 1:
+            fails.append(f"{f} depends on batch position: {vals}")
+    control = rows[n:]
+    if not control:
+        fails.append("no differing control target in the batch, so agreement is unproven")
+    else:
+        for f in BATCH_POSITION_FIELDS:
+            if control[0].get(f) == same[0].get(f):
+                fails.append(f"the control target matched the identical ones on {f} "
+                             f"({control[0].get(f)}), so this leg is not discriminating")
+    return fails
+
+
 def run_batch_position(keep: bool) -> dict:
     """Fold identical targets at different batch positions and require identical results.
 
@@ -1685,25 +1712,7 @@ def run_batch_position(keep: bool) -> dict:
         row["error"] = f"repro wrote no JSON (rc={rc}); see {log}"
         return row
     row["rows"] = json.loads(js.read_text())
-    same = row["rows"][:BATCH_POSITION_N]
-    if len(same) < BATCH_POSITION_N:
-        row["error"] = f"only {len(same)}/{BATCH_POSITION_N} identical targets folded"
-        return row
-    fails = []
-    for f in BATCH_POSITION_FIELDS:
-        vals = [r.get(f) for r in same]
-        if len(set(map(repr, vals))) != 1:
-            fails.append(f"{f} depends on batch position: {vals}")
-    # The control. Without it the leg would also pass if every fold collapsed to one
-    # constant, which is agreement for the wrong reason.
-    control = row["rows"][BATCH_POSITION_N:]
-    if not control:
-        fails.append("no differing control target in the batch, so agreement is unproven")
-    else:
-        for f in BATCH_POSITION_FIELDS:
-            if control[0].get(f) == same[0].get(f):
-                fails.append(f"the control target matched the identical ones on {f} "
-                             f"({control[0].get(f)}), so this leg is not discriminating")
+    fails = batch_position_failures(row["rows"], BATCH_POSITION_N)
     if rc and not fails:
         fails.append(f"repro exited {rc}; see {log}")
     row["gate"] = not fails
