@@ -484,13 +484,32 @@ L1_BUDGET_HIDDEN = (128, 256)
 # that died on his p300c. Cheap enough for a default arm (~15 s a grid).
 L1_BUDGET_DATA = REPO_ROOT / "examples" / "affinity_fkg.yaml"
 L1_BUDGET_MODEL = "protenix-v2"
-DEFAULT_ARMS = ("boltzgen", "opendde-abag", "capacity", "l1-budget")
+DEFAULT_ARMS = ("boltzgen", "opendde-abag", "capacity", "l1-budget",
+                "batch-position")
 
 L1_BUDGET_STEPS = 200
 # The width measured to fit at the issue-#11 call shape on a 110-core grid: the
 # clash-and-narrow fold lands here, so a fold pinned here from the start is the
 # same computation without the interrupted attempt.
 L1_BUDGET_CAP = 128
+
+# --- batch-position leg --------------------------------------------------------
+# 0.6.5 fixed a defect every other leg is structurally blind to: three byte-identical
+# Boltz-2 affinity targets folded by ONE worker scored 0.648724 / 0.722511 / 0.687149,
+# differing only by their position in the batch. Unseeded RDKit ETKDG redrew the ligand
+# conformer on every parse, and the affinity checkpoint's lazy load advanced the RNG the
+# first target's diffusion drew from. Every other leg folds a single target per process,
+# so a per-position difference has nothing to differ from and cannot be seen.
+# The arm folds N identical targets plus one genuinely different one in a single
+# process. The identical ones must agree exactly; the different one must NOT, so the
+# arm cannot pass by everything collapsing to a constant.
+BATCH_POSITION_SCRIPT = REPO_ROOT / "scripts" / "boltz2_affinity_batch_position_repro.py"
+BATCH_POSITION_N = 3
+BATCH_POSITION_AA = 256
+BATCH_POSITION_EXTRA_AA = 200
+# The fields that must be position-independent: the structure the ligand conformer
+# feeds, and both affinity heads.
+BATCH_POSITION_FIELDS = ("coords", "affinity_pred_value", "affinity_probability_binary")
 
 
 def _msa_args(model: str) -> list:
@@ -1625,6 +1644,75 @@ def run_l1_budget_fold(keep: bool) -> list:
     return rows
 
 
+def run_batch_position(keep: bool) -> dict:
+    """Fold identical targets at different batch positions and require identical results.
+
+    Drives scripts/boltz2_affinity_batch_position_repro.py, which folds every target
+    through the same ``_WorkerState`` path a spawned worker uses and writes one JSON
+    record per target. Its own exit code already encodes the identical-target verdict;
+    this leg re-derives it from the JSON so a partial run cannot read as a pass, and
+    adds the differing-control check.
+    """
+    row = {"model": "batch-position", "seconds": None, "rows": [], "gate": False,
+           "error": None}
+    if not BATCH_POSITION_SCRIPT.exists():
+        row["error"] = f"missing {BATCH_POSITION_SCRIPT}"
+        return row
+    out = REPO_ROOT / "batch_position_gate"
+    if out.exists():
+        shutil.rmtree(out)
+    js = out / "probe.json"
+    out.mkdir(parents=True)
+    cmd = [sys.executable, str(BATCH_POSITION_SCRIPT),
+           "--aa", str(BATCH_POSITION_AA), "--n", str(BATCH_POSITION_N),
+           "--extra-aa", str(BATCH_POSITION_EXTRA_AA),
+           "--out", str(out), "--json-out", str(js)]
+    print(f"\n{'='*70}\n[batch-position] {BATCH_POSITION_N} identical "
+          f"{BATCH_POSITION_AA} aa targets + one {BATCH_POSITION_EXTRA_AA} aa control, "
+          f"one process\n{'='*70}", flush=True)
+    log = REPO_ROOT / "batch_position_gate.log"
+    # Each target is a full structure + affinity fold, so this leg needs N+1 of them.
+    timeout = FOLD_TIMEOUT_S * (BATCH_POSITION_N + 1)
+    t0 = time.monotonic()
+    with open(log, "wb") as fh:
+        rc, timed_out = _run_fold(cmd, timeout, cwd=REPO_ROOT,
+                                  stdout=fh, stderr=subprocess.STDOUT)
+    row["seconds"] = time.monotonic() - t0
+    if timed_out:
+        row["error"] = f"repro timed out after {timeout}s (see {log})"
+        return row
+    if not js.exists():
+        row["error"] = f"repro wrote no JSON (rc={rc}); see {log}"
+        return row
+    row["rows"] = json.loads(js.read_text())
+    same = row["rows"][:BATCH_POSITION_N]
+    if len(same) < BATCH_POSITION_N:
+        row["error"] = f"only {len(same)}/{BATCH_POSITION_N} identical targets folded"
+        return row
+    fails = []
+    for f in BATCH_POSITION_FIELDS:
+        vals = [r.get(f) for r in same]
+        if len(set(map(repr, vals))) != 1:
+            fails.append(f"{f} depends on batch position: {vals}")
+    # The control. Without it the leg would also pass if every fold collapsed to one
+    # constant, which is agreement for the wrong reason.
+    control = row["rows"][BATCH_POSITION_N:]
+    if not control:
+        fails.append("no differing control target in the batch, so agreement is unproven")
+    else:
+        for f in BATCH_POSITION_FIELDS:
+            if control[0].get(f) == same[0].get(f):
+                fails.append(f"the control target matched the identical ones on {f} "
+                             f"({control[0].get(f)}), so this leg is not discriminating")
+    if rc and not fails:
+        fails.append(f"repro exited {rc}; see {log}")
+    row["gate"] = not fails
+    row["error"] = "; ".join(fails) or None
+    if not keep:
+        shutil.rmtree(out, ignore_errors=True)
+    return row
+
+
 def main() -> int:
     # Scorers, folds and predict CLIs we spawn arm their parent-death guard off this,
     # so none of them can outlive this driver still holding a card. Inherited through
@@ -1679,6 +1767,7 @@ def main() -> int:
     want_opendde_abag = "opendde-abag" in models
     want_capacity = "capacity" in models
     want_l1_budget = "l1-budget" in models
+    want_batch_position = "batch-position" in models
     want_size_ladder = "size-ladder" in models
     esmc_models = [m for m in models if m in ESMC_DEFAULT + ESMC_OPT_IN]
     _preflight_msa_cache(models)
@@ -1854,6 +1943,28 @@ def main() -> int:
               "numerics-neutral" if l1_pass else
               "GATE FAIL — a part class cannot escape an L1/CB clash, or the ladder changed "
               "the numbers (see above)")
+
+    if want_batch_position:
+        bp = run_batch_position(args.keep)
+        all_pass &= bp["gate"]
+        print(f"\n{'#'*78}\nRELEASE GATE — batch position "
+              f"({BATCH_POSITION_N} identical {BATCH_POSITION_AA} aa CDK2 + SMILES-ligand "
+              f"targets, then one {BATCH_POSITION_EXTRA_AA} aa control, one process)"
+              f"\n{'#'*78}")
+        print(f"{'pos':<5}{'target':<12}{'coords':>18}{'affinity':>11}"
+              f"{'p(bind)':>10}{'wall':>9}")
+        for r in bp["rows"]:
+            wall = f"{r['wall_s']:.0f}s" if r.get("wall_s") is not None else "-"
+            print(f"{r.get('pos', '-'):<5}{r.get('target', '-'):<12}"
+                  f"{str(r.get('coords', '-')):>18}"
+                  f"{str(r.get('affinity_pred_value', '-')):>11}"
+                  f"{str(r.get('affinity_probability_binary', '-')):>10}{wall:>9}")
+        if bp["error"]:
+            print(f"    FAIL {bp['error']}")
+        print(f"{'#'*78}")
+        print("GATE PASS — identical targets are identical whatever their batch position, "
+              "and the control target still differs" if bp["gate"] else
+              "GATE FAIL — a result depends on a target's position in the batch (see above)")
 
     if esmc_models:
         if "ESM_ROOT" not in os.environ:
