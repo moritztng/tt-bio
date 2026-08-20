@@ -136,6 +136,11 @@ class Taps:
             # `TemplatePairStack` is the whole 2-block stack, so its output is the last block's.
             handles.append(model.template.pair_stack[-1].register_forward_hook(
                 hook("template_pair_stack")))
+        if hasattr(model, "device_evoformer"):
+            # The device model's torch blocks never run, so the per-block taps come from the
+            # stacks themselves. Same names, same order, same flat per-tag counter.
+            model.block_tap = self.emit
+            return handles
         for stack, tag in ((model.extra_msa, "extra_msa_stack"),
                            (model.evoformer, "evoformer_iteration")):
             for block in stack:
@@ -205,27 +210,58 @@ def score_one(ref, base: str, arr: torch.Tensor) -> dict:
     return out
 
 
-def _in_envelope(row: dict, envelope: dict) -> bool:
-    """Every measure that broke its bar has to be no worse than the two arms are from each other.
+# The torch arm is adjudicated against the envelope with no slack: bf16 and fp32 torch are the
+# two arms the envelope is built from, so a third-realisation allowance would be unearned. The
+# device arm IS a third realisation, which is the reason pass 10 replaced `rms_device <=
+# rms_envelope` with 1.5x at the chained boundary (state doc, "DECIDED: the acceptance bar").
+# The same constant is used here for the same reason, and it is held honest the same way: the
+# two `--mutate` controls have to FAIL under it, or the leg has established nothing.
+DEVICE_ENVELOPE_SLACK = 1.5
+
+
+def _in_envelope(row: dict, envelope: dict, slack: float = 1.0) -> bool:
+    """Every measure that broke its bar has to be within `slack` of what the two arms are from
+    each other.
 
     Only the measures that actually missed are adjudicated: a tap that fails on correlation and
     passes on the statistics does not have to justify its statistics as well.
     """
-    checks = []
+    checks, worst = [], 0.0
     if row.get("pcc", 0.0) < PCC_BAR:
-        checks.append((1 - row["pcc"]) <= (1 - envelope["pcc"]))
+        ratio = (1 - row["pcc"]) / max(1 - envelope["pcc"], 1e-12)
+        worst = max(worst, ratio)
+        checks.append(ratio <= slack)
     for key in ("d_mean", "d_std", "d_sumsq"):
         if row.get(key, 0.0) > STATS_BAR:
-            checks.append(row[key] <= envelope[key])
+            ratio = row[key] / max(envelope[key], 1e-12)
+            worst = max(worst, ratio)
+            checks.append(ratio <= slack)
+    row["envelope_ratio"] = worst
     return bool(checks) and all(checks)
 
 
+#: Device-leg mutations. Each breaks one thing the port claims and nothing else, so a gate that
+#: still passes is not measuring that claim. `extra-const` drops the constant the dead extra-MSA
+#: track collapses to; `block-order` runs the 48 Evoformer blocks backwards.
+DEVICE_MUTATIONS = ("extra-const", "block-order")
+
+
 def run_arm(state, feats: dict, prev: dict, *, template: bool, dtype: torch.dtype,
-            keep: set[str] | None, recycles: int) -> tuple[dict, dict]:
+            keep: set[str] | None, recycles: int, device: bool = False,
+            mutate: str | None = None, template_cache: bool = True) -> tuple[dict, dict]:
     """One precision realisation of the model: its collected taps and its last pass's output."""
     from tt_bio.af2_reference import load_af2_model, run_recycles
 
-    model = load_af2_model(state, template=template, trunk_dtype=dtype)
+    if device:
+        from tt_bio.af2 import load_af2_device_model
+        model = load_af2_device_model(state, template=template, trunk_dtype=dtype)
+        model.template_cached = template_cache
+        if mutate == "extra-const":
+            model.opm_constant = [torch.zeros_like(c) for c in model.opm_constant]
+        elif mutate == "block-order":
+            model.device_evoformer = model.device_evoformer[::-1]
+    else:
+        model = load_af2_model(state, template=template, trunk_dtype=dtype)
     taps = Taps(keep=keep)
     handles = taps.install(model)
     last = None
@@ -247,6 +283,12 @@ def main() -> int:
                     help="0 runs a single pass; only the first recycle's taps are then scored")
     ap.add_argument("--drop-tap", default=None,
                     help="discard one tap by name, to prove the missing-tap branch really fails")
+    ap.add_argument("--device", action="store_true",
+                    help="run the two block stacks in ttnn on card; everything else stays torch")
+    ap.add_argument("--mutate", default=None, choices=DEVICE_MUTATIONS,
+                    help="break one device-leg claim; the gate has to FAIL or it is blind")
+    ap.add_argument("--no-template-cache", action="store_true",
+                    help="recompute the template every pass; must change no number")
     ap.add_argument("--no-envelope", action="store_true",
                     help="skip the float32 arm and report every miss as a bare FAIL")
     args = ap.parse_args()
@@ -269,8 +311,11 @@ def main() -> int:
 
     # The monomer stage is the model_3_ptm config: same checkpoint, template stack dropped.
     template = args.stage == "complex"
+    assert not (args.mutate and not args.device), "--mutate is a device-leg control"
     taps, last = run_arm(state, feats, prev, template=template, dtype=torch.bfloat16,
-                         keep=set(bases) if ref else None, recycles=args.recycles)
+                         keep=set(bases) if ref else None, recycles=args.recycles,
+                         device=args.device, mutate=args.mutate,
+                         template_cache=not args.no_template_cache)
     if args.drop_tap:
         taps.values.pop(args.drop_tap, None)
 
@@ -317,6 +362,7 @@ def main() -> int:
     # costs a second forward pass, so it only runs when there is something to adjudicate.
     scalars_failed = [r for r in scalars if r["verdict"] != "PASS"]
     envelope_arm = None
+    slack = DEVICE_ENVELOPE_SLACK if args.device else 1.0
     if (failed or scalars_failed) and not args.no_envelope:
         envelope_arm = "float32"
         other, other_last = run_arm(state, feats, prev, template=template,
@@ -329,7 +375,7 @@ def main() -> int:
             width = score_one(as_reference(ref, base, other.values[base]), base,
                               taps.values[base])
             row["envelope_pcc"] = width.get("pcc")
-            if _in_envelope(row, width):
+            if _in_envelope(row, width, slack):
                 row["verdict"] = "IN-ENVELOPE"
         if scalars_failed:
             other_got = confidence_scalars(other_last["plddt_logits"], other_last["pae_logits"],
@@ -337,20 +383,31 @@ def main() -> int:
                                            feats["asym_id"], binder_len=binder)
             for row in scalars_failed:
                 row["envelope"] = abs(got[row["scalar"]] - other_got[row["scalar"]])
-                if row["delta"] <= row["envelope"]:
+                row["envelope_ratio"] = row["delta"] / max(row["envelope"], 1e-12)
+                if row["envelope_ratio"] <= slack:
                     row["verdict"] = "IN-ENVELOPE"
         failed = [r for r in failed if r["verdict"] != "IN-ENVELOPE"]
         scalars_failed = [r for r in scalars_failed if r["verdict"] != "IN-ENVELOPE"]
 
     excused = ([r for r in rows if r["verdict"] == "IN-ENVELOPE"]
                + [r for r in scalars if r["verdict"] == "IN-ENVELOPE"])
+    verdict = (("PASS-caveated" if excused else "PASS")
+               if rows and not failed and not scalars_failed and not (full and skipped)
+               else "FAIL")
+    if args.mutate:
+        # Inverted: the control establishes that the gate can see this class of error at all.
+        verdict = "PASS" if verdict == "FAIL" else "BLIND"
     report = {
         "mode": "af2ig_taps",
         "stage": args.stage,
         "recycles": args.recycles,
-        "verdict": (("PASS-caveated" if excused else "PASS")
-                    if rows and not failed and not scalars_failed and not (full and skipped)
-                    else "FAIL"),
+        "arm": "device" if args.device else "torch",
+        "envelope_slack": slack,
+        "envelope_ratio_max": max((r.get("envelope_ratio", 0.0) for r in rows + scalars),
+                                  default=0.0),
+        "mutate": args.mutate,
+        "template_cached": not args.no_template_cache,
+        "verdict": verdict,
         "taps_scored": len(rows),
         "taps_failed": len(failed),
         "taps_produced": taps.produced,

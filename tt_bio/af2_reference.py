@@ -370,10 +370,13 @@ class EvoformerBlock(PairBlock):
         self.msa_transition = ReluTransition(c_m, 4)
         self.opm = OuterProductMean(c_m, 32, c_z)
 
-    def forward(self, msa, pair, msa_mask, pair_mask):
+    def _msa_track(self, msa, pair, msa_mask):
         msa = msa + self.msa_row_attn(msa, msa_mask, pair)
         msa = msa + self.msa_col_attn(msa, msa_mask)
-        msa = msa + self.msa_transition(msa)
+        return msa + self.msa_transition(msa)
+
+    def forward(self, msa, pair, msa_mask, pair_mask):
+        msa = self._msa_track(msa, pair, msa_mask)
         pair = pair + self.opm(msa, msa_mask)
         return msa, self._pair_track(pair, pair_mask)
 
@@ -925,6 +928,28 @@ class AF2Model(nn.Module):
         self.heads = nn.ModuleDict({"pae": nn.ModuleDict({"logits": Linear(C_Z, PAE_BINS)}),
                                     "plddt": PredictedLDDTHead()})
 
+    def template_embedding(self, pair: torch.Tensor, feats: dict, mask_2d: torch.Tensor,
+                           multichain_mask: torch.Tensor) -> torch.Tensor:
+        """The template's contribution to the pair. A seam, for the same reason the two stacks
+        are: it is the third thing a port may want to place elsewhere."""
+        return self.template(pair, feats, mask_2d, multichain_mask)
+
+    def extra_msa_stack(self, extra: torch.Tensor, pair: torch.Tensor,
+                        extra_mask: torch.Tensor, pair_mask: torch.Tensor) -> torch.Tensor:
+        """The four extra-MSA blocks. Only the pair comes out: the stack's MSA output is dead,
+        which `AF2Model.forward` has always relied on and `scripts/af2_port/host_screen.py`
+        proves bit-exact for this featurisation."""
+        for block in self.extra_msa:
+            extra, pair = block(extra, pair, extra_mask, pair_mask)
+        return pair
+
+    def evoformer_stack(self, msa: torch.Tensor, pair: torch.Tensor, msa_mask: torch.Tensor,
+                        pair_mask: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """The 48 Evoformer blocks."""
+        for block in self.evoformer:
+            msa, pair = block(msa, pair, msa_mask, pair_mask)
+        return msa, pair
+
     def forward(self, feats: dict, prev: dict) -> dict:
         dtype = self.trunk_dtype
         target_feat = F.pad(feats["target_feat"].to(dtype), (1, 1))
@@ -956,12 +981,11 @@ class AF2Model(nn.Module):
             same_chain = (asym[:, None] == asym[None, :])
             multichain = (same_chain if bool(feats["mask_template_interchain"])
                           else torch.ones_like(same_chain)).float()
-            pair = pair + self.template(pair, feats, mask_2d, multichain)
+            pair = pair + self.template_embedding(pair, feats, mask_2d, multichain)
 
         extra = self.embed["extra_msa_activations"](_extra_msa_feature(feats).to(dtype))
         extra_mask = feats["extra_msa_mask"].to(dtype)
-        for block in self.extra_msa:
-            extra, pair = block(extra, pair, extra_mask, mask_2d)
+        pair = self.extra_msa_stack(extra, pair, extra_mask, mask_2d)
 
         msa_mask = feats["msa_mask"].to(dtype)
         if self.template is not None:
@@ -969,8 +993,7 @@ class AF2Model(nn.Module):
             msa = torch.cat([msa, rows], dim=0)
             msa_mask = torch.cat([msa_mask, row_mask], dim=0)
 
-        for block in self.evoformer:
-            msa, pair = block(msa, pair, msa_mask, mask_2d)
+        msa, pair = self.evoformer_stack(msa, pair, msa_mask, mask_2d)
 
         single = self.single_activations(msa[0])
         num_sequences = feats["msa_feat"].shape[0]
@@ -997,7 +1020,7 @@ def _extra_msa_feature(feats: dict) -> torch.Tensor:
 
 
 def load_af2_model(state_dict: dict[str, torch.Tensor], *, template: bool = True,
-                   **kwargs) -> AF2Model:
+                   cls: type = None, **kwargs) -> AF2Model:
     """Build an `AF2Model` and load a remapped checkpoint into it.
 
     Every parameter in the checkpoint has a home here, so nothing may be missing and nothing may
@@ -1005,7 +1028,7 @@ def load_af2_model(state_dict: dict[str, torch.Tensor], *, template: bool = True
     stage runs the model_3_ptm config and ColabDesign drops those parameters at load
     (`af/model.py:112-120`) from the same params_model_1_ptm.npz.
     """
-    model = AF2Model(template=template, **kwargs)
+    model = (cls or AF2Model)(template=template, **kwargs)
     allowed = () if template else ("template.",)
     wanted = set(model.state_dict())
     consumed = {k: v for k, v in state_dict.items() if k in wanted}

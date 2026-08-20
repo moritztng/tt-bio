@@ -33,6 +33,7 @@ from __future__ import annotations
 import torch
 import ttnn
 
+from .af2_reference import AF2Model, load_af2_model
 from .tenstorrent import (
     PAIR_ROW_BLOCK,
     Module,
@@ -357,3 +358,148 @@ class AF2EvoformerBlock(AF2PairBlock):
         z = ttnn.add_(z, update)
         ttnn.deallocate(update)
         return msa, super().__call__(z, mask, attn_mask)
+
+
+class AF2DeviceModel(AF2Model):
+    """`AF2Model` with its two block stacks on card and everything else in torch.
+
+    Host keeps the embeddings, the recycling state, the template, the structure module and the
+    two confidence heads. The card keeps the 4 extra-MSA blocks and the 48 Evoformer blocks,
+    which is every O(L^3) op in the trunk. The boundary is one round trip per stack per
+    recycling pass: the pair and the MSA go up, the same two come back down.
+
+    Two things the reference does per pass, this class does once per design, both bit-exact
+    rather than approximate (`scripts/af2_port/host_screen.py` proves each by substitution):
+
+    * **The template embedding.** It is constant in its `pair` argument -- with one template the
+      cross-attention softmaxes over a single key, so the weight is exactly 1.0 and the query
+      never reaches the output -- and everything else it reads is fixed for a design. Four calls
+      become one, which is what keeps it on host at 0.44 s per design against a 1.0 s bar.
+    * **The extra-MSA stack's MSA track.** It reaches the pair through the outer product mean and
+      nothing else, and with `extra_msa_mask` all zeros that output is `proj_o.bias / eps`, one
+      vector repeated over every pair position. This class computes the constant on host and
+      injects it, so `MsaColumnGlobalAttention` never has to exist in ttnn. The assert holds the
+      claim to its precondition: a featurisation with a real extra MSA fails here rather than
+      folding silently against the wrong constant.
+    """
+
+    #: `(tag, payload) -> None`, set by `scripts/af2_port/tap_gate.py`. When it is set the
+    #: stacks download every block's output, the extra-MSA stack runs its dead MSA track on
+    #: host, and the memoised template re-emits its two taps on the passes it does not
+    #: recompute -- so the device leg owes exactly the taps the torch leg owes. A fold never
+    #: sets it and never pays for any of it.
+    block_tap = None
+
+    #: Off recomputes the template every pass. It must change no number anywhere, which is what
+    #: `tap_gate.py --device --no-template-cache` checks against the same reference taps.
+    template_cached = True
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.device_extra_msa: list = []
+        self.device_evoformer: list = []
+        self.opm_constant: list = []
+        self._device = None
+        self._template_cache = None
+
+    def to_device(self) -> "AF2DeviceModel":
+        """Build the ttnn blocks from the parameters already loaded into the torch modules."""
+        state = self.state_dict()
+        ckc = compute_kernel_config()
+        self._device = get_device()
+
+        def scoped(prefix: str) -> Weights:
+            return {k[len(prefix):]: v for k, v in state.items() if k.startswith(prefix)}
+
+        self.device_extra_msa = [AF2PairBlock(scoped(f"extra_msa.{i}."), ckc)
+                                 for i in range(len(self.extra_msa))]
+        self.device_evoformer = [AF2EvoformerBlock(scoped(f"evoformer.{i}."), ckc)
+                                 for i in range(len(self.evoformer))]
+        zero = torch.zeros((), dtype=self.trunk_dtype)
+        self.opm_constant = [
+            block.opm.proj_o.bias.to(self.trunk_dtype) / (block.opm.eps + zero)
+            for block in self.extra_msa]
+        return self
+
+    # ------------------------------------------------------------------ the boundary
+
+    def _up(self, t: torch.Tensor) -> ttnn.Tensor:
+        return ttnn.from_torch(t.unsqueeze(0).to(torch.bfloat16), layout=ttnn.TILE_LAYOUT,
+                               device=self._device, dtype=ttnn.bfloat16)
+
+    def _down(self, t: ttnn.Tensor, shape: tuple) -> torch.Tensor:
+        x = torch.Tensor(ttnn.to_torch(t))
+        while x.dim() > len(shape) and x.shape[0] == 1:
+            x = x.squeeze(0)
+        assert tuple(x.shape) == tuple(shape), f"device gave {tuple(x.shape)}, want {shape}"
+        return x.to(self.trunk_dtype)
+
+    def _tap(self, tag: str, **payload) -> None:
+        if self.block_tap is not None:
+            self.block_tap(tag, payload)
+
+    # ------------------------------------------------------------------ the two stacks
+
+    def extra_msa_stack(self, extra: torch.Tensor, pair: torch.Tensor,
+                        extra_mask: torch.Tensor, pair_mask: torch.Tensor) -> torch.Tensor:
+        assert bool((extra_mask == 0).all()), (
+            "this port replaces the extra-MSA track with the constant its outer product mean "
+            "collapses to under an all-zero mask; a real extra MSA needs the track written")
+        shape = tuple(pair.shape)
+        z = self._up(pair)
+        for index, block in enumerate(self.device_extra_msa):
+            if self.block_tap is not None:
+                # The dead track, on host, only so the device leg owes the torch leg's taps. It
+                # reads the block's INPUT pair, which is what the reference hands it.
+                extra = self.extra_msa[index]._msa_track(extra, self._down(z, shape), extra_mask)
+            const = self._up(self.opm_constant[index].reshape(1, 1, -1))
+            z = block(ttnn.add_(z, const))
+            ttnn.deallocate(const)
+            if self.block_tap is not None:
+                self._tap("extra_msa_stack", msa=extra, pair=self._down(z, shape))
+        out = self._down(z, shape)
+        ttnn.deallocate(z)
+        return out
+
+    def evoformer_stack(self, msa: torch.Tensor, pair: torch.Tensor, msa_mask: torch.Tensor,
+                        pair_mask: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        assert bool((msa_mask == 1).all()), "a masked AF2 MSA is not wired up; see AF2Attention"
+        msa_shape, pair_shape = tuple(msa.shape), tuple(pair.shape)
+        m, z = self._up(msa), self._up(pair)
+        for block in self.device_evoformer:
+            m, z = block(m, z)
+            if self.block_tap is not None:
+                self._tap("evoformer_iteration", msa=self._down(m, msa_shape),
+                          pair=self._down(z, pair_shape))
+        out = self._down(m, msa_shape), self._down(z, pair_shape)
+        ttnn.deallocate(m)
+        ttnn.deallocate(z)
+        return out
+
+    # ------------------------------------------------------------------ the template, once
+
+    def template_embedding(self, pair: torch.Tensor, feats: dict, mask_2d: torch.Tensor,
+                           multichain_mask: torch.Tensor) -> torch.Tensor:
+        if self._template_cache is not None:
+            # The pass that computed it already fired every hook a tap gate installed; only the
+            # passes served from the cache have to re-emit, or the tap counts diverge.
+            stack_out, embedding = self._template_cache
+            self._tap("template_pair_stack", out=stack_out)
+            self._tap("template_embedding", out=embedding)
+            return embedding
+        stack = []
+        handle = self.template.pair_stack[-1].register_forward_hook(
+            lambda _m, _a, out: stack.append(out))
+        try:
+            embedding = super().template_embedding(pair, feats, mask_2d, multichain_mask)
+        finally:
+            handle.remove()
+        if self.template_cached:
+            self._template_cache = (stack[-1], embedding)
+        return embedding
+
+
+def load_af2_device_model(state_dict: dict, *, template: bool = True, **kwargs):
+    """`load_af2_model`, then the ttnn stacks. One device context per process."""
+    return load_af2_model(state_dict, template=template, cls=AF2DeviceModel,
+                          **kwargs).to_device()
