@@ -330,6 +330,9 @@ weight load and the kernel compile once. Output is one `<id>_affinity.json` per 
 `affinity.csv` for the whole run: the affinity value (mean of a two-member ensemble, and each
 member), a binary binder probability, and six distogram entropies.
 
+On DAVIS it reaches 0.662 mean within-target Pearson against measured Kd (0.175 for a
+molecular-weight-only control), matching the 0.636 the upstream implementation gets on an H200.
+
 Use it to rank a series; use `predict --model boltz2` when you need the pose. Proteins and ligands
 only, one ligand scored per input. The trunk runs bf16 by default: it is about 6x faster than fp32
 and no less accurate from 276 tokens up, and fp32 runs out of DRAM around 1000 tokens. On inputs

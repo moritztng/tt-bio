@@ -21,6 +21,31 @@ with the default bf16 trunk, against 1.05 s of H200 device time at 512 aa. The m
 unfused ops per prediction across 320 cheap pairformer layers, so it is dispatch-bound rather than
 FLOP-bound.
 
+## Does it rank binders
+
+Yes, and by the same margin as the reference implementation. On DAVIS (kinase inhibitor Kd from
+Therapeutics Data Commons, non-censored measurements only), within-target Pearson of the predicted
+affinity against pKd, 30 compounds per target on one Blackhole p150a:
+
+| target | Pearson | Spearman | MW-only control |
+|---|---|---|---|
+| ABL1p (1167 aa) | 0.732 | 0.594 | 0.172 |
+| YSK4 (1328 aa) | 0.593 | 0.636 | 0.178 |
+| mean | **0.662** | 0.615 | 0.175 |
+
+The same protocol on an H200 with the upstream implementation gives 0.636 mean Pearson against the
+same 0.175 control, so the port ranks compounds as well as the reference does. Per compound the two
+arms agree to 0.987-0.994 correlation with a worst single-ligand difference of 0.37, which also
+covers a conformer difference: each arm embeds its own ligand with ETKDG.
+
+Within-target is the metric the technical report uses. Pooling across targets would mostly measure
+the between-target offset, which is not the ranking task. Censored measurements are excluded because
+DAVIS reports every non-binder as exactly 10000 nM, which would turn Pearson into a statement about
+how many ties there are.
+
+`scripts/nesso1_port/davis_validate.py` reproduces it; the selection is a pure function of
+`davis.csv`, so the compounds are the same ones the reference scored, in the same order.
+
 ## Which trunk precision
 
 bf16 is the default. The table is the worst of eleven output scalars, device against the torch CPU
