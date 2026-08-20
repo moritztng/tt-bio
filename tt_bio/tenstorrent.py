@@ -750,6 +750,13 @@ def _tri_att_sdpa_program_config(q_len: int, k_len: int) -> ttnn.SDPAProgramConf
 # Circular-buffer budgets that a q_chunk overflowed on THIS device, so the first fold pays at most
 # one throw per shape and every later call skips straight to a config that fits.
 _SDPA_Q_CHUNK_OVER_L1: set = set()
+# [widest q_chunk served, widest q_chunk refused over L1]. The set above is enough to make the
+# gate self-setting but not enough to make it VISIBLE: a refusal there prints tt-metal's own
+# `critical` circular-buffer TT_THROW, retires the class, and leaves no counter anywhere, so a
+# census that reads the served/declined lists comes back clean while the widest chunk (worth
+# 1.08-1.81x on its own) is silently off. `pxdesign-perf` pass 2 saw that throw at 848 tokens and
+# attributed it to the fp32-softmax shard, which reports calls=0 on the Protenix trunk.
+SDPA_Q_CHUNK_STATS = [0, 0]
 
 # Kill switch so a fold-level A/B can run both arms without a checkout. Bit-exact either way.
 _SDPA_WIDE_Q = os.environ.get("TT_BIO_SDPA_WIDE_Q", "1") != "0"
@@ -860,18 +867,23 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float):
             return o
     for q_chunk in fits[:-1]:
         try:
-            return ttnn.transformer.scaled_dot_product_attention(
+            o = ttnn.transformer.scaled_dot_product_attention(
                 q, k, v, attn_mask=bias, is_causal=False, scale=scale,
                 program_config=_sdpa_program_config(q_chunk, k_chunk),
             )
+            SDPA_Q_CHUNK_STATS[0] += 1
+            return o
         except Exception as exc:  # noqa: BLE001 -- re-raised unless it is the L1 budget
             if "circular buffers" not in str(exc):
                 raise
+            SDPA_Q_CHUNK_STATS[1] += 1
             _SDPA_Q_CHUNK_OVER_L1.add((q_len, k_len, q_chunk))
-    return ttnn.transformer.scaled_dot_product_attention(
+    o = ttnn.transformer.scaled_dot_product_attention(
         q, k, v, attn_mask=bias, is_causal=False, scale=scale,
         program_config=_sdpa_program_config(fits[-1], k_chunk),
     )
+    SDPA_Q_CHUNK_STATS[0 if len(fits) > 1 else 1] += 1
+    return o
 
 
 

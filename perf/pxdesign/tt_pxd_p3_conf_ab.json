@@ -1,0 +1,254 @@
+{
+ "cell": "filter",
+ "variant": "mini_tmpl",
+ "ckpt": "protenix_mini_tmpl_v0.5.0.pt",
+ "conf_device_asked": false,
+ "conf_device_active": false,
+ "target_aa": 768,
+ "binder_aa": 80,
+ "n_tokens": 848,
+ "n_atoms": 7078,
+ "n_cycle": 4,
+ "n_step": 2,
+ "feat_host_s": 0.045,
+ "build_s": 0.229,
+ "gates": {
+  "c_z": 128,
+  "trimul_chunk": 32,
+  "trimul_l1_max_seq": 352,
+  "trimul_l1_resident": false,
+  "trimul_inproj_group": 4,
+  "n_tri_heads": 4,
+  "grid": [
+   11,
+   10
+  ],
+  "n_pairformer": null,
+  "n_msa": 1,
+  "n_template": 0
+ },
+ "shape_facts": {
+  "nt_template_slots": 4,
+  "msa_depth": 1
+ },
+ "msa_depth_arg": 1,
+ "reps": [
+  {
+   "trunk": 15.198,
+   "diffusion": 1.033,
+   "confidence": 2.197,
+   "total": 18.429,
+   "cold": true,
+   "arm": "host",
+   "conf_device_active": false,
+   "rg": 1717.54,
+   "finite": true,
+   "plddt": 0.6889
+  },
+  {
+   "trunk": 14.797,
+   "diffusion": 0.213,
+   "confidence": 2.232,
+   "total": 17.242,
+   "cold": false,
+   "arm": "host",
+   "conf_device_active": false,
+   "rg": 1715.7,
+   "finite": true,
+   "plddt": 0.6894
+  },
+  {
+   "trunk": 14.868,
+   "diffusion": 0.219,
+   "confidence": 2.966,
+   "total": 18.053,
+   "cold": false,
+   "arm": "device",
+   "conf_device_active": true,
+   "rg": 1718.54,
+   "finite": true,
+   "plddt": 0.6662
+  },
+  {
+   "trunk": 14.984,
+   "diffusion": 0.221,
+   "confidence": 2.184,
+   "total": 17.389,
+   "cold": false,
+   "arm": "host",
+   "conf_device_active": false,
+   "rg": 1710.16,
+   "finite": true,
+   "plddt": 0.6885
+  },
+  {
+   "trunk": 14.829,
+   "diffusion": 0.218,
+   "confidence": 1.517,
+   "total": 16.564,
+   "cold": false,
+   "arm": "device",
+   "conf_device_active": true,
+   "rg": 1711.69,
+   "finite": true,
+   "plddt": 0.6744
+  },
+  {
+   "trunk": 14.844,
+   "diffusion": 0.217,
+   "confidence": 2.188,
+   "total": 17.25,
+   "cold": false,
+   "arm": "host",
+   "conf_device_active": false,
+   "rg": 1725.31,
+   "finite": true,
+   "plddt": 0.6896
+  },
+  {
+   "trunk": 14.866,
+   "diffusion": 0.216,
+   "confidence": 1.512,
+   "total": 16.593,
+   "cold": false,
+   "arm": "device",
+   "conf_device_active": true,
+   "rg": 1700.55,
+   "finite": true,
+   "plddt": 0.6731
+  }
+ ],
+ "error": null,
+ "force_grid": null,
+ "arms": {
+  "host": {
+   "n": 3,
+   "median": {
+    "trunk": 14.844,
+    "diffusion": 0.217,
+    "confidence": 2.188,
+    "total": 17.25
+   },
+   "conf_legs": [
+    2.184,
+    2.188,
+    2.232
+   ],
+   "total_legs": [
+    17.242,
+    17.25,
+    17.389
+   ],
+   "plddt": [
+    0.6885,
+    0.6894,
+    0.6896
+   ]
+  },
+  "device": {
+   "n": 3,
+   "median": {
+    "trunk": 14.866,
+    "diffusion": 0.218,
+    "confidence": 1.517,
+    "total": 16.593
+   },
+   "conf_legs": [
+    1.512,
+    1.517,
+    2.966
+   ],
+   "total_legs": [
+    16.564,
+    16.593,
+    18.053
+   ],
+   "plddt": [
+    0.6662,
+    0.6731,
+    0.6744
+   ]
+  },
+  "delta": {
+   "confidence_x": 1.4423,
+   "total_x": 1.0396,
+   "total_pct": 3.809
+  }
+ },
+ "warm_median": {
+  "trunk": 14.866,
+  "diffusion": 0.218,
+  "confidence": 2.188,
+  "total": 17.25
+ },
+ "warm_spread_pct": 8.63,
+ "h200_device_s": 4.225,
+ "ratio_vs_h200_device": 4.083,
+ "bar_4x_s": 16.9,
+ "census": {
+  "FP32_SOFTMAX_STATS": {
+   "calls": 0,
+   "blocked": 0,
+   "blocks": 0,
+   "fused": 0,
+   "unfused": 0,
+   "l1": 0,
+   "l1_blocks": 0,
+   "l1_refused": 0
+  },
+  "RELP_STATS": [
+   7,
+   0
+  ],
+  "trimul_E6_gated_move": [
+   2016,
+   0
+  ],
+  "reblock_fwd": [
+   0,
+   1008
+  ],
+  "reblock_back": [
+   0,
+   0
+  ],
+  "trimul_tail_F1": [
+   0,
+   1008
+  ],
+  "triatt_qkv_K2": [
+   1008,
+   0
+  ],
+  "triatt_tail_K1": [
+   1008,
+   0
+  ],
+  "triatt_sdpa": [
+   0,
+   2017
+  ],
+  "mm_dualnoc": [
+   0,
+   1008
+  ]
+ },
+ "rejects": {
+  "trimul_tail_F1": {
+   "('k_tiles=4', '1x848x864x128@128x128')": 1008
+  },
+  "triatt_qkv_K2": {},
+  "triatt_tail_K1": {},
+  "reblock": {
+   "('back_ragged', (1, 128, 848, 848))": 1008
+  },
+  "triatt_sdpa": {
+   "('fill_preconditions', (848, 4, 848, 32))": 2017
+  }
+ },
+ "fp32_softmax_l1_refused_keys": [],
+ "l1_out_refused_keys": [],
+ "bmm_cfg_refused": [],
+ "clashes": {},
+ "dram_shapes": []
+}

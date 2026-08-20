@@ -1,0 +1,57 @@
+{
+ "chip": "p150a (Blackhole)",
+ "ckpt": "pxdesign_v0.1.0.pt",
+ "depths": {
+  "dit": 16,
+  "atom_enc": 4,
+  "atom_dec": 4
+ },
+ "diffusion_fp32": false,
+ "dtype": "DataType.BFLOAT16",
+ "trace": false,
+ "target_n_step": 400,
+ "cells": [
+  {
+   "cell": "laczc768",
+   "target_aa": 768,
+   "n_tokens": 848,
+   "n_atoms": 6455,
+   "multiplicity": 1,
+   "trace": false,
+   "max_parallel_samples": null,
+   "cond_hoist_s": 5.30332489599823,
+   "warmup_s": 14.388925669001765,
+   "warmup_steps": 4,
+   "n_step_a": 8,
+   "sampler_s_a": 0.3895544319966575,
+   "n_step_b": 24,
+   "sampler_s_b": 1.1679939909954555,
+   "per_step_s": 0.048652472437424876,
+   "fixed_s": 0.000334652497258503,
+   "extrap_s": 19.46132362746721,
+   "extrap_s_per_design": 19.46132362746721,
+   "ok": true
+  },
+  {
+   "cell": "laczc128",
+   "target_aa": 128,
+   "n_tokens": 208,
+   "n_atoms": 1344,
+   "multiplicity": 1,
+   "trace": false,
+   "max_parallel_samples": null,
+   "cond_hoist_s": 2.3478381910099415,
+   "warmup_s": 7.319431737996638,
+   "warmup_steps": 4,
+   "n_step_a": 8,
+   "sampler_s_a": 0.11945211699639913,
+   "n_step_b": 24,
+   "sampler_s_b": 0.35737782600335777,
+   "per_step_s": 0.014870356812934915,
+   "fixed_s": 0.0004892624929198064,
+   "extrap_s": 5.948631987666886,
+   "extrap_s_per_design": 5.948631987666886,
+   "ok": true
+  }
+ ]
+}
