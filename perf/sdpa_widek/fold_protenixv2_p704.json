@@ -118,6 +118,28 @@
     ]
    },
    "out_dir": "/home/ttuser/widek_fold_704/on_s2"
+  },
+  {
+   "arm": "off",
+   "seed": 0,
+   "tag": "off_s0_repeat",
+   "rc": 0,
+   "wall_s": 179.236,
+   "wide_k_served": 0,
+   "fell_back": 0,
+   "picks": {
+    "686x686": [
+     352,
+     256,
+     "stock"
+    ]
+   },
+   "out_dir": "/home/ttuser/widek_fold_704/off_s0_repeat"
   }
- ]
+ ],
+ "mean_wall_off_s": 194.784,
+ "mean_wall_on_s": 181.835,
+ "speedup": 1.0712,
+ "arm_took": true,
+ "arm_off_clean": true
 }

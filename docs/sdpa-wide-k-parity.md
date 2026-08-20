@@ -63,12 +63,19 @@ predicted 1208 x 11.05 ms = 13.35 s; the trunk moved 13.7 s, so predicted and me
 
 ## Accuracy
 
-Judged against the two controls `--fast` uses, because the pipeline is not run-to-run bit-exact at a
-fixed seed and a nonzero deviation is expected. Same cell, per-chain Kabsch RMSD (single chain, so
-global and per-chain coincide and no inter-chain placement enters):
+Judged against the two controls `--fast` uses. Same cell, per-chain Kabsch RMSD (single chain, so
+global and per-chain coincide and no inter-chain placement enters).
+
+Read the first row before the rest. **Protenix-v2 is bit-deterministic at a fixed seed on this
+path**: two default runs at seed 0 agree to 0.0000 Å, PCC 1.000000, identical pLDDT. That is not the
+case for Boltz-2 diffusion, where `--fast` was judged against a 1.6-4.7 Å determinism floor, so the
+`--fast` argument does not transfer unchanged. Here the floor is zero, which means the lever is the
+only source of deviation at a fixed seed and its deviation is strictly above the floor rather than
+buried in it. The band that makes it acceptable is the seed-to-seed one, not the determinism one.
 
 | comparison | RMSD (Å) | coord PCC | lDDT | ΔpLDDT |
 |---|--:|--:|--:|--:|
+| **determinism floor**, default s0 vs s0 rerun | **0.0000** | 1.000000 | 1.0000 | +0.000000 |
 | seed spread, default s0 vs s1 | 7.28 | 0.9689 | 0.934 | +0.0005 |
 | seed spread, default s0 vs s2 | 7.19 | 0.9714 | 0.900 | +0.0041 |
 | seed spread, default s1 vs s2 | 3.69 | 0.9925 | 0.934 | +0.0036 |
@@ -77,7 +84,11 @@ global and per-chain coincide and no inter-chain placement enters):
 | **lever, seed 2** | **0.146** | 0.999988 | 0.9977 | +0.000076 |
 
 The worst lever leg is 25x inside the smallest of the three seed-spread controls and 50x inside the
-largest, and it moves pLDDT by 0.0001 against a seed-to-seed 0.0041. Reproduce with `perf/sdpa_widek/widek_fold_ab.py` (runs the
+largest, and it moves pLDDT by 0.0001 against a seed-to-seed 0.0041. What it is NOT is free: a fold
+that is reproducible today stops being reproducible against its own earlier output when you set this
+flag. 0.15 Å on a 686-residue chain is far below any structural interpretation, and 0.0001 pLDDT is
+below the reported precision, so the change is not meaningful. It is still a change, and that is the
+reason the flag is opt-in rather than the default. Reproduce with `perf/sdpa_widek/widek_fold_ab.py` (runs the
 legs, asserts out of each worker process which pair it actually served) then
 `perf/sdpa_widek/widek_fold_score.py`.
 

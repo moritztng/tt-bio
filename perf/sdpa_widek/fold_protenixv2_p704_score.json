@@ -7,6 +7,27 @@
   2
  ],
  "controls": {
+  "determinism": {
+   "off_s0 vs off_s0_repeat": {
+    "686": {
+     "kabsch_rmsd": 0.0,
+     "coord_pcc": 1.0,
+     "tm_score": 1.0,
+     "lddt": 1.0,
+     "n_matched": 5300,
+     "per_chain": {
+      "A": 0.0
+     },
+     "conf_delta": {
+      "plddt": 0.0,
+      "ptm": 0.0,
+      "iptm": 0.0,
+      "confidence_score": 0.0,
+      "complex_plddt": 0.0
+     }
+    }
+   }
+  },
   "seed_spread": {
    "off_s0 vs off_s1": {
     "686": {
@@ -127,7 +148,9 @@
   }
  },
  "summary": {
-  "det_floor_rmsd": [],
+  "det_floor_rmsd": [
+   0.0
+  ],
   "seed_spread_rmsd": [
    7.2769,
    7.1942,
@@ -144,8 +167,8 @@
   "plddt_lever_max": 0.000101,
   "geometry_pass": true,
   "plddt_pass": true,
-  "arm_took": null,
-  "arm_off_clean": null,
-  "verdict": "GATE FAIL"
+  "arm_took": true,
+  "arm_off_clean": true,
+  "verdict": "GATE PASS"
  }
 }
