@@ -1,0 +1,45 @@
+{
+  "aa": 128,
+  "n_token": 128,
+  "n_recycles": 1,
+  "per_recycle_s": {
+    "stock": 0.23,
+    "head_major": 0.232,
+    "stock_aa": 0.2325
+  },
+  "all_legs_s": {
+    "stock": [
+      0.2300050760004524,
+      0.23000097700059996
+    ],
+    "head_major": [
+      0.23001071699945896,
+      0.23401270500107785
+    ],
+    "stock_aa": [
+      0.23200312900007702,
+      0.23301714499939408
+    ]
+  },
+  "calls": {
+    "stock": {
+      "served": 0,
+      "declined": 0
+    },
+    "head_major": {
+      "served": 0,
+      "declined": 4
+    },
+    "stock_aa": {
+      "served": 0,
+      "declined": 0
+    }
+  },
+  "trunk_speedup": 0.9913,
+  "aa_floor": 0.9892,
+  "z_bit_exact": true,
+  "s_bit_exact": true,
+  "z_max_abs_diff": 0.0,
+  "s_max_abs_diff": 0.0,
+  "z_aa_bit_exact": true
+}
