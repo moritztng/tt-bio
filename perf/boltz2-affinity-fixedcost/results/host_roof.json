@@ -1,0 +1,71 @@
+{
+  "n_tok": 220,
+  "token_z": 128,
+  "blocks": 8,
+  "flop_per_block": 51246694400.0,
+  "nproc": 16,
+  "torch": "2.13.0+cpu",
+  "host": "tt-quietbox2",
+  "points": [
+    {
+      "threads": 1,
+      "wall_s": 10.9848,
+      "s_per_block": 1.3731,
+      "gflops": 37.32,
+      "loadavg": [
+        2.38,
+        2.34,
+        3.18
+      ]
+    },
+    {
+      "threads": 2,
+      "wall_s": 6.8819,
+      "s_per_block": 0.8602,
+      "gflops": 59.57,
+      "loadavg": [
+        2.49,
+        2.37,
+        3.17
+      ]
+    },
+    {
+      "threads": 4,
+      "wall_s": 5.526,
+      "s_per_block": 0.6907,
+      "gflops": 74.19,
+      "loadavg": [
+        3.05,
+        2.5,
+        3.2
+      ]
+    },
+    {
+      "threads": 8,
+      "wall_s": 4.3341,
+      "s_per_block": 0.5418,
+      "gflops": 94.59,
+      "loadavg": [
+        4.37,
+        2.82,
+        3.29
+      ]
+    },
+    {
+      "threads": 16,
+      "wall_s": 4.6676,
+      "s_per_block": 0.5835,
+      "gflops": 87.83,
+      "loadavg": [
+        11.31,
+        5.01,
+        4.02
+      ]
+    }
+  ],
+  "scaling": {
+    "threads": 16,
+    "speedup": 2.353,
+    "parallel_efficiency": 0.147
+  }
+}
