@@ -13,6 +13,11 @@ from torch import Tensor, from_numpy
 from torch.nn.functional import one_hot
 
 from tt_bio._vendor.nesso.data import const
+# tt-bio patch: upstream imports this from nesso.model.modules.utils, whose body is
+# identical to ours down to the order of global-RNG draws, so we reuse rather than
+# carry a second copy. NOTE: it applies a RANDOM roto-translation to every
+# conformer's ref_pos at inference time -- see scripts/nesso1_port/parity_gate.py.
+from tt_bio.boltz2 import center_random_augmentation
 from tt_bio._vendor.nesso.data.io import load_safetensor
 from tt_bio._vendor.nesso.data.pad import pad_dim
 from tt_bio._vendor.nesso.data.types import Record, Tokenized
