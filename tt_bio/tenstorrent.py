@@ -249,7 +249,13 @@ _NARROW_PROJ_BW: int | None = 1
 # Worth 430 ms/fold at 298 aa, of which 133 is the residual add no longer fetching its operand from
 # DRAM; the projections themselves do not get faster. In-fold op walls against three baseline
 # folds, perf/p3l1/ops_*.json.
-_PAIR_PROJ_L1_OUT = True
+# `TT_BIO_PAIR_PROJ_L1_OUT=0` is the kill switch, the same shape every other lever here carries, so
+# a fold-level A/B can price the lever without a checkout. It was the only pair-track L1 gate with
+# neither a toggle nor a counter, which is why "the L1 leg was refused at this shape" could not be
+# turned into a number.
+PAIR_PROJ_L1_OUT = True
+_PAIR_PROJ_L1_OUT = os.environ.get(
+    "TT_BIO_PAIR_PROJ_L1_OUT", "1" if PAIR_PROJ_L1_OUT else "0") == "1"
 # in0_block_w cap for the L1-output members. It must track _PAIR_PROJ_BW: at the same cap the L1
 # output is `torch.equal` against the DRAM output of the identical config (max abs 0.0, and a live
 # 298 aa fold returns the same plDDT to six decimals), so moving the destination is free of any

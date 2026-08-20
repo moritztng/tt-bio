@@ -186,6 +186,7 @@ def main() -> int:
     ap.add_argument("--weights", default="recursionpharma/nesso")
     ap.add_argument("--repeats", type=int, default=3)
     ap.add_argument("--out", type=Path, default=REPO / "perf/nesso1/l1_probe")
+    ap.add_argument("--tag", default="", help="suffix for the artifact name")
     ap.add_argument("--trace-clash", action="store_true",
                     help="wrap every ttnn op so an L1 clash names its op and call site")
     args = ap.parse_args()
@@ -231,6 +232,8 @@ def main() -> int:
         "host": os.uname().nodename,
         "card": os.environ.get("TT_VISIBLE_DEVICES"),
         "grid": lc._compute_grid(),
+        "pair_proj_l1_out": bool(importlib.import_module("tt_bio.tenstorrent")._PAIR_PROJ_L1_OUT),
+        "loadavg": os.getloadavg(),
         "wall_s": times,
         "warm_wall_s": min(times[1:]) if len(times) > 1 else times[0],
         "scalars": runs[0],
@@ -241,7 +244,7 @@ def main() -> int:
         "clashes": clashes,
     }
     args.out.mkdir(parents=True, exist_ok=True)
-    path = args.out / f"{args.rung}_{arm}.json"
+    path = args.out / f"{args.rung}_{arm}{('_' + args.tag) if args.tag else ''}.json"
     path.write_text(json.dumps(report, indent=2, default=str) + "\n")
     if clashes:
         print(json.dumps(clashes, indent=2))
