@@ -1055,6 +1055,11 @@ def batched_matmul(a: ttnn.Tensor, b: ttnn.Tensor, compute_kernel_config=None,
 # only 1024 blocks -- into two blocks of 512 rows.
 _FP32_SOFTMAX_BLOCK_BYTES = 8 << 30
 _FP32_SOFTMAX_FUSED_ADD = True
+# ttnn.softmax normalises through a reciprocal whose range reduction loses up to 2.9e-2 when
+# the exp-sum sits at or just above a power of two, which a confident softmax always does.
+# Passing the caller's compute kernel config drops that 10-60x. Off by default: it moves
+# shipped numbers on Boltz-2, Protenix-v2, OpenFold3 and ESMFold2, so it is release-gated.
+_SOFTMAX_CKC = os.environ.get("TT_BIO_SOFTMAX_CKC", "0") == "1"
 
 # The four steps between the two matmuls -- typecast to fp32, the biased add, the softmax, the
 # typecast back -- are pure DRAM traffic: measured at 392.4 GB/s against a 383.9 GB/s ttnn.clone
@@ -1230,7 +1235,8 @@ def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_confi
     attn_bf = None
     if shard is not None:
         try:
-            attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, shard, bias_f)
+            attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, shard,
+                                         bias_f, compute_kernel_config)
         except RuntimeError:
             # The shard allocated but the sharded softmax could not fit its circular buffers
             # around it. Retire this geometry and take the interleaved tail, which is the same
@@ -1239,14 +1245,16 @@ def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_confi
             FP32_SOFTMAX_STATS["l1_refused"] += 1
             attn_bf = None
     if attn_bf is None:
-        attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, None, bias_f)
+        attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, None, bias_f,
+                                     compute_kernel_config)
     ttnn.deallocate(sc)
     o = batched_matmul(attn_bf, v, compute_kernel_config=compute_kernel_config, dtype=out_dtype)
     ttnn.deallocate(attn_bf)
     return o
 
 
-def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None):
+def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None,
+                       compute_kernel_config=None):
     """bf16 scores -> bf16 attention weights, both interleaved. ``shard`` keeps the middle in L1.
 
     ``sc0`` is left allocated either way, so a caller can retry interleaved after a refusal.
@@ -1263,6 +1271,7 @@ def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None)
         sc = ttnn.typecast(sc0, ttnn.float32, memory_config=sc0.memory_config())
     # undo the pair-bias pre-bake (sqrt(h) for Boltz/Protenix, 1.0 for openfold3). A blocked
     # call hands the same fp32 copy to every block; ``own`` says who frees it.
+    sm_ckc = compute_kernel_config if _SOFTMAX_CKC else None
     own = bias_f is None
     if own:
         bias_f = _fp32_softmax_bias(bias, scale_inv, bias_scale_inv)
@@ -1276,7 +1285,7 @@ def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None)
         if own:
             ttnn.deallocate(bias_f)
         try:
-            attn = ttnn.softmax_in_place(attn)
+            attn = ttnn.softmax_in_place(attn, compute_kernel_config=sm_ckc)
         except RuntimeError:
             ttnn.deallocate(attn)
             raise
@@ -1286,7 +1295,7 @@ def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None)
         sc = ttnn.add(sc, bias_f)
         if own:
             ttnn.deallocate(bias_f)
-        attn = ttnn.softmax(sc, dim=-1)  # fp32 softmax reduction
+        attn = ttnn.softmax(sc, dim=-1, compute_kernel_config=sm_ckc)  # fp32 reduction
         ttnn.deallocate(sc)
     attn_bf = ttnn.typecast(attn, ttnn.bfloat16, memory_config=attn.memory_config())
     ttnn.deallocate(attn)
