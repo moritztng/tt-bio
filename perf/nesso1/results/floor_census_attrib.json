@@ -1,0 +1,186 @@
+{
+ "host": "tt-quietbox2",
+ "tt_visible_devices": "3",
+ "census": [
+  {
+   "seq_len": 128,
+   "enqueues_per_block": 87,
+   "host_transfer_calls_excluded": 0,
+   "blocks_per_prediction": 304,
+   "enqueues_per_prediction": 26448,
+   "dispatch_s_at_10p9us": 0.2883,
+   "top_ops": {
+    "linear": 22,
+    "multiply_": 14,
+    "layer_norm": 10,
+    "permute": 10,
+    "unsqueeze": 6,
+    "add_": 5,
+    "reshape": 4,
+    "chunk": 3,
+    "matmul": 2,
+    "clone": 2,
+    "add": 2,
+    "squeeze": 2,
+    "get_max_worker_l1_unreserved_size": 2,
+    "concat": 1,
+    "is_tensor_storage_on_device": 1,
+    "from_device": 1
+   },
+   "generic_op_by_module": {},
+   "fused_stats": {
+    "trimul_tail_F1": {
+     "served": 0,
+     "declined": 4,
+     "rejects": {
+      "k_tiles=4|1x128x128x128@128x128": 4
+     }
+    },
+    "fp32_softmax": {
+     "calls": 0,
+     "blocked": 0,
+     "blocks": 0,
+     "fused": 0,
+     "unfused": 0,
+     "l1": 0,
+     "l1_blocks": 0,
+     "l1_refused": 0
+    },
+    "sdpa_generic": null,
+    "triatt_qkv": [
+     0,
+     0
+    ],
+    "mm_generic": null,
+    "reblock_permute": [
+     0,
+     4
+    ]
+   }
+  },
+  {
+   "seq_len": 256,
+   "enqueues_per_block": 145,
+   "host_transfer_calls_excluded": 0,
+   "blocks_per_prediction": 304,
+   "enqueues_per_prediction": 44080,
+   "dispatch_s_at_10p9us": 0.4805,
+   "top_ops": {
+    "linear": 30,
+    "multiply_": 24,
+    "permute": 16,
+    "layer_norm": 14,
+    "allocate_tensor_on_device": 12,
+    "reallocate": 8,
+    "generic_op": 6,
+    "chunk": 5,
+    "add_": 5,
+    "unsqueeze": 4,
+    "matmul": 4,
+    "clone": 4,
+    "reshape": 4,
+    "concat": 3,
+    "add": 2,
+    "get_max_worker_l1_unreserved_size": 2,
+    "is_tensor_storage_on_device": 1,
+    "from_device": 1
+   },
+   "generic_op_by_module": {
+    "tt_bio.mm_generic": 6
+   },
+   "fused_stats": {
+    "trimul_tail_F1": {
+     "served": 0,
+     "declined": 8,
+     "rejects": {
+      "k_tiles=4|1x128x128x128@128x128": 4,
+      "k_tiles=4|1x256x256x128@128x128": 4
+     }
+    },
+    "fp32_softmax": {
+     "calls": 0,
+     "blocked": 0,
+     "blocks": 0,
+     "fused": 0,
+     "unfused": 0,
+     "l1": 0,
+     "l1_blocks": 0,
+     "l1_refused": 0
+    },
+    "sdpa_generic": null,
+    "triatt_qkv": [
+     4,
+     0
+    ],
+    "mm_generic": null,
+    "reblock_permute": [
+     0,
+     12
+    ]
+   }
+  },
+  {
+   "seq_len": 512,
+   "enqueues_per_block": 249,
+   "host_transfer_calls_excluded": 0,
+   "blocks_per_prediction": 304,
+   "enqueues_per_prediction": 75696,
+   "dispatch_s_at_10p9us": 0.8251,
+   "top_ops": {
+    "linear": 102,
+    "multiply_": 42,
+    "layer_norm": 38,
+    "allocate_tensor_on_device": 22,
+    "generic_op": 14,
+    "add_": 5,
+    "unsqueeze": 4,
+    "reshape": 4,
+    "permute": 4,
+    "chunk": 3,
+    "transpose": 2,
+    "matmul": 2,
+    "add": 2,
+    "get_max_worker_l1_unreserved_size": 2,
+    "concat": 1,
+    "is_tensor_storage_on_device": 1,
+    "from_device": 1
+   },
+   "generic_op_by_module": {
+    "tt_bio.mm_generic": 8,
+    "tt_bio.reblock_permute": 6
+   },
+   "fused_stats": {
+    "trimul_tail_F1": {
+     "served": 0,
+     "declined": 12,
+     "rejects": {
+      "k_tiles=4|1x128x128x128@128x128": 4,
+      "k_tiles=4|1x256x256x128@128x128": 4,
+      "k_tiles=4|1x512x512x128@128x128": 4
+     }
+    },
+    "fp32_softmax": {
+     "calls": 0,
+     "blocked": 0,
+     "blocks": 0,
+     "fused": 0,
+     "unfused": 0,
+     "l1": 0,
+     "l1_blocks": 0,
+     "l1_refused": 0
+    },
+    "sdpa_generic": null,
+    "triatt_qkv": [
+     8,
+     0
+    ],
+    "mm_generic": null,
+    "reblock_permute": [
+     8,
+     12
+    ]
+   }
+  }
+ ],
+ "timing": []
+}

@@ -1,0 +1,48 @@
+{
+ "card": "3",
+ "ops": [
+  {
+   "op": "add n=256 (2R+1W)",
+   "bytes": 50331648,
+   "median_s": 0.001,
+   "GB_s": 50.4,
+   "spread": 1.252
+  },
+  {
+   "op": "clone n=256 (1R+1W)",
+   "bytes": 33554432,
+   "median_s": 0.001,
+   "GB_s": 33.6,
+   "spread": 1.499
+  },
+  {
+   "op": "layer_norm n=256 (1R+1W)",
+   "bytes": 33554432,
+   "median_s": 0.000999,
+   "GB_s": 33.6,
+   "spread": 2.304
+  },
+  {
+   "op": "add n=512 (2R+1W)",
+   "bytes": 201326592,
+   "median_s": 0.001,
+   "GB_s": 201.4,
+   "spread": 3.619
+  },
+  {
+   "op": "clone n=512 (1R+1W)",
+   "bytes": 134217728,
+   "median_s": 0.001,
+   "GB_s": 134.2,
+   "spread": 1.991
+  },
+  {
+   "op": "layer_norm n=512 (1R+1W)",
+   "bytes": 134217728,
+   "median_s": 0.001,
+   "GB_s": 134.2,
+   "spread": 2.683
+  }
+ ],
+ "INSTRUMENT_FAILED": "Do not use these numbers. Every arm returned a median of exactly 0.001000 s with spreads to 3.6x, which is a timer/sync floor and not bandwidth: wall-clock around ttnn.synchronize_device does not resolve a sub-millisecond op. Kept so the next pass does not repeat it. Measure the roof from the profiler's device-busy counters instead."
+}

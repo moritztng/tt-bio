@@ -1,0 +1,55 @@
+{
+ "seq_len": 256,
+ "n_blocks": 48,
+ "arms": [
+  {
+   "arm": "HiFi4+fp32acc (shipped)",
+   "median_s": 0.64811,
+   "spread": 1.0012,
+   "per_block_ms": 13.502,
+   "speedup_vs_shipped": 1.0,
+   "rel_err_vs_shipped_median": 0.0,
+   "max_abs_diff_vs_shipped": 0.0
+  },
+  {
+   "arm": "HiFi4",
+   "median_s": 0.61601,
+   "spread": 1.0033,
+   "per_block_ms": 12.834,
+   "speedup_vs_shipped": 1.0521,
+   "rel_err_vs_shipped_median": 0.0,
+   "max_abs_diff_vs_shipped": 0.0,
+   "bit_exact_vs_shipped": true
+  },
+  {
+   "arm": "HiFi2+fp32acc",
+   "median_s": 0.6568,
+   "spread": 1.0473,
+   "per_block_ms": 13.683,
+   "speedup_vs_shipped": 0.9868,
+   "rel_err_vs_shipped_median": 0.0,
+   "max_abs_diff_vs_shipped": 0.0,
+   "bit_exact_vs_shipped": true
+  },
+  {
+   "arm": "HiFi2",
+   "median_s": 0.61746,
+   "spread": 1.0297,
+   "per_block_ms": 12.864,
+   "speedup_vs_shipped": 1.0496,
+   "rel_err_vs_shipped_median": 0.0,
+   "max_abs_diff_vs_shipped": 0.0,
+   "bit_exact_vs_shipped": true
+  },
+  {
+   "arm": "LoFi+fp32acc",
+   "median_s": 0.62667,
+   "spread": 1.018,
+   "per_block_ms": 13.056,
+   "speedup_vs_shipped": 1.0342,
+   "rel_err_vs_shipped_median": 0.0,
+   "max_abs_diff_vs_shipped": 0.0,
+   "bit_exact_vs_shipped": true
+  }
+ ]
+}
