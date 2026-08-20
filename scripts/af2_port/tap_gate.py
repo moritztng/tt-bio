@@ -368,21 +368,38 @@ def main() -> int:
         other, other_last = run_arm(state, feats, prev, template=template,
                                     dtype=torch.float32, keep=set(bases),
                                     recycles=args.recycles)
+        # The envelope is the width between the model's OWN two precisions, and it must not
+        # contain the arm being judged. For the torch arm that is free -- it is one of the two.
+        # For the device arm it is not: scoring the device against float32 makes a broken device
+        # arm widen its own envelope, and it excuses itself. Measured, not reasoned: with the
+        # 48 Evoformer blocks run backwards the device arm reached pcc -0.34 and the gate still
+        # reported zero failures, until this ran the torch bfloat16 arm as the third one.
+        if args.device:
+            base_arm, base_last = run_arm(state, feats, prev, template=template,
+                                          dtype=torch.bfloat16, keep=set(bases),
+                                          recycles=args.recycles)
+            envelope_arm = "float32 vs torch bfloat16"
+        else:
+            base_arm, base_last = taps, last
         for row in failed:
             base = row["tap"]
-            if base not in other.values or base not in taps.values:
+            if base not in other.values or base not in base_arm.values:
                 continue
             width = score_one(as_reference(ref, base, other.values[base]), base,
-                              taps.values[base])
+                              base_arm.values[base])
             row["envelope_pcc"] = width.get("pcc")
             if _in_envelope(row, width, slack):
                 row["verdict"] = "IN-ENVELOPE"
         if scalars_failed:
-            other_got = confidence_scalars(other_last["plddt_logits"], other_last["pae_logits"],
-                                           other_last["pae_breaks"], feats["seq_mask"],
-                                           feats["asym_id"], binder_len=binder)
+            def arm_scalars(final):
+                return confidence_scalars(final["plddt_logits"], final["pae_logits"],
+                                          final["pae_breaks"], feats["seq_mask"],
+                                          feats["asym_id"], binder_len=binder)
+
+            other_got = arm_scalars(other_last)
+            base_got = arm_scalars(base_last) if args.device else got
             for row in scalars_failed:
-                row["envelope"] = abs(got[row["scalar"]] - other_got[row["scalar"]])
+                row["envelope"] = abs(base_got[row["scalar"]] - other_got[row["scalar"]])
                 row["envelope_ratio"] = row["delta"] / max(row["envelope"], 1e-12)
                 if row["envelope_ratio"] <= slack:
                     row["verdict"] = "IN-ENVELOPE"
