@@ -19,9 +19,16 @@ solo-vs-solo delta is exactly 0.0 at every size and in both precisions.
 Speed is settled, and it is not a win against a GPU. The device work is 6.50 s at 512 aa against
 1.05 s of H200 device time, so the port sits **6.19x off an H200** and does not clear the 4x gap
 tt-bio holds itself to. That is a floor rather than a first attempt: the workload is tt-bio's own
-tuned pair-only pairformer block run 304 times per prediction with both fused kernels on, and the
-last named lever left (the trimul tail fused at `k_tiles=4`) came out bit-exact and 1.74x slower.
-End to end one prediction is 8.4 s at 532 tokens on one p150a.
+tuned pair-only pairformer block run 304 times per prediction, measured on the same block class and
+the same lever settings the fold runs, and the last named lever left (the trimul tail fused at
+`k_tiles=4`) came out bit-exact and 1.74x slower. End to end one prediction is 8.4 s at 532 tokens
+on one p150a.
+
+Two of the shipped fused kernels do not serve this path at all: the triangle-attention persistent
+mask needs a batch-broadcast bias and the affinity stack builds one bias per row, and the trimul
+tail fusion refuses this block's contraction width. Both refuse for the same reason at every size,
+and the floor above already reflects that, so it is a description of the workload rather than
+headroom to go and get.
 
 It is still the right model to run here, because the alternative is much worse. Scoring the same
 protein-ligand pair through Boltz-2 affinity costs 386.25 s per prediction at 512 aa on the same
