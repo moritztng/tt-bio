@@ -3,7 +3,7 @@
 All notable changes to TT-Bio are recorded here. Versioning is [SemVer](https://semver.org);
 releases are cut from a commit that has passed the on-hardware test suite (see `RELEASING.md`).
 
-## Unreleased
+## [0.6.5] - 2026-08-20
 
 ### Fixed
 
@@ -22,6 +22,15 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   ligand is about 0.074 log10(IC50). Set `TT_BIO_ETKDG_SEED` to draw a different
   conformer. `scripts/boltz2_affinity_batch_position_repro.py` folds N targets in one
   process and fails if identical ones disagree. CCD-bound ligands are unaffected.
+
+- An affinity run's `results.json` reported only the structure leg's time, so the
+  number was short by however long the affinity trunk ran. It now reports both.
+
+### Changed
+
+- RFD3 designs in 91.4 s on a p150a, down from 105.1 s, which is 3.33x an H200's
+  27.5 s and inside the 4x bar the performance page holds every model to. The row is
+  no longer hidden there. (`dff668d9`)
 
 ## [0.6.4] - 2026-08-19
 
