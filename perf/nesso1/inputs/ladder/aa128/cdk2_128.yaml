@@ -1,0 +1,10 @@
+sequences:
+  - protein:
+      id: A
+      sequence: MENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLLDVIHTENKLYLVFEFLHQDLKKFMDASALTGIPLPLIKSYLFQLLQGLAFCHSHRVLHRDL
+  - ligand:
+      id: B
+      smiles: 'Fc1ccc(cc1)C(=O)Nc1ccc(cc1)S(=O)(=O)N'
+properties:
+  - affinity:
+      binder: B
