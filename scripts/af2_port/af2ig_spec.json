@@ -1,0 +1,64 @@
+{
+  "_comment": "AF2-IG (AlphaFold2 monomer model_1_ptm as PXDesign runs it) configuration, read from ColabDesign 1.1.3, PXDesignBench and params_model_1_ptm.npz on 2026-08-20. Every value here was read from source or from the parameter file, not inferred. Plan: ~/.coworker/state/pxdesign-af2ig-port.md",
+  "params": {
+    "file": "params_model_1_ptm.npz",
+    "n_arrays": 338,
+    "block_stacked_in_dim0": ["evoformer/evoformer_iteration/*", "evoformer/extra_msa_stack/*", "template_pair_stack/__layer_stack_no_state/*"],
+    "shared_across_layers": ["structure_module/fold_iteration/*"],
+    "unused_by_pxdesign": ["distogram_head", "masked_msa_head", "experimentally_resolved_head"]
+  },
+  "colabdesign_call": {
+    "mk_afdesign_model": {"protocol": "binder", "num_recycles": 3, "use_multimer": false, "use_initial_guess": true, "use_initial_atom_pos": false},
+    "prep_inputs": {"use_binder_template": true, "rm_target_seq": true, "rm_target_sc": false, "rm_template_ic": true, "rm_binder_seq": true, "rm_binder_sc": true},
+    "predict": {"models": [0], "num_recycles": 3},
+    "monomer_stage": {"protocol": "hallucination", "config": "model_3_ptm", "templates": false},
+    "source": "pxdbench/tools/af2/main_af2_complex.py:135-160, main_af2_monomer.py:120-142, pxd_configs/eval.py:51-58"
+  },
+  "runtime_semantics": {
+    "recycle_mode": "last -> cfg.model.num_recycle=0, host python loop of num_recycles+1 = 4 passes (colabdesign/af/design.py:147-205)",
+    "initial_guess": "prev['prev_pos'] = inputs['batch']['all_atom_positions']; prev_msa_first_row and prev_pair start at zero (design.py:163-171)",
+    "bfloat16": "global_config.bfloat16=True, bfloat16_output=False: params stored fp32 and cast on read, activations bf16 inside EmbeddingsAndEvoformer only; structure module and heads fp32 (config.py:305-306, modules.py:1387/1583, utils.py:29-44)",
+    "chain_break": "single monomer model, two chains concatenated, residue_index jump of +50 (prep.py:223, prep.py:453)",
+    "interchain_template_mask": "rm_template_ic=True -> mask_template_interchain -> multichain_mask = (asym_id_i == asym_id_j) (modules.py:1466-1468)"
+  },
+  "dims": {
+    "c_m": 256, "c_z": 128, "c_s": 384,
+    "msa_rows_at_inference": 2,
+    "msa_rows_note": "1 design sequence + 1 appended template torsion row (modules.py:1531-1540)",
+    "msa_feat_width": 49, "target_feat_width_padded": 22,
+    "extra_msa": {"rows": 1, "mask": "all zero", "channels": 64, "feat_width": 25, "blocks": 4, "col_attn": "global, 8 heads x 8"},
+    "evoformer": {"blocks": 48, "msa_row_attn": "8 x 32 + pair bias (feat_2d_norm, feat_2d_weights 128x8)", "msa_col_attn": "8 x 32", "msa_transition": [256, 1024, 256], "opm": [256, 32, 32, 128], "trimul_hidden": 128, "tri_att": "4 x 32 (feat_2d_weights 128x4)", "pair_transition": [128, 512, 128]},
+    "template": {"embedding2d": [88, 64], "pair_stack_blocks": 2, "pair_stack_channels": 64, "pair_stack_tri_att": "4 x 16", "pair_stack_transition_factor": 2, "pointwise_attention": {"q": [128, 4, 16], "kv": [64, 4, 16], "gating": false, "out": [4, 16, 128]}, "single_embedding": [57, 256], "projection": [256, 256], "dgram_bins": 39, "dgram_min": 3.25, "dgram_max": 50.75, "use_template_unit_vector": false},
+    "recycling_dgram": {"bins": 15, "min": 3.25, "max": 20.75, "source": "config.py:230-234; prev_pos_linear//weights is [15,128] in params_model_1_ptm.npz. NOT the template dgram, which is 39 bins to 50.75"},
+    "relpos_max_relative_feature": 32,
+    "structure_module": {"num_layer": 8, "shared_weights": true, "num_channel": 384, "num_head": 12, "num_scalar_qk": 16, "num_scalar_v": 16, "num_point_qk": 4, "num_point_v": 8, "position_scale": 10.0, "num_layer_in_transition": 3, "sidechain_channels": 128, "sidechain_residual_blocks": 2, "output_projection_in": 2112},
+    "heads": {"predicted_lddt": {"norm": 384, "layers": [384, 128, 128, 50]}, "predicted_aligned_error": {"in": 128, "bins": 64, "max_error_bin": 31}},
+    "transitions_are_relu_not_swiglu": true,
+    "trimul_and_triatt_have_biases": true,
+    "trimul_branch": "fused. fuse_projection_weights is True at every site (config.py:205,213,283,291), and ColabDesign concatenates the checkpoint's left_*/right_* into [left|right] at load (utils.py::flat_params_to_haiku, fuse=True), renaming layer_norm_input->left_norm_input and center_layer_norm->center_norm",
+    "trimul_incoming_swaps_left_and_right": "AF2 incoming is einsum('kjc,kic->ijc', left, right), so a=right and b=left (modules.py:990-992). tt-bio's first p_in half is a",
+    "opm_divides_bias_too": "act /= 1e-3 + norm applies to output_b as well (modules.py:1181-1183), so OuterProductMean(scale_bias=True), epsilon 1e-3",
+    "triatt_pair_bias_is_unscaled": "q is pre-scaled by key_dim**-0.5 and the bias is added raw (modules.py:357-362), so TriangleAttention(scale_pair_bias=False)",
+    "layer_norm_upcasts": "common_modules.LayerNorm casts bf16 to fp32, normalises, casts back, with use_fast_variance=True (common_modules.py:126-180). Every trunk LayerNorm runs fp32 internally even though the trunk is bf16",
+    "attention_qkv_have_no_bias": "query_w/key_w/value_w are bare hk.get_parameter; gating_b and output_b are the only attention biases (modules.py:344-402)",
+    "attention_logits_clipped": "logits are clipped to [-1e8, 1e8] before softmax (modules.py:365)"
+  },
+  "filters": {
+    "af2_easy": {"pLDDT": [">", 0.8], "i_pTM": [">", 0.5], "i_pAE": ["<", 0.35], "bound_unbound_RMSD": ["<", 3.5]},
+    "af2_opt": {"pLDDT": [">", 0.9], "unscaled_i_pAE": ["<", 7.0], "af2_binder_pred_design_rmsd": ["<", 1.5]},
+    "source": "pxdbench/pxd_configs/eval.py:96-108",
+    "success_counter": "af2_easy only (pxdesign/runner/pipeline.py:440)"
+  },
+  "metric_definitions": {
+    "pLDDT": "mean over BINDER of sum(softmax(plddt_logits) * bin_centers), 50 bins width 1/50 centred 0.01,0.03,...; logged as 1-loss (loss.py:188-194, design.py:113)",
+    "pAE": "sum(softmax(pae_logits) * bin_centers), bin_centers = breaks + step/2 with last centre extrapolated one step (loss.py:196-202)",
+    "i_pAE": "mean of pAE/31 over binder rows x target columns; unscaled_i_pAE = i_pAE * 31",
+    "pTM_iPTM": "confidence.predicted_tm_score: d0 = 1.24*(max(sum(w),19)-15)^(1/3) - 1.8, per-bin 1/(1+c^2/d0^2), weighted row-normalised mean, max over rows; i_pTM passes asym_id so pair_mask = asym_id_i != asym_id_j"
+  },
+  "reference_fixture": {
+    "target_cif": "perf/pxdesign/targets/laczc_128.cif",
+    "binder": "first 80 residues of the same crop, translated +60 A in x, as chain B",
+    "measured_reference_scalars": {"pLDDT": 0.739, "i_pTM": 0.489},
+    "source": "state/pxdesign-af2ig.md P2.3 (3 designs, identical values, deterministic)"
+  }
+}
