@@ -340,7 +340,6 @@
       {
         "id": "rfd3",
         "name": "RFdiffusion3",
-        "hidden": true,
         "target": "Human serum albumin (9q6y chain A), 585 target residues, 100-residue binder, 6051 atoms",
         "sampling_steps": 200,
         "batch": 1,
