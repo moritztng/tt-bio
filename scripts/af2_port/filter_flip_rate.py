@@ -51,6 +51,10 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--reference", required=True)
     ap.add_argument("--device", required=True)
+    ap.add_argument("--envelope", default=None,
+                    help="a third arm inside the reference's own precision freedom (float32 trunk "
+                         "instead of bfloat16). Its delta is the bar the device delta is judged "
+                         "against: a device miss smaller than it is not the port's to fix.")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
 
@@ -90,6 +94,42 @@ def main() -> int:
             "within_100_delta": sum(1 for x in m if x < 100 * d),
         }
 
+    envelope = None
+    if args.envelope:
+        env = load(Path(args.envelope))
+        shared = sorted(set(ref) & set(env))
+        erows = []
+        for rid in shared:
+            r, e = ref[rid]["ref"], env[rid]["ref"]
+            rv, ev = verdict(r), verdict(e)
+            d = dev[rid]["ref"] if rid in dev else None
+            erows.append({
+                "id": rid,
+                "reference_bf16": {k: round(r[k], 6) for k in AF2_EASY},
+                "reference_fp32": {k: round(e[k], 6) for k in AF2_EASY},
+                "envelope_delta": {k: round(e[k] - r[k], 6) for k in AF2_EASY},
+                "device_delta": {k: round(d[k] - r[k], 6) for k in AF2_EASY} if d else None,
+                # >1 means the device sits outside the reference's own precision freedom
+                "device_over_envelope": {
+                    k: (round(abs(d[k] - r[k]) / abs(e[k] - r[k]), 3)
+                        if d and abs(e[k] - r[k]) > 0 else None) for k in AF2_EASY},
+                "accept_reference_bf16": all(rv.values()),
+                "accept_reference_fp32": all(ev.values()),
+                "flipped_by_envelope": sorted(k for k in AF2_EASY if rv[k] != ev[k]),
+            })
+        efl = sum(1 for r in erows if r["accept_reference_bf16"] != r["accept_reference_fp32"])
+        elo, ehi = wilson(efl, len(erows))
+        envelope = {
+            "n": len(erows),
+            "criterion_flips": sum(1 for r in erows if r["flipped_by_envelope"]),
+            "decision_flips": efl,
+            "decision_flip_rate": round(efl / len(erows), 4) if erows else None,
+            "decision_flip_rate_ci95": [round(elo, 4), round(ehi, 4)],
+            "worst_abs": {k: round(max(abs(r["envelope_delta"][k]) for r in erows), 6)
+                          for k in AF2_EASY} if erows else None,
+            "rows": erows,
+        }
+
     flips = sum(1 for r in rows if r["flipped"])
     decision_flips = sum(1 for r in rows if r["accept_reference"] != r["accept_device"])
     lo, hi = wilson(decision_flips, len(rows))
@@ -107,6 +147,7 @@ def main() -> int:
                       "max": round(max(v), 6) if v else None,
                       "worst_abs": round(delta_scale[k], 6)} for k, v in deltas.items()},
         "margins": margins,
+        "reference_precision_envelope": envelope,
         "rows": rows,
     }
     print(json.dumps(report, indent=1))
