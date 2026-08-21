@@ -179,6 +179,11 @@ python scripts/nesso1_port/model_parity.py
 TT_VISIBLE_DEVICES=1 python scripts/nesso1_port/device_parity.py
 ```
 
+The release gate also folds Nesso-1 at 256, 512, 640 and 768 aa and checks which perf levers
+actually fire at each size against a recorded baseline, so a lever tuned at one length cannot go
+quietly dark at another. `python3 scripts/release_gate.py --model size-ladder --size-ladder-models
+nesso1`, about 5 minutes. See [size-generality.md](size-generality.md).
+
 `model_parity.py` scores against `ref_scalars.json`, taken from upstream's own `predict_step`
 under the seed the gate reseeds to. It also reports a non-blocking `cli_draw` leg against the
 scalars the upstream CLI wrote; that leg is *expected* to differ, because the CLI featurized
