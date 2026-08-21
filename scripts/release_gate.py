@@ -929,7 +929,10 @@ def run_nesso1(keep: bool) -> dict:
                 "n_tokens": None, "gate": False,
                 "error": f"missing nesso1 parity fixture {NESSO1_FIXTURE}"}
 
-    out_json = REPO_ROOT / "nesso1_gate_parity.json"
+    # perf/nesso1/, not the repo root: measurement artifacts belong under perf/ (the 08-13
+    # run_*.sh lesson), and --keep leaves this file behind on purpose.
+    out_json = REPO_ROOT / "perf" / "nesso1" / "gate_parity.json"
+    out_json.parent.mkdir(parents=True, exist_ok=True)
     cmd = [
         sys.executable, str(NESSO1_PARITY),
         "--fixture", str(NESSO1_FIXTURE),
