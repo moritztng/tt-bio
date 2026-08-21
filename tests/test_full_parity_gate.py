@@ -32,6 +32,18 @@ def _load():
     return mod
 
 
+@pytest.fixture(autouse=True)
+def _quiet_host(monkeypatch):
+    """Every test here sees an unloaded host.
+
+    The gate refuses to start above 1.5x nproc. That guard runs before the leg loop, so on a
+    busy box it fired instead of the logic under test and three of these tests went red for
+    the host's load rather than for anything in the gate: green on an idle laptop at loadavg
+    0.8, red on a QuietBox at 28.6. The ceiling itself is tested by overriding this again.
+    """
+    monkeypatch.setattr(os, "getloadavg", lambda: (0.5, 0.5, 0.5))
+
+
 def _run_gate(args, tmp_path):
     return subprocess.run(
         [sys.executable, str(SCRIPT), *args, "--workdir", str(tmp_path),

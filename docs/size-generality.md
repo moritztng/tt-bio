@@ -60,6 +60,24 @@ also destroy the one interval that is gateable. The exponent is checked over 256
 boltz-2) and 512 to 768 (+-0.54). A model too noisy for a meaningful band has its exponent recorded
 as skipped, with the measured noise as the reason, rather than getting a gate that cries wolf.
 
+## The rung is a padded token count, not a residue count
+
+The ladder's rungs are residue counts, but every size-conditioned gate in the engine keys on the
+**padded token** count, and the two only agree for a bare protein. A token is a residue or a
+ligand heavy atom, and the total is padded up to a multiple of `PAIRFORMER_PAD_MULTIPLE` (64), so
+adding a 20-atom ligand at 640 aa gives 660 tokens and lands on padded 704, a rung no apo protein
+on the 64-aa lattice ever reaches.
+
+That is how Boltz-2 shipped unable to fold anything at padded 704. Apo 640 aa pads to 640 and
+folds, apo 768 aa pads to 768 and folds, and the one rung between them is only reachable with a
+ligand on the lattice or with an off-lattice residue count (641 to 704 aa apo dies identically).
+Both a protein-only ladder and a ligand ladder pass every rung on their own; only the two axes
+together reach it.
+
+So when reading a size result, convert to padded tokens first. A ligand ladder at the same
+residue rungs is a different set of shapes, not a repeat of the apo one, and that is the point of
+running it.
+
 ## What the 2026-08-19 sweep found
 
 The gate's own baseline, recorded on one p150a at a 13x10 grid, current main, single-sequence folds at

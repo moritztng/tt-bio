@@ -43,12 +43,25 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   what the worker pool, the multi-card fan-out and every gate leg already do.
 - `TT_BIO_LOGICAL_DEVICE_ID` past the end of `TT_VISIBLE_DEVICES` fails now, naming both values,
   instead of silently using the first visible card and leasing one the run never opens.
-
+- Boltz-2 folds inputs that pad to 704 tokens again. 640 aa plus a 20-heavy-atom ligand is 660
+  tokens, which pads to 704, and 641 to 704 aa on its own lands on the same rung; all of it died
+  about 6 s in with `Statically allocated circular buffers in program 36 clash with L1 buffers`.
+  The gate that leaves a layer-normed pair tensor in L1 for its narrow projections priced 1.5
+  copies of the tensor against the whole grid's L1. That is an aggregate of interleaved bytes and
+  the wall it has to clear is per core, so at 704 tokens it admitted a 953 KB/core tensor and left
+  the per-head softmax 543 KB where its static circular buffers needed 563658 B. It now reserves
+  the consumers' room in bytes per core, at both sites that hand a narrow projection an
+  L1-resident pair tensor. Every rung that folded before folds bit-identically; the ligand ladder
+  passes at every 64-aa rung from 256 to 1024 aa.
 - The parity gate's delegated legs (`boltzgen`, `opendde-abag`, `capacity`) run in the gate's own
   process and shell out from there, so they inherited an environment with no device restriction:
   boltzgen designed on card 0 whatever `--workers` said, and any fan-out from a delegated leg
   would have taken every card on the box. They are pinned now, and the pin is restored afterwards
   so one leg cannot leak it into the next.
+- The `l1-budget` release-gate arm crashed before folding anything (`L1_BUDGET_PARTS` rows
+  unpacked as 4-tuples after a DRAM field made them 5), and that arm's own tests were dead for
+  the identical reason, so the arm had neither a working leg nor working tests. Also fixed three
+  gate tests whose verdict depended on the host's loadavg instead of the logic under test.
 
 - A partial `~/of3_ref_out.pkl` skips the OpenFold3 device tests that need the keys it
   lacks instead of failing them. The tests guarded on the golden's existence while

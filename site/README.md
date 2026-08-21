@@ -3,7 +3,7 @@
 `index.html` is a standalone page in two sections. First, what TT-Bio runs: one table per group,
 structure and binding affinity prediction, protein design, protein embeddings, with the `--model` id
 in the first column and one short cell per capability. That section is static markup in the HTML, so
-it renders even if the data fetch fails. Second, performance and cost: tt-bio's five
+it renders even if the data fetch fails. Second, performance and cost: tt-bio's six
 structure-prediction models on Blackhole against H200, B200 and A100 at 512 residues, with throughput
 per dollar of a Galaxy Blackhole against a DGX H200, a DGX B200 and a DGX A100 on purchase price and
 again on total cost of ownership, predictions per hour per server, prediction time on one AI Processor, and what
