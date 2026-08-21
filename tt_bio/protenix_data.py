@@ -755,8 +755,9 @@ def structure_token_coords(path, chains=None, crop=None) -> dict:
     label_seq spec (see `parse_crop_spec`), either one spec for every chain or a
     `{chain_id: spec}` dict.
 
-    Returns `{chain_id: {coord, res_name, mol_type, is_resolved, label_seq, has_oxt,
-    sequence}}`, each in label_seq order, `coord` an (N_res, 3) float32 tensor.
+    Returns `{chain_id: {coord, res_name, mol_type, is_resolved, label_seq, has_oxt, ca,
+    ca_mask, sequence}}`, each in label_seq order; `coord` is the (N_res, 3) distogram
+    representative atom and `ca` the backbone atom a scorer aligns on.
 
     Waters, hydrogens and alternative conformations are dropped before any atom name is
     matched. That is the whole reason this function exists: PXDesign routes a user's CIF
@@ -802,6 +803,7 @@ def structure_token_coords(path, chains=None, crop=None) -> dict:
                              f"representation")
         keep = parse_crop_spec(crops.get(cid) if crops is not None else crop)
         coord, res_name, resolved, label_seq, oxt = [], [], [], [], []
+        ca, ca_mask = [], []
         for res in sub:
             if keep is not None and res.label_seq not in keep:
                 continue
@@ -809,6 +811,10 @@ def structure_token_coords(path, chains=None, crop=None) -> dict:
                 continue
             rep = distogram_rep_atom(res.name, mt)
             at = next((a for a in res if a.name == rep), None)
+            bb = next((a for a in res if a.name == ("CA" if mt == "protein" else "C1'")),
+                      None)
+            ca.append([bb.pos.x, bb.pos.y, bb.pos.z] if bb else [0.0, 0.0, 0.0])
+            ca_mask.append(bb is not None)
             coord.append([at.pos.x, at.pos.y, at.pos.z] if at else [0.0, 0.0, 0.0])
             res_name.append(res.name)
             resolved.append(at is not None)
@@ -825,6 +831,10 @@ def structure_token_coords(path, chains=None, crop=None) -> dict:
             "is_resolved": torch.tensor([resolved[i] for i in order]),
             "label_seq": [label_seq[i] for i in order],
             "has_oxt": [oxt[i] for i in order],
+            # The backbone atom, for scoring: the conditioning uses `coord` (CB), while the
+            # RMSDs a structure filter reports are CA on CA.
+            "ca": torch.tensor([ca[i] for i in order], dtype=torch.float32),
+            "ca_mask": torch.tensor([ca_mask[i] for i in order]),
             "sequence": res_names_to_sequence([res_name[i] for i in order], mt),
         }
     return out

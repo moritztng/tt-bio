@@ -19,7 +19,17 @@ used, and it is quoted at each call site):
      verdict the preset prints. `--af2-device` offers it as a second column;
   4. the filters and `pre_filter_preview`'s ranking.
 
-`extended` adds the Protenix filter, which is `--preset extended`.
+`extended` adds the Protenix filter, and with it row 8's trap. The filter switches from
+`protenix_base_default_v0.5.0` to `protenix_mini_tmpl_v0.5.0` when the bare-target Protenix
+fold misses the crystal by `--target_template_rmsd_thres` or MORE
+(`pxdesign/runner/helpers.py:775-778` returns True on `rmsd >= thres`, and
+`pipeline.py:146-153` switches on True). A target that folds well therefore keeps the base
+model, so an unmodified `extended` run on an easy target exercises one arm only. Both arms
+are run here and each asserts on the checkpoint the loader actually opened, plus a second,
+independent witness: `mini_tmpl` is `mini_default` plus an eleven-tensor
+`noisy_structure_embedder` and nothing else, so the loaded model either has that module or
+it does not. `resolve_ptx_columns` is NOT that witness -- it keys off `eval_protenix` versus
+`eval_protenix_mini`, and both arms of an extended run emit the same `ptx_*` columns.
 
 **Scale.** The shipped presets are `N_sample=100` (preview) and `N_sample=500` (extended) at
 304 s a design of host AF2, i.e. 8.4 h and 42 h of AF2 alone. Every run here is at a stated
@@ -57,6 +67,23 @@ FILTERS = {
                 "af2_binder_pred_design_rmsd": ("<", 1.5)},
 }
 CA = 1                       # index of CA in AF2's atom37 order
+PTX_DIR = Path("~/pxdesign_release_data/checkpoint").expanduser()
+PTX_VARIANT = {"base": "protenix_base_default_v0.5.0",
+               "mini_tmpl": "protenix_mini_tmpl_v0.5.0",
+               "mini_default": "protenix_mini_default_v0.5.0"}
+# pxdbench/pxd_configs/eval.py:68-79 gives the binder `ptx` block: N_cycle 4, N_sample 1,
+# N_step 2. The sampler knobs are a property of the checkpoint, not of the filter block:
+# `configs/configs_model_type.py` in the `v0.5.0+pxd` Protenix fork overrides
+# `gamma0: 0, step_scale_eta: 1.0` for the distilled mini models and leaves the base model on
+# the stack defaults (0.8 and 1.5). Running a mini checkpoint under the base pair at two steps
+# does not fold: it lands the whole complex ~1700 A from the target.
+PTX_CFG = {"N_cycle": 4, "N_sample": 1, "N_step": 2}
+PTX_SAMPLER = {"base": {}, "mini_tmpl": {"gamma0": 0.0, "step_scale": 1.0},
+               "mini_default": {"gamma0": 0.0, "step_scale": 1.0}}
+PTX_FILTER = {"ptx": {"ptx_iptm_binder": (">", 0.85), "ptx_ptm_binder": (">", 0.88),
+                      "ptx_pred_design_rmsd": ("<", 2.5)},
+              "ptx_basic": {"ptx_iptm_binder": (">", 0.8), "ptx_ptm_binder": (">", 0.8),
+                            "ptx_pred_design_rmsd": ("<", 2.5)}}
 AA3TO1 = {"ALA": "A", "ARG": "R", "ASN": "N", "ASP": "D", "CYS": "C", "GLN": "Q",
           "GLU": "E", "GLY": "G", "HIS": "H", "ILE": "I", "LEU": "L", "LYS": "K",
           "MET": "M", "PHE": "F", "PRO": "P", "SER": "S", "THR": "T", "TRP": "W",
@@ -262,6 +289,121 @@ def pre_filter_preview(rows: list[dict], min_total_return: int, max_success_retu
     return out
 
 
+# --------------------------------------------------------------------------- extended
+
+def atom_names(feats) -> list:
+    return ["".join(chr(c + 32) for c in row.tolist()).strip()
+            for row in feats["ref_atom_name_chars"].argmax(-1)]
+
+
+def ca_rows(feats) -> list:
+    """Row indices of the backbone CA atoms, in token order."""
+    return [i for i, nm in enumerate(atom_names(feats)) if nm == "CA"]
+
+
+def read_a3m(msa_dir) -> str | None:
+    """The unpaired alignment PXDesign caches per target. `use_msa: True` is the shipped
+    setting for both Protenix filter variants, and folding the target without one is a
+    different measurement, so a missing directory is reported rather than absorbed."""
+    if not msa_dir:
+        return None
+    f = Path(msa_dir).expanduser() / "non_pairing.a3m"
+    if not f.exists():
+        raise FileNotFoundError(f"--ptx-msa {msa_dir} has no non_pairing.a3m")
+    return f.read_text()
+
+
+def load_ptx(variant: str):
+    """Build tt-bio's Protenix from a PXDesign filter checkpoint, and report which file was
+    opened and whether the loaded weights carry the mini_tmpl-only module. These two are the
+    run's witnesses that the variant the config asked for is the variant that ran."""
+    import torch
+    import ttnn
+    from tt_bio.protenix import Protenix, n_blocks
+    from tt_bio.tenstorrent import get_device
+    path = PTX_DIR / f"{PTX_VARIANT[variant]}.pt"
+    ck = torch.load(path, map_location="cpu", weights_only=True)
+    ck = ck.get("model", ck)
+    sd = {k[len("module."):] if k.startswith("module.") else k: v for k, v in ck.items()}
+    dev = get_device()
+    ckc = ttnn.init_device_compute_kernel_config(
+        dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
+        fp32_dest_acc_en=True, packer_l1_acc=True)
+    model = Protenix(sd, ckc, dev, gated_move=True)
+    witness = {
+        "checkpoint": str(path),
+        "checkpoint_name": path.name,
+        "n_tensors": len(sd),
+        "params_m": round(sum(v.numel() for v in sd.values()) / 1e6, 2),
+        "pairformer_blocks": n_blocks(sd, "pairformer_stack"),
+        "has_noisy_structure_embedder":
+            any(k.startswith("noisy_structure_embedder.") for k in sd),
+        "noisy_structure_embedder_built": model.trunk.NSE is not None,
+    }
+    return model, witness
+
+
+def ptx_features(chains, struct=None):
+    """Protenix features for a designed complex, plus the mini_tmpl structural prior.
+
+    `struct` is `(cb_coords, cb_mask)` over the complex's tokens: the target's own CB
+    geometry with the binder masked out, which is what `NoisyStructureEmbedder` reads. The
+    base model has no such module and ignores the keys.
+    """
+    from tt_bio.protenix_data import build_complex_features
+    feats = build_complex_features(chains)
+    if struct is not None:
+        feats["struct_cb_coords"], feats["struct_cb_mask"] = struct
+    return feats
+
+
+def ptx_fold(model, feats, seed: int, variant: str, n_step: int | None = None):
+    coords, conf = model.fold(feats, n_step=n_step or PTX_CFG["N_step"],
+                              n_sample=PTX_CFG["N_sample"], seed=seed,
+                              return_confidence=True, n_cycles=PTX_CFG["N_cycle"],
+                              **PTX_SAMPLER[variant])
+    if isinstance(conf, list):
+        conf = conf[0]
+    return coords[0], conf
+
+
+def target_template_decision(target_seq, a3m, target_ca, seed, thres):
+    """`use_target_template_or_not`: fold the bare target and compare it to the crystal.
+
+    Returns (use_template, rmsd). Upstream returns True -- switch to `mini_tmpl` -- when the
+    fold misses by `thres` or more, so an easy target keeps the base model. Forcing the other
+    arm is therefore `--target_template_rmsd_thres 0.0`.
+    """
+    model, witness = load_ptx("base")
+    feats = ptx_features([(target_seq, a3m, "protein")])
+    coords, _ = ptx_fold(model, feats, seed, "base")
+    rmsd = kabsch_rmsd(target_ca, coords[ca_rows(feats)].numpy())
+    del model
+    return bool(rmsd >= thres), round(rmsd, 3), witness
+
+
+def ptx_score(model, row, target_seq, a3m, struct, seed, variant):
+    feats = ptx_features([(target_seq, a3m, "protein"), (row["seq"], None, "protein")],
+                         struct=struct)
+    t0 = time.time()
+    coords, conf = ptx_fold(model, feats, seed, variant)
+    pred_ca = coords[ca_rows(feats)].numpy()
+    tgt_ca, bnd_ca = design_ca(Path(row["design_pdb"]))
+    binder_idx = -1                               # the binder is the last chain
+    out = {"ptx_s": round(time.time() - t0, 1),
+           "ptx_plddt": round(float(conf["plddt"]), 4),
+           "ptx_ptm": round(float(conf["ptm"]), 4),
+           "ptx_iptm": round(float(conf["iptm"]), 4),
+           "ptx_ptm_binder": round(float(conf["chain_ptm"][binder_idx]), 4),
+           "ptx_iptm_binder": round(float(conf["chain_iptm"][binder_idx]), 4),
+           "ptx_pred_design_rmsd":
+               round(kabsch_rmsd(np.concatenate([tgt_ca, bnd_ca]), pred_ca), 3)}
+    for name, conds in PTX_FILTER.items():
+        out[f"{name}_success"] = bool(
+            all(out[k] > bar if op == ">" else out[k] < bar for k, (op, bar) in conds.items()))
+    return out
+
+
 # --------------------------------------------------------------------------- driver
 
 def main() -> int:
@@ -274,13 +416,22 @@ def main() -> int:
     ap.add_argument("--out", required=True)
     ap.add_argument("--af2-params", default=str(AF2_PARAMS))
     ap.add_argument("--stages", default="all",
-                    help="comma-separated subset of generate,mpnn,af2,rank; 'all' runs the graph")
+                    help="comma-separated subset of generate,mpnn,af2,ptx,rank; 'all' runs "
+                         "the graph the preset asks for")
+    ap.add_argument("--ptx-msa", default=None,
+                    help="the target's cached alignment directory (non_pairing.a3m). Both "
+                         "Protenix filter variants ship use_msa: True")
+    ap.add_argument("--target_template_rmsd_thres", type=float, default=2.0,
+                    help="the shipped 2.0 A. 0.0 forces the mini_tmpl arm, because the switch "
+                         "fires on rmsd >= thres")
     args = ap.parse_args()
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    stages = ({"generate", "mpnn", "af2", "rank"} if args.stages == "all"
-              else set(args.stages.split(",")))
+    default_stages = {"generate", "mpnn", "af2", "rank"}
+    if args.preset == "extended":
+        default_stages.add("ptx")
+    stages = default_stages if args.stages == "all" else set(args.stages.split(","))
     manifest = out / "manifest.json"
     state = json.loads(manifest.read_text()) if manifest.exists() else {}
 
@@ -314,6 +465,48 @@ def main() -> int:
                   f"complex_rmsd {r['af2_complex_pred_design_rmsd']:.2f} "
                   f"easy={r['af2_easy_success']} opt={r['af2_opt_success']}", flush=True)
             manifest.write_text(json.dumps(state, indent=1))
+
+    if "ptx" in stages:
+        from tt_bio.protenix_data import structure_token_coords
+        from tt_bio.pxdesign.inputs import read_design_yaml
+        import torch
+        spec = read_design_yaml(state["yaml"])
+        toks = structure_token_coords(spec["structure"], spec["chains"], spec["crop"])
+        entries = [toks[c] for c in spec["chains"]]
+        target_seq = "".join(e["sequence"] for e in entries)
+        target_ca = torch.cat([e["ca"] for e in entries]).numpy()
+        a3m = read_a3m(args.ptx_msa)
+        n_binder = state["rows"][0]["binder_len"]
+        cb = torch.cat([e["coord"] for e in entries] + [torch.zeros(n_binder, 3)])
+        cb_mask = torch.cat([e["is_resolved"] for e in entries]
+                            + [torch.zeros(n_binder, dtype=torch.bool)])
+
+        use_tmpl, tgt_rmsd, base_witness = target_template_decision(
+            target_seq, a3m, target_ca, args.seed, args.target_template_rmsd_thres)
+        variant = "mini_tmpl" if use_tmpl else "base"
+        print(f"[preset] target fold RMSD {tgt_rmsd} A against a "
+              f"{args.target_template_rmsd_thres} A threshold -> ptx variant {variant} "
+              f"(msa={'yes' if a3m else 'NO'})", flush=True)
+        model, witness = load_ptx(variant)
+        state["ptx"] = {"variant": variant, "use_target_template": use_tmpl,
+                        "target_fold_rmsd": tgt_rmsd,
+                        "target_template_rmsd_thres": args.target_template_rmsd_thres,
+                        "msa": args.ptx_msa, "witness": witness,
+                        "decision_fold_witness": base_witness, "cfg": PTX_CFG}
+        print(f"[preset] ptx witness: opened {witness['checkpoint_name']}, "
+              f"{witness['params_m']} M params, {witness['pairformer_blocks']} pairformer "
+              f"blocks, noisy_structure_embedder in weights="
+              f"{witness['has_noisy_structure_embedder']} built="
+              f"{witness['noisy_structure_embedder_built']}", flush=True)
+        struct = (cb, cb_mask) if variant == "mini_tmpl" else None
+        for r in state["rows"]:
+            r.update(ptx_score(model, r, target_seq, a3m, struct, args.seed, variant))
+            print(f"[preset] ptx sample {r['sample']}: {r['ptx_s']}s "
+                  f"ptm_binder {r['ptx_ptm_binder']:.3f} iptm_binder "
+                  f"{r['ptx_iptm_binder']:.3f} rmsd {r['ptx_pred_design_rmsd']:.2f} "
+                  f"ptx={r['ptx_success']} basic={r['ptx_basic_success']}", flush=True)
+            manifest.write_text(json.dumps(state, indent=1))
+        del model
 
     if "rank" in stages:
         n = args.n_sample

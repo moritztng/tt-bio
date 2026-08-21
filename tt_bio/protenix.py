@@ -2106,7 +2106,7 @@ class Protenix:
 
     def fold(self, feats, *, n_step=200, n_sample=1, seed=None, progress_fn=None,
              return_confidence=False, n_cycles=None, trace=False,
-             max_parallel_samples=None):
+             max_parallel_samples=None, gamma0=None, step_scale=None):
         """Run the full pipeline. feats: model-ready tensor dict. n_cycles = trunk recycling
         iterations (default 10, protenix-v2's spec; fewer trades accuracy for speed). Returns
         coords (n_sample, N, 3) host tensor; if return_confidence, returns (coords, conf) where
@@ -2114,7 +2114,13 @@ class Protenix:
         ptm, iptm} for n_sample==1, or a list of such dicts (one per sample) for n_sample>1.
         trace=True replays a captured ttnn trace of the denoise stream (lossless; faster on
         dispatch-bound diffusion, e.g. -22% warm at L256). Requires the device to have been
-        opened with a trace region: get_device(trace_region_size=1 << 30)."""
+        opened with a trace region: get_device(trace_region_size=1 << 30).
+
+        gamma0 / step_scale are the sampler's churn and step-size knobs. None keeps
+        `edm_sample`'s protenix-v2 defaults (0.8 and 1.5). They are arguments because they are
+        a property of the CHECKPOINT, not of this class: the distilled v0.5.0 mini models ship
+        `gamma0: 0, step_scale_eta: 1.0` in their own model config and produce nonsense under
+        the v2 pair at the handful of steps they are meant to run."""
         import torch
         if trace:
             import tt_bio.tenstorrent as _TTd
@@ -2157,13 +2163,15 @@ class Protenix:
         # (boltz2.AtomDiffusion.sample pattern). Until then, fall back to the per-sample
         # loop (bit-exact with the prior path). max_parallel_samples caps the per-step
         # batched denoise chunk (OOM safety); None = n_sample (one batched forward).
+        _sampler = {k: v for k, v in (("gamma0", gamma0), ("step_scale", step_scale))
+                    if v is not None}
         if n_sample > 1 and getattr(self.diffusion, "supports_multiplicity", False):
             _mps = DEFAULT_MAX_PARALLEL_SAMPLES if max_parallel_samples is None else max_parallel_samples
             if _prof:
                 import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); _ts = _time.time()
             coords = edm_sample(self.diffusion, cond, N, n_step=n_step, multiplicity=n_sample,
                                  max_parallel_samples=_mps, seed=seed, trace=trace,
-                                 progress_fn=progress_fn)
+                                 progress_fn=progress_fn, **_sampler)
             if _prof:
                 import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); print(f"[PROF] edm_sample[batch={n_sample}] {_time.time()-_ts:.3f}s", flush=True)
         else:
@@ -2174,7 +2182,7 @@ class Protenix:
                     import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); _ts = _time.time()
                 coords.append(edm_sample(self.diffusion, cond, N, n_step=n_step, seed=sd_seed,
                                          trace=trace, progress_fn=progress_fn,
-                                         dump_fn=_dump_fn)[0])
+                                         dump_fn=_dump_fn, **_sampler)[0])
                 if _prof:
                     import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); print(f"[PROF] edm_sample[{k}] {_time.time()-_ts:.3f}s", flush=True)
             coords = torch.stack(coords, 0)
@@ -2264,6 +2272,19 @@ class Trunk(_KeyedWeights):
                                              for k, v in self._w.items()
                                              if k.startswith(f"template_embedder.pairformer_stack.blocks.{b}.")}),
                     compute_kernel_config, gated_move=gated_move) for b in range(nb_tpl)]
+        # Noisy structure embedder: `protenix_mini_tmpl_v0.5.0` and nothing else on this
+        # branch. It is the entire difference between `mini_tmpl` and `mini_default` -- eleven
+        # tensors, same 1612 elsewhere -- and it is what the "tmpl" in the name means: the
+        # target's CB geometry entering the pair representation directly, not through the
+        # template embedder (whose pairformer stack is empty in every v0.5.0 variant). A
+        # checkpoint without the keys gets None and nothing changes.
+        self.NSE = None
+        if any(k.startswith("noisy_structure_embedder.") for k in self._w):
+            self.NSE = Transition(PW.remap_transition(
+                {k[len("noisy_structure_embedder.transition_out."):]: v
+                 for k, v in self._w.items()
+                 if k.startswith("noisy_structure_embedder.transition_out.")}),
+                compute_kernel_config)
         # MSA module: count from the weights (Protenix-v2 4, Protenix mini 1).
         self.MSA = []
         nb_msa = n_blocks(self._w, "msa_module")
@@ -2317,6 +2338,50 @@ class Trunk(_KeyedWeights):
             u = v if u is None else ttnn.add(u, v)
         u = ttnn.multiply(u, 1.0 / (1e-7 + nt))
         return self._lin(ttnn.relu(u), "template_embedder.linear_no_bias_u.weight")
+
+    def _noisy_structure_dist(self, feat, N):
+        """The cycle-invariant half of `NoisyStructureEmbedder`: the binned CB distogram.
+
+        `protenix/model/modules/pairformer.py:986` (the `v0.5.0+pxd` fork). A 39-bin one-hot
+        of the pairwise CB distance, masked to the pairs where both tokens have a real
+        coordinate, with the pair mask appended as a fortieth channel, then projected to
+        c_z/2. It depends only on the input coordinates, so like the template projection it is
+        built and uploaded once per fold rather than once per recycling cycle.
+
+        `add_noise` is upstream's training-time augmentation and is 0 at inference.
+        Returns None when the caller supplies no structure, which is upstream's own
+        all-zero-mask branch: it multiplies the update out to zero, so skipping it is the
+        same arithmetic without the traffic.
+        """
+        import torch
+        if self.NSE is None or "struct_cb_coords" not in feat:
+            return None
+        mask = feat["struct_cb_mask"].bool().reshape(-1)
+        if not bool(mask.any()):
+            return None
+        x = feat["struct_cb_coords"].float().reshape(N, 3)
+        # The bin edges are checkpoint parameters, not recomputed: `bins` is
+        # linspace(3.25, 50.75, 39) and `upper_bins` is it shifted up one with a 1e6 tail.
+        bins = self._w["noisy_structure_embedder.bins"].float()
+        upper = self._w["noisy_structure_embedder.upper_bins"].float()
+        d = torch.cdist(x, x)[..., None]
+        pair = (mask[:, None] & mask[None, :]).float()[..., None]
+        onehot = ((d > bins) & (d < upper)).float() * pair
+        feats40 = torch.cat([onehot, pair], dim=-1).unsqueeze(0)
+        return self._lin(self._up(feats40),
+                         "noisy_structure_embedder.linear_struct.weight")
+
+    def _noisy_structure(self, z3, d_proj):
+        """The per-cycle half: concat the projected pair state with the projected distogram
+        and run the output transition. `z = transition_out(cat(linear_z(LN(z)), d))`."""
+        zp = self._lin(self._ln(z3, "noisy_structure_embedder.layernorm_z.weight",
+                                "noisy_structure_embedder.layernorm_z.bias"),
+                       "noisy_structure_embedder.linear_z.weight")
+        cat = ttnn.concat([zp, d_proj], dim=-1)
+        ttnn.deallocate(zp)
+        out = self.NSE(cat)
+        ttnn.deallocate(cat)
+        return out
 
     def _msa(self, z3, m_feat):
         def update_msa(m, z, pwa, transition):
@@ -2464,6 +2529,7 @@ class Trunk(_KeyedWeights):
         # N varies between targets, so never cache this on self.
         tpl_a = [self._lin(self._up(t.unsqueeze(0)), "template_embedder.linear_no_bias_a.weight")
                  for t in te_at]
+        nse_d = self._noisy_structure_dist(feat, N)
         # msa feature
         msa = F.one_hot(feat["msa"].long(), 32).float()
         ms = torch.cat([msa, feat["has_deletion"].unsqueeze(-1), feat["deletion_value"].unsqueeze(-1)], -1).unsqueeze(0)
@@ -2502,6 +2568,8 @@ class Trunk(_KeyedWeights):
                 progress_fn("trunk", step=cyc, total=n_cycles)
             zc = self._lin(self._ln(z3, "layernorm_z_cycle.weight", "layernorm_z_cycle.bias"), "linear_no_bias_z_cycle.weight")
             z3 = ttnn.add(ttnn.reshape(z_init, (1, N, N, self.C_Z)), zc)
+            if nse_d is not None:
+                z3 = ttnn.add(z3, self._noisy_structure(z3, nse_d))
             if nt > 0:
                 z3 = ttnn.add(z3, self._template(z3, tpl_a, N, nt))
             z3 = self._msa(z3, m_feat)
@@ -2516,6 +2584,8 @@ class Trunk(_KeyedWeights):
             trunk_tap(f"cyc{cyc}_after_PF:z3", z3, always=True)
         for t in tpl_a:
             ttnn.deallocate(t)
+        if nse_d is not None:
+            ttnn.deallocate(nse_d)
         # The trunk's final conditioning. If cycle 0's blocks matched but this differs, the
         # divergence is born in a later cycle; if this matches too, the trunk is fully exonerated
         # and only the diffusion path (and the allocator state it inherits) can explain the fold.
