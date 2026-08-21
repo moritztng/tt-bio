@@ -4197,13 +4197,24 @@ class AttentionPairBias(Module):
             # shape where this materialised path scores 0.026320, so the fused kernel is the MORE
             # accurate one per call, and 37x faster (1.683 vs 62.678 ms).
             #
-            # It is still rejected, on fold-level evidence instead. That arm was built and folded
-            # and scored against both an official openfold3 0.4.4 reference on a rented H200 at
-            # five seeds and the 1HCL crystal, and this path won every comparison: native CA RMSD
-            # 9.437 vs 15.821 A at 298 aa, 6.662 vs 8.144 and 5.759 vs 6.148 A on the two 512 aa
-            # copies (state/openfold3-fused-sdpa-gpu-reference-check.md). A per-call error metric
-            # cannot bound a chained fold, which is the actual lesson: rel_rms and PCC are blind to
-            # the sign of an error, and 700 chained calls are not.
+            # It is still rejected, on fold-level evidence, but NOT on the openfold3 numbers this
+            # comment used to cite as decisive. Those were native CA RMSD 9.437 vs 15.821 A at
+            # 298 aa and 6.662 vs 8.144 / 5.759 vs 6.148 A on the two 512 aa copies, at n = 1 fold
+            # per arm. Re-scored with lDDT, the H200 reference's own five seeds span 0.243 lDDT
+            # points against an arm margin of 0.106, and the reference reaches its own far basin at
+            # seed 4, so those margins are basin assignments and cannot carry a verdict alone
+            # (perf/fused_sdpa/of3_lddt.py).
+            #
+            # What does carry it is RF3, measured on a metric with no sampler noise in it: the
+            # trunk distogram, read before the sampler runs. Spearman rho against the 1HCL crystal
+            # is 0.00852 LOWER on the fused arm at 298 aa, one-signed across three seeds, 95% CI
+            # [-0.01201, -0.00347], against a shipped-arm seed spread of 0.00449; plDDT drops 1.8
+            # points the same way (state/fused-sdpa-adopt.md).
+            #
+            # The lesson is the one this comment already had right: a per-call error metric cannot
+            # bound a chained fold. rel_rms and PCC are blind to the sign of an error, and ~1000
+            # chained calls are not -- the fused kernel is more accurate per call and worse over
+            # the trunk.
             return _fp32_softmax_attention(
                 q, k, v, bias,
                 scale_inv=self.head_dim ** -0.5,
