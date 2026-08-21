@@ -121,10 +121,22 @@ class DiffusionSampler:
         ) ** self.p
 
     def sample(self, denoise, coord_to_be_noised: torch.Tensor, d: int,
-               draws: Draws | None = None, s_trans: float = 1.0):
-        """`denoise(x_noisy [D,L,3], t [D]) -> [D,L,3]` is the ported diffusion module."""
+               draws: Draws | None = None, s_trans: float = 1.0,
+               partial_t: int = 0):
+        """`denoise(x_noisy [D,L,3], t [D]) -> [D,L,3]` is the ported diffusion module.
+
+        `partial_t` starts the rollout part-way down the schedule, which is upstream's
+        `SamplePartialDiffusion` (`inference_sampler.py:206`, a one-line
+        `t_hat_full[self.partial_t:]`). It is an INDEX, not a noise level: 0 is the full
+        rollout from pure noise and `num_timesteps - 1` is one step away from the input
+        structure. Everything else is unchanged, so the initial noising still reads
+        `sched[0]` -- of the truncated schedule, which is the whole mechanism.
+        """
+        if not 0 <= partial_t < self.num_timesteps:
+            raise ValueError(
+                f"partial_t must be in [0, {self.num_timesteps}), got {partial_t}")
         draws = draws if draws is not None else Draws()
-        sched = self.noise_schedule()
+        sched = self.noise_schedule()[partial_t:]
         n_atom = coord_to_be_noised.shape[-2]
 
         x = sched[0] * draws.normal((d, n_atom, 3)) + coord_to_be_noised

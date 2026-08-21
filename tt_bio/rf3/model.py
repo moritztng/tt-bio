@@ -28,6 +28,7 @@ import os
 import torch
 import ttnn
 
+from tt_bio.rf3 import confidence as rf3_confidence
 from tt_bio.rf3.confidence_head import ConfidenceHead
 from tt_bio.rf3.diffusion_atom_decoder import DiffusionAtomDecoder
 from tt_bio.rf3.diffusion_atom_encoder import DiffusionAtomEncoder
@@ -249,8 +250,15 @@ class RF3(Module):
         self.sampler = DiffusionSampler(num_timesteps=num_timesteps,
                                         sigma_data=sigma_data)
 
-    def trunk(self, host: HostInputs, n_recycles: int):
-        """Feature init followed by `n_recycles` weight-shared trunk passes."""
+    def trunk(self, host: HostInputs, n_recycles: int, stop_after_first=None):
+        """Feature init followed by `n_recycles` weight-shared trunk passes.
+
+        `stop_after_first(s_inputs, s, z) -> bool` is consulted once, after the first
+        recycle, and True abandons the rest of them. That is where upstream puts its
+        early-stop decision (`RF3.py:412-439`): it pulls one value out of the recycling
+        generator, scores it, and returns without resuming. A predicate that decides
+        later would not save the recycles, which is most of what there is to save.
+        """
         s_inputs, s_init, z_init = self.feature_initializer(
             host.single_in, host.pair_in, host.pair_v, host.keys_indexing,
             host.atom_to_token_mean, host.window_mask, host.n_atom_padded,
@@ -266,11 +274,16 @@ class RF3(Module):
             s, z = self.recycler(host, template_channels,
                                  host.msa_stack[i % len(host.msa_stack)],
                                  s_inputs, s_init, z_init, s, z)
+            if i == 0 and stop_after_first is not None \
+                    and stop_after_first(s_inputs, s, z):
+                break
         return s_inputs, s, z
 
     def predict(self, f: dict, *, n_recycles: int | None = None,
                 diffusion_batch_size: int = 1, rep_atom_idxs: torch.Tensor | None = None,
                 coord_to_be_noised: torch.Tensor | None = None,
+                partial_t: int = 0, early_stop_plddt: float | None = None,
+                is_real_atom: torch.Tensor | None = None,
                 draws: Draws | None = None) -> dict:
         """One full inference: trunk recycling, diffusion rollout, then the heads.
 
@@ -278,16 +291,43 @@ class RF3(Module):
         reference: sharing draws is the only way an RMSD between two samplers means
         anything (a cross-RNG comparison produces a plausible structure and a number
         that reads as a porting bug).
+
+        `partial_t` starts the diffusion rollout part-way down the noise schedule from
+        `coord_to_be_noised` instead of from pure noise. `early_stop_plddt` abandons the
+        target before the rollout when the confidence head, run on the trunk output with
+        no structure, reports a mean pLDDT below the threshold; the return then carries
+        `early_stopped` and no `X_L`.
         """
         host = HostInputs.build(f, self.device)
         if n_recycles is None:
             n_recycles = len(host.msa_stack)
 
-        s_inputs, s, z = self.trunk(host, n_recycles)
+        decision: dict = {}
+        stop_after_first = None
+        if early_stop_plddt is not None:
+            if self.confidence_head is None or is_real_atom is None:
+                raise ValueError(
+                    "early_stop_plddt needs the confidence head and is_real_atom: the "
+                    "decision is the head's mean pLDDT and is_real_atom is what selects "
+                    "the real atoms out of the per-slot logits")
+
+            def stop_after_first(s_inputs, s, z):
+                decision["mean_plddt"] = self.mean_plddt_no_structure(
+                    s_inputs, s, z, is_real_atom)
+                return decision["mean_plddt"] < early_stop_plddt
+
+        s_inputs, s, z = self.trunk(host, n_recycles, stop_after_first)
+        if decision.get("mean_plddt") is not None \
+                and decision["mean_plddt"] < early_stop_plddt:
+            return {"early_stopped": True, "mean_plddt": decision["mean_plddt"],
+                    "early_stop_plddt": float(early_stop_plddt)}
         distogram = torch.Tensor(ttnn.to_torch(self.distogram_head(z))).float()
 
         if coord_to_be_noised is None:
             coord_to_be_noised = torch.zeros(diffusion_batch_size, host.n_atom, 3)
+        elif coord_to_be_noised.shape[0] != diffusion_batch_size:
+            coord_to_be_noised = coord_to_be_noised[:1].expand(
+                diffusion_batch_size, -1, -1).contiguous()
 
         prepared = (self.diffusion_module.prepare(host, s_inputs, s, z)
                     if _HOIST_ROLLOUT else None)
@@ -296,12 +336,30 @@ class RF3(Module):
             return self.diffusion_module(host, x_noisy, t, s_inputs, s, z, prepared)
 
         x_pred, draws = self.sampler.sample(
-            denoise, coord_to_be_noised, diffusion_batch_size, draws=draws)
+            denoise, coord_to_be_noised, diffusion_batch_size, draws=draws,
+            partial_t=partial_t)
 
-        out = {"X_L": x_pred, "distogram": distogram, "draws": draws}
+        out = {"X_L": x_pred, "distogram": distogram, "draws": draws,
+               "early_stopped": False}
+        if decision.get("mean_plddt") is not None:
+            out["mean_plddt"] = decision["mean_plddt"]
         if self.confidence_head is not None and rep_atom_idxs is not None:
             out.update(self.confidence(s_inputs, s, z, x_pred, rep_atom_idxs))
         return out
+
+    def mean_plddt_no_structure(self, s_inputs, s, z,
+                                is_real_atom: torch.Tensor) -> float:
+        """Mean pLDDT from the confidence head with no structure fed to it.
+
+        The head takes `dist_onehot=None`, which drops the predicted-distance connection
+        exactly as the reference does when `X_pred_L is None`. No mini-rollout is needed,
+        so this costs one head pass and nothing else.
+        """
+        logits = self.confidence_head(s_inputs, s, z)["plddt_logits"]
+        logits = torch.Tensor(ttnn.to_torch(logits)).float()
+        if logits.dim() == 3:
+            logits = logits[0]
+        return float(rf3_confidence.atomwise_plddt(logits, is_real_atom).mean())
 
     def confidence(self, s_inputs, s, z, x_pred: torch.Tensor,
                    rep_atom_idxs: torch.Tensor) -> dict:

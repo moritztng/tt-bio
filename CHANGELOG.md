@@ -15,6 +15,13 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   `<name>_summary_confidences.json` (pTM, ipTM, chain-pair PAE/PDE, ranking score), and
   `--diffusion_samples N` ranks N samples by that score. Weights download from the
   Institute for Protein Design on first use, or set `RF3_CKPT`.
+- `--partial_t N --partial_structure FILE` (rf3): start the diffusion rollout part-way down
+  the noise schedule so it refines an existing structure instead of building from scratch.
+  N is a schedule index, 0 for a normal fold and higher to stay closer to the input.
+- `--early_stop_plddt X` (rf3): after the first trunk recycle, score mean pLDDT with the
+  confidence head and abandon the target if it is below X. No structure is written and the
+  entry in `results.json` carries `early_stopped: true` with the measured pLDDT, so a
+  screening run can tell an abandoned target from a failed one.
 - `tests/test_rf3_featurizer.py`: RF3 host-featurizer parity over ten capability classes
   from committed captures, with no device and no `rc-foundry` install.
 

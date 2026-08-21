@@ -121,7 +121,14 @@ class ConfidenceHead(Module):
                            compute_kernel_config=self.compute_kernel_config, **kw)
 
     def embed(self, s_inputs, s_trunk, z_trunk, dist_onehot):
-        """Everything up to the pairformer stack."""
+        """Everything up to the pairformer stack.
+
+        `dist_onehot=None` skips the predicted-distance connection, which is what the
+        reference does when it is called with no structure
+        (`af3_auxiliary_heads.py:132`, `if X_pred_L is not None`). That is the mode
+        upstream runs for its early-stop check, after the first recycle and before any
+        rollout exists.
+        """
         s_inputs = global_layer_norm(s_inputs, self.compute_kernel_config)
         s_trunk = global_layer_norm(s_trunk, self.compute_kernel_config)
         z = global_layer_norm(z_trunk, self.compute_kernel_config)
@@ -130,11 +137,13 @@ class ConfidenceHead(Module):
         l = ttnn.linear(s_inputs, self.left,
                         compute_kernel_config=self.compute_kernel_config)
         z = ttnn.add(z, ttnn.add(ttnn.unsqueeze(r, -2), ttnn.unsqueeze(l, -3)))
-        z = ttnn.add(z, ttnn.linear(dist_onehot, self.dist,
-                                    compute_kernel_config=self.compute_kernel_config))
+        if dist_onehot is not None:
+            z = ttnn.add(z, ttnn.linear(
+                dist_onehot, self.dist,
+                compute_kernel_config=self.compute_kernel_config))
         return s_trunk, z
 
-    def __call__(self, s_inputs, s_trunk, z_trunk, dist_onehot):
+    def __call__(self, s_inputs, s_trunk, z_trunk, dist_onehot=None):
         s, z = self.embed(s_inputs, s_trunk, z_trunk, dist_onehot)
         s, z = self.pairformer(s, z)
         return self.heads(s, z)

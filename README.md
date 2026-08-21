@@ -87,6 +87,9 @@ tt-bio predict examples/prot.yaml --model protenix-v2   # MSA on by default; NA/
 tt-bio predict examples/prot.fasta --model openfold3    # MSA on by default; set OF3_CKPT to the weights file
 tt-bio predict examples/9dsg_abag.yaml --model opendde-abag   # antibody-antigen co-fold, MSA on by default
 tt-bio predict examples/prot.yaml --model rf3            # MSA on by default; weights fetch from the IPD
+tt-bio predict examples/prot.yaml --model rf3 \
+    --partial_t 150 --partial_structure start.cif       # refine start.cif instead of folding from scratch
+tt-bio predict targets.yaml --model rf3 --early_stop_plddt 0.5   # skip the rollout on hopeless targets
 ```
 
 | Feature | Boltz-2 | ESMFold2 | Protenix-v2 | OpenFold3 | OpenDDE | RF3 |
@@ -536,6 +539,9 @@ Model-specific options are labelled below.
 | `--recycling_steps` | model-specific | 3 for Boltz-2 and OpenFold3 (OpenFold3 runs recycles+1 = 4 trunk cycles, its upstream default); 10 for Protenix-v2/OpenDDE/ESMFold2 (the ESMFold2 paper's benchmark setting) |
 | `--sampling_steps` | model-specific | Requested diffusion sampling steps: 200 for Boltz-2/Protenix-v2/OpenFold3/OpenDDE; 100 for ESMFold2 (executes 68 after the sigma-schedule clip, the paper's protocol) |
 | `--diffusion_samples` | `1` | Number of structure samples |
+| `--partial_t` | `0` | rf3 only. Schedule index the diffusion rollout starts at, so it refines `--partial_structure` instead of folding from scratch. Higher stays closer to that structure |
+| `--partial_structure` | — | rf3 only. The `.cif`/`.pdb`/`.json` structure `--partial_t` refines. It supplies the sequences too, so no MSA is attached |
+| `--early_stop_plddt` | — | rf3 only. Abandon a target after the first trunk recycle if its mean pLDDT is below this. Writes no structure; the results entry carries `early_stopped` |
 | `--max_parallel_samples` | `5` | Diffusion samples denoised in one batched forward. Higher is faster but costs device memory linearly; lower it if a large target runs out of memory |
 | `--output_format` | `cif` | `cif` or `pdb` |
 | `--seed` | `0` | Random seed for the diffusion sampler |

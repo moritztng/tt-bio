@@ -1122,22 +1122,49 @@ class _WorkerState:
         n_recycles = int(cfg.get("recycling_steps") or 10)
         n_sample = max(1, int(cfg.get("diffusion_samples") or 1))
         seed = int(cfg.get("seed") or 0)
+        partial_t = int(cfg.get("partial_t") or 0)
+        early_stop_plddt = cfg.get("early_stop_plddt")
         with tempfile.TemporaryDirectory() as td:
             spec_path = Path(td) / f"{path.stem}.json"
             spec_path.write_text(_json.dumps(
                 [{"name": path.stem, "components": components}]))
-            out = featurize(spec_path, n_recycles=n_recycles,
+            # Partial diffusion noises a structure, so it featurizes the structure
+            # directly: RF3's own reader takes .cif/.pdb/.json, and a spec built from
+            # sequences has no coordinates to start the rollout from.
+            src = Path(cfg["partial_structure"]) if partial_t else spec_path
+            out = featurize(src, n_recycles=n_recycles,
                             diffusion_batch_size=n_sample, seed=seed)[0]
 
         f = out["feats"]
         atom_array = out["atom_array"]
         is_real_atom = out["confidence_feats"]["is_real_atom"]
         chain_iid = out["ground_truth"]["chain_iid_token_lvl"]
+        coord_to_be_noised = None
+        if partial_t:
+            coord_to_be_noised = out.get("coord_atom_lvl_to_be_noised")
+            if coord_to_be_noised is None or not bool(coord_to_be_noised.abs().any()):
+                raise RuntimeError(
+                    f"--partial_t {partial_t}: {Path(cfg['partial_structure']).name} "
+                    "featurized to all-zero coordinates, so there is nothing to noise. "
+                    "Give a .cif/.pdb that carries them.")
+
         report_progress("trunk")
         torch.manual_seed(seed)
         got = self.model.predict(
             f, n_recycles=n_recycles, diffusion_batch_size=n_sample,
-            rep_atom_idxs=out.get("ground_truth", {}).get("rep_atom_idxs"))
+            rep_atom_idxs=out.get("ground_truth", {}).get("rep_atom_idxs"),
+            coord_to_be_noised=coord_to_be_noised, partial_t=partial_t,
+            early_stop_plddt=early_stop_plddt, is_real_atom=is_real_atom)
+        if got.get("early_stopped"):
+            # Abandoned, not failed: the caller has to be able to tell those apart, so this
+            # returns metrics rather than raising, and writes no structure.
+            return ({"early_stopped": True,
+                     "plddt": round(got["mean_plddt"] * 100, 4),
+                     "early_stop_plddt": got["early_stop_plddt"],
+                     "n_tokens": int(f["asym_id"].reshape(-1).shape[0]),
+                     "n_atoms": int(atom_array.array_length()),
+                     "recycling_steps": n_recycles},
+                    None, {"record": types.SimpleNamespace(affinity=False)})
 
         # The trunk runs once and the diffusion batch is D independent rollouts off it,
         # each with its own confidence. Rank them by upstream's ranking score
@@ -1187,6 +1214,11 @@ class _WorkerState:
             "recycling_steps": n_recycles,
             "samples": len(samples),
         }
+        if partial_t:
+            metrics["partial_t"] = partial_t
+        if early_stop_plddt is not None:
+            metrics["early_stopped"] = False
+            metrics["early_stop_plddt"] = float(early_stop_plddt)
         if len(samples) > 1:
             metrics["all_runs"] = [{"rank": i, **scalars(r)}
                                    for i, r in enumerate(samples)]

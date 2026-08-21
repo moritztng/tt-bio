@@ -2319,6 +2319,20 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                    "100 (executes 68 after the sigma_max=256 schedule clip); every other model "
                    "200. Explicit values are honored verbatim.")
 @click.option("--diffusion_samples", default=1, type=int)
+@click.option("--partial_t", default=0, type=int,
+              help="RF3 only. Start the diffusion rollout at schedule index N instead of "
+                   "from pure noise, so the rollout refines --partial_structure rather than "
+                   "building from scratch. 0 is a normal fold; higher stays closer to the "
+                   "input structure. Requires --partial_structure.")
+@click.option("--partial_structure", default=None,
+              type=click.Path(exists=True, dir_okay=False),
+              help="RF3 only. The .cif/.pdb/.json structure --partial_t noises. RF3 reads "
+                   "its sequences and coordinates from this file, so it defines the system; "
+                   "no MSA is attached to it.")
+@click.option("--early_stop_plddt", default=None, type=float,
+              help="RF3 only. After the first trunk recycle, score mean pLDDT with the "
+                   "confidence head and abandon the target if it is below this. Writes no "
+                   "structure and reports early_stopped in the metrics.")
 @click.option("--max_parallel_samples", default=5, type=int,   # protenix.DEFAULT_MAX_PARALLEL_SAMPLES
               help="Diffusion samples denoised in one batched forward. Higher is faster but "
                    "costs device memory linearly; lower it if a large target runs out.")
@@ -2403,7 +2417,8 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                    "+ atom diffusion), MSA on by default; proteins, nucleic acids and ligands. "
                    "All run on-device via the ttnn pipeline; ligand / affinity options apply to boltz2 only.")
 def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, sampling_steps,
-            diffusion_samples, max_parallel_samples, step_scale, output_format, override,
+            diffusion_samples, partial_t, partial_structure, early_stop_plddt,
+            max_parallel_samples, step_scale, output_format, override,
             seed, use_msa_server, msa_db_path, msa_dir_opt, msa_cache_only, use_envdb, single_sequence, msa_endpoint, msa_server_url, msa_pairing_strategy,
             msa_server_username, msa_server_password, api_key_value, use_potentials,
             method, max_msa_seqs, subsample_msa, num_subsampled_msa, no_kernels, trace, diffusion_trace,
@@ -2445,6 +2460,15 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     # non-negative"). Reject up front with a clear message.
     if diffusion_samples < 1:
         raise click.BadParameter("--diffusion_samples must be at least 1")
+    if partial_t < 0:
+        raise click.BadParameter("--partial_t must be >= 0")
+    if bool(partial_t) != bool(partial_structure):
+        raise click.BadParameter(
+            "--partial_t and --partial_structure go together: N>0 needs the structure to "
+            "noise, and the structure does nothing without N>0")
+    if (partial_t or early_stop_plddt is not None) and model != "rf3":
+        raise click.BadParameter(
+            "--partial_t and --early_stop_plddt are rf3-only; got --model " + str(model))
     if diffusion_samples_affinity < 1:
         raise click.BadParameter("--diffusion_samples_affinity must be at least 1")
     if max_parallel_samples < 1:
@@ -2555,6 +2579,8 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             "model": model, "fast": fast, "output_format": output_format,
             "recycling_steps": recycling_steps, "sampling_steps": sampling_steps,
             "diffusion_samples": diffusion_samples, "seed": seed or 0, "trace": trace,
+            "partial_t": partial_t, "partial_structure": partial_structure,
+            "early_stop_plddt": early_stop_plddt,
             # Without this key --max_parallel_samples is a silent no-op for every model that
             # rides this config (protenix-v2 / opendde / esmfold2): the worker reads it with
             # cfg.get(), so it saw None on every fold and fell back to the engine default.
