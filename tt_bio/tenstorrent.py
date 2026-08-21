@@ -4183,13 +4183,27 @@ class AttentionPairBias(Module):
         if (_FP32_SOFTMAX or self.fp32_softmax) and self.dtype != ttnn.float32:
             # Gate on: fp32 softmax reduction, bf16 operands/storage (reference recipe).
             #
-            # Do not reroute this to the fused SDPA to skip the re-materialisation traffic. It is
-            # worth 1.37x on the openfold3 512 aa fold (107.489 -> 78.205 s) and it changes the
-            # answer: all-atom Kabsch RMSD 27.347 A against this path on a 0.000 A A/A floor, and
-            # plDDT 0.547851 -> 0.439598. Flipping only the MSA and template stacks is worth 1.05x
-            # and still moves the structure 7.611 A. The compute kernel config cannot rescue it:
-            # sdpa_generic keeps the exponentiated scores in a bf16 circular buffer, so
-            # fp32_dest_acc never reaches them. Measured: perf/other512/ab_of3_sites_512.json.
+            # Do not reroute this to the fused SDPA to skip the re-materialisation traffic, even
+            # though it is worth 1.37x on the openfold3 512 aa fold (107.489 -> 78.205 s).
+            #
+            # Two things this comment used to say were wrong, and both mattered, so they are named
+            # here rather than deleted. The 27.347 A that first rejected the reroute was NOT
+            # precision: the kernel adds the bias before applying scale, so a bias that has not
+            # been pre-scaled computes softmax(s*(qk+mask)) instead of softmax(s*qk+mask). A pure
+            # float64 calculation of those two semantics, no hardware involved, reproduces that
+            # arm's error to 0.2% (state/openfold3-to-4x.md s2). And the compute kernel config DOES
+            # reach the arithmetic: at HiFi4 + fp32_dest_acc with the bias pre-scaled, the fused
+            # path scores 0.022279 rmsd/std against a float64 gold on openfold3's own production
+            # shape where this materialised path scores 0.026320, so the fused kernel is the MORE
+            # accurate one per call, and 37x faster (1.683 vs 62.678 ms).
+            #
+            # It is still rejected, on fold-level evidence instead. That arm was built and folded
+            # and scored against both an official openfold3 0.4.4 reference on a rented H200 at
+            # five seeds and the 1HCL crystal, and this path won every comparison: native CA RMSD
+            # 9.437 vs 15.821 A at 298 aa, 6.662 vs 8.144 and 5.759 vs 6.148 A on the two 512 aa
+            # copies (state/openfold3-fused-sdpa-gpu-reference-check.md). A per-call error metric
+            # cannot bound a chained fold, which is the actual lesson: rel_rms and PCC are blind to
+            # the sign of an error, and 700 chained calls are not.
             return _fp32_softmax_attention(
                 q, k, v, bias,
                 scale_inv=self.head_dim ** -0.5,
