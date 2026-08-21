@@ -83,7 +83,7 @@ def main() -> int:
 
     import ttnn
 
-    from tt_bio.rf3.remap import remap_pairformer_block
+    from tt_bio.rf3.remap import PAIRFORMER_FLAGS, remap_pairformer_block
     from tt_bio.tenstorrent import Pairformer, get_device
 
     sd = torch.load(args.ckpt, map_location="cpu", weights_only=False)["model"]
@@ -126,8 +126,10 @@ def main() -> int:
     )
     # transpose_bias=False: RF3 builds the ending pair bias from the un-transposed
     # tensor. With the default the block scores z_pcc 0.82 instead of 0.99.
-    pf = Pairformer(1, *DIMS, True, remapped, cfg,
-                    scale_pair_bias=True, fp32_softmax=True, transpose_bias=False)
+    # PAIRFORMER_FLAGS, not a hand-copied subset: this harness scored a configuration the
+    # model does not run for as long as the two lists were kept separately, and missed both
+    # gated_move and accurate_softmax that way.
+    pf = Pairformer(1, *DIMS, True, remapped, cfg, **PAIRFORMER_FLAGS)
 
     def to_tt(x):
         return ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, device=dev,

@@ -198,8 +198,14 @@ PAIRFORMER_DIMS = (32, 4, 24, 16)
 # DRAM against 1.7 into L1, and at 48 blocks x 10 recycles that is 2.6 s of a 61 s fold.
 # Bit-exact: a memory config cannot change a value, and it is measured with torch.equal rather
 # than argued.
+#: `accurate_softmax` is RF3-only on purpose. `ttnn.softmax` returns rows summing to
+#: 0.9769, and that uniform deficit does not cancel in `probs @ v`, which is the whole of
+#: AttentionPairBias's 13.43x on RF3's pairformer. AttentionPairBias is shared with
+#: ESMFold2, OpenFold3, Protenix-v2, OpenDDE and every diffusion DiT, and the fix costs
+#: 4.22x on the softmax, so flipping it on for them needs their own parity anchors and
+#: perf cells scored first.
 PAIRFORMER_FLAGS = dict(scale_pair_bias=True, fp32_softmax=True, transpose_bias=False,
-                        gated_move=True,
+                        gated_move=True, accurate_softmax=True,
                         transpose_l1_reserve=_TRANSPOSE_L1_RESERVE_PER_CORE)
 
 

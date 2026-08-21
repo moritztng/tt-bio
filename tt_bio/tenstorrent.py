@@ -1355,6 +1355,43 @@ def _fp32_softmax_shard(rows: int, height_per_row: int, width: int):
         strategy=ttnn.ShardStrategy.HEIGHT, orientation=ttnn.ShardOrientation.ROW_MAJOR)
 
 
+def _accurate_softmax(x, compute_kernel_config=None, fp32: bool = True):
+    """A row softmax built from individual ttnn ops, for logits the fused kernel loses.
+
+    `ttnn.softmax` normalises with a denominator that does not match its own numerators:
+    on [1,16,512,512] fp32 it returns rows summing to 0.9769 (min 0.9613) and rel_rms
+    0.027317 against a fp64 softmax, at every logit range tested (within-row spread 1
+    through 135). max/subtract/exp/sum/divide on the same input scores 0.000446, and the
+    residual 6x of that is the fused kernel's approximate SFPU exp, since `ttnn.exp`
+    defaults to the accurate one. `numeric_stable` and a compute kernel config change
+    nothing (perf/rf3/results/sm_variants_53.json).
+
+    Why it matters more than 2.4% looks: a uniform row deficit is a multiplicative error
+    on every weight in the row, so unlike the fused kernel's argmax jitter it does not
+    cancel in `probs @ v`. On RF3's pairformer that deficit is the whole of
+    AttentionPairBias's 13.43x and therefore the whole of the s-track's 11x. Costs 4.22x
+    the fused kernel at [1,16,1024,1024] (1.625 vs 0.385 ms), which is why it is opt-in.
+    """
+    src_dtype = x.dtype
+    xf = (ttnn.typecast(x, ttnn.float32, memory_config=x.memory_config())
+          if fp32 and src_dtype != ttnn.float32 else x)
+    m = ttnn.max(xf, dim=-1, keepdim=True)
+    d = ttnn.subtract(xf, m)
+    ttnn.deallocate(m)
+    if xf is not x:
+        ttnn.deallocate(xf)
+    ttnn.exp(d, output_tensor=d)
+    s = ttnn.sum(d, dim=-1, keepdim=True, compute_kernel_config=compute_kernel_config)
+    p = ttnn.divide(d, s)
+    ttnn.deallocate(d)
+    ttnn.deallocate(s)
+    if p.dtype != src_dtype:
+        q = ttnn.typecast(p, src_dtype, memory_config=p.memory_config())
+        ttnn.deallocate(p)
+        p = q
+    return p
+
+
 def _fp32_softmax_attention(
     q: ttnn.Tensor,
     k: ttnn.Tensor,
@@ -3997,9 +4034,11 @@ class AttentionPairBias(Module):
         fp32_raw_matmul_attention: bool = False,
         scale_pair_bias: bool = True,
         fp32_softmax: bool = False,
+        accurate_softmax: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.fp32_softmax = fp32_softmax
+        self.accurate_softmax = accurate_softmax
         self.head_dim = head_dim
         self.dtype = dtype if dtype is not None else _dtype(ttnn.bfloat16)
         self.fp32_raw_matmul_attention = fp32_raw_matmul_attention
@@ -4346,8 +4385,10 @@ class AttentionPairBias(Module):
                 if z is not None:
                     logits = ttnn.add_(logits, z)
                 logits = ttnn.multiply_(logits, self.head_dim**-0.5)
-                probs = ttnn.softmax(logits, dim=-1,
-                                     compute_kernel_config=self.compute_kernel_config)
+                probs = (_accurate_softmax(logits, self.compute_kernel_config)
+                         if self.accurate_softmax else
+                         ttnn.softmax(logits, dim=-1,
+                                      compute_kernel_config=self.compute_kernel_config))
                 ttnn.deallocate(logits)
                 o = batched_matmul(probs, v, compute_kernel_config=self.compute_kernel_config)
                 ttnn.deallocate(probs)
@@ -4630,6 +4671,7 @@ class PairformerLayer(Module):
         gated_move: bool = False,
         transpose_bias: bool = True,
         transpose_l1_reserve: int = 0,
+        accurate_softmax: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.transform_s = transform_s
@@ -4676,6 +4718,7 @@ class PairformerLayer(Module):
                 compute_kernel_config,
                 scale_pair_bias=scale_pair_bias,
                 fp32_softmax=fp32_softmax,
+                accurate_softmax=accurate_softmax,
             )
             self.transition_s = Transition(
                 self.scope("transition_s"), compute_kernel_config
@@ -4745,6 +4788,7 @@ class Pairformer(Module):
         gated_move: bool = False,
         transpose_bias: bool = True,
         transpose_l1_reserve: int = 0,
+        accurate_softmax: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.blocks = [
@@ -4762,6 +4806,7 @@ class Pairformer(Module):
                 gated_move=gated_move,
                 transpose_bias=transpose_bias,
                 transpose_l1_reserve=transpose_l1_reserve,
+                accurate_softmax=accurate_softmax,
             )
             for i in range(n_blocks)
         ]

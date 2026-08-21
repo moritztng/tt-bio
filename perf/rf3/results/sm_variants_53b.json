@@ -1,0 +1,106 @@
+{
+  "tokens": 53,
+  "crop": 0,
+  "input_absmax": 1007.8,
+  "input_within_row_std": 135.75,
+  "variants": [
+    {
+      "variant": "softmax_in_place (production)",
+      "rowsum_mean": 0.975875,
+      "rowsum_min": 0.961679,
+      "rowsum_max": 0.999964,
+      "rel_rms_vs_fp64_softmax": 0.029192
+    },
+    {
+      "variant": "softmax_in_place numeric_stable",
+      "rowsum_mean": 0.975875,
+      "rowsum_min": 0.961679,
+      "rowsum_max": 0.999964,
+      "rel_rms_vs_fp64_softmax": 0.029192
+    },
+    {
+      "variant": "softmax dim=-1",
+      "rowsum_mean": 0.975875,
+      "rowsum_min": 0.961679,
+      "rowsum_max": 0.999964,
+      "rel_rms_vs_fp64_softmax": 0.029192
+    },
+    {
+      "variant": "softmax dim=-1 numeric_stable",
+      "rowsum_mean": 0.975875,
+      "rowsum_min": 0.961679,
+      "rowsum_max": 0.999964,
+      "rel_rms_vs_fp64_softmax": 0.029192
+    },
+    {
+      "variant": "softmax dim=-1 + cfg",
+      "rowsum_mean": 0.975875,
+      "rowsum_min": 0.961679,
+      "rowsum_max": 0.999964,
+      "rel_rms_vs_fp64_softmax": 0.029192
+    },
+    {
+      "variant": "softmax dim=-1 numeric_stable + cfg",
+      "rowsum_mean": 0.975875,
+      "rowsum_min": 0.961679,
+      "rowsum_max": 0.999964,
+      "rel_rms_vs_fp64_softmax": 0.029192
+    },
+    {
+      "variant": "softmax bf16 in numeric_stable",
+      "rowsum_mean": 0.972481,
+      "rowsum_min": 0.959229,
+      "rowsum_max": 1.004883,
+      "rel_rms_vs_fp64_softmax": 0.079424
+    },
+    {
+      "variant": "manual max/exp/sum/div fp32",
+      "rowsum_mean": 1.000342,
+      "rowsum_min": 0.999324,
+      "rowsum_max": 1.001197,
+      "rel_rms_vs_fp64_softmax": 0.000421
+    },
+    {
+      "variant": "manual max/exp/sum/div fp32 + cfg",
+      "rowsum_mean": 1.000342,
+      "rowsum_min": 0.999324,
+      "rowsum_max": 1.001197,
+      "rel_rms_vs_fp64_softmax": 0.000421
+    },
+    {
+      "variant": "production + renormalise",
+      "rowsum_mean": 1.000206,
+      "rowsum_min": 0.999786,
+      "rowsum_max": 1.000826,
+      "rel_rms_vs_fp64_softmax": 0.009879
+    },
+    {
+      "variant": "production, synthetic within-row std 1",
+      "rowsum_mean": 0.995792,
+      "rowsum_min": 0.96132,
+      "rowsum_max": 0.999997,
+      "rel_rms_vs_fp64_softmax": 0.031885
+    },
+    {
+      "variant": "production, synthetic within-row std 10",
+      "rowsum_mean": 0.986279,
+      "rowsum_min": 0.961346,
+      "rowsum_max": 1.000147,
+      "rel_rms_vs_fp64_softmax": 0.023753
+    },
+    {
+      "variant": "production, synthetic within-row std 50",
+      "rowsum_mean": 0.974786,
+      "rowsum_min": 0.961293,
+      "rowsum_max": 0.999942,
+      "rel_rms_vs_fp64_softmax": 0.028331
+    },
+    {
+      "variant": "production, synthetic within-row std 135",
+      "rowsum_mean": 0.972482,
+      "rowsum_min": 0.961015,
+      "rowsum_max": 0.999667,
+      "rel_rms_vs_fp64_softmax": 0.029254
+    }
+  ]
+}

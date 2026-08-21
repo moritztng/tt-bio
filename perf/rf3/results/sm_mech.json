@@ -1,0 +1,57 @@
+{
+  "mechanism": [
+    {
+      "variant": "fused ttnn.softmax",
+      "rel_rms_vs_fp64": 0.027317,
+      "rowsum_mean": 0.976931,
+      "rowsum_min": 0.961308
+    },
+    {
+      "variant": "manual, accurate exp",
+      "rel_rms_vs_fp64": 0.000446,
+      "rowsum_mean": 1.000383,
+      "rowsum_min": 0.999723
+    },
+    {
+      "variant": "manual, approximate exp",
+      "rel_rms_vs_fp64": 0.002741,
+      "rowsum_mean": 1.0,
+      "rowsum_min": 0.999578
+    }
+  ],
+  "timing": [
+    {
+      "shape": [
+        1,
+        16,
+        512,
+        512
+      ],
+      "fused_ms": 0.132,
+      "manual_ms": 0.48,
+      "manual_over_fused": 3.65
+    },
+    {
+      "shape": [
+        1,
+        16,
+        768,
+        768
+      ],
+      "fused_ms": 0.237,
+      "manual_ms": 0.924,
+      "manual_over_fused": 3.89
+    },
+    {
+      "shape": [
+        1,
+        16,
+        1024,
+        1024
+      ],
+      "fused_ms": 0.385,
+      "manual_ms": 1.625,
+      "manual_over_fused": 4.22
+    }
+  ]
+}

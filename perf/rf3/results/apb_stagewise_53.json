@@ -1,0 +1,115 @@
+{
+  "stack": "shadow.recycler.pairformer_stack.0.",
+  "tokens": 53,
+  "crop": 0,
+  "reimpl_check_rel_rms": 0.0,
+  "stages": [
+    {
+      "stage": "1_ln_1",
+      "rel_rms": 0.003244,
+      "ceiling": 0.001796,
+      "x_ceiling": 1.81,
+      "ref_std": 0.2754,
+      "note": ""
+    },
+    {
+      "stage": "2_q",
+      "rel_rms": 0.000695,
+      "ceiling": 0.001717,
+      "x_ceiling": 0.4,
+      "ref_std": 12.3851,
+      "note": "",
+      "pad_absmax": 0.0
+    },
+    {
+      "stage": "2_k",
+      "rel_rms": 0.000881,
+      "ceiling": 0.002081,
+      "x_ceiling": 0.42,
+      "ref_std": 4.382,
+      "note": "",
+      "pad_absmax": 0.0
+    },
+    {
+      "stage": "2_v",
+      "rel_rms": 0.000629,
+      "ceiling": 0.001766,
+      "x_ceiling": 0.36,
+      "ref_std": 7.9524,
+      "note": "",
+      "pad_absmax": 0.0
+    },
+    {
+      "stage": "3_gate",
+      "rel_rms": 0.000889,
+      "ceiling": 0.001564,
+      "x_ceiling": 0.57,
+      "ref_std": 0.224,
+      "note": ""
+    },
+    {
+      "stage": "4_bias",
+      "rel_rms": 0.007376,
+      "ceiling": 0.003316,
+      "x_ceiling": 2.22,
+      "ref_std": 3.5422,
+      "note": "bias_scale 4.898979 undone on host"
+    },
+    {
+      "stage": "5_logits",
+      "rel_rms": 0.002215,
+      "ceiling": 0.002118,
+      "x_ceiling": 1.05,
+      "ref_std": 1012.6242,
+      "note": "absmax 4928.0"
+    },
+    {
+      "stage": "6_softmax",
+      "rel_rms": 0.117622,
+      "ceiling": 0.095604,
+      "x_ceiling": 1.23,
+      "ref_std": 0.1317,
+      "note": "_fp32_softmax_tail, teacher-forced logits+bias"
+    },
+    {
+      "stage": "6b_softmax_devbias",
+      "rel_rms": 0.116434,
+      "ceiling": 0.095604,
+      "x_ceiling": 1.22,
+      "ref_std": 0.1317,
+      "note": "same tail, port's own device-computed bias"
+    },
+    {
+      "stage": "7_pv",
+      "rel_rms": 0.003695,
+      "ceiling": 0.003832,
+      "x_ceiling": 0.96,
+      "ref_std": 8.8681,
+      "note": ""
+    },
+    {
+      "stage": "8_gate_mul",
+      "rel_rms": 0.003046,
+      "ceiling": 0.003717,
+      "x_ceiling": 0.82,
+      "ref_std": 2.2522,
+      "note": ""
+    },
+    {
+      "stage": "9_proj_o",
+      "rel_rms": 0.002139,
+      "ceiling": 0.002071,
+      "x_ceiling": 1.03,
+      "ref_std": 66.1963,
+      "note": ""
+    },
+    {
+      "stage": "op_composed",
+      "rel_rms": 0.027823,
+      "ceiling": 0.002071,
+      "x_ceiling": 13.43,
+      "ref_std": 66.1963,
+      "note": ""
+    }
+  ]
+}
