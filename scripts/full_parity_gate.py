@@ -205,6 +205,9 @@ class Leg:
     msa: str = "none"
     committed_json: str = ""
     target_id: str = ""          # for affinity scoring (affinity_<t>) and structures tid
+    stage: str = ""              # AF2-IG only: which captured stage the leg scores
+                                 # ("complex" or "monomer"). Deliberately NOT `fixture`, which
+                                 # the preflight resolves to a ref-fixture directory.
     opt_in: bool = False         # slow / network legs (esmc-6b, MSA-server legs) — not default
     legacy_rdx: bool = False     # ttnn-only model with NO tt-bio torch path (openfold3): score
                                  # vs the harvested external reference (legacy R/D/X), never the
@@ -457,6 +460,20 @@ LEGS += [
     Leg("rfd3-featurizer", "rfd3", "rfd3", "", committed_json="rfd3-featurizer.json",
         note="RFD3 host featurizer value-parity vs committed foundry reference "
               "(43/43 keys bit-exact); card-free, in-process"),
+    # --- AF2-IG featurizer parity (card-free, in-process; reuses the committed
+    # capture of a real ColabDesign forward pass under
+    # scripts/af2_port/parity_artifacts/laczc128_b80/) ---
+    Leg("af2ig-featurizer", "af2ig", "af2ig", "",
+        note="AF2-IG host featurizer value-parity vs committed ColabDesign capture "
+             "(60/60 keys bit-exact over both stages); card-free, in-process"),
+    # --- AF2-IG torch trunk vs the captured JAX activations (card-free, needs the
+    # checkpoint; GAP rather than FAIL when it is absent) ---
+    Leg("af2ig-trunk", "af2ig", "af2ig_trunk", "", stage="complex",
+        note="AF2-IG torch trunk (complex stage, templates on) vs committed JAX activation "
+             "taps from the production forward pass; card-free, needs params_model_1_ptm.npz"),
+    Leg("af2ig-trunk-monomer", "af2ig", "af2ig_trunk", "", stage="monomer",
+        note="AF2-IG torch trunk (monomer stage, model_3_ptm, template stack dropped) vs its "
+             "own captured taps; card-free, needs params_model_1_ptm.npz"),
 ]
 
 LEGS_BY_ID = {l.id: l for l in LEGS}
@@ -1179,6 +1196,28 @@ def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
         out_json.write_text(json.dumps(rep, indent=2))
         return rep
 
+    if leg.kind == "af2ig":
+        # Card-free: rebuild the AF2-IG feature dict for the committed laczc128_b80 fixture and
+        # compare every featurizer key bit-exact against the captured production forward pass.
+        #
+        # A subprocess with PYTHONPATH=REPO, not an in-process import. `scripts/` is what Python
+        # puts on sys.path[0] for this file, so an in-process `import tt_bio` resolves through
+        # the editable install to the SHARED checkout -- the gate would score installed code
+        # rather than the tree it lives in, and on a worktree whose tt_bio is newer than the
+        # install it fails outright (`tt-bio-worktree-run-recipe`).
+        return _af2ig_subprocess(["scripts/af2_port/parity_gate.py"], out_json,
+                                 "af2ig_featurizer")
+
+    if leg.kind == "af2ig_trunk":
+        # Card-free but NOT checkpoint-free: unlike the featurizer leg this one needs the
+        # 373 MB parameter file, so a host without it reports a GAP instead of failing.
+        params = Path(os.path.expanduser("~/pxd_tool_weights/af2/params_model_1_ptm.npz"))
+        if not params.exists():
+            return {"mode": "af2ig_taps", "verdict": "GAP",
+                    "error": f"checkpoint absent: {params}"}
+        return _af2ig_subprocess(["scripts/af2_port/tap_gate.py", "--params", str(params),
+                                  "--stage", leg.stage or "complex"], out_json, "af2ig_taps")
+
     if leg.kind == "esmc":
         script = "scripts/esmc6b_embed_parity.py" if leg.model == "esmc-6b" else "scripts/esmc_embed_parity.py"
         # esmc_embed_parity multi-leg mode: --seqs + --out writes the pharma-style targets
@@ -1333,9 +1372,28 @@ def _capacity_verdict(report: dict) -> tuple[str, str]:
     return ("PASS" if report.get("gate") else "GAP"), detail
 
 
-def _rfd3_verdict(report: dict) -> tuple[str, str]:
-    """RFD3 featurizer parity: PASS iff every comparable f key is bit-exact vs the
-    committed foundry reference capture (the port's own 43/43-key bar, p12)."""
+def _af2ig_subprocess(argv: list[str], out_json: Path, mode: str) -> dict:
+    """Run an AF2-IG scorer in a subprocess rooted at this checkout.
+
+    PYTHONPATH is the point: both AF2-IG legs must score the tt_bio in the repo they are run
+    from, not whichever one the venv has installed editable.
+    """
+    proc = subprocess.run([sys.executable, *argv], cwd=REPO, capture_output=True, text=True,
+                          env={**os.environ, "PYTHONPATH": str(REPO)})
+    try:
+        rep = json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        return {"mode": mode, "verdict": "ERROR",
+                "error": (proc.stderr or proc.stdout or "no output")[-600:]}
+    out_json.write_text(json.dumps(rep, indent=2, default=str))
+    return rep
+
+
+def _featurizer_verdict(report: dict) -> tuple[str, str]:
+    """Host-featurizer value parity (rfd3, af2ig): PASS iff every comparable key is
+    bit-exact vs the committed upstream capture. Both ports set that bar themselves -- a
+    featurizer is mask and one-hot construction plus a coordinate copy, so anything short
+    of bit-exact is a bug, not precision."""
     if report.get("error"):
         return "ERROR", str(report["error"])
     total = report.get("keys_total", 0)
@@ -1344,10 +1402,44 @@ def _rfd3_verdict(report: dict) -> tuple[str, str]:
     if total == 0:
         return "NO-DATA", "no keys scored"
     verdict = report.get("verdict", "PASS" if not mm else "GAP")
-    detail = f"{bx}/{total} f keys bit-exact"
+    detail = f"{bx}/{total} keys bit-exact"
     if mm:
         detail += f"; mismatches: {[m['key'] for m in mm]}"
     return verdict, detail
+
+
+def _af2ig_trunk_verdict(report: dict) -> tuple[str, str]:
+    """AF2-IG torch trunk vs the captured JAX activations.
+
+    PASS iff every scored tap clears the correlation and the full-array statistics bars. The
+    detail names the worst tap, because a single failing block localises a transcription error
+    where an aggregate cannot.
+    """
+    if report.get("verdict") == "GAP":
+        return "GAP", str(report.get("error", "checkpoint absent"))
+    if report.get("error") or report.get("verdict") == "ERROR":
+        return "ERROR", str(report.get("error"))
+    rows = report.get("rows") or []
+    if not rows:
+        return "NO-DATA", "no taps scored"
+    worst = min(rows, key=lambda r: r.get("pcc", -1.0))
+    # The caveat count and a vanished tap lead, because the table truncates the detail to 60
+    # characters and both are cases where the leg passes for a reason that must not be silent.
+    head = "%s: %d taps, %d failed" % (report.get("stage", "?"), report["taps_scored"],
+                                       report["taps_failed"])
+    missing = report.get("not_implemented") or []
+    if missing:
+        head += ", %d NOT PRODUCED (%s)" % (len(missing), missing[0])
+    if report.get("in_envelope"):
+        head += ", %d in the %s envelope" % (report["in_envelope"],
+                                             report.get("envelope_arm", "?"))
+    detail = "%s; worst %s pcc=%.6f" % (head, worst["tap"], worst.get("pcc", float("nan")))
+    if report.get("scalars_failed"):
+        off = [s for s in report.get("scalars", []) if s["verdict"] not in ("PASS",
+                                                                            "IN-ENVELOPE")]
+        detail += "; scalars off: " + ", ".join(
+            "%s %+.2e" % (s["scalar"], s["got"] - s["want"]) for s in off)
+    return report.get("verdict", "NO-DATA"), detail
 
 
 def _envelope_verdict_row(report: dict) -> tuple[str, str]:
@@ -1394,8 +1486,10 @@ def extract_verdict(leg: Leg, report: dict | None) -> tuple[str, str]:
         return _abag_verdict(report)
     if leg.kind == "capacity":
         return _capacity_verdict(report)
-    if leg.kind == "rfd3":
-        return _rfd3_verdict(report)
+    if leg.kind in ("rfd3", "af2ig"):
+        return _featurizer_verdict(report)
+    if leg.kind == "af2ig_trunk":
+        return _af2ig_trunk_verdict(report)
     if leg.kind == "esmfold2":
         # esmfold2_e2e_parity summary.json is a list of per-protein dicts (each with a
         # kabsch_rmsd block). The gate's recorded behavior is PASS-if-scored (the
@@ -1487,8 +1581,12 @@ def finalize_leg(leg: Leg, verdict: str, detail: str, wall: float) -> tuple[dict
         else:
             drift = f" [DRIFT vs committed={committed} — investigate, not auto-overwritten]"
             ok = False
-    # a live ERROR/GAP/NO-DATA fails the gate unless the GAP reproduces a committed GAP-evidenced
-    if verdict in ("ERROR", "GAP", "NO-DATA") and not (verdict == "GAP" and committed == "GAP-evidenced"):
+    # A live ERROR/FAIL/GAP/NO-DATA fails the gate unless the GAP reproduces a committed
+    # GAP-evidenced. FAIL belongs here and was missing: without a committed verdict to drift
+    # against -- which is every newly added leg -- a scorer returning FAIL left gate_ok True, so
+    # the run printed GATE PASS and exited 0 with a red row in the table.
+    if (verdict in ("ERROR", "FAIL", "GAP", "NO-DATA")
+            and not (verdict == "GAP" and committed == "GAP-evidenced")):
         ok = False
     row = {"leg": leg.id, "verdict": verdict, "detail": detail, "wall": wall,
            "committed": committed, "report": leg.id + ".json"}
