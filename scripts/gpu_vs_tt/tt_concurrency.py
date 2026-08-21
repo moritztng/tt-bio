@@ -17,7 +17,7 @@ Usage:
 
     TT_BIO_LEASE_TIMEOUT=60 python3 scripts/gpu_vs_tt/tt_concurrency.py \
         --cards 0,1,2,3 --folds 5 --model protenix-v2 \
-        --out results/conc/tt_protenix_prot117_c4.json
+        --out perf/conc/tt_protenix_prot117_c4.json
 """
 
 from __future__ import annotations

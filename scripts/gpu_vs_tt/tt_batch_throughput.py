@@ -16,7 +16,7 @@ Two modes, both on one card:
 Usage:
 
     TT_VISIBLE_DEVICES=3 python3 scripts/gpu_vs_tt/tt_batch_throughput.py \
-        --batch 4 --repeat 3 --out results/conc/mp_batch4_c3.json
+        --batch 4 --repeat 3 --out perf/conc/mp_batch4_c3.json
 """
 
 from __future__ import annotations
