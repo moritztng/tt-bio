@@ -389,6 +389,11 @@ details.disclose > div{ padding-top:var(--s-4); }
     return bits.join("\n");
   }
 
+  /* A cell can be absent for two different reasons and they are not the same claim: the model
+   * cannot run on that platform, or nobody has measured it there yet. */
+  function blockedLabel(c) { return c && c.status === "not measured" ? "not measured" : "does not run"; }
+  function blockedWhy(c) { return String((c && (c.detail || c.reason)) || ""); }
+
   /* ---------- chart engine: grouped horizontal bars, inline SVG ---------- */
   var NS = "http://www.w3.org/2000/svg";
   function el(name, attrs, text) {
@@ -476,7 +481,7 @@ details.disclose > div{ padding-top:var(--s-4); }
         }));
         grp.appendChild(el("text", {
           x: plotX + 8, y: by + barH - 5, "font-size": narrow ? 10 : 11.5, fill: "var(--fg-faint)"
-        }, "does not run"));
+        }, b.blockedLabel || "does not run"));
         svg.appendChild(grp);
         continue;
       }
@@ -532,7 +537,8 @@ details.disclose > div{ padding-top:var(--s-4); }
       var bars = CELLS.map(function (k) {
         var c = m.cells[k], p = plat(SERVER_OF[k]);
         if (c.status !== "measured") {
-          return { series: serverLabel(p), seriesShort: serverShort(p), blocked: true, reason: c.detail };
+          return { series: serverLabel(p), seriesShort: serverShort(p), blocked: true,
+                   blockedLabel: blockedLabel(c), reason: blockedWhy(c) };
         }
         var v = valueOf(m, k, p);
         max = Math.max(max, v);
@@ -550,7 +556,7 @@ details.disclose > div{ padding-top:var(--s-4); }
       title: spec.title,
       desc: groups.map(function (g) {
         return g.label + (g.sub ? ", " + g.sub : "") + ": " + g.bars.map(function (b) {
-          return b.series + " " + (b.blocked ? "does not run" : b.label);
+          return b.series + " " + (b.blocked ? (b.blockedLabel || "does not run") : b.label);
         }).join(", ") + ".";
       }).join(" ")
     });
@@ -607,7 +613,8 @@ details.disclose > div{ padding-top:var(--s-4); }
       var bars = CELLS.map(function (k) {
         var c = m.cells[k], p = plat(k);
         if (c.status !== "measured") {
-          return { series: p.name, seriesShort: p.short, blocked: true, reason: c.detail };
+          return { series: p.name, seriesShort: p.short, blocked: true,
+                   blockedLabel: blockedLabel(c), reason: blockedWhy(c) };
         }
         max = Math.max(max, c.s_per_fold);
         return {
@@ -626,7 +633,7 @@ details.disclose > div{ padding-top:var(--s-4); }
         return m.name + ": " + CELLS.map(function (k) {
           var c = m.cells[k];
           return plat(k).short + " " +
-            (c && c.status === "measured" ? fmtSec(c.s_per_fold, 3) + " s" : "does not run");
+            (c && c.status === "measured" ? fmtSec(c.s_per_fold, 3) + " s" : blockedLabel(c));
         }).join(", ") + ".";
       }).join(" ")
     });
@@ -641,7 +648,8 @@ details.disclose > div{ padding-top:var(--s-4); }
       var bars = CELLS.map(function (k) {
         var c = m.cells[k], p = plat(k);
         if (c.status !== "measured") {
-          return { series: p.name, seriesShort: p.short, blocked: true, reason: c.detail };
+          return { series: p.name, seriesShort: p.short, blocked: true,
+                   blockedLabel: blockedLabel(c), reason: blockedWhy(c) };
         }
         max = Math.max(max, c.s_per_design);
         return {
@@ -660,7 +668,7 @@ details.disclose > div{ padding-top:var(--s-4); }
         return m.name + ": " + CELLS.map(function (k) {
           var c = m.cells[k];
           return plat(k).name + " " +
-            (c && c.status === "measured" ? fmtSec(c.s_per_design) + " s" : "does not run");
+            (c && c.status === "measured" ? fmtSec(c.s_per_design) + " s" : blockedLabel(c));
         }).join(", ") + ".";
       }).join(" ")
     });
@@ -702,7 +710,7 @@ details.disclose > div{ padding-top:var(--s-4); }
     function gpuCell(c, render) {
       return c.status === "measured"
         ? "<td class=\"n num\">" + render(c) + "</td>"
-        : "<td class=\"n blocked\" title=\"" + c.detail.replace(/"/g, "&quot;") + "\">does not run</td>";
+        : "<td class=\"n blocked\" title=\"" + blockedWhy(c).replace(/"/g, "&quot;") + "\">" + blockedLabel(c) + "</td>";
     }
     document.getElementById("t-measured").innerHTML =
       "<thead><tr><th>Model</th><th>Recycles</th><th class=\"n\">Blackhole p150a</th><th class=\"n\">H200</th>" +
