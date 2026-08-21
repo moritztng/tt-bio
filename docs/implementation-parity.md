@@ -46,8 +46,9 @@ accuracy (does the fold match the native structure) is out of scope.
 | SaProt-35m | ubiquitin, L76 | PASS | deterministic encoder; emb PCC 0.99914, in the ESMC band |
 | SaProt-650m | ubiquitin, L76 | PASS | deterministic encoder; emb PCC 0.99964, in the ESMC band |
 | RFdiffusion3 | IAI protein motif-scaffold, I40/L419 | PASS | host featurizer 43/43 `f` keys bit-exact vs the committed upstream foundry reference capture; card-free, in-process (`scripts/rfd3_port/parity_gate.py`) |
+| RoseTTAFold3 | CDK2 ladder 128/256/512/768/1024 aa, plus 5vht (real homodimer, paired MSA, atomized NCAA) | PASS | scored against the vendored torch reference, ceiling-relative with the bf16-vs-fp32 ceiling measured in the same run; no trend with size. Confidence reductions (pTM / ipTM / ranking) 12/12 against upstream's own code. Bit-exact run-to-run AND cross-process at 128 / 256 / 512. The pairformer s-track defect is fixed: `ttnn.softmax` returns rows summing to 0.9769 rather than 1, and an RF3-scoped accurate softmax takes the s-track from 0.021263 to 0.003290 against a 0.001869 reference (11.4x -> 1.76x); opt-in, not flipped for shared sites. The 1024 aa accuracy cell is unmeasured, its CPU reference needing >50 min |
 
-Net: 28 PASS, 5 PASS-caveated, 1 GAP-evidenced (boltz2-9ncy-nomsa, root-caused below). The three Boltz-2 affinity
+Net: 29 PASS, 5 PASS-caveated, 1 GAP-evidenced (boltz2-9ncy-nomsa, root-caused below). The three Boltz-2 affinity
 legs were re-run with MSA (Boltz-2's production default — a pharma user folds a
 target whose homologs are known, so the MSA is fed); the earlier single-sequence
 rows are retained and relabeled `non-default`. The MSA legs score 9 PASS / 3 GAP
