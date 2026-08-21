@@ -22,6 +22,17 @@ PYTHONPATH="$WT/scratch_p13" timeout 900 "$PY" scripts/af2_port/trunk_timing.py 
 echo "rc=$?"
 cd "$WT" || exit 1
 
+say "2c/5 trunk_timing 208, HEAD with TT_BIO_TRANSPOSE_L1_RESERVE=0"
+PYTHONPATH="$WT" TT_BIO_TRANSPOSE_L1_RESERVE=0 timeout 900 "$PY" scripts/af2_port/trunk_timing.py \
+    --tokens 208 --passes 7 > perf/pxdesign/tt_pxd_p6_trunk208_head_noreserve.json \
+    2> logs/trunk208_head_noreserve.err
+echo "rc=$?"
+
+say "2b/5 template embedding split, 848 host torch"
+PYTHONPATH="$WT" timeout 900 "$PY" scripts/af2_port/template_split.py --pdb /tmp/p6_848.pdb \
+    --reps 3 --out perf/pxdesign/tt_pxd_p6_template_split_848.json > logs/template_split.out 2>&1
+echo "rc=$?"
+
 say "3/5 M4 skip census, 848 tokens"
 PYTHONPATH="$WT" timeout 2400 "$PY" scripts/af2_port/skip_census.py --tokens 848 --passes 3 \
     --out perf/pxdesign/tt_pxd_p6_skip_census_848.json > logs/m4_census.out 2>&1
