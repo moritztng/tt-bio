@@ -16,7 +16,10 @@ used, and it is quoted at each call site):
   3. AF2-IG, the tt-bio **host torch** arm (`tt_bio.af2_reference`), complex then binder monomer.
      Not the ttnn arm: pass 12 measured it flipping one accept/reject in 26 designs and ask 5628b
      is open on it, so making it a preset's default would silently lower the confidence of every
-     verdict the preset prints. `--af2-device` offers it as a second column;
+     verdict the preset prints. There is deliberately no flag to switch it: a preset column
+     the device arm can reach would make an unapproved accuracy claim available by default,
+     and the arm is reachable directly through `scripts/af2_port/filter_tolerance.py --arm
+     device` for anyone measuring it;
   4. the filters and `pre_filter_preview`'s ranking.
 
 `extended` adds the Protenix filter, and with it row 8's trap. The filter switches from
