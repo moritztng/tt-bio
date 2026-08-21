@@ -1,0 +1,42 @@
+{
+ "results": "/tmp/prot_prod/protenix_results_prot",
+ "reference": "/home/ttuser/.coworker/wt/pxdesign-port-p6/docs/implementation-parity-data/ref-fixtures/protenix-v2/prot/msa-server_200step_5sample_10cycle_bf16/seed0/structures/prot.cif",
+ "n_samples": 5,
+ "inter_sample_rmsd": {
+  "min": 2.26,
+  "max": 20.73,
+  "mean": 12.84
+ },
+ "vs_reference_rmsd": [
+  15.71,
+  2.3,
+  10.05,
+  20.35,
+  6.14
+ ],
+ "confidence_score": [
+  0.834467,
+  0.833107,
+  0.832619,
+  0.830691,
+  0.829994
+ ],
+ "plddt": [
+  0.808964,
+  0.807008,
+  0.807359,
+  0.806269,
+  0.80591
+ ],
+ "rank0_vs_reference": 15.71,
+ "best_available_vs_reference": 2.3,
+ "best_available_rank": 1,
+ "rg_reference": 12.66,
+ "rg_device": [
+  12.65,
+  12.41,
+  12.52,
+  12.71,
+  12.67
+ ]
+}

@@ -39,9 +39,14 @@ RESTYPE_DIM = 32  # protenix restype width (20 aa + X/gap/other slots)
 MOL_TYPE_IDS = {"protein": 0, "rna": 1, "dna": 2, "ligand": 3}  # per-token mol_type enum (build_complex_features -> feats["mol_type"])
 _AA1_TO_IDX = {c: i for i, c in enumerate(RESTYPE_ORDER)}
 
-# CCD formal charges on amino-acid atoms (the v2 reference's neutral-CCD convention:
-# only the protonated guanidinium / ammonium nitrogens carry +1; validated vs golden).
-_FORMAL_CHARGE = {("ARG", "NH2"): 1.0, ("LYS", "NZ"): 1.0}
+# CCD formal charges on amino-acid atoms. Protenix reads the PDB chemical component
+# dictionary straight through, and the CCD's ideal HIS is the protonated imidazolium, so
+# ND1 carries +1 the same way the guanidinium and ammonium nitrogens do. Verified against
+# protenix 0.5.5 and 2.0 captures, which agree (scripts/pxdesign_port/parity_artifacts).
+# `~/protenix_ref_out.pkl`, the golden `test_protein_atom_metadata_exact` scores against,
+# contains no histidine, which is why this was invisible until the PXDesign input path
+# scored a target that has one.
+_FORMAL_CHARGE = {("ARG", "NH2"): 1.0, ("LYS", "NZ"): 1.0, ("HIS", "ND1"): 1.0}
 
 
 def aatype_from_sequence(seq: str) -> torch.Tensor:
@@ -254,7 +259,7 @@ def _resolve_bond_token(placement: dict, cid, res, atom) -> int:
 
 def build_complex_features(chains: list, mol_dir: str | None = None,
                            chain_ids: list | None = None, bonds: list | None = None,
-                           paired_a3ms: list | None = None) -> dict:
+                           paired_a3ms: list | None = None, oxt: list | None = None) -> dict:
     """Multi-chain biomolecular complex -> model-ready input_feature_dict.
 
     chains: list of (sequence, a3m_or_None[, mol_type]); mol_type is "protein" (default),
@@ -315,8 +320,9 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
             n = rt_idx.shape[0]
             res_index = torch.arange(1, n + 1, dtype=torch.long)
             n_res = n
-            af = protein_atom_features(rt_idx, conformers) if mt == "protein" else \
-                na_atom_features(_na_res_codes(seq, mt), mols)
+            af = protein_atom_features(rt_idx, conformers,
+                                       oxt=None if oxt is None else oxt[ci]) \
+                if mt == "protein" else na_atom_features(_na_res_codes(seq, mt), mols)
         eid = entity_of.setdefault((mt, seq), len(entity_of))
         sid = sym_counter.get(eid, 0); sym_counter[eid] = sid + 1
         restype.append(torch.nn.functional.one_hot(rt_idx.clamp(max=RESTYPE_DIM - 1), RESTYPE_DIM).float())
@@ -452,7 +458,7 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     return feats
 
 
-def protein_atom_features(aatype: torch.Tensor, conformers: dict) -> dict:
+def protein_atom_features(aatype: torch.Tensor, conformers: dict, oxt=None) -> dict:
     """Atom-level features for a single offline protein chain.
 
     Reuses tt_bio.data.const.ref_atoms (per-residue atom names, in the canonical CCD order
@@ -465,6 +471,10 @@ def protein_atom_features(aatype: torch.Tensor, conformers: dict) -> dict:
       ref_pos      = conformers[res] (a valid per-residue reference conformer; the reference
                      uses a STOCHASTIC RDKit conformer, so any valid one folds correctly).
     conformers: {3-letter resname: (n_atom, 3) local coords in ref_atoms order}.
+    oxt: per-residue bool for the terminal carboxylate oxygen. None means the sequence-input
+    default, OXT on the last residue only. A chain read out of a structure file passes the
+    file's own answer instead, because a chain cropped mid-sequence has no C-terminus and
+    the reference does not invent one there.
     """
     from .data import const
     letter_to_res = {v: k for k, v in const.prot_token_to_letter.items()}
@@ -477,7 +487,7 @@ def protein_atom_features(aatype: torch.Tensor, conformers: dict) -> dict:
         atoms = list(const.ref_atoms[res])
         disto_atom = const.res_to_disto_atom.get(res, "CA")  # distogram rep atom (CB, or CA for GLY)
         conf = torch.as_tensor(conformers[res], dtype=torch.float32)
-        if t == n_tok - 1:  # C-terminal residue carries the extra OXT (carboxylate) oxygen
+        if bool(oxt[t]) if oxt is not None else t == n_tok - 1:  # C-terminal carboxylate O
             atoms = atoms + ["OXT"]
             # synthesize OXT as the carboxylate mirror of O through C (any valid ref conformer)
             c_i, o_i = const.ref_atoms[res].index("C"), const.ref_atoms[res].index("O")
@@ -689,3 +699,153 @@ def protein_token_features(aatype: torch.Tensor) -> dict:
         "residue_index": torch.arange(1, N + 1, dtype=torch.long),
         "token_index": torch.arange(0, N, dtype=torch.long),
     }
+
+
+# ---------------------------------------------------------------------------
+# Coordinate input: a structure file to per-token conditioning coordinates.
+# ---------------------------------------------------------------------------
+
+# AlphaFold3 SI 4.4 as protenix implements it (`parser.py:add_distogram_rep_atom_mask`):
+# CB for protein and CA for glycine, C4 for purines, C2 for pyrimidines, C1' for the
+# unknown nucleotides. Ligand tokens are single atoms and represent themselves.
+_DISTO_REP_NA = {"DA": "C4", "DG": "C4", "A": "C4", "G": "C4",
+                 "DC": "C2", "DT": "C2", "C": "C2", "U": "C2"}
+_GEMMI_MOL_TYPE = {"PeptideL": "protein", "PeptideD": "protein", "Rna": "rna",
+                   "Dna": "dna", "DnaRnaHybrid": "dna"}
+
+
+def distogram_rep_atom(res_name: str, mol_type: str) -> str:
+    """The atom whose coordinate stands for a whole token in the 64-bin distogram."""
+    if mol_type == "protein":
+        return "CA" if res_name == "GLY" else "CB"
+    return _DISTO_REP_NA.get(res_name, "C1'")
+
+
+def parse_crop_spec(spec) -> set | None:
+    """A PXDesign crop spec to the set of label_seq numbers it keeps.
+
+    `"1-116"`, `"1-10,20-30"`, `40`, a list of any of those, or None / `"all"` / `"full"`
+    for no crop. Matches `pxdesign/utils/inputs.py:85-99` joining a YAML list with commas
+    and `pxdesign/data/json_parser.py:140-154` expanding the ranges.
+    """
+    if spec is None:
+        return None
+    if isinstance(spec, (list, tuple)):
+        spec = ",".join(str(x) for x in spec)
+    spec = str(spec).replace(" ", "")
+    if spec.lower() in ("", "all", "full"):
+        return None
+    keep = set()
+    for part in spec.split(","):
+        if "-" in part.lstrip("-"):
+            s, e = part.split("-")
+            keep.update(range(int(s), int(e) + 1))
+        else:
+            keep.add(int(part))
+    return keep
+
+
+def structure_token_coords(path, chains=None, crop=None) -> dict:
+    """A structure file to per-token distogram-representative-atom coordinates.
+
+    Reads CIF, PDB and the gzipped form of either. `chains` selects subchains by
+    **label_asym_id**, which is what a PXDesign YAML's chain keys mean; None takes every
+    polymer subchain. A PDB carries no label_asym_id, so an id that matches no subchain
+    falls back to the auth chain name, which is the only chain key a PDB has. `crop` is a
+    label_seq spec (see `parse_crop_spec`), either one spec for every chain or a
+    `{chain_id: spec}` dict.
+
+    Returns `{chain_id: {coord, res_name, mol_type, is_resolved, label_seq, has_oxt, ca,
+    ca_mask, sequence}}`, each in label_seq order; `coord` is the (N_res, 3) distogram
+    representative atom and `ca` the backbone atom a scorer aligns on.
+
+    Waters, hydrogens and alternative conformations are dropped before any atom name is
+    matched. That is the whole reason this function exists: PXDesign routes a user's CIF
+    through protenix's distillation parser, which matches observed atoms against CCD atom
+    names with no hydrogen filter in front, so a residue carrying at least as many
+    hydrogens as heavy atoms is dropped and its token is conditioned on at the origin.
+    `examples/5o45.cif` loses 61 of 116 residues that way.
+    """
+    import gemmi
+
+    st = gemmi.read_structure(str(path))
+    st.setup_entities()                    # subchains and entity types
+    st.remove_alternative_conformations()
+    st.remove_hydrogens()
+    st.remove_waters()
+    st.assign_label_seq_id()               # a PDB input gets the numbering a CIF already has
+
+    polymers = []                          # (label_asym_id, auth_chain_name, subchain, entity)
+    for chain in st[0]:
+        for sub in chain.subchains():
+            ent = st.get_entity_of(sub)
+            if ent is not None and ent.entity_type == gemmi.EntityType.Polymer:
+                polymers.append((sub.subchain_id(), chain.name, sub, ent))
+    by_label = {lab: (sub, ent) for lab, _, sub, ent in polymers}
+    by_auth = {}
+    for _, auth, sub, ent in polymers:                # ambiguous auth names resolve to None
+        by_auth[auth] = None if auth in by_auth else (sub, ent)
+
+    want = [str(c) for c in chains] if chains is not None else sorted(by_label)
+    crops = crop if isinstance(crop, dict) else None
+    out = {}
+    for cid in want:
+        hit = by_label.get(cid) or by_auth.get(cid)
+        if hit is None:
+            raise ValueError(f"structure_token_coords: {path} has no polymer chain with "
+                             f"label_asym_id or chain name {cid}; found "
+                             f"{sorted(by_label)} / {sorted(by_auth)}")
+        sub, ent = hit
+        mt = _GEMMI_MOL_TYPE.get(str(ent.polymer_type).split(".")[-1])
+        if mt is None:
+            raise ValueError(f"structure_token_coords: chain {cid} is a "
+                             f"{ent.polymer_type} polymer, which has no protenix token "
+                             f"representation")
+        keep = parse_crop_spec(crops.get(cid) if crops is not None else crop)
+        coord, res_name, resolved, label_seq, oxt = [], [], [], [], []
+        ca, ca_mask = [], []
+        for res in sub:
+            if keep is not None and res.label_seq not in keep:
+                continue
+            if not len(res):           # every atom filtered out: upstream drops the residue
+                continue
+            rep = distogram_rep_atom(res.name, mt)
+            at = next((a for a in res if a.name == rep), None)
+            bb = next((a for a in res if a.name == ("CA" if mt == "protein" else "C1'")),
+                      None)
+            ca.append([bb.pos.x, bb.pos.y, bb.pos.z] if bb else [0.0, 0.0, 0.0])
+            ca_mask.append(bb is not None)
+            coord.append([at.pos.x, at.pos.y, at.pos.z] if at else [0.0, 0.0, 0.0])
+            res_name.append(res.name)
+            resolved.append(at is not None)
+            label_seq.append(int(res.label_seq))
+            oxt.append(any(a.name == "OXT" for a in res))
+        if not coord:
+            raise ValueError(f"structure_token_coords: chain {cid} has no residues "
+                             f"left after the crop {crops.get(cid) if crops else crop}")
+        order = sorted(range(len(label_seq)), key=label_seq.__getitem__)
+        out[cid] = {
+            "coord": torch.tensor([coord[i] for i in order], dtype=torch.float32),
+            "res_name": [res_name[i] for i in order],
+            "mol_type": [mt] * len(order),
+            "is_resolved": torch.tensor([resolved[i] for i in order]),
+            "label_seq": [label_seq[i] for i in order],
+            "has_oxt": [oxt[i] for i in order],
+            # The backbone atom, for scoring: the conditioning uses `coord` (CB), while the
+            # RMSDs a structure filter reports are CA on CA.
+            "ca": torch.tensor([ca[i] for i in order], dtype=torch.float32),
+            "ca_mask": torch.tensor([ca_mask[i] for i in order]),
+            "sequence": res_names_to_sequence([res_name[i] for i in order], mt),
+        }
+    return out
+
+
+def res_names_to_sequence(res_names, mol_type: str = "protein") -> str:
+    """Per-residue CCD names to the one-letter sequence `build_complex_features` eats.
+    Anything outside the modality's standard set becomes the unknown letter."""
+    from .data import const
+    if mol_type == "protein":
+        return "".join(const.prot_token_to_letter.get(n, "X") for n in res_names)
+    std = set("AGCU") if mol_type == "rna" else set("AGCT")
+    letters = [n[1:] if mol_type == "dna" and n.startswith("D") else n for n in res_names]
+    return "".join(c if c in std else "N" for c in letters)

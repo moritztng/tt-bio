@@ -1,0 +1,70 @@
+{
+ "n_token": 196,
+ "n_atom": 1250,
+ "n_step": 400,
+ "n_sample": 4,
+ "seed": 0,
+ "seconds": 39.97,
+ "coords_sha16": "b8f0278313d7b6e2",
+ "coords_shape": [
+  4,
+  1250,
+  3
+ ],
+ "binder_atoms": 321,
+ "target_atoms": 929,
+ "stats": [
+  {
+   "rg_all": 29.768430709838867,
+   "rg_target": 13.209098815917969,
+   "rg_binder": 11.140421867370605
+  },
+  {
+   "rg_all": 33.028568267822266,
+   "rg_target": 13.245503425598145,
+   "rg_binder": 13.299872398376465
+  },
+  {
+   "rg_all": 30.718704223632812,
+   "rg_target": 13.331974983215332,
+   "rg_binder": 10.954997062683105
+  },
+  {
+   "rg_all": 31.49223518371582,
+   "rg_target": 13.191747665405273,
+   "rg_binder": 11.225325584411621
+  }
+ ],
+ "target_reproduction": [
+  {
+   "target_rmsd": 0.6388365627181356,
+   "n_scored": 116,
+   "min_binder_target_dist": 23.387603759765625,
+   "n_contacts_below_5A": 0
+  },
+  {
+   "target_rmsd": 0.6301424623191986,
+   "n_scored": 116,
+   "min_binder_target_dist": 23.818300247192383,
+   "n_contacts_below_5A": 0
+  },
+  {
+   "target_rmsd": 8.338338882921214,
+   "n_scored": 116,
+   "min_binder_target_dist": 30.0461368560791,
+   "n_contacts_below_5A": 0
+  },
+  {
+   "target_rmsd": 0.6337379088760713,
+   "n_scored": 116,
+   "min_binder_target_dist": 31.530729293823242,
+   "n_contacts_below_5A": 0
+  }
+ ],
+ "finite": true,
+ "determinism": {
+  "bit_exact": true,
+  "max_abs_diff": 0.0,
+  "mean_abs_diff": 0.0
+ }
+}

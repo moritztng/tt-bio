@@ -1,0 +1,64 @@
+{
+ "n_token": 196,
+ "n_atom": 1250,
+ "n_step": 400,
+ "n_sample": 4,
+ "seed": 0,
+ "seconds": 43.98,
+ "coords_shape": [
+  4,
+  1250,
+  3
+ ],
+ "binder_atoms": 321,
+ "target_atoms": 929,
+ "stats": [
+  {
+   "rg_all": 25.310014724731445,
+   "rg_target": 13.275130271911621,
+   "rg_binder": 11.348408699035645
+  },
+  {
+   "rg_all": 30.75208854675293,
+   "rg_target": 13.158987045288086,
+   "rg_binder": 11.659266471862793
+  },
+  {
+   "rg_all": 27.895343780517578,
+   "rg_target": 13.2404203414917,
+   "rg_binder": 11.469461441040039
+  },
+  {
+   "rg_all": 31.206024169921875,
+   "rg_target": 13.152189254760742,
+   "rg_binder": 11.319694519042969
+  }
+ ],
+ "target_reproduction": [
+  {
+   "target_rmsd": 0.4507579896037428,
+   "n_scored": 116,
+   "min_binder_target_dist": 17.112642288208008,
+   "n_contacts_below_5A": 0
+  },
+  {
+   "target_rmsd": 0.4717042215838871,
+   "n_scored": 116,
+   "min_binder_target_dist": 18.996524810791016,
+   "n_contacts_below_5A": 0
+  },
+  {
+   "target_rmsd": 0.47502750487316325,
+   "n_scored": 116,
+   "min_binder_target_dist": 14.316337585449219,
+   "n_contacts_below_5A": 0
+  },
+  {
+   "target_rmsd": 0.4602012777957497,
+   "n_scored": 116,
+   "min_binder_target_dist": 27.410470962524414,
+   "n_contacts_below_5A": 0
+  }
+ ],
+ "finite": true
+}
