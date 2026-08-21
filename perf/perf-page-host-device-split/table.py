@@ -58,7 +58,9 @@ def main():
     # published GPU cell leaves out}. Whole-fold ratio is P / (G + Hgpu), so a row can
     # only move toward the bar. Empty until the H200 leg lands; RF3's is already known.
     hgpu_path = HERE / "hgpu.json"
-    hgpu = json.loads(hgpu_path.read_text()) if hgpu_path.exists() else {}
+    hgpu = {k: v for k, v in
+            (json.loads(hgpu_path.read_text()) if hgpu_path.exists() else {}).items()
+            if not k.startswith("_")}
     # RF3's published G is already a whole fold -- its 12.459 s of host prep is INSIDE
     # the 22.794 s cell -- so its extra host cost outside the cell is zero. Adding
     # RF3["hgpu"] here would count that prep twice and report 2.299x for a row the page

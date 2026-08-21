@@ -1,0 +1,74 @@
+{
+  "model": "esmfold2",
+  "side": "gpu",
+  "gpu": "NVIDIA H200",
+  "gpu_capability": [
+    9,
+    0
+  ],
+  "host_cpu": "Intel(R) Xeon(R) Platinum 8480+",
+  "cpu_count": 224,
+  "torch_version": "2.11.0+cu130",
+  "cuda_version": "13.0",
+  "recycling_steps": 10,
+  "sampling_steps": 100,
+  "diffusion_samples": 1,
+  "seed": 0,
+  "fixture": {
+    "yaml": "/root/repo/perf/size512/fixtures/cdk2x2_512.yaml",
+    "a3m": "/root/repo/perf/size512/fixtures/cdk2x2_512.a3m",
+    "n_residues": 512
+  },
+  "packages": {
+    "torch": "2.11.0",
+    "esm": "4.0.0",
+    "cuequivariance_torch": "0.11.1",
+    "transformers": "4.57.6"
+  },
+  "session_wall_s": 83.4,
+  "error": null,
+  "result": {
+    "cold_s": 18.224,
+    "warm_times_s": [
+      17.183,
+      17.175,
+      17.175
+    ],
+    "warm_n": 3,
+    "warm_min_s": 17.175,
+    "warm_median_s": 17.175,
+    "warm_max_s": 17.183,
+    "warm_spread_pct": 0.05,
+    "warm_gaps_s": [
+      0.001,
+      0.001,
+      0.001
+    ],
+    "warm_gap_median_s": 0.001,
+    "load_s": 12.88,
+    "cudnn_sdp_disabled": true,
+    "kernel_counts_total": {
+      "cuequivariance_torch.triangle_attention": 0,
+      "cuequivariance_torch.triangle_multiplicative_update": 0,
+      "triangle.triangle_attention": 0,
+      "triangle.triangle_multiplicative_update": 4624,
+      "torch_sdpa": 1964
+    },
+    "predictions": [
+      "/root/work/esmfold2/fold0.pdb",
+      "/root/work/esmfold2/fold1.pdb",
+      "/root/work/esmfold2/fold2.pdb",
+      "/root/work/esmfold2/fold3.pdb"
+    ],
+    "fold_kwargs": {
+      "num_loops": 10,
+      "num_sampling_steps": 100,
+      "num_diffusion_samples": 1
+    },
+    "kernel_backend": "cuequivariance",
+    "msa_rows": 0,
+    "msa_note": "single-sequence model: the 35-row MSA is not consumed",
+    "n_residues": 512
+  },
+  "date": "2026-08-21T18:04:04Z"
+}

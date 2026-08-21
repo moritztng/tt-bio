@@ -1,0 +1,24 @@
+{
+  "file": "/root/results/struct_protenix-v2_h200/LD-shipped-default.pdb",
+  "n_ca": 512,
+  "checks": {
+    "all_finite": true,
+    "residue_count_ok": true,
+    "ca_ca_median_in_band": true,
+    "chain_breaks_ok": true,
+    "rg_in_band": true
+  },
+  "fail": [],
+  "ca_ca_median_A": 3.7804,
+  "chain_break_frac": 0.0,
+  "radius_of_gyration_A": 26.399,
+  "rg_band_A": [
+    11.8,
+    58.9
+  ],
+  "plddt_scale": "0-1",
+  "plddt_mean": 0.845293,
+  "plddt_expected": 0.828628,
+  "plddt_delta": 0.016665,
+  "pass": true
+}

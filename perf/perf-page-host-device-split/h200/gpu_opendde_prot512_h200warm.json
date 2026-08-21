@@ -1,0 +1,90 @@
+{
+  "model": "opendde",
+  "side": "gpu",
+  "model_name": "opendde_v1",
+  "gpu": "NVIDIA H200",
+  "host_cpu": "Intel(R) Xeon(R) Platinum 8480+",
+  "cpu_count": 224,
+  "torch_version": "2.7.1+cu128",
+  "cuda_version": "12.8",
+  "input": "cdk2x2_512 (512 aa), precomputed MSA (same a3m as TT side)",
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "seed": 0,
+  "rungs": [
+    {
+      "rung": "L2-bf16-fusion-cache",
+      "rung_config": {
+        "name": "L2-bf16-fusion-cache",
+        "dtype": "bf16",
+        "triatt_kernel": "auto",
+        "trimul_kernel": "auto",
+        "enable_fusion": true,
+        "enable_cache": true,
+        "enable_tf32": true
+      },
+      "load_s": 11.48,
+      "host_phases": {
+        "featurize_s": 6.2222,
+        "featurize_warm_s": 6.2818,
+        "write_s": 0.026
+      },
+      "resolved_config": {
+        "model_name": "opendde_v1",
+        "dtype": "bf16",
+        "triangle_attention": "cuequivariance",
+        "triangle_multiplicative": "cuequivariance",
+        "enable_efficient_fusion": true,
+        "enable_diffusion_shared_vars_cache": true,
+        "enable_tf32": true,
+        "skip_amp": {
+          "sample_diffusion": true,
+          "confidence_head": true
+        }
+      },
+      "kernel_calls_per_fold": {
+        "cueqops_triangle_attention": 1216,
+        "cueqops_triangle_multiplicative_update": 1216
+      },
+      "cold_s": 21.384,
+      "warm_times_s": [
+        20.504,
+        20.562,
+        20.657
+      ],
+      "warm_min_s": 20.504,
+      "warm_median_s": 20.562,
+      "warm_max_s": 20.657,
+      "n_msa": 35,
+      "n_token": 512,
+      "all_atom_kabsch_rmsd_vs_L0": null,
+      "ca_kabsch_rmsd_vs_L0": null,
+      "confidence": {
+        "plddt_shape": [
+          1,
+          4117,
+          50
+        ],
+        "plddt": -0.334947,
+        "pae_shape": [
+          1,
+          512,
+          512,
+          64
+        ],
+        "pae": -0.014681,
+        "resolved_shape": [
+          1,
+          4117,
+          2
+        ],
+        "resolved": -0.000136,
+        "plddt_score_mean": 0.804742,
+        "plddt_score_n": 4117
+      },
+      "structure": "/root/results/struct_opendde_h200warm/L2-bf16-fusion-cache.pdb"
+    }
+  ],
+  "date": "2026-08-21"
+}

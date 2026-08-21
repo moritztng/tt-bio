@@ -1,0 +1,99 @@
+{
+  "model": "boltz-2",
+  "side": "gpu",
+  "gpu": "NVIDIA H200",
+  "gpu_capability": [
+    9,
+    0
+  ],
+  "host_cpu": "Intel(R) Xeon(R) Platinum 8480+",
+  "cpu_count": 224,
+  "torch_version": "2.13.0+cu130",
+  "cuda_version": "13.0",
+  "recycling_steps": 3,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "seed": 0,
+  "fixture": {
+    "yaml": "/root/repo/scripts/gpu_vs_tt/../../perf/size512/fixtures/cdk2x2_512.yaml",
+    "a3m": "/root/repo/scripts/gpu_vs_tt/../../perf/size512/fixtures/cdk2x2_512.a3m",
+    "n_residues": 512
+  },
+  "packages": {
+    "torch": "2.13.0",
+    "boltz": "2.2.1",
+    "cuequivariance_torch": "0.11.1"
+  },
+  "session_wall_s": 330.8,
+  "error": null,
+  "result": {
+    "cold_s": 11.2,
+    "warm_times_s": [
+      7.231,
+      7.239,
+      7.251
+    ],
+    "warm_n": 3,
+    "warm_min_s": 7.231,
+    "warm_median_s": 7.239,
+    "warm_max_s": 7.251,
+    "warm_spread_pct": 0.27,
+    "warm_gaps_s": [
+      0.239,
+      0.234,
+      0.24
+    ],
+    "warm_gap_median_s": 0.24,
+    "wall_s": 327.16,
+    "n_timed_calls": 4,
+    "kernel_counts_total": {
+      "pairformer_combined_triangle_multiplication": 0,
+      "triangle_attention": 2304,
+      "triangle_multiplicative_update": 2304,
+      "triangle_mxfp8_cutlass_supported": 0,
+      "triangle_mxfp8_einsum": 0,
+      "triangle_mxfp8_einsum_cutlass": 0,
+      "triangle_mxfp8_select_backend": 0,
+      "triangle_attention._diagnose_triangle_attention_fallback": 2304,
+      "triangle_attention._triangle_attention_torch": 0,
+      "triangle_attention._warn_triangle_attention_fallback": 0,
+      "triangle_attention.triangle_attention": 0,
+      "cuequivariance_torch.triangle_attention": 0,
+      "cuequivariance_torch.triangle_multiplicative_update": 0,
+      "triangle.triangle_attention": 2304,
+      "triangle.triangle_multiplicative_update": 2304,
+      "torch_sdpa": 0
+    },
+    "predictions": [
+      "/root/work/boltz/out/boltz_results_input/predictions/fold0/fold0_model_0.cif",
+      "/root/work/boltz/out/boltz_results_input/predictions/fold1/fold1_model_0.cif",
+      "/root/work/boltz/out/boltz_results_input/predictions/fold2/fold2_model_0.cif",
+      "/root/work/boltz/out/boltz_results_input/predictions/fold3/fold3_model_0.cif"
+    ],
+    "cli_argv": [
+      "predict",
+      "/root/work/boltz/input",
+      "--out_dir",
+      "/root/work/boltz/out",
+      "--cache",
+      "/root/.boltz",
+      "--devices",
+      "1",
+      "--accelerator",
+      "gpu",
+      "--recycling_steps",
+      "3",
+      "--sampling_steps",
+      "200",
+      "--diffusion_samples",
+      "1",
+      "--output_format",
+      "mmcif",
+      "--num_workers",
+      "2"
+    ],
+    "msa_rows": 35,
+    "n_residues": 512
+  },
+  "date": "2026-08-21T17:54:28Z"
+}

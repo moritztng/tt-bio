@@ -1,0 +1,32 @@
+{
+  "model": "esmfold2",
+  "side": "gpu",
+  "gpu": "NVIDIA H200",
+  "gpu_capability": [
+    9,
+    0
+  ],
+  "host_cpu": "Intel(R) Xeon(R) Platinum 8480+",
+  "cpu_count": 224,
+  "torch_version": "2.11.0+cu130",
+  "cuda_version": "13.0",
+  "recycling_steps": 10,
+  "sampling_steps": 100,
+  "diffusion_samples": 1,
+  "seed": 0,
+  "fixture": {
+    "yaml": "/root/repo/scripts/gpu_vs_tt/../../perf/size512/fixtures/cdk2x2_512.yaml",
+    "a3m": "/root/repo/scripts/gpu_vs_tt/../../perf/size512/fixtures/cdk2x2_512.a3m",
+    "n_residues": 512
+  },
+  "packages": {
+    "torch": "2.11.0",
+    "esm": "4.0.0",
+    "cuequivariance_torch": "0.11.1",
+    "transformers": "4.57.6"
+  },
+  "session_wall_s": 14.4,
+  "error": "Traceback (most recent call last):\n  File \"/root/repo/scripts/gpu_vs_tt/gpu5_bench.py\", line 496, in main\n    res = fn(args)\n          ^^^^^^^^\n  File \"/root/repo/scripts/gpu_vs_tt/gpu5_bench.py\", line 438, in run_esmfold2\n    pdb = model.infer_protein_as_pdb(seq, **kw)\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/venv-esm312/lib/python3.12/site-packages/transformers/models/esmfold2/modeling_esmfold2.py\", line 1095, in infer_protein_as_pdb\n    return self.output_to_pdb(self.infer_protein(seq, **forward_kwargs))\n                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/venv-esm312/lib/python3.12/site-packages/torch/utils/_contextlib.py\", line 124, in decorate_context\n    return func(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/venv-esm312/lib/python3.12/site-packages/transformers/models/esmfold2/modeling_esmfold2.py\", line 1089, in infer_protein\n    output = self(**features, **forward_kwargs)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/venv-esm312/lib/python3.12/site-packages/torch/nn/modules/module.py\", line 1779, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/venv-esm312/lib/python3.12/site-packages/torch/nn/modules/module.py\", line 1790, in _call_impl\n    return forward_call(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/venv-esm312/lib/python3.12/site-packages/torch/utils/_contextlib.py\", line 124, in decorate_context\n    return func(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/venv-esm312/lib/python3.12/site-packages/transformers/models/esmfold2/modeling_esmfold2.py\", line 937, in forward\n    x_inputs = self.inputs_embedder(\n               ^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/venv-esm312/lib/python3.12/site-packages/torch/nn/modules/module.py\", line 1779, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/venv-esm312/lib/python3.12/site-packages/torch/nn/modules/module.py\", line 1790, in _call_impl\n    return forward_call(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/venv-esm312/lib/python3.12/site-packages/transformers/models/esmfold2/modeling_esmfold2_common.py\", line 2005, in forward\n    a, _q, _c, _attn_params, _intermediates = self.atom_attention_encoder(\n                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/venv-esm312/lib/python3.12/site-packages/torch/nn/modules/module.py\", line 1779, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/venv-esm312/lib/python3.12/site-packages/torch/nn/modules/module.py\", line 1790, in _call_impl\n    return forward_call(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/venv-esm312/lib/python3.12/site-packages/transformers/models/esmfold2/modeling_esmfold2_common.py\", line 902, in forward\n    result = self.atom_transformer(\n             ^^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/venv-esm312/lib/python3.12/site-packages/torch/nn/modules/module.py\", line 1779, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/venv-esm312/lib/python3.12/site-packages/torch/nn/modules/module.py\", line 1790, in _call_impl\n    return forward_call(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/venv-esm312/lib/python3.12/site-packages/transformers/models/esmfold2/modeling_esmfold2_common.py\", line 758, in forward\n    q_l = block(q_l, c_l, attention_params)\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/venv-esm312/lib/python3.12/site-packages/torch/nn/modules/module.py\", line 1779, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/venv-esm312/lib/python3.12/site-packages/torch/nn/modules/module.py\", line 1790, in _call_impl\n    return forward_call(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/venv-esm312/lib/python3.12/site-packages/transformers/models/esmfold2/modeling_esmfold2_common.py\", line 692, in forward\n    attn_out = self.attn(attn_input, attention_params)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/venv-esm312/lib/python3.12/site-packages/torch/nn/modules/module.py\", line 1779, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/venv-esm312/lib/python3.12/site-packages/torch/nn/modules/module.py\", line 1790, in _call_impl\n    return forward_call(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/venv-esm312/lib/python3.12/site-packages/transformers/models/esmfold2/modeling_esmfold2_common.py\", line 624, in forward\n    out = F.scaled_dot_product_attention(\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/repo/scripts/gpu_vs_tt/gpu5_bench.py\", line 122, in wrapper\n    return orig(*a, **kw)\n           ^^^^^^^^^^^^^^\nRuntimeError: cuDNN Frontend error: [cudnn_frontend] Error: No valid execution plans built.\n",
+  "result": {},
+  "date": "2026-08-21T17:54:46Z"
+}

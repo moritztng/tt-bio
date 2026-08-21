@@ -1,0 +1,22 @@
+{
+  "file": "/root/results/struct_opendde_h200/L2-bf16-fusion-cache.pdb",
+  "n_ca": 512,
+  "checks": {
+    "all_finite": true,
+    "residue_count_ok": true,
+    "ca_ca_median_in_band": true,
+    "chain_breaks_ok": true,
+    "rg_in_band": true
+  },
+  "fail": [],
+  "ca_ca_median_A": 3.8119,
+  "chain_break_frac": 0.0,
+  "radius_of_gyration_A": 25.167,
+  "rg_band_A": [
+    11.8,
+    58.9
+  ],
+  "plddt_scale": "0-1",
+  "plddt_mean": 0.826973,
+  "pass": true
+}

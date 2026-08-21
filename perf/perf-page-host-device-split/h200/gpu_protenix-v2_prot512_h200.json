@@ -1,0 +1,92 @@
+{
+  "model": "protenix-v2",
+  "side": "gpu",
+  "model_name": "protenix-v2",
+  "gpu": "NVIDIA H200",
+  "host_cpu": "Intel(R) Xeon(R) Platinum 8480+",
+  "cpu_count": 224,
+  "torch_version": "2.7.1+cu128",
+  "cuda_version": "12.8",
+  "input": "cdk2x2_512 (512 aa), precomputed MSA (same a3m as TT side)",
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "seed": 0,
+  "rungs": [
+    {
+      "rung": "LD-shipped-default",
+      "rung_config": {
+        "name": "LD-shipped-default",
+        "dtype": "bf16",
+        "triangle_attention": "cuequivariance",
+        "triangle_multiplicative": "cuequivariance"
+      },
+      "load_s": 184.24,
+      "host_phases": {
+        "featurize_s": 5.8757,
+        "write_s": 0.0258
+      },
+      "resolved_config": {
+        "model_name": "protenix-v2",
+        "dtype": "bf16",
+        "triangle_attention": "cuequivariance",
+        "triangle_multiplicative": "cuequivariance",
+        "enable_efficient_fusion": true,
+        "enable_diffusion_shared_vars_cache": true,
+        "enable_tf32": true,
+        "skip_amp": {
+          "confidence_head": false,
+          "loss": true,
+          "sample_diffusion": true,
+          "sample_diffusion_training": true
+        }
+      },
+      "kernel_calls_per_fold": {
+        "cueqops_triangle_attention": 1208,
+        "cueqops_triangle_multiplicative_update": 1208,
+        "cueq_triatt": 1208,
+        "cueq_trimul": 1208,
+        "triattention": 0,
+        "torch_attn": 0
+      },
+      "cold_s": 15.38,
+      "warm_times_s": [
+        11.921,
+        11.909,
+        11.907
+      ],
+      "warm_min_s": 11.907,
+      "warm_median_s": 11.909,
+      "warm_max_s": 11.921,
+      "n_msa": 35,
+      "n_token": 512,
+      "all_atom_kabsch_rmsd_vs_L0": null,
+      "ca_kabsch_rmsd_vs_L0": null,
+      "confidence": {
+        "plddt_shape": [
+          1,
+          4117,
+          50
+        ],
+        "plddt": -0.162195,
+        "pae_shape": [
+          1,
+          512,
+          512,
+          64
+        ],
+        "pae": 0.03032,
+        "resolved_shape": [
+          1,
+          4117,
+          2
+        ],
+        "resolved": -0.000151,
+        "plddt_score_mean": 0.812297,
+        "plddt_score_n": 4117
+      },
+      "structure": "/root/results/struct_protenix-v2_h200/LD-shipped-default.pdb"
+    }
+  ],
+  "date": "2026-08-21"
+}

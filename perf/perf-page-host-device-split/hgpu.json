@@ -1,0 +1,13 @@
+{
+  "_note": "Per-target host cost the published H200 cell leaves OUTSIDE its timed region, in seconds. Measured 2026-08-21 on vast.ai contract 48323883: 1x H200 143GB, Xeon Platinum 8480+, cgroup cpu.max 2687999/100000 = 26.88 vCPU -- the same CPU and quota the published cells carry. Raw JSON in h200/.",
+  "_method": {
+    "protenix-v2": "gpu_bench.py host_phases: featurize_warm_s + write_s. The harness builds the feature dict once before the fold loop, so featurization is not in warm_median_s. Warm, not cold: the first featurization loads the CCD dictionary (5.725 s) and the TT side's figure is warm.",
+    "opendde": "same as protenix-v2. Its featurization does NOT warm up -- cold 6.222 s, warm 6.282 s -- so the per-target cost is the full 6.28 s every time.",
+    "boltz-2 / openfold3 / esmfold2": "gpu5_bench.py warm_gap_median_s: the wall between one timed fold ending and the next starting, i.e. the framework's per-target host work. boltz-2 runs --num_workers 2, so featurization that overlaps device work does not appear here and correctly costs the fold nothing."
+  },
+  "boltz2": 0.240,
+  "esmfold2": 0.001,
+  "openfold3": 0.428,
+  "protenix-v2": 0.619,
+  "opendde": 6.308
+}

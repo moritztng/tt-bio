@@ -399,6 +399,16 @@ def run_esmfold2(args) -> dict:
     and the import has to name the module directly.
     """
     torch = importlib.import_module("torch")
+    # torch picks the cuDNN SDPA backend first where it thinks it applies, and on a
+    # driver 580 / torch 2.13 H200 it builds no plan for ESMFold2's attention shapes:
+    # "cuDNN Frontend error: No valid execution plans built", raised from inside
+    # F.scaled_dot_product_attention. Turning that one backend off leaves flash and
+    # mem-efficient, which is where this attention wants to run anyway. Recorded in the
+    # result so the number is never read as if the default backend produced it.
+    cudnn_sdp_disabled = False
+    if hasattr(torch.backends.cuda, "enable_cudnn_sdp"):
+        torch.backends.cuda.enable_cudnn_sdp(False)
+        cudnn_sdp_disabled = True
     seq = args.seq_file.read_text().strip()
     work = Path(args.work) / "esmfold2"
     shutil.rmtree(work, ignore_errors=True)
@@ -444,6 +454,7 @@ def run_esmfold2(args) -> dict:
         preds.append(str(p))
 
     return dict(summarize(times, args.repeat, gaps), load_s=round(load_s, 2),
+                cudnn_sdp_disabled=cudnn_sdp_disabled,
                 kernel_counts_total=dict(cueq, **sdpa), predictions=preds,
                 fold_kwargs=kw, kernel_backend=backend, msa_rows=0,
                 msa_note="single-sequence model: the 35-row MSA is not consumed",
