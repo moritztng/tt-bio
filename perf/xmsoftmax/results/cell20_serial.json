@@ -1,0 +1,124 @@
+{
+ "_meta": {
+  "instrument": "scripts/perf_regression.py, the release gate's own 20 aa cell (trpcage, single-seq, 2 warmup + 5 timed, median structures/s). One arm per process, arms interleaved off/on, run SERIALLY: one model at a time, benchlock held, nothing else of this worker's on the box.",
+  "why_serial": "run_p3_cell20.sh ran protenix on card 1 while opendde ran on card 3. At 280 ms per fold the cell is host-dispatch bound, so it reads my own sibling as lever cost: the parallel cell put protenix on at -14.2% vs baseline, 0.8 points from a gate FAIL. Serially the same arm is -0.42%.",
+  "host": "tt-quietbox2",
+  "card": 1,
+  "size_aa": 20,
+  "threshold_pct": 15.0
+ },
+ "models": {
+  "protenix-v2": {
+   "runs": {
+    "off": [
+     {
+      "rep": 1,
+      "structures_s": 3.547117,
+      "ms_call": 282
+     },
+     {
+      "rep": 2,
+      "structures_s": 3.481564,
+      "ms_call": 287
+     },
+     {
+      "rep": 3,
+      "structures_s": 3.559102,
+      "ms_call": 281
+     },
+     {
+      "rep": 4,
+      "structures_s": 3.566754,
+      "ms_call": 280
+     }
+    ],
+    "on": [
+     {
+      "rep": 1,
+      "structures_s": 3.525397,
+      "ms_call": 284
+     },
+     {
+      "rep": 2,
+      "structures_s": 3.550722,
+      "ms_call": 282
+     },
+     {
+      "rep": 3,
+      "structures_s": 3.491917,
+      "ms_call": 286
+     },
+     {
+      "rep": 4,
+      "structures_s": 3.555688,
+      "ms_call": 281
+     }
+    ]
+   },
+   "off_median_structures_s": 3.55311,
+   "on_median_structures_s": 3.53806,
+   "ab_pct_throughput": -0.42,
+   "aa_floor_pct": 2.45,
+   "gate_baseline_structures_s": 3.195,
+   "on_vs_gate_baseline_pct": 10.7,
+   "gate_verdict": "PASS",
+   "accurate_softmax_calls_in_cell": 52
+  },
+  "opendde": {
+   "runs": {
+    "off": [
+     {
+      "rep": 1,
+      "structures_s": 2.812963,
+      "ms_call": 355
+     },
+     {
+      "rep": 2,
+      "structures_s": 2.797293,
+      "ms_call": 357
+     },
+     {
+      "rep": 3,
+      "structures_s": 2.830463,
+      "ms_call": 353
+     },
+     {
+      "rep": 4,
+      "structures_s": 2.806792,
+      "ms_call": 356
+     }
+    ],
+    "on": [
+     {
+      "rep": 1,
+      "structures_s": 2.799236,
+      "ms_call": 357
+     },
+     {
+      "rep": 2,
+      "structures_s": 2.63833,
+      "ms_call": 379
+     },
+     {
+      "rep": 3,
+      "structures_s": 2.809172,
+      "ms_call": 356
+     },
+     {
+      "rep": 4,
+      "structures_s": 2.734992,
+      "ms_call": 366
+     }
+    ]
+   },
+   "off_median_structures_s": 2.809877,
+   "on_median_structures_s": 2.767114,
+   "ab_pct_throughput": -1.52,
+   "aa_floor_pct": 1.19,
+   "gate_baseline_structures_s": 2.683,
+   "on_vs_gate_baseline_pct": 3.1,
+   "gate_verdict": "PASS",
+   "accurate_softmax_calls_in_cell": 56
+  }
+ }
+}
