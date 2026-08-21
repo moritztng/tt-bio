@@ -1,0 +1,20 @@
+{
+  "legs": [
+    {
+      "leg": "boltz2-trpcage-nomsa",
+      "verdict": "PASS",
+      "detail": "envelope worst kabsch_rmsd: num=0.0722 env=0.1446 ratio=0.50; kabsch_rmsd r=0.50",
+      "wall": 98.15150034699764,
+      "committed": "PASS",
+      "report": "boltz2-trpcage-nomsa.json"
+    }
+  ],
+  "tally": {
+    "PASS": 1
+  },
+  "scored": 1,
+  "total_wall_s": 98.15402418799931,
+  "workers": [
+    "tt-quietbox:1"
+  ]
+}
