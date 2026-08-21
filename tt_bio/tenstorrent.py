@@ -3600,8 +3600,15 @@ class TriangleAttention(Module):
         fp32_softmax: bool = False,
         transpose_bias: bool = True,
         transpose_l1_reserve: int = 0,
+        fused_hifi: bool | None = None,
     ):
         super().__init__(state_dict, compute_kernel_config)
+        # Route the fp32-softmax branch through the fused HiFi4 SDPA instead of
+        # materialising the [heads, S, S] score tensor. Per-instance because the fused
+        # path is not bit-exact against the materialised one, so every model that wants
+        # it needs its own parity anchor; None falls back to TT_BIO_TRIATT_FUSED_HIFI so
+        # the env flag still switches every model at once.
+        self.fused_hifi = _TRIATT_FUSED_HIFI if fused_hifi is None else fused_hifi
         self.head_dim = head_dim
         self.n_heads = n_heads
         self.ending = ending
@@ -3796,7 +3803,7 @@ class TriangleAttention(Module):
                 # multiply on the [1, heads, S, S] bias recovers it. That is O(S^2) against the
                 # O(S^3) score tensor the fused path deletes, so it is three orders below the win
                 # rather than a cost to weigh: 2.1 MB at 512 aa against ~10 GB.
-                if _TRIATT_FUSED_HIFI:
+                if self.fused_hifi:
                     b = bias
                     if self._bias_scale != self.scale:
                         b = ttnn.multiply(bias, self.scale / self._bias_scale)
@@ -4689,6 +4696,7 @@ class PairformerLayer(Module):
         transpose_bias: bool = True,
         transpose_l1_reserve: int = 0,
         accurate_softmax: bool = False,
+        triatt_fused_hifi: bool | None = None,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.transform_s = transform_s
@@ -4707,6 +4715,7 @@ class PairformerLayer(Module):
             affinity=affinity,
             scale_pair_bias=scale_pair_bias,
             fp32_softmax=fp32_softmax,
+            fused_hifi=triatt_fused_hifi,
         )
         self.triangle_attention_end = TriangleAttention(
             tri_att_head_dim,
@@ -4719,6 +4728,7 @@ class PairformerLayer(Module):
             fp32_softmax=fp32_softmax,
             transpose_bias=transpose_bias,
             transpose_l1_reserve=transpose_l1_reserve,
+            fused_hifi=triatt_fused_hifi,
         )
         self.transition_z = Transition(
             self.scope("transition_z"), compute_kernel_config
@@ -4806,6 +4816,7 @@ class Pairformer(Module):
         transpose_bias: bool = True,
         transpose_l1_reserve: int = 0,
         accurate_softmax: bool = False,
+        triatt_fused_hifi: bool | None = None,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.blocks = [
@@ -4824,6 +4835,7 @@ class Pairformer(Module):
                 transpose_bias=transpose_bias,
                 transpose_l1_reserve=transpose_l1_reserve,
                 accurate_softmax=accurate_softmax,
+                triatt_fused_hifi=triatt_fused_hifi,
             )
             for i in range(n_blocks)
         ]
@@ -5924,8 +5936,13 @@ class OuterProductMean(Module):
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
         scale_bias: bool = False,
+        small_depth: bool | None = None,
     ):
         super().__init__(state_dict, compute_kernel_config)
+        # small_depth: at <= OPM_SMALL_DEPTH_MAX rows, reassociate the outer product per row
+        # instead of materialising [I, J, C, D]. Per-instance for the same reason as
+        # TriangleAttention.fused_hifi; None falls back to TT_BIO_OPM_SMALL_DEPTH.
+        self.small_depth = _OPM_SMALL_DEPTH if small_depth is None else small_depth
         # scale_bias: divide the proj_o bias by the row count too. The AF3/OF3
         # reference divides the WHOLE linear_out output (raw outer + bias) by the
         # pair norm; the default (Boltz/Protenix convention here) scales only the
@@ -6113,7 +6130,7 @@ class OuterProductMean(Module):
             b = ttnn.concat(b_parts, dim=0)
             for p in b_parts:
                 ttnn.deallocate(p)
-        if depth_parts is None and _OPM_SMALL_DEPTH and a.shape[0] <= OPM_SMALL_DEPTH_MAX:
+        if depth_parts is None and self.small_depth and a.shape[0] <= OPM_SMALL_DEPTH_MAX:
             OPM_SMALL_DEPTH_STATS[0] += 1
             return self._small_depth(a, b, n_msa)
         if depth_parts is None:

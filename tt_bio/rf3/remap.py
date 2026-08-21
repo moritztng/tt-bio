@@ -204,6 +204,14 @@ PAIRFORMER_DIMS = (32, 4, 24, 16)
 #: ESMFold2, OpenFold3, Protenix-v2, OpenDDE and every diffusion DiT, and the fix costs
 #: 4.22x on the softmax, so flipping it on for them needs their own parity anchors and
 #: perf cells scored first.
+#: NOT here on purpose: `triatt_fused_hifi`. `TriangleAttention` takes it and it is worth
+#: 2.107x of a whole 512 aa fold, but it costs 1.9335 A CA RMSD on a cdk2x2_298 fold against
+#: the shipped path (2.1833 A all-atom, max |dxyz| 17.03 A over 2397 atoms), and RF3's own
+#: confidence drops with it: plDDT 81.7155 -> 78.8675, pTM 0.9005 -> 0.8338. The op-level
+#: fidelity screen said the opposite -- the fused path is 1.25-2.49x closer to fp64 than the
+#: materialised softmax it replaces above S=128 -- so per-op fidelity did not predict the fold.
+#: It stays behind TT_BIO_TRIATT_FUSED_HIFI until a reference-scored fold says which arm is
+#: right; the flag still switches it on for every model at once.
 PAIRFORMER_FLAGS = dict(scale_pair_bias=True, fp32_softmax=True, transpose_bias=False,
                         gated_move=True, accurate_softmax=True,
                         transpose_l1_reserve=_TRANSPOSE_L1_RESERVE_PER_CORE)

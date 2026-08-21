@@ -1,0 +1,14 @@
+   aa depth  def s/rec  lev s/rec  lever x  triatt served/decl  opm small/mat
+  128     1     0.2374    not run                          -/-              -
+  128    35     0.2390    not run                          -/-              -
+  256     1     1.0858    not run                          -/-              -
+  256    35     1.0881    not run                          -/-              -
+  512     1     5.9871    not run                          -/-              -
+  512    35     5.9926    not run                          -/-              -
+  768     1    18.4585    not run                          -/-              -
+  768    35    18.4666    not run                          -/-              -
+ 1024     1    52.3192    not run                          -/-              -
+ 1024    35    52.3345    not run                          -/-              -
+
+exponent def d1: 128->256: 2.19  256->512: 2.46  512->768: 2.78  768->1024: 3.62
+exponent def d35: 128->256: 2.19  256->512: 2.46  512->768: 2.78  768->1024: 3.62

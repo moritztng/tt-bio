@@ -29,14 +29,18 @@ from tt_bio.tenstorrent import CORE_GRID_MAIN, Module, Pairformer, _dtype
 
 EPS = 1e-5
 
-#: Fold the global layer norm's flatten into rows instead of one long row. OFF by default:
-#: it is NOT bit-exact with the shipped one-row flatten above 128 tokens (measured, up to
-#: 6.8e-3 relative), because the reduction blocking changes. ON is what makes 1024 aa run
-#: at all -- see `global_layer_norm`. Both arms sit inside bf16 output noise of the torch
-#: reference, and on the largest tensor the row fold is 228x closer to it (7.670e-03 ->
-#: 3.363e-05 rel_rms at 768 tokens), but "more accurate" is still "different", so this is
-#: release-gated and stays opt-in until the head is re-scored against its capture.
-_GLN_ROW_FOLD = os.environ.get("TT_BIO_RF3_GLN_ROW_FOLD", "0") == "1"
+#: Fold the global layer norm's flatten into rows instead of one long row. ON by default:
+#: the one-row flatten asks the allocator for 32x the tensor (TILE_LAYOUT pads that single
+#: row up to a full tile), which is what stopped 1024 aa folding at all -- see
+#: `global_layer_norm`. It is not bit-exact with the one-row flatten above 128 tokens
+#: (measured, up to 6.8e-3 relative) because the reduction blocking changes, and on the
+#: largest tensor it is 228x closer to the torch reference (7.670e-03 -> 3.363e-05 rel_rms
+#: at 768 tokens). It touches only the confidence head, so the structure is unaffected:
+#: measured on a whole cdk2x2_298 fold, the coordinates are bit-identical to the one-row
+#: flatten (max |dxyz| 0.0000 A over 2397 atoms) and only the predicted scores move,
+#: plDDT 81.7155 -> 81.7098 and pTM 0.9005 -> 0.8999. Set TT_BIO_RF3_GLN_ROW_FOLD=0 for
+#: the old flatten.
+_GLN_ROW_FOLD = os.environ.get("TT_BIO_RF3_GLN_ROW_FOLD", "1") != "0"
 
 
 

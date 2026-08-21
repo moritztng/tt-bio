@@ -77,8 +77,14 @@ class MSAModule(Module):
         self.subsampler = MSASubsampleEmbedder(
             self.scope("msa_subsampler"), compute_kernel_config
         )
+        # small_depth reassociates the outer product per MSA row instead of materialising
+        # [I, J, C, D]. It declines above OPM_SMALL_DEPTH_MAX = 8 rows, where looping rows
+        # would cost more than the materialised path (measured: 3.03 ms/row against 27.43 ms
+        # materialised per block at 512 aa, so break-even is ~9 rows). RF3-scoped because the
+        # reassociated path is a different reduction order; at <= 8 rows its error against
+        # fp64 is 1.014-1.018x the materialised path's own, every rung.
         self.outer_product = OuterProductMean(
-            self.scope("outer_product"), compute_kernel_config
+            self.scope("outer_product"), compute_kernel_config, small_depth=True
         )
         self.pair_weighted_averaging = PairWeightedAveraging(
             PWA_HEAD_DIM,
