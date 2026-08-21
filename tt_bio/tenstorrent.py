@@ -1338,7 +1338,11 @@ FP32_SOFTMAX_STATS = {"calls": 0, "blocked": 0, "blocks": 0, "fused": 0, "unfuse
 # from 3.629 back to 2.813 against 2.769 across 512 -> 768 (perf/rf3/gate_ab.sh, qb2 card 2).
 # The backoff stops at the first accepted size, which is also the fastest: fewer rows means more
 # blocks and more slice-and-concat, measured at 41.508 s (2 rows) / 45.448 s (1 row) / 52.468 s
-# (interleaved) on the same fixture.
+# (interleaved) on the same fixture. One row at a time is not a long descent, because the two
+# terms move opposite ways: the block is `bytes * cores / (n_heads * S**2)` rows, so it shrinks as
+# S**-2, while a refusal needs a wide row to overflow the softmax kernel's circular buffers in the
+# first place. Where a refusal can happen at all the block is already 1-3 rows, so the walk costs
+# at most that many calls of the 435 in a recycle.
 # Shape class -> the largest block, in rows, the sharded softmax has not refused. Absent means
 # "nothing refused yet, the byte budget decides"; 0 means L1 is retired for that class.
 _FP32_SOFTMAX_L1_ROW_CAP: dict = {}
