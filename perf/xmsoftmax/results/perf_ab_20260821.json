@@ -1,0 +1,186 @@
+{
+ "_meta": {
+  "host": "tt-quietbox2",
+  "card": 0,
+  "date": "2026-08-21",
+  "why": "benchlock could not be acquired on either box (qb1 held by pxdesign-af2ig-port-p16 at loadavg 60+, qb2 at loadavg 21-30 with a 702%-CPU torch reference and a gate leg). Run unlocked with paired A/A controls so the A/A floor itself says whether the number is usable. It is not."
+ },
+ "opendde_256aa_paired": {
+  "runs": [
+   {
+    "tag": "warmA",
+    "arm": "off",
+    "loadavg": 24.73,
+    "fold_s": 39.1
+   },
+   {
+    "tag": "warmB",
+    "arm": "on",
+    "loadavg": 23.1,
+    "fold_s": 37.3
+   },
+   {
+    "tag": "A1",
+    "arm": "off",
+    "loadavg": 28.12,
+    "fold_s": 35.0
+   },
+   {
+    "tag": "Ap1",
+    "arm": "off",
+    "loadavg": 27.05,
+    "fold_s": 35.6
+   },
+   {
+    "tag": "B1",
+    "arm": "on",
+    "loadavg": 25.98,
+    "fold_s": 35.9
+   },
+   {
+    "tag": "A2",
+    "arm": "off",
+    "loadavg": 24.3,
+    "fold_s": 37.4
+   },
+   {
+    "tag": "Ap2",
+    "arm": "off",
+    "loadavg": 29.27,
+    "fold_s": 38.8
+   },
+   {
+    "tag": "B2",
+    "arm": "on",
+    "loadavg": 30.36,
+    "fold_s": 38.3
+   },
+   {
+    "tag": "A3",
+    "arm": "off",
+    "loadavg": 23.53,
+    "fold_s": 38.8
+   },
+   {
+    "tag": "Ap3",
+    "arm": "off",
+    "loadavg": 26.24,
+    "fold_s": 34.9
+   },
+   {
+    "tag": "B3",
+    "arm": "on",
+    "loadavg": 25.48,
+    "fold_s": 34.7
+   }
+  ]
+ },
+ "protenix-v2_256aa_paired": {
+  "runs": [
+   {
+    "tag": "warmA",
+    "arm": "off",
+    "loadavg": 18.21,
+    "fold_s": 28.5
+   },
+   {
+    "tag": "warmB",
+    "arm": "on",
+    "loadavg": 26.35,
+    "fold_s": 19.5
+   },
+   {
+    "tag": "A1",
+    "arm": "off",
+    "loadavg": 22.19,
+    "fold_s": 20.3
+   },
+   {
+    "tag": "B1",
+    "arm": "on",
+    "loadavg": 24.86,
+    "fold_s": 20.6
+   },
+   {
+    "tag": "A2",
+    "arm": "off",
+    "loadavg": 26.97,
+    "fold_s": 14.5
+   },
+   {
+    "tag": "B2",
+    "arm": "on",
+    "loadavg": 23.01,
+    "fold_s": 14.9
+   },
+   {
+    "tag": "A3",
+    "arm": "off",
+    "loadavg": 20.33,
+    "fold_s": 20.7
+   },
+   {
+    "tag": "B3",
+    "arm": "on",
+    "loadavg": 22.25,
+    "fold_s": 20.6
+   }
+  ]
+ },
+ "cell_20aa": [
+  {
+   "model": "protenix-v2",
+   "arm": "off",
+   "loadavg": 23.26,
+   "structures_s": 2.036295,
+   "baseline": 3.195,
+   "delta_vs_baseline": "-36.3%",
+   "verdict": "FAIL"
+  },
+  {
+   "model": "protenix-v2",
+   "arm": "on",
+   "loadavg": 24.82,
+   "structures_s": 1.65017,
+   "baseline": 3.195,
+   "delta_vs_baseline": "-48.3%",
+   "verdict": "FAIL"
+  },
+  {
+   "model": "protenix-v2",
+   "arm": "off2",
+   "loadavg": 25.53,
+   "structures_s": 1.646299,
+   "baseline": 3.195,
+   "delta_vs_baseline": "-48.5%",
+   "verdict": "FAIL"
+  },
+  {
+   "model": "opendde",
+   "arm": "off",
+   "loadavg": 25.74,
+   "structures_s": 2.325634,
+   "baseline": 2.683,
+   "delta_vs_baseline": "-13.3%",
+   "verdict": "PASS"
+  },
+  {
+   "model": "opendde",
+   "arm": "on",
+   "loadavg": 25.83,
+   "structures_s": 2.554588,
+   "baseline": 2.683,
+   "delta_vs_baseline": "-4.8%",
+   "verdict": "PASS"
+  },
+  {
+   "model": "opendde",
+   "arm": "off2",
+   "loadavg": 21.72,
+   "structures_s": 2.014593,
+   "baseline": 2.683,
+   "delta_vs_baseline": "-24.9%",
+   "verdict": "FAIL"
+  }
+ ]
+}
