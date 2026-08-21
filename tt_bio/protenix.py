@@ -342,6 +342,17 @@ class _KeyedWeights:
                   bias=(self._w_tt(bkey, False) if bkey else None),
                   epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
         if l1 and _T._TEMPLATE_L1_NORM:
+            # A headroom multiple and no per-core reserve, unlike the two pair sites in
+            # tenstorrent.py, and that is measured rather than inherited
+            # (perf/protenix_tpl_l1/results.md, tests/test_template_l1_consumer_margin.py).
+            # 1.5 always leaves per_core * (1 - 1/1.5) = 510805 B/bank free whatever the grid or
+            # the shape; the one consumer inside the window needs 308736 at 506 tokens, the
+            # largest shape it admits; and the window opens with L1 EMPTY -- a real 496-token
+            # fold reads the full 1461760 B/bank free at all ten recycling cycles, where the
+            # Boltz-2 crash needed 247 KB/core of other live buffers on top of the tensor.
+            # Passing `_PAIR_L1_CONSUMER_RESERVE` here would refuse 464..506 tokens to fix a
+            # clash this site does not have. 1.5 is a floor, not a ceiling: below 1.2524 the
+            # guaranteed free drops under that 308736.
             return _l1_layer_norm(x, 1.5, **kw)[0]
         return ttnn.layer_norm(x, **kw)
 
