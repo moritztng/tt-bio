@@ -65,6 +65,11 @@ MSA_ATT_HEAD_DIM = 32
 TEMPLATE_TRI_ATT_HEADS = 4
 TEMPLATE_TRI_ATT_HEAD_DIM = 16
 
+#: The three pair stacks `AF2DeviceModel.triatt_fused` can send to the fused SDPA. The template's
+#: two blocks are separable from the 52 trunk ones because they are a different `head_dim` (16
+#: against 32, both padded to a 32-channel tile) on a tensor the trunk never sees.
+TRIATT_FUSED_STACKS = ("extra_msa", "evoformer", "template")
+
 # Row-block the MSA row attentions pair bias once LN(pair) would be the biggest tensor in the
 # block. It is 11 MB at 208 tokens and 184 MB at 848, and the norm is row-local.
 PAIR_BIAS_ROWBLOCK_BYTES = 128 * 2 ** 20
@@ -200,6 +205,10 @@ class AF2PairBlock(Module):
     `evoformer_order=False` is the template pair stack, which runs the attentions before the
     multiplications (`modules.py:212-241` against `modules.py:1330-1356`).
 
+    `fused_hifi` picks which attention kernel serves that fp32 softmax: `None` follows the
+    process-wide `TT_BIO_TRIATT_FUSED_HIFI`, a bool pins this block. `AF2DeviceModel.triatt_fused`
+    is what sets it per stack, and says why AF2 does not use the variable.
+
     `scale_pair_bias=False, fp32_softmax=True` on both attentions, which is openfold3's
     combination for the identical reference convention: AF2 wants `softmax(qk / sqrt(d) + b)` with
     the pair bias raw (`af2_reference.Attention._attend`), and the fp32-softmax path adds it raw
@@ -289,6 +298,7 @@ class AF2PairBlock(Module):
         head_dim: int = TRI_ATT_HEAD_DIM,
         n_heads: int = TRI_ATT_HEADS,
         evoformer_order: bool = True,
+        fused_hifi: bool | None = None,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.evoformer_order = evoformer_order
@@ -298,10 +308,10 @@ class AF2PairBlock(Module):
             True, self.scope("tri_mul_in"), compute_kernel_config)
         self.tri_att_start = TriangleAttention(
             head_dim, n_heads, False, self.scope("tri_att_start"), compute_kernel_config,
-            scale_pair_bias=False, fp32_softmax=True)
+            scale_pair_bias=False, fp32_softmax=True, fused_hifi=fused_hifi)
         self.tri_att_end = TriangleAttention(
             head_dim, n_heads, True, self.scope("tri_att_end"), compute_kernel_config,
-            scale_pair_bias=False, fp32_softmax=True)
+            scale_pair_bias=False, fp32_softmax=True, fused_hifi=fused_hifi)
         self.pair_transition = ReluTransition(
             self.scope("pair_transition"), compute_kernel_config)
 
@@ -589,6 +599,16 @@ class AF2DeviceModel(AF2Model):
     #: committed device numbers -- the template was on host when they were taken.
     template_host = False
 
+    #: Which pair stacks run their two triangle attentions on the fused persistent-mask SDPA
+    #: instead of the materialised fp32 softmax, from `TRIATT_FUSED_STACKS`. `None` follows the
+    #: process-wide `TT_BIO_TRIATT_FUSED_HIFI` for every stack, which is what the perf branch's
+    #: A/B legs assign. A set pins AF2's own blocks and leaves the variable alone, because
+    #: PXDesign runs the Protenix filter in the same process and the same variable flips its
+    #: triangle attention too. Not bit-exact against the materialised path: an online softmax
+    #: reduces over k in a different order, so a change here is an accuracy question, scored by
+    #: `filter_flip_rate.py` over both design populations.
+    triatt_fused: frozenset | None = None
+
     #: Off recomputes the template every pass. It must change no number anywhere, which is what
     #: `tap_gate.py --device --no-template-cache` checks against the same reference taps. On, the
     #: cache is keyed by `_template_key`, so it saves the three recycles of one design and is
@@ -613,15 +633,18 @@ class AF2DeviceModel(AF2Model):
         def scoped(prefix: str) -> Weights:
             return {k[len(prefix):]: v for k, v in state.items() if k.startswith(prefix)}
 
-        self.device_extra_msa = [AF2PairBlock(scoped(f"extra_msa.{i}."), ckc)
+        self.device_extra_msa = [AF2PairBlock(scoped(f"extra_msa.{i}."), ckc,
+                                              fused_hifi=self._fused_hifi("extra_msa"))
                                  for i in range(len(self.extra_msa))]
-        self.device_evoformer = [AF2EvoformerBlock(scoped(f"evoformer.{i}."), ckc)
+        self.device_evoformer = [AF2EvoformerBlock(scoped(f"evoformer.{i}."), ckc,
+                                                   fused_hifi=self._fused_hifi("evoformer"))
                                  for i in range(len(self.evoformer))]
         if self.template is not None:
             self.device_template = [
                 AF2PairBlock(scoped(f"template.pair_stack.{i}."), ckc,
                              head_dim=TEMPLATE_TRI_ATT_HEAD_DIM,
-                             n_heads=TEMPLATE_TRI_ATT_HEADS, evoformer_order=False)
+                             n_heads=TEMPLATE_TRI_ATT_HEADS, evoformer_order=False,
+                             fused_hifi=self._fused_hifi("template"))
                 for i in range(len(self.template.pair_stack))]
             self._template_stack = AF2DeviceTemplatePairStack(
                 self.device_template, self._up, self._down)
@@ -649,6 +672,29 @@ class AF2DeviceModel(AF2Model):
     def _device_blocks(self) -> list:
         """Every `AF2PairBlock` on card, so a global arm cannot miss a stack."""
         return self.device_extra_msa + self.device_evoformer + self.device_template
+
+    def _fused_hifi(self, stack: str) -> bool | None:
+        """Whether `stack`'s triangle attentions take the fused SDPA. See `triatt_fused`."""
+        return None if self.triatt_fused is None else stack in self.triatt_fused
+
+    def set_triatt_fused(self, stacks) -> None:
+        """Pin which pair stacks take the fused SDPA, without rebuilding the blocks.
+
+        The construction-time route is `triatt_fused` read by `to_device`; this one exists because
+        an A/B has to interleave both arms in one process to be believable, and rebuilding 54
+        blocks between arms costs more than the leg. See `triatt_fused` for what the values mean.
+        """
+        if stacks is not None:
+            stacks = frozenset(stacks)
+            unknown = stacks - set(TRIATT_FUSED_STACKS)
+            assert not unknown, f"unknown pair stacks {sorted(unknown)}, want {TRIATT_FUSED_STACKS}"
+        self.triatt_fused = stacks
+        for stack, blocks in (("extra_msa", self.device_extra_msa),
+                              ("evoformer", self.device_evoformer),
+                              ("template", self.device_template)):
+            for block in blocks:
+                block.tri_att_start.fused_hifi = self._fused_hifi(stack)
+                block.tri_att_end.fused_hifi = self._fused_hifi(stack)
 
     def set_template_host(self, enabled: bool) -> None:
         """Run the template's pair stack in host torch. See `template_host`."""

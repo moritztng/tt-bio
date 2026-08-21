@@ -1097,6 +1097,13 @@ _TRIATT_HIFI_OVER_L1: set = set()
 # degraded band, which is why they read as a 3.4-5.3x regression and why they cannot score this.
 _TRIATT_FUSED_HIFI_MIN_S = 128
 
+def _fused_hifi_on(pinned: bool | None) -> bool:
+    """Whether one `TriangleAttention` takes the fused SDPA. `None` follows the process-wide
+    `TT_BIO_TRIATT_FUSED_HIFI` AT CALL TIME, a bool ignores it. See `TriangleAttention.fused_hifi`.
+    """
+    return _TRIATT_FUSED_HIFI if pinned is None else pinned
+
+
 TRIATT_FUSED_HIFI_STATS = {"served": 0, "declined": 0, "too_short": 0}
 # (q_len, k_len) -> [q_chunk, k_chunk] actually served. A declined config is
 # indistinguishable from an absent one from the outside, so an A/B on this path is only
@@ -3758,6 +3765,7 @@ class TriangleAttention(Module):
         fp32_softmax: bool = False,
         transpose_bias: bool = True,
         transpose_l1_reserve: int = 0,
+        fused_hifi: bool | None = None,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.head_dim = head_dim
@@ -3776,6 +3784,15 @@ class TriangleAttention(Module):
         self.transpose_bias = transpose_bias
         self.affinity = affinity
         self.fp32_softmax = fp32_softmax
+        # Whether the fp32-softmax path runs on the fused persistent-mask SDPA instead of the
+        # materialised score tensor. `None` follows the process-wide `TT_BIO_TRIATT_FUSED_HIFI`,
+        # and reads it PER CALL rather than snapshotting it here: `perf/pxdesign/p8_*.py` and
+        # `perf/rf3/triatt_hifi_ab.py` interleave both arms in one process by assigning
+        # `tenstorrent._TRIATT_FUSED_HIFI` after the model is built, and a constructor snapshot
+        # would leave those A/B legs silently running one arm twice. A bool pins this attention
+        # and ignores the variable, which is how a model scopes the lever to its own blocks
+        # without reaching into a stack it does not own.
+        self.fused_hifi = fused_hifi
         self.scale = self.head_dim**0.5
         # Boltz/Protenix fold sqrt(head_dim) into the pair-bias projection (their
         # reference adds the bias pre-scaled); openfold3 pre-scales q by 1/sqrt(d) and
@@ -3941,7 +3958,7 @@ class TriangleAttention(Module):
                 # multiply on the [1, heads, S, S] bias recovers it. That is O(S^2) against the
                 # O(S^3) score tensor the fused path deletes, so it is three orders below the win
                 # rather than a cost to weigh: 2.1 MB at 512 aa against ~10 GB.
-                if _TRIATT_FUSED_HIFI:
+                if _fused_hifi_on(self.fused_hifi):
                     b = bias
                     if self._bias_scale != self.scale:
                         b = ttnn.multiply(bias, self.scale / self._bias_scale)
