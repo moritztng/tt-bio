@@ -51,10 +51,17 @@ def test_help_lists_the_outputs():
         assert token in out.output, token
 
 
-def test_multiple_cards_are_refused(tmp_path):
+def test_multiple_cards_are_refused(tmp_path, monkeypatch):
     """Nesso-1 is batch-1 by construction, so --devices 0,1 is a user error rather
-    than something to silently ignore."""
+    than something to silently ignore.
+
+    TT_VISIBLE_DEVICES has to be cleared: affinity_cmd reads --devices only when the env
+    var is unset (the env wins, deliberately), and RELEASING.md tells you to run the suite
+    as `TT_VISIBLE_DEVICES=0 pytest`, so this failed under the documented invocation and
+    passed under a bare one."""
     from tt_bio.main import affinity_cmd
+
+    monkeypatch.delenv("TT_VISIBLE_DEVICES", raising=False)
 
     yaml_path = tmp_path / "x.yaml"
     yaml_path.write_text("version: 1\n")

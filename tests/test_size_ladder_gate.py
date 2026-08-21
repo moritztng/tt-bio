@@ -217,6 +217,19 @@ def test_nesso1_precondition_is_checked_before_a_fold_not_by_one(rg, monkeypatch
     unconfigured. The message has to name what to set."""
     monkeypatch.setenv("NESSO_CACHE", str(tmp_path))
     monkeypatch.setenv("HF_HOME", str(tmp_path))
+    # HOME too: find_ccd always searches ~/.cache/huggingface, and it now PUTS the file
+    # there on a miss, so on any machine that has run `tt-bio affinity` this passed by
+    # finding the real file rather than by exercising the precondition.
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    # The only failure left that a user must act on: no file on disk and no way to fetch
+    # one. Simulated, so the test needs neither network nor 413 MB.
+    import huggingface_hub
+
+    def _no_network(*a, **k):
+        raise OSError("simulated: no route to huggingface.co")
+
+    monkeypatch.setattr(huggingface_hub, "hf_hub_download", _no_network)
     pre = rg._size_ladder_precondition("nesso1")
     assert pre and "NESSO_CACHE" in pre
     assert rg._size_ladder_precondition("boltz2") is None

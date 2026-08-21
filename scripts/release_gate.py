@@ -1107,12 +1107,18 @@ def _size_ladder_precondition(model: str):
     FileNotFoundError from inside a subprocess — twelve wasted model loads and an arm that
     reads as broken instead of unconfigured. An arm that fails for a reason nobody can act on
     is an arm someone switches off.
+
+    It DOWNLOADS on a miss rather than refusing. find_ccd fetches the file now, so refusing
+    here would skip an arm that would have run: the first rung would have downloaded it
+    anyway. Doing it in the precondition just moves the one-time 413 MB out of the fold loop,
+    which is what "before any device work" was always for. What still fails by name is the
+    case nobody can fix by waiting: no file on disk and no way to fetch one.
     """
     if model != "nesso1":
         return None
     try:
         from tt_bio.nesso1_input import find_ccd
-        find_ccd(os.environ.get("NESSO_CACHE"), download=False)
+        find_ccd(os.environ.get("NESSO_CACHE"))
     except Exception as e:                                               # noqa: BLE001
         return f"nesso1 precondition: {e}"
     return None

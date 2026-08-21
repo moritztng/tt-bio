@@ -289,6 +289,11 @@ def find_ccd(cache_dir: Path | None = None, *, download: bool = True) -> Path:
         if hits:
             return hits[0]
     looked = "no ccd.pkl found. Looked under: " + ", ".join(str(r) for r in roots)
+    # The overrides belong on BOTH branches. A failed download is exactly when a user needs
+    # to be told there is another way in, and the first version of this dropped them there.
+    advice = (". It ships with the checkpoint; point NESSO_CACHE (or HF_HOME) at the "
+              "HuggingFace cache holding it, pass --cache, or name the file directly "
+              "with --ccd")
     if download:
         from huggingface_hub import hf_hub_download
 
@@ -299,10 +304,9 @@ def find_ccd(cache_dir: Path | None = None, *, download: bool = True) -> Path:
                 cache_dir=cache_dir,
             ))
         except Exception as e:                                           # noqa: BLE001
-            raise FileNotFoundError(f"{looked}, and downloading it failed: {e}") from e
-    raise FileNotFoundError(
-        looked + ". It ships with the checkpoint; point NESSO_CACHE (or HF_HOME) at the "
-        "HuggingFace cache holding it, pass --cache, or name the file directly with --ccd")
+            raise FileNotFoundError(
+                f"{looked}, and downloading it failed: {e}{advice}") from e
+    raise FileNotFoundError(looked + advice)
 
 
 def prepare(
