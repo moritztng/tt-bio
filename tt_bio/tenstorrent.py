@@ -2083,7 +2083,9 @@ def _pair_proj_config(x: ttnn.Tensor, w: ttnn.Tensor, bw_cap: int | None = -1,
 # trip. A refusal now drops one rung instead, and only an exhausted ladder retires the class.
 _L1_OUT_RUNG: dict = {}
 
-# Classes with no L1 destination left, i.e. whose ladder ran out. This is what a READER outside
+# Classes with no L1 destination left: a gate-chosen block whose ladder ran out, or a
+# caller-named block the device refused (those do not walk the ladder, see
+# _pair_proj_linear). This is what a READER outside
 # the two functions below wants ("does this class take an L1 output?"), and `tt_bio/triatt_qkv.py`
 # reads exactly that.
 _L1_OUT_REFUSED: set = set()
@@ -2154,14 +2156,25 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
     """
     if l1_out and _PAIR_PROJ_L1_OUT:
         key = (tuple(x.padded_shape), tuple(w.shape), str(dtype), l1_bw, l1_block_w)
+        # The ladder narrows the drain block THIS GATE chose. A caller that names its own block
+        # instead -- the row-blocked pair FFN fc1 is the only one, at _PAIR_FFN_FC1_BLOCK_W --
+        # brings a swept, measured geometry, and there the ladder is not merely unmeasured, it is
+        # wrong: MEASURED on ESMFold2 at 768 aa, qb2 card 3, keeping fc1 in L1 at a narrower rung
+        # instead of retiring the class leaves both 48 MB halves resident, and the SiLU multiply
+        # that reads them can then not allocate its own 48 MB output -- the fold dies where main
+        # folds. The gate cannot see that refusal, because it lands on the CONSUMER and not on
+        # the projection, so there is nothing here to back off from. A named block therefore
+        # keeps the shipped retire-on-refusal and only a gate-chosen one walks the ladder.
+        laddered = l1_block_w is None
+        retired = key in _L1_OUT_REFUSED
         rung = _l1_out_rung(key)
-        cfg = _pair_proj_config(
+        cfg = None if retired else _pair_proj_config(
             x, w, bw_cap=_PAIR_PROJ_L1_BW if l1_bw is None else l1_bw,
             out_l1=True, block_w=l1_block_w, rung=rung)
         if cfg is None:
             if rung:
                 _L1_OUT_REFUSED.add(key)
-            _latch("l1_out", "blocked" if rung else "declined")
+            _latch("l1_out", "blocked" if rung or retired else "declined")
         else:
             try:
                 out = ttnn.linear(
@@ -2171,7 +2184,10 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
                 _latch("l1_out", "served")
                 return out
             except Exception as e:
-                _l1_out_narrow(key)
+                if laddered:
+                    _l1_out_narrow(key)
+                else:
+                    _L1_OUT_REFUSED.add(key)
                 _latch("l1_out", "refused", e)
     mm = _pair_proj_minimal_matmul(x, w, ckc, dtype)
     if mm is not None:

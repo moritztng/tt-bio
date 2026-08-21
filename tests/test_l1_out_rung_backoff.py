@@ -181,3 +181,52 @@ def test_batched_matmul_ladder_runs_out_rather_than_wrapping():
         assert rung < 64
     assert T._batched_matmul_search(**BMM, rung=rung + 5) is None
     assert T._batched_matmul_search(**BMM, rung=-1) is None
+
+
+# ------------------------------------------- who may walk the ladder, and who must retire
+
+class _FakeTensor:
+    def __init__(self, shape, dtype="bf16"):
+        self.shape = self.padded_shape = tuple(shape)
+        self.dtype = dtype
+
+
+def _drive_pair_proj(monkeypatch, l1_block_w, calls=3):
+    """Call `_pair_proj_linear` with the device refusing every L1 destination.
+
+    Returns the rung the class ended on, whether it was retired, and how many times it
+    asked for an L1 destination at all. `_pair_proj_config` and `ttnn.linear` are
+    the only device-facing pieces, so stubbing those two leaves the dispatch under test.
+    """
+    monkeypatch.setattr(T, "_pair_proj_config", lambda *a, **k: "cfg")
+    monkeypatch.setattr(T, "_pair_proj_minimal_matmul", lambda *a, **k: None)
+    attempts = []
+
+    def fake_linear(x, w, **kw):
+        l1 = kw.get("memory_config") is T.ttnn.L1_MEMORY_CONFIG
+        attempts.append(l1)
+        if l1:
+            raise RuntimeError("Statically allocated circular buffers clash with L1 buffers")
+        return "dram_out"
+
+    monkeypatch.setattr(T.ttnn, "linear", fake_linear)
+    x, w = _FakeTensor((1, 32, 768, 256)), _FakeTensor((256, 1024))
+    for _ in range(calls):
+        T._pair_proj_linear(x, w, None, "bf16", l1_out=True, l1_bw=1, l1_block_w=l1_block_w)
+    key = (x.padded_shape, w.shape, "bf16", 1, l1_block_w)
+    return T._L1_OUT_RUNG.get(key, 0), key in T._L1_OUT_REFUSED, attempts.count(True)
+
+
+def test_a_gate_chosen_block_walks_the_ladder(monkeypatch):
+    """No named block, so the gate picked the drain schedule and owns narrowing it."""
+    rung, retired, l1_attempts = _drive_pair_proj(monkeypatch, None)
+    assert (rung, retired) == (3, False)
+    assert l1_attempts == 3          # every call still tried an L1 destination, one rung lower
+
+
+def test_a_caller_named_block_retires_instead_of_narrowing(monkeypatch):
+    """The pair FFN's fc1 names its own swept block, and its consumer -- not this gate -- is what
+    runs out of L1. MEASURED: narrowing it instead of retiring kills an ESMFold2 768 aa fold."""
+    rung, retired, l1_attempts = _drive_pair_proj(monkeypatch, 16)
+    assert (rung, retired) == (0, True)
+    assert l1_attempts == 1          # one refusal, then the class is done asking
