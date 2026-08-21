@@ -49,7 +49,11 @@ OPM_Z_BUDGET_BYTES = 1 << 28              # 0.25 GiB
 # movement -- bit-identical to ttnn.concat, same equivalence class as the row-blocked
 # norms. 1.5 GiB matches the tri_att qkv byte cap: residue-scale pair tensors
 # (<=0.9 GiB) keep the device concat, so normal targets are byte-identical.
-CONCAT_HOST_BYTES = int(os.environ.get("TT_BIO_CONCAT_HOST_BYTES", 1536 * 2 ** 20))  # 1.5 GiB
+# 1.5 GiB is one eighth of the 12.0 GiB the Wormhole part above reports, so concat_host_bytes()
+# below re-expresses it as that fraction of whatever DRAM the part actually has. Read it
+# through the function, never this base.
+CONCAT_HOST_BYTES_BASE = 1536 * 2 ** 20      # 1.5 GiB
+_CONCAT_HOST_BYTES = None                    # resolved once, on first use after the open
 TRANSITION_W_CHUNK_SIZE = 1024
 SEQ_LEN_MORE_CHUNKING = 1536
 # Row-block height for the trimul's row-local projections. One number so the input and output
@@ -2051,11 +2055,7 @@ def _apply_grid_thresholds(grid: tuple[int, int], device=None) -> None:
     # baseline. Blackhole does not reach this code at all -- the function returns early on a
     # full-size grid -- so its neutrality is by construction, not by clamp.
     _GIB = 2 ** 30
-    try:
-        _mv = ttnn.get_memory_view(device, ttnn.BufferType.DRAM)
-        _dram = int(_mv.total_bytes_per_bank) * int(_mv.num_banks)
-    except Exception:
-        _dram = 0
+    _dram = _dram_total_bytes(device)
     if _dram:
         _l = int(1024 * ((_dram / 3.0) / (3.461 * _GIB)) ** 0.5)
         SEQ_LEN_MORE_CHUNKING = min(1536, max(SEQ_LEN_MORE_CHUNKING, (_l // 32) * 32))
@@ -2380,14 +2380,61 @@ def dram_peak(tag=None):
     return max(_DRAM_PEAK.values(), default=0)
 
 
+def _dram_total_bytes(device=None) -> int:
+    """This part's total DRAM in bytes, or 0 when no device is open or the read throws.
+
+    Never calls get_device(): a byte test must not bring a card up as a side effect, and 0
+    makes every caller fall back to its measured base figure.
+    """
+    device = device if device is not None else _device
+    if device is None:
+        return 0
+    try:
+        mv = ttnn.get_memory_view(device, ttnn.BufferType.DRAM)
+        return int(mv.total_bytes_per_bank) * int(mv.num_banks)
+    except Exception:
+        return 0
+
+
+def _concat_host_budget(dram_total: int) -> int:
+    """The host-concat byte budget for a part with dram_total bytes of DRAM.
+
+    Pure arithmetic so the release gate can assert every part class host-only, on any part.
+    """
+    return max(CONCAT_HOST_BYTES_BASE, int(dram_total) // 8)
+
+
+def concat_host_bytes() -> int:
+    """Pair-tensor byte size above which a chunked path assembles its blocks on the host.
+
+    CONCAT_HOST_BYTES_BASE above was measured on a 12.0 GiB Wormhole Galaxy chip and 1.5 GiB
+    is exactly one eighth of that, so this is the same fraction of whatever DRAM this part
+    reports: 3.98 GiB on a 31.875 GiB p150a. The fraction, not the bank count -- p150a has 8
+    DRAM banks and Wormhole has 12, and those numbers are unrelated. max() pins every part at
+    or above the measured figure, so a 12 GiB part is byte-identical (12.0 GiB // 8 IS 1.5 GiB)
+    and only a larger one widens; the budget can never tighten. A 12 GiB part sent the OpenDDE
+    refiner's channel join to the host from 768 aa up, 6.55 s per call against a 9 ms device
+    concat, on a card with 30 GiB free.
+
+    A function and not a module constant because tt_bio.opendde needs the same budget and a
+    from-imported int would freeze at the pre-device-open value.
+    """
+    global _CONCAT_HOST_BYTES
+    if _CONCAT_HOST_BYTES is None:
+        env = os.environ.get("TT_BIO_CONCAT_HOST_BYTES")
+        _CONCAT_HOST_BYTES = (int(env) if env
+                              else _concat_host_budget(_dram_total_bytes()))
+    return _CONCAT_HOST_BYTES
+
+
 def _host_concat(x: ttnn.Tensor) -> bool:
     """Whether a chunked path whose output is x's shape assembles its blocks on the host.
 
-    See CONCAT_HOST_BYTES. bf16 only: a bf8 (fast-mode) or fp32 (affinity) block would
+    See concat_host_bytes(). bf16 only: a bf8 (fast-mode) or fp32 (affinity) block would
     round-trip through torch bf16 lossily, so those configs keep the device concat.
     """
     return (x.dtype == ttnn.bfloat16 and _dtype() == ttnn.bfloat16
-            and x.logical_volume() * 2 > CONCAT_HOST_BYTES)
+            and x.logical_volume() * 2 > concat_host_bytes())
 
 
 def _acc_concat(acc: list, dim: int, host: bool) -> ttnn.Tensor:
@@ -2906,7 +2953,7 @@ class TriangleMultiplication(Module):
         """
         out_bytes = batch * H * H * int(w.shape[-1]) * 2
         host = (x.dtype == ttnn.bfloat16 and _dtype() == ttnn.bfloat16
-                and out_bytes > CONCAT_HOST_BYTES)
+                and out_bytes > concat_host_bytes())
         blocks = []
         for s in range(0, H, PAIR_ROW_BLOCK):
             rows = ttnn.layer_norm(
@@ -2992,7 +3039,7 @@ class TriangleMultiplication(Module):
         # (perf/trimul_kernel/opsplit298.py).
         # Assemble the per-channel chunks on the host when the full result is large
         # enough that the concat's full-size allocation would risk a fragmented-DRAM
-        # refusal; the loop then holds at most one chunk on device (CONCAT_HOST_BYTES).
+        # refusal; the loop then holds at most one chunk on device (concat_host_bytes()).
         host_acc = large_seq and _host_concat(x_in)
         # The channel loop's L1 footprint is set by chunk_size, and the budget that
         # picked it is a 130-core calibration: on a tighter grid (110-core p300/p300c)
@@ -3531,7 +3578,7 @@ class TriangleAttention(Module):
                 triangle_bias = ttnn.add(triangle_bias, attn_mask)
             # Assemble the row blocks on the host when the full result is large enough
             # that the concat's full-size allocation would risk a fragmented-DRAM
-            # refusal (CONCAT_HOST_BYTES); the loop then holds one block on device.
+            # refusal (concat_host_bytes()); the loop then holds one block on device.
             host_acc = _host_concat(x)
             parts = []
             for s in range(0, S, chunk):
@@ -4199,7 +4246,7 @@ class Transition(Module):
             # row-local, so block boundaries do not change a single output byte.
             # Host-assemble the row blocks when the full result is large enough that
             # the concat's full-size allocation would risk a fragmented-DRAM refusal
-            # (CONCAT_HOST_BYTES). Guarded on the swiglu output dtype being bf16.
+            # (concat_host_bytes()). Guarded on the swiglu output dtype being bf16.
             host_acc = _host_concat(x) and (self.dtype or _dtype()) == ttnn.bfloat16
             parts = []
             for s in range(0, H, transition_h_chunk_size):

@@ -18,7 +18,7 @@ import torch
 import ttnn
 
 from .protenix import _KeyedWeights
-from .tenstorrent import CONCAT_HOST_BYTES, _acc_concat, get_device
+from .tenstorrent import _acc_concat, concat_host_bytes, get_device
 
 # opendde/data/tokenizer.py
 STRUCTURAL_TOKEN_ROLES = {
@@ -268,7 +268,7 @@ class StructuralTokenExpander(_KeyedWeights):
         # tile padding is crossed, and from_torch re-tilizes the same values. bf16 only, for the
         # reason _host_concat gives: a bf8 or fp32 round trip through torch bf16 would not be.
         host_z = (z_flat.dtype == ttnn.bfloat16
-                  and Ns * Ns * self.c_z * 2 > CONCAT_HOST_BYTES)
+                  and Ns * Ns * self.c_z * 2 > concat_host_bytes())
         z_chunks, ab_chunks, live = [], [], []
         for start in range(0, Ns, chunk):
             end = min(start + chunk, Ns)

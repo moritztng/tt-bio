@@ -14,7 +14,7 @@ from perf.large_target_oom.pairlayer_capacity import build_layer
 
 
 def trimul(dev, layer, z0, host):
-    T.CONCAT_HOST_BYTES = 0 if host else 10 ** 12
+    T._CONCAT_HOST_BYTES = 0 if host else 10 ** 12
     z = ttnn.from_torch(z0, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
     zu = layer.triangle_multiplication_start(z, None)
     z = ttnn.add_(z, zu); ttnn.deallocate(zu)
@@ -24,7 +24,7 @@ def trimul(dev, layer, z0, host):
 
 
 def att(dev, layer, z, host):
-    T.CONCAT_HOST_BYTES = 0 if host else 10 ** 12
+    T._CONCAT_HOST_BYTES = 0 if host else 10 ** 12
     out = layer.triangle_attention_start(z, None)
     got = ttnn.to_torch(out)
     ttnn.deallocate(out)
