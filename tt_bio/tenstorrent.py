@@ -1442,6 +1442,7 @@ def _fp32_softmax_attention(
     compute_kernel_config: ttnn.DeviceComputeKernelConfig,
     out_dtype: ttnn.DataType = ttnn.bfloat16,
     bias_scale_inv: float | None = None,
+    accurate_softmax: bool = False,
 ) -> ttnn.Tensor:
     """Manual attention with an fp32 softmax reduction, bf16 operands/storage.
 
@@ -1485,7 +1486,8 @@ def _fp32_softmax_attention(
         sh = shard_for(rows)
         FP32_SOFTMAX_STATS["l1_blocks"] += sh is not None
         return _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_config,
-                                             out_dtype, bias_scale_inv, sh, l1_key)
+                                             out_dtype, bias_scale_inv, sh, l1_key,
+                                             accurate_softmax=accurate_softmax)
     FP32_SOFTMAX_STATS["blocked"] += 1
     parts = []
     # the bias is the same tensor in every block, so its fp32 copy is made once per call
@@ -1497,7 +1499,8 @@ def _fp32_softmax_attention(
         FP32_SOFTMAX_STATS["l1_blocks"] += sh is not None
         parts.append(_fp32_softmax_attention_block(qs, ks, vs, bias, scale_inv,
                                                    compute_kernel_config, out_dtype,
-                                                   bias_scale_inv, sh, l1_key, bias_f))
+                                                   bias_scale_inv, sh, l1_key, bias_f,
+                                                   accurate_softmax=accurate_softmax))
         for t in (qs, ks, vs):
             ttnn.deallocate(t)
     FP32_SOFTMAX_STATS["blocks"] += len(parts)
@@ -1518,7 +1521,7 @@ def _fp32_softmax_bias(bias, scale_inv, bias_scale_inv):
 
 def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_config,
                                   out_dtype, bias_scale_inv, shard=None, l1_key=None,
-                                  bias_f=None):
+                                  bias_f=None, accurate_softmax=False):
     """One row block of `_fp32_softmax_attention`. The whole tensor is one block below the budget.
 
     ``shard`` height-shards the block so the four steps between the two matmuls stay in L1. Both
@@ -1531,7 +1534,8 @@ def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_confi
     attn_bf = None
     if shard is not None:
         try:
-            attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, shard, bias_f)
+            attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, shard, bias_f,
+                                         accurate_softmax)
         except RuntimeError:
             # The shard allocated but the sharded softmax could not fit its circular buffers
             # around it. Take one row off this geometry and fall back to the interleaved tail for
@@ -1540,17 +1544,29 @@ def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_confi
             FP32_SOFTMAX_STATS["l1_refused"] += 1
             attn_bf = None
     if attn_bf is None:
-        attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, None, bias_f)
+        attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, None, bias_f,
+                                     accurate_softmax)
     ttnn.deallocate(sc)
     o = batched_matmul(attn_bf, v, compute_kernel_config=compute_kernel_config, dtype=out_dtype)
     ttnn.deallocate(attn_bf)
     return o
 
 
-def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None):
+def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None,
+                       accurate_softmax=False):
     """bf16 scores -> bf16 attention weights, both interleaved. ``shard`` keeps the middle in L1.
 
     ``sc0`` is left allocated either way, so a caller can retry interleaved after a refusal.
+
+    ``accurate_softmax`` swaps the fused kernel for the 5-op chain. The fp32 upcast here fixes the
+    summation precision but not the kernel: measured on real OpenFold3 TriangleAttention pairs,
+    ``ttnn.softmax_in_place`` returns rows summing to 0.9895 and scores rel_rms 0.017085 on the
+    contracted output, against 0.000422 for the chain and 0.000000 for a correct fp32 softmax --
+    a 40.5x gain that lands exactly on the ceiling
+    (perf/xmsoftmax/results/arms_of3tri.json). Renormalising instead of replacing gets only 8.2x
+    here and as little as 1.56x at the bf16 sites, so it is not a cheaper substitute. Off by
+    default: this is the site carrying 98.7% of OpenFold3's softmax volume, so the cost is real
+    and is release-gated.
     """
     if shard is not None:
         # typecast refuses a layout change, so the bf16 scores move to L1 first and the fp32 copy
@@ -1577,7 +1593,12 @@ def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None)
         if own:
             ttnn.deallocate(bias_f)
         try:
-            attn = ttnn.softmax_in_place(attn)
+            if accurate_softmax:
+                acc = _accurate_softmax(attn)
+                ttnn.deallocate(attn)
+                attn = acc
+            else:
+                attn = ttnn.softmax_in_place(attn)
         except RuntimeError:
             ttnn.deallocate(attn)
             raise
@@ -1587,7 +1608,8 @@ def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None)
         sc = ttnn.add(sc, bias_f)
         if own:
             ttnn.deallocate(bias_f)
-        attn = ttnn.softmax(sc, dim=-1)  # fp32 softmax reduction
+        attn = (_accurate_softmax(sc) if accurate_softmax
+                else ttnn.softmax(sc, dim=-1))  # fp32 softmax reduction
         ttnn.deallocate(sc)
     attn_bf = ttnn.typecast(attn, ttnn.bfloat16, memory_config=attn.memory_config())
     ttnn.deallocate(attn)
