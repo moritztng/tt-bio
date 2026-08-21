@@ -1,0 +1,267 @@
+{
+  "aa": 512,
+  "featurize_s": 8.97315769099987,
+  "ckpt_load_s": 2.987721708001118,
+  "tt_target_device_s": 34.204,
+  "n_recycles": 10,
+  "num_steps": 50,
+  "diffusion_batch_size": 5,
+  "arms": {
+    "b5_nohoist": {
+      "flags": {
+        "hoist": false,
+        "gln": true,
+        "opm": true,
+        "hifi": true,
+        "qkv": true
+      },
+      "reps": [
+        {
+          "upload": 0.52421560699986,
+          "feature_init": 0.5741037839998171,
+          "recycles": 21.36631597700034,
+          "distogram": 0.053106100000150036,
+          "diffusion": 64.12305819700123,
+          "confidence": 1.9477269910003088,
+          "infer_s": 88.60799801699977,
+          "cold": true,
+          "finite": true,
+          "coord_rms": 14.1014986038208,
+          "plddt_logit_mean": -0.3690803349018097
+        },
+        {
+          "upload": 0.5471842710012425,
+          "feature_init": 0.06628054899920244,
+          "recycles": 20.8690365629991,
+          "distogram": 0.02961462400162418,
+          "diffusion": 62.324467032998655,
+          "confidence": 1.7914388089993736,
+          "infer_s": 85.65871257800063,
+          "cold": false,
+          "finite": true,
+          "coord_rms": 13.303072929382324,
+          "plddt_logit_mean": -0.3693334758281708
+        },
+        {
+          "upload": 0.5374586779998936,
+          "feature_init": 0.06615284699910262,
+          "recycles": 20.866441947000567,
+          "distogram": 0.033401317999960156,
+          "diffusion": 65.40430169399951,
+          "confidence": 1.891826945999128,
+          "infer_s": 88.83084044299903,
+          "cold": false,
+          "finite": true,
+          "coord_rms": 13.364850044250488,
+          "plddt_logit_mean": -0.3689689338207245
+        }
+      ],
+      "failed": null,
+      "dram_peak": null,
+      "median_warm": {
+        "upload": 0.542321474500568,
+        "feature_init": 0.06621669799915253,
+        "recycles": 20.867739254999833,
+        "distogram": 0.03150797100079217,
+        "diffusion": 63.864384363499084,
+        "confidence": 1.8416328774992508,
+        "infer_s": 87.24477651049983,
+        "coord_rms": 13.333961486816406,
+        "plddt_logit_mean": -0.36915120482444763
+      },
+      "ratio_vs_target": 2.550718527379834
+    },
+    "b5_noqkv": {
+      "flags": {
+        "hoist": true,
+        "gln": true,
+        "opm": true,
+        "hifi": true,
+        "qkv": false
+      },
+      "reps": [
+        {
+          "upload": 0.5115980390000914,
+          "feature_init": 0.06610431999979482,
+          "recycles": 21.97386743899915,
+          "distogram": 0.05363374500120699,
+          "diffusion": 37.48043632699955,
+          "confidence": 2.0150605979997636,
+          "infer_s": 62.23644185000012,
+          "cold": true,
+          "finite": true,
+          "coord_rms": 13.718832969665527,
+          "plddt_logit_mean": -0.369337260723114
+        },
+        {
+          "upload": 0.5451323840006808,
+          "feature_init": 0.06631885699971463,
+          "recycles": 21.97291504399982,
+          "distogram": 0.058414671000718954,
+          "diffusion": 35.18197897200116,
+          "confidence": 1.816708946998915,
+          "infer_s": 59.77520956199987,
+          "cold": false,
+          "finite": true,
+          "coord_rms": 13.220766067504883,
+          "plddt_logit_mean": -0.3689560890197754
+        },
+        {
+          "upload": 0.55106571000033,
+          "feature_init": 0.06609558700074558,
+          "recycles": 21.972052950000943,
+          "distogram": 0.02706698700058041,
+          "diffusion": 35.62115047599946,
+          "confidence": 1.7587057319997257,
+          "infer_s": 60.12809785900026,
+          "cold": false,
+          "finite": true,
+          "coord_rms": 13.82330322265625,
+          "plddt_logit_mean": -0.36907586455345154
+        }
+      ],
+      "failed": null,
+      "dram_peak": null,
+      "median_warm": {
+        "upload": 0.5480990470005054,
+        "feature_init": 0.0662072220002301,
+        "recycles": 21.97248399700038,
+        "distogram": 0.04274082900064968,
+        "diffusion": 35.40156472400031,
+        "confidence": 1.7877073394993204,
+        "infer_s": 59.95165371050007,
+        "coord_rms": 13.522034645080566,
+        "plddt_logit_mean": -0.36901597678661346
+      },
+      "ratio_vs_target": 1.7527673286896288
+    },
+    "b5_all": {
+      "flags": {
+        "hoist": true,
+        "gln": true,
+        "opm": true,
+        "hifi": true,
+        "qkv": true
+      },
+      "reps": [
+        {
+          "upload": 0.5049462539991509,
+          "feature_init": 0.06614191200060304,
+          "recycles": 20.877442919001624,
+          "distogram": 0.028580317999512772,
+          "diffusion": 33.99443405400052,
+          "confidence": 1.6413378880006348,
+          "infer_s": 57.25057136699979,
+          "cold": true,
+          "finite": true,
+          "coord_rms": 13.989639282226562,
+          "plddt_logit_mean": -0.3693464994430542
+        },
+        {
+          "upload": 0.5167740750002849,
+          "feature_init": 0.06609734800076694,
+          "recycles": 20.872318930998517,
+          "distogram": 0.028820235000239336,
+          "diffusion": 34.11639341400041,
+          "confidence": 1.9687121789993398,
+          "infer_s": 57.710367556001074,
+          "cold": false,
+          "finite": true,
+          "coord_rms": 13.998833656311035,
+          "plddt_logit_mean": -0.36897414922714233
+        },
+        {
+          "upload": 1.1590144120000332,
+          "feature_init": 0.06702502499865659,
+          "recycles": 20.882123387998945,
+          "distogram": 0.03091843400034122,
+          "diffusion": 37.23601494700051,
+          "confidence": 1.79996785000003,
+          "infer_s": 61.326840233999974,
+          "cold": false,
+          "finite": true,
+          "coord_rms": 13.119694709777832,
+          "plddt_logit_mean": -0.369235098361969
+        }
+      ],
+      "failed": null,
+      "dram_peak": null,
+      "median_warm": {
+        "upload": 0.8378942435001591,
+        "feature_init": 0.06656118649971177,
+        "recycles": 20.87722115949873,
+        "distogram": 0.02986933450029028,
+        "diffusion": 35.67620418050046,
+        "confidence": 1.884340014499685,
+        "infer_s": 59.518603895000524,
+        "coord_rms": 13.559264183044434,
+        "plddt_logit_mean": -0.36910462379455566
+      },
+      "ratio_vs_target": 1.7401065341773045
+    },
+    "b5_all_aa": {
+      "flags": {
+        "hoist": true,
+        "gln": true,
+        "opm": true,
+        "hifi": true,
+        "qkv": true
+      },
+      "reps": [
+        {
+          "upload": 0.5096719920002215,
+          "feature_init": 0.06603835599889862,
+          "recycles": 20.876905348000946,
+          "distogram": 0.03784934099894599,
+          "diffusion": 36.38040403800005,
+          "confidence": 1.8328467669998645,
+          "infer_s": 59.83611112500148,
+          "cold": true,
+          "finite": true,
+          "coord_rms": 13.783942222595215,
+          "plddt_logit_mean": -0.3693496882915497
+        },
+        {
+          "upload": 0.6426026839999395,
+          "feature_init": 0.06602994700006093,
+          "recycles": 20.88031575000059,
+          "distogram": 0.030160258000250906,
+          "diffusion": 37.180404704000466,
+          "confidence": 1.795863735000239,
+          "infer_s": 60.729275133000556,
+          "cold": false,
+          "finite": true,
+          "coord_rms": 13.776612281799316,
+          "plddt_logit_mean": -0.3694094717502594
+        },
+        {
+          "upload": 0.48626674699880823,
+          "feature_init": 0.06617534700126271,
+          "recycles": 20.876567950001117,
+          "distogram": 0.027185822000319604,
+          "diffusion": 32.44669571600025,
+          "confidence": 1.7918465590009873,
+          "infer_s": 55.82847062200017,
+          "cold": false,
+          "finite": true,
+          "coord_rms": 13.971187591552734,
+          "plddt_logit_mean": -0.3690844476222992
+        }
+      ],
+      "failed": null,
+      "dram_peak": null,
+      "median_warm": {
+        "upload": 0.5644347154993739,
+        "feature_init": 0.06610264700066182,
+        "recycles": 20.878441850000854,
+        "distogram": 0.028673040000285255,
+        "diffusion": 34.81355021000036,
+        "confidence": 1.7938551470006132,
+        "infer_s": 58.27887287750036,
+        "coord_rms": 13.873899936676025,
+        "plddt_logit_mean": -0.3692469596862793
+      },
+      "ratio_vs_target": 1.7038613284265103
+    }
+  }
+}

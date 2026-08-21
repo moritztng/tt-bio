@@ -14,6 +14,8 @@ the per-block pair conditioning [N_blk, N_q, N_k, c_atom_pair].
 import os, pickle, pytest, torch, ttnn
 
 _CKPT = os.path.expanduser("~/of3-weights/of3-p2-155k.pt")
+import of3_golden
+
 _GOLD = os.path.expanduser("~/of3_ref_out.pkl")
 pytestmark = pytest.mark.skipif(not (os.path.exists(_CKPT) and os.path.exists(_GOLD)),
                                 reason="of3 ckpt or golden pkl missing")
@@ -39,7 +41,7 @@ def test_of3_ref_atom_feature_embedder_on_device():
 
     sd = torch.load(_CKPT, map_location="cpu", weights_only=False)
     rafe_sd = _sub(_sub(sd, "input_embedder.atom_attn_enc"), "ref_atom_feature_embedder")
-    gold = pickle.load(open(_GOLD, "rb"))["intermediates"]["input_embedder_ref_atom_feat_real"]
+    gold = of3_golden.intermediates(_GOLD)["input_embedder_ref_atom_feat_real"]
     cl_ref, plm_ref = gold["out"]
     b = gold["in"]
     dlm = gold["dlm"]

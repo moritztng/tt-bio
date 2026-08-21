@@ -1,0 +1,53 @@
+{
+  "host": "tt-quietbox",
+  "cards": [
+    {
+      "device": 0,
+      "board_type": "p150a",
+      "board_id": "00000403319140fd",
+      "bus_id": "0000:01:00.0",
+      "enabled_tensix_col": "0x3fff",
+      "cols_enabled": 14,
+      "cols_harvested": 0,
+      "tensix": 140,
+      "storage_grid": "13x10",
+      "storage_cores": 130
+    },
+    {
+      "device": 1,
+      "board_type": "p150a",
+      "board_id": "0000040331914107",
+      "bus_id": "0000:41:00.0",
+      "enabled_tensix_col": "0x3fff",
+      "cols_enabled": 14,
+      "cols_harvested": 0,
+      "tensix": 140,
+      "storage_grid": "13x10",
+      "storage_cores": 130
+    },
+    {
+      "device": 2,
+      "board_type": "p150a",
+      "board_id": "0000040331914106",
+      "bus_id": "0000:42:00.0",
+      "enabled_tensix_col": "0x3fff",
+      "cols_enabled": 14,
+      "cols_harvested": 0,
+      "tensix": 140,
+      "storage_grid": "13x10",
+      "storage_cores": 130
+    },
+    {
+      "device": 3,
+      "board_type": "p150a",
+      "board_id": "00000403319140aa",
+      "bus_id": "0000:c1:00.0",
+      "enabled_tensix_col": "0x3fff",
+      "cols_enabled": 14,
+      "cols_harvested": 0,
+      "tensix": 140,
+      "storage_grid": "13x10",
+      "storage_cores": 130
+    }
+  ]
+}

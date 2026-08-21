@@ -29,6 +29,8 @@ STACK-GATE HISTORY (see the history below).
 import os, pickle, pytest, torch, ttnn
 
 _CKPT = os.path.expanduser("~/of3-weights/of3-p2-155k.pt")
+import of3_golden
+
 _GOLD = os.path.expanduser("~/of3_ref_out.pkl")
 pytestmark = pytest.mark.skipif(not (os.path.exists(_CKPT) and os.path.exists(_GOLD)),
                                 reason="of3 ckpt or golden pkl missing")
@@ -69,7 +71,7 @@ def test_of3_pairformer_block0_on_device():
     sd = torch.load(_CKPT, map_location="cpu", weights_only=False)
     block_sd = _sub(sd, "pairformer_stack.blocks.0")
     combined = {f"layers.0.{k}": v for k, v in remap_pairformer_block(block_sd).items()}
-    inter = pickle.load(open(_GOLD, "rb"))["intermediates"]
+    inter = of3_golden.intermediates(_GOLD)
     if "pairformer_block0" not in inter:
         pytest.skip("golden pkl predates the pairformer_block0 capture (untracked "
                     "fixture drift); the prefix47 gate below covers block 0 on real input")
@@ -89,7 +91,7 @@ def test_of3_pairformer_stack_prefix47_on_device():
     from tt_bio.openfold3_weights import remap_pairformer_stack
     sd = torch.load(_CKPT, map_location="cpu", weights_only=False)
     combined = {k: v for k, v in remap_pairformer_stack(sd).items() if int(k.split(".")[1]) < 47}
-    gold = pickle.load(open(_GOLD, "rb"))["intermediates"]["pairformer_stack_prefix47"]
+    gold = of3_golden.intermediates(_GOLD)["pairformer_stack_prefix47"]
     s_pcc, z_pcc = _run(combined, gold, get_device())
     print(f"\nOF3 47-block pairformer prefix (real input): s_pcc={s_pcc:.5f} z_pcc={z_pcc:.5f}")
     assert s_pcc > 0.98 and z_pcc > 0.97
@@ -113,7 +115,7 @@ def test_of3_pairformer_stack_on_device():
     from tt_bio.openfold3_weights import remap_pairformer_stack
     sd = torch.load(_CKPT, map_location="cpu", weights_only=False)
     combined = remap_pairformer_stack(sd)
-    gold = pickle.load(open(_GOLD, "rb"))["intermediates"]["pairformer_stack_real"]
+    gold = of3_golden.intermediates(_GOLD)["pairformer_stack_real"]
     s_pcc, z_pcc = _run(combined, gold, get_device())
     print(f"\nOF3 48-block pairformer_stack (real input): s_pcc={s_pcc:.5f} z_pcc={z_pcc:.5f}")
     assert s_pcc > 0.98 and z_pcc > 0.97

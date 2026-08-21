@@ -1,0 +1,14 @@
+{
+  "tokens": 53,
+  "stack": "shadow.recycler.pairformer_stack.0.",
+  "s_ref_std": 79.5344,
+  "z_ref_std": 64.4859,
+  "s_autocast_vs_fp32": 0.001869,
+  "z_autocast_vs_fp32": 0.000335,
+  "s_bf16_storage_vs_fp32": 0.001772,
+  "z_bf16_storage_vs_fp32": 0.000312,
+  "s_bf16_storage_vs_autocast": 0.001311,
+  "z_bf16_storage_vs_autocast": 0.00041,
+  "s_bf16_penalty": 0.95,
+  "z_bf16_penalty": 0.93
+}

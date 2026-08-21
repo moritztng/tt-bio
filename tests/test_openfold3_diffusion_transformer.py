@@ -16,6 +16,8 @@ Two gates: block 0 (unit correctness, the block topology in isolation) and the f
 import os, pickle, pytest, torch, ttnn
 
 _CKPT = os.path.expanduser("~/of3-weights/of3-p2-155k.pt")
+import of3_golden
+
 _GOLD = os.path.expanduser("~/of3_ref_out.pkl")
 pytestmark = pytest.mark.skipif(not (os.path.exists(_CKPT) and os.path.exists(_GOLD)),
                                 reason="of3 ckpt or golden pkl missing")
@@ -54,7 +56,7 @@ def test_of3_diffusion_transformer_block0_on_device():
     """Device DiT block 0 vs the reference on the real DiT input. PCC > 0.98."""
     from tt_bio.tenstorrent import get_device
     sd = torch.load(_CKPT, map_location="cpu", weights_only=False)
-    g = pickle.load(open(_GOLD, "rb"))["intermediates"]["diffusion_transformer_real"]
+    g = of3_golden.intermediates(_GOLD)["diffusion_transformer_real"]
     dev = get_device()
     out = _run(1, g, sd, dev)
     pcc = _pcc(out, g["a_block0"].float())
@@ -66,7 +68,7 @@ def test_of3_diffusion_transformer_stack_on_device():
     """Device 24-block DiT stack vs the reference on the real DiT input. PCC > 0.98."""
     from tt_bio.tenstorrent import get_device
     sd = torch.load(_CKPT, map_location="cpu", weights_only=False)
-    g = pickle.load(open(_GOLD, "rb"))["intermediates"]["diffusion_transformer_real"]
+    g = of3_golden.intermediates(_GOLD)["diffusion_transformer_real"]
     dev = get_device()
     out = _run(24, g, sd, dev)
     pcc = _pcc(out, g["a_stack"].float())

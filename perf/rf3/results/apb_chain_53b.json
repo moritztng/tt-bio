@@ -1,0 +1,115 @@
+{
+  "stack": "shadow.recycler.pairformer_stack.0.",
+  "tokens": 53,
+  "crop": 0,
+  "fp32_scores": false,
+  "replication_vs_op_rel_rms": 0.004294,
+  "op_vs_golden_x_ceiling": 13.43,
+  "chain": [
+    {
+      "stage": "a",
+      "err_vs_fp32": 0.002879,
+      "ref_bf16_err": 0.001797,
+      "x_ref": 1.6,
+      "fp32_std": 0.2754
+    },
+    {
+      "stage": "q",
+      "err_vs_fp32": 0.001916,
+      "ref_bf16_err": 0.001717,
+      "x_ref": 1.12,
+      "fp32_std": 12.3845
+    },
+    {
+      "stage": "k",
+      "err_vs_fp32": 0.002426,
+      "ref_bf16_err": 0.002081,
+      "x_ref": 1.17,
+      "fp32_std": 4.3817
+    },
+    {
+      "stage": "v",
+      "err_vs_fp32": 0.001982,
+      "ref_bf16_err": 0.001766,
+      "x_ref": 1.12,
+      "fp32_std": 7.952
+    },
+    {
+      "stage": "b",
+      "err_vs_fp32": 0.007544,
+      "ref_bf16_err": 0.003315,
+      "x_ref": 2.28,
+      "fp32_std": 3.543
+    },
+    {
+      "stage": "logits",
+      "err_vs_fp32": 0.002603,
+      "ref_bf16_err": 0.002118,
+      "x_ref": 1.23,
+      "fp32_std": 1012.4164
+    },
+    {
+      "stage": "probs",
+      "err_vs_fp32": 0.076419,
+      "ref_bf16_err": 0.095386,
+      "x_ref": 0.8,
+      "fp32_std": 0.132
+    },
+    {
+      "stage": "o",
+      "err_vs_fp32": 0.026305,
+      "ref_bf16_err": 0.003832,
+      "x_ref": 6.86,
+      "fp32_std": 8.8695
+    },
+    {
+      "stage": "gated",
+      "err_vs_fp32": 0.027359,
+      "ref_bf16_err": 0.003719,
+      "x_ref": 7.36,
+      "fp32_std": 2.251
+    },
+    {
+      "stage": "out",
+      "err_vs_fp32": 0.025861,
+      "ref_bf16_err": 0.002072,
+      "x_ref": 12.48,
+      "fp32_std": 66.1931
+    }
+  ],
+  "attribution": {
+    "o_from_port_probs_host": 0.02688,
+    "o_from_ref_bf16_probs_host": 0.003357,
+    "o_device_from_port_probs": 0.026305,
+    "probs_structure": {
+      "port": {
+        "rowsum_mean": 0.97581,
+        "rowsum_min": 0.961679,
+        "rowsum_max": 0.999971,
+        "argmax_flip_frac": 0.017689,
+        "pmax_mean": 0.937342
+      },
+      "ref_bf16": {
+        "rowsum_mean": 1.0,
+        "rowsum_min": 1.0,
+        "rowsum_max": 1.0,
+        "argmax_flip_frac": 0.018868,
+        "pmax_mean": 0.956587
+      },
+      "fp32": {
+        "rowsum_mean": 1.0,
+        "rowsum_min": 1.0,
+        "rowsum_max": 1.0,
+        "argmax_flip_frac": 0.0,
+        "pmax_mean": 0.961119
+      }
+    }
+  },
+  "softmax_conditioning": {
+    "scaled_logits_global_std": 206.6587,
+    "scaled_logits_within_row_std": 135.4073,
+    "scaled_logits_absmax": 1004.8,
+    "bf16_round_mean_abs_err": 0.2269,
+    "round_err_over_within_row_std": 0.0017
+  }
+}

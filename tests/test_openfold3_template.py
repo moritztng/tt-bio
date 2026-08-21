@@ -27,6 +27,8 @@ and PairformerLayer is called with mask=None (mirrors tests/test_openfold3_msa.p
 import os, pickle, pytest, torch, ttnn
 
 _CKPT = os.path.expanduser("~/of3-weights/of3-p2-155k.pt")
+import of3_golden
+
 _GOLD = os.path.expanduser("~/of3_ref_out.pkl")
 pytestmark = pytest.mark.skipif(not (os.path.exists(_CKPT) and os.path.exists(_GOLD)),
                                 reason="of3 ckpt or golden pkl missing")
@@ -58,7 +60,7 @@ def test_of3_template_feature_embedder_on_device():
 
     sd = torch.load(_CKPT, map_location="cpu", weights_only=False)
     fe_sd = _sub(sd, "template_embedder.template_pair_embedder")
-    g = pickle.load(open(_GOLD, "rb"))["intermediates"]["template_embedder_real"]
+    g = of3_golden.intermediates(_GOLD)["template_embedder_real"]
     feat, z_ref, t_embed_ref = g["feat"], g["z"], g["t_embed"]
 
     dev = get_device()
@@ -85,7 +87,7 @@ def test_of3_template_pair_stack_on_device():
 
     sd = torch.load(_CKPT, map_location="cpu", weights_only=False)
     te_sd = _sub(sd, "template_embedder")
-    g = pickle.load(open(_GOLD, "rb"))["intermediates"]["template_embedder_real"]
+    g = of3_golden.intermediates(_GOLD)["template_embedder_real"]
     t_embed_ref, t_stack_ref = g["t_embed"], g["t_stack"]
 
     dev = get_device()
@@ -109,7 +111,7 @@ def test_of3_template_embedder_on_device():
 
     sd = torch.load(_CKPT, map_location="cpu", weights_only=False)
     te_sd = _sub(sd, "template_embedder")
-    g = pickle.load(open(_GOLD, "rb"))["intermediates"]["template_embedder_real"]
+    g = of3_golden.intermediates(_GOLD)["template_embedder_real"]
     feat, z_ref, z_template_ref = g["feat"], g["z"], g["z_template"]
 
     dev = get_device()

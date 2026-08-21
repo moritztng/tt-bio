@@ -1,0 +1,383 @@
+{
+  "__diffusion_batch_size__": 5,
+  "__env__": {
+    "biotite": "1.2.0",
+    "numpy": "1.26.4",
+    "python": "3.10.12",
+    "rdkit": "2025.09.6",
+    "torch": "2.11.0+cpu"
+  },
+  "__example_id__": "9dfn_subset",
+  "__input__": "9dfn_subset.cif",
+  "__n_recycles__": 10,
+  "__non_tensor__": {
+    "atom_array": {
+      "__repr__": "AtomArray([\n\tAtom(np.array([34.97 , 28.851, 84.792], dtype=float32), chain_id=\"A\", res_id=22, ins_code=\"\", res_name=\"SER\", hetero=False, atom_name=\"N\", element=\"N\", uses_alt_atom_id=False, stereo=\"N\", is_backbone_atom=True, chain_type=6, alt_atom_id=\"N\", charge=0, is_polymer=True, is_aromatic=False, b_factor=37.96, occupancy=1.0, pn_unit_id=\"A\", molecule_id=0, chain_entity=0, pn_unit_entity=0, molecule_entity=0, atomic_number=7, transformation_id=\"1\", chain_iid=\"A_1\", pn_unit_iid=\"A_1\", molecule",
+      "__type__": "<class 'biotite.structure.AtomArray'>"
+    },
+    "automorphisms": {
+      "__repr__": "[array([[0, 1, 2, 3, 4, 5],\n       [0, 1, 4, 5, 2, 3]]), array([[ 6,  7,  8,  9, 10, 11, 12, 13]]), array([[14, 15, 16, 17]]), array([[18, 19, 20, 21, 22, 23, 24, 25, 26]]), array([[27, 28, 29, 30, 31, 32, 33, 34]]), array([[35, 36, 37, 38, 39, 40, 41]]), array([[42, 43, 44, 45, 46, 47, 48],\n       [42, 43, 44, 45, 46, 48, 47]]), array([[49, 50, 51, 52, 53, 54],\n       [49, 50, 53, 54, 51, 52]]), array([[55, 56, 57, 58, 59, 60, 61],\n       [55, 56, 57, 58, 59, 61, 60]]), array([[62, 63, 64, 65, ",
+      "__type__": "<class 'list'>"
+    },
+    "example_id": "9dfn_subset",
+    "feats/cyclic_asym_ids": [],
+    "ground_truth/chain_iid_token_lvl": {
+      "__repr__": "array(['A_1', 'A_1', 'A_1', 'A_1', 'A_1', 'A_1', 'A_1', 'A_1', 'A_1',\n       'A_1', 'A_1', 'A_1', 'A_1', 'A_1', 'C_1', 'C_1', 'C_1', 'C_1',\n       'C_1', 'C_1', 'C_1', 'C_1', 'C_1', 'C_1', 'C_1', 'C_1', 'C_1',\n       'C_1', 'C_1', 'C_1', 'C_1', 'C_1', 'C_1', 'C_1', 'C_1', 'C_1',\n       'C_1', 'C_1', 'C_1', 'C_1', 'C_1'], dtype='<U3')",
+      "__type__": "<class 'numpy.ndarray'>"
+    }
+  },
+  "__seed__": 42,
+  "__zero_stub_keys__": {
+    "feats/atom_level_embedding": {
+      "dtype": "torch.float32",
+      "shape": [
+        8,
+        138,
+        384
+      ]
+    },
+    "feats/mean_atom_level_embedding": {
+      "dtype": "torch.float32",
+      "shape": [
+        138,
+        384
+      ]
+    }
+  },
+  "confidence_feats/atom_frames": {
+    "dtype": "torch.int64",
+    "shape": [
+      27,
+      3,
+      2
+    ]
+  },
+  "confidence_feats/is_real_atom": {
+    "dtype": "torch.bool",
+    "shape": [
+      41,
+      36
+    ]
+  },
+  "confidence_feats/pae_frame_idx_token_lvl_from_atom_lvl": {
+    "dtype": "torch.int64",
+    "shape": [
+      41,
+      3
+    ]
+  },
+  "confidence_feats/rf2aa_seq": {
+    "dtype": "torch.int64",
+    "shape": [
+      41
+    ]
+  },
+  "coord_atom_lvl_to_be_noised": {
+    "dtype": "torch.float32",
+    "shape": [
+      5,
+      138,
+      3
+    ]
+  },
+  "feats/asym_id": {
+    "dtype": "torch.int64",
+    "shape": [
+      41
+    ]
+  },
+  "feats/atom_level_embedding": {
+    "dtype": "torch.float32",
+    "shape": [
+      8,
+      138,
+      384
+    ]
+  },
+  "feats/atom_to_token_map": {
+    "dtype": "torch.int32",
+    "shape": [
+      138
+    ]
+  },
+  "feats/chiral_center_dihedral_angles": {
+    "dtype": "torch.float32",
+    "shape": [
+      63
+    ]
+  },
+  "feats/chiral_centers": {
+    "dtype": "torch.int64",
+    "shape": [
+      63,
+      4
+    ]
+  },
+  "feats/chiral_feats": {
+    "dtype": "torch.float32",
+    "shape": [
+      63,
+      5
+    ]
+  },
+  "feats/deletion_mean": {
+    "dtype": "torch.float32",
+    "shape": [
+      41
+    ]
+  },
+  "feats/distogram_condition": {
+    "dtype": "torch.float32",
+    "shape": [
+      41,
+      41,
+      64
+    ]
+  },
+  "feats/distogram_condition_noise_scale": {
+    "dtype": "torch.float32",
+    "shape": [
+      41
+    ]
+  },
+  "feats/entity_id": {
+    "dtype": "torch.int64",
+    "shape": [
+      41
+    ]
+  },
+  "feats/has_atom_level_embedding": {
+    "dtype": "torch.bool",
+    "shape": [
+      138
+    ]
+  },
+  "feats/has_distogram_condition": {
+    "dtype": "torch.bool",
+    "shape": [
+      41,
+      41
+    ]
+  },
+  "feats/is_atomized": {
+    "dtype": "torch.bool",
+    "shape": [
+      41
+    ]
+  },
+  "feats/is_atomized_atom_level": {
+    "dtype": "torch.bool",
+    "shape": [
+      138
+    ]
+  },
+  "feats/is_dna": {
+    "dtype": "torch.bool",
+    "shape": [
+      41
+    ]
+  },
+  "feats/is_ligand": {
+    "dtype": "torch.bool",
+    "shape": [
+      41
+    ]
+  },
+  "feats/is_protein": {
+    "dtype": "torch.bool",
+    "shape": [
+      41
+    ]
+  },
+  "feats/is_rna": {
+    "dtype": "torch.bool",
+    "shape": [
+      41
+    ]
+  },
+  "feats/mean_atom_level_embedding": {
+    "dtype": "torch.float32",
+    "shape": [
+      138,
+      384
+    ]
+  },
+  "feats/msa_stack": {
+    "dtype": "torch.float32",
+    "shape": [
+      10,
+      1,
+      41,
+      35
+    ]
+  },
+  "feats/profile": {
+    "dtype": "torch.float32",
+    "shape": [
+      41,
+      32
+    ]
+  },
+  "feats/ref_atom_name_chars": {
+    "dtype": "torch.int64",
+    "shape": [
+      138,
+      4,
+      64
+    ]
+  },
+  "feats/ref_charge": {
+    "dtype": "torch.int8",
+    "shape": [
+      138
+    ]
+  },
+  "feats/ref_element": {
+    "dtype": "torch.int64",
+    "shape": [
+      138,
+      128
+    ]
+  },
+  "feats/ref_mask": {
+    "dtype": "torch.bool",
+    "shape": [
+      138
+    ]
+  },
+  "feats/ref_pos": {
+    "dtype": "torch.float32",
+    "shape": [
+      138,
+      3
+    ]
+  },
+  "feats/ref_pos_ground_truth": {
+    "dtype": "torch.float32",
+    "shape": [
+      138,
+      3
+    ]
+  },
+  "feats/ref_pos_is_ground_truth": {
+    "dtype": "torch.bool",
+    "shape": [
+      138
+    ]
+  },
+  "feats/ref_space_uid": {
+    "dtype": "torch.int64",
+    "shape": [
+      138
+    ]
+  },
+  "feats/residue_index": {
+    "dtype": "torch.int32",
+    "shape": [
+      41
+    ]
+  },
+  "feats/restype": {
+    "dtype": "torch.int64",
+    "shape": [
+      41,
+      32
+    ]
+  },
+  "feats/sym_id": {
+    "dtype": "torch.int32",
+    "shape": [
+      41
+    ]
+  },
+  "feats/token_bonds": {
+    "dtype": "torch.bool",
+    "shape": [
+      41,
+      41
+    ]
+  },
+  "feats/token_index": {
+    "dtype": "torch.int64",
+    "shape": [
+      41
+    ]
+  },
+  "ground_truth/coord_atom_lvl": {
+    "dtype": "torch.float32",
+    "shape": [
+      138,
+      3
+    ]
+  },
+  "ground_truth/coord_token_lvl": {
+    "dtype": "torch.float32",
+    "shape": [
+      41,
+      3
+    ]
+  },
+  "ground_truth/mask_atom_lvl": {
+    "dtype": "torch.bool",
+    "shape": [
+      138
+    ]
+  },
+  "ground_truth/mask_token_lvl": {
+    "dtype": "torch.bool",
+    "shape": [
+      41
+    ]
+  },
+  "ground_truth/rep_atom_idxs": {
+    "dtype": "torch.int64",
+    "shape": [
+      41
+    ]
+  },
+  "noise": {
+    "dtype": "torch.float32",
+    "shape": [
+      5,
+      138,
+      3
+    ]
+  },
+  "symmetry_resolution/coord_atom_lvl": {
+    "dtype": "torch.float32",
+    "shape": [
+      138,
+      3
+    ]
+  },
+  "symmetry_resolution/crop_mask": {
+    "dtype": "torch.int64",
+    "shape": [
+      138
+    ]
+  },
+  "symmetry_resolution/mask_atom_lvl": {
+    "dtype": "torch.bool",
+    "shape": [
+      138
+    ]
+  },
+  "symmetry_resolution/molecule_entity": {
+    "dtype": "torch.int64",
+    "shape": [
+      138
+    ]
+  },
+  "symmetry_resolution/molecule_iid": {
+    "dtype": "torch.int16",
+    "shape": [
+      138
+    ]
+  },
+  "t": {
+    "dtype": "torch.float32",
+    "shape": [
+      5
+    ]
+  }
+}

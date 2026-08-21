@@ -146,8 +146,8 @@ def main():
                               ("run_input_atom_encoder", "prep:input_atom_encoder", True)):
         setattr(HP, nm, (lambda g, k, r: lambda *x, **kw: r(k, g, *x, **kw))(
             getattr(HP, nm), key, timed if dev_side else host_timed))
-    W._write_openfold3_structure = (lambda g: lambda *x, **k: host_timed(
-        "host:write_structure", g, *x, **k))(W._write_openfold3_structure)
+    W._write_atom_array_structure = (lambda g: lambda *x, **k: host_timed(
+        "host:write_structure", g, *x, **k))(W._write_atom_array_structure)
     # worker.py imports the host_prep helpers INSIDE the function, so patching the module
     # attribute is enough -- but build_openfold3_features / make_openfold3_msa_features are
     # imported by name at call time too. Both come from the module object, so this holds.

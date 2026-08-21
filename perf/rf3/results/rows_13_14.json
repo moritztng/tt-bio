@@ -1,0 +1,35 @@
+{
+  "seq_len": 20,
+  "recycles": 2,
+  "load_s": 5.1,
+  "checks": {
+    "baseline": {
+      "early_stopped": false,
+      "plddt": 87.372,
+      "n_atom": 166
+    },
+    "stops_above": {
+      "early_stopped": true,
+      "mean_plddt": 0.864634,
+      "has_structure": false
+    },
+    "runs_below": {
+      "early_stopped": false,
+      "threshold": 0.814634,
+      "mean_plddt": 0.864634,
+      "bit_exact_vs_baseline": true,
+      "max_abs_diff": 0.0
+    },
+    "partial_diffusion": {
+      "steps": 20,
+      "input": "permuted baseline",
+      "near_partial_t": 19,
+      "near_rmsd_to_input": 0.011,
+      "near_rmsd_to_baseline": 12.329,
+      "far_partial_t": 0,
+      "far_rmsd_to_input": 12.327,
+      "far_rmsd_to_baseline": 0.036
+    }
+  },
+  "verdict": "PASS"
+}

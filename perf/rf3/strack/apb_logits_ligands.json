@@ -1,0 +1,11 @@
+{
+  "tokens": 53,
+  "logit_std": 206.5827,
+  "logit_absmax": 1008.1782,
+  "logit_p99_abs": 570.2086,
+  "autocast_einsum_dtype": "torch.bfloat16",
+  "autocast_linear_dtype": "torch.bfloat16",
+  "cost_bf16_logits": 0.000613,
+  "cost_bf16_v": 0.000477,
+  "cost_bf16_qk_and_v": 0.000572
+}

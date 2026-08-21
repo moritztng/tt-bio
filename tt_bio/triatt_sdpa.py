@@ -69,11 +69,34 @@ _Q_SPLIT_MAX_S = 1024
 _PM_OVER_L1: set = set()
 
 
-# Compute kernel config for the fused SDPA when the caller does not pass one. None means the
-# op default below. Set it to raise the fused path precision -- openfold3 triangle attention runs
-# _fp32_softmax_attention instead of SDPA precisely because bf16 softmax costs it 0.108 plDDT, and
-# the fused kernel already threads fp32_dest_acc through dst_size and every subblock, so the fp32
-# reduction is a config and not a kernel edit. Inert by default: nothing reads it unless it is set.
+# Compute kernel config for the fused SDPA when the caller does not pass one. None means the op
+# default below, which is what every call took until RF3's triangle attention started passing its
+# own: `(HiFi2, approx, no fp32_dest_acc)` is a LOW-PRECISION config, and reading the fused path as
+# "bf16 softmax" conflated the storage with it.
+#
+# MEASURED on one captured RF3 triangle-attention call, all thirteen arms against an fp64 evaluation
+# of the SAME bf16 operands, so only the kernel's own error is left (perf/rf3/triatt_fused_fp32.py,
+# qb2 card 0, `--sweep ckc`; rel_rms, 512 aa then 128 aa):
+#
+#     bf16 ceiling (torch bf16 storage)        0.00163   0.00165
+#     HiFi4, approx off, fp32_dest_acc  <- **0.00470**   0.00512     1.819 ms   0.163 ms
+#     HiFi2, approx off, fp32_dest_acc       0.00612    0.00686     1.516      0.164
+#     _fp32_softmax_attention (shipped)      0.00883    0.00977    36.727      0.569
+#     HiFi2, approx on, no acc (the default) 0.01293    0.01293     1.432      0.169
+#     LoFi, any                              0.043-0.048           1.35-1.40
+#
+# So the whole materialised fp32-softmax path is 1.88x LESS accurate than the fused kernel run at
+# the fidelity the model's own matmuls already use, and 20.2x slower at 512 aa. Fidelity is free
+# here because this op is bandwidth-bound, not compute-bound: every arm above is within 27% on time
+# while spanning 10x on error.
+#
+# What does NOT work is lifting the kernel's intermediate CBs to fp32 (scores / attn@v accumulator /
+# running max+sum, `sdpa_program_factory.cpp:651-653`). Tried, all eight combinations: any mix of
+# fp32 and bf16 among the three groups returns NaN, and all three fp32 together returns finite but
+# wrong values (pcc 0.893). The scores CB is the second matmul's in0, so fp32 there is a mixed-format
+# matmul against a bf16 v, and the statistics CBs meet a bf16 scalar in the reduce. The plumbing was
+# removed again rather than left as a dark knob -- there is nothing to gain from it, since the fp32
+# DST already carries the reduction and the arm above beats the materialised path outright.
 _CKC_OVERRIDE = None
 
 
