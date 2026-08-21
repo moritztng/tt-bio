@@ -1,0 +1,173 @@
+{
+ "_meta": {
+  "instrument": "synchronised block wall of the lever's own modules, summed over their in-fold executions; arms interleaved per rep",
+  "host": "tt-quietbox2",
+  "ttnn": "0.68.0",
+  "chip": "0",
+  "sites": "protenix.trunk,protenix.confidence",
+  "model": "protenix-v2",
+  "tt_bio": "/home/ttuser/.coworker/wt/shared-softmax-crossmodel-p2/tt_bio/tenstorrent.py",
+  "recycling_steps": 10,
+  "sampling_steps": 200
+ },
+ "runs": [
+  {
+   "size": 512,
+   "arm": "off",
+   "rep": 0,
+   "slot": 0,
+   "fold_s": 52.006,
+   "loadavg": 7.58,
+   "acc_calls": 0,
+   "n_sites": 156,
+   "plddt": 0.818284,
+   "n_tokens": 512,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "046b7e6d69f5fc00"
+   },
+   "wall_ms": {
+    "block:PairformerLayer": {
+     "n": 604,
+     "ms": 36204.07
+    }
+   }
+  },
+  {
+   "size": 512,
+   "arm": "off",
+   "rep": 0,
+   "slot": 1,
+   "fold_s": 51.448,
+   "loadavg": 10.24,
+   "acc_calls": 0,
+   "n_sites": 156,
+   "plddt": 0.818284,
+   "n_tokens": 512,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "046b7e6d69f5fc00"
+   },
+   "wall_ms": {
+    "block:PairformerLayer": {
+     "n": 604,
+     "ms": 36175.33
+    }
+   }
+  },
+  {
+   "size": 512,
+   "arm": "on",
+   "rep": 0,
+   "slot": 2,
+   "fold_s": 51.761,
+   "loadavg": 7.95,
+   "acc_calls": 484,
+   "n_sites": 156,
+   "plddt": 0.818031,
+   "n_tokens": 512,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "bd3318bd7e9de1fc"
+   },
+   "wall_ms": {
+    "block:PairformerLayer": {
+     "n": 604,
+     "ms": 36440.28
+    }
+   }
+  },
+  {
+   "size": 512,
+   "arm": "off",
+   "rep": 1,
+   "slot": 0,
+   "fold_s": 51.672,
+   "loadavg": 12.4,
+   "acc_calls": 0,
+   "n_sites": 156,
+   "plddt": 0.818284,
+   "n_tokens": 512,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "046b7e6d69f5fc00"
+   },
+   "wall_ms": {
+    "block:PairformerLayer": {
+     "n": 604,
+     "ms": 36251.35
+    }
+   }
+  },
+  {
+   "size": 512,
+   "arm": "off",
+   "rep": 1,
+   "slot": 1,
+   "fold_s": 51.066,
+   "loadavg": 10.05,
+   "acc_calls": 0,
+   "n_sites": 156,
+   "plddt": 0.818284,
+   "n_tokens": 512,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "046b7e6d69f5fc00"
+   },
+   "wall_ms": {
+    "block:PairformerLayer": {
+     "n": 604,
+     "ms": 36184.17
+    }
+   }
+  },
+  {
+   "size": 512,
+   "arm": "on",
+   "rep": 1,
+   "slot": 2,
+   "fold_s": 51.874,
+   "loadavg": 5.49,
+   "acc_calls": 484,
+   "n_sites": 156,
+   "plddt": 0.818031,
+   "n_tokens": 512,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "bd3318bd7e9de1fc"
+   },
+   "wall_ms": {
+    "block:PairformerLayer": {
+     "n": 604,
+     "ms": 36471.98
+    }
+   }
+  }
+ ],
+ "summary": {
+  "512": {
+   "block:PairformerLayer": {
+    "paired_aa_pct": [
+     -0.08,
+     -0.19
+    ],
+    "paired_ab_pct": [
+     0.69,
+     0.7
+    ],
+    "aa_median_pct": -0.13,
+    "ab_median_pct": 0.7,
+    "aa_spread_pct": 0.11
+   },
+   "fold_s": {
+    "off": [
+     52.006,
+     51.448,
+     51.672,
+     51.066
+    ],
+    "on": [
+     51.761,
+     51.874
+    ],
+    "off_median": 51.56,
+    "on_median": 51.818
+   },
+   "off_arm_cifs_identical": true
+  }
+ }
+}
