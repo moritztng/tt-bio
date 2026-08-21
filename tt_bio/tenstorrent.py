@@ -511,6 +511,28 @@ def _no_host_pad(x: ttnn.Tensor, dtype, n: int, n_pad: int) -> ttnn.Tensor | Non
     return x if x.dtype == dtype else ttnn.typecast(x, dtype)
 
 
+def pad_dim(x: ttnn.Tensor, dtype, n: int, n_pad: int, *, dims: int = 1) -> ttnn.Tensor:
+    """Pad ``x`` from ``n`` to ``n_pad``, on device when ``_no_host_pad`` can do it and
+    through host torch when it cannot.
+
+    ``dims`` is how many trailing non-feature dims carry the padded extent: 1 for a token
+    or atom dim, 2 for a pair map that is square in it. The openfold3 diffusion path had
+    this written five times (``_pad_atoms`` and ``_pad_tokens`` twice each, ``_pad_pair``
+    once), identical apart from that ``F.pad`` spec.
+
+    ``openfold3_diffusion_transformer._pad_pair`` deliberately does NOT route here: its own
+    early exit returns the tensor in its original dtype where ``_no_host_pad`` typecasts to
+    ``dtype``, which is a behaviour difference and not a spelling one.
+    """
+    out = _no_host_pad(x, dtype, n, n_pad)
+    if out is not None:
+        return out
+    th = ttnn.to_torch(x).float()
+    if n_pad > n:
+        th = torch.nn.functional.pad(th, (0, 0) + (0, n_pad - n) * dims)
+    return ttnn.from_torch(th, layout=ttnn.TILE_LAYOUT, device=x.device(), dtype=dtype)
+
+
 ADALN_S_HOIST = True      # hoist the AdaLN conditioning half out of the diffusion rollout
 
 

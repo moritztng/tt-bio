@@ -47,6 +47,7 @@ import pandas as pd
 from tqdm import tqdm
 from collections import defaultdict
 
+from tt_bio.cache import cached
 from tt_bio.data import const
 from tt_bio.boltzgen.task.task import Task
 from tt_bio.boltzgen.data.data import Structure
@@ -685,7 +686,7 @@ class Analyze(Task):
 
         # largest hydrophobic patch area original
         if self.largest_hydrophobic:
-            if not des_cif_path.exists():
+            if not cached(des_cif_path):
                 save_design_only_structure_to_cif(
                     atom_design_mask=atom_chain_mask,
                     structure=feat["str_gen"],
@@ -1064,7 +1065,7 @@ class Analyze(Task):
 
             # largest hydrophobic patch area refolded
             if self.largest_hydrophobic_refolded:
-                if not des_refold_cif_path.exists():
+                if not cached(des_refold_cif_path):
                     structure, _, _ = Structure.from_feat(feat_out)
 
                     save_design_only_structure_to_cif(
@@ -1087,7 +1088,7 @@ class Analyze(Task):
             if self.delta_sasa_refolded:
                 cif_path_refolded = self.refold_cif_dir / f"{feat['id']}.cif"
 
-                if not cif_path_refolded.exists():
+                if not cached(cif_path_refolded):
                     msg = f"Refolded cif path does not exist. This can happen if a process was interrupted between writing the refold .npz file and the refold .cif file. Missing path: {cif_path_refolded}"
                     print(msg)
                     return None
