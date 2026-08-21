@@ -1,0 +1,152 @@
+{
+ "label": "lev",
+ "model": "rf3",
+ "host": "tt-quietbox2",
+ "card": "0",
+ "ttnn": "0.68.0",
+ "hardware": "blackhole",
+ "card_type": null,
+ "aiclk_mhz": null,
+ "load_s": 2.34,
+ "recycling_steps": 10,
+ "sampling_steps": 50,
+ "diffusion_samples": 1,
+ "seed": 0,
+ "n_msa": 35,
+ "timed_region": "predict_one (featurize + fold + CIF write)",
+ "target": "/home/ttuser/.coworker/wt/rf3-msa-scaling-rootcause/perf/size512/fixtures/cdk2x2_512.yaml",
+ "a3m": "/home/ttuser/.coworker/wt/rf3-msa-scaling-rootcause/perf/size512/fixtures/cdk2x2_512.a3m",
+ "sha256_target": "24d8b2d8c06e4409995abae024766e316da3175dde7596073b68c7963d2df398",
+ "sha256_a3m": "ef2301402e7716e9df368987210456194b108c8ae7e144b7bf09a3dd6f40bf5e",
+ "env_flags": {
+  "TT_BIO_LEASE_CARDS": "0",
+  "TT_BIO_LEASE_HOLDER": "worker:rf3-msa-scaling-rootcause",
+  "TT_BIO_OPM_SMALL_DEPTH": "1",
+  "TT_BIO_RF3_GLN_ROW_FOLD": "1",
+  "TT_BIO_TRIATT_FUSED_HIFI": "1"
+ },
+ "folds": [
+  {
+   "tag": "warm0",
+   "fold_s": 39.617,
+   "plddt": 77.9506,
+   "ptm": 0.6592,
+   "n_tokens": 512,
+   "n_atoms": 4116,
+   "denoise_calls": 49,
+   "msa": true,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "32e3b35aa11b08b0"
+   },
+   "loadavg": [
+    "1.13",
+    "0.91",
+    "0.84"
+   ],
+   "opm_small_depth_stats": [
+    0,
+    80
+   ],
+   "triatt_fused_hifi_stats": {
+    "served": 2176,
+    "declined": 0,
+    "too_short": 0
+   }
+  },
+  {
+   "tag": "warm1",
+   "fold_s": 39.538,
+   "plddt": 77.9506,
+   "ptm": 0.6592,
+   "n_tokens": 512,
+   "n_atoms": 4116,
+   "denoise_calls": 49,
+   "msa": true,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "32e3b35aa11b08b0"
+   },
+   "loadavg": [
+    "1.06",
+    "0.92",
+    "0.85"
+   ],
+   "opm_small_depth_stats": [
+    0,
+    120
+   ],
+   "triatt_fused_hifi_stats": {
+    "served": 3264,
+    "declined": 0,
+    "too_short": 0
+   }
+  },
+  {
+   "tag": "warm2",
+   "fold_s": 39.837,
+   "plddt": 77.9506,
+   "ptm": 0.6592,
+   "n_tokens": 512,
+   "n_atoms": 4116,
+   "denoise_calls": 49,
+   "msa": true,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "32e3b35aa11b08b0"
+   },
+   "loadavg": [
+    "1.49",
+    "1.07",
+    "0.91"
+   ],
+   "opm_small_depth_stats": [
+    0,
+    160
+   ],
+   "triatt_fused_hifi_stats": {
+    "served": 4352,
+    "declined": 0,
+    "too_short": 0
+   }
+  }
+ ],
+ "cold": {
+  "tag": "cold",
+  "fold_s": 42.716,
+  "plddt": 77.9506,
+  "ptm": 0.6592,
+  "n_tokens": 512,
+  "n_atoms": 4116,
+  "denoise_calls": 49,
+  "msa": true,
+  "cif_sha256": {
+   "cdk2x2_512.cif": "32e3b35aa11b08b0"
+  },
+  "loadavg": [
+   "1.05",
+   "0.86",
+   "0.82"
+  ],
+  "opm_small_depth_stats": [
+   0,
+   40
+  ],
+  "triatt_fused_hifi_stats": {
+   "served": 1088,
+   "declined": 0,
+   "too_short": 0
+  }
+ },
+ "warm_walls_s": [
+  39.538,
+  39.617,
+  39.837
+ ],
+ "median_s": 39.617,
+ "min_s": 39.538,
+ "max_s": 39.837,
+ "spread_s": 0.299,
+ "spread_pct": 0.75,
+ "warm_digest_identical": true,
+ "plddts": [
+  77.9506
+ ]
+}
