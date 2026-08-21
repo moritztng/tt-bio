@@ -1396,6 +1396,22 @@ def _fp32_softmax_shard(rows: int, height_per_row: int, width: int):
         strategy=ttnn.ShardStrategy.HEIGHT, orientation=ttnn.ShardOrientation.ROW_MAJOR)
 
 
+def accurate_softmax_site(token: str) -> bool:
+    """Whether construction site ``token`` takes the 5-op accurate softmax.
+
+    False for every site unless ``TT_BIO_ACCURATE_SOFTMAX_AB`` names the token (or ``all``).
+    This is the A/B instrument the cross-model verdict is measured with, not a shipped default:
+    a real default flip is a literal ``True`` at the one construction site a verdict names.
+    A global env default is the exact shape of the Protenix-v2 fp32 default that cost OpenDDE
+    60x, so the sites stay individually addressable and the shipped answer stays off.
+    """
+    sel = os.environ.get("TT_BIO_ACCURATE_SOFTMAX_AB", "")
+    if not sel:
+        return False
+    want = {t.strip() for t in sel.split(",") if t.strip()}
+    return "all" in want or token in want
+
+
 def _accurate_softmax(x, compute_kernel_config=None, fp32: bool = True):
     """A row softmax built from individual ttnn ops, for logits the fused kernel loses.
 
@@ -3658,6 +3674,7 @@ class TriangleAttention(Module):
         fp32_softmax: bool = False,
         transpose_bias: bool = True,
         transpose_l1_reserve: int = 0,
+        accurate_softmax: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.head_dim = head_dim
@@ -3676,6 +3693,9 @@ class TriangleAttention(Module):
         self.transpose_bias = transpose_bias
         self.affinity = affinity
         self.fp32_softmax = fp32_softmax
+        # Only reaches the fp32_softmax path: the bf16 route is the fused SDPA kernel, which
+        # has no ttnn.softmax to replace. OpenFold3 is the only model here on the fp32 route.
+        self.accurate_softmax = accurate_softmax
         self.scale = self.head_dim**0.5
         # Boltz/Protenix fold sqrt(head_dim) into the pair-bias projection (their
         # reference adds the bias pre-scaled); openfold3 pre-scales q by 1/sqrt(d) and
@@ -3868,6 +3888,7 @@ class TriangleAttention(Module):
                         compute_kernel_config=self.compute_kernel_config,
                         out_dtype=_dtype(),
                         bias_scale_inv=1.0 / self._bias_scale,
+                        accurate_softmax=self.accurate_softmax,
                     )
             else:
                 o = _tri_att_sdpa(q, k, v, bias, self.scale**-1)
@@ -4218,6 +4239,7 @@ class AttentionPairBias(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 out_dtype=_dtype(),
                 bias_scale_inv=1.0 / self._bias_scale,
+                accurate_softmax=self.accurate_softmax,
             )
         if self.dtype != ttnn.float32:
             return ttnn.transformer.scaled_dot_product_attention(
@@ -4765,6 +4787,7 @@ class PairformerLayer(Module):
             affinity=affinity,
             scale_pair_bias=scale_pair_bias,
             fp32_softmax=fp32_softmax,
+            accurate_softmax=accurate_softmax,
         )
         self.triangle_attention_end = TriangleAttention(
             tri_att_head_dim,
@@ -4777,6 +4800,7 @@ class PairformerLayer(Module):
             fp32_softmax=fp32_softmax,
             transpose_bias=transpose_bias,
             transpose_l1_reserve=transpose_l1_reserve,
+            accurate_softmax=accurate_softmax,
         )
         self.transition_z = Transition(
             self.scope("transition_z"), compute_kernel_config

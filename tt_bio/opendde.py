@@ -384,7 +384,7 @@ class OpenDDE:
     axis. Ships co-folding only (no design/affinity)."""
 
     def __init__(self, state_dict, compute_kernel_config, device=None):
-        from .tenstorrent import get_device, Pairformer
+        from .tenstorrent import get_device, Pairformer, accurate_softmax_site
         from .protenix import Protenix
         self.dev = device or get_device()
         self.compute_kernel_config = compute_kernel_config
@@ -407,14 +407,16 @@ class OpenDDE:
         import os
         self._protenix = Protenix(
             self._shared, compute_kernel_config, self.dev, c_z=C["c_z"], msa_update_first=True,
-            diffusion_fp32=os.environ.get("OPENDDE_DIFFUSION_FP32", "0") == "1", gated_move=True)
+            diffusion_fp32=os.environ.get("OPENDDE_DIFFUSION_FP32", "0") == "1", gated_move=True,
+            softmax_scope="opendde")
         self.expander = StructuralTokenExpander(
             routed["expander"], compute_kernel_config, c_s=C["c_s"], c_z=C["c_z"],
             c_s_inputs=C["c_s_inputs"], n_roles=C["n_roles"], pair_chunk_size=C["pair_chunk_size"])
         self.refiner = Pairformer(
             routed["refiner_blocks"], C["c_z"] // C["refiner_tri_heads"], C["refiner_tri_heads"],
             C["c_s"] // C["refiner_att_heads"], C["refiner_att_heads"], True,
-            routed["refiner"], compute_kernel_config, gated_move=True)
+            routed["refiner"], compute_kernel_config, gated_move=True,
+            accurate_softmax=accurate_softmax_site("opendde.refiner"))
 
     @classmethod
     def load_from_checkpoint(cls, path=None, *, abag=False, compute_kernel_config=None, device=None):
