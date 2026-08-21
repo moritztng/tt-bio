@@ -137,6 +137,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO / "scripts"))
+import gate_guard  # noqa: E402  (card-grant + host-load guards, shared with release_gate.py)
+
 FIXTURE_ROOT = REPO / "docs" / "implementation-parity-data" / "ref-fixtures"
 FINGERPRINT_INDEX = REPO / "docs" / "implementation-parity-data" / "ref-fixture-fingerprints.json"
 # .cif/.a3m/.npz under ref-fixtures/ are gitignored on purpose and live on a GitHub
@@ -211,6 +214,11 @@ class Leg:
                                  # shared-draws envelope — ref_fp32/ref_bf16 would be device-on-CPU
                                  # tautology, and --regen-refs must skip these legs
     min_fold_timeout: float | None = None  # per-leg FLOOR (s); effective = max(--fold-timeout, this)
+    cards: int = 1               # physical cards the leg needs. Every leg today scores ONE card's
+                                 # numerics, so 1 is right for all of them: the fixture legs fold
+                                 # one seed per card and the in-process legs pin to one. A leg that
+                                 # genuinely needs a mesh (a multicard-fanout parity check) declares
+                                 # it here and is SKIPPED, loudly, when the gate holds fewer.
     note: str = ""
 
 
@@ -1146,9 +1154,9 @@ def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
     """Run the dedicated harness for esmc/saprot/esmfold2 (subprocess) or the in-process
     designability/DockQ leg for boltzgen/abag. Persists the report to out_json (for --resume).
 
-    pin_card sets TT_VISIBLE_DEVICES for the subprocess harnesses. Without it they inherit the
-    gate's environment, which has no device restriction, so on a multi-chip host they open the
-    WHOLE mesh. On the 32-chip Wormhole galaxy that fails before any compute: 32 copies of
+    pin_card sets TT_VISIBLE_DEVICES for every harness, spawned or delegated. Without it they
+    inherit the gate's environment, which has no device restriction, so on a multi-chip host they
+    open the WHOLE mesh. On the 32-chip Wormhole galaxy that fails before any compute: 32 copies of
     "Read unexpected run_mailbox value: 0x40" (one per chip, all on core (x=25,y=17), i.e. stale
     state left by the previously-stopped 32-worker service) and then a nonsense
     "Out of Memory ... allocate 524288 B ... bank size is 1073741792 B" — a 512 KB request against
@@ -1156,6 +1164,15 @@ def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
     The per-card legs, which are pinned, passed on those same chips in the same run. Pinning is
     also simply correct: these legs score one card's numerics, so they have no use for a mesh."""
     if leg.kind in ("boltzgen", "abag", "capacity"):
+        # These legs run in THIS process and shell out from there, so the pin has to be on this
+        # process's environment. Setting it only on the spawned-harness branch below left every
+        # delegated leg inheriting an unrestricted environment: boltzgen then designs on card 0
+        # whatever --workers said (scripts/boltzgen_designability.py:_visible_device_ids), and an
+        # unpinned fan-out takes every card on the box (measured on qb1: a 4-unit fan-out with
+        # TT_VISIBLE_DEVICES unset selects [0, 1, 2, 3]).
+        prior = os.environ.get("TT_VISIBLE_DEVICES")
+        if pin_card is not None:
+            os.environ["TT_VISIBLE_DEVICES"] = str(pin_card)
         try:
             rg = _load_release_gate()
             row = (rg.run_boltzgen(rg._load_designability_harness(), keep=False)
@@ -1163,6 +1180,12 @@ def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
                    if leg.kind == "capacity" else rg.run_opendde_abag(keep=False))
         except Exception as e:
             return {"error": f"{type(e).__name__}: {e}"}
+        finally:
+            if pin_card is not None:
+                if prior is None:
+                    os.environ.pop("TT_VISIBLE_DEVICES", None)
+                else:
+                    os.environ["TT_VISIBLE_DEVICES"] = prior
         out_json.write_text(json.dumps(row, indent=2, default=str))
         return row
 
@@ -1553,6 +1576,11 @@ def main() -> int:
                         "2400. Legs can declare a higher floor (Leg.min_fold_timeout — the boltz2 "
                         "affinity legs get 7200s for their contention-fragile fp32 host trunk); "
                         "the effective timeout is max(this, the leg floor).")
+    ap.add_argument("--load-ceiling", type=float, default=gate_guard.DEFAULT_LOAD_CEILING,
+                   help="refuse to start when the 1-min loadavg is above this multiple of nproc "
+                        f"(default {gate_guard.DEFAULT_LOAD_CEILING}; 0 disables). Second line of "
+                        "defence behind the card grant: N correctly-pinned workers can still "
+                        "overcommit a box, and a gate measured on a loaded box is noise anyway.")
     ap.add_argument("--margin", type=float, default=None,
                    help="integration-parity envelope margin (device may drift up to "
                         "envelope*(1+margin) from the fp32 reference). Default: integration_envelope"
@@ -1658,6 +1686,13 @@ def main() -> int:
     # Card-free preflight self-check — abort in seconds on a misconfigured leg instead of a
     # wasted device turn (postmortem #2/#3). Always runs; --check runs it and exits.
     problems = preflight_check(legs)
+    # The card grant: what this process may open, not what it asked for. A fleet worker holds
+    # one card while a sibling holds another on the same box, so a pool wider than the grant is
+    # a host-level overcommit, not a wider measurement. Unset grant = granted the box.
+    grant = gate_guard.card_grant()
+    problems += gate_guard.worker_pool_problems(
+        [w.card for w in workers if w.is_local], grant,
+        (os.environ.get("HOSTNAME") or socket.gethostname()).split(".")[0])
     if problems:
         print("PREFLIGHT — leg wiring problems detected:")
         for p in problems:
@@ -1679,8 +1714,18 @@ def main() -> int:
               f"{f'; {len(blocked)} fixture(s) incomplete → BLOCKED-REGEN' if blocked else ''}.")
         return 0
 
+    # Host load, checked once, right before the first device fold and after every card-free
+    # exit above: even a correctly pinned gate fans subprocesses out, and N workers each inside
+    # their own lease can still take a box down (qb1, 2026-08-21, loadavg 30-62 under six jobs).
+    if not args.dry_run:
+        overloaded = gate_guard.load_ceiling_problem(args.load_ceiling)
+        if overloaded:
+            print(f"PREFLIGHT — refusing to run the gate. {overloaded}")
+            return 1
+
     print(f"\n{'#'*78}\n# FULL PARITY GATE — {len(legs)} legs, "
-          f"workers {[f'{w.host}:{w.card}' for w in workers]}\n{'#'*78}")
+          f"workers {[f'{w.host}:{w.card}' for w in workers]}, "
+          f"granted {gate_guard.grant_label(grant)}\n{'#'*78}")
     print(f"{'leg':<34}{'kind':<11}{'ref':<14}{'verdict':<18}{'wall':>8}  detail")
     print("-" * 110)
 
@@ -1688,6 +1733,17 @@ def main() -> int:
     all_pass = True
     t_start = time.monotonic()
     for leg in legs:
+        # A leg needing more cards than the grant is SKIPPED, named, and counted. It must never
+        # quietly open the box instead, and it must never read as coverage: the summary says how
+        # many legs were dropped so a narrowed gate cannot be mistaken for a green one.
+        grant_skip = gate_guard.leg_grant_skip(leg.cards, grant)
+        if grant_skip:
+            rows.append({"leg": leg.id, "verdict": "SKIPPED-CARD-GRANT",
+                         "detail": grant_skip, "wall": 0})
+            print(f"{leg.id:<34}{leg.kind:<11}{'-':<14}{'SKIPPED-GRANT':<18}{0:>7.0f}s  "
+                  f"{grant_skip}")
+            continue
+
         seeds = seeds_override if seeds_override is not None else list(leg.seeds)
         leg_timeout = max(args.fold_timeout, leg.min_fold_timeout or 0.0)
         # fingerprint check for fixture legs
@@ -1810,9 +1866,13 @@ def main() -> int:
                     verdict, detail = extract_verdict(leg, report)
             else:
                 log_path = log_dir / f"{leg.id}.log"
+                # Pin to a LOCAL granted card: an in-process leg runs here, so pinning it to a
+                # remote worker's card id (what workers[0] can be) named a card on the wrong box.
                 report = run_inprocess(leg, cached_report_path, log_path, dict(os.environ),
                                        fold_timeout=leg_timeout,
-                                       pin_card=workers[0].card if workers else None)
+                                       pin_card=gate_guard.pin_target(
+                                           [w.card for w in workers if w.is_local], grant,
+                                           fallback=workers[0].card if workers else None))
                 verdict, detail = extract_verdict(leg, report)
             wall = time.monotonic() - t_run
 
@@ -1830,21 +1890,36 @@ def main() -> int:
     # Only a leg that reached its scorer is evidence; a BLOCKED-REF-REGEN-NEEDED row scored
     # nothing. If every leg is blocked the run verified zero legs, so it must not print GATE
     # PASS — the classic cause is --seeds given a bare count, matching no fixture seed.
-    n_scored = sum(n for v, n in tally.items() if v != "BLOCKED-REF-REGEN-NEEDED")
+    n_scored = sum(n for v, n in tally.items()
+                   if v not in ("BLOCKED-REF-REGEN-NEEDED", "SKIPPED-CARD-GRANT"))
     inconclusive = n_scored == 0
+    skipped = [r for r in rows if r["verdict"] == "SKIPPED-CARD-GRANT"]
     print("\n" + "#" * 78)
     print(f"# Tally: {dict(tally)}    total wall {total_wall/60:.1f} min")
+    if skipped:
+        # Loud, on its own line, above the verdict: a gate that ran fewer legs than the release
+        # story claims is not the same gate, and a release must not read this as full coverage.
+        print(f"# COVERAGE REDUCED — {len(skipped)}/{len(rows)} leg(s) skipped for the card grant "
+              f"({gate_guard.grant_label(grant)}). NOT a full-coverage run:")
+        for r in skipped:
+            print(f"#   {r['leg']}: {r['detail']}")
     if inconclusive:
-        print(f"# GATE INCONCLUSIVE — {len(rows)}/{len(rows)} legs blocked on reference "
-              "regen, nothing scored")
+        why = ("skipped for the card grant" if len(skipped) == len(rows)
+               else "blocked on reference regen" if not skipped
+               else "blocked on reference regen or skipped for the card grant")
+        print(f"# GATE INCONCLUSIVE — {len(rows)}/{len(rows)} legs {why}, nothing scored")
     else:
-        print("# " + ("GATE PASS — every fast-path leg reproduces within its floor"
-                       if all_pass else
+        pass_line = "GATE PASS — every fast-path leg reproduces within its floor"
+        if skipped:
+            pass_line += f" (of the {n_scored} it ran; {len(skipped)} skipped, see above)"
+        print("# " + (pass_line if all_pass else
                        "GATE FAIL — a leg ERRORED, GAPped, or DRIFTed vs committed (see above)"))
     print("#" * 78)
 
     report = {"legs": rows, "tally": dict(tally), "scored": n_scored,
               "total_wall_s": total_wall,
+              "card_grant": None if grant is None else sorted(grant),
+              "skipped_for_card_grant": [r["leg"] for r in skipped],
               "workers": [f"{w.host}:{w.card}" for w in workers]}
     (workdir / "report.json").write_text(json.dumps(report, indent=2))
     if args.out:
