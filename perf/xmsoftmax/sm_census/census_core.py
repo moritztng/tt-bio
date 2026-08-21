@@ -26,6 +26,7 @@ class Census:
         self.sites: dict[str, dict] = {}
         self.total = 0
         self.out_dir: str | None = None
+        self.capture = None  # set by the startup hook when TT_BIO_SM_CAPTURE_DIR is set
 
     def site_of(self) -> str:
         for fr in reversed(traceback.extract_stack()[:-2]):
@@ -92,6 +93,12 @@ class Census:
     def _wrap(self, name, orig):
         def wrapped(x, *a, **kw):
             out = orig(x, *a, **kw)
+            if self.capture is not None:
+                try:
+                    self.capture.install_matmul_hooks()
+                    self.capture.on_softmax(self.site_of(), x, out)
+                except Exception:
+                    pass
             try:
                 dim = kw.get("dim", a[0] if a else -1)
                 e = self.entry(self.site_of(), out.shape, str(out.dtype), name)

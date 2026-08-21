@@ -30,6 +30,12 @@ if _DIR:
 
     _root = os.environ.get("TT_BIO_SM_CENSUS_ROOT", os.getcwd())
     _census = Census(_root, int(os.environ.get("TT_BIO_SM_CENSUS_MAX", "24")))
+    _cap_dir = os.environ.get("TT_BIO_SM_CAPTURE_DIR")
+    if _cap_dir:
+        from capture import Capture
+        _census.capture = Capture(_cap_dir,
+                                  os.environ.get("TT_BIO_SM_CAPTURE_SITE", ""),
+                                  int(os.environ.get("TT_BIO_SM_CAPTURE_N", "4")))
     _real_import = builtins.__import__
     _state = {"done": False}
 
