@@ -1,0 +1,79 @@
+{
+  "grid": [
+    13,
+    10
+  ],
+  "cores": 130,
+  "per_core": 1532416,
+  "budget": 199214080,
+  "headroom": 1.25,
+  "reserve": 131072,
+  "c_z": 128,
+  "rows": [
+    {
+      "S": 128,
+      "mb": 4.0,
+      "pct_budget": 2.1054254799660748,
+      "shipped": "L1",
+      "l8_out": "L1",
+      "l8_stage": "L1",
+      "alloc": {
+        "shipped": "ok-bitexact",
+        "l8_out": "ok-bitexact",
+        "l8_stage": "ok-bitexact"
+      }
+    },
+    {
+      "S": 256,
+      "mb": 16.0,
+      "pct_budget": 8.421701919864299,
+      "shipped": "L1",
+      "l8_out": "L1",
+      "l8_stage": "L1",
+      "alloc": {
+        "shipped": "ok-bitexact",
+        "l8_out": "ok-bitexact",
+        "l8_stage": "ok-bitexact"
+      }
+    },
+    {
+      "S": 512,
+      "mb": 64.0,
+      "pct_budget": 33.686807679457196,
+      "shipped": "L1",
+      "l8_out": "L1",
+      "l8_stage": "L1",
+      "alloc": {
+        "shipped": "ok-bitexact",
+        "l8_out": "ok-bitexact",
+        "l8_stage": "ok-bitexact"
+      }
+    },
+    {
+      "S": 768,
+      "mb": 144.0,
+      "pct_budget": 75.79531727877868,
+      "shipped": "L1",
+      "l8_out": "L1",
+      "l8_stage": "L1",
+      "alloc": {
+        "shipped": "ok-bitexact",
+        "l8_out": "ok-bitexact",
+        "l8_stage": "ok-bitexact"
+      }
+    },
+    {
+      "S": 1024,
+      "mb": 256.0,
+      "pct_budget": 134.74723071782878,
+      "shipped": "DRAM",
+      "l8_out": "DRAM",
+      "l8_stage": "DRAM",
+      "alloc": {
+        "shipped": "n/a",
+        "l8_out": "n/a",
+        "l8_stage": "n/a"
+      }
+    }
+  ]
+}

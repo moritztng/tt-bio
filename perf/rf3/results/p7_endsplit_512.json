@@ -1,0 +1,53 @@
+{
+  "aa": 512,
+  "tokens": 512,
+  "reps": 5,
+  "rows": [
+    {
+      "which": "start",
+      "total_ms": 5.941399998846464,
+      "totals_ms": [
+        5.946,
+        5.96,
+        5.941,
+        5.782,
+        5.876
+      ]
+    },
+    {
+      "which": "end",
+      "total_ms": 7.40616199982469,
+      "totals_ms": [
+        7.479,
+        7.406,
+        7.405,
+        7.432,
+        7.401
+      ],
+      "bias_permute_ms": 0.033,
+      "bias_permute.shape": [
+        1,
+        4,
+        512,
+        512
+      ],
+      "pair_transpose.1_ms": 0.761,
+      "pair_transpose.1.dest": "L1",
+      "pair_transpose.1.shape": [
+        512,
+        512,
+        128
+      ],
+      "pair_transpose.2_ms": 0.775,
+      "pair_transpose.2.dest": "L1",
+      "pair_transpose.2.shape": [
+        512,
+        512,
+        128
+      ]
+    }
+  ],
+  "excess_end_over_start_ms": 1.4647620009782258,
+  "transpose_and_bias_ms": 1.569,
+  "explained_frac": 1.0711637787928414
+}

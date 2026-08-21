@@ -37,6 +37,17 @@ OPM_ROW_CHUNK_BUDGET_BYTES = 1 << 30      # 1.0 GiB
 # row blocks to 5. It does NOT make 9i3p fold -- the target then hits the pair representation
 # (980*992*384*2) instead, which is a separate limit this constant has no bearing on.
 OPM_Z_BUDGET_BYTES = 1 << 28              # 0.25 GiB
+
+# Fold `proj_o` into the outer product's own projection instead of materialising the
+# [I, J, C, D] product in order to project it. Same algebra --
+# `sum_cd a_ic b_jd W_cdk = sum_d b_jd (sum_c a_ic W_cdk)` -- but the arithmetic drops from
+# 2 I J (C D) c_z to 2 I J D c_z, i.e. by C, and the intermediate (537 MB at 512 tokens,
+# C = D = 32) never exists. It costs one pass per MSA row, so it wins below depth ~C and
+# loses above it: the deep-MSA models keep the materialised form, which is what it is for.
+_OPM_SMALL_DEPTH = os.environ.get("TT_BIO_OPM_SMALL_DEPTH", "0") != "0"
+OPM_SMALL_DEPTH_MAX = int(os.environ.get("TT_BIO_OPM_SMALL_DEPTH_MAX", "8"))
+#: [served, declined], so a census can tell a dark gate from a correctly declining one.
+OPM_SMALL_DEPTH_STATS = [0, 0]
 # Pair-tensor byte size above which a chunked path's row/channel blocks are assembled
 # on the HOST instead of by ttnn.concat on device. The concat needs a fresh
 # full-pair-tensor allocation while the input and every block are still live (k=3
@@ -992,6 +1003,98 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float):
 
 
 
+# Triangle attention through the FUSED SDPA at the model's own fidelity, for the blocks that today
+# take `_fp32_softmax_attention`.
+#
+# `_fp32_softmax_attention` below is correct and slow for the same reason: it writes the whole
+# `[batch, heads, S, S]` score tensor to DRAM in bf16, reads it back as fp32, adds the bias, reduces
+# and writes the weights back down to bf16 -- five DRAM traversals of an O(S^3) tensor for a
+# reduction the fused kernel already does in L1. At 512 aa RF3's triangle attention moves ~10 GB per
+# call against a measured 440.4 GB/s and lands at 2.39 TF/s against a 17.41 TF/s K-thin roof.
+#
+# The reason the fused kernel was rejected for these blocks is a conflation, and it is measured in
+# `tt_bio/triatt_sdpa.py`: the fused path's DEFAULT compute config is `(HiFi2, math_approx, no
+# fp32_dest_acc)`, and that -- not bf16 softmax storage -- is where its error came from. Run at the
+# same `HiFi4 / fp32_dest_acc` the model's other matmuls already use, the fused kernel is 1.88x MORE
+# accurate than the materialised fp32 softmax and 20.2x faster at 512 aa, because fidelity is free
+# on a bandwidth-bound op.
+#
+# NOT bit-exact against `_fp32_softmax_attention`, and cannot be: an online softmax reduces over k
+# in chunks against a running max, and the materialised one reduces each row in a single pass. The
+# bar is the port's own parity anchors against the torch reference, not a digest against the arm it
+# replaces.
+_TRIATT_FUSED_HIFI = os.environ.get("TT_BIO_TRIATT_FUSED_HIFI", "0") != "0"
+
+# `fp32_dest_acc` is load-bearing rather than a knob: it is what keeps the qk product, the bias add,
+# the row max and the cross-chunk sum in a 32-bit DST between CB round trips. `math_approx` off and
+# HiFi4 are worth 2.5x and 1.3x on the op's error respectively, both for free (see the table in
+# triatt_sdpa.py). Fields are `(fidelity, math_approx, fp32_dest_acc, dst_full_sync)`.
+_TRIATT_FUSED_HIFI_CKC = (ttnn.MathFidelity.HiFi4, False, True, False)
+
+# (q_len, k_len, q_chunk) triples whose program the device refused at this config. Deliberately not
+# `_SDPA_Q_CHUNK_OVER_L1`: writing a refusal into the shared memo would retire a q_chunk the stock
+# ladder runs perfectly well, which is the mistake `_PM_OVER_L1` exists to avoid.
+_TRIATT_HIFI_OVER_L1: set = set()
+
+# Shortest sequence this path is allowed to serve. The fused SDPA loses an order of magnitude of
+# accuracy on a one- or two-tile sequence and gains ~1.5x on everything above, and that is a cliff
+# rather than a slope, so it is a floor rather than a tuning knob.
+#
+# MEASURED two ways. One captured triangle-attention call sliced down the length ladder, both arms
+# against fp64 on the same bf16 operands (perf/rf3/triatt_len_ladder.py), as fused / materialised
+# rel_rms -- below 1.0 means the fused arm is the more accurate one:
+#
+#     n        8      12      32      41      53      64     128     256     384     512
+#     ratio  16.29   13.02   12.87    0.48    0.53    0.66    0.67    0.67    0.72    0.69
+#
+# and the whole Pairformer block against its torch golden on real trunk input
+# (scripts/rf3_port/parity_pairformer.py), as z rel_rms materialised -> fused:
+#
+#     32 tokens    0.003646 -> 0.004670    1.28x worse
+#     41 tokens    0.004038 -> 0.021512    5.33x worse
+#     53 tokens    0.004042 -> 0.013854    3.43x worse
+#     256 tokens   0.003530 -> 0.003533    **1.0008x, neutral to four figures**
+#
+# The two disagree between 41 and 64 tokens because the sliced ladder zero-pads and a real short
+# block pads with layer-norm bias instead, so the block is the one to believe there. 128 is the
+# first length with block-level evidence of neutrality on one side of it and degradation on the
+# other; the port's four original fixtures are all 8-53 tokens and every one of them sits in the
+# degraded band, which is why they read as a 3.4-5.3x regression and why they cannot score this.
+_TRIATT_FUSED_HIFI_MIN_S = 128
+
+TRIATT_FUSED_HIFI_STATS = {"served": 0, "declined": 0, "too_short": 0}
+
+
+def _tri_att_sdpa_hifi(q, k, v, bias, scale: float):
+    """Triangle attention through the fused SDPA at `_TRIATT_FUSED_HIFI_CKC`, or None to decline.
+
+    Declining is the caller's cue to run `_fp32_softmax_attention`, NOT the stock bf16 SDPA: the
+    stock op carries the op default's 2.7x worse error, so a silent fall-through to it would be an
+    accuracy regression wearing a performance win's clothes.
+    """
+    q_len, k_len = int(q.shape[2]), int(k.shape[2])
+    if min(q_len, k_len) < _TRIATT_FUSED_HIFI_MIN_S:
+        TRIATT_FUSED_HIFI_STATS["too_short"] += 1
+        return None
+    k_chunk = _sdpa_chunks_shipped(q_len, k_len)[1]
+    for q_chunk in _tri_att_q_chunks(q_len, k_len):
+        if (q_len, k_len, q_chunk) in _TRIATT_HIFI_OVER_L1:
+            continue
+        try:
+            o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk,
+                                  ckc_default=_TRIATT_FUSED_HIFI_CKC)
+        except Exception as exc:  # noqa: BLE001 -- an L1 refusal retires the chunk, nothing else
+            if "circular buffers" not in str(exc):
+                raise
+            o = None
+        if o is not None:
+            TRIATT_FUSED_HIFI_STATS["served"] += 1
+            return o
+        _TRIATT_HIFI_OVER_L1.add((q_len, k_len, q_chunk))
+    TRIATT_FUSED_HIFI_STATS["declined"] += 1
+    return None
+
+
 # Kill switch for the batched program config, so a parity gate that spawns one fold per leg can
 # A/B it without a checkout.
 _BATCHED_MATMUL_ON = os.environ.get("TT_BIO_BATCHED_MATMUL", "1") != "0"
@@ -1439,11 +1542,20 @@ _PT_ROW_MAJOR = os.environ.get(
 _TRANSPOSE_L1_REFUSED: set = set()
 
 
-def _pair_transpose(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.Tensor:
-    """``permute(t, (1, 0, 2))``, through ROW_MAJOR where that wins. Bit-exact either way.
+def _pair_transpose(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig,
+                    l1_stage_reserve: int = 0) -> ttnn.Tensor:
+    """``permute(t, (1, 0, 2))``, through ROW_MAJOR or through L1 where that wins. Bit-exact.
 
     An L1 destination is asked for by `_transpose_memory_config` and can still be refused at
     the call site, so the L1 attempt falls back to DRAM rather than killing the fold.
+
+    `l1_stage_reserve` opts a caller into the third route: the permute writes L1 and the result
+    is copied to DRAM. The copy is a coalesced whole-tile move and the permute is not, which is
+    the whole point -- the scattered write is what costs, and it costs far less into L1.
+    Measured on qb2 at [768, 768, 128] bf16, torch.equal against ttnn.permute:
+    4.222 ms tiled to DRAM, 4.404 through ROW_MAJOR, **2.237 ms staged through L1**. It is a
+    separate opt-in from the L1 DESTINATION because the caller whose consumer cannot take an
+    L1 operand can still take this.
     """
     if memory_config.buffer_type == ttnn.BufferType.L1:
         key = (tuple(t.padded_shape), str(t.dtype))
@@ -1453,6 +1565,18 @@ def _pair_transpose(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.Te
             except Exception:                                                   # noqa: BLE001
                 _TRANSPOSE_L1_REFUSED.add(key)
         memory_config = ttnn.DRAM_MEMORY_CONFIG
+    if (l1_stage_reserve
+            and _l1_memory_config_if_it_fits(
+                t, 1.0, reserve_per_core=l1_stage_reserve).buffer_type == ttnn.BufferType.L1):
+        key = ("stage", tuple(t.padded_shape), str(t.dtype))
+        if key not in _TRANSPOSE_L1_REFUSED:
+            try:
+                stage = _pair_transpose_impl(t, ttnn.L1_MEMORY_CONFIG)
+                out = ttnn.to_memory_config(stage, memory_config)
+                ttnn.deallocate(stage)
+                return out
+            except Exception:                                                   # noqa: BLE001
+                _TRANSPOSE_L1_REFUSED.add(key)
     return _pair_transpose_impl(t, memory_config)
 
 
@@ -1488,7 +1612,33 @@ _TRANSPOSE_L1_HEADROOM = float(
     os.environ.get("TT_BIO_TRANSPOSE_L1_HEADROOM", str(TRANSPOSE_L1_HEADROOM)))
 
 
-def _transpose_memory_config(t: ttnn.Tensor) -> ttnn.MemoryConfig:
+# What the consumer needs on top of the transpose result is its circular buffers, and those are a
+# per-core cost that does not grow with the tensor. A multiplicative headroom prices them as a
+# fraction of it instead, so 1.25 reserves 343 KB per core on a 144 MB pair tensor and 45 KB on a
+# 20 MB one -- stingiest exactly where the tensor is largest and the L1 route worth most. This is
+# the same budget expressed the way the resource behaves, and the value is the one 1.25 was
+# validated at rather than a new guess: protenix-v2's 298 aa pair tensor is 52.4 MB, where 1.25
+# leaves 119 KB per core across 1208 transposes with no allocator refusal.
+#
+# It is an opt-in per Pairformer instance (`transpose_l1_reserve`), not a global default. The only
+# tensors whose route changes are those between budget/1.25 and budget - reserve, which on an 11x10
+# Blackhole grid is 118-147 MB, and RF3's 768 aa pair tensor at 144 MB is the one that lands there.
+# Flipping it globally would move Boltz-2, Protenix-v2, OpenFold3 and OpenDDE at their own sizes in
+# the same change; the route is bit-exact either way, but an L1 residency change is not.
+#
+# It applies to the ending variant's SECOND transpose only -- the one on the module's output, whose
+# consumer is the caller's `ttnn.add_` into the pair tensor. The first transpose is consumed by
+# `ttnn.layer_norm` over the whole [S, S, c_z] tensor, and that op's static circular buffers are
+# 274 944 B per core at 768 aa: measured, by leaving 196 608 B and getting "Statically allocated
+# circular buffers in program 599 clash with L1 buffers ... static circular buffer region ends at
+# 274944". No reserve that admits a 144 MB tensor also leaves room for it, so that site keeps the
+# multiplicative headroom and its DRAM route.
+TRANSPOSE_L1_RESERVE_PER_CORE = 128 * 1024
+_TRANSPOSE_L1_RESERVE_PER_CORE = int(
+    os.environ.get("TT_BIO_TRANSPOSE_L1_RESERVE", str(TRANSPOSE_L1_RESERVE_PER_CORE)))
+
+
+def _transpose_memory_config(t: ttnn.Tensor, reserve_per_core: int = 0) -> ttnn.MemoryConfig:
     """L1 for a pair-tensor dim0/dim1 transpose when it fits, else DRAM.
 
     ttnn's dim0/dim1 permute is a real element transpose, not a tile-block copy: tiling
@@ -1508,7 +1658,13 @@ def _transpose_memory_config(t: ttnn.Tensor) -> ttnn.MemoryConfig:
     every call and pin every tensor it ever saw for the life of the process.
     """
     # 2.5x headroom: the consumer still needs its circular buffers on every core.
-    return _l1_memory_config_if_it_fits(t, _TRANSPOSE_L1_HEADROOM)
+    mc = _l1_memory_config_if_it_fits(t, _TRANSPOSE_L1_HEADROOM)
+    if mc.buffer_type == ttnn.BufferType.L1 or not reserve_per_core:
+        return mc
+    # The caller opted into pricing those buffers per core instead of per byte; see
+    # TRANSPOSE_L1_RESERVE_PER_CORE. The allocation itself is still the real test, and
+    # `_pair_transpose` falls back to DRAM per shape class when it is refused.
+    return _l1_memory_config_if_it_fits(t, 1.0, reserve_per_core=reserve_per_core)
 
 
 def _l1_layer_norm(x: ttnn.Tensor, headroom: float, **kw):
@@ -1528,11 +1684,14 @@ def _l1_layer_norm(x: ttnn.Tensor, headroom: float, **kw):
     return ttnn.layer_norm(x, memory_config=ttnn.DRAM_MEMORY_CONFIG, **kw), False
 
 
-def _l1_memory_config_if_it_fits(t: ttnn.Tensor, headroom: float) -> ttnn.MemoryConfig:
+def _l1_memory_config_if_it_fits(t: ttnn.Tensor, headroom: float,
+                                 reserve_per_core: int = 0) -> ttnn.MemoryConfig:
     """L1 when `headroom` copies of `t` fit across the grid's banks, else DRAM.
 
     `headroom` is what the consumer needs on top of the tensor itself: its circular buffers, and
     for a producer whose result is read in place, the other operands that stay live beside it.
+    `reserve_per_core` prices that same need in bytes per core instead, for a caller whose
+    consumer's buffers do not grow with the tensor.
     """
     try:
         per_core = int(ttnn.get_max_worker_l1_unreserved_size())
@@ -1546,7 +1705,8 @@ def _l1_memory_config_if_it_fits(t: ttnn.Tensor, headroom: float) -> ttnn.Memory
         volume *= d
     volume *= ((shape[-2] + 31) // 32) * 32 * ((shape[-1] + 31) // 32) * 32
     elem = 4 if t.dtype == ttnn.float32 else 2
-    if headroom * volume * elem <= per_core * COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]:
+    cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
+    if headroom * volume * elem <= max(per_core - reserve_per_core, 0) * cores:
         return ttnn.L1_MEMORY_CONFIG
     return ttnn.DRAM_MEMORY_CONFIG
 
@@ -2602,6 +2762,11 @@ class WeightScope:
     def __getitem__(self, key: str) -> torch.Tensor:
         return self._data[key]
 
+    def __contains__(self, key: object) -> bool:
+        # Without this, `key in scope` falls back to iterating __getitem__ with
+        # integer indices and dies with KeyError: 0. Optional weights need it.
+        return key in self._data
+
     def child(self, scope: str, strip_prefix: str = "") -> "WeightScope":
         if not scope:
             return self
@@ -3380,11 +3545,24 @@ class TriangleAttention(Module):
         affinity: bool = False,
         scale_pair_bias: bool = True,
         fp32_softmax: bool = False,
+        transpose_bias: bool = True,
+        transpose_l1_reserve: int = 0,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.head_dim = head_dim
         self.n_heads = n_heads
         self.ending = ending
+        # Bytes per core to keep free when the ending variant's pair transpose asks for L1,
+        # instead of the multiplicative headroom. 0 keeps the headroom rule. See
+        # TRANSPOSE_L1_RESERVE_PER_CORE: it is what makes the 768 aa transpose L1-resident.
+        self.transpose_l1_reserve = transpose_l1_reserve
+        # Whether the ending variant's pair bias is transposed along with the pair.
+        # Boltz-2, Protenix-v2 and OpenFold3 transpose both, which is the default.
+        # RF3 builds the bias from the UN-transposed tensor and transposes only the
+        # pair (rf3/model/layers/attention.py::TriangleAttention.forward), so it
+        # wants bias[h,j,i] where the default gives bias[h,i,j]. Worth 0.35 of PCC
+        # on an RF3 block, so it is a correctness flag, not a nicety.
+        self.transpose_bias = transpose_bias
         self.affinity = affinity
         self.fp32_softmax = fp32_softmax
         self.scale = self.head_dim**0.5
@@ -3432,6 +3610,22 @@ class TriangleAttention(Module):
             dtype=_dtype(),
         )
         self.g_weight = self.torch_to_tt("linear_g.weight", dtype=_dtype())
+        # RF3 biases both the gate and the output projection; Boltz-2, Protenix-v2 and
+        # OpenFold3 bias neither. Read them only when the weights carry them: with no
+        # bias present every branch below is the one it always was, fused kernels
+        # included. The gate bias sits inside the sigmoid so it cannot be folded into
+        # linear_g.weight, and the fused gate/qkv kernels take no bias input, so a
+        # biased block runs the plain path instead. That costs RF3 the fused kernels;
+        # correctness first, and perf is its own workstream.
+        self.g_bias = (
+            self.torch_to_tt("linear_g.bias", dtype=_dtype())
+            if "linear_g.bias" in self.weights else None
+        )
+        self.o_bias = (
+            self.torch_to_tt("linear_o.bias")
+            if "linear_o.bias" in self.weights else None
+        )
+        self.biased = self.g_bias is not None or self.o_bias is not None
 
     def __call__(self, x: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
         x = ttnn.reshape(x, tuple(x.shape)[1:])
@@ -3489,10 +3683,20 @@ class TriangleAttention(Module):
             triangle_bias = ttnn.concat(bias_parts, dim=2)
             for bp in bias_parts:
                 ttnn.deallocate(bp)
+            if self.ending and not self.transpose_bias:
+                triangle_bias = ttnn.permute(triangle_bias, (0, 1, 3, 2))
             dram_peak(f"tri_att({'end' if self.ending else 'start'}) bias built [z={'x'.join(str(d) for d in x.shape)}]")
         else:
             if self.ending:
-                x = _pair_transpose(x, _transpose_memory_config(x))
+                # The DESTINATION stays DRAM here: this transpose's consumer is the layer_norm
+                # below, whose static circular buffers are 274 944 B per core at 768 aa and do not
+                # fit under a pair tensor that size. Norming first instead was tried and is worse
+                # still -- an L1-resident normed x fails `_common_ok` in the head-major qkv kernel
+                # (it requires a DRAM operand), so the projection falls back to `minimal_matmul`,
+                # which inherits L1 for its own 432 MB output and dies. What DOES apply is the L1
+                # staging route inside `_pair_transpose`: same DRAM result, 1.887x.
+                x = _pair_transpose(x, _transpose_memory_config(x),
+                                    l1_stage_reserve=self.transpose_l1_reserve)
             # Explicit DRAM: for the ending variant x is the L1 transpose result
             # (_transpose_memory_config) and ttnn would otherwise inherit L1 here and again
             # for the qkv projection, whose 157 MB does not fit.
@@ -3509,6 +3713,8 @@ class TriangleAttention(Module):
             )
             triangle_bias = ttnn.unsqueeze(triangle_bias, 0)
             triangle_bias = ttnn.permute(triangle_bias, (0, 3, 1, 2))
+            if self.ending and not self.transpose_bias:
+                triangle_bias = ttnn.permute(triangle_bias, (0, 1, 3, 2))
             dram_peak(f"tri_att({'end' if self.ending else 'start'}) bias built [z={'x'.join(str(d) for d in x.shape)}]")
 
         def attend(qkv_in, bias, keep_heads=False):
@@ -3529,13 +3735,29 @@ class TriangleAttention(Module):
 
         def _attend_heads(q, k, v, bias, keep_heads=False):
             if _FP32_SOFTMAX or self.fp32_softmax:
-                o = _fp32_softmax_attention(
-                    q, k, v, bias,
-                    scale_inv=self.scale ** -1,
-                    compute_kernel_config=self.compute_kernel_config,
-                    out_dtype=_dtype(),
-                    bias_scale_inv=1.0 / self._bias_scale,
-                )
+                o = None
+                # The kernel adds the bias BEFORE applying `scale` (compute_common.hpp: the scale
+                # rides the exp, `exp((qk + mask - max) * scale)`), so it wants the bias pre-baked
+                # by sqrt(head_dim). `scale_pair_bias=True` already did that to `bias_weight`;
+                # where it did not -- RF3's MSA module and template embedder both pass False -- one
+                # multiply on the [1, heads, S, S] bias recovers it. That is O(S^2) against the
+                # O(S^3) score tensor the fused path deletes, so it is three orders below the win
+                # rather than a cost to weigh: 2.1 MB at 512 aa against ~10 GB.
+                if _TRIATT_FUSED_HIFI:
+                    b = bias
+                    if self._bias_scale != self.scale:
+                        b = ttnn.multiply(bias, self.scale / self._bias_scale)
+                    o = _tri_att_sdpa_hifi(q, k, v, b, self.scale ** -1)
+                    if b is not bias:
+                        ttnn.deallocate(b)
+                if o is None:
+                    o = _fp32_softmax_attention(
+                        q, k, v, bias,
+                        scale_inv=self.scale ** -1,
+                        compute_kernel_config=self.compute_kernel_config,
+                        out_dtype=_dtype(),
+                        bias_scale_inv=1.0 / self._bias_scale,
+                    )
             else:
                 o = _tri_att_sdpa(q, k, v, bias, self.scale**-1)
             ttnn.deallocate(q)
@@ -3571,6 +3793,8 @@ class TriangleAttention(Module):
                     o_in, self.o_weight, self.compute_kernel_config, _dtype(), l1_out=True
                 )
             ttnn.deallocate(o_in)
+            if self.o_bias is not None:
+                x_out = ttnn.add_(x_out, self.o_bias)
             return x_out
 
         if need_chunk:
@@ -3599,7 +3823,7 @@ class TriangleAttention(Module):
                     )
                 g_cfg_chunk = _qkv_mm_config(x_chunk, self.g_weight)
                 g_chunk = None
-                if isinstance(qkv_chunk, tuple):
+                if isinstance(qkv_chunk, tuple) and not self.biased:
                     g_chunk = _triatt_qkv.gate_proj(
                         x_chunk, self.g_weight, self.o_weight, self.compute_kernel_config,
                         self.n_heads, self.head_dim, _dtype(), g_cfg_chunk,
@@ -3612,6 +3836,8 @@ class TriangleAttention(Module):
                         dtype=_dtype(),
                         config=g_cfg_chunk,
                     )
+                if self.g_bias is not None:
+                    g_chunk = ttnn.add_(g_chunk, self.g_bias)
                 ttnn.deallocate(x_chunk)
                 if self.affinity:
                     bias = ttnn.add(triangle_bias, attn_mask[s:end, :, :])
@@ -3698,6 +3924,13 @@ class TriangleAttention(Module):
             qkv_cfg = _qkv_l1_config(x, self.qkv_weight, _dtype())
             # When the head-major projection takes the call, `qkv` is already the (q, k, v)
             # triple and no head split follows. It declines an L1 projection outright.
+            #
+            # `self.biased` is NOT a condition here, and used to be. The biases RF3 carries sit on
+            # `linear_g` and `linear_o`; the qkv projection has none, in any model. This kernel
+            # replaces that projection and its head split and touches neither the gate nor the
+            # output, so gating it on `self.biased` refused the one model whose triangle attention
+            # is 31.5 % of its trunk for a property of two other matmuls. `gate_proj` below keeps
+            # the condition, because the gate bias really does sit inside its sigmoid.
             qkv = None if qkv_cfg is not None else _triatt_qkv.qkv_heads(
                 x, self.qkv_weight, self.compute_kernel_config,
                 self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.qkv_weight),
@@ -3721,7 +3954,7 @@ class TriangleAttention(Module):
                         config=_qkv_mm_config(x, self.qkv_weight),
                     )
             g = None
-            if isinstance(qkv, tuple):
+            if isinstance(qkv, tuple) and not self.biased:
                 g = _triatt_qkv.gate_proj(
                     x, self.g_weight, self.o_weight, self.compute_kernel_config,
                     self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.g_weight),
@@ -3734,6 +3967,8 @@ class TriangleAttention(Module):
                     dtype=_dtype(),
                     config=_qkv_mm_config(x, self.g_weight),
                 )
+            if self.g_bias is not None:
+                g = ttnn.add_(g, self.g_bias)
             ttnn.deallocate(x)
             if attn_mask is not None:
                 triangle_bias = ttnn.add(triangle_bias, attn_mask)
@@ -3743,7 +3978,8 @@ class TriangleAttention(Module):
             ttnn.deallocate(triangle_bias)
             x = gate_and_project(o, g)
         if self.ending:
-            x = _pair_transpose(x, _transpose_memory_config(x))
+            x = _pair_transpose(
+                x, _transpose_memory_config(x, self.transpose_l1_reserve))
         x = ttnn.reshape(x, (1, *x.shape))
         return x
 
@@ -3790,6 +4026,7 @@ class AttentionPairBias(Module):
             )
             head_dim_padding = -head_dim % 32
             padded_head_dim = head_dim + head_dim_padding
+            self.padded_head_dim = padded_head_dim
             qkv_weight = qkv_weight.reshape(3 * self.n_heads, head_dim, -1)
             qkv_weight = torch.nn.functional.pad(qkv_weight, (0, 0, 0, head_dim_padding), mode='constant', value=0)
             qkv_weight = qkv_weight.reshape(3 * self.n_heads * padded_head_dim, -1)
@@ -3811,6 +4048,11 @@ class AttentionPairBias(Module):
                 dtype=self.dtype,
             )
         self.g_weight = self.torch_to_tt("proj_g.weight", dtype=self.dtype)
+        # A caller that passes an already-computed bias still reaches the fp32-softmax
+        # path, which divides by this. Undefined here meant that combination raised
+        # AttributeError instead of running; 1.0 is the right value, since a
+        # precomputed bias has already absorbed whatever scaling it needed.
+        self._bias_scale = 1.0
         if compute_pair_bias:
             self.z_norm_weight = self.torch_to_tt("proj_z.0.weight", dtype=self.dtype)
             self.z_norm_bias = self.torch_to_tt("proj_z.0.bias", dtype=self.dtype)
@@ -3906,6 +4148,96 @@ class AttentionPairBias(Module):
         ttnn.deallocate(out_bf16)
         return out
 
+    def _load_kq_norm(self) -> None:
+        """Read RF3's optional query/key layer norms.
+
+        Called lazily from __call__ so the weights are read once and only when the
+        checkpoint carries them: Boltz-2, Protenix-v2 and OpenFold3 do not, and take
+        exactly the path they always did.
+        """
+        if getattr(self, "_kq_norm_loaded", False):
+            return
+        self._kq_norm_loaded = True
+        self.kq_norm = "query_layer_norm.weight" in self.weights
+        if not self.kq_norm:
+            return
+        # RF3 norms over n_heads * head_dim, but the fused qkv slices carry
+        # n_heads * padded_head_dim. When those differ the padding lanes sit inside
+        # the reduction, so the slice has to be un-padded first (_kq_norm_unpadded).
+        self.q_layer_norm_weight = self.torch_to_tt("query_layer_norm.weight")
+        self.q_layer_norm_bias = self.torch_to_tt("query_layer_norm.bias")
+        self.k_layer_norm_weight = self.torch_to_tt("key_layer_norm.weight")
+        self.k_layer_norm_bias = self.torch_to_tt("key_layer_norm.bias")
+
+    def _kq_norm_one(self, t: ttnn.Tensor, which: str) -> ttnn.Tensor:
+        """Layer-norm one tensor whose last dim is exactly n_heads * head_dim.
+
+        RF3 norms over the flattened head dimension, so anywhere the heads are
+        still fused into the last axis this is a plain last-dim layer norm.
+        """
+        w, b = ((self.q_layer_norm_weight, self.q_layer_norm_bias) if which == "q"
+                else (self.k_layer_norm_weight, self.k_layer_norm_bias))
+        return ttnn.layer_norm(
+            t, weight=w, bias=b, epsilon=1e-5,
+            compute_kernel_config=self.compute_kernel_config,
+        )
+
+    def _kq_norm_unpadded(self, t: ttnn.Tensor, which: str) -> ttnn.Tensor:
+        """Same norm when the slice carries n_heads * PADDED head_dim.
+
+        Drop the pad lanes, norm over the real n_heads * head_dim the reference
+        norms over, then put zero lanes back -- not the normed values, because the
+        pad lanes reach the attention and a non-zero there adds layer-norm bias to
+        every q.k.
+        """
+        pad = self.padded_head_dim - self.head_dim
+        if not pad:
+            return self._kq_norm_one(t, which)
+        lead = tuple(t.shape)[:-1]
+        x = ttnn.reshape(t, lead + (self.n_heads, self.padded_head_dim))
+        x = x[..., : self.head_dim]
+        x = ttnn.reshape(x, lead + (self.n_heads * self.head_dim,))
+        x = self._kq_norm_one(x, which)
+        x = ttnn.reshape(x, lead + (self.n_heads, self.head_dim))
+        z = ttnn.zeros(lead + (self.n_heads, pad), layout=ttnn.TILE_LAYOUT,
+                       device=self.device, dtype=x.dtype)
+        x = ttnn.concat([x, z], dim=-1)
+        return ttnn.reshape(x, lead + (self.n_heads * self.padded_head_dim,))
+
+    def _apply_kq_norm(self, qkv: ttnn.Tensor) -> ttnn.Tensor:
+        """Norm the Q and K slices of the fused qkv, in place of an unfused split."""
+        width = self.n_heads * getattr(self, "padded_head_dim", self.head_dim)
+        parts = []
+        for i, which in enumerate(("q", "k")):
+            part = qkv[..., i * width:(i + 1) * width]
+            parts.append(self._kq_norm_unpadded(part, which))
+            ttnn.deallocate(part)
+        parts.append(qkv[..., 2 * width:])
+        out = ttnn.concat(parts, dim=-1)
+        for pt in parts:
+            ttnn.deallocate(pt)
+        ttnn.deallocate(qkv)
+        return out
+
+    def _apply_kq_norm_atom(self, q: ttnn.Tensor, kv: ttnn.Tensor):
+        """Same norm on the atom-level branch, where q and kv are separate tensors.
+
+        q carries n_heads * head_dim in its last dim; kv carries K then V, so only
+        its first half is normed.
+
+        RF3 norms K on the full atom axis and only then gathers it into windows
+        (`K_IH[:, indicesK]`), whereas this branch gathers first and projects after.
+        Layer norm is per-position over channels, so norm-then-gather and
+        gather-then-norm agree exactly.
+        """
+        width = self.n_heads * self.head_dim
+        k_part, v_part = kv[..., :width], kv[..., width:]
+        kv_out = ttnn.concat([self._kq_norm_one(k_part, "k"), v_part], dim=-1)
+        ttnn.deallocate(k_part)
+        ttnn.deallocate(v_part)
+        ttnn.deallocate(kv)
+        return self._kq_norm_one(q, "q"), kv_out
+
     def __call__(
         self,
         s: ttnn.Tensor,
@@ -3914,6 +4246,7 @@ class AttentionPairBias(Module):
         seq_mask: ttnn.Tensor | None = None,
         bias_precomputed: bool = False,
     ) -> ttnn.Tensor:
+        self._load_kq_norm()
         if not self.atom_level:
             qkv = ttnn.linear(
                 s,
@@ -3922,6 +4255,8 @@ class AttentionPairBias(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
             )
+            if self.kq_norm:
+                qkv = self._apply_kq_norm(qkv)
             qkv = ttnn.unsqueeze(qkv, 1)
             q, k, v = ttnn.experimental.nlp_create_qkv_heads(
                 qkv,
@@ -4052,6 +4387,9 @@ class AttentionPairBias(Module):
                 core_grid=CORE_GRID_MAIN,
                 dtype=_dtype(),
             )
+
+            if self.kq_norm:
+                q, kv = self._apply_kq_norm_atom(q, kv)
 
             if _ATOM_PAD_IN_TILE:
                 q = ttnn.pad(q, [[0, 0], [0, 0], [0, ATOM_DIM - ATOM_WINDOW], [0, 0]], 0.0)
@@ -4290,6 +4628,8 @@ class PairformerLayer(Module):
         scale_pair_bias: bool = True,
         fp32_softmax: bool = False,
         gated_move: bool = False,
+        transpose_bias: bool = True,
+        transpose_l1_reserve: int = 0,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.transform_s = transform_s
@@ -4318,6 +4658,8 @@ class PairformerLayer(Module):
             affinity=affinity,
             scale_pair_bias=scale_pair_bias,
             fp32_softmax=fp32_softmax,
+            transpose_bias=transpose_bias,
+            transpose_l1_reserve=transpose_l1_reserve,
         )
         self.transition_z = Transition(
             self.scope("transition_z"), compute_kernel_config
@@ -4401,6 +4743,8 @@ class Pairformer(Module):
         scale_pair_bias: bool = True,
         fp32_softmax: bool = False,
         gated_move: bool = False,
+        transpose_bias: bool = True,
+        transpose_l1_reserve: int = 0,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.blocks = [
@@ -4416,6 +4760,8 @@ class Pairformer(Module):
                 scale_pair_bias=scale_pair_bias,
                 fp32_softmax=fp32_softmax,
                 gated_move=gated_move,
+                transpose_bias=transpose_bias,
+                transpose_l1_reserve=transpose_l1_reserve,
             )
             for i in range(n_blocks)
         ]
@@ -5198,9 +5544,13 @@ class ConditionedTransitionBlock(Module):
         atom_level: bool,
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+        a_to_b_gate: bool = True,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.atom_level = atom_level
+        # Boltz-2 multiplies a third projection of `a` into b; the plain AF3/RF3 SwiGLU
+        # transition does not, and carries no a_to_b weight at all.
+        self.a_to_b_gate = a_to_b_gate
         self.adaln = AdaLN(
             atom_level, self.scope("adaln"), compute_kernel_config
         )
@@ -5209,7 +5559,9 @@ class ConditionedTransitionBlock(Module):
             ttnn.from_torch(chunk.t(), layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_dtype(ttnn.bfloat16))
             for chunk in [swish_chunk, gates_chunk]
         ]
-        self.a_to_b_weight = self.torch_to_tt("a_to_b.weight")
+        self.a_to_b_weight = (
+            self.torch_to_tt("a_to_b.weight") if a_to_b_gate else None
+        )
         self.b_to_a_weight = self.torch_to_tt("b_to_a.weight")
         self.output_projection_weight = self.torch_to_tt("output_projection.0.weight")
         self.output_projection_bias = self.torch_to_tt("output_projection.0.bias")
@@ -5231,15 +5583,19 @@ class ConditionedTransitionBlock(Module):
             core_grid=CORE_GRID_MAIN,
         )
         a_swish = ttnn.multiply_(gates, a_swish, input_tensor_a_activations=[ttnn.UnaryOpType.SILU])
-        a_b = ttnn.linear(
-            a,
-            self.a_to_b_weight,
-            compute_kernel_config=self.compute_kernel_config,
-            core_grid=CORE_GRID_MAIN,
-        )
-        ttnn.deallocate(a)
-        b = ttnn.multiply_(a_swish, a_b)
-        ttnn.deallocate(a_b)
+        if self.a_to_b_gate:
+            a_b = ttnn.linear(
+                a,
+                self.a_to_b_weight,
+                compute_kernel_config=self.compute_kernel_config,
+                core_grid=CORE_GRID_MAIN,
+            )
+            ttnn.deallocate(a)
+            b = ttnn.multiply_(a_swish, a_b)
+            ttnn.deallocate(a_b)
+        else:
+            ttnn.deallocate(a)
+            b = a_swish
         s = ttnn.linear(
             s,
             self.output_projection_weight,
@@ -5267,10 +5623,24 @@ class DiffusionTransformerLayer(Module):
         atom_level: bool,
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+        no_residual: bool = False,
+        a_to_b_gate: bool = True,
+        fp32_softmax: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.atom_level = atom_level
+        # RF3's `no_residual_connection_between_attention_and_transition`: the
+        # transition reads the block input rather than the post-attention residual.
+        self.no_residual = no_residual
         self.s_o = None
+        # Keyed by the shape of the `s` it was built from. The atom-level output
+        # projection is reused across a fold because `s` is t-independent there, but the
+        # cache used to have no key at all, so a second fold at a different length in the
+        # same process multiplied a stale window count against the current bias -- loud if
+        # the window counts differ, silent and wrong if two lengths round to the same one.
+        # tt-bio's wrapper path clears this in `reset_static_cache`; RF3 uses the raw
+        # modules and never reaches it.
+        self._s_o_key = None
         self.adaln = AdaLN(
             atom_level, self.scope("adaln"), compute_kernel_config
         )
@@ -5281,6 +5651,7 @@ class DiffusionTransformerLayer(Module):
             atom_level=atom_level,
             state_dict=self.scope("pair_bias_attn"),
             compute_kernel_config=compute_kernel_config,
+            fp32_softmax=fp32_softmax,
         )
         self.attn_pair_bias.token_dit = not atom_level
         self.output_projection_weight = self.torch_to_tt(
@@ -5291,6 +5662,7 @@ class DiffusionTransformerLayer(Module):
             atom_level,
             self.scope("transition"),
             compute_kernel_config,
+            a_to_b_gate=a_to_b_gate,
         )
 
     def __call__(
@@ -5306,7 +5678,8 @@ class DiffusionTransformerLayer(Module):
             b = self.attn_pair_bias(b, z)
         else:
             b = self.attn_pair_bias(b, z, keys_indexing)
-        if self.s_o is None:
+        key = tuple(s.shape)
+        if self.s_o is None or self._s_o_key != key:
             s_o = ttnn.linear(
                 s,
                 self.output_projection_weight,
@@ -5316,13 +5689,19 @@ class DiffusionTransformerLayer(Module):
                 activation="sigmoid",
             )
             if self.atom_level:
-                self.s_o = s_o
+                self.s_o, self._s_o_key = s_o, key
         else:
             s_o = self.s_o
         b = ttnn.multiply(s_o, b)
-        a = ttnn.add(a, b)
-        a_t = self.transition(a, s, large_seq_len=large_seq_len)
-        a = ttnn.add(a, a_t)
+        if self.no_residual:
+            # transition reads the block input, so it must be evaluated BEFORE a
+            # absorbs the attention output
+            a_t = self.transition(a, s, large_seq_len=large_seq_len)
+            a = ttnn.add(ttnn.add(a, b), a_t)
+        else:
+            a = ttnn.add(a, b)
+            a_t = self.transition(a, s, large_seq_len=large_seq_len)
+            a = ttnn.add(a, a_t)
         return a
 
 
@@ -5335,6 +5714,9 @@ class DiffusionTransformer(Module):
         atom_level: bool,
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+        no_residual: bool = False,
+        a_to_b_gate: bool = True,
+        fp32_softmax: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.layers = [
@@ -5344,6 +5726,9 @@ class DiffusionTransformer(Module):
                 atom_level,
                 self.scope(f"layers.{i}"),
                 compute_kernel_config,
+                no_residual=no_residual,
+                a_to_b_gate=a_to_b_gate,
+                fp32_softmax=fp32_softmax,
             )
             for i in range(n_layers)
         ]
@@ -5488,8 +5873,76 @@ class OuterProductMean(Module):
         self.norm_bias = self.torch_to_tt("norm.bias")
         self.a_weight = self.torch_to_tt("proj_a.weight")
         self.b_weight = self.torch_to_tt("proj_b.weight")
+        # RF3 biases both projections; the AF3-lineage models already here do not, so
+        # these are read only when present. They cannot be folded into the weights:
+        # the outer product of (Wx + c) and (W'x + c') carries cross terms.
+        self.a_bias = (
+            self.torch_to_tt("proj_a.bias") if "proj_a.bias" in self.weights else None
+        )
+        self.b_bias = (
+            self.torch_to_tt("proj_b.bias") if "proj_b.bias" in self.weights else None
+        )
         self.o_weight = self.torch_to_tt("proj_o.weight")
         self.o_bias = self.torch_to_tt("proj_o.bias")
+        self._o_folded: dict[tuple[int, int], ttnn.Tensor] = {}
+
+    def _proj_o_folded(self, C: int, D: int) -> ttnn.Tensor:
+        """`proj_o` as [C, D * c_z]. Its row index is `c * D + d`, so this is a plain
+        row-major reshape and not a permutation: (c*D + d) * c_z + k == c * (D*c_z) + d*c_z + k."""
+        w = self._o_folded.get((C, D))
+        if w is None:
+            w = ttnn.to_layout(self.o_weight, ttnn.ROW_MAJOR_LAYOUT)
+            w = ttnn.reshape(w, (C, -1))
+            w = ttnn.to_layout(w, ttnn.TILE_LAYOUT)
+            self._o_folded[(C, D)] = w
+        return w
+
+    def _small_depth(self, a: ttnn.Tensor, b: ttnn.Tensor, n_msa: int | None) -> ttnn.Tensor:
+        """The outer product mean without the outer product, one pass per MSA row.
+
+        `out_ijk = sum_cd a_ic b_jd W_cdk` is evaluated as `sum_d b_jd (sum_c a_ic W_cdk)`:
+        fold `proj_o` into the c projection, which is [I, C] x [C, D*c_z] and 4 MB of result,
+        then contract over d. Nothing of size I x J x C x D is ever built. Not bit-exact with
+        the materialised form -- the sum over (c, d) becomes a sum over c then a sum over d,
+        with one bf16 rounding of the partial in between -- so it is scored on-manifold rather
+        than by md5, the same way the chunked depth path above is.
+        """
+        S, I, C = a.shape
+        _, J, D = b.shape
+        scale = 1.0 / (n_msa if n_msa is not None else S)
+        w = self._proj_o_folded(C, D)
+        c_z = w.shape[1] // D
+        out = None
+        for s in range(S):
+            a_s = ttnn.reshape(a if S == 1 else a[s:s + 1], (I, C))
+            # The scale is linear and folds into the smallest tensor in the chain.
+            a_s = ttnn.multiply(a_s, scale)
+            A = ttnn.matmul(a_s, w, compute_kernel_config=self.compute_kernel_config,
+                            core_grid=CORE_GRID_MAIN)
+            ttnn.deallocate(a_s)
+            A = ttnn.to_layout(A, ttnn.ROW_MAJOR_LAYOUT)
+            A = ttnn.reshape(A, (I, D, c_z))
+            A = ttnn.to_layout(A, ttnn.TILE_LAYOUT)
+            # in1 carries the I batch, so in0 has to as well: ttnn broadcasts in1 over in0's
+            # batch and not the other way round. b is 16 MB expanded at 512 tokens against the
+            # 67 MB the transpose-free output layout saves.
+            b_s = ttnn.reshape(b if S == 1 else b[s:s + 1], (1, J, D))
+            b_exp = ttnn.repeat(b_s, (I, 1, 1))
+            part = ttnn.matmul(b_exp, A, compute_kernel_config=self.compute_kernel_config)
+            ttnn.deallocate(b_exp)
+            ttnn.deallocate(A)
+            if out is None:
+                out = part
+            else:
+                ttnn.add_(out, part)
+                ttnn.deallocate(part)
+        ttnn.deallocate(a)
+        ttnn.deallocate(b)
+        bias = ttnn.multiply(self.o_bias, scale) if self.scale_bias else self.o_bias
+        out = ttnn.add_(out, bias)
+        if self.scale_bias:
+            ttnn.deallocate(bias)
+        return ttnn.reshape(out, (1, *out.shape))
 
     def __call__(self, x: ttnn.Tensor, msa_mask: ttnn.Tensor | None = None, n_msa: int | None = None) -> ttnn.Tensor:
         # `x` may arrive as a LIST of depth chunks. The MSA trunk keeps its representation chunked
@@ -5515,12 +5968,14 @@ class OuterProductMean(Module):
             ac = ttnn.linear(
                 mc,
                 self.a_weight,
+                bias=self.a_bias,
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
             )
             bc = ttnn.linear(
                 mc,
                 self.b_weight,
+                bias=self.b_bias,
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
             )
@@ -5595,7 +6050,11 @@ class OuterProductMean(Module):
             b = ttnn.concat(b_parts, dim=0)
             for p in b_parts:
                 ttnn.deallocate(p)
+        if depth_parts is None and _OPM_SMALL_DEPTH and a.shape[0] <= OPM_SMALL_DEPTH_MAX:
+            OPM_SMALL_DEPTH_STATS[0] += 1
+            return self._small_depth(a, b, n_msa)
         if depth_parts is None:
+            OPM_SMALL_DEPTH_STATS[1] += 1
             S, I, C = a.shape
             _, J, D = b.shape
             a = ttnn.permute(a, (1, 2, 0))  # (I, C, S)
