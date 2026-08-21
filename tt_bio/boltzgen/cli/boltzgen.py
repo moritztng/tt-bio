@@ -1757,52 +1757,6 @@ def check_design_spec(
     print(f"Design specification visualization is written to {str(output_path)}")
 
 
-def _artifact_intact(path: Path, name: str | None = None) -> bool:
-    """Is a cached artifact actually complete?
-
-    A download killed mid-flight (worker respawn, watchdog, network blip) otherwise
-    poisons the cache forever: the partial file is treated as "present" and reused
-    on every later run. All our checkpoints (.ckpt/.pt) and the molecule bundle
-    (.zip) are PyTorch/zip archives, so reading the zip central directory is a cheap,
-    decisive completeness check — a truncated file has no valid central directory,
-    which is exactly the "PytorchStreamReader ... failed finding central directory"
-    failure. Anything else: just require a non-empty file. (``name`` lets us judge a
-    temp file by its final name.)"""
-    try:
-        suffix = Path(name or path.name).suffix.lower()
-        if suffix in (".ckpt", ".pt", ".pth", ".zip"):
-            import zipfile
-            return zipfile.is_zipfile(path)
-        return path.stat().st_size > 0
-    except Exception:
-        return False
-
-
-def _sweep_stale_staging(cache: Path, max_age_s: float = 3600.0) -> None:
-    """Remove orphaned ``.dl-*`` staging dirs/files left by a hard-killed run.
-
-    ``get_artifact_path`` stages each download in a fresh ``.dl-*`` entry and
-    cleans it in a ``finally`` — which a SIGKILL skips, so the staging lingers
-    forever (harmless: each run picks a unique name, but it grows unbounded).
-    Anything from a PRIOR process is safe to delete; the mtime gate keeps us
-    off an in-flight download (multi-device workers share this cache and each
-    spin up their own staging within seconds of each other, so a threshold
-    well past startup is safe in practice).
-    """
-    cutoff = time.time() - max_age_s
-    if not cache.is_dir():
-        return
-    for entry in cache.glob(".dl-*"):
-        try:
-            if entry.stat().st_mtime < cutoff:
-                if entry.is_dir():
-                    shutil.rmtree(entry, ignore_errors=True)
-                else:
-                    entry.unlink(missing_ok=True)
-        except OSError:
-            pass
-
-
 def get_artifact_path(
     args, artifact: str, repo_type: str = "model", verbose: bool = True
 ) -> Path:
@@ -1812,61 +1766,25 @@ def get_artifact_path(
     with ``--cache``):
       * ``huggingface:<repo_id>:<filename>`` — fetched once from the Hugging
         Face Hub. Used by the ``ARTIFACTS`` defaults (the tt-bio weight repos).
-      * ``http(s)://...``  — fetched once via ``urllib``.
+      * ``http(s)://...``  — fetched once via the shared downloader.
       * Anything else — treated as a local file path.
+
+    The fetching itself lives in ``tt_bio.weights``: one implementation of
+    stage -> verify -> atomic rename, shared with every other tt-bio model, so a
+    download killed mid-flight can never leave a truncated file that a later run
+    treats as present. This function is only the spec parser, because the flags
+    accept an arbitrary repo/URL/path, not just the registry rows.
     """
+    from tt_bio import weights
+
     cache = args.cache if args.cache is not None else (Path.home() / ".boltz" / "boltzgen")
     force = bool(getattr(args, "force_download", False))
     if artifact.startswith("huggingface:"):
-        _sweep_stale_staging(cache)
-        import tempfile
-        from huggingface_hub import hf_hub_download
-
         _, repo_id, filename = artifact.split(":", 2)
-        cache.mkdir(parents=True, exist_ok=True)
-        result = cache / filename
-        # Re-fetch when missing OR corrupt: trusting mere existence is what let a
-        # truncated download poison the cache permanently. Stage → verify → atomic
-        # rename, so the final path only ever holds a complete, intact file.
-        if force or not result.exists() or not _artifact_intact(result):
-            if result.exists() and not force:
-                print(f"Cached {result.name} is incomplete/corrupt — re-downloading")
-            print(f"Downloading {artifact} → {result}")
-            staging = Path(tempfile.mkdtemp(dir=str(cache), prefix=".dl-"))
-            try:
-                tmp = Path(hf_hub_download(repo_id=repo_id, filename=filename,
-                                           local_dir=str(staging), force_download=True))
-                if not _artifact_intact(tmp):
-                    raise RuntimeError(
-                        f"downloaded {filename} failed its integrity check "
-                        f"(truncated/corrupt archive) — refusing to cache it; please retry.")
-                result.parent.mkdir(parents=True, exist_ok=True)
-                os.replace(tmp, result)
-            finally:
-                shutil.rmtree(staging, ignore_errors=True)
+        result = weights.fetch_hf_file(repo_id, filename, cache, force=force)
     elif artifact.startswith(("http://", "https://")):
-        import tempfile
-        import urllib.request
-
-        cache.mkdir(parents=True, exist_ok=True)
-        _sweep_stale_staging(cache)
-        result = cache / artifact.rsplit("/", 1)[-1]
-        if force or not result.exists() or not _artifact_intact(result):
-            if result.exists() and not force:
-                print(f"Cached {result.name} is incomplete/corrupt — re-downloading")
-            print(f"Downloading {artifact} → {result}")
-            fd, tmp = tempfile.mkstemp(dir=str(cache), prefix=".dl-")
-            os.close(fd)
-            tmp = Path(tmp)
-            try:
-                urllib.request.urlretrieve(artifact, tmp)
-                if not _artifact_intact(tmp, result.name):
-                    raise RuntimeError(
-                        f"downloaded {result.name} failed its integrity check "
-                        f"(truncated/corrupt) — refusing to cache it; please retry.")
-                os.replace(tmp, result)
-            finally:
-                tmp.unlink(missing_ok=True)
+        result = weights.fetch_url(
+            artifact, Path(cache) / artifact.rsplit("/", 1)[-1], force=force)
     else:
         result = Path(artifact)
     if not result.exists():

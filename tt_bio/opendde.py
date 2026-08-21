@@ -338,8 +338,8 @@ def load_opendde_checkpoint(path=None, *, abag=False):
     ``opendde_abag.pt`` for the antibody-antigen checkpoint when ``abag=True``)."""
     import torch
     if path is None:
-        from huggingface_hub import hf_hub_download
-        path = hf_hub_download(OPENDDE_REPO, "opendde_abag.pt" if abag else "opendde.pt")
+        from tt_bio import weights
+        path = weights.fetch("opendde-abag" if abag else "opendde")
     ck = torch.load(path, map_location="cpu", weights_only=True)
     ck = ck.get("model", ck)
     return {k[len("module."):] if k.startswith("module.") else k: v for k, v in ck.items()}

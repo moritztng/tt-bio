@@ -89,30 +89,26 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
     only fall back to the local cache when that path is not writable on
     this host (the no-shared-FS multi-machine case).
     """
-    cache = Path(os.environ.get("BOLTZ_CACHE", str(Path("~/.boltz").expanduser())))
-    cache.mkdir(parents=True, exist_ok=True)
-    # Protenix-v2: resolve the v2 checkpoint. Prefer $PROTENIX_CKPT, then the worker
-    # cache, then download from the Hugging Face weights mirror on first use.
-    if cfg.get("model") == "protenix-v2":
-        from tt_bio.main import PROTENIX_REPO, download_mols, hf_artifact
+    from tt_bio import weights
 
+    cache = weights.cache_root()
+    cache.mkdir(parents=True, exist_ok=True)
+    # Every checkpoint below resolves through tt_bio.weights: it honours the row's env
+    # overrides, verifies whatever is already cached, and re-fetches only what is
+    # missing or corrupt, so a truncated file from a killed download can never be
+    # loaded as if it were complete.
+    if cfg.get("model") == "protenix-v2":
         cfg["msa_dir"] = _resolve_msa_dir(cfg.get("msa_dir"), cache)
-        cfg["protenix_ckpt"] = os.environ.get("PROTENIX_CKPT") or str(
-            hf_artifact(PROTENIX_REPO, "protenix-v2.pt", cache))
-        cfg["mol_dir"] = str(download_mols(cache))     # CCD templates for nucleic acids / ligands
+        cfg["protenix_ckpt"] = str(weights.fetch("protenix-v2"))
+        cfg["mol_dir"] = str(weights.fetch("mols"))    # CCD templates for nucleic acids / ligands
         return
-    # OpenFold3: checkpoint via $OF3_CKPT or the local cache (no tt-bio HF mirror;
-    # the p2 preview weights are distributed by the OpenFold consortium). MSA dir
-    # resolves exactly like Protenix-v2.
+    # OpenFold3: the p2 preview weights are distributed by the OpenFold consortium and
+    # tt-bio deliberately does not download them (no parameter licence published), so
+    # this row is verify-only: $TT_BIO_OPENFOLD3 / $OF3_CKPT or the local cache, and a
+    # truncated copy is reported as such instead of dying inside torch.load.
     if cfg.get("model") == "openfold3":
         cfg["msa_dir"] = _resolve_msa_dir(cfg.get("msa_dir"), cache)
-        of3_ckpt = os.environ.get("OF3_CKPT") or str(cache / "of3-p2-155k.pt")
-        if not Path(of3_ckpt).exists():
-            raise FileNotFoundError(
-                "OpenFold3 checkpoint not found. Set OF3_CKPT to the OF3 p2 preview "
-                "weights file (of3-p2-155k.pt) or place it at "
-                f"{cache / 'of3-p2-155k.pt'}.")
-        cfg["of3_ckpt"] = of3_ckpt
+        cfg["of3_ckpt"] = str(weights.fetch("openfold3"))
         tmpl_struct_dir = Path(
             os.environ.get("OF3_TEMPLATE_STRUCTURES")
             or str(cache / "of3_template_structures"))
@@ -125,12 +121,12 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
     # cache hit; a worker joined to a remote controller fetches on its own host.
     if cfg.get("model") == "rf3":
         cfg["msa_dir"] = _resolve_msa_dir(cfg.get("msa_dir"), cache)
-        from tt_bio.main import ensure_rf3_weights
-        cfg["rf3_ckpt"] = os.environ.get("RF3_CKPT") or str(ensure_rf3_weights(cache))
+        cfg["rf3_ckpt"] = str(weights.fetch("rf3"))
         return
-    # OpenDDE loads its weights from HF on the first fold.
+    # OpenDDE loads its weights from HF on the first fold; None means "the registry
+    # resolves it", which is what load_opendde_checkpoint does with a null path.
     if cfg.get("model", "boltz2") in ("opendde", "opendde-abag"):
-        cfg["opendde_ckpt"] = os.environ.get("OPENDDE_CKPT")
+        cfg["opendde_ckpt"] = os.environ.get("TT_BIO_OPENDDE") or os.environ.get("OPENDDE_CKPT")
         return
     # ESMFold2 loads its weights from HF on the first fold and needs no Boltz-2
     # checkpoints / molecule library — only a writable MSA dir.
@@ -141,12 +137,9 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
     # no Boltz-2 checkpoints/molecule library/MSA dir needed.
     if _is_embed_model(cfg.get("model", "boltz2")):
         return
-    from tt_bio.main import download_all
-
-    download_all(cache)
-    cfg["conf_ckpt"] = str(cache / "boltz2_conf.ckpt")
-    cfg["aff_ckpt"] = str(cache / "boltz2_aff.ckpt")
-    cfg["mol_dir"] = str(cache / "mols")
+    cfg["conf_ckpt"] = str(weights.fetch("boltz2-conf"))
+    cfg["aff_ckpt"] = str(weights.fetch("boltz2-aff"))
+    cfg["mol_dir"] = str(weights.fetch("mols"))
     cfg["msa_dir"] = _resolve_msa_dir(cfg.get("msa_dir"), cache)
 
 

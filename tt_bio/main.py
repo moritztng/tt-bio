@@ -127,6 +127,7 @@ import numpy as np
 import torch
 from rdkit import Chem
 
+from tt_bio import weights
 from tt_bio.data import const
 from tt_bio.data.mol import load_molecules
 from tt_bio.data.msa import run_mmseqs2
@@ -148,21 +149,16 @@ from tt_bio.runtime import (
 )
 from tt_bio.worker import SHARED_OUTPUT_PREFIX, run_worker_loop
 
-# Model weights and data live on the Hugging Face Hub and are fetched with
-# huggingface_hub — the single download path shared by every tt-bio model.
-BOLTZ2_REPO = "moritztng/boltz-2"            # Boltz-2 weights + molecules (MIT)
-PROTENIX_REPO = "TMF001/protenix-v2-weights"  # Protenix-v2 weights (Apache-2.0)
-
-# RFdiffusion3 (RFD3, BSD-3-Clause, Institute for Protein Design / UW) ships no
-# HF repo; its checkpoint lives on IPD's own file server. This is the same URL
-# RosettaCommons' `foundry install rfd3` installer downloads (read from the
-# `rc-foundry` package's checkpoint_registry.py) — tt-bio fetches it directly
-# over plain HTTPS so users never need `rc-foundry`/`foundry` installed.
-RFD3_CKPT_URL = "https://files.ipd.uw.edu/pub/rfd3/rfd3_foundry_2025_12_01_remapped.ckpt"
-# RF3 (RoseTTAFold3), the folding sibling of RFD3 in the same foundry repo, from the
-# same public mirror. Two other checkpoints exist (the 01/24 and 09/21 preprints);
-# upstream states the inference API is identical across all three.
-RF3_CKPT_URL = "https://files.ipd.uw.edu/pub/rf3/rf3_foundry_01_24_latest_remapped.ckpt"
+# Every weight and data artifact tt-bio downloads is one row in tt_bio.weights.
+# ARTIFACTS: source, repo/URL, destination, licence and env override in one place,
+# behind one fetch that stages, verifies and atomically renames. Re-exported here
+# because these two repo ids are referenced from scripts and docs.
+#
+# The IPD checkpoints (RFD3 and its folding sibling RF3, Institute for Protein
+# Design / UW) ship no HF repo; the registry points at the same files.ipd.uw.edu
+# URLs RosettaCommons' `foundry install` reads from its checkpoint_registry.py, so
+# users never need `rc-foundry` installed.
+from tt_bio.weights import BOLTZ2_REPO, PROTENIX_REPO
 
 # Single source of truth for the predict output-folder prefix. Each supported
 # --model maps to a model-named results folder; a model not listed falls back to
@@ -209,66 +205,36 @@ def predict_results_dir_name(model: str, stem: str) -> str:
     return f"{_MODEL_RESULTS_PREFIX.get(model, 'results')}_{stem}"
 
 
-def hf_artifact(repo_id: str, filename: str, dest_dir: Path) -> Path:
-    """Fetch one file from a Hugging Face repo into dest_dir on first use and
-    reuse the local copy thereafter. Used by every tt-bio model (Boltz-2,
-    BoltzGen, Protenix-v2) so there is one artifact-download path."""
-    dest = dest_dir / filename
-    if not dest.exists():
-        from huggingface_hub import hf_hub_download
-        dest_dir.mkdir(parents=True, exist_ok=True)
-        click.echo(f"Downloading {filename}")
-        hf_hub_download(repo_id=repo_id, filename=filename, local_dir=str(dest_dir))
-    return dest
-
-
 def ensure_rfd3_weights(cache: Path) -> Path:
-    """Fetch the RFD3 checkpoint from files.ipd.uw.edu on first use and extract
-    the TokenInitializer/DiffusionModule weights `tt-bio design` loads. Cached
-    under cache/rfd3 thereafter."""
-    from tt_bio.rfd3.design import extract_rfd3_weights
-    weights_dir = cache / "rfd3" / "weights"
-    if (weights_dir / "diffusion_module.real_weights.pt").exists():
-        return weights_dir
-    ckpt_path = cache / "rfd3" / "rfd3_foundry_2025_12_01_remapped.ckpt"
-    if not ckpt_path.exists():
-        ckpt_path.parent.mkdir(parents=True, exist_ok=True)
-        click.echo("Downloading RFD3 checkpoint (~2.5 GiB, files.ipd.uw.edu)")
-        _download_file(RFD3_CKPT_URL, ckpt_path)
-    click.echo("Extracting RFD3 weights")
-    extract_rfd3_weights(ckpt_path, weights_dir)
-    ckpt_path.unlink()  # only the extracted weights are ever loaded again
-    return weights_dir
+    """TokenInitializer/DiffusionModule weights `tt-bio design --model rfd3` loads.
+
+    Fetches and extracts the RFD3 checkpoint on first use, then discards it: only the
+    extracted weights are ever read again. See tt_bio.weights for why the extraction
+    is staged before the checkpoint is deleted."""
+    return weights.fetch("rfd3", root=cache)
 
 
 def ensure_rf3_weights(cache: Path) -> Path:
-    """Fetch the RF3 checkpoint from files.ipd.uw.edu on first use; cached under
-    cache/rf3 thereafter. Unlike RFD3 the whole checkpoint is loaded (RF3 reads the
-    full `shadow.` EMA tree), so there is nothing to extract and discard."""
-    ckpt = cache / "rf3" / "rf3_foundry_01_24_latest_remapped.ckpt"
-    if not ckpt.exists():
-        ckpt.parent.mkdir(parents=True, exist_ok=True)
-        click.echo("Downloading RF3 checkpoint (~2.8 GiB, files.ipd.uw.edu)")
-        _download_file(RF3_CKPT_URL, ckpt)
-    return ckpt
+    """The RF3 checkpoint. Unlike RFD3 the whole file is loaded (RF3 reads the full
+    `shadow.` EMA tree), so there is nothing to extract and discard."""
+    return weights.fetch("rf3", root=cache)
 
 
 def download_mols(cache: Path) -> Path:
-    """Ensure the CCD molecule library is present under cache/mols; return its path.
-    Used by Boltz-2 (ligands/affinity) and Protenix-v2 (nucleic-acid / ligand templates)."""
-    tar_path = hf_artifact(BOLTZ2_REPO, "mols.tar", cache)
-    if not (cache / "mols").exists():
-        click.echo("Extracting mols.tar")
-        with tarfile.open(tar_path) as tar:
-            tar.extractall(cache)
-    return cache / "mols"
+    """The CCD molecule library, extracted under cache/mols. Used by Boltz-2
+    (ligands/affinity) and Protenix-v2 (nucleic-acid / ligand templates)."""
+    return weights.fetch("mols", root=cache)
 
 
-def download_all(cache: Path) -> None:
-    """Fetch the Boltz-2 checkpoints and molecule library (Hugging Face, MIT)."""
-    download_mols(cache)
-    hf_artifact(BOLTZ2_REPO, "boltz2_conf.ckpt", cache)
-    hf_artifact(BOLTZ2_REPO, "boltz2_aff.ckpt", cache)
+def download_all(cache: Path, model: str = "boltz2") -> None:
+    """Fetch every artifact `model` needs, in the parent, before any worker starts.
+
+    Fanning out first has N local workers each see the same multi-GB file missing and
+    race to download it into one cache dir. Registry-driven, so a new model is covered
+    without another special case here; the hand-written version covered protenix-v2 and
+    rf3 only, and downloaded the 4.2 GB of Boltz-2 checkpoints for every model whether
+    or not they were needed. Rows tt-bio does not download (OpenFold3) are skipped."""
+    weights.fetch_models(model, root=cache)
 
 
 def compute_msa(seqs: dict[str, str], target_id: str, msa_dir: Path, url: str, strategy: str,
@@ -451,36 +417,13 @@ def _find_mmseqs(colabfold_bin: str | None = None) -> str | None:
     return None
 
 
-def _download_file(url: str, dest: Path, max_retries: int = 5) -> None:
-    """Download a large file with retries and tool fallback."""
-    click.echo(f"  Downloading {dest.name} ...")
-    tools = []
-    if shutil.which("aria2c"):
-        tools.append(("aria2c", [
-            "aria2c", "--max-connection-per-server=8", "--split=8",
-            "--allow-overwrite=true", "--auto-file-renaming=false",
-            "--retry-wait=5", "--max-tries=0",
-            "-o", dest.name, "-d", str(dest.parent), url]))
-    if shutil.which("curl"):
-        tools.append(("curl", [
-            "curl", "-L", "--retry", "10", "--retry-delay", "5",
-            "-C", "-", "--progress-bar", "-o", str(dest), url]))
-    if shutil.which("wget"):
-        tools.append(("wget", [
-            "wget", "-c", "--tries=10", "--wait=5",
-            "-O", str(dest), url]))
-    if not tools:
-        click.echo("    (no aria2c/curl/wget — using Python urllib, may be slow)")
-        urllib.request.urlretrieve(url, dest)
-        return
-    for attempt in range(1, max_retries + 1):
-        for name, cmd in tools:
-            try:
-                subprocess.run(cmd, check=True)
-                return
-            except subprocess.CalledProcessError:
-                click.echo(f"  {name} failed (attempt {attempt}/{max_retries}), retrying ...")
-    raise RuntimeError(f"Download failed after {max_retries} attempts: {url}")
+def _download_file(url: str, dest: Path) -> None:
+    """Download an MSA database tarball. Routed through the shared weight-fetch path so
+    an interrupted download cannot leave a truncated file that a later run treats as
+    present: staged next to the destination, size-checked against the server's
+    Content-Length, then renamed in. The structural archive check is skipped because
+    these tarballs are hundreds of GB, too large to scan."""
+    weights.fetch_url(url, dest, check_archive=False)
 
 
 def _recommended_threads() -> int:
@@ -1610,6 +1553,130 @@ def install_deps():
     install_system_deps()
 
 
+@cli.command("weights")
+@click.argument("models", nargs=-1)
+@click.option("--download", is_flag=True,
+              help="Fetch what is missing or corrupt (every model, or just MODELS).")
+@click.option("--prune", is_flag=True,
+              help="Reclaim disk: superseded Hugging Face revisions, staging leftovers, "
+                   "and the artifacts of any MODELS listed.")
+@click.option("--force", is_flag=True, help="With --download: re-fetch even if intact.")
+@click.option("--yes", is_flag=True, help="With --prune: delete without confirming.")
+@click.option("--cache", default=None, type=click.Path(),
+              help="Weight cache directory (default: $TT_BIO_CACHE, $BOLTZ_CACHE, or ~/.boltz).")
+def weights_cmd(models, download, prune, force, yes, cache):
+    """List, download or prune the model weights.
+
+    \b
+        tt-bio weights                       what is on this host, and where
+        tt-bio weights --download            fetch everything that is missing
+        tt-bio weights --download boltz2     fetch one model's artifacts
+        tt-bio weights --prune               reclaim superseded/leftover files
+
+    Every artifact is verified, not just checked for existence, so a download killed
+    mid-flight shows up as `corrupt` here and is re-fetched rather than loaded.
+    """
+    root = Path(cache).expanduser() if cache else None
+    try:
+        rows = weights.artifacts_for(*models)
+    except KeyError as e:
+        raise click.ClickException(str(e).strip("\"'"))
+
+    if download:
+        for art in rows:
+            if art.source == "manual":
+                click.echo(f"{art.key}: not downloadable ({art.licence}); "
+                           f"set ${art.env} to your copy")
+                continue
+            weights.fetch(art.key, root=root, force=force)
+
+    if prune:
+        _prune_weights(rows if models else (), root, yes)
+        return
+
+    _print_weights_table(rows, root)
+
+
+def _print_weights_table(rows, root) -> None:
+    """One line per artifact: what it is, whether this host has it, and what a fold
+    would load. Every consumer of "the artifact list" reads the same registry, so this
+    cannot drift from what the models actually fetch."""
+    stats = [weights.status(a.key, root) for a in rows]
+    colour = {"present": "green", "missing": "yellow", "corrupt": "red", "partial": "red"}
+    width = max(len(s.artifact.key) for s in stats)
+    click.echo(f"{'ARTIFACT':{width}s}  {'MODEL':14s} {'SOURCE':8s} {'STATUS':8s} "
+               f"{'SIZE':>8s}  PATH")
+    for st in stats:
+        a = st.artifact
+        size = f"{st.on_disk / (1 << 30):.2f}G" if st.on_disk else "-"
+        note = f"  ({st.extra})" if st.extra else ""
+        if st.override:
+            note += f"  [${st.override}]"
+        click.echo(f"{a.key:{width}s}  {a.models[0]:14s} {a.source:8s} "
+                   + click.style(f"{st.state:8s}", fg=colour.get(st.state))
+                   + f" {size:>8s}  {st.path or '-'}{note}")
+
+    have = sum(s.on_disk for s in stats)
+    want = sum(s.artifact.approx_bytes for s in stats if s.state != "present")
+    bad = [s for s in stats if s.state in ("corrupt", "partial")]
+    click.echo(f"\n{sum(1 for s in stats if s.state == 'present')}/{len(stats)} present, "
+               f"{have / (1 << 30):.1f} GiB on disk"
+               + (f", {want / (1 << 30):.1f} GiB to fetch (tt-bio weights --download)" if want else ""))
+    click.echo(f"cache root          {weights.cache_root(root)}")
+    click.echo(f"hugging face cache  {_hf_cache_dir()}")
+    click.echo("both move together with $TT_BIO_CACHE; every row also takes its own "
+               "$TT_BIO_<ARTIFACT> override")
+    if bad:
+        click.secho(f"{len(bad)} artifact(s) failed verification and will be re-fetched "
+                    f"on next use: {', '.join(s.artifact.key for s in bad)}", fg="red")
+
+    junk = weights.unmanaged(root)
+    repos = [(r, n) for r, n in weights.unmanaged_repos() if n > (1 << 26)]
+    if junk or repos:
+        click.echo("\nNot claimed by any model (left alone; the caches are shared):")
+        for path, n in junk:
+            click.echo(f"  {n / (1 << 30):6.2f}G  {path}")
+        for repo, n in repos:
+            click.echo(f"  {n / (1 << 30):6.2f}G  hf:{repo}")
+
+
+def _hf_cache_dir() -> str:
+    from huggingface_hub import constants
+
+    return str(constants.HF_HUB_CACHE)
+
+
+def _prune_weights(rows, root, yes: bool) -> None:
+    """Reclaim disk. Superseded hub revisions and staging leftovers are always safe;
+    a model's own artifacts go only when that model was named on the command line."""
+    revs, rev_bytes = weights.superseded_revisions()
+    staging = weights.stale_staging(root)
+    files = [(p, n) for a in rows for p in weights.artifact_paths(a.key, root)
+             for n in (weights._tree_bytes(p),)]
+    total = rev_bytes + sum(n for _, n in staging) + sum(n for _, n in files)
+    if not total:
+        click.echo("Nothing to prune.")
+        return
+
+    if revs:
+        click.echo(f"{rev_bytes / (1 << 30):6.2f}G  {len(revs)} superseded Hugging Face "
+                   f"revision(s)")
+    for path, n in staging:
+        click.echo(f"{n / (1 << 30):6.2f}G  staging leftover {path}")
+    for path, n in files:
+        click.echo(f"{n / (1 << 30):6.2f}G  {path}")
+    click.echo(f"{total / (1 << 30):6.2f}G  total")
+    if not yes and not click.confirm("Delete these?", default=False):
+        click.echo("Nothing deleted.")
+        return
+
+    freed = weights.delete_revisions(revs) if revs else 0
+    for path, _n in staging + files:
+        shutil.rmtree(path, ignore_errors=True) if path.is_dir() else path.unlink(missing_ok=True)
+    freed += sum(n for _, n in staging + files)
+    click.echo(f"Freed {freed / (1 << 30):.2f} GiB")
+
+
 @cli.command("worker")
 @click.option("--connect", required=True, help="Controller URL, e.g. http://HOST:8765")
 @click.option("--accelerator", type=click.Choice(["gpu", "cpu", "tenstorrent"]), default="tenstorrent")
@@ -2615,18 +2682,10 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         results_path = out / "results.json"
         run_payload = {"data": str(data), "out_dir": str(out_dir_path), "result_dir": str(out),
                        "jobs": job_payloads(jobs), "config": worker_cfg, "owner": owner}
-        # Pre-fetch the Protenix-v2 checkpoint ONCE in the parent before fanning
-        # out: otherwise N local workers all see it missing and race to download
-        # the same 1.9 GB file into one cache dir, corrupting/racing it (workers
-        # fail with FileNotFoundError). Mirrors Boltz-2's parent-side download_all.
-        # Skipped in --controller mode: remote workers fetch on their own hosts.
-        if model == "protenix-v2" and not controller and not os.environ.get("PROTENIX_CKPT"):
-            ckpt_cache = Path(os.environ.get("BOLTZ_CACHE", str(Path("~/.boltz").expanduser())))
-            hf_artifact(PROTENIX_REPO, "protenix-v2.pt", ckpt_cache)
-        # RF3's checkpoint is 3.0 GB from files.ipd.uw.edu, same race, same fix.
-        if model == "rf3" and not controller and not os.environ.get("RF3_CKPT"):
-            ensure_rf3_weights(Path(os.environ.get(
-                "BOLTZ_CACHE", str(Path("~/.boltz").expanduser()))))
+        # Fetch this model's weights ONCE here, before fanning out. Skipped in
+        # --controller mode: remote workers fetch on their own hosts.
+        if not controller:
+            download_all(Path(cache).expanduser(), model)
         if controller:
             failed = _dispatch_to_controller(controller, run_payload, total=len(jobs), results_path=results_path,
                                              struct_dir=struct_dir, model=model, debug=debug, log=log, run_id=run_id)
@@ -2649,7 +2708,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     # local MSA DB — the connected workers resolve checkpoints and MSAs on their
     # own hosts. msa_db_path (if given) is passed through for the workers to use.
     if not controller:
-        download_all(cache)
+        download_all(cache, model)
         if use_envdb and not use_msa_server and not msa_db_path:
             raise RuntimeError(
                 "--use_envdb requires offline MSA DB setup.\n"
