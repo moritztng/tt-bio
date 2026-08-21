@@ -1,0 +1,956 @@
+{
+ "pxdesign_only": {
+  "band": {
+   "plddt": 4.481827,
+   "i_ptm": 0.602145,
+   "i_pae": 0.714441
+  },
+  "criteria": {
+   "plddt": {
+    "bar": 0.8,
+    "sense": ">",
+    "n": 24,
+    "icc": 0.2079,
+    "n_eff": 7.3,
+    "observed_max_abs_delta": 0.278268,
+    "base_width": 0.672802,
+    "observed_max_content_at_n": 0.8827,
+    "observed_max_content_at_neff": 0.6634,
+    "model": "unimodal",
+    "model_reason": "half-normal refuted by leave-one-backbone-out, distribution-free unimodal bound instead",
+    "iid_recipe_survives_holdout": false,
+    "holdout_shortfall_halfnorm": 16.593,
+    "holdout_shortfall_unimodal": 6.661,
+    "inflation": 6.661,
+    "unbounded": false,
+    "width": 4.481827,
+    "width_over_observed_max": 16.106,
+    "halfnorm_width": 0.24648,
+    "unimodal_width": 0.672802,
+    "holdout": [
+     {
+      "fit_on": "sample1",
+      "recipe": "clustered",
+      "model": "halfnorm",
+      "width": 0.01677,
+      "heldout_max": 0.278268,
+      "covers": false
+     },
+     {
+      "fit_on": "sample1",
+      "recipe": "clustered",
+      "model": "unimodal",
+      "width": 0.041773,
+      "heldout_max": 0.278268,
+      "covers": false
+     },
+     {
+      "fit_on": "sample1",
+      "recipe": "iid",
+      "model": "halfnorm",
+      "width": 0.010087,
+      "heldout_max": 0.278268,
+      "covers": false
+     },
+     {
+      "fit_on": "sample1",
+      "recipe": "iid",
+      "model": "unimodal",
+      "width": 0.025752,
+      "heldout_max": 0.278268,
+      "covers": false
+     },
+     {
+      "fit_on": "sample2",
+      "recipe": "clustered",
+      "model": "halfnorm",
+      "width": 0.496226,
+      "heldout_max": 0.005417,
+      "covers": true
+     },
+     {
+      "fit_on": "sample2",
+      "recipe": "clustered",
+      "model": "unimodal",
+      "width": 1.243395,
+      "heldout_max": 0.005417,
+      "covers": true
+     },
+     {
+      "fit_on": "sample2",
+      "recipe": "iid",
+      "model": "halfnorm",
+      "width": 0.298492,
+      "heldout_max": 0.005417,
+      "covers": true
+     },
+     {
+      "fit_on": "sample2",
+      "recipe": "iid",
+      "model": "unimodal",
+      "width": 0.76612,
+      "heldout_max": 0.005417,
+      "covers": true
+     }
+    ]
+   },
+   "i_ptm": {
+    "bar": 0.5,
+    "sense": ">",
+    "n": 24,
+    "icc": 0.0,
+    "n_eff": 24.0,
+    "observed_max_abs_delta": 0.282195,
+    "base_width": 0.602145,
+    "observed_max_content_at_n": 0.8827,
+    "observed_max_content_at_neff": 0.8827,
+    "model": "unimodal",
+    "model_reason": "half-normal refuted by leave-one-backbone-out, distribution-free unimodal bound instead",
+    "iid_recipe_survives_holdout": false,
+    "holdout_shortfall_halfnorm": 2.735,
+    "holdout_shortfall_unimodal": 0.95,
+    "inflation": 1.0,
+    "unbounded": false,
+    "width": 0.602145,
+    "width_over_observed_max": 2.134,
+    "halfnorm_width": 0.212539,
+    "unimodal_width": 0.602145,
+    "holdout": [
+     {
+      "fit_on": "sample1",
+      "recipe": "clustered",
+      "model": "halfnorm",
+      "width": 0.103198,
+      "heldout_max": 0.282195,
+      "covers": false
+     },
+     {
+      "fit_on": "sample1",
+      "recipe": "clustered",
+      "model": "unimodal",
+      "width": 0.296988,
+      "heldout_max": 0.282195,
+      "covers": true
+     },
+     {
+      "fit_on": "sample1",
+      "recipe": "iid",
+      "model": "halfnorm",
+      "width": 0.103198,
+      "heldout_max": 0.282195,
+      "covers": false
+     },
+     {
+      "fit_on": "sample1",
+      "recipe": "iid",
+      "model": "unimodal",
+      "width": 0.296988,
+      "heldout_max": 0.282195,
+      "covers": true
+     },
+     {
+      "fit_on": "sample2",
+      "recipe": "clustered",
+      "model": "halfnorm",
+      "width": 0.330233,
+      "heldout_max": 0.077288,
+      "covers": true
+     },
+     {
+      "fit_on": "sample2",
+      "recipe": "clustered",
+      "model": "unimodal",
+      "width": 0.897739,
+      "heldout_max": 0.077288,
+      "covers": true
+     },
+     {
+      "fit_on": "sample2",
+      "recipe": "iid",
+      "model": "halfnorm",
+      "width": 0.330233,
+      "heldout_max": 0.077288,
+      "covers": true
+     },
+     {
+      "fit_on": "sample2",
+      "recipe": "iid",
+      "model": "unimodal",
+      "width": 0.897739,
+      "heldout_max": 0.077288,
+      "covers": true
+     }
+    ]
+   },
+   "i_pae": {
+    "bar": 0.35,
+    "sense": "<",
+    "n": 24,
+    "icc": 0.0044,
+    "n_eff": 22.89,
+    "observed_max_abs_delta": 0.291063,
+    "base_width": 0.585985,
+    "observed_max_content_at_n": 0.8827,
+    "observed_max_content_at_neff": 0.8773,
+    "model": "unimodal",
+    "model_reason": "half-normal refuted by leave-one-backbone-out, distribution-free unimodal bound instead",
+    "iid_recipe_survives_holdout": false,
+    "holdout_shortfall_halfnorm": 3.511,
+    "holdout_shortfall_unimodal": 1.219,
+    "inflation": 1.219,
+    "unbounded": false,
+    "width": 0.714441,
+    "width_over_observed_max": 2.455,
+    "halfnorm_width": 0.206092,
+    "unimodal_width": 0.585985,
+    "holdout": [
+     {
+      "fit_on": "sample1",
+      "recipe": "clustered",
+      "model": "halfnorm",
+      "width": 0.082912,
+      "heldout_max": 0.291063,
+      "covers": false
+     },
+     {
+      "fit_on": "sample1",
+      "recipe": "clustered",
+      "model": "unimodal",
+      "width": 0.23873,
+      "heldout_max": 0.291063,
+      "covers": false
+     },
+     {
+      "fit_on": "sample1",
+      "recipe": "iid",
+      "model": "halfnorm",
+      "width": 0.081896,
+      "heldout_max": 0.291063,
+      "covers": false
+     },
+     {
+      "fit_on": "sample1",
+      "recipe": "iid",
+      "model": "unimodal",
+      "width": 0.23583,
+      "heldout_max": 0.291063,
+      "covers": false
+     },
+     {
+      "fit_on": "sample2",
+      "recipe": "clustered",
+      "model": "halfnorm",
+      "width": 0.326711,
+      "heldout_max": 0.058574,
+      "covers": true
+     },
+     {
+      "fit_on": "sample2",
+      "recipe": "clustered",
+      "model": "unimodal",
+      "width": 0.900426,
+      "heldout_max": 0.058574,
+      "covers": true
+     },
+     {
+      "fit_on": "sample2",
+      "recipe": "iid",
+      "model": "halfnorm",
+      "width": 0.322707,
+      "heldout_max": 0.058574,
+      "covers": true
+     },
+     {
+      "fit_on": "sample2",
+      "recipe": "iid",
+      "model": "unimodal",
+      "width": 0.88982,
+      "heldout_max": 0.058574,
+      "covers": true
+     }
+    ]
+   }
+  },
+  "cascade": {
+   "rule": "asymmetric-conjunction",
+   "n": 24,
+   "device_resolved": 0,
+   "device_resolved_fraction": 0.0,
+   "referred": 24,
+   "referred_ids": [
+    "sample1_t0.1_s1",
+    "sample1_t0.1_s2",
+    "sample1_t0.1_s3",
+    "sample1_t0.2_s1",
+    "sample1_t0.2_s2",
+    "sample1_t0.2_s3",
+    "sample1_t0.3_s1",
+    "sample1_t0.3_s2",
+    "sample1_t0.3_s3",
+    "sample1_t0.5_s1",
+    "sample1_t0.5_s2",
+    "sample1_t0.5_s3",
+    "sample2_t0.1_s1",
+    "sample2_t0.1_s2",
+    "sample2_t0.1_s3",
+    "sample2_t0.2_s1",
+    "sample2_t0.2_s2",
+    "sample2_t0.2_s3",
+    "sample2_t0.3_s1",
+    "sample2_t0.3_s2",
+    "sample2_t0.3_s3",
+    "sample2_t0.5_s1",
+    "sample2_t0.5_s2",
+    "sample2_t0.5_s3"
+   ],
+   "decisions_reproduced": 24,
+   "mis_resolved_ids": [],
+   "seconds_per_design": 304.0,
+   "speedup_vs_host_only": 0.98
+  }
+ },
+ "pooled": {
+  "band": {
+   "plddt": 11.326116,
+   "i_ptm": 0.791058,
+   "i_pae": 0.771959
+  },
+  "criteria": {
+   "plddt": {
+    "bar": 0.8,
+    "sense": ">",
+    "n": 50,
+    "icc": 0.2162,
+    "n_eff": 14.34,
+    "observed_max_abs_delta": 0.278268,
+    "base_width": 0.396765,
+    "observed_max_content_at_n": 0.9418,
+    "observed_max_content_at_neff": 0.8115,
+    "model": "unimodal",
+    "model_reason": "half-normal refuted by leave-one-backbone-out, distribution-free unimodal bound instead",
+    "iid_recipe_survives_holdout": false,
+    "holdout_shortfall_halfnorm": 57.081,
+    "holdout_shortfall_unimodal": 28.546,
+    "inflation": 28.546,
+    "unbounded": false,
+    "width": 11.326116,
+    "width_over_observed_max": 40.702,
+    "halfnorm_width": 0.14046,
+    "unimodal_width": 0.396765,
+    "holdout": [
+     {
+      "fit_on": "binder",
+      "recipe": "clustered",
+      "model": "halfnorm",
+      "width": 0.004875,
+      "heldout_max": 0.278268,
+      "covers": false
+     },
+     {
+      "fit_on": "binder",
+      "recipe": "clustered",
+      "model": "unimodal",
+      "width": 0.009748,
+      "heldout_max": 0.278268,
+      "covers": false
+     },
+     {
+      "fit_on": "binder",
+      "recipe": "iid",
+      "model": "halfnorm",
+      "width": 0.002856,
+      "heldout_max": 0.278268,
+      "covers": false
+     },
+     {
+      "fit_on": "binder",
+      "recipe": "iid",
+      "model": "unimodal",
+      "width": 0.005971,
+      "heldout_max": 0.278268,
+      "covers": false
+     },
+     {
+      "fit_on": "binder_1",
+      "recipe": "clustered",
+      "model": "halfnorm",
+      "width": 0.030461,
+      "heldout_max": 0.278268,
+      "covers": false
+     },
+     {
+      "fit_on": "binder_1",
+      "recipe": "clustered",
+      "model": "unimodal",
+      "width": 0.071762,
+      "heldout_max": 0.278268,
+      "covers": false
+     },
+     {
+      "fit_on": "binder_1",
+      "recipe": "iid",
+      "model": "halfnorm",
+      "width": 0.017848,
+      "heldout_max": 0.278268,
+      "covers": false
+     },
+     {
+      "fit_on": "binder_1",
+      "recipe": "iid",
+      "model": "unimodal",
+      "width": 0.04337,
+      "heldout_max": 0.278268,
+      "covers": false
+     },
+     {
+      "fit_on": "sample1",
+      "recipe": "clustered",
+      "model": "halfnorm",
+      "width": 0.01709,
+      "heldout_max": 0.278268,
+      "covers": false
+     },
+     {
+      "fit_on": "sample1",
+      "recipe": "clustered",
+      "model": "unimodal",
+      "width": 0.04254,
+      "heldout_max": 0.278268,
+      "covers": false
+     },
+     {
+      "fit_on": "sample1",
+      "recipe": "iid",
+      "model": "halfnorm",
+      "width": 0.010087,
+      "heldout_max": 0.278268,
+      "covers": false
+     },
+     {
+      "fit_on": "sample1",
+      "recipe": "iid",
+      "model": "unimodal",
+      "width": 0.025752,
+      "heldout_max": 0.278268,
+      "covers": false
+     },
+     {
+      "fit_on": "sample2",
+      "recipe": "clustered",
+      "model": "halfnorm",
+      "width": 0.505689,
+      "heldout_max": 0.015479,
+      "covers": true
+     },
+     {
+      "fit_on": "sample2",
+      "recipe": "clustered",
+      "model": "unimodal",
+      "width": 1.266234,
+      "heldout_max": 0.015479,
+      "covers": true
+     },
+     {
+      "fit_on": "sample2",
+      "recipe": "iid",
+      "model": "halfnorm",
+      "width": 0.298492,
+      "heldout_max": 0.015479,
+      "covers": true
+     },
+     {
+      "fit_on": "sample2",
+      "recipe": "iid",
+      "model": "unimodal",
+      "width": 0.76612,
+      "heldout_max": 0.015479,
+      "covers": true
+     }
+    ]
+   },
+   "i_ptm": {
+    "bar": 0.5,
+    "sense": ">",
+    "n": 50,
+    "icc": 0.0075,
+    "n_eff": 46.03,
+    "observed_max_abs_delta": 0.282195,
+    "base_width": 0.412675,
+    "observed_max_content_at_n": 0.9418,
+    "observed_max_content_at_neff": 0.937,
+    "model": "unimodal",
+    "model_reason": "half-normal refuted by leave-one-backbone-out, distribution-free unimodal bound instead",
+    "iid_recipe_survives_holdout": false,
+    "holdout_shortfall_halfnorm": 5.501,
+    "holdout_shortfall_unimodal": 1.917,
+    "inflation": 1.917,
+    "unbounded": false,
+    "width": 0.791058,
+    "width_over_observed_max": 2.803,
+    "halfnorm_width": 0.143806,
+    "unimodal_width": 0.412675,
+    "holdout": [
+     {
+      "fit_on": "binder",
+      "recipe": "clustered",
+      "model": "halfnorm",
+      "width": 0.0513,
+      "heldout_max": 0.282195,
+      "covers": false
+     },
+     {
+      "fit_on": "binder",
+      "recipe": "clustered",
+      "model": "unimodal",
+      "width": 0.147214,
+      "heldout_max": 0.282195,
+      "covers": false
+     },
+     {
+      "fit_on": "binder",
+      "recipe": "iid",
+      "model": "halfnorm",
+      "width": 0.050208,
+      "heldout_max": 0.282195,
+      "covers": false
+     },
+     {
+      "fit_on": "binder",
+      "recipe": "iid",
+      "model": "unimodal",
+      "width": 0.144137,
+      "heldout_max": 0.282195,
+      "covers": false
+     },
+     {
+      "fit_on": "binder_1",
+      "recipe": "clustered",
+      "model": "halfnorm",
+      "width": 0.108441,
+      "heldout_max": 0.282195,
+      "covers": false
+     },
+     {
+      "fit_on": "binder_1",
+      "recipe": "clustered",
+      "model": "unimodal",
+      "width": 0.311589,
+      "heldout_max": 0.282195,
+      "covers": true
+     },
+     {
+      "fit_on": "binder_1",
+      "recipe": "iid",
+      "model": "halfnorm",
+      "width": 0.106134,
+      "heldout_max": 0.282195,
+      "covers": false
+     },
+     {
+      "fit_on": "binder_1",
+      "recipe": "iid",
+      "model": "unimodal",
+      "width": 0.305066,
+      "heldout_max": 0.282195,
+      "covers": true
+     },
+     {
+      "fit_on": "sample1",
+      "recipe": "clustered",
+      "model": "halfnorm",
+      "width": 0.10538,
+      "heldout_max": 0.282195,
+      "covers": false
+     },
+     {
+      "fit_on": "sample1",
+      "recipe": "clustered",
+      "model": "unimodal",
+      "width": 0.303229,
+      "heldout_max": 0.282195,
+      "covers": true
+     },
+     {
+      "fit_on": "sample1",
+      "recipe": "iid",
+      "model": "halfnorm",
+      "width": 0.103198,
+      "heldout_max": 0.282195,
+      "covers": false
+     },
+     {
+      "fit_on": "sample1",
+      "recipe": "iid",
+      "model": "unimodal",
+      "width": 0.296988,
+      "heldout_max": 0.282195,
+      "covers": true
+     },
+     {
+      "fit_on": "sample2",
+      "recipe": "clustered",
+      "model": "halfnorm",
+      "width": 0.337215,
+      "heldout_max": 0.077288,
+      "covers": true
+     },
+     {
+      "fit_on": "sample2",
+      "recipe": "clustered",
+      "model": "unimodal",
+      "width": 0.915884,
+      "heldout_max": 0.077288,
+      "covers": true
+     },
+     {
+      "fit_on": "sample2",
+      "recipe": "iid",
+      "model": "halfnorm",
+      "width": 0.330233,
+      "heldout_max": 0.077288,
+      "covers": true
+     },
+     {
+      "fit_on": "sample2",
+      "recipe": "iid",
+      "model": "unimodal",
+      "width": 0.897739,
+      "heldout_max": 0.077288,
+      "covers": true
+     }
+    ]
+   },
+   "i_pae": {
+    "bar": 0.35,
+    "sense": "<",
+    "n": 50,
+    "icc": 0.0256,
+    "n_eff": 38.64,
+    "observed_max_abs_delta": 0.291063,
+    "base_width": 0.403597,
+    "observed_max_content_at_n": 0.9418,
+    "observed_max_content_at_neff": 0.9254,
+    "model": "unimodal",
+    "model_reason": "half-normal refuted by leave-one-backbone-out, distribution-free unimodal bound instead",
+    "iid_recipe_survives_holdout": false,
+    "holdout_shortfall_halfnorm": 5.462,
+    "holdout_shortfall_unimodal": 1.913,
+    "inflation": 1.913,
+    "unbounded": false,
+    "width": 0.771959,
+    "width_over_observed_max": 2.652,
+    "halfnorm_width": 0.140694,
+    "unimodal_width": 0.403597,
+    "holdout": [
+     {
+      "fit_on": "binder",
+      "recipe": "clustered",
+      "model": "halfnorm",
+      "width": 0.05329,
+      "heldout_max": 0.291063,
+      "covers": false
+     },
+     {
+      "fit_on": "binder",
+      "recipe": "clustered",
+      "model": "unimodal",
+      "width": 0.152174,
+      "heldout_max": 0.291063,
+      "covers": false
+     },
+     {
+      "fit_on": "binder",
+      "recipe": "iid",
+      "model": "halfnorm",
+      "width": 0.049614,
+      "heldout_max": 0.291063,
+      "covers": false
+     },
+     {
+      "fit_on": "binder",
+      "recipe": "iid",
+      "model": "unimodal",
+      "width": 0.141891,
+      "heldout_max": 0.291063,
+      "covers": false
+     },
+     {
+      "fit_on": "binder_1",
+      "recipe": "clustered",
+      "model": "halfnorm",
+      "width": 0.105548,
+      "heldout_max": 0.291063,
+      "covers": false
+     },
+     {
+      "fit_on": "binder_1",
+      "recipe": "clustered",
+      "model": "unimodal",
+      "width": 0.301202,
+      "heldout_max": 0.291063,
+      "covers": true
+     },
+     {
+      "fit_on": "binder_1",
+      "recipe": "iid",
+      "model": "halfnorm",
+      "width": 0.098266,
+      "heldout_max": 0.291063,
+      "covers": false
+     },
+     {
+      "fit_on": "binder_1",
+      "recipe": "iid",
+      "model": "unimodal",
+      "width": 0.280858,
+      "heldout_max": 0.291063,
+      "covers": false
+     },
+     {
+      "fit_on": "sample1",
+      "recipe": "clustered",
+      "model": "halfnorm",
+      "width": 0.08781,
+      "heldout_max": 0.291063,
+      "covers": false
+     },
+     {
+      "fit_on": "sample1",
+      "recipe": "clustered",
+      "model": "unimodal",
+      "width": 0.25271,
+      "heldout_max": 0.291063,
+      "covers": false
+     },
+     {
+      "fit_on": "sample1",
+      "recipe": "iid",
+      "model": "halfnorm",
+      "width": 0.081896,
+      "heldout_max": 0.291063,
+      "covers": false
+     },
+     {
+      "fit_on": "sample1",
+      "recipe": "iid",
+      "model": "unimodal",
+      "width": 0.23583,
+      "heldout_max": 0.291063,
+      "covers": false
+     },
+     {
+      "fit_on": "sample2",
+      "recipe": "clustered",
+      "model": "halfnorm",
+      "width": 0.346012,
+      "heldout_max": 0.063443,
+      "covers": true
+     },
+     {
+      "fit_on": "sample2",
+      "recipe": "clustered",
+      "model": "unimodal",
+      "width": 0.951559,
+      "heldout_max": 0.063443,
+      "covers": true
+     },
+     {
+      "fit_on": "sample2",
+      "recipe": "iid",
+      "model": "halfnorm",
+      "width": 0.322707,
+      "heldout_max": 0.063443,
+      "covers": true
+     },
+     {
+      "fit_on": "sample2",
+      "recipe": "iid",
+      "model": "unimodal",
+      "width": 0.88982,
+      "heldout_max": 0.063443,
+      "covers": true
+     }
+    ]
+   }
+  },
+  "cascade": {
+   "rule": "asymmetric-conjunction",
+   "n": 50,
+   "device_resolved": 0,
+   "device_resolved_fraction": 0.0,
+   "referred": 50,
+   "referred_ids": [
+    "binder_1_t0.1_s1",
+    "binder_1_t0.1_s2",
+    "binder_1_t0.1_s3",
+    "binder_1_t0.2_s1",
+    "binder_1_t0.2_s2",
+    "binder_1_t0.2_s3",
+    "binder_1_t0.3_s1",
+    "binder_1_t0.3_s2",
+    "binder_1_t0.3_s3",
+    "binder_1_t0.5_s1",
+    "binder_1_t0.5_s2",
+    "binder_1_t0.5_s3",
+    "binder_1_t0_s0",
+    "binder_t0.1_s1",
+    "binder_t0.1_s2",
+    "binder_t0.1_s3",
+    "binder_t0.2_s1",
+    "binder_t0.2_s2",
+    "binder_t0.2_s3",
+    "binder_t0.3_s1",
+    "binder_t0.3_s2",
+    "binder_t0.3_s3",
+    "binder_t0.5_s1",
+    "binder_t0.5_s2",
+    "binder_t0.5_s3",
+    "binder_t0_s0",
+    "sample1_t0.1_s1",
+    "sample1_t0.1_s2",
+    "sample1_t0.1_s3",
+    "sample1_t0.2_s1",
+    "sample1_t0.2_s2",
+    "sample1_t0.2_s3",
+    "sample1_t0.3_s1",
+    "sample1_t0.3_s2",
+    "sample1_t0.3_s3",
+    "sample1_t0.5_s1",
+    "sample1_t0.5_s2",
+    "sample1_t0.5_s3",
+    "sample2_t0.1_s1",
+    "sample2_t0.1_s2",
+    "sample2_t0.1_s3",
+    "sample2_t0.2_s1",
+    "sample2_t0.2_s2",
+    "sample2_t0.2_s3",
+    "sample2_t0.3_s1",
+    "sample2_t0.3_s2",
+    "sample2_t0.3_s3",
+    "sample2_t0.5_s1",
+    "sample2_t0.5_s2",
+    "sample2_t0.5_s3"
+   ],
+   "decisions_reproduced": 50,
+   "mis_resolved_ids": [],
+   "seconds_per_design": 304.0,
+   "speedup_vs_host_only": 0.98
+  },
+  "cascade_on_pxdesign_rows": {
+   "rule": "asymmetric-conjunction",
+   "n": 24,
+   "device_resolved": 0,
+   "device_resolved_fraction": 0.0,
+   "referred": 24,
+   "referred_ids": [
+    "sample1_t0.1_s1",
+    "sample1_t0.1_s2",
+    "sample1_t0.1_s3",
+    "sample1_t0.2_s1",
+    "sample1_t0.2_s2",
+    "sample1_t0.2_s3",
+    "sample1_t0.3_s1",
+    "sample1_t0.3_s2",
+    "sample1_t0.3_s3",
+    "sample1_t0.5_s1",
+    "sample1_t0.5_s2",
+    "sample1_t0.5_s3",
+    "sample2_t0.1_s1",
+    "sample2_t0.1_s2",
+    "sample2_t0.1_s3",
+    "sample2_t0.2_s1",
+    "sample2_t0.2_s2",
+    "sample2_t0.2_s3",
+    "sample2_t0.3_s1",
+    "sample2_t0.3_s2",
+    "sample2_t0.3_s3",
+    "sample2_t0.5_s1",
+    "sample2_t0.5_s2",
+    "sample2_t0.5_s3"
+   ],
+   "decisions_reproduced": 24,
+   "mis_resolved_ids": [],
+   "seconds_per_design": 304.0,
+   "speedup_vs_host_only": 0.98
+  },
+  "cascade_on_boltzgen_rows": {
+   "rule": "asymmetric-conjunction",
+   "n": 26,
+   "device_resolved": 0,
+   "device_resolved_fraction": 0.0,
+   "referred": 26,
+   "referred_ids": [
+    "binder_1_t0.1_s1",
+    "binder_1_t0.1_s2",
+    "binder_1_t0.1_s3",
+    "binder_1_t0.2_s1",
+    "binder_1_t0.2_s2",
+    "binder_1_t0.2_s3",
+    "binder_1_t0.3_s1",
+    "binder_1_t0.3_s2",
+    "binder_1_t0.3_s3",
+    "binder_1_t0.5_s1",
+    "binder_1_t0.5_s2",
+    "binder_1_t0.5_s3",
+    "binder_1_t0_s0",
+    "binder_t0.1_s1",
+    "binder_t0.1_s2",
+    "binder_t0.1_s3",
+    "binder_t0.2_s1",
+    "binder_t0.2_s2",
+    "binder_t0.2_s3",
+    "binder_t0.3_s1",
+    "binder_t0.3_s2",
+    "binder_t0.3_s3",
+    "binder_t0.5_s1",
+    "binder_t0.5_s2",
+    "binder_t0.5_s3",
+    "binder_t0_s0"
+   ],
+   "decisions_reproduced": 26,
+   "mis_resolved_ids": [],
+   "seconds_per_design": 304.0,
+   "speedup_vs_host_only": 0.98
+  }
+ },
+ "pass13_band_out_of_sample": {
+  "band": {
+   "plddt": 0.061062,
+   "i_ptm": 0.102471,
+   "i_pae": 0.097834
+  },
+  "cascade": {
+   "rule": "asymmetric-conjunction",
+   "n": 24,
+   "device_resolved": 17,
+   "device_resolved_fraction": 0.7083,
+   "referred": 7,
+   "referred_ids": [
+    "sample1_t0.1_s1",
+    "sample1_t0.2_s2",
+    "sample1_t0.2_s3",
+    "sample1_t0.3_s1",
+    "sample1_t0.3_s2",
+    "sample1_t0.5_s2",
+    "sample2_t0.3_s2"
+   ],
+   "decisions_reproduced": 24,
+   "mis_resolved_ids": [],
+   "seconds_per_design": 92.9,
+   "speedup_vs_host_only": 3.21
+  },
+  "exceedances": {
+   "plddt": [
+    "sample2_t0.5_s1"
+   ],
+   "i_ptm": [
+    "sample2_t0.2_s1",
+    "sample2_t0.3_s2"
+   ],
+   "i_pae": [
+    "sample2_t0.2_s1",
+    "sample2_t0.3_s2"
+   ]
+  }
+ }
+}

@@ -1,0 +1,68 @@
+{
+ "source": "PDL1.yaml",
+ "n_token": 196,
+ "n_atom": 1250,
+ "n_step": 400,
+ "n_sample": 4,
+ "seed": 0,
+ "ref_pos_seed": null,
+ "seconds": 38.01,
+ "coords_sha16": "fc1e4302398bb37d",
+ "art": "tests/fixtures/pxdesign/PDL1.yaml",
+ "coords_shape": [
+  4,
+  1250,
+  3
+ ],
+ "binder_atoms": 321,
+ "target_atoms": 929,
+ "stats": [
+  {
+   "rg_all": 16.03159523010254,
+   "rg_target": 13.881364822387695,
+   "rg_binder": 13.374664306640625
+  },
+  {
+   "rg_all": 16.17453956604004,
+   "rg_target": 13.893662452697754,
+   "rg_binder": 12.34223747253418
+  },
+  {
+   "rg_all": 15.863180160522461,
+   "rg_target": 13.908833503723145,
+   "rg_binder": 13.72541618347168
+  },
+  {
+   "rg_all": 16.141281127929688,
+   "rg_target": 13.900097846984863,
+   "rg_binder": 13.3023681640625
+  }
+ ],
+ "target_reproduction": [
+  {
+   "target_rmsd": 0.0648056709288765,
+   "n_scored": 116,
+   "min_binder_target_dist": 2.834111452102661,
+   "n_contacts_below_5A": 39
+  },
+  {
+   "target_rmsd": 0.05564804697608591,
+   "n_scored": 116,
+   "min_binder_target_dist": 2.2979724407196045,
+   "n_contacts_below_5A": 34
+  },
+  {
+   "target_rmsd": 0.06011745911956583,
+   "n_scored": 116,
+   "min_binder_target_dist": 1.6476320028305054,
+   "n_contacts_below_5A": 35
+  },
+  {
+   "target_rmsd": 0.05286939916555795,
+   "n_scored": 116,
+   "min_binder_target_dist": 2.650834560394287,
+   "n_contacts_below_5A": 35
+  }
+ ],
+ "finite": true
+}

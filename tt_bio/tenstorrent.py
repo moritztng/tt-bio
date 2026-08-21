@@ -1286,6 +1286,11 @@ def batched_matmul(a: ttnn.Tensor, b: ttnn.Tensor, compute_kernel_config=None,
 # only 1024 blocks -- into two blocks of 512 rows.
 _FP32_SOFTMAX_BLOCK_BYTES = 8 << 30
 _FP32_SOFTMAX_FUSED_ADD = True
+# ttnn.softmax normalises through a reciprocal whose range reduction loses up to 2.9e-2 when
+# the exp-sum sits at or just above a power of two, which a confident softmax always does.
+# Passing the caller's compute kernel config drops that 10-60x. Off by default: it moves
+# shipped numbers on Boltz-2, Protenix-v2, OpenFold3 and ESMFold2, so it is release-gated.
+_SOFTMAX_CKC = os.environ.get("TT_BIO_SOFTMAX_CKC", "0") == "1"
 
 # The four steps between the two matmuls -- typecast to fp32, the biased add, the softmax, the
 # typecast back -- are pure DRAM traffic: measured at 392.4 GB/s against a 383.9 GB/s ttnn.clone
@@ -1498,7 +1503,8 @@ def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_confi
     attn_bf = None
     if shard is not None:
         try:
-            attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, shard, bias_f)
+            attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, shard,
+                                         bias_f, compute_kernel_config)
         except RuntimeError:
             # The shard allocated but the sharded softmax could not fit its circular buffers
             # around it. Retire this geometry and take the interleaved tail, which is the same
@@ -1507,14 +1513,16 @@ def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_confi
             FP32_SOFTMAX_STATS["l1_refused"] += 1
             attn_bf = None
     if attn_bf is None:
-        attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, None, bias_f)
+        attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, None, bias_f,
+                                     compute_kernel_config)
     ttnn.deallocate(sc)
     o = batched_matmul(attn_bf, v, compute_kernel_config=compute_kernel_config, dtype=out_dtype)
     ttnn.deallocate(attn_bf)
     return o
 
 
-def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None):
+def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None,
+                       compute_kernel_config=None):
     """bf16 scores -> bf16 attention weights, both interleaved. ``shard`` keeps the middle in L1.
 
     ``sc0`` is left allocated either way, so a caller can retry interleaved after a refusal.
@@ -1531,6 +1539,7 @@ def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None)
         sc = ttnn.typecast(sc0, ttnn.float32, memory_config=sc0.memory_config())
     # undo the pair-bias pre-bake (sqrt(h) for Boltz/Protenix, 1.0 for openfold3). A blocked
     # call hands the same fp32 copy to every block; ``own`` says who frees it.
+    sm_ckc = compute_kernel_config if _SOFTMAX_CKC else None
     own = bias_f is None
     if own:
         bias_f = _fp32_softmax_bias(bias, scale_inv, bias_scale_inv)
@@ -1544,7 +1553,7 @@ def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None)
         if own:
             ttnn.deallocate(bias_f)
         try:
-            attn = ttnn.softmax_in_place(attn)
+            attn = ttnn.softmax_in_place(attn, compute_kernel_config=sm_ckc)
         except RuntimeError:
             ttnn.deallocate(attn)
             raise
@@ -1554,7 +1563,7 @@ def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None)
         sc = ttnn.add(sc, bias_f)
         if own:
             ttnn.deallocate(bias_f)
-        attn = ttnn.softmax(sc, dim=-1)  # fp32 softmax reduction
+        attn = ttnn.softmax(sc, dim=-1, compute_kernel_config=sm_ckc)  # fp32 reduction
         ttnn.deallocate(sc)
     attn_bf = ttnn.typecast(attn, ttnn.bfloat16, memory_config=attn.memory_config())
     ttnn.deallocate(attn)
@@ -1992,7 +2001,7 @@ _PAIR_PROJ_MM = os.environ.get(
     "TT_BIO_PAIR_PROJ_MM", "1" if PAIR_PROJ_MINIMAL_MATMUL else "0") == "1"
 
 
-def _pair_proj_minimal_matmul(x, w, ckc, dtype):
+def _pair_proj_minimal_matmul(x, w, ckc, dtype, bias=None):
     """`minimal_matmul` for a pair projection whose contraction fits one K block, else None."""
     if not _PAIR_PROJ_MM or x.dtype != ttnn.bfloat16 or w.dtype != ttnn.bfloat16:
         return None
@@ -2003,7 +2012,8 @@ def _pair_proj_minimal_matmul(x, w, ckc, dtype):
         return None
     try:
         return ttnn.experimental.minimal_matmul(
-            input_tensor=x, weight_tensor=w, compute_kernel_config=ckc, dtype=dtype, config=cfg)
+            input_tensor=x, weight_tensor=w, bias_tensor=bias,
+            compute_kernel_config=ckc, dtype=dtype, config=cfg)
     except Exception:
         return None
 
@@ -2023,13 +2033,19 @@ _PAIR_FFN_FC1_BLOCK_W = 16
 
 
 def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
-                      l1_bw: int | None = None, l1_block_w: int | None = None):
+                      l1_bw: int | None = None, l1_block_w: int | None = None,
+                      bias=None):
     """`ttnn.linear` on a pair-track projection, with the tuned config when the shape allows.
 
     `l1_out` is for the members whose consumer reads the result straight back on device (the
     trimul's `multiply_`, the Pairformer layer's residual `add_`): the projection's 48.82 MB DRAM
     write and the consumer's operand read both disappear. Falls back to today's DRAM path if the
     allocator refuses, which is the only test that knows what the live block is already holding.
+
+    `bias` is None for every model but AF2, whose projections carry one. It rides INSIDE the
+    matmul on every path: the fused add lands in the fp32 accumulator before the pack to bf16,
+    where a separate elementwise add rounds twice and measures 1.4x further from torch
+    (state/pxdesign-af2ig-port.md, pass 8).
     """
     if l1_out and _PAIR_PROJ_L1_OUT:
         key = (tuple(x.padded_shape), tuple(w.shape), str(dtype), l1_bw, l1_block_w)
@@ -2040,22 +2056,22 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
             if cfg is not None:
                 try:
                     return ttnn.linear(
-                        x, w, memory_config=ttnn.L1_MEMORY_CONFIG, dtype=dtype,
+                        x, w, bias=bias, memory_config=ttnn.L1_MEMORY_CONFIG, dtype=dtype,
                         compute_kernel_config=ckc, program_config=cfg,
                     )
                 except Exception:
                     _L1_OUT_REFUSED.add(key)
-    mm = _pair_proj_minimal_matmul(x, w, ckc, dtype)
+    mm = _pair_proj_minimal_matmul(x, w, ckc, dtype, bias)
     if mm is not None:
         return mm
     cfg = _pair_proj_config(x, w)
     if cfg is not None:
         return ttnn.linear(
-            x, w, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=dtype,
+            x, w, bias=bias, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=dtype,
             compute_kernel_config=ckc, program_config=cfg,
         )
     return ttnn.linear(
-        x, w, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=dtype,
+        x, w, bias=bias, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=dtype,
         compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN,
     )
 
@@ -2939,7 +2955,7 @@ class Module:
         )
 
 
-def _in_proj_matmul(x, w, ckc, memory_config):
+def _in_proj_matmul(x, w, ckc, memory_config, bias=None):
     """The trimul in-projection: the dual-NOC drain where it applies, else today's call.
 
     `mm_dualnoc.in_proj` is byte-identical to the call below when it fires -- it drives the same
@@ -2947,18 +2963,21 @@ def _in_proj_matmul(x, w, ckc, memory_config):
     `determine_default_block_sizes` returns for an unconfigured `minimal_matmul` under
     `fp32_dest_acc_en`. It returns None on anything outside the class it was verified on.
     """
-    from . import mm_dualnoc as DN
-    out = DN.in_proj(x, w, ckc, _dtype(), memory_config)
-    if out is not None:
-        return out
+    if bias is None:
+        from . import mm_dualnoc as DN
+        out = DN.in_proj(x, w, ckc, _dtype(), memory_config)
+        if out is not None:
+            return out
     return ttnn.experimental.minimal_matmul(
-        x, w, memory_config=memory_config, dtype=_dtype(), compute_kernel_config=ckc)
+        x, w, bias_tensor=bias, memory_config=memory_config, dtype=_dtype(),
+        compute_kernel_config=ckc)
 
 
 def _trimul_out_proj(
-    x: ttnn.Tensor, weight: ttnn.Tensor, ckc: ttnn.DeviceComputeKernelConfig
+    x: ttnn.Tensor, weight: ttnn.Tensor, ckc: ttnn.DeviceComputeKernelConfig,
+    bias: ttnn.Tensor | None = None,
 ) -> ttnn.Tensor:
-    """The trimul output projection: [1,L,L,c_z] @ [c_z,c_z], no bias.
+    """The trimul output projection: [1,L,L,c_z] @ [c_z,c_z], bias only for AF2.
 
     `ttnn.linear(core_grid=...)` reaches 20.6 TFLOP/s on this shape where
     `minimal_matmul` reaches 35.7 (perf/trimul_kernel/layout_micro.py), the same
@@ -2967,14 +2986,14 @@ def _trimul_out_proj(
     """
     if _TRIMUL_MM_OUT:
         return ttnn.experimental.minimal_matmul(
-            x, weight, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype(),
+            x, weight, bias_tensor=bias, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype(),
             compute_kernel_config=ckc,
         )
     # Both of a trimul's output projections take an L1 result: `multiply_` folds them together
     # in place and the layer's residual `add_` reads the product, so neither ever needs to reach
     # DRAM. Two live 48.82 MB L1 tensors is 750.9 kB of each bank's 1427.5 kB, which fits beside
     # this config's circular buffers and does not beside `core_grid=`'s.
-    return _pair_proj_linear(x, weight, ckc, _dtype(), l1_out=True)
+    return _pair_proj_linear(x, weight, ckc, _dtype(), l1_out=True, bias=bias)
 
 
 # F1: the tail's two output projections and its gate in one `generic_op` (`tt_bio/trimul_tail.py`).
@@ -3052,8 +3071,20 @@ class TriangleMultiplication(Module):
         self._g_in_t, self._p_in_t = g_in_t, p_in_t
         self._hidden = g_in_t.shape[1] // 2
         self._gp_cache: dict[tuple[int, int], list[ttnn.Tensor]] = {}
+        # AF2 is the only checkpoint in the repo whose triangle multiplication carries biases.
+        # Everywhere else these four stay None and every op below runs the call it ran before.
+        scope = self.weights.data
+        self._g_in_b = self.weights["g_in.bias"] if "g_in.bias" in scope else None
+        self._p_in_b = self.weights["p_in.bias"] if "p_in.bias" in scope else None
+        assert (self._g_in_b is None) == (self._p_in_b is None), (
+            "the fused input projection needs both biases or neither")
+        self._gp_bias_cache: dict[tuple[int, int], list[ttnn.Tensor]] = {}
         self.g_out_weight = self.torch_to_tt("g_out.weight")
         self.out_p_weight = self.torch_to_tt("p_out.weight")
+        self.p_out_bias = (self.torch_to_tt("p_out.bias")
+                           if "p_out.bias" in scope else None)
+        self.g_out_bias = (self.torch_to_tt("g_out.bias")
+                           if "g_out.bias" in scope else None)
 
     def _gp_in_chunks(self, C: int, group: int = 1) -> list[ttnn.Tensor]:
         """Fused [g_a | g_b | p_a | p_b] input weights, `group` consecutive chunks per weight.
@@ -3067,27 +3098,51 @@ class TriangleMultiplication(Module):
         cached = self._gp_cache.get((C, group))
         if cached is not None:
             return cached
-        g, p = self._g_in_t, self._p_in_t
-        n_pairs = g.shape[1] // C // 2
-        assert n_pairs % group == 0, f"group {group} does not divide {n_pairs} pairs"
         chunks = [
             ttnn.from_torch(
-                torch.cat(
-                    [
-                        w[:, (j + off) * C : (j + off + 1) * C]
-                        for w, off in ((g, 0), (g, n_pairs), (p, 0), (p, n_pairs))
-                        for j in range(i * group, (i + 1) * group)
-                    ],
-                    dim=1,
-                ),
-                layout=ttnn.TILE_LAYOUT,
-                device=self.device,
-                dtype=ttnn.bfloat16,
+                t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=ttnn.bfloat16,
             )
-            for i in range(n_pairs // group)
+            for t in self._gp_fused_order((self._g_in_t, self._p_in_t), C, group)
         ]
         self._gp_cache[(C, group)] = chunks
         return chunks
+
+    def _gp_fused_order(self, tensors, C: int, group: int) -> list[torch.Tensor]:
+        """`(g, p)` cut into the fused chunks, both with `2 * hidden` as their last axis.
+
+        The weights and the biases share this so their column orders cannot drift apart: a bias
+        laid out against a different order is a silent per-channel permutation, which nothing
+        downstream can see.
+        """
+        g, p = tensors
+        n_pairs = g.shape[-1] // C // 2
+        assert n_pairs % group == 0, f"group {group} does not divide {n_pairs} pairs"
+        return [
+            torch.cat(
+                [
+                    t[..., (j + off) * C : (j + off + 1) * C]
+                    for t, off in ((g, 0), (g, n_pairs), (p, 0), (p, n_pairs))
+                    for j in range(i * group, (i + 1) * group)
+                ],
+                dim=-1,
+            )
+            for i in range(n_pairs // group)
+        ]
+
+    def _gp_in_biases(self, C: int, group: int = 1) -> list[ttnn.Tensor] | None:
+        """The fused input biases in `_gp_in_chunks`' column order, or None without any."""
+        if self._g_in_b is None:
+            return None
+        cached = self._gp_bias_cache.get((C, group))
+        if cached is None:
+            cached = [
+                ttnn.from_torch(
+                    t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=ttnn.bfloat16,
+                )
+                for t in self._gp_fused_order((self._g_in_b, self._p_in_b), C, group)
+            ]
+            self._gp_bias_cache[(C, group)] = cached
+        return cached
 
     def _transform_chunk(
         self, chunk: ttnn.Tensor, permute_dims: tuple[int, ...], memory_config: ttnn.MemoryConfig,
@@ -3160,7 +3215,7 @@ class TriangleMultiplication(Module):
             old = chunk
         return chunk
 
-    def _in_proj_rows(self, x, w, H, batch, memory_config):
+    def _in_proj_rows(self, x, w, H, batch, memory_config, bias=None):
         """`LN(x) @ w`, computed in row blocks so the full-size LN'd pair tensor never exists.
 
         layer_norm normalises over the LAST dim and the matmul contracts the LAST dim, so
@@ -3185,7 +3240,7 @@ class TriangleMultiplication(Module):
                 compute_kernel_config=self.compute_kernel_config,
             )
             _acc_append(blocks, _in_proj_matmul(
-                rows, w, self.compute_kernel_config, memory_config), host)
+                rows, w, self.compute_kernel_config, memory_config, bias), host)
             ttnn.deallocate(rows)
         return _acc_concat(blocks, 1, host)
 
@@ -3206,6 +3261,7 @@ class TriangleMultiplication(Module):
         n_pairs = self._hidden // chunk_size
         group = _trimul_inproj_group(H, chunk_size, batch, n_pairs) if large_seq else 1
         self._gp_in_chunks(chunk_size, group)
+        self._gp_in_biases(chunk_size, group)
 
     def __call__(self, x: ttnn.Tensor, mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
         x_in = x  # keep the pair tensor reachable for the row-blocked tail below
@@ -3272,12 +3328,16 @@ class TriangleMultiplication(Module):
         x_chunks = []
         while True:
             try:
+                # Re-read inside the try: a clash retry narrows chunk_size and regroups, and the
+                # biases have to follow the weights to the new column order.
+                gp_in_biases = self._gp_in_biases(chunk_size, group)
                 for i in range(n_pairs // group):
+                    bias_i = None if gp_in_biases is None else gp_in_biases[i]
                     gp_in_fused = (
-                        self._in_proj_rows(x_in, gp_in_chunks[i], H, batch, memory_config)
+                        self._in_proj_rows(x_in, gp_in_chunks[i], H, batch, memory_config, bias_i)
                         if row_norm else
                         _in_proj_matmul(x_norm_in, gp_in_chunks[i],
-                                        self.compute_kernel_config, memory_config)
+                                        self.compute_kernel_config, memory_config, bias_i)
                     )
                     perm_a = (0, 3) + ((2, 1) if self.ending else (1, 2))
                     perm_b = (0, 3) + ((1, 2) if self.ending else (2, 1))
@@ -3431,6 +3491,7 @@ class TriangleMultiplication(Module):
                 g_block = ttnn.linear(
                     z_rows,
                     self.g_out_weight,
+                    bias=self.g_out_bias,
                     memory_config=ttnn.DRAM_MEMORY_CONFIG,
                     dtype=_dtype(),
                     compute_kernel_config=self.compute_kernel_config,
@@ -3447,6 +3508,7 @@ class TriangleMultiplication(Module):
                 p_block = ttnn.linear(
                     x_rows,
                     self.out_p_weight,
+                    bias=self.p_out_bias,
                     memory_config=ttnn.DRAM_MEMORY_CONFIG,
                     dtype=_dtype(),
                     compute_kernel_config=self.compute_kernel_config,
@@ -3467,7 +3529,7 @@ class TriangleMultiplication(Module):
             epsilon=1e-5,
             compute_kernel_config=self.compute_kernel_config,
         )
-        if _TRIMUL_TAIL_F1:
+        if _TRIMUL_TAIL_F1 and self.p_out_bias is None and self.g_out_bias is None:
             # `fused_tail` returns None for any call its descriptor does not cover (at 512 aa that
             # is the narrow-hidden trimuls, k_tiles=2), and the three ops below run unchanged.
             fused = _trimul_tail.fused_tail(
@@ -3477,10 +3539,12 @@ class TriangleMultiplication(Module):
                 ttnn.deallocate(x)
                 ttnn.deallocate(x_norm_in)
                 return fused
-        p_out = _trimul_out_proj(x, self.out_p_weight, self.compute_kernel_config)
+        p_out = _trimul_out_proj(x, self.out_p_weight, self.compute_kernel_config,
+                                 self.p_out_bias)
         ttnn.deallocate(x)
         dram_peak(f"trimul({'end' if self.ending else 'start'}) p_out done [z={'x'.join(str(d) for d in x_norm_in.shape)}]")
-        g_out = _trimul_out_proj(x_norm_in, self.g_out_weight, self.compute_kernel_config)
+        g_out = _trimul_out_proj(x_norm_in, self.g_out_weight, self.compute_kernel_config,
+                                 self.g_out_bias)
         ttnn.deallocate(x_norm_in)
         x = ttnn.multiply_(
             p_out, g_out, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
@@ -3590,6 +3654,54 @@ def _qkv_mm_config(inp, w):
         compute_with_storage_grid_size=_mm_core_coord(*COMPUTE_GRID_MAIN))
 
 
+def _pair_bias_from_z(z, ln_weight, ln_bias, bias_weight, compute_kernel_config,
+                      chunk: int | None = None, ending: bool = False) -> ttnn.Tensor:
+    """The `[1, heads, S, S]` attention bias `linear(layer_norm(z))`, row-blocked.
+
+    Row-blocking is the reason this is a function. layer_norm is row-local and the projection is
+    per row, so norming a row block is bit-identical to slicing the full normed tensor, and
+    `LN(z)` never has to exist whole -- 184 MB at 848 tokens and 128 channels. For the ending
+    variant a row block of the transposed pair tensor is a column strip of the input followed by
+    the same transpose, which is pure reordering.
+
+    `chunk=None` is one block over the whole tensor, returned without a concat. AF2's MSA row
+    attention needs that path: its bias comes from a second tensor through a second LayerNorm, so
+    nothing else consumes the norm. It is also the one-part case the chunked caller could reach,
+    where concat-of-one followed by deallocating the part frees the concat's own buffer.
+    """
+    S = int(z.shape[1] if ending else z.shape[0])
+    step = chunk or S
+    parts = []
+    for s in range(0, S, step):
+        e = min(s + step, S)
+        # A ttnn slice copies, so a full-width block takes the tensor itself.
+        blk = z if e - s == S else (z[:, s:e, :] if ending else z[s:e, :, :])
+        if ending:
+            blk = _pair_transpose(blk, _transpose_memory_config(blk))
+        zn = ttnn.layer_norm(
+            blk,
+            weight=ln_weight,
+            bias=ln_bias,
+            epsilon=1e-5,
+            compute_kernel_config=compute_kernel_config,
+            memory_config=ttnn.DRAM_MEMORY_CONFIG,
+        )
+        b = _pair_proj_linear(zn, bias_weight, compute_kernel_config, ttnn.bfloat16)
+        ttnn.deallocate(zn)
+        # No explicit deallocate of b/bp: unsqueeze shares b's buffer, and an explicit
+        # ttnn.deallocate force-frees the buffer even while the view is still referenced, so the
+        # permute would read recycled memory (measured: bias garbage at PCC 0.87 with the
+        # deallocates, bit-exact without). Rebinding on the next iteration frees it by refcount.
+        bp = ttnn.unsqueeze(b, 0)
+        parts.append(ttnn.permute(bp, (0, 3, 1, 2)))
+    if len(parts) == 1:
+        return parts[0]
+    bias = ttnn.concat(parts, dim=2)
+    for bp in parts:
+        ttnn.deallocate(bp)
+    return bias
+
+
 class TriangleAttention(Module):
     def __init__(
         self,
@@ -3666,13 +3778,15 @@ class TriangleAttention(Module):
             dtype=_dtype(),
         )
         self.g_weight = self.torch_to_tt("linear_g.weight", dtype=_dtype())
-        # RF3 biases both the gate and the output projection; Boltz-2, Protenix-v2 and
-        # OpenFold3 bias neither. Read them only when the weights carry them: with no
-        # bias present every branch below is the one it always was, fused kernels
-        # included. The gate bias sits inside the sigmoid so it cannot be folded into
-        # linear_g.weight, and the fused gate/qkv kernels take no bias input, so a
-        # biased block runs the plain path instead. That costs RF3 the fused kernels;
-        # correctness first, and perf is its own workstream.
+        # RF3 and AF2-IG bias both the gate and the output projection; Boltz-2, Protenix-v2,
+        # OpenFold3 and OpenDDE bias neither, and q/k/v carry no bias in any of them. Read them
+        # only when the weights carry them: with no bias present every branch below is the one it
+        # always was, fused kernels included. The gate bias sits inside the sigmoid so it cannot
+        # be folded into linear_g.weight, and the fused gate kernel takes no bias input, so a
+        # biased block runs the plain gate projection. The fused qkv projection is NOT declined
+        # for it -- it replaces the qkv matmul and its head split, touches neither the gate nor
+        # the output, and `attend` reads its tuple directly while `keep_heads=len(g.shape)==4`
+        # returns row-major `o` to match a row-major gate.
         self.g_bias = (
             self.torch_to_tt("linear_g.bias", dtype=_dtype())
             if "linear_g.bias" in self.weights else None
@@ -3721,24 +3835,9 @@ class TriangleAttention(Module):
                     memory_config=ttnn.DRAM_MEMORY_CONFIG,
                 )
 
-            bias_parts = []
-            for s in range(0, S, chunk):
-                e = min(s + chunk, S)
-                xc = normed_rows(s, e)
-                b = _pair_proj_linear(
-                    xc, self.bias_weight, self.compute_kernel_config, ttnn.bfloat16
-                )
-                ttnn.deallocate(xc)
-                # No explicit deallocate of b/bp: unsqueeze shares b's buffer, and an
-                # explicit ttnn.deallocate force-frees the buffer even while the view is
-                # still referenced, so the permute would read recycled memory (measured:
-                # bias garbage at PCC 0.87 with the deallocates, bit-exact without).
-                # Rebinding on the next iteration frees the buffer via refcount.
-                bp = ttnn.unsqueeze(b, 0)
-                bias_parts.append(ttnn.permute(bp, (0, 3, 1, 2)))
-            triangle_bias = ttnn.concat(bias_parts, dim=2)
-            for bp in bias_parts:
-                ttnn.deallocate(bp)
+            triangle_bias = _pair_bias_from_z(
+                x, self.layer_norm_weight, self.layer_norm_bias, self.bias_weight,
+                self.compute_kernel_config, chunk, self.ending)
             if self.ending and not self.transpose_bias:
                 triangle_bias = ttnn.permute(triangle_bias, (0, 1, 3, 2))
             dram_peak(f"tri_att({'end' if self.ending else 'start'}) bias built [z={'x'.join(str(d) for d in x.shape)}]")
@@ -3846,7 +3945,8 @@ class TriangleAttention(Module):
                     o_in, self.o_weight, self.compute_kernel_config, _dtype())
             else:
                 x_out = _pair_proj_linear(
-                    o_in, self.o_weight, self.compute_kernel_config, _dtype(), l1_out=True
+                    o_in, self.o_weight, self.compute_kernel_config, _dtype(), l1_out=True,
+                    bias=self.o_bias,
                 )
             ttnn.deallocate(o_in)
             if self.o_bias is not None:
@@ -3868,7 +3968,7 @@ class TriangleAttention(Module):
                 qkv_chunk = _triatt_qkv.qkv_heads(
                     x_chunk, self.qkv_weight, self.compute_kernel_config,
                     self.n_heads, self.head_dim, _dtype(), qkv_cfg_chunk,
-                )
+                ) if self.fuse_qkv else None
                 if qkv_chunk is None:
                     qkv_chunk = ttnn.experimental.minimal_matmul(
                         input_tensor=x_chunk,
@@ -3888,6 +3988,7 @@ class TriangleAttention(Module):
                     g_chunk = ttnn.experimental.minimal_matmul(
                         input_tensor=x_chunk,
                         weight_tensor=self.g_weight,
+                        bias_tensor=self.g_bias,
                         compute_kernel_config=self.compute_kernel_config,
                         dtype=_dtype(),
                         config=g_cfg_chunk,
@@ -3980,13 +4081,6 @@ class TriangleAttention(Module):
             qkv_cfg = _qkv_l1_config(x, self.qkv_weight, _dtype())
             # When the head-major projection takes the call, `qkv` is already the (q, k, v)
             # triple and no head split follows. It declines an L1 projection outright.
-            #
-            # `self.biased` is NOT a condition here, and used to be. The biases RF3 carries sit on
-            # `linear_g` and `linear_o`; the qkv projection has none, in any model. This kernel
-            # replaces that projection and its head split and touches neither the gate nor the
-            # output, so gating it on `self.biased` refused the one model whose triangle attention
-            # is 31.5 % of its trunk for a property of two other matmuls. `gate_proj` below keeps
-            # the condition, because the gate bias really does sit inside its sigmoid.
             qkv = None if qkv_cfg is not None else _triatt_qkv.qkv_heads(
                 x, self.qkv_weight, self.compute_kernel_config,
                 self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.qkv_weight),
@@ -5939,9 +6033,9 @@ class OuterProductMean(Module):
         self.norm_bias = self.torch_to_tt("norm.bias")
         self.a_weight = self.torch_to_tt("proj_a.weight")
         self.b_weight = self.torch_to_tt("proj_b.weight")
-        # RF3 biases both projections; the AF3-lineage models already here do not, so
-        # these are read only when present. They cannot be folded into the weights:
-        # the outer product of (Wx + c) and (W'x + c') carries cross terms.
+        # RF3 and AF2-IG bias both projections; the AF3-lineage models already here do not, so
+        # these are read only when present. They cannot be folded into the weights: the outer
+        # product of (Wx + c) and (W'x + c') carries cross terms.
         self.a_bias = (
             self.torch_to_tt("proj_a.bias") if "proj_a.bias" in self.weights else None
         )
@@ -6010,7 +6104,8 @@ class OuterProductMean(Module):
             ttnn.deallocate(bias)
         return ttnn.reshape(out, (1, *out.shape))
 
-    def __call__(self, x: ttnn.Tensor, msa_mask: ttnn.Tensor | None = None, n_msa: int | None = None) -> ttnn.Tensor:
+    def __call__(self, x: ttnn.Tensor, msa_mask: ttnn.Tensor | None = None,
+                 n_msa: float | None = None) -> ttnn.Tensor:
         # `x` may arrive as a LIST of depth chunks. The MSA trunk keeps its representation chunked
         # so it never has to exist contiguously: materialising it costs a full extra copy at the
         # join, which is what made a 1.78 GiB m_feat OOM on a 12 GiB part even WITH chunking. This
@@ -6175,6 +6270,9 @@ class OuterProductMean(Module):
             z = ttnn.reshape(z, (rows, C * D, J))
             z = ttnn.to_layout(z, ttnn.TILE_LAYOUT)
             z = ttnn.permute(z, (0, 2, 1))
+            # `n_msa` is a float so a caller can divide by something other than the row
+            # count. AF2 wants `eps + norm`, which at an all-ones bfloat16 mask rounds
+            # back to the depth, so it passes None; the float is what its A/B arm uses.
             scale = 1 / (n_msa if n_msa is not None else S)
             z = ttnn.multiply_(z, scale)
             o_bias = self.o_bias
