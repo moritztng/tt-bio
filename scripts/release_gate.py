@@ -127,10 +127,11 @@ returns early on any grid of 110 cores or more, so a 110-core Blackhole (p300/p3
 budgets fitted for 130 cores and the trimul in-projection's circular buffers stop fitting
 beside the pair tensors (issue #11, Taylor Singletary). The legs above cannot see that: they
 compare numbers, and a part that dies at program creation produces no numbers. This leg runs
-the budget arithmetic for every part class we have a measured per-core-L1 figure for, and
-folds the input that died on his p300c across this part's grid ladder. THE RULE it enforces:
+the budget arithmetic for every part class we have measured resource figures for, and folds
+the input that died on his p300c across this part's grid ladder. THE RULE it enforces:
 a part-specific resource figure entering ``tenstorrent.py`` gets a row in ``L1_BUDGET_PARTS``
-in the same commit.
+in the same commit. Per-core L1 was the first such figure; total DRAM is the second, and it
+carries the host-concat byte budget.
 
 This is the *accuracy* leg of the release gate. The *UX* leg lives in
 ``scripts/ux_regression.py`` (live-progress phases, output parsing, CLI shape) —
@@ -451,18 +452,31 @@ SIZE_LADDER_PROVENANCE = REPO_ROOT / "perf" / "sizegate" / "baseline"
 # numbers, and a part that dies at program creation produces no numbers to compare.
 #
 # One row per part class we have a per-core unreserved-L1 figure for, with the compute grid
-# tt-bio selects on it. THE RULE, and the reason this leg exists: a part-specific resource
-# figure entering tenstorrent.py gets a row here in the same commit.
+# tt-bio selects on it and its total DRAM. THE RULE, and the reason this leg exists: a
+# part-specific resource figure entering tenstorrent.py gets a row here in the same commit.
+# DRAM is the second such figure: CONCAT_HOST_BYTES_BASE = 1.5 GiB is one eighth of the 12.0
+# GiB the Wormhole chip it was measured on reports, and shipped unscaled it sent the OpenDDE
+# refiner's pair channel join to the host on a 31.875 GiB part, 21.88x per call.
 L1_BUDGET_PARTS = (
-    # (name, grid, per-core unreserved L1 bytes, provenance)
-    ("p150a", (13, 10), 1532416,
-     "measured on pc 2026-08-19, ttnn.get_max_worker_l1_unreserved_size()"),
-    ("p300c", (11, 10), 1532416,
-     "measured on tt-quietbox2 device 0 2026-08-19, same call. Identical to p150a — the "
-     "p300 difference that broke issue #11 is core count (110 vs 130), not per-core L1"),
-    ("wormhole", (8, 8), 1466080, "_WH_MEASURED_L1_PER_CORE (the L1 the WH re-fit was measured at)"),
-    ("wormhole-full", (8, 8), 1572864, "_WH_FULL_L1_PER_CORE (1.5 MiB, the WH scaling reference)"),
+    # (name, grid, per-core unreserved L1 bytes, total DRAM bytes, provenance)
+    ("p150a", (13, 10), 1532416, 34_225_520_128,
+     "L1 measured on pc 2026-08-19, ttnn.get_max_worker_l1_unreserved_size(); DRAM measured "
+     "on tt-quietbox card 0 2026-08-20, ttnn.get_memory_view (8 x 4278190016 = 31.875 GiB)"),
+    ("p300c", (11, 10), 1532416, 34_225_520_128,
+     "L1 measured on tt-quietbox2 device 0 2026-08-19, same call. Identical to p150a — the "
+     "p300 difference that broke issue #11 is core count (110 vs 130), not per-core L1. DRAM "
+     "measured there 2026-08-20, also 8 x 4278190016, so p300c and p150a share both budgets"),
+    ("wormhole", (8, 8), 1466080, 12 * 2 ** 30,
+     "_WH_MEASURED_L1_PER_CORE (the L1 the WH re-fit was measured at); 12.0 GiB DRAM is the "
+     "Galaxy chip total dram_peak prints, and 12.0/8 is exactly CONCAT_HOST_BYTES_BASE"),
+    ("wormhole-full", (8, 8), 1572864, 12 * 2 ** 30,
+     "_WH_FULL_L1_PER_CORE (1.5 MiB, the WH scaling reference); same 12.0 GiB part"),
 )
+
+# The OpenDDE refiner pair tensor (H = 1.945 * aa, c_z = 384, bf16) at the two rungs that
+# decided the host-concat budget. H=1494 is 1.5965 GiB, over a 12 GiB part's budget and under
+# a 31.875 GiB part's; H=1243 is 1.1051 GiB, under both, so it is the negative control.
+CONCAT_REFINER_SHAPES = ((768, 1494, True), (640, 1243, False))
 
 # Trimul chunk widths MEASURED to clash on real hardware, per part and call shape
 # (seq, hidden, batch). Not derived: each is a tt-metal "clash with L1 buffers" throw
@@ -1479,7 +1493,7 @@ def run_l1_budget_static() -> dict:
     real_l1 = ttnn.get_max_worker_l1_unreserved_size
     fails = []
     try:
-        for part, grid, l1, _prov in L1_BUDGET_PARTS:
+        for part, grid, l1, dram, _prov in L1_BUDGET_PARTS:
             ttnn.get_max_worker_l1_unreserved_size = lambda _l1=l1: _l1
             tt.COMPUTE_GRID_MAIN = grid
             tt.CORE_GRID_MAIN = ttnn.CoreGrid(y=grid[1], x=grid[0])
@@ -1492,6 +1506,31 @@ def run_l1_budget_static() -> dict:
                 for seq in L1_BUDGET_SEQ_LENS:
                     fails += _l1_budget_ladder(tt, seq, hidden, 1, part)
                     row["checks"] += 1
+            # Host-concat budget, the DRAM-keyed figure. Asserted as behaviour, not as its own
+            # arithmetic: a <=12 GiB part must keep the measured 1.5 GiB exactly, a >=16 GiB part
+            # must not still be running the 12 GiB figure, and no part may tighten.
+            budget = tt._concat_host_budget(dram)
+            row["checks"] += 1
+            if budget < tt.CONCAT_HOST_BYTES_BASE:
+                fails.append(f"{part}: host-concat budget {budget} is below the measured "
+                             f"{tt.CONCAT_HOST_BYTES_BASE} base — the budget may only widen")
+            if dram <= 12 * 2 ** 30 and budget != 1_610_612_736:
+                fails.append(f"{part}: a {dram / 2**30:.3f} GiB part must keep the measured "
+                             f"1.5 GiB host-concat budget byte for byte, got {budget}")
+            if dram >= 16 * 2 ** 30 and budget <= 1_610_612_736:
+                fails.append(f"{part}: {dram / 2**30:.3f} GiB of DRAM and the host-concat budget "
+                             f"is still the 12 GiB-Wormhole figure {budget} — the issue-#11 "
+                             f"class, a calibration point applied outside its measured range")
+            for aa, h, host_on_wh in CONCAT_REFINER_SHAPES:
+                row["checks"] += 1
+                on_host = h * h * 384 * 2 > budget
+                want = host_on_wh and dram <= 12 * 2 ** 30
+                if on_host != want:
+                    fails.append(f"{part}: the OpenDDE refiner pair tensor at {aa} aa (H={h}, "
+                                 f"{h * h * 384 * 2 / 2**30:.4f} GiB) assembles on the "
+                                 f"{'host' if on_host else 'device'} and should be on the "
+                                 f"{'host' if want else 'device'}")
+
             for cpart, (seq, hidden, batch), width, _src in L1_BUDGET_MEASURED_CLASHES:
                 if cpart != part:
                     continue
@@ -1506,7 +1545,7 @@ def run_l1_budget_static() -> dict:
                     fails.append(f"{part} seq={seq} hidden={hidden}: width {width} is MEASURED "
                                  f"to clash here and the budget still picks {got}")
         # The rule the leg exists to enforce: no grid tt-bio can select is unrepresented.
-        table_grids = {g for _n, g, _l, _p in L1_BUDGET_PARTS}
+        table_grids = {g for _n, g, _l, _d, _p in L1_BUDGET_PARTS}
         for grid in ((tt.COMPUTE_GRID_X_13, tt.COMPUTE_GRID_Y),
                      (tt.COMPUTE_GRID_X_11, tt.COMPUTE_GRID_Y)):
             if grid not in table_grids:

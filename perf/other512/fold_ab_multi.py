@@ -32,7 +32,7 @@ So this harness is that one generalised on exactly three axes and nothing else:
 A lever that reports `served 0, declined 0` is UNTESTED, not inactive -- the counters distinguish
 "gated off with a reason" from "fired and did nothing", which is the whole point of Phase 0.
 """
-import argparse, hashlib, json, shutil, statistics as st, sys, time
+import argparse, hashlib, json, os, shutil, statistics as st, sys, time
 from collections import defaultdict, Counter
 from pathlib import Path
 
@@ -106,7 +106,25 @@ ARMS = ("on", "e6", "noe6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hi
         # qsplit: the triatt_sdpa q-split lever (TT_BIO_TRIATT_MASK_Q_SPLIT), written explicitly
         # per arm so "on" stays a pre-lever reference whatever the shipped default is (`noqsplit`
         # above is the same ablation, added first).
-        "qsplit")
+        "qsplit",
+        # opendde-size-generality. `devcat` resolves the host-concat budget per part (the shipped
+        # form of concat_host_bytes()); `on` pins it at the 12 GiB-Wormhole base, which is what
+        # main shipped to every part. On a 31.875 GiB p150a that is 3.984 vs 1.5 GiB, so the
+        # OpenDDE refiner's pair channel join runs on device from 768 aa up instead of on the host.
+        # `devcat` is not byte-identical at 768 aa (p2_fold_ab_768_qb1c0.json), and there are two
+        # live sites: the trimul channel join in tenstorrent.py and opendde.py's z_struct assembly
+        # at the trunk-to-refiner seam. `devcat_trimul` widens the budget everywhere EXCEPT the
+        # seam, `devcat_zstruct` widens ONLY the seam, so one 768 aa fold each says which site
+        # carries the difference. Both work by rebinding the name opendde.py imported, so no
+        # product code exists for the screen.
+        # `hostcat` is the converse control: a 1-byte budget, so EVERY host-concat site takes the
+        # host branch whatever the size. It exists because the budget's own threshold puts the
+        # host/device split out of reach below 768 aa, and 768 aa's only fixture is the chimeric
+        # cdk2x2 whose hinge cannot score a non-bit-exact change
+        # (`cdk2x2-chimeric-fixture-cannot-score-non-bit-exact-parity`). Pairing `on` (device
+        # branch below the base budget) with `hostcat` at 298 aa runs the same two branches on the
+        # monomeric fixture, where an RMSD IS readable.
+        "devcat", "devcat_trimul", "devcat_zstruct", "hostcat")
 
 # Which sites each arm routes onto the fused SDPA. The confidence head is never in a flip set:
 # it stays on `_fp32_softmax_attention` on every arm, deliberately, so plDDT reports on the
@@ -136,6 +154,21 @@ def _mm_block_old(w):
     blk = _MM_BLOCK_OLD.get((int(w.shape[-1]) + 31) // 32)
     OLDKEY_HITS[0 if blk is not None else 1] += 1
     return blk
+
+
+# `TT_BIO_AB_TRIMUL_POP=1` splits the TriangleMultiplication timer by call population instead of
+# lumping all 1216 calls under one key. OpenDDE drives three of them -- trunk (H = seq, hidden 384),
+# a narrow-hidden one, and the refiner at H ~ 1.95 * seq -- and only the refiner's fused
+# in-projection loses a doubling between 640 and 768 aa. Off by default: every other arm in this
+# harness shares the WALL key set and must keep seeing one key per class.
+POP_SPLIT = os.environ.get("TT_BIO_AB_TRIMUL_POP", "0") == "1"
+
+
+def _trimul_pop(key, self, args):
+    try:
+        return f"{key}|H={int(args[0].shape[1])}|hid={self._hidden}"
+    except Exception:  # noqa: BLE001 -- a timer must never be the thing that fails a fold
+        return key
 
 
 def timed_call(key, fn, *a, **kw):
@@ -204,6 +237,17 @@ def main():
     ap.add_argument("--arms", default="on,on")
     ap.add_argument("--fixdir", type=Path, default=ROOT / "perf" / "size512" / "fixtures")
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--dram-tags", default="",
+                    help="Comma-separated tag prefixes the DRAM probe is allowed to sample. "
+                         "dram_peak() fires at ~12k sites per opendde fold, most of them inside "
+                         "chunked loops, and each one is a get_memory_view pipeline drain -- "
+                         "enough to take a 768 aa devcat fold from 7 to 28+ min. Worse, the cost "
+                         "is NOT arm-neutral: the drain is more expensive on the arm with more "
+                         "resident device blocks, which is exactly the axis a residency lever "
+                         "moves, so an unfiltered probed run cannot even be compared to itself "
+                         "across arms. 'pairformer' keeps the per-block boundaries (620 samples), "
+                         "where a resident pair tensor is still live, and drops the per-chunk "
+                         "interior.")
     a = ap.parse_args()
 
     import ttnn
@@ -214,7 +258,6 @@ def main():
     from tt_bio.main import _resolve_recycling_steps, _resolve_sampling_steps
 
     # qb2 is two dual-chip p300 boards; a bare single-chip open fails without the mesh descriptor.
-    import os
     from tt_bio.main import _detect_p300_devices, _find_ttnn_mesh_graph_descriptor
     if _detect_p300_devices() and not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
         mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
@@ -222,6 +265,12 @@ def main():
             os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
 
     assert Path(T.__file__).resolve().is_relative_to(ROOT), f"tt_bio from {T.__file__}, set PYTHONPATH"
+
+    if a.dram_tags:
+        _keep, _peak = tuple(a.dram_tags.split(",")), T.dram_peak
+        # tenstorrent.py's sites call the module global, so rebinding it here reaches all of them.
+        T.dram_peak = lambda tag=None: (_peak(tag) if tag is None or tag.startswith(_keep)
+                                        else _peak(None))
 
     # ---- each model at ITS OWN shipped defaults, not protenix's ----------------------------
     B.RECYCLING_STEPS = _resolve_recycling_steps(None, a.model)
@@ -305,19 +354,24 @@ def main():
     installed = []
     import tt_bio.esmfold2 as E2
 
-    def patch(mod, name, key):
+    def patch(mod, name, key, keyfn=None):
         cls = getattr(mod, name, None)
         if cls is None or not hasattr(cls, "__call__"):
             return
         f = cls.__call__
-        cls.__call__ = (lambda g: lambda self, *x, **k: timed_call(key, g, self, *x, **k))(f)
+        if keyfn is None:
+            cls.__call__ = (lambda g: lambda self, *x, **k: timed_call(key, g, self, *x, **k))(f)
+        else:
+            cls.__call__ = (lambda g: lambda self, *x, **k:
+                            timed_call(keyfn(key, self, x), g, self, *x, **k))(f)
         installed.append(key)
 
     patch(T, "Pairformer", "stage:Pairformer")
     patch(T, "PairformerLayer", "block:PairformerLayer")
     for nm in ("TriangleMultiplication", "TriangleAttention", "AttentionPairBias",
                "PairWeightedAveraging"):
-        patch(T, nm, f"body:{nm}")
+        patch(T, nm, f"body:{nm}",
+              _trimul_pop if POP_SPLIT and nm == "TriangleMultiplication" else None)
     if a.model.startswith("esmfold2"):
         patch(E2, "PairUpdateBlock", "block:PairUpdateBlock")
         patch(E2, "FoldingTrunkModel", "stage:FoldingTrunk")
@@ -415,6 +469,20 @@ def main():
         # the default is set.
         T._ATOM_PAD_IN_TILE = name != "nos2"
 
+        # None means "resolve from this part's DRAM", i.e. exactly what a shipped fold does.
+        # `on` pins the pre-change base so the A/B is the fix, not an unbounded budget.
+        import tt_bio.opendde as OD
+        T._CONCAT_HOST_BYTES = (None if name in ("devcat", "devcat_trimul")
+                                else 1 if name == "hostcat"
+                                else T.CONCAT_HOST_BYTES_BASE)
+        # opendde.py from-imports the accessor, so rebinding it here moves the z_struct seam
+        # alone. Resolved at call time, after the device is open, so it never reads 0.
+        OD.concat_host_bytes = {
+            "devcat_trimul": lambda: T.CONCAT_HOST_BYTES_BASE,
+            "devcat_zstruct": lambda: T._concat_host_budget(T._dram_total_bytes()),
+            "hostcat": lambda: 1,
+        }.get(name, T.concat_host_bytes)
+
         T._PAIR_PROJ_L1_OUT = T._PAIR_BIAS_L1_NORM = True
         T._PWA_L1_NORM = T._TEMPLATE_L1_NORM = True
         # openfold3-sizes-perf arms. These come AFTER the blanket _PAIR_PROJ_L1_OUT assignment
@@ -492,6 +560,12 @@ def main():
         for arm in a.arms.split(","):
             set_arm(arm)
             WALL.clear(); DEC.clear(); CALLS.clear(); GROUPS.clear()
+            # Per-arm DRAM high-water mark. dram_peak() is a no-op returning 0 unless
+            # TT_BIO_DRAM_PEAK names a file, and with it set the probe costs 2.4-3.7x wall
+            # (its own docstring), so a run that reads this is a CAPACITY run and its
+            # fold_s must not be quoted. Cleared per arm: the dict is module-global and
+            # would otherwise carry arm N-1's peak into arm N and report the max of both.
+            T._DRAM_PEAK.clear()
             try:
                 fold_s, m = one_fold()
             except Exception as e:                                              # noqa: BLE001
@@ -525,6 +599,13 @@ def main():
                                        "rejects": {f"{r}:{sh}": n for (r, sh), n in PM.REJECTS.items()},
                                        "pm_over_l1": sorted(str(k) for k in PM._PM_OVER_L1)},
                    "transpose_l1_headroom": T._TRANSPOSE_L1_HEADROOM,
+                   # must differ between arms; equal values mean the arm did not take. The
+                   # second is the z_struct seam, which the two isolation arms move on its own.
+                   "dram_peak_gib": round(T.dram_peak() / 2 ** 30, 3) or None,
+                   "dram_tags": a.dram_tags or None,
+                   "concat_host_bytes": T.concat_host_bytes(),
+                   "concat_host_bytes_zstruct": __import__(
+                       "tt_bio.opendde", fromlist=["x"]).concat_host_bytes(),
                    "fp32_softmax_chain": {"block_bytes": T._FP32_SOFTMAX_BLOCK_BYTES,
                                           "fused_add": T._FP32_SOFTMAX_FUSED_ADD,
                                           "l1_bytes_per_core": T._FP32_SOFTMAX_L1_BYTES_PER_CORE,
@@ -542,6 +623,10 @@ def main():
                                      "hit": OLDKEY_HITS[0], "miss": OLDKEY_HITS[1]},
                    "sdpa_q_chunk_over_l1": sorted(str(k) for k in T._SDPA_Q_CHUNK_OVER_L1),
                    "loadavg": open("/proc/loadavg").read().split()[:3],
+                   # VmHWM is a process high-water mark and never resets, and every arm of a run
+                   # shares one process -- so this is monotone across arms and is NOT per-arm
+                   # evidence. Equal values in two rows of the same run mean the later arm did not
+                   # exceed the earlier one's peak, not that the two arms cost the same host RAM.
                    "maxrss_mb": round(int(next(l for l in open("/proc/self/status")
                                                if l.startswith("VmHWM")).split()[1]) / 1024, 1),
                    "wall_ms": {k: {"calls": v["n"], "ms": round(v["s"] * 1e3, 2)}

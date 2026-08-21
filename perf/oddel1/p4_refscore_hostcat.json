@@ -1,0 +1,151 @@
+{
+  "mode": "structures",
+  "targets": {
+    "prot_no_msa": {
+      "kabsch_rmsd": {
+        "metric": "kabsch_rmsd",
+        "cross": {
+          "n": 25,
+          "mean": 1.720414894164579,
+          "std": 0.7191562117714628,
+          "min": 0.9545718780914731,
+          "max": 3.379269671868764
+        },
+        "ref_floor": {
+          "n": 10,
+          "mean": 1.4990502876268559,
+          "std": 0.7897136655500335,
+          "min": 0.5592433659017214,
+          "max": 2.5635231989777667
+        },
+        "dev_floor": {
+          "n": 10,
+          "mean": 0.9331499428533807,
+          "std": 0.2208524587437997,
+          "min": 0.5953970626177559,
+          "max": 1.3451945654615036
+        },
+        "floor_mean": 1.4990502876268559,
+        "cross_over_floor": 1.1476699003127941,
+        "dev_over_ref_floor": 0.6224940887944787,
+        "dev_floor_instability_check_applied": true,
+        "floor_inflated_by_dev": false,
+        "within_noise_floor": true,
+        "same_seed_diagonal": {
+          "n": 5,
+          "mean": 1.7409447620463194,
+          "all_pairs_mean": 1.720414894164579,
+          "seed_independent": true
+        }
+      },
+      "coord_pcc": {
+        "metric": "1-coord_pcc",
+        "cross": {
+          "n": 25,
+          "mean": 0.010249544785310448,
+          "std": 0.009033049997130003,
+          "min": 0.0025058241684258187,
+          "max": 0.033788711994075515
+        },
+        "ref_floor": {
+          "n": 10,
+          "mean": 0.0084056967892439,
+          "std": 0.0075622454084748195,
+          "min": 0.0009034268601295636,
+          "max": 0.019171204573029454
+        },
+        "dev_floor": {
+          "n": 10,
+          "mean": 0.002750820536472032,
+          "std": 0.0012971819530912258,
+          "min": 0.0010093474019335913,
+          "max": 0.005488116050847647
+        },
+        "floor_mean": 0.0084056967892439,
+        "cross_over_floor": 1.2193569483051034,
+        "dev_over_ref_floor": 0.3272566933406446,
+        "dev_floor_instability_check_applied": false,
+        "floor_inflated_by_dev": false,
+        "within_noise_floor": true,
+        "same_seed_diagonal": {
+          "n": 5,
+          "mean": 0.010355359897471406,
+          "all_pairs_mean": 0.010249544785310448,
+          "seed_independent": true
+        }
+      },
+      "tm_score": {
+        "metric": "1-tm_score",
+        "cross": {
+          "n": 25,
+          "mean": 0.029157932810887965,
+          "std": 0.022404214219480967,
+          "min": 0.008702933349270525,
+          "max": 0.08657398920034631
+        },
+        "ref_floor": {
+          "n": 10,
+          "mean": 0.022693160889133212,
+          "std": 0.019013555297059073,
+          "min": 0.002937092889837456,
+          "max": 0.05088410274274191
+        },
+        "dev_floor": {
+          "n": 10,
+          "mean": 0.008604813380463672,
+          "std": 0.0038070831813350027,
+          "min": 0.00340699888790974,
+          "max": 0.016405417985919768
+        },
+        "floor_mean": 0.022693160889133212,
+        "cross_over_floor": 1.2848775432095252,
+        "dev_over_ref_floor": 0.37918090928373716,
+        "dev_floor_instability_check_applied": false,
+        "floor_inflated_by_dev": false,
+        "within_noise_floor": true,
+        "same_seed_diagonal": {
+          "n": 5,
+          "mean": 0.02958548696637544,
+          "all_pairs_mean": 0.029157932810887965,
+          "seed_independent": true
+        }
+      },
+      "lddt": {
+        "metric": "1-lddt",
+        "cross": {
+          "n": 25,
+          "mean": 0.18873034349202084,
+          "std": 0.06936718887279117,
+          "min": 0.10727863336743293,
+          "max": 0.33546392598618124
+        },
+        "ref_floor": {
+          "n": 10,
+          "mean": 0.14294644975516607,
+          "std": 0.08526056400473865,
+          "min": 0.033550892516384434,
+          "max": 0.25420014580361316
+        },
+        "dev_floor": {
+          "n": 10,
+          "mean": 0.0826579927987112,
+          "std": 0.02798734494764864,
+          "min": 0.043176641576285646,
+          "max": 0.12243438020666497
+        },
+        "floor_mean": 0.14294644975516607,
+        "cross_over_floor": 1.3202870292705549,
+        "dev_over_ref_floor": 0.5782444610571655,
+        "dev_floor_instability_check_applied": false,
+        "floor_inflated_by_dev": false,
+        "within_noise_floor": true,
+        "same_seed_diagonal": {
+          "n": 5,
+          "mean": 0.1890680737872707,
+          "all_pairs_mean": 0.18873034349202086,
+          "seed_independent": true
+        }
+      }
+    }
+  }
+}

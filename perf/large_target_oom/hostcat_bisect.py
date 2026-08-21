@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Per-op bisect of the host-assembly path: drive one PairformerLayer's sub-ops
 manually at N=1712, dumping z (and s) after each, for device-concat vs host-concat
-mode in one process (CONCAT_HOST_BYTES is read at call time, so it is switchable).
+mode in one process (the budget is read at call time, so it is switchable).
 
     TT_VISIBLE_DEVICES=0 python3 perf/large_target_oom/hostcat_bisect.py
 """
@@ -13,7 +13,7 @@ from perf.large_target_oom.pairlayer_capacity import build_layer
 
 
 def run_pass(dev, layer, s0, z0, host):
-    T.CONCAT_HOST_BYTES = 0 if host else 10 ** 12
+    T._CONCAT_HOST_BYTES = 0 if host else 10 ** 12
     s = ttnn.from_torch(s0, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
     z = ttnn.from_torch(z0, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
     dumps = {}
