@@ -1048,6 +1048,15 @@ def _affinity_seconds(out_dir: Path):
     return max(vals) if vals else None
 
 
+def lever_census_flags() -> tuple:
+    """The census's own lever names, so --size-ladder-record-lever cannot be given a typo."""
+    path = REPO_ROOT / "scripts" / "lever_census.py"
+    spec = importlib.util.spec_from_file_location("tt_bio_lever_census", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return tuple(f for f, *_rest in mod.LEVERS)
+
+
 def _run_census_fold(model: str, rung: int, workdir: Path, tag: str) -> dict:
     """One lever-census-wrapped fold of the cdk2x2_<rung> fixture. Returns
     {"levers": {flag: {resolved, served, declined, frac, how}}, "runtime_s": ...,
@@ -1167,6 +1176,35 @@ def _size_ladder_exemption_findings(base_levers: dict, where: str) -> list:
     return findings
 
 
+def _size_ladder_clause_finding(b: dict, c: dict, flag: str, where: str):
+    """Same fired fraction, different clause: the guard is refusing for a reason it did not
+    refuse for when the baseline was taken. That is a behaviour change with no timing
+    signature at all, so nothing else in this arm can see it — but two states are not that,
+    and reading them as one is how this arm went red on main for an instrument change.
+
+    A missing `rejects` means the clause was NOT MEASURED, not "declined for no reason":
+
+      * The baseline has no clause but had declines to record one for. Every baseline taken
+        before 95033b2f is in that state for the six wrap-counted levers, because the census
+        could not report their clause yet. Compared against today's census that reads as three
+        guards changing their mind on every model at every rung, and it is why the arm has been
+        failing on main since that commit rather than since anything changed behaviour.
+      * Neither side declined. A guard with 0 declines has no clause to have; a clause sitting
+        on such an entry is a recording artifact, which is what REBLOCK_PERMUTE_GATED carried
+        from the shared REJECTS dict it used to be misattributed.
+
+    THE RULE this implies, alongside the L1-budget leg's: an instrument change that widens what
+    the baseline compares re-records in the same commit. Adding a field to the census and not
+    re-recording turns the arm red for a reason no reviewer can distinguish from a real one.
+    """
+    if not b.get("rejects") and (b.get("declined") or 0) > 0:
+        return None
+    if not (b.get("declined") or 0) and not (c.get("declined") or 0):
+        return None
+    bs, cs = sorted(b.get("rejects") or {}), sorted(c.get("rejects") or {})
+    return None if bs == cs else f"{where} {flag}: decline clause {bs} -> {cs}"
+
+
 def _size_ladder_compare_levers(base: dict, cur: dict, where: str) -> list:
     """Findings comparing one rung's lever census against the baseline. The rules
     are the five in the SIZE_LADDER comment block above."""
@@ -1197,13 +1235,8 @@ def _size_ladder_compare_levers(base: dict, cur: dict, where: str) -> list:
             findings.append(f"{where} {flag}: frac {fb:.3f} -> {fc:.3f} "
                             f"({'went dark' if fc == 0.0 else 'started firing'}"
                             + (f" on {clause}" if clause else "") + ")")
-        elif sorted((b.get("rejects") or {})) != sorted((c.get("rejects") or {})):
-            # Same fired fraction, different clause: the guard is refusing for a reason
-            # it did not refuse for when the baseline was taken. That is a behaviour
-            # change with no timing signature at all, so nothing else in this arm sees it.
-            findings.append(f"{where} {flag}: decline clause "
-                            f"{sorted(b.get('rejects') or {})} -> "
-                            f"{sorted(c.get('rejects') or {})}")
+        elif _size_ladder_clause_finding(b, c, flag, where):
+            findings.append(_size_ladder_clause_finding(b, c, flag, where))
         elif abs(fc - fb) > SIZE_LADDER_FRAC_TOL:
             findings.append(f"{where} {flag}: frac {fb:.3f} -> {fc:.3f} exceeds the "
                             f"{SIZE_LADDER_FRAC_TOL} band (partial darkness)")
@@ -1357,6 +1390,143 @@ def _size_ladder_check_model(model: str, rungs, base_model: dict, workdir: Path)
                                       ("recorded", "host", "commit") if base_model.get(k))}
 
 
+def _size_ladder_lever_todo(entry: dict) -> str:
+    """The TODO a dark lever gets when it has no exemption reason yet, carrying the clause it
+    declined on so filling it in is confirming a measurement rather than writing a story."""
+    clause = ", ".join(f"{k} x{v}" for k, v in
+                       sorted((entry.get("rejects") or {}).items(), key=lambda kv: -kv[1])[:3])
+    return ("TODO: say why this is legitimate at this size"
+            + (f" (declines on {clause})" if clause else ""))
+
+
+def run_size_ladder_add_lever(flag: str, keep: bool, baseline_path: Path,
+                              models=None) -> dict:
+    """Add ONE lever to an existing baseline without re-measuring its timings.
+
+    A counter-only lever — a guard that already shipped, given a `*_STATS` pair so the census
+    can finally see it — makes check mode report "new lever not in the baseline" for every
+    model at every rung. The only recorded fix is a full re-record: 60 folds, hours of device
+    time, and it throws away a timing baseline measured on a quiet host to replace it with one
+    measured on whatever host was free. That is a lot of evidence discarded to admit a counter
+    that changes no behaviour, and it will happen again every time someone instruments a guard.
+
+    So: fold each (model, rung) ONCE and splice in only the new lever's row. What makes that
+    honest rather than convenient is the refusal — every OTHER lever in the census must still
+    match the baseline exactly, by the same comparator check mode uses, or the splice is
+    refused for that model and the message says to do a full re-record. Nothing can be
+    laundered through here. It doubles as a free check-mode run of the arm's census half, and
+    as the proof that a cold fold's guard decisions equal a warm one's (the recorded baseline
+    discards the first fold at each rung; this mode does not, and the comparison is exact).
+
+    Because the comparison passed, every other lever's counts are identical, so this also writes
+    back the decline clauses the census can now measure and the baseline never recorded — see
+    `_size_ladder_clause_finding` for why an absent clause is "not measured" rather than "none".
+    That is the same act as adding the lever: recording a measurement the file was missing.
+
+    The spliced row is stamped `levers_added`, so the entry says which of its numbers came
+    from a different host at a different commit than the rest.
+    """
+    models = list(models or SIZE_LADDER_MODELS)
+    rungs = SIZE_LADDER_RUNGS
+    card = _size_ladder_card_type()
+    workdir = SIZE_LADDER_WORKDIR
+    if flag not in lever_census_flags():
+        return {"model": "size-ladder", "seconds": 0, "gate": False, "card": card,
+                "error": f"'{flag}' is not a lever in scripts/lever_census.py", "legs": []}
+    try:
+        baseline = json.loads(baseline_path.read_text())
+    except Exception as e:
+        return {"model": "size-ladder", "seconds": 0, "gate": False, "card": card,
+                "error": f"baseline {baseline_path} unreadable: {e}", "legs": []}
+    card_block = baseline.get("cards", {}).get(card)
+    if card_block is None:
+        return {"model": "size-ladder", "seconds": 0, "gate": False, "card": card,
+                "error": f"NO BASELINE for card type '{card}' — there is nothing to add a "
+                         f"lever to; record one with --size-ladder-record", "legs": []}
+    print(f"\n{'='*70}\n[size-ladder] adding lever {flag} to the {card} baseline: "
+          f"{', '.join(models)} at rungs {','.join(map(str, rungs))}, one fold per rung"
+          f"\n{'='*70}", flush=True)
+    t0 = time.monotonic()
+    stamp = f"{time.strftime('%Y-%m-%d')} {socket.gethostname()} {_repo_commit()}"
+    legs = []
+    for m in models:
+        base_model = card_block.get("models", {}).get(m)
+        if base_model is None:
+            err = f"{m}: not in the {card} baseline — record it first"
+            legs.append({"model": m, "gate": False, "error": err, "findings": [err]})
+            continue
+        measured, clauses, findings, grid = {}, {}, [], None
+        for rung in rungs:
+            r = _run_census_fold(m, rung, workdir, "addlever")
+            if r.get("error"):
+                findings.append(f"{m}/{rung}: {r['error']}")
+                break
+            grid = grid or r.get("grid")
+            base_levers = base_model.get("levers", {}).get(str(rung))
+            if base_levers is None:
+                findings.append(f"{m}/{rung}: rung not recorded in the baseline")
+                continue
+            if flag in base_levers:
+                findings.append(f"{m}/{rung}: {flag} is already in the baseline")
+                continue
+            where = f"{m}/{rung}"
+            expected = (f"{where} {flag}: new lever not in the baseline "
+                        f"(re-record with --size-ladder-record)")
+            other = [f for f in _size_ladder_compare_levers(base_levers, r["levers"], where)
+                     if f != expected]
+            if other:
+                findings.extend(other)
+                continue
+            measured[str(rung)] = r["levers"][flag]
+            # The comparison above passed, so every other lever's counts and clause are either
+            # identical or in one of the two not-measured states. Writing the measured clause
+            # back is therefore recording what is already true, and it is the only way an old
+            # baseline stops carrying an unenforceable clause field forever.
+            clauses[str(rung)] = {f: e.get("rejects") for f, e in r["levers"].items()
+                                  if f != flag and f in base_levers
+                                  and (e.get("rejects") or None)
+                                      != (base_levers[f].get("rejects") or None)}
+        b_grid = base_model.get("grid")
+        if grid and b_grid and grid != b_grid:
+            findings.append(f"{m}: baseline recorded on a {b_grid} grid, this card presents "
+                            f"{grid} — lever verdicts are grid-dependent, re-record instead")
+        if findings or len(measured) != len(rungs):
+            legs.append({"model": m, "gate": False, "findings": findings,
+                         "error": "; ".join(findings) or
+                                  f"{m}: only {len(measured)}/{len(rungs)} rungs measured"})
+            continue
+        n_clauses = 0
+        for rung, entry in measured.items():
+            if _size_ladder_dark(entry):
+                entry["reason"] = _size_ladder_lever_todo(entry)
+            base_model["levers"][rung][flag] = entry
+            for f, rej in clauses.get(rung, {}).items():
+                base_model["levers"][rung][f]["rejects"] = rej
+                n_clauses += 1
+        base_model.setdefault("levers_added", {})[flag] = stamp
+        baseline_path.write_text(json.dumps(baseline, indent=2) + "\n")
+        legs.append({"model": m, "gate": True, "error": None, "findings": [],
+                     "added": {rung: (e["served"], e["declined"])
+                               for rung, e in measured.items()}})
+        print(f"[size-ladder] {m}: {flag} added at {len(measured)} rungs, every other lever "
+              f"unchanged" + (f", {n_clauses} clause field(s) recorded" if n_clauses else ""),
+              flush=True)
+    gate = bool(legs) and all(l["gate"] for l in legs)
+    todos = sum(1 for m in models
+                for rung in rungs
+                for e in [((card_block.get("models", {}).get(m) or {})
+                           .get("levers", {}).get(str(rung), {}).get(flag))]
+                if e and str(e.get("reason", "")).startswith("TODO"))
+    if todos:
+        print(f"[size-ladder] {todos} rung(s) need a one-line exemption reason for {flag} — "
+              f"search TODO in {baseline_path}; the check FAILS without one.", flush=True)
+    if not keep:
+        shutil.rmtree(workdir, ignore_errors=True)
+    return {"model": "size-ladder", "seconds": time.monotonic() - t0, "gate": gate,
+            "card": card, "error": next((l["error"] for l in legs if l["error"]), None),
+            "legs": legs}
+
+
 def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                     models=None) -> dict:
     """The size-generality arm (see the SIZE_LADDER comment block and the module
@@ -1387,8 +1557,10 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
 
     print(f"\n{'='*70}\n[size-ladder] {'RECORDING baseline' if record else 'checking'} "
           f"for card {card}: {', '.join(models)} at rungs "
-          f"{','.join(map(str, rungs))} ({SIZE_LADDER_STEPS} steps, 1 sample, "
-          f"seed {SEED}, single-sequence)\n{'='*70}", flush=True)
+          f"{','.join(map(str, rungs))}\n[size-ladder] predict folds: "
+          f"{SIZE_LADDER_STEPS} steps, 1 sample, seed {SEED}, single-sequence; "
+          f"nesso1: tt-bio affinity, bf16 trunk, {SIZE_LADDER_NESSO_RECYCLING} recycles, "
+          f"{SIZE_LADDER_NESSO_TOKENS_BUDGET}-token crop\n{'='*70}", flush=True)
     t0 = time.monotonic()
     legs = []
     if record:
@@ -1859,6 +2031,12 @@ def main() -> int:
                          "size-ladder + ESMC 300m/600m embed parity. "
                          "esmc-6b is opt-in (slow ~13 GB load).")
     ap.add_argument("--keep", action="store_true", help="Keep run output dirs for inspection.")
+    ap.add_argument("--size-ladder-record-lever", default=None, metavar="FLAG",
+                    help="Add ONE new census lever to the existing size-ladder baseline "
+                         "instead of re-recording it: one fold per (model, rung), and the "
+                         "splice is refused unless every other lever still matches. For a "
+                         "counter-only lever, which changes no behaviour and does not "
+                         "justify discarding a good timing baseline.")
     ap.add_argument("--size-ladder-record", action="store_true",
                     help="Re-record the size-ladder baseline for THIS card type instead "
                          "of checking against it. Explicit human action after an "
@@ -1990,7 +2168,13 @@ def main() -> int:
               if all(cr["gate"] for cr in rows) else
               "GATE FAIL — capacity regression at the largest supported input (see above)")
 
-    if want_size_ladder:
+    if want_size_ladder and args.size_ladder_record_lever:
+        sl = run_size_ladder_add_lever(args.size_ladder_record_lever, args.keep,
+                                       Path(args.size_ladder_baseline),
+                                       args.size_ladder_models.split(",")
+                                       if args.size_ladder_models else None)
+        rows.append(sl)
+    elif want_size_ladder:
         sl = run_size_ladder(args.keep, args.size_ladder_record,
                              Path(args.size_ladder_baseline),
                              args.size_ladder_models.split(",")
