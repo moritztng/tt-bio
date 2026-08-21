@@ -547,7 +547,7 @@ def resolve_msa(msa_spec, sequence, msa_dir=None, max_sequences=16384):
     from pathlib import Path
 
     from tt_bio._vendor.esm.utils.msa.msa import MSA
-    from tt_bio.msa_cache import cached, seq_hash
+    from tt_bio.cache import cached, seq_hash
 
     candidates = []
     if msa_spec:

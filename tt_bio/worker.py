@@ -28,7 +28,7 @@ import torch
 from tt_bio.device_lease import install_parent_death_guard
 from tt_bio.distributed import ControllerClient, HttpProgressQueue
 from tt_bio.envflags import env_flag
-from tt_bio.msa_cache import cached, seq_hash
+from tt_bio.cache import cached, seq_hash, staged
 
 
 _REAL_STDERR_FD: int | None = None
@@ -280,15 +280,19 @@ def _prefetch_openfold3_template_structures(tmpl_map: dict[str, str],
     for npz_path in tmpl_map.values():
         with np.load(npz_path, allow_pickle=True) as z:
             pdb_ids |= {k.split("_")[0] for k in z.keys()}
-    missing = [p for p in sorted(pdb_ids)
-               if not (struct_dir / f"{p}.cif").exists()]
+    missing = [p for p in sorted(pdb_ids) if not cached(struct_dir / f"{p}.cif")]
     if not missing:
         return
     import urllib.request
     for p in missing:
         url = f"https://files.rcsb.org/download/{p.upper()}.cif"
         try:
-            urllib.request.urlretrieve(url, struct_dir / f"{p}.cif")
+            # Publish by rename, like every other artifact cache: a dropped
+            # connection or a full disk mid-transfer must not leave a partial CIF
+            # under the final name, which every later fold needing that template
+            # would then accept forever.
+            with staged(struct_dir / f"{p}.cif") as tmp:
+                urllib.request.urlretrieve(url, tmp)
         except Exception as exc:
             raise RuntimeError(
                 f"--model openfold3: failed to fetch template structure {url}: {exc}")

@@ -27,7 +27,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.request import Request, urlopen
 
-from tt_bio.msa_cache import cached, publish_text, seq_hash
+from tt_bio.cache import cached, publish_text, seq_hash
 
 DEFAULT_PORT = 8765
 # Sequences per colabfold_search call (one batched search, like the CLI offline

@@ -61,7 +61,7 @@ from tt_bio._vendor.openfold3.projects.of3_all_atom.config.dataset_config_compon
 from tt_bio._vendor.openfold3.projects.of3_all_atom.config.inference_query_format import (
     Query,
 )
-from tt_bio.msa_cache import cached, publish_text, seq_hash
+from tt_bio.cache import cached, publish_text, seq_hash
 
 
 def resolve_openfold3_msas(

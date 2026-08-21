@@ -1,11 +1,11 @@
-"""Regression: the MSA cache publishes by rename and only counts a non-empty file.
+"""Regression: an artifact cache publishes by rename and only counts a non-empty file.
 
 The weight registry fixed exactly this bug class at seven download sites. The MSA
 path had it too: two of five producers wrote straight to the final name, and six of
 seven readers gated on bare ``Path.exists()``. A killed search then left a truncated
 or zero-byte ``{hash}.a3m`` that every later fold of that sequence accepted forever.
 
-These tests pin the contract in ``tt_bio.msa_cache`` and assert the live readers in
+These tests pin the contract in ``tt_bio.cache`` and assert the live readers in
 ``worker.py`` and ``main.py`` route through it, so a new call site cannot quietly
 reintroduce the bare-exists gate.
 """
@@ -17,25 +17,25 @@ from pathlib import Path
 
 import pytest
 
-from tt_bio import msa_cache
+from tt_bio import cache as artifact_cache
 
 
 def test_seq_hash_is_the_documented_key():
-    assert msa_cache.seq_hash("MKTVR") == hashlib.sha256(b"MKTVR").hexdigest()[:16]
+    assert artifact_cache.seq_hash("MKTVR") == hashlib.sha256(b"MKTVR").hexdigest()[:16]
 
 
 def test_empty_file_is_not_a_cache_hit(tmp_path: Path):
     p = tmp_path / "abc.a3m"
-    assert not msa_cache.cached(p)          # missing
+    assert not artifact_cache.cached(p)          # missing
     p.write_text("")
-    assert p.exists() and not msa_cache.cached(p)   # present but empty
+    assert p.exists() and not artifact_cache.cached(p)   # present but empty
     p.write_text(">query\nMKT\n")
-    assert msa_cache.cached(p)
+    assert artifact_cache.cached(p)
 
 
 def test_publish_text_is_atomic_and_leaves_no_tmp(tmp_path: Path):
     dst = tmp_path / "sub" / "abc.a3m"
-    msa_cache.publish_text(dst, ">query\nMKT\n")
+    artifact_cache.publish_text(dst, ">query\nMKT\n")
     assert dst.read_text() == ">query\nMKT\n"
     assert not list(tmp_path.rglob(".*.tmp"))
 
@@ -53,17 +53,37 @@ def test_publish_text_failure_leaves_no_partial_under_the_final_name(tmp_path: P
 
     monkeypatch.setattr(Path, "write_text", boom)
     with pytest.raises(OSError):
-        msa_cache.publish_text(dst, ">query\nPARTIAL\n")
+        artifact_cache.publish_text(dst, ">query\nPARTIAL\n")
     monkeypatch.undo()
     assert not dst.exists()
+
+
+def test_staged_leaves_nothing_under_the_final_name_when_the_producer_raises(tmp_path: Path):
+    """The OpenFold3 template fetch shape: a download that dies mid-transfer."""
+    dst = tmp_path / "1abc.cif"
+    with pytest.raises(ConnectionError):
+        with artifact_cache.staged(dst) as tmp:
+            tmp.write_text("data_1ABC\n_partial")
+            raise ConnectionError("connection reset")
+    assert not dst.exists()
+    assert not list(tmp_path.rglob(".*.tmp"))
 
 
 def test_publish_file_is_atomic(tmp_path: Path):
     src = tmp_path / "src.a3m"
     src.write_text(">query\nMKT\n")
-    msa_cache.publish_file(src, tmp_path / "out" / "dst.a3m")
+    artifact_cache.publish_file(src, tmp_path / "out" / "dst.a3m")
     assert (tmp_path / "out" / "dst.a3m").read_text() == ">query\nMKT\n"
     assert not list(tmp_path.rglob(".*.tmp"))
+
+
+def test_template_fetch_publishes_by_rename():
+    """tt_bio/worker.py fetched RCSB template CIFs straight to the final name, gated on
+    bare exists() -- the 8th site of the bug class the weight registry fixed at seven."""
+    import tt_bio.worker
+    src = Path(tt_bio.worker.__file__).read_text()
+    assert 'urlretrieve(url, struct_dir' not in src
+    assert 'with staged(struct_dir / f"{p}.cif") as tmp:' in src
 
 
 @pytest.mark.parametrize("module", ["tt_bio.worker", "tt_bio.main",

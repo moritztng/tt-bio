@@ -129,7 +129,7 @@ from tt_bio import weights
 from tt_bio.data import const
 from tt_bio.data.mol import load_molecules
 from tt_bio.data.msa import run_mmseqs2
-from tt_bio.msa_cache import cached, publish_file, publish_text, seq_hash
+from tt_bio.cache import cached, publish_file, publish_text, seq_hash
 from tt_bio.data.parse import parse_a3m, parse_csv, parse_fasta, parse_yaml
 from tt_bio.data.types import Coords, Input, Interface
 from tt_bio.data.write import to_mmcif, to_pdb
