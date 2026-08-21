@@ -3,7 +3,7 @@ os.environ.setdefault('TT_VISIBLE_DEVICES','0'); os.environ.setdefault('TT_LOGGE
 sys.path.insert(0,'/home/ttuser/tt-boltz2'); sys.path.insert(0,'/home/ttuser/tt-boltz2/tests')
 import pickle, torch, ttnn
 from protenix_reference import remap_pairformer_block
-from tt_bio.tenstorrent import get_device, Pairformer
+from tt_bio.tenstorrent import get_device, Pairformer, accurate_softmax_site
 ck_all=torch.load('/home/ttuser/protenix_ckpt/protenix-v2.pt',map_location='cpu',weights_only=True); ck_all=ck_all.get('model',ck_all)
 # count blocks + dims
 import re
@@ -22,7 +22,10 @@ for i in range(nb):
     for k,v in remap_pairformer_block(bsd).items(): combined[f'layers.{i}.{k}']=v
 dev=get_device()
 cfg=ttnn.init_device_compute_kernel_config(dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True, packer_l1_acc=True)
-pf=Pairformer(nb, c_hidden_pair_att, no_heads_pair, c_s//apb_nh, apb_nh, True, combined, cfg)
+# Same switch as the production site (tt_bio/protenix.py Trunk.PF): this script builds its
+# own Pairformer, so without this the accurate-softmax A/B would silently measure nothing.
+pf=Pairformer(nb, c_hidden_pair_att, no_heads_pair, c_s//apb_nh, apb_nh, True, combined, cfg,
+              accurate_softmax=accurate_softmax_site("protenix.trunk"))
 d=pickle.load(open('/home/ttuser/protenix_ref_out.pkl','rb'))
 io=d['intermediates']['pairformer_stack']; (s_in,z_in)=io['in']; (s_out,z_out)=io['out']
 s_in,z_in,s_out,z_out=[x.float() for x in (s_in,z_in,s_out,z_out)]
