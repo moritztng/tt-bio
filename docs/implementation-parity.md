@@ -46,8 +46,9 @@ accuracy (does the fold match the native structure) is out of scope.
 | SaProt-35m | ubiquitin, L76 | PASS | deterministic encoder; emb PCC 0.99914, in the ESMC band |
 | SaProt-650m | ubiquitin, L76 | PASS | deterministic encoder; emb PCC 0.99964, in the ESMC band |
 | RFdiffusion3 | IAI protein motif-scaffold, I40/L419 | PASS | host featurizer 43/43 `f` keys bit-exact vs the committed upstream foundry reference capture; card-free, in-process (`scripts/rfd3_port/parity_gate.py`) |
+| Nesso-1 | tyr48 + tyrosine, 61 tokens | PASS | host featurizer bit-exact vs the committed upstream capture; torch model 22/22 activations bit-identical and 11/11 output scalars exact. On device the worst of the 11 scalars sits at 3.43x upstream's own 0.058 featurization-draw spread, inside the 5.0x floor, and the device is deterministic (spread 0.0 across 3 repeats). On DAVIS the within-target Pearson is 0.662 against the upstream/H200 arm's 0.636 on the same 30 compounds per target |
 
-Net: 28 PASS, 5 PASS-caveated, 1 GAP-evidenced (boltz2-9ncy-nomsa, root-caused below). The three Boltz-2 affinity
+Net: 29 PASS, 5 PASS-caveated, 1 GAP-evidenced (boltz2-9ncy-nomsa, root-caused below). The three Boltz-2 affinity
 legs were re-run with MSA (Boltz-2's production default — a pharma user folds a
 target whose homologs are known, so the MSA is fed); the earlier single-sequence
 rows are retained and relabeled `non-default`. The MSA legs score 9 PASS / 3 GAP
@@ -88,6 +89,12 @@ within 2 Å scRMSD), not by a distance. OpenDDE-abag by global DockQ and
 per-interface iRMSD.
 
 ## Correctness method — integration-parity envelope (supersedes the R/D/X floor)
+
+Nesso-1 is the one model here scored on neither a distance nor an envelope. It predicts no
+coordinates, so there is nothing to align and no diffusion draw to share; its leg compares the
+eleven output scalars against the torch reference and normalises by upstream's own
+featurization-draw spread, because upstream roto-translates every conformer off the global RNG and
+so differs from itself run to run by up to 0.058.
 
 The R/D/X floor above answers a distribution question ("is X within the run-to-run spread?") with
 a point comparison against a GUESSED floor `max(R, D)`. Because R, D and X each compare INDEPENDENT

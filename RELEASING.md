@@ -151,9 +151,18 @@ without it, a run where every fold collapsed to one constant would also pass.
 sanity look, but it is no longer the parity gate of record — `full_parity_gate.py`
 is the command that must pass before a tag. The two do not overlap awkwardly:
 the full gate runs the BoltzGen designability and OpenDDE-abag DockQ legs by
-calling `release_gate`'s vetted `run_boltzgen` / `run_opendde_abag` **in-process**
-(capturing their real scRMSD/DockQ numbers), so there is one implementation of
-each leg, not two.
+calling `release_gate`'s vetted `run_boltzgen` / `run_opendde_abag` / `run_nesso1`
+**in-process** (capturing their real scRMSD/DockQ/scalar numbers), so there is one
+implementation of each leg, not two.
+
+Nesso-1 is scored by `release_gate.py --model nesso1`, which needs no ccd.pkl setup:
+`find_ccd` downloads the 413 MB file from the checkpoint repo on a miss, so `NESSO_CACHE`
+is an override rather than a prerequisite. Run it standalone with:
+
+```bash
+TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
+  python3 scripts/release_gate.py --model nesso1
+```
 
 ### Gate behavior you can rely on
 
@@ -297,7 +306,10 @@ esmfold2 leg. `scripts/release_gate.py:MODELS` is the source of truth for these
 numbers; keep this table in sync with it.
 
 BoltzGen passes when at least half of four generated binders refold within
-2 Å scRMSD. ESMC passes at per-residue PCC ≥0.99 against upstream ESM.
+2 Å scRMSD. ESMC passes at per-residue PCC ≥0.99 against upstream ESM. Nesso-1 predicts no
+coordinates, so it is not in that table: it passes when the worst of its eleven output
+scalars stays inside 5.0x upstream's own run-to-run spread and the device repeats agree to
+1e-6. Floors live in `scripts/nesso1_port/device_parity.py`.
 OpenDDE-abag co-folds the 1AHW Fab + antigen complex and passes when the
 confidence-selected complex scores global DockQ ≥0.50 against the experimental
 1AHW structure (a floor that catches a gross mis-dock; the measured baseline is

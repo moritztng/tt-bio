@@ -184,6 +184,7 @@ def _shared_draw_env() -> dict:
 #        "esmfold2"   -> in-process vendored torch ref + device, esmfold2_e2e_parity
 #        "boltzgen"   -> designability, boltzgen_designability (via release_gate --model boltzgen)
 #        "abag"       -> DockQ, opendde_dockq (via release_gate --model opendde-abag)
+#        "nesso1"     -> output scalars vs the torch reference (via release_gate --model nesso1)
 # fixture: "<model>/<target>/<tag>" path under ref-fixtures/, or "" for in-process-ref legs
 #          (ESMC/SaProt/ESMFold2/BoltzGen/abag run their own reference live each pass — fast).
 # committed_json: the docs/implementation-parity-data/*.json to compare the fresh verdict
@@ -457,6 +458,15 @@ LEGS += [
     Leg("rfd3-featurizer", "rfd3", "rfd3", "", committed_json="rfd3-featurizer.json",
         note="RFD3 host featurizer value-parity vs committed foundry reference "
               "(43/43 keys bit-exact); card-free, in-process"),
+    # Nesso-1 predicts no coordinates, so there is no structure to score and no envelope
+    # to build: the leg compares the eleven output scalars against the torch reference,
+    # which is itself bit-exact against upstream, and normalises by upstream's own
+    # featurization-draw spread. Delegates to release_gate --model nesso1 the way the
+    # boltzgen and opendde-abag legs delegate theirs. seeds=(0,) because the featurization
+    # draw is pinned and the device arm is deterministic: repeats measure nothing here.
+    Leg("nesso1", "nesso1", "nesso1", "", committed_json="nesso1.json", seeds=(0,),
+        note="output-scalar parity vs the torch reference, normalised by upstream's own "
+             "run-to-run spread; reuses release_gate --model nesso1"),
 ]
 
 LEGS_BY_ID = {l.id: l for l in LEGS}
@@ -1146,23 +1156,38 @@ def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
     """Run the dedicated harness for esmc/saprot/esmfold2 (subprocess) or the in-process
     designability/DockQ leg for boltzgen/abag. Persists the report to out_json (for --resume).
 
-    pin_card sets TT_VISIBLE_DEVICES for the subprocess harnesses. Without it they inherit the
-    gate's environment, which has no device restriction, so on a multi-chip host they open the
-    WHOLE mesh. On the 32-chip Wormhole galaxy that fails before any compute: 32 copies of
+    pin_card sets TT_VISIBLE_DEVICES for every harness, subprocess or delegated. Without it they
+    inherit the gate's environment, which has no device restriction, so on a multi-chip host they
+    open the WHOLE mesh. On the 32-chip Wormhole galaxy that fails before any compute: 32 copies of
     "Read unexpected run_mailbox value: 0x40" (one per chip, all on core (x=25,y=17), i.e. stale
     state left by the previously-stopped 32-worker service) and then a nonsense
     "Out of Memory ... allocate 524288 B ... bank size is 1073741792 B" — a 512 KB request against
     a 1 GB bank, meaning the allocator saw DRAM as full rather than actually being short of it.
     The per-card legs, which are pinned, passed on those same chips in the same run. Pinning is
     also simply correct: these legs score one card's numerics, so they have no use for a mesh."""
-    if leg.kind in ("boltzgen", "abag", "capacity"):
+    if leg.kind in ("boltzgen", "abag", "capacity", "nesso1"):
+        # These legs run in-process and shell out from THERE, so the pin has to be on this
+        # process's environment: setting it only on the subprocess branch below left every
+        # delegated leg opening the whole mesh, which is exactly the failure the note above
+        # describes. On a busy 4-card qb1 the nesso1 leg sat unpinned for six minutes on a
+        # 28 s measurement before this.
+        prior = os.environ.get("TT_VISIBLE_DEVICES")
+        if pin_card is not None:
+            os.environ["TT_VISIBLE_DEVICES"] = str(pin_card)
         try:
             rg = _load_release_gate()
             row = (rg.run_boltzgen(rg._load_designability_harness(), keep=False)
                    if leg.kind == "boltzgen" else rg.run_capacity_all(keep=False)
-                   if leg.kind == "capacity" else rg.run_opendde_abag(keep=False))
+                   if leg.kind == "capacity" else rg.run_nesso1(keep=False)
+                   if leg.kind == "nesso1" else rg.run_opendde_abag(keep=False))
         except Exception as e:
             return {"error": f"{type(e).__name__}: {e}"}
+        finally:
+            if pin_card is not None:
+                if prior is None:
+                    os.environ.pop("TT_VISIBLE_DEVICES", None)
+                else:
+                    os.environ["TT_VISIBLE_DEVICES"] = prior
         out_json.write_text(json.dumps(row, indent=2, default=str))
         return row
 
@@ -1315,6 +1340,20 @@ def _abag_verdict(report: dict) -> tuple[str, str]:
     return "NO-DATA", "no global_dockq in record"
 
 
+def _nesso1_verdict(report: dict) -> tuple[str, str]:
+    """Nesso-1: PASS iff the worst of the eleven scalars is inside the release multiple of
+    upstream's own run-to-run spread AND the device did not wander between repeats. There
+    is no distance to quote because the model predicts no coordinates, so the accuracy
+    number is normalised to the reference's noise rather than to zero."""
+    if report.get("error") and report.get("x_over_r") is None:
+        return "ERROR", str(report["error"])
+    if report.get("x_over_r") is None:
+        return "NO-DATA", "no X_over_R in record"
+    detail = (f"worst scalar {report['x_over_r']:.3f}xR"
+              f" (upstream spread), device spread {report.get('spread', 0):.3g}")
+    return ("PASS" if report.get("gate") else "GAP"), detail
+
+
 def _capacity_verdict(report: dict) -> tuple[str, str]:
     """Capacity: PASS iff the largest-input fold stayed inside the DRAM budget AND wrote
     every sample it was asked for. An ERROR here is a real device fatal, not a soft miss --
@@ -1394,6 +1433,8 @@ def extract_verdict(leg: Leg, report: dict | None) -> tuple[str, str]:
         return _abag_verdict(report)
     if leg.kind == "capacity":
         return _capacity_verdict(report)
+    if leg.kind == "nesso1":
+        return _nesso1_verdict(report)
     if leg.kind == "rfd3":
         return _rfd3_verdict(report)
     if leg.kind == "esmfold2":
