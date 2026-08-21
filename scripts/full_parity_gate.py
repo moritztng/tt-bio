@@ -474,6 +474,15 @@ LEGS += [
     Leg("af2ig-trunk-monomer", "af2ig", "af2ig_trunk", "", stage="monomer",
         note="AF2-IG torch trunk (monomer stage, model_3_ptm, template stack dropped) vs its "
              "own captured taps; card-free, needs params_model_1_ptm.npz"),
+    # --- AF2-IG ttnn trunk on card, adjudicated against its committed bfloat16 floor rather
+    # than against a PASS bar. The residual is real (9/94 taps, 3/6 scalars) and root-caused
+    # (state doc VERDICT-P11: a bf16 realisation floor amplified ~3x by the structure module),
+    # so the leg's committed record is GAP-evidenced and its scorer's job is to tell that floor
+    # apart from anything new -- see scripts/af2_port/device_floor.py.
+    Leg("af2ig-trunk-device", "af2ig", "af2ig_trunk_device", "", stage="complex",
+        committed_json="af2ig-trunk-device.json",
+        note="AF2-IG ttnn trunk (complex stage) vs the committed bf16 floor; needs a card and "
+             "params_model_1_ptm.npz, GAP-evidenced by construction"),
 ]
 
 LEGS_BY_ID = {l.id: l for l in LEGS}
@@ -1218,6 +1227,21 @@ def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
         return _af2ig_subprocess(["scripts/af2_port/tap_gate.py", "--params", str(params),
                                   "--stage", leg.stage or "complex"], out_json, "af2ig_taps")
 
+    if leg.kind == "af2ig_trunk_device":
+        # Same scorer with --device, so it needs both the checkpoint AND a card; either absent
+        # is a GAP, since a host without a Tenstorrent chip has nothing to say about the ttnn
+        # trunk. Pinned to one card because the leg scores one card's numerics.
+        params = Path(os.path.expanduser("~/pxd_tool_weights/af2/params_model_1_ptm.npz"))
+        if not params.exists():
+            return {"mode": "af2ig_taps", "verdict": "GAP",
+                    "error": f"checkpoint absent: {params}"}
+        if not sorted(Path("/dev/tenstorrent").glob("[0-9]*")):
+            return {"mode": "af2ig_taps", "verdict": "GAP", "error": "no Tenstorrent card"}
+        env_extra = {"TT_VISIBLE_DEVICES": str(pin_card)} if pin_card is not None else {}
+        return _af2ig_subprocess(["scripts/af2_port/tap_gate.py", "--params", str(params),
+                                  "--stage", leg.stage or "complex", "--device"],
+                                 out_json, "af2ig_taps", env_extra=env_extra)
+
     if leg.kind == "esmc":
         script = "scripts/esmc6b_embed_parity.py" if leg.model == "esmc-6b" else "scripts/esmc_embed_parity.py"
         # esmc_embed_parity multi-leg mode: --seqs + --out writes the pharma-style targets
@@ -1372,14 +1396,15 @@ def _capacity_verdict(report: dict) -> tuple[str, str]:
     return ("PASS" if report.get("gate") else "GAP"), detail
 
 
-def _af2ig_subprocess(argv: list[str], out_json: Path, mode: str) -> dict:
+def _af2ig_subprocess(argv: list[str], out_json: Path, mode: str,
+                      env_extra: dict | None = None) -> dict:
     """Run an AF2-IG scorer in a subprocess rooted at this checkout.
 
     PYTHONPATH is the point: both AF2-IG legs must score the tt_bio in the repo they are run
     from, not whichever one the venv has installed editable.
     """
     proc = subprocess.run([sys.executable, *argv], cwd=REPO, capture_output=True, text=True,
-                          env={**os.environ, "PYTHONPATH": str(REPO)})
+                          env={**os.environ, "PYTHONPATH": str(REPO), **(env_extra or {})})
     try:
         rep = json.loads(proc.stdout)
     except json.JSONDecodeError:
@@ -1406,6 +1431,20 @@ def _featurizer_verdict(report: dict) -> tuple[str, str]:
     if mm:
         detail += f"; mismatches: {[m['key'] for m in mm]}"
     return verdict, detail
+
+
+def _af2ig_device_verdict(leg: Leg, report: dict) -> tuple[str, str]:
+    """The device trunk leg, adjudicated against its committed bf16 floor.
+
+    The classifier is shared with the `--mutate` controls (scripts/af2_port/device_floor.py) so
+    that what the gate accepts and what the controls have to break are the same function.
+    """
+    sys.path.insert(0, str(REPO / "scripts" / "af2_port"))
+    from device_floor import af2ig_device_floor_verdict
+    committed = PARITY_DATA / leg.committed_json if leg.committed_json else None
+    if committed is None or not committed.exists():
+        return "NO-DATA", "no committed floor record to adjudicate against"
+    return af2ig_device_floor_verdict(report, json.loads(committed.read_text()))
 
 
 def _af2ig_trunk_verdict(report: dict) -> tuple[str, str]:
@@ -1490,6 +1529,8 @@ def extract_verdict(leg: Leg, report: dict | None) -> tuple[str, str]:
         return _featurizer_verdict(report)
     if leg.kind == "af2ig_trunk":
         return _af2ig_trunk_verdict(report)
+    if leg.kind == "af2ig_trunk_device":
+        return _af2ig_device_verdict(leg, report)
     if leg.kind == "esmfold2":
         # esmfold2_e2e_parity summary.json is a list of per-protein dicts (each with a
         # kabsch_rmsd block). The gate's recorded behavior is PASS-if-scored (the
