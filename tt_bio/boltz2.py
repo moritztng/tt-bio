@@ -5570,9 +5570,33 @@ class Boltz2(nn.Module):
 
             argsort = torch.argsort(dict_out["iptm"], descending=True)
             best_idx = argsort[0].item()
+            # The affinity scalar rides on a discrete choice: one of diffusion_samples_affinity
+            # poses, ranked by an iptm the confidence head produces in bf16. When the top-2 iptm
+            # margin is narrower than the per-sample iptm error (~0.003 on Blackhole), device and
+            # CPU reference select DIFFERENT poses, and the affinity delta between them reports
+            # the inter-pose spread of the scalar rather than any arithmetic residual in the
+            # affinity path. Both hooks are off unless their env var is set.
+            force_idx = os.environ.get("TT_BIO_AFFINITY_FORCE_IDX")
+            if force_idx is not None:
+                best_idx = int(force_idx)
             coords_affinity = dict_out["sample_atom_coords"].detach()[best_idx][
                 None, None
             ]
+            select_trace = os.environ.get("TT_BIO_AFFINITY_SELECT_TRACE")
+            if select_trace:
+                # Appended to a file rather than printed: the fold runs in a worker whose stdout
+                # the progress display swallows. Logs the ranking and a fingerprint of the two
+                # inputs both ensemble heads then read, so one run separates a selection flip
+                # from drift in the shared input.
+                def _fp(t):
+                    return tuple(t.shape), t.double().sum().item(), t.abs().max().item()
+
+                with open(select_trace, "a") as fh:
+                    fh.write("affinity_select iptm=%r argsort=%r best_idx=%d forced=%r\n"
+                             % ([float(v) for v in dict_out["iptm"]], argsort.tolist(),
+                                best_idx, force_idx))
+                    fh.write("affinity_inputs coords_affinity=%r z_affinity=%r\n"
+                             % (_fp(coords_affinity), _fp(z_affinity)))
             s_inputs = self.input_embedder(feats, affinity=True)
 
             with torch.autocast("cuda", enabled=False):

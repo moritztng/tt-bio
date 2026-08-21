@@ -154,6 +154,10 @@ ENVELOPE_KINDS = ("structure", "affinity")
 # The envelope is a per-shared-draw test: the device fold's seed MUST match the seed the fp32/bf16
 # CPU references were generated at, so all three share one CPU-MT19937 draw sequence.
 ENVELOPE_SEED = 0
+# The reference_impl an envelope-native fixture carries. A fixture whose top-level
+# reference_impl is anything else was harvested from a foreign implementation, so its
+# top-level provenance belongs to that harvest and not to the envelope references.
+ENVELOPE_REF_IMPL = "tt-bio-cpu-torch"
 
 
 def _is_envelope_leg(leg) -> bool:
@@ -1064,27 +1068,37 @@ def regen_envelope_refs(legs: list, workdir: Path, log_dir: Path,
                   "reads as a false GAP. Refusing to write meta.json for this leg.")
             leg_ok = False
         if leg_ok:
-            envelope_meta = {"reference_impl": "tt-bio-cpu-torch", "reference_version": _repo_commit(),
+            envelope_meta = {"reference_impl": ENVELOPE_REF_IMPL, "reference_version": _repo_commit(),
                              "reference_commit": _repo_commit(), "settings": _ref_settings(leg),
                              "seeds": [ENVELOPE_SEED]}
-            # MERGE, never clobber, a HARVESTED fixture's top-level meta.json: settings_tag,
+            # MERGE, never clobber, a HARVESTED fixture's top-level meta.json: the
             # "official Aureka-OpenDDE"/"official ByteDance Protenix" provenance, command,
             # date, invalidation_rule are read by the legacy R/D/X scorer (pharma_parity.py,
             # --legacy-rdx) against the ALREADY-COMMITTED seed0-4 dirs -- unrelated to and
             # unaffected by this envelope regen. Overwriting the whole file here previously
             # destroyed that provenance every time the envelope refs were regenerated
-            # (root cause of the ff473d2ed / 88c14f3b2 / 025ef2479 back-and-forth). A fixture
-            # is "harvested" iff its meta.json carries settings_tag (the legacy scorer's own
-            # marker, see pharma_parity.py) -- only then do we preserve top-level and nest the
-            # envelope's own bookkeeping under "envelope". An envelope-native fixture (no
-            # settings_tag, e.g. boltz2 no-MSA) keeps the old flat replacement (no stale keys).
+            # (root cause of the ff473d2ed / 88c14f3b2 / 025ef2479 back-and-forth).
+            #
+            # A fixture is harvested iff its top-level reference_impl names a FOREIGN
+            # implementation. The earlier test was "settings_tag in old_meta", which
+            # conflated two independent properties: settings_tag only means "this fixture
+            # also carries legacy R/D/X seed0-4 dirs", and that is true of the
+            # envelope-native boltz2 affinity fixtures too. On those, the nest-and-keep
+            # branch wrote the new identity under "envelope" and orphaned the old flat one,
+            # leaving two structurally identical provenance blocks that disagreed about
+            # reference_commit. Scoring read the right one (see fixture_fingerprint), but a
+            # human auditing the fixture read the pre-fix commit. Envelope-native fixtures
+            # now get their envelope provenance replaced in place; the legacy keys
+            # (settings_tag and friends) are still preserved.
             meta_path = base / "meta.json"
             old_meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
-            if "settings_tag" in old_meta:
+            if old_meta.get("reference_impl", ENVELOPE_REF_IMPL) != ENVELOPE_REF_IMPL:
                 old_meta["envelope"] = envelope_meta
                 meta = old_meta
             else:
-                meta = envelope_meta
+                meta = {k: v for k, v in old_meta.items()
+                        if k != "envelope" and k not in envelope_meta}
+                meta.update(envelope_meta)
             # The legacy R/D/X scorer refuses any fixture whose meta.json does not name its
             # own settings tag (pharma_parity.py, "settings-tag mismatch"), so a fixture the
             # branch above wrote flat has been unscoreable under --legacy-rdx ever since:
