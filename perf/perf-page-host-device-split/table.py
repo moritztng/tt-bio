@@ -8,7 +8,11 @@ state/rf3-perf-page-cell.md rather than re-measured.
 Device-only ratio is (P - Htt) / G. For five of the six rows G is ALREADY device-only --
 the published GPU cell times the network forward with featurization outside it -- so the
 only thing the reading needs from us is Htt. RF3 is the exception: both of its sides are
-whole folds, so its device-only ratio uses the measured GPU device time.
+whole folds, so its device-only ratio uses the measured GPU device time and its
+whole-fold ratio is what the page already publishes.
+
+The whole-fold half needs Hgpu, which comes from the H200 leg and lands in hgpu.json.
+Until that file exists the second table prints "not measured" rather than a guess.
 """
 
 import json
@@ -50,7 +54,18 @@ def main():
         htt_to_flip=RF3["p"] - BAR * RF3["g"],
         aa_floor_pct=0.48, plain=RF3["p"], drift_pct=0.0,
     ))
+    # Hgpu, once Phase C has measured it: {model: seconds of host work per fold that the
+    # published GPU cell leaves out}. Whole-fold ratio is P / (G + Hgpu), so a row can
+    # only move toward the bar. Empty until the H200 leg lands; RF3's is already known.
+    hgpu_path = HERE / "hgpu.json"
+    hgpu = json.loads(hgpu_path.read_text()) if hgpu_path.exists() else {}
+    hgpu.setdefault("rf3", RF3["hgpu"])
+
     rows.sort(key=lambda r: r["published"])
+    for r in rows:
+        r["hgpu"] = hgpu.get(r["model"])
+        r["hgpu_to_flip"] = r["p"] / BAR - r["g"]
+        r["whole"] = (r["p"] / (r["g"] + r["hgpu"])) if r["hgpu"] is not None else None
 
     w = "| model | P (p150a) | G (H200) | published | Htt | device-only | Htt to flip in | verdict |"
     print(w)
@@ -63,6 +78,19 @@ def main():
         htt = "<= %.3f" % r["htt"]
         print(f"| {r['model']} | {r['p']:.3f} | {r['g']:.3f} | {r['published']:.3f}x | {htt} | "
               f"**{r['dev_only']:.3f}x** | {need} | {v} |")
+
+    print()
+    print("| model | Hgpu | whole-fold | Hgpu to flip in | verdict |")
+    print("|" + "---|" * 5)
+    for r in rows:
+        need = "already in" if r["hgpu_to_flip"] < 0 else f"{r['hgpu_to_flip']:.3f} s"
+        if r["hgpu"] is None:
+            print(f"| {r['model']} | not measured | — | {need} | pending Phase C |")
+            continue
+        v = ("in, unchanged" if r["published"] < BAR and r["whole"] < BAR else
+             "out, unchanged" if r["published"] >= BAR and r["whole"] >= BAR else
+             "**flips IN**" if r["whole"] < BAR else "**flips OUT**")
+        print(f"| {r['model']} | {r['hgpu']:.3f} s | **{r['whole']:.3f}x** | {need} | {v} |")
 
     print()
     print("| model | plain median here | published | drift | A/A floor | residual |")
