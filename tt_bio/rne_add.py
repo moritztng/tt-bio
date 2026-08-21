@@ -17,8 +17,10 @@ exactly like a model that clears its bar.
 """
 from __future__ import annotations
 
+import atexit
 import collections
 import os
+import sys
 
 import ttnn
 
@@ -104,11 +106,14 @@ def add_(a, b, *args, **kwargs):
 
 
 def install() -> None:
+    """Also prints the call census at exit, unconditionally: an arm that reports a metric
+    without reporting that the lever fired is not evidence of anything."""
     global _orig_add, _orig_add_
     if _orig_add is not None:
         return
     _orig_add, _orig_add_ = ttnn.add, ttnn.add_
     ttnn.add, ttnn.add_ = add, add_
+    atexit.register(lambda: print(report(), file=sys.stderr, flush=True))
 
 
 def uninstall() -> None:
