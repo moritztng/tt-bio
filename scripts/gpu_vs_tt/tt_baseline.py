@@ -112,6 +112,138 @@ def seed_msa_cache(target: Path, a3m: Path, msa_dir: Path) -> int:
     return text.count(">")
 
 
+# Named-function phase buckets for the host/device split. Which callee of
+# ``_WorkerState._predict_<model>_one`` is host work, which is accelerator work, which
+# is the host->device copy. Bucket by NAMED FUNCTION, never by region: OpenFold3 runs
+# ``run_input_atom_encoder`` on the card from inside the pre-``fold`` region, so an
+# "everything before the fold is host" bracket books device work as host.
+#
+#   ("mod", "<module>:<attr>", bucket)  -- patch the attribute on the source module.
+#       Every callee below is imported function-locally inside the ``_predict_*_one``
+#       that calls it, so the name is resolved at call time and the patch is seen.
+#   ("state", "<attr path>", bucket)    -- patch an attribute on the _WorkerState (or
+#       on something it holds). Needed where the callee is bound at load time:
+#       ``state.prepare`` is a ``partial`` built in ``bind_run`` (worker.py:566), so
+#       patching ``tt_bio.main.prepare_features`` after the bind measures zero.
+#
+# Whatever the brackets miss lands in ``residual``. For all five models the only
+# device entry points are ``model.fold`` / ``model.predict_step`` and OpenFold3's
+# ``run_input_atom_encoder``, all named here, so the residual is host glue.
+PHASES: dict[str, list[tuple[str, str, str]]] = {
+    "boltz2": [
+        ("state", "prepare", "host"),                            # worker.py:640
+        ("mod", "tt_bio.main:to_batch", "transfer"),             # worker.py:641
+        ("state", "model.predict_step", "device"),               # worker.py:644
+        ("mod", "tt_bio.main:write_result", "host"),             # worker.py:645
+    ],
+    "esmfold2": [
+        ("mod", "tt_bio.main:_read_protein_chains", "host"),           # worker.py:665
+        ("mod", "tt_bio.esmfold2_runtime:resolve_msa", "host"),        # worker.py:705
+        ("mod", "tt_bio.esmfold2_runtime:fold_complex", "device"),     # worker.py:707
+        ("mod", "tt_bio.main:_write_structure", "host"),               # worker.py:727
+    ],
+    "protenix-v2": [
+        ("mod", "tt_bio.protenix_data:build_complex_features", "host"),  # worker.py:931
+        ("state", "model.fold", "device"),                               # worker.py:1009
+        ("mod", "tt_bio.main:_write_protenix_structure", "host"),        # worker.py:963
+    ],
+    "opendde": [
+        ("mod", "tt_bio.protenix_data:build_complex_features", "host"),  # worker.py:835
+        ("state", "model.fold", "device"),                               # worker.py:847
+        ("mod", "tt_bio.main:_write_protenix_structure", "host"),        # worker.py:870
+    ],
+    "openfold3": [
+        ("mod", "tt_bio.main:_read_bio_chains", "host"),                       # :1239
+        ("mod", "tt_bio.openfold3_data:resolve_openfold3_msas", "host"),       # :1305
+        ("mod", "tt_bio.openfold3_data:build_openfold3_features", "host"),     # :1343
+        ("mod", "tt_bio.openfold3_data:make_openfold3_msa_features", "host"),  # :1350
+        ("mod", "tt_bio.openfold3_host_prep:derive_block_aux", "host"),        # :1352
+        ("mod", "tt_bio.openfold3_host_prep:derive_template_feat", "host"),    # :1353
+        ("mod", "tt_bio.openfold3_host_prep:dedup_template_slots", "host"),    # :1353
+        ("mod", "tt_bio.openfold3_host_prep:derive_relpos", "host"),           # :1355
+        ("mod", "tt_bio.openfold3_host_prep:ref_atom_embed", "host"),          # :1363
+        ("mod", "tt_bio.openfold3_host_prep:run_input_atom_encoder", "device"),  # :1359, ON CARD
+        ("state", "model.fold", "device"),                                     # :1389
+        ("mod", "tt_bio.worker:_write_atom_array_structure", "host"),          # :1409
+    ],
+}
+
+
+class Instrument:
+    """Wall-clock brackets around the named phases of one model's ``_predict_*_one``.
+
+    ``on()`` / ``off()`` swap the wrappers in and out, so a single process can
+    alternate an instrumented arm against the uninstrumented published one and prove
+    the instrument does not move the wall it measures. Whole-function brackets only:
+    nothing here adds a device sync, because a per-op sync roughly doubles the cost it
+    is measuring. ``model.fold`` returns host tensors, so its bracket is already synced
+    at the boundary.
+
+    Patches this process only; production code is untouched.
+    """
+
+    def __init__(self, model: str, state):
+        import importlib
+
+        if model not in PHASES:
+            raise ValueError(f"no phase table for {model!r}; have {sorted(PHASES)}")
+        self.model = model
+        self._sites = []
+        for kind, target, bucket in PHASES[model]:
+            if kind == "mod":
+                modname, attr = target.split(":")
+                owner = importlib.import_module(modname)
+            else:
+                owner, *path = state, *target.split(".")
+                for step in path[:-1]:
+                    owner = getattr(owner, step)
+                attr = path[-1]
+            self._sites.append((owner, attr, getattr(owner, attr), bucket, target))
+        self._cur: dict[str, float] = {}
+        self._per_fn: dict[str, dict] = {}
+        self.active = False
+
+    def _wrap(self, fn, bucket: str, name: str):
+        def timed(*a, **k):
+            t = time.perf_counter()
+            try:
+                return fn(*a, **k)
+            finally:
+                dt = time.perf_counter() - t
+                self._cur[bucket] = self._cur.get(bucket, 0.0) + dt
+                row = self._per_fn.setdefault(name, {"s": 0.0, "n": 0})
+                row["s"] += dt
+                row["n"] += 1
+        return timed
+
+    def on(self) -> None:
+        for owner, attr, orig, bucket, name in self._sites:
+            setattr(owner, attr, self._wrap(orig, bucket, name))
+        self.active = True
+
+    def off(self) -> None:
+        for owner, attr, orig, _bucket, _name in self._sites:
+            setattr(owner, attr, orig)
+        self.active = False
+
+    def row(self, total: float) -> dict:
+        """The phase record for the fold that just ran; resets the accumulators.
+
+        ``residual`` is what the brackets missed, and it is host glue by construction
+        (see PHASES). A NEGATIVE residual means two brackets nested and double-counted
+        -- that is the check, not a rounding artifact. Per-function ``n`` is what
+        separates "this patch never fired" from "it fired and cost nothing".
+        """
+        r = {b: round(self._cur.get(b, 0.0), 4) for b in ("host", "device", "transfer")}
+        r["total"] = round(total, 4)
+        r["residual"] = round(total - sum(self._cur.values()), 4)
+        r["per_fn"] = {k: {"s": round(v["s"], 4), "n": v["n"]}
+                       for k, v in self._per_fn.items()}
+        self._cur.clear()
+        self._per_fn.clear()
+        return r
+
+
 def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
                samples: int = DIFFUSION_SAMPLES, hoist: bool = False,
                instrument: bool = False, fast: bool = False, trace: bool = False):
@@ -130,12 +262,14 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
     and warms every kernel); only the timed calls switch to the hoisted region. The raw
     ``predict_one`` boundary stays the default; the committed numbers used it.
 
-    ``instrument`` (raw mode only) wraps the three phases of ``_predict_protenix_one``
-    with timers -- build_complex_features, model.fold, _write_protenix_structure -- and
-    appends one ``{feat, fold, write, total}`` entry per fold to ``meta["phase_times"]``,
-    so the host/device split is measured on the same folds the raw number comes from.
-    Monkeypatches module attributes inside this worker process only; production code is
-    untouched. protenix-v2 only (the disputed model).
+    ``instrument`` (raw mode only) brackets the named phases of the model's
+    ``_predict_*_one`` -- see ``PHASES`` above -- and appends one
+    ``{host, device, transfer, total, residual, per_fn}`` entry per fold to
+    ``meta["phase_times"]``, so the host/device split is measured on the same folds the
+    raw number comes from. Monkeypatches attributes inside this process only;
+    production code is untouched. Supported for every model in ``PHASES``. A driver
+    that needs to alternate arms in one process builds an ``Instrument`` itself and
+    toggles it around folds instead of passing this flag.
     """
     import torch  # noqa: F401
     torch.set_grad_enabled(False)
@@ -143,8 +277,8 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
     from tt_bio.worker import _WorkerState, _ensure_local_artifacts
     from tt_bio import esmfold2 as _E
 
-    if (hoist or instrument) and model != "protenix-v2":
-        raise ValueError("hoist/instrument are protenix-v2 only (the disputed model)")
+    if hoist and model != "protenix-v2":
+        raise ValueError("hoist is protenix-v2 only (the disputed model)")
 
     _noop = lambda *a, **k: None
     _E.set_progress(_noop)
@@ -183,39 +317,9 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
     job_cfg = dict(cfg)
 
     phase_times: list[dict] = []
-    if instrument:
-        import tt_bio.main as _main
-        import tt_bio.protenix_data as _pd
-
-        _orig_feat, _orig_write = _pd.build_complex_features, _main._write_protenix_structure
-        _cur: dict[str, float] = {}
-
-        def _timed_feat(*a, **k):
-            t = time.perf_counter()
-            try:
-                return _orig_feat(*a, **k)
-            finally:
-                _cur["feat"] = _cur.get("feat", 0.0) + time.perf_counter() - t
-
-        def _timed_write(*a, **k):
-            t = time.perf_counter()
-            try:
-                return _orig_write(*a, **k)
-            finally:
-                _cur["write"] = _cur.get("write", 0.0) + time.perf_counter() - t
-
-        _orig_model_fold = state.model.fold
-
-        def _timed_fold(*a, **k):
-            t = time.perf_counter()
-            try:
-                return _orig_model_fold(*a, **k)
-            finally:
-                _cur["fold"] = _cur.get("fold", 0.0) + time.perf_counter() - t
-
-        _pd.build_complex_features = _timed_feat
-        _main._write_protenix_structure = _timed_write
-        state.model.fold = _timed_fold
+    inst = Instrument(model, state) if instrument else None
+    if inst is not None:
+        inst.on()
 
     hoisted = None
     if hoist:
@@ -266,11 +370,8 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
         metrics, _best, _feats = state.predict_one(target, job_cfg)
         total = time.perf_counter() - t0
         cold_done["v"] = True
-        if instrument:
-            cur = {k: round(v, 4) for k, v in _cur.items()}
-            cur["total"] = round(total, 4)
-            phase_times.append(cur)
-            _cur.clear()
+        if inst is not None and inst.active:
+            phase_times.append(inst.row(total))
         return total, metrics
 
     return one_fold, dict(hardware=hw, load_s=round(load_s, 2), n_msa=n_msa,
