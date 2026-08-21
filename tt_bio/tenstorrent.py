@@ -2509,16 +2509,19 @@ def get_device(trace_region_size=0):
     """
     global _device, _trace_region_size, _device_lease
     if _device is None:
-        # Enforce an exclusive, host-local lease on the physical card BEFORE opening it,
-        # so two processes on this host can never open the same card at once regardless of
-        # how they were launched (fleet worker, detached campaign, cross-host fanout, manual).
+        # Enforce an exclusive, host-local lease on EVERY physical card this open will hold
+        # BEFORE opening it, so two processes on this host can never open the same card at
+        # once regardless of how they were launched (fleet worker, detached campaign,
+        # cross-host fanout, manual). Every visible card, not just the one computed on: ttnn
+        # brings up the whole visible set, so an unpinned open on a QuietBox holds four chips
+        # and used to lease one of them (tt_bio/device_lease.py, CardSetLease).
         # The flock is auto-released by the kernel on any process death, so a crashed/killed
         # holder never leaves a phantom claim. See tt_bio/device_lease.py.
         # And a process that takes a card must not outlive whoever wanted the result:
         # an orphaned holder keeps its flock and defers every later job on that card.
-        from tt_bio.device_lease import DeviceLease, arm_orphan_guard
+        from tt_bio.device_lease import CardSetLease, arm_orphan_guard
         arm_orphan_guard()
-        _device_lease = DeviceLease().acquire()
+        _device_lease = CardSetLease().acquire()
         try:
             _device = _open_and_init_device(trace_region_size)
         except Exception:

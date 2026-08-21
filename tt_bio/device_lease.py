@@ -25,10 +25,23 @@ same ``<host>-card<N>.json`` naming the dispatcher already uses, so the dispatch
 device-open observe ONE consistent set of leases. Collision-freedom does NOT depend on that
 sharing, though -- because both colliding jobs pass through this same choke point, they
 serialize here even if the dispatcher never sees the lease.
+
+Scope of one lease -- the VISIBLE set, not the chip that gets opened. ttnn brings up every
+chip ``TT_VISIBLE_DEVICES`` makes visible, not only the one ``open_device`` names. Measured on
+qb2 2026-08-21: under ``TT_VISIBLE_DEVICES=0,1`` ttnn returned a 1x1 mesh
+(``get_num_devices() == 1``, ``get_device_ids() == [0]``, ``shape == MeshShape([1, 1])``) while
+the process held two fds on ``/dev/tenstorrent/0`` AND two on ``/dev/tenstorrent/1`` for the
+device's whole lifetime; under ``TT_VISIBLE_DEVICES=1`` it held node 1 alone. So a single lease
+keyed on the opened chip leased card 0 and silently HELD card 1 -- which the fleet, seeing one
+held lease, then handed to a second worker. ``CardSetLease`` leases every card in the visible
+set, so what a process holds and what it has leased are the same thing, and a visibility wider
+than the card grant is refused rather than hidden. The mesh object cannot report this: it says
+one device while two chips are open, which is why the lease has to key on visibility.
 """
 
 import errno
 import fcntl
+import glob
 import json
 import os
 import signal
@@ -82,8 +95,38 @@ def physical_card():
         # the lease file keeps the fleet's <host>-card<N>.json naming (issue #11).
         from tt_bio.runtime import visible_device_indices
         cards = visible_device_indices(visible)
-        return str(cards[logical] if logical < len(cards) else cards[0])
+        if logical >= len(cards):
+            # Silently falling back to cards[0] leased a card the open was never going to
+            # get, so the lease named one card and the device work happened on another.
+            raise ValueError(
+                f"TT_BIO_LOGICAL_DEVICE_ID={logical} is out of range for "
+                f"TT_VISIBLE_DEVICES={visible!r} ({len(cards)} card(s) visible: {cards}). "
+                "Set it to an index within the visible set, or leave it unset for 0."
+            )
+        return str(cards[logical])
     return str(logical)
+
+
+def physical_cards():
+    """Every physical card a device open will HOLD, not just the one it computes on.
+
+    ttnn brings up the whole visible set (see the module docstring for the fd measurement),
+    so this -- not ``physical_card()`` -- is the set a lease has to cover. With
+    ``TT_VISIBLE_DEVICES`` set it is that value's cards; unset, it is every card present,
+    which is exactly the whole-box open this exists to stop being invisible.
+
+    Sorted ascending so every process acquires an overlapping set in the same order and two
+    of them cannot deadlock holding each other's next card.
+    """
+    visible = os.environ.get("TT_VISIBLE_DEVICES", "")
+    if visible.strip():
+        from tt_bio.runtime import visible_device_indices
+        cards = visible_device_indices(visible)
+    else:
+        cards = [int(p.rsplit("/", 1)[-1]) for p in glob.glob("/dev/tenstorrent/[0-9]*")]
+    # No cards present (device-free host, CI): keep the single-card behaviour rather than
+    # leasing nothing, so a lease is still taken and the open fails on its own terms.
+    return [str(c) for c in sorted(set(cards))] or [physical_card()]
 
 
 def _holder_label():
@@ -218,6 +261,71 @@ class DeviceLease:
                 os.close(fd)
             except Exception:
                 pass
+
+    def __enter__(self):
+        return self.acquire()
+
+    def __exit__(self, *exc):
+        self.release()
+
+
+class CardSetLease:
+    """Leases EVERY physical card the device open will hold, all-or-nothing.
+
+    One ``DeviceLease`` per card in :func:`physical_cards`, so the fleet's lease-file view
+    matches the fds the process actually holds. ``DeviceLease`` stays the unit: this only
+    composes it, which keeps the flock semantics (kernel-released on any death, including
+    SIGKILL) for every card in the set for free.
+    """
+
+    def __init__(self, cards=None, timeout=DEFAULT_TIMEOUT_S):
+        # physical_cards() is already sorted; a caller-supplied set is sorted here so the
+        # deadlock-free acquisition order does not depend on the caller getting it right.
+        raw = list(cards) if cards is not None else physical_cards()
+        self.cards = sorted((str(c) for c in raw), key=lambda c: (not c.isdigit(), int(c) if c.isdigit() else c))
+        self.timeout = timeout
+        self.host = lease_host()
+        self._held = []
+        self._lock = threading.Lock()
+
+    def acquire(self):
+        """Claim every card in the set, or none of them. Returns ``self``."""
+        # Check the grant against the WHOLE set first: a refusal names every offending card
+        # at once, and a request that was never going to be granted never half-acquires.
+        granted = granted_cards()
+        if granted is not None:
+            outside = [c for c in self.cards if c not in granted]
+            if outside:
+                raise DeviceInUseError(
+                    f"this device open would hold physical card(s) {','.join(outside)} on "
+                    f"{self.host}, outside this job's card grant "
+                    f"TT_BIO_LEASE_CARDS={','.join(sorted(granted))}. Refusing to open it. "
+                    f"ttnn brings up every card TT_VISIBLE_DEVICES makes visible, not only the "
+                    f"one it computes on, so pin TT_VISIBLE_DEVICES to your granted card(s) "
+                    f"(currently {os.environ.get('TT_VISIBLE_DEVICES') or 'unset, i.e. the whole box'})."
+                )
+        # ONE timeout budget for the set, not len(cards) x timeout: a contended set must fail
+        # in the time a caller was told to expect, not four times it.
+        deadline = time.time() + self.timeout
+        for card in self.cards:
+            try:
+                self._held.append(DeviceLease(card=card,
+                                              timeout=max(0.0, deadline - time.time())).acquire())
+            except BaseException:
+                self.release()   # never leave half a set leased
+                raise
+        return self
+
+    def release(self):
+        """Free every card held. Idempotent, safe from atexit."""
+        with self._lock:
+            while self._held:
+                self._held.pop().release()
+
+    @property
+    def card(self):
+        """The card the device is opened on, for callers that log a single id."""
+        return self.cards[0] if self.cards else None
 
     def __enter__(self):
         return self.acquire()
