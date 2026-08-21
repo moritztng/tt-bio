@@ -25,7 +25,9 @@ structures within sample variance of the reference (scripts/protenix_fold_e2e.py
 scripts/protenix_predict.py -> PDB). Remaining (packaging): data-pipeline vendoring
 (sequence/CCD -> feats dict), worker/CLI --model protenix-v2, unified README.
 """
+import math
 import os
+import re
 import torch
 import ttnn
 
@@ -344,6 +346,20 @@ class _KeyedWeights:
         if l1 and _T._TEMPLATE_L1_NORM:
             return _l1_layer_norm(x, 1.5, **kw)[0]
         return ttnn.layer_norm(x, **kw)
+
+
+def n_blocks(state_dict, prefix):
+    """1 + max block index under `prefix` + '.blocks.<i>.', or 0 when the stack is absent.
+
+    Block counts come from the weights rather than from a constant. The v2 family ships at
+    several depths -- Protenix-v2 and OpenDDE 24 DiT / 3 atom blocks, PXDesign's generator
+    16 / 4, the Protenix mini variants 8 / 1 -- and a hardcoded depth silently drops blocks
+    (too few) or builds them from empty dicts (too many). `Trunk` already derived its
+    pairformer depth this way; this generalises it to the other four stacks.
+    """
+    pat = re.compile(re.escape(prefix) + r"\.blocks\.(\d+)\.")
+    idx = {int(m.group(1)) for k in state_dict if (m := pat.match(k))}
+    return 1 + max(idx) if idx else 0
 
 
 class AtomTransformer(_KeyedWeights, Module):
@@ -689,10 +705,16 @@ class AtomAttentionEncoder(_KeyedWeights, Module):
         return ttnn.add(p, m)
 
     def __call__(self, ref_pos, ref_charge_asinh, ref_mask, f_in, d_lm, v_lm, invd,
-                 mask_trunked, atom_to_token_mean, restype, profile, deletion_mean):
+                 mask_trunked, atom_to_token_mean, *token_feats):
         """All tensors on device except mask_trunked (host, for the attn pad bias) and
         atom_to_token_mean ((N_token,N) host averaging matrix). p_lm built in windowed
-        flat form then reshaped to (nb,nq,nk,16)."""
+        flat form then reshaped to (nb,nq,nk,16).
+
+        `token_feats` are the per-token channels concatenated onto the pooled atom
+        embedding. Protenix-v2 and OpenDDE pass (restype, profile, deletion_mean) for
+        c_s_inputs=449; PXDesign's InputFeatureEmbedderDesign passes a different set and
+        then projects (tt_bio.pxdesign.model). Only the concat differs, so only the concat
+        is parameterised."""
         N = ref_pos.shape[1] if len(ref_pos.shape) == 3 else ref_pos.shape[0]
         NP = ((N + self.NQ - 1) // self.NQ) * self.NQ
         nb = NP // self.NQ
@@ -709,7 +731,7 @@ class AtomAttentionEncoder(_KeyedWeights, Module):
         q = ttnn.reshape(q, (N, q.shape[-1]))
         a = ttnn.matmul(atom_to_token_mean, q, compute_kernel_config=self.compute_kernel_config,
                         core_grid=CORE_GRID_MAIN)                            # (N_token,384)
-        return ttnn.concat([a, restype, profile, deletion_mean], dim=-1)     # (N_token,449)
+        return ttnn.concat([a, *token_feats], dim=-1)                        # (N_token,449) for v2
 
 
 class DiffusionModule(_KeyedWeights):
@@ -746,6 +768,10 @@ class DiffusionModule(_KeyedWeights):
 
     SIGMA_DATA = 16.0
     NQ, NK, PAD_LEFT = 32, 128, 48
+    # DIT_BLOCKS is Protenix-v2's / OpenDDE's depth and stays here as the documented default;
+    # the depth actually used is read off the checkpoint in __init__ (PXDesign-d 16, Protenix
+    # mini 8). head_dim 48 x 16 heads = c_token 768 in every family member measured, so those
+    # two are genuinely constant.
     DIT_BLOCKS, DIT_HEAD_DIM, DIT_N_HEADS = 24, 48, 16
     supports_multiplicity = True   # ON: verified on qb2 card0
 
@@ -759,11 +785,16 @@ class DiffusionModule(_KeyedWeights):
         self._diffusion_fp32 = (os.environ.get("PROTENIX_DIFFUSION_FP32_DEVICE", "1") == "1"
                                  if diffusion_fp32 is None else diffusion_fp32)
         self.dtype = ttnn.float32 if self._diffusion_fp32 else ttnn.bfloat16
-        self.atxE = AtomTransformer(3, {k[len("atom_attention_encoder.atom_transformer."):]: v
+        # Depths from the weights. For protenix-v2 and OpenDDE these resolve to the class
+        # defaults (24/3/3), so this is a no-op for both shipped models.
+        self.DIT_BLOCKS = n_blocks(self._w, "diffusion_transformer") or self.DIT_BLOCKS
+        nbE = n_blocks(self._w, "atom_attention_encoder.atom_transformer.diffusion_transformer") or 3
+        nbD = n_blocks(self._w, "atom_attention_decoder.atom_transformer.diffusion_transformer") or 3
+        self.atxE = AtomTransformer(nbE, {k[len("atom_attention_encoder.atom_transformer."):]: v
                                         for k, v in self._w.items()
                                         if k.startswith("atom_attention_encoder.atom_transformer.")},
                                     compute_kernel_config, dtype=self.dtype)
-        self.atxD = AtomTransformer(3, {k[len("atom_attention_decoder.atom_transformer."):]: v
+        self.atxD = AtomTransformer(nbD, {k[len("atom_attention_decoder.atom_transformer."):]: v
                                         for k, v in self._w.items()
                                         if k.startswith("atom_attention_decoder.atom_transformer.")},
                                     compute_kernel_config, dtype=self.dtype)
@@ -2143,16 +2174,16 @@ class Trunk(_KeyedWeights):
     def __init__(self, model_state_dict, compute_kernel_config, c_z=None,
                  msa_update_first=False, gated_move=False):
         """model_state_dict: full v2-family model dict with the 'module.' prefix STRIPPED.
-        c_z: pair channel width (default 256, Protenix-v2's; OpenDDE's shared Trunk subtree
-        is c_z=384 -- same architecture, wider pair, head_dim fixed at 32 so n_tri_heads
-        scales as c_z // 32)."""
-        import re
+        c_z: pair channel width. None reads it off the weights (`layernorm_z_cycle`, the
+        recycling norm every v2-family trunk carries), which is 256 for Protenix-v2, 384 for
+        OpenDDE and 128 for every PXDesign-pinned Protenix. Head_dim is fixed at 32, so
+        n_tri_heads follows as c_z // 32. Pass a value only to override the weights."""
         from .tenstorrent import (get_device, Pairformer, PairformerLayer,
                                    OuterProductMean, PairWeightedAveraging, Transition)
         self._w = model_state_dict
         self.compute_kernel_config = compute_kernel_config
         self.dev = get_device()
-        self.C_Z = c_z or self.C_Z
+        self.C_Z = c_z or self._derive_c_z(model_state_dict) or self.C_Z
         self._msa_update_first = msa_update_first
         n_tri_heads = self.C_Z // self.TRI_HEAD_DIM
         self._wc = {}  # cached device weights (upload once; reused every recycle cycle)
@@ -2160,9 +2191,10 @@ class Trunk(_KeyedWeights):
                    "linear_no_bias_token_bond", "relative_position_encoding")
         ti_sd = {k: v for k, v in self._w.items() if any(k.startswith(p) for p in ti_keys)}
         self.trunk_input = TrunkInput(ti_sd, compute_kernel_config)
-        # 48-block pairformer
-        nb_pf = 1 + max(int(re.search(r"pairformer_stack\.blocks\.(\d+)\.", k).group(1))
-                        for k in self._w if "pairformer_stack.blocks." in k)
+        # Pairformer depth from the weights (Protenix-v2 and OpenDDE 48, Protenix mini 16).
+        # n_blocks anchors the prefix, so template_embedder.pairformer_stack and
+        # confidence_head.pairformer_stack cannot leak into this count.
+        nb_pf = n_blocks(self._w, "pairformer_stack")
         comb = {}
         for i in range(nb_pf):
             blk = {k[len(f"pairformer_stack.blocks.{i}."):]: v for k, v in self._w.items()
@@ -2171,18 +2203,20 @@ class Trunk(_KeyedWeights):
                 comb[f"layers.{i}.{k}"] = v
         self.PF = Pairformer(nb_pf, self.TRI_HEAD_DIM, n_tri_heads, 384 // 16, 16, True, comb,
                              compute_kernel_config, gated_move=gated_move)
-        # template embedder: 2 pair-only PairformerLayers
-        tpl = {k[len(f"template_embedder.pairformer_stack.blocks.{b}."):]: v for b in range(2)
-               for k, v in self._w.items()
-               if k.startswith(f"template_embedder.pairformer_stack.blocks.{b}.")}
+        # Template embedder: pair-only PairformerLayers, count from the weights. Protenix-v2
+        # has 2. Every PXDesign-pinned Protenix variant ships a template embedder that is only
+        # its five projections (layernorm_v, layernorm_z, linear_no_bias_{a,u,z}) with NO
+        # pairformer stack, so 0 is a real answer and _template's `for pl in self.TPL` loop
+        # correctly degenerates to the projections alone.
+        nb_tpl = n_blocks(self._w, "template_embedder.pairformer_stack")
         self.TPL = [PairformerLayer(32, 2, None, None, False,
                     PW.remap_msa_pair_stack({k[len(f"template_embedder.pairformer_stack.blocks.{b}."):]: v
                                              for k, v in self._w.items()
                                              if k.startswith(f"template_embedder.pairformer_stack.blocks.{b}.")}),
-                    compute_kernel_config, gated_move=gated_move) for b in range(2)]
-        # 4-block MSA module
+                    compute_kernel_config, gated_move=gated_move) for b in range(nb_tpl)]
+        # MSA module: count from the weights (Protenix-v2 4, Protenix mini 1).
         self.MSA = []
-        nb_msa = 4
+        nb_msa = n_blocks(self._w, "msa_module")
         for i in range(nb_msa):
             P = f"msa_module.blocks.{i}."
             sub = lambda pp: {k[len(pp):]: v for k, v in self._w.items() if k.startswith(pp)}
@@ -2196,6 +2230,18 @@ class Trunk(_KeyedWeights):
                 pwa = PairWeightedAveraging(8, 8, PW.remap_pair_weighted_averaging(sub(P + "msa_stack.msa_pair_weighted_averaging.")), compute_kernel_config)
                 tm = Transition(PW.remap_transition(sub(P + "msa_stack.transition_m.")), compute_kernel_config)
             self.MSA.append((opm, pwa, tm, pl))
+
+    @staticmethod
+    def _derive_c_z(state_dict):
+        """Pair width off the weights, or None when the trunk keys are absent.
+
+        Same principle as `n_blocks`: a width the caller has to remember to pass can disagree
+        with the checkpoint it is passed alongside, and c_z spans 128/256/384 across the
+        v2-family checkpoints tt-bio loads. `layernorm_z_cycle` is the per-recycle pair norm,
+        so its length is c_z by construction and `__call__` already depends on the key.
+        """
+        w = state_dict.get("layernorm_z_cycle.weight")
+        return int(w.shape[0]) if w is not None else None
 
     def _template(self, z3, tpl_a, N, nt):
         # nt template projections read this whole normed pair tensor to write two tiles of
@@ -2472,6 +2518,37 @@ def merge_conds(diffusion_module, conds):
     return m
 
 
+def step_scale_schedule(step_scale, n_step):
+    """Per-step eta for the AF3 Alg-18 Euler update, as a list of `n_step` floats.
+
+    A float (Protenix-v2, OpenDDE) gives a constant schedule and the identical arithmetic
+    it always had. PXDesign passes upstream's dict form, `{"type", "min", "max"}`; the
+    fraction is `step / (n_step + 1)` because upstream indexes by position in the
+    noise schedule, which is one longer than the step count.
+    Reference: pxdesign/model/generator.py sample_diffusion."""
+    if not isinstance(step_scale, dict):
+        return [float(step_scale)] * n_step
+    lo, hi = float(step_scale["min"]), float(step_scale["max"])
+    kind, T = step_scale["type"], n_step + 1
+    if kind == "const":
+        if lo != hi:
+            raise ValueError(f"const eta schedule needs min == max, got {lo} and {hi}")
+        return [lo] * n_step
+    fracs = [k / T for k in range(n_step)]
+    if kind == "linear":
+        return [lo + (hi - lo) * f for f in fracs]
+    if kind == "poly":
+        return [lo + (hi - lo) * f ** 2 for f in fracs]
+    if kind == "cos":
+        return [lo + 0.5 * (hi - lo) * (1 - math.cos(math.pi * f)) for f in fracs]
+    if kind.startswith("piecewise"):
+        cut = {"piecewise": 0.5, "piecewise_65": 0.65, "piecewise_70": 0.70}.get(kind)
+        if cut is None:
+            raise ValueError(f"unsupported eta schedule {kind!r}")
+        return [lo if f < cut else hi for f in fracs]
+    raise ValueError(f"unsupported eta schedule {kind!r}")
+
+
 def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_samples=None,
                member_seeds=None, n_step=200, gamma0=0.8, gamma_min=1.0,
                noise_scale=1.003, step_scale=1.5, sigma_data=16.0, s_max=160.0, s_min=4e-4,
@@ -2503,6 +2580,9 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
     draw but is statistically equivalent; the fold lands in the same basin within the
     seed-to-seed noise floor (PCC parity, the established diffusion-leg bar). This matches
     boltz2.AtomDiffusion.sample, which also uses one stream for its multiplicity batch.
+
+    step_scale (eta) is a float by default; PXDesign passes upstream's schedule dict
+    ({"type": "piecewise_65", "min": 1.0, "max": 2.5}) -- see step_scale_schedule.
 
     trace=True replays a captured ttnn trace of the denoise device stream (lossless;
     collapses per-step dispatch on dispatch-bound diffusion). The captured trace is fixed
@@ -2573,6 +2653,7 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
     # is over the multiplicity dim only -- cond is shared (sample-invariant), so it is
     # NOT replicated; the device denoise is responsible for carrying the chunk's leading
     # dim through the atom encoder / DiT / decoder (see DiffusionModule.denoise).
+    etas = step_scale_schedule(step_scale, n_step)
     sample_ids = torch.arange(M)
     n_chunks = max(1, (M + max_parallel_samples - 1) // max_parallel_samples)
     chunks = [c for c in sample_ids.chunk(n_chunks) if c.numel() > 0]
@@ -2604,7 +2685,7 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
         dram_peak(f"edm step {k}")
         trunk_tap_host(f"edm_denoised[step{k}]", denoised)
         d = (x_noisy - denoised) / t_hat
-        x = x_noisy + step_scale * (sigma_t - t_hat) * d
+        x = x_noisy + etas[k] * (sigma_t - t_hat) * d
         trunk_tap_host(f"edm_x[step{k}]", x)
         if dump_fn is not None:                      # per-step coords (noise -> structure)
             for _m in range(M):
