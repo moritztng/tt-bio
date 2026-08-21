@@ -2224,13 +2224,28 @@ def _resolve_sampling_steps(sampling_steps, model):
 
     esmfold2/esmfold2-fast request 100, the ESMFold2 paper's benchmark protocol (A.2.11:
     "We use N = 100 which reduces to 68 sampling steps"): the sampler clips the Karras
-    schedule at sigma_max=256, so requesting 100 executes 68 denoise steps. Every other
-    model keeps 200. Requested is not executed for esmfold2 — passing 68 literally would
-    execute only 46. An explicit --sampling_steps is honored verbatim for every model.
+    schedule at sigma_max=256, so requesting 100 executes 68 denoise steps. Requested is
+    not executed for esmfold2: passing 68 literally would execute only 46.
+
+    rf3 requests 50, which is what upstream's inference entry point ships. foundry
+    `models/rf3/configs/inference_engine/rf3.yaml` sets `num_steps: 50` alongside
+    `n_recycles: 10`, and the engine passes it into the sampler as `num_timesteps`. The
+    checkpoint's own `train_cfg.model.net.inference_sampler.num_timesteps` reads 200, but
+    that is the training-side value the inference engine overrides, so 200 is not a
+    configuration RF3 ships for inference, and every RF3 parity and perf result in this
+    repo was produced at 50. The schedule holds `num_steps` entries and the rollout
+    consumes consecutive pairs, so 50 executes 49 denoise calls.
+
+    Every other model keeps 200. An explicit --sampling_steps is honored verbatim for
+    every model.
     """
     if sampling_steps is not None:
         return sampling_steps
-    return 100 if model in ("esmfold2", "esmfold2-fast") else 200
+    if model in ("esmfold2", "esmfold2-fast"):
+        return 100
+    if model == "rf3":
+        return 50
+    return 200
 
 
 # The structure models that degrade sharply folded single-sequence, so `predict` resolves an
@@ -2478,7 +2493,8 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     # esmfold2 -> 10, boltz2/openfold3 -> 3; an explicit --recycling_steps overrides either.
     recycling_steps = _resolve_recycling_steps(recycling_steps, model)
     # Per-model requested diffusion steps (see _resolve_sampling_steps): esmfold2 requests
-    # 100 (68 executed after the sigma-clip), everything else 200.
+    # 100 (68 executed after the sigma-clip), rf3 50 (upstream's shipped inference
+    # engine config), everything else 200.
     sampling_steps = _resolve_sampling_steps(sampling_steps, model)
 
     use_tt = accelerator == "tenstorrent"
