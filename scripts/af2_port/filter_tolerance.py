@@ -129,12 +129,12 @@ def passes(scalars: dict) -> dict:
             for k, (op, bar) in AF2_EASY.items()}
 
 
-def load_arm(state, arm: str, template: bool = True):
+def load_arm(state, arm: str, template: bool = True, trunk_dtype=torch.bfloat16):
     from tt_bio.af2_reference import load_af2_model
     if arm == "torch":
-        return load_af2_model(state, template=template, trunk_dtype=torch.bfloat16)
+        return load_af2_model(state, template=template, trunk_dtype=trunk_dtype)
     from tt_bio.af2 import load_af2_device_model
-    return load_af2_device_model(state, template=template, trunk_dtype=torch.bfloat16)
+    return load_af2_device_model(state, template=template, trunk_dtype=trunk_dtype)
 
 
 def population_rows(path: Path):
@@ -186,6 +186,12 @@ def main() -> int:
     ap.add_argument("--arm", default="torch", choices=["torch", "device"])
     ap.add_argument("--population", default=None, help="designs mode: population.jsonl")
     ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--ids", default=None,
+                    help="designs mode: score only these row ids, comma separated")
+    ap.add_argument("--trunk-dtype", default="bfloat16", choices=["bfloat16", "float32"],
+                    help="the reference runs its trunk in bfloat16; float32 is the same model "
+                         "inside the reference's own precision freedom, which is the envelope a "
+                         "device delta has to be judged against")
     ap.add_argument("--levels", default=None,
                     help="scramble: mutation fractions. pose: binder shifts in angstrom.")
     ap.add_argument("--seed", type=int, default=7)
@@ -205,6 +211,11 @@ def main() -> int:
     if args.mode == "designs":
         assert args.population, "--mode designs needs --population"
         population = list(population_rows(Path(args.population)))
+        if args.ids:
+            want = {x.strip() for x in args.ids.split(",") if x.strip()}
+            population = [row for row in population if row[0]["id"] in want]
+            missing = want - {row[0]["id"] for row in population}
+            assert not missing, "ids not in population: %s" % sorted(missing)
         if args.limit:
             population = population[:args.limit]
     elif args.mode == "scramble":
@@ -213,7 +224,8 @@ def main() -> int:
         population = pose_population(work, levels)
 
     delta = measured_delta()
-    model = load_arm(load_af2_state_dict(args.params), args.arm)
+    model = load_arm(load_af2_state_dict(args.params), args.arm,
+                     trunk_dtype=getattr(torch, args.trunk_dtype))
 
     out = Path(args.out)
     key = (lambda label: label["id"]) if args.mode == "designs" else (lambda label: label["level"])
@@ -230,6 +242,7 @@ def main() -> int:
         row = {
             "mode": args.mode,
             "arm": args.arm,
+            "trunk_dtype": args.trunk_dtype,
             **label,
             "seconds": round(time.time() - t0, 1),
             "ref": {k: round(v, 6) for k, v in ref.items()},
