@@ -66,8 +66,9 @@ from pathlib import Path
 
 from scipy.stats import chi2, norm
 
-# af2_easy's three confidence criteria and their sense. The fourth, bound-unbound RMSD < 3.5,
-# needs a binder-only pass and is scored separately; see the state doc.
+# af2_easy's three confidence criteria and their sense. The fourth, bound-unbound RMSD < 3.5, is a
+# comparison between two predictions rather than a scalar with a device delta, so it is scored by
+# bound_unbound_rmsd.py and reported by filter_flip_rate.py, not banded here.
 BARS = {"plddt": (">", 0.8), "i_ptm": (">", 0.5), "i_pae": ("<", 0.35)}
 
 CONTENT = 0.99      # the band has to cover 99% of designs...

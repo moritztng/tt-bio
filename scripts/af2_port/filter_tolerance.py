@@ -1,11 +1,17 @@
 """Does the device arm's miss ever flip a PXDesign filter decision?
 
 `af2_easy` is PXDesign's success counter: pLDDT > 0.8, i_pTM > 0.5, i_pAE < 0.35 and
-bound-unbound RMSD < 3.5, all four (`pxdbench/pxd_configs/eval.py:96-108`). The device arm's
+bound-unbound RMSD < 3.5, all four (`pxdbench/pxd_configs/eval.py:84-89`). The device arm's
 accuracy question is therefore not a structure metric, it is whether the miss moves designs across
 those lines. This harness scores a population on one arm, applies or measures the other, and diffs
-the verdict. The RMSD criterion needs a second binder-only pass and is not wired up; the three
-confidence criteria are.
+the verdict.
+
+All four criteria are covered. `--stage complex` is the three confidence scalars, unchanged.
+`--stage monomer` is the binder-only pass the fourth needs: protocol "hallucination", no template,
+no initial guess, three recycles (`tools/af2/main_af2_monomer.py:120-128`, `eval.py:50-51`).
+Neither stage computes the RMSD itself: `--dump-ca` writes each stage's last-recycle CA cloud and
+`bound_unbound_rmsd.py` joins them, so one process holds one device context, the coordinates land
+on disk, and no re-analysis ever pays for another trunk pass.
 
 The measured delta is read from the committed device-arm report by `measured_delta()` and is never
 written into this file. The frozen number here until pass 12 was pass 6's 0.0846 of i_pTM, which
@@ -137,28 +143,46 @@ def load_arm(state, arm: str, template: bool = True, trunk_dtype=torch.bfloat16)
     return load_af2_device_model(state, template=template, trunk_dtype=trunk_dtype)
 
 
-def population_rows(path: Path):
-    """The design population built by design_population.py: one row per (backbone, sequence)."""
+def population_rows(path: Path, pdb_dir: str | None = None):
+    """The design population built by design_population.py: one row per (backbone, sequence).
+
+    `pdb_dir` replaces the directory of every row's `pdb` and keeps the basename, which is what
+    makes a committed population reproducible once the /tmp it was generated in is gone.
+    """
     seen = set()
     for line in Path(path).read_text().splitlines():
         if not line.strip():
             continue
         row = json.loads(line)
-        key = (row["pdb"], row["seq"])
+        pdb = str(Path(pdb_dir) / Path(row["pdb"]).name) if pdb_dir else row["pdb"]
+        key = (pdb, row["seq"])
         if key in seen:            # the MPNN fasta repeats its input sequence as entry 0
             continue
         seen.add(key)
         yield {k: row[k] for k in ("id", "design", "temp", "sample", "identity", "mpnn_score",
-                                   "source", "tokens") if k in row}, row["pdb"], row["seq"]
+                                   "source", "tokens", "binder_len") if k in row}, pdb, row["seq"]
 
 
-def score(model, pdb: str, binder_seq: str, recycles: int) -> dict:
+def score(model, pdb: str, binder_seq: str, recycles: int,
+          stage: str = "complex") -> tuple[dict, np.ndarray]:
+    """One trunk pass. Returns the confidence scalars and the last recycle's CA cloud.
+
+    `stage="monomer"` is upstream's binder-only pass: no PDB, no initial guess, and
+    `binder_len=None` so `confidence_scalars` takes its hallucination branch (plddt/ptm/pae over
+    the whole single chain, which is what `main_af2_monomer.py` reports).
+    """
     from tt_bio.af2_confidence import confidence_scalars
-    from tt_bio.af2_data import complex_features, initial_recycle_state
+    from tt_bio.af2_data import ATOM_ORDER, complex_features, initial_recycle_state, monomer_features
     from tt_bio.af2_reference import run_recycles
 
-    feats_np = complex_features(pdb, binder_seq)
-    prev_np = initial_recycle_state(feats_np)
+    if stage == "monomer":
+        feats_np = monomer_features(binder_seq)
+        prev_np = initial_recycle_state(feats_np, initial_guess=False)
+        binder_len = None
+    else:
+        feats_np = complex_features(pdb, binder_seq)
+        prev_np = initial_recycle_state(feats_np)
+        binder_len = len(binder_seq)
 
     def to_torch(a):
         if a.dtype == np.bool_:
@@ -172,9 +196,10 @@ def score(model, pdb: str, binder_seq: str, recycles: int) -> dict:
     last = None
     for out in run_recycles(model, feats, prev, num_recycles=recycles):
         last = out
-    return confidence_scalars(last["plddt_logits"], last["pae_logits"], last["pae_breaks"],
-                              feats["seq_mask"], feats["asym_id"],
-                              binder_len=len(binder_seq))
+    scalars = confidence_scalars(last["plddt_logits"], last["pae_logits"], last["pae_breaks"],
+                                 feats["seq_mask"], feats["asym_id"], binder_len=binder_len)
+    ca = last["structure"]["final_atom_positions"][:, ATOM_ORDER["CA"], :]
+    return scalars, ca.detach().float().numpy().astype(np.float64)
 
 
 def main() -> int:
@@ -185,6 +210,15 @@ def main() -> int:
     ap.add_argument("--mode", default="scramble", choices=["scramble", "pose", "designs"])
     ap.add_argument("--arm", default="torch", choices=["torch", "device"])
     ap.add_argument("--population", default=None, help="designs mode: population.jsonl")
+    ap.add_argument("--stage", default="complex", choices=["complex", "monomer"],
+                    help="complex is the three confidence criteria; monomer is the binder-only "
+                         "pass bound-unbound RMSD needs. Same vocabulary as tap_gate.py.")
+    ap.add_argument("--pdb-dir", default=None,
+                    help="designs mode: take every row's design PDB from this directory instead "
+                         "of the absolute path the population was generated with")
+    ap.add_argument("--dump-ca", default=None,
+                    help="write DIR/<id>.<stage>_ca.npy, the last recycle's CA cloud in float64, "
+                         "which is what bound_unbound_rmsd.py joins")
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--ids", default=None,
                     help="designs mode: score only these row ids, comma separated")
@@ -210,7 +244,7 @@ def main() -> int:
     work.mkdir(parents=True, exist_ok=True)
     if args.mode == "designs":
         assert args.population, "--mode designs needs --population"
-        population = list(population_rows(Path(args.population)))
+        population = list(population_rows(Path(args.population), args.pdb_dir))
         if args.ids:
             want = {x.strip() for x in args.ids.split(",") if x.strip()}
             population = [row for row in population if row[0]["id"] in want]
@@ -223,9 +257,15 @@ def main() -> int:
     else:
         population = pose_population(work, levels)
 
+    assert args.stage == "complex" or args.mode == "designs", \
+        "--stage monomer only has a meaning for a design population"
     delta = measured_delta()
     model = load_arm(load_af2_state_dict(args.params), args.arm,
+                     template=args.stage == "complex",
                      trunk_dtype=getattr(torch, args.trunk_dtype))
+    ca_dir = Path(args.dump_ca) if args.dump_ca else None
+    if ca_dir:
+        ca_dir.mkdir(parents=True, exist_ok=True)
 
     out = Path(args.out)
     key = (lambda label: label["id"]) if args.mode == "designs" else (lambda label: label["level"])
@@ -234,23 +274,39 @@ def main() -> int:
         done = {key(json.loads(line)) for line in out.read_text().splitlines() if line.strip()}
 
     for label, pdb, seq in population:
-        if key(label) in done:
+        ca_path = ca_dir / ("%s.%s_ca.npy" % (label["id"], args.stage)) if ca_dir else None
+        # a resumed row that predates --dump-ca has no coordinates on disk, so re-run it rather
+        # than hand the join a hole it would report as missing coverage
+        if key(label) in done and not (ca_path and not ca_path.exists()):
             continue
         t0 = time.time()
-        ref = score(model, pdb, seq, args.recycles)
-        dev = {k: ref[k] + delta.get(k, 0.0) for k in ref}
+        ref, ca = score(model, pdb, seq, args.recycles, stage=args.stage)
+        if ca_path is not None:
+            np.save(ca_path, ca)
         row = {
             "mode": args.mode,
             "arm": args.arm,
+            "stage": args.stage,
             "trunk_dtype": args.trunk_dtype,
             **label,
+            "binder_len": label.get("binder_len", len(seq)),
+            "tokens_scored": int(ca.shape[0]),
             "seconds": round(time.time() - t0, 1),
-            "ref": {k: round(v, 6) for k, v in ref.items()},
-            "dev": {k: round(v, 6) for k, v in dev.items()},
-            "ref_pass": passes(ref),
-            "dev_pass": passes(dev),
         }
-        row["flipped"] = sorted(k for k in AF2_EASY if row["ref_pass"][k] != row["dev_pass"][k])
+        if args.stage == "monomer":
+            # upstream's own three monomer columns. The complex arm's measured delta is a delta of
+            # the complex scalars and says nothing about these, so no dev arm is synthesised here.
+            row["ref"] = {k + "_monomer": round(v, 6) for k, v in ref.items()}
+        else:
+            dev = {k: ref[k] + delta.get(k, 0.0) for k in ref}
+            row["ref"] = {k: round(v, 6) for k, v in ref.items()}
+            row["dev"] = {k: round(v, 6) for k, v in dev.items()}
+            row["ref_pass"] = passes(ref)
+            row["dev_pass"] = passes(dev)
+            row["flipped"] = sorted(k for k in AF2_EASY
+                                    if row["ref_pass"][k] != row["dev_pass"][k])
+        if key(label) in done:
+            continue     # scalars already committed; this pass existed only to write the CA cloud
         with out.open("a") as fh:
             fh.write(json.dumps(row) + "\n")
         print(json.dumps(row), flush=True)
