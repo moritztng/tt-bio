@@ -70,6 +70,16 @@ TEMPLATE_TRI_ATT_HEAD_DIM = 16
 #: against 32, both padded to a 32-channel tile) on a tensor the trunk never sees.
 TRIATT_FUSED_STACKS = ("extra_msa", "evoformer", "template")
 
+#: The named arms `scripts/af2_port/*.py --triatt-fused` offers, so three scripts cannot drift
+#: into three spellings of the same configuration. `trunk` is the fallback the accuracy verdict
+#: prices if `all` flips a design: the lever where pass 8 measured it, template left materialised.
+TRIATT_FUSED_ARMS = {
+    "inherit": None,
+    "none": frozenset(),
+    "trunk": frozenset({"extra_msa", "evoformer"}),
+    "all": frozenset(TRIATT_FUSED_STACKS),
+}
+
 # Row-block the MSA row attentions pair bias once LN(pair) would be the biggest tensor in the
 # block. It is 11 MB at 208 tokens and 184 MB at 848, and the norm is row-local.
 PAIR_BIAS_ROWBLOCK_BYTES = 128 * 2 ** 20

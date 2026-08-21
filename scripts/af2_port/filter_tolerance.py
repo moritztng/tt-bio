@@ -136,12 +136,16 @@ def passes(scalars: dict) -> dict:
             for k, (op, bar) in AF2_EASY.items()}
 
 
-def load_arm(state, arm: str, template: bool = True, trunk_dtype=torch.bfloat16):
+def load_arm(state, arm: str, template: bool = True, trunk_dtype=torch.bfloat16,
+             triatt_fused: str = "inherit"):
     from tt_bio.af2_reference import load_af2_model
     if arm == "torch":
+        assert triatt_fused == "inherit", "--triatt-fused is a device-arm knob"
         return load_af2_model(state, template=template, trunk_dtype=trunk_dtype)
-    from tt_bio.af2 import load_af2_device_model
-    return load_af2_device_model(state, template=template, trunk_dtype=trunk_dtype)
+    from tt_bio.af2 import TRIATT_FUSED_ARMS, load_af2_device_model
+    model = load_af2_device_model(state, template=template, trunk_dtype=trunk_dtype)
+    model.set_triatt_fused(TRIATT_FUSED_ARMS[triatt_fused])
+    return model
 
 
 def population_rows(path: Path, pdb_dir: str | None = None):
@@ -229,6 +233,9 @@ def main() -> int:
                          "device delta has to be judged against")
     ap.add_argument("--levels", default=None,
                     help="scramble: mutation fractions. pose: binder shifts in angstrom.")
+    ap.add_argument("--triatt-fused", default="inherit",
+                    choices=["inherit", "none", "trunk", "all"],
+                    help='which pair stacks take the fused SDPA triangle attention: "inherit" follows TT_BIO_TRIATT_FUSED_HIFI, "none" pins the materialised fp32 softmax everywhere, "trunk" is extra_msa+evoformer, "all" adds the template pair stack')
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--work", default="/tmp/af2ig_tolerance")
     args = ap.parse_args()
@@ -263,7 +270,8 @@ def main() -> int:
     delta = measured_delta()
     model = load_arm(load_af2_state_dict(args.params), args.arm,
                      template=args.stage == "complex",
-                     trunk_dtype=getattr(torch, args.trunk_dtype))
+                     trunk_dtype=getattr(torch, args.trunk_dtype),
+                     triatt_fused=args.triatt_fused)
     ca_dir = Path(args.dump_ca) if args.dump_ca else None
     if ca_dir:
         ca_dir.mkdir(parents=True, exist_ok=True)

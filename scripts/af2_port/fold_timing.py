@@ -132,6 +132,9 @@ def main() -> int:
     ap.add_argument("--reps", type=int, default=3, help="folds; rep 0 is discarded as cold")
     ap.add_argument("--skip", default="none",
                     help="op class from SUBSTITUTION_CLASSES to drop, or 'none'")
+    ap.add_argument("--triatt-fused", default="inherit",
+                    choices=["inherit", "none", "trunk", "all"],
+                    help='which pair stacks take the fused SDPA triangle attention: "inherit" follows TT_BIO_TRIATT_FUSED_HIFI, "none" pins the materialised fp32 softmax everywhere, "trunk" is extra_msa+evoformer, "all" adds the template pair stack')
     ap.add_argument("--template-host", action="store_true",
                     help="run the template's pair stack in host torch: the A arm of the seam")
     ap.add_argument("--params", default=None)
@@ -160,6 +163,8 @@ def main() -> int:
             model.set_skip(SUBSTITUTION_CLASSES[args.skip])
         if args.template_host:
             model.set_template_host(True)
+        from tt_bio.af2 import TRIATT_FUSED_ARMS
+        model.set_triatt_fused(TRIATT_FUSED_ARMS[args.triatt_fused])
     model.eval()
     model_init_s = time.perf_counter() - load_start
 
@@ -195,6 +200,7 @@ def main() -> int:
         "arm": args.arm,
         "skip": args.skip,
         "template_host": args.template_host,
+        "triatt_fused": args.triatt_fused,
         "pdb": args.pdb,
         "tokens": tokens,
         "binder_residues": len(binder_seq),

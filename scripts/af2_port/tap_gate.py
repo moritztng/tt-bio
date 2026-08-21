@@ -318,6 +318,7 @@ def run_arm(state, feats: dict, prev: dict, *, template: bool, dtype: torch.dtyp
             substitute: str | None = None,
             extra_msa_host: bool = False,
             template_host: bool = False,
+            triatt_fused: str = "inherit",
             tie_away: bool = False,
             rne_residual: bool = True,
             rne_sigmoid: bool = False) -> tuple[dict, dict]:
@@ -334,6 +335,8 @@ def run_arm(state, feats: dict, prev: dict, *, template: bool, dtype: torch.dtyp
         model.set_rne_residual(rne_residual)
         model.set_rne_sigmoid(rne_sigmoid)
         model.set_template_host(template_host)
+        from tt_bio.af2 import TRIATT_FUSED_ARMS
+        model.set_triatt_fused(TRIATT_FUSED_ARMS[triatt_fused])
         if substitute:
             from tt_bio.af2 import SUBSTITUTION_CLASSES
             model.substitute = frozenset(SUBSTITUTION_CLASSES[substitute])
@@ -396,6 +399,9 @@ def main() -> int:
     ap.add_argument("--template-host", action="store_true",
                     help="run the template's pair stack in host torch; the control that has to "
                          "reproduce the device numbers taken before it went on card")
+    ap.add_argument("--triatt-fused", default="inherit",
+                    choices=["inherit", "none", "trunk", "all"],
+                    help='which pair stacks take the fused SDPA triangle attention: "inherit" follows TT_BIO_TRIATT_FUSED_HIFI, "none" pins the materialised fp32 softmax everywhere, "trunk" is extra_msa+evoformer, "all" adds the template pair stack')
     ap.add_argument("--bf16-norm-affine", action="store_true",
                     help="round the trunk stacks' LayerNorm scale/offset to bfloat16 on the "
                          "torch arm; isolates the one dtype the ttnn trunk gets wrong")
@@ -435,6 +441,7 @@ def main() -> int:
                          bf16_norm_affine=args.bf16_norm_affine,
                          substitute=args.substitute,
                          extra_msa_host=args.extra_msa_host,
+                         triatt_fused=args.triatt_fused,
                          template_host=args.template_host,
                          tie_away=args.tie_away_adds,
                          rne_residual=not args.ttnn_residual,
@@ -552,6 +559,7 @@ def main() -> int:
         "mutate": args.mutate,
         "substitute": args.substitute,
         "extra_msa_host": args.extra_msa_host,
+        "triatt_fused": args.triatt_fused,
         "template_host": args.template_host,
         "tie_away_adds": args.tie_away_adds,
         "rne_residual": not args.ttnn_residual,
