@@ -197,6 +197,14 @@ def main() -> int:
     tm, ta = trimul_cost(i_tok), triatt_cost(i_tok)
     rep = {"aa": args.aa, "n_token": i_tok, "n_blocks": n_blocks,
            "fp32_softmax_stats": dict(tt_mod.FP32_SOFTMAX_STATS),
+           # Every latching L1/CB gate in the file, so "did a shape class go dark at this size"
+           # is read off the run instead of assumed. Same failure mode as the fp32-softmax tail's.
+           "latched": {"fp32_softmax_row_cap":
+                       {str(k): v for k, v in tt_mod._FP32_SOFTMAX_L1_ROW_CAP.items()},
+                       "l1_out_refused": sorted(str(k) for k in tt_mod._L1_OUT_REFUSED),
+                       "transpose_l1_refused":
+                       sorted(str(k) for k in tt_mod._TRANSPOSE_L1_REFUSED),
+                       "bmm_cfg_refused": sorted(str(k) for k in tt_mod._BMM_CFG_REFUSED)},
            "fp32_l1_bytes_per_core": (args.fp32_l1_bytes_per_core
                                       or tt_mod._FP32_SOFTMAX_L1_BYTES_PER_CORE),
            "n_recycles": args.n_recycles,
@@ -225,6 +233,8 @@ def main() -> int:
     print(f"  {'unattributed':24s} {rep['unattributed_s']:8.3f} s")
     print(f"  fp32_softmax {rep['fp32_softmax_stats']} "
           f"l1_bytes_per_core={rep['fp32_l1_bytes_per_core']}")
+    for name, v in rep["latched"].items():
+        print(f"  latched {name}: {len(v)} {v if len(v) <= 6 else ''}")
     for name, c in (("tri_mul", tm), ("tri_att", ta)):
         r = rep["roofline"][name]
         print(f"  roof {name}: {c['gflop']:8.2f} GFLOP, {c['gbyte']:6.3f} GB -> "
