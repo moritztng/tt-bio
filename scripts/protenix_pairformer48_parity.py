@@ -1,9 +1,16 @@
 import os, sys
 os.environ.setdefault('TT_VISIBLE_DEVICES','0'); os.environ.setdefault('TT_LOGGER_LEVEL','FATAL')
-sys.path.insert(0,'/home/ttuser/tt-boltz2'); sys.path.insert(0,'/home/ttuser/tt-boltz2/tests')
+# tt-boltz2 only supplies protenix_reference, and it carries its own stale copy of tt_bio.
+# Append, never insert(0): at the front it outranks PYTHONPATH and the script then scores
+# /home/ttuser/tt-boltz2 instead of the checkout under test.
+sys.path.append('/home/ttuser/tt-boltz2'); sys.path.append('/home/ttuser/tt-boltz2/tests')
 import pickle, torch, ttnn
 from protenix_reference import remap_pairformer_block
 from tt_bio.tenstorrent import get_device, Pairformer, accurate_softmax_site
+import pathlib, tt_bio
+_here = pathlib.Path(__file__).resolve().parent.parent
+assert pathlib.Path(tt_bio.__file__).resolve().parent.parent == _here, \
+    'tt_bio resolved to %s, not %s' % (tt_bio.__file__, _here)
 ck_all=torch.load('/home/ttuser/protenix_ckpt/protenix-v2.pt',map_location='cpu',weights_only=True); ck_all=ck_all.get('model',ck_all)
 # count blocks + dims
 import re
@@ -35,4 +42,8 @@ so=torch.Tensor(ttnn.to_torch(so)).float().reshape(s_out.shape); zo=torch.Tensor
 def pcc(u,v):
     u=u.flatten().double(); v=v.flatten().double()
     return float(((u-u.mean())*(v-v.mean())).sum()/((u-u.mean()).norm()*(v-v.mean()).norm()))
-print('Pairformer x%d  s PCC %.5f  z PCC %.5f'%(nb,pcc(so,s_out),pcc(zo,z_out)),flush=True)
+_ps, _pz = pcc(so, s_out), pcc(zo, z_out)
+# 7 dp, and 1-PCC alongside: the A/B delta on this anchor is in the 5th decimal, which
+# %.5f cannot resolve.
+print('Pairformer x%d  s PCC %.7f  z PCC %.7f  (1-PCC: s %.3e  z %.3e)'
+      % (nb, _ps, _pz, 1 - _ps, 1 - _pz), flush=True)
