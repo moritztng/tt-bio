@@ -39,6 +39,7 @@ def one(model, tokens: int, passes: int, fused: bool) -> dict:
     TT._TRIATT_FUSED_HIFI = fused
     for key in TT.TRIATT_FUSED_HIFI_STATS:
         TT.TRIATT_FUSED_HIFI_STATS[key] = 0
+    TT.TRIATT_FUSED_HIFI_PICKS.clear()
     TS.REJECTS.clear()
     served0 = list(TS.STATS)
 
@@ -63,6 +64,7 @@ def one(model, tokens: int, passes: int, fused: bool) -> dict:
             "first_s": times[0], "warm_s": sum(warm) / len(warm),
             "warm_min_s": min(warm), "all_s": times,
             "hifi_stats": dict(TT.TRIATT_FUSED_HIFI_STATS),
+            "hifi_picks": {str(k): v for k, v in TT.TRIATT_FUSED_HIFI_PICKS.items()},
             "persistent_mask_delta": [TS.STATS[0] - served0[0], TS.STATS[1] - served0[1]],
             "rejects": {str(k): v for k, v in TS.REJECTS.items()}}
 

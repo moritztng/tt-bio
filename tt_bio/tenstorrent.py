@@ -919,17 +919,37 @@ def _sdpa_wide_k() -> bool:
 SDPA_WIDE_K = _sdpa_wide_k()
 
 
+def _dividing_k_chunks(q_len: int, k_len: int, narrow: bool = False) -> tuple:
+    """k_chunks that DIVIDE the padded sequence, widest first, with the shipped pick last. One
+    entry when the shipped pick already divides, in which case this is today's pick unchanged.
+
+    Ungated on purpose. `_tri_att_k_chunks` puts `TT_BIO_SDPA_WIDE_K` in front of this because on
+    the stock path a dividing k is a throughput PREFERENCE that also moves the softmax reduction
+    order. On the fused-only path it is a PRECONDITION: `sdpa_generic.plan` sets `use_padded_mask`
+    when the chunk does not divide, `fill_preconditions` then declines every call, and a
+    non-dividing pick there does not trade accuracy for speed, it turns the kernel off.
+
+    `narrow` also offers the divisors BELOW the shipped pick, after every wider one has been tried.
+    K5 measured that widest-k wins, so a narrow divisor is never the preference; it is the last
+    thing between the fused kernel and not running at all, and it only matters where the wide
+    divisors are over L1. Padded 608 is exactly that case -- its only 32-aligned divisors are 608
+    and 32, 608 overflows L1 at h=4 d=32, and without this the whole rung declines.
+    """
+    prod = _sdpa_chunks_shipped(q_len, k_len)[1]
+    padded = _padded_sdpa_len(k_len)
+    if padded % prod == 0:
+        return (prod,)
+    div = [c for c in range(padded, 0, -SDPA_CHUNK_TILE) if padded % c == 0]
+    ladder = [c for c in div if c > prod] + ([c for c in div if c < prod] if narrow else [])
+    return tuple(ladder) + (prod,)
+
+
 def _tri_att_k_chunks(q_len: int, k_len: int) -> tuple:
     """k_chunks to try, widest first, production pick last. One entry unless the shipped pick fails
     to divide the padded sequence, which is the only case K5 changes."""
-    prod = _sdpa_chunks_shipped(q_len, k_len)[1]
-    padded = _padded_sdpa_len(k_len)
-    if not _sdpa_wide_k() or padded % prod == 0:
-        return (prod,)
-    wider = [padded // n for n in range(1, padded // SDPA_CHUNK_TILE + 1)
-             if padded % n == 0 and (padded // n) % SDPA_CHUNK_TILE == 0
-             and padded // n > prod]
-    return tuple(sorted(wider, reverse=True)) + (prod,)
+    if not _sdpa_wide_k():
+        return (_sdpa_chunks_shipped(q_len, k_len)[1],)
+    return _dividing_k_chunks(q_len, k_len)
 
 
 # [calls served at a k_chunk wider than the shipped pick, calls that fell back to the shipped pick].
@@ -1042,9 +1062,10 @@ _TRIATT_FUSED_HIFI = os.environ.get("TT_BIO_TRIATT_FUSED_HIFI", "0") != "0"
 # triatt_sdpa.py). Fields are `(fidelity, math_approx, fp32_dest_acc, dst_full_sync)`.
 _TRIATT_FUSED_HIFI_CKC = (ttnn.MathFidelity.HiFi4, False, True, False)
 
-# (q_len, k_len, q_chunk) triples whose program the device refused at this config. Deliberately not
-# `_SDPA_Q_CHUNK_OVER_L1`: writing a refusal into the shared memo would retire a q_chunk the stock
-# ladder runs perfectly well, which is the mistake `_PM_OVER_L1` exists to avoid.
+# (q_len, k_len, q_chunk, k_chunk) configs the device refused, or the kernel declined on its own
+# preconditions. Deliberately not `_SDPA_Q_CHUNK_OVER_L1`: writing a refusal into the shared memo
+# would retire a q_chunk the stock ladder runs perfectly well, the mistake `_PM_OVER_L1` exists to
+# avoid.
 _TRIATT_HIFI_OVER_L1: set = set()
 
 # Shortest sequence this path is allowed to serve. The fused SDPA loses an order of magnitude of
@@ -1074,6 +1095,10 @@ _TRIATT_HIFI_OVER_L1: set = set()
 _TRIATT_FUSED_HIFI_MIN_S = 128
 
 TRIATT_FUSED_HIFI_STATS = {"served": 0, "declined": 0, "too_short": 0}
+# (q_len, k_len) -> [q_chunk, k_chunk] actually served. A declined config is
+# indistinguishable from an absent one from the outside, so an A/B on this path is only
+# believable if the run says which pair it ran.
+TRIATT_FUSED_HIFI_PICKS: dict = {}
 
 
 def _tri_att_sdpa_hifi(q, k, v, bias, scale: float):
@@ -1087,21 +1112,36 @@ def _tri_att_sdpa_hifi(q, k, v, bias, scale: float):
     if min(q_len, k_len) < _TRIATT_FUSED_HIFI_MIN_S:
         TRIATT_FUSED_HIFI_STATS["too_short"] += 1
         return None
-    k_chunk = _sdpa_chunks_shipped(q_len, k_len)[1]
-    for q_chunk in _tri_att_q_chunks(q_len, k_len):
-        if (q_len, k_len, q_chunk) in _TRIATT_HIFI_OVER_L1:
-            continue
-        try:
-            o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk,
-                                  ckc_default=_TRIATT_FUSED_HIFI_CKC)
-        except Exception as exc:  # noqa: BLE001 -- an L1 refusal retires the chunk, nothing else
-            if "circular buffers" not in str(exc):
-                raise
-            o = None
-        if o is not None:
-            TRIATT_FUSED_HIFI_STATS["served"] += 1
-            return o
-        _TRIATT_HIFI_OVER_L1.add((q_len, k_len, q_chunk))
+    k_chunks = _dividing_k_chunks(q_len, k_len, narrow=True)
+    padded_q = _padded_sdpa_len(q_len)
+    q_all = _tri_att_q_chunks(q_len, k_len)
+    # Against a wide k, only a DIVIDING q is offered: `use_padded_mask` is set from either side, so
+    # pairing a dividing k with the production q_chunk closes the same gate the wide k opened.
+    # Measured at 848 (`perf/pxdesign/tt_pxd_p8_plan_probe.json`): (864, 256) and (288, 256) both
+    # read `use_padded_mask=True` and decline, while (864, 864), (288, 864), (864, 288) and
+    # (288, 288) all serve. The last rung is the shipped pick, which is the one k that need not
+    # divide, so it keeps the full q ladder and stays byte for byte today's path.
+    q_div = tuple(qc for qc in q_all if padded_q % qc == 0)
+    last = len(k_chunks) - 1
+    for i, k_chunk in enumerate(k_chunks):
+        for q_chunk in (q_all if i == last else q_div):
+            # Keyed on the FULL config: a refusal at one k must not retire a q_chunk that another k
+            # runs perfectly well, the mistake `_SDPA_QK_OVER_L1` exists to avoid.
+            cfg = (q_len, k_len, q_chunk, k_chunk)
+            if cfg in _TRIATT_HIFI_OVER_L1:
+                continue
+            try:
+                o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk,
+                                      ckc_default=_TRIATT_FUSED_HIFI_CKC)
+            except Exception as exc:  # noqa: BLE001 -- an L1 refusal retires the config, nothing else
+                if "circular buffers" not in str(exc):
+                    raise
+                o = None
+            if o is not None:
+                TRIATT_FUSED_HIFI_STATS["served"] += 1
+                TRIATT_FUSED_HIFI_PICKS[(q_len, k_len)] = [q_chunk, k_chunk]
+                return o
+            _TRIATT_HIFI_OVER_L1.add(cfg)
     TRIATT_FUSED_HIFI_STATS["declined"] += 1
     return None
 

@@ -75,6 +75,9 @@ def main() -> int:
     ap.add_argument("--passes", type=int, default=3, help="per leg; the first is discarded")
     ap.add_argument("--params", default=None)
     ap.add_argument("--out", default=None)
+    ap.add_argument("--classes", default=None,
+                    help="comma-separated subset of the class legs to run; the incumbent A/A pair "
+                         "and the all-skipped leg always run")
     args = ap.parse_args()
 
     from tt_bio.af2 import SUBSTITUTION_CLASSES, load_af2_device_model
@@ -86,7 +89,8 @@ def main() -> int:
     model.eval()
     t = inputs(args.tokens, model.trunk_dtype)
 
-    classes = [c for c in ("trimul", "triatt", "msa_row", "msa_col", "transitions", "opm")]
+    classes = [c for c in ("trimul", "triatt", "msa_row", "msa_col", "transitions", "opm")
+               if args.classes is None or c in args.classes.split(",")]
     order = ["none"] + classes + ["all", "none"]        # incumbent first and last: the A/A control
     rows = []
     with torch.no_grad():
