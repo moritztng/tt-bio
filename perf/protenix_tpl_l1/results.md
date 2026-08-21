@@ -24,6 +24,12 @@ the allocator at the residency window.
 |---:|---:|---:|---:|---:|---|---|
 | 120 | 2 | 1461760 (idle) | 1400320 | 1383936 | L1 | ok |
 | 496 | 10 | 1461760 (idle) | 460288 | 208384 | L1 | ok, 108 s, plddt 0.351 |
+| 506 | 10 | 1461760 (idle) | 439808 | 183808 | L1 | ok, 108 s, plddt 0.351 |
+| 512 | 10 | 1461760 (idle) | not admitted | -- | DRAM | ok, 66 s, plddt 0.359 |
+
+506 is the boundary, and the real fold reads 439808 / 183808 -- byte-for-byte what the isolated
+probe below predicts with no ballast. That is what makes the ballast sweep a measurement of the
+real fold rather than of an idle device. 512 is the first rung the gate refuses; it folds too.
 
 Free at window open is the full idle bank at **every** cycle. Boltz-2's crash needed 247 KB/core
 of other live L1 buffers on top of the pair tensor; here there are none, because `_template`
