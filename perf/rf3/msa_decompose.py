@@ -40,6 +40,9 @@ ROOF_DRAM_GBS = 440.4
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--aa", type=int, default=512)
+    ap.add_argument("--input", default=None,
+                    help="input JSON; defaults to perf/rf3/inputs/rf3_<aa>.json. Point it "
+                         "at rf3_512_msa35.json for the same sequence at MSA depth 35.")
     ap.add_argument("--ckpt", default="/home/ttuser/rf3_perf_work/rf3_latest.ckpt")
     ap.add_argument("--n_recycles", type=int, default=2)
     ap.add_argument("--seed", type=int, default=42)
@@ -48,8 +51,8 @@ def main() -> int:
     args = ap.parse_args()
 
     from perf.rf3.featcache import featurized
-    fo = featurized(str(REPO / f"perf/rf3/inputs/rf3_{args.aa}.json"),
-                    n_recycles=max(args.n_recycles, 2), diffusion_batch_size=1,
+    inp = args.input or str(REPO / f"perf/rf3/inputs/rf3_{args.aa}.json")
+    fo = featurized(inp, n_recycles=max(args.n_recycles, 2), diffusion_batch_size=1,
                     seed=args.seed, cache_dir=args.feat_cache or None)
     f = fo["feats"]
 
@@ -123,7 +126,7 @@ def main() -> int:
                 if k not in ("msa.TOTAL", "msa.pairformer_layer")
                 and not k.startswith("msa.pf."))
     pf_named = sum(v for k, v in per.items() if k.startswith("msa.pf."))
-    rep = {"aa": args.aa, "n_token": host.n_token, "n_msa_block": n_block,
+    rep = {"aa": args.aa, "input": inp, "n_token": host.n_token, "n_msa_block": n_block,
            "msa_feat_shape": depth, "n_recycles": args.n_recycles,
            "synced_per_recycle_s": wall / args.n_recycles,
            "per_recycle_s": {k: round(v, 5) for k, v in per.items()},

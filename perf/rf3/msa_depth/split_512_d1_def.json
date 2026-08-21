@@ -1,0 +1,53 @@
+{
+  "aa": 512,
+  "input": "perf/rf3/inputs/rf3_512.json",
+  "n_token": 512,
+  "n_msa_block": 4,
+  "msa_feat_shape": [
+    1,
+    1,
+    512,
+    35
+  ],
+  "n_recycles": 2,
+  "synced_per_recycle_s": 5.9893139750001865,
+  "per_recycle_s": {
+    "msa.subsampler": 9e-05,
+    "msa.outer_product": 0.10884,
+    "msa.pwa": 0.00876,
+    "msa.transition_m": 0.00043,
+    "msa.pf.tri_mul_start": 0.03819,
+    "msa.pf.tri_mul_end": 0.03827,
+    "msa.pf.tri_att_start": 0.16348,
+    "msa.pf.tri_att_end": 0.16862,
+    "msa.pf.transition_z": 0.03193,
+    "msa.pairformer_layer": 0.44907,
+    "msa.TOTAL": 0.56963
+  },
+  "calls_per_recycle": {
+    "msa.subsampler": 1,
+    "msa.outer_product": 4,
+    "msa.pwa": 4,
+    "msa.transition_m": 4,
+    "msa.pf.tri_mul_start": 4,
+    "msa.pf.tri_mul_end": 4,
+    "msa.pf.tri_att_start": 4,
+    "msa.pf.tri_att_end": 4,
+    "msa.pf.transition_z": 4,
+    "msa.pairformer_layer": 4,
+    "msa.TOTAL": 1
+  },
+  "per_msa_block_ms": {
+    "msa.outer_product": 27.21,
+    "msa.pwa": 2.19,
+    "msa.transition_m": 0.108,
+    "msa.pf.tri_mul_start": 9.547,
+    "msa.pf.tri_mul_end": 9.566,
+    "msa.pf.tri_att_start": 40.87,
+    "msa.pf.tri_att_end": 42.155,
+    "msa.pf.transition_z": 7.983,
+    "msa.pairformer_layer": 112.267
+  },
+  "unattributed_in_total_s": 0.002441226995870238,
+  "pairformer_unattributed_s": 0.008581000005506212
+}
