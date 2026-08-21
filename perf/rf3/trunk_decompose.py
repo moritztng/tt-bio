@@ -127,6 +127,9 @@ def main() -> int:
     ap.add_argument("--n_recycles", type=int, default=2)
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--out", default=None)
+    # Triangle attention's fp32-softmax tail keeps its score block L1-resident when the block fits
+    # a per-core budget. This overrides that budget for an A/B; 0 keeps the shipped value.
+    ap.add_argument("--fp32_l1_bytes_per_core", type=int, default=0)
     args = ap.parse_args()
 
     from tt_bio.rf3.featurize import featurize
@@ -136,6 +139,9 @@ def main() -> int:
     f = fo["feats"]
 
     import ttnn
+    from tt_bio import tenstorrent as tt_mod
+    if args.fp32_l1_bytes_per_core:
+        tt_mod._FP32_SOFTMAX_L1_BYTES_PER_CORE = args.fp32_l1_bytes_per_core
     from tt_bio.rf3 import model as rf3_model
     from tt_bio.rf3.host import HostInputs
     from tt_bio.tenstorrent import get_device
@@ -154,6 +160,7 @@ def main() -> int:
         num_timesteps=50, with_confidence=False)
 
     acc = Acc(device)
+    tt_mod.FP32_SOFTMAX_STATS.update({k: 0 for k in tt_mod.FP32_SOFTMAX_STATS})
     host = HostInputs.build(f, device)
     s_inputs, s_init, z_init = tt.feature_initializer(
         host.single_in, host.pair_in, host.pair_v, host.keys_indexing,
@@ -189,6 +196,9 @@ def main() -> int:
     i_tok = host.n_token
     tm, ta = trimul_cost(i_tok), triatt_cost(i_tok)
     rep = {"aa": args.aa, "n_token": i_tok, "n_blocks": n_blocks,
+           "fp32_softmax_stats": dict(tt_mod.FP32_SOFTMAX_STATS),
+           "fp32_l1_bytes_per_core": (args.fp32_l1_bytes_per_core
+                                      or tt_mod._FP32_SOFTMAX_L1_BYTES_PER_CORE),
            "n_recycles": args.n_recycles,
            "synced_per_recycle_s": synced_recycle,
            "per_recycle_s": {k: round(v, 5) for k, v in per.items()},
@@ -213,6 +223,8 @@ def main() -> int:
                  else "")
         print(f"  {k:24s} {v:8.3f} s  {share:5.1f}%{extra}")
     print(f"  {'unattributed':24s} {rep['unattributed_s']:8.3f} s")
+    print(f"  fp32_softmax {rep['fp32_softmax_stats']} "
+          f"l1_bytes_per_core={rep['fp32_l1_bytes_per_core']}")
     for name, c in (("tri_mul", tm), ("tri_att", ta)):
         r = rep["roofline"][name]
         print(f"  roof {name}: {c['gflop']:8.2f} GFLOP, {c['gbyte']:6.3f} GB -> "

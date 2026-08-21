@@ -9,7 +9,7 @@ Three gates, in this order, because only the first is not a judgement call:
            The AdaLN split is bit-exact by construction -- same ops, same dtypes, same
            values, a different issue order -- and this is what turns "by construction"
            into "per consumer". A miss here fails the model outright.
-  L1       the two latching L1 gates (`_FP32_SOFTMAX_L1_REFUSED`, `_TRANSPOSE_L1_REFUSED`)
+  L1       the two latching L1 gates (`_FP32_SOFTMAX_L1_ROW_CAP`, `_TRANSPOSE_L1_REFUSED`)
            end the run holding the same keys in both arms. A reorder cannot move a value
            but it can move the allocator, and a latched refusal is how that would show up.
   PERF     |median(B) - median(A)| against a noise floor. See below for how the floor is
