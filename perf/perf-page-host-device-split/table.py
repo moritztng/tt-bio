@@ -59,7 +59,11 @@ def main():
     # only move toward the bar. Empty until the H200 leg lands; RF3's is already known.
     hgpu_path = HERE / "hgpu.json"
     hgpu = json.loads(hgpu_path.read_text()) if hgpu_path.exists() else {}
-    hgpu.setdefault("rf3", RF3["hgpu"])
+    # RF3's published G is already a whole fold -- its 12.459 s of host prep is INSIDE
+    # the 22.794 s cell -- so its extra host cost outside the cell is zero. Adding
+    # RF3["hgpu"] here would count that prep twice and report 2.299x for a row the page
+    # publishes at 3.556x.
+    hgpu.setdefault("rf3", 0.0)
 
     rows.sort(key=lambda r: r["published"])
     for r in rows:
