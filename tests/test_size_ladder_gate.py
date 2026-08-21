@@ -177,6 +177,22 @@ def test_same_grid_still_compares(rg):
     assert _check(rg, dict(BASE_RUNTIME), base=base, grid="13x10")["gate"] is True
 
 
+def test_the_default_arm_set_is_exactly_what_has_a_baseline(rg):
+    """Check mode fails by definition on a leg with no recorded baseline, and this arm runs
+    unattended on every release, so a leg that is merely wired must not be in the default set.
+    That is what SIZE_LADDER_PENDING is: runnable via --size-ladder-models, invisible to a
+    default run until someone records it.
+
+    Read the other way, this also catches the opposite mistake: recording a leg and forgetting
+    to graduate it, which leaves the measurement sitting in the file doing nothing."""
+    import json
+
+    baseline = json.loads((REPO_ROOT / "docs" / "size_ladder_baseline.json").read_text())
+    for card, block in baseline.get("cards", {}).items():
+        assert set(block.get("models", {})) == set(rg.SIZE_LADDER_MODELS), card
+    assert not set(rg.SIZE_LADDER_PENDING) & set(rg.SIZE_LADDER_MODELS)
+
+
 def test_size_ladder_is_in_the_default_arm_set(rg):
     """The whole point: a release runs it without anyone remembering to."""
     src = (REPO_ROOT / "scripts" / "release_gate.py").read_text()
@@ -249,7 +265,7 @@ def test_boltz2_affinity_leg_folds_a_ligand_ladder_the_apo_leg_cannot_reach(rg):
     """The arm's shared fixture is apo protein. An apo fold cannot enter an affinity module
     at any sequence length, so before this leg and nesso1's, no rung of the arm reached one
     on any model, and a never-reached lever reads exactly like a fully-served one."""
-    assert "boltz2-affinity" in rg.SIZE_LADDER_MODELS
+    assert "boltz2-affinity" in rg.SIZE_LADDER_PENDING
     for rung in rg.SIZE_LADDER_RUNGS:
         aff = rg._size_ladder_fixture("boltz2-affinity", rung)
         apo = rg._size_ladder_fixture("boltz2", rung)
@@ -307,7 +323,7 @@ def test_the_ligand_legs_cover_the_models_that_co_fold_without_an_affinity_head(
     reproduces on the ligand fixture, which carries no affinity property at all, so reading
     the affinity row alone would have blamed the affinity module for it."""
     for leg, model in (("boltz2-ligand", "boltz2"), ("opendde-ligand", "opendde")):
-        assert leg in rg.SIZE_LADDER_MODELS
+        assert leg in rg.SIZE_LADDER_PENDING
         assert rg.SIZE_LADDER_LEG_CLI[leg] == ("predict", model, "holo")
         for rung in rg.SIZE_LADDER_RUNGS:
             f = rg._size_ladder_fixture(leg, rung)

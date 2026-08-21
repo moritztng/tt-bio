@@ -411,7 +411,21 @@ CAPACITY_LEGS = [
 # So each model's block records the grid its census ran on and the check REFUSES
 # a cross-grid comparison outright instead of reporting levers as newly dark.
 SIZE_LADDER_MODELS = ("boltz2", "esmfold2", "protenix-v2", "openfold3", "opendde",
-                     "nesso1", "boltz2-affinity", "boltz2-ligand", "opendde-ligand")
+                     "nesso1")
+# Wired and runnable (`--size-ladder-models boltz2-ligand`), deliberately NOT in the default
+# arm set, because a leg with no baseline makes check mode fail by definition and this arm
+# runs unattended on every release. A leg graduates when it has a recorded baseline on the
+# card type in front of you.
+#
+# What is blocking each one, as of 2026-08-21:
+#   boltz2-ligand, boltz2-affinity  the 640 aa rung does not fold at all. Boltz-2 dies at
+#     trunk 0/4 with statically allocated circular buffers clashing with L1 buffers, on a
+#     p150a at 13x10, on any ligand-bearing input. Apo at 640 folds and the ligand at 768
+#     folds, so it is the combination. Recording these means either fixing that or writing an
+#     exemption for a crash, and an exemption is for a lever that is legitimately dark, not
+#     for a fold that throws.
+#   opendde-ligand  not yet measured across the ladder.
+SIZE_LADDER_PENDING = ("boltz2-affinity", "boltz2-ligand", "opendde-ligand")
 SIZE_LADDER_RUNGS = tuple(int(x) for x in
                           os.environ.get("RELEASE_GATE_SIZE_RUNGS", "256,512,640,768").split(",")
                           if x.strip())
