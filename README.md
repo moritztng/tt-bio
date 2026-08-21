@@ -112,7 +112,10 @@ All structure models support the sampling, output-format, and scheduling options
 MSA, affinity, constraint, and auxiliary-output options apply only where listed
 below. Each model downloads its weights automatically on first use, except
 OpenFold3: fetch the consortium checkpoint yourself and point `OF3_CKPT` at it,
-or put it at `~/.boltz/of3-p2-155k.pt`.
+or put it at `~/.boltz/of3-p2-155k.pt`. `tt-bio weights` lists every artifact with
+its status, size and path; `--download` prefetches, `--prune` reclaims disk. Set
+`TT_BIO_CACHE` to move all of it (both `~/.boltz` and the Hugging Face cache, about
+65 GiB) somewhere with room. See [docs/weights.md](docs/weights.md).
 
 Boltz-2, Protenix-v2, OpenFold3, OpenDDE, and RF3 are MSA-dependent and use an MSA **by default**, a local
 ColabFold DB (`~/.boltz/msa_db`) if one is set up (see [Offline MSA](#offline-msa-optional)),
@@ -251,6 +254,24 @@ emb = saprot.embed(("MQIFVKTLTGKTITLEV...", "dweweaepvrdidi..."), model="saprot-
 emb.per_residue   # [L, d_model] float32, structure-aware
 emb.logits        # [L, 446] float32 (with return_logits=True)
 ```
+
+### Weights
+
+Weights download on first use, so nothing here is required. `tt-bio weights` is for when
+you want to see or move them:
+
+```bash
+tt-bio weights                       # every artifact: status, size, resolved path
+tt-bio weights --download            # prefetch everything (e.g. before going offline)
+tt-bio weights --download boltz2     # or just one model's set
+tt-bio weights --prune               # reclaim superseded revisions and leftovers
+```
+
+A full set is about 65 GiB. It lands in `~/.boltz` and the Hugging Face cache; set
+`TT_BIO_CACHE` to put both somewhere with more room. Each artifact also takes its own
+override, so `TT_BIO_BOLTZ2_CONF=/mnt/weights/boltz2_conf.ckpt` loads that file instead of
+downloading. Rows show as `corrupt` if a download was interrupted, and are re-fetched rather
+than loaded. See [docs/weights.md](docs/weights.md).
 
 ### Offline MSA (Optional)
 
@@ -534,7 +555,7 @@ Model-specific options are labelled below.
 |--------|---------|-------------|
 | `--model` | `boltz2` | `boltz2`, `esmfold2`, `esmfold2-fast` (single-sequence ESMFold2), `protenix-v2` (AlphaFold3-family folder; protein / RNA / DNA / ligand complexes), `openfold3` (AlphaFold3-family folder; protein / RNA / DNA polymers, optional templates, `OF3_CKPT` weights), `opendde` / `opendde-abag` (antibody-antigen co-folding on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint; protein-only for now), or `rf3` (RoseTTAFold3, AlphaFold3-family folder; protein / RNA / DNA / ligand complexes, non-canonical residues, cyclic chains) |
 | `--out_dir` | `./` | Output directory |
-| `--cache` | `~/.boltz` | **(Boltz-2)** model cache directory; ESMFold2 uses the Hugging Face cache |
+| `--cache` | `~/.boltz` | Weight cache directory. Whole-repo models (ESMFold2, ESMC, SaProt, OpenDDE) use the Hugging Face cache; `TT_BIO_CACHE` moves both, see [docs/weights.md](docs/weights.md) |
 | `--accelerator` | `tenstorrent` | **(Boltz-2)** `tenstorrent`, `cpu`, or `gpu`; other models run on Tenstorrent |
 | `--recycling_steps` | model-specific | 3 for Boltz-2 and OpenFold3 (OpenFold3 runs recycles+1 = 4 trunk cycles, its upstream default); 10 for Protenix-v2/OpenDDE/ESMFold2 (the ESMFold2 paper's benchmark setting) |
 | `--sampling_steps` | model-specific | Requested diffusion sampling steps: 200 for Boltz-2/Protenix-v2/OpenFold3/OpenDDE; 100 for ESMFold2 (executes 68 after the sigma-schedule clip, the paper's protocol) |

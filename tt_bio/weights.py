@@ -424,7 +424,7 @@ def _download_to(url: str, dest: Path, *, max_retries: int = 5, quiet: bool = Fa
     for attempt in range(1, max_retries + 1):
         for name, cmd in tools:
             try:
-                subprocess.run(cmd, check=True)
+                subprocess.run(cmd, check=True, capture_output=quiet)
                 return
             except subprocess.CalledProcessError:
                 _echo(f"    {name} failed (attempt {attempt}/{max_retries})", quiet)
@@ -675,7 +675,8 @@ def fetch(key: str, *, root: str | Path | None = None, force: bool = False,
         if not dest.exists():
             raise FileNotFoundError(
                 f"{art.key} checkpoint not found. tt-bio does not download it ({art.licence}). "
-                f"Set ${art.env} to your copy, or place it at {dest}.")
+                f"Set {' or '.join('$' + v for v in art.env_vars)} to your copy, or place "
+                f"it at {dest}.")
         if not artifact_intact(dest):
             raise RuntimeError(
                 f"{dest} is truncated or corrupt: it is not a readable archive. Re-copy it "
