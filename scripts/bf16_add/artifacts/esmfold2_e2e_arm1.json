@@ -1,0 +1,89 @@
+[
+  {
+    "protein": "trpcage",
+    "L": 20,
+    "n_seeds": 2,
+    "plddt_pcc": 0.999347448348999,
+    "plddt_mae": 0.0013339489232748747,
+    "distogram_pcc": 0.9998670220375061,
+    "distogram_rel_l2": 0.01558858435600996,
+    "ptm_tt": 0.24560900032520294,
+    "ptm_ref": 0.2467462122440338,
+    "kabsch_rmsd": {
+      "metric": "kabsch_rmsd",
+      "cross": {
+        "n": 4,
+        "mean": 0.5696882456541061,
+        "std": 0.08540101769488648,
+        "min": 0.4830712080001831,
+        "max": 0.7106143236160278
+      },
+      "ref_floor": {
+        "n": 1,
+        "mean": 0.5948163270950317,
+        "std": 0.0,
+        "min": 0.5948163270950317,
+        "max": 0.5948163270950317
+      },
+      "dev_floor": {
+        "n": 1,
+        "mean": 0.5388774275779724,
+        "std": 0.0,
+        "min": 0.5388774275779724,
+        "max": 0.5388774275779724
+      },
+      "floor_mean": 0.5948163270950317,
+      "cross_over_floor": 0.9577548895410348,
+      "dev_over_ref_floor": 0.9059560120176019,
+      "dev_floor_instability_check_applied": true,
+      "floor_inflated_by_dev": false,
+      "within_noise_floor": true,
+      "same_seed_cross": {
+        "n": 2,
+        "mean": 0.5063224136829376,
+        "std": 0.023251205682754517,
+        "min": 0.4830712080001831,
+        "max": 0.5295736193656921
+      },
+      "same_seed_over_all_cross": 0.8887710384503142
+    },
+    "coord_dm_1mpcc": {
+      "metric": "1-coord_dm_pcc",
+      "cross": {
+        "n": 4,
+        "mean": 0.006488323211669922,
+        "std": 0.0027218915762220347,
+        "min": 0.003430664539337158,
+        "max": 0.010860800743103027
+      },
+      "ref_floor": {
+        "n": 1,
+        "mean": 0.01002967357635498,
+        "std": 0.0,
+        "min": 0.01002967357635498,
+        "max": 0.01002967357635498
+      },
+      "dev_floor": {
+        "n": 1,
+        "mean": 0.005260646343231201,
+        "std": 0.0,
+        "min": 0.005260646343231201,
+        "max": 0.005260646343231201
+      },
+      "floor_mean": 0.01002967357635498,
+      "cross_over_floor": 0.646912699827658,
+      "dev_over_ref_floor": 0.5245082308195163,
+      "dev_floor_instability_check_applied": true,
+      "floor_inflated_by_dev": false,
+      "within_noise_floor": true,
+      "same_seed_cross": {
+        "n": 2,
+        "mean": 0.00482526421546936,
+        "std": 0.0013945996761322021,
+        "min": 0.003430664539337158,
+        "max": 0.0062198638916015625
+      },
+      "same_seed_over_all_cross": 0.7436843168957155
+    }
+  }
+]

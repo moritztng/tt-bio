@@ -1,0 +1,20 @@
+{
+  "legs": [
+    {
+      "leg": "openfold3-ubq-msa",
+      "verdict": "PASS",
+      "detail": "ubq: X=1.335 R=1.640 D=0.797 within=True",
+      "wall": 1880.709505537001,
+      "committed": "PASS",
+      "report": "openfold3-ubq-msa.json"
+    }
+  ],
+  "tally": {
+    "PASS": 1
+  },
+  "scored": 1,
+  "total_wall_s": 1880.7099619590008,
+  "workers": [
+    "tt-quietbox:0"
+  ]
+}

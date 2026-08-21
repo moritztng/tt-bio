@@ -1,0 +1,20 @@
+{
+  "legs": [
+    {
+      "leg": "protenix-prot-msa",
+      "verdict": "PASS",
+      "detail": "prot: X=2.691 R=2.763 D=2.566 within=True",
+      "wall": 633.5077642159958,
+      "committed": "GAP-evidenced",
+      "report": "protenix-prot-msa.json"
+    }
+  ],
+  "tally": {
+    "PASS": 1
+  },
+  "scored": 1,
+  "total_wall_s": 633.5082316379994,
+  "workers": [
+    "tt-quietbox:1"
+  ]
+}

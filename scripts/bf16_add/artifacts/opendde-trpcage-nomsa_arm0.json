@@ -1,0 +1,18 @@
+{
+  "legs": [
+    {
+      "leg": "opendde-trpcage-nomsa",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "fixture incomplete: seed0, seed1, seed2, seed3, seed4 missing structures/trpcage_no_msa.cif (run scripts/fetch_parity_fixtures.sh to restore the externalized reference binaries)",
+      "wall": 0
+    }
+  ],
+  "tally": {
+    "BLOCKED-REF-REGEN-NEEDED": 1
+  },
+  "scored": 0,
+  "total_wall_s": 0.0002944649968412705,
+  "workers": [
+    "tt-quietbox:1"
+  ]
+}
