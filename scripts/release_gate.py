@@ -139,6 +139,7 @@ see RELEASING.md. The two are independent; both must exit 0 before a tag.
 """
 
 import argparse
+import csv
 import hashlib
 import importlib.util
 import json
@@ -409,7 +410,8 @@ CAPACITY_LEGS = [
 # pin the grid either, because harvesting means one board type presents several.
 # So each model's block records the grid its census ran on and the check REFUSES
 # a cross-grid comparison outright instead of reporting levers as newly dark.
-SIZE_LADDER_MODELS = ("boltz2", "esmfold2", "protenix-v2", "openfold3", "opendde")
+SIZE_LADDER_MODELS = ("boltz2", "esmfold2", "protenix-v2", "openfold3", "opendde",
+                     "nesso1")
 SIZE_LADDER_RUNGS = tuple(int(x) for x in
                           os.environ.get("RELEASE_GATE_SIZE_RUNGS", "256,512,640,768").split(",")
                           if x.strip())
@@ -438,6 +440,36 @@ SIZE_LADDER_WORKDIR = REPO_ROOT / "perf" / "sizegate" / "work"
 # Record mode keeps the per-rung census artifacts here as the evidence behind
 # docs/size_ladder_baseline.json — the first thing to diff when the arm goes red.
 SIZE_LADDER_PROVENANCE = REPO_ROOT / "perf" / "sizegate" / "baseline"
+
+# nesso1 is the one model in this arm that `predict` cannot fold. It returns a scalar rather
+# than a structure, so it ships as `tt-bio affinity` and sits in AFFINITY_MODELS, not
+# PREDICT_MODELS. It needs its own leg because the shared cdk2x2 fixture leaves its whole
+# forward path dark: four of the other five models have no affinity module, so that fixture is
+# apo protein with no ligand, and NO rung of this arm exercised the affinity pairformer for any
+# model. The measured consequence is not hypothetical — TRIATT_PERSISTENT_MASK serves 0 of 768
+# calls per forward with affinity=True at every rung, because the pair-mask slice makes the bias
+# per row ([S, h, S, S]) instead of batch-broadcast ([1, h, S, S]) and the fused kernel correctly
+# declines. Read off the apo fixture the same lever looks fully served. A lever 100% dark on a
+# shipped path is what this arm exists to catch.
+#
+# Fixtures: perf/nesso1/inputs/ladder/aa<rung>/cdk2_<rung>.yaml — the same tiled CDK2 sequence
+# the other models' rungs use plus the upstream README ligand, so nesso1's rung at N aa is the
+# same protein as everyone else's rung at N aa. 256 aa featurizes to 276 tokens (the ligand is
+# tokenised per heavy atom).
+#
+# Fold config is every shipped default: --trunk bf16, --recycling_steps 5, --tokens_budget 256.
+# The pocket crop is load-bearing for correctness on large targets, so gating anything else
+# would gate a configuration nobody runs — and it is why nesso1's exponents are LOW: only the
+# first of the six trunk passes runs at full N, the other five run at the crop. That dilutes a
+# first-pass cliff rather than hiding it, and the recorded band is measured, not assumed.
+# --single_sequence / --sampling_steps / --diffusion_samples do not apply: no MSA, no diffusion.
+# Timing is the `seconds` column of affinity.csv, the forward alone, which is the same thing
+# predict's runtime_s is.
+#
+# The checkpoint ships a 413 MB ccd.pkl that is never committed. Set NESSO_CACHE to the HF cache
+# holding it when it is not in the default one; the leg fails naming the variable.
+SIZE_LADDER_NESSO_RECYCLING = 5
+SIZE_LADDER_NESSO_TOKENS_BUDGET = 256
 
 
 # ---------------------------------------------------------------------------
@@ -996,6 +1028,26 @@ def _size_ladder_card_type() -> str:
     return mod.detect_card_type()
 
 
+def _size_ladder_fixture(model: str, rung: int) -> Path:
+    """The rung's input. nesso1 needs a ligand and an affinity property, so it brings its own
+    ladder; every other model folds the shared apo fixture."""
+    if model == "nesso1":
+        return (REPO_ROOT / "perf" / "nesso1" / "inputs" / "ladder" / f"aa{rung}"
+                / f"cdk2_{rung}.yaml")
+    return REPO_ROOT / "perf" / "size512" / "fixtures" / f"cdk2x2_{rung}.yaml"
+
+
+def _affinity_seconds(out_dir: Path):
+    """The forward's own seconds from affinity.csv: nesso1's runtime_s."""
+    csv_path = out_dir / "affinity.csv"
+    if not csv_path.exists():
+        return None
+    with csv_path.open() as fh:
+        rows = list(csv.DictReader(fh))
+    vals = [float(r["seconds"]) for r in rows if r.get("seconds") and not r.get("error")]
+    return max(vals) if vals else None
+
+
 def _run_census_fold(model: str, rung: int, workdir: Path, tag: str) -> dict:
     """One lever-census-wrapped fold of the cdk2x2_<rung> fixture. Returns
     {"levers": {flag: {resolved, served, declined, frac, how}}, "runtime_s": ...,
@@ -1009,7 +1061,7 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str) -> dict:
     results.json, which excludes model load and process startup.
     """
     from tt_bio.main import predict_results_dir_name
-    fixture = REPO_ROOT / "perf" / "size512" / "fixtures" / f"cdk2x2_{rung}.yaml"
+    fixture = _size_ladder_fixture(model, rung)
     if not fixture.exists():
         return {"error": f"missing size-ladder fixture {fixture}"}
     label = f"{model}-{rung}-{tag}"
@@ -1018,17 +1070,31 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str) -> dict:
     log = workdir / f"{label}.log"
     shutil.rmtree(out_dir, ignore_errors=True)
     workdir.mkdir(parents=True, exist_ok=True)
-    cmd = [
-        sys.executable, str(REPO_ROOT / "scripts" / "lever_census.py"),
-        "--tt-bio", sys.executable, "--label", label, "--out", str(census_json),
-        "--", "-m", "tt_bio.main", "predict", str(fixture),
-        "--model", model,
-        "--single_sequence",
-        "--sampling_steps", str(SIZE_LADDER_STEPS),
-        "--diffusion_samples", "1",
-        "--seed", str(SEED),
-        "--out_dir", str(out_dir),
-    ]
+    census = [sys.executable, str(REPO_ROOT / "scripts" / "lever_census.py"),
+              "--tt-bio", sys.executable, "--label", label, "--out", str(census_json), "--"]
+    if model == "nesso1":
+        # `tt-bio affinity`, not `predict` — see the SIZE_LADDER_NESSO_* block. The census hook
+        # runs in every process the CLI starts, launcher included, and this model folds in the
+        # launcher, so the counters land the same way they do for a spawned predict worker.
+        cmd = census + [
+            "-m", "tt_bio.main", "affinity", str(fixture),
+            "--model", "nesso1", "--trunk", "bf16",
+            "--recycling_steps", str(SIZE_LADDER_NESSO_RECYCLING),
+            "--tokens_budget", str(SIZE_LADDER_NESSO_TOKENS_BUDGET),
+            "--out_dir", str(out_dir),
+        ]
+        if os.environ.get("NESSO_CACHE"):
+            cmd += ["--cache", os.environ["NESSO_CACHE"]]
+    else:
+        cmd = census + [
+            "-m", "tt_bio.main", "predict", str(fixture),
+            "--model", model,
+            "--single_sequence",
+            "--sampling_steps", str(SIZE_LADDER_STEPS),
+            "--diffusion_samples", "1",
+            "--seed", str(SEED),
+            "--out_dir", str(out_dir),
+        ]
     t0 = time.monotonic()
     with open(log, "w") as fp:
         rc, timed_out = _run_fold(cmd, FOLD_TIMEOUT_S, cwd=REPO_ROOT,
@@ -1056,18 +1122,23 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str) -> dict:
         # "dark because m_tiles=64 does not divide the tuned block" instead of a story.
         if r.get("rejects"):
             levers[r["flag"]]["rejects"] = r["rejects"]
-    results = out_dir / predict_results_dir_name(model, fixture.stem) / "results.json"
-    runtime_s = None
-    if results.exists():
-        try:
-            rows = json.loads(results.read_text())
-            ts = [row["runtime_s"] for row in rows
-                  if row.get("status") == "ok" and row.get("runtime_s") is not None]
-            runtime_s = max(ts) if ts else None
-        except Exception:
-            runtime_s = None
+    if model == "nesso1":
+        runtime_s = _affinity_seconds(out_dir)
+        where = "affinity.csv"
+    else:
+        results = out_dir / predict_results_dir_name(model, fixture.stem) / "results.json"
+        where = results.name
+        runtime_s = None
+        if results.exists():
+            try:
+                rows = json.loads(results.read_text())
+                ts = [row["runtime_s"] for row in rows
+                      if row.get("status") == "ok" and row.get("runtime_s") is not None]
+                runtime_s = max(ts) if ts else None
+            except Exception:
+                runtime_s = None
     if runtime_s is None:
-        return {"error": f"no runtime_s in {results.name} (fold ok but timing missing)"}
+        return {"error": f"no runtime_s in {where} (fold ok but timing missing)"}
     return {"levers": levers, "runtime_s": runtime_s, "wall": wall,
             "census_json": census_json, "grid": census.get("grid")}
 
@@ -1281,7 +1352,9 @@ def _size_ladder_check_model(model: str, rungs, base_model: dict, workdir: Path)
                             f"outside ±{be['tol']:.2f}")
     return {"model": model, "gate": not findings,
             "error": "; ".join(findings) or None, "findings": findings,
-            "runtime_s": meas["runtime_s"], "exponents": measured_k}
+            "runtime_s": meas["runtime_s"], "exponents": measured_k,
+            "baseline_from": " ".join(str(base_model.get(k)) for k in
+                                      ("recorded", "host", "commit") if base_model.get(k))}
 
 
 def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
@@ -1319,13 +1392,21 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
     t0 = time.monotonic()
     legs = []
     if record:
-        old_models = baseline.get("cards", {}).get(card, {}).get("models", {})
+        card_block = baseline.get("cards", {}).get(card, {})
+        old_models = card_block.get("models", {})
         # Seeded with the card's existing models, not empty: recording a subset
         # (--size-ladder-models) then UPDATES those models and leaves the rest of
-        # the card block intact. A 5-model record is ~40 min of device time, so it
+        # the card block intact. A 6-model record is ~2 h of device time, so it
         # has to be resumable a model at a time instead of all-or-nothing.
-        new_card = {"recorded": time.strftime("%Y-%m-%d"), "host": socket.gethostname(),
-                    "commit": _repo_commit(), "models": dict(old_models)}
+        #
+        # Provenance is per MODEL, not per card, for the same reason. A subset record used to
+        # stamp the whole card block with today's host and commit while the models it did not
+        # touch still held measurements from another host at another commit — the block said
+        # one thing and five sixths of it meant another. Entries without their own stamp
+        # inherit the card's here, once.
+        inherited = {k: card_block[k] for k in ("recorded", "host", "commit")
+                     if card_block.get(k)}
+        new_card = {"models": {m: {**inherited, **e} for m, e in old_models.items()}}
         todos = 0
 
         def _flush_baseline():
@@ -1355,7 +1436,9 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
             block, skip = _size_ladder_exponent_block(meas["runtime_s"], meas["sigma"])
             todos += _size_ladder_fill_reasons(meas["levers"],
                                                old_models.get(m, {}).get("levers"))
-            entry = {"grid": meas.get("grid"),
+            entry = {"recorded": time.strftime("%Y-%m-%d"),
+                     "host": socket.gethostname(), "commit": _repo_commit(),
+                     "grid": meas.get("grid"),
                      "runtime_s": meas["runtime_s"], "levers": meas["levers"]}
             if block:
                 entry.update(block)
