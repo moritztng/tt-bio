@@ -316,7 +316,7 @@ def run_arm(state, feats: dict, prev: dict, *, template: bool, dtype: torch.dtyp
             extra_msa_host: bool = False,
             tie_away: bool = False,
             rne_residual: bool = True,
-            rne_sigmoid: str = "all") -> tuple[dict, dict]:
+            rne_sigmoid: bool = False) -> tuple[dict, dict]:
     """One precision realisation of the model: its collected taps and its last pass's output."""
     from tt_bio.af2_reference import load_af2_model, run_recycles
 
@@ -328,7 +328,7 @@ def run_arm(state, feats: dict, prev: dict, *, template: bool, dtype: torch.dtyp
         model.template_cached = template_cache
         model.extra_msa_host = extra_msa_host
         model.set_rne_residual(rne_residual)
-        model.set_rne_sigmoid(rne_sigmoid != "none", pair=rne_sigmoid == "all")
+        model.set_rne_sigmoid(rne_sigmoid)
         if substitute:
             from tt_bio.af2 import SUBSTITUTION_CLASSES
             model.substitute = frozenset(SUBSTITUTION_CLASSES[substitute])
@@ -378,10 +378,10 @@ def main() -> int:
     ap.add_argument("--ttnn-residual", action="store_true",
                     help="leave the device trunk's residual adds on `ttnn.add_`, which rounds "
                          "bfloat16 ties away from zero where the reference rounds to even")
-    ap.add_argument("--sigmoid", default="all", choices=["all", "msa", "none"],
-                    help="which gating sigmoids take the float32 route. `none` is the SFPU's "
-                         "bfloat16 approximation everywhere, which disagrees with torch on "
-                         "10.4% of elements; `msa` moves the two MSA attentions only")
+    ap.add_argument("--wide-sigmoid", action="store_true",
+                    help="take the two MSA attentions' gating sigmoid in float32. Bit-identical "
+                         "to torch per op and a measured regression end to end, kept as the arm "
+                         "that says so: pair growth 1.0465 -> 1.0492")
     ap.add_argument("--tie-away-adds", action="store_true",
                     help="round the torch trunk's residual adds the way the card does; isolates "
                          "the bfloat16 tie-breaking rule and nothing else")
@@ -428,7 +428,7 @@ def main() -> int:
                          extra_msa_host=args.extra_msa_host,
                          tie_away=args.tie_away_adds,
                          rne_residual=not args.ttnn_residual,
-                         rne_sigmoid=args.sigmoid)
+                         rne_sigmoid=args.wide_sigmoid)
     if args.drop_tap:
         taps.values.pop(args.drop_tap, None)
 
@@ -544,7 +544,7 @@ def main() -> int:
         "extra_msa_host": args.extra_msa_host,
         "tie_away_adds": args.tie_away_adds,
         "rne_residual": not args.ttnn_residual,
-        "rne_sigmoid": args.sigmoid,
+        "rne_sigmoid": args.wide_sigmoid,
         "bf16_norm_affine": args.bf16_norm_affine,
         "template_cached": not args.no_template_cache,
         "verdict": verdict,

@@ -169,9 +169,8 @@ def sigmoid_gate(x: ttnn.Tensor, gate: ttnn.Tensor, wide: bool) -> ttnn.Tensor:
     (`scripts/af2_port/eltwise_rounding_probe.py`). Unlike the residual add the disagreement is
     not one-sided -- 46.2% of it grows the magnitude -- so it compounds as a random walk rather
     than linearly, which is why it survived the residual fix as a residue no single op class
-    owned. Both MSA attentions gate here; the two triangle multiplications and two triangle
-    attentions gate through `tenstorrent._sigmoid_gate`, which is the same routine off by
-    default for every other model.
+    owned. Measured, and it is a regression: see `AF2Attention.rne_sigmoid`. Kept as the
+    instrument that says so.
     """
     if not wide:
         out = ttnn.multiply_(x, gate, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
@@ -327,12 +326,13 @@ class AF2Attention(Module):
     bit-identical).
     """
 
-    #: Take the gating sigmoid in float32. The SFPU's bfloat16 sigmoid disagrees with torch's
-    #: on 10.38% of elements; widening it is bit-identical at 0 of 5,537,792 elements. Same
-    #: mechanism as `AF2PairBlock.rne_residual` and a different shape: the add's rounding is
-    #: one-sided and this one is not, so it compounds as a random walk and survived the residual
-    #: fix as a residue no single op class owned.
-    rne_sigmoid = True
+    #: Take the gating sigmoid in float32. OFF, and measured that way: widening it is
+    #: bit-identical to torch per op and worse end to end, pair growth 1.0465 -> 1.0492 and the
+    #: structure module 3.51e-03 -> 6.75e-03 of 1-pcc. The add's rounding is one-sided (100% of
+    #: its disagreements grow the magnitude) so removing it removes a bias; the sigmoid's is
+    #: not (46.2%), so removing it only redraws a random walk, and this draw landed worse. One
+    #: probe column, `grew`, separates the two cases and it is the one to read.
+    rne_sigmoid = False
 
     def __init__(
         self,
@@ -568,16 +568,10 @@ class AF2DeviceModel(AF2Model):
         for block in self.device_extra_msa + self.device_evoformer:
             block.rne_residual = enabled
 
-    def set_rne_sigmoid(self, enabled: bool, pair: bool = True) -> None:
-        """Route every gating sigmoid in both trunk stacks through float32.
-
-        `pair` False leaves the two triangle multiplications and two triangle attentions on the
-        SFPU's bfloat16 approximation and moves only the two MSA attentions, which is the split
-        the two arms were screened as. See `AF2Attention.rne_sigmoid`."""
+    def set_rne_sigmoid(self, enabled: bool) -> None:
+        """Route both MSA attentions' gating sigmoid through float32. A screening arm, not a
+        default: see `AF2Attention.rne_sigmoid` for what it measured."""
         for block in self.device_extra_msa + self.device_evoformer:
-            for op in (block.tri_mul_out, block.tri_mul_in,
-                       block.tri_att_start, block.tri_att_end):
-                op.rne_sigmoid = enabled and pair
             for name in ("msa_row_attn", "msa_col_attn"):
                 if hasattr(block, name):
                     getattr(block, name).rne_sigmoid = enabled

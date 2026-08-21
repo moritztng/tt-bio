@@ -2776,32 +2776,7 @@ def _channel_move(chunk: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.
     return ttnn.permute(chunk, (0, 3, 1, 2), memory_config=memory_config)
 
 
-def _sigmoid_gate(x: ttnn.Tensor, gate: ttnn.Tensor, wide: bool) -> ttnn.Tensor:
-    """`x * sigmoid(gate)`, owning `gate`. `wide` takes the sigmoid in float32.
-
-    Off by default and only AF2-IG turns it on. The SFPU's bfloat16 sigmoid disagrees with
-    torch's on 10.38% of elements at 1.77e-03 rms relative, and taking it in float32 and
-    narrowing once is bit-identical to torch at 0 of 5,537,792 elements
-    (`scripts/af2_port/eltwise_rounding_probe.py`). Whether a model can pay for it is a
-    per-model question -- it is a typecast either side of the gate -- and whether it is worth
-    anything depends on how deep the residual chain reading it is.
-    """
-    if not wide:
-        return ttnn.multiply_(x, gate, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-    prob = ttnn.typecast(gate, ttnn.float32)
-    prob = ttnn.sigmoid(prob)
-    narrow = ttnn.typecast(prob, ttnn.bfloat16)
-    ttnn.deallocate(prob)
-    out = ttnn.multiply_(x, narrow)
-    ttnn.deallocate(narrow)
-    return out
-
-
 class TriangleMultiplication(Module):
-    #: Take the gating sigmoid in float32 instead of on the SFPU's bfloat16
-    #: approximation. Off for every model but AF2-IG; see `_sigmoid_gate`.
-    rne_sigmoid = False
-
     def __init__(
         self,
         ending: bool,
@@ -3123,8 +3098,12 @@ class TriangleMultiplication(Module):
                     else:
                         g_in_a, g_in_b, p_in_a, p_in_b = ttnn.chunk(gp_in_fused, chunks=4, dim=-1)
                         ttnn.deallocate(gp_in_fused)
-                        a_chunk = _sigmoid_gate(p_in_a, g_in_a, self.rne_sigmoid)
-                        b_chunk = _sigmoid_gate(p_in_b, g_in_b, self.rne_sigmoid)
+                        a_chunk = ttnn.multiply_(
+                            p_in_a, g_in_a, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
+                        )
+                        b_chunk = ttnn.multiply_(
+                            p_in_b, g_in_b, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
+                        )
                         ttnn.deallocate(g_in_a)
                         ttnn.deallocate(g_in_b)
                         if mask_u is not None:
@@ -3268,8 +3247,9 @@ class TriangleMultiplication(Module):
                     core_grid=CORE_GRID_MAIN,
                 )
                 ttnn.deallocate(x_rows)
-                _acc_append(blocks, _sigmoid_gate(p_block, g_block, self.rne_sigmoid),
-                            host_acc)
+                _acc_append(blocks, ttnn.multiply_(
+                    p_block, g_block, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
+                ), host_acc)
                 ttnn.deallocate(g_block)
             ttnn.deallocate(x)
             dram_peak(f"trimul({'end' if self.ending else 'start'}) tail blocks done [z={'x'.join(str(d) for d in x_in.shape)}]")
@@ -3298,7 +3278,9 @@ class TriangleMultiplication(Module):
         g_out = _trimul_out_proj(x_norm_in, self.g_out_weight, self.compute_kernel_config,
                                  self.g_out_bias)
         ttnn.deallocate(x_norm_in)
-        x = _sigmoid_gate(p_out, g_out, self.rne_sigmoid)
+        x = ttnn.multiply_(
+            p_out, g_out, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
+        )
         return x
 
 
@@ -3453,10 +3435,6 @@ def _pair_bias_from_z(z, ln_weight, ln_bias, bias_weight, compute_kernel_config,
 
 
 class TriangleAttention(Module):
-    #: Take the gating sigmoid in float32 instead of on the SFPU's bfloat16
-    #: approximation. Off for every model but AF2-IG; see `_sigmoid_gate`.
-    rne_sigmoid = False
-
     def __init__(
         self,
         head_dim: int,
@@ -3643,7 +3621,7 @@ class TriangleAttention(Module):
 
         def gate_and_project(o_in: ttnn.Tensor, g_in: ttnn.Tensor) -> ttnn.Tensor:
             head_major = len(g_in.shape) == 4
-            o_in = _sigmoid_gate(o_in, g_in, self.rne_sigmoid)
+            o_in = ttnn.multiply_(o_in, g_in, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
             ttnn.deallocate(g_in)
             if head_major:
                 x_out = _triatt_qkv.out_proj(
