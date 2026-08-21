@@ -543,6 +543,12 @@ def main():
         for arm in a.arms.split(","):
             set_arm(arm)
             WALL.clear(); DEC.clear(); CALLS.clear(); GROUPS.clear()
+            # Per-arm DRAM high-water mark. dram_peak() is a no-op returning 0 unless
+            # TT_BIO_DRAM_PEAK names a file, and with it set the probe costs 2.4-3.7x wall
+            # (its own docstring), so a run that reads this is a CAPACITY run and its
+            # fold_s must not be quoted. Cleared per arm: the dict is module-global and
+            # would otherwise carry arm N-1's peak into arm N and report the max of both.
+            T._DRAM_PEAK.clear()
             try:
                 fold_s, m = one_fold()
             except Exception as e:                                              # noqa: BLE001
@@ -578,6 +584,7 @@ def main():
                    "transpose_l1_headroom": T._TRANSPOSE_L1_HEADROOM,
                    # must differ between arms; equal values mean the arm did not take. The
                    # second is the z_struct seam, which the two isolation arms move on its own.
+                   "dram_peak_gib": round(T.dram_peak() / 2 ** 30, 3) or None,
                    "concat_host_bytes": T.concat_host_bytes(),
                    "concat_host_bytes_zstruct": __import__(
                        "tt_bio.opendde", fromlist=["x"]).concat_host_bytes(),
