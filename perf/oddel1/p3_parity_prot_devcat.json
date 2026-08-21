@@ -1,0 +1,20 @@
+{
+  "legs": [
+    {
+      "leg": "opendde-prot-prod",
+      "verdict": "PASS",
+      "detail": "prot_no_msa: X=2.204 R=1.499 D=2.121 within=True",
+      "wall": 464.6054340720002,
+      "committed": "GAP-evidenced",
+      "report": "opendde-prot-prod.json"
+    }
+  ],
+  "tally": {
+    "PASS": 1
+  },
+  "scored": 1,
+  "total_wall_s": 464.60590872399916,
+  "workers": [
+    "tt-quietbox:1"
+  ]
+}
