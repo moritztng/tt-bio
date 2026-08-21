@@ -88,6 +88,18 @@ def main() -> int:
     B.RECYCLING_STEPS = _resolve_recycling_steps(None, a.model)
     B.SAMPLING_STEPS = _resolve_sampling_steps(None, a.model)
 
+    # build_fold's cfg carries no Boltz-2 hyperparameters, so load_model raises
+    # KeyError('conf_kwargs'). perf/other512/fold_ab_multi.py already holds the injector
+    # that the published cell's harness used (of3_4xpd/xmodel_ab.py:86); import it rather
+    # than restate the hyperparameters, and only after the two step counts above, which
+    # it reads. Its module body puts its own root at sys.path[0], so snapshot the path.
+    if a.model == "boltz2":
+        snap = list(sys.path)
+        sys.path.insert(0, str(ROOT / "perf" / "other512"))
+        from fold_ab_multi import patch_boltz2_cfg
+        sys.path[:] = snap
+        patch_boltz2_cfg()
+
     tgt = a.fixdir / f"cdk2x2_{a.size}.yaml"
     a3m = a.fixdir / f"cdk2x2_{a.size}.a3m"
     msa_dir = ROOT / f".msa_split_{a.model}_{a.size}"
