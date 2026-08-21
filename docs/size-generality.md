@@ -19,7 +19,9 @@ the reader to assume it was checked.
 default arm set, so a release runs it whether or not anyone remembers to. It folds each structure
 model at 256, 512, 640 and 768 aa, counts which perf levers actually fire at each rung by effect,
 and fails when the fired set, the clause a guard declines on, or the runtime scaling exponent moved
-away from `docs/size_ladder_baseline.json`. The clause matters on its own: a guard that starts
+away from `docs/size_ladder_baseline.json`. Nesso-1 rides the same rungs through `tt-bio affinity`
+instead of `predict`, because it returns a scalar rather than a structure and `predict` cannot fold
+it. The clause matters on its own: a guard that starts
 refusing for a different reason has changed behaviour without changing either the fired count or the
 wall time, so nothing else in the arm can see it.
 
@@ -73,8 +75,15 @@ runtime exponent between rungs.
 | protenix-v2 | 15.8 s | 44.0 s | 68.8 s | 104.9 s | 1.48 | 2.14 | 0.7 % |
 | openfold3 | 11.3 s | 32.3 s | 54.6 s | 84.6 s | 1.51 | 2.38 | 2.8 % |
 | opendde | 25.2 s | 71.4 s | 120.0 s | 191.8 s | 1.50 | 2.44 | 0.8 % |
+| nesso1 | 6.5 s | 10.2 s | 13.0 s | 17.7 s | 0.64 | 1.36 | 0.9 % |
 
-Every model scales between N^1.3 and N^2.5. **Nothing shows the N^3.6 cliff** the 2026-08-13 sweep
+Nesso-1 was recorded later, on a different p150a at the same 13x10 grid; its row is the only one
+not from the 08-19 sweep, and the baseline records that per model. Its exponents are low because
+its pocket crop pins the token count after the first trunk pass: only one of six passes runs at
+full N, so the fold is mostly crop-sized work and the full-N pass takes a larger share as N grows.
+That is why k rises from 0.64 to 1.36 rather than staying flat.
+
+The five structure models scale between N^1.3 and N^2.5. **Nothing shows the N^3.6 cliff** the 2026-08-13 sweep
 recorded over 512→768, and boltz-2, where that cliff was measured, is now the flattest model in the
 table at N^1.59. An earlier reading in this campaign did reproduce N^3.48, but it came from a card
 later found to be running folds about 2x slow. Warm, on a freshly reset card, the cliff is not there.
@@ -88,6 +97,7 @@ What the lever census found at each rung, per model:
 | protenix-v2 | K2 half-dark at 768, 1208 of 2416 calls | E6 serves 2416 calls at 512 and 640 and 4512 at 768, and is dark only at 256 |
 | openfold3 | TriMul F1 at every rung; E6 never offered at any rung | the declined matmul-config count rises 440 → 1288 at 640, the row-blocked path again |
 | opendde | TriMul F1 at every rung; **the SDPA q-chunk overflow set is non-empty at 640 and 768** | one shape overflows its per-core buffer budget and silently takes the slow path. The set is empty at 256 and 512. This is the third gate of the 2026-08-13 above-640 defect, closed on boltz-2 and still open here |
+| nesso1 | K2 at every rung, all 768 calls; TriMul F1 and the minimal-matmul guard at every rung; **the SDPA q-chunk overflow set is non-empty at 640 and 768** | K2 is dark because `affinity=True` adds a per-row pair-mask slice, which makes the triangle bias `[S, h, S, S]` instead of `[1, h, S, S]`: the kernel exists to read one batch-broadcast mask per head, so it is inapplicable to this path rather than mis-tuned. Two more size-conditioned gates appear above 512: the transpose headroom gate answers DRAM for 96 of 576 calls at 768, and the pair projections' L1 destination is refused for 16.6 % of calls from 512 up |
 
 Four findings generalise beyond their own model.
 
@@ -109,7 +119,34 @@ re-recorded per card rather than asserted once.
 
 **A model can carry a defect that its siblings have already fixed.** The SDPA q-chunk overflow closed
 on boltz-2 and is still open on opendde at 640 and 768. Fixing a size-conditioned gate on the model
-where it was found says nothing about the other four.
+where it was found says nothing about the other four. Nesso-1's leg found the same overflow at the
+same two rungs, on a sixth model, the first time it ran.
+
+**The pair projections' L1 destination is a size gate on four of six models.** `PAIR_PROJ_L1_OUT`
+was found on Nesso-1 at 532 tokens and had neither a counter nor a kill switch, so nothing could say
+it had happened. Counted, served of offered:
+
+| model | 256 aa | 512 aa | 640 aa | 768 aa |
+|---|---:|---:|---:|---:|
+| boltz-2 | 1512/1512 | 1512/1512 | 393/1512 | 0/1120 |
+| esmfold2 | 0/0 | 17216/17216 | 21520/21520 | 1/25824 |
+| protenix-v2 | 1244/1244 | 480/480 | 480/480 | 480/480 |
+| openfold3 | 1184/1184 | 1184/1184 | 337/1184 | 48/896 |
+| opendde | 1324/3436 | 480/2600 | 480/2600 | 480/2592 |
+| nesso1 | 1152/1152 | 961/1152 | 961/1152 | 960/1152 |
+
+It is essentially 100 % dark at 768 aa on boltz-2 and esmfold2, and only protenix-v2 keeps it at
+every rung. Two mechanisms, and the baseline's reason names which one per rung: `no_config`, where
+the config builder finds no viable L1-destination program config for the shape, and
+`memoised`/`l1_clash`, where the allocator refuses once and the refusal sticks for that operand
+class. On Nesso-1 the result is bit-identical with the leg on and off, so this costs time and not
+accuracy. Recorded, not blessed.
+
+**An arm can be blind to a code path, not only to a size.** The five structure legs all fold the same
+apo fixture, so until Nesso-1 joined, no rung of this arm exercised an affinity pairformer for any
+model — four of those five have no affinity module to exercise. K2, which is 100 % dark on that path,
+read as fully served at every rung. A ladder covers the sizes you list; it covers only the code the
+fixture reaches, and that is a separate thing to check.
 
 ## Running it
 
@@ -117,9 +154,14 @@ where it was found says nothing about the other four.
 TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" python3 scripts/release_gate.py --model size-ladder
 ```
 
-About an hour for five models, measured at 3444 s on a p150a. Folds are single-sequence at 6 sampling steps: enough to
-resolve every guard, cheap enough that nobody skips the arm for cost. The price of hermetic folds is
-that a cliff living only in the MSA path is invisible here.
+About an hour for six models: 3444 s for the five structure legs plus 313 s for nesso1, on a p150a.
+Structure folds are single-sequence at 6 sampling steps, enough to resolve every guard and cheap
+enough that nobody skips the arm for cost; nesso1 runs `tt-bio affinity` at every shipped default.
+The price of hermetic folds is that a cliff living only in the MSA path is invisible here.
+
+Nesso-1's leg needs the checkpoint's 413 MB `ccd.pkl`, which is never committed. It is looked for
+under `--cache`, `NESSO_CACHE`, `HF_HOME` and the default cache in that order, and the arm checks for
+it once before the first fold rather than failing twelve times after twelve model loads.
 
 After an intentional size-affecting change, re-record and write a one-line reason for every newly
 dark lever:
@@ -133,3 +175,29 @@ A dark lever with no reason is a failure, not a pass by silence. Recording pre-f
 the clause the guard actually declined on, so the reason you write is a confirmation rather than an
 archaeology exercise. Per-rung census artifacts land in
 `perf/sizegate/baseline/` and are the first thing to diff when the arm goes red.
+
+## Adding one lever without re-recording
+
+Instrumenting a guard that already shipped adds a lever to the census and changes no behaviour, but
+the arm still reports it missing for every model at every rung. Re-recording to admit it costs every
+fold twice over and replaces a good timing baseline with one measured on whatever host was free:
+
+```
+TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" python3 scripts/release_gate.py --model size-ladder \
+    --size-ladder-record-lever PAIR_PROJ_L1_OUT
+```
+
+One fold per (model, rung), and the splice is refused unless every other lever in the census still
+matches the baseline exactly, by the same comparator the check uses. If anything else moved it says
+so and tells you to re-record, so nothing can be laundered through this mode. The spliced rows carry
+their own `levers_added` stamp, because they were measured on a different host at a different commit
+than the timings beside them. Use it only for a counter-only change; anything that touches a
+threshold or a default needs the four sizes.
+
+Two things it settled the first time it ran. A single cold fold reproduced the warm-recorded
+baseline's census exactly at all 24 (model, rung) pairs, which the mode assumed and nobody had
+measured. And the refusal earned its keep: it caught that the baseline predates the commit which
+taught the census to record WHY a guard declined, so three levers read as having changed their
+decline clause with served and declined identical. An absent clause means not measured, not "no
+clause". **The rule, alongside the L1-budget leg's: an instrument change that widens what the
+baseline compares re-records in the same commit.**

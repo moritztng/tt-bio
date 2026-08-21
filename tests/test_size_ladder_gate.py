@@ -182,3 +182,64 @@ def test_size_ladder_is_in_the_default_arm_set(rg):
     src = (REPO_ROOT / "scripts" / "release_gate.py").read_text()
     default = src.split("models = args.model or", 1)[1].split("fold_models", 1)[0]
     assert '"size-ladder"' in default
+
+def test_absent_decline_clause_is_not_measured_not_no_clause(rg):
+    """A baseline recorded before the census could report a clause has none, and comparing that
+    against today's census read as three guards changing their mind on every model at every rung
+    (95033b2f landed after the baseline, so the arm was failing on main for an instrument change).
+    served/declined identical plus an unrecorded clause is not a behaviour change."""
+    base_lv = {**FIRING, "served": 0, "declined": 560, "frac": 0.0, "reason": "x"}
+    cur_lv = {**FIRING, "served": 0, "declined": 560, "frac": 0.0,
+              "rejects": {"k_tiles=4:(4,1)": 560}}
+    assert rg._size_ladder_clause_finding(base_lv, cur_lv, "F", "m/256") is None
+
+
+def test_a_recorded_clause_that_really_changes_still_fails(rg):
+    """The narrowing above must not blunt the rule it narrows."""
+    base_lv = {**FIRING, "served": 0, "declined": 5, "frac": 0.0,
+               "rejects": {"k_tiles=4": 5}, "reason": "x"}
+    cur_lv = {**FIRING, "served": 0, "declined": 5, "frac": 0.0, "rejects": {"m_le_n": 5}}
+    assert rg._size_ladder_clause_finding(base_lv, cur_lv, "F", "m/256") is not None
+
+
+def test_a_guard_with_no_declines_has_no_clause_to_compare(rg):
+    """REBLOCK_PERMUTE_GATED carried a clause it inherited from the REJECTS dict it used to
+    share, on an entry with 0 declines. Dropping it is not a behaviour change either."""
+    base_lv = {**FIRING, "served": 0, "declined": 0, "frac": 0.0,
+               "rejects": {"window_BufferType.L1": 3}, "reason": "x"}
+    cur_lv = {**FIRING, "served": 0, "declined": 0, "frac": 0.0}
+    assert rg._size_ladder_clause_finding(base_lv, cur_lv, "F", "m/256") is None
+
+
+def test_nesso1_precondition_is_checked_before_a_fold_not_by_one(rg, monkeypatch, tmp_path):
+    """Without the checkpoint's uncommitted ccd.pkl every nesso1 rung would fail from inside a
+    subprocess: twelve wasted model loads and an arm that reads as broken rather than
+    unconfigured. The message has to name what to set."""
+    monkeypatch.setenv("NESSO_CACHE", str(tmp_path))
+    monkeypatch.setenv("HF_HOME", str(tmp_path))
+    # HOME too: find_ccd always searches ~/.cache/huggingface, and it now PUTS the file
+    # there on a miss, so on any machine that has run `tt-bio affinity` this passed by
+    # finding the real file rather than by exercising the precondition.
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    # The only failure left that a user must act on: no file on disk and no way to fetch
+    # one. Simulated, so the test needs neither network nor 413 MB.
+    import huggingface_hub
+
+    def _no_network(*a, **k):
+        raise OSError("simulated: no route to huggingface.co")
+
+    monkeypatch.setattr(huggingface_hub, "hf_hub_download", _no_network)
+    pre = rg._size_ladder_precondition("nesso1")
+    assert pre and "NESSO_CACHE" in pre
+    assert rg._size_ladder_precondition("boltz2") is None
+
+
+def test_nesso1_folds_through_affinity_not_predict(rg):
+    """`predict` cannot fold this model, and the shared apo fixture has no ligand and no
+    affinity property, so the leg needs both its own CLI and its own ladder."""
+    assert "nesso1" in rg.SIZE_LADDER_MODELS
+    f = rg._size_ladder_fixture("nesso1", 640)
+    assert f.name == "cdk2_640.yaml" and "nesso1" in str(f) and f.exists()
+    for rung in rg.SIZE_LADDER_RUNGS:
+        assert rg._size_ladder_fixture("nesso1", rung).exists()

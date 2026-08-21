@@ -1,0 +1,255 @@
+{
+  "gate": "nesso1_l1_probe",
+  "arm": "pm_on",
+  "rung": "aa512",
+  "n_tokens": 532,
+  "trunk": "bf16",
+  "affinity": "fp32",
+  "host": "tt-quietbox",
+  "card": "1",
+  "wall_s": [
+    12.365550162998261
+  ],
+  "warm_wall_s": 12.365550162998261,
+  "scalars": {
+    "affinity_pred_value": 1.3614065647125244,
+    "affinity_pred_value1": 1.410825252532959,
+    "affinity_pred_value2": 1.3119878768920898,
+    "affinity_logits_binary": -2.7722384929656982,
+    "affinity_probability_binary": 0.05884292349219322,
+    "entropy_pp": 0.13706053793430328,
+    "entropy_pl": 0.3006055951118469,
+    "entropy_ll": 0.2165820300579071,
+    "entropy_crop_pp": 0.4228764474391937,
+    "entropy_crop_pl": 0.8411059975624084,
+    "entropy_crop_ll": 0.2165820300579071
+  },
+  "scalars_all_reps_equal": true,
+  "triatt": {
+    "enabled": true,
+    "q_split": true,
+    "stats_served": 0,
+    "stats_declined": 768,
+    "rejects": {
+      "fill_preconditions|576x4x576x32": 288,
+      "fill_preconditions|256x4x256x32": 480
+    },
+    "pm_over_l1": [],
+    "sdpa_q_chunk_over_l1": [],
+    "calls": {
+      "Sq256_Sk256_q256_k256": {
+        "served": 0,
+        "declined": 480,
+        "reasons": {
+          "fill_preconditions": 480
+        },
+        "plan": {
+          "nh_per_core": 1,
+          "q_per_core": 1,
+          "bcast_batch": false,
+          "use_padded_mask": false,
+          "NKH": 4,
+          "NVH": 4,
+          "NQH": 4,
+          "mask_cb_tiles": 64,
+          "stock_mask_cb_tiles": 128,
+          "batch_per_core": 8
+        },
+        "mask_shape": [
+          256,
+          4,
+          256,
+          256
+        ],
+        "q_shape": [
+          256,
+          4,
+          256,
+          32
+        ]
+      },
+      "Sq576_Sk576_q256_k192": {
+        "served": 0,
+        "declined": 96,
+        "reasons": {
+          "fill_preconditions": 96
+        },
+        "plan": {
+          "nh_per_core": 1,
+          "q_per_core": 1,
+          "bcast_batch": false,
+          "use_padded_mask": true,
+          "NKH": 4,
+          "NVH": 4,
+          "NQH": 4,
+          "mask_cb_tiles": 144,
+          "stock_mask_cb_tiles": 96,
+          "batch_per_core": 58
+        },
+        "mask_shape": [
+          576,
+          4,
+          576,
+          576
+        ],
+        "q_shape": [
+          576,
+          4,
+          576,
+          32
+        ]
+      },
+      "Sq576_Sk576_q288_k192": {
+        "served": 0,
+        "declined": 96,
+        "reasons": {
+          "fill_preconditions": 96
+        },
+        "plan": {
+          "nh_per_core": 1,
+          "q_per_core": 1,
+          "bcast_batch": false,
+          "use_padded_mask": false,
+          "NKH": 4,
+          "NVH": 4,
+          "NQH": 4,
+          "mask_cb_tiles": 162,
+          "stock_mask_cb_tiles": 108,
+          "batch_per_core": 36
+        },
+        "mask_shape": [
+          576,
+          4,
+          576,
+          576
+        ],
+        "q_shape": [
+          576,
+          4,
+          576,
+          32
+        ]
+      },
+      "Sq576_Sk576_q576_k192": {
+        "served": 0,
+        "declined": 96,
+        "reasons": {
+          "fill_preconditions": 96
+        },
+        "plan": {
+          "nh_per_core": 1,
+          "q_per_core": 1,
+          "bcast_batch": false,
+          "use_padded_mask": false,
+          "NKH": 4,
+          "NVH": 4,
+          "NQH": 4,
+          "mask_cb_tiles": 324,
+          "stock_mask_cb_tiles": 216,
+          "batch_per_core": 18
+        },
+        "mask_shape": [
+          576,
+          4,
+          576,
+          576
+        ],
+        "q_shape": [
+          576,
+          4,
+          576,
+          32
+        ]
+      }
+    }
+  },
+  "levers": {
+    "counters": {
+      "TRIATT_PERSISTENT_MASK": {
+        "resolved": true,
+        "served": 0,
+        "declined": 768,
+        "rejects": {
+          "fill_preconditions": 768
+        }
+      },
+      "TRIATT_HEAD_MAJOR_QKV": {
+        "resolved": true,
+        "served": 576,
+        "declined": 0
+      },
+      "TRIATT_HEAD_MAJOR_TAIL": {
+        "resolved": true,
+        "served": 576,
+        "declined": 0
+      },
+      "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "resolved": true,
+        "served": 96,
+        "declined": 960,
+        "rejects": {
+          "memory": 960
+        }
+      },
+      "TRIMUL_TAIL_F1": {
+        "resolved": true
+      },
+      "TRIMUL_TAIL_F1_COUNTER": {
+        "served": 0,
+        "declined": 576,
+        "rejects": {
+          "k_tiles=4": 576
+        }
+      },
+      "REBLOCK_PERMUTE": {
+        "resolved": true,
+        "served": 192,
+        "declined": 960,
+        "rejects": {
+          "window_BufferType.L1": 960
+        }
+      },
+      "REBLOCK_PERMUTE_BACK": {
+        "resolved": true,
+        "served": 96,
+        "declined": 0
+      },
+      "REBLOCK_PERMUTE_GATED": {
+        "resolved": true,
+        "served": 0,
+        "declined": 0
+      },
+      "FP32_SOFTMAX_BIAS_HOIST": {
+        "resolved": true,
+        "stats": {
+          "calls": 0,
+          "blocked": 0,
+          "blocks": 0,
+          "fused": 0,
+          "unfused": 0,
+          "l1": 0,
+          "l1_blocks": 0,
+          "l1_refused": 0
+        }
+      }
+    },
+    "l1_memos": {
+      "triatt_sdpa._PM_OVER_L1": [],
+      "tenstorrent._SDPA_Q_CHUNK_OVER_L1": [],
+      "tenstorrent._FP32_SOFTMAX_L1_REFUSED": []
+    }
+  },
+  "clashes": [
+    {
+      "op": "ttnn.linear",
+      "site": [
+        "tenstorrent.py:6143 forward",
+        "tenstorrent.py:4273 __call__",
+        "tenstorrent.py:4187 __call__",
+        "tenstorrent.py:3102 __call__",
+        "tenstorrent.py:2596 _trimul_out_proj",
+        "tenstorrent.py:1712 _pair_proj_linear"
+      ]
+    }
+  ]
+}
