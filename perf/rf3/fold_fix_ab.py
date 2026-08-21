@@ -33,6 +33,16 @@ def main():
                          "<outdir>/f<i>_seed<n>/. Repeat a seed to get an A/A control in the "
                          "same process. Overrides --repeat.")
     ap.add_argument("--fixdir", type=Path, default=ROOT / "perf" / "size512" / "fixtures")
+    ap.add_argument("--dump-distogram", action="store_true",
+                    help="also write distogram.npy per kept fold. The distogram is a linear "
+                         "readout of the trunk pair representation computed BEFORE "
+                         "sampler.sample, so it carries no sampler noise -- the instrument for "
+                         "an accuracy A/B on a fixture whose global RMSD only reports which "
+                         "basin the sampler drew.")
+    ap.add_argument("--sampling-steps", type=int, default=None,
+                    help="override RF3\u0027s shipped 50. Legitimate ONLY with "
+                         "--dump-distogram, which is computed before the sampler runs and is "
+                         "therefore bit-identical at any step count (assert that once).")
     a = ap.parse_args()
 
     import tt_bio.tenstorrent as T
@@ -44,8 +54,14 @@ def main():
 
     B.RECYCLING_STEPS = _resolve_recycling_steps(None, "rf3")
     B.SAMPLING_STEPS = _resolve_sampling_steps(None, "rf3")
-    assert (B.RECYCLING_STEPS, B.SAMPLING_STEPS) == (10, 50), \
+    shipped_steps = (B.RECYCLING_STEPS, B.SAMPLING_STEPS)
+    assert shipped_steps == (10, 50), \
         f"rf3 defaults are {B.RECYCLING_STEPS}/{B.SAMPLING_STEPS}, expected 10/50"
+    if a.sampling_steps is not None:
+        assert a.dump_distogram, "--sampling-steps only makes sense with --dump-distogram"
+        B.SAMPLING_STEPS = a.sampling_steps
+    print(f"steps: recycling {B.RECYCLING_STEPS}, sampling {B.SAMPLING_STEPS} "
+          f"(rf3 shipped {shipped_steps[0]}/{shipped_steps[1]})", flush=True)
 
     tgt = a.fixdir / f"{a.fix}.yaml"
     a3m = a.fixdir / f"{a.fix}.a3m"
@@ -58,11 +74,27 @@ def main():
     res = {"label": a.label, "fix": a.fix, "host": os.uname().nodename,
            "card": os.environ.get("TT_VISIBLE_DEVICES"),
            "recycling_steps": B.RECYCLING_STEPS, "sampling_steps": B.SAMPLING_STEPS,
+           "rf3_shipped_steps": list(shipped_steps),
            "diffusion_samples": B.DIFFUSION_SAMPLES, "seed": B.SEED,
            "n_msa": meta.get("n_msa"), "sha256_target": sha(tgt), "sha256_a3m": sha(a3m),
            "env_flags": {k: v for k, v in sorted(os.environ.items())
                          if k.startswith("TT_BIO_")},
            "folds": []}
+
+    grab = {}
+    if a.dump_distogram:
+        import numpy as np
+        from tt_bio.rf3.model import RF3
+        _orig_predict = RF3.predict
+
+        def _predict(self, *ar, **kw):
+            out = _orig_predict(self, *ar, **kw)
+            d = out.get("distogram")
+            if d is not None:
+                grab["distogram"] = d.detach().cpu().numpy()
+            return out
+
+        RF3.predict = _predict
 
     def one(tag, keep, seed=None, dest=None):
         if seed is not None:
@@ -84,6 +116,12 @@ def main():
             for p in cifs:
                 shutil.copy2(p, out / p.name)
             rec["kept"] = [p.name for p in cifs]
+            if a.dump_distogram:
+                d = grab.pop("distogram", None)
+                assert d is not None, f"{tag}: RF3.predict returned no distogram"
+                np.save(out / "distogram.npy", d)
+                rec["distogram"] = {"shape": list(d.shape), "dtype": str(d.dtype),
+                                    "sha256": hashlib.sha256(d.tobytes()).hexdigest()[:16]}
             rec["kept_in"] = str(out)
         print(f"[{a.label}] {tag} {rec['fold_s']:.3f}s plddt={rec['plddt']} "
               f"ptm={rec['ptm']} cif={list(rec['cif_sha256'].values())}", flush=True)
