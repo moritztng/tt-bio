@@ -1218,6 +1218,25 @@ def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
 # ---------------------------------------------------------------------------
 # Verdict extraction + drift check
 # ---------------------------------------------------------------------------
+def _rmsd_block(target_view: dict) -> dict:
+    """The target's Kabsch-RMSD metric block, whatever key its record filed it under.
+
+    Records written before the metric keys were renamed file it under "rmsd". The block always
+    names itself in its own "metric" field, so key off that and fall back to the modern name.
+    Keying only on "kabsch_rmsd" made an older committed record read as NO-DATA, which skipped
+    that leg's drift check without saying so (protenix-v2-hsa.json, opendde.json).
+    """
+    if not isinstance(target_view, dict):
+        return {}
+    block = target_view.get("kabsch_rmsd")
+    if isinstance(block, dict):
+        return block
+    for value in target_view.values():
+        if isinstance(value, dict) and value.get("metric") == "kabsch_rmsd":
+            return value
+    return {}
+
+
 def _structure_verdict(report: dict) -> tuple[str, str]:
     """Return (verdict, primary_metric_line) for a structures-mode report."""
     targets = report.get("targets", {})
@@ -1227,7 +1246,7 @@ def _structure_verdict(report: dict) -> tuple[str, str]:
     all_within = []
     lines = []
     for tid, tv in targets.items():
-        kv = tv.get("kabsch_rmsd", {})
+        kv = _rmsd_block(tv)
         within = kv.get("within_noise_floor")
         if within is None:
             continue

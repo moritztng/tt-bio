@@ -204,3 +204,35 @@ def test_regen_envelope_meta_carries_the_settings_tag():
     assert 'meta.setdefault("settings_tag", base.name)' in src, (
         "the envelope regen no longer stamps settings_tag onto the meta.json it writes"
     )
+
+
+def test_legacy_rmsd_key_still_scores_and_no_leg_reads_no_data():
+    """A committed record that files the metric under "rmsd" must still be comparable.
+
+    ``_structure_verdict`` used to key only on "kabsch_rmsd", so protenix-v2-hsa.json (written
+    before the rename, and carrying no explicit top-level verdict) read as NO-DATA and its
+    drift check was skipped in silence. Every structure leg with a committed record on disk
+    must now yield a comparable verdict.
+    """
+    mod = _load()
+    legacy = {"mode": "structures", "targets": {"hsa": {"rmsd": {
+        "metric": "kabsch_rmsd", "within_noise_floor": False,
+        "cross": {"mean": 1.02}, "ref_floor": {"mean": 0.70}, "dev_floor": {"mean": 0.37}}}}}
+    verdict, detail = mod._structure_verdict(legacy)
+    assert verdict == "GAP", (verdict, detail)
+    assert "X=1.020" in detail
+
+    modern = {"mode": "structures", "targets": {"hsa": {"kabsch_rmsd": {
+        "metric": "kabsch_rmsd", "within_noise_floor": True,
+        "cross": {"mean": 0.69}, "ref_floor": {"mean": 0.70}, "dev_floor": {"mean": 0.58}}}}}
+    assert mod._structure_verdict(modern)[0] == "PASS"
+
+    unreadable = []
+    for leg in mod.LEGS:
+        if leg.kind != "structure" or not leg.committed_json:
+            continue
+        if not (mod.PARITY_DATA / leg.committed_json).exists():
+            continue
+        if mod._committed_verdict(leg) in (None, "NO-DATA"):
+            unreadable.append((leg.id, leg.committed_json))
+    assert not unreadable, f"committed records that read as NO-DATA (drift check skipped): {unreadable}"
