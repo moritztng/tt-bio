@@ -27,6 +27,17 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Fixed
 
+- Boltz-2 folds inputs that pad to 704 tokens again. 640 aa plus a 20-heavy-atom ligand is 660
+  tokens, which pads to 704, and 641 to 704 aa on its own lands on the same rung; all of it died
+  about 6 s in with `Statically allocated circular buffers in program 36 clash with L1 buffers`.
+  The gate that leaves a layer-normed pair tensor in L1 for its narrow projections priced 1.5
+  copies of the tensor against the whole grid's L1. That is an aggregate of interleaved bytes and
+  the wall it has to clear is per core, so at 704 tokens it admitted a 953 KB/core tensor and left
+  the per-head softmax 543 KB where its static circular buffers needed 563658 B. It now reserves
+  the consumers' room in bytes per core, at both sites that hand a narrow projection an
+  L1-resident pair tensor. Every rung that folded before folds bit-identically; the ligand ladder
+  passes at every 64-aa rung from 256 to 1024 aa.
+
 - A partial `~/of3_ref_out.pkl` skips the OpenFold3 device tests that need the keys it
   lacks instead of failing them. The tests guarded on the golden's existence while
   depending on its contents, so on a host with a partial capture 11 of them died on

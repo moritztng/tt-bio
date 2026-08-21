@@ -38,7 +38,7 @@ def test_arm_is_in_the_default_set(gate):
 
 def test_every_selectable_grid_has_a_part_row(gate):
     """The rule the leg exists to enforce: a part-specific figure gets a row here."""
-    grids = {g for _n, g, _l, _p in gate.L1_BUDGET_PARTS}
+    grids = {g for _n, g, _l, _d, _p in gate.L1_BUDGET_PARTS}
     assert (T.COMPUTE_GRID_X_13, T.COMPUTE_GRID_Y) in grids
     assert (T.COMPUTE_GRID_X_11, T.COMPUTE_GRID_Y) in grids
 
@@ -46,7 +46,7 @@ def test_every_selectable_grid_has_a_part_row(gate):
 def test_measured_clashes_are_labelled_with_a_source(gate):
     """A number in the table is measured or it does not belong in the table."""
     for part, shape, width, source in gate.L1_BUDGET_MEASURED_CLASHES:
-        assert part in {n for n, _g, _l, _p in gate.L1_BUDGET_PARTS}
+        assert part in {n for n, _g, _l, _d, _p in gate.L1_BUDGET_PARTS}
         assert width % T.TRIANGLE_MULT_CHUNK_SIZE == 0
         assert len(source) > 40 and any(c.isdigit() for c in source)
 
