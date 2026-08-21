@@ -1057,7 +1057,8 @@ def lever_census_flags() -> tuple:
     return tuple(f for f, *_rest in mod.LEVERS)
 
 
-def _run_census_fold(model: str, rung: int, workdir: Path, tag: str) -> dict:
+def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
+                     need_runtime: bool = True) -> dict:
     """One lever-census-wrapped fold of the cdk2x2_<rung> fixture. Returns
     {"levers": {flag: {resolved, served, declined, frac, how}}, "runtime_s": ...,
     "wall": ...} or {"error": ...}.
@@ -1146,7 +1147,7 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str) -> dict:
                 runtime_s = max(ts) if ts else None
             except Exception:
                 runtime_s = None
-    if runtime_s is None:
+    if runtime_s is None and need_runtime:
         return {"error": f"no runtime_s in {where} (fold ok but timing missing)"}
     return {"levers": levers, "runtime_s": runtime_s, "wall": wall,
             "census_json": census_json, "grid": census.get("grid")}
@@ -1460,7 +1461,12 @@ def run_size_ladder_add_lever(flags, keep: bool, baseline_path: Path,
             continue
         measured, clauses, findings, grid = {}, {}, [], None
         for rung in rungs:
-            r = _run_census_fold(m, rung, workdir, "addlever")
+            # need_runtime=False: this mode compares census counts and writes one lever's
+            # row. It never reads a timing, so a fold whose results.json is not readable the
+            # instant the subprocess exits must not refuse the splice — openfold3 writes its
+            # results through a lock/.bak rename and lost that race twice in a row here, which
+            # read as "openfold3 refused" and hid the reason behind a missing report line.
+            r = _run_census_fold(m, rung, workdir, "addlever", need_runtime=False)
             if r.get("error"):
                 findings.append(f"{m}/{rung}: {r['error']}")
                 break
@@ -2181,6 +2187,27 @@ def main() -> int:
                                        args.size_ladder_models.split(",")
                                        if args.size_ladder_models else None)
         rows.append(sl)
+        all_pass &= sl["gate"]
+        # Printed, and folded into all_pass. Without this the mode appended its row and
+        # returned silently: a model whose splice was REFUSED looked identical to one that
+        # was never asked for, which is the failure mode this whole arm exists to not have.
+        print(f"\n{'#'*78}\nRELEASE GATE — size-ladder add-lever "
+              f"{args.size_ladder_record_lever} (card {sl.get('card', '?')})\n{'#'*78}")
+        for l in sl["legs"]:
+            added = l.get("added") or {}
+            what = ("added at " + ",".join(sorted(added, key=int)) + " aa" if added
+                    else f"REFUSED ({l['error']})" if l.get("error") else "REFUSED")
+            print(f"{l['model']:<15}{'PASS' if l['gate'] else 'FAIL':<6}{what}")
+            for f in (l.get("findings") or []):
+                print(f"    FAIL {f}")
+        if not sl["legs"] and sl.get("error"):
+            print(f"    FAIL {sl['error']}")
+        print(f"{'#'*78}")
+        print("LEVERS ADDED — fill every TODO exemption reason in "
+              f"{args.size_ladder_baseline}, then run the arm without "
+              f"--size-ladder-record-lever" if sl["gate"] else
+              "ADD-LEVER REFUSED — something other than the named levers moved, so a full "
+              "--size-ladder-record is the honest fix (see above)")
     elif want_size_ladder:
         sl = run_size_ladder(args.keep, args.size_ladder_record,
                              Path(args.size_ladder_baseline),
