@@ -1,0 +1,5 @@
+{"id": "sample1_t0.1_s3", "arm": "reference_fp32", "binder_len": 80, "bound_unbound_rmsd": 0.196712, "bound_unbound_rmsd_rounded2": 0.2, "passes_rmsd": true, "bound_unbound_rmsd_upstream": 0.196733, "upstream_diff": 2.1e-05}
+{"id": "sample1_t0.2_s1", "arm": "reference_fp32", "binder_len": 80, "bound_unbound_rmsd": 0.27413, "bound_unbound_rmsd_rounded2": 0.27, "passes_rmsd": true, "bound_unbound_rmsd_upstream": 0.274253, "upstream_diff": 0.000123}
+{"id": "sample1_t0.2_s3", "arm": "reference_fp32", "binder_len": 80, "bound_unbound_rmsd": 0.652259, "bound_unbound_rmsd_rounded2": 0.65, "passes_rmsd": true, "bound_unbound_rmsd_upstream": 0.652252, "upstream_diff": 7e-06}
+{"id": "sample1_t0.3_s2", "arm": "reference_fp32", "binder_len": 80, "bound_unbound_rmsd": 0.334248, "bound_unbound_rmsd_rounded2": 0.33, "passes_rmsd": true, "bound_unbound_rmsd_upstream": 0.334346, "upstream_diff": 9.8e-05}
+{"id": "sample1_t0.5_s2", "arm": "reference_fp32", "binder_len": 80, "bound_unbound_rmsd": 3.571751, "bound_unbound_rmsd_rounded2": 3.57, "passes_rmsd": false, "bound_unbound_rmsd_upstream": 3.57177, "upstream_diff": 1.8e-05}
