@@ -8,7 +8,12 @@ reject decision, not a structure metric.
 That decision is `af2_easy`, four conditions and all four scored: pLDDT > 0.8, i_pTM > 0.5,
 i_pAE < 0.35 from the complex pass, and bound-unbound RMSD < 3.5 from a second binder-only pass
 (`filter_tolerance.py --stage monomer` plus `bound_unbound_rmsd.py`). On 50 real designs across two
-targets the device arm flips 1 of those decisions, 2.0%.
+targets the device arm flips none of them, pooled 0 of 50 with a Wilson CI95 of [0, 0.071].
+
+Score a population in one process and the arm is the same arm for every design in it. That is a
+property of the template memo's key, not an accident: without one, the second design in a process
+gets the first design's template embedding, which for two backbones against the same target is a
+binder 34 A away. `tests/test_af2_template_cache.py` pins the key.
 
 `af2ig_spec.json` is the configuration, read from ColabDesign 1.1.3, PXDesignBench and
 `params_model_1_ptm.npz` rather than inferred: every dimension, block count, runtime flag, filter

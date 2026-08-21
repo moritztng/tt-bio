@@ -30,6 +30,8 @@ difference resolved first.
 """
 from __future__ import annotations
 
+import hashlib
+
 import torch
 import ttnn
 
@@ -530,7 +532,9 @@ class AF2DeviceModel(AF2Model):
     substitute: frozenset = frozenset()
 
     #: Off recomputes the template every pass. It must change no number anywhere, which is what
-    #: `tap_gate.py --device --no-template-cache` checks against the same reference taps.
+    #: `tap_gate.py --device --no-template-cache` checks against the same reference taps. On, the
+    #: cache is keyed by `_template_key`, so it saves the three recycles of one design and is
+    #: invalidated by the next design rather than served to it.
     template_cached = True
 
     def __init__(self, *args, **kwargs):
@@ -665,12 +669,45 @@ class AF2DeviceModel(AF2Model):
 
     # ------------------------------------------------------------------ the template, once
 
+    @staticmethod
+    def _template_key(feats: dict, mask_2d: torch.Tensor,
+                      multichain_mask: torch.Tensor) -> tuple:
+        """Content key over every input the template reads except `pair`.
+
+        The cache is worth having because `AF2Template.forward` is constant in `pair`: with one
+        template the pointwise attention softmaxes over a single key, so the weight is exactly
+        1.0 and the query drops out. It is NOT constant in the template features, and those
+        change with the design: `complex_features` masks the template sequence, so
+        `template_aatype` is identical for every design and the whole design dependence sits in
+        the coordinates. Two PXDesign backbones against the same target share their target block
+        bit for bit and differ by 34 A in the binder, which a key on nothing serves to the wrong
+        design.
+
+        Every `template_*` feature goes in, not just the ones read today, so the key cannot go
+        stale if the module starts reading one more. The hashed bytes are ~200 KB per call
+        against a 0.44 s template pass.
+        """
+        parts = [feats[k] for k in sorted(feats) if k.startswith("template_")]
+        parts += [mask_2d, multichain_mask]
+
+        def digest(t: torch.Tensor) -> tuple:
+            # `mask_2d` arrives in the trunk dtype, and numpy has no bfloat16. Widening to float64
+            # is exact from every float dtype this model uses, and the dtype string is in the key
+            # anyway, so a bf16 arm and an fp32 arm still hash apart.
+            raw = t.detach().contiguous()
+            raw = raw.double() if raw.dtype.is_floating_point else raw
+            return (tuple(t.shape), str(t.dtype),
+                    hashlib.blake2b(raw.cpu().numpy().tobytes(), digest_size=16).digest())
+
+        return tuple(digest(t) for t in parts)
+
     def template_embedding(self, pair: torch.Tensor, feats: dict, mask_2d: torch.Tensor,
                            multichain_mask: torch.Tensor) -> torch.Tensor:
-        if self._template_cache is not None:
+        key = self._template_key(feats, mask_2d, multichain_mask)
+        if self._template_cache is not None and self._template_cache[0] == key:
             # The pass that computed it already fired every hook a tap gate installed; only the
             # passes served from the cache have to re-emit, or the tap counts diverge.
-            stack_out, embedding = self._template_cache
+            _, stack_out, embedding = self._template_cache
             self._tap("template_pair_stack", out=stack_out)
             self._tap("template_embedding", out=embedding)
             return embedding
@@ -682,7 +719,7 @@ class AF2DeviceModel(AF2Model):
         finally:
             handle.remove()
         if self.template_cached:
-            self._template_cache = (stack[-1], embedding)
+            self._template_cache = (key, stack[-1], embedding)
         return embedding
 
 
