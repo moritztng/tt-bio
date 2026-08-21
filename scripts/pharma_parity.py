@@ -52,7 +52,8 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # Reuse the vetted structure comparison (Kabsch RMSD / coord PCC / conf deltas).
-from boltz2_fast_parity import CONF_KEYS, compare_structure, load_results  # noqa: E402
+from boltz2_fast_parity import (CONF_KEYS, compare_structure, kabsch,  # noqa: E402
+                                load_atoms, load_results)
 
 
 # ---------------------------------------------------------------------------
@@ -63,6 +64,30 @@ REFERENCE_FLOOR_EPS = 1e-12
 FLOOR_INFLATED_BY_D_MESSAGE = (
     "FLOOR-INFLATED-BY-D: device self-consistency is looser than the reference's own; "
     "investigate device instability before trusting this PASS."
+)
+
+# --- within-run ensemble bars (multi-sample models) --------------------------------------
+# Everything above is ACROSS runs and reads rank 0 only, so a run whose five samples disagree
+# by 20 A passes all of it as long as its rank 0 reproduces seed to seed. The two bars below
+# are within-run, and both are a multiple of the REFERENCE's own inter-seed floor R, so they
+# scale with how hard the target is instead of being constants pulled from nowhere.
+#
+# WIDTH: the spread of the samples one predict call returned. Measured on protenix-prot-msa
+# (5 seeds x 5 samples, 2026-08-21): device 0.55-2.56 A against R_max 2.92 A, i.e. 0.88x. The
+# 2.5x bar keeps 2.8x headroom over the widest run observed and still fails a 20 A ensemble.
+ENSEMBLE_WIDTH_FACTOR = 2.5
+# SELECTION: what the model's own rank-0 pick costs in RMSD against the best sample it had in
+# the same batch. Same leg: 0.09-1.25 A against R_mean 2.22 A. The bar is R_mean -- the
+# selection may cost no more than the noise the reference itself carries between seeds -- with
+# an absolute floor so a near-deterministic reference cannot produce a bar of ~0.
+SELECTION_PENALTY_ABS_FLOOR = 1.0
+ENSEMBLE_MESSAGE = (
+    "ENSEMBLE-TOO-WIDE: one predict call returned samples further apart than the reference's "
+    "own seed-to-seed spread allows; the user gets a different structure per sample."
+)
+SELECTION_MESSAGE = (
+    "SELECTION-INVERTED: the sample the model shipped as rank 0 is materially further from the "
+    "reference than another sample in the same batch; confidence is not ranking."
 )
 
 
@@ -189,6 +214,95 @@ def _pair_metrics(dA: Path, dB: Path, tid: str):
     }
 
 
+_ATOM_CACHE: dict = {}
+
+
+def _atoms(cif: Path):
+    """load_atoms with a memo -- the per-sample loops read each CIF once per reference seed."""
+    k = str(cif)
+    if k not in _ATOM_CACHE:
+        _ATOM_CACHE[k] = load_atoms(cif) if Path(cif).exists() else {}
+    return _ATOM_CACHE[k]
+
+
+def _cif_rmsd(a: Path, b: Path):
+    """All-atom Kabsch RMSD only. compare_structure also computes TM and lDDT, which are
+    O(n^2) and not needed for the sample loops (25x more pairs than the leg's own table)."""
+    A, B = _atoms(a), _atoms(b)
+    keys = [k for k in A if k in B]
+    if len(keys) < 3:
+        return None
+    return kabsch(np.array([A[k] for k in keys]), np.array([B[k] for k in keys]))[0]
+
+
+def _sample_cifs(d: Path, tid: str) -> list:
+    """One run's sample CIFs in CONFIDENCE-RANK order. tt-bio names structure output by rank,
+    not by sample index: rank 0 is <tid>.cif and ranks 1.. are <tid>_model_<rank>.cif."""
+    struct = Path(d) / "structures"
+    out = [struct / f"{tid}.cif"]
+    r = 1
+    while (struct / f"{tid}_model_{r}.cif").exists():
+        out.append(struct / f"{tid}_model_{r}.cif")
+        r += 1
+    return out
+
+
+def ensemble_selection(dev_dir: Path, ref_dirs, tid: str) -> dict | None:
+    """Within-RUN ensemble width and selection quality for one multi-sample device run.
+
+    width      how far apart the samples ONE predict call returned actually are
+    selection  whether the sample the model SHIPPED (rank 0) is the best of them, scoring
+               each sample against the nearest reference seed
+
+    Returns None for a single-sample run: nothing to spread and nothing to select.
+    """
+    cifs = _sample_cifs(dev_dir, tid)
+    if len(cifs) < 2:
+        return None
+    spread = [v for v in (_cif_rmsd(a, b) for a, b in itertools.combinations(cifs, 2))
+              if v is not None]
+    per = []
+    for c in cifs:
+        ds = [v for v in (_cif_rmsd(c, _cif(r, tid)) for r in ref_dirs) if v is not None]
+        per.append(min(ds) if ds else None)
+    if not spread or any(v is None for v in per):
+        return None
+    best = min(per)
+    return {"n_samples": len(cifs), "width": summarize(spread),
+            "per_sample_vs_ref": [round(v, 4) for v in per],
+            "rank0_vs_ref": per[0], "best_vs_ref": best, "best_rank": int(np.argmin(per)),
+            "selection_penalty": per[0] - best,
+            "n_closer_than_rank0": sum(1 for v in per[1:] if v < per[0])}
+
+
+def ensemble_verdict(runs: list, ref_floor: dict) -> dict:
+    """Aggregate per-run ensemble_selection results into one target-level verdict.
+
+    Both bars come from the reference's own inter-seed floor R (ref_floor is its summarize()),
+    so a hard target gets a wide bar and an easy one a tight bar. With no R there is no bar:
+    the numbers are reported and no verdict is asserted."""
+    runs = [r for r in runs if r]
+    if not runs:
+        return {"n_runs": 0}
+    width_max = max(r["width"]["max"] for r in runs)
+    penalty_max = max(r["selection_penalty"] for r in runs)
+    r_max, r_mean, n_r = ref_floor.get("max"), ref_floor.get("mean"), ref_floor.get("n", 0)
+    out = {"n_runs": len(runs), "n_samples": runs[0]["n_samples"],
+           "width_max": width_max, "width_mean": float(np.mean([r["width"]["mean"] for r in runs])),
+           "selection_penalty_max": penalty_max,
+           "selection_penalty_mean": float(np.mean([r["selection_penalty"] for r in runs])),
+           "rank0_mean": float(np.mean([r["rank0_vs_ref"] for r in runs])),
+           "best_available_mean": float(np.mean([r["best_vs_ref"] for r in runs])),
+           "rank0_was_best": sum(1 for r in runs if r["best_rank"] == 0),
+           "per_run": runs}
+    if n_r and r_max and r_max > REFERENCE_FLOOR_EPS:
+        out["width_bar"] = ENSEMBLE_WIDTH_FACTOR * r_max
+        out["ensemble_width_ok"] = bool(width_max <= out["width_bar"])
+        out["selection_bar"] = max(r_mean, SELECTION_PENALTY_ABS_FLOOR)
+        out["selection_ok"] = bool(penalty_max <= out["selection_bar"])
+    return out
+
+
 def _pair_rmsd_pcc(dA: Path, dB: Path, tid: str):
     m = _pair_metrics(dA, dB, tid)
     if m is None:
@@ -264,6 +378,10 @@ def structures(args) -> int:
                     for k in metric_keys:
                         diag[k].append(m[k])
 
+        # within-run: the ensemble one predict call returned, and which sample it shipped
+        ens = ensemble_verdict([ensemble_selection(d, ref_dirs, tid) for d in dev_dirs],
+                               summarize(rf["kabsch_rmsd"]))
+
         verdicts = {
             k: noise_floor_verdict(
                 cross[k], rf[k], df[k], k,
@@ -272,6 +390,8 @@ def structures(args) -> int:
             for k in metric_keys
         }
         report["targets"][tid] = {k.split("-", 1)[-1]: v for k, v in verdicts.items()}
+        if ens.get("n_runs"):
+            report["targets"][tid]["ensemble"] = ens
         for k in metric_keys:
             v = verdicts[k]
             name = metric_labels[k]
@@ -305,6 +425,29 @@ def structures(args) -> int:
     for tid, name, dev_over_ref in instability_warnings:
         print(f"\n> **{FLOOR_INFLATED_BY_D_MESSAGE}** "
               f"Target `{tid}`, metric {name}, D/R={dev_over_ref:.2f}×.")
+
+    ens_rows = [(tid, report["targets"][tid]["ensemble"]) for tid in ids
+                if "ensemble" in report["targets"].get(tid, {})]
+    if ens_rows:
+        print("\n### Within-run ensemble (one predict call) and what it shipped\n")
+        print("| target | samples | sample spread (max) | width bar | rank-0 vs ref | "
+              "best sample vs ref | selection cost | bar | rank-0 was best |")
+        print("|---|---|---|---|---|---|---|---|---|")
+        for tid, e in ens_rows:
+            wb = f"{e['width_bar']:.2f}" if "width_bar" in e else "—"
+            sb = f"{e['selection_bar']:.2f}" if "selection_bar" in e else "—"
+            flag = lambda ok: "" if ok is None or ok else " **NO**"
+            print(f"| {tid} | {e['n_samples']} | {e['width_max']:.2f}{flag(e.get('ensemble_width_ok'))} "
+                  f"| {wb} | {e['rank0_mean']:.2f} | {e['best_available_mean']:.2f} "
+                  f"| {e['selection_penalty_max']:.2f}{flag(e.get('selection_ok'))} | {sb} "
+                  f"| {e['rank0_was_best']}/{e['n_runs']} |")
+        for tid, e in ens_rows:
+            if e.get("ensemble_width_ok") is False:
+                print(f"\n> **{ENSEMBLE_MESSAGE}** Target `{tid}`, widest sample pair "
+                      f"{e['width_max']:.2f} A vs bar {e['width_bar']:.2f} A.")
+            if e.get("selection_ok") is False:
+                print(f"\n> **{SELECTION_MESSAGE}** Target `{tid}`, rank 0 costs "
+                      f"{e['selection_penalty_max']:.2f} A vs bar {e['selection_bar']:.2f} A.")
 
     if paired_ok:
         print(f"\n### Same-seed diagonal (dev_i vs ref_i, n={len(dev_dirs)}) vs "
