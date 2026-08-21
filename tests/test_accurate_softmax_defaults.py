@@ -75,14 +75,39 @@ def test_site_is_reachable_and_wired_in_the_named_file(monkeypatch, token):
     assert literal in src or scoped in src, "%s: no wiring found in %s" % (token, SITES[token])
 
 
-def test_no_construction_site_hardcodes_the_lever_on():
-    """A default flip is release-gated. `accurate_softmax=True` in tt_bio/ is that flip."""
+# RF3 ships the lever on, and that is the one place it is allowed. Its own port scored it: the row
+# deficit is the whole of AttentionPairBias's 13.43x on RF3's pairformer, and PAIRFORMER_FLAGS
+# reaches only RF3's own stack. Every other model shares AttentionPairBias with it, so a flip there
+# is the release-gated one these two tests guard.
+LEVER_ON_ALLOWED = {"tt_bio/rf3/remap.py"}
+
+
+def test_no_shared_construction_site_hardcodes_the_lever_on():
+    """A default flip is release-gated. `accurate_softmax=True` outside RF3 is that flip."""
     offenders = []
     for path in sorted(SRC.rglob("*.py")):
+        rel = str(path.relative_to(ROOT))
+        if rel in LEVER_ON_ALLOWED:
+            continue
         for i, line in enumerate(path.read_text().splitlines(), 1):
             if re.search(r"accurate_softmax\s*=\s*True", line):
-                offenders.append("%s:%d" % (path.relative_to(ROOT), i))
+                offenders.append("%s:%d" % (rel, i))
     assert offenders == [], "accurate_softmax defaulted ON at: %s" % ", ".join(offenders)
+
+
+def test_the_rf3_allowance_stays_inside_rf3s_own_flag_dict():
+    """The allowlist is not a blanket: exactly one True, and it is in `PAIRFORMER_FLAGS`."""
+    src = (ROOT / "tt_bio/rf3/remap.py").read_text()
+    hits = re.findall(r"accurate_softmax\s*=\s*True", src)
+    assert len(hits) == 1, "RF3 hardcodes the lever %d times, expected 1" % len(hits)
+    tree = ast.parse(src)
+    flags = [n for n in tree.body if isinstance(n, ast.Assign)
+             and any(getattr(t, "id", None) == "PAIRFORMER_FLAGS" for t in n.targets)]
+    assert len(flags) == 1, "PAIRFORMER_FLAGS is not a single module-level assignment"
+    kwargs = {k.arg: k.value for k in flags[0].value.keywords}
+    on = kwargs.get("accurate_softmax")
+    assert isinstance(on, ast.Constant) and on.value is True, \
+        "RF3's True is not the one inside PAIRFORMER_FLAGS"
 
 
 def test_shared_primitives_default_the_keyword_off():
