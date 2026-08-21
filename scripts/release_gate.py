@@ -530,8 +530,28 @@ L1_BUDGET_HIDDEN = (128, 256)
 # that died on his p300c. Cheap enough for a default arm (~15 s a grid).
 L1_BUDGET_DATA = REPO_ROOT / "examples" / "affinity_fkg.yaml"
 L1_BUDGET_MODEL = "protenix-v2"
+# --- nesso1 correctness leg ------------------------------------------------------
+# Nesso-1 folds nothing, so it cannot join MODELS: there is no structure to Kabsch and no
+# TM to score. Its output is eleven scalars, and the only comparison available is against
+# the torch reference, which is bit-exact against upstream. The arm delegates to
+# scripts/nesso1_port/device_parity.py — the harness the port already validated with —
+# the same way the opendde-abag leg delegates its DockQ to scripts/opendde_dockq.py.
+# The floors live in that script, next to the measurement, so a hand run and the gate
+# report the same verdict.
+#
+# The arm scored is the one that ships: `tt-bio affinity` defaults to a bf16 trunk and
+# fp32 affinity stacks. Do not score bf16/bf16 — it is 3.17 rather than 3.43 on X_over_R
+# and nobody runs it.
+NESSO1_PARITY = REPO_ROOT / "scripts" / "nesso1_port" / "device_parity.py"
+NESSO1_FIXTURE = REPO_ROOT / "scripts" / "nesso1_port" / "parity_artifacts" / "tyr48"
+NESSO1_TRUNK, NESSO1_AFFINITY = "bf16", "fp32"
+NESSO1_REPEATS = 3
+# ~2-3 min: a CPU torch reference at 61 tokens is 8.5 s, three device repeats are ~1 s
+# each, and the rest is the weight load.
+NESSO1_TIMEOUT_S = 1800
+
 DEFAULT_ARMS = ("boltzgen", "opendde-abag", "capacity", "l1-budget",
-                "batch-position")
+                "batch-position", "nesso1")
 
 L1_BUDGET_STEPS = 200
 # The width measured to fit at the issue-#11 call shape on a 110-core grid: the
@@ -895,6 +915,57 @@ def run_opendde_abag(keep: bool) -> dict:
 
     if not keep:
         shutil.rmtree(out, ignore_errors=True)
+    return row
+
+
+def run_nesso1(keep: bool) -> dict:
+    """Score Nesso-1's eleven output scalars against the torch reference. Returns a row.
+
+    Runs the parity harness as a subprocess rather than importing it: it opens a device
+    context, and this process must stay free to run the other arms after it.
+    """
+    if not NESSO1_FIXTURE.exists():
+        return {"model": "nesso1", "seconds": None, "x_over_r": None, "spread": None,
+                "n_tokens": None, "gate": False,
+                "error": f"missing nesso1 parity fixture {NESSO1_FIXTURE}"}
+
+    out_json = REPO_ROOT / "nesso1_gate_parity.json"
+    cmd = [
+        sys.executable, str(NESSO1_PARITY),
+        "--fixture", str(NESSO1_FIXTURE),
+        "--trunk", NESSO1_TRUNK, "--affinity", NESSO1_AFFINITY,
+        "--repeats", str(NESSO1_REPEATS),
+        "--json", str(out_json),
+    ]
+    print(f"\n{'='*70}\n[nesso1] scoring {NESSO1_FIXTURE.name} against the torch reference "
+          f"({NESSO1_TRUNK} trunk, {NESSO1_AFFINITY} affinity, {NESSO1_REPEATS} repeats)"
+          f"\n{'='*70}", flush=True)
+
+    row = {"model": "nesso1", "seconds": None, "x_over_r": None, "spread": None,
+           "n_tokens": None, "gate": False, "error": None}
+    t0 = time.monotonic()
+    rc, timed_out = _run_fold(cmd, NESSO1_TIMEOUT_S, cwd=REPO_ROOT)
+    row["seconds"] = time.monotonic() - t0
+    if timed_out:
+        row["error"] = f"device_parity timed out after {NESSO1_TIMEOUT_S}s"
+        return row
+    # rc is 1 on a FAIL verdict, which is a result rather than a crash, so read the JSON
+    # first and only call a missing report an error.
+    if not out_json.exists():
+        row["error"] = f"device_parity exited {rc} and wrote no report"
+        return row
+    rep = json.loads(out_json.read_text())
+    if not keep:
+        out_json.unlink()
+    row["n_tokens"] = rep["n_tokens"]
+    row["x_over_r"] = rep["X_over_R"]
+    row["spread"] = rep["max_device_spread"]
+    row["floors"] = rep["floors"]
+    row["worst_key"] = rep["X_device_vs_torch_key"]
+    row["gate"] = rep["verdict"] == "PASS"
+    if not row["gate"]:
+        row["error"] = (f"worst scalar {rep['X_device_vs_torch_key']} at "
+                        f"{rep['X_over_R']:.3f}xR, device spread {rep['max_device_spread']:.3g}")
     return row
 
 
@@ -2120,6 +2191,7 @@ def main() -> int:
     want_capacity = "capacity" in models
     want_l1_budget = "l1-budget" in models
     want_batch_position = "batch-position" in models
+    want_nesso1 = "nesso1" in models
     want_size_ladder = "size-ladder" in models
     esmc_models = [m for m in models if m in ESMC_DEFAULT + ESMC_OPT_IN]
     _preflight_msa_cache(models)
@@ -2187,6 +2259,27 @@ def main() -> int:
         print(f"{'#'*78}")
         print("GATE PASS — opendde-abag cleared parse + DockQ floor" if ar["gate"]
               else "GATE FAIL — opendde-abag missed parse or the DockQ floor (see above)")
+
+    if want_nesso1:
+        nr = run_nesso1(args.keep)
+        print(f"\n{'#'*78}\nRELEASE GATE — {NESSO1_FIXTURE.name} (nesso1), "
+              f"{NESSO1_TRUNK} trunk / {NESSO1_AFFINITY} affinity, "
+              f"{NESSO1_REPEATS} device repeats\n{'#'*78}")
+        print(f"{'model':<15}{'worst vs ref':>14}{'dev spread':>12}{'floor':>18}"
+              f"{'wall':>9}  result")
+        fl = nr.get("floors") or {}
+        floor = (f"<={fl.get('max_x_over_r', '?')}xR/<={fl.get('max_device_spread', '?'):g}"
+                 if fl else "-")
+        xr = f"{nr['x_over_r']:.3f}xR" if nr["x_over_r"] is not None else "  -  "
+        sp = f"{nr['spread']:.3g}" if nr["spread"] is not None else "  -  "
+        wall = f"{nr['seconds']:.0f}s" if nr["seconds"] is not None else "-"
+        verdict = "PASS" if nr["gate"] else f"FAIL ({nr['error']})" if nr["error"] else "FAIL"
+        all_pass &= nr["gate"]
+        print(f"{nr['model']:<15}{xr:>14}{sp:>12}{floor:>18}{wall:>9}  {verdict}")
+        print(f"{'#'*78}")
+        print("GATE PASS — nesso1 scalars cleared the reference floor and the device is "
+              "deterministic" if nr["gate"]
+              else "GATE FAIL — nesso1 missed the reference floor or drifted run to run (see above)")
 
     if want_capacity:
         for leg in CAPACITY_LEGS:
