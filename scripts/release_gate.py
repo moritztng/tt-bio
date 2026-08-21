@@ -1041,7 +1041,7 @@ def _size_ladder_precondition(model: str):
         return None
     try:
         from tt_bio.nesso1_input import find_ccd
-        find_ccd(os.environ.get("NESSO_CACHE"))
+        find_ccd(os.environ.get("NESSO_CACHE"), download=False)
     except Exception as e:                                               # noqa: BLE001
         return f"nesso1 precondition: {e}"
     return None

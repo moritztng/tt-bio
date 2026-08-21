@@ -130,3 +130,15 @@ def test_msa_key_is_ignored_out_loud():
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         assert warn_ignored_protein_keys([REPO / "examples/affinity.yaml"]) == []
+
+
+def test_find_ccd_without_download_names_where_it_looked(tmp_path, monkeypatch):
+    """The gate's precondition wants a verdict, not 413 MB, so download=False keeps the
+    old behaviour: raise, and name every root searched plus the flags that override it."""
+    from tt_bio.nesso1_input import find_ccd
+
+    monkeypatch.delenv("NESSO_CACHE", raising=False)
+    monkeypatch.setenv("HF_HOME", str(tmp_path / "hf"))
+    monkeypatch.setenv("HOME", str(tmp_path))  # so ~/.cache/huggingface is empty too
+    with pytest.raises(FileNotFoundError, match="--ccd"):
+        find_ccd(tmp_path / "empty", download=False)

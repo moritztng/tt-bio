@@ -256,7 +256,11 @@ def build_dataset(paths: Paths, manifest: Manifest, ccd_pkl: Path, max_dist: flo
     )
 
 
-def find_ccd(cache_dir: Path | None = None) -> Path:
+NESSO_REPO = "recursionpharma/nesso"
+NESSO_REVISION = "v1.0.0"
+
+
+def find_ccd(cache_dir: Path | None = None, *, download: bool = True) -> Path:
     """Locate the ``ccd.pkl`` shipped alongside the checkpoint (413 MB, never committed).
 
     Searches every place it could be rather than only the first one that is set, and the error
@@ -264,6 +268,12 @@ def find_ccd(cache_dir: Path | None = None) -> Path:
     the default cache and passes ``--cache`` for the ESM-2 weights used to get "no ccd.pkl under
     <the ESM cache>", which reads as a missing download rather than a lookup that never looked
     where the file is.
+
+    Nowhere on disk means fetch it, the same way the weights are fetched. It needs its own
+    download because ``from_pretrained`` pulls only the two files under the revision tag and
+    ccd.pkl sits at the repo root, so a user who had never run the upstream CLI had a checkpoint
+    that downloaded itself and a component library that did not. ``download=False`` is for
+    callers that want a precondition check rather than 413 MB.
     """
     roots, seen = [], set()
     for cand in (cache_dir, os.environ.get("NESSO_CACHE"), os.environ.get("HF_HOME"),
@@ -278,10 +288,21 @@ def find_ccd(cache_dir: Path | None = None) -> Path:
         hits = sorted(root.rglob("models--recursionpharma--nesso/snapshots/*/ccd.pkl"))
         if hits:
             return hits[0]
+    looked = "no ccd.pkl found. Looked under: " + ", ".join(str(r) for r in roots)
+    if download:
+        from huggingface_hub import hf_hub_download
+
+        print(f"Downloading ccd.pkl (413 MB) from {NESSO_REPO} …")
+        try:
+            return Path(hf_hub_download(
+                repo_id=NESSO_REPO, filename="ccd.pkl", revision=NESSO_REVISION,
+                cache_dir=cache_dir,
+            ))
+        except Exception as e:                                           # noqa: BLE001
+            raise FileNotFoundError(f"{looked}, and downloading it failed: {e}") from e
     raise FileNotFoundError(
-        "no ccd.pkl found. Looked under: " + ", ".join(str(r) for r in roots)
-        + ". It ships with the checkpoint; point NESSO_CACHE (or HF_HOME) at the HuggingFace "
-          "cache holding it, pass --cache, or name the file directly with --ccd")
+        looked + ". It ships with the checkpoint; point NESSO_CACHE (or HF_HOME) at the "
+        "HuggingFace cache holding it, pass --cache, or name the file directly with --ccd")
 
 
 def prepare(
