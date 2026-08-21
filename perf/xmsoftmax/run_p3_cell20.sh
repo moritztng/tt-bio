@@ -18,7 +18,7 @@ cell() {  # model sites arm card
       > $L/cell20_$1_$3.log 2>&1
   echo "cell20 $1 $3 rc=$?" >> $L/driver.log
 }
-( for arm in off off2 on; do cell protenix-v2 "$PTX" $arm 2; done ) &
+( for arm in off off2 on; do cell protenix-v2 "$PTX" $arm 1; done ) &
 ( for arm in off off2 on; do cell opendde "$ODE" $arm 3; done ) &
 wait
 echo "cell20 all done $(date -Is)" >> $L/driver.log

@@ -23,7 +23,7 @@ ODE=opendde.trunk,opendde.confidence,opendde.refiner
 echo "start $(date -Is) loadavg $(cat /proc/loadavg)" >> $L/driver.log
 run 3 "$ODE" opendde 768 2 opendde_768 &
 P3=$!
-( run 2 "$PTX" protenix-v2 768 2 protenix_768; run 2 "$ODE" opendde 512 2 opendde_512_p3 ) &
+( run 1 "$PTX" protenix-v2 768 2 protenix_768; run 1 "$ODE" opendde 512 2 opendde_512_p3 ) &
 P2=$!
 wait $P3 $P2
 echo "all done $(date -Is)" >> $L/driver.log
