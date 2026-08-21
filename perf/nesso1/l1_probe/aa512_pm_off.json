@@ -1,0 +1,61 @@
+{
+  "gate": "nesso1_l1_probe",
+  "arm": "pm_off",
+  "rung": "aa512",
+  "n_tokens": 532,
+  "trunk": "bf16",
+  "affinity": "fp32",
+  "host": "tt-quietbox",
+  "card": "1",
+  "wall_s": [
+    10.03234784400047,
+    8.197945476000314,
+    8.563437046999752
+  ],
+  "warm_wall_s": 8.197945476000314,
+  "scalars": {
+    "affinity_pred_value": 1.3614065647125244,
+    "affinity_pred_value1": 1.410825252532959,
+    "affinity_pred_value2": 1.3119878768920898,
+    "affinity_logits_binary": -2.7722384929656982,
+    "affinity_probability_binary": 0.05884292349219322,
+    "entropy_pp": 0.13706053793430328,
+    "entropy_pl": 0.3006055951118469,
+    "entropy_ll": 0.2165820300579071,
+    "entropy_crop_pp": 0.4228764474391937,
+    "entropy_crop_pl": 0.8411059975624084,
+    "entropy_crop_ll": 0.2165820300579071
+  },
+  "scalars_all_reps_equal": true,
+  "triatt": {
+    "enabled": false,
+    "q_split": true,
+    "stats_served": 0,
+    "stats_declined": 0,
+    "rejects": {},
+    "pm_over_l1": [],
+    "sdpa_q_chunk_over_l1": [],
+    "calls": {
+      "Sq256_Sk256_q256_k256": {
+        "served": 0,
+        "declined": 1440,
+        "reasons": {}
+      },
+      "Sq576_Sk576_q256_k192": {
+        "served": 0,
+        "declined": 288,
+        "reasons": {}
+      },
+      "Sq576_Sk576_q288_k192": {
+        "served": 0,
+        "declined": 288,
+        "reasons": {}
+      },
+      "Sq576_Sk576_q576_k192": {
+        "served": 0,
+        "declined": 288,
+        "reasons": {}
+      }
+    }
+  }
+}

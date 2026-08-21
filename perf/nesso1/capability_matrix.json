@@ -1,0 +1,345 @@
+{
+  "gate": "nesso1_capability_matrix",
+  "trunk": "bf16",
+  "affinity": "fp32",
+  "ccd_pkl": "/home/ttuser/scratch/nesso1/cache/huggingface/models--recursionpharma--nesso/snapshots/1896c84c7186c506c7efd79051480809d51098bf/ccd.pkl",
+  "rows": [
+    {
+      "row": "baseline",
+      "yaml": "baseline.yaml",
+      "featurize_s": 12.764026742999704,
+      "predict_s": 3.603810122000141,
+      "n_tokens": 143,
+      "n_real_tokens": 143,
+      "n_real_atoms": 1007,
+      "n_chains": 2,
+      "n_entities": 2,
+      "n_binder_tokens": 20,
+      "binder_chains": [
+        1
+      ],
+      "scalars": {
+        "affinity_pred_value": 1.6292784214019775,
+        "affinity_pred_value1": 1.8150399923324585,
+        "affinity_pred_value2": 1.4435169696807861,
+        "affinity_logits_binary": -1.9027032852172852,
+        "affinity_probability_binary": 0.12980282306671143,
+        "entropy_pp": 0.18596456944942474,
+        "entropy_pl": 0.2987198233604431,
+        "entropy_ll": 0.16628992557525635,
+        "entropy_crop_pp": 0.25112268328666687,
+        "entropy_crop_pl": 0.37124207615852356,
+        "entropy_crop_ll": 0.16628992557525635
+      },
+      "expected": {
+        "n_chains": 2,
+        "n_entities": 2,
+        "binder_chains": [
+          1
+        ]
+      },
+      "shape_ok": true,
+      "shape_mismatch": {},
+      "finite": true
+    },
+    {
+      "row": "multi_ligand",
+      "yaml": "multi_ligand.yaml",
+      "featurize_s": 11.97643151900047,
+      "predict_s": 2.556439051997586,
+      "n_tokens": 156,
+      "n_real_tokens": 156,
+      "n_real_atoms": 1020,
+      "n_chains": 3,
+      "n_entities": 3,
+      "n_binder_tokens": 20,
+      "binder_chains": [
+        1
+      ],
+      "scalars": {
+        "affinity_pred_value": 1.479405403137207,
+        "affinity_pred_value1": 1.4717603921890259,
+        "affinity_pred_value2": 1.4870505332946777,
+        "affinity_logits_binary": -2.1851460933685303,
+        "affinity_probability_binary": 0.10109232366085052,
+        "entropy_pp": 0.19502997398376465,
+        "entropy_pl": 0.3919728696346283,
+        "entropy_ll": 0.4072103500366211,
+        "entropy_crop_pp": 0.2865876853466034,
+        "entropy_crop_pl": 0.48981529474258423,
+        "entropy_crop_ll": 0.4072103500366211
+      },
+      "expected": {
+        "n_chains": 3,
+        "n_entities": 3,
+        "binder_chains": [
+          1
+        ]
+      },
+      "shape_ok": true,
+      "shape_mismatch": {},
+      "finite": true
+    },
+    {
+      "row": "multi_ligand_binder_c",
+      "yaml": "multi_ligand_binder_c.yaml",
+      "featurize_s": 12.28083176400105,
+      "predict_s": 2.504902567998215,
+      "n_tokens": 156,
+      "n_real_tokens": 156,
+      "n_real_atoms": 1020,
+      "n_chains": 3,
+      "n_entities": 3,
+      "n_binder_tokens": 13,
+      "binder_chains": [
+        2
+      ],
+      "scalars": {
+        "affinity_pred_value": 1.8153626918792725,
+        "affinity_pred_value1": 1.9005351066589355,
+        "affinity_pred_value2": 1.7301902770996094,
+        "affinity_logits_binary": -1.6769212484359741,
+        "affinity_probability_binary": 0.15750357508659363,
+        "entropy_pp": 0.19368146359920502,
+        "entropy_pl": 0.39015793800354004,
+        "entropy_ll": 0.405178964138031,
+        "entropy_crop_pp": 0.28348594903945923,
+        "entropy_crop_pl": 0.4872617721557617,
+        "entropy_crop_ll": 0.405178964138031
+      },
+      "expected": {
+        "n_chains": 3,
+        "n_entities": 3,
+        "binder_chains": [
+          2
+        ]
+      },
+      "shape_ok": true,
+      "shape_mismatch": {},
+      "finite": true
+    },
+    {
+      "row": "multi_chain",
+      "yaml": "multi_chain.yaml",
+      "featurize_s": 13.033595175998926,
+      "predict_s": 4.600248336999357,
+      "n_tokens": 227,
+      "n_real_tokens": 227,
+      "n_real_atoms": 1685,
+      "n_chains": 3,
+      "n_entities": 3,
+      "n_binder_tokens": 20,
+      "binder_chains": [
+        2
+      ],
+      "scalars": {
+        "affinity_pred_value": 1.483091950416565,
+        "affinity_pred_value1": 1.5902854204177856,
+        "affinity_pred_value2": 1.3758984804153442,
+        "affinity_logits_binary": -2.28922963142395,
+        "affinity_probability_binary": 0.09201888740062714,
+        "entropy_pp": 0.20810247957706451,
+        "entropy_pl": 0.28747257590293884,
+        "entropy_ll": 0.18181975185871124,
+        "entropy_crop_pp": 0.3469085395336151,
+        "entropy_crop_pl": 0.4761527478694916,
+        "entropy_crop_ll": 0.18181975185871124
+      },
+      "expected": {
+        "n_chains": 3,
+        "n_entities": 3,
+        "binder_chains": [
+          2
+        ]
+      },
+      "shape_ok": true,
+      "shape_mismatch": {},
+      "finite": true
+    },
+    {
+      "row": "id_list",
+      "yaml": "id_list.yaml",
+      "featurize_s": 12.850403184998868,
+      "predict_s": 5.000437217000581,
+      "n_tokens": 266,
+      "n_real_tokens": 266,
+      "n_real_atoms": 1994,
+      "n_chains": 3,
+      "n_entities": 2,
+      "n_binder_tokens": 20,
+      "binder_chains": [
+        2
+      ],
+      "scalars": {
+        "affinity_pred_value": 1.6867141723632812,
+        "affinity_pred_value1": 1.7753714323043823,
+        "affinity_pred_value2": 1.5980567932128906,
+        "affinity_logits_binary": -0.9535430669784546,
+        "affinity_probability_binary": 0.2781728506088257,
+        "entropy_pp": 0.19397494196891785,
+        "entropy_pl": 0.41237759590148926,
+        "entropy_ll": 0.2020607739686966,
+        "entropy_crop_pp": 0.35260066390037537,
+        "entropy_crop_pl": 0.6867455840110779,
+        "entropy_crop_ll": 0.2020607739686966
+      },
+      "expected": {
+        "n_chains": 3,
+        "n_entities": 2,
+        "binder_chains": [
+          2
+        ]
+      },
+      "shape_ok": true,
+      "shape_mismatch": {},
+      "finite": true
+    },
+    {
+      "row": "ccd",
+      "yaml": "ccd.yaml",
+      "featurize_s": 13.196243783000682,
+      "predict_s": 2.493967108999641,
+      "n_tokens": 154,
+      "n_real_tokens": 154,
+      "n_real_atoms": 1018,
+      "n_chains": 2,
+      "n_entities": 2,
+      "n_binder_tokens": 31,
+      "binder_chains": [
+        1
+      ],
+      "scalars": {
+        "affinity_pred_value": 0.34489819407463074,
+        "affinity_pred_value1": 0.20162685215473175,
+        "affinity_pred_value2": 0.48816952109336853,
+        "affinity_logits_binary": -0.11978575587272644,
+        "affinity_probability_binary": 0.470089316368103,
+        "entropy_pp": 0.25644880533218384,
+        "entropy_pl": 0.43416452407836914,
+        "entropy_ll": 0.3324505686759949,
+        "entropy_crop_pp": 0.3666785955429077,
+        "entropy_crop_pl": 0.5157678127288818,
+        "entropy_crop_ll": 0.3324505686759949
+      },
+      "expected": {
+        "n_chains": 2,
+        "n_entities": 2,
+        "binder_chains": [
+          1
+        ]
+      },
+      "shape_ok": true,
+      "shape_mismatch": {},
+      "finite": true
+    },
+    {
+      "row": "sdf",
+      "yaml": "sdf.yaml",
+      "featurize_s": 12.971277942000597,
+      "predict_s": 2.4699457950009673,
+      "n_tokens": 143,
+      "n_real_tokens": 143,
+      "n_real_atoms": 1007,
+      "n_chains": 2,
+      "n_entities": 2,
+      "n_binder_tokens": 20,
+      "binder_chains": [
+        1
+      ],
+      "scalars": {
+        "affinity_pred_value": 1.628393530845642,
+        "affinity_pred_value1": 1.8116772174835205,
+        "affinity_pred_value2": 1.4451098442077637,
+        "affinity_logits_binary": -1.8478492498397827,
+        "affinity_probability_binary": 0.1361256241798401,
+        "entropy_pp": 0.18601712584495544,
+        "entropy_pl": 0.2986348569393158,
+        "entropy_ll": 0.16641046106815338,
+        "entropy_crop_pp": 0.25102144479751587,
+        "entropy_crop_pl": 0.3710476756095886,
+        "entropy_crop_ll": 0.16641046106815338
+      },
+      "expected": {
+        "n_chains": 2,
+        "n_entities": 2,
+        "binder_chains": [
+          1
+        ]
+      },
+      "shape_ok": true,
+      "shape_mismatch": {},
+      "finite": true
+    },
+    {
+      "row": "conformer_pkl",
+      "yaml": "conformer_pkl.yaml",
+      "featurize_s": 13.259589723998943,
+      "predict_s": 2.4949277539999457,
+      "n_tokens": 143,
+      "n_real_tokens": 143,
+      "n_real_atoms": 1007,
+      "n_chains": 2,
+      "n_entities": 2,
+      "n_binder_tokens": 20,
+      "binder_chains": [
+        1
+      ],
+      "scalars": {
+        "affinity_pred_value": 1.5940468311309814,
+        "affinity_pred_value1": 1.7578442096710205,
+        "affinity_pred_value2": 1.430249571800232,
+        "affinity_logits_binary": -1.8275680541992188,
+        "affinity_probability_binary": 0.1385282427072525,
+        "entropy_pp": 0.1860577017068863,
+        "entropy_pl": 0.2997788190841675,
+        "entropy_ll": 0.16708029806613922,
+        "entropy_crop_pp": 0.25108057260513306,
+        "entropy_crop_pl": 0.37253808975219727,
+        "entropy_crop_ll": 0.16708029806613922
+      },
+      "expected": {
+        "n_chains": 2,
+        "n_entities": 2,
+        "binder_chains": [
+          1
+        ]
+      },
+      "shape_ok": true,
+      "shape_mismatch": {},
+      "finite": true
+    },
+    {
+      "row": "esm_precomputed",
+      "src": "/home/ttuser/scratch/nesso1/capability/baseline/processed/esm_embeddings/9a67c79c5a81905574f7c5e51e78298f.safetensors",
+      "n_tokens": 143,
+      "n_real_tokens": 143,
+      "n_real_atoms": 1007,
+      "n_chains": 2,
+      "n_entities": 2,
+      "n_binder_tokens": 20,
+      "binder_chains": [
+        1
+      ],
+      "scalars": {
+        "affinity_pred_value": 1.5940468311309814,
+        "affinity_pred_value1": 1.7578442096710205,
+        "affinity_pred_value2": 1.430249571800232,
+        "affinity_logits_binary": -1.8275680541992188,
+        "affinity_probability_binary": 0.1385282427072525,
+        "entropy_pp": 0.1860577017068863,
+        "entropy_pl": 0.2997788190841675,
+        "entropy_ll": 0.16708029806613922,
+        "entropy_crop_pp": 0.25108057260513306,
+        "entropy_crop_pl": 0.37253808975219727,
+        "entropy_crop_ll": 0.16708029806613922
+      },
+      "scored_against": "conformer_pkl",
+      "max_delta_vs_baseline": 0.0,
+      "bit_exact_vs_baseline": true,
+      "linked_file_is_symlink": true,
+      "linked_target": "/home/ttuser/scratch/nesso1/capability/baseline/processed/esm_embeddings/9a67c79c5a81905574f7c5e51e78298f.safetensors",
+      "missing_path_raises": true
+    }
+  ],
+  "all_ok": true
+}

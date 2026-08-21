@@ -1,0 +1,321 @@
+{
+  "gate": "nesso1_l1_probe",
+  "arm": "pm_on",
+  "rung": "aa512",
+  "n_tokens": 532,
+  "trunk": "bf16",
+  "affinity": "fp32",
+  "host": "tt-quietbox",
+  "card": "1",
+  "grid": "13x10",
+  "pair_proj_l1_out": true,
+  "loadavg": [
+    22.61962890625,
+    18.22021484375,
+    12.67236328125
+  ],
+  "wall_s": [
+    11.316002676001517,
+    8.591435562000697,
+    8.575509115999012
+  ],
+  "warm_wall_s": 8.575509115999012,
+  "scalars": {
+    "affinity_pred_value": 1.3614065647125244,
+    "affinity_pred_value1": 1.410825252532959,
+    "affinity_pred_value2": 1.3119878768920898,
+    "affinity_logits_binary": -2.7722384929656982,
+    "affinity_probability_binary": 0.05884292349219322,
+    "entropy_pp": 0.13706053793430328,
+    "entropy_pl": 0.3006055951118469,
+    "entropy_ll": 0.2165820300579071,
+    "entropy_crop_pp": 0.4228764474391937,
+    "entropy_crop_pl": 0.8411059975624084,
+    "entropy_crop_ll": 0.2165820300579071
+  },
+  "scalars_all_reps_equal": true,
+  "levers": {
+    "TRIMUL_IN_PROJ_DUAL_NOC": {
+      "resolved": "True",
+      "served": 288,
+      "declined": 2880,
+      "rejects": {
+        "memory": 2880
+      }
+    },
+    "ADALN_S_HOIST": {
+      "resolved": "True",
+      "served": 0,
+      "declined": 0,
+      "rejects": null
+    },
+    "FP32_SOFTMAX_BIAS_HOIST": {
+      "resolved": "True",
+      "served": 0,
+      "declined": 0,
+      "rejects": null
+    },
+    "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+      "resolved": "True",
+      "served": 0,
+      "declined": 0,
+      "rejects": null
+    },
+    "PAIR_PROJ_MINIMAL_MATMUL": {
+      "resolved": "True",
+      "served": 0,
+      "declined": 0,
+      "rejects": null
+    },
+    "TRIMUL_TAIL_F1": {
+      "resolved": "True",
+      "served": 0,
+      "declined": 1728,
+      "rejects": {
+        "k_tiles=4": 1728
+      }
+    },
+    "QKV_MM_CONFIG": {
+      "resolved": "True",
+      "served": 0,
+      "declined": 0,
+      "rejects": null
+    },
+    "REBLOCK_PERMUTE": {
+      "resolved": "True",
+      "served": 576,
+      "declined": 2880,
+      "rejects": {
+        "window_BufferType.L1": 2880
+      }
+    },
+    "REBLOCK_PERMUTE_BACK": {
+      "resolved": "True",
+      "served": 288,
+      "declined": 0,
+      "rejects": null
+    },
+    "REBLOCK_PERMUTE_GATED": {
+      "resolved": "True",
+      "served": 0,
+      "declined": 0,
+      "rejects": null
+    },
+    "TRIATT_PERSISTENT_MASK": {
+      "resolved": "True",
+      "served": 0,
+      "declined": 2304,
+      "rejects": {
+        "fill_preconditions": 2304
+      }
+    },
+    "TRIATT_HEAD_MAJOR_QKV": {
+      "resolved": "True",
+      "served": 1728,
+      "declined": 0,
+      "rejects": null
+    },
+    "TRIATT_HEAD_MAJOR_TAIL": {
+      "resolved": "True",
+      "served": 1728,
+      "declined": 0,
+      "rejects": null
+    },
+    "TRIATT_TAIL_OVER_L1": {
+      "resolved": "True",
+      "served": 1728,
+      "declined": 0,
+      "rejects": null
+    },
+    "B2_BIAS_SLICE_HOIST": {
+      "resolved": "True",
+      "served": 0,
+      "declined": 0,
+      "rejects": null
+    },
+    "B2_ADALN_S_MEMO": {
+      "resolved": "True",
+      "served": 0,
+      "declined": 0,
+      "rejects": null
+    },
+    "B2_TOKEN_DIT_SDPA": {
+      "resolved": "False",
+      "served": null,
+      "declined": null,
+      "rejects": null
+    },
+    "TRANSPOSE_L1_RESIDENT": {
+      "resolved": "1.25",
+      "served": 0,
+      "declined": 0,
+      "rejects": null
+    },
+    "SDPA_Q_CHUNK_FITS": {
+      "resolved": "True",
+      "served": 0,
+      "declined": 0,
+      "rejects": null
+    },
+    "PAIR_PROJ_L1_OUT": {
+      "resolved": "True",
+      "served": 2881,
+      "declined": 575,
+      "rejects": {
+        "l1_clash": 1,
+        "memoised": 574
+      }
+    }
+  },
+  "dark_levers": [
+    "TRIATT_PERSISTENT_MASK",
+    "TRIMUL_TAIL_F1"
+  ],
+  "triatt": {
+    "enabled": true,
+    "q_split": true,
+    "served": 0,
+    "declined": 2304,
+    "pm_over_l1": [],
+    "sdpa_q_chunk_over_l1": [],
+    "calls": {
+      "Sq256_Sk256_q256_k256": {
+        "served": 0,
+        "declined": 1440,
+        "reasons": {
+          "fill_preconditions": 1440
+        },
+        "plan": {
+          "nh_per_core": 1,
+          "q_per_core": 1,
+          "bcast_batch": false,
+          "use_padded_mask": false,
+          "NKH": 4,
+          "NVH": 4,
+          "NQH": 4,
+          "mask_cb_tiles": 64,
+          "stock_mask_cb_tiles": 128,
+          "batch_per_core": 8
+        },
+        "mask_shape": [
+          256,
+          4,
+          256,
+          256
+        ],
+        "q_shape": [
+          256,
+          4,
+          256,
+          32
+        ]
+      },
+      "Sq576_Sk576_q256_k192": {
+        "served": 0,
+        "declined": 288,
+        "reasons": {
+          "fill_preconditions": 288
+        },
+        "plan": {
+          "nh_per_core": 1,
+          "q_per_core": 1,
+          "bcast_batch": false,
+          "use_padded_mask": true,
+          "NKH": 4,
+          "NVH": 4,
+          "NQH": 4,
+          "mask_cb_tiles": 144,
+          "stock_mask_cb_tiles": 96,
+          "batch_per_core": 58
+        },
+        "mask_shape": [
+          576,
+          4,
+          576,
+          576
+        ],
+        "q_shape": [
+          576,
+          4,
+          576,
+          32
+        ]
+      },
+      "Sq576_Sk576_q288_k192": {
+        "served": 0,
+        "declined": 288,
+        "reasons": {
+          "fill_preconditions": 288
+        },
+        "plan": {
+          "nh_per_core": 1,
+          "q_per_core": 1,
+          "bcast_batch": false,
+          "use_padded_mask": false,
+          "NKH": 4,
+          "NVH": 4,
+          "NQH": 4,
+          "mask_cb_tiles": 162,
+          "stock_mask_cb_tiles": 108,
+          "batch_per_core": 36
+        },
+        "mask_shape": [
+          576,
+          4,
+          576,
+          576
+        ],
+        "q_shape": [
+          576,
+          4,
+          576,
+          32
+        ]
+      },
+      "Sq576_Sk576_q576_k192": {
+        "served": 0,
+        "declined": 288,
+        "reasons": {
+          "fill_preconditions": 288
+        },
+        "plan": {
+          "nh_per_core": 1,
+          "q_per_core": 1,
+          "bcast_batch": false,
+          "use_padded_mask": false,
+          "NKH": 4,
+          "NVH": 4,
+          "NQH": 4,
+          "mask_cb_tiles": 324,
+          "stock_mask_cb_tiles": 216,
+          "batch_per_core": 18
+        },
+        "mask_shape": [
+          576,
+          4,
+          576,
+          576
+        ],
+        "q_shape": [
+          576,
+          4,
+          576,
+          32
+        ]
+      }
+    }
+  },
+  "clashes": [
+    {
+      "op": "ttnn.linear",
+      "site": [
+        "tenstorrent.py:6190 forward",
+        "tenstorrent.py:4320 __call__",
+        "tenstorrent.py:4234 __call__",
+        "tenstorrent.py:3149 __call__",
+        "tenstorrent.py:2643 _trimul_out_proj",
+        "tenstorrent.py:1751 _pair_proj_linear"
+      ]
+    }
+  ]
+}
