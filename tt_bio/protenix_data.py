@@ -39,9 +39,15 @@ RESTYPE_DIM = 32  # protenix restype width (20 aa + X/gap/other slots)
 MOL_TYPE_IDS = {"protein": 0, "rna": 1, "dna": 2, "ligand": 3}  # per-token mol_type enum (build_complex_features -> feats["mol_type"])
 _AA1_TO_IDX = {c: i for i, c in enumerate(RESTYPE_ORDER)}
 
-# CCD formal charges on amino-acid atoms (the v2 reference's neutral-CCD convention:
-# only the protonated guanidinium / ammonium nitrogens carry +1; validated vs golden).
-_FORMAL_CHARGE = {("ARG", "NH2"): 1.0, ("LYS", "NZ"): 1.0}
+# CCD formal charges on amino-acid atoms. Protenix reads the PDB chemical component
+# dictionary straight through, so this table is the CCD's own `_chem_comp_atom.charge`
+# column. Across the 20 standard residues plus UNK and MSE exactly three atoms are
+# non-zero: the guanidinium NH2, the ammonium NZ, and histidine ND1, because the CCD's
+# ideal HIS is the protonated imidazolium. Derived from components.cif, not from a
+# golden: the golden `test_protein_atom_metadata_exact` scores against contains no
+# histidine, which is why ND1 was missing until the CCD itself was read. Keep it
+# CCD-derived; `test_formal_charge_table_is_ccd_complete` pins the whole table.
+_FORMAL_CHARGE = {("ARG", "NH2"): 1.0, ("LYS", "NZ"): 1.0, ("HIS", "ND1"): 1.0}
 
 
 def aatype_from_sequence(seq: str) -> torch.Tensor:
@@ -254,7 +260,7 @@ def _resolve_bond_token(placement: dict, cid, res, atom) -> int:
 
 def build_complex_features(chains: list, mol_dir: str | None = None,
                            chain_ids: list | None = None, bonds: list | None = None,
-                           paired_a3ms: list | None = None) -> dict:
+                           paired_a3ms: list | None = None, oxt: list | None = None) -> dict:
     """Multi-chain biomolecular complex -> model-ready input_feature_dict.
 
     chains: list of (sequence, a3m_or_None[, mol_type]); mol_type is "protein" (default),
@@ -315,8 +321,9 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
             n = rt_idx.shape[0]
             res_index = torch.arange(1, n + 1, dtype=torch.long)
             n_res = n
-            af = protein_atom_features(rt_idx, conformers) if mt == "protein" else \
-                na_atom_features(_na_res_codes(seq, mt), mols)
+            af = protein_atom_features(rt_idx, conformers,
+                                       oxt=None if oxt is None else oxt[ci]) \
+                if mt == "protein" else na_atom_features(_na_res_codes(seq, mt), mols)
         eid = entity_of.setdefault((mt, seq), len(entity_of))
         sid = sym_counter.get(eid, 0); sym_counter[eid] = sid + 1
         restype.append(torch.nn.functional.one_hot(rt_idx.clamp(max=RESTYPE_DIM - 1), RESTYPE_DIM).float())
@@ -452,19 +459,23 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     return feats
 
 
-def protein_atom_features(aatype: torch.Tensor, conformers: dict) -> dict:
+def protein_atom_features(aatype: torch.Tensor, conformers: dict, oxt=None) -> dict:
     """Atom-level features for a single offline protein chain.
 
     Reuses tt_bio.data.const.ref_atoms (per-residue atom names, in the canonical CCD order
     that matches the v2 reference exactly -- validated 20/20 residue types). Per-atom:
       ref_element  = one_hot(atomic_number - 1, 128)   (C->5, N->6, O->7, ... validated)
-      ref_charge   = 0  (neutral CCD reference)
+      ref_charge   = the CCD formal charge (_FORMAL_CHARGE; 0 on all but three atoms)
       ref_atom_name_chars = one_hot over 64 of (ord(c)-32) for 4 chars (space-padded)
       ref_mask     = 1
       atom_to_token_idx = residue index per atom; ref_space_uid = same (per-residue frame)
       ref_pos      = conformers[res] (a valid per-residue reference conformer; the reference
                      uses a STOCHASTIC RDKit conformer, so any valid one folds correctly).
     conformers: {3-letter resname: (n_atom, 3) local coords in ref_atoms order}.
+    oxt: per-residue bool for the terminal carboxylate oxygen. None means the sequence-input
+    default, OXT on the last residue only. A chain read out of a structure file passes the
+    file's own answer instead, because a chain cropped mid-sequence has no C-terminus and
+    the reference does not invent one there.
     """
     from .data import const
     letter_to_res = {v: k for k, v in const.prot_token_to_letter.items()}
@@ -477,7 +488,7 @@ def protein_atom_features(aatype: torch.Tensor, conformers: dict) -> dict:
         atoms = list(const.ref_atoms[res])
         disto_atom = const.res_to_disto_atom.get(res, "CA")  # distogram rep atom (CB, or CA for GLY)
         conf = torch.as_tensor(conformers[res], dtype=torch.float32)
-        if t == n_tok - 1:  # C-terminal residue carries the extra OXT (carboxylate) oxygen
+        if bool(oxt[t]) if oxt is not None else t == n_tok - 1:  # C-terminal carboxylate O
             atoms = atoms + ["OXT"]
             # synthesize OXT as the carboxylate mirror of O through C (any valid ref conformer)
             c_i, o_i = const.ref_atoms[res].index("C"), const.ref_atoms[res].index("O")
