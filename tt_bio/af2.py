@@ -161,6 +161,32 @@ class ReluTransition(Module):
         return out
 
 
+def sigmoid_gate(x: ttnn.Tensor, gate: ttnn.Tensor, wide: bool) -> ttnn.Tensor:
+    """`x * sigmoid(gate)`, owning `gate`. `wide` takes the sigmoid in float32.
+
+    The SFPU's bfloat16 sigmoid disagrees with torch's on 10.38% of elements at 1.77e-03 rms
+    relative; taking it in float32 and narrowing once is bit-identical to torch at 0 of 5,537,792
+    (`scripts/af2_port/eltwise_rounding_probe.py`). Unlike the residual add the disagreement is
+    not one-sided -- 46.2% of it grows the magnitude -- so it compounds as a random walk rather
+    than linearly, which is why it survived the residual fix as a residue no single op class
+    owned. Both MSA attentions gate here; the two triangle multiplications and two triangle
+    attentions gate through `tenstorrent._sigmoid_gate`, which is the same routine off by
+    default for every other model.
+    """
+    if not wide:
+        out = ttnn.multiply_(x, gate, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+        ttnn.deallocate(gate)
+        return out
+    prob = ttnn.typecast(gate, ttnn.float32)
+    ttnn.deallocate(gate)
+    prob = ttnn.sigmoid(prob)
+    narrow = ttnn.typecast(prob, ttnn.bfloat16)
+    ttnn.deallocate(prob)
+    out = ttnn.multiply_(x, narrow)
+    ttnn.deallocate(narrow)
+    return out
+
+
 class AF2PairBlock(Module):
     """AF2's pair track: two triangle multiplications, two triangle attentions, a transition.
 
@@ -301,6 +327,13 @@ class AF2Attention(Module):
     bit-identical).
     """
 
+    #: Take the gating sigmoid in float32. The SFPU's bfloat16 sigmoid disagrees with torch's
+    #: on 10.38% of elements; widening it is bit-identical at 0 of 5,537,792 elements. Same
+    #: mechanism as `AF2PairBlock.rne_residual` and a different shape: the add's rounding is
+    #: one-sided and this one is not, so it compounds as a random walk and survived the residual
+    #: fix as a residue no single op class owned.
+    rne_sigmoid = True
+
     def __init__(
         self,
         state_dict: Weights,
@@ -389,8 +422,7 @@ class AF2Attention(Module):
         gate = self._lin(x, self.g_weight, bias=self.g_bias,
                          memory_config=ttnn.DRAM_MEMORY_CONFIG)
         ttnn.deallocate(x)
-        out = ttnn.multiply_(out, gate, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-        ttnn.deallocate(gate)
+        out = sigmoid_gate(out, gate, self.rne_sigmoid)
         projected = self._lin(out, self.o_weight, bias=self.o_bias,
                               memory_config=ttnn.DRAM_MEMORY_CONFIG)
         ttnn.deallocate(out)
@@ -535,6 +567,20 @@ class AF2DeviceModel(AF2Model):
         `AF2PairBlock.rne_residual`."""
         for block in self.device_extra_msa + self.device_evoformer:
             block.rne_residual = enabled
+
+    def set_rne_sigmoid(self, enabled: bool, pair: bool = True) -> None:
+        """Route every gating sigmoid in both trunk stacks through float32.
+
+        `pair` False leaves the two triangle multiplications and two triangle attentions on the
+        SFPU's bfloat16 approximation and moves only the two MSA attentions, which is the split
+        the two arms were screened as. See `AF2Attention.rne_sigmoid`."""
+        for block in self.device_extra_msa + self.device_evoformer:
+            for op in (block.tri_mul_out, block.tri_mul_in,
+                       block.tri_att_start, block.tri_att_end):
+                op.rne_sigmoid = enabled and pair
+            for name in ("msa_row_attn", "msa_col_attn"):
+                if hasattr(block, name):
+                    getattr(block, name).rne_sigmoid = enabled
 
     def _down_unshaped(self, t: ttnn.Tensor) -> torch.Tensor:
         """`_down` for the substitution bridge, which knows the op but not the rank."""
