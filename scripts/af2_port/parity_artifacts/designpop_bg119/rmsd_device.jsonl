@@ -1,0 +1,2 @@
+{"id": "binder_t0_s0", "arm": "device", "binder_len": 119, "bound_unbound_rmsd": 8.625491, "bound_unbound_rmsd_rounded2": 8.63, "passes_rmsd": false, "bound_unbound_rmsd_upstream": 8.625486, "upstream_diff": 5e-06}
+{"id": "binder_1_t0_s0", "arm": "device", "binder_len": 119, "bound_unbound_rmsd": 8.943111, "bound_unbound_rmsd_rounded2": 8.94, "passes_rmsd": false, "bound_unbound_rmsd_upstream": 8.943109, "upstream_diff": 1e-06}
