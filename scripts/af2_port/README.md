@@ -10,6 +10,11 @@ i_pAE < 0.35 from the complex pass, and bound-unbound RMSD < 3.5 from a second b
 (`filter_tolerance.py --stage monomer` plus `bound_unbound_rmsd.py`). On 50 real designs across two
 targets the device arm flips none of them, pooled 0 of 50 with a Wilson CI95 of [0, 0.071].
 
+The device arm runs the extra-MSA stack, the 48 Evoformer blocks and the template's own pair stack
+on card; the embeddings, the structure module and the confidence heads stay in host torch. On card
+the template embedding costs 1.73 s a design against 16.25 s on host at 848 tokens, which is 8.3 %
+of the fold.
+
 Score a population in one process and the arm is the same arm for every design in it. That is a
 property of the template memo's key, not an accident: without one, the second design in a process
 gets the first design's template embedding, which for two backbones against the same target is a
