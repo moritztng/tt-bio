@@ -1,4 +1,33 @@
 {
+  "envelope": {
+    "reference_commit": "b172cadd",
+    "reference_impl": "tt-bio-cpu-torch",
+    "reference_version": "b172cadd",
+    "seeds": [
+      0
+    ],
+    "settings": {
+      "device_args": [
+        "--affinity_mw_correction",
+        "--diffusion_samples_affinity",
+        "5",
+        "--sampling_steps_affinity",
+        "200",
+        "--recycling_steps",
+        "3",
+        "--sampling_steps",
+        "200",
+        "--diffusion_samples",
+        "1"
+      ],
+      "model": "boltz2",
+      "msa": "yaml",
+      "seed": 0,
+      "shared_draw_seed": 0,
+      "target_id": "affinity_dhfr",
+      "yaml": "examples/affinity_dhfr_msa.yaml"
+    }
+  },
   "reference_commit": "a3616c16",
   "reference_impl": "tt-bio-cpu-torch",
   "reference_version": "a3616c16",
