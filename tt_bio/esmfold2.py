@@ -25,6 +25,7 @@ import torch.nn.functional as F
 import ttnn
 
 from tt_bio.esmc import SwiGLUFFN, apply_rotary
+from tt_bio.envflags import env_flag
 from tt_bio.tenstorrent import (
     CORE_GRID_MAIN,
     Module,
@@ -1300,7 +1301,7 @@ def sample_structure(denoise_fn, n_atoms, ref_mask, *, steps=14, sigma_data=16.0
     # same-seed parity, and the public `seed` param actually controls the
     # sampler (the private-generator path ignores it, because the forward never
     # threads the seed kwarg -- the mp-spawn-worker-unseeded-rng-pattern).
-    gen = None if os.environ.get("TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG", "0") not in ("0", "") else torch.Generator().manual_seed(seed)
+    gen = None if env_flag("TT_BIO_ESMFOLD2_DIFFUSION_SHARED_RNG", False) else torch.Generator().manual_seed(seed)
     # Shared-draws hook for the integration-parity gate (see tt_bio/boltz2.py
     # AtomDiffusion.sample). The private generator above makes a fold reproducible
     # regardless of global RNG state, but for the envelope test the device and CPU

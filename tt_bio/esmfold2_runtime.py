@@ -544,20 +544,20 @@ def resolve_msa(msa_spec, sequence, msa_dir=None, max_sequences=16384):
     model, so a sequence searched once serves both. Returns None for
     single-sequence folding.
     """
-    import hashlib
     from pathlib import Path
 
     from tt_bio._vendor.esm.utils.msa.msa import MSA
+    from tt_bio.msa_cache import cached, seq_hash
 
     candidates = []
     if msa_spec:
         candidates.append(Path(msa_spec).expanduser())
     if msa_dir:
-        h = hashlib.sha256(sequence.encode()).hexdigest()[:16]
+        h = seq_hash(sequence)
         candidates.append(Path(msa_dir) / f"{h}.a3m")
         candidates.append(Path(msa_dir) / f"{h}.csv")
     for p in candidates:
-        if p.exists() and p.stat().st_size > 0:
+        if cached(p):
             if p.suffix == ".csv":
                 return _msa_from_csv(p, max_sequences)
             return MSA.from_a3m(str(p), max_sequences=max_sequences)

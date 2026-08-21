@@ -23,11 +23,10 @@ hard-coded, because they are what `load_reference` already reads.
 
 from __future__ import annotations
 
-import os
-
 import torch
 import ttnn
 
+from tt_bio.envflags import env_flag
 from tt_bio.rf3 import confidence as rf3_confidence
 from tt_bio.rf3.confidence_head import ConfidenceHead
 from tt_bio.rf3.diffusion_atom_decoder import DiffusionAtomDecoder
@@ -108,12 +107,12 @@ class Recycler(Module):
 #: they are, it is 1.63x to 1.96x on the rollout across the ladder and never negative, and
 #: 1024 aa (this port's historical residency wall) folds with room to spare. On by default;
 #: set TT_BIO_RF3_HOIST_ROLLOUT=0 to get the per-step path back.
-_HOIST_ROLLOUT = os.environ.get("TT_BIO_RF3_HOIST_ROLLOUT", "1") != "0"
+_HOIST_ROLLOUT = env_flag("TT_BIO_RF3_HOIST_ROLLOUT", True)
 
 #: The token DiT's 24 pair biases are the same t- and batch-invariant function of `z_cond`
 #: the hoist above already banks, and they were rebuilt on every denoiser call. Bit-exact
 #: to build once; set TT_BIO_RF3_DIT_BIAS_HOIST=0 to rebuild them per call.
-_HOIST_DIT_BIAS = os.environ.get("TT_BIO_RF3_DIT_BIAS_HOIST", "1") != "0"
+_HOIST_DIT_BIAS = env_flag("TT_BIO_RF3_DIT_BIAS_HOIST", True)
 
 
 class DiffusionModule(Module):

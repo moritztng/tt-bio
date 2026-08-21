@@ -29,6 +29,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from tt_bio.envflags import env_flag
+
 import numpy as np
 import torch
 import ttnn
@@ -263,7 +265,7 @@ class Attention(Module):
 # is 1.50x SLOWER (8.621 vs 5.747 ms), and `ttnn.swiglu` is both slower and not bit-exact.
 # See state/esmfold2-512aa-deep-perf.md.
 SPLIT_SWIGLU = True
-_SPLIT_SWIGLU = os.environ.get("TT_BIO_SPLIT_SWIGLU", "1" if SPLIT_SWIGLU else "0") == "1"
+_SPLIT_SWIGLU = env_flag("TT_BIO_SPLIT_SWIGLU", SPLIT_SWIGLU)
 
 # Blocking the same FFN over rows puts the SwiGLU product in L1, so fc2 reads its operand from L1
 # instead of streaming 33.55 MB back out of DRAM. The row block is not the win and does not pay for

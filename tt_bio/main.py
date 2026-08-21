@@ -129,6 +129,7 @@ from tt_bio import weights
 from tt_bio.data import const
 from tt_bio.data.mol import load_molecules
 from tt_bio.data.msa import run_mmseqs2
+from tt_bio.msa_cache import cached, publish_file, publish_text, seq_hash
 from tt_bio.data.parse import parse_a3m, parse_csv, parse_fasta, parse_yaml
 from tt_bio.data.types import Coords, Input, Interface
 from tt_bio.data.write import to_mmcif, to_pdb
@@ -267,7 +268,7 @@ def compute_msa(seqs: dict[str, str], target_id: str, msa_dir: Path, url: str, s
             unpaired_seqs = unpaired_seqs[1:]
         keys = list(range(len(paired_seqs))) + [-1] * len(unpaired_seqs)
         lines = ["key,sequence"] + [f"{k},{s}" for k, s in zip(keys, paired_seqs + unpaired_seqs)]
-        (msa_dir / f"{name}.csv").write_text("\n".join(lines))
+        publish_text(msa_dir / f"{name}.csv", "\n".join(lines))
 
 
 _COLABFOLD_SEARCH_PATHS = [
@@ -536,12 +537,7 @@ def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
         for name in seqs:
             src = a3m_out / f"{name}.a3m"
             if src.exists():
-                # Publish atomically (write-then-rename) so a concurrent reader
-                # never sees a half-written, empty a3m.
-                dst = msa_dir / f"{name}.a3m"
-                tmp_dst = msa_dir / f".{name}.a3m.{os.getpid()}.tmp"
-                shutil.copy2(src, tmp_dst)
-                os.replace(tmp_dst, dst)
+                publish_file(src, msa_dir / f"{name}.a3m")
             else:
                 click.echo(f"  warning: no A3M for {name}")
     finally:
@@ -582,11 +578,11 @@ def prepare_features(path, ccd, mol_dir, msa_dir, tokenizer, featurizer,
             continue
         if chain.mol_type == const.chain_type_ids["PROTEIN"] and chain.msa_id == 0:
             seq = target.sequences[chain.entity_id]
-            seq_hash = hashlib.sha256(seq.encode()).hexdigest()[:16]
-            a3m = msa_dir / f"{seq_hash}.a3m"
-            chain.msa_id = str(a3m) if a3m.exists() else str(msa_dir / f"{seq_hash}.csv")
-            if not Path(chain.msa_id).exists():
-                to_gen[seq_hash] = seq
+            h = seq_hash(seq)
+            a3m = msa_dir / f"{h}.a3m"
+            chain.msa_id = str(a3m) if cached(a3m) else str(msa_dir / f"{h}.csv")
+            if not cached(chain.msa_id):
+                to_gen[h] = seq
         elif chain.msa_id == 0:
             chain.msa_id = -1
 
@@ -605,8 +601,8 @@ def prepare_features(path, ccd, mol_dir, msa_dir, tokenizer, featurizer,
             # Re-check under the locks: another worker may have produced some of
             # these while we waited, so only generate what is still missing.
             to_gen = {h: s for h, s in to_gen.items()
-                      if not (msa_dir / f"{h}.a3m").exists()
-                      and not (msa_dir / f"{h}.csv").exists()}
+                      if not cached(msa_dir / f"{h}.a3m")
+                      and not cached(msa_dir / f"{h}.csv")}
             if to_gen and msa_db_path:
                 compute_msa_offline(to_gen, record.id, msa_dir, msa_db_path,
                                     use_env=use_envdb, pairing_strategy=msa_strategy)
@@ -2092,10 +2088,9 @@ def _resolve_a3m_path(msa_spec, sequence, msa_dir):
     if msa_spec:
         candidates.append(Path(msa_spec).expanduser())
     if msa_dir:
-        h = hashlib.sha256(sequence.encode()).hexdigest()[:16]
-        candidates.append(Path(msa_dir) / f"{h}.a3m")
+        candidates.append(Path(msa_dir) / f"{seq_hash(sequence)}.a3m")
     for p in candidates:
-        if p.exists() and p.stat().st_size > 0 and p.suffix != ".csv":
+        if cached(p) and p.suffix != ".csv":
             return p
     return None
 
@@ -2212,7 +2207,7 @@ def _generate_esmfold2_a3m(seqs, target_id, msa_dir, msa_db_path, use_envdb,
                       use_pairing=False, host_url=msa_url, pairing_strategy=msa_strategy,
                       msa_server_username=msa_user, msa_server_password=msa_pass, auth_headers=headers)
     for i, h in enumerate(seqs):
-        (msa_dir / f"{h}.a3m").write_text(res[i])
+        publish_text(msa_dir / f"{h}.a3m", res[i])
 
 
 def _generate_opendde_paired_a3m(seqs, target_id, msa_dir, msa_server_url,
@@ -2250,7 +2245,7 @@ def _generate_opendde_paired_a3m(seqs, target_id, msa_dir, msa_server_url,
         #      cached unpaired a3m can never be served as if it were paired.
         paired_dir = msa_dir / "paired"
         paired_dir.mkdir(parents=True, exist_ok=True)
-        to_gen = {k: s for k, s in seqs.items() if not (paired_dir / f"{k}.a3m").exists()}
+        to_gen = {k: s for k, s in seqs.items() if not cached(paired_dir / f"{k}.a3m")}
         if to_gen:
             compute_msa_offline(to_gen, target_id, paired_dir, msa_db_path, use_env=use_envdb,
                                 pairing_strategy=msa_pairing_strategy, pair=True)

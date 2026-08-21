@@ -27,6 +27,8 @@ from pathlib import Path
 
 import ttnn
 
+from .envflags import env_flag
+
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "reblock_permute"
 KERNEL_DIR_BACK = Path(__file__).resolve().parent / "kernels" / "reblock_permute_back"
 
@@ -330,7 +332,7 @@ def eligible(x, memory_config) -> bool:
 REBLOCK_PERMUTE = True
 # `TT_BIO_REBLOCK_PERMUTE` stays as an out-of-process override for A/B harnesses; the default is
 # the constant above, so the release gate and any in-process import can see and set it.
-_ENABLED = os.environ.get("TT_BIO_REBLOCK_PERMUTE", "1" if REBLOCK_PERMUTE else "0") == "1"
+_ENABLED = env_flag("TT_BIO_REBLOCK_PERMUTE", REBLOCK_PERMUTE)
 
 
 def set_enabled(on: bool) -> bool:

@@ -10,7 +10,6 @@ featurizing one query at a time.
 
 from __future__ import annotations
 
-import hashlib
 import os
 import shutil
 from pathlib import Path
@@ -62,6 +61,7 @@ from tt_bio._vendor.openfold3.projects.of3_all_atom.config.dataset_config_compon
 from tt_bio._vendor.openfold3.projects.of3_all_atom.config.inference_query_format import (
     Query,
 )
+from tt_bio.msa_cache import cached, publish_text, seq_hash
 
 
 def resolve_openfold3_msas(
@@ -97,11 +97,11 @@ def resolve_openfold3_msas(
         if chain.molecule_type.name != "PROTEIN" or chain.main_msa_file_paths:
             continue
         seq = chain.sequence or ""
-        seq_hash = hashlib.sha256(seq.encode()).hexdigest()[:16]
-        path = msa_dir / f"{seq_hash}.a3m"
+        h = seq_hash(seq)
+        path = msa_dir / f"{h}.a3m"
         paths[i] = path
-        if fetch and not path.exists():
-            needed[seq_hash] = seq
+        if fetch and not cached(path):
+            needed[h] = seq
     if needed:
         _generate_esmfold2_a3m(
             needed, target_id, msa_dir, msa_db_path, use_envdb,
@@ -158,13 +158,10 @@ def augment_openfold3_msas_with_query_sequence(
             continue
         if chain.main_msa_file_paths:
             continue
-        seq_hash = hashlib.sha256(chain.sequence.encode()).hexdigest()[:16]
-        a3m = msa_dir / "of3" / "dummy" / seq_hash / "colabfold_main.a3m"
-        if not a3m.exists():
-            a3m.parent.mkdir(parents=True, exist_ok=True)
-            tmp = a3m.parent / f".{a3m.name}.{os.getpid()}.tmp"
-            tmp.write_text(">query\n" + chain.sequence)
-            os.replace(tmp, a3m)
+        a3m = (msa_dir / "of3" / "dummy" / seq_hash(chain.sequence)
+               / "colabfold_main.a3m")
+        if not cached(a3m):
+            publish_text(a3m, ">query\n" + chain.sequence)
         chain.main_msa_file_paths = [a3m]
     return query
 
