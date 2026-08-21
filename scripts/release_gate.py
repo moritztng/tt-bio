@@ -1399,9 +1399,9 @@ def _size_ladder_lever_todo(entry: dict) -> str:
             + (f" (declines on {clause})" if clause else ""))
 
 
-def run_size_ladder_add_lever(flag: str, keep: bool, baseline_path: Path,
+def run_size_ladder_add_lever(flags, keep: bool, baseline_path: Path,
                               models=None) -> dict:
-    """Add ONE lever to an existing baseline without re-measuring its timings.
+    """Add census levers to an existing baseline without re-measuring its timings.
 
     A counter-only lever — a guard that already shipped, given a `*_STATS` pair so the census
     can finally see it — makes check mode report "new lever not in the baseline" for every
@@ -1410,7 +1410,7 @@ def run_size_ladder_add_lever(flag: str, keep: bool, baseline_path: Path,
     measured on whatever host was free. That is a lot of evidence discarded to admit a counter
     that changes no behaviour, and it will happen again every time someone instruments a guard.
 
-    So: fold each (model, rung) ONCE and splice in only the new lever's row. What makes that
+    So: fold each (model, rung) ONCE and splice in only the named levers' rows. What makes that
     honest rather than convenient is the refusal — every OTHER lever in the census must still
     match the baseline exactly, by the same comparator check mode uses, or the splice is
     refused for that model and the message says to do a full re-record. Nothing can be
@@ -1423,16 +1423,19 @@ def run_size_ladder_add_lever(flag: str, keep: bool, baseline_path: Path,
     `_size_ladder_clause_finding` for why an absent clause is "not measured" rather than "none".
     That is the same act as adding the lever: recording a measurement the file was missing.
 
-    The spliced row is stamped `levers_added`, so the entry says which of its numbers came
+    Each spliced row is stamped in `levers_added`, so the entry says which of its numbers came
     from a different host at a different commit than the rest.
     """
     models = list(models or SIZE_LADDER_MODELS)
+    flags = [f for f in (flags.split(",") if isinstance(flags, str) else flags) if f]
     rungs = SIZE_LADDER_RUNGS
     card = _size_ladder_card_type()
     workdir = SIZE_LADDER_WORKDIR
-    if flag not in lever_census_flags():
+    unknown = [f for f in flags if f not in lever_census_flags()]
+    if unknown:
         return {"model": "size-ladder", "seconds": 0, "gate": False, "card": card,
-                "error": f"'{flag}' is not a lever in scripts/lever_census.py", "legs": []}
+                "error": f"not levers in scripts/lever_census.py: {', '.join(unknown)}",
+                "legs": []}
     try:
         baseline = json.loads(baseline_path.read_text())
     except Exception as e:
@@ -1443,7 +1446,7 @@ def run_size_ladder_add_lever(flag: str, keep: bool, baseline_path: Path,
         return {"model": "size-ladder", "seconds": 0, "gate": False, "card": card,
                 "error": f"NO BASELINE for card type '{card}' — there is nothing to add a "
                          f"lever to; record one with --size-ladder-record", "legs": []}
-    print(f"\n{'='*70}\n[size-ladder] adding lever {flag} to the {card} baseline: "
+    print(f"\n{'='*70}\n[size-ladder] adding {', '.join(flags)} to the {card} baseline: "
           f"{', '.join(models)} at rungs {','.join(map(str, rungs))}, one fold per rung"
           f"\n{'='*70}", flush=True)
     t0 = time.monotonic()
@@ -1466,24 +1469,25 @@ def run_size_ladder_add_lever(flag: str, keep: bool, baseline_path: Path,
             if base_levers is None:
                 findings.append(f"{m}/{rung}: rung not recorded in the baseline")
                 continue
-            if flag in base_levers:
-                findings.append(f"{m}/{rung}: {flag} is already in the baseline")
+            already = [f for f in flags if f in base_levers]
+            if already:
+                findings.append(f"{m}/{rung}: already in the baseline: {', '.join(already)}")
                 continue
             where = f"{m}/{rung}"
-            expected = (f"{where} {flag}: new lever not in the baseline "
-                        f"(re-record with --size-ladder-record)")
+            expected = {f"{where} {f}: new lever not in the baseline "
+                        f"(re-record with --size-ladder-record)" for f in flags}
             other = [f for f in _size_ladder_compare_levers(base_levers, r["levers"], where)
-                     if f != expected]
+                     if f not in expected]
             if other:
                 findings.extend(other)
                 continue
-            measured[str(rung)] = r["levers"][flag]
+            measured[str(rung)] = {f: r["levers"][f] for f in flags}
             # The comparison above passed, so every other lever's counts and clause are either
             # identical or in one of the two not-measured states. Writing the measured clause
             # back is therefore recording what is already true, and it is the only way an old
             # baseline stops carrying an unenforceable clause field forever.
             clauses[str(rung)] = {f: e.get("rejects") for f, e in r["levers"].items()
-                                  if f != flag and f in base_levers
+                                  if f not in flags and f in base_levers
                                   and (e.get("rejects") or None)
                                       != (base_levers[f].get("rejects") or None)}
         b_grid = base_model.get("grid")
@@ -1496,29 +1500,32 @@ def run_size_ladder_add_lever(flag: str, keep: bool, baseline_path: Path,
                                   f"{m}: only {len(measured)}/{len(rungs)} rungs measured"})
             continue
         n_clauses = 0
-        for rung, entry in measured.items():
-            if _size_ladder_dark(entry):
-                entry["reason"] = _size_ladder_lever_todo(entry)
-            base_model["levers"][rung][flag] = entry
+        for rung, entries in measured.items():
+            for f, entry in entries.items():
+                if _size_ladder_dark(entry):
+                    entry["reason"] = _size_ladder_lever_todo(entry)
+                base_model["levers"][rung][f] = entry
             for f, rej in clauses.get(rung, {}).items():
                 base_model["levers"][rung][f]["rejects"] = rej
                 n_clauses += 1
-        base_model.setdefault("levers_added", {})[flag] = stamp
+        for f in flags:
+            base_model.setdefault("levers_added", {})[f] = stamp
         baseline_path.write_text(json.dumps(baseline, indent=2) + "\n")
         legs.append({"model": m, "gate": True, "error": None, "findings": [],
-                     "added": {rung: (e["served"], e["declined"])
-                               for rung, e in measured.items()}})
-        print(f"[size-ladder] {m}: {flag} added at {len(measured)} rungs, every other lever "
+                     "added": {rung: {f: (e["served"], e["declined"])
+                                      for f, e in es.items()}
+                               for rung, es in measured.items()}})
+        print(f"[size-ladder] {m}: {', '.join(flags)} added at {len(measured)} rungs, "
+              f"every other lever "
               f"unchanged" + (f", {n_clauses} clause field(s) recorded" if n_clauses else ""),
               flush=True)
     gate = bool(legs) and all(l["gate"] for l in legs)
-    todos = sum(1 for m in models
-                for rung in rungs
+    todos = sum(1 for m in models for rung in rungs for f in flags
                 for e in [((card_block.get("models", {}).get(m) or {})
-                           .get("levers", {}).get(str(rung), {}).get(flag))]
+                           .get("levers", {}).get(str(rung), {}).get(f))]
                 if e and str(e.get("reason", "")).startswith("TODO"))
     if todos:
-        print(f"[size-ladder] {todos} rung(s) need a one-line exemption reason for {flag} — "
+        print(f"[size-ladder] {todos} rung(s) need a one-line exemption reason — "
               f"search TODO in {baseline_path}; the check FAILS without one.", flush=True)
     if not keep:
         shutil.rmtree(workdir, ignore_errors=True)
@@ -2031,8 +2038,8 @@ def main() -> int:
                          "size-ladder + ESMC 300m/600m embed parity. "
                          "esmc-6b is opt-in (slow ~13 GB load).")
     ap.add_argument("--keep", action="store_true", help="Keep run output dirs for inspection.")
-    ap.add_argument("--size-ladder-record-lever", default=None, metavar="FLAG",
-                    help="Add ONE new census lever to the existing size-ladder baseline "
+    ap.add_argument("--size-ladder-record-lever", default=None, metavar="FLAG[,FLAG...]",
+                    help="Add new census levers to the existing size-ladder baseline "
                          "instead of re-recording it: one fold per (model, rung), and the "
                          "splice is refused unless every other lever still matches. For a "
                          "counter-only lever, which changes no behaviour and does not "
