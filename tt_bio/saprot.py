@@ -372,9 +372,9 @@ class Saprot(TorchWrapper):
 
     @classmethod
     def from_pretrained(cls, name: str = "saprot-650m") -> "Saprot":
-        from huggingface_hub import snapshot_download
+        from tt_bio import weights as _w
         config, repo = CONFIGS[name]
-        p = snapshot_download(repo)
+        p = _w.fetch(name)
         # Fail loudly on a wrong CONFIGS entry: the checkpoint's own config.json is
         # the source of truth for the architecture. A mismatch here means the
         # CONFIGS arch dict is wrong, and load_state_dict(strict=False) would

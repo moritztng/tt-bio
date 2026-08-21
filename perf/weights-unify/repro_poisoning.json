@@ -1,0 +1,32 @@
+[
+  {
+    "site": "flat checkpoint (hf_artifact, _download_file)",
+    "mechanism": "truncated file at the final path passes .exists()",
+    "old_code": "dest.exists() -> True, so it skips the download and returns boltzgen1_ifold.ckpt; torch.load raises RuntimeError: PytorchStreamReader failed reading zip archive: failed finding central",
+    "new_code": "artifact_intact -> False, so fetch_hf_file re-downloads (7549593 of 12582656 bytes present)"
+  },
+  {
+    "site": "IPD checkpoint download (_download_file, rf3/rfd3)",
+    "mechanism": "curl -C- / wget -c / aria2c wrote directly to the final path",
+    "old_code": "killed at 4194218 of 12582656 bytes; the truncated file sits at the final path and .exists() -> True, so every later run reuses it",
+    "new_code": "same interrupt leaves 4194218 bytes in .ckpt.pt.part; final path exists -> False. Next run resumes and lands 12582656 of 12582656 bytes, intact -> True"
+  },
+  {
+    "site": "archive extraction (download_mols)",
+    "mechanism": "a directory left by a killed extractall passes .exists()",
+    "old_code": "(cache/'lib').exists() -> True with only 12 of 40 molecules, so the library is never rebuilt and every lookup of a missing molecule fails",
+    "new_code": "_derived_ok on the same partial dir -> False, so it rebuilds under a staging name and renames in: 40 of 40 present"
+  },
+  {
+    "site": "extract-then-discard (ensure_rfd3_weights)",
+    "mechanism": "the one file the gate names is the last and largest one written",
+    "old_code": "gate checks only diffusion_module.real_weights.pt: exists -> True, so it returns the directory and never rebuilds. That file is truncated to 2892 bytes and torch.load raises RuntimeError: PytorchStreamReader failed reading zip archive: failed findi. The source ckpt is gone (exists -> False): permanent, with no path back except a manual rm -rf.",
+    "new_code": "_derived_ok verifies all four files, not one name: -> False on the same directory. It re-extracts into staging, checks every output loads (True), renames the directory in, and only then unlinks the ckpt (exists -> False). With the ckpt already gone, fetch() re-downloads it instead of returning a broken directory."
+  },
+  {
+    "site": "manual checkpoint (OpenFold3)",
+    "mechanism": "a half-copied file is reported by torch, not by tt-bio",
+    "old_code": "Path(of3_ckpt).exists() -> True; the run dies later inside torch.load",
+    "new_code": "fetch() raises RuntimeError: /tmp/ttbio-poison-wh0ae0qh/manual/of3-p2-155k.pt (from $TT_BIO_OPENFOLD3) is truncated or corrupt: i"
+  }
+]

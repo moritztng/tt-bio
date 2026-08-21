@@ -1,0 +1,119 @@
+{
+  "models": {
+    "_hub_repos": {
+      "esmfold2": {
+        "digest": "dir:e02723c1a68fc127325aa2ef18818a2eb1a5699f6b80ed741097657017f4e204:6",
+        "path": "/home/moritz/.cache/huggingface/hub/models--biohub--ESMFold2/snapshots/8fc3ff471022fdce52c77030685eb775de0c00a3"
+      },
+      "esmfold2-fast": {
+        "digest": "dir:bbc54ceda2993f97988d19b10163f692d54269a1ac8048d15a73a0e8ca421a5e:5",
+        "path": "/home/moritz/.cache/huggingface/hub/models--biohub--ESMFold2-Fast/snapshots/c6c7958d63f5f2f1f0fed0bb9462316f8ccceea6"
+      },
+      "opendde": {
+        "digest": "ff9312e8b9d63c12e1e1e28cbe8d792970e84f8ef895a837ac80932fc1dcb580:2625249069",
+        "path": "/home/moritz/.cache/huggingface/hub/models--aurekaresearch--OpenDDE/snapshots/02c183584847af2a8c7e39ff591f95f47126b1f7/opendde.pt"
+      },
+      "opendde-abag": {
+        "digest": "fcfc3b908ec6ac584512429bcba5a29d342dbe76c516cd9ff3d457c88567105d:2625271509",
+        "path": "/home/moritz/.cache/huggingface/hub/models--aurekaresearch--OpenDDE/snapshots/02c183584847af2a8c7e39ff591f95f47126b1f7/opendde_abag.pt"
+      }
+    },
+    "boltz2": {
+      "aff_ckpt": {
+        "digest": "b382772858a962b37f75df84a2ba9754b90139d02a4b25f697eac549fccee438:2062139170",
+        "path": "/home/moritz/.boltz/boltz2_aff.ckpt"
+      },
+      "conf_ckpt": {
+        "digest": "c16e5bcdef4ac7f72531588f83b4756978b1579753b36715e2538ee2ea1daa08:2286561469",
+        "path": "/home/moritz/.boltz/boltz2_conf.ckpt"
+      },
+      "mol_dir": {
+        "digest": "dir:030e764a442f2bc203fd5c3330ee7164d26bd40562508e243466dcdaad3513a0:45227",
+        "path": "/home/moritz/.boltz/mols"
+      }
+    },
+    "boltzgen": {
+      "affinity": {
+        "corrupt_on_this_host": "/home/moritz/.boltz/boltzgen/boltz2_aff.ckpt",
+        "size": 1887072256
+      },
+      "design-adherence": {
+        "digest": "1f5d90490f374d0a7633cc402bb1a5147ea25213f6d61a1fec2d8a4f74e83bd6:1930858014",
+        "path": "/home/moritz/.boltz/boltzgen/boltzgen1_adherence.ckpt"
+      },
+      "design-diverse": {
+        "digest": "e5425a8d18cb076d19af10c7fd312ad8a42de76dad775ff5c13065c42834d484:1930847192",
+        "path": "/home/moritz/.boltz/boltzgen/boltzgen1_diverse.ckpt"
+      },
+      "folding": {
+        "digest": "44c6c6923deabedce0fcd32a5a38a4ddf0bb54f00d471600efd0ba445664e722:2087255089",
+        "path": "/home/moritz/.boltz/boltzgen/boltz2_conf_final.ckpt"
+      },
+      "inverse-fold": {
+        "digest": "dd4cf108c94471bdc3a326b7b180fa3854dc019110fae780208c30b50bd56578:12582656",
+        "path": "/home/moritz/.boltz/boltzgen/boltzgen1_ifold.ckpt"
+      },
+      "moldir": {
+        "digest": "3d4f56ac4262e745bb3d09cfaa19099b1d01be208122d501667b952e45521e53:391401102",
+        "path": "/home/moritz/.boltz/boltzgen/mols.zip"
+      }
+    },
+    "esmc-300m": {
+      "weights": {
+        "digest": "1ab78aa9fe278aa1fdf8533069d5c06ca49ddbdce61bf6c29b44811e6bbb3072:1332095738",
+        "path": "/home/moritz/.cache/huggingface/hub/models--biohub--esmc-300m-2024-12/snapshots/7f10b20ae75017b2dbc884070e03434515709a8d/data/weights/esmc_300m_2024_12_v0.pth"
+      }
+    },
+    "esmc-600m": {
+      "weights": {
+        "digest": "ccd3249d9b78b216ad696134f41a921a69a2c5a81ea822838300ccc41720c6d7:2300275866",
+        "path": "/home/moritz/.cache/huggingface/hub/models--biohub--esmc-600m-2024-12/snapshots/e4d83bc7e10fd55c92e598e545f4a76bf04a6e5c/data/weights/esmc_600m_2024_12_v0.pth"
+      }
+    },
+    "esmc-6b": {
+      "snapshot": {
+        "digest": "dir:36bb96c740ef2f0f932e40f9a3b6506462f73d200117fa7446092c120c15cc49:14",
+        "path": "/home/moritz/.cache/huggingface/hub/models--biohub--ESMC-6B/snapshots/45b0fa5d7fb06faefbd5e3b89bdcef35d564e79a"
+      }
+    },
+    "esmfold2": {},
+    "esmfold2-fast": {},
+    "opendde": {},
+    "opendde-abag": {},
+    "openfold3": {
+      "of3_ckpt": {
+        "digest": "f254c67618a3acece398d75b96a4a5daedc310f4b89c7dc0411a5692b1cbbb49:2287928196",
+        "path": "/home/moritz/.boltz/of3-p2-155k.pt"
+      }
+    },
+    "protenix-v2": {
+      "mol_dir": {
+        "digest": "dir:030e764a442f2bc203fd5c3330ee7164d26bd40562508e243466dcdaad3513a0:45227",
+        "path": "/home/moritz/.boltz/mols"
+      },
+      "protenix_ckpt": {
+        "digest": "ab83fcc270d2da546b7fdf9738043bd8f4d489e3786a9fa943cc3d69498a20d5:1859785497",
+        "path": "/home/moritz/.boltz/protenix-v2.pt"
+      }
+    },
+    "rf3": {
+      "rf3_ckpt": {
+        "digest": "d958c3954baf8938570594a6258d55aa8667f2d75340137515262b700bd006b5:3038876446",
+        "path": "/home/moritz/.boltz/rf3/rf3_foundry_01_24_latest_remapped.ckpt"
+      }
+    },
+    "saprot-35m": {
+      "snapshot": {
+        "digest": "dir:a913a3dd3806afee9a943d470dc99a2d208cfd767a3f4ad849945eeb767e3ef9:8",
+        "path": "/home/moritz/.cache/huggingface/hub/models--westlake-repl--SaProt_35M_AF2/snapshots/316cd4017d29f4657b959365f24b57f1ee278912"
+      }
+    },
+    "saprot-650m": {
+      "snapshot": {
+        "digest": "dir:c1199e95f7572d7e9c2ce72d7db9c40a6952de564dae3c7b86bb6ef6cd584aa7:8",
+        "path": "/home/moritz/.cache/huggingface/hub/models--westlake-repl--SaProt_650M_AF2/snapshots/d9b9ad00ef61c0990e611b2b43f2231c7de24b38"
+      }
+    }
+  },
+  "tree": "/home/moritz/.coworker/wt/tt-bio-weight-management-unify/tt_bio"
+}

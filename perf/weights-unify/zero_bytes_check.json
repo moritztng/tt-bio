@@ -1,0 +1,40 @@
+{
+  "rows_exercised": 20,
+  "models_exercised": [
+    "boltz2",
+    "protenix-v2",
+    "openfold3",
+    "esmfold2",
+    "esmfold2-fast",
+    "opendde",
+    "opendde-abag",
+    "esmc-300m",
+    "esmc-600m",
+    "esmc-6b",
+    "saprot-35m",
+    "saprot-650m"
+  ],
+  "aa_control_network_bytes": 86466,
+  "network_bytes_delta": 230808,
+  "files_stamped": 45336,
+  "files_changed": {},
+  "files_removed": [],
+  "completion_markers_written": [
+    ".complete-mols",
+    ".complete-weights"
+  ],
+  "skipped": [
+    [
+      "saprot-1.3b",
+      "missing"
+    ],
+    [
+      "boltzgen-affinity",
+      "corrupt"
+    ],
+    [
+      "rf3",
+      "missing"
+    ]
+  ]
+}

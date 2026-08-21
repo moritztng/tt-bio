@@ -40,8 +40,13 @@ def test_openfold3_is_msa_dependent(tmp_path):
 def test_worker_resolves_of3_checkpoint(tmp_path, monkeypatch):
     from tt_bio.worker import _ensure_local_artifacts
 
+    # A real torch archive, not arbitrary bytes: the worker now verifies the file it is
+    # handed instead of only checking that the path exists, so a truncated manual copy
+    # is reported by name rather than dying later inside torch.load.
+    import torch
+
     ckpt = tmp_path / "of3-p2-155k.pt"
-    ckpt.write_bytes(b"stub")
+    torch.save({"stub": torch.zeros(1)}, ckpt)
     monkeypatch.setenv("OF3_CKPT", str(ckpt))
     monkeypatch.setenv("BOLTZ_CACHE", str(tmp_path))
     cfg = {"model": "openfold3", "msa_dir": None}

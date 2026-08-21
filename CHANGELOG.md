@@ -7,6 +7,13 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Added
 
+- `tt-bio weights` lists every weight artifact with its status, on-disk size and resolved
+  path; `--download [MODEL...]` prefetches, `--prune` reclaims superseded Hugging Face
+  revisions and staging leftovers after printing the bytes and asking. `TT_BIO_CACHE` moves
+  both halves of the cache (`~/.boltz` and the Hugging Face hub cache) in one setting, and
+  every artifact takes a `TT_BIO_<ARTIFACT>` override; the older `PROTENIX_CKPT`, `OF3_CKPT`,
+  `RF3_CKPT` and `OPENDDE_CKPT` still work. See `docs/weights.md`.
+
 - `tt-bio predict --model rf3` folds with RoseTTAFold3 (AlphaFold3-family: MSA module,
   template embedder, 48-block Pairformer, atom diffusion, confidence head), on device.
   Proteins, RNA, DNA and ligands, plus non-canonical residues, covalent modifications and
@@ -33,6 +40,16 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   loadavg is above 1.5x nproc (`--load-ceiling`, 0 disables).
 
 ### Fixed
+
+- A weight download killed mid-flight no longer poisons the cache. Re-downloads were gated on
+  the destination merely existing, so a truncated multi-GB file was treated as present and
+  reused forever, failing later with `PytorchStreamReader ... failed finding central
+  directory`. Downloads now stage next to their destination, verify against the source's byte
+  count and archive structure, and only then rename into place; archives are unpacked into a
+  staging directory and a source archive that gets discarded after extraction is deleted only
+  once the output verifies. Affected Boltz-2, Protenix-v2, the RF3 and RFD3 checkpoints, the
+  CCD molecule library and the RFD3 weight split, where a partial extraction next to a deleted
+  checkpoint was unrecoverable. Existing caches are adopted, not re-fetched.
 
 - A device open now leases every card it holds, not just the one it computes on. ttnn brings up
   every card `TT_VISIBLE_DEVICES` makes visible, so an unpinned run on a four-card box held all

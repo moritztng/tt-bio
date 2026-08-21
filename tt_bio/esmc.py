@@ -902,10 +902,10 @@ class ESMC(TorchWrapper):
     @classmethod
     def from_pretrained(cls, name: str = "esmc-300m", *, trace: bool = True) -> "ESMC":
         """Download + load trained weights from HuggingFace (e.g. 'esmc-300m')."""
-        from huggingface_hub import hf_hub_download
+        from tt_bio import weights as _w
 
         config, repo_id, weights_path = CONFIGS[name]
-        path = hf_hub_download(repo_id, weights_path)
+        path = _w.fetch(name)
         sd = torch.load(path, map_location="cpu", weights_only=False)
         sd = sd.get("state_dict", sd) if isinstance(sd, dict) else sd
         model = cls(**config, trace=trace)
@@ -1131,12 +1131,12 @@ def load_esmc6b_shared(cache_dir: str, *, name: str = "esmc-6b", fast: bool = Fa
     """
     import fcntl
 
-    from huggingface_hub import snapshot_download
+    from tt_bio import weights as _w
 
     import tt_bio.tenstorrent as _tt
 
     _tt.set_fast_mode(fast)
-    snap = snapshot_download("biohub/ESMC-6B")
+    snap = _w.fetch("esmc-6b")
     os.makedirs(cache_dir, exist_ok=True)
     done = os.path.join(cache_dir, ".done")
     lockf = open(os.path.join(cache_dir, ".lock"), "w")
@@ -1235,9 +1235,9 @@ class ESMCLanguageModel(TorchWrapper):
 
     @classmethod
     def from_pretrained(cls, repo_id: str = "biohub/ESMC-6B", name: str = "esmc-6b") -> "ESMCLanguageModel":
-        from huggingface_hub import snapshot_download
+        from tt_bio import weights as _w
 
-        snap = snapshot_download(repo_id)
+        snap = _w.fetch(name) if name in _w.ARTIFACTS else _w.fetch_hf_repo(repo_id)
         model = cls(name=name)
         model.load_state_dict(load_esmc6b_state_dict(snap), strict=False)
         return model
