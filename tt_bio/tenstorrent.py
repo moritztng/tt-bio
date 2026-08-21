@@ -13,6 +13,7 @@ from . import triatt_qkv as _triatt_qkv
 from . import triatt_sdpa as _triatt_sdpa
 from . import trimul_tail as _trimul_tail
 from . import mm_generic as _mm_generic
+from . import rne_add as _rne_add
 
 TRIANGLE_MULT_CHUNK_SIZE = 32
 TRIANGLE_ATT_CHUNK_SIZE_FAST = 1024
@@ -7409,3 +7410,11 @@ class TrunkModule(TorchWrapper):
         ttnn.deallocate(s)
         ttnn.deallocate(z)
         return s_out, z_out
+
+
+# Round every bfloat16 add to nearest even, the way torch and JAX do, instead of away from zero.
+# Off unless TT_BIO_RNE_ADD=1. Installed here rather than per model because every model in the
+# repo builds its residual trunk out of ttnn.add/ttnn.add_, and because a gate fold subprocess
+# inherits the env var and so picks the arm up without a launcher change. See tt_bio/rne_add.py.
+if _rne_add.enabled():
+    _rne_add.install()

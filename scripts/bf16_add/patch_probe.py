@@ -15,8 +15,8 @@ import sys
 
 import torch
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import rne_add  # noqa: E402
+
+from tt_bio import rne_add  # noqa: E402
 import ttnn  # noqa: E402
 
 from tt_bio.tenstorrent import get_device  # noqa: E402

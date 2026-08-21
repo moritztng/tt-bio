@@ -1,42 +1,47 @@
-"""Repo-wide round-to-nearest-even bfloat16 ``ttnn.add``, as a measurement arm.
+"""Round bfloat16 ``ttnn.add`` to nearest even, repo-wide. Off unless ``TT_BIO_RNE_ADD=1``.
 
 ``ttnn.add``/``ttnn.add_`` break bfloat16 ties AWAY FROM ZERO; torch and JAX break them to
 even, and ttnn's bfloat16 datapath is narrower than float32, so at unequal operand magnitudes
-it also drops bits an exact float32 sum keeps. Measured in
-``scripts/af2_port/residual_add_probe.py``: 11.16% of elements differ from torch by 1 ulp at
-equal operand magnitudes. Routing the add through float32 and narrowing the sum with
-``typecast`` is bit-identical to torch's bfloat16 add (0 of 5,537,792 elements differ).
+it also drops bits an exact float32 sum keeps. 11.14% of elements differ from torch by 1 ulp at
+equal operand magnitudes, 6.55% at a ratio of 0.01
+(``scripts/bf16_add/patch_probe.py``). Routing the add through float32 and narrowing the sum
+with ``typecast`` is bit-identical to torch's bfloat16 add: 0 of 96141312 elements differ.
 
-``install()`` swaps both ops for the float32-routed version, so a harness runs A/B without a
-line of model-code change. Every call is counted and classified. That matters: a screen whose
-instrument silently no-ops reads exactly like a model that clears comfortably.
+Every model in the repo builds its residual trunk out of these two calls, so the lever is
+global: ``install()`` swaps both ops and any harness or fold then runs the other arm without a
+line of model-code change. ``tt_bio.tenstorrent`` installs it at import when the env var is set,
+which is what carries it into a gate's fold subprocesses.
 
-Use ``run_with_rne.py <script.py> [args...]`` to wrap an existing harness.
+Calls are counted and classified. That matters: a screen whose instrument silently no-ops reads
+exactly like a model that clears its bar.
 """
 from __future__ import annotations
 
 import collections
+import os
 
 import ttnn
+
+ENV = "TT_BIO_RNE_ADD"
 
 _orig_add = None
 _orig_add_ = None
 
-#: call classification -> count. ``patched`` is the only class that changed arithmetic.
+#: call classification -> count. ``patched`` is the only class whose arithmetic changed.
 counts: collections.Counter = collections.Counter()
 
 
+def enabled() -> bool:
+    return os.environ.get(ENV, "0") != "0"
+
+
 def _both_bf16(a, b) -> bool:
-    return (
-        isinstance(a, ttnn.Tensor)
-        and isinstance(b, ttnn.Tensor)
-        and a.dtype == ttnn.bfloat16
-        and b.dtype == ttnn.bfloat16
-    )
+    return (isinstance(a, ttnn.Tensor) and isinstance(b, ttnn.Tensor)
+            and a.dtype == ttnn.bfloat16 and b.dtype == ttnn.bfloat16)
 
 
 def _wide_add(a, b, memory_config):
-    """bfloat16 ``a + b`` rounded the way torch rounds it."""
+    """bfloat16 ``a + b``, rounded the way torch rounds it."""
     wa = ttnn.typecast(a, ttnn.float32, memory_config=ttnn.DRAM_MEMORY_CONFIG)
     wb = ttnn.typecast(b, ttnn.float32, memory_config=ttnn.DRAM_MEMORY_CONFIG)
     s = _orig_add(wa, wb, memory_config=ttnn.DRAM_MEMORY_CONFIG)
@@ -70,7 +75,7 @@ def add(a, b, *args, **kwargs):
         out_t.memory_config() if isinstance(out_t, ttnn.Tensor) else a.memory_config())
     try:
         out = _wide_add(a, b, mcfg)
-    except Exception as exc:  # L1/DRAM pressure from the float32 intermediates
+    except Exception as exc:  # the float32 intermediates are 2x the operands
         counts["fallback:" + type(exc).__name__] += 1
         return _orig_add(a, b, **kwargs)
     counts["patched"] += 1
@@ -82,8 +87,8 @@ def add(a, b, *args, **kwargs):
 
 
 def add_(a, b, *args, **kwargs):
-    """In place, so the result is written back into ``a``: callers use both the return value
-    and the mutated operand, and a patch that only fixed one of them would fire silently."""
+    """In place, so the sum goes back into ``a``: call sites use the mutated operand as well as
+    the return value, and a patch that fixed only one of them would fire silently."""
     if args or not _both_bf16(a, b) or _skip(kwargs):
         counts["skip_inplace_other"] += 1
         return _orig_add_(a, b, *args, **kwargs)
@@ -115,4 +120,6 @@ def uninstall() -> None:
 
 
 def report() -> str:
-    return "rne_add: " + ", ".join(f"{k}={v}" for k, v in sorted(counts.items())) or "rne_add: idle"
+    if not counts:
+        return "rne_add: no add reached the lever"
+    return "rne_add: " + ", ".join(f"{k}={v}" for k, v in sorted(counts.items()))
