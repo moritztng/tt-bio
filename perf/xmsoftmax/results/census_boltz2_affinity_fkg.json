@@ -1,0 +1,123 @@
+{
+  "procs": [
+    {
+      "pid": 1709166,
+      "tt_bio": "/home/ttuser/.coworker/wt/accurate-softmax-crossmodel/tt_bio",
+      "n_sites": 0
+    },
+    {
+      "pid": 1709237,
+      "tt_bio": "/home/ttuser/.coworker/wt/accurate-softmax-crossmodel/tt_bio",
+      "n_sites": 4
+    }
+  ],
+  "sites": [
+    {
+      "site": "tt_bio/tenstorrent.py:4787",
+      "op": "softmax",
+      "shape": [
+        1,
+        16,
+        192,
+        192
+      ],
+      "dtype": "DataType.FLOAT32",
+      "n_calls": 384,
+      "n_measured": 24,
+      "rowsum_min": 0.9969643950462341,
+      "rowsum_max": 1.0022460222244263,
+      "rowsum_p01_min": 0.9975917935371399,
+      "errors": [],
+      "rowsum_mean": 0.9993853164956411,
+      "deficit": 0.0006146835043588927
+    },
+    {
+      "site": "tt_bio/tenstorrent.py:4644",
+      "op": "softmax",
+      "shape": [
+        192,
+        4,
+        192,
+        192
+      ],
+      "dtype": "DataType.FLOAT32",
+      "n_calls": 768,
+      "n_measured": 24,
+      "rowsum_min": 0.9966245889663696,
+      "rowsum_max": 1.0028984546661377,
+      "rowsum_p01_min": 0.9979801774024963,
+      "errors": [],
+      "rowsum_mean": 0.9994634715086184,
+      "deficit": 0.0005365284913816382
+    },
+    {
+      "site": "tt_bio/tenstorrent.py:5479",
+      "op": "softmax",
+      "shape": [
+        1,
+        192,
+        192
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "n_calls": 320,
+      "n_measured": 24,
+      "rowsum_min": 0.9964675903320312,
+      "rowsum_max": 1.0022435188293457,
+      "rowsum_p01_min": 0.9964675903320312,
+      "errors": [],
+      "rowsum_mean": 0.9996085661049515,
+      "deficit": 0.00039143389504847637
+    },
+    {
+      "site": "tt_bio/tenstorrent.py:4058",
+      "op": "softmax",
+      "shape": [
+        1,
+        16,
+        192,
+        192
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "n_calls": 560,
+      "n_measured": 24,
+      "rowsum_min": 0.9954025745391846,
+      "rowsum_max": 1.003747582435608,
+      "rowsum_p01_min": 0.9964469075202942,
+      "errors": [],
+      "rowsum_mean": 0.9997314468823285,
+      "deficit": 0.00026855311767148837
+    }
+  ],
+  "hooked_procs": [
+    "1709166\t-m predict examples/affinity_fkg.yaml --model boltz2 --single_sequence --affinity_mw_correction --sampling_steps 6 --diffusion_samples 1 --sampling_steps_affinity 6 --diffusion_samples_affinity 1 --recycling_steps 3 --seed 0 --out_dir /tmp/cens_b2aff_b",
+    "1709236\t-c",
+    "1709237\t-c --multiprocessing-fork"
+  ],
+  "meta": {
+    "cmd": [
+      "predict",
+      "examples/affinity_fkg.yaml",
+      "--model",
+      "boltz2",
+      "--single_sequence",
+      "--affinity_mw_correction",
+      "--sampling_steps",
+      "6",
+      "--diffusion_samples",
+      "1",
+      "--sampling_steps_affinity",
+      "6",
+      "--diffusion_samples_affinity",
+      "1",
+      "--recycling_steps",
+      "3",
+      "--seed",
+      "0",
+      "--out_dir",
+      "/tmp/cens_b2aff_b"
+    ],
+    "rc": 0,
+    "max_measured": 24,
+    "root": "/home/ttuser/.coworker/wt/accurate-softmax-crossmodel"
+  }
+}

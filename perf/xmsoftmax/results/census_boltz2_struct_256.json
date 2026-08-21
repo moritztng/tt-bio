@@ -1,0 +1,78 @@
+{
+  "procs": [
+    {
+      "pid": 1695078,
+      "tt_bio": "/home/ttuser/.coworker/wt/accurate-softmax-crossmodel/tt_bio",
+      "n_sites": 0
+    },
+    {
+      "pid": 1695165,
+      "tt_bio": "/home/ttuser/.coworker/wt/accurate-softmax-crossmodel/tt_bio",
+      "n_sites": 2
+    }
+  ],
+  "sites": [
+    {
+      "site": "tt_bio/tenstorrent.py:5479",
+      "op": "softmax",
+      "shape": [
+        1,
+        256,
+        256
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "n_calls": 128,
+      "n_measured": 24,
+      "rowsum_min": 0.9973006248474121,
+      "rowsum_max": 1.0021462440490723,
+      "rowsum_p01_min": 0.9973049163818359,
+      "errors": [],
+      "rowsum_mean": 0.9995935365732294,
+      "deficit": 0.0004064634267706424
+    },
+    {
+      "site": "tt_bio/tenstorrent.py:4058",
+      "op": "softmax",
+      "shape": [
+        1,
+        16,
+        256,
+        256
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "n_calls": 408,
+      "n_measured": 24,
+      "rowsum_min": 0.9954303503036499,
+      "rowsum_max": 1.0041167736053467,
+      "rowsum_p01_min": 0.9972413778305054,
+      "errors": [],
+      "rowsum_mean": 0.9997808892209529,
+      "deficit": 0.00021911077904712695
+    }
+  ],
+  "hooked_procs": [
+    "1695078\t-m predict perf/size512/fixtures/cdk2x2_256.yaml --model boltz2 --single_sequence --sampling_steps 6 --diffusion_samples 1 --seed 0 --out_dir /tmp/cens_b2s_a",
+    "1695164\t-c",
+    "1695165\t-c --multiprocessing-fork"
+  ],
+  "meta": {
+    "cmd": [
+      "predict",
+      "perf/size512/fixtures/cdk2x2_256.yaml",
+      "--model",
+      "boltz2",
+      "--single_sequence",
+      "--sampling_steps",
+      "6",
+      "--diffusion_samples",
+      "1",
+      "--seed",
+      "0",
+      "--out_dir",
+      "/tmp/cens_b2s_a"
+    ],
+    "rc": 0,
+    "max_measured": 24,
+    "root": "/home/ttuser/.coworker/wt/accurate-softmax-crossmodel"
+  }
+}
