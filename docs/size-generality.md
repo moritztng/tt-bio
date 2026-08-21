@@ -188,6 +188,49 @@ fail on any cliff the structure half could produce. That is the same call the ar
 model too noisy to gate: record it as skipped with the numbers, rather than ship an unfalsifiable
 band. The apo `boltz-2` row gates the structure trunk at these four rungs already.
 
+## What the affinity path actually changes
+
+Per lever, per rung, with the holo column doing the work it exists for. Only levers that move
+are listed; `apo` comes from the recorded baseline, `holo` and `aff` were measured on qb1 at a
+13x10 grid. 640 aa has no row because Boltz-2 does not fold a ligand there.
+
+| rung | lever | apo | holo | aff | what moved it |
+|---|---|---:|---:|---:|---|
+| 256 | REBLOCK_PERMUTE | 0/1120 | 1120/0 | 1120/128 | **ligand** turns it on |
+| 256 | PAIR_TRANSPOSE_VIA_ROW_MAJOR | 0/560 | 0/560 | 0/624 | clause only, both |
+| 512 | PAIR_PROJ_L1_OUT | 1512/0 | 393/1119 | 721/1119 | **ligand** -0.74 |
+| 512 | PAIR_PROJ_MINIMAL_MATMUL | 0/560 | 0/1679 | 0/1743 | **ligand**, clause |
+| 512 | REBLOCK_PERMUTE | 1120/0 | 1120/0 | 1120/128 | affinity -0.10 |
+| 512 | TRIMUL_IN_PROJ_DUAL_NOC | 560/0 | 560/0 | 560/128 | affinity -0.19 |
+| 768 | TRIATT_PERSISTENT_MASK | 560/560 | 0/1121 | 64/1121 | **ligand** turns it off |
+| 768 | TRANSPOSE_L1_RESIDENT | 560/0 | 0/560 | 64/560 | **ligand** turns it off |
+| 768 | PAIR_PROJ_L1_OUT | 0/1120 | 0/1120 | 328/1120 | **affinity** turns it on |
+| 768 | PAIR_TRANSPOSE_VIA_ROW_MAJOR | 0/560 | 560/0 | 560/64 | **ligand** turns it on |
+| 768 | REBLOCK_PERMUTE | 1120/0 | 1120/0 | 1120/128 | affinity -0.10 |
+| 768 | TRIMUL_IN_PROJ_DUAL_NOC | 560/0 | 560/0 | 560/128 | affinity -0.19 |
+
+**Most of it is the ligand, not the affinity module.** Every one of the four levers that crosses
+zero on the way from apo does so at the holo step, before any affinity code runs. Read the apo and
+affinity columns alone, which is the only comparison this arm could make before the holo fixture
+existed, and all four read as the affinity module switching a lever off. They are the token count:
+a ligand is tokenised per heavy atom, so 256 aa featurizes to 276 tokens and each rung sits at a
+padded length the apo rung does not.
+
+What the affinity module itself does is narrower and mostly additive. It adds a second decline
+clause to `REBLOCK_PERMUTE` and `TRIMUL_IN_PROJ_DUAL_NOC` at every rung it runs (128 calls each),
+and at 768 aa it turns `PAIR_PROJ_L1_OUT` on for 328 calls that the structure trunk declines. One
+lever, `PAIR_PROJ_L1_OUT`, is genuinely affinity-only.
+
+`TRIATT_PERSISTENT_MASK` at 768 aa is worth naming on its own. It is the same lever Nesso-1
+measured at 0 of 2304 calls on its affinity path, and on Boltz-2 it also goes dark, but for a
+different reason: here the holo column already reads `0/1121`, so it is the ligand's token count,
+not the pair-mask slice that makes Nesso-1's bias per-row. Same lever, same verdict, two
+unrelated mechanisms, and only the control tells them apart.
+
+These censuses were taken with two folds running at once, which the fix below makes safe rather
+than merely tolerable. The check is built in: the affinity census at 256 aa reads 11446 calls, the
+number two independent idle-host runs recorded, so the batch is not under-counted.
+
 ## Boltz-2 cannot fold a ligand at 640 aa
 
 The first thing the ligand ladder found is not a dark lever, it is a crash. Boltz-2 dies at trunk
