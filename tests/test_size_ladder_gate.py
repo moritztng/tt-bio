@@ -243,3 +243,78 @@ def test_nesso1_folds_through_affinity_not_predict(rg):
     assert f.name == "cdk2_640.yaml" and "nesso1" in str(f) and f.exists()
     for rung in rg.SIZE_LADDER_RUNGS:
         assert rg._size_ladder_fixture("nesso1", rung).exists()
+
+
+def test_boltz2_affinity_leg_folds_a_ligand_ladder_the_apo_leg_cannot_reach(rg):
+    """The arm's shared fixture is apo protein. An apo fold cannot enter an affinity module
+    at any sequence length, so before this leg and nesso1's, no rung of the arm reached one
+    on any model, and a never-reached lever reads exactly like a fully-served one."""
+    assert "boltz2-affinity" in rg.SIZE_LADDER_MODELS
+    for rung in rg.SIZE_LADDER_RUNGS:
+        aff = rg._size_ladder_fixture("boltz2-affinity", rung)
+        apo = rg._size_ladder_fixture("boltz2", rung)
+        assert aff.exists() and apo.exists() and aff != apo
+        # The YAML keys, not the words: the apo fixture's own comment says "no ligands".
+        assert "ligand:" in aff.read_text() and "binder:" in aff.read_text()
+        assert "ligand:" not in apo.read_text()
+
+
+def test_the_apo_boltz2_leg_is_kept_alongside_the_affinity_one(rg):
+    """A second leg, not a swapped fixture. The finding is the per-lever DIFFERENCE between
+    the two paths, so both rows have to exist; swapping boltz2's fixture would also make its
+    row incomparable to the four models that have no affinity module at all."""
+    assert "boltz2" in rg.SIZE_LADDER_MODELS
+    assert rg._size_ladder_fixture("boltz2", 512).name == "cdk2x2_512.yaml"
+
+
+def test_a_leg_name_is_not_always_a_model_name(rg):
+    """boltz2-affinity is a leg, not a --model choice. predict writes its results under the
+    MODEL's folder name, so deriving that path from the leg would read as "fold ok but
+    timing missing" on every rung, forever, with the fold itself succeeding."""
+    from tt_bio.main import PREDICT_MODELS, predict_results_dir_name
+
+    assert "boltz2-affinity" not in PREDICT_MODELS
+    assert rg.SIZE_LADDER_LEG_CLI["boltz2-affinity"] == ("predict", "boltz2")
+    assert predict_results_dir_name("boltz2", "cdk2_512") == "boltz2_results_cdk2_512"
+
+
+def test_every_model_with_an_affinity_head_has_an_affinity_leg(rg):
+    """The blind spot this closes is structural, so the guard against reopening it has to be
+    too. Any model file that grows an affinity head must bring a leg with it; otherwise the
+    arm folds apo protein at four sizes and reports full coverage of a path it never entered.
+
+    The affinity-head class is the detector rather than a hand-kept list, so the two sides of
+    this assertion cannot drift into agreeing with each other."""
+    import re
+
+    repo = REPO_ROOT / "tt_bio"
+    bearing = {p.stem for p in repo.glob("*.py")
+               if re.search(r"^class \w*Affinity", p.read_text(), re.M)}
+    assert bearing == {"boltz2", "nesso1"}, (
+        f"a model grew an affinity head: {bearing}. Give it a size-ladder leg in "
+        f"SIZE_LADDER_LEG_CLI, or the arm is blind to its affinity path at every rung")
+    legged = {cli for _verb, cli in rg.SIZE_LADDER_LEG_CLI.values()}
+    assert legged == bearing
+
+
+def test_the_holo_control_isolates_the_affinity_module_from_the_token_count(rg):
+    """The ligand raises the token count (256 aa featurizes to 276 tokens), so an
+    apo-vs-affinity lever difference has two candidate causes: the affinity module, or the
+    size change the arm already measures. Attributing one to the other is the whole risk of
+    reading this leg, and the holo fixture is the control that separates them: same protein,
+    same ligand, same tokens, no affinity property."""
+    for rung in rg.SIZE_LADDER_RUNGS:
+        holo = (REPO_ROOT / "perf" / "sizegate" / "inputs" / "holo" / f"aa{rung}"
+                / f"cdk2holo_{rung}.yaml")
+        assert holo.exists(), holo
+        text = holo.read_text()
+        aff = rg._size_ladder_fixture("boltz2-affinity", rung).read_text()
+        assert "ligand:" in text
+        assert "properties:" not in text and "binder:" not in text
+        # Same protein and same ligand as the affinity rung, or it controls for nothing.
+        for key in ("sequence:", "smiles:"):
+            assert _value(text, key) == _value(aff, key), (rung, key)
+
+
+def _value(text, key):
+    return next(l.split(key, 1)[1].strip() for l in text.splitlines() if key in l)

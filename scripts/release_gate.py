@@ -411,7 +411,7 @@ CAPACITY_LEGS = [
 # So each model's block records the grid its census ran on and the check REFUSES
 # a cross-grid comparison outright instead of reporting levers as newly dark.
 SIZE_LADDER_MODELS = ("boltz2", "esmfold2", "protenix-v2", "openfold3", "opendde",
-                     "nesso1")
+                     "nesso1", "boltz2-affinity")
 SIZE_LADDER_RUNGS = tuple(int(x) for x in
                           os.environ.get("RELEASE_GATE_SIZE_RUNGS", "256,512,640,768").split(",")
                           if x.strip())
@@ -470,6 +470,73 @@ SIZE_LADDER_PROVENANCE = REPO_ROOT / "perf" / "sizegate" / "baseline"
 # holding it when it is not in the default one; the leg fails naming the variable.
 SIZE_LADDER_NESSO_RECYCLING = 5
 SIZE_LADDER_NESSO_TOKENS_BUDGET = 256
+
+# The affinity legs, and why there are only two of them.
+#
+# Until nesso1 brought its own ladder, NO rung of this arm reached any affinity module at
+# all. The shared cdk2x2 fixture is apo protein with no ligand, so the affinity pairformer
+# was unreachable at every rung of every model, and nothing in the arm said so: a lever that
+# is never reached reads exactly like a lever that is fully served. nesso1 closed that for
+# itself and measured the consequence — TRIATT_PERSISTENT_MASK serves 0 of 2304 calls with
+# affinity=True at every rung, because the per-row pair-mask slice makes the triangle bias
+# [S, h, S, S] instead of batch-broadcast [1, h, S, S] and the fused kernel correctly
+# declines. Off the apo fixture that same lever reads fully served.
+#
+# boltz2 is the ONLY other shipped model with an affinity module. esmfold2, protenix-v2 and
+# openfold3 have no affinity head, and neither does opendde (its class docstring: "Ships
+# co-folding only (no design/affinity)"). So there is no third affinity leg to add. For
+# those four the apo fixture is not hiding an affinity path, it is the whole shipped path —
+# what it does still hide is the ligand, which none of their rungs presents either.
+#
+# `boltz2-affinity` is a LEG name, not a --model choice: it folds the same protein+ligand
+# ladder nesso1 uses through `predict --model boltz2`, which runs the structure trunk and
+# then the affinity module on the pocket crop. It is a second leg rather than a swapped
+# fixture on the existing `boltz2` row on purpose. The apo row is what the other four
+# models' rows are comparable to, and the finding this leg exists to produce is the
+# DIFFERENCE between the two paths per lever, which needs both measured.
+#
+# Affinity sampling is the arm's cheap config for the same reason the structure fold runs 6
+# steps: the census counts guard decisions, not trajectory statistics. The shipped defaults
+# (200 steps, 5 samples) resolve the same guards and cost ~386 s a fold at 512 aa.
+SIZE_LADDER_AFFINITY_STEPS = 6
+SIZE_LADDER_AFFINITY_SAMPLES = 1
+# leg -> the CLI verb and --model it folds under, for the legs that are not simply
+# `predict --model <leg>` on the apo fixture. Every leg listed here folds the shared
+# protein+ligand ladder under perf/nesso1/inputs/ladder (named for the leg that added it;
+# it is now shared, and a rung there is the same protein as the apo rung at the same aa).
+SIZE_LADDER_LEG_CLI = {
+    "nesso1": ("affinity", "nesso1"),
+    "boltz2-affinity": ("predict", "boltz2"),
+}
+
+# Legs that carry no exponent gate and no repeat measurement: lever coverage only.
+#
+# boltz2's affinity module runs on a POCKET CROP, so its cost does not scale with the
+# rung: measured on qb1 card 0, affinity_runtime_s is 172.1 s at 256 aa against a
+# structure_runtime_s of 18.5 s. The size-independent term is therefore ~90 % of
+# runtime_s, and it flattens the exponent to ~0.2 over 256->512 where the structure
+# half alone reads ~1.5. That is far inside the arm's own +-0.50 tolerance floor, so an
+# exponent gate here could not fail on any cliff the structure half could produce: it
+# would be an unfalsifiable band, which is exactly what SIZE_LADDER_EXP_MAX_TOL exists to
+# refuse. The same call is already made for a model too noisy to gate — recorded as
+# skipped with the measured numbers, rather than shipping a coin flip.
+#
+# Gating structure_runtime_s instead would duplicate the apo `boltz2` row, which already
+# gates the structure trunk at these four rungs. The affinity path needs lever coverage,
+# not a second timing.
+#
+# Census-only also means one fold per rung instead of the warm-up-plus-reps a timing
+# needs. That is not a corner cut: the warm-up discard exists to keep a cold JIT compile
+# out of a TIMING, and run_size_ladder_add_lever already relies on a cold fold's guard
+# decisions equalling a warm one's, checked exactly against the recorded baseline every
+# time it runs. It takes this leg from 12 folds to 4, about 15 min instead of 45.
+SIZE_LADDER_CENSUS_ONLY = {
+    "boltz2-affinity":
+        "affinity runs on a pocket crop, so ~90% of runtime_s is size-independent "
+        "(172.1 s affinity vs 18.5 s structure at 256 aa on qb1 card 0). k flattens to "
+        "~0.2 over 256->512, inside the arm's own +-0.50 floor, so no cliff the structure "
+        "half could produce would fail the band. The apo boltz2 row gates that half.",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -1128,9 +1195,9 @@ def _size_ladder_precondition(model: str):
 
 
 def _size_ladder_fixture(model: str, rung: int) -> Path:
-    """The rung's input. nesso1 needs a ligand and an affinity property, so it brings its own
-    ladder; every other model folds the shared apo fixture."""
-    if model == "nesso1":
+    """The rung's input. The affinity legs need a ligand and an affinity property, so they
+    share their own ladder; every other leg folds the shared apo fixture."""
+    if model in SIZE_LADDER_LEG_CLI:
         return (REPO_ROOT / "perf" / "nesso1" / "inputs" / "ladder" / f"aa{rung}"
                 / f"cdk2_{rung}.yaml")
     return REPO_ROOT / "perf" / "size512" / "fixtures" / f"cdk2x2_{rung}.yaml"
@@ -1181,6 +1248,9 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
     workdir.mkdir(parents=True, exist_ok=True)
     census = [sys.executable, str(REPO_ROOT / "scripts" / "lever_census.py"),
               "--tt-bio", sys.executable, "--label", label, "--out", str(census_json), "--"]
+    # A leg name is not always a --model choice: boltz2-affinity folds through
+    # `predict --model boltz2`, and the results folder is named after the model, not the leg.
+    _verb, cli_model = SIZE_LADDER_LEG_CLI.get(model, ("predict", model))
     if model == "nesso1":
         # `tt-bio affinity`, not `predict` — see the SIZE_LADDER_NESSO_* block. The census hook
         # runs in every process the CLI starts, launcher included, and this model folds in the
@@ -1197,13 +1267,19 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
     else:
         cmd = census + [
             "-m", "tt_bio.main", "predict", str(fixture),
-            "--model", model,
+            "--model", cli_model,
             "--single_sequence",
             "--sampling_steps", str(SIZE_LADDER_STEPS),
             "--diffusion_samples", "1",
             "--seed", str(SEED),
             "--out_dir", str(out_dir),
         ]
+        if model == "boltz2-affinity":
+            # The fixture carries properties.affinity, so predict runs the affinity module
+            # after the structure. Without these two the module would run its production
+            # 200 steps x 5 samples for no extra guard coverage.
+            cmd += ["--sampling_steps_affinity", str(SIZE_LADDER_AFFINITY_STEPS),
+                    "--diffusion_samples_affinity", str(SIZE_LADDER_AFFINITY_SAMPLES)]
     t0 = time.monotonic()
     with open(log, "w") as fp:
         rc, timed_out = _run_fold(cmd, FOLD_TIMEOUT_S, cwd=REPO_ROOT,
@@ -1235,7 +1311,7 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
         runtime_s = _affinity_seconds(out_dir)
         where = "affinity.csv"
     else:
-        results = out_dir / predict_results_dir_name(model, fixture.stem) / "results.json"
+        results = out_dir / predict_results_dir_name(cli_model, fixture.stem) / "results.json"
         where = results.name
         runtime_s = None
         if results.exists():
@@ -1348,8 +1424,12 @@ def _size_ladder_compare_levers(base: dict, cur: dict, where: str) -> list:
 
 
 def _size_ladder_measure_model(model: str, rungs, workdir: Path,
-                               reps_512: int, reps_other: int) -> dict:
+                               reps_512: int, reps_other: int,
+                               warmup: bool = True) -> dict:
     """Census-fold every rung, discarding the first fold AT EACH RUNG, then report.
+
+    warmup=False keeps that first fold, for a census-only leg that has no timing to
+    protect from a cold JIT compile (SIZE_LADDER_CENSUS_ONLY).
 
     Returns {"levers": {rung: ...}, "runtime_s": {rung: median}, "sigma": relative
     runtime noise at 512 | None, "census_jsons": {rung: path}} or {"error": ...}.
@@ -1368,7 +1448,8 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
     for rung in rungs:
         reps = reps_512 if rung == 512 else reps_other
         runs = []
-        for rep in range(reps + 1):
+        first = 0 if warmup else 1
+        for rep in range(first, reps + 1):
             r = _run_census_fold(model, rung, workdir,
                                  "warmup" if rep == 0 else f"rep{rep - 1}")
             if r.get("error"):
@@ -1448,7 +1529,11 @@ def _size_ladder_check_model(model: str, rungs, base_model: dict, workdir: Path)
     if pre:
         return {"model": model, "gate": False, "error": pre, "findings": [pre]}
     reps = base_model.get("reps", 1)
-    meas = _size_ladder_measure_model(model, rungs, workdir, reps, reps)
+    # A census-only leg has no exponent block to compare, so the warm-up fold it would
+    # discard protects nothing: halve its folds rather than pay for a timing nothing reads.
+    census_only = model in SIZE_LADDER_CENSUS_ONLY
+    meas = _size_ladder_measure_model(model, rungs, workdir, reps, reps,
+                                      warmup=not census_only)
     if meas.get("error"):
         return {"model": model, "gate": False, "error": meas["error"],
                 "findings": [meas["error"]]}
@@ -1722,13 +1807,20 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
             if pre:
                 legs.append({"model": m, "gate": False, "error": pre, "findings": [pre]})
                 continue
-            meas = _size_ladder_measure_model(m, rungs, workdir,
-                                              SIZE_LADDER_SIGMA_REPS, 1)
+            census_only = SIZE_LADDER_CENSUS_ONLY.get(m)
+            meas = _size_ladder_measure_model(
+                m, rungs, workdir,
+                1 if census_only else SIZE_LADDER_SIGMA_REPS, 1,
+                warmup=not census_only)
             if meas.get("error"):
                 legs.append({"model": m, "gate": False, "error": meas["error"],
                              "findings": [meas["error"]]})
                 continue
-            block, skip = _size_ladder_exponent_block(meas["runtime_s"], meas["sigma"])
+            if census_only:
+                block, skip = None, census_only
+            else:
+                block, skip = _size_ladder_exponent_block(meas["runtime_s"],
+                                                          meas["sigma"])
             todos += _size_ladder_fill_reasons(meas["levers"],
                                                old_models.get(m, {}).get("levers"))
             entry = {"recorded": time.strftime("%Y-%m-%d"),
