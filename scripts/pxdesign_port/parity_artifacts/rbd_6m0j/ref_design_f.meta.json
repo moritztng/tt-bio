@@ -1,0 +1,436 @@
+{
+ "yaml": "examples/RBD_anchor.yaml",
+ "protenix": {
+  "file": "/home/ttuser/protenix05/pkg/protenix/__init__.py",
+  "version": "?"
+ },
+ "n_token": 274,
+ "n_atom": 1857,
+ "n_distogram_atom": 274,
+ "shims": [
+  "pxdbench: poison stub",
+  "protenix.config.ListValue: empty list keeps its declared dtype"
+ ],
+ "committed_keys": [
+  "conditional_templ",
+  "conditional_templ_mask",
+  "hotspot",
+  "restype",
+  "condition_token_mask",
+  "design_token_mask",
+  "distogram_rep_atom_mask",
+  "asym_id",
+  "entity_id",
+  "sym_id",
+  "residue_index",
+  "token_index",
+  "atom_to_token_idx",
+  "is_protein",
+  "is_ligand",
+  "is_dna",
+  "is_rna"
+ ],
+ "all_keys": {
+  "asym_id": {
+   "shape": [
+    274
+   ],
+   "dtype": "torch.int64",
+   "sha256_16": "9343c2180f3e3ea5"
+  },
+  "atom_to_tokatom_idx": {
+   "shape": [
+    1857
+   ],
+   "dtype": "torch.int64",
+   "sha256_16": "3590b728d6033133"
+  },
+  "atom_to_token_idx": {
+   "shape": [
+    1857
+   ],
+   "dtype": "torch.int64",
+   "sha256_16": "9753fa573d7856c5"
+  },
+  "bond_mask": {
+   "shape": [
+    1857,
+    1857
+   ],
+   "dtype": "torch.int64",
+   "sha256_16": "b85662d29db54324"
+  },
+  "condition_atom_mask": {
+   "shape": [
+    1857
+   ],
+   "dtype": "torch.bool",
+   "sha256_16": "fa2efc151d2aea94"
+  },
+  "condition_token_mask": {
+   "shape": [
+    274
+   ],
+   "dtype": "torch.bool",
+   "sha256_16": "529a25c121027baf"
+  },
+  "conditional_templ": {
+   "shape": [
+    274,
+    274
+   ],
+   "dtype": "torch.int64",
+   "sha256_16": "8b766246e1700ae8"
+  },
+  "conditional_templ_mask": {
+   "shape": [
+    274,
+    274
+   ],
+   "dtype": "torch.bool",
+   "sha256_16": "cc44edf268e0e3ea"
+  },
+  "deletion_mean": {
+   "shape": [
+    274
+   ],
+   "dtype": "torch.float32",
+   "sha256_16": "5eebf4d5a9061c19"
+  },
+  "deletion_value": {
+   "shape": [
+    1,
+    274
+   ],
+   "dtype": "torch.float32",
+   "sha256_16": "5eebf4d5a9061c19"
+  },
+  "design_token_mask": {
+   "shape": [
+    274
+   ],
+   "dtype": "torch.bool",
+   "sha256_16": "bd8bcc24d4120664"
+  },
+  "distogram_rep_atom_mask": {
+   "shape": [
+    1857
+   ],
+   "dtype": "torch.int64",
+   "sha256_16": "b4c97032c0213576"
+  },
+  "entity_id": {
+   "shape": [
+    274
+   ],
+   "dtype": "torch.int64",
+   "sha256_16": "9343c2180f3e3ea5"
+  },
+  "entity_mol_id": {
+   "shape": [
+    1857
+   ],
+   "dtype": "torch.int64",
+   "sha256_16": "e405c9c8d8473c24"
+  },
+  "frame_atom_index": {
+   "shape": [
+    274,
+    3
+   ],
+   "dtype": "torch.int64",
+   "sha256_16": "f563145f7c629454"
+  },
+  "has_deletion": {
+   "shape": [
+    1,
+    274
+   ],
+   "dtype": "torch.float32",
+   "sha256_16": "5eebf4d5a9061c19"
+  },
+  "has_frame": {
+   "shape": [
+    274
+   ],
+   "dtype": "torch.int64",
+   "sha256_16": "d7d0a9ae1b3676a1"
+  },
+  "hotspot": {
+   "shape": [
+    274
+   ],
+   "dtype": "torch.float32",
+   "sha256_16": "476ce8c692161427"
+  },
+  "is_dna": {
+   "shape": [
+    1857
+   ],
+   "dtype": "torch.int64",
+   "sha256_16": "2706b10feac7678b"
+  },
+  "is_ligand": {
+   "shape": [
+    1857
+   ],
+   "dtype": "torch.int64",
+   "sha256_16": "2706b10feac7678b"
+  },
+  "is_protein": {
+   "shape": [
+    1857
+   ],
+   "dtype": "torch.int64",
+   "sha256_16": "07592bf7c4a44b7b"
+  },
+  "is_rna": {
+   "shape": [
+    1857
+   ],
+   "dtype": "torch.int64",
+   "sha256_16": "2706b10feac7678b"
+  },
+  "modified_res_mask": {
+   "shape": [
+    1857
+   ],
+   "dtype": "torch.int64",
+   "sha256_16": "2706b10feac7678b"
+  },
+  "mol_atom_index": {
+   "shape": [
+    1857
+   ],
+   "dtype": "torch.int64",
+   "sha256_16": "456711b5cfb43603"
+  },
+  "mol_id": {
+   "shape": [
+    1857
+   ],
+   "dtype": "torch.int64",
+   "sha256_16": "e405c9c8d8473c24"
+  },
+  "msa": {
+   "shape": [
+    1,
+    274
+   ],
+   "dtype": "torch.int64",
+   "sha256_16": "8fdca5005b372a3f"
+  },
+  "pae_rep_atom_mask": {
+   "shape": [
+    1857
+   ],
+   "dtype": "torch.int64",
+   "sha256_16": "954b5f56ff78fc84"
+  },
+  "plddt_m_rep_atom_mask": {
+   "shape": [
+    1857
+   ],
+   "dtype": "torch.int64",
+   "sha256_16": "954b5f56ff78fc84"
+  },
+  "profile": {
+   "shape": [
+    274,
+    32
+   ],
+   "dtype": "torch.float32",
+   "sha256_16": "e2c4ced6a9844151"
+  },
+  "prot_pair_num_alignments": {
+   "shape": [],
+   "dtype": "torch.int32",
+   "sha256_16": "df3f619804a92fdb"
+  },
+  "prot_unpair_num_alignments": {
+   "shape": [],
+   "dtype": "torch.int32",
+   "sha256_16": "df3f619804a92fdb"
+  },
+  "ref_atom_name_chars": {
+   "shape": [
+    1857,
+    4,
+    64
+   ],
+   "dtype": "torch.int64",
+   "sha256_16": "b4552f7147117abb"
+  },
+  "ref_charge": {
+   "shape": [
+    1857
+   ],
+   "dtype": "torch.int64",
+   "sha256_16": "56256b1a446fbd35"
+  },
+  "ref_element": {
+   "shape": [
+    1857,
+    128
+   ],
+   "dtype": "torch.int64",
+   "sha256_16": "f83a0181597982ab"
+  },
+  "ref_mask": {
+   "shape": [
+    1857
+   ],
+   "dtype": "torch.int64",
+   "sha256_16": "07592bf7c4a44b7b"
+  },
+  "ref_pos": {
+   "shape": [
+    1857,
+    3
+   ],
+   "dtype": "torch.float32",
+   "sha256_16": "979ed7e414f37528"
+  },
+  "ref_space_uid": {
+   "shape": [
+    1857
+   ],
+   "dtype": "torch.int64",
+   "sha256_16": "9753fa573d7856c5"
+  },
+  "residue_index": {
+   "shape": [
+    274
+   ],
+   "dtype": "torch.int64",
+   "sha256_16": "6c87947a93de60e9"
+  },
+  "resolution": {
+   "shape": [
+    1
+   ],
+   "dtype": "torch.float32",
+   "sha256_16": "c68830a25204a09f"
+  },
+  "restype": {
+   "shape": [
+    274,
+    36
+   ],
+   "dtype": "torch.float32",
+   "sha256_16": "cc0a8ff9b2c68d6d"
+  },
+  "rna_pair_num_alignments": {
+   "shape": [],
+   "dtype": "torch.int32",
+   "sha256_16": "df3f619804a92fdb"
+  },
+  "rna_unpair_num_alignments": {
+   "shape": [],
+   "dtype": "torch.int32",
+   "sha256_16": "df3f619804a92fdb"
+  },
+  "struct_cb_coords": {
+   "shape": [
+    274,
+    3
+   ],
+   "dtype": "torch.float32",
+   "sha256_16": "67faf8f8e1a625a2"
+  },
+  "struct_cb_mask": {
+   "shape": [
+    274
+   ],
+   "dtype": "torch.bool",
+   "sha256_16": "529a25c121027baf"
+  },
+  "sym_id": {
+   "shape": [
+    274
+   ],
+   "dtype": "torch.int64",
+   "sha256_16": "c3f98bcd6e42258b"
+  },
+  "template_all_atom_mask": {
+   "shape": [
+    4,
+    274,
+    37
+   ],
+   "dtype": "torch.float32",
+   "sha256_16": "99c763a13c0c01f4"
+  },
+  "template_all_atom_positions": {
+   "shape": [
+    4,
+    274,
+    37,
+    3
+   ],
+   "dtype": "torch.float32",
+   "sha256_16": "c7affaecf8656b27"
+  },
+  "template_restype": {
+   "shape": [
+    4,
+    274
+   ],
+   "dtype": "torch.int64",
+   "sha256_16": "f69688ae8928f3cb"
+  },
+  "token_bonds": {
+   "shape": [
+    274,
+    274
+   ],
+   "dtype": "torch.float32",
+   "sha256_16": "b2875c309e29b265"
+  },
+  "token_index": {
+   "shape": [
+    274
+   ],
+   "dtype": "torch.int64",
+   "sha256_16": "73edb4b834a5c14b"
+  }
+ },
+ "model_input_keys": [
+  "ref_pos",
+  "ref_charge",
+  "ref_element",
+  "ref_atom_name_chars",
+  "ref_mask",
+  "ref_space_uid",
+  "atom_to_token_idx",
+  "restype",
+  "hotspot",
+  "deletion_mean",
+  "asym_id",
+  "residue_index",
+  "entity_id",
+  "sym_id",
+  "token_index",
+  "conditional_templ",
+  "conditional_templ_mask"
+ ],
+ "model_input_store_dtype": {
+  "ref_pos": "torch.float32",
+  "ref_charge": "torch.float32",
+  "ref_element": "torch.uint8",
+  "ref_atom_name_chars": "torch.uint8",
+  "ref_mask": "torch.uint8",
+  "ref_space_uid": "torch.int32",
+  "atom_to_token_idx": "torch.int32",
+  "restype": "torch.float32",
+  "hotspot": "torch.float32",
+  "deletion_mean": "torch.float32",
+  "asym_id": "torch.int32",
+  "residue_index": "torch.int32",
+  "entity_id": "torch.int32",
+  "sym_id": "torch.int32",
+  "token_index": "torch.int32",
+  "conditional_templ": "torch.uint8",
+  "conditional_templ_mask": "torch.bool"
+ }
+}
