@@ -32,7 +32,9 @@ from tt_bio.tenstorrent import (
     TriangleMultiplication,
     Weights,
     WeightScope,
+    _accurate_softmax,
     _sdpa_program_config_for_lengths,
+    accurate_softmax_site,
     attn_value_matmul,
 )
 
@@ -62,17 +64,23 @@ def report_progress(stage, step=0, total=0):
             pass
 
 
-def _attn_fp32(q, k, v, attn_mask, scale, ck):
+def _attn_fp32(q, k, v, attn_mask, scale, ck, accurate_softmax: bool = False):
     """Manual fp32 attention (matmul + softmax + matmul). Used for the token
     AttentionPairBias, whose logits are NOT qk-normed and reach ~100+, making the
-    softmax argmax too peaked for bf16 SDPA precision. q/k/v [B,H,L,Dp]."""
+    softmax argmax too peaked for bf16 SDPA precision. q/k/v [B,H,L,Dp].
+
+    This is ESMFold2's only softmax site: 100% of its softmax volume, and the shared
+    ``accurate_softmax`` keyword on tenstorrent.AttentionPairBias never reached it, because
+    ESMFold2 has its own AttentionPairBias class. ``accurate_softmax`` swaps the fused
+    kernel, whose rows sum to 0.9944 here, for the 5-op chain."""
     f32 = ttnn.float32
     qf = ttnn.typecast(q, f32); kf = ttnn.typecast(k, f32); vf = ttnn.typecast(v, f32)
     kt = ttnn.permute(kf, (0, 1, 3, 2))  # [B,H,Dp,L]
     logits = ttnn.multiply(ttnn.matmul(qf, kt, compute_kernel_config=ck, dtype=f32), scale)
     if attn_mask is not None:
         logits = ttnn.add(logits, ttnn.typecast(attn_mask, f32))
-    attn = ttnn.softmax(logits, dim=-1)  # over keys
+    attn = (_accurate_softmax(logits, ck) if accurate_softmax
+            else ttnn.softmax(logits, dim=-1))  # over keys
     ctx = attn_value_matmul(attn, vf, ck, f32)  # [B,H,L,Dp]
     return ttnn.typecast(ctx, _DTYPE)
 
@@ -233,9 +241,11 @@ class AdaLN(Module):
 class AttentionPairBias(Module):
     """Gated multi-head attention conditioned on s (adaLN) with per-head pair bias from z."""
 
-    def __init__(self, num_heads: int, state_dict: Weights, compute_kernel_config):
+    def __init__(self, num_heads: int, state_dict: Weights, compute_kernel_config,
+                 accurate_softmax: bool = False):
         super().__init__(state_dict, compute_kernel_config)
         self.num_heads = num_heads
+        self.accurate_softmax = accurate_softmax
         self.adaln = AdaLN(self.scope("adaln"), compute_kernel_config)
         self.q_w = self.torch_to_tt("q_proj.weight")
         self.q_b = self.torch_to_tt("q_proj.bias", transform=_ROW)
@@ -320,7 +330,7 @@ class AttentionPairBias(Module):
             self._pb = pair_bias
             self._pb_src = z
 
-        ctx = _attn_fp32(qh, kh, vh, pair_bias, head_dim**-0.5, ck)
+        ctx = _attn_fp32(qh, kh, vh, pair_bias, head_dim**-0.5, ck, self.accurate_softmax)
         ttnn.deallocate(qh); ttnn.deallocate(kh); ttnn.deallocate(vh)
         ctx = self._merge_heads(ctx)  # [B, L, H*head_dim_pad]  (pad value dims are 0)
         # Gate + out_proj in the padded head layout, then project back to d_model.
@@ -364,10 +374,12 @@ class ConditionedTransitionBlock(Module):
 class DiffusionTransformerModel(Module):
     """Token DiT: x = x + attn(x,s,z); x = x + transition(x,s), repeated."""
 
-    def __init__(self, num_heads: int, num_blocks: int, state_dict: Weights, compute_kernel_config):
+    def __init__(self, num_heads: int, num_blocks: int, state_dict: Weights, compute_kernel_config,
+                 accurate_softmax: bool = False):
         super().__init__(state_dict, compute_kernel_config)
         self.attn = [
-            AttentionPairBias(num_heads, self.scope(f"attn_blocks.{i}"), compute_kernel_config)
+            AttentionPairBias(num_heads, self.scope(f"attn_blocks.{i}"), compute_kernel_config,
+                              accurate_softmax=accurate_softmax)
             for i in range(num_blocks)
         ]
         self.trans = [
@@ -784,7 +796,9 @@ class DiffusionModuleModel(Module):
         self.conditioning = DiffusionConditioningModel(self.scope("conditioning"), ck)
         self.atom_encoder = AtomEncoder(4, 3, self.scope("atom_encoder"), ck)
         self.atom_decoder = AtomDecoder(4, 3, self.scope("atom_decoder"), ck)
-        self.token_transformer = DiffusionTransformerModel(16, 12, self.scope("token_transformer"), ck)
+        self.token_transformer = DiffusionTransformerModel(
+            16, 12, self.scope("token_transformer"), ck,
+            accurate_softmax=accurate_softmax_site("esmfold2.token_transformer"))
         self.s_step_norm_w = self.torch_to_tt("s_step_norm.weight")
         self.s_step_norm_b = self.torch_to_tt("s_step_norm.bias")
         self.s_to_token_w = self.torch_to_tt("s_to_token.weight")
