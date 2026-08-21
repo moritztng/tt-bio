@@ -25,12 +25,14 @@
       "0": 0.875946,
       "1": 0.845257
     },
-    "runtime_s": 74.0,
-    "affinity_pred_value": -1.0625,
+    "affinity_pred_value": -1.0,
     "affinity_probability_binary": 0.980469,
-    "affinity_pred_value1": -0.137695,
+    "affinity_pred_value1": -0.070312,
     "affinity_probability_binary1": 0.976562,
-    "affinity_pred_value2": -0.148438,
-    "affinity_probability_binary2": 0.984375
+    "affinity_pred_value2": -0.067383,
+    "affinity_probability_binary2": 0.984375,
+    "structure_runtime_s": 144.7,
+    "affinity_runtime_s": 552.3,
+    "runtime_s": 697.0
   }
 ]
