@@ -97,6 +97,37 @@ def collect_lever_instances(root):
     return found
 
 
+def _selftest():
+    """Device-free check of the walker, so a quiet box is not spent debugging it.
+
+    The walker is the one piece of this harness with no prior art: everything else is the same
+    build_fold/timed_call shape perf/size512/fold_ab512.py already uses. It has to reach through
+    plain attributes, lists and dicts (a Pairformer keeps its layers in `self.blocks`, OpenDDE keeps
+    its trunk behind `self._protenix`), find only the instances whose construction flag came out
+    True, and terminate on the cycles a module graph has.
+    """
+    class N:
+        def __init__(self, **kw):
+            self.__dict__.update(kw)
+
+    on1, on2, off1 = N(accurate_softmax=True), N(accurate_softmax=True), N(accurate_softmax=False)
+    plain = N(x=1)
+    leaf = N(accurate_softmax=True)
+    root = N(blocks=[N(apb=on1), N(apb=off1)], nested={"trunk": N(deep=[[on2]])},
+             _protenix=N(refiner=leaf), plain=plain, scalar=3, text="accurate_softmax=True")
+    root.self_ref = root                      # a cycle must not hang the walk
+    plain.back = root
+    found = collect_lever_instances(root)
+    ids = {id(o) for o in found}
+    assert ids == {id(on1), id(on2), id(leaf)}, \
+        "walker found %d instances, expected the 3 flagged ones" % len(found)
+    for o in found:
+        o.accurate_softmax = False
+    assert collect_lever_instances(root) == [], "flipping off must empty the selection"
+    print("selftest OK: 3 flagged instances through list, dict, nested list and private attr; "
+          "cycle terminated; off arm selects nothing")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="opendde")
@@ -105,8 +136,15 @@ def main():
     ap.add_argument("--arms", default="off,off,on",
                     help="one triplet, repeated --reps times; off,off,on gives a paired A/A and A/B")
     ap.add_argument("--fixdir", type=Path, default=ROOT / "perf" / "size512" / "fixtures")
-    ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--out", type=Path)
+    ap.add_argument("--selftest", action="store_true",
+                    help="check the instance walker without a device, then exit")
     a = ap.parse_args()
+
+    if a.selftest:
+        _selftest()
+        return
+    assert a.out, "--out is required unless --selftest"
 
     sel = os.environ.get("TT_BIO_ACCURATE_SOFTMAX_AB", "")
     assert sel, "set TT_BIO_ACCURATE_SOFTMAX_AB to the sites under test before constructing"
