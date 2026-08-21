@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -292,6 +293,10 @@ def main() -> int:
             "binder_len": label.get("binder_len", len(seq)),
             "tokens_scored": int(ca.shape[0]),
             "seconds": round(time.time() - t0, 1),
+            # the confidence scalars are reduced on host, so the thread count sets the summation
+            # order and moves the sixth decimal. Recording it is what lets a bit-exactness check
+            # tell a sharding artifact from a real divergence.
+            "omp_threads": int(os.environ.get("OMP_NUM_THREADS", 0)) or torch.get_num_threads(),
         }
         if args.stage == "monomer":
             # upstream's own three monomer columns. The complex arm's measured delta is a delta of

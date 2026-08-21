@@ -6,6 +6,11 @@ that the host arm carries no position dependence. This compares banked shard row
 committed file id by id and scalar by scalar, and reports the ids a baseline does not cover rather
 than quietly scoring only the intersection.
 
+Both runs must share `OMP_NUM_THREADS`. The confidence scalars are reduced on host, so the
+thread count sets the summation order and moves the sixth decimal; a shard at 4 threads read as a
+device non-reproduction on 1 of 50 designs until it was re-run at the baseline's 8. Rows written
+before 2026-08-21 carry no `omp_threads`, so the check reports what it can see.
+
 `--ca` also loads every CA cloud the same run wrote. qb1 was hard power-cycled on 2026-08-21 four
 minutes after the last shard write, so a banked row whose `.npy` was still in the page cache would
 resume as present-and-complete while being truncated on disk. The resume path trusts existence.
@@ -63,6 +68,14 @@ def main() -> int:
         assert keys, "%s: no comparable scalars between the two files" % rid
         bad = {k: [w[k], g[k]] for k in keys if g[k] != w[k]}
         (differ.append({"id": rid, "scalars": bad}) if bad else same.append(rid))
+    # OMP_NUM_THREADS sets the summation order of the host-side confidence reduction, so the two
+    # runs must share it before an inequality means anything. On 2026-08-21 a 4-thread shard read as
+    # a device non-reproduction on one of 50 designs; at the baseline's 8 it was exact.
+    threads = {"banked": sorted({r["omp_threads"] for r in got.values() if "omp_threads" in r}),
+               "baseline": sorted({r["omp_threads"] for r in want.values() if "omp_threads" in r})}
+    threads["comparable"] = (not threads["banked"] or not threads["baseline"]
+                             or threads["banked"] == threads["baseline"])
+    report["omp_threads"] = threads
     report.update({
         "compared": len(same) + len(differ),
         "scalars_per_row": len(set(scalars(got[same[0]])) & set(scalars(want[same[0]])))
@@ -101,6 +114,11 @@ def main() -> int:
     if a.out:
         Path(a.out).write_text(json.dumps(report, indent=1) + "\n")
     ok = not differ and not report.get("ca", {}).get("bad")
+    if not threads["comparable"]:
+        print("REPRODUCE INCONCLUSIVE: OMP_NUM_THREADS %s vs baseline %s -- re-run at the "
+              "baseline's thread count before reading a mismatch as a divergence"
+              % (threads["banked"], threads["baseline"]))
+        return 2
     print("REPRODUCE %s" % ("PASS" if ok else "FAIL"))
     return 0 if ok else 1
 

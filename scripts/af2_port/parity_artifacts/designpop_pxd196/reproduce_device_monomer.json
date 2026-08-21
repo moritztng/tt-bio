@@ -1,0 +1,33 @@
+{
+ "banked": 24,
+ "baseline": 7,
+ "stage": "monomer",
+ "compared": 7,
+ "scalars_per_row": 4,
+ "bit_identical": 7,
+ "mismatched": [],
+ "banked_not_in_baseline": [
+  "sample1_t0.1_s2",
+  "sample1_t0.2_s2",
+  "sample1_t0.3_s1",
+  "sample1_t0.3_s3",
+  "sample1_t0.5_s1",
+  "sample1_t0.5_s3",
+  "sample2_t0.1_s1",
+  "sample2_t0.1_s2",
+  "sample2_t0.1_s3",
+  "sample2_t0.2_s1",
+  "sample2_t0.2_s2",
+  "sample2_t0.2_s3",
+  "sample2_t0.3_s1",
+  "sample2_t0.3_s3",
+  "sample2_t0.5_s1",
+  "sample2_t0.5_s2",
+  "sample2_t0.5_s3"
+ ],
+ "baseline_not_yet_rerun": [],
+ "ca": {
+  "loaded": 24,
+  "bad": []
+ }
+}

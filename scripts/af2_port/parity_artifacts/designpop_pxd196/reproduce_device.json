@@ -1,0 +1,15 @@
+{
+ "banked": 24,
+ "baseline": 24,
+ "stage": "complex",
+ "compared": 24,
+ "scalars_per_row": 12,
+ "bit_identical": 24,
+ "mismatched": [],
+ "banked_not_in_baseline": [],
+ "baseline_not_yet_rerun": [],
+ "ca": {
+  "loaded": 24,
+  "bad": []
+ }
+}
