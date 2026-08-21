@@ -18,6 +18,8 @@ weight-only ``layer_norm``, and ``linear_q_out`` (c_atom -> 3).
 import os, pickle, pytest, torch, ttnn
 
 _CKPT = os.path.expanduser("~/of3-weights/of3-p2-155k.pt")
+import of3_golden
+
 _GOLD = os.path.expanduser("~/of3_ref_out.pkl")
 pytestmark = pytest.mark.skipif(not (os.path.exists(_CKPT) and os.path.exists(_GOLD)),
                                 reason="of3 ckpt or golden pkl missing")
@@ -43,7 +45,7 @@ def test_of3_diffusion_decoder_on_device():
     from tt_bio.openfold3_weights import _sub
 
     sd = torch.load(_CKPT, map_location="cpu", weights_only=False)
-    g = pickle.load(open(_GOLD, "rb"))["intermediates"]["diffusion_decoder_real"]
+    g = of3_golden.intermediates(_GOLD)["diffusion_decoder_real"]
     ai_ref, ql_ref, cl_ref, plm_ref, rl_ref = (g["ai"], g["ql"], g["cl"],
                                                g["plm"], g["rl_update"])
     atom_mask = g["atom_mask"]

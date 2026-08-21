@@ -1,0 +1,143 @@
+[
+  {
+    "arm": "cross_process",
+    "fixture": "cdk2_128",
+    "atoms": 1032,
+    "tokens": 128,
+    "full": true,
+    "steps": 8,
+    "seed": 42,
+    "comparisons": [
+      {
+        "tensor": "S_inputs",
+        "bit_exact": true,
+        "maxabs": 0.0,
+        "rel_rms": 0.0
+      },
+      {
+        "tensor": "S_trunk",
+        "bit_exact": true,
+        "maxabs": 0.0,
+        "rel_rms": 0.0
+      },
+      {
+        "tensor": "Z_trunk",
+        "bit_exact": true,
+        "maxabs": 0.0,
+        "rel_rms": 0.0
+      },
+      {
+        "tensor": "X_L",
+        "bit_exact": true,
+        "maxabs": 0.0,
+        "rel_rms": 0.0
+      },
+      {
+        "tensor": "distogram",
+        "bit_exact": true,
+        "maxabs": 0.0,
+        "rel_rms": 0.0
+      },
+      {
+        "tensor": "plddt_logits",
+        "bit_exact": true,
+        "maxabs": 0.0,
+        "rel_rms": 0.0
+      }
+    ]
+  },
+  {
+    "arm": "cross_process",
+    "fixture": "cdk2_256",
+    "atoms": 2059,
+    "tokens": 256,
+    "full": true,
+    "steps": 8,
+    "seed": 42,
+    "comparisons": [
+      {
+        "tensor": "S_inputs",
+        "bit_exact": true,
+        "maxabs": 0.0,
+        "rel_rms": 0.0
+      },
+      {
+        "tensor": "S_trunk",
+        "bit_exact": true,
+        "maxabs": 0.0,
+        "rel_rms": 0.0
+      },
+      {
+        "tensor": "Z_trunk",
+        "bit_exact": true,
+        "maxabs": 0.0,
+        "rel_rms": 0.0
+      },
+      {
+        "tensor": "X_L",
+        "bit_exact": true,
+        "maxabs": 0.0,
+        "rel_rms": 0.0
+      },
+      {
+        "tensor": "distogram",
+        "bit_exact": true,
+        "maxabs": 0.0,
+        "rel_rms": 0.0
+      },
+      {
+        "tensor": "plddt_logits",
+        "bit_exact": true,
+        "maxabs": 0.0,
+        "rel_rms": 0.0
+      }
+    ]
+  },
+  {
+    "arm": "cross_process",
+    "fixture": "cdk2_512",
+    "atoms": 4116,
+    "tokens": 512,
+    "full": true,
+    "steps": 8,
+    "seed": 42,
+    "comparisons": [
+      {
+        "tensor": "S_inputs",
+        "bit_exact": true,
+        "maxabs": 0.0,
+        "rel_rms": 0.0
+      },
+      {
+        "tensor": "S_trunk",
+        "bit_exact": true,
+        "maxabs": 0.0,
+        "rel_rms": 0.0
+      },
+      {
+        "tensor": "Z_trunk",
+        "bit_exact": true,
+        "maxabs": 0.0,
+        "rel_rms": 0.0
+      },
+      {
+        "tensor": "X_L",
+        "bit_exact": true,
+        "maxabs": 0.0,
+        "rel_rms": 0.0
+      },
+      {
+        "tensor": "distogram",
+        "bit_exact": true,
+        "maxabs": 0.0,
+        "rel_rms": 0.0
+      },
+      {
+        "tensor": "plddt_logits",
+        "bit_exact": true,
+        "maxabs": 0.0,
+        "rel_rms": 0.0
+      }
+    ]
+  }
+]

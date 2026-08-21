@@ -79,22 +79,24 @@ Every command names its model with `--model`:
 - **`openfold3`**: folds proteins, RNA and DNA (an AlphaFold3-family model, the [OpenFold3](https://github.com/aqlaboratory/openfold-3) reproduction); MSA-dependent (uses an MSA by default), with optional per-chain templates. Polymer chains only, ligands and covalent bonds are not supported yet (raise a clear error). Weights come from the OpenFold consortium; point `OF3_CKPT` at them.
 - **`saprot`**: structure-aware protein embeddings, an ESM-2 encoder over a fused amino-acid + Foldseek-3Di vocabulary (446 tokens). Needs a structure for the 3Di structural tokens (`--structure`); runs sequence-only without it. Use for variant-effect / mutation-fitness scoring and function prediction.
 - **`opendde`** / **`opendde-abag`**: antibody-antigen co-folding built on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint. Protein-only for now; proteins are MSA-dependent (uses an MSA by default, like Protenix-v2).
+- **`rf3`**: folds complexes of proteins, RNA, DNA, and ligands (an AlphaFold3-family model, [RoseTTAFold3](https://github.com/RosettaCommons/foundry) from the Institute for Protein Design); MSA-dependent for proteins (uses an MSA by default). Also handles non-canonical residues, covalent modifications, and cyclic chains, and writes AlphaFold3-style `<name>_summary_confidences.json` (pTM, ipTM, chain-pair PAE/PDE, ranking score) next to each structure. Weights download from the IPD on first use.
 
 ```bash
 tt-bio predict examples/prot.fasta --model esmfold2-fast --fast
 tt-bio predict examples/prot.yaml --model protenix-v2   # MSA on by default; NA/ligand chains are single-sequence
 tt-bio predict examples/prot.fasta --model openfold3    # MSA on by default; set OF3_CKPT to the weights file
 tt-bio predict examples/9dsg_abag.yaml --model opendde-abag   # antibody-antigen co-fold, MSA on by default
+tt-bio predict examples/prot.yaml --model rf3            # MSA on by default; weights fetch from the IPD
 ```
 
-| Feature | Boltz-2 | ESMFold2 | Protenix-v2 | OpenFold3 | OpenDDE |
-|---|---|---|---|---|---|
-| Input | protein/DNA/RNA/ligand complex | single protein | protein/DNA/RNA/ligand complex | protein/RNA/DNA (polymer-only) | protein complex (antibody-antigen) |
-| MSA | MSA-dependent (on by default) | single-sequence | proteins MSA-dependent (on by default), NA/ligand single-sequence | proteins MSA-dependent (on by default) | proteins MSA-dependent (on by default) |
-| Affinity / potentials / templates | yes | no | no | templates only | no |
-| Pocket / contact constraints | yes | no | no | no | no |
-| Covalent `bond` constraints | yes | no | yes | no | yes |
-| PAE/PDE output (`--write_pae`) | no | no | yes | no | no |
+| Feature | Boltz-2 | ESMFold2 | Protenix-v2 | OpenFold3 | OpenDDE | RF3 |
+|---|---|---|---|---|---|---|
+| Input | protein/DNA/RNA/ligand complex | single protein | protein/DNA/RNA/ligand complex | protein/RNA/DNA (polymer-only) | protein complex (antibody-antigen) | protein/DNA/RNA/ligand complex |
+| MSA | MSA-dependent (on by default) | single-sequence | proteins MSA-dependent (on by default), NA/ligand single-sequence | proteins MSA-dependent (on by default) | proteins MSA-dependent (on by default) | proteins MSA-dependent (on by default) |
+| Affinity / potentials / templates | yes | no | no | templates only | no | no |
+| Pocket / contact constraints | yes | no | no | no | no | no |
+| Covalent `bond` constraints | yes | no | yes | no | yes | from the input structure |
+| PAE/PDE output (`--write_pae`) | no | no | yes | no | no | in `_summary_confidences.json` |
 
 Targets up to at least 1095 residues fold on a single 12 GiB Wormhole card, on every structure
 model including OpenDDE, whose structural-token expander makes it the strictest case. The pair
@@ -109,7 +111,7 @@ below. Each model downloads its weights automatically on first use, except
 OpenFold3: fetch the consortium checkpoint yourself and point `OF3_CKPT` at it,
 or put it at `~/.boltz/of3-p2-155k.pt`.
 
-Boltz-2, Protenix-v2, OpenFold3, and OpenDDE are MSA-dependent and use an MSA **by default**, a local
+Boltz-2, Protenix-v2, OpenFold3, OpenDDE, and RF3 are MSA-dependent and use an MSA **by default**, a local
 ColabFold DB (`~/.boltz/msa_db`) if one is set up (see [Offline MSA](#offline-msa-optional)),
 otherwise the online ColabFold server. Sending sequences to the online server (`api.colabfold.com`)
 leaves your machine; a one-line notice is printed when that fallback is used. Pass
@@ -289,7 +291,7 @@ tt-bio msa-server --listen 0.0.0.0:8765
 tt-bio predict examples/prot.yaml --model protenix-v2 --msa_endpoint http://HOST:8765
 ```
 
-The server runs the same offline `colabfold_search` and serves unpaired `{hash}.a3m`, with a shared cache and a search-concurrency cap (`--max_concurrent`). Add `--token` to require `Authorization: Bearer <token>`. `--msa_endpoint` applies to `--model esmfold2`, `protenix-v2`, `openfold3`, and `opendde`.
+The server runs the same offline `colabfold_search` and serves unpaired `{hash}.a3m`, with a shared cache and a search-concurrency cap (`--max_concurrent`). Add `--token` to require `Authorization: Bearer <token>`. `--msa_endpoint` applies to `--model esmfold2`, `protenix-v2`, `openfold3`, `opendde`, and `rf3`.
 
 ### Binding Affinity Prediction (Boltz-2)
 
@@ -527,7 +529,7 @@ Model-specific options are labelled below.
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--model` | `boltz2` | `boltz2`, `esmfold2`, `esmfold2-fast` (single-sequence ESMFold2), `protenix-v2` (AlphaFold3-family folder; protein / RNA / DNA / ligand complexes), `openfold3` (AlphaFold3-family folder; protein / RNA / DNA polymers, optional templates, `OF3_CKPT` weights), or `opendde` / `opendde-abag` (antibody-antigen co-folding on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint; protein-only for now) |
+| `--model` | `boltz2` | `boltz2`, `esmfold2`, `esmfold2-fast` (single-sequence ESMFold2), `protenix-v2` (AlphaFold3-family folder; protein / RNA / DNA / ligand complexes), `openfold3` (AlphaFold3-family folder; protein / RNA / DNA polymers, optional templates, `OF3_CKPT` weights), `opendde` / `opendde-abag` (antibody-antigen co-folding on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint; protein-only for now), or `rf3` (RoseTTAFold3, AlphaFold3-family folder; protein / RNA / DNA / ligand complexes, non-canonical residues, cyclic chains) |
 | `--out_dir` | `./` | Output directory |
 | `--cache` | `~/.boltz` | **(Boltz-2)** model cache directory; ESMFold2 uses the Hugging Face cache |
 | `--accelerator` | `tenstorrent` | **(Boltz-2)** `tenstorrent`, `cpu`, or `gpu`; other models run on Tenstorrent |
@@ -739,4 +741,4 @@ In addition if you use the automatic MSA generation, please cite:
 
 ## License
 
-tt-bio is released under the MIT License (see [`LICENSE`](LICENSE)) and is built on the MIT-licensed Boltz-2 / Boltz-1 code. It bundles third-party code, each under its upstream license: the ESMFold2 host-side reference under `tt_bio/_vendor/` (the `esm` pipeline, MIT, © Chan Zuckerberg Biohub; and the HuggingFace ESMFold2 model definition, Apache-2.0), the OpenFold3 host-side data pipeline under `tt_bio/_vendor/openfold3/` (Apache-2.0, OpenFold Consortium), and the BoltzGen binder-design source under `tt_bio/boltzgen/` (MIT, © Hannes Stärk). Protenix-v2, OpenFold3's on-device model, and RFdiffusion3 are independent ttnn reimplementations (no upstream compute code is vendored); Protenix-v2's weights download from ByteDance's Hugging Face mirror under Apache-2.0, RFdiffusion3's checkpoint downloads directly from the Institute for Protein Design (BSD-3-Clause), and OpenFold3's `of3-p2-155k.pt` is the consortium's ungated public parameter release, which you fetch yourself (the project is Apache-2.0, stated by upstream as free for academic and commercial use; the consortium publishes no separate parameter license). See [`NOTICE`](NOTICE) for sources, versions, and modifications.
+tt-bio is released under the MIT License (see [`LICENSE`](LICENSE)) and is built on the MIT-licensed Boltz-2 / Boltz-1 code. It bundles third-party code, each under its upstream license: the ESMFold2 host-side reference under `tt_bio/_vendor/` (the `esm` pipeline, MIT, © Chan Zuckerberg Biohub; and the HuggingFace ESMFold2 model definition, Apache-2.0), the OpenFold3 host-side data pipeline under `tt_bio/_vendor/openfold3/` (Apache-2.0, OpenFold Consortium), the BoltzGen binder-design source under `tt_bio/boltzgen/` (MIT, © Hannes Stärk), and RF3's host featurizer under `tt_bio/_vendor/rf3/`, `tt_bio/_vendor/foundry/` and `tt_bio/_vendor/atomworks/` (BSD-3-Clause, University of Washington / Institute for Protein Design). Protenix-v2, OpenFold3's on-device model, RFdiffusion3, and RF3's on-device model are independent ttnn reimplementations (no upstream compute code is vendored); Protenix-v2's weights download from ByteDance's Hugging Face mirror under Apache-2.0, RFdiffusion3's and RF3's checkpoints download directly from the Institute for Protein Design (BSD-3-Clause), and OpenFold3's `of3-p2-155k.pt` is the consortium's ungated public parameter release, which you fetch yourself (the project is Apache-2.0, stated by upstream as free for academic and commercial use; the consortium publishes no separate parameter license). See [`NOTICE`](NOTICE) for sources, versions, and modifications.

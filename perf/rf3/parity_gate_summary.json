@@ -1,0 +1,36 @@
+{
+  "host": "tt-quietbox (qb1)",
+  "card": 2,
+  "date": "2026-08-19",
+  "branch": "wk/rf3-port-p2",
+  "why": "this branch changes shared code in tt_bio/tenstorrent.py (TriangleAttention gate/output biases + transpose_bias, AttentionPairBias kq_norm, the 2-factor SwiGLU transition, no_residual), so every model that rides those blocks is re-gated before the merge ask",
+  "openfold3": {
+    "result": "16 passed, 18 skipped, 1 xfailed, 0 failed",
+    "note": "the 18 skips are keys qb1's uncommitted ~/of3_ref_out.pkl does not carry (7 of 17 present). Before tests/of3_golden.py those were 11 KeyError failures that read as a regression in whatever branch was checked out."
+  },
+  "protenix_boltz2_opendde": {
+    "result": "18 passed, 1 failed",
+    "files": [
+      "test_protenix_trunk_pairformer",
+      "test_protenix_confidence",
+      "test_protenix_diffusion_cond",
+      "test_protenix_dit_consistent",
+      "test_protenix_trunk_class",
+      "test_protenix_trunk_msa",
+      "test_protenix_trunk_template",
+      "test_boltz2_sample_chunk",
+      "test_opendde_covalent_ligand"
+    ],
+    "failed": {
+      "test_protenix_confidence::test_confidence_device_resident_parity": {
+        "assert": "pae pcc 0.9807056858828267 > 0.99",
+        "attribution": "NOT this branch: with tt_bio/tenstorrent.py checked out from origin/main the same test asserts the identical 0.9807056858828267, so the branch does not perturb this path",
+        "verdict": "pre-existing"
+      }
+    },
+    "transient": {
+      "test_protenix_trunk_class::test_protenix_trunk_class_on_device": "failed the first run on a 900s subprocess timeout while three jobs shared the host; passes in 11.5s on a quiet host"
+    }
+  },
+  "code_reading": "every shared-code change is either a new kwarg defaulting to the previous behaviour (transpose_bias=True, a_to_b_gate=True, no_residual=False, fp32_softmax=False) or an optional weight read only when the checkpoint carries it (linear_g.bias, linear_o.bias, proj_a.bias, proj_b.bias, query_layer_norm.weight). The one unconditional addition, _bias_scale = 1.0, is overwritten inside the only branch (compute_pair_bias) that uses it."
+}

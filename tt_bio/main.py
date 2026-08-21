@@ -159,6 +159,10 @@ PROTENIX_REPO = "TMF001/protenix-v2-weights"  # Protenix-v2 weights (Apache-2.0)
 # `rc-foundry` package's checkpoint_registry.py) — tt-bio fetches it directly
 # over plain HTTPS so users never need `rc-foundry`/`foundry` installed.
 RFD3_CKPT_URL = "https://files.ipd.uw.edu/pub/rfd3/rfd3_foundry_2025_12_01_remapped.ckpt"
+# RF3 (RoseTTAFold3), the folding sibling of RFD3 in the same foundry repo, from the
+# same public mirror. Two other checkpoints exist (the 01/24 and 09/21 preprints);
+# upstream states the inference API is identical across all three.
+RF3_CKPT_URL = "https://files.ipd.uw.edu/pub/rf3/rf3_foundry_01_24_latest_remapped.ckpt"
 
 # Single source of truth for the predict output-folder prefix. Each supported
 # --model maps to a model-named results folder; a model not listed falls back to
@@ -177,6 +181,7 @@ _MODEL_RESULTS_PREFIX = {
     "openfold3": "openfold3_results",
     "opendde": "opendde_results",
     "opendde-abag": "opendde_results",
+    "rf3": "rf3_results",
 }
 PREDICT_MODELS = tuple(_MODEL_RESULTS_PREFIX)
 
@@ -234,6 +239,18 @@ def ensure_rfd3_weights(cache: Path) -> Path:
     extract_rfd3_weights(ckpt_path, weights_dir)
     ckpt_path.unlink()  # only the extracted weights are ever loaded again
     return weights_dir
+
+
+def ensure_rf3_weights(cache: Path) -> Path:
+    """Fetch the RF3 checkpoint from files.ipd.uw.edu on first use; cached under
+    cache/rf3 thereafter. Unlike RFD3 the whole checkpoint is loaded (RF3 reads the
+    full `shadow.` EMA tree), so there is nothing to extract and discard."""
+    ckpt = cache / "rf3" / "rf3_foundry_01_24_latest_remapped.ckpt"
+    if not ckpt.exists():
+        ckpt.parent.mkdir(parents=True, exist_ok=True)
+        click.echo("Downloading RF3 checkpoint (~2.8 GiB, files.ipd.uw.edu)")
+        _download_file(RF3_CKPT_URL, ckpt)
+    return ckpt
 
 
 def download_mols(cache: Path) -> Path:
@@ -1999,11 +2016,11 @@ def _read_bio_constraints(path):
     return bonds
 
 
-def _resolve_a3m_text(msa_spec, sequence, msa_dir):
-    """Return a3m text for a chain, or None for single-sequence folding. Tries an explicit
-    a3m path (``msa_spec``), then the shared ``{sha256(seq)[:16]}.a3m`` cache in ``msa_dir``
-    (written by the same MSA generation ESMFold2/Boltz-2 use). Mirrors resolve_msa's
-    candidate order but returns raw a3m text for the protenix featurizer."""
+def _resolve_a3m_path(msa_spec, sequence, msa_dir):
+    """Return the a3m file for a chain, or None for single-sequence folding. Tries an
+    explicit a3m path (``msa_spec``), then the shared ``{sha256(seq)[:16]}.a3m`` cache in
+    ``msa_dir`` (written by the same MSA generation ESMFold2/Boltz-2 use). Mirrors
+    resolve_msa's candidate order."""
     import hashlib
 
     candidates = []
@@ -2014,8 +2031,15 @@ def _resolve_a3m_text(msa_spec, sequence, msa_dir):
         candidates.append(Path(msa_dir) / f"{h}.a3m")
     for p in candidates:
         if p.exists() and p.stat().st_size > 0 and p.suffix != ".csv":
-            return p.read_text()
+            return p
     return None
+
+
+def _resolve_a3m_text(msa_spec, sequence, msa_dir):
+    """The same resolution, as text: what the protenix featurizer takes. RF3's takes a
+    path (`msa_path` per component), which is why the path half is separate."""
+    p = _resolve_a3m_path(msa_spec, sequence, msa_dir)
+    return p.read_text() if p else None
 
 
 def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_factors=None):
@@ -2184,12 +2208,15 @@ def _resolve_recycling_steps(recycling_steps, model):
     benchmark results ... ESMFold2 uses 10 loops"); boltz2 uses the Boltz-2/AF3 convention
     of 3, and openfold3 also uses 3 — its trunk runs recycles+1 = 4 cycles, the OF3
     upstream default. An explicit --recycling_steps is honored verbatim for every model.
-    Running protenix-v2 at 3 under-recycles its trunk.
+    Running protenix-v2 at 3 under-recycles its trunk. rf3 uses 10, its own inference
+    default (rf3.featurize DEFAULTS n_recycles), and the count is not free-standing
+    there: the featurizer draws one i.i.d. MSA sample per recycle, so it also sets how
+    many MSA samples the trunk sees.
     """
     if recycling_steps is not None:
         return recycling_steps
     return 10 if model in ("protenix-v2", "opendde", "opendde-abag", "esmfold2",
-                           "esmfold2-fast") else 3
+                           "esmfold2-fast", "rf3") else 3
 
 
 def _resolve_sampling_steps(sampling_steps, model):
@@ -2212,7 +2239,8 @@ def _resolve_sampling_steps(sampling_steps, model):
 # single-sequence with an OPTIONAL MSA and esmfold2-fast ships no MSA encoder at all.
 # scripts/release_gate.py reads this so the accuracy gate folds each model the way it is
 # actually used, instead of hand-listing the same set a second time.
-MSA_DEFAULT_MODELS = ("boltz2", "protenix-v2", "openfold3", "opendde", "opendde-abag")
+MSA_DEFAULT_MODELS = ("boltz2", "protenix-v2", "openfold3", "opendde", "opendde-abag",
+                     "rf3")
 
 
 def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
@@ -2371,6 +2399,8 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                    "MSA on by default; polymer chains only, no template search; weights via OF3_CKPT. "
                    "opendde / opendde-abag: AF3-family co-folding (Protenix-v2 stack + structural-token expander); "
                    "opendde-abag selects the antibody-antigen checkpoint. "
+                   "rf3: RoseTTAFold3 (AF3-family; MSA + template embedder + 48-block Pairformer "
+                   "+ atom diffusion), MSA on by default; proteins, nucleic acids and ligands. "
                    "All run on-device via the ttnn pipeline; ligand / affinity options apply to boltz2 only.")
 def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, sampling_steps,
             diffusion_samples, max_parallel_samples, step_scale, output_format, override,
@@ -2448,8 +2478,9 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         model, use_msa_server, msa_db_path, msa_endpoint, single_sequence, cache,
         controller, msa_server_url, msa_cache_only)
 
-    if model in ("esmfold2", "esmfold2-fast", "protenix-v2", "openfold3", "opendde", "opendde-abag"):
-        # ESMFold2, Protenix-v2, OpenFold3 and OpenDDE ride the SAME scheduler / worker /
+    if model in ("esmfold2", "esmfold2-fast", "protenix-v2", "openfold3", "opendde",
+                 "opendde-abag", "rf3"):
+        # ESMFold2, Protenix-v2, OpenFold3, OpenDDE and RF3 ride the SAME scheduler / worker /
         # progress path as Boltz-2: build a run config, then fan jobs across devices via
         # _local_workers + _dispatch_run (or submit to a remote --controller). Only the
         # per-model config differs.
@@ -2550,6 +2581,10 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         if model == "protenix-v2" and not controller and not os.environ.get("PROTENIX_CKPT"):
             ckpt_cache = Path(os.environ.get("BOLTZ_CACHE", str(Path("~/.boltz").expanduser())))
             hf_artifact(PROTENIX_REPO, "protenix-v2.pt", ckpt_cache)
+        # RF3's checkpoint is 3.0 GB from files.ipd.uw.edu, same race, same fix.
+        if model == "rf3" and not controller and not os.environ.get("RF3_CKPT"):
+            ensure_rf3_weights(Path(os.environ.get(
+                "BOLTZ_CACHE", str(Path("~/.boltz").expanduser()))))
         if controller:
             failed = _dispatch_to_controller(controller, run_payload, total=len(jobs), results_path=results_path,
                                              struct_dir=struct_dir, model=model, debug=debug, log=log, run_id=run_id)

@@ -47,6 +47,19 @@ def main() -> int:
                          "usable, --steps 200 is the shipping configuration")
     ap.add_argument("--recycles", type=int, default=1)
     ap.add_argument("--trunk-only", action="store_true")
+    ap.add_argument("--port-only", action="store_true",
+                    help="run the port with no reference arm and score nothing: answers "
+                         "'does this size run on the card at all' when the CPU reference "
+                         "is the expensive half (at 1024 tokens it is ~25x the port)")
+    ap.add_argument("--ref-trunk-arm", action="store_true",
+                    help="also score the distogram head and one denoiser call on the "
+                         "REFERENCE trunk tensors instead of the port's. A head fed the "
+                         "port's own Z cannot be told apart from one that amplifies it; "
+                         "this arm is the separation.")
+    ap.add_argument("--no-rollout", action="store_true",
+                    help="score the single denoiser call but skip both rollouts; the "
+                         "single-step score is the accuracy gate and the rollout is a "
+                         "diagnostic, and at 1024 tokens the rollout dominates the run")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
 
@@ -58,7 +71,15 @@ def main() -> int:
     from tt_bio.rf3.weights import load_reference
     from tt_bio.tenstorrent import get_device
 
-    d = REPO / "scripts/rf3_port/parity_artifacts" / args.fixture
+    # capability fixtures ship a captured ref_f.pt next to their input; the size-ladder
+    # rungs ship only the input, because this harness runs the featurizer live and a
+    # 1024-token capture would be hundreds of megabytes nobody needs committed
+    roots = [REPO / "scripts/rf3_port/parity_artifacts",
+             REPO / "scripts/rf3_port/size_ladder"]
+    d = next((r / args.fixture for r in roots if (r / args.fixture).is_dir()), None)
+    if d is None:
+        raise SystemExit(f"{args.fixture}: not under any of "
+                         f"{[str(r) for r in roots]}")
     # the template fixture's input is a .cif, the rest are .json -- both go through the
     # same pipeline, so pick whichever the fixture actually has rather than assuming
     inp = next((n for n in ("input.json", "input.cif") if (d / n).exists()), None)
@@ -113,11 +134,20 @@ def main() -> int:
             return ({k: v.float() for k, v in ro.items()},
                     net.distogram_head(ro["Z_II"]).float())
 
-    ref_trunk, ref_disto = ref_trunk_run(True)
-    f32_trunk, f32_disto = ref_trunk_run(False)
+    if args.port_only:
+        ref_trunk = ref_disto = f32_trunk = f32_disto = None
+        ref_bf16_s = ref_f32_s = None
+    else:
+        t0 = time.time()
+        ref_trunk, ref_disto = ref_trunk_run(True)
+        ref_bf16_s = round(time.time() - t0, 1)
+        t0 = time.time()
+        f32_trunk, f32_disto = ref_trunk_run(False)
+        ref_f32_s = round(time.time() - t0, 1)
 
     report = {"fixture": args.fixture, "recycles": args.recycles,
               "steps": args.steps, "force_bfloat16_modules": len(forced),
+              "ref_trunk_bf16_s": ref_bf16_s, "ref_trunk_fp32_s": ref_f32_s,
               "stages": []}
 
     # --- port -------------------------------------------------------------------
@@ -158,10 +188,49 @@ def main() -> int:
             "ceiling": round(ceil, 6),
             "x_ceiling": round(e / ceil, 2) if ceil else None})
 
+    if args.port_only:
+        # Nothing to score against, so record what ran and what it cost. A size that
+        # allocates, dispatches and returns finite tensors has cleared the L1 / grid
+        # question this arm exists for.
+        report["port_only"] = True
+        for name, t in (("S_inputs", s_inputs), ("S_trunk", s), ("Z_trunk", z),
+                        ("distogram", tt.distogram_head(z))):
+            g = back(t, (-1,))
+            report["stages"].append({
+                "tensor": name, "shape": list(t.shape),
+                "finite": bool(torch.isfinite(g).all()),
+                "std": round(float(g.std()), 6)})
+        # One denoiser call too: a size whose trunk runs but whose diffusion module does
+        # not cannot fold, so "does this size run" is not answered by the trunk alone.
+        gen = torch.Generator().manual_seed(0)
+        sched = tt.sampler.noise_schedule()
+        t_mid = sched[len(sched) // 2].reshape(1)
+        t0 = time.time()
+        one = tt.diffusion_module(
+            host, t_mid * torch.randn(1, host.n_atom, 3, generator=gen),
+            t_mid, s_inputs, s, z)
+        report["denoiser_s"] = round(time.time() - t0, 1)
+        report["stages"].append({
+            "tensor": "denoiser_1step", "shape": list(one.shape),
+            "finite": bool(torch.isfinite(one).all()),
+            "std": round(float(one.std()), 6)})
+        print(json.dumps(report, indent=2))
+        if args.out:
+            Path(args.out).write_text(json.dumps(report, indent=2) + "\n")
+        return 0
+
     score("S_inputs", s_inputs, ref_trunk["S_inputs_I"], f32_trunk["S_inputs_I"])
     score("S_trunk", s, ref_trunk["S_I"], f32_trunk["S_I"])
     score("Z_trunk", z, ref_trunk["Z_II"], f32_trunk["Z_II"])
     score("distogram", tt.distogram_head(z), ref_disto, f32_disto)
+
+    def upload_like(ref_t, tt_t):
+        return ttnn.from_torch(ref_t.reshape(tuple(tt_t.shape)).float(),
+                               layout=ttnn.TILE_LAYOUT, device=dev, dtype=tt_t.dtype)
+
+    if args.ref_trunk_arm:
+        ref_z = upload_like(ref_trunk["Z_II"], z)
+        score("distogram_on_ref_Z", tt.distogram_head(ref_z), ref_disto, f32_disto)
 
     if not args.trunk_only:
         # ONE denoiser call, before the rollout. A rollout RMSD alone cannot separate a
@@ -186,6 +255,22 @@ def main() -> int:
 
         one_bf16, one_f32 = ref_denoise_at(True), ref_denoise_at(False)
         one_got = tt.diffusion_module(host, x_probe, t_mid, s_inputs, s, z)
+        if args.ref_trunk_arm:
+            # Same call on the reference trunk. The difference between the two rows is
+            # how much of the denoiser's number is its own and how much is the trunk's,
+            # arriving amplified.
+            ref_got = tt.diffusion_module(
+                host, x_probe, t_mid,
+                upload_like(ref_trunk["S_inputs_I"], s_inputs),
+                upload_like(ref_trunk["S_I"], s), upload_like(ref_trunk["Z_II"], z))
+            report["stages"].append({
+                "tensor": "denoiser_1step_on_ref_trunk",
+                "shape": list(one_bf16.shape), "t": round(float(t_mid), 3),
+                "pcc": round(pcc(ref_got, one_bf16), 7),
+                "rel_rms": round(rel_rms(ref_got, one_bf16), 6),
+                "ceiling": round(rel_rms(one_bf16, one_f32), 6),
+                "x_ceiling": round(rel_rms(ref_got, one_bf16)
+                                   / rel_rms(one_bf16, one_f32), 2)})
         report["stages"].append({
             "tensor": "denoiser_1step", "shape": list(one_bf16.shape),
             "t": round(float(t_mid), 3),
@@ -195,39 +280,40 @@ def main() -> int:
             "x_ceiling": round(rel_rms(one_got, one_bf16)
                                / rel_rms(one_bf16, one_f32), 2)})
 
-        # Record the reference's draws, then replay them into the port.
-        rec = Draws()
-        coord = torch.zeros(1, host.n_atom, 3)
-        with torch.no_grad(), torch.autocast("cpu", dtype=torch.bfloat16):
-            def ref_denoise(x_noisy, t):
-                return net.diffusion_module(
-                    X_noisy_L=x_noisy, t=t, f=f,
-                    S_inputs_I=ref_trunk["S_inputs_I"], S_trunk_I=ref_trunk["S_I"],
-                    Z_trunk_II=ref_trunk["Z_II"]).float()
-            t0 = time.time()
-            ref_x, rec = tt.sampler.sample(ref_denoise, coord, 1, draws=rec)
-        report["ref_rollout_s"] = round(time.time() - t0, 1)
+        if not args.no_rollout:
+            # Record the reference's draws, then replay them into the port.
+            rec = Draws()
+            coord = torch.zeros(1, host.n_atom, 3)
+            with torch.no_grad(), torch.autocast("cpu", dtype=torch.bfloat16):
+                def ref_denoise(x_noisy, t):
+                    return net.diffusion_module(
+                        X_noisy_L=x_noisy, t=t, f=f,
+                        S_inputs_I=ref_trunk["S_inputs_I"], S_trunk_I=ref_trunk["S_I"],
+                        Z_trunk_II=ref_trunk["Z_II"]).float()
+                t0 = time.time()
+                ref_x, rec = tt.sampler.sample(ref_denoise, coord, 1, draws=rec)
+            report["ref_rollout_s"] = round(time.time() - t0, 1)
 
-        t0 = time.time()
-        got = tt.predict(f, n_recycles=args.recycles, diffusion_batch_size=1,
-                         rep_atom_idxs=rep_atom_idxs, coord_to_be_noised=coord,
-                         draws=Draws(rec.values))
-        report["port_rollout_s"] = round(time.time() - t0, 1)
-        # An RMSD is only readable next to the scale of the thing it is on. The rollout
-        # starts at noise scale sigma_data*s_max ~ 2560 A and contracts towards physical
-        # coordinates, so at a low --steps the structure is still enormous and an RMSD of
-        # a few angstrom is a tiny relative error. `rmsd_rel` divides by the reference
-        # structure's own RMS radius, which is comparable across step counts.
-        radius = float(ref_x.pow(2).sum(-1).mean().sqrt())
-        report["stages"].append({
-            "tensor": "X_L", "shape": list(ref_x.shape),
-            "rmsd_A": round(rmsd(got["X_L"], ref_x), 4),
-            "ref_rms_radius_A": round(radius, 3),
-            "rmsd_rel": round(rmsd(got["X_L"], ref_x) / radius, 6),
-            "pcc": round(pcc(got["X_L"], ref_x), 7)})
-        for k in ("plddt_logits", "pae_logits", "pde_logits", "exp_resolved_logits"):
-            if k in got:
-                report["stages"].append({"tensor": k, "shape": list(got[k].shape)})
+            t0 = time.time()
+            got = tt.predict(f, n_recycles=args.recycles, diffusion_batch_size=1,
+                             rep_atom_idxs=rep_atom_idxs, coord_to_be_noised=coord,
+                             draws=Draws(rec.values))
+            report["port_rollout_s"] = round(time.time() - t0, 1)
+            # An RMSD is only readable next to the scale of the thing it is on. The rollout
+            # starts at noise scale sigma_data*s_max ~ 2560 A and contracts towards physical
+            # coordinates, so at a low --steps the structure is still enormous and an RMSD of
+            # a few angstrom is a tiny relative error. `rmsd_rel` divides by the reference
+            # structure's own RMS radius, which is comparable across step counts.
+            radius = float(ref_x.pow(2).sum(-1).mean().sqrt())
+            report["stages"].append({
+                "tensor": "X_L", "shape": list(ref_x.shape),
+                "rmsd_A": round(rmsd(got["X_L"], ref_x), 4),
+                "ref_rms_radius_A": round(radius, 3),
+                "rmsd_rel": round(rmsd(got["X_L"], ref_x) / radius, 6),
+                "pcc": round(pcc(got["X_L"], ref_x), 7)})
+            for k in ("plddt_logits", "pae_logits", "pde_logits", "exp_resolved_logits"):
+                if k in got:
+                    report["stages"].append({"tensor": k, "shape": list(got[k].shape)})
 
     print(json.dumps(report, indent=2))
     if args.out:

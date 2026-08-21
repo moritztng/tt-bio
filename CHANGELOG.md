@@ -3,6 +3,28 @@
 All notable changes to TT-Bio are recorded here. Versioning is [SemVer](https://semver.org);
 releases are cut from a commit that has passed the on-hardware test suite (see `RELEASING.md`).
 
+## [Unreleased]
+
+### Added
+
+- `tt-bio predict --model rf3` folds with RoseTTAFold3 (AlphaFold3-family: MSA module,
+  template embedder, 48-block Pairformer, atom diffusion, confidence head), on device.
+  Proteins, RNA, DNA and ligands, plus non-canonical residues, covalent modifications and
+  cyclic chains; MSA on by default through the same stage every other model uses. Writes
+  an mmCIF/PDB with pLDDT in the B-factor column and an AlphaFold3-style
+  `<name>_summary_confidences.json` (pTM, ipTM, chain-pair PAE/PDE, ranking score), and
+  `--diffusion_samples N` ranks N samples by that score. Weights download from the
+  Institute for Protein Design on first use, or set `RF3_CKPT`.
+- `tests/test_rf3_featurizer.py`: RF3 host-featurizer parity over ten capability classes
+  from committed captures, with no device and no `rc-foundry` install.
+
+### Fixed
+
+- A partial `~/of3_ref_out.pkl` skips the OpenFold3 device tests that need the keys it
+  lacks instead of failing them. The tests guarded on the golden's existence while
+  depending on its contents, so on a host with a partial capture 11 of them died on
+  `KeyError` and read as a regression in whatever branch was checked out.
+
 ## [0.6.5] - 2026-08-20
 
 ### Fixed

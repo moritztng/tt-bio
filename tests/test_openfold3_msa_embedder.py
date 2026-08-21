@@ -12,6 +12,8 @@ the already-gated MSA stack (m, z -> z in tests/test_openfold3_msa.py).
 import os, pickle, pytest, torch, ttnn
 
 _CKPT = os.path.expanduser("~/of3-weights/of3-p2-155k.pt")
+import of3_golden
+
 _GOLD = os.path.expanduser("~/of3_ref_out.pkl")
 pytestmark = pytest.mark.skipif(not (os.path.exists(_CKPT) and os.path.exists(_GOLD)),
                                 reason="of3 ckpt or golden pkl missing")
@@ -37,7 +39,7 @@ def test_of3_msa_module_embedder_on_device():
 
     sd = torch.load(_CKPT, map_location="cpu", weights_only=False)
     me_sd = _sub(sd, "msa_module_embedder")
-    g = pickle.load(open(_GOLD, "rb"))["intermediates"]["msa_module_embedder_real"]
+    g = of3_golden.intermediates(_GOLD)["msa_module_embedder_real"]
     msa_feat, s_input, m_ref = g["msa_feat"], g["s_input"], g["m_ref"]
 
     dev = get_device()
