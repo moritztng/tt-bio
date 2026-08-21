@@ -37,7 +37,7 @@ accuracy (does the fold match the native structure) is out of scope.
 | Boltz-2 (affinity) | FKBP12 + SB3, L107, MSA (production default) | PASS-caveated | Under the envelope gate (gate of record) the affinity scalar passes at ratio 0.32 (numerator 0.0456 vs bound 0.226) and affinity_probability at 0.18; pocket-lDDT GAPs under legacy R/D/X (X/floor 4.48), the same narrower-basin systematic-bf16 property as the other affinity legs (seed-independent [same-seed diagonal](implementation-parity-details.md#1-same-seed-diagonal-shared-rng-proof)). The legacy R/D/X scalar "GAP" (X/floor 2.27) was a stale-fixture artifact, measured against pre-shared-draws refs before the fixture regen, and is superseded by the envelope pass |
 | Boltz-2 (affinity) | DHFR + MTX, L187, no MSA (non-default) | PASS-caveated | affinity scalar and ligand-pose RMSD pass (X/floor 0.68 / 1.36); pocket-lDDT GAPs (4.72), proven a genuine bf16-BACKEND floor by three-backend triangulation (GPU-bf16 and CPU-bf16 references disagree on the pocket by the same ~0.13 lDDT margin the device does), not a port defect |
 | Boltz-2 (affinity) | DHFR + MTX, L187, MSA (production default) | PASS-caveated | affinity scalar (1.32), affinity_probability (0.95), and ligand-RMSD (1.61) PASS; pocket-lDDT GAPs (13.35), systematic bf16 by the [same-seed diagonal](implementation-parity-details.md#1-same-seed-diagonal-shared-rng-proof) |
-| Boltz-2 (affinity) | trypsin + BAM, L223, no MSA (non-default) | PASS-caveated | affinity scalar and ligand-pose RMSD pass (X/floor 0.94 / 0.95); pocket-lDDT GAPs (10.13), proven a genuine bf16-BACKEND floor by three-backend triangulation (GPU-bf16 vs CPU-bf16 pocket-lDDT X/floor 7.51, both NO), not a port defect |
+| Boltz-2 (affinity) | trypsin + BAM, L223, no MSA (non-default) | PASS-caveated (legacy R/D/X); GAP under the envelope gate | affinity scalar and ligand-pose RMSD pass under legacy R/D/X (X/floor 0.94 / 0.95); pocket-lDDT GAPs (10.13), proven a genuine bf16-BACKEND floor by three-backend triangulation (GPU-bf16 vs CPU-bf16 pocket-lDDT X/floor 7.51, both NO), not a port defect. Under the envelope gate (gate of record) the affinity scalar GAPs at ratio 2.81 (numerator 0.0537 vs bound 0.0387): the device predicts 2.552 where the CPU reference gives 2.606, about 2%. Pose is unaffected (ligand-RMSD ratio 0.11, pocket-lDDT bit-identical). Pre-existing, un-masked in v0.6.5 when the reference was regenerated on the conformer-seeding fix — see [the bar move](#the-trypsin-affinity-bar-moved-in-v065) |
 | Boltz-2 (affinity) | trypsin + BAM, L223, MSA (production default) | PASS-caveated | affinity scalar (0.79), affinity_probability (0.92), and ligand-RMSD (0.78) PASS; pocket-lDDT GAPs (2.75), systematic bf16 by the [same-seed diagonal](implementation-parity-details.md#1-same-seed-diagonal-shared-rng-proof) |
 | OpenDDE | trp-cage, L20, no MSA | PASS (legacy R/D/X); GAP-evidenced under the envelope gate | CA-RMSD 0.51 Å inside the 0.52 Å floor. The envelope test GAPs this leg since v0.6.2 (numerator 0.198 Å vs a collapsed zero envelope), same AttentionPairBias-unfusing root cause as the other v0.6.2 GAPs, root-caused below |
 | OpenDDE | 7ROA, production | PASS (legacy R/D/X); GAP-evidenced under the envelope gate | wide device-dominated floor (D 6.04 Å); absolute X 4.67 Å. The envelope test GAPs this leg since v0.6.2 (numerator 2.149 Å vs a collapsed zero envelope; still inside the 6.04 Å floor and below the committed cross term), same root cause, root-caused below |
@@ -123,22 +123,49 @@ The numbers below are with the fix (the first valid head-to-head).
 
 | leg | affinity_pred_value ratio | ligand-RMSD ratio | 1-pocket-lDDT | verdict |
 |---|---|---|---|---|
-| trypsin | 0.74 | 0.20 | 0.00 (bit-identical) | **PASS** |
+| trypsin | 2.81 | 0.11 | 0.00 (bit-identical) | **GAP** |
 | DHFR    | 1.44 | 0.19 | 0.00 (bit-identical) | **PASS** |
 | FKBP12  | 1.35 | 0.32 | 0.00 (bit-identical) | **PASS** |
 
-Structure/pose parity is excellent on all three legs — the device structure is bit-identical to fp32
-in pocket-lDDT and ligand pose is well inside the bf16 envelope — and all three affinity scalars
-PASS the envelope gate. The earlier table recorded FKBP12 at ratio 1.90 / GAP, DHFR at 1.22 and
-trypsin at 0.96; those numbers were measured against pre-shared-draws reference fixtures (commit
-c0529ca79) and never re-measured after the fixtures were regenerated with `TT_BIO_SHARED_DRAW_SEED=0`
-~37 min later (commit fb3bd0075). Re-run against the current committed fixtures, all three legs PASS
-(FKBP12 1.35, DHFR 1.44, trypsin 0.74), deterministic and bit-identical on re-run. There is no
-affinity-head scalar residual to hunt here — the documented GAP was a stale-doc artifact, not a
-precision bug that a code change closed. The standing "on-device fp32, not host fallback" directive
+Structure/pose parity is excellent on all three legs: the device structure is bit-identical to fp32
+in pocket-lDDT and ligand pose is well inside the bf16 envelope. FKBP12 and DHFR pass on the
+affinity scalar too. Trypsin does not, at ratio 2.81, since its CPU references were regenerated in
+v0.6.5 on the conformer-seeding fix (the row above, and the bar move below). The earlier table
+recorded FKBP12 at ratio 1.90 / GAP, DHFR at 1.22 and trypsin at 0.96; those numbers were measured
+against pre-shared-draws reference fixtures (commit c0529ca79) and never re-measured after the
+fixtures were regenerated with `TT_BIO_SHARED_DRAW_SEED=0` ~37 min later (commit fb3bd0075). The
+trypsin 0.74 recorded here was itself stale by one fixture generation: against the reference this
+doc shipped with (`b48876d9d`) the leg read 1.74, marginally over its bound, and the row was never
+refreshed. FKBP12's and DHFR's stale-doc GAPs were real stale-doc artifacts and stay
+closed. The standing "on-device fp32, not host fallback" directive
 for the affinity pairformer+heads remains a separate portability refactor (the head already runs
 fp32 on host, `BOLTZ2_AFFINITY_FP32_HOST=1` default ON); it is not an accuracy fix and is not needed
 for the scalar to pass.
+
+### The trypsin affinity bar moved in v0.6.5
+
+The unseeded RDKit ETKDG conformer draw fixed in v0.6.5 (`1190a1daa`) also fed the CPU reference
+path, so this leg's committed `ref_fp32`/`ref_bf16` pair carried conformer noise on top of the bf16
+difference the pair exists to measure. Regenerating both references on the fixed code (`1e1dc7c4`,
+`--accelerator cpu --no_kernels`) shrank the envelope by more than half and left the
+device-vs-reference residual with nothing to hide behind.
+
+| | old (`b48876d9d`) | new (`1e1dc7c4`) |
+|---|---|---|
+| reference fp32 `affinity_pred_value` | 2.628256 | 2.605899 |
+| envelope (bf16 vs fp32 reference) | 0.043619 | 0.019101 |
+| bound (envelope x 1.5 + 0.01 floor) | 0.075429 | 0.038652 |
+| numerator (device vs fp32 reference) | 0.076088 | 0.053731 |
+| ratio | 1.744 | 2.813 |
+| verdict | GAP, 0.9% over bound | GAP |
+
+The device value did not move: 2.552168 on three independent folds, bit-identical. So the leg was
+already GAP before the regen, marginally; the regen made it unambiguous and worth chasing. The bound
+was deliberately not widened to keep the leg green. The tight envelope is the correct bar, the leg is
+recorded `GAP` in `docs/implementation-parity-data/boltz2-affinity-tryp-nomsa-envelope.json`, and
+`full_parity_gate.py` fails on it until the ~2% is explained. Pose is unaffected: ligand-RMSD 0.0174
+against a 0.2901 bound, pocket-lDDT bit-identical. The other five affinity references still carry
+pre-fix conformer noise and are regenerated separately.
 
 **Wired into the gate of record.** The envelope test is the default correctness criterion for
 every diffusion (structure/affinity) leg in `scripts/full_parity_gate.py`: the gate folds the

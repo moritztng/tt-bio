@@ -2,35 +2,37 @@
   {
     "id": "affinity_tryp",
     "status": "ok",
-    "confidence_score": 0.986703,
-    "ptm": 0.982943,
-    "iptm": 0.986929,
-    "ligand_iptm": 0.986929,
+    "confidence_score": 0.986704,
+    "ptm": 0.982954,
+    "iptm": 0.986936,
+    "ligand_iptm": 0.986936,
     "protein_iptm": 0.0,
     "complex_plddt": 0.986646,
-    "complex_iplddt": 0.982355,
-    "complex_pde": 0.278577,
-    "complex_ipde": 0.330893,
+    "complex_iplddt": 0.982351,
+    "complex_pde": 0.278542,
+    "complex_ipde": 0.330816,
     "pair_chains_iptm": {
       "0": {
-        "0": 0.982831,
-        "1": 0.783549
+        "0": 0.982842,
+        "1": 0.78364
       },
       "1": {
-        "0": 0.986929,
-        "1": 0.986629
+        "0": 0.986936,
+        "1": 0.98664
       }
     },
     "chains_ptm": {
-      "0": 0.982831,
-      "1": 0.986629
+      "0": 0.982842,
+      "1": 0.98664
     },
-    "runtime_s": 256.6,
-    "affinity_pred_value": 2.628256,
-    "affinity_probability_binary": 0.840811,
-    "affinity_pred_value1": 2.504681,
-    "affinity_probability_binary1": 0.892283,
-    "affinity_pred_value2": 1.987538,
-    "affinity_probability_binary2": 0.789339
+    "affinity_pred_value": 2.605899,
+    "affinity_probability_binary": 0.847225,
+    "affinity_pred_value1": 2.519816,
+    "affinity_probability_binary1": 0.897704,
+    "affinity_pred_value2": 1.929212,
+    "affinity_probability_binary2": 0.796746,
+    "structure_runtime_s": 171.3,
+    "affinity_runtime_s": 1693.8,
+    "runtime_s": 1865.0
   }
 ]

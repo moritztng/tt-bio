@@ -35,6 +35,14 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   27.5 s and inside the 4x bar the performance page holds every model to. The row is
   no longer hidden there. (`dff668d9`)
 
+### Known issues
+
+- Boltz-2 affinity on the trypsin parity leg differs about 2% from the CPU reference
+  (2.552 against 2.606 log10(IC50)); the predicted pose is unaffected. The reference
+  bound tightened this release because the conformer-seeding fix above removed noise
+  that had been inflating it, so this is a pre-existing gap now visible, not a new one.
+  See `docs/implementation-parity.md`.
+
 ## [0.6.4] - 2026-08-19
 
 P300 Blackhole cards fold again. On a 110-core grid (every P300), a mid-size
