@@ -122,6 +122,26 @@ on boltz-2 and is still open on opendde at 640 and 768. Fixing a size-conditione
 where it was found says nothing about the other four. Nesso-1's leg found the same overflow at the
 same two rungs, on a sixth model, the first time it ran.
 
+**The pair projections' L1 destination is a size gate on four of six models.** `PAIR_PROJ_L1_OUT`
+was found on Nesso-1 at 532 tokens and had neither a counter nor a kill switch, so nothing could say
+it had happened. Counted, served of offered:
+
+| model | 256 aa | 512 aa | 640 aa | 768 aa |
+|---|---:|---:|---:|---:|
+| boltz-2 | 1512/1512 | 1512/1512 | 393/1512 | 0/1120 |
+| esmfold2 | 0/0 | 17216/17216 | 21520/21520 | 1/25824 |
+| protenix-v2 | 1244/1244 | 480/480 | 480/480 | 480/480 |
+| openfold3 | 1184/1184 | 1184/1184 | 337/1184 | 48/896 |
+| opendde | 1324/3436 | 480/2600 | 480/2600 | 480/2592 |
+| nesso1 | 1152/1152 | 961/1152 | 961/1152 | 960/1152 |
+
+It is essentially 100 % dark at 768 aa on boltz-2 and esmfold2, and only protenix-v2 keeps it at
+every rung. Two mechanisms, and the baseline's reason names which one per rung: `no_config`, where
+the config builder finds no viable L1-destination program config for the shape, and
+`memoised`/`l1_clash`, where the allocator refuses once and the refusal sticks for that operand
+class. On Nesso-1 the result is bit-identical with the leg on and off, so this costs time and not
+accuracy. Recorded, not blessed.
+
 **An arm can be blind to a code path, not only to a size.** The five structure legs all fold the same
 apo fixture, so until Nesso-1 joined, no rung of this arm exercised an affinity pairformer for any
 model — four of those five have no affinity module to exercise. K2, which is 100 % dark on that path,
@@ -172,3 +192,11 @@ so and tells you to re-record, so nothing can be laundered through this mode. Th
 their own `levers_added` stamp, because they were measured on a different host at a different commit
 than the timings beside them. Use it only for a counter-only change; anything that touches a
 threshold or a default needs the four sizes.
+
+Two things it settled the first time it ran. A single cold fold reproduced the warm-recorded
+baseline's census exactly at all 24 (model, rung) pairs, which the mode assumed and nobody had
+measured. And the refusal earned its keep: it caught that the baseline predates the commit which
+taught the census to record WHY a guard declined, so three levers read as having changed their
+decline clause with served and declined identical. An absent clause means not measured, not "no
+clause". **The rule, alongside the L1-budget leg's: an instrument change that widens what the
+baseline compares re-records in the same commit.**
