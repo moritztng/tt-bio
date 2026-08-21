@@ -1,0 +1,240 @@
+{
+ "model": "boltz2",
+ "size": 512,
+ "rounds": 3,
+ "fixture": "perf/size512/fixtures/cdk2x2_512.yaml",
+ "msa_file": "perf/size512/fixtures/cdk2x2_512.a3m",
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "ttnn": "0.68.0",
+ "torch": "2.13.0+cpu",
+ "card": "1",
+ "git_head": "0e345b3f",
+ "phases": {
+  "boltz2": [
+   [
+    "state",
+    "prepare",
+    "host"
+   ],
+   [
+    "mod",
+    "tt_bio.main:to_batch",
+    "transfer"
+   ],
+   [
+    "state",
+    "model.predict_step",
+    "device"
+   ],
+   [
+    "mod",
+    "tt_bio.main:write_result",
+    "host"
+   ]
+  ]
+ },
+ "started": "2026-08-21T16:24:30+0000",
+ "host": "tt-quietbox2",
+ "nproc": 16,
+ "cpu": "AMD Ryzen 7 9700X 8-Core Processor",
+ "folds": [
+  {
+   "arm": "plain",
+   "fold_s": 35.296,
+   "plddt": 0.868627,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "fca25e32ea181ae2"
+   },
+   "loadavg": [
+    "32.39",
+    "27.41",
+    "23.79"
+   ]
+  },
+  {
+   "arm": "instr",
+   "fold_s": 33.74,
+   "plddt": 0.868627,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "fca25e32ea181ae2"
+   },
+   "loadavg": [
+    "30.57",
+    "27.48",
+    "23.95"
+   ],
+   "phase": {
+    "host": 0.5489,
+    "device": 33.1834,
+    "transfer": 0.0002,
+    "total": 33.7402,
+    "residual": 0.0078,
+    "per_fn": {
+     "prepare": {
+      "s": 0.4056,
+      "n": 1
+     },
+     "tt_bio.main:to_batch": {
+      "s": 0.0002,
+      "n": 1
+     },
+     "model.predict_step": {
+      "s": 33.1834,
+      "n": 1
+     },
+     "tt_bio.main:write_result": {
+      "s": 0.1432,
+      "n": 1
+     }
+    }
+   }
+  },
+  {
+   "arm": "plain",
+   "fold_s": 34.021,
+   "plddt": 0.868627,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "fca25e32ea181ae2"
+   },
+   "loadavg": [
+    "30.96",
+    "27.85",
+    "24.19"
+   ]
+  },
+  {
+   "arm": "instr",
+   "fold_s": 32.823,
+   "plddt": 0.868627,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "fca25e32ea181ae2"
+   },
+   "loadavg": [
+    "24.44",
+    "26.53",
+    "23.88"
+   ],
+   "phase": {
+    "host": 0.4612,
+    "device": 32.3535,
+    "transfer": 0.0001,
+    "total": 32.8232,
+    "residual": 0.0083,
+    "per_fn": {
+     "prepare": {
+      "s": 0.3329,
+      "n": 1
+     },
+     "tt_bio.main:to_batch": {
+      "s": 0.0001,
+      "n": 1
+     },
+     "model.predict_step": {
+      "s": 32.3535,
+      "n": 1
+     },
+     "tt_bio.main:write_result": {
+      "s": 0.1284,
+      "n": 1
+     }
+    }
+   }
+  },
+  {
+   "arm": "plain",
+   "fold_s": 37.562,
+   "plddt": 0.868627,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "fca25e32ea181ae2"
+   },
+   "loadavg": [
+    "26.83",
+    "26.84",
+    "24.07"
+   ]
+  },
+  {
+   "arm": "instr",
+   "fold_s": 34.646,
+   "plddt": 0.868627,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "fca25e32ea181ae2"
+   },
+   "loadavg": [
+    "27.51",
+    "27.05",
+    "24.25"
+   ],
+   "phase": {
+    "host": 0.6879,
+    "device": 33.9512,
+    "transfer": 0.0002,
+    "total": 34.6461,
+    "residual": 0.0068,
+    "per_fn": {
+     "prepare": {
+      "s": 0.5462,
+      "n": 1
+     },
+     "tt_bio.main:to_batch": {
+      "s": 0.0002,
+      "n": 1
+     },
+     "model.predict_step": {
+      "s": 33.9512,
+      "n": 1
+     },
+     "tt_bio.main:write_result": {
+      "s": 0.1417,
+      "n": 1
+     }
+    }
+   }
+  }
+ ],
+ "meta": {
+  "hardware": "blackhole",
+  "load_s": 5.67,
+  "n_msa": 35
+ },
+ "grid": [
+  11,
+  10
+ ],
+ "cold_s": 37.792,
+ "summary": {
+  "aa_floor_s": 3.541,
+  "aa_floor_pct": 10.032,
+  "plain_median_s": 35.296,
+  "instr_median_s": 33.74,
+  "plain_s": [
+   35.296,
+   34.021,
+   37.562
+  ],
+  "instr_s": [
+   33.74,
+   32.823,
+   34.646
+  ],
+  "instr_delta_s": -1.556,
+  "instr_delta_pct": -4.408,
+  "host_s": 0.549,
+  "device_s": 33.183,
+  "transfer_s": 0.0,
+  "residual_s": 0.008,
+  "residual_pct": 0.023,
+  "same_structure_both_arms": true,
+  "cif_digests": [
+   "{\"cdk2x2_512.cif\": \"fca25e32ea181ae2\"}"
+  ],
+  "never_fired": []
+ }
+}

@@ -1,0 +1,240 @@
+{
+ "model": "esmfold2",
+ "size": 512,
+ "rounds": 3,
+ "fixture": "perf/size512/fixtures/cdk2x2_512.yaml",
+ "msa_file": "perf/size512/fixtures/cdk2x2_512.a3m",
+ "recycling_steps": 10,
+ "sampling_steps": 100,
+ "ttnn": "0.68.0",
+ "torch": "2.13.0+cpu",
+ "card": "1",
+ "git_head": "0e345b3f",
+ "phases": {
+  "esmfold2": [
+   [
+    "mod",
+    "tt_bio.main:_read_protein_chains",
+    "host"
+   ],
+   [
+    "mod",
+    "tt_bio.esmfold2_runtime:resolve_msa",
+    "host"
+   ],
+   [
+    "mod",
+    "tt_bio.esmfold2_runtime:fold_complex",
+    "device"
+   ],
+   [
+    "mod",
+    "tt_bio.main:_write_structure",
+    "host"
+   ]
+  ]
+ },
+ "started": "2026-08-21T16:29:56+0000",
+ "host": "tt-quietbox2",
+ "nproc": 16,
+ "cpu": "AMD Ryzen 7 9700X 8-Core Processor",
+ "folds": [
+  {
+   "arm": "plain",
+   "fold_s": 33.772,
+   "plddt": 0.9285,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "loadavg": [
+    "22.84",
+    "25.77",
+    "24.32"
+   ]
+  },
+  {
+   "arm": "instr",
+   "fold_s": 35.75,
+   "plddt": 0.9285,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "loadavg": [
+    "24.31",
+    "25.82",
+    "24.39"
+   ],
+   "phase": {
+    "host": 0.0689,
+    "device": 35.6763,
+    "transfer": 0.0,
+    "total": 35.7504,
+    "residual": 0.0052,
+    "per_fn": {
+     "tt_bio.main:_read_protein_chains": {
+      "s": 0.001,
+      "n": 1
+     },
+     "tt_bio.esmfold2_runtime:resolve_msa": {
+      "s": 0.0003,
+      "n": 1
+     },
+     "tt_bio.esmfold2_runtime:fold_complex": {
+      "s": 35.6763,
+      "n": 1
+     },
+     "tt_bio.main:_write_structure": {
+      "s": 0.0676,
+      "n": 1
+     }
+    }
+   }
+  },
+  {
+   "arm": "plain",
+   "fold_s": 36.238,
+   "plddt": 0.9285,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "loadavg": [
+    "25.17",
+    "25.88",
+    "24.46"
+   ]
+  },
+  {
+   "arm": "instr",
+   "fold_s": 35.199,
+   "plddt": 0.9285,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "loadavg": [
+    "25.92",
+    "25.99",
+    "24.55"
+   ],
+   "phase": {
+    "host": 0.0862,
+    "device": 35.1053,
+    "transfer": 0.0,
+    "total": 35.1986,
+    "residual": 0.0071,
+    "per_fn": {
+     "tt_bio.main:_read_protein_chains": {
+      "s": 0.001,
+      "n": 1
+     },
+     "tt_bio.esmfold2_runtime:resolve_msa": {
+      "s": 0.0002,
+      "n": 1
+     },
+     "tt_bio.esmfold2_runtime:fold_complex": {
+      "s": 35.1053,
+      "n": 1
+     },
+     "tt_bio.main:_write_structure": {
+      "s": 0.085,
+      "n": 1
+     }
+    }
+   }
+  },
+  {
+   "arm": "plain",
+   "fold_s": 36.135,
+   "plddt": 0.9285,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "loadavg": [
+    "26.10",
+    "26.02",
+    "24.62"
+   ]
+  },
+  {
+   "arm": "instr",
+   "fold_s": 33.118,
+   "plddt": 0.9285,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "295867277b9c137f"
+   },
+   "loadavg": [
+    "23.35",
+    "25.45",
+    "24.49"
+   ],
+   "phase": {
+    "host": 0.0462,
+    "device": 33.0682,
+    "transfer": 0.0,
+    "total": 33.1181,
+    "residual": 0.0037,
+    "per_fn": {
+     "tt_bio.main:_read_protein_chains": {
+      "s": 0.0008,
+      "n": 1
+     },
+     "tt_bio.esmfold2_runtime:resolve_msa": {
+      "s": 0.0002,
+      "n": 1
+     },
+     "tt_bio.esmfold2_runtime:fold_complex": {
+      "s": 33.0682,
+      "n": 1
+     },
+     "tt_bio.main:_write_structure": {
+      "s": 0.0452,
+      "n": 1
+     }
+    }
+   }
+  }
+ ],
+ "meta": {
+  "hardware": "blackhole",
+  "load_s": 18.86,
+  "n_msa": 35
+ },
+ "grid": [
+  11,
+  10
+ ],
+ "cold_s": 58.911,
+ "summary": {
+  "aa_floor_s": 2.466,
+  "aa_floor_pct": 6.824,
+  "plain_median_s": 36.135,
+  "instr_median_s": 35.199,
+  "plain_s": [
+   33.772,
+   36.238,
+   36.135
+  ],
+  "instr_s": [
+   35.75,
+   35.199,
+   33.118
+  ],
+  "instr_delta_s": -0.936,
+  "instr_delta_pct": -2.59,
+  "host_s": 0.069,
+  "device_s": 35.105,
+  "transfer_s": 0.0,
+  "residual_s": 0.005,
+  "residual_pct": 0.015,
+  "same_structure_both_arms": true,
+  "cif_digests": [
+   "{\"cdk2x2_512.cif\": \"295867277b9c137f\"}"
+  ],
+  "never_fired": []
+ }
+}
