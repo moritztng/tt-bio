@@ -1,37 +1,7 @@
 {
-  "envelope": {
-    "reference_commit": "e8b800f0",
-    "reference_impl": "tt-bio-cpu-torch",
-    "reference_version": "e8b800f0",
-    "seeds": [
-      0
-    ],
-    "settings": {
-      "device_args": [
-        "--single_sequence",
-        "--affinity_mw_correction",
-        "--diffusion_samples_affinity",
-        "5",
-        "--sampling_steps_affinity",
-        "200",
-        "--recycling_steps",
-        "3",
-        "--sampling_steps",
-        "200",
-        "--diffusion_samples",
-        "1"
-      ],
-      "model": "boltz2",
-      "msa": "none",
-      "seed": 0,
-      "shared_draw_seed": 0,
-      "target_id": "affinity_dhfr",
-      "yaml": "examples/affinity_dhfr.yaml"
-    }
-  },
-  "reference_commit": "b48876d9d",
+  "reference_commit": "e8b800f0",
   "reference_impl": "tt-bio-cpu-torch",
-  "reference_version": "b48876d9d",
+  "reference_version": "e8b800f0",
   "seeds": [
     0
   ],
