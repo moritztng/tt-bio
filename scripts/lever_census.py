@@ -14,10 +14,15 @@ Every process of the fold, launcher and workers alike, dumps its own counters in
 directory, and the census sums them afterwards.
 
 Most levers keep a `*_STATS = [served, declined]` counter next to their guard; the hook
-reads those. Four have no counter (ADALN_S_HOIST, PAIR_TRANSPOSE_VIA_ROW_MAJOR,
-PAIR_PROJ_MINIMAL_MATMUL, QKV_MM_CONFIG) and are counted by wrapping their helper, marked
-`wrap` below. Every decline also carries the reason its guard refused, so a lever that
-reads served=0 can be told apart from one that is correctly declining.
+reads those. Seven have no counter and are counted by wrapping their helper, marked `wrap`
+below. Every decline also carries the reason its guard refused, so a lever that reads
+served=0 can be told apart from one that is correctly declining.
+
+A wrap counts only the calls made after it lands, so it has to be installed before the fold
+starts calling, which is why it hangs off an import hook (`_wrap_on_import`). Driving it from
+the 3-second dump thread instead made those seven levers, and only those, read `0/0` whenever
+the host was busy enough that the thread lost the race: 11446 calls counted on an idle box
+against 7456 with three concurrent folds, same fold, same commit.
 
     # one model, from the installed venv (PYTHONPATH is set by this script - do not add
     # the repo, or tt_bio resolves from the tree instead of the artifact under test)
@@ -179,6 +184,14 @@ def _install_wraps():
     T = sys.modules.get("tt_bio.tenstorrent")
     ttnn = sys.modules.get("ttnn")
     if T is None or ttnn is None or getattr(T, "_census_wrapped", False):
+        return
+    # A module is in sys.modules from the moment its execution STARTS, so being importable is
+    # not the same as being ready. Every name this function rebinds has to exist before it
+    # claims the flag: half-installed wraps cannot be retried without double-counting, and
+    # claiming the flag then failing would silently zero all seven counters for the process.
+    if not all(hasattr(T, a) for a in
+               ("AdaLN", "DiffusionModule", "_pair_transpose_impl",
+                "_transpose_memory_config", "_pair_proj_minimal_matmul", "_qkv_mm_config")):
         return
     T._census_wrapped = True
 
@@ -384,7 +397,9 @@ def install_child_hook():
 
     def tick():
         # Polling rather than an import hook: a worker that dies on a signal never runs
-        # atexit, so the counts have to already be on disk.
+        # atexit, so the counts have to already be on disk. That reasoning covers the DUMP.
+        # The WRAPS are installed by _wrap_on_import below; this call is only the backstop for
+        # a process where the import hook was replaced by something else.
         while True:
             time.sleep(3)
             try:
@@ -399,8 +414,53 @@ def install_child_hook():
         except Exception:                                                # noqa: BLE001
             pass
 
+    _wrap_on_import()
     threading.Thread(target=tick, daemon=True).start()
     atexit.register(at_exit)
+
+
+def _wrap_on_import():
+    """Install the wrap counters as soon as their modules are ready, off an import hook.
+
+    Seven levers keep no `*_STATS` of their own and are counted by monkeypatching a helper
+    (`how="wrap"`): ADALN_S_HOIST, QKV_MM_CONFIG, TRANSPOSE_L1_RESIDENT, B2_ADALN_S_MEMO,
+    B2_BIAS_SLICE_HOIST, PAIR_PROJ_MINIMAL_MATMUL, PAIR_TRANSPOSE_VIA_ROW_MAJOR. A
+    monkeypatch counts only the calls made after it lands, and `_install_wraps` used to be
+    reached only from the 3-second dump thread, so every call between `tt_bio.tenstorrent`
+    becoming importable and the next tick was invisible. Whether the thread won that race
+    depended on how busy the host was.
+
+    So those seven levers, and only those, read `0/0` on a loaded box: the `*_STATS` levers
+    count inside the shipped code and cannot be raced. Measured on the boltz2-affinity fold at
+    256 aa, 11446 calls counted with the box idle against 7456 with three concurrent folds,
+    the 3990-call gap being exactly that set while six of the seven are served on the apo
+    fold. A census that changes with the load on the machine, reported as a lever going dark,
+    and nothing in the artifact tells the two apart.
+
+    `_install_wraps` is a no-op until both `tt_bio.tenstorrent` and `ttnn` are in
+    `sys.modules` and the former is fully executed, so the cheapest correct trigger is "after
+    any import completes". The hook removes itself once the wraps are in, so it does not
+    outlive the import phase.
+    """
+    import builtins
+
+    real_import = builtins.__import__
+    if getattr(real_import, "_census_import_hook", False):
+        return
+
+    def hooked(*a, **kw):
+        mod = real_import(*a, **kw)
+        try:
+            _install_wraps()
+            T = sys.modules.get("tt_bio.tenstorrent")
+            if T is not None and getattr(T, "_census_wrapped", False):
+                builtins.__import__ = real_import      # done; stop paying for the hook
+        except Exception:                                                # noqa: BLE001
+            pass
+        return mod
+
+    hooked._census_import_hook = True
+    builtins.__import__ = hooked
 
 
 # ----------------------------------------------------------------- parent side
