@@ -253,7 +253,13 @@ _NARROW_PROJ_BW: int | None = 1
 # Worth 430 ms/fold at 298 aa, of which 133 is the residual add no longer fetching its operand from
 # DRAM; the projections themselves do not get faster. In-fold op walls against three baseline
 # folds, perf/p3l1/ops_*.json.
-_PAIR_PROJ_L1_OUT = True
+# `TT_BIO_PAIR_PROJ_L1_OUT=0` is the kill switch, the same shape every other lever here carries, so
+# a fold-level A/B can price the lever without a checkout. It was the only pair-track L1 gate with
+# neither a toggle nor a counter, which is why "the L1 leg was refused at this shape" could not be
+# turned into a number.
+PAIR_PROJ_L1_OUT = True
+_PAIR_PROJ_L1_OUT = os.environ.get(
+    "TT_BIO_PAIR_PROJ_L1_OUT", "1" if PAIR_PROJ_L1_OUT else "0") == "1"
 # in0_block_w cap for the L1-output members. It must track _PAIR_PROJ_BW: at the same cap the L1
 # output is `torch.equal` against the DRAM output of the identical config (max abs 0.0, and a live
 # 298 aa fold returns the same plDDT to six decimals), so moving the destination is free of any
@@ -1763,6 +1769,35 @@ def _pair_proj_config(x: ttnn.Tensor, w: ttnn.Tensor, bw_cap: int | None = -1,
 # the allocation itself; remembering the refusal keeps it to one attempt per class per process.
 _L1_OUT_REFUSED: set = set()
 
+# (served, declined) and the clause each decline refused on, so the lever census can see this gate.
+# It could not before: the L1-destination leg was the last pair-track L1 gate with no counter, and
+# it is the one that fires in Nesso-1's trimul out-projection at 576 padded tokens on a 13x10 grid
+# -- tt-metal logs `Statically allocated circular buffers in program N clash with L1 buffers` at
+# `critical`, the bare except below memoises the class, and every later call at that shape takes
+# the DRAM leg. Nothing in the fold said so, and the DRAM leg is a different program config rather
+# than the same one writing somewhere else, so this is not a cosmetic gap. Same defect class as
+# TRANSPOSE_L1_RESIDENT and SDPA_Q_CHUNK_FITS, which got counters out of the sizes-recheck campaign
+# while this one was missed.
+PAIR_PROJ_L1_OUT_STATS = [0, 0]
+PAIR_PROJ_L1_OUT_REJECTS: dict = {}
+
+
+def _l1_out_declined(reason: str, x, loud: bool = False) -> None:
+    """Count one refused L1-destination projection, and name it once per shape when the allocator
+    is what refused -- tt-metal logs that at `critical` before raising, which reads like a fatal
+    error to anyone watching the fold."""
+    shape = tuple(int(d) for d in x.padded_shape)
+    key = (reason, shape)
+    first = key not in PAIR_PROJ_L1_OUT_REJECTS
+    PAIR_PROJ_L1_OUT_REJECTS[key] = PAIR_PROJ_L1_OUT_REJECTS.get(key, 0) + 1
+    PAIR_PROJ_L1_OUT_STATS[1] += 1
+    if loud and first:
+        print("[tt-bio] pair projection L1 output refused at "
+              + "x".join(str(d) for d in shape)
+              + f" ({COMPUTE_GRID_MAIN[0]}x{COMPUTE_GRID_MAIN[1]} grid): this shape takes the "
+              "DRAM leg for the rest of the process. The tt-metal 'critical' line above is "
+              "expected and handled.", file=sys.stderr, flush=True)
+
 
 # The DRAM-output leg of `_pair_proj_linear` is a `ttnn.linear` with a program config tuned for
 # the out_block_h drain schedule. For a square K=256, N=256 pair projection `minimal_matmul` with
@@ -1820,18 +1855,25 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
     """
     if l1_out and _PAIR_PROJ_L1_OUT:
         key = (tuple(x.padded_shape), tuple(w.shape), str(dtype), l1_bw, l1_block_w)
-        if key not in _L1_OUT_REFUSED:
+        if key in _L1_OUT_REFUSED:
+            _l1_out_declined("memoised", x)
+        else:
             cfg = _pair_proj_config(
                 x, w, bw_cap=_PAIR_PROJ_L1_BW if l1_bw is None else l1_bw,
                 out_l1=True, block_w=l1_block_w)
-            if cfg is not None:
+            if cfg is None:
+                _l1_out_declined("no_config", x)
+            else:
                 try:
-                    return ttnn.linear(
+                    out = ttnn.linear(
                         x, w, memory_config=ttnn.L1_MEMORY_CONFIG, dtype=dtype,
                         compute_kernel_config=ckc, program_config=cfg,
                     )
+                    PAIR_PROJ_L1_OUT_STATS[0] += 1
+                    return out
                 except Exception:
                     _L1_OUT_REFUSED.add(key)
+                    _l1_out_declined("l1_clash", x, loud=True)
     mm = _pair_proj_minimal_matmul(x, w, ckc, dtype)
     if mm is not None:
         return mm
@@ -1858,14 +1900,19 @@ def _narrow_proj_linear(x, w, ckc, dtype, l1_out: bool = False):
     if cfg is None:
         return None
     key = (tuple(x.padded_shape), tuple(w.shape), str(dtype))
-    if l1_out and key not in _L1_OUT_REFUSED:
+    if l1_out and key in _L1_OUT_REFUSED:
+        _l1_out_declined("memoised", x)
+    elif l1_out:
         try:
-            return ttnn.linear(
+            out = ttnn.linear(
                 x, w, memory_config=ttnn.L1_MEMORY_CONFIG, dtype=dtype,
                 compute_kernel_config=ckc, program_config=cfg,
             )
+            PAIR_PROJ_L1_OUT_STATS[0] += 1
+            return out
         except Exception:
             _L1_OUT_REFUSED.add(key)
+            _l1_out_declined("l1_clash", x, loud=True)
             cfg = _pair_proj_config(x, w, bw_cap=_NARROW_PROJ_BW)
             if cfg is None:
                 return None
@@ -6192,6 +6239,18 @@ class TorchWrapper(nn.Module):
         for value in self._runtime_cache.values():
             self._deallocate_tensor_like(value)
         self._runtime_cache.clear()
+
+    def invalidate_masks(self):
+        """Drop the cached masks so the next forward rebuilds them.
+
+        Masks are cached on the first forward and reused, which is right for a model
+        whose token count is fixed for the run. Nesso-1's is not: it crops to the
+        pocket after the first trunk pass, so the remaining recycles run at a
+        different N with a different pad mask. Call this whenever the mask or the
+        sequence length changes between two forwards of the same module.
+        """
+        self._clear_runtime_cache()
+        self._first_forward_pass = True
 
     def _load_from_state_dict(self, state_dict, prefix, _local_metadata, _strict, _missing_keys, _unexpected_keys, _error_msgs):
         self.module = self._create_module(WeightScope.wrap(state_dict).child(prefix[:-1]))
