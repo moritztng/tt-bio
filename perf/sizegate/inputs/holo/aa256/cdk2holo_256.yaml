@@ -1,0 +1,12 @@
+# The affinity ladder rung with the affinity property removed: same protein, same
+# ligand, same token count, structure only. The control that separates a lever
+# difference caused by the AFFINITY MODULE from one caused by the ligand raising the
+# token count. Also the only ligand-bearing input the arm has for the models that
+# ship co-folding and no affinity head.
+sequences:
+  - protein:
+      id: A
+      sequence: MENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLLDVIHTENKLYLVFEFLHQDLKKFMDASALTGIPLPLIKSYLFQLLQGLAFCHSHRVLHRDLKPQNLLINTEGAIKLADFGLARAFGVPVRTYTHEVVTLWYRAPEILLGCKYYSTAVDIWSLGCIFAEMVTRRALFPGDSEIDQLFRIFRTLGTPDEVVWPGVTSMPDYKPSFPKWARQDFSKVVPPLD
+  - ligand:
+      id: B
+      smiles: 'Fc1ccc(cc1)C(=O)Nc1ccc(cc1)S(=O)(=O)N'

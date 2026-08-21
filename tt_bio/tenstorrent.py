@@ -292,6 +292,17 @@ _PAIR_BIAS_L1_NORM = True
 # at 905216, static CB region ending at 1159680). `_template` gathers its projections above the
 # block loop so the residency window is the projections only.
 _PWA_L1_NORM = True
+# Bytes per core that must stay free when a pair tensor is left L1-resident for a narrow
+# projection. The wall is per core, and an aggregate multiple of the tensor cannot see it: the
+# tensor scales with its area, its consumers' static circular buffers scale with the row width.
+# Measured on a p150a at S=704, the largest shape the old 1.5x aggregate headroom admitted --
+# live L1 buffers held 1230848 B/core and the pair-weighted-averaging softmax's static circular
+# buffers needed 316448 B/core, 14848 B past the 1532448 B the part has, so program creation
+# threw and the fold died. Need there is 563658 B/core; this carries 1.16x of it. Only has to be
+# right near the decision boundary, which is where it was measured -- at smaller shapes the gate
+# is nowhere near binding. Absolute bytes rather than a multiple so it scales the safe way onto a
+# part with less L1 per core.
+_PAIR_L1_CONSUMER_RESERVE = 640 * 1024
 _TEMPLATE_L1_NORM = True
 
 # Matmul fidelity for the trunk. The FPU is a 5b x 7b multiplier: srcA contributes a hidden bit plus
@@ -1704,16 +1715,21 @@ def _transpose_memory_config(t: ttnn.Tensor, reserve_per_core: int = 0) -> ttnn.
     return _l1_memory_config_if_it_fits(t, 1.0, reserve_per_core=reserve_per_core)
 
 
-def _l1_layer_norm(x: ttnn.Tensor, headroom: float, **kw):
+def _l1_layer_norm(x: ttnn.Tensor, headroom: float, reserve_per_core: int = 0, **kw):
     """`ttnn.layer_norm` writing to L1 when it fits, else to DRAM. Returns (tensor, in_l1).
 
     For a narrow-output projection that reads a whole activation tensor to write one tile of
     width, the source is the cost and the destination is not, so the lever is to hand the
     projection an L1-resident operand. `_l1_memory_config_if_it_fits` is a static budget and
-    cannot see what the live block already holds, so the allocation itself is the real test and
-    a refusal has to leave today's behaviour exactly intact.
+    cannot see what the live block already holds, so a refusal has to leave today's behaviour
+    exactly intact.
+
+    The allocation succeeding is NOT the test. It allocates from the interleaved L1 pool, while
+    what fails is a later consumer's per-core static circular buffers, at program creation, ops
+    away from here -- so pass `reserve_per_core` to keep that room free. Callers holding a pair
+    tensor want `_PAIR_L1_CONSUMER_RESERVE`.
     """
-    if _l1_memory_config_if_it_fits(x, headroom) is ttnn.L1_MEMORY_CONFIG:
+    if _l1_memory_config_if_it_fits(x, headroom, reserve_per_core) is ttnn.L1_MEMORY_CONFIG:
         try:
             return ttnn.layer_norm(x, memory_config=ttnn.L1_MEMORY_CONFIG, **kw), True
         except Exception:                                                     # noqa: BLE001
@@ -4310,7 +4326,8 @@ class AttentionPairBias(Module):
                 # write one tile of width, so it is bound by its SOURCE, not by its own write.
                 # Handing it an L1-resident normed z removes the norm's DRAM write and the
                 # projection's DRAM read at once: 450.3 -> 137.0 us on the projection.
-                z, in_l1 = (_l1_layer_norm(z, 1.5, weight=self.z_norm_weight,
+                z, in_l1 = (_l1_layer_norm(z, 1.0, _PAIR_L1_CONSUMER_RESERVE,
+                                           weight=self.z_norm_weight,
                                            bias=self.z_norm_bias, epsilon=1e-5,
                                            compute_kernel_config=self.compute_kernel_config)
                             if _PAIR_BIAS_L1_NORM else
@@ -5837,7 +5854,8 @@ class PairWeightedAveraging(Module):
         # One layer_norm, `n_heads` projections of it: every head reads the whole normed pair
         # tensor to write one tile of width, so all eight are source-bound and one L1-resident
         # copy serves all of them. 3572.2 -> 991.0 us on the eight-head region, `torch.equal`.
-        z, z_in_l1 = (_l1_layer_norm(z, 1.5, weight=self.z_norm_weight, bias=self.z_norm_bias,
+        z, z_in_l1 = (_l1_layer_norm(z, 1.0, _PAIR_L1_CONSUMER_RESERVE,
+                                     weight=self.z_norm_weight, bias=self.z_norm_bias,
                                      epsilon=1e-5,
                                      compute_kernel_config=self.compute_kernel_config)
                       if _PWA_L1_NORM else
