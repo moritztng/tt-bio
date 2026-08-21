@@ -1,0 +1,70 @@
+{
+  "bar_move": {
+    "device_affinity_pred_value": 2.552168,
+    "device_reproducibility": "2.552168 on three independent folds, bit-identical",
+    "new": {
+      "bound": 0.038652,
+      "envelope": 0.019101,
+      "numerator": 0.053731,
+      "ratio": 2.813,
+      "reference_commit": "1e1dc7c4",
+      "reference_fp32_affinity_pred_value": 2.605899,
+      "verdict": "GAP"
+    },
+    "note": "v0.6.5 regenerated this leg fp32+bf16 CPU references on the fixed code (1190a1daa seeded RDKit ETKDG, which the CPU reference path also went through). The envelope shrank by more than half and the device-vs-reference residual is no longer masked. Device value did not move. The bound was NOT widened to keep the leg green: the leg is recorded GAP and the gate fails on it until the ~2% is explained.",
+    "old": {
+      "bound": 0.075429,
+      "envelope": 0.043619,
+      "numerator": 0.076088,
+      "ratio": 1.744,
+      "reference_commit": "b48876d9d",
+      "reference_fp32_affinity_pred_value": 2.628256,
+      "verdict": "GAP (marginal, 0.9% over bound)"
+    }
+  },
+  "kind": "affinity",
+  "leg": "boltz2-affinity-tryp-nomsa",
+  "margin": 0.5,
+  "metrics": {
+    "1-pocket_lddt": {
+      "abs_floor": 0.005,
+      "bound": 0.22343737213435794,
+      "envelope": 0.14562491475623862,
+      "margin": 0.5,
+      "numerator": 0.0,
+      "pass": true,
+      "ratio": 0.0
+    },
+    "affinity_pred_value": {
+      "abs_floor": 0.01,
+      "bound": 0.038651500000000054,
+      "envelope": 0.019101000000000035,
+      "margin": 0.5,
+      "numerator": 0.05373099999999997,
+      "pass": false,
+      "ratio": 2.812994084079361
+    },
+    "affinity_probability_binary": {
+      "abs_floor": 0.01,
+      "bound": 0.028224999999999993,
+      "envelope": 0.012149999999999994,
+      "margin": 0.5,
+      "numerator": 0.008938000000000001,
+      "pass": true,
+      "ratio": 0.735637860082305
+    },
+    "ligand_rmsd": {
+      "abs_floor": 0.05,
+      "bound": 0.2900885032693413,
+      "envelope": 0.16005900217956087,
+      "margin": 0.5,
+      "numerator": 0.017392694143837602,
+      "pass": true,
+      "ratio": 0.10866426697028732
+    }
+  },
+  "mode": "integration_envelope",
+  "reference_commit": "1e1dc7c4",
+  "target": "affinity_tryp",
+  "verdict": "GAP"
+}

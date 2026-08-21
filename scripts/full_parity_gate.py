@@ -393,9 +393,12 @@ LEGS = [
                       "--sampling_steps_affinity", "200", "--recycling_steps", "3",
                       "--sampling_steps", "200", "--diffusion_samples", "1"),
         msa="yaml", min_fold_timeout=AFFINITY_FOLD_TIMEOUT_S),
+    # The envelope record is this leg's own (not the R/D/X-era boltz2-affinity-tryp-seeded.json
+    # the MSA leg still reads): v0.6.5 regenerated its CPU references on the seeded-ETKDG code,
+    # which tightened the envelope and left a ~2% affinity-scalar residual visible as a GAP.
     Leg(f"boltz2-affinity-tryp-nomsa", "boltz2", "affinity", "examples/affinity_tryp.yaml",
         fixture="boltz2/affinity_tryp/nomsa_200step_5affsample_3recycle_bf16_mwcorr",
-        committed_json="boltz2-affinity-tryp-seeded.json", target_id="affinity_tryp",
+        committed_json="boltz2-affinity-tryp-nomsa-envelope.json", target_id="affinity_tryp",
         device_args=("--single_sequence", "--affinity_mw_correction",
                       "--diffusion_samples_affinity", "5", "--sampling_steps_affinity", "200",
                       "--recycling_steps", "3", "--sampling_steps", "200", "--diffusion_samples", "1"),
