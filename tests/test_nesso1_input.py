@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -114,3 +115,18 @@ def test_given_esm_path_is_used_and_a_missing_one_raises(tmp_path):
 
     with pytest.raises(FileNotFoundError):
         link_given_esm({mid: str(tmp_path / "nope.safetensors")}, tmp_path / "esm2")
+
+
+def test_msa_key_is_ignored_out_loud():
+    """The README tells users the affinity YAML is the Boltz-2 one, and every
+    examples/affinity_*.yaml carries ``msa:``. Nesso-1 never reads an alignment, so the
+    vendored parser drops the key — it used to do it in silence, the same way ``esm:``
+    was collected and dropped."""
+    from tt_bio.nesso1_input import warn_ignored_protein_keys
+
+    with pytest.warns(UserWarning, match="msa"):
+        assert warn_ignored_protein_keys([REPO / "examples/affinity_fkg.yaml"]) == ["msa"]
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert warn_ignored_protein_keys([REPO / "examples/affinity.yaml"]) == []

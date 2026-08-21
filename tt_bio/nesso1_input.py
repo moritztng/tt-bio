@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import warnings
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
@@ -82,24 +83,56 @@ def find_yamls(data: Path) -> list[Path]:
     return [data]
 
 
-def collect_esm(yaml_paths: list[Path]) -> tuple[dict[str, str], dict[str, str]]:
-    """``({md5(seq): seq}, {md5(seq): precomputed_esm_path})`` over protein entities."""
-    seqs: dict[str, str] = {}
-    given: dict[str, str] = {}
+def protein_blocks(yaml_paths: list[Path]):
+    """Every ``protein:`` block with a sequence, across the inputs, in file order."""
     for yp in yaml_paths:
         schema = pyyaml.safe_load(yp.read_text())
         if not isinstance(schema, dict):
             continue
         for item in schema.get("sequences", []) or []:
             block = (item or {}).get("protein")
-            if not block or "sequence" not in block:
-                continue
-            seq = str(block["sequence"])
-            mid = hashlib.md5(seq.encode("utf-8")).hexdigest()
-            seqs.setdefault(mid, seq)
-            if block.get("esm"):
-                given.setdefault(mid, str(block["esm"]))
+            if block and "sequence" in block:
+                yield block
+
+
+def collect_esm(yaml_paths: list[Path]) -> tuple[dict[str, str], dict[str, str]]:
+    """``({md5(seq): seq}, {md5(seq): precomputed_esm_path})`` over protein entities."""
+    seqs: dict[str, str] = {}
+    given: dict[str, str] = {}
+    for block in protein_blocks(yaml_paths):
+        seq = str(block["sequence"])
+        mid = hashlib.md5(seq.encode("utf-8")).hexdigest()
+        seqs.setdefault(mid, seq)
+        if block.get("esm"):
+            given.setdefault(mid, str(block["esm"]))
     return seqs, given
+
+
+# The only keys ``_parse_entity`` reads off a ``protein:`` block. The vendored parser drops
+# everything else without a word, and we tell users the affinity YAML is the Boltz-2 one,
+# which carries ``msa:``. Ignoring that key is right — Nesso-1 conditions on ESM-2, never on
+# an alignment — but ignoring it silently is the defect we already fixed once for ``esm:``.
+PROTEIN_KEYS = frozenset({"id", "sequence", "esm", "pocket_mask"})
+
+_IGNORED_KEY_WHY = {
+    "msa": "Nesso-1 conditions on ESM-2 embeddings, not on an alignment",
+}
+
+
+def warn_ignored_protein_keys(yaml_paths: list[Path]) -> list[str]:
+    """Warn once per run about ``protein:`` keys the featurizer reads and then drops."""
+    ignored = sorted({k for b in protein_blocks(yaml_paths) for k in b} - PROTEIN_KEYS)
+    if ignored:
+        named = ", ".join(
+            f"{k} ({_IGNORED_KEY_WHY[k]})" if k in _IGNORED_KEY_WHY else k
+            for k in ignored
+        )
+        warnings.warn(
+            f"ignoring protein keys Nesso-1 does not read: {named}. "
+            f"It reads {', '.join(sorted(PROTEIN_KEYS))}.",
+            stacklevel=2,
+        )
+    return ignored
 
 
 def link_given_esm(given: dict[str, str], esm_dir: Path) -> int:
@@ -261,6 +294,7 @@ def prepare(
 ):
     """YAML path or directory -> (dataset, manifest, failed stems)."""
     yaml_paths = find_yamls(data)
+    warn_ignored_protein_keys(yaml_paths)
     paths = resolve_paths(out_dir)
     # esm_cache is the HuggingFace cache the caller named (`--cache`), which is where the
     # checkpoint and so ccd.pkl live too. Not passing it made `--cache` a documented no-op for
