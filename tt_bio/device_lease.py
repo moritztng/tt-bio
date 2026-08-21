@@ -92,6 +92,31 @@ def _holder_label():
     return os.environ.get("TT_BIO_LEASE_HOLDER") or f"pid:{os.getpid()}"
 
 
+def granted_cards():
+    """Physical cards this process is ALLOWED to open, or ``None`` for unbounded.
+
+    ``TT_VISIBLE_DEVICES`` is advice the caller gives itself: a job that never exports it
+    (a detached chain, a hand-launched campaign, a gate leg that shells out without the
+    ambient pin) selects cards by discovery and can take the whole box while holding a
+    one-card grant. That is how qb1 went down on 2026-08-21 -- a gate leg opened all four
+    cards under a single-card lease.
+
+    ``TT_BIO_LEASE_CARDS`` is the grant instead of the advice: the dispatcher writes the
+    cards it actually handed out, and an open outside that set is refused here, at the one
+    choke point every device open passes through. A ``fleet.sh`` that can only refuse to
+    *dispatch* cannot stop a process it did not launch; this can.
+
+    Absent or empty means unbounded, which is every path in existence until a control plane
+    starts writing it -- so the production service, the Galaxy's multi-card mesh opens and
+    every manual run behave exactly as before.
+    """
+    raw = os.environ.get("TT_BIO_LEASE_CARDS", "")
+    if not raw.strip():
+        return None
+    cards = {tok.strip() for tok in raw.split(",") if tok.strip()}
+    return cards or None
+
+
 class DeviceLease:
     """An exclusive lease on one physical TT card, held for as long as the device is open."""
 
@@ -131,6 +156,13 @@ class DeviceLease:
     def acquire(self):
         """Atomically claim the card. Blocks up to ``timeout`` if a LIVE process holds it,
         then raises :class:`DeviceInUseError`. Returns ``self``."""
+        granted = granted_cards()
+        if granted is not None and self.card not in granted:
+            raise DeviceInUseError(
+                f"physical card {self.card} on {self.host} is outside this job's card grant "
+                f"TT_BIO_LEASE_CARDS={','.join(sorted(granted))}. Refusing to open it. "
+                f"(Held grant, not advice: unset TT_BIO_LEASE_CARDS for an unbounded run.)"
+            )
         os.makedirs(self.dir, exist_ok=True)
         fd = os.open(self.path, os.O_RDWR | os.O_CREAT, 0o664)
         deadline = time.time() + self.timeout

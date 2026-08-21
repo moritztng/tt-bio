@@ -18,7 +18,7 @@ import time
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 
-from tt_bio.device_lease import DeviceLease, DeviceInUseError
+from tt_bio.device_lease import DeviceLease, DeviceInUseError, granted_cards
 
 try:
     import pytest
@@ -149,6 +149,66 @@ def test_clean_release(d):
     print("  clean release: re-leased immediately after context exit  OK")
 
 
+def test_card_grant_refuses_card_outside_grant(d):
+    """A card outside TT_BIO_LEASE_CARDS is refused, and refused FAST (no timeout wait).
+
+    This is the hole the gate-side pin cannot close: a job that never exports
+    TT_VISIBLE_DEVICES discovers cards itself and can open the whole box under a one-card
+    grant (qb1, 2026-08-21). Fails against the pre-grant code, which leased card 3 happily.
+    """
+    os.environ["TT_BIO_LEASE_CARDS"] = "1"
+    try:
+        t0 = time.time()
+        try:
+            DeviceLease(card="3", timeout=30).acquire()
+        except DeviceInUseError as e:
+            waited = time.time() - t0
+            assert "TT_BIO_LEASE_CARDS=1" in str(e), f"error does not name the grant: {e}"
+            assert "3" in str(e), f"error does not name the refused card: {e}"
+            assert waited < 1.0, f"refusal waited on the flock timeout ({waited:.2f}s)"
+        else:
+            raise AssertionError("card 3 was leased while the grant was card 1 only")
+        # no lease file may be left behind for a card we never held
+        assert not os.path.exists(os.path.join(d, "testhost-card3.json")), \
+            "refused card left a lease file behind"
+        print("  card grant: card 3 refused under grant=1, fast, no stray lease file  OK")
+    finally:
+        os.environ.pop("TT_BIO_LEASE_CARDS", None)
+
+
+def test_card_grant_allows_granted_and_multi_card_grant(d):
+    """A granted card still opens, and a multi-card grant admits every card in it.
+
+    Guards the sanctioned card-fanout pattern: a worker legitimately using sibling cards
+    gets a grant listing them, not a single card, and must not be refused.
+    """
+    os.environ["TT_BIO_LEASE_CARDS"] = "0,2 ,3"
+    try:
+        for card in ("0", "2", "3"):
+            with DeviceLease(card=card, timeout=5):
+                pass
+        print("  card grant: every card in a multi-card grant opens (0,2,3)  OK")
+    finally:
+        os.environ.pop("TT_BIO_LEASE_CARDS", None)
+
+
+def test_card_grant_absent_or_empty_is_unbounded(d):
+    """Unset AND empty mean unbounded -- so nothing changes until a control plane writes it.
+
+    This is the whole rollout safety argument: JapanFold's worker pool, the Galaxy's
+    multi-card mesh opens and every manual run must be untouched by this commit.
+    """
+    for value in (None, "", "  ", ","):
+        os.environ.pop("TT_BIO_LEASE_CARDS", None)
+        if value is not None:
+            os.environ["TT_BIO_LEASE_CARDS"] = value
+        assert granted_cards() is None, f"TT_BIO_LEASE_CARDS={value!r} was not treated as unbounded"
+        with DeviceLease(card="3", timeout=5):
+            pass
+    os.environ.pop("TT_BIO_LEASE_CARDS", None)
+    print("  card grant: unset/empty/whitespace/bare-comma all unbounded  OK")
+
+
 if __name__ == "__main__":
     with tempfile.TemporaryDirectory() as d:
         # The main process must lease into the SAME dir/host as the spawned holders so
@@ -162,4 +222,7 @@ if __name__ == "__main__":
         test_timeout_errors_cleanly(d)
         test_sigkill_reclaim(d)
         test_sigterm_release(d)
+        test_card_grant_refuses_card_outside_grant(d)
+        test_card_grant_allows_granted_and_multi_card_grant(d)
+        test_card_grant_absent_or_empty_is_unbounded(d)
     print("ALL DEVICE-LEASE UNIT TESTS PASSED")
