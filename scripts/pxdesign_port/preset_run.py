@@ -367,7 +367,7 @@ def ptx_fold(model, feats, seed: int, variant: str, n_step: int | None = None):
     return coords[0], conf
 
 
-def target_template_decision(target_seq, a3m, target_ca, seed, thres):
+def target_template_decision(target_seq, a3m, target_ca, seed, thres, n_step=None):
     """`use_target_template_or_not`: fold the bare target and compare it to the crystal.
 
     Returns (use_template, rmsd). Upstream returns True -- switch to `mini_tmpl` -- when the
@@ -376,17 +376,17 @@ def target_template_decision(target_seq, a3m, target_ca, seed, thres):
     """
     model, witness = load_ptx("base")
     feats = ptx_features([(target_seq, a3m, "protein")])
-    coords, _ = ptx_fold(model, feats, seed, "base")
+    coords, _ = ptx_fold(model, feats, seed, "base", n_step=n_step)
     rmsd = kabsch_rmsd(target_ca, coords[ca_rows(feats)].numpy())
     del model
     return bool(rmsd >= thres), round(rmsd, 3), witness
 
 
-def ptx_score(model, row, target_seq, a3m, struct, seed, variant):
+def ptx_score(model, row, target_seq, a3m, struct, seed, variant, n_step=None):
     feats = ptx_features([(target_seq, a3m, "protein"), (row["seq"], None, "protein")],
                          struct=struct)
     t0 = time.time()
-    coords, conf = ptx_fold(model, feats, seed, variant)
+    coords, conf = ptx_fold(model, feats, seed, variant, n_step=n_step)
     pred_ca = coords[ca_rows(feats)].numpy()
     tgt_ca, bnd_ca = design_ca(Path(row["design_pdb"]))
     binder_idx = -1                               # the binder is the last chain
@@ -422,8 +422,13 @@ def main() -> int:
                     help="the target's cached alignment directory (non_pairing.a3m). Both "
                          "Protenix filter variants ship use_msa: True")
     ap.add_argument("--target_template_rmsd_thres", type=float, default=2.0,
-                    help="the shipped 2.0 A. 0.0 forces the mini_tmpl arm, because the switch "
-                         "fires on rmsd >= thres")
+                    help="the shipped 2.0 A. 0.0 forces the mini_tmpl arm and a huge value "
+                         "forces the base arm, because the switch fires on rmsd >= thres")
+    ap.add_argument("--ptx_n_step", type=int, default=PTX_CFG["N_step"],
+                    help="diffusion steps for the Protenix filter folds. Upstream screens at 2 "
+                         "(pxdbench/tools/ptx/ptx.py:185) and refines at 20; on tt-bio's sampler "
+                         "2 steps does not fold at all, so a run that wants a structure has to "
+                         "say so and label it")
     args = ap.parse_args()
 
     out = Path(args.out)
@@ -482,7 +487,8 @@ def main() -> int:
                             + [torch.zeros(n_binder, dtype=torch.bool)])
 
         use_tmpl, tgt_rmsd, base_witness = target_template_decision(
-            target_seq, a3m, target_ca, args.seed, args.target_template_rmsd_thres)
+            target_seq, a3m, target_ca, args.seed, args.target_template_rmsd_thres,
+            args.ptx_n_step)
         variant = "mini_tmpl" if use_tmpl else "base"
         print(f"[preset] target fold RMSD {tgt_rmsd} A against a "
               f"{args.target_template_rmsd_thres} A threshold -> ptx variant {variant} "
@@ -491,7 +497,7 @@ def main() -> int:
         state["ptx"] = {"variant": variant, "use_target_template": use_tmpl,
                         "target_fold_rmsd": tgt_rmsd,
                         "target_template_rmsd_thres": args.target_template_rmsd_thres,
-                        "msa": args.ptx_msa, "witness": witness,
+                        "msa": args.ptx_msa, "witness": witness, "n_step": args.ptx_n_step,
                         "decision_fold_witness": base_witness, "cfg": PTX_CFG}
         print(f"[preset] ptx witness: opened {witness['checkpoint_name']}, "
               f"{witness['params_m']} M params, {witness['pairformer_blocks']} pairformer "
@@ -500,7 +506,8 @@ def main() -> int:
               f"{witness['noisy_structure_embedder_built']}", flush=True)
         struct = (cb, cb_mask) if variant == "mini_tmpl" else None
         for r in state["rows"]:
-            r.update(ptx_score(model, r, target_seq, a3m, struct, args.seed, variant))
+            r.update(ptx_score(model, r, target_seq, a3m, struct, args.seed, variant,
+                               args.ptx_n_step))
             print(f"[preset] ptx sample {r['sample']}: {r['ptx_s']}s "
                   f"ptm_binder {r['ptx_ptm_binder']:.3f} iptm_binder "
                   f"{r['ptx_iptm_binder']:.3f} rmsd {r['ptx_pred_design_rmsd']:.2f} "
