@@ -1252,7 +1252,13 @@ def _fp32_softmax_shard(rows: int, height_per_row: int, width: int):
         strategy=ttnn.ShardStrategy.HEIGHT, orientation=ttnn.ShardOrientation.ROW_MAJOR)
 
 
-def _accurate_softmax(x, compute_kernel_config=None, fp32: bool = True):
+# exp(-80) = 1.8e-35: nonzero in fp32, and 1e-35 relative on any row that has a real
+# entry, so flooring here is inert for an ordinary row and exact for a fully-masked one.
+_MASK_EXP_FLOOR = -80.0
+
+
+def _accurate_softmax(x, compute_kernel_config=None, fp32: bool = True,
+                      mask_floor: float | None = None):
     """A row softmax built from individual ttnn ops, for logits the fused kernel loses.
 
     `ttnn.softmax` normalises with a denominator that does not match its own numerators:
@@ -1271,6 +1277,16 @@ def _accurate_softmax(x, compute_kernel_config=None, fp32: bool = True):
     cancel in `probs @ v`. On RF3's pairformer that deficit is the whole of
     AttentionPairBias's 13.43x and therefore the whole of the s-track's 11x. Costs 4.22x
     the fused kernel at [1,16,1024,1024] (1.625 vs 0.385 ms), which is why it is opt-in.
+
+    `mask_floor` is required at any site whose additive mask can empty a whole row, and
+    defaults off so callers that predate it are unchanged. `ttnn.max` rounds its fp32
+    input to bf16 (-1e9 comes back as -9.98244e8, bf16's exact truncation of 1e9), so on
+    a row whose every entry is the -1e9 mask, x - max is -1.76e6 rather than 0: exp
+    underflows to 0, the row sums to 0 and the divide gives 0/0. Measured at
+    Fp32TriangleAttention, where the [I,1,1,J] pair mask empties 39936 of 147456 rows and
+    the chain returned nan on 7.67 M of 28.3 M elements. Flooring the exponent argument
+    restores the uniform row a correct softmax produces. The inexact max costs no accuracy
+    by itself: exp(d - delta) = exp(d)exp(-delta) cancels in the division.
     """
     src_dtype = x.dtype
     xf = (ttnn.typecast(x, ttnn.float32, memory_config=x.memory_config())
@@ -1280,6 +1296,8 @@ def _accurate_softmax(x, compute_kernel_config=None, fp32: bool = True):
     ttnn.deallocate(m)
     if xf is not x:
         ttnn.deallocate(xf)
+    if mask_floor is not None:
+        d = ttnn.maximum(d, mask_floor)
     ttnn.exp(d, output_tensor=d)
     s = ttnn.sum(d, dim=-1, keepdim=True, compute_kernel_config=compute_kernel_config)
     p = ttnn.divide(d, s)
@@ -4579,11 +4597,13 @@ class Fp32TriangleAttention(Module):
         ending: bool,
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+        accurate_softmax: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.head_dim = head_dim
         self.n_heads = n_heads
         self.ending = ending
+        self.accurate_softmax = accurate_softmax
         fp32 = ttnn.float32
         self.layer_norm_weight = self.torch_to_tt("layer_norm.weight", dtype=fp32)
         self.layer_norm_bias = self.torch_to_tt("layer_norm.bias", dtype=fp32)
@@ -4641,7 +4661,10 @@ class Fp32TriangleAttention(Module):
             # [I,1,1,J]: depends on (row, key), so it rides the scores, not the
             # bias; broadcasts over heads and queries.
             sc = ttnn.add_(sc, mask_bias)
-        probs = ttnn.softmax(sc, dim=-1, compute_kernel_config=ckc)
+        # mask_floor is not optional here: mask_bias is [I,1,1,J], so it empties whole rows.
+        probs = (_accurate_softmax(sc, ckc, mask_floor=_MASK_EXP_FLOOR)
+                 if self.accurate_softmax else
+                 ttnn.softmax(sc, dim=-1, compute_kernel_config=ckc))
         ttnn.deallocate(sc)
         o = batched_matmul(probs, v, compute_kernel_config=ckc)  # [I,H,J,hd]
         ttnn.deallocate(probs)
@@ -4711,10 +4734,12 @@ class Fp32AttentionPairBias(Module):
         n_heads: int,
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+        accurate_softmax: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.head_dim = head_dim
         self.n_heads = n_heads
+        self.accurate_softmax = accurate_softmax
         pad = -head_dim % 32
         self.padded_head_dim = head_dim + pad
         fp32 = ttnn.float32
@@ -4784,7 +4809,11 @@ class Fp32AttentionPairBias(Module):
         sc = ttnn.multiply_(sc, hd ** -0.5)
         sc = ttnn.add_(sc, bias)
         ttnn.deallocate(bias)
-        probs = ttnn.softmax(sc, dim=-1, compute_kernel_config=ckc)
+        # seq_mask is [B,1,1,L], a key mask, so it cannot empty a row: every query keeps
+        # itself. The floor still rides along -- it is inert on a row with a real entry.
+        probs = (_accurate_softmax(sc, ckc, mask_floor=_MASK_EXP_FLOOR)
+                 if self.accurate_softmax else
+                 ttnn.softmax(sc, dim=-1, compute_kernel_config=ckc))
         ttnn.deallocate(sc)
         o = batched_matmul(probs, v, compute_kernel_config=ckc)  # [B,H,L,phd]
         ttnn.deallocate(probs)
@@ -4813,6 +4842,7 @@ class Fp32PairformerLayer(Module):
         transform_s: bool,
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+        accurate_softmax: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.transform_s = transform_s
@@ -4825,10 +4855,12 @@ class Fp32PairformerLayer(Module):
         self.triangle_attention_start = Fp32TriangleAttention(
             tri_att_head_dim, tri_att_n_heads, False,
             self.scope("tri_att_start", "mha."), compute_kernel_config,
+            accurate_softmax=accurate_softmax,
         )
         self.triangle_attention_end = Fp32TriangleAttention(
             tri_att_head_dim, tri_att_n_heads, True,
             self.scope("tri_att_end", "mha."), compute_kernel_config,
+            accurate_softmax=accurate_softmax,
         )
         self.transition_z = Fp32Transition(
             self.scope("transition_z"), compute_kernel_config
@@ -4839,6 +4871,7 @@ class Fp32PairformerLayer(Module):
             self.attention_pair_bias = Fp32AttentionPairBias(
                 att_head_dim, att_n_heads,
                 self.scope("attention"), compute_kernel_config,
+                accurate_softmax=accurate_softmax,
             )
             self.transition_s = Fp32Transition(
                 self.scope("transition_s"), compute_kernel_config
@@ -4893,12 +4926,14 @@ class Fp32Pairformer(Module):
         transform_s: bool,
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+        accurate_softmax: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.blocks = [
             Fp32PairformerLayer(
                 tri_att_head_dim, tri_att_n_heads, att_head_dim, att_n_heads,
                 transform_s, self.scope(f"layers.{i}"), compute_kernel_config,
+                accurate_softmax=accurate_softmax,
             )
             for i in range(n_blocks)
         ]
@@ -6266,6 +6301,7 @@ class PairformerModule(TorchWrapper):
         att_n_heads: int,
         transform_s: bool,
         affinity: bool = False,
+        accurate_softmax: bool = False,
     ):
         super().__init__()
         self.n_blocks = n_blocks
@@ -6275,6 +6311,7 @@ class PairformerModule(TorchWrapper):
         self.att_n_heads = att_n_heads
         self.transform_s = transform_s
         self.affinity = affinity
+        self.accurate_softmax = accurate_softmax
 
     def _create_module(self, weights: WeightScope):
         return Pairformer(
@@ -6287,6 +6324,7 @@ class PairformerModule(TorchWrapper):
             weights,
             self.compute_kernel_config,
             affinity=self.affinity,
+            accurate_softmax=self.accurate_softmax,
         )
 
     def forward(
@@ -6367,6 +6405,7 @@ class Fp32PairformerModule(TorchWrapper):
         att_head_dim: int,
         att_n_heads: int,
         transform_s: bool,
+        accurate_softmax: bool = False,
     ):
         super().__init__()
         self.n_blocks = n_blocks
@@ -6375,6 +6414,7 @@ class Fp32PairformerModule(TorchWrapper):
         self.att_head_dim = att_head_dim
         self.att_n_heads = att_n_heads
         self.transform_s = transform_s
+        self.accurate_softmax = accurate_softmax
 
     def _create_module(self, weights: WeightScope):
         return Fp32Pairformer(
@@ -6386,6 +6426,7 @@ class Fp32PairformerModule(TorchWrapper):
             self.transform_s,
             weights,
             self.compute_kernel_config,
+            accurate_softmax=self.accurate_softmax,
         )
 
     def forward(
