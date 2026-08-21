@@ -21,6 +21,7 @@ import ttnn
 
 from .tenstorrent import (
     Module, OuterProductMean, PairWeightedAveraging, Transition, PairformerLayer,
+    accurate_softmax_site,
 )
 from .openfold3_weights import remap_msa_module
 
@@ -83,7 +84,8 @@ class MSAModuleBlock:
         # Boltz convention and was root-caused as the OF3 MSA z-track degradation.
         self.pair_stack = PairformerLayer(
             *_MSA_TRI_DIMS, None, None, False, block_remap["pair_stack"], ckc,
-            scale_pair_bias=False, fp32_softmax=True)
+            scale_pair_bias=False, fp32_softmax=True,
+            accurate_softmax=accurate_softmax_site("openfold3.msa"))
 
     def __call__(self, m, z):
         z = ttnn.add(z, self.opm(m, None, None))
