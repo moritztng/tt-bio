@@ -221,6 +221,15 @@ class AF2PairBlock(Module):
     #: `(download, upload, twins)`, the bridge a substituted op crosses.
     host_ops: tuple | None = None
 
+    #: Op attribute names dropped entirely: the op does not run and its residual add becomes the
+    #: identity. `substitute` is the wrong instrument for a COST screen because it moves an op to
+    #: host torch, so a leg measures `host_X - device_X` rather than `device_X`. This one measures
+    #: the device cost of the op class plus the one residual add that carries it. It is
+    #: arithmetically wrong on purpose -- a leg times synthetic inputs and makes no accuracy claim,
+    #: the same convention `trunk_timing.py` ships -- and, like `substitute`, a fold leaves it
+    #: empty. Set by `scripts/af2_port/fold_timing.py --skip`.
+    skip: frozenset = frozenset()
+
     #: Route every residual add through float32 so the bfloat16 result rounds ties to even, which
     #: is what torch and JAX do. `ttnn.add` breaks them away from zero and its bfloat16 datapath
     #: is narrower than float32, so it disagrees with the reference on 11.2% of elements at equal
@@ -239,12 +248,16 @@ class AF2PairBlock(Module):
     #: comes back to whatever memory config the input arrived in.
     rne_wide_dram = True
 
-    def _residual(self, x: ttnn.Tensor, update: ttnn.Tensor) -> ttnn.Tensor:
+    def _residual(self, x: ttnn.Tensor, update: ttnn.Tensor | None) -> ttnn.Tensor:
         """`x + update`, and it owns `update`.
 
         The wide path is bit-identical to torch's bfloat16 add at every operand ratio measured,
         which the in-place `ttnn.add_` is not.
+
+        `None` is a skipped op (see `skip`): there is no update, so the residual is the identity.
         """
+        if update is None:
+            return x
         if not self.rne_residual:
             out = ttnn.add_(x, update)
             ttnn.deallocate(update)
@@ -284,7 +297,8 @@ class AF2PairBlock(Module):
         self.pair_transition = ReluTransition(
             self.scope("pair_transition"), compute_kernel_config)
 
-    def _update(self, name: str, device, x: ttnn.Tensor, *args: ttnn.Tensor) -> ttnn.Tensor:
+    def _update(self, name: str, device, x: ttnn.Tensor,
+                *args: ttnn.Tensor) -> ttnn.Tensor | None:
         """One op's residual update: from the card, or from its host-torch twin if substituted.
 
         The residual add stays on card either way, so a substitution changes exactly one op's
@@ -292,7 +306,11 @@ class AF2PairBlock(Module):
         instrument: an isolated per-op screen scores an op against its own captured input and
         measures how much error it injects, while this one leaves the op in the chain and
         measures how fast the block's error grows with it swapped out.
+
+        A skipped op has no update at all, which `_residual` turns into the identity.
         """
+        if name in self.skip:
+            return None
         if name not in self.substitute:
             return device(x, *args)
         down, up, twins = self.host_ops
@@ -529,6 +547,10 @@ class AF2DeviceModel(AF2Model):
     #: every fold.
     substitute: frozenset = frozenset()
 
+    #: Op classes dropped from BOTH device stacks, for the cost census. `set_skip` sets it, a fold
+    #: leaves it empty, and `AF2PairBlock.skip` says why it is not `substitute`.
+    skip: frozenset = frozenset()
+
     #: Off recomputes the template every pass. It must change no number anywhere, which is what
     #: `tap_gate.py --device --no-template-cache` checks against the same reference taps.
     template_cached = True
@@ -592,6 +614,13 @@ class AF2DeviceModel(AF2Model):
             for name in ("msa_row_attn", "msa_col_attn"):
                 if hasattr(block, name):
                     getattr(block, name).rne_sigmoid = enabled
+
+    def set_skip(self, names) -> None:
+        """Drop an op class from both device stacks. See `AF2PairBlock.skip`; a fold never calls
+        this, and every leg that does is a timing leg on synthetic inputs."""
+        self.skip = frozenset(names)
+        for block in self.device_extra_msa + self.device_evoformer:
+            block.skip = self.skip
 
     def _down_unshaped(self, t: ttnn.Tensor) -> torch.Tensor:
         """`_down` for the substitution bridge, which knows the op but not the rank."""
