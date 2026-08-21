@@ -136,6 +136,8 @@ class FoldTimer:
 
     def __init__(self):
         self.times: list[float] = []
+        self.gaps: list[float] = []       # host time between one fold and the next
+        self._last_end: float | None = None
 
     def patch(self, obj, attr: str):
         torch = importlib.import_module("torch")
@@ -144,23 +146,37 @@ class FoldTimer:
         def wrapper(*a, **kw):
             torch.cuda.synchronize()
             t0 = time.perf_counter()
+            if self._last_end is not None:
+                self.gaps.append(t0 - self._last_end)
             out = orig(*a, **kw)
             torch.cuda.synchronize()
-            self.times.append(time.perf_counter() - t0)
+            t1 = time.perf_counter()
+            self.times.append(t1 - t0)
+            self._last_end = t1
             return out
         setattr(obj, attr, wrapper)
         return orig
 
 
-def summarize(times: list[float], repeat: int) -> dict:
-    """Fold 1 is the cold fold and is discarded explicitly."""
+def summarize(times: list[float], repeat: int, gaps: list[float] | None = None) -> dict:
+    """Fold 1 is the cold fold and is discarded explicitly.
+
+    ``gaps`` is everything the framework does per target BETWEEN two timed folds --
+    featurization of the next one, structure writeout of the last one, framework
+    overhead. The published cell is ``warm_median_s``, which excludes all of it; the TT
+    side's cell is a whole fold and includes it. So ``warm_gap_median_s`` is this side's
+    per-fold host share, and it is the number the two sides differ by. Note it is a
+    steady-state gap: where the loader prefetches (boltz-2 runs --num_workers 2), host
+    work that overlaps device work does not appear here, and that is correct -- it costs
+    the fold nothing.
+    """
     if not times:
         return dict(error="no folds were timed")
     cold, warm = times[0], times[1:]
     if not warm:
         return dict(cold_s=round(cold, 3), error="no warm folds")
     ts = sorted(warm)
-    return dict(
+    out = dict(
         cold_s=round(cold, 3),
         warm_times_s=[round(t, 3) for t in warm],
         warm_n=len(warm),
@@ -169,6 +185,11 @@ def summarize(times: list[float], repeat: int) -> dict:
         warm_max_s=round(ts[-1], 3),
         warm_spread_pct=round(100.0 * (ts[-1] - ts[0]) / ts[len(ts) // 2], 2),
     )
+    if gaps:
+        wg = sorted(gaps[1:]) or sorted(gaps)   # drop the cold fold's trailing gap
+        out.update(warm_gaps_s=[round(g, 3) for g in gaps],
+                   warm_gap_median_s=round(wg[len(wg) // 2], 3))
+    return out
 
 
 # --------------------------------------------------------------------------------------
@@ -228,7 +249,7 @@ def run_boltz(args) -> dict:
             raise
     wall = time.perf_counter() - t0
 
-    out = summarize(timer.times, args.repeat)
+    out = summarize(timer.times, args.repeat, timer.gaps)
     preds = sorted((work / "out").rglob("*.cif"))
     return dict(out, wall_s=round(wall, 2), n_timed_calls=len(timer.times),
                 kernel_counts_total=dict(cueq, **sdpa),
@@ -341,7 +362,7 @@ def run_of3(args) -> dict:
             raise
     wall = time.perf_counter() - t0
 
-    out = summarize(timer.times, args.repeat)
+    out = summarize(timer.times, args.repeat, timer.gaps)
     preds = sorted((work / "out").rglob("*.cif"))
     # OF3 catches a per-fold featurization failure, logs it and carries on, so the CLI
     # exits 0 having predicted nothing. That is how the empty-MSA bug read as rc=0 with
@@ -400,25 +421,29 @@ def run_esmfold2(args) -> dict:
     if hasattr(model, "set_kernel_backend"):
         model.set_kernel_backend(backend)
 
-    times, preds = [], []
+    times, gaps, preds = [], [], []
     # forward's own knob names: num_loops is recycling, num_sampling_steps is the
     # requested diffusion step count. ESMFold2 clips the Karras schedule at
     # sigma_max=256, so a requested 100 executes 68 -- requested is not executed here.
     kw = dict(num_loops=args.recycles, num_sampling_steps=args.steps,
               num_diffusion_samples=SAMPLES)
+    last_end = None
     for i in range(args.repeat + 1):
         torch.manual_seed(SEED)
         torch.cuda.synchronize()
         t0 = time.perf_counter()
+        if last_end is not None:
+            gaps.append(t0 - last_end)
         with torch.no_grad():
             pdb = model.infer_protein_as_pdb(seq, **kw)
         torch.cuda.synchronize()
-        times.append(time.perf_counter() - t0)
+        last_end = time.perf_counter()
+        times.append(last_end - t0)
         p = work / f"fold{i}.pdb"
         p.write_text(pdb if isinstance(pdb, str) else pdb[0])
         preds.append(str(p))
 
-    return dict(summarize(times, args.repeat), load_s=round(load_s, 2),
+    return dict(summarize(times, args.repeat, gaps), load_s=round(load_s, 2),
                 kernel_counts_total=dict(cueq, **sdpa), predictions=preds,
                 fold_kwargs=kw, kernel_backend=backend, msa_rows=0,
                 msa_note="single-sequence model: the 35-row MSA is not consumed",

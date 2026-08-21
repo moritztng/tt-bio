@@ -452,8 +452,14 @@ def build_fold(model: str, model_name: str, rung: dict, input_json: str,
         runner = inf.InferenceRunner(configs)
     load_s = time.perf_counter() - t_load
 
+    # Host featurization, timed. It sits OUTSIDE the timed fold below and outside the
+    # published cell's scope, which is exactly why it has to be recorded: the TT side's
+    # cell is a whole fold and pays this every target, this side hoists it out of the
+    # loop and pays it once. Timing it changes nothing about the fold.
+    t_feat = time.perf_counter()
     dataloader = dl.get_inference_dataloader(configs=configs)
     data, atom_array, err = next(iter(dataloader))[0]
+    featurize_s = time.perf_counter() - t_feat
     assert not err, f"featurization failed: {err}"
     new_configs = inf.update_inference_configs(configs, data["N_token"].item())
     runner.update_model_configs(new_configs)
@@ -480,7 +486,8 @@ def build_fold(model: str, model_name: str, rung: dict, input_json: str,
         torch.cuda.synchronize()
         return time.perf_counter() - t0, pred
 
-    return one_fold, dict(load_s=round(load_s, 2), n_msa=n_msa, n_token=n_token,
+    return one_fold, dict(load_s=round(load_s, 2), featurize_s=round(featurize_s, 4),
+                          n_msa=n_msa, n_token=n_token,
                           diffusion_samples=samples, resolved_config=resolved,
                           kernel_counts=counters, atom_array=atom_array), runner
 
@@ -531,14 +538,21 @@ def run_model(model: str, model_name: str, repeat: int, input_json: str,
 
         ts = sorted(times)
         struct, conf = None, _confidence(pred)
+        write_s = None
         if save_structure is not None:
             try:
+                t_write = time.perf_counter()
                 struct = _save_structure(meta["atom_array"], pred["coordinate"], pred,
                                          Path(save_structure) / f"{rung['name']}.pdb")
+                write_s = round(time.perf_counter() - t_write, 4)
             except Exception as e:
                 struct = f"save-error: {e}"
         results.append(dict(
             rung=rung["name"], rung_config=rung, load_s=load_s,
+            # The per-target host cost this harness keeps outside its timed region:
+            # featurization is built once before the fold loop and the structure is
+            # written once after it, so neither is in warm_median_s.
+            host_phases=dict(featurize_s=meta["featurize_s"], write_s=write_s),
             resolved_config=meta["resolved_config"],
             kernel_calls_per_fold=per_fold_kernels,
             cold_s=round(cold_s, 3), warm_times_s=[round(t, 3) for t in times],
