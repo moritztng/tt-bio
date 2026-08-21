@@ -148,6 +148,77 @@ model — four of those five have no affinity module to exercise. K2, which is 1
 read as fully served at every rung. A ladder covers the sizes you list; it covers only the code the
 fixture reaches, and that is a separate thing to check.
 
+## The affinity path, and the two models that have one
+
+Every rung of this arm folded apo protein until 2026-08-21. The shared fixture is CDK2 with no
+ligand, so no fold could enter an affinity module at any size, on any model. Nothing said so: a
+lever that is never reached is counted the same way as a lever that is fully served, which is the
+exact failure this page exists to catch, on a code-path axis instead of a size axis.
+
+Nesso-1 closed it for itself and measured the cost of the blind spot. `TRIATT_PERSISTENT_MASK`
+serves 0 of 2304 calls with `affinity=True` at every rung, because the per-row pair-mask slice makes
+the triangle bias `[S, h, S, S]` instead of batch-broadcast `[1, h, S, S]` and the fused kernel
+declines by construction. Read off the apo fixture the same lever looks fully served.
+
+`boltz2-affinity` is the other half. It folds a protein+ligand ladder through
+`predict --model boltz2`, which runs the structure trunk and then the affinity module, and it is a
+second leg rather than a swapped fixture: the finding is the per-lever difference between the two
+paths, so both rows have to exist.
+
+There is no third leg. Boltz-2 and Nesso-1 are the only shipped models with an affinity head.
+ESMFold2, Protenix-v2 and OpenFold3 have none, and neither does OpenDDE, which ships co-folding
+only. `tests/test_size_ladder_gate.py` asserts that by finding the affinity-head class in the
+source rather than trusting a hand-kept list, so a model that grows one has to bring a leg with it.
+
+What the apo fixture still hides for those four is the **ligand**, not the affinity module. None of
+their rungs presents one, and OpenDDE's shipped path is protein plus ligand.
+`perf/sizegate/inputs/holo/` is that input: the affinity ladder with the affinity property removed.
+
+**Read a difference against the holo control, not against the apo row.** The ligand raises the token
+count (256 aa featurizes to 276 tokens, the ligand being tokenised per heavy atom), so an
+apo-vs-affinity lever change has two candidate causes, and one of them is the size effect this arm
+already measures. Holo is the same protein, the same ligand and the same token count with no
+affinity property, so apo→holo isolates the ligand and holo→affinity isolates the module.
+
+The leg carries no exponent gate, and the reason is measured. Affinity runs on a pocket crop, so its
+cost does not scale with the rung: at 256 aa on qb1 card 0 `affinity_runtime_s` is 172.1 s against a
+`structure_runtime_s` of 18.5 s. A size-independent term that large flattens `k` to about 0.2 where
+the structure half alone reads about 1.5, far inside the ±0.50 tolerance floor, so the band could not
+fail on any cliff the structure half could produce. That is the same call the arm already makes for a
+model too noisy to gate: record it as skipped with the numbers, rather than ship an unfalsifiable
+band. The apo `boltz-2` row gates the structure trunk at these four rungs already.
+
+## The census under-counts on a loaded host
+
+`scripts/lever_census.py` installs its counter wraps from a thread that polls every 3 seconds, so a
+call that happens before the wraps land is not counted and nothing reports the gap. On a quiet host
+the wraps win the race. Under CPU contention they do not.
+
+Measured on the boltz2-affinity fold at 256 aa, four runs of the same fixture at the same commit on
+the same card type:
+
+| run | other folds on the box | calls counted |
+|---|---|---:|
+| manual, alone | 0 | 11446 |
+| record mode | 0-1 | 11446 |
+| pricing sweep | 3 | 7456 |
+| pricing sweep | 3 | 7456 |
+
+The 3990 missing calls are seven levers reading exactly `0/0`: `ADALN_S_HOIST`, `QKV_MM_CONFIG`,
+`TRANSPOSE_L1_RESIDENT`, `B2_ADALN_S_MEMO`, `B2_BIAS_SLICE_HOIST`, `PAIR_PROJ_MINIMAL_MATMUL` and
+`PAIR_TRANSPOSE_VIA_ROW_MAJOR`. Six of the seven are served on the apo fold, so this is not the
+affinity path declining them, it is the census not watching yet.
+
+Two consequences. **Record and check on a quiet host**, or the comparator reads a busy box as a
+lever going dark, which is a false failure that nothing in the artifact distinguishes from a real
+one. And **do not fan census folds across the idle cards of one host** to save wall clock, which is
+otherwise the standing practice for independent single-card measurements: it is safe for a timing
+and it corrupts a census. The 0/0-everywhere signature of a fold that failed outright and the
+partial 0/0 signature of a fold the census joined late look alike in the artifact, and only the
+call total separates them.
+
+Until that race is fixed, a single-fold census is evidence about a quiet host only.
+
 ## Running it
 
 ```

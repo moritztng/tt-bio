@@ -7,6 +7,14 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Added
 
+- The size-generality arm folds an affinity path. Every rung of every model folded apo
+  protein, so no fold could enter an affinity module at any size, and a lever that is never
+  reached is counted the same way as one that is fully served. `boltz2-affinity` folds a
+  protein+ligand ladder at 256/512/640/768 and keeps the apo row beside it. Boltz-2 and
+  Nesso-1 are the only shipped models with an affinity head, and a test now finds that head
+  in the source rather than trusting a list, so a model that grows one has to bring a leg.
+  `perf/sizegate/inputs/holo/` is the control that separates the affinity module from the
+  token count the ligand adds.
 - `tt-bio predict --model rf3` folds with RoseTTAFold3 (AlphaFold3-family: MSA module,
   template embedder, 48-block Pairformer, atom diffusion, confidence head), on device.
   Proteins, RNA, DNA and ligands, plus non-canonical residues, covalent modifications and
@@ -46,6 +54,14 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Fixed
 
+- `scripts/lever_census.py` under-counts on a loaded host, and the arm's docs now say so with
+  the measurement. The counter wraps are installed from a thread that polls every 3 s, so calls
+  made before the first tick are never counted. The same fold at 256 aa reads 11446 calls alone
+  and 7456 with three concurrent folds, the gap being seven levers at exactly `0/0`, six of which
+  the apo fold serves. A census taken under contention therefore reads as levers going dark and
+  the artifact cannot be told apart from the real thing. Record and check on a quiet host; do not
+  fan census folds across a host's idle cards, which is safe for a timing and not for a census.
+  The race itself is not fixed here.
 - A partial `~/of3_ref_out.pkl` skips the OpenFold3 device tests that need the keys it
   lacks instead of failing them. The tests guarded on the golden's existence while
   depending on its contents, so on a host with a partial capture 11 of them died on
