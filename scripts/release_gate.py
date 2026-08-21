@@ -1667,7 +1667,7 @@ def run_l1_budget_fold(keep: bool) -> list:
     """
     phys = _l1_budget_physical_grid()
     legs = [("native", None, 0)]
-    for name, grid, _l1, _prov in L1_BUDGET_PARTS:
+    for name, grid, _l1, _dram, _prov in L1_BUDGET_PARTS:
         if grid == phys or grid[0] > phys[0] or grid[1] > phys[1]:
             continue  # native already covers phys; a bigger grid than the part has cannot be forced
         if any(grid == g for _lbl, g, _c in legs):
