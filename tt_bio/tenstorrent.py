@@ -1324,10 +1324,28 @@ FP32_SOFTMAX_STATS = {"calls": 0, "blocked": 0, "blocks": 0, "fused": 0, "unfuse
 # dark above it, which is `tt-bio-tuned-at-512-l1-gates-go-dark-above-640aa` exactly.
 #
 # So the gate is empirical and self-setting, the same shape as `_L1_OUT_REFUSED` above: the first
-# block at a geometry tries the shard, and a refusal retires that geometry for the process and
-# falls back to the interleaved tail, which is bit-identical. It is counted, so it is never a
-# silent dark gate: `l1_blocks` vs `l1_refused` in the census says which path a size took.
-_FP32_SOFTMAX_L1_REFUSED: set = set()
+# block at a geometry tries the shard, and a refusal narrows that geometry for the process. It is
+# counted, so it is never a silent dark gate: `l1_blocks` vs `l1_refused` in the census says which
+# path a size took.
+#
+# A refusal takes ONE ROW OFF the block rather than retiring L1 for the shape class. That
+# distinction is the whole of RF3's 768 -> 1024 aa scaling cliff. At 1024 aa the budget above buys
+# a 3-row block, the sharded softmax refuses its circular buffers around it, and retiring the class
+# sent 434 of 435 calls to the interleaved DRAM tail -- so the tail was L1-resident at 512 and 768
+# aa and dark at 1024, which is `tt-bio-tuned-at-512-l1-gates-go-dark-above-640aa` again. A 2-row
+# block is accepted at the same shape (0 refusals over 432 calls) and is worth 1.264x on the whole
+# trunk, 52.468 -> 41.508 s/recycle, taking the trunk's local log-log exponent over that interval
+# from 3.629 back to 2.813 against 2.769 across 512 -> 768 (perf/rf3/gate_ab.sh, qb2 card 2).
+# The backoff stops at the first accepted size, which is also the fastest: fewer rows means more
+# blocks and more slice-and-concat, measured at 41.508 s (2 rows) / 45.448 s (1 row) / 52.468 s
+# (interleaved) on the same fixture. One row at a time is not a long descent, because the two
+# terms move opposite ways: the block is `bytes * cores / (n_heads * S**2)` rows, so it shrinks as
+# S**-2, while a refusal needs a wide row to overflow the softmax kernel's circular buffers in the
+# first place. Where a refusal can happen at all the block is already 1-3 rows, so the walk costs
+# at most that many calls of the 435 in a recycle.
+# Shape class -> the largest block, in rows, the sharded softmax has not refused. Absent means
+# "nothing refused yet, the byte budget decides"; 0 means L1 is retired for that class.
+_FP32_SOFTMAX_L1_ROW_CAP: dict = {}
 
 # The additive pair bias does not depend on the row block, but the tail re-derives its fp32
 # copy inside every one of them: 43 blocks per call at 512 aa, so the same 4 MB typecast and
@@ -1336,22 +1354,34 @@ _FP32_SOFTMAX_L1_REFUSED: set = set()
 FP32_SOFTMAX_BIAS_HOIST = True
 
 
-def _fp32_softmax_l1_rows(per_row: int, height_per_row: int) -> int:
+def _fp32_softmax_l1_rows(per_row: int, height_per_row: int, cap: int | None = None) -> int:
     """Largest leading-dim block whose fp32 score copy is L1-resident. 0 when none is.
 
     A height shard needs whole tile rows on every core, so the block's flattened height must be a
     multiple of ``cores * 32`` -- the same divisibility constraint as
     ``ttnn-split-work-to-cores-grid-height-holes``, and a block that cannot meet it simply takes
     the interleaved path.
+
+    ``cap`` bounds the block from a previous refusal at this shape class, so the walk below finds
+    the next size that both fits the budget and divides.
     """
     cores = _FP32_SOFTMAX_L1_GRID[0] * _FP32_SOFTMAX_L1_GRID[1]
     if per_row <= 0 or _FP32_SOFTMAX_L1_BYTES_PER_CORE <= 0:
         return 0
     blk = int(_FP32_SOFTMAX_L1_BYTES_PER_CORE) * cores // per_row
+    if cap is not None:
+        blk = min(blk, cap)
     step = cores * 32
     while blk > 0 and (blk * height_per_row) % step:
         blk -= 1
     return blk
+
+
+def _fp32_softmax_l1_narrow(l1_key, rows: int) -> None:
+    """Record a refusal: this shape class gets at most ``rows - 1`` rows from now on."""
+    cap = max(0, int(rows) - 1)
+    prev = _FP32_SOFTMAX_L1_ROW_CAP.get(l1_key)
+    _FP32_SOFTMAX_L1_ROW_CAP[l1_key] = cap if prev is None else min(prev, cap)
 
 
 def _fp32_softmax_shard(rows: int, height_per_row: int, width: int):
@@ -1437,14 +1467,17 @@ def _fp32_softmax_attention(
     # 342 blocks per call paying the loop's slice-and-concat with none of the residency back. That
     # is measured, not feared -- it cost 278.23 -> 317.79 s at 1024 aa before this key was widened.
     l1_key = (height_per_row, int(k.shape[2]))
-    l1_rows = 0 if l1_key in _FP32_SOFTMAX_L1_REFUSED else _fp32_softmax_l1_rows(per_row,
-                                                                                height_per_row)
+    l1_rows = _fp32_softmax_l1_rows(per_row, height_per_row,
+                                    _FP32_SOFTMAX_L1_ROW_CAP.get(l1_key))
     if l1_rows:
         blk = min(blk, l1_rows)
         FP32_SOFTMAX_STATS["l1"] += 1
 
     def shard_for(n):
-        if not l1_rows or l1_key in _FP32_SOFTMAX_L1_REFUSED:
+        # A refusal inside this call narrows the class mid-loop, and `blk` is already fixed, so the
+        # remaining blocks of THIS call go interleaved and the next call re-derives a smaller block.
+        cap = _FP32_SOFTMAX_L1_ROW_CAP.get(l1_key)
+        if not l1_rows or (cap is not None and n > cap):
             return None
         return _fp32_softmax_shard(n, height_per_row, int(k.shape[2]))
 
@@ -1501,9 +1534,9 @@ def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_confi
             attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, shard, bias_f)
         except RuntimeError:
             # The shard allocated but the sharded softmax could not fit its circular buffers
-            # around it. Retire this geometry and take the interleaved tail, which is the same
-            # ops on the same dtypes and therefore the same bits.
-            _FP32_SOFTMAX_L1_REFUSED.add(l1_key)
+            # around it. Take one row off this geometry and fall back to the interleaved tail for
+            # now, which is the same ops on the same dtypes and therefore the same bits.
+            _fp32_softmax_l1_narrow(l1_key, int(q.shape[0]))
             FP32_SOFTMAX_STATS["l1_refused"] += 1
             attn_bf = None
     if attn_bf is None:

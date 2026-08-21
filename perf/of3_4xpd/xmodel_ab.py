@@ -201,7 +201,7 @@ def main():
         "SMALL_GRID_SEQ_TILE", "SMALL_GRID_PAIR_TILE_AREA", "SDPA_CHUNK_MAX",
         "PAIRFORMER_PAD_MULTIPLE", "TRIANGLE_MULT_CHUNK_SIZE")}
     res["fp32_softmax_stats"] = dict(T.FP32_SOFTMAX_STATS)
-    res["fp32_softmax_l1_refused_keys"] = sorted(str(k) for k in T._FP32_SOFTMAX_L1_REFUSED)
+    res["fp32_softmax_l1_row_caps"] = {str(k): v for k, v in T._FP32_SOFTMAX_L1_ROW_CAP.items()}
     res["transpose_l1_refused_keys"] = sorted(
         str(k) for k in getattr(T, "_TRANSPOSE_L1_REFUSED", ()))
     flush()
