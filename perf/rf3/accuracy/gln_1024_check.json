@@ -1,0 +1,21 @@
+{
+ "aa": 1024,
+ "C": 128,
+ "pair_gb": 0.268435456,
+ "arms": {
+  "row_fold_off": {
+   "ok": false,
+   "error": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 8589934592 B DRAM buffer across 8 banks, where each bank needs to store 1073741824 B, but bank size is 4278190016 B (allocated: 2214615040 B, free: 2063574976 B, largest free block: 1073737728 B)\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-pack"
+  },
+  "row_fold_on": {
+   "ok": true,
+   "s": 0.2409,
+   "out_shape": [
+    1,
+    1024,
+    1024,
+    128
+   ]
+  }
+ }
+}
