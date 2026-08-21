@@ -1,0 +1,68 @@
+{
+  "task": "accurate_softmax scored on Boltz-2, both paths",
+  "host": "tt-quietbox (qb1) card 1, p150a, fresh boot, benchlock held for all perf",
+  "note": "A/A control reported first everywhere. Every fold is bit-deterministic at fixed seed, so every A/B delta is fully attributed (A/A = 0.000000 on every metric).",
+  "structure_path": {
+    "switch": "TT_BIO_B2_ACCURATE_SOFTMAX (4 bf16 PairformerModule sites)",
+    "perf_cell_boltz2_structures_per_s": {
+      "A1_off": 0.859698, "A2_off": 0.851970, "B_on": 0.837155,
+      "aa_spread_pct": 0.90, "ab_delta_pct": -2.18,
+      "resolvable": true, "baseline": 0.759978, "threshold_pct": 15
+    },
+    "single_fold_wall_s_unwarmed": {
+      "cdk2x2_256_A1": 22.9, "cdk2x2_256_A2": 22.6, "cdk2x2_256_B": 25.9,
+      "caveat": "single unwarmed folds including compile; not a perf measurement, but the +14% direction says the 20 aa cell understates an O(N^2) cost"
+    },
+    "confidence_metrics_delta_vs_aa_mean": {
+      "trpcage_20aa": {"confidence_score": 0.008387, "ptm": -0.001746, "complex_plddt": 0.010921, "complex_pde": -0.084216},
+      "cdk2x2_256aa": {"confidence_score": 0.005293, "ptm": 0.014469, "complex_plddt": 0.002999, "complex_pde": -0.072031},
+      "caveat": "these are Boltz-2's own self-reported confidence outputs, not accuracy against a reference"
+    },
+    "ca_rmsd_angstrom": {
+      "self_guard_rmsd_A_vs_A": 0.0,
+      "trpcage_20aa": {"AA": 0.0, "AB": 3.3186},
+      "cdk2x2_256aa": {"AA": 0.0, "AB": 1.6310}
+    },
+    "anchor": {
+      "file": "docs/implementation-parity-data/boltz2-trpcage-seeded.json",
+      "kabsch_rmsd": {"cross_device_vs_gpu": 0.661668, "ref_floor": 0.601117, "dev_floor": 0.540342, "cross_over_floor": 1.101, "within_noise_floor": true},
+      "lddt": {"cross": 0.063491, "ref_floor": 0.035084, "cross_over_floor": 1.81, "within_noise_floor": false}
+    },
+    "verdict": "LEAVE OPT-IN",
+    "why": "Costs 2.18% on the 20 aa cell against a 0.90% A/A spread, and moves the predicted structure 3.32 A at 20 aa / 1.63 A at 256 aa. The port already agrees with the GPU reference to 0.66 A, inside the reference's own 0.60 A seed floor (within_noise_floor true), so there is no 3.3 A of error available to fix and a 5x-the-band move cannot improve agreement. The confidence metrics rising is the model being more confident about a different structure, which is why self-reported confidence is not an accuracy metric."
+  },
+  "affinity_path": {
+    "switch": "TT_BIO_B2_AFFINITY_ACCURATE_SOFTMAX (Fp32PairformerModule, 97.5% of the fold's softmax volume)",
+    "perf_cell_boltz2_affinity_per_s": {
+      "A1_off": 0.018451, "A2_off": 0.019552, "B_on": 0.018597,
+      "aa_spread_pct": 5.79, "ab_delta_pct": -2.13,
+      "resolvable": false, "baseline": 0.01571, "threshold_pct": 15,
+      "caveat": "median of 3 end-to-end subprocess runs each including model load and first-kernel compile; that is why the A/A spread is 5.79% and a 2% effect is not resolvable on this cell"
+    },
+    "affinity_runtime_s_single_fold": {"off": 61.9, "on": 62.3, "delta_pct": 0.65, "caveat": "n=1 per arm, corroboration only"},
+    "affinity_scalar_log10_ic50": {
+      "off": -0.410844, "off2_AA": -0.410844, "on": -0.447493,
+      "aa_spread": 0.0, "ab_delta": -0.036649
+    },
+    "other_affinity_outputs": {
+      "affinity_probability_binary": {"off": 0.936865, "on": 0.936522},
+      "affinity_pred_value1": {"off": 0.358713, "on": 0.265894},
+      "affinity_pred_value2": {"off": 0.617881, "on": 0.639899}
+    },
+    "ca_rmsd_angstrom": {"AA": 0.0, "AB": 0.0, "note": "structure bit-identical: the fp32 trunk feeds the affinity head only, so the switch is correctly scoped"},
+    "anchor": {
+      "file": "docs/implementation-parity-data/boltz2-affinity-fkbp12-nomsa-seeded.json",
+      "affinity_pred_value": {"cross_device_vs_gpu": 0.059002, "ref_floor": 0.046875, "dev_floor": 0.028916, "cross_over_floor": 1.259, "within_noise_floor": true},
+      "gpu_ref_floor_file": "docs/implementation-parity-data/boltz2-affinity-fkbp12-gpu-ref-floor.json",
+      "gpu_ref_floor_affinity_pred_value_mean": 0.042020
+    },
+    "verdict": "LEAVE OPT-IN",
+    "why": "The op-level gain is real and large (29.07x at 4644, 27.95x at 4787 on rel_rms(o)), but it lands as 0.0367 log10(IC50) at the model level, below the GPU reference's own seed-to-seed floor of 0.0420 and inside the 0.0289-0.0590 band the gate already calls within_noise_floor. So it moves the number, not the bar. The perf cost is likewise below its cell's 5.79% A/A spread. Neither half of the trade is resolvable on this anchor, and an unmeasurable flip is exactly what the OpenDDE 60x precedent forbids."
+  },
+  "op_level_accuracy_from_pass2": {
+    "tenstorrent.py:4644_Fp32TriangleAttention": {"F": 0.014624, "M": 0.000503, "gain": 29.07},
+    "tenstorrent.py:4787_Fp32AttentionPairBias": {"F": 0.017839, "M": 0.000638, "gain": 27.95},
+    "metric": "rel_rms(probs @ v) on real captured pairs, real rows only, fp64 reference"
+  },
+  "nan_guard": "validated end-to-end: the ON arm of the affinity fold completes and produces finite output. Without mask_floor, _accurate_softmax returns nan on 7.67 M of 28.3 M elements at 4644."
+}
