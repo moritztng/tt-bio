@@ -237,6 +237,17 @@ def main():
     ap.add_argument("--arms", default="on,on")
     ap.add_argument("--fixdir", type=Path, default=ROOT / "perf" / "size512" / "fixtures")
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--dram-tags", default="",
+                    help="Comma-separated tag prefixes the DRAM probe is allowed to sample. "
+                         "dram_peak() fires at ~12k sites per opendde fold, most of them inside "
+                         "chunked loops, and each one is a get_memory_view pipeline drain -- "
+                         "enough to take a 768 aa devcat fold from 7 to 28+ min. Worse, the cost "
+                         "is NOT arm-neutral: the drain is more expensive on the arm with more "
+                         "resident device blocks, which is exactly the axis a residency lever "
+                         "moves, so an unfiltered probed run cannot even be compared to itself "
+                         "across arms. 'pairformer' keeps the per-block boundaries (620 samples), "
+                         "where a resident pair tensor is still live, and drops the per-chunk "
+                         "interior.")
     a = ap.parse_args()
 
     import ttnn
@@ -254,6 +265,12 @@ def main():
             os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
 
     assert Path(T.__file__).resolve().is_relative_to(ROOT), f"tt_bio from {T.__file__}, set PYTHONPATH"
+
+    if a.dram_tags:
+        _keep, _peak = tuple(a.dram_tags.split(",")), T.dram_peak
+        # tenstorrent.py's sites call the module global, so rebinding it here reaches all of them.
+        T.dram_peak = lambda tag=None: (_peak(tag) if tag is None or tag.startswith(_keep)
+                                        else _peak(None))
 
     # ---- each model at ITS OWN shipped defaults, not protenix's ----------------------------
     B.RECYCLING_STEPS = _resolve_recycling_steps(None, a.model)
@@ -585,6 +602,7 @@ def main():
                    # must differ between arms; equal values mean the arm did not take. The
                    # second is the z_struct seam, which the two isolation arms move on its own.
                    "dram_peak_gib": round(T.dram_peak() / 2 ** 30, 3) or None,
+                   "dram_tags": a.dram_tags or None,
                    "concat_host_bytes": T.concat_host_bytes(),
                    "concat_host_bytes_zstruct": __import__(
                        "tt_bio.opendde", fromlist=["x"]).concat_host_bytes(),
