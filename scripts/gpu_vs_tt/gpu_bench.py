@@ -461,6 +461,16 @@ def build_fold(model: str, model_name: str, rung: dict, input_json: str,
     data, atom_array, err = next(iter(dataloader))[0]
     featurize_s = time.perf_counter() - t_feat
     assert not err, f"featurization failed: {err}"
+    # Featurize a second time and keep both. The first call is cold -- it loads the CCD
+    # dictionary and every other process-level cache -- and the TT side's featurization
+    # is measured on warm folds, so comparing the two would compare a cold number to a
+    # warm one. The second call is the per-target steady-state cost and is what goes
+    # against the TT figure; the first is what a one-shot fold from a cold process pays.
+    t_feat2 = time.perf_counter()
+    _d2, _a2, err2 = next(iter(dl.get_inference_dataloader(configs=configs)))[0]
+    featurize_warm_s = time.perf_counter() - t_feat2
+    assert not err2, f"second featurization failed: {err2}"
+    del _d2, _a2
     new_configs = inf.update_inference_configs(configs, data["N_token"].item())
     runner.update_model_configs(new_configs)
     # AFTER update_inference_configs, because that is where skip_amp is decided
@@ -487,6 +497,7 @@ def build_fold(model: str, model_name: str, rung: dict, input_json: str,
         return time.perf_counter() - t0, pred
 
     return one_fold, dict(load_s=round(load_s, 2), featurize_s=round(featurize_s, 4),
+                          featurize_warm_s=round(featurize_warm_s, 4),
                           n_msa=n_msa, n_token=n_token,
                           diffusion_samples=samples, resolved_config=resolved,
                           kernel_counts=counters, atom_array=atom_array), runner
@@ -552,7 +563,8 @@ def run_model(model: str, model_name: str, repeat: int, input_json: str,
             # The per-target host cost this harness keeps outside its timed region:
             # featurization is built once before the fold loop and the structure is
             # written once after it, so neither is in warm_median_s.
-            host_phases=dict(featurize_s=meta["featurize_s"], write_s=write_s),
+            host_phases=dict(featurize_s=meta["featurize_s"],
+                             featurize_warm_s=meta["featurize_warm_s"], write_s=write_s),
             resolved_config=meta["resolved_config"],
             kernel_calls_per_fold=per_fold_kernels,
             cold_s=round(cold_s, 3), warm_times_s=[round(t, 3) for t in times],
