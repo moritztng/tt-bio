@@ -279,6 +279,10 @@ details.disclose > div{ padding-top:var(--s-4); }
   <div>
     <h4>Measured, seconds per prediction on one AI Processor</h4>
     <div class="tablewrap"><table id="t-measured"></table></div>
+    <h4 style="margin-top:24px">Measured, host and device inside one prediction</h4>
+    <p class="cond" id="t-hostsplit-cond"></p>
+    <div class="tablewrap"><table id="t-hostsplit"></table></div>
+    <div class="notes"><ul id="rownotes"></ul></div>
     <h4 style="margin-top:24px">Measured, seconds per design on one AI Processor</h4>
     <div class="tablewrap"><table id="t-design"></table></div>
     <h4 style="margin-top:24px">Derived, predictions and designs per hour per server</h4>
@@ -721,6 +725,44 @@ details.disclose > div{ padding-top:var(--s-4); }
             return gpuCell(m.cells[k], function (c) { return fmtSec(c.s_per_fold); });
           }).join("") + "</tr>";
       }).join("") + "</tbody>";
+
+    /* Host and device, both readings. The two sides carry their host seconds differently and the
+     * data says which: a Tenstorrent cell already contains its host seconds, an NVIDIA cell mostly
+     * does not, and in_cell is that flag. A cell states device_s only where the device number was
+     * measured in its own right rather than left over from the subtraction, which is RoseTTAFold3's
+     * H200 cell and nothing else. */
+    function deviceS(c) {
+      var sp = c.split;
+      return sp.device_s !== undefined ? sp.device_s
+        : (sp.in_cell ? c.s_per_fold - sp.host_s : c.s_per_fold);
+    }
+    function wholeS(c) { return c.split.in_cell ? c.s_per_fold : c.s_per_fold + c.split.host_s; }
+    /* Three decimals here where the rest of the page uses two: these rows sit within 0.01x of each
+     * other, and 3.992x against 3.986x is the entire point of the column. */
+    function fmtX3(v) { return v.toFixed(3) + "x"; }
+    function splitPair(c) {
+      return "<td class=\"n num\" title=\"" + String(c.split.ref || "").replace(/"/g, "&quot;") + "\">" +
+        (c.split.bound === "upper" ? "\u2264 " : "") + fmtSec(c.split.host_s) + "</td>" +
+        "<td class=\"n num\">" + fmtSec(deviceS(c)) + "</td>";
+    }
+    document.getElementById("t-hostsplit").innerHTML =
+      "<thead><tr><th>Model</th><th class=\"n\">Blackhole host</th><th class=\"n\">Blackhole device</th>" +
+      "<th class=\"n\">H200 host</th><th class=\"n\">H200 device</th>" +
+      "<th class=\"n\">Whole fold</th><th class=\"n\">Device only</th></tr></thead><tbody>" +
+      D.models.filter(function (m) { return m.cells.p150a.split && m.cells.h200.split; })
+        .map(function (m) {
+          var t = m.cells.p150a, g = m.cells.h200;
+          return "<tr><td>" + m.name + "</td>" + splitPair(t) + splitPair(g) +
+            "<td class=\"n num\">" + fmtX3(wholeS(t) / wholeS(g)) + "</td>" +
+            "<td class=\"n num\">" + fmtX3(deviceS(t) / deviceS(g)) + "</td></tr>";
+        }).join("") + "</tbody>";
+    document.getElementById("t-hostsplit-cond").textContent = D.scope.split;
+    var rn = document.getElementById("rownotes");
+    rn.innerHTML = "";
+    D.models.filter(function (m) { return m.note; }).forEach(function (m) {
+      rn.appendChild(Object.assign(document.createElement("li"),
+        { textContent: m.name + ". " + m.note }));
+    });
 
     document.getElementById("t-design").innerHTML =
       "<thead><tr><th>Model</th><th class=\"n\">Steps</th><th>Batch</th><th class=\"n\">Blackhole p150a</th>" +
