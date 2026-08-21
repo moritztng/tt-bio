@@ -1,0 +1,118 @@
+{
+  "stack": "shadow.recycler.pairformer_stack.0.",
+  "tokens": 32,
+  "crop": 32,
+  "per_op_teacher_forced": [
+    {
+      "op": "tri_mul_outgoing",
+      "shape": [
+        1,
+        32,
+        32,
+        128
+      ],
+      "pcc": 0.9999862,
+      "rel_rms": 0.005415,
+      "ceiling": 0.00436,
+      "x_ceiling": 1.24,
+      "out_std": 1.0128,
+      "in_std": 60.5568
+    },
+    {
+      "op": "tri_mul_incoming",
+      "shape": [
+        1,
+        32,
+        32,
+        128
+      ],
+      "pcc": 0.9999839,
+      "rel_rms": 0.005721,
+      "ceiling": 0.004335,
+      "x_ceiling": 1.32,
+      "out_std": 1.8047,
+      "in_std": 60.7504
+    },
+    {
+      "op": "tri_attn_start",
+      "shape": [
+        1,
+        32,
+        32,
+        128
+      ],
+      "pcc": 0.9998564,
+      "rel_rms": 0.021847,
+      "ceiling": 0.006063,
+      "x_ceiling": 3.6,
+      "out_std": 1.4588,
+      "in_std": 61.1892
+    },
+    {
+      "op": "tri_attn_end",
+      "shape": [
+        1,
+        32,
+        32,
+        128
+      ],
+      "pcc": 0.9998747,
+      "rel_rms": 0.018272,
+      "ceiling": 0.008417,
+      "x_ceiling": 2.17,
+      "out_std": 1.0565,
+      "in_std": 61.3951
+    },
+    {
+      "op": "z_transition",
+      "shape": [
+        1,
+        32,
+        32,
+        128
+      ],
+      "pcc": 0.999982,
+      "rel_rms": 0.006026,
+      "ceiling": 0.003602,
+      "x_ceiling": 1.67,
+      "out_std": 3.0851,
+      "in_std": 61.4602
+    },
+    {
+      "op": "attention_pair_bias",
+      "shape": [
+        1,
+        32,
+        384
+      ],
+      "pcc": 0.9999931,
+      "rel_rms": 0.026858,
+      "ceiling": 0.002127,
+      "x_ceiling": 12.63,
+      "out_std": 64.5279,
+      "in_std": 10.8582
+    },
+    {
+      "op": "s_transition",
+      "shape": [
+        1,
+        32,
+        384
+      ],
+      "pcc": 0.9999726,
+      "rel_rms": 0.007871,
+      "ceiling": 0.005445,
+      "x_ceiling": 1.45,
+      "out_std": 3.6146,
+      "in_std": 70.2155
+    }
+  ],
+  "composed": {
+    "s_rel_rms": 0.021273,
+    "z_rel_rms": 0.003946,
+    "s_ceiling": 0.001825,
+    "z_ceiling": 0.000299,
+    "s_x_ceiling": 11.66,
+    "z_x_ceiling": 13.2
+  }
+}

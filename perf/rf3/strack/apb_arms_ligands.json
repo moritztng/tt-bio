@@ -1,0 +1,37 @@
+{
+  "stack": "shadow.recycler.pairformer_stack.0.",
+  "tokens": 53,
+  "ceiling": 0.002071,
+  "out_std": 66.1963,
+  "kq_norm": false,
+  "arms": {
+    "production": {
+      "pcc": 0.9999932,
+      "rel_rms": 0.027823,
+      "x_ceiling": 13.43
+    },
+    "bf16_softmax": {
+      "pcc": 0.9999932,
+      "rel_rms": 0.027823,
+      "x_ceiling": 13.43
+    },
+    "fp32": {
+      "pcc": 0.9999939,
+      "rel_rms": 0.030602,
+      "x_ceiling": 14.77
+    },
+    "no_bias_scale": {
+      "pcc": 0.9999918,
+      "rel_rms": 0.027136,
+      "x_ceiling": 13.1
+    },
+    "z_zero": {
+      "pcc": 0.9999924,
+      "rel_rms": 0.027094,
+      "ceiling": 0.002119,
+      "x_ceiling": 12.79,
+      "out_std": 66.1823
+    },
+    "_direct_vs_hooked_ref": 0.0
+  }
+}
