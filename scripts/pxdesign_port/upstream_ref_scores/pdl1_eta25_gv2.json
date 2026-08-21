@@ -1,0 +1,37 @@
+{
+ "source": "/tmp/ref_traj_eta25_gv2.pt",
+ "coords_shape": [
+  2,
+  1250,
+  3
+ ],
+ "binder_atoms": 321,
+ "target_atoms": 929,
+ "stats": [
+  {
+   "rg_all": 29.540128707885742,
+   "rg_target": 13.264697074890137,
+   "rg_binder": 11.546710968017578
+  },
+  {
+   "rg_all": 28.371623992919922,
+   "rg_target": 13.172515869140625,
+   "rg_binder": 11.302188873291016
+  }
+ ],
+ "target_reproduction": [
+  {
+   "target_rmsd": 0.45448049564758003,
+   "n_scored": 116,
+   "min_binder_target_dist": 23.29697608947754,
+   "n_contacts_below_5A": 0
+  },
+  {
+   "target_rmsd": 0.49458261126145964,
+   "n_scored": 116,
+   "min_binder_target_dist": 25.145105361938477,
+   "n_contacts_below_5A": 0
+  }
+ ],
+ "finite": true
+}

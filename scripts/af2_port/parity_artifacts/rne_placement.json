@@ -1,0 +1,285 @@
+{
+ "cost_208_512": {
+  "mode": "af2ig_rne_placement",
+  "rows": [
+   {
+    "tokens": 208,
+    "rne_residual": false,
+    "wide_dram": false,
+    "passes": 8,
+    "first_s": 3.4809611790042254,
+    "warm_s": 1.0667102098564751,
+    "warm_min_s": 1.0558623070028261,
+    "arm": "bf16_add"
+   },
+   {
+    "tokens": 208,
+    "rne_residual": true,
+    "wide_dram": false,
+    "passes": 8,
+    "first_s": 1.3792507250036579,
+    "warm_s": 1.177623360857459,
+    "warm_min_s": 1.1644335840028361,
+    "arm": "wide_l1"
+   },
+   {
+    "tokens": 208,
+    "rne_residual": true,
+    "wide_dram": true,
+    "passes": 8,
+    "first_s": 1.1870052109952667,
+    "warm_s": 1.1785635088547548,
+    "warm_min_s": 1.171001618997252,
+    "arm": "wide_dram"
+   },
+   {
+    "tokens": 512,
+    "rne_residual": false,
+    "wide_dram": false,
+    "passes": 8,
+    "first_s": 9.330516613998043,
+    "warm_s": 7.249780385714465,
+    "warm_min_s": 7.140834592995816,
+    "arm": "bf16_add"
+   },
+   {
+    "tokens": 512,
+    "rne_residual": true,
+    "wide_dram": false,
+    "passes": 8,
+    "first_s": 8.012750508001773,
+    "warm_s": 8.023004494285228,
+    "warm_min_s": 7.9663447290004115,
+    "arm": "wide_l1"
+   },
+   {
+    "tokens": 512,
+    "rne_residual": true,
+    "wide_dram": true,
+    "passes": 8,
+    "first_s": 7.908878691996506,
+    "warm_s": 7.983139143569653,
+    "warm_min_s": 7.931980676999956,
+    "arm": "wide_dram"
+   }
+  ],
+  "bit_exact": [
+   {
+    "tokens": 208,
+    "compared": true,
+    "msa_bit_exact": true,
+    "pair_bit_exact": true,
+    "pair_max_abs": 0.0
+   },
+   {
+    "tokens": 512,
+    "compared": true,
+    "msa_bit_exact": true,
+    "pair_bit_exact": true,
+    "pair_max_abs": 0.0
+   }
+  ],
+  "cost": [
+   {
+    "tokens": 208,
+    "arm": "wide_l1",
+    "warm_s": 1.177623360857459,
+    "bf16_add_s": 1.0667102098564751,
+    "ratio": 1.10397683454807,
+    "delta_s": 0.11091315100098376
+   },
+   {
+    "tokens": 208,
+    "arm": "wide_dram",
+    "warm_s": 1.1785635088547548,
+    "bf16_add_s": 1.0667102098564751,
+    "ratio": 1.104858187317181,
+    "delta_s": 0.11185329899827967
+   },
+   {
+    "tokens": 512,
+    "arm": "wide_l1",
+    "warm_s": 8.023004494285228,
+    "bf16_add_s": 7.249780385714465,
+    "ratio": 1.1066548319304106,
+    "delta_s": 0.773224108570763
+   },
+   {
+    "tokens": 512,
+    "arm": "wide_dram",
+    "warm_s": 7.983139143569653,
+    "bf16_add_s": 7.249780385714465,
+    "ratio": 1.101155996297523,
+    "delta_s": 0.7333587578551874
+   }
+  ]
+ },
+ "sizes_208_512_848": {
+  "mode": "af2ig_rne_placement",
+  "rows": [
+   {
+    "tokens": 208,
+    "rne_residual": false,
+    "wide_dram": false,
+    "passes": 2,
+    "first_s": 3.9436486039994634,
+    "warm_s": 1.517923150997376,
+    "warm_min_s": 1.517923150997376,
+    "arm": "bf16_add"
+   },
+   {
+    "tokens": 208,
+    "rne_residual": true,
+    "wide_dram": false,
+    "passes": 2,
+    "first_s": 1.4910042379997321,
+    "warm_s": 1.204979830996308,
+    "warm_min_s": 1.204979830996308,
+    "arm": "wide_l1"
+   },
+   {
+    "tokens": 208,
+    "rne_residual": true,
+    "wide_dram": true,
+    "passes": 2,
+    "first_s": 1.2303848529991228,
+    "warm_s": 1.2106176809975295,
+    "warm_min_s": 1.2106176809975295,
+    "arm": "wide_dram"
+   },
+   {
+    "tokens": 512,
+    "rne_residual": false,
+    "wide_dram": false,
+    "passes": 2,
+    "first_s": 10.480013394000707,
+    "warm_s": 7.563974808996136,
+    "warm_min_s": 7.563974808996136,
+    "arm": "bf16_add"
+   },
+   {
+    "tokens": 512,
+    "rne_residual": true,
+    "wide_dram": false,
+    "passes": 2,
+    "first_s": 8.327997792999668,
+    "warm_s": 8.19302796899865,
+    "warm_min_s": 8.19302796899865,
+    "arm": "wide_l1"
+   },
+   {
+    "tokens": 512,
+    "rne_residual": true,
+    "wide_dram": true,
+    "passes": 2,
+    "first_s": 7.942012298997724,
+    "warm_s": 8.150996220996603,
+    "warm_min_s": 8.150996220996603,
+    "arm": "wide_dram"
+   },
+   {
+    "tokens": 848,
+    "rne_residual": false,
+    "wide_dram": false,
+    "passes": 2,
+    "first_s": 39.63999474800221,
+    "warm_s": 36.811020385997836,
+    "warm_min_s": 36.811020385997836,
+    "arm": "bf16_add"
+   },
+   {
+    "tokens": 848,
+    "rne_residual": true,
+    "wide_dram": false,
+    "passes": 2,
+    "first_s": 39.00348610000219,
+    "warm_s": 39.127809718003846,
+    "warm_min_s": 39.127809718003846,
+    "arm": "wide_l1"
+   },
+   {
+    "tokens": 848,
+    "rne_residual": true,
+    "wide_dram": true,
+    "passes": 2,
+    "first_s": 38.97625622999476,
+    "warm_s": 38.3557581319983,
+    "warm_min_s": 38.3557581319983,
+    "arm": "wide_dram"
+   }
+  ],
+  "bit_exact": [
+   {
+    "tokens": 208,
+    "compared": true,
+    "msa_bit_exact": true,
+    "pair_bit_exact": true,
+    "pair_max_abs": 0.0
+   },
+   {
+    "tokens": 512,
+    "compared": true,
+    "msa_bit_exact": true,
+    "pair_bit_exact": true,
+    "pair_max_abs": 0.0
+   },
+   {
+    "tokens": 848,
+    "compared": true,
+    "msa_bit_exact": true,
+    "pair_bit_exact": true,
+    "pair_max_abs": 0.0
+   }
+  ],
+  "cost": [
+   {
+    "tokens": 208,
+    "arm": "wide_l1",
+    "warm_s": 1.204979830996308,
+    "bf16_add_s": 1.517923150997376,
+    "ratio": 0.793834543075884,
+    "delta_s": -0.31294332000106806
+   },
+   {
+    "tokens": 208,
+    "arm": "wide_dram",
+    "warm_s": 1.2106176809975295,
+    "bf16_add_s": 1.517923150997376,
+    "ratio": 0.7975487297904861,
+    "delta_s": -0.30730546999984654
+   },
+   {
+    "tokens": 512,
+    "arm": "wide_l1",
+    "warm_s": 8.19302796899865,
+    "bf16_add_s": 7.563974808996136,
+    "ratio": 1.0831643647536155,
+    "delta_s": 0.6290531600025133
+   },
+   {
+    "tokens": 512,
+    "arm": "wide_dram",
+    "warm_s": 8.150996220996603,
+    "bf16_add_s": 7.563974808996136,
+    "ratio": 1.0776075313342266,
+    "delta_s": 0.5870214120004675
+   },
+   {
+    "tokens": 848,
+    "arm": "wide_l1",
+    "warm_s": 39.127809718003846,
+    "bf16_add_s": 36.811020385997836,
+    "ratio": 1.0629373841776815,
+    "delta_s": 2.3167893320060102
+   },
+   {
+    "tokens": 848,
+    "arm": "wide_dram",
+    "warm_s": 38.3557581319983,
+    "bf16_add_s": 36.811020385997836,
+    "ratio": 1.0419640023504497,
+    "delta_s": 1.5447377460004645
+   }
+  ]
+ }
+}

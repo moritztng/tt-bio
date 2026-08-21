@@ -1,0 +1,104 @@
+[
+ {
+  "key": "z_trunk",
+  "shape": [
+   196,
+   196,
+   128
+  ],
+  "max_abs": 0.0,
+  "mean_abs": 0.0,
+  "rel_mean": 0.0,
+  "pcc": 1.0000000000020173,
+  "bit_exact": true
+ },
+ {
+  "key": "s_inputs",
+  "shape": [
+   196,
+   449
+  ],
+  "max_abs": 0.01812291145324707,
+  "mean_abs": 0.0010652923956513405,
+  "rel_mean": 0.0018173933494836092,
+  "pcc": 0.9999982633817573,
+  "bit_exact": false
+ },
+ {
+  "key": "s_trunk",
+  "shape": [
+   196,
+   384
+  ],
+  "max_abs": 0.0,
+  "mean_abs": 0.0,
+  "rel_mean": 0.0,
+  "pcc": 0.0,
+  "bit_exact": true
+ },
+ {
+  "key": "denoised@step0(sigma=2560)",
+  "shape": [
+   1,
+   1250,
+   3
+  ],
+  "max_abs": 1.1051998138427734,
+  "mean_abs": 0.20183749496936798,
+  "rel_mean": 0.0361783392727375,
+  "pcc": 0.9993736123122262,
+  "bit_exact": false
+ },
+ {
+  "key": "denoised@step40(sigma=1383)",
+  "shape": [
+   1,
+   1250,
+   3
+  ],
+  "max_abs": 0.9831113815307617,
+  "mean_abs": 0.22932690382003784,
+  "rel_mean": 0.03923715278506279,
+  "pcc": 0.9991026097078508,
+  "bit_exact": false
+ },
+ {
+  "key": "denoised@step120(sigma=333.9)",
+  "shape": [
+   1,
+   1250,
+   3
+  ],
+  "max_abs": 0.6629223823547363,
+  "mean_abs": 0.1659674197435379,
+  "rel_mean": 0.028019778430461884,
+  "pcc": 0.9995853236313964,
+  "bit_exact": false
+ },
+ {
+  "key": "denoised@step260(sigma=10.01)",
+  "shape": [
+   1,
+   1250,
+   3
+  ],
+  "max_abs": 0.4429149627685547,
+  "mean_abs": 0.07411026954650879,
+  "rel_mean": 0.027221182361245155,
+  "pcc": 0.9996610714269755,
+  "bit_exact": false
+ },
+ {
+  "key": "denoised@step399(sigma=0.007019)",
+  "shape": [
+   1,
+   1250,
+   3
+  ],
+  "max_abs": 0.00016677752137184143,
+  "mean_abs": 2.5429037123103626e-05,
+  "rel_mean": 0.004626045003533363,
+  "pcc": 0.9999882890796848,
+  "bit_exact": false
+ }
+]
