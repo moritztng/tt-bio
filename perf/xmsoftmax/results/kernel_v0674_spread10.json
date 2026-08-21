@@ -1,0 +1,27 @@
+{
+  "ttnn_version": "?",
+  "shape": [
+    1,
+    16,
+    512,
+    512
+  ],
+  "spread": 10.0,
+  "variants": {
+    "fused": {
+      "rowsum_mean": 0.9961146786602285,
+      "rowsum_min": 0.9612371693410751,
+      "rel_rms_vs_fp64": 0.019012426443299604
+    },
+    "fused_renorm": {
+      "rowsum_mean": 1.0003131293172518,
+      "rowsum_min": 0.999941962585126,
+      "rel_rms_vs_fp64": 0.01762540460036599
+    },
+    "manual": {
+      "rowsum_mean": 1.000304064265325,
+      "rowsum_min": 1.000102481730437,
+      "rel_rms_vs_fp64": 0.0003069684275253689
+    }
+  }
+}
