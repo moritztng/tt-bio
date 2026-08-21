@@ -155,6 +155,9 @@ import warnings
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
+import gate_guard  # noqa: E402  (host-load guard, shared with full_parity_gate.py)
+
 # The default foldable gate target: examples/prot.yaml == PDB 7ROA, a 117-residue
 # monomer that Boltz-2 folds to 1.55 A — proof the target is easy, so a large RMSD
 # is a real model/port problem, not a hard target.
@@ -1664,7 +1667,7 @@ def run_l1_budget_fold(keep: bool) -> list:
     """
     phys = _l1_budget_physical_grid()
     legs = [("native", None, 0)]
-    for name, grid, _l1, _prov in L1_BUDGET_PARTS:
+    for name, grid, _l1, _dram, _prov in L1_BUDGET_PARTS:
         if grid == phys or grid[0] > phys[0] or grid[1] > phys[1]:
             continue  # native already covers phys; a bigger grid than the part has cannot be forced
         if any(grid == g for _lbl, g, _c in legs):
@@ -1792,10 +1795,25 @@ def main() -> int:
     ap.add_argument("--diffusion_trace", action="store_true",
                     help="Fold boltz2 with per-step DiT ttnn trace replay on (lossless). "
                          "boltz2 only; other fold models ignore it. Defaults off.")
+    ap.add_argument("--load-ceiling", type=float, default=gate_guard.DEFAULT_LOAD_CEILING,
+                    help="Refuse to start when the 1-min loadavg is above this multiple of "
+                         f"nproc (default {gate_guard.DEFAULT_LOAD_CEILING}; 0 disables). Every "
+                         "leg here folds in a subprocess, so a gate started on an already-"
+                         "loaded box both measures noise and helps overcommit the host.")
     args = ap.parse_args()
     global FAST, DIFFUSION_TRACE
     FAST = args.fast
     DIFFUSION_TRACE = args.diffusion_trace
+
+    # This gate is single-card by construction: every leg folds one yaml, which selects one
+    # device, and the boltzgen leg passes --devices <first granted card>. So there is nothing
+    # here to skip for a narrow grant; what it does need is the load guard, and the grant
+    # printed so a run's card is in its own log rather than inferred from the launch line.
+    overloaded = gate_guard.load_ceiling_problem(args.load_ceiling)
+    if overloaded:
+        print(f"PREFLIGHT - refusing to run the gate. {overloaded}")
+        return 1
+    print(f"[release-gate] granted {gate_guard.grant_label(gate_guard.card_grant())}", flush=True)
 
     # A lone P300 Blackhole chip is a custom topology: ttnn refuses to open
     # it without a 1x1 mesh-graph descriptor. The predict/embed CLIs set this

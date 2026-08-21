@@ -24,6 +24,13 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   screening run can tell an abandoned target from a failed one.
 - `tests/test_rf3_featurizer.py`: RF3 host-featurizer parity over ten capability classes
   from committed captures, with no device and no `rc-foundry` install.
+- Both release gates honour a card grant. `TT_VISIBLE_DEVICES` is the set of cards a run may
+  open: ask `--workers` for a card outside it and `full_parity_gate.py` refuses in preflight
+  instead of taking a card another job on the box holds, and a leg needing more cards than the
+  grant is skipped as `SKIPPED-CARD-GRANT` and listed under `COVERAGE REDUCED` so a narrowed
+  gate cannot read as a green full one. Leaving the variable unset means the whole box and is
+  the unchanged path a release run takes. Both gates also refuse to start when the 1-min
+  loadavg is above 1.5x nproc (`--load-ceiling`, 0 disables).
 
 ### Fixed
 
@@ -37,6 +44,15 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   the consumers' room in bytes per core, at both sites that hand a narrow projection an
   L1-resident pair tensor. Every rung that folded before folds bit-identically; the ligand ladder
   passes at every 64-aa rung from 256 to 1024 aa.
+- The parity gate's delegated legs (`boltzgen`, `opendde-abag`, `capacity`) run in the gate's own
+  process and shell out from there, so they inherited an environment with no device restriction:
+  boltzgen designed on card 0 whatever `--workers` said, and any fan-out from a delegated leg
+  would have taken every card on the box. They are pinned now, and the pin is restored afterwards
+  so one leg cannot leak it into the next.
+- The `l1-budget` release-gate arm crashed before folding anything (`L1_BUDGET_PARTS` rows
+  unpacked as 4-tuples after a DRAM field made them 5), and that arm's own tests were dead for
+  the identical reason, so the arm had neither a working leg nor working tests. Also fixed three
+  gate tests whose verdict depended on the host's loadavg instead of the logic under test.
 
 - A partial `~/of3_ref_out.pkl` skips the OpenFold3 device tests that need the keys it
   lacks instead of failing them. The tests guarded on the golden's existence while
