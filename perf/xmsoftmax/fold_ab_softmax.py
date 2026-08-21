@@ -137,6 +137,9 @@ def main():
                     help="one triplet, repeated --reps times; off,off,on gives a paired A/A and A/B")
     ap.add_argument("--fixdir", type=Path, default=ROOT / "perf" / "size512" / "fixtures")
     ap.add_argument("--out", type=Path)
+    ap.add_argument("--instrument", choices=("pf", "apb", "both"), default="pf",
+                    help="which block wall to time. pf (default) is the outer one: it contains the "
+                         "whole lever and costs 1208 syncs per fold instead of apb's 10568")
     ap.add_argument("--selftest", action="store_true",
                     help="check the instance walker without a device, then exit")
     a = ap.parse_args()
@@ -174,8 +177,19 @@ def main():
         return _acc(*x, **k)
     T._accurate_softmax = counted
 
-    for cls, key in ((T.AttentionPairBias, "block:AttentionPairBias"),
-                     (T.PairformerLayer, "block:PairformerLayer")):
+    # ONE level at a time, and by default the outer one. Wrapping both nests the timers:
+    # PairformerLayer contains AttentionPairBias, so the PF wall would carry APB's syncs as well as
+    # its own, and the two numbers stop being independent. Worse, APB runs 5284 times per 256 aa
+    # protenix fold, so wrapping it costs 10568 `synchronize_device` calls -- the measured APB wall
+    # then swings 41% between two folds of the SAME arm (2096.7 vs 2967.7 ms), because a host-side
+    # sync spin is exactly what co-tenant load lengthens. That is the oversync inflation from
+    # tt-bio-isolated-op-timing-oversync-inflates-cost, at 5284x. PairformerLayer runs 604 times,
+    # 1208 syncs, and its A/A spread came out 5x tighter on the same data.
+    INSTR = {"pf": ((T.PairformerLayer, "block:PairformerLayer"),),
+             "apb": ((T.AttentionPairBias, "block:AttentionPairBias"),),
+             "both": ((T.AttentionPairBias, "block:AttentionPairBias"),
+                      (T.PairformerLayer, "block:PairformerLayer"))}
+    for cls, key in INSTR[a.instrument]:
         f = cls.__call__
         cls.__call__ = (lambda g, k: lambda self, *x, **kw: timed_call(k, g, self, *x, **kw))(f, key)
 
@@ -184,7 +198,7 @@ def main():
         for o in STATE["sites"]:
             o.accurate_softmax = on
 
-    res = {"_meta": {"host": socket.gethostname(), "ttnn": im.version("ttnn"),
+    res = {"_meta": {"instrument": a.instrument, "host": socket.gethostname(), "ttnn": im.version("ttnn"),
                      "chip": os.environ.get("TT_VISIBLE_DEVICES", "?"),
                      "sites": sel, "model": a.model, "tt_bio": T.__file__,
                      "recycling_steps": B.RECYCLING_STEPS,
@@ -261,7 +275,8 @@ def main():
         def metric(r, key):
             return r["wall_ms"].get(key, {}).get("ms")
         out = {}
-        for key in ("block:PairformerLayer", "block:AttentionPairBias"):
+        keys = sorted({k for r in rs for k in r["wall_ms"]})
+        for key in keys:
             pairs_aa, pairs_ab = [], []
             for rep in sorted({r["rep"] for r in rs}):
                 byslot = {r["slot"]: r for r in rs if r["rep"] == rep}
