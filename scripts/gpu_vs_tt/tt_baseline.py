@@ -201,19 +201,30 @@ class Instrument:
             self._sites.append((owner, attr, getattr(owner, attr), bucket, target))
         self._cur: dict[str, float] = {}
         self._per_fn: dict[str, dict] = {}
+        self._depth = 0
         self.active = False
 
     def _wrap(self, fn, bucket: str, name: str):
         def timed(*a, **k):
+            outer = self._depth == 0
+            self._depth += 1
             t = time.perf_counter()
             try:
                 return fn(*a, **k)
             finally:
                 dt = time.perf_counter() - t
-                self._cur[bucket] = self._cur.get(bucket, 0.0) + dt
-                row = self._per_fn.setdefault(name, {"s": 0.0, "n": 0})
+                self._depth -= 1
+                # One bracket can sit inside another: OpenFold3's run_input_atom_encoder
+                # calls ref_atom_embed (openfold3_host_prep.py:227), and both are in the
+                # table. Charge the buckets from the OUTERMOST bracket only, so the
+                # nested call lands in the caller's bucket and is not counted twice.
+                # Untracked, that showed up as a negative residual of 0.029 s.
+                if outer:
+                    self._cur[bucket] = self._cur.get(bucket, 0.0) + dt
+                row = self._per_fn.setdefault(name, {"s": 0.0, "n": 0, "nested": 0})
                 row["s"] += dt
                 row["n"] += 1
+                row["nested"] += not outer
         return timed
 
     def on(self) -> None:
@@ -230,14 +241,16 @@ class Instrument:
         """The phase record for the fold that just ran; resets the accumulators.
 
         ``residual`` is what the brackets missed, and it is host glue by construction
-        (see PHASES). A NEGATIVE residual means two brackets nested and double-counted
-        -- that is the check, not a rounding artifact. Per-function ``n`` is what
-        separates "this patch never fired" from "it fired and cost nothing".
+        (see PHASES), so it cannot go negative: nested brackets charge the outermost
+        bucket once. ``per_fn`` keeps the inclusive per-call time, its call count and
+        how many of those calls were nested inside another bracket -- ``n`` separates
+        "this patch never fired" from "it fired and cost nothing", and ``nested`` says
+        how much of that time is already inside another row.
         """
         r = {b: round(self._cur.get(b, 0.0), 4) for b in ("host", "device", "transfer")}
         r["total"] = round(total, 4)
         r["residual"] = round(total - sum(self._cur.values()), 4)
-        r["per_fn"] = {k: {"s": round(v["s"], 4), "n": v["n"]}
+        r["per_fn"] = {k: {"s": round(v["s"], 4), "n": v["n"], "nested": v["nested"]}
                        for k, v in self._per_fn.items()}
         self._cur.clear()
         self._per_fn.clear()

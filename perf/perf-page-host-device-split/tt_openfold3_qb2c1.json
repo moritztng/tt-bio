@@ -1,0 +1,192 @@
+{
+ "model": "openfold3",
+ "size": 512,
+ "rounds": 3,
+ "fixture": "perf/size512/fixtures/cdk2x2_512.yaml",
+ "msa_file": "perf/size512/fixtures/cdk2x2_512.a3m",
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "ttnn": "0.68.0",
+ "torch": "2.13.0+cpu",
+ "card": "1",
+ "git_head": "0e345b3f",
+ "phases": {
+  "openfold3": [
+   [
+    "mod",
+    "tt_bio.main:_read_bio_chains",
+    "host"
+   ],
+   [
+    "mod",
+    "tt_bio.openfold3_data:resolve_openfold3_msas",
+    "host"
+   ],
+   [
+    "mod",
+    "tt_bio.openfold3_data:build_openfold3_features",
+    "host"
+   ],
+   [
+    "mod",
+    "tt_bio.openfold3_data:make_openfold3_msa_features",
+    "host"
+   ],
+   [
+    "mod",
+    "tt_bio.openfold3_host_prep:derive_block_aux",
+    "host"
+   ],
+   [
+    "mod",
+    "tt_bio.openfold3_host_prep:derive_template_feat",
+    "host"
+   ],
+   [
+    "mod",
+    "tt_bio.openfold3_host_prep:dedup_template_slots",
+    "host"
+   ],
+   [
+    "mod",
+    "tt_bio.openfold3_host_prep:derive_relpos",
+    "host"
+   ],
+   [
+    "mod",
+    "tt_bio.openfold3_host_prep:ref_atom_embed",
+    "host"
+   ],
+   [
+    "mod",
+    "tt_bio.openfold3_host_prep:run_input_atom_encoder",
+    "device"
+   ],
+   [
+    "state",
+    "model.fold",
+    "device"
+   ],
+   [
+    "mod",
+    "tt_bio.worker:_write_atom_array_structure",
+    "host"
+   ]
+  ]
+ },
+ "started": "2026-08-21T16:35:59+0000",
+ "host": "tt-quietbox2",
+ "nproc": 16,
+ "cpu": "AMD Ryzen 7 9700X 8-Core Processor",
+ "folds": [
+  {
+   "arm": "plain",
+   "fold_s": 42.276,
+   "plddt": 0.547851,
+   "n_tokens": 512,
+   "cifs": {
+    "cdk2x2_512.cif": "da9b4ed68f8c0405"
+   },
+   "loadavg": [
+    "18.91",
+    "22.61",
+    "23.56"
+   ]
+  },
+  {
+   "arm": "instr",
+   "fold_s": 43.277,
+   "plddt": 0.547851,
+   "n_tokens": 512,
+   "cifs": {
+    "cdk2x2_512.cif": "da9b4ed68f8c0405"
+   },
+   "loadavg": [
+    "21.34",
+    "22.78",
+    "23.58"
+   ],
+   "phase": {
+    "host": 1.8392,
+    "device": 41.4667,
+    "transfer": 0.0,
+    "total": 43.2768,
+    "residual": -0.0291,
+    "per_fn": {
+     "tt_bio.main:_read_bio_chains": {
+      "s": 0.0007,
+      "n": 1
+     },
+     "tt_bio.openfold3_data:resolve_openfold3_msas": {
+      "s": 0.0001,
+      "n": 1
+     },
+     "tt_bio.openfold3_data:build_openfold3_features": {
+      "s": 1.2688,
+      "n": 1
+     },
+     "tt_bio.openfold3_data:make_openfold3_msa_features": {
+      "s": 0.0006,
+      "n": 1
+     },
+     "tt_bio.openfold3_host_prep:derive_block_aux": {
+      "s": 0.0013,
+      "n": 1
+     },
+     "tt_bio.openfold3_host_prep:derive_template_feat": {
+      "s": 0.0178,
+      "n": 1
+     },
+     "tt_bio.openfold3_host_prep:dedup_template_slots": {
+      "s": 0.0383,
+      "n": 1
+     },
+     "tt_bio.openfold3_host_prep:derive_relpos": {
+      "s": 0.3021,
+      "n": 1
+     },
+     "tt_bio.openfold3_host_prep:ref_atom_embed": {
+      "s": 0.1431,
+      "n": 2
+     },
+     "tt_bio.openfold3_host_prep:run_input_atom_encoder": {
+      "s": 0.31,
+      "n": 1
+     },
+     "model.fold": {
+      "s": 41.1567,
+      "n": 1
+     },
+     "tt_bio.worker:_write_atom_array_structure": {
+      "s": 0.0664,
+      "n": 1
+     }
+    }
+   }
+  },
+  {
+   "arm": "plain",
+   "fold_s": 43.585,
+   "plddt": 0.547851,
+   "n_tokens": 512,
+   "cifs": {
+    "cdk2x2_512.cif": "da9b4ed68f8c0405"
+   },
+   "loadavg": [
+    "23.83",
+    "23.11",
+    "23.65"
+   ]
+  }
+ ],
+ "meta": {
+  "hardware": "blackhole",
+  "load_s": 2.7,
+  "n_msa": 35
+ },
+ "grid": [
+  11,
+  10
+ ],
+ "cold_s": 45.747
+}
