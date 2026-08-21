@@ -1,8 +1,8 @@
 {
   "schema": 2,
-  "updated": "2026-08-18",
+  "updated": "2026-08-21",
   "title": "TT-Bio: biomolecular structure, design and embeddings on Tenstorrent",
-  "subtitle": "Five structure-prediction models at 512 residues and one binder-design model, measured on Tenstorrent Blackhole and on NVIDIA H200, B200 and A100.",
+  "subtitle": "Six structure-prediction models at 512 residues and one binder-design model, measured on Tenstorrent Blackhole and on NVIDIA H200, B200 and A100.",
   "notes": [
     "This file is the only place numbers are edited. index.html reads it and derives everything else.",
     "Never write a derived value here. Server throughput, cost per hour and both throughput-per-dollar charts are computed in the page from s_per_fold, accelerators, price and power.",
@@ -301,6 +301,36 @@
           "ref": "Median of n=3 warm, 16.942 / 16.942 / 16.892 s, spread 0.30 %, cold 22.186 s discarded. openfold3 0.4.4, torch 2.13.0+cu130, ckpt of3-p2-155k.pt, plDDT 0.638. triangle_attention 2752 and triangle_multiplicative_update 1702 through the kernels, every torch-fallback counter 0."
         }
       }
+    },
+    {
+      "id": "rf3",
+      "name": "RoseTTAFold3",
+      "recycles": 10,
+      "sampling_steps": "50 requested, 49 executed",
+      "note": "RF3 spends about half of a 512-residue fold in AtomWorks host featurisation, the same host code on every platform: 12.7 s of the 22.0 s H200 fold and 15.0 s of the 30.9 s A100 fold. That shared cost is inside the Tenstorrent number too, so this row tracks the host CPU more than the other five and its ratios read closer to 1 than the accelerators alone would give.",
+      "cells": {
+        "p150a": {
+          "status": "measured",
+          "s_per_fold": 81.051,
+          "parity": "reference-relative PASS, bit-exact run-to-run and cross-process",
+          "ref": "Seven warm folds of the shipped default across two independent processes under benchlock on qb2, ttnn 0.68.0: 80.800 / 80.904 / 81.012 / 81.051 / 81.295 / 81.346 / 81.415 s, median 81.051, spread 0.615 s (0.76 %), cold folds 91.159 and 84.884 s discarded. The A/A floor between the two processes is 0.388 s (0.48 %), so the spread sits at the floor. Reproducible digest across both processes: CIF sha256 34df7aba88dba1fb, plDDT 0.7797, pTM 0.6588 and 49 denoise calls on all seven warm folds and both cold folds, the denoise calls counted at the sampler rather than read off the config. Shipped default arm with no env flags, which is also the parity arm because RF3's accurate softmax is hard-wired on. Raw: perf/rf3/page512/tt_shipped_qb2c0.json and tt_shipped2_qb2c0.json.",
+          "updated": "2026-08-21"
+        },
+        "h200": {
+          "status": "measured",
+          "s_per_fold": 21.995,
+          "ref": "Median of n=3 warm, 21.013 / 21.995 / 24.869 s, spread 3.856 s (17.5 %), cold 29.639 s discarded. rc-foundry 0.2.0, atomworks 2.2.1, cuequivariance-torch 0.11.1 with the cu12 ops wheels, torch 2.13.0+cu130, plDDT 0.783, 4116 atoms. cuEquivariance carried every triangle op, counted not assumed: triangle_attention_cueq 4352 and triangle_multiply_cueq 4352, both vanilla counters 0, scaled_dot_product_attention 0. The 17.5 % spread is host, not device: the device phases hold 7.10 / 7.22 / 7.30 s at 2.8 % while AtomWorks host featurisation swings 11.294 to 15.280 s, 54 to 62 % of the fold. Xeon Platinum 8480+, 26.88 vCPU by cgroup quota, card exclusive, peak 5.45 GiB of 141 GB."
+        },
+        "b200": {
+          "status": "not measured",
+          "detail": "Not measured. No single-GPU B200 rental fit the budget for this row: the cheapest offer on the day was $6.01 per hour against a $2.35 balance, which buys less time than the install and the 2.9 GB checkpoint pull need. RF3 is expected to run on B200 and nothing here says otherwise. The cell is empty because the card was not rented, not because the model failed on it."
+        },
+        "a100": {
+          "status": "measured",
+          "s_per_fold": 30.893,
+          "ref": "Median of n=8 warm, 30.308 to 31.578 s, median 30.893, spread 1.270 s (4.11 %), cold 41.684 s discarded. Stack byte-identical to the H200 cell: rc-foundry 0.2.0, atomworks 2.2.1, cuequivariance-torch 0.11.1 with the cu12 ops wheels, torch 2.13.0+cu130, triton 3.7.1, plDDT 0.782, 4116 atoms. cuEquivariance carried every triangle op, counted not assumed: triangle_attention_cueq 9792 and triangle_multiply_cueq 9792, both vanilla counters 0, scaled_dot_product_attention 0. A100 and H200 run the same generic cuEquivariance triangle kernel, so the two cells are like-for-like on the kernel path. AtomWorks host featurisation is 14.988 s of the fold, 48.5 %, on an AMD EPYC 7763 at a 30.72 vCPU cgroup quota, which is a different EPYC from the 7513 the other A100 cells on this page were measured on. Card exclusive, peak 5.43 GiB of 80 GB."
+        }
+      }
     }
   ],
   "design": {
@@ -420,6 +450,7 @@
   },
   "caveats": [
     "Rows are not a cross-model ranking. Boltz-2 and OpenFold3 do 3 recycles where ESMFold2, Protenix-v2 and OpenDDE do 10, because that is what each ships. Compare a model to itself across hardware. BoltzGen returns a binder design, not a prediction; its bars share an axis with the prediction models but not a unit.",
-    "The A100 ran every cell on this page, on the same fixtures. Its host is an AMD EPYC 7513 where the H200 and B200 boxes were Intel Xeon, which matters for the dispatch-bound trunks and is not corrected for."
+    "The A100 ran every cell on this page, on the same fixtures. Its host is an AMD EPYC 7513 where the H200 and B200 boxes were Intel Xeon, which matters for the dispatch-bound trunks and is not corrected for, and the RoseTTAFold3 cell ran later on an EPYC 7763 at the same 30.7 vCPU quota.",
+    "RoseTTAFold3 is the one row where about half the fold is host featurisation rather than accelerator work, measured at 12.7 s of 22.0 s on the H200 and 15.0 s of 30.9 s on the A100. The same AtomWorks code runs on every platform, so that shared cost pulls the row's ratios toward 1. Read it as a fold comparison, not as an accelerator comparison."
   ]
 }
