@@ -1,0 +1,68 @@
+{
+ "source": "pdl1_protenix05_noH ref_pos_seed=2",
+ "n_token": 196,
+ "n_atom": 1250,
+ "n_step": 400,
+ "n_sample": 4,
+ "seed": 0,
+ "ref_pos_seed": 2,
+ "seconds": 37.89,
+ "coords_sha16": "944f1644786f5ab2",
+ "art": "scripts/pxdesign_port/parity_artifacts/pdl1_protenix05_noH",
+ "coords_shape": [
+  4,
+  1250,
+  3
+ ],
+ "binder_atoms": 321,
+ "target_atoms": 929,
+ "stats": [
+  {
+   "rg_all": 16.029842376708984,
+   "rg_target": 13.890349388122559,
+   "rg_binder": 13.332734107971191
+  },
+  {
+   "rg_all": 16.195276260375977,
+   "rg_target": 13.893194198608398,
+   "rg_binder": 12.276080131530762
+  },
+  {
+   "rg_all": 15.809995651245117,
+   "rg_target": 13.918224334716797,
+   "rg_binder": 13.654458999633789
+  },
+  {
+   "rg_all": 16.124069213867188,
+   "rg_target": 13.905613899230957,
+   "rg_binder": 13.192920684814453
+  }
+ ],
+ "target_reproduction": [
+  {
+   "target_rmsd": 0.061911819856808895,
+   "n_scored": 116,
+   "min_binder_target_dist": 2.9039599895477295,
+   "n_contacts_below_5A": 37
+  },
+  {
+   "target_rmsd": 0.0551118581235165,
+   "n_scored": 116,
+   "min_binder_target_dist": 2.462082624435425,
+   "n_contacts_below_5A": 36
+  },
+  {
+   "target_rmsd": 0.06028735480059569,
+   "n_scored": 116,
+   "min_binder_target_dist": 1.6458112001419067,
+   "n_contacts_below_5A": 53
+  },
+  {
+   "target_rmsd": 0.05276732769281107,
+   "n_scored": 116,
+   "min_binder_target_dist": 2.6862123012542725,
+   "n_contacts_below_5A": 35
+  }
+ ],
+ "finite": true
+}

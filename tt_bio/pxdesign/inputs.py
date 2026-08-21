@@ -126,8 +126,10 @@ def design_inputs(structure, chains, binder_length: int, crop=None, hotspots=Non
     out["residue_index"] = residue_index
     out["token_index"] = torch.arange(n_token)
     out.update(condition_template(coord, res_name, mol_type, is_resolved))
+    # Not model inputs: what a scorer needs to check the generated fold against the target.
     out["condition"] = {"coord": coord, "res_name": res_name, "mol_type": mol_type,
                         "is_resolved": is_resolved}
+    out["distogram_rep_atom_mask"] = feats["distogram_rep_atom_mask"]
 
     if out["restype"].shape[0] != n_token:
         raise AssertionError("restype/token count disagree")

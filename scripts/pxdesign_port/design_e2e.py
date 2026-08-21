@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
-"""Generation-only end-to-end for PXDesign-d on a captured anchor.
+"""Generation-only end-to-end for PXDesign-d, from a target structure file or a capture.
 
-Drives `tt_bio.pxdesign.model.ProtenixDesign` from `parity_artifacts/pdl1_protenix05_noH/
-ref_design_inputs.pt` -- the model-ready input dict captured from the upstream featurizer
-itself (`capture_ref_design_f.py`). tt-bio has no CIF parser for Protenix features, and the
-design-specific arithmetic on top of that atom array is already gated bit-exact
-(`parity_gate.py`), so composing the two halves against an upstream-produced input is the
-honest first end-to-end rather than a stub.
+`--from_yaml` is the real input path: a PXDesign target YAML in, designs out, through
+`tt_bio.pxdesign.inputs` with no protenix install and no captured feature dict. `--art`
+keeps the older route, reading a model-ready input dict captured from the upstream
+featurizer (`capture_ref_design_f.py`), which is what makes the two comparable.
 
-    TT_VISIBLE_DEVICES=1 python3 scripts/pxdesign_port/design_e2e.py --n_step 20
+    TT_VISIBLE_DEVICES=1 python3 scripts/pxdesign_port/design_e2e.py \
+        --from_yaml tests/fixtures/pxdesign/PDL1.yaml --n_sample 4 --n_step 400
     TT_VISIBLE_DEVICES=1 python3 scripts/pxdesign_port/design_e2e.py --determinism
+
+`--ref_pos_seed` is the control for the one feature the input path cannot reproduce.
+Upstream builds its `Featurizer` with `ref_pos_augment` left at `True`, so every capture's
+`ref_pos` is one unseeded draw of a per-residue random rotation and translation that
+upstream itself cannot repeat. The flag replays that draw on the capture at a fixed seed,
+which measures how far the metrics move under `ref_pos` alone and so sets the band the
+structure-file path has to land in.
 
 `--score_coords` scores a saved coordinate tensor instead of generating one, so the upstream
 CPU reference (`upstream_ref.py --stage traj`) goes through these exact metrics rather than
@@ -41,14 +47,48 @@ _LONG = ("ref_space_uid", "atom_to_token_idx", "asym_id", "residue_index", "enti
          "sym_id", "token_index", "conditional_templ")
 
 
+def _as_model_dtypes(raw: dict) -> dict:
+    """tt-bio's atom encoder concatenates the one-hots with the float channels, so a stored
+    uint8 has to come back as float; the index features stay integer."""
+    return {k: (v.float() if k in _FLOAT else (v.long() if k in _LONG else v))
+            for k, v in raw.items()}
+
+
 def load_design_inputs(path=None) -> dict:
     """The captured input dict, in the dtypes tt_bio.protenix expects."""
     import torch
-    raw = torch.load(path or (ART / "ref_design_inputs.pt"), weights_only=False)
-    feats = {}
-    for k, v in raw.items():
-        feats[k] = v.float() if k in _FLOAT else (v.long() if k in _LONG else v)
-    return feats
+    return _as_model_dtypes(torch.load(path or (ART / "ref_design_inputs.pt"),
+                                       weights_only=False))
+
+
+def load_yaml_inputs(path) -> dict:
+    """The same dict built from a target structure file instead of from a capture."""
+    sys.path.insert(0, str(REPO))
+    from tt_bio.pxdesign.inputs import design_inputs_from_yaml
+    return _as_model_dtypes(design_inputs_from_yaml(path))
+
+
+def augment_ref_pos(feats: dict, seed: int) -> dict:
+    """Upstream's `ref_pos` draw, replayed at a fixed seed.
+
+    `protenix/utils/geometry.py:random_transform` centralizes each residue's reference
+    conformer, then adds a uniform translation in [-1, 1]^3 and applies a random rotation,
+    once per `ref_space_uid`. Upstream draws it from the unseeded global numpy RNG.
+    """
+    import numpy as np
+    import torch
+    from scipy.spatial.transform import Rotation
+
+    rng = np.random.RandomState(seed)
+    pos = feats["ref_pos"].clone()
+    for uid in torch.unique(feats["ref_space_uid"]):
+        sel = feats["ref_space_uid"] == uid
+        pts = pos[sel].numpy().astype(np.float64)
+        pts = pts - pts.mean(axis=0)
+        t = rng.uniform(-1.0, 1.0, size=3)
+        r = Rotation.random(random_state=rng).as_matrix()
+        pos[sel] = torch.tensor((pts + t) @ r.T, dtype=pos.dtype)
+    return {**feats, "ref_pos": pos}
 
 
 def build(diffusion_fp32=None):
@@ -68,6 +108,23 @@ def _kabsch_rmsd(a, b):
     return float((a @ r - b).pow(2).sum(-1).mean().sqrt())
 
 
+def scoring_reference(feats, art=None):
+    """What `target_reproduction` scores against: the conditioning coordinates upstream (or
+    the input path) fed to the distogram, the conditioned-token mask, and the per-atom
+    distogram-representative mask. Built from the input dict when it came from a structure
+    file, read from the capture otherwise, so both routes go through one scorer."""
+    import torch
+    if "condition" in feats:
+        c = feats["condition"]
+        cond = torch.tensor([r != "xpb" for r in c["res_name"]]) & c["is_resolved"].bool()
+        return c["coord"], cond, feats["distogram_rep_atom_mask"].bool()
+    art = Path(art) if art else ART
+    ref = torch.load(art / "ref_condition_inputs.pt", weights_only=False)
+    gate = torch.load(art / "ref_design_f.pt", weights_only=False)
+    cond = torch.tensor([r != "xpb" for r in ref["res_name"]]) & ref["is_resolved"].bool()
+    return ref["coord"], cond, gate["distogram_rep_atom_mask"].bool()
+
+
 def target_reproduction(coords, feats, art=None):
     """The end-to-end correctness signal for the conditioning path.
 
@@ -82,11 +139,7 @@ def target_reproduction(coords, feats, art=None):
     Also reports the closest binder-to-target atom distance: a design that never touches its
     target is a failure the RMSD cannot see."""
     import torch
-    art = Path(art) if art else ART
-    ref = torch.load(art / "ref_condition_inputs.pt", weights_only=False)
-    gate = torch.load(art / "ref_design_f.pt", weights_only=False)
-    disto = gate["distogram_rep_atom_mask"].bool()
-    conditioned = torch.tensor([r != "xpb" for r in ref["res_name"]]) & ref["is_resolved"].bool()
+    ref_coord, conditioned, disto = scoring_reference(feats, art)
     out = []
     a2t = feats["atom_to_token_idx"].long()
     binder_tok = feats["restype"].argmax(-1) == 32
@@ -94,7 +147,7 @@ def target_reproduction(coords, feats, art=None):
     for s in range(coords.shape[0]):
         rep = coords[s][disto]                       # (N_token, 3), one per token
         d = torch.cdist(coords[s][at_binder], coords[s][~at_binder])
-        out.append({"target_rmsd": _kabsch_rmsd(rep[conditioned], ref["coord"][conditioned]),
+        out.append({"target_rmsd": _kabsch_rmsd(rep[conditioned], ref_coord[conditioned]),
                     "n_scored": int(conditioned.sum()),
                     "min_binder_target_dist": float(d.min()),
                     "n_contacts_below_5A": int((d < 5.0).any(-1).sum())})
@@ -129,7 +182,8 @@ def score_only(args, feats):
     coords = coords.reshape(-1, coords.shape[-2], coords.shape[-1]).float()
     st, n_b, n_t = _stats(coords, feats)
     repro = target_reproduction(coords, feats, art=args.art)
-    rec = {"source": args.score_coords, "art": str(args.art or ART), "coords_shape": list(coords.shape),
+    rec = {"source": args.score_coords,
+           "art": args.from_yaml or str(args.art or ART), "coords_shape": list(coords.shape),
            "binder_atoms": n_b, "target_atoms": n_t, "stats": st,
            "target_reproduction": repro,
            "finite": bool(torch.isfinite(coords).all())}
@@ -155,6 +209,13 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--determinism", action="store_true",
                     help="two solo runs at the same seed in one process; report the floor")
+    ap.add_argument("--from_yaml", default=None,
+                    help="a PXDesign target YAML; builds the model input from the structure "
+                         "file it names, with no capture and no protenix install")
+    ap.add_argument("--ref_pos_seed", type=int, default=None,
+                    help="replay upstream's per-residue ref_pos augmentation at this seed "
+                         "(see augment_ref_pos); the control for the one key the input path "
+                         "cannot reproduce")
     ap.add_argument("--art", default=None,
                     help="capture directory to read the input dict and the scoring reference "
                          "from; defaults to parity_artifacts/pdl1_protenix05_noH")
@@ -167,11 +228,19 @@ def main():
 
     import torch
     art = Path(args.art) if args.art else ART
-    feats = load_design_inputs(art / "ref_design_inputs.pt")
+    if args.from_yaml:
+        feats = load_yaml_inputs(args.from_yaml)
+        source = Path(args.from_yaml).name
+    else:
+        feats = load_design_inputs(art / "ref_design_inputs.pt")
+        source = art.name
+    if args.ref_pos_seed is not None:
+        feats = augment_ref_pos(feats, args.ref_pos_seed)
+        source += f" ref_pos_seed={args.ref_pos_seed}"
     if args.score_coords:
         return score_only(args, feats)
     NT = int(feats["atom_to_token_idx"].max()) + 1
-    print(f"[e2e] {Path(args.art or ART).name}: {NT} tokens, {feats['ref_pos'].shape[0]} atoms, "
+    print(f"[e2e] {source}: {NT} tokens, {feats['ref_pos'].shape[0]} atoms, "
           f"n_step={args.n_step} n_sample={args.n_sample} seed={args.seed}", flush=True)
 
     t0 = time.time()
@@ -180,8 +249,9 @@ def main():
           f"(c_z={model.C_Z}, DiT blocks={model.diffusion.n_dit_blocks if hasattr(model.diffusion, 'n_dit_blocks') else '?'})",
           flush=True)
 
-    rec = {"n_token": NT, "n_atom": int(feats["ref_pos"].shape[0]), "n_step": args.n_step,
-           "n_sample": args.n_sample, "seed": args.seed}
+    rec = {"source": source, "n_token": NT, "n_atom": int(feats["ref_pos"].shape[0]),
+           "n_step": args.n_step, "n_sample": args.n_sample, "seed": args.seed,
+           "ref_pos_seed": args.ref_pos_seed}
     t0 = time.time()
     coords = model.design(feats, n_step=args.n_step, n_sample=args.n_sample, seed=args.seed)
     rec["seconds"] = round(time.time() - t0, 2)
@@ -190,7 +260,7 @@ def main():
         coords.contiguous().numpy().tobytes()).hexdigest()[:16]
     st, n_b, n_t = _stats(coords, feats)
     repro = target_reproduction(coords, feats, art=args.art)
-    rec.update({"art": str(args.art or ART), "coords_shape": list(coords.shape), "binder_atoms": n_b, "target_atoms": n_t,
+    rec.update({"art": args.from_yaml or str(args.art or ART), "coords_shape": list(coords.shape), "binder_atoms": n_b, "target_atoms": n_t,
                 "stats": st, "target_reproduction": repro,
                 "finite": bool(torch.isfinite(coords).all())})
     print(f"[e2e] {rec['seconds']}s  shape={rec['coords_shape']}  "
