@@ -307,13 +307,13 @@
       "name": "RoseTTAFold3",
       "recycles": 10,
       "sampling_steps": "50 requested, 49 executed",
-      "note": "RF3 spends about half of a 512-residue fold in AtomWorks host featurisation, the same host code on every platform: 12.7 s of the 22.0 s H200 fold and 15.0 s of the 30.9 s A100 fold. That shared cost is inside the Tenstorrent number too, so this row tracks the host CPU more than the other five and its ratios read closer to 1 than the accelerators alone would give.",
+      "note": "AtomWorks host featurisation, not accelerator work, is the single largest cost in an RF3 fold on the NVIDIA boxes: 12.7 s of the 22.0 s H200 fold and 15.0 s of the 30.9 s A100 fold. The same featuriser runs inside the Tenstorrent number in 8.3 s or less. A shared cost that size sits on both sides of every ratio in this row and compresses it, so read the row as a fold comparison and not as an accelerator comparison.",
       "cells": {
         "p150a": {
           "status": "measured",
           "s_per_fold": 81.051,
           "parity": "reference-relative PASS, bit-exact run-to-run and cross-process",
-          "ref": "Seven warm folds of the shipped default across two independent processes under benchlock on qb2, ttnn 0.68.0: 80.800 / 80.904 / 81.012 / 81.051 / 81.295 / 81.346 / 81.415 s, median 81.051, spread 0.615 s (0.76 %), cold folds 91.159 and 84.884 s discarded. The A/A floor between the two processes is 0.388 s (0.48 %), so the spread sits at the floor. Reproducible digest across both processes: CIF sha256 34df7aba88dba1fb, plDDT 0.7797, pTM 0.6588 and 49 denoise calls on all seven warm folds and both cold folds, the denoise calls counted at the sampler rather than read off the config. Shipped default arm with no env flags, which is also the parity arm because RF3's accurate softmax is hard-wired on. Raw: perf/rf3/page512/tt_shipped_qb2c0.json and tt_shipped2_qb2c0.json.",
+          "ref": "Seven warm folds of the shipped default across two independent processes under benchlock on qb2, ttnn 0.68.0: 80.800 / 80.904 / 81.012 / 81.051 / 81.295 / 81.346 / 81.415 s, median 81.051, spread 0.615 s (0.76 %), cold folds 91.159 and 84.884 s discarded. The A/A floor between the two processes is 0.388 s (0.48 %), so the spread sits at the floor. Reproducible digest across both processes: CIF sha256 34df7aba88dba1fb, plDDT 0.7797, pTM 0.6588 and 49 denoise calls on all seven warm folds and both cold folds, the denoise calls counted at the sampler rather than read off the config. Shipped default arm with no env flags, which is also the parity arm because RF3's accurate softmax is hard-wired on. AtomWorks host featurisation is 8.3 s or less of this fold, timed on its own on the same box and the same fixture, so this cell is far less host-bound than the two NVIDIA cells are. Raw: perf/rf3/page512/tt_shipped_qb2c0.json, tt_shipped2_qb2c0.json and tt_host_split_qb2.json.",
           "updated": "2026-08-21"
         },
         "h200": {
@@ -451,6 +451,6 @@
   "caveats": [
     "Rows are not a cross-model ranking. Boltz-2 and OpenFold3 do 3 recycles where ESMFold2, Protenix-v2 and OpenDDE do 10, because that is what each ships. Compare a model to itself across hardware. BoltzGen returns a binder design, not a prediction; its bars share an axis with the prediction models but not a unit.",
     "The A100 ran every cell on this page, on the same fixtures. Its host is an AMD EPYC 7513 where the H200 and B200 boxes were Intel Xeon, which matters for the dispatch-bound trunks and is not corrected for, and the RoseTTAFold3 cell ran later on an EPYC 7763 at the same 30.7 vCPU quota.",
-    "RoseTTAFold3 is the one row where about half the fold is host featurisation rather than accelerator work, measured at 12.7 s of 22.0 s on the H200 and 15.0 s of 30.9 s on the A100. The same AtomWorks code runs on every platform, so that shared cost pulls the row's ratios toward 1. Read it as a fold comparison, not as an accelerator comparison."
+    "RoseTTAFold3 is the row where host featurisation rivals the accelerator. It is 12.7 s of the 22.0 s H200 fold and 15.0 s of the 30.9 s A100 fold, against 8.3 s or less of the 81.1 s Blackhole fold, because the Blackhole box is a Ryzen 7 9700X where the two NVIDIA boxes are server parts on lower clocks and this pipeline is largely single-threaded. That shared AtomWorks cost sits on both sides of every ratio in the row and compresses it, so read the row as a fold comparison rather than an accelerator one."
   ]
 }
