@@ -132,6 +132,12 @@ def main() -> int:
     ap.add_argument("--per-temp", type=int, default=3)
     ap.add_argument("--seed", type=int, default=37)
     ap.add_argument("--weights", default="vanilla_model_weights")
+    ap.add_argument("--no-native-row", action="store_true",
+                    help="drop the per-design row that scores the backbone's OWN sequence. A "
+                         "PXDesign backbone has no sequence -- it is generated at the xpb "
+                         "placeholder and written as poly-glycine -- so that row would ask "
+                         "AF2-IG to grade a poly-G binder. Keep it for a BoltzGen design, whose "
+                         "cif carries real residue names.")
     args = ap.parse_args()
 
     out = Path(args.out)
@@ -150,6 +156,10 @@ def main() -> int:
         rows = run_mpnn(pdb, "B", out / (design.stem + "_mpnn"), temps, args.per_temp,
                         args.seed, args.weights)
         for row in rows:
+            # MPNN echoes the input sequence back as its first fasta entry. For a PXDesign
+            # backbone that input is poly-glycine, so it is dropped with the same flag.
+            if args.no_native_row and row["native"]:
+                continue
             seq = row["seq"].split("/")[-1] if "/" in row["seq"] else row["seq"]
             if len(seq) != len(native):
                 cand = [s for s in row["seq"].split("/") if len(s) == len(native)]
@@ -164,6 +174,8 @@ def main() -> int:
                 "temp": row["temp"], "sample": row["sample"], "mpnn_score": row["mpnn_score"],
                 "source": "mpnn_native" if row["native"] else "mpnn",
             })
+        if args.no_native_row:
+            continue
         manifest.append({
             "design": design.stem, "pdb": str(pdb), "tokens": len(crop) + len(binder),
             "target_len": len(crop), "binder_len": len(binder), "atoms": atoms,

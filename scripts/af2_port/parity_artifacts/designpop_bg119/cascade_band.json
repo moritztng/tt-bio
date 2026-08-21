@@ -1,0 +1,337 @@
+{
+ "source": "scripts/af2_port/parity_artifacts/designpop_bg119/flip_rate.json",
+ "content": 0.99,
+ "confidence": 0.95,
+ "criteria": {
+  "plddt": {
+   "bar": 0.8,
+   "sense": ">",
+   "n": 26,
+   "icc": 0.2407,
+   "n_eff": 6.69,
+   "observed_max_abs_delta": 0.015479,
+   "base_width": 0.040541,
+   "observed_max_content_at_n": 0.8912,
+   "observed_max_content_at_neff": 0.6389,
+   "model": "unimodal",
+   "model_reason": "half-normal refuted by leave-one-backbone-out, distribution-free unimodal bound instead",
+   "iid_recipe_survives_holdout": false,
+   "holdout_shortfall_halfnorm": 3.001,
+   "holdout_shortfall_unimodal": 1.506,
+   "inflation": 1.506,
+   "unbounded": false,
+   "width": 0.061062,
+   "width_over_observed_max": 3.945,
+   "halfnorm_width": 0.015745,
+   "unimodal_width": 0.040541,
+   "holdout": [
+    {
+     "fit_on": "binder",
+     "recipe": "clustered",
+     "model": "halfnorm",
+     "width": 0.005158,
+     "heldout_max": 0.015479,
+     "covers": false
+    },
+    {
+     "fit_on": "binder",
+     "recipe": "clustered",
+     "model": "unimodal",
+     "width": 0.010277,
+     "heldout_max": 0.015479,
+     "covers": false
+    },
+    {
+     "fit_on": "binder",
+     "recipe": "iid",
+     "model": "halfnorm",
+     "width": 0.002856,
+     "heldout_max": 0.015479,
+     "covers": false
+    },
+    {
+     "fit_on": "binder",
+     "recipe": "iid",
+     "model": "unimodal",
+     "width": 0.005971,
+     "heldout_max": 0.015479,
+     "covers": false
+    },
+    {
+     "fit_on": "binder_1",
+     "recipe": "clustered",
+     "model": "halfnorm",
+     "width": 0.032226,
+     "heldout_max": 0.001464,
+     "covers": true
+    },
+    {
+     "fit_on": "binder_1",
+     "recipe": "clustered",
+     "model": "unimodal",
+     "width": 0.075735,
+     "heldout_max": 0.001464,
+     "covers": true
+    },
+    {
+     "fit_on": "binder_1",
+     "recipe": "iid",
+     "model": "halfnorm",
+     "width": 0.017848,
+     "heldout_max": 0.001464,
+     "covers": true
+    },
+    {
+     "fit_on": "binder_1",
+     "recipe": "iid",
+     "model": "unimodal",
+     "width": 0.04337,
+     "heldout_max": 0.001464,
+     "covers": true
+    }
+   ]
+  },
+  "i_ptm": {
+   "bar": 0.5,
+   "sense": ">",
+   "n": 26,
+   "icc": 0.2422,
+   "n_eff": 6.66,
+   "observed_max_abs_delta": 0.071012,
+   "base_width": 0.102471,
+   "observed_max_content_at_n": 0.8912,
+   "observed_max_content_at_neff": 0.6376,
+   "model": "halfnorm",
+   "model_reason": "half-normal survives leave-one-backbone-out",
+   "iid_recipe_survives_holdout": false,
+   "holdout_shortfall_halfnorm": 0.781,
+   "holdout_shortfall_unimodal": 0.274,
+   "inflation": 1.0,
+   "unbounded": false,
+   "width": 0.102471,
+   "width_over_observed_max": 1.443,
+   "halfnorm_width": 0.102471,
+   "unimodal_width": 0.293722,
+   "holdout": [
+    {
+     "fit_on": "binder",
+     "recipe": "clustered",
+     "model": "halfnorm",
+     "width": 0.090971,
+     "heldout_max": 0.071012,
+     "covers": true
+    },
+    {
+     "fit_on": "binder",
+     "recipe": "clustered",
+     "model": "unimodal",
+     "width": 0.259025,
+     "heldout_max": 0.071012,
+     "covers": true
+    },
+    {
+     "fit_on": "binder",
+     "recipe": "iid",
+     "model": "halfnorm",
+     "width": 0.050208,
+     "heldout_max": 0.071012,
+     "covers": false
+    },
+    {
+     "fit_on": "binder",
+     "recipe": "iid",
+     "model": "unimodal",
+     "width": 0.144137,
+     "heldout_max": 0.071012,
+     "covers": true
+    },
+    {
+     "fit_on": "binder_1",
+     "recipe": "clustered",
+     "model": "halfnorm",
+     "width": 0.192302,
+     "heldout_max": 0.046701,
+     "covers": true
+    },
+    {
+     "fit_on": "binder_1",
+     "recipe": "clustered",
+     "model": "unimodal",
+     "width": 0.548649,
+     "heldout_max": 0.046701,
+     "covers": true
+    },
+    {
+     "fit_on": "binder_1",
+     "recipe": "iid",
+     "model": "halfnorm",
+     "width": 0.106134,
+     "heldout_max": 0.046701,
+     "covers": true
+    },
+    {
+     "fit_on": "binder_1",
+     "recipe": "iid",
+     "model": "unimodal",
+     "width": 0.305066,
+     "heldout_max": 0.046701,
+     "covers": true
+    }
+   ]
+  },
+  "i_pae": {
+   "bar": 0.35,
+   "sense": "<",
+   "n": 26,
+   "icc": 0.2569,
+   "n_eff": 6.37,
+   "observed_max_abs_delta": 0.063443,
+   "base_width": 0.097834,
+   "observed_max_content_at_n": 0.8912,
+   "observed_max_content_at_neff": 0.6248,
+   "model": "halfnorm",
+   "model_reason": "half-normal survives leave-one-backbone-out",
+   "iid_recipe_survives_holdout": false,
+   "holdout_shortfall_halfnorm": 0.682,
+   "holdout_shortfall_unimodal": 0.241,
+   "inflation": 1.0,
+   "unbounded": false,
+   "width": 0.097834,
+   "width_over_observed_max": 1.542,
+   "halfnorm_width": 0.097834,
+   "unimodal_width": 0.278838,
+   "holdout": [
+    {
+     "fit_on": "binder",
+     "recipe": "clustered",
+     "model": "halfnorm",
+     "width": 0.092973,
+     "heldout_max": 0.063443,
+     "covers": true
+    },
+    {
+     "fit_on": "binder",
+     "recipe": "clustered",
+     "model": "unimodal",
+     "width": 0.263159,
+     "heldout_max": 0.063443,
+     "covers": true
+    },
+    {
+     "fit_on": "binder",
+     "recipe": "iid",
+     "model": "halfnorm",
+     "width": 0.049614,
+     "heldout_max": 0.063443,
+     "covers": false
+    },
+    {
+     "fit_on": "binder",
+     "recipe": "iid",
+     "model": "unimodal",
+     "width": 0.141891,
+     "heldout_max": 0.063443,
+     "covers": true
+    },
+    {
+     "fit_on": "binder_1",
+     "recipe": "clustered",
+     "model": "halfnorm",
+     "width": 0.184143,
+     "heldout_max": 0.045156,
+     "covers": true
+    },
+    {
+     "fit_on": "binder_1",
+     "recipe": "clustered",
+     "model": "unimodal",
+     "width": 0.520772,
+     "heldout_max": 0.045156,
+     "covers": true
+    },
+    {
+     "fit_on": "binder_1",
+     "recipe": "iid",
+     "model": "halfnorm",
+     "width": 0.098266,
+     "heldout_max": 0.045156,
+     "covers": true
+    },
+    {
+     "fit_on": "binder_1",
+     "recipe": "iid",
+     "model": "unimodal",
+     "width": 0.280858,
+     "heldout_max": 0.045156,
+     "covers": true
+    }
+   ]
+  }
+ },
+ "band": {
+  "plddt": 0.061062,
+  "i_ptm": 0.102471,
+  "i_pae": 0.097834
+ },
+ "nonparametric_n_for_content": 299,
+ "cascade_derived_band": {
+  "rule": "asymmetric-conjunction",
+  "n": 26,
+  "device_resolved": 19,
+  "device_resolved_fraction": 0.7308,
+  "referred": 7,
+  "referred_ids": [
+   "binder_1_t0.2_s2",
+   "binder_1_t0.3_s3",
+   "binder_1_t0.5_s1",
+   "binder_1_t0.5_s2",
+   "binder_1_t0_s0",
+   "binder_t0.2_s2",
+   "binder_t0.3_s2"
+  ],
+  "decisions_reproduced": 26,
+  "mis_resolved_ids": [],
+  "seconds_per_design": 86.2,
+  "speedup_vs_host_only": 3.46
+ },
+ "cascade_derived_band_symmetric": {
+  "rule": "symmetric",
+  "n": 26,
+  "device_resolved": 17,
+  "device_resolved_fraction": 0.6538,
+  "referred": 9,
+  "referred_ids": [
+   "binder_1_t0.2_s2",
+   "binder_1_t0.3_s3",
+   "binder_1_t0.5_s1",
+   "binder_1_t0.5_s2",
+   "binder_1_t0.5_s3",
+   "binder_1_t0_s0",
+   "binder_t0.1_s1",
+   "binder_t0.2_s2",
+   "binder_t0.3_s2"
+  ],
+  "decisions_reproduced": 26,
+  "mis_resolved_ids": [],
+  "seconds_per_design": 109.2,
+  "speedup_vs_host_only": 2.73
+ },
+ "cascade_observed_max_band": {
+  "rule": "asymmetric-conjunction",
+  "n": 26,
+  "device_resolved": 21,
+  "device_resolved_fraction": 0.8077,
+  "referred": 5,
+  "referred_ids": [
+   "binder_1_t0.2_s2",
+   "binder_1_t0.3_s3",
+   "binder_1_t0.5_s1",
+   "binder_1_t0_s0",
+   "binder_t0.2_s2"
+  ],
+  "decisions_reproduced": 26,
+  "mis_resolved_ids": [],
+  "seconds_per_design": 63.3,
+  "speedup_vs_host_only": 4.71
+ }
+}

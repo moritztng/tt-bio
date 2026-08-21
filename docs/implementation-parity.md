@@ -46,8 +46,12 @@ accuracy (does the fold match the native structure) is out of scope.
 | SaProt-35m | ubiquitin, L76 | PASS | deterministic encoder; emb PCC 0.99914, in the ESMC band |
 | SaProt-650m | ubiquitin, L76 | PASS | deterministic encoder; emb PCC 0.99964, in the ESMC band |
 | RFdiffusion3 | IAI protein motif-scaffold, I40/L419 | PASS | host featurizer 43/43 `f` keys bit-exact vs the committed upstream foundry reference capture; card-free, in-process (`scripts/rfd3_port/parity_gate.py`) |
+| AF2-IG (PXDesign filter) | LacZ-C 128aa + 80-mer binder, host featurizer | PASS | 60/60 featurizer keys bit-exact vs a captured ColabDesign forward pass, over both the complex and monomer stages; card-free, in-process (`scripts/af2_port/parity_gate.py`) |
+| AF2-IG (PXDesign filter) | same fixture, torch trunk, complex stage (templates on) | PASS | 94/94 activation taps and all 6 filter scalars inside their bars vs the captured JAX taps; card-free, needs `params_model_1_ptm.npz` |
+| AF2-IG (PXDesign filter) | same fixture, torch trunk, monomer stage (`model_3_ptm`) | PASS-caveated | 90 taps, 0 failed, 32 adjudicated inside the reference own float32-vs-bfloat16 envelope: on those taps the reference sits closer to our bfloat16 arm than our float32 arm does |
+| AF2-IG (PXDesign filter) | same fixture, ttnn trunk on card, complex stage | GAP-evidenced | 9 of 94 taps and 3 of 6 scalars miss (worst envelope ratio 12.3; pLDDT 0.0028, pTM 0.0020, pAE 0.0021). A bfloat16 realisation floor in the trunk residual chain, amplified about 3x by the structure module; three trunk-precision levers were measured dead against it. The leg gates that floor instead of a PASS bar (`scripts/af2_port/device_floor.py`): GAP only while the failing taps, their envelope ratios and the scalar deltas all reproduce the committed record within 1.10x, and both `tap_gate.py --mutate` controls break every one of those conditions. Bit-identical on qb1 cards 3 and 0 |
 
-Net: 28 PASS, 5 PASS-caveated, 1 GAP-evidenced (boltz2-9ncy-nomsa, root-caused below). The three Boltz-2 affinity
+Net: 32 PASS, 6 PASS-caveated, 2 GAP-evidenced (boltz2-9ncy-nomsa, root-caused below; af2ig-trunk-device, a measured bfloat16 floor the leg gates as such). The PASS count is recounted from the table above; it had been left at 28 across two additions. The three Boltz-2 affinity
 legs were re-run with MSA (Boltz-2's production default — a pharma user folds a
 target whose homologs are known, so the MSA is fed); the earlier single-sequence
 rows are retained and relabeled `non-default`. The MSA legs score 9 PASS / 3 GAP
