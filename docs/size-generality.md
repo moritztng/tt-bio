@@ -201,15 +201,20 @@ ends at 356864
 
 Measured across both ligand fixtures, and the apo rung as the control:
 
-| fixture | 256 | 512 | 640 | 768 |
-|---|---|---|---|---|
-| apo (protein only) | ok | ok | **ok, 43.9 s** | ok |
-| holo (protein + ligand) | ok, 16.6 s | ok, 52.9 s | **L1 clash** | ok, 78.3 s |
-| holo + affinity | ok, 190.6 s | ok | **L1 clash** | not reached |
+| model | fixture | 256 | 512 | 640 | 768 |
+|---|---|---|---|---|---|
+| boltz-2 | apo (protein only) | ok | ok | **ok, 43.9 s** | ok |
+| boltz-2 | holo (protein + ligand) | ok, 16.6 s | ok, 52.9 s | **L1 clash** | ok, 78.3 s |
+| boltz-2 | holo + affinity | ok, 190.6 s | ok | **L1 clash** | not reached |
+| opendde | holo (protein + ligand) | ok, 138.1 s | | **ok** | |
 
 Both ligand fixtures fail at the same two addresses, so it is the ligand and not the affinity
 module: the structure-only holo fold has no affinity property and crashes identically. The apo fold
 at the same 640 aa is fine, and so is the ligand fold at 768. It is the combination.
+
+It is also Boltz-2's own. OpenDDE folds the same 640 aa ligand fixture to completion, so the
+defect is in the Boltz-2 trunk rather than in the ligand path or the featurizer both models
+share. OpenDDE's trunk is the Protenix-v2 family; Boltz-2's is not.
 
 That combination is the point. 640 is the arm's off-lattice rung, the one size in the ladder whose
 padded length the SDPA chunk size does not divide, added because 256/512/768/1024 all sit on the
@@ -222,36 +227,54 @@ rather than a p300c at 11x10, and reached through the token count a ligand adds 
 part's core count. Not fixed here: this arm records, and a fix is a perf/L1 change that has to be
 screened on its own.
 
-## The census under-counts on a loaded host
+## The census used to under-count on a loaded host
 
-`scripts/lever_census.py` installs its counter wraps from a thread that polls every 3 seconds, so a
-call that happens before the wraps land is not counted and nothing reports the gap. On a quiet host
-the wraps win the race. Under CPU contention they do not.
+Seven of the levers keep no `*_STATS` counter of their own and are counted by monkeypatching
+their helper: `ADALN_S_HOIST`, `QKV_MM_CONFIG`, `TRANSPOSE_L1_RESIDENT`, `B2_ADALN_S_MEMO`,
+`B2_BIAS_SLICE_HOIST`, `PAIR_PROJ_MINIMAL_MATMUL`, `PAIR_TRANSPOSE_VIA_ROW_MAJOR`. A
+monkeypatch counts only the calls made after it lands, and the install used to be reached
+only from the census's 3-second dump thread. Every call between `tt_bio.tenstorrent` becoming
+importable and the first tick was therefore uncounted, and whether that mattered depended on
+how busy the machine was.
 
-Measured on the boltz2-affinity fold at 256 aa, four runs of the same fixture at the same commit on
-the same card type:
+Those seven levers, and only those, are exposed. The `*_STATS` levers count inside the
+shipped code and cannot be raced. That is what makes the signature recognisable: the lost set
+is exactly the `wrap` rows of `LEVERS`, never a subset and never anything else.
 
-| run | other folds on the box | calls counted |
+Measured on the boltz2-affinity fold at 256 aa, same fixture and same commit throughout, with
+the load as the only variable:
+
+| run | load on the box | calls counted |
 |---|---|---:|
-| manual, alone | 0 | 11446 |
-| record mode | 0-1 | 11446 |
-| pricing sweep | 3 | 7456 |
-| pricing sweep | 3 | 7456 |
+| idle, twice (manual and record mode) | none | 11446 |
+| pricing sweep, twice | 3 concurrent folds | 7456 |
+| controlled, before the fix | 32 busy loops | 7456 |
+| controlled, after the fix | 32 busy loops | **11446** |
 
-The 3990 missing calls are seven levers reading exactly `0/0`: `ADALN_S_HOIST`, `QKV_MM_CONFIG`,
-`TRANSPOSE_L1_RESIDENT`, `B2_ADALN_S_MEMO`, `B2_BIAS_SLICE_HOIST`, `PAIR_PROJ_MINIMAL_MATMUL` and
-`PAIR_TRANSPOSE_VIA_ROW_MAJOR`. Six of the seven are served on the apo fold, so this is not the
-affinity path declining them, it is the census not watching yet.
+The 3990-call gap is those seven levers reading exactly `0/0`, while six of the seven are
+served on the apo fold. A census taken under contention therefore reports levers going dark,
+and nothing in the artifact distinguishes that from a lever that really went dark.
 
-Two consequences. **Record and check on a quiet host**, or the comparator reads a busy box as a
-lever going dark, which is a false failure that nothing in the artifact distinguishes from a real
-one. And **do not fan census folds across the idle cards of one host** to save wall clock, which is
-otherwise the standing practice for independent single-card measurements: it is safe for a timing
-and it corrupts a census. The 0/0-everywhere signature of a fold that failed outright and the
-partial 0/0 signature of a fold the census joined late look alike in the artifact, and only the
-call total separates them.
+The install is now driven by an import hook rather than by a clock, so it lands as soon as the
+modules are ready (`_wrap_on_import` in `scripts/lever_census.py`). It does not change what a
+quiet host measures: the fixed census reads under load the same 11446 the idle runs read, so
+the fix removes a failure mode rather than moving a number. What it cannot tell you is whether
+every existing baseline was recorded quiet. Any that was not has those seven levers recorded
+low, and the arm will now say so, which is the point.
 
-Until that race is fixed, a single-fold census is evidence about a quiet host only.
+One trap the fix had to avoid, and `tests/test_lever_census_wraps.py` pins it: a module is in
+`sys.modules` from the moment its execution *starts*, so an import hook can fire while
+`tt_bio.tenstorrent` is half-built. The install used to set its did-this-already flag before
+the first attribute access, which under an import hook would claim the flag, throw, get
+swallowed, and leave all seven counters dead for the whole process. Deterministically wrong
+instead of load-dependently wrong. It now checks that every name it rebinds exists before
+claiming anything, and a half-built module is retried rather than burned.
+
+**Do not fan census folds across a host's idle cards** to save wall clock. That is the standing
+practice for independent single-card measurements and it is right for a timing, but a census is
+a different measurement: the folds contend for CPU, not just for cards. The fix makes this
+survivable rather than fatal, and serial is still the way to record a baseline you intend to
+gate against.
 
 ## Running it
 

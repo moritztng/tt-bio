@@ -59,15 +59,20 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   through the token count a ligand adds rather than through a part's core count. Recorded, not
   fixed. Apo protein at 640 aa is fine and so is the ligand at 768, so it is the combination, and
   640 is the arm's off-lattice rung: a protein-only ladder passes every rung and a ligand ladder on
-  the lattice passes every rung. `docs/size-generality.md` has the addresses and the table.
-- `scripts/lever_census.py` under-counts on a loaded host, and the arm's docs now say so with
-  the measurement. The counter wraps are installed from a thread that polls every 3 s, so calls
-  made before the first tick are never counted. The same fold at 256 aa reads 11446 calls alone
-  and 7456 with three concurrent folds, the gap being seven levers at exactly `0/0`, six of which
-  the apo fold serves. A census taken under contention therefore reads as levers going dark and
-  the artifact cannot be told apart from the real thing. Record and check on a quiet host; do not
-  fan census folds across a host's idle cards, which is safe for a timing and not for a census.
-  The race itself is not fixed here.
+  the lattice passes every rung. OpenDDE folds the same 640 aa ligand fixture to completion, so the
+  defect is in the Boltz-2 trunk and not in the shared ligand path or featurizer.
+  `docs/size-generality.md` has the addresses and the table.
+- `scripts/lever_census.py` no longer under-counts on a loaded host. Seven levers keep no
+  `*_STATS` of their own and are counted by monkeypatching a helper, and the install was reached
+  only from the dump thread, which polls every 3 s. Calls made before the first tick were never
+  counted, so whether a lever got counted depended on how busy the machine was: 11446 calls on an
+  idle box against 7456 with three concurrent folds, on the same fold at the same commit, the gap
+  being exactly those seven levers at `0/0` while six of the seven are served on the apo fold. A
+  census taken under contention read as levers going dark and nothing in the artifact told the two
+  apart. The wraps now install off an import hook, and a controlled A/B under 32 busy loops reads
+  11446, the same as an idle box, so this removes a failure mode without moving the number a quiet
+  host measures. Any baseline that was recorded on a busy host has those seven levers recorded low
+  and the arm will now say so.
 - A partial `~/of3_ref_out.pkl` skips the OpenFold3 device tests that need the keys it
   lacks instead of failing them. The tests guarded on the golden's existence while
   depending on its contents, so on a host with a partial capture 11 of them died on
