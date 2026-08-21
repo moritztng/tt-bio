@@ -307,7 +307,7 @@
       "name": "RoseTTAFold3",
       "recycles": 10,
       "sampling_steps": "50 requested, 49 executed",
-      "note": "AtomWorks host featurisation, not accelerator work, is about half of an RF3 fold on every NVIDIA box measured here: 8.3 s of 16.4 s on the B200, 12.7 s of 22.0 s on the H200, 15.0 s of 30.9 s on the A100. The same featuriser runs inside the Tenstorrent number in 8.3 s or less. A shared cost that size sits on both sides of every ratio in this row and compresses it, so read the row as a fold comparison and not as an accelerator comparison.",
+      "note": "AtomWorks host featurisation, not accelerator work, is about half of an RF3 fold on every NVIDIA box measured here: 8.3 s of 16.4 s on the B200, 12.5 s of 22.8 s on the H200, 15.0 s of 30.9 s on the A100. The same featuriser runs inside the Tenstorrent number in 8.3 s or less. A shared cost that size sits on both sides of every ratio in this row and compresses it, so read the row as a fold comparison and not as an accelerator comparison.",
       "cells": {
         "p150a": {
           "status": "measured",
@@ -318,8 +318,8 @@
         },
         "h200": {
           "status": "measured",
-          "s_per_fold": 21.995,
-          "ref": "Median of n=3 warm, 21.013 / 21.995 / 24.869 s, spread 3.856 s (17.5 %), cold 29.639 s discarded. rc-foundry 0.2.0, atomworks 2.2.1, cuequivariance-torch 0.11.1 with the cu12 ops wheels, torch 2.13.0+cu130, plDDT 0.783, 4116 atoms. cuEquivariance carried every triangle op, counted not assumed: triangle_attention_cueq 4352 and triangle_multiply_cueq 4352, both vanilla counters 0, scaled_dot_product_attention 0. The 17.5 % spread is host, not device: the device phases hold 7.10 / 7.22 / 7.30 s at 2.8 % while AtomWorks host featurisation swings 11.294 to 15.280 s, 54 to 62 % of the fold. Xeon Platinum 8480+, 26.88 vCPU by cgroup quota, card exclusive, peak 5.45 GiB of 141 GB."
+          "s_per_fold": 22.794,
+          "ref": "Median of n=8 warm, 20.392 to 23.989 s, median 22.794, spread 3.597 s (15.78 %), cold 34.118 s discarded. rc-foundry 0.2.0, atomworks 2.2.1, cuequivariance-torch 0.11.1 with the cu12 ops wheels, torch 2.13.0+cu130, triton 3.7.1, plDDT 0.782, 4116 atoms. cuEquivariance carried every triangle op, counted not assumed: triangle_attention_cueq 9792 and triangle_multiply_cueq 9792, both vanilla counters 0, scaled_dot_product_attention 0. The spread is host, not device, and more reps did not shrink it: the device phases hold 7.505 to 8.152 s (8.6 %) while AtomWorks host featurisation swings 10.180 to 13.859 s, 45 to 61 % of the fold. Xeon Platinum 8480+, 26.88 vCPU by cgroup quota, card exclusive, peak 5.45 GiB of 141 GB. A separately rented H200 of the same part, driver and cgroup quota measured 21.995 s at n=3 earlier the same day, 3.6 % from this median and inside both spreads."
         },
         "b200": {
           "status": "measured",
@@ -452,6 +452,6 @@
   "caveats": [
     "Rows are not a cross-model ranking. Boltz-2 and OpenFold3 do 3 recycles where ESMFold2, Protenix-v2 and OpenDDE do 10, because that is what each ships. Compare a model to itself across hardware. BoltzGen returns a binder design, not a prediction; its bars share an axis with the prediction models but not a unit.",
     "The A100 ran every cell on this page, on the same fixtures. Its host is an AMD EPYC 7513 where the H200 and B200 boxes were Intel Xeon, which matters for the dispatch-bound trunks and is not corrected for, and the RoseTTAFold3 cell ran later on an EPYC 7763 at the same 30.7 vCPU quota.",
-    "RoseTTAFold3 is the row where host featurisation rivals the accelerator. It is 8.3 s of the 16.4 s B200 fold, 12.7 s of the 22.0 s H200 fold and 15.0 s of the 30.9 s A100 fold, against 8.3 s or less of the 81.1 s Blackhole fold, and this pipeline is largely single-threaded so it tracks host clock more than host core count. That shared AtomWorks cost sits on both sides of every ratio in the row and compresses it, so read the row as a fold comparison rather than an accelerator one."
+    "RoseTTAFold3 is the row where host featurisation rivals the accelerator. It is 8.3 s of the 16.4 s B200 fold, 12.5 s of the 22.8 s H200 fold and 15.0 s of the 30.9 s A100 fold, against 8.3 s or less of the 81.1 s Blackhole fold, and this pipeline is largely single-threaded so it tracks host clock more than host core count. That shared AtomWorks cost sits on both sides of every ratio in the row and compresses it, so read the row as a fold comparison rather than an accelerator one. It is also why this row's NVIDIA cells carry the widest spreads on the page: host prep varies far more run to run than device work does, and raising the H200 cell from n=3 to n=8 moved its median 3.6 % and left the spread where it was."
   ]
 }
