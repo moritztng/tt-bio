@@ -567,6 +567,18 @@ SIZE_LADDER_LADDERS = {
 # decisions equalling a warm one's, checked exactly against the recorded baseline every
 # time it runs. It takes this leg from 12 folds to 4, about 15 min instead of 45.
 SIZE_LADDER_CENSUS_ONLY = {
+    # The ligand legs exist for the ligand path's guard decisions. Runtime scaling for both
+    # trunks is already gated by the apo `boltz2` and `opendde` rows at the same four rungs,
+    # and the ligand only changes the token count the same trunk is fed, so a second exponent
+    # gate on the same code would add a band to keep green rather than information. Their
+    # runtimes are still recorded, just not gated: 17.4 / 32.5 / 72.4 s for boltz2-ligand at
+    # 256/512/768 and 138.1 s for opendde-ligand at 256, measured on qb1 card 1/2.
+    "boltz2-ligand":
+        "ligand path lever coverage; the apo boltz2 row gates this trunk's scaling at the "
+        "same rungs and the ligand only changes its token count",
+    "opendde-ligand":
+        "ligand path lever coverage; the apo opendde row gates this trunk's scaling at the "
+        "same rungs and the ligand only changes its token count",
     "boltz2-affinity":
         "affinity runs on a pocket crop, so ~90% of runtime_s is size-independent "
         "(172.1 s affinity vs 18.5 s structure at 256 aa on qb1 card 0). k flattens to "
