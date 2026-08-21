@@ -411,7 +411,7 @@ CAPACITY_LEGS = [
 # So each model's block records the grid its census ran on and the check REFUSES
 # a cross-grid comparison outright instead of reporting levers as newly dark.
 SIZE_LADDER_MODELS = ("boltz2", "esmfold2", "protenix-v2", "openfold3", "opendde",
-                     "nesso1", "boltz2-affinity")
+                     "nesso1", "boltz2-affinity", "boltz2-ligand", "opendde-ligand")
 SIZE_LADDER_RUNGS = tuple(int(x) for x in
                           os.environ.get("RELEASE_GATE_SIZE_RUNGS", "256,512,640,768").split(",")
                           if x.strip())
@@ -500,13 +500,35 @@ SIZE_LADDER_NESSO_TOKENS_BUDGET = 256
 # (200 steps, 5 samples) resolve the same guards and cost ~386 s a fold at 512 aa.
 SIZE_LADDER_AFFINITY_STEPS = 6
 SIZE_LADDER_AFFINITY_SAMPLES = 1
-# leg -> the CLI verb and --model it folds under, for the legs that are not simply
-# `predict --model <leg>` on the apo fixture. Every leg listed here folds the shared
-# protein+ligand ladder under perf/nesso1/inputs/ladder (named for the leg that added it;
-# it is now shared, and a rung there is the same protein as the apo rung at the same aa).
+# leg -> (CLI verb, --model, which ladder), for the legs that are not simply
+# `predict --model <leg>` on the apo fixture. Three ladders, all the same protein at a
+# given rung, so a row is comparable across legs:
+#
+#   apo       perf/size512/fixtures/cdk2x2_<rung>.yaml   protein only
+#   holo      perf/sizegate/inputs/holo/                 + ligand, structure only
+#   affinity  perf/nesso1/inputs/ladder/                 + ligand + properties.affinity
+#              (named for the leg that added it; shared since 2026-08-21)
+#
+# apo -> holo isolates the ligand and the token count it adds; holo -> affinity isolates
+# the affinity module. Reading apo -> affinity alone cannot separate the two, and the
+# 640 aa L1 clash is the case that proves it matters: it reproduces on holo, which has no
+# affinity property at all, so attributing it to the affinity module would have been wrong.
+#
+# The ligand legs exist because four of the six models have no affinity head but DO ship
+# ligand co-folding, and no rung of this arm ever presented a ligand. `boltz2-ligand` is
+# also the control that makes `boltz2-affinity` readable, which is why it is a recorded row
+# rather than a one-off measurement.
 SIZE_LADDER_LEG_CLI = {
-    "nesso1": ("affinity", "nesso1"),
-    "boltz2-affinity": ("predict", "boltz2"),
+    "nesso1": ("affinity", "nesso1", "affinity"),
+    "boltz2-affinity": ("predict", "boltz2", "affinity"),
+    "boltz2-ligand": ("predict", "boltz2", "holo"),
+    "opendde-ligand": ("predict", "opendde", "holo"),
+}
+# Ladder name -> (directory, filename stem). apo is the default for any leg not in
+# SIZE_LADDER_LEG_CLI.
+SIZE_LADDER_LADDERS = {
+    "affinity": (REPO_ROOT / "perf" / "nesso1" / "inputs" / "ladder", "cdk2"),
+    "holo": (REPO_ROOT / "perf" / "sizegate" / "inputs" / "holo", "cdk2holo"),
 }
 
 # Legs that carry no exponent gate and no repeat measurement: lever coverage only.
@@ -1195,11 +1217,12 @@ def _size_ladder_precondition(model: str):
 
 
 def _size_ladder_fixture(model: str, rung: int) -> Path:
-    """The rung's input. The affinity legs need a ligand and an affinity property, so they
-    share their own ladder; every other leg folds the shared apo fixture."""
-    if model in SIZE_LADDER_LEG_CLI:
-        return (REPO_ROOT / "perf" / "nesso1" / "inputs" / "ladder" / f"aa{rung}"
-                / f"cdk2_{rung}.yaml")
+    """The rung's input, per the leg's ladder (see SIZE_LADDER_LADDERS). A leg with no
+    entry folds the shared apo fixture."""
+    leg = SIZE_LADDER_LEG_CLI.get(model)
+    if leg:
+        root, stem = SIZE_LADDER_LADDERS[leg[2]]
+        return root / f"aa{rung}" / f"{stem}_{rung}.yaml"
     return REPO_ROOT / "perf" / "size512" / "fixtures" / f"cdk2x2_{rung}.yaml"
 
 
@@ -1250,7 +1273,8 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
               "--tt-bio", sys.executable, "--label", label, "--out", str(census_json), "--"]
     # A leg name is not always a --model choice: boltz2-affinity folds through
     # `predict --model boltz2`, and the results folder is named after the model, not the leg.
-    _verb, cli_model = SIZE_LADDER_LEG_CLI.get(model, ("predict", model))
+    _verb, cli_model, _ladder = SIZE_LADDER_LEG_CLI.get(model,
+                                                        ("predict", model, "apo"))
     if model == "nesso1":
         # `tt-bio affinity`, not `predict` — see the SIZE_LADDER_NESSO_* block. The census hook
         # runs in every process the CLI starts, launcher included, and this model folds in the

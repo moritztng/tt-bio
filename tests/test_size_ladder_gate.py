@@ -274,7 +274,7 @@ def test_a_leg_name_is_not_always_a_model_name(rg):
     from tt_bio.main import PREDICT_MODELS, predict_results_dir_name
 
     assert "boltz2-affinity" not in PREDICT_MODELS
-    assert rg.SIZE_LADDER_LEG_CLI["boltz2-affinity"] == ("predict", "boltz2")
+    assert rg.SIZE_LADDER_LEG_CLI["boltz2-affinity"] == ("predict", "boltz2", "affinity")
     assert predict_results_dir_name("boltz2", "cdk2_512") == "boltz2_results_cdk2_512"
 
 
@@ -293,8 +293,36 @@ def test_every_model_with_an_affinity_head_has_an_affinity_leg(rg):
     assert bearing == {"boltz2", "nesso1"}, (
         f"a model grew an affinity head: {bearing}. Give it a size-ladder leg in "
         f"SIZE_LADDER_LEG_CLI, or the arm is blind to its affinity path at every rung")
-    legged = {cli for _verb, cli in rg.SIZE_LADDER_LEG_CLI.values()}
+    legged = {cli for _verb, cli, ladder in rg.SIZE_LADDER_LEG_CLI.values()
+              if ladder == "affinity"}
     assert legged == bearing
+
+
+def test_the_ligand_legs_cover_the_models_that_co_fold_without_an_affinity_head(rg):
+    """Four of the six models have no affinity module but do ship ligand co-folding, and no
+    rung of this arm presented a ligand until 2026-08-21. OpenDDE is the one wired here; the
+    boltz2 ligand row is also the control that makes the affinity row readable.
+
+    The 640 aa L1 clash is why that control is a recorded row and not a footnote: it
+    reproduces on the ligand fixture, which carries no affinity property at all, so reading
+    the affinity row alone would have blamed the affinity module for it."""
+    for leg, model in (("boltz2-ligand", "boltz2"), ("opendde-ligand", "opendde")):
+        assert leg in rg.SIZE_LADDER_MODELS
+        assert rg.SIZE_LADDER_LEG_CLI[leg] == ("predict", model, "holo")
+        for rung in rg.SIZE_LADDER_RUNGS:
+            f = rg._size_ladder_fixture(leg, rung)
+            assert f.exists() and f.name == f"cdk2holo_{rung}.yaml"
+            assert "ligand:" in f.read_text() and "binder:" not in f.read_text()
+
+
+def test_the_three_ladders_are_the_same_protein_at_a_given_rung(rg):
+    """A row is comparable across legs only if the protein is held fixed. That is the basis
+    for attributing a difference to the ligand or to the affinity module instead of to the
+    input, which is what the 640 aa crash needed."""
+    for rung in rg.SIZE_LADDER_RUNGS:
+        seqs = {_value(rg._size_ladder_fixture(leg, rung).read_text(), "sequence:")
+                for leg in ("boltz2", "boltz2-ligand", "boltz2-affinity")}
+        assert len(seqs) == 1, (rung, seqs)
 
 
 def test_the_holo_control_isolates_the_affinity_module_from_the_token_count(rg):
