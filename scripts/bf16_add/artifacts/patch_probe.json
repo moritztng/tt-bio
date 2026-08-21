@@ -1,0 +1,142 @@
+{
+  "rows": [
+    {
+      "shape": [
+        1,
+        128,
+        128,
+        128
+      ],
+      "ratio": 1.0,
+      "elements": 2097152,
+      "stock_add": 233666,
+      "stock_add_": 233666,
+      "rne_add": 0,
+      "rne_add_": 0,
+      "rne_add__mutated_operand": 0
+    },
+    {
+      "shape": [
+        1,
+        128,
+        128,
+        128
+      ],
+      "ratio": 0.1,
+      "elements": 2097152,
+      "stock_add": 178535,
+      "stock_add_": 178535,
+      "rne_add": 0,
+      "rne_add_": 0,
+      "rne_add__mutated_operand": 0
+    },
+    {
+      "shape": [
+        1,
+        128,
+        128,
+        128
+      ],
+      "ratio": 0.01,
+      "elements": 2097152,
+      "stock_add": 137290,
+      "stock_add_": 137290,
+      "rne_add": 0,
+      "rne_add_": 0,
+      "rne_add__mutated_operand": 0
+    },
+    {
+      "shape": [
+        1,
+        256,
+        256,
+        128
+      ],
+      "ratio": 1.0,
+      "elements": 8388608,
+      "stock_add": 934287,
+      "stock_add_": 934287,
+      "rne_add": 0,
+      "rne_add_": 0,
+      "rne_add__mutated_operand": 0
+    },
+    {
+      "shape": [
+        1,
+        256,
+        256,
+        128
+      ],
+      "ratio": 0.1,
+      "elements": 8388608,
+      "stock_add": 717366,
+      "stock_add_": 717366,
+      "rne_add": 0,
+      "rne_add_": 0,
+      "rne_add__mutated_operand": 0
+    },
+    {
+      "shape": [
+        1,
+        256,
+        256,
+        128
+      ],
+      "ratio": 0.01,
+      "elements": 8388608,
+      "stock_add": 547181,
+      "stock_add_": 547181,
+      "rne_add": 0,
+      "rne_add_": 0,
+      "rne_add__mutated_operand": 0
+    },
+    {
+      "shape": [
+        1,
+        1,
+        512,
+        384
+      ],
+      "ratio": 1.0,
+      "elements": 196608,
+      "stock_add": 21919,
+      "stock_add_": 21919,
+      "rne_add": 0,
+      "rne_add_": 0,
+      "rne_add__mutated_operand": 0
+    },
+    {
+      "shape": [
+        1,
+        1,
+        512,
+        384
+      ],
+      "ratio": 0.1,
+      "elements": 196608,
+      "stock_add": 16953,
+      "stock_add_": 16953,
+      "rne_add": 0,
+      "rne_add_": 0,
+      "rne_add__mutated_operand": 0
+    },
+    {
+      "shape": [
+        1,
+        1,
+        512,
+        384
+      ],
+      "ratio": 0.01,
+      "elements": 196608,
+      "stock_add": 12752,
+      "stock_add_": 12752,
+      "rne_add": 0,
+      "rne_add_": 0,
+      "rne_add__mutated_operand": 0
+    }
+  ],
+  "stock_mismatch": 5599898,
+  "patched_mismatch": 0,
+  "elements_per_arm": 32047104
+}
