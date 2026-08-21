@@ -84,3 +84,26 @@ def test_opendde_holds_no_frozen_copy_of_the_budget():
     assert not any(isinstance(getattr(O, n, None), int) and n.isupper() and "CONCAT" in n
                    for n in dir(O)), "opendde must reach the budget through the function"
     assert O.concat_host_bytes is T.concat_host_bytes
+
+
+# The Wormhole total is a printed figure, not a byte count: dram_peak formats it as "%.1f GiB"
+# (perf/whb2/out/cap_wh/cap_unchunked_1024.dram, a WH Galaxy artifact, reads "of 12.0 GiB"), so
+# the true total is anywhere in [11.95, 12.05) GiB. That window is what stands between the
+# arithmetic identity above and a claim about real Wormhole behaviour.
+WH_PRINT_WINDOW = (int(11.95 * GIB), int(12.05 * GIB) - 1)
+
+
+@pytest.mark.parametrize("dram", [WH_PRINT_WINDOW[0], WH_GALAXY, WH_PRINT_WINDOW[1]])
+def test_wormhole_verdicts_hold_across_the_printed_precision(dram):
+    """Wormhole behaviour is unchanged for any total its own printed figure admits.
+
+    Below 12.0 GiB the budget clamps to BASE and nothing moves. Above it the budget can widen,
+    but only by the slack in the last printed digit: at most 0.42%, which shifts the host/device
+    crossing by under two units of H (~1 residue at H = 1.945 x aa) and only ever toward MORE
+    device concat. Both shapes the release gate pins keep their Wormhole verdict across the
+    whole window, so no Wormhole fold changes path -- which is the claim two production folds on
+    the shared Galaxy would have been buying."""
+    budget = T._concat_host_budget(dram)
+    assert BASE <= budget <= BASE * 1.005
+    assert 1494 * 1494 * 384 * 2 > budget      # 768 aa refiner: host on Wormhole, as today
+    assert 1243 * 1243 * 384 * 2 < budget      # 640 aa control: device on Wormhole, as today
