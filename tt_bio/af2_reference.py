@@ -496,6 +496,19 @@ class TemplateEmbedding(nn.Module):
         self.single_embedding = Linear(57, C_M)
         self.single_projection = Linear(C_M, C_M)
 
+    #: `(act, mask_2d) -> act`, replacing the two-block loop. `tt_bio.af2.AF2DeviceModel`
+    #: sets it to the ttnn stack; None runs the torch blocks. Deliberately not an `nn.Module`:
+    #: registering a submodule here would put it in `state_dict()`.
+    pair_stack_device = None
+
+    def run_pair_stack(self, act: torch.Tensor, mask_2d: torch.Tensor) -> torch.Tensor:
+        """The two `PairBlock`s, on whichever arm is installed."""
+        if self.pair_stack_device is not None:
+            return self.pair_stack_device(act, mask_2d)
+        for block in self.pair_stack:
+            act = block(act, mask_2d)
+        return act
+
     def pair_representation(self, pair: torch.Tensor, feats: dict, mask_2d: torch.Tensor,
                             multichain_mask: torch.Tensor) -> torch.Tensor:
         dtype = pair.dtype
@@ -519,8 +532,7 @@ class TemplateEmbedding(nn.Module):
                 mask_bb[..., None],
             ], dim=-1) * mask_bb[..., None]
             act = self.embedding2d(act)
-            for block in self.pair_stack:
-                act = block(act, mask_2d)
+            act = self.run_pair_stack(act, mask_2d)
             out.append(self.output_norm(act))
         return torch.stack(out, dim=0)
 

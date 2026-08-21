@@ -30,6 +30,8 @@ difference resolved first.
 """
 from __future__ import annotations
 
+import hashlib
+
 import torch
 import ttnn
 
@@ -56,6 +58,12 @@ TRI_ATT_HEAD_DIM = 32
 PAIR_TRANSITION_FACTOR = 4
 MSA_ATT_HEADS = 8
 MSA_ATT_HEAD_DIM = 32
+
+# The template pair stack's own dims, read off `template.pair_stack.0.` in the checkpoint:
+# `tri_att_start.linear.weight (4, 64)` is 4 heads and `linear_q.weight (64, 64)` is 4 x 16.
+# Every other width in the block is inferred from the weights by the ops themselves.
+TEMPLATE_TRI_ATT_HEADS = 4
+TEMPLATE_TRI_ATT_HEAD_DIM = 16
 
 # Row-block the MSA row attentions pair bias once LN(pair) would be the biggest tensor in the
 # block. It is 11 MB at 208 tokens and 184 MB at 848, and the norm is row-local.
@@ -327,6 +335,31 @@ class AF2PairBlock(Module):
         for name, device in order + [("pair_transition", self.pair_transition)]:
             z = self._residual(z, self._update(name, device, z))
         return z
+class AF2DeviceTemplatePairStack:
+    """The template's two `PairBlock`s in ttnn: host torch in, host torch out.
+
+    `AF2PairBlock` with `evoformer_order=False` -- the template runs the attentions before the
+    multiplications -- at the template's own widths. `mask_2d` is asserted all ones rather than
+    plumbed, for `evoformer_stack`'s reason: AF2 masks BOTH halves of the triangle
+    multiplication's fused projection where `TriangleMultiplication` masks only the `a` half, so
+    a genuinely masked fold needs that difference resolved before a mask can be honoured here.
+    """
+
+    def __init__(self, blocks: list, up, down):
+        self.blocks, self._up, self._down = blocks, up, down
+
+    def __call__(self, act: torch.Tensor, mask_2d: torch.Tensor) -> torch.Tensor:
+        assert bool((mask_2d == 1).all()), (
+            "a masked AF2 template pair stack is not wired up; see AF2PairBlock")
+        shape = tuple(act.shape)
+        z = self._up(act)
+        for block in self.blocks:
+            z = block(z)
+        out = self._down(z, shape)
+        ttnn.deallocate(z)
+        return out
+
+
 class AF2Attention(Module):
     """AF2's MSA attention: row-wise with a pair bias, and column-wise, in one class.
 
@@ -551,14 +584,22 @@ class AF2DeviceModel(AF2Model):
     #: leaves it empty, and `AF2PairBlock.skip` says why it is not `substitute`.
     skip: frozenset = frozenset()
 
+    #: True runs the template's two `PairBlock`s in host torch instead of on card. It is the
+    #: arm that prices the seam in one process, and the control that has to reproduce pass 16's
+    #: committed device numbers -- the template was on host when they were taken.
+    template_host = False
+
     #: Off recomputes the template every pass. It must change no number anywhere, which is what
-    #: `tap_gate.py --device --no-template-cache` checks against the same reference taps.
+    #: `tap_gate.py --device --no-template-cache` checks against the same reference taps. On, the
+    #: cache is keyed by `_template_key`, so it saves the three recycles of one design and is
+    #: invalidated by the next design rather than served to it.
     template_cached = True
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.device_extra_msa: list = []
         self.device_evoformer: list = []
+        self.device_template: list = []
         self.opm_constant: list = []
         self._device = None
         self._template_cache = None
@@ -576,6 +617,15 @@ class AF2DeviceModel(AF2Model):
                                  for i in range(len(self.extra_msa))]
         self.device_evoformer = [AF2EvoformerBlock(scoped(f"evoformer.{i}."), ckc)
                                  for i in range(len(self.evoformer))]
+        if self.template is not None:
+            self.device_template = [
+                AF2PairBlock(scoped(f"template.pair_stack.{i}."), ckc,
+                             head_dim=TEMPLATE_TRI_ATT_HEAD_DIM,
+                             n_heads=TEMPLATE_TRI_ATT_HEADS, evoformer_order=False)
+                for i in range(len(self.template.pair_stack))]
+            self._template_stack = AF2DeviceTemplatePairStack(
+                self.device_template, self._up, self._down)
+            self.set_template_host(self.template_host)
         zero = torch.zeros((), dtype=self.trunk_dtype)
         self.opm_constant = [
             block.opm.proj_o.bias.to(self.trunk_dtype) / (block.opm.eps + zero)
@@ -595,22 +645,33 @@ class AF2DeviceModel(AF2Model):
         assert tuple(x.shape) == tuple(shape), f"device gave {tuple(x.shape)}, want {shape}"
         return x.to(self.trunk_dtype)
 
+    @property
+    def _device_blocks(self) -> list:
+        """Every `AF2PairBlock` on card, so a global arm cannot miss a stack."""
+        return self.device_extra_msa + self.device_evoformer + self.device_template
+
+    def set_template_host(self, enabled: bool) -> None:
+        """Run the template's pair stack in host torch. See `template_host`."""
+        self.template_host = enabled
+        if self.template is not None:
+            self.template.pair_stack_device = None if enabled else self._template_stack
+
     def set_rne_residual(self, enabled: bool) -> None:
         """Route every residual add in both trunk stacks through float32. See
         `AF2PairBlock.rne_residual`."""
-        for block in self.device_extra_msa + self.device_evoformer:
+        for block in self._device_blocks:
             block.rne_residual = enabled
 
     def set_rne_wide_dram(self, enabled: bool) -> None:
         """Put the float32 residual temporaries in DRAM instead of inheriting the pair's memory
         config. See `AF2PairBlock.rne_wide_dram`; off is the arm that OOMs at 512 tokens."""
-        for block in self.device_extra_msa + self.device_evoformer:
+        for block in self._device_blocks:
             block.rne_wide_dram = enabled
 
     def set_rne_sigmoid(self, enabled: bool) -> None:
         """Route both MSA attentions' gating sigmoid through float32. A screening arm, not a
         default: see `AF2Attention.rne_sigmoid` for what it measured."""
-        for block in self.device_extra_msa + self.device_evoformer:
+        for block in self._device_blocks:
             for name in ("msa_row_attn", "msa_col_attn"):
                 if hasattr(block, name):
                     getattr(block, name).rne_sigmoid = enabled
@@ -694,24 +755,67 @@ class AF2DeviceModel(AF2Model):
 
     # ------------------------------------------------------------------ the template, once
 
+    @staticmethod
+    def _template_key(feats: dict, mask_2d: torch.Tensor,
+                      multichain_mask: torch.Tensor) -> tuple:
+        """Content key over every input the template reads except `pair`.
+
+        The cache is worth having because `AF2Template.forward` is constant in `pair`: with one
+        template the pointwise attention softmaxes over a single key, so the weight is exactly
+        1.0 and the query drops out. It is NOT constant in the template features, and those
+        change with the design: `complex_features` masks the template sequence, so
+        `template_aatype` is identical for every design and the whole design dependence sits in
+        the coordinates. Two PXDesign backbones against the same target share their target block
+        bit for bit and differ by 34 A in the binder, which a key on nothing serves to the wrong
+        design.
+
+        Every `template_*` feature goes in, not just the ones read today, so the key cannot go
+        stale if the module starts reading one more. The hashed bytes are ~200 KB per call
+        against a 0.44 s template pass.
+        """
+        parts = [feats[k] for k in sorted(feats) if k.startswith("template_")]
+        parts += [mask_2d, multichain_mask]
+
+        def digest(t: torch.Tensor) -> tuple:
+            # `mask_2d` arrives in the trunk dtype, and numpy has no bfloat16. Widening to float64
+            # is exact from every float dtype this model uses, and the dtype string is in the key
+            # anyway, so a bf16 arm and an fp32 arm still hash apart.
+            raw = t.detach().contiguous()
+            raw = raw.double() if raw.dtype.is_floating_point else raw
+            return (tuple(t.shape), str(t.dtype),
+                    hashlib.blake2b(raw.cpu().numpy().tobytes(), digest_size=16).digest())
+
+        return tuple(digest(t) for t in parts)
+
     def template_embedding(self, pair: torch.Tensor, feats: dict, mask_2d: torch.Tensor,
                            multichain_mask: torch.Tensor) -> torch.Tensor:
-        if self._template_cache is not None:
+        key = self._template_key(feats, mask_2d, multichain_mask)
+        if self._template_cache is not None and self._template_cache[0] == key:
             # The pass that computed it already fired every hook a tap gate installed; only the
             # passes served from the cache have to re-emit, or the tap counts diverge.
-            stack_out, embedding = self._template_cache
+            _, stack_out, embedding = self._template_cache
             self._tap("template_pair_stack", out=stack_out)
             self._tap("template_embedding", out=embedding)
             return embedding
+        # A forward hook on the last torch block is dead once the stack is on card, so the tap
+        # comes off `run_pair_stack`, which both arms go through.
         stack = []
-        handle = self.template.pair_stack[-1].register_forward_hook(
-            lambda _m, _a, out: stack.append(out))
+        run = self.template.run_pair_stack
+
+        def record(act, mask):
+            act = run(act, mask)
+            stack.append(act)
+            self._tap("template_pair_stack", out=act)
+            return act
+
+        self.template.run_pair_stack = record
         try:
             embedding = super().template_embedding(pair, feats, mask_2d, multichain_mask)
         finally:
-            handle.remove()
+            # Removes the instance-dict entry and restores the bound class method.
+            del self.template.run_pair_stack
         if self.template_cached:
-            self._template_cache = (stack[-1], embedding)
+            self._template_cache = (key, stack[-1], embedding)
         return embedding
 
 

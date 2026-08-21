@@ -132,6 +132,8 @@ def main() -> int:
     ap.add_argument("--reps", type=int, default=3, help="folds; rep 0 is discarded as cold")
     ap.add_argument("--skip", default="none",
                     help="op class from SUBSTITUTION_CLASSES to drop, or 'none'")
+    ap.add_argument("--template-host", action="store_true",
+                    help="run the template's pair stack in host torch: the A arm of the seam")
     ap.add_argument("--params", default=None)
     ap.add_argument("--out", default=None)
     ap.add_argument("--label", default=None)
@@ -156,6 +158,8 @@ def main() -> int:
             if args.skip not in SUBSTITUTION_CLASSES:
                 raise SystemExit(f"--skip {args.skip!r} not in {sorted(SUBSTITUTION_CLASSES)}")
             model.set_skip(SUBSTITUTION_CLASSES[args.skip])
+        if args.template_host:
+            model.set_template_host(True)
     model.eval()
     model_init_s = time.perf_counter() - load_start
 
@@ -190,6 +194,7 @@ def main() -> int:
         "label": args.label or Path(args.pdb).stem,
         "arm": args.arm,
         "skip": args.skip,
+        "template_host": args.template_host,
         "pdb": args.pdb,
         "tokens": tokens,
         "binder_residues": len(binder_seq),

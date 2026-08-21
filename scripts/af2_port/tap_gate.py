@@ -133,9 +133,12 @@ class Taps:
                 ("template_embedding", model.template),
             ):
                 handles.append(module.register_forward_hook(hook(tag)))
-            # `TemplatePairStack` is the whole 2-block stack, so its output is the last block's.
-            handles.append(model.template.pair_stack[-1].register_forward_hook(
-                hook("template_pair_stack")))
+            if not hasattr(model, "device_evoformer"):
+                # `TemplatePairStack` is the whole 2-block stack, so its output is the last
+                # block's. The device model emits this tag from `template_embedding` instead,
+                # on the computed pass and the cached ones alike.
+                handles.append(model.template.pair_stack[-1].register_forward_hook(
+                    hook("template_pair_stack")))
         if hasattr(model, "device_evoformer"):
             # The device model's torch blocks never run, so the per-block taps come from the
             # stacks themselves. Same names, same order, same flat per-tag counter.
@@ -314,6 +317,7 @@ def run_arm(state, feats: dict, prev: dict, *, template: bool, dtype: torch.dtyp
             bf16_norm_affine: bool = False,
             substitute: str | None = None,
             extra_msa_host: bool = False,
+            template_host: bool = False,
             tie_away: bool = False,
             rne_residual: bool = True,
             rne_sigmoid: bool = False) -> tuple[dict, dict]:
@@ -329,6 +333,7 @@ def run_arm(state, feats: dict, prev: dict, *, template: bool, dtype: torch.dtyp
         model.extra_msa_host = extra_msa_host
         model.set_rne_residual(rne_residual)
         model.set_rne_sigmoid(rne_sigmoid)
+        model.set_template_host(template_host)
         if substitute:
             from tt_bio.af2 import SUBSTITUTION_CLASSES
             model.substitute = frozenset(SUBSTITUTION_CLASSES[substitute])
@@ -388,6 +393,9 @@ def main() -> int:
     ap.add_argument("--extra-msa-host", action="store_true",
                     help="run the four extra-MSA blocks in host torch; moves the pair the "
                          "Evoformer starts from between the two arms")
+    ap.add_argument("--template-host", action="store_true",
+                    help="run the template's pair stack in host torch; the control that has to "
+                         "reproduce the device numbers taken before it went on card")
     ap.add_argument("--bf16-norm-affine", action="store_true",
                     help="round the trunk stacks' LayerNorm scale/offset to bfloat16 on the "
                          "torch arm; isolates the one dtype the ttnn trunk gets wrong")
@@ -419,6 +427,7 @@ def main() -> int:
     assert not (args.mutate and not args.device), "--mutate is a device-leg control"
     assert not (args.substitute and not args.device), "--substitute is a device-leg instrument"
     assert not (args.extra_msa_host and not args.device), "--extra-msa-host is a device-leg arm"
+    assert not (args.template_host and not args.device), "--template-host is a device-leg arm"
     taps, last = run_arm(state, feats, prev, template=template, dtype=torch.bfloat16,
                          keep=set(bases) if ref else None, recycles=args.recycles,
                          device=args.device, mutate=args.mutate,
@@ -426,6 +435,7 @@ def main() -> int:
                          bf16_norm_affine=args.bf16_norm_affine,
                          substitute=args.substitute,
                          extra_msa_host=args.extra_msa_host,
+                         template_host=args.template_host,
                          tie_away=args.tie_away_adds,
                          rne_residual=not args.ttnn_residual,
                          rne_sigmoid=args.wide_sigmoid)
@@ -542,6 +552,7 @@ def main() -> int:
         "mutate": args.mutate,
         "substitute": args.substitute,
         "extra_msa_host": args.extra_msa_host,
+        "template_host": args.template_host,
         "tie_away_adds": args.tie_away_adds,
         "rne_residual": not args.ttnn_residual,
         "rne_sigmoid": args.wide_sigmoid,
