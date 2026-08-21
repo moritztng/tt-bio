@@ -623,6 +623,10 @@ def main():
                                      "hit": OLDKEY_HITS[0], "miss": OLDKEY_HITS[1]},
                    "sdpa_q_chunk_over_l1": sorted(str(k) for k in T._SDPA_Q_CHUNK_OVER_L1),
                    "loadavg": open("/proc/loadavg").read().split()[:3],
+                   # VmHWM is a process high-water mark and never resets, and every arm of a run
+                   # shares one process -- so this is monotone across arms and is NOT per-arm
+                   # evidence. Equal values in two rows of the same run mean the later arm did not
+                   # exceed the earlier one's peak, not that the two arms cost the same host RAM.
                    "maxrss_mb": round(int(next(l for l in open("/proc/self/status")
                                                if l.startswith("VmHWM")).split()[1]) / 1024, 1),
                    "wall_ms": {k: {"calls": v["n"], "ms": round(v["s"] * 1e3, 2)}
