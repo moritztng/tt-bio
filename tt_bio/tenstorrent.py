@@ -919,7 +919,7 @@ def _sdpa_wide_k() -> bool:
 SDPA_WIDE_K = _sdpa_wide_k()
 
 
-def _dividing_k_chunks(q_len: int, k_len: int, narrow: bool = False) -> tuple:
+def _dividing_k_chunks(q_len: int, k_len: int) -> tuple:
     """k_chunks that DIVIDE the padded sequence, widest first, with the shipped pick last. One
     entry when the shipped pick already divides, in which case this is today's pick unchanged.
 
@@ -929,19 +929,22 @@ def _dividing_k_chunks(q_len: int, k_len: int, narrow: bool = False) -> tuple:
     when the chunk does not divide, `fill_preconditions` then declines every call, and a
     non-dividing pick there does not trade accuracy for speed, it turns the kernel off.
 
-    `narrow` also offers the divisors BELOW the shipped pick, after every wider one has been tried.
-    K5 measured that widest-k wins, so a narrow divisor is never the preference; it is the last
-    thing between the fused kernel and not running at all, and it only matters where the wide
-    divisors are over L1. Padded 608 is exactly that case -- its only 32-aligned divisors are 608
-    and 32, 608 overflows L1 at h=4 d=32, and without this the whole rung declines.
+    Only divisors WIDER than the shipped pick are offered, and that is measured rather than
+    inherited. The narrow divisors were built and screened at padded 608 -- 2^5 * 19, whose only
+    32-aligned divisors are 608 and 32, so it is the one rung <= 1024 where every wide divisor is
+    over L1 and a narrow one is the last thing between the fused kernel and not running. It does
+    not run there either: 608 refuses on `l1_budget` and 32 refuses on `pm_over_l1`, the persistent
+    mask at 19 k-chunks being the thing that does not fit
+    (`perf/pxdesign/tt_pxd_p8_e3_ladder_592_narrow.json`, 312 of 312 still declined, 1.001x). So
+    the narrow rung is not a ladder entry this codebase has a size for, and it stays out rather
+    than shipping untriggered.
     """
     prod = _sdpa_chunks_shipped(q_len, k_len)[1]
     padded = _padded_sdpa_len(k_len)
     if padded % prod == 0:
         return (prod,)
-    div = [c for c in range(padded, 0, -SDPA_CHUNK_TILE) if padded % c == 0]
-    ladder = [c for c in div if c > prod] + ([c for c in div if c < prod] if narrow else [])
-    return tuple(ladder) + (prod,)
+    wider = [c for c in range(padded, prod, -SDPA_CHUNK_TILE) if padded % c == 0]
+    return tuple(wider) + (prod,)
 
 
 def _tri_att_k_chunks(q_len: int, k_len: int) -> tuple:
@@ -1112,7 +1115,7 @@ def _tri_att_sdpa_hifi(q, k, v, bias, scale: float):
     if min(q_len, k_len) < _TRIATT_FUSED_HIFI_MIN_S:
         TRIATT_FUSED_HIFI_STATS["too_short"] += 1
         return None
-    k_chunks = _dividing_k_chunks(q_len, k_len, narrow=True)
+    k_chunks = _dividing_k_chunks(q_len, k_len)
     padded_q = _padded_sdpa_len(q_len)
     q_all = _tri_att_q_chunks(q_len, k_len)
     # Against a wide k, only a DIVIDING q is offered: `use_padded_mask` is set from either side, so
