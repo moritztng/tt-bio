@@ -31,6 +31,20 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   lacks instead of failing them. The tests guarded on the golden's existence while
   depending on its contents, so on a host with a partial capture 11 of them died on
   `KeyError` and read as a regression in whatever branch was checked out.
+- Histidine's ND1 carried no formal charge in the Protenix-v2 and OpenDDE featurizer. The
+  PDB chemical component dictionary's ideal histidine is the protonated imidazolium, so ND1
+  is +1, and the reference implementations read the CCD straight through. tt-bio did not, so
+  any protein with a histidine in it, which is nearly every real target, folded from
+  slightly the wrong input. Numbers move: on ubiquitin (76 residues, one histidine) the top
+  structure shifts 0.07-0.38 A depending on seed and plDDT by about 0.0003, and the parity
+  leg's all-atom RMSD against the official ByteDance Protenix reference improves from
+  1.790 A to 1.774 A. Larger targets carry proportionally more histidines. Re-run any
+  Protenix-v2 or OpenDDE prediction you need to compare against a new one. Boltz-2,
+  ESMFold2, OpenFold3, BoltzGen and RFD3 use different featurizers and are unaffected.
+
+  The charge table is now taken from the CCD over all 20 standard residues rather than from
+  a golden feature dump: ARG NH2, LYS NZ and HIS ND1 are the only charged atoms, and nothing
+  else was missing.
 
 ## [0.6.5] - 2026-08-20
 

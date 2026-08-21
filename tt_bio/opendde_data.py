@@ -42,6 +42,26 @@ def _residue_atom_names(res, is_c_terminal):
     return atoms
 
 
+def _has_oxt(feats, aatype, mol_type, n_res):
+    """Which residue tokens carry an OXT, read off the atom order in `feats` rather than
+    re-derived. protein_atom_features decides this per residue: the last residue of a chain
+    built from a sequence, or whatever the structure file said for a chain read out of one
+    (`build_complex_features(..., oxt=...)`). A second copy of the rule here would disagree
+    with the atom order it has to index into, and a disagreement is silent -- it shows up as
+    an atom_to_structural_token misalignment N atoms downstream, which is how the
+    4969-vs-4967 failure on the 9dsg Fab+RBD read."""
+    per_token = torch.bincount(feats["atom_to_token_idx"].long(), minlength=n_res)
+    out = []
+    for r in range(n_res):
+        if int(mol_type[r]) == MOL_TYPE_LIGAND:
+            out.append(False)
+            continue
+        aa = int(aatype[r])
+        res = _LETTER_TO_RES[RESTYPE_ORDER[aa]] if aa < len(RESTYPE_ORDER) else "UNK"
+        out.append(int(per_token[r]) == len(const.ref_atoms[res]) + 1)
+    return out
+
+
 def _residue_adjacency(asym_id, res_id):
     """Strict same-chain, adjacent-res_id fallback (opendde/data/core/featurizer.py
     get_polymer_residue_graph's fallback path -- the only path that applies here, since
@@ -73,13 +93,7 @@ def build_structural_token_features(feats):
     n_res = aatype.shape[0]
     mol_type = feats["mol_type"]
     n_atom = feats["atom_to_token_idx"].shape[0]
-
-    # C-terminal per CHAIN: each asym_id's last residue carries OXT, matching
-    # protenix_data.protein_atom_features (called once per chain). A per-chain vs
-    # global mismatch is N_chain-1 OXT atoms off and breaks atom_to_structural_token
-    # alignment for multi-chain input (the 4969-vs-4967 failure on the 9dsg Fab+RBD).
-    asym = asym_id.tolist()
-    is_c_term = [r == n_res - 1 or asym[r] != asym[r + 1] for r in range(n_res)]
+    is_c_term = _has_oxt(feats, aatype, mol_type, n_res)
 
     parent, role, twin = [], [], []
     atom_tok, atom_tokatom = [], []

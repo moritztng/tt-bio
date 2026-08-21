@@ -69,3 +69,21 @@ def test_protein_only_no_atom_role_tokens():
     assert (ifd["subtoken_role_id"] != STRUCTURAL_TOKEN_ROLES["atom"]).all()
     twin = ifd["twin_token_idx"]
     assert (twin >= 0).all() and (twin < 20).all()
+
+
+def test_structural_tokens_follow_a_cropped_chains_oxt():
+    """protenix_data decides OXT per residue, so opendde_data must read that answer rather
+    than re-derive 'last residue of each chain'. A chain cropped mid-sequence carries no
+    OXT; a second copy of the rule would invent one and the atom index would run one long,
+    which is the same misalignment class as the 4969-vs-4967 failure on 9dsg."""
+    from tt_bio.opendde_data import build_structural_token_features
+
+    chains = [("MKHTGQ", None, "protein"), ("ARNDH", None, "protein")]
+    for oxt in (None,                                    # both chains C-terminal
+                [[False] * 6, [False] * 4 + [True]],     # chain A cropped mid-sequence
+                [[False] * 6, [False] * 5]):             # both cropped
+        feats = build_complex_features(chains, chain_ids=["A", "B"], oxt=oxt)
+        st = build_structural_token_features(feats)
+        n_atom = feats["atom_to_token_idx"].shape[0]
+        assert st["atom_to_structural_token_idx"].shape[0] == n_atom, f"oxt={oxt}"
+        assert st["atom_to_structural_tokatom_idx"].shape[0] == n_atom, f"oxt={oxt}"
