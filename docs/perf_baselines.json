@@ -709,6 +709,26 @@
               "tt_bio_version": "0.6.2",
               "date": "2026-08-07",
               "note": "seed p150a/tt-quietbox openfold3 baseline, v0.6.2, quiet host, fp32-DM default"
+            },
+            "nesso1": {
+              "unit": "affinities/s",
+              "direction": "higher",
+              "value": 0.038486,
+              "latency_ms": 25983.68,
+              "input": "affinity_fkg.yaml (FKBP12+SB3, L107, bf16 trunk, CLI defaults)",
+              "sampling_steps": null,
+              "diffusion_samples": null,
+              "recycling_steps": null,
+              "num_timesteps": null,
+              "num_designs": null,
+              "warmup": 0,
+              "repeat": 3,
+              "hardware": "blackhole",
+              "card_type": "p150a",
+              "machine_id": "tt-quietbox",
+              "tt_bio_version": "0.6.5",
+              "date": "2026-08-21",
+              "note": "seed: first cell for tt-bio affinity / nesso1, shipped CLI defaults on examples/affinity_fkg.yaml"
             }
           },
           "date": "2026-08-17",
