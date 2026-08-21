@@ -311,6 +311,15 @@ def tie_away_adds() -> None:
     ref.EvoformerBlock.forward = forward
 
 
+def _triatt_stats(device: bool) -> dict | None:
+    """What the fused triangle attention actually served this run. See the report field."""
+    if not device:
+        return None
+    from tt_bio import tenstorrent as TT
+    return {"stats": dict(TT.TRIATT_FUSED_HIFI_STATS),
+            "picks": {str(k): v for k, v in TT.TRIATT_FUSED_HIFI_PICKS.items()}}
+
+
 def run_arm(state, feats: dict, prev: dict, *, template: bool, dtype: torch.dtype,
             keep: set[str] | None, recycles: int, device: bool = False,
             mutate: str | None = None, template_cache: bool = True,
@@ -560,6 +569,10 @@ def main() -> int:
         "substitute": args.substitute,
         "extra_msa_host": args.extra_msa_host,
         "triatt_fused": args.triatt_fused,
+        # A declined fused config is indistinguishable from an absent one from the outside, so an
+        # arm that names itself `all` and served nothing would read as a clean pass on the lever
+        # while measuring the incumbent. The counts say which kernel actually ran.
+        "triatt_fused_stats": _triatt_stats(args.device),
         "template_host": args.template_host,
         "tie_away_adds": args.tie_away_adds,
         "rne_residual": not args.ttnn_residual,
