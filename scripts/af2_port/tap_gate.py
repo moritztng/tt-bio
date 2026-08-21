@@ -385,6 +385,9 @@ def main() -> int:
     ap.add_argument("--bf16-norm-affine", action="store_true",
                     help="round the trunk stacks' LayerNorm scale/offset to bfloat16 on the "
                          "torch arm; isolates the one dtype the ttnn trunk gets wrong")
+    ap.add_argument("--dump-trunk", default=None,
+                    help="write the last pass's float32 `single` and `pair` to an npz, so the "
+                         "structure module can be scored on a chosen arm's trunk output")
     ap.add_argument("--no-envelope", action="store_true",
                     help="skip the float32 arm and report every miss as a bare FAIL")
     args = ap.parse_args()
@@ -421,6 +424,10 @@ def main() -> int:
                          rne_residual=not args.ttnn_residual)
     if args.drop_tap:
         taps.values.pop(args.drop_tap, None)
+
+    if args.dump_trunk:
+        np.savez(args.dump_trunk, single=last["single"].float().numpy(),
+                 pair=last["pair"].float().numpy())
 
     if ref is None:
         print(json.dumps({"mode": "af2ig_taps", "stage": args.stage,
