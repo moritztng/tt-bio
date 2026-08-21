@@ -127,6 +127,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out")
     ap.add_argument("--aa", type=int, default=768)
+    ap.add_argument("--bmm-only", action="store_true")
     args = ap.parse_args()
 
     dev = T.get_device()
@@ -134,18 +135,25 @@ def main() -> int:
     rep = {"grid": list(T.COMPUTE_GRID_MAIN), "l1_bank_bytes": T._l1_bank_bytes(), "aa": n,
            "cases": {}}
 
-    # The class the census caught refusing, at the size it refused at.
-    rep["cases"]["rf3_triatt_out_proj"] = l1_out_ladder(
-        dev, (1, n, n, 64), (64, 64), T._PAIR_PROJ_L1_BW, None)
-    # The pair FFN fc1 class, where the L1 leg is worth a 2.15 GB/call round trip.
-    rep["cases"]["pair_ffn_fc1"] = l1_out_ladder(
-        dev, (1, 32, n, 256), (256, 1024), T._PAIR_FFN_FC1_BW, T._PAIR_FFN_FC1_BLOCK_W)
-    # Batched attention shapes with more than one legal per_core_M.
-    rep["cases"]["bmm_attn_qk"] = bmm_ladder(dev, (32, 8, 256, 64), (32, 8, 64, 256))
-    rep["cases"]["bmm_attn_av"] = bmm_ladder(dev, (32, 8, 256, 256), (32, 8, 256, 64))
+    if not args.bmm_only:
+        # The class the census caught refusing, at the size it refused at.
+        rep["cases"]["rf3_triatt_out_proj"] = l1_out_ladder(
+            dev, (1, n, n, 64), (64, 64), T._PAIR_PROJ_L1_BW, None)
+        # The pair FFN fc1 class, where the L1 leg is worth a 2.15 GB/call round trip.
+        rep["cases"]["pair_ffn_fc1"] = l1_out_ladder(
+            dev, (1, 32, n, 256), (256, 1024), T._PAIR_FFN_FC1_BW, T._PAIR_FFN_FC1_BLOCK_W)
+    # Batched attention shapes chosen to HAVE more than one legal per_core_M: the ladder only
+    # exists where `batch * m_tiles / p` still fits the grid at more than one divisor, which pins
+    # the batch near the core count. A single-rung case verifies nothing, so it is reported
+    # UNVERIFIED below rather than passing quietly.
+    if not args.bmm_only or args.bmm_only:
+        rep["cases"]["bmm_attn_qk"] = bmm_ladder(dev, (4, 8, 256, 64), (4, 8, 64, 256))
+        rep["cases"]["bmm_attn_av"] = bmm_ladder(dev, (4, 8, 256, 256), (4, 8, 256, 64))
 
     bad = []
     for name, rows in rep["cases"].items():
+        if len([r for r in rows if r["rung"] != "0 (A/A control)"]) < 2:
+            bad.append((name, "UNVERIFIED", "only one rung: this shape has nothing to narrow to"))
         for r in rows:
             if "error" in r:
                 bad.append((name, r["rung"], r["error"]))
