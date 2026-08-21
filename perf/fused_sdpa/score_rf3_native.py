@@ -44,7 +44,7 @@ for a in ARMS:
                       "ca_vs_def_A": round(kabsch_rmsd(A, B), 6),
                       "atom_keys_match_def": ka == kd, "n_atoms": len(ka)}
     print(f"  {a:12s} GT_CA {r:9.6f} A ({n} CA)   vs_def all-atom "
-          f"{out[chr(97)+chr(114)+chr(109)+chr(115)][a][chr(97)+chr(108)+chr(108)+chr(97)+chr(116)+chr(111)+chr(109)+chr(95)+chr(118)+chr(115)+chr(95)+chr(100)+chr(101)+chr(102)+chr(95)+chr(65)]} "
-          f"CA {out[chr(97)+chr(114)+chr(109)+chr(115)][a][chr(99)+chr(97)+chr(95)+chr(118)+chr(115)+chr(95)+chr(100)+chr(101)+chr(102)+chr(95)+chr(65)]}")
+          f"{out['arms'][a]['allatom_vs_def_A']} "
+          f"CA {out['arms'][a]['ca_vs_def_A']}")
 (HERE / "rf3_native_298.json").write_text(json.dumps(out, indent=1) + "\n")
 print(json.dumps(out["arms"], indent=1))

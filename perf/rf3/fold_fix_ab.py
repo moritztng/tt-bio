@@ -28,6 +28,10 @@ def main():
     ap.add_argument("--label", required=True)
     ap.add_argument("--outdir", type=Path, required=True)
     ap.add_argument("--repeat", type=int, default=1, help="warm folds after the discarded cold one")
+    ap.add_argument("--seeds", default=None,
+                    help="comma-separated diffusion seeds, one warm fold each, kept in "
+                         "<outdir>/f<i>_seed<n>/. Repeat a seed to get an A/A control in the "
+                         "same process. Overrides --repeat.")
     ap.add_argument("--fixdir", type=Path, default=ROOT / "perf" / "size512" / "fixtures")
     a = ap.parse_args()
 
@@ -60,11 +64,14 @@ def main():
                          if k.startswith("TT_BIO_")},
            "folds": []}
 
-    def one(tag, keep):
+    def one(tag, keep, seed=None, dest=None):
+        if seed is not None:
+            meta["job_cfg"]["seed"] = seed
         fold_s, m = one_fold()
         assert m.get("msa"), f"{tag}: fold ran without an MSA -- cache seeding failed"
         cifs = sorted(struct_dir.glob("*.cif"))
-        rec = {"tag": tag, "fold_s": round(fold_s, 3), "plddt": m.get("plddt"),
+        rec = {"tag": tag, "seed": meta["job_cfg"]["seed"],
+               "fold_s": round(fold_s, 3), "plddt": m.get("plddt"),
                "ptm": m.get("ptm"), "n_tokens": m.get("n_tokens"), "n_atoms": m.get("n_atoms"),
                "msa": m.get("msa"),
                "cif_sha256": {p.name: hashlib.sha256(p.read_bytes()).hexdigest()[:16]
@@ -72,16 +79,26 @@ def main():
                "opm_small_depth_stats": list(T.OPM_SMALL_DEPTH_STATS),
                "triatt_fused_hifi_stats": dict(T.TRIATT_FUSED_HIFI_STATS)}
         if keep:
+            out = dest or a.outdir
+            out.mkdir(parents=True, exist_ok=True)
             for p in cifs:
-                shutil.copy2(p, a.outdir / p.name)
+                shutil.copy2(p, out / p.name)
             rec["kept"] = [p.name for p in cifs]
+            rec["kept_in"] = str(out)
         print(f"[{a.label}] {tag} {rec['fold_s']:.3f}s plddt={rec['plddt']} "
               f"ptm={rec['ptm']} cif={list(rec['cif_sha256'].values())}", flush=True)
         return rec
 
     res["cold"] = one("cold", keep=False)
-    for i in range(a.repeat):
-        res["folds"].append(one(f"warm{i}", keep=True))
+    if a.seeds:
+        seeds = [int(x) for x in a.seeds.split(",")]
+        res["seeds"] = seeds
+        for i, sd in enumerate(seeds):
+            res["folds"].append(one(f"warm{i}_seed{sd}", keep=True, seed=sd,
+                                    dest=a.outdir / f"f{i}_seed{sd}"))
+    else:
+        for i in range(a.repeat):
+            res["folds"].append(one(f"warm{i}", keep=True))
     (a.outdir / "fold.json").write_text(json.dumps(res, indent=1) + "\n")
     print("wrote", a.outdir / "fold.json", flush=True)
     state.reset()
