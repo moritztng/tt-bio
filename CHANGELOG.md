@@ -54,6 +54,12 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Fixed
 
+- Boltz-2 cannot fold a protein+ligand complex at 640 aa on a p150a: it dies at trunk 0/4 with
+  statically allocated circular buffers clashing with L1 buffers, the issue #11 signature, reached
+  through the token count a ligand adds rather than through a part's core count. Recorded, not
+  fixed. Apo protein at 640 aa is fine and so is the ligand at 768, so it is the combination, and
+  640 is the arm's off-lattice rung: a protein-only ladder passes every rung and a ligand ladder on
+  the lattice passes every rung. `docs/size-generality.md` has the addresses and the table.
 - `scripts/lever_census.py` under-counts on a loaded host, and the arm's docs now say so with
   the measurement. The counter wraps are installed from a thread that polls every 3 s, so calls
   made before the first tick are never counted. The same fold at 256 aa reads 11446 calls alone

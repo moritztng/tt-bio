@@ -188,6 +188,40 @@ fail on any cliff the structure half could produce. That is the same call the ar
 model too noisy to gate: record it as skipped with the numbers, rather than ship an unfalsifiable
 band. The apo `boltz-2` row gates the structure trunk at these four rungs already.
 
+## Boltz-2 cannot fold a ligand at 640 aa
+
+The first thing the ligand ladder found is not a dark lever, it is a crash. Boltz-2 dies at trunk
+0/4, about 6 s in, on a p150a at a 13x10 grid:
+
+```
+Statically allocated circular buffers in program 36 clash with L1 buffers on core range
+[(x=0,y=0) - (x=12,y=9)]. L1 buffer allocated at 342016 and static circular buffer region
+ends at 356864
+```
+
+Measured across both ligand fixtures, and the apo rung as the control:
+
+| fixture | 256 | 512 | 640 | 768 |
+|---|---|---|---|---|
+| apo (protein only) | ok | ok | **ok, 43.9 s** | ok |
+| holo (protein + ligand) | ok, 16.6 s | ok, 52.9 s | **L1 clash** | ok, 78.3 s |
+| holo + affinity | ok, 190.6 s | ok | **L1 clash** | not reached |
+
+Both ligand fixtures fail at the same two addresses, so it is the ligand and not the affinity
+module: the structure-only holo fold has no affinity property and crashes identically. The apo fold
+at the same 640 aa is fine, and so is the ligand fold at 768. It is the combination.
+
+That combination is the point. 640 is the arm's off-lattice rung, the one size in the ladder whose
+padded length the SDPA chunk size does not divide, added because 256/512/768/1024 all sit on the
+lattice the fused kernel is served on. A ladder of protein-only folds passes every rung. A ladder of
+ligand folds on the lattice passes every rung. Only the two together find this, which is the same
+argument that put 640 in the ladder, now paying out on a second axis.
+
+The error is the issue #11 signature that the L1-budget leg exists for, but on a p150a at 13x10
+rather than a p300c at 11x10, and reached through the token count a ligand adds rather than through a
+part's core count. Not fixed here: this arm records, and a fix is a perf/L1 change that has to be
+screened on its own.
+
 ## The census under-counts on a loaded host
 
 `scripts/lever_census.py` installs its counter wraps from a thread that polls every 3 seconds, so a
