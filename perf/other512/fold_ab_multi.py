@@ -117,7 +117,14 @@ ARMS = ("on", "e6", "noe6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hi
         # seam, `devcat_zstruct` widens ONLY the seam, so one 768 aa fold each says which site
         # carries the difference. Both work by rebinding the name opendde.py imported, so no
         # product code exists for the screen.
-        "devcat", "devcat_trimul", "devcat_zstruct")
+        # `hostcat` is the converse control: a 1-byte budget, so EVERY host-concat site takes the
+        # host branch whatever the size. It exists because the budget's own threshold puts the
+        # host/device split out of reach below 768 aa, and 768 aa's only fixture is the chimeric
+        # cdk2x2 whose hinge cannot score a non-bit-exact change
+        # (`cdk2x2-chimeric-fixture-cannot-score-non-bit-exact-parity`). Pairing `on` (device
+        # branch below the base budget) with `hostcat` at 298 aa runs the same two branches on the
+        # monomeric fixture, where an RMSD IS readable.
+        "devcat", "devcat_trimul", "devcat_zstruct", "hostcat")
 
 # Which sites each arm routes onto the fused SDPA. The confidence head is never in a flip set:
 # it stays on `_fp32_softmax_attention` on every arm, deliberately, so plDDT reports on the
@@ -449,12 +456,14 @@ def main():
         # `on` pins the pre-change base so the A/B is the fix, not an unbounded budget.
         import tt_bio.opendde as OD
         T._CONCAT_HOST_BYTES = (None if name in ("devcat", "devcat_trimul")
+                                else 1 if name == "hostcat"
                                 else T.CONCAT_HOST_BYTES_BASE)
         # opendde.py from-imports the accessor, so rebinding it here moves the z_struct seam
         # alone. Resolved at call time, after the device is open, so it never reads 0.
         OD.concat_host_bytes = {
             "devcat_trimul": lambda: T.CONCAT_HOST_BYTES_BASE,
             "devcat_zstruct": lambda: T._concat_host_budget(T._dram_total_bytes()),
+            "hostcat": lambda: 1,
         }.get(name, T.concat_host_bytes)
 
         T._PAIR_PROJ_L1_OUT = T._PAIR_BIAS_L1_NORM = True
