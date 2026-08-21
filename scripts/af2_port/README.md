@@ -5,6 +5,11 @@ through ColabDesign with the design's own coordinates as the initial guess and a
 is the pipeline's only success counter, so the port's acceptance metric is the filter's accept/
 reject decision, not a structure metric.
 
+That decision is `af2_easy`, four conditions and all four scored: pLDDT > 0.8, i_pTM > 0.5,
+i_pAE < 0.35 from the complex pass, and bound-unbound RMSD < 3.5 from a second binder-only pass
+(`filter_tolerance.py --stage monomer` plus `bound_unbound_rmsd.py`). On 50 real designs across two
+targets the device arm flips 1 of those decisions, 2.0%.
+
 `af2ig_spec.json` is the configuration, read from ColabDesign 1.1.3, PXDesignBench and
 `params_model_1_ptm.npz` rather than inferred: every dimension, block count, runtime flag, filter
 threshold and metric formula the port has to reproduce, each with the source file and line.
