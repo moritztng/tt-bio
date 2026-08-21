@@ -1396,20 +1396,36 @@ def _fp32_softmax_shard(rows: int, height_per_row: int, width: int):
         strategy=ttnn.ShardStrategy.HEIGHT, orientation=ttnn.ShardOrientation.ROW_MAJOR)
 
 
-def accurate_softmax_site(token: str) -> bool:
+def accurate_softmax_site(token: str, default: bool = False) -> bool:
     """Whether construction site ``token`` takes the 5-op accurate softmax.
 
-    False for every site unless ``TT_BIO_ACCURATE_SOFTMAX_AB`` names the token (or ``all``).
-    This is the A/B instrument the cross-model verdict is measured with, not a shipped default:
-    a real default flip is a literal ``True`` at the one construction site a verdict names.
-    A global env default is the exact shape of the Protenix-v2 fp32 default that cost OpenDDE
-    60x, so the sites stay individually addressable and the shipped answer stays off.
+    ``default`` is what the site ships with, decided per site by measurement. Protenix-v2's and
+    OpenDDE's Pairformer sites ship on: both models cleared 20/256/512/768 aa with the chain in
+    place, worst reading +2.0% against a +-15% band. Every other site still ships off because
+    nothing has scored it.
+
+    ``TT_BIO_ACCURATE_SOFTMAX_AB`` overrides the default per site, so a site stays A/B-able
+    after it has shipped: a bare token forces it on, a ``-`` prefix forces it off, and ``all`` /
+    ``-all`` do the same to every site that has no token of its own. Per site, never global:
+    a single shared switch is the exact shape of the Protenix-v2 fp32 default that cost OpenDDE
+    60x, and ``protenix.*`` and ``opendde.*`` name the same two code sites.
     """
-    sel = os.environ.get("TT_BIO_ACCURATE_SOFTMAX_AB", "")
-    if not sel:
+    on, off = set(), set()
+    for t in os.environ.get("TT_BIO_ACCURATE_SOFTMAX_AB", "").split(","):
+        t = t.strip()
+        if t.startswith("-"):
+            off.add(t[1:])
+        elif t:
+            on.add(t)
+    if token in off:
         return False
-    want = {t.strip() for t in sel.split(",") if t.strip()}
-    return "all" in want or token in want
+    if token in on:
+        return True
+    if "all" in off:
+        return False
+    if "all" in on:
+        return True
+    return default
 
 
 def _accurate_softmax(x, compute_kernel_config=None, fp32: bool = True):

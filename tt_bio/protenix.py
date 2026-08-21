@@ -1326,7 +1326,7 @@ class ConfidenceHead:
         apb_nh = self._w[b0 + "attention_pair_bias.linear_nobias_z.weight"].shape[0]
         self.pf = Pairformer(nb, chpa, nhp, 384 // apb_nh, apb_nh, True, comb,
                              compute_kernel_config, gated_move=gated_move,
-                             accurate_softmax=accurate_softmax_site(f"{softmax_scope}.confidence"))
+                             accurate_softmax=accurate_softmax_site(f"{softmax_scope}.confidence", default=True))
 
     def _g(self, k):
         return self._w[k].float()
@@ -2191,7 +2191,7 @@ class Trunk(_KeyedWeights):
                 comb[f"layers.{i}.{k}"] = v
         self.PF = Pairformer(nb_pf, self.TRI_HEAD_DIM, n_tri_heads, 384 // 16, 16, True, comb,
                              compute_kernel_config, gated_move=gated_move,
-                             accurate_softmax=accurate_softmax_site(f"{softmax_scope}.trunk"))
+                             accurate_softmax=accurate_softmax_site(f"{softmax_scope}.trunk", default=True))
         # template embedder: 2 pair-only PairformerLayers
         tpl = {k[len(f"template_embedder.pairformer_stack.blocks.{b}."):]: v for b in range(2)
                for k, v in self._w.items()

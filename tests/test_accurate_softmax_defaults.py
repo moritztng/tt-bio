@@ -1,13 +1,18 @@
-"""The accurate-softmax lever must be off at every construction site by default.
+"""The accurate-softmax lever is per-site, and only measured sites ship it on.
 
 `ttnn.softmax` normalises against a denominator its own numerators do not match (rows sum to
 0.977 on [1,16,512,512] fp32), and `_accurate_softmax` replaces it with a 5-op chain that costs
 up to 4.22x on the op. Whether a given model should pay that is a per-model, per-site verdict.
-Until one lands, every site stays on today's path, and this test is what makes "no-op by
-construction" a property rather than a claim.
+Protenix-v2 and OpenDDE have theirs: both cleared 20/256/512/768 aa with the chain on, worst
+reading +2.0% against a +-15% band. Nothing has scored the ESMFold2 or OpenFold3 sites, so those
+still ship off.
+
+Two properties to hold. The split above is what ships, and no unmeasured site joins it by
+accident. And every site stays individually overridable after it ships, in both directions,
+because `protenix.*` and `opendde.*` name the SAME two code sites and a switch they share is the
+shape that cost OpenDDE 60x once already.
 """
 import ast
-import os
 import pathlib
 import re
 
@@ -32,36 +37,76 @@ SITES = {
     "opendde.refiner": "tt_bio/opendde.py",
 }
 
+# The sites whose verdict landed, i.e. the ones passing `default=True`. protenix.py's two sites
+# are scoped, so flipping them flips four tokens; opendde.py's refiner is the fifth.
+ON_BY_DEFAULT = {
+    "protenix.trunk", "protenix.confidence",
+    "opendde.trunk", "opendde.confidence", "opendde.refiner",
+}
+OFF_BY_DEFAULT = set(SITES) - ON_BY_DEFAULT
+
 
 def _selector():
     from tt_bio.tenstorrent import accurate_softmax_site
     return accurate_softmax_site
 
 
-def test_env_unset_means_every_site_is_off(monkeypatch):
+def _live():
+    """The answer each site gets as it is constructed, under the current environment.
+
+    The default is an argument at the construction site, not a table inside the selector, so a
+    test has to supply it. `test_every_site_ships_the_default_this_file_declares` is what keeps
+    ON_BY_DEFAULT honest against the source.
+    """
+    sel = _selector()
+    return {s for s in SITES if sel(s, default=s in ON_BY_DEFAULT)}
+
+
+def test_env_unset_ships_the_measured_sites_on_and_nothing_else(monkeypatch):
     monkeypatch.delenv("TT_BIO_ACCURATE_SOFTMAX_AB", raising=False)
-    sel = _selector()
-    assert [s for s in SITES if sel(s)] == []
+    assert _live() == ON_BY_DEFAULT
 
 
-def test_empty_env_means_every_site_is_off(monkeypatch):
+def test_empty_env_ships_the_measured_sites_on_and_nothing_else(monkeypatch):
     monkeypatch.setenv("TT_BIO_ACCURATE_SOFTMAX_AB", "")
-    sel = _selector()
-    assert [s for s in SITES if sel(s)] == []
+    assert _live() == ON_BY_DEFAULT
 
 
 def test_a_named_site_turns_on_only_itself(monkeypatch):
     monkeypatch.setenv("TT_BIO_ACCURATE_SOFTMAX_AB", "openfold3.trunk")
-    sel = _selector()
-    assert [s for s in SITES if sel(s)] == ["openfold3.trunk"]
+    assert _live() == ON_BY_DEFAULT | {"openfold3.trunk"}
+
+
+@pytest.mark.parametrize("token", sorted(ON_BY_DEFAULT))
+def test_a_shipped_site_can_still_be_forced_off_alone(monkeypatch, token):
+    """The reason the selector outlives the flip: a shipped site stays A/B-able."""
+    monkeypatch.setenv("TT_BIO_ACCURATE_SOFTMAX_AB", "-" + token)
+    assert _live() == ON_BY_DEFAULT - {token}
+
+
+def test_all_and_minus_all_move_every_site_without_a_token_of_its_own(monkeypatch):
+    monkeypatch.setenv("TT_BIO_ACCURATE_SOFTMAX_AB", "all")
+    assert _live() == set(SITES)
+    monkeypatch.setenv("TT_BIO_ACCURATE_SOFTMAX_AB", "-all")
+    assert _live() == set()
+    monkeypatch.setenv("TT_BIO_ACCURATE_SOFTMAX_AB", "-all,openfold3.msa")
+    assert _live() == {"openfold3.msa"}
 
 
 def test_protenix_and_opendde_do_not_drag_each_other(monkeypatch):
-    """The shared-construction-site trap: a Protenix-v2 flip must not reach OpenDDE."""
-    monkeypatch.setenv("TT_BIO_ACCURATE_SOFTMAX_AB", "protenix.trunk,protenix.confidence")
+    """The shared-construction-site trap. protenix.py builds BOTH models' Pairformers, so an
+    override on one must not move the other, in either direction."""
     sel = _selector()
-    assert not sel("opendde.trunk") and not sel("opendde.confidence")
-    assert not sel("opendde.refiner")
+    on = lambda t: sel(t, default=t in ON_BY_DEFAULT)
+
+    monkeypatch.setenv("TT_BIO_ACCURATE_SOFTMAX_AB", "-protenix.trunk,-protenix.confidence")
+    assert not on("protenix.trunk") and not on("protenix.confidence")
+    assert on("opendde.trunk") and on("opendde.confidence") and on("opendde.refiner")
+
+    monkeypatch.setenv("TT_BIO_ACCURATE_SOFTMAX_AB",
+                       "-opendde.trunk,-opendde.confidence,-opendde.refiner")
+    assert on("protenix.trunk") and on("protenix.confidence")
+    assert not on("opendde.trunk") and not on("opendde.confidence") and not on("opendde.refiner")
 
 
 @pytest.mark.parametrize("token", sorted(SITES))
@@ -69,21 +114,44 @@ def test_site_is_reachable_and_wired_in_the_named_file(monkeypatch, token):
     monkeypatch.setenv("TT_BIO_ACCURATE_SOFTMAX_AB", token)
     assert _selector()(token), "%s is not reachable through the selector" % token
     src = (ROOT / SITES[token]).read_text()
-    model, site = token.split(".", 1)
-    literal = 'accurate_softmax_site("%s")' % token
-    scoped = 'accurate_softmax_site(f"{softmax_scope}.%s")' % site
-    assert literal in src or scoped in src, "%s: no wiring found in %s" % (token, SITES[token])
+    site = token.split(".", 1)[1]
+    tail = ", default=True)" if token in ON_BY_DEFAULT else ")"
+    literal = 'accurate_softmax_site("%s"%s' % (token, tail)
+    scoped = 'accurate_softmax_site(f"{softmax_scope}.%s"%s' % (site, tail)
+    assert literal in src or scoped in src, "%s: no site wired with default=%s in %s" % (
+        token, token in ON_BY_DEFAULT, SITES[token])
 
 
-# RF3 ships the lever on, and that is the one place it is allowed. Its own port scored it: the row
-# deficit is the whole of AttentionPairBias's 13.43x on RF3's pairformer, and PAIRFORMER_FLAGS
-# reaches only RF3's own stack. Every other model shares AttentionPairBias with it, so a flip there
-# is the release-gated one these two tests guard.
+# The token expression each shipped-on site passes, as it is written in the source. Scoped ones
+# are one expression covering two models, which is exactly why they are listed by expression.
+SHIPPED_ON_EXPRESSIONS = {
+    'f"{softmax_scope}.trunk"',
+    'f"{softmax_scope}.confidence"',
+    '"opendde.refiner"',
+}
+
+
+def test_every_site_ships_the_default_this_file_declares():
+    """No unmeasured site joins the flip. The set of `default=True` call sites in tt_bio has to
+    be exactly the ones ON_BY_DEFAULT names, or this file is describing code that moved."""
+    found = set()
+    call = re.compile(r"accurate_softmax_site\(\s*(f?\"[^\"]*\")\s*,\s*default=True\s*\)")
+    for path in sorted(SRC.rglob("*.py")):
+        found |= set(call.findall(path.read_text()))
+    assert found == SHIPPED_ON_EXPRESSIONS, \
+        "sites shipping the lever on changed: %s" % sorted(found)
+
+
+# RF3 ships the lever on with a literal True, and that is the one place a literal is allowed. Its
+# own port scored it: the row deficit is the whole of AttentionPairBias's 13.43x on RF3's
+# pairformer, and PAIRFORMER_FLAGS reaches only RF3's own stack. Everywhere else the answer goes
+# through accurate_softmax_site(), so a site keeps a name and an override even once it ships on.
 LEVER_ON_ALLOWED = {"tt_bio/rf3/remap.py"}
 
 
 def test_no_shared_construction_site_hardcodes_the_lever_on():
-    """A default flip is release-gated. `accurate_softmax=True` outside RF3 is that flip."""
+    """A flip moves a `default=`, it does not bypass the selector with a literal True. An
+    unnamed site cannot be forced back off, and that is how a shared default becomes a 60x."""
     offenders = []
     for path in sorted(SRC.rglob("*.py")):
         rel = str(path.relative_to(ROOT))
@@ -92,7 +160,7 @@ def test_no_shared_construction_site_hardcodes_the_lever_on():
         for i, line in enumerate(path.read_text().splitlines(), 1):
             if re.search(r"accurate_softmax\s*=\s*True", line):
                 offenders.append("%s:%d" % (rel, i))
-    assert offenders == [], "accurate_softmax defaulted ON at: %s" % ", ".join(offenders)
+    assert offenders == [], "accurate_softmax hardcoded ON at: %s" % ", ".join(offenders)
 
 
 def test_the_rf3_allowance_stays_inside_rf3s_own_flag_dict():
@@ -111,7 +179,8 @@ def test_the_rf3_allowance_stays_inside_rf3s_own_flag_dict():
 
 
 def test_shared_primitives_default_the_keyword_off():
-    """Every function/class that accepts the keyword must default it False."""
+    """Every function/class that accepts the keyword must default it False, so the decision
+    stays at the construction site and no model inherits another model's verdict."""
     bad = []
     for path in sorted(SRC.rglob("*.py")):
         try:

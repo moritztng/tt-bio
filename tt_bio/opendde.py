@@ -416,7 +416,7 @@ class OpenDDE:
             routed["refiner_blocks"], C["c_z"] // C["refiner_tri_heads"], C["refiner_tri_heads"],
             C["c_s"] // C["refiner_att_heads"], C["refiner_att_heads"], True,
             routed["refiner"], compute_kernel_config, gated_move=True,
-            accurate_softmax=accurate_softmax_site("opendde.refiner"))
+            accurate_softmax=accurate_softmax_site("opendde.refiner", default=True))
 
     @classmethod
     def load_from_checkpoint(cls, path=None, *, abag=False, compute_kernel_config=None, device=None):
