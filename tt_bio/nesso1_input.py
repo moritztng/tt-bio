@@ -224,12 +224,31 @@ def build_dataset(paths: Paths, manifest: Manifest, ccd_pkl: Path, max_dist: flo
 
 
 def find_ccd(cache_dir: Path | None = None) -> Path:
-    """Locate the ``ccd.pkl`` shipped alongside the checkpoint (413 MB, never committed)."""
-    base = Path(cache_dir or os.environ.get("NESSO_CACHE") or os.environ.get("HF_HOME") or "~/.cache/huggingface")
-    hits = sorted(base.expanduser().rglob("models--recursionpharma--nesso/snapshots/*/ccd.pkl"))
-    if not hits:
-        raise FileNotFoundError(f"no ccd.pkl under {base.expanduser()}; download the checkpoint first")
-    return hits[0]
+    """Locate the ``ccd.pkl`` shipped alongside the checkpoint (413 MB, never committed).
+
+    Searches every place it could be rather than only the first one that is set, and the error
+    names all of them plus the two flags that override it. A caller that has the checkpoint in
+    the default cache and passes ``--cache`` for the ESM-2 weights used to get "no ccd.pkl under
+    <the ESM cache>", which reads as a missing download rather than a lookup that never looked
+    where the file is.
+    """
+    roots, seen = [], set()
+    for cand in (cache_dir, os.environ.get("NESSO_CACHE"), os.environ.get("HF_HOME"),
+                 "~/.cache/huggingface"):
+        if not cand:
+            continue
+        r = Path(cand).expanduser()
+        if r not in seen:
+            seen.add(r)
+            roots.append(r)
+    for root in roots:
+        hits = sorted(root.rglob("models--recursionpharma--nesso/snapshots/*/ccd.pkl"))
+        if hits:
+            return hits[0]
+    raise FileNotFoundError(
+        "no ccd.pkl found. Looked under: " + ", ".join(str(r) for r in roots)
+        + ". It ships with the checkpoint; point NESSO_CACHE (or HF_HOME) at the HuggingFace "
+          "cache holding it, pass --cache, or name the file directly with --ccd")
 
 
 def prepare(
@@ -243,7 +262,10 @@ def prepare(
     """YAML path or directory -> (dataset, manifest, failed stems)."""
     yaml_paths = find_yamls(data)
     paths = resolve_paths(out_dir)
-    ccd = Path(ccd_pkl) if ccd_pkl else find_ccd()
+    # esm_cache is the HuggingFace cache the caller named (`--cache`), which is where the
+    # checkpoint and so ccd.pkl live too. Not passing it made `--cache` a documented no-op for
+    # ccd discovery.
+    ccd = Path(ccd_pkl) if ccd_pkl else find_ccd(esm_cache)
     manifest, failed = preprocess(yaml_paths, paths, ccd, num_workers=num_workers)
     seqs, given = collect_esm(yaml_paths)
     link_given_esm(given, paths.esm_dir)

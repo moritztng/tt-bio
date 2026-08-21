@@ -1028,6 +1028,25 @@ def _size_ladder_card_type() -> str:
     return mod.detect_card_type()
 
 
+def _size_ladder_precondition(model: str):
+    """A one-line reason this model cannot be folded here, or None.
+
+    Checked once before the first fold rather than discovered by one. nesso1 needs the
+    checkpoint's uncommitted 413 MB ccd.pkl, and without it every rung fails with a
+    FileNotFoundError from inside a subprocess — twelve wasted model loads and an arm that
+    reads as broken instead of unconfigured. An arm that fails for a reason nobody can act on
+    is an arm someone switches off.
+    """
+    if model != "nesso1":
+        return None
+    try:
+        from tt_bio.nesso1_input import find_ccd
+        find_ccd(os.environ.get("NESSO_CACHE"))
+    except Exception as e:                                               # noqa: BLE001
+        return f"nesso1 precondition: {e}"
+    return None
+
+
 def _size_ladder_fixture(model: str, rung: int) -> Path:
     """The rung's input. nesso1 needs a ligand and an affinity property, so it brings its own
     ladder; every other model folds the shared apo fixture."""
@@ -1345,6 +1364,9 @@ def _size_ladder_fill_reasons(levers: dict, old_levers: dict) -> int:
 
 
 def _size_ladder_check_model(model: str, rungs, base_model: dict, workdir: Path) -> dict:
+    pre = _size_ladder_precondition(model)
+    if pre:
+        return {"model": model, "gate": False, "error": pre, "findings": [pre]}
     reps = base_model.get("reps", 1)
     meas = _size_ladder_measure_model(model, rungs, workdir, reps, reps)
     if meas.get("error"):
@@ -1458,6 +1480,10 @@ def run_size_ladder_add_lever(flags, keep: bool, baseline_path: Path,
         if base_model is None:
             err = f"{m}: not in the {card} baseline — record it first"
             legs.append({"model": m, "gate": False, "error": err, "findings": [err]})
+            continue
+        pre = _size_ladder_precondition(m)
+        if pre:
+            legs.append({"model": m, "gate": False, "error": pre, "findings": [pre]})
             continue
         measured, clauses, findings, grid = {}, {}, [], None
         for rung in rungs:
@@ -1612,6 +1638,10 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
             baseline_path.write_text(json.dumps(baseline, indent=2) + "\n")
 
         for m in models:
+            pre = _size_ladder_precondition(m)
+            if pre:
+                legs.append({"model": m, "gate": False, "error": pre, "findings": [pre]})
+                continue
             meas = _size_ladder_measure_model(m, rungs, workdir,
                                               SIZE_LADDER_SIGMA_REPS, 1)
             if meas.get("error"):
