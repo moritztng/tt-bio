@@ -1,0 +1,546 @@
+{
+ "mode": "af2ig_structure_ref_isolate",
+ "stage": "complex",
+ "recycle": 0,
+ "control": {
+  "taps": 57,
+  "all_bit_exact": true,
+  "worst": 0.0,
+  "rows": [
+   {
+    "tap": "evoformer#0/msa",
+    "n": 8192,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "evoformer#0/msa_first_row",
+    "n": 8192,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "evoformer#0/pair",
+    "n": 8192,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "evoformer#0/single",
+    "n": 8192,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "extra_msa_stack#0/msa",
+    "n": 13312,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "extra_msa_stack#1/msa",
+    "n": 13312,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "extra_msa_stack#2/msa",
+    "n": 13312,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "extra_msa_stack#3/msa",
+    "n": 13312,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "linear/extra_msa_activations#0/out",
+    "n": 13312,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "linear/left_single#0/out",
+    "n": 26624,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "linear/right_single#0/out",
+    "n": 26624,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "linear/single_activations#0/out",
+    "n": 8192,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "predicted_aligned_error_head#0/breaks",
+    "n": 63,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "predicted_aligned_error_head#1/breaks",
+    "n": 63,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "predicted_aligned_error_head#2/breaks",
+    "n": 63,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "predicted_aligned_error_head#3/breaks",
+    "n": 63,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "predicted_lddt_head#0/logits",
+    "n": 10400,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "predicted_lddt_head#1/logits",
+    "n": 10400,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "predicted_lddt_head#2/logits",
+    "n": 10400,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "predicted_lddt_head#3/logits",
+    "n": 10400,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#0/final_affines",
+    "n": 1456,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#0/final_atom14_mask",
+    "n": 2912,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#0/final_atom14_positions",
+    "n": 8736,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#0/final_atom_mask",
+    "n": 7696,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#0/final_atom_positions",
+    "n": 23088,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#0/representations/structure_module",
+    "n": 8192,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#0/sidechains/angles",
+    "n": 23296,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#0/sidechains/angles_sin_cos",
+    "n": 23296,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#0/sidechains/unnormalized_angles_sin_cos",
+    "n": 23296,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#0/traj",
+    "n": 11648,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#1/final_affines",
+    "n": 1456,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#1/final_atom14_mask",
+    "n": 2912,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#1/final_atom14_positions",
+    "n": 8736,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#1/final_atom_mask",
+    "n": 7696,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#1/final_atom_positions",
+    "n": 23088,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#1/sidechains/angles",
+    "n": 23296,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#1/sidechains/angles_sin_cos",
+    "n": 23296,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#1/sidechains/unnormalized_angles_sin_cos",
+    "n": 23296,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#1/traj",
+    "n": 11648,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#2/final_affines",
+    "n": 1456,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#2/final_atom14_mask",
+    "n": 2912,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#2/final_atom14_positions",
+    "n": 8736,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#2/final_atom_mask",
+    "n": 7696,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#2/final_atom_positions",
+    "n": 23088,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#2/sidechains/angles",
+    "n": 23296,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#2/sidechains/angles_sin_cos",
+    "n": 23296,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#2/sidechains/unnormalized_angles_sin_cos",
+    "n": 23296,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#2/traj",
+    "n": 11648,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#3/final_affines",
+    "n": 1456,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#3/final_atom14_mask",
+    "n": 2912,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#3/final_atom14_positions",
+    "n": 8736,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#3/final_atom_mask",
+    "n": 7696,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#3/final_atom_positions",
+    "n": 23088,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#3/sidechains/angles",
+    "n": 23296,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#3/sidechains/angles_sin_cos",
+    "n": 23296,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#3/sidechains/unnormalized_angles_sin_cos",
+    "n": 23296,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   {
+    "tap": "structure_module#3/traj",
+    "n": 11648,
+    "max_abs": 0.0,
+    "bit_exact": true
+   }
+  ]
+ },
+ "jax_dtype": {
+  "evoformer#0/single": "float32",
+  "evoformer#0/pair": "float32",
+  "structure_module#0/final_atom_positions": "float32",
+  "structure_module#0/final_atom14_positions": "float32",
+  "structure_module#0/final_affines": "float32",
+  "structure_module#0/traj": "float32",
+  "structure_module#0/representations/structure_module": "float32",
+  "structure_module#0/sidechains/angles_sin_cos": "float32",
+  "predicted_lddt_head#0/logits": "float32"
+ },
+ "scored": [
+  "structure_module#0/final_atom_positions",
+  "structure_module#0/final_atom14_positions",
+  "structure_module#0/final_affines",
+  "structure_module#0/traj",
+  "structure_module#0/representations/structure_module",
+  "structure_module#0/sidechains/angles_sin_cos",
+  "predicted_lddt_head#0/logits"
+ ],
+ "cells": [
+  {
+   "arm": "jax",
+   "in_single": {
+    "n": 79872,
+    "pcc": 1.0,
+    "rel_rms": 0.0,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   "in_pair": {
+    "n": 5537792,
+    "pcc": 1.0,
+    "rel_rms": 0.0,
+    "max_abs": 0.0,
+    "bit_exact": true
+   },
+   "failed": 0,
+   "pcc_min": 0.9999999999996712,
+   "rel_rms_max": 7.672638484042838e-07,
+   "rows": [
+    {
+     "tap": "structure_module#0/final_atom_positions",
+     "n": 23088,
+     "pcc": 0.9999999999999831,
+     "rel_rms": 1.981923781808445e-07,
+     "max_abs": 9.5367431640625e-06,
+     "bit_exact": false,
+     "verdict": "PASS"
+    },
+    {
+     "tap": "structure_module#0/final_atom14_positions",
+     "n": 8736,
+     "pcc": 0.9999999999999832,
+     "rel_rms": 1.9819237818084447e-07,
+     "max_abs": 9.5367431640625e-06,
+     "bit_exact": false,
+     "verdict": "PASS"
+    },
+    {
+     "tap": "structure_module#0/final_affines",
+     "n": 1456,
+     "pcc": 0.9999999999999851,
+     "rel_rms": 1.913731605079412e-07,
+     "max_abs": 6.198883056640625e-06,
+     "bit_exact": false,
+     "verdict": "PASS"
+    },
+    {
+     "tap": "structure_module#0/traj",
+     "n": 11648,
+     "pcc": 0.9999999999999174,
+     "rel_rms": 4.054559292967663e-07,
+     "max_abs": 0.000156402587890625,
+     "bit_exact": false,
+     "verdict": "PASS"
+    },
+    {
+     "tap": "structure_module#0/representations/structure_module",
+     "n": 79872,
+     "pcc": 0.9999999999996712,
+     "rel_rms": 7.672638484042838e-07,
+     "max_abs": 5.024485290050507e-07,
+     "bit_exact": false,
+     "verdict": "PASS"
+    },
+    {
+     "tap": "structure_module#0/sidechains/angles_sin_cos",
+     "n": 23296,
+     "pcc": 0.9999999999999686,
+     "rel_rms": 2.493268311173328e-07,
+     "max_abs": 1.3552606105804443e-05,
+     "bit_exact": false,
+     "verdict": "PASS"
+    },
+    {
+     "tap": "predicted_lddt_head#0/logits",
+     "n": 10400,
+     "pcc": 0.9999999999998163,
+     "rel_rms": 5.11225083998135e-07,
+     "max_abs": 1.52587890625e-05,
+     "bit_exact": false,
+     "verdict": "PASS"
+    }
+   ]
+  },
+  {
+   "arm": "torch",
+   "in_single": {
+    "n": 79872,
+    "pcc": 0.9998771435168115,
+    "rel_rms": 0.01589565364078968,
+    "max_abs": 128.0,
+    "bit_exact": false
+   },
+   "in_pair": {
+    "n": 5537792,
+    "pcc": 0.9998103487577455,
+    "rel_rms": 0.019474997508798206,
+    "max_abs": 48.0,
+    "bit_exact": false
+   },
+   "failed": 0,
+   "pcc_min": 0.9987236674467184,
+   "rel_rms_max": 0.050501490239031055,
+   "rows": [
+    {
+     "tap": "structure_module#0/final_atom_positions",
+     "n": 23088,
+     "pcc": 0.9987748972633663,
+     "rel_rms": 0.04947159730242477,
+     "max_abs": 1.5796833038330078,
+     "bit_exact": false,
+     "verdict": "PASS"
+    },
+    {
+     "tap": "structure_module#0/final_atom14_positions",
+     "n": 8736,
+     "pcc": 0.9987726850026141,
+     "rel_rms": 0.049471597302424765,
+     "max_abs": 1.5796833038330078,
+     "bit_exact": false,
+     "verdict": "PASS"
+    },
+    {
+     "tap": "structure_module#0/final_affines",
+     "n": 1456,
+     "pcc": 0.9987566011480534,
+     "rel_rms": 0.04982936441844081,
+     "max_abs": 1.4353218376636505,
+     "bit_exact": false,
+     "verdict": "PASS"
+    },
+    {
+     "tap": "structure_module#0/traj",
+     "n": 11648,
+     "pcc": 0.9987236674467184,
+     "rel_rms": 0.050501490239031055,
+     "max_abs": 2.3889923095703125,
+     "bit_exact": false,
+     "verdict": "PASS"
+    },
+    {
+     "tap": "structure_module#0/representations/structure_module",
+     "n": 79872,
+     "pcc": 0.9999236605690903,
+     "rel_rms": 0.011689438275825085,
+     "max_abs": 0.007462695240974426,
+     "bit_exact": false,
+     "verdict": "PASS"
+    },
+    {
+     "tap": "structure_module#0/sidechains/angles_sin_cos",
+     "n": 23296,
+     "pcc": 0.999964734658099,
+     "rel_rms": 0.00839517594207255,
+     "max_abs": 0.2890307456254959,
+     "bit_exact": false,
+     "verdict": "PASS"
+    },
+    {
+     "tap": "predicted_lddt_head#0/logits",
+     "n": 10400,
+     "pcc": 0.9999580875853897,
+     "rel_rms": 0.007867061278842086,
+     "max_abs": 0.23822736740112305,
+     "bit_exact": false,
+     "verdict": "PASS"
+    }
+   ]
+  }
+ ]
+}
