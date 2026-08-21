@@ -16,6 +16,17 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
 import torch
 import torch._dynamo
+
+# accurate_softmax A/B switches, both off when unset. ttnn.softmax normalises against a
+# denominator that does not match its own numerators, and the manual chain that fixes it costs
+# several ops instead of one, so a flip is a measured trade per construction site and never a
+# global default (tt-bio-shared-diffusion-global-env-default-regression: a Protenix-v2 fp32
+# default once cost OpenDDE 60x). Split by dtype regime, not by structure/affinity: the affinity
+# model runs a bf16 PairformerModule (its head's own stack) AND the fp32 trunk, two different cost
+# regimes that have to be flippable apart.
+_B2_ACCURATE_SOFTMAX = os.environ.get("TT_BIO_B2_ACCURATE_SOFTMAX", "0") == "1"
+_B2_AFFINITY_ACCURATE_SOFTMAX = (
+    os.environ.get("TT_BIO_B2_AFFINITY_ACCURATE_SOFTMAX", "0") == "1")
 import torch.nn.functional as F
 from einops import rearrange
 from einops.layers.torch import Rearrange
@@ -3767,7 +3778,8 @@ class TemplateV2Module(nn.Module):
         _, _, PairformerNoSeqModule_, _ = _get_pytorch_modules()
         self.pairformer = (
             tenstorrent.PairformerModule(
-                2, 32, 4, None, None, False, accurate_softmax=accurate_sm_bf16)
+                2, 32, 4, None, None, False,
+                accurate_softmax=_B2_ACCURATE_SOFTMAX)
             if use_tenstorrent
             else PairformerNoSeqModule_(
                 template_dim,
@@ -4617,7 +4629,7 @@ class ConfidenceModule(nn.Module):
         _, PairformerModule_, _, _ = _get_pytorch_modules()
         self.pairformer_stack = (
             tenstorrent.PairformerModule(
-                8, 32, 4, 24, 16, True, accurate_softmax=accurate_sm_bf16)
+                8, 32, 4, 24, 16, True, accurate_softmax=_B2_ACCURATE_SOFTMAX)
             if use_tenstorrent
             else PairformerModule_(
                 token_s,
@@ -4805,8 +4817,7 @@ class AffinityModule(nn.Module):
         self.pairformer_stack = (
             tenstorrent.PairformerModule(
                 pairformer_args["num_blocks"], 32, 4, None, None, False, affinity=True,
-                accurate_softmax=os.environ.get(
-                    "TT_BIO_B2_ACCURATE_SOFTMAX", "0") == "1",
+                accurate_softmax=_B2_ACCURATE_SOFTMAX,
             )
             if use_tenstorrent
             else PairformerNoSeqModule_(token_z, **pairformer_args)
@@ -5123,11 +5134,6 @@ class Boltz2(nn.Module):
         # costs several ops instead of one, so the flip is a measured trade per construction site,
         # never a global default (tt-bio-shared-diffusion-global-env-default-regression: a
         # Protenix-v2 fp32 default once cost OpenDDE 60x). These exist to run that measurement.
-        # bf16: the four PairformerModule sites (templates, MSA, structure trunk, and the
-        # affinity head's own stack). fp32: the affinity trunk's Fp32PairformerModule alone.
-        accurate_sm_bf16 = os.environ.get("TT_BIO_B2_ACCURATE_SOFTMAX", "0") == "1"
-        accurate_sm_fp32 = (
-            os.environ.get("TT_BIO_B2_AFFINITY_ACCURATE_SOFTMAX", "0") == "1")
         if use_templates:
             if use_templates_v2:
                 self.template_module = TemplateV2Module(
@@ -5168,10 +5174,11 @@ class Boltz2(nn.Module):
             )
         self.pairformer_module = (
             tenstorrent.Fp32PairformerModule(
-                64, 32, 4, 24, 16, True, accurate_softmax=accurate_sm_fp32)
+                64, 32, 4, 24, 16, True,
+                accurate_softmax=_B2_AFFINITY_ACCURATE_SOFTMAX)
             if self.affinity_trunk_fp32
             else tenstorrent.PairformerModule(
-                64, 32, 4, 24, 16, True, accurate_softmax=accurate_sm_bf16)
+                64, 32, 4, 24, 16, True, accurate_softmax=_B2_ACCURATE_SOFTMAX)
             if use_tenstorrent
             else PairformerModule_(token_s, token_z, **pairformer_args)
         )

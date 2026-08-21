@@ -100,7 +100,18 @@ def test_both_boltz2_paths_are_reachable_by_a_switch():
     ones it misses (same shape as rfd3-tile-sparsity-and-wrong-variable-gate).
     """
     src = (SRC / "boltz2.py").read_text()
-    assert src.count("accurate_softmax=accurate_sm_bf16") == 3
-    assert src.count("accurate_softmax=accurate_sm_fp32") == 1
-    # the affinity head's own stack reads the bf16 switch directly at its construction site
-    assert src.count('"TT_BIO_B2_ACCURATE_SOFTMAX", "0") == "1"') == 2
+    assert src.count("accurate_softmax=_B2_ACCURATE_SOFTMAX") == 4
+    assert src.count("accurate_softmax=_B2_AFFINITY_ACCURATE_SOFTMAX") == 1
+
+
+def test_switches_resolve_at_module_scope():
+    """The five sites sit in four different classes, so a function-local switch NameErrors.
+
+    A grep guard cannot see that: the first version of this lever passed every source assertion
+    and then died with `name 'accurate_sm_bf16' is not defined` in both arms of the A/B, which
+    reads as "the measurement failed", not as "the switch is in the wrong scope".
+    """
+    from tt_bio import boltz2
+
+    assert boltz2._B2_ACCURATE_SOFTMAX is False
+    assert boltz2._B2_AFFINITY_ACCURATE_SOFTMAX is False
