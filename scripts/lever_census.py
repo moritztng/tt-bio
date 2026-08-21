@@ -240,8 +240,15 @@ def _install_wraps():
     # answering L1 at N>=560 with no error and no log line.
     tmc = T._transpose_memory_config
 
-    def _transpose_memory_config(t):
-        out = tmc(t)
+    # *a/**kw, not the real signature. A counting wrapper has no business knowing how many
+    # arguments the function it counts takes, and hardcoding them broke this arm completely:
+    # 421eee0c ("perf(rf3): lever 8") gave `_transpose_memory_config` a `reserve_per_core`
+    # second parameter and a call site that passes it, this wrapper still took one, and every
+    # ending-variant triangle attention raised TypeError. That call site is unconditional, so
+    # the size-generality arm was dead for EVERY model, and its own baseline could not be
+    # re-recorded to notice.
+    def _transpose_memory_config(*a, **kw):
+        out = tmc(*a, **kw)
         WRAP_COUNTS["TRANSPOSE_L1_RESIDENT"][0 if out.buffer_type == ttnn.BufferType.L1 else 1] += 1
         return out
 
