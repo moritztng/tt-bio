@@ -9,7 +9,7 @@
  "ttnn": "0.68.0",
  "torch": "2.13.0+cpu",
  "card": "1",
- "git_head": "0e345b3f",
+ "git_head": "07db4f0d",
  "phases": {
   "esmfold2": [
    [
@@ -34,166 +34,178 @@
    ]
   ]
  },
- "started": "2026-08-21T16:29:56+0000",
+ "started": "2026-08-21T17:16:14+0000",
  "host": "tt-quietbox2",
  "nproc": 16,
  "cpu": "AMD Ryzen 7 9700X 8-Core Processor",
  "folds": [
   {
    "arm": "plain",
-   "fold_s": 33.772,
+   "fold_s": 31.215,
    "plddt": 0.9285,
    "n_tokens": null,
    "cifs": {
     "cdk2x2_512.cif": "295867277b9c137f"
    },
    "loadavg": [
-    "22.84",
-    "25.77",
-    "24.32"
+    "11.85",
+    "10.61",
+    "14.17"
    ]
   },
   {
    "arm": "instr",
-   "fold_s": 35.75,
+   "fold_s": 31.339,
    "plddt": 0.9285,
    "n_tokens": null,
    "cifs": {
     "cdk2x2_512.cif": "295867277b9c137f"
    },
    "loadavg": [
-    "24.31",
-    "25.82",
-    "24.39"
+    "12.43",
+    "10.87",
+    "14.14"
    ],
    "phase": {
-    "host": 0.0689,
-    "device": 35.6763,
+    "host": 0.0559,
+    "device": 31.2811,
     "transfer": 0.0,
-    "total": 35.7504,
-    "residual": 0.0052,
+    "total": 31.3393,
+    "residual": 0.0023,
     "per_fn": {
      "tt_bio.main:_read_protein_chains": {
-      "s": 0.001,
-      "n": 1
+      "s": 0.0007,
+      "n": 1,
+      "nested": 0
      },
      "tt_bio.esmfold2_runtime:resolve_msa": {
-      "s": 0.0003,
-      "n": 1
+      "s": 0.0002,
+      "n": 1,
+      "nested": 0
      },
      "tt_bio.esmfold2_runtime:fold_complex": {
-      "s": 35.6763,
-      "n": 1
+      "s": 31.2811,
+      "n": 1,
+      "nested": 0
      },
      "tt_bio.main:_write_structure": {
-      "s": 0.0676,
-      "n": 1
+      "s": 0.0551,
+      "n": 1,
+      "nested": 0
      }
     }
    }
   },
   {
    "arm": "plain",
-   "fold_s": 36.238,
+   "fold_s": 31.154,
    "plddt": 0.9285,
    "n_tokens": null,
    "cifs": {
     "cdk2x2_512.cif": "295867277b9c137f"
    },
    "loadavg": [
-    "25.17",
-    "25.88",
-    "24.46"
+    "9.65",
+    "10.28",
+    "13.82"
    ]
   },
   {
    "arm": "instr",
-   "fold_s": 35.199,
+   "fold_s": 31.325,
    "plddt": 0.9285,
    "n_tokens": null,
    "cifs": {
     "cdk2x2_512.cif": "295867277b9c137f"
    },
    "loadavg": [
-    "25.92",
-    "25.99",
-    "24.55"
+    "11.53",
+    "10.68",
+    "13.84"
    ],
    "phase": {
-    "host": 0.0862,
-    "device": 35.1053,
+    "host": 0.0562,
+    "device": 31.2662,
     "transfer": 0.0,
-    "total": 35.1986,
-    "residual": 0.0071,
+    "total": 31.325,
+    "residual": 0.0025,
     "per_fn": {
      "tt_bio.main:_read_protein_chains": {
-      "s": 0.001,
-      "n": 1
+      "s": 0.0007,
+      "n": 1,
+      "nested": 0
      },
      "tt_bio.esmfold2_runtime:resolve_msa": {
       "s": 0.0002,
-      "n": 1
+      "n": 1,
+      "nested": 0
      },
      "tt_bio.esmfold2_runtime:fold_complex": {
-      "s": 35.1053,
-      "n": 1
+      "s": 31.2662,
+      "n": 1,
+      "nested": 0
      },
      "tt_bio.main:_write_structure": {
-      "s": 0.085,
-      "n": 1
+      "s": 0.0554,
+      "n": 1,
+      "nested": 0
      }
     }
    }
   },
   {
    "arm": "plain",
-   "fold_s": 36.135,
+   "fold_s": 31.246,
    "plddt": 0.9285,
    "n_tokens": null,
    "cifs": {
     "cdk2x2_512.cif": "295867277b9c137f"
    },
    "loadavg": [
-    "26.10",
-    "26.02",
-    "24.62"
+    "11.14",
+    "10.65",
+    "13.73"
    ]
   },
   {
    "arm": "instr",
-   "fold_s": 33.118,
+   "fold_s": 30.558,
    "plddt": 0.9285,
    "n_tokens": null,
    "cifs": {
     "cdk2x2_512.cif": "295867277b9c137f"
    },
    "loadavg": [
-    "23.35",
-    "25.45",
-    "24.49"
+    "10.99",
+    "10.73",
+    "13.66"
    ],
    "phase": {
-    "host": 0.0462,
-    "device": 33.0682,
+    "host": 0.0407,
+    "device": 30.5144,
     "transfer": 0.0,
-    "total": 33.1181,
-    "residual": 0.0037,
+    "total": 30.5575,
+    "residual": 0.0024,
     "per_fn": {
      "tt_bio.main:_read_protein_chains": {
-      "s": 0.0008,
-      "n": 1
+      "s": 0.0007,
+      "n": 1,
+      "nested": 0
      },
      "tt_bio.esmfold2_runtime:resolve_msa": {
       "s": 0.0002,
-      "n": 1
+      "n": 1,
+      "nested": 0
      },
      "tt_bio.esmfold2_runtime:fold_complex": {
-      "s": 33.0682,
-      "n": 1
+      "s": 30.5144,
+      "n": 1,
+      "nested": 0
      },
      "tt_bio.main:_write_structure": {
-      "s": 0.0452,
-      "n": 1
+      "s": 0.0399,
+      "n": 1,
+      "nested": 0
      }
     }
    }
@@ -201,36 +213,36 @@
  ],
  "meta": {
   "hardware": "blackhole",
-  "load_s": 18.86,
+  "load_s": 14.11,
   "n_msa": 35
  },
  "grid": [
   11,
   10
  ],
- "cold_s": 58.911,
+ "cold_s": 45.526,
  "summary": {
-  "aa_floor_s": 2.466,
-  "aa_floor_pct": 6.824,
-  "plain_median_s": 36.135,
-  "instr_median_s": 35.199,
+  "aa_floor_s": 0.092,
+  "aa_floor_pct": 0.295,
+  "plain_median_s": 31.215,
+  "instr_median_s": 31.325,
   "plain_s": [
-   33.772,
-   36.238,
-   36.135
+   31.215,
+   31.154,
+   31.246
   ],
   "instr_s": [
-   35.75,
-   35.199,
-   33.118
+   31.339,
+   31.325,
+   30.558
   ],
-  "instr_delta_s": -0.936,
-  "instr_delta_pct": -2.59,
-  "host_s": 0.069,
-  "device_s": 35.105,
+  "instr_delta_s": 0.11,
+  "instr_delta_pct": 0.352,
+  "host_s": 0.056,
+  "device_s": 31.266,
   "transfer_s": 0.0,
-  "residual_s": 0.005,
-  "residual_pct": 0.015,
+  "residual_s": 0.002,
+  "residual_pct": 0.008,
   "same_structure_both_arms": true,
   "cif_digests": [
    "{\"cdk2x2_512.cif\": \"295867277b9c137f\"}"
