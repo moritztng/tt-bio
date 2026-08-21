@@ -112,9 +112,7 @@ import signal
 import shutil
 import tempfile
 import subprocess
-import tarfile
 import time
-import urllib.request
 import uuid
 import warnings
 import fcntl
