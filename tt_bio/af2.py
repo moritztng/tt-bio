@@ -230,6 +230,15 @@ class AF2PairBlock(Module):
     #: 0.084555 of i_pTM to 9 and 0.002605, and costs 0.42 s over four trunk passes.
     rne_residual = True
 
+    #: Where the two float32 temporaries live. They are twice the width of the bfloat16 pair, and
+    #: inheriting its memory config puts them in L1 with it: at 512 tokens the bfloat16 pair fits
+    #: (64 MB) and its float32 copy does not (128 MB across 130 banks, 943 KB free per bank), so
+    #: the trunk OOMs at a length it runs at with the fix off, and runs again at 848 where the
+    #: bfloat16 pair is itself too big for L1. DRAM has room at every length and the arithmetic
+    #: does not depend on where the operands sit, so the temporaries go there and the result
+    #: comes back to whatever memory config the input arrived in.
+    rne_wide_dram = True
+
     def _residual(self, x: ttnn.Tensor, update: ttnn.Tensor) -> ttnn.Tensor:
         """`x + update`, and it owns `update`.
 
@@ -240,13 +249,15 @@ class AF2PairBlock(Module):
             out = ttnn.add_(x, update)
             ttnn.deallocate(update)
             return out
-        wide = ttnn.typecast(x, ttnn.float32)
-        other = ttnn.typecast(update, ttnn.float32)
+        config = x.memory_config()
+        wide_config = ttnn.DRAM_MEMORY_CONFIG if self.rne_wide_dram else config
+        wide = ttnn.typecast(x, ttnn.float32, memory_config=wide_config)
+        other = ttnn.typecast(update, ttnn.float32, memory_config=wide_config)
         ttnn.deallocate(update)
         ttnn.deallocate(x)
         wide = ttnn.add_(wide, other)
         ttnn.deallocate(other)
-        out = ttnn.typecast(wide, ttnn.bfloat16)
+        out = ttnn.typecast(wide, ttnn.bfloat16, memory_config=config)
         ttnn.deallocate(wide)
         return out
 
@@ -567,6 +578,12 @@ class AF2DeviceModel(AF2Model):
         `AF2PairBlock.rne_residual`."""
         for block in self.device_extra_msa + self.device_evoformer:
             block.rne_residual = enabled
+
+    def set_rne_wide_dram(self, enabled: bool) -> None:
+        """Put the float32 residual temporaries in DRAM instead of inheriting the pair's memory
+        config. See `AF2PairBlock.rne_wide_dram`; off is the arm that OOMs at 512 tokens."""
+        for block in self.device_extra_msa + self.device_evoformer:
+            block.rne_wide_dram = enabled
 
     def set_rne_sigmoid(self, enabled: bool) -> None:
         """Route both MSA attentions' gating sigmoid through float32. A screening arm, not a
