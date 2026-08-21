@@ -159,8 +159,9 @@ Structure folds are single-sequence at 6 sampling steps, enough to resolve every
 enough that nobody skips the arm for cost; nesso1 runs `tt-bio affinity` at every shipped default.
 The price of hermetic folds is that a cliff living only in the MSA path is invisible here.
 
-Nesso-1's leg needs the checkpoint's 413 MB `ccd.pkl`, which is never committed. Point `NESSO_CACHE`
-at the HuggingFace cache holding it if it is not in the default one.
+Nesso-1's leg needs the checkpoint's 413 MB `ccd.pkl`, which is never committed. It is looked for
+under `--cache`, `NESSO_CACHE`, `HF_HOME` and the default cache in that order, and the arm checks for
+it once before the first fold rather than failing twelve times after twelve model loads.
 
 After an intentional size-affecting change, re-record and write a one-line reason for every newly
 dark lever:
