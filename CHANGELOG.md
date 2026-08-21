@@ -24,8 +24,21 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   screening run can tell an abandoned target from a failed one.
 - `tests/test_rf3_featurizer.py`: RF3 host-featurizer parity over ten capability classes
   from committed captures, with no device and no `rc-foundry` install.
+- Both release gates honour a card grant. `TT_VISIBLE_DEVICES` is the set of cards a run may
+  open: ask `--workers` for a card outside it and `full_parity_gate.py` refuses in preflight
+  instead of taking a card another job on the box holds, and a leg needing more cards than the
+  grant is skipped as `SKIPPED-CARD-GRANT` and listed under `COVERAGE REDUCED` so a narrowed
+  gate cannot read as a green full one. Leaving the variable unset means the whole box and is
+  the unchanged path a release run takes. Both gates also refuse to start when the 1-min
+  loadavg is above 1.5x nproc (`--load-ceiling`, 0 disables).
 
 ### Fixed
+
+- The parity gate's delegated legs (`boltzgen`, `opendde-abag`, `capacity`) run in the gate's own
+  process and shell out from there, so they inherited an environment with no device restriction:
+  boltzgen designed on card 0 whatever `--workers` said, and any fan-out from a delegated leg
+  would have taken every card on the box. They are pinned now, and the pin is restored afterwards
+  so one leg cannot leak it into the next.
 
 - A partial `~/of3_ref_out.pkl` skips the OpenFold3 device tests that need the keys it
   lacks instead of failing them. The tests guarded on the golden's existence while

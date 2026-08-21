@@ -100,6 +100,18 @@ cached and cards are free. Fan it across every card that is up for parallelism:
 python3 scripts/full_parity_gate.py --workers pc:0,qb1:0,qb1:1,qb2:0
 ```
 
+Two guards can stop either gate before it folds anything:
+
+* **Card grant.** `TT_VISIBLE_DEVICES` is the set of cards the run may open. Ask `--workers` for
+  a card outside it and the gate refuses in preflight rather than taking a card a sibling job
+  holds. A release run leaves it unset, which means the whole box and is the unchanged path; the
+  fan-out line above needs it unset. A leg that needs more cards than the grant is skipped as
+  `SKIPPED-CARD-GRANT` and listed under `COVERAGE REDUCED`. **A release run must show zero of
+  those**: a skipped leg is not coverage, and an all-skipped run reports `GATE INCONCLUSIVE`.
+* **Load ceiling.** Both gates refuse to start when the 1-min loadavg is above 1.5x nproc, since
+  the numbers would be noise and the gate's own fan-out on top of a loaded box is how a QuietBox
+  stops answering. Wait for the box to settle, move hosts, or pass `--load-ceiling 0`.
+
 Each leg's reference fixture carries a `meta.json` pinning the reference
 implementation, version, commit, and settings; the runner fingerprints that
 meta and compares it to
