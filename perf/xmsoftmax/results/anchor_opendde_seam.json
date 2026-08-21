@@ -1,0 +1,259 @@
+{
+ "_meta": {
+  "aa_identical": true,
+  "arms": {
+   "a1": "TT_BIO_ACCURATE_SOFTMAX_AB=''",
+   "a2": "same as a1 (A/A control)",
+   "on": "TT_BIO_ACCURATE_SOFTMAX_AB=opendde.trunk,opendde.confidence,opendde.refiner"
+  },
+  "card": 2,
+  "host": "tt-quietbox2",
+  "script": "scripts/opendde_real_seam_parity.py"
+ },
+ "a1": {
+  "atom_encoder.cache.c_l": {
+   "norm_ratio": 1.000749,
+   "pcc": 0.999996
+  },
+  "atom_encoder.cache.p_lm": {
+   "norm_ratio": 1.00102,
+   "pcc": 0.999995
+  },
+  "atom_encoder.structural_z_term": {
+   "norm_ratio": 1.0,
+   "pcc": 1.0
+  },
+  "diffusion_conditioning.pair_z": {
+   "norm_ratio": 0.999816,
+   "pcc": 0.999994
+  },
+  "diffusion_transformer.block0.correct_bias": {
+   "norm_ratio": 1.0,
+   "pcc": 1.0
+  },
+  "diffusion_transformer.block0.legacy_bias": {
+   "norm_ratio": 0.994126,
+   "pcc": 0.998543
+  },
+  "expander.attn_bias": {
+   "norm_ratio": 1.001012,
+   "pcc": 0.999998
+  },
+  "expander.s": {
+   "norm_ratio": 0.999458,
+   "pcc": 1.0
+  },
+  "expander.s_inputs": {
+   "norm_ratio": 0.999837,
+   "pcc": 0.999998
+  },
+  "expander.z": {
+   "norm_ratio": 1.00041,
+   "pcc": 0.999996
+  },
+  "refiner.block0.correct.s": {
+   "norm_ratio": 0.998574,
+   "pcc": 0.999996
+  },
+  "refiner.block0.correct.z": {
+   "norm_ratio": 0.995586,
+   "pcc": 0.999778
+  },
+  "refiner.block0.legacy.s": {
+   "norm_ratio": 0.998593,
+   "pcc": 0.999996
+  },
+  "refiner.block0.legacy.z": {
+   "norm_ratio": 0.995544,
+   "pcc": 0.999775
+  },
+  "refiner.block1.correct.s": {
+   "norm_ratio": 0.994503,
+   "pcc": 0.999985
+  },
+  "refiner.block1.correct.z": {
+   "norm_ratio": 0.997612,
+   "pcc": 0.999714
+  },
+  "refiner.block2.correct.s": {
+   "norm_ratio": 0.9957,
+   "pcc": 0.999991
+  },
+  "refiner.block2.correct.z": {
+   "norm_ratio": 0.997303,
+   "pcc": 0.999419
+  },
+  "refiner.block3.correct.s": {
+   "norm_ratio": 0.996664,
+   "pcc": 0.999988
+  },
+  "refiner.block3.correct.z": {
+   "norm_ratio": 0.995846,
+   "pcc": 0.998917
+  }
+ },
+ "a2": {
+  "atom_encoder.cache.c_l": {
+   "norm_ratio": 1.000749,
+   "pcc": 0.999996
+  },
+  "atom_encoder.cache.p_lm": {
+   "norm_ratio": 1.00102,
+   "pcc": 0.999995
+  },
+  "atom_encoder.structural_z_term": {
+   "norm_ratio": 1.0,
+   "pcc": 1.0
+  },
+  "diffusion_conditioning.pair_z": {
+   "norm_ratio": 0.999816,
+   "pcc": 0.999994
+  },
+  "diffusion_transformer.block0.correct_bias": {
+   "norm_ratio": 1.0,
+   "pcc": 1.0
+  },
+  "diffusion_transformer.block0.legacy_bias": {
+   "norm_ratio": 0.994126,
+   "pcc": 0.998543
+  },
+  "expander.attn_bias": {
+   "norm_ratio": 1.001012,
+   "pcc": 0.999998
+  },
+  "expander.s": {
+   "norm_ratio": 0.999458,
+   "pcc": 1.0
+  },
+  "expander.s_inputs": {
+   "norm_ratio": 0.999837,
+   "pcc": 0.999998
+  },
+  "expander.z": {
+   "norm_ratio": 1.00041,
+   "pcc": 0.999996
+  },
+  "refiner.block0.correct.s": {
+   "norm_ratio": 0.998574,
+   "pcc": 0.999996
+  },
+  "refiner.block0.correct.z": {
+   "norm_ratio": 0.995586,
+   "pcc": 0.999778
+  },
+  "refiner.block0.legacy.s": {
+   "norm_ratio": 0.998593,
+   "pcc": 0.999996
+  },
+  "refiner.block0.legacy.z": {
+   "norm_ratio": 0.995544,
+   "pcc": 0.999775
+  },
+  "refiner.block1.correct.s": {
+   "norm_ratio": 0.994503,
+   "pcc": 0.999985
+  },
+  "refiner.block1.correct.z": {
+   "norm_ratio": 0.997612,
+   "pcc": 0.999714
+  },
+  "refiner.block2.correct.s": {
+   "norm_ratio": 0.9957,
+   "pcc": 0.999991
+  },
+  "refiner.block2.correct.z": {
+   "norm_ratio": 0.997303,
+   "pcc": 0.999419
+  },
+  "refiner.block3.correct.s": {
+   "norm_ratio": 0.996664,
+   "pcc": 0.999988
+  },
+  "refiner.block3.correct.z": {
+   "norm_ratio": 0.995846,
+   "pcc": 0.998917
+  }
+ },
+ "on": {
+  "atom_encoder.cache.c_l": {
+   "norm_ratio": 1.000749,
+   "pcc": 0.999996
+  },
+  "atom_encoder.cache.p_lm": {
+   "norm_ratio": 1.00102,
+   "pcc": 0.999995
+  },
+  "atom_encoder.structural_z_term": {
+   "norm_ratio": 1.0,
+   "pcc": 1.0
+  },
+  "diffusion_conditioning.pair_z": {
+   "norm_ratio": 0.999816,
+   "pcc": 0.999994
+  },
+  "diffusion_transformer.block0.correct_bias": {
+   "norm_ratio": 1.0,
+   "pcc": 1.0
+  },
+  "diffusion_transformer.block0.legacy_bias": {
+   "norm_ratio": 0.994126,
+   "pcc": 0.998543
+  },
+  "expander.attn_bias": {
+   "norm_ratio": 1.001012,
+   "pcc": 0.999998
+  },
+  "expander.s": {
+   "norm_ratio": 0.999459,
+   "pcc": 1.0
+  },
+  "expander.s_inputs": {
+   "norm_ratio": 0.999837,
+   "pcc": 0.999998
+  },
+  "expander.z": {
+   "norm_ratio": 1.00041,
+   "pcc": 0.999996
+  },
+  "refiner.block0.correct.s": {
+   "norm_ratio": 0.99985,
+   "pcc": 0.999998
+  },
+  "refiner.block0.correct.z": {
+   "norm_ratio": 0.995586,
+   "pcc": 0.999778
+  },
+  "refiner.block0.legacy.s": {
+   "norm_ratio": 0.99985,
+   "pcc": 0.999998
+  },
+  "refiner.block0.legacy.z": {
+   "norm_ratio": 0.995544,
+   "pcc": 0.999775
+  },
+  "refiner.block1.correct.s": {
+   "norm_ratio": 1.000017,
+   "pcc": 0.999996
+  },
+  "refiner.block1.correct.z": {
+   "norm_ratio": 0.997612,
+   "pcc": 0.999714
+  },
+  "refiner.block2.correct.s": {
+   "norm_ratio": 1.001221,
+   "pcc": 0.999997
+  },
+  "refiner.block2.correct.z": {
+   "norm_ratio": 0.997303,
+   "pcc": 0.999419
+  },
+  "refiner.block3.correct.s": {
+   "norm_ratio": 1.002214,
+   "pcc": 0.999995
+  },
+  "refiner.block3.correct.z": {
+   "norm_ratio": 0.995846,
+   "pcc": 0.998917
+  }
+ }
+}

@@ -1,0 +1,135 @@
+{
+  "procs": [
+    {
+      "pid": 1619293,
+      "tt_bio": "/home/ttuser/.coworker/wt/shared-softmax-crossmodel/tt_bio",
+      "n_sites": 0
+    },
+    {
+      "pid": 1619379,
+      "tt_bio": "/home/ttuser/.coworker/wt/shared-softmax-crossmodel/tt_bio",
+      "n_sites": 5
+    }
+  ],
+  "sites": [
+    {
+      "site": "tt_bio/tenstorrent.py:4058",
+      "op": "softmax",
+      "shape": [
+        1,
+        16,
+        256,
+        256
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "n_calls": 484,
+      "n_measured": 24,
+      "rowsum_min": 0.9593427181243896,
+      "rowsum_max": 1.002760648727417,
+      "rowsum_p01_min": 0.962897777557373,
+      "errors": [],
+      "rowsum_mean": 0.987467497359224,
+      "deficit": 0.012532502640775989
+    },
+    {
+      "site": "tt_bio/tenstorrent.py:4058",
+      "op": "softmax",
+      "shape": [
+        1,
+        8,
+        497,
+        497
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "n_calls": 4,
+      "n_measured": 4,
+      "rowsum_min": 0.9598396420478821,
+      "rowsum_max": 1.0020685195922852,
+      "rowsum_p01_min": 0.9641239047050476,
+      "errors": [],
+      "rowsum_mean": 0.9877079888743534,
+      "deficit": 0.012292011125646596
+    },
+    {
+      "site": "tt_bio/protenix.py:450",
+      "op": "softmax",
+      "shape": [
+        65,
+        4,
+        32,
+        128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "n_calls": 39,
+      "n_measured": 24,
+      "rowsum_min": 0.9524166584014893,
+      "rowsum_max": 1.0178985595703125,
+      "rowsum_p01_min": 0.959197998046875,
+      "errors": [],
+      "rowsum_mean": 0.9903244630227653,
+      "deficit": 0.009675536977234667
+    },
+    {
+      "site": "tt_bio/tenstorrent.py:5479",
+      "op": "softmax",
+      "shape": [
+        1,
+        256,
+        256
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "n_calls": 320,
+      "n_measured": 24,
+      "rowsum_min": 0.9613180160522461,
+      "rowsum_max": 1.0013556480407715,
+      "rowsum_p01_min": 0.9617538452148438,
+      "errors": [],
+      "rowsum_mean": 0.9944990707735997,
+      "deficit": 0.005500929226400331
+    },
+    {
+      "site": "tt_bio/tenstorrent.py:4058",
+      "op": "softmax",
+      "shape": [
+        1,
+        16,
+        497,
+        497
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "n_calls": 144,
+      "n_measured": 24,
+      "rowsum_min": 0.958708643913269,
+      "rowsum_max": 1.0028830766677856,
+      "rowsum_p01_min": 0.961893618106842,
+      "errors": [],
+      "rowsum_mean": 0.9951773267323659,
+      "deficit": 0.004822673267634081
+    }
+  ],
+  "hooked_procs": [
+    "1619293\t-m predict perf/size512/fixtures/cdk2x2_256.yaml --model opendde --single_sequence --sampling_steps 6 --diffusion_samples 1 --seed 0 --out_dir /tmp/cen256_opendde",
+    "1619378\t-c",
+    "1619379\t-c --multiprocessing-fork"
+  ],
+  "meta": {
+    "cmd": [
+      "predict",
+      "perf/size512/fixtures/cdk2x2_256.yaml",
+      "--model",
+      "opendde",
+      "--single_sequence",
+      "--sampling_steps",
+      "6",
+      "--diffusion_samples",
+      "1",
+      "--seed",
+      "0",
+      "--out_dir",
+      "/tmp/cen256_opendde"
+    ],
+    "rc": 0,
+    "max_measured": 24,
+    "root": "/home/ttuser/.coworker/wt/shared-softmax-crossmodel"
+  }
+}

@@ -1,0 +1,198 @@
+{
+  "label": "odde",
+  "pairs": [
+    {
+      "file": "pair_tt_bio_tenstorrent.py-4058_1643231_0.pt",
+      "site": "tt_bio/tenstorrent.py:4058",
+      "shape": [
+        1,
+        16,
+        256,
+        256
+      ],
+      "in_dtype": "DataType.BFLOAT16",
+      "head_dim": 32,
+      "logit_spread": 84.65625,
+      "arms": {
+        "ceiling": {
+          "rowsum_mean": 1.0000072891275051,
+          "rowsum_min": 0.9969875802344177,
+          "rel_rms_probs": 0.0013860457245988551,
+          "rel_rms_o": 0.0011663966655505987,
+          "gain_vs_F": 10.788045895833962
+        },
+        "F": {
+          "rowsum_mean": 0.9637416953483924,
+          "rowsum_min": 0.953125,
+          "rel_rms_probs": 0.03152302563236094,
+          "rel_rms_o": 0.012583140760707554
+        },
+        "R": {
+          "rowsum_mean": 1.000106653310021,
+          "rowsum_min": 0.9949756959050049,
+          "rel_rms_probs": 0.014928953675316754,
+          "rel_rms_o": 0.004568848805861238,
+          "gain_vs_F": 2.7541162545289355
+        },
+        "M": {
+          "rowsum_mean": 1.0000999705904927,
+          "rowsum_min": 0.9977909723529592,
+          "rel_rms_probs": 0.0014167205215842263,
+          "rel_rms_o": 0.0012315214732347124,
+          "gain_vs_F": 10.217556927900489
+        }
+      }
+    },
+    {
+      "file": "pair_tt_bio_tenstorrent.py-4058_1643231_1.pt",
+      "site": "tt_bio/tenstorrent.py:4058",
+      "shape": [
+        1,
+        16,
+        256,
+        256
+      ],
+      "in_dtype": "DataType.BFLOAT16",
+      "head_dim": 32,
+      "logit_spread": 30.6875,
+      "arms": {
+        "ceiling": {
+          "rowsum_mean": 0.9999990010386,
+          "rowsum_min": 0.9977014716714621,
+          "rel_rms_probs": 0.0016927610391216236,
+          "rel_rms_o": 0.0008764979092509025,
+          "gain_vs_F": 20.225905881388815
+        },
+        "F": {
+          "rowsum_mean": 0.990205865629447,
+          "rowsum_min": 0.951275147497654,
+          "rel_rms_probs": 0.022651209904381072,
+          "rel_rms_o": 0.01772796421774283
+        },
+        "R": {
+          "rowsum_mean": 1.0006700058471523,
+          "rowsum_min": 0.9950785636901855,
+          "rel_rms_probs": 0.015315199662773126,
+          "rel_rms_o": 0.0021675032490036613,
+          "gain_vs_F": 8.178979305286791
+        },
+        "M": {
+          "rowsum_mean": 1.0003083797286234,
+          "rowsum_min": 0.9977015694603324,
+          "rel_rms_probs": 0.0017453430085153376,
+          "rel_rms_o": 0.0010172866273101238,
+          "gain_vs_F": 17.42671508876366
+        }
+      }
+    },
+    {
+      "file": "pair_tt_bio_tenstorrent.py-4058_1643231_2.pt",
+      "site": "tt_bio/tenstorrent.py:4058",
+      "shape": [
+        1,
+        16,
+        256,
+        256
+      ],
+      "in_dtype": "DataType.BFLOAT16",
+      "head_dim": 32,
+      "logit_spread": 33.0625,
+      "arms": {
+        "ceiling": {
+          "rowsum_mean": 0.999978148694433,
+          "rowsum_min": 0.9972398951649666,
+          "rel_rms_probs": 0.0014050504011205427,
+          "rel_rms_o": 0.001200587096026266,
+          "gain_vs_F": 21.44500348290873
+        },
+        "F": {
+          "rowsum_mean": 0.9610392152260827,
+          "rowsum_min": 0.953125,
+          "rel_rms_probs": 0.032779676686929896,
+          "rel_rms_o": 0.025746594455818554
+        },
+        "R": {
+          "rowsum_mean": 1.0002018407839544,
+          "rowsum_min": 0.9971542358398438,
+          "rel_rms_probs": 0.00984789591629906,
+          "rel_rms_o": 0.0019207051175151432,
+          "gain_vs_F": 13.404761731008177
+        },
+        "M": {
+          "rowsum_mean": 1.0000477993898367,
+          "rowsum_min": 0.9976110253483057,
+          "rel_rms_probs": 0.0014251018385517354,
+          "rel_rms_o": 0.0012600186376645409,
+          "gain_vs_F": 20.433502875433785
+        }
+      }
+    },
+    {
+      "file": "pair_tt_bio_tenstorrent.py-4058_1643231_3.pt",
+      "site": "tt_bio/tenstorrent.py:4058",
+      "shape": [
+        1,
+        16,
+        256,
+        256
+      ],
+      "in_dtype": "DataType.BFLOAT16",
+      "head_dim": 32,
+      "logit_spread": 30.625198364257812,
+      "arms": {
+        "ceiling": {
+          "rowsum_mean": 0.9999959292908898,
+          "rowsum_min": 0.997843325138092,
+          "rel_rms_probs": 0.001335177152060419,
+          "rel_rms_o": 0.002328143836612886,
+          "gain_vs_F": 16.03663190187196
+        },
+        "F": {
+          "rowsum_mean": 0.9554605773737421,
+          "rowsum_min": 0.953125,
+          "rel_rms_probs": 0.03070240079808101,
+          "rel_rms_o": 0.03733558572237279
+        },
+        "R": {
+          "rowsum_mean": 1.0000439354917035,
+          "rowsum_min": 0.9980659484863281,
+          "rel_rms_probs": 0.009643216106937549,
+          "rel_rms_o": 0.026877188620792705,
+          "gain_vs_F": 1.3891179709729489
+        },
+        "M": {
+          "rowsum_mean": 0.9999936985404929,
+          "rowsum_min": 0.9975824356079102,
+          "rel_rms_probs": 0.0013857238342682911,
+          "rel_rms_o": 0.002461330279311795,
+          "gain_vs_F": 15.168864591716671
+        }
+      }
+    }
+  ],
+  "summary": {
+    "F": {
+      "rel_rms_o": 0.02334832128916043,
+      "rel_rms_probs": 0.02941407825543823,
+      "rowsum_mean": 0.9676118383944161
+    },
+    "R": {
+      "rel_rms_o": 0.008883561448293187,
+      "rel_rms_probs": 0.01243381634033162,
+      "rowsum_mean": 1.0002556088582077,
+      "gain_vs_F": 2.6282613594850948
+    },
+    "M": {
+      "rel_rms_o": 0.001492539254380293,
+      "rel_rms_probs": 0.0014932223007298976,
+      "rowsum_mean": 1.0001124620623614,
+      "gain_vs_F": 15.643354920574417
+    },
+    "ceiling": {
+      "rel_rms_o": 0.0013929063768601633,
+      "rel_rms_probs": 0.0014547585792253602,
+      "rowsum_mean": 0.9999950920378571,
+      "gain_vs_F": 16.76230483041605
+    }
+  }
+}

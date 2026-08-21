@@ -1,0 +1,151 @@
+{
+  "procs": [
+    {
+      "pid": 1600598,
+      "tt_bio": "/home/ttuser/.coworker/wt/shared-softmax-crossmodel/tt_bio",
+      "n_sites": 0
+    },
+    {
+      "pid": 1600667,
+      "tt_bio": "/home/ttuser/.coworker/wt/shared-softmax-crossmodel/tt_bio",
+      "n_sites": 6
+    }
+  ],
+  "sites": [
+    {
+      "site": "tt_bio/tenstorrent.py:4058",
+      "op": "softmax",
+      "shape": [
+        1,
+        16,
+        20,
+        20
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "n_calls": 192,
+      "n_measured": 24,
+      "rowsum_min": 0.9605331420898438,
+      "rowsum_max": 1.002716064453125,
+      "rowsum_p01_min": 0.9613265991210938,
+      "errors": [],
+      "rowsum_mean": 0.9775399325570713,
+      "deficit": 0.02246006744292872
+    },
+    {
+      "site": "tt_bio/openfold3_atom_transformer.py:183",
+      "op": "softmax",
+      "shape": [
+        1,
+        5,
+        4,
+        32,
+        128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "n_calls": 3,
+      "n_measured": 3,
+      "rowsum_min": 0.9921875,
+      "rowsum_max": 0.99609375,
+      "rowsum_p01_min": 0.9921875,
+      "errors": [],
+      "rowsum_mean": 0.9921915926039219,
+      "deficit": 0.007808407396078132
+    },
+    {
+      "site": "tt_bio/tenstorrent.py:1436",
+      "op": "softmax_in_place",
+      "shape": [
+        20,
+        4,
+        20,
+        20
+      ],
+      "dtype": "DataType.FLOAT32",
+      "n_calls": 440,
+      "n_measured": 24,
+      "rowsum_min": 0.9605904221534729,
+      "rowsum_max": 1.0007482767105103,
+      "rowsum_p01_min": 0.9620480537414551,
+      "errors": [],
+      "rowsum_mean": 0.9927116233529524,
+      "deficit": 0.007288376647047623
+    },
+    {
+      "site": "tt_bio/openfold3_diffusion_transformer.py:197",
+      "op": "softmax",
+      "shape": [
+        1,
+        16,
+        32,
+        32
+      ],
+      "dtype": "DataType.FLOAT32",
+      "n_calls": 144,
+      "n_measured": 24,
+      "rowsum_min": 0.9606886506080627,
+      "rowsum_max": 1.0005431175231934,
+      "rowsum_p01_min": 0.9620933532714844,
+      "errors": [],
+      "rowsum_mean": 0.9940334700416619,
+      "deficit": 0.005966529958338129
+    },
+    {
+      "site": "tt_bio/openfold3_atom_transformer.py:183",
+      "op": "softmax",
+      "shape": [
+        1,
+        5,
+        4,
+        32,
+        128
+      ],
+      "dtype": "DataType.FLOAT32",
+      "n_calls": 36,
+      "n_measured": 24,
+      "rowsum_min": 0.9609369039535522,
+      "rowsum_max": 1.002403736114502,
+      "rowsum_p01_min": 0.9631680846214294,
+      "errors": [],
+      "rowsum_mean": 0.9955488382217784,
+      "deficit": 0.0044511617782215795
+    },
+    {
+      "site": "tt_bio/tenstorrent.py:5479",
+      "op": "softmax",
+      "shape": [
+        1,
+        20,
+        20
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "n_calls": 96,
+      "n_measured": 24,
+      "rowsum_min": 0.9656982421875,
+      "rowsum_max": 1.0015878677368164,
+      "rowsum_p01_min": 0.9656982421875,
+      "errors": [],
+      "rowsum_mean": 0.9956497095525266,
+      "deficit": 0.004350290447473371
+    }
+  ],
+  "meta": {
+    "cmd": [
+      "predict",
+      "examples/trpcage.yaml",
+      "--model",
+      "openfold3",
+      "--single_sequence",
+      "--sampling_steps",
+      "6",
+      "--diffusion_samples",
+      "1",
+      "--seed",
+      "0",
+      "--out_dir",
+      "/tmp/census_of3_20"
+    ],
+    "rc": 0,
+    "max_measured": 24,
+    "root": "/home/ttuser/.coworker/wt/shared-softmax-crossmodel"
+  }
+}
