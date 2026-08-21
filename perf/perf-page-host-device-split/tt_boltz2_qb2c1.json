@@ -9,7 +9,7 @@
  "ttnn": "0.68.0",
  "torch": "2.13.0+cpu",
  "card": "1",
- "git_head": "0e345b3f",
+ "git_head": "07db4f0d",
  "phases": {
   "boltz2": [
    [
@@ -34,166 +34,178 @@
    ]
   ]
  },
- "started": "2026-08-21T16:24:30+0000",
+ "started": "2026-08-21T17:07:57+0000",
  "host": "tt-quietbox2",
  "nproc": 16,
  "cpu": "AMD Ryzen 7 9700X 8-Core Processor",
  "folds": [
   {
    "arm": "plain",
-   "fold_s": 35.296,
+   "fold_s": 26.282,
    "plddt": 0.868627,
    "n_tokens": null,
    "cifs": {
     "cdk2x2_512.cif": "fca25e32ea181ae2"
    },
    "loadavg": [
-    "32.39",
-    "27.41",
-    "23.79"
+    "17.22",
+    "17.66",
+    "17.99"
    ]
   },
   {
    "arm": "instr",
-   "fold_s": 33.74,
+   "fold_s": 25.996,
    "plddt": 0.868627,
    "n_tokens": null,
    "cifs": {
     "cdk2x2_512.cif": "fca25e32ea181ae2"
    },
    "loadavg": [
-    "30.57",
-    "27.48",
-    "23.95"
+    "15.32",
+    "17.18",
+    "17.82"
    ],
    "phase": {
-    "host": 0.5489,
-    "device": 33.1834,
+    "host": 0.3821,
+    "device": 25.6079,
     "transfer": 0.0002,
-    "total": 33.7402,
-    "residual": 0.0078,
+    "total": 25.9963,
+    "residual": 0.0061,
     "per_fn": {
      "prepare": {
-      "s": 0.4056,
-      "n": 1
+      "s": 0.2667,
+      "n": 1,
+      "nested": 0
      },
      "tt_bio.main:to_batch": {
       "s": 0.0002,
-      "n": 1
+      "n": 1,
+      "nested": 0
      },
      "model.predict_step": {
-      "s": 33.1834,
-      "n": 1
+      "s": 25.6079,
+      "n": 1,
+      "nested": 0
      },
      "tt_bio.main:write_result": {
-      "s": 0.1432,
-      "n": 1
+      "s": 0.1154,
+      "n": 1,
+      "nested": 0
      }
     }
    }
   },
   {
    "arm": "plain",
-   "fold_s": 34.021,
+   "fold_s": 26.014,
    "plddt": 0.868627,
    "n_tokens": null,
    "cifs": {
     "cdk2x2_512.cif": "fca25e32ea181ae2"
    },
    "loadavg": [
-    "30.96",
-    "27.85",
-    "24.19"
+    "15.95",
+    "17.18",
+    "17.80"
    ]
   },
   {
    "arm": "instr",
-   "fold_s": 32.823,
+   "fold_s": 25.169,
    "plddt": 0.868627,
    "n_tokens": null,
    "cifs": {
     "cdk2x2_512.cif": "fca25e32ea181ae2"
    },
    "loadavg": [
-    "24.44",
-    "26.53",
-    "23.88"
+    "15.80",
+    "17.09",
+    "17.76"
    ],
    "phase": {
-    "host": 0.4612,
-    "device": 32.3535,
-    "transfer": 0.0001,
-    "total": 32.8232,
-    "residual": 0.0083,
+    "host": 0.3597,
+    "device": 24.8016,
+    "transfer": 0.0002,
+    "total": 25.1691,
+    "residual": 0.0077,
     "per_fn": {
      "prepare": {
-      "s": 0.3329,
-      "n": 1
+      "s": 0.276,
+      "n": 1,
+      "nested": 0
      },
      "tt_bio.main:to_batch": {
-      "s": 0.0001,
-      "n": 1
+      "s": 0.0002,
+      "n": 1,
+      "nested": 0
      },
      "model.predict_step": {
-      "s": 32.3535,
-      "n": 1
+      "s": 24.8016,
+      "n": 1,
+      "nested": 0
      },
      "tt_bio.main:write_result": {
-      "s": 0.1284,
-      "n": 1
+      "s": 0.0837,
+      "n": 1,
+      "nested": 0
      }
     }
    }
   },
   {
    "arm": "plain",
-   "fold_s": 37.562,
+   "fold_s": 25.371,
    "plddt": 0.868627,
    "n_tokens": null,
    "cifs": {
     "cdk2x2_512.cif": "fca25e32ea181ae2"
    },
    "loadavg": [
-    "26.83",
-    "26.84",
-    "24.07"
+    "13.00",
+    "16.27",
+    "17.47"
    ]
   },
   {
    "arm": "instr",
-   "fold_s": 34.646,
+   "fold_s": 26.001,
    "plddt": 0.868627,
    "n_tokens": null,
    "cifs": {
     "cdk2x2_512.cif": "fca25e32ea181ae2"
    },
    "loadavg": [
-    "27.51",
-    "27.05",
-    "24.25"
+    "14.40",
+    "16.32",
+    "17.45"
    ],
    "phase": {
-    "host": 0.6879,
-    "device": 33.9512,
+    "host": 0.3941,
+    "device": 25.6006,
     "transfer": 0.0002,
-    "total": 34.6461,
-    "residual": 0.0068,
+    "total": 26.0006,
+    "residual": 0.0057,
     "per_fn": {
      "prepare": {
-      "s": 0.5462,
-      "n": 1
+      "s": 0.2823,
+      "n": 1,
+      "nested": 0
      },
      "tt_bio.main:to_batch": {
       "s": 0.0002,
-      "n": 1
+      "n": 1,
+      "nested": 0
      },
      "model.predict_step": {
-      "s": 33.9512,
-      "n": 1
+      "s": 25.6006,
+      "n": 1,
+      "nested": 0
      },
      "tt_bio.main:write_result": {
-      "s": 0.1417,
-      "n": 1
+      "s": 0.1117,
+      "n": 1,
+      "nested": 0
      }
     }
    }
@@ -201,35 +213,35 @@
  ],
  "meta": {
   "hardware": "blackhole",
-  "load_s": 5.67,
+  "load_s": 4.04,
   "n_msa": 35
  },
  "grid": [
   11,
   10
  ],
- "cold_s": 37.792,
+ "cold_s": 27.225,
  "summary": {
-  "aa_floor_s": 3.541,
-  "aa_floor_pct": 10.032,
-  "plain_median_s": 35.296,
-  "instr_median_s": 33.74,
+  "aa_floor_s": 0.911,
+  "aa_floor_pct": 3.502,
+  "plain_median_s": 26.014,
+  "instr_median_s": 25.996,
   "plain_s": [
-   35.296,
-   34.021,
-   37.562
+   26.282,
+   26.014,
+   25.371
   ],
   "instr_s": [
-   33.74,
-   32.823,
-   34.646
+   25.996,
+   25.169,
+   26.001
   ],
-  "instr_delta_s": -1.556,
-  "instr_delta_pct": -4.408,
-  "host_s": 0.549,
-  "device_s": 33.183,
+  "instr_delta_s": -0.018,
+  "instr_delta_pct": -0.069,
+  "host_s": 0.382,
+  "device_s": 25.601,
   "transfer_s": 0.0,
-  "residual_s": 0.008,
+  "residual_s": 0.006,
   "residual_pct": 0.023,
   "same_structure_both_arms": true,
   "cif_digests": [
