@@ -34,6 +34,15 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Fixed
 
+- A device open now leases every card it holds, not just the one it computes on. ttnn brings up
+  every card `TT_VISIBLE_DEVICES` makes visible, so an unpinned run on a four-card box held all
+  four chips while leasing one, and the next job on that host was told three of them were free.
+  It then either blocked on a lock or collided at the fd level. All of them are leased now, so
+  such a run fails immediately, naming the card and the process holding it, instead of quietly
+  sharing a chip. Pin `TT_VISIBLE_DEVICES` to the card you want and nothing changes, which is
+  what the worker pool, the multi-card fan-out and every gate leg already do.
+- `TT_BIO_LOGICAL_DEVICE_ID` past the end of `TT_VISIBLE_DEVICES` fails now, naming both values,
+  instead of silently using the first visible card and leasing one the run never opens.
 - Boltz-2 folds inputs that pad to 704 tokens again. 640 aa plus a 20-heavy-atom ligand is 660
   tokens, which pads to 704, and 641 to 704 aa on its own lands on the same rung; all of it died
   about 6 s in with `Statically allocated circular buffers in program 36 clash with L1 buffers`.

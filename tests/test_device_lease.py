@@ -18,7 +18,8 @@ import time
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 
-from tt_bio.device_lease import DeviceLease, DeviceInUseError, granted_cards
+from tt_bio.device_lease import (CardSetLease, DeviceInUseError, DeviceLease,
+                                 granted_cards, physical_card, physical_cards)
 
 try:
     import pytest
@@ -209,6 +210,134 @@ def test_card_grant_absent_or_empty_is_unbounded(d):
     print("  card grant: unset/empty/whitespace/bare-comma all unbounded  OK")
 
 
+def test_card_set_leases_every_visible_card(d):
+    """The lease set covers every VISIBLE card, because ttnn brings all of them up.
+
+    Measured on qb2 2026-08-21: TT_VISIBLE_DEVICES=0,1 returns a 1x1 mesh
+    (get_num_devices()==1) while the process holds fds on /dev/tenstorrent/0 AND
+    /dev/tenstorrent/1. The old single lease named card 0 only, so fleet.sh saw one card
+    held and handed card 1 to a second worker. Fails against the pre-CardSetLease code.
+    """
+    os.environ["TT_VISIBLE_DEVICES"] = "1,0"
+    try:
+        assert physical_cards() == ["0", "1"], physical_cards()   # sorted, deadlock-free order
+        with CardSetLease(timeout=5) as lease:
+            assert [l.card for l in lease._held] == ["0", "1"]
+            for card in ("0", "1"):
+                path = os.path.join(d, f"testhost-card{card}.json")
+                assert os.path.exists(path), f"card {card} was held but never leased"
+                assert json.load(open(path))["pid"] == os.getpid()
+        print("  card set: visible 0,1 leases BOTH cards in sorted order  OK")
+    finally:
+        os.environ.pop("TT_VISIBLE_DEVICES", None)
+
+
+def test_card_set_is_all_or_nothing(d):
+    """A set containing ONE contended card leases none of them, and says which.
+
+    Half a mesh leased is worse than none: the fleet reads the successful half as a live
+    claim while the job that took it has already failed.
+    """
+    p, holder_pid = _spawn_holder(d, os.path.join(d, "ready_set"), hold=30.0)  # holds card 0
+    try:
+        try:
+            CardSetLease(cards=["0", "2"], timeout=1).acquire()
+            raise AssertionError("expected DeviceInUseError with card 0 contended")
+        except DeviceInUseError as e:
+            assert str(holder_pid) in str(e), f"error must name the holder: {e}"
+        # card 2 was never left leased on the way out
+        card2 = os.path.join(d, "testhost-card2.json")
+        assert not os.path.exists(card2) or json.load(open(card2)).get("released"), \
+            "a partial set left card 2 leased after the set failed"
+        # and card 2 is really free: a fresh lease takes it immediately
+        t0 = time.time()
+        DeviceLease(card="2", timeout=5).acquire().release()
+        assert time.time() - t0 < 1.0, "card 2 still flocked by the failed set"
+        print(f"  card set: contended set (0 held by {holder_pid}) leased nothing, card 2 free  OK")
+    finally:
+        p.kill(); p.wait()
+
+
+def test_card_set_shares_one_timeout_budget(d):
+    """A contended set fails within ONE timeout, not len(cards) x timeout."""
+    p, _ = _spawn_holder(d, os.path.join(d, "ready_budget"), hold=30.0)   # holds card 0
+    try:
+        t0 = time.time()
+        try:
+            CardSetLease(cards=["0", "1", "2", "3"], timeout=2).acquire()
+            raise AssertionError("expected DeviceInUseError")
+        except DeviceInUseError:
+            waited = time.time() - t0
+        assert waited < 4.0, f"set waited per-card, not once ({waited:.2f}s for timeout=2)"
+        print(f"  card set: 4-card contended set failed in {waited:.2f}s on timeout=2  OK")
+    finally:
+        p.kill(); p.wait()
+
+
+def test_card_set_refused_when_visibility_exceeds_grant(d):
+    """A grant of one card refuses an open that would HOLD two, naming the extra card.
+
+    This is the qb1 shape and the reason the grant has to be checked against the whole
+    visible set: TT_BIO_LEASE_CARDS=0 with TT_VISIBLE_DEVICES=0,1 opened card 0 happily
+    under the old per-card check, while holding card 1 outside the grant.
+    """
+    os.environ["TT_VISIBLE_DEVICES"] = "0,1"
+    os.environ["TT_BIO_LEASE_CARDS"] = "0"
+    try:
+        t0 = time.time()
+        try:
+            CardSetLease(timeout=30).acquire()
+            raise AssertionError("an open holding card 1 was permitted under grant=0")
+        except DeviceInUseError as e:
+            assert "1" in str(e) and "TT_BIO_LEASE_CARDS=0" in str(e), e
+            assert time.time() - t0 < 1.0, "grant refusal waited on the flock timeout"
+        # Order-independent: an earlier test may have left the file behind. What must not
+        # happen is this process holding it live.
+        card0 = os.path.join(d, "testhost-card0.json")
+        if os.path.exists(card0):
+            meta = json.load(open(card0))
+            assert meta.get("pid") != os.getpid() or meta.get("released"), \
+                "refused set leased the granted card anyway"
+        print("  card set: visible 0,1 under grant 0 refused fast, nothing leased  OK")
+    finally:
+        os.environ.pop("TT_VISIBLE_DEVICES", None)
+        os.environ.pop("TT_BIO_LEASE_CARDS", None)
+
+
+def test_card_set_matches_grant_when_pinned(d):
+    """The production shape: one visible card, one lease, grant satisfied.
+
+    JapanFold's pool, the Galaxy's 32 workers and every gate leg pin one card each
+    (worker.py:_apply_tt_environment), so this is the path that must not change.
+    """
+    os.environ["TT_VISIBLE_DEVICES"] = "2"
+    os.environ["TT_BIO_LEASE_CARDS"] = "2"
+    try:
+        with CardSetLease(timeout=5) as lease:
+            assert lease.cards == ["2"], lease.cards
+            assert lease.card == "2"
+        print("  card set: pinned open leases exactly its one card under a matching grant  OK")
+    finally:
+        os.environ.pop("TT_VISIBLE_DEVICES", None)
+        os.environ.pop("TT_BIO_LEASE_CARDS", None)
+
+
+def test_logical_device_id_out_of_range_raises(d):
+    """A logical id past the visible set must not silently lease card[0] instead."""
+    os.environ["TT_VISIBLE_DEVICES"] = "1,2"
+    os.environ["TT_BIO_LOGICAL_DEVICE_ID"] = "3"
+    try:
+        try:
+            physical_card()
+            raise AssertionError("out-of-range logical id silently fell back to a card")
+        except ValueError as e:
+            assert "TT_BIO_LOGICAL_DEVICE_ID=3" in str(e) and "1, 2" in str(e).replace("[", "").replace("]", ""), e
+        print("  logical id: out-of-range raises instead of leasing the wrong card  OK")
+    finally:
+        os.environ.pop("TT_VISIBLE_DEVICES", None)
+        os.environ.pop("TT_BIO_LOGICAL_DEVICE_ID", None)
+
+
 if __name__ == "__main__":
     with tempfile.TemporaryDirectory() as d:
         # The main process must lease into the SAME dir/host as the spawned holders so
@@ -225,4 +354,10 @@ if __name__ == "__main__":
         test_card_grant_refuses_card_outside_grant(d)
         test_card_grant_allows_granted_and_multi_card_grant(d)
         test_card_grant_absent_or_empty_is_unbounded(d)
+        test_card_set_leases_every_visible_card(d)
+        test_card_set_is_all_or_nothing(d)
+        test_card_set_shares_one_timeout_budget(d)
+        test_card_set_refused_when_visibility_exceeds_grant(d)
+        test_card_set_matches_grant_when_pinned(d)
+        test_logical_device_id_out_of_range_raises(d)
     print("ALL DEVICE-LEASE UNIT TESTS PASSED")
