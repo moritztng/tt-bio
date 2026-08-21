@@ -92,18 +92,31 @@ class Census:
 
     def _wrap(self, name, orig):
         def wrapped(x, *a, **kw):
-            out = orig(x, *a, **kw)
-            if self.capture is not None:
+            cap, snap, site = self.capture, None, None
+            if cap is not None:
+                # The logits have to be read BEFORE the call: softmax_in_place writes over its
+                # own input, so afterwards this tensor holds the probabilities, not the logits.
                 try:
-                    self.capture.install_matmul_hooks()
-                    self.capture.on_softmax(self.site_of(), x, out)
+                    cap.install_hooks()
+                    site = self.site_of()
+                    if cap.arms(site):
+                        snap = cap.snapshot(x)
+                except Exception:
+                    snap = None
+            out = orig(x, *a, **kw)
+            if snap is not None:
+                try:
+                    cap.arm(site, snap, out)
                 except Exception:
                     pass
             try:
                 dim = kw.get("dim", a[0] if a else -1)
                 e = self.entry(self.site_of(), out.shape, str(out.dtype), name)
                 e["n_calls"] += 1
-                if dim in (-1, len(out.shape) - 1) and e["n_measured"] < self.max_measured:
+                # Row sums are skipped while capturing: measure() typecasts the very tensor the
+                # capture is tracking, which would move the identity mark off the probabilities.
+                if (cap is None and dim in (-1, len(out.shape) - 1)
+                        and e["n_measured"] < self.max_measured):
                     self.measure(e, out)
                 self.total += 1
                 # tt_bio terminates its spawned workers rather than letting them exit, so
