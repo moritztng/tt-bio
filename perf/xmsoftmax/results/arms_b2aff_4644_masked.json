@@ -1,0 +1,143 @@
+{
+  "label": "boltz2-affinity tenstorrent.py:4644",
+  "pairs": [
+    {
+      "file": "pair_tt_bio_tenstorrent.py-4644_1724393_0.pt",
+      "site": "tt_bio/tenstorrent.py:4644",
+      "shape": [
+        192,
+        4,
+        192,
+        192
+      ],
+      "in_dtype": "DataType.FLOAT32",
+      "n_rows": 147456,
+      "n_degenerate": 39936,
+      "logit_spread": 1000000000.0,
+      "arms": {
+        "ceiling": {
+          "rowsum_mean": 1.0000000081092753,
+          "rel_rms_o_all": 2.7128650168130622e-08,
+          "rel_rms_o_real": 1.57117014062712e-08,
+          "n_nan": 0,
+          "gain_all": 303838.1033815653,
+          "gain_real": 1076553.5986643392
+        },
+        "F": {
+          "rowsum_mean": 0.9944183106435247,
+          "rel_rms_o_all": 0.008242717614386792,
+          "rel_rms_o_real": 0.01691448869006082,
+          "n_nan": 0
+        },
+        "M": {
+          "rowsum_mean": NaN,
+          "rel_rms_o_all": NaN,
+          "rel_rms_o_real": 0.0006151925021373034,
+          "n_nan": 7667712,
+          "gain_all": NaN,
+          "gain_real": 27.494627504880924
+        },
+        "Md": {
+          "rowsum_mean": 1.0003712697210843,
+          "rel_rms_o_all": 0.0003755028539513511,
+          "rel_rms_o_real": 0.0006151925021373034,
+          "n_nan": 0,
+          "gain_all": 21.951145051629062,
+          "gain_real": 27.494627504880924
+        },
+        "Ms": {
+          "rowsum_mean": 0.7294677792373232,
+          "rel_rms_o_all": 0.8733008831247899,
+          "rel_rms_o_real": 0.0006151925021373034,
+          "n_nan": 0,
+          "gain_all": 0.009438576982646829,
+          "gain_real": 27.494627504880924
+        }
+      }
+    },
+    {
+      "file": "pair_tt_bio_tenstorrent.py-4644_1724393_1.pt",
+      "site": "tt_bio/tenstorrent.py:4644",
+      "shape": [
+        192,
+        4,
+        192,
+        192
+      ],
+      "in_dtype": "DataType.FLOAT32",
+      "n_rows": 147456,
+      "n_degenerate": 39936,
+      "logit_spread": 1000000064.0,
+      "arms": {
+        "ceiling": {
+          "rowsum_mean": 1.000000008084223,
+          "rel_rms_o_all": 2.5883899017970204e-08,
+          "rel_rms_o_real": 1.2570029494891264e-08,
+          "n_nan": 0,
+          "gain_all": 2898893.3641939955,
+          "gain_real": 981110.1193785259
+        },
+        "F": {
+          "rowsum_mean": 0.996557390987756,
+          "rel_rms_o_all": 0.0750346631026613,
+          "rel_rms_o_real": 0.012332583138324358,
+          "n_nan": 0
+        },
+        "M": {
+          "rowsum_mean": NaN,
+          "rel_rms_o_all": NaN,
+          "rel_rms_o_real": 0.00039093129836950734,
+          "n_nan": 7667712,
+          "gain_all": NaN,
+          "gain_real": 31.546676333568026
+        },
+        "Md": {
+          "rowsum_mean": 1.000281311067798,
+          "rel_rms_o_all": 0.07473240981536158,
+          "rel_rms_o_real": 0.00039093129836950734,
+          "n_nan": 0,
+          "gain_all": 1.0040444739845333,
+          "gain_real": 31.546676333568026
+        },
+        "Ms": {
+          "rowsum_mean": 0.7293778205840371,
+          "rel_rms_o_all": 0.8353460650681571,
+          "rel_rms_o_real": 0.00039093129836950734,
+          "n_nan": 0,
+          "gain_all": 0.08982464422878332,
+          "gain_real": 31.546676333568026
+        }
+      }
+    }
+  ],
+  "summary": {
+    "F": {
+      "rel_rms_o_all": 0.04163869035852404,
+      "rel_rms_o_real": 0.01462353591419259
+    },
+    "M": {
+      "rel_rms_o_all": NaN,
+      "rel_rms_o_real": 0.0005030619002534054,
+      "gain_all": NaN,
+      "gain_real": 29.069058711912653
+    },
+    "Md": {
+      "rel_rms_o_all": 0.03755395633465647,
+      "rel_rms_o_real": 0.0005030619002534054,
+      "gain_all": 1.1087697388649835,
+      "gain_real": 29.069058711912653
+    },
+    "Ms": {
+      "rel_rms_o_all": 0.8543234740964736,
+      "rel_rms_o_real": 0.0005030619002534054,
+      "gain_all": 0.04873878761503168,
+      "gain_real": 29.069058711912653
+    },
+    "ceiling": {
+      "rel_rms_o_all": 2.6506274593050413e-08,
+      "rel_rms_o_real": 1.4140865450581232e-08,
+      "gain_all": 1570899.381289936,
+      "gain_real": 1034133.0214404606
+    }
+  }
+}
