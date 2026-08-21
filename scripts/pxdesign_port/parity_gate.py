@@ -21,6 +21,14 @@ Four arms:
      capture whose coordinates are wrong -- the port and upstream agree on the same bad
      arithmetic. This arm scores the capture: no conditioned token may sit at the origin.
      It fails on `parity_artifacts/pdl1/` and passes on `pdl1_protenix05_noH/`.
+  5. The input arm. `tt_bio.pxdesign.inputs.design_inputs_from_yaml` builds the whole
+     18-key model input from the target structure file, with no protenix install and no
+     capture, and 17 of those keys must be bit-exact against the capture. `ref_pos` is the
+     eighteenth and is excluded on purpose rather than skipped quietly: upstream builds its
+     `Featurizer` with `ref_pos_augment` at the default `True`, which draws a rotation and
+     a translation per residue from the unseeded global numpy RNG, so upstream's own
+     `ref_pos` does not reproduce run to run either. The origin check runs a second time
+     here, against the new path's own conditioning coordinates instead of the capture's.
 
 What this gate does NOT cover, stated so it is not mistaken for coverage: the atom-array
 construction upstream of these functions (CIF parse, tokenization, crop, hotspot annotation).
@@ -45,6 +53,21 @@ ARTS = REPO / "scripts" / "pxdesign_port" / "parity_artifacts"
 # and is the only capture that conditions on the real 116-residue domain. The other two
 # are kept so the defect stays diffable, and scored by passing `--art`.
 DEFAULT_ART = "pdl1_protenix05_noH"
+
+# Arm 5 needs the structure file a capture came from. Only two captures have one that can
+# reproduce them; the other two encode a target no correct parser produces.
+ART_INPUT = {
+    "pdl1_protenix05_noH": "tests/fixtures/pxdesign/PDL1.yaml",
+    "rbd_6m0j": "tests/fixtures/pxdesign/RBD.yaml",
+    "pdl1": None,             # 61 of 116 residues parked at the origin by the hydrogen bug
+    "pdl1_protenix05": None,  # the same 61 deleted instead, leaving a 55-residue target
+}
+
+REF_POS_EXCLUDED = ("ref_pos is an unseeded per-residue random rotation and translation "
+                    "upstream (Featurizer ref_pos_augment defaults True, "
+                    "protenix/utils/geometry.py:random_transform), so it does not "
+                    "reproduce upstream either; tt-bio emits the conformer table "
+                    "unaugmented, which is strictly more reproducible")
 
 
 def featurizer_parity(art: str = DEFAULT_ART) -> dict:
@@ -144,9 +167,37 @@ def featurizer_parity(art: str = DEFAULT_ART) -> dict:
         names = [RESTYPE_VOCAB[i] for i in want_rt.argmax(dim=-1).tolist()]
         bitexact("restype", restype_onehot(names), want_rt)
 
+    # 5. the input arm: the whole model input, built from the structure file
+    from tt_bio.pxdesign.inputs import MODEL_INPUT_KEYS, design_inputs_from_yaml
+    rel_yaml = ART_INPUT.get(art, "__unmapped__")
+    input_arm = {"ref_pos_excluded": REF_POS_EXCLUDED}
+    if rel_yaml is None:
+        input_arm["skipped"] = f"no structure file reproduces capture {art}"
+    elif rel_yaml == "__unmapped__":
+        input_arm["skipped"] = f"capture {art} has no entry in ART_INPUT"
+    else:
+        captured = torch.load(ART / "ref_design_inputs.pt", weights_only=False)
+        got = design_inputs_from_yaml(REPO / rel_yaml)
+        input_arm["yaml"] = rel_yaml
+        for k in MODEL_INPUT_KEYS:
+            if k == "ref_pos":
+                continue
+            want = captured[k]
+            bitexact(f"input:{k}", got[k].to(want.dtype), want)
+        c = got["condition"]
+        origin = ((c["coord"].abs().sum(dim=-1) == 0) & c["is_resolved"]
+                  & torch.tensor([r != "xpb" for r in c["res_name"]]))
+        checks.append("input:no_conditioned_token_at_origin")
+        input_arm["n_conditioned_tokens_at_origin"] = int(origin.sum())
+        if int(origin.sum()):
+            mismatches.append({"key": "input:no_conditioned_token_at_origin",
+                               "error": f"{int(origin.sum())} conditioned tokens parsed "
+                                        f"to the origin from {rel_yaml}"})
+
     n_xpb = int(is_xpb.sum())
     return {
         "mode": "pxdesign_featurizer",
+        "input_arm": input_arm,
         "verdict": "PASS" if not mismatches else "FAIL",
         "capture": art,
         "fixture": meta["yaml"],

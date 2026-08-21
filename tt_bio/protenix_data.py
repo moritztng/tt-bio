@@ -750,8 +750,10 @@ def structure_token_coords(path, chains=None, crop=None) -> dict:
 
     Reads CIF, PDB and the gzipped form of either. `chains` selects subchains by
     **label_asym_id**, which is what a PXDesign YAML's chain keys mean; None takes every
-    polymer subchain. `crop` is a label_seq spec (see `parse_crop_spec`), either one spec
-    for every chain or a `{chain_id: spec}` dict.
+    polymer subchain. A PDB carries no label_asym_id, so an id that matches no subchain
+    falls back to the auth chain name, which is the only chain key a PDB has. `crop` is a
+    label_seq spec (see `parse_crop_spec`), either one spec for every chain or a
+    `{chain_id: spec}` dict.
 
     Returns `{chain_id: {coord, res_name, mol_type, is_resolved, label_seq, has_oxt,
     sequence}}`, each in label_seq order, `coord` an (N_res, 3) float32 tensor.
@@ -772,53 +774,59 @@ def structure_token_coords(path, chains=None, crop=None) -> dict:
     st.remove_waters()
     st.assign_label_seq_id()               # a PDB input gets the numbering a CIF already has
 
-    want = None if chains is None else [str(c) for c in chains]
-    crops = crop if isinstance(crop, dict) else None
-    out = {}
+    polymers = []                          # (label_asym_id, auth_chain_name, subchain, entity)
     for chain in st[0]:
         for sub in chain.subchains():
-            cid = sub.subchain_id()
-            if want is not None and cid not in want:
-                continue
             ent = st.get_entity_of(sub)
-            if ent is None or ent.entity_type != gemmi.EntityType.Polymer:
+            if ent is not None and ent.entity_type == gemmi.EntityType.Polymer:
+                polymers.append((sub.subchain_id(), chain.name, sub, ent))
+    by_label = {lab: (sub, ent) for lab, _, sub, ent in polymers}
+    by_auth = {}
+    for _, auth, sub, ent in polymers:                # ambiguous auth names resolve to None
+        by_auth[auth] = None if auth in by_auth else (sub, ent)
+
+    want = [str(c) for c in chains] if chains is not None else sorted(by_label)
+    crops = crop if isinstance(crop, dict) else None
+    out = {}
+    for cid in want:
+        hit = by_label.get(cid) or by_auth.get(cid)
+        if hit is None:
+            raise ValueError(f"structure_token_coords: {path} has no polymer chain with "
+                             f"label_asym_id or chain name {cid}; found "
+                             f"{sorted(by_label)} / {sorted(by_auth)}")
+        sub, ent = hit
+        mt = _GEMMI_MOL_TYPE.get(str(ent.polymer_type).split(".")[-1])
+        if mt is None:
+            raise ValueError(f"structure_token_coords: chain {cid} is a "
+                             f"{ent.polymer_type} polymer, which has no protenix token "
+                             f"representation")
+        keep = parse_crop_spec(crops.get(cid) if crops is not None else crop)
+        coord, res_name, resolved, label_seq, oxt = [], [], [], [], []
+        for res in sub:
+            if keep is not None and res.label_seq not in keep:
                 continue
-            mt = _GEMMI_MOL_TYPE.get(str(ent.polymer_type).split(".")[-1])
-            if mt is None:
-                raise ValueError(f"structure_token_coords: chain {cid} is a "
-                                 f"{ent.polymer_type} polymer, which has no protenix "
-                                 f"token representation")
-            keep = parse_crop_spec(crops.get(cid) if crops is not None else crop)
-            coord, res_name, resolved, label_seq, oxt = [], [], [], [], []
-            for res in sub:
-                if keep is not None and res.label_seq not in keep:
-                    continue
-                if not len(res):           # every atom filtered out: upstream drops the residue
-                    continue
-                rep = distogram_rep_atom(res.name, mt)
-                at = next((a for a in res if a.name == rep), None)
-                coord.append([at.pos.x, at.pos.y, at.pos.z] if at else [0.0, 0.0, 0.0])
-                res_name.append(res.name)
-                resolved.append(at is not None)
-                label_seq.append(int(res.label_seq))
-                oxt.append(any(a.name == "OXT" for a in res))
-            if not coord:
-                raise ValueError(f"structure_token_coords: chain {cid} has no residues "
-                                 f"left after the crop {crops.get(cid) if crops else crop}")
-            order = sorted(range(len(label_seq)), key=label_seq.__getitem__)
-            out[cid] = {
-                "coord": torch.tensor([coord[i] for i in order], dtype=torch.float32),
-                "res_name": [res_name[i] for i in order],
-                "mol_type": [mt] * len(order),
-                "is_resolved": torch.tensor([resolved[i] for i in order]),
-                "label_seq": [label_seq[i] for i in order],
-                "has_oxt": [oxt[i] for i in order],
-                "sequence": res_names_to_sequence([res_name[i] for i in order], mt),
-            }
-    missing = [] if want is None else [c for c in want if c not in out]
-    if missing:
-        raise ValueError(f"structure_token_coords: {path} has no polymer subchain with "
-                         f"label_asym_id {missing}; found {sorted(out)}")
+            if not len(res):           # every atom filtered out: upstream drops the residue
+                continue
+            rep = distogram_rep_atom(res.name, mt)
+            at = next((a for a in res if a.name == rep), None)
+            coord.append([at.pos.x, at.pos.y, at.pos.z] if at else [0.0, 0.0, 0.0])
+            res_name.append(res.name)
+            resolved.append(at is not None)
+            label_seq.append(int(res.label_seq))
+            oxt.append(any(a.name == "OXT" for a in res))
+        if not coord:
+            raise ValueError(f"structure_token_coords: chain {cid} has no residues "
+                             f"left after the crop {crops.get(cid) if crops else crop}")
+        order = sorted(range(len(label_seq)), key=label_seq.__getitem__)
+        out[cid] = {
+            "coord": torch.tensor([coord[i] for i in order], dtype=torch.float32),
+            "res_name": [res_name[i] for i in order],
+            "mol_type": [mt] * len(order),
+            "is_resolved": torch.tensor([resolved[i] for i in order]),
+            "label_seq": [label_seq[i] for i in order],
+            "has_oxt": [oxt[i] for i in order],
+            "sequence": res_names_to_sequence([res_name[i] for i in order], mt),
+        }
     return out
 
 
