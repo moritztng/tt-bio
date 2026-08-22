@@ -219,23 +219,36 @@ def build_openfold3_features(
     extended with `cfdb_hits` (cap 100000000, per docs/source/precomputed_msa_how_to.md)
     so the OpenFold3 S3 benchmark MSA directories, which ship `cfdb_hits.a3m`, parse.
 
-    ``openbind`` selects the two MSA featurizer fixes upstream shipped with v0.5.0 and
-    the OpenBind checkpoint: the AF3-spec ``deletion_value`` scale (2/pi, where preview2
-    used 8/pi -- exactly 4x too large) and the AF3-spec MSA ``profile`` column index
-    (np.tile, where preview2 used np.repeat and produced a permuted profile for any MSA
-    deeper than one row). Both are keyed off the checkpoint rather than simply corrected,
-    because preview2 trained for 155k steps on the uncorrected features; handing it the
-    fixed ones is an input-distribution shift on a shipped, parity-gated model. Default
-    False, so every existing preview2 fold is bit-identical.
+    ``openbind`` selects the four MSA featurizer fixes upstream shipped with v0.5.0 and
+    the OpenBind checkpoint:
 
-    Both fixes are invisible at MSA depth 1: the two deletion scales both multiply a
+    * ``deletion_value`` scale: the AF3-spec 2/pi, where preview2 used 8/pi (4x too
+      large).
+    * MSA ``profile`` column index: np.tile, where preview2 used np.repeat and produced
+      a permuted profile for any MSA deeper than one row.
+    * uppercase at parse: v0.5.0 normalizes the parsed residue letters. A no-op for a3m,
+      whose parser deletes lowercase into the deletion matrix before building the array;
+      live for .sto and pre-parsed .npz, which keep case.
+    * main-MSA dedup: v0.5.0 drops duplicate rows of the concatenated main MSA, order
+      preserving, keying on the sequence array alone. It also shifts ``profile`` and
+      ``deletion_mean``, which average over that array.
+
+    All four are keyed off the checkpoint rather than simply corrected, because preview2
+    trained for 155k steps on the uncorrected features; handing it the fixed ones is an
+    input-distribution shift on a shipped, parity-gated model. Default False, so every
+    existing preview2 fold is bit-identical.
+
+    The first two are invisible at MSA depth 1: the two deletion scales both multiply a
     zero deletion matrix, and np.tile == np.repeat when n_rows == 1. A single-sequence
     fold therefore cannot distinguish the two variants, which is why the unit gate in
-    tests/test_openbind_featurizer.py drives them with a real multi-row MSA.
+    tests/test_openbind_featurizer.py drives them with a real multi-row MSA. The dedup is
+    likewise invisible on an MSA with no duplicate rows.
     """
     if msa_settings is None:
         msa_settings = MSASettings(subsample_main=False,
-                                   af3_spec_profile_columns=openbind)
+                                   af3_spec_profile_columns=openbind,
+                                   af3_spec_uppercase_msa=openbind,
+                                   af3_spec_main_msa_dedup=openbind)
         if "cfdb_hits" not in msa_settings.max_seq_counts:
             msa_settings.max_seq_counts["cfdb_hits"] = 100000000
             msa_settings.aln_order.insert(

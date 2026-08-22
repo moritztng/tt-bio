@@ -37,6 +37,20 @@ from tt_bio._vendor.openfold3.core.data.resources.residues import (
 logger = logging.getLogger(__name__)
 
 
+def _uppercase_ascii_inplace(msa: np.ndarray) -> None:
+    """In-place uppercase ASCII a-z in a <U1 array.
+
+    Views the <U1 buffer as uint32 codepoints and flips the ASCII case bit, skipping
+    Unicode case folding (~13x faster than np.char.upper). Non-ASCII passes through.
+    """
+    # view(np.uint32) reads bytes as native-endian, so byte order must match.
+    if msa.dtype != np.dtype("<U1"):
+        raise ValueError(f"expected <U1 ndarray, got dtype={msa.dtype!r}")
+    codes = msa.view(np.uint32)
+    lowercase = (codes >= ord("a")) & (codes <= ord("z"))
+    codes[lowercase] -= 32
+
+
 @dataclasses.dataclass(frozen=False)
 class MsaArray:
     """Class representing a parsed MSA file.
@@ -58,6 +72,30 @@ class MsaArray:
     metadata: pd.DataFrame | list | np.ndarray = dataclasses.field(
         default_factory=pd.DataFrame
     )
+
+    @classmethod
+    def from_parsed(
+        cls,
+        msa: np.ndarray,
+        deletion_matrix: np.ndarray,
+        metadata=None,
+        af3_spec_uppercase: bool = False,
+    ) -> "MsaArray":
+        """Construct from externally parsed MSA data.
+
+        ``af3_spec_uppercase`` normalizes the residue letters to uppercase, which is
+        what upstream v0.5.0 does unconditionally. Keyed rather than unconditional
+        because preview2 trained on the un-normalized arrays; see
+        tt_bio.openfold3_data.build_openfold3_features.
+        """
+        if af3_spec_uppercase:
+            msa = msa.copy()
+            _uppercase_ascii_inplace(msa)
+        return cls(
+            msa=msa,
+            deletion_matrix=deletion_matrix,
+            metadata=metadata if metadata is not None else pd.DataFrame(),
+        )
 
     def __len__(self):
         return self.msa.shape[0]
