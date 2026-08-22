@@ -1537,6 +1537,52 @@ def finalize_leg(leg: Leg, verdict: str, detail: str, wall: float) -> tuple[dict
     return row, drift, ok
 
 
+# ---------------------------------------------------------------------------
+# Workdir provenance
+# ---------------------------------------------------------------------------
+# The resume cache is keyed on leg id alone (``<workdir>/<leg>.json``), so a second
+# release gate pointed at the same workdir replays the FIRST release's verdicts and
+# reports a full green tally in 0.0 minutes of wall clock. That happened on 2026-08-22:
+# the v0.6.6 cut resumed all 32 legs from the v0.6.6-rc workdir, which predated the
+# accurate-softmax default flip, and the only symptom was the wall-clock reading.
+# So the workdir records the code it was built from and the gate refuses to resume
+# across a change to it.
+_FINGERPRINT_ROOTS = ("tt_bio", "scripts")
+
+
+def code_fingerprint() -> str:
+    """sha256 over every file under tt_bio/ and scripts/ — anything that can move a number."""
+    h = hashlib.sha256()
+    for root in _FINGERPRINT_ROOTS:
+        base = REPO / root
+        for f in sorted(base.rglob("*")):
+            if not f.is_file() or "__pycache__" in f.parts:
+                continue
+            h.update(str(f.relative_to(REPO)).encode())
+            h.update(hashlib.sha256(f.read_bytes()).digest())
+    return h.hexdigest()
+
+
+def check_workdir_provenance(workdir: Path, resume: bool) -> None:
+    """Bind a workdir to one tree. Refuse a resume whose cached verdicts scored other code."""
+    stamp = workdir / "GATE_CODE.json"
+    fp = code_fingerprint()
+    if resume and stamp.exists():
+        try:
+            prev = json.loads(stamp.read_text()).get("code_fingerprint")
+        except Exception:
+            prev = None
+        if prev and prev != fp:
+            sys.exit(
+                f"REFUSING TO RESUME: {workdir} holds verdicts scored against different code.\n"
+                f"  cached  {prev}\n  current {fp}\n"
+                f"Cached per-leg reports are keyed on leg id alone, so resuming here would "
+                f"replay the other tree's results and report them as this one's.\n"
+                f"Use --fresh, or a --workdir of your own (e.g. /tmp/full_parity_gate-<sha>).")
+    stamp.write_text(json.dumps({"code_fingerprint": fp,
+                                 "roots": list(_FINGERPRINT_ROOTS)}, indent=2))
+
+
 def main() -> int:
     # Scorers, folds and predict CLIs we spawn arm their parent-death guard off this,
     # so none of them can outlive this driver still holding a card. Inherited through
@@ -1667,6 +1713,7 @@ def main() -> int:
                      "contains the requested seed(s):\n  " + "\n  ".join(unknown))
 
     resume = not args.fresh
+    check_workdir_provenance(workdir, resume)
 
     if args.margin is None:
         sys.path.insert(0, str(REPO / "scripts"))

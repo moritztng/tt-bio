@@ -128,6 +128,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   of six rows; RoseTTAFold3 reads 3.556x whole fold and 9.388x device only, because half of that
   fold is host featurisation that runs on both sides. No published cell moved. See
   `site/data/perf-512aa.json`.
+- A parity-gate workdir now records the code it scored, and the gate refuses to resume one
+  built from a different tree. The per-leg resume cache is keyed on the leg id alone and the
+  default workdir is a fixed path, so a second release gate on the same machine replayed the
+  previous release's verdicts and printed a full green tally in 0.0 minutes.
 - The UX gate covers `--model rf3`, and the perf gate has a RoseTTAFold3 entry. RF3 shipped with
   no coverage in any release gate; the UX leg found on its first run that `tt-bio predict --model
   rf3` exited on a missing dependency from a clean `pip install`, which is now fixed.
