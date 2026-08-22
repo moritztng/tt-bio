@@ -75,7 +75,7 @@ _PM_OVER_L1: set = set()
 # "bf16 softmax" conflated the storage with it.
 #
 # MEASURED on one captured RF3 triangle-attention call, all thirteen arms against an fp64 evaluation
-# of the SAME bf16 operands, so only the kernel's own error is left (perf/rf3/triatt_fused_fp32.py,
+# of the SAME bf16 operands, so only the kernel's own error is left (perf/rf3/triatt_ckc_sweep.py,
 # qb2 card 0, `--sweep ckc`; rel_rms, 512 aa then 128 aa):
 #
 #     bf16 ceiling (torch bf16 storage)        0.00163   0.00165

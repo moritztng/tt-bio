@@ -11,8 +11,11 @@ What IS in our control is that it never grows again. Largest legitimately tracke
 file today is 5.65 MB (a ColabFold MSA), so 10 MB is comfortable headroom and would
 have caught every blob above.
 """
-import subprocess
 from pathlib import Path
+
+import pytest
+
+from conftest import git_tracked
 
 REPO = Path(__file__).resolve().parent.parent
 MAX_BYTES = 10 * 1024 * 1024
@@ -28,9 +31,10 @@ BANNED_SUFFIXES = {".so", ".dylib", ".dll", ".a", ".o", ".pyd", ".whl", ".pyc",
 
 
 def _tracked():
-    out = subprocess.run(["git", "ls-files", "-z"], cwd=REPO,
-                         capture_output=True, check=True).stdout
-    return [p for p in out.decode().split("\0") if p]
+    out = git_tracked(REPO, "-z")
+    if out is None:
+        pytest.skip("not a git work tree; nothing is tracked here to be oversized")
+    return out
 
 
 def test_no_tracked_file_over_10mb():

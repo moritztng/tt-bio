@@ -8,10 +8,11 @@ test existed.
 """
 
 import re
-import subprocess
 from pathlib import Path
 
 import pytest
+
+from conftest import git_tracked
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -22,27 +23,20 @@ CITATION = re.compile(r"perf/[a-z0-9][A-Za-z0-9_.\-]*(?:/[A-Za-z0-9_.\-]+)*")
 def _tracked(*prefixes):
     """Files under *prefixes*, from git where there is a git, else from disk.
 
-    This runs at COLLECTION time (``parametrize`` calls it), so anything it
-    raises aborts the whole session, not just this file. ``git ls-files``
-    exits 128 outside a work tree, and a release gate runs the suite against a
-    ``git archive`` export with no ``.git`` in it, as does anyone running the
-    tests from an unpacked sdist. Fall back to walking the tree: it names the
-    same shipped files, minus anything untracked, which is exactly the set this
-    test wants to read anyway.
+    Unlike the two repo-hygiene guards, this one must not skip outside a work
+    tree: it reads shipped source for dangling `perf/...` citations, and those
+    files are all present in an export. Walking the tree names the same set
+    minus anything untracked, which is what this wants to read anyway.
     """
-    try:
-        out = subprocess.run(
-            ["git", "-C", str(REPO), "ls-files", *prefixes],
-            capture_output=True, text=True, check=True,
-        )
-        return out.stdout.split()
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        found = []
-        for prefix in prefixes:
-            for path in sorted((REPO / prefix).rglob("*")):
-                if path.is_file() and "__pycache__" not in path.parts:
-                    found.append(str(path.relative_to(REPO)))
-        return found
+    tracked = git_tracked(REPO, *prefixes)
+    if tracked is not None:
+        return tracked
+    found = []
+    for prefix in prefixes:
+        for path in sorted((REPO / prefix).rglob("*")):
+            if path.is_file() and "__pycache__" not in path.parts:
+                found.append(str(path.relative_to(REPO)))
+    return found
 
 
 def _perf_files():
