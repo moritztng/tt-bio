@@ -7039,9 +7039,19 @@ class PairformerModule(TorchWrapper):
                 self._cache_set("mask_tt", self._from_torch(pair_mask))
                 self._cache_set("attn_mask_start_tt", self._from_torch(pair_mask.permute(1, 0, 2).unsqueeze(2) * 1e9 - 1e9))
                 self._cache_set("attn_mask_end_tt", self._from_torch(pair_mask.permute(2, 0, 1).unsqueeze(2) * 1e9 - 1e9))
-            elif mask is not None or pad:
+            elif mask is not None or pair_mask is not None or pad:
                 # Non-affinity: 1D mask → additive [1,1,1,S], pair_mask [1,S,S] for TriangleMul
-                mask_1d = mask if mask is not None else z.new_ones(1, seq_len)
+                # A caller-supplied pair mask in this model family is always an outer
+                # product m[:,:,None]*m[:,None,:], so its diagonal recovers the 1-D token
+                # mask. Recover it rather than building the reference's full 2-D attention
+                # bias: the chunked TriangleAttention path only row-slices a per-row bias
+                # when affinity=True, so a [S,1,1,S] bias would be wrong at large S.
+                mask_1d = mask
+                if mask_1d is None:
+                    mask_1d = (
+                        torch.diagonal(pair_mask, dim1=-2, dim2=-1)
+                        if pair_mask is not None else z.new_ones(1, seq_len)
+                    )
                 if pad:
                     mask_1d = torch.nn.functional.pad(mask_1d, (0, pad))
                     if pair_mask is not None:
@@ -7796,9 +7806,15 @@ class TemplateRecycle:
         self.z_proj_w = w(template_module.z_proj.weight, transpose=True)  # token_z -> template_dim
         self.u_proj_w = w(template_module.u_proj.weight, transpose=True)  # template_dim -> token_z
 
-    def precompute(self, feats, pair_mask_unpad, seq_len, seq_pad):
-        """Host once-per-protein: a_tij (padded, uploaded per present template) plus
-        the padding-only masks the template pairformer uses (it is called mask-free)."""
+    def precompute(self, feats, pair_mask_unpad, seq_pad, mask_tt, attn_tt):
+        """Host once-per-protein: a_tij, padded and uploaded per present template.
+
+        `mask_tt`/`attn_tt` are the trunk's own pair mask and attention bias
+        (`TrunkModule.forward`), which is exactly what the reference hands this
+        pairformer: `TemplateModule.forward` calls `self.pairformer(v, pair_mask)`
+        with the trunk's `pair_mask`, expanded over the template axis. Taking them
+        rather than rebuilding keeps one mask recipe for the whole resident trunk.
+        """
         device = get_device()
         a_tij, template_mask, num_templates, _, _, T = self.tmpl.template_features(
             feats, pair_mask_unpad
@@ -7811,22 +7827,6 @@ class TemplateRecycle:
                             device=device, dtype=ttnn.bfloat16)
             for t in present
         ]
-        # template pairformer is called without a mask -> padding-only masks (mirror
-        # PairformerModule.forward's no-mask branch); None when no padding.
-        # `mask_tt` must be the 2-D outer product, not the 1-D token mask: the
-        # TriangleMultiplications broadcast it along the second token axis only, so a
-        # 1-D mask leaves the incoming variant summing the padded rows in. Same defect
-        # and same fix as PairformerModule.forward above -- this is the resident-trunk
-        # copy of that mask recipe, and the resident trunk is the shipped Boltz-2 path.
-        if seq_pad:
-            mask_1d = a_tij.new_ones(1, seq_len + seq_pad)
-            mask_1d[:, seq_len:] = 0.0
-            mask_tt = ttnn.from_torch(mask_1d[:, :, None] * mask_1d[:, None, :],
-                                      layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
-            attn_tt = ttnn.from_torch((1 - mask_1d).unsqueeze(1).unsqueeze(1) * -1e9,
-                                      layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
-        else:
-            mask_tt = attn_tt = None
         return {"a_tij_tt": a_tij_tt, "num_templates": float(num_templates[0]),
                 "mask_tt": mask_tt, "attn_tt": attn_tt}
 
@@ -7895,11 +7895,13 @@ class TokenDistanceRecycle:
         self.z_proj_w = w(token_distance_module.z_proj.weight, transpose=True)
         self.u_proj_w = w(token_distance_module.u_proj.weight, transpose=True)
 
-    def precompute(self, feats, relative_position_encoding, seq_len, seq_pad):
-        """Host once-per-protein: a_ij = a_proj(distance features), padded + uploaded,
-        plus the padding-only mask/attn-bias its inner pairformer uses (mirrors
-        TemplateRecycle.precompute: called with mask=None, so only the tile-padding
-        is masked, not the real per-token mask)."""
+    def precompute(self, feats, relative_position_encoding, seq_pad, mask_tt, attn_tt):
+        """Host once-per-protein: a_ij = a_proj(distance features), padded + uploaded.
+
+        `mask_tt`/`attn_tt` are the trunk's own pair mask and attention bias, which is
+        what `TokenDistanceModule.forward` hands this pairformer in the reference
+        (`self.pairformer(v, pair_mask)`).
+        """
         device = get_device()
         mod = self.mod
         token_distance_mask = feats["token_distance_mask"]
@@ -7919,14 +7921,6 @@ class TokenDistanceRecycle:
         if seq_pad:
             a_ij = torch.nn.functional.pad(a_ij, (0, 0, 0, seq_pad, 0, seq_pad))
         a_ij_tt = ttnn.from_torch(a_ij, layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
-        if seq_pad:
-            mask_1d = a_ij.new_ones(1, seq_len + seq_pad)
-            mask_1d[:, seq_len:] = 0.0
-            mask_tt = ttnn.from_torch(mask_1d, layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
-            attn_tt = ttnn.from_torch((1 - mask_1d).unsqueeze(1).unsqueeze(1) * -1e9,
-                                      layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
-        else:
-            mask_tt = attn_tt = None
         return {"a_ij_tt": a_ij_tt, "mask_tt": mask_tt, "attn_tt": attn_tt}
 
     def __call__(self, z, td):
@@ -8028,6 +8022,9 @@ class TrunkModule(TorchWrapper):
         m_p = pad(m, (0, 0, 0, seq_pad, 0, msa_pad)) if (seq_pad or msa_pad) else m
 
         # ---- Pairformer masks (mirror PairformerModule.forward, non-affinity) ----
+        # One recipe for the whole resident trunk: the template and token-distance
+        # stages take these same two tensors, because the reference hands their inner
+        # pairformers the trunk's `pair_mask` too.
         token_mask = feats["token_pad_mask"].float()
         pair_mask = token_mask[:, :, None] * token_mask[:, None, :]
         pair_mask_unpad = pair_mask  # unpadded [B, seq_len, seq_len] for the template module
@@ -8065,7 +8062,8 @@ class TrunkModule(TorchWrapper):
             and bool(tm.any().item())
         )
         tmpl_static = (
-            self.template_recycle.precompute(feats, pair_mask_unpad, seq_len, seq_pad)
+            self.template_recycle.precompute(feats, pair_mask_unpad, seq_pad,
+                                             pf_mask_tt, pf_attn_tt)
             if has_templates else None
         )
 
@@ -8095,7 +8093,7 @@ class TrunkModule(TorchWrapper):
         has_token_distance = self.token_distance_recycle is not None
         token_distance_static = (
             self.token_distance_recycle.precompute(
-                feats, relative_position_encoding, seq_len, seq_pad
+                feats, relative_position_encoding, seq_pad, pf_mask_tt, pf_attn_tt
             )
             if has_token_distance else None
         )

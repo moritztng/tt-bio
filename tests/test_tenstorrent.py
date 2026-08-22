@@ -55,6 +55,33 @@ def test_template_pairformer(seq_len):
     check(tt(None, z)[1], ref(z, torch.ones(1, seq_len, seq_len)))
 
 
+@pytest.mark.parametrize("seq_len", [100, 512])
+def test_template_pairformer_masked(seq_len):
+    """The template pairformer with the real pair mask, not just tile padding.
+
+    `TemplateModule.forward` hands its pairformer the trunk's `pair_mask`; both device
+    template paths used to drop it and mask their own tile padding only. seq_len 512 is
+    a multiple of PAIRFORMER_PAD_MULTIPLE, so there is no tile padding at all and the
+    caller's mask is the only one there is.
+    """
+    tt, ref = PairformerModule(2, 32, 4, None, None, transform_s=False), PairformerNoSeqModuleTorch(64, 2).eval()
+    load(tt, ref, STATE, "template_module.pairformer")
+
+    z = 26 * torch.randn(1, seq_len, seq_len, 64)
+    mask = torch.ones(1, seq_len)
+    mask[0, : seq_len // 2] = 0
+    mask = mask[:, torch.randperm(seq_len)]
+    pair_mask = mask[:, :, None] * mask[:, None, :]
+
+    z_tt, z_ref = tt(None, z, pair_mask=pair_mask)[1], ref(z, pair_mask)
+    keep = mask[0].bool()
+    # masked rows and columns are discarded downstream, and being unconstrained they
+    # dominate a whole-tensor median; score the block the model actually consumes.
+    # 0.02, not the default 0.1: on main this rung reads 7.6e-02 at 100 and 1.1e-01 at
+    # 512, so the default bar would have let the unmasked-attention leak through at 100.
+    check(z_tt[:, keep][:, :, keep], z_ref[:, keep][:, :, keep], tol=0.02)
+
+
 @pytest.mark.parametrize("seq_len", [100, 500])
 def test_affinity_pairformer(seq_len):
     tt, ref = PairformerModule(4, 32, 4, None, None, transform_s=False, affinity=True), PairformerNoSeqModuleTorch(128, 4, v2=True).eval()
