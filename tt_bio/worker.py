@@ -104,13 +104,14 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
         cfg["protenix_ckpt"] = str(weights.fetch("protenix-v2"))
         cfg["mol_dir"] = str(weights.fetch("mols"))    # CCD templates for nucleic acids / ligands
         return
-    # OpenFold3: the p2 preview weights are distributed by the OpenFold consortium and
-    # tt-bio deliberately does not download them (no parameter licence published), so
-    # this row is verify-only: $TT_BIO_OPENFOLD3 / $OF3_CKPT or the local cache, and a
-    # truncated copy is reported as such instead of dying inside torch.load.
-    if cfg.get("model") == "openfold3":
+    # OpenFold3 / OpenBind: neither checkpoint is downloaded (no parameter licence
+    # published), so these rows are verify-only -- $TT_BIO_OPENFOLD3 / $OF3_CKPT or
+    # $TT_BIO_OPENBIND, else the local cache, and a truncated copy is reported as such
+    # instead of dying inside torch.load. The artifact key is the model id, so the
+    # right checkpoint follows from --model with no second mapping to keep in sync.
+    if cfg.get("model") in _of3_family():
         cfg["msa_dir"] = _resolve_msa_dir(cfg.get("msa_dir"), cache)
-        cfg["of3_ckpt"] = str(weights.fetch("openfold3"))
+        cfg["of3_ckpt"] = str(weights.fetch(cfg["model"]))
         tmpl_struct_dir = Path(
             os.environ.get("OF3_TEMPLATE_STRUCTURES")
             or str(cache / "of3_template_structures"))
@@ -346,6 +347,17 @@ def _is_saprot_model(model_id: str) -> bool:
     return model_id in SAPROT_MODELS
 
 
+def _of3_family() -> tuple[str, ...]:
+    """The --model ids the OpenFold3 implementation serves (preview2 and OpenBind).
+
+    Imported lazily like the two predicates below: tt_bio.main imports this module,
+    so a module-level import would be a cycle.
+    """
+    from tt_bio.main import OF3_FAMILY
+
+    return OF3_FAMILY
+
+
 def _is_embed_model(model_id: str) -> bool:
     """True for any model this worker serves through the embed path.
 
@@ -470,7 +482,7 @@ class _WorkerState:
             from tt_bio.protenix import Protenix
 
             self.model = Protenix.load_from_checkpoint(cfg["protenix_ckpt"])
-        elif model_id == "openfold3":
+        elif model_id in _of3_family():
             import ttnn
 
             from tt_bio.openfold3_fold import OpenFold3
@@ -600,7 +612,7 @@ class _WorkerState:
             return self._predict_opendde_one(path, cfg)
         if cfg.get("model") == "protenix-v2":
             return self._predict_protenix_one(path, cfg)
-        if cfg.get("model") == "openfold3":
+        if cfg.get("model") in _of3_family():
             return self._predict_openfold3_one(path, cfg)
         if cfg.get("model") == "rf3":
             return self._predict_rf3_one(path, cfg)

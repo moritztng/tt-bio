@@ -334,6 +334,10 @@ DEFAULT_MODELS = list(SPECS)
 # _assert_full_model_coverage, which enforces that nothing falls through this
 # dict AND the SPECS dict silently.
 SPECS_EXEMPT: dict[str, str] = {
+    "openbind": "port in progress on wk/openbind-port-p1-parity -- no baseline can be "
+                "seeded before the featurizer and ligand legs land, since both change "
+                "what a fold does. The baseline is owned by the openbind-perf-deep-"
+                "analysis stream; remove this entry when it seeds one.",
     "saprot-35m": "not yet seeded -- TODO: measure and add a SPECS entry (own "
                   "checkpoint, embed shape identical to saprot-650m)",
     "saprot-1.3b": "not yet seeded -- TODO: measure and add a SPECS entry (own "
