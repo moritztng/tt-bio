@@ -186,16 +186,27 @@ def one_trial(args, i, workdir):
         rec["grid"] = c.get("grid")
     except Exception as e:
         rec["grid"] = f"<{e}>"
-    try:
-        from tt_bio.main import predict_results_dir_name
-        rp = out_dir / predict_results_dir_name(args.model, fixture.stem) / "results.json"
-        rows = json.loads(rp.read_text())
-        ts = [r["runtime_s"] for r in rows
-              if r.get("status") == "ok" and r.get("runtime_s") is not None]
-        rec["runtime_s"] = max(ts) if ts else None
-    except Exception:
+    # Glob rather than reconstruct the results-dir name: one fewer thing to get
+    # wrong, and no import of tt_bio in the probe process. Record WHY it failed
+    # instead of a silent None -- an unexplained None reads as "the fold produced
+    # no timing" when it may just be a bad path.
+    hits = sorted(out_dir.glob("*/results.json"))
+    if not hits:
         rec["runtime_s"] = None
-    subprocess.run(f"rm -rf {out_dir}", shell=True)
+        rec["runtime_s_why"] = f"no */results.json under {out_dir.name}"
+    else:
+        try:
+            rows = json.loads(hits[0].read_text())
+            ts = [r["runtime_s"] for r in rows
+                  if r.get("status") == "ok" and r.get("runtime_s") is not None]
+            rec["runtime_s"] = max(ts) if ts else None
+            if not ts:
+                rec["runtime_s_why"] = f"no ok row with runtime_s in {hits[0].name}"
+        except Exception as e:
+            rec["runtime_s"] = None
+            rec["runtime_s_why"] = f"{type(e).__name__}: {e}"
+    if not args.keep:
+        subprocess.run(f"rm -rf {out_dir}", shell=True)
     return rec
 
 
@@ -208,6 +219,8 @@ def main():
     ap.add_argument("--gap", type=float, default=20.0)
     ap.add_argument("--card", type=int, default=3)
     ap.add_argument("--force-grid", default="")
+    ap.add_argument("--keep", action="store_true",
+                    help="keep each fold's out_dir as evidence")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
     workdir = Path(args.out)
