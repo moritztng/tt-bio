@@ -70,7 +70,7 @@ class MSAModuleBlock:
     single source of truth for the OF3 block ordering.
     """
 
-    def __init__(self, block_remap, compute_kernel_config):
+    def __init__(self, block_remap, compute_kernel_config, transpose_bias: bool = True):
         ckc = compute_kernel_config
         self.opm = OuterProductMean(block_remap["outer_product_mean"], ckc,
                                   scale_bias=True)
@@ -84,7 +84,7 @@ class MSAModuleBlock:
         # Boltz convention and was root-caused as the OF3 MSA z-track degradation.
         self.pair_stack = PairformerLayer(
             *_MSA_TRI_DIMS, None, None, False, block_remap["pair_stack"], ckc,
-            scale_pair_bias=False, fp32_softmax=True,
+            scale_pair_bias=False, fp32_softmax=True, transpose_bias=transpose_bias,
             accurate_softmax=accurate_softmax_site("openfold3.msa"))
 
     def __call__(self, m, z):
@@ -110,9 +110,9 @@ class MSAModule:
     s_trunk/z_trunk rather than chasing it further.
     """
 
-    def __init__(self, state_dict, compute_kernel_config):
+    def __init__(self, state_dict, compute_kernel_config, transpose_bias: bool = True):
         self.blocks = [
-            MSAModuleBlock(b, compute_kernel_config)
+            MSAModuleBlock(b, compute_kernel_config, transpose_bias=transpose_bias)
             for b in remap_msa_module(state_dict, prefix="msa_module")
         ]
 

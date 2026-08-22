@@ -1191,7 +1191,10 @@ def map_row_ids_to_msa_arrays(
 
 @log_runtime_memory(runtime_dict_key="runtime-msa-proc-create-main-profile")
 def calculate_profile(
-    msa_array: np.ndarray, molecule_type: MoleculeType, chunk_size: int
+    msa_array: np.ndarray,
+    molecule_type: MoleculeType,
+    chunk_size: int,
+    af3_spec_columns: bool = False,
 ) -> np.ndarray:
     """Calculates the fractions of residue occurences per character per column.
 
@@ -1221,7 +1224,18 @@ def calculate_profile(
         # Flatten subarray (size = n_rows * block_n_cols)
         val_indices = msa_chunk.ravel()  # row-major flatten by default
         # Build local col_indices of the same flattened shape
-        col_indices_local = np.repeat(np.arange(block_n_cols), n_rows)
+        # tt-bio: `msa_chunk.ravel()` above is row-major, so the column index of flat
+        # position k is k % block_n_cols -- which is np.tile, not np.repeat (np.repeat
+        # gives k // n_rows). With np.repeat the per-column profile comes out permuted
+        # for any MSA deeper than one row, and `profile` is a live feature: it is
+        # concatenated into s_input (worker.py, [ai, restype, profile, deletion_mean]).
+        # Upstream v0.5.0 fixed this to np.tile. Keyed off the checkpoint rather than
+        # fixed outright, for the same reason as af3_spec_deletion_value: preview2 was
+        # trained on the permuted profile. Note both branches agree at n_rows == 1, so
+        # a single-sequence fold cannot tell them apart.
+        col_indices_local = (np.tile(np.arange(block_n_cols), n_rows)
+                             if af3_spec_columns
+                             else np.repeat(np.arange(block_n_cols), n_rows))
         # Now each col in this chunk is offset from the "absolute" col_start, but for
         # bincount we just care about "relative" indexing from 0...(block_n_cols-1). We
         # combine into a single 1D array: offset + val Where offset = col_indices_local

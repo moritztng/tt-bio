@@ -10,6 +10,9 @@ It is parity-gated against the official CPU reference on seven legs — see
 [`implementation-parity.md`](implementation-parity.md) for the numbers, the noise
 floors, and how to reproduce them.
 
+The same code also runs **OpenBind-0** as `--model openbind`, on upstream's `v0.5.0`
+checkpoint, which adds protein-ligand co-folding. See [OpenBind-0](#openbind-0) below.
+
 ## Weights
 
 OpenFold3 is the one model tt-bio does not download for you. Fetch the consortium's
@@ -77,11 +80,64 @@ defect it found, which is fixed.
 | recycling | ported; `--recycling_steps` default 3, i.e. 4 trunk cycles (the upstream default) |
 | sample ranking | ported; confidence-selected best of N, all samples kept |
 | multi-card `--devices` | ported, same fan-out as Protenix-v2 |
-| ligands (SMILES/CCD) | **not supported** — polymer chains only, loud error |
+| ligands (SMILES/CCD) | `--model openbind` only. `--model openfold3` is polymer-only and raises, pointing at `openbind` |
 | covalent bonds / `constraints:` | **not supported** — loud error; the fold would otherwise ignore them |
 | paired MSA | **not ported** — complexes fold on per-chain unpaired MSAs |
 | `--write_pae` | **not supported** — the confidence head computes PAE logits but the fold does not return the matrices |
 | `--fast` | not gated for OpenFold3; it is a Boltz-2/ESMFold2 lever and no OF3 parity leg runs with it |
+
+## OpenBind-0
+
+OpenBind-0 is upstream's protein-ligand model. It is not a separate codebase: it ships in
+the same repo at tag `v0.5.0`, and tt-bio runs it through the same modules as
+`--model openbind`, selecting everything that differs off the checkpoint.
+
+```bash
+curl -o ~/.boltz/of3-ob-2025-06-30-174k.pt \
+  https://openfold3-data.s3.amazonaws.com/openfold3-parameters/of3-ob-2025-06-30-174k.pt
+
+tt-bio predict examples/affinity.yaml --model openbind
+```
+
+### Why it is a separate `--model` and not a flag
+
+The two checkpoints differ by exactly one weight key. Measured on both files: 4887 shared
+tensors, zero shape mismatches, and 48 per-block
+`diffusion_transformer.blocks.N.attention_pair_bias.layer_norm_z` traded for one shared
+`diffusion_transformer.layer_norm_z`. Upstream bumped `MODEL_VERSION` to 2.0.0 for it, and
+it is the whole reason preview2 weights do not load on `v0.5.0` or later.
+
+Two more `v0.5.0` changes carry no weights of their own, so the checkpoint has to select
+them: the ending-node triangle-attention bias is built from the untransposed pair
+(AF3 Algorithm 15) rather than the transposed one, and two MSA features are corrected —
+`deletion_value` is scaled by 2/pi instead of 8/pi, and the MSA profile's column index is
+built with `np.tile` instead of `np.repeat`, which preview2 permuted for any MSA deeper
+than one row.
+
+Those last two are why this is a separate model id rather than an upgrade. preview2 trained
+for 155k steps on the uncorrected features, so they are the input distribution its weights
+learned. Feeding preview2 the corrected features would shift that distribution on a shipped,
+parity-gated model; feeding OpenBind the preview2 features is the same mistake mirrored.
+Neither checkpoint can share one featurizer, so both keep their own.
+
+### What OpenBind adds
+
+| capability | status |
+|---|---|
+| ligands, SMILES or CCD code | ported. `ligand: {smiles: ...}` or `ligand: {ccd: ...}` in the YAML, same schema as `boltz2` / `protenix-v2` |
+| everything `openfold3` supports | inherited unchanged: protein / RNA / DNA, MSA, per-chain templates, recycling, sample ranking, multi-card |
+| covalent bonds / `constraints:` | **not supported** — loud error, same as `openfold3` |
+| binding affinity | **not predicted.** A `properties: affinity` block is not answered and warns; use `--model boltz2` for affinity |
+| chemical steering | **not in `v0.5.0`.** The OpenBind announcement describes chemical steering during diffusion sampling; it is not in the released code (no module, no flag, no config key), so tt-bio has nothing to run for it |
+
+### Accuracy
+
+Not yet established. The structural-accuracy legs against the upstream `v0.5.0` reference
+have not been run, so OpenBind has no row in
+[`implementation-parity.md`](implementation-parity.md) and no perf-page entry. Ligand
+geometry is sane end to end — benzene folds as a planar hexagon with 1.39-1.42 Å bonds and
+2.81-2.83 Å para distances, and CCD ATP comes out with all 31 heavy atoms and no clashes —
+but that is a plumbing check, not an accuracy claim.
 
 ## Precision
 
