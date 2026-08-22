@@ -89,17 +89,21 @@ PER_MODEL_TIMEOUT_S = 900
 ABAG_MODEL_TIMEOUT_S = 1800
 
 FOLD_MODELS = ["boltz2", "esmfold2", "esmfold2-fast", "protenix-v2", "openfold3",
-               "opendde", "opendde-abag"]
+               "opendde", "opendde-abag", "rf3"]
 # OpenFold3 is the one fold model whose weights tt-bio does not download (see
 # NOTICE #6). main() refuses to start an openfold3 leg without a resolvable
 # checkpoint rather than skipping it: a shipped --model choice with no UX
 # coverage is the opendde-abag failure mode RELEASING.md describes.
 OF3_CKPT_DEFAULT = Path.home() / ".boltz" / "of3-p2-155k.pt"
+# rf3 downloads its own weights on first use, but a release gate must not sit on a
+# multi-GB fetch mid-leg, so main() requires it resolvable up front, same as openfold3.
+RF3_CKPT_DEFAULT = (Path.home() / ".boltz" / "rf3"
+                    / "rf3_foundry_01_24_latest_remapped.ckpt")
 # MSA-dependent models get --single_sequence so the gate is offline + deterministic
 # (no ColabFold server round-trip). esmfold2 / esmfold2-fast are single-seq by design.
 # opendde-abag rides the same MSA-dependent path as opendde (only the checkpoint
 # differs — opendde_abag.pt vs opendde.pt), so it gets --single_sequence too.
-MSA_DEPENDENT = {"boltz2", "protenix-v2", "openfold3", "opendde", "opendde-abag"}
+MSA_DEPENDENT = {"boltz2", "protenix-v2", "openfold3", "opendde", "opendde-abag", "rf3"}
 # opendde-abag is the antibody-antigen checkpoint, so it is gated on the canonical
 # Ab-Ag fixture 1ahw_abag.yaml (the same SAbDab/PDB 1ahw target the benchmark uses
 # elsewhere) instead of trpcage. Every other fold model uses trpcage.
@@ -1109,6 +1113,12 @@ def main() -> int:
         sys.exit(f"missing affinity fixture {AFFINITY_SPEC}")
     if not DESIGN_SPEC.exists() and design_models:
         sys.exit(f"missing design fixture {DESIGN_SPEC}")
+    if "rf3" in fold_models and not (
+            os.environ.get("RF3_CKPT") or RF3_CKPT_DEFAULT.exists()):
+        sys.exit(f"missing rf3 checkpoint: set RF3_CKPT, place it at "
+                 f"{RF3_CKPT_DEFAULT}, or fetch it with `tt-bio weights --download rf3`. "
+                 f"Refusing to skip: rf3 is a shipped --model choice, and skipping it is "
+                 f"how a model ends up in a release with no UX coverage at all.")
     if "openfold3" in fold_models and not (
             os.environ.get("OF3_CKPT") or OF3_CKPT_DEFAULT.exists()):
         sys.exit(f"missing openfold3 checkpoint: set OF3_CKPT or place the OpenFold3 "
