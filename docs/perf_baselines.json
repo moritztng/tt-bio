@@ -709,6 +709,26 @@
               "tt_bio_version": "0.6.2",
               "date": "2026-08-07",
               "note": "seed p150a/tt-quietbox openfold3 baseline, v0.6.2, quiet host, fp32-DM default"
+            },
+            "rf3": {
+              "unit": "structures/s",
+              "direction": "higher",
+              "value": 0.090937,
+              "latency_ms": 10996.68,
+              "input": "trpcage (20 aa, single-seq)",
+              "sampling_steps": 10,
+              "diffusion_samples": 1,
+              "recycling_steps": 1,
+              "num_timesteps": null,
+              "num_designs": null,
+              "warmup": 2,
+              "repeat": 5,
+              "hardware": "blackhole",
+              "card_type": "p150a",
+              "machine_id": "tt-quietbox",
+              "tt_bio_version": "0.6.5",
+              "date": "2026-08-22",
+              "note": "seed rf3 on qb1: the host the release gate runs on"
             }
           },
           "date": "2026-08-17",
