@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import torch
 
-from tt_bio.tenstorrent import _TRANSPOSE_L1_RESERVE_PER_CORE
+from tt_bio.tenstorrent import _TRANSPOSE_L1_RESERVE_PER_CORE, accurate_softmax_site
 
 #: RF3 block-relative name -> tt-bio block-relative name.
 #: Triangle multiplication is absent because its six weights already match.
@@ -198,14 +198,20 @@ PAIRFORMER_DIMS = (32, 4, 24, 16)
 # DRAM against 1.7 into L1, and at 48 blocks x 10 recycles that is 2.6 s of a 61 s fold.
 # Bit-exact: a memory config cannot change a value, and it is measured with torch.equal rather
 # than argued.
-#: `accurate_softmax` is RF3-only on purpose. `ttnn.softmax` returns rows summing to
-#: 0.9769, and that uniform deficit does not cancel in `probs @ v`, which is the whole of
-#: AttentionPairBias's 13.43x on RF3's pairformer. AttentionPairBias is shared with
-#: ESMFold2, OpenFold3, Protenix-v2, OpenDDE and every diffusion DiT, and the fix costs
-#: 4.22x on the softmax, so flipping it on for them needs their own parity anchors and
-#: perf cells scored first.
+#: `accurate_softmax` is RF3-only on purpose, and it is on for AttentionPairBias only.
+#: `ttnn.softmax` returns rows summing to 0.9769, and that uniform deficit does not cancel in
+#: `probs @ v`, which is the whole of AttentionPairBias's 13.43x on RF3's pairformer.
+#: AttentionPairBias is shared with ESMFold2, OpenFold3, Protenix-v2, OpenDDE and every
+#: diffusion DiT, and the fix costs 4.22x on the softmax, so flipping it on for them needs
+#: their own parity anchors and perf cells scored first.
+#: `tri_att_accurate_softmax=False` keeps the chain off triangle attention, which is where the
+#: 13.43x was never measured and where the volume is. The flag exists because widening
+#: `accurate_softmax` onto triangle attention reached RF3 by accident and cost 1.376x on the
+#: published 512 aa cell (81.05 s -> 111.57 s) plus a moved CIF digest; RF3 was the only model
+#: both on the fp32_softmax route and already opted into `accurate_softmax` for the other site.
 PAIRFORMER_FLAGS = dict(scale_pair_bias=True, fp32_softmax=True, transpose_bias=False,
                         gated_move=True, accurate_softmax=True,
+                        tri_att_accurate_softmax=accurate_softmax_site("rf3.tri_att"),
                         transpose_l1_reserve=_TRANSPOSE_L1_RESERVE_PER_CORE)
 
 
