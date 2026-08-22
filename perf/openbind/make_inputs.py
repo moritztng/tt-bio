@@ -35,6 +35,15 @@ CDK2_298 = ("MENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLL
 
 SIZES = (128, 256, 512, 768, 1024)
 
+# Tile-alignment probes, protein only. Every rung in SIZES is a multiple of 32 AND of 128, which is
+# the most favourable shape family this trunk has, so a lever scored only there is scored on its
+# best case (`one-size-tuning-is-a-standing-defect-class`). 547 is the token count the 512 aa + STU
+# cell lands on; reached here with no ligand at all, it separates the raggedness from the ligand and
+# from the +1 bucket step. 544 (17x32) and 576 (18x32) bracket it, so a cost step between 544 and
+# 547 is three residues and nothing else.
+TILE_SIZES = (544, 547, 576)
+
+
 # Ligands by CCD code, so no SMILES is transcribed by hand and both arms resolve the same
 # component from the same chemical component dictionary. Sizes below are the formula heavy-atom
 # counts; the harness re-derives the count from the featurised batch and records the measured
@@ -102,7 +111,7 @@ def to_tt_yaml(spec: dict) -> str:
 def main() -> None:
     out = pathlib.Path(__file__).parent / "inputs"
     out.mkdir(parents=True, exist_ok=True)
-    specs = [apo_spec(n) for n in SIZES]
+    specs = [apo_spec(n) for n in SIZES + TILE_SIZES]
     for n, tags in LIGAND_LENGTHS:
         for tag, ccd, heavy in LIGANDS:
             if tag in tags:
