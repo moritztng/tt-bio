@@ -1,0 +1,15 @@
+{"trial": 0, "label": "protenix-v2-640-t0", "force_grid": null, "card": 0, "host": "pc", "wall": 88.1, "rc": 0, "outcome": "CLEAN", "grid": "13x10", "runtime_s": 74.6}
+{"trial": 1, "label": "protenix-v2-640-t1", "force_grid": null, "card": 0, "host": "pc", "wall": 84.1, "rc": 0, "outcome": "CLEAN", "grid": "13x10", "runtime_s": 68.4}
+{"trial": 2, "label": "protenix-v2-640-t2", "force_grid": null, "card": 0, "host": "pc", "wall": 84.1, "rc": 0, "outcome": "CLEAN", "grid": "13x10", "runtime_s": 68.8}
+{"trial": 3, "label": "protenix-v2-640-t3", "force_grid": null, "card": 0, "host": "pc", "wall": 80.1, "rc": 0, "outcome": "CLEAN", "grid": "13x10", "runtime_s": 68.2}
+{"trial": 4, "label": "protenix-v2-640-t4", "force_grid": null, "card": 0, "host": "pc", "wall": 80.1, "rc": 0, "outcome": "CLEAN", "grid": "13x10", "runtime_s": 67.7}
+{"trial": 5, "label": "protenix-v2-640-t5", "force_grid": null, "card": 0, "host": "pc", "wall": 80.1, "rc": 0, "outcome": "CLEAN", "grid": "13x10", "runtime_s": 68.9}
+{"trial": 6, "label": "protenix-v2-640-t6", "force_grid": null, "card": 0, "host": "pc", "wall": 80.1, "rc": 0, "outcome": "CLEAN", "grid": "13x10", "runtime_s": 67.6}
+{"trial": 7, "label": "protenix-v2-640-t7", "force_grid": null, "card": 0, "host": "pc", "wall": 80.1, "rc": 0, "outcome": "CLEAN", "grid": "13x10", "runtime_s": 69.3}
+{"trial": 8, "label": "protenix-v2-640-t8", "force_grid": null, "card": 0, "host": "pc", "wall": 84.1, "rc": 0, "outcome": "CLEAN", "grid": "13x10", "runtime_s": 69.2}
+{"trial": 9, "label": "protenix-v2-640-t9", "force_grid": null, "card": 0, "host": "pc", "wall": 80.1, "rc": 0, "outcome": "CLEAN", "grid": "13x10", "runtime_s": 68.3}
+{"trial": 10, "label": "protenix-v2-640-t10", "force_grid": null, "card": 0, "host": "pc", "wall": 80.1, "rc": 0, "outcome": "CLEAN", "grid": "13x10", "runtime_s": 68.5}
+{"trial": 11, "label": "protenix-v2-640-t11", "force_grid": null, "card": 0, "host": "pc", "wall": 80.1, "rc": 0, "outcome": "CLEAN", "grid": "13x10", "runtime_s": 68.6}
+{"trial": 12, "label": "protenix-v2-640-t12", "force_grid": null, "card": 0, "host": "pc", "wall": 80.1, "rc": 0, "outcome": "CLEAN", "grid": "13x10", "runtime_s": 68.6}
+{"trial": 13, "label": "protenix-v2-640-t13", "force_grid": null, "card": 0, "host": "pc", "wall": 80.1, "rc": 0, "outcome": "CLEAN", "grid": "13x10", "runtime_s": 68.8}
+{"trial": 14, "label": "protenix-v2-640-t14", "force_grid": null, "card": 0, "host": "pc", "wall": 84.1, "rc": 0, "outcome": "CLEAN", "grid": "13x10", "runtime_s": 69.3}
