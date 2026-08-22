@@ -63,7 +63,11 @@ def run_leg(a, arm: str, seed: int, tag: str) -> dict:
     dump = a.workdir / f"dump_{tag}"
     dump.mkdir(parents=True, exist_ok=True)
     env = dict(os.environ)
-    env["TT_BIO_SDPA_WIDE_K"] = "1" if arm == "on" else "0"
+    lever_env = {"widek": "TT_BIO_SDPA_WIDE_K",
+                 "k6": "TT_BIO_SDPA_ONE_K_CHUNK"}[a.lever]
+    # both off on an off leg, so neither lever can ride in on the other's default
+    env["TT_BIO_SDPA_WIDE_K"] = env["TT_BIO_SDPA_ONE_K_CHUNK"] = "0"
+    env[lever_env] = "1" if arm == "on" else "0"
     env["TT_VISIBLE_DEVICES"] = str(a.card)
     env["TT_BIO_LEASE_HOLDER"] = a.holder
     env["WIDEK_DUMP"] = str(dump)
@@ -92,6 +96,11 @@ def main() -> int:
     ap.add_argument("--input", required=True)
     ap.add_argument("--card", required=True)
     ap.add_argument("--holder", default="worker:triatt-sdpa-wide-k-envelope-gate")
+    ap.add_argument("--lever", default="widek", choices=("widek", "k6"),
+                    help="widek: TT_BIO_SDPA_WIDE_K, the K5 ladder, which only fires at the 20 "
+                         "padded lengths whose shipped k_chunk fails to divide them. k6: "
+                         "TT_BIO_SDPA_ONE_K_CHUNK, one k chunk at EVERY length up to padded 768. "
+                         "The two overlap only where the shipped pick already fails to divide.")
     ap.add_argument("--seeds", default="0,1,2")
     ap.add_argument("--workdir", type=Path, required=True)
     ap.add_argument("--repeat-seed", type=int, default=None,
@@ -127,8 +136,20 @@ def main() -> int:
         rec["mean_wall_off_s"] = round(m_off, 3)
         rec["mean_wall_on_s"] = round(m_on, 3)
         rec["speedup"] = round(m_off / m_on, 4)
-        rec["arm_took"] = all(l["wide_k_served"] > 0 for l in on)
-        rec["arm_off_clean"] = all(l["wide_k_served"] == 0 for l in off)
+        def kchunks(leg):
+            return {shape: pick[1] for shape, pick in leg["picks"].items()}
+        if a.lever == "k6":
+            base = kchunks(off[0])
+            rec["k_chunks_off"] = base
+            rec["k_chunks_on"] = kchunks(on[0])
+            # every shape the fold presents must have moved, or part of its triangle traffic is
+            # sitting at an unaffected length and the null is not readable as a null
+            rec["arm_took"] = bool(base) and all(
+                kchunks(l) and all(kchunks(l)[sh] != base[sh] for sh in base) for l in on)
+            rec["arm_off_clean"] = all(kchunks(l) == base for l in off)
+        else:
+            rec["arm_took"] = all(l["wide_k_served"] > 0 for l in on)
+            rec["arm_off_clean"] = all(l["wide_k_served"] == 0 for l in off)
         print(f"off {m_off:.3f}s  on {m_on:.3f}s  {rec['speedup']:.4f}x  "
               f"arm_took={rec['arm_took']} arm_off_clean={rec['arm_off_clean']}", flush=True)
     a.out.write_text(json.dumps(rec, indent=1))

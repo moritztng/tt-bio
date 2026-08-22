@@ -1,0 +1,151 @@
+{
+ "model": "protenix-v2",
+ "input": "perf/size512/fixtures/cdk2x2_298.yaml",
+ "card": "1",
+ "seeds": [
+  0,
+  1,
+  2
+ ],
+ "extra": [
+  "--sampling_steps",
+  "200",
+  "--diffusion_samples",
+  "1",
+  "--msa_dir",
+  "/home/ttuser/k6_msa"
+ ],
+ "host": "tt-quietbox2",
+ "legs": [
+  {
+   "arm": "off",
+   "seed": 0,
+   "tag": "off_s0",
+   "rc": 0,
+   "wall_s": 36.129,
+   "wide_k_served": 0,
+   "fell_back": 0,
+   "picks": {
+    "298x298": [
+     320,
+     64,
+     "fused"
+    ]
+   },
+   "out_dir": "/home/ttuser/k6_fold_p320_s3/off_s0"
+  },
+  {
+   "arm": "on",
+   "seed": 0,
+   "tag": "on_s0",
+   "rc": 0,
+   "wall_s": 35.654,
+   "wide_k_served": 0,
+   "fell_back": 0,
+   "picks": {
+    "298x298": [
+     320,
+     320,
+     "fused"
+    ]
+   },
+   "out_dir": "/home/ttuser/k6_fold_p320_s3/on_s0"
+  },
+  {
+   "arm": "off",
+   "seed": 1,
+   "tag": "off_s1",
+   "rc": 0,
+   "wall_s": 35.662,
+   "wide_k_served": 0,
+   "fell_back": 0,
+   "picks": {
+    "298x298": [
+     320,
+     64,
+     "fused"
+    ]
+   },
+   "out_dir": "/home/ttuser/k6_fold_p320_s3/off_s1"
+  },
+  {
+   "arm": "on",
+   "seed": 1,
+   "tag": "on_s1",
+   "rc": 0,
+   "wall_s": 35.686,
+   "wide_k_served": 0,
+   "fell_back": 0,
+   "picks": {
+    "298x298": [
+     320,
+     320,
+     "fused"
+    ]
+   },
+   "out_dir": "/home/ttuser/k6_fold_p320_s3/on_s1"
+  },
+  {
+   "arm": "off",
+   "seed": 2,
+   "tag": "off_s2",
+   "rc": 0,
+   "wall_s": 35.168,
+   "wide_k_served": 0,
+   "fell_back": 0,
+   "picks": {
+    "298x298": [
+     320,
+     64,
+     "fused"
+    ]
+   },
+   "out_dir": "/home/ttuser/k6_fold_p320_s3/off_s2"
+  },
+  {
+   "arm": "on",
+   "seed": 2,
+   "tag": "on_s2",
+   "rc": 0,
+   "wall_s": 35.178,
+   "wide_k_served": 0,
+   "fell_back": 0,
+   "picks": {
+    "298x298": [
+     320,
+     320,
+     "fused"
+    ]
+   },
+   "out_dir": "/home/ttuser/k6_fold_p320_s3/on_s2"
+  },
+  {
+   "arm": "off",
+   "seed": 0,
+   "tag": "off_s0_repeat",
+   "rc": 0,
+   "wall_s": 35.681,
+   "wide_k_served": 0,
+   "fell_back": 0,
+   "picks": {
+    "298x298": [
+     320,
+     64,
+     "fused"
+    ]
+   },
+   "out_dir": "/home/ttuser/k6_fold_p320_s3/off_s0_repeat"
+  }
+ ],
+ "mean_wall_off_s": 35.653,
+ "mean_wall_on_s": 35.506,
+ "speedup": 1.0041,
+ "k_chunks_off": {
+  "298x298": 64
+ },
+ "k_chunks_on": {
+  "298x298": 320
+ },
+ "arm_took": true,
+ "arm_off_clean": true
+}

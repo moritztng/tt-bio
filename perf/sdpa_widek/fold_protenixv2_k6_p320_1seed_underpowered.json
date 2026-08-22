@@ -1,0 +1,81 @@
+{
+ "model": "protenix-v2",
+ "input": "perf/size512/fixtures/cdk2x2_298.yaml",
+ "card": "1",
+ "seeds": [
+  0
+ ],
+ "extra": [
+  "--sampling_steps",
+  "200",
+  "--diffusion_samples",
+  "1",
+  "--msa_dir",
+  "/home/ttuser/k6_msa"
+ ],
+ "host": "tt-quietbox2",
+ "legs": [
+  {
+   "arm": "off",
+   "seed": 0,
+   "tag": "off_s0",
+   "rc": 0,
+   "wall_s": 40.742,
+   "wide_k_served": 0,
+   "fell_back": 0,
+   "picks": {
+    "298x298": [
+     320,
+     64,
+     "fused"
+    ]
+   },
+   "out_dir": "/home/ttuser/k6_fold_p320/off_s0"
+  },
+  {
+   "arm": "on",
+   "seed": 0,
+   "tag": "on_s0",
+   "rc": 0,
+   "wall_s": 37.168,
+   "wide_k_served": 0,
+   "fell_back": 0,
+   "picks": {
+    "298x298": [
+     320,
+     320,
+     "fused"
+    ]
+   },
+   "out_dir": "/home/ttuser/k6_fold_p320/on_s0"
+  },
+  {
+   "arm": "off",
+   "seed": 0,
+   "tag": "off_s0_repeat",
+   "rc": 0,
+   "wall_s": 35.684,
+   "wide_k_served": 0,
+   "fell_back": 0,
+   "picks": {
+    "298x298": [
+     320,
+     64,
+     "fused"
+    ]
+   },
+   "out_dir": "/home/ttuser/k6_fold_p320/off_s0_repeat"
+  }
+ ],
+ "mean_wall_off_s": 40.742,
+ "mean_wall_on_s": 37.168,
+ "speedup": 1.0962,
+ "k_chunks_off": {
+  "298x298": 64
+ },
+ "k_chunks_on": {
+  "298x298": 320
+ },
+ "arm_took": true,
+ "arm_off_clean": true
+}

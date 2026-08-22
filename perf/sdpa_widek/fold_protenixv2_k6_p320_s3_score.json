@@ -1,0 +1,174 @@
+{
+ "workdir": "/home/ttuser/k6_fold_p320_s3",
+ "ab": "perf/sdpa_widek/fold_protenixv2_k6_p320_s3.json",
+ "seeds": [
+  0,
+  1,
+  2
+ ],
+ "controls": {
+  "determinism": {
+   "off_s0 vs off_s0_repeat": {
+    "cdk2x2_298": {
+     "kabsch_rmsd": 0.0,
+     "coord_pcc": 1.0,
+     "tm_score": 1.0,
+     "lddt": 1.0,
+     "n_matched": 2398,
+     "per_chain": {
+      "A": 0.0
+     },
+     "conf_delta": {
+      "plddt": 0.0,
+      "ptm": 0.0,
+      "iptm": 0.0,
+      "confidence_score": 0.0,
+      "complex_plddt": 0.0
+     }
+    }
+   }
+  },
+  "seed_spread": {
+   "off_s0 vs off_s1": {
+    "cdk2x2_298": {
+     "kabsch_rmsd": 1.0559,
+     "coord_pcc": 0.998663,
+     "tm_score": 0.995135,
+     "lddt": 0.956383,
+     "n_matched": 2398,
+     "per_chain": {
+      "A": 1.0559
+     },
+     "conf_delta": {
+      "plddt": -0.00039,
+      "ptm": 0.000586,
+      "iptm": 0.0,
+      "confidence_score": 0.000586,
+      "complex_plddt": -0.00039
+     }
+    }
+   },
+   "off_s0 vs off_s2": {
+    "cdk2x2_298": {
+     "kabsch_rmsd": 0.946,
+     "coord_pcc": 0.99892,
+     "tm_score": 0.996668,
+     "lddt": 0.965366,
+     "n_matched": 2398,
+     "per_chain": {
+      "A": 0.946
+     },
+     "conf_delta": {
+      "plddt": -0.000331,
+      "ptm": 0.000663,
+      "iptm": 0.0,
+      "confidence_score": 0.000663,
+      "complex_plddt": -0.000331
+     }
+    }
+   },
+   "off_s1 vs off_s2": {
+    "cdk2x2_298": {
+     "kabsch_rmsd": 0.934,
+     "coord_pcc": 0.998881,
+     "tm_score": 0.996881,
+     "lddt": 0.961518,
+     "n_matched": 2398,
+     "per_chain": {
+      "A": 0.934
+     },
+     "conf_delta": {
+      "plddt": 5.9e-05,
+      "ptm": 7.7e-05,
+      "iptm": 0.0,
+      "confidence_score": 7.7e-05,
+      "complex_plddt": 5.9e-05
+     }
+    }
+   }
+  }
+ },
+ "lever": {
+  "off_s0 vs on_s0": {
+   "cdk2x2_298": {
+    "kabsch_rmsd": 1.849,
+    "coord_pcc": 0.995703,
+    "tm_score": 0.98668,
+    "lddt": 0.896423,
+    "n_matched": 2398,
+    "per_chain": {
+     "A": 1.849
+    },
+    "conf_delta": {
+     "plddt": -0.002437,
+     "ptm": 0.003656,
+     "iptm": 0.0,
+     "confidence_score": 0.003656,
+     "complex_plddt": -0.002437
+    }
+   }
+  },
+  "off_s1 vs on_s1": {
+   "cdk2x2_298": {
+    "kabsch_rmsd": 1.0491,
+    "coord_pcc": 0.998626,
+    "tm_score": 0.995148,
+    "lddt": 0.95176,
+    "n_matched": 2398,
+    "per_chain": {
+     "A": 1.0491
+    },
+    "conf_delta": {
+     "plddt": -0.001875,
+     "ptm": 0.004754,
+     "iptm": 0.0,
+     "confidence_score": 0.004754,
+     "complex_plddt": -0.001875
+    }
+   }
+  },
+  "off_s2 vs on_s2": {
+   "cdk2x2_298": {
+    "kabsch_rmsd": 1.7701,
+    "coord_pcc": 0.996019,
+    "tm_score": 0.988534,
+    "lddt": 0.908055,
+    "n_matched": 2398,
+    "per_chain": {
+     "A": 1.7701
+    },
+    "conf_delta": {
+     "plddt": -0.002244,
+     "ptm": 0.003636,
+     "iptm": 0.0,
+     "confidence_score": 0.003636,
+     "complex_plddt": -0.002244
+    }
+   }
+  }
+ },
+ "summary": {
+  "det_floor_rmsd": [
+   0.0
+  ],
+  "seed_spread_rmsd": [
+   1.0559,
+   0.946,
+   0.934
+  ],
+  "lever_rmsd": [
+   1.849,
+   1.0491,
+   1.7701
+  ],
+  "control_ceiling_rmsd": 1.0559,
+  "lever_max_rmsd": 1.849,
+  "plddt_control_max": 0.00039,
+  "plddt_lever_max": 0.002437,
+  "geometry_pass": false,
+  "plddt_pass": false,
+  "arm_took": true,
+  "arm_off_clean": true,
+  "verdict": "GATE FAIL"
+ }
+}
