@@ -4350,11 +4350,17 @@ class AttentionPairBias(Module):
             # seed 4, so those margins are basin assignments and cannot carry a verdict alone
             # (perf/fused_sdpa/of3_lddt.py).
             #
-            # What does carry it is RF3, measured on a metric with no sampler noise in it: the
-            # trunk distogram, read before the sampler runs. Spearman rho against the 1HCL crystal
-            # is 0.00852 LOWER on the fused arm at 298 aa, one-signed across three seeds, 95% CI
-            # [-0.01201, -0.00347], against a shipped-arm seed spread of 0.00449; plDDT drops 1.8
-            # points the same way (state/fused-sdpa-adopt.md).
+            # What does carry it is the trunk distogram, read before the sampler runs, on both
+            # models. RF3 at 298 aa: Spearman rho against the 1HCL crystal is 0.00852 LOWER on the
+            # fused arm, one-signed across three seeds, 95% CI [-0.01201, -0.00347] against a
+            # shipped-arm seed spread of 0.00449; plDDT drops 1.8 points the same way. OpenFold3 on
+            # 9bk6: 0.00178 lower, one-signed across five seeds, 16x the shipped arm's own spread
+            # of 0.00011 (state/fused-sdpa-adopt.md §0 and §1e).
+            #
+            # OF3 is measured now, on the ONE anchor the kernel can reach. It serves only where the
+            # tile-padded sequence is an exact multiple of k_chunk, so it is dark at 274 and 585
+            # tokens and an A/B there silently measures an A/A -- see the reachability note in
+            # tt_bio/triatt_sdpa.py before running one.
             #
             # The lesson is the one this comment already had right: a per-call error metric cannot
             # bound a chained fold. rel_rms and PCC are blind to the sign of an error, and ~1000

@@ -113,6 +113,21 @@ _PM_OVER_L1: set = set()
 # matmul against a bf16 v, and the statistics CBs meet a bf16 scalar in the reduce. The plumbing was
 # removed again rather than left as a dark knob -- there is nothing to gain from it, since the fp32
 # DST already carries the reduction and the arm above beats the materialised path outright.
+#
+# THE FOLD-LEVEL ANSWER GOES THE OTHER WAY ON BOTH MODELS, and it is not a contradiction of the
+# table above -- the table is one captured call, and a fold applies this op hundreds of times.
+# A per-call rel_rms advantage does not survive that composition, because the online softmax
+# reduces over k in chunks against a running max and its residual is correlated along k in a way a
+# single-pass reduction's is not. Verdicts, both on the trunk distogram (a linear readout of the
+# pair track, computed before the sampler, so it carries no basin noise), both FLOOR:
+#
+#     RF3   cdk2x2_298    Spearman rho margin  -0.00852   one-signed 3/3 seeds, CI [-0.01201, -0.00347]
+#     OF3   9bk6_164                           -0.00178   one-signed 5/5 seeds, 16x the arm's own spread
+#
+# state/fused-sdpa-adopt.md §0 (RF3) and §1e (OF3). Neither model adopts, `_TRIATT_FUSED_HIFI`
+# keeps its default off, and the 20.2x speedup is declined at a measured price rather than an
+# assumed one. OF3's older rejection at 0.108 plDDT is NOT the reason and should not be cited: that
+# arm reached the kernel with the pair bias unscaled and was never the arm adoption would ship.
 _CKC_OVERRIDE = None
 
 
