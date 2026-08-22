@@ -3,6 +3,28 @@
 All notable changes to TT-Bio are recorded here. Versioning is [SemVer](https://semver.org);
 releases are cut from a commit that has passed the on-hardware test suite (see `RELEASING.md`).
 
+## [Unreleased]
+
+### Fixed
+
+- OpenFold3: a YAML `msa:` pointing at your own alignment file crashed the fold with
+  `IndexError: list index out of range`. The vendored parser keeps only files whose stem is
+  one of its known MSA sources and dropped everything else, so there was nothing left to
+  index. Your file is now exposed to the parser under the canonical name, bytes untouched.
+  Present in every release that shipped the OpenFold3 `msa:` key, 0.6.6 included; the
+  committed `examples/prot_custom_msa.yaml` was one of the inputs that crashed.
+
+- OpenFold3: `cyclic: true` on a chain now raises instead of folding it as a linear chain and
+  reporting success. The vendored tree carries neither `Chain.cyclic` nor the `cyclic_mask`
+  feature it derives, so the flag reached nothing. Use `--model rf3` or `boltz2` for cyclic
+  chains.
+
+- OpenFold3: an MSA deeper than its per-source cap is now truncated, the way the reference
+  truncates it. The vendored parser dropped the truncated copy and returned the full
+  alignment, so a deep alignment reached the featurizer whole and the model saw a different
+  set of rows than the reference did. Nothing changes below the caps: all seven OpenFold3
+  parity legs sit under them and reproduce their committed numbers.
+
 ## [0.6.6] - 2026-08-22
 
 ### Added
