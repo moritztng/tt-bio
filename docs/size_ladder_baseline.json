@@ -3,7 +3,7 @@
     "p150a": {
       "recorded": "2026-08-22",
       "host": "pc",
-      "commit": "ca74bc3f",
+      "commit": "fb2b0179",
       "models": {
         "boltz2": {
           "grid": "13x10",
@@ -950,10 +950,10 @@
         "esmfold2": {
           "grid": "11x10/13x10",
           "runtime_s": {
-            "256": 19.6,
-            "512": 47.7,
-            "640": 67.9,
-            "768": 109.6
+            "256": 19.4,
+            "512": 48.7,
+            "640": 69.1,
+            "768": 108.1
           },
           "levers": {
             "256": {
@@ -1110,6 +1110,13 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "never reached at this size, 0 offered and 0 declined: esmfold2's triangle attention does not route through the fused kernel's call site"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -1328,6 +1335,13 @@
                 "how": "stats",
                 "reason": "never reached at this size, 0 offered and 0 declined: esmfold2's triangle attention does not route through the fused kernel's call site"
               },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -1545,6 +1559,13 @@
                 "how": "stats",
                 "reason": "never reached at this size, 0 offered and 0 declined: esmfold2's triangle attention does not route through the fused kernel's call site"
               },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -1709,6 +1730,9 @@
                 "declined": 25823,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(8,32)": 25823
+                },
                 "reason": "declines all 25823 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
               },
               "TRIMUL_TAIL_F1": {
@@ -1724,6 +1748,9 @@
                 "declined": 25823,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(8,32)": 25823
+                },
                 "reason": "declines all 25823 calls: no _MM_BLOCK entry for this shape; wrap-counted, so the failing clause is not recorded"
               },
               "DEVICE_LM_HANDOFF": {
@@ -1761,6 +1788,13 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "never reached at this size, 0 offered and 0 declined: esmfold2's triangle attention does not route through the fused kernel's call site"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -1841,14 +1875,14 @@
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0091,
+          "sigma_runtime_512": 0.0105,
           "exponents": {
             "256->512": {
-              "k": 1.283,
+              "k": 1.328,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.052,
+              "k": 1.967,
               "tol": 0.5
             }
           }
