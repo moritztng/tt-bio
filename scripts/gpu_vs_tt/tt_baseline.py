@@ -171,7 +171,10 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
         write_pae=False, write_pde=False, write_embeddings=False, method=None,
     )
     _ensure_local_artifacts(cfg)
-    n_msa = seed_msa_cache(target, a3m, msa_dir)
+    # a3m=None means the target carries its own alignment (a yaml with per-chain msa:
+    # dirs). seed_msa_cache asserts a monomer, so a heterodimer can only come in that
+    # way; the per-chain specs are resolved below by _resolve_a3m_text.
+    n_msa = seed_msa_cache(target, a3m, msa_dir) if a3m is not None else None
 
     state = _WorkerState("tenstorrent")
     t_load = time.perf_counter()

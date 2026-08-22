@@ -91,7 +91,9 @@ ANCHORS = {
         segments={"A": ("within", [("A", i) for i in range(3, 104)]),
                   "B": ("within", [("B", i) for i in range(1, 61)]),
                   "AB": ("cross", ([("A", i) for i in range(3, 104)],
-                                   [("B", i) for i in range(1, 61)]))}),
+                                   [("B", i) for i in range(1, 61)]))},
+        # 60 residues is 6 bootstrap blocks, too few for a 95% interval (PLAN3 §3)
+        report_only={"B"}),
 }
 
 
@@ -129,12 +131,21 @@ def pair_index(parts, mode):
 
 
 def blocks_of(parts):
-    """Bootstrap blocks of <=BLOCK consecutive residues, built within a chain, never across."""
-    out = []
-    for p in np.unique(parts):
-        idx = np.where(parts == p)[0]
-        out += [idx[s:s + BLOCK] for s in range(0, len(idx), BLOCK)]
-    return out
+    """Bootstrap blocks of <=BLOCK consecutive residues, grouped by chain.
+
+    Returns one list of blocks per chain. Resampling within each group rather than from the pooled
+    list is what keeps a cross-chain segment scoreable: a pooled draw can land entirely inside one
+    chain, leave zero inter-chain pairs, and return NaN. For a single-chain segment there is one
+    group and the draw is identical to a pooled one, RNG consumption included.
+    """
+    return [[idx[s:s + BLOCK] for s in range(0, len(idx), BLOCK)]
+            for idx in (np.where(parts == p)[0] for p in np.unique(parts))]
+
+
+def resample(groups, rng):
+    """One bootstrap resample: len(g) blocks drawn with replacement from each chain's own blocks."""
+    return np.concatenate([g[k] for g in groups
+                           for k in rng.integers(0, len(g), len(g))])
 
 
 def resolve_segments(a):
@@ -171,9 +182,22 @@ def main():
     tag = f"size {a.size}" if a.size is not None else f"anchor {a.anchor}"
 
     folds = {arm: sorted((d / arm).glob("f*_seed*")) for arm in ARMS}
-    seeds = [int(p.name.split("seed")[1]) for p in folds["def"]]
-    assert seeds == [int(p.name.split("seed")[1]) for p in folds["hifi"]], "arm seeds differ"
-    print(f"{tag}  seeds {seeds}  arms {ARMS}")
+    all_seeds = [int(p.name.split("seed")[1]) for p in folds["def"]]
+    assert all_seeds == [int(p.name.split("seed")[1]) for p in folds["hifi"]], "arm seeds differ"
+    # A repeated seed is an A/A control, not a second sample. Score the first occurrence of each
+    # and check the repeat against it; including it double-counts one draw, and
+    # state/fused-sdpa-adopt.md §0 records that turning a -0.00059 lDDT margin into a -0.00791
+    # with a CI excluding zero.
+    keep, seen = [], {}
+    for i, s in enumerate(all_seeds):
+        if s in seen:
+            continue
+        seen[s] = i
+        keep.append(i)
+    repeats = [(i, seen[s]) for i, s in enumerate(all_seeds) if i not in keep]
+    seeds = [all_seeds[i] for i in keep]
+    print(f"{tag}  seeds {seeds}  arms {ARMS}"
+          + (f"  (A/A controls dropped: {[all_seeds[i] for i, _ in repeats]})" if repeats else ""))
 
     # distograms, and the fold's own residue numbering
     E = {arm: [] for arm in ARMS}
@@ -185,6 +209,13 @@ def main():
             e, pr = expected_bin(lg[0].astype(np.float64))
             E[arm].append(e)
             P[arm].append(pr)
+    for arm in ARMS:
+        for i, j in repeats:
+            assert np.array_equal(np.load(folds[arm][i] / "distogram.npy"),
+                                  np.load(folds[arm][j] / "distogram.npy")), \
+                f"{arm}: A/A control {folds[arm][i].name} does not reproduce {folds[arm][j].name}"
+        E[arm] = [E[arm][i] for i in keep]
+        P[arm] = [P[arm][i] for i in keep]
     n_tok = E["def"][0].shape[0]
     cif = next(folds["def"][0].glob("*.cif"))
     fold_ca = cmap(cif)
@@ -209,6 +240,7 @@ def main():
     print(f"tokens {n_tok}  bins {n_bins}  cif {cif.name}")
 
     report = {"size": a.size, "seeds": seeds, "n_tokens": n_tok, "n_bins": n_bins,
+              "aa_control_seeds": [all_seeds[i] for i, _ in repeats],
               "sampling_steps": json.loads((d / "def" / "fold.json").read_text())["sampling_steps"],
               "diffusion_samples": json.loads(
                   (d / "def" / "fold.json").read_text())["diffusion_samples"],
@@ -279,13 +311,13 @@ def main():
               f"{np.round(margin_per_seed,5).tolist()}   mean {np.mean(margin_per_seed):+.5f}")
 
         # --- residue-BLOCK bootstrap on the seed-averaged rho margin
-        blocks = blocks_of(parts)
+        groups = blocks_of(parts)
+        n_blocks = sum(len(g) for g in groups)
         # dense per-arm per-seed E[b] over the scored residues, for fast re-pairing
         Efull = {arm: [e[np.ix_(ti, ti)] for e in E[arm]] for arm in ARMS}
         boot = np.empty(NBOOT)
         for t in range(NBOOT):
-            sel = np.concatenate([blocks[k] for k in
-                                  RNG.integers(0, len(blocks), len(blocks))])
+            sel = resample(groups, RNG)
             bi, bj = pair_index(parts[sel], mode)
             si, sj = sel[bi], sel[bj]
             dt = D[si, sj]
@@ -294,8 +326,10 @@ def main():
             mk = [spearman(Efull["hifi"][k][si, sj], dt)
                   - spearman(Efull["def"][k][si, sj], dt) for k in range(len(seeds))]
             boot[t] = np.mean(mk)
+        assert np.isfinite(boot).all(), \
+            f"{label}: {int((~np.isfinite(boot)).sum())} of {NBOOT} resamples had no scoreable pairs"
         lo, hi = np.percentile(boot, [2.5, 97.5])
-        print(f"  block bootstrap ({len(blocks)} blocks of <={BLOCK}, {NBOOT} resamples) "
+        print(f"  block bootstrap ({n_blocks} blocks of <={BLOCK}, {NBOOT} resamples) "
               f"95% CI on the mean rho margin: [{lo:+.5f}, {hi:+.5f}]")
 
         # --- pre-registered rule. RF3 (--size): margin -0.005, tightened to a quarter of the
@@ -351,6 +385,7 @@ def main():
 
         report["segments"][label] = {
             "n_residues": L, "n_pairs": int(len(dtrue)),
+            "gated": bool(an is None or label not in an.get("report_only", set())),
             "rho": {arm: [round(v, 6) for v in rho[arm]] for arm in ARMS},
             "rho_shipped_spread": round(spread, 6),
             "rho_margin_per_seed": [round(v, 6) for v in margin_per_seed],

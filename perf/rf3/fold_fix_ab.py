@@ -25,7 +25,12 @@ sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="rf3", choices=["rf3", "openfold3"])
-    ap.add_argument("--fix", default="cdk2x2_298")
+    ap.add_argument("--fix", default=None,
+                    help="a perf/size512 fixture name: <fix>.yaml + <fix>.a3m")
+    ap.add_argument("--yaml", type=Path, default=None,
+                    help="fold this yaml directly and skip seed_msa_cache, for a "
+                         "target that carries its own per-chain MSA. seed_msa_cache "
+                         "asserts a monomer, so a heterodimer needs this path.")
     ap.add_argument("--label", required=True)
     ap.add_argument("--outdir", type=Path, required=True)
     ap.add_argument("--repeat", type=int, default=1, help="warm folds after the discarded cold one")
@@ -45,6 +50,7 @@ def main():
                          "--dump-distogram, which is computed before the sampler runs and is "
                          "therefore bit-identical at any step count (assert that once).")
     a = ap.parse_args()
+    assert (a.fix is None) != (a.yaml is None), "give exactly one of --fix / --yaml"
 
     import tt_bio.tenstorrent as T
     import tt_bio.triatt_sdpa as _SD
@@ -68,20 +74,23 @@ def main():
     print(f"steps: recycling {B.RECYCLING_STEPS}, sampling {B.SAMPLING_STEPS} "
           f"(rf3 shipped {shipped_steps[0]}/{shipped_steps[1]})", flush=True)
 
-    tgt = a.fixdir / f"{a.fix}.yaml"
-    a3m = a.fixdir / f"{a.fix}.a3m"
+    if a.yaml is not None:
+        tgt, a3m, name = a.yaml, None, a.yaml.stem
+    else:
+        tgt, a3m, name = a.fixdir / f"{a.fix}.yaml", a.fixdir / f"{a.fix}.a3m", a.fix
     sha = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
     one_fold, meta, state = B.build_fold(
-        a.model, ROOT / f".msa_{a.model}_{a.fix}", tgt, a3m)
+        a.model, ROOT / f".msa_{a.model}_{name}", tgt, a3m)
     struct_dir = Path(meta["struct_dir"])
     a.outdir.mkdir(parents=True, exist_ok=True)
 
-    res = {"label": a.label, "model": a.model, "fix": a.fix, "host": os.uname().nodename,
+    res = {"label": a.label, "model": a.model, "fix": name, "host": os.uname().nodename,
            "card": os.environ.get("TT_VISIBLE_DEVICES"),
            "recycling_steps": B.RECYCLING_STEPS, "sampling_steps": B.SAMPLING_STEPS,
            "rf3_shipped_steps": list(shipped_steps),
            "diffusion_samples": B.DIFFUSION_SAMPLES, "seed": B.SEED,
-           "n_msa": meta.get("n_msa"), "sha256_target": sha(tgt), "sha256_a3m": sha(a3m),
+           "n_msa": meta.get("n_msa"), "sha256_target": sha(tgt),
+           "sha256_a3m": sha(a3m) if a3m is not None else None,
            "env_flags": {k: v for k, v in sorted(os.environ.items())
                          if k.startswith("TT_BIO_")},
            "folds": []}
