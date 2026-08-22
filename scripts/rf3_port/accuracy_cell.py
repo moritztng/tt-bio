@@ -53,6 +53,8 @@ sys.path.insert(0, str(REPO / "scripts"))
 
 from boltz2_affinity_parity import _kabsch_rmsd  # noqa: E402  the gate's own superposition
 from pharma_parity import noise_floor_verdict  # noqa: E402  the gate's own floor verdict
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from arms import ARMS, ROUTE, SCOPE, apply_arm  # noqa: E402
 
 import tt_bio  # noqa: E402
 
@@ -133,15 +135,51 @@ def ref_trunk_bf16(net, f, recycles: int):
     return {k: v.float() for k, v in ro.items()}
 
 
-def run_seed(args, net, tt, seed: int, work: Path) -> dict:
+def host_sampler(steps: int):
+    """The sampler without a card. Same class and the same `sigma_data` the device model
+    would construct it with, read off `RF3.__init__` rather than copied, so the schedule
+    constant cannot drift between the two entry points."""
+    import inspect
+    from tt_bio.rf3.model import RF3
+    from tt_bio.rf3.sampler import DiffusionSampler
+    sd = inspect.signature(RF3.__init__).parameters["sigma_data"].default
+    return DiffusionSampler(num_timesteps=steps, sigma_data=sd)
+
+
+def harvest_draws(sampler, seed: int, n_atom: int):
+    """The draw stream, without running a denoiser.
+
+    Every draw the sampler consumes has a fixed shape and none of them depends on what the
+    denoiser returned: one `normal (1, L, 3)` before the loop, then `rand (1)` x3,
+    `normal (1, 1, 3)` and `normal X.shape` per step. So a stub denoiser reproduces the
+    stream exactly, and an arm re-run at an already-scored fixture needs no CPU reference.
+    The hash is asserted against the cached reference's, so a schedule change aborts rather
+    than silently scoring a cross-RNG comparison.
+    """
+    from tt_bio.rf3.sampler import Draws
+    torch.manual_seed(seed)
+    _, rec = sampler.sample(lambda x_noisy, t: torch.zeros_like(x_noisy),
+                            torch.zeros(1, n_atom, 3), 1, draws=Draws())
+    return rec
+
+
+def run_seed(args, net, tt, seed: int, work: Path, ref_cache: Path | None = None) -> dict:
     """One seed: features, both trunks, the reference rollout that records the draws, and
-    the device rollout that replays them."""
+    the device rollout that replays them.
+
+    The reference half is arm-independent -- it is CPU torch and never sees a flag -- so
+    when `ref_cache` already holds this seed the reference is loaded instead of recomputed
+    and only the draws are re-harvested (and hash-checked) to feed the replay. `tt is None`
+    is the reference-only mode: no card, nothing device-side, and the npz it writes has no
+    `dev` key, which is how a later device run recognises it as a reference cache.
+    """
     from tt_bio.rf3.sampler import Draws
 
     cache = work / f"seed{seed}.npz"
     if cache.exists():
         z = np.load(cache)
-        return {k: z[k] for k in z.files} | {"cached": True}
+        if "dev" in z.files or tt is None:
+            return {k: z[k] for k in z.files} | {"cached": True}
 
     t0 = time.time()
     out = featurize_seed(args.fixture, args.recycles, seed)
@@ -153,29 +191,59 @@ def run_seed(args, net, tt, seed: int, work: Path) -> dict:
     n_atom = int(f["ref_pos"].shape[-2])
     feat_s = time.time() - t0
 
-    t0 = time.time()
-    ro = ref_trunk_bf16(net, f, args.recycles)
-    ref_trunk_s = time.time() - t0
-
     coord = torch.zeros(1, n_atom, 3)
+    sampler = tt.sampler if tt is not None else host_sampler(args.steps)
+    cached_ref = ref_cache / f"seed{seed}.npz" if ref_cache is not None else None
 
-    def ref_denoise(x_noisy, t):
-        with torch.no_grad(), torch.autocast("cpu", dtype=torch.bfloat16):
-            return net.diffusion_module(
-                X_noisy_L=x_noisy, t=t, f=f,
-                S_inputs_I=ro["S_inputs_I"], S_trunk_I=ro["S_I"],
-                Z_trunk_II=ro["Z_II"]).float()
+    if cached_ref is not None and cached_ref.exists():
+        z = np.load(cached_ref)
+        ref_np, sha = z["ref"], str(z["shastr"][0])
+        ref_trunk_s = 0.0
+        t0 = time.time()
+        rec = harvest_draws(sampler, seed, n_atom)
+        ref_roll_s = time.time() - t0
+        got = draws_sha(rec.values)
+        if got != sha:
+            raise SystemExit(
+                f"seed {seed}: harvested draws {got} != cached reference {sha}; the "
+                "schedule or the draw order moved, so the cached reference cannot be "
+                "replayed")
+        ref_src = f"cache:{cached_ref}"
+    else:
+        t0 = time.time()
+        ro = ref_trunk_bf16(net, f, args.recycles)
+        ref_trunk_s = time.time() - t0
 
-    # Re-seed at SAMPLER ENTRY. A single up-front manual_seed is not enough: the two
-    # trunks can consume the stream differently, which desyncs the draws before the
-    # rollout starts (memory diffusion-port-parity-shared-draws, 2026-07-23 addendum).
-    # The shipped path does the same thing, torch.manual_seed(seed) right before
-    # predict() (worker.py).
-    torch.manual_seed(seed)
-    t0 = time.time()
-    ref_x, rec = tt.sampler.sample(ref_denoise, coord, 1, draws=Draws())
-    ref_roll_s = time.time() - t0
-    sha = draws_sha(rec.values)
+        def ref_denoise(x_noisy, t):
+            with torch.no_grad(), torch.autocast("cpu", dtype=torch.bfloat16):
+                return net.diffusion_module(
+                    X_noisy_L=x_noisy, t=t, f=f,
+                    S_inputs_I=ro["S_inputs_I"], S_trunk_I=ro["S_I"],
+                    Z_trunk_II=ro["Z_II"]).float()
+
+        # Re-seed at SAMPLER ENTRY. A single up-front manual_seed is not enough: the two
+        # trunks can consume the stream differently, which desyncs the draws before the
+        # rollout starts (memory diffusion-port-parity-shared-draws, 2026-07-23 addendum).
+        # The shipped path does the same thing, torch.manual_seed(seed) right before
+        # predict() (worker.py).
+        torch.manual_seed(seed)
+        t0 = time.time()
+        ref_x, rec = sampler.sample(ref_denoise, coord, 1, draws=Draws())
+        ref_roll_s = time.time() - t0
+        sha = draws_sha(rec.values)
+        ref_np = ref_x[0].detach().cpu().numpy().astype(np.float64)
+        ref_src = "computed"
+
+    if tt is None:
+        rec_arr = {
+            "ref": ref_np, "rep_idx": rep_idx,
+            "timing": np.array([feat_s, ref_trunk_s, ref_roll_s, 0.0]),
+            "sha": np.array([int(sha[:8], 16)], dtype=np.int64),
+            "shastr": np.array([sha]), "refsrc": np.array([ref_src]),
+        }
+        work.mkdir(parents=True, exist_ok=True)
+        np.savez(cache, **rec_arr)
+        return rec_arr | {"cached": False}
 
     torch.manual_seed(seed)
     t0 = time.time()
@@ -192,12 +260,12 @@ def run_seed(args, net, tt, seed: int, work: Path) -> dict:
                          f"!= recorded {sha}; the arms did not share noise")
 
     rec_arr = {
-        "ref": ref_x[0].detach().cpu().numpy().astype(np.float64),
+        "ref": ref_np,
         "dev": dev["X_L"][0].detach().cpu().numpy().astype(np.float64),
         "rep_idx": rep_idx,
         "timing": np.array([feat_s, ref_trunk_s, ref_roll_s, dev_s]),
         "sha": np.array([int(sha[:8], 16)], dtype=np.int64),
-        "shastr": np.array([sha]),
+        "shastr": np.array([sha]), "refsrc": np.array([ref_src]),
     }
     work.mkdir(parents=True, exist_ok=True)
     np.savez(cache, **rec_arr)
@@ -232,7 +300,13 @@ def resolved_flags() -> dict:
         "pairformer_flags": {k: (v if isinstance(v, (bool, int, float, str)) or v is None
                                  else repr(v)) for k, v in PAIRFORMER_FLAGS.items()},
         "triatt_fused_hifi": bool(tts._TRIATT_FUSED_HIFI),
+        "boltz2_fp32_softmax": bool(tts._FP32_SOFTMAX),
+        # Which route the arm actually took, counted by the code rather than argued from
+        # the flags: TRIATT_FUSED_HIFI_STATS separates served from too_short, and
+        # FP32_SOFTMAX_STATS["calls"] is 0 for an arm that left the materialised path.
         "triatt_fused_hifi_stats": dict(tts.TRIATT_FUSED_HIFI_STATS),
+        "fp32_softmax_stats": dict(tts.FP32_SOFTMAX_STATS),
+        "sdpa_k_chunk_stats": list(tts.SDPA_K_CHUNK_STATS),
         "env": {k: v for k, v in sorted(os.environ.items())
                 if k.startswith(("TT_BIO", "TT_METAL", "TT_VISIBLE"))},
     }
@@ -295,14 +369,29 @@ def main() -> int:
                          "device and no rollout")
     ap.add_argument("--rescore", action="store_true",
                     help="score the cached seeds and exit; no model, no card")
+    ap.add_argument("--arm", default="a0", choices=sorted(ARMS),
+                    help="triangle-attention route; see scripts/rf3_port/arms.py")
+    ap.add_argument("--ref-cache", default=None,
+                    help="where the arm-independent reference coordinates live; defaults "
+                         "to a0's work dir, so a new arm pays only its device rollout")
+    ap.add_argument("--ref-only", action="store_true",
+                    help="reference half only: no card, no device, no arm. Writes a npz "
+                         "with no `dev` key, which a later device run reads as a cache")
     args = ap.parse_args()
 
     seeds = [int(s) for s in args.seeds.split(",") if s.strip() != ""]
-    work = Path(args.work) if args.work else \
+    # a0's dir keeps its bare name so the committed caches and --rescore are unchanged, and
+    # it doubles as every other arm's reference cache: R is arm-independent by construction.
+    ref_work = Path(args.ref_cache) if args.ref_cache else \
         REPO / "perf/rf3/results" / f"accuracy_{args.fixture}"
+    suffix = "" if args.arm == "a0" or args.ref_only else f"_{args.arm}"
+    work = Path(args.work) if args.work else \
+        REPO / "perf/rf3/results" / f"accuracy_{args.fixture}{suffix}"
     self_test = kabsch_selftest()
 
-    report = {"fixture": args.fixture, "seeds": seeds, "recycles": args.recycles,
+    report = {"arm": args.arm, "arm_route": ROUTE[args.arm], "arm_scope": SCOPE[args.arm],
+              "ref_cache": str(ref_work),
+              "fixture": args.fixture, "seeds": seeds, "recycles": args.recycles,
               "steps": args.steps, "diffusion_samples": 1,
               "reference": "tt_bio._vendor.rf3 (upstream foundry), CPU torch, bf16 autocast",
               "kabsch_selftest_A": self_test,
@@ -333,6 +422,21 @@ def main() -> int:
     if args.probe:
         return probe(args, net)
 
+    if args.ref_only:
+        for s in seeds:
+            r = run_seed(args, net, None, s, work, ref_cache=None)
+            print(f"[ref seed {s}] {'cached' if r.get('cached') else 'ran'} "
+                  f"{[round(float(x), 1) for x in r['timing']]}", flush=True)
+        report["ref_only"] = True
+        print(json.dumps(report, indent=2))
+        if args.out:
+            Path(args.out).write_text(json.dumps(report, indent=2) + "\n")
+        return 0
+
+    # Before rf3_model.load: both flags are read at construction, not at call time.
+    report["arm_applied"] = apply_arm(args.arm)
+    print(json.dumps(report["arm_applied"], indent=2), flush=True)
+
     import ttnn
     from tt_bio.rf3 import model as rf3_model
     from tt_bio.tenstorrent import get_device
@@ -349,7 +453,7 @@ def main() -> int:
 
     per_seed = {}
     for s in seeds:
-        per_seed[s] = run_seed(args, net, tt, s, work)
+        per_seed[s] = run_seed(args, net, tt, s, work, ref_cache=ref_work)
         print(f"[seed {s}] {'cached' if per_seed[s].get('cached') else 'ran'} "
               f"{[round(float(x), 1) for x in per_seed[s]['timing']]}", flush=True)
 

@@ -1,0 +1,241 @@
+{
+  "arm": "a2",
+  "arm_route": "_tri_att_sdpa_hifi (fused SDPA at HiFi4 + fp32_dest_acc) above 128 tokens, _fp32_softmax_attention below",
+  "arm_scope": "GLOBAL (TT_BIO_TRIATT_FUSED_HIFI on the shared tenstorrent.py)",
+  "ref_cache": "/home/ttuser/.coworker/wt/rf3-fast-arm-accuracy-cell/perf/rf3/results/accuracy_7roa_117",
+  "fixture": "7roa_117",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "recycles": 10,
+  "steps": 50,
+  "diffusion_samples": 1,
+  "reference": "tt_bio._vendor.rf3 (upstream foundry), CPU torch, bf16 autocast",
+  "kabsch_selftest_A": 9.265044010831228e-15,
+  "metric_convention": "pharma_parity.noise_floor_verdict; floor = max(mean R, mean D); pairwise self-superposition, no shared frame",
+  "work": "/home/ttuser/.coworker/wt/rf3-fast-arm-accuracy-cell/perf/rf3/results/accuracy_7roa_117_a2",
+  "ref_load_s": 6.1,
+  "arm_applied": {
+    "arm": "a2",
+    "route": "_tri_att_sdpa_hifi (fused SDPA at HiFi4 + fp32_dest_acc) above 128 tokens, _fp32_softmax_attention below",
+    "scope": "GLOBAL (TT_BIO_TRIATT_FUSED_HIFI on the shared tenstorrent.py)",
+    "changed": {
+      "_TRIATT_FUSED_HIFI": [
+        false,
+        true
+      ]
+    },
+    "resolved": {
+      "fp32_softmax": true,
+      "accurate_softmax": true,
+      "_TRIATT_FUSED_HIFI": true,
+      "_FP32_SOFTMAX": false
+    }
+  },
+  "port_load_s": 6.4,
+  "metrics": {
+    "kabsch_rmsd": {
+      "metric": "kabsch_rmsd",
+      "cross": {
+        "n": 5,
+        "mean": 0.20304691841911565,
+        "std": 0.08590304474416681,
+        "min": 0.12782797210589622,
+        "max": 0.35877278493449993
+      },
+      "ref_floor": {
+        "n": 10,
+        "mean": 0.3605348906053667,
+        "std": 0.10522313186889619,
+        "min": 0.19234389520450992,
+        "max": 0.565472542662933
+      },
+      "dev_floor": {
+        "n": 10,
+        "mean": 0.2970854296482661,
+        "std": 0.09702708721177558,
+        "min": 0.18957072864276356,
+        "max": 0.4551856666135231
+      },
+      "floor_mean": 0.3605348906053667,
+      "cross_over_floor": 0.5631824372897274,
+      "dev_over_ref_floor": 0.8240129801291523,
+      "dev_floor_instability_check_applied": true,
+      "floor_inflated_by_dev": false,
+      "within_noise_floor": true,
+      "X_per_seed": {
+        "0": 0.3588,
+        "1": 0.1503,
+        "2": 0.2329,
+        "3": 0.1455,
+        "4": 0.1278
+      },
+      "R_pairs": [
+        0.4006,
+        0.4561,
+        0.5655,
+        0.4742,
+        0.3011,
+        0.2878,
+        0.1923,
+        0.3116,
+        0.3129,
+        0.3032
+      ],
+      "D_pairs": [
+        0.2039,
+        0.3248,
+        0.2293,
+        0.2362,
+        0.4494,
+        0.2109,
+        0.1896,
+        0.3916,
+        0.4552,
+        0.2799
+      ]
+    },
+    "allatom_rmsd": {
+      "metric": "allatom_rmsd",
+      "cross": {
+        "n": 5,
+        "mean": 0.2650567454582621,
+        "std": 0.0510847181963536,
+        "min": 0.20526751099944368,
+        "max": 0.3439623596968809
+      },
+      "ref_floor": {
+        "n": 10,
+        "mean": 0.6193805415823231,
+        "std": 0.15730038271560884,
+        "min": 0.4102766334839144,
+        "max": 0.8476170296899591
+      },
+      "dev_floor": {
+        "n": 10,
+        "mean": 0.5958302847370159,
+        "std": 0.17904552255536735,
+        "min": 0.32922229302161704,
+        "max": 0.8257360138190193
+      },
+      "floor_mean": 0.6193805415823231,
+      "cross_over_floor": 0.4279384444030566,
+      "dev_over_ref_floor": 0.9619777257045504,
+      "dev_floor_instability_check_applied": true,
+      "floor_inflated_by_dev": false,
+      "within_noise_floor": true,
+      "X_per_seed": {
+        "0": 0.2914,
+        "1": 0.344,
+        "2": 0.2699,
+        "3": 0.2053,
+        "4": 0.2148
+      },
+      "R_pairs": [
+        0.4103,
+        0.8476,
+        0.6146,
+        0.5512,
+        0.8036,
+        0.435,
+        0.4689,
+        0.8135,
+        0.721,
+        0.5281
+      ],
+      "D_pairs": [
+        0.4357,
+        0.823,
+        0.4869,
+        0.4682,
+        0.791,
+        0.5026,
+        0.3292,
+        0.8257,
+        0.7876,
+        0.5082
+      ]
+    }
+  },
+  "timing_s": {
+    "0": [
+      24.9,
+      0.0,
+      0.0,
+      10.1
+    ],
+    "1": [
+      20.8,
+      0.0,
+      0.0,
+      7.0
+    ],
+    "2": [
+      21.3,
+      0.0,
+      0.0,
+      7.1
+    ],
+    "3": [
+      21.9,
+      0.0,
+      0.0,
+      7.3
+    ],
+    "4": [
+      20.9,
+      0.0,
+      0.0,
+      8.1
+    ]
+  },
+  "draws_sha": {
+    "0": "b475c9124c2c4628",
+    "1": "d5c55c0e33dc8a73",
+    "2": "cbad866ee209e62e",
+    "3": "2212539454b4182a",
+    "4": "1af60dce0e7b16f1"
+  },
+  "flags": {
+    "pairformer_flags": {
+      "scale_pair_bias": true,
+      "fp32_softmax": true,
+      "transpose_bias": false,
+      "gated_move": true,
+      "accurate_softmax": true,
+      "transpose_l1_reserve": 131072
+    },
+    "triatt_fused_hifi": true,
+    "boltz2_fp32_softmax": false,
+    "triatt_fused_hifi_stats": {
+      "served": 0,
+      "declined": 0,
+      "too_short": 5440
+    },
+    "fp32_softmax_stats": {
+      "calls": 6925,
+      "blocked": 0,
+      "blocks": 0,
+      "fused": 6925,
+      "unfused": 0,
+      "l1": 1485,
+      "l1_blocks": 0,
+      "l1_refused": 0
+    },
+    "sdpa_k_chunk_stats": [
+      0,
+      0
+    ],
+    "env": {
+      "TT_BIO_LEASE_CARDS": "0",
+      "TT_BIO_LEASE_HOLDER": "worker:rf3-fast-arm-accuracy-cell",
+      "TT_METAL_CACHE": "/home/ttuser/.cache/tt-metal-cache-tt-bio/ttnn-0.68.0",
+      "TT_METAL_LOGGER_LEVEL": "FATAL",
+      "TT_VISIBLE_DEVICES": "0"
+    }
+  }
+}

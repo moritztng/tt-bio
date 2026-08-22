@@ -1,0 +1,13 @@
+{
+  "fixture": "cdk2_298",
+  "recycles": 10,
+  "steps": 50,
+  "n_atom": 2397,
+  "n_token": 298,
+  "n_rep_atom": 298,
+  "featurize_s": 5.1,
+  "ref_trunk_s": 234.0,
+  "ref_denoiser_call_s": 0.47,
+  "ref_rollout_s_projected": 22.8,
+  "ref_seed_s_projected": 261.9
+}
