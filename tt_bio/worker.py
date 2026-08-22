@@ -1142,13 +1142,18 @@ class _WorkerState:
                     "featurized to all-zero coordinates, so there is nothing to noise. "
                     "Give a .cif/.pdb that carries them.")
 
-        report_progress("trunk")
+        # One shared progress path, same as protenix-v2/openfold3/opendde:
+        # report_progress already has the progress_fn signature, so it goes straight
+        # into predict() and the trunk recycles / diffusion steps tick per iteration.
+        # A single report_progress("trunk") here instead left the live view with a
+        # zero-total trunk bar and no diffusion phase at all.
         torch.manual_seed(seed)
         got = self.model.predict(
             f, n_recycles=n_recycles, diffusion_batch_size=n_sample,
             rep_atom_idxs=out.get("ground_truth", {}).get("rep_atom_idxs"),
             coord_to_be_noised=coord_to_be_noised, partial_t=partial_t,
-            early_stop_plddt=early_stop_plddt, is_real_atom=is_real_atom)
+            early_stop_plddt=early_stop_plddt, is_real_atom=is_real_atom,
+            progress_fn=report_progress)
         if got.get("early_stopped"):
             # Abandoned, not failed: the caller has to be able to tell those apart, so this
             # returns metrics rather than raising, and writes no structure.
