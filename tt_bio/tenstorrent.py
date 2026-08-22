@@ -1456,6 +1456,38 @@ def _fp32_softmax_shard(rows: int, height_per_row: int, width: int):
         strategy=ttnn.ShardStrategy.HEIGHT, orientation=ttnn.ShardOrientation.ROW_MAJOR)
 
 
+def accurate_softmax_site(token: str, default: bool = False) -> bool:
+    """Whether construction site ``token`` takes the 5-op accurate softmax.
+
+    ``default`` is what the site ships with, decided per site by measurement. Protenix-v2's and
+    OpenDDE's Pairformer sites ship on: both models cleared 20/256/512/768 aa with the chain in
+    place, worst reading +2.0% against a +-15% band. Every other site still ships off because
+    nothing has scored it.
+
+    ``TT_BIO_ACCURATE_SOFTMAX_AB`` overrides the default per site, so a site stays A/B-able
+    after it has shipped: a bare token forces it on, a ``-`` prefix forces it off, and ``all`` /
+    ``-all`` do the same to every site that has no token of its own. Per site, never global:
+    a single shared switch is the exact shape of the Protenix-v2 fp32 default that cost OpenDDE
+    60x, and ``protenix.*`` and ``opendde.*`` name the same two code sites.
+    """
+    on, off = set(), set()
+    for t in os.environ.get("TT_BIO_ACCURATE_SOFTMAX_AB", "").split(","):
+        t = t.strip()
+        if t.startswith("-"):
+            off.add(t[1:])
+        elif t:
+            on.add(t)
+    if token in off:
+        return False
+    if token in on:
+        return True
+    if "all" in off:
+        return False
+    if "all" in on:
+        return True
+    return default
+
+
 def _accurate_softmax(x, compute_kernel_config=None, fp32: bool = True):
     """A row softmax built from individual ttnn ops, for logits the fused kernel loses.
 
@@ -1502,6 +1534,7 @@ def _fp32_softmax_attention(
     compute_kernel_config: ttnn.DeviceComputeKernelConfig,
     out_dtype: ttnn.DataType = ttnn.bfloat16,
     bias_scale_inv: float | None = None,
+    accurate_softmax: bool = False,
 ) -> ttnn.Tensor:
     """Manual attention with an fp32 softmax reduction, bf16 operands/storage.
 
@@ -1545,7 +1578,8 @@ def _fp32_softmax_attention(
         sh = shard_for(rows)
         FP32_SOFTMAX_STATS["l1_blocks"] += sh is not None
         return _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_config,
-                                             out_dtype, bias_scale_inv, sh, l1_key)
+                                             out_dtype, bias_scale_inv, sh, l1_key,
+                                             accurate_softmax=accurate_softmax)
     FP32_SOFTMAX_STATS["blocked"] += 1
     parts = []
     # the bias is the same tensor in every block, so its fp32 copy is made once per call
@@ -1557,7 +1591,8 @@ def _fp32_softmax_attention(
         FP32_SOFTMAX_STATS["l1_blocks"] += sh is not None
         parts.append(_fp32_softmax_attention_block(qs, ks, vs, bias, scale_inv,
                                                    compute_kernel_config, out_dtype,
-                                                   bias_scale_inv, sh, l1_key, bias_f))
+                                                   bias_scale_inv, sh, l1_key, bias_f,
+                                                   accurate_softmax=accurate_softmax))
         for t in (qs, ks, vs):
             ttnn.deallocate(t)
     FP32_SOFTMAX_STATS["blocks"] += len(parts)
@@ -1578,7 +1613,7 @@ def _fp32_softmax_bias(bias, scale_inv, bias_scale_inv):
 
 def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_config,
                                   out_dtype, bias_scale_inv, shard=None, l1_key=None,
-                                  bias_f=None):
+                                  bias_f=None, accurate_softmax=False):
     """One row block of `_fp32_softmax_attention`. The whole tensor is one block below the budget.
 
     ``shard`` height-shards the block so the four steps between the two matmuls stay in L1. Both
@@ -1591,7 +1626,8 @@ def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_confi
     attn_bf = None
     if shard is not None:
         try:
-            attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, shard, bias_f)
+            attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, shard, bias_f,
+                                         accurate_softmax)
         except RuntimeError:
             # The shard allocated but the sharded softmax could not fit its circular buffers
             # around it. Take one row off this geometry and fall back to the interleaved tail for
@@ -1600,17 +1636,29 @@ def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_confi
             FP32_SOFTMAX_STATS["l1_refused"] += 1
             attn_bf = None
     if attn_bf is None:
-        attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, None, bias_f)
+        attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, None, bias_f,
+                                     accurate_softmax)
     ttnn.deallocate(sc)
     o = batched_matmul(attn_bf, v, compute_kernel_config=compute_kernel_config, dtype=out_dtype)
     ttnn.deallocate(attn_bf)
     return o
 
 
-def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None):
+def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None,
+                       accurate_softmax=False):
     """bf16 scores -> bf16 attention weights, both interleaved. ``shard`` keeps the middle in L1.
 
     ``sc0`` is left allocated either way, so a caller can retry interleaved after a refusal.
+
+    ``accurate_softmax`` swaps the fused kernel for the 5-op chain. The fp32 upcast here fixes the
+    summation precision but not the kernel: measured on real OpenFold3 TriangleAttention pairs,
+    ``ttnn.softmax_in_place`` returns rows summing to 0.9895 and scores rel_rms 0.017085 on the
+    contracted output, against 0.000422 for the chain and 0.000000 for a correct fp32 softmax --
+    a 40.5x gain that lands exactly on the ceiling
+    (perf/xmsoftmax/results/arms_of3tri.json). Renormalising instead of replacing gets only 8.2x
+    here and as little as 1.56x at the bf16 sites, so it is not a cheaper substitute. Off by
+    default: this is the site carrying 98.7% of OpenFold3's softmax volume, so the cost is real
+    and is release-gated.
     """
     if shard is not None:
         # typecast refuses a layout change, so the bf16 scores move to L1 first and the fp32 copy
@@ -1637,7 +1685,12 @@ def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None)
         if own:
             ttnn.deallocate(bias_f)
         try:
-            attn = ttnn.softmax_in_place(attn)
+            if accurate_softmax:
+                acc = _accurate_softmax(attn)
+                ttnn.deallocate(attn)
+                attn = acc
+            else:
+                attn = ttnn.softmax_in_place(attn)
         except RuntimeError:
             ttnn.deallocate(attn)
             raise
@@ -1647,7 +1700,8 @@ def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None)
         sc = ttnn.add(sc, bias_f)
         if own:
             ttnn.deallocate(bias_f)
-        attn = ttnn.softmax(sc, dim=-1)  # fp32 softmax reduction
+        attn = (_accurate_softmax(sc) if accurate_softmax
+                else ttnn.softmax(sc, dim=-1))  # fp32 softmax reduction
         ttnn.deallocate(sc)
     attn_bf = ttnn.typecast(attn, ttnn.bfloat16, memory_config=attn.memory_config())
     ttnn.deallocate(attn)
@@ -3781,6 +3835,7 @@ class TriangleAttention(Module):
         fp32_softmax: bool = False,
         transpose_bias: bool = True,
         transpose_l1_reserve: int = 0,
+        accurate_softmax: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.head_dim = head_dim
@@ -3799,6 +3854,9 @@ class TriangleAttention(Module):
         self.transpose_bias = transpose_bias
         self.affinity = affinity
         self.fp32_softmax = fp32_softmax
+        # Only reaches the fp32_softmax path: the bf16 route is the fused SDPA kernel, which
+        # has no ttnn.softmax to replace. OpenFold3 is the only model here on the fp32 route.
+        self.accurate_softmax = accurate_softmax
         self.scale = self.head_dim**0.5
         # Boltz/Protenix fold sqrt(head_dim) into the pair-bias projection (their
         # reference adds the bias pre-scaled); openfold3 pre-scales q by 1/sqrt(d) and
@@ -3991,6 +4049,7 @@ class TriangleAttention(Module):
                         compute_kernel_config=self.compute_kernel_config,
                         out_dtype=_dtype(),
                         bias_scale_inv=1.0 / self._bias_scale,
+                        accurate_softmax=self.accurate_softmax,
                     )
             else:
                 o = _tri_att_sdpa(q, k, v, bias, self.scale**-1)
@@ -4341,6 +4400,7 @@ class AttentionPairBias(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 out_dtype=_dtype(),
                 bias_scale_inv=1.0 / self._bias_scale,
+                accurate_softmax=self.accurate_softmax,
             )
         if self.dtype != ttnn.float32:
             return ttnn.transformer.scaled_dot_product_attention(
@@ -4888,6 +4948,7 @@ class PairformerLayer(Module):
             affinity=affinity,
             scale_pair_bias=scale_pair_bias,
             fp32_softmax=fp32_softmax,
+            accurate_softmax=accurate_softmax,
         )
         self.triangle_attention_end = TriangleAttention(
             tri_att_head_dim,
@@ -4900,6 +4961,7 @@ class PairformerLayer(Module):
             fp32_softmax=fp32_softmax,
             transpose_bias=transpose_bias,
             transpose_l1_reserve=transpose_l1_reserve,
+            accurate_softmax=accurate_softmax,
         )
         self.transition_z = Transition(
             self.scope("transition_z"), compute_kernel_config

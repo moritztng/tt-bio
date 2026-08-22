@@ -232,14 +232,14 @@ def _install_wraps():
     # answering L1 at N>=560 with no error and no log line.
     tmc = T._transpose_memory_config
 
-    # `*a, **kw` rather than the real parameter list, and not a style choice: this wrapper
-    # was written as `(t)` and `421eee0c` gave the real function a second parameter
-    # (`reserve_per_core`, passed by the ending-variant pair transpose). The wrapper then
-    # raised TypeError on every fold that reached that call site, which is 4 of the
-    # size-ladder's 5 models. A pass-through cannot go stale that way, and it is what the
-    # PAIR_PROJ_MINIMAL_MATMUL / QKV_MM_CONFIG wrappers below already do.
-    def _transpose_memory_config(*a, **kw):
-        out = tmc(*a, **kw)
+    # Forward every argument. This wrapper was written as `(t)` and `421eee0c` gave the real
+    # function a second parameter (`reserve_per_core`, passed by the ending-variant pair
+    # transpose in AttentionPairBias), so it raised TypeError on every fold that reached that
+    # call site — 4 of the size-ladder's 5 models, surfacing as a rung-256 warm-up failure.
+    # A pass-through cannot go stale that way, and it is what the PAIR_PROJ_MINIMAL_MATMUL /
+    # QKV_MM_CONFIG wrappers below already do.
+    def _transpose_memory_config(t, *args, **kwargs):
+        out = tmc(t, *args, **kwargs)
         WRAP_COUNTS["TRANSPOSE_L1_RESIDENT"][0 if out.buffer_type == ttnn.BufferType.L1 else 1] += 1
         return out
 

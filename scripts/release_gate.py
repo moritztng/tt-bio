@@ -898,7 +898,7 @@ def _fold_error(text: str) -> str:
         return ""
     fails = [ln.strip() for ln in lines if ln.lstrip().startswith("✗ ")]
     if fails:
-        return fails[-1][:200]
+        return fails[-1][:400]
     tb = [i for i, ln in enumerate(lines)
           if ln.startswith("Traceback (most recent call last)")]
     if tb:
@@ -906,8 +906,13 @@ def _fold_error(text: str) -> str:
         # is the exception.
         for ln in lines[tb[-1] + 1:]:
             if not ln[:1].isspace() and ": " in ln:
-                return ln[:200]
-    return " / ".join(lines[-3:])[:200]
+                return ln[:400]
+    # No explicit failure line. Prefer any line that at least mentions a fault over a
+    # blind tail; origin/main solved the same problem that way and it beats the tail
+    # whenever the wrapper outlives the fold.
+    marks = ("\u2717", "Traceback", "Error", "FATAL", "failed:")
+    hits = [ln for ln in lines if any(m in ln for m in marks)]
+    return " / ".join((hits or lines)[-3:])[:400]
 
 
 def run_capacity(keep: bool, leg) -> dict:

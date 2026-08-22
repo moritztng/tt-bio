@@ -1,0 +1,12 @@
+{
+  "leg": "opendde-abag",
+  "question": "does the accurate-softmax flip move the one gated model no rung in this campaign measured",
+  "why_it_is_in_the_blast_radius": "load_opendde_checkpoint(abag=True) swaps opendde.pt for opendde_abag.pt and runs the identical OpenDDE.__init__, so all three flipped construction sites reach it; it is gated on DockQ, not CA-RMSD",
+  "command": "scripts/release_gate.py --model opendde-abag",
+  "host": "tt-quietbox2", "card": 2, "branch": "wk/shared-softmax-crossmodel-p4", "commit": "78ed5a1e",
+  "accurate_softmax": "on by default at protenix.trunk, protenix.confidence, opendde.trunk, opendde.confidence, opendde.refiner",
+  "target": "1ahw_abag.yaml", "sampling_steps": 200, "diffusion_samples": 5, "seed": 0,
+  "global_dockq": 0.873, "mean_fnat": 0.941, "floor_global_dockq": 0.5, "seconds": 452, "gate": "PASS",
+  "recorded_device_band": "0.863-0.882 (docs/implementation-parity-details.md:139); reference 0.83-0.86",
+  "reading": "inside the recorded device band, not merely above the floor"
+}
