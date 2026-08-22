@@ -1533,19 +1533,27 @@ _FP32_SOFTMAX_L1_ANY_CORES = env_flag("TT_BIO_FP32_SOFTMAX_L1_ANY_CORES", True)
 _FP32_SOFTMAX_L1_CORE_CAP = 110
 
 
-@lru_cache(maxsize=None)
-def _fp32_softmax_l1_plan(per_row: int, height_per_row: int, cap: int | None = None) -> tuple:
-    """``(rows, cores)`` for the largest L1-resident score block, or ``(0, 0)`` when there is none.
+# S2: let the core count float at EVERY size, not only where the rectangle is dark. Same search,
+# same bit-exactness argument, but it also replaces a block the 8x8 grid CAN serve when a freer core
+# count serves a taller one. The tuned answer is inside the search space, so this can only go up:
+# at n_heads=4 it takes 512 aa from 12 rows on 64 cores to 18 on 96 (43 -> 29 blocks per call),
+# 768 aa from 4 on 64 to 9 on 108 (192 -> 86), and leaves 1024 aa at 3 rows but on 96 cores, which
+# is 524288 B/core against 786432 -- the headroom the 3-row shard refused its circular buffers for.
+# Blocks are not free: the loop pays a slice and the call pays a concat per block, measured at
+# 41.508 s (2 rows) / 45.448 s (1 row) on RF3's 1024 aa trunk, so fewer and taller is the direction.
+#
+# Ships OFF: unlike S1 this MOVES sizes that are L1-resident today, so it owes its own fold-level
+# A/B at 512 and 1024 aa before it can be a default.
+_FP32_SOFTMAX_L1_FLOAT_CORES = env_flag("TT_BIO_FP32_SOFTMAX_L1_FLOAT_CORES", False)
 
-    The tuned 8x8 answer wins whenever it exists, so every size that is L1-resident today keeps
-    exactly the block and the core grid it has. Only a size the rectangle cannot serve reaches the
-    second search, and there the core count is a free variable: pick the tallest block the budget
-    affords whose shard count has a divisor big enough to keep every core under the byte budget.
+
+def _fp32_softmax_l1_free_plan(per_row: int, height_per_row: int, cap: int | None) -> tuple:
+    """Tallest block whose shard count has a divisor that keeps every core under the byte budget.
+
+    Rows first, then the widest core count for those rows: a taller block means fewer blocks per
+    call, and for a fixed block more cores means fewer bytes on each of them.
     """
-    rows = _fp32_softmax_l1_rows(per_row, height_per_row, cap)
-    if rows:
-        return rows, _FP32_SOFTMAX_L1_GRID[0] * _FP32_SOFTMAX_L1_GRID[1]
-    if not _FP32_SOFTMAX_L1_ANY_CORES or per_row <= 0 or _FP32_SOFTMAX_L1_BYTES_PER_CORE <= 0:
+    if per_row <= 0 or _FP32_SOFTMAX_L1_BYTES_PER_CORE <= 0:
         return 0, 0
     hi = int(_FP32_SOFTMAX_L1_BYTES_PER_CORE) * _FP32_SOFTMAX_L1_CORE_CAP // per_row
     if cap is not None:
@@ -1560,6 +1568,26 @@ def _fp32_softmax_l1_plan(per_row: int, height_per_row: int, cap: int | None = N
             if shards % c == 0:
                 return blk, c
     return 0, 0
+
+
+@lru_cache(maxsize=None)
+def _fp32_softmax_l1_plan(per_row: int, height_per_row: int, cap: int | None = None) -> tuple:
+    """``(rows, cores)`` for the largest L1-resident score block, or ``(0, 0)`` when there is none.
+
+    The tuned 8x8 answer wins whenever it exists, so every size that is L1-resident today keeps
+    exactly the block and the core grid it has. Only a size the rectangle cannot serve reaches the
+    free search (S1) -- unless S2 is on, which offers the free search to every size.
+    """
+    if _FP32_SOFTMAX_L1_FLOAT_CORES:
+        free = _fp32_softmax_l1_free_plan(per_row, height_per_row, cap)
+        if free[0]:
+            return free
+    rows = _fp32_softmax_l1_rows(per_row, height_per_row, cap)
+    if rows:
+        return rows, _FP32_SOFTMAX_L1_GRID[0] * _FP32_SOFTMAX_L1_GRID[1]
+    if not _FP32_SOFTMAX_L1_ANY_CORES:
+        return 0, 0
+    return _fp32_softmax_l1_free_plan(per_row, height_per_row, cap)
 
 
 @lru_cache(maxsize=None)

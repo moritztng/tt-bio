@@ -117,11 +117,38 @@ def install_decomp_timers():
     wrap_method(TR.OF3TrunkGlue, "glue_s", "trunk:glue_s")
     if hasattr(TR, "OF3PairformerStack"):
         wrap_method(TR.OF3PairformerStack, "__call__", "trunk:pairformer_stack")
+
+    SD = SDM.OF3SampleDiffusion
+    wrap_method(SD, "__call__", "diff:rollout")
+    wrap_method(DC.OF3DiffusionConditioning, "__call__", "diff:conditioning")
+    for _m, _k in (("pair", "diff:cond_pair"), ("single", "diff:cond_single")):
+        if hasattr(DC.OF3DiffusionConditioning, _m):
+            wrap_method(DC.OF3DiffusionConditioning, _m, _k)
+    wrap_static(SD, "_pad_tokens", "diff:pad_tokens_si(host round trip)")
+    wrap_static(SD, "_pad_pair", "diff:pad_pair_zij(host round trip)")
+    wrap_method(DM.OF3DiffusionModule, "__call__", "diff:module")
+    wrap_method(DM.OF3NoisyPositionEmbedder, "__call__", "dm:npe")
+    wrap_static(DM.OF3DiffusionModule, "_pad_atoms", "dm:pad_atoms(host round trip)")
+    wrap_static(DM.OF3DiffusionModule, "_pad_tokens", "dm:pad_tokens_ai(host round trip)")
+    wrap_method(AT.OF3AtomTransformer, "__call__", "dm:atom_transformer")
+    wrap_method(DT.OF3DiffusionTransformer, "__call__", "dm:dit_stack")
+    wrap_method(DT._DiTBlock, "__call__", "dm:dit_block")
+    wrap_method(DD.OF3AtomAttentionDecoder, "__call__", "dm:decoder")
+    for nm, key, dev_side in (("derive_block_aux", "host:derive_block_aux", False),
+                              ("derive_template_feat", "host:derive_template_feat", False),
+                              ("derive_relpos", "host:derive_relpos", False),
+                              ("ref_atom_embed", "host:ref_atom_embed", False),
+                              ("run_input_atom_encoder", "prep:input_atom_encoder", True)):
+        if not hasattr(HP, nm):
+            MISSING.append(f"host_prep.{nm}")
+            continue
+        setattr(HP, nm, (lambda g, k, r: lambda *x, **kw: r(k, g, *x, **kw))(
+            getattr(HP, nm), key, timed if dev_side else host_timed))
     install_pair_stack_timers()
 
 
-# Which pair stack is on the stack right now. Every OF3 pair stack is built from the SAME
-# four shared primitives, so timing the primitives alone would pool the 48-block trunk with the
+# Which pair stack is on the stack right now. Every OF3 pair stack is built from the SAME four
+# shared primitives, so timing the primitives alone would pool the 48-block trunk with the
 # template, MSA and confidence stacks and answer nobody's question. `_STACK` is pushed by the
 # stack's own __call__ and read by the primitive's, so each row is attributed to one stack.
 _STACK = ["?"]
@@ -160,14 +187,14 @@ def install_pair_stack_timers():
     """Per-op attribution INSIDE each pair stack: TriMul, TriAtt, Transition, AttentionPairBias.
 
     Every row is a synchronised region, so the instrumented total is not a fold time
-    (`tt-bio-isolated-op-timing-oversync-inflates-cost`: sync-per-op over-syncs). What it IS
-    good for is the SPLIT between the four ops within one run, which is the question pass 1
-    left open: the trunk's ~110 ms/block was a subtraction, not a measurement.
+    (`tt-bio-isolated-op-timing-oversync-inflates-cost`). What it IS good for is the SPLIT
+    between the four ops within one run, which is the question pass 1 left open: the trunk's
+    ~110 ms/block was a subtraction, not a measurement.
     """
     import tt_bio.tenstorrent as T
-    import tt_bio.openfold3_trunk as TR
     import tt_bio.openfold3_template as TP
     import tt_bio.openfold3_msa_embedder as ME
+
     stack_scoped(T.Pairformer, "__call__", lambda o: f"pf{len(o.blocks)}")
     stack_scoped(TP.TemplatePairStack, "__call__", "tps")
     stack_scoped(ME.MSAModuleBlock, "__call__", "msab")
@@ -176,33 +203,6 @@ def install_pair_stack_timers():
     op_scoped(T.TriangleAttention, "__call__", "triatt")
     op_scoped(T.Transition, "__call__", "transition")
     op_scoped(T.AttentionPairBias, "__call__", "attn_pair_bias")
-
-    SD = SDM.OF3SampleDiffusion
-    wrap_method(SD, "__call__", "diff:rollout")
-    wrap_method(DC.OF3DiffusionConditioning, "__call__", "diff:conditioning")
-    for _m, _k in (("pair", "diff:cond_pair"), ("single", "diff:cond_single")):
-        if hasattr(DC.OF3DiffusionConditioning, _m):
-            wrap_method(DC.OF3DiffusionConditioning, _m, _k)
-    wrap_static(SD, "_pad_tokens", "diff:pad_tokens_si(host round trip)")
-    wrap_static(SD, "_pad_pair", "diff:pad_pair_zij(host round trip)")
-    wrap_method(DM.OF3DiffusionModule, "__call__", "diff:module")
-    wrap_method(DM.OF3NoisyPositionEmbedder, "__call__", "dm:npe")
-    wrap_static(DM.OF3DiffusionModule, "_pad_atoms", "dm:pad_atoms(host round trip)")
-    wrap_static(DM.OF3DiffusionModule, "_pad_tokens", "dm:pad_tokens_ai(host round trip)")
-    wrap_method(AT.OF3AtomTransformer, "__call__", "dm:atom_transformer")
-    wrap_method(DT.OF3DiffusionTransformer, "__call__", "dm:dit_stack")
-    wrap_method(DT._DiTBlock, "__call__", "dm:dit_block")
-    wrap_method(DD.OF3AtomAttentionDecoder, "__call__", "dm:decoder")
-    for nm, key, dev_side in (("derive_block_aux", "host:derive_block_aux", False),
-                              ("derive_template_feat", "host:derive_template_feat", False),
-                              ("derive_relpos", "host:derive_relpos", False),
-                              ("ref_atom_embed", "host:ref_atom_embed", False),
-                              ("run_input_atom_encoder", "prep:input_atom_encoder", True)):
-        if not hasattr(HP, nm):
-            MISSING.append(f"host_prep.{nm}")
-            continue
-        setattr(HP, nm, (lambda g, k, r: lambda *x, **kw: r(k, g, *x, **kw))(
-            getattr(HP, nm), key, timed if dev_side else host_timed))
 
 
 def main():
