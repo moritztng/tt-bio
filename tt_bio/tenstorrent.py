@@ -7810,10 +7810,16 @@ class TemplateRecycle:
         ]
         # template pairformer is called without a mask -> padding-only masks (mirror
         # PairformerModule.forward's no-mask branch); None when no padding.
+        # `mask_tt` must be the 2-D outer product, not the 1-D token mask: the
+        # TriangleMultiplications broadcast it along the second token axis only, so a
+        # 1-D mask leaves the incoming variant summing the padded rows in. Same defect
+        # and same fix as PairformerModule.forward above -- this is the resident-trunk
+        # copy of that mask recipe, and the resident trunk is the shipped Boltz-2 path.
         if seq_pad:
             mask_1d = a_tij.new_ones(1, seq_len + seq_pad)
             mask_1d[:, seq_len:] = 0.0
-            mask_tt = ttnn.from_torch(mask_1d, layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
+            mask_tt = ttnn.from_torch(mask_1d[:, :, None] * mask_1d[:, None, :],
+                                      layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
             attn_tt = ttnn.from_torch((1 - mask_1d).unsqueeze(1).unsqueeze(1) * -1e9,
                                       layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
         else:
