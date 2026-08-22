@@ -29,8 +29,20 @@ from tt_bio import tenstorrent as T
 # follows the core grid, so it is derived the way the factory derives it and not pinned to one host.
 RF3_M_TILES = 18432         # x = (1, 768, 768, 64): 768 batch rows of ceil(768/32) tiles
 RF3_N_TILES = 2             # w = (64, 64)
-RF3_CORES = T.COMPUTE_GRID_MAIN[0] * T.COMPUTE_GRID_MAIN[1]
-RF3_PER_CORE_M = -(-(-(-RF3_M_TILES // RF3_CORES)) // 5) * 5
+
+
+def rf3_per_core_m():
+    """`per_core_M` for that class, on whatever grid is live RIGHT NOW.
+
+    Read at call time, not import time. `tenstorrent.COMPUTE_GRID_MAIN` starts at
+    the compiled-in default and is REBOUND when a device opens, so a module-level
+    copy of it is whatever the grid was before the first device_open in the
+    session -- and the factory reads the rebound one. On a host that comes up
+    13x10 (130 cores) rather than 11x10 (110) that is 145 against an expected
+    170, and the test fails on the grid, not on the ladder it means to check.
+    """
+    cores = T.COMPUTE_GRID_MAIN[0] * T.COMPUTE_GRID_MAIN[1]
+    return -(-(-(-RF3_M_TILES // cores)) // 5) * 5
 BANK = 1461760              # Blackhole L1 bytes per bank, what _l1_bank_bytes() reports on qb2
 
 
@@ -53,14 +65,14 @@ def clean_state():
 
 def test_rung_zero_is_the_callers_ask():
     """A class that never refuses must see exactly the shipped config, on both call shapes."""
-    assert T._pair_proj_l1_rungs(RF3_PER_CORE_M, RF3_N_TILES)[0] == (5, 2)
+    assert T._pair_proj_l1_rungs(rf3_per_core_m(), RF3_N_TILES)[0] == (5, 2)
     # the pair FFN fc1 site: out_block_w = 16 of n_tiles = 32
-    assert T._pair_proj_l1_rungs(RF3_PER_CORE_M, 16)[0] == (5, 16)
+    assert T._pair_proj_l1_rungs(rf3_per_core_m(), 16)[0] == (5, 16)
 
 
 def test_the_rf3_class_has_three_rungs_below_the_shipped_one():
     """The regression this file exists for: a refusal narrows, it does not retire."""
-    assert T._pair_proj_l1_rungs(RF3_PER_CORE_M, RF3_N_TILES) == [(5, 2), (5, 1), (1, 2), (1, 1)]
+    assert T._pair_proj_l1_rungs(rf3_per_core_m(), RF3_N_TILES) == [(5, 2), (5, 1), (1, 2), (1, 1)]
 
 
 def test_every_rung_divides_and_shrinks():
@@ -99,7 +111,7 @@ def test_the_config_factory_walks_the_ladder_and_never_moves_in0_block_w(monkeyp
             break
         seen.append((cfg.out_block_h, cfg.out_block_w))
         assert cfg.in0_block_w == 2, "in0_block_w is the one parameter parity depends on"
-        assert cfg.per_core_M == RF3_PER_CORE_M and cfg.per_core_N == RF3_N_TILES
+        assert cfg.per_core_M == rf3_per_core_m() and cfg.per_core_N == RF3_N_TILES
     assert seen == [(5, 2), (5, 1), (1, 2), (1, 1)], seen
     T._pair_proj_program_config.cache_clear()
 

@@ -122,7 +122,7 @@ class DiffusionSampler:
 
     def sample(self, denoise, coord_to_be_noised: torch.Tensor, d: int,
                draws: Draws | None = None, s_trans: float = 1.0,
-               partial_t: int = 0):
+               partial_t: int = 0, progress_fn=None):
         """`denoise(x_noisy [D,L,3], t [D]) -> [D,L,3]` is the ported diffusion module.
 
         `partial_t` starts the rollout part-way down the schedule, which is upstream's
@@ -142,7 +142,9 @@ class DiffusionSampler:
         x = sched[0] * draws.normal((d, n_atom, 3)) + coord_to_be_noised
         exists = torch.ones((d, n_atom)).bool()
 
-        for c_prev, c_t in zip(sched, sched[1:]):
+        for k, (c_prev, c_t) in enumerate(zip(sched, sched[1:])):
+            if progress_fn:
+                progress_fn("diffusion", step=k, total=len(sched) - 1)
             x = centre(x, exists)
             r = uniform_random_rotation(d, draws)
             x = rot_vec_mul(r[:, None], x) + s_trans * draws.normal((d, 1, 3))

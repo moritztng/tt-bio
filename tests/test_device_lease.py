@@ -31,9 +31,18 @@ else:
         """Per-test lease dir + host, the pytest equivalent of what __main__ sets up below.
         Every test takes `d` as its lease directory, and the spawned holders inherit the same
         dir/host via _env(), so contention happens on one file and never on the real fleet
-        lease dir."""
+        lease dir.
+
+        The ambient card grant and holder identity are cleared for the same reason: these
+        tests lease card 0 on a synthetic host, so a real job's grant has no business
+        deciding the outcome. Under the release gate, which pins the host suite with
+        TT_BIO_LEASE_CARDS=2, six of these tests were refused before they could test
+        anything -- green on a laptop, red on the one runner that matters. Tests that
+        exercise the grant set it themselves, after this fixture."""
         monkeypatch.setenv("TT_BIO_LEASE_DIR", str(tmp_path))
         monkeypatch.setenv("TT_BIO_LEASE_HOST", "testhost")
+        monkeypatch.delenv("TT_BIO_LEASE_CARDS", raising=False)
+        monkeypatch.delenv("TT_BIO_LEASE_HOLDER", raising=False)
         return str(tmp_path)
 
 # A child that acquires card 0's lease, writes a "ready" marker, holds for `hold`
@@ -392,6 +401,8 @@ if __name__ == "__main__":
         # they actually contend on one file. Holders inherit these via _env().
         os.environ["TT_BIO_LEASE_DIR"] = d
         os.environ["TT_BIO_LEASE_HOST"] = "testhost"
+        os.environ.pop("TT_BIO_LEASE_CARDS", None)
+        os.environ.pop("TT_BIO_LEASE_HOLDER", None)
         print(f"lease dir under test: {d}")
         test_no_self_deadlock_against_dispatch_lease(d)
         test_clean_release(d)

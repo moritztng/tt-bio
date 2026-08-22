@@ -234,8 +234,18 @@ def _fold_check(whl: Path) -> int:
         py = _make_venv(venv_dir)
         ttbio = venv_dir / "bin" / "tt-bio"
         print("installing wheel --no-deps into deps-inheriting venv...", flush=True)
+        # --force-reinstall matters: system_site_packages means pip can see a tt_bio of
+        # the same version in the PARENT interpreter and report "already satisfied", so
+        # the child venv gets no tt_bio and no `tt-bio` console script, and every fold
+        # below dies on FileNotFoundError for the script itself instead of testing the
+        # wheel. That reads as a packaging failure and is not one.
         subprocess.run([str(py), "-m", "pip", "install", "--quiet", "--no-deps",
-                        str(whl)], check=True, timeout=PIP_TIMEOUT_S)
+                        "--force-reinstall", str(whl)],
+                       check=True, timeout=PIP_TIMEOUT_S)
+        if not ttbio.exists():
+            print(f"FAIL: the wheel installed but left no console script at {ttbio}; "
+                  f"check [project.scripts] in pyproject.toml", file=sys.stderr)
+            return 1
         failures = 0
         for name, args in cases:
             print(f"\n{'='*70}\n[fold] {name}: tt-bio {' '.join(args)}\n{'='*70}", flush=True)

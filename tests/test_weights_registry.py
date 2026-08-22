@@ -286,10 +286,24 @@ def test_openfold3_is_never_downloaded(tmp_path, monkeypatch):
         weights.fetch("openfold3")
 
 
+def _only_override(monkeypatch, key: str, path: Path) -> None:
+    """Point one row at `path` and clear every other override it accepts.
+
+    Setting the canonical var is not enough: `env_vars` lists `legacy_env` first, so a
+    stale legacy override in the ambient environment wins and the row silently resolves
+    to whatever that names. The release gate's own env.sh exports `OF3_CKPT`, which is
+    how a truncated-checkpoint test came to read a real, intact checkpoint and see no
+    error at all. Derived from the registry so a new legacy var can't reopen the hole.
+    """
+    for var in weights.ARTIFACTS[key].env_vars:
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv(weights.ARTIFACTS[key].env, str(path))
+
+
 def test_truncated_manual_checkpoint_is_named_by_tt_bio(tmp_path, monkeypatch):
     """Previously this died inside torch.load with no hint at the cause."""
     ckpt = _truncate(_zip(tmp_path / "of3-p2-155k.pt"))
-    monkeypatch.setenv("TT_BIO_OPENFOLD3", str(ckpt))
+    _only_override(monkeypatch, "openfold3", ckpt)
     with pytest.raises(RuntimeError, match="truncated or corrupt"):
         weights.fetch("openfold3")
 

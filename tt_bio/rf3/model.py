@@ -249,7 +249,8 @@ class RF3(Module):
         self.sampler = DiffusionSampler(num_timesteps=num_timesteps,
                                         sigma_data=sigma_data)
 
-    def trunk(self, host: HostInputs, n_recycles: int, stop_after_first=None):
+    def trunk(self, host: HostInputs, n_recycles: int, stop_after_first=None,
+              progress_fn=None):
         """Feature init followed by `n_recycles` weight-shared trunk passes.
 
         `stop_after_first(s_inputs, s, z) -> bool` is consulted once, after the first
@@ -269,6 +270,8 @@ class RF3(Module):
         template_channels = self.recycler.template_embedder.embed_template_feats(
             host.template_feats)
         for i in range(n_recycles):
+            if progress_fn:
+                progress_fn("trunk", step=i, total=n_recycles)
             # One i.i.d. MSA sample per recycle, as the featurizer drew them.
             s, z = self.recycler(host, template_channels,
                                  host.msa_stack[i % len(host.msa_stack)],
@@ -283,7 +286,7 @@ class RF3(Module):
                 coord_to_be_noised: torch.Tensor | None = None,
                 partial_t: int = 0, early_stop_plddt: float | None = None,
                 is_real_atom: torch.Tensor | None = None,
-                draws: Draws | None = None) -> dict:
+                draws: Draws | None = None, progress_fn=None) -> dict:
         """One full inference: trunk recycling, diffusion rollout, then the heads.
 
         `draws` replays a recorded RNG stream, which is how this is scored against the
@@ -315,7 +318,8 @@ class RF3(Module):
                     s_inputs, s, z, is_real_atom)
                 return decision["mean_plddt"] < early_stop_plddt
 
-        s_inputs, s, z = self.trunk(host, n_recycles, stop_after_first)
+        s_inputs, s, z = self.trunk(host, n_recycles, stop_after_first,
+                                    progress_fn=progress_fn)
         if decision.get("mean_plddt") is not None \
                 and decision["mean_plddt"] < early_stop_plddt:
             return {"early_stopped": True, "mean_plddt": decision["mean_plddt"],
@@ -336,7 +340,7 @@ class RF3(Module):
 
         x_pred, draws = self.sampler.sample(
             denoise, coord_to_be_noised, diffusion_batch_size, draws=draws,
-            partial_t=partial_t)
+            partial_t=partial_t, progress_fn=progress_fn)
 
         out = {"X_L": x_pred, "distogram": distogram, "draws": draws,
                "early_stopped": False}

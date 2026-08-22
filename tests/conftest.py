@@ -1,6 +1,28 @@
 """Shared test helpers."""
 import os
+import subprocess
 from pathlib import Path
+
+
+def git_tracked(repo, *args):
+    """Paths git tracks under *repo*, or None when *repo* is not a work tree.
+
+    Three test files ask git what is tracked. All three used `check=True`, and
+    `git ls-files` exits 128 outside a work tree, so each of them turned a
+    perfectly ordinary environment into a CalledProcessError. Two of the three
+    raise it at collection time, which takes down the whole session rather than
+    one test. That environment is not exotic: a release gate runs the suite
+    against a `git archive` export, and so does anyone testing an unpacked
+    sdist. Returning None lets each caller decide -- skip, if the question only
+    means something in a checkout, or fall back to walking the tree.
+    """
+    try:
+        out = subprocess.run(["git", "ls-files", *args], cwd=repo,
+                             capture_output=True, check=True)
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+    sep = "\0" if "-z" in args else "\n"
+    return [x for x in out.stdout.decode().split(sep) if x]
 
 # The pinned Hugging Face snapshot the BoltzGen guards used to hardcode. Kept as a
 # fallback for machines provisioned before tt-bio downloaded its own weights.

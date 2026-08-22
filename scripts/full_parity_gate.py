@@ -1136,17 +1136,26 @@ def _repo_commit() -> str:
         return "unknown"
 
 
+def _load_script_module(name: str, path: Path):
+    """Load a script as a module by explicit path, under the name we pass.
+
+    The name is ours to choose, which is the point: two port dirs can hold files of the
+    same name (``rf3_port/parity_gate.py`` and ``rfd3_port/parity_gate.py``) and a bare
+    ``import parity_gate`` binds ``sys.modules`` process-wide for whoever asks second.
+    """
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(name, path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
 def _load_release_gate():
     """Import scripts/release_gate.py as a module so the boltzgen/abag legs can call its
     vetted ``run_boltzgen`` / ``run_opendde_abag`` IN-PROCESS and capture their real structured
     row (scRMSD/pass-rate, DockQ/fnat) — instead of shelling out and capturing only a return
     code. That removes the live-vs-committed shape mismatch (postmortem #3) at the root."""
-    import importlib.util
-    path = REPO / "scripts" / "release_gate.py"
-    spec = importlib.util.spec_from_file_location("tt_bio_release_gate", path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
+    return _load_script_module("tt_bio_release_gate", REPO / "scripts" / "release_gate.py")
 
 
 def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
@@ -1193,10 +1202,14 @@ def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
         # Card-free in-process: run the ported featurizer on the committed IAI
         # fixture and compare every f key bit-exact vs the committed foundry
         # reference (scripts/rfd3_port/parity_gate.py). No device, no fold.
-        sys.path.insert(0, str(REPO / "scripts" / "rfd3_port"))
+        # Loaded by path under a name of its own: scripts/rf3_port/parity_gate.py is a
+        # different scorer with the same module name and the same featurizer_parity()
+        # entry point, and a bare import binds sys.modules["parity_gate"] process-wide
+        # for whoever asks second.
         try:
-            from parity_gate import featurizer_parity
-            rep = featurizer_parity()
+            rep = _load_script_module("rfd3_parity_gate",
+                                      REPO / "scripts" / "rfd3_port" / "parity_gate.py"
+                                      ).featurizer_parity()
         except Exception as e:
             return {"error": f"{type(e).__name__}: {e}"}
         out_json.write_text(json.dumps(rep, indent=2))
@@ -1537,6 +1550,52 @@ def finalize_leg(leg: Leg, verdict: str, detail: str, wall: float) -> tuple[dict
     return row, drift, ok
 
 
+# ---------------------------------------------------------------------------
+# Workdir provenance
+# ---------------------------------------------------------------------------
+# The resume cache is keyed on leg id alone (``<workdir>/<leg>.json``), so a second
+# release gate pointed at the same workdir replays the FIRST release's verdicts and
+# reports a full green tally in 0.0 minutes of wall clock. That happened on 2026-08-22:
+# the v0.6.6 cut resumed all 32 legs from the v0.6.6-rc workdir, which predated the
+# accurate-softmax default flip, and the only symptom was the wall-clock reading.
+# So the workdir records the code it was built from and the gate refuses to resume
+# across a change to it.
+_FINGERPRINT_ROOTS = ("tt_bio", "scripts")
+
+
+def code_fingerprint() -> str:
+    """sha256 over every file under tt_bio/ and scripts/ — anything that can move a number."""
+    h = hashlib.sha256()
+    for root in _FINGERPRINT_ROOTS:
+        base = REPO / root
+        for f in sorted(base.rglob("*")):
+            if not f.is_file() or "__pycache__" in f.parts:
+                continue
+            h.update(str(f.relative_to(REPO)).encode())
+            h.update(hashlib.sha256(f.read_bytes()).digest())
+    return h.hexdigest()
+
+
+def check_workdir_provenance(workdir: Path, resume: bool) -> None:
+    """Bind a workdir to one tree. Refuse a resume whose cached verdicts scored other code."""
+    stamp = workdir / "GATE_CODE.json"
+    fp = code_fingerprint()
+    if resume and stamp.exists():
+        try:
+            prev = json.loads(stamp.read_text()).get("code_fingerprint")
+        except Exception:
+            prev = None
+        if prev and prev != fp:
+            sys.exit(
+                f"REFUSING TO RESUME: {workdir} holds verdicts scored against different code.\n"
+                f"  cached  {prev}\n  current {fp}\n"
+                f"Cached per-leg reports are keyed on leg id alone, so resuming here would "
+                f"replay the other tree's results and report them as this one's.\n"
+                f"Use --fresh, or a --workdir of your own (e.g. /tmp/full_parity_gate-<sha>).")
+    stamp.write_text(json.dumps({"code_fingerprint": fp,
+                                 "roots": list(_FINGERPRINT_ROOTS)}, indent=2))
+
+
 def main() -> int:
     # Scorers, folds and predict CLIs we spawn arm their parent-death guard off this,
     # so none of them can outlive this driver still holding a card. Inherited through
@@ -1667,6 +1726,7 @@ def main() -> int:
                      "contains the requested seed(s):\n  " + "\n  ".join(unknown))
 
     resume = not args.fresh
+    check_workdir_provenance(workdir, resume)
 
     if args.margin is None:
         sys.path.insert(0, str(REPO / "scripts"))

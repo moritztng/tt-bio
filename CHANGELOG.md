@@ -3,7 +3,7 @@
 All notable changes to TT-Bio are recorded here. Versioning is [SemVer](https://semver.org);
 releases are cut from a commit that has passed the on-hardware test suite (see `RELEASING.md`).
 
-## [Unreleased]
+## [0.6.6] - 2026-08-22
 
 ### Added
 
@@ -60,16 +60,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   what the worker pool, the multi-card fan-out and every gate leg already do.
 - `TT_BIO_LOGICAL_DEVICE_ID` past the end of `TT_VISIBLE_DEVICES` fails now, naming both values,
   instead of silently using the first visible card and leasing one the run never opens.
-- Boltz-2 folds inputs that pad to 704 tokens again. 640 aa plus a 20-heavy-atom ligand is 660
-  tokens, which pads to 704, and 641 to 704 aa on its own lands on the same rung; all of it died
-  about 6 s in with `Statically allocated circular buffers in program 36 clash with L1 buffers`.
-  The gate that leaves a layer-normed pair tensor in L1 for its narrow projections priced 1.5
-  copies of the tensor against the whole grid's L1. That is an aggregate of interleaved bytes and
-  the wall it has to clear is per core, so at 704 tokens it admitted a 953 KB/core tensor and left
-  the per-head softmax 543 KB where its static circular buffers needed 563658 B. It now reserves
-  the consumers' room in bytes per core, at both sites that hand a narrow projection an
-  L1-resident pair tensor. Every rung that folded before folds bit-identically; the ligand ladder
-  passes at every 64-aa rung from 256 to 1024 aa.
+- Boltz-2 folds inputs that pad to 704 tokens again. 640 aa plus a 20-heavy-atom ligand, and
+  641 to 704 aa on its own, both died about 6 s in on an on-device memory clash. Every size that
+  folded before folds bit-identically, and the protein-plus-ligand ladder now passes at every
+  64-aa rung from 256 to 1024 aa. See `docs/part-l1-budgets.md`.
 - The parity gate's delegated legs (`boltzgen`, `opendde-abag`, `capacity`) run in the gate's own
   process and shell out from there, so they inherited an environment with no device restriction:
   boltzgen designed on card 0 whatever `--workers` said, and any fan-out from a delegated leg
@@ -98,6 +92,59 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   The charge table is now taken from the CCD over all 20 standard residues rather than from
   a golden feature dump: ARG NH2, LYS NZ and HIS ND1 are the only charged atoms, and nothing
   else was missing.
+
+- The live progress view reports real progress for `--model rf3`. It announced the trunk phase
+  once with no iteration count and never announced diffusion at all, so the bar sat empty and a
+  normal rollout looked like a stall. rf3 now ticks per trunk recycle and per diffusion step like
+  every other model. Reporting only: no prediction moves.
+
+### Changed
+
+- Protenix-v2, OpenDDE and OpenDDE-abag fold more accurately, and slightly faster (+8.6%, +3.6%,
+  +4.3%). Their Pairformer softmax was losing about 2% of each row's normalisation; it is exact
+  now. Four parity legs improved on their committed envelopes and none regressed, so predictions
+  move a little: re-run anything you need to compare against a new result. ESMFold2 and OpenFold3
+  are unchanged, their sites not having been measured yet. Each site is separately switchable
+  with `TT_BIO_ACCURATE_SOFTMAX_AB`, a comma-separated list of `<model>.<site>` tokens where a
+  bare token forces the exact chain on and a `-` prefix forces it off; `all` and `-all` cover
+  every site that has no token of its own, so `TT_BIO_ACCURATE_SOFTMAX_AB=-all` puts all five
+  sites that ship on (`protenix.trunk`, `protenix.confidence`, `opendde.trunk`,
+  `opendde.confidence`, `opendde.refiner`) back on the old softmax. RoseTTAFold3 is not on this
+  switch; its site is exact unconditionally.
+  See [docs/implementation-parity.md](docs/implementation-parity.md).
+
+### Performance
+
+- RoseTTAFold3 folds 1024 aa 1.264x faster (52.468 -> 41.508 s per trunk recycle), and the
+  768 -> 1024 aa scaling exponent drops from 3.63 to 2.82. Bit-exact, so no prediction moves.
+  Boltz-2, Protenix-v2 and OpenDDE reach the same code only behind `BOLTZ2_FP32_SOFTMAX`, which
+  is off by default, so they are unchanged. See `docs/size-generality.md`.
+
+### Gates and documentation
+
+- The performance page publishes two readings per row, whole fold and device only, and says what
+  the NVIDIA cells actually time. Four H200 cells (Boltz-2, OpenFold3, Protenix-v2, OpenDDE)
+  leave 0.24 to 6.31 s of featurisation and structure writing outside their timer, which made
+  those ratios larger than a like-for-like comparison. The two readings agree within 0.2x on five
+  of six rows; RoseTTAFold3 reads 3.556x whole fold and 9.388x device only, because half of that
+  fold is host featurisation that runs on both sides. No published cell moved. See
+  `site/data/perf-512aa.json`.
+- `tt-bio predict --model rf3` runs from a plain `pip install tt-bio`. Four packages it imports
+  at module load were undeclared, so it exited on `ModuleNotFoundError` before opening a card.
+  RoseTTAFold3 now has a UX-gate leg and a perf-gate entry, which is what found it.
+- A parity-gate workdir records the code it scored, and the gate refuses to resume one built from
+  a different tree. The per-leg resume cache is keyed on the leg id alone, so a second release
+  gate on the same machine used to replay the previous release's verdicts as its own.
+- `packaging_smoke.py --fold` installs the wheel with `--force-reinstall`, so the guard cannot
+  inherit a same-version `tt_bio` from the parent interpreter and silently test nothing.
+
+### Known issues
+
+- `TT_PROTENIX_CONF_DEVICE=1`, which keeps Protenix-v2's confidence head on the card, returns
+  PAE and PDE that track the default path to 0.981 and 0.990 correlation, below the 0.99 a
+  device path here has to clear; pLDDT is clean at 0.994. The flag ships off and the predicted
+  structure never depends on it, so leave it off if you read PAE or PDE. 0.6.5 returns the same
+  numbers: a pre-existing gap now measured, not a new one.
 
 ## [0.6.5] - 2026-08-20
 
