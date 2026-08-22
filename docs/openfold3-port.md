@@ -132,12 +132,34 @@ Neither checkpoint can share one featurizer, so both keep their own.
 
 ### Accuracy
 
-Not yet established. The structural-accuracy legs against the upstream `v0.5.0` reference
-have not been run, so OpenBind has no row in
-[`implementation-parity.md`](implementation-parity.md) and no perf-page entry. Ligand
-geometry is sane end to end — benzene folds as a planar hexagon with 1.39-1.42 Å bonds and
-2.81-2.83 Å para distances, and CCD ATP comes out with all 31 heavy atoms and no clashes —
-but that is a plumbing check, not an accuracy claim.
+Measured against the upstream `v0.5.0` CPU reference on the same inputs, five seeds each
+side. Two legs, both in [`implementation-parity.md`](implementation-parity.md) and
+re-runnable per release from `scripts/full_parity_gate.py`:
+
+| leg | all-atom RMSD X | reference noise floor | verdict |
+|---|---|---|---|
+| ubiquitin, L76, MSA | 0.969 Å | 1.033 Å | PASS on all four metrics |
+| FKBP12 + SB3 (1FKG), L107 + ligand | 0.604 Å | 0.551 Å | PASS on RMSD; 1-TM and 1-lDDT above their tighter floors |
+
+On the protein-ligand leg the residual is the ligand pose, not the fold: split under the
+same superposition the protein is 0.583 Å against a 0.551 Å floor and the ligand 0.980 Å
+against a 0.630 Å floor. Sub-Ångström over 33 atoms is a correct pose, but it is above the
+reference's own seed-to-seed ligand spread, so it is recorded as a caveat.
+
+No perf-page entry yet.
+
+### The host featurizer
+
+Bit-exact against `v0.5.0` on 34 of 35 feature keys, on ubiquitin and on the FKBP12+SB3
+complex, for both checkpoints (`--model openfold3` against the vendored pin, `--model
+openbind` against `v0.5.0`). The 35th is `ref_pos`, which differs between two runs of the
+same upstream tree because RDKit generates the reference conformers. Reproduce with
+`scripts/ob0_featurizer_capture.py`.
+
+Four MSA featurizer fixes shipped in `v0.5.0` are keyed on the checkpoint, so preview2 is
+byte-identical to before: the AF3-spec `deletion_value` scale, the AF3-spec `profile`
+column index, uppercase at parse, and main-MSA dedup. The dedup is the one with teeth — it
+removes one row of ubiquitin's 9656-row MSA and 474 of FKBP12's 16384.
 
 ## Precision
 
