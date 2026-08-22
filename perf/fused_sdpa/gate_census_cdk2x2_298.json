@@ -1,0 +1,23 @@
+{
+ "fixture": "cdk2x2_298",
+ "hifi_stats": {
+  "served": 880,
+  "declined": 0,
+  "too_short": 0
+ },
+ "rejects": {},
+ "plans": {
+  "shape=[298, 4, 298, 32] q_chunk=320 k_chunk=64 grid=(11, 10) split=(27, 4, 1)": {
+   "nh_per_core": 1,
+   "q_per_core": 1,
+   "bcast_batch": true,
+   "use_padded_mask": false,
+   "NKH": 4,
+   "NVH": 4,
+   "k_num_chunks": 5,
+   "Sq_chunk_t": 10,
+   "Sk_chunk_t": 2,
+   "FAILS": []
+  }
+ }
+}

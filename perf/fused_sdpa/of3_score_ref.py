@@ -67,6 +67,39 @@ def ca_map(path: Path) -> dict[int, tuple[str, np.ndarray]]:
     return out
 
 
+def ca_map_chains(path: Path) -> dict[tuple[str, int], tuple[str, np.ndarray]]:
+    """{(label_asym_id, label_seq_id): (comp_id, xyz)} over CA atoms of model 1.
+
+    `ca_map` above keys on label_seq_id alone, which collides across chains -- 578 collisions in
+    1AO6 (two copies of HSA) and 58 in 9BK6. It is left exactly as it is because RF3's committed
+    disto_score_298.json / _512.json are scored through it on a single-chain fixture where the
+    collision cannot arise. Anything multi-chain uses this instead.
+    """
+    txt = path.read_text().splitlines()
+    cols = [l.strip() for l in txt if l.strip().startswith("_atom_site.")]
+    idx = {c: i for i, c in enumerate(cols)}
+    model_col = idx.get("_atom_site.pdbx_PDB_model_num")
+    out: dict[tuple[str, int], tuple[str, np.ndarray]] = {}
+    for line in txt:
+        if not line.startswith("ATOM"):
+            continue
+        f = line.split()
+        if f[idx["_atom_site.label_atom_id"]] != "CA":
+            continue
+        if model_col is not None and f[model_col] != "1":
+            continue
+        try:
+            sid = int(f[idx["_atom_site.label_seq_id"]])
+        except ValueError:
+            continue
+        key = (f[idx["_atom_site.label_asym_id"]], sid)
+        if key in out:      # altloc rows repeat one (chain, seq_id); keep the first
+            continue
+        out[key] = (f[idx["_atom_site.label_comp_id"]],
+                    np.array([float(f[idx["_atom_site.Cartn_" + c]]) for c in "xyz"]))
+    return out
+
+
 def gt_rmsd(pred: Path, gt: dict, pairs: list[tuple[int, int]]) -> tuple[float, int]:
     pm = ca_map(pred)
     use = [(a, b) for a, b in pairs if a in pm and b in gt]

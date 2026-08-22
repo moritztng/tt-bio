@@ -47,6 +47,7 @@ def main():
     a = ap.parse_args()
 
     import tt_bio.tenstorrent as T
+    import tt_bio.triatt_sdpa as _SD
     import tt_baseline as B
     from tt_bio.main import _resolve_recycling_steps, _resolve_sampling_steps
 
@@ -151,7 +152,11 @@ def main():
                "cif_sha256": {p.name: hashlib.sha256(p.read_bytes()).hexdigest()[:16]
                               for p in cifs},
                "opm_small_depth_stats": list(T.OPM_SMALL_DEPTH_STATS),
-               "triatt_fused_hifi_stats": dict(T.TRIATT_FUSED_HIFI_STATS)}
+               "triatt_fused_hifi_stats": dict(T.TRIATT_FUSED_HIFI_STATS),
+               # a declined call and an absent one look identical from the counter alone, so keep
+               # the kernel's own reason census next to it (tt_bio/triatt_sdpa.py:_reject)
+               "triatt_sdpa_rejects": {f"{r}|{list(s)}": n
+                                       for (r, s), n in _SD.REJECTS.items()}}
         if keep:
             out = dest or a.outdir
             out.mkdir(parents=True, exist_ok=True)

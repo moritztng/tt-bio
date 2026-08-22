@@ -1,0 +1,185 @@
+{
+ "anchor": "1a8q_274",
+ "gt": "1a8q.cif",
+ "controls": {
+  "def": {
+   "aa_cif_identical": true,
+   "aa_distogram_identical": true,
+   "cif_sha": [
+    "e516c4dafb735ed5",
+    "34ae43e0d7734602",
+    "b8f9a5942dad5ba3",
+    "eb7e3e86e0d05c21",
+    "6431d88e7eaf2dbb",
+    "e516c4dafb735ed5"
+   ],
+   "distogram_sha": [
+    "bccd5d77f569ff08",
+    "136f8f0c3209cef8",
+    "ca821eb0c8400e46",
+    "215050e47850523c",
+    "437a69f675719fc7",
+    "bccd5d77f569ff08"
+   ],
+   "triatt_served_per_fold": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "declined": 0,
+   "too_short": 0,
+   "lever_ok": true,
+   "seed_live": true,
+   "env_flags": {
+    "TT_BIO_LEASE_CARDS": "3",
+    "TT_BIO_LEASE_HOLDER": "worker:fused-sdpa-adopt-of3-p2"
+   },
+   "n_msa": 1,
+   "recycling_steps": 3,
+   "sampling_steps": 200
+  },
+  "hifi": {
+   "aa_cif_identical": true,
+   "aa_distogram_identical": true,
+   "cif_sha": [
+    "e516c4dafb735ed5",
+    "34ae43e0d7734602",
+    "b8f9a5942dad5ba3",
+    "eb7e3e86e0d05c21",
+    "6431d88e7eaf2dbb",
+    "e516c4dafb735ed5"
+   ],
+   "distogram_sha": [
+    "bccd5d77f569ff08",
+    "136f8f0c3209cef8",
+    "ca821eb0c8400e46",
+    "215050e47850523c",
+    "437a69f675719fc7",
+    "bccd5d77f569ff08"
+   ],
+   "triatt_served_per_fold": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "declined": 3192,
+   "too_short": 0,
+   "lever_ok": false,
+   "seed_live": true,
+   "env_flags": {
+    "TT_BIO_LEASE_CARDS": "3",
+    "TT_BIO_LEASE_HOLDER": "worker:fused-sdpa-adopt-of3-p2",
+    "TT_BIO_TRIATT_FUSED_HIFI": "1"
+   },
+   "n_msa": 1,
+   "recycling_steps": 3,
+   "sampling_steps": 200
+  }
+ },
+ "arms": {
+  "def": {
+   "plddt": [
+    0.707505,
+    0.711579,
+    0.705946,
+    0.713154,
+    0.714981
+   ],
+   "ptm": [
+    0.872485,
+    0.873245,
+    0.869491,
+    0.875519,
+    0.879114
+   ],
+   "fold_s": [
+    14.111,
+    15.737,
+    14.156,
+    14.099,
+    14.003
+   ],
+   "n_scored_ca": 274,
+   "ca_rmsd_A": [
+    0.2599,
+    0.2569,
+    0.2577,
+    0.2794,
+    0.2607
+   ],
+   "ca_rmsd_mean_A": 0.2629,
+   "ca_lddt": [
+    0.99704,
+    0.99756,
+    0.99707,
+    0.99675,
+    0.99775
+   ],
+   "ca_lddt_mean": 0.99723
+  },
+  "hifi": {
+   "plddt": [
+    0.707505,
+    0.711579,
+    0.705946,
+    0.713154,
+    0.714981
+   ],
+   "ptm": [
+    0.872485,
+    0.873245,
+    0.869491,
+    0.875519,
+    0.879114
+   ],
+   "fold_s": [
+    17.539,
+    32.848,
+    46.139,
+    29.911,
+    34.782
+   ],
+   "n_scored_ca": 274,
+   "ca_rmsd_A": [
+    0.2599,
+    0.2569,
+    0.2577,
+    0.2794,
+    0.2607
+   ],
+   "ca_rmsd_mean_A": 0.2629,
+   "ca_lddt": [
+    0.99704,
+    0.99756,
+    0.99707,
+    0.99675,
+    0.99775
+   ],
+   "ca_lddt_mean": 0.99723
+  }
+ },
+ "margins": {
+  "ca_rmsd_A": 0.0,
+  "ca_lddt": 0.0,
+  "plddt": 0.0,
+  "ptm": 0.0,
+  "shipped_rmsd_seed_range_A": 0.0225
+ },
+ "anchor_acceptance": {
+  "band_A": [
+   0.23,
+   0.26
+  ],
+  "shipped_mean_A": 0.2629,
+  "pass": false,
+  "note": "outside the band the self-template is not being consumed and this is not the anchor docs/openfold3-upstream-suite.md measured"
+ },
+ "upstream_bound_A": 2.0,
+ "controls_pass": false
+}
