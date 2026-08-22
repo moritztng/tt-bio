@@ -241,6 +241,16 @@ SPECS: dict[str, dict] = {
     # single-chain protocol as "opendde" -- this gate measures the shared code path's
     # throughput, not docking quality (that's release_gate.py's DockQ leg).
     "opendde-abag":   dict(kind="fold", unit="structures/s", direction="higher"),
+    # RoseTTAFold3, shipped in v0.6.6 as a `predict --model` choice. Same light
+    # TRPCAGE single-seq protocol as every other fold model, and the knobs do
+    # reach it: RF3 takes num_timesteps at LOAD (tt_bio/worker.py passes
+    # cfg["sampling_steps"]) and n_recycles/diffusion_batch_size per call, so
+    # 1 recycle / 10 steps / 1 sample is the real config here, not a setting the
+    # model ignores. Its structures/s therefore sits on the same scale as
+    # openfold3 and protenix-v2. This is NOT the site/data/perf-512aa.json cell:
+    # that one is a 512-aa cdk2x2 fold at the shipped 10 recycles / 50 steps, a
+    # different measurement that this gate is not trying to reproduce.
+    "rf3":            dict(kind="fold", unit="structures/s", direction="higher"),
     "esmc-300m":      dict(kind="embed", unit="seq/s", direction="higher",
                            batch_size=8, n_seqs=8),
     # Single-sequence ESMC-300M embed (batch_size=1): the path the ttnn trace
@@ -328,9 +338,6 @@ SPECS_EXEMPT: dict[str, str] = {
                   "checkpoint, embed shape identical to saprot-650m)",
     "saprot-1.3b": "not yet seeded -- TODO: measure and add a SPECS entry (own "
                    "checkpoint, embed shape identical to saprot-650m)",
-    "rf3": "not yet seeded -- TODO: measure and add a SPECS entry. The port is "
-           "in flight and its fold time is still moving, so a seeded number "
-           "would gate on a figure that changes under it.",
 }
 
 

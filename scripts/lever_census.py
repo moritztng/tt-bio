@@ -194,8 +194,8 @@ def _install_wraps():
     # declines, so the return type is the verdict.
     hoist = T.DiffusionModule._hoist_layer_bias
 
-    def _hoist_layer_bias(self, bias, transformer):
-        out = hoist(self, bias, transformer)
+    def _hoist_layer_bias(self, bias, transformer, *a, **kw):
+        out = hoist(self, bias, transformer, *a, **kw)
         WRAP_COUNTS["B2_BIAS_SLICE_HOIST"][0 if isinstance(out, list) else 1] += 1
         return out
 
@@ -204,7 +204,7 @@ def _install_wraps():
     # `_pair_transpose_impl` takes the row-major route under exactly this predicate.
     impl = T._pair_transpose_impl
 
-    def _pair_transpose_impl(t, memory_config):
+    def _pair_transpose_impl(t, memory_config, *a, **kw):
         rm = (T._PT_ROW_MAJOR and len(t.shape) == 3
               and memory_config.buffer_type == ttnn.BufferType.DRAM
               and t.dtype == ttnn.bfloat16 and t.layout == ttnn.TILE_LAYOUT)
@@ -223,7 +223,7 @@ def _install_wraps():
                 why = "layout"
             _wreject("PAIR_TRANSPOSE_VIA_ROW_MAJOR",
                      why + ":" + "x".join(str(int(d)) for d in t.padded_shape))
-        return impl(t, memory_config)
+        return impl(t, memory_config, *a, **kw)
 
     T._pair_transpose_impl = _pair_transpose_impl
 
@@ -232,8 +232,14 @@ def _install_wraps():
     # answering L1 at N>=560 with no error and no log line.
     tmc = T._transpose_memory_config
 
-    def _transpose_memory_config(t):
-        out = tmc(t)
+    # `*a, **kw` rather than the real parameter list, and not a style choice: this wrapper
+    # was written as `(t)` and `421eee0c` gave the real function a second parameter
+    # (`reserve_per_core`, passed by the ending-variant pair transpose). The wrapper then
+    # raised TypeError on every fold that reached that call site, which is 4 of the
+    # size-ladder's 5 models. A pass-through cannot go stale that way, and it is what the
+    # PAIR_PROJ_MINIMAL_MATMUL / QKV_MM_CONFIG wrappers below already do.
+    def _transpose_memory_config(*a, **kw):
+        out = tmc(*a, **kw)
         WRAP_COUNTS["TRANSPOSE_L1_RESIDENT"][0 if out.buffer_type == ttnn.BufferType.L1 else 1] += 1
         return out
 

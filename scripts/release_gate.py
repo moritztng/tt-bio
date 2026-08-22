@@ -871,6 +871,35 @@ def run_opendde_abag(keep: bool) -> dict:
     return row
 
 
+def _fold_error(text: str) -> str:
+    """A failed fold's OWN error line, not whatever happened to print last.
+
+    Tailing the log is wrong whenever the wrapper outlives the fold:
+    `lever_census.py` prints its lever table AFTER the CLI it wraps exits, so the
+    last three lines of a crashed census fold are the table. That is how four
+    size-ladder models reported one identical, meaningless string
+    ("census fold exited 1: B2_TOKEN_DIT_SDPA False served=None ...") for a
+    TypeError, and why the real cause needed a fresh root-cause pass instead of
+    one read. Prefer, in order: tt_bio.main's own "✗ <job>: <msg>" failure line,
+    the exception line of the last traceback, then the tail as a last resort.
+    """
+    lines = [ln.rstrip() for ln in text.splitlines() if ln.strip()]
+    if not lines:
+        return ""
+    fails = [ln.strip() for ln in lines if ln.lstrip().startswith("✗ ")]
+    if fails:
+        return fails[-1][:200]
+    tb = [i for i, ln in enumerate(lines)
+          if ln.startswith("Traceback (most recent call last)")]
+    if tb:
+        # The frames are indented; the first unindented "Name: message" after them
+        # is the exception.
+        for ln in lines[tb[-1] + 1:]:
+            if not ln[:1].isspace() and ": " in ln:
+                return ln[:200]
+    return " / ".join(lines[-3:])[:200]
+
+
 def run_capacity(keep: bool, leg) -> dict:
     """Fold one capacity leg (large target, campaign-scale sample count) and check the
     peak device DRAM against its budget. Also checks the per-sample output contract,
@@ -919,8 +948,7 @@ def run_capacity(keep: bool, leg) -> dict:
         row["error"] = f"predict timed out after {FOLD_TIMEOUT_S}s"
         return row
     if rc != 0:
-        tail = " / ".join(text.strip().splitlines()[-3:])[:200]
-        row["error"] = f"predict exited {rc}: {tail}"
+        row["error"] = f"predict exited {rc}: {_fold_error(text)}"
         return row
 
     # dram_peak writes "[DRAM] <tag>: <x> GiB used (of <y> GiB)" per new high-water mark
@@ -1042,8 +1070,8 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str) -> dict:
     if timed_out:
         return {"error": f"census fold timed out after {FOLD_TIMEOUT_S}s"}
     if rc != 0:
-        tail = " / ".join(log.read_text(errors="replace").strip().splitlines()[-3:])[:200]
-        return {"error": f"census fold exited {rc}: {tail}"}
+        return {"error": f"census fold exited {rc}: "
+                         f"{_fold_error(log.read_text(errors='replace'))}"}
     try:
         census = json.loads(census_json.read_text())
     except Exception as e:
