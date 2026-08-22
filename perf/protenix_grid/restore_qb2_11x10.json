@@ -1,0 +1,29 @@
+{
+  "rc": 0,
+  "wall_s": 198.2,
+  "one_process": true,
+  "folds": [
+    {
+      "stem": "s1_512",
+      "rung": 512,
+      "atoms_md5": "42c4970205c83723a4900a1ac47152f5",
+      "n_atom_rows": 4117
+    },
+    {
+      "stem": "s2_506",
+      "rung": 506,
+      "atoms_md5": "6004542df2ed30f5056e931999dccdf5",
+      "n_atom_rows": 4062
+    },
+    {
+      "stem": "s3_512",
+      "rung": 512,
+      "atoms_md5": "42c4970205c83723a4900a1ac47152f5",
+      "n_atom_rows": 4117
+    }
+  ],
+  "switch_lines": [],
+  "switched": 0,
+  "restore_bit_exact": true,
+  "pass": true
+}
