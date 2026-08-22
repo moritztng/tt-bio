@@ -1,0 +1,12 @@
+[
+    {
+        "name": "ubq_76",
+        "components": [
+            {
+                "seq": "MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG",
+                "chain_id": "A",
+                "msa_path": "msa.a3m"
+            }
+        ]
+    }
+]
