@@ -1466,11 +1466,18 @@ def _fp32_softmax_l1_narrow(l1_key, rows: int) -> None:
 # `768 KB * 64 / (4 * n_heads * S**2)` rows, which shrinks as S**-2, while the multiple the
 # divisibility needs grows with S -- so above ~512 tokens the two cross and the walk in
 # `_fp32_softmax_l1_rows` runs all the way to 0. MEASURED, not predicted: an OpenBind-0 fold at
-# 544 aa reports `l1: 0, l1_blocks: 0, blocked: 0` over all 1320 triangle-attention calls
-# (perf/openbind/tt_results/ab/k6_544/ob_apo_544_A1.json), i.e. every call ran one unblocked
-# interleaved block. At 512 aa the same fold runs 12-row L1 blocks. The dark sizes at n_heads=4 are
-# 544, 608, 672, 704, 736, 800 and up; 512, 576, 640, 768, 896 and 1024 all keep a legal block and
-# are UNCHANGED by this, because the search below only runs when the tuned one returns 0.
+# 544 aa reports `l1: 0, l1_blocks: 0, blocked: 0` over all 1320 triangle-attention calls, and an
+# openfold3 fold at 704 reports the same over all 224 (perf/fp32softmax/results/s1_of3_704_ab.json):
+# every call ran one unblocked interleaved block. At 512 aa the same fold runs 12-row L1 blocks. The
+# dark sizes at n_heads=4 are 544, 608, 672, 704, 736, 800 and up; 512, 576, 640, 768, 896 and 1024
+# all keep a legal block and are UNCHANGED by this, because the search below only runs when the
+# tuned one returns 0.
+#
+# What it is worth, MEASURED at 704 padded tokens on qb2 with the arms interleaved in one process
+# and an A/A control on a sibling card: openfold3 43.193 -> 32.230 s (1.3401x, A/A floor 2.92 %),
+# RF3 45.332 -> 39.808 s (1.1388x, A/A floor 2.44 %), one structure digest and one plDDT across
+# every fold of both arms. Per call, 1.386x-1.545x at the dark tile-aligned sizes and 1.000x-1.010x
+# where the tuned rectangle already serves (perf/fp32softmax/results/s1_op_bitexact_retire.json).
 #
 # That single hole is also where the census's `no_config:mt=17,kt=1,nt=17,batch=2176` comes from:
 # an unblocked call hands the q@k^T the whole 2176-element batch at 17 output tiles, and
