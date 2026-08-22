@@ -1,0 +1,82 @@
+{
+ "S320_default": {
+  "mean": -0.005913543701171875,
+  "chunks": [
+   64,
+   320
+  ],
+  "spread": 0.0,
+  "pm_served": 1,
+  "pm_declined": 0
+ },
+ "S320_hifi": {
+  "mean": -0.0005340576171875,
+  "chunks": [
+   64,
+   320
+  ],
+  "spread": 0.0,
+  "pm_served": 1,
+  "pm_declined": 0
+ },
+ "S512_default": {
+  "mean": -0.004054546356201172,
+  "chunks": [
+   256,
+   512
+  ],
+  "spread": 0.0,
+  "pm_served": 1,
+  "pm_declined": 1
+ },
+ "S512_hifi": {
+  "mean": -0.0006189346313476562,
+  "chunks": [
+   256,
+   512
+  ],
+  "spread": 0.0,
+  "pm_served": 1,
+  "pm_declined": 1
+ },
+ "S768_default": {
+  "mean": -0.0013332366943359375,
+  "chunks": [
+   256,
+   768
+  ],
+  "spread": 0.0,
+  "pm_served": 1,
+  "pm_declined": 2
+ },
+ "S768_hifi": {
+  "mean": -0.000793298085530599,
+  "chunks": [
+   256,
+   768
+  ],
+  "spread": 0.0,
+  "pm_served": 1,
+  "pm_declined": 2
+ },
+ "S1024_default": {
+  "mean": -0.008336544036865234,
+  "chunks": [
+   256,
+   256
+  ],
+  "spread": 0.0,
+  "pm_served": 1,
+  "pm_declined": 2
+ },
+ "S1024_hifi": {
+  "mean": -0.0023866891860961914,
+  "chunks": [
+   256,
+   256
+  ],
+  "spread": 0.0,
+  "pm_served": 1,
+  "pm_declined": 2
+ }
+}

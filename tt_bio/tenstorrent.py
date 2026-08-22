@@ -739,8 +739,9 @@ def _sdpa_chunks_shipped(q_len: int, k_len: int) -> tuple:
             # two sizes keep 64 and are untouched by K4.
             if _padded_sdpa_len(k_len) % dk == 0:
                 return (64, dk)
-        return (64, 64)
-    return (_capped_sdpa_chunk_size(q_len), _dividing_sdpa_chunk_size(k_len))
+        return (64, _one_k_chunk(k_len) or 64)
+    return (_capped_sdpa_chunk_size(q_len),
+            _one_k_chunk(k_len) or _dividing_sdpa_chunk_size(k_len))
 
 
 # K3: the k_chunk has to DIVIDE the padded sequence or the fused K1/K2 kernel refuses the call.
@@ -776,6 +777,68 @@ _SDPA_DIV_K = env_flag("TT_BIO_SDPA_DIV_K", True)
 # serves at k=64 and 64 is simply not the best divisor. See `_sdpa_chunks_shipped`. Ships OFF
 # until its fold-level A/B and pLDDT arm land on both architectures.
 _SDPA_BAND_DIV_K = env_flag("TT_BIO_SDPA_BAND_DIV_K", False)
+
+# K6: ONE k chunk. K3 made the k_chunk divide the padded sequence, K4 moved the 256<seq<=384 band
+# onto the same dividing pick, and K5 found the win was above the 256 cap rather than below it. The
+# end of that line is k_chunk = the padded sequence, so the online softmax never rescales at all.
+#
+# It is both faster and more accurate, which is why it is one switch and not two. The online softmax
+# pays a running-max rescale of the whole output block at every chunk boundary, so removing the
+# boundaries removes both the work and the rounding. Row sums with v = all ones, where every output
+# element must be exactly 1.0 (perf/fused_sdpa/rowsum_probe2.py, qb2 card 1, batch 8, HiFi4 +
+# fp32_dest_acc; deviation from 1.0, and the fp64 floor arm scores exactly 0.0):
+#
+#     padded    k=64        shipped k        k = padded    shipped -> one chunk
+#     320       -0.002498   -0.002498 (n=5)  -0.000534     4.68x
+#     512       -0.003124   -0.001488 (n=2)  -0.000619     2.40x
+#     768       -0.003868   -0.002053 (n=3)  -0.000793     2.59x
+#     1024      -0.004572   -0.002387 (n=4)  -0.000971     2.46x
+#
+# Monotone in the chunk count at every size, and q_chunk does not enter it: q64_k512 and q256_k512
+# agree to every digit (-0.000619), because q chunking is parallelism and cannot change a row's
+# arithmetic. The residual at one chunk is a different mechanism -- with v = ones the kernel returns
+# `mm2_out * recip(cur_sum)`, two independent reductions of the same exp block, and their
+# disagreement is what is left once the rescales are gone.
+#
+# And it is faster. Op level, pairformer geometry (batch = S, h = 4, d = 32), qb2 card 1 under
+# benchlock, 5 calls per arm behind one synchronize, the shipped config run twice as its own A/A
+# (perf/fused_sdpa/kchunk_perf2.json):
+#
+#     padded    shipped     k = padded    ratio     A/A spread
+#     320       1.09 ms     0.81 ms       0.742x    1.43 %
+#     512       1.71 ms     1.52 ms       0.890x    0.41 %
+#     768       5.46 ms     4.70 ms       0.862x    2.86 %
+#
+# 11-26 % against an A/A floor of 0.4-2.9 %. Going the other way agrees: k=128 is 1.235x at 512 and
+# 1.215x at 768, so the curve is monotone in the same direction on both axes and the 256 cap is not
+# a tradeoff point, it is simply short.
+#
+# k ONLY. Widening `SDPA_CHUNK_MAX` moves q as well, and q = k = padded overflows L1 by 18944 B of
+# 1572864 at 512: it throws out of the stock op and declines out of the fused one. q stays exactly
+# where it is, which also keeps the A/B single-variable.
+#
+# NOT bit-exact, same reason as K3 and K4: k_chunk sets the online-softmax reduction order. Ships
+# OFF. `_tri_att_sdpa` is shared by six models, so this needs the fold-level accuracy arm on all of
+# them before it can default on, and this lineage has a recorded case of an op-level screen
+# disagreeing with the fold (the band 2.45x above). At 1024 the fused kernel declines the wide-k
+# config with the shipped q list and falls back to the stock op, which serves it.
+_SDPA_ONE_K_CHUNK = env_flag("TT_BIO_SDPA_ONE_K_CHUNK", False)
+
+# One k chunk does not fit above 768. At padded 1024 the fused kernel declines the wide-k config
+# with the shipped q list and the stock op it falls back to THROWS out of L1
+# (program.cpp:1043) rather than declining, so the call has nowhere to land and the fold dies.
+# Measured at [8, 4, 1024, 32] on qb2 card 1: 320 / 512 / 768 all serve and 1024 throws on the op
+# default. Same shape of bound as `_Q_SPLIT_MAX_S`, and for the same reason: the CB growth above it
+# is untested, not known-bad. Raise it only with a measurement at the next size up.
+_SDPA_ONE_K_CHUNK_MAX_PADDED = 768
+
+
+def _one_k_chunk(seq_len: int):
+    """K6's k_chunk -- the whole padded sequence -- or None when K6 is off or will not fit."""
+    if not _SDPA_ONE_K_CHUNK:
+        return None
+    padded = _padded_sdpa_len(seq_len)
+    return padded if padded <= _SDPA_ONE_K_CHUNK_MAX_PADDED else None
 
 
 @lru_cache(maxsize=None)

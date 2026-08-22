@@ -1,0 +1,95 @@
+{
+ "S320": {
+  "AA_1": {
+   "declined": true,
+   "q_chunk": 320,
+   "k_chunk": 256
+  },
+  "AA_2": {
+   "declined": true,
+   "q_chunk": 320,
+   "k_chunk": 256
+  },
+  "q64_kS": {
+   "ms_per_call": 0.8133973999974842,
+   "q_chunk": 64,
+   "k_chunk": 320,
+   "k_num_chunks": 1,
+   "served_delta": 7
+  }
+ },
+ "S512": {
+  "AA_1": {
+   "ms_per_call": 1.6549215999930311,
+   "q_chunk": 512,
+   "k_chunk": 256,
+   "k_num_chunks": 2,
+   "served_delta": 7
+  },
+  "AA_2": {
+   "ms_per_call": 1.6630694000014046,
+   "q_chunk": 512,
+   "k_chunk": 256,
+   "k_num_chunks": 2,
+   "served_delta": 7
+  },
+  "q64_kS": {
+   "ms_per_call": 2.8981169999951817,
+   "q_chunk": 64,
+   "k_chunk": 512,
+   "k_num_chunks": 1,
+   "served_delta": 7,
+   "vs_shipped": 1.746910705906099
+  },
+  "q128_kS": {
+   "ms_per_call": 1.643471600027624,
+   "q_chunk": 128,
+   "k_chunk": 512,
+   "k_num_chunks": 1,
+   "served_delta": 7,
+   "vs_shipped": 0.9906425906703062
+  },
+  "q256_kS": {
+   "ms_per_call": 1.5083973999935552,
+   "q_chunk": 256,
+   "k_chunk": 512,
+   "k_num_chunks": 1,
+   "served_delta": 7,
+   "vs_shipped": 0.909223322182661
+  },
+  "_aa_spread_pct": 0.49112851773179106
+ },
+ "S768": {
+  "AA_1": {
+   "declined": true,
+   "q_chunk": 768,
+   "k_chunk": 256
+  },
+  "AA_2": {
+   "declined": true,
+   "q_chunk": 768,
+   "k_chunk": 256
+  },
+  "q64_kS": {
+   "ms_per_call": 9.573607999982414,
+   "q_chunk": 64,
+   "k_chunk": 768,
+   "k_num_chunks": 1,
+   "served_delta": 7
+  },
+  "q128_kS": {
+   "ms_per_call": 5.135660199994163,
+   "q_chunk": 128,
+   "k_chunk": 768,
+   "k_num_chunks": 1,
+   "served_delta": 7
+  },
+  "q256_kS": {
+   "ms_per_call": 4.561440199995559,
+   "q_chunk": 256,
+   "k_chunk": 768,
+   "k_num_chunks": 1,
+   "served_delta": 7
+  }
+ }
+}

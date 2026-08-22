@@ -1,0 +1,124 @@
+{
+ "S320": {
+  "shipped_q": 64,
+  "shipped_k": 64,
+  "padded": 320,
+  "AA_1": {
+   "ms_per_call": 1.099058599993441,
+   "q_chunk": 64,
+   "k_chunk": 64,
+   "k_num_chunks": 5
+  },
+  "AA_2": {
+   "ms_per_call": 1.0834221999630245,
+   "q_chunk": 64,
+   "k_chunk": 64,
+   "k_num_chunks": 5
+  },
+  "k_full": {
+   "ms_per_call": 0.8096082000065508,
+   "q_chunk": 64,
+   "k_chunk": 320,
+   "k_num_chunks": 1,
+   "vs_shipped": 0.7419155302742643
+  },
+  "_aa_spread_pct": 1.4329014972987122
+ },
+ "S512": {
+  "shipped_q": 256,
+  "shipped_k": 256,
+  "padded": 512,
+  "AA_1": {
+   "ms_per_call": 1.7061475999980757,
+   "q_chunk": 256,
+   "k_chunk": 256,
+   "k_num_chunks": 2
+  },
+  "AA_2": {
+   "ms_per_call": 1.7131554000116012,
+   "q_chunk": 256,
+   "k_chunk": 256,
+   "k_num_chunks": 2
+  },
+  "k_full": {
+   "ms_per_call": 1.5212245999919105,
+   "q_chunk": 256,
+   "k_chunk": 512,
+   "k_num_chunks": 1,
+   "vs_shipped": 0.8897863687351517
+  },
+  "k128": {
+   "ms_per_call": 2.110958000002938,
+   "q_chunk": 256,
+   "k_chunk": 128,
+   "k_num_chunks": 4,
+   "vs_shipped": 1.2347300019898582
+  },
+  "_aa_spread_pct": 0.4098964036533515
+ },
+ "S768": {
+  "shipped_q": 256,
+  "shipped_k": 256,
+  "padded": 768,
+  "AA_1": {
+   "ms_per_call": 5.377673400016647,
+   "q_chunk": 256,
+   "k_chunk": 256,
+   "k_num_chunks": 3
+  },
+  "AA_2": {
+   "ms_per_call": 5.533958799969696,
+   "q_chunk": 256,
+   "k_chunk": 256,
+   "k_num_chunks": 3
+  },
+  "k_full": {
+   "ms_per_call": 4.701714399971024,
+   "q_chunk": 256,
+   "k_chunk": 768,
+   "k_num_chunks": 1,
+   "vs_shipped": 0.8617802201905063
+  },
+  "k128": {
+   "ms_per_call": 6.629511399978583,
+   "q_chunk": 256,
+   "k_chunk": 128,
+   "k_num_chunks": 6,
+   "vs_shipped": 1.2151273573878123
+  },
+  "_aa_spread_pct": 2.8645650272787697
+ },
+ "S1024": {
+  "shipped_q": 256,
+  "shipped_k": 256,
+  "padded": 1024,
+  "AA_1": {
+   "ms_per_call": 14.152579000028709,
+   "q_chunk": 256,
+   "k_chunk": 256,
+   "k_num_chunks": 4
+  },
+  "AA_2": {
+   "ms_per_call": 14.531741600012538,
+   "q_chunk": 256,
+   "k_chunk": 256,
+   "k_num_chunks": 4
+  },
+  "k_full": {
+   "declined": true,
+   "q_chunk": 256,
+   "k_chunk": 1024
+  },
+  "k128": {
+   "declined": true,
+   "q_chunk": 256,
+   "k_chunk": 128
+  },
+  "k512": {
+   "declined": true,
+   "q_chunk": 256,
+   "k_chunk": 512
+  },
+  "_aa_spread_pct": 2.6436923870059075
+ }
+}
