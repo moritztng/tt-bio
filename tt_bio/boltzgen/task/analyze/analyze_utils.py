@@ -21,6 +21,7 @@ mpl.rcParams["figure.max_open_warning"] = 100
 from Bio import Align
 
 from tt_bio.boltzgen.data.rmsd_computation import get_true_coordinates
+from tt_bio.cache import publish_text, staged
 from tt_bio.boltzgen.model.geometry import weighted_rigid_align
 from tt_bio.boltzgen.task.predict.data_from_generated import collate
 
@@ -746,7 +747,10 @@ def save_design_only_structure_to_cif(atom_design_mask, structure, output_path: 
         structure, design_atom_indices, res_reindex=True
     )
     cif_text = to_mmcif(design_only_str)
-    output_path.write_text(cif_text)
+    # Publish by rename: two callers in analyze.py skip the write when the file exists
+    # and then compute a hydrophobic-patch area from it, so an interrupted run that left
+    # a partial CIF would be read back as a real structure and scored.
+    publish_text(output_path, cif_text)
     return cif_text
 
 
@@ -759,7 +763,8 @@ def save_design_only_structure_to_pdb(atom_design_mask, structure, output_path: 
     pdb_writer = PDB.PDBIO()
     parsed_structure = mmcif_parser.get_structure("des_only", cif_io)
     pdb_writer.set_structure(parsed_structure)
-    pdb_writer.save(str(output_path))
+    with staged(output_path) as tmp:
+        pdb_writer.save(str(tmp))
 
 
 ########################################################################################################

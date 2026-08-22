@@ -137,6 +137,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "scripts"))
 import gate_guard  # noqa: E402  (card-grant + host-load guards, shared with release_gate.py)
 
@@ -653,8 +654,7 @@ def _yaml_protein_seq(yaml_path: Path) -> str | None:
     return m.group(1) if m else None
 
 
-def _seq_hash(seq: str) -> str:
-    return hashlib.sha256(seq.encode()).hexdigest()[:16]
+from tt_bio.cache import seq_hash as _seq_hash  # noqa: E402  (after the repo-root path insert)
 
 
 def stage_msa(leg: Leg, workdir: Path) -> tuple[Path | None, list[str]]:

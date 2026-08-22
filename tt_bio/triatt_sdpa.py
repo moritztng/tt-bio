@@ -35,6 +35,7 @@ from pathlib import Path
 import ttnn
 
 from . import sdpa_generic as SG
+from .envflags import env_flag
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "triatt_sdpa"
 
@@ -55,7 +56,7 @@ _ENABLED = os.environ.get(
 # calls serve at q256 (55.6 % of the per-core budget). Above 1024 the mask CB growth is untested,
 # so the shipped split stays there; an L1 refusal at any size is caught and falls back to the
 # stock op. "0" forces off.
-_Q_SPLIT = os.environ.get("TT_BIO_TRIATT_MASK_Q_SPLIT", "1") == "1"
+_Q_SPLIT = env_flag("TT_BIO_TRIATT_MASK_Q_SPLIT", True)
 _Q_SPLIT_MAX_S = 1024
 
 # q_chunks whose PERSISTENT mask CB does not fit. Deliberately not `_SDPA_Q_CHUNK_OVER_L1`: that set

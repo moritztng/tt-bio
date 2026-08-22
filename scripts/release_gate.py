@@ -568,6 +568,8 @@ def _preflight_msa_cache(models: list) -> None:
     if "opendde-abag" in models:
         targets.append(OPENDDE_ABAG_DATA)
 
+    from tt_bio.cache import cached, seq_hash
+
     missing = []
     for path in targets:
         if not path.exists():
@@ -578,8 +580,8 @@ def _preflight_msa_cache(models: list) -> None:
             seq = (prot or {}).get("sequence")
             if not seq:
                 continue
-            a3m = Path(MSA_DIR) / f"{hashlib.sha256(seq.encode()).hexdigest()[:16]}.a3m"
-            if not (a3m.exists() and a3m.stat().st_size > 0):
+            a3m = Path(MSA_DIR) / f"{seq_hash(seq)}.a3m"
+            if not cached(a3m):
                 cid = (prot or {}).get("id", "?")
                 missing.append(f"{path.name} chain {cid} ({len(seq)} aa) -> {a3m}")
     if missing:

@@ -20,13 +20,14 @@ If the server is started with a token, requests must send
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.request import Request, urlopen
+
+from tt_bio.cache import cached, publish_text, seq_hash
 
 DEFAULT_PORT = 8765
 # Sequences per colabfold_search call (one batched search, like the CLI offline
@@ -35,10 +36,6 @@ SEARCH_CHUNK = max(1, int(os.environ.get("TT_MSA_SEARCH_CHUNK", "2000")))
 # Sequences per client HTTP request, so a 40k fetch is many bounded, retryable
 # calls rather than one multi-hour connection.
 REQUEST_CHUNK = max(1, int(os.environ.get("TT_MSA_REQUEST_CHUNK", "1000")))
-
-
-def seq_hash(seq: str) -> str:
-    return hashlib.sha256(seq.encode()).hexdigest()[:16]
 
 
 class MsaService:
@@ -64,11 +61,11 @@ class MsaService:
         from tt_bio.main import compute_msa_offline
 
         wanted = {seq_hash(s): s for s in sequences if s}
-        missing = [(h, s) for h, s in wanted.items() if not self._a3m(h).exists()]
+        missing = [(h, s) for h, s in wanted.items() if not cached(self._a3m(h))]
         for i in range(0, len(missing), SEARCH_CHUNK):
             # Re-check existence at search time: a concurrent request may have
             # just cached some of these (compute_msa_offline writes atomically).
-            chunk = {h: s for h, s in missing[i:i + SEARCH_CHUNK] if not self._a3m(h).exists()}
+            chunk = {h: s for h, s in missing[i:i + SEARCH_CHUNK] if not cached(self._a3m(h))}
             if not chunk:
                 continue
             with self._sem:
@@ -78,7 +75,7 @@ class MsaService:
         out: dict[str, str | None] = {}
         for h in wanted:
             p = self._a3m(h)
-            out[h] = p.read_text() if p.exists() else None
+            out[h] = p.read_text() if cached(p) else None
         return out
 
 
@@ -168,6 +165,4 @@ def fetch_msa(sequences, msa_dir, endpoint: str, *, token: str | None = None,
             results = json.loads(r.read()).get("results", {})
         for h, a3m in results.items():
             if a3m:
-                tmp = msa_dir / f".{h}.a3m.{os.getpid()}.tmp"
-                tmp.write_text(a3m)
-                os.replace(tmp, msa_dir / f"{h}.a3m")
+                publish_text(msa_dir / f"{h}.a3m", a3m)

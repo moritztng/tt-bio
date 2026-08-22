@@ -1386,8 +1386,8 @@ class ConfidenceHead:
         """True only if the user opted in (TT_PROTENIX_CONF_DEVICE=1) AND the
         installed ttnn exposes every op the device path needs. Off otherwise
         (the host-heads path in confidence() is the default)."""
-        import os
-        if os.environ.get("TT_PROTENIX_CONF_DEVICE", "0") not in ("1", "true", "True"):
+        from tt_bio.envflags import env_flag
+        if not env_flag("TT_PROTENIX_CONF_DEVICE", False):
             return False
         import ttnn
         need = ("clamp", "ge", "lt", "sqrt", "embedding", "layer_norm", "linear",

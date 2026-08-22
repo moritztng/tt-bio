@@ -27,6 +27,8 @@ import torch
 
 from tt_bio.device_lease import install_parent_death_guard
 from tt_bio.distributed import ControllerClient, HttpProgressQueue
+from tt_bio.envflags import env_flag
+from tt_bio.cache import cached, seq_hash, staged
 
 
 _REAL_STDERR_FD: int | None = None
@@ -278,15 +280,19 @@ def _prefetch_openfold3_template_structures(tmpl_map: dict[str, str],
     for npz_path in tmpl_map.values():
         with np.load(npz_path, allow_pickle=True) as z:
             pdb_ids |= {k.split("_")[0] for k in z.keys()}
-    missing = [p for p in sorted(pdb_ids)
-               if not (struct_dir / f"{p}.cif").exists()]
+    missing = [p for p in sorted(pdb_ids) if not cached(struct_dir / f"{p}.cif")]
     if not missing:
         return
     import urllib.request
     for p in missing:
         url = f"https://files.rcsb.org/download/{p.upper()}.cif"
         try:
-            urllib.request.urlretrieve(url, struct_dir / f"{p}.cif")
+            # Publish by rename, like every other artifact cache: a dropped
+            # connection or a full disk mid-transfer must not leave a partial CIF
+            # under the final name, which every later fold needing that template
+            # would then accept forever.
+            with staged(struct_dir / f"{p}.cif") as tmp:
+                urllib.request.urlretrieve(url, tmp)
         except Exception as exc:
             raise RuntimeError(
                 f"--model openfold3: failed to fetch template structure {url}: {exc}")
@@ -584,7 +590,7 @@ class _WorkerState:
         arithmetic dtype, nothing stochastic. Default off — device runs and the fp32 reference
         get a nullcontext and are untouched."""
         import contextlib
-        _on = os.environ.get("TT_BIO_REF_BF16", "0") not in ("0", "")
+        _on = env_flag("TT_BIO_REF_BF16", False)
         if _on and self.accelerator != "tenstorrent":
             return torch.autocast(device_type="cpu", dtype=torch.bfloat16)
         return contextlib.nullcontext()
@@ -648,7 +654,6 @@ class _WorkerState:
         return metrics, best, feats
 
     def _predict_esmfold2_one(self, path: Path, cfg: dict[str, Any]):
-        import hashlib
         import types
 
         from tt_bio.esmfold2 import report_progress
@@ -676,8 +681,8 @@ class _WorkerState:
             for _cid, seq, spec, _mods in chains:
                 if spec and Path(spec).expanduser().exists():
                     continue
-                h = hashlib.sha256(seq.encode()).hexdigest()[:16]
-                if not (msa_dir / f"{h}.a3m").exists() and not (msa_dir / f"{h}.csv").exists():
+                h = seq_hash(seq)
+                if not cached(msa_dir / f"{h}.a3m") and not cached(msa_dir / f"{h}.csv"):
                     to_gen[h] = seq
             if to_gen:
                 _generate_esmfold2_a3m(
@@ -745,7 +750,6 @@ class _WorkerState:
         to a protein Cys is honored end-to-end. Confidence-based best-of-N ranking and
         CIF writing reuse Protenix-v2's machinery verbatim (OpenDDE.fold rides the same
         ConfidenceHead / build_complex_features / _write_protenix_structure)."""
-        import hashlib
         import types
 
         from tt_bio.esmfold2 import report_progress
@@ -777,8 +781,8 @@ class _WorkerState:
         for _cid, cseq, spec, mt in chains:
             have_spec = bool(spec and Path(spec).expanduser().exists())
             if mt == "protein" and want_msa and not have_spec:
-                h = hashlib.sha256(cseq.encode()).hexdigest()[:16]
-                if not (msa_dir / f"{h}.a3m").exists():
+                h = seq_hash(cseq)
+                if not cached(msa_dir / f"{h}.a3m"):
                     need[h] = cseq
         if need:
             _generate_esmfold2_a3m(
@@ -810,7 +814,7 @@ class _WorkerState:
         paired_a3ms = None
         n_prot = sum(1 for _c, _s, _sp, mt in chains if mt == "protein")
         if n_prot > 1 and want_msa:
-            paired_seqs = {hashlib.sha256(cseq.encode()).hexdigest()[:16]: cseq
+            paired_seqs = {seq_hash(cseq): cseq
                            for _cid, cseq, _spec, mt in chains if mt == "protein"}
             try:
                 paired = _generate_opendde_paired_a3m(
@@ -818,7 +822,7 @@ class _WorkerState:
                     cfg.get("msa_pairing_strategy"), cfg.get("msa_server_username"),
                     cfg.get("msa_server_password"), cfg.get("api_key_value"),
                     msa_db_path=cfg.get("msa_db_path"), use_envdb=cfg.get("use_envdb", False))
-                paired_a3ms = [paired.get(hashlib.sha256(cseq.encode()).hexdigest()[:16])
+                paired_a3ms = [paired.get(seq_hash(cseq))
                                for _cid, cseq, _spec, mt in chains if mt == "protein"]
             except Exception as e:  # noqa: BLE001 -- best-effort, fall back to unpaired
                 print(f"paired MSA search failed ({e!r}); folding unpaired-only", file=sys.stderr)
@@ -887,8 +891,6 @@ class _WorkerState:
     def _protenix_inputs(self, path: Path, cfg: dict[str, Any]):
         """Sequences -> (optional per-chain MSA) -> model-ready features for one target.
         Shared by the single and batched protenix entry points."""
-        import hashlib
-
         from tt_bio.esmfold2 import report_progress
         from tt_bio.main import (_generate_esmfold2_a3m, _read_bio_chains,
                                  _read_bio_constraints, _resolve_a3m_text)
@@ -907,8 +909,8 @@ class _WorkerState:
         for _cid, cseq, spec, mt in chains:
             have_spec = bool(spec and Path(spec).expanduser().exists())
             if mt == "protein" and want_msa and not have_spec:
-                h = hashlib.sha256(cseq.encode()).hexdigest()[:16]
-                if not (msa_dir / f"{h}.a3m").exists():
+                h = seq_hash(cseq)
+                if not cached(msa_dir / f"{h}.a3m"):
                     need[h] = cseq
         if need:
             _generate_esmfold2_a3m(
@@ -1049,7 +1051,6 @@ class _WorkerState:
         model uses: any uncached protein chain is searched into msa_dir and attached to
         its component as `msa_path`.
         """
-        import hashlib
         import json as _json
         import tempfile
         import types
@@ -1076,8 +1077,8 @@ class _WorkerState:
                 continue
             if spec and Path(spec).expanduser().exists():
                 continue
-            h = hashlib.sha256(cseq.encode()).hexdigest()[:16]
-            if not (msa_dir / f"{h}.a3m").exists():
+            h = seq_hash(cseq)
+            if not cached(msa_dir / f"{h}.a3m"):
                 need[h] = cseq
         if need:
             _generate_esmfold2_a3m(

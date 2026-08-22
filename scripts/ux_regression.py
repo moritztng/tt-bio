@@ -69,6 +69,9 @@ import time
 import warnings
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from tt_bio import weights  # noqa: E402  (after the repo-root path insert)
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 # trpcage (20 residues) is the canonical tiny fold target — small enough that
 # even the ESMC-6B ESMFold2 load dominates wall-clock, so the gate stays fast.
@@ -93,8 +96,10 @@ FOLD_MODELS = ["boltz2", "esmfold2", "esmfold2-fast", "protenix-v2", "openfold3"
 # OpenFold3 is the one fold model whose weights tt-bio does not download (see
 # NOTICE #6). main() refuses to start an openfold3 leg without a resolvable
 # checkpoint rather than skipping it: a shipped --model choice with no UX
-# coverage is the opendde-abag failure mode RELEASING.md describes.
-OF3_CKPT_DEFAULT = Path.home() / ".boltz" / "of3-p2-155k.pt"
+# coverage is the opendde-abag failure mode RELEASING.md describes. The path comes
+# from the weights registry, which honours OF3_CKPT and TT_BIO_CACHE/TT_BIO_ROOT --
+# a hardcoded ~/.boltz skipped the leg on any box with a relocated cache while the
+# weights were sitting right there.
 # MSA-dependent models get --single_sequence so the gate is offline + deterministic
 # (no ColabFold server round-trip). esmfold2 / esmfold2-fast are single-seq by design.
 # opendde-abag rides the same MSA-dependent path as opendde (only the checkpoint
@@ -1109,10 +1114,10 @@ def main() -> int:
         sys.exit(f"missing affinity fixture {AFFINITY_SPEC}")
     if not DESIGN_SPEC.exists() and design_models:
         sys.exit(f"missing design fixture {DESIGN_SPEC}")
-    if "openfold3" in fold_models and not (
-            os.environ.get("OF3_CKPT") or OF3_CKPT_DEFAULT.exists()):
+    of3_ckpt = weights.resolve("openfold3") if "openfold3" in fold_models else None
+    if "openfold3" in fold_models and not (of3_ckpt and of3_ckpt.exists()):
         sys.exit(f"missing openfold3 checkpoint: set OF3_CKPT or place the OpenFold3 "
-                 f"preview2 weights at {OF3_CKPT_DEFAULT} (see docs/openfold3-port.md). "
+                 f"preview2 weights at {of3_ckpt} (see docs/openfold3-port.md). "
                  f"Run the rest with --model <name>.")
     if (not fold_models and not embed_models and not gen_models
             and not affinity_models and not design_models):

@@ -39,7 +39,7 @@ import math
 import torch
 import ttnn
 
-from .tenstorrent import CORE_GRID_MAIN, _dtype, _no_host_pad
+from .tenstorrent import CORE_GRID_MAIN, _dtype, pad_dim
 from .openfold3_diffusion import OF3DiffusionConditioning
 from .openfold3_diffusion_module import OF3DiffusionModule
 from .openfold3_weights import _sub
@@ -130,7 +130,7 @@ class OF3SampleDiffusion:
         # inv_cache holds the deep ones (the DiT per-block pair bias); it owns them, so no
         # consumer deallocates a cached tensor. Freed together after the loop.
         zij_dev = self.dc.pair(zij_trunk_dev, relpos_dev, pair_mask_dev)
-        zij_pad = self._pad_pair(zij_dev, n_token, n_tok_pad, self._act_dtype)
+        zij_pad = pad_dim(zij_dev, self._act_dtype, n_token, n_tok_pad, dims=2)
         if zij_pad is not zij_dev:
             ttnn.deallocate(zij_dev)
         inv_cache: dict = {}
@@ -153,7 +153,7 @@ class OF3SampleDiffusion:
             n_emb = fourier_noise_emb(t, self.sigma_data, self.fourier_w, self.fourier_b)
             si_dev = self.dc.single(si_trunk_dev, si_input_dev,
                                     self._to_dev(n_emb.reshape(1, 1, 256)), tok_mask_dev)
-            si_pad = self._pad_tokens(si_dev, n_token, n_tok_pad, self._act_dtype)
+            si_pad = pad_dim(si_dev, self._act_dtype, n_token, n_tok_pad)
             if si_pad is not si_dev:
                 ttnn.deallocate(si_dev)
             # rl_noisy = xl_noisy * atom_mask / sqrt(t^2 + sigma_data^2) (host -> device).
@@ -187,24 +187,3 @@ class OF3SampleDiffusion:
             x = torch.nn.functional.pad(x, (0, 0, 0, NP - n_atom))
         return x.unsqueeze(0)
 
-    @staticmethod
-    def _pad_tokens(x_dev, n_token, n_tok_pad, dtype=ttnn.bfloat16):
-        out = _no_host_pad(x_dev, dtype, n_token, n_tok_pad)
-        if out is not None:
-            return out
-        th = ttnn.to_torch(x_dev).float()
-        if n_tok_pad > n_token:
-            th = torch.nn.functional.pad(th, (0, 0, 0, n_tok_pad - n_token))
-        return ttnn.from_torch(th, layout=ttnn.TILE_LAYOUT, device=x_dev.device(),
-                               dtype=dtype)
-
-    @staticmethod
-    def _pad_pair(x_dev, n_token, n_tok_pad, dtype=ttnn.bfloat16):
-        out = _no_host_pad(x_dev, dtype, n_token, n_tok_pad)
-        if out is not None:
-            return out
-        th = ttnn.to_torch(x_dev).float()
-        if n_tok_pad > n_token:
-            th = torch.nn.functional.pad(th, (0, 0, 0, n_tok_pad - n_token, 0, n_tok_pad - n_token))
-        return ttnn.from_torch(th, layout=ttnn.TILE_LAYOUT, device=x_dev.device(),
-                               dtype=dtype)
