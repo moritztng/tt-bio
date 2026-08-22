@@ -324,6 +324,72 @@ def stage3(args):
         ttnn.deallocate(zt)
 
 
+
+def stage5(args):
+    """Device-off amplification arm for the MSA module, the pass-1 technique one level up.
+
+    Replays the fp32 reference MSA chain from the DEVICE's own inputs. No device compute,
+    so whatever it loses is the module amplifying an error it inherited. Four arms isolate
+    which input carries it.
+
+    The m arms need one correction first: the reference's row sampler calls
+    `torch.randperm` (opendde/model/msa_sampling.py:56), so the reference and the device
+    hold the SAME 76 rows in a different order. z is invariant to that (every MSA sub-op is
+    row-wise and OuterProductMean averages over rows), but m scored row-for-row is not, and
+    the raw comparison reads 0.8235 where the real device error is 2.9e-03. The permutation
+    is recovered by nearest-row matching, unambiguous here: every device row matches one
+    reference row at cos >= 0.999998 with a >= 0.0014 gap to the runner-up.
+    """
+    from tt_bio.opendde import load_opendde_checkpoint
+    cache = Path(args.cache)
+    reference, _ = _load_reference(load_opendde_checkpoint())
+    blocks = reference.msa_module.blocks
+    ref_z = [torch.load(cache / f"ref_z_{b}.pt") for b in range(N_MSA_BLOCKS)]
+    ref_m0 = torch.load(cache / "ref_m0.pt").float()
+    ref_z_pre = torch.load(cache / "ref_z_pre.pt").float()
+    dev_z_in = torch.load(cache / "dev_z_in.pt").float().reshape(ref_z_pre.shape)
+    dev_m_in = torch.load(cache / "dev_m_in.pt").float().reshape(ref_m0.shape)
+
+    perm = _match_msa_rows(dev_m_in, ref_m0)
+    dev_m_aligned = dev_m_in[_invert(perm)]
+    _stat("m_in raw (row order differs)", dev_m_in, ref_m0)
+    _stat("m_in row-matched", dev_m_in, ref_m0[perm])
+
+    arms = (
+        ("ref-z + ref-m (identity check)", ref_z_pre, ref_m0),
+        ("dev-z + ref-m", dev_z_in, ref_m0),
+        ("ref-z + dev-m", ref_z_pre, dev_m_aligned),
+        ("dev-z + dev-m", dev_z_in, dev_m_aligned),
+    )
+    for tag, z0, m0 in arms:
+        print(f"\n--- {tag} ---", flush=True)
+        m, z = m0, z0
+        for b in range(N_MSA_BLOCKS):
+            m, z = ref_msa_block(blocks[b], m, z)
+            _stat(f"  z after block {b}", z, ref_z[b])
+
+
+def _match_msa_rows(dev, ref):
+    """perm[i] = the reference row that device row i holds."""
+    d = dev.reshape(dev.shape[0], -1)
+    r = ref.reshape(ref.shape[0], -1)
+    d = d / d.norm(dim=1, keepdim=True).clamp_min(1e-12)
+    r = r / r.norm(dim=1, keepdim=True).clamp_min(1e-12)
+    sim = d @ r.T
+    perm = sim.argmax(dim=1)
+    top2 = sim.topk(2, dim=1).values
+    assert len(set(perm.tolist())) == dev.shape[0], "row matching is not a permutation"
+    assert float(top2[:, 0].min()) > 0.999, "row matching is not unambiguous"
+    assert float((top2[:, 0] - top2[:, 1]).min()) > 1e-4, "row matching is degenerate"
+    return perm
+
+
+def _invert(perm):
+    out = torch.empty_like(perm)
+    out[perm] = torch.arange(perm.numel())
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--stage", type=int, required=True)
@@ -331,7 +397,7 @@ def main() -> None:
     ap.add_argument("--pf-cache", default="_run/pf_trace")
     ap.add_argument("--blocks", default="0,1,2,3")
     args = ap.parse_args()
-    {1: stage1, 2: stage2, 3: stage3}[args.stage](args)
+    {1: stage1, 2: stage2, 3: stage3, 5: stage5}[args.stage](args)
 
 
 if __name__ == "__main__":
