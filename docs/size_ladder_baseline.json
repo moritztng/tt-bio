@@ -1,17 +1,17 @@
 {
   "cards": {
     "p150a": {
-      "recorded": "2026-08-19",
+      "recorded": "2026-08-22",
       "host": "pc",
-      "commit": "b392ebca1",
+      "commit": "98f8a738",
       "models": {
         "boltz2": {
           "grid": "13x10",
           "runtime_s": {
-            "256": 6.9,
-            "512": 19.6,
-            "640": 28.0,
-            "768": 37.3
+            "256": 7.8,
+            "512": 19.9,
+            "640": 30.6,
+            "768": 39.9
           },
           "levers": {
             "256": {
@@ -96,6 +96,9 @@
                 "declined": 560,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:256x256x128": 560
+                },
                 "reason": "declines every call: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor. Wrap-counted, so which clause fails is not yet recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -104,6 +107,9 @@
                 "declined": 560,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "k_tiles=4:(4,1)": 560
+                },
                 "reason": "declines every call: needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape. Wrap-counted, so which of the two fails is not yet recorded"
               },
               "TRIMUL_TAIL_F1": {
@@ -163,6 +169,13 @@
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
+                "how": "stats"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
@@ -314,6 +327,9 @@
                 "declined": 560,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:512x512x128": 560
+                },
                 "reason": "declines every call: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor. Wrap-counted, so which clause fails is not yet recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -322,6 +338,9 @@
                 "declined": 560,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "k_tiles=4:(4,1)": 560
+                },
                 "reason": "declines every call: needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape. Wrap-counted, so which of the two fails is not yet recorded"
               },
               "TRIMUL_TAIL_F1": {
@@ -376,6 +395,13 @@
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
+                "how": "stats"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
@@ -527,14 +553,21 @@
                 "declined": 560,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:640x640x128": 560
+                },
                 "reason": "declines every call: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor. Wrap-counted, so which clause fails is not yet recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1679,
+                "declined": 1674,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "k_tiles=4:(4,4)": 1114,
+                  "k_tiles=4:(4,1)": 560
+                },
                 "reason": "declines every call: needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape. Wrap-counted, so which of the two fails is not yet recorded"
               },
               "TRIMUL_TAIL_F1": {
@@ -589,6 +622,13 @@
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
+                "how": "stats"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
@@ -740,6 +780,9 @@
                 "declined": 560,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:768x768x128": 560
+                },
                 "reason": "declines every call: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor. Wrap-counted, so which clause fails is not yet recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -748,6 +791,10 @@
                 "declined": 1680,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "k_tiles=4:(4,4)": 1120,
+                  "k_tiles=4:(4,1)": 560
+                },
                 "reason": "declines every call: needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape. Wrap-counted, so which of the two fails is not yet recorded"
               },
               "TRIMUL_TAIL_F1": {
@@ -807,6 +854,13 @@
                   "l1_budget": 1,
                   "pm_over_l1": 559
                 }
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -881,15 +935,15 @@
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0709,
+          "sigma_runtime_512": 0.0545,
           "exponents": {
             "256->512": {
-              "k": 1.506,
+              "k": 1.351,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.587,
-              "tol": 0.742
+              "k": 1.716,
+              "tol": 0.57
             }
           }
         },
