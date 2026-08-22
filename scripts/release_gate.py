@@ -603,13 +603,23 @@ def _run_fold(cmd: list, timeout: float, **popen_kw) -> tuple:
     try:
         return proc.wait(timeout=timeout), False
     except subprocess.TimeoutExpired:
+        # start_new_session makes the child a session/group leader, so its pgid is its pid.
+        # Escalate unconditionally: the direct child exiting is NOT evidence the group is
+        # clear. predict folds inside a multiprocessing spawn grandchild that survives
+        # SIGTERM while still holding /dev/tenstorrent/N, and breaking out of the
+        # escalation as soon as proc.wait() returned left exactly that orphan behind
+        # (2026-08-22: one hung 640 aa fold reparented a spawn child to init, and the two
+        # following legs both failed with "device-open failure: the card is leased by
+        # another process or wedged" — one hang cascading into spurious failures).
         for sig in (signal.SIGTERM, signal.SIGKILL):
             try:
-                os.killpg(os.getpgid(proc.pid), sig)
-                proc.wait(timeout=10)
-                break
+                os.killpg(proc.pid, sig)
             except Exception:
-                continue
+                pass          # group already gone; still send the next signal
+            try:
+                proc.wait(timeout=10)
+            except Exception:
+                pass
         return None, True
 
 
