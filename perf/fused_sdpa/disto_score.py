@@ -153,8 +153,8 @@ def main():
         r0 = rho[ARMS[0]]
         print(f"  rho(shipped) per seed {np.round(r0,5).tolist()}   "
               f"spread {max(r0)-min(r0):.5f}")
-        print(f"  rho(fused)   per seed {np.round(rho['hifi'],5).tolist()}   "
-              f"spread {max(rho['hifi'])-min(rho['hifi']):.5f}")
+        print(f"  rho(fused)   per seed {np.round(rho[ARMS[1]],5).tolist()}   "
+              f"spread {max(rho[ARMS[1]])-min(rho[ARMS[1]]):.5f}")
         # Pre-registered void condition (PLAN2 §1 Step 3): if the shipped arm cannot track the
         # crystal, the head is not doing what this step assumes. Report and stop for this segment
         # rather than crashing, so the void itself is banked as a result -- but do NOT let a void
@@ -163,7 +163,7 @@ def main():
             print(f"  INSTRUMENT VOID: abs(rho) on the shipped arm is {np.mean(r0):.4f} < 0.8. "
                   f"No verdict from this segment.")
             print(f"  (direction only, NOT a verdict: fused - shipped mean "
-                  f"{np.mean(rho['hifi']) - np.mean(r0):+.5f}, shipped seed spread "
+                  f"{np.mean(rho[ARMS[1]]) - np.mean(r0):+.5f}, shipped seed spread "
                   f"{max(r0)-min(r0):.5f})")
             report["segments"][label] = {
                 "n_residues": L, "n_pairs": int(len(dtrue)),
@@ -240,10 +240,10 @@ def main():
             prec_p[arm] = vals
         print(f"  top-{topk} long-range (|i-j|>={LONG_RANGE}) contact precision, "
               f"{lr.sum()} candidate pairs")
-        print(f"    ranked by E[b]      shipped {np.round(prec_e['def'],4).tolist()}  "
-              f"fused {np.round(prec_e['hifi'],4).tolist()}")
-        print(f"    ranked by P(bin<{bcut})  shipped {np.round(prec_p['def'],4).tolist()}  "
-              f"fused {np.round(prec_p['hifi'],4).tolist()}")
+        print(f"    ranked by E[b]      shipped {np.round(prec_e[ARMS[0]],4).tolist()}  "
+              f"fused {np.round(prec_e[ARMS[1]],4).tolist()}")
+        print(f"    ranked by P(bin<{bcut})  shipped {np.round(prec_p[ARMS[0]],4).tolist()}  "
+              f"fused {np.round(prec_p[ARMS[1]],4).tolist()}")
 
         report["segments"][label] = {
             "n_residues": L, "n_pairs": int(len(dtrue)),
