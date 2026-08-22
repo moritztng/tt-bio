@@ -6169,11 +6169,14 @@ class OuterProductMean(Module):
         scale_bias: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
-        # scale_bias: divide the proj_o bias by the row count too. The AF3/OF3
-        # reference divides the WHOLE linear_out output (raw outer + bias) by the
-        # pair norm; the default (Boltz/Protenix convention here) scales only the
-        # raw outer product, adding the bias full-strength. For OF3 the unscaled
-        # bias is a structured per-channel constant that the pairformer amplifies.
+        # scale_bias: divide the proj_o bias by the row count too. OpenFold3, Protenix
+        # and OpenDDE divide the WHOLE linear_out output (raw outer + bias) by the pair
+        # norm, so they want True; Boltz and BoltzGen divide the raw outer product before
+        # proj_o, so the bias belongs at full strength and False is right for them. The
+        # unscaled bias is a structured per-channel constant that the pairformer
+        # amplifies: on a 76-deep MSA, getting this wrong cost OpenDDE 0.947 vs 0.992 on
+        # z_post_pairformer. Two conventions, one class -- so it is a per-site argument,
+        # and the default is just Boltz's because that is the oldest caller.
         self.scale_bias = scale_bias
         self.norm_weight = self.torch_to_tt("norm.weight")
         self.norm_bias = self.torch_to_tt("norm.bias")
@@ -7043,7 +7046,16 @@ class PairformerModule(TorchWrapper):
                     mask_1d = torch.nn.functional.pad(mask_1d, (0, pad))
                     if pair_mask is not None:
                         pair_mask = torch.nn.functional.pad(pair_mask, (0, pad, 0, pad))
-                self._cache_set("mask_tt", self._from_torch(pair_mask if pair_mask is not None else mask_1d))
+                # TriangleMultiplication does `unsqueeze(mask, -1)` and multiplies the result
+                # into [1,S,S,C], so a 1-D [1,S] mask lands on the SECOND token axis only.
+                # The outgoing variant contracts that axis; the incoming variant contracts the
+                # first, so a 1-D mask leaves it summing the padded rows in: rel 2.00 against
+                # 6.7e-03 with the pair mask, at every pad amount (VERDICT-TRIMULCURE in
+                # state/opendde-pairformer-z-parity-drop.md). Build the outer product, which is
+                # what Fp32PairformerModule already does.
+                if pair_mask is None:
+                    pair_mask = mask_1d[:, :, None] * mask_1d[:, None, :]
+                self._cache_set("mask_tt", self._from_torch(pair_mask))
                 attn_mask = self._from_torch((1 - mask_1d).unsqueeze(1).unsqueeze(1) * -1e9)
                 self._cache_set("attn_mask_start_tt", attn_mask)
                 self._cache_set("attn_mask_end_tt", attn_mask)
@@ -7801,10 +7813,16 @@ class TemplateRecycle:
         ]
         # template pairformer is called without a mask -> padding-only masks (mirror
         # PairformerModule.forward's no-mask branch); None when no padding.
+        # `mask_tt` must be the 2-D outer product, not the 1-D token mask: the
+        # TriangleMultiplications broadcast it along the second token axis only, so a
+        # 1-D mask leaves the incoming variant summing the padded rows in. Same defect
+        # and same fix as PairformerModule.forward above -- this is the resident-trunk
+        # copy of that mask recipe, and the resident trunk is the shipped Boltz-2 path.
         if seq_pad:
             mask_1d = a_tij.new_ones(1, seq_len + seq_pad)
             mask_1d[:, seq_len:] = 0.0
-            mask_tt = ttnn.from_torch(mask_1d, layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
+            mask_tt = ttnn.from_torch(mask_1d[:, :, None] * mask_1d[:, None, :],
+                                      layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
             attn_tt = ttnn.from_torch((1 - mask_1d).unsqueeze(1).unsqueeze(1) * -1e9,
                                       layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
         else:

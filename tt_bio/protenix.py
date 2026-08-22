@@ -2207,7 +2207,18 @@ class Trunk(_KeyedWeights):
         for i in range(nb_msa):
             P = f"msa_module.blocks.{i}."
             sub = lambda pp: {k[len(pp):]: v for k, v in self._w.items() if k.startswith(pp)}
-            opm = OuterProductMean(PW.remap_outer_product_mean(sub(P + "outer_product_mean_msa.")), compute_kernel_config)
+            # scale_bias=True because this family's reference divides the WHOLE linear_out
+            # output by the pair norm, `proj_o.bias` included (Protenix's
+            # openfold_local/model/outer_product_mean.py and OpenDDE's
+            # model/triangular/layers.py both do, at the same weight names). The default False
+            # is Boltz's convention -- it divides the raw outer product before proj_o, so the
+            # bias belongs at full strength there. Left at the default, this op added the bias
+            # once per MSA row: 76x too large on a 76-deep MSA, a constant per-channel offset
+            # that the 48-block Pairformer then amplifies 7.86x. Measured on 7ROA 136 aa:
+            # the op goes from PCC 0.985883 to 0.999989 and the shipped fold's
+            # z_post_pairformer from 0.947762 to 0.991964.
+            opm = OuterProductMean(PW.remap_outer_product_mean(sub(P + "outer_product_mean_msa.")), compute_kernel_config,
+                                   scale_bias=True)
             pl = PairformerLayer(self.TRI_HEAD_DIM, n_tri_heads, None, None, False,
                                  PW.remap_msa_pair_stack(sub(P + "pair_stack.")),
                                  compute_kernel_config, gated_move=gated_move)

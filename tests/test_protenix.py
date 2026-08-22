@@ -204,19 +204,35 @@ def test_pairformer_block_parity():
 
 
 # OuterProductMean (MSA -> pair).
-def test_outer_product_mean_parity():
-    c_m, c_z, c_hidden, S, L = 128, 128, 32, 8, 32
+#
+# scale_bias is the convention this op is built with, and it is what the test is really
+# checking. The Protenix-family reference divides the WHOLE linear_out output by the pair
+# norm, proj_o.bias included, so scale_bias=True matches it and is what protenix.py:2210
+# ships; the default False is Boltz's convention and adds the bias S times over. A single
+# PCC > 0.98 could not tell them apart -- it passed the wrong convention at S=76 on real
+# weights (0.985883). So score both arms and require the right one to be an order of
+# magnitude closer, which is threshold-free in the part that matters, and run a deep S as
+# well as a shallow one because the error scales as (1 - 1/S).
+@pytest.mark.parametrize("S", [8, 76])
+def test_outer_product_mean_parity(S):
+    c_m, c_z, c_hidden, L = 128, 128, 32, 32
     mod, sd = make_outer_product_mean(c_m, c_z, c_hidden, seed=0)
     m = torch.randn(1, S, L, c_m)
     ref = run_reference_outer_product_mean(mod, m).float()[0]
     dev = get_device()
-    opm = OuterProductMean(remap_outer_product_mean(sd), _ck(dev))
     mt = ttnn.from_torch(m, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
-    out = torch.Tensor(ttnn.to_torch(opm(mt, None, None))).float()
-    if out.dim() == 4:
-        out = out[0]
-    p = pcc(out, ref)
-    assert p > 0.98, f"PCC {p:.5f}"
+
+    def run(scale_bias):
+        opm = OuterProductMean(remap_outer_product_mean(sd), _ck(dev), scale_bias=scale_bias)
+        out = torch.Tensor(ttnn.to_torch(opm(mt, None, None))).float()
+        return pcc(out[0] if out.dim() == 4 else out, ref)
+
+    p_match, p_other = run(True), run(False)
+    assert p_match > 0.999, f"S={S} scale_bias=True PCC {p_match:.6f}"
+    assert (1 - p_match) * 10 < (1 - p_other), (
+        f"S={S}: scale_bias=True PCC {p_match:.6f} is not 10x closer than "
+        f"scale_bias=False PCC {p_other:.6f} -- the two conventions are not being "
+        f"distinguished, so this test cannot catch the one that ships being wrong")
 
 
 # MSAPairWeightedAveraging.

@@ -10,7 +10,9 @@ Run after scripts/opendde_e2e_smoke.py has written /tmp/opendde_e2e_coords.pt:
   PYTHONPATH=<worktree> /home/ttuser/tt-bio-dev/env/bin/python3 scripts/opendde_e2e_rmsd.py
 """
 import importlib.util
+import os
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -49,6 +51,11 @@ def predicted_ca_coords(coords, seq):
 
 def main():
     coords_path = sys.argv[1] if len(sys.argv) > 1 else "/tmp/opendde_e2e_coords.pt"
+    # Print the file and its age. The default is the smoke's last-run convenience copy,
+    # so an A/B that forgets to re-fold scores one arm twice and the two columns come out
+    # identical for a reason that has nothing to do with the change under test.
+    age = time.time() - os.path.getmtime(coords_path)
+    print(f"coords: {coords_path} (written {age:.0f}s ago)")
     coords = torch.load(coords_path).numpy()[0]  # (N_atom,3)
     pred_ca = predicted_ca_coords(coords, SEQ)
 

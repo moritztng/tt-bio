@@ -1,0 +1,160 @@
+# tri_mul_in mask-axis root cause, OpenDDE Pairformer, 7ROA 136aa, qb1 card 1, 2026-08-22
+# instrument scripts/opendde_pf_triend_probe.py; raw logs _run/{padtap,mask_*,crop_*}.log
+
+## --padtap: does tri_att_end escape the tile-padding leak because its transpose rebuilds the tensor?
+=== padtap, Pairformer block 0 ===
+padtap: logical values identical across the two z: True  padded_shape=(1, 136, 160, 384) logical=(1, 136, 136, 384)
+padtap raw         -> tri_att_start  dirty==clean: False maxabs=3.328e+01
+padtap reshaped    -> tri_att_start  dirty==clean: False maxabs=3.328e+01
+padtap transposed  -> tri_att_start  dirty==clean: True  maxabs=0.000e+00
+padtap end         -> tri_att_end    dirty==clean: True  maxabs=0.000e+00
+=== padtap, Pairformer block 36 ===
+padtap: logical values identical across the two z: True  padded_shape=(1, 136, 160, 384) logical=(1, 136, 136, 384)
+padtap raw         -> tri_att_start  dirty==clean: False maxabs=4.530e+01
+padtap reshaped    -> tri_att_start  dirty==clean: False maxabs=4.530e+01
+padtap transposed  -> tri_att_start  dirty==clean: True  maxabs=0.000e+00
+padtap end         -> tri_att_end    dirty==clean: True  maxabs=0.000e+00
+
+## --maskmode axis discriminator, --pad 64, blocks 0 and 36
+### maskmode=1d
+shipped config: token dim 136 -> 192, additive -1e9 mask on the pad, trimul mask_tt mode=1d shape=(1, 192)
+b0 tri_mul_out impl                    PCC= 0.999988 norm_ratio=  1.0000 rms_ref=3.6814e-01 rms_err=1.7962e-03 rel=4.8792e-03
+b0 tri_mul_out iso                     PCC= 0.999988 norm_ratio=  1.0000 rms_ref=3.6814e-01 rms_err=1.7962e-03 rel=4.8792e-03
+b0 tri_mul_in impl                     PCC= 0.402326 norm_ratio=  2.0506 rms_ref=7.4803e-01 rms_err=1.4100e+00 rel=1.8849e+00
+b0 tri_mul_in iso                      PCC= 0.999763 norm_ratio=  0.9963 rms_ref=7.4803e-01 rms_err=1.6501e-02 rel=2.2059e-02
+b0 tri_att_start impl                  PCC= 0.999896 norm_ratio=  0.9842 rms_ref=7.1488e-01 rms_err=1.5235e-02 rel=2.1311e-02
+b0 tri_att_start iso                   PCC= 0.999896 norm_ratio=  0.9842 rms_ref=7.1488e-01 rms_err=1.5235e-02 rel=2.1311e-02
+b0 tri_att_end impl                    PCC= 0.999884 norm_ratio=  0.9894 rms_ref=4.8423e-01 rms_err=8.9501e-03 rel=1.8483e-02
+b0 tri_att_end iso                     PCC= 0.999884 norm_ratio=  0.9894 rms_ref=4.8423e-01 rms_err=8.9501e-03 rel=1.8483e-02
+b0 SUMMARY block 1-PCC=1.8458e-03 block err rms=1.4102 | quadrature tf=0.0242 iso=0.0245 impl=1.4101 total=1.4489 | tf start=0.0149 end=0.0082 end/start=0.5539 end share of the two=23.475%
+shipped config: token dim 136 -> 192, additive -1e9 mask on the pad, trimul mask_tt mode=1d shape=(1, 192)
+b36 tri_mul_out impl                   PCC= 0.999981 norm_ratio=  0.9995 rms_ref=2.8113e+00 rms_err=1.7451e-02 rel=6.2073e-03
+b36 tri_mul_out iso                    PCC= 0.999981 norm_ratio=  0.9995 rms_ref=2.8113e+00 rms_err=1.7451e-02 rel=6.2073e-03
+b36 tri_mul_in impl                    PCC= 0.028469 norm_ratio=  1.7641 rms_ref=2.9187e+00 rms_err=5.8453e+00 rel=2.0027e+00
+b36 tri_mul_in iso                     PCC= 0.971160 norm_ratio=  1.0185 rms_ref=2.9187e+00 rms_err=7.0947e-01 rel=2.4308e-01
+b36 tri_att_start impl                 PCC= 0.999898 norm_ratio=  0.9878 rms_ref=2.8193e+00 rms_err=5.2787e-02 rel=1.8723e-02
+b36 tri_att_start iso                  PCC= 0.999898 norm_ratio=  0.9878 rms_ref=2.8193e+00 rms_err=5.2787e-02 rel=1.8723e-02
+b36 tri_att_end impl                   PCC= 0.999887 norm_ratio=  0.9870 rms_ref=1.9362e+00 rms_err=3.8324e-02 rel=1.9793e-02
+b36 tri_att_end iso                    PCC= 0.999887 norm_ratio=  0.9870 rms_ref=1.9362e+00 rms_err=3.8324e-02 rel=1.9793e-02
+b36 SUMMARY block 1-PCC=4.2230e-03 block err rms=5.1624 | quadrature tf=0.7137 iso=0.7132 impl=5.8458 total=6.9421 | tf start=0.0494 end=0.0402 end/start=0.8141 end share of the two=39.859%
+### maskmode=j
+shipped config: token dim 136 -> 192, additive -1e9 mask on the pad, trimul mask_tt mode=j shape=(1, 192, 192)
+b0 tri_mul_out impl                    PCC= 0.999988 norm_ratio=  1.0000 rms_ref=3.6814e-01 rms_err=1.7962e-03 rel=4.8792e-03
+b0 tri_mul_out iso                     PCC= 0.999988 norm_ratio=  1.0000 rms_ref=3.6814e-01 rms_err=1.7962e-03 rel=4.8792e-03
+b0 tri_mul_in impl                     PCC= 0.402326 norm_ratio=  2.0506 rms_ref=7.4803e-01 rms_err=1.4100e+00 rel=1.8849e+00
+b0 tri_mul_in iso                      PCC= 0.999763 norm_ratio=  0.9963 rms_ref=7.4803e-01 rms_err=1.6501e-02 rel=2.2059e-02
+b0 tri_att_start impl                  PCC= 0.999896 norm_ratio=  0.9842 rms_ref=7.1488e-01 rms_err=1.5235e-02 rel=2.1311e-02
+b0 tri_att_start iso                   PCC= 0.999896 norm_ratio=  0.9842 rms_ref=7.1488e-01 rms_err=1.5235e-02 rel=2.1311e-02
+b0 tri_att_end impl                    PCC= 0.999884 norm_ratio=  0.9894 rms_ref=4.8423e-01 rms_err=8.9501e-03 rel=1.8483e-02
+b0 tri_att_end iso                     PCC= 0.999884 norm_ratio=  0.9894 rms_ref=4.8423e-01 rms_err=8.9501e-03 rel=1.8483e-02
+b0 SUMMARY block 1-PCC=1.8458e-03 block err rms=1.4102 | quadrature tf=0.0242 iso=0.0245 impl=1.4101 total=1.4489 | tf start=0.0149 end=0.0082 end/start=0.5539 end share of the two=23.475%
+shipped config: token dim 136 -> 192, additive -1e9 mask on the pad, trimul mask_tt mode=j shape=(1, 192, 192)
+b36 tri_mul_out impl                   PCC= 0.999981 norm_ratio=  0.9995 rms_ref=2.8113e+00 rms_err=1.7451e-02 rel=6.2073e-03
+b36 tri_mul_out iso                    PCC= 0.999981 norm_ratio=  0.9995 rms_ref=2.8113e+00 rms_err=1.7451e-02 rel=6.2073e-03
+b36 tri_mul_in impl                    PCC= 0.028469 norm_ratio=  1.7641 rms_ref=2.9187e+00 rms_err=5.8453e+00 rel=2.0027e+00
+b36 tri_mul_in iso                     PCC= 0.971160 norm_ratio=  1.0185 rms_ref=2.9187e+00 rms_err=7.0947e-01 rel=2.4308e-01
+b36 tri_att_start impl                 PCC= 0.999898 norm_ratio=  0.9878 rms_ref=2.8193e+00 rms_err=5.2787e-02 rel=1.8723e-02
+b36 tri_att_start iso                  PCC= 0.999898 norm_ratio=  0.9878 rms_ref=2.8193e+00 rms_err=5.2787e-02 rel=1.8723e-02
+b36 tri_att_end impl                   PCC= 0.999887 norm_ratio=  0.9870 rms_ref=1.9362e+00 rms_err=3.8324e-02 rel=1.9793e-02
+b36 tri_att_end iso                    PCC= 0.999887 norm_ratio=  0.9870 rms_ref=1.9362e+00 rms_err=3.8324e-02 rel=1.9793e-02
+b36 SUMMARY block 1-PCC=4.2230e-03 block err rms=5.1624 | quadrature tf=0.7137 iso=0.7132 impl=5.8458 total=6.9421 | tf start=0.0494 end=0.0402 end/start=0.8141 end share of the two=39.859%
+### maskmode=i
+shipped config: token dim 136 -> 192, additive -1e9 mask on the pad, trimul mask_tt mode=i shape=(1, 192, 192)
+b0 tri_mul_out impl                    PCC= 0.999555 norm_ratio=  0.9966 rms_ref=3.6814e-01 rms_err=1.1034e-02 rel=2.9972e-02
+b0 tri_mul_out iso                     PCC= 0.999555 norm_ratio=  0.9966 rms_ref=3.6814e-01 rms_err=1.1034e-02 rel=2.9972e-02
+b0 tri_mul_in impl                     PCC= 0.999991 norm_ratio=  1.0002 rms_ref=7.4608e-01 rms_err=3.2517e-03 rel=4.3583e-03
+b0 tri_mul_in iso                      PCC= 0.999991 norm_ratio=  1.0002 rms_ref=7.4608e-01 rms_err=3.2517e-03 rel=4.3583e-03
+b0 tri_att_start impl                  PCC= 0.999898 norm_ratio=  0.9832 rms_ref=6.7613e-01 rms_err=1.4827e-02 rel=2.1930e-02
+b0 tri_att_start iso                   PCC= 0.999898 norm_ratio=  0.9832 rms_ref=6.7613e-01 rms_err=1.4827e-02 rel=2.1930e-02
+b0 tri_att_end impl                    PCC= 0.999875 norm_ratio=  0.9887 rms_ref=4.2265e-01 rms_err=8.1778e-03 rel=1.9349e-02
+b0 tri_att_end iso                     PCC= 0.999875 norm_ratio=  0.9887 rms_ref=4.2265e-01 rms_err=8.1778e-03 rel=1.9349e-02
+b0 SUMMARY block 1-PCC=5.5095e-06 block err rms=0.0800 | quadrature tf=0.0210 iso=0.0208 impl=0.0208 total=0.0219 | tf start=0.0149 end=0.0082 end/start=0.5539 end share of the two=23.475%
+shipped config: token dim 136 -> 192, additive -1e9 mask on the pad, trimul mask_tt mode=i shape=(1, 192, 192)
+b36 tri_mul_out impl                   PCC= 0.985624 norm_ratio=  0.9950 rms_ref=2.8113e+00 rms_err=4.7568e-01 rel=1.6920e-01
+b36 tri_mul_out iso                    PCC= 0.985624 norm_ratio=  0.9950 rms_ref=2.8113e+00 rms_err=4.7568e-01 rel=1.6920e-01
+b36 tri_mul_in impl                    PCC= 0.999977 norm_ratio=  0.9994 rms_ref=2.9136e+00 rms_err=1.9631e-02 rel=6.7375e-03
+b36 tri_mul_in iso                     PCC= 0.999977 norm_ratio=  0.9994 rms_ref=2.9136e+00 rms_err=1.9631e-02 rel=6.7375e-03
+b36 tri_att_start impl                 PCC= 0.999835 norm_ratio=  0.9856 rms_ref=2.1169e+00 rms_err=4.8818e-02 rel=2.3061e-02
+b36 tri_att_start iso                  PCC= 0.999835 norm_ratio=  0.9856 rms_ref=2.1169e+00 rms_err=4.8818e-02 rel=2.3061e-02
+b36 tri_att_end impl                   PCC= 0.999857 norm_ratio=  0.9859 rms_ref=1.8037e+00 rms_err=3.9540e-02 rel=2.1921e-02
+b36 tri_att_end iso                    PCC= 0.999857 norm_ratio=  0.9859 rms_ref=1.8037e+00 rms_err=3.9540e-02 rel=2.1921e-02
+b36 SUMMARY block 1-PCC=3.6173e-05 block err rms=0.4785 | quadrature tf=0.4815 iso=0.4810 impl=0.4810 total=0.5423 | tf start=0.0494 end=0.0402 end/start=0.8141 end share of the two=39.859%
+### maskmode=pair
+shipped config: token dim 136 -> 192, additive -1e9 mask on the pad, trimul mask_tt mode=pair shape=(1, 192, 192)
+b0 tri_mul_out impl                    PCC= 0.999988 norm_ratio=  1.0000 rms_ref=3.6814e-01 rms_err=1.7962e-03 rel=4.8792e-03
+b0 tri_mul_out iso                     PCC= 0.999988 norm_ratio=  1.0000 rms_ref=3.6814e-01 rms_err=1.7962e-03 rel=4.8792e-03
+b0 tri_mul_in impl                     PCC= 0.999991 norm_ratio=  1.0003 rms_ref=7.4803e-01 rms_err=3.2572e-03 rel=4.3544e-03
+b0 tri_mul_in iso                      PCC= 0.999991 norm_ratio=  1.0003 rms_ref=7.4803e-01 rms_err=3.2572e-03 rel=4.3544e-03
+b0 tri_att_start impl                  PCC= 0.999899 norm_ratio=  0.9832 rms_ref=6.7626e-01 rms_err=1.4850e-02 rel=2.1959e-02
+b0 tri_att_start iso                   PCC= 0.999899 norm_ratio=  0.9832 rms_ref=6.7626e-01 rms_err=1.4850e-02 rel=2.1959e-02
+b0 tri_att_end impl                    PCC= 0.999875 norm_ratio=  0.9887 rms_ref=4.2256e-01 rms_err=8.1969e-03 rel=1.9398e-02
+b0 tri_att_end iso                     PCC= 0.999875 norm_ratio=  0.9887 rms_ref=4.2256e-01 rms_err=8.1969e-03 rel=1.9398e-02
+b0 SUMMARY block 1-PCC=5.3825e-06 block err rms=0.0792 | quadrature tf=0.0180 iso=0.0178 impl=0.0178 total=0.0188 | tf start=0.0149 end=0.0082 end/start=0.5539 end share of the two=23.475%
+shipped config: token dim 136 -> 192, additive -1e9 mask on the pad, trimul mask_tt mode=pair shape=(1, 192, 192)
+b36 tri_mul_out impl                   PCC= 0.999981 norm_ratio=  0.9995 rms_ref=2.8113e+00 rms_err=1.7451e-02 rel=6.2073e-03
+b36 tri_mul_out iso                    PCC= 0.999981 norm_ratio=  0.9995 rms_ref=2.8113e+00 rms_err=1.7451e-02 rel=6.2073e-03
+b36 tri_mul_in impl                    PCC= 0.999978 norm_ratio=  0.9995 rms_ref=2.9187e+00 rms_err=1.9629e-02 rel=6.7254e-03
+b36 tri_mul_in iso                     PCC= 0.999978 norm_ratio=  0.9995 rms_ref=2.9187e+00 rms_err=1.9629e-02 rel=6.7254e-03
+b36 tri_att_start impl                 PCC= 0.999836 norm_ratio=  0.9858 rms_ref=2.1116e+00 rms_err=4.8396e-02 rel=2.2919e-02
+b36 tri_att_start iso                  PCC= 0.999836 norm_ratio=  0.9858 rms_ref=2.1116e+00 rms_err=4.8396e-02 rel=2.2919e-02
+b36 tri_att_end impl                   PCC= 0.999856 norm_ratio=  0.9860 rms_ref=1.7990e+00 rms_err=3.9382e-02 rel=2.1891e-02
+b36 tri_att_end iso                    PCC= 0.999856 norm_ratio=  0.9860 rms_ref=1.7990e+00 rms_err=3.9382e-02 rel=2.1891e-02
+b36 SUMMARY block 1-PCC=7.6256e-06 block err rms=0.2282 | quadrature tf=0.0768 iso=0.0730 impl=0.0730 total=0.0940 | tf start=0.0494 end=0.0402 end/start=0.8141 end share of the two=39.859%
+
+## --crop pad-amount ladder, block 36 (crop 128 pads by nothing: control)
+### crop=96 maskmode=1d
+shipped config: token dim 96 -> 128, additive -1e9 mask on the pad, trimul mask_tt mode=1d shape=(1, 128)
+b36 tri_mul_out impl                   PCC= 0.999980 norm_ratio=  0.9992 rms_ref=2.8598e+00 rms_err=1.8262e-02 rel=6.3859e-03
+b36 tri_mul_out iso                    PCC= 0.999980 norm_ratio=  0.9992 rms_ref=2.8598e+00 rms_err=1.8262e-02 rel=6.3859e-03
+b36 tri_mul_in impl                    PCC= 0.079303 norm_ratio=  1.6634 rms_ref=2.9351e+00 rms_err=5.4935e+00 rel=1.8717e+00
+b36 tri_mul_in iso                     PCC= 0.985729 norm_ratio=  1.0013 rms_ref=2.9351e+00 rms_err=4.9621e-01 rel=1.6906e-01
+b36 SUMMARY block 1-PCC=3.7443e-03 block err rms=4.9465 | quadrature tf=0.5015 iso=0.5011 impl=5.4939 total=6.4050 | tf start=0.0461 end=0.0388 end/start=0.8421 end share of the two=41.493%
+### crop=96 maskmode=pair
+shipped config: token dim 96 -> 128, additive -1e9 mask on the pad, trimul mask_tt mode=pair shape=(1, 128, 128)
+b36 tri_mul_out impl                   PCC= 0.999980 norm_ratio=  0.9992 rms_ref=2.8598e+00 rms_err=1.8262e-02 rel=6.3859e-03
+b36 tri_mul_out iso                    PCC= 0.999980 norm_ratio=  0.9992 rms_ref=2.8598e+00 rms_err=1.8262e-02 rel=6.3859e-03
+b36 tri_mul_in impl                    PCC= 0.999977 norm_ratio=  0.9994 rms_ref=2.9351e+00 rms_err=1.9804e-02 rel=6.7475e-03
+b36 tri_mul_in iso                     PCC= 0.999977 norm_ratio=  0.9994 rms_ref=2.9351e+00 rms_err=1.9804e-02 rel=6.7475e-03
+b36 SUMMARY block 1-PCC=7.6673e-06 block err rms=0.2316 | quadrature tf=0.0739 iso=0.0706 impl=0.0706 total=0.0891 | tf start=0.0461 end=0.0388 end/start=0.8421 end share of the two=41.493%
+### crop=128 maskmode=1d
+shipped config: token dim 128 -> 128, additive -1e9 mask on the pad, trimul mask_tt mode=1d shape=(1, 128)
+b36 tri_mul_out impl                   PCC= 0.999981 norm_ratio=  0.9995 rms_ref=2.8373e+00 rms_err=1.7696e-02 rel=6.2370e-03
+b36 tri_mul_out iso                    PCC= 0.999981 norm_ratio=  0.9995 rms_ref=2.8373e+00 rms_err=1.7696e-02 rel=6.2370e-03
+b36 tri_mul_in impl                    PCC= 0.999978 norm_ratio=  0.9995 rms_ref=2.9280e+00 rms_err=1.9698e-02 rel=6.7274e-03
+b36 tri_mul_in iso                     PCC= 0.999978 norm_ratio=  0.9995 rms_ref=2.9280e+00 rms_err=1.9698e-02 rel=6.7274e-03
+b36 SUMMARY block 1-PCC=7.6692e-06 block err rms=0.2288 | quadrature tf=0.0768 iso=0.0732 impl=0.0732 total=0.0940 | tf start=0.0493 end=0.0400 end/start=0.8111 end share of the two=39.684%
+### crop=128 maskmode=pair
+shipped config: token dim 128 -> 128, additive -1e9 mask on the pad, trimul mask_tt mode=pair shape=(1, 128, 128)
+b36 tri_mul_out impl                   PCC= 0.999981 norm_ratio=  0.9995 rms_ref=2.8373e+00 rms_err=1.7696e-02 rel=6.2370e-03
+b36 tri_mul_out iso                    PCC= 0.999981 norm_ratio=  0.9995 rms_ref=2.8373e+00 rms_err=1.7696e-02 rel=6.2370e-03
+b36 tri_mul_in impl                    PCC= 0.999978 norm_ratio=  0.9995 rms_ref=2.9280e+00 rms_err=1.9698e-02 rel=6.7274e-03
+b36 tri_mul_in iso                     PCC= 0.999978 norm_ratio=  0.9995 rms_ref=2.9280e+00 rms_err=1.9698e-02 rel=6.7274e-03
+b36 SUMMARY block 1-PCC=7.6692e-06 block err rms=0.2288 | quadrature tf=0.0768 iso=0.0732 impl=0.0732 total=0.0940 | tf start=0.0493 end=0.0400 end/start=0.8111 end share of the two=39.684%
+### crop=132 maskmode=1d
+shipped config: token dim 132 -> 192, additive -1e9 mask on the pad, trimul mask_tt mode=1d shape=(1, 192)
+b36 tri_mul_out impl                   PCC= 0.999981 norm_ratio=  0.9995 rms_ref=2.8334e+00 rms_err=1.7659e-02 rel=6.2324e-03
+b36 tri_mul_out iso                    PCC= 0.999981 norm_ratio=  0.9995 rms_ref=2.8334e+00 rms_err=1.7659e-02 rel=6.2324e-03
+b36 tri_mul_in impl                    PCC= 0.027577 norm_ratio=  1.7509 rms_ref=2.9310e+00 rms_err=5.8386e+00 rel=1.9920e+00
+b36 tri_mul_in iso                     PCC= 0.966955 norm_ratio=  1.0209 rms_ref=2.9310e+00 rms_err=7.6377e-01 rel=2.6059e-01
+b36 SUMMARY block 1-PCC=4.2297e-03 block err rms=5.1707 | quadrature tf=0.7677 iso=0.7672 impl=5.8390 total=6.9364 | tf start=0.0493 end=0.0401 end/start=0.8144 end share of the two=39.877%
+### crop=132 maskmode=pair
+shipped config: token dim 132 -> 192, additive -1e9 mask on the pad, trimul mask_tt mode=pair shape=(1, 192, 192)
+b36 tri_mul_out impl                   PCC= 0.999981 norm_ratio=  0.9995 rms_ref=2.8334e+00 rms_err=1.7659e-02 rel=6.2324e-03
+b36 tri_mul_out iso                    PCC= 0.999981 norm_ratio=  0.9995 rms_ref=2.8334e+00 rms_err=1.7659e-02 rel=6.2324e-03
+b36 tri_mul_in impl                    PCC= 0.999978 norm_ratio=  0.9994 rms_ref=2.9310e+00 rms_err=1.9670e-02 rel=6.7110e-03
+b36 tri_mul_in iso                     PCC= 0.999978 norm_ratio=  0.9994 rms_ref=2.9310e+00 rms_err=1.9670e-02 rel=6.7110e-03
+b36 SUMMARY block 1-PCC=7.5819e-06 block err rms=0.2274 | quadrature tf=0.0769 iso=0.0732 impl=0.0732 total=0.0941 | tf start=0.0493 end=0.0401 end/start=0.8144 end share of the two=39.877%
+### crop=136 maskmode=1d
+shipped config: token dim 136 -> 192, additive -1e9 mask on the pad, trimul mask_tt mode=1d shape=(1, 192)
+b36 tri_mul_out impl                   PCC= 0.999981 norm_ratio=  0.9995 rms_ref=2.8113e+00 rms_err=1.7451e-02 rel=6.2073e-03
+b36 tri_mul_out iso                    PCC= 0.999981 norm_ratio=  0.9995 rms_ref=2.8113e+00 rms_err=1.7451e-02 rel=6.2073e-03
+b36 tri_mul_in impl                    PCC= 0.028469 norm_ratio=  1.7641 rms_ref=2.9187e+00 rms_err=5.8453e+00 rel=2.0027e+00
+b36 tri_mul_in iso                     PCC= 0.971160 norm_ratio=  1.0185 rms_ref=2.9187e+00 rms_err=7.0947e-01 rel=2.4308e-01
+b36 SUMMARY block 1-PCC=4.2230e-03 block err rms=5.1624 | quadrature tf=0.7137 iso=0.7132 impl=5.8458 total=6.9421 | tf start=0.0494 end=0.0402 end/start=0.8141 end share of the two=39.859%
+### crop=136 maskmode=pair
+shipped config: token dim 136 -> 192, additive -1e9 mask on the pad, trimul mask_tt mode=pair shape=(1, 192, 192)
+b36 tri_mul_out impl                   PCC= 0.999981 norm_ratio=  0.9995 rms_ref=2.8113e+00 rms_err=1.7451e-02 rel=6.2073e-03
+b36 tri_mul_out iso                    PCC= 0.999981 norm_ratio=  0.9995 rms_ref=2.8113e+00 rms_err=1.7451e-02 rel=6.2073e-03
+b36 tri_mul_in impl                    PCC= 0.999978 norm_ratio=  0.9995 rms_ref=2.9187e+00 rms_err=1.9629e-02 rel=6.7254e-03
+b36 tri_mul_in iso                     PCC= 0.999978 norm_ratio=  0.9995 rms_ref=2.9187e+00 rms_err=1.9629e-02 rel=6.7254e-03
+b36 SUMMARY block 1-PCC=7.6256e-06 block err rms=0.2282 | quadrature tf=0.0768 iso=0.0730 impl=0.0730 total=0.0940 | tf start=0.0494 end=0.0402 end/start=0.8141 end share of the two=39.859%
