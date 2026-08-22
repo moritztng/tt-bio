@@ -1,0 +1,193 @@
+{
+ "model": "openbind",
+ "label": "decomp_ob_apo_512",
+ "input": "ob_apo_512.tt.yaml",
+ "input_sha256": "0b0de5b4dd82beea5721130014a47d3495397208833cc5b89eb1c691e636a82f",
+ "samples": 1,
+ "recycles": 3,
+ "sampling_steps": 200,
+ "seed": 42,
+ "single_sequence": true,
+ "decomp": true,
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "3",
+ "arch": "blackhole",
+ "load_s": 1.29,
+ "loadavg_start": [
+  "6.55",
+  "5.55",
+  "4.98"
+ ],
+ "timers_missing": [
+  "OF3SampleDiffusion._pad_tokens",
+  "OF3SampleDiffusion._pad_pair",
+  "OF3DiffusionModule._pad_atoms",
+  "OF3DiffusionModule._pad_tokens"
+ ],
+ "runs": [
+  {
+   "run": 0,
+   "fold_s": 39.646,
+   "device_s": 38.33,
+   "host_feat_s": 0.705,
+   "host_write_s": 0.045,
+   "plddt": 0.444876,
+   "n_tokens": 512,
+   "n_atoms": 4116,
+   "cif_sha256": {
+    "ob_apo_512.tt.cif": "c3a097740b9e2f9c"
+   },
+   "loadavg": [
+    "5.98",
+    "5.61",
+    "5.05"
+   ],
+   "regions": {
+    "device:model.fold": {
+     "calls": 1,
+     "s": 38.33,
+     "ms_per_call": 38330.107,
+     "pct_of_fold": 96.68
+    },
+    "top:trunk": {
+     "calls": 1,
+     "s": 24.251,
+     "ms_per_call": 24251.255,
+     "pct_of_fold": 61.17
+    },
+    "diff:rollout": {
+     "calls": 1,
+     "s": 11.869,
+     "ms_per_call": 11869.215,
+     "pct_of_fold": 29.94
+    },
+    "diff:module": {
+     "calls": 200,
+     "s": 11.562,
+     "ms_per_call": 57.811,
+     "pct_of_fold": 29.16
+    },
+    "dm:dit_stack": {
+     "calls": 200,
+     "s": 6.825,
+     "ms_per_call": 34.123,
+     "pct_of_fold": 17.21
+    },
+    "dm:dit_block": {
+     "calls": 4800,
+     "s": 6.717,
+     "ms_per_call": 1.399,
+     "pct_of_fold": 16.94
+    },
+    "dm:atom_transformer": {
+     "calls": 401,
+     "s": 4.137,
+     "ms_per_call": 10.316,
+     "pct_of_fold": 10.43
+    },
+    "dm:decoder": {
+     "calls": 200,
+     "s": 2.338,
+     "ms_per_call": 11.69,
+     "pct_of_fold": 5.9
+    },
+    "trunk:msa_block": {
+     "calls": 16,
+     "s": 2.218,
+     "ms_per_call": 138.618,
+     "pct_of_fold": 5.59
+    },
+    "top:confidence": {
+     "calls": 1,
+     "s": 1.187,
+     "ms_per_call": 1187.368,
+     "pct_of_fold": 2.99
+    },
+    "trunk:template": {
+     "calls": 4,
+     "s": 0.799,
+     "ms_per_call": 199.737,
+     "pct_of_fold": 2.02
+    },
+    "host:build_features": {
+     "calls": 1,
+     "s": 0.705,
+     "ms_per_call": 704.833,
+     "pct_of_fold": 1.78
+    },
+    "prep:input_atom_encoder": {
+     "calls": 1,
+     "s": 0.232,
+     "ms_per_call": 232.46,
+     "pct_of_fold": 0.59
+    },
+    "host:derive_relpos": {
+     "calls": 1,
+     "s": 0.187,
+     "ms_per_call": 187.051,
+     "pct_of_fold": 0.47
+    },
+    "diff:cond_single": {
+     "calls": 200,
+     "s": 0.11,
+     "ms_per_call": 0.551,
+     "pct_of_fold": 0.28
+    },
+    "host:ref_atom_embed": {
+     "calls": 2,
+     "s": 0.102,
+     "ms_per_call": 50.874,
+     "pct_of_fold": 0.26
+    },
+    "host:write_structure": {
+     "calls": 1,
+     "s": 0.045,
+     "ms_per_call": 44.824,
+     "pct_of_fold": 0.11
+    },
+    "diff:cond_pair": {
+     "calls": 1,
+     "s": 0.033,
+     "ms_per_call": 33.47,
+     "pct_of_fold": 0.08
+    },
+    "host:derive_template_feat": {
+     "calls": 1,
+     "s": 0.017,
+     "ms_per_call": 17.443,
+     "pct_of_fold": 0.04
+    },
+    "trunk:glue_z": {
+     "calls": 4,
+     "s": 0.008,
+     "ms_per_call": 1.965,
+     "pct_of_fold": 0.02
+    },
+    "host:derive_block_aux": {
+     "calls": 1,
+     "s": 0.001,
+     "ms_per_call": 1.218,
+     "pct_of_fold": 0.0
+    },
+    "trunk:glue_s": {
+     "calls": 4,
+     "s": 0.001,
+     "ms_per_call": 0.229,
+     "pct_of_fold": 0.0
+    },
+    "trunk:msa_embedder": {
+     "calls": 1,
+     "s": 0.0,
+     "ms_per_call": 0.216,
+     "pct_of_fold": 0.0
+    }
+   }
+  }
+ ],
+ "cold_s": 41.461,
+ "device_s_median": 38.33,
+ "fold_s_median": 39.646,
+ "device_spread_pct": 0.0,
+ "cif_reproducible": true
+}

@@ -31,6 +31,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 WALL: dict = defaultdict(lambda: {"n": 0, "s": 0.0})
+MISSING: list = []
 DEV = {"d": None}
 
 
@@ -59,12 +60,20 @@ def host_timed(key, fn, *a, **kw):
 
 
 def wrap_method(cls, name, key, host=False):
+    """Skip silently when the attribute is gone: the trunk is refactored often and a
+    decomposition that dies on a renamed helper is worth less than one missing a row."""
+    if not hasattr(cls, name):
+        MISSING.append(f"{cls.__name__}.{name}")
+        return
     f = getattr(cls, name)
     runner = host_timed if host else timed
     setattr(cls, name, (lambda g: lambda self, *x, **k: runner(key, g, self, *x, **k))(f))
 
 
 def wrap_static(cls, name, key):
+    if not hasattr(cls, name):
+        MISSING.append(f"{cls.__name__}.{name}")
+        return
     a = getattr(cls, name)
     f = a.__func__ if isinstance(a, staticmethod) else a
     setattr(cls, name, staticmethod((lambda g: lambda *x, **k: timed(key, g, *x, **k))(f)))
@@ -130,6 +139,9 @@ def install_decomp_timers():
                               ("derive_relpos", "host:derive_relpos", False),
                               ("ref_atom_embed", "host:ref_atom_embed", False),
                               ("run_input_atom_encoder", "prep:input_atom_encoder", True)):
+        if not hasattr(HP, nm):
+            MISSING.append(f"host_prep.{nm}")
+            continue
         setattr(HP, nm, (lambda g, k, r: lambda *x, **kw: r(k, g, *x, **kw))(
             getattr(HP, nm), key, timed if dev_side else host_timed))
 
@@ -208,6 +220,7 @@ def main():
            "ttnn": im.version("ttnn"), "host": os.uname().nodename,
            "card": os.environ.get("TT_VISIBLE_DEVICES"), "arch": T.arch_name(),
            "load_s": round(load_s, 2), "loadavg_start": open("/proc/loadavg").read().split()[:3],
+           "timers_missing": list(MISSING),
            "runs": []}
 
     def one_fold():
