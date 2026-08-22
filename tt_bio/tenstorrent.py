@@ -2197,18 +2197,29 @@ _PAIR_PROJ_MM = os.environ.get(
     "TT_BIO_PAIR_PROJ_MM", "1" if PAIR_PROJ_MINIMAL_MATMUL else "0") == "1"
 
 
-# SCREEN ONLY, not a shipping interface. Which of TriangleAttention's two biases ride INSIDE
-# their matmul (`bias_tensor=` / `bias=`, the add landing in the fp32 accumulator before the pack
-# to bf16) instead of a separate elementwise `ttnn.add_` afterwards. Comma list over {g, o}, or
-# `none`. Default `o` is what this branch already does after pass 8; `none` is main's form for
-# both. The two are NOT the same arithmetic -- a separate add rounds twice -- so this exists to
-# score the form on RF3's own fold, the one other model that biases these projections
-# (state/pxdesign-af2ig-port.md, pass 20 item 3).
-_PAIR_BIAS_IN_MATMUL = frozenset(
-    t for t in os.environ.get("TT_BIO_PAIR_BIAS_IN_MATMUL", "o").split(",")
-    if t and t != "none")
-assert _PAIR_BIAS_IN_MATMUL <= {"g", "o"}, \
-    f"TT_BIO_PAIR_BIAS_IN_MATMUL: unknown lever(s) {sorted(_PAIR_BIAS_IN_MATMUL - {'g', 'o'})}"
+# Which of TriangleAttention's two biases ride INSIDE their matmul (`bias_tensor=` / `bias=`, the
+# add landing in the fp32 accumulator before the pack to bf16) instead of a separate elementwise
+# `ttnn.add_` afterwards. The two are NOT the same arithmetic: a separate add rounds twice.
+#
+# This is PER BLOCK, not process-wide, because the two models that bias these projections want
+# opposite answers out of one shared function. AF2-IG pins `o` at its own blocks (tt_bio/af2.py):
+# 9 failing taps at pcc 0.99690, against 13 at 0.99180 for the separate add. RF3 keeps the
+# separate add, because the identical change scored WORSE on RF3's own distogram at 298 aa
+# (-0.00232 mean rho, 3.6x its seed spread) and BETTER at 512 aa (+0.00124, one-signed over three
+# seeds), and a lever whose sign is a function of sequence length is not adoptable at all
+# (state/pxdesign-af2ig-port.md, passes 8, 20 and 21).
+#
+# So the default is empty, every model keeps the arithmetic it ships, and the env var is only the
+# screen that produced those numbers.
+def _bias_in_matmul(spec: str) -> frozenset:
+    """Parse a `{g, o}` comma list (or `none`/empty) into the biases that ride in-matmul."""
+    got = frozenset(t for t in spec.split(",") if t and t != "none")
+    assert got <= {"g", "o"}, \
+        f"pair bias in-matmul: unknown lever(s) {sorted(got - {'g', 'o'})}"
+    return got
+
+
+_PAIR_BIAS_IN_MATMUL = _bias_in_matmul(os.environ.get("TT_BIO_PAIR_BIAS_IN_MATMUL", ""))
 # served/declined census for the two levers. A form comparison whose changed matmul silently
 # declined its bias would time identically and read as "no effect", which is the mistake the
 # fused-SDPA OF3 arms made, so every call is counted and the `_add` counters have to be 0 on a
@@ -3977,6 +3988,7 @@ class TriangleAttention(Module):
         transpose_bias: bool = True,
         transpose_l1_reserve: int = 0,
         fused_hifi: bool | None = None,
+        bias_in_matmul: str | None = None,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.head_dim = head_dim
@@ -4004,6 +4016,13 @@ class TriangleAttention(Module):
         # and ignores the variable, which is how a model scopes the lever to its own blocks
         # without reaching into a stack it does not own.
         self.fused_hifi = fused_hifi
+        # Which of this block's two biases ride inside their matmul rather than in a separate
+        # `ttnn.add_`, over {g, o}. `None` follows the process-wide screen, which is empty unless
+        # TT_BIO_PAIR_BIAS_IN_MATMUL says otherwise; a model that names it pins its own blocks and
+        # ignores the screen, exactly as `fused_hifi` does. See _PAIR_BIAS_IN_MATMUL for why the
+        # two biased models want opposite answers.
+        self.bias_in_matmul = (
+            _PAIR_BIAS_IN_MATMUL if bias_in_matmul is None else _bias_in_matmul(bias_in_matmul))
         self.scale = self.head_dim**0.5
         # Boltz/Protenix fold sqrt(head_dim) into the pair-bias projection (their
         # reference adds the bias pre-scaled); openfold3 pre-scales q by 1/sqrt(d) and
@@ -4220,7 +4239,7 @@ class TriangleAttention(Module):
                 x_out = _triatt_qkv.out_proj(
                     o_in, self.o_weight, self.compute_kernel_config, _dtype())
             else:
-                o_in_mm = self.o_bias is not None and "o" in _PAIR_BIAS_IN_MATMUL
+                o_in_mm = self.o_bias is not None and "o" in self.bias_in_matmul
                 x_out = _pair_proj_linear(
                     o_in, self.o_weight, self.compute_kernel_config, _dtype(), l1_out=True,
                     bias=self.o_bias if o_in_mm else None,
@@ -4262,7 +4281,7 @@ class TriangleAttention(Module):
                         x_chunk, self.g_weight, self.o_weight, self.compute_kernel_config,
                         self.n_heads, self.head_dim, _dtype(), g_cfg_chunk,
                     )
-                g_in_mm = self.g_bias is not None and "g" in _PAIR_BIAS_IN_MATMUL
+                g_in_mm = self.g_bias is not None and "g" in self.bias_in_matmul
                 if g_chunk is None:
                     g_chunk = ttnn.experimental.minimal_matmul(
                         input_tensor=x_chunk,
@@ -4391,7 +4410,7 @@ class TriangleAttention(Module):
                     x, self.g_weight, self.o_weight, self.compute_kernel_config,
                     self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.g_weight),
                 )
-            g_in_mm = self.g_bias is not None and "g" in _PAIR_BIAS_IN_MATMUL
+            g_in_mm = self.g_bias is not None and "g" in self.bias_in_matmul
             if g is None:
                 g = ttnn.experimental.minimal_matmul(
                     input_tensor=x,

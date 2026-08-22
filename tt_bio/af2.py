@@ -316,12 +316,18 @@ class AF2PairBlock(Module):
             False, self.scope("tri_mul_out"), compute_kernel_config)
         self.tri_mul_in = TriangleMultiplication(
             True, self.scope("tri_mul_in"), compute_kernel_config)
+        # `bias_in_matmul="o"` keeps linear_o.bias inside the output projection's matmul, which
+        # is 9 failing taps at pcc 0.99690 against 13 at 0.99180 for a separate `ttnn.add_`. It is
+        # named here rather than defaulted in the shared block because RF3 biases the same
+        # projection and the same form costs it accuracy (state/pxdesign-af2ig-port.md, pass 21).
         self.tri_att_start = TriangleAttention(
             head_dim, n_heads, False, self.scope("tri_att_start"), compute_kernel_config,
-            scale_pair_bias=False, fp32_softmax=True, fused_hifi=fused_hifi)
+            scale_pair_bias=False, fp32_softmax=True, fused_hifi=fused_hifi,
+            bias_in_matmul="o")
         self.tri_att_end = TriangleAttention(
             head_dim, n_heads, True, self.scope("tri_att_end"), compute_kernel_config,
-            scale_pair_bias=False, fp32_softmax=True, fused_hifi=fused_hifi)
+            scale_pair_bias=False, fp32_softmax=True, fused_hifi=fused_hifi,
+            bias_in_matmul="o")
         self.pair_transition = ReluTransition(
             self.scope("pair_transition"), compute_kernel_config)
 
