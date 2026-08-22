@@ -241,6 +241,29 @@
   },
   {
    "model": "openfold3",
+   "cell": "ob_apo_1024_s1",
+   "samples": 1,
+   "n_tokens": 1024,
+   "n_atoms": 8239,
+   "tt_device_s": 200.431,
+   "tt_fold_s": 203.529,
+   "tt_spread_pct": 1.4,
+   "card": "1",
+   "input_sha_ok": true,
+   "cif_reproducible": true,
+   "plddt": 0.361632,
+   "h200_device_s": 25.1871,
+   "tt_target_device_s": 100.748,
+   "x_h200": 7.958,
+   "passes_4x": false,
+   "h200_trunk_s": 12.9993,
+   "h200_rollout_s": 11.9701,
+   "h200_confirm_device_s": 25.4976,
+   "x_h200_confirm": 7.861,
+   "h200_p2_device_s": 30.4686
+  },
+  {
+   "model": "openfold3",
    "cell": "ob_apo_128_s1",
    "samples": 1,
    "n_tokens": 128,
@@ -329,6 +352,15 @@
   }
  ],
  "tt_ob_vs_p2": [
+  {
+   "cell": "ob_apo_1024_s1",
+   "tt_ob_device_s": 200.665,
+   "tt_p2_device_s": 200.431,
+   "tt_ob_speedup_x": 0.9988,
+   "gpu_ob_speedup_x": 1.2097,
+   "tt_ob_spread_pct": 0.72,
+   "tt_p2_spread_pct": 1.4
+  },
   {
    "cell": "ob_apo_128_s1",
    "tt_ob_device_s": 5.332,
