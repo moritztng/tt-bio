@@ -2520,6 +2520,8 @@ def _apply_grid_thresholds(grid: tuple[int, int], device=None) -> None:
 def _configure_active_compute_grid(device: ttnn.Device) -> None:
     """Snap to a tuned 13x10 or 11x10 Blackhole grid when available; on smaller
     archs (e.g. Wormhole B0 8x8 with ETH dispatch) adopt the device's grid."""
+    global CORE_GRID_MAIN, COMPUTE_GRID_MAIN
+
     gx, gy = COMPUTE_GRID_X_11, COMPUTE_GRID_Y
     try:
         a = device.compute_with_storage_grid_size()
@@ -2531,18 +2533,11 @@ def _configure_active_compute_grid(device: ttnn.Device) -> None:
     except Exception:
         pass
     # TT_BIO_FORCE_GRID="x,y" (default off): pin the main grid, e.g. 11,10 on a 13x10
-    # p150a to discriminate grid-path defects from hardware (issue #9). Setting it also
-    # disables the narrow protenix-v2 grid workaround -- an explicit pin wins.
+    # p150a to discriminate grid-path defects from hardware (issue #9).
     _force = os.environ.get("TT_BIO_FORCE_GRID")
     if _force:
         gx, gy = (int(v) for v in _force.split(","))
 
-    _set_active_compute_grid(gx, gy, device)
-
-
-def _set_active_compute_grid(gx: int, gy: int, device=None) -> None:
-    """Point CORE_GRID_MAIN and every grid-derived program config at (gx, gy)."""
-    global CORE_GRID_MAIN, COMPUTE_GRID_MAIN
     if (gx, gy) == COMPUTE_GRID_MAIN:
         return
 
@@ -2556,24 +2551,6 @@ def _set_active_compute_grid(gx: int, gy: int, device=None) -> None:
     _l1_bank_bytes.cache_clear()
     _pair_proj_program_config.cache_clear()
     _attn_value_program_config.cache_clear()
-
-
-@contextlib.contextmanager
-def compute_grid(gx: int, gy: int):
-    """Run a block on a different main compute grid, restoring the active one after.
-
-    Only the program configs move: 13x10 and 11x10 are both at or above the 110-core
-    line `_apply_grid_thresholds` returns early on, so no L1 budget changes under a
-    switch between them, and nothing tt-bio uploads to the device is sharded to
-    CORE_GRID_MAIN. Do not use this to enter or leave a small (Wormhole) grid --
-    those budgets are set on the way in and not restored on the way out.
-    """
-    old = COMPUTE_GRID_MAIN
-    _set_active_compute_grid(gx, gy)
-    try:
-        yield
-    finally:
-        _set_active_compute_grid(*old)
 
 
 def set_fast_mode(enabled: bool) -> None:
