@@ -232,8 +232,12 @@ def _install_wraps():
     # answering L1 at N>=560 with no error and no log line.
     tmc = T._transpose_memory_config
 
-    def _transpose_memory_config(t):
-        out = tmc(t)
+    # Forward every argument: the real signature is (t, reserve_per_core=0) and
+    # AttentionPairBias calls it with two. A one-arg wrapper turned that call into a TypeError
+    # and took the whole census fold down, which the size-ladder then reported as the model
+    # failing its rung-256 warm-up.
+    def _transpose_memory_config(t, *args, **kwargs):
+        out = tmc(t, *args, **kwargs)
         WRAP_COUNTS["TRANSPOSE_L1_RESIDENT"][0 if out.buffer_type == ttnn.BufferType.L1 else 1] += 1
         return out
 

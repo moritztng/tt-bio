@@ -43,7 +43,7 @@ from __future__ import annotations
 
 import ttnn
 
-from .tenstorrent import Module, Pairformer
+from .tenstorrent import Module, Pairformer, accurate_softmax_site
 from .openfold3_weights import remap_pairformer_stack, _sub
 from .openfold3_template import TemplateEmbedder
 from .openfold3_msa_embedder import MSAModuleEmbedder, MSAModule
@@ -127,7 +127,8 @@ class OF3Trunk(Module):
         # pre-scaled by 1/sqrt(d)); the shared default sqrt(d) fold is Boltz's.
         self.pairformer = Pairformer(
             _N_PAIRFORMER_BLOCKS, *_PF_DIMS, True, pf_sd, compute_kernel_config,
-            scale_pair_bias=False, fp32_softmax=True)
+            scale_pair_bias=False, fp32_softmax=True,
+            accurate_softmax=accurate_softmax_site("openfold3.trunk"))
         self.template = TemplateEmbedder(
             _sub(state_dict, "template_embedder"), compute_kernel_config)
         self.msa_embedder = MSAModuleEmbedder(

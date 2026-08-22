@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import ttnn
 
-from .tenstorrent import Module, PairformerLayer
+from .tenstorrent import Module, PairformerLayer, accurate_softmax_site
 from .openfold3_weights import remap_template_pair_stack, _sub
 
 # OF3 template_pair_stack dims: c_hidden_tri_att=16, no_heads=4 (config.model_config).
@@ -113,7 +113,8 @@ class TemplatePairStack(Module):
         remap = remap_template_pair_stack(state_dict, prefix="template_pair_stack")
         self.blocks = [
             PairformerLayer(*_TRI_DIMS, None, None, False, b, compute_kernel_config,
-                            scale_pair_bias=False, fp32_softmax=True)
+                            scale_pair_bias=False, fp32_softmax=True,
+                            accurate_softmax=accurate_softmax_site("openfold3.template"))
             for b in remap["blocks"]
         ]
         self.ln_w = self.torch_to_tt("template_pair_stack.layer_norm.weight")

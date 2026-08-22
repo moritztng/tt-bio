@@ -220,11 +220,18 @@ class DeviceLease:
                 if time.time() >= deadline:
                     holder = self._read_holder()
                     os.close(fd)
-                    who = "?"
+                    who, same = "?", ""
                     if holder:
                         who = f"{holder.get('holder')} (pid {holder.get('pid')})"
+                        # Two processes sharing one TT_BIO_LEASE_HOLDER make the message read
+                        # as the job blocking itself, which sends the reader hunting a stale lease
+                        # that is not there. Say which it is.
+                        if (holder.get("holder") == _holder_label()
+                                and holder.get("pid") != os.getpid()):
+                            same = (" -- the same holder identity in a DIFFERENT process, so "
+                                    "this is a real co-tenant, not a stale lease")
                     raise DeviceInUseError(
-                        f"physical card {self.card} on {self.host} is in use by {who}; "
+                        f"physical card {self.card} on {self.host} is in use by {who}{same}; "
                         f"waited {self.timeout:.0f}s. Refusing to open it concurrently "
                         f"(would collide at the fd level)."
                     )

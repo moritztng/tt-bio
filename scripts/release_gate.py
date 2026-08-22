@@ -1001,6 +1001,21 @@ def _size_ladder_card_type() -> str:
     return mod.detect_card_type()
 
 
+def _fold_failure(log: Path) -> str:
+    """The lines from a failed fold that say WHY, not just the last ones.
+
+    lever_census.py prints its knob census AFTER the fold, so the tail of the log is always the
+    census dump and never the failure. Reporting the last 3 lines therefore hid a real TypeError
+    behind a wall of served=/declined= counters, and the size-ladder read as four of five models
+    failing their rung-256 warm-up with no way to see why.
+    """
+    lines = log.read_text(errors="replace").strip().splitlines()
+    marks = ("\u2717", "Traceback", "Error", "FATAL", "failed:")
+    hits = [ln.strip() for ln in lines if any(m in ln for m in marks)]
+    picked = hits[-3:] if hits else lines[-3:]
+    return " / ".join(picked)[:400]
+
+
 def _run_census_fold(model: str, rung: int, workdir: Path, tag: str) -> dict:
     """One lever-census-wrapped fold of the cdk2x2_<rung> fixture. Returns
     {"levers": {flag: {resolved, served, declined, frac, how}}, "runtime_s": ...,
@@ -1042,8 +1057,7 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str) -> dict:
     if timed_out:
         return {"error": f"census fold timed out after {FOLD_TIMEOUT_S}s"}
     if rc != 0:
-        tail = " / ".join(log.read_text(errors="replace").strip().splitlines()[-3:])[:200]
-        return {"error": f"census fold exited {rc}: {tail}"}
+        return {"error": f"census fold exited {rc}: {_fold_failure(log)}"}
     try:
         census = json.loads(census_json.read_text())
     except Exception as e:
