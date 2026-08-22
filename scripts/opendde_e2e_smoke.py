@@ -11,13 +11,21 @@ OPENDDE_NCYCLES / OPENDDE_NSTEP / OPENDDE_SEED env vars override the defaults (2
 20 steps, seed 0) for a production-setting or multi-seed run; output goes to
 /tmp/opendde_e2e_coords_seed<SEED>.pt so multiple seeds don't clobber each other.
 
+The fold carries an MSA by default: the committed 166-deep alignment for this same
+7ROA sequence. Without one this harness cannot see an MSA-module change at all --
+at depth 1 the OuterProductMean pair norm is 1, so a whole class of defect in that
+module is a no-op and the fold comes out bit-identical either way. ``--no-msa``
+restores the single-sequence arm.
+
 Run: TT_VISIBLE_DEVICES=0 TT_MESH_GRAPH_DESC_PATH=<...> PYTHONPATH=<worktree> \
     /home/ttuser/tt-bio-dev/env/bin/python3 scripts/opendde_e2e_smoke.py
 """
+import argparse
 import os
 os.environ.setdefault("TT_VISIBLE_DEVICES", "0")
 os.environ.setdefault("TT_LOGGER_LEVEL", "FATAL")
 import time
+from pathlib import Path
 
 import torch
 import ttnn
@@ -31,8 +39,22 @@ torch.set_grad_enabled(False)
 SEQ = ("QLEDSEVEAVAKGLEEMYANGVTEDNFKNYVKNNFAQQEISSVEEELNVNISDSCVANKIKDEFFAMISISAIVKAAQKKA"
        "WKELAVTVLRFAKANGLKTNAIIVAGQLALWAVQCG")
 
+# 166-deep ColabFold alignment for SEQ, committed as part of the Protenix-v2 prot
+# parity fixture (its query row is this exact sequence).
+DEFAULT_MSA = (Path(__file__).resolve().parent.parent / "docs" / "implementation-parity-data"
+               / "ref-fixtures" / "protenix-v2" / "prot"
+               / "msa-server_200step_5sample_10cycle_bf16" / "msa.a3m")
+
 
 def main():
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--msa", type=Path, default=DEFAULT_MSA,
+                    help="a3m alignment for SEQ (default: the committed 166-deep prot fixture)")
+    ap.add_argument("--no-msa", dest="msa", action="store_const", const=None,
+                    help="fold single-sequence; blind to any MSA-module change")
+    args = ap.parse_args()
+    if args.msa is not None and not args.msa.exists():
+        raise SystemExit(f"no such a3m: {args.msa} (pass --no-msa to fold single-sequence)")
     t0 = time.time()
     seed = int(os.environ.get("OPENDDE_SEED", "0"))
     dev = get_device()
@@ -42,9 +64,18 @@ def main():
     model = OpenDDE(sd, ckc, dev)
     print(f"[{time.time()-t0:.1f}s] model built", flush=True)
 
-    feats = build_complex_features([(SEQ, None, "protein")])
+    # build_complex_features takes the a3m TEXT, not a path, and silently degrades to
+    # single-sequence when the alignment does not match the query -- so read the file and
+    # then assert the depth actually landed.
+    a3m = args.msa.read_text() if args.msa is not None else None
+    feats = build_complex_features([(SEQ, a3m, "protein")])
+    depth = int(feats["msa"].shape[0]) if "msa" in feats else 1
     print(f"[{time.time()-t0:.1f}s] features built: N_atom={feats['ref_pos'].shape[0]} "
-          f"N_res={feats['restype'].shape[0]}", flush=True)
+          f"N_res={feats['restype'].shape[0]} msa_depth={depth} "
+          f"({args.msa.name if args.msa is not None else 'single-sequence'})", flush=True)
+    if args.msa is not None and depth < 2:
+        raise SystemExit(f"{args.msa} produced msa_depth={depth}: its query row is not aligned "
+                         f"to SEQ, so this fold would silently be single-sequence")
 
     # OPENDDE_TRACE=1 threads fold(trace=True) -- replays a captured ttnn trace
     # of the shared denoise stream (lossless).
