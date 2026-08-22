@@ -241,6 +241,16 @@ SPECS: dict[str, dict] = {
     # single-chain protocol as "opendde" -- this gate measures the shared code path's
     # throughput, not docking quality (that's release_gate.py's DockQ leg).
     "opendde-abag":   dict(kind="fold", unit="structures/s", direction="higher"),
+    # RoseTTAFold3, shipped in v0.6.6 as a `predict --model` choice. Same light
+    # TRPCAGE single-seq protocol as every other fold model, and the knobs do
+    # reach it: RF3 takes num_timesteps at LOAD (tt_bio/worker.py passes
+    # cfg["sampling_steps"]) and n_recycles/diffusion_batch_size per call, so
+    # 1 recycle / 10 steps / 1 sample is the real config here, not a setting the
+    # model ignores. Its structures/s therefore sits on the same scale as
+    # openfold3 and protenix-v2. This is NOT the site/data/perf-512aa.json cell:
+    # that one is a 512-aa cdk2x2 fold at the shipped 10 recycles / 50 steps, a
+    # different measurement that this gate is not trying to reproduce.
+    "rf3":            dict(kind="fold", unit="structures/s", direction="higher"),
     "esmc-300m":      dict(kind="embed", unit="seq/s", direction="higher",
                            batch_size=8, n_seqs=8),
     # Single-sequence ESMC-300M embed (batch_size=1): the path the ttnn trace
@@ -328,9 +338,6 @@ SPECS_EXEMPT: dict[str, str] = {
                   "checkpoint, embed shape identical to saprot-650m)",
     "saprot-1.3b": "not yet seeded -- TODO: measure and add a SPECS entry (own "
                    "checkpoint, embed shape identical to saprot-650m)",
-    "rf3": "not yet seeded -- TODO: measure and add a SPECS entry. The port is "
-           "in flight and its fold time is still moving, so a seeded number "
-           "would gate on a figure that changes under it.",
 }
 
 
@@ -1286,13 +1293,16 @@ def _print_table(rows: list[dict], baselines: dict, card_type: str, machine_id: 
     # The protocol suffix is per-row: fold/embed legs run WARMUP+REPEAT
     # in-process (warmup>0); the single-shot legs (gen/design/affinity) run
     # SINGLE_SHOT_REPEAT end-to-end CLI reps and gate the median (warmup=0).
-    # Describe the first row's protocol so the title never mislabels a
-    # single-shot-only run as "2 warmup + 5 timed".
-    r0 = rows[0] if rows else {}
-    w = r0.get("warmup", WARMUP)
-    rep = r0.get("repeat", REPEAT)
-    warm_desc = (f"warm ({w} warmup + {rep} timed)" if w
-                 else f"median of {rep} end-to-end runs")
+    # Describe the protocol only when every row shares one, for the same reason as the
+    # input line below: taking it from rows[0] labelled a full 16-leg run
+    # "warm (2 warmup + 5 timed)" while boltzgen, rfd3 and boltz2-affinity had actually
+    # run single-shot (warmup=0, median of SINGLE_SHOT_REPEAT end-to-end reps).
+    def _protocol(r: dict) -> str:
+        w, rep = r.get("warmup", WARMUP), r.get("repeat", REPEAT)
+        return (f"warm ({w} warmup + {rep} timed)" if w
+                else f"median of {rep} end-to-end runs")
+    protocols = {_protocol(r) for r in rows} or {_protocol({})}   # empty table -> defaults
+    warm_desc = protocols.pop() if len(protocols) == 1 else "per-model protocol"
     title = (f"PERF REGRESSION GATE — card {card_type} @ {machine_id} — "
              f"{', '.join(r['model'] for r in rows)}  "
              f"| threshold ±{threshold:.0f}%  | {warm_desc}")
@@ -1334,8 +1344,15 @@ def _print_table(rows: list[dict], baselines: dict, card_type: str, machine_id: 
         print(f"{r['model']:<16}{unit:<16}{base:>11.4g}{r['throughput']:>11.4g}"
               f"{delta:>10}{verdict:>10}")
     print("-" * len(hdr))
+    # card/machine/hardware/tt-bio really are table-wide (one host, one install), but the
+    # input is not: folds read trpcage, esmc/saprot read batched ubiquitin, and boltzgen /
+    # rfd3 / boltz2-affinity each carry their own spec. Printing rows[0]'s input as a
+    # table-wide fact labelled a 16-model run "trpcage (20 aa, single-seq)", which is wrong
+    # for 8 of them. Name it only when every row agrees.
+    inputs = {r.get("input", "?") for r in rows}
+    shown = inputs.pop() if len(inputs) == 1 else f"per-model ({len(inputs)} distinct)"
     print(f"  card: {card_type}  |  machine: {machine_id}  |  hardware: {rows[0].get('hardware', '?')}  "
-          f"|  tt-bio {rows[0].get('tt_bio_version', '?')}  |  input: {rows[0].get('input', '?')}")
+          f"|  tt-bio {rows[0].get('tt_bio_version', '?')}  |  input: {shown}")
     if not have_card:
         msg = (f"GATE FAIL — no baseline recorded for card type '{card_type}' in "
                f"{BASELINE_FILE.relative_to(REPO_ROOT)}. Seed it on a {card_type} "
@@ -1406,11 +1423,13 @@ def _update_baselines(rows: list[dict], args) -> int:
     m_entry = machines.setdefault(machine_id, {})
     models = m_entry.setdefault("models", {})
     any_ok = False
+    measured: set[str] = set()
     for r in rows:
         if r.get("failed"):
             print(f"[{r['model']}] FAILED — not updating its baseline", file=sys.stderr)
             continue
         any_ok = True
+        measured.add(r["model"])
         # The knob fields are provenance (the gate compares throughput only), and
         # they differ by kind: predict/affinity/gen carry sampling_steps/
         # diffusion_samples/recycling_steps, while the design kind (rfd3) carries
@@ -1427,8 +1446,18 @@ def _update_baselines(rows: list[dict], args) -> int:
             machine_id=machine_id,
             tt_bio_version=r["tt_bio_version"], date=r["date"], note=args.note,
         )
-        m_entry["date"] = r["date"]
-        m_entry["tt_bio_version"] = r["tt_bio_version"]
+    # The machine block's own date/tt_bio_version/note describe the whole block, so
+    # only a run that re-measured EVERY model in it may rewrite them. A --model rf3
+    # update used to stamp rf3's note onto all 13 of qb1's models, which erased the
+    # note recording that this block was reseeded on the pinned pip runtime -- the
+    # one fact that tells the next operator not to seed under system python. Every
+    # model entry above carries its own date/version/note, so a partial update needs
+    # nothing here. Same defect as 8cb95a1f (one model's input labelling a
+    # multi-model table), one file over.
+    if measured and measured >= set(models):
+        last = next(r for r in rows if not r.get("failed"))
+        m_entry["date"] = last["date"]
+        m_entry["tt_bio_version"] = last["tt_bio_version"]
         m_entry["note"] = args.note
     # Drop a legacy top-level "models" so the file is unambiguously per-card.
     data.pop("models", None)

@@ -4,7 +4,7 @@
     "-m",
     "tt_bio.main",
     "predict",
-    "/home/moritz/.coworker/wt/sizes-recheck-gate-arm/perf/size512/fixtures/cdk2x2_768.yaml",
+    "/home/moritz/.coworker/wt/tt-bio-gate-infra-fix-rf3-specs-sizeladder/perf/size512/fixtures/cdk2x2_768.yaml",
     "--model",
     "openfold3",
     "--single_sequence",
@@ -15,7 +15,7 @@
     "--seed",
     "0",
     "--out_dir",
-    "/home/moritz/.coworker/wt/sizes-recheck-gate-arm/perf/sizegate/work/out_openfold3-768-rep0"
+    "/home/moritz/.coworker/wt/tt-bio-gate-infra-fix-rf3-specs-sizeladder/perf/sizegate/work/out_openfold3-768-rep0"
   ],
   "rc": 0,
   "processes": 1,
@@ -117,7 +117,10 @@
       "resolved": "True",
       "served": 0,
       "declined": 440,
-      "rejects": null
+      "rejects": {
+        "l1_dest_is_faster:768x768x64": 16,
+        "l1_dest_is_faster:768x768x128": 424
+      }
     },
     {
       "flag": "PAIR_PROJ_MINIMAL_MATMUL",
@@ -126,7 +129,11 @@
       "resolved": "True",
       "served": 0,
       "declined": 1288,
-      "rejects": null
+      "rejects": {
+        "k_tiles=2:(2,1)": 16,
+        "k_tiles=4:(4,4)": 848,
+        "k_tiles=4:(4,1)": 424
+      }
     },
     {
       "flag": "TRIMUL_TAIL_F1",
@@ -190,6 +197,15 @@
       "how": "stats",
       "counter": "tt_bio.triatt_sdpa.STATS",
       "resolved": "True",
+      "served": 0,
+      "declined": 0,
+      "rejects": null
+    },
+    {
+      "flag": "SDPA_WIDE_K",
+      "how": "stats",
+      "counter": "tt_bio.tenstorrent.SDPA_K_CHUNK_STATS",
+      "resolved": "False",
       "served": 0,
       "declined": 0,
       "rejects": null

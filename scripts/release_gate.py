@@ -603,13 +603,23 @@ def _run_fold(cmd: list, timeout: float, **popen_kw) -> tuple:
     try:
         return proc.wait(timeout=timeout), False
     except subprocess.TimeoutExpired:
+        # start_new_session makes the child a session/group leader, so its pgid is its pid.
+        # Escalate unconditionally: the direct child exiting is NOT evidence the group is
+        # clear. predict folds inside a multiprocessing spawn grandchild that survives
+        # SIGTERM while still holding /dev/tenstorrent/N, and breaking out of the
+        # escalation as soon as proc.wait() returned left exactly that orphan behind
+        # (2026-08-22: one hung 640 aa fold reparented a spawn child to init, and the two
+        # following legs both failed with "device-open failure: the card is leased by
+        # another process or wedged" — one hang cascading into spurious failures).
         for sig in (signal.SIGTERM, signal.SIGKILL):
             try:
-                os.killpg(os.getpgid(proc.pid), sig)
-                proc.wait(timeout=10)
-                break
+                os.killpg(proc.pid, sig)
             except Exception:
-                continue
+                pass          # group already gone; still send the next signal
+            try:
+                proc.wait(timeout=10)
+            except Exception:
+                pass
         return None, True
 
 
@@ -871,6 +881,40 @@ def run_opendde_abag(keep: bool) -> dict:
     return row
 
 
+def _fold_error(text: str) -> str:
+    """A failed fold's OWN error line, not whatever happened to print last.
+
+    Tailing the log is wrong whenever the wrapper outlives the fold:
+    `lever_census.py` prints its lever table AFTER the CLI it wraps exits, so the
+    last three lines of a crashed census fold are the table. That is how four
+    size-ladder models reported one identical, meaningless string
+    ("census fold exited 1: B2_TOKEN_DIT_SDPA False served=None ...") for a
+    TypeError, and why the real cause needed a fresh root-cause pass instead of
+    one read. Prefer, in order: tt_bio.main's own "✗ <job>: <msg>" failure line,
+    the exception line of the last traceback, then the tail as a last resort.
+    """
+    lines = [ln.rstrip() for ln in text.splitlines() if ln.strip()]
+    if not lines:
+        return ""
+    fails = [ln.strip() for ln in lines if ln.lstrip().startswith("✗ ")]
+    if fails:
+        return fails[-1][:400]
+    tb = [i for i, ln in enumerate(lines)
+          if ln.startswith("Traceback (most recent call last)")]
+    if tb:
+        # The frames are indented; the first unindented "Name: message" after them
+        # is the exception.
+        for ln in lines[tb[-1] + 1:]:
+            if not ln[:1].isspace() and ": " in ln:
+                return ln[:400]
+    # No explicit failure line. Prefer any line that at least mentions a fault over a
+    # blind tail; origin/main solved the same problem that way and it beats the tail
+    # whenever the wrapper outlives the fold.
+    marks = ("\u2717", "Traceback", "Error", "FATAL", "failed:")
+    hits = [ln for ln in lines if any(m in ln for m in marks)]
+    return " / ".join((hits or lines)[-3:])[:400]
+
+
 def run_capacity(keep: bool, leg) -> dict:
     """Fold one capacity leg (large target, campaign-scale sample count) and check the
     peak device DRAM against its budget. Also checks the per-sample output contract,
@@ -919,8 +963,7 @@ def run_capacity(keep: bool, leg) -> dict:
         row["error"] = f"predict timed out after {FOLD_TIMEOUT_S}s"
         return row
     if rc != 0:
-        tail = " / ".join(text.strip().splitlines()[-3:])[:200]
-        row["error"] = f"predict exited {rc}: {tail}"
+        row["error"] = f"predict exited {rc}: {_fold_error(text)}"
         return row
 
     # dram_peak writes "[DRAM] <tag>: <x> GiB used (of <y> GiB)" per new high-water mark
@@ -1001,21 +1044,6 @@ def _size_ladder_card_type() -> str:
     return mod.detect_card_type()
 
 
-def _fold_failure(log: Path) -> str:
-    """The lines from a failed fold that say WHY, not just the last ones.
-
-    lever_census.py prints its knob census AFTER the fold, so the tail of the log is always the
-    census dump and never the failure. Reporting the last 3 lines therefore hid a real TypeError
-    behind a wall of served=/declined= counters, and the size-ladder read as four of five models
-    failing their rung-256 warm-up with no way to see why.
-    """
-    lines = log.read_text(errors="replace").strip().splitlines()
-    marks = ("\u2717", "Traceback", "Error", "FATAL", "failed:")
-    hits = [ln.strip() for ln in lines if any(m in ln for m in marks)]
-    picked = hits[-3:] if hits else lines[-3:]
-    return " / ".join(picked)[:400]
-
-
 def _run_census_fold(model: str, rung: int, workdir: Path, tag: str) -> dict:
     """One lever-census-wrapped fold of the cdk2x2_<rung> fixture. Returns
     {"levers": {flag: {resolved, served, declined, frac, how}}, "runtime_s": ...,
@@ -1057,7 +1085,8 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str) -> dict:
     if timed_out:
         return {"error": f"census fold timed out after {FOLD_TIMEOUT_S}s"}
     if rc != 0:
-        return {"error": f"census fold exited {rc}: {_fold_failure(log)}"}
+        return {"error": f"census fold exited {rc}: "
+                         f"{_fold_error(log.read_text(errors='replace'))}"}
     try:
         census = json.loads(census_json.read_text())
     except Exception as e:
@@ -1387,9 +1416,16 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                          if block else {}})
             if skip:
                 legs[-1]["exponents_skipped"] = skip
-            SIZE_LADDER_PROVENANCE.mkdir(parents=True, exist_ok=True)
+            # Beside the baseline being written, not always the committed directory:
+            # --size-ladder-baseline exists so a smoke run can record to scratch, and a
+            # fixed provenance path made that scratch run overwrite the committed
+            # evidence for the REAL baseline (hit 2026-08-22 by a 256-rung smoke).
+            prov = (SIZE_LADDER_PROVENANCE
+                    if baseline_path.resolve() == SIZE_LADDER_BASELINE.resolve()
+                    else baseline_path.parent / f"{baseline_path.stem}_census")
+            prov.mkdir(parents=True, exist_ok=True)
             for rung, cj in meas["census_jsons"].items():
-                shutil.copy(cj, SIZE_LADDER_PROVENANCE / f"census_{m}_{rung}_{card}.json")
+                shutil.copy(cj, prov / f"census_{m}_{rung}_{card}.json")
             # After every model, so a run that dies at model 4 keeps models 1-3.
             _flush_baseline()
         _flush_baseline()

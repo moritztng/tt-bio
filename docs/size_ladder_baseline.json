@@ -1,17 +1,17 @@
 {
   "cards": {
     "p150a": {
-      "recorded": "2026-08-19",
+      "recorded": "2026-08-22",
       "host": "pc",
-      "commit": "b392ebca1",
+      "commit": "9bc86a5a",
       "models": {
         "boltz2": {
           "grid": "13x10",
           "runtime_s": {
-            "256": 6.9,
-            "512": 19.6,
-            "640": 28.0,
-            "768": 37.3
+            "256": 7.8,
+            "512": 19.9,
+            "640": 30.6,
+            "768": 39.9
           },
           "levers": {
             "256": {
@@ -96,6 +96,9 @@
                 "declined": 560,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:256x256x128": 560
+                },
                 "reason": "declines every call: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor. Wrap-counted, so which clause fails is not yet recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -104,6 +107,9 @@
                 "declined": 560,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "k_tiles=4:(4,1)": 560
+                },
                 "reason": "declines every call: needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape. Wrap-counted, so which of the two fails is not yet recorded"
               },
               "TRIMUL_TAIL_F1": {
@@ -163,6 +169,13 @@
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
+                "how": "stats"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
@@ -314,6 +327,9 @@
                 "declined": 560,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:512x512x128": 560
+                },
                 "reason": "declines every call: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor. Wrap-counted, so which clause fails is not yet recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -322,6 +338,9 @@
                 "declined": 560,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "k_tiles=4:(4,1)": 560
+                },
                 "reason": "declines every call: needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape. Wrap-counted, so which of the two fails is not yet recorded"
               },
               "TRIMUL_TAIL_F1": {
@@ -376,6 +395,13 @@
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
+                "how": "stats"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
@@ -527,14 +553,21 @@
                 "declined": 560,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:640x640x128": 560
+                },
                 "reason": "declines every call: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor. Wrap-counted, so which clause fails is not yet recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1679,
+                "declined": 1674,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "k_tiles=4:(4,4)": 1114,
+                  "k_tiles=4:(4,1)": 560
+                },
                 "reason": "declines every call: needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape. Wrap-counted, so which of the two fails is not yet recorded"
               },
               "TRIMUL_TAIL_F1": {
@@ -589,6 +622,13 @@
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
+                "how": "stats"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
@@ -740,6 +780,9 @@
                 "declined": 560,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:768x768x128": 560
+                },
                 "reason": "declines every call: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor. Wrap-counted, so which clause fails is not yet recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -748,6 +791,10 @@
                 "declined": 1680,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "k_tiles=4:(4,4)": 1120,
+                  "k_tiles=4:(4,1)": 560
+                },
                 "reason": "declines every call: needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape. Wrap-counted, so which of the two fails is not yet recorded"
               },
               "TRIMUL_TAIL_F1": {
@@ -807,6 +854,13 @@
                   "l1_budget": 1,
                   "pm_over_l1": 559
                 }
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -881,25 +935,25 @@
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0709,
+          "sigma_runtime_512": 0.0545,
           "exponents": {
             "256->512": {
-              "k": 1.506,
+              "k": 1.351,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.587,
-              "tol": 0.742
+              "k": 1.716,
+              "tol": 0.57
             }
           }
         },
         "esmfold2": {
           "grid": "11x10/13x10",
           "runtime_s": {
-            "256": 19.6,
-            "512": 47.7,
-            "640": 67.9,
-            "768": 109.6
+            "256": 19.4,
+            "512": 48.7,
+            "640": 69.1,
+            "768": 108.1
           },
           "levers": {
             "256": {
@@ -1056,6 +1110,13 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "never reached at this size, 0 offered and 0 declined: esmfold2's triangle attention does not route through the fused kernel's call site"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -1274,6 +1335,13 @@
                 "how": "stats",
                 "reason": "never reached at this size, 0 offered and 0 declined: esmfold2's triangle attention does not route through the fused kernel's call site"
               },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -1491,6 +1559,13 @@
                 "how": "stats",
                 "reason": "never reached at this size, 0 offered and 0 declined: esmfold2's triangle attention does not route through the fused kernel's call site"
               },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -1655,6 +1730,9 @@
                 "declined": 25823,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(8,32)": 25823
+                },
                 "reason": "declines all 25823 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
               },
               "TRIMUL_TAIL_F1": {
@@ -1670,6 +1748,9 @@
                 "declined": 25823,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(8,32)": 25823
+                },
                 "reason": "declines all 25823 calls: no _MM_BLOCK entry for this shape; wrap-counted, so the failing clause is not recorded"
               },
               "DEVICE_LM_HANDOFF": {
@@ -1707,6 +1788,13 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "never reached at this size, 0 offered and 0 declined: esmfold2's triangle attention does not route through the fused kernel's call site"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -1787,14 +1875,14 @@
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0091,
+          "sigma_runtime_512": 0.0105,
           "exponents": {
             "256->512": {
-              "k": 1.283,
+              "k": 1.328,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.052,
+              "k": 1.967,
               "tol": 0.5
             }
           }
@@ -1802,10 +1890,10 @@
         "protenix-v2": {
           "grid": "13x10",
           "runtime_s": {
-            "256": 15.8,
-            "512": 44.0,
-            "640": 68.8,
-            "768": 104.9
+            "256": 15.6,
+            "512": 45.0,
+            "640": 71.0,
+            "768": 107.0
           },
           "levers": {
             "256": {
@@ -1897,6 +1985,10 @@
                 "declined": 1208,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:256x256x64": 160,
+                  "l1_dest_is_faster:256x256x256": 1048
+                },
                 "reason": "declines all 1208 calls: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor, and it serves at 640 and 768, so the pair buffer is L1-resident here; wrap-counted, so the clause is not recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -1905,6 +1997,10 @@
                 "declined": 1208,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,1)": 160,
+                  "no_mm_block:(8,1)": 1048
+                },
                 "reason": "declines all 1208 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
               },
               "TRIMUL_TAIL_F1": {
@@ -1922,7 +2018,10 @@
                 "served": 2256,
                 "declined": 1048,
                 "frac": 0.6828087167070218,
-                "how": "wrap"
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(8,1)": 1048
+                }
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -1967,6 +2066,13 @@
                 "rejects": {
                   "memory_config": 160
                 }
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -2126,6 +2232,10 @@
                 "declined": 1208,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:512x512x64": 160,
+                  "l1_dest_is_faster:512x512x256": 1048
+                },
                 "reason": "declines all 1208 calls: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor, and it serves at 640 and 768, so the pair buffer is L1-resident here; wrap-counted, so the clause is not recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -2134,6 +2244,10 @@
                 "declined": 1208,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,1)": 160,
+                  "no_mm_block:(8,1)": 1048
+                },
                 "reason": "declines all 1208 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
               },
               "TRIMUL_TAIL_F1": {
@@ -2151,7 +2265,11 @@
                 "served": 2256,
                 "declined": 1368,
                 "frac": 0.6225165562913907,
-                "how": "wrap"
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(2,6)": 320,
+                  "no_mm_block:(8,1)": 1048
+                }
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -2187,6 +2305,13 @@
                 "served": 1208,
                 "declined": 0,
                 "frac": 1.0,
+                "how": "stats"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
@@ -2349,7 +2474,10 @@
                 "served": 1048,
                 "declined": 160,
                 "frac": 0.8675496688741722,
-                "how": "wrap"
+                "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:640x640x64": 160
+                }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -2357,6 +2485,10 @@
                 "declined": 1208,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,1)": 160,
+                  "no_mm_block:(8,1)": 1048
+                },
                 "reason": "declines all 1208 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
               },
               "TRIMUL_TAIL_F1": {
@@ -2374,7 +2506,11 @@
                 "served": 2256,
                 "declined": 1368,
                 "frac": 0.6225165562913907,
-                "how": "wrap"
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(2,6)": 320,
+                  "no_mm_block:(8,1)": 1048
+                }
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -2410,6 +2546,13 @@
                 "served": 1208,
                 "declined": 0,
                 "frac": 1.0,
+                "how": "stats"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
@@ -2572,7 +2715,10 @@
                 "served": 1048,
                 "declined": 160,
                 "frac": 0.8675496688741722,
-                "how": "wrap"
+                "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:768x768x64": 160
+                }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -2580,6 +2726,10 @@
                 "declined": 1208,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,1)": 160,
+                  "no_mm_block:(8,1)": 1048
+                },
                 "reason": "declines all 1208 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
               },
               "TRIMUL_TAIL_F1": {
@@ -2597,7 +2747,11 @@
                 "served": 2256,
                 "declined": 1368,
                 "frac": 0.6225165562913907,
-                "how": "wrap"
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(2,6)": 320,
+                  "no_mm_block:(8,1)": 1048
+                }
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -2638,6 +2792,13 @@
                   "l1_budget": 1,
                   "pm_over_l1": 1207
                 }
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -2717,14 +2878,14 @@
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0069,
+          "sigma_runtime_512": 0.0138,
           "exponents": {
             "256->512": {
-              "k": 1.478,
+              "k": 1.528,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.143,
+              "k": 2.136,
               "tol": 0.5
             }
           }
@@ -2732,10 +2893,10 @@
         "openfold3": {
           "grid": "13x10",
           "runtime_s": {
-            "256": 11.3,
-            "512": 32.3,
-            "640": 54.6,
-            "768": 84.6
+            "256": 10.2,
+            "512": 33.2,
+            "640": 57.0,
+            "768": 90.7
           },
           "levers": {
             "256": {
@@ -2826,6 +2987,10 @@
                 "declined": 440,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:256x256x64": 16,
+                  "l1_dest_is_faster:256x256x128": 424
+                },
                 "reason": "declines all 440 calls: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -2834,6 +2999,10 @@
                 "declined": 440,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,1)": 16,
+                  "k_tiles=4:(4,1)": 424
+                },
                 "reason": "declines all 440 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1288 at 640 and above, which is the pair track taking its row-blocked path"
               },
               "TRIMUL_TAIL_F1": {
@@ -2896,6 +3065,13 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "never reached at this size, 0 offered and 0 declined: openfold3's triangle attention does not route through the fused kernel's call site at any rung"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -3057,6 +3233,10 @@
                 "declined": 440,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:512x512x64": 16,
+                  "l1_dest_is_faster:512x512x128": 424
+                },
                 "reason": "declines all 440 calls: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -3065,6 +3245,10 @@
                 "declined": 440,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,1)": 16,
+                  "k_tiles=4:(4,1)": 424
+                },
                 "reason": "declines all 440 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1288 at 640 and above, which is the pair track taking its row-blocked path"
               },
               "TRIMUL_TAIL_F1": {
@@ -3122,6 +3306,13 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "never reached at this size, 0 offered and 0 declined: openfold3's triangle attention does not route through the fused kernel's call site at any rung"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -3283,14 +3474,23 @@
                 "declined": 440,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:640x640x64": 16,
+                  "l1_dest_is_faster:640x640x128": 424
+                },
                 "reason": "declines all 440 calls: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1287,
+                "declined": 1282,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,1)": 16,
+                  "k_tiles=4:(4,4)": 842,
+                  "k_tiles=4:(4,1)": 424
+                },
                 "reason": "declines all 1287 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1288 at 640 and above, which is the pair track taking its row-blocked path"
               },
               "TRIMUL_TAIL_F1": {
@@ -3348,6 +3548,13 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "never reached at this size, 0 offered and 0 declined: openfold3's triangle attention does not route through the fused kernel's call site at any rung"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -3509,6 +3716,10 @@
                 "declined": 440,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:768x768x64": 16,
+                  "l1_dest_is_faster:768x768x128": 424
+                },
                 "reason": "declines all 440 calls: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -3517,6 +3728,11 @@
                 "declined": 1288,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,1)": 16,
+                  "k_tiles=4:(4,4)": 848,
+                  "k_tiles=4:(4,1)": 424
+                },
                 "reason": "declines all 1288 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1288 at 640 and above, which is the pair track taking its row-blocked path"
               },
               "TRIMUL_TAIL_F1": {
@@ -3574,6 +3790,13 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "never reached at this size, 0 offered and 0 declined: openfold3's triangle attention does not route through the fused kernel's call site at any rung"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -3653,14 +3876,14 @@
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0278,
+          "sigma_runtime_512": 0.0212,
           "exponents": {
             "256->512": {
-              "k": 1.515,
+              "k": 1.703,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.375,
+              "k": 2.479,
               "tol": 0.5
             }
           }
@@ -3668,10 +3891,10 @@
         "opendde": {
           "grid": "13x10",
           "runtime_s": {
-            "256": 25.2,
-            "512": 71.4,
-            "640": 120.0,
-            "768": 191.8
+            "256": 25.4,
+            "512": 70.4,
+            "640": 115.0,
+            "768": 165.7
           },
           "levers": {
             "256": {
@@ -3763,7 +3986,11 @@
                 "served": 8,
                 "declined": 1208,
                 "frac": 0.006578947368421052,
-                "how": "wrap"
+                "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:256x256x64": 160,
+                  "l1_dest_is_faster:256x256x384": 1048
+                }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -3771,6 +3998,11 @@
                 "declined": 3328,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,1)": 160,
+                  "k_tiles=12:(12,12)": 2112,
+                  "k_tiles=12:(12,1)": 1056
+                },
                 "reason": "declines all 3328 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
               },
               "TRIMUL_TAIL_F1": {
@@ -3835,6 +4067,13 @@
                 "rejects": {
                   "memory_config": 160
                 }
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -3996,7 +4235,10 @@
                 "served": 1056,
                 "declined": 160,
                 "frac": 0.868421052631579,
-                "how": "wrap"
+                "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:512x512x64": 160
+                }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -4004,6 +4246,11 @@
                 "declined": 3336,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,1)": 160,
+                  "k_tiles=12:(12,12)": 2120,
+                  "k_tiles=12:(12,1)": 1056
+                },
                 "reason": "declines all 3336 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
               },
               "TRIMUL_TAIL_F1": {
@@ -4023,7 +4270,12 @@
                 "served": 2256,
                 "declined": 344,
                 "frac": 0.8676923076923077,
-                "how": "wrap"
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(2,6)": 320,
+                  "block_divisibility:(12,36,30939)": 16,
+                  "block_divisibility:(12,12,30939)": 8
+                }
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -4067,6 +4319,13 @@
                   "l1_budget": 2,
                   "pm_over_l1": 14
                 }
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -4231,7 +4490,10 @@
                 "served": 1056,
                 "declined": 160,
                 "frac": 0.868421052631579,
-                "how": "wrap"
+                "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:640x640x64": 160
+                }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -4239,6 +4501,11 @@
                 "declined": 3336,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,1)": 160,
+                  "k_tiles=12:(12,12)": 2120,
+                  "k_tiles=12:(12,1)": 1056
+                },
                 "reason": "declines all 3336 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
               },
               "TRIMUL_TAIL_F1": {
@@ -4258,7 +4525,12 @@
                 "served": 2256,
                 "declined": 344,
                 "frac": 0.8676923076923077,
-                "how": "wrap"
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(2,6)": 320,
+                  "block_divisibility:(12,36,48283)": 16,
+                  "block_divisibility:(12,12,48283)": 8
+                }
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -4301,6 +4573,13 @@
                 "rejects": {
                   "fill_preconditions": 17
                 }
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -4466,7 +4745,10 @@
                 "served": 1056,
                 "declined": 160,
                 "frac": 0.868421052631579,
-                "how": "wrap"
+                "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:768x768x64": 160
+                }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -4474,6 +4756,11 @@
                 "declined": 3328,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,1)": 160,
+                  "k_tiles=12:(12,12)": 2112,
+                  "k_tiles=12:(12,1)": 1056
+                },
                 "reason": "declines all 3328 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
               },
               "TRIMUL_TAIL_F1": {
@@ -4493,7 +4780,10 @@
                 "served": 2272,
                 "declined": 320,
                 "frac": 0.8765432098765432,
-                "how": "wrap"
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(2,6)": 320
+                }
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -4538,6 +4828,13 @@
                   "pm_over_l1": 1207,
                   "fill_preconditions": 9
                 }
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -4618,14 +4915,14 @@
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0079,
+          "sigma_runtime_512": 0.0116,
           "exponents": {
             "256->512": {
-              "k": 1.503,
+              "k": 1.471,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.437,
+              "k": 2.111,
               "tol": 0.5
             }
           }
