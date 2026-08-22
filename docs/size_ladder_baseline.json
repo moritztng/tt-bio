@@ -3,7 +3,7 @@
     "p150a": {
       "recorded": "2026-08-22",
       "host": "pc",
-      "commit": "fb2b0179",
+      "commit": "73099e96",
       "models": {
         "boltz2": {
           "grid": "13x10",
@@ -3818,10 +3818,10 @@
         "opendde": {
           "grid": "13x10",
           "runtime_s": {
-            "256": 25.2,
-            "512": 71.4,
-            "640": 120.0,
-            "768": 191.8
+            "256": 25.4,
+            "512": 70.4,
+            "640": 115.0,
+            "768": 165.7
           },
           "levers": {
             "256": {
@@ -3913,7 +3913,11 @@
                 "served": 8,
                 "declined": 1208,
                 "frac": 0.006578947368421052,
-                "how": "wrap"
+                "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:256x256x64": 160,
+                  "l1_dest_is_faster:256x256x384": 1048
+                }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -3921,6 +3925,11 @@
                 "declined": 3328,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,1)": 160,
+                  "k_tiles=12:(12,12)": 2112,
+                  "k_tiles=12:(12,1)": 1056
+                },
                 "reason": "declines all 3328 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
               },
               "TRIMUL_TAIL_F1": {
@@ -3985,6 +3994,13 @@
                 "rejects": {
                   "memory_config": 160
                 }
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -4146,7 +4162,10 @@
                 "served": 1056,
                 "declined": 160,
                 "frac": 0.868421052631579,
-                "how": "wrap"
+                "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:512x512x64": 160
+                }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -4154,6 +4173,11 @@
                 "declined": 3336,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,1)": 160,
+                  "k_tiles=12:(12,12)": 2120,
+                  "k_tiles=12:(12,1)": 1056
+                },
                 "reason": "declines all 3336 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
               },
               "TRIMUL_TAIL_F1": {
@@ -4173,7 +4197,12 @@
                 "served": 2256,
                 "declined": 344,
                 "frac": 0.8676923076923077,
-                "how": "wrap"
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(2,6)": 320,
+                  "block_divisibility:(12,36,30939)": 16,
+                  "block_divisibility:(12,12,30939)": 8
+                }
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -4217,6 +4246,13 @@
                   "l1_budget": 2,
                   "pm_over_l1": 14
                 }
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -4381,7 +4417,10 @@
                 "served": 1056,
                 "declined": 160,
                 "frac": 0.868421052631579,
-                "how": "wrap"
+                "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:640x640x64": 160
+                }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -4389,6 +4428,11 @@
                 "declined": 3336,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,1)": 160,
+                  "k_tiles=12:(12,12)": 2120,
+                  "k_tiles=12:(12,1)": 1056
+                },
                 "reason": "declines all 3336 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
               },
               "TRIMUL_TAIL_F1": {
@@ -4408,7 +4452,12 @@
                 "served": 2256,
                 "declined": 344,
                 "frac": 0.8676923076923077,
-                "how": "wrap"
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(2,6)": 320,
+                  "block_divisibility:(12,36,48283)": 16,
+                  "block_divisibility:(12,12,48283)": 8
+                }
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -4451,6 +4500,13 @@
                 "rejects": {
                   "fill_preconditions": 17
                 }
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -4616,7 +4672,10 @@
                 "served": 1056,
                 "declined": 160,
                 "frac": 0.868421052631579,
-                "how": "wrap"
+                "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:768x768x64": 160
+                }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -4624,6 +4683,11 @@
                 "declined": 3328,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,1)": 160,
+                  "k_tiles=12:(12,12)": 2112,
+                  "k_tiles=12:(12,1)": 1056
+                },
                 "reason": "declines all 3328 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
               },
               "TRIMUL_TAIL_F1": {
@@ -4643,7 +4707,10 @@
                 "served": 2272,
                 "declined": 320,
                 "frac": 0.8765432098765432,
-                "how": "wrap"
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(2,6)": 320
+                }
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -4688,6 +4755,13 @@
                   "pm_over_l1": 1207,
                   "fill_preconditions": 9
                 }
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -4768,14 +4842,14 @@
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0079,
+          "sigma_runtime_512": 0.0116,
           "exponents": {
             "256->512": {
-              "k": 1.503,
+              "k": 1.471,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.437,
+              "k": 2.111,
               "tol": 0.5
             }
           }
