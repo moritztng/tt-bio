@@ -115,3 +115,5 @@ node_modules/
 *.mp4
 *.webm
 *.mov
+perf/protenix_grid/work/
+perf/protenix_grid/restore_work/
