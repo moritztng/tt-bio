@@ -102,6 +102,7 @@ def main() -> None:
         tt._fp32_softmax_core_grid.cache_clear()
         # a refusal recorded under one arm must not narrow the other's shape class
         tt._FP32_SOFTMAX_L1_ROW_CAP.clear()
+        tt._FP32_SOFTMAX_L1_REFUSALS.clear()
         for key in tt.FP32_SOFTMAX_STATS:
             tt.FP32_SOFTMAX_STATS[key] = 0
 

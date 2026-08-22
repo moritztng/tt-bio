@@ -1372,7 +1372,20 @@ _FP32_SOFTMAX_L1_BYTES_PER_CORE = 768 << 10
 _FP32_SOFTMAX_L1_GRID = (8, 8)  # (y, x). 8x8 = 64; this p150a refuses more than 110 shards.
 
 FP32_SOFTMAX_STATS = {"calls": 0, "blocked": 0, "blocks": 0, "fused": 0, "unfused": 0,
-                      "l1": 0, "l1_blocks": 0, "l1_refused": 0, "l1_cores": 0}
+                      "l1": 0, "l1_blocks": 0, "l1_refused": 0, "l1_cores": 0,
+                      "l1_free_retired": 0}
+
+# Refusals seen per shape class, so a FLOATING-core plan can be retired instead of walked. The
+# tuned rectangle narrows a row at a time and that is right for it: its block stays a legal shape.
+# A floating plan that gets narrowed re-searches the core count, and the state it walks into is the
+# worst of both -- a capped block with a shard the sharded softmax will not take, so the call keeps
+# the loop and loses the residency. MEASURED on card 2 at 2 heads / 960 tokens: one refusal is
+# absorbed and the shape still wins (1.472x at 832 tokens, 1.545x and 1.433x at 4 heads / 832 and
+# 960), two and the same shape reads **0.295x** with 16 of 29 blocks resident
+# (perf/fp32softmax/results/s1_op_bitexact_guard.json). So the second refusal retires the floating
+# plan for that class and the class falls back to exactly today's unblocked interleaved tail.
+_FP32_SOFTMAX_L1_REFUSALS: dict = {}
+_FP32_SOFTMAX_FREE_REFUSAL_CAP = 2
 
 # A block that fits L1 is not automatically a block the sharded softmax fits AROUND: that kernel
 # stages its rows through statically allocated circular buffers whose size grows with the row
@@ -1660,6 +1673,10 @@ def _fp32_softmax_attention(
     l1_key = (height_per_row, int(k.shape[2]))
     l1_rows, l1_cores = _fp32_softmax_l1_plan(per_row, height_per_row, int(k.shape[2]),
                                               _FP32_SOFTMAX_L1_ROW_CAP.get(l1_key))
+    if (l1_cores != _FP32_SOFTMAX_L1_GRID[0] * _FP32_SOFTMAX_L1_GRID[1]
+            and _FP32_SOFTMAX_L1_REFUSALS.get(l1_key, 0) >= _FP32_SOFTMAX_FREE_REFUSAL_CAP):
+        l1_rows, l1_cores = 0, 0
+        FP32_SOFTMAX_STATS["l1_free_retired"] += 1
     if l1_rows:
         blk = min(blk, l1_rows)
         FP32_SOFTMAX_STATS["l1"] += 1
@@ -1732,6 +1749,7 @@ def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_confi
             # around it. Take one row off this geometry and fall back to the interleaved tail for
             # now, which is the same ops on the same dtypes and therefore the same bits.
             _fp32_softmax_l1_narrow(l1_key, int(q.shape[0]))
+            _FP32_SOFTMAX_L1_REFUSALS[l1_key] = _FP32_SOFTMAX_L1_REFUSALS.get(l1_key, 0) + 1
             FP32_SOFTMAX_STATS["l1_refused"] += 1
             attn_bf = None
     if attn_bf is None:
