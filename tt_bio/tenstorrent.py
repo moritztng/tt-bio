@@ -1372,7 +1372,20 @@ _FP32_SOFTMAX_L1_BYTES_PER_CORE = 768 << 10
 _FP32_SOFTMAX_L1_GRID = (8, 8)  # (y, x). 8x8 = 64; this p150a refuses more than 110 shards.
 
 FP32_SOFTMAX_STATS = {"calls": 0, "blocked": 0, "blocks": 0, "fused": 0, "unfused": 0,
-                      "l1": 0, "l1_blocks": 0, "l1_refused": 0}
+                      "l1": 0, "l1_blocks": 0, "l1_refused": 0, "l1_cores": 0,
+                      "l1_free_retired": 0}
+
+# Refusals seen per shape class, so a FLOATING-core plan can be retired instead of walked. The
+# tuned rectangle narrows a row at a time and that is right for it: its block stays a legal shape.
+# A floating plan that gets narrowed re-searches the core count, and the state it walks into is the
+# worst of both -- a capped block with a shard the sharded softmax will not take, so the call keeps
+# the loop and loses the residency. MEASURED on card 2 at 2 heads / 960 tokens: one refusal is
+# absorbed and the shape still wins (1.472x at 832 tokens, 1.545x and 1.433x at 4 heads / 832 and
+# 960), two and the same shape reads **0.295x** with 16 of 29 blocks resident
+# (perf/fp32softmax/results/s1_op_bitexact_guard.json). So the second refusal retires the floating
+# plan for that class and the class falls back to exactly today's unblocked interleaved tail.
+_FP32_SOFTMAX_L1_REFUSALS: dict = {}
+_FP32_SOFTMAX_FREE_REFUSAL_CAP = 2
 
 # A block that fits L1 is not automatically a block the sharded softmax fits AROUND: that kernel
 # stages its rows through statically allocated circular buffers whose size grows with the row
@@ -1444,16 +1457,121 @@ def _fp32_softmax_l1_narrow(l1_key, rows: int) -> None:
     _FP32_SOFTMAX_L1_ROW_CAP[l1_key] = cap if prev is None else min(prev, cap)
 
 
-def _fp32_softmax_shard(rows: int, height_per_row: int, width: int):
+# S1: a height shard whose core COUNT is chosen with the block, for the sizes where the tuned 8x8
+# rectangle cannot divide any affordable block and the whole fp32-softmax tail therefore goes to
+# interleaved DRAM.
+#
+# `_fp32_softmax_l1_rows` fixes the shard at 64 cores, so a block is legal only when
+# `rows * n_heads * S` is a multiple of 2048. The byte budget affords
+# `768 KB * 64 / (4 * n_heads * S**2)` rows, which shrinks as S**-2, while the multiple the
+# divisibility needs grows with S -- so above ~512 tokens the two cross and the walk in
+# `_fp32_softmax_l1_rows` runs all the way to 0. MEASURED, not predicted: an OpenBind-0 fold at
+# 544 aa reports `l1: 0, l1_blocks: 0, blocked: 0` over all 1320 triangle-attention calls, and an
+# openfold3 fold at 704 reports the same over all 224 (perf/fp32softmax/results/s1_of3_704_ab.json):
+# every call ran one unblocked interleaved block. At 512 aa the same fold runs 12-row L1 blocks. The
+# dark sizes at n_heads=4 are 544, 608, 672, 704, 736, 800 and up; 512, 576, 640, 768, 896 and 1024
+# all keep a legal block and are UNCHANGED by this, because the search below only runs when the
+# tuned one returns 0.
+#
+# What it is worth, MEASURED at 704 padded tokens on qb2 with the arms interleaved in one process
+# and an A/A control on a sibling card: openfold3 43.193 -> 32.230 s (1.3401x, A/A floor 2.92 %),
+# RF3 45.332 -> 39.808 s (1.1388x, A/A floor 2.44 %), one structure digest and one plDDT across
+# every fold of both arms. Per call, 1.386x-1.545x at the dark tile-aligned sizes and 1.000x-1.010x
+# where the tuned rectangle already serves (perf/fp32softmax/results/s1_op_bitexact_retire.json).
+#
+# That single hole is also where the census's `no_config:mt=17,kt=1,nt=17,batch=2176` comes from:
+# an unblocked call hands the q@k^T the whole 2176-element batch at 17 output tiles, and
+# `_batched_matmul_search` needs a `per_core_M` that divides 17. So one root, two counted symptoms.
+#
+# Bit-exact for the same reason the 64-core shard is: the block partitions the leading dim, the
+# softmax reduces over the last dim only, and only the memory config moves. Neither the core count
+# nor the block size is in the arithmetic.
+_FP32_SOFTMAX_L1_ANY_CORES = env_flag("TT_BIO_FP32_SOFTMAX_L1_ANY_CORES", True)
+
+# Shards this part accepts. The 8x8 comment above measured the refusal above 110.
+_FP32_SOFTMAX_L1_CORE_CAP = 110
+
+
+def _fp32_softmax_core_budget() -> int:
+    """Cores the ragged shard may use: the measured p150a refusal, and never more than the grid.
+
+    The 110 is a measurement on this p150a. The grid bound is what makes it portable: on a
+    Wormhole 8x8 the active grid IS 64 cores, and a plan asking for more would hand
+    `num_cores_to_corerangeset` a count no grid can hold and kill the fold at the first
+    triangle-attention call instead of falling back.
+    """
+    return min(_FP32_SOFTMAX_L1_CORE_CAP, COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1])
+
+
+@lru_cache(maxsize=None)
+def _fp32_softmax_l1_plan(per_row: int, height_per_row: int, width: int,
+                          cap: int | None = None) -> tuple:
+    """``(rows, cores)`` for the largest L1-resident score block, or ``(0, 0)`` when there is none.
+
+    The tuned 8x8 answer wins whenever it exists, so every size that is L1-resident today keeps
+    exactly the block and the core grid it has. Only a size the rectangle cannot serve reaches the
+    second search, and there the core count is a free variable: pick the tallest block the budget
+    affords whose shard count has a divisor big enough to keep every core under the byte budget.
+
+    ``width`` is the score tensor key dim, and a plan is only worth having when the shard it
+    implies can be built at all: a block cap with no shard behind it is the worst of both, because
+    the loop pays a slice and a concat per block and not one block is resident. MEASURED at a
+    ragged 515-token key dim, where `_fp32_softmax_shard` refuses on the width and the block cap
+    alone cost 0.786x at 2 heads, 0.928x at 4 and 0.910x at 8
+    (perf/fp32softmax/results/s1_op_bitexact.json). Ragged token counts are reachable: the pair
+    stack keeps the logical token dim and lets TILE_LAYOUT pad it, so this is a guard and not a
+    hypothetical.
+    """
+    rows = _fp32_softmax_l1_rows(per_row, height_per_row, cap)
+    if rows:
+        return rows, _FP32_SOFTMAX_L1_GRID[0] * _FP32_SOFTMAX_L1_GRID[1]
+    if (not _FP32_SOFTMAX_L1_ANY_CORES or per_row <= 0 or width % 32
+            or _FP32_SOFTMAX_L1_BYTES_PER_CORE <= 0):
+        return 0, 0
+    core_cap = _fp32_softmax_core_budget()
+    hi = int(_FP32_SOFTMAX_L1_BYTES_PER_CORE) * core_cap // per_row
+    if cap is not None:
+        hi = min(hi, cap)
+    for blk in range(hi, 0, -1):
+        if blk * height_per_row % 32:
+            continue
+        shards = blk * height_per_row // 32
+        # every core has to stay under the budget, so the shard count is bounded from below too
+        need = -(-blk * per_row // int(_FP32_SOFTMAX_L1_BYTES_PER_CORE))
+        for c in range(min(core_cap, shards), max(need, 1) - 1, -1):
+            if shards % c == 0:
+                return blk, c
+    return 0, 0
+
+
+@lru_cache(maxsize=None)
+def _fp32_softmax_core_grid(cores: int):
+    """The tuned rectangle as a `CoreGrid` -- byte for byte what shipped -- or a `CoreRangeSet`."""
+    gy, gx = _FP32_SOFTMAX_L1_GRID
+    if cores == gy * gx:
+        return ttnn.CoreGrid(y=gy, x=gx)
+    mx, my = COMPUTE_GRID_MAIN
+    return ttnn.num_cores_to_corerangeset(cores, ttnn.CoreCoord(mx, my), True)
+
+
+def _fp32_softmax_shard(rows: int, height_per_row: int, width: int, cores: int = 0):
     """Height-sharded config for one score block, or None when the block does not divide."""
-    cores = _FP32_SOFTMAX_L1_GRID[0] * _FP32_SOFTMAX_L1_GRID[1]
+    tuned = _FP32_SOFTMAX_L1_GRID[0] * _FP32_SOFTMAX_L1_GRID[1]
+    cores = cores or tuned
     height = rows * height_per_row
     if height % (cores * 32) or width % 32:
         return None
+    if cores == tuned:
+        return ttnn.create_sharded_memory_config(
+            shape=(height, width), core_grid=_fp32_softmax_core_grid(cores),
+            strategy=ttnn.ShardStrategy.HEIGHT, orientation=ttnn.ShardOrientation.ROW_MAJOR)
+    # `create_sharded_memory_config` will not derive a shard shape for a CoreRangeSet, because a
+    # ragged set has no single grid to divide by. The height divides the core count exactly (the
+    # plan picked the count for that), so the shard shape is the division done here.
     return ttnn.create_sharded_memory_config(
-        shape=(height, width),
-        core_grid=ttnn.CoreGrid(y=_FP32_SOFTMAX_L1_GRID[0], x=_FP32_SOFTMAX_L1_GRID[1]),
-        strategy=ttnn.ShardStrategy.HEIGHT, orientation=ttnn.ShardOrientation.ROW_MAJOR)
+        shape=(height // cores, width), core_grid=_fp32_softmax_core_grid(cores),
+        strategy=ttnn.ShardStrategy.HEIGHT, orientation=ttnn.ShardOrientation.ROW_MAJOR,
+        use_height_and_width_as_shard_shape=True)
 
 
 def accurate_softmax_site(token: str, default: bool = False) -> bool:
@@ -1560,11 +1678,16 @@ def _fp32_softmax_attention(
     # 342 blocks per call paying the loop's slice-and-concat with none of the residency back. That
     # is measured, not feared -- it cost 278.23 -> 317.79 s at 1024 aa before this key was widened.
     l1_key = (height_per_row, int(k.shape[2]))
-    l1_rows = _fp32_softmax_l1_rows(per_row, height_per_row,
-                                    _FP32_SOFTMAX_L1_ROW_CAP.get(l1_key))
+    l1_rows, l1_cores = _fp32_softmax_l1_plan(per_row, height_per_row, int(k.shape[2]),
+                                              _FP32_SOFTMAX_L1_ROW_CAP.get(l1_key))
+    if (l1_cores != _FP32_SOFTMAX_L1_GRID[0] * _FP32_SOFTMAX_L1_GRID[1]
+            and _FP32_SOFTMAX_L1_REFUSALS.get(l1_key, 0) >= _FP32_SOFTMAX_FREE_REFUSAL_CAP):
+        l1_rows, l1_cores = 0, 0
+        FP32_SOFTMAX_STATS["l1_free_retired"] += 1
     if l1_rows:
         blk = min(blk, l1_rows)
         FP32_SOFTMAX_STATS["l1"] += 1
+        FP32_SOFTMAX_STATS["l1_cores"] = l1_cores
 
     def shard_for(n):
         # A refusal inside this call narrows the class mid-loop, and `blk` is already fixed, so the
@@ -1572,7 +1695,7 @@ def _fp32_softmax_attention(
         cap = _FP32_SOFTMAX_L1_ROW_CAP.get(l1_key)
         if not l1_rows or (cap is not None and n > cap):
             return None
-        return _fp32_softmax_shard(n, height_per_row, int(k.shape[2]))
+        return _fp32_softmax_shard(n, height_per_row, int(k.shape[2]), l1_cores)
 
     if rows <= 1 or blk >= rows:
         sh = shard_for(rows)
@@ -1633,6 +1756,7 @@ def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_confi
             # around it. Take one row off this geometry and fall back to the interleaved tail for
             # now, which is the same ops on the same dtypes and therefore the same bits.
             _fp32_softmax_l1_narrow(l1_key, int(q.shape[0]))
+            _FP32_SOFTMAX_L1_REFUSALS[l1_key] = _FP32_SOFTMAX_L1_REFUSALS.get(l1_key, 0) + 1
             FP32_SOFTMAX_STATS["l1_refused"] += 1
             attn_bf = None
     if attn_bf is None:
@@ -2551,6 +2675,8 @@ def _configure_active_compute_grid(device: ttnn.Device) -> None:
     _l1_bank_bytes.cache_clear()
     _pair_proj_program_config.cache_clear()
     _attn_value_program_config.cache_clear()
+    _fp32_softmax_core_grid.cache_clear()
+    _fp32_softmax_l1_plan.cache_clear()   # its core budget is bounded by the active grid
 
 
 def set_fast_mode(enabled: bool) -> None:

@@ -1,0 +1,216 @@
+{
+  "model": "rf3",
+  "aa": 704,
+  "arms": "AAAA",
+  "recycling_steps": 1,
+  "sampling_steps": 10,
+  "grid": [
+    11,
+    10
+  ],
+  "folds": [
+    {
+      "i": 0,
+      "arm": "A",
+      "cold": true,
+      "fold_s": 141.329,
+      "digest": "3dea3cd754df9d70",
+      "fp32_softmax": {
+        "calls": 173,
+        "blocked": 0,
+        "blocks": 0,
+        "fused": 173,
+        "unfused": 0,
+        "l1": 0,
+        "l1_blocks": 0,
+        "l1_refused": 0,
+        "l1_cores": 0
+      },
+      "metrics": {
+        "plddt": 70.3791,
+        "ptm": 0.195,
+        "iptm": "None",
+        "ranking_score": 0.195,
+        "has_clash": 0.0,
+        "n_tokens": 704.0,
+        "n_atoms": 5658.0,
+        "n_chains": 1.0,
+        "msa": 0.0,
+        "recycling_steps": 1.0,
+        "samples": 1.0
+      }
+    },
+    {
+      "i": 1,
+      "arm": "B",
+      "cold": true,
+      "fold_s": 49.122,
+      "digest": "3dea3cd754df9d70",
+      "fp32_softmax": {
+        "calls": 173,
+        "blocked": 116,
+        "blocks": 8236,
+        "fused": 8293,
+        "unfused": 0,
+        "l1": 173,
+        "l1_blocks": 8177,
+        "l1_refused": 0,
+        "l1_cores": 110
+      },
+      "metrics": {
+        "plddt": 70.3791,
+        "ptm": 0.195,
+        "iptm": "None",
+        "ranking_score": 0.195,
+        "has_clash": 0.0,
+        "n_tokens": 704.0,
+        "n_atoms": 5658.0,
+        "n_chains": 1.0,
+        "msa": 0.0,
+        "recycling_steps": 1.0,
+        "samples": 1.0
+      }
+    },
+    {
+      "i": 2,
+      "arm": "A",
+      "cold": false,
+      "fold_s": 45.473,
+      "digest": "3dea3cd754df9d70",
+      "fp32_softmax": {
+        "calls": 173,
+        "blocked": 0,
+        "blocks": 0,
+        "fused": 173,
+        "unfused": 0,
+        "l1": 0,
+        "l1_blocks": 0,
+        "l1_refused": 0,
+        "l1_cores": 0
+      },
+      "metrics": {
+        "plddt": 70.3791,
+        "ptm": 0.195,
+        "iptm": "None",
+        "ranking_score": 0.195,
+        "has_clash": 0.0,
+        "n_tokens": 704.0,
+        "n_atoms": 5658.0,
+        "n_chains": 1.0,
+        "msa": 0.0,
+        "recycling_steps": 1.0,
+        "samples": 1.0
+      }
+    },
+    {
+      "i": 3,
+      "arm": "A",
+      "cold": false,
+      "fold_s": 45.486,
+      "digest": "3dea3cd754df9d70",
+      "fp32_softmax": {
+        "calls": 173,
+        "blocked": 0,
+        "blocks": 0,
+        "fused": 173,
+        "unfused": 0,
+        "l1": 0,
+        "l1_blocks": 0,
+        "l1_refused": 0,
+        "l1_cores": 0
+      },
+      "metrics": {
+        "plddt": 70.3791,
+        "ptm": 0.195,
+        "iptm": "None",
+        "ranking_score": 0.195,
+        "has_clash": 0.0,
+        "n_tokens": 704.0,
+        "n_atoms": 5658.0,
+        "n_chains": 1.0,
+        "msa": 0.0,
+        "recycling_steps": 1.0,
+        "samples": 1.0
+      }
+    },
+    {
+      "i": 4,
+      "arm": "A",
+      "cold": false,
+      "fold_s": 44.402,
+      "digest": "3dea3cd754df9d70",
+      "fp32_softmax": {
+        "calls": 173,
+        "blocked": 0,
+        "blocks": 0,
+        "fused": 173,
+        "unfused": 0,
+        "l1": 0,
+        "l1_blocks": 0,
+        "l1_refused": 0,
+        "l1_cores": 0
+      },
+      "metrics": {
+        "plddt": 70.3791,
+        "ptm": 0.195,
+        "iptm": "None",
+        "ranking_score": 0.195,
+        "has_clash": 0.0,
+        "n_tokens": 704.0,
+        "n_atoms": 5658.0,
+        "n_chains": 1.0,
+        "msa": 0.0,
+        "recycling_steps": 1.0,
+        "samples": 1.0
+      }
+    },
+    {
+      "i": 5,
+      "arm": "A",
+      "cold": false,
+      "fold_s": 44.904,
+      "digest": "3dea3cd754df9d70",
+      "fp32_softmax": {
+        "calls": 173,
+        "blocked": 0,
+        "blocks": 0,
+        "fused": 173,
+        "unfused": 0,
+        "l1": 0,
+        "l1_blocks": 0,
+        "l1_refused": 0,
+        "l1_cores": 0
+      },
+      "metrics": {
+        "plddt": 70.3791,
+        "ptm": 0.195,
+        "iptm": "None",
+        "ranking_score": 0.195,
+        "has_clash": 0.0,
+        "n_tokens": 704.0,
+        "n_atoms": 5658.0,
+        "n_chains": 1.0,
+        "msa": 0.0,
+        "recycling_steps": 1.0,
+        "samples": 1.0
+      }
+    }
+  ],
+  "per_arm": {
+    "A": {
+      "n": 4,
+      "folds_s": [
+        45.473,
+        45.486,
+        44.402,
+        44.904
+      ],
+      "median_s": 45.188500000000005,
+      "spread_pct": 2.44
+    }
+  },
+  "warm_digests": [
+    "3dea3cd754df9d70"
+  ],
+  "bit_exact": true
+}
