@@ -1410,8 +1410,9 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
         # (--size-ladder-models) then UPDATES those models and leaves the rest of
         # the card block intact. A 5-model record is ~40 min of device time, so it
         # has to be resumable a model at a time instead of all-or-nothing.
-        new_card = {"recorded": time.strftime("%Y-%m-%d"), "host": socket.gethostname(),
-                    "commit": _repo_commit(), "models": dict(old_models)}
+        new_card = {"last_recorded": time.strftime("%Y-%m-%d"),
+                    "last_host": socket.gethostname(), "last_commit": _repo_commit(),
+                    "models": dict(old_models)}
         todos = 0
 
         def _flush_baseline():
@@ -1442,7 +1443,12 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
             block, skip = _size_ladder_exponent_block(meas["runtime_s"], meas["sigma"])
             todos += _size_ladder_fill_reasons(meas["levers"],
                                                old_models.get(m, {}).get("levers"))
-            entry = {"grid": meas.get("grid"),
+            # Provenance per MODEL, not per card block: record mode is resumable a model at
+            # a time on purpose, so one card's block routinely holds numbers from more than
+            # one host and one commit. A card-level stamp would name whichever host recorded
+            # last and quietly claim the other models' numbers as its own.
+            entry = {"grid": meas.get("grid"), "recorded": time.strftime("%Y-%m-%d"),
+                     "host": socket.gethostname(), "commit": _repo_commit(),
                      "runtime_s": meas["runtime_s"], "levers": meas["levers"]}
             if block:
                 entry.update(block)

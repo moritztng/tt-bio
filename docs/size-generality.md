@@ -60,6 +60,20 @@ also destroy the one interval that is gateable. The exponent is checked over 256
 boltz-2) and 512 to 768 (+-0.54). A model too noisy for a meaningful band has its exponent recorded
 as skipped, with the measured noise as the reason, rather than getting a gate that cries wolf.
 
+## Why protenix-v2 also folds 506
+
+Protenix-v2 has one size window of its own, 500 to 507 tokens, where a fold on a 13x10 grid can
+park forever in the pair conditioning readback with the card alive and the host spinning. It
+folds that range on an 11x10 grid instead, and 11x10 completes every time. 496 and 512 are
+clean, so the workaround is as narrow as the window.
+
+A hang class that closes has to stay closed, and neither the accuracy legs nor the other rungs
+can see this one: 500 to 507 is a window no rung on the 64-token lattice lands in. So
+protenix-v2 carries 506 as a rung of its own (`SIZE_LADDER_MODEL_RUNGS` in
+`scripts/release_gate.py`). It is census-only, out of the timing chain, and no other model runs
+it, because no other model has the defect. Removing the workaround changes which levers fire at
+that rung, and the arm goes red.
+
 ## The rung is a padded token count, not a residue count
 
 The ladder's rungs are residue counts, but every size-conditioned gate in the engine keys on the

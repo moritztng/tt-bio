@@ -1639,7 +1639,7 @@ def _pz_cond_probe(pz, z_in_sha):
 # completes every time, verified as a same-session A/B on one freshly reset card. 496 and
 # 512 tokens are clean, so the window is narrow and so is the workaround -- 11x10 has no
 # measured advantage at any other size and folds outside it keep the full 130 cores.
-# TT_BIO_FORCE_GRID pins the grid explicitly and turns this off; see docs/troubleshooting.md.
+# TT_BIO_FORCE_GRID pins the grid by hand and turns this off; see docs/size-generality.md.
 HANG_GRID_TOKEN_WINDOW = (500, 507)
 
 
@@ -1654,6 +1654,11 @@ def _fold_grid(feats):
     n_tokens = int(feats["atom_to_token_idx"].max()) + 1
     if not lo <= n_tokens <= hi:
         return contextlib.nullcontext()
+    # Said out loud: this fold gives up 20 of the card's 130 cores and is measurably slower
+    # for it, and a user watching one size run slower than its neighbours deserves the reason.
+    print(f"[tt-bio] protenix-v2: {n_tokens} tokens hangs on this card's "
+          f"{_T.COMPUTE_GRID_X_13}x{_T.COMPUTE_GRID_Y} grid (issue #9), folding on "
+          f"{_T.COMPUTE_GRID_X_11}x{_T.COMPUTE_GRID_Y} instead", flush=True)
     return _T.compute_grid(_T.COMPUTE_GRID_X_11, _T.COMPUTE_GRID_Y)
 
 
