@@ -47,6 +47,26 @@ recipe `PairformerModule` uses on its own non-affinity path (`tenstorrent.py:704
 `attn_mask` shared by start and end, the 1-D `mask_1d` as `mask_tt`), with every tap cropped
 back before scoring. Models that reach the Pairformer through `PairformerModule` do take it.
 
+`--maskmode` varies ONLY the TriangleMultiplication mask (`mask_tt`), never the additive
+attention mask, and never the padded values. `TriangleMultiplication.__call__` does
+`mask_u = unsqueeze(mask, -1)` and multiplies it into `a_chunk` of shape [1,S,S,C], so a 1-D
+[1,S] mask broadcasts along the SECOND token axis only. The outgoing variant contracts that
+axis and the incoming variant contracts the first, so the four modes below are an axis
+discriminator: if which variant is clean follows which axis is zeroed, the leak is the mask's
+axis and not the padded content.
+
+  1d    mask_1d, [1,S]              what `PairformerModule` builds with no pair_mask
+  j     ones_i * mask_1d_j, [1,S,S] second token axis only, the 1-D mask's actual effect
+  i     mask_1d_i * ones_j, [1,S,S] first token axis only
+  pair  outer product, [1,S,S]      both axes, what `Fp32PairformerModule` already builds
+
+`--padtap` answers a separate question with no new instrument: is `tri_att_end` immune to the
+tile-padding leak because its internal `_pair_transpose` rebuilds the tensor? It uses
+`tri_att_start`, the one op already known to read the leaked padding, as the DETECTOR. Same
+logical z, dirty tile padding (in-loop) vs zero-filled (host round trip); if the transpose
+scrubs the padding then `tri_att_start` on the transposed pair is bit-identical across the two
+while `tri_att_start` on the untransposed pair is not.
+
 Needs pass 1's reference cache (`--stage 1` of `opendde_pairformer_block_trace.py`).
 
   OPENDDE_SRC=/tmp/opendde-src PYTHONPATH=<worktree> TT_VISIBLE_DEVICES=1 \
@@ -175,6 +195,59 @@ def dev_block_io(block, z, to_host, masks=None):
     return z, ins, ups, cfgs
 
 
+def padtap(p, block, src):
+    """Does `tri_att_end`'s internal transpose scrub the tile padding it was handed?
+
+    `tri_att_start` is the detector: it is the one sub-op whose result is known to depend on
+    the padded columns (in-loop vs re-uploaded differ, VERDICT-TRIEND). Feed it a z with
+    DIRTY tile padding and the same z with ZERO-FILLED tile padding.
+
+      raw        no transpose. Must DIFFER, otherwise the detector is not live and nothing
+                 below it means anything.
+      reshaped   through the 4D->3D->4D relabel `tri_att.__call__` does first, no transpose.
+                 A control: if the relabel alone scrubs, the transposed arm proves nothing.
+      transposed through `_pair_transpose`, the call the ending variant makes. EQUAL here
+                 with `raw` DIFFERENT is the transpose scrubbing the padding.
+      end        `tri_att_end` itself on both, the claim being explained.
+    """
+    import ttnn
+    from tt_bio.tenstorrent import _pair_transpose, _transpose_memory_config
+
+    n = src.shape[-2]
+    # dirty padding: three in-loop sub-ops accumulated with ttnn.add_, exactly as the block
+    # does, so z arrives at the ending variant's position the way the model hands it over.
+    z = p.trunk._up(src.reshape(1, n, n, -1))
+    for name in ("tri_mul_out", "tri_mul_in", "tri_att_start"):
+        u = dev_sub(block, name, z)
+        z = ttnn.add_(z, u)
+        ttnn.deallocate(u)
+    z_dirty, host = z, p._to_host(z)
+    z_clean = p.trunk._up(host.reshape(1, n, n, -1))
+    print(f"padtap: logical values identical across the two z: "
+          f"{bool(torch.equal(host, p._to_host(z_clean)))}  "
+          f"padded_shape={tuple(z_dirty.padded_shape)} logical={tuple(z_dirty.shape)}",
+          flush=True)
+
+    def relabel(t):
+        return ttnn.reshape(ttnn.reshape(t, tuple(t.shape)[1:]), (1,) + tuple(t.shape)[1:])
+
+    def xpose(t):
+        t3 = ttnn.reshape(t, tuple(t.shape)[1:])
+        return ttnn.reshape(_pair_transpose(t3, _transpose_memory_config(t3)),
+                            (1,) + tuple(t.shape)[1:])
+
+    for tag, pre, op in (("raw", lambda t: t, "tri_att_start"),
+                         ("reshaped", relabel, "tri_att_start"),
+                         ("transposed", xpose, "tri_att_start"),
+                         ("end", lambda t: t, "tri_att_end")):
+        a = p._to_host(dev_sub(block, op, pre(z_dirty)))
+        b = p._to_host(dev_sub(block, op, pre(z_clean)))
+        same = bool(torch.equal(a, b))
+        d = float((a.float() - b.float()).abs().max())
+        print(f"padtap {tag:11s} -> {op:14s} dirty==clean: {str(same):5s} maxabs={d:.3e}",
+              flush=True)
+
+
 def main() -> None:
     import ttnn
     ap = argparse.ArgumentParser()
@@ -183,6 +256,17 @@ def main() -> None:
     ap.add_argument("--pad", type=int, default=0,
                     help="pad the token dim to this multiple and pass the shipped masks "
                          "(64 = PAIRFORMER_PAD_MULTIPLE, what the model runs)")
+    ap.add_argument("--maskmode", default="1d", choices=("1d", "j", "i", "pair"),
+                    help="how the TriangleMultiplication mask is built in the --pad arm; "
+                         "an axis discriminator, see the module docstring")
+    ap.add_argument("--crop", type=int, default=0,
+                    help="crop the token dim of the cached z to this before anything else; "
+                         "with --pad it varies HOW MANY columns are invented (0 at a "
+                         "multiple of the pad), which is the ladder that says whether a "
+                         "mask fix holds or just happens to work at 136")
+    ap.add_argument("--padtap", action="store_true",
+                    help="tri_att_end's immunity: does its internal transpose scrub the "
+                         "tile padding? Uses tri_att_start as the detector, then exits")
     args = ap.parse_args()
     cache = Path(args.cache)
 
@@ -195,9 +279,17 @@ def main() -> None:
 
     for i in [int(x) for x in args.blocks.split(",")]:
         src = z_msa if i == 0 else torch.load(cache / f"ref_z_{i - 1:02d}.pt")
+        if args.crop:
+            c = args.crop
+            src = src[..., :c, :c, :].contiguous()
         shape = tuple(src.shape)
         n = shape[-2]
         rb, db = ref_blocks[i], dev_blocks[i]
+
+        if args.padtap:
+            print(f"\n=== padtap, Pairformer block {i} ===", flush=True)
+            padtap(p, db, src)
+            continue
 
         ins_r, ups_r = {}, {}
         z_ref = ref_block_io(rb, src, ins_r, ups_r)
@@ -220,10 +312,18 @@ def main() -> None:
             S = n + (-n) % args.pad
             z_in = torch.nn.functional.pad(src, (0, 0, 0, S - n, 0, S - n))
             mask_1d = torch.nn.functional.pad(torch.ones(1, n), (0, S - n))
-            masks = (p.trunk._up(mask_1d),
+            ones = torch.ones_like(mask_1d)
+            mask_mul = {
+                "1d": mask_1d,
+                "j": ones[:, :, None] * mask_1d[:, None, :],
+                "i": mask_1d[:, :, None] * ones[:, None, :],
+                "pair": mask_1d[:, :, None] * mask_1d[:, None, :],
+            }[args.maskmode]
+            masks = (p.trunk._up(mask_mul),
                      p.trunk._up((1 - mask_1d).unsqueeze(1).unsqueeze(1) * -1e9))
             crop = lambda t: t.reshape(1, S, S, -1)[0, :n, :n, :].contiguous()
-            print(f"shipped config: token dim {n} -> {S}, additive -1e9 mask on the pad",
+            print(f"shipped config: token dim {n} -> {S}, additive -1e9 mask on the pad, "
+                  f"trimul mask_tt mode={args.maskmode} shape={tuple(mask_mul.shape)}",
                   flush=True)
         else:
             S, z_in, masks = n, src, None

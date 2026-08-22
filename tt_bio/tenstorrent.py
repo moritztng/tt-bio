@@ -7043,7 +7043,16 @@ class PairformerModule(TorchWrapper):
                     mask_1d = torch.nn.functional.pad(mask_1d, (0, pad))
                     if pair_mask is not None:
                         pair_mask = torch.nn.functional.pad(pair_mask, (0, pad, 0, pad))
-                self._cache_set("mask_tt", self._from_torch(pair_mask if pair_mask is not None else mask_1d))
+                # TriangleMultiplication does `unsqueeze(mask, -1)` and multiplies the result
+                # into [1,S,S,C], so a 1-D [1,S] mask lands on the SECOND token axis only.
+                # The outgoing variant contracts that axis; the incoming variant contracts the
+                # first, so a 1-D mask leaves it summing the padded rows in: rel 2.00 against
+                # 6.7e-03 with the pair mask, at every pad amount (VERDICT-TRIMULCURE in
+                # state/opendde-pairformer-z-parity-drop.md). Build the outer product, which is
+                # what Fp32PairformerModule already does.
+                if pair_mask is None:
+                    pair_mask = mask_1d[:, :, None] * mask_1d[:, None, :]
+                self._cache_set("mask_tt", self._from_torch(pair_mask))
                 attn_mask = self._from_torch((1 - mask_1d).unsqueeze(1).unsqueeze(1) * -1e9)
                 self._cache_set("attn_mask_start_tt", attn_mask)
                 self._cache_set("attn_mask_end_tt", attn_mask)
