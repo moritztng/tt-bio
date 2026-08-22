@@ -8,8 +8,11 @@ root so it is caught in review rather than by a human reading the file list.
 
 To add a genuinely root-level file, add it to ALLOWED with a reason.
 """
-import subprocess
 from pathlib import Path
+
+import pytest
+
+from conftest import git_tracked
 
 REPO = Path(__file__).resolve().parent.parent
 
@@ -26,10 +29,9 @@ ALLOWED = {
 
 
 def _tracked_root_files():
-    out = subprocess.run(
-        ["git", "ls-files", "--full-name"],
-        cwd=REPO, capture_output=True, text=True, check=True,
-    ).stdout.splitlines()
+    out = git_tracked(REPO, "--full-name")
+    if out is None:
+        pytest.skip("not a git work tree; nothing is tracked here to be stray")
     return {p for p in out if "/" not in p and p}
 
 

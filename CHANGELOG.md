@@ -3,7 +3,7 @@
 All notable changes to TT-Bio are recorded here. Versioning is [SemVer](https://semver.org);
 releases are cut from a commit that has passed the on-hardware test suite (see `RELEASING.md`).
 
-## [Unreleased]
+## [0.6.6] - 2026-08-22
 
 ### Added
 
@@ -98,6 +98,42 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   The charge table is now taken from the CCD over all 20 standard residues rather than from
   a golden feature dump: ARG NH2, LYS NZ and HIS ND1 are the only charged atoms, and nothing
   else was missing.
+
+### Changed
+
+- Protenix-v2, OpenDDE and OpenDDE-abag fold with the accurate softmax by default. `ttnn.softmax`
+  normalises against a denominator its own numerators do not match, so rows summed to 0.977
+  instead of 1; these three models now use an exact five-op chain instead. Four parity legs
+  improved on their committed envelopes and none regressed, and the three models got faster
+  rather than slower (+8.6%, +3.6%, +4.3%). ESMFold2 and OpenFold3 are unchanged: their sites
+  have not been measured, and each site stays overridable with
+  `TT_BIO_ACCURATE_SOFTMAX_AB`.
+
+### Performance
+
+- RoseTTAFold3 folds 1024 aa 1.264x faster (52.468 -> 41.508 s per trunk recycle), and the
+  768 -> 1024 aa scaling exponent drops from 3.63 to 2.82. The L1 gate in triangle attention
+  gave up on a whole shape class the first time a block did not fit and sent 434 of 435 calls
+  per recycle down a slow path for the rest of the process; it now backs off one row at a time.
+  Bit-exact: the fast and slow paths are the same ops on the same dtypes, checked with
+  `torch.equal` on real RoseTTAFold3 and OpenFold3 trunks. Boltz-2, Protenix-v2 and OpenDDE only
+  reach this path behind `BOLTZ2_FP32_SOFTMAX`, which is off by default, so they are unchanged.
+
+### Gates and documentation
+
+- The performance page publishes two readings per row, whole fold and device only, and says what
+  the NVIDIA cells actually time. Four H200 cells (Boltz-2, OpenFold3, Protenix-v2, OpenDDE)
+  leave 0.24 to 6.31 s of featurisation and structure writing outside their timer, which made
+  those ratios larger than a like-for-like comparison. The two readings agree within 0.2x on five
+  of six rows; RoseTTAFold3 reads 3.556x whole fold and 9.388x device only, because half of that
+  fold is host featurisation that runs on both sides. No published cell moved. See
+  `site/data/perf-512aa.json`.
+- The UX gate covers `--model rf3`, and the perf gate has a RoseTTAFold3 entry. RF3 shipped with
+  no coverage in any release gate; the UX leg found on its first run that `tt-bio predict --model
+  rf3` exited on a missing dependency from a clean `pip install`, which is now fixed.
+- `packaging_smoke.py --fold` installs the wheel with `--force-reinstall`. Inheriting a
+  same-version `tt_bio` from the parent interpreter made pip skip the install, so the guard tested
+  nothing and failed on a missing console script.
 
 ## [0.6.5] - 2026-08-20
 

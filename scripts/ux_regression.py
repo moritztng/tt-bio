@@ -92,7 +92,7 @@ PER_MODEL_TIMEOUT_S = 900
 ABAG_MODEL_TIMEOUT_S = 1800
 
 FOLD_MODELS = ["boltz2", "esmfold2", "esmfold2-fast", "protenix-v2", "openfold3",
-               "opendde", "opendde-abag"]
+               "opendde", "opendde-abag", "rf3"]
 # OpenFold3 is the one fold model whose weights tt-bio does not download (see
 # NOTICE #6). main() refuses to start an openfold3 leg without a resolvable
 # checkpoint rather than skipping it: a shipped --model choice with no UX
@@ -104,7 +104,7 @@ FOLD_MODELS = ["boltz2", "esmfold2", "esmfold2-fast", "protenix-v2", "openfold3"
 # (no ColabFold server round-trip). esmfold2 / esmfold2-fast are single-seq by design.
 # opendde-abag rides the same MSA-dependent path as opendde (only the checkpoint
 # differs — opendde_abag.pt vs opendde.pt), so it gets --single_sequence too.
-MSA_DEPENDENT = {"boltz2", "protenix-v2", "openfold3", "opendde", "opendde-abag"}
+MSA_DEPENDENT = {"boltz2", "protenix-v2", "openfold3", "opendde", "opendde-abag", "rf3"}
 # opendde-abag is the antibody-antigen checkpoint, so it is gated on the canonical
 # Ab-Ag fixture 1ahw_abag.yaml (the same SAbDab/PDB 1ahw target the benchmark uses
 # elsewhere) instead of trpcage. Every other fold model uses trpcage.
@@ -1119,6 +1119,14 @@ def main() -> int:
         sys.exit(f"missing openfold3 checkpoint: set OF3_CKPT or place the OpenFold3 "
                  f"preview2 weights at {of3_ckpt} (see docs/openfold3-port.md). "
                  f"Run the rest with --model <name>.")
+    # rf3 fetches its own checkpoint on first use, but a gate must not sit on a 3 GB
+    # download mid-leg, so require it up front. Same registry lookup as openfold3.
+    rf3_ckpt = weights.resolve("rf3") if "rf3" in fold_models else None
+    if "rf3" in fold_models and not (rf3_ckpt and rf3_ckpt.exists()):
+        sys.exit(f"missing rf3 checkpoint: fetch it with `tt-bio weights --download rf3` "
+                 f"or place it at {rf3_ckpt}. Refusing to skip: rf3 is a shipped --model "
+                 f"choice, and skipping it is how a model reaches a release with no UX "
+                 f"coverage at all.")
     if (not fold_models and not embed_models and not gen_models
             and not affinity_models and not design_models):
         return 0 if all_pass else 1
