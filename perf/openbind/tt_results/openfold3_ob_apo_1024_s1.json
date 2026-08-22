@@ -1,0 +1,143 @@
+{
+ "model": "openfold3",
+ "label": "openfold3_ob_apo_1024_s1",
+ "input": "ob_apo_1024.tt.yaml",
+ "input_sha256": "2cfc44e994f846672f94b3997ba2076d8f949700ecf8b40046551d57a0718344",
+ "samples": 1,
+ "recycles": 3,
+ "sampling_steps": 200,
+ "seed": 42,
+ "single_sequence": true,
+ "decomp": false,
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "1",
+ "arch": "blackhole",
+ "load_s": 1.52,
+ "loadavg_start": [
+  "4.14",
+  "4.57",
+  "4.55"
+ ],
+ "runs": [
+  {
+   "run": 0,
+   "fold_s": 203.529,
+   "device_s": 200.431,
+   "host_feat_s": 1.714,
+   "host_write_s": 0.092,
+   "plddt": 0.361632,
+   "n_tokens": 1024,
+   "n_atoms": 8239,
+   "cif_sha256": {
+    "ob_apo_1024.tt.cif": "8cbef51cd7477f5b"
+   },
+   "loadavg": [
+    "6.55",
+    "5.70",
+    "5.07"
+   ],
+   "regions": {
+    "device:model.fold": {
+     "calls": 1,
+     "s": 200.431,
+     "ms_per_call": 200430.916,
+     "pct_of_fold": 98.48
+    },
+    "host:build_features": {
+     "calls": 1,
+     "s": 1.714,
+     "ms_per_call": 1714.398,
+     "pct_of_fold": 0.84
+    },
+    "host:write_structure": {
+     "calls": 1,
+     "s": 0.092,
+     "ms_per_call": 91.749,
+     "pct_of_fold": 0.05
+    }
+   }
+  },
+  {
+   "run": 1,
+   "fold_s": 204.789,
+   "device_s": 201.946,
+   "host_feat_s": 1.439,
+   "host_write_s": 0.094,
+   "plddt": 0.361632,
+   "n_tokens": 1024,
+   "n_atoms": 8239,
+   "cif_sha256": {
+    "ob_apo_1024.tt.cif": "8cbef51cd7477f5b"
+   },
+   "loadavg": [
+    "4.49",
+    "5.21",
+    "5.00"
+   ],
+   "regions": {
+    "device:model.fold": {
+     "calls": 1,
+     "s": 201.946,
+     "ms_per_call": 201945.723,
+     "pct_of_fold": 98.61
+    },
+    "host:build_features": {
+     "calls": 1,
+     "s": 1.439,
+     "ms_per_call": 1438.566,
+     "pct_of_fold": 0.7
+    },
+    "host:write_structure": {
+     "calls": 1,
+     "s": 0.094,
+     "ms_per_call": 94.33,
+     "pct_of_fold": 0.05
+    }
+   }
+  },
+  {
+   "run": 2,
+   "fold_s": 202.124,
+   "device_s": 199.16,
+   "host_feat_s": 1.43,
+   "host_write_s": 0.084,
+   "plddt": 0.361632,
+   "n_tokens": 1024,
+   "n_atoms": 8239,
+   "cif_sha256": {
+    "ob_apo_1024.tt.cif": "8cbef51cd7477f5b"
+   },
+   "loadavg": [
+    "2.08",
+    "3.77",
+    "4.48"
+   ],
+   "regions": {
+    "device:model.fold": {
+     "calls": 1,
+     "s": 199.16,
+     "ms_per_call": 199159.869,
+     "pct_of_fold": 98.53
+    },
+    "host:build_features": {
+     "calls": 1,
+     "s": 1.43,
+     "ms_per_call": 1430.094,
+     "pct_of_fold": 0.71
+    },
+    "host:write_structure": {
+     "calls": 1,
+     "s": 0.084,
+     "ms_per_call": 84.105,
+     "pct_of_fold": 0.04
+    }
+   }
+  }
+ ],
+ "cold_s": 205.289,
+ "device_s_median": 200.431,
+ "fold_s_median": 203.529,
+ "device_spread_pct": 1.4,
+ "cif_reproducible": true
+}

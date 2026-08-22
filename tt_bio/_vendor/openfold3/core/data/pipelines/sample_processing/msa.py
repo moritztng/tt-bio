@@ -240,6 +240,7 @@ def create_main(
     aln_order: list[str],
     subsample_main: bool,
     keep_subsampled_order: bool,
+    af3_spec_profile_columns: bool = False,
 ) -> dict[str, MsaArray]:
     """Creates main MSA arrays from non-UniProt MSAs.
 
@@ -325,6 +326,7 @@ def create_main(
             msa_array=main_msa_redundant,
             molecule_type=msa_array_collection.rep_id_to_mol_type[rep_id],
             chunk_size=1000,
+            af3_spec_columns=af3_spec_profile_columns,
         )
         rep_id_to_del_mean[rep_id] = np.mean(main_deletion_matrix_redundant, axis=0)
 
@@ -401,6 +403,7 @@ class MsaSampleProcessor:
             aln_order=config.aln_order,
             subsample_main=config.subsample_main,
             keep_subsampled_order=config.keep_subsampled_order,
+            af3_spec_profile_columns=config.af3_spec_profile_columns,
         )
 
     def create_query_seq(

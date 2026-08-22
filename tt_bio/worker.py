@@ -104,13 +104,14 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
         cfg["protenix_ckpt"] = str(weights.fetch("protenix-v2"))
         cfg["mol_dir"] = str(weights.fetch("mols"))    # CCD templates for nucleic acids / ligands
         return
-    # OpenFold3: the p2 preview weights are distributed by the OpenFold consortium and
-    # tt-bio deliberately does not download them (no parameter licence published), so
-    # this row is verify-only: $TT_BIO_OPENFOLD3 / $OF3_CKPT or the local cache, and a
-    # truncated copy is reported as such instead of dying inside torch.load.
-    if cfg.get("model") == "openfold3":
+    # OpenFold3 / OpenBind: neither checkpoint is downloaded (no parameter licence
+    # published), so these rows are verify-only -- $TT_BIO_OPENFOLD3 / $OF3_CKPT or
+    # $TT_BIO_OPENBIND, else the local cache, and a truncated copy is reported as such
+    # instead of dying inside torch.load. The artifact key is the model id, so the
+    # right checkpoint follows from --model with no second mapping to keep in sync.
+    if cfg.get("model") in _of3_family():
         cfg["msa_dir"] = _resolve_msa_dir(cfg.get("msa_dir"), cache)
-        cfg["of3_ckpt"] = str(weights.fetch("openfold3"))
+        cfg["of3_ckpt"] = str(weights.fetch(cfg["model"]))
         tmpl_struct_dir = Path(
             os.environ.get("OF3_TEMPLATE_STRUCTURES")
             or str(cache / "of3_template_structures"))
@@ -228,7 +229,7 @@ def _openfold3_template_map(path: Path) -> dict[str, str]:
     return out
 
 
-def _validate_openfold3_constraints(path) -> None:
+def _validate_openfold3_constraints(path, model: str = "openfold3") -> None:
     """Reject yaml `constraints:` blocks for OF3 instead of folding without them.
 
     The OF3 query is built with `covalent_bonds: None` (the bond graph is not
@@ -241,32 +242,77 @@ def _validate_openfold3_constraints(path) -> None:
     bonds = _read_bio_constraints(path)
     if bonds:
         raise RuntimeError(
-            "--model openfold3 does not port covalent bonds yet "
+            f"--model {model} does not port covalent bonds yet "
             f"(got {len(bonds)} constraint(s) from {path.name}); the fold would "
             "silently ignore them. Remove the constraints block or use "
             "--model protenix-v2 / opendde.")
 
 
-def _validate_openfold3_chains(chains: list) -> None:
-    """Reject OF3 inputs that would otherwise fold into plausible-looking garbage.
+def _warn_openfold3_affinity_ignored(path, model: str) -> None:
+    """Say so when a `properties: affinity` block will not be answered.
 
-    Ligand chains are out of scope (polymer-only port); a blank/whitespace sequence
-    would tokenize to UNK placeholders and still produce a status=ok structure — the
-    silent-garbage class from tt-bio-fold-succeeds-on-malformed-input. Unknown residue
-    CODES (X/Z/...) stay upstream-compatible: the vendored featurizer maps them to UNK
-    with a warning, exactly like the reference implementation.
+    Enabling ligands on --model openbind made this reachable: an affinity yaml used to
+    be refused by the ligand gate, so the request could not be silently dropped. Now the
+    fold succeeds and the affinity block simply produces nothing. Unlike a dropped
+    `constraints:` block -- which changes the structure and is therefore a hard error in
+    _validate_openfold3_constraints -- this only omits an extra output, so a loud warning
+    is the proportionate response rather than refusing a fold the user can still use.
+    """
+    if path.suffix.lower() not in (".yml", ".yaml"):
+        return
+    import yaml
+
+    doc = yaml.safe_load(path.read_text()) or {}
+    props = doc.get("properties") or []
+    binders = [str(pr["affinity"].get("binder"))
+               for pr in props
+               if isinstance(pr, dict) and isinstance(pr.get("affinity"), dict)]
+    if binders:
+        import click
+
+        click.secho(
+            f"Note: --model {model} predicts structure only; the `properties: affinity` "
+            f"block in {path.name} (binder {', '.join(binders)}) is NOT answered and no "
+            f"affinity value is written. Use --model boltz2 for affinity.",
+            fg="yellow")
+
+
+def _validate_openfold3_chains(chains: list, model: str = "openfold3") -> None:
+    """Reject OF3/OpenBind inputs that would otherwise fold into plausible-looking garbage.
+
+    A blank/whitespace sequence would tokenize to UNK placeholders and still produce a
+    status=ok structure — the silent-garbage class from
+    tt-bio-fold-succeeds-on-malformed-input. Unknown residue CODES (X/Z/...) stay
+    upstream-compatible: the vendored featurizer maps them to UNK with a warning,
+    exactly like the reference implementation.
+
+    Ligands are accepted for ``--model openbind`` and still refused for
+    ``--model openfold3``. That split is deliberate and is not a leftover: OpenBind is
+    the checkpoint upstream trained and evaluated for protein-ligand co-folding, while
+    OF3-preview2 was released as a polymer model. The featurizer would happily build a
+    ligand for preview2 and preview2 would happily emit a status=ok structure for it,
+    which is the same silent-garbage failure this function exists to stop — it would
+    just be garbage produced by an untrained-for-the-task checkpoint rather than by a
+    malformed input.
     """
     if not chains:
         raise RuntimeError("no protein/nucleic-acid sequences")
-    non_polymer = [cid for cid, _s, _sp, mt in chains if mt not in ("protein", "rna", "dna")]
-    if non_polymer:
+    allowed = ("protein", "rna", "dna") + (("ligand",) if model == "openbind" else ())
+    rejected = [cid for cid, _s, _sp, mt in chains if mt not in allowed]
+    if rejected:
+        ligands = [cid for cid, _s, _sp, mt in chains if mt == "ligand"]
+        hint = ("--model openbind folds protein-ligand complexes"
+                if ligands and model != "openbind"
+                else "see docs/openfold3-port.md")
         raise RuntimeError(
-            f"--model openfold3 is polymer-only for now (chain(s) {non_polymer} are "
-            "ligands); see docs/openfold3-port.md.")
+            f"--model {model} is polymer-only: chain(s) {rejected} are not "
+            f"protein/rna/dna. {hint}.")
+    # A ligand chain carries its spec (SMILES or CCD_<code>) in the sequence slot, so the
+    # blank check applies to it too: an empty ligand spec builds no molecule at all.
     blank = [cid for cid, cseq, _sp, _mt in chains if not cseq or not cseq.strip()]
     if blank:
         raise RuntimeError(
-            f"--model openfold3: chain(s) {blank} have empty/whitespace-only sequences.")
+            f"--model {model}: chain(s) {blank} have empty/whitespace-only sequences.")
 
 
 def _prefetch_openfold3_template_structures(tmpl_map: dict[str, str],
@@ -344,6 +390,17 @@ def _is_saprot_model(model_id: str) -> bool:
     from tt_bio.main import SAPROT_MODELS
 
     return model_id in SAPROT_MODELS
+
+
+def _of3_family() -> tuple[str, ...]:
+    """The --model ids the OpenFold3 implementation serves (preview2 and OpenBind).
+
+    Imported lazily like the two predicates below: tt_bio.main imports this module,
+    so a module-level import would be a cycle.
+    """
+    from tt_bio.main import OF3_FAMILY
+
+    return OF3_FAMILY
 
 
 def _is_embed_model(model_id: str) -> bool:
@@ -470,7 +527,7 @@ class _WorkerState:
             from tt_bio.protenix import Protenix
 
             self.model = Protenix.load_from_checkpoint(cfg["protenix_ckpt"])
-        elif model_id == "openfold3":
+        elif model_id in _of3_family():
             import ttnn
 
             from tt_bio.openfold3_fold import OpenFold3
@@ -600,7 +657,7 @@ class _WorkerState:
             return self._predict_opendde_one(path, cfg)
         if cfg.get("model") == "protenix-v2":
             return self._predict_protenix_one(path, cfg)
-        if cfg.get("model") == "openfold3":
+        if cfg.get("model") in _of3_family():
             return self._predict_openfold3_one(path, cfg)
         if cfg.get("model") == "rf3":
             return self._predict_rf3_one(path, cfg)
@@ -1231,9 +1288,11 @@ class _WorkerState:
         from tt_bio.esmfold2 import report_progress
         from tt_bio.main import _read_bio_chains, _read_bio_constraints
 
+        model = cfg.get("model", "openfold3")
         chains = _read_bio_chains(path)
-        _validate_openfold3_chains(chains)
-        _validate_openfold3_constraints(path)
+        _validate_openfold3_chains(chains, model)
+        _validate_openfold3_constraints(path, model)
+        _warn_openfold3_affinity_ignored(path, model)
         tmpl_map = _openfold3_template_map(path)
         unknown_tmpl = sorted(set(tmpl_map) - {cid for cid, _s, _sp, _mt in chains})
         if unknown_tmpl:
@@ -1243,22 +1302,41 @@ class _WorkerState:
         msa_dir = Path(cfg["msa_dir"])
 
         report_progress("msa")
-        _MT = {"protein": "PROTEIN", "rna": "RNA", "dna": "DNA"}
+        _MT = {"protein": "PROTEIN", "rna": "RNA", "dna": "DNA", "ligand": "LIGAND"}
+
+        def _query_chain(cid, cseq, spec, mt):
+            """One upstream Chain dict. Ligands take smiles/ccd_codes and NO sequence.
+
+            `_read_bio_chains` hands a ligand its spec in the sequence slot, using the
+            same "CCD_<code>" convention the boltz2 and protenix paths already parse:
+            a CCD code becomes ccd_codes=[code], anything else is treated as SMILES.
+            Upstream keys off exactly these two fields (inference_query_format.Chain),
+            and a LIGAND chain with `sequence` set is not a thing upstream builds.
+            """
+            chain = {"molecule_type": _MT[mt], "chain_ids": [cid],
+                     "non_canonical_residues": None,
+                     "paired_msa_file_paths": None,
+                     "template_alignment_file_path": None,
+                     "template_entry_chain_ids": None,
+                     "sdf_file_path": None}
+            if mt == "ligand":
+                ccd = cseq[4:].strip() if cseq.upper().startswith("CCD_") else None
+                chain.update(sequence=None, smiles=None if ccd else cseq.strip(),
+                             ccd_codes=[ccd] if ccd else None,
+                             main_msa_file_paths=None)
+                return chain
+            chain.update(
+                sequence=cseq, smiles=None, ccd_codes=None,
+                main_msa_file_paths=([str(Path(spec).expanduser())]
+                                     if spec and Path(spec).expanduser().exists()
+                                     else None))
+            chain["template_alignment_file_path"] = tmpl_map.get(cid)
+            return chain
+
         query = {
             "query_name": path.stem, "use_msas": True, "use_paired_msas": False,
             "use_main_msas": True, "covalent_bonds": None,
-            "chains": [
-                {"molecule_type": _MT[mt], "chain_ids": [cid], "sequence": cseq,
-                 "non_canonical_residues": None, "smiles": None, "ccd_codes": None,
-                 "paired_msa_file_paths": None,
-                 "main_msa_file_paths": ([str(Path(spec).expanduser())]
-                                         if spec and Path(spec).expanduser().exists()
-                                         else None),
-                 "template_alignment_file_path": tmpl_map.get(cid),
-                 "template_entry_chain_ids": None,
-                 "sdf_file_path": None}
-                for cid, cseq, spec, mt in chains
-            ],
+            "chains": [_query_chain(cid, cseq, spec, mt) for cid, cseq, spec, mt in chains],
         }
 
         report_progress("prep")
@@ -1336,7 +1414,8 @@ class _WorkerState:
                 tmpl_map, Path(cfg["of3_template_structures"]))
         features = build_openfold3_features(
             of3_query,
-            template_structures_directory=cfg["of3_template_structures"])
+            template_structures_directory=cfg["of3_template_structures"],
+            openbind=(model == "openbind"))
         # Default = the featurizer max_rows (16384), i.e. NO extra subsampling: the
         # CPU reference folds the full featurized MSA, so any lower cap is an input
         # divergence (measured on 9BK6: the 1024-row subsample cost chain A

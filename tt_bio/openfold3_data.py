@@ -202,6 +202,7 @@ def build_openfold3_features(
     template_settings: TemplateSettings | None = None,
     ccd_file_path: str | None = None,
     template_structures_directory: str | Path | None = None,
+    openbind: bool = False,
 ) -> dict[str, torch.Tensor]:
     """Featurizes a single OpenFold3 `Query` into a model-ready feature dict.
 
@@ -217,9 +218,24 @@ def build_openfold3_features(
     training augmentation) and `take_top_k=True`. The default parse order/caps are
     extended with `cfdb_hits` (cap 100000000, per docs/source/precomputed_msa_how_to.md)
     so the OpenFold3 S3 benchmark MSA directories, which ship `cfdb_hits.a3m`, parse.
+
+    ``openbind`` selects the two MSA featurizer fixes upstream shipped with v0.5.0 and
+    the OpenBind checkpoint: the AF3-spec ``deletion_value`` scale (2/pi, where preview2
+    used 8/pi -- exactly 4x too large) and the AF3-spec MSA ``profile`` column index
+    (np.tile, where preview2 used np.repeat and produced a permuted profile for any MSA
+    deeper than one row). Both are keyed off the checkpoint rather than simply corrected,
+    because preview2 trained for 155k steps on the uncorrected features; handing it the
+    fixed ones is an input-distribution shift on a shipped, parity-gated model. Default
+    False, so every existing preview2 fold is bit-identical.
+
+    Both fixes are invisible at MSA depth 1: the two deletion scales both multiply a
+    zero deletion matrix, and np.tile == np.repeat when n_rows == 1. A single-sequence
+    fold therefore cannot distinguish the two variants, which is why the unit gate in
+    tests/test_openbind_featurizer.py drives them with a real multi-row MSA.
     """
     if msa_settings is None:
-        msa_settings = MSASettings(subsample_main=False)
+        msa_settings = MSASettings(subsample_main=False,
+                                   af3_spec_profile_columns=openbind)
         if "cfdb_hits" not in msa_settings.max_seq_counts:
             msa_settings.max_seq_counts["cfdb_hits"] = 100000000
             msa_settings.aln_order.insert(
@@ -254,6 +270,7 @@ def build_openfold3_features(
             max_rows=msa_settings.max_rows,
             max_rows_paired=msa_settings.max_rows_paired,
             subsample_with_bands=msa_settings.subsample_with_bands,
+            af3_spec_deletion_value=openbind,
         )
     )
     msa_input = MsaSampleProcessorInputInference.create_from_inference_query_entry(
