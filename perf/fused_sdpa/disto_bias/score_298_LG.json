@@ -1,0 +1,71 @@
+{
+ "size": 298,
+ "seeds": [
+  0,
+  1,
+  2
+ ],
+ "n_tokens": 298,
+ "n_bins": 65,
+ "sampling_steps": 5,
+ "diffusion_samples": 1,
+ "segments": {
+  "whole": {
+   "n_residues": 294,
+   "n_pairs": 28595,
+   "rho": {
+    "none": [
+     0.936929,
+     0.936525,
+     0.937179
+    ],
+    "g": [
+     0.933369,
+     0.93751,
+     0.937874
+    ]
+   },
+   "rho_shipped_spread": 0.000654,
+   "rho_margin_per_seed": [
+    -0.00356,
+    0.000986,
+    0.000695
+   ],
+   "rho_margin_mean": -0.000626,
+   "rho_margin_boot_ci95": [
+    -0.003493,
+    0.001361
+   ],
+   "threshold": -0.000163,
+   "verdict": "FLOOR-side",
+   "near_is_low_bin": true,
+   "topk": 58,
+   "n_long_range_pairs": 22723,
+   "bin_cut": 20,
+   "contact_precision_by_Eb": {
+    "none": [
+     1.0,
+     1.0,
+     1.0
+    ],
+    "g": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "contact_precision_by_Pnear": {
+    "none": [
+     0.810345,
+     0.810345,
+     0.810345
+    ],
+    "g": [
+     0.827586,
+     0.810345,
+     0.810345
+    ]
+   }
+  }
+ }
+}

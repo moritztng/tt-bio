@@ -1,0 +1,1474 @@
+{
+"alphafold/alphafold_iteration/distogram_head/half_logits//bias": [
+64
+],
+"alphafold/alphafold_iteration/distogram_head/half_logits//weights": [
+128,
+64
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/msa_column_attention/attention//gating_b": [
+48,
+8,
+32
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/msa_column_attention/attention//gating_w": [
+48,
+256,
+8,
+32
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/msa_column_attention/attention//key_w": [
+48,
+256,
+8,
+32
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/msa_column_attention/attention//output_b": [
+48,
+256
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/msa_column_attention/attention//output_w": [
+48,
+8,
+32,
+256
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/msa_column_attention/attention//query_w": [
+48,
+256,
+8,
+32
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/msa_column_attention/attention//value_w": [
+48,
+256,
+8,
+32
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/msa_column_attention/query_norm//offset": [
+48,
+256
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/msa_column_attention/query_norm//scale": [
+48,
+256
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/msa_row_attention_with_pair_bias//feat_2d_weights": [
+48,
+128,
+8
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/msa_row_attention_with_pair_bias/attention//gating_b": [
+48,
+8,
+32
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/msa_row_attention_with_pair_bias/attention//gating_w": [
+48,
+256,
+8,
+32
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/msa_row_attention_with_pair_bias/attention//key_w": [
+48,
+256,
+8,
+32
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/msa_row_attention_with_pair_bias/attention//output_b": [
+48,
+256
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/msa_row_attention_with_pair_bias/attention//output_w": [
+48,
+8,
+32,
+256
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/msa_row_attention_with_pair_bias/attention//query_w": [
+48,
+256,
+8,
+32
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/msa_row_attention_with_pair_bias/attention//value_w": [
+48,
+256,
+8,
+32
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/msa_row_attention_with_pair_bias/feat_2d_norm//offset": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/msa_row_attention_with_pair_bias/feat_2d_norm//scale": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/msa_row_attention_with_pair_bias/query_norm//offset": [
+48,
+256
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/msa_row_attention_with_pair_bias/query_norm//scale": [
+48,
+256
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/msa_transition/input_layer_norm//offset": [
+48,
+256
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/msa_transition/input_layer_norm//scale": [
+48,
+256
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/msa_transition/transition1//bias": [
+48,
+1024
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/msa_transition/transition1//weights": [
+48,
+256,
+1024
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/msa_transition/transition2//bias": [
+48,
+256
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/msa_transition/transition2//weights": [
+48,
+1024,
+256
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/outer_product_mean//output_b": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/outer_product_mean//output_w": [
+48,
+32,
+32,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/outer_product_mean/layer_norm_input//offset": [
+48,
+256
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/outer_product_mean/layer_norm_input//scale": [
+48,
+256
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/outer_product_mean/left_projection//bias": [
+48,
+32
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/outer_product_mean/left_projection//weights": [
+48,
+256,
+32
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/outer_product_mean/right_projection//bias": [
+48,
+32
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/outer_product_mean/right_projection//weights": [
+48,
+256,
+32
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/pair_transition/input_layer_norm//offset": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/pair_transition/input_layer_norm//scale": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/pair_transition/transition1//bias": [
+48,
+512
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/pair_transition/transition1//weights": [
+48,
+128,
+512
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/pair_transition/transition2//bias": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/pair_transition/transition2//weights": [
+48,
+512,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_attention_ending_node//feat_2d_weights": [
+48,
+128,
+4
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_attention_ending_node/attention//gating_b": [
+48,
+4,
+32
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_attention_ending_node/attention//gating_w": [
+48,
+128,
+4,
+32
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_attention_ending_node/attention//key_w": [
+48,
+128,
+4,
+32
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_attention_ending_node/attention//output_b": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_attention_ending_node/attention//output_w": [
+48,
+4,
+32,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_attention_ending_node/attention//query_w": [
+48,
+128,
+4,
+32
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_attention_ending_node/attention//value_w": [
+48,
+128,
+4,
+32
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_attention_ending_node/query_norm//offset": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_attention_ending_node/query_norm//scale": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_attention_starting_node//feat_2d_weights": [
+48,
+128,
+4
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_attention_starting_node/attention//gating_b": [
+48,
+4,
+32
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_attention_starting_node/attention//gating_w": [
+48,
+128,
+4,
+32
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_attention_starting_node/attention//key_w": [
+48,
+128,
+4,
+32
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_attention_starting_node/attention//output_b": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_attention_starting_node/attention//output_w": [
+48,
+4,
+32,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_attention_starting_node/attention//query_w": [
+48,
+128,
+4,
+32
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_attention_starting_node/attention//value_w": [
+48,
+128,
+4,
+32
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_attention_starting_node/query_norm//offset": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_attention_starting_node/query_norm//scale": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_incoming/center_layer_norm//offset": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_incoming/center_layer_norm//scale": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_incoming/gating_linear//bias": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_incoming/gating_linear//weights": [
+48,
+128,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_incoming/layer_norm_input//offset": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_incoming/layer_norm_input//scale": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_incoming/left_gate//bias": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_incoming/left_gate//weights": [
+48,
+128,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_incoming/left_projection//bias": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_incoming/left_projection//weights": [
+48,
+128,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_incoming/output_projection//bias": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_incoming/output_projection//weights": [
+48,
+128,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_incoming/right_gate//bias": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_incoming/right_gate//weights": [
+48,
+128,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_incoming/right_projection//bias": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_incoming/right_projection//weights": [
+48,
+128,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_outgoing/center_layer_norm//offset": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_outgoing/center_layer_norm//scale": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_outgoing/gating_linear//bias": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_outgoing/gating_linear//weights": [
+48,
+128,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_outgoing/layer_norm_input//offset": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_outgoing/layer_norm_input//scale": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_outgoing/left_gate//bias": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_outgoing/left_gate//weights": [
+48,
+128,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_outgoing/left_projection//bias": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_outgoing/left_projection//weights": [
+48,
+128,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_outgoing/output_projection//bias": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_outgoing/output_projection//weights": [
+48,
+128,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_outgoing/right_gate//bias": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_outgoing/right_gate//weights": [
+48,
+128,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_outgoing/right_projection//bias": [
+48,
+128
+],
+"alphafold/alphafold_iteration/evoformer/evoformer_iteration/triangle_multiplication_outgoing/right_projection//weights": [
+48,
+128,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_activations//bias": [
+64
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_activations//weights": [
+25,
+64
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/msa_column_global_attention/attention//gating_b": [
+4,
+8,
+8
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/msa_column_global_attention/attention//gating_w": [
+4,
+64,
+8,
+8
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/msa_column_global_attention/attention//key_w": [
+4,
+64,
+8
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/msa_column_global_attention/attention//output_b": [
+4,
+64
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/msa_column_global_attention/attention//output_w": [
+4,
+8,
+8,
+64
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/msa_column_global_attention/attention//query_w": [
+4,
+64,
+8,
+8
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/msa_column_global_attention/attention//value_w": [
+4,
+64,
+8
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/msa_column_global_attention/query_norm//offset": [
+4,
+64
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/msa_column_global_attention/query_norm//scale": [
+4,
+64
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/msa_row_attention_with_pair_bias//feat_2d_weights": [
+4,
+128,
+8
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/msa_row_attention_with_pair_bias/attention//gating_b": [
+4,
+8,
+8
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/msa_row_attention_with_pair_bias/attention//gating_w": [
+4,
+64,
+8,
+8
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/msa_row_attention_with_pair_bias/attention//key_w": [
+4,
+64,
+8,
+8
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/msa_row_attention_with_pair_bias/attention//output_b": [
+4,
+64
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/msa_row_attention_with_pair_bias/attention//output_w": [
+4,
+8,
+8,
+64
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/msa_row_attention_with_pair_bias/attention//query_w": [
+4,
+64,
+8,
+8
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/msa_row_attention_with_pair_bias/attention//value_w": [
+4,
+64,
+8,
+8
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/msa_row_attention_with_pair_bias/feat_2d_norm//offset": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/msa_row_attention_with_pair_bias/feat_2d_norm//scale": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/msa_row_attention_with_pair_bias/query_norm//offset": [
+4,
+64
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/msa_row_attention_with_pair_bias/query_norm//scale": [
+4,
+64
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/msa_transition/input_layer_norm//offset": [
+4,
+64
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/msa_transition/input_layer_norm//scale": [
+4,
+64
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/msa_transition/transition1//bias": [
+4,
+256
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/msa_transition/transition1//weights": [
+4,
+64,
+256
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/msa_transition/transition2//bias": [
+4,
+64
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/msa_transition/transition2//weights": [
+4,
+256,
+64
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/outer_product_mean//output_b": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/outer_product_mean//output_w": [
+4,
+32,
+32,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/outer_product_mean/layer_norm_input//offset": [
+4,
+64
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/outer_product_mean/layer_norm_input//scale": [
+4,
+64
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/outer_product_mean/left_projection//bias": [
+4,
+32
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/outer_product_mean/left_projection//weights": [
+4,
+64,
+32
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/outer_product_mean/right_projection//bias": [
+4,
+32
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/outer_product_mean/right_projection//weights": [
+4,
+64,
+32
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/pair_transition/input_layer_norm//offset": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/pair_transition/input_layer_norm//scale": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/pair_transition/transition1//bias": [
+4,
+512
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/pair_transition/transition1//weights": [
+4,
+128,
+512
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/pair_transition/transition2//bias": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/pair_transition/transition2//weights": [
+4,
+512,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_attention_ending_node//feat_2d_weights": [
+4,
+128,
+4
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_attention_ending_node/attention//gating_b": [
+4,
+4,
+32
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_attention_ending_node/attention//gating_w": [
+4,
+128,
+4,
+32
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_attention_ending_node/attention//key_w": [
+4,
+128,
+4,
+32
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_attention_ending_node/attention//output_b": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_attention_ending_node/attention//output_w": [
+4,
+4,
+32,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_attention_ending_node/attention//query_w": [
+4,
+128,
+4,
+32
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_attention_ending_node/attention//value_w": [
+4,
+128,
+4,
+32
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_attention_ending_node/query_norm//offset": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_attention_ending_node/query_norm//scale": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_attention_starting_node//feat_2d_weights": [
+4,
+128,
+4
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_attention_starting_node/attention//gating_b": [
+4,
+4,
+32
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_attention_starting_node/attention//gating_w": [
+4,
+128,
+4,
+32
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_attention_starting_node/attention//key_w": [
+4,
+128,
+4,
+32
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_attention_starting_node/attention//output_b": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_attention_starting_node/attention//output_w": [
+4,
+4,
+32,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_attention_starting_node/attention//query_w": [
+4,
+128,
+4,
+32
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_attention_starting_node/attention//value_w": [
+4,
+128,
+4,
+32
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_attention_starting_node/query_norm//offset": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_attention_starting_node/query_norm//scale": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_incoming/center_layer_norm//offset": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_incoming/center_layer_norm//scale": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_incoming/gating_linear//bias": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_incoming/gating_linear//weights": [
+4,
+128,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_incoming/layer_norm_input//offset": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_incoming/layer_norm_input//scale": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_incoming/left_gate//bias": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_incoming/left_gate//weights": [
+4,
+128,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_incoming/left_projection//bias": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_incoming/left_projection//weights": [
+4,
+128,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_incoming/output_projection//bias": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_incoming/output_projection//weights": [
+4,
+128,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_incoming/right_gate//bias": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_incoming/right_gate//weights": [
+4,
+128,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_incoming/right_projection//bias": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_incoming/right_projection//weights": [
+4,
+128,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_outgoing/center_layer_norm//offset": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_outgoing/center_layer_norm//scale": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_outgoing/gating_linear//bias": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_outgoing/gating_linear//weights": [
+4,
+128,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_outgoing/layer_norm_input//offset": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_outgoing/layer_norm_input//scale": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_outgoing/left_gate//bias": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_outgoing/left_gate//weights": [
+4,
+128,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_outgoing/left_projection//bias": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_outgoing/left_projection//weights": [
+4,
+128,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_outgoing/output_projection//bias": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_outgoing/output_projection//weights": [
+4,
+128,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_outgoing/right_gate//bias": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_outgoing/right_gate//weights": [
+4,
+128,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_outgoing/right_projection//bias": [
+4,
+128
+],
+"alphafold/alphafold_iteration/evoformer/extra_msa_stack/triangle_multiplication_outgoing/right_projection//weights": [
+4,
+128,
+128
+],
+"alphafold/alphafold_iteration/evoformer/left_single//bias": [
+128
+],
+"alphafold/alphafold_iteration/evoformer/left_single//weights": [
+22,
+128
+],
+"alphafold/alphafold_iteration/evoformer/pair_activiations//bias": [
+128
+],
+"alphafold/alphafold_iteration/evoformer/pair_activiations//weights": [
+65,
+128
+],
+"alphafold/alphafold_iteration/evoformer/preprocess_1d//bias": [
+256
+],
+"alphafold/alphafold_iteration/evoformer/preprocess_1d//weights": [
+22,
+256
+],
+"alphafold/alphafold_iteration/evoformer/preprocess_msa//bias": [
+256
+],
+"alphafold/alphafold_iteration/evoformer/preprocess_msa//weights": [
+49,
+256
+],
+"alphafold/alphafold_iteration/evoformer/prev_msa_first_row_norm//offset": [
+256
+],
+"alphafold/alphafold_iteration/evoformer/prev_msa_first_row_norm//scale": [
+256
+],
+"alphafold/alphafold_iteration/evoformer/prev_pair_norm//offset": [
+128
+],
+"alphafold/alphafold_iteration/evoformer/prev_pair_norm//scale": [
+128
+],
+"alphafold/alphafold_iteration/evoformer/prev_pos_linear//bias": [
+128
+],
+"alphafold/alphafold_iteration/evoformer/prev_pos_linear//weights": [
+15,
+128
+],
+"alphafold/alphafold_iteration/evoformer/right_single//bias": [
+128
+],
+"alphafold/alphafold_iteration/evoformer/right_single//weights": [
+22,
+128
+],
+"alphafold/alphafold_iteration/evoformer/single_activations//bias": [
+384
+],
+"alphafold/alphafold_iteration/evoformer/single_activations//weights": [
+256,
+384
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/attention//key_w": [
+64,
+4,
+16
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/attention//output_b": [
+128
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/attention//output_w": [
+4,
+16,
+128
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/attention//query_w": [
+128,
+4,
+16
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/attention//value_w": [
+64,
+4,
+16
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/embedding2d//bias": [
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/embedding2d//weights": [
+88,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/output_layer_norm//offset": [
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/output_layer_norm//scale": [
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/pair_transition/input_layer_norm//offset": [
+2,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/pair_transition/input_layer_norm//scale": [
+2,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/pair_transition/transition1//bias": [
+2,
+128
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/pair_transition/transition1//weights": [
+2,
+64,
+128
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/pair_transition/transition2//bias": [
+2,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/pair_transition/transition2//weights": [
+2,
+128,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_attention_ending_node//feat_2d_weights": [
+2,
+64,
+4
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_attention_ending_node/attention//gating_b": [
+2,
+4,
+16
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_attention_ending_node/attention//gating_w": [
+2,
+64,
+4,
+16
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_attention_ending_node/attention//key_w": [
+2,
+64,
+4,
+16
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_attention_ending_node/attention//output_b": [
+2,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_attention_ending_node/attention//output_w": [
+2,
+4,
+16,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_attention_ending_node/attention//query_w": [
+2,
+64,
+4,
+16
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_attention_ending_node/attention//value_w": [
+2,
+64,
+4,
+16
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_attention_ending_node/query_norm//offset": [
+2,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_attention_ending_node/query_norm//scale": [
+2,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_attention_starting_node//feat_2d_weights": [
+2,
+64,
+4
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_attention_starting_node/attention//gating_b": [
+2,
+4,
+16
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_attention_starting_node/attention//gating_w": [
+2,
+64,
+4,
+16
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_attention_starting_node/attention//key_w": [
+2,
+64,
+4,
+16
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_attention_starting_node/attention//output_b": [
+2,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_attention_starting_node/attention//output_w": [
+2,
+4,
+16,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_attention_starting_node/attention//query_w": [
+2,
+64,
+4,
+16
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_attention_starting_node/attention//value_w": [
+2,
+64,
+4,
+16
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_attention_starting_node/query_norm//offset": [
+2,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_attention_starting_node/query_norm//scale": [
+2,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_incoming/center_layer_norm//offset": [
+2,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_incoming/center_layer_norm//scale": [
+2,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_incoming/gating_linear//bias": [
+2,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_incoming/gating_linear//weights": [
+2,
+64,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_incoming/layer_norm_input//offset": [
+2,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_incoming/layer_norm_input//scale": [
+2,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_incoming/left_gate//bias": [
+2,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_incoming/left_gate//weights": [
+2,
+64,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_incoming/left_projection//bias": [
+2,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_incoming/left_projection//weights": [
+2,
+64,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_incoming/output_projection//bias": [
+2,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_incoming/output_projection//weights": [
+2,
+64,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_incoming/right_gate//bias": [
+2,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_incoming/right_gate//weights": [
+2,
+64,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_incoming/right_projection//bias": [
+2,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_incoming/right_projection//weights": [
+2,
+64,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_outgoing/center_layer_norm//offset": [
+2,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_outgoing/center_layer_norm//scale": [
+2,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_outgoing/gating_linear//bias": [
+2,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_outgoing/gating_linear//weights": [
+2,
+64,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_outgoing/layer_norm_input//offset": [
+2,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_outgoing/layer_norm_input//scale": [
+2,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_outgoing/left_gate//bias": [
+2,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_outgoing/left_gate//weights": [
+2,
+64,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_outgoing/left_projection//bias": [
+2,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_outgoing/left_projection//weights": [
+2,
+64,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_outgoing/output_projection//bias": [
+2,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_outgoing/output_projection//weights": [
+2,
+64,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_outgoing/right_gate//bias": [
+2,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_outgoing/right_gate//weights": [
+2,
+64,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_outgoing/right_projection//bias": [
+2,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_embedding/single_template_embedding/template_pair_stack/__layer_stack_no_state/triangle_multiplication_outgoing/right_projection//weights": [
+2,
+64,
+64
+],
+"alphafold/alphafold_iteration/evoformer/template_projection//bias": [
+256
+],
+"alphafold/alphafold_iteration/evoformer/template_projection//weights": [
+256,
+256
+],
+"alphafold/alphafold_iteration/evoformer/template_single_embedding//bias": [
+256
+],
+"alphafold/alphafold_iteration/evoformer/template_single_embedding//weights": [
+57,
+256
+],
+"alphafold/alphafold_iteration/experimentally_resolved_head/logits//bias": [
+37
+],
+"alphafold/alphafold_iteration/experimentally_resolved_head/logits//weights": [
+384,
+37
+],
+"alphafold/alphafold_iteration/masked_msa_head/logits//bias": [
+23
+],
+"alphafold/alphafold_iteration/masked_msa_head/logits//weights": [
+256,
+23
+],
+"alphafold/alphafold_iteration/predicted_aligned_error_head/logits//bias": [
+64
+],
+"alphafold/alphafold_iteration/predicted_aligned_error_head/logits//weights": [
+128,
+64
+],
+"alphafold/alphafold_iteration/predicted_lddt_head/act_0//bias": [
+128
+],
+"alphafold/alphafold_iteration/predicted_lddt_head/act_0//weights": [
+384,
+128
+],
+"alphafold/alphafold_iteration/predicted_lddt_head/act_1//bias": [
+128
+],
+"alphafold/alphafold_iteration/predicted_lddt_head/act_1//weights": [
+128,
+128
+],
+"alphafold/alphafold_iteration/predicted_lddt_head/input_layer_norm//offset": [
+384
+],
+"alphafold/alphafold_iteration/predicted_lddt_head/input_layer_norm//scale": [
+384
+],
+"alphafold/alphafold_iteration/predicted_lddt_head/logits//bias": [
+50
+],
+"alphafold/alphafold_iteration/predicted_lddt_head/logits//weights": [
+128,
+50
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/affine_update//bias": [
+6
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/affine_update//weights": [
+384,
+6
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/attention_layer_norm//offset": [
+384
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/attention_layer_norm//scale": [
+384
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/invariant_point_attention//trainable_point_weights": [
+12
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/invariant_point_attention/attention_2d//bias": [
+12
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/invariant_point_attention/attention_2d//weights": [
+128,
+12
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/invariant_point_attention/kv_point_local//bias": [
+432
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/invariant_point_attention/kv_point_local//weights": [
+384,
+432
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/invariant_point_attention/kv_scalar//bias": [
+384
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/invariant_point_attention/kv_scalar//weights": [
+384,
+384
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/invariant_point_attention/output_projection//bias": [
+384
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/invariant_point_attention/output_projection//weights": [
+2112,
+384
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/invariant_point_attention/q_point_local//bias": [
+144
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/invariant_point_attention/q_point_local//weights": [
+384,
+144
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/invariant_point_attention/q_scalar//bias": [
+192
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/invariant_point_attention/q_scalar//weights": [
+384,
+192
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/rigid_sidechain/input_projection//bias": [
+128
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/rigid_sidechain/input_projection//weights": [
+384,
+128
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/rigid_sidechain/input_projection_1//bias": [
+128
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/rigid_sidechain/input_projection_1//weights": [
+384,
+128
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/rigid_sidechain/resblock1//bias": [
+128
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/rigid_sidechain/resblock1//weights": [
+128,
+128
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/rigid_sidechain/resblock1_1//bias": [
+128
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/rigid_sidechain/resblock1_1//weights": [
+128,
+128
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/rigid_sidechain/resblock2//bias": [
+128
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/rigid_sidechain/resblock2//weights": [
+128,
+128
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/rigid_sidechain/resblock2_1//bias": [
+128
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/rigid_sidechain/resblock2_1//weights": [
+128,
+128
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/rigid_sidechain/unnormalized_angles//bias": [
+14
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/rigid_sidechain/unnormalized_angles//weights": [
+128,
+14
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/transition//bias": [
+384
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/transition//weights": [
+384,
+384
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/transition_1//bias": [
+384
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/transition_1//weights": [
+384,
+384
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/transition_2//bias": [
+384
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/transition_2//weights": [
+384,
+384
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/transition_layer_norm//offset": [
+384
+],
+"alphafold/alphafold_iteration/structure_module/fold_iteration/transition_layer_norm//scale": [
+384
+],
+"alphafold/alphafold_iteration/structure_module/initial_projection//bias": [
+384
+],
+"alphafold/alphafold_iteration/structure_module/initial_projection//weights": [
+384,
+384
+],
+"alphafold/alphafold_iteration/structure_module/pair_layer_norm//offset": [
+128
+],
+"alphafold/alphafold_iteration/structure_module/pair_layer_norm//scale": [
+128
+],
+"alphafold/alphafold_iteration/structure_module/single_layer_norm//offset": [
+384
+],
+"alphafold/alphafold_iteration/structure_module/single_layer_norm//scale": [
+384
+]
+}

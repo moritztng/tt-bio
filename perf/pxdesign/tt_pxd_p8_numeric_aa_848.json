@@ -1,0 +1,55 @@
+{
+ "mode": "af2ig_fused_hifi_sanity",
+ "arm_b": "incumbent (A/A)",
+ "tokens": 848,
+ "incumbent_stats": {
+  "served": 0,
+  "declined": 0,
+  "too_short": 0
+ },
+ "fused_stats": {
+  "served": 0,
+  "declined": 0,
+  "too_short": 0
+ },
+ "incumbent": [
+  {
+   "tensor": "m",
+   "finite": true,
+   "nan": 0,
+   "inf": 0,
+   "absmax": 264.0,
+   "rms": 8.232624053955078
+  },
+  {
+   "tensor": "z",
+   "finite": true,
+   "nan": 0,
+   "inf": 0,
+   "absmax": 948.0,
+   "rms": 29.2629451751709
+  }
+ ],
+ "fused": [
+  {
+   "tensor": "m",
+   "finite": true,
+   "nan": 0,
+   "inf": 0,
+   "absmax": 264.0,
+   "rms": 8.232624053955078
+  },
+  {
+   "tensor": "z",
+   "finite": true,
+   "nan": 0,
+   "inf": 0,
+   "absmax": 948.0,
+   "rms": 29.2629451751709
+  }
+ ],
+ "m_rel_rms": 0.0,
+ "m_max_abs_delta": 0.0,
+ "z_rel_rms": 0.0,
+ "z_max_abs_delta": 0.0
+}

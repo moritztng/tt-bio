@@ -1,0 +1,28 @@
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/pxdesign-af2ig-port-p19/.p19/trees/p19_chunk_dark/scripts/af2_port/tap_gate.py", line 600, in <module>
+    raise SystemExit(main())
+  File "/home/ttuser/.coworker/wt/pxdesign-af2ig-port-p19/.p19/trees/p19_chunk_dark/scripts/af2_port/tap_gate.py", line 446, in main
+    taps, last = run_arm(state, feats, prev, template=template, dtype=torch.bfloat16,
+  File "/home/ttuser/.coworker/wt/pxdesign-af2ig-port-p19/.p19/trees/p19_chunk_dark/scripts/af2_port/tap_gate.py", line 368, in run_arm
+    for out in run_recycles(model, feats, prev, num_recycles=recycles):
+  File "/home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+  File "/home/ttuser/.coworker/wt/pxdesign-af2ig-port-p19/.p19/trees/p19_chunk_dark/tt_bio/af2_reference.py", line 1070, in run_recycles
+    out = model(feats, prev)
+  File "/home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1778, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1789, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/ttuser/.coworker/wt/pxdesign-af2ig-port-p19/.p19/trees/p19_chunk_dark/tt_bio/af2_reference.py", line 1000, in forward
+    pair = self.extra_msa_stack(extra, pair, extra_mask, mask_2d)
+  File "/home/ttuser/.coworker/wt/pxdesign-af2ig-port-p19/.p19/trees/p19_chunk_dark/tt_bio/af2.py", line 788, in extra_msa_stack
+    z = block(block._residual(z, const))
+  File "/home/ttuser/.coworker/wt/pxdesign-af2ig-port-p19/.p19/trees/p19_chunk_dark/tt_bio/af2.py", line 356, in __call__
+    z = self._residual(z, self._update(name, device, z))
+  File "/home/ttuser/.coworker/wt/pxdesign-af2ig-port-p19/.p19/trees/p19_chunk_dark/tt_bio/af2.py", line 343, in _update
+    return device(x, *args)
+  File "/home/ttuser/.coworker/wt/pxdesign-af2ig-port-p19/.p19/trees/p19_chunk_dark/tt_bio/af2.py", line 351, in <lambda>
+    ("tri_att_start", lambda t: self.tri_att_start(t, attn_mask)),
+  File "/home/ttuser/.coworker/wt/pxdesign-af2ig-port-p19/.p19/trees/p19_chunk_dark/tt_bio/tenstorrent.py", line 4029, in __call__
+    ) if self.fuse_qkv else None
+AttributeError: 'TriangleAttention' object has no attribute 'fuse_qkv'

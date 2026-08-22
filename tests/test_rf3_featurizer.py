@@ -20,10 +20,12 @@ import pytest
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "scripts" / "rf3_port"))
+sys.path.insert(0, str(REPO / "tests"))
+from _port_module import port_module  # noqa: E402
 
 
 def test_rf3_featurizer_parity():
-    from parity_gate import featurizer_parity
+    featurizer_parity = port_module("rf3_port", "parity_gate").featurizer_parity
 
     rep = featurizer_parity()
     if rep["verdict"] == "GAP_ENV":

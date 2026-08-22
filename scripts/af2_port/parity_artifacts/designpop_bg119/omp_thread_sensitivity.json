@@ -1,0 +1,67 @@
+{
+ "design": "binder_t0.5_s3",
+ "tokens": 207,
+ "arm": "device",
+ "stage": "complex",
+ "why": "the 6B device acceptance check saw one scalar in one of 50 designs differ from the committed baseline in its last printed digit. Three fresh single-id processes all returned the same value, so it is not device nondeterminism and not a position dependence. It is the host thread count: the confidence scalars are reduced on host and OMP_NUM_THREADS changes the summation order.",
+ "committed_baseline": {
+  "plddt": 0.948787,
+  "ptm": 0.591808,
+  "i_ptm": 0.156815,
+  "pae": 0.378241,
+  "i_pae": 0.764015,
+  "unscaled_i_pae": 23.684451
+ },
+ "by_omp_threads": {
+  "1": {
+   "ref": {
+    "plddt": 0.948788,
+    "ptm": 0.591808,
+    "i_ptm": 0.156815,
+    "pae": 0.378241,
+    "i_pae": 0.764014,
+    "unscaled_i_pae": 23.684449
+   },
+   "dev_plddt": 0.94601
+  },
+  "4": {
+   "ref": {
+    "plddt": 0.948788,
+    "ptm": 0.591808,
+    "i_ptm": 0.156815,
+    "pae": 0.378241,
+    "i_pae": 0.764015,
+    "unscaled_i_pae": 23.684451
+   },
+   "dev_plddt": 0.94601
+  },
+  "8": {
+   "ref": {
+    "plddt": 0.948787,
+    "ptm": 0.591808,
+    "i_ptm": 0.156815,
+    "pae": 0.378241,
+    "i_pae": 0.764015,
+    "unscaled_i_pae": 23.684451
+   },
+   "dev_plddt": 0.94601
+  },
+  "32": {
+   "ref": {
+    "plddt": 0.948787,
+    "ptm": 0.591808,
+    "i_ptm": 0.156815,
+    "pae": 0.378241,
+    "i_pae": 0.764015,
+    "unscaled_i_pae": 23.684451
+   },
+   "dev_plddt": 0.94601
+  }
+ },
+ "matches_baseline": {
+  "1": false,
+  "4": false,
+  "8": true,
+  "32": true
+ }
+}

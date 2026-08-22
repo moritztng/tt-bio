@@ -1,0 +1,99 @@
+{
+ "mode": "af2ig_triatt_fused_hifi_screen",
+ "rows": [
+  {
+   "tokens": 848,
+   "fused_hifi": false,
+   "passes": 3,
+   "first_s": 36.461574631000985,
+   "warm_s": 36.35728472699884,
+   "warm_min_s": 36.3544841260009,
+   "all_s": [
+    36.461574631000985,
+    36.360085327996785,
+    36.3544841260009
+   ],
+   "hifi_stats": {
+    "served": 0,
+    "declined": 0,
+    "too_short": 0
+   },
+   "persistent_mask_delta": [
+    0,
+    0
+   ],
+   "rejects": {}
+  },
+  {
+   "tokens": 848,
+   "fused_hifi": true,
+   "passes": 3,
+   "first_s": 36.359128025000246,
+   "warm_s": 36.37440396450074,
+   "warm_min_s": 36.37133313400045,
+   "all_s": [
+    36.359128025000246,
+    36.377474795001035,
+    36.37133313400045
+   ],
+   "hifi_stats": {
+    "served": 0,
+    "declined": 312,
+    "too_short": 0
+   },
+   "persistent_mask_delta": [
+    0,
+    3
+   ],
+   "rejects": {
+    "('fill_preconditions', (848, 4, 848, 32))": 3
+   }
+  },
+  {
+   "tokens": 848,
+   "fused_hifi": false,
+   "passes": 3,
+   "first_s": 36.37134318199969,
+   "warm_s": 36.41094011700079,
+   "warm_min_s": 36.39841129600245,
+   "all_s": [
+    36.37134318199969,
+    36.39841129600245,
+    36.42346893799913
+   ],
+   "hifi_stats": {
+    "served": 0,
+    "declined": 0,
+    "too_short": 0
+   },
+   "persistent_mask_delta": [
+    0,
+    0
+   ],
+   "rejects": {}
+  },
+  {
+   "tokens": 848,
+   "fused_hifi": true,
+   "passes": 3,
+   "first_s": 36.392842789002316,
+   "warm_s": 36.41118172500137,
+   "warm_min_s": 36.408451209001214,
+   "all_s": [
+    36.392842789002316,
+    36.413912241001526,
+    36.408451209001214
+   ],
+   "hifi_stats": {
+    "served": 0,
+    "declined": 312,
+    "too_short": 0
+   },
+   "persistent_mask_delta": [
+    0,
+    0
+   ],
+   "rejects": {}
+  }
+ ]
+}
