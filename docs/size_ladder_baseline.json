@@ -3,7 +3,7 @@
     "p150a": {
       "recorded": "2026-08-22",
       "host": "pc",
-      "commit": "98f8a738",
+      "commit": "ca74bc3f",
       "models": {
         "boltz2": {
           "grid": "13x10",
@@ -2786,10 +2786,10 @@
         "openfold3": {
           "grid": "13x10",
           "runtime_s": {
-            "256": 11.3,
-            "512": 32.3,
-            "640": 54.6,
-            "768": 84.6
+            "256": 10.2,
+            "512": 33.2,
+            "640": 57.0,
+            "768": 90.7
           },
           "levers": {
             "256": {
@@ -2880,6 +2880,10 @@
                 "declined": 440,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:256x256x64": 16,
+                  "l1_dest_is_faster:256x256x128": 424
+                },
                 "reason": "declines all 440 calls: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -2888,6 +2892,10 @@
                 "declined": 440,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,1)": 16,
+                  "k_tiles=4:(4,1)": 424
+                },
                 "reason": "declines all 440 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1288 at 640 and above, which is the pair track taking its row-blocked path"
               },
               "TRIMUL_TAIL_F1": {
@@ -2950,6 +2958,13 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "never reached at this size, 0 offered and 0 declined: openfold3's triangle attention does not route through the fused kernel's call site at any rung"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -3111,6 +3126,10 @@
                 "declined": 440,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:512x512x64": 16,
+                  "l1_dest_is_faster:512x512x128": 424
+                },
                 "reason": "declines all 440 calls: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -3119,6 +3138,10 @@
                 "declined": 440,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,1)": 16,
+                  "k_tiles=4:(4,1)": 424
+                },
                 "reason": "declines all 440 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1288 at 640 and above, which is the pair track taking its row-blocked path"
               },
               "TRIMUL_TAIL_F1": {
@@ -3176,6 +3199,13 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "never reached at this size, 0 offered and 0 declined: openfold3's triangle attention does not route through the fused kernel's call site at any rung"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -3337,14 +3367,23 @@
                 "declined": 440,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:640x640x64": 16,
+                  "l1_dest_is_faster:640x640x128": 424
+                },
                 "reason": "declines all 440 calls: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1287,
+                "declined": 1282,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,1)": 16,
+                  "k_tiles=4:(4,4)": 842,
+                  "k_tiles=4:(4,1)": 424
+                },
                 "reason": "declines all 1287 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1288 at 640 and above, which is the pair track taking its row-blocked path"
               },
               "TRIMUL_TAIL_F1": {
@@ -3402,6 +3441,13 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "never reached at this size, 0 offered and 0 declined: openfold3's triangle attention does not route through the fused kernel's call site at any rung"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -3563,6 +3609,10 @@
                 "declined": 440,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:768x768x64": 16,
+                  "l1_dest_is_faster:768x768x128": 424
+                },
                 "reason": "declines all 440 calls: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -3571,6 +3621,11 @@
                 "declined": 1288,
                 "frac": 0.0,
                 "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,1)": 16,
+                  "k_tiles=4:(4,4)": 848,
+                  "k_tiles=4:(4,1)": 424
+                },
                 "reason": "declines all 1288 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1288 at 640 and above, which is the pair track taking its row-blocked path"
               },
               "TRIMUL_TAIL_F1": {
@@ -3628,6 +3683,13 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "never reached at this size, 0 offered and 0 declined: openfold3's triangle attention does not route through the fused kernel's call site at any rung"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -3707,14 +3769,14 @@
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0278,
+          "sigma_runtime_512": 0.0212,
           "exponents": {
             "256->512": {
-              "k": 1.515,
+              "k": 1.703,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.375,
+              "k": 2.479,
               "tol": 0.5
             }
           }
