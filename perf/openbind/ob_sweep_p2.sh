@@ -6,6 +6,7 @@
 # worktree path, which would silently fold a different tree.
 set -u
 CARD="$1"; TAG="$2"; shift 2
+REPEAT=${REPEAT:-3}   # warm folds after the discarded cold one
 WT=/home/ttuser/.coworker/wt/openbind-perf-p2
 PY=/home/ttuser/tt-bio-dev/env/bin/python3
 OUTDIR=$WT/perf/openbind/tt_results
@@ -23,7 +24,7 @@ for cell in "$@"; do
       TT_BIO_LEASE_HOLDER=worker:openbind-perf-p2 \
       "$PY" perf/openbind/tt_ob_run.py --model "$model" \
       --input perf/openbind/inputs/$stem.tt.yaml --samples "$samples" \
-      --repeat 3 --label "$name" --out "$out" 2>&1 | tail -30
+      --repeat "$REPEAT" --label "$name" --out "$out" 2>&1 | tail -30
   echo "=== $name rc=$? @ $(date -u +%H:%M:%SZ) ==="
 done
 echo "SWEEP $TAG COMPLETE @ $(date -u +%H:%M:%SZ)"

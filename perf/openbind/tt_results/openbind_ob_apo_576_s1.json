@@ -1,0 +1,106 @@
+{
+ "model": "openbind",
+ "label": "openbind_ob_apo_576_s1",
+ "input": "ob_apo_576.tt.yaml",
+ "input_sha256": "77659cc59b824d59b0e88ebbacb82179ced37f6c8aea85eabc95b2cdaa394664",
+ "samples": 1,
+ "recycles": 3,
+ "sampling_steps": 200,
+ "seed": 42,
+ "single_sequence": true,
+ "decomp": false,
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "0",
+ "arch": "blackhole",
+ "load_s": 1.69,
+ "loadavg_start": [
+  "9.31",
+  "10.76",
+  "13.01"
+ ],
+ "timers_missing": [],
+ "runs": [
+  {
+   "run": 0,
+   "fold_s": 51.103,
+   "device_s": 49.375,
+   "host_feat_s": 1.079,
+   "host_write_s": 0.044,
+   "plddt": 0.454732,
+   "n_tokens": 576,
+   "n_atoms": 4634,
+   "cif_sha256": {
+    "ob_apo_576.tt.cif": "a6d97cc593c4a6fc"
+   },
+   "loadavg": [
+    "11.47",
+    "11.71",
+    "13.08"
+   ],
+   "regions": {
+    "device:model.fold": {
+     "calls": 1,
+     "s": 49.375,
+     "ms_per_call": 49374.894,
+     "pct_of_fold": 96.62
+    },
+    "host:build_features": {
+     "calls": 1,
+     "s": 1.079,
+     "ms_per_call": 1078.677,
+     "pct_of_fold": 2.11
+    },
+    "host:write_structure": {
+     "calls": 1,
+     "s": 0.044,
+     "ms_per_call": 43.556,
+     "pct_of_fold": 0.09
+    }
+   }
+  },
+  {
+   "run": 1,
+   "fold_s": 52.284,
+   "device_s": 50.938,
+   "host_feat_s": 0.716,
+   "host_write_s": 0.066,
+   "plddt": 0.454732,
+   "n_tokens": 576,
+   "n_atoms": 4634,
+   "cif_sha256": {
+    "ob_apo_576.tt.cif": "a6d97cc593c4a6fc"
+   },
+   "loadavg": [
+    "13.70",
+    "12.18",
+    "13.16"
+   ],
+   "regions": {
+    "device:model.fold": {
+     "calls": 1,
+     "s": 50.938,
+     "ms_per_call": 50938.422,
+     "pct_of_fold": 97.43
+    },
+    "host:build_features": {
+     "calls": 1,
+     "s": 0.716,
+     "ms_per_call": 716.074,
+     "pct_of_fold": 1.37
+    },
+    "host:write_structure": {
+     "calls": 1,
+     "s": 0.066,
+     "ms_per_call": 65.826,
+     "pct_of_fold": 0.13
+    }
+   }
+  }
+ ],
+ "cold_s": 88.373,
+ "device_s_median": 50.157,
+ "fold_s_median": 51.694,
+ "device_spread_pct": 3.17,
+ "cif_reproducible": true
+}
