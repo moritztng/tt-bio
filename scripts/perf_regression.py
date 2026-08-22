@@ -1293,13 +1293,16 @@ def _print_table(rows: list[dict], baselines: dict, card_type: str, machine_id: 
     # The protocol suffix is per-row: fold/embed legs run WARMUP+REPEAT
     # in-process (warmup>0); the single-shot legs (gen/design/affinity) run
     # SINGLE_SHOT_REPEAT end-to-end CLI reps and gate the median (warmup=0).
-    # Describe the first row's protocol so the title never mislabels a
-    # single-shot-only run as "2 warmup + 5 timed".
-    r0 = rows[0] if rows else {}
-    w = r0.get("warmup", WARMUP)
-    rep = r0.get("repeat", REPEAT)
-    warm_desc = (f"warm ({w} warmup + {rep} timed)" if w
-                 else f"median of {rep} end-to-end runs")
+    # Describe the protocol only when every row shares one, for the same reason as the
+    # input line below: taking it from rows[0] labelled a full 16-leg run
+    # "warm (2 warmup + 5 timed)" while boltzgen, rfd3 and boltz2-affinity had actually
+    # run single-shot (warmup=0, median of SINGLE_SHOT_REPEAT end-to-end reps).
+    def _protocol(r: dict) -> str:
+        w, rep = r.get("warmup", WARMUP), r.get("repeat", REPEAT)
+        return (f"warm ({w} warmup + {rep} timed)" if w
+                else f"median of {rep} end-to-end runs")
+    protocols = {_protocol(r) for r in rows} or {_protocol({})}   # empty table -> defaults
+    warm_desc = protocols.pop() if len(protocols) == 1 else "per-model protocol"
     title = (f"PERF REGRESSION GATE — card {card_type} @ {machine_id} — "
              f"{', '.join(r['model'] for r in rows)}  "
              f"| threshold ±{threshold:.0f}%  | {warm_desc}")
