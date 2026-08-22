@@ -69,6 +69,21 @@ _Q_SPLIT_MAX_S = 1024
 # throw and the fold lost 3.129 s against an A/A floor of 0.056 s.
 _PM_OVER_L1: set = set()
 
+# REACHABILITY, and it is not obvious from anything else in this file. `fill_preconditions` below
+# refuses whenever the plan needs a padded mask, and `k_chunk` is fixed by `_sdpa_chunks_shipped`
+# while only `q_chunk` is laddered. So this kernel serves only when the TILE-PADDED sequence is an
+# exact multiple of k_chunk (64 at every size measured) -- i.e. `ceil(S/32)` even -- and is dark on
+# every other token count. MEASURED on OpenFold3 (state/fused-sdpa-adopt.md §1d,
+# perf/fused_sdpa/gate_census_*.json):
+#
+#     298 tokens -> 320 = 5   x 64   use_padded_mask False   880 calls served
+#     274 tokens -> 288 = 4.5 x 64   use_padded_mask True      0 served, 912 declined
+#     585 tokens -> 608 = 9.5 x 64   use_padded_mask True      0 served, 3080 declined
+#
+# `TRIATT_FUSED_HIFI_STATS` cannot tell you which case you are in: a dark gate and a correctly
+# declining one both just increment `declined`. Any A/B on this kernel must assert `served > 0` on
+# the fused arm before reading a margin, or it measures an A/A and reports it as a null result.
+
 
 # Compute kernel config for the fused SDPA when the caller does not pass one. None means the op
 # default below, which is what every call took until RF3's triangle attention started passing its
