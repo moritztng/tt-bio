@@ -1,6 +1,6 @@
 {
   "schema": 2,
-  "updated": "2026-08-21",
+  "updated": "2026-08-22",
   "title": "TT-Bio: biomolecular structure, design and embeddings on Tenstorrent",
   "subtitle": "Six structure-prediction models at 512 residues and one binder-design model, measured on Tenstorrent Blackhole and on NVIDIA H200, B200 and A100.",
   "notes": [
@@ -369,10 +369,10 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 81.051,
+          "s_per_fold": 82.547,
           "parity": "reference-relative PASS, bit-exact run-to-run and cross-process",
-          "ref": "Seven warm folds of the shipped default across two independent processes under benchlock on qb2, ttnn 0.68.0: 80.800 / 80.904 / 81.012 / 81.051 / 81.295 / 81.346 / 81.415 s, median 81.051, spread 0.615 s (0.76 %), cold folds 91.159 and 84.884 s discarded. The A/A floor between the two processes is 0.388 s (0.48 %), so the spread sits at the floor. Reproducible digest across both processes: CIF sha256 34df7aba88dba1fb, plDDT 0.7797, pTM 0.6588 and 49 denoise calls on all seven warm folds and both cold folds, the denoise calls counted at the sampler rather than read off the config. Shipped default arm with no env flags, which is also the parity arm because RF3's accurate softmax is hard-wired on. AtomWorks host featurisation is 8.3 s or less of this fold, timed on its own on the same box and the same fixture, so this cell is far less host-bound than the two NVIDIA cells are. Raw: perf/rf3/page512/tt_shipped_qb2c0.json, tt_shipped2_qb2c0.json and tt_host_split_qb2.json.",
-          "updated": "2026-08-21",
+          "ref": "Four warm folds of the shipped default across two independent processes under benchlock on qb2 card 2, ttnn 0.68.0: 82.380 / 82.521 / 82.572 / 83.107 s, median 82.547, the two processes' own medians 82.451 and 82.840 for an A/A of 0.47 %, cold folds 86.285 and 85.705 s discarded. Reproducible digest across both processes: CIF sha256 34df7aba88dba1fb, plDDT 0.7797, pTM 0.6588 and 49 denoise calls on every warm and cold fold, the denoise calls counted at the sampler rather than read off the config. This cell read 81.051 s when it was first measured, on card 0 at commit 3b362142, and it is republished because the tree in between regressed it to 111.797 s and then recovered it. accurate_softmax gained triangle attention as a second consumer, which switched RF3's existing opt-in for attention-pair-bias on at the largest softmax site in its stack; triangle attention now has a site name of its own and ships the chain off. The recovered fold is bit-identical to the original measurement, same CIF sha256, same plDDT and pTM, so the digest is what establishes the recovery and the timing only prices it. About 1.5 s of the original 81.051 s has not come back, and it belongs to a separate change that cannot move a digest: the pair z-norm's L1 reserve. Shipped default arm with no env flags, which is also the parity arm. AtomWorks host featurisation is 8.3 s or less of this fold, timed on its own on the same box and the same fixture, so this cell is far less host-bound than the two NVIDIA cells are. Raw: perf/rf3/page512/bisect_fix_p1_qb2c2.json and bisect_fix_p2_qb2c2.json, the regressed arm in bisect_pre_p2_qb2c2.json, the original card-0 cell in tt_shipped_qb2c0.json and tt_shipped2_qb2c0.json, and the host split in tt_host_split_qb2.json.",
+          "updated": "2026-08-22",
           "split": {
             "host_s": 8.33,
             "in_cell": true,
