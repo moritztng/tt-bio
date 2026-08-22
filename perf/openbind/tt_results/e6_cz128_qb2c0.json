@@ -1,0 +1,68 @@
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "grid": [
+  11,
+  10
+ ],
+ "c_z": 128,
+ "trimul_calls_per_fold": 440,
+ "rows": [
+  {
+   "tokens": 512,
+   "eligible_gated": true,
+   "MB_per_role": 67.1,
+   "stock_ms": 4.5611,
+   "gated_ms": 2.0401,
+   "speedup": 2.2357,
+   "saved_ms_per_trimul": 2.521,
+   "saved_s_per_fold": 1.109,
+   "bit_exact": [
+    true,
+    true
+   ]
+  },
+  {
+   "tokens": 544,
+   "eligible_gated": true,
+   "MB_per_role": 75.8,
+   "stock_ms": 4.5024,
+   "gated_ms": 2.3049,
+   "speedup": 1.9534,
+   "saved_ms_per_trimul": 2.1974,
+   "saved_s_per_fold": 0.967,
+   "bit_exact": [
+    true,
+    true
+   ]
+  },
+  {
+   "tokens": 768,
+   "eligible_gated": true,
+   "MB_per_role": 151.0,
+   "stock_ms": 9.2045,
+   "gated_ms": 4.428,
+   "speedup": 2.0787,
+   "saved_ms_per_trimul": 4.7765,
+   "saved_s_per_fold": 2.102,
+   "bit_exact": [
+    true,
+    true
+   ]
+  },
+  {
+   "tokens": 1024,
+   "eligible_gated": true,
+   "MB_per_role": 268.4,
+   "stock_ms": 15.4913,
+   "gated_ms": 7.7319,
+   "speedup": 2.0035,
+   "saved_ms_per_trimul": 7.7594,
+   "saved_s_per_fold": 3.414,
+   "bit_exact": [
+    true,
+    true
+   ]
+  }
+ ]
+}

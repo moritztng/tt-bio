@@ -1,0 +1,146 @@
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "arch": "blackhole",
+ "grid": [
+  11,
+  10
+ ],
+ "compute_grid_main": [
+  11,
+  10
+ ],
+ "l1_per_bank": 1461760,
+ "l1_total_MB": 160.8,
+ "roofs": {
+  "copy_512x512x128": {
+   "ms": 0.3533,
+   "GBps": 379.9
+  },
+  "copy_544x544x128": {
+   "ms": 0.4019,
+   "GBps": 377.0
+  },
+  "copy_1024x1024x128": {
+   "ms": 1.3688,
+   "GBps": 392.2
+  },
+  "matmul_4096": {
+   "ms": 1.235,
+   "TFLOPs": 111.29
+  },
+  "trimul_mm_512_c32": {
+   "ms": 0.2321,
+   "TFLOPs": 37.01,
+   "chunk": 32,
+   "chunks_per_trimul": 4,
+   "l1_dest": false
+  },
+  "trimul_mm_544_c32": {
+   "ms": 0.5159,
+   "TFLOPs": 19.97,
+   "chunk": 32,
+   "chunks_per_trimul": 4,
+   "l1_dest": false
+  },
+  "trimul_mm_1024_c32": {
+   "ms": 0.9334,
+   "TFLOPs": 73.62,
+   "chunk": 32,
+   "chunks_per_trimul": 4,
+   "l1_dest": false
+  }
+ },
+ "cells": {
+  "512": {
+   "flops_per_block": {
+    "trimul_in_proj": 68719476736.0,
+    "trimul_triangle": 68719476736.0,
+    "trimul_out": 34359738368.0,
+    "triatt_qkv_proj": 51539607552.0,
+    "triatt_scores": 68719476736.0,
+    "triatt_av": 68719476736.0,
+    "triatt_out": 34359738368.0,
+    "transition_z": 103079215104.0,
+    "apb": 1015021568.0,
+    "transition_s": 1811939328.0,
+    "_total": 501043167232.0
+   },
+   "bytes_per_block": {
+    "trimul": 1476395008.0,
+    "triatt": 1744830464.0,
+    "transition": 872415232.0,
+    "_total": 4093640704.0
+   },
+   "roof_TFLOPs": 111.29,
+   "roof_GBps": 379.9,
+   "compute_floor_ms_per_block": 4.502,
+   "bandwidth_floor_ms_per_block": 10.776,
+   "binds": "bandwidth",
+   "floor_ms_per_block": 10.776,
+   "block_execs": 192,
+   "stack_floor_s": 2.069,
+   "arithmetic_intensity_FLOP_per_byte": 122.4
+  },
+  "544": {
+   "flops_per_block": {
+    "trimul_in_proj": 77577846784.0,
+    "trimul_triangle": 82426462208.0,
+    "trimul_out": 38788923392.0,
+    "triatt_qkv_proj": 58183385088.0,
+    "triatt_scores": 82426462208.0,
+    "triatt_av": 82426462208.0,
+    "triatt_out": 38788923392.0,
+    "transition_z": 116366770176.0,
+    "apb": 1105756160.0,
+    "transition_s": 1925185536.0,
+    "_total": 580016177152.0
+   },
+   "bytes_per_block": {
+    "trimul": 1666711552.0,
+    "triatt": 1969750016.0,
+    "transition": 984875008.0,
+    "_total": 4621336576.0
+   },
+   "roof_TFLOPs": 111.29,
+   "roof_GBps": 377.0,
+   "compute_floor_ms_per_block": 5.212,
+   "bandwidth_floor_ms_per_block": 12.258,
+   "binds": "bandwidth",
+   "floor_ms_per_block": 12.258,
+   "block_execs": 192,
+   "stack_floor_s": 2.354,
+   "arithmetic_intensity_FLOP_per_byte": 125.51
+  },
+  "1024": {
+   "flops_per_block": {
+    "trimul_in_proj": 274877906944.0,
+    "trimul_triangle": 549755813888.0,
+    "trimul_out": 137438953472.0,
+    "triatt_qkv_proj": 206158430208.0,
+    "triatt_scores": 549755813888.0,
+    "triatt_av": 549755813888.0,
+    "triatt_out": 137438953472.0,
+    "transition_z": 412316860416.0,
+    "apb": 2852126720.0,
+    "transition_s": 3623878656.0,
+    "_total": 2823974551552.0
+   },
+   "bytes_per_block": {
+    "trimul": 5905580032.0,
+    "triatt": 6979321856.0,
+    "transition": 3489660928.0,
+    "_total": 16374562816.0
+   },
+   "roof_TFLOPs": 111.29,
+   "roof_GBps": 392.2,
+   "compute_floor_ms_per_block": 25.375,
+   "bandwidth_floor_ms_per_block": 41.751,
+   "binds": "bandwidth",
+   "floor_ms_per_block": 41.751,
+   "block_execs": 192,
+   "stack_floor_s": 8.016,
+   "arithmetic_intensity_FLOP_per_byte": 172.46
+  }
+ }
+}

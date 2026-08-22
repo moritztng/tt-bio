@@ -1311,6 +1311,17 @@ def batched_matmul(a: ttnn.Tensor, b: ttnn.Tensor, compute_kernel_config=None,
     if cfg is None and rung:
         _BMM_CFG_REFUSED.add(key)
         _latch("bmm_cfg", "blocked")
+    elif cfg is None and key is not None:
+        # A class that met every entry condition and still got no config counted NOWHERE: the
+        # `blocked` branch above needs a rung, and rung 0 is the common case. So the census read
+        # `served=854 declined=0` at 544 tokens beside `served=64110 declined=0` at 576 and both
+        # looked healthy, while 544 was in fact handing almost every batched matmul back to ttnn's
+        # own planner -- the 1.8x-14x slower route named in `_BMM_CFG_RUNG`'s note. The tile counts
+        # are the clause: `_batched_matmul_search` only accepts a `per_core_M` that DIVIDES
+        # `m_tiles`, and 544 aa is 17 tiles with 17 prime.
+        _latch("bmm_cfg", "declined",
+               "no_config:mt=%d,kt=%d,nt=%d,batch=%d" % (
+                   -(-sa[-2] // 32), -(-sa[-1] // 32), -(-sb[-1] // 32), batch))
     if cfg is not None:
         try:
             out = ttnn.matmul(a, b, compute_kernel_config=compute_kernel_config,

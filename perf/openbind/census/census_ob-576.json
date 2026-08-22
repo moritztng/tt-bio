@@ -1,0 +1,356 @@
+{
+  "label": "ob-576",
+  "cli": [
+    "-m",
+    "tt_bio.main",
+    "predict",
+    "perf/openbind/inputs/ob_apo_576.tt.yaml",
+    "--model",
+    "openbind",
+    "--single_sequence",
+    "--sampling_steps",
+    "6",
+    "--diffusion_samples",
+    "1",
+    "--seed",
+    "0",
+    "--out_dir",
+    "/home/ttuser/.coworker/wt/openbind-perf-p2/perf/openbind/census/work/out_ob-576"
+  ],
+  "rc": 0,
+  "processes": 1,
+  "rows": [
+    {
+      "flag": "SPLIT_SWIGLU",
+      "how": "stats",
+      "counter": "tt_bio.esmc.SPLIT_STATS",
+      "resolved": "True",
+      "served": 0,
+      "declined": 0,
+      "rejects": null
+    },
+    {
+      "flag": "SPLIT_SWIGLU_SMALL_GRID",
+      "how": "stats-shared",
+      "counter": "tt_bio.esmc.SPLIT_STATS",
+      "resolved": "True",
+      "served": 0,
+      "declined": 0,
+      "rejects": null
+    },
+    {
+      "flag": "PAIR_FFN_L1_FC1",
+      "how": "stats",
+      "counter": "tt_bio.esmc.L1_FC1_STATS",
+      "resolved": "True",
+      "served": 0,
+      "declined": 0,
+      "rejects": null
+    },
+    {
+      "flag": "PAIR_FFN_L1_LN",
+      "how": "stats",
+      "counter": "tt_bio.esmc.L1_LN_STATS",
+      "resolved": "True",
+      "served": 0,
+      "declined": 0,
+      "rejects": null
+    },
+    {
+      "flag": "PAIR_FFN_L1_SLICE",
+      "how": "stats",
+      "counter": "tt_bio.esmc.L1_SLICE_STATS",
+      "resolved": "True",
+      "served": 0,
+      "declined": 0,
+      "rejects": null
+    },
+    {
+      "flag": "PAIR_FFN_FUSED_RESIDUAL",
+      "how": "stats",
+      "counter": "tt_bio.esmc.FUSED_RESID_STATS",
+      "resolved": "True",
+      "served": 0,
+      "declined": 0,
+      "rejects": null
+    },
+    {
+      "flag": "PAIR_FFN_FILL_ASSEMBLY",
+      "how": "stats",
+      "counter": "tt_bio.esmc.FILL_ASSEMBLY_STATS",
+      "resolved": "True",
+      "served": 0,
+      "declined": 0,
+      "rejects": null
+    },
+    {
+      "flag": "TRIMUL_IN_PROJ_DUAL_NOC",
+      "how": "stats",
+      "counter": "tt_bio.mm_dualnoc.STATS",
+      "resolved": "True",
+      "served": 440,
+      "declined": 0,
+      "rejects": null
+    },
+    {
+      "flag": "ADALN_S_HOIST",
+      "how": "wrap",
+      "counter": null,
+      "resolved": "True",
+      "served": 315,
+      "declined": 0,
+      "rejects": null
+    },
+    {
+      "flag": "FP32_SOFTMAX_BIAS_HOIST",
+      "how": "stats-dict",
+      "counter": "tt_bio.tenstorrent.FP32_SOFTMAX_STATS",
+      "resolved": "True",
+      "served": 440,
+      "declined": 440,
+      "rejects": null
+    },
+    {
+      "flag": "PAIR_TRANSPOSE_VIA_ROW_MAJOR",
+      "how": "wrap",
+      "counter": null,
+      "resolved": "True",
+      "served": 0,
+      "declined": 440,
+      "rejects": {
+        "l1_dest_is_faster:576x576x64": 16,
+        "l1_dest_is_faster:576x576x128": 424
+      }
+    },
+    {
+      "flag": "PAIR_PROJ_MINIMAL_MATMUL",
+      "how": "wrap",
+      "counter": null,
+      "resolved": "True",
+      "served": 0,
+      "declined": 1282,
+      "rejects": {
+        "k_tiles=2:(2,1)": 16,
+        "k_tiles=4:(4,4)": 842,
+        "k_tiles=4:(4,1)": 424
+      }
+    },
+    {
+      "flag": "TRIMUL_TAIL_F1",
+      "how": "stats",
+      "counter": "tt_bio.trimul_tail.STATS",
+      "resolved": "True",
+      "served": 0,
+      "declined": 440,
+      "rejects": {
+        "k_tiles=2": 16,
+        "k_tiles=4": 424
+      }
+    },
+    {
+      "flag": "QKV_MM_CONFIG",
+      "how": "wrap",
+      "counter": null,
+      "resolved": "True",
+      "served": 896,
+      "declined": 0,
+      "rejects": null
+    },
+    {
+      "flag": "DEVICE_LM_HANDOFF",
+      "how": "stats",
+      "counter": "tt_bio.esmfold2_runtime.LM_HANDOFF_STATS",
+      "resolved": "not-imported",
+      "served": null,
+      "declined": null,
+      "rejects": null
+    },
+    {
+      "flag": "REBLOCK_PERMUTE",
+      "how": "stats",
+      "counter": "tt_bio.reblock_permute.STATS",
+      "resolved": "True",
+      "served": 880,
+      "declined": 0,
+      "rejects": null
+    },
+    {
+      "flag": "REBLOCK_PERMUTE_BACK",
+      "how": "stats",
+      "counter": "tt_bio.reblock_permute.STATS_BACK",
+      "resolved": "True",
+      "served": 440,
+      "declined": 0,
+      "rejects": null
+    },
+    {
+      "flag": "REBLOCK_PERMUTE_GATED",
+      "how": "stats",
+      "counter": "tt_bio.reblock_permute.STATS_GATED",
+      "resolved": "True",
+      "served": 0,
+      "declined": 0,
+      "rejects": null
+    },
+    {
+      "flag": "TRIATT_PERSISTENT_MASK",
+      "how": "stats",
+      "counter": "tt_bio.triatt_sdpa.STATS",
+      "resolved": "True",
+      "served": 0,
+      "declined": 0,
+      "rejects": null
+    },
+    {
+      "flag": "SDPA_WIDE_K",
+      "how": "stats",
+      "counter": "tt_bio.tenstorrent.SDPA_K_CHUNK_STATS",
+      "resolved": "False",
+      "served": 0,
+      "declined": 0,
+      "rejects": null
+    },
+    {
+      "flag": "RFD3_SPARSE_BIAS",
+      "how": "stats",
+      "counter": "tt_bio.rfd3_bias.STATS",
+      "resolved": "not-imported",
+      "served": null,
+      "declined": null,
+      "rejects": null
+    },
+    {
+      "flag": "RFD3_FUSED_SCORES",
+      "how": "stats",
+      "counter": "tt_bio.rfd3_bias.FSTATS",
+      "resolved": "not-imported",
+      "served": null,
+      "declined": null,
+      "rejects": null
+    },
+    {
+      "flag": "TRIATT_HEAD_MAJOR_QKV",
+      "how": "stats",
+      "counter": "tt_bio.triatt_qkv.STATS",
+      "resolved": "True",
+      "served": 424,
+      "declined": 16,
+      "rejects": {
+        "head_dim_or_width": 16
+      }
+    },
+    {
+      "flag": "TRIATT_HEAD_MAJOR_TAIL",
+      "how": "stats",
+      "counter": "tt_bio.triatt_qkv.TAIL_STATS",
+      "resolved": "True",
+      "served": 424,
+      "declined": 0,
+      "rejects": null
+    },
+    {
+      "flag": "TRIATT_TAIL_OVER_L1",
+      "how": "stats-shared",
+      "counter": "tt_bio.triatt_qkv.TAIL_STATS",
+      "resolved": "True",
+      "served": 424,
+      "declined": 0,
+      "rejects": null
+    },
+    {
+      "flag": "B2_BIAS_SLICE_HOIST",
+      "how": "wrap",
+      "counter": null,
+      "resolved": "True",
+      "served": 0,
+      "declined": 0,
+      "rejects": null
+    },
+    {
+      "flag": "B2_ADALN_S_MEMO",
+      "how": "wrap",
+      "counter": null,
+      "resolved": "True",
+      "served": 0,
+      "declined": 0,
+      "rejects": null
+    },
+    {
+      "flag": "B2_TOKEN_DIT_SDPA",
+      "how": "off-by-design",
+      "counter": null,
+      "resolved": "False",
+      "served": null,
+      "declined": null,
+      "rejects": null
+    },
+    {
+      "flag": "TRANSPOSE_L1_RESIDENT",
+      "how": "wrap",
+      "counter": null,
+      "resolved": "1.25",
+      "served": 440,
+      "declined": 0,
+      "rejects": null
+    },
+    {
+      "flag": "SDPA_Q_CHUNK_FITS",
+      "how": "setlen",
+      "counter": "tt_bio.tenstorrent._SDPA_Q_CHUNK_OVER_L1",
+      "resolved": "True",
+      "served": 0,
+      "declined": 0,
+      "rejects": null
+    },
+    {
+      "flag": "LATCH:bmm_cfg",
+      "how": "latch",
+      "counter": "tt_bio.tenstorrent.LATCH_STATS",
+      "resolved": "latch",
+      "served": 64110,
+      "declined": 0,
+      "rejects": null
+    },
+    {
+      "flag": "LATCH:l1_out",
+      "how": "latch",
+      "counter": "tt_bio.tenstorrent.LATCH_STATS",
+      "resolved": "latch",
+      "served": 54,
+      "declined": 842,
+      "rejects": {
+        "refused": 6,
+        "blocked": 836,
+        "why:TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 84934656 B L1 buffer across ": 1
+      }
+    },
+    {
+      "flag": "LATCH:narrow_l1_out",
+      "how": "latch",
+      "counter": "tt_bio.tenstorrent.LATCH_STATS",
+      "resolved": "latch",
+      "served": 288,
+      "declined": 0,
+      "rejects": null
+    },
+    {
+      "flag": "LATCH:transpose_l1",
+      "how": "latch",
+      "counter": "tt_bio.tenstorrent.LATCH_STATS",
+      "resolved": "latch",
+      "served": 440,
+      "declined": 0,
+      "rejects": null
+    },
+    {
+      "flag": "LATCH:transpose_stage",
+      "how": "latch",
+      "counter": "tt_bio.tenstorrent.LATCH_STATS",
+      "resolved": "latch",
+      "served": 0,
+      "declined": 0,
+      "rejects": null
+    }
+  ],
+  "grid": "11x10"
+}
