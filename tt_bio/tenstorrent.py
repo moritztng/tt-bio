@@ -13,6 +13,7 @@ from . import triatt_qkv as _triatt_qkv
 from . import triatt_sdpa as _triatt_sdpa
 from . import trimul_tail as _trimul_tail
 from . import mm_generic as _mm_generic
+from .envflags import env_flag
 
 TRIANGLE_MULT_CHUNK_SIZE = 32
 TRIANGLE_ATT_CHUNK_SIZE_FAST = 1024
@@ -44,7 +45,7 @@ OPM_Z_BUDGET_BYTES = 1 << 28              # 0.25 GiB
 # 2 I J (C D) c_z to 2 I J D c_z, i.e. by C, and the intermediate (537 MB at 512 tokens,
 # C = D = 32) never exists. It costs one pass per MSA row, so it wins below depth ~C and
 # loses above it: the deep-MSA models keep the materialised form, which is what it is for.
-_OPM_SMALL_DEPTH = os.environ.get("TT_BIO_OPM_SMALL_DEPTH", "0") != "0"
+_OPM_SMALL_DEPTH = env_flag("TT_BIO_OPM_SMALL_DEPTH", False)
 OPM_SMALL_DEPTH_MAX = int(os.environ.get("TT_BIO_OPM_SMALL_DEPTH_MAX", "8"))
 #: [served, declined], so a census can tell a dark gate from a correctly declining one.
 OPM_SMALL_DEPTH_STATS = [0, 0]
@@ -153,7 +154,7 @@ TRANSITION_L1_CHUNK_BYTES_PER_CORE = _TRANSITION_L1_CHUNK_BYTES_BASE
 # because the fused path runs silu at half the SFPU rate the standalone op reaches. Release-gated:
 # the unfused form applies silu to the bf16-packed matmul output rather than to the fp32 dest
 # accumulator, so it is not bit-exact.
-_UNFUSED_SILU = os.environ.get("TT_BIO_UNFUSED_SILU", "0") == "1"
+_UNFUSED_SILU = env_flag("TT_BIO_UNFUSED_SILU", False)
 _FAST_MODE = False
 _DTYPE_OVERRIDE = None
 _DIFFUSION_FP32_DEVICE = False
@@ -510,6 +511,28 @@ def _no_host_pad(x: ttnn.Tensor, dtype, n: int, n_pad: int) -> ttnn.Tensor | Non
     return x if x.dtype == dtype else ttnn.typecast(x, dtype)
 
 
+def pad_dim(x: ttnn.Tensor, dtype, n: int, n_pad: int, *, dims: int = 1) -> ttnn.Tensor:
+    """Pad ``x`` from ``n`` to ``n_pad``, on device when ``_no_host_pad`` can do it and
+    through host torch when it cannot.
+
+    ``dims`` is how many trailing non-feature dims carry the padded extent: 1 for a token
+    or atom dim, 2 for a pair map that is square in it. The openfold3 diffusion path had
+    this written five times (``_pad_atoms`` and ``_pad_tokens`` twice each, ``_pad_pair``
+    once), identical apart from that ``F.pad`` spec.
+
+    ``openfold3_diffusion_transformer._pad_pair`` deliberately does NOT route here: its own
+    early exit returns the tensor in its original dtype where ``_no_host_pad`` typecasts to
+    ``dtype``, which is a behaviour difference and not a spelling one.
+    """
+    out = _no_host_pad(x, dtype, n, n_pad)
+    if out is not None:
+        return out
+    th = ttnn.to_torch(x).float()
+    if n_pad > n:
+        th = torch.nn.functional.pad(th, (0, 0) + (0, n_pad - n) * dims)
+    return ttnn.from_torch(th, layout=ttnn.TILE_LAYOUT, device=x.device(), dtype=dtype)
+
+
 ADALN_S_HOIST = True      # hoist the AdaLN conditioning half out of the diffusion rollout
 
 
@@ -533,7 +556,7 @@ def _cached(cache, key, make):
 
 # Kill switch so a fold-level A/B can run both arms without a checkout. Bit-exact either way --
 # see TrunkModule._apply_template_noop.
-_TEMPLATE_NOOP_GATE = os.environ.get("TT_BIO_TEMPLATE_NOOP_GATE", "1") != "0"
+_TEMPLATE_NOOP_GATE = env_flag("TT_BIO_TEMPLATE_NOOP_GATE", True)
 
 
 def _adaln_memory_config(atom_level: bool, large_seq_len: bool) -> ttnn.MemoryConfig | None:
@@ -747,12 +770,12 @@ def _sdpa_chunks_shipped(q_len: int, k_len: int) -> tuple:
 #
 # NOT bit-exact: k_chunk sets the online-softmax reduction order. The fold-level accuracy arm is
 # pLDDT, not a digest.
-_SDPA_DIV_K = os.environ.get("TT_BIO_SDPA_DIV_K", "1") != "0"
+_SDPA_DIV_K = env_flag("TT_BIO_SDPA_DIV_K", True)
 
 # K4: the same dividing pick inside the 256 < seq <= 384 band, where the fused kernel already
 # serves at k=64 and 64 is simply not the best divisor. See `_sdpa_chunks_shipped`. Ships OFF
 # until its fold-level A/B and pLDDT arm land on both architectures.
-_SDPA_BAND_DIV_K = os.environ.get("TT_BIO_SDPA_BAND_DIV_K", "0") != "0"
+_SDPA_BAND_DIV_K = env_flag("TT_BIO_SDPA_BAND_DIV_K", False)
 
 
 @lru_cache(maxsize=None)
@@ -778,14 +801,14 @@ def _tri_att_sdpa_program_config(q_len: int, k_len: int) -> ttnn.SDPAProgramConf
 _SDPA_Q_CHUNK_OVER_L1: set = set()
 
 # Kill switch so a fold-level A/B can run both arms without a checkout. Bit-exact either way.
-_SDPA_WIDE_Q = os.environ.get("TT_BIO_SDPA_WIDE_Q", "1") != "0"
+_SDPA_WIDE_Q = env_flag("TT_BIO_SDPA_WIDE_Q", True)
 
 # The atom-level AttentionPairBias widens q from ATOM_WINDOW (32) to ATOM_DIM (128) on dim -2.
 # That pad is tile-aligned (32 -> 128 adds exactly 3 tiles of zeros), so leaving TILE layout to
 # pad in ROW_MAJOR and tilizing back is a pure round trip. Measured off-fold at the production
 # shape [1, 224, 32, 128] bf16, median of 7 after 2 warm, torch.equal against the chain: chain
 # 160.53 us, pad in TILE 57.31 us (2.8011x). At the fold: -0.124 s at 512 aa, bit-exact.
-_ATOM_PAD_IN_TILE = os.environ.get("TT_BIO_ATOM_PAD_IN_TILE", "1") != "0"
+_ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
 
 # Boltz-2 diffusion, three levers under A/B. All three are boltz-2-exclusive by construction:
 # DiffusionTransformer is built only by tenstorrent.Diffusion, and atom_level=True AdaLN exists
@@ -819,7 +842,7 @@ _B2_TOKEN_DIT_SDPA = os.environ.get("BOLTZ2_TOKEN_DIT_SDPA", "0") == "1"
 # 0.0185-0.0217, so the block amplifies it ~16x and the fold is the only denominator that decides.
 # The cast itself is 4.19 MB read + 2.10 MB written at N=512; the win is the re-read, which the
 # SDPA reader pays once per (q_chunk, k_chunk) pair.
-_TRIATT_BIAS_B8 = os.environ.get("TT_BIO_TRIATT_BIAS_B8", "0") != "0"
+_TRIATT_BIAS_B8 = env_flag("TT_BIO_TRIATT_BIAS_B8", False)
 
 
 @lru_cache(maxsize=None)
@@ -904,13 +927,13 @@ def _tri_att_sdpa(q, k, v, bias, scale: float):
 #
 # NOT bit-exact -- k_chunk sets the online-softmax reduction order -- so the accuracy arm is the
 # fold's own structure and confidence, not a digest. See docs/sdpa-wide-k-parity.md.
-_SDPA_WIDE_K_DEFAULT = "0"
+_SDPA_WIDE_K_DEFAULT = False
 
 
 def _sdpa_wide_k() -> bool:
     """Read live rather than at import so one process can A/B both arms (`_tri_att_k_chunks` is
     deliberately not memoised for the same reason; its divisor loop is ~27 iterations)."""
-    return os.environ.get("TT_BIO_SDPA_WIDE_K", _SDPA_WIDE_K_DEFAULT) != "0"
+    return env_flag("TT_BIO_SDPA_WIDE_K", _SDPA_WIDE_K_DEFAULT)
 
 
 # What THIS process resolved at import, for `scripts/lever_census.py` to report next to the served
@@ -1034,7 +1057,7 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float):
 # in chunks against a running max, and the materialised one reduces each row in a single pass. The
 # bar is the port's own parity anchors against the torch reference, not a digest against the arm it
 # replaces.
-_TRIATT_FUSED_HIFI = os.environ.get("TT_BIO_TRIATT_FUSED_HIFI", "0") != "0"
+_TRIATT_FUSED_HIFI = env_flag("TT_BIO_TRIATT_FUSED_HIFI", False)
 
 # `fp32_dest_acc` is load-bearing rather than a knob: it is what keeps the qk product, the bias add,
 # the row max and the cross-chunk sum in a 32-bit DST between CB round trips. `math_approx` off and
@@ -1108,7 +1131,7 @@ def _tri_att_sdpa_hifi(q, k, v, bias, scale: float):
 
 # Kill switch for the batched program config, so a parity gate that spawns one fold per leg can
 # A/B it without a checkout.
-_BATCHED_MATMUL_ON = os.environ.get("TT_BIO_BATCHED_MATMUL", "1") != "0"
+_BATCHED_MATMUL_ON = env_flag("TT_BIO_BATCHED_MATMUL", True)
 
 # Output blocks at which a batched matmul reaches the DRAM roof on a p150a. Below it the grid is
 # under-occupied and the op falls off the read roof; above it, in1 is re-read from DRAM once per
@@ -3654,7 +3677,7 @@ class TriangleMultiplication(Module):
 #
 # Both are bit-exact. Gated because a per-call ratio is a screen, not a fold gain.
 QKV_MM_CONFIG = True
-_MM_CFG = os.environ.get("TT_BIO_QKV_MM_CONFIG", "1" if QKV_MM_CONFIG else "0") == "1"
+_MM_CFG = env_flag("TT_BIO_QKV_MM_CONFIG", QKV_MM_CONFIG)
 # n_tiles -> (M_block, K_block, N_block, subblock_h, subblock_w).
 # The nt=8 entry was (2,8,1,2,1), tuned at a small M. Swept over M on qb2 card 2 at K=256,
 # N=256 (perf/triatt_opt/stage1_sweep.json), the 4-block entry wins at EVERY M measured and the

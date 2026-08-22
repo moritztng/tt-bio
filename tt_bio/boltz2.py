@@ -25,6 +25,7 @@ from torch.nn import Linear as TorchLinear, Module, ModuleList, Sequential
 from torch.nn.functional import one_hot, pad
 
 from tt_bio.data import const
+from tt_bio.envflags import env_flag
 
 
 class _LazyTenstorrent:
@@ -5361,7 +5362,7 @@ class Boltz2(nn.Module):
                 # variable-shape sweeps. TT_BIO_BOLTZ2_KEEP_PROGRAM_CACHE=1 suppresses
                 # the clear so the screen in perf/boltz2-affinity-fixedcost can price
                 # what it costs; unset in production, so the shipped path is unchanged.
-                if os.environ.get("TT_BIO_BOLTZ2_KEEP_PROGRAM_CACHE", "0") != "1":
+                if not env_flag("TT_BIO_BOLTZ2_KEEP_PROGRAM_CACHE", False):
                     dev.disable_and_clear_program_cache()
                     dev.enable_program_cache()
             except Exception:

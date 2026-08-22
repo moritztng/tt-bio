@@ -39,7 +39,7 @@ import math
 import torch
 import ttnn
 
-from .tenstorrent import Module, CORE_GRID_MAIN, _dtype, _cached, _no_host_pad
+from .tenstorrent import Module, CORE_GRID_MAIN, _dtype, _cached, pad_dim
 from .openfold3_atom_transformer import OF3AtomTransformer
 from .openfold3_diffusion_transformer import OF3DiffusionTransformer
 from .openfold3_diffusion_decoder import OF3AtomAttentionDecoder
@@ -248,28 +248,6 @@ class OF3DiffusionModule(Module):
                            compute_kernel_config=self.compute_kernel_config,
                            core_grid=CORE_GRID_MAIN)
 
-    @staticmethod
-    def _pad_atoms(x, n_atom, NP, dtype=ttnn.bfloat16):
-        out = _no_host_pad(x, dtype, n_atom, NP)
-        if out is not None:
-            return out
-        th = ttnn.to_torch(x).float()
-        if NP > n_atom:
-            th = torch.nn.functional.pad(th, (0, 0, 0, NP - n_atom))
-        return ttnn.from_torch(th, layout=ttnn.TILE_LAYOUT,
-                               device=x.device(), dtype=dtype)
-
-    @staticmethod
-    def _pad_tokens(x, n_token, n_tok_pad, dtype=ttnn.bfloat16):
-        out = _no_host_pad(x, dtype, n_token, n_tok_pad)
-        if out is not None:
-            return out
-        th = ttnn.to_torch(x).float()
-        if n_tok_pad > n_token:
-            th = torch.nn.functional.pad(th, (0, 0, 0, n_tok_pad - n_token))
-        return ttnn.from_torch(th, layout=ttnn.TILE_LAYOUT,
-                               device=x.device(), dtype=dtype)
-
     def __call__(self, si_trunk, si, zij, cl0, plm0, rl_noisy, xl_noisy,
                  atom_mask_col, atom_mask_col_na, atom_to_token_idx_tt,
                  npe_flat_idx_tt, npe_zij_mask,
@@ -402,7 +380,7 @@ class OF3DiffusionModule(Module):
         ai_postglue = ttnn.clone(ai) if _return_intermediates else None
 
         # --- DiT (gated) -> ai. Feed padded (n_tok_pad) with the padded token mask. ---
-        ai_pad = self._pad_tokens(ai, n_token, n_tok_pad, self._act_dtype)  # [1, n_tok_pad, 768]
+        ai_pad = pad_dim(ai, self._act_dtype, n_token, n_tok_pad)  # [1, n_tok_pad, 768]
         if ai_pad is not ai:
             ttnn.deallocate(ai)
         ai_pad = self.dit(ai_pad, si, zij, token_mask_pad_tt, tok_mask_col_pad_tt,
@@ -417,7 +395,7 @@ class OF3DiffusionModule(Module):
         # --- AtomAttentionDecoder (gated) -> rl_update [1, n_atom, 3]. ---
         # Decoder reuses the encoder's ql (atom_transformer output), cl, and the
         # post-pair-update plm -- the same (ql, cl, plm) the reference decoder consumes.
-        ql_dec = self._pad_atoms(ql_enc, n_atom, NP, self._act_dtype)  # [1, NP, 128]
+        ql_dec = pad_dim(ql_enc, self._act_dtype, n_atom, NP)  # [1, NP, 128]
         if ql_dec is not ql_enc:
             ttnn.deallocate(ql_enc)
         rl_update = self.dec(ai_ln, ql_dec, cl_pad, plm, atom_mask_col,

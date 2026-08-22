@@ -18,11 +18,10 @@ published code omits it despite the pseudocode.
 
 from __future__ import annotations
 
-import os
-
 import torch
 import ttnn
 
+from tt_bio.envflags import env_flag
 from tt_bio.rf3.remap import (PAIRFORMER_DIMS, PAIRFORMER_FLAGS,
                               remap_pairformer_stack)
 from tt_bio.tenstorrent import CORE_GRID_MAIN, Module, Pairformer, _dtype
@@ -36,7 +35,7 @@ EPS = 1e-5
 #: reference, and on the largest tensor the row fold is 228x closer to it (7.670e-03 ->
 #: 3.363e-05 rel_rms at 768 tokens), but "more accurate" is still "different", so this is
 #: release-gated and stays opt-in until the head is re-scored against its capture.
-_GLN_ROW_FOLD = os.environ.get("TT_BIO_RF3_GLN_ROW_FOLD", "0") == "1"
+_GLN_ROW_FOLD = env_flag("TT_BIO_RF3_GLN_ROW_FOLD", False)
 
 
 
