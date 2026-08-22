@@ -1099,6 +1099,65 @@ _TRIATT_FUSED_HIFI_MIN_S = 128
 TRIATT_FUSED_HIFI_STATS = {"served": 0, "declined": 0, "too_short": 0}
 
 
+# In-fold dual-path probe for triangle attention. `TT_BIO_TRIATT_DUALPROBE=1` runs BOTH routes on
+# every fused call's own operands and records how far apart they are, split by real-token rows and
+# padded rows. Returns the route the fold asked for, so the fold itself is unchanged.
+#
+# It exists because an op screen cannot see padding. `perf/rf3/inputs/rf3_512.json` is exactly 512
+# tokens, so every capture taken from it has a full mask and no padded column, while a real fixture
+# (7ROA L117 -> padded 128) has 11 of 128 columns masked out. Padding is the one term that is both
+# absent from the screen and insensitive to the compute config, which is exactly the shape of a
+# 2.3x per-op win that moves the fold by nothing.
+_TRIATT_DUALPROBE = env_flag("TT_BIO_TRIATT_DUALPROBE", False)
+TRIATT_DUALPROBE_ROWS: list = []
+if _TRIATT_DUALPROBE and os.environ.get("TT_BIO_TRIATT_DUALPROBE_OUT"):
+    import atexit as _atexit
+
+    def _dualprobe_dump():
+        import json as _json
+        d = os.environ["TT_BIO_TRIATT_DUALPROBE_OUT"]
+        with open(os.path.join(d, f"dualprobe_{os.getpid()}.json"), "w") as fh:
+            _json.dump(TRIATT_DUALPROBE_ROWS, fh)
+
+    _atexit.register(_dualprobe_dump)
+
+
+def _triatt_dualprobe(o_fold, q, k, v, bias, scale_inv, bias_scale_inv, ckc, site=""):
+    """Record fused-vs-materialised divergence on one call. Returns `o_fold` untouched."""
+    import torch
+    other = _fp32_softmax_attention(q, k, v, bias, scale_inv=scale_inv,
+                                    compute_kernel_config=ckc, out_dtype=_dtype(),
+                                    bias_scale_inv=bias_scale_inv)
+    a = ttnn.to_torch(o_fold).double()
+    b = ttnn.to_torch(other).double()
+    ttnn.deallocate(other)
+    bt = ttnn.to_torch(bias).double()
+    # A padded column is one the bias masks out for every row and head. Derived from the tensor
+    # rather than from a token count, so this works for any model without threading a length in.
+    colmax = bt.amax(dim=tuple(range(bt.ndim - 1)))
+    pad_col = colmax < -1e4
+    n_valid = int((~pad_col).sum())
+
+    def rel(x, y):
+        d = (x - y)
+        n = y.pow(2).sum().sqrt()
+        return float(d.pow(2).sum().sqrt() / n) if float(n) > 0 else float("nan")
+
+    S = a.shape[2]
+    rec = {
+        "site": site, "shape": [int(d) for d in a.shape], "S": int(S),
+        "n_valid_cols": n_valid, "n_pad_cols": int(S - n_valid),
+        "rel_all": rel(a, b),
+        "rel_valid_rows": rel(a[:n_valid, :, :n_valid], b[:n_valid, :, :n_valid])
+        if n_valid else float("nan"),
+        "rel_pad_rows": rel(a[n_valid:], b[n_valid:]) if n_valid < a.shape[0] else None,
+        "max_abs_fused": float(a.abs().max()), "max_abs_mat": float(b.abs().max()),
+        "nan_fused": int(torch.isnan(a).sum()), "nan_mat": int(torch.isnan(b).sum()),
+    }
+    TRIATT_DUALPROBE_ROWS.append(rec)
+    return o_fold
+
+
 def _tri_att_sdpa_hifi(q, k, v, bias, scale: float):
     """Triangle attention through the fused SDPA at `_TRIATT_FUSED_HIFI_CKC`, or None to decline.
 
@@ -4053,6 +4112,11 @@ class TriangleAttention(Module):
                     )
             else:
                 o = _tri_att_sdpa(q, k, v, bias, self.scale**-1)
+                if _TRIATT_DUALPROBE:
+                    o = _triatt_dualprobe(o, q, k, v, bias, self.scale ** -1,
+                                          1.0 / self._bias_scale,
+                                          self.compute_kernel_config,
+                                          site=f"tri_att_{'end' if self.ending else 'start'}")
             ttnn.deallocate(q)
             ttnn.deallocate(k)
             ttnn.deallocate(v)

@@ -86,10 +86,23 @@ _PM_OVER_L1: set = set()
 #     HiFi2, approx on, no acc (the default) 0.01293    0.01293     1.432      0.169
 #     LoFi, any                              0.043-0.048           1.35-1.40
 #
-# So the whole materialised fp32-softmax path is 1.88x LESS accurate than the fused kernel run at
-# the fidelity the model's own matmuls already use, and 20.2x slower at 512 aa. Fidelity is free
-# here because this op is bandwidth-bound, not compute-bound: every arm above is within 27% on time
-# while spanning 10x on error.
+# CORRECTED (perf/fused_sdpa/errstruct_rf3_512.json). The 1.88x above is real but it is a norm, and
+# reading it as "the fused kernel is more accurate" conflated two arms and hid which component of the
+# error moved. On 14 calls captured across a real 512 aa recycler pass, the error split into a
+# per-row gain along the fp64 reference (par) and a per-channel direction error (perp):
+#
+#     arm                             rel_total vs materialised   rel_perp vs materialised
+#     op default (HiFi2, approx, -)   1.08 - 1.50x WORSE          1.12 - 2.38x WORSE
+#     HiFi4, approx off, acc          1.4 - 4.2x BETTER           0.97 - 1.13x, a wash
+#
+# So the op default -- which is what four of the six models ship -- is NOT more accurate per op, and
+# the HiFi4 arm's whole win sits in `par`, the component a residual+LayerNorm trunk tolerates. That
+# is why adopting it moved no fold. The knobs own different components: math_approx owns par and
+# does nothing to perp, fp32_dest_acc owns perp (1.51x at the deepest captured call), and
+# HiFi2->HiFi4 reaches perp only once the accumulator is already wide.
+#
+# Fidelity is free on time either way: this op is bandwidth-bound, and every arm above is within
+# 27% on time while spanning 10x on error.
 #
 # What does NOT work is lifting the kernel's intermediate CBs to fp32 (scores / attn@v accumulator /
 # running max+sum, `sdpa_program_factory.cpp:651-653`). Tried, all eight combinations: any mix of
@@ -98,7 +111,28 @@ _PM_OVER_L1: set = set()
 # matmul against a bf16 v, and the statistics CBs meet a bf16 scalar in the reduce. The plumbing was
 # removed again rather than left as a dark knob -- there is nothing to gain from it, since the fp32
 # DST already carries the reduction and the arm above beats the materialised path outright.
-_CKC_OVERRIDE = None
+_FIDELITY = {"LoFi": ttnn.MathFidelity.LoFi, "HiFi2": ttnn.MathFidelity.HiFi2,
+             "HiFi4": ttnn.MathFidelity.HiFi4}
+
+
+def ckc_from_env(spec=None):
+    """`TT_BIO_TRIATT_SDPA_CKC=<LoFi|HiFi2|HiFi4>,<math_approx 0|1>,<fp32_dest_acc 0|1>`, or None.
+
+    An A/B on this path has to flip the three knobs INDEPENDENTLY -- the op default bundles them and
+    a previous pass could not say which one carried the damage. Unset means today's op default, so
+    this is dead unless a leg asks for it.
+    """
+    spec = os.environ.get("TT_BIO_TRIATT_SDPA_CKC", "") if spec is None else spec
+    if not spec:
+        return None
+    parts = [x.strip() for x in spec.split(",")]
+    if len(parts) != 3 or parts[0] not in _FIDELITY:
+        raise SystemExit(f"TT_BIO_TRIATT_SDPA_CKC={spec!r}: want "
+                         f"<{'|'.join(_FIDELITY)}>,<0|1>,<0|1>")
+    return (_FIDELITY[parts[0]], parts[1] == "1", parts[2] == "1", False)
+
+
+_CKC_OVERRIDE = ckc_from_env()
 
 
 def _reject(reason, shape):

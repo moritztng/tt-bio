@@ -233,6 +233,11 @@ def main() -> int:
                     help="comma-separated captured call indices to k-chunk probe; default the first")
     ap.add_argument("--capture-out", default=None, help="torch.save the capture here for reuse")
     ap.add_argument("--capture-in", default=None, help="skip the fold, load a capture")
+    ap.add_argument("--lens", default="",
+                    help="comma-separated sequence lengths to re-score the first capture at, handed "
+                         "over RAW: a length that is not a multiple of 32 keeps its ragged tail, "
+                         "which is exactly what the fold does and what every prior screen padded "
+                         "away")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
 
@@ -358,6 +363,65 @@ def main() -> int:
         for t in (qd, kd, vd, bd):
             ttnn.deallocate(t)
         del ref, ceil
+
+    if args.lens:
+        g = grabs[0]
+        qh, kh, vh, bh = g["q"], g["k"], g["v"], g["bias"]
+        si, bsi = g["scale_inv"], g["bias_scale_inv"]
+        report["len_ladder"] = []
+        for n in [int(x) for x in args.lens.split(",") if x.strip()]:
+            if n > qh.shape[2]:
+                continue
+            # Each batch row of a triangle attention is an independent attention, so taking the
+            # first min(n, rows) of them and cutting the key axis to n is a valid call at length n.
+            nb = min(n, qh.shape[0])
+            qn, kn, vn = qh[:nb, :, :n], kh[:nb, :, :n], vh[:nb, :, :n]
+            bn = bh[:nb, :, :n, :n] if bh.shape[0] == qh.shape[0] else bh[:, :, :n, :n]
+            refn = fp64_ref(qn, kn, vn, bn, si, bsi)
+            ceiln = bf16_ceiling(qn, kn, vn, bn, si, bsi)
+            qdn, kdn, vdn, bdn = up(qn), up(kn), up(vn), up(bn)
+            bias_mul = bsi / si
+            bdn_f = bdn if abs(bias_mul - 1.0) < 1e-12 else ttnn.multiply(bdn, bias_mul)
+            row = {"n": n, "tile_aligned": n % 32 == 0, "batch": nb,
+                   "bf16_ceiling": err_struct(ceiln.double(), refn)}
+            for nm, fn in (
+                ("materialised", lambda: T._fp32_softmax_attention(
+                    qdn, kdn, vdn, bdn, scale_inv=si, compute_kernel_config=kcfg,
+                    out_dtype=ttnn.bfloat16, bias_scale_inv=bsi)),
+                ("fused_default", lambda: T._tri_att_sdpa(qdn, kdn, vdn, bdn_f, si)),
+                ("fused_hifi_acc", lambda: (
+                    setattr(_ts, "_CKC_OVERRIDE", (HF["HiFi4"], False, True, False)),
+                    T._tri_att_sdpa(qdn, kdn, vdn, bdn_f, si))[1]),
+            ):
+                try:
+                    o = fn()
+                except Exception as exc:  # noqa: BLE001
+                    row[nm] = {"error": f"{type(exc).__name__}: {str(exc)[:90]}"}
+                    continue
+                finally:
+                    _ts._CKC_OVERRIDE = None
+                if o is None:
+                    row[nm] = {"error": "declined"}
+                    continue
+                got = ttnn.to_torch(o).double()
+                ttnn.deallocate(o)
+                row[nm] = err_struct(got, refn)
+                del got
+            for a, b in (("fused_default", "materialised"), ("fused_hifi_acc", "materialised")):
+                if "rel_total" in row.get(a, {}) and "rel_total" in row.get(b, {}):
+                    row[f"{a}_over_mat_total"] = row[a]["rel_total"] / row[b]["rel_total"]
+                    row[f"{a}_over_mat_perp"] = row[a]["rel_perp"] / row[b]["rel_perp"]
+            report["len_ladder"].append(row)
+            al = "aligned" if row["tile_aligned"] else "RAGGED "
+            def _t(k):
+                return row[k].get("rel_total", float("nan")) if isinstance(row.get(k), dict) else float("nan")
+            print(f"  LEN n={n:5d} {al} mat {_t('materialised'):.4e}  "
+                  f"fused_def {_t('fused_default'):.4e} (x{row.get('fused_default_over_mat_total', float('nan')):.3f})  "
+                  f"fused_hifi {_t('fused_hifi_acc'):.4e} (x{row.get('fused_hifi_acc_over_mat_total', float('nan')):.3f})  "
+                  f"ceil {row['bf16_ceiling']['rel_total']:.4e}", flush=True)
+            for t in (qdn, kdn, vdn, bdn):
+                ttnn.deallocate(t)
+            del refn, ceiln
 
     # P1: does the fused arm carry MORE direction error while carrying LESS total error?
     p1 = []
