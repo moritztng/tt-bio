@@ -24,7 +24,7 @@ import tt_bio.tenstorrent as tt
 
 GRIDS = [(13, 10), (11, 10), (8, 8)]
 HEADS = [1, 2, 4, 8, 16]
-SIZES = [s for s in range(32, 1057, 32)] + [515, 547, 1023]
+SIZES = [s for s in range(32, 1057, 32)] + [515, 546, 547, 1023]
 
 
 def screen():
@@ -43,10 +43,17 @@ def screen():
                 hpr = heads * S
                 per_row = hpr * S * 4
                 tuned = tt._fp32_softmax_l1_rows(per_row, hpr)
-                blk, cores = tt._fp32_softmax_l1_plan(per_row, hpr)
+                blk, cores = tt._fp32_softmax_l1_plan(per_row, hpr, S)
                 row = {"heads": heads, "S": S, "tuned_rows": tuned,
                        "plan_rows": blk, "plan_cores": cores}
-                if tuned:
+                if S % 32:
+                    # `_fp32_softmax_shard` refuses a width that is not whole tiles, so a plan
+                    # here would cap the block with no shard behind it: measured 0.786x-0.928x.
+                    if blk:
+                        failures.append(("planned a block for a width no shard can take", row))
+                    if tuned:
+                        failures.append(("the tuned rectangle serves a ragged width", row))
+                elif tuned:
                     if (blk, cores) != (tuned, 64):
                         failures.append(("moved a size the rectangle already serves", row))
                 elif blk:

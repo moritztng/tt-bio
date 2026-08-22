@@ -1484,18 +1484,29 @@ def _fp32_softmax_core_budget() -> int:
 
 
 @lru_cache(maxsize=None)
-def _fp32_softmax_l1_plan(per_row: int, height_per_row: int, cap: int | None = None) -> tuple:
+def _fp32_softmax_l1_plan(per_row: int, height_per_row: int, width: int,
+                          cap: int | None = None) -> tuple:
     """``(rows, cores)`` for the largest L1-resident score block, or ``(0, 0)`` when there is none.
 
     The tuned 8x8 answer wins whenever it exists, so every size that is L1-resident today keeps
     exactly the block and the core grid it has. Only a size the rectangle cannot serve reaches the
     second search, and there the core count is a free variable: pick the tallest block the budget
     affords whose shard count has a divisor big enough to keep every core under the byte budget.
+
+    ``width`` is the score tensor key dim, and a plan is only worth having when the shard it
+    implies can be built at all: a block cap with no shard behind it is the worst of both, because
+    the loop pays a slice and a concat per block and not one block is resident. MEASURED at a
+    ragged 515-token key dim, where `_fp32_softmax_shard` refuses on the width and the block cap
+    alone cost 0.786x at 2 heads, 0.928x at 4 and 0.910x at 8
+    (perf/fp32softmax/results/s1_op_bitexact.json). Ragged token counts are reachable: the pair
+    stack keeps the logical token dim and lets TILE_LAYOUT pad it, so this is a guard and not a
+    hypothetical.
     """
     rows = _fp32_softmax_l1_rows(per_row, height_per_row, cap)
     if rows:
         return rows, _FP32_SOFTMAX_L1_GRID[0] * _FP32_SOFTMAX_L1_GRID[1]
-    if not _FP32_SOFTMAX_L1_ANY_CORES or per_row <= 0 or _FP32_SOFTMAX_L1_BYTES_PER_CORE <= 0:
+    if (not _FP32_SOFTMAX_L1_ANY_CORES or per_row <= 0 or width % 32
+            or _FP32_SOFTMAX_L1_BYTES_PER_CORE <= 0):
         return 0, 0
     core_cap = _fp32_softmax_core_budget()
     hi = int(_FP32_SOFTMAX_L1_BYTES_PER_CORE) * core_cap // per_row
@@ -1647,7 +1658,7 @@ def _fp32_softmax_attention(
     # 342 blocks per call paying the loop's slice-and-concat with none of the residency back. That
     # is measured, not feared -- it cost 278.23 -> 317.79 s at 1024 aa before this key was widened.
     l1_key = (height_per_row, int(k.shape[2]))
-    l1_rows, l1_cores = _fp32_softmax_l1_plan(per_row, height_per_row,
+    l1_rows, l1_cores = _fp32_softmax_l1_plan(per_row, height_per_row, int(k.shape[2]),
                                               _FP32_SOFTMAX_L1_ROW_CAP.get(l1_key))
     if l1_rows:
         blk = min(blk, l1_rows)

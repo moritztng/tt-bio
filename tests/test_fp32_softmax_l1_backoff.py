@@ -127,14 +127,14 @@ def clean_plan_cache():
 def test_the_plan_is_the_tuned_answer_wherever_the_rectangle_serves(tokens, rows):
     """Every size that is L1-resident today keeps byte for byte its block and its 64 cores."""
     per_row, height_per_row = shape(tokens)
-    assert T._fp32_softmax_l1_plan(per_row, height_per_row) == (rows, CORES)
+    assert T._fp32_softmax_l1_plan(per_row, height_per_row, tokens) == (rows, CORES)
 
 
 @pytest.mark.parametrize("tokens,rows,cores", [(544, 15, 102), (704, 10, 110), (832, 7, 104)])
 def test_the_plan_lights_a_dark_size_with_a_legal_shard(tokens, rows, cores):
     per_row, height_per_row = shape(tokens)
     assert T._fp32_softmax_l1_rows(per_row, height_per_row) == 0
-    assert T._fp32_softmax_l1_plan(per_row, height_per_row) == (rows, cores)
+    assert T._fp32_softmax_l1_plan(per_row, height_per_row, tokens) == (rows, cores)
     # a height shard needs whole tile rows on every core, and every core under the budget
     assert rows * height_per_row % (cores * 32) == 0
     assert rows * per_row <= cores * T._FP32_SOFTMAX_L1_BYTES_PER_CORE
@@ -148,7 +148,7 @@ def test_the_plan_never_asks_for_more_cores_than_the_active_grid():
         T._fp32_softmax_l1_plan.cache_clear()
         for tokens in range(32, 1057, 32):
             per_row, height_per_row = shape(tokens)
-            rows, cores = T._fp32_softmax_l1_plan(per_row, height_per_row)
+            rows, cores = T._fp32_softmax_l1_plan(per_row, height_per_row, tokens)
             assert cores <= grid[0] * grid[1], (grid, tokens, rows, cores)
             if rows and cores != CORES:
                 assert rows * height_per_row % (cores * 32) == 0, (grid, tokens, rows, cores)
@@ -157,9 +157,9 @@ def test_the_plan_never_asks_for_more_cores_than_the_active_grid():
 def test_a_narrowed_cap_bounds_the_free_plan_too():
     """A refusal has to shrink the floating-core block as well, or the class never backs off."""
     per_row, height_per_row = shape(544)
-    rows, _cores = T._fp32_softmax_l1_plan(per_row, height_per_row)
+    rows, _cores = T._fp32_softmax_l1_plan(per_row, height_per_row, 544)
     assert rows == 15
-    assert T._fp32_softmax_l1_plan(per_row, height_per_row, rows - 1)[0] < rows
+    assert T._fp32_softmax_l1_plan(per_row, height_per_row, 544, rows - 1)[0] < rows
 
 
 def test_the_flag_off_leaves_the_shipped_behaviour_exactly():
@@ -168,7 +168,37 @@ def test_the_flag_off_leaves_the_shipped_behaviour_exactly():
     T._FP32_SOFTMAX_L1_ANY_CORES = False
     T._fp32_softmax_l1_plan.cache_clear()
     try:
-        assert T._fp32_softmax_l1_plan(per_row, height_per_row) == (0, 0)
+        assert T._fp32_softmax_l1_plan(per_row, height_per_row, 544) == (0, 0)
     finally:
         T._FP32_SOFTMAX_L1_ANY_CORES = saved
         T._fp32_softmax_l1_plan.cache_clear()
+
+
+@pytest.mark.parametrize("tokens", [515, 546, 547, 1023])
+def test_a_ragged_key_dim_gets_no_plan_at_all(tokens):
+    """A width that is not whole tiles has no shard, so a block cap would be pure loop overhead:
+    measured 0.786x at 2 heads, 0.928x at 4 and 0.910x at 8 on a 515-token key dim."""
+    per_row, height_per_row = shape(tokens)
+    assert T._fp32_softmax_l1_rows(per_row, height_per_row) == 0     # the tuned answer is dark too
+    assert T._fp32_softmax_l1_plan(per_row, height_per_row, tokens) == (0, 0)
+
+
+def test_a_ragged_width_gets_exactly_the_shipped_answer():
+    """The free search must not plan at a width no shard can take. It would cap the block with
+    nothing behind it, and the loop then pays a slice and a concat per block for no residency:
+    measured 0.786x at 2 heads, 0.928x at 4 and 0.910x at 8 on a 515-token key dim
+    (perf/fp32softmax/results/s1_op_bitexact.json).
+
+    Where the tuned rectangle itself blocks a ragged width -- it does, at 16 four-head sizes
+    between 132 and 1056 tokens -- that is the shipped behaviour and this asserts S1 leaves it
+    alone, not that it is right.
+    """
+    for heads in (1, 2, 4, 8, 16):
+        for tokens in range(33, 1057):
+            if tokens % 32 == 0:
+                continue
+            hpr = heads * tokens
+            per_row = hpr * tokens * 4
+            rows = T._fp32_softmax_l1_rows(per_row, hpr)
+            want = (rows, CORES) if rows else (0, 0)
+            assert T._fp32_softmax_l1_plan(per_row, hpr, tokens) == want, (heads, tokens)
