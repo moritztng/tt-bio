@@ -84,6 +84,72 @@ def cell_row(rep: dict) -> dict:
     return row
 
 
+def _by_cell(arm: dict | None) -> dict:
+    return {r["cell"]: r for r in (arm or {}).get("cells", [])}
+
+
+def _ratio(a, b):
+    return round(a / b, 4) if (a and b) else None
+
+
+def delta_table(ob: dict | None, p2: dict | None) -> dict:
+    """What upgrading tt-bio from preview2 to OB0 costs, in GPU seconds, on one card in one
+    session. Both arms folded the same committed inputs back to back, so the card, the driver
+    and the host are held fixed and only the weights + code version move."""
+    a, b = _by_cell(ob), _by_cell(p2)
+    rows = []
+    for cell in sorted(set(a) & set(b)):
+        x, y = a[cell], b[cell]
+        rows.append({
+            "cell": cell,
+            "n_residues": x.get("n_residues"),
+            "diffusion_samples": x.get("diffusion_samples"),
+            "ob_device_s": x.get("h200_device_s"),
+            "p2_device_s": y.get("h200_device_s"),
+            "ob_speedup_x": _ratio(y.get("h200_device_s"), x.get("h200_device_s")),
+            "ob_trunk_s": x.get("trunk_s"), "p2_trunk_s": y.get("trunk_s"),
+            "trunk_speedup_x": _ratio(y.get("trunk_s"), x.get("trunk_s")),
+            "ob_rollout_s": x.get("rollout_s"), "p2_rollout_s": y.get("rollout_s"),
+            "rollout_speedup_x": _ratio(y.get("rollout_s"), x.get("rollout_s")),
+            "ob_cueq_triangle_attention": (x.get("kernel_counts") or {}).get(
+                "cueq:triangle_attention"),
+            "p2_cueq_triangle_attention": (y.get("kernel_counts") or {}).get(
+                "cueq:triangle_attention"),
+        })
+    return {"note": ("Same box, same session, same card. `*_speedup_x` > 1 means OB0 is faster "
+                     "than preview2. Counts are per cell, i.e. over all 4 folds."),
+            "rows": rows}
+
+
+def cross_box(primary: dict | None, confirm: dict | None) -> dict:
+    """Does the published device number reproduce on a second, independently rented H200?
+
+    `gpu-reference-device-vs-host-split` was found exactly this way on the RF3 campaign: a
+    single rental would have shipped the wrong bar. Here the answer is size-dependent, which is
+    itself the finding -- see the state file.
+    """
+    a, b = _by_cell(primary), _by_cell(confirm)
+    rows = []
+    for cell in sorted(set(a) & set(b)):
+        x, y = a[cell], b[cell]
+        def d(k):
+            p, q = x.get(k), y.get(k)
+            return round(100.0 * (q - p) / p, 2) if (p and q) else None
+        rows.append({"cell": cell, "n_residues": x.get("n_residues"),
+                     "primary_device_s": x.get("h200_device_s"),
+                     "confirm_device_s": y.get("h200_device_s"),
+                     "device_delta_pct": d("h200_device_s"),
+                     "trunk_delta_pct": d("trunk_s"),
+                     "rollout_delta_pct": d("rollout_s"),
+                     "host_delta_pct": d("h200_host_s")})
+    return {"note": ("Percent change from the primary box to the confirmation box, same stack, "
+                     "same committed inputs, different machine_id. The trunk reproduces; the "
+                     "200-step diffusion rollout does not below 1024 aa, because it is "
+                     "launch-bound and therefore carries the landlord's CPU into what the "
+                     "harness calls device time."),
+            "rows": rows}
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--results", required=True, help="dir with <arm>/<cell>.json reports")
@@ -125,6 +191,10 @@ def main() -> None:
                    "today. Upstream made the two weight sets mutually incompatible, so this "
                    "arm differs from `ob` in BOTH weights and code version. That is not a "
                    "choice the harness made and it cannot be separated."),
+            "confirm-ob": ("The same OB0 arm on a SECOND, independently rented H200 (different "
+                           "machine_id, different landlord, different driver). It exists to "
+                           "answer whether the published device number reproduces at all. It "
+                           "does above 1024 aa and does not below -- see cross_box."),
         },
         "protocol": {
             "folds_per_cell": "1 cold (discarded) + 3 warm, one process, checkpoint loaded once",
@@ -148,6 +218,27 @@ def main() -> None:
         "input_sha256": sha,
         "results": arms,
     }
+    doc["caveats"] = [
+        ("Only the 1024 aa rung reproduces across landlords: device time moved +1.2% there but "
+         "+10.7 to +17.0% at 128-512 aa between two independently rented H200s. The trunk "
+         "reproduces to 0.3%; the 200-step diffusion rollout does not, because it is launch-bound "
+         "and carries the host CPU into the device measurement. Treat 128-512 aa as soft."),
+        ("The fused cuEquivariance triangle-attention kernel falls back to torch at 128 tokens "
+         "and only there: cueq:triangle_attention._triangle_attention_torch reads 264/1966 on OB0 "
+         "and 1050/2752 on preview2 at the 128 aa rung, 0 at every larger cell, on both boxes. "
+         "The fallback is silent (_warn_triangle_attention_fallback is 0)."),
+        ("The H200 is never saturated: 22% of its 700 W cap at 128 aa rising to only 74% at "
+         "1024 aa. The 4x bar is generous everywhere on this workload."),
+        ("OB0's entire speedup over preview2 is the diffusion rollout, and it comes from v0.5.0 "
+         "dropping the attention-pair-bias kernel route that upstream marks '# TODO: Add back "
+         "triton and cueq APB kernel'. Re-measure when that lands; the trunk is unchanged."),
+        ("The OpenBind blog's 'chemical steering during diffusion sampling' is not in v0.5.0's "
+         "code. Grepping the tree for steer/guidance/restraint finds one unrelated test "
+         "docstring. Treat it as unreleased."),
+    ]
+    doc["delta_ob_vs_p2"] = delta_table(arms.get("ob"), arms.get("p2"))
+    doc["cross_box"] = cross_box(arms.get("ob"), arms.get("confirm-ob"))
+
     out = pathlib.Path(args.out)
     out.write_text(json.dumps(doc, indent=2) + "\n")
 

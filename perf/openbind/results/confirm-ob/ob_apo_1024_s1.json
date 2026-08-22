@@ -1,0 +1,288 @@
+{
+  "label": "ob_apo_1024_s1",
+  "spec": "/root/openbind/inputs/ob_apo_1024.spec.json",
+  "spec_content": {
+    "name": "ob_apo_1024",
+    "n_residues": 1024,
+    "chains": [
+      {
+        "molecule_type": "protein",
+        "chain_id": "A",
+        "sequence": "MENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLLDVIHTENKLYLVFEFLHQDLKKFMDASALTGIPLPLIKSYLFQLLQGLAFCHSHRVLHRDLKPQNLLINTEGAIKLADFGLARAFGVPVRTYTHEVVTLWYRAPEILLGCKYYSTAVDIWSLGCIFAEMVTRRALFPGDSEIDQLFRIFRTLGTPDEVVWPGVTSMPDYKPSFPKWARQDFSKVVPPLDEDGRSLLSQMLHYDPNKRISAKAALAHPFFQDVTKPVPHLRLMENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLLDVIHTENKLYLVFEFLHQDLKKFMDASALTGIPLPLIKSYLFQLLQGLAFCHSHRVLHRDLKPQNLLINTEGAIKLADFGLARAFGVPVRTYTHEVVTLWYRAPEILLGCKYYSTAVDIWSLGCIFAEMVTRRALFPGDSEIDQLFRIFRTLGTPDEVVWPGVTSMPDYKPSFPKWARQDFSKVVPPLDEDGRSLLSQMLHYDPNKRISAKAALAHPFFQDVTKPVPHLRLMENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLLDVIHTENKLYLVFEFLHQDLKKFMDASALTGIPLPLIKSYLFQLLQGLAFCHSHRVLHRDLKPQNLLINTEGAIKLADFGLARAFGVPVRTYTHEVVTLWYRAPEILLGCKYYSTAVDIWSLGCIFAEMVTRRALFPGDSEIDQLFRIFRTLGTPDEVVWPGVTSMPDYKPSFPKWARQDFSKVVPPLDEDGRSLLSQMLHYDPNKRISAKAALAHPFFQDVTKPVPHLRLMENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLLDVIHTENKLYLVFEFLHQDLKKFMDASALTGIPLPLIKSYLFQLLQGLAFCHSHRVLHRDLKP"
+      }
+    ]
+  },
+  "ckpt": "/root/ckpt/of3-ob-2025-06-30-174k.pt",
+  "reps": 3,
+  "n_folds": 4,
+  "samples": 1,
+  "seed": 42,
+  "env": {
+    "torch": "2.13.0+cu130",
+    "torch_cuda": "13.0",
+    "cudnn": 92000,
+    "cuda_device": "NVIDIA H200",
+    "python": "3.11.13",
+    "gpu_static": {
+      "name": "NVIDIA H200",
+      "driver_version": "610.57.04",
+      "memory.total": "143771",
+      "power.limit": "700.00",
+      "clocks.max.sm": "1980",
+      "compute_cap": "9.0",
+      "pcie.link.gen.max": "5"
+    },
+    "compute_apps_before": [],
+    "openfold3": "0.5.0",
+    "cuequivariance-torch": "0.11.1",
+    "cuequivariance-ops-torch-cu12": null,
+    "cuequivariance": "0.11.1",
+    "pytorch-lightning": "2.6.5",
+    "numpy": "2.4.6",
+    "rdkit": "2025.9.6",
+    "biotite": "1.6.0",
+    "is_cuequivariance_available": true
+  },
+  "device_s": {
+    "n": 3,
+    "median_s": 25.4976,
+    "min_s": 25.4919,
+    "max_s": 26.1335,
+    "all_s": [
+      25.4919,
+      25.4976,
+      26.1335
+    ]
+  },
+  "wall_s": 135.3666,
+  "load_s": null,
+  "host_s": 7.7611,
+  "phases": {
+    "0": {
+      "trunk": 14.21271,
+      "trunk_n": 1,
+      "confidence_heads": 0.27674,
+      "confidence_heads_n": 1,
+      "rollout": 12.36213,
+      "rollout_n": 1,
+      "confidence_scores": 0.62137,
+      "confidence_scores_n": 1,
+      "device": 27.19915,
+      "device_n": 1
+    },
+    "1": {
+      "trunk": 13.00043,
+      "trunk_n": 1,
+      "confidence_heads": 0.22281,
+      "confidence_heads_n": 1,
+      "rollout": 12.90879,
+      "rollout_n": 1,
+      "confidence_scores": 0.22272,
+      "confidence_scores_n": 1,
+      "device": 26.13354,
+      "device_n": 1
+    },
+    "2": {
+      "trunk": 13.03348,
+      "trunk_n": 1,
+      "confidence_heads": 0.22166,
+      "confidence_heads_n": 1,
+      "rollout": 12.23968,
+      "rollout_n": 1,
+      "confidence_scores": 0.22272,
+      "confidence_scores_n": 1,
+      "device": 25.49761,
+      "device_n": 1
+    },
+    "3": {
+      "trunk": 13.05474,
+      "trunk_n": 1,
+      "confidence_heads": 0.22148,
+      "confidence_heads_n": 1,
+      "rollout": 12.21196,
+      "rollout_n": 1,
+      "confidence_scores": 0.22364,
+      "confidence_scores_n": 1,
+      "device": 25.49188,
+      "device_n": 1
+    }
+  },
+  "counts": {
+    "cueq:pairformer_combined_triangle_multiplication": 0,
+    "cueq:triangle_attention": 1966,
+    "cueq:triangle_multiplicative_update": 1702,
+    "cueq:triangle_mxfp8_cutlass_supported": 0,
+    "cueq:triangle_mxfp8_einsum": 0,
+    "cueq:triangle_mxfp8_einsum_cutlass": 0,
+    "cueq:triangle_mxfp8_select_backend": 0,
+    "cueq:triangle_attention._diagnose_triangle_attention_fallback": 1966,
+    "cueq:triangle_attention._triangle_attention_torch": 0,
+    "cueq:triangle_attention._warn_triangle_attention_fallback": 0,
+    "cueq:triangle_attention.triangle_attention": 0,
+    "cueq:cuequivariance_torch.triangle_attention": 0,
+    "cueq:cuequivariance_torch.triangle_multiplicative_update": 1702,
+    "cueq:triangle.triangle_attention": 1966,
+    "cueq:triangle.triangle_multiplicative_update": 0,
+    "calls:trunk": 4,
+    "calls:rollout": 4,
+    "calls:confidence_heads": 4,
+    "calls:confidence_scores": 4,
+    "calls:diffusion_module": 800,
+    "of3:_cueq_triangle_mult": 1702,
+    "torch_sdpa": 0
+  },
+  "shapes": [
+    {
+      "token_mask": [
+        1,
+        1024
+      ],
+      "residue_index": [
+        1,
+        1024
+      ],
+      "ref_mask": [
+        1,
+        8239
+      ],
+      "n_is_ligand": 0,
+      "n_is_protein": 1024,
+      "peak_vram_alloc_B": 12228963840,
+      "peak_vram_reserved_B": 15636365312
+    },
+    {
+      "token_mask": [
+        1,
+        1024
+      ],
+      "residue_index": [
+        1,
+        1024
+      ],
+      "ref_mask": [
+        1,
+        8239
+      ],
+      "n_is_ligand": 0,
+      "n_is_protein": 1024,
+      "peak_vram_alloc_B": 12226818560,
+      "peak_vram_reserved_B": 15636365312
+    },
+    {
+      "token_mask": [
+        1,
+        1024
+      ],
+      "residue_index": [
+        1,
+        1024
+      ],
+      "ref_mask": [
+        1,
+        8239
+      ],
+      "n_is_ligand": 0,
+      "n_is_protein": 1024,
+      "peak_vram_alloc_B": 12226818560,
+      "peak_vram_reserved_B": 15636365312
+    },
+    {
+      "token_mask": [
+        1,
+        1024
+      ],
+      "residue_index": [
+        1,
+        1024
+      ],
+      "ref_mask": [
+        1,
+        8239
+      ],
+      "n_is_ligand": 0,
+      "n_is_protein": 1024,
+      "peak_vram_alloc_B": 12226818560,
+      "peak_vram_reserved_B": 15636365312
+    }
+  ],
+  "power": {
+    "n": 66,
+    "median_W": 541.85,
+    "max_W": 693.21,
+    "min_W": 80.17
+  },
+  "compute_apps_after": [
+    {
+      "pid": 8200,
+      "used_MiB": 688
+    }
+  ],
+  "gpu_exclusive": true,
+  "ok": true,
+  "why": "8239 atoms (0 HETATM) in fold0_seed_42_sample_1_model.cif, 4 CIFs",
+  "cli_argv": [
+    "predict",
+    "--query-json",
+    "/root/work/ob_apo_1024_s1/queries.json",
+    "--output-dir",
+    "/root/work/ob_apo_1024_s1/out",
+    "--inference-ckpt-path",
+    "/root/ckpt/of3-ob-2025-06-30-174k.pt",
+    "--runner-yaml",
+    "/root/work/ob_apo_1024_s1/runner.yaml",
+    "--num-diffusion-samples",
+    "1",
+    "--use-msa-server",
+    "false",
+    "--use-templates",
+    "false"
+  ],
+  "n_device_calls": 4,
+  "cold_device_s": 27.1991,
+  "warm_trunk": {
+    "n": 3,
+    "median_s": 13.0335,
+    "min_s": 13.0004,
+    "max_s": 13.0547,
+    "all_s": [
+      13.0004,
+      13.0335,
+      13.0547
+    ]
+  },
+  "warm_rollout": {
+    "n": 3,
+    "median_s": 12.2397,
+    "min_s": 12.212,
+    "max_s": 12.9088,
+    "all_s": [
+      12.212,
+      12.2397,
+      12.9088
+    ]
+  },
+  "warm_confidence_heads": {
+    "n": 3,
+    "median_s": 0.2217,
+    "min_s": 0.2215,
+    "max_s": 0.2228,
+    "all_s": [
+      0.2215,
+      0.2217,
+      0.2228
+    ]
+  },
+  "warm_confidence_scores": {
+    "n": 3,
+    "median_s": 0.2227,
+    "min_s": 0.2227,
+    "max_s": 0.2236,
+    "all_s": [
+      0.2227,
+      0.2227,
+      0.2236
+    ]
+  },
+  "peak_vram_reserved_B": 15636365312,
+  "peak_vram_alloc_B": 12226818560
+}

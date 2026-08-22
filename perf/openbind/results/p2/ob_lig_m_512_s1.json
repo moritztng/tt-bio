@@ -1,0 +1,295 @@
+{
+  "label": "ob_lig_m_512_s1",
+  "spec": "/root/openbind/inputs/ob_lig_m_512.spec.json",
+  "spec_content": {
+    "name": "ob_lig_m_512",
+    "n_residues": 512,
+    "ligand_ccd": "STU",
+    "ligand_heavy_atoms_formula": 35,
+    "chains": [
+      {
+        "molecule_type": "protein",
+        "chain_id": "A",
+        "sequence": "MENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLLDVIHTENKLYLVFEFLHQDLKKFMDASALTGIPLPLIKSYLFQLLQGLAFCHSHRVLHRDLKPQNLLINTEGAIKLADFGLARAFGVPVRTYTHEVVTLWYRAPEILLGCKYYSTAVDIWSLGCIFAEMVTRRALFPGDSEIDQLFRIFRTLGTPDEVVWPGVTSMPDYKPSFPKWARQDFSKVVPPLDEDGRSLLSQMLHYDPNKRISAKAALAHPFFQDVTKPVPHLRLMENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLLDVIHTENKLYLVFEFLHQDLKKFMDASALTGIPLPLIKSYLFQLLQGLAFCHSHRVLHRDLKPQNLLINTEGAIKLADFGLARAFGVPVRTYTHEVVTLWYRAPEILLGCKYYSTAVDIWSLGCIFAEMVTRRALFPGDSEIDQLFR"
+      },
+      {
+        "molecule_type": "ligand",
+        "chain_id": "L",
+        "ccd_codes": "STU"
+      }
+    ]
+  },
+  "ckpt": "/root/ckpt/of3-p2-155k.pt",
+  "reps": 3,
+  "n_folds": 4,
+  "samples": 1,
+  "seed": 42,
+  "env": {
+    "torch": "2.13.0+cu130",
+    "torch_cuda": "13.0",
+    "cudnn": 92000,
+    "cuda_device": "NVIDIA H200",
+    "python": "3.11.13",
+    "gpu_static": {
+      "name": "NVIDIA H200",
+      "driver_version": "580.159.03",
+      "memory.total": "143771",
+      "power.limit": "700.00",
+      "clocks.max.sm": "1980",
+      "compute_cap": "9.0",
+      "pcie.link.gen.max": "5"
+    },
+    "compute_apps_before": [],
+    "openfold3": "0.4.5",
+    "cuequivariance-torch": "0.11.1",
+    "cuequivariance-ops-torch-cu12": null,
+    "cuequivariance": "0.11.1",
+    "pytorch-lightning": "2.6.5",
+    "numpy": "2.4.6",
+    "rdkit": "2025.9.6",
+    "biotite": "1.6.0",
+    "is_cuequivariance_available": true
+  },
+  "device_s": {
+    "n": 3,
+    "median_s": 10.9612,
+    "min_s": 10.9473,
+    "max_s": 10.9642,
+    "all_s": [
+      10.9473,
+      10.9612,
+      10.9642
+    ]
+  },
+  "wall_s": 78.6282,
+  "load_s": null,
+  "host_s": 8.1741,
+  "phases": {
+    "0": {
+      "trunk": 4.0904,
+      "trunk_n": 1,
+      "confidence_heads": 0.07091,
+      "confidence_heads_n": 1,
+      "rollout": 8.47139,
+      "rollout_n": 1,
+      "confidence_scores": 0.49342,
+      "confidence_scores_n": 1,
+      "device": 13.05921,
+      "device_n": 1
+    },
+    "1": {
+      "trunk": 3.19404,
+      "trunk_n": 1,
+      "confidence_heads": 0.05619,
+      "confidence_heads_n": 1,
+      "rollout": 7.65842,
+      "rollout_n": 1,
+      "confidence_scores": 0.11046,
+      "confidence_scores_n": 1,
+      "device": 10.96419,
+      "device_n": 1
+    },
+    "2": {
+      "trunk": 3.19366,
+      "trunk_n": 1,
+      "confidence_heads": 0.05695,
+      "confidence_heads_n": 1,
+      "rollout": 7.65778,
+      "rollout_n": 1,
+      "confidence_scores": 0.10859,
+      "confidence_scores_n": 1,
+      "device": 10.96121,
+      "device_n": 1
+    },
+    "3": {
+      "trunk": 3.18547,
+      "trunk_n": 1,
+      "confidence_heads": 0.05595,
+      "confidence_heads_n": 1,
+      "rollout": 7.65253,
+      "rollout_n": 1,
+      "confidence_scores": 0.1081,
+      "confidence_scores_n": 1,
+      "device": 10.94731,
+      "device_n": 1
+    }
+  },
+  "counts": {
+    "cueq:pairformer_combined_triangle_multiplication": 0,
+    "cueq:triangle_attention": 2752,
+    "cueq:triangle_multiplicative_update": 1702,
+    "cueq:triangle_mxfp8_cutlass_supported": 0,
+    "cueq:triangle_mxfp8_einsum": 0,
+    "cueq:triangle_mxfp8_einsum_cutlass": 0,
+    "cueq:triangle_mxfp8_select_backend": 0,
+    "cueq:triangle_attention._diagnose_triangle_attention_fallback": 2752,
+    "cueq:triangle_attention._triangle_attention_torch": 0,
+    "cueq:triangle_attention._warn_triangle_attention_fallback": 0,
+    "cueq:triangle_attention.triangle_attention": 0,
+    "cueq:cuequivariance_torch.triangle_attention": 0,
+    "cueq:cuequivariance_torch.triangle_multiplicative_update": 1702,
+    "cueq:triangle.triangle_attention": 2752,
+    "cueq:triangle.triangle_multiplicative_update": 0,
+    "calls:trunk": 4,
+    "calls:rollout": 4,
+    "calls:confidence_heads": 4,
+    "calls:confidence_scores": 4,
+    "calls:diffusion_module": 800,
+    "of3:_cueq_triangle_mult": 1702,
+    "torch_sdpa": 0
+  },
+  "shapes": [
+    {
+      "token_mask": [
+        1,
+        547
+      ],
+      "residue_index": [
+        1,
+        547
+      ],
+      "ref_mask": [
+        1,
+        4151
+      ],
+      "n_is_ligand": 35,
+      "n_is_protein": 512,
+      "peak_vram_alloc_B": 4610522624,
+      "peak_vram_reserved_B": 5714739200
+    },
+    {
+      "token_mask": [
+        1,
+        547
+      ],
+      "residue_index": [
+        1,
+        547
+      ],
+      "ref_mask": [
+        1,
+        4151
+      ],
+      "n_is_ligand": 35,
+      "n_is_protein": 512,
+      "peak_vram_alloc_B": 4609682432,
+      "peak_vram_reserved_B": 5714739200
+    },
+    {
+      "token_mask": [
+        1,
+        547
+      ],
+      "residue_index": [
+        1,
+        547
+      ],
+      "ref_mask": [
+        1,
+        4151
+      ],
+      "n_is_ligand": 35,
+      "n_is_protein": 512,
+      "peak_vram_alloc_B": 4609682432,
+      "peak_vram_reserved_B": 5714739200
+    },
+    {
+      "token_mask": [
+        1,
+        547
+      ],
+      "residue_index": [
+        1,
+        547
+      ],
+      "ref_mask": [
+        1,
+        4151
+      ],
+      "n_is_ligand": 35,
+      "n_is_protein": 512,
+      "peak_vram_alloc_B": 4609682432,
+      "peak_vram_reserved_B": 5714739200
+    }
+  ],
+  "power": {
+    "n": 38,
+    "median_W": 369.42,
+    "max_W": 638.58,
+    "min_W": 80.67
+  },
+  "compute_apps_after": [
+    {
+      "pid": 2866135,
+      "used_MiB": 684
+    }
+  ],
+  "gpu_exclusive": true,
+  "ok": true,
+  "why": "4151 atoms (35 HETATM) in fold0_seed_42_sample_1_model.cif, 4 CIFs",
+  "cli_argv": [
+    "predict",
+    "--query-json",
+    "/root/work/p2/ob_lig_m_512_s1/queries.json",
+    "--output-dir",
+    "/root/work/p2/ob_lig_m_512_s1/out",
+    "--inference-ckpt-path",
+    "/root/ckpt/of3-p2-155k.pt",
+    "--runner-yaml",
+    "/root/work/p2/ob_lig_m_512_s1/runner.yaml",
+    "--num-diffusion-samples",
+    "1",
+    "--use-msa-server",
+    "false",
+    "--use-templates",
+    "false"
+  ],
+  "n_device_calls": 4,
+  "cold_device_s": 13.0592,
+  "warm_trunk": {
+    "n": 3,
+    "median_s": 3.1937,
+    "min_s": 3.1855,
+    "max_s": 3.194,
+    "all_s": [
+      3.1855,
+      3.1937,
+      3.194
+    ]
+  },
+  "warm_rollout": {
+    "n": 3,
+    "median_s": 7.6578,
+    "min_s": 7.6525,
+    "max_s": 7.6584,
+    "all_s": [
+      7.6525,
+      7.6578,
+      7.6584
+    ]
+  },
+  "warm_confidence_heads": {
+    "n": 3,
+    "median_s": 0.0562,
+    "min_s": 0.056,
+    "max_s": 0.057,
+    "all_s": [
+      0.056,
+      0.0562,
+      0.057
+    ]
+  },
+  "warm_confidence_scores": {
+    "n": 3,
+    "median_s": 0.1086,
+    "min_s": 0.1081,
+    "max_s": 0.1105,
+    "all_s": [
+      0.1081,
+      0.1086,
+      0.1105
+    ]
+  },
+  "peak_vram_reserved_B": 5714739200,
+  "peak_vram_alloc_B": 4609682432
+}

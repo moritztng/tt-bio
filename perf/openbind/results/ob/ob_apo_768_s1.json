@@ -1,0 +1,288 @@
+{
+  "label": "ob_apo_768_s1",
+  "spec": "/root/openbind/inputs/ob_apo_768.spec.json",
+  "spec_content": {
+    "name": "ob_apo_768",
+    "n_residues": 768,
+    "chains": [
+      {
+        "molecule_type": "protein",
+        "chain_id": "A",
+        "sequence": "MENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLLDVIHTENKLYLVFEFLHQDLKKFMDASALTGIPLPLIKSYLFQLLQGLAFCHSHRVLHRDLKPQNLLINTEGAIKLADFGLARAFGVPVRTYTHEVVTLWYRAPEILLGCKYYSTAVDIWSLGCIFAEMVTRRALFPGDSEIDQLFRIFRTLGTPDEVVWPGVTSMPDYKPSFPKWARQDFSKVVPPLDEDGRSLLSQMLHYDPNKRISAKAALAHPFFQDVTKPVPHLRLMENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLLDVIHTENKLYLVFEFLHQDLKKFMDASALTGIPLPLIKSYLFQLLQGLAFCHSHRVLHRDLKPQNLLINTEGAIKLADFGLARAFGVPVRTYTHEVVTLWYRAPEILLGCKYYSTAVDIWSLGCIFAEMVTRRALFPGDSEIDQLFRIFRTLGTPDEVVWPGVTSMPDYKPSFPKWARQDFSKVVPPLDEDGRSLLSQMLHYDPNKRISAKAALAHPFFQDVTKPVPHLRLMENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLLDVIHTENKLYLVFEFLHQDLKKFMDASALTGIPLPLIKSYLFQLLQGLAFCHSHRVLHRDLKPQNLLINTEGAIKLADFGLARAFGVPVRTYTHEVVTLWYRAPE"
+      }
+    ]
+  },
+  "ckpt": "/root/ckpt/of3-ob-2025-06-30-174k.pt",
+  "reps": 3,
+  "n_folds": 4,
+  "samples": 1,
+  "seed": 42,
+  "env": {
+    "torch": "2.13.0+cu130",
+    "torch_cuda": "13.0",
+    "cudnn": 92000,
+    "cuda_device": "NVIDIA H200",
+    "python": "3.11.13",
+    "gpu_static": {
+      "name": "NVIDIA H200",
+      "driver_version": "580.159.03",
+      "memory.total": "143771",
+      "power.limit": "700.00",
+      "clocks.max.sm": "1980",
+      "compute_cap": "9.0",
+      "pcie.link.gen.max": "5"
+    },
+    "compute_apps_before": [],
+    "openfold3": "0.5.0",
+    "cuequivariance-torch": "0.11.1",
+    "cuequivariance-ops-torch-cu12": null,
+    "cuequivariance": "0.11.1",
+    "pytorch-lightning": "2.6.5",
+    "numpy": "2.4.6",
+    "rdkit": "2025.9.6",
+    "biotite": "1.6.0",
+    "is_cuequivariance_available": true
+  },
+  "device_s": {
+    "n": 3,
+    "median_s": 14.8017,
+    "min_s": 14.7962,
+    "max_s": 14.8317,
+    "all_s": [
+      14.7962,
+      14.8017,
+      14.8317
+    ]
+  },
+  "wall_s": 98.3868,
+  "load_s": null,
+  "host_s": 9.3436,
+  "phases": {
+    "0": {
+      "trunk": 7.71462,
+      "trunk_n": 1,
+      "confidence_heads": 0.1412,
+      "confidence_heads_n": 1,
+      "rollout": 8.30857,
+      "rollout_n": 1,
+      "confidence_scores": 0.55637,
+      "confidence_scores_n": 1,
+      "device": 16.58262,
+      "device_n": 1
+    },
+    "1": {
+      "trunk": 6.53892,
+      "trunk_n": 1,
+      "confidence_heads": 0.11287,
+      "confidence_heads_n": 1,
+      "rollout": 8.09147,
+      "rollout_n": 1,
+      "confidence_scores": 0.16439,
+      "confidence_scores_n": 1,
+      "device": 14.79617,
+      "device_n": 1
+    },
+    "2": {
+      "trunk": 6.53409,
+      "trunk_n": 1,
+      "confidence_heads": 0.11304,
+      "confidence_heads_n": 1,
+      "rollout": 8.10134,
+      "rollout_n": 1,
+      "confidence_scores": 0.16499,
+      "confidence_scores_n": 1,
+      "device": 14.80175,
+      "device_n": 1
+    },
+    "3": {
+      "trunk": 6.53552,
+      "trunk_n": 1,
+      "confidence_heads": 0.11259,
+      "confidence_heads_n": 1,
+      "rollout": 8.12985,
+      "rollout_n": 1,
+      "confidence_scores": 0.16512,
+      "confidence_scores_n": 1,
+      "device": 14.83172,
+      "device_n": 1
+    }
+  },
+  "counts": {
+    "cueq:pairformer_combined_triangle_multiplication": 0,
+    "cueq:triangle_attention": 1966,
+    "cueq:triangle_multiplicative_update": 1702,
+    "cueq:triangle_mxfp8_cutlass_supported": 0,
+    "cueq:triangle_mxfp8_einsum": 0,
+    "cueq:triangle_mxfp8_einsum_cutlass": 0,
+    "cueq:triangle_mxfp8_select_backend": 0,
+    "cueq:triangle_attention._diagnose_triangle_attention_fallback": 1966,
+    "cueq:triangle_attention._triangle_attention_torch": 0,
+    "cueq:triangle_attention._warn_triangle_attention_fallback": 0,
+    "cueq:triangle_attention.triangle_attention": 0,
+    "cueq:cuequivariance_torch.triangle_attention": 0,
+    "cueq:cuequivariance_torch.triangle_multiplicative_update": 1702,
+    "cueq:triangle.triangle_attention": 1966,
+    "cueq:triangle.triangle_multiplicative_update": 0,
+    "calls:trunk": 4,
+    "calls:rollout": 4,
+    "calls:confidence_heads": 4,
+    "calls:confidence_scores": 4,
+    "calls:diffusion_module": 800,
+    "of3:_cueq_triangle_mult": 1702,
+    "torch_sdpa": 0
+  },
+  "shapes": [
+    {
+      "token_mask": [
+        1,
+        768
+      ],
+      "residue_index": [
+        1,
+        768
+      ],
+      "ref_mask": [
+        1,
+        6177
+      ],
+      "n_is_ligand": 0,
+      "n_is_protein": 768,
+      "peak_vram_alloc_B": 7567784960,
+      "peak_vram_reserved_B": 9565110272
+    },
+    {
+      "token_mask": [
+        1,
+        768
+      ],
+      "residue_index": [
+        1,
+        768
+      ],
+      "ref_mask": [
+        1,
+        6177
+      ],
+      "n_is_ligand": 0,
+      "n_is_protein": 768,
+      "peak_vram_alloc_B": 7566605312,
+      "peak_vram_reserved_B": 9565110272
+    },
+    {
+      "token_mask": [
+        1,
+        768
+      ],
+      "residue_index": [
+        1,
+        768
+      ],
+      "ref_mask": [
+        1,
+        6177
+      ],
+      "n_is_ligand": 0,
+      "n_is_protein": 768,
+      "peak_vram_alloc_B": 7566605312,
+      "peak_vram_reserved_B": 9565110272
+    },
+    {
+      "token_mask": [
+        1,
+        768
+      ],
+      "residue_index": [
+        1,
+        768
+      ],
+      "ref_mask": [
+        1,
+        6177
+      ],
+      "n_is_ligand": 0,
+      "n_is_protein": 768,
+      "peak_vram_alloc_B": 7566605312,
+      "peak_vram_reserved_B": 9565110272
+    }
+  ],
+  "power": {
+    "n": 48,
+    "median_W": 440.02,
+    "max_W": 665.45,
+    "min_W": 80.54
+  },
+  "compute_apps_after": [
+    {
+      "pid": 2777810,
+      "used_MiB": 684
+    }
+  ],
+  "gpu_exclusive": true,
+  "ok": true,
+  "why": "6177 atoms (0 HETATM) in fold0_seed_42_sample_1_model.cif, 4 CIFs",
+  "cli_argv": [
+    "predict",
+    "--query-json",
+    "/root/work/ob/ob_apo_768_s1/queries.json",
+    "--output-dir",
+    "/root/work/ob/ob_apo_768_s1/out",
+    "--inference-ckpt-path",
+    "/root/ckpt/of3-ob-2025-06-30-174k.pt",
+    "--runner-yaml",
+    "/root/work/ob/ob_apo_768_s1/runner.yaml",
+    "--num-diffusion-samples",
+    "1",
+    "--use-msa-server",
+    "false",
+    "--use-templates",
+    "false"
+  ],
+  "n_device_calls": 4,
+  "cold_device_s": 16.5826,
+  "warm_trunk": {
+    "n": 3,
+    "median_s": 6.5355,
+    "min_s": 6.5341,
+    "max_s": 6.5389,
+    "all_s": [
+      6.5341,
+      6.5355,
+      6.5389
+    ]
+  },
+  "warm_rollout": {
+    "n": 3,
+    "median_s": 8.1013,
+    "min_s": 8.0915,
+    "max_s": 8.1299,
+    "all_s": [
+      8.0915,
+      8.1013,
+      8.1299
+    ]
+  },
+  "warm_confidence_heads": {
+    "n": 3,
+    "median_s": 0.1129,
+    "min_s": 0.1126,
+    "max_s": 0.113,
+    "all_s": [
+      0.1126,
+      0.1129,
+      0.113
+    ]
+  },
+  "warm_confidence_scores": {
+    "n": 3,
+    "median_s": 0.165,
+    "min_s": 0.1644,
+    "max_s": 0.1651,
+    "all_s": [
+      0.1644,
+      0.165,
+      0.1651
+    ]
+  },
+  "peak_vram_reserved_B": 9565110272,
+  "peak_vram_alloc_B": 7566605312
+}
