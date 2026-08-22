@@ -910,42 +910,81 @@ def _tri_att_q_chunks(q_len: int, k_len: int) -> tuple:
 _SDPA_RAGGED_PAD = env_flag("TT_BIO_SDPA_RAGGED_PAD", False)
 # [ragged calls padded, calls already aligned]. A fix that never fired must not read as a null.
 SDPA_RAGGED_PAD_STATS = [0, 0]
+# site -> [ragged calls, aligned calls]. Counted whether or not the fix is on, because the census
+# question ("does this model ever reach a fused SDPA at a length that does not divide 32, and at
+# WHICH call site") has to be answerable on a model whose accuracy floor is too wide to score.
+# A model with no ragged call is IMMUNE and has to be recorded as immune, not as passing.
+SDPA_RAGGED_SITES: dict = {}
 # Large enough that exp((qk + m) * scale) underflows to zero for any score this op sees, small
 # enough to stay finite in bf16 and to survive being multiplied by a bias scale.
 _SDPA_PAD_MASK = -1.0e9
 
 
 def _sdpa_pad_ragged(q, k, v, bias):
-    """Pad the sequence axis to a tile multiple, masking the new keys. Returns (q, k, v, bias, pad)."""
-    S = int(q.shape[2])
-    pad = (-S) % 32
-    if not pad:
-        SDPA_RAGGED_PAD_STATS[1] += 1
+    """Pad the q and k axes to a tile multiple, masking the new keys. Returns (q, k, v, bias, q_pad).
+
+    The two axes are padded independently so this is correct for cross-attention as well; for the
+    self-attention every caller here runs, `q_pad == k_pad`. The bias' query axis is only padded
+    when it is not broadcast, since a bias of shape [..., 1, S] already covers every padded row.
+    """
+    Sq, Sk = int(q.shape[2]), int(k.shape[2])
+    q_pad, k_pad = (-Sq) % 32, (-Sk) % 32
+    if not (q_pad or k_pad):
         return q, k, v, bias, 0
-    SDPA_RAGGED_PAD_STATS[0] += 1
-    seq = [(0, 0)] * (len(q.shape) - 2) + [(0, pad), (0, 0)]
-    qp = ttnn.pad(q, seq, value=0.0)
-    kp = ttnn.pad(k, seq, value=0.0)
-    vp = ttnn.pad(v, seq, value=0.0)
+    qp = ttnn.pad(q, [(0, 0)] * (len(q.shape) - 2) + [(0, q_pad), (0, 0)], value=0.0) \
+        if q_pad else q
+    kv = [(0, 0)] * (len(k.shape) - 2) + [(0, k_pad), (0, 0)]
+    kp = ttnn.pad(k, kv, value=0.0) if k_pad else k
+    vp = ttnn.pad(v, kv, value=0.0) if k_pad else v
     nb = len(bias.shape)
-    bp = ttnn.pad(bias, [(0, 0)] * (nb - 2) + [(0, pad), (0, 0)], value=0.0)
-    bq = ttnn.pad(bp, [(0, 0)] * (nb - 1) + [(0, pad)], value=_SDPA_PAD_MASK)
+    bp = bias
+    # The query rows pad with 0, not with the mask: those rows are sliced off, and a row masked in
+    # every column would divide by zero in the softmax.
+    if q_pad and int(bias.shape[-2]) == Sq:
+        bp = ttnn.pad(bp, [(0, 0)] * (nb - 2) + [(0, q_pad), (0, 0)], value=0.0)
+    if k_pad:
+        bp = ttnn.pad(bp, [(0, 0)] * (nb - 1) + [(0, k_pad)], value=_SDPA_PAD_MASK)
     # ttnn.pad ALIASES here rather than copying: in TILE layout the buffer is already 32-aligned on
     # both tile axes, so the pad is a relabel of the logical shape plus a fill of the physical tail
     # that was already there. Measured -- deallocating the pad output kills the SOURCE tensor. So
     # nothing here may be freed, and the padding costs no DRAM.
-    return qp, kp, vp, bq, pad
+    return qp, kp, vp, bp, q_pad
+
+
+def _sdpa_masked(fn, q, k, v, bias, *args, site: str, **kw):
+    """Run a fused SDPA through `fn` with the ragged tile tail masked out.
+
+    Every fused-SDPA call in this file that carries an ADDITIVE mask goes through here, because the
+    defect is a property of the primitive and not of any one caller: ttnn's SDPA reduces over the
+    TILE-PADDED physical key length while a mask sized to the logical length leaves the ragged tail
+    at a bias of 0, and exp(0) = 1 beats real scores that mostly sit below 0. Up to 31 padded key
+    columns then take a real share of every row's softmax mass.
+
+    `fn` may return None (the fused-HiFi arm declines over L1); that is passed straight through so
+    the caller's fall-back still fires.
+    """
+    ragged = bias is not None and bool(int(q.shape[2]) % 32 or int(k.shape[2]) % 32)
+    c = SDPA_RAGGED_SITES.setdefault(site, [0, 0])
+    c[0 if ragged else 1] += 1
+    if not (ragged and _SDPA_RAGGED_PAD):
+        return fn(q, k, v, bias, *args, **kw)
+    SDPA_RAGGED_PAD_STATS[0] += 1
+    Sq = int(q.shape[2])
+    qp, kp, vp, bp, _ = _sdpa_pad_ragged(q, k, v, bias)
+    o = fn(qp, kp, vp, bp, *args, **kw)
+    if o is None or int(o.shape[2]) == Sq:
+        return o
+    sl = o[:, :, :Sq, :]
+    ttnn.deallocate(o)
+    return sl
 
 
 def _tri_att_sdpa(q, k, v, bias, scale: float):
     """SDPA for triangle attention at the widest q_chunk this device's L1 will hold."""
-    if _SDPA_RAGGED_PAD and bias is not None and int(q.shape[2]) % 32:
-        S = int(q.shape[2])
-        qp, kp, vp, bp, pad = _sdpa_pad_ragged(q, k, v, bias)
-        o = _tri_att_sdpa(qp, kp, vp, bp, scale)
-        sl = o[:, :, :S, :]
-        ttnn.deallocate(o)
-        return sl
+    return _sdpa_masked(_tri_att_sdpa_inner, q, k, v, bias, scale, site="tri_att")
+
+
+def _tri_att_sdpa_inner(q, k, v, bias, scale: float):
     if _TRIATT_BIAS_B8 and bias is not None and bias.dtype != ttnn.bfloat8_b:
         b8 = ttnn.typecast(bias, ttnn.bfloat8_b)
         try:
@@ -1168,6 +1207,22 @@ TRIATT_FUSED_HIFI_STATS = {"served": 0, "declined": 0, "too_short": 0}
 # (7ROA L117 -> padded 128) has 11 of 128 columns masked out. Padding is the one term that is both
 # absent from the screen and insensitive to the compute config, which is exactly the shape of a
 # 2.3x per-op win that moves the fold by nothing.
+# `TT_BIO_SDPA_RAGGED_CENSUS=<dir>` dumps `SDPA_RAGGED_SITES` at exit. Counting is free and
+# unconditional, so this changes no arithmetic: it is the instrument for the four models whose
+# accuracy floor is 2-17x RF3's and therefore cannot resolve the defect they may be carrying.
+if os.environ.get("TT_BIO_SDPA_RAGGED_CENSUS"):
+    import atexit as _atexit_rc
+
+    def _sdpa_ragged_census_dump():
+        import json as _json
+        d = os.environ["TT_BIO_SDPA_RAGGED_CENSUS"]
+        os.makedirs(d, exist_ok=True)
+        with open(os.path.join(d, f"ragged_sites_{os.getpid()}.json"), "w") as fh:
+            _json.dump({"sites": SDPA_RAGGED_SITES, "padded": SDPA_RAGGED_PAD_STATS[0]}, fh)
+
+    _atexit_rc.register(_sdpa_ragged_census_dump)
+
+
 _TRIATT_DUALPROBE = env_flag("TT_BIO_TRIATT_DUALPROBE", False)
 TRIATT_DUALPROBE_ROWS: list = []
 if _TRIATT_DUALPROBE and os.environ.get("TT_BIO_TRIATT_DUALPROBE_OUT"):
@@ -1225,6 +1280,10 @@ def _tri_att_sdpa_hifi(q, k, v, bias, scale: float):
     stock op carries the op default's 2.7x worse error, so a silent fall-through to it would be an
     accuracy regression wearing a performance win's clothes.
     """
+    return _sdpa_masked(_tri_att_sdpa_hifi_inner, q, k, v, bias, scale, site="tri_att_hifi")
+
+
+def _tri_att_sdpa_hifi_inner(q, k, v, bias, scale: float):
     q_len, k_len = int(q.shape[2]), int(k.shape[2])
     if min(q_len, k_len) < _TRIATT_FUSED_HIFI_MIN_S:
         TRIATT_FUSED_HIFI_STATS["too_short"] += 1
@@ -4527,14 +4586,17 @@ class AttentionPairBias(Module):
                 accurate_softmax=self.accurate_softmax,
             )
         if self.dtype != ttnn.float32:
-            return ttnn.transformer.scaled_dot_product_attention(
-                q,
-                k,
-                v,
-                attn_mask=bias,
-                is_causal=False,
-                scale=self.head_dim**-0.5,
-                program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2]),
+            return _sdpa_masked(
+                lambda q_, k_, v_, b_: ttnn.transformer.scaled_dot_product_attention(
+                    q_,
+                    k_,
+                    v_,
+                    attn_mask=b_,
+                    is_causal=False,
+                    scale=self.head_dim**-0.5,
+                    program_config=_sdpa_program_config_for_lengths(q_.shape[2], k_.shape[2]),
+                ),
+                q, k, v, bias, site="attn_pair_bias",
             )
 
         # SDPA accepts bf16/bf8/bf4 only. Keep the fp32 transformer in fp32
@@ -4549,16 +4611,17 @@ class AttentionPairBias(Module):
         bias_bf16 = ttnn.typecast(
             bias, ttnn.bfloat16, memory_config=bias.memory_config()
         )
-        out_bf16 = ttnn.transformer.scaled_dot_product_attention(
-            q_bf16,
-            k_bf16,
-            v_bf16,
-            attn_mask=bias_bf16,
-            is_causal=False,
-            scale=self.head_dim**-0.5,
-            program_config=_sdpa_program_config_for_lengths(
-                q_bf16.shape[2], k_bf16.shape[2]
+        out_bf16 = _sdpa_masked(
+            lambda q_, k_, v_, b_: ttnn.transformer.scaled_dot_product_attention(
+                q_,
+                k_,
+                v_,
+                attn_mask=b_,
+                is_causal=False,
+                scale=self.head_dim**-0.5,
+                program_config=_sdpa_program_config_for_lengths(q_.shape[2], k_.shape[2]),
             ),
+            q_bf16, k_bf16, v_bf16, bias_bf16, site="attn_pair_bias_fp32",
         )
         for tensor in (q_bf16, k_bf16, v_bf16, bias_bf16):
             ttnn.deallocate(tensor)
@@ -4745,12 +4808,16 @@ class AttentionPairBias(Module):
                 # additive mask along with QK, so scale=head_dim**-0.5 reproduces the unfused
                 # chain's (q@k^T + z) * head_dim**-0.5 exactly in exact arithmetic; what differs
                 # is the bf16 exponentiated-score buffer, hence the accuracy gate on this arm.
-                o = ttnn.transformer.scaled_dot_product_attention(
-                    q, k, v,
-                    attn_mask=z,
-                    is_causal=False,
-                    scale=self.head_dim**-0.5,
-                    program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2]),
+                o = _sdpa_masked(
+                    lambda q_, k_, v_, b_: ttnn.transformer.scaled_dot_product_attention(
+                        q_, k_, v_,
+                        attn_mask=b_,
+                        is_causal=False,
+                        scale=self.head_dim**-0.5,
+                        program_config=_sdpa_program_config_for_lengths(
+                            q_.shape[2], k_.shape[2]),
+                    ),
+                    q, k, v, z, site="token_dit",
                 )
             else:
                 if seq_mask is not None:
