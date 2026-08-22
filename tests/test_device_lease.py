@@ -338,6 +338,54 @@ def test_logical_device_id_out_of_range_raises(d):
         os.environ.pop("TT_BIO_LOGICAL_DEVICE_ID", None)
 
 
+def test_same_holder_identity_is_named_as_a_co_tenant(d):
+    """Two processes sharing one TT_BIO_LEASE_HOLDER must be called a co-tenant, not a stale lease.
+
+    The fleet exports one TT_BIO_LEASE_HOLDER per task, so every process a task spawns writes the
+    SAME identity into the lease. When two of them want the card, the error names the task as the
+    holder and reads as the task blocking itself. That cost pass 2 of shared-softmax-crossmodel-p4
+    its whole gate: 14 of 15 perf cells, both anchor arms and the size-ladder warm-up all failed on
+    a concurrent host pytest, and the message pointed at a stale lease that never existed.
+    """
+    os.environ["TT_BIO_LEASE_HOLDER"] = "worker:same-identity"
+    try:
+        p, holder_pid = _spawn_holder(d, os.path.join(d, "ready_same"), hold=5.0)
+        try:
+            DeviceLease(card="0", timeout=1).acquire()
+            raise AssertionError("expected DeviceInUseError on a contended card")
+        except DeviceInUseError as e:
+            assert "worker:same-identity" in str(e), e
+            assert str(holder_pid) in str(e), f"error must still name the holder pid: {e}"
+            assert "DIFFERENT process" in str(e), (
+                f"a same-identity collision must say it is a co-tenant, not a stale lease: {e}")
+            assert "not a stale lease" in str(e), e
+            print(f"  co-tenant: same-identity collision named as a co-tenant (pid {holder_pid})  OK")
+        finally:
+            p.kill(); p.wait()
+    finally:
+        os.environ.pop("TT_BIO_LEASE_HOLDER", None)
+
+
+def test_foreign_holder_is_not_called_a_co_tenant(d):
+    """The co-tenant note is for a shared identity only: a foreign holder must not claim it."""
+    os.environ["TT_BIO_LEASE_HOLDER"] = "worker:holder-side"
+    try:
+        p, holder_pid = _spawn_holder(d, os.path.join(d, "ready_foreign"), hold=5.0)
+        os.environ["TT_BIO_LEASE_HOLDER"] = "worker:opener-side"
+        try:
+            DeviceLease(card="0", timeout=1).acquire()
+            raise AssertionError("expected DeviceInUseError on a contended card")
+        except DeviceInUseError as e:
+            assert "worker:holder-side" in str(e), e
+            assert "DIFFERENT process" not in str(e), (
+                f"a foreign holder is not a same-identity co-tenant: {e}")
+            print("  co-tenant: a foreign holder keeps the plain contended-card message  OK")
+        finally:
+            p.kill(); p.wait()
+    finally:
+        os.environ.pop("TT_BIO_LEASE_HOLDER", None)
+
+
 if __name__ == "__main__":
     with tempfile.TemporaryDirectory() as d:
         # The main process must lease into the SAME dir/host as the spawned holders so
@@ -349,6 +397,8 @@ if __name__ == "__main__":
         test_clean_release(d)
         test_serialization_blocks_then_succeeds(d)
         test_timeout_errors_cleanly(d)
+        test_same_holder_identity_is_named_as_a_co_tenant(d)
+        test_foreign_holder_is_not_called_a_co_tenant(d)
         test_sigkill_reclaim(d)
         test_sigterm_release(d)
         test_card_grant_refuses_card_outside_grant(d)
