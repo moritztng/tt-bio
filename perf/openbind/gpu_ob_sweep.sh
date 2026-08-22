@@ -18,6 +18,11 @@ case "$ARM" in
   p2) CKPT=/root/ckpt/of3-p2-155k.pt ;;
   *)  echo "unknown arm $ARM" >&2; exit 2 ;;
 esac
+SP=/root/venv-$ARM/lib/python3.11/site-packages
+# libcue_ops.so ships inside site-packages/cuequivariance_ops/lib and nothing puts that on the
+# loader path, so without this the cuEquivariance import fails and the fold silently falls back
+# to the torch triangle path. See gpu_ob_setup.sh:stage_cueqfix.
+export LD_LIBRARY_PATH=$SP/cuequivariance_ops/lib:$SP/nvidia/cu13/lib:${LD_LIBRARY_PATH:-}
 HERE=$(cd "$(dirname "$0")" && pwd)
 IN=$HERE/inputs
 RES=/root/results/$ARM

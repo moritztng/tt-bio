@@ -74,11 +74,38 @@ print('predict_step:', hasattr(OpenFold3AllAtom, 'predict_step'))
 stage_ob() { say "stage ob";  mk ob "openfold3[cuequivariance]==0.5.0"; say "stage ob done"; }
 stage_p2() { say "stage p2";  mk p2 "openfold3[cuequivariance]==0.4.5"; say "stage p2 done"; }
 
+# `pip install "openfold3[cuequivariance]==0.5.0"` produces an installation that CANNOT IMPORT.
+# The extra pins cuequivariance-ops-torch-cu12, but openfold3's own torch requirement resolves to
+# torch 2.13.0+cu130, so the cu12 ops wheel's libcue_ops.so wants libnvrtc.so.12 against a CUDA 13
+# runtime. And even the matching cu13 wheel does not import on its own: libcue_ops.so lives in
+# site-packages/cuequivariance_ops/lib with nothing putting that directory on the loader path.
+# Both halves of the fix are needed, and both are upstream's bug, not the harness's.
+stage_cueqfix() {
+  say "stage cueqfix"
+  for a in ob p2; do
+    local sp=/root/venv-$a/lib/python3.11/site-packages
+    "/root/venv-$a/bin/pip" uninstall -y -q cuequivariance-ops-cu12 \
+      cuequivariance-ops-torch-cu12 2>&1 | tail -1
+    "/root/venv-$a/bin/pip" install -q --no-cache-dir --force-reinstall --no-deps \
+      "cuequivariance-ops-cu13==0.11.1" "cuequivariance-ops-torch-cu13==0.11.1" 2>&1 | tail -2
+    LD_LIBRARY_PATH="$sp/cuequivariance_ops/lib:$sp/nvidia/cu13/lib" \
+      "/root/venv-$a/bin/python" -c "
+from cuequivariance_ops_torch.triangle_attention import triangle_attention
+from openfold3.core.kernels.cueq_utils import is_cuequivariance_available
+from importlib.metadata import version
+print('$a: openfold3', version('openfold3'), 'cueq importable, available =',
+      is_cuequivariance_available())
+" 2>&1 | tail -2 | tee -a "$LOG"
+  done
+  say "stage cueqfix done"
+}
+
 for s in "$@"; do
   case "$s" in
     base) stage_base ;;
     ckpt) stage_ckpt ;;
     ob) stage_ob ;;
+    cueqfix) stage_cueqfix ;;
     p2) stage_p2 ;;
     *) echo "unknown stage: $s" >&2 ;;
   esac

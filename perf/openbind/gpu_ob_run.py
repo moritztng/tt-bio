@@ -186,10 +186,10 @@ class PowerSampler(threading.Thread):
 
     def __init__(self, period: float = 2.0):
         super().__init__(daemon=True)
-        self.period, self.watts, self._stop = period, [], threading.Event()
+        self.period, self.watts, self._ev = period, [], threading.Event()
 
     def run(self):
-        while not self._stop.wait(self.period):
+        while not self._ev.wait(self.period):
             try:
                 out = subprocess.run(["nvidia-smi", "--query-gpu=power.draw",
                                       "--format=csv,noheader,nounits"],
@@ -199,7 +199,7 @@ class PowerSampler(threading.Thread):
                 pass
 
     def stop(self) -> dict:
-        self._stop.set()
+        self._ev.set()
         self.join(timeout=10)
         if not self.watts:
             return {"n": 0}
