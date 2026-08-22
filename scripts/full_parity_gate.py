@@ -373,6 +373,27 @@ LEGS = [
              "fixture (msa_A/msa_B), referenced by the yaml; PASS committed under the "
              "fp32 diffusion boundary (P15, OF3_DIFFUSION_FP32_DEVICE default-on)"),
 
+    # --- OpenBind-0 structure legs (cached fixture, device-only per release) ---
+    # Same external-reference R/D/X convention as the OpenFold3 legs above, against a
+    # different upstream tree: the aqlaboratory/openfold-3 v0.5.0 clone on CPU, fp32,
+    # with the OpenBind checkpoint. v0.5.0 is not on PyPI, hence the clone (see
+    # scripts/ob0_run_openfold.py).
+    Leg("openbind-ubq-msa", "openbind", "structure", "examples/ubq.yaml",
+        fixture="openbind/ubq/msa_200step_5sample_4cycle_fp32cpu",
+        committed_json="openbind-ubq-msa.json", target_id="ubq",
+        device_args=("--sampling_steps", "200", "--diffusion_samples", "5"),
+        msa="staged", legacy_rdx=True,
+        note="same target, MSA bytes and settings as openfold3-ubq-msa, so the two "
+             "checkpoints are comparable leg to leg"),
+    Leg("openbind-fkg-ligand-msa", "openbind", "structure", "examples/fkg_ligand.yaml",
+        fixture="openbind/fkg_ligand/msa_200step_5sample_4cycle_fp32cpu",
+        committed_json="openbind-fkg-ligand-msa.json", target_id="fkg_ligand",
+        device_args=("--sampling_steps", "200", "--diffusion_samples", "5"),
+        msa="staged", legacy_rdx=True,
+        note="FKBP12 (L107) + SB3 by CCD, the 1FKG complex: the protein-ligand "
+             "co-folding capability OpenBind-0 exists for. MSA bytes reused verbatim "
+             "from the boltz2 affinity_fkg fixture so both sides read one file"),
+
     # --- Boltz-2 affinity legs (cached fixture, device-only per release) ---
     # (min_fold_timeout=AFFINITY_FOLD_TIMEOUT_S on each: the fp32 host trunk makes the class
     # contention-fragile, see the constant's note above)
@@ -585,6 +606,16 @@ def _of3_ckpt_default() -> Path | None:
     return None
 
 
+def _openbind_ckpt_default() -> Path | None:
+    """The OpenBind-0 checkpoint at a known default location, if one exists.
+    Unlike preview2 this row has no legacy env var — tt_bio.weights resolves it."""
+    for p in (Path.home() / ".boltz" / "of3-ob-2025-06-30-174k.pt",
+              Path.home() / "of3-weights" / "of3-ob-2025-06-30-174k.pt"):
+        if p.exists():
+            return p
+    return None
+
+
 def preflight_check(legs: list) -> list:
     """Card-free validation of every leg's static wiring, run before any device work (and via
     ``--check``). Returns a list of human-readable problems (empty == every leg well-formed).
@@ -632,6 +663,13 @@ def preflight_check(legs: list) -> list:
                         f"run single-sequence, mismatching the MSA reference")
                 elif ("/" in val or val.endswith(".a3m")) and not (REPO / val).exists():
                     problems.append(f"{leg.id}: msa='yaml' points at missing MSA file {val}")
+        if leg.model == "openbind":
+            if _openbind_ckpt_default() is None:
+                problems.append(
+                    f"{leg.id}: OpenBind checkpoint not found — `tt-bio weights fetch "
+                    f"openbind` or drop of3-ob-2025-06-30-174k.pt in ~/.boltz "
+                    f"(fleet copy ~/of3-weights/); the fold otherwise fails inside "
+                    f"tt_bio/worker.py after paying for setup")
         if leg.model == "openfold3":
             ckpt = os.environ.get("OF3_CKPT")
             if ckpt and not Path(ckpt).expanduser().exists():
