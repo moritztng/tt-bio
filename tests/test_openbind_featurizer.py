@@ -160,7 +160,7 @@ _7XI5_MSA = ("docs/implementation-parity-data/ref-fixtures/openfold3/7xi5/"
              "msa-bench-notmpl_200step_5sample_4cycle_fp32cpu/msa_A")
 
 
-def _features(openbind, msa_dir):
+def _features(openbind, msa_dir, msa_settings=None):
     import json
     import tempfile
 
@@ -189,40 +189,90 @@ def _features(openbind, msa_dir):
     np.random.seed(0)
     _pyrandom.seed(0)
     query = next(iter(InferenceQuerySet.from_json(path).queries.values()))
-    return build_openfold3_features(query, openbind=openbind)
+    return build_openfold3_features(query, openbind=openbind,
+                                    msa_settings=msa_settings)
+
+
+def _moved(a, b):
+    """Same-shape tensor keys whose contents differ. Shape changes are reported separately:
+    the dedup removes MSA rows, so the row-indexed keys cannot be compared elementwise."""
+    return sorted(k for k in a
+                  if torch.is_tensor(a[k]) and torch.is_tensor(b.get(k))
+                  and a[k].shape == b[k].shape and not torch.equal(a[k], b[k]))
+
+
+def _settings(**over):
+    from tt_bio.openfold3_data import inference_msa_settings
+    s = inference_msa_settings(openbind=False)
+    for k, v in over.items():
+        setattr(s, k, v)
+    return s
 
 
 @pytest.mark.skipif(not os.path.isdir(_7XI5_MSA), reason=f"{_7XI5_MSA} missing")
-def test_flag_changes_real_features_on_a_real_msa():
-    """End of the plumbing, on the committed 7XI5 benchmark MSA (a real multi-row
-    stockholm set, not a hand-made fixture): flipping `openbind` has to move both
-    features it owns, and move nothing else.
-
-    This is the leg that would catch the flag being accepted and then dropped somewhere
-    between build_openfold3_features and the two vendored call sites. The single-sequence
-    folds cannot catch it -- both fixes are identities at MSA depth 1.
-    """
-    prev2 = _features(False, _7XI5_MSA)
-    ob = _features(True, _7XI5_MSA)
+def test_b1_deletion_value_is_exactly_4x_on_a_real_msa():
+    """B1 alone, on the committed 7XI5 benchmark MSA (a real multi-row stockholm set, not
+    a hand-made fixture). Pinning both calls to preview2 MSA settings isolates the
+    deletion scale: it is the one fix that does not live on MSASettings, so it is the only
+    thing the `openbind` argument still selects here."""
+    prev2 = _features(False, _7XI5_MSA, _settings())
+    ob = _features(True, _7XI5_MSA, _settings())
 
     assert prev2["deletion_value"].shape[0] > 1, "fixture is not multi-row"
+    assert _moved(prev2, ob) == ["deletion_value"], _moved(prev2, ob)
 
-    moved = sorted(k for k in prev2
-                   if torch.is_tensor(prev2[k]) and torch.is_tensor(ob.get(k))
-                   and prev2[k].shape == ob[k].shape
-                   and not torch.equal(prev2[k], ob[k]))
-    assert moved == ["deletion_value", "profile"], \
-        f"expected exactly deletion_value and profile to move, got {moved}"
-
-    # deletion_value: exactly 4x wherever a deletion was recorded.
     nz = prev2["deletion_value"] != 0
     assert nz.any(), "fixture records no deletions, so B1 is untested by it"
     ratio = (prev2["deletion_value"][nz] / ob["deletion_value"][nz]).double()
     assert torch.allclose(ratio, torch.full_like(ratio, 4.0), rtol=0, atol=1e-5), \
         f"deletion_value ratio {ratio.min():.7f}..{ratio.max():.7f}, expected 4"
 
-    # profile: a permutation within each column, so the per-column sums survive but the
-    # entries do not. Checking the sums too pins that this is the column scramble and
-    # not some unrelated numeric drift.
-    assert not torch.equal(prev2["profile"], ob["profile"])
+
+@pytest.mark.skipif(not os.path.isdir(_7XI5_MSA), reason=f"{_7XI5_MSA} missing")
+def test_b2_profile_is_a_within_column_permutation_on_a_real_msa():
+    """B2 alone: flip only the profile column index, so `profile` is the single mover and
+    its per-column sums survive. Checking the sums pins this as the column scramble rather
+    than unrelated numeric drift."""
+    prev2 = _features(False, _7XI5_MSA, _settings())
+    ob = _features(False, _7XI5_MSA, _settings(af3_spec_profile_columns=True))
+
+    assert _moved(prev2, ob) == ["profile"], _moved(prev2, ob)
     assert torch.allclose(prev2["profile"].sum(-1), ob["profile"].sum(-1), atol=1e-5)
+
+
+@pytest.mark.skipif(not os.path.isdir(_7XI5_MSA), reason=f"{_7XI5_MSA} missing")
+def test_b5_dedup_shrinks_the_main_msa_and_moves_the_averages():
+    """B5 alone: the dedup drops duplicate rows of the concatenated main MSA, so every
+    row-indexed feature gets shorter, and `profile` / `deletion_mean` move because they
+    average over that array. Nothing else may move."""
+    prev2 = _features(False, _7XI5_MSA, _settings())
+    ob = _features(False, _7XI5_MSA, _settings(af3_spec_main_msa_dedup=True))
+
+    row_keyed = ["msa", "msa_mask", "deletion_value", "has_deletion"]
+    for k in row_keyed:
+        assert ob[k].shape[0] < prev2[k].shape[0], f"{k} did not shrink"
+    assert len({ob[k].shape[0] for k in row_keyed}) == 1, "row-indexed keys disagree on depth"
+    assert _moved(prev2, ob) == ["deletion_mean", "profile"], _moved(prev2, ob)
+
+
+@pytest.mark.skipif(not os.path.isdir(_7XI5_MSA), reason=f"{_7XI5_MSA} missing")
+def test_b3_uppercase_is_a_noop_for_these_alignments():
+    """B3 is a no-op unless the parsed array actually holds lowercase. The a3m parser
+    deletes lowercase into the deletion matrix before building the array, so only .sto and
+    pre-parsed .npz can carry any. Recorded as a measurement, not an assumption: if a
+    future fixture does carry lowercase this test is the thing that notices."""
+    base = _features(False, _7XI5_MSA, _settings())
+    upper = _features(False, _7XI5_MSA, _settings(af3_spec_uppercase_msa=True))
+    assert _moved(base, upper) == [], _moved(base, upper)
+
+
+@pytest.mark.skipif(not os.path.isdir(_7XI5_MSA), reason=f"{_7XI5_MSA} missing")
+def test_the_whole_flag_moves_every_fix_it_owns_and_nothing_else():
+    """End of the plumbing: the leg that would catch the flag being accepted and then
+    dropped somewhere between build_openfold3_features and the four vendored call sites.
+    The single-sequence folds cannot catch it -- every fix is an identity at MSA depth 1."""
+    prev2 = _features(False, _7XI5_MSA)
+    ob = _features(True, _7XI5_MSA)
+
+    assert ob["msa"].shape[0] < prev2["msa"].shape[0], "dedup did not reach the features"
+    assert _moved(prev2, ob) == ["deletion_mean", "profile"], _moved(prev2, ob)
