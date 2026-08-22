@@ -218,6 +218,13 @@ _ROWS: tuple[Artifact, ...] = (
     Artifact("openfold3", ("openfold3",), "manual", "no parameter licence published",
              filename="of3-p2-155k.pt", approx_bytes=2287928196, legacy_env=("OF3_CKPT",),
              note="fetch from the OpenFold consortium yourself; see README"),
+    Artifact("openbind", ("openbind",), "manual", "no parameter licence published",
+             filename="of3-ob-2025-06-30-174k.pt", approx_bytes=2287872989,
+             note="OpenBind-0, upstream openfold-3 v0.5.0. Ungated at "
+                  "https://openfold3-data.s3.amazonaws.com/openfold3-parameters/"
+                  "of3-ob-2025-06-30-174k.pt, but treated as manual like the preview2 "
+                  "row above: the code is Apache-2.0 and the parameters carry no "
+                  "separate licence we can point at. See docs/weights.md"),
 )
 
 ARTIFACTS: dict[str, Artifact] = {a.key: a for a in _ROWS}

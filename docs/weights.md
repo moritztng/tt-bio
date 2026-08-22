@@ -11,6 +11,7 @@ mols                boltz2         hf-file  present     3.42G  /home/you/.boltz/
 esmc-6b             esmc-6b        hf-repo  present    23.66G  /home/you/.cache/huggingface/hub/models--biohub--ESMC-6B/...
 rf3                 rf3            url      missing         -  /home/you/.boltz/rf3/rf3_foundry_01_24_latest_remapped.ckpt
 openfold3           openfold3      manual   present     2.13G  /home/you/.boltz/of3-p2-155k.pt
+openbind            openbind       manual   present     2.13G  /home/you/.boltz/of3-ob-2025-06-30-174k.pt
 ...
 20/23 present, 58.6 GiB on disk, 18.7 GiB to fetch (tt-bio weights --download)
 ```
@@ -82,10 +83,18 @@ is only deleted once the extracted output verifies. An already-populated directo
 as-is after its contents check out, so upgrading tt-bio never re-downloads or re-extracts
 what a host already has.
 
-## OpenFold3 is the one exception
+## OpenFold3 and OpenBind are the exceptions
 
-tt-bio does not download the OpenFold3 checkpoint. The project is Apache-2.0 and upstream
+tt-bio does not download either OpenFold3 checkpoint. The project is Apache-2.0 and upstream
 states the parameters are free for academic and commercial use, but the consortium publishes
-no separate parameter licence, so fetching them on a user's behalf is not ours to do. Get
-`of3-p2-155k.pt` from the consortium and either put it at `~/.boltz/of3-p2-155k.pt` or point
-`OF3_CKPT` at it. tt-bio verifies the file it is handed and says so if the copy is truncated.
+no separate parameter licence, so fetching them on a user's behalf is not ours to do. tt-bio
+verifies the file it is handed and says so if the copy is truncated.
+
+| `--model` | file | put it at, or point | download |
+|---|---|---|---|
+| `openfold3` | `of3-p2-155k.pt` | `~/.boltz/of3-p2-155k.pt`, `OF3_CKPT` | from the consortium |
+| `openbind` | `of3-ob-2025-06-30-174k.pt` | `~/.boltz/of3-ob-2025-06-30-174k.pt`, `TT_BIO_OPENBIND` | `https://openfold3-data.s3.amazonaws.com/openfold3-parameters/of3-ob-2025-06-30-174k.pt` |
+
+The two are different models, not two revisions of one: OpenBind is upstream tag `v0.5.0`,
+whose diffusion transformer moved a LayerNorm, so the preview2 weights do not load on it and
+its weights do not load on preview2. Keep both files if you want both `--model` choices.
