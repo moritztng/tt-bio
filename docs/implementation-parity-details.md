@@ -376,24 +376,43 @@ measured to REVERSE between smoke and production sampler settings.
 
 ◊◊ The OpenBind-0 FKBP12 + SB3 leg (L107 protein + 33 ligand atoms, the 1FKG complex,
 ligand by CCD code, 5 reference + 5 device seeds, same 200/5/4 settings): all-atom RMSD
-X = 0.604 ± 0.042 Å (n=25) inside the floor max(R, D) = 0.551 Å (R 0.551 Å / D 0.132 Å,
-X/floor 1.10); 1-PCC 1.19 also inside; 1-TM 1.21 and 1-lDDT 1.31 above their tighter
+X = 0.602 ± 0.040 Å (n=25) inside the floor max(R, D) = 0.551 Å (R 0.551 Å / D 0.057 Å,
+X/floor 1.09); 1-PCC 1.18 also inside; 1-TM 1.21 and 1-lDDT 1.29 above their tighter
 floors, so the leg is PASS-caveated.
 
 Splitting the same global superposition by chain says where the distance is:
 
 | part | atoms | X (dev vs ref) | R | D | X/floor |
 |---|---|---|---|---|---|
-| whole complex | 864 | 0.604 ± 0.042 Å | 0.551 Å | 0.132 Å | 1.10 |
-| protein | 831 | 0.583 ± 0.042 Å | 0.551 Å | 0.038 Å | 1.06 |
-| ligand (SB3) | 33 | 0.980 ± 0.159 Å | 0.524 Å | 0.630 Å | 1.56 |
+| whole complex | 864 | 0.602 ± 0.040 Å | 0.551 Å | 0.057 Å | 1.09 |
+| protein | 831 | 0.582 ± 0.042 Å | 0.551 Å | 0.043 Å | 1.06 |
+| ligand (SB3) | 33 | 0.969 ± 0.056 Å | 0.524 Å | 0.183 Å | 1.85 |
 
-The protein is at its floor; the ligand pose carries the residual. 0.98 Å is small in
+The protein is at its floor; the ligand pose carries the residual. 0.97 Å is small in
 absolute terms for a 33-atom ligand — well inside the 2 Å convention for a correct pose —
 but it is above the reference's own 0.52 Å seed-to-seed ligand spread, so it is recorded
-as a caveat rather than waved through. The device's own ligand spread (0.63 Å) is wider
-than its protein spread (0.038 Å) by a factor of 17, which is the expected shape: 33 atoms
-with no backbone to pin them are the least determined part of the complex.
+as a caveat rather than waved through. The device is now 2.9× TIGHTER than the reference on
+the ligand (D 0.183 Å against R 0.524 Å), so the floor is the reference's and nothing here
+is inflated by our side.
+
+**The ligand X/floor ratio got worse when the port got better, and that is the honest
+reading.** Before the CCD stereo fix
+([openfold3-port.md](openfold3-port.md#the-host-featurizer)) the vendored featurizer never
+called `Chem.AssignStereochemistryFrom3D` on a ligand, so each fold's reference conformer
+drew a random handedness per stereocentre. The measured effect on this leg:
+
+| quantity | random handedness | upstream handedness |
+|---|---|---|
+| ligand X | 0.980 ± 0.159 Å | 0.969 ± 0.056 Å |
+| ligand D | 0.630 ± 0.341 Å | 0.183 ± 0.069 Å |
+| whole-complex D | 0.132 ± 0.062 Å | 0.057 ± 0.011 Å |
+| ligand X/floor | 1.56 | 1.85 |
+
+The distance to the reference is unchanged within noise; what collapses is the device's own
+run-to-run spread, 3.4× on the ligand. The old 1.56 was partly floor inflation from our own
+randomness. So this was a determinism and correct-input fix, not an accuracy win, and the
+ratio moving the wrong way is the instrument reporting a narrower device rather than a worse
+one.
 
 The atom pairing was checked explicitly, because the scorer intersects keys of
 (chain, seqid, resname, atomname, altloc) and a ligand numbered differently on the two

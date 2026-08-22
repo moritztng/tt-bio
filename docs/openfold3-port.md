@@ -140,12 +140,12 @@ re-runnable per release from `scripts/full_parity_gate.py`:
 | leg | all-atom RMSD X | reference noise floor | verdict |
 |---|---|---|---|
 | ubiquitin, L76, MSA | 0.969 Å | 1.033 Å | PASS on all four metrics |
-| FKBP12 + SB3 (1FKG), L107 + ligand | 0.604 Å | 0.551 Å | PASS on RMSD; 1-TM and 1-lDDT above their tighter floors |
+| FKBP12 + SB3 (1FKG), L107 + ligand | 0.602 Å | 0.551 Å | PASS on RMSD; 1-TM and 1-lDDT above their tighter floors |
 
 On the protein-ligand leg the residual is the ligand pose, not the fold: split under the
-same superposition the protein is 0.583 Å against a 0.551 Å floor and the ligand 0.980 Å
-against a 0.630 Å floor. Sub-Ångström over 33 atoms is a correct pose, but it is above the
-reference's own seed-to-seed ligand spread, so it is recorded as a caveat.
+same superposition the protein is 0.582 Å against a 0.551 Å floor and the ligand 0.969 Å
+against the reference's own 0.524 Å ligand spread. Sub-Ångström over 33 atoms is a correct
+pose, but it is above that spread, so it is recorded as a caveat.
 
 No perf-page entry yet.
 
@@ -161,6 +161,24 @@ Four MSA featurizer fixes shipped in `v0.5.0` are keyed on the checkpoint, so pr
 byte-identical to before: the AF3-spec `deletion_value` scale, the AF3-spec `profile`
 column index, uppercase at parse, and main-MSA dedup. The dedup is the one with teeth — it
 removes one row of ubiquitin's 9656-row MSA and 474 of FKBP12's 16384.
+
+Two vendoring omissions found by auditing the whole vendored tree against the upstream
+commit it pins, both invisible to the feature-key comparison above:
+
+* **CCD ligand stereochemistry.** The reference-molecule builder never called
+  `Chem.AssignStereochemistryFrom3D`, and the line after it discards the coordinates the
+  stereo came from, so every ligand reference conformer drew a random handedness per
+  stereocentre. SB3, SAH and ATP all came out fully unassigned, with several centres
+  inverted against upstream. Fixed; the signed volumes now match upstream exactly. It cut
+  the device's run-to-run ligand-pose spread 3.4× (0.630 Å to 0.183 Å) without moving the
+  distance to the reference, so it is a determinism fix rather than an accuracy win. Hidden
+  from the key comparison because it lives entirely in `ref_pos`, the one key excluded there
+  as stochastic.
+* **MSA row caps.** `parse_a3m` dropped `inplace=True` from `MsaArray.truncate`, so the
+  truncated copy was discarded and any MSA deeper than its per-source cap was parsed whole
+  (18149 rows where upstream parses 16384). The model still received 16384 rows, just a
+  different 16384. Fixed; all seven OpenFold3 parity legs reproduce their committed numbers
+  exactly, because none of their MSAs is deep enough to reach a cap.
 
 ## Precision
 
