@@ -596,6 +596,199 @@ def stage8(args):
         T._tri_att_sdpa = original
 
 
+def _dev_msa_block_sub(p, blk, ref_blk, m, z, sub, m_shape, crop):
+    """One device MSA block with ONE op class swapped for an exact fp32 reference.
+
+    In-chain substitution (the af2ig technique): the reference op is fed the device's own
+    input and everything else stays on device, so the arm prices that op class where it
+    actually sits rather than in isolation.
+    """
+    import ttnn
+    opm, pwa, tm, pl = blk
+    u = ttnn.reshape(pwa(m, ttnn.clone(z)), tuple(m.shape))
+    m = ttnn.add(m, u)
+    u = ttnn.reshape(tm(m), tuple(m.shape))
+    m = ttnn.add(m, u)
+    if sub in ("opm", "both"):
+        mh = p._to_host(m, m_shape).float()
+        uh = ref_blk.outer_product_mean_msa(mh, inplace_safe=False, chunk_size=None)
+        u = p.trunk._up(uh.reshape(1, crop, crop, -1))
+    else:
+        u = opm(m, None, None)
+    z = ttnn.add(z, u)
+    return m, dev_block_z(pl, z)
+
+
+def stage9(args):
+    """What does each candidate actually cost at the trunk z output?
+
+    Stage 8 measured the padding leak end to end by removing it (crop 128, and an exact
+    host attention core at crop 136) and found z_post_msa barely moves. This asks the same
+    question of the other candidate the sub-op table flagged, OuterProductMean, with the
+    same in-chain substitution and the same two anchors, so the terms are comparable:
+
+      --sub none    the shipped device chain
+      --sub triatt  exact fp32 attention core, over the device's own q/k/v/bias, real keys only
+      --sub opm     exact fp32 OuterProductMean, over the device's own m
+      --sub both    neither on device
+    """
+    import ttnn
+    import tt_bio.tenstorrent as T
+    from tt_bio.tenstorrent import get_device
+    cache = Path(args.cache)
+    out = cache / f"e2e_{args.crop}"
+    crop = args.crop
+    z_pre = torch.load(cache / "ref_z_pre.pt").float()[..., :crop, :crop, :].contiguous()
+    m0 = torch.load(cache / "ref_m0.pt").float()[..., :crop, :].contiguous()
+    model, p, state_dict = _dev_setup()
+    dev = get_device()
+    ref_blocks = None
+    if args.sub in ("opm", "both"):
+        reference, _ = _load_reference(state_dict)
+        ref_blocks = reference.msa_module.blocks
+
+    original = T._tri_att_sdpa
+    reported = []
+
+    def host_core(q, k, v, bias, scale):
+        qh, kh = ttnn.to_torch(q).float(), ttnn.to_torch(k).float()
+        vh, bh = ttnn.to_torch(v).float(), ttnn.to_torch(bias).float()
+        if not reported:
+            print(f"  [core] logical k={tuple(kh.shape)} padded k={tuple(k.padded_shape)}",
+                  flush=True)
+            reported.append(1)
+        o = torch.empty_like(qh)
+        for b0 in range(0, qh.shape[0], 8):
+            b1 = min(b0 + 8, qh.shape[0])
+            logit = qh[b0:b1] @ kh[b0:b1].transpose(-1, -2)
+            logit = (logit + bh[:, :, :logit.shape[-2], :logit.shape[-1]]) * scale
+            o[b0:b1] = logit.softmax(dim=-1) @ vh[b0:b1]
+        return ttnn.from_torch(o, dtype=q.dtype, layout=ttnn.TILE_LAYOUT, device=dev,
+                               memory_config=ttnn.DRAM_MEMORY_CONFIG)
+
+    if args.sub in ("triatt", "both"):
+        T._tri_att_sdpa = host_core
+    try:
+        zt = p.trunk._up(z_pre.reshape(1, crop, crop, -1))
+        mt = p.trunk._up(m0.reshape(1, *m0.shape))
+        for b in range(N_MSA_BLOCKS):
+            mt, zt = _dev_msa_block_sub(
+                p, p.trunk.MSA[b], None if ref_blocks is None else ref_blocks[b],
+                mt, zt, args.sub, (1, *m0.shape), crop)
+        ref_msa = torch.load(out / "ref_z_msa.pt")
+        _stat(f"crop{crop} sub={args.sub} z_post_msa",
+              p._to_host(zt, tuple(ref_msa.shape)), ref_msa)
+        for i in range(args.n_pf):
+            zt = dev_block_z(p.trunk.PF.blocks[i], zt)
+        ref_out = torch.load(out / f"ref_z_out_{args.n_pf}.pt")
+        _stat(f"crop{crop} sub={args.sub} z_post_pairformer",
+              p._to_host(zt, tuple(ref_out.shape)), ref_out)
+        ttnn.deallocate(zt)
+    finally:
+        T._tri_att_sdpa = original
+
+
+def stage4(args):
+    """STEP 2: why does the shipped fold read z at 0.947762 where the harness reads 0.957846?
+
+    Everything runs in ONE process off ONE tapped input, so run-to-run and process-to-process
+    variance cannot be the answer by construction. The ladder walks from the harness path to
+    the shipped path one difference at a time:
+
+      A/A   the shipped fold twice, same input, z_post_pairformer against itself
+      L1    dev_block_z x 48 from the fold's own z_in            (the harness path)
+      L2    block(None, z) x 48                                  (+ the layer's own call)
+      L3    block(s, z) x 48 with the fold's own s               (+ the s branch and its L1 cost)
+
+    L1 and L2 run the same five sub-ops in the same order, so a gap between them is the
+    allocation pattern, not the arithmetic. A gap that only appears at L3 is the s branch.
+    """
+    import ttnn
+    from scripts.opendde_real_seam_parity import _residue_trunk
+
+    cache = Path(args.cache)
+    ref_out = torch.load(cache / f"e2e_{args.crop}" / f"ref_z_out_{args.n_pf}.pt")
+    feats = _full_construct_features()
+    model, p, _ = _dev_setup()
+
+    taps = {}
+    original = type(p.trunk.PF).__call__
+
+    def wrapped(self, s, z, *a, **kw):
+        if self is p.trunk.PF and "z_in" not in taps:
+            taps["z_in"] = p._to_host(z)
+            taps["s_in"] = p._to_host(s)
+        out = original(self, s, z, *a, **kw)
+        if self is p.trunk.PF:
+            taps.setdefault("z_out_%d" % len([k for k in taps if k.startswith("z_out")]),
+                            p._to_host(out[1]))
+        return out
+
+    type(p.trunk.PF).__call__ = wrapped
+    try:
+        for rep in range(2):
+            _residue_trunk(model, feats, n_cycles=1)
+            print(f"  shipped fold rep {rep} done", flush=True)
+    finally:
+        type(p.trunk.PF).__call__ = original
+
+    a, b = taps["z_out_0"].float(), taps["z_out_1"].float()
+    print(f"\nA/A shipped fold twice: bit_exact={bool(torch.equal(a, b))} "
+          f"maxabs={float((a - b).abs().max()):.3e} "
+          f"rel={float((a - b).pow(2).mean().sqrt() / a.pow(2).mean().sqrt()):.3e}",
+          flush=True)
+    _stat("SHIPPED z_post_pairformer (expect 0.947762)", a, ref_out)
+
+    z_in = taps["z_in"].float().reshape(1, *ref_out.shape[-3:])
+    s_in = taps["s_in"].float()
+    n = ref_out.shape[-2]
+    blocks = p.trunk.PF.blocks
+
+    for arm in args.arms.split(","):
+        zt = p.trunk._up(z_in.reshape(1, n, n, -1))
+        st = p.trunk._up(s_in.reshape(1, n, -1)) if arm == "L3" else None
+        for i in range(args.n_pf):
+            if arm == "L1":
+                zt = dev_block_z(blocks[i], zt)
+            elif arm == "L2":
+                _, zt = blocks[i](None, zt)
+            else:
+                st, zt = blocks[i](st, zt)
+        _stat(f"{arm} z_post_pairformer", p._to_host(zt, tuple(ref_out.shape)), ref_out)
+        ttnn.deallocate(zt)
+        if st is not None:
+            ttnn.deallocate(st)
+
+
+def stage10(args):
+    """Is OuterProductMean the same bug class as the triangle attention, on the row axis?
+
+    Stage 9 showed opm carries an error of the same size as the padding leak. opm reduces
+    over the MSA row dim, which ttnn pads to a multiple of 32 exactly as it pads the token
+    dim. Same discriminator as stage 7, moved to that axis: a row ladder. If the error dies
+    when the row count is already a multiple of 32, it is invented rows, not arithmetic.
+    """
+    import ttnn
+    cache = Path(args.cache)
+    crop = args.crop
+    m0 = torch.load(cache / "ref_m0.pt").float()[..., :crop, :].contiguous()
+    model, p, state_dict = _dev_setup()
+    reference, _ = _load_reference(state_dict)
+    ref_blk = reference.msa_module.blocks[0]
+    dev_opm = p.trunk.MSA[0][0]
+    print(f"m0 {tuple(m0.shape)} tokens={crop}", flush=True)
+    for rows in [int(x) for x in args.rows.split(",")]:
+        mh = m0[..., :rows, :, :].contiguous() if m0.dim() == 3 else m0[:rows].contiguous()
+        ref_u = ref_blk.outer_product_mean_msa(mh, inplace_safe=False, chunk_size=None)
+        mt = p.trunk._up(mh.reshape(1, *mh.shape))
+        got = dev_opm(mt, None, None)
+        pad = tuple(mt.padded_shape)
+        _stat(f"rows {rows:3d} (padded {pad}) opm",
+              p._to_host(got, tuple(ref_u.shape)), ref_u)
+        ttnn.deallocate(got)
+        ttnn.deallocate(mt)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--stage", type=int, required=True)
@@ -610,8 +803,13 @@ def main() -> None:
     ap.add_argument("--crop", type=int, default=136)
     ap.add_argument("--n-pf", type=int, default=48)
     ap.add_argument("--all-subops", action="store_true")
+    ap.add_argument("--arms", default="L1,L2,L3")
+    ap.add_argument("--rows", default="32,64,76,84,96")
+    ap.add_argument("--sub", default="none",
+                    choices=("none", "triatt", "opm", "both"))
     args = ap.parse_args()
-    {1: stage1, 2: stage2, 3: stage3, 5: stage5, 6: stage6, 7: stage7, 8: stage8}[args.stage](args)
+    {1: stage1, 2: stage2, 3: stage3, 4: stage4, 5: stage5, 6: stage6, 7: stage7,
+     8: stage8, 9: stage9, 10: stage10}[args.stage](args)
 
 
 if __name__ == "__main__":
