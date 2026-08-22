@@ -4046,7 +4046,6 @@ class TriangleAttention(Module):
                     g_chunk = ttnn.experimental.minimal_matmul(
                         input_tensor=x_chunk,
                         weight_tensor=self.g_weight,
-                        bias_tensor=self.g_bias,
                         compute_kernel_config=self.compute_kernel_config,
                         dtype=_dtype(),
                         config=g_cfg_chunk,
