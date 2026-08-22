@@ -41,12 +41,6 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Fixed
 
-- Protenix-v2 no longer hangs on targets of 500 to 507 tokens. On a 13x10 Blackhole grid a
-  fold in that range could park forever in the pair conditioning readback, with the card alive
-  and the host spinning, so the job never returned and never failed either. Those folds now run
-  on an 11x10 grid, which completes every time. The window is narrow and so is the fix: every
-  other size keeps all 130 cores and is byte-for-byte unchanged. Nothing to set.
-
 - A weight download killed mid-flight no longer poisons the cache. Re-downloads were gated on
   the destination merely existing, so a truncated multi-GB file was treated as present and
   reused forever, failing later with `PytorchStreamReader ... failed finding central

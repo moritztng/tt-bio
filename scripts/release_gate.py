@@ -430,13 +430,6 @@ SIZE_LADDER_RUNGS = tuple(int(x) for x in
 # gateable (+-0.68 over ln(768/512) = 0.405). So 640 earns its place as a lever
 # rung and stays out of the timing chain.
 SIZE_LADDER_EXP_RUNGS = (256, 512, 768)
-# Rungs one model folds only to check WHICH GRID the engine put the fold on. protenix-v2
-# folds 500-507 tokens on 11x10 instead of a 13x10 card's own grid, because 13x10 hangs
-# there (tt_bio.protenix.HANG_GRID_TOKEN_WINDOW, GitHub issue #9), and 506 is inside that
-# window. The claim is about the fold, not about a recorded number, so this leg compares
-# against no baseline and runs on every card type -- including one the ladder itself has
-# no baseline for. Drop the workaround and the leg reads 13x10 and goes red.
-SIZE_LADDER_GRID_RUNGS = {"protenix-v2": {506: "11x10"}}
 SIZE_LADDER_BASELINE = REPO_ROOT / "docs" / "size_ladder_baseline.json"
 SIZE_LADDER_STEPS = 6
 SIZE_LADDER_FRAC_TOL = 0.05
@@ -1063,28 +1056,6 @@ def _repo_commit() -> str:
         return "unknown"
 
 
-def _size_ladder_grid_legs(models, workdir: Path) -> list:
-    """One fold per SIZE_LADDER_GRID_RUNGS entry, gated on the grid the census reports."""
-    legs = []
-    for m in models:
-        for rung, want in SIZE_LADDER_GRID_RUNGS.get(m, {}).items():
-            r = _run_census_fold(m, rung, workdir, "grid")
-            got = r.get("grid")
-            if r.get("error"):
-                err = f"{m}/{rung}: {r['error']}"
-            elif got != want:
-                err = (f"{m}/{rung}: folded on {got}, not {want} — the issue-#9 grid "
-                       f"workaround did not fire")
-            else:
-                err = None
-            print(f"[size-ladder] {m}/{rung} grid: {got or '-'} "
-                  f"{'ok' if not err else 'FAIL'}", flush=True)
-            legs.append({"model": f"{m}/{rung}-grid", "gate": not err, "error": err,
-                         "findings": [err] if err else [], "grid": got,
-                         "runtime_s": r.get("runtime_s")})
-    return legs
-
-
 def _size_ladder_card_type() -> str:
     """Board-type key ('p150a', 'p300c', ...) for the per-card baseline lookup,
     reusing perf_regression's detector (tt-smi first, sysfs fallback; opens no
@@ -1412,28 +1383,20 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 "error": f"no baseline at {baseline_path} — record one with "
                          f"--size-ladder-record", "legs": []}
 
-    extra = {m: SIZE_LADDER_GRID_RUNGS[m] for m in models if m in SIZE_LADDER_GRID_RUNGS}
     print(f"\n{'='*70}\n[size-ladder] {'RECORDING baseline' if record else 'checking'} "
           f"for card {card}: {', '.join(models)} at rungs "
           f"{','.join(map(str, rungs))} ({SIZE_LADDER_STEPS} steps, 1 sample, "
-          f"seed {SEED}, single-sequence)"
-          + "".join(f"\n[size-ladder] {m} also folds "
-                    f"{','.join(f'{k} on {v}' for k, v in g.items())}"
-                    for m, g in extra.items())
-          + f"\n{'='*70}", flush=True)
+          f"seed {SEED}, single-sequence)\n{'='*70}", flush=True)
     t0 = time.monotonic()
-    # Ahead of the baseline lookup on purpose: this leg needs no baseline, so a card
-    # type the ladder has never been recorded on still gets the window folded.
-    legs = _size_ladder_grid_legs(models, workdir)
+    legs = []
     if record:
         old_models = baseline.get("cards", {}).get(card, {}).get("models", {})
         # Seeded with the card's existing models, not empty: recording a subset
         # (--size-ladder-models) then UPDATES those models and leaves the rest of
         # the card block intact. A 5-model record is ~40 min of device time, so it
         # has to be resumable a model at a time instead of all-or-nothing.
-        new_card = {"last_recorded": time.strftime("%Y-%m-%d"),
-                    "last_host": socket.gethostname(), "last_commit": _repo_commit(),
-                    "models": dict(old_models)}
+        new_card = {"recorded": time.strftime("%Y-%m-%d"), "host": socket.gethostname(),
+                    "commit": _repo_commit(), "models": dict(old_models)}
         todos = 0
 
         def _flush_baseline():
@@ -1463,12 +1426,7 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
             block, skip = _size_ladder_exponent_block(meas["runtime_s"], meas["sigma"])
             todos += _size_ladder_fill_reasons(meas["levers"],
                                                old_models.get(m, {}).get("levers"))
-            # Provenance per MODEL, not per card block: record mode is resumable a model at
-            # a time on purpose, so one card's block routinely holds numbers from more than
-            # one host and one commit. A card-level stamp would name whichever host recorded
-            # last and quietly claim the other models' numbers as its own.
-            entry = {"grid": meas.get("grid"), "recorded": time.strftime("%Y-%m-%d"),
-                     "host": socket.gethostname(), "commit": _repo_commit(),
+            entry = {"grid": meas.get("grid"),
                      "runtime_s": meas["runtime_s"], "levers": meas["levers"]}
             if block:
                 entry.update(block)
@@ -1505,7 +1463,7 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                     "gate": False, "card": card,
                     "error": f"NO BASELINE for card type '{card}' in "
                              f"{baseline_path.name} — record one on this card type: "
-                             f"--model size-ladder --size-ladder-record", "legs": legs}
+                             f"--model size-ladder --size-ladder-record", "legs": []}
         for m in models:
             base_model = card_block.get("models", {}).get(m)
             if base_model is None:

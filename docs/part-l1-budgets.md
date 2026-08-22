@@ -52,7 +52,3 @@ produces no numbers to compare.
 one. `TT_BIO_TRIMUL_CHUNK_CAP=<width>` pins the trimul chunk width; the gate uses it to prove
 the clash-and-retry path returns the same bytes as a run that never clashed. Both are
 test-only and unset in production.
-
-The engine picks a smaller grid than the card's in exactly one place: protenix-v2 folds 500 to
-507 tokens on 11x10, because 13x10 hangs there (issue #9, `docs/size-generality.md`). Setting
-`TT_BIO_FORCE_GRID` overrides that too, so a pin set by hand always wins.
