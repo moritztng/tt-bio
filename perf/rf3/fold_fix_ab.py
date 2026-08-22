@@ -24,6 +24,7 @@ sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--model", default="rf3", choices=["rf3", "openfold3"])
     ap.add_argument("--fix", default="cdk2x2_298")
     ap.add_argument("--label", required=True)
     ap.add_argument("--outdir", type=Path, required=True)
@@ -52,11 +53,14 @@ def main():
     assert Path(T.__file__).resolve().is_relative_to(ROOT), \
         f"tt_bio resolves to {T.__file__}, not this checkout -- set PYTHONPATH"
 
-    B.RECYCLING_STEPS = _resolve_recycling_steps(None, "rf3")
-    B.SAMPLING_STEPS = _resolve_sampling_steps(None, "rf3")
+    B.RECYCLING_STEPS = _resolve_recycling_steps(None, a.model)
+    B.SAMPLING_STEPS = _resolve_sampling_steps(None, a.model)
     shipped_steps = (B.RECYCLING_STEPS, B.SAMPLING_STEPS)
-    assert shipped_steps == (10, 50), \
-        f"rf3 defaults are {B.RECYCLING_STEPS}/{B.SAMPLING_STEPS}, expected 10/50"
+    # each model folds at ITS OWN shipped default, and the expected pair is asserted per model so
+    # a silent upstream change to either cannot pass as this model's production recipe
+    _EXPECT = {"rf3": (10, 50), "openfold3": (3, 200)}
+    assert shipped_steps == _EXPECT[a.model], \
+        f"{a.model} defaults are {shipped_steps}, expected {_EXPECT[a.model]}"
     if a.sampling_steps is not None:
         assert a.dump_distogram, "--sampling-steps only makes sense with --dump-distogram"
         B.SAMPLING_STEPS = a.sampling_steps
@@ -67,11 +71,11 @@ def main():
     a3m = a.fixdir / f"{a.fix}.a3m"
     sha = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
     one_fold, meta, state = B.build_fold(
-        "rf3", ROOT / f".msa_rf3_{a.fix}", tgt, a3m)
+        a.model, ROOT / f".msa_{a.model}_{a.fix}", tgt, a3m)
     struct_dir = Path(meta["struct_dir"])
     a.outdir.mkdir(parents=True, exist_ok=True)
 
-    res = {"label": a.label, "fix": a.fix, "host": os.uname().nodename,
+    res = {"label": a.label, "model": a.model, "fix": a.fix, "host": os.uname().nodename,
            "card": os.environ.get("TT_VISIBLE_DEVICES"),
            "recycling_steps": B.RECYCLING_STEPS, "sampling_steps": B.SAMPLING_STEPS,
            "rf3_shipped_steps": list(shipped_steps),
@@ -81,20 +85,58 @@ def main():
                          if k.startswith("TT_BIO_")},
            "folds": []}
 
-    grab = {}
+    grab = {"n": 0}
     if a.dump_distogram:
         import numpy as np
-        from tt_bio.rf3.model import RF3
-        _orig_predict = RF3.predict
 
-        def _predict(self, *ar, **kw):
-            out = _orig_predict(self, *ar, **kw)
-            d = out.get("distogram")
-            if d is not None:
-                grab["distogram"] = d.detach().cpu().numpy()
-            return out
+        def _stash(d):
+            """Normalise to [1, N, N, bins] and assert repeat captures agree.
 
-        RF3.predict = _predict
+            Both models' distograms are a linear readout of the TRUNK pair representation, so
+            every capture inside one fold must be identical no matter how many diffusion samples
+            ran. Asserting that is the cheapest possible check that the readout really is
+            sampler-independent rather than assumed to be.
+            """
+            d = np.asarray(d)
+            if d.ndim == 3:
+                d = d[None]
+            prev = grab.get("distogram")
+            if prev is not None:
+                assert np.array_equal(prev, d), \
+                    "distogram changed within one fold -- it is not sampler-independent"
+            grab["distogram"] = d
+            grab["n"] += 1
+
+        if a.model == "rf3":
+            from tt_bio.rf3.model import RF3
+            _orig_predict = RF3.predict
+
+            def _predict(self, *ar, **kw):
+                out = _orig_predict(self, *ar, **kw)
+                if out.get("distogram") is not None:
+                    _stash(out["distogram"].detach().cpu().numpy())
+                return out
+
+            RF3.predict = _predict
+        else:
+            # openfold3's distogram is built inside the confidence head from `zij_trunk`
+            # (openfold3_confidence.py:195-197), NOT from the confidence pairformer's own pair
+            # track. So it reads the trunk and is blind to the confidence-head TriAtt site --
+            # which is exactly why that site stays excluded from the flip.
+            # openfold3_fold.py:267 calls `.forward(...)` explicitly, not the instance, so
+            # patching __call__ silently never fires. The head is also built lazily
+            # (openfold3_fold.py:200,251) -- patch the CLASS, not an instance.
+            from tt_bio.openfold3_confidence import OF3ConfidenceHead
+            _orig_conf = OF3ConfidenceHead.forward
+
+            def _conf(self, *ar, **kw):
+                out = _orig_conf(self, *ar, **kw)
+                d = out.get("distogram_logits")
+                assert d is not None, f"confidence head returned no distogram_logits: {list(out)}"
+                _stash(d.detach().cpu().float().numpy())
+                return out
+
+            OF3ConfidenceHead.forward = _conf
 
     def one(tag, keep, seed=None, dest=None):
         if seed is not None:
@@ -118,10 +160,13 @@ def main():
             rec["kept"] = [p.name for p in cifs]
             if a.dump_distogram:
                 d = grab.pop("distogram", None)
+                assert d is not None or not a.dump_distogram, tag
                 assert d is not None, f"{tag}: RF3.predict returned no distogram"
                 np.save(out / "distogram.npy", d)
                 rec["distogram"] = {"shape": list(d.shape), "dtype": str(d.dtype),
+                                    "captures": grab["n"],
                                     "sha256": hashlib.sha256(d.tobytes()).hexdigest()[:16]}
+                grab["n"] = 0
             rec["kept_in"] = str(out)
         print(f"[{a.label}] {tag} {rec['fold_s']:.3f}s plddt={rec['plddt']} "
               f"ptm={rec['ptm']} cif={list(rec['cif_sha256'].values())}", flush=True)

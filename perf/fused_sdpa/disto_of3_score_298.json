@@ -1,0 +1,35 @@
+{
+ "size": 298,
+ "seeds": [
+  0,
+  1,
+  2
+ ],
+ "n_tokens": 298,
+ "n_bins": 64,
+ "sampling_steps": 5,
+ "diffusion_samples": 1,
+ "segments": {
+  "whole": {
+   "n_residues": 294,
+   "n_pairs": 28595,
+   "rho": {
+    "def": [
+     0.743396,
+     0.753013,
+     0.71595
+    ],
+    "hifi": [
+     0.606938,
+     0.581368,
+     0.61476
+    ]
+   },
+   "rho_shipped_mean": 0.737453,
+   "rho_shipped_spread": 0.037063,
+   "rho_margin_mean_DIRECTION_ONLY": -0.136431,
+   "verdict": "VOID",
+   "void_reason": "abs(rho) shipped 0.7375 < 0.8 pre-registered floor"
+  }
+ }
+}

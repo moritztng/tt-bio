@@ -147,8 +147,27 @@ def main():
               f"spread {max(r0)-min(r0):.5f}")
         print(f"  rho(fused)   per seed {np.round(rho['hifi'],5).tolist()}   "
               f"spread {max(rho['hifi'])-min(rho['hifi']):.5f}")
-        assert abs(np.mean(r0)) >= 0.8, \
-            f"INSTRUMENT VOID: abs(rho) on the shipped arm is {np.mean(r0):.4f} < 0.8"
+        # Pre-registered void condition (PLAN2 §1 Step 3): if the shipped arm cannot track the
+        # crystal, the head is not doing what this step assumes. Report and stop for this segment
+        # rather than crashing, so the void itself is banked as a result -- but do NOT let a void
+        # segment contribute a verdict.
+        if abs(np.mean(r0)) < 0.8:
+            print(f"  INSTRUMENT VOID: abs(rho) on the shipped arm is {np.mean(r0):.4f} < 0.8. "
+                  f"No verdict from this segment.")
+            print(f"  (direction only, NOT a verdict: fused - shipped mean "
+                  f"{np.mean(rho['hifi']) - np.mean(r0):+.5f}, shipped seed spread "
+                  f"{max(r0)-min(r0):.5f})")
+            report["segments"][label] = {
+                "n_residues": L, "n_pairs": int(len(dtrue)),
+                "rho": {arm: [round(v, 6) for v in rho[arm]] for arm in ARMS},
+                "rho_shipped_mean": round(float(np.mean(r0)), 6),
+                "rho_shipped_spread": round(float(max(r0) - min(r0)), 6),
+                "rho_margin_mean_DIRECTION_ONLY": round(
+                    float(np.mean(rho["hifi"]) - np.mean(r0)), 6),
+                "verdict": "VOID",
+                "void_reason": f"abs(rho) shipped {np.mean(r0):.4f} < 0.8 pre-registered floor",
+            }
+            continue
         near_is_low = np.mean(r0) > 0     # rho > 0 => bin index rises with distance
         print(f"  instrument OK: abs(rho)={abs(np.mean(r0)):.4f} >= 0.8; "
               f"near end of the bin axis is {'LOW' if near_is_low else 'HIGH'} indices")
