@@ -884,8 +884,68 @@ def _tri_att_q_chunks(q_len: int, k_len: int) -> tuple:
     return tuple(sorted(wider, reverse=True)) + (prod,)
 
 
+# A sequence length that is not a multiple of the 32-row tile is served WRONG by the fused SDPA
+# path, and this pads it up to one and masks the padding out.
+#
+# MEASURED on captured RF3 triangle-attention operands, sliced to a length and handed over raw, all
+# scored in fp64 against the SAME bf16 operands (perf/fused_sdpa/errstruct_lenladder.json):
+#
+#     n     aligned   materialised   fused op-default    fused HiFi4/ap-off/acc
+#      76   RAGGED    9.671e-03      7.335e-01  x75.8    7.334e-01  x75.8
+#      96   aligned   1.039e-02      1.385e-02  x 1.33   3.537e-03  x 0.34
+#     117   RAGGED    1.001e-02      7.291e-01  x72.8    7.289e-01  x72.8
+#     128   aligned   9.995e-03      1.376e-02  x 1.38   3.595e-03  x 0.36
+#     298   RAGGED    1.030e-02      7.316e-01  x71.0    7.314e-01  x71.0
+#     512   aligned   1.071e-02      1.473e-02  x 1.38   4.352e-03  x 0.41
+#
+# The materialised path is flat at ~1e-2 either way, and the two fused columns agree to four digits
+# at every ragged length, so this is not a precision term and no compute-config knob reaches it.
+#
+# In TILE layout a [117, 4, 117, 32] tensor is already physically 128 wide on both tile axes and the
+# logical 117 is what the op is meant to honour. The padded key columns therefore carry whatever is
+# in that physical tail plus a bias of zero, and exp(0) is 1, so up to 31 of every row's key slots
+# take a real share of the softmax mass. Writing a large negative into the bias over the padded key
+# columns takes it back to zero. The query axis pads with 0 instead: those output rows are sliced
+# off, and a fully-masked row would divide by zero.
+_SDPA_RAGGED_PAD = env_flag("TT_BIO_SDPA_RAGGED_PAD", False)
+# [ragged calls padded, calls already aligned]. A fix that never fired must not read as a null.
+SDPA_RAGGED_PAD_STATS = [0, 0]
+# Large enough that exp((qk + m) * scale) underflows to zero for any score this op sees, small
+# enough to stay finite in bf16 and to survive being multiplied by a bias scale.
+_SDPA_PAD_MASK = -1.0e9
+
+
+def _sdpa_pad_ragged(q, k, v, bias):
+    """Pad the sequence axis to a tile multiple, masking the new keys. Returns (q, k, v, bias, pad)."""
+    S = int(q.shape[2])
+    pad = (-S) % 32
+    if not pad:
+        SDPA_RAGGED_PAD_STATS[1] += 1
+        return q, k, v, bias, 0
+    SDPA_RAGGED_PAD_STATS[0] += 1
+    seq = [(0, 0)] * (len(q.shape) - 2) + [(0, pad), (0, 0)]
+    qp = ttnn.pad(q, seq, value=0.0)
+    kp = ttnn.pad(k, seq, value=0.0)
+    vp = ttnn.pad(v, seq, value=0.0)
+    nb = len(bias.shape)
+    bp = ttnn.pad(bias, [(0, 0)] * (nb - 2) + [(0, pad), (0, 0)], value=0.0)
+    bq = ttnn.pad(bp, [(0, 0)] * (nb - 1) + [(0, pad)], value=_SDPA_PAD_MASK)
+    # ttnn.pad ALIASES here rather than copying: in TILE layout the buffer is already 32-aligned on
+    # both tile axes, so the pad is a relabel of the logical shape plus a fill of the physical tail
+    # that was already there. Measured -- deallocating the pad output kills the SOURCE tensor. So
+    # nothing here may be freed, and the padding costs no DRAM.
+    return qp, kp, vp, bq, pad
+
+
 def _tri_att_sdpa(q, k, v, bias, scale: float):
     """SDPA for triangle attention at the widest q_chunk this device's L1 will hold."""
+    if _SDPA_RAGGED_PAD and bias is not None and int(q.shape[2]) % 32:
+        S = int(q.shape[2])
+        qp, kp, vp, bp, pad = _sdpa_pad_ragged(q, k, v, bias)
+        o = _tri_att_sdpa(qp, kp, vp, bp, scale)
+        sl = o[:, :, :S, :]
+        ttnn.deallocate(o)
+        return sl
     if _TRIATT_BIAS_B8 and bias is not None and bias.dtype != ttnn.bfloat8_b:
         b8 = ttnn.typecast(bias, ttnn.bfloat8_b)
         try:

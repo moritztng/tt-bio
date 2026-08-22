@@ -389,6 +389,13 @@ def main() -> int:
                     qdn, kdn, vdn, bdn, scale_inv=si, compute_kernel_config=kcfg,
                     out_dtype=ttnn.bfloat16, bias_scale_inv=bsi)),
                 ("fused_default", lambda: T._tri_att_sdpa(qdn, kdn, vdn, bdn_f, si)),
+                ("fused_ragpad_def", lambda: (
+                    setattr(T, "_SDPA_RAGGED_PAD", True),
+                    T._tri_att_sdpa(qdn, kdn, vdn, bdn_f, si))[1]),
+                ("fused_ragpad_hifi", lambda: (
+                    setattr(T, "_SDPA_RAGGED_PAD", True),
+                    setattr(_ts, "_CKC_OVERRIDE", (HF["HiFi4"], False, True, False)),
+                    T._tri_att_sdpa(qdn, kdn, vdn, bdn_f, si))[2]),
                 ("fused_hifi_acc", lambda: (
                     setattr(_ts, "_CKC_OVERRIDE", (HF["HiFi4"], False, True, False)),
                     T._tri_att_sdpa(qdn, kdn, vdn, bdn_f, si))[1]),
@@ -400,6 +407,7 @@ def main() -> int:
                     continue
                 finally:
                     _ts._CKC_OVERRIDE = None
+                    T._SDPA_RAGGED_PAD = False
                 if o is None:
                     row[nm] = {"error": "declined"}
                     continue
@@ -407,7 +415,10 @@ def main() -> int:
                 ttnn.deallocate(o)
                 row[nm] = err_struct(got, refn)
                 del got
-            for a, b in (("fused_default", "materialised"), ("fused_hifi_acc", "materialised")):
+            for a, b in (("fused_default", "materialised"),
+                         ("fused_hifi_acc", "materialised"),
+                         ("fused_ragpad_def", "materialised"),
+                         ("fused_ragpad_hifi", "materialised")):
                 if "rel_total" in row.get(a, {}) and "rel_total" in row.get(b, {}):
                     row[f"{a}_over_mat_total"] = row[a]["rel_total"] / row[b]["rel_total"]
                     row[f"{a}_over_mat_perp"] = row[a]["rel_perp"] / row[b]["rel_perp"]
@@ -419,6 +430,10 @@ def main() -> int:
                   f"fused_def {_t('fused_default'):.4e} (x{row.get('fused_default_over_mat_total', float('nan')):.3f})  "
                   f"fused_hifi {_t('fused_hifi_acc'):.4e} (x{row.get('fused_hifi_acc_over_mat_total', float('nan')):.3f})  "
                   f"ceil {row['bf16_ceiling']['rel_total']:.4e}", flush=True)
+            print(f"           ragpad_def {_t('fused_ragpad_def'):.4e} "
+                  f"(x{row.get('fused_ragpad_def_over_mat_total', float('nan')):.3f})  "
+                  f"ragpad_hifi {_t('fused_ragpad_hifi'):.4e} "
+                  f"(x{row.get('fused_ragpad_hifi_over_mat_total', float('nan')):.3f})", flush=True)
             for t in (qdn, kdn, vdn, bdn):
                 ttnn.deallocate(t)
             del refn, ceiln
