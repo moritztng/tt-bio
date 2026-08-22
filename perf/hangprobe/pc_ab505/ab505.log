@@ -1,0 +1,16 @@
+### ARM A: forced 11x10 ###
+[trial 0] CLEAN wall=84.1 runtime_s=73.8 grid=11x10
+[trial 1] CLEAN wall=64.1 runtime_s=51.4 grid=11x10
+[trial 2] CLEAN wall=68.1 runtime_s=52.4 grid=11x10
+### ARM B: default grid (13x10) ###
+[trial 0] HANG wall=900.9 runtime_s=None grid=None
+    ARC advancing: True ['0x2dcf', '0x2ed4']
+    pid 1210147 S 0.0% /home/moritz/tt-bio/env/bin/python3 /home/moritz/.coworker/wt/protenix
+    pid 1210148 S 0.4% /home/moritz/tt-bio/env/bin/python3 -m tt_bio.main predict /home/morit
+    pid 1210181 S 105.4% /home/moritz/tt-bio/env/bin/python3 -c from multiprocessing.spawn impo
+    pid 1210225 S 0.0% /home/moritz/tt-bio/env/bin/python3 -c from multiprocessing.spawn impo
+    pid 1210185 S 0.0% /home/moritz/tt-bio/env/bin/python3 -c from multiprocessing.spawn impo
+    pid 1210180 S 0.0% /home/moritz/tt-bio/env/bin/python3 -c from multiprocessing.resource_t
+    pid 1210150 S 0.0% /home/moritz/tt-bio/env/bin/python3 -m tt_bio.main predict /home/morit
+    log tail: 15:13:16  [pc:tt0]   trunk 9/10
+[trial 1] ERROR wall=492.5 runtime_s=None grid=None
