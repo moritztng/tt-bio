@@ -1,0 +1,12 @@
+version: 1
+# Upstream openfold-3 test_template_lowers_rmsd[1a8q], template ON, one-row alignment:
+# the faithful upstream condition (docs/openfold3-upstream-suite.md). 274 aa, one chain,
+# crystal 1A8Q at 1.75 A resolves all 274 residues 1:1. The template npz is 1a8q chain A
+# itself, so a correct fold lands ~0.24 A from the crystal with a 0.03 A seed spread. That
+# is the tightest structural instrument in the repo, and it is the only anchor that
+# exercises triangle attention inside the template embedder (openfold3_template.py:116).
+sequences:
+  - protein:
+      id: A
+      sequence: PICTTRDGVEIFYKDWGQGRPVVFIHGWPLNGDAWQDQLKAVVDAGYRGIAHDRRGHGHSTPVWDGYDFDTFADDLNDLLTDLDLRDVTLVAHSMGGGELARYVGRHGTGRLRSAVLLSAIPPVMIKSDKNPDGVPDEVFDALKNGVLTERSQFWKDTAEGFFSANRPGNKVTQGNKDAFWYMAMAQTIEGGVRCVDAFGYTDFTEDLKKFDIPTLVVHGDDDQVVPIDATGRKSAQIIPNAELKVYEGSSHGIAMVPGDKEKFNRDLLEFLNK
+      templates: examples/of3_upstream/template_alignments/1a8q.npz
