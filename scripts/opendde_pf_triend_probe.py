@@ -17,9 +17,35 @@ changes, so no model output can move.
      that tri_att_start has already perturbed, and pass 1 measured tri_att_start's update
      norm inflated up to 6.89x. Scoring the device update against the reference chain's
      update therefore charges tri_att_end for tri_att_start's error. Pass 1's device-off
-     amplification arm, one level down: replay the reference sub-op in host fp32 on the
-     DEVICE's own input to that sub-op. `impl` is the op's own error, `total` is what the
-     naive tap reads, and `impl` is the number that belongs next to pass 1's 13%.
+     amplification arm, one level down. Four arms per sub-op:
+
+       total  device update from the device's own input, scored against the reference
+              chain's update. What the naive tap reads: implementation plus whatever the
+              earlier sub-ops of this block already did to z.
+       impl   same device update, scored against the reference sub-op replayed in host
+              fp32 on the DEVICE's own input. Implementation only, at that input.
+       iso    the same device sub-op called ON ITS OWN on the device's OWN tapped input,
+              scored the same way `impl` is. Same input values as `impl`, different device
+              state around the call, so iso != impl means the op's result depends on the
+              calling context and not on its input.
+       tf     device sub-op fed the REFERENCE's input, called on its own, scored against
+              the reference's own update. No conditioning on either side.
+       tf^T   the same, scored against the transposed reference update. A frame check on
+              every sub-op, not just the ending variant.
+
+Also checks, per sub-op, whether the call MUTATED the caller's z. `tenstorrent.py` notes the
+starting variant can alias the caller's pair tensor; if the alias is ever written, the
+shipped `PairformerLayer` residual adds into a corrupted z and that is a forward-path bug,
+not a measurement artifact.
+
+The default `--pad 0` IS the shipped OpenDDE configuration: the Protenix-family trunk calls
+`pl(None, z3)` (`protenix.py:2243`, `:2353`) and `self.PF(s, z3)` (`:2438`), so `mask`,
+`attn_mask_start` and `attn_mask_end` are all None, and the trunk does not pad the token dim.
+`--pad 64` is therefore not what OpenDDE runs, it is the CURE arm: z zero-padded to a multiple
+of `PAIRFORMER_PAD_MULTIPLE` on the host plus the additive -1e9 `attn_mask`, built by the same
+recipe `PairformerModule` uses on its own non-affinity path (`tenstorrent.py:7042-7046`: one
+`attn_mask` shared by start and end, the 1-D `mask_1d` as `mask_tt`), with every tap cropped
+back before scoring. Models that reach the Pairformer through `PairformerModule` do take it.
 
 Needs pass 1's reference cache (`--stage 1` of `opendde_pairformer_block_trace.py`).
 
@@ -90,21 +116,63 @@ def ref_on(block, name, z_in):
     return ref_sub(block, name, z_in)
 
 
-def dev_block_io(block, z, to_host):
+def dev_sub_masked(block, name, z, masks):
+    """`dev_sub` with the masks `PairformerLayer.__call__` passes at this position."""
+    mask, attn = masks
+    if name == "tri_mul_out":
+        return block.triangle_multiplication_start(z, mask)
+    if name == "tri_mul_in":
+        return block.triangle_multiplication_end(z, mask)
+    if name == "tri_att_start":
+        return block.triangle_attention_start(z, attn)
+    if name == "tri_att_end":
+        return block.triangle_attention_end(z, attn)
+    return block.transition_z(z)
+
+
+def _sub(block, name, z, masks):
+    return dev_sub(block, name, z) if masks is None else dev_sub_masked(block, name, z, masks)
+
+
+def dev_on(p, block, name, z_host, shape, masks=None, crop=None):
+    """One device sub-op on an arbitrary host input, answer in the ORIGINAL frame.
+
+    The ending variant takes the original frame and transposes internally, so no frame
+    handling is needed on this side.
+    """
+    import ttnn
+    m = z_host.shape[-2]
+    zt = p.trunk._up(z_host.reshape(1, m, m, -1))
+    update = _sub(block, name, zt, masks)
+    out = (crop or (lambda t: t.reshape(shape)))(p._to_host(update))
+    ttnn.deallocate(update)
+    try:
+        ttnn.deallocate(zt)
+    except RuntimeError:
+        pass                      # some paths alias and free the caller's pair tensor
+    return out
+
+
+def dev_block_io(block, z, to_host, masks=None):
     """The z half of `PairformerLayer.__call__`, tapping each sub-op's input and update.
 
     `ttnn.add_` writes into z, so the input has to come down before the add and the update
     before the next sub-op runs.
     """
     import ttnn
-    ins, ups = {}, {}
+    ins, ups, cfgs = {}, {}, {}
     for name in SUB_OPS:
         ins[name] = to_host(z)
-        update = dev_sub(block, name, z)
+        cfgs[name] = str(z.memory_config())
+        update = _sub(block, name, z, masks)
+        after = to_host(z)
+        if not torch.equal(after, ins[name]):
+            d = float((after - ins[name]).abs().max())
+            print(f"  MUTATION {name} wrote the caller's z, maxabs {d:.3e}", flush=True)
         ups[name] = to_host(update)
         z = ttnn.add_(z, update)
         ttnn.deallocate(update)
-    return z, ins, ups
+    return z, ins, ups, cfgs
 
 
 def main() -> None:
@@ -112,6 +180,9 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--cache", default="_run/pf_trace")
     ap.add_argument("--blocks", default="0,8,24,36,47")
+    ap.add_argument("--pad", type=int, default=0,
+                    help="pad the token dim to this multiple and pass the shipped masks "
+                         "(64 = PAIRFORMER_PAD_MULTIPLE, what the model runs)")
     args = ap.parse_args()
     cache = Path(args.cache)
 
@@ -145,9 +216,22 @@ def main() -> None:
                 d = float((again - ups_r[name]).abs().max())
                 print(f"INSTRUMENT replay {name} maxabs diff {d:.3e}", flush=True)
 
-        z_dev, ins_d, ups_d = dev_block_io(db, p.trunk._up(src.reshape(1, n, n, -1)),
-                                           to_host)
-        host_dev_out = p._to_host(z_dev, shape)
+        if args.pad:
+            S = n + (-n) % args.pad
+            z_in = torch.nn.functional.pad(src, (0, 0, 0, S - n, 0, S - n))
+            mask_1d = torch.nn.functional.pad(torch.ones(1, n), (0, S - n))
+            masks = (p.trunk._up(mask_1d),
+                     p.trunk._up((1 - mask_1d).unsqueeze(1).unsqueeze(1) * -1e9))
+            crop = lambda t: t.reshape(1, S, S, -1)[0, :n, :n, :].contiguous()
+            print(f"shipped config: token dim {n} -> {S}, additive -1e9 mask on the pad",
+                  flush=True)
+        else:
+            S, z_in, masks = n, src, None
+            crop = lambda t: t.reshape(shape)
+
+        z_dev, ins_d, ups_d, cfgs = dev_block_io(
+            db, p.trunk._up(z_in.reshape(1, S, S, -1)), to_host, masks)
+        host_dev_out = crop(p._to_host(z_dev))
         ttnn.deallocate(z_dev)
         blk_e, blk_r = _stat(f"b{i} BLOCK z out", host_dev_out, z_ref)
         blk_pcc = pcc_ratio(host_dev_out.reshape(-1), z_ref.reshape(-1))[0]
@@ -156,29 +240,39 @@ def main() -> None:
         # is not the sub-op's real result and nothing below it means anything.
         z_re = src.clone()
         for name in SUB_OPS:
-            z_re = z_re + ups_d[name].reshape(shape).float()
+            z_re = z_re + crop(ups_d[name]).float()
         print(f"reassembled dev taps vs dev block out PCC="
               f"{pcc_ratio(z_re, host_dev_out)[0]:.8f}", flush=True)
 
         errs = {}
         for name in SUB_OPS:
-            got = ups_d[name].reshape(shape).float()
-            impl = ref_on(rb, name, ins_d[name].reshape(shape).float())
-            e_impl, _ = _stat(f"b{i} {name} impl", got, impl)
+            got = crop(ups_d[name]).float()
             e_tot, _ = _stat(f"b{i} {name} total", got, ups_r[name])
-            errs[name] = (e_impl, e_tot)
-            if name == TRANSPOSED:
-                # both frames, so the fix is named and not assumed
-                _stat(f"b{i} {name} total [WRONG frame]", got, _T(ups_r[name]))
+            dev_in = crop(ins_d[name]).float()
+            impl = ref_on(rb, name, dev_in)
+            e_impl, _ = _stat(f"b{i} {name} impl", got, impl)
+            iso_in = (torch.nn.functional.pad(dev_in, (0, 0, 0, S - n, 0, S - n))
+                      if args.pad else dev_in)
+            e_iso, _ = _stat(f"b{i} {name} iso",
+                             dev_on(p, db, name, iso_in, shape, masks, crop), impl)
+            tf_in = (torch.nn.functional.pad(ins_r[name], (0, 0, 0, S - n, 0, S - n))
+                     if args.pad else ins_r[name])
+            tf = dev_on(p, db, name, tf_in, shape, masks, crop).float()
+            e_tf, _ = _stat(f"b{i} {name} tf", tf, ups_r[name])
+            _stat(f"b{i} {name} tf [frame-swap]", tf, _T(ups_r[name]))
+            errs[name] = (e_tf, e_iso, e_impl, e_tot)
+            print(f"  in-loop z memory_config for {name}: {cfgs[name]}", flush=True)
 
-        quad_impl = sum(v[0] ** 2 for v in errs.values()) ** 0.5
-        quad_tot = sum(v[1] ** 2 for v in errs.values()) ** 0.5
+        quad = {k: sum(v[j] ** 2 for v in errs.values()) ** 0.5
+                for j, k in enumerate(("tf", "iso", "impl", "total"))}
+        s_tf, e_tf = errs["tri_att_start"][0], errs[TRANSPOSED][0]
+        share = e_tf ** 2 / max(s_tf ** 2 + e_tf ** 2, 1e-30)
         print(f"b{i} SUMMARY block 1-PCC={1 - blk_pcc:.4e} block err rms={blk_e:.4f} | "
-              f"quadrature impl={quad_impl:.4f} total={quad_tot:.4f} | "
-              f"start impl={errs['tri_att_start'][0]:.4f} "
-              f"end impl={errs[TRANSPOSED][0]:.4f} "
-              f"end/start={errs[TRANSPOSED][0] / max(errs['tri_att_start'][0], 1e-30):.4f}",
-              flush=True)
+              f"quadrature tf={quad['tf']:.4f} iso={quad['iso']:.4f} "
+              f"impl={quad['impl']:.4f} total={quad['total']:.4f} | "
+              f"tf start={s_tf:.4f} end={e_tf:.4f} "
+              f"end/start={e_tf / max(s_tf, 1e-30):.4f} "
+              f"end share of the two={100 * share:.3f}%", flush=True)
 
 
 if __name__ == "__main__":
