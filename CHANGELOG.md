@@ -60,16 +60,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   what the worker pool, the multi-card fan-out and every gate leg already do.
 - `TT_BIO_LOGICAL_DEVICE_ID` past the end of `TT_VISIBLE_DEVICES` fails now, naming both values,
   instead of silently using the first visible card and leasing one the run never opens.
-- Boltz-2 folds inputs that pad to 704 tokens again. 640 aa plus a 20-heavy-atom ligand is 660
-  tokens, which pads to 704, and 641 to 704 aa on its own lands on the same rung; all of it died
-  about 6 s in with `Statically allocated circular buffers in program 36 clash with L1 buffers`.
-  The gate that leaves a layer-normed pair tensor in L1 for its narrow projections priced 1.5
-  copies of the tensor against the whole grid's L1. That is an aggregate of interleaved bytes and
-  the wall it has to clear is per core, so at 704 tokens it admitted a 953 KB/core tensor and left
-  the per-head softmax 543 KB where its static circular buffers needed 563658 B. It now reserves
-  the consumers' room in bytes per core, at both sites that hand a narrow projection an
-  L1-resident pair tensor. Every rung that folded before folds bit-identically; the ligand ladder
-  passes at every 64-aa rung from 256 to 1024 aa.
+- Boltz-2 folds inputs that pad to 704 tokens again. 640 aa plus a 20-heavy-atom ligand, and
+  641 to 704 aa on its own, both died about 6 s in on an on-device memory clash. Every size that
+  folded before folds bit-identically, and the protein-plus-ligand ladder now passes at every
+  64-aa rung from 256 to 1024 aa. See `docs/part-l1-budgets.md`.
 - The parity gate's delegated legs (`boltzgen`, `opendde-abag`, `capacity`) run in the gate's own
   process and shell out from there, so they inherited an environment with no device restriction:
   boltzgen designed on card 0 whatever `--workers` said, and any fan-out from a delegated leg
@@ -112,12 +106,9 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ### Performance
 
 - RoseTTAFold3 folds 1024 aa 1.264x faster (52.468 -> 41.508 s per trunk recycle), and the
-  768 -> 1024 aa scaling exponent drops from 3.63 to 2.82. The L1 gate in triangle attention
-  gave up on a whole shape class the first time a block did not fit and sent 434 of 435 calls
-  per recycle down a slow path for the rest of the process; it now backs off one row at a time.
-  Bit-exact: the fast and slow paths are the same ops on the same dtypes, checked with
-  `torch.equal` on real RoseTTAFold3 and OpenFold3 trunks. Boltz-2, Protenix-v2 and OpenDDE only
-  reach this path behind `BOLTZ2_FP32_SOFTMAX`, which is off by default, so they are unchanged.
+  768 -> 1024 aa scaling exponent drops from 3.63 to 2.82. Bit-exact, so no prediction moves.
+  Boltz-2, Protenix-v2 and OpenDDE reach the same code only behind `BOLTZ2_FP32_SOFTMAX`, which
+  is off by default, so they are unchanged. See `docs/size-generality.md`.
 
 ### Gates and documentation
 
@@ -128,16 +119,14 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   of six rows; RoseTTAFold3 reads 3.556x whole fold and 9.388x device only, because half of that
   fold is host featurisation that runs on both sides. No published cell moved. See
   `site/data/perf-512aa.json`.
-- A parity-gate workdir now records the code it scored, and the gate refuses to resume one
-  built from a different tree. The per-leg resume cache is keyed on the leg id alone and the
-  default workdir is a fixed path, so a second release gate on the same machine replayed the
-  previous release's verdicts and printed a full green tally in 0.0 minutes.
-- The UX gate covers `--model rf3`, and the perf gate has a RoseTTAFold3 entry. RF3 shipped with
-  no coverage in any release gate; the UX leg found on its first run that `tt-bio predict --model
-  rf3` exited on a missing dependency from a clean `pip install`, which is now fixed.
-- `packaging_smoke.py --fold` installs the wheel with `--force-reinstall`. Inheriting a
-  same-version `tt_bio` from the parent interpreter made pip skip the install, so the guard tested
-  nothing and failed on a missing console script.
+- `tt-bio predict --model rf3` runs from a plain `pip install tt-bio`. Four packages it imports
+  at module load were undeclared, so it exited on `ModuleNotFoundError` before opening a card.
+  RoseTTAFold3 now has a UX-gate leg and a perf-gate entry, which is what found it.
+- A parity-gate workdir records the code it scored, and the gate refuses to resume one built from
+  a different tree. The per-leg resume cache is keyed on the leg id alone, so a second release
+  gate on the same machine used to replay the previous release's verdicts as its own.
+- `packaging_smoke.py --fold` installs the wheel with `--force-reinstall`, so the guard cannot
+  inherit a same-version `tt_bio` from the parent interpreter and silently test nothing.
 
 ## [0.6.5] - 2026-08-20
 
