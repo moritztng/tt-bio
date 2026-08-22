@@ -1414,7 +1414,8 @@ class _WorkerState:
                 tmpl_map, Path(cfg["of3_template_structures"]))
         features = build_openfold3_features(
             of3_query,
-            template_structures_directory=cfg["of3_template_structures"])
+            template_structures_directory=cfg["of3_template_structures"],
+            openbind=(model == "openbind"))
         # Default = the featurizer max_rows (16384), i.e. NO extra subsampling: the
         # CPU reference folds the full featurized MSA, so any lower cap is an input
         # divergence (measured on 9BK6: the 1024-row subsample cost chain A

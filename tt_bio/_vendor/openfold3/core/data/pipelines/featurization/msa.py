@@ -38,6 +38,15 @@ class MsaFeaturizerOF3Config(BaseModel):
     max_rows: int
     max_rows_paired: int
     subsample_with_bands: bool
+    # tt-bio: which `deletion_value` scale to emit. False reproduces the OF3-preview2
+    # pipeline, which multiplies atan(d/3) by 2/acos(0)*2 = 8/pi; True is the AF3-spec
+    # 2/pi that upstream v0.5.0 corrected it to. Exactly 4x apart, so preview2 fed this
+    # feature four times too large for all 155k of its training steps -- which is why
+    # this is keyed off the checkpoint instead of simply being fixed. Feeding preview2
+    # the corrected value is an input-distribution shift on a shipped, parity-gated
+    # model; feeding OpenBind the preview2 value is the same error mirrored. Default
+    # False keeps every existing preview2 fold bit-identical.
+    af3_spec_deletion_value: bool = False
 
 
 class MsaFeaturizerOF3:
@@ -50,6 +59,7 @@ class MsaFeaturizerOF3:
         self.max_rows = config.max_rows
         self.max_rows_paired = config.max_rows_paired
         self.subsample_with_bands = config.subsample_with_bands
+        self.af3_spec_deletion_value = config.af3_spec_deletion_value
 
     def create_feature_precursor(
         self,
@@ -103,9 +113,16 @@ class MsaFeaturizerOF3:
             msa_feature_precursor.deletion_matrix, dtype=torch.int64
         )
         features["has_deletion"] = (deletion_matrix != 0).to(torch.float32)
-        features["deletion_value"] = torch.atan(deletion_matrix / 3.0) * (
-            2.0 / torch.acos(torch.zeros(1, device=deletion_matrix.device)) * 2
-        ).to(torch.float32)
+        # See MsaFeaturizerOF3Config.af3_spec_deletion_value. The preview2 branch is
+        # kept verbatim, parenthesisation included, so it stays bit-identical.
+        if self.af3_spec_deletion_value:
+            features["deletion_value"] = (
+                torch.atan(deletion_matrix / 3.0) * (2.0 / torch.pi)
+            ).to(torch.float32)
+        else:
+            features["deletion_value"] = torch.atan(deletion_matrix / 3.0) * (
+                2.0 / torch.acos(torch.zeros(1, device=deletion_matrix.device)) * 2
+            ).to(torch.float32)
         features["deletion_mean"] = torch.tensor(
             msa_feature_precursor.deletion_mean, dtype=torch.float32
         )

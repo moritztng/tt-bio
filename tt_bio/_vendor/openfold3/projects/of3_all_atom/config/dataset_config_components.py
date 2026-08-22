@@ -70,6 +70,10 @@ class MSASettings(BaseModel):
     max_rows_paired: int = 8191
     max_rows: int = 16384
     subsample_with_bands: bool = False
+    # tt-bio: emit the AF3-spec MSA profile (np.tile column index) instead of the
+    # preview2 permuted one. See calculate_profile in
+    # core/data/primitives/sequence/msa.py. Default False keeps preview2 bit-identical.
+    af3_spec_profile_columns: bool = False
     min_chains_paired_partial: int = 2
     pairing_mask_keys: list[str] = ["shared_by_two", "less_than_600"]
     max_seq_per_species: int = 600
