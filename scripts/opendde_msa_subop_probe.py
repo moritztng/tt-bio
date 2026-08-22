@@ -390,14 +390,136 @@ def _invert(perm):
     return out
 
 
+
+def stage6(args):
+    """In-chain substitution screen on the triangle-attention core.
+
+    Stage 2 puts `tri_att_start` at PCC 0.212 with the device update 2.83x the reference
+    update's norm, which is a wrong magnitude rather than a rounding wobble. This splits the
+    op in two: everything before the attention (layer_norm, the qkv and bias projections) and
+    the attention core itself (`_tri_att_sdpa`). It swaps the core for an exact fp32 host
+    softmax over the device's OWN q, k, v and bias and lets the device finish the op, so the
+    difference between the arms is the core and nothing else.
+
+      dev        untouched, the baseline stage 2 measured
+      host       host fp32 attention over every key the device holds
+      host-nopad host fp32 attention with the tile-padded keys masked out
+
+    Reuses the in-chain substitution technique from `af2ig-onesidedness-predicts-bf16-widening-payoff`
+    rather than a standalone op screen: an isolated screen bounds the op's error, it does not
+    say what the fold would gain (`rfd3-isolated-screen-underprices-residency-lever`).
+    """
+    import ttnn
+    import tt_bio.tenstorrent as T
+    from tt_bio.tenstorrent import get_device
+    cache = Path(args.cache)
+    model, p, state_dict = _dev_setup()
+    reference, _, _, _, z_pre, m0 = _ref_front_half(
+        state_dict, _full_construct_features(), torch.load(cache / "fi.pt"), p)
+    dev = get_device()
+    seen = []
+    original = T._tri_att_sdpa
+
+    def host_core(q, k, v, bias, scale):
+        qh = ttnn.to_torch(q).float()
+        kh = ttnn.to_torch(k).float()
+        vh = ttnn.to_torch(v).float()
+        bh = ttnn.to_torch(bias).float()
+        if not seen:
+            print(f"  [core] q={tuple(qh.shape)} k={tuple(kh.shape)} v={tuple(vh.shape)} "
+                  f"bias={tuple(bh.shape)} scale={scale:.6f} qdtype={q.dtype}", flush=True)
+            print(f"  [core] padded q={tuple(q.padded_shape)} bias={tuple(bias.padded_shape)}",
+                  flush=True)
+        seen.append(1)
+        s_k = kh.shape[-2]
+        keep = args.n if args.arm == "host-nopad" and args.n and args.n < s_k else s_k
+        out = torch.empty_like(qh)
+        step = 8
+        for b0 in range(0, qh.shape[0], step):
+            b1 = min(b0 + step, qh.shape[0])
+            logit = qh[b0:b1] @ kh[b0:b1].transpose(-1, -2)
+            logit = (logit + bh[:, :, :logit.shape[-2], :logit.shape[-1]]) * scale
+            if keep < s_k:
+                logit[..., keep:] = float("-inf")
+            out[b0:b1] = logit.softmax(dim=-1) @ vh[b0:b1]
+        return ttnn.from_torch(out, dtype=q.dtype, layout=ttnn.TILE_LAYOUT,
+                               device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+
+    if args.arm != "dev":
+        T._tri_att_sdpa = host_core
+    try:
+        for bi in [int(x) for x in args.blocks.split(",")]:
+            m_src = m0 if bi == 0 else torch.load(cache / f"ref_m_{bi - 1}.pt")
+            z_src = z_pre if bi == 0 else torch.load(cache / f"ref_z_{bi - 1}.pt")
+            ref_taps = {}
+            m_ref, z_ref = ref_msa_block(reference.msa_module.blocks[bi], m_src, z_src,
+                                         taps=ref_taps)
+            dev_taps = {}
+            n = z_src.shape[-2]
+            zt = p.trunk._up(z_src.reshape(1, n, n, -1))
+            mt = p.trunk._up(m_src.reshape(1, *m_src.shape))
+            m_dev, z_dev = dev_msa_block(p, p.trunk.MSA[bi], mt, zt, taps=dev_taps)
+            print(f"\n--- MSA block {bi}, arm {args.arm} ---", flush=True)
+            _stat(f"b{bi} BLOCK z out", p._to_host(z_dev, tuple(z_ref.shape)), z_ref)
+            for name in ("tri_att_start", "tri_att_end"):
+                ref_u = ref_taps[f"pair.{name}"]
+                got = dev_taps[f"pair.{name}"]
+                if name == "tri_att_end":
+                    ref_u = ref_u.transpose(-2, -3)
+                _stat(f"b{bi} pair.{name}", got, ref_u)
+            ttnn.deallocate(z_dev)
+    finally:
+        T._tri_att_sdpa = original
+
+
+
+def stage7(args):
+    """Crop ladder on one triangle-attention op: is it the kernel's exp, or the tile padding?
+
+    Stage 6 puts the whole disagreement inside `_tri_att_sdpa`. Two candidates survive, and
+    a crop ladder separates them without needing to read a padded buffer. ttnn pads the
+    sequence dim up to a 32 multiple, so at 136 tokens the kernel holds 160 key columns and
+    the 24 it invents carry `layer_norm(0)` rather than -inf; at a crop that is already a
+    multiple of 32 there is no padding to invent. A precision effect does not care about
+    the crop, a padding leak dies on it.
+    """
+    import ttnn
+    from tt_bio.opendde import load_opendde_checkpoint
+    cache = Path(args.cache)
+    model, p, state_dict = _dev_setup()
+    reference, _ = _load_reference(state_dict)
+    z_full = torch.load(cache / f"ref_z_{args.src_block}.pt").float()
+    ref_pair = reference.msa_module.blocks[args.src_block + 1].pair_stack
+    dev_pair = p.trunk.MSA[args.src_block + 1][3]
+    for crop in [int(x) for x in args.crops.split(",")]:
+        z = z_full[..., :crop, :crop, :].contiguous()
+        print(f"\n--- crop {crop} (padded to {-(-crop // 32) * 32}) ---", flush=True)
+        for name in ("tri_att_start", "tri_att_end"):
+            ref_u = ref_sub(ref_pair, name, z if name == "tri_att_start"
+                            else z.transpose(-2, -3).contiguous())
+            zt = p.trunk._up(z.reshape(1, crop, crop, -1))
+            got = dev_sub(dev_pair, name, zt)
+            got_h = p._to_host(got)
+            if name == "tri_att_end":
+                ref_u = ref_u.transpose(-2, -3)
+            _stat(f"crop{crop} {name}", got_h, ref_u)
+            ttnn.deallocate(got)
+            ttnn.deallocate(zt)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--stage", type=int, required=True)
     ap.add_argument("--cache", default="_run/msa_probe")
     ap.add_argument("--pf-cache", default="_run/pf_trace")
     ap.add_argument("--blocks", default="0,1,2,3")
+    ap.add_argument("--arm", default="dev",
+                    choices=("dev", "host", "host-nopad"))
+    ap.add_argument("--n", type=int, default=0)
+    ap.add_argument("--crops", default="96,128,132,136")
+    ap.add_argument("--src-block", type=int, default=0)
     args = ap.parse_args()
-    {1: stage1, 2: stage2, 3: stage3, 5: stage5}[args.stage](args)
+    {1: stage1, 2: stage2, 3: stage3, 5: stage5, 6: stage6, 7: stage7}[args.stage](args)
 
 
 if __name__ == "__main__":
