@@ -15,9 +15,6 @@ from pathlib import Path
 from typing import Any, TextIO
 
 import pandas as pd
-import pyarrow as pa
-import pyarrow.parquet as pq
-import zstandard as zstd
 
 from tt_bio._vendor.atomworks.io.utils.io_utils import apply_sharding_pattern, build_sharding_pattern
 from tt_bio._vendor.atomworks.ml.utils.misc import logger
@@ -44,6 +41,12 @@ def open_file(filename: PathLike) -> TextIO:
     elif filename.suffix == ".zst":
         # Open zstd file and wrap in TextIOWrapper for text mode
         # Note: The file handle is managed by the TextIOWrapper/stream_reader
+        # zstandard is imported here, not at module scope: it is absent from a
+        # clean install and this module sits on the RoseTTAFold3 import chain,
+        # so a top-level import breaks `tt-bio predict --model rf3` for every
+        # user of the published wheel. Only .zst inputs reach it.
+        import zstandard as zstd
+
         dctx = zstd.ZstdDecompressor()
         fh = open(filename, "rb")  # noqa: SIM115
         reader = dctx.stream_reader(fh)
@@ -223,6 +226,13 @@ def to_parquet_with_metadata(df: pd.DataFrame, filepath: PathLike, **kwargs: Any
     # Convert metadata dictionary to strings
     string_metadata = {str(key): str(value) for key, value in metadata.items()}
 
+    # pyarrow is imported here, not at module scope: it is a large dependency
+    # used by these two parquet helpers alone, and nothing on the inference path
+    # calls them. A module-scope import made `tt-bio predict --model rf3` die on
+    # ModuleNotFoundError for every user of the published wheel, because this
+    # module sits on the RoseTTAFold3 import chain.
+    import pyarrow as pa
+
     # Convert pandas DataFrame to Arrow Table
     table = pa.Table.from_pandas(df)
 
@@ -234,6 +244,8 @@ def to_parquet_with_metadata(df: pd.DataFrame, filepath: PathLike, **kwargs: Any
     table = table.replace_schema_metadata(table_metadata)
 
     # Write to parquet
+    import pyarrow.parquet as pq
+
     pq.write_table(table, filepath, **kwargs)
 
 
@@ -247,7 +259,9 @@ def read_parquet_with_metadata(filepath: PathLike, **kwargs: Any) -> pd.DataFram
     Returns:
         pandas DataFrame with metadata in .attrs attribute
     """
-    # Read the parquet file using pyarrow
+    # Read the parquet file using pyarrow (imported lazily, see above)
+    import pyarrow.parquet as pq
+
     table = pq.read_table(filepath)
 
     # Extract metadata

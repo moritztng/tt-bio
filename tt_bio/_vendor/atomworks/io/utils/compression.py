@@ -7,7 +7,6 @@ import shutil
 from os import PathLike
 from pathlib import Path
 
-import zstandard as zstd
 
 
 def is_compressed_file(path: PathLike | str) -> bool:
@@ -63,6 +62,12 @@ def compress_file(
     # Determine compression format based on output extension
     if str(output_path).endswith(".zst"):
         # Use zstd compression
+        # zstandard is imported here, not at module scope: it is absent from a
+        # clean install and this module sits on the RoseTTAFold3 import chain,
+        # so a top-level import breaks `tt-bio predict --model rf3` for every
+        # user of the published wheel. Only .zst inputs reach it.
+        import zstandard as zstd
+
         cctx = zstd.ZstdCompressor()
         with open(input_path, "rb") as f_in, open(output_path, "wb") as f_out:
             cctx.copy_stream(f_in, f_out)
@@ -121,6 +126,12 @@ def maybe_decompress_file(
     # Decompress the file based on format
     if str(input_path).endswith(".zst"):
         # Use zstd decompression
+        # zstandard is imported here, not at module scope: it is absent from a
+        # clean install and this module sits on the RoseTTAFold3 import chain,
+        # so a top-level import breaks `tt-bio predict --model rf3` for every
+        # user of the published wheel. Only .zst inputs reach it.
+        import zstandard as zstd
+
         dctx = zstd.ZstdDecompressor()
         with open(input_path, "rb") as f_in, open(output_path, "wb") as f_out:
             dctx.copy_stream(f_in, f_out)

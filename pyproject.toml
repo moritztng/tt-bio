@@ -57,12 +57,20 @@ dependencies = [
     "func_timeout",       # RDKit conformer-embedding timeout guard
     "networkx",           # CCD bond-graph connected components
     "packaging",          # tt_bio/_vendor/openfold3/__init__.py version check
-    # RF3 vendors AtomWorks (see NOTICE #7) for host featurization. Everything it
-    # imports is already here transitively except cytoolz; typing_extensions backs
-    # the 3.10 shim for typing.Never.
+    # RF3 vendors AtomWorks (see NOTICE #7) for host featurization, and the RF3
+    # reference model itself. "already here transitively except cytoolz" was not
+    # true: a clean `pip install tt-bio` carried none of beartype, jaxtyping,
+    # zstandard or pyarrow, and all four are imported at module load somewhere on
+    # the rf3 import chain, so `--model rf3` died on ModuleNotFoundError before it
+    # reached a card. zstandard and pyarrow back .zst/parquet helpers no fold
+    # calls, so those two are imported lazily at their call sites rather than
+    # added here. beartype and jaxtyping cannot be: they are module-scope type
+    # annotations under tt_bio/_vendor/rf3/model/, evaluated at import.
     "toolz",          # atomworks imports toolz directly, cytoolz is separate
     "cytoolz",
     "typing_extensions",
+    "beartype",       # rf3/model/RF3.py: from beartype.typing import ...
+    "jaxtyping",      # rf3/model/layers/*.py: from jaxtyping import Float
     # RF3's torch reference (tt_bio/_vendor/rf3/model, the thing the ttnn port is
     # scored against) contracts with opt_einsum rather than torch.einsum. Keeping
     # it means the reference's contraction order, and so its float results, match
