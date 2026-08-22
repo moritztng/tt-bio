@@ -814,11 +814,31 @@
               "tt_bio_version": "0.6.5",
               "date": "2026-08-21",
               "note": "seed the pc p150a baselines for openfold3 and opendde-abag: both had qb1-only entries, so the pc perf gate has never covered them"
+            },
+            "rf3": {
+              "unit": "structures/s",
+              "direction": "higher",
+              "value": 0.189595,
+              "latency_ms": 5274.4,
+              "input": "trpcage (20 aa, single-seq)",
+              "sampling_steps": 10,
+              "diffusion_samples": 1,
+              "recycling_steps": 1,
+              "num_timesteps": null,
+              "num_designs": null,
+              "warmup": 2,
+              "repeat": 5,
+              "hardware": "blackhole",
+              "card_type": "p150a",
+              "machine_id": "pc",
+              "tt_bio_version": "0.6.5",
+              "date": "2026-08-22",
+              "note": "seed rf3: shipped in v0.6.6 as a predict --model choice with no perf coverage; replaces the stale 'port is in flight' SPECS_EXEMPT (dc878435)"
             }
           },
-          "date": "2026-08-21",
+          "date": "2026-08-22",
           "tt_bio_version": "0.6.5",
-          "note": "seed the pc p150a baselines for openfold3 and opendde-abag: both had qb1-only entries, so the pc perf gate has never covered them"
+          "note": "seed rf3: shipped in v0.6.6 as a predict --model choice with no perf coverage; replaces the stale 'port is in flight' SPECS_EXEMPT (dc878435)"
         }
       }
     }
