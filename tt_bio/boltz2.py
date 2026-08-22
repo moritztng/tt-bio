@@ -3875,7 +3875,7 @@ class TemplateV2Module(nn.Module):
         # Compute input projections
         v = self.z_proj(self.z_norm(z[:, None])) + a_tij
         v = v.view(B * T, *v.shape[2:])
-        v = v + (self.pairformer(None, v)[1] if self.use_tenstorrent else self.pairformer(v, pair_mask, use_kernels=use_kernels))
+        v = v + (self.pairformer(None, v, pair_mask=pair_mask)[1] if self.use_tenstorrent else self.pairformer(v, pair_mask, use_kernels=use_kernels))
         v = self.v_norm(v)
         v = v.view(B, T, *v.shape[1:])
 
