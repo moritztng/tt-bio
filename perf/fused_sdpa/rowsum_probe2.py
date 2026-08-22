@@ -121,6 +121,12 @@ def main():
     ap.add_argument("--temps", default="1.0", help="score multipliers; changes row peakedness")
     ap.add_argument("--bias", action="store_true", help="use a real bias instead of zeros")
     ap.add_argument("--kchunks", default="64,128,256,0", help="0 means one chunk (k_chunk = S)")
+    ap.add_argument("--qk", default="64:0,128:0",
+                    help="extra explicit q_chunk:k_chunk arms; 0 means the padded length. "
+                         "The one-k-chunk arm needs one of these -- --kchunks widens q to S "
+                         "as well, and q=k=S is the config that refused L1 by 1.2 percent. "
+                         "q chunking is pure parallelism and cannot change a row arithmetic, "
+                         "so a narrow q with k_chunk=S buys one k chunk for 8x LESS L1.")
     ap.add_argument("--out", type=Path, default=Path(__file__).with_name("rowsum_probe2.json"))
     a = ap.parse_args()
 
@@ -237,14 +243,24 @@ def main():
             record("hifi", lambda: T._tri_att_sdpa_hifi(q, k, v, bias, scale_inv))
 
             padded = T._padded_sdpa_len(S)
-            for kc in [int(x) for x in a.kchunks.split(",")]:
-                kk = padded if kc == 0 else kc
-                if padded % kk:
+            configs = []
+            for kc in [int(x) for x in a.kchunks.split(",") if x.strip()]:
+                configs.append((padded, padded if kc == 0 else kc))
+            for pair in a.qk.split(","):
+                if not pair.strip():
+                    continue
+                qs, ks = (int(x) for x in pair.split(":"))
+                configs.append((padded if qs == 0 else qs, padded if ks == 0 else ks))
+            for qq, kk in configs:
+                if padded % kk or padded % qq:
                     continue
                 nchunk = padded // kk
-                record(f"kchunk_{kk}_n{nchunk}",
-                       lambda kk=kk: TS.sdpa(q, k, v, bias, scale_inv, padded, kk,
-                                             ckc_default=T._TRIATT_FUSED_HIFI_CKC))
+                # mask CB tiles the persistent kernel will ask for, so an L1 refusal is priced
+                # before it happens rather than read as "one k chunk does not fit"
+                mask_tiles = nchunk * (qq // 32) * (kk // 32)
+                record(f"q{qq}_k{kk}_n{nchunk}_m{mask_tiles}",
+                       lambda qq=qq, kk=kk: TS.sdpa(q, k, v, bias, scale_inv, qq, kk,
+                                                    ckc_default=T._TRIATT_FUSED_HIFI_CKC))
 
             for t in (q, k, v, bias):
                 ttnn.deallocate(t)
