@@ -4,7 +4,7 @@
     "-m",
     "tt_bio.main",
     "predict",
-    "/home/moritz/.coworker/wt/sizes-recheck-gate-arm/perf/size512/fixtures/cdk2x2_512.yaml",
+    "/home/moritz/.coworker/wt/tt-bio-gate-infra-fix-rf3-specs-sizeladder/perf/size512/fixtures/cdk2x2_512.yaml",
     "--model",
     "protenix-v2",
     "--single_sequence",
@@ -15,7 +15,7 @@
     "--seed",
     "0",
     "--out_dir",
-    "/home/moritz/.coworker/wt/sizes-recheck-gate-arm/perf/sizegate/work/out_protenix-v2-512-rep0"
+    "/home/moritz/.coworker/wt/tt-bio-gate-infra-fix-rf3-specs-sizeladder/perf/sizegate/work/out_protenix-v2-512-rep0"
   ],
   "rc": 0,
   "processes": 1,
@@ -117,7 +117,10 @@
       "resolved": "True",
       "served": 0,
       "declined": 1208,
-      "rejects": null
+      "rejects": {
+        "l1_dest_is_faster:512x512x64": 160,
+        "l1_dest_is_faster:512x512x256": 1048
+      }
     },
     {
       "flag": "PAIR_PROJ_MINIMAL_MATMUL",
@@ -126,7 +129,10 @@
       "resolved": "True",
       "served": 0,
       "declined": 1208,
-      "rejects": null
+      "rejects": {
+        "k_tiles=2:(2,1)": 160,
+        "no_mm_block:(8,1)": 1048
+      }
     },
     {
       "flag": "TRIMUL_TAIL_F1",
@@ -146,7 +152,10 @@
       "resolved": "True",
       "served": 2256,
       "declined": 1368,
-      "rejects": null
+      "rejects": {
+        "no_mm_block:(2,6)": 320,
+        "no_mm_block:(8,1)": 1048
+      }
     },
     {
       "flag": "DEVICE_LM_HANDOFF",
@@ -190,6 +199,15 @@
       "counter": "tt_bio.triatt_sdpa.STATS",
       "resolved": "True",
       "served": 1208,
+      "declined": 0,
+      "rejects": null
+    },
+    {
+      "flag": "SDPA_WIDE_K",
+      "how": "stats",
+      "counter": "tt_bio.tenstorrent.SDPA_K_CHUNK_STATS",
+      "resolved": "False",
+      "served": 0,
       "declined": 0,
       "rejects": null
     },

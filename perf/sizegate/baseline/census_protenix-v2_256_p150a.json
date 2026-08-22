@@ -4,7 +4,7 @@
     "-m",
     "tt_bio.main",
     "predict",
-    "/home/moritz/.coworker/wt/sizes-recheck-gate-arm/perf/size512/fixtures/cdk2x2_256.yaml",
+    "/home/moritz/.coworker/wt/tt-bio-gate-infra-fix-rf3-specs-sizeladder/perf/size512/fixtures/cdk2x2_256.yaml",
     "--model",
     "protenix-v2",
     "--single_sequence",
@@ -15,7 +15,7 @@
     "--seed",
     "0",
     "--out_dir",
-    "/home/moritz/.coworker/wt/sizes-recheck-gate-arm/perf/sizegate/work/out_protenix-v2-256-rep0"
+    "/home/moritz/.coworker/wt/tt-bio-gate-infra-fix-rf3-specs-sizeladder/perf/sizegate/work/out_protenix-v2-256-rep0"
   ],
   "rc": 0,
   "processes": 1,
@@ -119,7 +119,10 @@
       "resolved": "True",
       "served": 0,
       "declined": 1208,
-      "rejects": null
+      "rejects": {
+        "l1_dest_is_faster:256x256x64": 160,
+        "l1_dest_is_faster:256x256x256": 1048
+      }
     },
     {
       "flag": "PAIR_PROJ_MINIMAL_MATMUL",
@@ -128,7 +131,10 @@
       "resolved": "True",
       "served": 0,
       "declined": 1208,
-      "rejects": null
+      "rejects": {
+        "k_tiles=2:(2,1)": 160,
+        "no_mm_block:(8,1)": 1048
+      }
     },
     {
       "flag": "TRIMUL_TAIL_F1",
@@ -148,7 +154,9 @@
       "resolved": "True",
       "served": 2256,
       "declined": 1048,
-      "rejects": null
+      "rejects": {
+        "no_mm_block:(8,1)": 1048
+      }
     },
     {
       "flag": "DEVICE_LM_HANDOFF",
@@ -198,6 +206,15 @@
       "rejects": {
         "memory_config": 160
       }
+    },
+    {
+      "flag": "SDPA_WIDE_K",
+      "how": "stats",
+      "counter": "tt_bio.tenstorrent.SDPA_K_CHUNK_STATS",
+      "resolved": "False",
+      "served": 0,
+      "declined": 0,
+      "rejects": null
     },
     {
       "flag": "RFD3_SPARSE_BIAS",
