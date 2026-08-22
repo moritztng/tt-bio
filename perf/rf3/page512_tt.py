@@ -22,12 +22,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
+sys.path.insert(0, str(ROOT / "scripts" / "rf3_port"))
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--repeat", type=int, default=4, help="warm folds after the discarded cold one")
     ap.add_argument("--label", default="shipped")
+    ap.add_argument("--arm", default="a0",
+                    help="triangle-attention route; see scripts/rf3_port/arms.py. a0 is the "
+                         "shipped arm, which is what the published cell is measured at")
     ap.add_argument("--fixdir", type=Path, default=ROOT / "perf" / "size512" / "fixtures")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
@@ -39,6 +43,11 @@ def main():
 
     assert Path(T.__file__).resolve().is_relative_to(ROOT), \
         f"tt_bio resolves to {T.__file__}, not this checkout -- set PYTHONPATH"
+
+    # Before build_fold, which loads the model: both flags are read at construction.
+    from arms import apply_arm
+    arm = apply_arm(a.arm)
+    print(json.dumps(arm), flush=True)
 
     B.RECYCLING_STEPS = _resolve_recycling_steps(None, "rf3")
     B.SAMPLING_STEPS = _resolve_sampling_steps(None, "rf3")
@@ -69,7 +78,7 @@ def main():
     struct_dir = Path(meta["struct_dir"])
 
     import importlib.metadata as im
-    res = {"label": a.label, "model": "rf3", "host": os.uname().nodename,
+    res = {"label": a.label, "arm": arm, "model": "rf3", "host": os.uname().nodename,
            "card": os.environ.get("TT_VISIBLE_DEVICES"), "ttnn": im.version("ttnn"),
            "hardware": meta.get("hardware"), "card_type": meta.get("card_type"),
            "aiclk_mhz": meta.get("aiclk_mhz"), "load_s": meta.get("load_s"),
@@ -96,7 +105,8 @@ def main():
                                for p in sorted(struct_dir.glob("*.cif"))},
                 "loadavg": open("/proc/loadavg").read().split()[:3],
                 "opm_small_depth_stats": list(T.OPM_SMALL_DEPTH_STATS),
-                "triatt_fused_hifi_stats": dict(T.TRIATT_FUSED_HIFI_STATS)}
+                "triatt_fused_hifi_stats": dict(T.TRIATT_FUSED_HIFI_STATS),
+                "fp32_softmax_stats": dict(T.FP32_SOFTMAX_STATS)}
 
     def flush():
         a.out.parent.mkdir(parents=True, exist_ok=True)
