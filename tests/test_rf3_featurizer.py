@@ -13,19 +13,34 @@ RDKit-derived key set. That is an environment difference, and reporting it as a 
 would be the same inversion as guarding on a fixture's existence while depending on its
 contents (see tests/of3_golden.py).
 """
-import sys
+import importlib.util
 from pathlib import Path
 
 import pytest
 
 REPO = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO / "scripts" / "rf3_port"))
+GATE = REPO / "scripts" / "rf3_port" / "parity_gate.py"
+
+
+def _load_rf3_parity_gate():
+    """Load the RF3 scorer by path, under a name of its own.
+
+    `scripts/rf3_port/parity_gate.py` and `scripts/rfd3_port/parity_gate.py` are two
+    different scorers with the same module name and the same `featurizer_parity()`
+    entry point. Importing either by bare name binds `sys.modules["parity_gate"]`
+    process-wide, so in a suite that already imported one, the other silently gets
+    the wrong scorer's report. Neither module needs its directory on `sys.path` --
+    both resolve everything from REPO -- so load by path and keep the names apart.
+    """
+    spec = importlib.util.spec_from_file_location("rf3_parity_gate", GATE)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
 
 def test_rf3_featurizer_parity():
-    from parity_gate import featurizer_parity
-
-    rep = featurizer_parity()
+    rep = _load_rf3_parity_gate().featurizer_parity()
+    assert rep["mode"] == "rf3_featurizer", rep.get("mode")
     if rep["verdict"] == "GAP_ENV":
         pytest.skip("RDKit differs from the captures' ({}), and every mismatch is "
                     "RDKit-derived: {}".format(rep["env_mismatch"], rep["fixtures_pass"]))

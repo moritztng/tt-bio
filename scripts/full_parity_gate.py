@@ -1136,17 +1136,26 @@ def _repo_commit() -> str:
         return "unknown"
 
 
+def _load_script_module(name: str, path: Path):
+    """Load a script as a module by explicit path, under the name we pass.
+
+    The name is ours to choose, which is the point: two port dirs can hold files of the
+    same name (``rf3_port/parity_gate.py`` and ``rfd3_port/parity_gate.py``) and a bare
+    ``import parity_gate`` binds ``sys.modules`` process-wide for whoever asks second.
+    """
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(name, path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
 def _load_release_gate():
     """Import scripts/release_gate.py as a module so the boltzgen/abag legs can call its
     vetted ``run_boltzgen`` / ``run_opendde_abag`` IN-PROCESS and capture their real structured
     row (scRMSD/pass-rate, DockQ/fnat) — instead of shelling out and capturing only a return
     code. That removes the live-vs-committed shape mismatch (postmortem #3) at the root."""
-    import importlib.util
-    path = REPO / "scripts" / "release_gate.py"
-    spec = importlib.util.spec_from_file_location("tt_bio_release_gate", path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
+    return _load_script_module("tt_bio_release_gate", REPO / "scripts" / "release_gate.py")
 
 
 def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
@@ -1193,10 +1202,14 @@ def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
         # Card-free in-process: run the ported featurizer on the committed IAI
         # fixture and compare every f key bit-exact vs the committed foundry
         # reference (scripts/rfd3_port/parity_gate.py). No device, no fold.
-        sys.path.insert(0, str(REPO / "scripts" / "rfd3_port"))
+        # Loaded by path under a name of its own: scripts/rf3_port/parity_gate.py is a
+        # different scorer with the same module name and the same featurizer_parity()
+        # entry point, and a bare import binds sys.modules["parity_gate"] process-wide
+        # for whoever asks second.
         try:
-            from parity_gate import featurizer_parity
-            rep = featurizer_parity()
+            rep = _load_script_module("rfd3_parity_gate",
+                                      REPO / "scripts" / "rfd3_port" / "parity_gate.py"
+                                      ).featurizer_parity()
         except Exception as e:
             return {"error": f"{type(e).__name__}: {e}"}
         out_json.write_text(json.dumps(rep, indent=2))
