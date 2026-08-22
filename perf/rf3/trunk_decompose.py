@@ -204,7 +204,14 @@ def main() -> int:
                        "l1_out_refused": sorted(str(k) for k in tt_mod._L1_OUT_REFUSED),
                        "transpose_l1_refused":
                        sorted(str(k) for k in tt_mod._TRANSPOSE_L1_REFUSED),
-                       "bmm_cfg_refused": sorted(str(k) for k in tt_mod._BMM_CFG_REFUSED)},
+                       "bmm_cfg_refused": sorted(str(k) for k in tt_mod._BMM_CFG_REFUSED),
+                       # How far each class has been NARROWED, which is the whole point: a rung
+                       # above 0 with no entry in the *_refused set is a class that kept its
+                       # tuned path at a smaller drain block instead of going dark.
+                       "l1_out_rung": {str(k): v for k, v in tt_mod._L1_OUT_RUNG.items()},
+                       "bmm_cfg_rung": {str(k): v for k, v in tt_mod._BMM_CFG_RUNG.items()}},
+           # served/refused/blocked per latch: the magnitude of the dark gate, not just its name.
+           "latch_stats": {k: dict(v) for k, v in tt_mod.LATCH_STATS.items()},
            "fp32_l1_bytes_per_core": (args.fp32_l1_bytes_per_core
                                       or tt_mod._FP32_SOFTMAX_L1_BYTES_PER_CORE),
            "n_recycles": args.n_recycles,
@@ -235,6 +242,10 @@ def main() -> int:
           f"l1_bytes_per_core={rep['fp32_l1_bytes_per_core']}")
     for name, v in rep["latched"].items():
         print(f"  latched {name}: {len(v)} {v if len(v) <= 6 else ''}")
+    for name, st in rep["latch_stats"].items():
+        if any(st[f] for f in ("served", "refused", "blocked")):
+            print("  latch %s: served=%d refused=%d blocked=%d %s"
+                  % (name, st["served"], st["refused"], st["blocked"], st["why"]))
     for name, c in (("tri_mul", tm), ("tri_att", ta)):
         r = rep["roofline"][name]
         print(f"  roof {name}: {c['gflop']:8.2f} GFLOP, {c['gbyte']:6.3f} GB -> "

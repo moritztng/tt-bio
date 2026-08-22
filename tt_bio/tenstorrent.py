@@ -1144,7 +1144,7 @@ def _batched_matmul_block_w(m_tiles: int, k_tiles: int, n_tiles: int) -> int:
 
 @lru_cache(maxsize=None)
 def _batched_matmul_search(batch: int, m_tiles: int, k_tiles: int, n_tiles: int, elem_bytes: int,
-                           grid: tuple[int, int], l1: int):
+                           grid: tuple[int, int], l1: int, rung: int = 0):
     gx, gy = grid
     cores = gx * gy
     if batch < 2 or batch * m_tiles < cores:
@@ -1175,6 +1175,14 @@ def _batched_matmul_search(batch: int, m_tiles: int, k_tiles: int, n_tiles: int,
     # Take the fewest blocks that still saturate the grid; if nothing does, take the most blocks.
     saturating = [p for p in legal if batch * m_tiles // p >= _BATCHED_MATMUL_SATURATION_BLOCKS]
     per_core_M = max(saturating) if saturating else min(legal)
+    # `rung` walks `per_core_M` down after the CB planner refused a taller block for this class.
+    # The footprint checked above is monotone in `per_core_M`, so every rung is strictly smaller,
+    # and `in0_block_w` -- the one parameter that decides bit-exactness -- does not move. Rung 0
+    # is the tuned choice, so a class that never refuses sees exactly the shipped config.
+    order = [per_core_M] + [p for p in sorted(legal, reverse=True) if p < per_core_M]
+    if not 0 <= rung < len(order):
+        return None
+    per_core_M = order[rung]
     # out_subblock_h * out_subblock_w must fit the dest register file, which fp32_dest_acc_en
     # halves to 4 tiles. Take the widest legal w, then the tallest h that still fits.
     sub_w = max(w for w in range(1, min(4, n_tiles) + 1) if n_tiles % w == 0)
@@ -1189,7 +1197,8 @@ def _batched_matmul_search(batch: int, m_tiles: int, k_tiles: int, n_tiles: int,
     )
 
 
-def _batched_matmul_config(batch: int, m_tiles: int, k_tiles: int, n_tiles: int, elem_bytes: int):
+def _batched_matmul_config(batch: int, m_tiles: int, k_tiles: int, n_tiles: int, elem_bytes: int,
+                           rung: int = 0):
     """Program config that spreads a both-sides-batched matmul over the grid, or None.
 
     ttnn never picks this factory itself for DRAM-interleaved batched operands. The config it does
@@ -1209,7 +1218,7 @@ def _batched_matmul_config(batch: int, m_tiles: int, k_tiles: int, n_tiles: int,
     except Exception:
         return None
     return _batched_matmul_search(batch, m_tiles, k_tiles, n_tiles, elem_bytes,
-                                  tuple(COMPUTE_GRID_MAIN), l1)
+                                  tuple(COMPUTE_GRID_MAIN), l1, rung)
 
 
 def _dram_interleaved(t: ttnn.Tensor) -> bool:
@@ -1217,11 +1226,35 @@ def _dram_interleaved(t: ttnn.Tensor) -> bool:
     return mc.buffer_type == ttnn.BufferType.DRAM and not mc.is_sharded()
 
 
-# Shape classes whose tuned config the circular-buffer planner refused once. `_batched_matmul_search`
-# budgets against the idle device, so it cannot see what the live block already holds, and the
-# clash is raised at program compile inside tt-metal rather than by the allocator. Same contract as
-# `_L1_OUT_REFUSED`: one attempt per class per process, then ttnn's own planner for the rest.
+# How far down the `per_core_M` ladder each shape class has been pushed by a refusal.
+# `_batched_matmul_search` budgets against the idle device, so it cannot see what the live block
+# already holds, and the clash is raised at program compile inside tt-metal rather than by the
+# allocator. Same contract as `_L1_OUT_RUNG`: a refusal takes the next SMALLER legal `per_core_M`,
+# whose circular buffers are strictly smaller, and only an exhausted ladder hands the class back to
+# ttnn's own planner -- which walks the whole batch through the cores of ONE batch element and is
+# 1.8x-14x slower on these shapes, so retiring a class on one refusal is expensive. Not observed
+# firing on RF3 at 768 or 1024 aa (0 refusals in 166278 and 442226 served calls), so the ladder is
+# insurance against a class that clashes beside a live block, not a measured win.
+_BMM_CFG_RUNG: dict = {}
+# Classes with no tuned config left, i.e. whose ladder ran out.
 _BMM_CFG_REFUSED: set = set()
+
+
+# Every latch in this file is counted the same way the fp32-softmax tail's is, so "did a shape
+# class go dark at this size" is a number off the run and not an inference. `served` took the
+# tuned/L1 path, `refused` is an attempt the device threw on, `blocked` is a call a PREVIOUS
+# refusal sent down the fallback. A big `blocked` beside a single `refused` is exactly the
+# all-or-nothing retirement that cost RF3 1.264x on the fp32-softmax tail at 1024 aa.
+LATCH_STATS: dict = {n: {"served": 0, "refused": 0, "blocked": 0, "declined": 0, "why": []}
+                     for n in ("l1_out", "narrow_l1_out", "transpose_l1", "transpose_stage",
+                               "bmm_cfg")}
+
+
+def _latch(name: str, field: str, why: object = None) -> None:
+    st = LATCH_STATS[name]
+    st[field] += 1
+    if why is not None and len(st["why"]) < 3:
+        st["why"].append(str(why)[:180])
 
 
 def batched_matmul(a: ttnn.Tensor, b: ttnn.Tensor, compute_kernel_config=None,
@@ -1240,27 +1273,31 @@ def batched_matmul(a: ttnn.Tensor, b: ttnn.Tensor, compute_kernel_config=None,
     so a broadcast in1 would stride through memory it does not own.
     """
     sa, sb = tuple(a.shape), tuple(b.shape)
-    cfg = None
+    cfg, key, rung = None, None, 0
     if (_BATCHED_MATMUL_ON and len(sa) >= 4 and len(sa) == len(sb) and sa[:-2] == sb[:-2]
             and a.dtype == b.dtype and _dram_interleaved(a) and _dram_interleaved(b)):
         batch = 1
         for d in sa[:-2]:
             batch *= d
+        key = (batch, tuple(sa[-2:]), tuple(sb[-2:]), str(a.dtype))
+        rung = _BMM_CFG_RUNG.get(key, 0)
         cfg = _batched_matmul_config(
             batch, -(-sa[-2] // 32), -(-sa[-1] // 32), -(-sb[-1] // 32),
-            4 if a.dtype == ttnn.float32 else 2)
+            4 if a.dtype == ttnn.float32 else 2, rung)
     kw = {} if dtype is None else {"dtype": dtype}
+    if cfg is None and rung:
+        _BMM_CFG_REFUSED.add(key)
+        _latch("bmm_cfg", "blocked")
     if cfg is not None:
-        key = (batch, tuple(sa[-2:]), tuple(sb[-2:]), str(a.dtype))
-        if key in _BMM_CFG_REFUSED:
+        try:
+            out = ttnn.matmul(a, b, compute_kernel_config=compute_kernel_config,
+                              program_config=cfg, **kw)
+            _latch("bmm_cfg", "served")
+            return out
+        except Exception as e:                                                  # noqa: BLE001
+            _BMM_CFG_RUNG[key] = rung + 1
+            _latch("bmm_cfg", "refused", e)
             cfg = None
-        else:
-            try:
-                return ttnn.matmul(a, b, compute_kernel_config=compute_kernel_config,
-                                   program_config=cfg, **kw)
-            except Exception:                                                   # noqa: BLE001
-                _BMM_CFG_REFUSED.add(key)
-                cfg = None
     return ttnn.matmul(a, b, compute_kernel_config=compute_kernel_config, program_config=cfg,
                        **kw)
 
@@ -1640,24 +1677,33 @@ def _pair_transpose(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig,
     """
     if memory_config.buffer_type == ttnn.BufferType.L1:
         key = (tuple(t.padded_shape), str(t.dtype))
-        if key not in _TRANSPOSE_L1_REFUSED:
+        if key in _TRANSPOSE_L1_REFUSED:
+            _latch("transpose_l1", "blocked")
+        else:
             try:
-                return _pair_transpose_impl(t, memory_config)
-            except Exception:                                                   # noqa: BLE001
+                out = _pair_transpose_impl(t, memory_config)
+                _latch("transpose_l1", "served")
+                return out
+            except Exception as e:                                              # noqa: BLE001
                 _TRANSPOSE_L1_REFUSED.add(key)
+                _latch("transpose_l1", "refused", e)
         memory_config = ttnn.DRAM_MEMORY_CONFIG
     if (l1_stage_reserve
             and _l1_memory_config_if_it_fits(
                 t, 1.0, reserve_per_core=l1_stage_reserve).buffer_type == ttnn.BufferType.L1):
         key = ("stage", tuple(t.padded_shape), str(t.dtype))
-        if key not in _TRANSPOSE_L1_REFUSED:
+        if key in _TRANSPOSE_L1_REFUSED:
+            _latch("transpose_stage", "blocked")
+        else:
             try:
                 stage = _pair_transpose_impl(t, ttnn.L1_MEMORY_CONFIG)
                 out = ttnn.to_memory_config(stage, memory_config)
                 ttnn.deallocate(stage)
+                _latch("transpose_stage", "served")
                 return out
-            except Exception:                                                   # noqa: BLE001
+            except Exception as e:                                              # noqa: BLE001
                 _TRANSPOSE_L1_REFUSED.add(key)
+                _latch("transpose_stage", "refused", e)
     return _pair_transpose_impl(t, memory_config)
 
 
@@ -1900,10 +1946,24 @@ def _tri_att_qkv_l1_config(
 
 
 
+def _pair_proj_l1_rungs(per_core_M: int, out_block_w: int) -> list[tuple[int, int]]:
+    """`(out_block_h, out_block_w)` drain blocks for this shape, widest first.
+
+    Both are drain-schedule parameters and neither touches `in0_block_w`, so every rung walks the
+    same K blocks as the widest and is bit-exact against it -- the same argument that made
+    `out_block_h = 5` and `out_block_w = 16` shippable in the first place. `out_block_h` has to
+    divide `per_core_M` and `out_block_w` has to divide the caller's ask; the order is by circular
+    buffer footprint, which is dominated by the `h * w` output-block term.
+    """
+    hs = [h for h in (5, 1) if per_core_M % h == 0] or [1]
+    ws = [w for w in range(out_block_w, 0, -1) if out_block_w % w == 0]
+    return sorted({(h, w) for h in hs for w in ws}, key=lambda hw: (-hw[0] * hw[1], -hw[1]))
+
+
 @lru_cache(maxsize=None)
 def _pair_proj_program_config(
     m_tiles: int, k_tiles: int, n_tiles: int, in0_block_w: int, elem_bytes: int,
-    out_l1: bool = False, block_w: int | None = None,
+    out_l1: bool = False, block_w: int | None = None, rung: int = 0,
 ) -> ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig | None:
     """Program config for a tall pair-track projection, or None if the shape is outside it.
 
@@ -1935,7 +1995,6 @@ def _pair_proj_program_config(
     per_core_M = -(-(-(-m_tiles // num_cores)) // 5) * 5
     if per_core_M > m_tiles or -(-m_tiles // per_core_M) > num_cores:
         return None
-    out_block_h = 5
     # `out_block_w` defaults to the whole output row, which is what every caller before the pair
     # FFN wanted. It is a drain-schedule parameter, not a contraction one, so narrowing it is
     # free of any parity decision and it is the only way an L1 destination fits at n_tiles = 32:
@@ -1944,6 +2003,12 @@ def _pair_proj_program_config(
     out_block_w = n_tiles if block_w is None else block_w
     if out_block_w < 1 or n_tiles % out_block_w:
         return None
+    # `rung` walks the drain block down after the DEVICE refused a wider one for this class. Rung 0
+    # is the caller's ask, so a caller that never refuses sees exactly the shipped config.
+    rungs = _pair_proj_l1_rungs(per_core_M, out_block_w)
+    if not 0 <= rung < len(rungs):
+        return None
+    out_block_h, out_block_w = rungs[rung]
     sh = max(h for h in range(min(4, out_block_h), 0, -1) if out_block_h % h == 0)
     sw = max(w for w in range(min(4 // sh, out_block_w), 0, -1) if out_block_w % w == 0)
     l1 = _l1_bank_bytes()
@@ -1973,7 +2038,8 @@ def _pair_proj_program_config(
 
 
 def _pair_proj_config(x: ttnn.Tensor, w: ttnn.Tensor, bw_cap: int | None = -1,
-                      out_l1: bool = False, block_w: int | None = None) -> object | None:
+                      out_l1: bool = False, block_w: int | None = None,
+                      rung: int = 0) -> object | None:
     """_pair_proj_program_config for a concrete operand pair, or None if it does not apply.
 
     `bw_cap` defaults to the module's `_PAIR_PROJ_BW`; the narrow-output sites pass
@@ -1999,15 +2065,39 @@ def _pair_proj_config(x: ttnn.Tensor, w: ttnn.Tensor, bw_cap: int | None = -1,
             return None
         bw = max((d for d in (k_tiles, 8, 4, 2, 1)
                   if d <= cap and k_tiles % d == 0), default=1)
-        return _pair_proj_program_config(m_tiles, k_tiles, n_tiles, bw, 2, out_l1, block_w)
+        return _pair_proj_program_config(m_tiles, k_tiles, n_tiles, bw, 2, out_l1, block_w,
+                                        rung)
     except Exception:
         return None
 
 
-# Operand classes whose L1 output the allocator refused once. The static budget in
-# `_pair_proj_program_config` cannot see what a live block already holds, so the honest test is
-# the allocation itself; remembering the refusal keeps it to one attempt per class per process.
+# How far down the drain-block ladder each L1-output class has been pushed by a DEVICE refusal.
+# The static budget in `_pair_proj_program_config` reads the IDLE L1 bank, so it cannot see what
+# the live block already holds and tt-metal raises the clash at program compile
+# ("Statically allocated circular buffers in program N clash with L1 buffers on core range ...").
+#
+# Retiring the class on that first refusal -- what this used to do -- is the same all-or-nothing
+# bug the fp32-softmax tail had at 1024 aa. MEASURED on the RF3 trunk at 768 aa, qb2 card 1: the
+# triangle attention out-projection class `(1,768,768,64) x (64,64)` serves 17 calls, clashes on
+# the 18th, and the retirement then sent the remaining 30 of 48 calls back through a DRAM round
+# trip. A refusal now drops one rung instead, and only an exhausted ladder retires the class.
+_L1_OUT_RUNG: dict = {}
+
+# Classes with no L1 destination left: a gate-chosen block whose ladder ran out, or a
+# caller-named block the device refused (those do not walk the ladder, see
+# _pair_proj_linear). This is what a READER outside
+# the two functions below wants ("does this class take an L1 output?"), and `tt_bio/triatt_qkv.py`
+# reads exactly that.
 _L1_OUT_REFUSED: set = set()
+
+
+def _l1_out_rung(key) -> int:
+    return _L1_OUT_RUNG.get(key, 0)
+
+
+def _l1_out_narrow(key) -> None:
+    """Record a refusal: this class takes the next narrower drain block from now on."""
+    _L1_OUT_RUNG[key] = _L1_OUT_RUNG.get(key, 0) + 1
 
 
 # The DRAM-output leg of `_pair_proj_linear` is a `ttnn.linear` with a program config tuned for
@@ -2066,18 +2156,39 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
     """
     if l1_out and _PAIR_PROJ_L1_OUT:
         key = (tuple(x.padded_shape), tuple(w.shape), str(dtype), l1_bw, l1_block_w)
-        if key not in _L1_OUT_REFUSED:
-            cfg = _pair_proj_config(
-                x, w, bw_cap=_PAIR_PROJ_L1_BW if l1_bw is None else l1_bw,
-                out_l1=True, block_w=l1_block_w)
-            if cfg is not None:
-                try:
-                    return ttnn.linear(
-                        x, w, memory_config=ttnn.L1_MEMORY_CONFIG, dtype=dtype,
-                        compute_kernel_config=ckc, program_config=cfg,
-                    )
-                except Exception:
+        # The ladder narrows the drain block THIS GATE chose. A caller that names its own block
+        # instead -- the row-blocked pair FFN fc1 is the only one, at _PAIR_FFN_FC1_BLOCK_W --
+        # brings a swept, measured geometry, and there the ladder is not merely unmeasured, it is
+        # wrong: MEASURED on ESMFold2 at 768 aa, qb2 card 3, keeping fc1 in L1 at a narrower rung
+        # instead of retiring the class leaves both 48 MB halves resident, and the SiLU multiply
+        # that reads them can then not allocate its own 48 MB output -- the fold dies where main
+        # folds. The gate cannot see that refusal, because it lands on the CONSUMER and not on
+        # the projection, so there is nothing here to back off from. A named block therefore
+        # keeps the shipped retire-on-refusal and only a gate-chosen one walks the ladder.
+        laddered = l1_block_w is None
+        retired = key in _L1_OUT_REFUSED
+        rung = _l1_out_rung(key)
+        cfg = None if retired else _pair_proj_config(
+            x, w, bw_cap=_PAIR_PROJ_L1_BW if l1_bw is None else l1_bw,
+            out_l1=True, block_w=l1_block_w, rung=rung)
+        if cfg is None:
+            if rung:
+                _L1_OUT_REFUSED.add(key)
+            _latch("l1_out", "blocked" if rung or retired else "declined")
+        else:
+            try:
+                out = ttnn.linear(
+                    x, w, memory_config=ttnn.L1_MEMORY_CONFIG, dtype=dtype,
+                    compute_kernel_config=ckc, program_config=cfg,
+                )
+                _latch("l1_out", "served")
+                return out
+            except Exception as e:
+                if laddered:
+                    _l1_out_narrow(key)
+                else:
                     _L1_OUT_REFUSED.add(key)
+                _latch("l1_out", "refused", e)
     mm = _pair_proj_minimal_matmul(x, w, ckc, dtype)
     if mm is not None:
         return mm
@@ -2100,21 +2211,32 @@ def _narrow_proj_linear(x, w, ckc, dtype, l1_out: bool = False):
     on today's path. `l1_out` is for the sites whose next op reads the result on device."""
     if -(-int(list(w.shape)[-1]) // 32) > 2:
         return None
-    cfg = _pair_proj_config(x, w, bw_cap=_NARROW_PROJ_BW, out_l1=l1_out)
-    if cfg is None:
-        return None
-    key = (tuple(x.padded_shape), tuple(w.shape), str(dtype))
-    if l1_out and key not in _L1_OUT_REFUSED:
+    key = ("narrow", tuple(x.padded_shape), tuple(w.shape), str(dtype))
+    rung = _l1_out_rung(key) if l1_out else 0
+    cfg = _pair_proj_config(x, w, bw_cap=_NARROW_PROJ_BW, out_l1=l1_out, rung=rung)
+    if l1_out and cfg is not None:
         try:
-            return ttnn.linear(
+            out = ttnn.linear(
                 x, w, memory_config=ttnn.L1_MEMORY_CONFIG, dtype=dtype,
                 compute_kernel_config=ckc, program_config=cfg,
             )
-        except Exception:
+            _latch("narrow_l1_out", "served")
+            return out
+        except Exception as e:
+            _l1_out_narrow(key)
+            _latch("narrow_l1_out", "refused", e)
+            cfg = None
+    elif l1_out:
+        if rung:
             _L1_OUT_REFUSED.add(key)
-            cfg = _pair_proj_config(x, w, bw_cap=_NARROW_PROJ_BW)
-            if cfg is None:
-                return None
+        _latch("narrow_l1_out", "blocked" if rung else "declined")
+    if cfg is None:
+        # An L1 destination is out, either because the ladder ran out or because the device
+        # refused it: the DRAM leg needs its own config, since one budgeted around an L1 output
+        # is not the one this call wants.
+        cfg = _pair_proj_config(x, w, bw_cap=_NARROW_PROJ_BW)
+        if cfg is None:
+            return None
     return ttnn.linear(
         x, w, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=dtype,
         compute_kernel_config=ckc, program_config=cfg,
