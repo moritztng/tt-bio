@@ -115,3 +115,8 @@ node_modules/
 *.mp4
 *.webm
 *.mov
+
+# hang-probe transient scratch: per-fold census temp dirs and out dirs
+perf/hangprobe/**/.census-*
+perf/hangprobe/**/out_*
+perf/hangprobe/captest/
