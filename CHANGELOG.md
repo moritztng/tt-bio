@@ -93,6 +93,11 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   a golden feature dump: ARG NH2, LYS NZ and HIS ND1 are the only charged atoms, and nothing
   else was missing.
 
+- The live progress view reports real progress for `--model rf3`. It announced the trunk phase
+  once with no iteration count and never announced diffusion at all, so the bar sat empty and a
+  normal rollout looked like a stall. rf3 now ticks per trunk recycle and per diffusion step like
+  every other model. Reporting only: no prediction moves.
+
 ### Changed
 
 - Protenix-v2, OpenDDE and OpenDDE-abag fold with the accurate softmax by default. `ttnn.softmax`
