@@ -3,6 +3,10 @@
 `ttnn.softmax` normalises against a denominator its own numerators do not match (rows sum to
 0.977 on [1,16,512,512] fp32), and `_accurate_softmax` replaces it with a 5-op chain that costs
 up to 4.22x on the op. Whether a given model should pay that is a per-model, per-site verdict.
+Triangle attention is its own site (`rf3.tri_att`) because it was not always one: widening
+`accurate_softmax` onto `TriangleAttention` activated RF3's years-older opt-in for
+AttentionPairBias at the biggest softmax site in the stack, costing 1.376x on the published
+512 aa cell. A parameter that reaches two sites under one name cannot express that verdict.
 Protenix-v2 and OpenDDE have theirs: both cleared 20/256/512/768 aa with the chain on, worst
 reading +2.0% against a +-15% band. Nothing has scored the ESMFold2 or OpenFold3 sites, so those
 still ship off.
@@ -35,6 +39,7 @@ SITES = {
     "opendde.trunk": "tt_bio/protenix.py",
     "opendde.confidence": "tt_bio/protenix.py",
     "opendde.refiner": "tt_bio/opendde.py",
+    "rf3.tri_att": "tt_bio/rf3/remap.py",
 }
 
 # The sites whose verdict landed, i.e. the ones passing `default=True`. protenix.py's two sites
@@ -201,3 +206,63 @@ def test_shared_primitives_default_the_keyword_off():
             if not (isinstance(default, ast.Constant) and default.value is False):
                 bad.append("%s:%d %s" % (path.relative_to(ROOT), node.lineno, node.name))
     assert bad == [], "accurate_softmax not defaulted False at: %s" % ", ".join(bad)
+
+
+# --- triangle attention is a site of its own -------------------------------------------------
+# `PairformerLayer`/`Pairformer` take `tri_att_accurate_softmax`, and it inherits
+# `accurate_softmax` when left as `None`. The inheritance is what makes the blast radius zero by
+# construction: every caller that does not pass it keeps the identical value at every site, so no
+# other model needs re-measuring.
+import inspect
+
+
+def _param(cls, name):
+    return inspect.signature(cls.__init__).parameters[name]
+
+
+@pytest.mark.parametrize("cls_name", ["PairformerLayer", "Pairformer"])
+def test_tri_att_site_inherits_when_unset(cls_name):
+    import tt_bio.tenstorrent as T
+    assert _param(getattr(T, cls_name), "tri_att_accurate_softmax").default is None, \
+        "%s must inherit accurate_softmax, not default to a bool" % cls_name
+
+
+def test_pairformer_layer_routes_the_two_triangle_attentions_through_the_new_name():
+    """The parameter has to actually reach both TriangleAttention children and nothing else.
+    Read off the AST rather than built layers, which would need weights and a card."""
+    tree = ast.parse((ROOT / "tt_bio/tenstorrent.py").read_text())
+    cls = next(n for n in ast.walk(tree)
+               if isinstance(n, ast.ClassDef) and n.name == "PairformerLayer")
+    init = next(n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == "__init__")
+    passed = {}
+    for node in ast.walk(init):
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)):
+            continue
+        for kw in node.keywords:
+            if kw.arg == "accurate_softmax":
+                passed.setdefault(node.func.id, []).append(ast.unparse(kw.value))
+    assert passed.get("TriangleAttention") == ["tri_acc", "tri_acc"], \
+        "both TriangleAttentions must take the triangle-attention site: %s" % passed
+    assert passed.get("AttentionPairBias") == ["accurate_softmax"], \
+        "AttentionPairBias must keep the layer-level flag: %s" % passed
+
+
+def test_rf3_ships_the_chain_at_attention_pair_bias_and_not_at_triangle_attention(monkeypatch):
+    monkeypatch.delenv("TT_BIO_ACCURATE_SOFTMAX_AB", raising=False)
+    import importlib
+    import tt_bio.rf3.remap as remap
+    flags = importlib.reload(remap).PAIRFORMER_FLAGS
+    assert flags["accurate_softmax"] is True
+    assert flags["tri_att_accurate_softmax"] is False, \
+        "the triangle-attention chain is the 1.376x; it does not ship on"
+
+
+def test_the_rf3_triangle_attention_site_stays_ab_able(monkeypatch):
+    """Recovering the regressed route without a checkout is how the fix was measured, and how
+    anyone re-opens the accuracy question later."""
+    import importlib
+    import tt_bio.rf3.remap as remap
+    monkeypatch.setenv("TT_BIO_ACCURATE_SOFTMAX_AB", "rf3.tri_att")
+    assert importlib.reload(remap).PAIRFORMER_FLAGS["tri_att_accurate_softmax"] is True
+    monkeypatch.delenv("TT_BIO_ACCURATE_SOFTMAX_AB")
+    assert importlib.reload(remap).PAIRFORMER_FLAGS["tri_att_accurate_softmax"] is False

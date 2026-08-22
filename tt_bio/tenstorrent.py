@@ -4930,9 +4930,15 @@ class PairformerLayer(Module):
         transpose_bias: bool = True,
         transpose_l1_reserve: int = 0,
         accurate_softmax: bool = False,
+        tri_att_accurate_softmax: bool | None = None,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.transform_s = transform_s
+        # Triangle attention is the biggest softmax site in the stack, and the accurate-softmax
+        # chain only reaches it on the fp32_softmax route. `None` keeps whatever the layer's
+        # `accurate_softmax` says, so no existing caller changes; a caller that measured the
+        # chain at AttentionPairBias and not here pins this False.
+        tri_acc = accurate_softmax if tri_att_accurate_softmax is None else tri_att_accurate_softmax
         self.triangle_multiplication_start = TriangleMultiplication(
             False, self.scope("tri_mul_out"), compute_kernel_config, gated_move=gated_move
         )
@@ -4948,7 +4954,7 @@ class PairformerLayer(Module):
             affinity=affinity,
             scale_pair_bias=scale_pair_bias,
             fp32_softmax=fp32_softmax,
-            accurate_softmax=accurate_softmax,
+            accurate_softmax=tri_acc,
         )
         self.triangle_attention_end = TriangleAttention(
             tri_att_head_dim,
@@ -4961,7 +4967,7 @@ class PairformerLayer(Module):
             fp32_softmax=fp32_softmax,
             transpose_bias=transpose_bias,
             transpose_l1_reserve=transpose_l1_reserve,
-            accurate_softmax=accurate_softmax,
+            accurate_softmax=tri_acc,
         )
         self.transition_z = Transition(
             self.scope("transition_z"), compute_kernel_config
@@ -5049,6 +5055,7 @@ class Pairformer(Module):
         transpose_bias: bool = True,
         transpose_l1_reserve: int = 0,
         accurate_softmax: bool = False,
+        tri_att_accurate_softmax: bool | None = None,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.blocks = [
@@ -5067,6 +5074,7 @@ class Pairformer(Module):
                 transpose_bias=transpose_bias,
                 transpose_l1_reserve=transpose_l1_reserve,
                 accurate_softmax=accurate_softmax,
+                tri_att_accurate_softmax=tri_att_accurate_softmax,
             )
             for i in range(n_blocks)
         ]

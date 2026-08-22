@@ -1,0 +1,123 @@
+{
+  "aa": 768,
+  "n_token": 768,
+  "n_blocks": 48,
+  "fp32_softmax_stats": {
+    "calls": 435,
+    "blocked": 432,
+    "blocks": 163392,
+    "fused": 163396,
+    "unfused": 0,
+    "l1": 432,
+    "l1_blocks": 163201,
+    "l1_refused": 1
+  },
+  "latched": {
+    "fp32_softmax_row_cap": {
+      "(3072, 768)": 3
+    },
+    "l1_out_refused": [],
+    "transpose_l1_refused": [],
+    "bmm_cfg_refused": [],
+    "l1_out_rung": {
+      "((1, 768, 768, 64), (64, 64), 'DataType.BFLOAT16', None, None)": 1
+    },
+    "bmm_cfg_rung": {}
+  },
+  "latch_stats": {
+    "l1_out": {
+      "served": 47,
+      "refused": 1,
+      "blocked": 0,
+      "declined": 1248,
+      "why": [
+        "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 173 clash with L1 buffers on core range [(x=0,y=0) "
+      ]
+    },
+    "narrow_l1_out": {
+      "served": 0,
+      "refused": 0,
+      "blocked": 0,
+      "declined": 0,
+      "why": []
+    },
+    "transpose_l1": {
+      "served": 208,
+      "refused": 0,
+      "blocked": 0,
+      "declined": 0,
+      "why": []
+    },
+    "transpose_stage": {
+      "served": 192,
+      "refused": 0,
+      "blocked": 0,
+      "declined": 0,
+      "why": []
+    },
+    "bmm_cfg": {
+      "served": 327174,
+      "refused": 0,
+      "blocked": 0,
+      "declined": 0,
+      "why": []
+    }
+  },
+  "fp32_l1_bytes_per_core": 786432,
+  "n_recycles": 2,
+  "synced_per_recycle_s": 28.178610390999893,
+  "per_recycle_s": {
+    "trunk.process_zh": 0.00229,
+    "trunk.template": 0.73846,
+    "trunk.msa": 1.68169,
+    "trunk.process_sh": 0.00021,
+    "block.tri_mul_start": 0.79373,
+    "block.tri_mul_end": 0.79468,
+    "block.tri_att_start": 11.36228,
+    "block.tri_att_end": 11.55533,
+    "block.transition_z": 0.77415,
+    "block.attn_pair_bias": 0.20097,
+    "block.transition_s": 0.00936
+  },
+  "calls_per_recycle": {
+    "trunk.process_zh": 1,
+    "trunk.template": 1,
+    "trunk.msa": 1,
+    "trunk.process_sh": 1,
+    "block.tri_mul_start": 48,
+    "block.tri_mul_end": 48,
+    "block.tri_att_start": 48,
+    "block.tri_att_end": 48,
+    "block.transition_z": 48,
+    "block.attn_pair_bias": 48,
+    "block.transition_s": 48
+  },
+  "unattributed_s": 0.2654488239941202,
+  "per_block_ms": {
+    "block.tri_mul_start": 16.536,
+    "block.tri_mul_end": 16.556,
+    "block.tri_att_start": 236.714,
+    "block.tri_att_end": 240.736,
+    "block.transition_z": 16.128,
+    "block.attn_pair_bias": 4.187,
+    "block.transition_s": 0.195
+  },
+  "roofline": {
+    "tri_mul": {
+      "gflop": 173.946175488,
+      "contract_share": 0.6666666666666666,
+      "gbyte": 1.056964608,
+      "floor_s_square": 0.0016837302825283126,
+      "floor_s_kthin": 0.009991164588627225,
+      "floor_s_dram": 0.002400010463215259
+    },
+    "tri_att": {
+      "gflop": 309.237645312,
+      "attn_share": 0.75,
+      "gbyte": 0.905969664,
+      "floor_s_square": 0.0029932982800503338,
+      "floor_s_kthin": 0.01776207037978173,
+      "floor_s_dram": 0.0020571518256130793
+    }
+  }
+}
