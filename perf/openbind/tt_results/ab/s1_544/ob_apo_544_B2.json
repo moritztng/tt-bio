@@ -1,0 +1,64 @@
+{
+ "model": "openbind",
+ "label": "s1_544_B2",
+ "input": "ob_apo_544.tt.yaml",
+ "input_sha256": "ee416c21de45b70a34d9fc5acda53052d49accab24b0664a4a96e9d5d1e37f99",
+ "samples": 1,
+ "recycles": 3,
+ "sampling_steps": 200,
+ "seed": 42,
+ "single_sequence": true,
+ "decomp": false,
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "1",
+ "arch": "blackhole",
+ "load_s": 1.88,
+ "loadavg_start": [
+  "17.96",
+  "14.24",
+  "11.58"
+ ],
+ "timers_missing": [],
+ "runs": [
+  {
+   "run": 0,
+   "fold_s": 45.623,
+   "device_s": 44.479,
+   "host_feat_s": 0.559,
+   "host_write_s": 0.06,
+   "plddt": 0.463736,
+   "n_tokens": 544,
+   "n_atoms": 4378,
+   "cif_sha256": {
+    "ob_apo_544.tt.cif": "f8a4c873feabf712"
+   },
+   "loadavg": [
+    "13.36",
+    "13.62",
+    "11.60"
+   ],
+   "regions": {
+    "device:model.fold": {
+     "calls": 1,
+     "s": 44.479,
+     "ms_per_call": 44479.422,
+     "pct_of_fold": 97.49
+    },
+    "host:build_features": {
+     "calls": 1,
+     "s": 0.559,
+     "ms_per_call": 559.199,
+     "pct_of_fold": 1.23
+    },
+    "host:write_structure": {
+     "calls": 1,
+     "s": 0.06,
+     "ms_per_call": 60.43,
+     "pct_of_fold": 0.13
+    }
+   }
+  }
+ ],
+ "cold_s": 46.99
+}
