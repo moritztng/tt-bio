@@ -1,0 +1,147 @@
+{
+ "gt": "1hcl.cif",
+ "n_gt_ca": 294,
+ "threshold_A": 0.25,
+ "arms": {
+  "def": {
+   "folds": [
+    {
+     "i": 0,
+     "seed": 0,
+     "gt_ca_rmsd_A": 1.424124,
+     "n_ca": 294,
+     "ca_vs_def_seed0_A": 0.0,
+     "allatom_vs_def_seed0_A": 0.0,
+     "cif_sha_dir": "f0_seed0"
+    },
+    {
+     "i": 1,
+     "seed": 1,
+     "gt_ca_rmsd_A": 1.476321,
+     "n_ca": 294,
+     "ca_vs_def_seed0_A": 0.542872,
+     "allatom_vs_def_seed0_A": 0.891974,
+     "cif_sha_dir": "f1_seed1"
+    },
+    {
+     "i": 2,
+     "seed": 2,
+     "gt_ca_rmsd_A": 2.391009,
+     "n_ca": 294,
+     "ca_vs_def_seed0_A": 1.996488,
+     "allatom_vs_def_seed0_A": 2.295012,
+     "cif_sha_dir": "f2_seed2"
+    },
+    {
+     "i": 3,
+     "seed": 3,
+     "gt_ca_rmsd_A": 1.440991,
+     "n_ca": 294,
+     "ca_vs_def_seed0_A": 0.83381,
+     "allatom_vs_def_seed0_A": 1.200306,
+     "cif_sha_dir": "f3_seed3"
+    },
+    {
+     "i": 4,
+     "seed": 4,
+     "gt_ca_rmsd_A": 1.533431,
+     "n_ca": 294,
+     "ca_vs_def_seed0_A": 0.417737,
+     "allatom_vs_def_seed0_A": 0.7372,
+     "cif_sha_dir": "f4_seed4"
+    },
+    {
+     "i": 5,
+     "seed": 0,
+     "gt_ca_rmsd_A": 1.424124,
+     "n_ca": 294,
+     "ca_vs_def_seed0_A": 0.0,
+     "allatom_vs_def_seed0_A": 0.0,
+     "cif_sha_dir": "f5_seed0"
+    }
+   ],
+   "n_seeds": 5,
+   "median_gt_ca_A": 1.476321,
+   "min_gt_ca_A": 1.424124,
+   "max_gt_ca_A": 2.391009,
+   "seed_spread_A": 0.966885,
+   "aa_control_seeds": [
+    "0"
+   ],
+   "aa_control_spread_A": 0.0
+  },
+  "hifi": {
+   "folds": [
+    {
+     "i": 0,
+     "seed": 0,
+     "gt_ca_rmsd_A": 2.414468,
+     "n_ca": 294,
+     "ca_vs_def_seed0_A": 1.944045,
+     "allatom_vs_def_seed0_A": 2.183337,
+     "cif_sha_dir": "f0_seed0"
+    },
+    {
+     "i": 1,
+     "seed": 1,
+     "gt_ca_rmsd_A": 2.510856,
+     "n_ca": 294,
+     "ca_vs_def_seed0_A": 2.185441,
+     "allatom_vs_def_seed0_A": 2.5107,
+     "cif_sha_dir": "f1_seed1"
+    },
+    {
+     "i": 2,
+     "seed": 2,
+     "gt_ca_rmsd_A": 1.452707,
+     "n_ca": 294,
+     "ca_vs_def_seed0_A": 0.525016,
+     "allatom_vs_def_seed0_A": 0.783302,
+     "cif_sha_dir": "f2_seed2"
+    },
+    {
+     "i": 3,
+     "seed": 3,
+     "gt_ca_rmsd_A": 1.453356,
+     "n_ca": 294,
+     "ca_vs_def_seed0_A": 0.863469,
+     "allatom_vs_def_seed0_A": 1.287827,
+     "cif_sha_dir": "f3_seed3"
+    },
+    {
+     "i": 4,
+     "seed": 4,
+     "gt_ca_rmsd_A": 1.53667,
+     "n_ca": 294,
+     "ca_vs_def_seed0_A": 0.444084,
+     "allatom_vs_def_seed0_A": 0.774809,
+     "cif_sha_dir": "f4_seed4"
+    },
+    {
+     "i": 5,
+     "seed": 0,
+     "gt_ca_rmsd_A": 2.414468,
+     "n_ca": 294,
+     "ca_vs_def_seed0_A": 1.944045,
+     "allatom_vs_def_seed0_A": 2.183337,
+     "cif_sha_dir": "f5_seed0"
+    }
+   ],
+   "n_seeds": 5,
+   "median_gt_ca_A": 1.53667,
+   "min_gt_ca_A": 1.452707,
+   "max_gt_ca_A": 2.510856,
+   "seed_spread_A": 1.058149,
+   "aa_control_seeds": [
+    "0"
+   ],
+   "aa_control_spread_A": 0.0
+  }
+ },
+ "verdict": {
+  "margin_A": 0.060349,
+  "max_seed_spread_A": 1.058149,
+  "verdict": "FLOOR_NARROW",
+  "why": "fixture cannot separate the arms: margin is inside the threshold or inside the seed spread"
+ }
+}

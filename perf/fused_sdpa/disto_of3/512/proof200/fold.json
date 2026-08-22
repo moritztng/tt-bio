@@ -1,0 +1,86 @@
+{
+ "label": "proof200",
+ "model": "openfold3",
+ "fix": "cdk2x2_512",
+ "host": "tt-quietbox2",
+ "card": "3",
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "rf3_shipped_steps": [
+  3,
+  200
+ ],
+ "diffusion_samples": 1,
+ "seed": 0,
+ "n_msa": 35,
+ "sha256_target": "24d8b2d8c06e4409995abae024766e316da3175dde7596073b68c7963d2df398",
+ "sha256_a3m": "ef2301402e7716e9df368987210456194b108c8ae7e144b7bf09a3dd6f40bf5e",
+ "env_flags": {
+  "TT_BIO_LEASE_CARDS": "3",
+  "TT_BIO_LEASE_HOLDER": "worker:fused-sdpa-adopt-rf3-of3"
+ },
+ "folds": [
+  {
+   "tag": "warm0_seed0",
+   "seed": 0,
+   "fold_s": 45.19,
+   "plddt": 0.547851,
+   "ptm": 0.385001,
+   "n_tokens": 512,
+   "n_atoms": 4116,
+   "msa": true,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "da9b4ed68f8c0405"
+   },
+   "opm_small_depth_stats": [
+    0,
+    32
+   ],
+   "triatt_fused_hifi_stats": {
+    "served": 0,
+    "declined": 0,
+    "too_short": 0
+   },
+   "kept": [
+    "cdk2x2_512.cif"
+   ],
+   "distogram": {
+    "shape": [
+     1,
+     512,
+     512,
+     64
+    ],
+    "dtype": "float32",
+    "captures": 2,
+    "sha256": "f87db3d6f9fd3b36"
+   },
+   "kept_in": "perf/fused_sdpa/disto_of3/512/proof200/f0_seed0"
+  }
+ ],
+ "cold": {
+  "tag": "cold",
+  "seed": 0,
+  "fold_s": 47.442,
+  "plddt": 0.547851,
+  "ptm": 0.385001,
+  "n_tokens": 512,
+  "n_atoms": 4116,
+  "msa": true,
+  "cif_sha256": {
+   "cdk2x2_512.cif": "da9b4ed68f8c0405"
+  },
+  "opm_small_depth_stats": [
+   0,
+   16
+  ],
+  "triatt_fused_hifi_stats": {
+   "served": 0,
+   "declined": 0,
+   "too_short": 0
+  }
+ },
+ "seeds": [
+  0
+ ]
+}
