@@ -84,7 +84,8 @@ class MSAModuleBlock:
         # Boltz convention and was root-caused as the OF3 MSA z-track degradation.
         self.pair_stack = PairformerLayer(
             *_MSA_TRI_DIMS, None, None, False, block_remap["pair_stack"], ckc,
-            scale_pair_bias=False, fp32_softmax=True, transpose_bias=transpose_bias,
+            scale_pair_bias=False, fp32_softmax=True, gated_move=True,
+            transpose_bias=transpose_bias,
             accurate_softmax=accurate_softmax_site("openfold3.msa"))
 
     def __call__(self, m, z):

@@ -85,7 +85,7 @@ class OF3ConfidenceHead:
         # the s-path runs host-fp32 via _host_s_block for precision).
         self.pf = Pairformer(n_blocks, tri_att_head_dim, tri_att_n_heads,
                              att_head_dim, att_n_heads, True, pf_sd, compute_kernel_config,
-                             scale_pair_bias=False, fp32_softmax=True,
+                             scale_pair_bias=False, fp32_softmax=True, gated_move=True,
                              accurate_softmax=accurate_softmax_site("openfold3.confidence"))
         self.n_blocks = n_blocks
 

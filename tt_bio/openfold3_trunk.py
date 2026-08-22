@@ -134,9 +134,15 @@ class OF3Trunk(Module):
         tri_att_end_bias_follows_pair = not is_openbind(state_dict)
         # scale_pair_bias=False: openfold3 adds the attention pair bias UNSCALED (q
         # pre-scaled by 1/sqrt(d)); the shared default sqrt(d) fold is Boltz's.
+        # gated_move=True (E6): the fused chunk+gate forward move replaces the trimul's
+        # ttnn.chunk(4) + two sigmoid multiplies + two separate moves. MEASURED off-fold at
+        # c_z=128 on qb2 card 0, `torch.equal` on both outputs at 512 / 544 / 768 / 1024 aa:
+        # 2.236x / 1.953x / 2.079x / 2.004x on the move it replaces
+        # (perf/openbind/tt_results/e6_cz128_qb2c0.json). The gate admitted at every size, so
+        # E6's zero served calls on this trunk were never a refusal -- no OF3 call site asked.
         self.pairformer = Pairformer(
             _N_PAIRFORMER_BLOCKS, *_PF_DIMS, True, pf_sd, compute_kernel_config,
-            scale_pair_bias=False, fp32_softmax=True,
+            scale_pair_bias=False, fp32_softmax=True, gated_move=True,
             transpose_bias=tri_att_end_bias_follows_pair,
             accurate_softmax=accurate_softmax_site("openfold3.trunk"))
         self.template = TemplateEmbedder(

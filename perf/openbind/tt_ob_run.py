@@ -117,6 +117,65 @@ def install_decomp_timers():
     wrap_method(TR.OF3TrunkGlue, "glue_s", "trunk:glue_s")
     if hasattr(TR, "OF3PairformerStack"):
         wrap_method(TR.OF3PairformerStack, "__call__", "trunk:pairformer_stack")
+    install_pair_stack_timers()
+
+
+# Which pair stack is on the stack right now. Every OF3 pair stack is built from the SAME
+# four shared primitives, so timing the primitives alone would pool the 48-block trunk with the
+# template, MSA and confidence stacks and answer nobody's question. `_STACK` is pushed by the
+# stack's own __call__ and read by the primitive's, so each row is attributed to one stack.
+_STACK = ["?"]
+
+
+def stack_scoped(cls, name, label):
+    """`label` may be a callable taking the instance, so one class serving two stacks
+    (`Pairformer` is both the 48-block trunk and the 4-block confidence stack) reports two rows."""
+    if not hasattr(cls, name):
+        MISSING.append(f"{cls.__name__}.{name}")
+        return
+    f = getattr(cls, name)
+
+    def wrapper(self, *x, **k):
+        lb = label(self) if callable(label) else label
+        _STACK.append(lb)
+        try:
+            return timed(f"stack:{lb}", f, self, *x, **k)
+        finally:
+            _STACK.pop()
+    setattr(cls, name, wrapper)
+
+
+def op_scoped(cls, name, op):
+    if not hasattr(cls, name):
+        MISSING.append(f"{cls.__name__}.{name}")
+        return
+    f = getattr(cls, name)
+
+    def wrapper(self, *x, **k):
+        return timed(f"{_STACK[-1]}:{op}", f, self, *x, **k)
+    setattr(cls, name, wrapper)
+
+
+def install_pair_stack_timers():
+    """Per-op attribution INSIDE each pair stack: TriMul, TriAtt, Transition, AttentionPairBias.
+
+    Every row is a synchronised region, so the instrumented total is not a fold time
+    (`tt-bio-isolated-op-timing-oversync-inflates-cost`: sync-per-op over-syncs). What it IS
+    good for is the SPLIT between the four ops within one run, which is the question pass 1
+    left open: the trunk's ~110 ms/block was a subtraction, not a measurement.
+    """
+    import tt_bio.tenstorrent as T
+    import tt_bio.openfold3_trunk as TR
+    import tt_bio.openfold3_template as TP
+    import tt_bio.openfold3_msa_embedder as ME
+    stack_scoped(T.Pairformer, "__call__", lambda o: f"pf{len(o.blocks)}")
+    stack_scoped(TP.TemplatePairStack, "__call__", "tps")
+    stack_scoped(ME.MSAModuleBlock, "__call__", "msab")
+    op_scoped(T.PairformerLayer, "__call__", "block")
+    op_scoped(T.TriangleMultiplication, "__call__", "trimul")
+    op_scoped(T.TriangleAttention, "__call__", "triatt")
+    op_scoped(T.Transition, "__call__", "transition")
+    op_scoped(T.AttentionPairBias, "__call__", "attn_pair_bias")
 
     SD = SDM.OF3SampleDiffusion
     wrap_method(SD, "__call__", "diff:rollout")
@@ -263,6 +322,36 @@ def main():
         for k, v in rows.items():
             print(f"  {k:44s} {v['calls']:6d} calls {v['s']:9.3f} s  "
                   f"{v['ms_per_call']:9.3f} ms/call  {v['pct_of_fold']:6.2f} %", flush=True)
+
+    # Which levers this process actually served. A silently-declined config is
+    # indistinguishable from an absent one, so an A/B is only believable if the fold says
+    # which arm it ran (`pcc-gate-can-pass-without-the-op-it-names`).
+    try:
+        import tt_bio.tenstorrent as _T
+        res["levers"] = {
+            "sdpa_low_div_k": _T._sdpa_low_div_k(),
+            "sdpa_wide_k": _T._sdpa_wide_k(),
+            "sdpa_k_chunk_stats": list(_T.SDPA_K_CHUNK_STATS),
+            "sdpa_chunk_picks": {f"{q}x{k}": v for (q, k), v in _T.SDPA_CHUNK_PICKS.items()},
+            "triatt_fused_hifi_stats": dict(_T.TRIATT_FUSED_HIFI_STATS),
+            "fp32_softmax_stats": dict(_T.FP32_SOFTMAX_STATS),
+            "latch": {k: {"served": v["served"], "refused": v["refused"],
+                          "blocked": v["blocked"], "declined": v["declined"],
+                          "why": v["why"][:4]}
+                      for k, v in _T.LATCH_STATS.items()
+                      if v["served"] or v["refused"] or v["blocked"] or v["declined"]},
+        }
+    except Exception as exc:  # noqa: BLE001
+        res["levers"] = {"error": repr(exc)}
+
+    try:
+        from tt_bio import reblock_permute as RP
+        res["reblock_permute"] = {"gated_enabled": RP._ENABLED_GATED,
+                                  "stats_gated": list(RP.STATS_GATED),
+                                  "stats": list(getattr(RP, "STATS", []) or []),
+                                  "rejects": dict(getattr(RP, "REJECTS", {}) or {})}
+    except Exception as exc:  # noqa: BLE001 -- a counter that moved is not a reason to lose the run
+        res["reblock_permute"] = {"error": repr(exc)}
 
     dv = [r["device_s"] for r in res["runs"]]
     fv = [r["fold_s"] for r in res["runs"]]

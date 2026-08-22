@@ -740,7 +740,7 @@ def _sdpa_chunks_shipped(q_len: int, k_len: int) -> tuple:
             if _padded_sdpa_len(k_len) % dk == 0:
                 return (64, dk)
         return (64, 64)
-    return (_capped_sdpa_chunk_size(q_len), _dividing_sdpa_chunk_size(k_len))
+    return (_capped_sdpa_chunk_size(q_len), _shipped_sdpa_k_chunk(k_len))
 
 
 # K3: the k_chunk has to DIVIDE the padded sequence or the fused K1/K2 kernel refuses the call.
@@ -789,6 +789,56 @@ def _dividing_sdpa_chunk_size(seq_len: int) -> int:
         if padded % c == 0:
             return c
     return cap
+
+
+# K6: a k_chunk that DIVIDES the padded sequence when the only 32-aligned divisors are BELOW K3's
+# `cap/2` floor. K3 searches [cap/2, cap) and K5 searches above the cap; between them they leave
+# exactly the padded lengths whose 32-aligned divisors all sit under 128, and there the shipped pick
+# is still the non-dividing cap, which makes `sdpa_generic.plan` set `use_padded_mask` and the fused
+# K1/K2 kernel decline every call on `fill_preconditions`.
+#
+# Which lengths, arithmetically rather than by enumeration: padded/32 has to have no divisor in the
+# 4..7 tile band. Up to 1024 that is 544 (17 tiles), 608 (19), 704 (22), 736 (23), 832 (26),
+# 864 (27), 928 (29) and 992 (31) -- and five of those, 544 / 608 / 736 / 928 / 992, are the prime
+# tile counts. Every other length keeps a divisor in K3's window and is byte for byte unchanged.
+#
+# This is the floor K3's own comment flagged as "a precaution, not a measured refusal". The
+# precaution is expensive: at 544 aa the non-dividing cap costs the trunk 1.45x against 576 aa,
+# which has 6 % MORE tokens (state doc openbind-perf.md section 12). K5's own screen at padded 864
+# also priced a narrow dividing k against this same non-dividing incumbent and read 2.010x for
+# k=96, so a divisor under the floor is not obviously the wrong trade.
+#
+# NOT bit-exact: k_chunk sets the online-softmax reduction order, and here it also moves the call
+# off the materialised fallback onto the fused kernel. Shared helper, so it ships opt-in until it
+# is scored on a second model's own perf cell.
+_SDPA_LOW_DIV_K_DEFAULT = False
+
+
+def _sdpa_low_div_k() -> bool:
+    """Read live, not at import, so one process can A/B both arms (see `_sdpa_wide_k`)."""
+    return env_flag("TT_BIO_SDPA_LOW_DIV_K", _SDPA_LOW_DIV_K_DEFAULT)
+
+
+SDPA_LOW_DIV_K = _sdpa_low_div_k()
+
+
+@lru_cache(maxsize=None)
+def _low_dividing_sdpa_chunk_size(seq_len: int) -> int:
+    """The largest 32-aligned divisor of the padded sequence below K3's `cap/2` floor, or the cap
+    when there is none. Pure arithmetic, so it is memoised and the flag is read by the caller."""
+    cap = _capped_sdpa_chunk_size(seq_len)
+    padded = _padded_sdpa_len(seq_len)
+    for c in range(cap // 2 - SDPA_CHUNK_TILE, 0, -SDPA_CHUNK_TILE):
+        if padded % c == 0:
+            return c
+    return cap
+
+
+def _shipped_sdpa_k_chunk(k_len: int) -> int:
+    k = _dividing_sdpa_chunk_size(k_len)
+    if _sdpa_low_div_k() and _padded_sdpa_len(k_len) % k:
+        return _low_dividing_sdpa_chunk_size(k_len)
+    return k
 
 
 @lru_cache(maxsize=None)

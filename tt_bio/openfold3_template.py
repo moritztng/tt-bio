@@ -113,7 +113,7 @@ class TemplatePairStack(Module):
         remap = remap_template_pair_stack(state_dict, prefix="template_pair_stack")
         self.blocks = [
             PairformerLayer(*_TRI_DIMS, None, None, False, b, compute_kernel_config,
-                            scale_pair_bias=False, fp32_softmax=True,
+                            scale_pair_bias=False, fp32_softmax=True, gated_move=True,
                             transpose_bias=transpose_bias,
                             accurate_softmax=accurate_softmax_site("openfold3.template"))
             for b in remap["blocks"]
