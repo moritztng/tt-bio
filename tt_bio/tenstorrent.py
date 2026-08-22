@@ -4009,8 +4009,6 @@ class TriangleAttention(Module):
                     bias=self.o_bias,
                 )
             ttnn.deallocate(o_in)
-            if self.o_bias is not None:
-                x_out = ttnn.add_(x_out, self.o_bias)
             return x_out
 
         if need_chunk:
@@ -4028,7 +4026,7 @@ class TriangleAttention(Module):
                 qkv_chunk = _triatt_qkv.qkv_heads(
                     x_chunk, self.qkv_weight, self.compute_kernel_config,
                     self.n_heads, self.head_dim, _dtype(), qkv_cfg_chunk,
-                ) if self.fuse_qkv else None
+                )
                 if qkv_chunk is None:
                     qkv_chunk = ttnn.experimental.minimal_matmul(
                         input_tensor=x_chunk,
