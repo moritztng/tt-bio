@@ -255,6 +255,11 @@ OPENDDE_ABAG_MIN_DOCKQ = 0.50
 # that carries DockQ in the gate venv needs no extra config, and a host that does not
 # sets OPENDDE_DOCKQ_PYTHON to a venv that does (mirrors the ESMC leg's ESM_ROOT).
 OPENDDE_DOCKQ_PYTHON = os.environ.get("OPENDDE_DOCKQ_PYTHON", sys.executable)
+# ...and bounded like every fold this gate launches, for the same reason: an unbounded wait on
+# an external tool blocks the whole gate run, not just its own leg. DockQ scores the 1ahw
+# fixture in ~1 s on this hardware, so 300 s is ~300x headroom and still fails loud in five
+# minutes instead of hanging forever on a corrupt CIF or a wedged reference tool.
+DOCKQ_TIMEOUT_S = int(os.environ.get("RELEASE_GATE_DOCKQ_TIMEOUT", "300"))
 
 # Every fold this gate launches is bounded by a hard wall-clock timeout so a flaky external
 # MSA server (the v0.3.3 release lost ~25 min to a ColabFold hang) or a hung multiprocessing
@@ -594,32 +599,41 @@ def _preflight_msa_cache(models: list) -> None:
         )
 
 
+def _kill_group(proc) -> None:
+    """Kill the whole process group of a timed-out child started with start_new_session.
+
+    start_new_session makes the child a session/group leader, so its pgid is its pid.
+    Escalate unconditionally: the direct child exiting is NOT evidence the group is clear.
+    predict folds inside a multiprocessing spawn grandchild that survives SIGTERM while
+    still holding /dev/tenstorrent/N, and breaking out of the escalation as soon as
+    proc.wait() returned left exactly that orphan behind (2026-08-22: one hung 640 aa fold
+    reparented a spawn child to init, and the two following legs both failed with
+    "device-open failure: the card is leased by another process or wedged" — one hang
+    cascading into spurious failures). The same shape covers the DockQ leg, whose
+    OPENDDE_DOCKQ_PYTHON is a wrapper script on some hosts: killing only the wrapper leaves
+    the interpreter it exec'd running.
+    """
+    import signal
+    for sig in (signal.SIGTERM, signal.SIGKILL):
+        try:
+            os.killpg(proc.pid, sig)
+        except Exception:
+            pass              # group already gone; still send the next signal
+        try:
+            proc.wait(timeout=10)
+        except Exception:
+            pass
+
+
 def _run_fold(cmd: list, timeout: float, **popen_kw) -> tuple:
     """Run a fold subprocess in its OWN process group; on timeout kill the whole group so a
     hung MSA-server wait or a hung multiprocessing shutdown cannot orphan device-holding
     children (which would wedge the card for later legs). Returns (returncode, timed_out)."""
-    import signal
     proc = subprocess.Popen(cmd, start_new_session=True, **popen_kw)
     try:
         return proc.wait(timeout=timeout), False
     except subprocess.TimeoutExpired:
-        # start_new_session makes the child a session/group leader, so its pgid is its pid.
-        # Escalate unconditionally: the direct child exiting is NOT evidence the group is
-        # clear. predict folds inside a multiprocessing spawn grandchild that survives
-        # SIGTERM while still holding /dev/tenstorrent/N, and breaking out of the
-        # escalation as soon as proc.wait() returned left exactly that orphan behind
-        # (2026-08-22: one hung 640 aa fold reparented a spawn child to init, and the two
-        # following legs both failed with "device-open failure: the card is leased by
-        # another process or wedged" — one hang cascading into spurious failures).
-        for sig in (signal.SIGTERM, signal.SIGKILL):
-            try:
-                os.killpg(proc.pid, sig)
-            except Exception:
-                pass          # group already gone; still send the next signal
-            try:
-                proc.wait(timeout=10)
-            except Exception:
-                pass
+        _kill_group(proc)
         return None, True
 
 
@@ -854,13 +868,15 @@ def run_opendde_abag(keep: bool) -> dict:
     dockq_script = REPO_ROOT / "scripts" / "opendde_dockq.py"
     out_json = out / "dockq.json"
     try:
-        dproc = subprocess.run(
+        dproc = subprocess.Popen(
             [OPENDDE_DOCKQ_PYTHON, str(dockq_script), str(conf_cif),
              str(OPENDDE_ABAG_NATIVE), "--out", str(out_json)],
-            cwd=REPO_ROOT, capture_output=True, text=True)
+            cwd=REPO_ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            start_new_session=True)
+        dout, derr = dproc.communicate(timeout=DOCKQ_TIMEOUT_S)
         if dproc.returncode != 0:
             row["error"] = (f"DockQ exited {dproc.returncode}: "
-                            f"{(dproc.stderr or dproc.stdout).strip()[:200]}")
+                            f"{(derr or dout).strip()[:200]}")
             return row
         import json
         with open(out_json) as fp:
@@ -870,6 +886,13 @@ def run_opendde_abag(keep: bool) -> dict:
         fnats = [v.get("fnat") for v in dq["interfaces"].values()
                  if v.get("fnat") is not None]
         row["fnat"] = (sum(fnats) / len(fnats)) if fnats else None
+    except subprocess.TimeoutExpired:
+        # Named like the fold-timeout legs, and ahead of the generic handler so a hang reads
+        # as a timeout rather than an opaque "DockQ eval failed".
+        _kill_group(dproc)
+        row["error"] = (f"DockQ timed out after {DOCKQ_TIMEOUT_S}s "
+                        f"(raise RELEASE_GATE_DOCKQ_TIMEOUT on a slow host)")
+        return row
     except Exception as e:
         row["error"] = f"DockQ eval failed: {e}"
         return row
