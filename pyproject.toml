@@ -75,6 +75,10 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest"]
+# Upstream reference packages that a scripts/*_parity.py harness imports IN-PROCESS
+# from an external checkout (OPENDDE_SRC), so they cannot sit in a separate reference
+# venv the way the boltz/protenix fixture harnesses do. Nothing in tt_bio imports these.
+reference = ["ml_collections"]  # opendde.config.config -> ml_collections.config_dict.ConfigDict
 # Tenstorrent execution (the default --accelerator): pip install 'tt-bio[tenstorrent]'.
 # Without it, `tt-bio --help` and --accelerator cpu/gpu still work; requesting a card
 # fails with a clear message naming this extra.

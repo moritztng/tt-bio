@@ -1,4 +1,11 @@
-"""One-cycle real-input parity gate for OpenDDE's residue trunk."""
+"""One-cycle real-input parity gate for OpenDDE's residue trunk.
+
+Runs the upstream reference in-process, so it needs a reference checkout pinned at
+a0d5134 plus the `reference` extra (ml_collections, which opendde.config imports):
+
+  OPENDDE_SRC=/tmp/opendde-src PYTHONPATH=<worktree> \
+    python3 scripts/opendde_trunk_real_parity.py
+"""
 import os
 import sys
 import types
@@ -100,9 +107,15 @@ def main() -> None:
         template_features.append(torch.cat([
             distogram, pseudo_beta, aatype_i, aatype_j,
             unit_vector, backbone], -1))
+    # _template consumes the per-template linear_no_bias_a projections already on
+    # device, not the host feature concat: the fold path hoists that projection out of
+    # the recycling loop because it is cycle-invariant (protenix.py Trunk.__call__).
+    tpl_a = [p.trunk._lin(p.trunk._up(t.unsqueeze(0)),
+                          "template_embedder.linear_no_bias_a.weight")
+             for t in template_features]
     tt_z_pre_msa = ttnn.add(
         tt_z_pre_template,
-        p.trunk._template(tt_z_pre_template, template_features, n_token, nt))
+        p.trunk._template(tt_z_pre_template, tpl_a, n_token, nt))
     ref_z_msa = reference.msa_module(
         ref_feats, ref_z_pre_msa, ref_s_inputs, pair_mask=None,
         triangle_multiplicative=cfg.triangle_multiplicative,
@@ -118,6 +131,11 @@ def main() -> None:
         p.trunk._lin(p.trunk._up(ref_s_inputs),
                      "msa_module.linear_no_bias_s.weight"))
     tt_z_msa = p.trunk._msa(tt_z_pre_msa, tt_m)
+    # PairformerLayer accumulates into z with ttnn.add_, so PF below overwrites this
+    # buffer in place and tt_z_pf is the same allocation. Snapshot the post-MSA state to
+    # host now; reading it after PF scores the pairformer output against the MSA
+    # reference and reports a PCC that means nothing.
+    host_z_msa = p._to_host(tt_z_msa, tuple(ref_z_msa.shape))
 
     tt_s_pre_pf = ttnn.add(
         tt_s_init,
@@ -136,8 +154,7 @@ def main() -> None:
            ref_z_pre_template)
     report("residue_trunk.cycle0.z_pre_msa",
            p._to_host(tt_z_pre_msa, tuple(ref_z_pre_msa.shape)), ref_z_pre_msa)
-    report("residue_trunk.cycle0.z_post_msa",
-           p._to_host(tt_z_msa, tuple(ref_z_msa.shape)), ref_z_msa)
+    report("residue_trunk.cycle0.z_post_msa", host_z_msa, ref_z_msa)
     report("residue_trunk.cycle0.s_post_pairformer",
            p._to_host(tt_s_pf, tuple(ref_s.shape)), ref_s)
     report("residue_trunk.cycle0.z_post_pairformer",
