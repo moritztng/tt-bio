@@ -6169,11 +6169,14 @@ class OuterProductMean(Module):
         scale_bias: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
-        # scale_bias: divide the proj_o bias by the row count too. The AF3/OF3
-        # reference divides the WHOLE linear_out output (raw outer + bias) by the
-        # pair norm; the default (Boltz/Protenix convention here) scales only the
-        # raw outer product, adding the bias full-strength. For OF3 the unscaled
-        # bias is a structured per-channel constant that the pairformer amplifies.
+        # scale_bias: divide the proj_o bias by the row count too. OpenFold3, Protenix
+        # and OpenDDE divide the WHOLE linear_out output (raw outer + bias) by the pair
+        # norm, so they want True; Boltz and BoltzGen divide the raw outer product before
+        # proj_o, so the bias belongs at full strength and False is right for them. The
+        # unscaled bias is a structured per-channel constant that the pairformer
+        # amplifies: on a 76-deep MSA, getting this wrong cost OpenDDE 0.947 vs 0.992 on
+        # z_post_pairformer. Two conventions, one class -- so it is a per-site argument,
+        # and the default is just Boltz's because that is the oldest caller.
         self.scale_bias = scale_bias
         self.norm_weight = self.torch_to_tt("norm.weight")
         self.norm_bias = self.torch_to_tt("norm.bias")
