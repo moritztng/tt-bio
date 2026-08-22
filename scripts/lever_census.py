@@ -96,6 +96,16 @@ LEVERS = [
 
 HOW = {flag: how for flag, _m, _a, _c, how in LEVERS}
 
+
+# The five latches `tt_bio.tenstorrent.LATCH_STATS` keeps. A latch is not a lever with a flag: it is
+# a shape class with a fallback, so its verdict exists only per fold per size and no default can be
+# read off the module. `served` took the L1 / tuned path, `refused` is an attempt the device threw
+# on, `blocked` is a call a PREVIOUS refusal in the same process sent down the fallback. A large
+# `blocked` beside a single `refused` is the all-or-nothing retirement that cost RF3 1.264x at
+# 1024 aa; without these rows the census can only report that the lever was ON.
+LATCHES = ("l1_out", "narrow_l1_out", "transpose_l1", "transpose_stage", "bmm_cfg")
+
+
 # Six modules already keep a `(reason, shape) -> count` reject dict, and every one of them built it
 # on purpose: `trimul_tail.eligible`'s docstring says "every clause is a real assumption of the fork,
 # so a decline names which one". The census read the served/declined counts and threw the reason
@@ -349,6 +359,19 @@ def _snapshot_process():
         rows[flag] = {"resolved": str(getattr(m, attr, "MISSING")),
                       "served": served, "declined": declined,
                       "rejects": rej or None}
+    T = sys.modules.get("tt_bio.tenstorrent")
+    stats = getattr(T, "LATCH_STATS", None) if T is not None else None
+    for name in LATCHES:
+        st = (stats or {}).get(name)
+        if st is None:
+            continue
+        rej = {k: st[k] for k in ("refused", "blocked", "declined") if st.get(k)}
+        for w in st.get("why", []):
+            rej["why:" + str(w)[:150]] = 1
+        rows["LATCH:" + name] = {
+            "resolved": "latch", "served": st.get("served"),
+            "declined": st.get("refused", 0) + st.get("blocked", 0) + st.get("declined", 0),
+            "rejects": rej or None}
     return rows
 
 
@@ -439,6 +462,11 @@ def collect(dumpdir: Path, label: str, cli: list, rc: int) -> dict:
                      "served": a["served"] if a else None,
                      "declined": a["declined"] if a else None,
                      "rejects": (a["rejects"] or None) if a else None})
+    for flag in sorted(k for k in agg if k.startswith("LATCH:")):
+        a = agg[flag]
+        rows.append({"flag": flag, "how": "latch", "counter": "tt_bio.tenstorrent.LATCH_STATS",
+                     "resolved": "latch", "served": a["served"], "declined": a["declined"],
+                     "rejects": a["rejects"] or None})
     return {"label": label, "cli": cli, "rc": rc, "processes": len(dumps), "rows": rows,
             "grid": "/".join(sorted(grids)) or None}
 
