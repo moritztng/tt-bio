@@ -1423,11 +1423,13 @@ def _update_baselines(rows: list[dict], args) -> int:
     m_entry = machines.setdefault(machine_id, {})
     models = m_entry.setdefault("models", {})
     any_ok = False
+    measured: set[str] = set()
     for r in rows:
         if r.get("failed"):
             print(f"[{r['model']}] FAILED — not updating its baseline", file=sys.stderr)
             continue
         any_ok = True
+        measured.add(r["model"])
         # The knob fields are provenance (the gate compares throughput only), and
         # they differ by kind: predict/affinity/gen carry sampling_steps/
         # diffusion_samples/recycling_steps, while the design kind (rfd3) carries
@@ -1444,8 +1446,18 @@ def _update_baselines(rows: list[dict], args) -> int:
             machine_id=machine_id,
             tt_bio_version=r["tt_bio_version"], date=r["date"], note=args.note,
         )
-        m_entry["date"] = r["date"]
-        m_entry["tt_bio_version"] = r["tt_bio_version"]
+    # The machine block's own date/tt_bio_version/note describe the whole block, so
+    # only a run that re-measured EVERY model in it may rewrite them. A --model rf3
+    # update used to stamp rf3's note onto all 13 of qb1's models, which erased the
+    # note recording that this block was reseeded on the pinned pip runtime -- the
+    # one fact that tells the next operator not to seed under system python. Every
+    # model entry above carries its own date/version/note, so a partial update needs
+    # nothing here. Same defect as 8cb95a1f (one model's input labelling a
+    # multi-model table), one file over.
+    if measured and measured >= set(models):
+        last = next(r for r in rows if not r.get("failed"))
+        m_entry["date"] = last["date"]
+        m_entry["tt_bio_version"] = last["tt_bio_version"]
         m_entry["note"] = args.note
     # Drop a legacy top-level "models" so the file is unambiguously per-card.
     data.pop("models", None)
