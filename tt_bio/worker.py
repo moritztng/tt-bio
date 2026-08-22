@@ -248,6 +248,39 @@ def _validate_openfold3_constraints(path, model: str = "openfold3") -> None:
             "--model protenix-v2 / opendde.")
 
 
+def _validate_openfold3_cyclic(path, model: str = "openfold3") -> None:
+    """Reject a yaml `cyclic: true` chain for OF3/OpenBind instead of folding it linear.
+
+    Upstream's query format carries `Chain.cyclic` and its structure featurizer sets a
+    `cyclic_mask` feature from it; tt-bio's vendored copy has neither (both were dropped
+    when the tree was vendored, consistently). So a cyclic chain reached the model as an
+    ordinary linear one and the fold returned status=ok — a wrong structure with no
+    warning, the silent-garbage class. Cyclisation changes the STRUCTURE, which is why
+    this is a hard error like `constraints:` and not a warning like `properties:
+    affinity`, which only omits an extra output.
+    """
+    if Path(path).suffix.lower() not in (".yml", ".yaml"):
+        return
+    import yaml
+
+    doc = yaml.safe_load(Path(path).read_text()) or {}
+    cyclic = []
+    for entry in doc.get("sequences") or []:
+        if not isinstance(entry, dict):
+            continue
+        for mt, sub in entry.items():
+            if isinstance(sub, dict) and sub.get("cyclic"):
+                ids = sub.get("id", "?")
+                cyclic += ([str(x) for x in ids] if isinstance(ids, (list, tuple))
+                           else [str(ids)])
+    if cyclic:
+        raise RuntimeError(
+            f"--model {model} does not port cyclic chains (chain(s) "
+            f"{', '.join(cyclic)} in {Path(path).name} set `cyclic: true`); the fold "
+            "would silently return a linear structure. Remove the flag or use "
+            "--model rf3 / boltz2, which honor it.")
+
+
 def _warn_openfold3_affinity_ignored(path, model: str) -> None:
     """Say so when a `properties: affinity` block will not be answered.
 
@@ -1292,6 +1325,7 @@ class _WorkerState:
         chains = _read_bio_chains(path)
         _validate_openfold3_chains(chains, model)
         _validate_openfold3_constraints(path, model)
+        _validate_openfold3_cyclic(path, model)
         _warn_openfold3_affinity_ignored(path, model)
         tmpl_map = _openfold3_template_map(path)
         unknown_tmpl = sorted(set(tmpl_map) - {cid for cid, _s, _sp, _mt in chains})

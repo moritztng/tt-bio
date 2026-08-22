@@ -82,6 +82,7 @@ defect it found, which is fixed.
 | multi-card `--devices` | ported, same fan-out as Protenix-v2 |
 | ligands (SMILES/CCD) | `--model openbind` only. `--model openfold3` is polymer-only and raises, pointing at `openbind` |
 | covalent bonds / `constraints:` | **not supported** — loud error; the fold would otherwise ignore them |
+| cyclic chains (`cyclic: true`) | **not supported** — loud error. Upstream's query format carries `Chain.cyclic` and derives a `cyclic_mask` feature from it; neither was vendored, so the fold would return a linear structure. Use `--model rf3` or `boltz2` |
 | paired MSA | **not ported** — complexes fold on per-chain unpaired MSAs |
 | `--write_pae` | **not supported** — the confidence head computes PAE logits but the fold does not return the matrices |
 | `--fast` | not gated for OpenFold3; it is a Boltz-2/ESMFold2 lever and no OF3 parity leg runs with it |
