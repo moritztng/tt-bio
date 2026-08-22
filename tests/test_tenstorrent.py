@@ -25,6 +25,9 @@ def load(tt, ref, state, key, strict=False):
 
 def check(a, b, tol=0.1):
     err = ((a - b).abs() / b.abs()).median().item()
+    # printed, not just asserted: the number is what an A/B of a numerics change
+    # reads, and `pytest -s` is the only place it was ever visible.
+    print(f"[check] median rel err {err:.4e} (tol {tol})", flush=True)
     assert err < tol, f"error {err:.4e} >= {tol}"
 
 
