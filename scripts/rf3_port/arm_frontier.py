@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import statistics
 import sys
 from pathlib import Path
 
@@ -71,12 +72,22 @@ def main() -> int:
     rungs = a.rungs.split(",")
     arms = a.arms.split(",")
 
-    perf = {}
+    # An arm may be given more than once (independent processes). Pool their warm folds and
+    # take one median, which is what the page cell itself is: a pooled median across two
+    # processes, cold discarded.
+    pooled: dict[str, list[float]] = {}
     for spec in filter(None, a.perf.split(",")):
         k, _, p = spec.partition("=")
         j = load(Path(p))
         if j:
-            perf[k] = j["median_s"]
+            pooled.setdefault(k, []).extend(j["warm_walls_s"])
+    perf = {k: statistics.median(v) for k, v in pooled.items() if v}
+    for k, v in sorted(pooled.items()):
+        print(f"perf {k}: n={len(v)} warm folds, "
+              f"{min(v):.3f}-{max(v):.3f} s, median {statistics.median(v):.3f}, "
+              f"spread {max(v) - min(v):.3f} s ({100 * (max(v) - min(v)) / min(v):.2f} %)")
+    if pooled:
+        print()
 
     print(f"H200 cell {H200} s/fold, device-only {H200_DEV} s; TT host featurisation "
           f"{TT_HOST} s (upper bound). Shipped p150a cell {A0_CELL} s.\n")
@@ -118,22 +129,39 @@ def main() -> int:
                 continue
             f = d["flags"]
             t = f["triatt_fused_hifi_stats"]
-            print(f"| {rung} | {arm} | {f['fp32_softmax_stats']['calls']} | {t['served']} | "
+            # The landed a0 rungs were scored before FP32_SOFTMAX_STATS existed, so the
+            # counter is absent there rather than zero. Print a dash, never a guess.
+            calls = f.get("fp32_softmax_stats", {}).get("calls")
+            print(f"| {rung} | {arm} | {calls if calls is not None else '-'} | {t['served']} | "
                   f"{t['declined']} | {t['too_short']} |")
     print()
 
     if perf:
+        # The denominator for "vs shipped" is the IN-SESSION a0, never the published cell.
+        # The page cell is a historical measurement of an older tree; if the two disagree,
+        # dividing an arm measured today by a cell measured then reports the tree's drift as
+        # the arm's speedup (perf-page-cell-is-historical-not-live-baseline).
+        base = perf.get("a0")
         print("### 512 aa, both readings\n")
-        print("| arm | s/fold | vs shipped | whole fold vs H200 | device-only vs H200 | scope |")
+        if base is not None:
+            print(f"In-session shipped baseline **{base:.3f} s/fold**; the published p150a cell "
+                  f"is {A0_CELL} s, a {base / A0_CELL:.3f}x difference on the same fixture and "
+                  f"protocol. `vs shipped` divides by the in-session number.\n")
+        print("| arm | s/fold | vs shipped (in-session) | whole fold vs H200 | "
+              "device-only vs H200 | scope |")
         print("|---|--:|--:|--:|--:|---|")
         for arm in arms:
-            s = perf.get(arm)
-            if s is None:
+            sec = perf.get(arm)
+            if sec is None:
                 continue
-            w, dv = readings(s)
-            print(f"| {arm} | {s:.3f} | {A0_CELL / s:.2f}x | {w:.3f}x | {dv:.3f}x | "
-                  f"{SCOPE[arm]} |")
+            w, dv = readings(sec)
+            rel = f"{base / sec:.3f}x" if base else "n/a"
+            print(f"| {arm} | {sec:.3f} | {rel} | {w:.3f}x | {dv:.3f}x | {SCOPE[arm]} |")
         print()
+        print(f"Server-parity bar (4x whole fold vs the H200's {H200} s) is s < "
+              f"{4 * H200:.3f} s; the 4x device-only bar is s < "
+              f"{4 * H200_DEV + TT_HOST:.3f} s once TT host featurisation ({TT_HOST} s) is "
+              f"added back.\n")
 
     print("### routes\n")
     for arm in arms:

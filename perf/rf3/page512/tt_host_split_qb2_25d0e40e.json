@@ -1,0 +1,71 @@
+{
+ "fixture_yaml_sha256_16": "24d8b2d8c06e4409",
+ "fixture_a3m_sha256_16": "ef2301402e7716e9",
+ "seq_sha256_16": "4e5c2b391bde62d4",
+ "seq_len": 512,
+ "a3m_rows": 35,
+ "n_recycles": 10,
+ "seed": 0,
+ "cpu_count": 16,
+ "python": "3.10.19",
+ "calls": [
+  {
+   "s": 3.1293,
+   "n_tokens": 512,
+   "n_atoms": 4116,
+   "msa_depth": 35,
+   "msa_stack_shape": [
+    10,
+    35,
+    512,
+    35
+   ],
+   "loadavg": [
+    1.07,
+    1.82,
+    2.35
+   ]
+  },
+  {
+   "s": 3.1721,
+   "n_tokens": 512,
+   "n_atoms": 4116,
+   "msa_depth": 35,
+   "msa_stack_shape": [
+    10,
+    35,
+    512,
+    35
+   ],
+   "loadavg": [
+    1.07,
+    1.8,
+    2.34
+   ]
+  },
+  {
+   "s": 3.209,
+   "n_tokens": 512,
+   "n_atoms": 4116,
+   "msa_depth": 35,
+   "msa_stack_shape": [
+    10,
+    35,
+    512,
+    35
+   ],
+   "loadavg": [
+    1.07,
+    1.8,
+    2.34
+   ]
+  }
+ ],
+ "warmup_s": 5.2168,
+ "median_s": 3.1721,
+ "min_s": 3.1293,
+ "max_s": 3.209,
+ "spread_s": 0.0797,
+ "spread_pct": 2.51,
+ "max_loadavg_1min": 1.07
+}
