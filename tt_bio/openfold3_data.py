@@ -195,6 +195,86 @@ def _get_structure_with_ref_mols(query: Query):
     return atom_array, processed_reference_molecules
 
 
+# OF3's direct MSA parser filters candidate files by STEM against
+# MSASettings.max_seq_counts (parse_msas_direct) and silently skips anything else. The
+# ColabFold main alignment is the one a user-supplied file stands in for.
+CANONICAL_MAIN_MSA_STEM = "colabfold_main"
+
+
+def inference_msa_settings(*, openbind: bool = False) -> MSASettings:
+    """The MSA settings every tt-bio OpenFold3 / OpenBind fold uses.
+
+    Follows the reference inference configuration (`InferenceDatasetConfigKwargs`,
+    dataset_configs.py:368): ``subsample_main=False`` (the bare `MSASettings` default of
+    True randomly subsamples the main MSA -- a training augmentation). The default parse
+    order/caps are extended with ``cfdb_hits`` (cap 100000000, per
+    docs/source/precomputed_msa_how_to.md) so the OpenFold3 S3 benchmark MSA directories,
+    which ship ``cfdb_hits.a3m``, parse.
+
+    ``openbind`` selects the v0.5.0 MSA featurizer fixes; see
+    :func:`build_openfold3_features` for what each one is and why they are keyed on the
+    checkpoint rather than simply corrected.
+    """
+    settings = MSASettings(subsample_main=False,
+                           af3_spec_profile_columns=openbind,
+                           af3_spec_uppercase_msa=openbind,
+                           af3_spec_main_msa_dedup=openbind)
+    if "cfdb_hits" not in settings.max_seq_counts:
+        settings.max_seq_counts["cfdb_hits"] = 100000000
+        settings.aln_order.insert(
+            settings.aln_order.index("uniref90_hits") + 1, "cfdb_hits"
+        )
+    return settings
+
+
+def normalize_openfold3_msa_paths(query, msa_dir: str | Path, *,
+                                  openbind: bool = False):
+    """Expose a user-supplied alignment under a basename the OF3 parser accepts.
+
+    ``parse_msas_direct`` keeps only files whose STEM is a key of
+    ``MSASettings.max_seq_counts`` and drops the rest without a word; ``parse_msas`` then
+    indexes the empty result and raises ``IndexError: list index out of range`` five
+    frames down. So a user pointing the YAML ``msa:`` key at their own ``foo.a3m``
+    crashed the fold -- as did the committed ``examples/ligand.yaml`` and
+    ``examples/prot_custom_msa.yaml``, whose stems are ``seq1`` and ``seq2``.
+
+    The bytes are untouched; only the name the parser sees changes. Hardlinked, falling
+    back to a copy across filesystems, into a per-source directory keyed on the absolute
+    path so two files with the same stem cannot collide. Directories and ``.npz`` are left
+    alone: a directory is parsed member by member (the benchmark MSA dirs, already
+    canonically named) and ``.npz`` goes through the pre-parsed path, which does not filter.
+    """
+    msa_dir = Path(msa_dir).expanduser()
+    known = inference_msa_settings(openbind=openbind).max_seq_counts
+    for chain in query.chains:
+        paths = list(chain.main_msa_file_paths or [])
+        if not paths:
+            continue
+        out = []
+        for raw in paths:
+            src = Path(raw).expanduser()
+            if (not src.is_file() or src.suffix not in (".a3m", ".sto")
+                    or src.stem in known):
+                out.append(raw)
+                continue
+            dst = (msa_dir / "of3" / "user" / seq_hash(str(src.resolve()))
+                   / f"{CANONICAL_MAIN_MSA_STEM}{src.suffix}")
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            if not dst.exists():
+                try:
+                    os.link(src, dst)
+                except FileExistsError:
+                    pass  # a concurrent worker linked it first
+                except OSError:
+                    try:
+                        shutil.copyfile(src, dst)
+                    except shutil.SameFileError:
+                        pass
+            out.append(dst)
+        chain.main_msa_file_paths = out
+    return query
+
+
 def build_openfold3_features(
     query: Query,
     *,
@@ -245,15 +325,7 @@ def build_openfold3_features(
     likewise invisible on an MSA with no duplicate rows.
     """
     if msa_settings is None:
-        msa_settings = MSASettings(subsample_main=False,
-                                   af3_spec_profile_columns=openbind,
-                                   af3_spec_uppercase_msa=openbind,
-                                   af3_spec_main_msa_dedup=openbind)
-        if "cfdb_hits" not in msa_settings.max_seq_counts:
-            msa_settings.max_seq_counts["cfdb_hits"] = 100000000
-            msa_settings.aln_order.insert(
-                msa_settings.aln_order.index("uniref90_hits") + 1, "cfdb_hits"
-            )
+        msa_settings = inference_msa_settings(openbind=openbind)
     template_settings = template_settings or TemplateSettings(take_top_k=True)
     template_preprocessor_settings = TemplatePreprocessorSettings(mode="predict")
     ccd = (

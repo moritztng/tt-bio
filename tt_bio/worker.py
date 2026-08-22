@@ -1376,7 +1376,13 @@ class _WorkerState:
         # IndexError deep in the vendored pipeline), and preserves user-specified
         # per-chain MSA paths.
         want_msa = cfg.get("use_msa_server") or cfg.get("msa_db_path") or cfg.get("msa_endpoint")
-        from tt_bio.openfold3_data import resolve_openfold3_msas
+        from tt_bio.openfold3_data import (
+            normalize_openfold3_msa_paths, resolve_openfold3_msas)
+        # A YAML `msa:` path is used verbatim by the vendored parser, which filters by
+        # file STEM and drops anything non-canonical -- so `msa: ./my.a3m` died on an
+        # IndexError. Relink it under the canonical name first; bytes unchanged.
+        of3_query = normalize_openfold3_msa_paths(
+            of3_query, msa_dir, openbind=(model == "openbind"))
         of3_query = resolve_openfold3_msas(
             of3_query, msa_dir, target_id=path.stem,
             msa_db_path=cfg.get("msa_db_path"),
