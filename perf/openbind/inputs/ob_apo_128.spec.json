@@ -1,0 +1,11 @@
+{
+  "name": "ob_apo_128",
+  "n_residues": 128,
+  "chains": [
+    {
+      "molecule_type": "protein",
+      "chain_id": "A",
+      "sequence": "MENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLLDVIHTENKLYLVFEFLHQDLKKFMDASALTGIPLPLIKSYLFQLLQGLAFCHSHRVLHRDL"
+    }
+  ]
+}

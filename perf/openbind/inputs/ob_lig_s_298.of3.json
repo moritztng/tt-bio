@@ -1,0 +1,21 @@
+{
+  "queries": {
+    "ob_lig_s_298": {
+      "chains": [
+        {
+          "molecule_type": "protein",
+          "chain_ids": "A",
+          "sequence": "MENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLLDVIHTENKLYLVFEFLHQDLKKFMDASALTGIPLPLIKSYLFQLLQGLAFCHSHRVLHRDLKPQNLLINTEGAIKLADFGLARAFGVPVRTYTHEVVTLWYRAPEILLGCKYYSTAVDIWSLGCIFAEMVTRRALFPGDSEIDQLFRIFRTLGTPDEVVWPGVTSMPDYKPSFPKWARQDFSKVVPPLDEDGRSLLSQMLHYDPNKRISAKAALAHPFFQDVTKPVPHLRL"
+        },
+        {
+          "molecule_type": "ligand",
+          "chain_ids": "L",
+          "ccd_codes": "CFF"
+        }
+      ],
+      "use_msas": false,
+      "use_paired_msas": false,
+      "use_main_msas": false
+    }
+  }
+}

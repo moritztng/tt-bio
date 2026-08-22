@@ -1,0 +1,18 @@
+{
+  "name": "ob_lig_s_298",
+  "n_residues": 298,
+  "ligand_ccd": "CFF",
+  "ligand_heavy_atoms_formula": 14,
+  "chains": [
+    {
+      "molecule_type": "protein",
+      "chain_id": "A",
+      "sequence": "MENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLLDVIHTENKLYLVFEFLHQDLKKFMDASALTGIPLPLIKSYLFQLLQGLAFCHSHRVLHRDLKPQNLLINTEGAIKLADFGLARAFGVPVRTYTHEVVTLWYRAPEILLGCKYYSTAVDIWSLGCIFAEMVTRRALFPGDSEIDQLFRIFRTLGTPDEVVWPGVTSMPDYKPSFPKWARQDFSKVVPPLDEDGRSLLSQMLHYDPNKRISAKAALAHPFFQDVTKPVPHLRL"
+    },
+    {
+      "molecule_type": "ligand",
+      "chain_id": "L",
+      "ccd_codes": "CFF"
+    }
+  ]
+}
