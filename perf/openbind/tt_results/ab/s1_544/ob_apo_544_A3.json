@@ -1,6 +1,6 @@
 {
  "model": "openbind",
- "label": "s1_544_B2",
+ "label": "s1_544_A3",
  "input": "ob_apo_544.tt.yaml",
  "input_sha256": "ee416c21de45b70a34d9fc5acda53052d49accab24b0664a4a96e9d5d1e37f99",
  "samples": 1,
@@ -13,20 +13,20 @@
  "host": "tt-quietbox2",
  "card": "1",
  "arch": "blackhole",
- "load_s": 1.88,
+ "load_s": 2.12,
  "loadavg_start": [
-  "17.96",
-  "14.24",
-  "11.58"
+  "15.55",
+  "14.19",
+  "11.90"
  ],
  "timers_missing": [],
  "runs": [
   {
    "run": 0,
-   "fold_s": 45.623,
-   "device_s": 44.479,
-   "host_feat_s": 0.559,
-   "host_write_s": 0.06,
+   "fold_s": 54.412,
+   "device_s": 52.786,
+   "host_feat_s": 0.936,
+   "host_write_s": 0.066,
    "plddt": 0.463736,
    "n_tokens": 544,
    "n_atoms": 4378,
@@ -34,37 +34,37 @@
     "ob_apo_544.tt.cif": "f8a4c873feabf712"
    },
    "loadavg": [
-    "13.36",
-    "13.62",
-    "11.60"
+    "14.38",
+    "14.00",
+    "12.08"
    ],
    "regions": {
     "device:model.fold": {
      "calls": 1,
-     "s": 44.479,
-     "ms_per_call": 44479.422,
-     "pct_of_fold": 97.49
+     "s": 52.786,
+     "ms_per_call": 52785.885,
+     "pct_of_fold": 97.01
     },
     "host:build_features": {
      "calls": 1,
-     "s": 0.559,
-     "ms_per_call": 559.199,
-     "pct_of_fold": 1.23
+     "s": 0.936,
+     "ms_per_call": 935.702,
+     "pct_of_fold": 1.72
     },
     "host:write_structure": {
      "calls": 1,
-     "s": 0.06,
-     "ms_per_call": 60.43,
-     "pct_of_fold": 0.13
+     "s": 0.066,
+     "ms_per_call": 65.998,
+     "pct_of_fold": 0.12
     }
    }
   },
   {
    "run": 1,
-   "fold_s": 45.591,
-   "device_s": 44.04,
-   "host_feat_s": 0.913,
-   "host_write_s": 0.06,
+   "fold_s": 53.02,
+   "device_s": 51.316,
+   "host_feat_s": 0.96,
+   "host_write_s": 0.064,
    "plddt": 0.463736,
    "n_tokens": 544,
    "n_atoms": 4378,
@@ -72,33 +72,33 @@
     "ob_apo_544.tt.cif": "f8a4c873feabf712"
    },
    "loadavg": [
-    "16.56",
-    "14.36",
-    "11.95"
+    "12.04",
+    "13.45",
+    "12.01"
    ],
    "regions": {
     "device:model.fold": {
      "calls": 1,
-     "s": 44.04,
-     "ms_per_call": 44040.001,
-     "pct_of_fold": 96.6
+     "s": 51.316,
+     "ms_per_call": 51315.966,
+     "pct_of_fold": 96.79
     },
     "host:build_features": {
      "calls": 1,
-     "s": 0.913,
-     "ms_per_call": 912.911,
-     "pct_of_fold": 2.0
+     "s": 0.96,
+     "ms_per_call": 959.826,
+     "pct_of_fold": 1.81
     },
     "host:write_structure": {
      "calls": 1,
-     "s": 0.06,
-     "ms_per_call": 60.011,
-     "pct_of_fold": 0.13
+     "s": 0.064,
+     "ms_per_call": 64.055,
+     "pct_of_fold": 0.12
     }
    }
   }
  ],
- "cold_s": 46.99,
+ "cold_s": 55.579,
  "levers": {
   "sdpa_low_div_k": false,
   "sdpa_wide_k": false,
@@ -114,14 +114,14 @@
   },
   "fp32_softmax_stats": {
    "calls": 1320,
-   "blocked": 1320,
-   "blocks": 48840,
-   "fused": 48840,
+   "blocked": 0,
+   "blocks": 0,
+   "fused": 1320,
    "unfused": 0,
-   "l1": 1320,
-   "l1_blocks": 47520,
+   "l1": 0,
+   "l1_blocks": 0,
    "l1_refused": 0,
-   "l1_cores": 102
+   "l1_cores": 0
   },
   "latch": {
    "l1_out": {
@@ -130,8 +130,8 @@
     "blocked": 0,
     "declined": 0,
     "why": [
-     "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 493 clash with L1 buffers on core range [(x=0,y=0) ",
-     "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 499 clash with L1 buffers on core range [(x=0,y=0) "
+     "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 399 clash with L1 buffers on core range [(x=0,y=0) ",
+     "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 405 clash with L1 buffers on core range [(x=0,y=0) "
     ]
    },
    "narrow_l1_out": {
@@ -149,14 +149,14 @@
     "why": []
    },
    "bmm_cfg": {
-    "served": 71034,
+    "served": 23514,
     "refused": 0,
     "blocked": 0,
-    "declined": 63816,
+    "declined": 16296,
     "why": [
-     "no_config:mt=17,kt=1,nt=17,batch=60",
-     "no_config:mt=17,kt=1,nt=17,batch=60",
-     "no_config:mt=17,kt=1,nt=17,batch=60"
+     "no_config:mt=17,kt=1,nt=17,batch=2176",
+     "no_config:mt=17,kt=1,nt=17,batch=2176",
+     "no_config:mt=17,kt=1,nt=17,batch=2176"
     ]
    }
   }
@@ -173,8 +173,8 @@
   ],
   "rejects": {}
  },
- "device_s_median": 44.26,
- "fold_s_median": 45.607,
- "device_spread_pct": 1.0,
+ "device_s_median": 52.051,
+ "fold_s_median": 53.716,
+ "device_spread_pct": 2.86,
  "cif_reproducible": true
 }
