@@ -284,6 +284,14 @@ def processed_reference_molecule_from_atom_array(
     # Convert to RDKit mol
     mol = to_mol(atom_array, kekulize=True)
     Chem.SanitizeMol(mol)
+    # A ligand's stereo lives ONLY in the 3D coordinates here, and RemoveConformer below
+    # throws them away, so without this the mol handed to the conformer generator has no
+    # chiral tags at all and ETKDG picks a handedness per centre at random. Measured on
+    # the CCD ligands tt-bio ships: SB3, SAH and ATP came out with every centre
+    # unassigned and several inverted against upstream. Polymer residues never take this
+    # branch (their molecule_type_id is not LIGAND), so preview2 is unaffected.
+    if np.all(atom_array.molecule_type_id == MoleculeType.LIGAND):
+        Chem.AssignStereochemistryFrom3D(mol)
     mol.RemoveConformer(0)
 
     return processed_reference_molecule_from_mol(
