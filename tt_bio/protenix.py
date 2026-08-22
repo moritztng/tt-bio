@@ -25,6 +25,7 @@ structures within sample variance of the reference (scripts/protenix_fold_e2e.py
 scripts/protenix_predict.py -> PDB). Remaining (packaging): data-pipeline vendoring
 (sequence/CCD -> feats dict), worker/CLI --model protenix-v2, unified README.
 """
+import contextlib
 import os
 import torch
 import ttnn
@@ -1631,6 +1632,31 @@ def _pz_cond_probe(pz, z_in_sha):
     return r1.float()
 
 
+# Token counts a protenix-v2 fold must not run on a 13x10 Blackhole grid. In this window
+# the fp32 pair-cond readback in _diffusion_pair_cond never returns: the host spins at
+# ~100% CPU inside ttnn.to_torch while the chip's ARC heartbeat keeps advancing, so the
+# fold hangs with the device alive (GitHub issue #9). The same fixture on an 11x10 grid
+# completes every time, verified as a same-session A/B on one freshly reset card. 496 and
+# 512 tokens are clean, so the window is narrow and so is the workaround -- 11x10 has no
+# measured advantage at any other size and folds outside it keep the full 130 cores.
+# TT_BIO_FORCE_GRID pins the grid explicitly and turns this off; see docs/troubleshooting.md.
+HANG_GRID_TOKEN_WINDOW = (500, 507)
+
+
+def _fold_grid(feats):
+    """Pick the compute grid for a fold of `feats`: 11x10 inside the issue-#9 hang
+    window on a 13x10 card, otherwise whatever the device selected."""
+    if os.environ.get("TT_BIO_FORCE_GRID"):
+        return contextlib.nullcontext()
+    if _T.COMPUTE_GRID_MAIN != (_T.COMPUTE_GRID_X_13, _T.COMPUTE_GRID_Y):
+        return contextlib.nullcontext()
+    lo, hi = HANG_GRID_TOKEN_WINDOW
+    n_tokens = int(feats["atom_to_token_idx"].max()) + 1
+    if not lo <= n_tokens <= hi:
+        return contextlib.nullcontext()
+    return _T.compute_grid(_T.COMPUTE_GRID_X_11, _T.COMPUTE_GRID_Y)
+
+
 class Protenix:
     """Top-level Protenix-v2 structure predictor on Tenstorrent (inference-only).
 
@@ -1956,6 +1982,16 @@ class Protenix:
                             progress_fn=progress_fn, return_confidence=return_confidence,
                             n_cycles=n_cycles)
             return ([out[0]], [out[1]]) if return_confidence else [out]
+        # All members share a token count, so one grid choice covers the batch.
+        with _fold_grid(feats_list[0]):
+            return self._fold_many_batched(feats_list, n_step=n_step, seed=seed,
+                                           progress_fn=progress_fn,
+                                           return_confidence=return_confidence,
+                                           n_cycles=n_cycles)
+
+    def _fold_many_batched(self, feats_list, *, n_step, seed, progress_fn,
+                           return_confidence, n_cycles):
+        B = len(feats_list)
         conds, auxs = [], []
         for feats in feats_list:
             cond, aux = self._trunk_cond(feats, progress_fn=progress_fn, n_cycles=n_cycles)
@@ -2054,6 +2090,14 @@ class Protenix:
         trace=True replays a captured ttnn trace of the denoise stream (lossless; faster on
         dispatch-bound diffusion, e.g. -22% warm at L256). Requires the device to have been
         opened with a trace region: get_device(trace_region_size=1 << 30)."""
+        with _fold_grid(feats):
+            return self._fold(feats, n_step=n_step, n_sample=n_sample, seed=seed,
+                              progress_fn=progress_fn, return_confidence=return_confidence,
+                              n_cycles=n_cycles, trace=trace,
+                              max_parallel_samples=max_parallel_samples)
+
+    def _fold(self, feats, *, n_step, n_sample, seed, progress_fn, return_confidence,
+              n_cycles, trace, max_parallel_samples):
         import torch
         if trace:
             import tt_bio.tenstorrent as _TTd
