@@ -716,6 +716,12 @@ def stage4(args):
     ref_out = torch.load(cache / f"e2e_{args.crop}" / f"ref_z_out_{args.n_pf}.pt")
     feats = _full_construct_features()
     model, p, _ = _dev_setup()
+    if args.opm_scale_bias:
+        # The real fix for the OuterProductMean term, on the shipped fold path: the
+        # reference divides the whole linear_out output by the pair norm, bias included.
+        for b in range(N_MSA_BLOCKS):
+            p.trunk.MSA[b][0].scale_bias = True
+        print("  OuterProductMean.scale_bias = True on all 4 MSA blocks", flush=True)
 
     taps = {}
     original = type(p.trunk.PF).__call__
@@ -886,6 +892,8 @@ def main() -> None:
     ap.add_argument("--all-subops", action="store_true")
     ap.add_argument("--arms", default="L1,L2,L3")
     ap.add_argument("--rows", default="32,64,76,84,96")
+    ap.add_argument("--opm-scale-bias", action="store_true",
+                    help="flip OuterProductMean.scale_bias on the MSA blocks (stage 4)")
     ap.add_argument("--sub", default="none",
                     choices=("none", "triatt", "opm", "both", "opmfix", "bothfix"))
     args = ap.parse_args()
