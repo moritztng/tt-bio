@@ -1,0 +1,3 @@
+{"trial": 0, "label": "protenix-v2-505-t0", "force_grid": "11,10", "card": 0, "host": "pc", "wall": 84.1, "rc": 0, "outcome": "CLEAN", "grid": "11x10", "runtime_s": 73.8}
+{"trial": 1, "label": "protenix-v2-505-t1", "force_grid": "11,10", "card": 0, "host": "pc", "wall": 64.1, "rc": 0, "outcome": "CLEAN", "grid": "11x10", "runtime_s": 51.4}
+{"trial": 2, "label": "protenix-v2-505-t2", "force_grid": "11,10", "card": 0, "host": "pc", "wall": 68.1, "rc": 0, "outcome": "CLEAN", "grid": "11x10", "runtime_s": 52.4}
