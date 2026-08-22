@@ -1341,8 +1341,15 @@ def _print_table(rows: list[dict], baselines: dict, card_type: str, machine_id: 
         print(f"{r['model']:<16}{unit:<16}{base:>11.4g}{r['throughput']:>11.4g}"
               f"{delta:>10}{verdict:>10}")
     print("-" * len(hdr))
+    # card/machine/hardware/tt-bio really are table-wide (one host, one install), but the
+    # input is not: folds read trpcage, esmc/saprot read batched ubiquitin, and boltzgen /
+    # rfd3 / boltz2-affinity each carry their own spec. Printing rows[0]'s input as a
+    # table-wide fact labelled a 16-model run "trpcage (20 aa, single-seq)", which is wrong
+    # for 8 of them. Name it only when every row agrees.
+    inputs = {r.get("input", "?") for r in rows}
+    shown = inputs.pop() if len(inputs) == 1 else f"per-model ({len(inputs)} distinct)"
     print(f"  card: {card_type}  |  machine: {machine_id}  |  hardware: {rows[0].get('hardware', '?')}  "
-          f"|  tt-bio {rows[0].get('tt_bio_version', '?')}  |  input: {rows[0].get('input', '?')}")
+          f"|  tt-bio {rows[0].get('tt_bio_version', '?')}  |  input: {shown}")
     if not have_card:
         msg = (f"GATE FAIL — no baseline recorded for card type '{card_type}' in "
                f"{BASELINE_FILE.relative_to(REPO_ROOT)}. Seed it on a {card_type} "
