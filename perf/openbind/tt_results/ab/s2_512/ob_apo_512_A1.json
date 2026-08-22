@@ -1,0 +1,173 @@
+{
+ "model": "openbind",
+ "label": "s2_512_A1",
+ "input": "ob_apo_512.tt.yaml",
+ "input_sha256": "0b0de5b4dd82beea5721130014a47d3495397208833cc5b89eb1c691e636a82f",
+ "samples": 1,
+ "recycles": 3,
+ "sampling_steps": 200,
+ "seed": 42,
+ "single_sequence": true,
+ "decomp": false,
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "1",
+ "arch": "blackhole",
+ "load_s": 2.38,
+ "loadavg_start": [
+  "15.14",
+  "9.15",
+  "9.77"
+ ],
+ "timers_missing": [],
+ "runs": [
+  {
+   "run": 0,
+   "fold_s": 42.04,
+   "device_s": 40.345,
+   "host_feat_s": 0.973,
+   "host_write_s": 0.043,
+   "plddt": 0.444876,
+   "n_tokens": 512,
+   "n_atoms": 4116,
+   "cif_sha256": {
+    "ob_apo_512.tt.cif": "c3a097740b9e2f9c"
+   },
+   "loadavg": [
+    "13.22",
+    "10.03",
+    "10.03"
+   ],
+   "regions": {
+    "device:model.fold": {
+     "calls": 1,
+     "s": 40.345,
+     "ms_per_call": 40345.406,
+     "pct_of_fold": 95.97
+    },
+    "host:build_features": {
+     "calls": 1,
+     "s": 0.973,
+     "ms_per_call": 972.587,
+     "pct_of_fold": 2.31
+    },
+    "host:write_structure": {
+     "calls": 1,
+     "s": 0.043,
+     "ms_per_call": 42.684,
+     "pct_of_fold": 0.1
+    }
+   }
+  },
+  {
+   "run": 1,
+   "fold_s": 41.88,
+   "device_s": 40.097,
+   "host_feat_s": 1.016,
+   "host_write_s": 0.078,
+   "plddt": 0.444876,
+   "n_tokens": 512,
+   "n_atoms": 4116,
+   "cif_sha256": {
+    "ob_apo_512.tt.cif": "c3a097740b9e2f9c"
+   },
+   "loadavg": [
+    "12.88",
+    "10.47",
+    "10.18"
+   ],
+   "regions": {
+    "device:model.fold": {
+     "calls": 1,
+     "s": 40.097,
+     "ms_per_call": 40097.198,
+     "pct_of_fold": 95.74
+    },
+    "host:build_features": {
+     "calls": 1,
+     "s": 1.016,
+     "ms_per_call": 1016.462,
+     "pct_of_fold": 2.43
+    },
+    "host:write_structure": {
+     "calls": 1,
+     "s": 0.078,
+     "ms_per_call": 77.945,
+     "pct_of_fold": 0.19
+    }
+   }
+  }
+ ],
+ "cold_s": 44.298,
+ "levers": {
+  "sdpa_low_div_k": false,
+  "sdpa_wide_k": false,
+  "sdpa_k_chunk_stats": [
+   0,
+   0
+  ],
+  "sdpa_chunk_picks": {},
+  "triatt_fused_hifi_stats": {
+   "served": 0,
+   "declined": 0,
+   "too_short": 0
+  },
+  "fp32_softmax_stats": {
+   "calls": 1320,
+   "blocked": 1320,
+   "blocks": 56760,
+   "fused": 56760,
+   "unfused": 0,
+   "l1": 1320,
+   "l1_blocks": 56760,
+   "l1_refused": 0,
+   "l1_cores": 64
+  },
+  "latch": {
+   "l1_out": {
+    "served": 2688,
+    "refused": 0,
+    "blocked": 0,
+    "declined": 0,
+    "why": []
+   },
+   "narrow_l1_out": {
+    "served": 864,
+    "refused": 0,
+    "blocked": 0,
+    "declined": 0,
+    "why": []
+   },
+   "transpose_l1": {
+    "served": 1320,
+    "refused": 0,
+    "blocked": 0,
+    "declined": 0,
+    "why": []
+   },
+   "bmm_cfg": {
+    "served": 150690,
+    "refused": 0,
+    "blocked": 0,
+    "declined": 0,
+    "why": []
+   }
+  }
+ },
+ "reblock_permute": {
+  "gated_enabled": true,
+  "stats_gated": [
+   2640,
+   0
+  ],
+  "stats": [
+   0,
+   0
+  ],
+  "rejects": {}
+ },
+ "device_s_median": 40.221,
+ "fold_s_median": 41.96,
+ "device_spread_pct": 0.62,
+ "cif_reproducible": true
+}
