@@ -1401,9 +1401,16 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                          if block else {}})
             if skip:
                 legs[-1]["exponents_skipped"] = skip
-            SIZE_LADDER_PROVENANCE.mkdir(parents=True, exist_ok=True)
+            # Beside the baseline being written, not always the committed directory:
+            # --size-ladder-baseline exists so a smoke run can record to scratch, and a
+            # fixed provenance path made that scratch run overwrite the committed
+            # evidence for the REAL baseline (hit 2026-08-22 by a 256-rung smoke).
+            prov = (SIZE_LADDER_PROVENANCE
+                    if baseline_path.resolve() == SIZE_LADDER_BASELINE.resolve()
+                    else baseline_path.parent / f"{baseline_path.stem}_census")
+            prov.mkdir(parents=True, exist_ok=True)
             for rung, cj in meas["census_jsons"].items():
-                shutil.copy(cj, SIZE_LADDER_PROVENANCE / f"census_{m}_{rung}_{card}.json")
+                shutil.copy(cj, prov / f"census_{m}_{rung}_{card}.json")
             # After every model, so a run that dies at model 4 keeps models 1-3.
             _flush_baseline()
         _flush_baseline()
