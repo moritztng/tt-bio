@@ -68,11 +68,12 @@ folds that range on an 11x10 grid instead, and 11x10 completes every time. 496 a
 clean, so the workaround is as narrow as the window.
 
 A hang class that closes has to stay closed, and neither the accuracy legs nor the other rungs
-can see this one: 500 to 507 is a window no rung on the 64-token lattice lands in. So
-protenix-v2 carries 506 as a rung of its own (`SIZE_LADDER_MODEL_RUNGS` in
-`scripts/release_gate.py`). It is census-only, out of the timing chain, and no other model runs
-it, because no other model has the defect. Removing the workaround changes which levers fire at
-that rung, and the arm goes red.
+can see this one: 500 to 507 is a window no rung on the 64-token lattice lands in. So the arm
+folds protenix-v2 at 506 as well (`SIZE_LADDER_GRID_RUNGS` in `scripts/release_gate.py`) and
+gates on one thing, the grid the census reports: it must read 11x10. That is the workaround's
+whole contract, so removing the workaround turns the leg red on any 13x10 card, whether or not
+that particular card is one that hangs. The leg compares against no recorded number, so unlike
+the rest of the ladder it also runs on a card type that has no baseline yet.
 
 ## The rung is a padded token count, not a residue count
 

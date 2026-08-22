@@ -2562,8 +2562,8 @@ def _set_active_compute_grid(gx: int, gy: int, device=None) -> None:
 def compute_grid(gx: int, gy: int):
     """Run a block on a different main compute grid, restoring the active one after.
 
-    Only the program configs move: both 13x10 and 11x10 are above the 110-core line
-    `_apply_grid_thresholds` returns early on, so no L1 budget changes underneath a
+    Only the program configs move: 13x10 and 11x10 are both at or above the 110-core
+    line `_apply_grid_thresholds` returns early on, so no L1 budget changes under a
     switch between them, and nothing tt-bio uploads to the device is sharded to
     CORE_GRID_MAIN. Do not use this to enter or leave a small (Wormhole) grid --
     those budgets are set on the way in and not restored on the way out.

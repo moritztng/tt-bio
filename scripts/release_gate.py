@@ -430,12 +430,13 @@ SIZE_LADDER_RUNGS = tuple(int(x) for x in
 # gateable (+-0.68 over ln(768/512) = 0.405). So 640 earns its place as a lever
 # rung and stays out of the timing chain.
 SIZE_LADDER_EXP_RUNGS = (256, 512, 768)
-# Rungs one model runs on top of SIZE_LADDER_RUNGS, because they gate something only that
-# model has. protenix-v2 folds 500-507 tokens on an 11x10 grid instead of the card's 13x10
-# (tt_bio.protenix.HANG_GRID_TOKEN_WINDOW, GitHub issue #9): the census at 506 records the
-# 11x10 lever set, so switching the workaround off again flips the fired fractions at that
-# rung and this arm goes red. Census-only -- a per-model rung is not in the timing chain.
-SIZE_LADDER_MODEL_RUNGS = {"protenix-v2": (506,)}
+# Rungs one model folds only to check WHICH GRID the engine put the fold on. protenix-v2
+# folds 500-507 tokens on 11x10 instead of a 13x10 card's own grid, because 13x10 hangs
+# there (tt_bio.protenix.HANG_GRID_TOKEN_WINDOW, GitHub issue #9), and 506 is inside that
+# window. The claim is about the fold, not about a recorded number, so this leg compares
+# against no baseline and runs on every card type -- including one the ladder itself has
+# no baseline for. Drop the workaround and the leg reads 13x10 and goes red.
+SIZE_LADDER_GRID_RUNGS = {"protenix-v2": {506: "11x10"}}
 SIZE_LADDER_BASELINE = REPO_ROOT / "docs" / "size_ladder_baseline.json"
 SIZE_LADDER_STEPS = 6
 SIZE_LADDER_FRAC_TOL = 0.05
@@ -1062,9 +1063,26 @@ def _repo_commit() -> str:
         return "unknown"
 
 
-def _size_ladder_rungs(model: str, rungs) -> tuple:
-    """The rungs `model` runs: the shared ladder plus its own, in ascending order."""
-    return tuple(sorted(set(rungs) | set(SIZE_LADDER_MODEL_RUNGS.get(model, ()))))
+def _size_ladder_grid_legs(models, workdir: Path) -> list:
+    """One fold per SIZE_LADDER_GRID_RUNGS entry, gated on the grid the census reports."""
+    legs = []
+    for m in models:
+        for rung, want in SIZE_LADDER_GRID_RUNGS.get(m, {}).items():
+            r = _run_census_fold(m, rung, workdir, "grid")
+            got = r.get("grid")
+            if r.get("error"):
+                err = f"{m}/{rung}: {r['error']}"
+            elif got != want:
+                err = (f"{m}/{rung}: folded on {got}, not {want} — the issue-#9 grid "
+                       f"workaround did not fire")
+            else:
+                err = None
+            print(f"[size-ladder] {m}/{rung} grid: {got or '-'} "
+                  f"{'ok' if not err else 'FAIL'}", flush=True)
+            legs.append({"model": f"{m}/{rung}-grid", "gate": not err, "error": err,
+                         "findings": [err] if err else [], "grid": got,
+                         "runtime_s": r.get("runtime_s")})
+    return legs
 
 
 def _size_ladder_card_type() -> str:
@@ -1394,16 +1412,19 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 "error": f"no baseline at {baseline_path} — record one with "
                          f"--size-ladder-record", "legs": []}
 
-    extra = {m: SIZE_LADDER_MODEL_RUNGS[m] for m in models if m in SIZE_LADDER_MODEL_RUNGS}
+    extra = {m: SIZE_LADDER_GRID_RUNGS[m] for m in models if m in SIZE_LADDER_GRID_RUNGS}
     print(f"\n{'='*70}\n[size-ladder] {'RECORDING baseline' if record else 'checking'} "
           f"for card {card}: {', '.join(models)} at rungs "
           f"{','.join(map(str, rungs))} ({SIZE_LADDER_STEPS} steps, 1 sample, "
           f"seed {SEED}, single-sequence)"
-          + "".join(f"\n[size-ladder] {m} also runs {','.join(map(str, r))}"
-                    for m, r in extra.items())
+          + "".join(f"\n[size-ladder] {m} also folds "
+                    f"{','.join(f'{k} on {v}' for k, v in g.items())}"
+                    for m, g in extra.items())
           + f"\n{'='*70}", flush=True)
     t0 = time.monotonic()
-    legs = []
+    # Ahead of the baseline lookup on purpose: this leg needs no baseline, so a card
+    # type the ladder has never been recorded on still gets the window folded.
+    legs = _size_ladder_grid_legs(models, workdir)
     if record:
         old_models = baseline.get("cards", {}).get(card, {}).get("models", {})
         # Seeded with the card's existing models, not empty: recording a subset
@@ -1426,7 +1447,6 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 "record_with": "python3 scripts/release_gate.py --model size-ladder "
                                "--size-ladder-record",
                 "rungs": list(rungs),
-                "model_rungs": {m: list(v) for m, v in SIZE_LADDER_MODEL_RUNGS.items()},
                 "fold": {"single_sequence": True, "sampling_steps": SIZE_LADDER_STEPS,
                          "diffusion_samples": 1, "seed": SEED},
             })
@@ -1434,7 +1454,7 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
             baseline_path.write_text(json.dumps(baseline, indent=2) + "\n")
 
         for m in models:
-            meas = _size_ladder_measure_model(m, _size_ladder_rungs(m, rungs), workdir,
+            meas = _size_ladder_measure_model(m, rungs, workdir,
                                               SIZE_LADDER_SIGMA_REPS, 1)
             if meas.get("error"):
                 legs.append({"model": m, "gate": False, "error": meas["error"],
@@ -1485,7 +1505,7 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                     "gate": False, "card": card,
                     "error": f"NO BASELINE for card type '{card}' in "
                              f"{baseline_path.name} — record one on this card type: "
-                             f"--model size-ladder --size-ladder-record", "legs": []}
+                             f"--model size-ladder --size-ladder-record", "legs": legs}
         for m in models:
             base_model = card_block.get("models", {}).get(m)
             if base_model is None:
@@ -1494,8 +1514,7 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 legs.append({"model": m, "gate": False, "error": err,
                              "findings": [err]})
                 continue
-            legs.append(_size_ladder_check_model(m, _size_ladder_rungs(m, rungs),
-                                                 base_model, workdir))
+            legs.append(_size_ladder_check_model(m, rungs, base_model, workdir))
 
     gate = bool(legs) and all(l["gate"] for l in legs)
     row = {"model": "size-ladder", "seconds": time.monotonic() - t0, "gate": gate,
