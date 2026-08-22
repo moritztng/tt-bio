@@ -76,9 +76,11 @@ def main():
         row = {"stem": stem, "rung": rung}
         if cif:
             row["atoms_md5"], row["n_atom_rows"] = atoms_md5(cif)
-        res = next((work / "out").rglob(f"*{stem}*/results.json"), None)
+        # One results.json for the whole directory, one row per target.
+        res = next((work / "out").rglob("results.json"), None)
         if res:
-            rows = [r for r in json.loads(res.read_text()) if r.get("status") == "ok"]
+            rows = [r for r in json.loads(res.read_text())
+                    if r.get("id") == stem and r.get("status") == "ok"]
             if rows:
                 row["plddt"] = rows[0].get("plddt")
                 row["runtime_s"] = rows[0].get("runtime_s")
