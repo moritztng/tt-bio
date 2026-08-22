@@ -138,6 +138,14 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 - `packaging_smoke.py --fold` installs the wheel with `--force-reinstall`, so the guard cannot
   inherit a same-version `tt_bio` from the parent interpreter and silently test nothing.
 
+### Known issues
+
+- `TT_PROTENIX_CONF_DEVICE=1`, which keeps Protenix-v2's confidence head on the card, returns
+  PAE and PDE that track the default path to 0.981 and 0.990 correlation, below the 0.99 a
+  device path here has to clear; pLDDT is clean at 0.994. The flag ships off and the predicted
+  structure never depends on it, so leave it off if you read PAE or PDE. 0.6.5 returns the same
+  numbers: a pre-existing gap now measured, not a new one.
+
 ## [0.6.5] - 2026-08-20
 
 ### Fixed
