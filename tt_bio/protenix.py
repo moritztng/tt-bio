@@ -2219,6 +2219,9 @@ class Trunk(_KeyedWeights):
             self.MSA.append((opm, pwa, tm, pl))
 
     def _template(self, z3, tpl_a, N, nt):
+        # tpl_a: nt device tensors, each already `linear_no_bias_a(at)` for one template.
+        # The projection is cycle-invariant, so the caller hoists it out of the recycling
+        # loop (see Trunk.__call__); passing the raw host feature concat here is a bug.
         # nt template projections read this whole normed pair tensor to write two tiles of
         # width each, so one L1-resident copy serves all of them: 2180.7 -> 853.1 us on the
         # four-template region, `torch.equal`.
