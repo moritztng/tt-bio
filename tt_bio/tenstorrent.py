@@ -2051,6 +2051,29 @@ _PAIR_PROJ_MM = os.environ.get(
     "TT_BIO_PAIR_PROJ_MM", "1" if PAIR_PROJ_MINIMAL_MATMUL else "0") == "1"
 
 
+# SCREEN ONLY, not a shipping interface. Which of TriangleAttention's two biases ride INSIDE
+# their matmul (`bias_tensor=` / `bias=`, the add landing in the fp32 accumulator before the pack
+# to bf16) instead of a separate elementwise `ttnn.add_` afterwards. Comma list over {g, o}, or
+# `none`. Default `o` is what this branch already does after pass 8; `none` is main's form for
+# both. The two are NOT the same arithmetic -- a separate add rounds twice -- so this exists to
+# score the form on RF3's own fold, the one other model that biases these projections
+# (state/pxdesign-af2ig-port.md, pass 20 item 3).
+_PAIR_BIAS_IN_MATMUL = frozenset(
+    t for t in os.environ.get("TT_BIO_PAIR_BIAS_IN_MATMUL", "o").split(",")
+    if t and t != "none")
+assert _PAIR_BIAS_IN_MATMUL <= {"g", "o"}, \
+    f"TT_BIO_PAIR_BIAS_IN_MATMUL: unknown lever(s) {sorted(_PAIR_BIAS_IN_MATMUL - {'g', 'o'})}"
+# served/declined census for the two levers. A form comparison whose changed matmul silently
+# declined its bias would time identically and read as "no effect", which is the mistake the
+# fused-SDPA OF3 arms made, so every call is counted and the `_add` counters have to be 0 on a
+# lever's own arm.
+PAIR_BIAS_STATS: dict[str, int] = {}
+
+
+def _pair_bias_stat(key: str) -> None:
+    PAIR_BIAS_STATS[key] = PAIR_BIAS_STATS.get(key, 0) + 1
+
+
 def _pair_proj_minimal_matmul(x, w, ckc, dtype, bias=None):
     """`minimal_matmul` for a pair projection whose contraction fits one K block, else None."""
     if not _PAIR_PROJ_MM or x.dtype != ttnn.bfloat16 or w.dtype != ttnn.bfloat16:
@@ -2105,25 +2128,36 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
                 out_l1=True, block_w=l1_block_w)
             if cfg is not None:
                 try:
-                    return ttnn.linear(
+                    out = ttnn.linear(
                         x, w, bias=bias, memory_config=ttnn.L1_MEMORY_CONFIG, dtype=dtype,
                         compute_kernel_config=ckc, program_config=cfg,
                     )
+                    if bias is not None:
+                        _pair_bias_stat("o_in_matmul_exit_l1")
+                    return out
                 except Exception:
                     _L1_OUT_REFUSED.add(key)
     mm = _pair_proj_minimal_matmul(x, w, ckc, dtype, bias)
     if mm is not None:
+        if bias is not None:
+            _pair_bias_stat("o_in_matmul_exit_mm")
         return mm
     cfg = _pair_proj_config(x, w)
     if cfg is not None:
-        return ttnn.linear(
+        out = ttnn.linear(
             x, w, bias=bias, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=dtype,
             compute_kernel_config=ckc, program_config=cfg,
         )
-    return ttnn.linear(
+        if bias is not None:
+            _pair_bias_stat("o_in_matmul_exit_cfg")
+        return out
+    out = ttnn.linear(
         x, w, bias=bias, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=dtype,
         compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN,
     )
+    if bias is not None:
+        _pair_bias_stat("o_in_matmul_exit_grid")
+    return out
 
 
 def _narrow_proj_linear(x, w, ckc, dtype, l1_out: bool = False):
@@ -4000,14 +4034,23 @@ class TriangleAttention(Module):
             head_major = len(g_in.shape) == 4
             o_in = ttnn.multiply_(o_in, g_in, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
             ttnn.deallocate(g_in)
+            # the head-major output projection takes no bias, and a biased block never reaches it:
+            # `gate_proj` is gated on `not self.biased`, so `g` comes from `minimal_matmul` and is
+            # 3-D. Asserting it turns a silent dropped bias into a loud one.
+            assert not (head_major and self.o_bias is not None), \
+                "head-major output projection cannot carry linear_o.bias"
             if head_major:
                 x_out = _triatt_qkv.out_proj(
                     o_in, self.o_weight, self.compute_kernel_config, _dtype())
             else:
+                o_in_mm = self.o_bias is not None and "o" in _PAIR_BIAS_IN_MATMUL
                 x_out = _pair_proj_linear(
                     o_in, self.o_weight, self.compute_kernel_config, _dtype(), l1_out=True,
-                    bias=self.o_bias,
+                    bias=self.o_bias if o_in_mm else None,
                 )
+                if self.o_bias is not None and not o_in_mm:
+                    x_out = ttnn.add_(x_out, self.o_bias)
+                    _pair_bias_stat("o_add")
             ttnn.deallocate(o_in)
             return x_out
 
@@ -4042,16 +4085,21 @@ class TriangleAttention(Module):
                         x_chunk, self.g_weight, self.o_weight, self.compute_kernel_config,
                         self.n_heads, self.head_dim, _dtype(), g_cfg_chunk,
                     )
+                g_in_mm = self.g_bias is not None and "g" in _PAIR_BIAS_IN_MATMUL
                 if g_chunk is None:
                     g_chunk = ttnn.experimental.minimal_matmul(
                         input_tensor=x_chunk,
                         weight_tensor=self.g_weight,
+                        bias_tensor=self.g_bias if g_in_mm else None,
                         compute_kernel_config=self.compute_kernel_config,
                         dtype=_dtype(),
                         config=g_cfg_chunk,
                     )
-                if self.g_bias is not None:
+                    if g_in_mm:
+                        _pair_bias_stat("g_in_matmul")
+                if self.g_bias is not None and not g_in_mm:
                     g_chunk = ttnn.add_(g_chunk, self.g_bias)
+                    _pair_bias_stat("g_add")
                 ttnn.deallocate(x_chunk)
                 if self.affinity:
                     bias = ttnn.add(triangle_bias, attn_mask[s:end, :, :])
@@ -4166,16 +4214,21 @@ class TriangleAttention(Module):
                     x, self.g_weight, self.o_weight, self.compute_kernel_config,
                     self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.g_weight),
                 )
+            g_in_mm = self.g_bias is not None and "g" in _PAIR_BIAS_IN_MATMUL
             if g is None:
                 g = ttnn.experimental.minimal_matmul(
                     input_tensor=x,
                     weight_tensor=self.g_weight,
+                    bias_tensor=self.g_bias if g_in_mm else None,
                     compute_kernel_config=self.compute_kernel_config,
                     dtype=_dtype(),
                     config=_qkv_mm_config(x, self.g_weight),
                 )
-            if self.g_bias is not None:
+                if g_in_mm:
+                    _pair_bias_stat("g_in_matmul")
+            if self.g_bias is not None and not g_in_mm:
                 g = ttnn.add_(g, self.g_bias)
+                _pair_bias_stat("g_add")
             ttnn.deallocate(x)
             if attn_mask is not None:
                 triangle_bias = ttnn.add(triangle_bias, attn_mask)
