@@ -247,6 +247,38 @@ def _validate_openfold3_constraints(path) -> None:
             "--model protenix-v2 / opendde.")
 
 
+def _validate_openfold3_cyclic(path) -> None:
+    """Reject a yaml `cyclic: true` chain for OF3 instead of folding it linear.
+
+    Upstream's query format carries `Chain.cyclic` and its structure featurizer sets a
+    `cyclic_mask` feature from it; tt-bio's vendored copy has neither (both were dropped
+    when the tree was vendored, consistently). So a cyclic chain reached the model as an
+    ordinary linear one and the fold returned status=ok — a wrong structure with no
+    warning, the silent-garbage class. Cyclisation changes the STRUCTURE, which is why
+    this is a hard error like `constraints:` and not a warning.
+    """
+    if Path(path).suffix.lower() not in (".yml", ".yaml"):
+        return
+    import yaml
+
+    doc = yaml.safe_load(Path(path).read_text()) or {}
+    cyclic = []
+    for entry in doc.get("sequences") or []:
+        if not isinstance(entry, dict):
+            continue
+        for _mt, sub in entry.items():
+            if isinstance(sub, dict) and sub.get("cyclic"):
+                ids = sub.get("id", "?")
+                cyclic += ([str(x) for x in ids] if isinstance(ids, (list, tuple))
+                           else [str(ids)])
+    if cyclic:
+        raise RuntimeError(
+            "--model openfold3 does not port cyclic chains (chain(s) "
+            f"{', '.join(cyclic)} in {Path(path).name} set `cyclic: true`); the fold "
+            "would silently return a linear structure. Remove the flag or use "
+            "--model rf3 / boltz2, which honor it.")
+
+
 def _validate_openfold3_chains(chains: list) -> None:
     """Reject OF3 inputs that would otherwise fold into plausible-looking garbage.
 
@@ -1239,6 +1271,7 @@ class _WorkerState:
         chains = _read_bio_chains(path)
         _validate_openfold3_chains(chains)
         _validate_openfold3_constraints(path)
+        _validate_openfold3_cyclic(path)
         tmpl_map = _openfold3_template_map(path)
         unknown_tmpl = sorted(set(tmpl_map) - {cid for cid, _s, _sp, _mt in chains})
         if unknown_tmpl:
