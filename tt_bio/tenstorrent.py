@@ -1437,7 +1437,7 @@ def _accurate_softmax(x, compute_kernel_config=None, fp32: bool = True):
     through 135). max/subtract/exp/sum/divide on the same input scores 0.000446, and the
     residual 6x of that is the fused kernel's approximate SFPU exp, since `ttnn.exp`
     defaults to the accurate one. `numeric_stable` and a compute kernel config change
-    nothing (perf/rf3/results/sm_variants_53.json).
+    nothing (perf/rf3/results/sm_variants_53b.json).
 
     Why it matters more than 2.4% looks: a uniform row deficit is a multiplicative error
     on every weight in the row, so unlike the fused kernel's argmax jitter it does not
