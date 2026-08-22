@@ -908,6 +908,9 @@ def _tri_att_q_chunks(q_len: int, k_len: int) -> tuple:
 # columns takes it back to zero. The query axis pads with 0 instead: those output rows are sliced
 # off, and a fully-masked row would divide by zero.
 _SDPA_RAGGED_PAD = env_flag("TT_BIO_SDPA_RAGGED_PAD", False)
+# Let `_TRIATT_FUSED_HIFI_MIN_S` see the PADDED length instead of the true one, so a ragged call
+# just under the gate is served rather than declined. Only meaningful with the ragged pad on.
+_TRIATT_HIFI_MIN_S_PADDED = env_flag("TT_BIO_TRIATT_HIFI_MIN_S_PADDED", False)
 # [ragged calls padded, calls already aligned]. A fix that never fired must not read as a null.
 SDPA_RAGGED_PAD_STATS = [0, 0]
 # site -> [ragged calls, aligned calls]. Counted whether or not the fix is on, because the census
@@ -1280,6 +1283,18 @@ def _tri_att_sdpa_hifi(q, k, v, bias, scale: float):
     stock op carries the op default's 2.7x worse error, so a silent fall-through to it would be an
     accuracy regression wearing a performance win's clothes.
     """
+    # The MIN_S gate reads the TRUE length, before any padding. The ragged pad must not change
+    # which route a call takes: at RF3's 7ROA L117 the pad lifts the length to 128, the gate stops
+    # declining, and the fused-HiFi kernel serves a call that used to fall through to the
+    # materialised path. That is very likely the RIGHT thing to do -- MIN_S was fitted to the
+    # port's 8-53-token parity fixtures reading 3.4-5.3x worse, and the variable there was
+    # divisibility by 32, not length -- and it measures BETTER: 0.2610 -> 0.1929 A CA at 7ROA on a
+    # 0.3755 A A/A floor. But it is a route change on top of an accuracy fix, so it gets its own
+    # opt-in and its own decision.
+    if not _TRIATT_HIFI_MIN_S_PADDED:
+        if min(int(q.shape[2]), int(k.shape[2])) < _TRIATT_FUSED_HIFI_MIN_S:
+            TRIATT_FUSED_HIFI_STATS["too_short"] += 1
+            return None
     return _sdpa_masked(_tri_att_sdpa_hifi_inner, q, k, v, bias, scale, site="tri_att_hifi")
 
 
