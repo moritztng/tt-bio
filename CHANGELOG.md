@@ -100,13 +100,18 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Changed
 
-- Protenix-v2, OpenDDE and OpenDDE-abag fold with the accurate softmax by default. `ttnn.softmax`
-  normalises against a denominator its own numerators do not match, so rows summed to 0.977
-  instead of 1; these three models now use an exact five-op chain instead. Four parity legs
-  improved on their committed envelopes and none regressed, and the three models got faster
-  rather than slower (+8.6%, +3.6%, +4.3%). ESMFold2 and OpenFold3 are unchanged: their sites
-  have not been measured, and each site stays overridable with
-  `TT_BIO_ACCURATE_SOFTMAX_AB`.
+- Protenix-v2, OpenDDE and OpenDDE-abag fold more accurately, and slightly faster (+8.6%, +3.6%,
+  +4.3%). Their Pairformer softmax was losing about 2% of each row's normalisation; it is exact
+  now. Four parity legs improved on their committed envelopes and none regressed, so predictions
+  move a little: re-run anything you need to compare against a new result. ESMFold2 and OpenFold3
+  are unchanged, their sites not having been measured yet. Each site is separately switchable
+  with `TT_BIO_ACCURATE_SOFTMAX_AB`, a comma-separated list of `<model>.<site>` tokens where a
+  bare token forces the exact chain on and a `-` prefix forces it off; `all` and `-all` cover
+  every site that has no token of its own, so `TT_BIO_ACCURATE_SOFTMAX_AB=-all` puts all five
+  sites that ship on (`protenix.trunk`, `protenix.confidence`, `opendde.trunk`,
+  `opendde.confidence`, `opendde.refiner`) back on the old softmax. RoseTTAFold3 is not on this
+  switch; its site is exact unconditionally.
+  See [docs/implementation-parity.md](docs/implementation-parity.md).
 
 ### Performance
 
