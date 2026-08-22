@@ -494,9 +494,10 @@ def stage7(args):
     for crop in [int(x) for x in args.crops.split(",")]:
         z = z_full[..., :crop, :crop, :].contiguous()
         print(f"\n--- crop {crop} (padded to {-(-crop // 32) * 32}) ---", flush=True)
-        for name in ("tri_att_start", "tri_att_end"):
-            ref_u = ref_sub(ref_pair, name, z if name == "tri_att_start"
-                            else z.transpose(-2, -3).contiguous())
+        names = SUB_OPS if args.all_subops else ("tri_att_start", "tri_att_end")
+        for name in names:
+            ref_u = ref_sub(ref_pair, name, z.transpose(-2, -3).contiguous()
+                            if name == "tri_att_end" else z)
             zt = p.trunk._up(z.reshape(1, crop, crop, -1))
             got = dev_sub(dev_pair, name, zt)
             got_h = p._to_host(got)
@@ -507,6 +508,94 @@ def stage7(args):
             ttnn.deallocate(zt)
 
 
+
+def _chain_ref(reference, z0, m0, n_pf):
+    m, z = m0, z0
+    for b in range(N_MSA_BLOCKS):
+        m, z = ref_msa_block(reference.msa_module.blocks[b], m, z)
+    z_msa = z
+    for i in range(n_pf):
+        z = ref_block_z(reference.pairformer_stack.blocks[i], z)
+        if (i + 1) % 12 == 0:
+            print(f"  ref pf block {i} done", flush=True)
+    return z_msa, z
+
+
+def stage8(args):
+    """End-to-end: MSA module + Pairformer, one arm per call, at a chosen crop.
+
+    Stage 7 isolates the padding leak at op level. This prices it where it matters, at the
+    output of the whole trunk z path, so the 0.947 headline can be compared against the same
+    chain with the leak removed. Three arms, and the crop is the controlled variable:
+
+      --crop 128 --arm dev   sequence length already a multiple of 32, no padding to invent
+      --crop 136 --arm dev   the real length, the leak live
+      --crop 136 --arm host  the real length, exact attention over the real keys only
+
+    `--arm ref` builds and caches the fp32 reference chain for a crop; the device arms score
+    against it. Cropping z and m rather than folding a shorter target is deliberate: it holds
+    the weights, the MSA and the input error fixed and moves only the length.
+    """
+    import ttnn
+    cache = Path(args.cache)
+    out = cache / f"e2e_{args.crop}"
+    out.mkdir(parents=True, exist_ok=True)
+    crop = args.crop
+    z_pre = torch.load(cache / "ref_z_pre.pt").float()[..., :crop, :crop, :].contiguous()
+    m0 = torch.load(cache / "ref_m0.pt").float()[..., :crop, :].contiguous()
+
+    if args.arm == "ref":
+        from tt_bio.opendde import load_opendde_checkpoint
+        reference, _ = _load_reference(load_opendde_checkpoint())
+        z_msa, z_out = _chain_ref(reference, z_pre, m0, args.n_pf)
+        torch.save(z_msa, out / "ref_z_msa.pt")
+        torch.save(z_out, out / f"ref_z_out_{args.n_pf}.pt")
+        print(f"cached reference chain at crop {crop}, {args.n_pf} pf blocks", flush=True)
+        return
+
+    import tt_bio.tenstorrent as T
+    from tt_bio.tenstorrent import get_device
+    model, p, _ = _dev_setup()
+    dev = get_device()
+    original = T._tri_att_sdpa
+    reported = []
+
+    def host_core(q, k, v, bias, scale):
+        qh, kh = ttnn.to_torch(q).float(), ttnn.to_torch(k).float()
+        vh, bh = ttnn.to_torch(v).float(), ttnn.to_torch(bias).float()
+        if not reported:
+            print(f"  [core] logical k={tuple(kh.shape)} padded k={tuple(k.padded_shape)}",
+                  flush=True)
+            reported.append(1)
+        o = torch.empty_like(qh)
+        for b0 in range(0, qh.shape[0], 8):
+            b1 = min(b0 + 8, qh.shape[0])
+            logit = qh[b0:b1] @ kh[b0:b1].transpose(-1, -2)
+            logit = (logit + bh[:, :, :logit.shape[-2], :logit.shape[-1]]) * scale
+            o[b0:b1] = logit.softmax(dim=-1) @ vh[b0:b1]
+        return ttnn.from_torch(o, dtype=q.dtype, layout=ttnn.TILE_LAYOUT, device=dev,
+                               memory_config=ttnn.DRAM_MEMORY_CONFIG)
+
+    if args.arm == "host":
+        T._tri_att_sdpa = host_core
+    try:
+        zt = p.trunk._up(z_pre.reshape(1, crop, crop, -1))
+        mt = p.trunk._up(m0.reshape(1, *m0.shape))
+        for b in range(N_MSA_BLOCKS):
+            mt, zt = dev_msa_block(p, p.trunk.MSA[b], mt, zt)
+        ref_msa = torch.load(out / "ref_z_msa.pt")
+        _stat(f"crop{crop} {args.arm} z_post_msa", p._to_host(zt, tuple(ref_msa.shape)),
+              ref_msa)
+        for i in range(args.n_pf):
+            zt = dev_block_z(p.trunk.PF.blocks[i], zt)
+        ref_out = torch.load(out / f"ref_z_out_{args.n_pf}.pt")
+        _stat(f"crop{crop} {args.arm} z_post_pairformer",
+              p._to_host(zt, tuple(ref_out.shape)), ref_out)
+        ttnn.deallocate(zt)
+    finally:
+        T._tri_att_sdpa = original
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--stage", type=int, required=True)
@@ -514,12 +603,15 @@ def main() -> None:
     ap.add_argument("--pf-cache", default="_run/pf_trace")
     ap.add_argument("--blocks", default="0,1,2,3")
     ap.add_argument("--arm", default="dev",
-                    choices=("dev", "host", "host-nopad"))
+                    choices=("dev", "host", "host-nopad", "ref"))
     ap.add_argument("--n", type=int, default=0)
     ap.add_argument("--crops", default="96,128,132,136")
     ap.add_argument("--src-block", type=int, default=0)
+    ap.add_argument("--crop", type=int, default=136)
+    ap.add_argument("--n-pf", type=int, default=48)
+    ap.add_argument("--all-subops", action="store_true")
     args = ap.parse_args()
-    {1: stage1, 2: stage2, 3: stage3, 5: stage5, 6: stage6, 7: stage7}[args.stage](args)
+    {1: stage1, 2: stage2, 3: stage3, 5: stage5, 6: stage6, 7: stage7, 8: stage8}[args.stage](args)
 
 
 if __name__ == "__main__":
