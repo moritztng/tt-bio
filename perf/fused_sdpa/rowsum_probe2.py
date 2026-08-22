@@ -70,7 +70,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-HEADS, HEAD_DIM = 4, 32   # rf3/remap.py PAIRFORMER_DIMS = (32, 4, 24, 16)
+HEADS, HEAD_DIM = 4, 32   # rf3/remap.py PAIRFORMER_DIMS = (32, 4, 24, 16);
+                          # --heads/--head_dim override for the other models
 BF16_ULP_AT_ONE = 2.0 ** -8
 
 
@@ -115,8 +116,12 @@ def rows_from_out(out_t):
 
 
 def main():
+    global HEADS, HEAD_DIM
     ap = argparse.ArgumentParser()
     ap.add_argument("--sizes", default="320,512")
+    ap.add_argument("--heads", type=int, default=HEADS,
+                    help="tri-att head count: 4 rf3/boltz-2, 8 protenix, 12 opendde")
+    ap.add_argument("--head_dim", type=int, default=HEAD_DIM)
     ap.add_argument("--batch", type=int, default=8, help="0 means batch = S")
     ap.add_argument("--temps", default="1.0", help="score multipliers; changes row peakedness")
     ap.add_argument("--bias", action="store_true", help="use a real bias instead of zeros")
@@ -129,6 +134,8 @@ def main():
                          "so a narrow q with k_chunk=S buys one k chunk for 8x LESS L1.")
     ap.add_argument("--out", type=Path, default=Path(__file__).with_name("rowsum_probe2.json"))
     a = ap.parse_args()
+
+    HEADS, HEAD_DIM = a.heads, a.head_dim
 
     import torch
     import ttnn
