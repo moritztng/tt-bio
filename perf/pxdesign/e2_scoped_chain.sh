@@ -39,6 +39,23 @@ export PYTHONPATH="$WT"
 unset TT_BIO_TRIATT_FUSED_HIFI
 unset TT_BIO_FP32_SOFTMAX_L1_PADDED
 
+# Idempotent, so a second waiter is safe to queue alongside the first.
+#
+# benchlock hands the lock out in roughly arrival order and its wait is bounded, so a single
+# waiter can expire ~90 s before the holder releases and lose the window entirely. Queueing a
+# second waiter with a longer budget fixes that, and the only objection was that both could
+# acquire in sequence and run the 25-minute chain twice over its own artifacts. They cannot
+# now: whichever acquires second sees three legs and releases immediately. Set E2_FORCE=1 to
+# re-measure on purpose.
+LEGS="perf/pxdesign/tt_pxd_e2_fold_848_leg1_off.json
+perf/pxdesign/tt_pxd_e2_fold_848_leg2_on.json
+perf/pxdesign/tt_pxd_e2_fold_848_leg3_off.json"
+if [ -z "${E2_FORCE:-}" ] && printf '%s\n' "$LEGS" | while read -r f; do [ -f "$f" ] || exit 1; done
+then
+  echo "=== $(date -Is) all three legs already present; nothing to do (E2_FORCE=1 to re-measure) ==="
+  exit 0
+fi
+
 echo "=== $(date -Is) start; loadavg $(cut -d\  -f1-3 /proc/loadavg) ==="
 i=0
 for arm in off on off; do
