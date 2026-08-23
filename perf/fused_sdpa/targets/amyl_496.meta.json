@@ -1,0 +1,17 @@
+{
+ "pdb": "5U3A",
+ "name": "amyl_496",
+ "rung": 512,
+ "n_res": 496,
+ "padded": 512,
+ "resolution": 0.95,
+ "description": "Pancreatic alpha-amylase",
+ "ca_modelled": 496,
+ "ca_coverage": 1.0,
+ "cif_url": "https://files.rcsb.org/download/5U3A.cif.gz",
+ "cif_sha256": "563b700aa62ab18c981dcd93a14ca1ea837c699d23e65a7583b85f07268558ff",
+ "msa_depth": 256,
+ "msa_depth_requested": 256,
+ "colabfold_ticket": "exNbrk5pOrQoteqTvWQTGuRaiNzVNogtvjB9rA",
+ "colabfold_mode": "env"
+}

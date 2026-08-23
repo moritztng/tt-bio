@@ -1,0 +1,17 @@
+{
+ "pdb": "9IOM",
+ "name": "capl_320",
+ "rung": 320,
+ "n_res": 320,
+ "padded": 320,
+ "resolution": 1.648,
+ "description": "cUMP-AMP-activated phospholipase",
+ "ca_modelled": 303,
+ "ca_coverage": 0.9469,
+ "cif_url": "https://files.rcsb.org/download/9IOM.cif.gz",
+ "cif_sha256": "b0e02cc2035f6780312ce3fb9f423777de47b8aba97b46048395e8a0e28aa42c",
+ "msa_depth": 256,
+ "msa_depth_requested": 256,
+ "colabfold_ticket": "1WpdnqNn-ZGm_PQL0qmTJzi0CHRfNs-sJQ_OEQ",
+ "colabfold_mode": "env"
+}
