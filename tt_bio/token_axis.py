@@ -105,6 +105,19 @@ TOKEN_AXIS = {
         "route, and the route is measured, not inferred -- boltzgen reaches the same two softmax "
         "sites aligned, so this is openfold3's missing bucket and not a safe site",
     ),
+    "openbind": (
+        IMMUNE, None,
+        "the same openfold3_trunk.py:104 OF3Trunk and the same four shared reduce sites as "
+        "openfold3; no token pad constant in openfold3*.py",
+        "censused for --model openbind on BOTH of its input classes, which openfold3 cannot "
+        "cover because it refuses ligands: examples/8hel_nomsa.yaml (76 tokens, polymer) and "
+        "examples/fkg_ligand.yaml (140 tokens, protein + a 33-atom CCD ligand), 1 recycle / 20 "
+        "steps / 1 sample, card 2. Both read 144 ragged / 603 aligned with the SAME split -- all "
+        "144 ragged calls are ttnn.softmax, which masks (tenstorrent.py:5051 x96 at w76/w140, "
+        ":6538 x48), and not one SDPA call of either kind; the atom and diffusion transformers "
+        "run aligned (123 + 480). So the ligand token axis reaches no unsafe reduce either, and "
+        "the route is measured on the ligand class rather than inherited from the polymer one",
+    ),
     "rf3": (
         EXPOSED, None,
         "no token pad anywhere in tt_bio/rf3/ (only atom-axis pads at atom_encoder_host.py:95,:172 "
