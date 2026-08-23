@@ -1,0 +1,198 @@
+{
+  "model": "opendde",
+  "side": "tenstorrent",
+  "hardware": "blackhole",
+  "machine": "tt-quietbox",
+  "visible_devices": "0",
+  "card_type": "p150a",
+  "aiclk_mhz": "1350",
+  "tt_bio_git": "22c701a3e6edac4a8cc15c1a98b77cea1a90c0e6",
+  "ttnn_version": "0.67.4",
+  "input": "cdk2x2_298.yaml (od298, page protocol, qb1 card 0, paired token-bucket A/B, single protein, MSA on)",
+  "target": "perf/size512/fixtures/cdk2x2_298.yaml",
+  "n_msa": 35,
+  "n_tokens": 298,
+  "n_residues": 298,
+  "msa_cache": [
+    "4e5c2b391bde62d4.a3m",
+    "fe22d91e18cd544a.a3m"
+  ],
+  "recycling_steps": 10,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "seed": 0,
+  "load_s": 11.44,
+  "cold_s": 68.43,
+  "warm_times_s": [
+    37.132,
+    37.202,
+    37.199
+  ],
+  "warm_min_s": 37.132,
+  "warm_median_s": 37.199,
+  "warm_max_s": 37.202,
+  "cold_metrics": {
+    "complex_plddt": 0.822245,
+    "plddt": 0.822245,
+    "ptm": 0.883766,
+    "iptm": 0.0,
+    "confidence_score": 0.883766,
+    "n_residues": 298,
+    "n_chains": 1,
+    "n_tokens": 298,
+    "msa": true,
+    "n_atoms": 2398,
+    "samples": 1
+  },
+  "warm_folds": [
+    {
+      "s": 68.43,
+      "plddt": 0.822245,
+      "cif_sha256": {
+        "cdk2x2_298.cif": "efad75c81e547797"
+      },
+      "loadavg": [
+        "8.15",
+        "6.20",
+        "6.87"
+      ],
+      "arm": "1",
+      "arm_fold": "cold"
+    },
+    {
+      "s": 44.893,
+      "plddt": 0.801789,
+      "cif_sha256": {
+        "cdk2x2_298.cif": "99cc47092d88141b"
+      },
+      "loadavg": [
+        "9.20",
+        "6.64",
+        "6.99"
+      ],
+      "arm": "0",
+      "arm_fold": "cold"
+    },
+    {
+      "s": 37.132,
+      "plddt": 0.822245,
+      "cif_sha256": {
+        "cdk2x2_298.cif": "efad75c81e547797"
+      },
+      "loadavg": [
+        "6.13",
+        "6.16",
+        "6.81"
+      ],
+      "arm": "1",
+      "arm_fold": "warm0"
+    },
+    {
+      "s": 35.04,
+      "plddt": 0.801789,
+      "cif_sha256": {
+        "cdk2x2_298.cif": "99cc47092d88141b"
+      },
+      "loadavg": [
+        "4.30",
+        "5.70",
+        "6.63"
+      ],
+      "arm": "0",
+      "arm_fold": "warm0"
+    },
+    {
+      "s": 34.995,
+      "plddt": 0.801789,
+      "cif_sha256": {
+        "cdk2x2_298.cif": "99cc47092d88141b"
+      },
+      "loadavg": [
+        "4.52",
+        "5.55",
+        "6.55"
+      ],
+      "arm": "0",
+      "arm_fold": "warm1"
+    },
+    {
+      "s": 37.202,
+      "plddt": 0.822245,
+      "cif_sha256": {
+        "cdk2x2_298.cif": "efad75c81e547797"
+      },
+      "loadavg": [
+        "3.45",
+        "5.17",
+        "6.38"
+      ],
+      "arm": "1",
+      "arm_fold": "warm1"
+    },
+    {
+      "s": 37.199,
+      "plddt": 0.822245,
+      "cif_sha256": {
+        "cdk2x2_298.cif": "efad75c81e547797"
+      },
+      "loadavg": [
+        "3.48",
+        "5.01",
+        "6.28"
+      ],
+      "arm": "1",
+      "arm_fold": "warm2"
+    },
+    {
+      "s": 35.263,
+      "plddt": 0.801789,
+      "cif_sha256": {
+        "cdk2x2_298.cif": "99cc47092d88141b"
+      },
+      "loadavg": [
+        "2.96",
+        "4.71",
+        "6.13"
+      ],
+      "arm": "0",
+      "arm_fold": "warm2"
+    }
+  ],
+  "ab": {
+    "env": "TT_BIO_PROTENIX_TOKEN_BUCKET",
+    "values": [
+      "1",
+      "0"
+    ],
+    "arms": {
+      "1": {
+        "warm_times_s": [
+          37.132,
+          37.202,
+          37.199
+        ],
+        "warm_median_s": 37.199
+      },
+      "0": {
+        "warm_times_s": [
+          35.04,
+          34.995,
+          35.263
+        ],
+        "warm_median_s": 35.04
+      }
+    },
+    "paired_delta_s": [
+      2.091,
+      2.208,
+      1.936
+    ],
+    "paired_delta_median_s": 2.091,
+    "paired_delta_mean_s": 2.0783,
+    "note": "delta = TT_BIO_PROTENIX_TOKEN_BUCKET=1 minus TT_BIO_PROTENIX_TOKEN_BUCKET=0, same process, alternating within-pair order, per-arm cold fold discarded"
+  },
+  "runtime_root": "<unset>",
+  "kernel_cache": "/home/ttuser/.cache/tt-metal-cache-tt-bio/ttnn-0.67.4",
+  "uptime": "20:34:55 up 11:28,  0 users,  load average: 2.96, 4.71, 6.13",
+  "date": "2026-08-23"
+}
