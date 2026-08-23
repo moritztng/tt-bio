@@ -13,6 +13,27 @@ HOST=qb2c2
 LEASE=$HOME/.coworker/state/leases/tt-quietbox2-card$CARD.json
 cd "$WT" || exit 1
 
+# The cell has to price the tree that ships. main merged twice while pass 4's first process was
+# running, so this is asserted at launch rather than assumed from whenever the branch was cut:
+# tt_bio must be byte-identical to origin/main, and the SHA it matched goes in the provenance file
+# next to the results so the `ref` can name it instead of naming the branch.
+git fetch origin -q || { echo "cannot fetch origin, refusing to measure"; exit 70; }
+MAIN=$(git rev-parse origin/main)
+if [ -n "$(git diff --name-only "$MAIN" -- tt_bio/)" ]; then
+  echo "REFUSING: tt_bio differs from origin/main ($MAIN):"
+  git diff --stat "$MAIN" -- tt_bio/
+  exit 71
+fi
+mkdir -p "$OUT"
+cat > "$OUT/provenance_$HOST.json" <<PROV
+{"origin_main": "$MAIN",
+ "head": "$(git rev-parse HEAD)",
+ "tt_bio_identical_to_main": true,
+ "non_tt_bio_diff_vs_main": [$(git diff --name-only "$MAIN" | grep -v '^perf/' | sed 's/.*/"&"/' | paste -sd, -)],
+ "host": "$(hostname)", "card": $CARD, "checked_at": "$(date -u +%FT%TZ)"}
+PROV
+echo "tt_bio is byte-identical to origin/main $MAIN"
+
 # 3600 was not enough: pass 4's p2 queued behind a chain with two `timeout 1800` legs left,
 # so its wait would have expired before the lock freed and benchlock.sh exits 75 there
 # rather than measuring. Overridable, because a leg that waits all night is also wrong.
