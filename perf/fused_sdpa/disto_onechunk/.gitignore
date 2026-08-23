@@ -1,0 +1,5 @@
+# The distograms are 23 MB each at 298 aa and 68 MB at 512 aa (549 MB for the set). The metrics
+# derived from them are committed in ../disto_score_{298,512}.json, and disto_run.sh regenerates
+# them from the fixture in ~20 min. Keep the CIFs and fold.json, which are 4.5 MB and carry the
+# provenance (seeds, step counts, TRIATT_FUSED_HIFI_STATS, per-distogram sha256).
+*.npy
