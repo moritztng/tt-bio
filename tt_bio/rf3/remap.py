@@ -183,8 +183,17 @@ PAIRFORMER_DIMS = (32, 4, 24, 16)
 #: pair bias appears. `scale_pair_bias=True` compensates RF3 dividing Q by sqrt(c) and
 #: adding the bias UNSCALED -- getting it wrong left the s-track 11x off its ceiling for
 #: several passes. `transpose_bias=False` because RF3 builds the ending pair bias from
-#: the un-transposed tensor. `fp32_softmax=True` because torch autocast casts matmuls to
-#: bf16 and leaves softmax in fp32, and matching that was worth 18x on one component.
+#: the un-transposed tensor.
+#: `fp32_softmax=False` puts triangle attention on the fused SDPA instead of the materialised
+#: fp32-softmax chain. It was True while the fused route was the less accurate one; masking the
+#: ragged key tail (`TT_BIO_SDPA_RAGGED_PAD`) reversed that, so the fast route is now also the
+#: accurate one and there is nothing left to trade. Measured on this tree, warm, benchlocked:
+#: 512 aa 80.28 s -> 49.29 s (1.63x), 768 aa 207.28 s -> 100.95 s (2.05x); 7ROA L117
+#: CA-RMSD X 0.2030 A -> 0.1780 A and ubiquitin L76 0.0955 A -> 0.0920 A on the four
+#: non-bifurcating seeds, both further inside their reference noise floors than before.
+#: This also makes `TT_BIO_TRIATT_FUSED_HIFI` unreachable for RF3: the HiFi4 fused call sits
+#: inside the `fp32_softmax` branch, so it is the OTHER side of this switch, never an addition
+#: to it. Do not sum the two speedups.
 # `gated_move` is the TriMul E6 fused chunk+gate forward move. It is a per-instance
 # opt-in because it wins on some call mixes and loses on others, and RF3 was never
 # opted in. Measured per recycle over the 48-block stack, bit-exact on z at every rung:
@@ -209,7 +218,7 @@ PAIRFORMER_DIMS = (32, 4, 24, 16)
 #: `accurate_softmax` onto triangle attention reached RF3 by accident and cost 1.376x on the
 #: published 512 aa cell (81.05 s -> 111.57 s) plus a moved CIF digest; RF3 was the only model
 #: both on the fp32_softmax route and already opted into `accurate_softmax` for the other site.
-PAIRFORMER_FLAGS = dict(scale_pair_bias=True, fp32_softmax=True, transpose_bias=False,
+PAIRFORMER_FLAGS = dict(scale_pair_bias=True, fp32_softmax=False, transpose_bias=False,
                         gated_move=True, accurate_softmax=True,
                         tri_att_accurate_softmax=accurate_softmax_site("rf3.tri_att"),
                         transpose_l1_reserve=_TRANSPOSE_L1_RESERVE_PER_CORE)
