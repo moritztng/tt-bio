@@ -76,6 +76,14 @@ _CUEQ_MODULES = (
 # Distinct (op, arg shape, dtype) signatures seen by the cuEquivariance entry points.
 CUEQ_SHAPES: set = set()
 
+# Why a cuEquivariance module did not import. An UNIMPORTABLE MODULE REGISTERS NO COUNTER KEY AT
+# ALL, which is strictly worse than a zero: on the A100 rental the compiled ops package died on an
+# undefined `kernelcatcher` symbol (cu12 and cu13 ops wheels overwrite each other's _ext/*.so, so
+# install order decides whether the extension pairs with a matching kernel library), the front end
+# fell back to torch, and the run still reported kernel_backend "cuequivariance" with an unchanged
+# front-end call count. Cost: 2.96x on esmfold2-fast, invisible in every field the JSON carried.
+CUEQ_IMPORT_ERRORS: list = []
+
 # Unix-clock (start, end) of every timed fold, filled by whichever runner ran. main() reduces
 # the power samples over the WARM spans only.
 SPANS: list = []
@@ -162,7 +170,11 @@ def install_cueq_counters() -> dict:
     for modname in _CUEQ_MODULES:
         try:
             mod = importlib.import_module(modname)
-        except Exception:
+        except Exception as e:
+            # -1 == present in the pin set but not importable, so the key exists and a reader can
+            # tell "kernel did not run" from "kernel was never asked for". Never silently `continue`.
+            counts[modname + ".IMPORT_FAILED"] = -1
+            CUEQ_IMPORT_ERRORS.append("%s: %s: %s" % (modname, type(e).__name__, e))
             continue
         seen = True
         short = modname.split(".")[-1]
@@ -703,7 +715,7 @@ def main() -> int:
         loadavg=os.getloadavg(), nvidia_smi=smi, power_util=reduced,
         peak_mem_MiB=round(torch.cuda.max_memory_allocated() / 1048576, 1),
         peak_mem_reserved_MiB=round(torch.cuda.max_memory_reserved() / 1048576, 1),
-        cueq_call_shapes=sorted(CUEQ_SHAPES),
+        cueq_call_shapes=sorted(CUEQ_SHAPES), cueq_import_errors=list(CUEQ_IMPORT_ERRORS),
         torch_version=torch.__version__, cuda_version=torch.version.cuda,
         recycling_steps=args.recycles, sampling_steps=args.steps,
         diffusion_samples=SAMPLES, seed=SEED,
