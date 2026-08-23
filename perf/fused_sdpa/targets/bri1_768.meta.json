@@ -1,0 +1,17 @@
+{
+ "pdb": "3RGZ",
+ "name": "bri1_768",
+ "rung": 768,
+ "n_res": 768,
+ "padded": 768,
+ "resolution": 2.281,
+ "description": "Protein BRASSINOSTEROID INSENSITIVE 1",
+ "ca_modelled": 745,
+ "ca_coverage": 0.9701,
+ "cif_url": "https://files.rcsb.org/download/3RGZ.cif.gz",
+ "cif_sha256": "42e4481de03411ee22902156833f139b8e26ec8bae8f2af794a0a927775e66d9",
+ "msa_depth": 256,
+ "msa_depth_requested": 256,
+ "colabfold_ticket": "9zFsn5qQvOcHk59vTL8i6Giau93rxm-r94Vtfw",
+ "colabfold_mode": "env"
+}

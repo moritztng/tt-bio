@@ -1,0 +1,17 @@
+{
+ "pdb": "3VMA",
+ "name": "pbp1_768",
+ "rung": 768,
+ "n_res": 768,
+ "padded": 768,
+ "resolution": 2.161,
+ "description": "Penicillin-binding protein 1B",
+ "ca_modelled": 708,
+ "ca_coverage": 0.9219,
+ "cif_url": "https://files.rcsb.org/download/3VMA.cif.gz",
+ "cif_sha256": "0fb7b8d9811f73a3d14ff95c54b94f23c4f6d2188643d87ebda181cb8862c529",
+ "msa_depth": 256,
+ "msa_depth_requested": 256,
+ "colabfold_ticket": "_SxlLo-5oKOrje5ePtt27qcsjkQ7bbokETSC2Q",
+ "colabfold_mode": "env"
+}

@@ -1,0 +1,389 @@
+{
+ "rung": 512,
+ "delta": 0.002,
+ "targets": {
+  "alkp_512": {
+   "name": "alkp_512",
+   "verdict": "SCORED",
+   "pdb": "6QSQ",
+   "n_res": 512,
+   "n_scored_residues": 503,
+   "n_pairs": 64008,
+   "seeds": [
+    0,
+    1,
+    2
+   ],
+   "served_per_fold": [
+    2176,
+    3264,
+    4352
+   ],
+   "rho": {
+    "def": [
+     0.952955,
+     0.952931,
+     0.952997
+    ],
+    "hifi": [
+     0.952882,
+     0.952793,
+     0.952845
+    ]
+   },
+   "rho_shipped_mean": 0.952961,
+   "rho_shipped_sd": 3.4e-05,
+   "margin_per_seed": [
+    -7.3e-05,
+    -0.000137,
+    -0.000153
+   ],
+   "margin_mean": -0.000121,
+   "margin_block_ci95": [
+    -0.000228,
+    -1.6e-05
+   ],
+   "near_is_low_bin": true,
+   "contact_precision_topL5": {
+    "def": [
+     1.0,
+     1.0,
+     1.0
+    ],
+    "hifi": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "confidence": {
+    "def": {
+     "plddt": [
+      84.9386,
+      84.9204,
+      84.9089
+     ],
+     "ptm": [
+      0.9197,
+      0.9198,
+      0.92
+     ],
+     "fold_s": [
+      90.68,
+      80.7,
+      81.049
+     ]
+    },
+    "hifi": {
+     "plddt": [
+      84.9479,
+      84.9458,
+      84.9423
+     ],
+     "ptm": [
+      0.92,
+      0.92,
+      0.9199
+     ],
+     "fold_s": [
+      42.985,
+      46.875,
+      46.525
+     ]
+    }
+   }
+  },
+  "hema_512": {
+   "name": "hema_512",
+   "verdict": "SCORED",
+   "pdb": "7QA4",
+   "n_res": 512,
+   "n_scored_residues": 488,
+   "n_pairs": 42220,
+   "seeds": [
+    0,
+    1,
+    2
+   ],
+   "served_per_fold": [
+    2176,
+    3264,
+    4352
+   ],
+   "rho": {
+    "def": [
+     0.911136,
+     0.911272,
+     0.912026
+    ],
+    "hifi": [
+     0.911193,
+     0.911338,
+     0.912524
+    ]
+   },
+   "rho_shipped_mean": 0.911478,
+   "rho_shipped_sd": 0.00048,
+   "margin_per_seed": [
+    5.6e-05,
+    6.6e-05,
+    0.000497
+   ],
+   "margin_mean": 0.000207,
+   "margin_block_ci95": [
+    -0.000445,
+    0.000812
+   ],
+   "near_is_low_bin": true,
+   "contact_precision_topL5": {
+    "def": [
+     1.0,
+     1.0,
+     1.0
+    ],
+    "hifi": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "confidence": {
+    "def": {
+     "plddt": [
+      81.1652,
+      81.1747,
+      81.1331
+     ],
+     "ptm": [
+      0.6881,
+      0.69,
+      0.6912
+     ],
+     "fold_s": [
+      98.276,
+      98.668,
+      94.597
+     ]
+    },
+    "hifi": {
+     "plddt": [
+      81.1749,
+      81.1923,
+      81.2242
+     ],
+     "ptm": [
+      0.6921,
+      0.6921,
+      0.6912
+     ],
+     "fold_s": [
+      44.663,
+      53.391,
+      53.327
+     ]
+    }
+   }
+  },
+  "hexb_512": {
+   "name": "hexb_512",
+   "verdict": "SCORED",
+   "pdb": "1M03",
+   "n_res": 512,
+   "n_scored_residues": 499,
+   "n_pairs": 65185,
+   "seeds": [
+    0,
+    1,
+    2
+   ],
+   "served_per_fold": [
+    2176,
+    3264,
+    4352
+   ],
+   "rho": {
+    "def": [
+     0.955121,
+     0.955163,
+     0.955156
+    ],
+    "hifi": [
+     0.955111,
+     0.955112,
+     0.955174
+    ]
+   },
+   "rho_shipped_mean": 0.955147,
+   "rho_shipped_sd": 2.3e-05,
+   "margin_per_seed": [
+    -1e-05,
+    -5.1e-05,
+    1.8e-05
+   ],
+   "margin_mean": -1.4e-05,
+   "margin_block_ci95": [
+    -8.9e-05,
+    5.6e-05
+   ],
+   "near_is_low_bin": true,
+   "contact_precision_topL5": {
+    "def": [
+     1.0,
+     1.0,
+     1.0
+    ],
+    "hifi": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "confidence": {
+    "def": {
+     "plddt": [
+      85.1906,
+      85.2124,
+      85.2067
+     ],
+     "ptm": [
+      0.9149,
+      0.9148,
+      0.9149
+     ],
+     "fold_s": [
+      83.012,
+      87.034,
+      82.581
+     ]
+    },
+    "hifi": {
+     "plddt": [
+      85.2198,
+      85.2241,
+      85.2352
+     ],
+     "ptm": [
+      0.915,
+      0.915,
+      0.915
+     ],
+     "fold_s": [
+      43.468,
+      55.848,
+      55.481
+     ]
+    }
+   }
+  },
+  "utpr_512": {
+   "name": "utpr_512",
+   "verdict": "SCORED",
+   "pdb": "5IDO",
+   "n_res": 512,
+   "n_scored_residues": 471,
+   "n_pairs": 48938,
+   "seeds": [
+    0,
+    1,
+    2
+   ],
+   "served_per_fold": [
+    2176,
+    3264,
+    4352
+   ],
+   "rho": {
+    "def": [
+     0.9292,
+     0.929298,
+     0.929284
+    ],
+    "hifi": [
+     0.929381,
+     0.929362,
+     0.929368
+    ]
+   },
+   "rho_shipped_mean": 0.929261,
+   "rho_shipped_sd": 5.3e-05,
+   "margin_per_seed": [
+    0.000182,
+    6.4e-05,
+    8.3e-05
+   ],
+   "margin_mean": 0.00011,
+   "margin_block_ci95": [
+    -3.4e-05,
+    0.000235
+   ],
+   "near_is_low_bin": true,
+   "contact_precision_topL5": {
+    "def": [
+     0.989362,
+     0.989362,
+     0.989362
+    ],
+    "hifi": [
+     0.989362,
+     0.989362,
+     0.989362
+    ]
+   },
+   "confidence": {
+    "def": {
+     "plddt": [
+      88.996,
+      89.0063,
+      89.0036
+     ],
+     "ptm": [
+      0.9233,
+      0.924,
+      0.9233
+     ],
+     "fold_s": [
+      81.685,
+      81.324,
+      81.298
+     ]
+    },
+    "hifi": {
+     "plddt": [
+      89.1207,
+      89.108,
+      89.1148
+     ],
+     "ptm": [
+      0.9248,
+      0.9252,
+      0.9248
+     ],
+     "fold_s": [
+      43.161,
+      42.896,
+      42.624
+     ]
+    }
+   }
+  }
+ },
+ "pooled": {
+  "n_targets": 4,
+  "n_folds": 12,
+  "per_target_mean_margin": [
+   -0.000121,
+   0.000207,
+   -1.4e-05,
+   0.00011
+  ],
+  "cross_target_mean": 4.5e-05,
+  "cluster_boot_ci95": [
+   -8e-05,
+   0.000191
+  ],
+  "targets_negative": 2,
+  "min_negative_for_floor": 3,
+  "folds_negative": 5,
+  "verdict": "GO"
+ }
+}
