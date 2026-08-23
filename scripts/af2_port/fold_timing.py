@@ -26,6 +26,7 @@ arithmetically wrong on purpose and the inputs are real coordinates in a nonsens
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import statistics
 import sys
@@ -117,10 +118,15 @@ def fold(model, feats, prev, recycles: int, split: Split) -> tuple[list[float], 
         prev = {"prev_msa_first_row": out["msa_first_row"],
                 "prev_pair": out["pair"],
                 "prev_pos": out["structure"]["final_atom_positions"]}
+    # The design's own structure output, hashed. A perf arm that claims bit-exactness has to say
+    # so against the coordinates this fixture produces, not only against a tap gate on another one.
+    coords = last["structure"]["final_atom_positions"].detach().cpu().to(torch.float32).numpy()
+    structure_sha16 = hashlib.sha256(np.ascontiguousarray(coords).tobytes()).hexdigest()[:16]
     start = time.perf_counter()
     scalars = confidence_scalars(last["plddt_logits"], last["pae_logits"], last["pae_breaks"],
                                  feats["seq_mask"], feats["asym_id"], binder_len=split.binder_len)
     return per_pass, {"confidence_s": time.perf_counter() - start,
+                      "structure_sha16": structure_sha16,
                       "scalars": {k: float(v) for k, v in scalars.items()}}
 
 
@@ -225,6 +231,7 @@ def main() -> int:
                                        [f["confidence_s"] for f in folds]),
         # `filter_tolerance.score()` is complex-only: `bound_unbound_RMSD`'s monomer pass is NOT
         # in this number, and the H200 denominator's af2ig stage IS complex + monomer.
+        "structure_sha16_all": sorted({f["structure_sha16"] for f in folds}),
         "monomer_pass_included": False,
         "criteria_scored": 3,
         "folds": folds,
