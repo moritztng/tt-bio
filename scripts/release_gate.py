@@ -222,8 +222,15 @@ MODELS = {
     "rf3":           {"max_rmsd": 3.0, "min_tm": 0.75},
     # OpenBind-0, shipped as `predict --model openbind`. Same OF3 stack on upstream's
     # v0.5.0 checkpoint, so it folds the shared 7ROA target with the same MSA bytes the
-    # openfold3 row above uses. Floor PROVISIONAL until measured on this gate.
-    "openbind":      {"max_rmsd": 99.0, "min_tm": 0.0},
+    # openfold3 row above uses (/home/ttuser/ypx_msa/425f6b0c8f93f94f.a3m, sha256
+    # 98eb9adc..., 35 sequences) and the two rows are comparable. Measured on this gate
+    # 2026-08-23 on tt-quietbox2 card 1 (p150a, MSA on): RMSD 1.693 A / TM 0.894
+    # best-confidence, 265 s; the five samples spread 1.589-2.183 A / 0.830-0.923, so this
+    # floor covers sample spread and not a run-to-run wobble. Same numbers as openfold3's
+    # 1.775 / 0.890 to within that spread, which is what "the v0.5.0 delta is worth nothing
+    # here" looks like on a 117 aa target. Floor = ~2x measured, so the same pair openfold3
+    # carries -- same discipline as boltz2 (1.55 -> 3.0) and protenix-v2 (3.87 -> 6.0).
+    "openbind":      {"max_rmsd": 3.5, "min_tm": 0.70},
 }
 
 # BoltzGen designability leg — see module docstring. Small n and the target the
