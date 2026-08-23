@@ -55,11 +55,14 @@ def check(procs, censuses):
                if k not in ("TT_BIO_LEASE_CARDS", "TT_BIO_LEASE_HOLDER", "TT_BIO_SDPA_RAGGED_CENSUS")}
         if num:
             fail.append(f"{lbl}: numerics env flags present: {num}")
-    ragged = padded = aligned = 0
-    for c in censuses:
-        ragged += c["sites"]["tri_att"][0]
-        aligned += c["sites"]["tri_att"][1]
-        padded += c["padded"]
+    ragged = sum(c["sites"]["tri_att"][0] for c in censuses)
+    padded = sum(c["padded"] for c in censuses)
+    # Aligned is reported PER PROCESS, not summed: a sum matches no single JSON a reader can open,
+    # and an unequal split across processes is itself a finding rather than something to average.
+    per = {c["sites"]["tri_att"][1] for c in censuses}
+    aligned = sorted(per)[-1] if len(per) == 1 else -1
+    if len(per) > 1:
+        fail.append(f"census aligned counts differ across processes: {sorted(per)}")
     if ragged or padded:
         fail.append(f"census: {ragged} ragged / {padded} padded, expected 0 / 0")
     if aligned == 0:
@@ -73,6 +76,10 @@ def main():
     ap.add_argument("--provenance", help='provenance_<host>.json from the harness preflight; names the origin/main SHA the measured tree matched')
     ap.add_argument("--write", action="store_true")
     ap.add_argument("--updated", default="2026-08-23")
+    ap.add_argument("--cotenants", type=int,
+                    help="peak `foreign=N` across the legs, read off the driver "
+                         "log. Required: co-tenancy cannot be inferred from the "
+                         "per-fold loadavg, which is sampled at fold end.")
     a = ap.parse_args()
 
     procs = [load(p) for p in a.procs]
@@ -83,6 +90,8 @@ def main():
     # and records what it matched; refusing here as well is what stops a hand-run leg from being
     # published against a tree nobody checked.
     prov = load(a.provenance) if a.provenance else None
+    if a.cotenants is None:
+        fail.append("no --cotenants: read peak `foreign=N` off the driver log for each leg")
     if prov is None:
         fail.append("no --provenance: cannot show the measured tree was main")
     elif not prov.get("tt_bio_identical_to_main"):
@@ -106,7 +115,7 @@ def main():
     print(f"per-process:       {per_proc}   A/A {aa} %")
     print(f"spread:            {round(min(warms),3)} to {round(max(warms),3)} s, "
           f"{round(100.0*(max(warms)-min(warms))/min(warms),2)} %")
-    print(f"census:            {cen[0]} ragged / {cen[1]} aligned / {cen[2]} padded")
+    print(f"census:            {cen[0]} ragged / {cen[1]} aligned per process / {cen[2]} padded")
     print(f"H200 fold ratio:   {pooled} / {h200_s} = {ratio}x")
     if not (BAND[0] <= pooled <= BAND[1]):
         fail.append(f"pooled median {pooled} outside the {BAND[0]}-{BAND[1]} s publish band")
@@ -132,6 +141,28 @@ def main():
         print("WARNING: fused-call increments are not constant across folds:", sorted(per_fold))
     fused = sorted(per_fold)[-1]
     raws = " and ".join(pathlib.Path(x).name for x in a.procs)
+
+    # Two sentences below were facts about one particular process, not about the protocol, so they
+    # are derived rather than asserted. A ref that describes the data wrongly is worse than a ref
+    # that says less.
+    #
+    # The route label was hardcoded and expired at the flip. It is fixed in the tree now, so the
+    # caveat only belongs in the ref when the JSONs actually still carry the stale string.
+    stale = any("_fp32_softmax_attention" in d["arm"]["route"] for d in procs)
+    route_note = (
+        "The raw JSONs carry a stale route string that predates the flip; resolved.fp32_softmax "
+        "false next to it is the field that says which arm ran. " if stale else "")
+    # Co-tenancy comes from --cotenants, the `foreign=N` the driver logs at each leg start.
+    # It is NOT inferred from the per-fold loadavg: that is sampled at fold END, and it read 1.96
+    # for a process whose driver log recorded six concurrent foreign folds, i.e. inferring from it
+    # would have published "the box was quiet" about a co-tenanted run.
+    peak = max(float(f["loadavg"][0]) for d in procs for f in d["folds"])
+    quiet_note = (
+        f"Both processes ran co-tenanted, {a.cotenants} foreign folds on neighbouring cards at leg "
+        f"start, so this is an upper bound: benchlock excluded every other timed measurement on "
+        f"the host but not the rest of the box. " if a.cotenants else
+        f"No foreign fold was running on any card at either leg start, and benchlock excluded "
+        f"every other timed measurement on the host. 1-minute loadavg peaked at {peak:.2f}. ")
     ref = (
         f"Four warm folds of the shipped default across two independent processes under benchlock "
         f"on qb2 card 2, ttnn 0.68.0, the same host, card and runtime the previous 82.547 s was "
@@ -146,13 +177,10 @@ def main():
         f"bit-exact against the materialised fp32-softmax chain it replaces. "
         f"The fused route carried every call, counted not assumed: {fused} fused triangle-attention "
         f"calls per fold and 0 unfused, "
-        f"and the ragged census reads {cen[0]} ragged / {cen[1]} aligned / {cen[2]} padded, so the "
-        f"ragged-tail pad fires on nothing at 512 aa and this reading prices the arm alone. The "
-        f"raw JSONs carry a stale route string that predates the flip; resolved.fp32_softmax false "
-        f"next to it is the field that says which arm ran. "
-        f"Both processes were co-tenanted on a box that does not go quiet, so this is an upper "
-        f"bound: benchlock excluded every other timed measurement on the host, but neighbouring "
-        f"cards were busy. "
+        f"and the ragged census reads {cen[0]} ragged / {cen[1]} aligned per process / {cen[2]} "
+        f"padded, so the "
+        f"ragged-tail pad fires on nothing at 512 aa and this reading prices the arm alone. "
+        f"{route_note}{quiet_note}"
         f"AtomWorks host featurisation is 8.3 s or less of this fold, timed on its own on the same "
         f"box and the same fixture, so this cell is far less host-bound than the two NVIDIA cells "
         f"are. Measured on tt_bio byte-identical to main at {prov['origin_main'][:8]}, asserted "

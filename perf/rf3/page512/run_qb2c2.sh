@@ -83,8 +83,13 @@ for P in ${RF3_LEGS:-p1 p2}; do
     echo "=== $P already has a result, skipping (delete it to re-measure) ==="
     continue
   fi
-  echo "=== $P start $(date -u +%FT%TZ) load $(cut -d' ' -f1-3 /proc/loadavg) foreign=$(nforeign) ==="
+  NF=$(nforeign)
+  echo "=== $P start $(date -u +%FT%TZ) load $(cut -d' ' -f1-3 /proc/loadavg) foreign=$NF ==="
   foreign | sed 's/^/    cotenant: /'
+  # publish_cell.py requires this count and refuses to infer it: the per-fold loadavg is sampled
+  # at fold END and read 1.96 for a leg that started with six foreign folds running.
+  echo "{\"leg\": \"$P\", \"foreign_at_start\": $NF, \"loadavg\": \"$(cut -d' ' -f1-3 /proc/loadavg)\"}" \
+    > "$OUT/cotenancy_${HOST}_${P}.json"
   /home/ttuser/.coworker/scripts/benchlock.sh rf3-perf-page-row-refresh -- \
     env PYTHONPATH="$PP" \
         TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD \
