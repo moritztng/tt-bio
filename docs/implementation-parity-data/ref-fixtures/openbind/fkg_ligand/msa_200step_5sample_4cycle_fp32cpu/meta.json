@@ -1,0 +1,27 @@
+{
+  "model": "openbind",
+  "target": "fkg_ligand",
+  "reference_impl": "upstream aqlaboratory/openfold-3 v0.5.0 clone (torch, CPU)",
+  "reference_version": "openfold3 v0.5.0 (OpenBind-0 release), checkpoint of3-ob-2025-06-30-174k.pt (174k steps)",
+  "reference_commit": "c4771653 (aqlaboratory/openfold-3 tag v0.5.0)",
+  "command": "scripts/of3_ref_fixture.py --ref-run \"<refenv> scripts/ob0_run_openfold.py\"",
+  "date": "2026-08-22",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "settings": {
+    "diffusion_samples": 5,
+    "diffusion_steps": 200,
+    "recycling_cycles": 4,
+    "dtype": "fp32 (CPU)",
+    "msa_source": "committed msa.a3m (identical bytes for device and reference)",
+    "use_templates": false,
+    "selection": "confidence-selected best-of-5 by sample_ranking_score"
+  },
+  "settings_tag": "msa_200step_5sample_4cycle_fp32cpu",
+  "invalidation_rule": "Regenerate ONLY when the pinned reference version, checkpoint, or settings change; the device side re-runs every release."
+}

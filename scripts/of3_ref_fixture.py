@@ -1,5 +1,5 @@
-"""Generate an OpenFold3 reference parity fixture: run the official upstream
-`openfold3` pip package (CPU) for seeds 0..N on a fixed query JSON, then harvest
+"""Generate an OpenFold3 / OpenBind reference parity fixture: run the upstream
+`openfold3` reference (CPU) for seeds 0..N on a fixed query JSON, then harvest
 each seed's confidence-selected structure into the committed fixture layout:
 
     <fixture-dir>/seed<N>/results.json
@@ -9,8 +9,15 @@ each seed's confidence-selected structure into the committed fixture layout:
 
 The query JSON must pin main_msa_file_paths to the SAME a3m the device leg will
 consume (parity is only meaningful on identical inputs; the MSA content otherwise
-differs run to run). Requires the CPU reference venv (see docs/openfold3-port.md):
-    python3.12 -m venv /tmp/of3-venv && /tmp/of3-venv/bin/pip install openfold3
+differs run to run).
+
+Two reference flavours, selected by --ref-run:
+  * pip-installed openfold3 (preview2 legs):
+        python3 -m venv /tmp/of3-venv && /tmp/of3-venv/bin/pip install openfold3
+        --ref-run /tmp/of3-venv/bin/run_openfold
+  * a source clone (the OpenBind v0.5.0 legs; the release is not on PyPI):
+        --ref-run "<refenv>/bin/python <repo>/scripts/ob0_run_openfold.py"
+        --ref-env PYTHONPATH=/home/ttuser/ob0_upstream:/home/ttuser/ob0_refdeps
 
 Example:
     /home/ttuser/tt-bio-dev/env/bin/python3 scripts/of3_ref_fixture.py \
@@ -21,6 +28,7 @@ Example:
 import argparse
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -57,20 +65,23 @@ TEMPLATE_SETTINGS = """template_preprocessor_settings:
 
 def _harvest(out_dir: Path, query_name: str, target_id: str, seed: int,
              fixture_dir: Path, n_samples: int) -> dict:
-    seed_out = next((out_dir / query_name).glob(f"seed_{seed}"))
-    best_idx, best_score, best_agg = None, None, None
-    aggs = sorted(seed_out.glob(f"*_sample_*_confidences_aggregated.json"))
+    # Recursive: the reference's per-seed directory layout is not part of its API and
+    # has moved between releases. The per-sample file names have not.
+    aggs = sorted(out_dir.rglob("*_confidences_aggregated.json"))
+    best_idx, best_score, best_agg, best_path = None, None, None, None
     for i, ap in enumerate(aggs):
         agg = json.loads(ap.read_text())
         score = agg["sample_ranking_score"]
         if best_score is None or score > best_score:
-            best_idx, best_score, best_agg = i, score, agg
+            best_idx, best_score, best_agg, best_path = i, score, agg, ap
     if best_idx is None:
-        raise RuntimeError(f"no confidence summaries under {seed_out}")
+        raise RuntimeError(f"no confidence summaries under {out_dir}")
 
     seed_dir = fixture_dir / f"seed{seed}"
     (seed_dir / "structures").mkdir(parents=True, exist_ok=True)
-    src_cif = seed_out / f"{query_name}_seed_{seed}_sample_{best_idx + 1}_model.cif"
+    src_cif = Path(str(best_path).replace("_confidences_aggregated.json", "_model.cif"))
+    if not src_cif.exists():
+        raise RuntimeError(f"selected sample has no structure: {src_cif}")
     shutil.copyfile(src_cif, seed_dir / "structures" / f"{target_id}.cif")
     record = {
         "id": target_id,
@@ -90,10 +101,27 @@ def _harvest(out_dir: Path, query_name: str, target_id: str, seed: int,
         "seed": seed,
         "target_id": target_id,
         "harvested_from": str(out_dir),
+        "selected_structure": src_cif.name,
         "selected_record": record,
         "note": "real reference output copied verbatim; not regenerated or edited",
     }, indent=2))
     return record
+
+
+def _seed_cmd(args, seed: int, work: Path) -> tuple[list[str], Path, Path]:
+    runner = work / f"runner_seed{seed}.yml"
+    runner.write_text(RUNNER_TEMPLATE.format(
+        seed=seed, use_templates=str(args.use_templates).lower(),
+        template_settings=(TEMPLATE_SETTINGS if args.use_templates else "")))
+    out_dir = work / f"{args.target_id}_seed{seed}"
+    cmd = shlex.split(args.ref_run) + [
+        "predict", "--query-json", args.query_json,
+        "--inference-ckpt-path", args.ckpt,
+        "--num-diffusion-samples", str(args.num_diffusion_samples),
+        "--use-msa-server", "False",
+        "--use-templates", str(args.use_templates),
+        "--output-dir", str(out_dir), "--runner-yaml", str(runner)]
+    return cmd, out_dir, work / f"seed{seed}.log"
 
 
 def main() -> int:
@@ -109,9 +137,20 @@ def main() -> int:
     ap.add_argument("--use-templates", action="store_true")
     ap.add_argument("--msa-a3m", default=None,
                     help="Copy these exact MSA bytes to <fixture-dir>/msa.a3m.")
-    ap.add_argument("--ref-run", default="/tmp/of3-venv/bin/run_openfold")
+    ap.add_argument("--ref-run", default="/tmp/of3-venv/bin/run_openfold",
+                    help="Reference launcher, shell-split (a pip console script, or "
+                         "'<python> <wrapper.py>' for a source clone).")
+    ap.add_argument("--ref-env", action="append", default=[], metavar="NAME=VALUE",
+                    help="Extra env for the reference process (repeatable).")
+    ap.add_argument("--model-name", default="openfold3",
+                    help="Written to meta.json 'model'; the gate keys fixtures on it.")
     ap.add_argument("--ckpt", default=os.path.expanduser("~/of3-weights/of3-p2-155k.pt"))
     ap.add_argument("--work-root", default="/tmp/of3_ref_fixture_runs")
+    ap.add_argument("--jobs", type=int, default=1,
+                    help="Seeds to run concurrently. CPU reference folds are "
+                         "thread-limited with --threads so N of them fit one box.")
+    ap.add_argument("--threads", type=int, default=0,
+                    help="torch/OMP threads per seed process (0 = leave alone).")
     ap.add_argument("--meta", default=None,
                     help="JSON string merged into the fixture meta.json.")
     args = ap.parse_args()
@@ -123,35 +162,43 @@ def main() -> int:
     work = Path(args.work_root)
     work.mkdir(parents=True, exist_ok=True)
 
+    env = dict(os.environ)
+    for kv in args.ref_env:
+        k, _, v = kv.partition("=")
+        env[k] = v
+    if args.threads:
+        for k in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS",
+                  "NUMEXPR_NUM_THREADS"):
+            env[k] = str(args.threads)
+
     records = {}
-    for seed in args.seeds:
-        runner = work / f"runner_seed{seed}.yml"
-        runner.write_text(RUNNER_TEMPLATE.format(
-            seed=seed, use_templates=str(args.use_templates).lower(),
-            template_settings=(TEMPLATE_SETTINGS if args.use_templates else "")))
-        out_dir = work / f"{args.target_id}_seed{seed}"
-        cmd = [args.ref_run, "predict", "--query-json", args.query_json,
-               "--inference-ckpt-path", args.ckpt,
-               "--num-diffusion-samples", str(args.num_diffusion_samples),
-               "--use-msa-server", "False",
-               "--use-templates", str(args.use_templates),
-               "--output-dir", str(out_dir), "--runner-yaml", str(runner)]
-        print(f"[seed {seed}] {' '.join(cmd)}", flush=True)
-        proc = subprocess.run(cmd, capture_output=True, text=True)
-        if proc.returncode != 0:
-            print(proc.stdout[-3000:], proc.stderr[-3000:], file=sys.stderr)
-            raise SystemExit(f"reference run failed for seed {seed}")
-        records[seed] = _harvest(out_dir, query_name, args.target_id, seed,
-                                 fixture_dir, args.num_diffusion_samples)
-        print(f"[seed {seed}] selected sample {records[seed]['selected_sample_idx']} "
-              f"ptm={records[seed]['ptm']:.4f} plddt={records[seed]['plddt']:.2f}",
-              flush=True)
+    pending = list(args.seeds)
+    while pending:
+        batch, pending = pending[:max(1, args.jobs)], pending[max(1, args.jobs):]
+        running = []
+        for seed in batch:
+            cmd, out_dir, log = _seed_cmd(args, seed, work)
+            print(f"[seed {seed}] {' '.join(cmd)}", flush=True)
+            fh = open(log, "w")
+            running.append((seed, subprocess.Popen(cmd, stdout=fh, stderr=subprocess.STDOUT,
+                                                   env=env), out_dir, log, fh))
+        for seed, proc, out_dir, log, fh in running:
+            rc = proc.wait()
+            fh.close()
+            if rc != 0:
+                print(Path(log).read_text()[-4000:], file=sys.stderr)
+                raise SystemExit(f"reference run failed for seed {seed} (see {log})")
+            records[seed] = _harvest(out_dir, query_name, args.target_id, seed,
+                                     fixture_dir, args.num_diffusion_samples)
+            print(f"[seed {seed}] selected sample {records[seed]['selected_sample_idx']} "
+                  f"ptm={records[seed]['ptm']:.4f} plddt={records[seed]['plddt']:.2f}",
+                  flush=True)
 
     if args.msa_a3m:
         shutil.copyfile(args.msa_a3m, fixture_dir / "msa.a3m")
 
     meta = {
-        "model": "openfold3",
+        "model": args.model_name,
         "target": args.target_id,
         "reference_impl": "official aqlaboratory openfold3 (torch, CPU)",
         "reference_version": "openfold3 0.4.4, checkpoint of3-p2-155k.pt "

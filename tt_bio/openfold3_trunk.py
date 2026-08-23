@@ -44,7 +44,7 @@ from __future__ import annotations
 import ttnn
 
 from .tenstorrent import Module, Pairformer, accurate_softmax_site
-from .openfold3_weights import remap_pairformer_stack, _sub
+from .openfold3_weights import remap_pairformer_stack, is_openbind, _sub
 from .openfold3_template import TemplateEmbedder
 from .openfold3_msa_embedder import MSAModuleEmbedder, MSAModule
 
@@ -123,17 +123,29 @@ class OF3Trunk(Module):
         self.num_cycles = num_cycles
         self.glue = OF3TrunkGlue(state_dict, compute_kernel_config)
         pf_sd = remap_pairformer_stack(state_dict, prefix="pairformer_stack")
+        # Ending-node triangle-attention bias orientation. Every pair stack in the
+        # trunk (pairformer, template, MSA) shares one upstream PairBlock, so they
+        # all move together. preview2 builds the bias from the TRANSPOSED pair, which
+        # indexes it off z_ji where AF3 Algorithm 15 wants z_ij; v0.5.0 added
+        # `transpose_bias=True` to PairBlock.tri_att_end to put it back on z_ij. That
+        # is tt-bio's `transpose_bias=False` -- the flag names read opposite because
+        # ours describes the bias following the pair transpose, theirs describes
+        # undoing it. No weights change, so the checkpoint has to select it.
+        tri_att_end_bias_follows_pair = not is_openbind(state_dict)
         # scale_pair_bias=False: openfold3 adds the attention pair bias UNSCALED (q
         # pre-scaled by 1/sqrt(d)); the shared default sqrt(d) fold is Boltz's.
         self.pairformer = Pairformer(
             _N_PAIRFORMER_BLOCKS, *_PF_DIMS, True, pf_sd, compute_kernel_config,
             scale_pair_bias=False, fp32_softmax=True,
+            transpose_bias=tri_att_end_bias_follows_pair,
             accurate_softmax=accurate_softmax_site("openfold3.trunk"))
         self.template = TemplateEmbedder(
-            _sub(state_dict, "template_embedder"), compute_kernel_config)
+            _sub(state_dict, "template_embedder"), compute_kernel_config,
+            transpose_bias=tri_att_end_bias_follows_pair)
         self.msa_embedder = MSAModuleEmbedder(
             _sub(state_dict, "msa_module_embedder"), compute_kernel_config)
-        self.msa_module = MSAModule(state_dict, compute_kernel_config)
+        self.msa_module = MSAModule(state_dict, compute_kernel_config,
+                                    transpose_bias=tri_att_end_bias_follows_pair)
 
     def _zeros_like(self, t):
         # TILE_LAYOUT so the cycle-0 zeros are tile-padded (96, not 76) -- a ROW_MAJOR
