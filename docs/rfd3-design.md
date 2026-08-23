@@ -42,6 +42,11 @@ key:
 }
 ```
 
+`examples/rfd3_binder.json` is a working spec you can run as-is: a 70-residue
+binder against a 50-residue motif taken from `examples/ground_truth_structures/prot.cif`.
+`input` is resolved relative to the directory you run the command from, not to the
+spec file.
+
 The contig string reads left to right: `A1-100` takes residues 1-100 of chain
 A from the input structure verbatim (fixed coordinates and sequence); a bare
 number (`70`) is a designed region of that exact length; a range (`60-80`)

@@ -1,0 +1,40 @@
+{
+  "model": "opendde",
+  "tid": "cdk2x2_298",
+  "baseline": "base",
+  "aa_floor": 8.270243778057385e-15,
+  "rows": [
+    {
+      "arm": "control",
+      "kind": "A/A control",
+      "status": "ok",
+      "kabsch_rmsd": 8.270243778057385e-15,
+      "coord_pcc": 0.9999999999999999,
+      "tm_score": 1.0,
+      "lddt": 1.0,
+      "n_matched": 2398,
+      "conf_delta": {
+        "confidence_score": 0.0,
+        "ptm": 0.0,
+        "iptm": 0.0,
+        "complex_plddt": 0.0
+      }
+    },
+    {
+      "arm": "ragpad",
+      "kind": "lever",
+      "status": "ok",
+      "kabsch_rmsd": 0.3895696725052004,
+      "coord_pcc": 0.9998210078417032,
+      "tm_score": 0.9993086960273913,
+      "lddt": 0.9885453236313836,
+      "n_matched": 2398,
+      "conf_delta": {
+        "confidence_score": 0.017051999999999956,
+        "ptm": 0.017051999999999956,
+        "iptm": 0.0,
+        "complex_plddt": 0.019896999999999943
+      }
+    }
+  ]
+}
