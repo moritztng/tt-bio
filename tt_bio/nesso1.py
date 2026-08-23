@@ -480,10 +480,15 @@ class Nesso1(nn.Module):
         """
         if not self.use_tenstorrent:
             return
+        from tt_bio import tenstorrent
+
+        # A typed call, not `getattr(module, ..., None)`. The soft form was silently a
+        # no-op the moment the method it looked for was not there, and a merge that
+        # dropped it produced a broadcast failure 300 lines away instead of an
+        # AttributeError here.
         for module in self.modules():
-            invalidate = getattr(module, "invalidate_masks", None)
-            if invalidate is not None:
-                invalidate()
+            if isinstance(module, tenstorrent.TorchWrapper):
+                module.reset_static_cache()
 
     def pocket_crop(self, z: Tensor, feats: dict[str, Any]) -> tuple[Tensor, Tensor]:
         pdistogram_full = self.distogram_head(z + z.transpose(1, 2))
