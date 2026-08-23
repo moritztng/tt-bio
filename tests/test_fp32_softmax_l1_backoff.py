@@ -202,3 +202,136 @@ def test_a_ragged_width_gets_exactly_the_shipped_answer():
             rows = T._fp32_softmax_l1_rows(per_row, hpr)
             want = (rows, CORES) if rows else (0, 0)
             assert T._fp32_softmax_l1_plan(per_row, hpr, tokens) == want, (heads, tokens)
+
+
+# --- S2: the free core count offered at every size, under the matmul-config constraint ---------
+#
+# `_fp32_softmax_l1_plan` with `_FP32_SOFTMAX_L1_FLOAT_CORES` on may replace a block the tuned 8x8
+# rectangle CAN serve. The first version of that took the tallest block the byte budget affords and
+# was a wash at 512 aa: 18 rows on 96 cores cut the block count 32.6 % and returned 1.013x, because
+# `batch = rows * n_heads` went 48 -> 72 and `_batched_matmul_search` has no legal config there, so
+# every q@k^T fell back to ttnn's own planner. The objective below is the tallest block that still
+# admits a config, and the constraint applies only where the block being replaced had one to lose.
+#
+# These are host tests, so `_batched_matmul_config` has no device to read L1 from. It is pinned to
+# the numbers this card actually reports -- 110 cores at 1532416 B unreserved -- because the plan
+# is a pure function of them and the plans below are the ones the on-device sweep measured
+# (perf/fp32softmax/results/s2_op_ab.json).
+
+L1_UNRESERVED = 1532416         # ttnn.get_max_worker_l1_unreserved_size() on this p150a
+
+
+@pytest.fixture
+def s2_on(monkeypatch):
+    monkeypatch.setattr(T, "_FP32_SOFTMAX_L1_FLOAT_CORES", True)
+    monkeypatch.setattr(T, "_batched_matmul_config",
+                        lambda batch, mt, kt, nt, elem, rung=0: T._batched_matmul_search(
+                            batch, mt, kt, nt, elem, tuple(T.COMPUTE_GRID_MAIN), L1_UNRESERVED,
+                            rung))
+    T._fp32_softmax_l1_plan.cache_clear()
+    yield
+    T._fp32_softmax_l1_plan.cache_clear()
+
+
+def bmm(tokens: int, heads: int = N_HEADS, head_dim: int = 32) -> tuple:
+    """The (heads, Mt, head-dim tiles, key tiles, value tiles) the two score matmuls take."""
+    t = -(-tokens // 32)
+    return heads, t, -(-head_dim // 32), t, -(-head_dim // 32)
+
+
+@pytest.mark.parametrize("heads,tokens,plan", [
+    (4, 256, (81, 108)), (4, 512, (13, 104)), (4, 576, (13, 104)), (4, 640, (11, 110)),
+    (4, 768, (9, 108)), (4, 1024, (3, 96)), (2, 512, (27, 108)), (2, 1024, (6, 96)),
+    (8, 512, (6, 96)), (8, 576, (6, 108)),
+])
+def test_s2_plans_are_the_ones_the_sweep_measured(s2_on, heads, tokens, plan):
+    T.COMPUTE_GRID_MAIN = (11, 10)
+    T._fp32_softmax_l1_plan.cache_clear()
+    hpr = heads * tokens
+    per_row = hpr * tokens * 4
+    assert T._fp32_softmax_l1_plan(per_row, hpr, tokens, None, bmm(tokens, heads)) == plan
+
+
+def test_s2_never_returns_a_worse_plan_than_the_tuned_one(s2_on):
+    """Taller, or the same height on more cores, or exactly the tuned answer. Never below it.
+
+    The tie on height matters as much as the height: the same 3-row block at 1024 aa is 786432
+    B/core on 64 and 524288 on 96, and it is the 64-core version that refuses its circular buffers
+    and forces the 2-row backoff.
+    """
+    for grid in ((13, 10), (11, 10), (8, 8)):
+        T.COMPUTE_GRID_MAIN = grid
+        T._fp32_softmax_l1_plan.cache_clear()
+        for heads in (1, 2, 4, 8, 16):
+            for tokens in range(32, 1057, 32):
+                hpr = heads * tokens
+                per_row = hpr * tokens * 4
+                tuned = T._fp32_softmax_l1_rows(per_row, hpr)
+                rows, cores = T._fp32_softmax_l1_plan(per_row, hpr, tokens, None,
+                                                      bmm(tokens, heads))
+                assert cores <= grid[0] * grid[1], (grid, heads, tokens)
+                if not tuned:
+                    continue
+                assert (rows, cores) >= (tuned, CORES), (grid, heads, tokens, tuned)
+                assert rows * hpr % (cores * 32) == 0, (grid, heads, tokens)
+                assert rows * per_row <= cores * T._FP32_SOFTMAX_L1_BYTES_PER_CORE
+
+
+def test_s2_keeps_the_batched_matmul_config_wherever_the_tuned_block_had_one(s2_on):
+    """The whole objective, asserted rather than described. A size whose tuned block has no config
+    is unconstrained -- there is nothing to lose, which is why S1's decline count could grow 3.9x
+    on the arm that won 1.214x."""
+    T.COMPUTE_GRID_MAIN = (11, 10)
+    T._fp32_softmax_l1_plan.cache_clear()
+    moved = 0
+    for heads in (1, 2, 4, 8, 16):
+        for tokens in range(32, 1057, 32):
+            hpr = heads * tokens
+            per_row = hpr * tokens * 4
+            tuned = T._fp32_softmax_l1_rows(per_row, hpr)
+            if not tuned or not T._fp32_softmax_bmm_served(tuned, bmm(tokens, heads)):
+                continue
+            rows, cores = T._fp32_softmax_l1_plan(per_row, hpr, tokens, None, bmm(tokens, heads))
+            assert T._fp32_softmax_bmm_served(rows, bmm(tokens, heads)), (heads, tokens, rows)
+            moved += (rows, cores) != (tuned, CORES)
+    assert moved > 20, moved      # the lever has to actually move something for this to mean much
+
+
+def test_s2_off_ignores_the_matmul_shape_entirely():
+    """The flag off is byte for byte what shipped, whatever `bmm` says."""
+    assert not T._FP32_SOFTMAX_L1_FLOAT_CORES
+    for heads in (2, 4, 8):
+        for tokens in range(32, 1057, 32):
+            hpr = heads * tokens
+            per_row = hpr * tokens * 4
+            rows = T._fp32_softmax_l1_rows(per_row, hpr)
+            got = T._fp32_softmax_l1_plan(per_row, hpr, tokens, None, bmm(tokens, heads))
+            if rows:
+                assert got == (rows, CORES), (heads, tokens)
+
+
+def test_a_dark_size_is_untouched_by_the_constraint(s2_on):
+    """S1's own sizes have no tuned block and therefore no config to protect: same plan as main."""
+    T.COMPUTE_GRID_MAIN = (11, 10)
+    T._fp32_softmax_l1_plan.cache_clear()
+    for tokens in (544, 704, 832, 960):
+        hpr = N_HEADS * tokens
+        per_row = hpr * tokens * 4
+        assert T._fp32_softmax_l1_rows(per_row, hpr) == 0
+        free = T._fp32_softmax_l1_free_rows(per_row, hpr, None, None)
+        assert T._fp32_softmax_l1_plan(per_row, hpr, tokens, None, bmm(tokens)) == free
+
+
+def test_retiring_a_floating_plan_falls_back_to_the_tuned_block_and_not_to_nothing():
+    """The 768 aa cliff. Two refusals retire the floating plan; if that also drops the BLOCK CAP
+    the call is unblocked and materialises the whole fp32 score tensor -- 7.25 GB at 768 aa /
+    4 heads, measured 170.9 ms against 127.4 ms for the tuned 4-row block. So what the caller
+    falls back to has to be the tuned row count, and at this size there IS one.
+    """
+    per_row, height_per_row = shape(768)
+    cap = None
+    for rows in (9, 8):
+        T._fp32_softmax_l1_narrow((height_per_row, 768), rows)
+        cap = T._FP32_SOFTMAX_L1_ROW_CAP[(height_per_row, 768)]
+    assert cap == 7
+    assert T._fp32_softmax_l1_rows(per_row, height_per_row, cap) == 4
