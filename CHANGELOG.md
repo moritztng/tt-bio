@@ -32,6 +32,13 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   set of rows than the reference did. Nothing changes below the caps: all seven OpenFold3
   parity legs sit under them and reproduce their committed numbers.
 
+- Protenix-v2 and OpenDDE fold more accurately. Two bugs in the pair trunk both models share
+  are fixed: the mask marking which residue pairs are real reached only one of the two triangle
+  multiplications, and `OuterProductMean` added its output bias without the scale the reference
+  applies. Every Protenix-v2 and OpenDDE structure leg in the accuracy gate now lands inside the
+  reference's own seed-to-seed spread; some fell outside it before. The other models on that
+  trunk reproduce their published numbers unchanged. See `docs/implementation-parity.md`.
+
 - RF3 folds are back to full speed. 0.6.6 turned on the accurate softmax for Protenix-v2 and
   OpenDDE, and it reached two extra sites inside RF3's pairformer that were never meant to get
   it: 512 aa went from 82.5 s to 111.8 s. The setting is scoped now and the structure is
