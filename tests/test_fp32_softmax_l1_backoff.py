@@ -130,8 +130,9 @@ def clean_plan_cache():
 
 
 @pytest.mark.parametrize("tokens,rows", [(512, 12), (768, 4), (1024, 3)])
-def test_the_plan_is_the_tuned_answer_wherever_the_rectangle_serves(tokens, rows):
-    """Every size that is L1-resident today keeps byte for byte its block and its 64 cores."""
+def test_the_plan_is_the_tuned_answer_wherever_the_rectangle_serves(tokens, rows, s2_off):
+    """With the free core count off, every size the rectangle serves keeps byte for byte its block
+    and its 64 cores."""
     per_row, height_per_row = shape(tokens)
     assert T._fp32_softmax_l1_plan(per_row, height_per_row, tokens) == (rows, CORES)
 
@@ -232,6 +233,16 @@ L1_UNRESERVED = 1532416         # ttnn.get_max_worker_l1_unreserved_size() on th
 
 
 @pytest.fixture
+def s2_off(monkeypatch):
+    """S2 is the default now, so the tests that assert the S1-only plan have to pin the arm they
+    mean rather than inherit it from the module."""
+    monkeypatch.setattr(T, "_FP32_SOFTMAX_L1_FLOAT_CORES", False)
+    T._fp32_softmax_l1_plan.cache_clear()
+    yield
+    T._fp32_softmax_l1_plan.cache_clear()
+
+
+@pytest.fixture
 def s2_on(monkeypatch):
     monkeypatch.setattr(T, "_FP32_SOFTMAX_L1_FLOAT_CORES", True)
     monkeypatch.setattr(T, "_batched_matmul_config",
@@ -307,9 +318,8 @@ def test_s2_keeps_the_batched_matmul_config_wherever_the_tuned_block_had_one(s2_
     assert moved > 20, moved      # the lever has to actually move something for this to mean much
 
 
-def test_s2_off_ignores_the_matmul_shape_entirely():
-    """The flag off is byte for byte what shipped, whatever `bmm` says."""
-    assert not T._FP32_SOFTMAX_L1_FLOAT_CORES
+def test_s2_off_ignores_the_matmul_shape_entirely(s2_off):
+    """The flag off is byte for byte the S1-only plan, whatever `bmm` says."""
     for heads in (2, 4, 8):
         for tokens in range(32, 1057, 32):
             hpr = heads * tokens
