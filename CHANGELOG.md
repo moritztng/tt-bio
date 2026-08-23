@@ -40,9 +40,11 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   `full_parity_gate.py` scores an input (43/43 feature keys bit-exact), the perf leg scores a
   wall-clock, and the UX leg scores the CLI. All three stay green when the structure leaving the
   far end is garbage, which is where both of RFD3's escaped defects lived. The new arm scores the
-  delivered mmCIF: strict parse, CA-CA step band and zero backbone breaks, heavy-atom clashes, a
-  real sequence at the designed positions, and byte-identical coordinates from a repeated seed in
-  a fresh process.
+  delivered mmCIF: strict parse, backbone geometry, heavy-atom clashes, a real sequence at the
+  designed positions, and byte-identical coordinates from a repeated seed in a fresh process.
+  Geometry is gated as a clean rate over four designs rather than per design, because an
+  occasional broken backbone is real RFdiffusion-family behaviour and the field's answer is to
+  generate several and filter.
 
   Every number is computed over the designed residues only, recovered by re-featurizing the spec
   on the host. For a binder RFD3 merges the designed residues into the target's own chain and

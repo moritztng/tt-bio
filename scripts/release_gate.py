@@ -39,10 +39,13 @@ RFdiffusion3 evaluates with ProteinMPNN/LigandMPNN sequences plus AF3 rather tha
 its own sequence head, tt-bio ships no MPNN, and docs/rfd3-design.md already tells
 users the built-in sequence is a starting point to redesign — so refolding it would
 score the model working as intended against a floor no failure could exceed. Its leg
-scores the delivered structure instead: strict parse, CA-CA step band and zero
-backbone breaks, heavy-atom clashes, a real sequence at the designed positions (zero
-UNK plus a minimum distinct-amino-acid count), and byte-identical coordinates from a
-repeated seed in a fresh process. Every geometry and sequence number is computed over
+scores the delivered structure instead: strict parse, backbone geometry as a clean
+rate over four designs (a design is clean when no CA-CA step exceeds the break
+distance and the rest sit in the measured band), heavy-atom clashes, a real sequence
+at the designed positions (zero UNK plus a minimum distinct-amino-acid count), and
+byte-identical coordinates from a repeated seed in a fresh process. Geometry is a rate
+and not an every-design bar because RFdiffusion-family models produce an occasional
+broken backbone by design, the same call BOLTZGEN_MIN_PASS_RATE already makes. Every geometry and sequence number is computed over
 the DESIGNED residues only, recovered by re-featurizing the spec on the host: RFD3
 merges a binder's designed residues into the target's own chain, so a chain-level
 number averages 70 generated residues against 50 copied ones and passes by dilution.
@@ -321,6 +324,11 @@ RFD3_MAX_CLASHES = 6         # measured worst 3
 # real RFD3 behaviour (measured 42.9-51.4% here) and a cap would fail a correct model.
 RFD3_MIN_DISTINCT_AA = 5     # measured worst 11
 RFD3_MAX_UNK = 0             # measured 0; the pre-fix writer scores 70
+# Runs by default: the whole arm (4 designs at 200 steps in one batched forward, plus the two
+# 4-step determinism repeats) measured 108 s end to end on qb1 card 3 with the host otherwise
+# uncontended, well inside BoltzGen's ~271 s default-arm precedent. The same arm took 486 s
+# earlier the same day only because every device open queued behind another worker on the
+# host-wide /tmp/tt-bio-device-open.lock, which measures contention, not the leg.
 
 # ESMC embedding-parity leg — see module docstring. Per-residue embedding PCC
 # floor vs the reference esm ESMC on a real protein. Generous (the shipped fused
