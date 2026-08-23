@@ -3,7 +3,7 @@
 All notable changes to TT-Bio are recorded here. Versioning is [SemVer](https://semver.org);
 releases are cut from a commit that has passed the on-hardware test suite (see `RELEASING.md`).
 
-## [Unreleased]
+## [0.6.7] - 2026-08-23
 
 ### Fixed
 
@@ -19,11 +19,22 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   feature it derives, so the flag reached nothing. Use `--model rf3` or `boltz2` for cyclic
   chains.
 
+- Every model that builds a ligand from a CCD code drew it without stereochemistry, so the
+  conformer generator picked a handedness at random and that arbitrary choice became a model
+  input. Chiral centres are now assigned from the CCD entry before the conformer is drawn, so a
+  ligand keeps the handedness the code names. Affects Boltz-2, Protenix-v2, OpenDDE, OpenFold3
+  and RF3 on any target with a chiral CCD ligand.
+
 - OpenFold3: an MSA deeper than its per-source cap is now truncated, the way the reference
   truncates it. The vendored parser dropped the truncated copy and returned the full
   alignment, so a deep alignment reached the featurizer whole and the model saw a different
   set of rows than the reference did. Nothing changes below the caps: all seven OpenFold3
   parity legs sit under them and reproduce their committed numbers.
+
+- RF3 folds are back to full speed. 0.6.6 turned on the accurate softmax for Protenix-v2 and
+  OpenDDE, and it reached two extra sites inside RF3's pairformer that were never meant to get
+  it: 512 aa went from 82.5 s to 111.8 s. The setting is scoped now and the structure is
+  bit-identical to what 0.6.5 produced.
 
 ## [0.6.6] - 2026-08-22
 
