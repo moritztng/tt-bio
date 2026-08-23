@@ -1,0 +1,40 @@
+{
+  "model": "openfold3",
+  "tid": "cdk2x2_298",
+  "baseline": "base",
+  "aa_floor": 6.538493549749363e-15,
+  "rows": [
+    {
+      "arm": "control",
+      "kind": "A/A control",
+      "status": "ok",
+      "kabsch_rmsd": 6.538493549749363e-15,
+      "coord_pcc": 1.0,
+      "tm_score": 1.0,
+      "lddt": 1.0,
+      "n_matched": 2397,
+      "conf_delta": {
+        "confidence_score": 0.0,
+        "ptm": 0.0,
+        "iptm": 0.0,
+        "complex_plddt": 0.0
+      }
+    },
+    {
+      "arm": "ragpad",
+      "kind": "lever",
+      "status": "ok",
+      "kabsch_rmsd": 6.538493549749363e-15,
+      "coord_pcc": 1.0,
+      "tm_score": 1.0,
+      "lddt": 1.0,
+      "n_matched": 2397,
+      "conf_delta": {
+        "confidence_score": 0.0,
+        "ptm": 0.0,
+        "iptm": 0.0,
+        "complex_plddt": 0.0
+      }
+    }
+  ]
+}
