@@ -6,7 +6,7 @@
 # Runs from the repo root on pc. Two things it does that a plain scp does not:
 #  * it carries examples/ground_truth_structures/{9ma0,9q6y}.cif. bgg_setup.sh hashes those and
 #    refuses to continue without them; the A100 pass lost a stage to leaving them out.
-#  * it re-verifies all seven digests ON THE BOX. The BoltzGen integrity gate caught a truncated
+#  * it re-verifies all eight digests ON THE BOX. The BoltzGen integrity gate caught a truncated
 #    transfer that way once, and a byte-identical input is the whole reason the new cells are
 #    comparable to the published ones.
 set -uo pipefail
@@ -14,7 +14,11 @@ HOST=${1:?usage: perfpage_xfer.sh user@host [port]}
 PORT=${2:-22}
 SSH="ssh -o StrictHostKeyChecking=accept-new -p $PORT"
 
-PATHS=(scripts/gpu_vs_tt perf/size512/fixtures perf/dsfix
+# perf/nesso1 rides along from the A100 rental on: Nesso-1 merged to main after the manifest froze
+# and its harness, its fixtures and its H200 reference all live there. It is small (yaml fixtures and
+# python, no weights), so carrying it on every box costs nothing and a box that does not run it just
+# ignores it.
+PATHS=(scripts/gpu_vs_tt perf/size512/fixtures perf/dsfix perf/nesso1
        examples/ground_truth_structures/9ma0.cif examples/ground_truth_structures/9q6y.cif)
 read -r -d '' EXPECT <<'DIG'
 24d8b2d8c06e4409995abae024766e316da3175dde7596073b68c7963d2df398  perf/size512/fixtures/cdk2x2_512.yaml
@@ -24,6 +28,7 @@ d08d13832e14b847444e4486d7d6c5d7d149fc71a7f671e82c187f0757e22eee  perf/dsfix/fix
 647e066a983e66184e16bf7696b6e731f354e4161c6e764b292e1f9a15c00eef  perf/dsfix/fixtures/rfd3_R4_gpu.json
 96bc91c44c36c73819807e2a512e38a93044cfb9fa6102e88c1d68e61e306b39  examples/ground_truth_structures/9ma0.cif
 9554895cb4c5e232b10ddad0da1db27f7acb22a4a7b30f1e0320f01817e9c459  examples/ground_truth_structures/9q6y.cif
+394247a8dc9633ee58022cbf7cdffe6f28384a8f806e2e77c4f0baae16644487  perf/nesso1/inputs/ladder/aa512/cdk2_512.yaml
 DIG
 
 TAR=/tmp/perfpage_xfer.tar.gz
