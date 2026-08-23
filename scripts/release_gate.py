@@ -537,13 +537,21 @@ PXDESIGN_SEED = 0
 PXDESIGN_NUM_DESIGNS = 1
 # Floor, not a target: catch a gross conditioning failure, the same philosophy as the MODELS
 # floors. RECORDED FROM A REAL RUN on the arm that ships -- see PXDESIGN_FIT_RMSD_MEASURED.
-PXDESIGN_MAX_FIT_RMSD = None      # set when the baseline below is recorded
-PXDESIGN_FIT_RMSD_MEASURED = None # the measured value the floor was derived from
+# Measured 2026-08-23 on qb2 card 0 (p150a/Blackhole p300c) through the shipped CLI path at
+# n_step=20, seed 0: 4.91 A over the 116 conditioned tokens of the 196-token PD-L1 fixture. The
+# floor is 3x that. Generous on purpose -- the failure this catches is a BROKEN CONDITIONING PATH
+# (wrong embedding row, wrong bin edges, a leaked binder placeholder), which lands in the tens of
+# angstroms, not a design that is a little worse. 20 steps is a smoke, not production quality:
+# upstream uses 400, so this number says the conditioning works, not that the binder is good.
+PXDESIGN_MAX_FIT_RMSD = 15.0
+PXDESIGN_FIT_RMSD_MEASURED = 4.91 # the measured value the floor was derived from
 # Bit-exactness evidence, REPORTED rather than gated. A coordinate digest is card- and
 # arch-specific the way af2ig-trunk-device's floor is, so making release success turn on equality
 # here would fail a release host for having different silicon rather than for a defect. It is
 # printed and compared so a change is visible; the floor above is what blocks.
-PXDESIGN_STRUCTURE_SHA16 = None
+# Recorded 2026-08-23 on qb2 card 0 alongside the floor above, and reproduced across two
+# independent runs of the leg in the same session.
+PXDESIGN_STRUCTURE_SHA16 = "64af2cbc286012b9"
 
 DEFAULT_ARMS = ("boltzgen", "opendde-abag", "capacity", "l1-budget",
                 "batch-position", "pxdesign")

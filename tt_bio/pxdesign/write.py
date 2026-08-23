@@ -7,8 +7,17 @@ import torch
 
 # mmCIF is the output format because a designed binder carries no sequence, and PDB's fixed
 # columns have nowhere to say so without inventing a residue name per position.
-_CIF_COLS = ("group_PDB", "id", "type_symbol", "label_atom_id", "label_comp_id",
-             "label_asym_id", "label_seq_id", "Cartn_x", "Cartn_y", "Cartn_z")
+#
+# The full standard _atom_site set, not the minimum that looks right in a viewer. Bio.PDB's
+# MMCIFParser hard-requires `occupancy` (tt_bio/worker.py:176 already records that one) and reads
+# chain and residue identity from the `auth_*` columns, so a file carrying only the `label_*` ones
+# parses in Mol* and PyMOL and raises KeyError in Biopython. That is exactly the shape of failure a
+# user hits after the run they waited for, so the columns are written even though several are
+# constant here.
+_CIF_COLS = ("group_PDB", "id", "type_symbol", "label_atom_id", "label_alt_id",
+             "label_comp_id", "label_asym_id", "label_entity_id", "label_seq_id",
+             "pdbx_PDB_ins_code", "Cartn_x", "Cartn_y", "Cartn_z", "occupancy",
+             "B_iso_or_equiv", "auth_seq_id", "auth_asym_id", "pdbx_PDB_model_num")
 
 #: `restype` row of the `xpb` binder placeholder. Every token carrying it is designed.
 BINDER_RESTYPE = 32
@@ -87,8 +96,11 @@ def write_design_cifs(coords: torch.Tensor, feats: dict, outdir: Path | str,
             for c in _CIF_COLS:
                 fh.write(f"_atom_site.{c}\n")
             for i, (name, xyz, tok) in enumerate(zip(names, binder.tolist(), btok.tolist()), 1):
-                fh.write("ATOM %d %s %s GLY A %d %.3f %.3f %.3f\n"
-                         % (i, name[0], name, tok + 1, *xyz))
+                # label_alt_id, ins_code: `.` is mmCIF for "no value". occupancy 1.0 and B 0.0
+                # because a generated backbone has neither; writing a plausible-looking B-factor
+                # would invent a confidence this model does not produce.
+                fh.write("ATOM %d %s %s . GLY A 1 %d . %.3f %.3f %.3f 1.00 0.00 %d A 1\n"
+                         % (i, name[0], name, tok + 1, *xyz, tok + 1))
         out.append({"sample": s, "cif": str(path), "fit_rmsd": rmsd,
                     "binder_atoms": len(names), "binder_residues": int(btok.max()) + 1,
                     "conditioned_tokens": int(conditioned.sum())})
