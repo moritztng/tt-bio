@@ -1,3 +1,11 @@
+# errstruct.py --model rf3 --aa 298 --kchunk-probe, qb2 card 3, 2026-08-23, killed after 14 min.
+# PARTIAL AND NOT TRUSTWORTHY -- kept as the evidence for an instrument anomaly, not as a result.
+# Every row below is call 0, site `msa_or_template` (NOT a trunk pairformer site). All 8 fused-kernel
+# arms read total ~7.34e-01 with a coherent gain of -0.48 while bf16_ceiling (1.58e-03) and
+# materialised (1.05e-02) reproduce the committed 512 aa magnitudes and perp is unchanged. The fold
+# rules out the kernel: the same route at the same 298 aa, 1088 calls deep, loses 0.0085 rho.
+# See state/rf3-onechunk-fold-ab.md "Step 2, the mechanism probe" for the two suspects and the
+# one-call follow-on that separates them.
 wrote capture /home/ttuser/errstruct_cap_rf3_298_onechunk.pt (14 calls of 108)
 captured 14 of 108 calls: [(0, 'msa_or_template', 298), (8, 'msa_or_template', 298), (16, 'pairformer', 298), (24, 'pairformer', 298), (32, 'pairformer', 298), (40, 'pairformer', 298), (48, 'pairformer', 298), (56, 'pairformer', 298), (64, 'pairformer', 298), (72, 'pairformer', 298), (80, 'pairformer', 298), (88, 'pairformer', 298), (96, 'pairformer', 298), (104, 'pairformer', 298)]
   call     0 HiFi2_ap0_acc0           total 7.33935e-01  par 7.33928e-01  perp 3.04420e-03  gain -4.782e-01+-4.820e-01
