@@ -86,3 +86,19 @@ MIT-licensed and credited in the top-level LICENSE.
                   `foundry.utils.ddp`, which is Lightning-based, are replaced by
                   minimal stubs, so no Lightning, hydra or environs dependency is
                   pulled in.
+
+9. PXDesign — binder design on a Protenix diffusion module with the trunk removed.
+   An independent ttnn reimplementation under tt_bio/pxdesign/; no upstream compute
+   code is vendored.
+   Source:        github.com/bytedance/PXDesign
+   License:       Apache-2.0 — Copyright (c) ByteDance Ltd.
+   Weights:       pxdesign_v0.1.0.pt, downloaded on first use from
+                  pxdesign.tos-cn-beijing.volces.com (Apache-2.0, not redistributed here)
+
+10. AlphaFold2 monomer pTM parameters — read by the AF2-IG selection stage that scores
+   PXDesign's designs. No AlphaFold code is vendored; the host-side featurizer and torch
+   trunk under tt_bio/af2*.py are an independent reimplementation.
+   Source:        storage.googleapis.com/alphafold/alphafold_params_2022-12-06.tar
+   License:       CC BY 4.0 — Copyright (c) DeepMind Technologies Limited
+   Note:          only params_model_1_ptm.npz is extracted and kept; downloaded on first
+                  use, not redistributed here

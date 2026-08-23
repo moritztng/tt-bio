@@ -5,6 +5,20 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Added
+
+- **PXDesign** binder design: `tt-bio design --model pxdesign target.yaml`. Give it a target
+  structure, the chains to condition on and a binder length, and it writes one CIF per design,
+  each placed in the target structure's own frame so it opens alongside your input. The binder
+  is written as GLY because PXDesign generates a backbone with no sequence. The generator
+  checkpoint (556 MB, Apache-2.0) downloads on first use. Selecting designs, which upstream
+  does with a Protenix and an AF2-IG filter, is not on the CLI yet.
+
+- `pxdesign-featurizer` joins `full_parity_gate.py`: 25 bit-exact arms against a committed
+  capture of the upstream featurizer, card-free. The two `af2ig-trunk` legs now read
+  `AF2IG_PARAMS` instead of a hard-coded home directory, so a release host that keeps the
+  AlphaFold parameters elsewhere reports where it looked instead of a silent GAP.
+
 ### Fixed
 
 - `full_parity_gate.py --workers qb2:2` run on qb2 itself now dispatches locally. It compared
