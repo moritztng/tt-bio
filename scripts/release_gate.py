@@ -521,8 +521,32 @@ L1_BUDGET_HIDDEN = (128, 256)
 # that died on his p300c. Cheap enough for a default arm (~15 s a grid).
 L1_BUDGET_DATA = REPO_ROOT / "examples" / "affinity_fkg.yaml"
 L1_BUDGET_MODEL = "protenix-v2"
+# PXDesign design leg. PXDesign is a binder-design pipeline, so it has no row in MODELS (folds of
+# 7ROA scored by CA-RMSD/TM against a ground truth) and none in SIZE_LADDER_MODELS -- neither holds
+# a design model. Same shape as the BoltzGen designability leg: run the shipped CLI path, parse
+# every CIF strictly, then score the one end-to-end number the model actually makes a claim about.
+#
+# That number is the conditioned-token fit RMSD. PXDesign sees a 64-bin DISTOGRAM of the target and
+# nothing else about its coordinates, so a correct run reproduces the target's own fold while the
+# binder is free, and a broken conditioning path (wrong embedding row, wrong bin edges, a leaked
+# binder placeholder) lands in the tens of angstroms. Nothing else in the pipeline complains about
+# any of those, which is what makes it the right gate rather than a nicety.
+PXDESIGN_SPEC = REPO_ROOT / "tests" / "fixtures" / "pxdesign" / "PDL1.yaml"
+PXDESIGN_N_STEP = 20        # steps change how often a site is reached, not which; keeps the leg short
+PXDESIGN_SEED = 0
+PXDESIGN_NUM_DESIGNS = 1
+# Floor, not a target: catch a gross conditioning failure, the same philosophy as the MODELS
+# floors. RECORDED FROM A REAL RUN on the arm that ships -- see PXDESIGN_FIT_RMSD_MEASURED.
+PXDESIGN_MAX_FIT_RMSD = None      # set when the baseline below is recorded
+PXDESIGN_FIT_RMSD_MEASURED = None # the measured value the floor was derived from
+# Bit-exactness evidence, REPORTED rather than gated. A coordinate digest is card- and
+# arch-specific the way af2ig-trunk-device's floor is, so making release success turn on equality
+# here would fail a release host for having different silicon rather than for a defect. It is
+# printed and compared so a change is visible; the floor above is what blocks.
+PXDESIGN_STRUCTURE_SHA16 = None
+
 DEFAULT_ARMS = ("boltzgen", "opendde-abag", "capacity", "l1-budget",
-                "batch-position")
+                "batch-position", "pxdesign")
 
 L1_BUDGET_STEPS = 200
 # The width measured to fit at the issue-#11 call shape on a 110-core grid: the
@@ -814,6 +838,70 @@ def run_boltzgen(bg, keep: bool) -> dict:
         return row
     row["scrmsd_median"], row["pass_rate"] = res["median"], res["pass_threshold"]
     row["gate"] = res["pass_threshold"] >= BOLTZGEN_MIN_PASS_RATE
+
+    if not keep:
+        shutil.rmtree(out, ignore_errors=True)
+    return row
+
+
+def run_pxdesign(keep: bool) -> dict:
+    """Design one binder through the shipped CLI path, parse it, and score the conditioning."""
+    import hashlib
+
+    import torch
+
+    out = REPO_ROOT / "pxdesign_gate_designs"
+    if out.exists():
+        shutil.rmtree(out)  # never score a stale run if this design run crashes
+
+    print(f"\n{'='*70}\n[pxdesign] designing against {PXDESIGN_SPEC.name} "
+          f"({PXDESIGN_NUM_DESIGNS} design, {PXDESIGN_N_STEP} steps)\n{'='*70}", flush=True)
+
+    row = {"model": "pxdesign", "seconds": None, "fit_rmsd": None, "sha16": None,
+           "binder_residues": None, "parse": False, "gate": False, "error": None}
+    try:
+        from tt_bio.pxdesign.inputs import design_inputs_from_yaml
+        from tt_bio.pxdesign.model import ProtenixDesign
+        from tt_bio.pxdesign.write import write_design_cifs
+        from tt_bio.main import ensure_pxdesign_weights, ensure_p300_mesh_descriptor
+    except Exception as e:
+        row["error"] = f"import failed: {type(e).__name__}: {e}"
+        return row
+
+    t0 = time.monotonic()
+    try:
+        feats = design_inputs_from_yaml(PXDESIGN_SPEC)
+        feats = {k: (v.float() if torch.is_tensor(v) and v.dtype == torch.float64 else v)
+                 for k, v in feats.items()}
+        ckpt = ensure_pxdesign_weights(Path(os.path.expanduser("~/.boltz")))
+        ensure_p300_mesh_descriptor()
+        model = ProtenixDesign.load_from_checkpoint(str(ckpt))
+        coords = model.design(feats, n_step=PXDESIGN_N_STEP, n_sample=PXDESIGN_NUM_DESIGNS,
+                              seed=PXDESIGN_SEED)
+        rows = write_design_cifs(coords, feats, out, stem="PDL1")
+    except Exception as e:
+        row["error"] = f"{type(e).__name__}: {e}"
+        return row
+    row["seconds"] = time.monotonic() - t0
+    row["fit_rmsd"] = max(r["fit_rmsd"] for r in rows)
+    row["binder_residues"] = rows[0]["binder_residues"]
+    row["sha16"] = hashlib.sha256(coords.contiguous().numpy().tobytes()).hexdigest()[:16]
+
+    try:
+        _parse_gate(sorted(out.rglob("*.cif")), name="pxdesign")
+        row["parse"] = True
+    except Exception as e:
+        row["error"] = f"CIF parse failed: {e}"
+        return row
+
+    if PXDESIGN_MAX_FIT_RMSD is None:
+        # No baseline recorded yet. Report the number instead of inventing a bar for it: a floor
+        # guessed rather than measured on the arm that ships is exactly the thing this gate exists
+        # to prevent.
+        row["error"] = (f"no floor recorded; measured fit_rmsd {row['fit_rmsd']:.3f} A, "
+                        f"sha16 {row['sha16']} -- record PXDESIGN_MAX_FIT_RMSD")
+        return row
+    row["gate"] = row["fit_rmsd"] <= PXDESIGN_MAX_FIT_RMSD
 
     if not keep:
         shutil.rmtree(out, ignore_errors=True)
@@ -1953,6 +2041,7 @@ def main() -> int:
     models = args.model or list(MODELS) + list(DEFAULT_ARMS) + ["size-ladder"] + ESMC_DEFAULT
     fold_models = [m for m in models if m in MODELS]
     want_boltzgen = "boltzgen" in models
+    want_pxdesign = "pxdesign" in models
     want_opendde_abag = "opendde-abag" in models
     want_capacity = "capacity" in models
     want_l1_budget = "l1-budget" in models
@@ -2005,6 +2094,28 @@ def main() -> int:
         print(f"{'#'*78}")
         print("GATE PASS — boltzgen designs cleared parse + designability floor" if br["gate"]
               else "GATE FAIL — boltzgen missed parse or the designability floor (see above)")
+
+    if want_pxdesign:
+        pr = run_pxdesign(args.keep)
+        print(f"\n{'#'*78}\nRELEASE GATE — {PXDESIGN_SPEC.name} (pxdesign), "
+              f"{PXDESIGN_NUM_DESIGNS} design, {PXDESIGN_N_STEP} steps\n{'#'*78}")
+        print(f"{'model':<15}{'fit RMSD':>12}{'binder res':>12}{'floor':>18}{'wall':>9}  result")
+        floor = (f"<={PXDESIGN_MAX_FIT_RMSD}A" if PXDESIGN_MAX_FIT_RMSD is not None
+                 else "unrecorded")
+        fit = f"{pr['fit_rmsd']:.3f}" if pr["fit_rmsd"] is not None else "  -  "
+        res = str(pr["binder_residues"]) if pr["binder_residues"] is not None else "  -  "
+        wall = f"{pr['seconds']:.0f}s" if pr["seconds"] is not None else "-"
+        verdict = "PASS" if pr["gate"] else f"FAIL ({pr['error']})" if pr["error"] else "FAIL"
+        all_pass &= pr["gate"]
+        print(f"{pr['model']:<15}{fit:>12}{res:>12}{floor:>18}{wall:>9}  {verdict}")
+        if pr["sha16"]:
+            same = ("" if PXDESIGN_STRUCTURE_SHA16 is None
+                    else "  MATCH" if pr["sha16"] == PXDESIGN_STRUCTURE_SHA16 else "  DIFFERS")
+            print(f"coordinate digest {pr['sha16']}{same}  (evidence, not gated — a digest is "
+                  f"card- and arch-specific)")
+        print(f"{'#'*78}")
+        print("GATE PASS — pxdesign designs cleared parse + the conditioning floor" if pr["gate"]
+              else "GATE FAIL — pxdesign missed parse or the conditioning floor (see above)")
 
     if want_opendde_abag:
         if not OPENDDE_ABAG_DATA.exists():
