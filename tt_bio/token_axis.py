@@ -100,16 +100,13 @@ TOKEN_AXIS = {
         "rf3-4x-with-accuracy-land",
     ),
     "rfd3": (
-        PARTIAL, 32,
-        "rfd3/model.py:1081 TILE via _align_tile/_pad_key_axis, applied at :1166, :1310, "
-        ":1600-1613, :2011",
-        "censused on a 70-token design (contig A1-40,30, 2 timesteps): 0 masked-ragged, so the "
-        "answers are right. :1679 is _pad_key_axis-protected and ran 45/45 ALIGNED. The other "
-        "three softmax sites ran ragged and all fell back off the fused kernel -- :715 "
-        "PairformerAttention 6/6 ragged at w70 (the TOKEN axis), :935 1/1 at w14 and :1417 10/10 "
-        "at w14,w3 (both the ATOM axis, not the token axis). softmax_generic.eligible() declines a "
-        "ragged W and ttnn.softmax masks, so the cost is the fused softmax going dark, not a wrong "
-        "answer. owner=fleet-bucketing-audit-and-guard",
+        BUCKETED, 32,
+        "rfd3/model.py:1092 TILE via _align_tile/_pad_key_axis, applied at :712-714 "
+        "PairformerAttention, :1177, :1321, :1611-1624, :2022",
+        "every TOKEN-axis reduce runs on a tile multiple: censused 0 ragged / 6 aligned at :726 "
+        "and 0/45 at :1690 on both a 70-token and a 298-token design. The two sites still ragged "
+        "reduce over the ATOM axis, not the token axis -- :946 1/1 at w14 and :1428 10/10 at "
+        "w14,w3 -- and both reach primitives measured to mask. 0 masked-ragged anywhere",
     ),
     "esmc-300m": (
         BUCKETED, 64, "esmc.py:78 BUCKET, applied at :1503 _batch_tokens and :1263",

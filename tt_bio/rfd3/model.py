@@ -702,12 +702,23 @@ class PairformerAttention(Module):
         bias = ttnn.permute(bias, (0, 3, 1, 2))  # [1,16,I,I]
         # Manual attention (SDPA forbids head_dim=24 padding); bf16 softmax matches the
         # reference (autocast bf16). softmax over keys (dim=-1).
-        kt = ttnn.permute(k, (0, 1, 3, 2))                 # [1,16,24,I]
-        sc = ttnn.matmul(q, kt, compute_kernel_config=ckc)  # [1,16,I,I]
+        #
+        # Extend the KEY axis out to a tile multiple, the same way the DiT's attention does at
+        # :1600 -- zero keys and values scored at -1e4, so their weight is exactly 0 after exp.
+        # A ragged key axis here is not a wrong answer (softmax_generic declines it and
+        # ttnn.softmax masks its own tail) but it is the fused softmax going dark on every call
+        # at every design length that is not a multiple of 32: censused 6 of 6. See
+        # tt_bio/token_axis.py and PLAYBOOKS.md §MODEL 2b.
+        n_key = _align_tile(I)
+        k = _pad_key_axis(k, n_key, 2, 0.0)
+        v = _pad_key_axis(v, n_key, 2, 0.0)
+        kt = ttnn.permute(k, (0, 1, 3, 2))                 # [1,16,24,n_key]
+        sc = ttnn.matmul(q, kt, compute_kernel_config=ckc)  # [1,16,I,n_key]
         ttnn.deallocate(kt)
         sc = ttnn.typecast(sc, ttnn.float32, memory_config=sc.memory_config())
         sc = ttnn.multiply(sc, self.head_dim ** -0.5)
         bias_f = ttnn.typecast(bias, ttnn.float32, memory_config=bias.memory_config())
+        bias_f = _pad_key_axis(bias_f, n_key, 3, -1e4)
         sc = ttnn.add(sc, bias_f)
         ttnn.deallocate(bias_f)
         # fp32 softmax reduction, packing bf16 straight out of DST -- one kernel, and the

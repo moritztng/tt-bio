@@ -34,6 +34,10 @@ from tt_bio import token_axis as TA  # noqa: E402
 # bucket at all pass.
 _SEQ = "NLYIQWLKDGGPSSGRPPPS" * 4 + "NLYIQWLKDGGPSSGRPP"          # 98 aa
 _PREDICT = ["predict", "{fasta}", "--single_sequence", "--model"]
+# rfd3 designs 148 residues against 150 fixed ones: 298 tokens, so ragged. The target structure
+# comes out of an in-repo payload, so the test needs nothing from the machine but the checkpoint.
+_RFD3 = ["design", "{spec}", "--model", "rfd3", "--from_pdb", "--num_timesteps", "2",
+         "--num_designs", "1"]
 JOBS = {
     "esmc-300m": ["embed", "{fasta}", "--model", "esmc-300m"],
     "esmc-600m": ["embed", "{fasta}", "--model", "esmc-600m"],
@@ -44,11 +48,33 @@ JOBS = {
     # flips one of them to BUCKETED. That is the point: the claim gets checked, not the intent.
     "protenix-v2": _PREDICT + ["protenix-v2"],
     "opendde": _PREDICT + ["opendde"],
+    "rfd3": _RFD3,
 }
+_RFD3_TARGET = os.path.join(REPO, "perf", "wh-correctness", "results", "payloads",
+                            "des_rfd3_binder.json")
 
 
 def _device_available():
     return bool(os.environ.get("TT_VISIBLE_DEVICES")) and os.path.exists("/dev/tenstorrent")
+
+
+# The softmax probe runs in a CHILD, like every other test in this file. pytest itself must never
+# open the card: an in-process `get_device()` here, even with `cleanup()` afterwards, left the chip
+# in a state that WEDGED the next subprocess to open it (0% CPU, futex_do_wait, needing tt-smi -r 0)
+# -- twice, on the rfd3 job that runs in 11 s standalone.
+_SOFTMAX_CHILD = r"""
+import os, sys, json
+sys.path.insert(0, os.environ["REPO"])
+import torch, ttnn
+from tt_bio.tenstorrent import get_device
+dev = get_device()
+W = 33
+x = ttnn.from_torch(torch.full((1, 1, 32, W), -5.0), dtype=ttnn.float32,
+                    layout=ttnn.TILE_LAYOUT, device=dev)
+out = {"padded": int(x.padded_shape[-1]),
+       "got": float(ttnn.to_torch(ttnn.softmax(x, dim=-1))[0, 0, 0, 0])}
+print("RESULT " + json.dumps(out))
+"""
 
 
 @pytest.mark.skipif(not _device_available(),
@@ -62,24 +88,15 @@ def test_ttnn_softmax_masks_its_ragged_tail():
         masked   1/33            = 0.030303
         unmasked exp(-5)/(33*exp(-5)+31) = 0.000216
     """
-    import torch
-    import ttnn
-
-    from tt_bio import tenstorrent as tt
-    W = 33
-    try:
-        dev = tt.get_device()
-        x = ttnn.from_torch(torch.full((1, 1, 32, W), -5.0), dtype=ttnn.float32,
-                            layout=ttnn.TILE_LAYOUT, device=dev)
-        assert int(x.padded_shape[-1]) == 64, "the input is not physically padded, so this proves nothing"
-        got = float(ttnn.to_torch(ttnn.softmax(x, dim=-1))[0, 0, 0, 0])
-    finally:
-        # Release the physical-card lease. Every other test in this file runs a real job in a
-        # SUBPROCESS, and tt_bio refuses a co-tenant on the same card -- holding the device open
-        # here made all five of them wait 120 s and fail on DeviceInUseError.
-        tt.cleanup()
-    masked, unmasked = 1.0 / W, 0.000216
-    print(f"ttnn.softmax at logical W={W} padded 64: {got:.6f} "
+    env = dict(os.environ, REPO=REPO)
+    r = subprocess.run([sys.executable, "-c", _SOFTMAX_CHILD], env=env, cwd=REPO,
+                       capture_output=True, text=True, timeout=900)
+    assert r.returncode == 0, f"probe failed:\n{r.stdout[-3000:]}\n{r.stderr[-3000:]}"
+    line = next(l for l in r.stdout.splitlines() if l.startswith("RESULT "))
+    res = json.loads(line[len("RESULT "):])
+    assert res["padded"] == 64, "the input is not physically padded, so this proves nothing"
+    got, masked, unmasked = res["got"], 1.0 / 33, 0.000216
+    print(f"ttnn.softmax at logical W=33 padded 64: {got:.6f} "
           f"(masked {masked:.6f}, unmasked {unmasked:.6f})")
     assert abs(got - masked) < 1e-3, (
         f"ttnn.softmax no longer masks its ragged tail: got {got:.6f}, masked {masked:.6f}, "
@@ -93,6 +110,15 @@ def _census(model, argv):
         fasta = os.path.join(d, "q.fasta")
         with open(fasta, "w") as fh:
             fh.write(">q|protein\n" + _SEQ + "\n")
+        spec = os.path.join(d, "spec.json")
+        if "{spec}" in " ".join(argv):
+            with open(_RFD3_TARGET) as fh:
+                pdb = json.load(fh)["structure"]
+            with open(os.path.join(d, "target.pdb"), "w") as fh:
+                fh.write(pdb)
+            with open(spec, "w") as fh:
+                json.dump({"m298": {"input": os.path.join(d, "target.pdb"),
+                                    "contig": "A1-150,148", "length": "148"}}, fh)
         cdir = os.path.join(d, "census")
         os.makedirs(cdir)
         env = dict(os.environ)
@@ -101,7 +127,7 @@ def _census(model, argv):
             [os.path.join(REPO, "perf", "bucketing_audit", "censusenv"), REPO,
              env.get("PYTHONPATH", "")])
         cmd = [sys.executable, "-m", "tt_bio.main"] + [
-            a.format(fasta=fasta) for a in argv] + ["--out_dir", os.path.join(d, "out")]
+            a.format(fasta=fasta, spec=spec) for a in argv] + ["--out_dir", os.path.join(d, "out")]
         r = subprocess.run(cmd, cwd=REPO, env=env, capture_output=True, text=True, timeout=3600)
         assert r.returncode == 0, f"{model} job failed:\n{r.stdout[-4000:]}\n{r.stderr[-4000:]}"
         s = P.merge(cdir)
