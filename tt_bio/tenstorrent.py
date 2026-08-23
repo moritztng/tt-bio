@@ -891,6 +891,8 @@ def _tri_att_sdpa(q, k, v, bias, scale: float, ckc=None):
     per call rather than set on ``triatt_sdpa._CKC_OVERRIDE``, which is a module global six models
     share.
     """
+    if ckc is not None:
+        SDPA_HIFI_CALLS[0] += 1
     if _TRIATT_BIAS_B8 and bias is not None and bias.dtype != ttnn.bfloat8_b:
         b8 = ttnn.typecast(bias, ttnn.bfloat8_b)
         try:
@@ -971,6 +973,11 @@ SDPA_CHUNK_PICKS: dict = {}
 # the question a precision lever on the fused kernel has to answer before any margin it reports
 # means anything (a lever on a route that serves 3% of calls is dark, not neutral).
 SDPA_ROUTE_COUNTS = {"fused": 0, "stock": 0}
+# Triangle-attention calls that asked for a non-default compute kernel config. `fp32_dest_acc`
+# doubles the DST a tile needs, so the lever can push a config the op default fits over L1 and be
+# answered by a silent fall-back to the stock op -- an accuracy regression wearing a neutral
+# result's clothes. Counted separately from the route so the two can be read against each other.
+SDPA_HIFI_CALLS = [0]
 
 
 def _sdpa_pick(q_len, k_len, q_chunk, k_chunk, route: str):
