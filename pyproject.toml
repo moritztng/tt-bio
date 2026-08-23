@@ -112,13 +112,11 @@ license-files = ["LICENSE", "NOTICE"]
 include = ["tt_bio*"]
 
 [tool.setuptools.package-data]
-# ship the vendored third-party license texts inside the wheel (see NOTICE)
-"tt_bio._vendor.esm" = ["LICENSE"]
-"tt_bio._vendor.esmfold2_hf" = ["LICENSE"]
-"tt_bio._vendor.openfold3" = ["LICENSE"]
-"tt_bio._vendor.atomworks" = ["LICENSE", "py.typed", "io/tools/*.smirks", "ml/datasets/*.md"]
-"tt_bio._vendor.rf3" = ["LICENSE"]
-"tt_bio._vendor.foundry" = ["LICENSE"]
+# Vendored third-party license texts (see NOTICE). One recursive glob, not one
+# line per vendored tree: the enumerated form dropped tt_bio/_vendor/nesso/LICENSE
+# the moment Nesso-1 landed, which is a licensing hole, not just a gate red.
+# The glob lives on the "tt_bio" key below.
+"tt_bio._vendor.atomworks" = ["py.typed", "io/tools/*.smirks", "ml/datasets/*.md"]
 # runtime data files the package loads by path at import/featurize time — these
 # MUST ship in the wheel/sdist or a clean `pip install` crashes (see v0.3.4 changelog):
 #   - tt_bio/data/protein_ref_conformers.json: protenix-v2 + opendde featurization
@@ -135,7 +133,7 @@ include = ["tt_bio*"]
 # tt_bio package because tt_bio/kernels/ is not itself a package. Recursive
 # globs so a NEW kernel dir cannot silently drop out of the wheel again
 # (the v0.3.3 / reblock_permute / triatt_sdpa bug class).
-"tt_bio" = ["kernels/**/*.cpp", "kernels/**/*.hpp"]
+"tt_bio" = ["kernels/**/*.cpp", "kernels/**/*.hpp", "_vendor/**/LICENSE"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
