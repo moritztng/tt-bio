@@ -320,14 +320,21 @@ class AF2PairBlock(Module):
         # is 9 failing taps at pcc 0.99690 against 13 at 0.99180 for a separate `ttnn.add_`. It is
         # named here rather than defaulted in the shared block because RF3 biases the same
         # projection and the same form costs it accuracy (state/pxdesign-af2ig-port.md, pass 21).
+        # `l1_padded_plan=True` derives the fp32-softmax L1 block from the tile-padded token
+        # extent, which is the extent the shard takes. AF2-IG's token counts are ragged at every
+        # rung it runs (208/336/592/848 are all 16 mod 32), so the logical extent under-sizes the
+        # plan and the block loses residency it has already paid for: 1.3621x on the 848 trunk
+        # pass, bit-exact, `structure_sha16 cd80f8e274306706` unchanged. Named here rather than
+        # defaulted in the shared block because the pairformer stacks share this class and were
+        # priced with the lever off (state/pxdesign-af2ig-land.md, D2).
         self.tri_att_start = TriangleAttention(
             head_dim, n_heads, False, self.scope("tri_att_start"), compute_kernel_config,
             scale_pair_bias=False, fp32_softmax=True, fused_hifi=fused_hifi,
-            bias_in_matmul="o")
+            bias_in_matmul="o", l1_padded_plan=True)
         self.tri_att_end = TriangleAttention(
             head_dim, n_heads, True, self.scope("tri_att_end"), compute_kernel_config,
             scale_pair_bias=False, fp32_softmax=True, fused_hifi=fused_hifi,
-            bias_in_matmul="o")
+            bias_in_matmul="o", l1_padded_plan=True)
         self.pair_transition = ReluTransition(
             self.scope("pair_transition"), compute_kernel_config)
 
@@ -472,7 +479,7 @@ class AF2Attention(Module):
             out = _fp32_softmax_attention(
                 q, k, v, bias, scale_inv=self.scale_inv,
                 compute_kernel_config=self.compute_kernel_config,
-                out_dtype=ttnn.bfloat16, bias_scale_inv=1.0)
+                out_dtype=ttnn.bfloat16, bias_scale_inv=1.0, l1_padded_plan=True)
         else:
             kt = ttnn.permute(k, (0, 1, 3, 2))
             scores = batched_matmul(q, kt, compute_kernel_config=self.compute_kernel_config)

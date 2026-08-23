@@ -1493,7 +1493,8 @@ _FP32_SOFTMAX_L1_GRID = (8, 8)  # (y, x). 8x8 = 64; this p150a refuses more than
 
 FP32_SOFTMAX_STATS = {"calls": 0, "blocked": 0, "blocks": 0, "fused": 0, "unfused": 0,
                       "l1": 0, "l1_blocks": 0, "l1_refused": 0, "l1_cores": 0,
-                      "l1_free_retired": 0, "l1_free_walked": 0}
+                      "l1_free_retired": 0, "l1_free_walked": 0,
+                      "l1_padded_diverged": 0}
 
 # Refusals seen per shape class, so a FLOATING-core plan can be retired instead of walked. The
 # tuned rectangle narrows a row at a time and that is right for it: its block stays a legal shape.
@@ -1705,9 +1706,16 @@ _FP32_SOFTMAX_L1_FLOAT_CORES = env_flag("TT_BIO_FP32_SOFTMAX_L1_FLOAT_CORES", Tr
 _FP32_SOFTMAX_L1_PADDED = env_flag("TT_BIO_FP32_SOFTMAX_L1_PADDED", False)
 
 
-def _fp32_softmax_len(t, dim: int) -> int:
-    """``t``'s extent along ``dim`` as the shard sees it: tile-padded, or logical when off."""
-    return int(tuple(t.padded_shape)[dim] if _FP32_SOFTMAX_L1_PADDED else t.shape[dim])
+def _fp32_softmax_len(t, dim: int, padded: bool | None = None) -> int:
+    """``t``'s extent along ``dim`` as the shard sees it: tile-padded, or logical when off.
+
+    ``padded is None`` follows the process-wide ``TT_BIO_FP32_SOFTMAX_L1_PADDED``; a bool pins
+    the caller and ignores it. Same convention as ``fused_hifi``, and it is what lets AF2-IG
+    ship the padded plan without handing it to the pairformer stacks that never measured it.
+    """
+    if padded is None:
+        padded = _FP32_SOFTMAX_L1_PADDED
+    return int(tuple(t.padded_shape)[dim] if padded else t.shape[dim])
 
 
 def _fp32_softmax_bmm_served(rows: int, bmm: tuple) -> bool:
@@ -1923,6 +1931,7 @@ def _fp32_softmax_attention(
     out_dtype: ttnn.DataType = ttnn.bfloat16,
     bias_scale_inv: float | None = None,
     accurate_softmax: bool = False,
+    l1_padded_plan: bool | None = None,
 ) -> ttnn.Tensor:
     """Manual attention with an fp32 softmax reduction, bf16 operands/storage.
 
@@ -1940,7 +1949,13 @@ def _fp32_softmax_attention(
     """
     FP32_SOFTMAX_STATS["calls"] += 1
     rows = int(q.shape[0])
-    q_len, k_len = _fp32_softmax_len(q, 2), _fp32_softmax_len(k, 2)
+    q_len, k_len = (_fp32_softmax_len(q, 2, l1_padded_plan),
+                    _fp32_softmax_len(k, 2, l1_padded_plan))
+    # The only calls the padded plan can change are the ones whose token axis is ragged.
+    # Everywhere else `padded_shape == shape` and the plan is byte-identical by construction, so
+    # this counter is what tells a cross-model flip apart from a no-op without running an A/B.
+    if q_len != int(q.shape[2]) or k_len != int(k.shape[2]):
+        FP32_SOFTMAX_STATS["l1_padded_diverged"] += 1
     height_per_row = int(q.shape[1]) * q_len
     per_row = height_per_row * k_len * 4
     blk = max(32, int(_FP32_SOFTMAX_BLOCK_BYTES // per_row) // 32 * 32) if per_row else rows
@@ -4440,6 +4455,7 @@ class TriangleAttention(Module):
         sdpa_hifi: bool = False,
         fused_hifi: bool | None = None,
         bias_in_matmul: str | None = None,
+        l1_padded_plan: bool | None = None,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.head_dim = head_dim
@@ -4486,6 +4502,15 @@ class TriangleAttention(Module):
         # two biased models want opposite answers.
         self.bias_in_matmul = (
             _PAIR_BIAS_IN_MATMUL if bias_in_matmul is None else _bias_in_matmul(bias_in_matmul))
+        # Whether the fp32-softmax L1 plan is derived from the tile-PADDED token extent, which is
+        # the extent the shard actually takes, instead of the logical one. `None` follows
+        # `TT_BIO_FP32_SOFTMAX_L1_PADDED`; a bool pins this attention. Only AF2-IG passes True: it
+        # is the model whose ragged rungs measured the lever (1.3621x at 848, bit-exact at
+        # 208/336/592/848), and the pairformer stacks that share this class were priced with the
+        # flag off. Where the token axis is already tile-aligned the two extents agree and the arm
+        # is byte-identical either way -- `FP32_SOFTMAX_STATS["l1_padded_diverged"]` counts the
+        # calls where they do not, which is the instrument a cross-model flip needs.
+        self.l1_padded_plan = l1_padded_plan
         self.scale = self.head_dim**0.5
         # Boltz/Protenix fold sqrt(head_dim) into the pair-bias projection (their
         # reference adds the bias pre-scaled); openfold3 pre-scales q by 1/sqrt(d) and
@@ -4667,6 +4692,7 @@ class TriangleAttention(Module):
                         out_dtype=_dtype(),
                         bias_scale_inv=1.0 / self._bias_scale,
                         accurate_softmax=self.accurate_softmax,
+                        l1_padded_plan=self.l1_padded_plan,
                     )
             else:
                 o = _tri_att_sdpa(q, k, v, bias, self.scale**-1,
