@@ -316,8 +316,8 @@ time — an all-day thrash with zero model-numerics problems. Run `--check` and 
 one-leg `--dry-run`/fold smoke first; they catch that whole class in minutes.
 
 The accuracy gate covers Boltz-2, ESMFold2, ESMFold2-fast, Protenix-v2,
-OpenFold3, OpenDDE, RF3, BoltzGen designability, OpenDDE-abag antibody-antigen
-docking, and
+OpenFold3, OpenDDE, RF3, BoltzGen designability, RFD3 designed-region
+correctness, OpenDDE-abag antibody-antigen docking, and
 ESMC-300m/600m reference parity. It folds 7ROA at production sampling settings,
 parses every written mmCIF, and checks the confidence-selected structure against
 these regression limits:
@@ -340,7 +340,13 @@ esmfold2 leg. `scripts/release_gate.py:MODELS` is the source of truth for these
 numbers; keep this table in sync with it.
 
 BoltzGen passes when at least half of four generated binders refold within
-2 Å scRMSD. ESMC passes at per-residue PCC ≥0.99 against upstream ESM.
+2 Å scRMSD. RFD3 scores the mmCIF it delivers, not its featurizer input: over four
+designs it needs a clean designed-region backbone in at least half of them, no
+heavy-atom clashes beyond 6, a real sequence at the designed positions, and
+byte-identical coordinates from a repeated seed in a fresh process. Every number is
+computed over the designed residues only, because for a binder RFD3 merges them into
+the target's own chain and a chain-level number passes by dilution.
+ESMC passes at per-residue PCC ≥0.99 against upstream ESM.
 OpenDDE-abag co-folds the 1AHW Fab + antigen complex and passes when the
 confidence-selected complex scores global DockQ ≥0.50 against the experimental
 1AHW structure (a floor that catches a gross mis-dock; the measured baseline is
