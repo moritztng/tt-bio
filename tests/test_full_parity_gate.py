@@ -379,3 +379,72 @@ def test_delegated_leg_runs_with_the_pin_in_its_own_environment(tmp_path, monkey
     assert seen["visible"] == "3"
     # and the gate's own environment is put back, so one leg's pin cannot leak into the next
     assert os.environ["TT_VISIBLE_DEVICES"] == "0"
+
+
+# --- remote worker probe: an unreachable / self-aliased / card-less worker aborts in seconds ---
+#
+# Pins the v0.6.7 gate-infra defect (2026-08-23): the gate ran ON qb2 with `--workers qb2:2,qb2:3`,
+# `qb2` is an ssh alias that exists only in another user's config on another host, so locality
+# matched by name classified it remote, ssh'd to an unresolvable name, and all 21 device legs
+# exited 255 in 0s while the 9 in-process legs passed. 47 minutes, no model run, verdict FAIL.
+
+def _workers(mod, spec):
+    return mod.parse_workers(spec)
+
+
+def test_unreachable_remote_worker_is_a_preflight_problem():
+    mod = _load()
+    ws = _workers(mod, "not-a-host:2,not-a-host:3")
+    probs = mod.remote_worker_problems(
+        ws, probe=lambda h: (255, "", "ssh: Could not resolve hostname not-a-host"))
+    assert len(probs) == 1, probs
+    assert "not-a-host" in probs[0] and "not reachable" in probs[0]
+    # names the fix, and says what would otherwise happen
+    assert "localhost:2" in probs[0] and "255" in probs[0]
+
+
+def test_remote_worker_that_is_this_same_box_is_a_preflight_problem():
+    mod = _load()
+    import socket
+    me = socket.gethostname().split(".")[0]
+    ws = _workers(mod, "myalias:2")
+    probs = mod.remote_worker_problems(ws, probe=lambda h: (0, f"{me}\n0\n1\n2\n3\n", ""))
+    assert len(probs) == 1, probs
+    assert "same box" in probs[0] and "localhost:2" in probs[0]
+
+
+def test_remote_worker_missing_the_card_node_is_a_preflight_problem():
+    mod = _load()
+    ws = _workers(mod, "otherbox:3")
+    probs = mod.remote_worker_problems(ws, probe=lambda h: (0, "otherbox\n0\n1\n", ""))
+    assert len(probs) == 1, probs
+    assert "/dev/tenstorrent/3" in probs[0]
+
+
+def test_reachable_remote_worker_with_its_card_is_no_problem():
+    mod = _load()
+    ws = _workers(mod, "otherbox:2,otherbox:3")
+    assert mod.remote_worker_problems(
+        ws, probe=lambda h: (0, "otherbox\n0\n1\n2\n3\n", "")) == []
+
+
+def test_local_workers_are_not_probed():
+    mod = _load()
+    ws = _workers(mod, "localhost:0")
+
+    def boom(h):
+        raise AssertionError(f"probed a local worker: {h}")
+
+    assert mod.remote_worker_problems(ws, probe=boom) == []
+
+
+def test_one_probe_per_host_not_per_worker():
+    mod = _load()
+    seen = []
+
+    def probe(h):
+        seen.append(h)
+        return 0, "otherbox\n0\n1\n2\n3\n", ""
+
+    mod.remote_worker_problems(_workers(mod, "otherbox:0,otherbox:1,otherbox:2"), probe=probe)
+    assert seen == ["otherbox"]
