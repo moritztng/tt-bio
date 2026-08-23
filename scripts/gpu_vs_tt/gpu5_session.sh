@@ -109,12 +109,15 @@ for M in $MODELS; do
         # comes from transformers. --esm-backend selects the fast kernel path, which is
         # NOT the default, and 10 loops / 100 requested steps is the paper's protocol and
         # what the TT arm runs.
-        esmfold2)  PY=/root/venv-esm312/bin/python
+        # ESM_VENV exists for one caller: the pinned harness-control arm, which re-runs this
+        # exact row against the packages the published cell names (venv-esm312ctl) to tell
+        # package drift apart from a box or harness problem. Default is unchanged.
+        esmfold2)  PY=${ESM_VENV:-/root/venv-esm312}/bin/python
                    EXTRA="--esm-backend cuequivariance --recycles 10 --steps 100"
                    NVLIB="$(nvidia_lib_path "$PY")" ;;
         # Same class, same venv, same backend, one different checkpoint: --esm-repo resolves
         # from ESM_REPOS, so it is deliberately not passed here.
-        esmfold2-fast) PY=/root/venv-esm312/bin/python
+        esmfold2-fast) PY=${ESM_VENV:-/root/venv-esm312}/bin/python
                    EXTRA="--esm-backend cuequivariance --recycles 10 --steps 100"
                    NVLIB="$(nvidia_lib_path "$PY")" ;;
       esac
