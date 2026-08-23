@@ -347,6 +347,14 @@ TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
   python3 scripts/perf_regression.py --update-baseline --note "reason"
 ```
 
+The UX gate also carries an **input-contracts** leg: the three OpenFold3 inputs
+0.6.7 fixed, folded through the shipped CLI. A `cyclic: true` chain must be
+refused rather than folded as a linear one, a YAML `msa:` pointing at the user's
+own alignment must fold, and a CCD ligand's reference conformer must keep the
+handedness its code names. Each has a card-free host test; none of the accuracy
+legs folds these inputs, which is how all three reached a release. Diagnostic
+opt-out is `--no-contracts`; a release run gates all three.
+
 The UX gate checks CLI help, live progress phase ordering, strict output parsing,
 and results or manifest shape for every user-facing architecture — the fold
 models, ESMC embed, and both design models (BoltzGen via
