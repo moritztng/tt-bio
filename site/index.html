@@ -159,7 +159,8 @@ h2{font-size:clamp(1.85rem,3.5vw,2.5rem);margin:0 0 18px;max-width:22ch}
 
   <div class="facts">
     <div><div class="n">5&times;</div><div class="k">throughput per dollar</div>
-      <div class="s">of purchase price, against a DGX B200</div></div>
+      <div class="s">of purchase price, against a DGX B200. 3.7&times; to 7.6&times; across the
+        models on the benchmark page</div></div>
     <div><div class="n">One</div><div class="k">codebase</div>
       <div class="s">optimized from silicon to serving</div></div>
     <div><div class="n">1:1</div><div class="k">accuracy parity</div>
@@ -204,11 +205,16 @@ h2{font-size:clamp(1.85rem,3.5vw,2.5rem);margin:0 0 18px;max-width:22ch}
         <div class="ientry"><span class="nm">Protenix-v2</span><span class="ds">All-atom complex prediction</span></div>
         <div class="ientry"><span class="nm">ESMFold2</span><span class="ds">Rapid single-sequence folding</span></div>
         <div class="ientry"><span class="nm">OpenDDE</span><span class="ds">Multi-chain protein complexes</span></div>
+        <div class="ientry"><span class="nm">RoseTTAFold3</span><span class="ds">All-atom biomolecular assemblies</span></div>
+        <div class="ientry"><span class="nm">OpenBind-0</span><span class="ds">Protein-ligand co-folding</span></div>
       </div>
       <div class="cat">
         <p class="ctitle">Binder design</p>
         <div class="ientry"><span class="nm">BoltzGen</span><span class="ds">Binders against any target</span></div>
         <div class="ientry"><span class="nm">RFdiffusion3</span><span class="ds">All-atom design and scaffolds</span></div>
+        <div class="ientry"><span class="nm">PXDesign</span><span class="ds">Binder backbones from a target</span></div>
+        <p class="ctitle" style="margin-top:26px">Binding affinity</p>
+        <div class="ientry"><span class="nm">Nesso-1</span><span class="ds">Affinity scalars, no structure</span></div>
         <p class="ctitle" style="margin-top:26px">Embeddings</p>
         <div class="ientry"><span class="nm">ESM-C</span><span class="ds">Sequence embeddings, to 6B</span></div>
         <div class="ientry"><span class="nm">SaProt</span><span class="ds">Structure-aware embeddings</span></div>
@@ -271,16 +277,58 @@ h2{font-size:clamp(1.85rem,3.5vw,2.5rem);margin:0 0 18px;max-width:22ch}
   </footer>
 </div>
 <script>
-const CH = {"Boltz-2":{"Blackhole Galaxy":[4901,44.56,33.42],"DGX H200":[3946,9.63,8.95],"DGX B200":[3581,6.51,6.03],"DGX A100":[2001,11.43,10.27]},"ESMFold2":{"Blackhole Galaxy":[3919,35.63,26.73],"DGX H200":[3969,9.68,9.0],"DGX B200":[5274,9.59,8.88],"DGX A100":[1954,11.16,10.03]},"Protenix-v2":{"Blackhole Galaxy":[2279,20.72,15.54],"DGX H200":[2363,5.76,5.36],"DGX B200":[2649,4.82,4.46],"DGX A100":[1263,7.22,6.48]},"OpenDDE":{"Blackhole Galaxy":[1398,12.71,9.53],"DGX H200":[1395,3.4,3.16],"DGX B200":[1628,2.96,2.74],"DGX A100":[717,4.1,3.68]},"OpenFold3":{"Blackhole Galaxy":[3011,27.38,20.54],"DGX H200":[2806,6.84,6.36],"DGX B200":[2421,4.4,4.08],"DGX A100":[1700,9.71,8.72]},"BoltzGen":{"Blackhole Galaxy":[2544,23.12,17.35],"DGX H200":[2277,5.55,5.16],"DGX B200":[1790,3.25,3.01],"DGX A100":[1325,7.57,6.8]}};
-const ORDER = ["Blackhole Galaxy","DGX H200","DGX B200","DGX A100"];
+/* Every figure below is derived from data/perf-512aa.json at load time. This page used to carry
+ * six models x four platforms x three metrics of hand-written derived values inline, which drifted
+ * from the data and drew 6 rows where the data had 9 -- a chart that renders while quietly omitting
+ * a series. The three formulas here are the same ones benchmarks/index.html uses. */
 const IDX = {tph:0, perk:1, tco:2};
 let metric = "perk";
+let CH = {}, ORDER = [], CAP = {};
+
+const SERVER_OF = {p150a:"galaxy_bh", h200:"dgx_h200", b200:"dgx_b200", a100:"dgx_a100"};
+const CELLS = ["p150a","h200","b200","a100"];
+
+function build(D){
+  const P = Object.fromEntries(D.platforms.map(p => [p.id, p]));
+  const m = D.cost_model, hours = m.amortisation_years * m.hours_per_year;
+  const perHour = (s,p) => 3600.0 / s * p.accelerators * (p.scaling_efficiency ?? 1.0);
+  const ownUsd  = p => p.price_usd + p.power_kw * m.electricity_usd_per_kwh * hours;
+  const secs = c => c.s_per_fold ?? c.s_per_design;
+
+  ORDER = CELLS.map(k => P[SERVER_OF[k]].name);
+  /* Folding, design and affinity rows: they share the per-server axis. NOT the embedding rows --
+   * this chart's unit is predictions per hour, and an embedding forward has no server price the
+   * cost index was built for. The caption says where they live instead. */
+  const rows = [...D.models, ...(D.design?.models ?? []), ...(D.affinity?.models ?? [])]
+    .filter(x => !x.hidden);
+  CH = {};
+  for (const mod of rows){
+    const row = {};
+    for (const k of CELLS){
+      const c = mod.cells[k], p = P[SERVER_OF[k]];
+      if (!c || c.status !== "measured") { row[p.name] = null; continue; }
+      const ph = perHour(secs(c), p);
+      row[p.name] = [ph, ph / p.price_usd * 1000, ph / ownUsd(p) * 1000];
+    }
+    CH[mod.name] = row;
+  }
+  const srv = CELLS.map(k => P[SERVER_OF[k]]);
+  const usd = v => "$" + Math.round(v/1000) + "k";
+  CAP = {
+    perk: srv.map(p => p.name + " " + usd(p.price_usd)).join(", ") + ", at list.",
+    tco:  "Over " + m.amortisation_years + " years that is " +
+          srv.map(p => usd(ownUsd(p))).join(", ") + " respectively.",
+    tph:  "Same " + D.scope.size_aa + "-residue protein, each stack on its own shipped settings. " +
+          srv.map(p => p.power_kw + " kW").join(" against ") + "."
+  };
+}
+
 function groupHTML(model){
   const row = CH[model];
   const vals = ORDER.map(s => row[s] ? row[s][IDX[metric]] : null);
   const max = Math.max(...vals.filter(v => v != null));
   const bars = ORDER.map((s,i) => {
-    const v = vals[i], us = s === "Blackhole Galaxy";
+    const v = vals[i], us = s.includes("Galaxy");
     if (v == null) return `<div class="brow ${us?"us":""}"><div class="blabel">${s}</div>
       <div class="bna">not yet measured</div><div class="bval"></div></div>`;
     const txt = metric==="perk" ? v.toFixed(1) : Math.round(v).toLocaleString("en-US");
@@ -297,13 +345,9 @@ function drawChart(){
     tco:"<b>Predictions per hour, per $1,000 of four-year ownership.</b> Purchase price plus electricity, over four years.",
     tph:"<b>Predictions per hour, per server.</b> 32 Blackhole processors against 8 GPUs."
   };
-  const CAP = {
-    perk:"Galaxy $110k, DGX A100 $175k, DGX H200 $410k, DGX B200 $550k, at list.",
-    tco:"Over four years that is $147k, $195k, $441k and $594k respectively.",
-    tph:"Same 512-residue protein, each stack on its own shipped settings. 12 kW against the DGX B200's 14.3 kW."
-  };
   document.getElementById("unit").innerHTML = UNIT[metric];
-  document.getElementById("cap").textContent = CAP[metric] + " Bars scale within each model.";
+  document.getElementById("cap").textContent = CAP[metric] +
+    " Bars scale within each model. Embeddings are measured separately; see the benchmark page.";
 }
 document.getElementById("metric").addEventListener("click", e => {
   const b = e.target.closest("button[data-m]"); if(!b) return;
@@ -311,7 +355,13 @@ document.getElementById("metric").addEventListener("click", e => {
   [...e.currentTarget.children].forEach(x => x.setAttribute("aria-pressed", x===b));
   drawChart();
 });
-drawChart();
+fetch("data/perf-512aa.json", {cache:"no-store"})
+  .then(r => r.json())
+  .then(D => { build(D); drawChart(); })
+  .catch(e => {
+    document.getElementById("cap").textContent =
+      "Could not load data/perf-512aa.json (" + e.message + "). Serve this directory over HTTP.";
+  });
 const io = new IntersectionObserver(es => es.forEach(e => {
   if (e.isIntersecting){ e.target.classList.add("in"); io.unobserve(e.target); }
 }), {rootMargin:"0px 0px -6% 0px", threshold:.05});
