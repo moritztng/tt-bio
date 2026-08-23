@@ -4,7 +4,7 @@
     "-m",
     "tt_bio.main",
     "predict",
-    "/home/moritz/.coworker/wt/rf3-release-gate-coverage/perf/size512/fixtures/cdk2x2_768.yaml",
+    "/home/ttuser/.coworker/wt/rf3-4x-land-sizeladder-record/perf/size512/fixtures/cdk2x2_768.yaml",
     "--model",
     "rf3",
     "--single_sequence",
@@ -15,7 +15,7 @@
     "--seed",
     "0",
     "--out_dir",
-    "/home/moritz/.coworker/wt/rf3-release-gate-coverage/perf/sizegate/work/out_rf3-768-rep0"
+    "/home/ttuser/.coworker/wt/rf3-4x-land-sizeladder-record/perf/sizegate/work/out_rf3-768-rep0"
   ],
   "rc": 0,
   "processes": 1,
@@ -106,8 +106,8 @@
       "how": "stats-dict",
       "counter": "tt_bio.tenstorrent.FP32_SOFTMAX_STATS",
       "resolved": "True",
-      "served": 1121,
-      "declined": 1088,
+      "served": 153,
+      "declined": 120,
       "rejects": null
     },
     {
@@ -200,9 +200,12 @@
       "how": "stats",
       "counter": "tt_bio.triatt_sdpa.STATS",
       "resolved": "True",
-      "served": 0,
-      "declined": 0,
-      "rejects": null
+      "served": 968,
+      "declined": 968,
+      "rejects": {
+        "l1_budget": 1,
+        "pm_over_l1": 967
+      }
     },
     {
       "flag": "SDPA_WIDE_K",

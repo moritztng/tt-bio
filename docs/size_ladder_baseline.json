@@ -2,8 +2,8 @@
   "cards": {
     "p150a": {
       "recorded": "2026-08-23",
-      "host": "pc",
-      "commit": "4c464ed5",
+      "host": "tt-quietbox",
+      "commit": "8c22b305",
       "models": {
         "boltz2": {
           "grid": "13x10",
@@ -4945,13 +4945,13 @@
         "rf3": {
           "grid": "13x10",
           "recorded": "2026-08-23",
-          "host": "pc",
-          "commit": "4c464ed5",
+          "host": "tt-quietbox",
+          "commit": "8c22b305",
           "runtime_s": {
-            "256": 30.8,
-            "512": 85.9,
-            "640": 137.7,
-            "768": 212.4
+            "256": 38.9,
+            "512": 72.5,
+            "640": 99.2,
+            "768": 128.1
           },
           "levers": {
             "256": {
@@ -5031,9 +5031,9 @@
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
-                "served": 1121,
-                "declined": 1088,
-                "frac": 0.5074694431869624,
+                "served": 153,
+                "declined": 120,
+                "frac": 0.5604395604395604,
                 "how": "stats-dict"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
@@ -5119,11 +5119,10 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 0,
+                "served": 968,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: rf3's Pairformer ships fp32_softmax=True (tt_bio/rf3/remap.py::PAIRFORMER_FLAGS), so its triangle attention runs _fp32_softmax_attention; the fused kernel's call site is reached only through _tri_att_sdpa_hifi, which is TT_BIO_TRIATT_FUSED_HIFI and default-OFF because forcing it costs rf3 1.93 A CA-RMSD. Inert on this model at every rung, not dark at this one"
+                "frac": 1.0,
+                "how": "stats"
               },
               "SDPA_WIDE_K": {
                 "resolved": "False",
@@ -5282,9 +5281,9 @@
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
-                "served": 1121,
-                "declined": 1088,
-                "frac": 0.5074694431869624,
+                "served": 153,
+                "declined": 120,
+                "frac": 0.5604395604395604,
                 "how": "stats-dict"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
@@ -5364,11 +5363,10 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 0,
+                "served": 968,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: rf3's Pairformer ships fp32_softmax=True (tt_bio/rf3/remap.py::PAIRFORMER_FLAGS), so its triangle attention runs _fp32_softmax_attention; the fused kernel's call site is reached only through _tri_att_sdpa_hifi, which is TT_BIO_TRIATT_FUSED_HIFI and default-OFF because forcing it costs rf3 1.93 A CA-RMSD. Inert on this model at every rung, not dark at this one"
+                "frac": 1.0,
+                "how": "stats"
               },
               "SDPA_WIDE_K": {
                 "resolved": "False",
@@ -5527,9 +5525,9 @@
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
-                "served": 1121,
-                "declined": 1088,
-                "frac": 0.5074694431869624,
+                "served": 153,
+                "declined": 120,
+                "frac": 0.5604395604395604,
                 "how": "stats-dict"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
@@ -5609,11 +5607,10 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 0,
+                "served": 968,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: rf3's Pairformer ships fp32_softmax=True (tt_bio/rf3/remap.py::PAIRFORMER_FLAGS), so its triangle attention runs _fp32_softmax_attention; the fused kernel's call site is reached only through _tri_att_sdpa_hifi, which is TT_BIO_TRIATT_FUSED_HIFI and default-OFF because forcing it costs rf3 1.93 A CA-RMSD. Inert on this model at every rung, not dark at this one"
+                "frac": 1.0,
+                "how": "stats"
               },
               "SDPA_WIDE_K": {
                 "resolved": "False",
@@ -5772,9 +5769,9 @@
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
-                "served": 1121,
-                "declined": 1088,
-                "frac": 0.5074694431869624,
+                "served": 153,
+                "declined": 120,
+                "frac": 0.5604395604395604,
                 "how": "stats-dict"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
@@ -5855,11 +5852,14 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
+                "served": 968,
+                "declined": 968,
+                "frac": 0.5,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: rf3's Pairformer ships fp32_softmax=True (tt_bio/rf3/remap.py::PAIRFORMER_FLAGS), so its triangle attention runs _fp32_softmax_attention; the fused kernel's call site is reached only through _tri_att_sdpa_hifi, which is TT_BIO_TRIATT_FUSED_HIFI and default-OFF because forcing it costs rf3 1.93 A CA-RMSD. Inert on this model at every rung, not dark at this one"
+                "rejects": {
+                  "l1_budget": 1,
+                  "pm_over_l1": 967
+                }
               },
               "SDPA_WIDE_K": {
                 "resolved": "False",
@@ -5947,14 +5947,14 @@
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0122,
+          "sigma_runtime_512": 0.0185,
           "exponents": {
             "256->512": {
-              "k": 1.48,
+              "k": 0.898,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.233,
+              "k": 1.404,
               "tol": 0.5
             }
           }

@@ -45,7 +45,15 @@ DEFAULTS = {
     "boltz-2":   dict(recycles=3,  steps=200),
     "openfold3": dict(recycles=3,  steps=200),
     "esmfold2":  dict(recycles=10, steps=100),   # 100 requested -> 68 executed
+    # Same shipped recycles and steps as esmfold2 (main.py resolves both variants together);
+    # what differs is the checkpoint: a 24-block folding trunk against 48, MSA encoder off,
+    # the same biohub/ESMC-6B LM backbone. So it is one --esm-repo away, not a new runner.
+    "esmfold2-fast": dict(recycles=10, steps=100),
 }
+
+# Which HF repo each ESMFold2-family row loads. Left as a table rather than a bare default so
+# picking the model cannot leave the repo pointing at the other checkpoint.
+ESM_REPOS = {"esmfold2": "biohub/ESMFold2", "esmfold2-fast": "biohub/ESMFold2-Fast"}
 
 
 # --------------------------------------------------------------------------------------
@@ -429,7 +437,7 @@ def run_esmfold2(args) -> dict:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--model", required=True, choices=["boltz-2", "openfold3", "esmfold2"])
+    ap.add_argument("--model", required=True, choices=["boltz-2", "openfold3", "esmfold2", "esmfold2-fast"])
     ap.add_argument("--repeat", type=int, default=3, help="warm folds; fold 1 is cold on top")
     ap.add_argument("--yaml", type=Path, default=HERE.parents[1] /
                     "perf/size512/fixtures/cdk2x2_512.yaml")
@@ -440,7 +448,8 @@ def main() -> int:
     ap.add_argument("--esm-module",
                     default="transformers.models.esmfold2.modeling_esmfold2",
                     help="where ESMFold2Model lives; transformers ships it, esm does not")
-    ap.add_argument("--esm-repo", default="biohub/ESMFold2")
+    ap.add_argument("--esm-repo", default=None,
+                    help="default: the repo ESM_REPOS maps this --model to")
     ap.add_argument("--esm-backend", default="cuequivariance",
                     choices=["cuequivariance", "fused", "reference"],
                     help="ESMFold2 kernel backend; 'reference' passes None")
@@ -452,6 +461,8 @@ def main() -> int:
     args = ap.parse_args()
 
     d = DEFAULTS[args.model]
+    if args.esm_repo is None:
+        args.esm_repo = ESM_REPOS.get(args.model, "biohub/ESMFold2")
     if args.recycles is None:
         args.recycles = d["recycles"]
     if args.steps is None:
@@ -461,11 +472,12 @@ def main() -> int:
     seq = args.seq_file.read_text().strip()
     # The a3m's query row must be the sequence, or the two sides are not folding the
     # same target. Same identical-bytes check gpu_bench.py makes.
-    if args.model != "esmfold2":
+    if args.model not in ESM_REPOS:
         rows = args.a3m.read_text().split("\n")
         assert rows[1] == seq, f"{args.a3m} query row does not match {args.seq_file}"
 
-    fn = {"boltz-2": run_boltz, "openfold3": run_of3, "esmfold2": run_esmfold2}[args.model]
+    fn = {"boltz-2": run_boltz, "openfold3": run_of3,
+      "esmfold2": run_esmfold2, "esmfold2-fast": run_esmfold2}[args.model]
     t0 = time.perf_counter()
     try:
         res = fn(args)
@@ -474,6 +486,19 @@ def main() -> int:
         import traceback
         res, err = {}, traceback.format_exc()
         print(err, file=sys.stderr)
+
+    # Stage the last warm prediction next to --out. The A100 pass lost three models' written
+    # structures because they were left under /root/work and the instance was destroyed before
+    # anyone noticed, so every accuracy verdict there is checkable only through its gate JSON.
+    # Copying one small file per model is the whole fix.
+    for src in (res or {}).get("predictions", [])[-1:]:
+        try:
+            dst = args.out.parent / f"{args.model}_{Path(src).name}"
+            args.out.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(src, dst)
+            res["retained_structure"] = str(dst)
+        except Exception as e:
+            res["retained_structure_error"] = repr(e)
 
     cpu = "unknown"
     try:
