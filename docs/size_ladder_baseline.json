@@ -4961,7 +4961,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever; rf3 does not run that module"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
@@ -4969,7 +4969,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever; rf3 does not run that module"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
@@ -4977,7 +4977,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; rf3 does not run that module"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
@@ -4985,7 +4985,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; rf3 does not run that module"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
@@ -4993,7 +4993,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; rf3 does not run that module"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
@@ -5001,7 +5001,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; rf3 does not run that module"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -5009,7 +5009,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; rf3 does not run that module"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
@@ -5020,7 +5020,7 @@
                 "rejects": {
                   "memory": 2136
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on memory x2136)"
+                "reason": "declines all 2136 calls on memory x2136: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and the pair buffer is L1-resident at this size; from 512 up it serves 1088 calls"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -5046,7 +5046,7 @@
                   "l1_dest_is_faster:256x256x64": 40,
                   "l1_dest_is_faster:256x256x128": 1048
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on l1_dest_is_faster:256x256x128 x1048, l1_dest_is_faster:256x256x64 x40)"
+                "reason": "declines all 1088 calls on l1_dest_is_faster:256x256x128 x1048, l1_dest_is_faster:256x256x64 x40: l1_dest_is_faster is the route's own verdict that an L1 destination beats the row-major move at this pair shape, not a refusal to run. Not dark at every rung: 640 serves 563 of 1089"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -5058,7 +5058,7 @@
                   "k_tiles=2:(2,1)": 40,
                   "k_tiles=4:(4,1)": 1048
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4:(4,1) x1048, k_tiles=2:(2,1) x40)"
+                "reason": "declines all 1088 calls on k_tiles=4:(4,1) x1048, k_tiles=2:(2,1) x40: the minimal matmul admits 8 K tiles and rf3's pair projections resolve 4 and 2, a property of c_z and not of N -- so it is inert on this model at every size, not dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -5070,7 +5070,7 @@
                   "k_tiles=2": 40,
                   "k_tiles=4": 1048
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4 x1048, k_tiles=2 x40)"
+                "reason": "declines all 1088 calls on k_tiles=4 x1048, k_tiles=2 x40: F1_BLOCK_KEYS allow-lists only (8, 8) and rf3's trimul tails resolve 4 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -5099,7 +5099,7 @@
                 "rejects": {
                   "window_BufferType.L1": 2136
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on window_BufferType.L1 x2136)"
+                "reason": "declines all 2136 calls on window_BufferType.L1 x2136: the gate's L1 leg admits 288 <= N <= 352 only, and its own docstring records N=256 on an L1 output measuring 0.952x, a real loss; from 512 up it serves 240 calls"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -5107,7 +5107,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: the move back only runs when a forward move fired, and neither the gated nor the ungated move did at this rung; from 512 up it serves 1088 calls"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
@@ -5115,7 +5115,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: not offered at this rung; it serves every call from 512 upward (1936 at 512, 640 and 768)"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -5123,7 +5123,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: rf3's Pairformer ships fp32_softmax=True (tt_bio/rf3/remap.py::PAIRFORMER_FLAGS), so its triangle attention runs _fp32_softmax_attention; the fused kernel's call site is reached only through _tri_att_sdpa_hifi, which is TT_BIO_TRIATT_FUSED_HIFI and default-OFF because forcing it costs rf3 1.93 A CA-RMSD. Inert on this model at every rung, not dark at this one"
               },
               "SDPA_WIDE_K": {
                 "resolved": "False",
@@ -5162,7 +5162,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "gate_proj is offered only when `not self.biased` (tt_bio/tenstorrent.py, the triangle-attention tail), and rf3 is the model whose biases sit on linear_g and linear_o, so the head-major TAIL is refused by construction while the head-major QKV serves 1048 calls at this rung. Inert on this model at every size, not dark at this one"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
@@ -5170,7 +5170,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "shares TAIL_STATS with TRIATT_HEAD_MAJOR_TAIL, which rf3 never reaches because gate_proj is gated on `not self.biased` and rf3 carries linear_g/linear_o biases"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -5178,7 +5178,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; rf3 does not run that module"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -5216,7 +5216,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever; rf3 does not run that module"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
@@ -5224,7 +5224,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever; rf3 does not run that module"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
@@ -5232,7 +5232,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; rf3 does not run that module"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
@@ -5240,7 +5240,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; rf3 does not run that module"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
@@ -5248,7 +5248,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; rf3 does not run that module"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
@@ -5256,7 +5256,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; rf3 does not run that module"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -5264,7 +5264,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; rf3 does not run that module"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
@@ -5297,7 +5297,7 @@
                   "l1_dest_is_faster:512x512x64": 40,
                   "l1_dest_is_faster:512x512x128": 1048
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on l1_dest_is_faster:512x512x128 x1048, l1_dest_is_faster:512x512x64 x40)"
+                "reason": "declines all 1088 calls on l1_dest_is_faster:512x512x128 x1048, l1_dest_is_faster:512x512x64 x40: l1_dest_is_faster is the route's own verdict that an L1 destination beats the row-major move at this pair shape, not a refusal to run. Not dark at every rung: 640 serves 563 of 1089"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -5309,7 +5309,7 @@
                   "k_tiles=2:(2,1)": 40,
                   "k_tiles=4:(4,1)": 1048
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4:(4,1) x1048, k_tiles=2:(2,1) x40)"
+                "reason": "declines all 1088 calls on k_tiles=4:(4,1) x1048, k_tiles=2:(2,1) x40: the minimal matmul admits 8 K tiles and rf3's pair projections resolve 4 and 2, a property of c_z and not of N -- so it is inert on this model at every size, not dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -5321,7 +5321,7 @@
                   "k_tiles=2": 40,
                   "k_tiles=4": 1048
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4 x1048, k_tiles=2 x40)"
+                "reason": "declines all 1088 calls on k_tiles=4 x1048, k_tiles=2 x40: F1_BLOCK_KEYS allow-lists only (8, 8) and rf3's trimul tails resolve 4 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -5368,7 +5368,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: rf3's Pairformer ships fp32_softmax=True (tt_bio/rf3/remap.py::PAIRFORMER_FLAGS), so its triangle attention runs _fp32_softmax_attention; the fused kernel's call site is reached only through _tri_att_sdpa_hifi, which is TT_BIO_TRIATT_FUSED_HIFI and default-OFF because forcing it costs rf3 1.93 A CA-RMSD. Inert on this model at every rung, not dark at this one"
               },
               "SDPA_WIDE_K": {
                 "resolved": "False",
@@ -5407,7 +5407,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "gate_proj is offered only when `not self.biased` (tt_bio/tenstorrent.py, the triangle-attention tail), and rf3 is the model whose biases sit on linear_g and linear_o, so the head-major TAIL is refused by construction while the head-major QKV serves 1048 calls at this rung. Inert on this model at every size, not dark at this one"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
@@ -5415,7 +5415,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "shares TAIL_STATS with TRIATT_HEAD_MAJOR_TAIL, which rf3 never reaches because gate_proj is gated on `not self.biased` and rf3 carries linear_g/linear_o biases"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -5423,7 +5423,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; rf3 does not run that module"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -5461,7 +5461,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever; rf3 does not run that module"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
@@ -5469,7 +5469,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever; rf3 does not run that module"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
@@ -5477,7 +5477,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; rf3 does not run that module"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
@@ -5485,7 +5485,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; rf3 does not run that module"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
@@ -5493,7 +5493,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; rf3 does not run that module"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
@@ -5501,7 +5501,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; rf3 does not run that module"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -5509,7 +5509,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; rf3 does not run that module"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
@@ -5554,7 +5554,7 @@
                   "k_tiles=4:(4,4)": 2090,
                   "k_tiles=4:(4,1)": 1048
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4:(4,4) x2090, k_tiles=4:(4,1) x1048, k_tiles=2:(2,1) x40)"
+                "reason": "declines all 3178 calls on k_tiles=4:(4,4) x2090, k_tiles=4:(4,1) x1048, k_tiles=2:(2,1) x40: the minimal matmul admits 8 K tiles and rf3's pair projections resolve 4 and 2, a property of c_z and not of N -- so it is inert on this model at every size, not dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -5566,7 +5566,7 @@
                   "k_tiles=2": 40,
                   "k_tiles=4": 1048
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4 x1048, k_tiles=2 x40)"
+                "reason": "declines all 1088 calls on k_tiles=4 x1048, k_tiles=2 x40: F1_BLOCK_KEYS allow-lists only (8, 8) and rf3's trimul tails resolve 4 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -5613,7 +5613,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: rf3's Pairformer ships fp32_softmax=True (tt_bio/rf3/remap.py::PAIRFORMER_FLAGS), so its triangle attention runs _fp32_softmax_attention; the fused kernel's call site is reached only through _tri_att_sdpa_hifi, which is TT_BIO_TRIATT_FUSED_HIFI and default-OFF because forcing it costs rf3 1.93 A CA-RMSD. Inert on this model at every rung, not dark at this one"
               },
               "SDPA_WIDE_K": {
                 "resolved": "False",
@@ -5652,7 +5652,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "gate_proj is offered only when `not self.biased` (tt_bio/tenstorrent.py, the triangle-attention tail), and rf3 is the model whose biases sit on linear_g and linear_o, so the head-major TAIL is refused by construction while the head-major QKV serves 1048 calls at this rung. Inert on this model at every size, not dark at this one"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
@@ -5660,7 +5660,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "shares TAIL_STATS with TRIATT_HEAD_MAJOR_TAIL, which rf3 never reaches because gate_proj is gated on `not self.biased` and rf3 carries linear_g/linear_o biases"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -5668,7 +5668,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; rf3 does not run that module"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -5706,7 +5706,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever; rf3 does not run that module"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
@@ -5714,7 +5714,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC lever; rf3 does not run that module"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
@@ -5722,7 +5722,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; rf3 does not run that module"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
@@ -5730,7 +5730,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; rf3 does not run that module"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
@@ -5738,7 +5738,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; rf3 does not run that module"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
@@ -5746,7 +5746,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; rf3 does not run that module"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -5754,7 +5754,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: an ESMC pair-FFN lever; rf3 does not run that module"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
@@ -5787,7 +5787,7 @@
                   "l1_dest_is_faster:768x768x64": 40,
                   "l1_dest_is_faster:768x768x128": 1048
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on l1_dest_is_faster:768x768x128 x1048, l1_dest_is_faster:768x768x64 x40)"
+                "reason": "declines all 1088 calls on l1_dest_is_faster:768x768x128 x1048, l1_dest_is_faster:768x768x64 x40: l1_dest_is_faster is the route's own verdict that an L1 destination beats the row-major move at this pair shape, not a refusal to run. Not dark at every rung: 640 serves 563 of 1089"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -5800,7 +5800,7 @@
                   "k_tiles=4:(4,4)": 3144,
                   "k_tiles=4:(4,1)": 1048
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4:(4,4) x3144, k_tiles=4:(4,1) x1048, k_tiles=2:(2,1) x40)"
+                "reason": "declines all 4232 calls on k_tiles=4:(4,4) x3144, k_tiles=4:(4,1) x1048, k_tiles=2:(2,1) x40: the minimal matmul admits 8 K tiles and rf3's pair projections resolve 4 and 2, a property of c_z and not of N -- so it is inert on this model at every size, not dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -5812,7 +5812,7 @@
                   "k_tiles=2": 40,
                   "k_tiles=4": 1048
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4 x1048, k_tiles=2 x40)"
+                "reason": "declines all 1088 calls on k_tiles=4 x1048, k_tiles=2 x40: F1_BLOCK_KEYS allow-lists only (8, 8) and rf3's trimul tails resolve 4 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -5859,7 +5859,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: rf3's Pairformer ships fp32_softmax=True (tt_bio/rf3/remap.py::PAIRFORMER_FLAGS), so its triangle attention runs _fp32_softmax_attention; the fused kernel's call site is reached only through _tri_att_sdpa_hifi, which is TT_BIO_TRIATT_FUSED_HIFI and default-OFF because forcing it costs rf3 1.93 A CA-RMSD. Inert on this model at every rung, not dark at this one"
               },
               "SDPA_WIDE_K": {
                 "resolved": "False",
@@ -5898,7 +5898,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "gate_proj is offered only when `not self.biased` (tt_bio/tenstorrent.py, the triangle-attention tail), and rf3 is the model whose biases sit on linear_g and linear_o, so the head-major TAIL is refused by construction while the head-major QKV serves 1048 calls at this rung. Inert on this model at every size, not dark at this one"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
@@ -5906,7 +5906,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "shares TAIL_STATS with TRIATT_HEAD_MAJOR_TAIL, which rf3 never reaches because gate_proj is gated on `not self.biased` and rf3 carries linear_g/linear_o biases"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -5914,7 +5914,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; rf3 does not run that module"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
