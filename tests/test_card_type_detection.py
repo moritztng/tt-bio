@@ -63,7 +63,7 @@ def test_unknown_subsystem_still_fails_loudly():
     assert _detect_with_sysfs(_load(), "0xbeef") == "unknown:0xbeef"
 
 
-def test_tt_smi_wins_over_sysfs():
+def test_tt_smi_wins_over_sysfs(monkeypatch):
     """sysfs is the fallback, not an override: a live tt-smi still decides."""
     mod = _load()
     mod._sysfs_subsystem_device = lambda _dev: "0x0040"
@@ -73,7 +73,15 @@ def test_tt_smi_wins_over_sysfs():
         stdout = '{"device_info": [{"board_info": {"board_type": "p300c"}}]}'
 
     mod._resolve_tt_smi = lambda: "/nonexistent/tt-smi"
-    mod.subprocess.run = lambda *a, **k: _Out()
+    # monkeypatch, not a bare assignment. `_load()` gives this test its own module object, so
+    # patching `mod._resolve_tt_smi` is local -- but `mod.subprocess` IS the one shared
+    # subprocess module, so `mod.subprocess.run = ...` replaces it for the whole session. It
+    # did: 10 of 11 failures in the 2026-08-23 host suite were later tests getting this `_Out`
+    # back from an unrelated `subprocess.run` -- `conftest.git_tracked` calling `.decode()` on
+    # its str stdout, `test_full_parity_gate` reading `.returncode`, and four protenix folds
+    # asserting on the fake tt-smi JSON. Same leak class as the TT_VISIBLE_DEVICES `pop` this
+    # commit's sibling fixture was written to stop, introduced in the same commit.
+    monkeypatch.setattr(mod.subprocess, "run", lambda *a, **k: _Out())
     assert mod.detect_card_type() == "p300c"
 
 
