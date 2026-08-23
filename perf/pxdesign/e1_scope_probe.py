@@ -73,7 +73,10 @@ for fn, label in ((tenstorrent._fp32_softmax_attention, "_fp32_softmax_attention
 # --- 4. the two AF2PairBlock construction sites pin True, structurally --------------------------
 def call_kwarg(path, callee, kw):
     """Every `callee(...)` call node in `path`, as the literal value it passes for `kw`."""
-    tree = ast.parse((ROOT / path).read_text())
+    try:
+        tree = ast.parse((ROOT / path).read_text())
+    except (SyntaxError, UnicodeDecodeError):
+        return []   # vendored trees carry files this interpreter cannot parse; none build ours
     out = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
@@ -108,6 +111,35 @@ check("triangle-attention-dispatch", dispatch.count("self.l1_padded_plan") == 1,
       f"{dispatch} (want exactly one `self.l1_padded_plan` and one `<absent>`)")
 check("pairformer-untouched", dispatch.count("<absent>") == 1,
       f"{dispatch} (AttentionPairBias must pass nothing and keep following the env)")
+
+
+# --- 4b. no OTHER model can reach the lever, which is E4's structural half ----------------------
+# E1 is scoped, so the bar for the five shipped models is not "within the floor" but BIT-IDENTICAL
+# to main. That holds only if no construction site outside af2.py pins the kwarg, and there are
+# more `TriangleAttention(...)` sites in this package than the two AF2 owns.
+import pathlib as _pl  # noqa: E402
+
+other = []
+for f in sorted(ROOT.rglob("*.py")):
+    if f.name == "af2.py":
+        continue
+    for ln, v in call_kwarg(f.relative_to(ROOT), "TriangleAttention", "l1_padded_plan"):
+        if v != "<absent>":
+            other.append((str(f.relative_to(ROOT)), ln, v))
+check("no-foreign-construction-site", not other,
+      f"{len(other)} non-af2 TriangleAttention site(s) pin the lever: {other} "
+      "(every other model must inherit `None` and stay byte-identical to main)")
+
+# and the same for the helper: only TriangleAttention's own dispatch and AF2's MSA row may pass it
+helper = []
+for f in sorted(ROOT.rglob("*.py")):
+    for ln, v in call_kwarg(f.relative_to(ROOT), "_fp32_softmax_attention", "l1_padded_plan"):
+        if v != "<absent>":
+            helper.append((f.name, ln, v))
+check("helper-callers-enumerated",
+      sorted(h[2] for h in helper) == ["self.l1_padded_plan", "self.l1_padded_plan"],
+      f"{helper} (want exactly two, both `self.l1_padded_plan`: TriangleAttention's dispatch "
+      "and AF2Attention._attend)")
 
 
 # --- 5. what actually arrives at the helper, recorded through the real call sites ---------------
