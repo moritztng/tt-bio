@@ -24,7 +24,10 @@ EXPECT = {
     "protenix-v2": (0.101, 0.619, 50.442, 12.186, 3.947, 4.139),
     "opendde":     (0.125, 6.308, 82.268, 20.640, 3.057, 3.986),
     "openfold3":   (1.839, 0.428, 36.415, 10.263, 3.578, 3.548),
-    "rf3":         (8.330, 12.459, 72.721, 7.746, 3.556, 9.388),
+    # rf3's p150a cell was republished at 82.547 s in a998c57b (qb2 card 2, four warm folds
+    # across two processes). The 8.330 s host share is unchanged and was not re-measured, so
+    # the device half moves with the cell: 82.547 - 8.330.
+    "rf3":         (8.330, 12.459, 74.217, 7.746, 3.621, 9.581),
 }
 
 
