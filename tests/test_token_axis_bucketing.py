@@ -38,7 +38,9 @@ def check_statuses_are_known():
 
 
 def check_unresolved_rows_have_an_owner():
-    """EXPOSED and UNCENSUSED are debts, not resting states, so each names the task that owes it."""
+    """PARTIAL, EXPOSED and UNCENSUSED are debts, not resting states: each names the task that
+    owes it. PARTIAL counts because its cost is a fused kernel going dark and its risk is that one
+    refactor of the safe primitive turns it into EXPOSED."""
     bad = sorted(n for n, r in TA.TOKEN_AXIS.items()
                  if r[0] in TA.NEEDS_OWNER and not (r[3] or "").strip())
     return _fail(not bad, "every exposed/uncensused model names an owning task"
@@ -55,12 +57,12 @@ def check_immune_rows_carry_a_reason():
 def check_bucketed_multiples_are_tile_multiples():
     bad = []
     for n, r in TA.TOKEN_AXIS.items():
-        if r[0] != TA.BUCKETED:
+        if r[0] not in TA.NEEDS_MULTIPLE:
             continue
         m = r[1]
         if not isinstance(m, int) or m <= 0 or m % TA.TILE:
             bad.append(f"{n}={m!r}")
-    return _fail(not bad, f"every bucketed multiple is a positive multiple of {TA.TILE}"
+    return _fail(not bad, f"every declared bucket multiple is a positive multiple of {TA.TILE}"
                  + ("" if not bad else "; bad: " + ", ".join(bad)))
 
 
@@ -95,8 +97,9 @@ def run_checks() -> bool:
     ok = True
     for c in CHECKS:
         ok = c() and ok
-    n = sum(1 for r in TA.TOKEN_AXIS.values() if r[0] == TA.BUCKETED)
-    print(f"\n{len(TA.TOKEN_AXIS)} shipped models declared, {n} bucketed")
+    tally = {st: sum(1 for r in TA.TOKEN_AXIS.values() if r[0] == st) for st in TA.STATUSES}
+    print("\n%d shipped models declared: " % len(TA.TOKEN_AXIS)
+          + ", ".join(f"{v} {k}" for k, v in tally.items() if v))
     print("ALL OK" if ok else "FAILURES")
     return ok
 

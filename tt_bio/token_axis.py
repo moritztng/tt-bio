@@ -11,12 +11,20 @@ model, and the two answers are far apart (measured on ttnn 0.68.0, ``perf/bucket
     DEFINED ZERO bias while the caller's additive bias covers only the logical length, so padded
     key columns enter the softmax at score 0 and beat real scores that sit below 0. 71-76x the
     fp64 reference at any ragged length, ~1.4x at every aligned one.
+  * ``tt_bio.triatt_sdpa.sdpa``, the fused transcription of it, does not refuse a ragged axis
+    either -- which the first pass of this audit assumed it did. ``sdpa_generic.plan`` derives
+    ``Sq``/``Sk`` and therefore ``use_padded_mask`` from ``padded_shape``, so at logical 98 over a
+    physical 128 it sees Sk=128, finds a dividing k_chunk and accepts. Measured: 1208 of 1208 ragged
+    protenix-v2 calls SERVED at k98, zero fall-through to the stock op. ``sdpa`` returns None when
+    ``bias is None``, so a served ragged call is by construction a ragged axis under a
+    caller-sized additive bias.
   * an op that leaves its output's tile padding UNWRITTEN feeding a reduce is the sibling case;
     ``ttnn.scatter`` does, which is what RFD3 root-caused as p23 (``rfd3/model.py:1087``).
 
 So "does the model pad" is the wrong question and "which reduce sites does it reach" is the right
-one. This table records the answer per model. PLAYBOOKS.md §MODEL 2b is the standing rule; adding a
-model to any CLI ``--model`` choice without adding it here fails
+one. This table records the answer per model, and every row's counters come from a real job run
+under ``tests/token_axis_probe.py`` rather than from reading the source. PLAYBOOKS.md §MODEL 2b is
+the standing rule; adding a model to any CLI ``--model`` choice without adding it here fails
 ``tests/test_token_axis_bucketing.py``.
 """
 
@@ -25,6 +33,9 @@ TILE = 32
 # A model's token axis is in exactly one of these states.
 BUCKETED = "bucketed"      # pads to `multiple`, masks the padding, slices back -- all three
 IMMUNE = "immune"          # runs ragged but reaches no unsafe reduce; `why` is required
+PARTIAL = "partial"        # buckets some sites, runs the rest ragged into a MEASURED-SAFE
+#                            primitive: right answer, but the fused path goes dark and one
+#                            refactor turns it into EXPOSED. `owner` is required.
 EXPOSED = "exposed"        # runs ragged INTO an unsafe reduce; `owner` is required
 UNCENSUSED = "uncensused"  # a reduce site nobody has checked yet; `owner` is required
 
@@ -41,12 +52,18 @@ TOKEN_AXIS = {
         BUCKETED, 64,
         "the same tenstorrent.py wrappers via boltzgen/model/models/boltz.py:26-28,:462",
         "inherits Boltz-2's bucket; its only other attention is a HOST torch SDPA "
-        "(boltzgen/model/layers/attention.py:123), which never sees a tile layout",
+        "(boltzgen/model/layers/attention.py:123), which never sees a tile layout. Censused: "
+        "0 ragged / 15944 aligned on one examples/binder.yaml design -- and at the SAME four "
+        "shared sites (tenstorrent.py:1015, :4532, :4774, :6256) that openfold3 runs ragged",
     ),
     "esmfold2": (
         BUCKETED, 32,
-        "esmfold2.py:105 PAD_MULTIPLE, applied :204-215; LM axis esmc.py:1263 at 64",
-        "pads both sequence axes, builds a real-region pair mask, slices back",
+        "esmfold2.py:105 PAD_MULTIPLE, applied at :207 FoldingTrunk.forward; LM axis esmc.py:1263 "
+        "at 64",
+        "the trunk pads both sequence axes, masks the triangle contraction and slices back. The "
+        "DIFFUSION head is not padded and runs the raw token axis, but its only softmax is "
+        "_attn_fp32's ttnn.softmax (esmfold2.py:84), which masks. Censused on a 20-aa target: "
+        "816 ragged ttnn.softmax at w20, 411 SDPA calls all ALIGNED, 0 masked-ragged",
     ),
     "esmfold2-fast": (
         BUCKETED, 32, "same trunk as esmfold2 (esmfold2.py:105)",
@@ -70,8 +87,11 @@ TOKEN_AXIS = {
     "openfold3": (
         IMMUNE, None,
         "own trunk, openfold3_trunk.py:104 OF3Trunk; no token pad constant in openfold3*.py",
-        "the ragged-call census on cdk2x2_298 found NO masked fused SDPA call at all, so it never "
-        "reaches the one primitive measured unsafe. Immune by route, not by bucketing.",
+        "censused on examples/8hel_nomsa.yaml (N=76, ragged): 288 ragged calls, ALL of them "
+        "ttnn.softmax (tenstorrent.py:4774 x192, :6256 x96) which masks, and NOT ONE SDPA call of "
+        "either kind. Its atom and diffusion transformers run aligned (6003 calls). Immune by "
+        "route, and the route is measured, not inferred -- boltzgen reaches the same two softmax "
+        "sites aligned, so this is openfold3's missing bucket and not a safe site",
     ),
     "rf3": (
         EXPOSED, None,
@@ -80,23 +100,28 @@ TOKEN_AXIS = {
         "rf3-4x-with-accuracy-land",
     ),
     "rfd3": (
-        UNCENSUSED, 32,
-        "rfd3/model.py:1081 TILE, applied at :1166, :1310, :1600-1613, :2011",
-        "4 softmax-over-key sites (:715, :935, :1417, :1679) and only :1679 is _pad_key_axis"
-        "-protected. :715 PairformerAttention reduces over the raw token axis I, where "
-        "softmax_generic declines and ttnn.softmax masks -- correct, but the fused softmax goes "
-        "dark at every ragged I. :935 and :1417 are unchecked. "
-        "owner=fleet-bucketing-audit-and-guard",
+        PARTIAL, 32,
+        "rfd3/model.py:1081 TILE via _align_tile/_pad_key_axis, applied at :1166, :1310, "
+        ":1600-1613, :2011",
+        "censused on a 70-token design (contig A1-40,30, 2 timesteps): 0 masked-ragged, so the "
+        "answers are right. :1679 is _pad_key_axis-protected and ran 45/45 ALIGNED. The other "
+        "three softmax sites ran ragged and all fell back off the fused kernel -- :715 "
+        "PairformerAttention 6/6 ragged at w70 (the TOKEN axis), :935 1/1 at w14 and :1417 10/10 "
+        "at w14,w3 (both the ATOM axis, not the token axis). softmax_generic.eligible() declines a "
+        "ragged W and ttnn.softmax masks, so the cost is the fused softmax going dark, not a wrong "
+        "answer. owner=fleet-bucketing-audit-and-guard",
     ),
     "esmc-300m": (
         BUCKETED, 64, "esmc.py:78 BUCKET, applied at :1503 _batch_tokens and :1263",
-        "pad to Lb + additive -inf on padded keys + key_valid zeroing + slice by lens",
+        "pad to Lb + additive -inf on padded keys + key_valid zeroing + slice by lens; censused "
+        "0 ragged / 30 aligned at the esmc.py:241 SDPA on a 98-aa input",
     ),
     "esmc-600m": (BUCKETED, 64, "esmc.py:78 BUCKET", "same path as esmc-300m"),
     "esmc-6b": (BUCKETED, 64, "esmc.py:78 BUCKET", "same path as esmc-300m"),
     "saprot-35m": (
         BUCKETED, 64, "saprot.py:48 imports esmc.BUCKET, applied at :481-494",
-        "same pad + additive mask + slice as esmc",
+        "same pad + additive mask + slice as esmc; censused 0 ragged / 12 aligned at the "
+        "saprot.py:203 SDPA on a 98-aa input",
     ),
     "saprot-650m": (BUCKETED, 64, "saprot.py:48", "same path as saprot-35m"),
     "saprot-1.3b": (BUCKETED, 64, "saprot.py:48", "same path as saprot-35m"),
@@ -112,8 +137,9 @@ LIVE_MULTIPLES = {
     ("tt_bio.rfd3.model", "TILE"): 32,
 }
 
-STATUSES = (BUCKETED, IMMUNE, EXPOSED, UNCENSUSED)
-NEEDS_OWNER = (EXPOSED, UNCENSUSED)
+STATUSES = (BUCKETED, IMMUNE, PARTIAL, EXPOSED, UNCENSUSED)
+NEEDS_OWNER = (PARTIAL, EXPOSED, UNCENSUSED)
+NEEDS_MULTIPLE = (BUCKETED, PARTIAL)
 
 
 def shipped_models():
