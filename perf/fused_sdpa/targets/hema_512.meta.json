@@ -1,0 +1,17 @@
+{
+ "pdb": "7QA4",
+ "name": "hema_512",
+ "rung": 512,
+ "n_res": 512,
+ "padded": 512,
+ "resolution": 2.19,
+ "description": "Hemagglutinin",
+ "ca_modelled": 488,
+ "ca_coverage": 0.9531,
+ "cif_url": "https://files.rcsb.org/download/7QA4.cif.gz",
+ "cif_sha256": "9c72e6a8914bdaf160ee90cedbc1e92c5e534450d670a195f9ab4e48c7129a95",
+ "msa_depth": 256,
+ "msa_depth_requested": 256,
+ "colabfold_ticket": "QkNv5AzuuJby0SKsemnffUu_y_tStWwMdwwSvQ",
+ "colabfold_mode": "env"
+}
