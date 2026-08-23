@@ -152,10 +152,103 @@ for (const k of catKeys) {
   }
 }
 
+
+/* ---------- embeddings ----------
+ * The embed rows are deliberately not a CATEGORIES entry, so the category loops above cannot see
+ * them and a refactor could drop all six without a single check going red. These three blocks are
+ * the reason that cannot happen quietly: the rows drew, they did NOT reach a chart or table they
+ * must stay out of, and every per-cell note reached the visible notes list. */
+const embedModels = ((D.embed && D.embed.models) || []).filter((m) => !m.hidden);
+
+for (const m of embedModels) {
+  want("t-embed", m.name, m.name + " is an embedding row and belongs in #t-embed");
+  want("c6-svg", m.name, m.name + " should be in the sequences-per-second chart");
+  for (const [key, c] of Object.entries(m.cells)) {
+    if (c.status === "measured") {
+      /* The page derives seq/s as batch / s_per_batch and nothing else may; assert the derivation
+       * landed rather than that some number is present. */
+      const seq = c.batch / c.s_per_batch;
+      const shown = Math.round(seq).toLocaleString("en-US");
+      if (!drawn("t-embed").includes(shown)) {
+        failures.push(m.name + "/" + key + " derives " + shown +
+                      " seq/s and #t-embed does not show it");
+      }
+      const perSeq = (c.s_per_batch / c.batch).toFixed(4);
+      if (!drawn("t-embed").includes(perSeq)) {
+        failures.push(m.name + "/" + key + " derives " + perSeq +
+                      " s/seq and #t-embed does not show it");
+      }
+    } else {
+      const label = c.status === "not measured" ? "not measured" : "does not run";
+      want("t-embed", label, m.name + "/" + key + " should be labelled " + label);
+    }
+  }
+}
+
+/* An embedding row may not enter any cost, per-server or folding surface. The cost index on this
+ * page is built on the DGX H200 at 512 aa folds; an embedding forward has no server price or power
+ * figure it could honestly carry, so "card-only" has to be enforced and not just intended. Group
+ * labels and cell text only: a row name appearing inside a hover title is provenance prose, not a
+ * drawn series. */
+function drawnLabels(id) {
+  const el = store.get(id);
+  if (!el) return "";
+  return deepText(el).replace(/<title>[\s\S]*?<\/title>/g, "");
+}
+const forbidden = ["c1-svg", "c1b-svg", "c2-svg", "c3-svg", "c5-svg",
+                   "t-derived", "t-perdollar-capex", "t-perdollar", "t-measured", "t-design"];
+for (const m of embedModels) {
+  for (const id of forbidden) {
+    if (drawnLabels(id).includes(m.name)) {
+      failures.push(m.name + " is card-only and must not be drawn in #" + id +
+                    " (adding embed to CATEGORIES would do exactly this)");
+    }
+  }
+}
+
+/* Every note in the data reached the visible list. The six H200-against-B200 cell notes are the
+ * ones a reader most needs, and a hover-only note is a note most readers never see. */
+for (const m of D.models.concat(catModels, embedModels)) {
+  if (m.note) want("rownotes", m.note.slice(0, 40), m.name + "'s row note");
+  for (const [key, c] of Object.entries(m.cells)) {
+    if (c.note) {
+      want("rownotes", c.note.slice(0, 40), m.name + "/" + key + "'s cell note");
+    }
+  }
+}
+
+/* A tripwire, and the only hardcoded numbers in this file. Every other check is derived from the
+ * data, which means a row DELETED from the data is invisible to all of them: the page renders, the
+ * check counts what is left and exits 0. That is the "renders but quietly omits a series" failure
+ * this file exists to catch, so the published section sizes are pinned here. Changing a row count
+ * is a deliberate act; update this table in the same commit and say why. */
+const EXPECT_ROWS = { models: 7, design: 2, affinity: 1, embed: 6 };
+for (const [key, n] of Object.entries(EXPECT_ROWS)) {
+  const got = key === "models"
+    ? predModels.length
+    : ((D[key] && D[key].models) || []).filter((m) => !m.hidden).length;
+  if (got !== n) {
+    failures.push("section '" + key + "' publishes " + got + " rows, expected " + n +
+                  ". If that is intended, update EXPECT_ROWS in this file in the same commit.");
+  }
+}
+
+/* Both main-flow caveats sit above every chart, outside every disclosure. */
+{
+  const scope = (store.get("scope-dl") || mkEl("dl")).children.map((c) => deepText(c)).join(" ");
+  if (D.scope.gpu_generations && !scope.includes(D.scope.gpu_generations.slice(0, 40))) {
+    failures.push("the H200-against-B200 caveat did not reach #scope-dl");
+  }
+  if (D.embed && D.embed.scope && !scope.includes(D.embed.scope.slice(0, 40))) {
+    failures.push("the embedding scope line did not reach #scope-dl");
+  }
+}
+
 if (failures.length) {
   console.error(failures.length + " row(s) did not reach the page:");
   for (const f of failures) console.error("  " + f);
   process.exit(1);
 }
-console.log("render_check: " + (predModels.length + catModels.length) + " rows drew, " +
-            catKeys.length + " categories, no missing ids");
+console.log("render_check: " + (predModels.length + catModels.length + embedModels.length) +
+            " rows drew, " + catKeys.length + " categories, " + embedModels.length +
+            " embedding rows card-only, no missing ids");
