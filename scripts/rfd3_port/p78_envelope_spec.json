@@ -10,13 +10,11 @@
     "decision rule are fixed here first. Nothing below may be relaxed once a number exists; if the",
     "measurement turns out to be underpowered the answer is more designs, never a wider margin."
   ],
-
   "arms": {
     "dense": "shipped default. The atom attention softmaxes over all n_key = _align_tile(L) columns, of which L x 128 carry a real score and the rest are -1e4 and underflow to exactly 0.0.",
     "gathered": "RFD3_GATHERED_SOFTMAX=1. Identical up to the softmax: the 128 real columns of each row are gathered, softmaxed among themselves, and scattered back into a zero tensor. Same contributing terms, same row max, different summation order for the row denominator. Nothing else in the model changes.",
     "dense_b": "the null calibration. Arm `dense` again on a disjoint seed block. It measures what this metric's spread is at this n when nothing at all changed."
   },
-
   "metric": {
     "primary": {
       "name": "strict designability rate",
@@ -36,7 +34,6 @@
     "all_three_must_pass": true,
     "a_better_gathered_arm_is_not_evidence_for_it": "report as measured; do not read a favourable difference as support."
   },
-
   "scRMSD_protocol": {
     "definition": "the same one docs/boltzgen-designability.md uses: take the design's own sequence for the designed chain, refold it in isolation (no target, no template), Kabsch-align the refolded backbone to the designed backbone, report CA-RMSD.",
     "designed_chain": "the 100-residue binder. Every rung designs exactly 100 residues, so scRMSD is directly comparable across the ladder and the only thing the ladder varies is the softmax width.",
@@ -44,37 +41,54 @@
     "alignment": "reuse tests/ca_rmsd.py. Do not re-implement Kabsch: an inverted rotation gives a phantom RMSD, and this pipeline has been bitten by it.",
     "refolder_is_identical_in_both_arms": "the refold runs on the dense default in every arm. Only the design step differs."
   },
-
   "size_ladder": [
-    {"rung": "R0", "fixture": "perf/dsfix/fixtures/rfd3_R0.json", "target_residues": 117, "designed": 100},
-    {"rung": "R2", "fixture": "perf/dsfix/fixtures/rfd3_R2.json", "target_residues": 318, "designed": 100},
-    {"rung": "R4", "fixture": "perf/dsfix/fixtures/rfd3_R4.json", "target_residues": 585, "designed": 100, "note": "the page fixture, 9q6y chain A, 6051 atoms"}
+    {
+      "rung": "R0",
+      "fixture": "perf/dsfix/fixtures/rfd3_R0.json",
+      "target_residues": 117,
+      "designed": 100
+    },
+    {
+      "rung": "R2",
+      "fixture": "perf/dsfix/fixtures/rfd3_R2.json",
+      "target_residues": 318,
+      "designed": 100
+    },
+    {
+      "rung": "R4",
+      "fixture": "perf/dsfix/fixtures/rfd3_R4.json",
+      "target_residues": 585,
+      "designed": 100,
+      "note": "the page fixture, 9q6y chain A, 6051 atoms"
+    }
   ],
   "ladder_rule": "every rung must pass. A rung that fails kills the lever at that size and above it; it does not average out against a rung that passed. The redundancy the gathered form deletes grows with the rung (128 of 1920 columns at R0 against 128 of 6080 at R4), so R4 is where an effect should be largest and it is not optional.",
-
   "n": {
     "per_arm_per_rung": 144,
     "derivation": "the primary margin is 10 percentage points. At the worst-case rate p = 0.5 the standard error of a difference of two independent proportions is sqrt(2 p (1-p) / n); for the one-sided 95 % bound (1.645 SE) to sit inside 10 points when the true difference is zero, n >= 135. 144 is that rounded up to a whole number of batch-8 runs (18).",
-    "seeds": {"dense": "1..144", "gathered": "1..144", "dense_b": "1001..1144"},
+    "seeds": {
+      "dense": "1..144",
+      "gathered": "1..144",
+      "dense_b": "1001..1144"
+    },
     "batching": "designs are produced in the shipped batch shape; the seed set is what is fixed, not the batch size."
   },
-
   "null_calibration": {
-    "required_at": ["R0", "R4"],
+    "required_at": [
+      "R0",
+      "R4"
+    ],
     "n_at_R4": 48,
     "rule": "dense vs dense_b is scored through exactly the same pipeline and must PASS all three bars. If it fails, the metric cannot resolve the margin at this n and n rises until it can. The gathered arm is not scored until the null calibration has passed at that rung.",
     "why": "this is the accuracy analogue of the A/A control every timing pass in this lineage reports first."
   },
-
   "statistics": {
     "decision_statistic": "the UNPAIRED (two-sample) bootstrap over designs, 10 000 resamples, seed 0.",
     "why_unpaired": "arms share seeds, but a one-ULP difference in the first diffusion step diverges the trajectory, so the same seed produces unrelated structures in the two arms. Pairing buys no variance reduction and choosing between paired and unpaired after seeing both is how a margin gets chosen to pass. The paired figure is reported alongside, and it is not the decision.",
     "no_early_stopping": "the verdict is read once, at full n. Interim blocks may be reported as progress and must be labelled interim."
   },
-
   "if_the_envelope_fails": "the gathered atom softmax is dead as a default, the reason is design quality and not performance, and the b=8 number is reported without it. 'Whatever it takes' authorises spending exactness; it does not authorise shipping a worse model quietly.",
-
   "landing_rule": "a passing envelope makes this a release call, not a self-merge. The lever stays on the branch with the envelope attached and goes up to Moritz.",
-
-  "fairness_note": "upstream RFD3 computes this attention in the gathered form. sparse_pairbias_attention is the only pair-bias path in the released rc-foundry 0.2.0 and it still serves 28 656 of 35 820 pair-bias calls on the H200 arm that produces the 12.974 s/design denominator of record. Our port densified it for tiling reasons. So this change moves the port towards the reference formulation, not away from it, and the GPU denominator does not need re-measuring for it."
+  "fairness_note": "Upstream RFD3 ships the gathered form. sparse_pairbias_attention is the only pair-bias path in the released rc-foundry 0.2.0, so a real user today runs gathered at every site including this one, and it is still 28 656 of 35 820 pair-bias calls on the unreleased production HEAD that produces the 12.974 s/design H200 denominator of record. Read per step those counters are ~9 dense-SDPA and ~35.8 gathered, matching our 9-call atom path and 36-call DiT, so on that arm the vendor's dense-SDPA rewrite most likely takes the atom site and leaves the DiT gathered -- unproven here, and it does not change the direction: our dense atom attention is a tt-bio tiling choice the reference does not make. The GPU denominator is not re-measured for this change and must not be: 12.974 is that box's best of four arms and already includes the vendor's rewrite.",
+  "fairness_note_history": "The note in the original pre-registration commit 8ae442c5 said upstream computes 'this attention' in the gathered form without distinguishing the released path from the unreleased fast path, and read the 7164/28656 split in the wrong direction. Corrected here rather than by amending the pre-registration, which must stay as it was written. No bar, statistic, margin or sample size changed."
 }
