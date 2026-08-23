@@ -1,0 +1,58 @@
+{
+ "n_sample": 8,
+ "n_step": 200,
+ "n_cycle": 4,
+ "checkpoint": "protenix_base_default_v0.5.0.pt",
+ "samples": [
+  {
+   "sample": 0,
+   "rmsd": 21.28,
+   "plddt": 0.9182,
+   "ptm": 0.8797
+  },
+  {
+   "sample": 1,
+   "rmsd": 8.25,
+   "plddt": 0.9175,
+   "ptm": 0.8778
+  },
+  {
+   "sample": 2,
+   "rmsd": 20.35,
+   "plddt": 0.9181,
+   "ptm": 0.8785
+  },
+  {
+   "sample": 3,
+   "rmsd": 8.36,
+   "plddt": 0.9184,
+   "ptm": 0.8783
+  },
+  {
+   "sample": 4,
+   "rmsd": 23.62,
+   "plddt": 0.9187,
+   "ptm": 0.8782
+  },
+  {
+   "sample": 5,
+   "rmsd": 17.52,
+   "plddt": 0.9182,
+   "ptm": 0.877
+  },
+  {
+   "sample": 6,
+   "rmsd": 24.17,
+   "plddt": 0.9177,
+   "ptm": 0.8788
+  },
+  {
+   "sample": 7,
+   "rmsd": 4.71,
+   "plddt": 0.9183,
+   "ptm": 0.8788
+  }
+ ],
+ "corr_rmsd_plddt": 0.1003,
+ "corr_rmsd_ptm": 0.1821
+}

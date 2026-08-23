@@ -1,0 +1,68 @@
+{
+ "source": "RBD.yaml",
+ "n_token": 274,
+ "n_atom": 1857,
+ "n_step": 400,
+ "n_sample": 4,
+ "seed": 0,
+ "ref_pos_seed": null,
+ "seconds": 47.76,
+ "coords_sha16": "0c818277c6917fe7",
+ "art": "tests/fixtures/pxdesign/RBD.yaml",
+ "coords_shape": [
+  4,
+  1857,
+  3
+ ],
+ "binder_atoms": 321,
+ "target_atoms": 1536,
+ "stats": [
+  {
+   "rg_all": 19.882068634033203,
+   "rg_target": 17.94126319885254,
+   "rg_binder": 13.117700576782227
+  },
+  {
+   "rg_all": 19.975156784057617,
+   "rg_target": 17.944303512573242,
+   "rg_binder": 13.1414794921875
+  },
+  {
+   "rg_all": 19.884599685668945,
+   "rg_target": 17.91307258605957,
+   "rg_binder": 11.544962882995605
+  },
+  {
+   "rg_all": 20.08695411682129,
+   "rg_target": 17.921762466430664,
+   "rg_binder": 12.987427711486816
+  }
+ ],
+ "target_reproduction": [
+  {
+   "target_rmsd": 0.07785581260472824,
+   "n_scored": 194,
+   "min_binder_target_dist": 1.3774170875549316,
+   "n_contacts_below_5A": 35
+  },
+  {
+   "target_rmsd": 0.06724587755101523,
+   "n_scored": 194,
+   "min_binder_target_dist": 1.9285880327224731,
+   "n_contacts_below_5A": 46
+  },
+  {
+   "target_rmsd": 0.08202901557683992,
+   "n_scored": 194,
+   "min_binder_target_dist": 1.668284296989441,
+   "n_contacts_below_5A": 52
+  },
+  {
+   "target_rmsd": 0.08213104597095577,
+   "n_scored": 194,
+   "min_binder_target_dist": 1.5398430824279785,
+   "n_contacts_below_5A": 45
+  }
+ ],
+ "finite": true
+}

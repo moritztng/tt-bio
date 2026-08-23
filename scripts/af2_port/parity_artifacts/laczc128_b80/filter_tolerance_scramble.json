@@ -1,0 +1,227 @@
+{
+ "mode": "af2ig_filter_tolerance",
+ "population": "laczc_256 chain split, target 64:192, binder 192:256 native pose, binder sequence scrambled",
+ "binder_residues": 64,
+ "n_tokens": 192,
+ "recycles": 3,
+ "arm": "torch bfloat16 reference",
+ "verdict": "INCONCLUSIVE - population never crosses any af2_easy threshold",
+ "rows": [
+  {
+   "level": 0.0,
+   "identity": 1.0,
+   "seconds": 242.3,
+   "ref": {
+    "plddt": 0.357771,
+    "ptm": 0.565845,
+    "i_ptm": 0.23796,
+    "pae": 0.639951,
+    "i_pae": 0.707224,
+    "unscaled_i_pae": 21.923946
+   },
+   "ref_pass": {
+    "plddt": false,
+    "i_ptm": false,
+    "i_pae": false
+   },
+   "dev_pass": {
+    "plddt": false,
+    "i_ptm": false,
+    "i_pae": false
+   },
+   "flipped": []
+  },
+  {
+   "level": 0.05,
+   "identity": 0.96875,
+   "seconds": 221.9,
+   "ref": {
+    "plddt": 0.389578,
+    "ptm": 0.576833,
+    "i_ptm": 0.285172,
+    "pae": 0.612427,
+    "i_pae": 0.684021,
+    "unscaled_i_pae": 21.204645
+   },
+   "ref_pass": {
+    "plddt": false,
+    "i_ptm": false,
+    "i_pae": false
+   },
+   "dev_pass": {
+    "plddt": false,
+    "i_ptm": false,
+    "i_pae": false
+   },
+   "flipped": []
+  },
+  {
+   "level": 0.1,
+   "identity": 0.90625,
+   "seconds": 242.3,
+   "ref": {
+    "plddt": 0.416956,
+    "ptm": 0.58755,
+    "i_ptm": 0.337003,
+    "pae": 0.568808,
+    "i_pae": 0.626775,
+    "unscaled_i_pae": 19.430022
+   },
+   "ref_pass": {
+    "plddt": false,
+    "i_ptm": false,
+    "i_pae": false
+   },
+   "dev_pass": {
+    "plddt": false,
+    "i_ptm": false,
+    "i_pae": false
+   },
+   "flipped": []
+  },
+  {
+   "level": 0.15,
+   "identity": 0.859375,
+   "seconds": 250.3,
+   "ref": {
+    "plddt": 0.340165,
+    "ptm": 0.587958,
+    "i_ptm": 0.298462,
+    "pae": 0.62851,
+    "i_pae": 0.666448,
+    "unscaled_i_pae": 20.659892
+   },
+   "ref_pass": {
+    "plddt": false,
+    "i_ptm": false,
+    "i_pae": false
+   },
+   "dev_pass": {
+    "plddt": false,
+    "i_ptm": false,
+    "i_pae": false
+   },
+   "flipped": []
+  },
+  {
+   "level": 0.2,
+   "identity": 0.796875,
+   "seconds": 183.1,
+   "ref": {
+    "plddt": 0.358084,
+    "ptm": 0.584333,
+    "i_ptm": 0.318574,
+    "pae": 0.595751,
+    "i_pae": 0.633101,
+    "unscaled_i_pae": 19.626125
+   },
+   "ref_pass": {
+    "plddt": false,
+    "i_ptm": false,
+    "i_pae": false
+   },
+   "dev_pass": {
+    "plddt": false,
+    "i_ptm": false,
+    "i_pae": false
+   },
+   "flipped": []
+  },
+  {
+   "level": 0.3,
+   "identity": 0.71875,
+   "seconds": 248.6,
+   "ref": {
+    "plddt": 0.297559,
+    "ptm": 0.560202,
+    "i_ptm": 0.19685,
+    "pae": 0.688987,
+    "i_pae": 0.736356,
+    "unscaled_i_pae": 22.827044
+   },
+   "ref_pass": {
+    "plddt": false,
+    "i_ptm": false,
+    "i_pae": false
+   },
+   "dev_pass": {
+    "plddt": false,
+    "i_ptm": false,
+    "i_pae": false
+   },
+   "flipped": []
+  },
+  {
+   "level": 0.5,
+   "identity": 0.546875,
+   "seconds": 161.1,
+   "ref": {
+    "plddt": 0.381976,
+    "ptm": 0.567533,
+    "i_ptm": 0.26892,
+    "pae": 0.592122,
+    "i_pae": 0.648888,
+    "unscaled_i_pae": 20.11552
+   },
+   "ref_pass": {
+    "plddt": false,
+    "i_ptm": false,
+    "i_pae": false
+   },
+   "dev_pass": {
+    "plddt": false,
+    "i_ptm": false,
+    "i_pae": false
+   },
+   "flipped": []
+  },
+  {
+   "level": 0.75,
+   "identity": 0.296875,
+   "seconds": 202.8,
+   "ref": {
+    "plddt": 0.310681,
+    "ptm": 0.558525,
+    "i_ptm": 0.212391,
+    "pae": 0.661704,
+    "i_pae": 0.721682,
+    "unscaled_i_pae": 22.372129
+   },
+   "ref_pass": {
+    "plddt": false,
+    "i_ptm": false,
+    "i_pae": false
+   },
+   "dev_pass": {
+    "plddt": false,
+    "i_ptm": false,
+    "i_pae": false
+   },
+   "flipped": []
+  },
+  {
+   "level": 1.0,
+   "identity": 0.078125,
+   "seconds": 159.0,
+   "ref": {
+    "plddt": 0.332409,
+    "ptm": 0.576687,
+    "i_ptm": 0.339688,
+    "pae": 0.610103,
+    "i_pae": 0.644353,
+    "unscaled_i_pae": 19.974929
+   },
+   "ref_pass": {
+    "plddt": false,
+    "i_ptm": false,
+    "i_pae": false
+   },
+   "dev_pass": {
+    "plddt": false,
+    "i_ptm": false,
+    "i_pae": false
+   },
+   "flipped": []
+  }
+ ]
+}

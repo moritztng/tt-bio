@@ -1,0 +1,57 @@
+{
+ "mode": "af2ig_triatt_fused_hifi_screen",
+ "rows": [
+  {
+   "tokens": 592,
+   "fused_hifi": false,
+   "passes": 3,
+   "first_s": 31.163204780998058,
+   "warm_s": 15.777939432002313,
+   "warm_min_s": 15.774405137999565,
+   "all_s": [
+    31.163204780998058,
+    15.774405137999565,
+    15.78147372600506
+   ],
+   "hifi_stats": {
+    "served": 0,
+    "declined": 0,
+    "too_short": 0
+   },
+   "hifi_picks": {},
+   "persistent_mask_delta": [
+    0,
+    0
+   ],
+   "rejects": {}
+  },
+  {
+   "tokens": 592,
+   "fused_hifi": true,
+   "passes": 3,
+   "first_s": 16.448228753004514,
+   "warm_s": 15.775457113999437,
+   "warm_min_s": 15.770893446002447,
+   "all_s": [
+    16.448228753004514,
+    15.780020781996427,
+    15.770893446002447
+   ],
+   "hifi_stats": {
+    "served": 0,
+    "declined": 312,
+    "too_short": 0
+   },
+   "hifi_picks": {},
+   "persistent_mask_delta": [
+    0,
+    3
+   ],
+   "rejects": {
+    "('l1_budget', (592, 4, 592, 32))": 1,
+    "('pm_over_l1', (592, 4, 592, 32))": 1,
+    "('fill_preconditions', (592, 4, 592, 32))": 1
+   }
+  }
+ ]
+}

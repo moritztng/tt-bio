@@ -1,0 +1,3 @@
+# Same reason as ../disto/.gitignore: the distograms are large and of3_disto_run.sh regenerates
+# them in ~2 min. The CIFs and fold.json carry the provenance and stay.
+*.npy

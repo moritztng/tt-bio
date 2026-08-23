@@ -1,0 +1,113 @@
+{
+ "mode": "af2ig_triatt_fused_hifi_screen",
+ "rows": [
+  {
+   "tokens": 848,
+   "fused_hifi": false,
+   "passes": 3,
+   "first_s": 36.44825846200547,
+   "warm_s": 36.37630748950323,
+   "warm_min_s": 36.366737333002675,
+   "all_s": [
+    36.44825846200547,
+    36.366737333002675,
+    36.38587764600379
+   ],
+   "hifi_stats": {
+    "served": 0,
+    "declined": 0,
+    "too_short": 0
+   },
+   "hifi_picks": {},
+   "persistent_mask_delta": [
+    0,
+    0
+   ],
+   "rejects": {}
+  },
+  {
+   "tokens": 848,
+   "fused_hifi": true,
+   "passes": 3,
+   "first_s": 14.064991199003998,
+   "warm_s": 12.804297060498357,
+   "warm_min_s": 12.79499194699747,
+   "all_s": [
+    14.064991199003998,
+    12.79499194699747,
+    12.813602173999243
+   ],
+   "hifi_stats": {
+    "served": 312,
+    "declined": 0,
+    "too_short": 0
+   },
+   "hifi_picks": {
+    "(848, 848)": [
+     288,
+     864
+    ]
+   },
+   "persistent_mask_delta": [
+    312,
+    1
+   ],
+   "rejects": {
+    "('l1_budget', (848, 4, 848, 32))": 1
+   }
+  },
+  {
+   "tokens": 848,
+   "fused_hifi": false,
+   "passes": 3,
+   "first_s": 36.388901538004575,
+   "warm_s": 36.4008151679991,
+   "warm_min_s": 36.39493210699584,
+   "all_s": [
+    36.388901538004575,
+    36.40669822900236,
+    36.39493210699584
+   ],
+   "hifi_stats": {
+    "served": 0,
+    "declined": 0,
+    "too_short": 0
+   },
+   "hifi_picks": {},
+   "persistent_mask_delta": [
+    0,
+    0
+   ],
+   "rejects": {}
+  },
+  {
+   "tokens": 848,
+   "fused_hifi": true,
+   "passes": 3,
+   "first_s": 12.771506716999284,
+   "warm_s": 12.787462838001375,
+   "warm_min_s": 12.782157037996512,
+   "all_s": [
+    12.771506716999284,
+    12.782157037996512,
+    12.792768638006237
+   ],
+   "hifi_stats": {
+    "served": 312,
+    "declined": 0,
+    "too_short": 0
+   },
+   "hifi_picks": {
+    "(848, 848)": [
+     288,
+     864
+    ]
+   },
+   "persistent_mask_delta": [
+    312,
+    0
+   ],
+   "rejects": {}
+  }
+ ]
+}

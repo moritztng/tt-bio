@@ -1,0 +1,48 @@
+{
+ "gt": "1hcl.cif",
+ "n_gt_ca": 294,
+ "n_shared_ca": 294,
+ "identity_mismatches": 0,
+ "arms": {
+  "def": {
+   "gt_ca_rmsd_A": 1.424124,
+   "n_ca": 294,
+   "allatom_vs_def_A": 0.0,
+   "ca_vs_def_A": 0.0,
+   "atom_keys_match_def": true,
+   "n_atoms": 2397
+  },
+  "hifi": {
+   "gt_ca_rmsd_A": 2.414468,
+   "n_ca": 294,
+   "allatom_vs_def_A": 2.183337,
+   "ca_vs_def_A": 1.944045,
+   "atom_keys_match_def": true,
+   "n_atoms": 2397
+  },
+  "gln": {
+   "gt_ca_rmsd_A": 1.424124,
+   "n_ca": 294,
+   "allatom_vs_def_A": 0.0,
+   "ca_vs_def_A": 0.0,
+   "atom_keys_match_def": true,
+   "n_atoms": 2397
+  },
+  "newdefault": {
+   "gt_ca_rmsd_A": 1.424124,
+   "n_ca": 294,
+   "allatom_vs_def_A": 0.0,
+   "ca_vs_def_A": 0.0,
+   "atom_keys_match_def": true,
+   "n_atoms": 2397
+  },
+  "lev": {
+   "gt_ca_rmsd_A": 2.414468,
+   "n_ca": 294,
+   "allatom_vs_def_A": 2.183337,
+   "ca_vs_def_A": 1.944045,
+   "atom_keys_match_def": true,
+   "n_atoms": 2397
+  }
+ }
+}
