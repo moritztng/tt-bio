@@ -108,12 +108,13 @@ class TemplatePairStack(Module):
     targets would pass the mask through PairformerLayer's ``mask``/``attn_mask`` args.
     """
 
-    def __init__(self, state_dict, compute_kernel_config):
+    def __init__(self, state_dict, compute_kernel_config, transpose_bias: bool = True):
         super().__init__(state_dict, compute_kernel_config)
         remap = remap_template_pair_stack(state_dict, prefix="template_pair_stack")
         self.blocks = [
             PairformerLayer(*_TRI_DIMS, None, None, False, b, compute_kernel_config,
                             scale_pair_bias=False, fp32_softmax=True,
+                            transpose_bias=transpose_bias,
                             accurate_softmax=accurate_softmax_site("openfold3.template"))
             for b in remap["blocks"]
         ]
@@ -144,11 +145,12 @@ class TemplateEmbedder(Module):
     Output: ``z_template`` [1, N, N, c_z=128] = linear_t(relu(mean_t(t_stack))).
     """
 
-    def __init__(self, state_dict, compute_kernel_config):
+    def __init__(self, state_dict, compute_kernel_config, transpose_bias: bool = True):
         super().__init__(state_dict, compute_kernel_config)
         self.fe = TemplatePairFeatureEmbedder(
             _sub(state_dict, "template_pair_embedder"), compute_kernel_config)
-        self.ps = TemplatePairStack(state_dict, compute_kernel_config)
+        self.ps = TemplatePairStack(state_dict, compute_kernel_config,
+                                    transpose_bias=transpose_bias)
         self.w_lt = self.torch_to_tt("linear_t.weight")
 
     def features(self, feat):

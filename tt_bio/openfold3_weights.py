@@ -29,6 +29,22 @@ def _sub(sd: dict, prefix: str) -> dict:
     return {k[len(p):]: v for k, v in sd.items() if k.startswith(p)}
 
 
+def is_openbind(state_dict: dict) -> bool:
+    """True for the OpenBind checkpoint, False for OF3-preview2.
+
+    The two checkpoints differ by exactly one weight key. OpenBind (upstream
+    ``v0.5.0``, ``MODEL_VERSION`` 2.0.0) hoists the diffusion transformer's pair
+    LayerNorm out of its 24 blocks into one shared norm; preview2 keeps 24 copies.
+    Everything else is name- and shape-identical, 4887 tensors, so this key is the
+    whole discriminator and no separate variant flag has to be carried around.
+
+    It also selects the two v0.5.0 behaviour changes that carry no weights of their
+    own: the ending-node triangle-attention bias orientation (see ``is_openbind``
+    call sites in openfold3_trunk.py) and the featurizer fixes in openfold3_data.py.
+    """
+    return "diffusion_module.diffusion_transformer.layer_norm_z.weight" in state_dict
+
+
 def _rename_transition(sd: dict) -> dict:
     """OF3 SwiGLUTransition -> Protenix transition key names."""
     return {

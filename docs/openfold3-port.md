@@ -10,6 +10,9 @@ It is parity-gated against the official CPU reference on seven legs — see
 [`implementation-parity.md`](implementation-parity.md) for the numbers, the noise
 floors, and how to reproduce them.
 
+The same code also runs **OpenBind-0** as `--model openbind`, on upstream's `v0.5.0`
+checkpoint, which adds protein-ligand co-folding. See [OpenBind-0](#openbind-0) below.
+
 ## Weights
 
 OpenFold3 is the one model tt-bio does not download for you. Fetch the consortium's
@@ -77,12 +80,105 @@ defect it found, which is fixed.
 | recycling | ported; `--recycling_steps` default 3, i.e. 4 trunk cycles (the upstream default) |
 | sample ranking | ported; confidence-selected best of N, all samples kept |
 | multi-card `--devices` | ported, same fan-out as Protenix-v2 |
-| ligands (SMILES/CCD) | **not supported** — polymer chains only, loud error |
+| ligands (SMILES/CCD) | `--model openbind` only. `--model openfold3` is polymer-only and raises, pointing at `openbind` |
 | covalent bonds / `constraints:` | **not supported** — loud error; the fold would otherwise ignore them |
 | cyclic chains (`cyclic: true`) | **not supported** — loud error. Upstream's query format carries `Chain.cyclic` and derives a `cyclic_mask` feature from it; neither was vendored, so the fold would return a linear structure. Use `--model rf3` or `boltz2` |
 | paired MSA | **not ported** — complexes fold on per-chain unpaired MSAs |
 | `--write_pae` | **not supported** — the confidence head computes PAE logits but the fold does not return the matrices |
 | `--fast` | not gated for OpenFold3; it is a Boltz-2/ESMFold2 lever and no OF3 parity leg runs with it |
+
+## OpenBind-0
+
+OpenBind-0 is upstream's protein-ligand model. It is not a separate codebase: it ships in
+the same repo at tag `v0.5.0`, and tt-bio runs it through the same modules as
+`--model openbind`, selecting everything that differs off the checkpoint.
+
+```bash
+curl -o ~/.boltz/of3-ob-2025-06-30-174k.pt \
+  https://openfold3-data.s3.amazonaws.com/openfold3-parameters/of3-ob-2025-06-30-174k.pt
+
+tt-bio predict examples/affinity.yaml --model openbind
+```
+
+### Why it is a separate `--model` and not a flag
+
+The two checkpoints differ by exactly one weight key. Measured on both files: 4887 shared
+tensors, zero shape mismatches, and 48 per-block
+`diffusion_transformer.blocks.N.attention_pair_bias.layer_norm_z` traded for one shared
+`diffusion_transformer.layer_norm_z`. Upstream bumped `MODEL_VERSION` to 2.0.0 for it, and
+it is the whole reason preview2 weights do not load on `v0.5.0` or later.
+
+Two more `v0.5.0` changes carry no weights of their own, so the checkpoint has to select
+them: the ending-node triangle-attention bias is built from the untransposed pair
+(AF3 Algorithm 15) rather than the transposed one, and two MSA features are corrected —
+`deletion_value` is scaled by 2/pi instead of 8/pi, and the MSA profile's column index is
+built with `np.tile` instead of `np.repeat`, which preview2 permuted for any MSA deeper
+than one row.
+
+Those last two are why this is a separate model id rather than an upgrade. preview2 trained
+for 155k steps on the uncorrected features, so they are the input distribution its weights
+learned. Feeding preview2 the corrected features would shift that distribution on a shipped,
+parity-gated model; feeding OpenBind the preview2 features is the same mistake mirrored.
+Neither checkpoint can share one featurizer, so both keep their own.
+
+### What OpenBind adds
+
+| capability | status |
+|---|---|
+| ligands, SMILES or CCD code | ported. `ligand: {smiles: ...}` or `ligand: {ccd: ...}` in the YAML, same schema as `boltz2` / `protenix-v2` |
+| everything `openfold3` supports | inherited unchanged: protein / RNA / DNA, MSA, per-chain templates, recycling, sample ranking, multi-card |
+| covalent bonds / `constraints:` | **not supported** — loud error, same as `openfold3` |
+| binding affinity | **not predicted.** A `properties: affinity` block is not answered and warns; use `--model boltz2` for affinity |
+| chemical steering | **not in `v0.5.0`.** The OpenBind announcement describes chemical steering during diffusion sampling; it is not in the released code (no module, no flag, no config key), so tt-bio has nothing to run for it |
+
+### Accuracy
+
+Measured against the upstream `v0.5.0` CPU reference on the same inputs, five seeds each
+side. Two legs, both in [`implementation-parity.md`](implementation-parity.md) and
+re-runnable per release from `scripts/full_parity_gate.py`:
+
+| leg | all-atom RMSD X | reference noise floor | verdict |
+|---|---|---|---|
+| ubiquitin, L76, MSA | 0.969 Å | 1.033 Å | PASS on all four metrics |
+| FKBP12 + SB3 (1FKG), L107 + ligand | 0.602 Å | 0.551 Å | PASS on RMSD; 1-TM and 1-lDDT above their tighter floors |
+
+On the protein-ligand leg the residual is the ligand pose, not the fold: split under the
+same superposition the protein is 0.582 Å against a 0.551 Å floor and the ligand 0.969 Å
+against the reference's own 0.524 Å ligand spread. Sub-Ångström over 33 atoms is a correct
+pose, but it is above that spread, so it is recorded as a caveat.
+
+No perf-page entry yet.
+
+### The host featurizer
+
+Bit-exact against `v0.5.0` on 34 of 35 feature keys, on ubiquitin and on the FKBP12+SB3
+complex, for both checkpoints (`--model openfold3` against the vendored pin, `--model
+openbind` against `v0.5.0`). The 35th is `ref_pos`, which differs between two runs of the
+same upstream tree because RDKit generates the reference conformers. Reproduce with
+`scripts/ob0_featurizer_capture.py`.
+
+Four MSA featurizer fixes shipped in `v0.5.0` are keyed on the checkpoint, so preview2 is
+byte-identical to before: the AF3-spec `deletion_value` scale, the AF3-spec `profile`
+column index, uppercase at parse, and main-MSA dedup. The dedup is the one with teeth — it
+removes one row of ubiquitin's 9656-row MSA and 474 of FKBP12's 16384.
+
+Two vendoring omissions found by auditing the whole vendored tree against the upstream
+commit it pins, both invisible to the feature-key comparison above:
+
+* **CCD ligand stereochemistry.** The reference-molecule builder never called
+  `Chem.AssignStereochemistryFrom3D`, and the line after it discards the coordinates the
+  stereo came from, so every ligand reference conformer drew a random handedness per
+  stereocentre. SB3, SAH and ATP all came out fully unassigned, with several centres
+  inverted against upstream. Fixed; the signed volumes now match upstream exactly. It cut
+  the device's run-to-run ligand-pose spread 3.4× (0.630 Å to 0.183 Å) without moving the
+  distance to the reference, so it is a determinism fix rather than an accuracy win. Hidden
+  from the key comparison because it lives entirely in `ref_pos`, the one key excluded there
+  as stochastic.
+* **MSA row caps.** `parse_a3m` dropped `inplace=True` from `MsaArray.truncate`, so the
+  truncated copy was discarded and any MSA deeper than its per-source cap was parsed whole
+  (18149 rows where upstream parses 16384). The model still received 16384 rows, just a
+  different 16384. Fixed; all seven OpenFold3 parity legs reproduce their committed numbers
+  exactly, because none of their MSAs is deep enough to reach a cap.
 
 ## Precision
 

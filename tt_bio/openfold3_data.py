@@ -201,8 +201,8 @@ def _get_structure_with_ref_mols(query: Query):
 CANONICAL_MAIN_MSA_STEM = "colabfold_main"
 
 
-def inference_msa_settings() -> MSASettings:
-    """The MSA settings every tt-bio OpenFold3 fold uses.
+def inference_msa_settings(*, openbind: bool = False) -> MSASettings:
+    """The MSA settings every tt-bio OpenFold3 / OpenBind fold uses.
 
     Follows the reference inference configuration (`InferenceDatasetConfigKwargs`,
     dataset_configs.py:368): ``subsample_main=False`` (the bare `MSASettings` default of
@@ -214,8 +214,15 @@ def inference_msa_settings() -> MSASettings:
     One definition, read by both the featurizer and
     :func:`normalize_openfold3_msa_paths`, which has to know which stems the parser
     accepts.
+
+    ``openbind`` selects the v0.5.0 MSA featurizer fixes; see
+    :func:`build_openfold3_features` for what each one is and why they are keyed on the
+    checkpoint rather than simply corrected.
     """
-    settings = MSASettings(subsample_main=False)
+    settings = MSASettings(subsample_main=False,
+                           af3_spec_profile_columns=openbind,
+                           af3_spec_uppercase_msa=openbind,
+                           af3_spec_main_msa_dedup=openbind)
     if "cfdb_hits" not in settings.max_seq_counts:
         settings.max_seq_counts["cfdb_hits"] = 100000000
         settings.aln_order.insert(
@@ -224,7 +231,8 @@ def inference_msa_settings() -> MSASettings:
     return settings
 
 
-def normalize_openfold3_msa_paths(query, msa_dir: str | Path):
+def normalize_openfold3_msa_paths(query, msa_dir: str | Path, *,
+                                  openbind: bool = False):
     """Expose a user-supplied alignment under a basename the OF3 parser accepts.
 
     ``parse_msas_direct`` keeps only files whose STEM is a key of
@@ -241,7 +249,7 @@ def normalize_openfold3_msa_paths(query, msa_dir: str | Path):
     canonically named) and ``.npz`` goes through the pre-parsed path, which does not filter.
     """
     msa_dir = Path(msa_dir).expanduser()
-    known = inference_msa_settings().max_seq_counts
+    known = inference_msa_settings(openbind=openbind).max_seq_counts
     for chain in query.chains:
         paths = list(chain.main_msa_file_paths or [])
         if not paths:
@@ -278,6 +286,7 @@ def build_openfold3_features(
     template_settings: TemplateSettings | None = None,
     ccd_file_path: str | None = None,
     template_structures_directory: str | Path | None = None,
+    openbind: bool = False,
 ) -> dict[str, torch.Tensor]:
     """Featurizes a single OpenFold3 `Query` into a model-ready feature dict.
 
@@ -290,9 +299,34 @@ def build_openfold3_features(
     Defaults follow the reference inference configuration
     (`InferenceDatasetConfigKwargs`, dataset_configs.py:368): the MSA settings come from
     :func:`inference_msa_settings` and templates use `take_top_k=True`.
+
+    ``openbind`` selects the four MSA featurizer fixes upstream shipped with v0.5.0 and
+    the OpenBind checkpoint:
+
+    * ``deletion_value`` scale: the AF3-spec 2/pi, where preview2 used 8/pi (4x too
+      large).
+    * MSA ``profile`` column index: np.tile, where preview2 used np.repeat and produced
+      a permuted profile for any MSA deeper than one row.
+    * uppercase at parse: v0.5.0 normalizes the parsed residue letters. A no-op for a3m,
+      whose parser deletes lowercase into the deletion matrix before building the array;
+      live for .sto and pre-parsed .npz, which keep case.
+    * main-MSA dedup: v0.5.0 drops duplicate rows of the concatenated main MSA, order
+      preserving, keying on the sequence array alone. It also shifts ``profile`` and
+      ``deletion_mean``, which average over that array.
+
+    All four are keyed off the checkpoint rather than simply corrected, because preview2
+    trained for 155k steps on the uncorrected features; handing it the fixed ones is an
+    input-distribution shift on a shipped, parity-gated model. Default False, so every
+    existing preview2 fold is bit-identical.
+
+    The first two are invisible at MSA depth 1: the two deletion scales both multiply a
+    zero deletion matrix, and np.tile == np.repeat when n_rows == 1. A single-sequence
+    fold therefore cannot distinguish the two variants, which is why the unit gate in
+    tests/test_openbind_featurizer.py drives them with a real multi-row MSA. The dedup is
+    likewise invisible on an MSA with no duplicate rows.
     """
     if msa_settings is None:
-        msa_settings = inference_msa_settings()
+        msa_settings = inference_msa_settings(openbind=openbind)
     template_settings = template_settings or TemplateSettings(take_top_k=True)
     template_preprocessor_settings = TemplatePreprocessorSettings(mode="predict")
     ccd = (
@@ -322,6 +356,7 @@ def build_openfold3_features(
             max_rows=msa_settings.max_rows,
             max_rows_paired=msa_settings.max_rows_paired,
             subsample_with_bands=msa_settings.subsample_with_bands,
+            af3_spec_deletion_value=openbind,
         )
     )
     msa_input = MsaSampleProcessorInputInference.create_from_inference_query_entry(

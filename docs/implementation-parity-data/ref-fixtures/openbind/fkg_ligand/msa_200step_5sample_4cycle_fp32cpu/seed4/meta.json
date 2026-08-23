@@ -1,0 +1,20 @@
+{
+  "seed": 4,
+  "target_id": "fkg_ligand",
+  "harvested_from": "/home/ttuser/ob0_ref_runs/fkg_ligand/fkg_ligand_seed4",
+  "selected_structure": "fkg_ligand_seed_4_sample_2_model.cif",
+  "selected_record": {
+    "id": "fkg_ligand",
+    "status": "ok",
+    "n_residues": null,
+    "n_chains": 2,
+    "msa": true,
+    "samples": 5,
+    "ptm": 0.96571,
+    "iptm": 0.960343,
+    "plddt": 95.68515,
+    "ranking_score": 0.961417,
+    "selected_sample_idx": 1
+  },
+  "note": "real reference output copied verbatim; not regenerated or edited"
+}

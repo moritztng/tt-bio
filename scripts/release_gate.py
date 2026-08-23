@@ -242,6 +242,17 @@ MODELS = {
     # run-to-run wobble that does not exist at 117 aa. Floor = ~2x measured, same discipline
     # as boltz2 (1.55 -> 3.0), protenix-v2 (3.87 -> 6.0) and openfold3 (1.775 -> 3.5).
     "rf3":           {"max_rmsd": 3.0, "min_tm": 0.75},
+    # OpenBind-0, shipped as `predict --model openbind`. Same OF3 stack on upstream's
+    # v0.5.0 checkpoint, so it folds the shared 7ROA target with the same MSA bytes the
+    # openfold3 row above uses (/home/ttuser/ypx_msa/425f6b0c8f93f94f.a3m, sha256
+    # 98eb9adc..., 35 sequences) and the two rows are comparable. Measured on this gate
+    # 2026-08-23 on tt-quietbox2 card 1 (p150a, MSA on): RMSD 1.693 A / TM 0.894
+    # best-confidence, 265 s; the five samples spread 1.589-2.183 A / 0.830-0.923, so this
+    # floor covers sample spread and not a run-to-run wobble. Same numbers as openfold3's
+    # 1.775 / 0.890 to within that spread, which is what "the v0.5.0 delta is worth nothing
+    # here" looks like on a 117 aa target. Floor = ~2x measured, so the same pair openfold3
+    # carries -- same discipline as boltz2 (1.55 -> 3.0) and protenix-v2 (3.87 -> 6.0).
+    "openbind":      {"max_rmsd": 3.5, "min_tm": 0.70},
 }
 
 # BoltzGen designability leg — see module docstring. Small n and the target the
@@ -542,7 +553,7 @@ CAPACITY_LEGS = [
 # So each model's block records the grid its census ran on and the check REFUSES
 # a cross-grid comparison outright instead of reporting levers as newly dark.
 SIZE_LADDER_MODELS = ("boltz2", "esmfold2", "protenix-v2", "openfold3", "opendde",
-                      "rf3", "nesso1")
+                      "rf3", "nesso1", "openbind")
 SIZE_LADDER_RUNGS = tuple(int(x) for x in
                           os.environ.get("RELEASE_GATE_SIZE_RUNGS", "256,512,640,768").split(",")
                           if x.strip())
@@ -729,9 +740,9 @@ def _msa_args(model: str) -> list:
     """MSA source for one model's gate fold — the way that model is ACTUALLY used.
 
     ``tt_bio.main.MSA_DEFAULT_MODELS`` is the source of truth for which models resolve an MSA
-    by default (boltz2 / protenix-v2 / opendde / opendde-abag): those fold with an offline
-    cached-a3m dir if RELEASE_GATE_MSA_DIR is set, otherwise the ColabFold server (bounded by
-    FOLD_TIMEOUT_S — see RELEASING.md). esmfold2 is single-sequence with an optional MSA and
+    by default (boltz2 / protenix-v2 / openfold3 / openbind / opendde / opendde-abag): those fold
+    with an offline cached-a3m dir if RELEASE_GATE_MSA_DIR is set, otherwise the ColabFold
+    server (bounded by FOLD_TIMEOUT_S — see RELEASING.md). esmfold2 is single-sequence with an optional MSA and
     esmfold2-fast ships no MSA encoder at all, so both fold single-sequence here: gating a
     config no user reaches by default leaves the default path untested. esmfold2's optional
     MSA-conditioned trunk keeps its own coverage in tests/test_esmfold2.py::test_msa_encoder

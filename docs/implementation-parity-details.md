@@ -361,6 +361,66 @@ to 0.665 Å and every scored metric enters the reference floor. JSON:
 
 ## Per-leg evidence
 
+◊ The OpenBind-0 ubiquitin leg (L76, MSA, 5 reference + 5 device seeds, 200 sampling
+steps / 5 diffusion samples / 4 recycles both sides): all-atom RMSD X = 0.969 ± 0.180 Å
+(n=25) inside the floor max(R, D) = 1.033 Å (R 1.033 Å / D 0.677 Å, X/floor 0.94), with
+1-PCC 0.87, 1-TM 0.89 and 1-lDDT 0.87 also inside. D/R = 0.66, so the device's own spread
+is tighter than the reference's and the floor is not inflated by the device side. pTM
+agrees to +0.0022 and ipTM to +0.0000. The reference is the upstream v0.5.0 clone on CPU
+in fp32 (v0.5.0 is not on PyPI, so `scripts/of3_ref_fixture.py` drives the clone through
+`scripts/ob0_run_openfold.py`); its five seeds land at pTM 0.8919-0.8939, pLDDT
+90.51-90.64. Target, MSA bytes and settings are shared with `openfold3-ubq-msa`, so the
+absolute numbers are comparable across the two checkpoints — but that is a checkpoint
+difference, not a port-quality ranking, and OpenBind-vs-OpenFold3 ordering has been
+measured to REVERSE between smoke and production sampler settings.
+
+◊◊ The OpenBind-0 FKBP12 + SB3 leg (L107 protein + 33 ligand atoms, the 1FKG complex,
+ligand by CCD code, 5 reference + 5 device seeds, same 200/5/4 settings): all-atom RMSD
+X = 0.602 ± 0.040 Å (n=25) inside the floor max(R, D) = 0.551 Å (R 0.551 Å / D 0.057 Å,
+X/floor 1.09); 1-PCC 1.18 also inside; 1-TM 1.21 and 1-lDDT 1.29 above their tighter
+floors, so the leg is PASS-caveated.
+
+Splitting the same global superposition by chain says where the distance is:
+
+| part | atoms | X (dev vs ref) | R | D | X/floor |
+|---|---|---|---|---|---|
+| whole complex | 864 | 0.602 ± 0.040 Å | 0.551 Å | 0.057 Å | 1.09 |
+| protein | 831 | 0.582 ± 0.042 Å | 0.551 Å | 0.043 Å | 1.06 |
+| ligand (SB3) | 33 | 0.969 ± 0.056 Å | 0.524 Å | 0.183 Å | 1.85 |
+
+The protein is at its floor; the ligand pose carries the residual. 0.97 Å is small in
+absolute terms for a 33-atom ligand — well inside the 2 Å convention for a correct pose —
+but it is above the reference's own 0.52 Å seed-to-seed ligand spread, so it is recorded
+as a caveat rather than waved through. The device is now 2.9× TIGHTER than the reference on
+the ligand (D 0.183 Å against R 0.524 Å), so the floor is the reference's and nothing here
+is inflated by our side.
+
+**The ligand X/floor ratio got worse when the port got better, and that is the honest
+reading.** Before the CCD stereo fix
+([openfold3-port.md](openfold3-port.md#the-host-featurizer)) the vendored featurizer never
+called `Chem.AssignStereochemistryFrom3D` on a ligand, so each fold's reference conformer
+drew a random handedness per stereocentre. The measured effect on this leg:
+
+| quantity | random handedness | upstream handedness |
+|---|---|---|
+| ligand X | 0.980 ± 0.159 Å | 0.969 ± 0.056 Å |
+| ligand D | 0.630 ± 0.341 Å | 0.183 ± 0.069 Å |
+| whole-complex D | 0.132 ± 0.062 Å | 0.057 ± 0.011 Å |
+| ligand X/floor | 1.56 | 1.85 |
+
+The distance to the reference is unchanged within noise; what collapses is the device's own
+run-to-run spread, 3.4× on the ligand. The old 1.56 was partly floor inflation from our own
+randomness. So this was a determinism and correct-input fix, not an accuracy win, and the
+ratio moving the wrong way is the instrument reporting a narrower device rather than a worse
+one.
+
+The atom pairing was checked explicitly, because the scorer intersects keys of
+(chain, seqid, resname, atomname, altloc) and a ligand numbered differently on the two
+sides would drop out of that intersection with no warning, leaving a protein-only RMSD
+under a protein-ligand label. All 864 atoms pair, including all 33 SB3 atoms in chain B,
+with nothing device-only or reference-only.
+
+
 †† The ESMC-6b leg uses a 6b-specific harness (`scripts/esmc6b_embed_parity.py`)
 that builds the same esm reference as the 300m/600m legs at the 6b config and
 loads the real 6b weights in fp32 (sharded TransformerEngine safetensors, no

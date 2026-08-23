@@ -174,11 +174,23 @@ _MODEL_RESULTS_PREFIX = {
     "esmfold2-fast": "esmfold2_results",
     "protenix-v2": "protenix_results",
     "openfold3": "openfold3_results",
+    "openbind": "openbind_results",
     "opendde": "opendde_results",
     "opendde-abag": "opendde_results",
     "rf3": "rf3_results",
 }
 PREDICT_MODELS = tuple(_MODEL_RESULTS_PREFIX)
+
+# OpenFold3-preview2 and OpenBind-0 are ONE implementation with two checkpoints.
+# Upstream ships both from aqlaboratory/openfold-3; OpenBind is tag v0.5.0, which
+# hoists the diffusion transformer's pair LayerNorm out of its 24 blocks and moves
+# the ending-node triangle bias onto the untransposed pair. That is the whole
+# architectural delta, so the two share every module and differ only in what the
+# checkpoint selects. They stay separate --model ids because they are separate
+# weights with separate accuracy, and because the featurizer fixes v0.5.0 made
+# cannot be applied to preview2 without shifting the input distribution its
+# weights were trained on. Anything that means "either OF3 checkpoint" reads this.
+OF3_FAMILY = ("openfold3", "openbind")
 
 # Single source of truth for the other two model-choice CLI surfaces (`embed`,
 # `saprot`), for the same reason: anything that needs "every model we ship"
@@ -2319,7 +2331,7 @@ def _resolve_sampling_steps(sampling_steps, model):
 # single-sequence with an OPTIONAL MSA and esmfold2-fast ships no MSA encoder at all.
 # scripts/release_gate.py reads this so the accuracy gate folds each model the way it is
 # actually used, instead of hand-listing the same set a second time.
-MSA_DEFAULT_MODELS = ("boltz2", "protenix-v2", "openfold3", "opendde", "opendde-abag",
+MSA_DEFAULT_MODELS = ("boltz2", "protenix-v2", "openfold3", "openbind", "opendde", "opendde-abag",
                      "rf3")
 
 
@@ -2435,7 +2447,7 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
               help="Fold single-sequence: skip MSA entirely for boltz2/protenix-v2/openfold3/"
                    "opendde (no local DB, no online server). Explicit opt-out for batch-screening "
                    "orphan sequences.")
-@click.option("--msa_endpoint", default=None, help="tt-bio MSA server URL (http://HOST:PORT) to fetch unpaired a3m from instead of searching locally (see `tt-bio msa-server`). Applies to --model esmfold2/protenix-v2/openfold3/opendde.")
+@click.option("--msa_endpoint", default=None, help="tt-bio MSA server URL (http://HOST:PORT) to fetch unpaired a3m from instead of searching locally (see `tt-bio msa-server`). Applies to --model esmfold2/protenix-v2/openfold3/openbind/opendde.")
 @click.option("--msa_server_url", default="https://api.colabfold.com")
 @click.option("--msa_pairing_strategy", default="greedy")
 @click.option("--msa_server_username", default=None)
@@ -2491,6 +2503,8 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                    "protenix-v2: AF3-family (Pairformer trunk + atom diffusion), MSA-dependent (MSA on by default). "
                    "openfold3: OpenFold3 (AF3-family; MSA + template embedder + atom diffusion), "
                    "MSA on by default; polymer chains only, no template search; weights via OF3_CKPT. "
+                   "openbind: OpenBind-0, the same stack on the upstream v0.5.0 checkpoint, "
+                   "tuned for protein-ligand co-folding; weights via TT_BIO_OPENBIND. "
                    "opendde / opendde-abag: AF3-family co-folding (Protenix-v2 stack + structural-token expander); "
                    "opendde-abag selects the antibody-antigen checkpoint. "
                    "rf3: RoseTTAFold3 (AF3-family; MSA + template embedder + 48-block Pairformer "
@@ -2583,7 +2597,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         model, use_msa_server, msa_db_path, msa_endpoint, single_sequence, cache,
         controller, msa_server_url, msa_cache_only)
 
-    if model in ("esmfold2", "esmfold2-fast", "protenix-v2", "openfold3", "opendde",
+    if model in ("esmfold2", "esmfold2-fast", "protenix-v2", "openfold3", "openbind", "opendde",
                  "opendde-abag", "rf3"):
         # ESMFold2, Protenix-v2, OpenFold3, OpenDDE and RF3 ride the SAME scheduler / worker /
         # progress path as Boltz-2: build a run config, then fan jobs across devices via
@@ -2612,8 +2626,8 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         # Every other fold model with a confidence head writes <name>_pae.npz under
         # --write_pae; OF3's head computes PAE logits but the fold does not return the
         # matrices, so the flag would otherwise be a silent no-op.
-        if model == "openfold3" and (write_pae or write_pde):
-            click.secho("Note: --model openfold3 does not emit PAE/PDE matrices; "
+        if model in OF3_FAMILY and (write_pae or write_pde):
+            click.secho(f"Note: --model {model} does not emit PAE/PDE matrices; "
                         "ignoring --write_pae/--write_pde", fg="yellow")
         # ESMFold2's ESMC-6B language model is ~12.8 GB resident in normal precision
         # and does not fit a Wormhole chip's ~12 GB DRAM (OOM at every length). The
