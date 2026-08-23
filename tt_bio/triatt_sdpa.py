@@ -69,6 +69,11 @@ _Q_SPLIT_MAX_S = 1024
 # throw and the fold lost 3.129 s against an A/A floor of 0.056 s.
 _PM_OVER_L1: set = set()
 
+# The device's own message for the refusal that retired each key. The exception is caught below and
+# turned into a decline, so without this the byte figures it carries -- allocated, budget, and the
+# shortfall -- are lost, and an L1 screen has to re-run the call outside the gate to read them.
+PM_L1_ERRORS: dict = {}
+
 
 # Compute kernel config for the fused SDPA when the caller does not pass one. None means the op
 # default below, which is what every call took until RF3's triangle attention started passing its
@@ -108,7 +113,7 @@ def _reject(reason, shape):
     return None
 
 
-def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None):
+def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_factor=2):
     """The fold's SDPA with the mask read once per head, or `None` to leave the call alone."""
     if not _ENABLED or bias is None:
         return None
@@ -128,9 +133,16 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None):
     from .tenstorrent import COMPUTE_GRID_MAIN, _SDPA_Q_CHUNK_OVER_L1
     grid = tuple(COMPUTE_GRID_MAIN)
     l1_key = (int(q.shape[2]), int(k.shape[2]), q_chunk)
+    # `_PM_OVER_L1` is keyed on the FULL config, not on `l1_key`. This kernel's L1 cost moves with
+    # k_chunk and with the k/v buffer factor as well as with q_chunk -- the wide-k ladder in
+    # `_tri_att_sdpa_at` calls here with several k_chunks at one q_chunk -- so a three-term key lets
+    # one refusal at (q, wide k) retire that q_chunk against every k the ladder still has to try.
+    # Same all-or-nothing retirement as `rf3-latching-l1-gate-all-or-nothing-retirement`: a refusal
+    # must narrow the shape class it retires, not the whole class.
+    pm_key = (l1_key[0], l1_key[1], q_chunk, k_chunk, kv_buffer_factor)
     if l1_key in _SDPA_Q_CHUNK_OVER_L1:
         return _reject("q_chunk_over_l1", shape)
-    if l1_key in _PM_OVER_L1:
+    if pm_key in _PM_OVER_L1:
         return _reject("pm_over_l1", shape)
     H = shape[1]
     cores = grid[0] * grid[1]
@@ -166,6 +178,7 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None):
     try:
         SG.sdpa(dev, q, k, v, bias, out, q_chunk, k_chunk, grid, ckc, scale, split=split,
                 kernel_dir=KERNEL_DIR, mask_cb_tiles=persistent,
+                kv_buffer_factor=kv_buffer_factor,
                 defines_extra={"PERSISTENT_MASK": p["k_num_chunks"]})
     except Exception as exc:  # noqa: BLE001 -- an L1 refusal must reach the stock op, not the caller
         ttnn.deallocate(out)
@@ -173,7 +186,8 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None):
             raise
         # Remember it here only, so the next call declines instead of re-throwing while the stock
         # ladder keeps the q_chunk it fits.
-        _PM_OVER_L1.add(l1_key)
+        _PM_OVER_L1.add(pm_key)
+        PM_L1_ERRORS[pm_key] = str(exc)
         return _reject("l1_budget", shape)
     STATS[0] += 1
     return out

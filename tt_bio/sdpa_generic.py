@@ -88,7 +88,8 @@ def _packed_identity_scalar():
     return (0x3F80 << 16) | 0x3F80
 
 
-def plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split=None):
+def plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split=None,
+         kv_buffer_factor=2):
     """Everything the descriptor needs, derived exactly as the factory derives it.
 
     `split` overrides `(batch_parallel_factor, nh_parallel_factor, q_parallel_factor)`. The
@@ -157,8 +158,8 @@ def plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split
         dst_full_sync=dst_full_sync, scale=scale,
         # the CB tile counts, straight off :405-414
         q_tiles=Sq_chunk_t * DHt * q_buffer_factor,
-        k_tiles=Sk_chunk_t * DHt * 2,
-        v_tiles=Sk_chunk_t * vDHt * 2,
+        k_tiles=Sk_chunk_t * DHt * kv_buffer_factor,
+        v_tiles=Sk_chunk_t * vDHt * kv_buffer_factor,
         mask_tiles=Sq_chunk_t * Sk_chunk_t * 2,
         qk_tiles=Sq_chunk_t * Sk_chunk_t,
         out_im_tiles=Sq_chunk_t * vDHt,
@@ -169,14 +170,15 @@ def plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split
 
 def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale,
           exp_approx_mode=False, mask_cb_tiles=None, defines_extra=None, kernel_dir=None,
-          split=None):
+          split=None, kv_buffer_factor=2):
     """The ProgramDescriptor for the fold's SDPA call.
 
     `mask_cb_tiles` overrides the size of `cb_mask_in` (K2 makes it the whole head's grid instead of
     a double-buffered chunk; at the shipped config those are the same 256 tiles). `kernel_dir` swaps
     in patched kernel sources. With both left alone this is the wheel's own program.
     """
-    p = plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split)
+    p = plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split,
+             kv_buffer_factor)
     gx, gy, num_cores = p["gx"], p["gy"], p["num_cores"]
     core_grid = ttnn.CoreRangeSet(
         [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
@@ -351,7 +353,8 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
     key = (str(q.padded_shape), str(k.padded_shape), str(mask.padded_shape), str(out.padded_shape),
            str(q.dtype), q_chunk_size, k_chunk_size, grid, tuple(str(c) for c in ckc),
            tuple(sorted((kw.get("defines_extra") or {}).items())),
-           kw.get("mask_cb_tiles"), str(kw.get("kernel_dir")), kw.get("split"))
+           kw.get("mask_cb_tiles"), str(kw.get("kernel_dir")), kw.get("split"),
+           kw.get("kv_buffer_factor"))
     e = _CACHE.get(key)
     if e is None:
         e = _CACHE[key] = build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid,

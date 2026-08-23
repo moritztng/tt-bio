@@ -1065,9 +1065,14 @@ _TRIATT_FUSED_HIFI = env_flag("TT_BIO_TRIATT_FUSED_HIFI", False)
 # triatt_sdpa.py). Fields are `(fidelity, math_approx, fp32_dest_acc, dst_full_sync)`.
 _TRIATT_FUSED_HIFI_CKC = (ttnn.MathFidelity.HiFi4, False, True, False)
 
-# (q_len, k_len, q_chunk) triples whose program the device refused at this config. Deliberately not
-# `_SDPA_Q_CHUNK_OVER_L1`: writing a refusal into the shared memo would retire a q_chunk the stock
-# ladder runs perfectly well, which is the mistake `_PM_OVER_L1` exists to avoid.
+# Configs whose program the device refused, keyed on the FULL config -- (q_len, k_len, q_chunk,
+# k_chunk, kv_buffer_factor) -- not on q_chunk alone. Deliberately not `_SDPA_Q_CHUNK_OVER_L1`:
+# writing a refusal into the shared memo would retire a q_chunk the stock ladder runs perfectly
+# well, which is the mistake `_PM_OVER_L1` exists to avoid. The full key matters for the same
+# reason once `one_k_chunk` is on: this path then offers several k_chunks and both buffer factors
+# at one q_chunk, and a q-keyed memo would let the first refusal retire configs that fit
+# (`rf3-latching-l1-gate-all-or-nothing-retirement` -- a refusal narrows its shape class, it does
+# not retire the class).
 _TRIATT_HIFI_OVER_L1: set = set()
 
 # Shortest sequence this path is allowed to serve. The fused SDPA loses an order of magnitude of
@@ -1098,33 +1103,85 @@ _TRIATT_FUSED_HIFI_MIN_S = 128
 
 TRIATT_FUSED_HIFI_STATS = {"served": 0, "declined": 0, "too_short": 0}
 
+# (q_len, k_len) -> [q_chunk, k_chunk, kv_buffer_factor] actually served. A silently-declined config
+# is indistinguishable from an absent one, so an A/B on `one_k_chunk` can only be believed if the
+# fold itself says which config it ran.
+TRIATT_FUSED_HIFI_PICKS: dict = {}
 
-def _tri_att_sdpa_hifi(q, k, v, bias, scale: float):
+
+def _tri_att_sdpa_hifi(q, k, v, bias, scale: float, one_k_chunk: bool = False):
     """Triangle attention through the fused SDPA at `_TRIATT_FUSED_HIFI_CKC`, or None to decline.
 
     Declining is the caller's cue to run `_fp32_softmax_attention`, NOT the stock bf16 SDPA: the
     stock op carries the op default's 2.7x worse error, so a silent fall-through to it would be an
     accuracy regression wearing a performance win's clothes.
+
+    `one_k_chunk` spans the whole key length in a single k chunk, so the online softmax makes no
+    running-max rescale and reduces each row in one pass, the same order the torch reference and
+    `_fp32_softmax_attention` use. It is a per-instance opt-in with no global default on purpose
+    (`tt-bio-shared-diffusion-global-env-default-regression`), and it can only serve the one-chunk
+    config or fall through to exactly today's, never to anything else: the shipped k_chunk is
+    always the last entry of the ladder.
+
+    MEASURED with v = 1, so every output element is a row sum whose exact value is 1.0 and the mean
+    deviation IS the coherent normalisation bias rel_rms is blind to (`perf/fused_sdpa/
+    onechunk_l1.py`, qb2 card 3, HiFi4 + fp32_dest_acc, 4 heads, head_dim 32). Mean row-sum deficit,
+    and the one-chunk arm's factor against each of the other two:
+
+        S      materialised   fused shipped   fused one chunk   vs shipped   vs materialised
+        128     -0.004420      -0.000426        -0.000426         1.00x         10.38x
+        256     -0.004598      -0.000467        -0.000467         1.00x          9.85x
+        320     -0.004706      -0.002464        -0.000502         4.91x          9.38x
+        512     -0.005406      -0.001518        -0.000623         2.44x          8.68x
+        768     -0.006603      -0.002067        -0.000801         2.58x          8.24x
+       1024     -0.007294      -0.002388        -0.000969         2.46x          7.53x
+
+    At 128 and 256 the shipped k_chunk already spans the sequence, so those two rows are the same
+    program and the 1.00x is the identity, not a null result. Time, interleaved rep by rep against
+    two A/A controls in the same table (`perf/fused_sdpa/onechunk_ab.py`, 25 reps, 5 dropped):
+    1.42x at 320, 1.15x at 512, 1.17x at 768, 1.18x at 1024, with the controls inside 2.5 %. So the
+    lever is more accurate AND faster at every size that has one, and no size regresses.
+
+    NOT bit-exact against the shipped k_chunk -- k_chunk sets the reduction order. It IS bit-exact
+    across q_chunk and across `kv_buffer_factor`, verified with `torch.equal` at all six sizes.
     """
     q_len, k_len = int(q.shape[2]), int(k.shape[2])
     if min(q_len, k_len) < _TRIATT_FUSED_HIFI_MIN_S:
         TRIATT_FUSED_HIFI_STATS["too_short"] += 1
         return None
-    k_chunk = _sdpa_chunks_shipped(q_len, k_len)[1]
-    for q_chunk in _tri_att_q_chunks(q_len, k_len):
-        if (q_len, k_len, q_chunk) in _TRIATT_HIFI_OVER_L1:
-            continue
-        try:
-            o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk,
-                                  ckc_default=_TRIATT_FUSED_HIFI_CKC)
-        except Exception as exc:  # noqa: BLE001 -- an L1 refusal retires the chunk, nothing else
-            if "circular buffers" not in str(exc):
-                raise
-            o = None
-        if o is not None:
-            TRIATT_FUSED_HIFI_STATS["served"] += 1
-            return o
-        _TRIATT_HIFI_OVER_L1.add((q_len, k_len, q_chunk))
+    shipped_k = _sdpa_chunks_shipped(q_len, k_len)[1]
+    padded_k = _padded_sdpa_len(k_len)
+    k_chunks = (padded_k, shipped_k) if one_k_chunk and padded_k != shipped_k else (shipped_k,)
+    for k_chunk in k_chunks:
+        wide = k_chunk != shipped_k
+        # Against a wide k, only q_chunks that DIVIDE the padded sequence are legal: the ladder's
+        # last entry is the production cap, which need not divide, and pairing it with a wide k
+        # pays the padded q mask twice. Same rule and the same measurement as `_tri_att_sdpa_at`.
+        q_chunks = [qc for qc in _tri_att_q_chunks(q_len, k_len)
+                    if not wide or _padded_sdpa_len(q_len) % qc == 0]
+        for q_chunk in q_chunks:
+            # k and v are double-buffered to overlap the next k chunk's fetch with this chunk's
+            # matmul. At one k chunk there is no next chunk, so the second buffer buys nothing and
+            # single-buffering frees `2 * Sk_chunk_t * DHt` tiles -- 65536 B at S = 512, which is
+            # 3.46x the 18944 B that refused the widest q there. Bit-identical, and measured
+            # perf-neutral (1.167x vs 1.177x at 768, same q and k). Only offered at one k chunk.
+            for kv_bf in ((2, 1) if wide else (2,)):
+                cfg = (q_len, k_len, q_chunk, k_chunk, kv_bf)
+                if cfg in _TRIATT_HIFI_OVER_L1:
+                    continue
+                try:
+                    o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk,
+                                          ckc_default=_TRIATT_FUSED_HIFI_CKC,
+                                          kv_buffer_factor=kv_bf)
+                except Exception as exc:  # noqa: BLE001 -- an L1 refusal retires this config only
+                    if "circular buffers" not in str(exc):
+                        raise
+                    o = None
+                if o is not None:
+                    TRIATT_FUSED_HIFI_STATS["served"] += 1
+                    TRIATT_FUSED_HIFI_PICKS[(q_len, k_len)] = [q_chunk, k_chunk, kv_bf]
+                    return o
+                _TRIATT_HIFI_OVER_L1.add(cfg)
     TRIATT_FUSED_HIFI_STATS["declined"] += 1
     return None
 
@@ -4068,6 +4125,7 @@ class TriangleAttention(Module):
         transpose_bias: bool = True,
         transpose_l1_reserve: int = 0,
         accurate_softmax: bool = False,
+        tri_att_one_k_chunk: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.head_dim = head_dim
@@ -4089,6 +4147,11 @@ class TriangleAttention(Module):
         # Only reaches the fp32_softmax path: the bf16 route is the fused SDPA kernel, which
         # has no ttnn.softmax to replace. OpenFold3 is the only model here on the fp32 route.
         self.accurate_softmax = accurate_softmax
+        # Span the key length in one k chunk on the `TT_BIO_TRIATT_FUSED_HIFI` route, so the online
+        # softmax reduces each row in a single pass. 2.4-4.9x less coherently biased than the
+        # shipped chunking and 1.15-1.42x faster; see `_tri_att_sdpa_hifi` for the table. Screened
+        # off-fold only, so no model sets it -- flipping one is a separate decision.
+        self.tri_att_one_k_chunk = tri_att_one_k_chunk
         self.scale = self.head_dim**0.5
         # Boltz/Protenix fold sqrt(head_dim) into the pair-bias projection (their
         # reference adds the bias pre-scaled); openfold3 pre-scales q by 1/sqrt(d) and
@@ -4271,7 +4334,8 @@ class TriangleAttention(Module):
                     b = bias
                     if self._bias_scale != self.scale:
                         b = ttnn.multiply(bias, self.scale / self._bias_scale)
-                    o = _tri_att_sdpa_hifi(q, k, v, b, self.scale ** -1)
+                    o = _tri_att_sdpa_hifi(q, k, v, b, self.scale ** -1,
+                                           one_k_chunk=self.tri_att_one_k_chunk)
                     if b is not bias:
                         ttnn.deallocate(b)
                 if o is None:
