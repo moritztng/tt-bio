@@ -1,0 +1,26 @@
+{
+  "aa": 1024,
+  "n_token": 1024,
+  "n_atom": 8239,
+  "n_recycles": 1,
+  "reps": 3,
+  "arm_a_fused_s": [
+    41.7086,
+    41.7101,
+    41.7114
+  ],
+  "arm_a_repeat_s": [
+    41.7094,
+    41.7134,
+    41.7137
+  ],
+  "arm_b_accurate_s": [
+    41.7302,
+    41.7358,
+    41.7422
+  ],
+  "a_a_spread_frac": 8e-05,
+  "b_over_a": 1.0006,
+  "cost_frac": 0.00062,
+  "inside_a_a": false
+}
