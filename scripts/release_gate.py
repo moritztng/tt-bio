@@ -1580,9 +1580,15 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
             r = _run_census_fold(model, rung, workdir,
                                  "warmup" if rep == 0 else f"rep{rep - 1}")
             if r.get("error"):
+                # Carry the rungs that already measured. Rungs run in ascending order, so a
+                # failure at the top rung used to discard three good measurements and print "-"
+                # in every cell, which reads as "this model cannot fold at all" instead of "this
+                # model folds up to 640 and died at 768". That cost a bisect on 2026-08-23 to
+                # recover information the leg already had.
                 return {"error": f"rung {rung} "
                                  f"{'warm-up' if rep == 0 else f'rep {rep - 1}'}: "
-                                 f"{r['error']}"}
+                                 f"{r['error']}",
+                        "runtime_s": runtimes, "partial": True}
             if rep == 0:
                 continue          # cold: kernels for this shape compile on this fold
             grid = grid or r.get("grid")
@@ -1656,7 +1662,8 @@ def _size_ladder_check_model(model: str, rungs, base_model: dict, workdir: Path)
     meas = _size_ladder_measure_model(model, rungs, workdir, reps, reps)
     if meas.get("error"):
         return {"model": model, "gate": False, "error": meas["error"],
-                "findings": [meas["error"]]}
+                "findings": [meas["error"]],
+                "runtime_s": meas.get("runtime_s") or {}, "partial": True}
     findings = []
     b_grid, c_grid = base_model.get("grid"), meas.get("grid")
     if b_grid and c_grid and b_grid != c_grid:
@@ -2242,6 +2249,12 @@ def main() -> int:
     # device, and the boltzgen leg passes --devices <first granted card>. So there is nothing
     # here to skip for a narrow grant; what it does need is the load guard, and the grant
     # printed so a run's card is in its own log rather than inferred from the launch line.
+    dep_problems = gate_guard.declared_dependency_problems(REPO_ROOT / "pyproject.toml")
+    if dep_problems:
+        print("PREFLIGHT - refusing to run the gate on this interpreter:")
+        for problem in dep_problems:
+            print(f"  - {problem}")
+        return 1
     overloaded = gate_guard.load_ceiling_problem(args.load_ceiling)
     if overloaded:
         print(f"PREFLIGHT - refusing to run the gate. {overloaded}")

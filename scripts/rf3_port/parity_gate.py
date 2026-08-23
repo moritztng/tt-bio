@@ -214,16 +214,52 @@ RDKIT_DERIVED_KEYS = frozenset({
     "symmetry_resolution/coord_atom_lvl",
 })
 
+#: Keys carrying a random rigid augmentation, which `get_random_rots` builds from
+#: `torch.linalg.qr`. The RNG draws are reproducible across torch builds -- `t` and
+#: `noise` stay bit-exact -- but QR's sign convention is the LAPACK backend's, so a
+#: different torch gives a different rotation for the same random matrix and the
+#: augmented coordinates move rigidly while every deterministic key still matches.
+#: Measured 2026-08-23 on torch 2.8.0+cpu against captures made on 2.11.0+cpu: 500 of
+#: 510 keys bit-exact, `coord_atom_lvl_to_be_noised` the only one off, on all ten
+#: fixtures. torch is unpinned in pyproject.toml, so this is not a host quirk to wait
+#: out. Only `--partial_t` reads the key (tt_bio/worker.py), and there its orientation
+#: is arbitrary by construction.
+TORCH_QR_DERIVED_KEYS = frozenset({"coord_atom_lvl_to_be_noised"})
+
 
 def _env_mismatch() -> dict | None:
-    """Compare the running RDKit against what the captures were made with."""
+    """Every recorded capture-environment entry that the running one does not match.
+
+    Checking rdkit alone let a torch difference read as a port defect: the QR-derived
+    key above is off on any torch but the captures', and one un-excusable key is enough
+    to keep the whole leg at GAP.
+    """
+    import numpy
+    import torch
+
     import rdkit
 
     meta = json.loads((ARTIFACTS / "glke" / "ref_f.meta.json").read_text())
-    want = meta.get("__env__", {}).get("rdkit")
-    if want is None or want == rdkit.__version__:
-        return None
-    return {"rdkit_capture": want, "rdkit_running": rdkit.__version__}
+    want = meta.get("__env__", {})
+    running = {"rdkit": rdkit.__version__, "torch": torch.__version__,
+               "numpy": numpy.__version__}
+    off = {k: {"capture": v, "running": running[k]}
+           for k, v in want.items() if k in running and v != running[k]}
+    return off or None
+
+
+def excusable_keys(env_mismatch: dict | None) -> set:
+    """Key sets a differing dependency owns. A key set is only excusable when ITS
+    dependency is the one that differs: a torch difference does not excuse a
+    conformer, and an RDKit difference does not excuse a rotation."""
+    if not env_mismatch:
+        return set()
+    out = set()
+    if "rdkit" in env_mismatch:
+        out |= RDKIT_DERIVED_KEYS
+    if "torch" in env_mismatch:
+        out |= TORCH_QR_DERIVED_KEYS
+    return out
 
 
 def featurizer_parity() -> dict:
@@ -234,14 +270,18 @@ def featurizer_parity() -> dict:
     passed = [r for r in results if r["verdict"] == "PASS"]
     verdict = "PASS" if len(passed) == len(results) else "GAP"
     if verdict == "GAP" and env_mismatch:
-        # Every surviving mismatch is RDKit-derived, so this is an environment
-        # difference, not a port defect. Say which, and do not call it a PASS.
+        # Every surviving mismatch belongs to a key set the differing dependency owns,
+        # so this is an environment difference, not a port defect. Say which, and do
+        # not call it a PASS. A key set is only excusable when ITS dependency is the
+        # one that differs: a torch difference does not excuse a conformer, and an
+        # RDKit difference does not excuse a rotation.
+        excusable = excusable_keys(env_mismatch)
         off_keys = {
             m["key"]
             for r in results
             for m in r.get("mismatches", [])
         }
-        if off_keys and off_keys <= RDKIT_DERIVED_KEYS:
+        if off_keys and off_keys <= excusable:
             verdict = "GAP_ENV"
     return {
         "mode": "rf3_featurizer",

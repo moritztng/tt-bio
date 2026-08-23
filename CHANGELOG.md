@@ -3,37 +3,26 @@
 All notable changes to TT-Bio are recorded here. Versioning is [SemVer](https://semver.org);
 releases are cut from a commit that has passed the on-hardware test suite (see `RELEASING.md`).
 
-## [Unreleased]
+## [0.6.8] - 2026-08-23
 
-### Fixed
+### Performance
 
-- `full_parity_gate.py --workers qb2:2` run on qb2 itself now dispatches locally. It compared
-  the host token against the machine's own hostname (`tt-quietbox2`), classified the box it was
-  running on as remote, and ran every device fold through `ssh qb2` — an alias that exists only
-  in a workstation's `~/.ssh/config`. All 21 device legs of a full gate died in under a second
-  each on `Could not resolve hostname qb2`, leaving a GATE FAIL that was pure plumbing. The
-  fleet short names `qb1` and `qb2` now resolve to their own boxes; genuinely cross-host
-  `--workers` entries still dispatch over ssh.
-
-- OpenFold3: a YAML `msa:` pointing at your own alignment file crashed the fold with
-  `IndexError: list index out of range`. The vendored parser keeps only files whose stem is
-  one of its known MSA sources and dropped everything else, so there was nothing left to
-  index. Your file is now exposed to the parser under the canonical name, bytes untouched.
-  Present in every release that shipped the OpenFold3 `msa:` key, 0.6.6 included; the
-  committed `examples/prot_custom_msa.yaml` was one of the inputs that crashed.
-
-- OpenFold3: `cyclic: true` on a chain now raises instead of folding it as a linear chain and
-  reporting success. The vendored tree carries neither `Chain.cyclic` nor the `cyclic_mask`
-  feature it derives, so the flag reached nothing. Use `--model rf3` or `boltz2` for cyclic
-  chains.
-
-- OpenFold3: an MSA deeper than its per-source cap is now truncated, the way the reference
-  truncates it. The vendored parser dropped the truncated copy and returned the full
-  alignment, so a deep alignment reached the featurizer whole and the model saw a different
-  set of rows than the reference did. Nothing changes below the caps: all seven OpenFold3
-  parity legs sit under them and reproduce their committed numbers.
+- RoseTTAFold3 folds 1.63x faster at 512 aa (80.28 -> 49.29 s) and 2.05x at 768 aa
+  (207.28 -> 100.95 s), with no flag to set. Triangle attention now runs on the fused
+  attention kernel instead of the materialised fp32-softmax chain. That route used to be the
+  less accurate one, which is why it was off; masking the ragged key tail fixed its accuracy,
+  so it is now both the faster and the more accurate route and there is nothing left to trade.
+  Predictions move slightly and they move toward the reference: CA-RMSD 0.2030 -> 0.1780 A on
+  7ROA (117 aa) and 0.0955 -> 0.0920 A on ubiquitin (76 aa), same seeds, both further inside
+  their reference noise floors than before. Sequence lengths that are already a multiple of 32
+  are bit-identical to 0.6.7. See `docs/implementation-parity.md`.
 
 ### Gates and documentation
+
+- RoseTTAFold3 is now covered by the release gate's fold leg and by the size ladder. It shipped
+  as a `predict --model rf3` choice in 0.6.6 with no correctness coverage in either gate, while
+  carrying RF3-scoped performance levers. That combination is how a lever gets tuned at one
+  sequence length and left dark at every other one.
 
 - RFD3 now has a correctness leg in `scripts/release_gate.py` (`--model rfd3`, and in the default arm set).
   It had three legs already and none of them could see a broken design: the featurizer leg in
@@ -55,6 +44,72 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   Not designability: upstream RFdiffusion3 evaluates with ProteinMPNN/LigandMPNN sequences plus
   AF3 rather than its own sequence head, tt-bio ships no MPNN, and `docs/rfd3-design.md` already
   tells users to redesign the built-in sequence before ordering.
+
+
+## [0.6.7] - 2026-08-23
+
+### Fixed
+
+- OpenFold3: a YAML `msa:` pointing at your own alignment file crashed the fold with
+  `IndexError: list index out of range`. The vendored parser keeps only files whose stem is
+  one of its known MSA sources and dropped everything else, so there was nothing left to
+  index. Your file is now exposed to the parser under the canonical name, bytes untouched.
+  Present in every release that shipped the OpenFold3 `msa:` key, 0.6.6 included; the
+  committed `examples/prot_custom_msa.yaml` was one of the inputs that crashed.
+
+- OpenFold3: `cyclic: true` on a chain now raises instead of folding it as a linear chain and
+  reporting success. The vendored tree carries neither `Chain.cyclic` nor the `cyclic_mask`
+  feature it derives, so the flag reached nothing. Use `--model rf3` or `boltz2` for cyclic
+  chains.
+
+- OpenFold3: a CCD ligand's reference conformer was built without stereochemistry, so the
+  generator picked a handedness per centre at random and that arbitrary choice became a model
+  input. Chiral centres are now assigned from the CCD entry first, so the conformer keeps the
+  handedness the code names. `--model openfold3` is polymer-only today and refuses ligand
+  chains, so no fold in this release reached it; the other models build their ligands on their
+  own paths and were never affected.
+
+- OpenFold3: an MSA deeper than its per-source cap is now truncated, the way the reference
+  truncates it. The vendored parser dropped the truncated copy and returned the full
+  alignment, so a deep alignment reached the featurizer whole and the model saw a different
+  set of rows than the reference did. Nothing changes below the caps: all seven OpenFold3
+  parity legs sit under them and reproduce their committed numbers.
+
+- Protenix-v2 and OpenDDE fold more accurately. Two bugs in the pair trunk both models share
+  are fixed: the mask marking which residue pairs are real reached only one of the two triangle
+  multiplications, and `OuterProductMean` added its output bias without the scale the reference
+  applies. Every Protenix-v2 and OpenDDE structure leg in the accuracy gate now lands inside the
+  reference's own seed-to-seed spread; some fell outside it before. The other models on that
+  trunk reproduce their published numbers unchanged. See `docs/implementation-parity.md`.
+
+- RF3 folds are back to full speed. 0.6.6 turned on the accurate softmax for Protenix-v2 and
+  OpenDDE, and it reached two extra sites inside RF3's pairformer that were never meant to get
+  it: 512 aa went from 82.5 s to 111.8 s. The setting is scoped now and the structure is
+  bit-identical to what 0.6.5 produced.
+
+- RoseTTAFold3 folds crashed on a clean `pip install`. `biotite` was declared without an upper
+  bound, so a fresh install resolved 1.7.1, which removed two internals the vendored AtomWorks
+  featurizer uses; every `--model rf3` fold died at import before reaching a card. The
+  requirement is now `biotite<1.7`. If you already have biotite 1.7 in an environment, `pip
+  install -U tt-bio` will downgrade it. Affects every release that shipped RoseTTAFold3.
+
+- `full_parity_gate.py --workers` no longer ssh-es a host to itself. The fleet short names
+  `qb1` and `qb2` are recognised as their own boxes, and any host that is genuinely remote is
+  probed once before the first fold: reachable, not this same machine, and the card node
+  present. A bad worker name fails preflight in seconds instead of turning every device leg
+  into an instant error.
+
+- The release gates refuse to run on a Python environment that does not satisfy tt-bio's own
+  declared dependencies, naming what is missing or out of bounds. Before, a gate host missing
+  one package reported the model that needed it as a failure instead.
+
+### Performance
+
+- OpenFold3 folds 704 aa 1.34x faster (43.193 -> 32.230 s) and RoseTTAFold3 1.14x
+  (45.332 -> 39.808 s). Both are bit-exact, so no prediction moves. The gain is at the sizes
+  where the accurate softmax used to give up on splitting its work and run one unblocked pass;
+  512, 576, 640, 768, 896 and 1024 aa already split and are unchanged. See
+  `docs/openfold3-port.md`.
 
 ## [0.6.6] - 2026-08-22
 

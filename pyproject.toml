@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tt-bio"
-version = "0.6.6"
+version = "0.6.7"
 description = "Boltz-2, ESMFold2, Protenix-v2, OpenFold3, and OpenDDE structure prediction, BoltzGen/RFdiffusion3 design, and ESMC/SaProt protein embeddings for inference on Tenstorrent Blackhole and Wormhole"
 readme = "README.md"
 requires-python = ">=3.10,<3.13,!=3.11.*"
@@ -21,7 +21,14 @@ dependencies = [
     "pyyaml",
     "omegaconf",  # only needed to unpickle DictConfig objects baked into upstream ckpts
     "biopython",
-    "biotite",
+    # <1.7: biotite 1.7.1 dropped `BondList._bonds` and moved `connect_via_residue_names`
+    # out of `biotite.structure.bonds`. The vendored AtomWorks tree RF3 featurizes through
+    # (NOTICE #7) reaches both, so with biotite unbounded a clean `pip install tt-bio`
+    # resolved 1.7.1 and every `--model rf3` fold died at import before opening a card.
+    # 1.2.0 through 1.6.0 are clean on both, checked one version at a time; there is no
+    # published 1.7.0, so this excludes exactly 1.7.1. Lifting the bound means porting the
+    # vendored tree off two biotite private internals and re-certifying RF3 featurization.
+    "biotite<1.7",
     "matplotlib",
     "scipy",
     "numba",

@@ -20,7 +20,15 @@ Run from the repository root, and run them with the interpreter that carries the
 nobody ships. The difference is not cosmetic: on a boltz2 no-MSA target, ttnn
 0.67.4 and 0.68.0 disagree by several angstrom of Kabsch RMSD on identical code
 (see the note in `docs/implementation-parity-data/boltz2-9ncy.json`), which reads
-as a parity regression that is not one. Check before you start:
+as a parity regression that is not one.
+
+All three gates now check this themselves and refuse before they open a card: the
+interpreter has to satisfy every requirement in `pyproject.toml`, versions included,
+not just TT-NN. That check exists because a gate host missing one declared package
+does not report a missing package, it reports the model that needed it as FAIL. On
+2026-08-23 the 0.6.7 UX gate called `rf3` broken when the host env was simply missing
+`toolz`, declared the day before, and it took a full gate run to find out. If a gate
+refuses here, install what it names rather than working around it:
 
 ```bash
 python3 -c "import importlib.metadata as m; print(m.version('ttnn'))"   # must equal the pyproject pin
@@ -100,8 +108,14 @@ cached and cards are free. Fan it across every card that is up for parallelism:
 python3 scripts/full_parity_gate.py --workers pc:0,qb1:0,qb1:1,qb2:0
 ```
 
-Two guards can stop either gate before it folds anything:
+Three guards can stop either gate before it folds anything:
 
+* **Worker names.** Every host in `--workers` that is not this box is probed once over ssh before
+  the first fold: reachable, actually a different machine, and carrying the card numbers you asked
+  for. Run the gate *on* qb2 with `--workers qb2:2` and `qb2` is an ssh alias that box cannot
+  resolve, so it would ssh to nothing and every device leg would exit 255 in 0s while the
+  in-process legs passed — a FAIL after 47 minutes with no model run. Write `localhost:2` for cards
+  on the box you are running on.
 * **Card grant.** `TT_VISIBLE_DEVICES` is the set of cards the run may open. Ask `--workers` for
   a card outside it and the gate refuses in preflight rather than taking a card a sibling job
   holds. A release run leaves it unset, which means the whole box and is the unchanged path; the
@@ -358,6 +372,14 @@ Update a baseline only for an intentional performance change:
 TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
   python3 scripts/perf_regression.py --update-baseline --note "reason"
 ```
+
+The UX gate also carries an **input-contracts** leg: the three OpenFold3 inputs
+0.6.7 fixed, folded through the shipped CLI. A `cyclic: true` chain must be
+refused rather than folded as a linear one, a YAML `msa:` pointing at the user's
+own alignment must fold, and a CCD ligand's reference conformer must keep the
+handedness its code names. Each has a card-free host test; none of the accuracy
+legs folds these inputs, which is how all three reached a release. Diagnostic
+opt-out is `--no-contracts`; a release run gates all three.
 
 The UX gate checks CLI help, live progress phase ordering, strict output parsing,
 and results or manifest shape for every user-facing architecture — the fold

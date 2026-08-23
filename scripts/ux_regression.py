@@ -17,6 +17,13 @@ release ships with still works, headlessly and fast, on a tiny input:
      load under a strict standard parser (``Bio.PDB.MMCIFParser`` /
      ``numpy.load``), catching the malformed-output class (e.g. the historical
      missing ``_atom_site.occupancy`` fixed in 17aeab9e).
+  4. INPUT CONTRACTS — the three OpenFold3 inputs 0.6.7 fixed, each folded
+     through the shipped CLI: a ``cyclic: true`` chain is refused instead of
+     folded as a linear one, a YAML ``msa:`` pointing at the user's own
+     alignment folds instead of crashing, and a CCD ligand's reference
+     conformer keeps the handedness its code names. Host tests cover each unit;
+     this leg is the end-to-end arm, and none of the accuracy legs folds these
+     inputs.
   3. CLI behaves — ``tt-bio predict --help`` / ``tt-bio embed --help`` /
      ``tt-bio saprot --help`` / the unified ``tt-bio design --help`` (with
      ``--model rfd3|boltzgen``) / the deprecated ``tt-bio gen run --help``
@@ -70,7 +77,9 @@ import warnings
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from tt_bio import weights  # noqa: E402  (after the repo-root path insert)
+import gate_guard  # noqa: E402  (interpreter guard, shared with the two release gates)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 # trpcage (20 residues) is the canonical tiny fold target — small enough that
@@ -158,6 +167,21 @@ DESIGN_TIMEOUT_S = 1200  # load ~0.65 GiB ckpt + first-kernel compile + 1 design
 # esmc/saprot embed input: trpcage's 20-mer as a one-sequence FASTA, written into
 # the per-run tmp dir so the gate is self-contained (no examples/FASTA dependency).
 EMBED_SEQ = "NLYIQWLKDGGPSSGRPPPS"
+
+# ── leg 4 fixtures: the three OpenFold3 inputs 0.6.7 fixed ──────────────────
+# Each of these was a real user-reachable defect that every accuracy, perf and UX
+# leg was blind to, because none of them folds these inputs: a `cyclic: true`
+# chain came back status=ok as a linear fold, a user-supplied `msa:` path crashed
+# with IndexError, and a CCD ligand reached the atom encoder with a random
+# handedness. Host tests cover each unit; this leg folds them through the shipped
+# CLI, which is where a user meets them.
+CYCLIC_SPEC = REPO_ROOT / "examples" / "cyclic_prot.yaml"
+CUSTOM_MSA_SPEC = REPO_ROOT / "examples" / "prot_custom_msa.yaml"
+# SAH: five stereocentres, one of the three ligands the chirality regression was
+# measured on. The codes are upstream's, read off the CCD's deposited coordinates.
+CONTRACT_CCD = "SAH"
+CONTRACT_CENTRES = [(1, "S"), (9, "S"), (11, "S"), (13, "R"), (15, "R")]
+CONTRACT_MODEL = "openfold3"
 
 
 def _subprocess_env(extra: dict | None = None) -> dict:
@@ -1053,6 +1077,114 @@ def _print_affinity_row(r: dict) -> None:
     print(f"  prog={r['progress']} parse={r['parse']} results={r['results']}")
 
 
+# ── leg 4: input contracts ─────────────────────────────────────────────────
+
+_CENTRES_PROBE = """
+import json
+from rdkit import Chem
+from tt_bio._vendor.openfold3.core.data.primitives.structure.query import (
+    atom_array_from_ccd_code, processed_reference_molecule_from_atom_array)
+from tt_bio._vendor.openfold3.core.data.resources.residues import MoleculeType
+arr = atom_array_from_ccd_code(%r, chain_id="B", res_id=1,
+                               molecule_type=MoleculeType.LIGAND)
+mol = processed_reference_molecule_from_atom_array(arr).mol
+print(json.dumps(sorted(Chem.FindMolChiralCenters(
+    mol, includeUnassigned=True, useLegacyImplementation=False))))
+"""
+
+
+def _contract_cyclic(base: Path) -> list[str]:
+    """`cyclic: true` must fail loudly. Folding it as a linear chain and reporting
+    status=ok is the worst shape a bug can take: a wrong structure a user trusts."""
+    out = base / "contract_cyclic"
+    r = _run(_cli_predict(CONTRACT_MODEL, out, CYCLIC_SPEC),
+             env=_subprocess_env(), timeout=PER_MODEL_TIMEOUT_S)
+    text = ((r.stdout or "") + (r.stderr or "")).lower()
+    problems = []
+    if r.returncode == 0:
+        problems.append(f"{CYCLIC_SPEC.name}: exit 0 — a cyclic chain was folded, not refused")
+    if "cyclic" not in text:
+        problems.append(f"{CYCLIC_SPEC.name}: the failure never names `cyclic`, so a user "
+                        f"cannot tell what to change")
+    written = sorted(out.rglob("*.cif")) if out.exists() else []
+    if written:
+        problems.append(f"{CYCLIC_SPEC.name}: a structure was written for a refused input "
+                        f"({written[0].name})")
+    return problems
+
+
+def _contract_custom_msa(base: Path) -> list[str]:
+    """A YAML `msa:` pointing at the user's own alignment must fold. No
+    --single_sequence here: that would bypass the very path under test."""
+    out = base / "contract_msa"
+    cmd = [c for c in _cli_predict(CONTRACT_MODEL, out, CUSTOM_MSA_SPEC)
+           if c != "--single_sequence"]
+    r = _run(cmd, env=_subprocess_env(), timeout=PER_MODEL_TIMEOUT_S)
+    if r.returncode != 0:
+        tail = ((r.stderr or "") + (r.stdout or "")).strip().splitlines()[-3:]
+        return [f"{CUSTOM_MSA_SPEC.name}: exit {r.returncode} — " + " | ".join(tail)]
+    cifs = sorted(out.rglob("*.cif"))
+    if not cifs:
+        return [f"{CUSTOM_MSA_SPEC.name}: exit 0 but no structure was written"]
+    return _check_cif(cifs[0])
+
+
+def _contract_ligand_chirality(base: Path) -> list[str]:
+    """A CCD ligand's reference conformer must carry the handedness its code names,
+    not one ETKDG drew at random.
+
+    No fold here: `--model openfold3` is polymer-only, so nothing shipped folds a
+    ligand through this path yet. The conformer is still the deepest arm available,
+    and it is the object the atom encoder would consume. The guard below fails if
+    that ever changes without this surface being widened to a real fold."""
+    problems = []
+    spec = base / "contract_ligand.yaml"
+    spec.write_text(
+        "version: 1\n"
+        "sequences:\n"
+        "  - protein:\n"
+        "      id: A\n"
+        f"      sequence: {EMBED_SEQ}\n"
+        "  - ligand:\n"
+        "      id: B\n"
+        f"      ccd: {CONTRACT_CCD}\n")
+    r = _run(_cli_predict(CONTRACT_MODEL, base / "contract_ligand", spec),
+             env=_subprocess_env(), timeout=PER_MODEL_TIMEOUT_S)
+    text = (r.stdout or "") + (r.stderr or "")
+    if r.returncode == 0 or "polymer-only" not in text:
+        problems.append(f"{CONTRACT_MODEL} now accepts a ligand chain — widen this surface to "
+                        f"fold {CONTRACT_CCD} and check the handedness end to end")
+    probe = _run([sys.executable, "-c", _CENTRES_PROBE % CONTRACT_CCD],
+                 env=_subprocess_env(), timeout=300)
+    if probe.returncode != 0:
+        problems.append(f"{CONTRACT_CCD}: could not build the reference conformer: "
+                        f"{(probe.stderr or probe.stdout).strip().splitlines()[-1:]}")
+        return problems
+    got = [tuple(c) for c in json.loads(probe.stdout.strip().splitlines()[-1])]
+    if got != CONTRACT_CENTRES:
+        problems.append(f"{CONTRACT_CCD}: reference-conformer stereocentres {got} != "
+                        f"the CCD's {CONTRACT_CENTRES}")
+    return problems
+
+
+def run_input_contracts(base: Path) -> dict:
+    surfaces = [("cyclic refused", _contract_cyclic),
+                ("user msa: folds", _contract_custom_msa),
+                ("ccd ligand keeps its chirality", _contract_ligand_chirality)]
+    print(f"\n{'#'*78}\nUX GATE — leg 4: input contracts ({CONTRACT_MODEL})\n{'#'*78}")
+    problems = {}
+    for name, fn in surfaces:
+        try:
+            probs = fn(base)
+        except subprocess.TimeoutExpired:
+            probs = [f"{name}: timed out after {PER_MODEL_TIMEOUT_S}s"]
+        problems[name] = probs
+        print(f"  {'✓' if not probs else '✗'} {name}")
+        for prob in probs:
+            print(f"      {prob}")
+    return {"gate": not any(problems.values()), "problems": problems}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -1063,6 +1195,11 @@ def main() -> int:
                          "models (boltzgen, rfd3) + boltz2-affinity.")
     ap.add_argument("--keep", action="store_true",
                     help="Keep the per-run output dirs under the tmp dir for inspection.")
+    ap.add_argument("--contracts-only", action="store_true",
+                    help="Run ONLY leg 4 (input contracts).")
+    ap.add_argument("--no-contracts", action="store_true",
+                    help="Skip leg 4 (input contracts). Diagnostic only: a release run "
+                         "gates every one of them.")
     ap.add_argument("--cli-only", action="store_true",
                     help="Run ONLY the CLI-behaviour leg (predict/embed --help). No card "
                          "needed — usable in GitHub CI. Skips the on-device legs.")
@@ -1100,6 +1237,10 @@ def main() -> int:
         return 0 if all_pass else 1
 
     models = args.model or (FOLD_MODELS + EMBED_MODELS + [GEN_MODEL, AFFINITY_MODEL, DESIGN_MODEL])
+    # Leg 4 rides on openfold3: all three contracts are OpenFold3 inputs.
+    contracts = CONTRACT_MODEL in models and not args.no_contracts
+    if args.contracts_only:
+        contracts, models = True, []
     fold_models = [m for m in models if m in FOLD_MODELS]
     embed_models = [m for m in models if m in EMBED_MODELS]
     gen_models = [m for m in models if m == GEN_MODEL]
@@ -1114,8 +1255,18 @@ def main() -> int:
         sys.exit(f"missing affinity fixture {AFFINITY_SPEC}")
     if not DESIGN_SPEC.exists() and design_models:
         sys.exit(f"missing design fixture {DESIGN_SPEC}")
-    of3_ckpt = weights.resolve("openfold3") if "openfold3" in fold_models else None
-    if "openfold3" in fold_models and not (of3_ckpt and of3_ckpt.exists()):
+    # rf3's UX leg reported FAIL on 2026-08-23 because the gate host's env was missing
+    # `toolz`, declared in pyproject.toml the day before. Every fixture and checkpoint below
+    # was present; the interpreter was not, and nothing said so.
+    dep_problems = gate_guard.declared_dependency_problems(REPO_ROOT / "pyproject.toml")
+    if dep_problems:
+        for problem in dep_problems:
+            print(f"PREFLIGHT - {problem}")
+        sys.exit("Refusing to score tt-bio on an interpreter that does not satisfy its own "
+                 "declared dependencies: a leg that dies on a missing import is reported as a "
+                 "product failure.")
+    of3_ckpt = weights.resolve("openfold3") if ("openfold3" in fold_models or contracts) else None
+    if ("openfold3" in fold_models or contracts) and not (of3_ckpt and of3_ckpt.exists()):
         sys.exit(f"missing openfold3 checkpoint: set OF3_CKPT or place the OpenFold3 "
                  f"preview2 weights at {of3_ckpt} (see docs/openfold3-port.md). "
                  f"Run the rest with --model <name>.")
@@ -1128,7 +1279,7 @@ def main() -> int:
                  f"choice, and skipping it is how a model reaches a release with no UX "
                  f"coverage at all.")
     if (not fold_models and not embed_models and not gen_models
-            and not affinity_models and not design_models):
+            and not affinity_models and not design_models and not contracts):
         return 0 if all_pass else 1
 
     base = Path(tempfile.mkdtemp(prefix="ux_gate_", dir=str(REPO_ROOT)))
@@ -1154,6 +1305,8 @@ def main() -> int:
             r = run_design(m, base)
             rows.append(("design", r))
             all_pass &= r["gate"]
+        if contracts:
+            all_pass &= run_input_contracts(base)["gate"]
         print(f"\n{'#'*78}\nUX GATE — summary (fold fixtures: {DATA.name}"
               f"{f' / {ABAG_DATA.name} (opendde-abag)' if ABAG_DATA.exists() else ''}, "
               f"recyc={RECYCLING_STEPS}, steps={SAMPLING_STEPS}, "
