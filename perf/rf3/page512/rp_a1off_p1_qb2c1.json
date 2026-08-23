@@ -1,0 +1,177 @@
+{
+ "label": "a1off_p1",
+ "arm": {
+  "arm": "a1",
+  "route": "_tri_att_sdpa (fused SDPA at the op-default config: HiFi2, math_approx, no fp32_dest_acc)",
+  "scope": "model-local (PAIRFORMER_FLAGS)",
+  "changed": {
+   "fp32_softmax": [
+    true,
+    false
+   ]
+  },
+  "resolved": {
+   "fp32_softmax": false,
+   "accurate_softmax": true,
+   "_TRIATT_FUSED_HIFI": false,
+   "_FP32_SOFTMAX": false,
+   "_CKC_OVERRIDE": "op_default(HiFi2,approx,no_acc)"
+  }
+ },
+ "model": "rf3",
+ "host": "tt-quietbox2",
+ "card": "1",
+ "ttnn": "0.68.0",
+ "hardware": "blackhole",
+ "card_type": null,
+ "aiclk_mhz": null,
+ "load_s": 2.75,
+ "recycling_steps": 10,
+ "sampling_steps": 50,
+ "diffusion_samples": 1,
+ "seed": 0,
+ "n_msa": 35,
+ "timed_region": "predict_one (featurize + fold + CIF write)",
+ "target": "/home/ttuser/.coworker/wt/rf3-4x-with-accuracy-land/perf/size512/fixtures/cdk2x2_512.yaml",
+ "a3m": "/home/ttuser/.coworker/wt/rf3-4x-with-accuracy-land/perf/size512/fixtures/cdk2x2_512.a3m",
+ "sha256_target": "24d8b2d8c06e4409995abae024766e316da3175dde7596073b68c7963d2df398",
+ "sha256_a3m": "ef2301402e7716e9df368987210456194b108c8ae7e144b7bf09a3dd6f40bf5e",
+ "env_flags": {
+  "TT_BIO_LEASE_CARDS": "1",
+  "TT_BIO_LEASE_HOLDER": "worker:rf3-4x-with-accuracy-land",
+  "TT_BIO_SDPA_RAGGED_CENSUS": "/home/ttuser/.coworker/wt/rf3-4x-with-accuracy-land/perf/rf3/page512/census/a1off_p1",
+  "TT_BIO_SDPA_RAGGED_PAD": "0"
+ },
+ "folds": [
+  {
+   "tag": "warm0",
+   "fold_s": 45.403,
+   "plddt": 77.9429,
+   "ptm": 0.6579,
+   "n_tokens": 512,
+   "n_atoms": 4116,
+   "denoise_calls": 49,
+   "msa": true,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "22402ffe781e21bb"
+   },
+   "loadavg": [
+    "1.25",
+    "0.61",
+    "0.22"
+   ],
+   "opm_small_depth_stats": [
+    0,
+    80
+   ],
+   "triatt_fused_hifi_stats": {
+    "served": 0,
+    "declined": 0,
+    "too_short": 0
+   },
+   "fp32_softmax_stats": {
+    "calls": 834,
+    "blocked": 240,
+    "blocks": 10320,
+    "fused": 10914,
+    "unfused": 0,
+    "l1": 834,
+    "l1_blocks": 10320,
+    "l1_refused": 0,
+    "l1_cores": 108,
+    "l1_free_retired": 0
+   }
+  },
+  {
+   "tag": "warm1",
+   "fold_s": 45.389,
+   "plddt": 77.9429,
+   "ptm": 0.6579,
+   "n_tokens": 512,
+   "n_atoms": 4116,
+   "denoise_calls": 49,
+   "msa": true,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "22402ffe781e21bb"
+   },
+   "loadavg": [
+    "1.43",
+    "0.77",
+    "0.30"
+   ],
+   "opm_small_depth_stats": [
+    0,
+    120
+   ],
+   "triatt_fused_hifi_stats": {
+    "served": 0,
+    "declined": 0,
+    "too_short": 0
+   },
+   "fp32_softmax_stats": {
+    "calls": 1251,
+    "blocked": 360,
+    "blocks": 15480,
+    "fused": 16371,
+    "unfused": 0,
+    "l1": 1251,
+    "l1_blocks": 15480,
+    "l1_refused": 0,
+    "l1_cores": 108,
+    "l1_free_retired": 0
+   }
+  }
+ ],
+ "cold": {
+  "tag": "cold",
+  "fold_s": 82.813,
+  "plddt": 77.9429,
+  "ptm": 0.6579,
+  "n_tokens": 512,
+  "n_atoms": 4116,
+  "denoise_calls": 49,
+  "msa": true,
+  "cif_sha256": {
+   "cdk2x2_512.cif": "22402ffe781e21bb"
+  },
+  "loadavg": [
+   "1.37",
+   "0.52",
+   "0.18"
+  ],
+  "opm_small_depth_stats": [
+   0,
+   40
+  ],
+  "triatt_fused_hifi_stats": {
+   "served": 0,
+   "declined": 0,
+   "too_short": 0
+  },
+  "fp32_softmax_stats": {
+   "calls": 417,
+   "blocked": 120,
+   "blocks": 5160,
+   "fused": 5457,
+   "unfused": 0,
+   "l1": 417,
+   "l1_blocks": 5160,
+   "l1_refused": 0,
+   "l1_cores": 108,
+   "l1_free_retired": 0
+  }
+ },
+ "warm_walls_s": [
+  45.389,
+  45.403
+ ],
+ "median_s": 45.396,
+ "min_s": 45.389,
+ "max_s": 45.403,
+ "spread_s": 0.014,
+ "spread_pct": 0.03,
+ "warm_digest_identical": true,
+ "plddts": [
+  77.9429
+ ]
+}

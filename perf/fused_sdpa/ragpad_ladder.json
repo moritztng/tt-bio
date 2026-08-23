@@ -1,0 +1,108 @@
+{
+  "heads": 4,
+  "dim": 32,
+  "seed": 7,
+  "aligned_all_bit_exact": true,
+  "ragged_all_changed": true,
+  "rows": [
+    {
+      "S": 288,
+      "status": "ok",
+      "aligned": true,
+      "bit_exact": true,
+      "max_abs_delta": 0.0,
+      "rel_delta": 0.0,
+      "ragged_calls": 0
+    },
+    {
+      "S": 298,
+      "status": "ok",
+      "aligned": false,
+      "bit_exact": false,
+      "max_abs_delta": 2.35205078125,
+      "rel_delta": 0.4833301901817322,
+      "ragged_calls": 2
+    },
+    {
+      "S": 320,
+      "status": "ok",
+      "aligned": true,
+      "bit_exact": true,
+      "max_abs_delta": 0.0,
+      "rel_delta": 0.0,
+      "ragged_calls": 2
+    },
+    {
+      "S": 512,
+      "status": "ok",
+      "aligned": true,
+      "bit_exact": true,
+      "max_abs_delta": 0.0,
+      "rel_delta": 0.0,
+      "ragged_calls": 2
+    },
+    {
+      "S": 580,
+      "status": "ok",
+      "aligned": false,
+      "bit_exact": false,
+      "max_abs_delta": 1.95068359375,
+      "rel_delta": 0.274417906999588,
+      "ragged_calls": 4
+    },
+    {
+      "S": 704,
+      "status": "ok",
+      "aligned": true,
+      "bit_exact": true,
+      "max_abs_delta": 0.0,
+      "rel_delta": 0.0,
+      "ragged_calls": 4
+    },
+    {
+      "S": 736,
+      "status": "ok",
+      "aligned": true,
+      "bit_exact": true,
+      "max_abs_delta": 0.0,
+      "rel_delta": 0.0,
+      "ragged_calls": 4
+    },
+    {
+      "S": 832,
+      "status": "ok",
+      "aligned": true,
+      "bit_exact": true,
+      "max_abs_delta": 0.0,
+      "rel_delta": 0.0,
+      "ragged_calls": 4
+    },
+    {
+      "S": 864,
+      "status": "ok",
+      "aligned": true,
+      "bit_exact": true,
+      "max_abs_delta": 0.0,
+      "rel_delta": 0.0,
+      "ragged_calls": 4
+    },
+    {
+      "S": 928,
+      "status": "ok",
+      "aligned": true,
+      "bit_exact": true,
+      "max_abs_delta": 0.0,
+      "rel_delta": 0.0,
+      "ragged_calls": 4
+    },
+    {
+      "S": 992,
+      "status": "ok",
+      "aligned": true,
+      "bit_exact": true,
+      "max_abs_delta": 0.0,
+      "rel_delta": 0.0,
+      "ragged_calls": 4
+    }
+  ]
+}
