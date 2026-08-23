@@ -553,12 +553,14 @@ def _sampling_steps(model: str) -> int:
 
 
 def _steps_label(models) -> str:
-    """"200" when every model in the table folded at the shared count, "200 (rf3 50)"
-    otherwise. A single number in the header over a table where one row used another one
-    is how a summary line stops matching the run it summarises."""
-    odd = [m for m in models if m in SAMPLING_STEPS_BY_MODEL]
-    return str(SAMPLING_STEPS) + (
-        f" ({', '.join(f'{m} {_sampling_steps(m)}' for m in odd)})" if odd else "")
+    """The step count for a summary header over a table of models: one number when they all
+    folded at the same one, "200 (rf3 50)" when they did not. A single number printed over a
+    table where one row used another one is how a summary stops matching its own run."""
+    counts = {m: _sampling_steps(m) for m in models}
+    if len(set(counts.values())) <= 1:
+        return str(next(iter(counts.values()), SAMPLING_STEPS))
+    odd = ", ".join(f"{m} {c}" for m, c in counts.items() if c != SAMPLING_STEPS)
+    return f"{SAMPLING_STEPS} ({odd})"
 
 
 def _msa_args(model: str) -> list:

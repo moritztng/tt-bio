@@ -16,7 +16,9 @@ measurement, so the measurement is synthesised here instead of folded.
 from __future__ import annotations
 
 import importlib.util
+import json
 import pathlib
+import socket
 
 import pytest
 
@@ -182,3 +184,44 @@ def test_size_ladder_is_in_the_default_arm_set(rg):
     src = (REPO_ROOT / "scripts" / "release_gate.py").read_text()
     default = src.split("models = args.model or", 1)[1].split("fold_models", 1)[0]
     assert '"size-ladder"' in default
+
+
+def test_subset_record_keeps_the_other_models_own_provenance(rg, tmp_path, monkeypatch):
+    """A subset record must not restamp the models it did not measure.
+
+    `--size-ladder-models rf3` rewrites the card-level recorded/host/commit. Before every
+    entry carried its own stamp, that made the file claim the five pc-recorded models came
+    from whichever host recorded rf3 — and rf3 has to be recorded on qb1, because pc cannot
+    hold the box for the ~80 min this leg needs. So this is the live case, not a hypothetical.
+    """
+    baseline = tmp_path / "size_ladder_baseline.json"
+    baseline.write_text(json.dumps({"cards": {"p150a": {
+        "recorded": "2026-08-22", "host": "pc", "commit": "9bc86a5a",
+        "models": {"boltz2": _baseline()}}}}))
+    meas = {"levers": {str(r): {"K2": dict(FIRING)} for r in RUNGS},
+            "runtime_s": dict(BASE_RUNTIME), "sigma": 0.05, "census_jsons": {},
+            "grid": "13x10"}
+    monkeypatch.setattr(rg, "_size_ladder_measure_model", lambda *a, **k: meas)
+    monkeypatch.setattr(rg, "_size_ladder_card_type", lambda: "p150a")
+    monkeypatch.setattr(rg, "_repo_commit", lambda: "cafe1234")
+
+    row = rg.run_size_ladder(keep=False, record=True, baseline_path=baseline, models=["rf3"])
+    assert row["gate"], row
+
+    card = json.loads(baseline.read_text())["cards"]["p150a"]
+    assert card["models"]["boltz2"]["host"] == "pc"
+    assert card["models"]["boltz2"]["recorded"] == "2026-08-22"
+    assert card["models"]["boltz2"]["commit"] == "9bc86a5a"
+    assert card["models"]["rf3"]["host"] == socket.gethostname()
+    assert card["models"]["rf3"]["commit"] == "cafe1234"
+    # and the card-level stamp still describes the last pass, so nothing is lost
+    assert card["commit"] == "cafe1234"
+
+
+def test_rf3_is_in_the_size_ladder(rg):
+    """RF3 shipped as a `predict --model rf3` choice in v0.6.6 with no correctness coverage in
+    either gate leg. It carries RF3-scoped perf levers and it has already had one L1 gate go
+    dark above a tuned size (state/rf3-perf.md's 768->1024 aa exponent jump), which is exactly
+    what this arm exists to catch."""
+    assert "rf3" in rg.SIZE_LADDER_MODELS
+    assert "rf3" in rg.MODELS
