@@ -13,7 +13,10 @@ HOST=qb2c2
 LEASE=$HOME/.coworker/state/leases/tt-quietbox2-card$CARD.json
 cd "$WT" || exit 1
 
-export BENCHLOCK_LOAD_WAIT_S=60 BENCHLOCK_WAIT_S=3600
+# 3600 was not enough: pass 4's p2 queued behind a chain with two `timeout 1800` legs left,
+# so its wait would have expired before the lock freed and benchlock.sh exits 75 there
+# rather than measuring. Overridable, because a leg that waits all night is also wrong.
+export BENCHLOCK_LOAD_WAIT_S=60 BENCHLOCK_WAIT_S=${BENCHLOCK_WAIT_S:-9000}
 # benchlock.sh's default FOREIGN_RE predates half the model set; name the rest explicitly.
 export BENCHLOCK_FOREIGN_RE="fold_ab512|tt_baseline|protenix|boltz|opendde|esmfold|openfold|openbind|nesso|rfd3|rf3|pxtrace|host_cost_probe|release_gate|lever_census|pxdesign|af2ig"
 
@@ -54,7 +57,11 @@ for i in $(seq 1 26); do
 done
 echo "QUIET=$QUIET at $(date -u +%FT%TZ) load $(cut -d' ' -f1-3 /proc/loadavg)"
 
-for P in p1 p2; do
+for P in ${RF3_LEGS:-p1 p2}; do
+  if [ -f "$OUT/postflip_${HOST}_${P}.json" ]; then
+    echo "=== $P already has a result, skipping (delete it to re-measure) ==="
+    continue
+  fi
   echo "=== $P start $(date -u +%FT%TZ) load $(cut -d' ' -f1-3 /proc/loadavg) foreign=$(nforeign) ==="
   foreign | sed 's/^/    cotenant: /'
   /home/ttuser/.coworker/scripts/benchlock.sh rf3-perf-page-row-refresh -- \
