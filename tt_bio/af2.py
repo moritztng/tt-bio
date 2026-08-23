@@ -429,6 +429,13 @@ class AF2Attention(Module):
     #: probe column, `grew`, separates the two cases and it is the one to read.
     rne_sigmoid = False
 
+    #: Derive the fp32-softmax L1 block from the tile-PADDED token extent, which is the extent
+    #: the shard takes. On for AF2-IG, whose token counts are ragged at every rung it runs; see
+    #: `AF2PairBlock.tri_att_start` for the measurement and `AF2DeviceModel.set_l1_padded_plan`
+    #: for the arm. Only the row variant reads it -- the column softmax has no pair bias, so it
+    #: never reaches `_fp32_softmax_attention` at all.
+    l1_padded_plan = True
+
     def __init__(
         self,
         state_dict: Weights,
@@ -479,7 +486,8 @@ class AF2Attention(Module):
             out = _fp32_softmax_attention(
                 q, k, v, bias, scale_inv=self.scale_inv,
                 compute_kernel_config=self.compute_kernel_config,
-                out_dtype=ttnn.bfloat16, bias_scale_inv=1.0, l1_padded_plan=True)
+                out_dtype=ttnn.bfloat16, bias_scale_inv=1.0,
+                l1_padded_plan=self.l1_padded_plan)
         else:
             kt = ttnn.permute(k, (0, 1, 3, 2))
             scores = batched_matmul(q, kt, compute_kernel_config=self.compute_kernel_config)
@@ -718,6 +726,21 @@ class AF2DeviceModel(AF2Model):
             for block in blocks:
                 block.tri_att_start.fused_hifi = self._fused_hifi(stack)
                 block.tri_att_end.fused_hifi = self._fused_hifi(stack)
+
+    def set_l1_padded_plan(self, enabled: bool) -> None:
+        """Pin every AF2 attention's fp32-softmax L1 plan to the padded or the logical extent.
+
+        The construction-time route is the `l1_padded_plan=True` AF2PairBlock and AF2Attention
+        already carry; this one exists so an A/B does not have to go through
+        `TT_BIO_FP32_SOFTMAX_L1_PADDED`, which is read at import and therefore costs a process an
+        arm. It reaches AF2's blocks only: the protenix filter's `AttentionPairBias` runs in the
+        same process on PXDesign and keeps following the env var either way.
+        """
+        for block in self._device_blocks:
+            block.tri_att_start.l1_padded_plan = enabled
+            block.tri_att_end.l1_padded_plan = enabled
+        for block in self.device_evoformer:
+            block.msa_row_attn.l1_padded_plan = enabled
 
     def set_template_host(self, enabled: bool) -> None:
         """Run the template's pair stack in host torch. See `template_host`."""

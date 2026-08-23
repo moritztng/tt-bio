@@ -56,6 +56,11 @@ def feats_from_pdb(pdb: str, target_chain: str = "A", binder_chain: str = "B") -
     return complex_features(pdb, binder_seq, target_chain, binder_chain), binder_seq
 
 
+def _fp32_softmax_stats() -> dict:
+    from tt_bio import tenstorrent
+    return tenstorrent.FP32_SOFTMAX_STATS
+
+
 def to_torch(a: np.ndarray) -> torch.Tensor:
     if a.dtype == np.bool_:
         return torch.from_numpy(a)
@@ -138,6 +143,11 @@ def main() -> int:
     ap.add_argument("--reps", type=int, default=3, help="folds; rep 0 is discarded as cold")
     ap.add_argument("--skip", default="none",
                     help="op class from SUBSTITUTION_CLASSES to drop, or 'none'")
+    ap.add_argument("--l1-padded-plan", default="inherit", choices=("inherit", "on", "off"),
+                    help="derive AF2's fp32-softmax L1 block from the tile-padded token extent. "
+                         "`inherit` leaves the shipped per-block default (on) alone; on/off pin "
+                         "every AF2 attention, which is what makes the arm switchable inside one "
+                         "process. The protenix filter is not reached either way.")
     ap.add_argument("--triatt-fused", default="inherit",
                     choices=["inherit", "none", "trunk", "all"],
                     help='which pair stacks take the fused SDPA triangle attention: "inherit" follows TT_BIO_TRIATT_FUSED_HIFI, "none" pins the materialised fp32 softmax everywhere, "trunk" is extra_msa+evoformer, "all" adds the template pair stack')
@@ -171,6 +181,8 @@ def main() -> int:
             model.set_template_host(True)
         from tt_bio.af2 import TRIATT_FUSED_ARMS
         model.set_triatt_fused(TRIATT_FUSED_ARMS[args.triatt_fused])
+        if args.l1_padded_plan != "inherit":
+            model.set_l1_padded_plan(args.l1_padded_plan == "on")
     model.eval()
     model_init_s = time.perf_counter() - load_start
 
@@ -207,6 +219,10 @@ def main() -> int:
         "skip": args.skip,
         "template_host": args.template_host,
         "triatt_fused": args.triatt_fused,
+        "l1_padded_plan": args.l1_padded_plan,
+        # 0 means the padded and logical extents never disagreed, so the arm was a no-op and any
+        # difference between the legs is drift, not the lever.
+        "l1_padded_diverged": _fp32_softmax_stats()["l1_padded_diverged"],
         "pdb": args.pdb,
         "tokens": tokens,
         "binder_residues": len(binder_seq),

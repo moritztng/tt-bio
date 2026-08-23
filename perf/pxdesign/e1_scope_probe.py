@@ -94,6 +94,14 @@ sites = call_kwarg("af2.py", "TriangleAttention", "l1_padded_plan")
 check("af2-triangle-attention-sites", len(sites) == 2 and all(v == "True" for _, v in sites),
       f"{sites} (want two sites, both True -- catches a revert of af2.py:323/327)")
 
+# the setter has to reach every attention AF2 owns, or an A/B leg silently runs one arm twice
+src = (ROOT / "af2.py").read_text()
+body = src[src.index("def set_l1_padded_plan"):src.index("def set_template_host")]
+check("setter-reaches-every-site",
+      all(a in body for a in ("tri_att_start.l1_padded_plan", "tri_att_end.l1_padded_plan",
+                              "msa_row_attn.l1_padded_plan")),
+      "AF2DeviceModel.set_l1_padded_plan covers both triangle attentions and the MSA row softmax")
+
 # the shared class hands its own instance value down; anything else silently unscopes it
 dispatch = [v for ln, v in call_kwarg("tenstorrent.py", "_fp32_softmax_attention", "l1_padded_plan")]
 check("triangle-attention-dispatch", dispatch.count("self.l1_padded_plan") == 1,
@@ -117,29 +125,35 @@ tenstorrent._fp32_softmax_attention = recorder
 ttnn.deallocate = lambda *a, **k: None
 
 
-class Stub:
-    """Only the attributes each `_attend*` body reads before it dispatches."""
-    scale_inv = 0.125
-    compute_kernel_config = None
-    fp32_softmax = True
-    accurate_softmax = False
-    dtype = ttnn.bfloat16
-    head_dim = 64
-    _bias_scale = 1.0
+def stub(cls, **attrs):
+    """A real instance of `cls` with `__init__` skipped, so class defaults are the ones read.
 
+    `object.__new__` and not a hand-rolled stand-in on purpose: `AF2Attention.l1_padded_plan` is a
+    class attribute, so a stand-in that declared it would only be testing itself.
+    """
+    obj = object.__new__(cls)
+    for k, v in attrs.items():
+        setattr(obj, k, v)
+    return obj
+
+
+common = dict(compute_kernel_config=None, fp32_softmax=True, accurate_softmax=False,
+              dtype=ttnn.bfloat16, head_dim=64, _bias_scale=1.0)
 
 try:
     # af2.py:472 -- AF2Attention._attend, AF2's MSA row attention
-    af2.AF2Attention._attend(Stub(), t, t, t, bias=t)
+    af2.AF2Attention._attend(stub(af2.AF2Attention, scale_inv=0.125, **common), t, t, t, bias=t)
     # tenstorrent.py:5026 -- AttentionPairBias._attention, the pairformer AF2 does NOT own
-    tenstorrent.AttentionPairBias._attention(Stub(), t, t, t, t)
+    tenstorrent.AttentionPairBias._attention(stub(tenstorrent.AttentionPairBias, **common),
+                                             t, t, t, t)
 finally:
     af2._fp32_softmax_attention = real_attn
     tenstorrent._fp32_softmax_attention = real_attn
     ttnn.deallocate = real_dealloc
 
 check("dynamic-af2-msa-row", seen[:1] == [True],
-      f"AF2Attention._attend passed {seen[:1]} (catches a revert of af2.py:472)")
+      f"AF2Attention._attend passed {seen[:1]} "
+      "(catches both a revert of af2.py:472 and AF2Attention.l1_padded_plan flipped off)")
 check("dynamic-pairformer", seen[1:] == ["<absent>"],
       f"AttentionPairBias._attention passed {seen[1:]} (must stay on the env)")
 
