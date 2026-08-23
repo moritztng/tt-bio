@@ -1838,6 +1838,10 @@ def main() -> int:
     problems += gate_guard.worker_pool_problems(
         [w.card for w in workers if w.is_local], grant, local_host())
     problems += remote_worker_problems(workers)
+    # The interpreter this gate is running on, checked against the dependency set the package
+    # itself declares. A host whose env predates a dependency addition reports the legs that
+    # reach the missing import as FAIL, which is indistinguishable from a regression.
+    problems += gate_guard.declared_dependency_problems(REPO / "pyproject.toml")
     if problems:
         print("PREFLIGHT — leg wiring problems detected:")
         for p in problems:

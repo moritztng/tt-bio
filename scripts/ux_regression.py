@@ -77,7 +77,9 @@ import warnings
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from tt_bio import weights  # noqa: E402  (after the repo-root path insert)
+import gate_guard  # noqa: E402  (interpreter guard, shared with the two release gates)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 # trpcage (20 residues) is the canonical tiny fold target — small enough that
@@ -1253,6 +1255,16 @@ def main() -> int:
         sys.exit(f"missing affinity fixture {AFFINITY_SPEC}")
     if not DESIGN_SPEC.exists() and design_models:
         sys.exit(f"missing design fixture {DESIGN_SPEC}")
+    # rf3's UX leg reported FAIL on 2026-08-23 because the gate host's env was missing
+    # `toolz`, declared in pyproject.toml the day before. Every fixture and checkpoint below
+    # was present; the interpreter was not, and nothing said so.
+    dep_problems = gate_guard.declared_dependency_problems(REPO_ROOT / "pyproject.toml")
+    if dep_problems:
+        for problem in dep_problems:
+            print(f"PREFLIGHT - {problem}")
+        sys.exit("Refusing to score tt-bio on an interpreter that does not satisfy its own "
+                 "declared dependencies: a leg that dies on a missing import is reported as a "
+                 "product failure.")
     of3_ckpt = weights.resolve("openfold3") if ("openfold3" in fold_models or contracts) else None
     if ("openfold3" in fold_models or contracts) and not (of3_ckpt and of3_ckpt.exists()):
         sys.exit(f"missing openfold3 checkpoint: set OF3_CKPT or place the OpenFold3 "

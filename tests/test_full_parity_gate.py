@@ -448,3 +448,102 @@ def test_one_probe_per_host_not_per_worker():
 
     mod.remote_worker_problems(_workers(mod, "otherbox:0,otherbox:1,otherbox:2"), probe=probe)
     assert seen == ["otherbox"]
+
+
+# ---------------------------------------------------------------------------
+# The gate interpreter vs tt-bio's own declared dependencies (scripts/gate_guard.py)
+# ---------------------------------------------------------------------------
+# On 2026-08-23 the 0.6.7 UX gate reported `rf3 FAIL` on qb2. The cause was the gate host's
+# env, not the release: it was missing `toolz`, declared in pyproject.toml the day before, so
+# rf3's vendored atomworks parser died on ModuleNotFoundError. Nine of the 44 declared
+# requirements were off on that host, two of them version bounds. A red that reads as a
+# product regression and is actually a stale interpreter costs a whole gate run to diagnose.
+_PYPROJECT_SAMPLE = '''\
+[build-system]
+requires = ["setuptools"]
+
+[project]
+name = "tt-bio"
+requires-python = ">=3.10"
+dependencies = [
+    "torch",
+    "zstandard",      # a different distribution from the "zstd" below
+    "zstd",
+    "transformers>=5.5.0,<6.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+tenstorrent = ["ttnn==0.68.0"]
+
+[tool.setuptools]
+packages = ["tt_bio"]
+'''
+
+
+def test_both_pyproject_readers_agree_on_the_repos_own_file():
+    # The tomllib-free reader is what a 3.10 gate interpreter uses, and pc's is 3.10. Pin it
+    # against the real parser on the real file so it cannot drift into reading, say, one
+    # requirement instead of forty-four.
+    g = _guard()
+    text = (REPO / "pyproject.toml").read_text()
+    for extras in ((), ("tenstorrent",), ("tenstorrent", "reference", "test")):
+        real = g._pyproject_requirements(REPO / "pyproject.toml", extras)
+        scanned = g._scan_requirements(text, extras)
+        assert sorted(real) == sorted(scanned), extras
+    assert len(g._pyproject_requirements(REPO / "pyproject.toml", ("tenstorrent",))) > 30
+
+
+def test_a_package_named_only_inside_a_comment_is_not_a_requirement():
+    # tt-bio's dependency array literally contains `is a different distribution from the
+    # "zstd" above`. Collecting quoted strings without cutting comments first made that a
+    # forty-fifth requirement, and a phantom requirement is a phantom gate refusal.
+    g = _guard()
+    reqs = g._scan_requirements(_PYPROJECT_SAMPLE, ("tenstorrent",))
+    assert reqs.count("zstd") == 1
+    assert reqs == ["torch", "zstandard", "zstd", "transformers>=5.5.0,<6.0", "ttnn==0.68.0"]
+    assert "setuptools" not in reqs and "pytest" not in reqs   # other tables, other arrays
+
+
+def test_a_compliant_interpreter_reports_nothing(tmp_path):
+    g = _guard()
+    pj = tmp_path / "pyproject.toml"
+    pj.write_text(_PYPROJECT_SAMPLE)
+    env = {"torch": "2.8.0", "zstandard": "0.23.0", "zstd": "1.5.7",
+           "transformers": "5.5.0", "ttnn": "0.68.0"}
+    assert g.declared_dependency_problems(pj, ("tenstorrent",), env=env) == []
+
+
+def test_missing_declared_dependencies_are_named(tmp_path):
+    g = _guard()
+    pj = tmp_path / "pyproject.toml"
+    pj.write_text(_PYPROJECT_SAMPLE)
+    env = {"torch": "2.8.0", "transformers": "5.5.0", "ttnn": "0.68.0"}
+    problems = g.declared_dependency_problems(pj, ("tenstorrent",), env=env)
+    assert len(problems) == 1
+    assert "missing 2 of tt-bio's 5" in problems[0]
+    assert "zstandard, zstd" in problems[0]
+
+
+def test_a_violated_version_bound_is_a_problem_not_a_pass(tmp_path):
+    # The real case twice over: ttnn 0.67.4 against a pinned 0.68.0 (the two disagree by
+    # several angstrom on a boltz2 no-MSA target), and transformers 4.57.6 against >=5.5.0.
+    g = _guard()
+    pj = tmp_path / "pyproject.toml"
+    pj.write_text(_PYPROJECT_SAMPLE)
+    env = {"torch": "2.8.0", "zstandard": "0.23.0", "zstd": "1.5.7",
+           "transformers": "4.57.6", "ttnn": "0.67.4"}
+    problems = g.declared_dependency_problems(pj, ("tenstorrent",), env=env)
+    assert len(problems) == 1
+    assert "transformers 4.57.6 violates" in problems[0]
+    assert "ttnn 0.67.4 violates" in problems[0]
+
+
+def test_an_unreadable_or_empty_pyproject_is_unverified_not_clean(tmp_path):
+    # A reader that returns nothing must never read as "this interpreter is fine".
+    g = _guard()
+    missing = tmp_path / "nope.toml"
+    assert "cannot read declared dependencies" in g.declared_dependency_problems(missing)[0]
+    empty = tmp_path / "empty.toml"
+    empty.write_text("[project]\nname = \"tt-bio\"\n")
+    assert "declared no dependencies" in g.declared_dependency_problems(empty)[0]

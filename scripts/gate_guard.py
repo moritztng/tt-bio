@@ -15,6 +15,7 @@ exactly as it did before this module existed.
 """
 
 import os
+import re
 
 GRANT_ENV = "TT_VISIBLE_DEVICES"
 
@@ -102,3 +103,139 @@ def pin_target(local_cards, grant, fallback=None):
     if grant:
         return sorted(grant)[0]
     return fallback
+
+
+# ── the gate interpreter itself ────────────────────────────────────────────────
+#
+# A gate scores the checkout's code on whatever interpreter it was launched with. Nothing
+# used to check that interpreter satisfies tt-bio's OWN declared dependencies, and on
+# 2026-08-23 that cost a full UX gate run: qb2's shared env predated the RF3 dependency
+# additions, so `--model rf3` died in featurization on `ModuleNotFoundError: toolz` — a
+# package declared in pyproject.toml since 2026-08-22. The gate reported `rf3 FAIL`, which
+# reads exactly like a product regression and blocks a tag. Same env was 9 requirements off
+# in total, two of them version bounds (transformers, huggingface_hub).
+#
+# Version bounds are checked, not just presence: RELEASING.md has always opened with "the
+# gate interpreter must carry the pinned ttnn" because 0.67.4 and 0.68.0 disagree by several
+# angstrom on a boltz2 no-MSA target. That was a line in a document a human had to remember.
+# It is a machine check now.
+
+_DEP_ARRAYS = ("dependencies", "optional-dependencies")
+
+
+def _pyproject_requirements(path, extras=()):
+    """The requirement strings tt-bio declares: base dependencies plus the named extras.
+
+    Uses ``tomllib`` where it exists. The gate also runs on 3.10 interpreters, which have no
+    ``tomllib`` and where adding a TOML dependency to read the file that declares the
+    dependencies would be circular, so the fallback scans the two arrays directly.
+    ``test_both_pyproject_readers_agree`` pins the two against each other on the repo's own
+    file, so the fallback cannot drift away from the real parser unnoticed.
+    """
+    text = open(path, encoding="utf-8").read()
+    try:
+        import tomllib
+    except ImportError:
+        return _scan_requirements(text, extras)
+    proj = tomllib.loads(text)["project"]
+    reqs = list(proj.get("dependencies") or ())
+    optional = proj.get("optional-dependencies") or {}
+    for extra in extras:
+        reqs += list(optional.get(extra) or ())
+    return reqs
+
+
+def _strip_comment(line):
+    """The line up to its first ``#`` outside a double-quoted string."""
+    quoted = False
+    for i, ch in enumerate(line):
+        if ch == '"':
+            quoted = not quoted
+        elif ch == "#" and not quoted:
+            return line[:i]
+    return line
+
+
+def _scan_requirements(text, extras=()):
+    """``tomllib``-free reader for the requirement arrays.
+
+    Line-based rather than a regex over the whole file: the arrays are long, commented, and
+    interleaved with other tables, and a regex that spans them is the kind of thing that
+    quietly returns one element instead of forty-four. Comments are cut first: tt-bio's own
+    dependency array carries the sentence `zstandard is a different distribution from the
+    "zstd" above`, and reading quoted strings without cutting comments turns that into a
+    forty-fifth requirement.
+    """
+    wanted = {("project", "dependencies")}
+    wanted |= {("project.optional-dependencies", e) for e in extras}
+    out, table, collecting = [], None, False
+    for raw in text.splitlines():
+        line = _strip_comment(raw)
+        stripped = line.strip()
+        if not collecting and stripped.startswith("[") and stripped.endswith("]") \
+                and "=" not in stripped:
+            table = stripped[1:-1]
+            continue
+        if collecting:
+            out += re.findall(r'"([^"]+)"', line)
+            if stripped.startswith("]"):
+                collecting = False
+            continue
+        key, sep, rest = stripped.partition("=")
+        if not sep or (table, key.strip()) not in wanted:
+            continue
+        out += re.findall(r'"([^"]+)"', rest)
+        collecting = "]" not in rest
+    return out
+
+
+def declared_dependency_problems(pyproject, extras=("tenstorrent",), env=None):
+    """Reasons this interpreter cannot be trusted to score the checkout, or ``[]``.
+
+    ``env`` is an override map of ``{dist_name: version_or_None}`` for tests; ``None`` means
+    read the running interpreter.
+    """
+    try:
+        from packaging.requirements import Requirement
+    except ImportError:
+        return ["`packaging` is not installed in this interpreter, so tt-bio's declared "
+                "dependencies cannot be checked — and `packaging` is itself one of them."]
+    try:
+        reqs = _pyproject_requirements(pyproject, extras)
+    except (OSError, KeyError) as exc:
+        return [f"cannot read declared dependencies from {pyproject}: {exc}"]
+    if not reqs:
+        return [f"{pyproject} declared no dependencies, which cannot be right — the reader "
+                f"is broken, so treat this interpreter as unverified rather than clean."]
+
+    def installed(name):
+        if env is not None:
+            return env.get(name, False)
+        from importlib.metadata import distribution, PackageNotFoundError
+        try:
+            return distribution(name).version
+        except PackageNotFoundError:
+            return False
+
+    missing, wrong = [], []
+    for spec in reqs:
+        req = Requirement(spec)
+        version = installed(req.name)
+        if version is False:
+            missing.append(req.name)
+        elif version and req.specifier and not req.specifier.contains(
+                version, prereleases=True):
+            wrong.append(f"{req.name} {version} violates the declared {req.specifier}")
+    problems = []
+    if missing:
+        problems.append(
+            f"this interpreter is missing {len(missing)} of tt-bio's {len(reqs)} declared "
+            f"runtime dependencies: {', '.join(sorted(missing))}. A gate cannot score a "
+            f"package on an interpreter that could not install it — the legs that reach a "
+            f"missing import report FAIL, which is indistinguishable from a real regression.")
+    if wrong:
+        problems.append(
+            "declared version bounds this interpreter violates: " + "; ".join(sorted(wrong))
+            + ". These pins exist because the versions differ in results, so a leg measured "
+              "outside them did not measure what a user gets.")
+    return problems

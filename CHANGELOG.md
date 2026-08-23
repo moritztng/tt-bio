@@ -50,6 +50,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   present. A bad worker name fails preflight in seconds instead of turning every device leg
   into an instant error.
 
+- The release gates refuse to run on a Python environment that does not satisfy tt-bio's own
+  declared dependencies, naming what is missing or out of bounds. Before, a gate host missing
+  one package reported the model that needed it as a failure instead.
+
 ### Performance
 
 - OpenFold3 folds 704 aa 1.34x faster (43.193 -> 32.230 s) and RoseTTAFold3 1.14x

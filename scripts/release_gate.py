@@ -1891,6 +1891,12 @@ def main() -> int:
     # device, and the boltzgen leg passes --devices <first granted card>. So there is nothing
     # here to skip for a narrow grant; what it does need is the load guard, and the grant
     # printed so a run's card is in its own log rather than inferred from the launch line.
+    dep_problems = gate_guard.declared_dependency_problems(REPO_ROOT / "pyproject.toml")
+    if dep_problems:
+        print("PREFLIGHT - refusing to run the gate on this interpreter:")
+        for problem in dep_problems:
+            print(f"  - {problem}")
+        return 1
     overloaded = gate_guard.load_ceiling_problem(args.load_ceiling)
     if overloaded:
         print(f"PREFLIGHT - refusing to run the gate. {overloaded}")

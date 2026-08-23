@@ -20,7 +20,15 @@ Run from the repository root, and run them with the interpreter that carries the
 nobody ships. The difference is not cosmetic: on a boltz2 no-MSA target, ttnn
 0.67.4 and 0.68.0 disagree by several angstrom of Kabsch RMSD on identical code
 (see the note in `docs/implementation-parity-data/boltz2-9ncy.json`), which reads
-as a parity regression that is not one. Check before you start:
+as a parity regression that is not one.
+
+All three gates now check this themselves and refuse before they open a card: the
+interpreter has to satisfy every requirement in `pyproject.toml`, versions included,
+not just TT-NN. That check exists because a gate host missing one declared package
+does not report a missing package, it reports the model that needed it as FAIL. On
+2026-08-23 the 0.6.7 UX gate called `rf3` broken when the host env was simply missing
+`toolz`, declared the day before, and it took a full gate run to find out. If a gate
+refuses here, install what it names rather than working around it:
 
 ```bash
 python3 -c "import importlib.metadata as m; print(m.version('ttnn'))"   # must equal the pyproject pin
