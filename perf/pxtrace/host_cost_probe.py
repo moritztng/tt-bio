@@ -75,26 +75,43 @@ def main():
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--repeat", type=int, default=2)
     ap.add_argument("--inject-us", type=float, default=0.0)
+    ap.add_argument("--inject-sweep", default=None,
+                    help="comma-separated per-warm-fold inject_us, e.g. 0,25,200,200,25,0. "
+                         "Runs every arm in ONE process, interleaved, so the arms share a "
+                         "model load and a warm program cache. Overrides --inject-us; "
+                         "--repeat is set from its length. The cold fold always runs at 0.")
     ap.add_argument("--keep-cif", type=Path, default=None)
     ap.add_argument("--label", default="512 aa")
     a = ap.parse_args()
 
-    wrapped = install(a.inject_us)
+    sweep = [float(x) for x in a.inject_sweep.split(",")] if a.inject_sweep else None
+    if sweep:
+        a.repeat = len(sweep)
+    wrapped = install(0.0)          # armed per trunk call below, never during diffusion
     import tt_bio.protenix as P
     tid = time.CLOCK_THREAD_CPUTIME_ID
     pid = time.CLOCK_PROCESS_CPUTIME_ID
     rows = []
     orig = P.Trunk.__call__
 
+    # The injected delay is armed ONLY inside Trunk.__call__. Diffusion and confidence issue
+    # ttnn ops through the same wrappers, and spinning there would inflate the fold wall
+    # without telling us anything about the region a trunk trace would cover.
+    seq = [0.0] + (sweep if sweep else [a.inject_us] * max(a.repeat, 1))
+
     def timed(self, *args, **kw):
         COUNTS.clear()
+        d = seq[len(rows)] if len(rows) < len(seq) else 0.0
+        _SPIN[0] = d / 1e6
         w0 = time.perf_counter()
         t0 = time.clock_gettime(tid)
         p0 = time.clock_gettime(pid)
         try:
             return orig(self, *args, **kw)
         finally:
-            row = {"wall": time.perf_counter() - w0,
+            _SPIN[0] = 0.0
+            row = {"inject_us": d,
+                   "wall": time.perf_counter() - w0,
                    "thread_cpu": time.clock_gettime(tid) - t0,
                    "proc_cpu": time.clock_gettime(pid) - p0,
                    "calls": dict(sorted(COUNTS.items(), key=lambda kv: -kv[1]))}
@@ -109,11 +126,12 @@ def main():
                trace=False)
 
     d = json.loads(a.out.read_text())
-    d["host_cost_probe"] = {"inject_us": a.inject_us, "wrapped_ops": wrapped, "trunk": rows}
+    d["host_cost_probe"] = {"inject_us": a.inject_us, "inject_sweep": sweep,
+                            "wrapped_ops": wrapped, "trunk": rows}
     a.out.write_text(json.dumps(d, indent=2))
     for i, r in enumerate(rows):
-        print("trunk[%d] wall=%.3fs thread_cpu=%.3fs proc_cpu=%.3fs calls=%d"
-              % (i, r["wall"], r["thread_cpu"], r["proc_cpu"], r["n_calls"]))
+        print("trunk[%d] D=%6.1fus wall=%.3fs thread_cpu=%.3fs proc_cpu=%.3fs calls=%d"
+              % (i, r["inject_us"], r["wall"], r["thread_cpu"], r["proc_cpu"], r["n_calls"]))
     print("top ops:", list(rows[-1]["calls"].items())[:12] if rows else "none")
     return 0
 
