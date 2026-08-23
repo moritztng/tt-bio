@@ -219,7 +219,28 @@ def main():
               f"served/fold {r['served_per_fold'][0]}")
 
     K = len(scored)
-    assert K >= 2, f"only {K} target(s) survived the gates; a cross-target verdict needs >= 2"
+    assert K >= 1, f"no target survived the gates under {root}"
+    if K < 2:
+        # A rung with one distinct protein has no cross-target axis, so the pooled rule of §4d
+        # does not apply and NO pooled verdict is emitted. §4f pre-registered this: at 1024 aa
+        # exactly one protein passes the fixture filters. The deliverable is that target's own
+        # block CI, which generalises to that protein and nothing else. Reporting it beats
+        # crashing on an assert with the folds already paid for.
+        r = scored[0]
+        n_f = len(r["margin_per_seed"])
+        lo1, hi1 = r["margin_block_ci95"]
+        print(f"\nrung {a.rung}: 1 target scored, {n_f} paired folds")
+        print("  no cross-target interval exists at K=1; the pooled rule needs >= 2 proteins")
+        print(f"  VERDICT NO-POOL (sanity only)  {r['name']} margin {r['margin_mean']:+.5f}  "
+              f"block CI [{lo1:+.5f}, {hi1:+.5f}]")
+        rep["pooled"] = {"n_targets": 1, "n_folds": n_f, "verdict": "NO-POOL",
+                         "reason": "K=1: sanity rung, no cross-target interval exists",
+                         "single_target": r["name"],
+                         "single_target_mean_margin": r["margin_mean"],
+                         "single_target_block_ci95": r["margin_block_ci95"]}
+        out.write_text(json.dumps(rep, indent=1) + "\n")
+        print(f"wrote {out}")
+        return
     per_t = np.array([r["margin_mean"] for r in scored])
     all_m = np.array([m for r in scored for m in r["margin_per_seed"]])
 

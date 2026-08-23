@@ -1,0 +1,179 @@
+{
+ "rung": 768,
+ "delta": 0.002,
+ "targets": {
+  "bri1_768": {
+   "name": "bri1_768",
+   "verdict": "SCORED",
+   "pdb": "3RGZ",
+   "n_res": 768,
+   "n_scored_residues": 745,
+   "n_pairs": 84310,
+   "seeds": [
+    0,
+    1
+   ],
+   "served_per_fold": [
+    2176,
+    3264
+   ],
+   "rho": {
+    "def": [
+     0.934423,
+     0.934364
+    ],
+    "hifi": [
+     0.934194,
+     0.934331
+    ]
+   },
+   "rho_shipped_mean": 0.934394,
+   "rho_shipped_sd": 4.2e-05,
+   "margin_per_seed": [
+    -0.000229,
+    -3.3e-05
+   ],
+   "margin_mean": -0.000131,
+   "margin_block_ci95": [
+    -0.000272,
+    1.6e-05
+   ],
+   "near_is_low_bin": true,
+   "contact_precision_topL5": {
+    "def": [
+     0.993289,
+     0.993289
+    ],
+    "hifi": [
+     0.993289,
+     0.993289
+    ]
+   },
+   "confidence": {
+    "def": {
+     "plddt": [
+      81.3365,
+      81.3719
+     ],
+     "ptm": [
+      0.7793,
+      0.7792
+     ],
+     "fold_s": [
+      216.457,
+      216.196
+     ]
+    },
+    "hifi": {
+     "plddt": [
+      81.3722,
+      81.3769
+     ],
+     "ptm": [
+      0.7796,
+      0.7801
+     ],
+     "fold_s": [
+      84.39,
+      84.825
+     ]
+    }
+   }
+  },
+  "pbp1_768": {
+   "name": "pbp1_768",
+   "verdict": "SCORED",
+   "pdb": "3VMA",
+   "n_res": 768,
+   "n_scored_residues": 708,
+   "n_pairs": 87395,
+   "seeds": [
+    0,
+    1
+   ],
+   "served_per_fold": [
+    2176,
+    3264
+   ],
+   "rho": {
+    "def": [
+     0.932168,
+     0.932183
+    ],
+    "hifi": [
+     0.932252,
+     0.932267
+    ]
+   },
+   "rho_shipped_mean": 0.932175,
+   "rho_shipped_sd": 1.1e-05,
+   "margin_per_seed": [
+    8.4e-05,
+    8.4e-05
+   ],
+   "margin_mean": 8.4e-05,
+   "margin_block_ci95": [
+    9e-06,
+    0.000141
+   ],
+   "near_is_low_bin": true,
+   "contact_precision_topL5": {
+    "def": [
+     0.985816,
+     0.985816
+    ],
+    "hifi": [
+     0.978723,
+     0.985816
+    ]
+   },
+   "confidence": {
+    "def": {
+     "plddt": [
+      80.4426,
+      80.432
+     ],
+     "ptm": [
+      0.7755,
+      0.7754
+     ],
+     "fold_s": [
+      216.093,
+      215.902
+     ]
+    },
+    "hifi": {
+     "plddt": [
+      80.4809,
+      80.4531
+     ],
+     "ptm": [
+      0.7758,
+      0.7757
+     ],
+     "fold_s": [
+      84.61,
+      84.727
+     ]
+    }
+   }
+  }
+ },
+ "pooled": {
+  "n_targets": 2,
+  "n_folds": 4,
+  "per_target_mean_margin": [
+   -0.000131,
+   8.4e-05
+  ],
+  "cross_target_mean": -2.4e-05,
+  "cluster_boot_ci95": [
+   -0.00018,
+   8.4e-05
+  ],
+  "targets_negative": 1,
+  "min_negative_for_floor": 2,
+  "folds_negative": 2,
+  "verdict": "GO"
+ }
+}

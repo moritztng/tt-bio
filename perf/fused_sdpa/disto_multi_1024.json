@@ -1,0 +1,96 @@
+{
+ "rung": 1024,
+ "delta": 0.002,
+ "targets": {
+  "uba1_1024": {
+   "name": "uba1_1024",
+   "verdict": "SCORED",
+   "pdb": "7ZH9",
+   "n_res": 1024,
+   "n_scored_residues": 1005,
+   "n_pairs": 133296,
+   "seeds": [
+    0,
+    1
+   ],
+   "served_per_fold": [
+    2176,
+    3264
+   ],
+   "rho": {
+    "def": [
+     0.917508,
+     0.917413
+    ],
+    "hifi": [
+     0.917613,
+     0.917403
+    ]
+   },
+   "rho_shipped_mean": 0.917461,
+   "rho_shipped_sd": 6.7e-05,
+   "margin_per_seed": [
+    0.000105,
+    -1e-05
+   ],
+   "margin_mean": 4.7e-05,
+   "margin_block_ci95": [
+    -6.3e-05,
+    0.000142
+   ],
+   "near_is_low_bin": true,
+   "contact_precision_topL5": {
+    "def": [
+     1.0,
+     1.0
+    ],
+    "hifi": [
+     1.0,
+     1.0
+    ]
+   },
+   "confidence": {
+    "def": {
+     "plddt": [
+      81.5008,
+      81.5397
+     ],
+     "ptm": [
+      0.7409,
+      0.7413
+     ],
+     "fold_s": [
+      457.548,
+      457.301
+     ]
+    },
+    "hifi": {
+     "plddt": [
+      81.5509,
+      81.5333
+     ],
+     "ptm": [
+      0.7411,
+      0.741
+     ],
+     "fold_s": [
+      150.978,
+      151.079
+     ]
+    }
+   }
+  }
+ },
+ "pooled": {
+  "n_targets": 1,
+  "n_folds": 2,
+  "verdict": "NO-POOL",
+  "reason": "K=1: sanity rung, no cross-target interval exists",
+  "single_target": "uba1_1024",
+  "single_target_mean_margin": 4.7e-05,
+  "single_target_block_ci95": [
+   -6.3e-05,
+   0.000142
+  ]
+ }
+}
