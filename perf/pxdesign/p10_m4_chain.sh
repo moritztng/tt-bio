@@ -26,7 +26,8 @@ if [ ! -f "$PDB" ]; then
 fi
 sha256sum "$PDB"
 
-export TT_VISIBLE_DEVICES=2 TT_BIO_LEASE_CARDS=2 TT_BIO_LEASE_HOLDER=worker:pxdesign-perf-p10
+CARD="${P10_CARD:-0}"
+export TT_VISIBLE_DEVICES="$CARD" TT_BIO_LEASE_CARDS="$CARD" TT_BIO_LEASE_HOLDER=worker:pxdesign-perf-p10
 export PYTHONPATH="$WT"
 # The fused triangle attention failed its accuracy gate at 2 of 50 decision flips. Both arms pin
 # the materialised fp32-softmax path in every stack, so nothing here inherits it from the box.

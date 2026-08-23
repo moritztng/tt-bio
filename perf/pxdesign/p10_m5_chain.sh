@@ -10,7 +10,8 @@ PY=/home/ttuser/tt-bio-dev/env/bin/python3
 cd "$WT" || exit 1
 mkdir -p perf/pxdesign logs
 
-export TT_VISIBLE_DEVICES=2 TT_BIO_LEASE_CARDS=2 TT_BIO_LEASE_HOLDER=worker:pxdesign-perf-p10
+CARD="${P10_CARD:-0}"
+export TT_VISIBLE_DEVICES="$CARD" TT_BIO_LEASE_CARDS="$CARD" TT_BIO_LEASE_HOLDER=worker:pxdesign-perf-p10
 export PYTHONPATH="$WT"
 
 echo "=== $(date -Is) 1/3 generator, laczc768 M=8, two-point fit to N_step=400 ==="
