@@ -86,6 +86,31 @@ TOKEN_PAD_MULTIPLE = 32
 # tt_bio/token_axis.py.
 
 
+def _token_pad_multiple() -> int:
+    """The bucket width, overridable for the pad-invariance test.
+
+    A correctly masked bucket must give the same answer at every pad amount, so folding one
+    target at two different multiples and comparing is what separates "the mask leaks" from
+    "bf16 reassociated over a different contraction length". Same reason
+    TT_BIO_MSA_ROW_CHUNK_BUDGET_BYTES is overridable: the override IS the acceptance test.
+    """
+    v = os.environ.get("TT_BIO_PROTENIX_TOKEN_PAD_MULTIPLE")
+    return int(v) if v else TOKEN_PAD_MULTIPLE
+
+
+def _pad_poison() -> float:
+    """Fill value for the padded region's CONTINUOUS features. 0.0 in production.
+
+    The acceptance test for the mask: fold one target twice with different poison and compare the
+    trunk's own fingerprints. A correctly masked bucket cannot let the padded region reach a real
+    token, so the real region's output has to be bit-identical whatever is in the padding. This is
+    the RFD3 p23 method -- same logical input, different padding -- and it is the only way to tell
+    a leaking mask from a target whose fold is merely sensitive to the trunk's arithmetic.
+    """
+    v = os.environ.get("TT_BIO_PROTENIX_PAD_POISON")
+    return float(v) if v else 0.0
+
+
 def _token_bucket() -> bool:
     """Pad the TRUNK's token axis out to a tile multiple, masked, and slice back on exit.
 
@@ -100,7 +125,7 @@ def _token_bucket() -> bool:
     return env_flag("TT_BIO_PROTENIX_TOKEN_BUCKET", False)
 
 
-def bucketed_pairformer(pf, s, z, dev, mult: int = TOKEN_PAD_MULTIPLE, extra_attn_bias=None):
+def bucketed_pairformer(pf, s, z, dev, mult: int | None = None, extra_attn_bias=None):
     """Run `pf` with its token axis padded out to `mult`, masked, and sliced back.
 
     The trunk is not the only exposure, and the census found the other two rather than the source
@@ -111,7 +136,7 @@ def bucketed_pairformer(pf, s, z, dev, mult: int = TOKEN_PAD_MULTIPLE, extra_att
     caller is the recurring failure (`fused-sdpa-ragged-tile-tail-and-census-discipline`).
     """
     N = int(z.shape[1])
-    pad = (-N) % mult
+    pad = (-N) % (mult or _token_pad_multiple())
     if not pad or not _token_bucket():
         return pf(s, z, extra_attn_bias=extra_attn_bias)
     Np = N + pad
@@ -2444,25 +2469,30 @@ class Trunk(_KeyedWeights):
         # axis), TriangleAttention (softmax over one) and PairWeightedAveraging (its matmul
         # contracts the token axis). OuterProductMean reduces over MSA DEPTH, so a padded token
         # cannot reach a real pair through it, and the transitions/norms/linears are per-token.
-        pad = (-N) % TOKEN_PAD_MULTIPLE if _token_bucket() else 0
+        pad = (-N) % _token_pad_multiple() if _token_bucket() else 0
         pmask_tt = attn_tt = None
         if pad:
             N = n_real + pad
-            s_inputs = F.pad(s_inputs, (0, 0, 0, pad))
-            relp = F.pad(relp, (0, 0, 0, pad, 0, pad))
-            token_bonds = F.pad(token_bonds, (0, pad, 0, pad))
+            q = _pad_poison()
+            s_inputs = F.pad(s_inputs, (0, 0, 0, pad), value=q)
+            relp = F.pad(relp, (0, 0, 0, pad, 0, pad), value=q)
+            token_bonds = F.pad(token_bonds, (0, pad, 0, pad), value=q)
             feat = dict(feat)
             # -1 matches no real chain, so the padded rows and columns are never "same chain".
             feat["asym_id"] = F.pad(feat["asym_id"], (0, pad), value=-1)
-            for k in ("template_aatype", "msa", "has_deletion", "deletion_value"):
+            # Index-valued features keep a safe pad: a poisoned one_hot index would just crash.
+            for k in ("template_aatype", "msa"):
                 if k in feat:
                     feat[k] = F.pad(feat[k], (0, pad))
+            for k in ("has_deletion", "deletion_value"):
+                if k in feat:
+                    feat[k] = F.pad(feat[k], (0, pad), value=q)
             for k in ("template_pseudo_beta_mask", "template_backbone_frame_mask"):
                 if k in feat:
-                    feat[k] = F.pad(feat[k], (0, pad, 0, pad))
+                    feat[k] = F.pad(feat[k], (0, pad, 0, pad), value=q)
             for k in ("template_distogram", "template_unit_vector"):
                 if k in feat:
-                    feat[k] = F.pad(feat[k], (0, 0, 0, pad, 0, pad))
+                    feat[k] = F.pad(feat[k], (0, 0, 0, pad, 0, pad), value=q)
             m1 = torch.zeros(1, N)
             m1[:, :n_real] = 1.0
             # The OUTER PRODUCT, not a 1-D mask: TriangleMultiplication multiplies an
