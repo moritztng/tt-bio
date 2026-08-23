@@ -65,15 +65,21 @@ COSINE_BAR = 0.999
 
 
 def disable_cudnn_sdpa() -> bool:
-    """Drop torch SDPA's cuDNN backend when it has no plan for this GPU.
+    """Drop torch SDPA's cuDNN backend up front where it is known to have no plan at all.
 
-    On sm_100 (B200) with torch 2.11+cu130 / cuDNN 9.19, SDPA dispatches to the cuDNN backend
-    and dies with "cudnn_frontend Error: No valid execution plans built" -- cuDNN ships no
-    attention plan for Blackwell at these shapes. This is NOT a detune: the backend cannot
-    execute at all, so switching it off is what lets SDPA reach a backend that runs (flash /
-    mem-efficient / math). The row still runs torch SDPA, which is what the manifest specifies
-    and what the torch_sdpa counter proves. Returns whether the knob was actually flipped, so
-    the result JSON can record it as provenance rather than leaving it implicit.
+    On sm_100 (B200) with torch 2.11+cu130 / cuDNN 9.19 every shape in this row set dies with
+    "cudnn_frontend Error: No valid execution plans built", so the flip is unconditional there.
+    This is NOT a detune: the backend cannot execute, so switching it off is what lets SDPA
+    reach a backend that runs (flash / mem-efficient / math). The row still runs torch SDPA,
+    which is what the manifest specifies and what the torch_sdpa counter proves.
+
+    Capability is not the real predicate, though, and the H200 rental proved it: on sm_90 the
+    fold rows (batch 1) execute on cuDNN happily while these embed rows (batch 7 x 514) hit the
+    same "no valid execution plans" error. Whether cuDNN has a plan is a property of the SHAPE,
+    not of the GPU generation. So this eager flip stays only as the known-bad case, and the real
+    guard is the lazy retry in install_sdpa_counter(), which fires exactly when cuDNN cannot
+    execute the shape actually asked for. Returns whether the knob was flipped here, so the
+    result JSON records it as provenance rather than leaving it implicit.
     """
     torch = importlib.import_module("torch")
     try:
@@ -86,14 +92,30 @@ def disable_cudnn_sdpa() -> bool:
 
 
 def install_sdpa_counter() -> dict:
-    """Count torch SDPA calls. A model with 0 here ran eager attention, whatever was asked for."""
-    counts = {"torch_sdpa": 0}
+    """Count torch SDPA calls, and drop the cuDNN backend if it turns out to have no plan.
+
+    The count is the fast-path proof: a model with 0 here ran eager attention, whatever was
+    asked for. The retry is the shape-accurate half of the cuDNN guard. torch selects the cuDNN
+    attention backend and then RAISES instead of falling back when the frontend builds no plan,
+    so a shape cuDNN does not cover takes the whole row down rather than degrading to flash.
+    Catching that one error, switching the backend off and re-issuing the identical call is what
+    torch's own fallback would have done. It fires on the first attention call of the cold pass,
+    which is discarded, so every timed pass runs on one consistent backend.
+    """
+    counts = {"torch_sdpa": 0, "cudnn_plan_failure": 0}
     torch = importlib.import_module("torch")
     orig = torch.nn.functional.scaled_dot_product_attention
 
     def wrapper(*a, **kw):
         counts["torch_sdpa"] += 1
-        return orig(*a, **kw)
+        try:
+            return orig(*a, **kw)
+        except RuntimeError as e:
+            if "cudnn" not in str(e).lower() or not torch.backends.cuda.cudnn_sdp_enabled():
+                raise
+            counts["cudnn_plan_failure"] += 1
+            torch.backends.cuda.enable_cudnn_sdp(False)
+            return orig(*a, **kw)
     torch.nn.functional.scaled_dot_product_attention = wrapper
     return counts
 
@@ -233,7 +255,9 @@ def run(args) -> dict:
         s_per_seq=(round(med / n_seqs, 5) if med else None),
         kernel_counts_total=dict(sdpa),
         attn_implementation_requested=args.attn,
-        cudnn_sdpa_disabled=cudnn_sdp_disabled,
+        cudnn_sdpa_disabled=cudnn_sdp_disabled or bool(sdpa.get("cudnn_plan_failure")),
+        cudnn_sdpa_disabled_eagerly=cudnn_sdp_disabled,
+        cudnn_plan_failures=sdpa.get("cudnn_plan_failure", 0),
         # A requested backend is not a running backend. Zero SDPA calls means eager attention.
         attn_engaged=bool(sdpa["torch_sdpa"] > 0),
         accuracy=dict(cosine_bf16_vs_fp32=round(cos, 6), bar=COSINE_BAR,
