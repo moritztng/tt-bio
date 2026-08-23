@@ -122,10 +122,13 @@ def main() -> None:
                            for k, v in dict(metrics or {}).items()}}
         folds.append(rec)
         print("%2d %s%s %8.3f s  digest %s  l1 %d/%d cores %d blocks %d/%d refused %d"
+              "  walked-back %d  retired %d"
               % (i, arm, " (cold)" if rec["cold"] else "       ", wall, rec["digest"],
                  rec["fp32_softmax"]["l1"], rec["fp32_softmax"]["calls"],
                  rec["fp32_softmax"]["l1_cores"], rec["fp32_softmax"]["l1_blocks"],
-                 rec["fp32_softmax"]["blocks"], rec["fp32_softmax"]["l1_refused"]), flush=True)
+                 rec["fp32_softmax"]["blocks"], rec["fp32_softmax"]["l1_refused"],
+                 rec["fp32_softmax"].get("l1_free_walked", 0),
+                 rec["fp32_softmax"].get("l1_free_retired", 0)), flush=True)
 
     warm = [f for f in folds if not f["cold"]]
     med = {}

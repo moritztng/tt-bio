@@ -81,6 +81,7 @@ def main() -> None:
                                            else (lambda rows, bmm: True))
             tt._fp32_softmax_l1_plan.cache_clear()
             tt._FP32_SOFTMAX_L1_ROW_CAP.clear()
+            tt._FP32_SOFTMAX_L1_FREE_ROW_CAP.clear()
             tt._FP32_SOFTMAX_L1_REFUSALS.clear()
             for key in tt.FP32_SOFTMAX_STATS:
                 tt.FP32_SOFTMAX_STATS[key] = 0

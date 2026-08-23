@@ -1373,7 +1373,7 @@ _FP32_SOFTMAX_L1_GRID = (8, 8)  # (y, x). 8x8 = 64; this p150a refuses more than
 
 FP32_SOFTMAX_STATS = {"calls": 0, "blocked": 0, "blocks": 0, "fused": 0, "unfused": 0,
                       "l1": 0, "l1_blocks": 0, "l1_refused": 0, "l1_cores": 0,
-                      "l1_free_retired": 0}
+                      "l1_free_retired": 0, "l1_free_walked": 0}
 
 # Refusals seen per shape class, so a FLOATING-core plan can be retired instead of walked. The
 # tuned rectangle narrows a row at a time and that is right for it: its block stays a legal shape.
@@ -1804,6 +1804,13 @@ def _fp32_softmax_attention(
         l1_rows = _fp32_softmax_l1_rows(per_row, height_per_row, cap)
         l1_cores = tuned_cores if l1_rows else 0
         FP32_SOFTMAX_STATS["l1_free_retired"] += 1
+    elif l1_cores == tuned_cores and l1_key in _FP32_SOFTMAX_L1_FREE_ROW_CAP:
+        # The other way a class loses the floating plan: the walk descended past the tuned block,
+        # so the comparison in the plan returns the tuned answer and there is nothing to retire.
+        # Counted, because this is the reading that named the flat 768 aa cell -- "arm B ran arm
+        # A's plan on 114 of 173 calls" is the whole diagnosis, and it has to stay legible from the
+        # census rather than being inferred from a speedup.
+        FP32_SOFTMAX_STATS["l1_free_walked"] += 1
     free = l1_cores != tuned_cores
     if l1_rows:
         blk = min(blk, l1_rows)
