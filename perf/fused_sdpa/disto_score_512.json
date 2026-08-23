@@ -1,0 +1,128 @@
+{
+ "size": 512,
+ "seeds": [
+  0,
+  1,
+  2
+ ],
+ "n_tokens": 512,
+ "n_bins": 65,
+ "sampling_steps": 5,
+ "diffusion_samples": 1,
+ "segments": {
+  "copy1(res 1-298)": {
+   "n_residues": 294,
+   "n_pairs": 28595,
+   "rho": {
+    "def": [
+     0.918125,
+     0.919796,
+     0.920027
+    ],
+    "hifi": [
+     0.918862,
+     0.91839,
+     0.915449
+    ]
+   },
+   "rho_shipped_spread": 0.001902,
+   "rho_margin_per_seed": [
+    0.000737,
+    -0.001407,
+    -0.004577
+   ],
+   "rho_margin_mean": -0.001749,
+   "rho_margin_boot_ci95": [
+    -0.004642,
+    0.000431
+   ],
+   "threshold": -0.000476,
+   "verdict": "FLOOR-side",
+   "near_is_low_bin": true,
+   "topk": 58,
+   "n_long_range_pairs": 22723,
+   "bin_cut": 20,
+   "contact_precision_by_Eb": {
+    "def": [
+     1.0,
+     1.0,
+     1.0
+    ],
+    "hifi": [
+     1.0,
+     1.0,
+     0.965517
+    ]
+   },
+   "contact_precision_by_Pnear": {
+    "def": [
+     0.827586,
+     0.810345,
+     0.827586
+    ],
+    "hifi": [
+     0.810345,
+     0.827586,
+     0.827586
+    ]
+   }
+  },
+  "copy2(res 299-512)": {
+   "n_residues": 210,
+   "n_pairs": 17077,
+   "rho": {
+    "def": [
+     0.913415,
+     0.916777,
+     0.916537
+    ],
+    "hifi": [
+     0.914291,
+     0.913684,
+     0.915664
+    ]
+   },
+   "rho_shipped_spread": 0.003362,
+   "rho_margin_per_seed": [
+    0.000875,
+    -0.003093,
+    -0.000873
+   ],
+   "rho_margin_mean": -0.00103,
+   "rho_margin_boot_ci95": [
+    -0.002819,
+    0.000579
+   ],
+   "threshold": -0.000841,
+   "verdict": "FLOOR-side",
+   "near_is_low_bin": true,
+   "topk": 42,
+   "n_long_range_pairs": 12928,
+   "bin_cut": 21,
+   "contact_precision_by_Eb": {
+    "def": [
+     0.97619,
+     0.97619,
+     0.97619
+    ],
+    "hifi": [
+     0.97619,
+     0.97619,
+     0.97619
+    ]
+   },
+   "contact_precision_by_Pnear": {
+    "def": [
+     0.785714,
+     0.761905,
+     0.738095
+    ],
+    "hifi": [
+     0.761905,
+     0.761905,
+     0.761905
+    ]
+   }
+  }
+ }
+}

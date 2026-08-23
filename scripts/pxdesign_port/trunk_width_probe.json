@@ -1,0 +1,224 @@
+[
+ {
+  "c_z": 128,
+  "N": 128,
+  "cold": 1.405,
+  "warm_median": 0.245,
+  "warm": [
+   0.235,
+   0.245,
+   0.245
+  ],
+  "shapes": [
+   [
+    128,
+    384
+   ],
+   [
+    1,
+    128,
+    128,
+    128
+   ]
+  ],
+  "error": null,
+  "gates": {
+   "trimul_chunk": 128,
+   "trimul_l1_max_seq": 352,
+   "trimul_l1_resident": true,
+   "trimul_inproj_group": 1,
+   "n_tri_heads": 4,
+   "grid": [
+    13,
+    10
+   ]
+  },
+  "clashes": {},
+  "dram_shapes": []
+ },
+ {
+  "c_z": 256,
+  "N": 128,
+  "cold": 1.071,
+  "warm_median": 0.295,
+  "warm": [
+   0.246,
+   0.295,
+   0.295
+  ],
+  "shapes": [
+   [
+    128,
+    384
+   ],
+   [
+    1,
+    128,
+    128,
+    256
+   ]
+  ],
+  "error": null,
+  "gates": {
+   "trimul_chunk": 256,
+   "trimul_l1_max_seq": 352,
+   "trimul_l1_resident": true,
+   "trimul_inproj_group": 1,
+   "n_tri_heads": 8,
+   "grid": [
+    13,
+    10
+   ]
+  },
+  "clashes": {},
+  "dram_shapes": []
+ },
+ {
+  "c_z": 128,
+  "N": 256,
+  "cold": 1.517,
+  "warm_median": 0.623,
+  "warm": [
+   0.604,
+   0.623,
+   0.632
+  ],
+  "shapes": [
+   [
+    256,
+    384
+   ],
+   [
+    1,
+    256,
+    256,
+    128
+   ]
+  ],
+  "error": null,
+  "gates": {
+   "trimul_chunk": 64,
+   "trimul_l1_max_seq": 352,
+   "trimul_l1_resident": true,
+   "trimul_inproj_group": 2,
+   "n_tri_heads": 4,
+   "grid": [
+    13,
+    10
+   ]
+  },
+  "clashes": {},
+  "dram_shapes": []
+ },
+ {
+  "c_z": 256,
+  "N": 256,
+  "cold": 1.556,
+  "warm_median": 1.052,
+  "warm": [
+   1.052,
+   1.052,
+   1.052
+  ],
+  "shapes": [
+   [
+    256,
+    384
+   ],
+   [
+    1,
+    256,
+    256,
+    256
+   ]
+  ],
+  "error": null,
+  "gates": {
+   "trimul_chunk": 64,
+   "trimul_l1_max_seq": 352,
+   "trimul_l1_resident": true,
+   "trimul_inproj_group": 4,
+   "n_tri_heads": 8,
+   "grid": [
+    13,
+    10
+   ]
+  },
+  "clashes": {},
+  "dram_shapes": []
+ },
+ {
+  "c_z": 128,
+  "N": 384,
+  "cold": 2.058,
+  "warm_median": 1.201,
+  "warm": [
+   1.19,
+   1.201,
+   1.218
+  ],
+  "shapes": [
+   [
+    384,
+    384
+   ],
+   [
+    1,
+    384,
+    384,
+    128
+   ]
+  ],
+  "error": null,
+  "gates": {
+   "trimul_chunk": 32,
+   "trimul_l1_max_seq": 352,
+   "trimul_l1_resident": false,
+   "trimul_inproj_group": 4,
+   "n_tri_heads": 4,
+   "grid": [
+    13,
+    10
+   ]
+  },
+  "clashes": {},
+  "dram_shapes": []
+ },
+ {
+  "c_z": 256,
+  "N": 384,
+  "cold": 2.562,
+  "warm_median": 2.207,
+  "warm": [
+   2.173,
+   2.207,
+   2.208
+  ],
+  "shapes": [
+   [
+    384,
+    384
+   ],
+   [
+    1,
+    384,
+    384,
+    256
+   ]
+  ],
+  "error": null,
+  "gates": {
+   "trimul_chunk": 32,
+   "trimul_l1_max_seq": 352,
+   "trimul_l1_resident": false,
+   "trimul_inproj_group": 8,
+   "n_tri_heads": 8,
+   "grid": [
+    13,
+    10
+   ]
+  },
+  "clashes": {},
+  "dram_shapes": []
+ }
+]

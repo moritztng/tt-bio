@@ -1,0 +1,22 @@
+{
+ "banked": 26,
+ "baseline": 26,
+ "stage": "complex",
+ "omp_threads": {
+  "banked": [
+   4
+  ],
+  "baseline": [],
+  "comparable": true
+ },
+ "compared": 26,
+ "scalars_per_row": 12,
+ "bit_identical": 26,
+ "mismatched": [],
+ "banked_not_in_baseline": [],
+ "baseline_not_yet_rerun": [],
+ "ca": {
+  "loaded": 26,
+  "bad": []
+ }
+}

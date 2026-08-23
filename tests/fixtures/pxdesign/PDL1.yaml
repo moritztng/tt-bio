@@ -1,0 +1,13 @@
+# PD-L1, PXDesign's shipped quick-start target, from 5O45 chain A (label_asym A).
+# The file keeps its 1248 hydrogens on purpose: this is the fixture that proves the
+# tt-bio input path filters them, where PXDesign's own parse drops 61 of the 116 residues.
+target:
+  file: "./5o45.cif.gz"
+  chains:
+    A:
+      crop: ["1-116"]
+      hotspots: [40, 99, 107]
+      # Accepted and ignored. PXDesign-d has no trunk, so generation reads no alignment.
+      msa: "./msa/PDL1/0"
+
+binder_length: 80

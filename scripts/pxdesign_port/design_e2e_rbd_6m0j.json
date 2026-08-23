@@ -1,0 +1,66 @@
+{
+ "n_token": 274,
+ "n_atom": 1857,
+ "n_step": 400,
+ "n_sample": 4,
+ "seed": 0,
+ "seconds": 91.55,
+ "coords_sha16": "8827536add1a3f09",
+ "art": "scripts/pxdesign_port/parity_artifacts/rbd_6m0j",
+ "coords_shape": [
+  4,
+  1857,
+  3
+ ],
+ "binder_atoms": 321,
+ "target_atoms": 1536,
+ "stats": [
+  {
+   "rg_all": 19.891735076904297,
+   "rg_target": 17.926776885986328,
+   "rg_binder": 13.094852447509766
+  },
+  {
+   "rg_all": 19.955564498901367,
+   "rg_target": 17.96542739868164,
+   "rg_binder": 13.071974754333496
+  },
+  {
+   "rg_all": 19.88753318786621,
+   "rg_target": 17.915687561035156,
+   "rg_binder": 11.542739868164062
+  },
+  {
+   "rg_all": 20.15589714050293,
+   "rg_target": 17.92689323425293,
+   "rg_binder": 13.309392929077148
+  }
+ ],
+ "target_reproduction": [
+  {
+   "target_rmsd": 0.07789042473223703,
+   "n_scored": 194,
+   "min_binder_target_dist": 1.1711777448654175,
+   "n_contacts_below_5A": 34
+  },
+  {
+   "target_rmsd": 0.06051253817002159,
+   "n_scored": 194,
+   "min_binder_target_dist": 2.593635320663452,
+   "n_contacts_below_5A": 40
+  },
+  {
+   "target_rmsd": 0.08223389269784052,
+   "n_scored": 194,
+   "min_binder_target_dist": 1.5294528007507324,
+   "n_contacts_below_5A": 51
+  },
+  {
+   "target_rmsd": 0.08200263992200532,
+   "n_scored": 194,
+   "min_binder_target_dist": 2.301516532897949,
+   "n_contacts_below_5A": 29
+  }
+ ],
+ "finite": true
+}

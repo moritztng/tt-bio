@@ -1,0 +1,142 @@
+{
+ "mode": "af2ig_host_screen",
+ "stage": "complex",
+ "w6_template": {
+  "num_res": 208,
+  "num_templates": 1,
+  "threads": 16,
+  "loadavg": [
+   20.03515625,
+   23.2236328125,
+   24.947265625
+  ],
+  "repeat": 12,
+  "embedding_s": [
+   0.44225392500084126,
+   0.4580713809991721,
+   0.44246556000143755,
+   0.4314449779994902,
+   0.44215606700163335,
+   0.36981129600462737,
+   0.3997951359997387,
+   0.4788145969941979,
+   0.4284663159996853,
+   0.4254386140019051,
+   0.42108769500191556,
+   1.2368095639976673
+  ],
+  "pair_stack_s": [
+   0.4373826820010436,
+   0.4004109849993256,
+   0.4186161149991676,
+   0.8906453780000447,
+   0.5906746519976878,
+   0.7703756780028925,
+   0.5374815750037669,
+   0.8382495179976104,
+   0.5131908539988217,
+   0.4649028299972997,
+   0.43634403699979885,
+   0.4078626440023072
+  ],
+  "torsion_rows_s": [
+   0.001340068003628403,
+   0.0012786599982064217,
+   0.0012496199997258373,
+   0.0012578500027302653,
+   0.0012232709996169433,
+   0.0012544000055640936,
+   0.001242840000486467,
+   0.0012135400029364973,
+   0.0012323709961492568,
+   0.001219621000927873,
+   0.0012473399983718991,
+   0.001257219999388326
+  ],
+  "pair_independent": true,
+  "pair_independent_fp32": true,
+  "attention_is_two_linears": true,
+  "calls_per_design": 1,
+  "budget_s": 1.0,
+  "min_per_call_s": 0.37102483600756386,
+  "min_pair_stack_s": 0.4004109849993256,
+  "min_per_design_s": 0.37102483600756386,
+  "min_per_design_s_if_uncached": 1.4840993440302555,
+  "decision_by_min": "host",
+  "median_per_call_s": 0.4434056870013592,
+  "median_pair_stack_s": 0.5131908539988217,
+  "median_per_design_s": 0.4434056870013592,
+  "median_per_design_s_if_uncached": 1.7736227480054367,
+  "decision_by_median": "host",
+  "decision": "host"
+ },
+ "w7_extra_msa": {
+  "blocks": [
+   {
+    "block": 0,
+    "opm_input_independent": true,
+    "opm_spatially_constant": true,
+    "equals_bias_over_eps": true,
+    "constant_absmax": 3.390625,
+    "constant_head": [
+     1.1640625,
+     0.93359375,
+     1.3828125,
+     -0.09375
+    ]
+   },
+   {
+    "block": 1,
+    "opm_input_independent": true,
+    "opm_spatially_constant": true,
+    "equals_bias_over_eps": true,
+    "constant_absmax": 13.125,
+    "constant_head": [
+     1.25,
+     -1.171875,
+     -2.84375,
+     -2.15625
+    ]
+   },
+   {
+    "block": 2,
+    "opm_input_independent": true,
+    "opm_spatially_constant": true,
+    "equals_bias_over_eps": true,
+    "constant_absmax": 9.3125,
+    "constant_head": [
+     2.65625,
+     -2.859375,
+     4.65625,
+     0.5625
+    ]
+   },
+   {
+    "block": 3,
+    "opm_input_independent": true,
+    "opm_spatially_constant": true,
+    "equals_bias_over_eps": true,
+    "constant_absmax": 6.53125,
+    "constant_head": [
+     3.5625,
+     -2.078125,
+     -4.46875,
+     -3.84375
+    ]
+   }
+  ],
+  "post_stack_bit_exact": true,
+  "post_stack_max_abs_delta": 0.0,
+  "pair_shape": [
+   208,
+   208,
+   128
+  ],
+  "msa_shape": [
+   1,
+   208,
+   64
+  ],
+  "verdict": "DEAD"
+ }
+}

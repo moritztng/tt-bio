@@ -1,0 +1,11 @@
+target:
+  # SARS-CoV-2 receptor binding domain, from the ACE2 complex 6M0J (chain E by author
+  # numbering, label_asym B). 194 residues, label_seq 15-208 = auth 333-526.
+  file: "./examples/6m0j.cif"
+  chains:
+    B:
+      crop: ["15-208"]
+      # ACE2-contact residues auth 455 / 486 / 501, i.e. label_seq 137 / 168 / 183.
+      hotspots: [137, 168, 183]
+
+binder_length: 80
