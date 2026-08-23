@@ -1,0 +1,85 @@
+########## 512 hema_512 def [] start 11:44:35
+steps: recycling 3, sampling 5 (rf3 shipped 3/200)
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/tt_bio/device_lease.py", line 214, in acquire
+    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+BlockingIOError: [Errno 11] Resource temporarily unavailable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/perf/rf3/fold_fix_ab.py", line 192, in <module>
+    main()
+  File "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/perf/rf3/fold_fix_ab.py", line 73, in main
+    one_fold, meta, state = B.build_fold(
+  File "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/scripts/gpu_vs_tt/tt_baseline.py", line 154, in build_fold
+    get_device(trace_region_size=(1 << 30) if trace else 0)  # open the chip once (lease enforced here)
+  File "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/tt_bio/tenstorrent.py", line 3312, in get_device
+    _device_lease = CardSetLease().acquire()
+  File "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/tt_bio/device_lease.py", line 320, in acquire
+    timeout=max(0.0, deadline - time.time())).acquire())
+  File "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/tt_bio/device_lease.py", line 233, in acquire
+    raise DeviceInUseError(
+tt_bio.device_lease.DeviceInUseError: physical card 1 on tt-quietbox2 is in use by worker:rf3-4x-land-and-defaults (pid 1692339); waited 120s. Refusing to open it concurrently (would collide at the fd level).
+--- census hema_512/def ---
+{"sites": {}, "padded": 0}########## 512 hema_512 hifi [TT_BIO_TRIATT_FUSED_HIFI=1] start 11:46:38
+steps: recycling 3, sampling 5 (rf3 shipped 3/200)
+  [fold] sample 0: xl_final std=55.9217 range=[-221.56,257.68]
+[hifi] cold 40.260s plddt=0.401893 ptm=0.286778 cif=['b45520c0144fd2f1']
+  [fold] sample 0: xl_final std=55.9217 range=[-221.56,257.68]
+[hifi] warm0_seed0 17.365s plddt=0.401893 ptm=0.286778 cif=['b45520c0144fd2f1']
+  [fold] sample 0: xl_final std=55.1075 range=[-241.79,242.35]
+[hifi] warm1_seed1 17.353s plddt=0.399255 ptm=0.273149 cif=['8e7871f20a537dbf']
+  [fold] sample 0: xl_final std=55.1346 range=[-244.07,240.39]
+[hifi] warm2_seed2 18.053s plddt=0.402969 ptm=0.276396 cif=['61f7e4b69bb7f56e']
+wrote perf/obfused/disto512/hema_512/hifi/fold.json
+--- census hema_512/hifi ---
+{"sites": {"tri_att_hifi": [0, 1760]}, "padded": 0}########## 512 hexb_512 def [] start 11:49:22
+steps: recycling 3, sampling 5 (rf3 shipped 3/200)
+  [fold] sample 0: xl_final std=55.6449 range=[-264.48,204.67]
+[def] cold 75.134s plddt=0.410812 ptm=0.378037 cif=['6d7531fe96c6be53']
+  [fold] sample 0: xl_final std=55.6449 range=[-264.48,204.67]
+[def] warm0_seed0 30.934s plddt=0.410812 ptm=0.378037 cif=['6d7531fe96c6be53']
+  [fold] sample 0: xl_final std=55.0566 range=[-247.03,244.63]
+[def] warm1_seed1 30.970s plddt=0.410436 ptm=0.384098 cif=['fff7b33efbeb13a9']
+  [fold] sample 0: xl_final std=53.7877 range=[-252.83,226.90]
+[def] warm2_seed2 32.399s plddt=0.410195 ptm=0.377 cif=['284f88a4d515a3de']
+wrote perf/obfused/disto512/hexb_512/def/fold.json
+--- census hexb_512/def ---
+{"sites": {}, "padded": 0}########## 512 hexb_512 hifi [TT_BIO_TRIATT_FUSED_HIFI=1] start 11:52:20
+steps: recycling 3, sampling 5 (rf3 shipped 3/200)
+  [fold] sample 0: xl_final std=55.3451 range=[-260.24,203.13]
+[hifi] cold 21.593s plddt=0.42199 ptm=0.390372 cif=['389efd8e068c5fc7']
+  [fold] sample 0: xl_final std=55.3451 range=[-260.24,203.13]
+[hifi] warm0_seed0 18.559s plddt=0.42199 ptm=0.390372 cif=['389efd8e068c5fc7']
+  [fold] sample 0: xl_final std=55.0909 range=[-247.50,245.47]
+[hifi] warm1_seed1 18.539s plddt=0.419566 ptm=0.388031 cif=['e99f549d46be01b0']
+  [fold] sample 0: xl_final std=53.7931 range=[-256.51,224.20]
+[hifi] warm2_seed2 17.666s plddt=0.418234 ptm=0.37744 cif=['a5cf0df63a8e3d3e']
+wrote perf/obfused/disto512/hexb_512/hifi/fold.json
+--- census hexb_512/hifi ---
+{"sites": {"tri_att_hifi": [0, 1760]}, "padded": 0}########## 512 utpr_512 def [] start 11:53:46
+steps: recycling 3, sampling 5 (rf3 shipped 3/200)
+  [fold] sample 0: xl_final std=54.6340 range=[-237.36,314.81]
+[def] cold 58.247s plddt=0.415649 ptm=0.469777 cif=['6c4542b7ad7eb539']
+  [fold] sample 0: xl_final std=54.6340 range=[-237.36,314.81]
+[def] warm0_seed0 31.468s plddt=0.415649 ptm=0.469777 cif=['6c4542b7ad7eb539']
+  [fold] sample 0: xl_final std=55.2475 range=[-249.32,265.97]
+[def] warm1_seed1 32.075s plddt=0.41309 ptm=0.465333 cif=['49536746c982a7be']
+  [fold] sample 0: xl_final std=53.3935 range=[-254.52,204.03]
+[def] warm2_seed2 31.827s plddt=0.4138 ptm=0.472455 cif=['32a5a32659be2d09']
+wrote perf/obfused/disto512/utpr_512/def/fold.json
+--- census utpr_512/def ---
+{"sites": {}, "padded": 0}########## 512 utpr_512 hifi [TT_BIO_TRIATT_FUSED_HIFI=1] start 11:56:30
+steps: recycling 3, sampling 5 (rf3 shipped 3/200)
+  [fold] sample 0: xl_final std=54.2947 range=[-238.34,314.99]
+[hifi] cold 21.203s plddt=0.427384 ptm=0.471122 cif=['200af4b30c3fa251']
+  [fold] sample 0: xl_final std=54.2947 range=[-238.34,314.99]
+[hifi] warm0_seed0 17.459s plddt=0.427384 ptm=0.471122 cif=['200af4b30c3fa251']
+  [fold] sample 0: xl_final std=54.9759 range=[-247.75,263.62]
+[hifi] warm1_seed1 17.903s plddt=0.427242 ptm=0.471337 cif=['738e21d56663fab4']
+  [fold] sample 0: xl_final std=53.1515 range=[-251.95,201.23]
+[hifi] warm2_seed2 17.211s plddt=0.427161 ptm=0.475358 cif=['5b4e85759cf4404e']
+wrote perf/obfused/disto512/utpr_512/hifi/fold.json
+--- census utpr_512/hifi ---
+{"sites": {"tri_att_hifi": [0, 1760]}, "padded": 0}########## RUNG 512 DONE 11:57:53

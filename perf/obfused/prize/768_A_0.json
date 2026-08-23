@@ -1,0 +1,176 @@
+{
+ "model": "openfold3",
+ "label": "A",
+ "input": "ob_apo_768.tt.yaml",
+ "input_sha256": "5bfb866dbdc820060b0ea4d40cdecd157b5add393495b5c8f7d89a8c81c39a6a",
+ "samples": 1,
+ "recycles": 3,
+ "sampling_steps": 200,
+ "seed": 42,
+ "single_sequence": true,
+ "decomp": false,
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "1",
+ "arch": "blackhole",
+ "load_s": 1.36,
+ "loadavg_start": [
+  "1.12",
+  "1.62",
+  "9.03"
+ ],
+ "timers_missing": [],
+ "runs": [
+  {
+   "run": 0,
+   "fold_s": 93.476,
+   "device_s": 91.656,
+   "host_feat_s": 0.941,
+   "host_write_s": 0.057,
+   "plddt": 0.38503,
+   "n_tokens": 768,
+   "n_atoms": 6177,
+   "cif_sha256": {
+    "ob_apo_768.tt.cif": "25725ae1de446e29"
+   },
+   "loadavg": [
+    "1.72",
+    "1.56",
+    "7.56"
+   ],
+   "regions": {
+    "device:model.fold": {
+     "calls": 1,
+     "s": 91.656,
+     "ms_per_call": 91655.804,
+     "pct_of_fold": 98.05
+    },
+    "host:build_features": {
+     "calls": 1,
+     "s": 0.941,
+     "ms_per_call": 940.703,
+     "pct_of_fold": 1.01
+    },
+    "host:write_structure": {
+     "calls": 1,
+     "s": 0.057,
+     "ms_per_call": 57.367,
+     "pct_of_fold": 0.06
+    }
+   }
+  },
+  {
+   "run": 1,
+   "fold_s": 93.399,
+   "device_s": 91.703,
+   "host_feat_s": 0.813,
+   "host_write_s": 0.057,
+   "plddt": 0.38503,
+   "n_tokens": 768,
+   "n_atoms": 6177,
+   "cif_sha256": {
+    "ob_apo_768.tt.cif": "25725ae1de446e29"
+   },
+   "loadavg": [
+    "1.15",
+    "1.40",
+    "6.92"
+   ],
+   "regions": {
+    "device:model.fold": {
+     "calls": 1,
+     "s": 91.703,
+     "ms_per_call": 91703.48,
+     "pct_of_fold": 98.18
+    },
+    "host:build_features": {
+     "calls": 1,
+     "s": 0.813,
+     "ms_per_call": 813.15,
+     "pct_of_fold": 0.87
+    },
+    "host:write_structure": {
+     "calls": 1,
+     "s": 0.057,
+     "ms_per_call": 57.331,
+     "pct_of_fold": 0.06
+    }
+   }
+  }
+ ],
+ "cold_s": 109.31,
+ "levers": {
+  "sdpa_low_div_k": {
+   "unavailable": "AttributeError(\"module 'tt_bio.tenstorrent' has no attribute '_sdpa_low_div_k'\")"
+  },
+  "sdpa_wide_k": false,
+  "sdpa_k_chunk_stats": [
+   0,
+   0
+  ],
+  "sdpa_chunk_picks": {},
+  "triatt_fused_hifi_stats": {
+   "served": 0,
+   "declined": 0,
+   "too_short": 0
+  },
+  "triatt_fused_hifi_picks": {},
+  "fp32_softmax_stats": {
+   "calls": 1320,
+   "blocked": 1320,
+   "blocks": 145162,
+   "fused": 145164,
+   "unfused": 0,
+   "l1": 1320,
+   "l1_blocks": 144982,
+   "l1_refused": 2,
+   "l1_cores": 96,
+   "l1_free_retired": 0,
+   "l1_free_walked": 0
+  },
+  "latch": {
+   "l1_out": {
+    "served": 143,
+    "refused": 1,
+    "blocked": 0,
+    "declined": 2544,
+    "why": [
+     "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 157 clash with L1 buffers on core range [(x=0,y=0) "
+    ]
+   },
+   "transpose_l1": {
+    "served": 48,
+    "refused": 0,
+    "blocked": 0,
+    "declined": 0,
+    "why": []
+   },
+   "bmm_cfg": {
+    "served": 327494,
+    "refused": 0,
+    "blocked": 0,
+    "declined": 0,
+    "why": []
+   }
+  },
+  "sdpa_ragged_stats": {
+   "unavailable": "AttributeError(\"module 'tt_bio.tenstorrent' has no attribute 'SDPA_RAGGED_STATS'\")"
+  }
+ },
+ "reblock_permute": {
+  "gated_enabled": true,
+  "stats_gated": [
+   0,
+   0
+  ],
+  "stats": [
+   2640,
+   0
+  ],
+  "rejects": {}
+ },
+ "device_s_median": 91.68,
+ "fold_s_median": 93.438,
+ "device_spread_pct": 0.05,
+ "cif_reproducible": true
+}

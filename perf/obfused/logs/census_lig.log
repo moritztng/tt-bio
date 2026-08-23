@@ -1,0 +1,77 @@
+=== ob_lig_s_298 pad=0 11:34:44 ===
+2026-08-23 11:34:45.366 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+=== cold fold (JIT + program cache; discarded) ===
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/perf/openbind/tt_ob_run.py", line 371, in <module>
+    main()
+  File "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/perf/openbind/tt_ob_run.py", line 294, in main
+    cold_s, cold_m = one_fold()
+  File "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/perf/openbind/tt_ob_run.py", line 290, in one_fold
+    metrics, _best, _feats = state.predict_one(a.input, dict(cfg))
+  File "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/tt_bio/worker.py", line 636, in predict_one
+    return self._predict_openfold3_one(path, cfg)
+  File "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/tt_bio/worker.py", line 1272, in _predict_openfold3_one
+    _validate_openfold3_chains(chains)
+  File "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/tt_bio/worker.py", line 295, in _validate_openfold3_chains
+    raise RuntimeError(
+RuntimeError: --model openfold3 is polymer-only for now (chain(s) ['L'] are ligands); see docs/openfold3-port.md.
+--- ragged_sites ---
+{"sites": {}, "padded": 0}=== ob_lig_m_298 pad=0 11:34:52 ===
+2026-08-23 11:34:52.923 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+=== cold fold (JIT + program cache; discarded) ===
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/perf/openbind/tt_ob_run.py", line 371, in <module>
+    main()
+  File "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/perf/openbind/tt_ob_run.py", line 294, in main
+    cold_s, cold_m = one_fold()
+  File "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/perf/openbind/tt_ob_run.py", line 290, in one_fold
+    metrics, _best, _feats = state.predict_one(a.input, dict(cfg))
+  File "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/tt_bio/worker.py", line 636, in predict_one
+    return self._predict_openfold3_one(path, cfg)
+  File "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/tt_bio/worker.py", line 1272, in _predict_openfold3_one
+    _validate_openfold3_chains(chains)
+  File "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/tt_bio/worker.py", line 295, in _validate_openfold3_chains
+    raise RuntimeError(
+RuntimeError: --model openfold3 is polymer-only for now (chain(s) ['L'] are ligands); see docs/openfold3-port.md.
+--- ragged_sites ---
+{"sites": {}, "padded": 0}=== ob_lig_m_512 pad=0 11:34:59 ===
+2026-08-23 11:35:00.234 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+=== cold fold (JIT + program cache; discarded) ===
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/perf/openbind/tt_ob_run.py", line 371, in <module>
+    main()
+  File "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/perf/openbind/tt_ob_run.py", line 294, in main
+    cold_s, cold_m = one_fold()
+  File "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/perf/openbind/tt_ob_run.py", line 290, in one_fold
+    metrics, _best, _feats = state.predict_one(a.input, dict(cfg))
+  File "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/tt_bio/worker.py", line 636, in predict_one
+    return self._predict_openfold3_one(path, cfg)
+  File "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/tt_bio/worker.py", line 1272, in _predict_openfold3_one
+    _validate_openfold3_chains(chains)
+  File "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/tt_bio/worker.py", line 295, in _validate_openfold3_chains
+    raise RuntimeError(
+RuntimeError: --model openfold3 is polymer-only for now (chain(s) ['L'] are ligands); see docs/openfold3-port.md.
+--- ragged_sites ---
+{"sites": {}, "padded": 0}=== ob_lig_m_512 pad=1 11:35:06 ===
+2026-08-23 11:35:07.356 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+=== cold fold (JIT + program cache; discarded) ===
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/perf/openbind/tt_ob_run.py", line 371, in <module>
+    main()
+  File "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/perf/openbind/tt_ob_run.py", line 294, in main
+    cold_s, cold_m = one_fold()
+  File "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/perf/openbind/tt_ob_run.py", line 290, in one_fold
+    metrics, _best, _feats = state.predict_one(a.input, dict(cfg))
+  File "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/tt_bio/worker.py", line 636, in predict_one
+    return self._predict_openfold3_one(path, cfg)
+  File "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/tt_bio/worker.py", line 1272, in _predict_openfold3_one
+    _validate_openfold3_chains(chains)
+  File "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/tt_bio/worker.py", line 295, in _validate_openfold3_chains
+    raise RuntimeError(
+RuntimeError: --model openfold3 is polymer-only for now (chain(s) ['L'] are ligands); see docs/openfold3-port.md.
+--- ragged_sites ---
+{"sites": {}, "padded": 0}

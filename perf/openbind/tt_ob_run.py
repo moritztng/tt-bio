@@ -325,24 +325,36 @@ def main():
 
     # Which levers this process actually served. A silently-declined config is
     # indistinguishable from an absent one, so an A/B is only believable if the fold says
-    # which arm it ran (`pcc-gate-can-pass-without-the-op-it-names`).
+    # which arm it ran (`pcc-gate-can-pass-without-the-op-it-names`). Collected field by
+    # field: this harness is path-checked out of a branch ahead of main, and one attribute
+    # that main does not have used to blank the whole block, including the served counts
+    # the reachability gate reads.
+    _LEVERS = {
+        "sdpa_low_div_k": lambda T: T._sdpa_low_div_k(),
+        "sdpa_wide_k": lambda T: T._sdpa_wide_k(),
+        "sdpa_k_chunk_stats": lambda T: list(T.SDPA_K_CHUNK_STATS),
+        "sdpa_chunk_picks": lambda T: {f"{q}x{k}": v for (q, k), v in T.SDPA_CHUNK_PICKS.items()},
+        "triatt_fused_hifi_stats": lambda T: dict(T.TRIATT_FUSED_HIFI_STATS),
+        "triatt_fused_hifi_picks": lambda T: {f"{q}x{k}": v for (q, k), v in T.TRIATT_FUSED_HIFI_PICKS.items()},
+        "fp32_softmax_stats": lambda T: dict(T.FP32_SOFTMAX_STATS),
+        "latch": lambda T: {k: {"served": v["served"], "refused": v["refused"],
+                                "blocked": v["blocked"], "declined": v["declined"],
+                                "why": v["why"][:4]}
+                            for k, v in T.LATCH_STATS.items()
+                            if v["served"] or v["refused"] or v["blocked"] or v["declined"]},
+        "sdpa_ragged_stats": lambda T: dict(T.SDPA_RAGGED_STATS),
+    }
+    res["levers"] = {}
     try:
         import tt_bio.tenstorrent as _T
-        res["levers"] = {
-            "sdpa_low_div_k": _T._sdpa_low_div_k(),
-            "sdpa_wide_k": _T._sdpa_wide_k(),
-            "sdpa_k_chunk_stats": list(_T.SDPA_K_CHUNK_STATS),
-            "sdpa_chunk_picks": {f"{q}x{k}": v for (q, k), v in _T.SDPA_CHUNK_PICKS.items()},
-            "triatt_fused_hifi_stats": dict(_T.TRIATT_FUSED_HIFI_STATS),
-            "fp32_softmax_stats": dict(_T.FP32_SOFTMAX_STATS),
-            "latch": {k: {"served": v["served"], "refused": v["refused"],
-                          "blocked": v["blocked"], "declined": v["declined"],
-                          "why": v["why"][:4]}
-                      for k, v in _T.LATCH_STATS.items()
-                      if v["served"] or v["refused"] or v["blocked"] or v["declined"]},
-        }
     except Exception as exc:  # noqa: BLE001
-        res["levers"] = {"error": repr(exc)}
+        res["levers"]["error"] = repr(exc)
+    else:
+        for _name, _get in _LEVERS.items():
+            try:
+                res["levers"][_name] = _get(_T)
+            except Exception as exc:  # noqa: BLE001
+                res["levers"][_name] = {"unavailable": repr(exc)}
 
     try:
         from tt_bio import reblock_permute as RP

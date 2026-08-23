@@ -1,0 +1,121 @@
+{
+ "model": "openfold3",
+ "label": "A",
+ "input": "ob_apo_512.tt.yaml",
+ "input_sha256": "0b0de5b4dd82beea5721130014a47d3495397208833cc5b89eb1c691e636a82f",
+ "samples": 1,
+ "recycles": 3,
+ "sampling_steps": 200,
+ "seed": 42,
+ "single_sequence": true,
+ "decomp": false,
+ "ttnn": "0.68.0",
+ "host": "tt-quietbox2",
+ "card": "1",
+ "arch": "blackhole",
+ "load_s": 1.29,
+ "loadavg_start": [
+  "1.06",
+  "2.22",
+  "11.73"
+ ],
+ "timers_missing": [],
+ "runs": [
+  {
+   "run": 0,
+   "fold_s": 37.087,
+   "device_s": 35.982,
+   "host_feat_s": 0.599,
+   "host_write_s": 0.038,
+   "plddt": 0.385844,
+   "n_tokens": 512,
+   "n_atoms": 4116,
+   "cif_sha256": {
+    "ob_apo_512.tt.cif": "f49252f2b33ccc61"
+   },
+   "loadavg": [
+    "1.06",
+    "1.96",
+    "10.90"
+   ],
+   "regions": {
+    "device:model.fold": {
+     "calls": 1,
+     "s": 35.982,
+     "ms_per_call": 35982.191,
+     "pct_of_fold": 97.02
+    },
+    "host:build_features": {
+     "calls": 1,
+     "s": 0.599,
+     "ms_per_call": 599.058,
+     "pct_of_fold": 1.62
+    },
+    "host:write_structure": {
+     "calls": 1,
+     "s": 0.038,
+     "ms_per_call": 38.492,
+     "pct_of_fold": 0.1
+    }
+   }
+  },
+  {
+   "run": 1,
+   "fold_s": 37.034,
+   "device_s": 36.052,
+   "host_feat_s": 0.46,
+   "host_write_s": 0.038,
+   "plddt": 0.385844,
+   "n_tokens": 512,
+   "n_atoms": 4116,
+   "cif_sha256": {
+    "ob_apo_512.tt.cif": "f49252f2b33ccc61"
+   },
+   "loadavg": [
+    "1.03",
+    "1.85",
+    "10.53"
+   ],
+   "regions": {
+    "device:model.fold": {
+     "calls": 1,
+     "s": 36.052,
+     "ms_per_call": 36052.431,
+     "pct_of_fold": 97.35
+    },
+    "host:build_features": {
+     "calls": 1,
+     "s": 0.46,
+     "ms_per_call": 460.293,
+     "pct_of_fold": 1.24
+    },
+    "host:write_structure": {
+     "calls": 1,
+     "s": 0.038,
+     "ms_per_call": 38.473,
+     "pct_of_fold": 0.1
+    }
+   }
+  }
+ ],
+ "cold_s": 38.451,
+ "levers": {
+  "error": "AttributeError(\"module 'tt_bio.tenstorrent' has no attribute '_sdpa_low_div_k'\")"
+ },
+ "reblock_permute": {
+  "gated_enabled": true,
+  "stats_gated": [
+   0,
+   0
+  ],
+  "stats": [
+   2640,
+   0
+  ],
+  "rejects": {}
+ },
+ "device_s_median": 36.017,
+ "fold_s_median": 37.061,
+ "device_spread_pct": 0.19,
+ "cif_reproducible": true
+}

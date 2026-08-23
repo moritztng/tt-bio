@@ -1,0 +1,210 @@
+{
+ "rung": 512,
+ "delta": 0.002,
+ "targets": {
+  "alkp_512": {
+   "name": "alkp_512",
+   "verdict": "SCORED",
+   "pdb": "6QSQ",
+   "n_res": 512,
+   "n_scored_residues": 503,
+   "n_pairs": 64008,
+   "seeds": [
+    0,
+    1,
+    2
+   ],
+   "served_per_fold": [
+    880,
+    1320,
+    1760
+   ],
+   "rho": {
+    "def": [
+     0.964111,
+     0.964183,
+     0.963982
+    ],
+    "hifi": [
+     0.963411,
+     0.963411,
+     0.963496
+    ]
+   },
+   "rho_shipped_mean": 0.964092,
+   "rho_shipped_sd": 0.000102,
+   "margin_per_seed": [
+    -0.0007,
+    -0.000772,
+    -0.000486
+   ],
+   "margin_mean": -0.000653,
+   "margin_block_ci95": [
+    -0.001544,
+    0.000252
+   ],
+   "near_is_low_bin": true,
+   "contact_precision_topL5": {
+    "def": [
+     1.0,
+     1.0,
+     1.0
+    ],
+    "hifi": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "confidence": {
+    "def": {
+     "plddt": [
+      0.442398,
+      0.44357,
+      0.443967
+     ],
+     "ptm": [
+      0.486518,
+      0.507798,
+      0.494388
+     ],
+     "fold_s": [
+      27.307,
+      27.83,
+      27.543
+     ]
+    },
+    "hifi": {
+     "plddt": [
+      0.454439,
+      0.454886,
+      0.452909
+     ],
+     "ptm": [
+      0.555196,
+      0.56263,
+      0.550253
+     ],
+     "fold_s": [
+      13.63,
+      13.189,
+      12.741
+     ]
+    }
+   }
+  },
+  "hema_512": {
+   "name": "hema_512",
+   "verdict": "MISSING",
+   "reason": "no folds for one of the arms"
+  },
+  "hexb_512": {
+   "name": "hexb_512",
+   "verdict": "SCORED",
+   "pdb": "1M03",
+   "n_res": 512,
+   "n_scored_residues": 499,
+   "n_pairs": 65185,
+   "seeds": [
+    0,
+    1,
+    2
+   ],
+   "served_per_fold": [
+    880,
+    1320,
+    1760
+   ],
+   "rho": {
+    "def": [
+     0.962846,
+     0.963019,
+     0.962967
+    ],
+    "hifi": [
+     0.963871,
+     0.963702,
+     0.963732
+    ]
+   },
+   "rho_shipped_mean": 0.962944,
+   "rho_shipped_sd": 8.9e-05,
+   "margin_per_seed": [
+    0.001025,
+    0.000683,
+    0.000764
+   ],
+   "margin_mean": 0.000824,
+   "margin_block_ci95": [
+    -2.3e-05,
+    0.001564
+   ],
+   "near_is_low_bin": true,
+   "contact_precision_topL5": {
+    "def": [
+     1.0,
+     1.0,
+     1.0
+    ],
+    "hifi": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "confidence": {
+    "def": {
+     "plddt": [
+      0.410812,
+      0.410436,
+      0.410195
+     ],
+     "ptm": [
+      0.378037,
+      0.384098,
+      0.377
+     ],
+     "fold_s": [
+      30.934,
+      30.97,
+      32.399
+     ]
+    },
+    "hifi": {
+     "plddt": [
+      0.42199,
+      0.419566,
+      0.418234
+     ],
+     "ptm": [
+      0.390372,
+      0.388031,
+      0.37744
+     ],
+     "fold_s": [
+      18.559,
+      18.539,
+      17.666
+     ]
+    }
+   }
+  }
+ },
+ "pooled": {
+  "n_targets": 2,
+  "n_folds": 6,
+  "per_target_mean_margin": [
+   -0.000653,
+   0.000824
+  ],
+  "cross_target_mean": 8.5e-05,
+  "cluster_boot_ci95": [
+   -0.000712,
+   0.000911
+  ],
+  "targets_negative": 1,
+  "min_negative_for_floor": 2,
+  "folds_negative": 3,
+  "verdict": "GO"
+ }
+}

@@ -1,0 +1,26 @@
+########## 512 alkp_512 def [] start 11:38:04
+steps: recycling 3, sampling 5 (rf3 shipped 3/200)
+  [fold] sample 0: xl_final std=54.3126 range=[-213.87,256.03]
+[def] cold 78.895s plddt=0.442398 ptm=0.486518 cif=['4fe91c6558c7a950']
+  [fold] sample 0: xl_final std=54.3126 range=[-213.87,256.03]
+[def] warm0_seed0 27.307s plddt=0.442398 ptm=0.486518 cif=['4fe91c6558c7a950']
+  [fold] sample 0: xl_final std=54.7277 range=[-240.23,261.40]
+[def] warm1_seed1 27.830s plddt=0.44357 ptm=0.507798 cif=['f46447910b4ff0ad']
+  [fold] sample 0: xl_final std=55.3570 range=[-258.69,222.55]
+[def] warm2_seed2 27.543s plddt=0.443967 ptm=0.494388 cif=['f909cec0e4ad317d']
+wrote perf/obfused/disto512/alkp_512/def/fold.json
+--- census alkp_512/def ---
+{"sites": {}, "padded": 0}########## 512 alkp_512 hifi [TT_BIO_TRIATT_FUSED_HIFI=1] start 11:40:53
+steps: recycling 3, sampling 5 (rf3 shipped 3/200)
+  [fold] sample 0: xl_final std=54.5376 range=[-213.57,256.54]
+[hifi] cold 15.232s plddt=0.454439 ptm=0.555196 cif=['87b3e0d9c4d2fc61']
+  [fold] sample 0: xl_final std=54.5376 range=[-213.57,256.54]
+[hifi] warm0_seed0 13.630s plddt=0.454439 ptm=0.555196 cif=['87b3e0d9c4d2fc61']
+  [fold] sample 0: xl_final std=54.6410 range=[-238.27,261.22]
+[hifi] warm1_seed1 13.189s plddt=0.454886 ptm=0.56263 cif=['0bc84e6f617adbd2']
+  [fold] sample 0: xl_final std=55.1885 range=[-257.98,221.56]
+[hifi] warm2_seed2 12.741s plddt=0.452909 ptm=0.550253 cif=['968af958740b5b59']
+wrote perf/obfused/disto512/alkp_512/hifi/fold.json
+--- census alkp_512/hifi ---
+{"sites": {"tri_att_hifi": [0, 1760]}, "padded": 0}########## 512 hema_512 def [] start 11:41:56
+steps: recycling 3, sampling 5 (rf3 shipped 3/200)

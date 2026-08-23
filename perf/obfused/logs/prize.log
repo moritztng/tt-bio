@@ -1,0 +1,76 @@
+##### rung 512 arm A rep 2 start 12:25:11 loadavg 23.42 29.70 32.58
+benchlock: openbind-fused-512aa waiting; currently held by: rf3-4x-land-and-defaults pid=1842694 since=2026-08-23T12:20:19+00:00
+benchlock: TIMED OUT after 420s waiting for the box. Holder: rf3-4x-land-and-defaults pid=1842694 since=2026-08-23T12:20:19+00:00
+benchlock: do NOT measure anyway — a co-tenanted timing is a wrong number, not a slow one.
+##### rung 512 arm A done 12:32:11 loadavg 1.57 11.19 23.29
+##### rung 512 arm B rep 2 start 12:32:11 loadavg 1.57 11.19 23.29
+=== run 0: fold 23.021s device 22.043s feat 0.464s write 0.039s plddt 0.39812 tokens 512 atoms 4116 ===
+  device:model.fold                                 1 calls    22.043 s  22043.019 ms/call   95.75 %
+  host:build_features                               1 calls     0.464 s    464.229 ms/call    2.02 %
+  host:write_structure                              1 calls     0.039 s     38.786 ms/call    0.17 %
+  [fold] sample 0: xl_final std=13.5873 range=[-39.68,37.68]
+
+=== run 1: fold 23.096s device 21.980s feat 0.592s write 0.038s plddt 0.39812 tokens 512 atoms 4116 ===
+  device:model.fold                                 1 calls    21.980 s  21979.978 ms/call   95.17 %
+  host:build_features                               1 calls     0.592 s    591.621 ms/call    2.56 %
+  host:write_structure                              1 calls     0.038 s     38.276 ms/call    0.17 %
+
+median device 22.011s  fold 23.059s  spread 0.29%  cif_reproducible True
+wrote perf/obfused/prize/512_B_0.json
+benchlock: openbind-fused-512aa released, rc=0, loadavg 1.71 6.34 18.94
+##### rung 512 arm B done 12:35:33 loadavg 1.71 6.34 18.94
+##### rung 512 arm B rep 2 start 12:35:33 loadavg 1.71 6.34 18.94
+=== run 0: fold 22.994s device 22.000s feat 0.470s write 0.039s plddt 0.39812 tokens 512 atoms 4116 ===
+  device:model.fold                                 1 calls    22.000 s  22000.036 ms/call   95.68 %
+  host:build_features                               1 calls     0.470 s    470.175 ms/call    2.04 %
+  host:write_structure                              1 calls     0.039 s     39.095 ms/call    0.17 %
+  [fold] sample 0: xl_final std=13.5873 range=[-39.68,37.68]
+
+=== run 1: fold 23.140s device 22.044s feat 0.590s write 0.039s plddt 0.39812 tokens 512 atoms 4116 ===
+  device:model.fold                                 1 calls    22.044 s  22044.224 ms/call   95.26 %
+  host:build_features                               1 calls     0.590 s    590.056 ms/call    2.55 %
+  host:write_structure                              1 calls     0.039 s     39.266 ms/call    0.17 %
+
+median device 22.022s  fold 23.067s  spread 0.2%  cif_reproducible True
+wrote perf/obfused/prize/512_B_1.json
+benchlock: openbind-fused-512aa released, rc=0, loadavg 1.83 3.77 15.10
+##### rung 512 arm B done 12:39:25 loadavg 1.83 3.77 15.10
+##### rung 512 arm A rep 2 start 12:39:25 loadavg 1.83 3.77 15.10
+=== run 0: fold 37.087s device 35.982s feat 0.599s write 0.038s plddt 0.385844 tokens 512 atoms 4116 ===
+  device:model.fold                                 1 calls    35.982 s  35982.191 ms/call   97.02 %
+  host:build_features                               1 calls     0.599 s    599.058 ms/call    1.62 %
+  host:write_structure                              1 calls     0.038 s     38.492 ms/call    0.10 %
+  [fold] sample 0: xl_final std=14.2561 range=[-44.79,40.76]
+
+=== run 1: fold 37.034s device 36.052s feat 0.460s write 0.038s plddt 0.385844 tokens 512 atoms 4116 ===
+  device:model.fold                                 1 calls    36.052 s  36052.431 ms/call   97.35 %
+  host:build_features                               1 calls     0.460 s    460.293 ms/call    1.24 %
+  host:write_structure                              1 calls     0.038 s     38.473 ms/call    0.10 %
+
+median device 36.017s  fold 37.061s  spread 0.19%  cif_reproducible True
+wrote perf/obfused/prize/512_A_0.json
+benchlock: openbind-fused-512aa released, rc=0, loadavg 1.03 1.84 10.48
+##### rung 512 arm A done 12:45:31 loadavg 1.03 1.84 10.48
+=== 512 RUNG DONE 12:45:31 ===
+##### rung 768 arm A rep 2 start 12:45:31 loadavg 1.03 1.84 10.48
+=== run 0: fold 93.476s device 91.656s feat 0.941s write 0.057s plddt 0.38503 tokens 768 atoms 6177 ===
+  device:model.fold                                 1 calls    91.656 s  91655.804 ms/call   98.05 %
+  host:build_features                               1 calls     0.941 s    940.703 ms/call    1.01 %
+  host:write_structure                              1 calls     0.057 s     57.367 ms/call    0.06 %
+  [fold] sample 0: xl_final std=17.2601 range=[-52.12,46.97]
+
+=== run 1: fold 93.399s device 91.703s feat 0.813s write 0.057s plddt 0.38503 tokens 768 atoms 6177 ===
+  device:model.fold                                 1 calls    91.703 s  91703.480 ms/call   98.18 %
+  host:build_features                               1 calls     0.813 s    813.150 ms/call    0.87 %
+  host:write_structure                              1 calls     0.057 s     57.331 ms/call    0.06 %
+
+median device 91.68s  fold 93.438s  spread 0.05%  cif_reproducible True
+wrote perf/obfused/prize/768_A_0.json
+benchlock: openbind-fused-768aa released, rc=0, loadavg 1.15 1.40 6.92
+##### rung 768 arm A done 12:53:08 loadavg 1.15 1.40 6.92
+##### rung 768 arm B rep 2 start 12:53:08 loadavg 1.15 1.40 6.92
+benchlock: openbind-fused-768aa waiting; currently held by: rf3-4x-land-and-defaults-768aa pid=1870261 since=2026-08-23T12:53:08+00:00
+benchlock: TIMED OUT after 420s waiting for the box. Holder: rf3-4x-land-and-defaults-768aa pid=1870261 since=2026-08-23T12:53:08+00:00
+benchlock: do NOT measure anyway — a co-tenanted timing is a wrong number, not a slow one.
+##### rung 768 arm B done 13:00:08 loadavg 1.02 1.17 4.79
+##### rung 768 arm B rep 2 start 13:00:08 loadavg 1.02 1.17 4.79

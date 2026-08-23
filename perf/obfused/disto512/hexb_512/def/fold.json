@@ -1,0 +1,163 @@
+{
+ "label": "def",
+ "model": "openfold3",
+ "fix": "hexb_512",
+ "host": "tt-quietbox2",
+ "card": "1",
+ "recycling_steps": 3,
+ "sampling_steps": 5,
+ "rf3_shipped_steps": [
+  3,
+  200
+ ],
+ "diffusion_samples": 1,
+ "seed": 0,
+ "n_msa": 256,
+ "sha256_target": "531a8664f9a9e10eb1dc9c5b77a8f28d410e1120b9d6986faeb7c01aeee9f3ca",
+ "sha256_a3m": "09e890328873e12cf9e024d9986dbab10e2d5821d9823d2baa7b51638a31a4aa",
+ "env_flags": {
+  "TT_BIO_LEASE_CARDS": "1",
+  "TT_BIO_LEASE_HOLDER": "worker:openbind-fused-sdpa-rescore",
+  "TT_BIO_SDPA_RAGGED_CENSUS": "/home/ttuser/.coworker/wt/openbind-fused-sdpa-rescore/perf/obfused/disto512/hexb_512/def.census"
+ },
+ "folds": [
+  {
+   "tag": "warm0_seed0",
+   "seed": 0,
+   "fold_s": 30.934,
+   "plddt": 0.410812,
+   "ptm": 0.378037,
+   "n_tokens": 512,
+   "n_atoms": 3966,
+   "msa": true,
+   "cif_sha256": {
+    "hexb_512.cif": "6d7531fe96c6be53"
+   },
+   "opm_small_depth_stats": [
+    0,
+    32
+   ],
+   "triatt_fused_hifi_stats": {
+    "served": 0,
+    "declined": 0,
+    "too_short": 0
+   },
+   "kept": [
+    "hexb_512.cif"
+   ],
+   "distogram": {
+    "shape": [
+     1,
+     512,
+     512,
+     64
+    ],
+    "dtype": "float32",
+    "captures": 2,
+    "sha256": "4bbc2989be86b5c6"
+   },
+   "kept_in": "perf/obfused/disto512/hexb_512/def/f0_seed0"
+  },
+  {
+   "tag": "warm1_seed1",
+   "seed": 1,
+   "fold_s": 30.97,
+   "plddt": 0.410436,
+   "ptm": 0.384098,
+   "n_tokens": 512,
+   "n_atoms": 3966,
+   "msa": true,
+   "cif_sha256": {
+    "hexb_512.cif": "fff7b33efbeb13a9"
+   },
+   "opm_small_depth_stats": [
+    0,
+    48
+   ],
+   "triatt_fused_hifi_stats": {
+    "served": 0,
+    "declined": 0,
+    "too_short": 0
+   },
+   "kept": [
+    "hexb_512.cif"
+   ],
+   "distogram": {
+    "shape": [
+     1,
+     512,
+     512,
+     64
+    ],
+    "dtype": "float32",
+    "captures": 1,
+    "sha256": "bbe1e9c790121cd5"
+   },
+   "kept_in": "perf/obfused/disto512/hexb_512/def/f1_seed1"
+  },
+  {
+   "tag": "warm2_seed2",
+   "seed": 2,
+   "fold_s": 32.399,
+   "plddt": 0.410195,
+   "ptm": 0.377,
+   "n_tokens": 512,
+   "n_atoms": 3966,
+   "msa": true,
+   "cif_sha256": {
+    "hexb_512.cif": "284f88a4d515a3de"
+   },
+   "opm_small_depth_stats": [
+    0,
+    64
+   ],
+   "triatt_fused_hifi_stats": {
+    "served": 0,
+    "declined": 0,
+    "too_short": 0
+   },
+   "kept": [
+    "hexb_512.cif"
+   ],
+   "distogram": {
+    "shape": [
+     1,
+     512,
+     512,
+     64
+    ],
+    "dtype": "float32",
+    "captures": 1,
+    "sha256": "6d6d871f5f967ade"
+   },
+   "kept_in": "perf/obfused/disto512/hexb_512/def/f2_seed2"
+  }
+ ],
+ "cold": {
+  "tag": "cold",
+  "seed": 0,
+  "fold_s": 75.134,
+  "plddt": 0.410812,
+  "ptm": 0.378037,
+  "n_tokens": 512,
+  "n_atoms": 3966,
+  "msa": true,
+  "cif_sha256": {
+   "hexb_512.cif": "6d7531fe96c6be53"
+  },
+  "opm_small_depth_stats": [
+   0,
+   16
+  ],
+  "triatt_fused_hifi_stats": {
+   "served": 0,
+   "declined": 0,
+   "too_short": 0
+  }
+ },
+ "seeds": [
+  0,
+  1,
+  2
+ ]
+}
