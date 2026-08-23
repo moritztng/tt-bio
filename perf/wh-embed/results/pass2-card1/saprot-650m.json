@@ -1,0 +1,82 @@
+{
+  "model": "saprot-650m",
+  "n_seqs": 7,
+  "residues": 512,
+  "batch_size": 8,
+  "fast": false,
+  "batch_executed": 7,
+  "batches_observed": [
+    [
+      7
+    ],
+    [
+      7
+    ],
+    [
+      7
+    ],
+    [
+      7
+    ],
+    [
+      7
+    ]
+  ],
+  "forwards_per_iter": [
+    1
+  ],
+  "batch_observed": [
+    7
+  ],
+  "assert_batch": 7,
+  "fixture": {
+    "path": "/home/ttuser/.coworker/wt/perf-page-tt-cells/scripts/gpu_vs_tt/fixtures/prot512.seq",
+    "sha256": "141f7d4730ccf17e116016edc4aceee502d8c9769301ece4d1b64beb496ebf8d"
+  },
+  "arch": "blackhole-p150a",
+  "visible_devices": "1",
+  "load_s": 119.7,
+  "device_ms": 190.32,
+  "serial_write_ms": 2584.39,
+  "threaded_write_ms": 627.05,
+  "gate_region_ms": 2774.71,
+  "write_share_of_gate": 0.9314,
+  "device_seq_s": 36.78,
+  "gate_seq_s": 2.523,
+  "device_ms_all": [
+    175.97,
+    197.37,
+    190.32
+  ],
+  "serial_write_ms_all": [
+    2523.31,
+    2584.39,
+    2655.58
+  ],
+  "threaded_write_ms_all": [
+    650.5,
+    627.05,
+    567.7
+  ],
+  "npz_bytes": 8679510,
+  "accuracy": {
+    "n_out": 7,
+    "residues_out": 512,
+    "d_model": 1280,
+    "tokens": 514,
+    "all_finite": true,
+    "rows_identical": true,
+    "pooled_sha256": "edc0e592f3d7c904",
+    "pooled_norm": 3.7931,
+    "residues_match_fixture": true,
+    "pass": true
+  },
+  "matched_roof": null,
+  "loadavg": [
+    20.88134765625,
+    21.85205078125,
+    21.85205078125
+  ],
+  "warmup": 2,
+  "repeat": 3
+}
