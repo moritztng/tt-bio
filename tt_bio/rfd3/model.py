@@ -235,6 +235,12 @@ _PAIR_TRANSITION_L1 = os.environ.get("RFD3_PAIR_TRANSITION_L1", "1") == "1"
 # pair-bias calls on the H200 arm that produces our own 12.974 s/design denominator. The dense
 # formulation is a tt-bio tiling choice, not the reference's.
 _GATHERED_SOFTMAX = os.environ.get("RFD3_GATHERED_SOFTMAX", "0") == "1"
+# ttnn.gather (0.68.0) on dim 3 silently returns wrong data for every tile-row after the first
+# once the indexed axis exceeds this many elements: 99.87 % of elements wrong at the production
+# [1,4,6051,6080], and ~100x slower at the same threshold. The trigger is element count, not
+# bytes -- bf16 breaks at 2048 while fp32 at 1920 (7.5 KB/row) is exact. Measured in
+# scripts/rfd3_port/p81{,b,c}_*.py, perf/p81/*.json. ttnn.scatter at the same shape is clean.
+_TTNN_GATHER_MAX_KEY_AXIS = 1920
 
 
 def set_gathered_softmax(on):
@@ -1285,6 +1291,22 @@ def _sparse_pair_gather(cache, p_host, indices, device, dtype):
     return out
 
 
+def _check_gather_bound(length):
+    """Refuse the gathered atom softmax where ttnn.gather is known to return wrong data.
+
+    A default-off flag that silently computes garbage is worse than no flag: the arm was built
+    with five passing invariant tests, every one of which pinned a property of the INDEX rather
+    than the output of the op, and the first fold run on it would have produced a plausible
+    number. Fail loudly instead.
+    """
+    n_key_axis = _align_tile(length)
+    if n_key_axis > _TTNN_GATHER_MAX_KEY_AXIS:
+        raise RuntimeError(
+            "RFD3_GATHERED_SOFTMAX is unusable at this shape: the key axis is %d and ttnn.gather "
+            "returns wrong data above %d. The gathered atom softmax needs a fused kernel, not "
+            "ttnn.gather." % (n_key_axis, _TTNN_GATHER_MAX_KEY_AXIS))
+
+
 def _sparse_attn_index(indices, device, n_heads):
     """[B,H,L,K] uint32 scatter index, replicated over heads on device.
 
@@ -1376,6 +1398,7 @@ def _sparse_qk_inputs(p_host, indices, device, dtype, n_heads=4, mask_cache=None
             mask_cache, device, dtype, batch, n_heads, length
         )
     if _GATHERED_SOFTMAX:
+        _check_gather_bound(length)
         # The gathered softmax needs the [B,H,L,K] TILE index that ttnn.gather/scatter take, which
         # is what the non-fused route already builds. On the fused-bias route attn_idx_dev is the
         # ROW_MAJOR [1,1,L,K] variant its kernel wants, so build the tiled replica as well rather
