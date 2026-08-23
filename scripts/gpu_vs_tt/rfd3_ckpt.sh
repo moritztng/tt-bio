@@ -10,7 +10,7 @@
 set -uo pipefail
 DIGEST=9b3f85923e0d51e9453e15cdd2f8c666e7ce096a60577f57d11bbc54ae6d67c1
 DST=${DST:-/root/.foundry/checkpoints/rfd3_latest.ckpt}
-REG=${REG:-/work/fsrc/foundry/inference_engines/checkpoint_registry.py}
+REG=${REG:-/work/fsrc/src/foundry/inference_engines/checkpoint_registry.py}
 mkdir -p "$(dirname "$DST")"
 
 if [ -s "$DST" ] && [ "$(sha256sum "$DST" | cut -d' ' -f1)" = "$DIGEST" ]; then
@@ -18,8 +18,15 @@ if [ -s "$DST" ] && [ "$(sha256sum "$DST" | cut -d' ' -f1)" = "$DIGEST" ]; then
 fi
 
 [ -r "$REG" ] || { echo "no registry at $REG -- did the foundry clone succeed?"; exit 1; }
-URL=$(grep -oE 'https?://[^"'"'"' ]*rfd3[^"'"'"' ]*\.ckpt' "$REG" | head -1)
-[ -n "$URL" ] || { echo "no rfd3 .ckpt URL in $REG:"; grep -n 'ckpt' "$REG" | head -20; exit 1; }
+# Select by the registry's own filename= field, not by URL order. The registry lists
+# rfd3na-1190.ckpt (the nucleic-acid variant) BEFORE the entry we want, so "first URL matching
+# rfd3.*\.ckpt" picks the wrong artifact -- caught on the B200 box only because the digest
+# check refused it. The entry whose filename is the basename of $DST is the one by definition.
+WANT=$(basename "$DST")
+URL=$(awk -v want="$WANT" '
+  /url=/ { u=$0; sub(/.*url="/,"",u); sub(/".*/,"",u) }
+  index($0, "filename=\"" want "\"") { print u; exit }' "$REG")
+[ -n "$URL" ] || { echo "no entry with filename=$WANT in $REG:"; grep -nE 'url=|filename=' "$REG" | head -20; exit 1; }
 echo "pulling $URL"
 curl -sSL --retry 3 -o "$DST.part" "$URL" || { echo "download failed"; exit 1; }
 GOT=$(sha256sum "$DST.part" | cut -d' ' -f1)
