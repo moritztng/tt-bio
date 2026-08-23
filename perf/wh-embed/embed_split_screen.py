@@ -243,7 +243,11 @@ def main() -> int:
         # batch_size * 512 tokens and a 512 aa sequence buckets to 576, so at page scope the
         # batch that executes is 7 of a requested 8. The executed count is what a GPU arm has
         # to match, so it is recorded rather than left to be inferred.
-        batch_executed=min(args.batch_size,
+        # ...and it is capped by n_seqs too: fewer sequences than the cap means the batch
+        # that ran is n_seqs, not the cap. esmc-6b runs --n-seqs 1 and reported 7 here, which is
+        # the number a GPU arm reading this field would have matched -- the batch-8-vs-batch-1
+        # defect this page has already published once.
+        batch_executed=min(args.n_seqs, args.batch_size,
                            max(1, (args.batch_size * 512) // (((args.residues + 2 + 63) // 64) * 64))),
         # observed, not derived: the row count of every forward the batcher issued, per iteration
         batches_observed=batches_per_iter,

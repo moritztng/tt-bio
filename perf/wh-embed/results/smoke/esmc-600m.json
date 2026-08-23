@@ -1,0 +1,62 @@
+{
+  "model": "esmc-600m",
+  "n_seqs": 7,
+  "residues": 512,
+  "batch_size": 8,
+  "fast": false,
+  "batch_executed": 7,
+  "batches_observed": [
+    [
+      7
+    ]
+  ],
+  "forwards_per_iter": [
+    1
+  ],
+  "batch_observed": [
+    7
+  ],
+  "assert_batch": 7,
+  "fixture": {
+    "path": "scripts/gpu_vs_tt/fixtures/prot512.seq",
+    "sha256": "141f7d4730ccf17e116016edc4aceee502d8c9769301ece4d1b64beb496ebf8d"
+  },
+  "arch": "blackhole-p150a",
+  "visible_devices": "1",
+  "load_s": 4.4,
+  "device_ms": 10035.04,
+  "serial_write_ms": 2373.45,
+  "threaded_write_ms": 305.85,
+  "gate_region_ms": 12408.49,
+  "write_share_of_gate": 0.1913,
+  "device_seq_s": 0.698,
+  "gate_seq_s": 0.564,
+  "device_ms_all": [
+    10035.04
+  ],
+  "serial_write_ms_all": [
+    2373.45
+  ],
+  "threaded_write_ms_all": [
+    305.85
+  ],
+  "npz_bytes": 7819007,
+  "accuracy": {
+    "n_out": 7,
+    "residues_out": 512,
+    "d_model": 1152,
+    "tokens": 514,
+    "all_finite": true,
+    "rows_identical": true,
+    "pooled_sha256": "523b770eace56658",
+    "pooled_norm": 0.8806,
+    "residues_match_fixture": true,
+    "pass": true
+  },
+  "matched_roof": null,
+  "loadavg": [
+    8.03564453125
+  ],
+  "warmup": 0,
+  "repeat": 1
+}
