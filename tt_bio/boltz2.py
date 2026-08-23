@@ -5156,7 +5156,10 @@ class Boltz2(nn.Module):
         self.pairformer_module = (
             tenstorrent.Fp32PairformerModule(64, 32, 4, 24, 16, True)
             if self.affinity_trunk_fp32
-            else tenstorrent.PairformerModule(64, 32, 4, 24, 16, True)
+            else tenstorrent.PairformerModule(
+                64, 32, 4, 24, 16, True,
+                tri_att_sdpa_hifi=tenstorrent.triatt_sdpa_hifi_site("boltz2.trunk"),
+            )
             if use_tenstorrent
             else PairformerModule_(token_s, token_z, **pairformer_args)
         )
