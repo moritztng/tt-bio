@@ -1,19 +1,14 @@
-/* Runs site/benchmarks/index.html's own script against site/data/perf-512aa.json under a small
- * DOM stub, then asserts every row in the data reached the page. The page has no build step and
- * no browser test, so a data block the renderer forgets, or a variable left behind by an edit,
- * used to fail only on load. Checks are derived from the data, not hardcoded, so a new model or
- * a new category is covered the moment it lands.
+/* Runs both pages in site/ against site/data/perf-512aa.json under a small DOM stub, then
+ * asserts every row in the data reached them. Neither page has a build step or a browser test,
+ * so a data block the renderer forgets, or a variable left behind by an edit, used to fail only
+ * on load. Checks are derived from the data, not hardcoded, so a new model or a new category is
+ * covered the moment it lands.
  *
  * Exit 0 = every row drew. Run from the repo root: node site/benchmarks/render_check.js */
 const fs = require("fs");
 
-const html = fs.readFileSync("site/benchmarks/index.html", "utf8");
-const script = html.match(/<script[^>]*>([\s\S]*?)<\/script>/)[1];
 const raw = fs.readFileSync("site/data/perf-512aa.json", "utf8");
 const D = JSON.parse(raw);
-
-const markupIds = new Set();
-for (const m of html.matchAll(/id="([^"]+)"/g)) markupIds.add(m[1]);
 
 function mkEl(tag) {
   const el = {
@@ -32,24 +27,6 @@ function mkEl(tag) {
   return el;
 }
 
-const store = new Map();
-const unknownIds = new Set();
-const document = {
-  createElement: mkEl,
-  createElementNS: (ns, t) => mkEl(t),
-  createTextNode: (t) => ({ nodeType: 3, textContent: String(t), children: [] }),
-  addEventListener() {},
-  getElementById(id) {
-    if (!store.has(id)) {
-      if (!markupIds.has(id)) unknownIds.add(id);
-      store.set(id, mkEl("div"));
-    }
-    return store.get(id);
-  },
-  querySelector() { return mkEl("div"); }, querySelectorAll() { return []; }, body: mkEl("body"),
-};
-const window = { addEventListener() {}, innerWidth: 1200, devicePixelRatio: 1 };
-
 /* The page does fetch(...).then(json).then(render).catch(report); a thenable that resolves
  * synchronously runs the same path and surfaces a render throw as a throw. */
 function fetchStub() {
@@ -60,17 +37,50 @@ function fetchStub() {
   };
 }
 
-try {
-  new Function("document", "window", "fetch", "setTimeout", "clearTimeout", "console", script)(
-    document, window, fetchStub, (f) => f, () => {}, console);
-} catch (e) {
-  console.error("the page threw while rendering: " + (e && e.stack || e));
-  process.exit(1);
+/* Both pages in site/ read this file and render it with their own script, so the runner is
+ * shared and each page gets its own store of drawn nodes. */
+function runPage(file) {
+  const html = fs.readFileSync(file, "utf8");
+  const script = html.match(/<script[^>]*>([\s\S]*?)<\/script>/)[1];
+  const markupIds = new Set();
+  for (const m of html.matchAll(/id="([^"]+)"/g)) markupIds.add(m[1]);
+  const store = new Map();
+  const unknownIds = new Set();
+  const document = {
+    createElement: mkEl,
+    createElementNS: (ns, t) => mkEl(t),
+    createTextNode: (t) => ({ nodeType: 3, textContent: String(t), children: [] }),
+    addEventListener() {},
+    getElementById(id) {
+      if (!store.has(id)) {
+        if (!markupIds.has(id)) unknownIds.add(id);
+        store.set(id, mkEl("div"));
+      }
+      return store.get(id);
+    },
+    querySelector() { return mkEl("div"); }, querySelectorAll() { return []; }, body: mkEl("body"),
+  };
+  const window = { addEventListener() {}, innerWidth: 1200, devicePixelRatio: 1 };
+  /* The landing page reveals sections on scroll; observe-and-never-fire is the right stub, the
+   * elements it watches are already in the markup. */
+  const IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} };
+  try {
+    new Function("document", "window", "fetch", "setTimeout", "clearTimeout", "console",
+                 "IntersectionObserver", script)(
+      document, window, fetchStub, (f) => f, () => {}, console, IntersectionObserver);
+  } catch (e) {
+    console.error(file + " threw while rendering: " + (e && e.stack || e));
+    process.exit(1);
+  }
+  if (unknownIds.size) {
+    console.error(file + " reads ids that are not in the markup: " + [...unknownIds].join(", "));
+    process.exit(1);
+  }
+  return { html, script, store };
 }
-if (unknownIds.size) {
-  console.error("script reads ids that are not in the markup: " + [...unknownIds].join(", "));
-  process.exit(1);
-}
+
+const page = runPage("site/benchmarks/index.html");
+const script = page.script, store = page.store;
 
 function deepText(el) {
   if (!el) return "";
@@ -244,6 +254,49 @@ for (const [key, n] of Object.entries(EXPECT_ROWS)) {
   }
 }
 
+/* ---------- the landing page ----------
+ * site/index.html reads the same file and draws the same rows with its own copy of the three
+ * formulas. It shipped a hand-written copy of the derived values and drew 6 of the 9 rows the
+ * data carried, on the front page, with nothing red. So it is checked here too: every folding,
+ * design and affinity row reaches the bars, no embedding row does, and the hero's per-dollar
+ * range matches an independent recomputation rather than being a number somebody typed. */
+const land = runPage("site/index.html");
+const bars = deepText(land.store.get("bars"));
+for (const m of predModels.concat(catModels)) {
+  if (!bars.includes(m.name)) {
+    failures.push(m.name + " is a published row and the landing page does not draw it");
+  }
+}
+for (const m of embedModels) {
+  if (bars.includes(m.name)) {
+    failures.push(m.name + " is card-only and must not be drawn on the landing page, whose " +
+                  "chart is per server");
+  }
+}
+{
+  const P = Object.fromEntries(D.platforms.map((p) => [p.id, p]));
+  const perk = (s, p) => 3600.0 / s * p.accelerators * (p.scaling_efficiency ?? 1.0) /
+                         p.price_usd * 1000;
+  const ratios = predModels.concat(catModels).map((m) => {
+    const t = m.cells.p150a, g = m.cells.b200;
+    if (!t || !g || t.status !== "measured" || g.status !== "measured") return null;
+    const secs = (c) => c.s_per_fold ?? c.s_per_design;
+    return { name: m.name, r: perk(secs(t), P.galaxy_bh) / perk(secs(g), P.dgx_b200),
+             pending: !!m.parity_pending };
+  }).filter(Boolean).sort((a, b) => a.r - b.r);
+  const hi = ratios[ratios.length - 1];
+  const hero = deepText(land.store.get("perkrange"));
+  const want = ratios[0].r.toFixed(1) + "\u00d7 to " + hi.r.toFixed(1) + "\u00d7";
+  if (!hero.includes(want)) {
+    failures.push("the landing hero's per-dollar range should read " + want +
+                  " over " + ratios.length + " rows, and #perkrange reads \'" + hero + "\'");
+  }
+  if (hi.pending && !hero.includes(hi.name)) {
+    failures.push(hi.name + " sets the top of the hero range and still owes a reference-parity " +
+                  "run, so the hero has to name it");
+  }
+}
+
 if (failures.length) {
   console.error(failures.length + " row(s) did not reach the page:");
   for (const f of failures) console.error("  " + f);
@@ -251,4 +304,4 @@ if (failures.length) {
 }
 console.log("render_check: " + (predModels.length + catModels.length + embedModels.length) +
             " rows drew, " + catKeys.length + " categories, " + embedModels.length +
-            " embedding rows card-only, no missing ids");
+            " embedding rows card-only, no missing ids, landing page in step");

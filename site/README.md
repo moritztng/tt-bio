@@ -14,7 +14,12 @@ prediction time on one AI Processor, sequences per second for the embedding rows
 server costs to buy and to power.
 
 `index.html` is the landing page. Its bar chart reads the same JSON and derives the same three
-metrics, so it has no numbers of its own.
+metrics, and the throughput-per-dollar range in the hero is the spread of the same purchase-price
+figure across the rows measured on both a Galaxy Blackhole and a DGX B200, so the page has no
+numbers of its own. Set `"parity_pending": true` on a row that has no reference-parity run of its
+own and the hero names it when it sets the top of that range: the hero is prose and carries none of
+the per-cell provenance the benchmark page does, so the one row a reader would have to take on trust
+says so where the claim is. Drop the flag when the run lands and the clause goes with it.
 
 Preview it:
 
@@ -61,7 +66,8 @@ Its unit is sequences per second, its timed region differs from the folding rows
 is built on the DGX H200 at 512 aa folds, so an embedding forward has no server price or power figure
 it could honestly carry. It gets its own band, its own chart and its own table, and it enters no cost
 or per-server surface. `render_check.js` asserts that absence per row rather than trusting anyone to
-remember it, so adding `embed` to `CATEGORIES` fails the check.
+remember it, so adding `embed` to `CATEGORIES` fails the check, and so does drawing an embedding row
+on the landing page.
 
 Every new section needs its row count added to `EXPECT_ROWS` in `render_check.js`. That table is the
 only hardcoded thing in the file, and it is there because every other check is derived from the data:
@@ -83,9 +89,12 @@ drops the column while the benchmark page draws it.
 
 Adding a platform, a row or a section must not move any number already on the page. The way to know
 is to diff what the page renders, not what the JSON says: dump the DOM before and after with headless
-Chrome and compare, both pages. Run `node benchmarks/render_check.js` and
+Chrome and compare, both pages. Run `node benchmarks/render_check.js`, which runs both pages' own
+scripts against the real data and fails on a row that stopped drawing, and
 `python3 ../perf/perf-page-host-device-publish/check_numbers.py` from the repo root as well; between
-them they catch a row that stopped drawing and a host/device half that stopped adding up.
+them they catch a row that stopped drawing and a host/device half that stopped adding up. The
+landing page is in that check because it shipped a hand-written copy of the derived values and drew
+6 of the 9 rows the data carried, on the front page, with nothing red.
 
 `amortisation_basis` is the one-line justification for the window and renders next to the formula in
 Methods. Change the window and change that line with it.
