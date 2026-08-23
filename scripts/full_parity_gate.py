@@ -492,6 +492,18 @@ LEGS += [
         committed_json="af2ig-trunk-device.json",
         note="AF2-IG ttnn trunk (complex stage) vs the committed bf16 floor; needs a card and "
              "params_model_1_ptm.npz, GAP-evidenced by construction"),
+    # --- PXDesign design-featurizer parity (card-free, subprocess; scores the committed
+    # capture of the upstream featurizer on the PD-L1 quick-start target). PXDesign is a
+    # binder-design pipeline, so it has no place in release_gate.py's MODELS (folds of 7ROA
+    # scored by CA-RMSD) or in SIZE_LADDER_MODELS, neither of which holds a design model. This
+    # is the card-free foundation, the same shape as rfd3-featurizer and af2ig-featurizer.
+    #
+    # Its arm 4 scores the CAPTURE rather than the port, so the leg fails on a bad fixture
+    # instead of agreeing with it: `--art pdl1` (the hydrogen-bearing capture, where 61 of 116
+    # target residues parse unresolved) is documented to FAIL and is checked that way.
+    Leg("pxdesign-featurizer", "pxdesign", "pxdesign", "",
+        note="PXDesign design featurizer vs the committed upstream capture on PD-L1 "
+             "(5 arms, bit-exact, one of them scores the capture); card-free"),
 ]
 
 LEGS_BY_ID = {l.id: l for l in LEGS}
@@ -1276,33 +1288,39 @@ def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
         # the editable install to the SHARED checkout -- the gate would score installed code
         # rather than the tree it lives in, and on a worktree whose tt_bio is newer than the
         # install it fails outright (`tt-bio-worktree-run-recipe`).
-        return _af2ig_subprocess(["scripts/af2_port/parity_gate.py"], out_json,
-                                 "af2ig_featurizer")
+        return _port_gate_subprocess(["scripts/af2_port/parity_gate.py"], out_json,
+                                     "af2ig_featurizer")
+
+    if leg.kind == "pxdesign":
+        # Card-free, and checkpoint-free too: the capture carries the upstream featurizer's own
+        # inputs and outputs, so nothing here needs the 1.7 GB PXDesign weights.
+        return _port_gate_subprocess(["scripts/pxdesign_port/parity_gate.py"], out_json,
+                                     "pxdesign_featurizer")
 
     if leg.kind == "af2ig_trunk":
         # Card-free but NOT checkpoint-free: unlike the featurizer leg this one needs the
         # 373 MB parameter file, so a host without it reports a GAP instead of failing.
-        params = Path(os.path.expanduser("~/pxd_tool_weights/af2/params_model_1_ptm.npz"))
+        params = _af2ig_params()
         if not params.exists():
             return {"mode": "af2ig_taps", "verdict": "GAP",
-                    "error": f"checkpoint absent: {params}"}
-        return _af2ig_subprocess(["scripts/af2_port/tap_gate.py", "--params", str(params),
-                                  "--stage", leg.stage or "complex"], out_json, "af2ig_taps")
+                    "error": f"checkpoint absent: {params} (set AF2IG_PARAMS)"}
+        return _port_gate_subprocess(["scripts/af2_port/tap_gate.py", "--params", str(params),
+                                      "--stage", leg.stage or "complex"], out_json, "af2ig_taps")
 
     if leg.kind == "af2ig_trunk_device":
         # Same scorer with --device, so it needs both the checkpoint AND a card; either absent
         # is a GAP, since a host without a Tenstorrent chip has nothing to say about the ttnn
         # trunk. Pinned to one card because the leg scores one card's numerics.
-        params = Path(os.path.expanduser("~/pxd_tool_weights/af2/params_model_1_ptm.npz"))
+        params = _af2ig_params()
         if not params.exists():
             return {"mode": "af2ig_taps", "verdict": "GAP",
-                    "error": f"checkpoint absent: {params}"}
+                    "error": f"checkpoint absent: {params} (set AF2IG_PARAMS)"}
         if not sorted(Path("/dev/tenstorrent").glob("[0-9]*")):
             return {"mode": "af2ig_taps", "verdict": "GAP", "error": "no Tenstorrent card"}
         env_extra = {"TT_VISIBLE_DEVICES": str(pin_card)} if pin_card is not None else {}
-        return _af2ig_subprocess(["scripts/af2_port/tap_gate.py", "--params", str(params),
-                                  "--stage", leg.stage or "complex", "--device"],
-                                 out_json, "af2ig_taps", env_extra=env_extra)
+        return _port_gate_subprocess(["scripts/af2_port/tap_gate.py", "--params", str(params),
+                                      "--stage", leg.stage or "complex", "--device"],
+                                     out_json, "af2ig_taps", env_extra=env_extra)
 
     if leg.kind == "esmc":
         script = "scripts/esmc6b_embed_parity.py" if leg.model == "esmc-6b" else "scripts/esmc_embed_parity.py"
@@ -1477,12 +1495,23 @@ def _capacity_verdict(report: dict) -> tuple[str, str]:
     return ("PASS" if report.get("gate") else "GAP"), detail
 
 
-def _af2ig_subprocess(argv: list[str], out_json: Path, mode: str,
-                      env_extra: dict | None = None) -> dict:
-    """Run an AF2-IG scorer in a subprocess rooted at this checkout.
+def _af2ig_params() -> Path:
+    """The AF2 monomer pTM parameters the two trunk legs score against.
 
-    PYTHONPATH is the point: both AF2-IG legs must score the tt_bio in the repo they are run
-    from, not whichever one the venv has installed editable.
+    An override rather than a hard-coded home directory: a release host that keeps the 373 MB
+    file anywhere else reported GAP with no way to say where it actually is, which reads as
+    "not covered" and is indistinguishable from "not installed".
+    """
+    return Path(os.path.expanduser(
+        os.environ.get("AF2IG_PARAMS", "~/pxd_tool_weights/af2/params_model_1_ptm.npz")))
+
+
+def _port_gate_subprocess(argv: list[str], out_json: Path, mode: str,
+                          env_extra: dict | None = None) -> dict:
+    """Run a port's own card-free scorer in a subprocess rooted at this checkout.
+
+    PYTHONPATH is the point: these legs must score the tt_bio in the repo they are run from,
+    not whichever one the venv has installed editable.
     """
     proc = subprocess.run([sys.executable, *argv], cwd=REPO, capture_output=True, text=True,
                           env={**os.environ, "PYTHONPATH": str(REPO), **(env_extra or {})})
@@ -1512,6 +1541,29 @@ def _featurizer_verdict(report: dict) -> tuple[str, str]:
     if mm:
         detail += f"; mismatches: {[m['key'] for m in mm]}"
     return verdict, detail
+
+
+def _pxdesign_featurizer_verdict(report: dict) -> tuple[str, str]:
+    """The PXDesign design featurizer, scored on its own five arms.
+
+    A separate scorer from `_featurizer_verdict` because this gate counts ARMS, not keys: three
+    of the five recompute a feature from the captured inputs, one asserts the xpb exclusion is
+    load-bearing by re-running without it, and one scores the capture itself. Reporting that as
+    "n/m keys bit-exact" would name the wrong thing.
+    """
+    if report.get("error"):
+        return "ERROR", str(report["error"])
+    total = report.get("checks_total", 0)
+    if total == 0:
+        return "NO-DATA", "no arms scored"
+    passed = report.get("checks_passed", 0)
+    mm = report.get("mismatches", [])
+    detail = (f"{passed}/{total} arms on {report.get('capture', '?')} "
+              f"({report.get('n_token', '?')} tokens, "
+              f"{report.get('n_conditioned_tokens_at_origin', '?')} conditioned at origin)")
+    if mm:
+        detail += f"; failed: {[m['key'] for m in mm]}"
+    return report.get("verdict", "PASS" if not mm else "FAIL"), detail
 
 
 def _af2ig_device_verdict(leg: Leg, report: dict) -> tuple[str, str]:
@@ -1606,6 +1658,8 @@ def extract_verdict(leg: Leg, report: dict | None) -> tuple[str, str]:
         return _abag_verdict(report)
     if leg.kind == "capacity":
         return _capacity_verdict(report)
+    if leg.kind == "pxdesign":
+        return _pxdesign_featurizer_verdict(report)
     if leg.kind in ("rfd3", "af2ig"):
         return _featurizer_verdict(report)
     if leg.kind == "af2ig_trunk":
