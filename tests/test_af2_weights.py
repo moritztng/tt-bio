@@ -14,9 +14,11 @@ stacked array rather than block 0 forty-eight times.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import numpy as np
+
 import pytest
 import torch
 
@@ -141,11 +143,24 @@ def test_haiku_linear_is_transposed_to_torch_layout():
     assert weight.abs().sum() == 1.0
 
 
+BANNED_FRAMEWORKS = frozenset(
+    ("jax", "jaxlib", "dm-haiku", "haiku", "colabdesign", "optax", "chex", "flax"))
+
+
 def test_no_jax_dependency():
-    """The port's approval rests on no new framework entering tt-bio."""
-    text = (REPO / "pyproject.toml").read_text().lower()
-    for banned in ("jax", "jaxlib", "dm-haiku", "haiku", "colabdesign", "optax", "chex", "flax"):
-        assert banned not in text, f"{banned} must not be a tt-bio dependency"
+    """The port's approval rests on no new framework entering tt-bio.
+
+    Matched on the parsed requirement NAME, not as a substring of the whole file. tt-bio
+    already depends on `jaxtyping` (atomworks, reached from rf3 data/pipelines.py), which is a
+    shape-annotation library that does not depend on jax; a substring check fails on it and
+    cannot tell it apart from a real `jax` entry, so it would have to be deleted rather than
+    kept honest.
+    """
+    text = (REPO / "pyproject.toml").read_text()
+    names = {re.split(r"[<>=!~;\[\s]", q, 1)[0].strip().lower().replace("_", "-")
+             for q in re.findall(r"""["']([^"'\n]+)["']""", text)}
+    hit = names & BANNED_FRAMEWORKS
+    assert not hit, f"{sorted(hit)} must not be a tt-bio dependency"
 
 
 @pytest.mark.skipif(
