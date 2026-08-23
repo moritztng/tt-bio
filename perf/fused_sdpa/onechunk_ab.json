@@ -1,0 +1,256 @@
+{
+ "reps": 25,
+ "drop": 5,
+ "sizes": {
+  "320": {
+   "batch": 256,
+   "legs": {
+    "shipped": {
+     "q_chunk": 320,
+     "k_chunk": 64,
+     "kv_buffer_factor": 2,
+     "ms_med": 0.7461009990947787,
+     "ms_min": 0.6720249984937254,
+     "speedup_vs_shipped": 1.0,
+     "l1": 563712
+    },
+    "AA_early": {
+     "q_chunk": 320,
+     "k_chunk": 64,
+     "kv_buffer_factor": 2,
+     "ms_med": 0.7356810019700788,
+     "ms_min": 0.6701909987896215,
+     "speedup_vs_shipped": 1.0141637436562807,
+     "l1": 563712
+    },
+    "1chunk_kvbf2": {
+     "q_chunk": 320,
+     "k_chunk": 320,
+     "kv_buffer_factor": 2,
+     "ms_med": 0.5250130016065668,
+     "ms_min": 0.42958300036843866,
+     "speedup_vs_shipped": 1.421109566452014,
+     "l1": 793088
+    },
+    "1chunk_kvbf1": {
+     "q_chunk": 320,
+     "k_chunk": 320,
+     "kv_buffer_factor": 1,
+     "ms_med": 0.535494000359904,
+     "ms_min": 0.4405049985507503,
+     "speedup_vs_shipped": 1.3932947868572314,
+     "l1": 752128
+    },
+    "AA_late": {
+     "q_chunk": 320,
+     "k_chunk": 64,
+     "kv_buffer_factor": 2,
+     "ms_med": 0.7433960017806385,
+     "ms_min": 0.6691189992125146,
+     "speedup_vs_shipped": 1.0036387030703164,
+     "l1": 563712
+    }
+   }
+  },
+  "512": {
+   "batch": 256,
+   "legs": {
+    "shipped": {
+     "q_chunk": 512,
+     "k_chunk": 256,
+     "kv_buffer_factor": 2,
+     "ms_med": 1.0858569985430222,
+     "ms_min": 0.9926509992510546,
+     "speedup_vs_shipped": 1.0,
+     "l1": 1264128
+    },
+    "AA_early": {
+     "q_chunk": 512,
+     "k_chunk": 256,
+     "kv_buffer_factor": 2,
+     "ms_med": 1.0598449989629444,
+     "ms_min": 0.9853570008999668,
+     "speedup_vs_shipped": 1.0245432111351476,
+     "l1": 1264128
+    },
+    "1chunk_kvbf2": {
+     "q_chunk": 256,
+     "k_chunk": 512,
+     "kv_buffer_factor": 2,
+     "ms_med": 0.9449969984416384,
+     "ms_min": 0.8571130019845441,
+     "speedup_vs_shipped": 1.1490586746134337,
+     "l1": 920064
+    },
+    "1chunk_kvbf1": {
+     "q_chunk": 512,
+     "k_chunk": 512,
+     "kv_buffer_factor": 1,
+     "ms_med": 1.0131019989785273,
+     "ms_min": 0.929226000152994,
+     "speedup_vs_shipped": 1.0718140914121688,
+     "l1": 1526272
+    },
+    "AA_late": {
+     "q_chunk": 512,
+     "k_chunk": 256,
+     "kv_buffer_factor": 2,
+     "ms_med": 1.089904999389546,
+     "ms_min": 1.0020800000347663,
+     "speedup_vs_shipped": 0.9962859140486638,
+     "l1": 1264128
+    }
+   }
+  },
+  "768": {
+   "batch": 256,
+   "legs": {
+    "shipped": {
+     "q_chunk": 384,
+     "k_chunk": 256,
+     "kv_buffer_factor": 2,
+     "ms_med": 2.108467000653036,
+     "ms_min": 2.024158999120118,
+     "speedup_vs_shipped": 1.0,
+     "l1": 1190400
+    },
+    "AA_early": {
+     "q_chunk": 384,
+     "k_chunk": 256,
+     "kv_buffer_factor": 2,
+     "ms_med": 2.11190399932093,
+     "ms_min": 2.023018001636956,
+     "speedup_vs_shipped": 0.9983725592313859,
+     "l1": 1190400
+    },
+    "1chunk_kvbf2": {
+     "q_chunk": 256,
+     "k_chunk": 768,
+     "kv_buffer_factor": 2,
+     "ms_med": 1.8067589990096167,
+     "ms_min": 1.6834439993544947,
+     "speedup_vs_shipped": 1.1669885146877927,
+     "l1": 1247744
+    },
+    "1chunk_kvbf1": {
+     "q_chunk": 256,
+     "k_chunk": 768,
+     "kv_buffer_factor": 1,
+     "ms_med": 1.790846999938367,
+     "ms_min": 1.7082020021916833,
+     "speedup_vs_shipped": 1.1773574184313904,
+     "l1": 1149440
+    },
+    "AA_late": {
+     "q_chunk": 384,
+     "k_chunk": 256,
+     "kv_buffer_factor": 2,
+     "ms_med": 2.1453599983942695,
+     "ms_min": 2.0334779983386397,
+     "speedup_vs_shipped": 0.9828033533911107,
+     "l1": 1190400
+    }
+   }
+  },
+  "1024": {
+   "batch": 256,
+   "legs": {
+    "shipped": {
+     "q_chunk": 256,
+     "k_chunk": 256,
+     "kv_buffer_factor": 2,
+     "ms_med": 4.008870000689058,
+     "ms_min": 3.801308001129655,
+     "speedup_vs_shipped": 1.0,
+     "l1": 985600
+    },
+    "AA_early": {
+     "q_chunk": 256,
+     "k_chunk": 256,
+     "kv_buffer_factor": 2,
+     "ms_med": 3.9510259994131047,
+     "ms_min": 3.82086800163961,
+     "speedup_vs_shipped": 1.0146402481999726,
+     "l1": 985600
+    },
+    "1chunk_kvbf2": {
+     "q_chunk": 128,
+     "k_chunk": 1024,
+     "kv_buffer_factor": 2,
+     "ms_med": 3.396193998923991,
+     "ms_min": 3.2297640027536545,
+     "speedup_vs_shipped": 1.180400766846411,
+     "l1": 977408
+    },
+    "1chunk_kvbf1": {
+     "q_chunk": 256,
+     "k_chunk": 1024,
+     "kv_buffer_factor": 1,
+     "ms_med": 3.4104730002582073,
+     "ms_min": 3.1484720020671375,
+     "speedup_vs_shipped": 1.1754586535021816,
+     "l1": 1444352
+    },
+    "AA_late": {
+     "q_chunk": 256,
+     "k_chunk": 256,
+     "kv_buffer_factor": 2,
+     "ms_med": 4.0110139998432714,
+     "ms_min": 3.799365000304533,
+     "speedup_vs_shipped": 0.9994654720341795,
+     "l1": 985600
+    }
+   }
+  },
+  "256": {
+   "batch": 256,
+   "legs": {
+    "shipped": {
+     "q_chunk": 256,
+     "k_chunk": 256,
+     "kv_buffer_factor": 2,
+     "ms_med": 0.6123759994807187,
+     "ms_min": 0.3584620026231278,
+     "speedup_vs_shipped": 1.0,
+     "l1": 592384
+    },
+    "AA_early": {
+     "q_chunk": 256,
+     "k_chunk": 256,
+     "kv_buffer_factor": 2,
+     "ms_med": 0.6490679988928605,
+     "ms_min": 0.4402640006446745,
+     "speedup_vs_shipped": 0.9434697143061611,
+     "l1": 592384
+    },
+    "1chunk_kvbf2": {
+     "q_chunk": 256,
+     "k_chunk": 256,
+     "kv_buffer_factor": 2,
+     "ms_med": 0.458511000033468,
+     "ms_min": 0.3724899979715701,
+     "speedup_vs_shipped": 1.3355753720979862,
+     "l1": 592384
+    },
+    "1chunk_kvbf1": {
+     "q_chunk": 256,
+     "k_chunk": 256,
+     "kv_buffer_factor": 1,
+     "ms_med": 0.43104599899379537,
+     "ms_min": 0.34579600105644204,
+     "speedup_vs_shipped": 1.4206743616927378,
+     "l1": 559616
+    },
+    "AA_late": {
+     "q_chunk": 256,
+     "k_chunk": 256,
+     "kv_buffer_factor": 2,
+     "ms_med": 0.48446299842908047,
+     "ms_min": 0.35447399932309054,
+     "speedup_vs_shipped": 1.2640304862629528,
+     "l1": 592384
+    }
+   }
+  }
+ }
+}

@@ -1,0 +1,57 @@
+{
+ "sizes": {
+  "320": {
+   "shipped_k": 64,
+   "padded_k": 320,
+   "picks_off": {
+    "(320, 320)": [
+     320,
+     64,
+     2
+    ]
+   },
+   "k_served_off": [
+    64
+   ],
+   "picks_on": {
+    "(320, 320)": [
+     320,
+     320,
+     2
+    ]
+   },
+   "k_served_on": [
+    320
+   ],
+   "outputs_differ": true,
+   "rel_delta": 0.01635008119046688
+  },
+  "512": {
+   "shipped_k": 256,
+   "padded_k": 512,
+   "picks_off": {
+    "(512, 512)": [
+     512,
+     256,
+     2
+    ]
+   },
+   "k_served_off": [
+    256
+   ],
+   "picks_on": {
+    "(512, 512)": [
+     512,
+     512,
+     1
+    ]
+   },
+   "k_served_on": [
+    512
+   ],
+   "outputs_differ": true,
+   "rel_delta": 0.01225784607231617
+  }
+ },
+ "fails": []
+}

@@ -1,0 +1,182 @@
+{
+ "heads": 4,
+ "head_dim": 32,
+ "arch": "Arch.BLACKHOLE",
+ "grid": [
+  11,
+  10
+ ],
+ "reps": 3,
+ "ckc": "(MathFidelity.HiFi4, False, True, False)",
+ "l1_budget": 1572864,
+ "l1_base": 111104,
+ "sizes": {
+  "320": {
+   "padded": 320,
+   "batch": 256,
+   "shipped_k_chunk": 64,
+   "shipped_q_chunk": 320,
+   "arms": {
+    "fp32_materialised": {
+     "n": 10485760,
+     "mean": -0.00470578670501709,
+     "std": 0.007997667416930199,
+     "max_abs": 0.0390625,
+     "frac_above_one": 0.0,
+     "mean_over_sem": 1905.324074696383,
+     "rel_rms": 0.00927939172834158,
+     "declined": false,
+     "ms_min": 7.570354999188567,
+     "ms_med": 7.8029889991739765
+    },
+    "hifi_shipped": {
+     "q_chunk": 320,
+     "k_chunk": 64,
+     "kv_buffer_factor": 2,
+     "k_num_chunks": 5,
+     "l1_predicted": 563712,
+     "l1_fits_predicted": true,
+     "n": 10485760,
+     "mean": -0.002464425517246127,
+     "std": 0.003810702823102474,
+     "max_abs": 0.015625,
+     "frac_above_one": 0.03344421461224556,
+     "mean_over_sem": 2094.163432571033,
+     "rel_rms": 0.004538154695183039,
+     "declined": false,
+     "ms_min": 1.8239269993500784,
+     "ms_med": 1.966700998309534
+    },
+    "hifi_1chunk_q320_kvbf2": {
+     "q_chunk": 320,
+     "k_chunk": 320,
+     "kv_buffer_factor": 2,
+     "k_num_chunks": 1,
+     "l1_predicted": 793088,
+     "l1_fits_predicted": true,
+     "n": 10485760,
+     "mean": -0.0005024075508117676,
+     "std": 0.0023548665922135115,
+     "max_abs": 0.0078125,
+     "frac_above_one": 0.03202209621667862,
+     "mean_over_sem": 690.8596146350286,
+     "rel_rms": 0.0024078639689832926,
+     "declined": false,
+     "ms_min": 0.44199499825481325,
+     "ms_med": 0.4723330021079164
+    },
+    "hifi_1chunk_q320_kvbf1": {
+     "q_chunk": 320,
+     "k_chunk": 320,
+     "kv_buffer_factor": 1,
+     "k_num_chunks": 1,
+     "l1_predicted": 752128,
+     "l1_fits_predicted": true,
+     "n": 10485760,
+     "mean": -0.0005024075508117676,
+     "std": 0.0023548665922135115,
+     "max_abs": 0.0078125,
+     "frac_above_one": 0.03202209621667862,
+     "mean_over_sem": 690.8596146350286,
+     "rel_rms": 0.0024078639689832926,
+     "declined": false,
+     "ms_min": 0.4421359990374185,
+     "ms_med": 0.4795969980477821
+    }
+   },
+   "one_chunk_bit_identical": {
+    "hifi_1chunk_q320_kvbf2 vs hifi_1chunk_q320_kvbf1": true
+   }
+  },
+  "512": {
+   "padded": 512,
+   "batch": 256,
+   "shipped_k_chunk": 256,
+   "shipped_q_chunk": 512,
+   "arms": {
+    "fp32_materialised": {
+     "n": 16777216,
+     "mean": -0.005405761301517487,
+     "std": 0.008005714975297451,
+     "max_abs": 0.0390625,
+     "frac_above_one": 0.0,
+     "mean_over_sem": 2765.773995119398,
+     "rel_rms": 0.009659902192652225,
+     "declined": false,
+     "ms_min": 18.82229799957713,
+     "ms_med": 19.190262002666714
+    },
+    "hifi_shipped": {
+     "q_chunk": 512,
+     "k_chunk": 256,
+     "kv_buffer_factor": 2,
+     "k_num_chunks": 2,
+     "l1_predicted": 1264128,
+     "l1_fits_predicted": true,
+     "n": 16777216,
+     "mean": -0.00151844322681427,
+     "std": 0.0034537645988166332,
+     "max_abs": 0.015625,
+     "frac_above_one": 0.041927337646484375,
+     "mean_over_sem": 1800.8012066491904,
+     "rel_rms": 0.0037728184834122658,
+     "declined": false,
+     "ms_min": 1.0455089977767784,
+     "ms_med": 1.1351809989719186
+    },
+    "hifi_1chunk_q512_kvbf2": {
+     "q_chunk": 512,
+     "k_chunk": 512,
+     "kv_buffer_factor": 2,
+     "k_num_chunks": 1,
+     "l1_predicted": 1591808,
+     "l1_fits_predicted": false,
+     "declined": true,
+     "l1_device": 1591808,
+     "l1_device_budget": 1572864,
+     "l1_model_error": 0,
+     "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1591808 B which is beyond max L1 si"
+    },
+    "hifi_1chunk_q256_kvbf2": {
+     "q_chunk": 256,
+     "k_chunk": 512,
+     "kv_buffer_factor": 2,
+     "k_num_chunks": 1,
+     "l1_predicted": 920064,
+     "l1_fits_predicted": true,
+     "n": 16777216,
+     "mean": -0.000623263418674469,
+     "std": 0.0024648832622915506,
+     "max_abs": 0.0078125,
+     "frac_above_one": 0.030811309814453125,
+     "mean_over_sem": 1035.7029892430926,
+     "rel_rms": 0.0025424605701118708,
+     "declined": false,
+     "ms_min": 1.1266520014032722,
+     "ms_med": 1.216422999277711
+    },
+    "hifi_1chunk_q512_kvbf1": {
+     "q_chunk": 512,
+     "k_chunk": 512,
+     "kv_buffer_factor": 1,
+     "k_num_chunks": 1,
+     "l1_predicted": 1526272,
+     "l1_fits_predicted": true,
+     "n": 16777216,
+     "mean": -0.000623263418674469,
+     "std": 0.0024648832622915506,
+     "max_abs": 0.0078125,
+     "frac_above_one": 0.030811309814453125,
+     "mean_over_sem": 1035.7029892430926,
+     "rel_rms": 0.0025424605701118708,
+     "declined": false,
+     "ms_min": 1.0587160031718668,
+     "ms_med": 1.1706000004778616
+    }
+   },
+   "one_chunk_bit_identical": {
+    "hifi_1chunk_q256_kvbf2 vs hifi_1chunk_q512_kvbf1": true
+   }
+  }
+ }
+}
