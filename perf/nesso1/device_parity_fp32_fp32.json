@@ -1,0 +1,148 @@
+{
+  "gate": "nesso1_device_parity",
+  "fixture": "tyr48",
+  "n_tokens": 61,
+  "repeats": 3,
+  "arm": {
+    "trunk": "fp32",
+    "affinity": "fp32"
+  },
+  "R_upstream_spread": 0.058,
+  "D_device_solo_floor": 0.0,
+  "D_device_solo_floor_key": "",
+  "X_device_vs_torch": 0.07567194104194641,
+  "X_device_vs_torch_key": "affinity_logits_binary",
+  "X_over_R": 1.3046886386542484,
+  "wall_s": {
+    "torch": 9.35212522799884,
+    "device": [
+      3.2730391949990008,
+      2.7174145999997563,
+      2.712788377999459
+    ]
+  },
+  "scalars": [
+    {
+      "key": "affinity_pred_value",
+      "torch": 1.5524084568023682,
+      "device": [
+        1.5324777364730835,
+        1.5324777364730835,
+        1.5324777364730835
+      ],
+      "max_abs_delta_vs_torch": 0.019930720329284668,
+      "device_spread": 0.0
+    },
+    {
+      "key": "affinity_pred_value1",
+      "torch": 1.7319294214248657,
+      "device": [
+        1.6719510555267334,
+        1.6719510555267334,
+        1.6719510555267334
+      ],
+      "max_abs_delta_vs_torch": 0.059978365898132324,
+      "device_spread": 0.0
+    },
+    {
+      "key": "affinity_pred_value2",
+      "torch": 1.3728876113891602,
+      "device": [
+        1.3930044174194336,
+        1.3930044174194336,
+        1.3930044174194336
+      ],
+      "max_abs_delta_vs_torch": 0.020116806030273438,
+      "device_spread": 0.0
+    },
+    {
+      "key": "affinity_logits_binary",
+      "torch": -0.482992559671402,
+      "device": [
+        -0.5586645007133484,
+        -0.5586645007133484,
+        -0.5586645007133484
+      ],
+      "max_abs_delta_vs_torch": 0.07567194104194641,
+      "device_spread": 0.0
+    },
+    {
+      "key": "affinity_probability_binary",
+      "torch": 0.3815457224845886,
+      "device": [
+        0.3638565242290497,
+        0.3638565242290497,
+        0.3638565242290497
+      ],
+      "max_abs_delta_vs_torch": 0.01768919825553894,
+      "device_spread": 0.0
+    },
+    {
+      "key": "entropy_pp",
+      "torch": 0.5481131076812744,
+      "device": [
+        0.5528790354728699,
+        0.5528790354728699,
+        0.5528790354728699
+      ],
+      "max_abs_delta_vs_torch": 0.004765927791595459,
+      "device_spread": 0.0
+    },
+    {
+      "key": "entropy_pl",
+      "torch": 0.6867183446884155,
+      "device": [
+        0.6899641752243042,
+        0.6899641752243042,
+        0.6899641752243042
+      ],
+      "max_abs_delta_vs_torch": 0.003245830535888672,
+      "device_spread": 0.0
+    },
+    {
+      "key": "entropy_ll",
+      "torch": 0.21018992364406586,
+      "device": [
+        0.21052439510822296,
+        0.21052439510822296,
+        0.21052439510822296
+      ],
+      "max_abs_delta_vs_torch": 0.0003344714641571045,
+      "device_spread": 0.0
+    },
+    {
+      "key": "entropy_crop_pp",
+      "torch": 0.726640522480011,
+      "device": [
+        0.7273620367050171,
+        0.7273620367050171,
+        0.7273620367050171
+      ],
+      "max_abs_delta_vs_torch": 0.0007215142250061035,
+      "device_spread": 0.0
+    },
+    {
+      "key": "entropy_crop_pl",
+      "torch": 0.9056439995765686,
+      "device": [
+        0.9075827598571777,
+        0.9075827598571777,
+        0.9075827598571777
+      ],
+      "max_abs_delta_vs_torch": 0.0019387602806091309,
+      "device_spread": 0.0
+    },
+    {
+      "key": "entropy_crop_ll",
+      "torch": 0.21018992364406586,
+      "device": [
+        0.21052439510822296,
+        0.21052439510822296,
+        0.21052439510822296
+      ],
+      "max_abs_delta_vs_torch": 0.0003344714641571045,
+      "device_spread": 0.0
+    }
+  ],
+  "verdict": "FAIL"
+}

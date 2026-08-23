@@ -46,6 +46,7 @@ from tt_bio.esmc import (
     _rope,
     _batch_tokens,
     BUCKET,
+    bucket_token_axis,
     _shard_by_length,
     _reassemble,
     _thread_cap_env,
@@ -405,6 +406,16 @@ class Saprot(TorchWrapper):
         return SaprotModel(self.n_heads, self.n_layers, weights, self.compute_kernel_config)
 
     def forward(self, tokens, attn_mask=None, key_valid=None, embed_mask=None):
+        """Bucketed at the op boundary, not only in the batcher -- see esmc.bucket_token_axis.
+        `_batch_saprot` has already bucketed on the CLI path, so there this is a no-op."""
+        tokens, attn_mask, key_valid, embed_mask, L = bucket_token_axis(
+            tokens, attn_mask, key_valid, embed_mask, pad_token=PAD)
+        logits, emb = self._dispatch(tokens, attn_mask, key_valid, embed_mask)
+        if int(tokens.shape[1]) == L:
+            return logits, emb
+        return logits[:, :L], emb[:, :L]
+
+    def _dispatch(self, tokens, attn_mask, key_valid, embed_mask):
         tokens_tt = ttnn.from_torch(
             tokens.to(torch.int32), device=self.tt_device,
             layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32,

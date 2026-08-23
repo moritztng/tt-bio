@@ -371,6 +371,14 @@ def main() -> int:
                     help="score the cached seeds and exit; no model, no card")
     ap.add_argument("--arm", default="a0", choices=sorted(ARMS),
                     help="triangle-attention route; see scripts/rf3_port/arms.py")
+    ap.add_argument("--one-k-chunk", action="store_true",
+                    help="force TriangleAttention(tri_att_one_k_chunk=True) on every instance "
+                         "the model constructs, so the fused SDPA spans the key length in ONE k "
+                         "chunk. Reachable only on --arm a2/the TT_BIO_TRIATT_FUSED_HIFI route, "
+                         "and a provable no-op at any size whose PADDED length is at or below "
+                         "the shipped k_chunk -- which both anchors are (76 and 117 aa both pad "
+                         "to 128, where _sdpa_chunks_shipped already returns k_chunk = 128). "
+                         "Kept so that no-op is measured rather than asserted.")
     ap.add_argument("--ref-cache", default=None,
                     help="where the arm-independent reference coordinates live; defaults "
                          "to a0's work dir, so a new arm pays only its device rollout")
@@ -437,6 +445,24 @@ def main() -> int:
     report["arm_applied"] = apply_arm(args.arm)
     print(json.dumps(report["arm_applied"], indent=2), flush=True)
 
+    # Patch the CLASS, not an instance: the kwarg is read in __init__, and one class patch
+    # covers the 48-block trunk stack, the template embedder and the confidence head without
+    # a post-hoc module walk having to rediscover where they are. Every kwarg on the signature
+    # has a default and PairformerLayer passes them by keyword, so forcing one by name cannot
+    # displace a positional.
+    triatt_built = {"n": 0}
+    report["one_k_chunk"] = args.one_k_chunk
+    if args.one_k_chunk:
+        import tt_bio.tenstorrent as _T
+        _orig_init = _T.TriangleAttention.__init__
+
+        def _init(self, *ar, **kw):
+            kw["tri_att_one_k_chunk"] = True
+            triatt_built["n"] += 1
+            _orig_init(self, *ar, **kw)
+
+        _T.TriangleAttention.__init__ = _init
+
     import ttnn
     from tt_bio.rf3 import model as rf3_model
     from tt_bio.tenstorrent import get_device
@@ -461,6 +487,20 @@ def main() -> int:
     report["timing_s"] = {str(s): [round(float(x), 1) for x in per_seed[s]["timing"]]
                           for s in seeds}
     report["draws_sha"] = {str(s): str(per_seed[s]["shastr"][0]) for s in seeds}
+    # The device coordinates themselves, hashed. draws_sha above is the RNG stream, which is
+    # arm-independent by construction, so it cannot witness a kernel change: two arms that
+    # differ agree on it. This is what an A/B on a bit-exact-or-not lever actually compares.
+    report["dev_sha"] = {
+        str(s): hashlib.sha256(
+            np.ascontiguousarray(per_seed[s]["dev"], dtype=np.float64).tobytes()
+        ).hexdigest()[:16] for s in seeds}
+    import tt_bio.tenstorrent as _TT
+    # A silent L1 refusal falls through to exactly the baseline config, so the served
+    # (q_chunk, k_chunk, kv_buffer_factor) is the only proof the arm is the arm.
+    report["triatt_fused_hifi_picks"] = {f"{q}x{k}": list(v) for (q, k), v
+                                         in sorted(_TT.TRIATT_FUSED_HIFI_PICKS.items())}
+    report["triatt_fused_hifi_stats"] = dict(_TT.TRIATT_FUSED_HIFI_STATS)
+    report["triatt_instances_forced_one_k_chunk"] = triatt_built["n"]
     report["flags"] = resolved_flags()
     print(json.dumps(report, indent=2))
     if args.out:
