@@ -47,7 +47,7 @@ h1 em{font-style:normal;font-weight:600;color:var(--ink)}
 .facts .n{font-family:var(--display);font-weight:300;font-size:clamp(2.4rem,5vw,3.2rem);
   line-height:1;letter-spacing:-.035em;color:var(--ink);font-variant-numeric:tabular-nums}
 .facts .k{font-size:1.02rem;color:var(--ink);margin-top:12px;font-weight:500}
-.facts .s{font-size:.88rem;color:var(--ink-3);margin-top:4px;max-width:22ch}
+.facts .s{font-size:.88rem;color:var(--ink-3);margin-top:4px;max-width:30ch}
 
 section{padding:76px 0}
 section+section{border-top:1px solid var(--rule)}
@@ -326,8 +326,8 @@ function build(D){
     document.getElementById("perkrange").textContent =
       vsB200[0].r.toFixed(1) + "× to " + hi.r.toFixed(1) +
       "× across the models on the benchmark page" +
-      (hi.pending ? ". The top of that range is " + hi.name +
-                    ", which has no reference-parity run of its own yet." : ".");
+      (hi.pending ? ". The top of it, " + hi.name +
+                    ", has no reference-parity run yet." : ".");
   }
 
   const srv = CELLS.map(k => P[SERVER_OF[k]]);
