@@ -100,8 +100,14 @@ cached and cards are free. Fan it across every card that is up for parallelism:
 python3 scripts/full_parity_gate.py --workers pc:0,qb1:0,qb1:1,qb2:0
 ```
 
-Two guards can stop either gate before it folds anything:
+Three guards can stop either gate before it folds anything:
 
+* **Worker names.** Every host in `--workers` that is not this box is probed once over ssh before
+  the first fold: reachable, actually a different machine, and carrying the card numbers you asked
+  for. Run the gate *on* qb2 with `--workers qb2:2` and `qb2` is an ssh alias that box cannot
+  resolve, so it would ssh to nothing and every device leg would exit 255 in 0s while the
+  in-process legs passed — a FAIL after 47 minutes with no model run. Write `localhost:2` for cards
+  on the box you are running on.
 * **Card grant.** `TT_VISIBLE_DEVICES` is the set of cards the run may open. Ask `--workers` for
   a card outside it and the gate refuses in preflight rather than taking a card a sibling job
   holds. A release run leaves it unset, which means the whole box and is the unchanged path; the
