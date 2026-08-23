@@ -145,9 +145,15 @@ do_measure() {
 
   # --- the seven new rows -----------------------------------------------------------------
   step new_esmfold2fast 3600 env TAG="$TAG" MODELS="esmfold2-fast" bash gpu5_session.sh
+  # EMBED_REPEAT=15, not 3. Every one of these six rows is 7-41 ms of device work, so with only
+  # three samples the max-min spread is host scheduling noise rather than a property of the GPU:
+  # on the B200, saprot-650m read 58.1 % at n=3 and 3.4 % at n=15, while its median moved 9 %.
+  # The medians agreed to 5-9 % between the two, so n=3 was not wrong, it was just imprecise on
+  # rows this short. Still inside the protocol's "n>=3 where affordable", and these rows cost
+  # seconds each.
   for m in esmc-300m esmc-600m esmc-6b saprot-35m saprot-650m saprot-1.3b; do
     step "new_$m" 2400 /root/venv-esm312/bin/python gpu_embed_bench.py --model "$m" \
-      --repeat 3 --out "$R/gpu_embed_${m}_prot512_${TAG}.json"
+      --repeat "${EMBED_REPEAT:-15}" --out "$R/gpu_embed_${m}_prot512_${TAG}.json"
   done
 
   # The counter says cuEquivariance ran; only a per-call timing at the model's own shape says
