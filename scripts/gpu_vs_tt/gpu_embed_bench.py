@@ -118,13 +118,27 @@ def pooled(hidden):
 
 
 def load_model(spec: dict, dtype, attn: str):
+    """Load a row's weights at the requested dtype, and prove the dtype took.
+
+    `from_pretrained` swallows an unrecognised kwarg rather than raising, and transformers
+    renamed this argument (`torch_dtype` -> `dtype`). On a version that does not know the name
+    we asked for, the model loads fp32 in silence: nothing crashes, the cosine control reads a
+    perfect 1.0 because both arms are the same arm, and the row publishes an fp32 time under a
+    bf16 label. So the loaded dtype is asserted, not requested -- the same reason the SDPA
+    backend is counted instead of trusted.
+    """
     transformers = importlib.import_module("transformers")
-    kw = dict(dtype=dtype, attn_implementation=attn)
-    if spec["loader"] == "auto":
-        cls = getattr(transformers, "AutoModelForMaskedLM")
-    else:
-        cls = getattr(transformers, "EsmForMaskedLM")
-    return cls.from_pretrained(spec["repo"], **kw)
+    cls = getattr(transformers, "AutoModelForMaskedLM" if spec["loader"] == "auto"
+                  else "EsmForMaskedLM")
+    try:
+        model = cls.from_pretrained(spec["repo"], dtype=dtype, attn_implementation=attn)
+    except TypeError:  # pre-rename transformers
+        model = cls.from_pretrained(spec["repo"], torch_dtype=dtype, attn_implementation=attn)
+    got = next(p.dtype for p in model.parameters() if p.is_floating_point())
+    if got != dtype:
+        raise SystemExit(f"{spec['repo']}: asked for {dtype}, loaded {got}. Refusing to "
+                         f"publish a {got} timing as {dtype}.")
+    return model
 
 
 def load_tokenizer(spec: dict):
@@ -184,14 +198,17 @@ def run(args) -> dict:
 
     s = summarize(times)
     med = s.get("warm_median_s")
+    # Derive seq/s from the batch that actually ran, not the one we asked for. The whole point
+    # of this row set is that requested and executed differ at 512 aa.
+    n_seqs = int(enc["input_ids"].shape[0])
     return dict(
         s,
         load_s=round(load_s, 2),
         repo=spec["repo"], family=spec["family"], loader=spec["loader"],
         batch_requested=args.batch, batch_executed=int(enc["input_ids"].shape[0]),
         n_residues=len(seq), n_tokens=n_tokens, d_model=d_model,
-        seq_per_s=(round(args.batch / med, 3) if med else None),
-        s_per_seq=(round(med / args.batch, 5) if med else None),
+        seq_per_s=(round(n_seqs / med, 3) if med else None),
+        s_per_seq=(round(med / n_seqs, 5) if med else None),
         kernel_counts_total=dict(sdpa),
         attn_implementation_requested=args.attn,
         # A requested backend is not a running backend. Zero SDPA calls means eager attention.
@@ -242,13 +259,17 @@ def main() -> int:
                     help="no torch, no weights: verify the fixture digest, the batch this row "
                          "runs and the token count it will feed the model. Runs on any CPU box, "
                          "so a wrong fixture or a wrong batch is never found on a paid instance")
-    ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--out", type=Path,
+                    help="where the result JSON goes; not needed with --dry-run, which writes "
+                         "nothing")
     args = ap.parse_args()
     if args.batch is None:
         args.batch = ROWS[args.model]["batch"]
 
     if args.dry_run:
         return dry_run(args)
+    if args.out is None:
+        ap.error("--out is required unless --dry-run")
 
     t0 = time.perf_counter()
     try:
