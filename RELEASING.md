@@ -158,14 +158,25 @@ control in a single process and requires the three to agree exactly on the struc
 both affinity heads while the control does not. The control is what keeps the leg honest:
 without it, a run where every fold collapsed to one constant would also pass.
 
-`scripts/release_gate.py` remains as a fast single-target smoke proxy (one
-7ROA fold per model + a BoltzGen/OpenDDE-abag/ESMC quick check) for a quick
-sanity look, but it is no longer the parity gate of record — `full_parity_gate.py`
-is the command that must pass before a tag. The two do not overlap awkwardly:
-the full gate runs the BoltzGen designability and OpenDDE-abag DockQ legs by
-calling `release_gate`'s vetted `run_boltzgen` / `run_opendde_abag` **in-process**
-(capturing their real scRMSD/DockQ numbers), so there is one implementation of
-each leg, not two.
+**Both gate scripts must pass before a tag, and neither is a subset of the
+other.** `full_parity_gate.py` is the parity gate of record: it owns the
+multi-seed reference-fixture comparison for the models it has legs for.
+`release_gate.py` owns the per-model ground-truth accuracy floors in its `MODELS`
+dict (the table above) plus the `DEFAULT_ARMS` legs, and for some models it is the
+*only* place a correctness leg exists at all — RF3, for one, has no
+`full_parity_gate.py` leg, so skipping `release_gate.py` ships RF3 with no
+accuracy check. Do not read "parity gate of record" as "the only gate that has to
+pass".
+
+The two do not overlap awkwardly: the full gate runs the BoltzGen designability
+and OpenDDE-abag DockQ legs by calling `release_gate`'s vetted `run_boltzgen` /
+`run_opendde_abag` **in-process** (capturing their real scRMSD/DockQ numbers), so
+there is one implementation of each leg, not two.
+
+Before a tag, check which command scores each shipped model rather than assuming
+one covers everything: `grep -n <model> scripts/full_parity_gate.py
+scripts/release_gate.py`. A model named in a gate's docstring but missing from its
+leg list is not covered, and a leg that does not run reports no failure.
 
 ### Gate behavior you can rely on
 
@@ -286,7 +297,7 @@ time — an all-day thrash with zero model-numerics problems. Run `--check` and 
 one-leg `--dry-run`/fold smoke first; they catch that whole class in minutes.
 
 The accuracy gate covers Boltz-2, ESMFold2, ESMFold2-fast, Protenix-v2,
-OpenFold3, OpenDDE, BoltzGen designability, OpenDDE-abag antibody-antigen
+OpenFold3, OpenDDE, RF3, BoltzGen designability, OpenDDE-abag antibody-antigen
 docking, and
 ESMC-300m/600m reference parity. It folds 7ROA at production sampling settings,
 parses every written mmCIF, and checks the confidence-selected structure against
@@ -300,6 +311,7 @@ these regression limits:
 | Protenix-v2 | 6.0 Å | 0.50 |
 | OpenFold3 | 3.5 Å | 0.70 |
 | OpenDDE | 6.0 Å | 0.50 |
+| RF3 | 3.0 Å | 0.75 |
 
 ESMFold2's floor is loose because it is anchored to the **default single-sequence**
 fold (measured 5.80 Å / TM 0.508 on Blackhole), not the MSA-on fold the old 4.0 Å /

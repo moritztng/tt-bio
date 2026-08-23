@@ -2,7 +2,7 @@
 """Standing accuracy release gate — the on-hardware accuracy leg of RELEASING.md.
 
 For every shipped fold architecture (Boltz-2, ESMFold2, ESMFold2-fast,
-Protenix-v2, OpenFold3, OpenDDE) this
+Protenix-v2, OpenFold3, OpenDDE, RF3) this
 folds one easy, foldable target end-to-end on the real device with production
 sampling and then applies two independent gates to the result:
 
@@ -1897,9 +1897,10 @@ def main() -> int:
                     choices=list(MODELS) + list(DEFAULT_ARMS) + ["size-ladder"]
                     + ESMC_DEFAULT + ESMC_OPT_IN,
                     action="append",
-                    help="Gate only this model (repeatable). Default: the five fold "
-                         "models + boltzgen + opendde-abag + capacity + l1-budget + "
-                         "size-ladder + ESMC 300m/600m embed parity. "
+                    help="Gate only this model (repeatable). Default: every model in "
+                         "MODELS + every arm in DEFAULT_ARMS + size-ladder + ESMC "
+                         "300m/600m embed parity — the whole default set, so a newly "
+                         "added model or arm is covered without touching this string. "
                          "esmc-6b is opt-in (slow ~13 GB load).")
     ap.add_argument("--keep", action="store_true", help="Keep run output dirs for inspection.")
     ap.add_argument("--size-ladder-record", action="store_true",
