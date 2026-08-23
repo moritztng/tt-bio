@@ -1563,7 +1563,11 @@ def _fp32_softmax_core_budget() -> int:
 # a config to lose (`perf-mechanism-label-expires-when-lever-removes-its-traffic`: at the sizes S1
 # serves there was never a config, which is why S1's decline count could grow 3.9x on the arm that
 # won 1.214x).
-_FP32_SOFTMAX_L1_FLOAT_CORES = env_flag("TT_BIO_FP32_SOFTMAX_L1_FLOAT_CORES", False)
+# On by default since the refusal leash is priced on what retirement falls back to: RF3 reads
+# 1.0154x / 1.0267x / 1.0323x at 512 / 768 / 1024 aa and openfold3 1.0513x at 512 aa, every
+# cell bit-exact, and the 2-heads/960-token class the old global count of 2 existed to protect
+# is still refused by identical counters.
+_FP32_SOFTMAX_L1_FLOAT_CORES = env_flag("TT_BIO_FP32_SOFTMAX_L1_FLOAT_CORES", True)
 
 
 def _fp32_softmax_bmm_served(rows: int, bmm: tuple) -> bool:
