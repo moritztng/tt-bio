@@ -129,6 +129,7 @@ PROTENIX_REPO = "TMF001/protenix-v2-weights"
 BOLTZGEN_REPO = "moritztng/boltzgen"
 OPENDDE_REPO = "aurekaresearch/OpenDDE"
 IPD_BASE = "https://files.ipd.uw.edu/pub"
+PXDESIGN_BASE = "https://pxdesign.tos-cn-beijing.volces.com"
 
 # Sizes come from the source of record (the HF repo's file metadata, or a populated
 # host for the IPD downloads), not from an estimate. They drive the size column, the
@@ -213,6 +214,36 @@ _ROWS: tuple[Artifact, ...] = (
                  "token_initializer.real_weights.pt", "token_initializer.real_weights.meta.json",
                  "diffusion_module.real_weights.pt", "diffusion_module.real_weights.meta.json")),
              note="only the extracted TokenInitializer/DiffusionModule weights are kept"),
+
+    # -- PXDesign (ByteDance, Apache-2.0) --------------------------------------
+    # Upstream URLs rather than a mirror of ours, the same way rf3/rfd3 point at IPD. The
+    # origin serves slowly from outside CN; scripts/pxdesign_port/fetch_release_data.sh
+    # exists for a parallel-range fetch when that matters.
+    #
+    # Only the generator is needed to run `tt-bio design --model pxdesign`. The Protenix
+    # filter checkpoint and the CCD pair belong to the selection stages, which are not on
+    # the CLI, so they are not listed as pxdesign artifacts and are not prefetched.
+    Artifact("pxdesign", ("pxdesign",), "url", "Apache-2.0 (ByteDance)",
+             url=f"{PXDESIGN_BASE}/release_model/pxdesign_v0.1.0.pt", subdir="pxdesign",
+             approx_bytes=556554618, legacy_env=("PXDESIGN_CKPT",),
+             note="PXDesign-d generator; the selection stages are not wired to the CLI"),
+
+    # -- AlphaFold2 monomer pTM parameters (DeepMind, CC BY 4.0) ---------------
+    # AF2-IG scores designs against these. Pinned to the 2022-12-06 release, VERIFIED rather
+    # than assumed: the member's sha256 out of that tar is
+    # 5e564f79af5bcd54ccef6e2a6bb0ff01015d01650ebc41d4575e35f0de9ecc84, which is byte for byte
+    # what every committed AF2-IG tap and device floor was measured against. The file's own
+    # mtime reads Jul 2021 and that is NOT the release -- it is the timestamp archived inside
+    # the tar, preserved because these parameters were not rebuilt between the two releases.
+    # Its own model key, not pxdesign's: the generator never loads these, only the AF2-IG
+    # selection stage and the gate's two trunk legs do, so `tt-bio design --model pxdesign`
+    # must not pull 4 GB on first use. `tt-bio weights --download af2ig` fetches it.
+    Artifact("af2-params", ("af2ig",), "url", "CC BY 4.0 (DeepMind)",
+             url="https://storage.googleapis.com/alphafold/alphafold_params_2022-12-06.tar",
+             subdir="af2", approx_bytes=4670017536, legacy_env=("AF2IG_PARAMS",),
+             derived=Derived("af2/params", "af2-params", discard_archive=True,
+                             expect=("params_model_1_ptm.npz",)),
+             note="only params_model_1_ptm.npz is kept out of the 4 GB archive"),
 
     # -- OpenFold3: no auto-download, on purpose -------------------------------
     Artifact("openfold3", ("openfold3",), "manual", "no parameter licence published",
@@ -534,6 +565,23 @@ def _produce(producer: str, archive: Path, staging: Path, *, quiet: bool = False
             os.replace(src, staging)
         finally:
             shutil.rmtree(holding, ignore_errors=True)
+    elif producer == "af2-params":
+        # A member-filtered extraction, not the stock `tar` producer: the AlphaFold archive is
+        # 4 GB of five model variants and AF2-IG reads exactly one of them, so extracting the
+        # lot would leave 4 GB of parameters nothing loads.
+        import tarfile
+        _echo(f"Extracting params_model_1_ptm.npz from {archive.name}", quiet)
+        want = "params_model_1_ptm.npz"
+        staging.mkdir(parents=True, exist_ok=True)
+        with tarfile.open(archive) as tar:
+            member = next((m for m in tar if Path(m.name).name == want), None)
+            if member is None:
+                raise ValueError(f"{archive.name} does not contain {want}")
+            src = tar.extractfile(member)
+            if src is None:
+                raise ValueError(f"{want} in {archive.name} is not a regular file")
+            with (staging / want).open("wb") as fh:
+                shutil.copyfileobj(src, fh)
     elif producer == "rfd3":
         from tt_bio.rfd3.design import extract_rfd3_weights
         _echo("Extracting RFD3 weights", quiet)
