@@ -55,6 +55,10 @@ def check(procs, censuses):
                if k not in ("TT_BIO_LEASE_CARDS", "TT_BIO_LEASE_HOLDER", "TT_BIO_SDPA_RAGGED_CENSUS")}
         if num:
             fail.append(f"{lbl}: numerics env flags present: {num}")
+    if len(censuses) != len(procs):
+        fail.append(f"{len(censuses)} census files for {len(procs)} processes: expected one each. "
+                    f"A leftover ragged_sites_<pid>.json in a reused census dir looks like an "
+                    f"extra process.")
     ragged = sum(c["sites"]["tri_att"][0] for c in censuses)
     padded = sum(c["padded"] for c in censuses)
     # Aligned is reported PER PROCESS, not summed: a sum matches no single JSON a reader can open,

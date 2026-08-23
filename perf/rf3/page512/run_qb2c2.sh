@@ -79,9 +79,23 @@ done
 echo "QUIET=$QUIET at $(date -u +%FT%TZ) load $(cut -d' ' -f1-3 /proc/loadavg)"
 
 for P in ${RF3_LEGS:-p1 p2}; do
-  if [ -f "$OUT/postflip_${HOST}_${P}.json" ]; then
-    echo "=== $P already has a result, skipping (delete it to re-measure) ==="
-    continue
+  RES="$OUT/postflip_${HOST}_${P}.json"
+  if [ -f "$RES" ]; then
+    if [ "$(cat "$RES.main" 2>/dev/null)" = "$MAIN" ]; then
+      echo "=== $P already has a result measured at $MAIN, skipping ==="
+      continue
+    fi
+    # Unstamped or stamped against another tree. Quarantine rather than skip and rather than
+    # overwrite: a stale result silently pooled with a fresh one is the failure this guards.
+    mkdir -p "$OUT/stale"
+    STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+    mv -f "$RES" "$OUT/stale/$(basename "$RES").$STAMP"
+    # The census dir goes with it: the fresh run writes ragged_sites_<pid>.json into the same
+    # directory, so a leftover file there would be globbed into the publish as an extra process.
+    [ -d "$OUT/census_postflip_${HOST}_${P}" ] &&
+      mv -f "$OUT/census_postflip_${HOST}_${P}" "$OUT/stale/census_${P}.$STAMP"
+    echo "=== $P had a result from another tree ($(cat "$RES.main" 2>/dev/null || echo unstamped)),"
+    echo "    quarantined under $OUT/stale, re-measuring ==="
   fi
   NF=$(nforeign)
   echo "=== $P start $(date -u +%FT%TZ) load $(cut -d' ' -f1-3 /proc/loadavg) foreign=$NF ==="
@@ -99,7 +113,9 @@ for P in ${RF3_LEGS:-p1 p2}; do
         --label "postflip_default_${HOST}_${P}" \
         --out "$OUT/postflip_${HOST}_${P}.json" \
         > "$OUT/postflip_${HOST}_${P}.log" 2>&1
-  echo "=== $P exit $? $(date -u +%FT%TZ) load $(cut -d' ' -f1-3 /proc/loadavg) ==="
+  RC=$?
+  echo "=== $P exit $RC $(date -u +%FT%TZ) load $(cut -d' ' -f1-3 /proc/loadavg) ==="
+  [ "$RC" = 0 ] && [ -f "$RES" ] && printf '%s' "$MAIN" > "$RES.main"
   tail -3 "$OUT/postflip_${HOST}_${P}.log"
 done
 echo "ALLDONE $(date -u +%FT%TZ)"
