@@ -83,10 +83,13 @@ MSA_ROW_CHUNK_BUDGET_BYTES = 1 << 28      # 0.25 GiB
 MSA_HOST_OFFLOAD_MIN_BYTES = 1 << 30      # 1 GiB
 
 
-TOKEN_PAD_MULTIPLE = 32
-# 32, not the Pairformer's 64: 32 is the tile and therefore the whole rule, and at N=580 a 64
-# bucket costs 640 against 608 on work that scales as N-squared. See PLAYBOOKS.md §MODEL 2b and
-# tt_bio/token_axis.py.
+TOKEN_PAD_MULTIPLE = 64
+# 64, the same multiple as PAIRFORMER_PAD_MULTIPLE and the rest of the Pairformer family. 32 is
+# the tile, so 32 is all correctness needs, and on an unaligned axis it is the cheaper of the two:
+# at N=580 a 64 bucket costs 640 tokens against 608 on work that scales as N-squared. It loses
+# anyway, because the pad amount is a tuned parameter and not a free one -- the one panel target
+# whose fold is sensitive to it is 4.2x better padded to 128 than to 96 (1.5688 A CA against
+# 6.6630 A, with the padding itself proven inert at two poison values). See tt_bio/token_axis.py.
 
 
 def _token_pad_multiple() -> int:
@@ -117,14 +120,28 @@ def _pad_poison() -> float:
 def _token_bucket() -> bool:
     """Pad the TRUNK's token axis out to a tile multiple, masked, and slice back on exit.
 
-    Off by default: this changes the trunk's shapes, its DRAM peak and therefore the largest
-    target that fits, so flipping it is a release decision. On, protenix-v2 / opendde /
-    opendde-abag stop presenting a ragged token axis to the triangle attention -- 1208 of 1208
-    calls at N=98 today, and both the stock and fused SDPA are MEASURED to read the padded key
-    columns at a bias of zero (perf/bucketing_audit/fused_sdpa_ragged_probe.py: relative error
-    0.914 ragged against 0.038 aligned).
+    On by default. Both the stock and the fused SDPA are MEASURED to read the padded key columns
+    at a bias of zero (perf/bucketing_audit/fused_sdpa_ragged_probe.py: relative error 0.914
+    ragged against 0.038 aligned), so without this protenix-v2 / opendde / opendde-abag present a
+    ragged token axis to the triangle attention on every call at an unaligned N -- 1208 of 1208 at
+    N=98. The padding is proven inert rather than assumed so: two poison values give bit-identical
+    trunk fingerprints.
+
+    At an N that is already a multiple of TOKEN_PAD_MULTIPLE the pad is 0 and both bucketing sites
+    early-out, so this costs exactly nothing there and changes no number. Set the flag to 0 to get
+    the ragged path back for an A/B.
     """
-    return env_flag("TT_BIO_PROTENIX_TOKEN_BUCKET", False)
+    return env_flag("TT_BIO_PROTENIX_TOKEN_BUCKET", True)
+
+
+def bucketed_width(N: int, mult: int | None = None) -> int:
+    """The width `bucketed_pairformer` will actually run an axis of length `N` at.
+
+    Callers that size something else off the same axis need this rather than their own copy of the
+    arithmetic: OpenDDE's refiner prewarms its fused input-weight cache from the width it is about
+    to run at, and a prewarm at the unpadded width warms an entry the call then does not use.
+    """
+    return N + (-N) % (mult or _token_pad_multiple()) if _token_bucket() else N
 
 
 def bucketed_pairformer(pf, s, z, dev, mult: int | None = None, extra_attn_bias=None):
@@ -138,8 +155,8 @@ def bucketed_pairformer(pf, s, z, dev, mult: int | None = None, extra_attn_bias=
     caller is the recurring failure (`fused-sdpa-ragged-tile-tail-and-census-discipline`).
     """
     N = int(z.shape[1])
-    pad = (-N) % (mult or _token_pad_multiple())
-    if not pad or not _token_bucket():
+    pad = bucketed_width(N, mult) - N
+    if not pad:
         return pf(s, z, extra_attn_bias=extra_attn_bias)
     Np = N + pad
     m1 = torch.zeros(1, Np)

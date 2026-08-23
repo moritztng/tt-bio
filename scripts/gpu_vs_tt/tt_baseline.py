@@ -435,18 +435,23 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
 
 def measure(model: str, repeat: int, msa_dir: Path, out_path: Path,
             target: Path, a3m: Path, label: str, fast: bool = False,
-            keep_cif: Path | None = None, trace: bool = False) -> dict:
+            keep_cif: Path | None = None, trace: bool = False,
+            ab_env: str | None = None, ab_values: tuple[str, str] = ("1", "0")) -> dict:
     one_fold, meta, state = build_fold(model, msa_dir, target, a3m, fast=fast, trace=trace)
     from tt_bio.tenstorrent import cleanup
     hw, load_s, n_msa = meta["hardware"], meta["load_s"], meta["n_msa"]
 
     # Cold fold: first-kernel compile. Never counted in the warm numbers. The MSA
     # cache was seeded above, so no fold here -- cold or warm -- runs a search.
+    # With --ab-env each arm gets its own cold fold: the arms run different shapes, so one
+    # arm's cold fold does not compile the other's kernels or fill its program cache.
+    if ab_env:
+        os.environ[ab_env] = ab_values[0]
     cold_s, cold_metrics = one_fold()
     assert cold_metrics.get("msa"), "fold ran without an MSA -- cache seeding failed"
     msa_hits = sorted(p.name for p in msa_dir.glob("*.a3m"))
 
-    def _fold_record(t, m):
+    def _fold_record(t, m, arm=None):
         """Per-fold provenance: the CIF hash the arm produced, its plDDT and the host load.
 
         An A/B whose arms differ in numerics must show what each arm actually built, and the
@@ -461,18 +466,57 @@ def measure(model: str, repeat: int, msa_dir: Path, out_path: Path,
             # struct_dir is cleared at the start of the next fold, so the copy happens here or
             # never. One directory per arm, named by the caller, so an RMSD control has a file.
             import shutil
-            keep_cif.mkdir(parents=True, exist_ok=True)
+            d = keep_cif if arm is None else keep_cif / f"arm_{arm}"
+            d.mkdir(parents=True, exist_ok=True)
             for f in sorted(Path(meta["struct_dir"]).glob("*.cif")):
-                shutil.copy2(f, keep_cif / f.name)
-        return {"s": round(t, 3), "plddt": m.get("plddt"), "cif_sha256": cifs,
-                "loadavg": open("/proc/loadavg").read().split()[:3]}
+                shutil.copy2(f, d / f.name)
+        rec = {"s": round(t, 3), "plddt": m.get("plddt"), "cif_sha256": cifs,
+               "loadavg": open("/proc/loadavg").read().split()[:3]}
+        if arm is not None:
+            rec["arm"] = arm
+        return rec
 
-    fold_recs = [dict(_fold_record(cold_s, cold_metrics), arm_fold="cold")]
+    fold_recs = [dict(_fold_record(cold_s, cold_metrics, ab_values[0] if ab_env else None),
+                      arm_fold="cold")]
     times = []
-    for _ in range(repeat):
-        t, _m = one_fold()
-        times.append(t)
-        fold_recs.append(_fold_record(t, _m))
+    ab = None
+    if ab_env:
+        # PAIRED, INTERLEAVED arms in ONE process, which is the only way to resolve a delta
+        # smaller than the spread between two separate invocations of this script: the
+        # invocation-to-invocation offset (0.29 % on OpenDDE at 512 aa) is shared by both halves
+        # of a pair and cancels in the difference, while the fold-to-fold spread inside an arm is
+        # ~0.06 %. The within-pair order alternates so a monotone drift across the run cannot
+        # masquerade as an effect.
+        os.environ[ab_env] = ab_values[1]
+        cold_b_s, cold_b_m = one_fold()
+        fold_recs.append(dict(_fold_record(cold_b_s, cold_b_m, ab_values[1]), arm_fold="cold"))
+        arm_times = {v: [] for v in ab_values}
+        for i in range(repeat):
+            order = ab_values if i % 2 == 0 else tuple(reversed(ab_values))
+            for v in order:
+                os.environ[ab_env] = v
+                ts, m = one_fold()
+                arm_times[v].append(ts)
+                fold_recs.append(dict(_fold_record(ts, m, v), arm_fold=f"warm{i}"))
+        deltas = [round(a - b, 3) for a, b in zip(arm_times[ab_values[0]],
+                                                  arm_times[ab_values[1]])]
+        ab = {"env": ab_env, "values": list(ab_values),
+              "arms": {v: {"warm_times_s": [round(x, 3) for x in arm_times[v]],
+                           "warm_median_s": round(sorted(arm_times[v])[len(arm_times[v]) // 2], 3)}
+                       for v in ab_values},
+              "paired_delta_s": deltas,
+              "paired_delta_median_s": round(sorted(deltas)[len(deltas) // 2], 3),
+              "paired_delta_mean_s": round(sum(deltas) / len(deltas), 4),
+              "note": f"delta = {ab_env}={ab_values[0]} minus {ab_env}={ab_values[1]}, "
+                      "same process, alternating within-pair order, per-arm cold fold discarded"}
+        times = arm_times[ab_values[0]]
+        print(f"[{model}] paired {ab_env} {ab_values[0]}-vs-{ab_values[1]} deltas {deltas} s, "
+              f"median {ab['paired_delta_median_s']:+.3f} s", file=sys.stderr)
+    else:
+        for _ in range(repeat):
+            t, _m = one_fold()
+            times.append(t)
+            fold_recs.append(_fold_record(t, _m))
 
     times_sorted = sorted(times)
     median = times_sorted[len(times_sorted) // 2]
@@ -493,7 +537,7 @@ def measure(model: str, repeat: int, msa_dir: Path, out_path: Path,
         warm_min_s=round(times_sorted[0], 3), warm_median_s=round(median, 3),
         warm_max_s=round(times_sorted[-1], 3),
         cold_metrics=cold_metrics,
-        warm_folds=fold_recs,
+        warm_folds=fold_recs, ab=ab,
         runtime_root=os.environ.get("TT_METAL_RUNTIME_ROOT", "<unset>"),
         kernel_cache=os.environ.get("TT_METAL_CACHE", "<unset>"),
         uptime=subprocess.run(["uptime"], capture_output=True, text=True).stdout.strip(),
@@ -528,10 +572,17 @@ def main() -> int:
                     help="replay a captured ttnn trace of the diffusion step (reserves 1 GiB)")
     ap.add_argument("--keep-cif", type=Path, default=None,
                     help="copy each fold's CIF here, so an arm can be scored against another")
+    ap.add_argument("--ab-env", default=None, metavar="NAME",
+                    help="run two arms of NAME in ONE process, interleaved and paired, and "
+                         "report the per-pair difference. --repeat becomes the number of PAIRS")
+    ap.add_argument("--ab-values", default="1,0", metavar="ON,OFF",
+                    help="the two values --ab-env alternates (default 1,0)")
     args = ap.parse_args()
+    av = tuple(v.strip() for v in args.ab_values.split(","))
+    assert len(av) == 2, "--ab-values takes exactly two comma-separated values"
     measure(args.model, args.repeat, args.msa_dir, args.out,
             args.target, args.msa_a3m, args.label, fast=args.fast, keep_cif=args.keep_cif,
-            trace=args.trace)
+            trace=args.trace, ab_env=args.ab_env, ab_values=av)
     return 0
 
 
