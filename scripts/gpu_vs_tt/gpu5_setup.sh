@@ -10,6 +10,7 @@
 #   bash gpu5_setup.sh fetch &             # background: the two big downloads
 #   bash gpu5_setup.sh boltz esm of3 opendde
 #   bash gpu5_setup.sh esmweights          # after esm: ESMFold2 + ESMC-6B, ~25 GB
+#   bash gpu5_setup.sh embedweights        # esmfold2-fast + 3x ESM-C + 3x SaProt, ~12 GB
 #
 # Image: pytorch/pytorch:2.7.1-cuda12.8-cudnn9-runtime. torch 2.7.1+cu128 is protenix
 # 2.0.0's exact pin and the first torch line with Blackwell/sm_100, so ONE image serves
@@ -183,6 +184,43 @@ for r in ('biohub/ESMFold2','biohub/ESMC-6B'):
   say "stage esmweights done"
 }
 
+# The seven rows the perf page gained after the A100 pass: esmfold2-fast plus the three ESM-C
+# and three SaProt embedding rows. All seven live in venv-esm312 -- esmfold2-fast is the same
+# transformers class as esmfold2, ESM-C is the same package, and SaProt is stock transformers
+# EsmForMaskedLM -- so this stage installs nothing, it only pulls weights. ESMC-6B is not
+# listed: stage_esmweights already pulled it for ESMFold2 and esmfold2-fast shares that exact
+# backbone (both configs read esmc_id biohub/ESMC-6B), so the 25 GB is paid once.
+stage_embedweights() {
+  say "stage embedweights"
+  /root/venv-esm312/bin/python -c "
+from huggingface_hub import snapshot_download
+for r in ('biohub/ESMFold2-Fast','biohub/ESMC-300M','biohub/ESMC-600M',
+          'westlake-repl/SaProt_35M_AF2','westlake-repl/SaProt_650M_AF2',
+          'westlake-repl/SaProt_1.3B_AF2'):
+    print(r, snapshot_download(r))
+" 2>&1 | tail -8 | tee -a "$LOG"
+  # biohub/ESMFold2-Fast ships config.json + model.safetensors and NOTHING else; the ESMFold2
+  # repo also carries ccd.pkl. If the model reaches for it the Fast run dies at the first fold,
+  # on a paid box, so the file is staged next to the Fast weights up front. A no-op when the
+  # code path never asks for it.
+  /root/venv-esm312/bin/python -c "
+import shutil
+from pathlib import Path
+from huggingface_hub import snapshot_download
+src = Path(snapshot_download('biohub/ESMFold2')) / 'ccd.pkl'
+dst = Path(snapshot_download('biohub/ESMFold2-Fast')) / 'ccd.pkl'
+if src.exists() and not dst.exists():
+    shutil.copyfile(src.resolve(), dst)
+    print('staged ccd.pkl ->', dst)
+else:
+    print('ccd.pkl:', 'already present' if dst.exists() else 'not in ESMFold2 either')
+" 2>&1 | tail -2 | tee -a "$LOG"
+  # Preflight is torch-free and runs anywhere. Doing it here means a wrong repo name or a
+  # checkpoint whose shape does not match its row fails before any measurement is attempted.
+  python3 "$HERE/embed_preflight.py" 2>&1 | tail -12 | tee -a "$LOG"
+  say "stage embedweights done"
+}
+
 for s in "$@"; do
   case "$s" in
     base) stage_base ;;
@@ -192,6 +230,7 @@ for s in "$@"; do
     of3) stage_of3 ;;
     esm) stage_esm ;;
     esmweights) stage_esmweights ;;
+    embedweights) stage_embedweights ;;
     fetch) stage_fetch ;;
     *) echo "unknown stage: $s" >&2 ;;
   esac

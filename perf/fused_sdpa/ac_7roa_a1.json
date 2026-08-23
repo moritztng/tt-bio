@@ -1,0 +1,136 @@
+{
+  "arm": "a1",
+  "arm_route": "_tri_att_sdpa (fused SDPA at the op-default config: HiFi2, math_approx, no fp32_dest_acc)",
+  "arm_scope": "model-local (PAIRFORMER_FLAGS)",
+  "ref_cache": "/home/ttuser/.coworker/wt/fused-sdpa-fold-level-root-cause/perf/rf3/results/accuracy_7roa_117",
+  "fixture": "7roa_117",
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "recycles": 10,
+  "steps": 50,
+  "diffusion_samples": 1,
+  "reference": "tt_bio._vendor.rf3 (upstream foundry), CPU torch, bf16 autocast",
+  "kabsch_selftest_A": 9.265044010831228e-15,
+  "metric_convention": "pharma_parity.noise_floor_verdict; floor = max(mean R, mean D); pairwise self-superposition, no shared frame",
+  "work": "/home/ttuser/.coworker/wt/fused-sdpa-fold-level-root-cause/perf/rf3/results/accuracy_7roa_117_a1",
+  "metrics": {
+    "kabsch_rmsd": {
+      "metric": "kabsch_rmsd",
+      "cross": {
+        "n": 3,
+        "mean": 1.5372134811959104,
+        "std": 0.0646883983952776,
+        "min": 1.4750909405039,
+        "max": 1.62643380744808
+      },
+      "ref_floor": {
+        "n": 3,
+        "mean": 0.3859430305622345,
+        "std": 0.06411841478156027,
+        "min": 0.3011240399011744,
+        "max": 0.45612050724862774
+      },
+      "dev_floor": {
+        "n": 3,
+        "mean": 0.6317860343883729,
+        "std": 0.15401234253662072,
+        "min": 0.508016195764302,
+        "max": 0.8488820124741139
+      },
+      "floor_mean": 0.6317860343883729,
+      "cross_over_floor": 2.4331235537424862,
+      "dev_over_ref_floor": 1.636992986939028,
+      "dev_floor_instability_check_applied": true,
+      "floor_inflated_by_dev": false,
+      "within_noise_floor": false,
+      "X_per_seed": {
+        "0": 1.4751,
+        "1": 1.5101,
+        "2": 1.6264
+      },
+      "R_pairs": [
+        0.4006,
+        0.4561,
+        0.3011
+      ],
+      "D_pairs": [
+        0.508,
+        0.8489,
+        0.5385
+      ]
+    },
+    "allatom_rmsd": {
+      "metric": "allatom_rmsd",
+      "cross": {
+        "n": 3,
+        "mean": 1.6635624756682195,
+        "std": 0.03810275110157187,
+        "min": 1.6234195178030508,
+        "max": 1.7147649144741997
+      },
+      "ref_floor": {
+        "n": 3,
+        "mean": 0.6871607197869061,
+        "std": 0.1966099791914449,
+        "min": 0.4102766334839144,
+        "max": 0.8476170296899591
+      },
+      "dev_floor": {
+        "n": 3,
+        "mean": 0.8556574899012596,
+        "std": 0.16378336637663182,
+        "min": 0.642417150579827,
+        "max": 1.0405969095395722
+      },
+      "floor_mean": 0.8556574899012596,
+      "cross_over_floor": 1.9441920339646532,
+      "dev_over_ref_floor": 1.2452072204688964,
+      "dev_floor_instability_check_applied": true,
+      "floor_inflated_by_dev": false,
+      "within_noise_floor": false,
+      "X_per_seed": {
+        "0": 1.6234,
+        "1": 1.6525,
+        "2": 1.7148
+      },
+      "R_pairs": [
+        0.4103,
+        0.8476,
+        0.8036
+      ],
+      "D_pairs": [
+        0.6424,
+        1.0406,
+        0.884
+      ]
+    }
+  },
+  "timing_s": {
+    "0": [
+      29.2,
+      0.0,
+      0.0,
+      15.0
+    ],
+    "1": [
+      24.4,
+      0.0,
+      0.0,
+      9.6
+    ],
+    "2": [
+      22.8,
+      0.0,
+      0.0,
+      7.2
+    ]
+  },
+  "draws_sha": {
+    "0": "b475c9124c2c4628",
+    "1": "d5c55c0e33dc8a73",
+    "2": "cbad866ee209e62e"
+  }
+}

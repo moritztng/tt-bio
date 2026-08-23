@@ -34,6 +34,27 @@ model's leg, so it runs by default alongside the other four rather than standalo
 (supersedes docs/boltzgen-designability.md's earlier "keep it out of the fast gate"
 call, which assumed a much slower per-design cost).
 
+RFD3 is a design model too, but designability does not transfer to it. Upstream
+RFdiffusion3 evaluates with ProteinMPNN/LigandMPNN sequences plus AF3 rather than
+its own sequence head, tt-bio ships no MPNN, and docs/rfd3-design.md already tells
+users the built-in sequence is a starting point to redesign — so refolding it would
+score the model working as intended against a floor no failure could exceed. Its leg
+scores the delivered structure instead: strict parse, backbone geometry as a clean
+rate over four designs (a design is clean when no CA-CA step exceeds the break
+distance and the rest sit in the measured band), heavy-atom clashes, a real sequence
+at the designed positions (zero UNK plus a minimum distinct-amino-acid count), and
+byte-identical coordinates from a repeated seed in a fresh process. Geometry is a rate
+and not an every-design bar because RFdiffusion-family models produce an occasional
+broken backbone by design, the same call BOLTZGEN_MIN_PASS_RATE already makes. Every
+geometry and sequence number is computed over the DESIGNED residues only, recovered by re-featurizing the spec on the host: RFD3
+merges a binder's designed residues into the target's own chain, so a chain-level
+number averages 70 generated residues against 50 copied ones and passes by dilution.
+This is the leg RFD3's two escaped defects would have tripped (a sequence head
+computed and then dropped, and tile sparsity behind a wrong-variable gate) — neither
+the bit-exact featurizer leg in ``scripts/full_parity_gate.py`` nor the perf leg can
+see the far end of the pipeline. Geometry reuses
+``perf/wh-correctness/check_structure.py``'s measured bands and clash search.
+
 ESMC is an *embedding* model, not a fold model — it has no structure to score
 against ground truth, so the RMSD/TM mechanism above does not apply. Its
 correctness bar is embedding-space agreement with the reference esm ESMC: the
@@ -247,6 +268,93 @@ BOLTZGEN_PROTOCOL = "protein-anything"
 BOLTZGEN_NUM_DESIGNS = 4
 BOLTZGEN_SC_THRESHOLD = 2.0
 BOLTZGEN_MIN_PASS_RATE = 0.5
+
+# --- rfd3 leg -----------------------------------------------------------------
+# RFD3 is a design model with no ground truth and no usable designability metric: upstream
+# RFdiffusion3 evaluates with ProteinMPNN/LigandMPNN sequences + AF3, not its own sequence
+# head, tt-bio ships no MPNN, and docs/rfd3-design.md already tells users the built-in
+# sequence is a starting point to redesign. Refolding it would score the model working as
+# intended (43-60% ALA de novo) against a floor no failure could exceed.
+#
+# So this leg gates what RFD3's other legs cannot see. The featurizer leg
+# (full_parity_gate.py's "rfd3-featurizer", 43/43 f keys bit-exact) scores an INPUT and the
+# perf leg scores a wall-clock; both stay green when the design leaving the far end is
+# garbage. Both of RFD3's escaped defects lived exactly there: the sequence was computed and
+# then dropped (fixed 16dfe4db), and a wrong-variable gate shipped tile sparsity. This leg
+# scores the delivered CIF instead: backbone geometry, no clashes, a real sequence at the
+# designed positions, and byte-identical output from a repeated seed.
+#
+# It scores the DESIGNED RESIDUES ONLY, recovered by re-featurizing the spec on the host and
+# reading restype == DESIGNED_RESTYPE_IDX off the shipped featurizer. That is not optional:
+# for a binder RFD3 merges the designed residues into the target's own chain (gate-binder is
+# one chain A of 120 = 50 copied target + 70 designed), and once the sequence head has named
+# them nothing in the CIF marks which is which. Chain-level scoring would average 70
+# generated residues against 50 copied ones, the pass-by-dilution that let the all-UNK defect
+# through two of three protocols.
+RFD3_SPEC = REPO_ROOT / "examples" / "rfd3_binder.json"
+RFD3_SPEC_ID = "gate-binder"
+RFD3_NUM_DESIGNS = 4
+RFD3_SEED = 42
+# 200 steps, not the CLI default of 4: docs/rfd3-design.md calls 4 a fast smoke setting and
+# 200 the upstream production default. A 4-step trajectory is barely denoised, so a geometry
+# bar on it would gate a config nobody wants results from.
+RFD3_TIMESTEPS = 200
+# The determinism arm repeats one design in a fresh process. Bit-exactness is a property of
+# the device graph and shows up on the first step, so 4 steps buys the same signal at ~1/50
+# the cost of 200.
+RFD3_DET_TIMESTEPS = 4
+
+# Floors, each doubled the way its own metric's noise behaves. A flat "2x the measured
+# number" is wrong for a fraction (2x an in-band fraction of 1.0 is 0.5, which nothing can
+# fail), so a fraction gets 2x its DEFICIT, a count gets 2x itself, and a binary wiring fact
+# gets no band at all.
+#
+# MEASURED on qb1 (Blackhole p150a, card 0), ttnn 0.67.4, commit f77f8ad1,
+# examples/rfd3_binder.json at 200 steps x 4 designs, seed 42, scored over the 70 designed
+# residues (per-design, not averaged):
+#
+#   design  CA-CA median  in band  breaks  clashes/heavy   distinct AA  UNK  top AA
+#     0        3.868 A     1.0000     0       0/715             14        0   45.7%
+#     1        3.865 A     0.9855     1       2/714             12        0   51.4%
+#     2        3.891 A     1.0000     0       0/715             14        0   42.9%
+#     3        3.869 A     1.0000     0       3/714             11        0   42.9%
+#
+# Geometry is gated as a CLEAN RATE, not as an all-designs bar, because the measurement says
+# it has to be: design 1 carries one genuine 8.497 A CA-CA step at residue 58->59, while
+# every other step across all four designs sits in 3.76-4.04 A. RFdiffusion-family models
+# produce an occasional broken backbone and the field's answer is to generate several and
+# filter, so "zero breaks in every design" is a model-quality bar, not a port-correctness
+# one, and a gate set there would fail correct code roughly a quarter of the time. This is
+# the same call the BoltzGen leg above already makes with BOLTZGEN_MIN_PASS_RATE, for the
+# same stated reason: one bad seed out of four should not fail the gate, all four should.
+# Measured clean rate 3/4 = 0.75, floor 0.50.
+#
+# The clean test is two-sided on purpose and neither half is redundant: `breaks` catches one
+# severe discontinuity (design 1 still scores 0.9855 in band, which clears the 0.98 bar on
+# its own), and `in_band` catches many mildly-wrong steps that never individually exceed
+# CA_CA_BREAK. A garbled coordinate tensor trips one or the other.
+RFD3_MIN_CLEAN_RATE = 0.50   # measured 0.75 (3 of 4)
+RFD3_MIN_INBAND = 0.98       # measured 1.0000 / 0.9855 / 1.0000 / 1.0000
+RFD3_MAX_BREAKS = 0          # per design, inside the clean test above
+# Clashes stay an absolute count, worst design of four, against check_structure's own
+# calibrated allowance (CLASH_MAX_ABS = 2, the worst measured experimental structure) doubled
+# past what this fixture measured. Not a fraction: 2x a measured 0 is a zero-tolerance bar,
+# and "0.004" hides that it is 3 atoms. A tile-sparsity blowup is tens to hundreds of clashes
+# (the pre-fix WH artifact logged 53), so 6 catches that class with room to spare.
+RFD3_MAX_CLASHES = 6         # measured worst 3
+# Sequence: the designed positions must carry a real predicted sequence. Zero UNK is binary
+# and gets no band -- it is the exact escaped defect (sequence head computed then dropped,
+# fixed 16dfe4db), and the host-only negative control reproducing that writer scores 70 UNK
+# and 0 distinct AA. The distinct-AA count is a second, weaker guard against the sequence
+# head collapsing to one residue; deliberately NOT a composition cap, since 43-60% ALA is
+# real RFD3 behaviour (measured 42.9-51.4% here) and a cap would fail a correct model.
+RFD3_MIN_DISTINCT_AA = 5     # measured worst 11
+RFD3_MAX_UNK = 0             # measured 0; the pre-fix writer scores 70
+# Runs by default: the whole arm (4 designs at 200 steps in one batched forward, plus the two
+# 4-step determinism repeats) measured 95 s and 108 s on two runs on qb1 card 3 with the host
+# otherwise uncontended, well inside BoltzGen's ~271 s default-arm precedent. The same arm took 486 s
+# earlier the same day only because every device open queued behind another worker on the
+# host-wide /tmp/tt-bio-device-open.lock, which measures contention, not the leg.
 
 # ESMC embedding-parity leg — see module docstring. Per-residue embedding PCC
 # floor vs the reference esm ESMC on a real protein. Generous (the shipped fused
@@ -532,8 +640,8 @@ L1_BUDGET_HIDDEN = (128, 256)
 # that died on his p300c. Cheap enough for a default arm (~15 s a grid).
 L1_BUDGET_DATA = REPO_ROOT / "examples" / "affinity_fkg.yaml"
 L1_BUDGET_MODEL = "protenix-v2"
-DEFAULT_ARMS = ("boltzgen", "opendde-abag", "capacity", "l1-budget",
-                "batch-position")
+DEFAULT_ARMS = ("boltzgen", "rfd3", "opendde-abag", "capacity",
+                "l1-budget", "batch-position")
 
 L1_BUDGET_STEPS = 200
 # The width measured to fit at the issue-#11 call shape on a 110-core grid: the
@@ -825,6 +933,207 @@ def run_boltzgen(bg, keep: bool) -> dict:
         return row
     row["scrmsd_median"], row["pass_rate"] = res["median"], res["pass_threshold"]
     row["gate"] = res["pass_threshold"] >= BOLTZGEN_MIN_PASS_RATE
+
+    if not keep:
+        shutil.rmtree(out, ignore_errors=True)
+    return row
+
+
+def _load_geometry_harness():
+    """Import perf/wh-correctness/check_structure.py by path — reuse its measured band
+    constants and its clash search, do not re-derive protein geometry here. That file is
+    the validated structural checker the WH-correctness sweep scores every design with."""
+    path = REPO_ROOT / "perf" / "wh-correctness" / "check_structure.py"
+    spec = importlib.util.spec_from_file_location("tt_bio_check_structure", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _rfd3_designed_residues() -> set:
+    """(chain, res_id) of every designed protein token, from the shipped host featurizer.
+
+    Host-only, no device. The keys are the same ones _write_cif writes the CIF with
+    (``_chain_label(asym_id[t])`` and ``residue_index[t]``), so this identifies the designed
+    residues in the output file exactly and without relying on residue order.
+    """
+    import json as _json
+    from tt_bio.rfd3.input import InputSpecification
+    from tt_bio.rfd3.featurize import featurize, DESIGNED_RESTYPE_IDX
+    from tt_bio.rfd3.design import _chain_label
+
+    raw = _json.loads(RFD3_SPEC.read_text())[RFD3_SPEC_ID]
+    spec = InputSpecification.from_dict(raw)
+    f = featurize(str(REPO_ROOT / spec.input), spec)
+    rt = f["restype"]
+    rt = rt.argmax(-1) if rt.ndim == 2 else rt
+    mask = (rt == DESIGNED_RESTYPE_IDX) & f["is_protein"].bool()
+    asym, resid = f["asym_id"].tolist(), f["residue_index"].tolist()
+    return {(_chain_label(int(asym[t])), int(resid[t]))
+            for t in range(len(rt)) if bool(mask[t])}
+
+
+def _rfd3_score_cif(cif: Path, designed: set, geom) -> dict:
+    """Score one delivered RFD3 CIF over the designed residues only.
+
+    Geometry uses ``geom``'s measured bands (CA_CA_BAND, CA_CA_BREAK, CLASH_DIST) and its
+    clash search; the only thing computed here is the restriction to ``designed``, which
+    ``geom.chain_geometry`` cannot express (it is chain-level, and the designed residues
+    share the target's chain).
+    """
+    import gemmi
+    import numpy as np
+
+    st = gemmi.read_structure(str(cif))
+    st.setup_entities()
+    cas, resnames = [], []
+    for chain in st[0]:
+        for res in chain:
+            if (chain.name, res.seqid.num) not in designed:
+                continue
+            a = res.find_atom("CA", "*")
+            if a is None:
+                continue
+            cas.append((res.seqid.num, [a.pos.x, a.pos.y, a.pos.z]))
+            resnames.append((res.seqid.num, res.name))
+    cas.sort(key=lambda t: t[0])
+    resnames.sort(key=lambda t: t[0])
+    a = np.asarray([c for _, c in cas])
+    if len(a) < 2:
+        raise ValueError(f"{cif.name}: found {len(a)} designed CA of {len(designed)} expected")
+    d = np.linalg.norm(a[1:] - a[:-1], axis=1)
+    lo, hi = geom.CA_CA_BAND
+    seq = [geom._one_letter(n) for _, n in resnames]
+    n_clash, heavy, worst = geom.clashes(st)
+    return {"n_designed": len(a),
+            "in_band": round(float(((d >= lo) & (d <= hi)).mean()), 4),
+            "step_median": round(float(np.median(d)), 3),
+            "breaks": int((d > geom.CA_CA_BREAK).sum()),
+            "clashes": n_clash, "heavy": heavy,
+            "clash_frac": round(n_clash / heavy, 6) if heavy else 0.0,
+            "worst_contact": worst,
+            "unk": sum(1 for c in seq if c == "X"),
+            "distinct_aa": len({c for c in seq if c != "X"}),
+            "top_aa_frac": round(max(seq.count(c) for c in set(seq)) / len(seq), 3)}
+
+
+def _rfd3_design_cmd(out: Path, num_designs: int, steps: int) -> list:
+    return [sys.executable, "-m", "tt_bio.main", "design", str(RFD3_SPEC),
+            "--model", "rfd3", "--from_pdb", "--out_dir", str(out),
+            "--num_designs", str(num_designs), "--num_timesteps", str(steps),
+            "--seed", str(RFD3_SEED)]
+
+
+def _rfd3_atom_digest(cif: Path) -> str:
+    """sha256 of the coordinate records only, so a CIF-writer metadata or path field
+    cannot make two identical structures look different (or two different ones look
+    the same)."""
+    lines = [ln for ln in cif.read_text().splitlines()
+             if ln.startswith(("ATOM", "HETATM"))]
+    return hashlib.sha256("\n".join(lines).encode()).hexdigest()
+
+
+def run_rfd3(keep: bool) -> dict:
+    """Design, parse, and structurally score RFD3. Returns a result row."""
+    out = REPO_ROOT / "rfd3_gate_designs"
+    if out.exists():
+        shutil.rmtree(out)  # never score a stale run if this design run crashes
+
+    print(f"\n{'='*70}\n[rfd3] designing {RFD3_SPEC.name}:{RFD3_SPEC_ID} "
+          f"({RFD3_NUM_DESIGNS} designs, {RFD3_TIMESTEPS} steps, seed {RFD3_SEED})"
+          f"\n{'='*70}", flush=True)
+
+    row = {"model": "rfd3", "seconds": None, "n_designs": 0, "in_band": None,
+           "breaks": None, "clash_frac": None, "clashes": None, "distinct_aa": None,
+           "unk": None, "clean_rate": None, "determinism": None, "parse": False,
+           "gate": False, "error": None, "per_design": []}
+
+    try:
+        designed = _rfd3_designed_residues()
+        geom = _load_geometry_harness()
+    except Exception as e:
+        row["error"] = f"host featurize/harness failed: {type(e).__name__}: {e}"
+        return row
+    print(f"[rfd3] designed residues from the host featurizer: {len(designed)}", flush=True)
+
+    t0 = time.monotonic()
+    rc, timed_out = _run_fold(_rfd3_design_cmd(out, RFD3_NUM_DESIGNS, RFD3_TIMESTEPS),
+                              FOLD_TIMEOUT_S, cwd=REPO_ROOT)
+    row["seconds"] = time.monotonic() - t0
+    if timed_out:
+        row["error"] = f"design timed out after {FOLD_TIMEOUT_S}s"
+        return row
+    if rc != 0:
+        row["error"] = f"design exited {rc}"
+        return row
+
+    cifs = sorted(out.rglob("*.cif"))
+    row["n_designs"] = len(cifs)
+    # Assert the leg ran the model it names before reading any margin: a scoring pass over
+    # zero or one design would otherwise report a clean number for a run that never happened.
+    if len(cifs) != RFD3_NUM_DESIGNS:
+        row["error"] = f"expected {RFD3_NUM_DESIGNS} designs, found {len(cifs)} CIF(s)"
+        return row
+    try:
+        _parse_gate(cifs, name="rfd3")
+        row["parse"] = True
+    except Exception as e:
+        row["error"] = f"CIF parse failed: {e}"
+        return row
+
+    try:
+        row["per_design"] = [_rfd3_score_cif(c, designed, geom) for c in cifs]
+    except Exception as e:
+        row["error"] = f"scoring failed: {type(e).__name__}: {e}"
+        return row
+    for cif, m in zip(cifs, row["per_design"]):
+        print(f"[rfd3] {cif.name}: designed {m['n_designed']}, CA-CA median "
+              f"{m['step_median']} A, in band {m['in_band']:.4f}, breaks {m['breaks']}, "
+              f"clashes {m['clashes']}/{m['heavy']} ({m['clash_frac']:.6f}, worst "
+              f"{m['worst_contact']} A), distinct AA {m['distinct_aa']}, UNK {m['unk']}, "
+              f"top AA {m['top_aa_frac']:.1%}", flush=True)
+
+    # Geometry is a clean RATE (see the floors above: an occasional broken backbone is real
+    # RFD3 behaviour, so requiring every design to be clean would fail correct code). Every
+    # other metric aggregates on the WORST design, since a mean over four hides one bad one.
+    for m in row["per_design"]:
+        m["clean"] = m["breaks"] <= RFD3_MAX_BREAKS and m["in_band"] >= RFD3_MIN_INBAND
+    row["clean_rate"] = (sum(m["clean"] for m in row["per_design"])
+                         / len(row["per_design"]))
+    row["in_band"] = min(m["in_band"] for m in row["per_design"])
+    row["breaks"] = max(m["breaks"] for m in row["per_design"])
+    row["clash_frac"] = max(m["clash_frac"] for m in row["per_design"])
+    row["clashes"] = max(m["clashes"] for m in row["per_design"])
+    row["distinct_aa"] = min(m["distinct_aa"] for m in row["per_design"])
+    row["unk"] = max(m["unk"] for m in row["per_design"])
+
+    # Determinism: the same seed in two fresh processes must write the same coordinates.
+    # This is the arm that sees the tile-sparsity / unmasked-tail class, which every
+    # single-run geometry number is blind to.
+    digests = []
+    for rep in (1, 2):
+        rep_out = REPO_ROOT / f"rfd3_gate_determinism_{rep}"
+        shutil.rmtree(rep_out, ignore_errors=True)
+        rc, timed_out = _run_fold(_rfd3_design_cmd(rep_out, 1, RFD3_DET_TIMESTEPS),
+                                  FOLD_TIMEOUT_S, cwd=REPO_ROOT)
+        reps = sorted(rep_out.rglob("*.cif"))
+        if timed_out or rc != 0 or len(reps) != 1:
+            row["error"] = (f"determinism repeat {rep} failed (rc={rc}, "
+                            f"timed_out={timed_out}, {len(reps)} CIF)")
+            return row
+        digests.append(_rfd3_atom_digest(reps[0]))
+        if not keep:
+            shutil.rmtree(rep_out, ignore_errors=True)
+    row["determinism"] = digests[0] == digests[1]
+    print(f"[rfd3] determinism ({RFD3_DET_TIMESTEPS} steps, seed {RFD3_SEED}, two fresh "
+          f"processes): {digests[0][:16]} vs {digests[1][:16]} -> "
+          f"{'identical' if row['determinism'] else 'DIFFER'}", flush=True)
+
+    row["gate"] = (row["clean_rate"] >= RFD3_MIN_CLEAN_RATE
+                   and row["clashes"] <= RFD3_MAX_CLASHES
+                   and row["distinct_aa"] >= RFD3_MIN_DISTINCT_AA
+                   and row["unk"] <= RFD3_MAX_UNK
+                   and row["determinism"])
 
     if not keep:
         shutil.rmtree(out, ignore_errors=True)
@@ -1909,8 +2218,8 @@ def main() -> int:
                     + ESMC_DEFAULT + ESMC_OPT_IN,
                     action="append",
                     help="Gate only this model (repeatable). Default: the five fold "
-                         "models + boltzgen + opendde-abag + capacity + l1-budget + "
-                         "size-ladder + ESMC 300m/600m embed parity. "
+                         "models + boltzgen + rfd3 + opendde-abag + capacity + "
+                         "l1-budget + size-ladder + ESMC 300m/600m embed parity. "
                          "esmc-6b is opt-in (slow ~13 GB load).")
     ap.add_argument("--keep", action="store_true", help="Keep run output dirs for inspection.")
     ap.add_argument("--size-ladder-record", action="store_true",
@@ -1965,6 +2274,7 @@ def main() -> int:
     fold_models = [m for m in models if m in MODELS]
     want_boltzgen = "boltzgen" in models
     want_opendde_abag = "opendde-abag" in models
+    want_rfd3 = "rfd3" in models
     want_capacity = "capacity" in models
     want_l1_budget = "l1-budget" in models
     want_batch_position = "batch-position" in models
@@ -2016,6 +2326,36 @@ def main() -> int:
         print(f"{'#'*78}")
         print("GATE PASS — boltzgen designs cleared parse + designability floor" if br["gate"]
               else "GATE FAIL — boltzgen missed parse or the designability floor (see above)")
+
+    if want_rfd3:
+        if not RFD3_SPEC.exists():
+            sys.exit(f"missing rfd3 gate spec {RFD3_SPEC}")
+        rr = run_rfd3(args.keep)
+        print(f"\n{'#'*78}\nRELEASE GATE — {RFD3_SPEC.name} (rfd3), "
+              f"{RFD3_NUM_DESIGNS} designs, {RFD3_TIMESTEPS} steps, seed {RFD3_SEED}"
+              f"\n{'#'*78}")
+        print(f"{'model':<15}{'designs':>8}{'clean':>7}{'in band':>9}{'breaks':>7}"
+              f"{'clash':>12}{'AA':>5}{'UNK':>5}{'det':>5}{'wall':>9}  result")
+        ib = f"{rr['in_band']:.4f}" if rr["in_band"] is not None else "  -  "
+        cf = (f"{rr['clashes']}({rr['clash_frac']:.4f})"
+              if rr["clashes"] is not None else "  -  ")
+        br = str(rr["breaks"]) if rr["breaks"] is not None else "-"
+        aa = str(rr["distinct_aa"]) if rr["distinct_aa"] is not None else "-"
+        unk = str(rr["unk"]) if rr["unk"] is not None else "-"
+        det = ("ok" if rr["determinism"] else "NO") if rr["determinism"] is not None else "-"
+        wall = f"{rr['seconds']:.0f}s" if rr["seconds"] is not None else "-"
+        verdict = "PASS" if rr["gate"] else f"FAIL ({rr['error']})" if rr["error"] else "FAIL"
+        all_pass &= rr["gate"]
+        cr = f"{rr['clean_rate']:.2f}" if rr["clean_rate"] is not None else "  -  "
+        print(f"{rr['model']:<15}{rr['n_designs']:>8}{cr:>7}{ib:>9}{br:>7}{cf:>12}{aa:>5}"
+              f"{unk:>5}{det:>5}{wall:>9}  {verdict}")
+        print(f"floor{'':<10}{RFD3_NUM_DESIGNS:>8}{RFD3_MIN_CLEAN_RATE:>7.2f}"
+              f"{RFD3_MIN_INBAND:>9.4f}{RFD3_MAX_BREAKS:>7}{RFD3_MAX_CLASHES:>12}"
+              f"{RFD3_MIN_DISTINCT_AA:>5}{RFD3_MAX_UNK:>5}{'ok':>5}")
+        print(f"{'#'*78}")
+        print("GATE PASS — rfd3 designs cleared parse, designed-region geometry, "
+              "sequence and determinism" if rr["gate"]
+              else "GATE FAIL — rfd3 missed parse, geometry, sequence or determinism (see above)")
 
     if want_opendde_abag:
         if not OPENDDE_ABAG_DATA.exists():
