@@ -322,6 +322,15 @@ SPECS: dict[str, dict] = {
     # production-quality 200-step design.
     "rfd3": dict(kind="design", unit="designs/s", direction="higher",
                   num_designs=1, num_timesteps=4),
+    # nesso1 is `tt-bio affinity`, the second model answering the question
+    # boltz2-affinity answers, so it runs the SAME FKBP12+SB3 fixture and the two
+    # cells are directly comparable. Do NOT quote their ratio as the headline
+    # "59x cheaper than Boltz-2 affinity": that number is measured at 512 aa and
+    # this fixture is 107 aa, and picking whichever cell flatters is the failure
+    # mode the perf page's own note warns about. Same single-shot shape as the
+    # boltz2-affinity leg — no warm steady-state loop, so SINGLE_SHOT_REPEAT
+    # end-to-end CLI reps and the median wall.
+    "nesso1": dict(kind="affinity", unit="affinities/s", direction="higher"),
 }
 DEFAULT_MODELS = list(SPECS)
 
@@ -353,18 +362,28 @@ def _assert_full_model_coverage() -> None:
     hand-maintained SPECS dict can silently have zero perf coverage forever;
     this check turns that silence into a startup failure that names exactly
     which model is uncovered, for opendde-abag AND any future model.
-    Cross-checks against tt_bio.main.PREDICT_MODELS/EMBED_MODELS/SAPROT_MODELS
-    -- the single source of truth each CLI --model choice is built from --
-    rather than a second hand-copied list here.
+    Cross-checks against every ``*_MODELS`` tuple in tt_bio.main -- the single
+    source of truth each CLI --model choice is built from -- rather than a
+    second hand-copied list here.
+
+    The tuples are DISCOVERED, not named. Written against the three that existed
+    at the time, this check was blind to a new CLI verb bringing its own tuple:
+    `tt-bio affinity` added AFFINITY_MODELS and `tt-bio design` added
+    DESIGN_MODELS, so nesso1 could have shipped with zero perf coverage and the
+    check built to make exactly that impossible would have stayed green. A tuple
+    that is a subset of another (MSA_DEFAULT_MODELS) changes nothing in the
+    union, and a future non-CLI ``*_MODELS`` tuple fails loudly, which is the
+    right direction to be wrong in.
     """
-    from tt_bio.main import PREDICT_MODELS, EMBED_MODELS, SAPROT_MODELS
-    shipped = set(PREDICT_MODELS) | set(EMBED_MODELS) | set(SAPROT_MODELS)
+    from tt_bio import main as _main
+    tuples = {n: getattr(_main, n) for n in dir(_main) if n.endswith("_MODELS")}
+    shipped = set().union(*tuples.values())
     uncovered = shipped - set(SPECS) - set(SPECS_EXEMPT)
     if uncovered:
         raise SystemExit(
             f"perf_regression.py: no SPECS entry or SPECS_EXEMPT reason for "
-            f"{sorted(uncovered)} -- every model in tt_bio.main.PREDICT_MODELS/"
-            f"EMBED_MODELS/SAPROT_MODELS must be perf-gated or explicitly "
+            f"{sorted(uncovered)} -- every model in tt_bio.main's "
+            f"{', '.join(sorted(tuples))} must be perf-gated or explicitly "
             f"exempted with a reason (see opendde vs opendde-abag in SPECS for "
             f"how two models sharing one class still get independent "
             f"coverage). Add a SPECS[...] entry or a SPECS_EXEMPT[...] reason.")
@@ -945,6 +964,18 @@ def _measure_affinity(model: str, spec: dict, out_path: Path) -> dict:
         ]
         return cmd, work / f"affinity-rep{rep}.log"
 
+    def make_nesso_cmd(rep: int):
+        # nesso1 answers the same question through a different verb: no fold, no
+        # diffusion, so none of the sampling knobs above apply. Everything is left at
+        # the shipped CLI default (bf16 trunk, 5 recycles, 256-token crop budget) so
+        # the cell measures what a user gets.
+        cmd = [
+            sys.executable, "-m", "tt_bio.main", "affinity", str(spec_path),
+            "--model", "nesso1",
+            "--out_dir", str(work / f"out-rep{rep}"),
+        ]
+        return cmd, work / f"affinity-rep{rep}.log"
+
     env = dict(os.environ)
     pp = str(REPO_ROOT)
     # REPO_ROOT goes FIRST on the child's PYTHONPATH so the timed CLI measures this tree, which is
@@ -958,8 +989,9 @@ def _measure_affinity(model: str, spec: dict, out_path: Path) -> dict:
     env.setdefault("TT_VISIBLE_DEVICES", "0")
     env.setdefault("TT_METAL_LOGGER_LEVEL", "FATAL")
     env.setdefault("LOGURU_LEVEL", "WARNING")
-    wall, walls = _time_single_shot(make_cmd, env, work, MEASURE_TIMEOUT_S,
-                                    f"affinity predict [{model}]")
+    wall, walls = _time_single_shot(
+        make_nesso_cmd if model == "nesso1" else make_cmd, env, work,
+        MEASURE_TIMEOUT_S, f"affinity {'screen' if model == 'nesso1' else 'predict'} [{model}]")
     throughput = 1.0 / wall
     latency_ms = wall * 1000.0
     card = detect_card_type()
@@ -977,15 +1009,20 @@ def _measure_affinity(model: str, spec: dict, out_path: Path) -> dict:
         load_s=0.0,
         warmup=0,
         repeat=SINGLE_SHOT_REPEAT,
-        sampling_steps=SAMPLING_STEPS,
-        diffusion_samples=DIFFUSION_SAMPLES,
-        recycling_steps=RECYCLING_STEPS,
-        sampling_steps_affinity=SAMPLING_STEPS,
-        diffusion_samples_affinity=DIFFUSION_SAMPLES,
-        input=f"{spec_path.name} (FKBP12+SB3, L107, single-seq, affinity mode)",
         tt_bio_version=_version(),
         date=date.today().isoformat(),
     )
+    if model == "nesso1":
+        result["input"] = f"{spec_path.name} (FKBP12+SB3, L107, bf16 trunk, CLI defaults)"
+    else:
+        result.update(
+            sampling_steps=SAMPLING_STEPS,
+            diffusion_samples=DIFFUSION_SAMPLES,
+            recycling_steps=RECYCLING_STEPS,
+            sampling_steps_affinity=SAMPLING_STEPS,
+            diffusion_samples_affinity=DIFFUSION_SAMPLES,
+            input=f"{spec_path.name} (FKBP12+SB3, L107, single-seq, affinity mode)",
+        )
     out_path.write_text(json.dumps(result))
     print(f"[{model}] {result['throughput']} {spec['unit']}  "
           f"({latency_ms:.0f} ms/call, median wall {wall:.0f}s, "

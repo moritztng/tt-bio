@@ -884,15 +884,123 @@ def _tri_att_q_chunks(q_len: int, k_len: int) -> tuple:
     return tuple(sorted(wider, reverse=True)) + (prod,)
 
 
-def _tri_att_sdpa(q, k, v, bias, scale: float, ckc=None):
+# A sequence length that is not a multiple of the 32-row tile is served WRONG by the fused SDPA
+# path, and this pads it up to one and masks the padding out.
+#
+# MEASURED on captured RF3 triangle-attention operands, sliced to a length and handed over raw, all
+# scored in fp64 against the SAME bf16 operands (perf/fused_sdpa/errstruct_lenladder.json):
+#
+#     n     aligned   materialised   fused op-default    fused HiFi4/ap-off/acc
+#      76   RAGGED    9.671e-03      7.335e-01  x75.8    7.334e-01  x75.8
+#      96   aligned   1.039e-02      1.385e-02  x 1.33   3.537e-03  x 0.34
+#     117   RAGGED    1.001e-02      7.291e-01  x72.8    7.289e-01  x72.8
+#     128   aligned   9.995e-03      1.376e-02  x 1.38   3.595e-03  x 0.36
+#     298   RAGGED    1.030e-02      7.316e-01  x71.0    7.314e-01  x71.0
+#     512   aligned   1.071e-02      1.473e-02  x 1.38   4.352e-03  x 0.41
+#
+# The materialised path is flat at ~1e-2 either way, and the two fused columns agree to four digits
+# at every ragged length, so this is not a precision term and no compute-config knob reaches it.
+#
+# In TILE layout a [117, 4, 117, 32] tensor is already physically 128 wide on both tile axes and the
+# logical 117 is what the op is meant to honour. The padded key columns therefore carry whatever is
+# in that physical tail plus a bias of zero, and exp(0) is 1, so up to 31 of every row's key slots
+# take a real share of the softmax mass. Writing a large negative into the bias over the padded key
+# columns takes it back to zero. The query axis pads with 0 instead: those output rows are sliced
+# off, and a fully-masked row would divide by zero.
+_SDPA_RAGGED_PAD = env_flag("TT_BIO_SDPA_RAGGED_PAD", False)
+# Let `_TRIATT_FUSED_HIFI_MIN_S` see the PADDED length instead of the true one, so a ragged call
+# just under the gate is served rather than declined. Only meaningful with the ragged pad on.
+_TRIATT_HIFI_MIN_S_PADDED = env_flag("TT_BIO_TRIATT_HIFI_MIN_S_PADDED", False)
+# [ragged calls padded, calls already aligned]. A fix that never fired must not read as a null.
+SDPA_RAGGED_PAD_STATS = [0, 0]
+# site -> [ragged calls, aligned calls]. Counted whether or not the fix is on, because the census
+# question ("does this model ever reach a fused SDPA at a length that does not divide 32, and at
+# WHICH call site") has to be answerable on a model whose accuracy floor is too wide to score.
+# A model with no ragged call is IMMUNE and has to be recorded as immune, not as passing.
+SDPA_RAGGED_SITES: dict = {}
+# Large enough that exp((qk + m) * scale) underflows to zero for any score this op sees, small
+# enough to stay finite in bf16 and to survive being multiplied by a bias scale.
+_SDPA_PAD_MASK = -1.0e9
+
+
+def _sdpa_pad_ragged(q, k, v, bias):
+    """Pad the q and k axes to a tile multiple, masking the new keys. Returns (q, k, v, bias, q_pad).
+
+    The two axes are padded independently so this is correct for cross-attention as well; for the
+    self-attention every caller here runs, `q_pad == k_pad`. The bias' query axis is only padded
+    when it is not broadcast, since a bias of shape [..., 1, S] already covers every padded row.
+    """
+    Sq, Sk = int(q.shape[2]), int(k.shape[2])
+    q_pad, k_pad = (-Sq) % 32, (-Sk) % 32
+    if not (q_pad or k_pad):
+        return q, k, v, bias, 0
+    qp = ttnn.pad(q, [(0, 0)] * (len(q.shape) - 2) + [(0, q_pad), (0, 0)], value=0.0) \
+        if q_pad else q
+    kv = [(0, 0)] * (len(k.shape) - 2) + [(0, k_pad), (0, 0)]
+    kp = ttnn.pad(k, kv, value=0.0) if k_pad else k
+    vp = ttnn.pad(v, kv, value=0.0) if k_pad else v
+    nb = len(bias.shape)
+    bp = bias
+    # The query rows pad with 0, not with the mask: those rows are sliced off, and a row masked in
+    # every column would divide by zero in the softmax.
+    if q_pad and int(bias.shape[-2]) == Sq:
+        bp = ttnn.pad(bp, [(0, 0)] * (nb - 2) + [(0, q_pad), (0, 0)], value=0.0)
+    if k_pad:
+        bp = ttnn.pad(bp, [(0, 0)] * (nb - 1) + [(0, k_pad)], value=_SDPA_PAD_MASK)
+    # ttnn.pad ALIASES here rather than copying: in TILE layout the buffer is already 32-aligned on
+    # both tile axes, so the pad is a relabel of the logical shape plus a fill of the physical tail
+    # that was already there. Measured -- deallocating the pad output kills the SOURCE tensor. So
+    # nothing here may be freed, and the padding costs no DRAM.
+    return qp, kp, vp, bp, q_pad
+
+
+def _sdpa_masked(fn, q, k, v, bias, *args, site: str, pad: bool = False, **kw):
+    """Run a fused SDPA through `fn` with the ragged tile tail masked out.
+
+    Every fused-SDPA call in this file that carries an ADDITIVE mask goes through here, because the
+    defect is a property of the primitive and not of any one caller: ttnn's SDPA reduces over the
+    TILE-PADDED physical key length while a mask sized to the logical length leaves the ragged tail
+    at a bias of 0, and exp(0) = 1 beats real scores that mostly sit below 0. Up to 31 padded key
+    columns then take a real share of every row's softmax mass.
+
+    `fn` may return None (the fused-HiFi arm declines over L1); that is passed straight through so
+    the caller's fall-back still fires.
+
+    `pad` is the CONSTRUCTION SITE's opt-in, ORed with the global `_SDPA_RAGGED_PAD`: the global is
+    the A/B switch and the per-site bool is what ships. See `sdpa_ragged_pad_site` for why this is
+    not one global.
+    """
+    ragged = bias is not None and bool(int(q.shape[2]) % 32 or int(k.shape[2]) % 32)
+    c = SDPA_RAGGED_SITES.setdefault(site, [0, 0])
+    c[0 if ragged else 1] += 1
+    if not (ragged and (_SDPA_RAGGED_PAD or pad)):
+        return fn(q, k, v, bias, *args, **kw)
+    SDPA_RAGGED_PAD_STATS[0] += 1
+    Sq = int(q.shape[2])
+    qp, kp, vp, bp, _ = _sdpa_pad_ragged(q, k, v, bias)
+    o = fn(qp, kp, vp, bp, *args, **kw)
+    if o is None or int(o.shape[2]) == Sq:
+        return o
+    sl = o[:, :, :Sq, :]
+    ttnn.deallocate(o)
+    return sl
+
+
+def _tri_att_sdpa(q, k, v, bias, scale: float, ckc=None, pad: bool = False):
     """SDPA for triangle attention at the widest q_chunk this device's L1 will hold.
 
     ``ckc`` is the fused kernel's compute kernel config, or ``None`` for the op default. Passed
     per call rather than set on ``triatt_sdpa._CKC_OVERRIDE``, which is a module global six models
-    share.
+    share. It rides THROUGH `_sdpa_masked`, so the per-site HiFi4 config and the ragged-tail mask
+    compose instead of excluding each other.
     """
     if ckc is not None:
         SDPA_HIFI_CALLS[0] += 1
+    return _sdpa_masked(_tri_att_sdpa_inner, q, k, v, bias, scale, ckc,
+                        site="tri_att", pad=pad)
+
+
+def _tri_att_sdpa_inner(q, k, v, bias, scale: float, ckc=None):
     if _TRIATT_BIAS_B8 and bias is not None and bias.dtype != ttnn.bfloat8_b:
         b8 = ttnn.typecast(bias, ttnn.bfloat8_b)
         try:
@@ -1166,6 +1274,80 @@ TRIATT_FUSED_HIFI_PICKS: dict = {}
 # fold itself says which config it ran.
 TRIATT_FUSED_HIFI_PICKS: dict = {}
 
+# In-fold dual-path probe for triangle attention. `TT_BIO_TRIATT_DUALPROBE=1` runs BOTH routes on
+# every fused call's own operands and records how far apart they are, split by real-token rows and
+# padded rows. Returns the route the fold asked for, so the fold itself is unchanged.
+#
+# It exists because an op screen cannot see padding. `perf/rf3/inputs/rf3_512.json` is exactly 512
+# tokens, so every capture taken from it has a full mask and no padded column, while a real fixture
+# (7ROA L117 -> padded 128) has 11 of 128 columns masked out. Padding is the one term that is both
+# absent from the screen and insensitive to the compute config, which is exactly the shape of a
+# 2.3x per-op win that moves the fold by nothing.
+# `TT_BIO_SDPA_RAGGED_CENSUS=<dir>` dumps `SDPA_RAGGED_SITES` at exit. Counting is free and
+# unconditional, so this changes no arithmetic: it is the instrument for the four models whose
+# accuracy floor is 2-17x RF3's and therefore cannot resolve the defect they may be carrying.
+if os.environ.get("TT_BIO_SDPA_RAGGED_CENSUS"):
+    import atexit as _atexit_rc
+
+    def _sdpa_ragged_census_dump():
+        import json as _json
+        d = os.environ["TT_BIO_SDPA_RAGGED_CENSUS"]
+        os.makedirs(d, exist_ok=True)
+        with open(os.path.join(d, f"ragged_sites_{os.getpid()}.json"), "w") as fh:
+            _json.dump({"sites": SDPA_RAGGED_SITES, "padded": SDPA_RAGGED_PAD_STATS[0]}, fh)
+
+    _atexit_rc.register(_sdpa_ragged_census_dump)
+
+
+_TRIATT_DUALPROBE = env_flag("TT_BIO_TRIATT_DUALPROBE", False)
+TRIATT_DUALPROBE_ROWS: list = []
+if _TRIATT_DUALPROBE and os.environ.get("TT_BIO_TRIATT_DUALPROBE_OUT"):
+    import atexit as _atexit
+
+    def _dualprobe_dump():
+        import json as _json
+        d = os.environ["TT_BIO_TRIATT_DUALPROBE_OUT"]
+        with open(os.path.join(d, f"dualprobe_{os.getpid()}.json"), "w") as fh:
+            _json.dump(TRIATT_DUALPROBE_ROWS, fh)
+
+    _atexit.register(_dualprobe_dump)
+
+
+def _triatt_dualprobe(o_fold, q, k, v, bias, scale_inv, bias_scale_inv, ckc, site=""):
+    """Record fused-vs-materialised divergence on one call. Returns `o_fold` untouched."""
+    import torch
+    other = _fp32_softmax_attention(q, k, v, bias, scale_inv=scale_inv,
+                                    compute_kernel_config=ckc, out_dtype=_dtype(),
+                                    bias_scale_inv=bias_scale_inv)
+    a = ttnn.to_torch(o_fold).double()
+    b = ttnn.to_torch(other).double()
+    ttnn.deallocate(other)
+    bt = ttnn.to_torch(bias).double()
+    # A padded column is one the bias masks out for every row and head. Derived from the tensor
+    # rather than from a token count, so this works for any model without threading a length in.
+    colmax = bt.amax(dim=tuple(range(bt.ndim - 1)))
+    pad_col = colmax < -1e4
+    n_valid = int((~pad_col).sum())
+
+    def rel(x, y):
+        d = (x - y)
+        n = y.pow(2).sum().sqrt()
+        return float(d.pow(2).sum().sqrt() / n) if float(n) > 0 else float("nan")
+
+    S = a.shape[2]
+    rec = {
+        "site": site, "shape": [int(d) for d in a.shape], "S": int(S),
+        "n_valid_cols": n_valid, "n_pad_cols": int(S - n_valid),
+        "rel_all": rel(a, b),
+        "rel_valid_rows": rel(a[:n_valid, :, :n_valid], b[:n_valid, :, :n_valid])
+        if n_valid else float("nan"),
+        "rel_pad_rows": rel(a[n_valid:], b[n_valid:]) if n_valid < a.shape[0] else None,
+        "max_abs_fused": float(a.abs().max()), "max_abs_mat": float(b.abs().max()),
+        "nan_fused": int(torch.isnan(a).sum()), "nan_mat": int(torch.isnan(b).sum()),
+    }
+    TRIATT_DUALPROBE_ROWS.append(rec)
+    return o_fold
+
 
 def _tri_att_sdpa_hifi(q, k, v, bias, scale: float, one_k_chunk: bool = False):
     """Triangle attention through the fused SDPA at `_TRIATT_FUSED_HIFI_CKC`, or None to decline.
@@ -1203,6 +1385,23 @@ def _tri_att_sdpa_hifi(q, k, v, bias, scale: float, one_k_chunk: bool = False):
     NOT bit-exact against the shipped k_chunk -- k_chunk sets the reduction order. It IS bit-exact
     across q_chunk and across `kv_buffer_factor`, verified with `torch.equal` at all six sizes.
     """
+    # The MIN_S gate reads the TRUE length, before any padding. The ragged pad must not change
+    # which route a call takes: at RF3's 7ROA L117 the pad lifts the length to 128, the gate stops
+    # declining, and the fused-HiFi kernel serves a call that used to fall through to the
+    # materialised path. That is very likely the RIGHT thing to do -- MIN_S was fitted to the
+    # port's 8-53-token parity fixtures reading 3.4-5.3x worse, and the variable there was
+    # divisibility by 32, not length -- and it measures BETTER: 0.2610 -> 0.1929 A CA at 7ROA on a
+    # 0.3755 A A/A floor. But it is a route change on top of an accuracy fix, so it gets its own
+    # opt-in and its own decision.
+    if not _TRIATT_HIFI_MIN_S_PADDED:
+        if min(int(q.shape[2]), int(k.shape[2])) < _TRIATT_FUSED_HIFI_MIN_S:
+            TRIATT_FUSED_HIFI_STATS["too_short"] += 1
+            return None
+    return _sdpa_masked(_tri_att_sdpa_hifi_inner, q, k, v, bias, scale,
+                        site="tri_att_hifi", one_k_chunk=one_k_chunk)
+
+
+def _tri_att_sdpa_hifi_inner(q, k, v, bias, scale: float, one_k_chunk: bool = False):
     q_len, k_len = int(q.shape[2]), int(k.shape[2])
     if min(q_len, k_len) < _TRIATT_FUSED_HIFI_MIN_S:
         TRIATT_FUSED_HIFI_STATS["too_short"] += 1
@@ -1882,6 +2081,29 @@ def triatt_sdpa_hifi_site(token: str, default: bool = False) -> bool:
     A/B-able without a checkout.
     """
     return _site_flag("TT_BIO_TRIATT_SDPA_HIFI_AB", token, default)
+
+
+def sdpa_ragged_pad_site(token: str, default: bool = False) -> bool:
+    """Whether construction site ``token`` masks the fused SDPA's ragged tile tail.
+
+    Per site rather than global, and this one is per site for a MEASURED reason rather than a
+    precautionary one. The mask is a correctness fix for the primitive -- unmasked, the fused
+    kernel is 71-76x wrong at any sequence length that is not a multiple of 32 -- and it is worth
+    9.2x on rf3's 7ROA CA-RMSD. But scored on the two other models that reach a ragged fused call,
+    the same fix moves protenix-v2 the right way at every target and moves OPENDDE the wrong way at
+    both of its, same tree and same card, pad off against pad on:
+
+        opendde-prot-prod        X 2.215 (floor 2.102, PASS)  ->  X 7.289 (floor 3.683, GAP)
+        opendde-trpcage-nomsa    X 0.361 (floor 0.374, PASS)  ->  X 0.428 (floor 0.475, PASS)
+        protenix-v2 hsa L585     committed GAP                ->  X 0.674 (floor 0.695, PASS)
+        protenix-v2 ubq L76      committed GAP-evidenced      ->  X 1.828 (floor 1.923, PASS)
+
+    opendde-prot-prod also gets LESS self-consistent (its device floor widens 2.102 -> 3.683), which
+    is the opposite of what the fix does to rf3, so this is not diffusion chaos being read as a
+    regression. Until that is root-caused, the site that measured a win is the only site that gets
+    it. `TT_BIO_SDPA_RAGGED_PAD` still forces it on everywhere, which is how the above was measured.
+    """
+    return _site_flag("TT_BIO_SDPA_RAGGED_PAD_AB", token, default)
 
 
 def _accurate_softmax(x, compute_kernel_config=None, fp32: bool = True):
@@ -4456,6 +4678,7 @@ class TriangleAttention(Module):
         fused_hifi: bool | None = None,
         bias_in_matmul: str | None = None,
         l1_padded_plan: bool | None = None,
+        sdpa_ragged_pad: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.head_dim = head_dim
@@ -4511,6 +4734,9 @@ class TriangleAttention(Module):
         # is byte-identical either way -- `FP32_SOFTMAX_STATS["l1_padded_diverged"]` counts the
         # calls where they do not, which is the instrument a cross-model flip needs.
         self.l1_padded_plan = l1_padded_plan
+        # Mask the fused SDPA's ragged tile tail at THIS site. Off unless the site's own fold-level
+        # accuracy was measured; see `sdpa_ragged_pad_site`.
+        self.sdpa_ragged_pad = sdpa_ragged_pad
         self.scale = self.head_dim**0.5
         # Boltz/Protenix fold sqrt(head_dim) into the pair-bias projection (their
         # reference adds the bias pre-scaled); openfold3 pre-scales q by 1/sqrt(d) and
@@ -4696,7 +4922,13 @@ class TriangleAttention(Module):
                     )
             else:
                 o = _tri_att_sdpa(q, k, v, bias, self.scale**-1,
-                                  _TRIATT_FUSED_HIFI_CKC if self.sdpa_hifi else None)
+                                  _TRIATT_FUSED_HIFI_CKC if self.sdpa_hifi else None,
+                                  self.sdpa_ragged_pad)
+                if _TRIATT_DUALPROBE:
+                    o = _triatt_dualprobe(o, q, k, v, bias, self.scale ** -1,
+                                          1.0 / self._bias_scale,
+                                          self.compute_kernel_config,
+                                          site=f"tri_att_{'end' if self.ending else 'start'}")
             ttnn.deallocate(q)
             ttnn.deallocate(k)
             ttnn.deallocate(v)
@@ -5058,14 +5290,17 @@ class AttentionPairBias(Module):
                 accurate_softmax=self.accurate_softmax,
             )
         if self.dtype != ttnn.float32:
-            return ttnn.transformer.scaled_dot_product_attention(
-                q,
-                k,
-                v,
-                attn_mask=bias,
-                is_causal=False,
-                scale=self.head_dim**-0.5,
-                program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2]),
+            return _sdpa_masked(
+                lambda q_, k_, v_, b_: ttnn.transformer.scaled_dot_product_attention(
+                    q_,
+                    k_,
+                    v_,
+                    attn_mask=b_,
+                    is_causal=False,
+                    scale=self.head_dim**-0.5,
+                    program_config=_sdpa_program_config_for_lengths(q_.shape[2], k_.shape[2]),
+                ),
+                q, k, v, bias, site="attn_pair_bias",
             )
 
         # SDPA accepts bf16/bf8/bf4 only. Keep the fp32 transformer in fp32
@@ -5080,16 +5315,17 @@ class AttentionPairBias(Module):
         bias_bf16 = ttnn.typecast(
             bias, ttnn.bfloat16, memory_config=bias.memory_config()
         )
-        out_bf16 = ttnn.transformer.scaled_dot_product_attention(
-            q_bf16,
-            k_bf16,
-            v_bf16,
-            attn_mask=bias_bf16,
-            is_causal=False,
-            scale=self.head_dim**-0.5,
-            program_config=_sdpa_program_config_for_lengths(
-                q_bf16.shape[2], k_bf16.shape[2]
+        out_bf16 = _sdpa_masked(
+            lambda q_, k_, v_, b_: ttnn.transformer.scaled_dot_product_attention(
+                q_,
+                k_,
+                v_,
+                attn_mask=b_,
+                is_causal=False,
+                scale=self.head_dim**-0.5,
+                program_config=_sdpa_program_config_for_lengths(q_.shape[2], k_.shape[2]),
             ),
+            q_bf16, k_bf16, v_bf16, bias_bf16, site="attn_pair_bias_fp32",
         )
         for tensor in (q_bf16, k_bf16, v_bf16, bias_bf16):
             ttnn.deallocate(tensor)
@@ -5276,12 +5512,16 @@ class AttentionPairBias(Module):
                 # additive mask along with QK, so scale=head_dim**-0.5 reproduces the unfused
                 # chain's (q@k^T + z) * head_dim**-0.5 exactly in exact arithmetic; what differs
                 # is the bf16 exponentiated-score buffer, hence the accuracy gate on this arm.
-                o = ttnn.transformer.scaled_dot_product_attention(
-                    q, k, v,
-                    attn_mask=z,
-                    is_causal=False,
-                    scale=self.head_dim**-0.5,
-                    program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2]),
+                o = _sdpa_masked(
+                    lambda q_, k_, v_, b_: ttnn.transformer.scaled_dot_product_attention(
+                        q_, k_, v_,
+                        attn_mask=b_,
+                        is_causal=False,
+                        scale=self.head_dim**-0.5,
+                        program_config=_sdpa_program_config_for_lengths(
+                            q_.shape[2], k_.shape[2]),
+                    ),
+                    q, k, v, z, site="token_dit",
                 )
             else:
                 if seq_mask is not None:
@@ -5587,6 +5827,7 @@ class PairformerLayer(Module):
         accurate_softmax: bool = False,
         tri_att_accurate_softmax: bool | None = None,
         tri_att_sdpa_hifi: bool = False,
+        tri_att_sdpa_ragged_pad: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.transform_s = transform_s
@@ -5612,6 +5853,7 @@ class PairformerLayer(Module):
             fp32_softmax=fp32_softmax,
             accurate_softmax=tri_acc,
             sdpa_hifi=tri_att_sdpa_hifi,
+            sdpa_ragged_pad=tri_att_sdpa_ragged_pad,
         )
         self.triangle_attention_end = TriangleAttention(
             tri_att_head_dim,
@@ -5626,6 +5868,7 @@ class PairformerLayer(Module):
             transpose_l1_reserve=transpose_l1_reserve,
             accurate_softmax=tri_acc,
             sdpa_hifi=tri_att_sdpa_hifi,
+            sdpa_ragged_pad=tri_att_sdpa_ragged_pad,
         )
         self.transition_z = Transition(
             self.scope("transition_z"), compute_kernel_config
@@ -5715,6 +5958,7 @@ class Pairformer(Module):
         accurate_softmax: bool = False,
         tri_att_accurate_softmax: bool | None = None,
         tri_att_sdpa_hifi: bool = False,
+        tri_att_sdpa_ragged_pad: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.blocks = [
@@ -5735,6 +5979,7 @@ class Pairformer(Module):
                 accurate_softmax=accurate_softmax,
                 tri_att_accurate_softmax=tri_att_accurate_softmax,
                 tri_att_sdpa_hifi=tri_att_sdpa_hifi,
+                tri_att_sdpa_ragged_pad=tri_att_sdpa_ragged_pad,
             )
             for i in range(n_blocks)
         ]

@@ -34,6 +34,27 @@ model's leg, so it runs by default alongside the other four rather than standalo
 (supersedes docs/boltzgen-designability.md's earlier "keep it out of the fast gate"
 call, which assumed a much slower per-design cost).
 
+RFD3 is a design model too, but designability does not transfer to it. Upstream
+RFdiffusion3 evaluates with ProteinMPNN/LigandMPNN sequences plus AF3 rather than
+its own sequence head, tt-bio ships no MPNN, and docs/rfd3-design.md already tells
+users the built-in sequence is a starting point to redesign — so refolding it would
+score the model working as intended against a floor no failure could exceed. Its leg
+scores the delivered structure instead: strict parse, backbone geometry as a clean
+rate over four designs (a design is clean when no CA-CA step exceeds the break
+distance and the rest sit in the measured band), heavy-atom clashes, a real sequence
+at the designed positions (zero UNK plus a minimum distinct-amino-acid count), and
+byte-identical coordinates from a repeated seed in a fresh process. Geometry is a rate
+and not an every-design bar because RFdiffusion-family models produce an occasional
+broken backbone by design, the same call BOLTZGEN_MIN_PASS_RATE already makes. Every
+geometry and sequence number is computed over the DESIGNED residues only, recovered by re-featurizing the spec on the host: RFD3
+merges a binder's designed residues into the target's own chain, so a chain-level
+number averages 70 generated residues against 50 copied ones and passes by dilution.
+This is the leg RFD3's two escaped defects would have tripped (a sequence head
+computed and then dropped, and tile sparsity behind a wrong-variable gate) — neither
+the bit-exact featurizer leg in ``scripts/full_parity_gate.py`` nor the perf leg can
+see the far end of the pipeline. Geometry reuses
+``perf/wh-correctness/check_structure.py``'s measured bands and clash search.
+
 ESMC is an *embedding* model, not a fold model — it has no structure to score
 against ground truth, so the RMSD/TM mechanism above does not apply. Its
 correctness bar is embedding-space agreement with the reference esm ESMC: the
@@ -139,6 +160,7 @@ see RELEASING.md. The two are independent; both must exit 0 before a tag.
 """
 
 import argparse
+import csv
 import hashlib
 import importlib.util
 import json
@@ -236,6 +258,93 @@ BOLTZGEN_PROTOCOL = "protein-anything"
 BOLTZGEN_NUM_DESIGNS = 4
 BOLTZGEN_SC_THRESHOLD = 2.0
 BOLTZGEN_MIN_PASS_RATE = 0.5
+
+# --- rfd3 leg -----------------------------------------------------------------
+# RFD3 is a design model with no ground truth and no usable designability metric: upstream
+# RFdiffusion3 evaluates with ProteinMPNN/LigandMPNN sequences + AF3, not its own sequence
+# head, tt-bio ships no MPNN, and docs/rfd3-design.md already tells users the built-in
+# sequence is a starting point to redesign. Refolding it would score the model working as
+# intended (43-60% ALA de novo) against a floor no failure could exceed.
+#
+# So this leg gates what RFD3's other legs cannot see. The featurizer leg
+# (full_parity_gate.py's "rfd3-featurizer", 43/43 f keys bit-exact) scores an INPUT and the
+# perf leg scores a wall-clock; both stay green when the design leaving the far end is
+# garbage. Both of RFD3's escaped defects lived exactly there: the sequence was computed and
+# then dropped (fixed 16dfe4db), and a wrong-variable gate shipped tile sparsity. This leg
+# scores the delivered CIF instead: backbone geometry, no clashes, a real sequence at the
+# designed positions, and byte-identical output from a repeated seed.
+#
+# It scores the DESIGNED RESIDUES ONLY, recovered by re-featurizing the spec on the host and
+# reading restype == DESIGNED_RESTYPE_IDX off the shipped featurizer. That is not optional:
+# for a binder RFD3 merges the designed residues into the target's own chain (gate-binder is
+# one chain A of 120 = 50 copied target + 70 designed), and once the sequence head has named
+# them nothing in the CIF marks which is which. Chain-level scoring would average 70
+# generated residues against 50 copied ones, the pass-by-dilution that let the all-UNK defect
+# through two of three protocols.
+RFD3_SPEC = REPO_ROOT / "examples" / "rfd3_binder.json"
+RFD3_SPEC_ID = "gate-binder"
+RFD3_NUM_DESIGNS = 4
+RFD3_SEED = 42
+# 200 steps, not the CLI default of 4: docs/rfd3-design.md calls 4 a fast smoke setting and
+# 200 the upstream production default. A 4-step trajectory is barely denoised, so a geometry
+# bar on it would gate a config nobody wants results from.
+RFD3_TIMESTEPS = 200
+# The determinism arm repeats one design in a fresh process. Bit-exactness is a property of
+# the device graph and shows up on the first step, so 4 steps buys the same signal at ~1/50
+# the cost of 200.
+RFD3_DET_TIMESTEPS = 4
+
+# Floors, each doubled the way its own metric's noise behaves. A flat "2x the measured
+# number" is wrong for a fraction (2x an in-band fraction of 1.0 is 0.5, which nothing can
+# fail), so a fraction gets 2x its DEFICIT, a count gets 2x itself, and a binary wiring fact
+# gets no band at all.
+#
+# MEASURED on qb1 (Blackhole p150a, card 0), ttnn 0.67.4, commit f77f8ad1,
+# examples/rfd3_binder.json at 200 steps x 4 designs, seed 42, scored over the 70 designed
+# residues (per-design, not averaged):
+#
+#   design  CA-CA median  in band  breaks  clashes/heavy   distinct AA  UNK  top AA
+#     0        3.868 A     1.0000     0       0/715             14        0   45.7%
+#     1        3.865 A     0.9855     1       2/714             12        0   51.4%
+#     2        3.891 A     1.0000     0       0/715             14        0   42.9%
+#     3        3.869 A     1.0000     0       3/714             11        0   42.9%
+#
+# Geometry is gated as a CLEAN RATE, not as an all-designs bar, because the measurement says
+# it has to be: design 1 carries one genuine 8.497 A CA-CA step at residue 58->59, while
+# every other step across all four designs sits in 3.76-4.04 A. RFdiffusion-family models
+# produce an occasional broken backbone and the field's answer is to generate several and
+# filter, so "zero breaks in every design" is a model-quality bar, not a port-correctness
+# one, and a gate set there would fail correct code roughly a quarter of the time. This is
+# the same call the BoltzGen leg above already makes with BOLTZGEN_MIN_PASS_RATE, for the
+# same stated reason: one bad seed out of four should not fail the gate, all four should.
+# Measured clean rate 3/4 = 0.75, floor 0.50.
+#
+# The clean test is two-sided on purpose and neither half is redundant: `breaks` catches one
+# severe discontinuity (design 1 still scores 0.9855 in band, which clears the 0.98 bar on
+# its own), and `in_band` catches many mildly-wrong steps that never individually exceed
+# CA_CA_BREAK. A garbled coordinate tensor trips one or the other.
+RFD3_MIN_CLEAN_RATE = 0.50   # measured 0.75 (3 of 4)
+RFD3_MIN_INBAND = 0.98       # measured 1.0000 / 0.9855 / 1.0000 / 1.0000
+RFD3_MAX_BREAKS = 0          # per design, inside the clean test above
+# Clashes stay an absolute count, worst design of four, against check_structure's own
+# calibrated allowance (CLASH_MAX_ABS = 2, the worst measured experimental structure) doubled
+# past what this fixture measured. Not a fraction: 2x a measured 0 is a zero-tolerance bar,
+# and "0.004" hides that it is 3 atoms. A tile-sparsity blowup is tens to hundreds of clashes
+# (the pre-fix WH artifact logged 53), so 6 catches that class with room to spare.
+RFD3_MAX_CLASHES = 6         # measured worst 3
+# Sequence: the designed positions must carry a real predicted sequence. Zero UNK is binary
+# and gets no band -- it is the exact escaped defect (sequence head computed then dropped,
+# fixed 16dfe4db), and the host-only negative control reproducing that writer scores 70 UNK
+# and 0 distinct AA. The distinct-AA count is a second, weaker guard against the sequence
+# head collapsing to one residue; deliberately NOT a composition cap, since 43-60% ALA is
+# real RFD3 behaviour (measured 42.9-51.4% here) and a cap would fail a correct model.
+RFD3_MIN_DISTINCT_AA = 5     # measured worst 11
+RFD3_MAX_UNK = 0             # measured 0; the pre-fix writer scores 70
+# Runs by default: the whole arm (4 designs at 200 steps in one batched forward, plus the two
+# 4-step determinism repeats) measured 95 s and 108 s on two runs on qb1 card 3 with the host
+# otherwise uncontended, well inside BoltzGen's ~271 s default-arm precedent. The same arm took 486 s
+# earlier the same day only because every device open queued behind another worker on the
+# host-wide /tmp/tt-bio-device-open.lock, which measures contention, not the leg.
 
 # ESMC embedding-parity leg — see module docstring. Per-residue embedding PCC
 # floor vs the reference esm ESMC on a real protein. Generous (the shipped fused
@@ -432,7 +541,8 @@ CAPACITY_LEGS = [
 # pin the grid either, because harvesting means one board type presents several.
 # So each model's block records the grid its census ran on and the check REFUSES
 # a cross-grid comparison outright instead of reporting levers as newly dark.
-SIZE_LADDER_MODELS = ("boltz2", "esmfold2", "protenix-v2", "openfold3", "opendde", "rf3")
+SIZE_LADDER_MODELS = ("boltz2", "esmfold2", "protenix-v2", "openfold3", "opendde",
+                      "rf3", "nesso1")
 SIZE_LADDER_RUNGS = tuple(int(x) for x in
                           os.environ.get("RELEASE_GATE_SIZE_RUNGS", "256,512,640,768").split(",")
                           if x.strip())
@@ -461,6 +571,36 @@ SIZE_LADDER_WORKDIR = REPO_ROOT / "perf" / "sizegate" / "work"
 # Record mode keeps the per-rung census artifacts here as the evidence behind
 # docs/size_ladder_baseline.json — the first thing to diff when the arm goes red.
 SIZE_LADDER_PROVENANCE = REPO_ROOT / "perf" / "sizegate" / "baseline"
+
+# nesso1 is the one model in this arm that `predict` cannot fold. It returns a scalar rather
+# than a structure, so it ships as `tt-bio affinity` and sits in AFFINITY_MODELS, not
+# PREDICT_MODELS. It needs its own leg because the shared cdk2x2 fixture leaves its whole
+# forward path dark: four of the other five models have no affinity module, so that fixture is
+# apo protein with no ligand, and NO rung of this arm exercised the affinity pairformer for any
+# model. The measured consequence is not hypothetical — TRIATT_PERSISTENT_MASK serves 0 of 768
+# calls per forward with affinity=True at every rung, because the pair-mask slice makes the bias
+# per row ([S, h, S, S]) instead of batch-broadcast ([1, h, S, S]) and the fused kernel correctly
+# declines. Read off the apo fixture the same lever looks fully served. A lever 100% dark on a
+# shipped path is what this arm exists to catch.
+#
+# Fixtures: perf/nesso1/inputs/ladder/aa<rung>/cdk2_<rung>.yaml — the same tiled CDK2 sequence
+# the other models' rungs use plus the upstream README ligand, so nesso1's rung at N aa is the
+# same protein as everyone else's rung at N aa. 256 aa featurizes to 276 tokens (the ligand is
+# tokenised per heavy atom).
+#
+# Fold config is every shipped default: --trunk bf16, --recycling_steps 5, --tokens_budget 256.
+# The pocket crop is load-bearing for correctness on large targets, so gating anything else
+# would gate a configuration nobody runs — and it is why nesso1's exponents are LOW: only the
+# first of the six trunk passes runs at full N, the other five run at the crop. That dilutes a
+# first-pass cliff rather than hiding it, and the recorded band is measured, not assumed.
+# --single_sequence / --sampling_steps / --diffusion_samples do not apply: no MSA, no diffusion.
+# Timing is the `seconds` column of affinity.csv, the forward alone, which is the same thing
+# predict's runtime_s is.
+#
+# The checkpoint ships a 413 MB ccd.pkl that is never committed. Set NESSO_CACHE to the HF cache
+# holding it when it is not in the default one; the leg fails naming the variable.
+SIZE_LADDER_NESSO_RECYCLING = 5
+SIZE_LADDER_NESSO_TOKENS_BUDGET = 256
 
 
 # ---------------------------------------------------------------------------
@@ -521,6 +661,26 @@ L1_BUDGET_HIDDEN = (128, 256)
 # that died on his p300c. Cheap enough for a default arm (~15 s a grid).
 L1_BUDGET_DATA = REPO_ROOT / "examples" / "affinity_fkg.yaml"
 L1_BUDGET_MODEL = "protenix-v2"
+# --- nesso1 correctness leg ------------------------------------------------------
+# Nesso-1 folds nothing, so it cannot join MODELS: there is no structure to Kabsch and no
+# TM to score. Its output is eleven scalars, and the only comparison available is against
+# the torch reference, which is bit-exact against upstream. The arm delegates to
+# scripts/nesso1_port/device_parity.py — the harness the port already validated with —
+# the same way the opendde-abag leg delegates its DockQ to scripts/opendde_dockq.py.
+# The floors live in that script, next to the measurement, so a hand run and the gate
+# report the same verdict.
+#
+# The arm scored is the one that ships: `tt-bio affinity` defaults to a bf16 trunk and
+# fp32 affinity stacks. Do not score bf16/bf16 — it is 3.17 rather than 3.43 on X_over_R
+# and nobody runs it.
+NESSO1_PARITY = REPO_ROOT / "scripts" / "nesso1_port" / "device_parity.py"
+NESSO1_FIXTURE = REPO_ROOT / "scripts" / "nesso1_port" / "parity_artifacts" / "tyr48"
+NESSO1_TRUNK, NESSO1_AFFINITY = "bf16", "fp32"
+NESSO1_REPEATS = 3
+# ~2-3 min: a CPU torch reference at 61 tokens is 8.5 s, three device repeats are ~1 s
+# each, and the rest is the weight load.
+NESSO1_TIMEOUT_S = 1800
+
 # PXDesign design leg. PXDesign is a binder-design pipeline, so it has no row in MODELS (folds of
 # 7ROA scored by CA-RMSD/TM against a ground truth) and none in SIZE_LADDER_MODELS -- neither holds
 # a design model. Same shape as the BoltzGen designability leg: run the shipped CLI path, parse
@@ -535,26 +695,23 @@ PXDESIGN_SPEC = REPO_ROOT / "tests" / "fixtures" / "pxdesign" / "PDL1.yaml"
 PXDESIGN_N_STEP = 20        # steps change how often a site is reached, not which; keeps the leg short
 PXDESIGN_SEED = 0
 PXDESIGN_NUM_DESIGNS = 1
-# Floor, not a target: catch a gross conditioning failure, the same philosophy as the MODELS
-# floors. RECORDED FROM A REAL RUN on the arm that ships -- see PXDESIGN_FIT_RMSD_MEASURED.
-# Measured 2026-08-23 on qb2 card 0 (p150a/Blackhole p300c) through the shipped CLI path at
-# n_step=20, seed 0: 4.91 A over the 116 conditioned tokens of the 196-token PD-L1 fixture. The
-# floor is 3x that. Generous on purpose -- the failure this catches is a BROKEN CONDITIONING PATH
-# (wrong embedding row, wrong bin edges, a leaked binder placeholder), which lands in the tens of
-# angstroms, not a design that is a little worse. 20 steps is a smoke, not production quality:
-# upstream uses 400, so this number says the conditioning works, not that the binder is good.
+# Floor, not a target: catch a gross conditioning failure, the same philosophy as the MODELS floors.
+# Measured 2026-08-23 on qb2 card 0 (Blackhole p300c) through the shipped CLI path at n_step=20,
+# seed 0: 4.909 A over the 116 conditioned tokens of the 196-token PD-L1 fixture. The floor is 3x
+# that. Generous on purpose -- the failure this catches is a BROKEN CONDITIONING PATH, which lands
+# in the tens of angstroms, not a design that is a little worse. 20 steps is a smoke, not
+# production quality: upstream uses 400, so this says the conditioning works, not that the binder
+# is good.
 PXDESIGN_MAX_FIT_RMSD = 15.0
-PXDESIGN_FIT_RMSD_MEASURED = 4.91 # the measured value the floor was derived from
+PXDESIGN_FIT_RMSD_MEASURED = 4.909
 # Bit-exactness evidence, REPORTED rather than gated. A coordinate digest is card- and
 # arch-specific the way af2ig-trunk-device's floor is, so making release success turn on equality
-# here would fail a release host for having different silicon rather than for a defect. It is
-# printed and compared so a change is visible; the floor above is what blocks.
-# Recorded 2026-08-23 on qb2 card 0 alongside the floor above, and reproduced across two
-# independent runs of the leg in the same session.
+# here would fail a release host for having different silicon rather than for a defect.
+# Recorded alongside the floor above and reproduced across three runs of the leg.
 PXDESIGN_STRUCTURE_SHA16 = "64af2cbc286012b9"
 
-DEFAULT_ARMS = ("boltzgen", "opendde-abag", "capacity", "l1-budget",
-                "batch-position", "pxdesign")
+DEFAULT_ARMS = ("boltzgen", "rfd3", "opendde-abag", "capacity",
+                "l1-budget", "batch-position", "nesso1", "pxdesign")
 
 L1_BUDGET_STEPS = 200
 # The width measured to fit at the issue-#11 call shape on a 110-core grid: the
@@ -852,6 +1009,207 @@ def run_boltzgen(bg, keep: bool) -> dict:
     return row
 
 
+def _load_geometry_harness():
+    """Import perf/wh-correctness/check_structure.py by path — reuse its measured band
+    constants and its clash search, do not re-derive protein geometry here. That file is
+    the validated structural checker the WH-correctness sweep scores every design with."""
+    path = REPO_ROOT / "perf" / "wh-correctness" / "check_structure.py"
+    spec = importlib.util.spec_from_file_location("tt_bio_check_structure", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _rfd3_designed_residues() -> set:
+    """(chain, res_id) of every designed protein token, from the shipped host featurizer.
+
+    Host-only, no device. The keys are the same ones _write_cif writes the CIF with
+    (``_chain_label(asym_id[t])`` and ``residue_index[t]``), so this identifies the designed
+    residues in the output file exactly and without relying on residue order.
+    """
+    import json as _json
+    from tt_bio.rfd3.input import InputSpecification
+    from tt_bio.rfd3.featurize import featurize, DESIGNED_RESTYPE_IDX
+    from tt_bio.rfd3.design import _chain_label
+
+    raw = _json.loads(RFD3_SPEC.read_text())[RFD3_SPEC_ID]
+    spec = InputSpecification.from_dict(raw)
+    f = featurize(str(REPO_ROOT / spec.input), spec)
+    rt = f["restype"]
+    rt = rt.argmax(-1) if rt.ndim == 2 else rt
+    mask = (rt == DESIGNED_RESTYPE_IDX) & f["is_protein"].bool()
+    asym, resid = f["asym_id"].tolist(), f["residue_index"].tolist()
+    return {(_chain_label(int(asym[t])), int(resid[t]))
+            for t in range(len(rt)) if bool(mask[t])}
+
+
+def _rfd3_score_cif(cif: Path, designed: set, geom) -> dict:
+    """Score one delivered RFD3 CIF over the designed residues only.
+
+    Geometry uses ``geom``'s measured bands (CA_CA_BAND, CA_CA_BREAK, CLASH_DIST) and its
+    clash search; the only thing computed here is the restriction to ``designed``, which
+    ``geom.chain_geometry`` cannot express (it is chain-level, and the designed residues
+    share the target's chain).
+    """
+    import gemmi
+    import numpy as np
+
+    st = gemmi.read_structure(str(cif))
+    st.setup_entities()
+    cas, resnames = [], []
+    for chain in st[0]:
+        for res in chain:
+            if (chain.name, res.seqid.num) not in designed:
+                continue
+            a = res.find_atom("CA", "*")
+            if a is None:
+                continue
+            cas.append((res.seqid.num, [a.pos.x, a.pos.y, a.pos.z]))
+            resnames.append((res.seqid.num, res.name))
+    cas.sort(key=lambda t: t[0])
+    resnames.sort(key=lambda t: t[0])
+    a = np.asarray([c for _, c in cas])
+    if len(a) < 2:
+        raise ValueError(f"{cif.name}: found {len(a)} designed CA of {len(designed)} expected")
+    d = np.linalg.norm(a[1:] - a[:-1], axis=1)
+    lo, hi = geom.CA_CA_BAND
+    seq = [geom._one_letter(n) for _, n in resnames]
+    n_clash, heavy, worst = geom.clashes(st)
+    return {"n_designed": len(a),
+            "in_band": round(float(((d >= lo) & (d <= hi)).mean()), 4),
+            "step_median": round(float(np.median(d)), 3),
+            "breaks": int((d > geom.CA_CA_BREAK).sum()),
+            "clashes": n_clash, "heavy": heavy,
+            "clash_frac": round(n_clash / heavy, 6) if heavy else 0.0,
+            "worst_contact": worst,
+            "unk": sum(1 for c in seq if c == "X"),
+            "distinct_aa": len({c for c in seq if c != "X"}),
+            "top_aa_frac": round(max(seq.count(c) for c in set(seq)) / len(seq), 3)}
+
+
+def _rfd3_design_cmd(out: Path, num_designs: int, steps: int) -> list:
+    return [sys.executable, "-m", "tt_bio.main", "design", str(RFD3_SPEC),
+            "--model", "rfd3", "--from_pdb", "--out_dir", str(out),
+            "--num_designs", str(num_designs), "--num_timesteps", str(steps),
+            "--seed", str(RFD3_SEED)]
+
+
+def _rfd3_atom_digest(cif: Path) -> str:
+    """sha256 of the coordinate records only, so a CIF-writer metadata or path field
+    cannot make two identical structures look different (or two different ones look
+    the same)."""
+    lines = [ln for ln in cif.read_text().splitlines()
+             if ln.startswith(("ATOM", "HETATM"))]
+    return hashlib.sha256("\n".join(lines).encode()).hexdigest()
+
+
+def run_rfd3(keep: bool) -> dict:
+    """Design, parse, and structurally score RFD3. Returns a result row."""
+    out = REPO_ROOT / "rfd3_gate_designs"
+    if out.exists():
+        shutil.rmtree(out)  # never score a stale run if this design run crashes
+
+    print(f"\n{'='*70}\n[rfd3] designing {RFD3_SPEC.name}:{RFD3_SPEC_ID} "
+          f"({RFD3_NUM_DESIGNS} designs, {RFD3_TIMESTEPS} steps, seed {RFD3_SEED})"
+          f"\n{'='*70}", flush=True)
+
+    row = {"model": "rfd3", "seconds": None, "n_designs": 0, "in_band": None,
+           "breaks": None, "clash_frac": None, "clashes": None, "distinct_aa": None,
+           "unk": None, "clean_rate": None, "determinism": None, "parse": False,
+           "gate": False, "error": None, "per_design": []}
+
+    try:
+        designed = _rfd3_designed_residues()
+        geom = _load_geometry_harness()
+    except Exception as e:
+        row["error"] = f"host featurize/harness failed: {type(e).__name__}: {e}"
+        return row
+    print(f"[rfd3] designed residues from the host featurizer: {len(designed)}", flush=True)
+
+    t0 = time.monotonic()
+    rc, timed_out = _run_fold(_rfd3_design_cmd(out, RFD3_NUM_DESIGNS, RFD3_TIMESTEPS),
+                              FOLD_TIMEOUT_S, cwd=REPO_ROOT)
+    row["seconds"] = time.monotonic() - t0
+    if timed_out:
+        row["error"] = f"design timed out after {FOLD_TIMEOUT_S}s"
+        return row
+    if rc != 0:
+        row["error"] = f"design exited {rc}"
+        return row
+
+    cifs = sorted(out.rglob("*.cif"))
+    row["n_designs"] = len(cifs)
+    # Assert the leg ran the model it names before reading any margin: a scoring pass over
+    # zero or one design would otherwise report a clean number for a run that never happened.
+    if len(cifs) != RFD3_NUM_DESIGNS:
+        row["error"] = f"expected {RFD3_NUM_DESIGNS} designs, found {len(cifs)} CIF(s)"
+        return row
+    try:
+        _parse_gate(cifs, name="rfd3")
+        row["parse"] = True
+    except Exception as e:
+        row["error"] = f"CIF parse failed: {e}"
+        return row
+
+    try:
+        row["per_design"] = [_rfd3_score_cif(c, designed, geom) for c in cifs]
+    except Exception as e:
+        row["error"] = f"scoring failed: {type(e).__name__}: {e}"
+        return row
+    for cif, m in zip(cifs, row["per_design"]):
+        print(f"[rfd3] {cif.name}: designed {m['n_designed']}, CA-CA median "
+              f"{m['step_median']} A, in band {m['in_band']:.4f}, breaks {m['breaks']}, "
+              f"clashes {m['clashes']}/{m['heavy']} ({m['clash_frac']:.6f}, worst "
+              f"{m['worst_contact']} A), distinct AA {m['distinct_aa']}, UNK {m['unk']}, "
+              f"top AA {m['top_aa_frac']:.1%}", flush=True)
+
+    # Geometry is a clean RATE (see the floors above: an occasional broken backbone is real
+    # RFD3 behaviour, so requiring every design to be clean would fail correct code). Every
+    # other metric aggregates on the WORST design, since a mean over four hides one bad one.
+    for m in row["per_design"]:
+        m["clean"] = m["breaks"] <= RFD3_MAX_BREAKS and m["in_band"] >= RFD3_MIN_INBAND
+    row["clean_rate"] = (sum(m["clean"] for m in row["per_design"])
+                         / len(row["per_design"]))
+    row["in_band"] = min(m["in_band"] for m in row["per_design"])
+    row["breaks"] = max(m["breaks"] for m in row["per_design"])
+    row["clash_frac"] = max(m["clash_frac"] for m in row["per_design"])
+    row["clashes"] = max(m["clashes"] for m in row["per_design"])
+    row["distinct_aa"] = min(m["distinct_aa"] for m in row["per_design"])
+    row["unk"] = max(m["unk"] for m in row["per_design"])
+
+    # Determinism: the same seed in two fresh processes must write the same coordinates.
+    # This is the arm that sees the tile-sparsity / unmasked-tail class, which every
+    # single-run geometry number is blind to.
+    digests = []
+    for rep in (1, 2):
+        rep_out = REPO_ROOT / f"rfd3_gate_determinism_{rep}"
+        shutil.rmtree(rep_out, ignore_errors=True)
+        rc, timed_out = _run_fold(_rfd3_design_cmd(rep_out, 1, RFD3_DET_TIMESTEPS),
+                                  FOLD_TIMEOUT_S, cwd=REPO_ROOT)
+        reps = sorted(rep_out.rglob("*.cif"))
+        if timed_out or rc != 0 or len(reps) != 1:
+            row["error"] = (f"determinism repeat {rep} failed (rc={rc}, "
+                            f"timed_out={timed_out}, {len(reps)} CIF)")
+            return row
+        digests.append(_rfd3_atom_digest(reps[0]))
+        if not keep:
+            shutil.rmtree(rep_out, ignore_errors=True)
+    row["determinism"] = digests[0] == digests[1]
+    print(f"[rfd3] determinism ({RFD3_DET_TIMESTEPS} steps, seed {RFD3_SEED}, two fresh "
+          f"processes): {digests[0][:16]} vs {digests[1][:16]} -> "
+          f"{'identical' if row['determinism'] else 'DIFFER'}", flush=True)
+
+    row["gate"] = (row["clean_rate"] >= RFD3_MIN_CLEAN_RATE
+                   and row["clashes"] <= RFD3_MAX_CLASHES
+                   and row["distinct_aa"] >= RFD3_MIN_DISTINCT_AA
+                   and row["unk"] <= RFD3_MAX_UNK
+                   and row["determinism"])
+
+    if not keep:
+        shutil.rmtree(out, ignore_errors=True)
+    return row
+
+
 def run_pxdesign(keep: bool) -> dict:
     """Design one binder through the shipped CLI path, parse it, and score the conditioning."""
     import hashlib
@@ -902,15 +1260,7 @@ def run_pxdesign(keep: bool) -> dict:
         row["error"] = f"CIF parse failed: {e}"
         return row
 
-    if PXDESIGN_MAX_FIT_RMSD is None:
-        # No baseline recorded yet. Report the number instead of inventing a bar for it: a floor
-        # guessed rather than measured on the arm that ships is exactly the thing this gate exists
-        # to prevent.
-        row["error"] = (f"no floor recorded; measured fit_rmsd {row['fit_rmsd']:.3f} A, "
-                        f"sha16 {row['sha16']} -- record PXDESIGN_MAX_FIT_RMSD")
-        return row
     row["gate"] = row["fit_rmsd"] <= PXDESIGN_MAX_FIT_RMSD
-
     if not keep:
         shutil.rmtree(out, ignore_errors=True)
     return row
@@ -1066,6 +1416,60 @@ def _fold_error(text: str) -> str:
     return " / ".join((hits or lines)[-3:])[:400]
 
 
+def run_nesso1(keep: bool) -> dict:
+    """Score Nesso-1's eleven output scalars against the torch reference. Returns a row.
+
+    Runs the parity harness as a subprocess rather than importing it: it opens a device
+    context, and this process must stay free to run the other arms after it.
+    """
+    if not NESSO1_FIXTURE.exists():
+        return {"model": "nesso1", "seconds": None, "x_over_r": None, "spread": None,
+                "n_tokens": None, "gate": False,
+                "error": f"missing nesso1 parity fixture {NESSO1_FIXTURE}"}
+
+    # perf/nesso1/, not the repo root: measurement artifacts belong under perf/ (the 08-13
+    # run_*.sh lesson), and --keep leaves this file behind on purpose.
+    out_json = REPO_ROOT / "perf" / "nesso1" / "gate_parity.json"
+    out_json.parent.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        sys.executable, str(NESSO1_PARITY),
+        "--fixture", str(NESSO1_FIXTURE),
+        "--trunk", NESSO1_TRUNK, "--affinity", NESSO1_AFFINITY,
+        "--repeats", str(NESSO1_REPEATS),
+        "--json", str(out_json),
+    ]
+    print(f"\n{'='*70}\n[nesso1] scoring {NESSO1_FIXTURE.name} against the torch reference "
+          f"({NESSO1_TRUNK} trunk, {NESSO1_AFFINITY} affinity, {NESSO1_REPEATS} repeats)"
+          f"\n{'='*70}", flush=True)
+
+    row = {"model": "nesso1", "seconds": None, "x_over_r": None, "spread": None,
+           "n_tokens": None, "gate": False, "error": None}
+    t0 = time.monotonic()
+    rc, timed_out = _run_fold(cmd, NESSO1_TIMEOUT_S, cwd=REPO_ROOT)
+    row["seconds"] = time.monotonic() - t0
+    if timed_out:
+        row["error"] = f"device_parity timed out after {NESSO1_TIMEOUT_S}s"
+        return row
+    # rc is 1 on a FAIL verdict, which is a result rather than a crash, so read the JSON
+    # first and only call a missing report an error.
+    if not out_json.exists():
+        row["error"] = f"device_parity exited {rc} and wrote no report"
+        return row
+    rep = json.loads(out_json.read_text())
+    if not keep:
+        out_json.unlink()
+    row["n_tokens"] = rep["n_tokens"]
+    row["x_over_r"] = rep["X_over_R"]
+    row["spread"] = rep["max_device_spread"]
+    row["floors"] = rep["floors"]
+    row["worst_key"] = rep["X_device_vs_torch_key"]
+    row["gate"] = rep["verdict"] == "PASS"
+    if not row["gate"]:
+        row["error"] = (f"worst scalar {rep['X_device_vs_torch_key']} at "
+                        f"{rep['X_over_R']:.3f}xR, device spread {rep['max_device_spread']:.3g}")
+    return row
+
+
 def run_capacity(keep: bool, leg) -> dict:
     """Fold one capacity leg (large target, campaign-scale sample count) and check the
     peak device DRAM against its budget. Also checks the per-sample output contract,
@@ -1195,7 +1599,62 @@ def _size_ladder_card_type() -> str:
     return mod.detect_card_type()
 
 
-def _run_census_fold(model: str, rung: int, workdir: Path, tag: str) -> dict:
+def _size_ladder_precondition(model: str):
+    """A one-line reason this model cannot be folded here, or None.
+
+    Checked once before the first fold rather than discovered by one. nesso1 needs the
+    checkpoint's uncommitted 413 MB ccd.pkl, and without it every rung fails with a
+    FileNotFoundError from inside a subprocess — twelve wasted model loads and an arm that
+    reads as broken instead of unconfigured. An arm that fails for a reason nobody can act on
+    is an arm someone switches off.
+
+    It DOWNLOADS on a miss rather than refusing. find_ccd fetches the file now, so refusing
+    here would skip an arm that would have run: the first rung would have downloaded it
+    anyway. Doing it in the precondition just moves the one-time 413 MB out of the fold loop,
+    which is what "before any device work" was always for. What still fails by name is the
+    case nobody can fix by waiting: no file on disk and no way to fetch one.
+    """
+    if model != "nesso1":
+        return None
+    try:
+        from tt_bio.nesso1_input import find_ccd
+        find_ccd(os.environ.get("NESSO_CACHE"))
+    except Exception as e:                                               # noqa: BLE001
+        return f"nesso1 precondition: {e}"
+    return None
+
+
+def _size_ladder_fixture(model: str, rung: int) -> Path:
+    """The rung's input. nesso1 needs a ligand and an affinity property, so it brings its own
+    ladder; every other model folds the shared apo fixture."""
+    if model == "nesso1":
+        return (REPO_ROOT / "perf" / "nesso1" / "inputs" / "ladder" / f"aa{rung}"
+                / f"cdk2_{rung}.yaml")
+    return REPO_ROOT / "perf" / "size512" / "fixtures" / f"cdk2x2_{rung}.yaml"
+
+
+def _affinity_seconds(out_dir: Path):
+    """The forward's own seconds from affinity.csv: nesso1's runtime_s."""
+    csv_path = out_dir / "affinity.csv"
+    if not csv_path.exists():
+        return None
+    with csv_path.open() as fh:
+        rows = list(csv.DictReader(fh))
+    vals = [float(r["seconds"]) for r in rows if r.get("seconds") and not r.get("error")]
+    return max(vals) if vals else None
+
+
+def lever_census_flags() -> tuple:
+    """The census's own lever names, so --size-ladder-record-lever cannot be given a typo."""
+    path = REPO_ROOT / "scripts" / "lever_census.py"
+    spec = importlib.util.spec_from_file_location("tt_bio_lever_census", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return tuple(f for f, *_rest in mod.LEVERS)
+
+
+def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
+                     need_runtime: bool = True) -> dict:
     """One lever-census-wrapped fold of the cdk2x2_<rung> fixture. Returns
     {"levers": {flag: {resolved, served, declined, frac, how}}, "runtime_s": ...,
     "wall": ...} or {"error": ...}.
@@ -1208,7 +1667,7 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str) -> dict:
     results.json, which excludes model load and process startup.
     """
     from tt_bio.main import predict_results_dir_name
-    fixture = REPO_ROOT / "perf" / "size512" / "fixtures" / f"cdk2x2_{rung}.yaml"
+    fixture = _size_ladder_fixture(model, rung)
     if not fixture.exists():
         return {"error": f"missing size-ladder fixture {fixture}"}
     label = f"{model}-{rung}-{tag}"
@@ -1217,17 +1676,31 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str) -> dict:
     log = workdir / f"{label}.log"
     shutil.rmtree(out_dir, ignore_errors=True)
     workdir.mkdir(parents=True, exist_ok=True)
-    cmd = [
-        sys.executable, str(REPO_ROOT / "scripts" / "lever_census.py"),
-        "--tt-bio", sys.executable, "--label", label, "--out", str(census_json),
-        "--", "-m", "tt_bio.main", "predict", str(fixture),
-        "--model", model,
-        "--single_sequence",
-        "--sampling_steps", str(SIZE_LADDER_STEPS),
-        "--diffusion_samples", "1",
-        "--seed", str(SEED),
-        "--out_dir", str(out_dir),
-    ]
+    census = [sys.executable, str(REPO_ROOT / "scripts" / "lever_census.py"),
+              "--tt-bio", sys.executable, "--label", label, "--out", str(census_json), "--"]
+    if model == "nesso1":
+        # `tt-bio affinity`, not `predict` — see the SIZE_LADDER_NESSO_* block. The census hook
+        # runs in every process the CLI starts, launcher included, and this model folds in the
+        # launcher, so the counters land the same way they do for a spawned predict worker.
+        cmd = census + [
+            "-m", "tt_bio.main", "affinity", str(fixture),
+            "--model", "nesso1", "--trunk", "bf16",
+            "--recycling_steps", str(SIZE_LADDER_NESSO_RECYCLING),
+            "--tokens_budget", str(SIZE_LADDER_NESSO_TOKENS_BUDGET),
+            "--out_dir", str(out_dir),
+        ]
+        if os.environ.get("NESSO_CACHE"):
+            cmd += ["--cache", os.environ["NESSO_CACHE"]]
+    else:
+        cmd = census + [
+            "-m", "tt_bio.main", "predict", str(fixture),
+            "--model", model,
+            "--single_sequence",
+            "--sampling_steps", str(SIZE_LADDER_STEPS),
+            "--diffusion_samples", "1",
+            "--seed", str(SEED),
+            "--out_dir", str(out_dir),
+        ]
     t0 = time.monotonic()
     with open(log, "w") as fp:
         rc, timed_out = _run_fold(cmd, FOLD_TIMEOUT_S, cwd=REPO_ROOT,
@@ -1255,18 +1728,23 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str) -> dict:
         # "dark because m_tiles=64 does not divide the tuned block" instead of a story.
         if r.get("rejects"):
             levers[r["flag"]]["rejects"] = r["rejects"]
-    results = out_dir / predict_results_dir_name(model, fixture.stem) / "results.json"
-    runtime_s = None
-    if results.exists():
-        try:
-            rows = json.loads(results.read_text())
-            ts = [row["runtime_s"] for row in rows
-                  if row.get("status") == "ok" and row.get("runtime_s") is not None]
-            runtime_s = max(ts) if ts else None
-        except Exception:
-            runtime_s = None
-    if runtime_s is None:
-        return {"error": f"no runtime_s in {results.name} (fold ok but timing missing)"}
+    if model == "nesso1":
+        runtime_s = _affinity_seconds(out_dir)
+        where = "affinity.csv"
+    else:
+        results = out_dir / predict_results_dir_name(model, fixture.stem) / "results.json"
+        where = results.name
+        runtime_s = None
+        if results.exists():
+            try:
+                rows = json.loads(results.read_text())
+                ts = [row["runtime_s"] for row in rows
+                      if row.get("status") == "ok" and row.get("runtime_s") is not None]
+                runtime_s = max(ts) if ts else None
+            except Exception:
+                runtime_s = None
+    if runtime_s is None and need_runtime:
+        return {"error": f"no runtime_s in {where} (fold ok but timing missing)"}
     return {"levers": levers, "runtime_s": runtime_s, "wall": wall,
             "census_json": census_json, "grid": census.get("grid")}
 
@@ -1293,6 +1771,35 @@ def _size_ladder_exemption_findings(base_levers: dict, where: str) -> list:
                                 f"served {b['served']}, declined {b['declined']}) with no "
                                 f"exemption reason in the baseline")
     return findings
+
+
+def _size_ladder_clause_finding(b: dict, c: dict, flag: str, where: str):
+    """Same fired fraction, different clause: the guard is refusing for a reason it did not
+    refuse for when the baseline was taken. That is a behaviour change with no timing
+    signature at all, so nothing else in this arm can see it — but two states are not that,
+    and reading them as one is how this arm went red on main for an instrument change.
+
+    A missing `rejects` means the clause was NOT MEASURED, not "declined for no reason":
+
+      * The baseline has no clause but had declines to record one for. Every baseline taken
+        before 95033b2f is in that state for the six wrap-counted levers, because the census
+        could not report their clause yet. Compared against today's census that reads as three
+        guards changing their mind on every model at every rung, and it is why the arm has been
+        failing on main since that commit rather than since anything changed behaviour.
+      * Neither side declined. A guard with 0 declines has no clause to have; a clause sitting
+        on such an entry is a recording artifact, which is what REBLOCK_PERMUTE_GATED carried
+        from the shared REJECTS dict it used to be misattributed.
+
+    THE RULE this implies, alongside the L1-budget leg's: an instrument change that widens what
+    the baseline compares re-records in the same commit. Adding a field to the census and not
+    re-recording turns the arm red for a reason no reviewer can distinguish from a real one.
+    """
+    if not b.get("rejects") and (b.get("declined") or 0) > 0:
+        return None
+    if not (b.get("declined") or 0) and not (c.get("declined") or 0):
+        return None
+    bs, cs = sorted(b.get("rejects") or {}), sorted(c.get("rejects") or {})
+    return None if bs == cs else f"{where} {flag}: decline clause {bs} -> {cs}"
 
 
 def _size_ladder_compare_levers(base: dict, cur: dict, where: str) -> list:
@@ -1325,13 +1832,8 @@ def _size_ladder_compare_levers(base: dict, cur: dict, where: str) -> list:
             findings.append(f"{where} {flag}: frac {fb:.3f} -> {fc:.3f} "
                             f"({'went dark' if fc == 0.0 else 'started firing'}"
                             + (f" on {clause}" if clause else "") + ")")
-        elif sorted((b.get("rejects") or {})) != sorted((c.get("rejects") or {})):
-            # Same fired fraction, different clause: the guard is refusing for a reason
-            # it did not refuse for when the baseline was taken. That is a behaviour
-            # change with no timing signature at all, so nothing else in this arm sees it.
-            findings.append(f"{where} {flag}: decline clause "
-                            f"{sorted(b.get('rejects') or {})} -> "
-                            f"{sorted(c.get('rejects') or {})}")
+        elif _size_ladder_clause_finding(b, c, flag, where):
+            findings.append(_size_ladder_clause_finding(b, c, flag, where))
         elif abs(fc - fb) > SIZE_LADDER_FRAC_TOL:
             findings.append(f"{where} {flag}: frac {fb:.3f} -> {fc:.3f} exceeds the "
                             f"{SIZE_LADDER_FRAC_TOL} band (partial darkness)")
@@ -1439,6 +1941,9 @@ def _size_ladder_fill_reasons(levers: dict, old_levers: dict) -> int:
 
 
 def _size_ladder_check_model(model: str, rungs, base_model: dict, workdir: Path) -> dict:
+    pre = _size_ladder_precondition(model)
+    if pre:
+        return {"model": model, "gate": False, "error": pre, "findings": [pre]}
     reps = base_model.get("reps", 1)
     meas = _size_ladder_measure_model(model, rungs, workdir, reps, reps)
     if meas.get("error"):
@@ -1480,7 +1985,162 @@ def _size_ladder_check_model(model: str, rungs, base_model: dict, workdir: Path)
                             f"outside ±{be['tol']:.2f}")
     return {"model": model, "gate": not findings,
             "error": "; ".join(findings) or None, "findings": findings,
-            "runtime_s": meas["runtime_s"], "exponents": measured_k}
+            "runtime_s": meas["runtime_s"], "exponents": measured_k,
+            "baseline_from": " ".join(str(base_model.get(k)) for k in
+                                      ("recorded", "host", "commit") if base_model.get(k))}
+
+
+def _size_ladder_lever_todo(entry: dict) -> str:
+    """The TODO a dark lever gets when it has no exemption reason yet, carrying the clause it
+    declined on so filling it in is confirming a measurement rather than writing a story."""
+    clause = ", ".join(f"{k} x{v}" for k, v in
+                       sorted((entry.get("rejects") or {}).items(), key=lambda kv: -kv[1])[:3])
+    return ("TODO: say why this is legitimate at this size"
+            + (f" (declines on {clause})" if clause else ""))
+
+
+def run_size_ladder_add_lever(flags, keep: bool, baseline_path: Path,
+                              models=None) -> dict:
+    """Add census levers to an existing baseline without re-measuring its timings.
+
+    A counter-only lever — a guard that already shipped, given a `*_STATS` pair so the census
+    can finally see it — makes check mode report "new lever not in the baseline" for every
+    model at every rung. The only recorded fix is a full re-record: 60 folds, hours of device
+    time, and it throws away a timing baseline measured on a quiet host to replace it with one
+    measured on whatever host was free. That is a lot of evidence discarded to admit a counter
+    that changes no behaviour, and it will happen again every time someone instruments a guard.
+
+    So: fold each (model, rung) ONCE and splice in only the named levers' rows. What makes that
+    honest rather than convenient is the refusal — every OTHER lever in the census must still
+    match the baseline exactly, by the same comparator check mode uses, or the splice is
+    refused for that model and the message says to do a full re-record. Nothing can be
+    laundered through here. It doubles as a free check-mode run of the arm's census half, and
+    as the proof that a cold fold's guard decisions equal a warm one's (the recorded baseline
+    discards the first fold at each rung; this mode does not, and the comparison is exact).
+
+    Because the comparison passed, every other lever's counts are identical, so this also writes
+    back the decline clauses the census can now measure and the baseline never recorded — see
+    `_size_ladder_clause_finding` for why an absent clause is "not measured" rather than "none".
+    That is the same act as adding the lever: recording a measurement the file was missing.
+
+    Each spliced row is stamped in `levers_added`, so the entry says which of its numbers came
+    from a different host at a different commit than the rest.
+    """
+    models = list(models or SIZE_LADDER_MODELS)
+    flags = [f for f in (flags.split(",") if isinstance(flags, str) else flags) if f]
+    rungs = SIZE_LADDER_RUNGS
+    card = _size_ladder_card_type()
+    workdir = SIZE_LADDER_WORKDIR
+    unknown = [f for f in flags if f not in lever_census_flags()]
+    if unknown:
+        return {"model": "size-ladder", "seconds": 0, "gate": False, "card": card,
+                "error": f"not levers in scripts/lever_census.py: {', '.join(unknown)}",
+                "legs": []}
+    try:
+        baseline = json.loads(baseline_path.read_text())
+    except Exception as e:
+        return {"model": "size-ladder", "seconds": 0, "gate": False, "card": card,
+                "error": f"baseline {baseline_path} unreadable: {e}", "legs": []}
+    card_block = baseline.get("cards", {}).get(card)
+    if card_block is None:
+        return {"model": "size-ladder", "seconds": 0, "gate": False, "card": card,
+                "error": f"NO BASELINE for card type '{card}' — there is nothing to add a "
+                         f"lever to; record one with --size-ladder-record", "legs": []}
+    print(f"\n{'='*70}\n[size-ladder] adding {', '.join(flags)} to the {card} baseline: "
+          f"{', '.join(models)} at rungs {','.join(map(str, rungs))}, one fold per rung"
+          f"\n{'='*70}", flush=True)
+    t0 = time.monotonic()
+    stamp = f"{time.strftime('%Y-%m-%d')} {socket.gethostname()} {_repo_commit()}"
+    legs = []
+    for m in models:
+        base_model = card_block.get("models", {}).get(m)
+        if base_model is None:
+            err = f"{m}: not in the {card} baseline — record it first"
+            legs.append({"model": m, "gate": False, "error": err, "findings": [err]})
+            continue
+        pre = _size_ladder_precondition(m)
+        if pre:
+            legs.append({"model": m, "gate": False, "error": pre, "findings": [pre]})
+            continue
+        measured, clauses, findings, grid = {}, {}, [], None
+        for rung in rungs:
+            # need_runtime=False: this mode compares census counts and writes one lever's
+            # row. It never reads a timing, so a fold whose results.json is not readable the
+            # instant the subprocess exits must not refuse the splice — openfold3 writes its
+            # results through a lock/.bak rename and lost that race twice in a row here, which
+            # read as "openfold3 refused" and hid the reason behind a missing report line.
+            r = _run_census_fold(m, rung, workdir, "addlever", need_runtime=False)
+            if r.get("error"):
+                findings.append(f"{m}/{rung}: {r['error']}")
+                break
+            grid = grid or r.get("grid")
+            base_levers = base_model.get("levers", {}).get(str(rung))
+            if base_levers is None:
+                findings.append(f"{m}/{rung}: rung not recorded in the baseline")
+                continue
+            already = [f for f in flags if f in base_levers]
+            if already:
+                findings.append(f"{m}/{rung}: already in the baseline: {', '.join(already)}")
+                continue
+            where = f"{m}/{rung}"
+            expected = {f"{where} {f}: new lever not in the baseline "
+                        f"(re-record with --size-ladder-record)" for f in flags}
+            other = [f for f in _size_ladder_compare_levers(base_levers, r["levers"], where)
+                     if f not in expected]
+            if other:
+                findings.extend(other)
+                continue
+            measured[str(rung)] = {f: r["levers"][f] for f in flags}
+            # The comparison above passed, so every other lever's counts and clause are either
+            # identical or in one of the two not-measured states. Writing the measured clause
+            # back is therefore recording what is already true, and it is the only way an old
+            # baseline stops carrying an unenforceable clause field forever.
+            clauses[str(rung)] = {f: e.get("rejects") for f, e in r["levers"].items()
+                                  if f not in flags and f in base_levers
+                                  and (e.get("rejects") or None)
+                                      != (base_levers[f].get("rejects") or None)}
+        b_grid = base_model.get("grid")
+        if grid and b_grid and grid != b_grid:
+            findings.append(f"{m}: baseline recorded on a {b_grid} grid, this card presents "
+                            f"{grid} — lever verdicts are grid-dependent, re-record instead")
+        if findings or len(measured) != len(rungs):
+            legs.append({"model": m, "gate": False, "findings": findings,
+                         "error": "; ".join(findings) or
+                                  f"{m}: only {len(measured)}/{len(rungs)} rungs measured"})
+            continue
+        n_clauses = 0
+        for rung, entries in measured.items():
+            for f, entry in entries.items():
+                if _size_ladder_dark(entry):
+                    entry["reason"] = _size_ladder_lever_todo(entry)
+                base_model["levers"][rung][f] = entry
+            for f, rej in clauses.get(rung, {}).items():
+                base_model["levers"][rung][f]["rejects"] = rej
+                n_clauses += 1
+        for f in flags:
+            base_model.setdefault("levers_added", {})[f] = stamp
+        baseline_path.write_text(json.dumps(baseline, indent=2) + "\n")
+        legs.append({"model": m, "gate": True, "error": None, "findings": [],
+                     "added": {rung: {f: (e["served"], e["declined"])
+                                      for f, e in es.items()}
+                               for rung, es in measured.items()}})
+        print(f"[size-ladder] {m}: {', '.join(flags)} added at {len(measured)} rungs, "
+              f"every other lever "
+              f"unchanged" + (f", {n_clauses} clause field(s) recorded" if n_clauses else ""),
+              flush=True)
+    gate = bool(legs) and all(l["gate"] for l in legs)
+    todos = sum(1 for m in models for rung in rungs for f in flags
+                for e in [((card_block.get("models", {}).get(m) or {})
+                           .get("levers", {}).get(str(rung), {}).get(f))]
+                if e and str(e.get("reason", "")).startswith("TODO"))
+    if todos:
+        print(f"[size-ladder] {todos} rung(s) need a one-line exemption reason — "
+              f"search TODO in {baseline_path}; the check FAILS without one.", flush=True)
+    if not keep:
+        shutil.rmtree(workdir, ignore_errors=True)
+    return {"model": "size-ladder", "seconds": time.monotonic() - t0, "gate": gate,
+            "card": card, "error": next((l["error"] for l in legs if l["error"]), None),
+            "legs": legs}
 
 
 def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
@@ -1513,15 +2173,18 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
 
     print(f"\n{'='*70}\n[size-ladder] {'RECORDING baseline' if record else 'checking'} "
           f"for card {card}: {', '.join(models)} at rungs "
-          f"{','.join(map(str, rungs))} ({SIZE_LADDER_STEPS} steps, 1 sample, "
-          f"seed {SEED}, single-sequence)\n{'='*70}", flush=True)
+          f"{','.join(map(str, rungs))}\n[size-ladder] predict folds: "
+          f"{SIZE_LADDER_STEPS} steps, 1 sample, seed {SEED}, single-sequence; "
+          f"nesso1: tt-bio affinity, bf16 trunk, {SIZE_LADDER_NESSO_RECYCLING} recycles, "
+          f"{SIZE_LADDER_NESSO_TOKENS_BUDGET}-token crop\n{'='*70}", flush=True)
     t0 = time.monotonic()
     legs = []
     if record:
-        old_models = baseline.get("cards", {}).get(card, {}).get("models", {})
+        card_block = baseline.get("cards", {}).get(card, {})
+        old_models = card_block.get("models", {})
         # Seeded with the card's existing models, not empty: recording a subset
         # (--size-ladder-models) then UPDATES those models and leaves the rest of
-        # the card block intact. A 5-model record is ~40 min of device time, so it
+        # the card block intact. A 6-model record is ~2 h of device time, so it
         # has to be resumable a model at a time instead of all-or-nothing.
         stamp = {"recorded": time.strftime("%Y-%m-%d"), "host": socket.gethostname(),
                  "commit": _repo_commit()}
@@ -1561,6 +2224,10 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
             baseline_path.write_text(json.dumps(baseline, indent=2) + "\n")
 
         for m in models:
+            pre = _size_ladder_precondition(m)
+            if pre:
+                legs.append({"model": m, "gate": False, "error": pre, "findings": [pre]})
+                continue
             meas = _size_ladder_measure_model(m, rungs, workdir,
                                               SIZE_LADDER_SIGMA_REPS, 1)
             if meas.get("error"):
@@ -1994,10 +2661,16 @@ def main() -> int:
                     + ESMC_DEFAULT + ESMC_OPT_IN,
                     action="append",
                     help="Gate only this model (repeatable). Default: the five fold "
-                         "models + boltzgen + opendde-abag + capacity + l1-budget + "
-                         "size-ladder + ESMC 300m/600m embed parity. "
+                         "models + boltzgen + rfd3 + opendde-abag + capacity + "
+                         "l1-budget + size-ladder + ESMC 300m/600m embed parity. "
                          "esmc-6b is opt-in (slow ~13 GB load).")
     ap.add_argument("--keep", action="store_true", help="Keep run output dirs for inspection.")
+    ap.add_argument("--size-ladder-record-lever", default=None, metavar="FLAG[,FLAG...]",
+                    help="Add new census levers to the existing size-ladder baseline "
+                         "instead of re-recording it: one fold per (model, rung), and the "
+                         "splice is refused unless every other lever still matches. For a "
+                         "counter-only lever, which changes no behaviour and does not "
+                         "justify discarding a good timing baseline.")
     ap.add_argument("--size-ladder-record", action="store_true",
                     help="Re-record the size-ladder baseline for THIS card type instead "
                          "of checking against it. Explicit human action after an "
@@ -2049,11 +2722,13 @@ def main() -> int:
     models = args.model or list(MODELS) + list(DEFAULT_ARMS) + ["size-ladder"] + ESMC_DEFAULT
     fold_models = [m for m in models if m in MODELS]
     want_boltzgen = "boltzgen" in models
-    want_pxdesign = "pxdesign" in models
     want_opendde_abag = "opendde-abag" in models
+    want_rfd3 = "rfd3" in models
+    want_pxdesign = "pxdesign" in models
     want_capacity = "capacity" in models
     want_l1_budget = "l1-budget" in models
     want_batch_position = "batch-position" in models
+    want_nesso1 = "nesso1" in models
     want_size_ladder = "size-ladder" in models
     esmc_models = [m for m in models if m in ESMC_DEFAULT + ESMC_OPT_IN]
     _preflight_msa_cache(models)
@@ -2103,13 +2778,42 @@ def main() -> int:
         print("GATE PASS — boltzgen designs cleared parse + designability floor" if br["gate"]
               else "GATE FAIL — boltzgen missed parse or the designability floor (see above)")
 
+    if want_rfd3:
+        if not RFD3_SPEC.exists():
+            sys.exit(f"missing rfd3 gate spec {RFD3_SPEC}")
+        rr = run_rfd3(args.keep)
+        print(f"\n{'#'*78}\nRELEASE GATE — {RFD3_SPEC.name} (rfd3), "
+              f"{RFD3_NUM_DESIGNS} designs, {RFD3_TIMESTEPS} steps, seed {RFD3_SEED}"
+              f"\n{'#'*78}")
+        print(f"{'model':<15}{'designs':>8}{'clean':>7}{'in band':>9}{'breaks':>7}"
+              f"{'clash':>12}{'AA':>5}{'UNK':>5}{'det':>5}{'wall':>9}  result")
+        ib = f"{rr['in_band']:.4f}" if rr["in_band"] is not None else "  -  "
+        cf = (f"{rr['clashes']}({rr['clash_frac']:.4f})"
+              if rr["clashes"] is not None else "  -  ")
+        br = str(rr["breaks"]) if rr["breaks"] is not None else "-"
+        aa = str(rr["distinct_aa"]) if rr["distinct_aa"] is not None else "-"
+        unk = str(rr["unk"]) if rr["unk"] is not None else "-"
+        det = ("ok" if rr["determinism"] else "NO") if rr["determinism"] is not None else "-"
+        wall = f"{rr['seconds']:.0f}s" if rr["seconds"] is not None else "-"
+        verdict = "PASS" if rr["gate"] else f"FAIL ({rr['error']})" if rr["error"] else "FAIL"
+        all_pass &= rr["gate"]
+        cr = f"{rr['clean_rate']:.2f}" if rr["clean_rate"] is not None else "  -  "
+        print(f"{rr['model']:<15}{rr['n_designs']:>8}{cr:>7}{ib:>9}{br:>7}{cf:>12}{aa:>5}"
+              f"{unk:>5}{det:>5}{wall:>9}  {verdict}")
+        print(f"floor{'':<10}{RFD3_NUM_DESIGNS:>8}{RFD3_MIN_CLEAN_RATE:>7.2f}"
+              f"{RFD3_MIN_INBAND:>9.4f}{RFD3_MAX_BREAKS:>7}{RFD3_MAX_CLASHES:>12}"
+              f"{RFD3_MIN_DISTINCT_AA:>5}{RFD3_MAX_UNK:>5}{'ok':>5}")
+        print(f"{'#'*78}")
+        print("GATE PASS — rfd3 designs cleared parse, designed-region geometry, "
+              "sequence and determinism" if rr["gate"]
+              else "GATE FAIL — rfd3 missed parse, geometry, sequence or determinism (see above)")
+
     if want_pxdesign:
         pr = run_pxdesign(args.keep)
         print(f"\n{'#'*78}\nRELEASE GATE — {PXDESIGN_SPEC.name} (pxdesign), "
               f"{PXDESIGN_NUM_DESIGNS} design, {PXDESIGN_N_STEP} steps\n{'#'*78}")
         print(f"{'model':<15}{'fit RMSD':>12}{'binder res':>12}{'floor':>18}{'wall':>9}  result")
-        floor = (f"<={PXDESIGN_MAX_FIT_RMSD}A" if PXDESIGN_MAX_FIT_RMSD is not None
-                 else "unrecorded")
+        floor = f"<={PXDESIGN_MAX_FIT_RMSD}A"
         fit = f"{pr['fit_rmsd']:.3f}" if pr["fit_rmsd"] is not None else "  -  "
         res = str(pr["binder_residues"]) if pr["binder_residues"] is not None else "  -  "
         wall = f"{pr['seconds']:.0f}s" if pr["seconds"] is not None else "-"
@@ -2117,8 +2821,7 @@ def main() -> int:
         all_pass &= pr["gate"]
         print(f"{pr['model']:<15}{fit:>12}{res:>12}{floor:>18}{wall:>9}  {verdict}")
         if pr["sha16"]:
-            same = ("" if PXDESIGN_STRUCTURE_SHA16 is None
-                    else "  MATCH" if pr["sha16"] == PXDESIGN_STRUCTURE_SHA16 else "  DIFFERS")
+            same = "  MATCH" if pr["sha16"] == PXDESIGN_STRUCTURE_SHA16 else "  DIFFERS"
             print(f"coordinate digest {pr['sha16']}{same}  (evidence, not gated — a digest is "
                   f"card- and arch-specific)")
         print(f"{'#'*78}")
@@ -2145,6 +2848,27 @@ def main() -> int:
         print("GATE PASS — opendde-abag cleared parse + DockQ floor" if ar["gate"]
               else "GATE FAIL — opendde-abag missed parse or the DockQ floor (see above)")
 
+    if want_nesso1:
+        nr = run_nesso1(args.keep)
+        print(f"\n{'#'*78}\nRELEASE GATE — {NESSO1_FIXTURE.name} (nesso1), "
+              f"{NESSO1_TRUNK} trunk / {NESSO1_AFFINITY} affinity, "
+              f"{NESSO1_REPEATS} device repeats\n{'#'*78}")
+        print(f"{'model':<15}{'worst vs ref':>14}{'dev spread':>12}{'floor':>18}"
+              f"{'wall':>9}  result")
+        fl = nr.get("floors") or {}
+        floor = (f"<={fl.get('max_x_over_r', '?')}xR/<={fl.get('max_device_spread', '?'):g}"
+                 if fl else "-")
+        xr = f"{nr['x_over_r']:.3f}xR" if nr["x_over_r"] is not None else "  -  "
+        sp = f"{nr['spread']:.3g}" if nr["spread"] is not None else "  -  "
+        wall = f"{nr['seconds']:.0f}s" if nr["seconds"] is not None else "-"
+        verdict = "PASS" if nr["gate"] else f"FAIL ({nr['error']})" if nr["error"] else "FAIL"
+        all_pass &= nr["gate"]
+        print(f"{nr['model']:<15}{xr:>14}{sp:>12}{floor:>18}{wall:>9}  {verdict}")
+        print(f"{'#'*78}")
+        print("GATE PASS — nesso1 scalars cleared the reference floor and the device is "
+              "deterministic" if nr["gate"]
+              else "GATE FAIL — nesso1 missed the reference floor or drifted run to run (see above)")
+
     if want_capacity:
         for leg in CAPACITY_LEGS:
             if not (REPO_ROOT / leg[0]).exists():
@@ -2168,7 +2892,34 @@ def main() -> int:
               if all(cr["gate"] for cr in rows) else
               "GATE FAIL — capacity regression at the largest supported input (see above)")
 
-    if want_size_ladder:
+    if want_size_ladder and args.size_ladder_record_lever:
+        sl = run_size_ladder_add_lever(args.size_ladder_record_lever, args.keep,
+                                       Path(args.size_ladder_baseline),
+                                       args.size_ladder_models.split(",")
+                                       if args.size_ladder_models else None)
+        rows.append(sl)
+        all_pass &= sl["gate"]
+        # Printed, and folded into all_pass. Without this the mode appended its row and
+        # returned silently: a model whose splice was REFUSED looked identical to one that
+        # was never asked for, which is the failure mode this whole arm exists to not have.
+        print(f"\n{'#'*78}\nRELEASE GATE — size-ladder add-lever "
+              f"{args.size_ladder_record_lever} (card {sl.get('card', '?')})\n{'#'*78}")
+        for l in sl["legs"]:
+            added = l.get("added") or {}
+            what = ("added at " + ",".join(sorted(added, key=int)) + " aa" if added
+                    else f"REFUSED ({l['error']})" if l.get("error") else "REFUSED")
+            print(f"{l['model']:<15}{'PASS' if l['gate'] else 'FAIL':<6}{what}")
+            for f in (l.get("findings") or []):
+                print(f"    FAIL {f}")
+        if not sl["legs"] and sl.get("error"):
+            print(f"    FAIL {sl['error']}")
+        print(f"{'#'*78}")
+        print("LEVERS ADDED — fill every TODO exemption reason in "
+              f"{args.size_ladder_baseline}, then run the arm without "
+              f"--size-ladder-record-lever" if sl["gate"] else
+              "ADD-LEVER REFUSED — something other than the named levers moved, so a full "
+              "--size-ladder-record is the honest fix (see above)")
+    elif want_size_ladder:
         sl = run_size_ladder(args.keep, args.size_ladder_record,
                              Path(args.size_ladder_baseline),
                              args.size_ladder_models.split(",")

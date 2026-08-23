@@ -53,10 +53,30 @@ def main() -> int:
     ap.add_argument("--repeat", type=int, default=REPEAT)
     ap.add_argument("--roof", action="store_true",
                     help="also measure the content-matched zlib roof on the real bytes")
+    ap.add_argument("--seq-file", default=None,
+                    help="read the sequence from a file instead of tiling ubiquitin. The perf "
+                         "page's rows all read scripts/gpu_vs_tt/fixtures/prot512.seq, which is "
+                         "byte-identical to the protein chain of the folding fixture, so an "
+                         "embed cell and a fold cell describe the same 512 residues. Tiling is "
+                         "kept as the default so the shipped perf-gate protocol is unchanged.")
+    ap.add_argument("--expect-sha", default=None,
+                    help="refuse to measure unless --seq-file hashes to this sha256")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
-    seq = make_sequence(args.residues)
+    if args.seq_file:
+        import hashlib
+        raw = Path(args.seq_file).read_bytes()
+        got = hashlib.sha256(raw).hexdigest()
+        if args.expect_sha and got != args.expect_sha:
+            print(f"fixture sha256 {got} != expected {args.expect_sha}", file=sys.stderr)
+            return 1
+        seq = raw.decode().strip()
+        args.residues = len(seq)
+        fixture = dict(path=args.seq_file, sha256=got)
+    else:
+        seq = make_sequence(args.residues)
+        fixture = dict(path="tiled ubiquitin", sha256=None)
     sequences = {f"seq{i}": seq for i in range(args.n_seqs)}
 
     is_saprot = args.model.startswith("saprot")
@@ -164,6 +184,13 @@ def main() -> int:
     res = dict(
         model=args.model, n_seqs=args.n_seqs, residues=args.residues,
         batch_size=args.batch_size, fast=args.fast,
+        # `batch_size` is what was REQUESTED. The shipped batcher caps a batch at
+        # batch_size * 512 tokens and a 512 aa sequence buckets to 576, so at page scope the
+        # batch that executes is 7 of a requested 8. The executed count is what a GPU arm has
+        # to match, so it is recorded rather than left to be inferred.
+        batch_executed=min(args.batch_size,
+                           max(1, (args.batch_size * 512) // (((args.residues + 2 + 63) // 64) * 64))),
+        fixture=fixture,
         arch=os.environ.get("PROBE_ARCH", "unknown"),
         visible_devices=os.environ.get("TT_VISIBLE_DEVICES", ""),
         load_s=round(load_s, 1),

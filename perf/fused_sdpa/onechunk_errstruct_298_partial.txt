@@ -1,0 +1,23 @@
+# errstruct.py --model rf3 --aa 298 --kchunk-probe, qb2 card 3, 2026-08-23, killed after 14 min.
+# PARTIAL AND NOT TRUSTWORTHY -- kept as the evidence for an instrument anomaly, not as a result.
+# Every row below is call 0, site `msa_or_template` (NOT a trunk pairformer site). All 8 fused-kernel
+# arms read total ~7.34e-01 with a coherent gain of -0.48 while bf16_ceiling (1.58e-03) and
+# materialised (1.05e-02) reproduce the committed 512 aa magnitudes and perp is unchanged. The fold
+# rules out the kernel: the same route at the same 298 aa, 1088 calls deep, loses 0.0085 rho.
+# See state/rf3-onechunk-fold-ab.md "Step 2, the mechanism probe" for the two suspects and the
+# one-call follow-on that separates them.
+wrote capture /home/ttuser/errstruct_cap_rf3_298_onechunk.pt (14 calls of 108)
+captured 14 of 108 calls: [(0, 'msa_or_template', 298), (8, 'msa_or_template', 298), (16, 'pairformer', 298), (24, 'pairformer', 298), (32, 'pairformer', 298), (40, 'pairformer', 298), (48, 'pairformer', 298), (56, 'pairformer', 298), (64, 'pairformer', 298), (72, 'pairformer', 298), (80, 'pairformer', 298), (88, 'pairformer', 298), (96, 'pairformer', 298), (104, 'pairformer', 298)]
+  call     0 HiFi2_ap0_acc0           total 7.33935e-01  par 7.33928e-01  perp 3.04420e-03  gain -4.782e-01+-4.820e-01
+  call     0 HiFi2_ap0_acc1           total 7.34298e-01  par 7.34294e-01  perp 2.31067e-03  gain -4.792e-01+-4.816e-01
+  call     0 HiFi2_ap1_acc0           total 7.34072e-01  par 7.34066e-01  perp 3.03780e-03  gain -4.821e-01+-4.783e-01
+  call     0 HiFi2_ap1_acc1           total 7.34392e-01  par 7.34389e-01  perp 2.31625e-03  gain -4.821e-01+-4.789e-01
+  call     0 HiFi4_ap0_acc0           total 7.33658e-01  par 7.33651e-01  perp 3.17616e-03  gain -4.767e-01+-4.830e-01
+  call     0 HiFi4_ap0_acc1           total 7.33859e-01  par 7.33855e-01  perp 2.30134e-03  gain -4.775e-01+-4.825e-01
+  call     0 HiFi4_ap1_acc0           total 7.33786e-01  par 7.33779e-01  perp 3.17569e-03  gain -4.806e-01+-4.794e-01
+  call     0 HiFi4_ap1_acc1           total 7.33943e-01  par 7.33939e-01  perp 2.29765e-03  gain -4.801e-01+-4.801e-01
+  call     0 bf16_ceiling             total 1.57902e-03  par 5.64368e-04  perp 1.47472e-03  gain +3.590e-05+-5.512e-04
+  call     0 fused_default            total 7.34072e-01  par 7.34066e-01  perp 3.03780e-03  gain -4.821e-01+-4.783e-01
+  call     0 materialised             total 1.05378e-02  par 1.02471e-02  perp 2.45809e-03  gain -5.746e-03+-8.819e-03
+  KPROBE call     0 k=  320 bnd   0 fused  total 7.33776e-01  par 7.33774e-01  perp 1.96663e-03
+  KPROBE call     0 k=  160 bnd   1 fused  total 7.33827e-01  par 7.33825e-01  perp 2.08804e-03

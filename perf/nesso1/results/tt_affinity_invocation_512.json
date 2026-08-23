@@ -1,0 +1,51 @@
+{
+  "arm": "tt-bio affinity, whole CLI invocation, on one Blackhole p150a",
+  "why": "The comparison in docs/nesso1.md divided a whole `tt-bio predict --model boltz2` invocation (386.251 s, perf/nesso1/results/tt_boltz2_affinity_512.json) by Nesso-1's forward alone (8.341 s), which credits Nesso-1 with Boltz-2's entire fixed cost. This leg times Nesso-1 the same way the Boltz-2 arm was timed: the real command, wall to wall, fresh --out_dir per rep so featurisation is not served from cache. Same reasoning and same wording as perf/nesso1/results/cli_e2e.json, which is how the H200 arm was timed.",
+  "host": "tt-quietbox",
+  "card": "0",
+  "fixture": "perf/nesso1/inputs/ladder/aa512/cdk2_512.yaml",
+  "n_tokens": 532,
+  "cli": [
+    "python3",
+    "-m",
+    "tt_bio.main",
+    "affinity",
+    "perf/nesso1/inputs/ladder/aa512",
+    "--out_dir",
+    "<fresh>"
+  ],
+  "settings": "shipped CLI defaults: bf16 trunk, fp32 affinity stacks, 5 recycling steps, 256-token pocket crop",
+  "reps": [
+    {
+      "rep": 1,
+      "wall_s": 304.268,
+      "kernel_cache": "cold",
+      "note": "First invocation of this shape on this card: the wall is dominated by ttnn kernel compilation, not by the model."
+    },
+    {
+      "rep": 2,
+      "wall_s": 33.346,
+      "kernel_cache": "warm",
+      "note": "Fresh out_dir, so RDKit conformer embedding and the ESM-2 pass ran again. This is the number a user sees for a single input on a card that has run the model before."
+    }
+  ],
+  "warm_wall_s": 33.346,
+  "written_per_rep": [
+    "affinity.csv",
+    "cdk2_512_affinity.json",
+    "processed"
+  ],
+  "comparison": {
+    "boltz2_affinity_same_fixture_s": 386.251,
+    "boltz2_source": "perf/nesso1/results/tt_boltz2_affinity_512.json",
+    "ratio_warm_invocation": 11.58,
+    "matched": false,
+    "not_matched_on": [
+      "box load: the Boltz-2 rep ran at loadavg 16-22 on tt-quietbox2, this one on a quieter tt-quietbox",
+      "kernel cache state: the Boltz-2 rep records one rep and does not say whether its caches were warm",
+      "reps: one on the Boltz-2 side, two here"
+    ],
+    "read_it_as": "An order-of-magnitude reading, and an upper bound on Boltz-2 because a host-heavy pipeline on a box at loadavg 20 runs slower than it has to. The superseded 59x came from dividing this same 386.251 s by the retired 6.50 s pairformer floor, which mismatched the regions and used a number that is no longer the shipped one.",
+    "matched_alternative": "gpu_reference.json:boltz2_comparison.matched_marginal, 19.325x cheaper per screened compound at matched protocol on one H200, both arms timed as full CLI invocations with a stated method."
+  }
+}

@@ -25,7 +25,12 @@ sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="rf3", choices=["rf3", "openfold3"])
-    ap.add_argument("--fix", default="cdk2x2_298")
+    ap.add_argument("--fix", default=None,
+                    help="a perf/size512 fixture name: <fix>.yaml + <fix>.a3m")
+    ap.add_argument("--yaml", type=Path, default=None,
+                    help="fold this yaml directly and skip seed_msa_cache, for a "
+                         "target that carries its own per-chain MSA. seed_msa_cache "
+                         "asserts a monomer, so a heterodimer needs this path.")
     ap.add_argument("--label", required=True)
     ap.add_argument("--outdir", type=Path, required=True)
     ap.add_argument("--repeat", type=int, default=1, help="warm folds after the discarded cold one")
@@ -40,18 +45,44 @@ def main():
                          "sampler.sample, so it carries no sampler noise -- the instrument for "
                          "an accuracy A/B on a fixture whose global RMSD only reports which "
                          "basin the sampler drew.")
+    ap.add_argument("--one-k-chunk", action="store_true",
+                    help="force TriangleAttention(tri_att_one_k_chunk=True) on every instance the "
+                         "model constructs, so the fused SDPA spans the key length in ONE k chunk "
+                         "and the online softmax reduces each row in a single pass. Reachable only "
+                         "on the TT_BIO_TRIATT_FUSED_HIFI route, and a no-op at any size whose "
+                         "padded length is at or below the chunk cap (the shipped k_chunk already "
+                         "spans the sequence there). No model sets the kwarg; this is the "
+                         "measurement harness's own override, not a plumbing change.")
     ap.add_argument("--sampling-steps", type=int, default=None,
                     help="override RF3\u0027s shipped 50. Legitimate ONLY with "
                          "--dump-distogram, which is computed before the sampler runs and is "
                          "therefore bit-identical at any step count (assert that once).")
     a = ap.parse_args()
+    assert (a.fix is None) != (a.yaml is None), "give exactly one of --fix / --yaml"
 
     import tt_bio.tenstorrent as T
+    import tt_bio.triatt_sdpa as _SD
     import tt_baseline as B
     from tt_bio.main import _resolve_recycling_steps, _resolve_sampling_steps
 
     assert Path(T.__file__).resolve().is_relative_to(ROOT), \
         f"tt_bio resolves to {T.__file__}, not this checkout -- set PYTHONPATH"
+
+    # The kwarg is read at construction, not at call time, so this has to land before build_fold.
+    # Patching the CLASS covers every instance -- the 48-block trunk stack, the template embedder's
+    # two and the confidence head's four -- which a per-instance walk after the fact would have to
+    # rediscover. Every kwarg on the signature has a default and PairformerLayer passes them by
+    # keyword, so forcing one by name cannot displace a positional.
+    triatt_built = {"n": 0}
+    if a.one_k_chunk:
+        _orig_init = T.TriangleAttention.__init__
+
+        def _init(self, *ar, **kw):
+            kw["tri_att_one_k_chunk"] = True
+            triatt_built["n"] += 1
+            _orig_init(self, *ar, **kw)
+
+        T.TriangleAttention.__init__ = _init
 
     B.RECYCLING_STEPS = _resolve_recycling_steps(None, a.model)
     B.SAMPLING_STEPS = _resolve_sampling_steps(None, a.model)
@@ -67,20 +98,24 @@ def main():
     print(f"steps: recycling {B.RECYCLING_STEPS}, sampling {B.SAMPLING_STEPS} "
           f"(rf3 shipped {shipped_steps[0]}/{shipped_steps[1]})", flush=True)
 
-    tgt = a.fixdir / f"{a.fix}.yaml"
-    a3m = a.fixdir / f"{a.fix}.a3m"
+    if a.yaml is not None:
+        tgt, a3m, name = a.yaml, None, a.yaml.stem
+    else:
+        tgt, a3m, name = a.fixdir / f"{a.fix}.yaml", a.fixdir / f"{a.fix}.a3m", a.fix
     sha = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
     one_fold, meta, state = B.build_fold(
-        a.model, ROOT / f".msa_{a.model}_{a.fix}", tgt, a3m)
+        a.model, ROOT / f".msa_{a.model}_{name}", tgt, a3m)
     struct_dir = Path(meta["struct_dir"])
     a.outdir.mkdir(parents=True, exist_ok=True)
 
-    res = {"label": a.label, "model": a.model, "fix": a.fix, "host": os.uname().nodename,
+    res = {"label": a.label, "model": a.model, "fix": name, "host": os.uname().nodename,
            "card": os.environ.get("TT_VISIBLE_DEVICES"),
            "recycling_steps": B.RECYCLING_STEPS, "sampling_steps": B.SAMPLING_STEPS,
            "rf3_shipped_steps": list(shipped_steps),
            "diffusion_samples": B.DIFFUSION_SAMPLES, "seed": B.SEED,
-           "n_msa": meta.get("n_msa"), "sha256_target": sha(tgt), "sha256_a3m": sha(a3m),
+           "n_msa": meta.get("n_msa"), "sha256_target": sha(tgt),
+           "sha256_a3m": sha(a3m) if a3m is not None else None,
+           "one_k_chunk": a.one_k_chunk,
            "env_flags": {k: v for k, v in sorted(os.environ.items())
                          if k.startswith("TT_BIO_")},
            "folds": []}
@@ -152,9 +187,16 @@ def main():
                               for p in cifs},
                "opm_small_depth_stats": list(T.OPM_SMALL_DEPTH_STATS),
                "triatt_fused_hifi_stats": dict(T.TRIATT_FUSED_HIFI_STATS),
-               # cumulative across the process; the per-fold delta is what gate 1 reads
-               "pair_bias_stats": dict(getattr(T, "PAIR_BIAS_STATS", {})),
-               "pair_bias_in_matmul": sorted(getattr(T, "_PAIR_BIAS_IN_MATMUL", []))}
+               # the (q_chunk, k_chunk, kv_buffer_factor) actually served per shape. Without it an
+               # A/B on one_k_chunk is unbelievable: an L1 refusal falls through to exactly the
+               # baseline config and the counters above read identical in both arms.
+               "triatt_fused_hifi_picks": {f"{q}x{k}": v for (q, k), v
+                                           in sorted(T.TRIATT_FUSED_HIFI_PICKS.items())},
+               "triatt_instances_forced_one_k_chunk": triatt_built["n"],
+               # a declined call and an absent one look identical from the counter alone, so keep
+               # the kernel's own reason census next to it (tt_bio/triatt_sdpa.py:_reject)
+               "triatt_sdpa_rejects": {f"{r}|{list(s)}": n
+                                       for (r, s), n in _SD.REJECTS.items()}}
         if keep:
             out = dest or a.outdir
             out.mkdir(parents=True, exist_ok=True)

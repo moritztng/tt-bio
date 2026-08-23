@@ -105,12 +105,21 @@ check("setter-reaches-every-site",
                               "msa_row_attn.l1_padded_plan")),
       "AF2DeviceModel.set_l1_padded_plan covers both triangle attentions and the MSA row softmax")
 
-# the shared class hands its own instance value down; anything else silently unscopes it
+# The shared class hands its own instance value down; anything else silently unscopes it.
+#
+# Counted, not enumerated positionally: `tenstorrent.py` grew a third caller when main's
+# `_dualprobe_dump` diagnostic landed, and a probe that asserts "exactly one `<absent>`" fails on
+# that without anything being wrong. The invariant that actually matters is that exactly ONE
+# caller in this file pins the lever (TriangleAttention's own dispatch) and every other caller,
+# whatever it is, passes nothing and therefore follows the env.
 dispatch = [v for ln, v in call_kwarg("tenstorrent.py", "_fp32_softmax_attention", "l1_padded_plan")]
 check("triangle-attention-dispatch", dispatch.count("self.l1_padded_plan") == 1,
-      f"{dispatch} (want exactly one `self.l1_padded_plan` and one `<absent>`)")
-check("pairformer-untouched", dispatch.count("<absent>") == 1,
-      f"{dispatch} (AttentionPairBias must pass nothing and keep following the env)")
+      f"{dispatch} (want exactly one `self.l1_padded_plan`)")
+check("pairformer-untouched",
+      all(v in ("<absent>", "self.l1_padded_plan") for v in dispatch)
+      and dispatch.count("<absent>") == len(dispatch) - 1,
+      f"{dispatch} (every caller but TriangleAttention's own dispatch -- AttentionPairBias "
+      "included -- must pass nothing and keep following the env)")
 
 
 # --- 4b. no OTHER model can reach the lever, which is E4's structural half ----------------------
