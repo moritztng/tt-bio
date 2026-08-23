@@ -1,9 +1,9 @@
 {
   "cards": {
     "p150a": {
-      "recorded": "2026-08-22",
+      "recorded": "2026-08-23",
       "host": "pc",
-      "commit": "9bc86a5a",
+      "commit": "4c464ed5",
       "models": {
         "boltz2": {
           "grid": "13x10",
@@ -945,7 +945,10 @@
               "k": 1.716,
               "tol": 0.57
             }
-          }
+          },
+          "recorded": "2026-08-22",
+          "host": "pc",
+          "commit": "9bc86a5a"
         },
         "esmfold2": {
           "grid": "11x10/13x10",
@@ -1885,7 +1888,10 @@
               "k": 1.967,
               "tol": 0.5
             }
-          }
+          },
+          "recorded": "2026-08-22",
+          "host": "pc",
+          "commit": "9bc86a5a"
         },
         "protenix-v2": {
           "grid": "13x10",
@@ -2888,7 +2894,10 @@
               "k": 2.136,
               "tol": 0.5
             }
-          }
+          },
+          "recorded": "2026-08-22",
+          "host": "pc",
+          "commit": "9bc86a5a"
         },
         "openfold3": {
           "grid": "13x10",
@@ -3886,7 +3895,10 @@
               "k": 2.479,
               "tol": 0.5
             }
-          }
+          },
+          "recorded": "2026-08-22",
+          "host": "pc",
+          "commit": "9bc86a5a"
         },
         "opendde": {
           "grid": "13x10",
@@ -4923,6 +4935,1026 @@
             },
             "512->768": {
               "k": 2.111,
+              "tol": 0.5
+            }
+          },
+          "recorded": "2026-08-22",
+          "host": "pc",
+          "commit": "9bc86a5a"
+        },
+        "rf3": {
+          "grid": "13x10",
+          "recorded": "2026-08-23",
+          "host": "pc",
+          "commit": "4c464ed5",
+          "runtime_s": {
+            "256": 30.8,
+            "512": 85.9,
+            "640": 137.7,
+            "768": 212.4
+          },
+          "levers": {
+            "256": {
+              "SPLIT_SWIGLU": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 2136,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "memory": 2136
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on memory x2136)"
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 306,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 1121,
+                "declined": 1088,
+                "frac": 0.5074694431869624,
+                "how": "stats-dict"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 1088,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:256x256x64": 40,
+                  "l1_dest_is_faster:256x256x128": 1048
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on l1_dest_is_faster:256x256x128 x1048, l1_dest_is_faster:256x256x64 x40)"
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 1088,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,1)": 40,
+                  "k_tiles=4:(4,1)": 1048
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4:(4,1) x1048, k_tiles=2:(2,1) x40)"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 1088,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "k_tiles=2": 40,
+                  "k_tiles=4": 1048
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4 x1048, k_tiles=2 x40)"
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 2096,
+                "declined": 120,
+                "frac": 0.9458483754512635,
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(2,24)": 80,
+                  "no_mm_block:(2,8)": 40
+                }
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 2136,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "window_BufferType.L1": 2136
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on window_BufferType.L1 x2136)"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 1048,
+                "declined": 40,
+                "frac": 0.9632352941176471,
+                "how": "stats",
+                "rejects": {
+                  "head_dim_or_width": 40
+                }
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 66,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "False",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "off-by-design"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 1088,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "setlen"
+              }
+            },
+            "512": {
+              "SPLIT_SWIGLU": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 1088,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 306,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 1121,
+                "declined": 1088,
+                "frac": 0.5074694431869624,
+                "how": "stats-dict"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 1088,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:512x512x64": 40,
+                  "l1_dest_is_faster:512x512x128": 1048
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on l1_dest_is_faster:512x512x128 x1048, l1_dest_is_faster:512x512x64 x40)"
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 1088,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,1)": 40,
+                  "k_tiles=4:(4,1)": 1048
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4:(4,1) x1048, k_tiles=2:(2,1) x40)"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 1088,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "k_tiles=2": 40,
+                  "k_tiles=4": 1048
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4 x1048, k_tiles=2 x40)"
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 2096,
+                "declined": 120,
+                "frac": 0.9458483754512635,
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(2,24)": 80,
+                  "no_mm_block:(2,8)": 40
+                }
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 240,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 1088,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 1936,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 1048,
+                "declined": 40,
+                "frac": 0.9632352941176471,
+                "how": "stats",
+                "rejects": {
+                  "head_dim_or_width": 40
+                }
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 66,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "False",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "off-by-design"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 1088,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "setlen"
+              }
+            },
+            "640": {
+              "SPLIT_SWIGLU": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 1088,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 306,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 1121,
+                "declined": 1088,
+                "frac": 0.5074694431869624,
+                "how": "stats-dict"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 563,
+                "declined": 526,
+                "frac": 0.5169880624426079,
+                "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:640x640x64": 40,
+                  "l1_dest_is_faster:640x640x128": 486
+                }
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 3178,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,1)": 40,
+                  "k_tiles=4:(4,4)": 2090,
+                  "k_tiles=4:(4,1)": 1048
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4:(4,4) x2090, k_tiles=4:(4,1) x1048, k_tiles=2:(2,1) x40)"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 1088,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "k_tiles=2": 40,
+                  "k_tiles=4": 1048
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4 x1048, k_tiles=2 x40)"
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 2096,
+                "declined": 120,
+                "frac": 0.9458483754512635,
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(2,24)": 80,
+                  "no_mm_block:(2,8)": 40
+                }
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 240,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 1088,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 1936,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 1048,
+                "declined": 40,
+                "frac": 0.9632352941176471,
+                "how": "stats",
+                "rejects": {
+                  "head_dim_or_width": 40
+                }
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 66,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "False",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "off-by-design"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 1088,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "setlen"
+              }
+            },
+            "768": {
+              "SPLIT_SWIGLU": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 1088,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 306,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 1121,
+                "declined": 1088,
+                "frac": 0.5074694431869624,
+                "how": "stats-dict"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 1088,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:768x768x64": 40,
+                  "l1_dest_is_faster:768x768x128": 1048
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on l1_dest_is_faster:768x768x128 x1048, l1_dest_is_faster:768x768x64 x40)"
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 4232,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,1)": 40,
+                  "k_tiles=4:(4,4)": 3144,
+                  "k_tiles=4:(4,1)": 1048
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4:(4,4) x3144, k_tiles=4:(4,1) x1048, k_tiles=2:(2,1) x40)"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 1088,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "k_tiles=2": 40,
+                  "k_tiles=4": 1048
+                },
+                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=4 x1048, k_tiles=2 x40)"
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 2096,
+                "declined": 120,
+                "frac": 0.9458483754512635,
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(2,24)": 80,
+                  "no_mm_block:(2,8)": 40
+                }
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 240,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 1088,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 1936,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 1048,
+                "declined": 40,
+                "frac": 0.9632352941176471,
+                "how": "stats",
+                "rejects": {
+                  "head_dim_or_width": 40
+                }
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "TODO: say why this is legitimate at this size"
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 66,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "False",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "off-by-design"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 1088,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "setlen"
+              }
+            }
+          },
+          "reps": 1,
+          "sigma_runtime_512": 0.0122,
+          "exponents": {
+            "256->512": {
+              "k": 1.48,
+              "tol": 0.5
+            },
+            "512->768": {
+              "k": 2.233,
               "tol": 0.5
             }
           }
