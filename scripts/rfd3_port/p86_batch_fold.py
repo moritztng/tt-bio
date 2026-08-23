@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""p86 -- b=1 vs b=2 at the page fixture, on the fixed L1 chunk budget. Fold level.
+"""p86 -- SUPERSEDED BY p87_real_batch.py. ITS b=2 ARM NEVER BATCHED. Do not quote it.
+
+At L=6051 design.py clamps effective_batch to
+min(batch_size, 512, 8*3359**2 // 6051**2 = 2, _BATCH_SPEED_CAP = 1) = 1, so this script's
+`batch_size=2` ran as TWO SEQUENTIAL batches of one. It summed the per-batch walls and divided by
+the CIF count, so its "b=2 wins 1.135 s/design" is per-design fixed-cost amortisation across two
+sequential designs and not batching at all. p87 raises the cap, asserts the batch count via
+len(WALLS) (the sampler runs once per batch), and measures real b=2 at 94.201 s/design against
+b=1 at 95.427.
+
+--- original header below, kept for the record ---
+
+p86 -- b=1 vs b=2 at the page fixture, on the fixed L1 chunk budget. Fold level.
 
 Lever A has been closed three times and reopened once. p3 pass 1 root-caused the last closure:
 `_pair_transition_chunk_h` sized its L1-resident chunk from width and hidden only, so at b=2 each
