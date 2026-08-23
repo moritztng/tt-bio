@@ -32,11 +32,17 @@ def shape(tokens: int) -> tuple[int, int]:
 
 @pytest.fixture(autouse=True)
 def clean_caps():
-    saved = dict(T._FP32_SOFTMAX_L1_ROW_CAP)
-    T._FP32_SOFTMAX_L1_ROW_CAP.clear()
+    saved = dict(T._FP32_SOFTMAX_L1_ROW_CAP), dict(T._FP32_SOFTMAX_L1_FREE_ROW_CAP)
+    saved_refusals = dict(T._FP32_SOFTMAX_L1_REFUSALS)
+    for d in (T._FP32_SOFTMAX_L1_ROW_CAP, T._FP32_SOFTMAX_L1_FREE_ROW_CAP,
+              T._FP32_SOFTMAX_L1_REFUSALS):
+        d.clear()
     yield
-    T._FP32_SOFTMAX_L1_ROW_CAP.clear()
-    T._FP32_SOFTMAX_L1_ROW_CAP.update(saved)
+    for d, keep in ((T._FP32_SOFTMAX_L1_ROW_CAP, saved[0]),
+                    (T._FP32_SOFTMAX_L1_FREE_ROW_CAP, saved[1]),
+                    (T._FP32_SOFTMAX_L1_REFUSALS, saved_refusals)):
+        d.clear()
+        d.update(keep)
 
 
 def test_grid_and_budget_are_the_calibration_these_numbers_came_from():
@@ -124,8 +130,9 @@ def clean_plan_cache():
 
 
 @pytest.mark.parametrize("tokens,rows", [(512, 12), (768, 4), (1024, 3)])
-def test_the_plan_is_the_tuned_answer_wherever_the_rectangle_serves(tokens, rows):
-    """Every size that is L1-resident today keeps byte for byte its block and its 64 cores."""
+def test_the_plan_is_the_tuned_answer_wherever_the_rectangle_serves(tokens, rows, s2_off):
+    """With the free core count off, every size the rectangle serves keeps byte for byte its block
+    and its 64 cores."""
     per_row, height_per_row = shape(tokens)
     assert T._fp32_softmax_l1_plan(per_row, height_per_row, tokens) == (rows, CORES)
 
@@ -155,11 +162,15 @@ def test_the_plan_never_asks_for_more_cores_than_the_active_grid():
 
 
 def test_a_narrowed_cap_bounds_the_free_plan_too():
-    """A refusal has to shrink the floating-core block as well, or the class never backs off."""
+    """A refusal has to shrink the floating-core block as well, or the class never backs off.
+
+    The floating plan reads its OWN cap, so the refusal that shrinks it is one recorded against it.
+    """
     per_row, height_per_row = shape(544)
     rows, _cores = T._fp32_softmax_l1_plan(per_row, height_per_row, 544)
     assert rows == 15
-    assert T._fp32_softmax_l1_plan(per_row, height_per_row, 544, rows - 1)[0] < rows
+    assert T._fp32_softmax_l1_plan(per_row, height_per_row, 544,
+                                   free_cap=rows - 1)[0] < rows
 
 
 def test_the_flag_off_leaves_the_shipped_behaviour_exactly():
@@ -219,6 +230,16 @@ def test_a_ragged_width_gets_exactly_the_shipped_answer():
 # (perf/fp32softmax/results/s2_op_ab.json).
 
 L1_UNRESERVED = 1532416         # ttnn.get_max_worker_l1_unreserved_size() on this p150a
+
+
+@pytest.fixture
+def s2_off(monkeypatch):
+    """S2 is the default now, so the tests that assert the S1-only plan have to pin the arm they
+    mean rather than inherit it from the module."""
+    monkeypatch.setattr(T, "_FP32_SOFTMAX_L1_FLOAT_CORES", False)
+    T._fp32_softmax_l1_plan.cache_clear()
+    yield
+    T._fp32_softmax_l1_plan.cache_clear()
 
 
 @pytest.fixture
@@ -297,9 +318,8 @@ def test_s2_keeps_the_batched_matmul_config_wherever_the_tuned_block_had_one(s2_
     assert moved > 20, moved      # the lever has to actually move something for this to mean much
 
 
-def test_s2_off_ignores_the_matmul_shape_entirely():
-    """The flag off is byte for byte what shipped, whatever `bmm` says."""
-    assert not T._FP32_SOFTMAX_L1_FLOAT_CORES
+def test_s2_off_ignores_the_matmul_shape_entirely(s2_off):
+    """The flag off is byte for byte the S1-only plan, whatever `bmm` says."""
     for heads in (2, 4, 8):
         for tokens in range(32, 1057, 32):
             hpr = heads * tokens
@@ -323,15 +343,97 @@ def test_a_dark_size_is_untouched_by_the_constraint(s2_on):
 
 
 def test_retiring_a_floating_plan_falls_back_to_the_tuned_block_and_not_to_nothing():
-    """The 768 aa cliff. Two refusals retire the floating plan; if that also drops the BLOCK CAP
-    the call is unblocked and materialises the whole fp32 score tensor -- 7.25 GB at 768 aa /
-    4 heads, measured 170.9 ms against 127.4 ms for the tuned 4-row block. So what the caller
-    falls back to has to be the tuned row count, and at this size there IS one.
+    """The 768 aa cliff. Retiring the floating plan must not also drop the BLOCK CAP: an unblocked
+    call materialises the whole fp32 score tensor -- 7.25 GB at 768 aa / 4 heads, measured 170.9 ms
+    against 127.4 ms for the tuned 4-row block. So what the caller falls back to has to be the
+    tuned row count, and at this size there IS one.
+
+    And it has to be the FULL tuned row count. A floating refusal is recorded against the floating
+    cap, so the block that ships is exactly the block that ships however far the walk descended.
     """
     per_row, height_per_row = shape(768)
-    cap = None
-    for rows in (9, 8):
-        T._fp32_softmax_l1_narrow((height_per_row, 768), rows)
-        cap = T._FP32_SOFTMAX_L1_ROW_CAP[(height_per_row, 768)]
-    assert cap == 7
-    assert T._fp32_softmax_l1_rows(per_row, height_per_row, cap) == 4
+    key = (height_per_row, 768)
+    for rows in (9, 8, 7, 6, 5):
+        T._fp32_softmax_l1_narrow(key, rows, free=True)
+    assert T._FP32_SOFTMAX_L1_FREE_ROW_CAP[key] == 4
+    assert key not in T._FP32_SOFTMAX_L1_ROW_CAP
+    assert T._fp32_softmax_l1_rows(per_row, height_per_row,
+                                   T._FP32_SOFTMAX_L1_ROW_CAP.get(key)) == 4
+
+
+# --- the leash: how many rungs the floating walk gets, priced on what retirement lands on -------
+
+
+def test_the_leash_at_768_reaches_every_rung_above_the_shipped_block(s2_on):
+    """The plan is 9 rows on 108 cores and the shipped block is 4. A flat count of 2 retired the
+    class at the second refusal and the fold read 1.0023x with 114 of 173 calls on the tuned block.
+    The leash is the rungs above 4, so the walk gets all of them and none below.
+    """
+    T.COMPUTE_GRID_MAIN = (11, 10)
+    T._fp32_softmax_l1_plan.cache_clear()
+    per_row, height_per_row = shape(768)
+    key = (height_per_row, 768)
+    assert T._fp32_softmax_l1_plan(per_row, height_per_row, 768, None,
+                                   bmm(768)) == (9, 108)
+    seen = []
+    while not T._fp32_softmax_free_spent(key, per_row, height_per_row):
+        rows, cores = T._fp32_softmax_l1_plan(per_row, height_per_row, 768, None, bmm(768),
+                                              T._FP32_SOFTMAX_L1_FREE_ROW_CAP.get(key))
+        if cores == CORES:
+            break
+        seen.append((rows, cores))
+        T._fp32_softmax_l1_narrow(key, rows, free=True)
+    # every rung above the shipped 4 rows, then the shipped height itself on 96 cores instead of
+    # 64 -- 524288 B/core against 786432, which is the shape the 1024 aa cell won on
+    assert seen == [(9, 108), (8, 96), (7, 96), (6, 96), (5, 96), (4, 96)], seen
+    # spent, and the plan is now the shipped block at its shipped height
+    assert T._fp32_softmax_free_spent(key, per_row, height_per_row)
+    assert T._fp32_softmax_l1_rows(per_row, height_per_row,
+                                   T._FP32_SOFTMAX_L1_ROW_CAP.get(key)) == 4
+
+
+def test_the_leash_stays_the_measured_count_where_retirement_lands_on_nothing(s2_on):
+    """2 heads / 960 tokens: no tuned block, so the baseline is ONE unblocked call and a refused
+    rung multiplies the block count instead of dividing it. Measured 0.295x with 16 of 29 blocks
+    resident, and the cap of 2 is what stops it. The leash must not grow here.
+    """
+    T.COMPUTE_GRID_MAIN = (11, 10)
+    T._fp32_softmax_l1_plan.cache_clear()
+    hpr = 2 * 960
+    per_row = hpr * 960 * 4
+    key = (hpr, 960)
+    assert T._fp32_softmax_l1_rows(per_row, hpr) == 0          # nothing to fall back to
+    assert T._fp32_softmax_l1_plan(per_row, hpr, 960, None, bmm(960, 2)) == (11, 110)
+    for n in (1, 2):
+        T._FP32_SOFTMAX_L1_REFUSALS[key] = n
+        T._fp32_softmax_l1_narrow(key, 11, free=True)
+        assert T._fp32_softmax_free_spent(key, per_row, hpr) == (n >= 2)
+
+
+def test_a_floating_refusal_never_narrows_the_shipped_block(s2_on):
+    """The two caps are separate because a refusal is a property of the shard that refused: at
+    1024 aa the sharded softmax refuses 3 rows on 64 cores and accepts the same 3 on 96. Charging
+    a floating refusal to the tuned cap would shrink the block retirement has to land on.
+    """
+    T.COMPUTE_GRID_MAIN = (11, 10)
+    T._fp32_softmax_l1_plan.cache_clear()
+    for tokens, tuned in ((512, 12), (768, 4), (1024, 3)):
+        per_row, height_per_row = shape(tokens)
+        key = (height_per_row, tokens)
+        for rows in range(20, 0, -1):
+            T._fp32_softmax_l1_narrow(key, rows, free=True)
+        assert key not in T._FP32_SOFTMAX_L1_ROW_CAP, tokens
+        assert T._fp32_softmax_l1_rows(per_row, height_per_row) == tuned
+        assert T._fp32_softmax_l1_plan(per_row, height_per_row, tokens, None, bmm(tokens),
+                                       T._FP32_SOFTMAX_L1_FREE_ROW_CAP.get(key)) == (tuned, CORES)
+
+
+def test_a_tuned_refusal_still_backs_the_tuned_block_off_one_row(s2_on):
+    """The 1024 aa backoff is unchanged: a refusal by the tuned shard narrows the tuned cap."""
+    per_row, height_per_row = shape(1024)
+    key = (height_per_row, 1024)
+    T._fp32_softmax_l1_narrow(key, 3)
+    assert T._FP32_SOFTMAX_L1_ROW_CAP[key] == 2
+    assert key not in T._FP32_SOFTMAX_L1_FREE_ROW_CAP
+    assert T._fp32_softmax_l1_rows(per_row, height_per_row,
+                                   T._FP32_SOFTMAX_L1_ROW_CAP.get(key)) == 2

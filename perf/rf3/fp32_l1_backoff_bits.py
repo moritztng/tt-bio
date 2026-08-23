@@ -77,6 +77,7 @@ def main() -> int:
     for arm, budget in (("int_a", 0), ("int_b", 0), ("l1", shipped)):
         T._FP32_SOFTMAX_L1_BYTES_PER_CORE = budget
         T._FP32_SOFTMAX_L1_ROW_CAP.clear()
+        T._FP32_SOFTMAX_L1_FREE_ROW_CAP.clear()
         T.FP32_SOFTMAX_STATS.update({k: 0 for k in T.FP32_SOFTMAX_STATS})
         s = ttnn.mul(s_init, 0.0)
         z = ttnn.mul(z_init, 0.0)
