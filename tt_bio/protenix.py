@@ -80,6 +80,61 @@ MSA_ROW_CHUNK_BUDGET_BYTES = 1 << 28      # 0.25 GiB
 MSA_HOST_OFFLOAD_MIN_BYTES = 1 << 30      # 1 GiB
 
 
+TOKEN_PAD_MULTIPLE = 32
+# 32, not the Pairformer's 64: 32 is the tile and therefore the whole rule, and at N=580 a 64
+# bucket costs 640 against 608 on work that scales as N-squared. See PLAYBOOKS.md §MODEL 2b and
+# tt_bio/token_axis.py.
+
+
+def _token_bucket() -> bool:
+    """Pad the TRUNK's token axis out to a tile multiple, masked, and slice back on exit.
+
+    Off by default: this changes the trunk's shapes, its DRAM peak and therefore the largest
+    target that fits, so flipping it is a release decision. On, protenix-v2 / opendde /
+    opendde-abag stop presenting a ragged token axis to the triangle attention -- 1208 of 1208
+    calls at N=98 today, and both the stock and fused SDPA are MEASURED to read the padded key
+    columns at a bias of zero (perf/bucketing_audit/fused_sdpa_ragged_probe.py: relative error
+    0.914 ragged against 0.038 aligned).
+    """
+    from tt_bio.envflags import env_flag
+    return env_flag("TT_BIO_PROTENIX_TOKEN_BUCKET", False)
+
+
+def bucketed_pairformer(pf, s, z, dev, mult: int = TOKEN_PAD_MULTIPLE, extra_attn_bias=None):
+    """Run `pf` with its token axis padded out to `mult`, masked, and sliced back.
+
+    The trunk is not the only exposure, and the census found the other two rather than the source
+    did. The confidence head's Pairformer runs at the REAL N, so bucketing the trunk alone left 8
+    of protenix-v2's 1208 ragged fused-SDPA calls behind (4 blocks x attention start+end); OpenDDE
+    keeps 8 more in its structural-token refiner, at Ns=181 for a 98-residue input, a different
+    token axis entirely. One helper covers all four call sites and any that get added -- fixing one
+    caller is the recurring failure (`fused-sdpa-ragged-tile-tail-and-census-discipline`).
+    """
+    N = int(z.shape[1])
+    pad = (-N) % mult
+    if not pad or not _token_bucket():
+        return pf(s, z, extra_attn_bias=extra_attn_bias)
+    Np = N + pad
+    m1 = torch.zeros(1, Np)
+    m1[:, :N] = 1.0
+    up = lambda t: ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    pmask = up(m1[:, :, None] * m1[:, None, :])          # outer product -- see Trunk.__call__
+    attn = up((1 - m1).unsqueeze(1).unsqueeze(1) * -1e9)
+    s = ttnn.pad(s, [(0, 0), (0, pad), (0, 0)], 0.0) if s is not None else None
+    z = ttnn.pad(z, [(0, 0), (0, pad), (0, pad), (0, 0)], 0.0)
+    if extra_attn_bias is not None:
+        # An additive per-pair bias, so the padded region has to be pushed out of the softmax the
+        # same way `attn` does it -- padding it with 0 would put the padded keys back at score 0,
+        # which is the defect this is closing.
+        extra_attn_bias = ttnn.pad(
+            extra_attn_bias, [(0, 0), (0, 0), (0, pad), (0, pad)], -1e9)
+    so, zo = pf(s, z, pmask, attn, attn, extra_attn_bias)
+    if so is not None:
+        so = ttnn.slice(so, (0, 0, 0), (1, N, so.shape[2]))
+    zo = ttnn.slice(zo, (0, 0, 0, 0), (1, N, N, zo.shape[3]))
+    return so, zo
+
+
 def _msa_host_offload_min_bytes():
     """Offload gate, with a test-only env override (same rationale as the chunk budget):
     forcing it to 0 makes a SMALL target take the host-streamed path so its output can be
@@ -1351,7 +1406,7 @@ class ConfidenceHead:
         oh = ((d.unsqueeze(-1) >= self._g("lower_bins")) & (d.unsqueeze(-1) < self._g("upper_bins"))).float()
         z = z + F.linear(oh, self._g("linear_no_bias_d.weight")) + F.linear(d.unsqueeze(-1), self._g("linear_no_bias_d_wo_onehot.weight"))
         T = lambda x: ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
-        so, zo = self.pf(T(s_t.unsqueeze(0)), T(z.unsqueeze(0)))
+        so, zo = bucketed_pairformer(self.pf, T(s_t.unsqueeze(0)), T(z.unsqueeze(0)), self.dev)
         s_single = torch.Tensor(ttnn.to_torch(so)).float().reshape(N, 384)
         zf = torch.Tensor(ttnn.to_torch(zo)).float().reshape(N, N, -1)
 
@@ -1502,7 +1557,7 @@ class ConfidenceHead:
         z = ttnn.add(rc["z_base"], self._dev_lin(oh, "linear_no_bias_d.weight"))
         z = ttnn.add(z, self._dev_lin(d3, "linear_no_bias_d_wo_onehot.weight"))
         # ---- confidence Pairformer (device, z stays resident) ----
-        so, zo = self.pf(rc["s_t"], z)                                       # (1,N,384),(1,N,N,256)
+        so, zo = bucketed_pairformer(self.pf, rc["s_t"], z, self.dev)        # (1,N,384),(1,N,N,256)
         # ---- heads on device ----
         zof = ttnn.reshape(zo, (1, N, N, 256))
         pae_ln = ttnn.layer_norm(zof, weight=self._wtt("pae_ln.weight", False),
@@ -2229,7 +2284,7 @@ class Trunk(_KeyedWeights):
                 tm = Transition(PW.remap_transition(sub(P + "msa_stack.transition_m.")), compute_kernel_config)
             self.MSA.append((opm, pwa, tm, pl))
 
-    def _template(self, z3, tpl_a, N, nt):
+    def _template(self, z3, tpl_a, N, nt, pmask_tt=None, attn_tt=None):
         # tpl_a: nt device tensors, each already `linear_no_bias_a(at)` for one template.
         # The projection is cycle-invariant, so the caller hoists it out of the recycling
         # loop (see Trunk.__call__); passing the raw host feature concat here is a bug.
@@ -2251,13 +2306,13 @@ class Trunk(_KeyedWeights):
         for t in range(nt):
             v = vs[t]
             for pl in self.TPL:
-                v = pl(None, v)[1]
+                v = pl(None, v, pmask_tt, attn_tt, attn_tt)[1]
             v = self._ln(v, "template_embedder.layernorm_v.weight", "template_embedder.layernorm_v.bias")
             u = v if u is None else ttnn.add(u, v)
         u = ttnn.multiply(u, 1.0 / (1e-7 + nt))
         return self._lin(ttnn.relu(u), "template_embedder.linear_no_bias_u.weight")
 
-    def _msa(self, z3, m_feat):
+    def _msa(self, z3, m_feat, pmask_tt=None, attn_tt=None):
         def update_msa(m, z, pwa, transition):
             if pwa is None:
                 return m
@@ -2268,7 +2323,7 @@ class Trunk(_KeyedWeights):
                 zc = ttnn.clone(z)
                 out = []
                 for mc in m:
-                    t1 = ttnn.add(mc, ttnn.reshape(pwa(mc, zc), tuple(mc.shape)))
+                    t1 = ttnn.add(mc, ttnn.reshape(pwa(mc, zc, attn_tt), tuple(mc.shape)))
                     ttnn.deallocate(mc)
                     t2 = ttnn.add(t1, ttnn.reshape(transition(t1), tuple(t1.shape)))
                     ttnn.deallocate(t1)
@@ -2293,7 +2348,7 @@ class Trunk(_KeyedWeights):
             if _msa_take_whole_path(D * m.shape[2] * m.shape[3] * 2):
                 m_up = self._up(m) if torch.is_tensor(m) else m   # host offload + forced whole
                 m2 = ttnn.add(m_up, ttnn.reshape(
-                    pwa(m_up, ttnn.clone(z)), tuple(m_up.shape)))
+                    pwa(m_up, ttnn.clone(z), attn_tt), tuple(m_up.shape)))
                 dram_peak("trunk msa block: after pwa add")
                 trunk_tap("whole:after_pwa", m2)
                 out = ttnn.add(
@@ -2320,7 +2375,7 @@ class Trunk(_KeyedWeights):
                 # the chunking, and the acceptance test cannot then attribute a difference to
                 # one or the other. Keep the arithmetic identical to the whole path; the memory
                 # win comes from the chunk being small, not from mutating it.
-                mc = ttnn.add(mc, ttnn.reshape(pwa(mc, zc), tuple(mc.shape)))
+                mc = ttnn.add(mc, ttnn.reshape(pwa(mc, zc, attn_tt), tuple(mc.shape)))
                 mc = ttnn.add(mc, ttnn.reshape(transition(mc), tuple(mc.shape)))
                 parts.append(mc)
                 dram_peak("trunk msa block: after pwa add")
@@ -2361,7 +2416,7 @@ class Trunk(_KeyedWeights):
             dram_peak("trunk msa block: after opm")
             if not self._msa_update_first:
                 m_feat = update_msa(m_feat, z3, pwa, tm)
-            z3 = pl(None, z3)[1]
+            z3 = pl(None, z3, pmask_tt, attn_tt, attn_tt)[1]
             dram_peak(f"trunk msa block {_bi} done")
             if not torch.is_tensor(m_feat):
                 trunk_tap(f"block{_bi}:m_feat", m_feat)
@@ -2382,12 +2437,49 @@ class Trunk(_KeyedWeights):
         (s_trunk (N,384), z_trunk (1,N,N,256)) as ttnn tensors."""
         import torch
         import torch.nn.functional as F
-        N = s_inputs.shape[0]
+        N = n_real = s_inputs.shape[0]
+        # Bucket the TOKEN axis. Everything below then runs at the padded N and the exit slices
+        # back, so no site inside this method needs to know the real length -- only the three
+        # reduce-over-tokens families need the masks: TriangleMultiplication (contracts a token
+        # axis), TriangleAttention (softmax over one) and PairWeightedAveraging (its matmul
+        # contracts the token axis). OuterProductMean reduces over MSA DEPTH, so a padded token
+        # cannot reach a real pair through it, and the transitions/norms/linears are per-token.
+        pad = (-N) % TOKEN_PAD_MULTIPLE if _token_bucket() else 0
+        pmask_tt = attn_tt = None
+        if pad:
+            N = n_real + pad
+            s_inputs = F.pad(s_inputs, (0, 0, 0, pad))
+            relp = F.pad(relp, (0, 0, 0, pad, 0, pad))
+            token_bonds = F.pad(token_bonds, (0, pad, 0, pad))
+            feat = dict(feat)
+            # -1 matches no real chain, so the padded rows and columns are never "same chain".
+            feat["asym_id"] = F.pad(feat["asym_id"], (0, pad), value=-1)
+            for k in ("template_aatype", "msa", "has_deletion", "deletion_value"):
+                if k in feat:
+                    feat[k] = F.pad(feat[k], (0, pad))
+            for k in ("template_pseudo_beta_mask", "template_backbone_frame_mask"):
+                if k in feat:
+                    feat[k] = F.pad(feat[k], (0, pad, 0, pad))
+            for k in ("template_distogram", "template_unit_vector"):
+                if k in feat:
+                    feat[k] = F.pad(feat[k], (0, 0, 0, pad, 0, pad))
+            m1 = torch.zeros(1, N)
+            m1[:, :n_real] = 1.0
+            # The OUTER PRODUCT, not a 1-D mask: TriangleMultiplication multiplies an
+            # unsqueezed mask into [1,S,S,C], so a 1-D [1,S] mask lands on the second token
+            # axis only and the incoming variant then sums the padded rows in -- rel 2.00
+            # against 6.7e-03 (state/opendde-pairformer-z-parity-drop.md).
+            pmask_tt = self._up(m1[:, :, None] * m1[:, None, :])
+            attn_tt = self._up((1 - m1).unsqueeze(1).unsqueeze(1) * -1e9)
         s_init, z_init = self.trunk_input(self._up(s_inputs), self._up(relp), self._up(token_bonds.unsqueeze(-1)))
         # template feature concat (per template). Offline (no-template) inference omits
         # template_* entirely -> nt=0, template embedder skipped (the reference's
         # use_template=False path carries all-zero template geometry, a negligible update).
-        asym = feat["asym_id"]; mc = (asym[:, None] == asym[None, :]).float(); pm = torch.ones(N, N)
+        asym = feat["asym_id"]; mc = (asym[:, None] == asym[None, :]).float()
+        # pm is the real-region pair mask when bucketing, so every template feature is 0 in a
+        # padded row or column. asym_id = -1 already makes `mc` False against a real chain, but
+        # -1 == -1 is True in the pad-by-pad block, and pm is what covers that.
+        pm = torch.ones(N, N) if not pad else (m1[0][:, None] * m1[0][None, :])
         nt = feat["template_aatype"].shape[0] if "template_aatype" in feat else 0
         te_at = []
         for t in range(nt):
@@ -2442,11 +2534,11 @@ class Trunk(_KeyedWeights):
             zc = self._lin(self._ln(z3, "layernorm_z_cycle.weight", "layernorm_z_cycle.bias"), "linear_no_bias_z_cycle.weight")
             z3 = ttnn.add(ttnn.reshape(z_init, (1, N, N, self.C_Z)), zc)
             if nt > 0:
-                z3 = ttnn.add(z3, self._template(z3, tpl_a, N, nt))
-            z3 = self._msa(z3, m_feat)
+                z3 = ttnn.add(z3, self._template(z3, tpl_a, N, nt, pmask_tt, attn_tt))
+            z3 = self._msa(z3, m_feat, pmask_tt, attn_tt)
             sc = self._lin(self._ln(s, "layernorm_s.weight", "layernorm_s.bias"), "linear_no_bias_s.weight")
             s = ttnn.add(s_init, sc)
-            s, z3 = self.PF(ttnn.reshape(s, (1, N, 384)), z3)
+            s, z3 = self.PF(ttnn.reshape(s, (1, N, 384)), z3, pmask_tt, attn_tt, attn_tt)
             s = ttnn.reshape(s, (N, 384))
             # The one region cycle 0's MSA taps did not cover: the s update and the trunk-level
             # Pairformer. Cheap to tap every cycle -- z3 is ~62 MB here, not m_feat's ~0.7 GiB --
@@ -2458,6 +2550,9 @@ class Trunk(_KeyedWeights):
         # The trunk's final conditioning. If cycle 0's blocks matched but this differs, the
         # divergence is born in a later cycle; if this matches too, the trunk is fully exonerated
         # and only the diffusion path (and the allocator state it inherits) can explain the fold.
+        if pad:
+            s = ttnn.slice(s, (0, 0), (n_real, s.shape[1]))
+            z3 = ttnn.slice(z3, (0, 0, 0, 0), (1, n_real, n_real, z3.shape[3]))
         trunk_tap("trunk_exit:s_trunk", s, always=True)
         trunk_tap("trunk_exit:z_trunk", z3, always=True)
         return s, z3

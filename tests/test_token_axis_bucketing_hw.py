@@ -103,13 +103,13 @@ def test_ttnn_softmax_masks_its_ragged_tail():
         f"unmasked {unmasked:.6f}. Every IMMUNE row in tt_bio/token_axis.py rests on this.")
 
 
-def _census(model, argv):
+def _census(model, argv, env_extra=None, seq=None, tap=None):
     """Run one tiny job under the probe and return the merged counters."""
     import token_axis_probe as P
     with tempfile.TemporaryDirectory() as d:
         fasta = os.path.join(d, "q.fasta")
         with open(fasta, "w") as fh:
-            fh.write(">q|protein\n" + _SEQ + "\n")
+            fh.write(">q|protein\n" + (seq or _SEQ) + "\n")
         spec = os.path.join(d, "spec.json")
         if "{spec}" in " ".join(argv):
             with open(_RFD3_TARGET) as fh:
@@ -126,6 +126,9 @@ def _census(model, argv):
         env["PYTHONPATH"] = os.pathsep.join(
             [os.path.join(REPO, "perf", "bucketing_audit", "censusenv"), REPO,
              env.get("PYTHONPATH", "")])
+        env.update(env_extra or {})
+        if tap:
+            env["TT_BIO_TRUNK_TAP"] = tap
         cmd = [sys.executable, "-m", "tt_bio.main"] + [
             a.format(fasta=fasta, spec=spec) for a in argv] + ["--out_dir", os.path.join(d, "out")]
         r = subprocess.run(cmd, cwd=REPO, env=env, capture_output=True, text=True, timeout=3600)
@@ -159,6 +162,53 @@ def test_no_bucketed_model_reaches_a_ragged_fused_sdpa(model):
     assert not bad, (
         f"{model} is declared BUCKETED but presented a ragged key axis to the fused SDPA at: "
         + "; ".join(f"{r['site']} x{r['masked_ragged']} {r['shapes']}" for r in bad))
+
+
+_ALIGNED_SEQ = ("NLYIQWLKDGGPSSGRPPPS" * 7)[:128]      # 128 tokens: already a tile multiple
+_BUCKET_ON = {"TT_BIO_PROTENIX_TOKEN_BUCKET": "1"}
+
+
+@pytest.mark.skipif(not _device_available(),
+                    reason="needs a TT card and TT_VISIBLE_DEVICES pinned to it")
+@pytest.mark.parametrize("model", ["protenix-v2", "opendde"])
+def test_protenix_token_bucket_closes_every_ragged_sdpa(model):
+    """With TT_BIO_PROTENIX_TOKEN_BUCKET=1 there is no ragged SDPA left, anywhere.
+
+    The flag is OFF by default because it changes the trunk's DRAM peak and therefore the largest
+    target that fits, so these two models are declared EXPOSED and skip the BUCKETED census above.
+    Without this test the fix would be dead code within a release. Three separate token axes had to
+    be closed to get to zero and the census found each one AFTER the previous was fixed:
+    the trunk (1208 calls), the confidence head's Pairformer at the real N (8), and -- OpenDDE only
+    -- the structural-token refiner at Ns=181 (8 more).
+    """
+    s = _census(model, JOBS[model], env_extra=_BUCKET_ON)
+    bad = [r for r in s["rows"] if r["masked_ragged"]]
+    assert not bad, (
+        f"{model} with the token bucket ON still presented a ragged key axis at: "
+        + "; ".join(f"{r['site']} x{r['masked_ragged']} {r['shapes']}" for r in bad))
+
+
+@pytest.mark.skipif(not _device_available(),
+                    reason="needs a TT card and TT_VISIBLE_DEVICES pinned to it")
+def test_protenix_token_bucket_is_a_noop_at_an_aligned_length():
+    """The A/A control: at N=128 the bucket has nothing to pad, so the trunk must not move.
+
+    Compares TT_BIO_TRUNK_TAP fingerprints rather than the output structure, because the STRUCTURE
+    is not a usable control here -- protenix-v2 folds the same 98-aa input to two different CIFs in
+    two consecutive runs, well below the 256-aa nondeterminism this model was known for. The trunk
+    itself is deterministic, which is what makes this comparison meaningful.
+    """
+    with tempfile.TemporaryDirectory() as d:
+        taps = {}
+        for arm, extra in (("off", {}), ("on", _BUCKET_ON)):
+            t = os.path.join(d, f"tap_{arm}.txt")
+            _census("protenix-v2", JOBS["protenix-v2"], env_extra=extra,
+                    seq=_ALIGNED_SEQ, tap=t)
+            taps[arm] = [l for l in open(t).read().splitlines() if "trunk_exit" in l]
+            print(arm + ": " + " ".join(taps[arm]))
+        assert taps["off"] and taps["off"] == taps["on"], (
+            "the token bucket moved the trunk at an already-aligned N=128:\n"
+            f"  off {taps['off']}\n  on  {taps['on']}")
 
 
 @pytest.mark.skipif(not _device_available(),

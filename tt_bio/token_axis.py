@@ -69,20 +69,32 @@ TOKEN_AXIS = {
         BUCKETED, 32, "same trunk as esmfold2 (esmfold2.py:105)",
         "the --fast route changes recycling and precision, not the pad site",
     ),
+    # The FIX for these three is implemented and measured -- protenix.TOKEN_PAD_MULTIPLE, gated on
+    # TT_BIO_PROTENIX_TOKEN_BUCKET -- but the gate is OFF by default, so the shipped default still
+    # runs ragged and the honest status is still EXPOSED. Flipping it changes the trunk's DRAM peak
+    # and therefore the largest target that fits, which is a release decision, not this task's.
+    # tests/test_token_axis_bucketing_hw.py::test_protenix_token_bucket_* keeps the fix alive.
     "protenix-v2": (
         EXPOSED, None,
-        "protenix.py:2378 Trunk.__call__ runs raw N; :2447 calls self.PF(s, z3) with no mask "
-        "argument, though Pairformer.__call__ (tenstorrent.py:5208) accepts mask/attn_mask_start/"
-        "attn_mask_end. The ATOM axis is padded (:205,:225,:400); the TOKEN axis is not.",
-        "fleet-bucketing-audit-and-guard",
+        "three ragged token axes, each found by the census after the previous was closed: "
+        "protenix.py Trunk.__call__ runs raw N (1208 calls at N=98); the confidence head's "
+        "Pairformer runs at the real N (8 more); OpenDDE adds its structural-token refiner. The "
+        "ATOM axis was already padded; the TOKEN axis was not.",
+        "fleet-bucketing-audit-and-guard: fixed behind TT_BIO_PROTENIX_TOKEN_BUCKET, 1208 -> 0, "
+        "bit-exact at an aligned N; awaiting a default-ON decision",
     ),
     "opendde": (
         EXPOSED, None,
-        "reuses the protenix.py Trunk at c_z=384 (opendde.py:380); no pad site in the file",
-        "fleet-bucketing-audit-and-guard",
+        "reuses the protenix.py Trunk at c_z=384 (opendde.py:380), plus a 4-block "
+        "structural-token refiner (opendde.py:456) on a SEPARATE token axis -- Ns=181 for a "
+        "98-residue input, 1216 ragged calls in total",
+        "fleet-bucketing-audit-and-guard: fixed behind TT_BIO_PROTENIX_TOKEN_BUCKET, 1216 -> 0; "
+        "awaiting a default-ON decision",
     ),
     "opendde-abag": (
-        EXPOSED, None, "same trunk as opendde", "fleet-bucketing-audit-and-guard",
+        EXPOSED, None, "same trunk and refiner as opendde",
+        "fleet-bucketing-audit-and-guard: fixed behind TT_BIO_PROTENIX_TOKEN_BUCKET; "
+        "awaiting a default-ON decision",
     ),
     "openfold3": (
         IMMUNE, None,
@@ -131,6 +143,7 @@ TOKEN_AXIS = {
 # The live constants the table above claims. Checked against their real modules rather than
 # restated, so setting one of them to 48 is a test failure and not a silent 72x.
 LIVE_MULTIPLES = {
+    ("tt_bio.protenix", "TOKEN_PAD_MULTIPLE"): 32,
     ("tt_bio.tenstorrent", "PAIRFORMER_PAD_MULTIPLE"): 64,
     ("tt_bio.tenstorrent", "MSA_PAD_MULTIPLE"): 1024,
     ("tt_bio.esmfold2", "PAD_MULTIPLE"): 32,
