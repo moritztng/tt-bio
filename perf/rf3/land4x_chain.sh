@@ -49,12 +49,20 @@ phaseA() {
   ( acc 1 roa117_pad1 7roa_117 1; acc 1 roa117_pad0 7roa_117 0 ) &
   # card 2: the aligned bit-exactness control the change owes itself (128 mod 32 = 0).
   ( acc 2 cdk128_pad1 cdk2_128 1 ) &
-  # card 3: the one open hole in the accuracy ladder. Its CPU reference is uncached and costs
-  # >50 min per seed, so it starts with the others and finishes long after them.
-  ( acc 3 cdk1024_pad1 cdk2_1024 1 ) &
   wait
   mark PHASE_A_DONE
   say "PHASE A DONE"
+}
+
+# ---------------------------------------------------------------- D: the 1024 aa hole
+# LAST, not first. Its CPU reference is uncached and costs >50 min a seed, so leading with it
+# would hold the four flip-critical phases behind five hours of host trunk, and its host load
+# would make phase C uncontended-in-name-only if it ran alongside. Everything the flip depends
+# on is decided before this starts; this closes the one ladder rung that was never measured.
+phaseD() {
+  acc 0 cdk1024_pad1 cdk2_1024 1
+  mark PHASE_D_DONE
+  say "PHASE D DONE"
 }
 
 # ---------------------------------------------------------------- B: the exposed models
@@ -117,5 +125,6 @@ say "=== land4x chain start, HEAD $(git rev-parse --short HEAD) ==="
 phaseA
 phaseB
 phaseC
+phaseD
 mark LAND4X_CHAIN_DONE
 say "=== land4x chain done ==="
