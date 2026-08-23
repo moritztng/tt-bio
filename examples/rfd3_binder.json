@@ -1,0 +1,6 @@
+{
+  "gate-binder": {
+    "input": "examples/ground_truth_structures/prot.cif",
+    "contig": "A140-189,70"
+  }
+}
