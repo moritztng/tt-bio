@@ -78,6 +78,30 @@ So when reading a size result, convert to padded tokens first. A ligand ladder a
 residue rungs is a different set of shapes, not a repeat of the apo one, and that is the point of
 running it.
 
+## The token axis is padded too, and that one is a correctness fix
+
+Protenix-v2, OpenDDE and OpenDDE-abag pad the trunk token axis up to a multiple of 64 as well,
+masked, and slice back on exit. Without it an unaligned token count hands the triangle attention a
+ragged key axis, and both the stock and the fused attention read those padded columns as if they
+held real data: relative error against the aligned answer is 0.914 ragged, 0.038 padded. So the
+padding is not a perf lever, it is the difference between a right and a wrong number, and it is on
+by default.
+
+The padding itself does not change the answer. Two different poison fill values give bit-identical
+trunk fingerprints, so what the masked columns contain cannot reach the output.
+
+Cost follows the same rule as the rung arithmetic above. When the token count is already a multiple
+of 64 the pad is 0, both padding sites early-out, and this costs exactly nothing. When it is not,
+you pay for the rounded-up width on work that scales as the square of it, a few percent at the
+sizes measured so far. `TT_BIO_PROTENIX_TOKEN_BUCKET=0` restores the old ragged path for an A/B,
+and `TT_BIO_PROTENIX_TOKEN_PAD_MULTIPLE` overrides the multiple.
+
+Note what this does to the ladder. Every rung is a multiple of 64, so the pad is 0 at all four and
+the size-ladder arm cannot see this lever at any of them. An off-lattice rung
+(`RELEASE_GATE_SIZE_RUNGS=298`) is the only way to price it, which is the same blindness this page
+describes one level up: a ladder built only from multiples of the thing you are testing tests
+nothing.
+
 ## What the 2026-08-19 sweep found
 
 The gate's own baseline, recorded on one p150a at a 13x10 grid, current main, single-sequence folds at
