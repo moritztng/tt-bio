@@ -1128,8 +1128,14 @@ def _contract_custom_msa(base: Path) -> list[str]:
 
 
 def _contract_ligand_chirality(base: Path) -> list[str]:
-    """A CCD ligand folds, and the reference conformer that fold builds carries the
-    handedness the CCD code names instead of one ETKDG picked at random."""
+    """A CCD ligand's reference conformer must carry the handedness its code names,
+    not one ETKDG drew at random.
+
+    No fold here: `--model openfold3` is polymer-only, so nothing shipped folds a
+    ligand through this path yet. The conformer is still the deepest arm available,
+    and it is the object the atom encoder would consume. The guard below fails if
+    that ever changes without this surface being widened to a real fold."""
+    problems = []
     spec = base / "contract_ligand.yaml"
     spec.write_text(
         "version: 1\n"
@@ -1140,24 +1146,17 @@ def _contract_ligand_chirality(base: Path) -> list[str]:
         "  - ligand:\n"
         "      id: B\n"
         f"      ccd: {CONTRACT_CCD}\n")
-    out = base / "contract_ligand"
-    r = _run(_cli_predict(CONTRACT_MODEL, out, spec),
+    r = _run(_cli_predict(CONTRACT_MODEL, base / "contract_ligand", spec),
              env=_subprocess_env(), timeout=PER_MODEL_TIMEOUT_S)
-    problems = []
-    if r.returncode != 0:
-        tail = ((r.stderr or "") + (r.stdout or "")).strip().splitlines()[-3:]
-        problems.append(f"{CONTRACT_CCD} ligand fold: exit {r.returncode} — " + " | ".join(tail))
-    else:
-        cifs = sorted(out.rglob("*.cif"))
-        if not cifs:
-            problems.append(f"{CONTRACT_CCD} ligand fold: exit 0 but no structure was written")
-        else:
-            problems += _check_cif(cifs[0])
+    text = (r.stdout or "") + (r.stderr or "")
+    if r.returncode == 0 or "polymer-only" not in text:
+        problems.append(f"{CONTRACT_MODEL} now accepts a ligand chain — widen this surface to "
+                        f"fold {CONTRACT_CCD} and check the handedness end to end")
     probe = _run([sys.executable, "-c", _CENTRES_PROBE % CONTRACT_CCD],
                  env=_subprocess_env(), timeout=300)
     if probe.returncode != 0:
-        problems.append(f"{CONTRACT_CCD}: could not read the reference conformer's "
-                        f"stereocentres: {(probe.stderr or probe.stdout).strip().splitlines()[-1:]}")
+        problems.append(f"{CONTRACT_CCD}: could not build the reference conformer: "
+                        f"{(probe.stderr or probe.stdout).strip().splitlines()[-1:]}")
         return problems
     got = [tuple(c) for c in json.loads(probe.stdout.strip().splitlines()[-1])]
     if got != CONTRACT_CENTRES:
@@ -1194,6 +1193,8 @@ def main() -> int:
                          "models (boltzgen, rfd3) + boltz2-affinity.")
     ap.add_argument("--keep", action="store_true",
                     help="Keep the per-run output dirs under the tmp dir for inspection.")
+    ap.add_argument("--contracts-only", action="store_true",
+                    help="Run ONLY leg 4 (input contracts).")
     ap.add_argument("--no-contracts", action="store_true",
                     help="Skip leg 4 (input contracts). Diagnostic only: a release run "
                          "gates every one of them.")
@@ -1236,6 +1237,8 @@ def main() -> int:
     models = args.model or (FOLD_MODELS + EMBED_MODELS + [GEN_MODEL, AFFINITY_MODEL, DESIGN_MODEL])
     # Leg 4 rides on openfold3: all three contracts are OpenFold3 inputs.
     contracts = CONTRACT_MODEL in models and not args.no_contracts
+    if args.contracts_only:
+        contracts, models = True, []
     fold_models = [m for m in models if m in FOLD_MODELS]
     embed_models = [m for m in models if m in EMBED_MODELS]
     gen_models = [m for m in models if m == GEN_MODEL]

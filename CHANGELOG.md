@@ -19,11 +19,12 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   feature it derives, so the flag reached nothing. Use `--model rf3` or `boltz2` for cyclic
   chains.
 
-- Every model that builds a ligand from a CCD code drew it without stereochemistry, so the
-  conformer generator picked a handedness at random and that arbitrary choice became a model
-  input. Chiral centres are now assigned from the CCD entry before the conformer is drawn, so a
-  ligand keeps the handedness the code names. Affects Boltz-2, Protenix-v2, OpenDDE, OpenFold3
-  and RF3 on any target with a chiral CCD ligand.
+- OpenFold3: a CCD ligand's reference conformer was built without stereochemistry, so the
+  generator picked a handedness per centre at random and that arbitrary choice became a model
+  input. Chiral centres are now assigned from the CCD entry first, so the conformer keeps the
+  handedness the code names. `--model openfold3` is polymer-only today and refuses ligand
+  chains, so no fold in this release reached it; the other models build their ligands on their
+  own paths and were never affected.
 
 - OpenFold3: an MSA deeper than its per-source cap is now truncated, the way the reference
   truncates it. The vendored parser dropped the truncated copy and returned the full
