@@ -15,6 +15,7 @@ Usage:
       --model esmc-300m --n-seqs 8 --residues 76 --batch-size 8 --out results/x.json
 """
 import argparse
+import hashlib
 import json
 import os
 import shutil
@@ -61,11 +62,17 @@ def main() -> int:
                          "kept as the default so the shipped perf-gate protocol is unchanged.")
     ap.add_argument("--expect-sha", default=None,
                     help="refuse to measure unless --seq-file hashes to this sha256")
+    ap.add_argument("--assert-batch", type=int, default=None,
+                    help="the batch this row must actually execute. The shipped batcher caps a "
+                         "batch at batch_size * 512 tokens, so at 512 aa a requested 8 executes "
+                         "as 7 and an eighth sequence would run as a second, ragged batch of 1. "
+                         "A cross-platform cell has to state the batch that RAN, so the row "
+                         "counts the forwards it issued and refuses to report a number unless "
+                         "every one of them carried exactly this many rows.")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
     if args.seq_file:
-        import hashlib
         raw = Path(args.seq_file).read_bytes()
         got = hashlib.sha256(raw).hexdigest()
         if args.expect_sha and got != args.expect_sha:
@@ -100,16 +107,37 @@ def main() -> int:
         def embed_once():
             return embed_sequences(model, sequences, batch_size=args.batch_size)
 
+    # Count the forwards the shipped batcher issues, and how many rows each one carried.
+    # `batch_executed` below is arithmetic off the same rule the batcher uses; this is the
+    # observation. They should agree, and if they ever do not, the observation wins: a perf-page
+    # cell states the batch that ran, not the batch that was asked for.
+    observed: list[int] = []
+    _mcls = type(model)
+    _orig_call = _mcls.__call__
+
+    def _counting_call(self, *a, **k):
+        ids = a[0] if a else k.get("input_ids")
+        try:
+            observed.append(int(ids.shape[0]))
+        except Exception:
+            observed.append(-1)
+        return _orig_call(self, *a, **k)
+
+    _mcls.__call__ = _counting_call
+
     work = Path(tempfile.mkdtemp(prefix="embed-split-"))
     out_dir = work / "out"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     dev_times, ser_times, par_times, loads = [], [], [], []
     results = None
+    batches_per_iter = []
     for i in range(args.warmup + args.repeat):
+        observed.clear()
         t0 = time.perf_counter()
         results = embed_once()
         t_dev = time.perf_counter() - t0
+        batches_per_iter.append(list(observed))
 
         for p in out_dir.glob("*"):
             p.unlink()
@@ -137,6 +165,33 @@ def main() -> int:
         return sorted(xs)[len(xs) // 2]
 
     npz_bytes = sum(p.stat().st_size for p in out_dir.glob("*.npz"))
+
+    # The row's own validity check, on the embeddings the timed arm actually produced. A perf
+    # cell does not count until its output has been looked at.
+    #   d_model / residues  the shape the config declares, so a wrong checkpoint cannot pass
+    #   all_finite          no NaN or inf anywhere in per-residue or pooled
+    #   rows_identical      every row of the batch is the same sequence, so their pooled vectors
+    #                       must agree bit for bit. This is what says the padding, the attention
+    #                       mask and the per-row slice are right: a mask bug shows up here as
+    #                       row 6 differing from row 0, and nowhere else in a timing run.
+    #   pooled_sha256       run-to-run and cross-process reproducibility of the same fixture
+    import numpy as _np
+    _e0 = results[0]
+    accuracy = dict(
+        n_out=len(results),
+        residues_out=int(_e0.per_residue.shape[0]),
+        d_model=int(_e0.per_residue.shape[1]),
+        tokens=args.residues + 2,
+        all_finite=bool(all(_np.isfinite(e.per_residue).all() and _np.isfinite(e.pooled).all()
+                            for e in results)),
+        rows_identical=bool(all(_np.array_equal(_e0.pooled, e.pooled) for e in results)),
+        pooled_sha256=hashlib.sha256(
+            _np.ascontiguousarray(_e0.pooled).tobytes()).hexdigest()[:16],
+        pooled_norm=round(float(_np.linalg.norm(_e0.pooled)), 4),
+        residues_match_fixture=bool(int(_e0.per_residue.shape[0]) == args.residues),
+    )
+    accuracy["pass"] = bool(accuracy["all_finite"] and accuracy["residues_match_fixture"]
+                            and accuracy["n_out"] == args.n_seqs)
 
     # Content-matched roof. A synthetic-content zlib probe bounds this arm from above only
     # (deflate's cost per byte depends on the content), so measure the roof on the bytes this
@@ -188,8 +243,17 @@ def main() -> int:
         # batch_size * 512 tokens and a 512 aa sequence buckets to 576, so at page scope the
         # batch that executes is 7 of a requested 8. The executed count is what a GPU arm has
         # to match, so it is recorded rather than left to be inferred.
-        batch_executed=min(args.batch_size,
+        # ...and it is capped by n_seqs too: fewer sequences than the cap means the batch
+        # that ran is n_seqs, not the cap. esmc-6b runs --n-seqs 1 and reported 7 here, which is
+        # the number a GPU arm reading this field would have matched -- the batch-8-vs-batch-1
+        # defect this page has already published once.
+        batch_executed=min(args.n_seqs, args.batch_size,
                            max(1, (args.batch_size * 512) // (((args.residues + 2 + 63) // 64) * 64))),
+        # observed, not derived: the row count of every forward the batcher issued, per iteration
+        batches_observed=batches_per_iter,
+        forwards_per_iter=sorted({len(b) for b in batches_per_iter}),
+        batch_observed=sorted({r for b in batches_per_iter for r in b}),
+        assert_batch=args.assert_batch,
         fixture=fixture,
         arch=os.environ.get("PROBE_ARCH", "unknown"),
         visible_devices=os.environ.get("TT_VISIBLE_DEVICES", ""),
@@ -205,14 +269,32 @@ def main() -> int:
         serial_write_ms_all=[round(x * 1000, 2) for x in ser_times],
         threaded_write_ms_all=[round(x * 1000, 2) for x in par_times],
         npz_bytes=npz_bytes,
+        accuracy=accuracy,
         matched_roof=roof,
         loadavg=loads,
         warmup=args.warmup, repeat=args.repeat,
     )
+    bad = None
+    if not accuracy["pass"]:
+        bad = (f"accuracy check failed: {accuracy}. A timing whose own output does not pass is "
+               f"not a cell.")
+        res["accuracy_error"] = bad
+    if args.assert_batch is not None:
+        want = [args.assert_batch]
+        offenders = [b for b in batches_per_iter if b != want]
+        if offenders:
+            bad = (f"--assert-batch {args.assert_batch}: the batcher issued {offenders[0]} "
+                   f"rows-per-forward on at least one iteration, not exactly one forward of "
+                   f"{args.assert_batch}. The timing is not the batch it claims.")
+            res["assert_batch_error"] = bad
+
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     Path(args.out).write_text(json.dumps(res, indent=2))
     print(json.dumps(res, indent=2))
     shutil.rmtree(work, ignore_errors=True)
+    if bad:
+        print(bad, file=sys.stderr)
+        return 1
     return 0
 
 
