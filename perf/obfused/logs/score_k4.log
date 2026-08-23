@@ -1,0 +1,12 @@
+  alkp_512     rho 0.96409  margin -0.00065  block CI [-0.00154, +0.00025]  served/fold 880
+  hema_512     rho 0.91951  margin -0.01061  block CI [-0.02395, -0.00024]  served/fold 880
+  hexb_512     rho 0.96294  margin +0.00082  block CI [-0.00009, +0.00155]  served/fold 880
+  utpr_512     rho 0.94076  margin -0.00216  block CI [-0.00342, -0.00090]  served/fold 880
+
+rung 512: 4 targets scored, 12 paired folds
+  per-target mean margins [-0.00065, -0.01061, 0.00082, -0.00216]
+  cross-target mean -0.00315   one-signed negative 3/4 targets, 9/12 folds
+  cluster bootstrap 95% CI [-0.00826, +0.00013]   delta -0.00200
+  VERDICT UNRESOLVED
+  bound: the loss at rung 512 is at most 0.00826 rho at 95% confidence
+wrote perf/obfused/disto512_k4.json
