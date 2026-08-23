@@ -11,12 +11,18 @@
 set -u
 WT=/home/ttuser/.coworker/wt/perf-page-tt-cells
 cd "$WT" || exit 1
-export TT_VISIBLE_DEVICES=1 TT_BIO_LEASE_CARDS=1
+export TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_CARDS=0
 export TT_BIO_LEASE_HOLDER=worker:perf-page-tt-cells
 export PYTHONPATH="$WT"
 export PROBE_ARCH=blackhole-p150a
 [ -d /home/ttuser/esm ] && export ESM_ROOT=/home/ttuser/esm
 export BENCHLOCK_WAIT_S=2400
+# Pass 2 lost five of six embed rows to DeviceInUseError: two parity gates (which run
+# outside benchlock, correctly, since they are not timing) opened our card while the
+# 120 s default lease wait was ticking. benchlock is host-scoped and does not sandbox
+# which card a co-tenant opens, so the lease wait is the only lever. 900 s outlasts a
+# gate leg; a row still refuses rather than sharing the card.
+export TT_BIO_LEASE_TIMEOUT=900
 PY=/home/ttuser/tt-bio-dev/env/bin/python3
 BL=/home/ttuser/.coworker/scripts/benchlock.sh
 OUT=$WT/perf/wh-embed/results/pp512
@@ -30,12 +36,17 @@ embed_all() {
   while read -r m n b w; do
     [ -n "$m" ] || continue
     [ -s "$OUT/$m.json" ] && { echo "SKIP $m (result present)"; continue; }
-    echo "=== embed $m n_seqs=$n assert_batch=$b $(date -u +%H:%M:%SZ)"
-    "$PY" -u perf/wh-embed/embed_split_screen.py --model "$m" \
-      --n-seqs "$n" --batch-size 8 --assert-batch "$b" \
-      --seq-file "$SEQ" --expect-sha "$SHA" --warmup "$w" --repeat 3 \
-      --out "$OUT/$m.json"
-    echo "EXIT_$m=$?"
+    for try in 1 2 3; do
+      echo "=== embed $m n_seqs=$n assert_batch=$b try=$try $(date -u +%H:%M:%SZ)"
+      "$PY" -u perf/wh-embed/embed_split_screen.py --model "$m" \
+        --n-seqs "$n" --batch-size 8 --assert-batch "$b" \
+        --seq-file "$SEQ" --expect-sha "$SHA" --warmup "$w" --repeat 7 \
+        --out "$OUT/$m.json"
+      rc=$?; echo "EXIT_$m=$rc try=$try"
+      [ "$rc" -eq 0 ] && break
+      # An --assert-batch or accuracy refusal is a wrong number, not a busy card: do not retry it.
+      [ -s "$OUT/$m.json" ] && break
+    done
   done <<ROWS
 saprot-35m 7 7 2
 esmc-300m 7 7 2
@@ -51,8 +62,8 @@ fold_all() {
   # faster", and the one measured input to the staleness read on the published 29.393 s cell.
   for m in esmfold2-fast esmfold2; do
     [ -s "$OUT/fold_$m.json" ] && { echo "SKIP fold_$m (result present)"; continue; }
-    echo "=== fold $m rounds=3 $(date -u +%H:%M:%SZ)"
-    "$PY" -u perf/esm3p4land/fold_ab.py --model "$m" --size 512 --rounds 3 --arms ship \
+    echo "=== fold $m rounds=5 $(date -u +%H:%M:%SZ)"
+    "$PY" -u perf/esm3p4land/fold_ab.py --model "$m" --size 512 --rounds 5 --arms ship \
       --out "$OUT/fold_$m.json"
     echo "EXIT_fold_$m=$?"
   done
