@@ -1665,6 +1665,26 @@ def _fp32_softmax_core_budget() -> int:
 # is still refused by identical counters.
 _FP32_SOFTMAX_L1_FLOAT_CORES = env_flag("TT_BIO_FP32_SOFTMAX_L1_FLOAT_CORES", True)
 
+# Which extent of the score tensor the plan and the shard are derived from. A shard needs a
+# 32-multiple, so `_fp32_softmax_l1_plan` refuses on `width % 32` -- and it reads that width off
+# the LOGICAL token count while the tensor it would shard sits in DRAM at its tile-PADDED one.
+# Every PXDesign/AF2-IG token count is 16 mod 32 (848 pads to 864, 592 to 608, 336 to 352), so the
+# whole L1-residency family is dark for that model and, worse, at 208 the tuned rectangle still
+# hands back a 64-row BLOCK CAP whose shard then refuses on the same width -- the "block cap with
+# no shard behind it" this file measured at 0.928x on 4 heads. Deriving both from the padded
+# extent is what the shard needs and changes nothing wherever the token axis is already
+# tile-aligned: at 1024 the plan is (3, 96) either way, so RF3, OpenFold3 and OpenBind at their
+# aligned sizes are byte-identical by construction.
+#
+# Off until measured on card: the sharded softmax has never been asked to run around a ragged
+# key dim, and a refusal there is a `RuntimeError` the tail already counts and backs off from.
+_FP32_SOFTMAX_L1_PADDED = env_flag("TT_BIO_FP32_SOFTMAX_L1_PADDED", False)
+
+
+def _fp32_softmax_len(t, dim: int) -> int:
+    """``t``'s extent along ``dim`` as the shard sees it: tile-padded, or logical when off."""
+    return int(tuple(t.padded_shape)[dim] if _FP32_SOFTMAX_L1_PADDED else t.shape[dim])
+
 
 def _fp32_softmax_bmm_served(rows: int, bmm: tuple) -> bool:
     """Do both score matmuls still get a tuned batched program config at this block height?
@@ -1877,21 +1897,22 @@ def _fp32_softmax_attention(
     """
     FP32_SOFTMAX_STATS["calls"] += 1
     rows = int(q.shape[0])
-    height_per_row = int(q.shape[1]) * int(q.shape[2])
-    per_row = height_per_row * int(k.shape[2]) * 4
+    q_len, k_len = _fp32_softmax_len(q, 2), _fp32_softmax_len(k, 2)
+    height_per_row = int(q.shape[1]) * q_len
+    per_row = height_per_row * k_len * 4
     blk = max(32, int(_FP32_SOFTMAX_BLOCK_BYTES // per_row) // 32 * 32) if per_row else rows
     # The memo is keyed on the SHAPE CLASS, not on the block. A refusal has to retire the block
     # size along with the shard: an L1-sized block that then runs interleaved is the worst of both,
     # 342 blocks per call paying the loop's slice-and-concat with none of the residency back. That
     # is measured, not feared -- it cost 278.23 -> 317.79 s at 1024 aa before this key was widened.
-    l1_key = (height_per_row, int(k.shape[2]))
+    l1_key = (height_per_row, k_len)
     # The two matmuls this block feeds, as tile counts, so the plan can refuse a height that
     # would cost them their batched program config (see `_fp32_softmax_bmm_served`).
-    bmm = (int(q.shape[1]), -(-int(q.shape[2]) // 32), -(-int(q.shape[3]) // 32),
-           -(-int(k.shape[2]) // 32), -(-int(v.shape[3]) // 32))
+    bmm = (int(q.shape[1]), -(-q_len // 32), -(-int(q.shape[3]) // 32),
+           -(-k_len // 32), -(-int(v.shape[3]) // 32))
     cap = _FP32_SOFTMAX_L1_ROW_CAP.get(l1_key)
     tuned_cores = _FP32_SOFTMAX_L1_GRID[0] * _FP32_SOFTMAX_L1_GRID[1]
-    l1_rows, l1_cores = _fp32_softmax_l1_plan(per_row, height_per_row, int(k.shape[2]), cap, bmm,
+    l1_rows, l1_cores = _fp32_softmax_l1_plan(per_row, height_per_row, k_len, cap, bmm,
                                              _FP32_SOFTMAX_L1_FREE_ROW_CAP.get(l1_key))
     if (l1_cores != tuned_cores
             and _fp32_softmax_free_spent(l1_key, per_row, height_per_row)):
@@ -1924,7 +1945,7 @@ def _fp32_softmax_attention(
         cap = caps.get(l1_key)
         if not l1_rows or (cap is not None and n > cap):
             return None
-        return _fp32_softmax_shard(n, height_per_row, int(k.shape[2]), l1_cores)
+        return _fp32_softmax_shard(n, height_per_row, k_len, l1_cores)
 
     if rows <= 1 or blk >= rows:
         sh = shard_for(rows)
