@@ -70,6 +70,18 @@ class MSASettings(BaseModel):
     max_rows_paired: int = 8191
     max_rows: int = 16384
     subsample_with_bands: bool = False
+    # tt-bio: emit the AF3-spec MSA profile (np.tile column index) instead of the
+    # preview2 permuted one. See calculate_profile in
+    # core/data/primitives/sequence/msa.py. Default False keeps preview2 bit-identical.
+    af3_spec_profile_columns: bool = False
+    # tt-bio: uppercase ASCII in the parsed MSA (MsaArray.from_parsed upstream). A no-op
+    # for a3m, whose parser deletes lowercase into the deletion matrix before building
+    # the array; live for .sto and pre-parsed .npz, which keep case.
+    af3_spec_uppercase_msa: bool = False
+    # tt-bio: deduplicate the concatenated main MSA on the sequence array, order
+    # preserving. Rows differing ONLY in insertion pattern are identical after a3m
+    # parsing, so this also drops their deletion counts and keeps the first occurrence.
+    af3_spec_main_msa_dedup: bool = False
     min_chains_paired_partial: int = 2
     pairing_mask_keys: list[str] = ["shared_by_two", "less_than_600"]
     max_seq_per_species: int = 600

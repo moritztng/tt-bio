@@ -93,7 +93,11 @@ def _msa_list_to_np(msa: Sequence[str]) -> np.array:
     return msa_array
 
 
-def parse_a3m(msa_string: str, max_seq_count: int | None = None) -> MsaArray:
+def parse_a3m(
+    msa_string: str,
+    max_seq_count: int | None = None,
+    af3_spec_uppercase: bool = False,
+) -> MsaArray:
     """Parses sequences and deletion matrix from a3m format alignment.
 
     This function needs to be wrapped in a with open call to read the file.
@@ -130,7 +134,10 @@ def parse_a3m(msa_string: str, max_seq_count: int | None = None) -> MsaArray:
     msa = _msa_list_to_np(msa)
     deletion_matrix = np.array(deletion_matrix)
 
-    parsed_msa = MsaArray(msa=msa, deletion_matrix=deletion_matrix, metadata=metadata)
+    parsed_msa = MsaArray.from_parsed(
+        msa=msa, deletion_matrix=deletion_matrix, metadata=metadata,
+        af3_spec_uppercase=af3_spec_uppercase,
+    )
 
     # Crop the MSA
     if max_seq_count is not None:
@@ -140,7 +147,10 @@ def parse_a3m(msa_string: str, max_seq_count: int | None = None) -> MsaArray:
 
 
 def parse_stockholm(
-    msa_string: str, max_seq_count: int | None = None, gap_symbols: set | None = None
+    msa_string: str,
+    max_seq_count: int | None = None,
+    gap_symbols: set | None = None,
+    af3_spec_uppercase: bool = False,
 ) -> MsaArray:
     """Parses sequences and deletion matrix from stockholm format alignment.
 
@@ -210,7 +220,10 @@ def parse_stockholm(
     deletion_matrix = np.array(deletion_matrix)
     metadata = list(name_to_sequence.keys())
 
-    parsed_msa = MsaArray(msa=msa, deletion_matrix=deletion_matrix, metadata=metadata)
+    parsed_msa = MsaArray.from_parsed(
+        msa=msa, deletion_matrix=deletion_matrix, metadata=metadata,
+        af3_spec_uppercase=af3_spec_uppercase,
+    )
 
     # Crop the MSA
     if max_seq_count is not None:
@@ -223,7 +236,9 @@ MSA_PARSER_REGISTRY = {".a3m": parse_a3m, ".sto": parse_stockholm}
 
 
 def parse_msas_direct(
-    file_list: list[Path], max_seq_counts: dict[str, int] | None = None
+    file_list: list[Path],
+    max_seq_counts: dict[str, int] | None = None,
+    af3_spec_uppercase: bool = False,
 ) -> dict[str, MsaArray]:
     """Parses a set of MSA files (a3m or sto) into a dictionary of Msa objects.
 
@@ -278,7 +293,9 @@ def parse_msas_direct(
             # Parse the MSAs with the appropriate parser
             limit = None if max_seq_counts is None else max_seq_counts.get(basename)
             with open(aln_file.absolute()) as f:
-                msas[basename] = MSA_PARSER_REGISTRY[ext](f.read(), limit)
+                msas[basename] = MSA_PARSER_REGISTRY[ext](
+                    f.read(), limit, af3_spec_uppercase=af3_spec_uppercase
+                )
 
     return msas
 
@@ -342,6 +359,7 @@ def parse_msas_alignment_database(
 
 def parse_msas_preparsed(
     file_list: list[Path],
+    af3_spec_uppercase: bool = False,
 ) -> dict[str, MsaArray]:
     """Parses a pre-parsed .npz file into a dictionary of Msa objects.
 
@@ -373,10 +391,11 @@ def parse_msas_preparsed(
                         "MSA will be kept.",
                         stacklevel=2,
                     )
-                msas[k] = MsaArray(
+                msas[k] = MsaArray.from_parsed(
                     msa=unpacked_msas["msa"],
                     deletion_matrix=unpacked_msas["deletion_matrix"],
                     metadata=unpacked_msas["metadata"],
+                    af3_spec_uppercase=af3_spec_uppercase,
                 )
 
     return msas
@@ -679,12 +698,16 @@ class MsaSampleParserInference(MsaSampleParser):
                         chain_msa_parser = partial(
                             parse_msas_direct,
                             max_seq_counts=self.config.max_seq_counts,
+                            af3_spec_uppercase=self.config.af3_spec_uppercase_msa,
                         )
                     elif example_path.suffix == ".npz":
                         file_list = standardize_filepaths(
                             maps.rep_id_to_main_msa_paths[rep_id]
                         )
-                        chain_msa_parser = parse_msas_preparsed
+                        chain_msa_parser = partial(
+                            parse_msas_preparsed,
+                            af3_spec_uppercase=self.config.af3_spec_uppercase_msa,
+                        )
                     else:
                         raise ValueError(
                             f"Unsupported MSA path found {example_path}. Needs to be "
@@ -715,12 +738,16 @@ class MsaSampleParserInference(MsaSampleParser):
                         chain_msa_parser = partial(
                             parse_msas_direct,
                             max_seq_counts=self.config.max_seq_counts,
+                            af3_spec_uppercase=self.config.af3_spec_uppercase_msa,
                         )
                     elif example_path.suffix == ".npz":
                         file_list = standardize_filepaths(
                             maps.rep_id_to_paired_msa_paths[rep_id]
                         )
-                        chain_msa_parser = parse_msas_preparsed
+                        chain_msa_parser = partial(
+                            parse_msas_preparsed,
+                            af3_spec_uppercase=self.config.af3_spec_uppercase_msa,
+                        )
                     else:
                         raise ValueError(
                             f"Unsupported MSA path found {example_path}. Needs to be "

@@ -1,0 +1,65 @@
+{
+ "crystal_rg": 13.67,
+ "n_residues": 116,
+ "n_step": 200,
+ "variants": [
+  {
+   "variant": "mini_default",
+   "witness": {
+    "checkpoint": "/home/ttuser/pxdesign_release_data/checkpoint/protenix_mini_default_v0.5.0.pt",
+    "checkpoint_name": "protenix_mini_default_v0.5.0.pt",
+    "n_tensors": 1612,
+    "params_m": 134.07,
+    "pairformer_blocks": 16,
+    "has_noisy_structure_embedder": false,
+    "noisy_structure_embedder_built": false
+   },
+   "folds": [
+    {
+     "seed": 0,
+     "crystal_rmsd": 15.25,
+     "rg": 13.7,
+     "plddt": 0.8735,
+     "ptm": 0.8727
+    },
+    {
+     "seed": 1,
+     "crystal_rmsd": 21.79,
+     "rg": 13.75,
+     "plddt": 0.8761,
+     "ptm": 0.8773
+    }
+   ],
+   "seed_spread_rmsd": 5.94
+  },
+  {
+   "variant": "mini_tmpl",
+   "witness": {
+    "checkpoint": "/home/ttuser/pxdesign_release_data/checkpoint/protenix_mini_tmpl_v0.5.0.pt",
+    "checkpoint_name": "protenix_mini_tmpl_v0.5.0.pt",
+    "n_tensors": 1623,
+    "params_m": 134.18,
+    "pairformer_blocks": 16,
+    "has_noisy_structure_embedder": true,
+    "noisy_structure_embedder_built": true
+   },
+   "folds": [
+    {
+     "seed": 0,
+     "crystal_rmsd": 17.89,
+     "rg": 13.7,
+     "plddt": 0.956,
+     "ptm": 0.9607
+    },
+    {
+     "seed": 1,
+     "crystal_rmsd": 20.88,
+     "rg": 13.74,
+     "plddt": 0.9559,
+     "ptm": 0.9604
+    }
+   ],
+   "seed_spread_rmsd": 1.38
+  }
+ ]
+}

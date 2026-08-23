@@ -1,0 +1,125 @@
+{
+ "mode": "af2ig_fp32_softmax_l1_padded_screen",
+ "rows": [
+  {
+   "tokens": 336,
+   "l1_padded": false,
+   "passes": 3,
+   "first_s": 6.744150154998351,
+   "warm_s": 3.4831859580044693,
+   "warm_min_s": 3.4825091150050866,
+   "all_s": [
+    6.744150154998351,
+    3.483862801003852,
+    3.4825091150050866
+   ],
+   "z_sha16": "0fcfcc34feb695ad",
+   "m_sha16": "ff04175e05229a29",
+   "fp32_softmax_stats": {
+    "calls": 456,
+    "blocked": 0,
+    "blocks": 0,
+    "fused": 456,
+    "unfused": 0,
+    "l1": 0,
+    "l1_blocks": 0,
+    "l1_refused": 0,
+    "l1_cores": 0,
+    "l1_free_retired": 0,
+    "l1_free_walked": 0
+   },
+   "l1_row_caps": {},
+   "l1_free_row_caps": {}
+  },
+  {
+   "tokens": 336,
+   "l1_padded": true,
+   "passes": 3,
+   "first_s": 4.72301583999797,
+   "warm_s": 2.961111085500306,
+   "warm_min_s": 2.960619885001506,
+   "all_s": [
+    4.72301583999797,
+    2.9616022859991062,
+    2.960619885001506
+   ],
+   "z_sha16": "0fcfcc34feb695ad",
+   "m_sha16": "ff04175e05229a29",
+   "fp32_softmax_stats": {
+    "calls": 456,
+    "blocked": 312,
+    "blocks": 2808,
+    "fused": 2952,
+    "unfused": 0,
+    "l1": 456,
+    "l1_blocks": 2496,
+    "l1_refused": 0,
+    "l1_cores": 110,
+    "l1_free_retired": 0,
+    "l1_free_walked": 0
+   },
+   "l1_row_caps": {},
+   "l1_free_row_caps": {}
+  },
+  {
+   "tokens": 336,
+   "l1_padded": false,
+   "passes": 3,
+   "first_s": 3.5276153160011745,
+   "warm_s": 3.4881621155000175,
+   "warm_min_s": 3.4829492549979477,
+   "all_s": [
+    3.5276153160011745,
+    3.4933749760020874,
+    3.4829492549979477
+   ],
+   "z_sha16": "0fcfcc34feb695ad",
+   "m_sha16": "ff04175e05229a29",
+   "fp32_softmax_stats": {
+    "calls": 456,
+    "blocked": 0,
+    "blocks": 0,
+    "fused": 456,
+    "unfused": 0,
+    "l1": 0,
+    "l1_blocks": 0,
+    "l1_refused": 0,
+    "l1_cores": 0,
+    "l1_free_retired": 0,
+    "l1_free_walked": 0
+   },
+   "l1_row_caps": {},
+   "l1_free_row_caps": {}
+  },
+  {
+   "tokens": 336,
+   "l1_padded": true,
+   "passes": 3,
+   "first_s": 2.9947255489969393,
+   "warm_s": 2.959416899502685,
+   "warm_min_s": 2.9585435570043046,
+   "all_s": [
+    2.9947255489969393,
+    2.960290242001065,
+    2.9585435570043046
+   ],
+   "z_sha16": "0fcfcc34feb695ad",
+   "m_sha16": "ff04175e05229a29",
+   "fp32_softmax_stats": {
+    "calls": 456,
+    "blocked": 312,
+    "blocks": 2808,
+    "fused": 2952,
+    "unfused": 0,
+    "l1": 456,
+    "l1_blocks": 2496,
+    "l1_refused": 0,
+    "l1_cores": 110,
+    "l1_free_retired": 0,
+    "l1_free_walked": 0
+   },
+   "l1_row_caps": {},
+   "l1_free_row_caps": {}
+  }
+ ]
+}

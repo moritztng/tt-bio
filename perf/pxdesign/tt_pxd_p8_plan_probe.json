@@ -1,0 +1,257 @@
+{
+ "mode": "af2ig_fill_preconditions_probe",
+ "sizes": [
+  {
+   "tokens": 208,
+   "grid": [
+    11,
+    10
+   ],
+   "cores": 110,
+   "q_split_max_s": 1024,
+   "rows": [
+    {
+     "q_chunk": 224,
+     "k_chunk": 224,
+     "k_divides": true,
+     "qnc": 1,
+     "q_pf": 1,
+     "split": [
+      27,
+      4,
+      1
+     ],
+     "serves": true,
+     "nh_per_core": 1,
+     "q_per_core": 1,
+     "bcast_batch": true,
+     "use_padded_mask": false,
+     "NKH": 4,
+     "NVH": 4,
+     "Sq_chunk_t": 7,
+     "Sk_chunk_t": 7,
+     "k_num_chunks": 1,
+     "b_per_core": null
+    }
+   ]
+  },
+  {
+   "tokens": 848,
+   "grid": [
+    11,
+    10
+   ],
+   "cores": 110,
+   "q_split_max_s": 1024,
+   "rows": [
+    {
+     "q_chunk": 864,
+     "k_chunk": 256,
+     "k_divides": false,
+     "qnc": 1,
+     "q_pf": 1,
+     "split": [
+      27,
+      4,
+      1
+     ],
+     "serves": false,
+     "nh_per_core": 1,
+     "q_per_core": 1,
+     "bcast_batch": true,
+     "use_padded_mask": true,
+     "NKH": 4,
+     "NVH": 4,
+     "Sq_chunk_t": 27,
+     "Sk_chunk_t": 8,
+     "k_num_chunks": 4,
+     "b_per_core": null
+    },
+    {
+     "q_chunk": 288,
+     "k_chunk": 256,
+     "k_divides": false,
+     "qnc": 3,
+     "q_pf": 3,
+     "split": [
+      9,
+      4,
+      3
+     ],
+     "serves": false,
+     "nh_per_core": 1,
+     "q_per_core": 1,
+     "bcast_batch": true,
+     "use_padded_mask": true,
+     "NKH": 4,
+     "NVH": 4,
+     "Sq_chunk_t": 9,
+     "Sk_chunk_t": 8,
+     "k_num_chunks": 4,
+     "b_per_core": null
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 256,
+     "k_divides": false,
+     "qnc": 4,
+     "q_pf": 4,
+     "split": [
+      6,
+      4,
+      4
+     ],
+     "serves": false,
+     "nh_per_core": 1,
+     "q_per_core": 1,
+     "bcast_batch": true,
+     "use_padded_mask": true,
+     "NKH": 4,
+     "NVH": 4,
+     "Sq_chunk_t": 8,
+     "Sk_chunk_t": 8,
+     "k_num_chunks": 4,
+     "b_per_core": null
+    },
+    {
+     "q_chunk": 864,
+     "k_chunk": 864,
+     "k_divides": true,
+     "qnc": 1,
+     "q_pf": 1,
+     "split": [
+      27,
+      4,
+      1
+     ],
+     "serves": true,
+     "nh_per_core": 1,
+     "q_per_core": 1,
+     "bcast_batch": true,
+     "use_padded_mask": false,
+     "NKH": 4,
+     "NVH": 4,
+     "Sq_chunk_t": 27,
+     "Sk_chunk_t": 27,
+     "k_num_chunks": 1,
+     "b_per_core": null
+    },
+    {
+     "q_chunk": 288,
+     "k_chunk": 864,
+     "k_divides": true,
+     "qnc": 3,
+     "q_pf": 3,
+     "split": [
+      9,
+      4,
+      3
+     ],
+     "serves": true,
+     "nh_per_core": 1,
+     "q_per_core": 1,
+     "bcast_batch": true,
+     "use_padded_mask": false,
+     "NKH": 4,
+     "NVH": 4,
+     "Sq_chunk_t": 9,
+     "Sk_chunk_t": 27,
+     "k_num_chunks": 1,
+     "b_per_core": null
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 864,
+     "k_divides": true,
+     "qnc": 4,
+     "q_pf": 4,
+     "split": [
+      6,
+      4,
+      4
+     ],
+     "serves": false,
+     "nh_per_core": 1,
+     "q_per_core": 1,
+     "bcast_batch": true,
+     "use_padded_mask": true,
+     "NKH": 4,
+     "NVH": 4,
+     "Sq_chunk_t": 8,
+     "Sk_chunk_t": 27,
+     "k_num_chunks": 1,
+     "b_per_core": null
+    },
+    {
+     "q_chunk": 864,
+     "k_chunk": 288,
+     "k_divides": true,
+     "qnc": 1,
+     "q_pf": 1,
+     "split": [
+      27,
+      4,
+      1
+     ],
+     "serves": true,
+     "nh_per_core": 1,
+     "q_per_core": 1,
+     "bcast_batch": true,
+     "use_padded_mask": false,
+     "NKH": 4,
+     "NVH": 4,
+     "Sq_chunk_t": 27,
+     "Sk_chunk_t": 9,
+     "k_num_chunks": 3,
+     "b_per_core": null
+    },
+    {
+     "q_chunk": 288,
+     "k_chunk": 288,
+     "k_divides": true,
+     "qnc": 3,
+     "q_pf": 3,
+     "split": [
+      9,
+      4,
+      3
+     ],
+     "serves": true,
+     "nh_per_core": 1,
+     "q_per_core": 1,
+     "bcast_batch": true,
+     "use_padded_mask": false,
+     "NKH": 4,
+     "NVH": 4,
+     "Sq_chunk_t": 9,
+     "Sk_chunk_t": 9,
+     "k_num_chunks": 3,
+     "b_per_core": null
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 288,
+     "k_divides": true,
+     "qnc": 4,
+     "q_pf": 4,
+     "split": [
+      6,
+      4,
+      4
+     ],
+     "serves": false,
+     "nh_per_core": 1,
+     "q_per_core": 1,
+     "bcast_batch": true,
+     "use_padded_mask": true,
+     "NKH": 4,
+     "NVH": 4,
+     "Sq_chunk_t": 8,
+     "Sk_chunk_t": 9,
+     "k_num_chunks": 3,
+     "b_per_core": null
+    }
+   ]
+  }
+ ]
+}

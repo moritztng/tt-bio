@@ -105,6 +105,19 @@ TOKEN_AXIS = {
         "route, and the route is measured, not inferred -- boltzgen reaches the same two softmax "
         "sites aligned, so this is openfold3's missing bucket and not a safe site",
     ),
+    "openbind": (
+        IMMUNE, None,
+        "the same openfold3_trunk.py:104 OF3Trunk and the same four shared reduce sites as "
+        "openfold3; no token pad constant in openfold3*.py",
+        "censused for --model openbind on BOTH of its input classes, which openfold3 cannot "
+        "cover because it refuses ligands: examples/8hel_nomsa.yaml (76 tokens, polymer) and "
+        "examples/fkg_ligand.yaml (140 tokens, protein + a 33-atom CCD ligand), 1 recycle / 20 "
+        "steps / 1 sample, card 2. Both read 144 ragged / 603 aligned with the SAME split -- all "
+        "144 ragged calls are ttnn.softmax, which masks (tenstorrent.py:5051 x96 at w76/w140, "
+        ":6538 x48), and not one SDPA call of either kind; the atom and diffusion transformers "
+        "run aligned (123 + 480). So the ligand token axis reaches no unsafe reduce either, and "
+        "the route is measured on the ligand class rather than inherited from the polymer one",
+    ),
     "rf3": (
         EXPOSED, None,
         "no token pad anywhere in tt_bio/rf3/ (only atom-axis pads at atom_encoder_host.py:95,:172 "
@@ -119,6 +132,20 @@ TOKEN_AXIS = {
         "and 0/45 at :1690 on both a 70-token and a 298-token design. The two sites still ragged "
         "reduce over the ATOM axis, not the token axis -- :946 1/1 at w14 and :1428 10/10 at "
         "w14,w3 -- and both reach primitives measured to mask. 0 masked-ragged anywhere",
+    ),
+    "pxdesign": (
+        IMMUNE, None,
+        "AttentionPairBias.__call__ tenstorrent.py:5267 (the token DiT's materialised score "
+        "path); AtomTransformer._attention protenix.py:557 on the atom axis",
+        "censused on the shipped fixture tests/fixtures/pxdesign/PDL1.yaml (196 tokens, 6x32+4, "
+        "ragged): 320 ragged calls, ALL of them ttnn.softmax at w196, which masks, and NOT ONE "
+        "SDPA call of either kind. 0 masked-ragged, 0 ragged-but-unfused. The atom-axis site runs "
+        "163 calls all aligned. Immune by ROUTE, and the route is measured, not inferred -- the "
+        "same shape as openfold3's row. Two things this is NOT: it does not inherit protenix-v2's "
+        "trunk exposure, because ProtenixDesign._trunk_cond (pxdesign/model.py:167) never calls "
+        "Trunk.__call__ at all ('PXDesign-d has no trunk') and so never reaches the bucket at "
+        "protenix.py:2633; and for the same reason TT_BIO_PROTENIX_TOKEN_BUCKET does not apply to "
+        "it, so a future default-ON of that lever changes nothing here",
     ),
     "esmc-300m": (
         BUCKETED, 64, "esmc.py:78 BUCKET, applied at :1503 _batch_tokens and :1263",

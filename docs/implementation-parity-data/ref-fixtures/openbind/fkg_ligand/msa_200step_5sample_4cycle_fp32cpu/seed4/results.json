@@ -1,0 +1,15 @@
+[
+  {
+    "id": "fkg_ligand",
+    "status": "ok",
+    "n_residues": null,
+    "n_chains": 2,
+    "msa": true,
+    "samples": 5,
+    "ptm": 0.96571,
+    "iptm": 0.960343,
+    "plddt": 95.68515,
+    "ranking_score": 0.961417,
+    "selected_sample_idx": 1
+  }
+]

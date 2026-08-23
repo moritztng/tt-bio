@@ -1,0 +1,68 @@
+{
+ "source": "pdl1_protenix05_noH",
+ "n_token": 196,
+ "n_atom": 1250,
+ "n_step": 400,
+ "n_sample": 4,
+ "seed": 0,
+ "ref_pos_seed": null,
+ "seconds": 31.39,
+ "coords_sha16": "fcbaf404163ac2c5",
+ "art": "scripts/pxdesign_port/parity_artifacts/pdl1_protenix05_noH",
+ "coords_shape": [
+  4,
+  1250,
+  3
+ ],
+ "binder_atoms": 321,
+ "target_atoms": 929,
+ "stats": [
+  {
+   "rg_all": 16.07708168029785,
+   "rg_target": 13.889083862304688,
+   "rg_binder": 13.356050491333008
+  },
+  {
+   "rg_all": 16.13501739501953,
+   "rg_target": 13.911705017089844,
+   "rg_binder": 12.222986221313477
+  },
+  {
+   "rg_all": 15.986167907714844,
+   "rg_target": 13.927139282226562,
+   "rg_binder": 13.16607666015625
+  },
+  {
+   "rg_all": 16.1563720703125,
+   "rg_target": 13.906591415405273,
+   "rg_binder": 13.310491561889648
+  }
+ ],
+ "target_reproduction": [
+  {
+   "target_rmsd": 0.06335869498916866,
+   "n_scored": 116,
+   "min_binder_target_dist": 2.849087953567505,
+   "n_contacts_below_5A": 36
+  },
+  {
+   "target_rmsd": 0.05529743221964238,
+   "n_scored": 116,
+   "min_binder_target_dist": 2.359811544418335,
+   "n_contacts_below_5A": 49
+  },
+  {
+   "target_rmsd": 0.06001129755484303,
+   "n_scored": 116,
+   "min_binder_target_dist": 2.018068790435791,
+   "n_contacts_below_5A": 49
+  },
+  {
+   "target_rmsd": 0.052388103820995395,
+   "n_scored": 116,
+   "min_binder_target_dist": 2.73331880569458,
+   "n_contacts_below_5A": 31
+  }
+ ],
+ "finite": true
+}
