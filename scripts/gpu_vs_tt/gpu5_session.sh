@@ -15,6 +15,7 @@ mkdir -p "$R"
 TAG=${TAG:-h200}
 MODELS=${MODELS:-"protenix-v2 opendde boltz-2 esmfold2 openfold3"}
 REPEAT=${REPEAT:-3}
+POWER=${POWER:-1}      # POWER= (empty) drops the 200 ms nvidia-smi sampler
 BUDGET_S=${BUDGET_S:-5400}
 PER_MODEL_S=${PER_MODEL_S:-1800}   # a hung cell must not eat the rest of the rental
 START=$(date +%s)
@@ -27,7 +28,19 @@ gate() {  # gate <structure> <label>
   python3 "$HERE/gpu5_accuracy_gate.py" "$1" --expect-residues 512 ${2:+--expect-plddt "$2"}
 }
 
+MAXLOAD=${MAXLOAD:-4.0}
+
 for M in $MODELS; do
+  # A published cell was measured on a quiet box. The host-device-split pass had to throw
+  # away boltz-2 and esmfold2 numbers taken at loadavg 25-27, so the load gate is a hard
+  # stop, not a warning: wait for the box to go quiet, then refuse the row if it does not.
+  for _ in $(seq 1 60); do
+    LOAD=$(cut -d' ' -f1 /proc/loadavg)
+    awk -v l="$LOAD" -v m="$MAXLOAD" 'BEGIN{exit !(l<m)}' && break
+    echo "== waiting for a quiet box before $M: loadavg $LOAD > $MAXLOAD =="; sleep 30
+  done
+  awk -v l="$LOAD" -v m="$MAXLOAD" 'BEGIN{exit !(l<m)}' || {
+    echo "== SKIP $M: loadavg $LOAD still above $MAXLOAD after 30 min =="; continue; }
   EL=$(( $(date +%s) - START ))
   if [ "$EL" -gt "$BUDGET_S" ]; then
     echo "== SKIP $M: ${EL}s exceeds BUDGET_S=$BUDGET_S =="; continue
@@ -56,7 +69,7 @@ for M in $MODELS; do
       [ "$M" = "protenix-v2" ] && EXP=0.828628 || EXP=
       gate "$ST/$RUNG.pdb" "$EXP" | tee "$R/gate_${M}_${TAG}.txt"
       ;;
-    boltz-2|openfold3|esmfold2)
+    boltz-2|openfold3|esmfold2|esmfold2-fast)
       EXTRA=""
       case "$M" in
         boltz-2)   PY=/root/venv-boltz/bin/python3 ;;
@@ -67,8 +80,12 @@ for M in $MODELS; do
         # what the TT arm runs.
         esmfold2)  PY=/root/venv-esm312/bin/python
                    EXTRA="--esm-backend cuequivariance --recycles 10 --steps 100" ;;
+        # Same class, same venv, same backend, one different checkpoint: --esm-repo resolves
+        # from ESM_REPOS, so it is deliberately not passed here.
+        esmfold2-fast) PY=/root/venv-esm312/bin/python
+                   EXTRA="--esm-backend cuequivariance --recycles 10 --steps 100" ;;
       esac
-      timeout "$PER_MODEL_S" $PY gpu5_bench.py --model "$M" --repeat "$REPEAT" \
+      timeout "$PER_MODEL_S" $PY gpu5_bench.py --model "$M" --repeat "$REPEAT" ${POWER:+--power} \
         --yaml "$FIX/cdk2x2_512.yaml" --a3m "$FIX/cdk2x2_512.a3m" \
         --seq-file fixtures/prot512.seq --work /root/work \
         --checkpoint /root/ckpt/of3-p2-155k.pt $EXTRA --out "$OUT" > "$LOG" 2>&1

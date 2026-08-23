@@ -28,6 +28,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import time
 import types
@@ -72,6 +73,76 @@ _CUEQ_MODULES = (
 )
 
 
+# Distinct (op, arg shape, dtype) signatures seen by the cuEquivariance entry points.
+CUEQ_SHAPES: set = set()
+
+# Unix-clock (start, end) of every timed fold, filled by whichever runner ran. main() reduces
+# the power samples over the WARM spans only.
+SPANS: list = []
+
+
+class PowerSampler:
+    """nvidia-smi at 200 ms in a thread, stamped with the same clock the fold spans use.
+
+    Saturation is the one publishable reason a bigger part can lose at a small problem size,
+    and it is only a reason if it is measured. Reduced over the warm folds alone: model load
+    and the cold fold sit near idle and would pull any whole-session median down.
+    """
+
+    FIELDS = ("power.draw", "utilization.gpu", "memory.used", "clocks.sm")
+
+    def __init__(self):
+        self.samples: list = []      # (unix_t, W, util%, MiB, MHz)
+        self._proc = None
+        self._thread = None
+
+    def start(self):
+        import subprocess, threading
+        try:
+            self._proc = subprocess.Popen(
+                ["nvidia-smi", "--query-gpu=" + ",".join(self.FIELDS),
+                 "--format=csv,noheader,nounits", "-lms", "200"],
+                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+        except Exception:
+            self._proc = None
+            return self
+
+        def read():
+            for line in self._proc.stdout:
+                try:
+                    v = [float(x) for x in line.split(",")]
+                except ValueError:
+                    continue
+                if len(v) == 4:
+                    self.samples.append((time.time(), *v))
+        self._thread = threading.Thread(target=read, daemon=True)
+        self._thread.start()
+        return self
+
+    def stop(self):
+        if self._proc:
+            self._proc.terminate()
+            try:
+                self._proc.wait(timeout=5)
+            except Exception:
+                pass
+
+    def reduce(self, spans: list, label: str) -> dict:
+        """Median of every sample landing inside one of `spans`."""
+        if not self.samples:
+            return {label + "_error": "no nvidia-smi samples"}
+        sel = [s for s in self.samples if any(a <= s[0] <= b for (a, b) in spans)] if spans \
+            else list(self.samples)
+        if not sel:
+            return {label + "_error": "no samples inside the spans"}
+        out = {label + "_n": len(sel)}
+        for i, name in enumerate(("W", "util_pct", "mem_MiB", "clocks_sm_MHz"), start=1):
+            xs = sorted(x[i] for x in sel)
+            out[label + "_" + name] = round(_median(xs), 1)
+            out[label + "_" + name + "_max"] = round(xs[-1], 1)
+        return out
+
+
 def install_cueq_counters() -> dict:
     """Wrap every triangle-* entry point in both cuEquivariance packages with a counter.
 
@@ -107,6 +178,19 @@ def install_cueq_counters() -> dict:
             def make(nm, orig):
                 def wrapper(*a, **kw):
                     counts[nm] += 1
+                    # Record the call signature once per distinct (shape, dtype). The counter
+                    # proves cuEquivariance ran; it cannot prove WHICH kernel ran, and on
+                    # Blackwell that is the whole question: the sm100f triangle-attention
+                    # kernel is bf16/fp16 only, hidden_dim <= 256 forward, N a multiple of 8,
+                    # and it ships only in the cu13 ops wheels. Eligibility is decided by
+                    # these numbers, so they are recorded rather than assumed.
+                    if len(CUEQ_SHAPES) < 64:
+                        sig = [nm]
+                        for x in a:
+                            t = getattr(x, "shape", None)
+                            if t is not None:
+                                sig.append("%s:%s" % (tuple(t), str(getattr(x, "dtype", "?"))))
+                        CUEQ_SHAPES.add(" | ".join(sig))
                     return orig(*a, **kw)
                 return wrapper
             try:
@@ -144,6 +228,12 @@ class FoldTimer:
 
     def __init__(self):
         self.times: list[float] = []
+        # Unix-clock start/end of every timed fold. Two things need them and neither can be
+        # reconstructed from the durations: the inter-fold host gap (the GPU-side host cost
+        # that sits OUTSIDE the published cell) and the power/utilisation reduction, which
+        # must average over the warm folds only -- model load and the cold fold sit near idle
+        # and would drag any whole-session median down.
+        self.spans: list[tuple[float, float]] = []
 
     def patch(self, obj, attr: str):
         torch = importlib.import_module("torch")
@@ -151,16 +241,27 @@ class FoldTimer:
 
         def wrapper(*a, **kw):
             torch.cuda.synchronize()
-            t0 = time.perf_counter()
+            w0, t0 = time.time(), time.perf_counter()
             out = orig(*a, **kw)
             torch.cuda.synchronize()
             self.times.append(time.perf_counter() - t0)
+            self.spans.append((w0, time.time()))
             return out
         setattr(obj, attr, wrapper)
         return orig
 
+    def gaps(self) -> list[float]:
+        """Wall between one timed fold ending and the next starting."""
+        return [self.spans[i][0] - self.spans[i - 1][1] for i in range(1, len(self.spans))]
 
-def summarize(times: list[float], repeat: int) -> dict:
+
+def _median(xs: list[float]) -> float:
+    ys = sorted(xs)
+    n = len(ys)
+    return ys[n // 2] if n % 2 else 0.5 * (ys[n // 2 - 1] + ys[n // 2])
+
+
+def summarize(times: list[float], repeat: int, gaps: list[float] | None = None) -> dict:
     """Fold 1 is the cold fold and is discarded explicitly."""
     if not times:
         return dict(error="no folds were timed")
@@ -168,7 +269,12 @@ def summarize(times: list[float], repeat: int) -> dict:
     if not warm:
         return dict(cold_s=round(cold, 3), error="no warm folds")
     ts = sorted(warm)
+    # The gap BEFORE the first warm fold follows the cold fold, so it is not a warm gap.
+    warm_gaps = (gaps or [])[1:]
+    extra = dict(warm_gap_median_s=round(_median(warm_gaps), 3),
+                 warm_gaps_s=[round(g, 3) for g in warm_gaps]) if warm_gaps else {}
     return dict(
+        **extra,
         cold_s=round(cold, 3),
         warm_times_s=[round(t, 3) for t in warm],
         warm_n=len(warm),
@@ -236,7 +342,8 @@ def run_boltz(args) -> dict:
             raise
     wall = time.perf_counter() - t0
 
-    out = summarize(timer.times, args.repeat)
+    SPANS.extend(timer.spans)
+    out = summarize(timer.times, args.repeat, timer.gaps())
     preds = sorted((work / "out").rglob("*.cif"))
     return dict(out, wall_s=round(wall, 2), n_timed_calls=len(timer.times),
                 kernel_counts_total=dict(cueq, **sdpa),
@@ -349,7 +456,8 @@ def run_of3(args) -> dict:
             raise
     wall = time.perf_counter() - t0
 
-    out = summarize(timer.times, args.repeat)
+    SPANS.extend(timer.spans)
+    out = summarize(timer.times, args.repeat, timer.gaps())
     preds = sorted((work / "out").rglob("*.cif"))
     # OF3 catches a per-fold featurization failure, logs it and carries on, so the CLI
     # exits 0 having predicted nothing. That is how the empty-MSA bug read as rc=0 with
@@ -408,7 +516,7 @@ def run_esmfold2(args) -> dict:
     if hasattr(model, "set_kernel_backend"):
         model.set_kernel_backend(backend)
 
-    times, preds = [], []
+    times, preds, spans = [], [], []
     # forward's own knob names: num_loops is recycling, num_sampling_steps is the
     # requested diffusion step count. ESMFold2 clips the Karras schedule at
     # sigma_max=256, so a requested 100 executes 68 -- requested is not executed here.
@@ -417,16 +525,19 @@ def run_esmfold2(args) -> dict:
     for i in range(args.repeat + 1):
         torch.manual_seed(SEED)
         torch.cuda.synchronize()
-        t0 = time.perf_counter()
+        w0, t0 = time.time(), time.perf_counter()
         with torch.no_grad():
             pdb = model.infer_protein_as_pdb(seq, **kw)
         torch.cuda.synchronize()
         times.append(time.perf_counter() - t0)
+        spans.append((w0, time.time()))
         p = work / f"fold{i}.pdb"
         p.write_text(pdb if isinstance(pdb, str) else pdb[0])
         preds.append(str(p))
 
-    return dict(summarize(times, args.repeat), load_s=round(load_s, 2),
+    gaps = [spans[i][0] - spans[i - 1][1] for i in range(1, len(spans))]
+    SPANS.extend(spans)
+    return dict(summarize(times, args.repeat, gaps), load_s=round(load_s, 2),
                 kernel_counts_total=dict(cueq, **sdpa), predictions=preds,
                 fold_kwargs=kw, kernel_backend=backend, msa_rows=0,
                 msa_note="single-sequence model: the 35-row MSA is not consumed",
@@ -458,6 +569,8 @@ def main() -> int:
     ap.add_argument("--work", default="/root/work")
     ap.add_argument("--extra", default=None, help="extra CLI args, verbatim")
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--power", action="store_true",
+                    help="sample power/util/clocks at 200 ms and reduce over the warm folds")
     args = ap.parse_args()
 
     d = DEFAULTS[args.model]
@@ -478,6 +591,16 @@ def main() -> int:
 
     fn = {"boltz-2": run_boltz, "openfold3": run_of3,
       "esmfold2": run_esmfold2, "esmfold2-fast": run_esmfold2}[args.model]
+
+    # Idle power first, on a card with nothing on it: a watt figure only means something
+    # against this box's own floor and its own ceiling, both measured here rather than
+    # taken from a spec sheet.
+    power, idle = None, {}
+    if args.power:
+        power = PowerSampler().start()
+        time.sleep(6.0)
+        idle = power.reduce([], "idle")
+    torch.cuda.reset_peak_memory_stats()
     t0 = time.perf_counter()
     try:
         res = fn(args)
@@ -509,17 +632,56 @@ def main() -> int:
     except Exception:
         pass
     pkgs = {}
-    for p in ("torch", "boltz", "openfold3", "esm", "cuequivariance_torch",
-              "cuequivariance_ops_torch", "transformers"):
+    # triton is in this list because an unrecorded triton on an sm_100 cell is a live
+    # provenance hole: triton 3.3.1 on Blackwell once produced a full hang that read as a
+    # hardware incompatibility for six days. The two cueq ops builds are here because the
+    # Blackwell triangle-attention kernel ships ONLY in the cu13 wheel, so which of the two
+    # is installed decides whether the fast path was even reachable.
+    for name in ("torch", "triton", "boltz", "openfold3", "esm", "transformers",
+                 "cuequivariance-torch", "cuequivariance-ops-torch",
+                 "cuequivariance-ops-torch-cu12", "cuequivariance-ops-torch-cu13"):
         try:
-            pkgs[p] = importlib.metadata.version(p)
+            pkgs[name.replace("-", "_")] = importlib.metadata.version(name)
         except Exception:
             pass
+
+    if power is not None:
+        power.stop()
+    warm_spans = SPANS[1:]          # fold 1 is the cold fold everywhere in this harness
+    reduced = dict(idle)
+    if power is not None:
+        reduced.update(power.reduce(warm_spans, "warm"))
+    try:
+        smi = subprocess.run(["nvidia-smi", "--query-gpu=driver_version,power.limit,"
+                              "power.max_limit,memory.total,clocks.max.sm",
+                              "--format=csv,noheader,nounits"], capture_output=True,
+                             text=True, timeout=30).stdout.strip()
+    except Exception:
+        smi = ""
+    # nproc reports the HOST's cores, not the container's share, and every published GPU
+    # cell in this campaign carries the cgroup quota instead.
+    vcpu = None
+    for path, div in (("/sys/fs/cgroup/cpu.max", None),
+                      ("/sys/fs/cgroup/cpu/cpu.cfs_quota_us", "/sys/fs/cgroup/cpu/cpu.cfs_period_us")):
+        try:
+            txt = Path(path).read_text().split()
+            q = txt[0]
+            per = float(txt[1]) if div is None else float(Path(div).read_text().strip())
+            if q not in ("max", "-1"):
+                vcpu = round(float(q) / per, 2)
+                break
+        except Exception:
+            continue
 
     summary = dict(
         model=args.model, side="gpu", gpu=torch.cuda.get_device_name(0),
         gpu_capability=list(torch.cuda.get_device_capability()),
-        host_cpu=cpu, cpu_count=os.cpu_count(),
+        host_cpu=cpu, cpu_count=os.cpu_count(), vcpu_cgroup=vcpu,
+        affinity=len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else None,
+        loadavg=os.getloadavg(), nvidia_smi=smi, power_util=reduced,
+        peak_mem_MiB=round(torch.cuda.max_memory_allocated() / 1048576, 1),
+        peak_mem_reserved_MiB=round(torch.cuda.max_memory_reserved() / 1048576, 1),
+        cueq_call_shapes=sorted(CUEQ_SHAPES),
         torch_version=torch.__version__, cuda_version=torch.version.cuda,
         recycling_steps=args.recycles, sampling_steps=args.steps,
         diffusion_samples=SAMPLES, seed=SEED,
