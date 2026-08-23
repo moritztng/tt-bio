@@ -64,6 +64,27 @@ PROT512_SHA = "141f7d4730ccf17e116016edc4aceee502d8c9769301ece4d1b64beb496ebf8d"
 COSINE_BAR = 0.999
 
 
+def disable_cudnn_sdpa() -> bool:
+    """Drop torch SDPA's cuDNN backend when it has no plan for this GPU.
+
+    On sm_100 (B200) with torch 2.11+cu130 / cuDNN 9.19, SDPA dispatches to the cuDNN backend
+    and dies with "cudnn_frontend Error: No valid execution plans built" -- cuDNN ships no
+    attention plan for Blackwell at these shapes. This is NOT a detune: the backend cannot
+    execute at all, so switching it off is what lets SDPA reach a backend that runs (flash /
+    mem-efficient / math). The row still runs torch SDPA, which is what the manifest specifies
+    and what the torch_sdpa counter proves. Returns whether the knob was actually flipped, so
+    the result JSON can record it as provenance rather than leaving it implicit.
+    """
+    torch = importlib.import_module("torch")
+    try:
+        if torch.cuda.is_available() and torch.cuda.get_device_capability()[0] >= 10:
+            torch.backends.cuda.enable_cudnn_sdp(False)
+            return True
+    except Exception:
+        pass
+    return False
+
+
 def install_sdpa_counter() -> dict:
     """Count torch SDPA calls. A model with 0 here ran eager attention, whatever was asked for."""
     counts = {"torch_sdpa": 0}
@@ -157,6 +178,7 @@ def run(args) -> dict:
     if args.expect_sha and fixture_sha != args.expect_sha:
         raise SystemExit(f"fixture sha256 {fixture_sha} != expected {args.expect_sha}")
 
+    cudnn_sdp_disabled = disable_cudnn_sdpa()
     sdpa = install_sdpa_counter()
     tok = load_tokenizer(spec)
 
@@ -211,6 +233,7 @@ def run(args) -> dict:
         s_per_seq=(round(med / n_seqs, 5) if med else None),
         kernel_counts_total=dict(sdpa),
         attn_implementation_requested=args.attn,
+        cudnn_sdpa_disabled=cudnn_sdp_disabled,
         # A requested backend is not a running backend. Zero SDPA calls means eager attention.
         attn_engaged=bool(sdpa["torch_sdpa"] > 0),
         accuracy=dict(cosine_bf16_vs_fp32=round(cos, 6), bar=COSINE_BAR,

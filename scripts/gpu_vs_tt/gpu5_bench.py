@@ -494,6 +494,21 @@ def run_esmfold2(args) -> dict:
     and the import has to name the module directly.
     """
     torch = importlib.import_module("torch")
+    # ESMC-6B runs its attention through torch SDPA. On sm_100 with torch 2.11+cu130 /
+    # cuDNN 9.19 that dispatches to the cuDNN backend, which ships no attention plan for
+    # Blackwell at these shapes and raises "cudnn_frontend Error: No valid execution plans
+    # built" before the first fold completes. Switching off a backend that cannot execute is
+    # not a detune: it is what lets SDPA reach flash / mem-efficient / math, and the published
+    # ESMFold2 cells were themselves measured on torch SDPA. Scoped to this model on purpose --
+    # boltz-2 and openfold3 run their attention through cuEquivariance and are unaffected, so
+    # they keep the exact backend selection their published cells were measured with.
+    args._cudnn_sdpa_disabled = False
+    try:
+        if torch.cuda.is_available() and torch.cuda.get_device_capability()[0] >= 10:
+            torch.backends.cuda.enable_cudnn_sdp(False)
+            args._cudnn_sdpa_disabled = True
+    except Exception:
+        pass
     seq = args.seq_file.read_text().strip()
     work = Path(args.work) / "esmfold2"
     shutil.rmtree(work, ignore_errors=True)
