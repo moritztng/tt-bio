@@ -2267,7 +2267,7 @@ def main() -> int:
               f"{RFD3_NUM_DESIGNS} designs, {RFD3_TIMESTEPS} steps, seed {RFD3_SEED}"
               f"\n{'#'*78}")
         print(f"{'model':<15}{'designs':>8}{'clean':>7}{'in band':>9}{'breaks':>7}"
-              f"{'clash':>9}{'AA':>4}{'UNK':>5}{'det':>5}{'wall':>9}  result")
+              f"{'clash':>12}{'AA':>5}{'UNK':>5}{'det':>5}{'wall':>9}  result")
         ib = f"{rr['in_band']:.4f}" if rr["in_band"] is not None else "  -  "
         cf = (f"{rr['clashes']}({rr['clash_frac']:.4f})"
               if rr["clashes"] is not None else "  -  ")
@@ -2279,11 +2279,11 @@ def main() -> int:
         verdict = "PASS" if rr["gate"] else f"FAIL ({rr['error']})" if rr["error"] else "FAIL"
         all_pass &= rr["gate"]
         cr = f"{rr['clean_rate']:.2f}" if rr["clean_rate"] is not None else "  -  "
-        print(f"{rr['model']:<15}{rr['n_designs']:>8}{cr:>7}{ib:>9}{br:>7}{cf:>9}{aa:>4}"
+        print(f"{rr['model']:<15}{rr['n_designs']:>8}{cr:>7}{ib:>9}{br:>7}{cf:>12}{aa:>5}"
               f"{unk:>5}{det:>5}{wall:>9}  {verdict}")
         print(f"floor{'':<10}{RFD3_NUM_DESIGNS:>8}{RFD3_MIN_CLEAN_RATE:>7.2f}"
-              f"{RFD3_MIN_INBAND:>9.4f}{RFD3_MAX_BREAKS:>7}{RFD3_MAX_CLASHES:>9}"
-              f"{RFD3_MIN_DISTINCT_AA:>4}{RFD3_MAX_UNK:>5}{'ok':>5}")
+              f"{RFD3_MIN_INBAND:>9.4f}{RFD3_MAX_BREAKS:>7}{RFD3_MAX_CLASHES:>12}"
+              f"{RFD3_MIN_DISTINCT_AA:>5}{RFD3_MAX_UNK:>5}{'ok':>5}")
         print(f"{'#'*78}")
         print("GATE PASS — rfd3 designs cleared parse, designed-region geometry, "
               "sequence and determinism" if rr["gate"]
