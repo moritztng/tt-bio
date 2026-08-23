@@ -160,7 +160,56 @@ from transformers.models.esmfold2.modeling_esmfold2 import ESMFold2Model
 import transformers, torch
 print('esmfold2 class OK; transformers', transformers.__version__, 'torch', torch.__version__)
 " 2>&1 | tail -3 | tee -a "$LOG"
+  #  4. xformers must not be in this venv, on any card. transformers' ESMC prefers
+  #     xops.memory_efficient_attention over torch SDPA whenever xformers imports, which
+  #     silently takes the ESM-C rows off the published torch-SDPA path -- the torch_sdpa
+  #     counter then reads 0 and the row is void by the protocol. On the B200 it was worse:
+  #     the wheel has no sm_100 op and was not built with CUDA support, so all three ESM-C
+  #     rows died outright. That was fixed by hand on the box and never committed, so the
+  #     fix is here now rather than rediscovered on the next paid rental.
+  uv pip uninstall --python /root/venv-esm312/bin/python xformers 2>&1 | tail -2 | tee -a "$LOG" || true
+  /root/venv-esm312/bin/python - <<'PYX' 2>&1 | tail -2 | tee -a "$LOG"
+import importlib.util, sys
+if importlib.util.find_spec("xformers") is not None:
+    sys.exit("FATAL: xformers is still importable in venv-esm312; the ESM-C rows would leave "
+             "the torch-SDPA path the published cells were measured on")
+print("xformers absent: the ESM-C rows will run torch SDPA")
+PYX
+  # pipefail carries the python exit through tail/tee, so a still-importable xformers stops the
+  # stage here instead of surfacing as a zero counter on a paid box.
+  [ "${PIPESTATUS[0]}" = 0 ] || exit 3
   say "stage esm done"
+}
+
+# The harness control, and only it, runs against the packages the published cell names.
+#
+# stage_esm installs esm from git @main and lets torch resolve, both unpinned: the published
+# ESMFold2 H200 cell (7.256 s) ran esm 3.3.0 @26b0bc2b with transformers 4.57.6 and torch
+# 2.13.0+cu130, while the B200 box four days later resolved esm 3.4.0 and torch 2.11.0+cu130.
+# So a control measured in the floating venv cannot tell a box or harness problem apart from
+# package drift. This venv pins the two packages the published provenance actually names, and
+# is built ONLY when control_verdict.py asks for it -- the new esmfold2-fast row keeps the
+# floating venv on purpose, because its B200 cell was measured there and the two cells of one
+# row have to share a stack.
+#
+# torch is deliberately NOT pinned here: over-constraining the resolution on a paid box risks an
+# unsolvable install, and whatever torch resolves is recorded so the doc can name it as the one
+# remaining unseparated variable rather than pretend it is not there.
+stage_esmctl() {
+  say "stage esmctl"
+  export PATH=/root/.local/bin:$PATH
+  uv venv --python 3.12 /root/venv-esm312ctl 2>&1 | tail -2 | tee -a "$LOG"
+  uv pip install --python /root/venv-esm312ctl/bin/python \
+    "esm@git+https://github.com/Biohub/esm.git@26b0bc2b" "transformers==4.57.6" huggingface_hub \
+    "cuequivariance-torch==0.11.1" "cuequivariance-ops-torch-cu12==0.11.1" 2>&1 | tail -4 | tee -a "$LOG"
+  uv pip uninstall --python /root/venv-esm312ctl/bin/python xformers 2>&1 | tail -2 | tee -a "$LOG" || true
+  /root/venv-esm312ctl/bin/python -c "
+from transformers.models.esmfold2.modeling_esmfold2 import ESMFold2Model
+import transformers, torch, esm
+print('pinned control venv OK; esm', esm.__version__, 'transformers', transformers.__version__,
+      'torch', torch.__version__)
+" 2>&1 | tail -3 | tee -a "$LOG"
+  say "stage esmctl done"
 }
 
 # The two big pulls, kicked off in the background while the small venvs build.
@@ -229,6 +278,7 @@ for s in "$@"; do
     boltz) stage_boltz ;;
     of3) stage_of3 ;;
     esm) stage_esm ;;
+    esmctl) stage_esmctl ;;
     esmweights) stage_esmweights ;;
     embedweights) stage_embedweights ;;
     fetch) stage_fetch ;;

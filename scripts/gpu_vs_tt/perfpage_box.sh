@@ -99,20 +99,27 @@ do_setup() {
   step boltz 2400 bash gpu5_setup.sh boltz
   step of3 2400 bash gpu5_setup.sh of3
 
-  # The two design harnesses live under /work and bring their own setup scripts.
+  # The two design harnesses live under /work and bring their own setup scripts. SETUP_DESIGN=0
+  # skips both: they cost a venv, 3.9 GB of BoltzGen weights and a 2.51 GB RFdiffusion3
+  # checkpoint, and a box that owes no design row should not pay for them. The H200 rental owes
+  # none -- both design cells are published there and are do-not-remeasure.
   mkdir -p "$W"
   for d in scripts perf examples; do
     [ -e "$W/$d" ] || cp -a "$REPO/$d" "$W/$d" 2>/dev/null
   done
-  step bgg 3600 bash "$W/scripts/gpu_vs_tt/bgg_setup.sh"
-  # gpu_rfd3_setup.sh execs its own stdout to /work/setup.log, so step_rfd3.log stays empty and
-  # /work/{setup.log,SETUP_OK,SETUP_FAIL} is where its story is.
-  step rfd3 3600 bash "$W/perf/dsfix/gpu_rfd3_setup.sh"
-  # gpu_rfd3_setup.sh installs the code and NOT the 2.51 GB checkpoint; nothing on a detached
-  # box can answer the prompt that would normally fetch it, so the A100 pass died at the first
-  # design until it pulled it by hand. Do it here, from the URL in foundry's own registry, and
-  # refuse a checkpoint whose digest is not the one every other GPU column ran.
-  step rfd3ckpt 3600 bash "$REPO/scripts/gpu_vs_tt/rfd3_ckpt.sh"
+  if [ "${SETUP_DESIGN:-1}" != 1 ]; then
+    say "SETUP_DESIGN=0: skipping bgg / rfd3 / rfd3ckpt, this box owes no design row"
+  else
+    step bgg 3600 bash "$W/scripts/gpu_vs_tt/bgg_setup.sh"
+    # gpu_rfd3_setup.sh execs its own stdout to /work/setup.log, so step_rfd3.log stays empty and
+    # /work/{setup.log,SETUP_OK,SETUP_FAIL} is where its story is.
+    step rfd3 3600 bash "$W/perf/dsfix/gpu_rfd3_setup.sh"
+    # gpu_rfd3_setup.sh installs the code and NOT the 2.51 GB checkpoint; nothing on a detached
+    # box can answer the prompt that would normally fetch it, so the A100 pass died at the first
+    # design until it pulled it by hand. Do it here, from the URL in foundry's own registry, and
+    # refuse a checkpoint whose digest is not the one every other GPU column ran.
+    step rfd3ckpt 3600 bash "$REPO/scripts/gpu_vs_tt/rfd3_ckpt.sh"
+  fi
 
   say "waiting on the background weight pulls"
   wait $BG_ESM $BG_FETCH
@@ -203,11 +210,104 @@ do_measure() {
   say "MEASURE_DONE"
 }
 
+# ------------------------------------------------------- phase 2, H200: control first, then rows
+# The H200 rental owes a different set than the B200 one, and the difference is not cosmetic:
+#
+#   * H200 is the perf page's INDEX platform. DGX H200 = 1.00x in the cost model and the
+#     "beat the Nvidia server" bar is derived from an H200 number, so a cell that is not
+#     comparable to the published column moves the bar every other row is judged against.
+#     Hence a mandatory harness control reproducing an already-published cell (ESMFold2,
+#     7.256 s, the cheapest of the eight) BEFORE any new row is believed.
+#   * No audit arm. It is answered: the B200 pass reproduced all four contested cells within
+#     4.1 % on a config-identical machine, so the H200's lead is real.
+#   * No design rows and no cu13 arm. Both design cells are published here and the Blackwell
+#     triangle-attention wheel question does not exist on sm_90.
+#   * Three arms the B200 pass could only half-measure, each cheap here and each needed on both
+#     sides before its conclusion is symmetric: host_probe, the four boltz-2 (recycles, steps)
+#     points, and power on a trunk-heavy and a sampler-heavy row.
+do_measure_h200() {
+  cd "$REPO/scripts/gpu_vs_tt" || exit 2
+  quiet_box
+  step hostprobe 900 /root/venv-boltz/bin/python host_probe.py --out "$R/host_probe_${TAG}.json"
+
+  # --- the control. TAG is ${TAG}ctl so its JSON can never be mistaken for, or overwrite, the
+  # published cell's file name. It is a check, not a replacement. -----------------------------
+  step control_esmfold2 3600 env TAG="${TAG}ctl" MODELS="esmfold2" bash gpu5_session.sh
+  step control_verdict 300 python3 control_verdict.py \
+    --result "$R/gpu_esmfold2_prot512_${TAG}ctl.json" --published 7.256 \
+    --label "floating venv-esm312, esm@main as stage_esm resolves it" \
+    --out "$R/CONTROL_VERDICT_${TAG}.json"
+
+  # Anything but COMPARABLE and the pinned arm runs, unattended, right here. stage_esm installs
+  # esm from git @main and lets torch resolve; the published cell ran esm 3.3.0 @26b0bc2b and
+  # torch 2.13.0+cu130, and the B200 box resolved esm 3.4.0 and torch 2.11.0+cu130 four days
+  # later. So package drift is a named, live alternative to "the box or the harness is wrong",
+  # and this is what tells them apart without the agent diagnosing it while the meter runs.
+  if [ -f "$R/CONTROL_RERUN_WANTED" ]; then
+    say "control missed its band -- running the pinned-package control arm"
+    step esmctl 2400 bash gpu5_setup.sh esmctl
+    step control_esmfold2_pinned 3600 env TAG="${TAG}ctlpin" ESM_VENV=/root/venv-esm312ctl \
+      MODELS="esmfold2" bash gpu5_session.sh
+    step control_verdict_pinned 300 python3 control_verdict.py \
+      --result "$R/gpu_esmfold2_prot512_${TAG}ctlpin.json" --published 7.256 \
+      --label "pinned venv-esm312ctl, esm@26b0bc2b + transformers 4.57.6" \
+      --out "$R/CONTROL_VERDICT_PINNED_${TAG}.json"
+  fi
+
+  # --- the seven new rows. The control does NOT gate these: they are ~15 min of a rental whose
+  # cost is the box, and stopping the box to think would mean re-renting to get them. What the
+  # control governs is whether the doc may call them comparable to the published column, which
+  # is a publication decision, not a measurement one. -----------------------------------------
+  step new_esmfold2fast 3600 env TAG="$TAG" MODELS="esmfold2-fast" bash gpu5_session.sh
+  for m in esmc-300m esmc-600m esmc-6b saprot-35m saprot-650m saprot-1.3b; do
+    step "new_$m" 2400 /root/venv-esm312/bin/python gpu_embed_bench.py --model "$m" \
+      --repeat "${EMBED_REPEAT:-15}" --out "$R/gpu_embed_${m}_prot512_${TAG}.json"
+  done
+
+  # --- the three handed-off arms, deliverables already in hand -------------------------------
+  # T(recycles, steps) = base + a*recycles + b*steps at four points, solved without a profiler.
+  # The B200 side reads 0.541 s per recycle and 0.0288 s per step, i.e. 70 % of its published
+  # cell is the 200-step sampler, which is the mechanism behind the perfect split of all eight
+  # rows by recycle count. The same four points here turn that into a ratio. (3,200) is the
+  # published boltz-2 configuration, so it doubles as a second free control on this box.
+  for rs in "3 200" "10 200" "3 50" "10 50"; do
+    set -- $rs
+    step "phase_boltz_r$1_s$2" 2400 /root/venv-boltz/bin/python gpu5_bench.py \
+      --model boltz-2 --repeat 3 --power --recycles "$1" --steps "$2" \
+      --yaml "$REPO/perf/size512/fixtures/cdk2x2_512.yaml" \
+      --a3m "$REPO/perf/size512/fixtures/cdk2x2_512.a3m" --work /root/work \
+      --out "$R/phase_boltz-2_r$1_s$2_${TAG}.json"
+  done
+  # A counter proves cuEquivariance ran; only a per-call timing at the model's own recorded
+  # shape says what it cost. Same probe the B200 ran, so the two are comparable per call.
+  step probe_cueq 900 /root/venv-boltz/bin/python cueq_tri_probe.py \
+    --from-json "$R/phase_boltz-2_r3_s200_${TAG}.json" --out "$R/cueq_probe_${TAG}.json"
+  # OpenFold3 is the second-largest of the four contested rows and the B200 read it at 33.8 % of
+  # a 1000 W limit and 54 % utilisation. The saturation claim needs both sides. TAG ...sat so the
+  # file cannot be confused with the published openfold3 cell.
+  step sat_of3 2400 env TAG="${TAG}sat" MODELS="openfold3" bash gpu5_session.sh
+  # Last, and droppable: the host-sensitivity derivative. The B200 side is flat (8.285 s full,
+  # 8.163 s on 12 cores, 8.192 s on 6), which already refutes the host confound; this makes the
+  # statement symmetric on the box that has the wider host.
+  for n in 12 6; do
+    step "cores$n" 2400 taskset -c "0-$((n - 1))" /root/venv-boltz/bin/python gpu5_bench.py \
+      --model boltz-2 --repeat 3 --power \
+      --yaml "$REPO/perf/size512/fixtures/cdk2x2_512.yaml" \
+      --a3m "$REPO/perf/size512/fixtures/cdk2x2_512.a3m" --work /root/work \
+      --out "$R/cores${n}_boltz-2_${TAG}.json"
+  done
+
+  date -u +%FT%TZ > "$R/MEASURE_DONE"
+  say "MEASURE_DONE"
+}
+
 case "${1:-all}" in
   setup)   do_setup ;;
   measure) do_measure ;;
   all)     do_setup; do_measure ;;
-  *) echo "usage: $0 {setup|measure|all}" >&2; exit 2 ;;
+  measure-h200) do_measure_h200 ;;
+  all-h200)     SETUP_DESIGN=0 do_setup; do_measure_h200 ;;
+  *) echo "usage: $0 {setup|measure|all|measure-h200|all-h200}" >&2; exit 2 ;;
 esac
 
 say "INVENTORY"
