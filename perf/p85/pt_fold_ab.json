@@ -1,0 +1,80 @@
+{
+  "rows": [
+    {
+      "arm": "on",
+      "rep": 0,
+      "sampler_s": 96.517,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1
+    },
+    {
+      "arm": "on",
+      "rep": 1,
+      "sampler_s": 96.523,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1
+    },
+    {
+      "arm": "off",
+      "rep": 2,
+      "sampler_s": 103.236,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1
+    },
+    {
+      "arm": "off",
+      "rep": 3,
+      "sampler_s": 103.926,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1
+    },
+    {
+      "arm": "on",
+      "rep": 4,
+      "sampler_s": 96.912,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "n_cifs": 1
+    }
+  ],
+  "num_timesteps": 200,
+  "seed": 42,
+  "arms": [
+    "on",
+    "on",
+    "off",
+    "off",
+    "on"
+  ],
+  "flag": "RFD3_PAIR_TRANSITION_L1",
+  "discarded_warmup_s": 98.27,
+  "on_median_s": 96.523,
+  "on_min_s": 96.517,
+  "on_max_s": 96.912,
+  "on_n": 3,
+  "off_median_s": 103.581,
+  "off_min_s": 103.236,
+  "off_max_s": 103.926,
+  "off_n": 2,
+  "aa_control_s": [
+    96.517,
+    96.523
+  ],
+  "aa_spread_s": 0.006000000000000227,
+  "fold_delta_s": 7.058,
+  "isolated_delta_s": 20.816,
+  "old_fold_delta_s": 6.974,
+  "isolated_over_fold": 2.949,
+  "baseline_of_record_s": 94.262,
+  "baseline_delta_s": 2.261,
+  "digests": {
+    "on": [
+      "5295e526ebd0b757"
+    ],
+    "off": [
+      "5295e526ebd0b757"
+    ]
+  },
+  "digest_of_record": "5295e526ebd0b757",
+  "host": "tt-quietbox2",
+  "card": 0
+}
