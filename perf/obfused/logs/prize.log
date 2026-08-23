@@ -74,3 +74,9 @@ benchlock: TIMED OUT after 420s waiting for the box. Holder: rf3-4x-land-and-def
 benchlock: do NOT measure anyway — a co-tenanted timing is a wrong number, not a slow one.
 ##### rung 768 arm B done 13:00:08 loadavg 1.02 1.17 4.79
 ##### rung 768 arm B rep 2 start 13:00:08 loadavg 1.02 1.17 4.79
+benchlock: openbind-fused-768aa waiting; currently held by: rf3-4x-land-and-defaults-768aa pid=1870261 since=2026-08-23T12:53:08+00:00
+benchlock: TIMED OUT after 420s waiting for the box. Holder: rf3-4x-land-and-defaults-768aa pid=1870261 since=2026-08-23T12:53:08+00:00
+benchlock: do NOT measure anyway — a co-tenanted timing is a wrong number, not a slow one.
+##### rung 768 arm B done 13:07:08 loadavg 1.21 1.14 3.44
+##### rung 768 arm A rep 2 start 13:07:08 loadavg 1.21 1.14 3.44
+benchlock: openbind-fused-768aa waiting; currently held by: rf3-4x-land-and-defaults-768aa pid=1870261 since=2026-08-23T12:53:08+00:00

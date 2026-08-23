@@ -13,3 +13,4 @@ wrote perf/obfused/prize/768_B_0.json
 benchlock: openbind-fused-768aa released, rc=0, loadavg 5.38 5.38 5.47
 ##### 768 arm B (0) done 13:39:20 loadavg 5.38 5.38 5.47
 ##### 768 arm B (1) start 13:39:20 loadavg 5.38 5.38 5.47
+benchlock: openbind-fused-768aa waiting; currently held by: rf3-4x-land-and-defaults-1024aa pid=1887967 since=2026-08-23T13:39:20+00:00

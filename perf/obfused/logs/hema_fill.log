@@ -1,0 +1,14 @@
+########## 512 hema_512 def [] start 13:08:47
+steps: recycling 3, sampling 5 (rf3 shipped 3/200)
+  [fold] sample 0: xl_final std=56.7564 range=[-224.05,253.55]
+[def] cold 27.619s plddt=0.392045 ptm=0.272158 cif=['e248aea926ddd424']
+  [fold] sample 0: xl_final std=56.7564 range=[-224.05,253.55]
+[def] warm0_seed0 26.120s plddt=0.392045 ptm=0.272158 cif=['e248aea926ddd424']
+  [fold] sample 0: xl_final std=55.0428 range=[-240.16,231.74]
+[def] warm1_seed1 26.240s plddt=0.398246 ptm=0.277477 cif=['a2cc03a1340d4281']
+  [fold] sample 0: xl_final std=55.5578 range=[-244.03,225.27]
+[def] warm2_seed2 26.171s plddt=0.399471 ptm=0.269036 cif=['38dd918602eeee14']
+wrote perf/obfused/disto512/hema_512/def/fold.json
+--- census hema_512/def ---
+{"sites": {}, "padded": 0}skip hema_512/hifi (done)
+########## RUNG 512 DONE 13:10:37
