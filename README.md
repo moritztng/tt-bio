@@ -728,7 +728,7 @@ tt-bio design specs.json --model rfd3 --from_pdb --out_dir designs/
 
 **[PXDesign](https://github.com/bytedance/PXDesign)** generates binder backbones against a target structure, conditioned on a distogram of the target rather than its coordinates. Input is a target YAML naming a structure file, the chains to condition on (with optional per-chain crop and hotspots) and a `binder_length`; each design is written as a CIF in the target structure's own frame, so it opens alongside your input file. The binder is written as GLY because PXDesign generates a backbone with no sequence. Selecting designs, which upstream does with a Protenix and an AF2-IG filter, is not on the CLI yet.
 
-Each model downloads its weights automatically on first use and fans out across every available card (`--devices 0,2` restricts). `tt-bio gen` still works as a deprecated alias for `tt-bio design --model boltzgen`.
+Each model downloads its weights automatically on first use. BoltzGen and RFdiffusion3 fan out across every available card (`--devices 0,2` restricts); PXDesign runs on one card. `tt-bio gen` still works as a deprecated alias for `tt-bio design --model boltzgen`.
 
 ## Cite
 
