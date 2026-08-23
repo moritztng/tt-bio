@@ -114,9 +114,9 @@ do_measure() {
   step audit_of3   2400 env TAG="$TAG" MODELS="openfold3" bash gpu5_session.sh
   step audit_bgg   3600 "$W/venv-bgg/bin/python" "$W/scripts/gpu_vs_tt/bgg_bench.py" \
        "${TAG^^}" headline
-  step audit_rfd3  3600 "$W/v_head/bin/python" "$W/perf/dsfix/gpu_rfd3_prod.py" \
-       --arm head-fast --gpu "${TAG^^}" --power-limit "$(nvidia-smi --query-gpu=power.limit \
-       --format=csv,noheader,nounits | cut -d. -f1)" --batches 1 --runner /work/v_head/bin/python
+  # batch 1 is the published cell (matched to the p150a arm); --n-batches defaults to 4, so
+  # the cold batch is discarded and n=3 warm, exactly as published.
+  step audit_rfd3  3600 env TAG="$TAG" bash rfd3_prod_run.sh 1
 
   # The counter says cuEquivariance ran; only a per-call timing at the model's own shape says
   # WHICH kernel ran, which is the entire cu12/cu13 question on Blackwell.
