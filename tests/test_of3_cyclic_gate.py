@@ -1,4 +1,4 @@
-"""`cyclic: true` must be refused by OpenFold3, not folded as a linear chain.
+"""`cyclic: true` must be refused by OF3/OpenBind, not folded as a linear chain.
 
 Upstream's query format carries `Chain.cyclic` and its structure featurizer derives a
 `cyclic_mask` from it. tt-bio's vendored copy has neither -- both were dropped when the
@@ -51,27 +51,28 @@ def _yaml(tmp_path, text, name="q.yaml"):
     return p
 
 
-def test_a_cyclic_chain_is_refused(tmp_path):
+@pytest.mark.parametrize("model", ["openfold3", "openbind"])
+def test_cyclic_chain_is_refused_for_both_checkpoints(tmp_path, model):
     with pytest.raises(RuntimeError) as e:
-        _validate_openfold3_cyclic(_yaml(tmp_path, CYCLIC))
+        _validate_openfold3_cyclic(_yaml(tmp_path, CYCLIC), model)
     msg = str(e.value)
-    assert "openfold3" in msg
+    assert model in msg
     assert "cyclic" in msg
     # The message has to name a model that DOES honor it, or the user is stuck.
     assert "rf3" in msg or "boltz2" in msg
 
 
 def test_a_linear_chain_passes(tmp_path):
-    _validate_openfold3_cyclic(_yaml(tmp_path, LINEAR))
+    _validate_openfold3_cyclic(_yaml(tmp_path, LINEAR), "openbind")
 
 
 def test_cyclic_false_is_not_a_refusal(tmp_path):
-    _validate_openfold3_cyclic(_yaml(tmp_path, CYCLIC_FALSE))
+    _validate_openfold3_cyclic(_yaml(tmp_path, CYCLIC_FALSE), "openbind")
 
 
 def test_every_cyclic_chain_id_is_named(tmp_path):
     with pytest.raises(RuntimeError) as e:
-        _validate_openfold3_cyclic(_yaml(tmp_path, CYCLIC_LIST_IDS))
+        _validate_openfold3_cyclic(_yaml(tmp_path, CYCLIC_LIST_IDS), "openbind")
     msg = str(e.value)
     assert "A" in msg and "B" in msg
     # C is linear and must not be blamed.
@@ -81,12 +82,12 @@ def test_every_cyclic_chain_id_is_named(tmp_path):
 def test_a_non_yaml_input_is_skipped_not_crashed(tmp_path):
     fasta = tmp_path / "q.fasta"
     fasta.write_text(">A|protein\nQLEDSEVEAVAKG\n")
-    _validate_openfold3_cyclic(fasta)
+    _validate_openfold3_cyclic(fasta, "openbind")
 
 
 def test_an_empty_or_odd_yaml_does_not_raise_by_accident(tmp_path):
-    _validate_openfold3_cyclic(_yaml(tmp_path, ""))
-    _validate_openfold3_cyclic(_yaml(tmp_path, "sequences:\n  - notadict\n"))
+    _validate_openfold3_cyclic(_yaml(tmp_path, ""), "openbind")
+    _validate_openfold3_cyclic(_yaml(tmp_path, "sequences:\n  - notadict\n"), "openbind")
 
 
 def test_the_committed_cyclic_example_is_refused():
@@ -94,7 +95,7 @@ def test_the_committed_cyclic_example_is_refused():
     if not p.exists():
         pytest.skip("examples/cyclic_prot.yaml not in this checkout")
     with pytest.raises(RuntimeError):
-        _validate_openfold3_cyclic(p)
+        _validate_openfold3_cyclic(p, "openbind")
 
 
 def test_the_vendored_tree_really_has_no_cyclic_support():

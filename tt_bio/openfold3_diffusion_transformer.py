@@ -17,9 +17,15 @@ Per block (``a`` evolves, ``s``/``z``/``mask`` are fixed across the stack):
     a    = a + (tr * tok_mask)
 
 ``AttentionPairBias`` here is the non-cross variant: full N-token self-attention (no
-windowing, no block gather), with a per-block weight-only ``layer_norm_z`` +
-``linear_z`` pair-bias projection (the cross-attention ``AtomTransformer`` instead
-applies one top-level ``layer_norm_z`` shared across blocks). The shared ``AdaLN``
+windowing, no block gather), with a ``layer_norm_z`` + ``linear_z`` pair-bias
+projection. Where that ``layer_norm_z`` lives is the one architectural difference
+between the two checkpoints this module serves. OF3-preview2 keeps a weight-only copy
+inside every block; OpenBind (upstream ``v0.5.0``, ``MODEL_VERSION`` 2.0.0) hoists it
+into a single pre-stack norm, the same shape the cross-attention ``AtomTransformer``
+has always used. That is the *only* weight-key difference between the two checkpoints
+(4887 shared tensors, zero shape mismatches, 48 per-block ``layer_norm_z`` keys traded
+for 1 shared one), so the state dict selects the variant on its own and no flag is
+threaded in. The shared ``AdaLN``
 math (a = sigmoid(Wg(LN_s(s))) * LN(a) + Ws(LN_s(s))) is identical to the
 ``AtomTransformer``'s, so the conditioning submodules reuse ``tenstorrent.AdaLN`` via
 ``remap_of3_adaln`` -- no primitive is reimplemented. The SwiGLU transition is the
@@ -96,7 +102,7 @@ def _pad_pair(t: ttnn.Tensor, padded_N: int, dtype=ttnn.bfloat16) -> ttnn.Tensor
 class _DiTBlock(Module):
     """One OF3 DiffusionTransformerBlock (Algorithm 23, non-cross path)."""
 
-    def __init__(self, sd_block: dict, compute_kernel_config):
+    def __init__(self, sd_block: dict, compute_kernel_config, norm_z: bool = True):
         super().__init__({}, compute_kernel_config)  # weights loaded via _w_tt, not torch_to_tt
         self._act_dtype = _dtype(ttnn.bfloat16)
         self._w = sd_block
@@ -105,7 +111,7 @@ class _DiTBlock(Module):
         apb = "attention_pair_bias."
         self.adaln_a = AdaLN(False, remap_of3_adaln(_sub(self._w, apb + "layer_norm_a")),
                              compute_kernel_config)
-        self.ln_z_w = self._w_tt(apb + "layer_norm_z.weight", False)
+        self.ln_z_w = self._w_tt(apb + "layer_norm_z.weight", False) if norm_z else None
         self.w_lin_z = self._w_tt(apb + "linear_z.weight")
         self.w_ada_out = self._w_tt(apb + "linear_ada_out.weight")
         self.b_ada_out = self._w_tt(apb + "linear_ada_out.bias", False)
@@ -156,14 +162,17 @@ class _DiTBlock(Module):
 
     def _pair_bias(self, z, mask_bias):
         """LN_z(z) -> linear_z -> [1,16,N,N] + mask_bias. Pure function of the
-        conditioning pair, so the rollout computes it once per block, not once per step."""
-        z = ttnn.layer_norm(z, weight=self.ln_z_w, epsilon=1e-5,
-                            compute_kernel_config=self.compute_kernel_config)
-        zb = self._lin(z, self.w_lin_z)                 # [1, N, N, 16]
+        conditioning pair, so the rollout computes it once per block, not once per step.
+        On OpenBind ``ln_z_w`` is None and ``z`` already arrives normed from the stack."""
+        zn = z if self.ln_z_w is None else ttnn.layer_norm(
+            z, weight=self.ln_z_w, epsilon=1e-5,
+            compute_kernel_config=self.compute_kernel_config)
+        zb = self._lin(zn, self.w_lin_z)                # [1, N, N, 16]
         zb = ttnn.to_layout(zb, ttnn.ROW_MAJOR_LAYOUT)
         zb = ttnn.permute(zb, (0, 3, 1, 2))             # [1, 16, N, N]
         zb = ttnn.to_layout(zb, ttnn.TILE_LAYOUT)
-        ttnn.deallocate(z)
+        if zn is not z:
+            ttnn.deallocate(zn)
         return ttnn.add_(zb, mask_bias)                 # + mask_bias [1,1,1,N]
 
     def __call__(self, a, s, z, mask_bias, tok_mask_col, cache=None):
@@ -250,11 +259,24 @@ class OF3DiffusionTransformer(Module):
         super().__init__(state_dict, compute_kernel_config)
         self._act_dtype = _dtype(ttnn.bfloat16)
         self._w = {k: v for k, v in self.weights.data.items()}
-        self.blocks = [_DiTBlock(_sub(self._w, f"blocks.{b}"), compute_kernel_config)
+        # The checkpoint picks the variant: OpenBind carries one shared pre-stack
+        # layer_norm_z, OF3-preview2 carries one per block. Nothing else differs.
+        shared_ln = self._w.get("layer_norm_z.weight")
+        self.ln_z_w = None if shared_ln is None else ttnn.from_torch(
+            shared_ln, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=self._act_dtype)
+        self.blocks = [_DiTBlock(_sub(self._w, f"blocks.{b}"), compute_kernel_config,
+                                 norm_z=shared_ln is None)
                        for b in range(n_blocks)]
         self.n_blocks = n_blocks
 
     def __call__(self, a, s, z, token_mask, tok_mask_col, cache=None):
+        # OpenBind norms the conditioning pair once for the whole stack instead of once
+        # per block. Cache it: z is fixed across diffusion steps, like the pair biases
+        # the blocks derive from it. LN(0) = 0, so the tile padding below stays zero.
+        if self.ln_z_w is not None:
+            z = _cached(cache, (id(self), "ln_z"), lambda: ttnn.layer_norm(
+                z, weight=self.ln_z_w, epsilon=1e-5,
+                compute_kernel_config=self.compute_kernel_config))
         # Pad to the tile-aligned logical width so the SDPA's tiled key extent is
         # fully masked. from_torch pads *storage* with 0 (="unmasked" for an additive
         # mask), so a logical-N mask leaves the tile-padded keys (N -> ceil(N/32)*32)

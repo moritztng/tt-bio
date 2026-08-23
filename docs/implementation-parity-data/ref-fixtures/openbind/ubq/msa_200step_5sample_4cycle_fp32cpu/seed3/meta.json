@@ -1,0 +1,20 @@
+{
+  "seed": 3,
+  "target_id": "ubq",
+  "harvested_from": "/home/ttuser/ob0_ref_runs/ubq/ubq_seed3",
+  "selected_structure": "ubq_seed_3_sample_4_model.cif",
+  "selected_record": {
+    "id": "ubq",
+    "status": "ok",
+    "n_residues": null,
+    "n_chains": 1,
+    "msa": true,
+    "samples": 5,
+    "ptm": 0.89188,
+    "iptm": 0.0,
+    "plddt": 90.52272,
+    "ranking_score": 0.178376,
+    "selected_sample_idx": 3
+  },
+  "note": "real reference output copied verbatim; not regenerated or edited"
+}

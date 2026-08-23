@@ -5,7 +5,43 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Added
+
+- `tt-bio predict --model openbind` folds with OpenBind-0, the same OpenFold3 stack on upstream's
+  v0.5.0 checkpoint, tuned for protein-ligand co-folding. It takes ligands by SMILES or CCD code
+  alongside protein, RNA and DNA chains, with an MSA on by default and optional per-chain
+  templates. Accuracy is measured against the upstream v0.5.0 CPU reference, five seeds a side:
+  ubiquitin (L76, MSA) all-atom RMSD 0.969 A inside a 1.033 A reference noise floor, and
+  FKBP12 + SB3 (1FKG, L107 protein + 33 ligand atoms by CCD) 0.602 A inside a 0.551 A floor, where
+  the residual is the ligand pose and not the fold. Binding affinity is not predicted, and covalent
+  bonds and cyclic chains raise rather than fold something else. The weights are a separate
+  checkpoint from `--model openfold3` and are not downloaded: set `TT_BIO_OPENBIND` or put
+  `of3-ob-2025-06-30-174k.pt` in `~/.boltz`. See `docs/openfold3-port.md` and `docs/weights.md`.
+
+  `--model openfold3` is unchanged. It keeps the preview2 checkpoint and the featurizer preview2
+  was trained on: the four MSA fixes v0.5.0 shipped are keyed on the checkpoint, not applied to
+  both, and a preview2 fold is byte-identical before and after.
+
+- **PXDesign** binder design: `tt-bio design --model pxdesign target.yaml`. Give it a target
+  structure, the chains to condition on and a binder length, and it writes one CIF per design,
+  each placed in the target structure's own frame so it opens alongside your input. The binder
+  is written as GLY because PXDesign generates a backbone with no sequence. The generator
+  checkpoint (556 MB, Apache-2.0) downloads on first use. Selecting designs, which upstream
+  does with a Protenix and an AF2-IG filter, is not on the CLI yet.
+
+- `pxdesign-featurizer` joins `full_parity_gate.py`: 25 bit-exact arms against a committed
+  capture of the upstream featurizer, card-free. The two `af2ig-trunk` legs now read
+  `AF2IG_PARAMS` instead of a hard-coded home directory, so a release host that keeps the
+  AlphaFold parameters elsewhere reports where it looked instead of a silent GAP.
+
 ### Fixed
+
+- OpenFold3 and OpenBind: a CCD ligand kept its chirality. The reference-molecule builder never
+  told RDKit to read stereochemistry off the 3D coordinates before discarding them, so the
+  molecule handed to the conformer generator had no chiral tags and ETKDG drew a random handedness
+  per stereocentre, which then reached the model as an input feature. SB3, SAH and ATP were all
+  fully unassigned. Run-to-run ligand-pose spread on the FKBP12 leg fell from 0.630 A to 0.183 A.
+  Polymer folds are untouched: the guard fires only on an all-ligand atom array.
 
 - `full_parity_gate.py --workers qb2:2` run on qb2 itself now dispatches locally. It compared
   the host token against the machine's own hostname (`tt-quietbox2`), classified the box it was

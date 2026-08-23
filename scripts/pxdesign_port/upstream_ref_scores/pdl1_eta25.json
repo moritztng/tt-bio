@@ -1,0 +1,37 @@
+{
+ "source": "/tmp/ref_traj_eta25.pt",
+ "coords_shape": [
+  2,
+  1250,
+  3
+ ],
+ "binder_atoms": 321,
+ "target_atoms": 929,
+ "stats": [
+  {
+   "rg_all": 33.877742767333984,
+   "rg_target": 13.206194877624512,
+   "rg_binder": 11.538558959960938
+  },
+  {
+   "rg_all": 32.129642486572266,
+   "rg_target": 13.299379348754883,
+   "rg_binder": 13.800920486450195
+  }
+ ],
+ "target_reproduction": [
+  {
+   "target_rmsd": 0.6195754001276553,
+   "n_scored": 116,
+   "min_binder_target_dist": 41.81800842285156,
+   "n_contacts_below_5A": 0
+  },
+  {
+   "target_rmsd": 0.6316146302990355,
+   "n_scored": 116,
+   "min_binder_target_dist": 22.265422821044922,
+   "n_contacts_below_5A": 0
+  }
+ ],
+ "finite": true
+}

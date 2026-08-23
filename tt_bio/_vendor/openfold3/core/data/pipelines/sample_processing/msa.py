@@ -240,6 +240,8 @@ def create_main(
     aln_order: list[str],
     subsample_main: bool,
     keep_subsampled_order: bool,
+    af3_spec_profile_columns: bool = False,
+    af3_spec_main_msa_dedup: bool = False,
 ) -> dict[str, MsaArray]:
     """Creates main MSA arrays from non-UniProt MSAs.
 
@@ -262,6 +264,10 @@ def create_main(
         keep_subsampled_order (bool):
             Whether to keep the order of sequences in the subsampled main MSA relative
             to the unsubsampled one.
+        af3_spec_main_msa_dedup (bool):
+            Deduplicate the concatenated main MSA on the sequence array, order
+            preserving (upstream v0.5.0 behaviour). Keyed rather than unconditional:
+            preview2 trained on the redundant array.
 
     Returns:
         dict[str, MsaArray]:
@@ -286,6 +292,25 @@ def create_main(
             [chain_data[aln].deletion_matrix for aln in aln_order if aln in chain_data],
             axis=0,
         )
+
+        if af3_spec_main_msa_dedup:
+            # Deduplicate within the main MSA, order preserving. The key is the sequence
+            # array ALONE: a3m parsing has already moved insertions into the deletion
+            # matrix, so two rows differing only in insertion pattern are identical here
+            # and the later one is dropped WITH its deletion counts. Also feeds profile
+            # and deletion_mean, which average over the redundant array below.
+            main_view = main_msa_redundant.view(
+                np.dtype((
+                    np.void,
+                    main_msa_redundant.dtype.itemsize * main_msa_redundant.shape[1],
+                ))
+            )
+            _, unique_idx = np.unique(main_view, return_index=True)
+            unique_idx.sort()
+            main_msa_redundant = main_msa_redundant[unique_idx, :]
+            main_deletion_matrix_redundant = main_deletion_matrix_redundant[
+                unique_idx, :
+            ]
 
         # Get paired MSAs if any and deduplicate
         if len(chain_id_to_paired_msa) > 0:
@@ -325,6 +350,7 @@ def create_main(
             msa_array=main_msa_redundant,
             molecule_type=msa_array_collection.rep_id_to_mol_type[rep_id],
             chunk_size=1000,
+            af3_spec_columns=af3_spec_profile_columns,
         )
         rep_id_to_del_mean[rep_id] = np.mean(main_deletion_matrix_redundant, axis=0)
 
@@ -401,6 +427,8 @@ class MsaSampleProcessor:
             aln_order=config.aln_order,
             subsample_main=config.subsample_main,
             keep_subsampled_order=config.keep_subsampled_order,
+            af3_spec_profile_columns=config.af3_spec_profile_columns,
+            af3_spec_main_msa_dedup=config.af3_spec_main_msa_dedup,
         )
 
     def create_query_seq(
