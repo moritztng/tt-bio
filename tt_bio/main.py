@@ -3388,7 +3388,8 @@ def _run_pxdesign_cli(inputs: Path, out_dir, cache, num_designs, n_step, seed) -
 @click.option("--num_timesteps", default=4, show_default=True,
               help="rfd3 only. Diffusion denoising timesteps (low for a fast smoke; "
                    "upstream default 200).")
-@click.option("--seed", default=42, show_default=True, help="rfd3 only.")
+@click.option("--seed", default=42, show_default=True,
+              help="rfd3 and pxdesign. Noise seed for the diffusion sampler.")
 @click.option("--partial_t", default=None, type=float,
               help="rfd3 only. Partial-diffusion noise in Angstroms (per-spec partial_t "
                    "overrides this).")
@@ -3448,7 +3449,7 @@ def _run_pxdesign_cli(inputs: Path, out_dir, cache, num_designs, n_step, seed) -
               help="boltzgen only. With --debug: print per-stage progress lines.")
 def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                checkpoint, golden_dir, num_timesteps, seed, partial_t, fp32_residual,
-               spec_subset, from_pdb, batch_size, host_threads,
+               spec_subset, from_pdb, batch_size, n_step, host_threads,
                protocol, steps, configs, budget, reuse, fast, diffusion_trace, debug, log):
     """Run structure design on Tenstorrent: generate new protein binders, scaffolds,
     or sequences from a specification instead of folding an existing one.
