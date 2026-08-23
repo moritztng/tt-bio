@@ -61,7 +61,7 @@ do_setup() {
   cd "$REPO/scripts/gpu_vs_tt" || { say "no $REPO -- transfer the harness first"; exit 2; }
 
   step base 1800 bash gpu5_setup.sh base
-  step hostprobe0 600 python3 host_probe.py --out "$R/host_probe_${TAG}_nogpu.json"
+  step hostprobe0 600 python3 host_probe.py --out "$R/host_probe_${TAG}_image.json"
 
   # venv-esm312 is the long pole: 37 GB of weights hang off it (ESMC-6B 25 GB shared by
   # esmfold2/esmfold2-fast, then the six embed repos). Build it first, then pull in the
@@ -82,6 +82,8 @@ do_setup() {
     [ -e "$W/$d" ] || cp -a "$REPO/$d" "$W/$d" 2>/dev/null
   done
   step bgg 3600 bash "$W/scripts/gpu_vs_tt/bgg_setup.sh"
+  # gpu_rfd3_setup.sh execs its own stdout to /work/setup.log, so step_rfd3.log stays empty and
+  # /work/{setup.log,SETUP_OK,SETUP_FAIL} is where its story is.
   step rfd3 3600 bash "$W/perf/dsfix/gpu_rfd3_setup.sh"
   # gpu_rfd3_setup.sh installs the code and NOT the 2.51 GB checkpoint; nothing on a detached
   # box can answer the prompt that would normally fetch it, so the A100 pass died at the first
@@ -118,6 +120,13 @@ do_measure() {
   # the cold batch is discarded and n=3 warm, exactly as published.
   step audit_rfd3  3600 env TAG="$TAG" bash rfd3_prod_run.sh 1
 
+  # --- the seven new rows -----------------------------------------------------------------
+  step new_esmfold2fast 3600 env TAG="$TAG" MODELS="esmfold2-fast" bash gpu5_session.sh
+  for m in esmc-300m esmc-600m esmc-6b saprot-35m saprot-650m saprot-1.3b; do
+    step "new_$m" 2400 /root/venv-esm312/bin/python gpu_embed_bench.py --model "$m" \
+      --repeat 3 --out "$R/gpu_embed_${m}_prot512_${TAG}.json"
+  done
+
   # The counter says cuEquivariance ran; only a per-call timing at the model's own shape says
   # WHICH kernel ran, which is the entire cu12/cu13 question on Blackwell.
   step probe_cu12 900 /root/venv-boltz/bin/python cueq_tri_probe.py \
@@ -137,6 +146,17 @@ do_measure() {
       --out "$R/phase_boltz-2_r$1_s$2_${TAG}.json"
   done
 
+  # --- host sensitivity: does core count move a dispatch-bound row on THIS box?
+  # Before the cu13 swap on purpose: the 24-core point of this ladder is the published-arm run
+  # above, and a ladder measured across two different kernel stacks measures the stack. ------------
+  for n in 12 6; do
+    step "cores$n" 2400 taskset -c "0-$((n - 1))" /root/venv-boltz/bin/python gpu5_bench.py \
+      --model boltz-2 --repeat 3 --power \
+      --yaml "$REPO/perf/size512/fixtures/cdk2x2_512.yaml" \
+      --a3m "$REPO/perf/size512/fixtures/cdk2x2_512.a3m" --work /root/work \
+      --out "$R/cores${n}_boltz-2_${TAG}.json"
+  done
+
   # --- the cu13 question, boltz-2 and boltzgen only ---------------------------------------
   # cuEquivariance 0.8.0+ ships Blackwell (CC 10.0/10.3) BF16/FP16 triangle-attention kernels
   # and 0.10.0 an sm100f forward kernel, hidden_dim <= 256 -- "only available on cu13 builds"
@@ -149,22 +169,6 @@ do_measure() {
   step audit_boltz_cu13 2400 env TAG="${TAG}cu13" MODELS="boltz-2" bash gpu5_session.sh
   step audit_bgg_cu13 3600 "$W/venv-bgg/bin/python" "$W/scripts/gpu_vs_tt/bgg_bench.py" \
        "${TAG^^}CU13" headline
-
-  # --- host sensitivity: does core count move a dispatch-bound row on THIS box? ------------
-  for n in 12 6; do
-    step "cores$n" 2400 taskset -c "0-$((n - 1))" /root/venv-boltz/bin/python gpu5_bench.py \
-      --model boltz-2 --repeat 3 --power \
-      --yaml "$REPO/perf/size512/fixtures/cdk2x2_512.yaml" \
-      --a3m "$REPO/perf/size512/fixtures/cdk2x2_512.a3m" --work /root/work \
-      --out "$R/cores${n}_boltz-2_${TAG}.json"
-  done
-
-  # --- the seven new rows -----------------------------------------------------------------
-  step new_esmfold2fast 3600 env TAG="$TAG" MODELS="esmfold2-fast" bash gpu5_session.sh
-  for m in esmc-300m esmc-600m esmc-6b saprot-35m saprot-650m saprot-1.3b; do
-    step "new_$m" 2400 /root/venv-esm312/bin/python gpu_embed_bench.py --model "$m" \
-      --repeat 3 --out "$R/gpu_embed_${m}_prot512_${TAG}.json"
-  done
 
   date -u +%FT%TZ > "$R/MEASURE_DONE"
   say "MEASURE_DONE"
