@@ -182,3 +182,63 @@ def test_size_ladder_is_in_the_default_arm_set(rg):
     src = (REPO_ROOT / "scripts" / "release_gate.py").read_text()
     default = src.split("models = args.model or", 1)[1].split("fold_models", 1)[0]
     assert '"size-ladder"' in default
+
+
+# --- a failure at one rung must not erase the rungs that measured -----------------
+#
+# Rungs run in ascending order. Before this was pinned, an error at 768 returned only
+# {"error": ...}, so the summary printed "-" in all four cells and the row read as a model
+# that cannot fold at any size. On 2026-08-23 the release gate reported exactly that for
+# opendde and it took a three-arm bisect to re-establish that 256/512/640 had been fine.
+
+@pytest.fixture
+def rg_fresh():
+    """Own module instance. The `rg` fixture is module-scoped and the `_ladder` helper above
+    permanently rebinds `_size_ladder_measure_model` on it, so a test that needs the real one
+    has to load its own copy."""
+    spec = importlib.util.spec_from_file_location(
+        "release_gate_partial_rungs", REPO_ROOT / "scripts" / "release_gate.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _ok_fold(runtime):
+    return {"levers": {"FLAG": FIRING}, "runtime_s": runtime, "wall": runtime + 20.0,
+            "census_json": pathlib.Path("census.json"), "grid": "13x10"}
+
+
+def test_top_rung_failure_keeps_the_rungs_that_measured(rg_fresh, monkeypatch, tmp_path):
+    measured = {"256": 25.4, "512": 70.4, "640": 115.0}
+
+    def fake(model, rung, workdir, tag):
+        if rung == 768:
+            return {"error": "census fold timed out after 1800s"}
+        return _ok_fold(measured[str(rung)])
+
+    monkeypatch.setattr(rg_fresh, "_run_census_fold", fake)
+    out = rg_fresh._size_ladder_measure_model("opendde", RUNGS, tmp_path, 1, 1)
+
+    assert "timed out after 1800s" in out["error"]
+    assert "rung 768 warm-up" in out["error"]
+    assert out["partial"] is True
+    # the three rungs that completed are still reportable, and the one that failed is absent
+    assert out["runtime_s"] == measured
+    assert "768" not in out["runtime_s"]
+
+
+def test_check_model_propagates_the_partial_rungs_to_the_printer(rg_fresh, monkeypatch, tmp_path):
+    """The summary row reads runtime_s off the leg dict, so the error path has to carry it."""
+    def fake(model, rungs, workdir, reps_512, reps_other):
+        return {"error": "rung 768 warm-up: census fold timed out after 1800s",
+                "runtime_s": {"256": 25.4, "512": 70.4, "640": 115.0}, "partial": True}
+
+    monkeypatch.setattr(rg_fresh, "_size_ladder_measure_model", fake)
+    leg = rg_fresh._size_ladder_check_model("opendde", RUNGS, {"reps": 1}, tmp_path)
+
+    assert leg["gate"] is False
+    assert leg["runtime_s"] == {"256": 25.4, "512": 70.4, "640": 115.0}
+    # what the printer would render: three numbers and one dash, not four dashes
+    cells = [f"{leg['runtime_s'][str(n)]:.1f}s" if leg["runtime_s"].get(str(n)) is not None
+             else "-" for n in RUNGS]
+    assert cells == ["25.4s", "70.4s", "115.0s", "-"]

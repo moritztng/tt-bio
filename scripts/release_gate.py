@@ -1239,9 +1239,15 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
             r = _run_census_fold(model, rung, workdir,
                                  "warmup" if rep == 0 else f"rep{rep - 1}")
             if r.get("error"):
+                # Carry the rungs that already measured. Rungs run in ascending order, so a
+                # failure at the top rung used to discard three good measurements and print "-"
+                # in every cell, which reads as "this model cannot fold at all" instead of "this
+                # model folds up to 640 and died at 768". That cost a bisect on 2026-08-23 to
+                # recover information the leg already had.
                 return {"error": f"rung {rung} "
                                  f"{'warm-up' if rep == 0 else f'rep {rep - 1}'}: "
-                                 f"{r['error']}"}
+                                 f"{r['error']}",
+                        "runtime_s": runtimes, "partial": True}
             if rep == 0:
                 continue          # cold: kernels for this shape compile on this fold
             grid = grid or r.get("grid")
@@ -1315,7 +1321,8 @@ def _size_ladder_check_model(model: str, rungs, base_model: dict, workdir: Path)
     meas = _size_ladder_measure_model(model, rungs, workdir, reps, reps)
     if meas.get("error"):
         return {"model": model, "gate": False, "error": meas["error"],
-                "findings": [meas["error"]]}
+                "findings": [meas["error"]],
+                "runtime_s": meas.get("runtime_s") or {}, "partial": True}
     findings = []
     b_grid, c_grid = base_model.get("grid"), meas.get("grid")
     if b_grid and c_grid and b_grid != c_grid:
