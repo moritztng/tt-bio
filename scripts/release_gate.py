@@ -241,6 +241,10 @@ MODELS = {
     # the printed digit, so this floor covers seed and MSA-draw spread rather than a
     # run-to-run wobble that does not exist at 117 aa. Floor = ~2x measured, same discipline
     # as boltz2 (1.55 -> 3.0), protenix-v2 (3.87 -> 6.0) and openfold3 (1.775 -> 3.5).
+    # 2026-08-23, v0.6.8: re-read after RF3 flipped to the fused-SDPA default (fp32_softmax
+    # off, ragged key tail masked). Same card, same grid: RMSD 1.239 A / TM 0.958, i.e. the
+    # shipped fast arm lands on the pre-flip number. The floor is deliberately NOT tightened
+    # on it -- that is a change in gate strength, not a release task's call.
     "rf3":           {"max_rmsd": 3.0, "min_tm": 0.75},
 }
 
@@ -323,6 +327,12 @@ RFD3_DET_TIMESTEPS = 4
 # severe discontinuity (design 1 still scores 0.9855 in band, which clears the 0.98 bar on
 # its own), and `in_band` catches many mildly-wrong steps that never individually exceed
 # CA_CA_BREAK. A garbled coordinate tensor trips one or the other.
+# Provenance: every number below was measured on ttnn 0.67.4 while the release pin is 0.68.0,
+# and RELEASING.md warns those two runtimes can disagree by angstroms on a diffusion fold. The
+# v0.6.8 gate re-read the whole row on 0.68.0 (qb1 card 2, p150a 13x10) and it reproduces
+# exactly: clean 0.75, in band 0.9855, breaks 1, worst clash 3, distinct AA 11, UNK 0,
+# determinism identical (9702983e19b6d945 from two fresh processes). Three runs, two trees.
+# So the floors are runtime-portable in fact, not by assumption, and none of them moves.
 RFD3_MIN_CLEAN_RATE = 0.50   # measured 0.75 (3 of 4)
 RFD3_MIN_INBAND = 0.98       # measured 1.0000 / 0.9855 / 1.0000 / 1.0000
 RFD3_MAX_BREAKS = 0          # per design, inside the clean test above
