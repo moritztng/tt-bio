@@ -24,7 +24,11 @@ EXPECT = {
     "protenix-v2": (0.101, 0.619, 50.442, 12.186, 3.947, 4.139),
     "opendde":     (0.125, 6.308, 82.268, 20.640, 3.057, 3.986),
     "openfold3":   (1.839, 0.428, 36.415, 10.263, 3.578, 3.548),
-    "rf3":         (8.330, 12.459, 72.721, 7.746, 3.556, 9.388),
+    # a998c57b re-folded RF3 on the fixed numerics and republished the cell at 82.547 s
+    # (perf/rf3/page512/bisect_fix_p{1,2}_qb2c2.json, session medians 82.451 and 82.840)
+    # without updating this row, so this gate sat red on main until 2026-08-23. The
+    # numbers below are that cell: 82.547 - 8.330 host = 74.217 device.
+    "rf3":         (8.330, 12.459, 74.217, 7.746, 3.621, 9.581),
 }
 
 
@@ -42,6 +46,7 @@ def whole_s(cell):
 
 def main():
     page = json.loads((ROOT / "site" / "data" / "perf-512aa.json").read_text())
+    plats = {p["id"]: p for p in page["platforms"]}
     bad = []
     seen = set()
     for m in page["models"]:
@@ -60,6 +65,9 @@ def main():
         else:
             print(f"OK   {m['id']:12s} host {got[0]:8.3f} / {got[1]:7.3f}   "
                   f"device {got[2]:7.3f} / {got[3]:6.3f}   whole {got[4]:.3f}x   device-only {got[5]:.3f}x")
+        if not (t.get("measured_on") or plats["p150a"].get("measured_on")):
+            bad.append(f"{m['id']} p150a: measured_on absent, so the cell does not say which "
+                       "board produced it and inherits nothing from the platform")
         for side, cell in (("p150a", t), ("h200", g)):
             if "in_cell" not in cell["split"]:
                 bad.append(f"{m['id']} {side}: split.in_cell absent, so whether the host seconds are "

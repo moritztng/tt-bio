@@ -8,7 +8,8 @@
     "Never write a derived value here. Server throughput, cost per hour and both throughput-per-dollar charts are computed in the page from s_per_fold, accelerators, price and power.",
     "One cell per model per platform, holding the fastest measured arm that passes parity against its own reference. Every Tenstorrent cell states which parity it holds: bit-exact, byte-identical, or a measured structural delta inside a bar that was fixed before the number existed. A cell with no measurement gets status 'blocked' and a reason. Do not fill it with an estimate.",
     "The A100 appears twice: as a card, and as the DGX A100 640GB, the eight-GPU box NVIDIA sold that card in. The $175,000 that box carries is an assumed street price, not a vendor list price, and it is labelled as one everywhere it is used.",
-    "A design model carrying 'hidden': true keeps every measured cell here and is drawn nowhere. Delete that one line to publish the row again."
+    "A design model carrying 'hidden': true keeps every measured cell here and is drawn nowhere. Delete that one line to publish the row again.",
+    "Every Tenstorrent cell states the board it was measured on. It inherits `measured_on` from its platform and overrides it only if it ran somewhere else. The column is priced as a p150a; the board that produced the number is a separate fact and is stated as one."
   ],
   "scope": {
     "size_aa": 512,
@@ -33,7 +34,8 @@
       "price_usd": 1399,
       "price_kind": "vendor list",
       "price_source": "tt-cards",
-      "note": "The AI Processor every Tenstorrent number on this page was measured on."
+      "note": "The AI Processor this column is priced as. Nothing here was measured on one; see measured_on for the board that produced the numbers.",
+      "measured_on": "Measured on tt-quietbox2, on one Blackhole AI Processor of a p300c board: an 11x10 Tensix grid behind an AMD Ryzen 7 9700X. That is not the p150a this column is named and priced for. See the board caveat under Methods and sources."
     },
     {
       "id": "galaxy_bh",
@@ -51,7 +53,7 @@
       "power_kind": "vendor maximum",
       "power_source": "tt-galaxy",
       "scaling_efficiency": 1.0,
-      "note": "1 TB / 32 = 32 GB and 16 TB/s / 32 = 512 GB/s per AI Processor, which is the p150a's memory system exactly, so the measured p150a fold time carries across."
+      "note": "1 TB / 32 = 32 GB and 16 TB/s / 32 = 512 GB/s per AI Processor, which is the memory system of the p150a and of the p300c measured here alike, so the measured single-processor fold time carries across."
     },
     {
       "id": "h200",
@@ -248,7 +250,7 @@
           "status": "measured",
           "s_per_fold": 50.543,
           "parity": "byte-identical",
-          "ref": "Median of 10 warm folds across two independent sessions (per-session medians 50.588 and 50.512 s, run-to-run spread 0.68 %), byte-identical output on all 12 folds: CIF sha 98c33a481fa1fd27, plDDT 0.828628. qb2, Blackhole p150a physical card 3, ttnn 0.68.0, tt-bio c05026ab. Card 3 rather than card 1 (card 1 was in use); the two cards agree to 0.26 % at this size, inside card 3s own run-to-run spread. Swept at 256/298/512/640/768 aa, nothing goes dark above 512 and nothing costs anything below it.",
+          "ref": "Median of 10 warm folds across two independent sessions (per-session medians 50.588 and 50.512 s, run-to-run spread 0.68 %), byte-identical output on all 12 folds: CIF sha 98c33a481fa1fd27, plDDT 0.828628. qb2, one Blackhole AI Processor of a p300c board, physical card 3, ttnn 0.68.0, tt-bio c05026ab. Card 3 rather than card 1 (card 1 was in use); the two cards agree to 0.26 % at this size, inside card 3s own run-to-run spread. Swept at 256/298/512/640/768 aa, nothing goes dark above 512 and nothing costs anything below it.",
           "split": {
             "host_s": 0.101,
             "in_cell": true,
@@ -289,7 +291,7 @@
           "status": "measured",
           "s_per_fold": 82.393,
           "parity": "0.3248 A CA RMSD, inside the 0.35 A bar fixed before the measurement",
-          "ref": "Median of three warm folds on one p150a, 82.372 / 82.393 / 82.422 s, spread 0.050 s, measured uninstrumented on the shipped path, cold fold discarded. The 82.942 s this cell carried before is the same measurement without the host-side glue: the relative-position one-hot is now scattered into an fp32 result instead of built from int64 one-hots and an int64 concatenation, and the trunk-to-structural pair copy stays in the bf16 the device already held. Both are bit-exact and both are host time, worth 0.498 s at the fold with the CIF digest unchanged and the device wall flat to inside its own spread. This is the one cell that is not bit-exact against the reference: the triangle-attention matmul folds its contraction in twelve-tile blocks, worth one bf16 unit in the last place, so the CIF digest moves 50aa1e46583bd5a8 to 357c67003bb738ac and plDDT 0.754131 to 0.754110. The structural cost is 0.3248 A Kabsch CA, measured on a monomeric 298-residue control because this fixture's two domains hinge freely and saturate the metric. The byte-identical arm at the same two matmul settings returns 88.61 s.",
+          "ref": "Median of three warm folds on one Blackhole AI Processor, 82.372 / 82.393 / 82.422 s, spread 0.050 s, measured uninstrumented on the shipped path, cold fold discarded. The 82.942 s this cell carried before is the same measurement without the host-side glue: the relative-position one-hot is now scattered into an fp32 result instead of built from int64 one-hots and an int64 concatenation, and the trunk-to-structural pair copy stays in the bf16 the device already held. Both are bit-exact and both are host time, worth 0.498 s at the fold with the CIF digest unchanged and the device wall flat to inside its own spread. This is the one cell that is not bit-exact against the reference: the triangle-attention matmul folds its contraction in twelve-tile blocks, worth one bf16 unit in the last place, so the CIF digest moves 50aa1e46583bd5a8 to 357c67003bb738ac and plDDT 0.754131 to 0.754110. The structural cost is 0.3248 A Kabsch CA, measured on a monomeric 298-residue control because this fixture's two domains hinge freely and saturate the metric. The byte-identical arm at the same two matmul settings returns 88.61 s.",
           "split": {
             "host_s": 0.125,
             "in_cell": true,
@@ -406,8 +408,8 @@
   ],
   "design": {
     "cond": "Wall-clock seconds to return one binder design on a single AI Processor, warm, at the model's shipped defaults. Shorter is better. Every platform runs one design at a time, the same protocol as the prediction rows.",
-    "note": "One design at a time on every platform, so nothing here compares a batch against a single. Measured at 514 tokens: the next size up overflows L1 on the p150a, and a larger target would work the GPUs harder, so read this row as the most favourable honest reading rather than a ceiling.",
-    "methods": "One pinned target at the shipped defaults: BoltzGen, 500 sampling steps, one design at a time on every platform. Tenstorrent figures are warm medians on one Blackhole p150a under a run lock, with the cold pass and the design that pays the checkpoint switch dropped. GPU figures come from the same protocol on rented single-GPU nodes. Designs are validated per run rather than digested: chain sizes, residue topology and finite coordinates, never atom equality between siblings, because sibling designs legitimately differ.",
+    "note": "One design at a time on every platform, so nothing here compares a batch against a single. Measured at 514 tokens: the next size up overflows L1 on the Blackhole AI Processor measured here, and a larger target would work the GPUs harder, so read this row as the most favourable honest reading rather than a ceiling.",
+    "methods": "One pinned target at the shipped defaults: BoltzGen, 500 sampling steps, one design at a time on every platform. Tenstorrent figures are warm medians on one Blackhole AI Processor under a run lock, with the cold pass and the design that pays the checkpoint switch dropped. GPU figures come from the same protocol on rented single-GPU nodes. Designs are validated per run rather than digested: chain sizes, residue topology and finite coordinates, never atom equality between siblings, because sibling designs legitimately differ.",
     "models": [
       {
         "id": "boltzgen",
@@ -419,7 +421,7 @@
           "p150a": {
             "status": "measured",
             "s_per_design": 45.289,
-            "ref": "Median of n=4 warm designs, 45.187 / 45.221 / 45.357 / 45.393 s, spread 0.46 %, with a second independent process 0.05 % away at 45.265 s. qb2, Blackhole p150a physical card 0, ttnn 0.68.0, under a run lock. End-to-end per design; the cold design and the design that pays the 1.9 GB checkpoint switch are dropped, the same two the GPU arm drops. 500 sampling steps resolved from the shipped design.yaml and asserted per design. 20.501 s of each design is the denoising loop at 41.00 ms per step, the other 24.8 s is trunk, post-processing and writing."
+            "ref": "Median of n=4 warm designs, 45.187 / 45.221 / 45.357 / 45.393 s, spread 0.46 %, with a second independent process 0.05 % away at 45.265 s. qb2, one Blackhole AI Processor of a p300c board, physical card 0, ttnn 0.68.0, under a run lock. End-to-end per design; the cold design and the design that pays the 1.9 GB checkpoint switch are dropped, the same two the GPU arm drops. 500 sampling steps resolved from the shipped design.yaml and asserted per design. 20.501 s of each design is the denoising loop at 41.00 ms per step, the other 24.8 s is trunk, post-processing and writing."
           },
           "h200": {
             "status": "measured",
@@ -444,12 +446,12 @@
         "target": "Human serum albumin (9q6y chain A), 585 target residues, 100-residue binder, 6051 atoms",
         "sampling_steps": 200,
         "batch": 1,
-        "note": "Asking for eight designs at once instead of one changes only the GPUs. A batch of eight amortises by 2.12x on the H200, 2.50x on the B200 and 1.79x on the A100, so eight designs take 103.79 s on an H200, 104.39 s on a B200 and 198.20 s on an A100. The p150a gains nothing from batching at this target size and runs one design at a time by default. At one design the B200 is 18.5 % slower than the H200.",
+        "note": "Asking for eight designs at once instead of one changes only the GPUs. A batch of eight amortises by 2.12x on the H200, 2.50x on the B200 and 1.79x on the A100, so eight designs take 103.79 s on an H200, 104.39 s on a B200 and 198.20 s on an A100. The Blackhole AI Processor gains nothing from batching at this target size and runs one design at a time by default. At one design the B200 is 18.5 % slower than the H200.",
         "cells": {
           "p150a": {
             "status": "measured",
             "s_per_design": 91.443,
-            "ref": "Median of n=3 warm forwards, 91.267 / 91.443 / 91.523 s per forward of 1, spread 0.28 %, 457.2 ms per timestep. qb2, Blackhole p150a physical card 2, ttnn 0.68.0, under a run lock, batch 1. The same fixture on card 0 gives 91.982 s, 0.59 % away, so the two cards are interchangeable for timing. The runtime runs one design at a time at this target size, because batching stops paying above 2952 atoms: measured at 3844 atoms it is worth 1.04x, under the 1.05x bar to change the default. Seven bitwise-identical wins are on by default. Matmul program-config calibration is worth 1.166x and a tile-aligned pair concat 1.082x, the concat one gathering the distogram and self-conditioning one-hots as a single 160-wide table lookup instead of two 65-wide ones, because ttnn.concat runs 15x below its bandwidth floor if any input is narrower than a 32-wide tile. Another 1.0696x comes from two more: the per-timestep atom neighbour graph runs its distance/mask/top-k chain 256 rows at a time so the 146 MB distance matrix stays in cache instead of going twice through DRAM (2.61x on that chain), and the 18 DiT blocks project the shared pair tensor with one 576-wide matmul instead of 18 16-wide ones, reading it once rather than eighteen times. The last three landed after the 105.123 s cell this one replaces and account for the whole 13.0 % between them: the pair Transition keeps its second projection and its gated product in L1 rather than writing 1975 MB per call out to DRAM, the DiT's dense scores-and-bias tail collapses into one kernel, and the softmax at the three fp32 attention sites packs to bf16 inside the kernel. The last two serve every call at this size, 28656 and 7164 with no declines, and the sparse neighbour bias path serves none. Each design of the timed run writes 685 residues, 100 designed plus 585 target, with no non-finite coordinates; atom count varies 5112-5129 across the four because the CIF carries each designed sequence’s real side chains. The first design still writes CIF sha256 5295e526ebd0b757, the digest the previous cell recorded, so all three new wins are bit-exact end to end here. Card 0 now writes the same four digests as card 2; the per-card divergence the previous cell reported (card 0 at 382e7b23ae8cfc75) is gone."
+            "ref": "Median of n=3 warm forwards, 91.267 / 91.443 / 91.523 s per forward of 1, spread 0.28 %, 457.2 ms per timestep. qb2, one Blackhole AI Processor of a p300c board, physical card 2, ttnn 0.68.0, under a run lock, batch 1. The same fixture on card 0 gives 91.982 s, 0.59 % away, so the two cards are interchangeable for timing. The runtime runs one design at a time at this target size, because batching stops paying above 2952 atoms: measured at 3844 atoms it is worth 1.04x, under the 1.05x bar to change the default. Seven bitwise-identical wins are on by default. Matmul program-config calibration is worth 1.166x and a tile-aligned pair concat 1.082x, the concat one gathering the distogram and self-conditioning one-hots as a single 160-wide table lookup instead of two 65-wide ones, because ttnn.concat runs 15x below its bandwidth floor if any input is narrower than a 32-wide tile. Another 1.0696x comes from two more: the per-timestep atom neighbour graph runs its distance/mask/top-k chain 256 rows at a time so the 146 MB distance matrix stays in cache instead of going twice through DRAM (2.61x on that chain), and the 18 DiT blocks project the shared pair tensor with one 576-wide matmul instead of 18 16-wide ones, reading it once rather than eighteen times. The last three landed after the 105.123 s cell this one replaces and account for the whole 13.0 % between them: the pair Transition keeps its second projection and its gated product in L1 rather than writing 1975 MB per call out to DRAM, the DiT's dense scores-and-bias tail collapses into one kernel, and the softmax at the three fp32 attention sites packs to bf16 inside the kernel. The last two serve every call at this size, 28656 and 7164 with no declines, and the sparse neighbour bias path serves none. Each design of the timed run writes 685 residues, 100 designed plus 585 target, with no non-finite coordinates; atom count varies 5112-5129 across the four because the CIF carries each designed sequence’s real side chains. The first design still writes CIF sha256 5295e526ebd0b757, the digest the previous cell recorded, so all three new wins are bit-exact end to end here. Card 0 now writes the same four digests as card 2; the per-card divergence the previous cell reported (card 0 at 382e7b23ae8cfc75) is gone."
           },
           "h200": {
             "status": "measured",
@@ -524,6 +526,7 @@
     "The A100 ran every cell on this page, on the same fixtures. Its host is an AMD EPYC 7513 where the H200 and B200 boxes were Intel Xeon, which matters for the dispatch-bound trunks and is not corrected for, and the RoseTTAFold3 cell ran later on an EPYC 7763 at the same 30.7 vCPU quota.",
     "RoseTTAFold3's NVIDIA cells carry the widest spreads on this page, and host featurisation is why: host prep varies far more run to run than device work does, so raising the H200 cell from three folds to eight moved its median 3.6 % and left the spread where it was.",
     "The Tenstorrent host figures in the host and device table were measured on a box that was running three other jobs. Contention only adds host time, so each one is an upper bound, and every device-only ratio built from one is a lower bound on the real device gap.",
-    "The NVIDIA host figures come from one rented H200 with the same Xeon Platinum 8480+ and the same vCPU quota as the published cells. Four of the five sessions reproduced their published cell within 2.3 %. The ESMFold2 session did not, and its figure rests on the shape of that harness's timed region instead; the cell note says so. Host work on the B200 and the A100 is not measured and no figure here is carried over to them."
+    "The NVIDIA host figures come from one rented H200 with the same Xeon Platinum 8480+ and the same vCPU quota as the published cells. Four of the five sessions reproduced their published cell within 2.3 %. The ESMFold2 session did not, and its figure rests on the shape of that harness's timed region instead; the cell note says so. Host work on the B200 and the A100 is not measured and no figure here is carried over to them.",
+    "Every Tenstorrent number on this page was measured on tt-quietbox2, on one Blackhole AI Processor of a p300c board, not on the p150a the column is named and priced for. Tenstorrent specifies the same 120 Tensix cores and the same 32 GB at 512 GB/s per processor on both, and does not sell the p300c separately or publish a price for it, so the p150a is the only part of the two with a price to compute against. They are not interchangeable in practice: the board measured here exposes 110 Tensix cores where our p150a exposes 130, and the two boxes have different host CPUs, which matters for the dispatch-bound trunks."
   ]
 }
