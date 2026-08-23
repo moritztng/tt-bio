@@ -69,32 +69,32 @@ TOKEN_AXIS = {
         BUCKETED, 32, "same trunk as esmfold2 (esmfold2.py:105)",
         "the --fast route changes recycling and precision, not the pad site",
     ),
-    # The FIX for these three is implemented and measured -- protenix.TOKEN_PAD_MULTIPLE, gated on
-    # TT_BIO_PROTENIX_TOKEN_BUCKET -- but the gate is OFF by default, so the shipped default still
-    # runs ragged and the honest status is still EXPOSED. Flipping it changes the trunk's DRAM peak
-    # and therefore the largest target that fits, which is a release decision, not this task's.
-    # tests/test_token_axis_bucketing_hw.py::test_protenix_token_bucket_* keeps the fix alive.
+    # These three share one bucket (protenix.TOKEN_PAD_MULTIPLE, gated on
+    # TT_BIO_PROTENIX_TOKEN_BUCKET, default ON) across the three token axes the census found one
+    # after another. Set the flag to 0 for the ragged path; nothing else turns it off.
     "protenix-v2": (
-        EXPOSED, None,
-        "three ragged token axes, each found by the census after the previous was closed: "
-        "protenix.py Trunk.__call__ runs raw N (1208 calls at N=98); the confidence head's "
-        "Pairformer runs at the real N (8 more); OpenDDE adds its structural-token refiner. The "
-        "ATOM axis was already padded; the TOKEN axis was not.",
-        "fleet-bucketing-audit-and-guard: fixed behind TT_BIO_PROTENIX_TOKEN_BUCKET, 1208 -> 0, "
-        "bit-exact at an aligned N; awaiting a default-ON decision",
+        BUCKETED, 64,
+        "protenix.py Trunk.__call__ pads the trunk's own axis; protenix.bucketed_pairformer "
+        "covers the confidence head's Pairformer, which runs at the real N",
+        "pad + pair-mask outer product + additive -1e9 attn mask + slice back. Two axes, found "
+        "one after the other: the trunk (1208 ragged fused-SDPA calls at N=98) and the confidence "
+        "head (8 more). 1208 -> 0 counted on a real fold, bit-exact at an aligned N, and the "
+        "padding is proven inert -- TT_BIO_PROTENIX_PAD_POISON at 0 and 1000 gives bit-identical "
+        "trunk fingerprints. The ATOM axis was already padded; the TOKEN axis was not",
     ),
     "opendde": (
-        EXPOSED, None,
-        "reuses the protenix.py Trunk at c_z=384 (opendde.py:380), plus a 4-block "
-        "structural-token refiner (opendde.py:456) on a SEPARATE token axis -- Ns=181 for a "
-        "98-residue input, 1216 ragged calls in total",
-        "fleet-bucketing-audit-and-guard: fixed behind TT_BIO_PROTENIX_TOKEN_BUCKET, 1216 -> 0; "
-        "awaiting a default-ON decision",
+        BUCKETED, 64,
+        "the protenix.py Trunk at c_z=384 (opendde.py:380) and the confidence head as above, plus "
+        "a 4-block structural-token refiner (opendde.py:456) on a SEPARATE axis -- Ns=181 for a "
+        "98-residue input, Ns = 2*n_res - n_gly",
+        "same bucketed_pairformer helper at all three sites, 1216 ragged calls -> 0. The "
+        "refiner's extra_attn_bias pads with -1e9 and not 0: padding it with 0 puts the padded "
+        "keys back at score 0, which is the defect itself. Its axis is ~1.9x the residue count "
+        "and therefore essentially never aligned, so this model pays the bucket at every size",
     ),
     "opendde-abag": (
-        EXPOSED, None, "same trunk and refiner as opendde",
-        "fleet-bucketing-audit-and-guard: fixed behind TT_BIO_PROTENIX_TOKEN_BUCKET; "
-        "awaiting a default-ON decision",
+        BUCKETED, 64, "same trunk, confidence head and refiner as opendde",
+        "same helper, same flag, same counters",
     ),
     "openfold3": (
         IMMUNE, None,
@@ -143,7 +143,7 @@ TOKEN_AXIS = {
 # The live constants the table above claims. Checked against their real modules rather than
 # restated, so setting one of them to 48 is a test failure and not a silent 72x.
 LIVE_MULTIPLES = {
-    ("tt_bio.protenix", "TOKEN_PAD_MULTIPLE"): 32,
+    ("tt_bio.protenix", "TOKEN_PAD_MULTIPLE"): 64,
     ("tt_bio.tenstorrent", "PAIRFORMER_PAD_MULTIPLE"): 64,
     ("tt_bio.tenstorrent", "MSA_PAD_MULTIPLE"): 1024,
     ("tt_bio.esmfold2", "PAD_MULTIPLE"): 32,

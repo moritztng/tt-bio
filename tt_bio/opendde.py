@@ -444,10 +444,14 @@ class OpenDDE:
         # Build the refiner trimuls' fused input-weight cache up front, so the first (timed)
         # call does not interleave the 96-tensor `_gp_cache` uploads with its compute.
         # Numerically inert, measured: a fold with this prewarm produces the same numbers as
-        # one without.
+        # one without. Warm the BUCKETED width: prewarm derives (chunk_size, group) from the
+        # width it is given, so warming Ns while the refiner runs at the padded Ns warms an
+        # entry the call never reads and leaves the upload back inside the first call.
+        from .protenix import bucketed_width
+        Nsw = bucketed_width(Ns)
         for blk in self.refiner.blocks:
-            blk.triangle_multiplication_start.prewarm(Ns, 1)
-            blk.triangle_multiplication_end.prewarm(Ns, 1)
+            blk.triangle_multiplication_start.prewarm(Nsw, 1)
+            blk.triangle_multiplication_end.prewarm(Nsw, 1)
         z4 = ttnn.reshape(z_st, (1, Ns, Ns, self.expander.c_z))
         s3 = ttnn.reshape(s_st, (1, Ns, self.expander.c_s))
         bias = None

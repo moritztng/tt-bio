@@ -165,33 +165,38 @@ def test_no_bucketed_model_reaches_a_ragged_fused_sdpa(model):
 
 
 _ALIGNED_SEQ = ("NLYIQWLKDGGPSSGRPPPS" * 7)[:128]      # 128 tokens: already a tile multiple
-_BUCKET_ON = {"TT_BIO_PROTENIX_TOKEN_BUCKET": "1"}
+_BUCKET_OFF = {"TT_BIO_PROTENIX_TOKEN_BUCKET": "0"}
 
 
 @pytest.mark.skipif(not _device_available(),
                     reason="needs a TT card and TT_VISIBLE_DEVICES pinned to it")
 @pytest.mark.parametrize("model", ["protenix-v2", "opendde"])
-def test_protenix_token_bucket_closes_every_ragged_sdpa(model):
-    """With TT_BIO_PROTENIX_TOKEN_BUCKET=1 there is no ragged SDPA left, anywhere.
+def test_protenix_ragged_sdpa_is_there_to_be_closed(model):
+    """The negative control: with the bucket OFF these two DO present a ragged key axis.
 
-    The flag is OFF by default because it changes the trunk's DRAM peak and therefore the largest
-    target that fits, so these two models are declared EXPOSED and skip the BUCKETED census above.
-    Without this test the fix would be dead code within a release. Three separate token axes had to
-    be closed to get to zero and the census found each one AFTER the previous was fixed:
-    the trunk (1208 calls), the confidence head's Pairformer at the real N (8), and -- OpenDDE only
-    -- the structural-token refiner at Ns=181 (8 more).
+    Both are declared BUCKETED and default ON, so the census test above already proves the fix
+    holds. What that test cannot prove is that the counter it reads is alive: a probe that missed
+    the model process, or a census that stopped classifying, passes it just as cleanly. Turning the
+    only thing that closes those axes back off has to bring the ragged calls back, or the guard is
+    measuring nothing. Three axes had to be closed to reach zero and the census found each one
+    AFTER the previous was fixed: the trunk (1208 calls at N=98), the confidence head's Pairformer
+    at the real N (8), and -- OpenDDE only -- the structural-token refiner at Ns=181 (8 more).
     """
-    s = _census(model, JOBS[model], env_extra=_BUCKET_ON)
-    bad = [r for r in s["rows"] if r["masked_ragged"]]
-    assert not bad, (
-        f"{model} with the token bucket ON still presented a ragged key axis at: "
-        + "; ".join(f"{r['site']} x{r['masked_ragged']} {r['shapes']}" for r in bad))
+    s = _census(model, JOBS[model], env_extra=_BUCKET_OFF)
+    assert any(r["masked_ragged"] for r in s["rows"]), (
+        f"{model} with the token bucket OFF presented NO ragged key axis at all. Either the "
+        "census no longer sees this model's calls or the ragged axes closed somewhere else -- "
+        "either way the BUCKETED census above is no longer evidence of anything.")
 
 
 @pytest.mark.skipif(not _device_available(),
                     reason="needs a TT card and TT_VISIBLE_DEVICES pinned to it")
 def test_protenix_token_bucket_is_a_noop_at_an_aligned_length():
     """The A/A control: at N=128 the bucket has nothing to pad, so the trunk must not move.
+
+    The "on" arm is the shipped default and "off" is the flag forced to 0 -- written that way round
+    deliberately, because an arm spelled `{}` was the OFF arm before the default flipped and would
+    now make this an ON-vs-ON tautology that can never fail.
 
     Compares TT_BIO_TRUNK_TAP fingerprints rather than the output structure, because the STRUCTURE
     is not a usable control here -- protenix-v2 folds the same 98-aa input to two different CIFs in
@@ -200,7 +205,7 @@ def test_protenix_token_bucket_is_a_noop_at_an_aligned_length():
     """
     with tempfile.TemporaryDirectory() as d:
         taps = {}
-        for arm, extra in (("off", {}), ("on", _BUCKET_ON)):
+        for arm, extra in (("off", _BUCKET_OFF), ("on", {})):
             t = os.path.join(d, f"tap_{arm}.txt")
             _census("protenix-v2", JOBS["protenix-v2"], env_extra=extra,
                     seq=_ALIGNED_SEQ, tap=t)
