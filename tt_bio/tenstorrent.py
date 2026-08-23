@@ -1384,6 +1384,9 @@ FP32_SOFTMAX_STATS = {"calls": 0, "blocked": 0, "blocks": 0, "fused": 0, "unfuse
 # 960), two and the same shape reads **0.295x** with 16 of 29 blocks resident
 # (perf/fp32softmax/results/s1_op_bitexact_guard.json). So the second refusal retires the floating
 # plan for that class and the class falls back to exactly today's unblocked interleaved tail.
+#
+# This count is the leash for ONE of the two fallbacks a retirement can land on -- the one where it
+# lands on nothing. `_fp32_softmax_free_spent` spends it there and nowhere else.
 _FP32_SOFTMAX_L1_REFUSALS: dict = {}
 _FP32_SOFTMAX_FREE_REFUSAL_CAP = 2
 
@@ -1420,6 +1423,15 @@ _FP32_SOFTMAX_FREE_REFUSAL_CAP = 2
 # "nothing refused yet, the byte budget decides"; 0 means L1 is retired for that class.
 _FP32_SOFTMAX_L1_ROW_CAP: dict = {}
 
+# The same, for the FLOATING plan, kept apart from the tuned rectangle's cap on purpose. A refusal
+# is a property of the shard that refused, not of the shape class: at 1024 aa the sharded softmax
+# refuses 3 rows on 64 cores and accepts the same 3 rows on 96, because what overflows its circular
+# buffers is bytes per core. Narrowing one plan on the other's refusal therefore charges a cost to
+# a shard that never paid it -- and it charges it in the expensive direction, since the tuned block
+# is the thing retirement has to fall back ON. Two caps, each narrowed by its own refusals: the
+# floating walk descends its own rungs and the block that ships stays the block that ships.
+_FP32_SOFTMAX_L1_FREE_ROW_CAP: dict = {}
+
 # The additive pair bias does not depend on the row block, but the tail re-derives its fp32
 # copy inside every one of them: 43 blocks per call at 512 aa, so the same 4 MB typecast and
 # multiply run 43 times over identical inputs. Hoisting it out of the loop is the same
@@ -1450,11 +1462,41 @@ def _fp32_softmax_l1_rows(per_row: int, height_per_row: int, cap: int | None = N
     return blk
 
 
-def _fp32_softmax_l1_narrow(l1_key, rows: int) -> None:
-    """Record a refusal: this shape class gets at most ``rows - 1`` rows from now on."""
+def _fp32_softmax_l1_narrow(l1_key, rows: int, free: bool = False) -> None:
+    """Record a refusal: the plan that refused gets at most ``rows - 1`` rows from now on."""
+    caps = _FP32_SOFTMAX_L1_FREE_ROW_CAP if free else _FP32_SOFTMAX_L1_ROW_CAP
     cap = max(0, int(rows) - 1)
-    prev = _FP32_SOFTMAX_L1_ROW_CAP.get(l1_key)
-    _FP32_SOFTMAX_L1_ROW_CAP[l1_key] = cap if prev is None else min(prev, cap)
+    prev = caps.get(l1_key)
+    caps[l1_key] = cap if prev is None else min(prev, cap)
+
+
+def _fp32_softmax_free_spent(l1_key, per_row: int, height_per_row: int) -> bool:
+    """Has the floating plan run out of leash for this shape class?
+
+    A refusal cap has to be priced against what retirement falls back TO, because the two things
+    it can land on are not the same kind of thing.
+
+    Where the tuned rectangle serves T rows, retirement lands on the block that ships, and every
+    rung above T is a TALLER block than that -- so a rung that refuses runs FEWER blocks than the
+    baseline and loses only their residency, never the baseline's own. The leash there is geometric
+    rather than a count: walk while the floating cap is still at or above T, retire the moment a
+    refusal takes it below. That is every rung above the shipped block and not one below it.
+
+    Where the rectangle is dark (T = 0) retirement lands on nothing, the baseline is ONE unblocked
+    call, and a rung MULTIPLIES the block count instead of dividing it -- a slice and a concat per
+    block with no residency behind them. That is the measured 0.295x at 2 heads / 960 tokens, 16 of
+    29 blocks resident (perf/fp32softmax/results/s1_op_bitexact_guard.json), and there the leash
+    stays the measured count of 2.
+
+    One lever, two fallbacks, two leashes. A single global count cannot hold both, and the count
+    that has to be 2 to protect 960 tokens is what stopped 768 aa two rungs short of a plan that
+    takes: 114 of its 173 calls retired to the tuned block, so the arm ran the baseline's plan for
+    two thirds of the fold and read 1.0023x (state doc 35, 35.1).
+    """
+    if not _fp32_softmax_l1_rows(per_row, height_per_row):
+        return _FP32_SOFTMAX_L1_REFUSALS.get(l1_key, 0) >= _FP32_SOFTMAX_FREE_REFUSAL_CAP
+    free_cap = _FP32_SOFTMAX_L1_FREE_ROW_CAP.get(l1_key)
+    return free_cap is not None and free_cap < _fp32_softmax_l1_rows(per_row, height_per_row)
 
 
 # S1: a height shard whose core COUNT is chosen with the block, for the sizes where the tuned 8x8
@@ -1566,7 +1608,8 @@ def _fp32_softmax_l1_free_rows(per_row: int, height_per_row: int, cap: int | Non
 
 @lru_cache(maxsize=None)
 def _fp32_softmax_l1_plan(per_row: int, height_per_row: int, width: int,
-                          cap: int | None = None, bmm: tuple | None = None) -> tuple:
+                          cap: int | None = None, bmm: tuple | None = None,
+                          free_cap: int | None = None) -> tuple:
     """``(rows, cores)`` for the largest L1-resident score block, or ``(0, 0)`` when there is none.
 
     With S2 off the tuned 8x8 answer wins whenever it exists, so every size that is L1-resident
@@ -1595,7 +1638,8 @@ def _fp32_softmax_l1_plan(per_row: int, height_per_row: int, width: int,
     # Only a block that REPLACES one with a tuned config has a config to lose.
     keep = (bmm is not None and tuned > 0 and _BATCHED_MATMUL_ON
             and _fp32_softmax_bmm_served(tuned, bmm))
-    free, cores = _fp32_softmax_l1_free_rows(per_row, height_per_row, cap, bmm if keep else None)
+    free, cores = _fp32_softmax_l1_free_rows(per_row, height_per_row, free_cap,
+                                            bmm if keep else None)
     if not tuned:
         return free, cores
     # Taller first, then wider. A tie on height is not a no-op: the same block on more cores is
@@ -1747,9 +1791,10 @@ def _fp32_softmax_attention(
            -(-int(k.shape[2]) // 32), -(-int(v.shape[3]) // 32))
     cap = _FP32_SOFTMAX_L1_ROW_CAP.get(l1_key)
     tuned_cores = _FP32_SOFTMAX_L1_GRID[0] * _FP32_SOFTMAX_L1_GRID[1]
-    l1_rows, l1_cores = _fp32_softmax_l1_plan(per_row, height_per_row, int(k.shape[2]), cap, bmm)
+    l1_rows, l1_cores = _fp32_softmax_l1_plan(per_row, height_per_row, int(k.shape[2]), cap, bmm,
+                                             _FP32_SOFTMAX_L1_FREE_ROW_CAP.get(l1_key))
     if (l1_cores != tuned_cores
-            and _FP32_SOFTMAX_L1_REFUSALS.get(l1_key, 0) >= _FP32_SOFTMAX_FREE_REFUSAL_CAP):
+            and _fp32_softmax_free_spent(l1_key, per_row, height_per_row)):
         # Retire the FLOATING plan, not L1 residency. Where the tuned rectangle can still serve a
         # block, that block is what shipped and it is the right fallback: dropping to no plan at all
         # also drops the BLOCK CAP, and an unblocked call materialises the whole fp32 score tensor
@@ -1759,15 +1804,17 @@ def _fp32_softmax_attention(
         l1_rows = _fp32_softmax_l1_rows(per_row, height_per_row, cap)
         l1_cores = tuned_cores if l1_rows else 0
         FP32_SOFTMAX_STATS["l1_free_retired"] += 1
+    free = l1_cores != tuned_cores
     if l1_rows:
         blk = min(blk, l1_rows)
         FP32_SOFTMAX_STATS["l1"] += 1
         FP32_SOFTMAX_STATS["l1_cores"] = l1_cores
 
     def shard_for(n):
-        # A refusal inside this call narrows the class mid-loop, and `blk` is already fixed, so the
+        # A refusal inside this call narrows the plan mid-loop, and `blk` is already fixed, so the
         # remaining blocks of THIS call go interleaved and the next call re-derives a smaller block.
-        cap = _FP32_SOFTMAX_L1_ROW_CAP.get(l1_key)
+        caps = _FP32_SOFTMAX_L1_FREE_ROW_CAP if free else _FP32_SOFTMAX_L1_ROW_CAP
+        cap = caps.get(l1_key)
         if not l1_rows or (cap is not None and n > cap):
             return None
         return _fp32_softmax_shard(n, height_per_row, int(k.shape[2]), l1_cores)
@@ -1776,7 +1823,7 @@ def _fp32_softmax_attention(
         sh = shard_for(rows)
         FP32_SOFTMAX_STATS["l1_blocks"] += sh is not None
         return _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_config,
-                                             out_dtype, bias_scale_inv, sh, l1_key,
+                                             out_dtype, bias_scale_inv, sh, l1_key, free=free,
                                              accurate_softmax=accurate_softmax)
     FP32_SOFTMAX_STATS["blocked"] += 1
     parts = []
@@ -1789,7 +1836,7 @@ def _fp32_softmax_attention(
         FP32_SOFTMAX_STATS["l1_blocks"] += sh is not None
         parts.append(_fp32_softmax_attention_block(qs, ks, vs, bias, scale_inv,
                                                    compute_kernel_config, out_dtype,
-                                                   bias_scale_inv, sh, l1_key, bias_f,
+                                                   bias_scale_inv, sh, l1_key, bias_f, free=free,
                                                    accurate_softmax=accurate_softmax))
         for t in (qs, ks, vs):
             ttnn.deallocate(t)
@@ -1811,7 +1858,7 @@ def _fp32_softmax_bias(bias, scale_inv, bias_scale_inv):
 
 def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_config,
                                   out_dtype, bias_scale_inv, shard=None, l1_key=None,
-                                  bias_f=None, accurate_softmax=False):
+                                  bias_f=None, free=False, accurate_softmax=False):
     """One row block of `_fp32_softmax_attention`. The whole tensor is one block below the budget.
 
     ``shard`` height-shards the block so the four steps between the two matmuls stay in L1. Both
@@ -1830,7 +1877,7 @@ def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_confi
             # The shard allocated but the sharded softmax could not fit its circular buffers
             # around it. Take one row off this geometry and fall back to the interleaved tail for
             # now, which is the same ops on the same dtypes and therefore the same bits.
-            _fp32_softmax_l1_narrow(l1_key, int(q.shape[0]))
+            _fp32_softmax_l1_narrow(l1_key, int(q.shape[0]), free)
             _FP32_SOFTMAX_L1_REFUSALS[l1_key] = _FP32_SOFTMAX_L1_REFUSALS.get(l1_key, 0) + 1
             FP32_SOFTMAX_STATS["l1_refused"] += 1
             attn_bf = None
