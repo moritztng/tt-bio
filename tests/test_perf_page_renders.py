@@ -25,9 +25,24 @@ DATA = REPO / "site" / "data" / "perf-512aa.json"
 HARNESS = REPO / "site" / "benchmarks" / "render_check.js"
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="node not installed")
+def _node() -> str | None:
+    """node, from PATH or from an nvm install.
+
+    The fleet's workers run non-interactive shells that never source ~/.nvm/nvm.sh, so
+    `shutil.which` returns None on a box that has node and this test skipped every time it
+    ran unattended. A skip is silent, so the one guard that catches "the page renders but
+    quietly omits a series" was dark exactly where nobody was watching. Look in nvm too.
+    """
+    found = shutil.which("node")
+    if found:
+        return found
+    versions = sorted((Path.home() / ".nvm" / "versions" / "node").glob("*/bin/node"))
+    return str(versions[-1]) if versions else None
+
+
+@pytest.mark.skipif(_node() is None, reason="node not installed")
 def test_page_renders_every_data_row():
-    proc = subprocess.run(["node", str(HARNESS)], cwd=REPO, capture_output=True, text=True,
+    proc = subprocess.run([_node(), str(HARNESS)], cwd=REPO, capture_output=True, text=True,
                           timeout=120)
     assert proc.returncode == 0, proc.stdout + proc.stderr
 
