@@ -502,9 +502,16 @@ def run_esmfold2(args) -> dict:
     # ESMFold2 cells were themselves measured on torch SDPA. Scoped to this model on purpose --
     # boltz-2 and openfold3 run their attention through cuEquivariance and are unaffected, so
     # they keep the exact backend selection their published cells were measured with.
+    #
+    # FORCE_CUDNN_SDPA_OFF=1 flips it on any GPU. That exists because the flip is a cross-box
+    # protocol asymmetry, not a neutral one: sm_100 has to run these 1964 SDPA calls on flash
+    # while sm_90 runs them on cuDNN, so an H200-vs-B200 ratio for this row compares two backends
+    # as well as two GPUs. The override lets the H200 measure its own cuDNN-off leg and price
+    # that confound instead of leaving it as a caveat.
     args._cudnn_sdpa_disabled = False
     try:
-        if torch.cuda.is_available() and torch.cuda.get_device_capability()[0] >= 10:
+        force_off = os.environ.get("FORCE_CUDNN_SDPA_OFF") == "1"
+        if torch.cuda.is_available() and (force_off or torch.cuda.get_device_capability()[0] >= 10):
             torch.backends.cuda.enable_cudnn_sdp(False)
             args._cudnn_sdpa_disabled = True
     except Exception:
