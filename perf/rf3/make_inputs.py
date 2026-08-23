@@ -22,7 +22,10 @@ CDK2_298 = ("MENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLL
             "TLWYRAPEILLGCKYYSTAVDIWSLGCIFAEMVTRRALFPGDSEIDQLFRIFRTLGTPDEVVWPGVTSMPDYKPSFPKWARQ"
             "DFSKVVPPLDEDGRSLLSQMLHYDPNKRISAKAALAHPFFQDVTKPVPHLRL")
 
-SIZES = (128, 256, 512, 768, 1024)
+# 298 is the fleet fixture at its own natural length -- no tiling, no truncation -- and it is the
+# only rung where RF3 serves triangle attention at a k_chunk narrower than the padded key
+# (shipped k = 64 at padded 320), so it is the only rung a k_chunk probe has anything to vary.
+SIZES = (128, 256, 298, 512, 768, 1024)
 
 
 def cdk2(n: int) -> str:
