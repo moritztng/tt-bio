@@ -359,8 +359,9 @@ member), a binary binder probability, and six distogram entropies.
 On DAVIS it reaches 0.662 mean within-target Pearson against measured Kd (0.175 for a
 molecular-weight-only control), matching the 0.636 the upstream implementation gets on an H200.
 
-It is far cheaper than folding for the same question: 8.3 s per prediction at 512 aa on one
-Blackhole card, against 386 s for Boltz-2 affinity, which is what tt-bio shipped for this before.
+It is far cheaper than folding for the same question. One 512 aa prediction takes 8.3 s of model
+time on one Blackhole card, 33 s for the whole command including featurisation; Boltz-2 affinity
+takes 386 s for the same command on the same input, which is what tt-bio shipped for this before.
 Against a GPU it is 7.9x off an H200 at that size, so choose it for what the answer costs on this
 hardware rather than expecting it to beat a GPU.
 

@@ -31,10 +31,20 @@ and the floor above already reflects that, so it is a description of the workloa
 headroom to go and get.
 
 It is still the right model to run here, because the alternative is much worse. Scoring the same
-protein-ligand pair through Boltz-2 affinity costs 386.25 s per prediction at 512 aa on the same
-card, so Nesso-1 is **59x cheaper for the same question** and still 3.35x cheaper than Boltz-2
-affinity on an H200. Pick it for the cost of the answer on this hardware, not because it beats a
-GPU.
+protein-ligand pair through Boltz-2 affinity costs 386.3 s on a p150a
+(`perf/nesso1/results/tt_boltz2_affinity_512.json`) against 33.3 s for `tt-bio affinity`
+(`perf/nesso1/results/tt_affinity_invocation_512.json`), both the whole command wall to wall on the
+same 512 aa fixture, so **about 12x cheaper for the same question**. Read that as an order of
+magnitude rather than a figure: the Boltz-2 side is one rep on a box at loadavg 16-22, which can
+only make it slower, and it does not record its kernel-cache state. For a screen the matched number
+is 19.3x cheaper per compound, measured on an H200 with both arms timed as full invocations
+(`perf/nesso1/gpu_reference.json`, `boltz2_comparison.matched_marginal`). Pick Nesso-1 for the cost
+of the answer on this hardware, not because it beats a GPU.
+
+Do not divide 386.3 s by the 8.34 s forward above. That is 46x, and it is wrong: 386.3 s is a whole
+invocation with model load and featurisation inside it, which is why Boltz-2 affinity costs 298 s
+even at 128 aa. Comparing an invocation against a forward hands Nesso-1 the other model's fixed
+cost.
 
 ## Does it rank binders
 

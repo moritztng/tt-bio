@@ -100,10 +100,11 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   once. Output is one `<id>_affinity.json` per input plus an `affinity.csv` for the run.
   On DAVIS it reaches 0.662 mean within-target Pearson against measured Kd (0.175 for a
   molecular-weight-only control), matching the 0.636 the upstream implementation gets on an
-  H200. One prediction costs 8.3 s at 512 aa on one Blackhole card against 386 s for Boltz-2
-  affinity, which is what tt-bio shipped for this question before; against a GPU it is 7.9x
-  off an H200 at that size, so choose it for what the answer costs on this hardware rather
-  than expecting it to beat a GPU. The trunk runs bf16 by default (`--trunk fp32` switches
+  H200. One 512 aa prediction costs 8.3 s of model time on one Blackhole card and 33 s for
+  the whole command, against 386 s for the same command through Boltz-2 affinity, which is
+  what tt-bio shipped for this question before; against a GPU it is 7.9x off an H200 at that
+  size, so choose it for what the answer costs on this hardware rather than expecting it to
+  beat a GPU. The trunk runs bf16 by default (`--trunk fp32` switches
   back, and is the more faithful arm under ~150 tokens). Weights and the 413 MB `ccd.pkl`
   download on first use. See `docs/nesso1.md`.
 - Nesso-1 joins every release gate leg: a correctness arm (`release_gate.py --model nesso1`,
