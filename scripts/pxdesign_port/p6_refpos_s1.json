@@ -1,0 +1,68 @@
+{
+ "source": "pdl1_protenix05_noH ref_pos_seed=1",
+ "n_token": 196,
+ "n_atom": 1250,
+ "n_step": 400,
+ "n_sample": 4,
+ "seed": 0,
+ "ref_pos_seed": 1,
+ "seconds": 31.57,
+ "coords_sha16": "cc10ea6c4ad7d142",
+ "art": "scripts/pxdesign_port/parity_artifacts/pdl1_protenix05_noH",
+ "coords_shape": [
+  4,
+  1250,
+  3
+ ],
+ "binder_atoms": 321,
+ "target_atoms": 929,
+ "stats": [
+  {
+   "rg_all": 16.118925094604492,
+   "rg_target": 13.888201713562012,
+   "rg_binder": 13.43088150024414
+  },
+  {
+   "rg_all": 16.149036407470703,
+   "rg_target": 13.916864395141602,
+   "rg_binder": 12.231054306030273
+  },
+  {
+   "rg_all": 15.994251251220703,
+   "rg_target": 13.93848705291748,
+   "rg_binder": 13.173113822937012
+  },
+  {
+   "rg_all": 16.15281867980957,
+   "rg_target": 13.901155471801758,
+   "rg_binder": 13.307223320007324
+  }
+ ],
+ "target_reproduction": [
+  {
+   "target_rmsd": 0.06415896805611443,
+   "n_scored": 116,
+   "min_binder_target_dist": 2.7017643451690674,
+   "n_contacts_below_5A": 34
+  },
+  {
+   "target_rmsd": 0.05503592538691379,
+   "n_scored": 116,
+   "min_binder_target_dist": 2.3390185832977295,
+   "n_contacts_below_5A": 48
+  },
+  {
+   "target_rmsd": 0.06206226882663824,
+   "n_scored": 116,
+   "min_binder_target_dist": 1.8517149686813354,
+   "n_contacts_below_5A": 49
+  },
+  {
+   "target_rmsd": 0.053192168584692,
+   "n_scored": 116,
+   "min_binder_target_dist": 2.677964448928833,
+   "n_contacts_below_5A": 35
+  }
+ ],
+ "finite": true
+}

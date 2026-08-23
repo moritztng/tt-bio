@@ -1,0 +1,129 @@
+{
+ "mode": "af2ig_fp32_softmax_l1_padded_screen",
+ "rows": [
+  {
+   "tokens": 848,
+   "l1_padded": false,
+   "passes": 3,
+   "first_s": 36.51744510799472,
+   "warm_s": 36.31867965299898,
+   "warm_min_s": 36.31856492099905,
+   "all_s": [
+    36.51744510799472,
+    36.31856492099905,
+    36.31879438499891
+   ],
+   "z_sha16": "b48654cc28941b73",
+   "m_sha16": "cc15fd2382751546",
+   "fp32_softmax_stats": {
+    "calls": 456,
+    "blocked": 312,
+    "blocks": 624,
+    "fused": 768,
+    "unfused": 0,
+    "l1": 0,
+    "l1_blocks": 0,
+    "l1_refused": 0,
+    "l1_cores": 0,
+    "l1_free_retired": 0,
+    "l1_free_walked": 0
+   },
+   "l1_row_caps": {},
+   "l1_free_row_caps": {}
+  },
+  {
+   "tokens": 848,
+   "l1_padded": true,
+   "passes": 3,
+   "first_s": 26.84020274700015,
+   "warm_s": 26.711540322499786,
+   "warm_min_s": 26.693155836001097,
+   "all_s": [
+    26.84020274700015,
+    26.729924808998476,
+    26.693155836001097
+   ],
+   "z_sha16": "b48654cc28941b73",
+   "m_sha16": "cc15fd2382751546",
+   "fp32_softmax_stats": {
+    "calls": 456,
+    "blocked": 312,
+    "blocks": 44284,
+    "fused": 44429,
+    "unfused": 0,
+    "l1": 456,
+    "l1_blocks": 44308,
+    "l1_refused": 1,
+    "l1_cores": 108,
+    "l1_free_retired": 0,
+    "l1_free_walked": 0
+   },
+   "l1_row_caps": {},
+   "l1_free_row_caps": {
+    "(3456, 864)": 6
+   }
+  },
+  {
+   "tokens": 848,
+   "l1_padded": false,
+   "passes": 3,
+   "first_s": 36.32523177500116,
+   "warm_s": 36.27693492399703,
+   "warm_min_s": 36.244201595996856,
+   "all_s": [
+    36.32523177500116,
+    36.244201595996856,
+    36.30966825199721
+   ],
+   "z_sha16": "b48654cc28941b73",
+   "m_sha16": "cc15fd2382751546",
+   "fp32_softmax_stats": {
+    "calls": 456,
+    "blocked": 312,
+    "blocks": 624,
+    "fused": 768,
+    "unfused": 0,
+    "l1": 0,
+    "l1_blocks": 0,
+    "l1_refused": 0,
+    "l1_cores": 0,
+    "l1_free_retired": 0,
+    "l1_free_walked": 0
+   },
+   "l1_row_caps": {},
+   "l1_free_row_caps": {}
+  },
+  {
+   "tokens": 848,
+   "l1_padded": true,
+   "passes": 3,
+   "first_s": 26.676870849994884,
+   "warm_s": 26.585850629500783,
+   "warm_min_s": 26.582458639000834,
+   "all_s": [
+    26.676870849994884,
+    26.589242620000732,
+    26.582458639000834
+   ],
+   "z_sha16": "b48654cc28941b73",
+   "m_sha16": "cc15fd2382751546",
+   "fp32_softmax_stats": {
+    "calls": 456,
+    "blocked": 312,
+    "blocks": 44284,
+    "fused": 44429,
+    "unfused": 0,
+    "l1": 456,
+    "l1_blocks": 44308,
+    "l1_refused": 1,
+    "l1_cores": 108,
+    "l1_free_retired": 0,
+    "l1_free_walked": 0
+   },
+   "l1_row_caps": {},
+   "l1_free_row_caps": {
+    "(3456, 864)": 6
+   }
+  }
+ ]
+}

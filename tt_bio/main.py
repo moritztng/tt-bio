@@ -203,8 +203,9 @@ SAPROT_MODELS = ("saprot-35m", "saprot-650m", "saprot-1.3b")
 # as PREDICT_MODELS above: gates and docs derive the shipped design models from
 # here instead of re-typing the list. boltzgen is the default (the full
 # production binder-design pipeline, mirroring predict's boltz2 default); rfd3
-# is the lighter single-shot all-atom diffusion designer.
-DESIGN_MODELS = ("boltzgen", "rfd3")
+# is the lighter single-shot all-atom diffusion designer; pxdesign generates binder
+# backbones against a target structure, conditioned on a distogram of the target only.
+DESIGN_MODELS = ("boltzgen", "rfd3", "pxdesign")
 
 # `affinity --model`: scalar-output affinity predictors. Separate from PREDICT_MODELS
 # because these fold nothing — no coordinates, no PAE, no confidence — so they do not
@@ -251,6 +252,15 @@ def download_all(cache: Path, model: str = "boltz2") -> None:
     rf3 only, and downloaded the 4.2 GB of Boltz-2 checkpoints for every model whether
     or not they were needed. Rows tt-bio does not download (OpenFold3) are skipped."""
     weights.fetch_models(model, root=cache)
+
+
+def ensure_pxdesign_weights(cache: Path) -> Path:
+    """The PXDesign-d generator checkpoint `tt-bio design --model pxdesign` loads.
+
+    The AF2-IG parameters are NOT fetched here. They belong to the selection stage, which is
+    not on the CLI, and they are a 4 GB archive; `tt-bio weights --download af2ig` gets them.
+    """
+    return weights.fetch("pxdesign", root=cache)
 
 
 def compute_msa(seqs: dict[str, str], target_id: str, msa_dir: Path, url: str, strategy: str,
@@ -3418,18 +3428,60 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
                f"→ {out} (see manifest.json)")
 
 
+def _run_pxdesign_cli(inputs: Path, out_dir, cache, num_designs, n_step, seed) -> None:
+    """`tt-bio design --model pxdesign`: a target YAML to designed binder backbones.
+
+    Deliberately not a call into scripts/pxdesign_port/design_e2e.py. That harness scores against
+    committed captures and reads its target out of a capture directory; the shipped path builds
+    everything from the user's own structure file.
+    """
+    from tt_bio.pxdesign.inputs import design_inputs_from_yaml
+    from tt_bio.pxdesign.model import ProtenixDesign
+    from tt_bio.pxdesign.write import write_design_cifs
+
+    out_dir = out_dir or "./designs"
+    num_designs = num_designs if num_designs is not None else 1
+    torch.set_grad_enabled(False)
+
+    try:
+        feats = design_inputs_from_yaml(inputs)
+    except (ValueError, FileNotFoundError) as e:
+        raise click.ClickException(str(e))
+    # The model's parameters are float32 and the featurizer builds integer bins and masks; the
+    # harness converts once before the forward and so does this.
+    feats = {k: (v.float() if torch.is_tensor(v) and v.dtype == torch.float64 else v)
+             for k, v in feats.items()}
+
+    ckpt = ensure_pxdesign_weights(Path(cache).expanduser())
+    ensure_p300_mesh_descriptor()
+
+    n_token = int(feats["restype"].shape[0])
+    click.echo(f"Designing {num_designs} binder(s) against {inputs.name} "
+               f"({n_token} tokens, {n_step} steps) → {out_dir}")
+    model = ProtenixDesign.load_from_checkpoint(str(ckpt))
+    coords = model.design(feats, n_step=n_step, n_sample=num_designs, seed=seed)
+    rows = write_design_cifs(coords, feats, out_dir, stem=inputs.stem)
+
+    click.echo(f"Done — {len(rows)} design(s) → {out_dir}")
+    for r in rows:
+        click.echo(f"  {Path(r['cif']).name}: {r['binder_residues']} residues, "
+                   f"{r['binder_atoms']} atoms; target fit {r['fit_rmsd']:.2f} A "
+                   f"over {r['conditioned_tokens']} conditioned tokens")
+
+
 @cli.command("design")
 @click.argument("inputs", type=click.Path(exists=True, dir_okay=False))
 @click.option("--model", type=click.Choice(list(DESIGN_MODELS)), default="boltzgen", show_default=True,
               help="Design model. boltzgen: the full BoltzGen binder-design pipeline "
                    "(design → inverse folding → refolding → analysis → filtering; mirrors "
                    "predict's boltz2 default). rfd3: RFdiffusion3, a lighter single-shot "
-                   "all-atom diffusion designer (one CIF per spec). Options marked "
-                   "boltzgen/rfd3 apply to that model only.")
+                   "all-atom diffusion designer (one CIF per spec). pxdesign: binder "
+                   "backbones against a target structure, conditioned on a distogram of the "
+                   "target. Options marked boltzgen/rfd3/pxdesign apply to that model only.")
 @click.option("--out_dir", default=None,
               help="Output directory. Default: ./<input name>/ (boltzgen, writes "
                    "final_ranked_designs/ under it) or ./designs (rfd3, one "
-                   "<spec_id>.cif per design).")
+                   "<spec_id>.cif per design; pxdesign, one <input stem>.cif per design).")
 @click.option("--cache", default=lambda: os.environ.get("BOLTZ_CACHE", str(Path("~/.boltz").expanduser())),
               show_default=False, help="Weight cache directory (default: $BOLTZ_CACHE or ~/.boltz). "
                    "Both models auto-download their checkpoints here on first use.")
@@ -3450,7 +3502,8 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
 @click.option("--num_timesteps", default=4, show_default=True,
               help="rfd3 only. Diffusion denoising timesteps (low for a fast smoke; "
                    "upstream default 200).")
-@click.option("--seed", default=42, show_default=True, help="rfd3 only.")
+@click.option("--seed", default=42, show_default=True,
+              help="rfd3 and pxdesign. Noise seed for the diffusion sampler.")
 @click.option("--partial_t", default=None, type=float,
               help="rfd3 only. Partial-diffusion noise in Angstroms (per-spec partial_t "
                    "overrides this).")
@@ -3470,6 +3523,9 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
                    "The runtime shrinks it so a batch cannot exhaust device memory; each design "
                    "keeps its own seeded RNG stream and the forward is bit-identical to running "
                    "the designs one at a time.")
+@click.option("--n_step", default=400, show_default=True, type=click.IntRange(min=1),
+              help="pxdesign only. Diffusion denoising steps. 400 is what an upstream run "
+                   "uses; lower is a fast smoke and moves the coordinates.")
 @click.option("--host_threads", default=None, type=int,
               help="rfd3 only. Total host CPU threads this process may use, split across its "
                    "cards. Defaults to every core, which is right when this is the only tt-bio "
@@ -3507,7 +3563,7 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
               help="boltzgen only. With --debug: print per-stage progress lines.")
 def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                checkpoint, golden_dir, num_timesteps, seed, partial_t, fp32_residual,
-               spec_subset, from_pdb, batch_size, host_threads,
+               spec_subset, from_pdb, batch_size, n_step, host_threads,
                protocol, steps, configs, budget, reuse, fast, diffusion_trace, debug, log):
     """Run structure design on Tenstorrent: generate new protein binders, scaffolds,
     or sequences from a specification instead of folding an existing one.
@@ -3533,7 +3589,25 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
     (pass --from_pdb). See docs/rfd3-design.md for the contig grammar and current
     limitations.
 
-    Both models auto-download their checkpoints on first use.
+    \b
+    --model pxdesign: PXDesign-d binder generation. INPUTS is a target YAML naming a
+    structure file, the chains to condition on (with optional per-chain crop and
+    hotspots) and a binder_length:
+
+    \b
+    target:
+      file: PDL1.cif
+      chains:
+        A: {hotspots: [54, 56, 121]}
+    binder_length: 80
+
+    Writes one CIF per design to --out_dir, each the designed backbone placed in the
+    target structure's own frame, so it opens alongside the input file. The binder is
+    written as GLY: PXDesign generates a backbone with no sequence, and inventing side
+    chains it did not produce would be worse than saying so. Selecting designs (the
+    Protenix and AF2-IG filters) is not on the CLI yet.
+
+    All three models auto-download their checkpoints on first use.
     """
     ctx = click.get_current_context()
     from click.core import ParameterSource
@@ -3546,7 +3620,8 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                            ("--num_timesteps", "num_timesteps"), ("--seed", "seed"),
                            ("--partial_t", "partial_t"), ("--fp32_residual", "fp32_residual"),
                            ("--spec", "spec_subset"), ("--from_pdb", "from_pdb"),
-                           ("--batch_size", "batch_size"), ("--host_threads", "host_threads")):
+                           ("--batch_size", "batch_size"), ("--host_threads", "host_threads"),
+                           ("--n_step", "n_step")):
             if _explicit(name):
                 click.secho(f"Note: --model boltzgen does not use {flag}; ignoring.", fg="yellow")
         argv = ["run", str(inputs)]
@@ -3574,12 +3649,28 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
         _run_boltzgen_cli("tt-bio design", argv)
         return
 
+    if model == "pxdesign":
+        for flag, name in (("--protocol", "protocol"), ("--steps", "steps"),
+                           ("--config", "configs"), ("--budget", "budget"),
+                           ("--reuse", "reuse"), ("--fast", "fast"),
+                           ("--diffusion_trace", "diffusion_trace"), ("--debug", "debug"),
+                           ("--log", "log"), ("--checkpoint", "checkpoint"),
+                           ("--golden_dir", "golden_dir"), ("--num_timesteps", "num_timesteps"),
+                           ("--partial_t", "partial_t"), ("--fp32_residual", "fp32_residual"),
+                           ("--spec", "spec_subset"), ("--from_pdb", "from_pdb"),
+                           ("--batch_size", "batch_size"), ("--host_threads", "host_threads"),
+                           ("--devices", "devices")):
+            if _explicit(name):
+                click.secho(f"Note: --model pxdesign does not use {flag}; ignoring.", fg="yellow")
+        _run_pxdesign_cli(Path(inputs), out_dir, cache, num_designs, n_step, seed)
+        return
+
     # --model rfd3
     for flag, name in (("--protocol", "protocol"), ("--steps", "steps"),
                        ("--config", "configs"), ("--budget", "budget"),
                        ("--reuse", "reuse"), ("--fast", "fast"),
                        ("--diffusion_trace", "diffusion_trace"), ("--debug", "debug"),
-                       ("--log", "log")):
+                       ("--log", "log"), ("--n_step", "n_step")):
         if _explicit(name):
             click.secho(f"Note: --model rfd3 does not use {flag}; ignoring.", fg="yellow")
     if golden_dir is not None:

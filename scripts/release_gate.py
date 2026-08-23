@@ -692,8 +692,37 @@ NESSO1_REPEATS = 3
 # each, and the rest is the weight load.
 NESSO1_TIMEOUT_S = 1800
 
+# PXDesign design leg. PXDesign is a binder-design pipeline, so it has no row in MODELS (folds of
+# 7ROA scored by CA-RMSD/TM against a ground truth) and none in SIZE_LADDER_MODELS -- neither holds
+# a design model. Same shape as the BoltzGen designability leg: run the shipped CLI path, parse
+# every CIF strictly, then score the one end-to-end number the model actually makes a claim about.
+#
+# That number is the conditioned-token fit RMSD. PXDesign sees a 64-bin DISTOGRAM of the target and
+# nothing else about its coordinates, so a correct run reproduces the target's own fold while the
+# binder is free, and a broken conditioning path (wrong embedding row, wrong bin edges, a leaked
+# binder placeholder) lands in the tens of angstroms. Nothing else in the pipeline complains about
+# any of those, which is what makes it the right gate rather than a nicety.
+PXDESIGN_SPEC = REPO_ROOT / "tests" / "fixtures" / "pxdesign" / "PDL1.yaml"
+PXDESIGN_N_STEP = 20        # steps change how often a site is reached, not which; keeps the leg short
+PXDESIGN_SEED = 0
+PXDESIGN_NUM_DESIGNS = 1
+# Floor, not a target: catch a gross conditioning failure, the same philosophy as the MODELS floors.
+# Measured 2026-08-23 on qb2 card 0 (Blackhole p300c) through the shipped CLI path at n_step=20,
+# seed 0: 4.909 A over the 116 conditioned tokens of the 196-token PD-L1 fixture. The floor is 3x
+# that. Generous on purpose -- the failure this catches is a BROKEN CONDITIONING PATH, which lands
+# in the tens of angstroms, not a design that is a little worse. 20 steps is a smoke, not
+# production quality: upstream uses 400, so this says the conditioning works, not that the binder
+# is good.
+PXDESIGN_MAX_FIT_RMSD = 15.0
+PXDESIGN_FIT_RMSD_MEASURED = 4.909
+# Bit-exactness evidence, REPORTED rather than gated. A coordinate digest is card- and
+# arch-specific the way af2ig-trunk-device's floor is, so making release success turn on equality
+# here would fail a release host for having different silicon rather than for a defect.
+# Recorded alongside the floor above and reproduced across three runs of the leg.
+PXDESIGN_STRUCTURE_SHA16 = "64af2cbc286012b9"
+
 DEFAULT_ARMS = ("boltzgen", "rfd3", "opendde-abag", "capacity",
-                "l1-budget", "batch-position", "nesso1")
+                "l1-budget", "batch-position", "nesso1", "pxdesign")
 
 L1_BUDGET_STEPS = 200
 # The width measured to fit at the issue-#11 call shape on a 110-core grid: the
@@ -1187,6 +1216,62 @@ def run_rfd3(keep: bool) -> dict:
                    and row["unk"] <= RFD3_MAX_UNK
                    and row["determinism"])
 
+    if not keep:
+        shutil.rmtree(out, ignore_errors=True)
+    return row
+
+
+def run_pxdesign(keep: bool) -> dict:
+    """Design one binder through the shipped CLI path, parse it, and score the conditioning."""
+    import hashlib
+
+    import torch
+
+    out = REPO_ROOT / "pxdesign_gate_designs"
+    if out.exists():
+        shutil.rmtree(out)  # never score a stale run if this design run crashes
+
+    print(f"\n{'='*70}\n[pxdesign] designing against {PXDESIGN_SPEC.name} "
+          f"({PXDESIGN_NUM_DESIGNS} design, {PXDESIGN_N_STEP} steps)\n{'='*70}", flush=True)
+
+    row = {"model": "pxdesign", "seconds": None, "fit_rmsd": None, "sha16": None,
+           "binder_residues": None, "parse": False, "gate": False, "error": None}
+    try:
+        from tt_bio.pxdesign.inputs import design_inputs_from_yaml
+        from tt_bio.pxdesign.model import ProtenixDesign
+        from tt_bio.pxdesign.write import write_design_cifs
+        from tt_bio.main import ensure_pxdesign_weights, ensure_p300_mesh_descriptor
+    except Exception as e:
+        row["error"] = f"import failed: {type(e).__name__}: {e}"
+        return row
+
+    t0 = time.monotonic()
+    try:
+        feats = design_inputs_from_yaml(PXDESIGN_SPEC)
+        feats = {k: (v.float() if torch.is_tensor(v) and v.dtype == torch.float64 else v)
+                 for k, v in feats.items()}
+        ckpt = ensure_pxdesign_weights(Path(os.path.expanduser("~/.boltz")))
+        ensure_p300_mesh_descriptor()
+        model = ProtenixDesign.load_from_checkpoint(str(ckpt))
+        coords = model.design(feats, n_step=PXDESIGN_N_STEP, n_sample=PXDESIGN_NUM_DESIGNS,
+                              seed=PXDESIGN_SEED)
+        rows = write_design_cifs(coords, feats, out, stem="PDL1")
+    except Exception as e:
+        row["error"] = f"{type(e).__name__}: {e}"
+        return row
+    row["seconds"] = time.monotonic() - t0
+    row["fit_rmsd"] = max(r["fit_rmsd"] for r in rows)
+    row["binder_residues"] = rows[0]["binder_residues"]
+    row["sha16"] = hashlib.sha256(coords.contiguous().numpy().tobytes()).hexdigest()[:16]
+
+    try:
+        _parse_gate(sorted(out.rglob("*.cif")), name="pxdesign")
+        row["parse"] = True
+    except Exception as e:
+        row["error"] = f"CIF parse failed: {e}"
+        return row
+
+    row["gate"] = row["fit_rmsd"] <= PXDESIGN_MAX_FIT_RMSD
     if not keep:
         shutil.rmtree(out, ignore_errors=True)
     return row
@@ -2650,6 +2735,7 @@ def main() -> int:
     want_boltzgen = "boltzgen" in models
     want_opendde_abag = "opendde-abag" in models
     want_rfd3 = "rfd3" in models
+    want_pxdesign = "pxdesign" in models
     want_capacity = "capacity" in models
     want_l1_budget = "l1-budget" in models
     want_batch_position = "batch-position" in models
@@ -2732,6 +2818,26 @@ def main() -> int:
         print("GATE PASS — rfd3 designs cleared parse, designed-region geometry, "
               "sequence and determinism" if rr["gate"]
               else "GATE FAIL — rfd3 missed parse, geometry, sequence or determinism (see above)")
+
+    if want_pxdesign:
+        pr = run_pxdesign(args.keep)
+        print(f"\n{'#'*78}\nRELEASE GATE — {PXDESIGN_SPEC.name} (pxdesign), "
+              f"{PXDESIGN_NUM_DESIGNS} design, {PXDESIGN_N_STEP} steps\n{'#'*78}")
+        print(f"{'model':<15}{'fit RMSD':>12}{'binder res':>12}{'floor':>18}{'wall':>9}  result")
+        floor = f"<={PXDESIGN_MAX_FIT_RMSD}A"
+        fit = f"{pr['fit_rmsd']:.3f}" if pr["fit_rmsd"] is not None else "  -  "
+        res = str(pr["binder_residues"]) if pr["binder_residues"] is not None else "  -  "
+        wall = f"{pr['seconds']:.0f}s" if pr["seconds"] is not None else "-"
+        verdict = "PASS" if pr["gate"] else f"FAIL ({pr['error']})" if pr["error"] else "FAIL"
+        all_pass &= pr["gate"]
+        print(f"{pr['model']:<15}{fit:>12}{res:>12}{floor:>18}{wall:>9}  {verdict}")
+        if pr["sha16"]:
+            same = "  MATCH" if pr["sha16"] == PXDESIGN_STRUCTURE_SHA16 else "  DIFFERS"
+            print(f"coordinate digest {pr['sha16']}{same}  (evidence, not gated — a digest is "
+                  f"card- and arch-specific)")
+        print(f"{'#'*78}")
+        print("GATE PASS — pxdesign designs cleared parse + the conditioning floor" if pr["gate"]
+              else "GATE FAIL — pxdesign missed parse or the conditioning floor (see above)")
 
     if want_opendde_abag:
         if not OPENDDE_ABAG_DATA.exists():

@@ -1,0 +1,99 @@
+[
+ {
+  "name": "protenix-v2 (tt-bio)",
+  "derived": {
+   "c_z": 256,
+   "pairformer": 48,
+   "msa": 4,
+   "template": 2,
+   "confidence": 4,
+   "dit": 24,
+   "atom_enc": 3,
+   "atom_dec": 3
+  },
+  "built": {
+   "trunk_c_z": 256,
+   "pairformer": 48,
+   "msa": 4,
+   "template": 2
+  },
+  "error": null
+ },
+ {
+  "name": "protenix_base_default_v0.5.0",
+  "derived": {
+   "c_z": 128,
+   "pairformer": 48,
+   "msa": 4,
+   "template": 0,
+   "confidence": 4,
+   "dit": 24,
+   "atom_enc": 3,
+   "atom_dec": 3
+  },
+  "built": {
+   "trunk_c_z": 128,
+   "pairformer": 48,
+   "msa": 4,
+   "template": 0
+  },
+  "error": null
+ },
+ {
+  "name": "protenix_mini_tmpl_v0.5.0",
+  "derived": {
+   "c_z": 128,
+   "pairformer": 16,
+   "msa": 1,
+   "template": 0,
+   "confidence": 4,
+   "dit": 8,
+   "atom_enc": 1,
+   "atom_dec": 1
+  },
+  "built": {
+   "trunk_c_z": 128,
+   "pairformer": 16,
+   "msa": 1,
+   "template": 0
+  },
+  "error": null
+ },
+ {
+  "name": "protenix_mini_default_v0.5.0",
+  "derived": {
+   "c_z": 128,
+   "pairformer": 16,
+   "msa": 1,
+   "template": 0,
+   "confidence": 4,
+   "dit": 8,
+   "atom_enc": 1,
+   "atom_dec": 1
+  },
+  "built": {
+   "trunk_c_z": 128,
+   "pairformer": 16,
+   "msa": 1,
+   "template": 0
+  },
+  "error": null
+ },
+ {
+  "name": "pxdesign_v0.1.0 (generator)",
+  "derived": {
+   "c_z": null,
+   "pairformer": 0,
+   "msa": 0,
+   "template": 0,
+   "confidence": 0,
+   "dit": 16,
+   "atom_enc": 4,
+   "atom_dec": 4
+  },
+  "built": null,
+  "atom_encoder_keys": 93,
+  "atom_encoder_matches_v2": true,
+  "error": "no trunk / no confidence head: needs the ProtenixDesign class"
+ }
+]

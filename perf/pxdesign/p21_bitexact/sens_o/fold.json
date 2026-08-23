@@ -1,0 +1,101 @@
+{
+ "label": "sens_o",
+ "model": "rf3",
+ "fix": "cdk2x2_298",
+ "host": "tt-quietbox2",
+ "card": "1",
+ "recycling_steps": 10,
+ "sampling_steps": 5,
+ "rf3_shipped_steps": [
+  10,
+  50
+ ],
+ "diffusion_samples": 1,
+ "seed": 0,
+ "n_msa": 35,
+ "sha256_target": "d1c5084cae5c21dbc9de0e1ebbbc7a41b19d3949d74b036d401965225d5279c7",
+ "sha256_a3m": "e6eff96ae8bc7d823a25263aca56bb8af3c83e2e1cd7257e60d642a9e6a49c41",
+ "env_flags": {
+  "TT_BIO_LEASE_CARDS": "1",
+  "TT_BIO_LEASE_HOLDER": "worker:pxdesign-af2ig-port-p21",
+  "TT_BIO_PAIR_BIAS_IN_MATMUL": "o"
+ },
+ "folds": [
+  {
+   "tag": "warm0_seed0",
+   "seed": 0,
+   "fold_s": 33.53,
+   "plddt": 81.6199,
+   "ptm": 0.8727,
+   "n_tokens": 298,
+   "n_atoms": 2397,
+   "msa": true,
+   "cif_sha256": {
+    "cdk2x2_298.cif": "0aeb6928e3df890d"
+   },
+   "opm_small_depth_stats": [
+    0,
+    80
+   ],
+   "triatt_fused_hifi_stats": {
+    "served": 0,
+    "declined": 0,
+    "too_short": 0
+   },
+   "pair_bias_stats": {
+    "g_add": 2176,
+    "o_in_matmul_exit_l1": 2176
+   },
+   "pair_bias_in_matmul": [
+    "o"
+   ],
+   "kept": [
+    "cdk2x2_298.cif"
+   ],
+   "distogram": {
+    "shape": [
+     1,
+     298,
+     298,
+     65
+    ],
+    "dtype": "float32",
+    "captures": 2,
+    "sha256": "c46d27883c86abe5"
+   },
+   "kept_in": "perf/pxdesign/p21_bitexact/sens_o/f0_seed0"
+  }
+ ],
+ "cold": {
+  "tag": "cold",
+  "seed": 0,
+  "fold_s": 36.493,
+  "plddt": 81.6199,
+  "ptm": 0.8727,
+  "n_tokens": 298,
+  "n_atoms": 2397,
+  "msa": true,
+  "cif_sha256": {
+   "cdk2x2_298.cif": "0aeb6928e3df890d"
+  },
+  "opm_small_depth_stats": [
+   0,
+   40
+  ],
+  "triatt_fused_hifi_stats": {
+   "served": 0,
+   "declined": 0,
+   "too_short": 0
+  },
+  "pair_bias_stats": {
+   "g_add": 1088,
+   "o_in_matmul_exit_l1": 1088
+  },
+  "pair_bias_in_matmul": [
+   "o"
+  ]
+ },
+ "seeds": [
+  0
+ ]
+}

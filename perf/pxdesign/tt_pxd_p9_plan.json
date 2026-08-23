@@ -1,0 +1,218 @@
+{
+ "mode": "af2ig_fp32_softmax_l1_plan_probe",
+ "n_heads": 4,
+ "compute_grid_main": [
+  11,
+  10
+ ],
+ "core_budget": 110,
+ "tuned_grid": [
+  8,
+  8
+ ],
+ "bytes_per_core": 786432,
+ "any_cores": true,
+ "float_cores": true,
+ "rows": [
+  {
+   "tokens": 208,
+   "extent": "logical",
+   "length": 208,
+   "per_row_bytes": 692224,
+   "height_per_row": 832,
+   "tuned_rows": 64,
+   "plan": [
+    64,
+    64
+   ],
+   "free_rows": [
+    116,
+    104
+   ],
+   "block_cap": 12384,
+   "block_rows": 64,
+   "blocks_per_call": 4,
+   "shard_built": false
+  },
+  {
+   "tokens": 208,
+   "extent": "padded",
+   "length": 224,
+   "per_row_bytes": 802816,
+   "height_per_row": 896,
+   "tuned_rows": 48,
+   "plan": [
+    91,
+    98
+   ],
+   "free_rows": [
+    91,
+    98
+   ],
+   "block_cap": 10688,
+   "block_rows": 91,
+   "blocks_per_call": 3,
+   "shard_built": true
+  },
+  {
+   "tokens": 336,
+   "extent": "logical",
+   "length": 336,
+   "per_row_bytes": 1806336,
+   "height_per_row": 1344,
+   "tuned_rows": 0,
+   "plan": [
+    0,
+    0
+   ],
+   "free_rows": [
+    45,
+    105
+   ],
+   "block_cap": 4736,
+   "block_rows": 336,
+   "blocks_per_call": 1,
+   "shard_built": null
+  },
+  {
+   "tokens": 336,
+   "extent": "padded",
+   "length": 352,
+   "per_row_bytes": 1982464,
+   "height_per_row": 1408,
+   "tuned_rows": 16,
+   "plan": [
+    40,
+    110
+   ],
+   "free_rows": [
+    40,
+    110
+   ],
+   "block_cap": 4320,
+   "block_rows": 40,
+   "blocks_per_call": 9,
+   "shard_built": true
+  },
+  {
+   "tokens": 592,
+   "extent": "logical",
+   "length": 592,
+   "per_row_bytes": 5607424,
+   "height_per_row": 2368,
+   "tuned_rows": 0,
+   "plan": [
+    0,
+    0
+   ],
+   "free_rows": [
+    10,
+    74
+   ],
+   "block_cap": 1504,
+   "block_rows": 592,
+   "blocks_per_call": 1,
+   "shard_built": null
+  },
+  {
+   "tokens": 592,
+   "extent": "padded",
+   "length": 608,
+   "per_row_bytes": 5914624,
+   "height_per_row": 2432,
+   "tuned_rows": 0,
+   "plan": [
+    10,
+    95
+   ],
+   "free_rows": [
+    10,
+    95
+   ],
+   "block_cap": 1440,
+   "block_rows": 10,
+   "blocks_per_call": 60,
+   "shard_built": true
+  },
+  {
+   "tokens": 848,
+   "extent": "logical",
+   "length": 848,
+   "per_row_bytes": 11505664,
+   "height_per_row": 3392,
+   "tuned_rows": 0,
+   "plan": [
+    0,
+    0
+   ],
+   "free_rows": [
+    7,
+    106
+   ],
+   "block_cap": 736,
+   "block_rows": 736,
+   "blocks_per_call": 2,
+   "shard_built": null
+  },
+  {
+   "tokens": 848,
+   "extent": "padded",
+   "length": 864,
+   "per_row_bytes": 11943936,
+   "height_per_row": 3456,
+   "tuned_rows": 0,
+   "plan": [
+    7,
+    108
+   ],
+   "free_rows": [
+    7,
+    108
+   ],
+   "block_cap": 704,
+   "block_rows": 7,
+   "blocks_per_call": 122,
+   "shard_built": true
+  },
+  {
+   "tokens": 1024,
+   "extent": "logical",
+   "length": 1024,
+   "per_row_bytes": 16777216,
+   "height_per_row": 4096,
+   "tuned_rows": 3,
+   "plan": [
+    3,
+    96
+   ],
+   "free_rows": [
+    3,
+    96
+   ],
+   "block_cap": 512,
+   "block_rows": 3,
+   "blocks_per_call": 342,
+   "shard_built": true
+  },
+  {
+   "tokens": 1024,
+   "extent": "padded",
+   "length": 1024,
+   "per_row_bytes": 16777216,
+   "height_per_row": 4096,
+   "tuned_rows": 3,
+   "plan": [
+    3,
+    96
+   ],
+   "free_rows": [
+    3,
+    96
+   ],
+   "block_cap": 512,
+   "block_rows": 3,
+   "blocks_per_call": 342,
+   "shard_built": true
+  }
+ ]
+}
