@@ -1,0 +1,78 @@
+{
+  "rows": [
+    {
+      "op": "scatter",
+      "case": "L=512  NK=1024 K=128 H=1 fp32",
+      "exc": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/scatter/scatter.cpp:109: !(input_dtype == DataType::FLOAT32 && input_layout == Layout::TILE)\ninfo:\nScatter doesn't work for fp32 tiled tensors yet (see to_layout issue #) - input tensor is DataType::FLOAT32 Layout::TILE.\nbacktrace:\n --- /hom"
+    },
+    {
+      "op": "scatter",
+      "case": "L=512  NK=2048 K=128 H=1 fp32",
+      "exc": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/scatter/scatter.cpp:109: !(input_dtype == DataType::FLOAT32 && input_layout == Layout::TILE)\ninfo:\nScatter doesn't work for fp32 tiled tensors yet (see to_layout issue #) - input tensor is DataType::FLOAT32 Layout::TILE.\nbacktrace:\n --- /hom"
+    },
+    {
+      "op": "scatter",
+      "case": "L=512  NK=6080 K=128 H=1 fp32",
+      "exc": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/scatter/scatter.cpp:109: !(input_dtype == DataType::FLOAT32 && input_layout == Layout::TILE)\ninfo:\nScatter doesn't work for fp32 tiled tensors yet (see to_layout issue #) - input tensor is DataType::FLOAT32 Layout::TILE.\nbacktrace:\n --- /hom"
+    },
+    {
+      "op": "scatter",
+      "case": "L=2048 NK=6080 K=128 H=4 fp32",
+      "exc": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/scatter/scatter.cpp:109: !(input_dtype == DataType::FLOAT32 && input_layout == Layout::TILE)\ninfo:\nScatter doesn't work for fp32 tiled tensors yet (see to_layout issue #) - input tensor is DataType::FLOAT32 Layout::TILE.\nbacktrace:\n --- /hom"
+    },
+    {
+      "op": "scatter",
+      "case": "L=6051 NK=6080 K=128 H=4 fp32  <-- PRODUCTION",
+      "exc": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/scatter/scatter.cpp:109: !(input_dtype == DataType::FLOAT32 && input_layout == Layout::TILE)\ninfo:\nScatter doesn't work for fp32 tiled tensors yet (see to_layout issue #) - input tensor is DataType::FLOAT32 Layout::TILE.\nbacktrace:\n --- /hom"
+    },
+    {
+      "op": "scatter",
+      "case": "L=6051 NK=6080 K=128 H=4 bf16",
+      "L": 6051,
+      "n_key": 6080,
+      "K": 128,
+      "H": 4,
+      "wrong": 0,
+      "total_elems": 147160320,
+      "first_bad_row": -1
+    },
+    {
+      "op": "gather_boundary",
+      "n_key": 1952,
+      "wrong": 61440,
+      "out_elems": 65536
+    },
+    {
+      "op": "gather_boundary",
+      "n_key": 1984,
+      "wrong": 61440,
+      "out_elems": 65536
+    },
+    {
+      "op": "gather_boundary",
+      "n_key": 2016,
+      "wrong": 61440,
+      "out_elems": 65536
+    },
+    {
+      "op": "gather_boundary",
+      "n_key": 2032,
+      "wrong": 61440,
+      "out_elems": 65536
+    },
+    {
+      "op": "gather_boundary",
+      "n_key": 2040,
+      "wrong": 61440,
+      "out_elems": 65536
+    },
+    {
+      "op": "gather_boundary",
+      "n_key": 2048,
+      "wrong": 61440,
+      "out_elems": 65536
+    }
+  ],
+  "host": "qb2",
+  "card": "0"
+}

@@ -1,0 +1,113 @@
+{
+  "rows": [
+    {
+      "case": "L=32   NK=64   K=32  H=1",
+      "L": 32,
+      "n_key": 64,
+      "K": 32,
+      "H": 1,
+      "exact": true,
+      "wrong": 0,
+      "median_ms": 0.04621599509846419,
+      "us_per_elem": 0.045132807713343936,
+      "out_elems": 1024
+    },
+    {
+      "case": "L=64   NK=128  K=32  H=1",
+      "L": 64,
+      "n_key": 128,
+      "K": 32,
+      "H": 1,
+      "exact": true,
+      "wrong": 0,
+      "median_ms": 0.045774999307468534,
+      "us_per_elem": 0.02235107388059987,
+      "out_elems": 2048
+    },
+    {
+      "case": "L=128  NK=256  K=64  H=1",
+      "L": 128,
+      "n_key": 256,
+      "K": 64,
+      "H": 1,
+      "exact": true,
+      "wrong": 0,
+      "median_ms": 0.9939199953805655,
+      "us_per_elem": 0.12132812443610419,
+      "out_elems": 8192
+    },
+    {
+      "case": "L=128  NK=256  K=128 H=4",
+      "L": 128,
+      "n_key": 256,
+      "K": 128,
+      "H": 4,
+      "exact": true,
+      "wrong": 0,
+      "median_ms": 1.0085879985126667,
+      "us_per_elem": 0.015389831520273844,
+      "out_elems": 65536
+    },
+    {
+      "case": "L=512  NK=1024 K=128 H=4",
+      "L": 512,
+      "n_key": 1024,
+      "K": 128,
+      "H": 4,
+      "exact": true,
+      "wrong": 0,
+      "median_ms": 0.18055600230582058,
+      "us_per_elem": 0.000688766488288195,
+      "out_elems": 262144
+    },
+    {
+      "case": "L=1024 NK=2048 K=128 H=4",
+      "L": 1024,
+      "n_key": 2048,
+      "K": 128,
+      "H": 4,
+      "exact": false,
+      "wrong": 520192,
+      "median_ms": 145.19801900314633,
+      "us_per_elem": 0.27694324303273454,
+      "out_elems": 524288
+    },
+    {
+      "case": "L=2048 NK=6080 K=128 H=4",
+      "L": 2048,
+      "n_key": 6080,
+      "K": 128,
+      "H": 4,
+      "exact": false,
+      "wrong": 1044480,
+      "median_ms": 895.976015002816,
+      "us_per_elem": 0.8544693136242065,
+      "out_elems": 1048576
+    },
+    {
+      "case": "L=6051 NK=6080 K=128 H=4",
+      "L": 6051,
+      "n_key": 6080,
+      "K": 128,
+      "H": 4,
+      "exact": false,
+      "wrong": 3094016,
+      "median_ms": 2551.9815450024907,
+      "us_per_elem": 0.8237215262077325,
+      "out_elems": 3098112
+    },
+    {
+      "case": "prod, ROW_MAJOR index",
+      "exc": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/fill_pad/device/fill_pad_device_operation.cpp:18: input_tensor.layout() == TILE_LAYOUT\ninfo:\nFillPad should only be used for tile layout\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0x5"
+    },
+    {
+      "case": "prod, bf16 source",
+      "exact": false,
+      "wrong": 3091946,
+      "median_ms": 2470.966719003627,
+      "us_per_elem": 0.7975717853336571
+    }
+  ],
+  "host": "qb2",
+  "card": "0"
+}

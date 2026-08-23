@@ -31,6 +31,7 @@ import ttnn
 sys.path.insert(0, os.getcwd())
 from tt_bio import softmax_generic                                      # noqa: E402
 from tt_bio.rfd3 import model as M                                      # noqa: E402
+from tt_bio.tenstorrent import get_device                                # noqa: E402
 
 OUT = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "perf/p79/gathered_probe.json")
 L = int(sys.argv[2]) if len(sys.argv) > 2 else 6051
@@ -58,7 +59,10 @@ def main():
     global DEV
     torch.manual_seed(SEED)
     n_key = M._align_tile(L)
-    DEV = ttnn.open_device(device_id=0)
+    # get_device(), not ttnn.open_device(): the raw open throws on this box because
+    # TT_VISIBLE_DEVICES makes the cluster type CUSTOM, which needs a mesh graph descriptor.
+    # get_device() also takes the card lease and enables the program cache the timings assume.
+    DEV = get_device()
     print("[p79] L=%d n_key=%d K=%d H=%d reps=%d" % (L, n_key, K, H, REPS), flush=True)
 
     # Neighbour indices in the production form: K distinct sorted columns per row, in [0, L).
@@ -134,7 +138,6 @@ def main():
         "host": "qb2", "card": os.environ.get("TT_VISIBLE_DEVICES"),
     }, indent=2) + "\n")
     print("wrote", OUT)
-    ttnn.close_device(DEV)
 
 
 if __name__ == "__main__":
