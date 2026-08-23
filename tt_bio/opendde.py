@@ -453,7 +453,13 @@ class OpenDDE:
         bias = None
         if extra_attn_bias:
             bias = ttnn.reshape(attn_bias, (1, 1, Ns, Ns))
-        s_ref, z_ref = self.refiner(s3, z4, extra_attn_bias=bias)
+        # The refiner is a THIRD ragged token axis: Ns structural tokens, not residues, and the
+        # census caught 8 ragged fused-SDPA calls here at Ns=181 after the trunk and the
+        # confidence head were both bucketed. Same helper, same default-off gate.
+        from .protenix import bucketed_pairformer
+        from .tenstorrent import get_device as _gd
+        s_ref, z_ref = bucketed_pairformer(self.refiner, s3, z4, _gd(),
+                                           extra_attn_bias=bias)
         result = (s_inputs_st, ttnn.reshape(s_ref, (Ns, self.expander.c_s)), z_ref)
         if return_attn_bias:
             return (*result, attn_bias)
