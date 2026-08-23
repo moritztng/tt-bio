@@ -18,7 +18,27 @@ REPEAT=${REPEAT:-3}
 POWER=${POWER:-1}      # POWER= (empty) drops the 200 ms nvidia-smi sampler
 BUDGET_S=${BUDGET_S:-5400}
 PER_MODEL_S=${PER_MODEL_S:-1800}   # a hung cell must not eat the rest of the rental
+
+# torch's nvrtc JIT path -- the jiterator ops, of which ESMFold2's structure module hits erfinv --
+# dlopens libnvrtc-builtins.so.<major>.<minor> by bare name. In a uv/pip venv that library ships
+# inside the nvidia-* wheels and is not on the loader path, so on the B200 the first jiterated op
+# died with "nvrtc: error: failed to open libnvrtc-builtins.so.13.0" AFTER the 25 GB weight load,
+# which reads as a Blackwell incompatibility rather than a missing search path. Prepending the
+# wheels' own lib dirs fixes it and changes no math. Scoped to the esm312 rows on purpose: putting
+# these dirs ahead of the loader path for boltz-2 / openfold3 could shift which cublas or cudnn
+# they load, and those two rows exist to reproduce a published cell exactly.
+nvidia_lib_path() {
+  "$1" - <<'PY'
+import glob, os, sys
+dirs = []
+for base in (p for p in sys.path if p.endswith("site-packages")):
+    dirs += sorted(glob.glob(os.path.join(base, "nvidia", "*", "lib")))
+print(":".join(dirs))
+PY
+}
 START=$(date +%s)
+FAILED=0   # rows that produced no usable number; the session exits non-zero if any
+
 export CUDA_HOME=/opt/conda
 export PATH=/opt/conda/bin:$PATH
 FIX=$HERE/../../perf/size512/fixtures
@@ -81,7 +101,7 @@ for M in $MODELS; do
       gate "$ST/$RUNG.pdb" "$EXP" | tee "$R/gate_${M}_${TAG}.txt"
       ;;
     boltz-2|openfold3|esmfold2|esmfold2-fast)
-      EXTRA=""
+      EXTRA=""; NVLIB=""
       case "$M" in
         boltz-2)   PY=/root/venv-boltz/bin/python3 ;;
         openfold3) PY=/root/venv-of3/bin/python3 ;;
@@ -90,13 +110,17 @@ for M in $MODELS; do
         # NOT the default, and 10 loops / 100 requested steps is the paper's protocol and
         # what the TT arm runs.
         esmfold2)  PY=/root/venv-esm312/bin/python
-                   EXTRA="--esm-backend cuequivariance --recycles 10 --steps 100" ;;
+                   EXTRA="--esm-backend cuequivariance --recycles 10 --steps 100"
+                   NVLIB="$(nvidia_lib_path "$PY")" ;;
         # Same class, same venv, same backend, one different checkpoint: --esm-repo resolves
         # from ESM_REPOS, so it is deliberately not passed here.
         esmfold2-fast) PY=/root/venv-esm312/bin/python
-                   EXTRA="--esm-backend cuequivariance --recycles 10 --steps 100" ;;
+                   EXTRA="--esm-backend cuequivariance --recycles 10 --steps 100"
+                   NVLIB="$(nvidia_lib_path "$PY")" ;;
       esac
-      timeout "$PER_MODEL_S" $PY gpu5_bench.py --model "$M" --repeat "$REPEAT" ${POWER:+--power} \
+      timeout "$PER_MODEL_S" \
+        ${NVLIB:+env LD_LIBRARY_PATH="$NVLIB${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"} \
+        $PY gpu5_bench.py --model "$M" --repeat "$REPEAT" ${POWER:+--power} \
         --yaml "$FIX/cdk2x2_512.yaml" --a3m "$FIX/cdk2x2_512.a3m" \
         --seq-file fixtures/prot512.seq --work /root/work \
         --checkpoint /root/ckpt/of3-p2-155k.pt $EXTRA --out "$OUT" > "$LOG" 2>&1
@@ -109,9 +133,22 @@ for M in $MODELS; do
       gate "$P" "" | tee "$R/gate_${M}_${TAG}.txt"
       ;;
   esac
+  # A row that wrote a result JSON with a populated "error" is a FAILED row, not a measured one.
+  # The first B200 pass marked seven such rows ok because the outer step gate keyed on the file
+  # existing rather than on what was inside it, so esmfold2-fast's nvrtc failure was recorded as
+  # "OK new_esmfold2fast (24s)" and only found by reading the JSON by hand afterwards.
+  if [ ! -f "$OUT" ]; then
+    echo "== $M FAILED: no result json at $OUT =="
+    FAILED=$((FAILED + 1))
+  elif ! python3 -c 'import json, sys
+sys.exit(1 if json.load(open(sys.argv[1])).get("error") else 0)' "$OUT" 2>/dev/null; then
+    echo "== $M FAILED: result json carries an error =="
+    FAILED=$((FAILED + 1))
+  fi
   nvidia-smi --query-gpu=name,utilization.gpu,memory.used,power.draw --format=csv,noheader \
     >> "$R/nvidia_${TAG}.txt"
 done
 
 echo "== session end $TAG: $(date -u +%FT%TZ) total=$(( $(date +%s) - START ))s =="
 ls -l "$R"/*.json
+[ "$FAILED" -eq 0 ] || { echo "== $FAILED row(s) failed =="; exit 1; }
