@@ -11,7 +11,7 @@
 set -u
 WT=/home/ttuser/.coworker/wt/perf-page-tt-cells
 cd "$WT" || exit 1
-export TT_VISIBLE_DEVICES=3 TT_BIO_LEASE_CARDS=3
+export TT_VISIBLE_DEVICES=1 TT_BIO_LEASE_CARDS=1
 export TT_BIO_LEASE_HOLDER=worker:perf-page-tt-cells
 export PYTHONPATH="$WT"
 export PROBE_ARCH=blackhole-p150a
