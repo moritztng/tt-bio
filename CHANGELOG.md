@@ -7,6 +7,14 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Fixed
 
+- `full_parity_gate.py --workers qb2:2` run on qb2 itself now dispatches locally. It compared
+  the host token against the machine's own hostname (`tt-quietbox2`), classified the box it was
+  running on as remote, and ran every device fold through `ssh qb2` — an alias that exists only
+  in a workstation's `~/.ssh/config`. All 21 device legs of a full gate died in under a second
+  each on `Could not resolve hostname qb2`, leaving a GATE FAIL that was pure plumbing. The
+  fleet short names `qb1` and `qb2` now resolve to their own boxes; genuinely cross-host
+  `--workers` entries still dispatch over ssh.
+
 - OpenFold3: a YAML `msa:` pointing at your own alignment file crashed the fold with
   `IndexError: list index out of range`. The vendored parser keeps only files whose stem is
   one of its known MSA sources and dropped everything else, so there was nothing left to
