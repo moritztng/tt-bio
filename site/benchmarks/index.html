@@ -400,10 +400,17 @@ details.disclose > div{ padding-top:var(--s-4); }
     }));
   }
 
-  /* Everything a bar can tell you on hover, built from that cell's own provenance. */
+  /* Everything a bar can tell you on hover, built from that cell's own provenance.
+   *
+   * measured_on is the board the number came off, which is not always the board the column
+   * is priced as: every Tenstorrent cell here was measured on a p300c, in a column named and
+   * priced for a p150a. A cell inherits it from its platform and overrides it only if it ran
+   * somewhere else, so one string covers the cells that share a box. */
   function tip(m, key, headline) {
     var c = m.cells[key], p = plat(key), bits = [m.name + " on " + p.name, headline];
     if (c.parity) bits.push("parity: " + c.parity);
+    var board = c.measured_on || p.measured_on;
+    if (board) bits.push(board);
     if (c.ref) bits.push(c.ref);
     return bits.join("\n");
   }
