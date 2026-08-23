@@ -40,12 +40,17 @@ stays the repository:
 
 ```bash
 python3 -m build && python3 -m venv /tmp/relvenv
-/tmp/relvenv/bin/pip install dist/tt_bio-*.whl
+/tmp/relvenv/bin/pip install "$(echo dist/tt_bio-*.whl)[tenstorrent,test]"
 PYTHONPATH="$PWD" /tmp/relvenv/bin/python3 scripts/full_parity_gate.py ...
 ```
 
 `full_parity_gate.py`, `perf_regression.py` and `ux_regression.py` all spawn their
 folds and scorers as `sys.executable`, so the choice propagates to every leg.
+
+The `[tenstorrent,test]` extras are not optional here. Without `tenstorrent` the venv has
+no TT-NN at all, and the dependency preflight above counts a missing declared dependency
+as a problem, so every gate refuses before it opens a card. `test` supplies pytest, which
+is not a runtime dependency and so is absent from a plain wheel install.
 
 ```bash
 # Pin the card. Much of the suite opens a device, and with TT_VISIBLE_DEVICES unset
