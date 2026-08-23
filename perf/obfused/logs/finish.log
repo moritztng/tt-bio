@@ -1,0 +1,15 @@
+##### 768 arm B (0) start 13:08:37 loadavg 1.16 1.16 3.23
+  host:build_features                               1 calls     0.944 s    944.403 ms/call    2.04 %
+  host:write_structure                              1 calls     0.064 s     63.515 ms/call    0.14 %
+  [fold] sample 0: xl_final std=16.1975 range=[-47.30,43.56]
+
+=== run 1: fold 45.808s device 44.049s feat 0.898s write 0.061s plddt 0.385367 tokens 768 atoms 6177 ===
+  device:model.fold                                 1 calls    44.049 s  44048.836 ms/call   96.16 %
+  host:build_features                               1 calls     0.898 s    897.843 ms/call    1.96 %
+  host:write_structure                              1 calls     0.061 s     61.234 ms/call    0.13 %
+
+median device 44.235s  fold 46.017s  spread 0.84%  cif_reproducible True
+wrote perf/obfused/prize/768_B_0.json
+benchlock: openbind-fused-768aa released, rc=0, loadavg 5.38 5.38 5.47
+##### 768 arm B (0) done 13:39:20 loadavg 5.38 5.38 5.47
+##### 768 arm B (1) start 13:39:20 loadavg 5.38 5.38 5.47
