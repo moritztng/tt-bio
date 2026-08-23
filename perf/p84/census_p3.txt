@@ -1,0 +1,78 @@
+============================================================================================================
+PHASE 0 -- IRREDUCIBLE-TRAFFIC CENSUS, RFD3 page fixture (685 tok / 6051 atoms), per timestep
+============================================================================================================
+region             ops  act R GB  act W GB  irr R GB  irr W GB   ratio  act roof  irr roof  measured
+------------------------------------------------------------------------------------------------------------
+token encoder      126     18.13     15.45      1.31      1.37   12.54     133.5      21.3     206.0
+token DiT         2018     16.05      9.93      1.94      1.24    8.16      86.1      15.2     134.0
+atom decoder       626      1.42      1.45      0.18      0.14    8.93       9.4       1.3     102.8
+atom encoder       167      0.49      0.50      0.09      0.07    6.15       3.3       0.6      49.3
+------------------------------------------------------------------------------------------------------------
+STEP              2937     36.09     27.33      3.53      2.81   10.00     232.3      38.5     492.0
+
+actual traffic             63.43 GB/step   (36.09 read + 27.33 write)
+irreducible traffic         6.34 GB/step   (3.53 read + 2.81 write)
+ACTUAL / IRREDUCIBLE       10.00 x
+
+compute, unavoidable       1.861 TFLOP/step ->   18.2 ms/step at 102.02 TFLOP/s
+roof time of ACTUAL        232.3 ms/step  (read 390.0, write 163.9 single-RISC)
+roof time of IRREDUCIBLE    38.5 ms/step  (same roofs)
+  ... at the 269.6 write roof (both RISCs): 37.6 ms/step
+measured exposed device       451.0 ms/step  (p57 clean ledger, 450.957)
+4x-at-b8 device budget        130.0 ms/step  (259.5 step - 129.5 host+dispatch)
+
+C_OP fit, token DiT      measured   134.0 - roof   86.1 =    47.9 ms over 2052 ops =  23.3 us/op
+C_OP fit, atom decoder   measured   102.8 - roof    9.4 =    93.4 ms over 626 ops = 149.2 us/op
+C_OP fit, atom encoder   measured    49.3 - roof    3.3 =    46.0 ms over 163 ops = 282.0 us/op
+C_OP fit, token encoder  measured   206.0 - roof  133.5 =    72.5 ms over 126 ops = 575.1 us/op
+
+============================================================================================================
+THE TEN LARGEST (actual - irreducible) SITES, by bytes per step
+============================================================================================================
+site                                                         ops   act GB   irr GB  delta GB  d roof ms
+------------------------------------------------------------------------------------------------------------
+[token encoder] pairformer z_transition x2 [z,128,H=512]      24    15.80     0.99     14.81       53.5
+[token encoder] transition_2 x2 [z,128,H=256]                 24     9.88     0.99      8.89       32.1
+[token DiT] pair_bias linear 128->16 (model.py                36     5.56     0.31      5.25       18.9
+[token DiT] add scores + bias_f (fp32)                        36     3.43     0.00      3.43       12.4
+[token encoder] pf attn                                       20     3.10     0.19      2.90       10.5
+[token DiT] rms_norm/sigmoid/multiply/add on TOK (the rest)   900     1.95     0.00      1.95        7.0
+[token DiT] add(pair_bias, additive_mask)                     36     1.71     0.00      1.71        6.2
+[token DiT] typecast bias -> fp32                             36     1.71     0.00      1.71        6.2
+[token DiT] typecast scores -> fp32                           36     1.71     0.00      1.71        6.2
+[token DiT] typecast attn -> bf16                             36     1.71     0.00      1.71        6.2
+[token DiT] permute pair_bias -> [1,16,I,I]                   36     1.68     0.00      1.68        6.1
+[token DiT] 12 linears on TOK(768)/TOK(384)                  432     1.45     0.00      1.45        5.2
+
+wrote perf/p84/census_p3.json
+
+============================================================================================================
+PHASE 1 PREDICTION -- L1-resident row-chunked pair Transition (model.py:514)
+============================================================================================================
+aggregate L1 on this p150: 204.6 MB (140 banks x 1461760 B)
+
+    H  h rows  chunks  peak L1 MB  fits   ops  ms @102TF  ms @30TF  ms @15TF
+------------------------------------------------------------------------------------------------------------
+  256      16      43        17.3   yes   259       9.97     12.20     15.36
+  256      32      22        34.6   yes   133       6.19      8.42     11.58
+  256      64      11        69.2   yes    67       4.20      6.43      9.59
+  256      96       8       103.8   yes    49       3.70      5.93      9.09
+  256     128       6       138.4   yes    37       3.34      5.57      8.73
+  512      16      43        28.8   yes   259      11.27     15.73     22.05
+  512      32      22        57.7   yes   133       7.49     11.95     18.27
+  512      64      11       115.3   yes    67       5.50      9.96     16.28
+  512      96       8       173.0    NO    49       5.03      9.49     15.81
+  512     128       6       230.7    NO    37       4.67      9.13     15.45
+
+shipped cost of the same eight calls, from the additive roof model and the measurements:
+  H=256 model 10.01 ms/call   vs measured 14.876 ms/call (p46, 59.504 ms/step / 4)
+  H=512 model 16.77 ms/call   vs measured ~18.9 ms/call (inside the 25.39 ms/call
+                                        pairformer block wall; the screen's arm A splits it)
+  shipped, eight calls per step: 135.1 ms/step
+
+  optimistic: L1-fed matmul at the roof                C_OP=  30us ->   46.8 ms/step, saves   88.3 ms/step = 17.67 s/design
+  optimistic: L1-fed matmul at the roof                C_OP=  80us ->   86.8 ms/step, saves   48.3 ms/step =  9.67 s/design
+  central: L1-fed matmul at 30 TFLOP/s                 C_OP=  30us ->   73.5 ms/step, saves   61.6 ms/step = 12.32 s/design
+  central: L1-fed matmul at 30 TFLOP/s                 C_OP=  80us ->  113.5 ms/step, saves   21.6 ms/step =  4.32 s/design
+  pessimistic: k_tiles=4 pack amplification holds, 15 TFLOP/s C_OP=  30us ->  111.5 ms/step, saves   23.7 ms/step =  4.73 s/design
+  pessimistic: k_tiles=4 pack amplification holds, 15 TFLOP/s C_OP=  80us ->  151.5 ms/step, saves  -16.3 ms/step = -3.27 s/design
