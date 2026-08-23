@@ -1,0 +1,14 @@
+# Aurora kinase C (AURKC, 309 aa) against its strongest non-censored DAVIS binder,
+# CHEMBL/TDC drug 6450551 at Kd 1.3 nM. Sequence and SMILES verbatim from the DAVIS
+# (Therapeutics Data Commons) table, so this is a real target with a real ligand -- the
+# second target the precision default is decided on, independent of the CDK2 ladder.
+sequences:
+  - protein:
+      id: A
+      sequence: MSSPRAVVQLGKAQPAGEELATANQTAQQPSSPAMRRLTVDDFEIGRPLGKGKFGNVYLARLKESHFIVALKVLFKSQIEKEGLEHQLRREIEIQAHLQHPNILRLYNYFHDARRVYLILEYAPRGELYKELQKSEKLDEQRTATIIEELADALTYCHDKKVIHRDIKPENLLLGFRGEVKIADFGWSVHTPSLRRKTMCGTLDYLPPEMIEGRTYDEKVDLWCIGVLCYELLVGYPPFESASHSETYRRILKVDVRFPLSMPLGARDLISRLLRYQPLERLPLAQILKHPWVQAHSRRVLPPCAQMAS
+  - ligand:
+      id: B
+      smiles: 'CNC(=O)c1ccccc1Sc1ccc2c(C=Cc3ccccn3)n[nH]c2c1'
+properties:
+  - affinity:
+      binder: B

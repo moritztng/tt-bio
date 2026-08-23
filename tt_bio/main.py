@@ -194,6 +194,11 @@ SAPROT_MODELS = ("saprot-35m", "saprot-650m", "saprot-1.3b")
 # is the lighter single-shot all-atom diffusion designer.
 DESIGN_MODELS = ("boltzgen", "rfd3")
 
+# `affinity --model`: scalar-output affinity predictors. Separate from PREDICT_MODELS
+# because these fold nothing — no coordinates, no PAE, no confidence — so they do not
+# ride the structure-writing scheduler path predict uses.
+AFFINITY_MODELS = ("nesso1",)
+
 
 def predict_results_dir_name(model: str, stem: str) -> str:
     """Predict output folder name: <model>_results_<stem> (e.g.
@@ -3189,6 +3194,101 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
                         out_format=out_format, return_logits=return_logits)
     click.echo(f"Done — {len(results)} sequence(s), d_model={results[0].pooled.shape[0]} "
                f"→ {out} (see manifest.json)")
+
+
+@cli.command("affinity")
+@click.argument("data", type=click.Path(exists=True, path_type=Path))
+@click.option("--model", type=click.Choice(list(AFFINITY_MODELS)), default="nesso1",
+              show_default=True,
+              help="nesso1: coarse-grained protein-ligand affinity. No coordinates — "
+                   "it predicts a soft distogram and reads the affinity off that.")
+@click.option("--out_dir", default="./affinity", show_default=True, type=click.Path(path_type=Path))
+@click.option("--accelerator", type=click.Choice(["tenstorrent", "cpu"]), default="tenstorrent",
+              show_default=True, help="cpu runs the torch reference; it is ~5x slower.")
+@click.option("--trunk", type=click.Choice(["fp32", "bf16"]), default="bf16", show_default=True,
+              help="Precision of the 48-block trunk. bf16 is ~6x faster and no less accurate "
+                   "from 276 tokens up; fp32 is the more faithful arm below ~150 tokens and "
+                   "runs out of DRAM at 1044. See docs/nesso1.md.")
+@click.option("--recycling_steps", default=5, show_default=True,
+              help="Trunk recycling iterations; the shipped checkpoint uses 5 (6 passes).")
+@click.option("--tokens_budget", default=256, show_default=True,
+              help="Pocket crop budget. The crop runs after the first trunk pass and pins "
+                   "the token count for the remaining passes; it is load-bearing for "
+                   "correctness on large targets, not just for speed.")
+@click.option("--num_workers", default=0, show_default=True,
+              help="Processes for YAML parsing; 0 parses inline. Inline is the default because "
+                   "it is the reproducible one: RDKit takes its conformer embedding seed from "
+                   "the process RNG state, so a pool changes the ligand geometry. Parsing is "
+                   "milliseconds against a multi-second forward, so the pool buys nothing here.")
+@click.option("--seed", default=None, type=int,
+              help="Featurization seed. Defaults to a fixed value so a screen is repeatable; "
+                   "the featurizer applies a random roto-translation per conformer, which is "
+                   "why upstream is not reproducible run to run. Pass -1 for that behaviour.")
+@click.option("--ccd", default=None, type=click.Path(path_type=Path),
+              help="Path to ccd.pkl. Auto-discovered next to the checkpoint if omitted.")
+@click.option("--cache", default=None, type=click.Path(path_type=Path),
+              help="HuggingFace cache dir for the checkpoint and the ESM-2 encoder.")
+@click.option("--devices", default=None,
+              help="Physical TT card id to pin, e.g. '2'. Default: this machine's first card.")
+def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, tokens_budget,
+                 num_workers, seed, ccd, cache, devices):
+    """Predict protein-ligand binding affinity without folding a structure.
+
+    DATA is a YAML file or a directory of them. Each needs ``version: 1``, at least one
+    protein and one ligand, and a ``properties.affinity.binder`` naming the ligand to
+    score. A directory is a screen: the model loads once and stays resident, so many
+    ligands against one target pay the weight load and the kernel compile a single time.
+
+    \b
+    Output (--out_dir, default ./affinity):
+        <id>_affinity.json  # the scalars for one input
+        affinity.csv        # one row per input, for a screen
+        processed/          # parsed structures, conformers and ESM-2 embeddings
+    """
+    if devices and "TT_VISIBLE_DEVICES" not in os.environ:
+        ids = [x for x in str(devices).split(",") if x.strip()]
+        if len(ids) > 1:
+            raise click.UsageError("--model nesso1 is batch-1 by construction; pass one card id")
+        os.environ["TT_VISIBLE_DEVICES"] = ids[0]
+    use_tt = accelerator == "tenstorrent"
+    if use_tt:
+        _require_ttnn()
+        ensure_p300_mesh_descriptor()
+    from tt_bio.nesso1 import DEFAULT_SEED, REPORTED_SCALARS, screen
+
+    torch.set_grad_enabled(False)
+    out = Path(out_dir).expanduser()
+    click.echo(f"Loading {model} ({'tenstorrent' if use_tt else 'cpu'}, trunk {trunk}) …")
+    try:
+        rows = screen(
+            data, out,
+            use_tenstorrent=use_tt,
+            trunk_fp32=trunk == "fp32",
+            recycling_steps=recycling_steps,
+            tokens_budget=tokens_budget,
+            num_workers=num_workers,
+            ccd_pkl=ccd,
+            cache=cache,
+            seed=None if seed == -1 else (DEFAULT_SEED if seed is None else seed),
+            progress=lambda r: click.echo(
+                f"  {r['id']}: affinity {r['affinity_pred_value']:.3f} "
+                f"p(binder) {r['affinity_probability_binary']:.3f} "
+                f"({r['n_tokens']} tokens, {r['seconds']:.1f}s)"
+                if "affinity_pred_value" in r else f"  {r['id']}: {r.get('error')}"),
+        )
+    except (FileNotFoundError, ValueError) as e:
+        raise click.ClickException(str(e))
+
+    csv_path = out / "affinity.csv"
+    cols = ["id", "n_tokens", "seconds", *REPORTED_SCALARS]
+    with csv_path.open("w") as fh:
+        fh.write(",".join([*cols, "error"]) + "\n")
+        for r in rows:
+            fh.write(",".join([str(r.get(c, "")) for c in cols] + [r.get("error", "")]) + "\n")
+    ok = [r for r in rows if "error" not in r]
+    click.echo(f"Done — {len(ok)}/{len(rows)} scored → {csv_path}")
+    if len(ok) != len(rows):
+        raise SystemExit(1)
 
 
 @cli.command("saprot")
