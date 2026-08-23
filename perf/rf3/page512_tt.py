@@ -81,6 +81,7 @@ def main():
     res = {"label": a.label, "arm": arm, "model": "rf3", "host": os.uname().nodename,
            "card": os.environ.get("TT_VISIBLE_DEVICES"), "ttnn": im.version("ttnn"),
            "hardware": meta.get("hardware"), "card_type": meta.get("card_type"),
+           "grid": meta.get("grid"), "sysfs_subsystem": meta.get("sysfs_subsystem"),
            "aiclk_mhz": meta.get("aiclk_mhz"), "load_s": meta.get("load_s"),
            "recycling_steps": B.RECYCLING_STEPS, "sampling_steps": B.SAMPLING_STEPS,
            "diffusion_samples": B.DIFFUSION_SAMPLES, "seed": B.SEED,
