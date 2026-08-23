@@ -1,0 +1,22 @@
+{
+  "mode": "nesso1_output_scalars",
+  "verdict": "PASS",
+  "fixture": "scripts/nesso1_port/parity_artifacts/tyr48",
+  "n_tokens": 61,
+  "arm": {
+    "trunk": "bf16",
+    "affinity": "fp32"
+  },
+  "repeats": 3,
+  "x_over_r": 3.430771416631238,
+  "worst_key": "affinity_pred_value1",
+  "worst_abs_delta": 0.19898474216461182,
+  "upstream_spread": 0.058,
+  "spread": 0.0,
+  "floors": {
+    "max_x_over_r": 5.0,
+    "max_device_spread": 1e-06
+  },
+  "gate": true,
+  "note": "Nesso-1 predicts no coordinates, so the leg scores its eleven output scalars against the torch reference (bit-exact vs upstream) and normalises by upstream's own featurization-draw spread of 0.058 rather than by zero. Arm is the shipped one: bf16 trunk, fp32 affinity stacks. 61 tokens is the worst rung for bf16 on the measured ladder, so the floor is one-sided in the safe direction. Device spread across three repeats is exactly 0.0. Re-run each release via release_gate --model nesso1."
+}

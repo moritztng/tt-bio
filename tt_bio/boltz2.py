@@ -1413,6 +1413,7 @@ class AtomEncoder(Module):
         use_no_atom_char=False,
         use_atom_backbone_feat=False,
         use_residue_feats_atoms=False,
+        add_additional_atom_features=False,
     ):
         super().__init__()
 
@@ -1425,6 +1426,7 @@ class AtomEncoder(Module):
         self.use_no_atom_char = use_no_atom_char
         self.use_atom_backbone_feat = use_atom_backbone_feat
         self.use_residue_feats_atoms = use_residue_feats_atoms
+        self.add_additional_atom_features = add_additional_atom_features
 
         self.structure_prediction = structure_prediction
         if structure_prediction:
@@ -1473,13 +1475,18 @@ class AtomEncoder(Module):
             atom_ref_pos = feats["ref_pos"]  # Float['b m 3'],
             atom_uid = feats["ref_space_uid"]  # Long['b m'],
 
-            atom_feats = [
-                atom_ref_pos,
-                feats["ref_charge"].unsqueeze(-1),
-                feats["ref_element"],
-            ]
+            atom_feats = [atom_ref_pos]
+            if not self.add_additional_atom_features:
+                atom_feats.append(feats["ref_charge"].unsqueeze(-1))
+            atom_feats.append(feats["ref_element"])
             if not self.use_no_atom_char:
                 atom_feats.append(feats["ref_atom_name_chars"].reshape(B, N, 4 * 64))
+            if self.add_additional_atom_features:
+                # Nesso-1 puts charge after the name chars and adds chirality and
+                # hybridization, for atom_feature_dim=390 instead of Boltz-2's 388.
+                atom_feats.append(feats["ref_charge"].unsqueeze(-1))
+                atom_feats.append(feats["ref_chirality"].unsqueeze(-1))
+                atom_feats.append(feats["ref_hybridization"].unsqueeze(-1))
             if self.use_atom_backbone_feat:
                 atom_feats.append(feats["atom_backbone_feat"])
             if self.use_residue_feats_atoms:
@@ -2043,6 +2050,8 @@ class InputEmbedder(nn.Module):
         use_no_atom_char: bool = False,
         use_atom_backbone_feat: bool = False,
         use_residue_feats_atoms: bool = False,
+        add_additional_atom_features: bool = False,
+        use_msa_profile: bool = True,
     ) -> None:
         """Initialize the input embedder.
 
@@ -2062,6 +2071,7 @@ class InputEmbedder(nn.Module):
         self.add_modified_flag = add_modified_flag
         self.add_cyclic_flag = add_cyclic_flag
         self.add_mol_type_feat = add_mol_type_feat
+        self.use_msa_profile = use_msa_profile
 
         self.atom_encoder = AtomEncoder(
             atom_s=atom_s,
@@ -2075,6 +2085,7 @@ class InputEmbedder(nn.Module):
             use_no_atom_char=use_no_atom_char,
             use_atom_backbone_feat=use_atom_backbone_feat,
             use_residue_feats_atoms=use_residue_feats_atoms,
+            add_additional_atom_features=add_additional_atom_features,
         )
 
         self.atom_enc_proj_z = nn.Sequential(
@@ -2094,7 +2105,10 @@ class InputEmbedder(nn.Module):
         )
 
         self.res_type_encoding = nn.Linear(const.num_tokens, token_s, bias=False)
-        self.msa_profile_encoding = nn.Linear(const.num_tokens + 1, token_s, bias=False)
+        if use_msa_profile:
+            self.msa_profile_encoding = nn.Linear(
+                const.num_tokens + 1, token_s, bias=False
+            )
 
         if add_method_conditioning:
             self.method_conditioning_init = nn.Embedding(
@@ -2129,12 +2143,13 @@ class InputEmbedder(nn.Module):
         """
         # Load relevant features
         res_type = feats["res_type"].float()
-        if affinity:
-            profile = feats["profile_affinity"]
-            deletion_mean = feats["deletion_mean_affinity"].unsqueeze(-1)
-        else:
-            profile = feats["profile"]
-            deletion_mean = feats["deletion_mean"].unsqueeze(-1)
+        if self.use_msa_profile:
+            if affinity:
+                profile = feats["profile_affinity"]
+                deletion_mean = feats["deletion_mean_affinity"].unsqueeze(-1)
+            else:
+                profile = feats["profile"]
+                deletion_mean = feats["deletion_mean"].unsqueeze(-1)
 
         # Compute input embedding
         q, c, p, to_keys = self.atom_encoder(feats)
@@ -2147,11 +2162,11 @@ class InputEmbedder(nn.Module):
             to_keys=to_keys,
         )
 
-        s = (
-            a
-            + self.res_type_encoding(res_type)
-            + self.msa_profile_encoding(torch.cat([profile, deletion_mean], dim=-1))
-        )
+        s = a + self.res_type_encoding(res_type)
+        if self.use_msa_profile:
+            s = s + self.msa_profile_encoding(
+                torch.cat([profile, deletion_mean], dim=-1)
+            )
 
         if self.add_method_conditioning:
             s = s + self.method_conditioning_init(feats["method_feature"])
@@ -2774,8 +2789,10 @@ class AffinityHeadsTransformer(nn.Module):
         num_heads,
         activation_checkpointing,
         groups={},
+        return_repr=False,
     ):
         super().__init__()
+        self.return_repr = return_repr
         self.affinity_out_mlp = nn.Sequential(
             nn.Linear(token_z, token_z),
             nn.ReLU(),
@@ -2845,6 +2862,8 @@ class AffinityHeadsTransformer(nn.Module):
             "affinity_pred_value": affinity_pred_value,
             "affinity_logits_binary": affinity_logits_binary,
         }
+        if self.return_repr:
+            out_dict["affinity_repr"] = g
         return out_dict
 
 

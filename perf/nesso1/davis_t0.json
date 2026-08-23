@@ -1,0 +1,31 @@
+{
+  "gate": "nesso1_davis",
+  "benchmark": "DAVIS (TDC), kinase/inhibitor Kd in nM, non-censored only",
+  "metric": "within-target Pearson of predicted pAffinity (= -affinity_pred_value) against pKd = 9 - log10(Kd_nM)",
+  "control": "molecular weight alone (RDKit Descriptors.MolWt) vs pKd, same ligands",
+  "trunk": "bf16",
+  "seed": 20260820,
+  "targets": [
+    {
+      "target_id": "ABL1p",
+      "seq_len": 1167,
+      "n_pairs": 30,
+      "featurize_s": 20.67059438400247,
+      "failed": [],
+      "kd_nM_range": [
+        0.016,
+        6000.0
+      ],
+      "n_scored": 30,
+      "pearson_pred_vs_pkd": 0.7319,
+      "spearman_pred_vs_pkd": 0.5938,
+      "pearson_mw_vs_pkd": 0.1716,
+      "spearman_mw_vs_pkd": 0.2016,
+      "pearson_prob_vs_pkd": 0.6945,
+      "wall_s": 1053.9113086929901
+    }
+  ],
+  "mean_pearson": 0.7319,
+  "mean_spearman": 0.5938,
+  "mean_pearson_mw_control": 0.1716
+}
