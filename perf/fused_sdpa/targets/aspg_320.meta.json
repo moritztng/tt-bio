@@ -1,0 +1,17 @@
+{
+ "pdb": "9D91",
+ "name": "aspg_320",
+ "rung": 320,
+ "n_res": 320,
+ "padded": 320,
+ "resolution": 1.62,
+ "description": "Asparaginase",
+ "ca_modelled": 314,
+ "ca_coverage": 0.9812,
+ "cif_url": "https://files.rcsb.org/download/9D91.cif.gz",
+ "cif_sha256": "f9ecafe56e68aa537760238fdd104e3456bc8b4f65a28cd5feb9d87941cea8f9",
+ "msa_depth": 256,
+ "msa_depth_requested": 256,
+ "colabfold_ticket": "Mu7XOPw8l-Q28wQEa4li56zcyi3DVYmdCcY_xg",
+ "colabfold_mode": "env"
+}

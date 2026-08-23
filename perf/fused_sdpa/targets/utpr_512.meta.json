@@ -1,0 +1,17 @@
+{
+ "pdb": "5IDO",
+ "name": "utpr_512",
+ "rung": 512,
+ "n_res": 512,
+ "padded": 512,
+ "resolution": 2.2,
+ "description": "3' terminal uridylyl transferase",
+ "ca_modelled": 471,
+ "ca_coverage": 0.9199,
+ "cif_url": "https://files.rcsb.org/download/5IDO.cif.gz",
+ "cif_sha256": "a1ef043d550b7472fdd22fe021b0577a845453ff8626e4c7b7cdfe4abc84b2f9",
+ "msa_depth": 256,
+ "msa_depth_requested": 256,
+ "colabfold_ticket": "AkjyXb3zv7b6EttKOXbhtwH4GoDzOZCOwD3zGg",
+ "colabfold_mode": "env"
+}

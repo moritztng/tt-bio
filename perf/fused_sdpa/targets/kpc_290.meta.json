@@ -1,0 +1,17 @@
+{
+ "pdb": "9F0T",
+ "name": "kpc_290",
+ "rung": 320,
+ "n_res": 290,
+ "padded": 320,
+ "resolution": 0.98,
+ "description": "Carbapenem-hydrolyzing beta-lactamase KPC",
+ "ca_modelled": 271,
+ "ca_coverage": 0.9345,
+ "cif_url": "https://files.rcsb.org/download/9F0T.cif.gz",
+ "cif_sha256": "2786832652accc33aeab7a062df7380cf716843f7c3428a9a934e2bb12e8670e",
+ "msa_depth": 256,
+ "msa_depth_requested": 256,
+ "colabfold_ticket": "6ureNrXmDUsomFLn8jav2wCfCZgndhIFPcp3DA",
+ "colabfold_mode": "env"
+}

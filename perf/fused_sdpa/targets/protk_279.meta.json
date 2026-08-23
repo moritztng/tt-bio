@@ -1,0 +1,17 @@
+{
+ "pdb": "7LU0",
+ "name": "protk_279",
+ "rung": 320,
+ "n_res": 279,
+ "padded": 320,
+ "resolution": 1.01,
+ "description": "Proteinase K",
+ "ca_modelled": 279,
+ "ca_coverage": 1.0,
+ "cif_url": "https://files.rcsb.org/download/7LU0.cif.gz",
+ "cif_sha256": "096bce596e8d70cbebcb9ab1670cfc94c97bdac5608deeb880f861b3374853c4",
+ "msa_depth": 256,
+ "msa_depth_requested": 256,
+ "colabfold_ticket": "B5c3XoIyDHnLY5EGUAnnteyq_TrKBkUi7GLK0A",
+ "colabfold_mode": "env"
+}

@@ -1,0 +1,241 @@
+{
+ "size": null,
+ "seeds": [
+  0,
+  1,
+  2,
+  3,
+  4
+ ],
+ "n_tokens": 164,
+ "n_bins": 64,
+ "aa_control_seeds": [
+  0
+ ],
+ "sampling_steps": 200,
+ "diffusion_samples": 1,
+ "segments": {
+  "A": {
+   "n_residues": 101,
+   "n_pairs": 4307,
+   "gated": true,
+   "rho": {
+    "def": [
+     0.97445,
+     0.974401,
+     0.974336,
+     0.974419,
+     0.974427
+    ],
+    "hifi": [
+     0.9729,
+     0.972907,
+     0.972503,
+     0.972339,
+     0.972471
+    ]
+   },
+   "rho_shipped_spread": 0.000115,
+   "rho_margin_per_seed": [
+    -0.001551,
+    -0.001494,
+    -0.001833,
+    -0.00208,
+    -0.001956
+   ],
+   "rho_margin_mean": -0.001783,
+   "rho_margin_boot_ci95": [
+    -0.004107,
+    0.000222
+   ],
+   "threshold": -0.002,
+   "verdict": "FLOOR-side",
+   "near_is_low_bin": true,
+   "topk": 20,
+   "n_long_range_pairs": 2547,
+   "bin_cut": 19,
+   "contact_precision_by_Eb": {
+    "def": [
+     0.5,
+     0.5,
+     0.5,
+     0.5,
+     0.5
+    ],
+    "hifi": [
+     0.5,
+     0.5,
+     0.5,
+     0.5,
+     0.5
+    ]
+   },
+   "contact_precision_by_Pnear": {
+    "def": [
+     0.6,
+     0.6,
+     0.6,
+     0.6,
+     0.6
+    ],
+    "hifi": [
+     0.55,
+     0.55,
+     0.5,
+     0.55,
+     0.55
+    ]
+   }
+  },
+  "B": {
+   "n_residues": 60,
+   "n_pairs": 1702,
+   "gated": false,
+   "rho": {
+    "def": [
+     0.982492,
+     0.980818,
+     0.982154,
+     0.980823,
+     0.980782
+    ],
+    "hifi": [
+     0.982192,
+     0.980703,
+     0.983746,
+     0.898701,
+     0.983671
+    ]
+   },
+   "rho_shipped_spread": 0.00171,
+   "rho_margin_per_seed": [
+    -0.0003,
+    -0.000115,
+    0.001591,
+    -0.082122,
+    0.002889
+   ],
+   "rho_margin_mean": -0.015611,
+   "rho_margin_boot_ci95": [
+    -0.047215,
+    0.000681
+   ],
+   "threshold": -0.002,
+   "verdict": "FLOOR-side",
+   "near_is_low_bin": true,
+   "topk": 12,
+   "n_long_range_pairs": 662,
+   "bin_cut": 20,
+   "contact_precision_by_Eb": {
+    "def": [
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0
+    ],
+    "hifi": [
+     1.0,
+     1.0,
+     1.0,
+     0.916667,
+     1.0
+    ]
+   },
+   "contact_precision_by_Pnear": {
+    "def": [
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0
+    ],
+    "hifi": [
+     1.0,
+     1.0,
+     1.0,
+     0.916667,
+     1.0
+    ]
+   }
+  },
+  "AB": {
+   "n_residues": 161,
+   "n_pairs": 4285,
+   "gated": true,
+   "rho": {
+    "def": [
+     0.946245,
+     0.941634,
+     0.944808,
+     0.944127,
+     0.94267
+    ],
+    "hifi": [
+     0.946189,
+     0.941785,
+     0.944873,
+     0.908011,
+     0.947577
+    ]
+   },
+   "rho_shipped_spread": 0.004611,
+   "rho_margin_per_seed": [
+    -5.6e-05,
+    0.00015,
+    6.5e-05,
+    -0.036116,
+    0.004907
+   ],
+   "rho_margin_mean": -0.00621,
+   "rho_margin_boot_ci95": [
+    -0.029824,
+    0.003308
+   ],
+   "threshold": -0.002,
+   "verdict": "FLOOR-side",
+   "near_is_low_bin": true,
+   "topk": 32,
+   "n_long_range_pairs": 4285,
+   "bin_cut": 14,
+   "contact_precision_by_Eb": {
+    "def": [
+     0.375,
+     0.375,
+     0.375,
+     0.375,
+     0.375
+    ],
+    "hifi": [
+     0.375,
+     0.375,
+     0.375,
+     0.375,
+     0.375
+    ]
+   },
+   "contact_precision_by_Pnear": {
+    "def": [
+     0.34375,
+     0.34375,
+     0.3125,
+     0.34375,
+     0.3125
+    ],
+    "hifi": [
+     0.34375,
+     0.3125,
+     0.3125,
+     0.3125,
+     0.34375
+    ]
+   }
+  }
+ },
+ "anchor": "9bk6_164",
+ "gt": "9bk6.cif",
+ "fold_chain_census": {
+  "A": 104,
+  "B": 60
+ }
+}

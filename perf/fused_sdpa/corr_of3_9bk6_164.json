@@ -1,0 +1,180 @@
+{
+ "anchor": "9bk6_164",
+ "gt": "9bk6.cif",
+ "controls": {
+  "def": {
+   "aa_cif_identical": true,
+   "aa_distogram_identical": true,
+   "cif_sha": [
+    "9a5d99bd621b3fd3",
+    "54200a5c8cbc2e5b",
+    "4c026b947b495ef5",
+    "fb74b4df268c879d",
+    "ec42414beab719b7",
+    "9a5d99bd621b3fd3"
+   ],
+   "distogram_sha": [
+    "9b67e202d0eb40ca",
+    "aa0a830752713463",
+    "bfa53a7181cbb43b",
+    "2239dfd01d8b3591",
+    "9400764e109e0072",
+    "9b67e202d0eb40ca"
+   ],
+   "triatt_served_per_fold": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "declined": 0,
+   "too_short": 0,
+   "lever_ok": true,
+   "seed_live": true,
+   "env_flags": {
+    "TT_BIO_LEASE_CARDS": "1",
+    "TT_BIO_LEASE_HOLDER": "worker:fused-sdpa-adopt-of3-p2"
+   },
+   "n_msa": null,
+   "recycling_steps": 3,
+   "sampling_steps": 200
+  },
+  "hifi": {
+   "aa_cif_identical": true,
+   "aa_distogram_identical": true,
+   "cif_sha": [
+    "80465742ca7040b5",
+    "35de972512e3ac05",
+    "fcd36a25aed5c4fa",
+    "9f579068cb7e09bd",
+    "bcab17e6b27a3edc",
+    "80465742ca7040b5"
+   ],
+   "distogram_sha": [
+    "6a34929a65b1af60",
+    "30b1a3396ac4608f",
+    "0512a6c1b46c67c5",
+    "5837ff2812bf59a1",
+    "05c911191ba53bc0",
+    "6a34929a65b1af60"
+   ],
+   "triatt_served_per_fold": [
+    880,
+    440,
+    440,
+    440,
+    440,
+    440
+   ],
+   "declined": 0,
+   "too_short": 0,
+   "lever_ok": true,
+   "seed_live": true,
+   "env_flags": {
+    "TT_BIO_LEASE_CARDS": "2",
+    "TT_BIO_LEASE_HOLDER": "worker:fused-sdpa-adopt-of3-p2",
+    "TT_BIO_TRIATT_FUSED_HIFI": "1"
+   },
+   "n_msa": null,
+   "recycling_steps": 3,
+   "sampling_steps": 200
+  }
+ },
+ "arms": {
+  "def": {
+   "plddt": [
+    0.80813,
+    0.811628,
+    0.801645,
+    0.805103,
+    0.801598
+   ],
+   "ptm": [
+    0.825422,
+    0.82515,
+    0.819049,
+    0.820255,
+    0.81932
+   ],
+   "fold_s": [
+    7.84,
+    8.869,
+    9.787,
+    18.426,
+    18.655
+   ],
+   "n_scored_ca": 101,
+   "ca_rmsd_A": [
+    1.4302,
+    1.4997,
+    1.5637,
+    1.5548,
+    1.5564
+   ],
+   "ca_rmsd_mean_A": 1.521,
+   "ca_lddt": [
+    0.90859,
+    0.90088,
+    0.89333,
+    0.8949,
+    0.90072
+   ],
+   "ca_lddt_mean": 0.89969
+  },
+  "hifi": {
+   "plddt": [
+    0.815014,
+    0.805733,
+    0.774038,
+    0.805486,
+    0.772978
+   ],
+   "ptm": [
+    0.824088,
+    0.809879,
+    0.774791,
+    0.803961,
+    0.768154
+   ],
+   "fold_s": [
+    16.42,
+    18.091,
+    17.445,
+    12.47,
+    10.101
+   ],
+   "n_scored_ca": 101,
+   "ca_rmsd_A": [
+    1.4115,
+    1.745,
+    1.5484,
+    1.4926,
+    1.5386
+   ],
+   "ca_rmsd_mean_A": 1.5472,
+   "ca_lddt": [
+    0.91126,
+    0.89317,
+    0.89333,
+    0.90104,
+    0.90025
+   ],
+   "ca_lddt_mean": 0.89981
+  }
+ },
+ "margins": {
+  "ca_rmsd_A": 0.0262,
+  "ca_lddt": 0.00012,
+  "plddt": -0.01097,
+  "ptm": -0.02566,
+  "shipped_rmsd_seed_range_A": 0.1335
+ },
+ "reference_own_spread": {
+  "plddt_spread": 2.616,
+  "ptm_spread": 0.03086,
+  "iptm_spread": 0.03539
+ },
+ "controls_pass": true
+}

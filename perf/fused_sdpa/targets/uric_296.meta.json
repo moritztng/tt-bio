@@ -1,0 +1,17 @@
+{
+ "pdb": "3L8W",
+ "name": "uric_296",
+ "rung": 320,
+ "n_res": 296,
+ "padded": 320,
+ "resolution": 1.0,
+ "description": "Uricase",
+ "ca_modelled": 295,
+ "ca_coverage": 0.9966,
+ "cif_url": "https://files.rcsb.org/download/3L8W.cif.gz",
+ "cif_sha256": "e87a14aebf99415a1b2ddb6c1d0f2868c9b2c423d339a64cb791019ad415dd4a",
+ "msa_depth": 256,
+ "msa_depth_requested": 256,
+ "colabfold_ticket": "q3AQtE1FQu6CnG_Uho8aV6p7iCaJ11n2QY5Ktw",
+ "colabfold_mode": "env"
+}

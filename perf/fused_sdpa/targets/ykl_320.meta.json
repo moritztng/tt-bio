@@ -1,0 +1,17 @@
+{
+ "pdb": "3B7N",
+ "name": "ykl_320",
+ "rung": 320,
+ "n_res": 320,
+ "padded": 320,
+ "resolution": 1.86,
+ "description": "Uncharacterized protein YKL091C",
+ "ca_modelled": 307,
+ "ca_coverage": 0.9594,
+ "cif_url": "https://files.rcsb.org/download/3B7N.cif.gz",
+ "cif_sha256": "1d81d943192b8d37b5eb877994e97801e5bd57709c4f516019d84be5013eb1ad",
+ "msa_depth": 256,
+ "msa_depth_requested": 256,
+ "colabfold_ticket": "yMq2g1t2UQj6iwCoL05zAeI3XGJGKBlqCEzUdA",
+ "colabfold_mode": "env"
+}

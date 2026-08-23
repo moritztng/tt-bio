@@ -1,0 +1,17 @@
+{
+ "pdb": "2FBA",
+ "name": "glua_492",
+ "rung": 512,
+ "n_res": 492,
+ "padded": 512,
+ "resolution": 1.1,
+ "description": "Glucoamylase GLU1",
+ "ca_modelled": 492,
+ "ca_coverage": 1.0,
+ "cif_url": "https://files.rcsb.org/download/2FBA.cif.gz",
+ "cif_sha256": "52bfff53f189afbec0a0a7ee8c0b67d78a4683b5e1295c842f6c2d86fee1cb66",
+ "msa_depth": 256,
+ "msa_depth_requested": 256,
+ "colabfold_ticket": "wGdA0LpgEFmM83dPoqunqRXJmJdgliP6u-0ADQ",
+ "colabfold_mode": "env"
+}

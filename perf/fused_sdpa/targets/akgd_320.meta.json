@@ -1,0 +1,17 @@
+{
+ "pdb": "7W5S",
+ "name": "akgd_320",
+ "rung": 320,
+ "n_res": 320,
+ "padded": 320,
+ "resolution": 1.76,
+ "description": "nonheme iron and alpha-ketoglutarate dependent halogenase",
+ "ca_modelled": 302,
+ "ca_coverage": 0.9437,
+ "cif_url": "https://files.rcsb.org/download/7W5S.cif.gz",
+ "cif_sha256": "4f328e668a7e45ed5042f6a5ab1105027d3edb6d700f12a79a01ab819d9605c1",
+ "msa_depth": 124,
+ "msa_depth_requested": 256,
+ "colabfold_ticket": "2IC9lCGgla5LZlkTr_N-I_-o05WF8yr9HzHq1Q",
+ "colabfold_mode": "env"
+}

@@ -115,3 +115,7 @@ node_modules/
 *.mp4
 *.webm
 *.mov
+perf/obfused/disto512/
+perf/obfused/census/
+perf/obfused/prize/
+perf/obfused/logs/

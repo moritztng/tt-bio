@@ -1,0 +1,17 @@
+{
+ "pdb": "7K4T",
+ "name": "xyln_308",
+ "rung": 320,
+ "n_res": 308,
+ "padded": 320,
+ "resolution": 0.999,
+ "description": "Endo-1,4-beta-xylanase",
+ "ca_modelled": 301,
+ "ca_coverage": 0.9773,
+ "cif_url": "https://files.rcsb.org/download/7K4T.cif.gz",
+ "cif_sha256": "19f357ce9bf37d69e510d272040329393434413fa3e3e1c8842a30c1a2080424",
+ "msa_depth": 256,
+ "msa_depth_requested": 256,
+ "colabfold_ticket": "uIDCoVpOaRShHJ8jyrYjjfsGqmC7RlcEj6u6SQ",
+ "colabfold_mode": "env"
+}

@@ -1,0 +1,17 @@
+{
+ "pdb": "7ZH9",
+ "name": "uba1_1024",
+ "rung": 1024,
+ "n_res": 1024,
+ "padded": 1024,
+ "resolution": 1.72,
+ "description": "Ubiquitin-activating enzyme E1 1",
+ "ca_modelled": 1005,
+ "ca_coverage": 0.9814,
+ "cif_url": "https://files.rcsb.org/download/7ZH9.cif.gz",
+ "cif_sha256": "5bd3c724e2037afb341e7fc359285a0071846b43fd1afaa6405d6b6a5538dd24",
+ "msa_depth": 256,
+ "msa_depth_requested": 256,
+ "colabfold_ticket": "7Z746Ie36qNLsVzEYKThYjcpimqozrK9CEmZQg",
+ "colabfold_mode": "env"
+}
