@@ -325,8 +325,8 @@ RFD3_MAX_CLASHES = 6         # measured worst 3
 RFD3_MIN_DISTINCT_AA = 5     # measured worst 11
 RFD3_MAX_UNK = 0             # measured 0; the pre-fix writer scores 70
 # Runs by default: the whole arm (4 designs at 200 steps in one batched forward, plus the two
-# 4-step determinism repeats) measured 108 s end to end on qb1 card 3 with the host otherwise
-# uncontended, well inside BoltzGen's ~271 s default-arm precedent. The same arm took 486 s
+# 4-step determinism repeats) measured 95 s and 108 s on two runs on qb1 card 3 with the host
+# otherwise uncontended, well inside BoltzGen's ~271 s default-arm precedent. The same arm took 486 s
 # earlier the same day only because every device open queued behind another worker on the
 # host-wide /tmp/tt-bio-device-open.lock, which measures contention, not the leg.
 
