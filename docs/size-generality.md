@@ -92,8 +92,9 @@ trunk fingerprints, so what the masked columns contain cannot reach the output.
 
 Cost follows the same rule as the rung arithmetic above. When the token count is already a multiple
 of 64 the pad is 0, both padding sites early-out, and this costs exactly nothing. When it is not,
-you pay for the rounded-up width on work that scales as the square of it, a few percent at the
-sizes measured so far. `TT_BIO_PROTENIX_TOKEN_BUCKET=0` restores the old ragged path for an A/B,
+you pay for the rounded-up width on work that scales as the square of it. At 298 tokens, which
+rounds up to 320, that is 4.8 % on Protenix-v2 and 6.0 % on OpenDDE.
+`TT_BIO_PROTENIX_TOKEN_BUCKET=0` restores the old ragged path for an A/B,
 and `TT_BIO_PROTENIX_TOKEN_PAD_MULTIPLE` overrides the multiple.
 
 Note what this does to the ladder. Every rung is a multiple of 64, so the pad is 0 at all four and
