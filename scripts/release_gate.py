@@ -45,8 +45,8 @@ distance and the rest sit in the measured band), heavy-atom clashes, a real sequ
 at the designed positions (zero UNK plus a minimum distinct-amino-acid count), and
 byte-identical coordinates from a repeated seed in a fresh process. Geometry is a rate
 and not an every-design bar because RFdiffusion-family models produce an occasional
-broken backbone by design, the same call BOLTZGEN_MIN_PASS_RATE already makes. Every geometry and sequence number is computed over
-the DESIGNED residues only, recovered by re-featurizing the spec on the host: RFD3
+broken backbone by design, the same call BOLTZGEN_MIN_PASS_RATE already makes. Every
+geometry and sequence number is computed over the DESIGNED residues only, recovered by re-featurizing the spec on the host: RFD3
 merges a binder's designed residues into the target's own chain, so a chain-level
 number averages 70 generated residues against 50 copied ones and passes by dilution.
 This is the leg RFD3's two escaped defects would have tripped (a sequence head
