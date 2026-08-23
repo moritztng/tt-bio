@@ -37,6 +37,14 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   it: 512 aa went from 82.5 s to 111.8 s. The setting is scoped now and the structure is
   bit-identical to what 0.6.5 produced.
 
+### Performance
+
+- OpenFold3 folds 704 aa 1.34x faster (43.193 -> 32.230 s) and RoseTTAFold3 1.14x
+  (45.332 -> 39.808 s). Both are bit-exact, so no prediction moves. The gain is at the sizes
+  where the accurate softmax used to give up on splitting its work and run one unblocked pass;
+  512, 576, 640, 768, 896 and 1024 aa already split and are unchanged. See
+  `docs/openfold3-port.md`.
+
 ## [0.6.6] - 2026-08-22
 
 ### Added
