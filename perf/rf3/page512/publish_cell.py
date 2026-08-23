@@ -70,6 +70,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("procs", nargs="+")
     ap.add_argument("--census", nargs="*", default=[])
+    ap.add_argument("--provenance", help='provenance_<host>.json from the harness preflight; names the origin/main SHA the measured tree matched')
     ap.add_argument("--write", action="store_true")
     ap.add_argument("--updated", default="2026-08-23")
     a = ap.parse_args()
@@ -77,6 +78,20 @@ def main():
     procs = [load(p) for p in a.procs]
     censuses = [load(p) for p in a.census]
     fail, cen = check(procs, censuses)
+
+    # The cell prices the shipping tree or it prices nothing. The harness asserts this at launch
+    # and records what it matched; refusing here as well is what stops a hand-run leg from being
+    # published against a tree nobody checked.
+    prov = load(a.provenance) if a.provenance else None
+    if prov is None:
+        fail.append("no --provenance: cannot show the measured tree was main")
+    elif not prov.get("tt_bio_identical_to_main"):
+        fail.append("provenance says tt_bio differed from main (%s)" % prov.get("origin_main"))
+    else:
+        extra = [f for f in prov.get("non_tt_bio_diff_vs_main", [])
+                 if not f.startswith(("perf/", "scripts/", "site/"))]
+        if extra:
+            fail.append("measured tree differs from main outside tt_bio/perf/scripts: %s" % extra)
 
     warms = [w for d in procs for w in d["warm_walls_s"]]
     pooled = round(statistics.median(warms), 3)
@@ -140,7 +155,9 @@ def main():
         f"cards were busy. "
         f"AtomWorks host featurisation is 8.3 s or less of this fold, timed on its own on the same "
         f"box and the same fixture, so this cell is far less host-bound than the two NVIDIA cells "
-        f"are. Raw: perf/rf3/page512/{raws}, and the host split in tt_host_split_qb2.json."
+        f"are. Measured on tt_bio byte-identical to main at {prov['origin_main'][:8]}, asserted "
+        f"at launch rather than assumed. Raw: perf/rf3/page512/{raws}, the pre-merge control one "
+        f"landing back in premerge_qb2c2_p1.json, and the host split in tt_host_split_qb2.json."
     )
 
     page = json.loads(PAGE.read_text())
