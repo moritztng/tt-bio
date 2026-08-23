@@ -189,13 +189,22 @@ pass".
 
 The two do not overlap awkwardly: the full gate runs the BoltzGen designability
 and OpenDDE-abag DockQ legs by calling `release_gate`'s vetted `run_boltzgen` /
-`run_opendde_abag` **in-process** (capturing their real scRMSD/DockQ numbers), so
-there is one implementation of each leg, not two.
+`run_opendde_abag` / `run_nesso1` **in-process** (capturing their real
+scRMSD/DockQ/scalar numbers), so there is one implementation of each leg, not two.
 
 Before a tag, check which command scores each shipped model rather than assuming
 one covers everything: `grep -n <model> scripts/full_parity_gate.py
 scripts/release_gate.py`. A model named in a gate's docstring but missing from its
 leg list is not covered, and a leg that does not run reports no failure.
+
+Nesso-1 is scored by `release_gate.py --model nesso1`, which needs no ccd.pkl setup:
+`find_ccd` downloads the 413 MB file from the checkpoint repo on a miss, so `NESSO_CACHE`
+is an override rather than a prerequisite. Run it standalone with:
+
+```bash
+TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
+  python3 scripts/release_gate.py --model nesso1
+```
 
 ### Gate behavior you can rely on
 
@@ -317,7 +326,7 @@ one-leg `--dry-run`/fold smoke first; they catch that whole class in minutes.
 
 The accuracy gate covers Boltz-2, ESMFold2, ESMFold2-fast, Protenix-v2,
 OpenFold3, OpenDDE, RF3, BoltzGen designability, RFD3 designed-region
-correctness, OpenDDE-abag antibody-antigen docking, and
+correctness, OpenDDE-abag antibody-antigen docking, Nesso-1 affinity scalars, and
 ESMC-300m/600m reference parity. It folds 7ROA at production sampling settings,
 parses every written mmCIF, and checks the confidence-selected structure against
 these regression limits:
@@ -346,7 +355,10 @@ heavy-atom clashes beyond 6, a real sequence at the designed positions, and
 byte-identical coordinates from a repeated seed in a fresh process. Every number is
 computed over the designed residues only, because for a binder RFD3 merges them into
 the target's own chain and a chain-level number passes by dilution.
-ESMC passes at per-residue PCC ≥0.99 against upstream ESM.
+ESMC passes at per-residue PCC ≥0.99 against upstream ESM. Nesso-1 predicts no
+coordinates, so it is not in that table: it passes when the worst of its eleven output
+scalars stays inside 5.0x upstream's own run-to-run spread and the device repeats agree to
+1e-6. Floors live in `scripts/nesso1_port/device_parity.py`.
 OpenDDE-abag co-folds the 1AHW Fab + antigen complex and passes when the
 confidence-selected complex scores global DockQ ≥0.50 against the experimental
 1AHW structure (a floor that catches a gross mis-dock; the measured baseline is

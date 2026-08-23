@@ -771,6 +771,26 @@
               "tt_bio_version": "0.6.5",
               "date": "2026-08-22",
               "note": "refresh the four qb1 p150a ESMC embed baselines, which had stopped gating: the old values read +99% to +349% slow against current main on this card. The 300m/600m batch-8 legs and esmc-300m-single are 785f0456 (the worker embed path moved onto the already-shipped threaded write_npz_many; that commit measured the old 16.737 seq/s baseline as 90.5% host zlib on this exact card, 47.13 ms device against 446.79 ms serial write). esmc-300m-single also carries 3bb206e7 (B=1 ttnn trace capture, 1.47x). esmc-6b is 2907613b (81 blocking device->host copies per forward cut to 1) on top of the same write fix. Measured on qb1 card 2 under the pinned release runtime (ttnn 0.68.0, torch 2.13.0). CAVEAT: these legs still time the whole predict_one wall, so roughly half of each is host zlib, and draw-to-draw spread on a busy qb1 measured 5-35% (esmc-300m 67.26/53.08, esmc-600m 61.83/58.93, esmc-300m-single 34.89/38.52, esmc-6b 6.31/8.54 seq/s over two draws) -- wider than the +-15% threshold. Take a second draw before believing a FAIL here. The structural fix is to gate the device_s that tt_bio/worker.py already reports separately, not the whole wall."
+            },
+            "nesso1": {
+              "unit": "affinities/s",
+              "direction": "higher",
+              "value": 0.038486,
+              "latency_ms": 25983.68,
+              "input": "affinity_fkg.yaml (FKBP12+SB3, L107, bf16 trunk, CLI defaults)",
+              "sampling_steps": null,
+              "diffusion_samples": null,
+              "recycling_steps": null,
+              "num_timesteps": null,
+              "num_designs": null,
+              "warmup": 0,
+              "repeat": 3,
+              "hardware": "blackhole",
+              "card_type": "p150a",
+              "machine_id": "tt-quietbox",
+              "tt_bio_version": "0.6.5",
+              "date": "2026-08-21",
+              "note": "seed: first cell for tt-bio affinity / nesso1, shipped CLI defaults on examples/affinity_fkg.yaml"
             }
           },
           "date": "2026-08-17",

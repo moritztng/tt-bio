@@ -470,6 +470,52 @@
       }
     ]
   },
+  "affinity": {
+    "cond": "Wall-clock seconds to return one binding-affinity prediction on a single AI Processor, warm, at the shipped defaults. Shorter is better. One prediction at a time on every platform.",
+    "note": "Nesso-1 returns eleven scalars and no coordinates, so it cannot run the CDK2 fixture the fold rows use: it conditions on ESM-2 embeddings rather than an MSA and it needs a ligand. This row is measured on the 512 aa rung of the port's own size ladder instead, 532 tokens, one protein and one ligand. Read it against the other rows for what a 512-residue input costs on each platform, not as the same computation.",
+    "methods": "One protein plus one ligand at the shipped defaults: bf16 trunk, fp32 affinity stacks, 5 recycling steps, 256-token pocket crop, one prediction at a time. The Tenstorrent figure is a warm forward on one Blackhole p150a with the box quiet plus the featurisation measured in the same process; the H200 figure is the cuda-synchronised Lightning step plus its own host share, from the same rung of the GPU reference. B200 and A100 are unmeasured: the GPU reference was one rented single-H200 session.",
+    "models": [
+      {
+        "id": "nesso1",
+        "name": "Nesso-1",
+        "target": "CDK2 ladder 512 aa plus one ligand, 532 tokens, no MSA",
+        "recycling_steps": 5,
+        "batch": 1,
+        "cells": {
+          "p150a": {
+            "status": "measured",
+            "s_per_fold": 22.051,
+            "parity": "worst scalar 3.43x the reference spread, inside a 5.0x floor",
+            "ref": "8.341 s warm forward plus 13.710 s featurisation, both from one process on qb1 card 2 with the box quiet, 2 reps and the warm one taken: perf/nesso1/size_ladder.json rung aa512, arm bf16. ttnn 0.68.0.",
+            "split": {
+              "host_s": 13.71,
+              "in_cell": true,
+              "bound": "upper",
+              "ref": "Featurisation is RDKit conformer embedding plus an ESM-2 650M pass on host, timed in its own right in the same process as the forward. It is the cold pass, so summing it against a warm forward is an upper bound on the whole prediction: a screen that reuses the cached embedding pays less. The device half, 8.341 s, is exact."
+            }
+          },
+          "h200": {
+            "status": "measured",
+            "s_per_fold": 3.9403,
+            "ref": "One rented H200, cell ladder_aa512_cueq of perf/nesso1/gpu_reference.json: invocation wall 3.9403 s over 4 reps, of which the cuda-synchronised Lightning predict step is 1.0509 s. torch 2.13.0+cu130, cuEquivariance kernels on and engaged on 100 % of the triangle calls. Model load is outside the cell on both sides.",
+            "split": {
+              "host_s": 2.8894,
+              "in_cell": true,
+              "ref": "host_s of the same cell: preprocessing 1.959 s and the ESM-2 pass 1.020 s dominate it. Same regions as the Tenstorrent cell, which is why the host halves are comparable and the whole-to-whole reading is the honest one."
+            }
+          },
+          "b200": {
+            "status": "not measured",
+            "detail": "The Nesso-1 GPU reference was a single rented H200 session. Nothing about the model prevents a B200 run; nobody has paid for one."
+          },
+          "a100": {
+            "status": "not measured",
+            "detail": "Same as B200: unmeasured, not unsupported."
+          }
+        }
+      }
+    ]
+  },
   "sources": {
     "tt-galaxy": {
       "label": "Tenstorrent, Galaxy Blackhole",

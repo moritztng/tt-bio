@@ -1,0 +1,5 @@
+# 29 MB of per-module activations, regenerable with capture_ref.py. The gate does
+# not need them: it scores the host featurizer, which ref_feats.pt pins. They are
+# for component-by-component parity while the device modules are being written.
+ref_acts.pt
+_upstream_out/

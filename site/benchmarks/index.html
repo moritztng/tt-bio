@@ -262,7 +262,7 @@ details.disclose > div{ padding-top:var(--s-4); }
 
     <section class="chart" id="c5">
       <div class="chart-head">
-        <div class="chart-title"><h4>Seconds per design, one AI Processor</h4><span class="pill">Measured</span></div>
+        <div class="chart-title"><h4>Seconds per design or affinity prediction, one AI Processor</h4><span class="pill">Measured</span></div>
         <p class="cond" id="c5-cond"></p>
       </div>
       <div class="keys" id="c5-keys"></div>
@@ -283,7 +283,7 @@ details.disclose > div{ padding-top:var(--s-4); }
     <p class="cond" id="t-hostsplit-cond"></p>
     <div class="tablewrap"><table id="t-hostsplit"></table></div>
     <div class="notes"><ul id="rownotes"></ul></div>
-    <h4 style="margin-top:24px">Measured, seconds per design on one AI Processor</h4>
+    <h4 style="margin-top:24px">Measured, seconds per design or affinity prediction on one AI Processor</h4>
     <div class="tablewrap"><table id="t-design"></table></div>
     <h4 style="margin-top:24px">Derived, predictions and designs per hour per server</h4>
     <div class="tablewrap"><table id="t-derived"></table></div>
@@ -372,7 +372,22 @@ details.disclose > div{ padding-top:var(--s-4); }
   /* A design model carrying "hidden": true keeps every measured cell in the JSON and is drawn
    * nowhere. Delete that one line to publish the row again. */
   function shown(m) { return !m.hidden; }
-  function designModels() { return D.design.models.filter(shown); }
+  /* Categories that state their own scope instead of inheriting the page's. A binder design is
+   * not a 512 aa fold and neither is an affinity prediction, so each block carries its own target,
+   * conditions and methods; they share the per-accelerator axis with the prediction rows and
+   * nothing else. Adding a category here draws it everywhere. */
+  var CATEGORIES = [
+    { key: "design", label: "Design", methodsLabel: "Binder design",
+      one: "design", many: "designs", sub: "binder design, one at a time" },
+    { key: "affinity", label: "Affinity", methodsLabel: "Binding affinity",
+      one: "prediction", many: "predictions", sub: "binding affinity, no structure" }
+  ];
+  function catModels(k) { return ((D[k] && D[k].models) || []).filter(shown); }
+  function catRows() {
+    return CATEGORIES.reduce(function (a, c) {
+      return a.concat(catModels(c.key).map(function (m) { return { m: m, c: c }; }));
+    }, []);
+  }
 
   /* Every row the cost and server charts draw: the prediction models, then any design model that
    * is not hidden. A row carries its own noun, because a design is not a prediction and the two
@@ -380,8 +395,8 @@ details.disclose > div{ padding-top:var(--s-4); }
   function rows() {
     return D.models.map(function (m) {
       return { m: m, one: "prediction", many: "predictions" };
-    }).concat(designModels().map(function (m) {
-      return { m: m, one: "design", many: "designs", sub: "binder design, one at a time" };
+    }).concat(catRows().map(function (r) {
+      return { m: r.m, one: r.c.one, many: r.c.many, sub: r.c.sub };
     }));
   }
 
@@ -648,36 +663,40 @@ details.disclose > div{ padding-top:var(--s-4); }
 
   function chartDesign() {
     var groups = [], max = 0;
-    designModels().forEach(function (m) {
+    catRows().forEach(function (r) {
+      var m = r.m;
       var bars = CELLS.map(function (k) {
         var c = m.cells[k], p = plat(k);
         if (c.status !== "measured") {
           return { series: p.name, seriesShort: p.short, blocked: true,
                    blockedLabel: blockedLabel(c), reason: blockedWhy(c) };
         }
-        max = Math.max(max, c.s_per_design);
+        max = Math.max(max, secs(c));
         return {
-          series: p.name, seriesShort: p.short, color: SER[k], value: c.s_per_design,
-          label: fmtSec(c.s_per_design, 1) + " s",
-          tip: [m.name + " on " + p.name, fmtSec(c.s_per_design) + " s per design", m.target, c.ref].join("\n")
+          series: p.name, seriesShort: p.short, color: SER[k], value: secs(c),
+          label: fmtSec(secs(c), 1) + " s",
+          tip: [m.name + " on " + p.name, fmtSec(secs(c)) + " s per " + r.c.one,
+                m.target, c.ref].join("\n")
         };
       });
       groups.push({ label: m.name, sub: m.target, bars: bars });
     });
     drawBars(document.getElementById("c5-svg"), {
-      id: "c5", groups: groups, max: niceMax(max), unit: "seconds per design", unitShort: "s",
+      id: "c5", groups: groups, max: niceMax(max), unit: "seconds", unitShort: "s",
       tickFmt: function (v) { return v.toFixed(0); },
-      title: "Seconds to return one binder design on one AI Processor, measured",
-      desc: designModels().map(function (m) {
-        return m.name + ": " + CELLS.map(function (k) {
-          var c = m.cells[k];
+      title: "Seconds to return one binder design or one affinity prediction on one AI Processor, measured",
+      desc: catRows().map(function (r) {
+        return r.m.name + ": " + CELLS.map(function (k) {
+          var c = r.m.cells[k];
           return plat(k).name + " " +
-            (c && c.status === "measured" ? fmtSec(c.s_per_design) + " s" : blockedLabel(c));
+            (c && c.status === "measured" ? fmtSec(secs(c)) + " s" : blockedLabel(c));
         }).join(", ") + ".";
       }).join(" ")
     });
-    document.getElementById("c5-cond").textContent = D.design.cond;
-    document.getElementById("c5-note").textContent = D.design.note;
+    document.getElementById("c5-cond").textContent =
+      CATEGORIES.map(function (c) { return D[c.key] && D[c.key].cond; }).filter(Boolean).join(" ");
+    document.getElementById("c5-note").textContent =
+      CATEGORIES.map(function (c) { return D[c.key] && D[c.key].note; }).filter(Boolean).join(" ");
   }
 
   function chartCost() {
@@ -734,9 +753,9 @@ details.disclose > div{ padding-top:var(--s-4); }
     function deviceS(c) {
       var sp = c.split;
       return sp.device_s !== undefined ? sp.device_s
-        : (sp.in_cell ? c.s_per_fold - sp.host_s : c.s_per_fold);
+        : (sp.in_cell ? secs(c) - sp.host_s : secs(c));
     }
-    function wholeS(c) { return c.split.in_cell ? c.s_per_fold : c.s_per_fold + c.split.host_s; }
+    function wholeS(c) { return c.split.in_cell ? secs(c) : secs(c) + c.split.host_s; }
     /* Three decimals here where the rest of the page uses two: these rows sit within 0.01x of each
      * other, and 3.992x against 3.986x is the entire point of the column. */
     function fmtX3(v) { return v.toFixed(3) + "x"; }
@@ -749,7 +768,8 @@ details.disclose > div{ padding-top:var(--s-4); }
       "<thead><tr><th>Model</th><th class=\"n\">Blackhole host</th><th class=\"n\">Blackhole device</th>" +
       "<th class=\"n\">H200 host</th><th class=\"n\">H200 device</th>" +
       "<th class=\"n\">Whole fold</th><th class=\"n\">Device only</th></tr></thead><tbody>" +
-      D.models.filter(function (m) { return m.cells.p150a.split && m.cells.h200.split; })
+      D.models.concat(catRows().map(function (r) { return r.m; }))
+        .filter(function (m) { return m.cells.p150a.split && m.cells.h200.split; })
         .map(function (m) {
           var t = m.cells.p150a, g = m.cells.h200;
           return "<tr><td>" + m.name + "</td>" + splitPair(t) + splitPair(g) +
@@ -764,14 +784,21 @@ details.disclose > div{ padding-top:var(--s-4); }
         { textContent: m.name + ". " + m.note }));
     });
 
+    /* Steps means whatever step count that model is defined by: sampling steps for a design,
+     * recycling passes for an affinity prediction. The cell says which. */
+    function stepsCell(m) {
+      return m.sampling_steps === undefined
+        ? m.recycling_steps + " recycles" : m.sampling_steps + " sampling";
+    }
     document.getElementById("t-design").innerHTML =
       "<thead><tr><th>Model</th><th class=\"n\">Steps</th><th>Batch</th><th class=\"n\">Blackhole p150a</th>" +
       "<th class=\"n\">H200</th><th class=\"n\">B200</th><th class=\"n\">A100</th></tr></thead><tbody>" +
-      designModels().map(function (m) {
-        return "<tr><td>" + m.name + "</td><td class=\"n num\">" + m.sampling_steps + "</td>" +
+      catRows().map(function (r) {
+        var m = r.m;
+        return "<tr><td>" + m.name + "</td><td class=\"n num\">" + stepsCell(m) + "</td>" +
           "<td class=\"num\">" + m.batch + "</td>" +
           CELLS.map(function (k) {
-            return gpuCell(m.cells[k], function (c) { return fmtSec(c.s_per_design); });
+            return gpuCell(m.cells[k], function (c) { return fmtSec(secs(c)); });
           }).join("") + "</tr>";
       }).join("") + "</tbody>";
 
@@ -805,9 +832,12 @@ details.disclose > div{ padding-top:var(--s-4); }
 
     var s = D.scope, m = D.cost_model;
     var dl = document.getElementById("scope-dl");
-    var design = designModels();
     var scopeRows = [["Target", s.description]];
-    if (design.length) scopeRows.push(["Design target", design.map(function (x) { return x.target; }).join("; ")]);
+    CATEGORIES.forEach(function (c) {
+      var ms = catModels(c.key);
+      if (ms.length) scopeRows.push([c.label + " target",
+        ms.map(function (x) { return x.target; }).join("; ")]);
+    });
     scopeRows.push(["Run", s.protocol], ["Updated", D.updated]);
     scopeRows.forEach(function (kv) {
       dl.appendChild(Object.assign(document.createElement("dt"), { textContent: kv[0] }));
@@ -843,8 +873,11 @@ details.disclose > div{ padding-top:var(--s-4); }
     }
     mrow("Models", D.models.map(function (x) { return x.name; }).join(", ") +
       ", each at its own recycle and sampling-step settings" +
-      (design.length ? ", plus " + design.map(function (x) { return x.name; }).join(", ") +
-        " for binder design." : "."));
+      CATEGORIES.map(function (c) {
+        var ms = catModels(c.key);
+        return ms.length ? ", plus " + ms.map(function (x) { return x.name; }).join(", ") +
+          " for " + c.methodsLabel.toLowerCase() : "";
+      }).join("") + ".");
     mrow("Size", s.size_aa + " residues. " + s.description);
     mrow("Input", s.fixture + " with " + s.msa_file + ", seed " + s.seed + ", templates " + s.templates +
       ", " + s.diffusion_samples + " diffusion sample. Both sides ran these same two files.");
@@ -855,7 +888,9 @@ details.disclose > div{ padding-top:var(--s-4); }
         var c = x.cells.p150a;
         return x.name + " " + (c && c.parity ? c.parity : "not measured");
       }).join("; ") + ".");
-    mrow("Binder design", D.design.methods);
+    CATEGORIES.forEach(function (c) {
+      if (D[c.key] && D[c.key].methods) mrow(c.methodsLabel, D[c.key].methods);
+    });
     mrow("Servers", "A server bar is one measured accelerator times the accelerators in the box, on " +
       "both sides: 32 Blackhole AI Processors against 8 GPUs.");
     mrow("Cost", m.formula + " Only the second basis uses the window. " + m.amortisation_basis + " " +
