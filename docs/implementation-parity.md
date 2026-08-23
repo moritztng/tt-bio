@@ -51,8 +51,9 @@ accuracy (does the fold match the native structure) is out of scope.
 | RoseTTAFold3 | ubiquitin, L76, MSA | PASS | vendored torch CPU reference, bf16 both sides, shared draws; CA-RMSD X 0.221 Å inside the 0.418 Å reference noise floor (X/floor 0.53) and all-atom X 0.219 Å inside a 0.467 Å floor (X/floor 0.47). Four of the five seeds reproduce the reference trajectory to 0.087-0.097 Å; seed 4 alone reads 0.736 Å and it is the reference that moved, its own sample sitting 0.86-0.91 Å from its siblings while the device’s stays inside the normal device spread — a bifurcation, like `boltz2-prot-nomsa` at seed 0. `scripts/rf3_port/accuracy_cell.py`, five seeds, shipped arm (10 recycles, 50 sampling steps, one diffusion sample). The shipped arm is now the fused SDPA with the ragged key tail masked (`fp32_softmax=False`), which reads 0.221 Å against the materialised route’s 0.229 Å, and 0.0920 Å against 0.0955 Å on the four non-bifurcating seeds |
 | RoseTTAFold3 | 7ROA, L117, MSA | PASS | same harness and convention as the row above; CA-RMSD X 0.178 Å inside the 0.382 Å noise floor (X/floor 0.47) and all-atom X 0.229 Å inside a 0.632 Å floor (X/floor 0.36). No outlier seed here: all five X land 0.128-0.254 Å, so the ubiquitin leg’s seed-4 bifurcation is a per-seed trajectory property and not a length- or target-independent one. This is the rung the shipped-arm flip moves most: the materialised route read 0.203 Å against a 0.361 Å floor, so masking the ragged tail cut the error 1.14x while the floor widened to the device’s own spread. The unmasked fused route reads 1.64 Å here, outside the floor, which is why the pad and the arm ship together and never separately |
 | RoseTTAFold3 | CDK2 ladder 128/256/512/768/1024 aa, plus 5vht (real homodimer, paired MSA, atomized NCAA) | PASS | supporting evidence for the row above, not a second absolute number: scored against the vendored torch reference, ceiling-relative with the bf16-vs-fp32 ceiling measured in the same run; no trend with size. Confidence reductions (pTM / ipTM / ranking) 12/12 against upstream's own code. Bit-exact run-to-run AND cross-process at 128 / 256 / 512. The pairformer s-track defect is fixed: `ttnn.softmax` returns rows summing to 0.9769 rather than 1, and an RF3-scoped accurate softmax takes the s-track from 0.021263 to 0.003290 against a 0.001869 reference (11.4x -> 1.76x); opt-in, not flipped for shared sites. The 1024 aa accuracy cell is unmeasured, its CPU reference needing >50 min. The shipped arm is the fused SDPA with the ragged key tail masked; at 128 aa the five-seed result is bit-identical across a `main` merge that touched the fused-SDPA route and across two different cards, and at 512 aa the CIF digest reproduces across two processes. `TT_BIO_TRIATT_FUSED_HIFI` is not additive with this arm and is not used: it lives on the materialised-softmax route, which is the other side of the same switch. |
+| Nesso-1 | tyr48 + tyrosine, 61 tokens | PASS | host featurizer bit-exact vs the committed upstream capture; torch model 22/22 activations bit-identical and 11/11 output scalars exact. On device the worst of the 11 scalars sits at 3.43x upstream's own 0.058 featurization-draw spread, inside the 5.0x floor, and the device is deterministic (spread 0.0 across 3 repeats). On DAVIS the within-target Pearson is 0.662 against the upstream/H200 arm's 0.636 on the same 30 compounds per target |
 
-Net: 32 PASS, 6 PASS-caveated, 1 GAP-evidenced (boltz2-9ncy-nomsa, root-caused below). The three Boltz-2 affinity
+Net: 33 PASS, 6 PASS-caveated, 1 GAP-evidenced (boltz2-9ncy-nomsa, root-caused below). The three Boltz-2 affinity
 legs were re-run with MSA (Boltz-2's production default — a pharma user folds a
 target whose homologs are known, so the MSA is fed); the earlier single-sequence
 rows are retained and relabeled `non-default`. The MSA legs score 9 PASS / 3 GAP
@@ -93,6 +94,12 @@ within 2 Å scRMSD), not by a distance. OpenDDE-abag by global DockQ and
 per-interface iRMSD.
 
 ## Correctness method — integration-parity envelope (supersedes the R/D/X floor)
+
+Nesso-1 is the one model here scored on neither a distance nor an envelope. It predicts no
+coordinates, so there is nothing to align and no diffusion draw to share; its leg compares the
+eleven output scalars against the torch reference and normalises by upstream's own
+featurization-draw spread, because upstream roto-translates every conformer off the global RNG and
+so differs from itself run to run by up to 0.058.
 
 The R/D/X floor above answers a distribution question ("is X within the run-to-run spread?") with
 a point comparison against a GUESSED floor `max(R, D)`. Because R, D and X each compare INDEPENDENT

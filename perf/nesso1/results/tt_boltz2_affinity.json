@@ -1,0 +1,97 @@
+{
+  "arm": "boltz-2 affinity on one Blackhole p150a, tt-bio's shipped affinity settings",
+  "host": "tt-quietbox2",
+  "card": "2",
+  "loadavg_at_start": [
+    21.01513671875,
+    23.65966796875,
+    22.482421875
+  ],
+  "protein_aa": 256,
+  "cli_args": [
+    "--recycling_steps",
+    "3",
+    "--sampling_steps",
+    "200",
+    "--diffusion_samples",
+    "1",
+    "--sampling_steps_affinity",
+    "200",
+    "--diffusion_samples_affinity",
+    "5",
+    "--affinity_mw_correction",
+    "--output_format",
+    "cif",
+    "--single_sequence",
+    "--override",
+    "--accelerator",
+    "tenstorrent",
+    "--model",
+    "boltz2"
+  ],
+  "single": {
+    "ligand_heavy": 22,
+    "reps_s": [
+      326.536
+    ],
+    "affinity": {
+      "cdk2_256": {
+        "affinity_pred_value": 0.653522,
+        "affinity_probability_binary": 0.287429,
+        "affinity_pred_value1": 1.118408,
+        "affinity_probability_binary1": 0.365699,
+        "affinity_pred_value2": 0.976766,
+        "affinity_probability_binary2": 0.209158
+      }
+    },
+    "rc": 0,
+    "note": "rep0 with the tt-metal kernel cache already warm from four probe runs on this card. runtime_s in tt-bio's results.json is 34.2 s, the structure leg only; the affinity leg is not accounted there."
+  },
+  "directory": {
+    "ligand_codes": [
+      "GGGGGG",
+      "GGGGGA",
+      "GGGGAG",
+      "GGGGAA"
+    ],
+    "ligand_heavy": [
+      25,
+      26,
+      26,
+      27
+    ],
+    "reps": []
+  },
+  "affinity_leg_cost_model": {
+    "what": "Three probe points at 256 aa, main-leg sampling_steps pinned at 4 so only the affinity leg moves. Wall clock of the whole invocation; the affinity leg is the span from the structure leg's 'saving' line to the target's completion line.",
+    "points": [
+      {
+        "sampling_steps_affinity": 4,
+        "diffusion_samples_affinity": 5,
+        "invocation_s": [
+          243.8,
+          228.3,
+          239.3
+        ],
+        "affinity_leg_s": 210
+      },
+      {
+        "sampling_steps_affinity": 44,
+        "diffusion_samples_affinity": 5,
+        "invocation_s": [
+          221.3
+        ],
+        "affinity_leg_s": 200
+      },
+      {
+        "sampling_steps_affinity": 4,
+        "diffusion_samples_affinity": 1,
+        "invocation_s": [
+          196.4
+        ],
+        "affinity_leg_s": 178
+      }
+    ],
+    "reading": "Flat in sampling_steps_affinity: 4 -> 44 is 200 extra step-executions and moves nothing outside the 221-244 s rep spread. ~8 s per ensemble member: 5 -> 1 samples drops the leg 210 -> 178 s. So ~170 s of the affinity leg is fixed per prediction, independent of both steps and ensemble size, and it is 52 % of the full-protocol 326.5 s invocation. Not attributed yet."
+  }
+}

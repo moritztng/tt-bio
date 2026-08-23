@@ -1,0 +1,71 @@
+{
+ "size": 298,
+ "seeds": [
+  0,
+  1,
+  2
+ ],
+ "n_tokens": 298,
+ "n_bins": 65,
+ "sampling_steps": 5,
+ "diffusion_samples": 1,
+ "segments": {
+  "whole": {
+   "n_residues": 294,
+   "n_pairs": 28595,
+   "rho": {
+    "def": [
+     0.937446,
+     0.937327,
+     0.932957
+    ],
+    "hifi": [
+     0.925384,
+     0.928092,
+     0.928684
+    ]
+   },
+   "rho_shipped_spread": 0.004489,
+   "rho_margin_per_seed": [
+    -0.012062,
+    -0.009235,
+    -0.004273
+   ],
+   "rho_margin_mean": -0.008523,
+   "rho_margin_boot_ci95": [
+    -0.01201,
+    -0.003474
+   ],
+   "threshold": -0.001122,
+   "verdict": "FLOOR-side",
+   "near_is_low_bin": true,
+   "topk": 58,
+   "n_long_range_pairs": 22723,
+   "bin_cut": 20,
+   "contact_precision_by_Eb": {
+    "def": [
+     1.0,
+     1.0,
+     1.0
+    ],
+    "hifi": [
+     0.965517,
+     1.0,
+     1.0
+    ]
+   },
+   "contact_precision_by_Pnear": {
+    "def": [
+     0.793103,
+     0.810345,
+     0.827586
+    ],
+    "hifi": [
+     0.758621,
+     0.758621,
+     0.775862
+    ]
+   }
+  }
+ }
+}

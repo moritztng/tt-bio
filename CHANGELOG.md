@@ -115,6 +115,26 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   gate cannot read as a green full one. Leaving the variable unset means the whole box and is
   the unchanged path a release run takes. Both gates also refuse to start when the 1-min
   loadavg is above 1.5x nproc (`--load-ceiling`, 0 disables).
+- `tt-bio affinity DATA` predicts protein-ligand binding affinity without folding anything.
+  Nesso-1 has no structure module, so it returns scalars rather than coordinates: an affinity
+  value (mean of a two-member ensemble, and each member), a binary binder probability, and six
+  distogram entropies. It takes the same YAML Boltz-2 affinity takes (`sequences` plus
+  `properties: affinity`), and a directory is a screen that keeps the model resident across
+  inputs, so a ligand series against one target pays the weight load and the kernel compile
+  once. Output is one `<id>_affinity.json` per input plus an `affinity.csv` for the run.
+  On DAVIS it reaches 0.662 mean within-target Pearson against measured Kd (0.175 for a
+  molecular-weight-only control), matching the 0.636 the upstream implementation gets on an
+  H200. One 512 aa prediction costs 8.3 s of model time on one Blackhole card and 33 s for
+  the whole command, against 386 s for the same command through Boltz-2 affinity, which is
+  what tt-bio shipped for this question before; against a GPU it is 7.9x off an H200 at that
+  size, so choose it for what the answer costs on this hardware rather than expecting it to
+  beat a GPU. The trunk runs bf16 by default (`--trunk fp32` switches
+  back, and is the more faithful arm under ~150 tokens). Weights and the 413 MB `ccd.pkl`
+  download on first use. See `docs/nesso1.md`.
+- Nesso-1 joins every release gate leg: a correctness arm (`release_gate.py --model nesso1`,
+  scoring its eleven output scalars against the torch reference and normalising by upstream's
+  own featurization-draw spread), a perf cell in `affinities/s` on the same FKBP12+SB3 fixture
+  the Boltz-2 affinity cell uses, a `full_parity_gate.py` leg, and the size-generality arm.
 
 ### Fixed
 
@@ -222,6 +242,19 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   device path here has to clear; pLDDT is clean at 0.994. The flag ships off and the predicted
   structure never depends on it, so leave it off if you read PAE or PDE. 0.6.5 returns the same
   numbers: a pre-existing gap now measured, not a new one.
+- `perf_regression.py`'s full-coverage assertion no longer misses a whole CLI verb. It exists
+  so a model cannot ship with zero perf coverage, but it was keyed on the three model tuples
+  that existed when it was written, so a new verb bringing its own tuple reopened exactly the
+  hole it closed — `tt-bio affinity` would have shipped uncovered and the check would have
+  stayed green. It now discovers every `*_MODELS` tuple in `tt_bio.main`.
+- `full_parity_gate.py` pins every leg to its card. It pinned only the subprocess harnesses,
+  so the legs that run in-process and shell out from there (boltzgen, opendde-abag, capacity,
+  nesso1) inherited an environment with no device restriction and opened the whole mesh — the
+  failure the function's own docstring describes, while asserting these legs were pinned.
+- A partial `perf_regression.py --update-baseline` no longer restamps the machine-level date,
+  version and note in `docs/perf_baselines.json`. Seeding one model's cell rewrote the note
+  describing the whole block, so one reseed erased the only record of why another model's
+  number had moved.
 
 ## [0.6.5] - 2026-08-20
 
