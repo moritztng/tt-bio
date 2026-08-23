@@ -28,19 +28,30 @@ gate() {  # gate <structure> <label>
   python3 "$HERE/gpu5_accuracy_gate.py" "$1" --expect-residues 512 ${2:+--expect-plddt "$2"}
 }
 
-MAXLOAD=${MAXLOAD:-4.0}
+# The box must be quiet before a row is timed, but "quiet" has to be measured on something we
+# own. /proc/loadavg is not namespaced: on the 192-core shared host behind the B200 rental it
+# read 15-31 while our own processes drew 0.0% CPU, so a loadavg gate would have SKIPPED every
+# row and published nothing. Our own cgroup CPU draw is the quantity that actually perturbs a
+# row, and a foreign process on the card is the other disqualifier.
+MAXCORES=${MAXCORES:-2.0}
+own_cores() {
+  local a b
+  a=$(awk '/usage_usec/{print $2}' /sys/fs/cgroup/cpu.stat 2>/dev/null || echo 0)
+  sleep 5
+  b=$(awk '/usage_usec/{print $2}' /sys/fs/cgroup/cpu.stat 2>/dev/null || echo 0)
+  awk -v a="$a" -v b="$b" 'BEGIN{printf "%.2f", (b-a)/5000000.0}'
+}
+foreign_gpu() { nvidia-smi --query-compute-apps=pid --format=csv,noheader 2>/dev/null | grep -c '[0-9]' || true; }
 
 for M in $MODELS; do
-  # A published cell was measured on a quiet box. The host-device-split pass had to throw
-  # away boltz-2 and esmfold2 numbers taken at loadavg 25-27, so the load gate is a hard
-  # stop, not a warning: wait for the box to go quiet, then refuse the row if it does not.
   for _ in $(seq 1 60); do
-    LOAD=$(cut -d' ' -f1 /proc/loadavg)
-    awk -v l="$LOAD" -v m="$MAXLOAD" 'BEGIN{exit !(l<m)}' && break
-    echo "== waiting for a quiet box before $M: loadavg $LOAD > $MAXLOAD =="; sleep 30
+    CORES=$(own_cores); FG=$(foreign_gpu)
+    awk -v c="$CORES" -v m="$MAXCORES" 'BEGIN{exit !(c<m)}' && [ "${FG:-0}" -eq 0 ] && break
+    echo "== waiting before $M: own draw $CORES cores (max $MAXCORES), foreign GPU procs $FG =="; sleep 25
   done
-  awk -v l="$LOAD" -v m="$MAXLOAD" 'BEGIN{exit !(l<m)}' || {
-    echo "== SKIP $M: loadavg $LOAD still above $MAXLOAD after 30 min =="; continue; }
+  awk -v c="$CORES" -v m="$MAXCORES" 'BEGIN{exit !(c<m)}' && [ "${FG:-0}" -eq 0 ] || {
+    echo "== SKIP $M: own draw $CORES cores / foreign GPU procs $FG still bad after 30 min =="; continue; }
+  echo "== quiet check before $M: own draw $CORES cores, foreign GPU procs $FG, host loadavg $(cut -d' ' -f1 /proc/loadavg) (not namespaced) =="
   EL=$(( $(date +%s) - START ))
   if [ "$EL" -gt "$BUDGET_S" ]; then
     echo "== SKIP $M: ${EL}s exceeds BUDGET_S=$BUDGET_S =="; continue

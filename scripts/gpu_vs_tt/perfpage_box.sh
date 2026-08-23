@@ -46,14 +46,37 @@ step() {
   fi
 }
 
-quiet_box() {   # wait for the box to go quiet; never measure next to a download
-  local i
-  for i in $(seq 1 80); do
-    awk -v m=4.0 '{exit !($1<m)}' /proc/loadavg && return 0
-    say "waiting for a quiet box: loadavg $(cut -d' ' -f1 /proc/loadavg)"
-    sleep 30
+# Wait until THIS CONTAINER is quiet, and until no stranger is on the GPU.
+#
+# /proc/loadavg is NOT namespaced: on a 192-core shared host it reports the whole machine's
+# runnable count, which on the B200 box sat at 15-31 while our own processes used 0.0% CPU.
+# A "loadavg < 4" gate can therefore never pass there and just burns its own timeout. What the
+# rule actually means is "do not measure next to your own 25 GB download", so measure our own
+# cgroup CPU draw instead, which is the thing we control and the thing that perturbs a row.
+# The GPU check is the other half: a co-tenant's process on the card invalidates a row outright
+# (a stranger's 12486 MiB once turned a <4% spread into 9.7-15.2 s).
+own_cores() {
+  local a b
+  a=$(awk '/usage_usec/{print $2}' /sys/fs/cgroup/cpu.stat 2>/dev/null || echo 0)
+  sleep 5
+  b=$(awk '/usage_usec/{print $2}' /sys/fs/cgroup/cpu.stat 2>/dev/null || echo 0)
+  awk -v a="$a" -v b="$b" 'BEGIN{printf "%.2f", (b-a)/5000000.0}'
+}
+foreign_gpu() {   # count compute processes on the card that are not ours
+  nvidia-smi --query-compute-apps=pid --format=csv,noheader 2>/dev/null | grep -c '[0-9]' || true
+}
+quiet_box() {
+  local i c g
+  for i in $(seq 1 40); do
+    c=$(own_cores); g=$(foreign_gpu)
+    if awk -v c="$c" 'BEGIN{exit !(c<2.0)}' && [ "${g:-0}" -eq 0 ]; then
+      say "box quiet: own cgroup draw ${c} cores, no GPU compute apps (host loadavg $(cut -d' ' -f1 /proc/loadavg), not namespaced)"
+      return 0
+    fi
+    say "waiting: own draw ${c} cores, foreign GPU procs ${g} (host loadavg $(cut -d' ' -f1 /proc/loadavg), not namespaced)"
+    sleep 25
   done
-  say "WARNING box never went quiet; rows will record their own loadavg"
+  say "WARNING never went quiet; rows record their own loadavg and their own cgroup draw"
 }
 
 # ---------------------------------------------------------------------------- phase 1: setup
