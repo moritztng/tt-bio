@@ -170,6 +170,13 @@ NAME = DATA.stem  # "prot" -> results land in <model>_results_prot/
 SAMPLING_STEPS = 200
 DIFFUSION_SAMPLES = 5
 SEED = 0
+# One model does not fold at the shared step count, and it is not a preference: 200 is not a
+# configuration RF3 ships for inference. Its inference engine sets num_steps: 50
+# (tt_bio.main._resolve_sampling_steps cites the upstream config and the checkpoint's
+# training-side 200 that the engine overrides), and every RF3 parity and perf number in this
+# repo was produced at 50. Folding the gate at 200 would gate a config no user reaches by
+# default, the same reason _msa_args folds esmfold2 single-sequence.
+SAMPLING_STEPS_BY_MODEL = {"rf3": 50}
 # When set (via --fast), fold with tt-bio --fast so the gate exercises the
 # block-fp8 trunk path (bf8 weights + bf8 matmul output) that ships under --fast.
 # Defaults off: the standing floors below were calibrated for full precision.
@@ -205,6 +212,14 @@ MODELS = {
     # Floor = ~2x measured, same discipline as boltz2 (1.55 -> 3.0) and protenix-v2
     # (3.87 -> 6.0): catches a gross failure, not run-to-run MSA-draw noise.
     "openfold3":     {"max_rmsd": 3.5, "min_tm": 0.70},
+    # RoseTTAFold3, shipped as `predict --model rf3` since v0.6.6. Measured on this gate
+    # 2026-08-23 on tt-quietbox card 0 (p150a, 13x10 grid, MSA on, rf3's own 50 sampling
+    # steps): RMSD 1.238 A / TM 0.958, the closest to the experimental structure of the seven
+    # models here, in 216 s. Two separate processes at seed 0 agreed on all five samples to
+    # the printed digit, so this floor covers seed and MSA-draw spread rather than a
+    # run-to-run wobble that does not exist at 117 aa. Floor = ~2x measured, same discipline
+    # as boltz2 (1.55 -> 3.0), protenix-v2 (3.87 -> 6.0) and openfold3 (1.775 -> 3.5).
+    "rf3":           {"max_rmsd": 3.0, "min_tm": 0.75},
 }
 
 # BoltzGen designability leg — see module docstring. Small n and the target the
@@ -417,7 +432,7 @@ CAPACITY_LEGS = [
 # pin the grid either, because harvesting means one board type presents several.
 # So each model's block records the grid its census ran on and the check REFUSES
 # a cross-grid comparison outright instead of reporting levers as newly dark.
-SIZE_LADDER_MODELS = ("boltz2", "esmfold2", "protenix-v2", "openfold3", "opendde")
+SIZE_LADDER_MODELS = ("boltz2", "esmfold2", "protenix-v2", "openfold3", "opendde", "rf3")
 SIZE_LADDER_RUNGS = tuple(int(x) for x in
                           os.environ.get("RELEASE_GATE_SIZE_RUNGS", "256,512,640,768").split(",")
                           if x.strip())
@@ -532,6 +547,22 @@ BATCH_POSITION_EXTRA_AA = 200
 # The fields that must be position-independent: the structure the ligand conformer
 # feeds, and both affinity heads.
 BATCH_POSITION_FIELDS = ("coords", "affinity_pred_value", "affinity_probability_binary")
+
+
+def _sampling_steps(model: str) -> int:
+    """Requested diffusion steps for one model's gate fold (see SAMPLING_STEPS_BY_MODEL)."""
+    return SAMPLING_STEPS_BY_MODEL.get(model, SAMPLING_STEPS)
+
+
+def _steps_label(models) -> str:
+    """The step count for a summary header over a table of models: one number when they all
+    folded at the same one, "200 (rf3 50)" when they did not. A single number printed over a
+    table where one row used another one is how a summary stops matching its own run."""
+    counts = {m: _sampling_steps(m) for m in models}
+    if len(set(counts.values())) <= 1:
+        return str(next(iter(counts.values()), SAMPLING_STEPS))
+    odd = ", ".join(f"{m} {c}" for m, c in counts.items() if c != SAMPLING_STEPS)
+    return f"{SAMPLING_STEPS} ({odd})"
 
 
 def _msa_args(model: str) -> list:
@@ -697,7 +728,7 @@ def run_model(model: str, harness, keep: bool) -> dict:
     cmd = [
         sys.executable, "-m", "tt_bio.main", "predict", str(DATA),
         "--model", model,
-        "--sampling_steps", str(SAMPLING_STEPS),
+        "--sampling_steps", str(_sampling_steps(model)),
         "--diffusion_samples", str(DIFFUSION_SAMPLES),
         "--seed", str(SEED),
         *_msa_args(model),
@@ -705,7 +736,8 @@ def run_model(model: str, harness, keep: bool) -> dict:
     ] + ((["--fast"] if FAST else [])
           + (["--diffusion_trace"] if (DIFFUSION_TRACE and model == "boltz2") else []))
     print(f"\n{'='*70}\n[{model}] folding {DATA.name} "
-          f"({SAMPLING_STEPS} steps, {DIFFUSION_SAMPLES} samples)\n{'='*70}", flush=True)
+          f"({_sampling_steps(model)} steps, {DIFFUSION_SAMPLES} samples)\n{'='*70}",
+          flush=True)
 
     row = {"model": model, "seconds": None, "rmsd": None, "tm": None,
            "parse": False, "gate": False, "error": None}
@@ -1395,8 +1427,24 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
         # (--size-ladder-models) then UPDATES those models and leaves the rest of
         # the card block intact. A 5-model record is ~40 min of device time, so it
         # has to be resumable a model at a time instead of all-or-nothing.
-        new_card = {"recorded": time.strftime("%Y-%m-%d"), "host": socket.gethostname(),
-                    "commit": _repo_commit(), "models": dict(old_models)}
+        stamp = {"recorded": time.strftime("%Y-%m-%d"), "host": socket.gethostname(),
+                 "commit": _repo_commit()}
+        # The card-level stamp describes the LAST record pass, so on a subset record
+        # (--size-ladder-models) it stops describing the models that pass did not touch.
+        # rf3 was recorded on qb1 while the other five were recorded on pc; without a
+        # per-model stamp the file then claims all six came from qb1. So every entry
+        # carries its own, and an entry from before this existed inherits the card-level
+        # stamp it WAS recorded under, which is the one being overwritten here.
+        old_stamp = {k: baseline.get("cards", {}).get(card, {}).get(k)
+                     for k in ("recorded", "host", "commit")}
+        carried = {}
+        for m_old, e_old in old_models.items():
+            e_old = dict(e_old)
+            for k, v in old_stamp.items():
+                if v is not None:
+                    e_old.setdefault(k, v)
+            carried[m_old] = e_old
+        new_card = {**stamp, "models": carried}
         todos = 0
 
         def _flush_baseline():
@@ -1426,7 +1474,7 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
             block, skip = _size_ladder_exponent_block(meas["runtime_s"], meas["sigma"])
             todos += _size_ladder_fill_reasons(meas["levers"],
                                                old_models.get(m, {}).get("levers"))
-            entry = {"grid": meas.get("grid"),
+            entry = {"grid": meas.get("grid"), **stamp,
                      "runtime_s": meas["runtime_s"], "levers": meas["levers"]}
             if block:
                 entry.update(block)
@@ -1925,7 +1973,8 @@ def main() -> int:
     all_pass = True
     if rows:
         print(f"\n{'#'*78}\nRELEASE GATE — {DATA.name} ({NAME}), "
-              f"{SAMPLING_STEPS} steps / {DIFFUSION_SAMPLES} samples, seed {SEED}\n{'#'*78}")
+              f"{_steps_label(fold_models)} steps / {DIFFUSION_SAMPLES} samples, "
+              f"seed {SEED}\n{'#'*78}")
         print(f"{'model':<15}{'RMSD (A)':>10}{'TM':>8}{'floor':>16}{'wall':>9}  result")
         for r in rows:
             th = MODELS[r["model"]]

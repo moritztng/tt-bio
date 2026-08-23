@@ -982,19 +982,27 @@ def _sdpa_masked(fn, q, k, v, bias, *args, site: str, **kw):
     return sl
 
 
-def _tri_att_sdpa(q, k, v, bias, scale: float):
-    """SDPA for triangle attention at the widest q_chunk this device's L1 will hold."""
-    return _sdpa_masked(_tri_att_sdpa_inner, q, k, v, bias, scale, site="tri_att")
+def _tri_att_sdpa(q, k, v, bias, scale: float, ckc=None):
+    """SDPA for triangle attention at the widest q_chunk this device's L1 will hold.
+
+    ``ckc`` is the fused kernel's compute kernel config, or ``None`` for the op default. Passed
+    per call rather than set on ``triatt_sdpa._CKC_OVERRIDE``, which is a module global six models
+    share. It rides THROUGH `_sdpa_masked`, so the per-site HiFi4 config and the ragged-tail mask
+    compose instead of excluding each other.
+    """
+    if ckc is not None:
+        SDPA_HIFI_CALLS[0] += 1
+    return _sdpa_masked(_tri_att_sdpa_inner, q, k, v, bias, scale, ckc, site="tri_att")
 
 
-def _tri_att_sdpa_inner(q, k, v, bias, scale: float):
+def _tri_att_sdpa_inner(q, k, v, bias, scale: float, ckc=None):
     if _TRIATT_BIAS_B8 and bias is not None and bias.dtype != ttnn.bfloat8_b:
         b8 = ttnn.typecast(bias, ttnn.bfloat8_b)
         try:
-            return _tri_att_sdpa_at(q, k, v, b8, scale)
+            return _tri_att_sdpa_at(q, k, v, b8, scale, ckc)
         finally:
             ttnn.deallocate(b8)
-    return _tri_att_sdpa_at(q, k, v, bias, scale)
+    return _tri_att_sdpa_at(q, k, v, bias, scale, ckc)
 
 
 # K5: a k_chunk that DIVIDES the padded sequence even when the only divisors are WIDER than the
@@ -1063,13 +1071,28 @@ def _tri_att_k_chunks(q_len: int, k_len: int) -> tuple:
 SDPA_K_CHUNK_STATS = [0, 0]
 # (q_len, k_len) -> [q_chunk, k_chunk, "fused"|"stock"], the pair actually served at that shape.
 SDPA_CHUNK_PICKS: dict = {}
+# Calls served per route. `SDPA_CHUNK_PICKS` records the route per shape and a fold repeats one
+# shape thousands of times, so the dict cannot answer "what share of calls went fused" -- which is
+# the question a precision lever on the fused kernel has to answer before any margin it reports
+# means anything (a lever on a route that serves 3% of calls is dark, not neutral).
+SDPA_ROUTE_COUNTS = {"fused": 0, "stock": 0}
+# Triangle-attention calls that asked for a non-default compute kernel config. `fp32_dest_acc`
+# doubles the DST a tile needs, so the lever can push a config the op default fits over L1 and be
+# answered by a silent fall-back to the stock op -- an accuracy regression wearing a neutral
+# result's clothes. Counted separately from the route so the two can be read against each other.
+SDPA_HIFI_CALLS = [0]
+
+
+def _sdpa_pick(q_len, k_len, q_chunk, k_chunk, route: str):
+    SDPA_CHUNK_PICKS[(q_len, k_len)] = [q_chunk, k_chunk, route]
+    SDPA_ROUTE_COUNTS[route] += 1
 # Circular-buffer refusals on the wide-k path, keyed by the FULL config. Deliberately not
 # `_SDPA_Q_CHUNK_OVER_L1`: that set is keyed on q_chunk alone, so writing a (q, wide k) refusal into
 # it would retire a q_chunk the shipped k runs perfectly well.
 _SDPA_QK_OVER_L1: set = set()
 
 
-def _tri_att_sdpa_at(q, k, v, bias, scale: float):
+def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None):
     q_len, k_len = q.shape[2], k.shape[2]
     k_chunks = _tri_att_k_chunks(q_len, k_len)
     if len(k_chunks) > 1:
@@ -1089,10 +1112,11 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float):
                 cfg = (q_len, k_len, q_chunk, k_chunk)
                 if cfg in _SDPA_QK_OVER_L1:
                     continue
-                o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk)
+                o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk,
+                                      ckc_default=ckc)
                 if o is not None:
                     SDPA_K_CHUNK_STATS[0] += 1
-                    SDPA_CHUNK_PICKS[(q_len, k_len)] = [q_chunk, k_chunk, "fused"]
+                    _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "fused")
                     return o
                 try:
                     o = ttnn.transformer.scaled_dot_product_attention(
@@ -1100,7 +1124,7 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float):
                         program_config=_sdpa_program_config(q_chunk, k_chunk),
                     )
                     SDPA_K_CHUNK_STATS[0] += 1
-                    SDPA_CHUNK_PICKS[(q_len, k_len)] = [q_chunk, k_chunk, "stock"]
+                    _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "stock")
                     return o
                 except Exception as exc:  # noqa: BLE001 -- re-raised unless it is the L1 budget
                     if "circular buffers" not in str(exc):
@@ -1114,9 +1138,10 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float):
     # preference order as the stock loop below -- `fits` is widest first, production pick last, and
     # the wide q_chunk is worth 1.08-1.81x on its own, so K2 must not silently take the narrow one.
     for q_chunk in fits:
-        o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk)
+        o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk,
+                                      ckc_default=ckc)
         if o is not None:
-            SDPA_CHUNK_PICKS[(q_len, k_len)] = [q_chunk, k_chunk, "fused"]
+            _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "fused")
             return o
     for q_chunk in fits[:-1]:
         try:
@@ -1124,7 +1149,7 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float):
                 q, k, v, attn_mask=bias, is_causal=False, scale=scale,
                 program_config=_sdpa_program_config(q_chunk, k_chunk),
             )
-            SDPA_CHUNK_PICKS[(q_len, k_len)] = [q_chunk, k_chunk, "stock"]
+            _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "stock")
             return o
         except Exception as exc:  # noqa: BLE001 -- re-raised unless it is the L1 budget
             if "circular buffers" not in str(exc):
@@ -1134,7 +1159,7 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float):
         q, k, v, attn_mask=bias, is_causal=False, scale=scale,
         program_config=_sdpa_program_config(fits[-1], k_chunk),
     )
-    SDPA_CHUNK_PICKS[(q_len, k_len)] = [fits[-1], k_chunk, "stock"]
+    _sdpa_pick(q_len, k_len, fits[-1], k_chunk, "stock")
     return o
 
 
@@ -1935,22 +1960,12 @@ def _fp32_softmax_shard(rows: int, height_per_row: int, width: int, cores: int =
         use_height_and_width_as_shard_shape=True)
 
 
-def accurate_softmax_site(token: str, default: bool = False) -> bool:
-    """Whether construction site ``token`` takes the 5-op accurate softmax.
-
-    ``default`` is what the site ships with, decided per site by measurement. Protenix-v2's and
-    OpenDDE's Pairformer sites ship on: both models cleared 20/256/512/768 aa with the chain in
-    place, worst reading +2.0% against a +-15% band. Every other site still ships off because
-    nothing has scored it.
-
-    ``TT_BIO_ACCURATE_SOFTMAX_AB`` overrides the default per site, so a site stays A/B-able
-    after it has shipped: a bare token forces it on, a ``-`` prefix forces it off, and ``all`` /
-    ``-all`` do the same to every site that has no token of its own. Per site, never global:
-    a single shared switch is the exact shape of the Protenix-v2 fp32 default that cost OpenDDE
-    60x, and ``protenix.*`` and ``opendde.*`` name the same two code sites.
-    """
+def _site_flag(env_var: str, token: str, default: bool) -> bool:
+    """``default``, overridden per construction site by ``env_var``: a bare token forces the site
+    on, a ``-`` prefix forces it off, and ``all`` / ``-all`` do the same to every site with no
+    token of its own."""
     on, off = set(), set()
-    for t in os.environ.get("TT_BIO_ACCURATE_SOFTMAX_AB", "").split(","):
+    for t in os.environ.get(env_var, "").split(","):
         t = t.strip()
         if t.startswith("-"):
             off.add(t[1:])
@@ -1965,6 +1980,35 @@ def accurate_softmax_site(token: str, default: bool = False) -> bool:
     if "all" in on:
         return True
     return default
+
+
+def accurate_softmax_site(token: str, default: bool = False) -> bool:
+    """Whether construction site ``token`` takes the 5-op accurate softmax.
+
+    ``default`` is what the site ships with, decided per site by measurement. Protenix-v2's and
+    OpenDDE's Pairformer sites ship on: both models cleared 20/256/512/768 aa with the chain in
+    place, worst reading +2.0% against a +-15% band. Every other site still ships off because
+    nothing has scored it.
+
+    ``TT_BIO_ACCURATE_SOFTMAX_AB`` overrides the default per site, so a site stays A/B-able
+    after it has shipped: a bare token forces it on, a ``-`` prefix forces it off, and ``all`` /
+    ``-all`` do the same to every site that has no token of its own. Per site, never global:
+    a single shared switch is the exact shape of the Protenix-v2 fp32 default that cost OpenDDE
+    60x, and ``protenix.*`` and ``opendde.*`` name the same two code sites.
+    """
+    return _site_flag("TT_BIO_ACCURATE_SOFTMAX_AB", token, default)
+
+
+def triatt_sdpa_hifi_site(token: str, default: bool = False) -> bool:
+    """Whether construction site ``token`` runs its fused triangle-attention SDPA at
+    ``_TRIATT_FUSED_HIFI_CKC`` (HiFi4, math_approx off, fp32_dest_acc on) instead of the kernel's
+    op default (HiFi2, math_approx on, no fp32_dest_acc).
+
+    Per site for the same reason ``accurate_softmax_site`` is, and overridable in both directions
+    by ``TT_BIO_TRIATT_SDPA_HIFI_AB`` with the same grammar, which is what keeps a shipped default
+    A/B-able without a checkout.
+    """
+    return _site_flag("TT_BIO_TRIATT_SDPA_HIFI_AB", token, default)
 
 
 def _accurate_softmax(x, compute_kernel_config=None, fp32: bool = True):
@@ -4377,6 +4421,7 @@ class TriangleAttention(Module):
         transpose_l1_reserve: int = 0,
         accurate_softmax: bool = False,
         tri_att_one_k_chunk: bool = False,
+        sdpa_hifi: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.head_dim = head_dim
@@ -4403,6 +4448,10 @@ class TriangleAttention(Module):
         # shipped chunking and 1.15-1.42x faster; see `_tri_att_sdpa_hifi` for the table. Screened
         # off-fold only, so no model sets it -- flipping one is a separate decision.
         self.tri_att_one_k_chunk = tri_att_one_k_chunk
+        # The bf16 route's mirror of `accurate_softmax`: the fused SDPA at HiFi4 / math_approx off
+        # / fp32_dest_acc instead of the kernel's op default. Per construction site, and off unless
+        # that site's own fold-level accuracy was measured.
+        self.sdpa_hifi = sdpa_hifi
         self.scale = self.head_dim**0.5
         # Boltz/Protenix fold sqrt(head_dim) into the pair-bias projection (their
         # reference adds the bias pre-scaled); openfold3 pre-scales q by 1/sqrt(d) and
@@ -4599,7 +4648,8 @@ class TriangleAttention(Module):
                         accurate_softmax=self.accurate_softmax,
                     )
             else:
-                o = _tri_att_sdpa(q, k, v, bias, self.scale**-1)
+                o = _tri_att_sdpa(q, k, v, bias, self.scale**-1,
+                                  _TRIATT_FUSED_HIFI_CKC if self.sdpa_hifi else None)
                 if _TRIATT_DUALPROBE:
                     o = _triatt_dualprobe(o, q, k, v, bias, self.scale ** -1,
                                           1.0 / self._bias_scale,
@@ -5491,6 +5541,7 @@ class PairformerLayer(Module):
         transpose_l1_reserve: int = 0,
         accurate_softmax: bool = False,
         tri_att_accurate_softmax: bool | None = None,
+        tri_att_sdpa_hifi: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.transform_s = transform_s
@@ -5515,6 +5566,7 @@ class PairformerLayer(Module):
             scale_pair_bias=scale_pair_bias,
             fp32_softmax=fp32_softmax,
             accurate_softmax=tri_acc,
+            sdpa_hifi=tri_att_sdpa_hifi,
         )
         self.triangle_attention_end = TriangleAttention(
             tri_att_head_dim,
@@ -5528,6 +5580,7 @@ class PairformerLayer(Module):
             transpose_bias=transpose_bias,
             transpose_l1_reserve=transpose_l1_reserve,
             accurate_softmax=tri_acc,
+            sdpa_hifi=tri_att_sdpa_hifi,
         )
         self.transition_z = Transition(
             self.scope("transition_z"), compute_kernel_config
@@ -5616,6 +5669,7 @@ class Pairformer(Module):
         transpose_l1_reserve: int = 0,
         accurate_softmax: bool = False,
         tri_att_accurate_softmax: bool | None = None,
+        tri_att_sdpa_hifi: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.blocks = [
@@ -5635,6 +5689,7 @@ class Pairformer(Module):
                 transpose_l1_reserve=transpose_l1_reserve,
                 accurate_softmax=accurate_softmax,
                 tri_att_accurate_softmax=tri_att_accurate_softmax,
+                tri_att_sdpa_hifi=tri_att_sdpa_hifi,
             )
             for i in range(n_blocks)
         ]
@@ -7554,6 +7609,7 @@ class PairformerModule(TorchWrapper):
         att_n_heads: int,
         transform_s: bool,
         affinity: bool = False,
+        tri_att_sdpa_hifi: bool = False,
     ):
         super().__init__()
         self.n_blocks = n_blocks
@@ -7563,6 +7619,7 @@ class PairformerModule(TorchWrapper):
         self.att_n_heads = att_n_heads
         self.transform_s = transform_s
         self.affinity = affinity
+        self.tri_att_sdpa_hifi = tri_att_sdpa_hifi
 
     def _create_module(self, weights: WeightScope):
         return Pairformer(
@@ -7575,6 +7632,7 @@ class PairformerModule(TorchWrapper):
             weights,
             self.compute_kernel_config,
             affinity=self.affinity,
+            tri_att_sdpa_hifi=self.tri_att_sdpa_hifi,
         )
 
     def forward(
