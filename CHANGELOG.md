@@ -37,6 +37,12 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   it: 512 aa went from 82.5 s to 111.8 s. The setting is scoped now and the structure is
   bit-identical to what 0.6.5 produced.
 
+- `full_parity_gate.py --workers` no longer ssh-es a host to itself. The fleet short names
+  `qb1` and `qb2` are recognised as their own boxes, and any host that is genuinely remote is
+  probed once before the first fold: reachable, not this same machine, and the card node
+  present. A bad worker name fails preflight in seconds instead of turning every device leg
+  into an instant error.
+
 ### Performance
 
 - OpenFold3 folds 704 aa 1.34x faster (43.193 -> 32.230 s) and RoseTTAFold3 1.14x
