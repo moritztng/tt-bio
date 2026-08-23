@@ -71,7 +71,8 @@ def one(model, tokens: int, passes: int, padded: bool) -> dict:
         ttnn.synchronize_device(model._device)
         times.append(time.perf_counter() - start)
         if index == passes - 1:
-            z_digest, m_digest = digest(ttnn.to_torch(z)), digest(ttnn.to_torch(m))
+            # both stacks come back as torch tensors, downloaded by the model wrapper
+            z_digest, m_digest = digest(z), digest(m)
     warm = times[1:] or times
     return {"tokens": tokens, "l1_padded": padded, "passes": passes,
             "first_s": times[0], "warm_s": sum(warm) / len(warm),
