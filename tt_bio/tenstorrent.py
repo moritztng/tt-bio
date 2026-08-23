@@ -1503,15 +1503,78 @@ def _fp32_softmax_core_budget() -> int:
     return min(_FP32_SOFTMAX_L1_CORE_CAP, COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1])
 
 
+# S2: offer the free core count at EVERY size, not only where the tuned rectangle is dark, so a
+# size that is L1-resident today can still trade its 64-core block for a taller one on more cores.
+# Fewer blocks per call is the win: the loop pays a slice per block and the call pays one concat.
+#
+# The objective is NOT "the tallest block the byte budget affords". That version was built and
+# measured and it is a wash at 512 aa: 18 rows on 96 cores cut the block count 32.6 % (43 -> 29 per
+# call) and returned 1.013x, inside its own 7.3 % rep spread, because `batch = rows * n_heads` went
+# 48 -> 72 and `_batched_matmul_search` has no legal config at 72 -- so all 36960 of that fold's
+# q@k^T matmuls fell back to ttnn's own planner, which walks the whole batch through the cores of
+# one batch element and is 1.8x-14x slower on these shapes. At 1024 aa the same lever kept its
+# `batch` (3 rows either way) and won 1.051x with all three pre-registered counters exact. One
+# lever, two signs, one discriminator: whether the taller block kept the tuned matmul config.
+#
+# So the objective is the tallest block that BOTH fits the byte budget AND still admits a
+# batched-matmul program config, and the constraint only applies when the block being replaced had
+# a config to lose (`perf-mechanism-label-expires-when-lever-removes-its-traffic`: at the sizes S1
+# serves there was never a config, which is why S1's decline count could grow 3.9x on the arm that
+# won 1.214x).
+_FP32_SOFTMAX_L1_FLOAT_CORES = env_flag("TT_BIO_FP32_SOFTMAX_L1_FLOAT_CORES", False)
+
+
+def _fp32_softmax_bmm_served(rows: int, bmm: tuple) -> bool:
+    """Do both score matmuls still get a tuned batched program config at this block height?
+
+    The block height is the only thing that moves their shapes, and it moves exactly one number:
+    `batch = rows * n_heads`. `_batched_matmul_search` bounds that from above -- whenever
+    `per_core_M < Mt` every output block needs its own core, so `batch * Mt // per_core_M` may not
+    exceed the grid -- and from below, since it declines a batch too small to fill the grid at all.
+    Both matmuls are checked because both take the block: q@k^T is `[b,Mt,Kt] @ [b,Kt,Nt]` with the
+    head dim as K, and attn@v has the key dim as K and the value dim as N.
+    """
+    heads, m_tiles, head_tiles, key_tiles, val_tiles = bmm
+    batch = rows * heads
+    return (_batched_matmul_config(batch, m_tiles, head_tiles, key_tiles, 2) is not None
+            and _batched_matmul_config(batch, m_tiles, key_tiles, val_tiles, 2) is not None)
+
+
+def _fp32_softmax_l1_free_rows(per_row: int, height_per_row: int, cap: int | None,
+                               bmm: tuple | None) -> tuple:
+    """Tallest block whose shard count has a divisor that keeps every core under the byte budget.
+
+    ``bmm``, when given, additionally requires the block to keep its batched-matmul program config.
+    """
+    core_cap = _fp32_softmax_core_budget()
+    hi = int(_FP32_SOFTMAX_L1_BYTES_PER_CORE) * core_cap // per_row
+    if cap is not None:
+        hi = min(hi, cap)
+    for blk in range(hi, 0, -1):
+        if blk * height_per_row % 32:
+            continue
+        if bmm is not None and not _fp32_softmax_bmm_served(blk, bmm):
+            continue
+        shards = blk * height_per_row // 32
+        # every core has to stay under the budget, so the shard count is bounded from below too
+        need = -(-blk * per_row // int(_FP32_SOFTMAX_L1_BYTES_PER_CORE))
+        for c in range(min(core_cap, shards), max(need, 1) - 1, -1):
+            if shards % c == 0:
+                return blk, c
+    return 0, 0
+
+
 @lru_cache(maxsize=None)
 def _fp32_softmax_l1_plan(per_row: int, height_per_row: int, width: int,
-                          cap: int | None = None) -> tuple:
+                          cap: int | None = None, bmm: tuple | None = None) -> tuple:
     """``(rows, cores)`` for the largest L1-resident score block, or ``(0, 0)`` when there is none.
 
-    The tuned 8x8 answer wins whenever it exists, so every size that is L1-resident today keeps
-    exactly the block and the core grid it has. Only a size the rectangle cannot serve reaches the
-    second search, and there the core count is a free variable: pick the tallest block the budget
-    affords whose shard count has a divisor big enough to keep every core under the byte budget.
+    With S2 off the tuned 8x8 answer wins whenever it exists, so every size that is L1-resident
+    today keeps exactly the block and the core grid it has. Only a size the rectangle cannot serve
+    reaches the free search (S1), and there the core count is a free variable: pick the tallest
+    block the budget affords whose shard count has a divisor big enough to keep every core under
+    the byte budget. With S2 on the free search runs at every size, under the extra constraint
+    above, and only replaces the tuned answer when it is strictly taller.
 
     ``width`` is the score tensor key dim, and a plan is only worth having when the shard it
     implies can be built at all: a block cap with no shard behind it is the worst of both, because
@@ -1522,26 +1585,26 @@ def _fp32_softmax_l1_plan(per_row: int, height_per_row: int, width: int,
     stack keeps the logical token dim and lets TILE_LAYOUT pad it, so this is a guard and not a
     hypothetical.
     """
-    rows = _fp32_softmax_l1_rows(per_row, height_per_row, cap)
-    if rows:
-        return rows, _FP32_SOFTMAX_L1_GRID[0] * _FP32_SOFTMAX_L1_GRID[1]
+    tuned_cores = _FP32_SOFTMAX_L1_GRID[0] * _FP32_SOFTMAX_L1_GRID[1]
+    tuned = _fp32_softmax_l1_rows(per_row, height_per_row, cap)
+    if tuned and not _FP32_SOFTMAX_L1_FLOAT_CORES:
+        return tuned, tuned_cores
     if (not _FP32_SOFTMAX_L1_ANY_CORES or per_row <= 0 or width % 32
             or _FP32_SOFTMAX_L1_BYTES_PER_CORE <= 0):
-        return 0, 0
-    core_cap = _fp32_softmax_core_budget()
-    hi = int(_FP32_SOFTMAX_L1_BYTES_PER_CORE) * core_cap // per_row
-    if cap is not None:
-        hi = min(hi, cap)
-    for blk in range(hi, 0, -1):
-        if blk * height_per_row % 32:
-            continue
-        shards = blk * height_per_row // 32
-        # every core has to stay under the budget, so the shard count is bounded from below too
-        need = -(-blk * per_row // int(_FP32_SOFTMAX_L1_BYTES_PER_CORE))
-        for c in range(min(core_cap, shards), max(need, 1) - 1, -1):
-            if shards % c == 0:
-                return blk, c
-    return 0, 0
+        return (tuned, tuned_cores) if tuned else (0, 0)
+    # Only a block that REPLACES one with a tuned config has a config to lose.
+    keep = (bmm is not None and tuned > 0 and _BATCHED_MATMUL_ON
+            and _fp32_softmax_bmm_served(tuned, bmm))
+    free, cores = _fp32_softmax_l1_free_rows(per_row, height_per_row, cap, bmm if keep else None)
+    if not tuned:
+        return free, cores
+    # Taller first, then wider. A tie on height is not a no-op: the same block on more cores is
+    # fewer bytes on each of them, which is exactly what the 1024 aa 3-row shard refused its
+    # circular buffers for -- 786432 B/core on 64 against 524288 B/core on 96. That refusal cost a
+    # backoff to 2 rows and 675670 blocks per fold instead of 451440.
+    if (free, cores) > (tuned, tuned_cores):
+        return free, cores
+    return tuned, tuned_cores
 
 
 @lru_cache(maxsize=None)
@@ -1678,11 +1741,23 @@ def _fp32_softmax_attention(
     # 342 blocks per call paying the loop's slice-and-concat with none of the residency back. That
     # is measured, not feared -- it cost 278.23 -> 317.79 s at 1024 aa before this key was widened.
     l1_key = (height_per_row, int(k.shape[2]))
-    l1_rows, l1_cores = _fp32_softmax_l1_plan(per_row, height_per_row, int(k.shape[2]),
-                                              _FP32_SOFTMAX_L1_ROW_CAP.get(l1_key))
-    if (l1_cores != _FP32_SOFTMAX_L1_GRID[0] * _FP32_SOFTMAX_L1_GRID[1]
+    # The two matmuls this block feeds, as tile counts, so the plan can refuse a height that
+    # would cost them their batched program config (see `_fp32_softmax_bmm_served`).
+    bmm = (int(q.shape[1]), -(-int(q.shape[2]) // 32), -(-int(q.shape[3]) // 32),
+           -(-int(k.shape[2]) // 32), -(-int(v.shape[3]) // 32))
+    cap = _FP32_SOFTMAX_L1_ROW_CAP.get(l1_key)
+    tuned_cores = _FP32_SOFTMAX_L1_GRID[0] * _FP32_SOFTMAX_L1_GRID[1]
+    l1_rows, l1_cores = _fp32_softmax_l1_plan(per_row, height_per_row, int(k.shape[2]), cap, bmm)
+    if (l1_cores != tuned_cores
             and _FP32_SOFTMAX_L1_REFUSALS.get(l1_key, 0) >= _FP32_SOFTMAX_FREE_REFUSAL_CAP):
-        l1_rows, l1_cores = 0, 0
+        # Retire the FLOATING plan, not L1 residency. Where the tuned rectangle can still serve a
+        # block, that block is what shipped and it is the right fallback: dropping to no plan at all
+        # also drops the BLOCK CAP, and an unblocked call materialises the whole fp32 score tensor
+        # -- 7.25 GB at 768 aa / 4 heads, measured 170.9 ms against 127.4 ms for the tuned 4-row
+        # block. Where the rectangle is dark (S1's own sizes) there is nothing to fall back to and
+        # this is the same (0, 0) as before.
+        l1_rows = _fp32_softmax_l1_rows(per_row, height_per_row, cap)
+        l1_cores = tuned_cores if l1_rows else 0
         FP32_SOFTMAX_STATS["l1_free_retired"] += 1
     if l1_rows:
         blk = min(blk, l1_rows)
@@ -2044,15 +2119,46 @@ def _l1_memory_config_if_it_fits(t: ttnn.Tensor, headroom: float,
     return ttnn.DRAM_MEMORY_CONFIG
 
 
+# The divisor band the trimul K block is tuned in. `in0_block_w` must divide Kt, and the widest
+# legal block inside this band is 2.4x faster than 1 at Kt=10 and 2.15x at Kt=16 (microbench M2/M2b).
+_TRIMUL_IN0_BLOCK_W_BAND = 10
+
+
+def _trimul_in0_block_w(seq_len_tiles: int) -> int:
+    """K block width for the trimul matmul: the widest divisor of Kt inside the tuned band.
+
+    At a PRIME Kt above 10 the band holds nothing but 1, so the matmul runs with no K blocking at
+    all -- 544 aa (Kt = 17) at 19.97 TFLOP/s against 512 aa's (Kt = 16) 37.01, and the same at 352,
+    416, 608, 736, 928 and 992 aa. Kt itself always divides Kt and its circular buffers fit, so
+    there IS a wider legal block at exactly those lengths. It is not taken, and this is the reason,
+    MEASURED rather than argued (`perf/trimul_kernel/kt_prime_ab.py`, openfold3 at 544 aa, arms
+    interleaved in one process, one cold pair discarded):
+
+    - **`in0_block_w` is NOT bit-exact.** Widening it from 1 to 17 folds a DIFFERENT structure:
+      digest 20e1cc5ed6672ab7 against 563f1ec5e83f24e9, reproduced across two independent runs, and
+      the diffusion output's own spread moves with it, std 12.9631 -> 12.9079. So it does change the
+      order partial sums accumulate in, and any widening is an accuracy decision.
+    - **and it buys nothing**: 1.0057x and 0.9893x on two runs, against a 1.96 % A/A floor measured
+      on the same instrument. The isolated 1.85x on that one matmul is 0.6 % of a fold, or less.
+    - **and the wide block is not reliably legal.** Its circular buffers are 303104 B against
+      1461760 per bank on an IDLE device, but the second run threw
+      `Statically allocated circular buffers ... clash with L1 buffers` at program creation on two
+      programs -- which is `_l1_bank_bytes`'s own caveat, that the idle capacity is not what is free
+      beside live activations.
+
+    An unpriced accuracy cost against a win inside the noise is a NO-GO, so the band stays. Widening
+    it is Moritz's call and needs a rho margin, not a perf argument.
+    """
+    return max(d for d in range(min(_TRIMUL_IN0_BLOCK_W_BAND, seq_len_tiles), 0, -1)
+               if seq_len_tiles % d == 0)
+
+
 @lru_cache(maxsize=None)
 def _triangle_mul_program_config(seq_len_tiles: int) -> ttnn.MatmulMultiCoreReuseMultiCastProgramConfig:
     gx, gy = COMPUTE_GRID_MAIN
     per_core_M = -(-seq_len_tiles // gy)
     per_core_N = -(-seq_len_tiles // gx)
-    # in0_block_w must divide seq_len_tiles (Kt). Measured on Blackhole: widest
-    # legal block is 2.4x faster than 1 at Kt=10 and 2.15x at Kt=16 (microbench M2/M2b);
-    # K-tile accumulation order into the fp32 dest register is unchanged.
-    in0_block_w = max(d for d in range(min(10, seq_len_tiles), 0, -1) if seq_len_tiles % d == 0)
+    in0_block_w = _trimul_in0_block_w(seq_len_tiles)
     return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
         compute_with_storage_grid_size=(gx, gy),
         in0_block_w=in0_block_w,

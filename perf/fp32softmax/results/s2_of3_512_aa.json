@@ -1,0 +1,288 @@
+{
+  "model": "openfold3",
+  "aa": 512,
+  "arms": "AAAAAA",
+  "recycling_steps": 1,
+  "sampling_steps": 10,
+  "grid": [
+    11,
+    10
+  ],
+  "folds": [
+    {
+      "i": 0,
+      "arm": "A",
+      "cold": true,
+      "fold_s": 18.261,
+      "digest": "3bd4f28a969cf6ce",
+      "fp32_softmax": {
+        "calls": 224,
+        "blocked": 224,
+        "blocks": 9632,
+        "fused": 9632,
+        "unfused": 0,
+        "l1": 224,
+        "l1_blocks": 9632,
+        "l1_refused": 0,
+        "l1_cores": 64,
+        "l1_free_retired": 0
+      },
+      "metrics": {
+        "complex_plddt": 0.324455,
+        "plddt": 0.324455,
+        "ptm": 0.144382,
+        "iptm": 0.0,
+        "confidence_score": 0.035712,
+        "n_residues": 512.0,
+        "n_chains": 1.0,
+        "n_tokens": 512.0,
+        "msa": 1.0,
+        "n_atoms": 4116.0,
+        "samples": 1.0
+      }
+    },
+    {
+      "i": 1,
+      "arm": "B",
+      "cold": true,
+      "fold_s": 15.235,
+      "digest": "3bd4f28a969cf6ce",
+      "fp32_softmax": {
+        "calls": 224,
+        "blocked": 224,
+        "blocks": 8960,
+        "fused": 8960,
+        "unfused": 0,
+        "l1": 224,
+        "l1_blocks": 8736,
+        "l1_refused": 0,
+        "l1_cores": 104,
+        "l1_free_retired": 0
+      },
+      "metrics": {
+        "complex_plddt": 0.324455,
+        "plddt": 0.324455,
+        "ptm": 0.144382,
+        "iptm": 0.0,
+        "confidence_score": 0.035712,
+        "n_residues": 512.0,
+        "n_chains": 1.0,
+        "n_tokens": 512.0,
+        "msa": 1.0,
+        "n_atoms": 4116.0,
+        "samples": 1.0
+      }
+    },
+    {
+      "i": 2,
+      "arm": "A",
+      "cold": false,
+      "fold_s": 15.925,
+      "digest": "3bd4f28a969cf6ce",
+      "fp32_softmax": {
+        "calls": 224,
+        "blocked": 224,
+        "blocks": 9632,
+        "fused": 9632,
+        "unfused": 0,
+        "l1": 224,
+        "l1_blocks": 9632,
+        "l1_refused": 0,
+        "l1_cores": 64,
+        "l1_free_retired": 0
+      },
+      "metrics": {
+        "complex_plddt": 0.324455,
+        "plddt": 0.324455,
+        "ptm": 0.144382,
+        "iptm": 0.0,
+        "confidence_score": 0.035712,
+        "n_residues": 512.0,
+        "n_chains": 1.0,
+        "n_tokens": 512.0,
+        "msa": 1.0,
+        "n_atoms": 4116.0,
+        "samples": 1.0
+      }
+    },
+    {
+      "i": 3,
+      "arm": "A",
+      "cold": false,
+      "fold_s": 15.899,
+      "digest": "3bd4f28a969cf6ce",
+      "fp32_softmax": {
+        "calls": 224,
+        "blocked": 224,
+        "blocks": 9632,
+        "fused": 9632,
+        "unfused": 0,
+        "l1": 224,
+        "l1_blocks": 9632,
+        "l1_refused": 0,
+        "l1_cores": 64,
+        "l1_free_retired": 0
+      },
+      "metrics": {
+        "complex_plddt": 0.324455,
+        "plddt": 0.324455,
+        "ptm": 0.144382,
+        "iptm": 0.0,
+        "confidence_score": 0.035712,
+        "n_residues": 512.0,
+        "n_chains": 1.0,
+        "n_tokens": 512.0,
+        "msa": 1.0,
+        "n_atoms": 4116.0,
+        "samples": 1.0
+      }
+    },
+    {
+      "i": 4,
+      "arm": "A",
+      "cold": false,
+      "fold_s": 15.698,
+      "digest": "3bd4f28a969cf6ce",
+      "fp32_softmax": {
+        "calls": 224,
+        "blocked": 224,
+        "blocks": 9632,
+        "fused": 9632,
+        "unfused": 0,
+        "l1": 224,
+        "l1_blocks": 9632,
+        "l1_refused": 0,
+        "l1_cores": 64,
+        "l1_free_retired": 0
+      },
+      "metrics": {
+        "complex_plddt": 0.324455,
+        "plddt": 0.324455,
+        "ptm": 0.144382,
+        "iptm": 0.0,
+        "confidence_score": 0.035712,
+        "n_residues": 512.0,
+        "n_chains": 1.0,
+        "n_tokens": 512.0,
+        "msa": 1.0,
+        "n_atoms": 4116.0,
+        "samples": 1.0
+      }
+    },
+    {
+      "i": 5,
+      "arm": "A",
+      "cold": false,
+      "fold_s": 16.006,
+      "digest": "3bd4f28a969cf6ce",
+      "fp32_softmax": {
+        "calls": 224,
+        "blocked": 224,
+        "blocks": 9632,
+        "fused": 9632,
+        "unfused": 0,
+        "l1": 224,
+        "l1_blocks": 9632,
+        "l1_refused": 0,
+        "l1_cores": 64,
+        "l1_free_retired": 0
+      },
+      "metrics": {
+        "complex_plddt": 0.324455,
+        "plddt": 0.324455,
+        "ptm": 0.144382,
+        "iptm": 0.0,
+        "confidence_score": 0.035712,
+        "n_residues": 512.0,
+        "n_chains": 1.0,
+        "n_tokens": 512.0,
+        "msa": 1.0,
+        "n_atoms": 4116.0,
+        "samples": 1.0
+      }
+    },
+    {
+      "i": 6,
+      "arm": "A",
+      "cold": false,
+      "fold_s": 15.715,
+      "digest": "3bd4f28a969cf6ce",
+      "fp32_softmax": {
+        "calls": 224,
+        "blocked": 224,
+        "blocks": 9632,
+        "fused": 9632,
+        "unfused": 0,
+        "l1": 224,
+        "l1_blocks": 9632,
+        "l1_refused": 0,
+        "l1_cores": 64,
+        "l1_free_retired": 0
+      },
+      "metrics": {
+        "complex_plddt": 0.324455,
+        "plddt": 0.324455,
+        "ptm": 0.144382,
+        "iptm": 0.0,
+        "confidence_score": 0.035712,
+        "n_residues": 512.0,
+        "n_chains": 1.0,
+        "n_tokens": 512.0,
+        "msa": 1.0,
+        "n_atoms": 4116.0,
+        "samples": 1.0
+      }
+    },
+    {
+      "i": 7,
+      "arm": "A",
+      "cold": false,
+      "fold_s": 15.735,
+      "digest": "3bd4f28a969cf6ce",
+      "fp32_softmax": {
+        "calls": 224,
+        "blocked": 224,
+        "blocks": 9632,
+        "fused": 9632,
+        "unfused": 0,
+        "l1": 224,
+        "l1_blocks": 9632,
+        "l1_refused": 0,
+        "l1_cores": 64,
+        "l1_free_retired": 0
+      },
+      "metrics": {
+        "complex_plddt": 0.324455,
+        "plddt": 0.324455,
+        "ptm": 0.144382,
+        "iptm": 0.0,
+        "confidence_score": 0.035712,
+        "n_residues": 512.0,
+        "n_chains": 1.0,
+        "n_tokens": 512.0,
+        "msa": 1.0,
+        "n_atoms": 4116.0,
+        "samples": 1.0
+      }
+    }
+  ],
+  "per_arm": {
+    "A": {
+      "n": 6,
+      "folds_s": [
+        15.925,
+        15.899,
+        15.698,
+        16.006,
+        15.715,
+        15.735
+      ],
+      "median_s": 15.817,
+      "spread_pct": 1.96
+    }
+  },
+  "warm_digests": [
+    "3bd4f28a969cf6ce"
+  ],
+  "bit_exact": true
+}

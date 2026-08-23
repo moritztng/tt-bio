@@ -1,0 +1,384 @@
+{
+  "grid": [
+    11,
+    10
+  ],
+  "rows": [
+    {
+      "heads": 4,
+      "S": 768,
+      "rows": 768,
+      "tuned_rows": 4,
+      "plan_A": [
+        64,
+        4
+      ],
+      "stats_A": {
+        "calls": 4,
+        "blocked": 4,
+        "blocks": 768,
+        "fused": 768,
+        "unfused": 0,
+        "l1": 4,
+        "l1_blocks": 768,
+        "l1_refused": 0,
+        "l1_cores": 64,
+        "l1_free_retired": 0
+      },
+      "bmm_A": {
+        "served": 1536,
+        "refused": 0,
+        "blocked": 0,
+        "declined": 0
+      },
+      "ms_A": 127.183,
+      "reps_A": [
+        127.133,
+        127.187,
+        127.183
+      ],
+      "plan_B": [
+        64,
+        4
+      ],
+      "stats_B": {
+        "calls": 4,
+        "blocked": 4,
+        "blocks": 566,
+        "fused": 568,
+        "unfused": 0,
+        "l1": 4,
+        "l1_blocks": 386,
+        "l1_refused": 2,
+        "l1_cores": 64,
+        "l1_free_retired": 2
+      },
+      "bmm_B": {
+        "served": 1132,
+        "refused": 0,
+        "blocked": 0,
+        "declined": 0
+      },
+      "ms_B": 127.367,
+      "reps_B": [
+        196.161,
+        127.367,
+        127.108
+      ],
+      "plan_C": [
+        64,
+        4
+      ],
+      "stats_C": {
+        "calls": 4,
+        "blocked": 4,
+        "blocks": 566,
+        "fused": 568,
+        "unfused": 0,
+        "l1": 4,
+        "l1_blocks": 386,
+        "l1_refused": 2,
+        "l1_cores": 64,
+        "l1_free_retired": 2
+      },
+      "bmm_C": {
+        "served": 1132,
+        "refused": 0,
+        "blocked": 0,
+        "declined": 0
+      },
+      "ms_C": 127.234,
+      "reps_C": [
+        180.461,
+        127.234,
+        127.204
+      ],
+      "bit_exact_AB": true,
+      "bit_exact_AC": true,
+      "speedup_B": 0.9986,
+      "speedup_C": 0.9996
+    },
+    {
+      "heads": 4,
+      "S": 512,
+      "rows": 512,
+      "tuned_rows": 12,
+      "plan_A": [
+        64,
+        4
+      ],
+      "stats_A": {
+        "calls": 4,
+        "blocked": 4,
+        "blocks": 172,
+        "fused": 172,
+        "unfused": 0,
+        "l1": 4,
+        "l1_blocks": 172,
+        "l1_refused": 0,
+        "l1_cores": 64,
+        "l1_free_retired": 0
+      },
+      "bmm_A": {
+        "served": 344,
+        "refused": 0,
+        "blocked": 0,
+        "declined": 0
+      },
+      "ms_A": 36.917,
+      "reps_A": [
+        36.89,
+        36.917,
+        36.94
+      ],
+      "plan_B": [
+        96,
+        4
+      ],
+      "stats_B": {
+        "calls": 4,
+        "blocked": 4,
+        "blocks": 116,
+        "fused": 116,
+        "unfused": 0,
+        "l1": 4,
+        "l1_blocks": 112,
+        "l1_refused": 0,
+        "l1_cores": 96,
+        "l1_free_retired": 0
+      },
+      "bmm_B": {
+        "served": 120,
+        "refused": 0,
+        "blocked": 0,
+        "declined": 0
+      },
+      "ms_B": 37.086,
+      "reps_B": [
+        37.182,
+        37.086,
+        36.996
+      ],
+      "plan_C": [
+        104,
+        4
+      ],
+      "stats_C": {
+        "calls": 4,
+        "blocked": 4,
+        "blocks": 160,
+        "fused": 160,
+        "unfused": 0,
+        "l1": 4,
+        "l1_blocks": 156,
+        "l1_refused": 0,
+        "l1_cores": 104,
+        "l1_free_retired": 0
+      },
+      "bmm_C": {
+        "served": 320,
+        "refused": 0,
+        "blocked": 0,
+        "declined": 0
+      },
+      "ms_C": 33.529,
+      "reps_C": [
+        33.51,
+        33.529,
+        33.564
+      ],
+      "bit_exact_AB": true,
+      "bit_exact_AC": true,
+      "speedup_B": 0.9954,
+      "speedup_C": 1.1011
+    },
+    {
+      "heads": 4,
+      "S": 1024,
+      "rows": 1024,
+      "tuned_rows": 3,
+      "plan_A": [
+        64,
+        4
+      ],
+      "stats_A": {
+        "calls": 4,
+        "blocked": 4,
+        "blocks": 1878,
+        "fused": 1879,
+        "unfused": 0,
+        "l1": 4,
+        "l1_blocks": 1538,
+        "l1_refused": 1,
+        "l1_cores": 64,
+        "l1_free_retired": 0
+      },
+      "bmm_A": {
+        "served": 3756,
+        "refused": 0,
+        "blocked": 0,
+        "declined": 0
+      },
+      "ms_A": 295.6,
+      "reps_A": [
+        550.719,
+        295.6,
+        295.38
+      ],
+      "plan_B": [
+        96,
+        4
+      ],
+      "stats_B": {
+        "calls": 4,
+        "blocked": 4,
+        "blocks": 1368,
+        "fused": 1368,
+        "unfused": 0,
+        "l1": 4,
+        "l1_blocks": 1364,
+        "l1_refused": 0,
+        "l1_cores": 96,
+        "l1_free_retired": 0
+      },
+      "bmm_B": {
+        "served": 2736,
+        "refused": 0,
+        "blocked": 0,
+        "declined": 0
+      },
+      "ms_B": 272.934,
+      "reps_B": [
+        272.934,
+        272.886,
+        272.945
+      ],
+      "plan_C": [
+        96,
+        4
+      ],
+      "stats_C": {
+        "calls": 4,
+        "blocked": 4,
+        "blocks": 1368,
+        "fused": 1368,
+        "unfused": 0,
+        "l1": 4,
+        "l1_blocks": 1364,
+        "l1_refused": 0,
+        "l1_cores": 96,
+        "l1_free_retired": 0
+      },
+      "bmm_C": {
+        "served": 2736,
+        "refused": 0,
+        "blocked": 0,
+        "declined": 0
+      },
+      "ms_C": 272.878,
+      "reps_C": [
+        272.999,
+        272.878,
+        272.853
+      ],
+      "bit_exact_AB": true,
+      "bit_exact_AC": true,
+      "speedup_B": 1.083,
+      "speedup_C": 1.0833
+    },
+    {
+      "heads": 2,
+      "S": 1024,
+      "rows": 1024,
+      "tuned_rows": 6,
+      "plan_A": [
+        64,
+        4
+      ],
+      "stats_A": {
+        "calls": 4,
+        "blocked": 4,
+        "blocks": 786,
+        "fused": 787,
+        "unfused": 0,
+        "l1": 4,
+        "l1_blocks": 617,
+        "l1_refused": 1,
+        "l1_cores": 64,
+        "l1_free_retired": 0
+      },
+      "bmm_A": {
+        "served": 1572,
+        "refused": 0,
+        "blocked": 0,
+        "declined": 0
+      },
+      "ms_A": 147.754,
+      "reps_A": [
+        162.839,
+        147.754,
+        147.699
+      ],
+      "plan_B": [
+        96,
+        4
+      ],
+      "stats_B": {
+        "calls": 4,
+        "blocked": 4,
+        "blocks": 627,
+        "fused": 628,
+        "unfused": 0,
+        "l1": 4,
+        "l1_blocks": 511,
+        "l1_refused": 1,
+        "l1_cores": 96,
+        "l1_free_retired": 0
+      },
+      "bmm_B": {
+        "served": 1140,
+        "refused": 0,
+        "blocked": 0,
+        "declined": 0
+      },
+      "ms_B": 136.65,
+      "reps_B": [
+        137.328,
+        136.643,
+        136.65
+      ],
+      "plan_C": [
+        96,
+        4
+      ],
+      "stats_C": {
+        "calls": 4,
+        "blocked": 4,
+        "blocks": 684,
+        "fused": 684,
+        "unfused": 0,
+        "l1": 4,
+        "l1_blocks": 680,
+        "l1_refused": 0,
+        "l1_cores": 96,
+        "l1_free_retired": 0
+      },
+      "bmm_C": {
+        "served": 1368,
+        "refused": 0,
+        "blocked": 0,
+        "declined": 0
+      },
+      "ms_C": 136.693,
+      "reps_C": [
+        136.86,
+        136.693,
+        136.69
+      ],
+      "bit_exact_AB": true,
+      "bit_exact_AC": true,
+      "speedup_B": 1.0813,
+      "speedup_C": 1.0809
+    }
+  ]
+}
