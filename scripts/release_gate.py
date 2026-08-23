@@ -212,12 +212,14 @@ MODELS = {
     # Floor = ~2x measured, same discipline as boltz2 (1.55 -> 3.0) and protenix-v2
     # (3.87 -> 6.0): catches a gross failure, not run-to-run MSA-draw noise.
     "openfold3":     {"max_rmsd": 3.5, "min_tm": 0.70},
-    # RoseTTAFold3, shipped as `predict --model rf3` since v0.6.6.
-    # PROVISIONAL FLOOR — DO NOT MERGE. 99.0/0.0 passes anything; it is a placeholder so the
-    # leg runs while the number is being measured on qb1 card 0. Replace with ~2x the measured
-    # RMSD / ~half the measured TM and the provenance line, same shape as the openfold3 entry
-    # above. See state/rf3-release-gate-coverage.md.
-    "rf3":           {"max_rmsd": 99.0, "min_tm": 0.0},
+    # RoseTTAFold3, shipped as `predict --model rf3` since v0.6.6. Measured on this gate
+    # 2026-08-23 on tt-quietbox card 0 (p150a, 13x10 grid, MSA on, rf3's own 50 sampling
+    # steps): RMSD 1.238 A / TM 0.958, the closest to the experimental structure of the seven
+    # models here, in 216 s. Two separate processes at seed 0 agreed on all five samples to
+    # the printed digit, so this floor covers seed and MSA-draw spread rather than a
+    # run-to-run wobble that does not exist at 117 aa. Floor = ~2x measured, same discipline
+    # as boltz2 (1.55 -> 3.0), protenix-v2 (3.87 -> 6.0) and openfold3 (1.775 -> 3.5).
+    "rf3":           {"max_rmsd": 3.0, "min_tm": 0.75},
 }
 
 # BoltzGen designability leg — see module docstring. Small n and the target the
