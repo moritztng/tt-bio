@@ -954,7 +954,7 @@ def _sdpa_pad_ragged(q, k, v, bias):
     return qp, kp, vp, bp, q_pad
 
 
-def _sdpa_masked(fn, q, k, v, bias, *args, site: str, **kw):
+def _sdpa_masked(fn, q, k, v, bias, *args, site: str, pad: bool = False, **kw):
     """Run a fused SDPA through `fn` with the ragged tile tail masked out.
 
     Every fused-SDPA call in this file that carries an ADDITIVE mask goes through here, because the
@@ -965,11 +965,15 @@ def _sdpa_masked(fn, q, k, v, bias, *args, site: str, **kw):
 
     `fn` may return None (the fused-HiFi arm declines over L1); that is passed straight through so
     the caller's fall-back still fires.
+
+    `pad` is the CONSTRUCTION SITE's opt-in, ORed with the global `_SDPA_RAGGED_PAD`: the global is
+    the A/B switch and the per-site bool is what ships. See `sdpa_ragged_pad_site` for why this is
+    not one global.
     """
     ragged = bias is not None and bool(int(q.shape[2]) % 32 or int(k.shape[2]) % 32)
     c = SDPA_RAGGED_SITES.setdefault(site, [0, 0])
     c[0 if ragged else 1] += 1
-    if not (ragged and _SDPA_RAGGED_PAD):
+    if not (ragged and (_SDPA_RAGGED_PAD or pad)):
         return fn(q, k, v, bias, *args, **kw)
     SDPA_RAGGED_PAD_STATS[0] += 1
     Sq = int(q.shape[2])
@@ -982,7 +986,7 @@ def _sdpa_masked(fn, q, k, v, bias, *args, site: str, **kw):
     return sl
 
 
-def _tri_att_sdpa(q, k, v, bias, scale: float, ckc=None):
+def _tri_att_sdpa(q, k, v, bias, scale: float, ckc=None, pad: bool = False):
     """SDPA for triangle attention at the widest q_chunk this device's L1 will hold.
 
     ``ckc`` is the fused kernel's compute kernel config, or ``None`` for the op default. Passed
@@ -992,7 +996,8 @@ def _tri_att_sdpa(q, k, v, bias, scale: float, ckc=None):
     """
     if ckc is not None:
         SDPA_HIFI_CALLS[0] += 1
-    return _sdpa_masked(_tri_att_sdpa_inner, q, k, v, bias, scale, ckc, site="tri_att")
+    return _sdpa_masked(_tri_att_sdpa_inner, q, k, v, bias, scale, ckc,
+                        site="tri_att", pad=pad)
 
 
 def _tri_att_sdpa_inner(q, k, v, bias, scale: float, ckc=None):
@@ -2009,6 +2014,29 @@ def triatt_sdpa_hifi_site(token: str, default: bool = False) -> bool:
     A/B-able without a checkout.
     """
     return _site_flag("TT_BIO_TRIATT_SDPA_HIFI_AB", token, default)
+
+
+def sdpa_ragged_pad_site(token: str, default: bool = False) -> bool:
+    """Whether construction site ``token`` masks the fused SDPA's ragged tile tail.
+
+    Per site rather than global, and this one is per site for a MEASURED reason rather than a
+    precautionary one. The mask is a correctness fix for the primitive -- unmasked, the fused
+    kernel is 71-76x wrong at any sequence length that is not a multiple of 32 -- and it is worth
+    9.2x on rf3's 7ROA CA-RMSD. But scored on the two other models that reach a ragged fused call,
+    the same fix moves protenix-v2 the right way at every target and moves OPENDDE the wrong way at
+    both of its, same tree and same card, pad off against pad on:
+
+        opendde-prot-prod        X 2.215 (floor 2.102, PASS)  ->  X 7.289 (floor 3.683, GAP)
+        opendde-trpcage-nomsa    X 0.361 (floor 0.374, PASS)  ->  X 0.428 (floor 0.475, PASS)
+        protenix-v2 hsa L585     committed GAP                ->  X 0.674 (floor 0.695, PASS)
+        protenix-v2 ubq L76      committed GAP-evidenced      ->  X 1.828 (floor 1.923, PASS)
+
+    opendde-prot-prod also gets LESS self-consistent (its device floor widens 2.102 -> 3.683), which
+    is the opposite of what the fix does to rf3, so this is not diffusion chaos being read as a
+    regression. Until that is root-caused, the site that measured a win is the only site that gets
+    it. `TT_BIO_SDPA_RAGGED_PAD` still forces it on everywhere, which is how the above was measured.
+    """
+    return _site_flag("TT_BIO_SDPA_RAGGED_PAD_AB", token, default)
 
 
 def _accurate_softmax(x, compute_kernel_config=None, fp32: bool = True):
@@ -4422,6 +4450,7 @@ class TriangleAttention(Module):
         accurate_softmax: bool = False,
         tri_att_one_k_chunk: bool = False,
         sdpa_hifi: bool = False,
+        sdpa_ragged_pad: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.head_dim = head_dim
@@ -4452,6 +4481,9 @@ class TriangleAttention(Module):
         # / fp32_dest_acc instead of the kernel's op default. Per construction site, and off unless
         # that site's own fold-level accuracy was measured.
         self.sdpa_hifi = sdpa_hifi
+        # Mask the fused SDPA's ragged tile tail at THIS site. Off unless the site's own fold-level
+        # accuracy was measured; see `sdpa_ragged_pad_site`.
+        self.sdpa_ragged_pad = sdpa_ragged_pad
         self.scale = self.head_dim**0.5
         # Boltz/Protenix fold sqrt(head_dim) into the pair-bias projection (their
         # reference adds the bias pre-scaled); openfold3 pre-scales q by 1/sqrt(d) and
@@ -4649,7 +4681,8 @@ class TriangleAttention(Module):
                     )
             else:
                 o = _tri_att_sdpa(q, k, v, bias, self.scale**-1,
-                                  _TRIATT_FUSED_HIFI_CKC if self.sdpa_hifi else None)
+                                  _TRIATT_FUSED_HIFI_CKC if self.sdpa_hifi else None,
+                                  self.sdpa_ragged_pad)
                 if _TRIATT_DUALPROBE:
                     o = _triatt_dualprobe(o, q, k, v, bias, self.scale ** -1,
                                           1.0 / self._bias_scale,
@@ -5542,6 +5575,7 @@ class PairformerLayer(Module):
         accurate_softmax: bool = False,
         tri_att_accurate_softmax: bool | None = None,
         tri_att_sdpa_hifi: bool = False,
+        tri_att_sdpa_ragged_pad: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.transform_s = transform_s
@@ -5567,6 +5601,7 @@ class PairformerLayer(Module):
             fp32_softmax=fp32_softmax,
             accurate_softmax=tri_acc,
             sdpa_hifi=tri_att_sdpa_hifi,
+            sdpa_ragged_pad=tri_att_sdpa_ragged_pad,
         )
         self.triangle_attention_end = TriangleAttention(
             tri_att_head_dim,
@@ -5581,6 +5616,7 @@ class PairformerLayer(Module):
             transpose_l1_reserve=transpose_l1_reserve,
             accurate_softmax=tri_acc,
             sdpa_hifi=tri_att_sdpa_hifi,
+            sdpa_ragged_pad=tri_att_sdpa_ragged_pad,
         )
         self.transition_z = Transition(
             self.scope("transition_z"), compute_kernel_config
@@ -5670,6 +5706,7 @@ class Pairformer(Module):
         accurate_softmax: bool = False,
         tri_att_accurate_softmax: bool | None = None,
         tri_att_sdpa_hifi: bool = False,
+        tri_att_sdpa_ragged_pad: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.blocks = [
@@ -5690,6 +5727,7 @@ class Pairformer(Module):
                 accurate_softmax=accurate_softmax,
                 tri_att_accurate_softmax=tri_att_accurate_softmax,
                 tri_att_sdpa_hifi=tri_att_sdpa_hifi,
+                tri_att_sdpa_ragged_pad=tri_att_sdpa_ragged_pad,
             )
             for i in range(n_blocks)
         ]
