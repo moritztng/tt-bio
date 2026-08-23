@@ -745,17 +745,43 @@ class Worker:
         return ["ssh", "-o", "ConnectTimeout=5", self.host, remote]
 
 
+#: Fleet short names for the QuietBoxes, as used everywhere ``--workers`` specs are authored
+#: (RELEASING.md, the gate wrappers, ~/.coworker/fleet.sh's WOL_HOST map). The boxes' real
+#: hostnames are longer, so "qb2" has to be recognised as this box when the gate runs ON qb2.
+#: pc's hostname really is "pc", so it needs no entry.
+HOST_ALIASES = {"qb1": "tt-quietbox", "qb2": "tt-quietbox2"}
+
+
+def local_host() -> str:
+    """This box's short hostname. $HOSTNAME is a bash-only variable and is NOT exported to
+    non-interactive shells, so it is unset under ssh/systemd on every host; the old "pc"
+    fallback therefore made any non-pc host classify ITSELF as remote and ssh to its own hostname
+    ("Host key verification failed", every device leg exiting 255 in under a second). It only
+    ever worked on pc, by accident of the default matching."""
+    return (os.environ.get("HOSTNAME") or socket.gethostname()).split(".")[0]
+
+
+def _is_local(host: str, this_host: str) -> bool:
+    """Does this ``--workers`` host token name the box we are running on?
+
+    Same defect class as the "pc" fallback above, one level up: the token comes from the
+    fleet's alias vocabulary while ``this_host`` is what the OS reports, so a plain string
+    compare classified "qb2" on qb2 as REMOTE and ssh'd to an alias that exists only in
+    moritz's ~/.ssh/config on pc. The gate runs as ttuser on the QuietBoxes, where "qb2"
+    does not resolve, so all 21 device legs died in 0s on "Could not resolve hostname qb2"
+    (v0.6.7 gate, 2026-08-23). Genuinely cross-host entries still take the remote-ssh path.
+    """
+    if host in ("localhost", "127.0.0.1", this_host):
+        return True
+    return HOST_ALIASES.get(host) == this_host or HOST_ALIASES.get(this_host) == host
+
+
 def parse_workers(spec: str) -> list[Worker]:
     """Parse '--workers' entries: host:card, or host:card:remote_cwd[:remote_python] for a
     remote whose checkout/env don't live at the same absolute paths as the local worktree
     (e.g. a different user/home on that host)."""
     out = []
-    # Locality must come from the real hostname. $HOSTNAME is a bash-only variable and is
-    # NOT exported to non-interactive shells, so it is unset under ssh/systemd on every host —
-    # the old "pc" fallback therefore made any non-pc host classify ITSELF as remote and ssh
-    # to its own hostname ("Host key verification failed", every device leg exiting 255 in
-    # under a second). It only ever worked on pc, by accident of the default matching.
-    local_host = (os.environ.get("HOSTNAME") or socket.gethostname()).split(".")[0]
+    this_host = local_host()
     for part in spec.split(","):
         part = part.strip()
         if not part:
@@ -764,12 +790,12 @@ def parse_workers(spec: str) -> list[Worker]:
         card_str, _, rest2 = rest.partition(":")
         remote_cwd, _, remote_python = rest2.partition(":")
         out.append(Worker(host=host, card=int(card_str or 0),
-                           is_local=(host in ("localhost", "127.0.0.1", local_host)),
+                           is_local=_is_local(host, this_host),
                            remote_cwd=remote_cwd or None,
                            remote_python=remote_python or None))
     # Default worker names the host we are actually on — report.json records these as
     # provenance, so "pc:0" on a different box would be a false record.
-    return out or [Worker(host=local_host, card=0, is_local=True)]
+    return out or [Worker(host=this_host, card=0, is_local=True)]
 
 
 def _find_results_dir(out_dir: Path) -> Path | None:
@@ -1033,7 +1059,7 @@ def regen_envelope_refs(legs: list, workdir: Path, log_dir: Path,
     Run SERIALLY (fp32 then bf16, one leg at a time): concurrent pure-torch CPU folds oversubscribe
     the host and triple wall-clock (measured 2026-07-23). This is the expensive cached step; a
     normal gate run then only re-folds the device side + scores."""
-    local = Worker(host="pc", card=0, is_local=True)
+    local = Worker(host=local_host(), card=0, is_local=True)
     n_ok = 0
     for leg in legs:
         if not _is_envelope_leg(leg) or not leg.fixture or leg.legacy_rdx:
@@ -1751,8 +1777,7 @@ def main() -> int:
     # a host-level overcommit, not a wider measurement. Unset grant = granted the box.
     grant = gate_guard.card_grant()
     problems += gate_guard.worker_pool_problems(
-        [w.card for w in workers if w.is_local], grant,
-        (os.environ.get("HOSTNAME") or socket.gethostname()).split(".")[0])
+        [w.card for w in workers if w.is_local], grant, local_host())
     if problems:
         print("PREFLIGHT — leg wiring problems detected:")
         for p in problems:
