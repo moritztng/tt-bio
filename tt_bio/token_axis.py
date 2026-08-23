@@ -114,14 +114,18 @@ TOKEN_AXIS = {
     "esmc-300m": (
         BUCKETED, 64, "esmc.py:78 BUCKET, applied at :1503 _batch_tokens and :1263",
         "pad to Lb + additive -inf on padded keys + key_valid zeroing + slice by lens; censused "
-        "0 ragged / 30 aligned at the esmc.py:241 SDPA on a 98-aa input",
+        "0 ragged / 30 aligned at the esmc.py:241 SDPA on a 98-aa input. The bucket also sits at "
+        "the OP BOUNDARY (esmc.bucket_token_axis, called from Model.forward), so a direct API "
+        "call at a ragged L cannot bypass it -- a no-op on every CLI path, where _batch_tokens "
+        "has already bucketed",
     ),
     "esmc-600m": (BUCKETED, 64, "esmc.py:78 BUCKET", "same path as esmc-300m"),
     "esmc-6b": (BUCKETED, 64, "esmc.py:78 BUCKET", "same path as esmc-300m"),
     "saprot-35m": (
         BUCKETED, 64, "saprot.py:48 imports esmc.BUCKET, applied at :481-494",
-        "same pad + additive mask + slice as esmc; censused 0 ragged / 12 aligned at the "
-        "saprot.py:203 SDPA on a 98-aa input",
+        "same pad + additive mask + slice as esmc, and the same op-boundary bucket in "
+        "Saprot.forward; censused 0 ragged / 12 aligned at the saprot.py:203 SDPA on a 98-aa "
+        "input",
     ),
     "saprot-650m": (BUCKETED, 64, "saprot.py:48", "same path as saprot-35m"),
     "saprot-1.3b": (BUCKETED, 64, "saprot.py:48", "same path as saprot-35m"),

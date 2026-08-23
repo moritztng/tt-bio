@@ -1025,7 +1025,18 @@ class ESMC(TorchWrapper):
         (built by ``_batch_tokens``) let a batch of unequal-length sequences share
         one padded, bucketed forward: ``attn_mask`` [B,L,L] additive removes padded
         keys from the softmax denominator; ``key_valid`` [B,1,L,1] zeros padded
-        keys/values so their contribution is exactly 0."""
+        keys/values so their contribution is exactly 0.
+
+        The token axis is bucketed to a multiple of BUCKET HERE rather than only in
+        ``_batch_tokens``, so a direct API call at a ragged L cannot reach the SDPA ragged.
+        ``_batch_tokens`` has already bucketed on every CLI path, so there it is a no-op."""
+        tokens, attn_mask, key_valid, _, L = bucket_token_axis(tokens, attn_mask, key_valid)
+        logits, emb = self._dispatch(tokens, attn_mask, key_valid)
+        if int(tokens.shape[1]) == L:
+            return logits, emb
+        return logits[:, :L], emb[:, :L]
+
+    def _dispatch(self, tokens, attn_mask, key_valid):
         if self.trace and not self._trace_broken and tokens.shape[0] == 1:
             key = (tuple(tokens.shape), attn_mask is not None, key_valid is not None)
             if key in self._trace_cache:
@@ -1498,6 +1509,38 @@ def _trunk_forward(model, seq: str, return_logits: bool):
             logits = lg[0][1:-1].numpy().astype(np.float32)
     emb = emb.numpy().astype(np.float32)
     return emb[1:-1], emb[0], logits
+
+
+def bucket_token_axis(tokens, attn_mask=None, key_valid=None, embed_mask=None,
+                      bucket: int = BUCKET, pad_token: int = PAD_TOKEN):
+    """Pad a forward's token axis to a multiple of *bucket* and extend the padding masks.
+
+    ``_batch_tokens`` already buckets, so on every shipped CLI path ``Lb == L`` and this returns
+    its arguments unchanged -- byte for byte the old call, which is what makes the change
+    bit-exact there. It exists for the direct API caller, who reaches ``Model.forward`` with
+    whatever length they have: the bucket used to live in the caller, so a ragged L went straight
+    into the SDPA and picked up its padded key columns at a bias of zero. See
+    ``tt_bio/token_axis.py`` and PLAYBOOKS.md §MODEL 2b.
+
+    Returns ``(tokens, attn_mask, key_valid, embed_mask, L)``; slice the outputs back to ``L``.
+    """
+    L = int(tokens.shape[1])
+    Lb = ((L + bucket - 1) // bucket) * bucket
+    if Lb == L:
+        return tokens, attn_mask, key_valid, embed_mask, L
+    B, pad = int(tokens.shape[0]), Lb - L
+    tokens = torch.nn.functional.pad(tokens, (0, pad), value=pad_token)
+    # Same construction as _batch_tokens: additive -inf takes padded keys out of the softmax
+    # denominator, key_valid zeroes their value contribution, embed_mask zeroes their embedding.
+    attn_mask = (torch.zeros(B, Lb, Lb, dtype=torch.float32) if attn_mask is None
+                 else torch.nn.functional.pad(attn_mask, (0, pad, 0, pad), value=0.0))
+    attn_mask[:, :, L:] = float("-inf")
+    key_valid = (torch.ones(B, 1, Lb, 1, dtype=torch.float32) if key_valid is None
+                 else torch.nn.functional.pad(key_valid, (0, 0, 0, pad), value=0.0))
+    key_valid[:, :, L:, :] = 0.0
+    if embed_mask is not None:
+        embed_mask = torch.nn.functional.pad(embed_mask, (0, 0, 0, pad), value=0.0)
+    return tokens, attn_mask, key_valid, embed_mask, L
 
 
 def _batch_tokens(seqs: list[str], bucket: int = BUCKET):

@@ -65,13 +65,19 @@ def test_ttnn_softmax_masks_its_ragged_tail():
     import torch
     import ttnn
 
-    from tt_bio.tenstorrent import get_device
-    dev = get_device()
+    from tt_bio import tenstorrent as tt
     W = 33
-    x = ttnn.from_torch(torch.full((1, 1, 32, W), -5.0), dtype=ttnn.float32,
-                        layout=ttnn.TILE_LAYOUT, device=dev)
-    assert int(x.padded_shape[-1]) == 64, "the input is not physically padded, so this proves nothing"
-    got = float(ttnn.to_torch(ttnn.softmax(x, dim=-1))[0, 0, 0, 0])
+    try:
+        dev = tt.get_device()
+        x = ttnn.from_torch(torch.full((1, 1, 32, W), -5.0), dtype=ttnn.float32,
+                            layout=ttnn.TILE_LAYOUT, device=dev)
+        assert int(x.padded_shape[-1]) == 64, "the input is not physically padded, so this proves nothing"
+        got = float(ttnn.to_torch(ttnn.softmax(x, dim=-1))[0, 0, 0, 0])
+    finally:
+        # Release the physical-card lease. Every other test in this file runs a real job in a
+        # SUBPROCESS, and tt_bio refuses a co-tenant on the same card -- holding the device open
+        # here made all five of them wait 120 s and fail on DeviceInUseError.
+        tt.cleanup()
     masked, unmasked = 1.0 / W, 0.000216
     print(f"ttnn.softmax at logical W={W} padded 64: {got:.6f} "
           f"(masked {masked:.6f}, unmasked {unmasked:.6f})")
@@ -127,6 +133,59 @@ def test_no_bucketed_model_reaches_a_ragged_fused_sdpa(model):
     assert not bad, (
         f"{model} is declared BUCKETED but presented a ragged key axis to the fused SDPA at: "
         + "; ".join(f"{r['site']} x{r['masked_ragged']} {r['shapes']}" for r in bad))
+
+
+@pytest.mark.skipif(not _device_available(),
+                    reason="needs a TT card and TT_VISIBLE_DEVICES pinned to it")
+@pytest.mark.parametrize("name", ["esmc-300m", "saprot-35m"])
+def test_bucket_lives_at_the_op_boundary_not_in_the_caller(name):
+    """A DIRECT `Model.forward` at a ragged L must give the bucketed answer, exactly.
+
+    esmc and saprot bucket in `_batch_tokens`, so the shipped CLI never presents a ragged token
+    axis -- but `Model.forward` is public and used to take whatever length it was handed. Two
+    assertions, and the first is the change's own A/A control:
+
+      * at an already-aligned L, `forward` and the unbucketed `_dispatch` are bit-identical, so the
+        shipped path did not move;
+      * at a ragged L, `forward` now equals what the caller would get by padding to the bucket
+        itself and slicing back -- bit-exact, not merely close.
+    """
+    import torch
+
+    if name.startswith("esmc"):
+        from tt_bio import esmc as M
+        model = M.load_esmc(name, trace=False)
+        ids = M.tokenize("NLYIQWLKDGGPSSGRPPPS" * 4 + "NLYIQWLKDGGPSSGRPP")[0]
+        call = lambda t, *m: model.forward(t, *m)
+        raw = lambda t, *m: model._dispatch(t, *m)
+        nmask = 2
+    else:
+        from tt_bio import saprot as M
+        model = M.load_saprot(name)
+        ids = M.tokenize("NLYIQWLKDGGPSSGRPPPS" * 4 + "NLYIQWLKDGGPSSGRPP", "")[0]
+        call = lambda t, *m: model.forward(t, *m)
+        raw = lambda t, *m: model._dispatch(t, *m)
+        nmask = 3
+    L = int(ids.numel())
+    assert L % M.BUCKET, f"the input has to be RAGGED for this to test anything (L={L})"
+
+    # A/A: an aligned length takes the untouched path.
+    aligned = torch.nn.functional.pad(ids, (0, M.BUCKET - L % M.BUCKET),
+                                      value=M.PAD_TOKEN if nmask == 2 else M.PAD).unsqueeze(0)
+    a = call(aligned, *([None] * nmask))
+    b = raw(aligned, *([None] * nmask))
+    for x, y, lbl in zip(a, b, ("logits", "emb")):
+        assert torch.equal(x, y), f"{name}: {lbl} moved at an already-aligned L={aligned.shape[1]}"
+
+    # Ragged: forward must equal the caller-side bucket, sliced back.
+    got = call(ids.unsqueeze(0), *([None] * nmask))
+    padded = M.bucket_token_axis(ids.unsqueeze(0), *([None] * nmask),
+                                 **({} if nmask == 2 else {"pad_token": M.PAD}))
+    want = raw(*padded[:nmask + 1])
+    for x, y, lbl in zip(got, want, ("logits", "emb")):
+        assert torch.equal(x, y[:, :L]), (
+            f"{name}: {lbl} at a ragged L={L} does not match the bucketed answer; "
+            f"maxabs {(x.float() - y[:, :L].float()).abs().max().item():g}")
 
 
 if __name__ == "__main__":
