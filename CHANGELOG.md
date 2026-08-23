@@ -33,6 +33,27 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   set of rows than the reference did. Nothing changes below the caps: all seven OpenFold3
   parity legs sit under them and reproduce their committed numbers.
 
+### Gates and documentation
+
+- RFD3 now has a correctness leg in `scripts/release_gate.py` (`--model rfd3`, and in the default arm set).
+  It had three legs already and none of them could see a broken design: the featurizer leg in
+  `full_parity_gate.py` scores an input (43/43 feature keys bit-exact), the perf leg scores a
+  wall-clock, and the UX leg scores the CLI. All three stay green when the structure leaving the
+  far end is garbage, which is where both of RFD3's escaped defects lived. The new arm scores the
+  delivered mmCIF: strict parse, CA-CA step band and zero backbone breaks, heavy-atom clashes, a
+  real sequence at the designed positions, and byte-identical coordinates from a repeated seed in
+  a fresh process.
+
+  Every number is computed over the designed residues only, recovered by re-featurizing the spec
+  on the host. For a binder RFD3 merges the designed residues into the target's own chain and
+  nothing in the output marks which is which, so a chain-level number averages the generated
+  residues against the copied target and passes by dilution. New fixture
+  `examples/rfd3_binder.json`, the target `examples/binder.yaml` already uses.
+
+  Not designability: upstream RFdiffusion3 evaluates with ProteinMPNN/LigandMPNN sequences plus
+  AF3 rather than its own sequence head, tt-bio ships no MPNN, and `docs/rfd3-design.md` already
+  tells users to redesign the built-in sequence before ordering.
+
 ## [0.6.6] - 2026-08-22
 
 ### Added

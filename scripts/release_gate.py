@@ -34,6 +34,24 @@ model's leg, so it runs by default alongside the other four rather than standalo
 (supersedes docs/boltzgen-designability.md's earlier "keep it out of the fast gate"
 call, which assumed a much slower per-design cost).
 
+RFD3 is a design model too, but designability does not transfer to it. Upstream
+RFdiffusion3 evaluates with ProteinMPNN/LigandMPNN sequences plus AF3 rather than
+its own sequence head, tt-bio ships no MPNN, and docs/rfd3-design.md already tells
+users the built-in sequence is a starting point to redesign — so refolding it would
+score the model working as intended against a floor no failure could exceed. Its leg
+scores the delivered structure instead: strict parse, CA-CA step band and zero
+backbone breaks, heavy-atom clashes, a real sequence at the designed positions (zero
+UNK plus a minimum distinct-amino-acid count), and byte-identical coordinates from a
+repeated seed in a fresh process. Every geometry and sequence number is computed over
+the DESIGNED residues only, recovered by re-featurizing the spec on the host: RFD3
+merges a binder's designed residues into the target's own chain, so a chain-level
+number averages 70 generated residues against 50 copied ones and passes by dilution.
+This is the leg RFD3's two escaped defects would have tripped (a sequence head
+computed and then dropped, and tile sparsity behind a wrong-variable gate) — neither
+the bit-exact featurizer leg in ``scripts/full_parity_gate.py`` nor the perf leg can
+see the far end of the pipeline. Geometry reuses
+``perf/wh-correctness/check_structure.py``'s measured bands and clash search.
+
 ESMC is an *embedding* model, not a fold model — it has no structure to score
 against ground truth, so the RMSD/TM mechanism above does not apply. Its
 correctness bar is embedding-space agreement with the reference esm ESMC: the
@@ -257,17 +275,52 @@ RFD3_TIMESTEPS = 200
 # the cost of 200.
 RFD3_DET_TIMESTEPS = 4
 
-# Floors, measured then doubled the way each metric's noise actually behaves. A flat "2x the
+# Floors, each doubled the way its own metric's noise behaves. A flat "2x the measured
 # number" is wrong for a fraction (2x an in-band fraction of 1.0 is 0.5, which nothing can
-# fail), so a fraction gets 2x its DEFICIT and a must-be-zero count gets no band at all.
-# MEASURED on qb1 (Blackhole p150a, card 0, 10x13 grid), ttnn 0.67.4, commit f77f8ad1,
-# examples/rfd3_binder.json at 200 steps x 4 designs, scored over the 70 designed residues:
-#   MEASURED_BLOCK
-RFD3_MIN_INBAND = 0.0
-RFD3_MAX_BREAKS = 0
-RFD3_MAX_CLASH_FRAC = 1.0
-RFD3_MIN_DISTINCT_AA = 0
-RFD3_MAX_UNK = 0
+# fail), so a fraction gets 2x its DEFICIT, a count gets 2x itself, and a binary wiring fact
+# gets no band at all.
+#
+# MEASURED on qb1 (Blackhole p150a, card 0), ttnn 0.67.4, commit f77f8ad1,
+# examples/rfd3_binder.json at 200 steps x 4 designs, seed 42, scored over the 70 designed
+# residues (per-design, not averaged):
+#
+#   design  CA-CA median  in band  breaks  clashes/heavy   distinct AA  UNK  top AA
+#     0        3.868 A     1.0000     0       0/715             14        0   45.7%
+#     1        3.865 A     0.9855     1       2/714             12        0   51.4%
+#     2        3.891 A     1.0000     0       0/715             14        0   42.9%
+#     3        3.869 A     1.0000     0       3/714             11        0   42.9%
+#
+# Geometry is gated as a CLEAN RATE, not as an all-designs bar, because the measurement says
+# it has to be: design 1 carries one genuine 8.497 A CA-CA step at residue 58->59, while
+# every other step across all four designs sits in 3.76-4.04 A. RFdiffusion-family models
+# produce an occasional broken backbone and the field's answer is to generate several and
+# filter, so "zero breaks in every design" is a model-quality bar, not a port-correctness
+# one, and a gate set there would fail correct code roughly a quarter of the time. This is
+# the same call the BoltzGen leg above already makes with BOLTZGEN_MIN_PASS_RATE, for the
+# same stated reason: one bad seed out of four should not fail the gate, all four should.
+# Measured clean rate 3/4 = 0.75, floor 0.50.
+#
+# The clean test is two-sided on purpose and neither half is redundant: `breaks` catches one
+# severe discontinuity (design 1 still scores 0.9855 in band, which clears the 0.98 bar on
+# its own), and `in_band` catches many mildly-wrong steps that never individually exceed
+# CA_CA_BREAK. A garbled coordinate tensor trips one or the other.
+RFD3_MIN_CLEAN_RATE = 0.50   # measured 0.75 (3 of 4)
+RFD3_MIN_INBAND = 0.98       # measured 1.0000 / 0.9855 / 1.0000 / 1.0000
+RFD3_MAX_BREAKS = 0          # per design, inside the clean test above
+# Clashes stay an absolute count, worst design of four, against check_structure's own
+# calibrated allowance (CLASH_MAX_ABS = 2, the worst measured experimental structure) doubled
+# past what this fixture measured. Not a fraction: 2x a measured 0 is a zero-tolerance bar,
+# and "0.004" hides that it is 3 atoms. A tile-sparsity blowup is tens to hundreds of clashes
+# (the pre-fix WH artifact logged 53), so 6 catches that class with room to spare.
+RFD3_MAX_CLASHES = 6         # measured worst 3
+# Sequence: the designed positions must carry a real predicted sequence. Zero UNK is binary
+# and gets no band -- it is the exact escaped defect (sequence head computed then dropped,
+# fixed 16dfe4db), and the host-only negative control reproducing that writer scores 70 UNK
+# and 0 distinct AA. The distinct-AA count is a second, weaker guard against the sequence
+# head collapsing to one residue; deliberately NOT a composition cap, since 43-60% ALA is
+# real RFD3 behaviour (measured 42.9-51.4% here) and a cap would fail a correct model.
+RFD3_MIN_DISTINCT_AA = 5     # measured worst 11
+RFD3_MAX_UNK = 0             # measured 0; the pre-fix writer scores 70
 
 # ESMC embedding-parity leg — see module docstring. Per-residue embedding PCC
 # floor vs the reference esm ESMC on a real protein. Generous (the shipped fused
@@ -940,9 +993,9 @@ def run_rfd3(keep: bool) -> dict:
           f"\n{'='*70}", flush=True)
 
     row = {"model": "rfd3", "seconds": None, "n_designs": 0, "in_band": None,
-           "breaks": None, "clash_frac": None, "distinct_aa": None, "unk": None,
-           "determinism": None, "parse": False, "gate": False, "error": None,
-           "per_design": []}
+           "breaks": None, "clash_frac": None, "clashes": None, "distinct_aa": None,
+           "unk": None, "clean_rate": None, "determinism": None, "parse": False,
+           "gate": False, "error": None, "per_design": []}
 
     try:
         designed = _rfd3_designed_residues()
@@ -989,11 +1042,17 @@ def run_rfd3(keep: bool) -> dict:
               f"{m['worst_contact']} A), distinct AA {m['distinct_aa']}, UNK {m['unk']}, "
               f"top AA {m['top_aa_frac']:.1%}", flush=True)
 
-    # Aggregate on the WORST design, not the mean: one broken design out of four is a
-    # failure, and a mean over four hides it.
+    # Geometry is a clean RATE (see the floors above: an occasional broken backbone is real
+    # RFD3 behaviour, so requiring every design to be clean would fail correct code). Every
+    # other metric aggregates on the WORST design, since a mean over four hides one bad one.
+    for m in row["per_design"]:
+        m["clean"] = m["breaks"] <= RFD3_MAX_BREAKS and m["in_band"] >= RFD3_MIN_INBAND
+    row["clean_rate"] = (sum(m["clean"] for m in row["per_design"])
+                         / len(row["per_design"]))
     row["in_band"] = min(m["in_band"] for m in row["per_design"])
     row["breaks"] = max(m["breaks"] for m in row["per_design"])
     row["clash_frac"] = max(m["clash_frac"] for m in row["per_design"])
+    row["clashes"] = max(m["clashes"] for m in row["per_design"])
     row["distinct_aa"] = min(m["distinct_aa"] for m in row["per_design"])
     row["unk"] = max(m["unk"] for m in row["per_design"])
 
@@ -1019,9 +1078,8 @@ def run_rfd3(keep: bool) -> dict:
           f"processes): {digests[0][:16]} vs {digests[1][:16]} -> "
           f"{'identical' if row['determinism'] else 'DIFFER'}", flush=True)
 
-    row["gate"] = (row["in_band"] >= RFD3_MIN_INBAND
-                   and row["breaks"] <= RFD3_MAX_BREAKS
-                   and row["clash_frac"] <= RFD3_MAX_CLASH_FRAC
+    row["gate"] = (row["clean_rate"] >= RFD3_MIN_CLEAN_RATE
+                   and row["clashes"] <= RFD3_MAX_CLASHES
                    and row["distinct_aa"] >= RFD3_MIN_DISTINCT_AA
                    and row["unk"] <= RFD3_MAX_UNK
                    and row["determinism"])
@@ -2093,8 +2151,8 @@ def main() -> int:
                     + ESMC_DEFAULT + ESMC_OPT_IN,
                     action="append",
                     help="Gate only this model (repeatable). Default: the five fold "
-                         "models + boltzgen + opendde-abag + capacity + l1-budget + "
-                         "size-ladder + ESMC 300m/600m embed parity. "
+                         "models + boltzgen + rfd3 + opendde-abag + capacity + "
+                         "l1-budget + size-ladder + ESMC 300m/600m embed parity. "
                          "esmc-6b is opt-in (slow ~13 GB load).")
     ap.add_argument("--keep", action="store_true", help="Keep run output dirs for inspection.")
     ap.add_argument("--size-ladder-record", action="store_true",
@@ -2208,10 +2266,11 @@ def main() -> int:
         print(f"\n{'#'*78}\nRELEASE GATE — {RFD3_SPEC.name} (rfd3), "
               f"{RFD3_NUM_DESIGNS} designs, {RFD3_TIMESTEPS} steps, seed {RFD3_SEED}"
               f"\n{'#'*78}")
-        print(f"{'model':<15}{'designs':>8}{'in band':>9}{'breaks':>7}{'clash':>9}"
-              f"{'AA':>4}{'UNK':>5}{'det':>5}{'wall':>9}  result")
+        print(f"{'model':<15}{'designs':>8}{'clean':>7}{'in band':>9}{'breaks':>7}"
+              f"{'clash':>9}{'AA':>4}{'UNK':>5}{'det':>5}{'wall':>9}  result")
         ib = f"{rr['in_band']:.4f}" if rr["in_band"] is not None else "  -  "
-        cf = f"{rr['clash_frac']:.5f}" if rr["clash_frac"] is not None else "  -  "
+        cf = (f"{rr['clashes']}({rr['clash_frac']:.4f})"
+              if rr["clashes"] is not None else "  -  ")
         br = str(rr["breaks"]) if rr["breaks"] is not None else "-"
         aa = str(rr["distinct_aa"]) if rr["distinct_aa"] is not None else "-"
         unk = str(rr["unk"]) if rr["unk"] is not None else "-"
@@ -2219,11 +2278,12 @@ def main() -> int:
         wall = f"{rr['seconds']:.0f}s" if rr["seconds"] is not None else "-"
         verdict = "PASS" if rr["gate"] else f"FAIL ({rr['error']})" if rr["error"] else "FAIL"
         all_pass &= rr["gate"]
-        print(f"{rr['model']:<15}{rr['n_designs']:>8}{ib:>9}{br:>7}{cf:>9}{aa:>4}"
+        cr = f"{rr['clean_rate']:.2f}" if rr["clean_rate"] is not None else "  -  "
+        print(f"{rr['model']:<15}{rr['n_designs']:>8}{cr:>7}{ib:>9}{br:>7}{cf:>9}{aa:>4}"
               f"{unk:>5}{det:>5}{wall:>9}  {verdict}")
-        print(f"floor{'':<10}{RFD3_NUM_DESIGNS:>8}{RFD3_MIN_INBAND:>9.4f}"
-              f"{RFD3_MAX_BREAKS:>7}{RFD3_MAX_CLASH_FRAC:>9.5f}{RFD3_MIN_DISTINCT_AA:>4}"
-              f"{RFD3_MAX_UNK:>5}{'ok':>5}")
+        print(f"floor{'':<10}{RFD3_NUM_DESIGNS:>8}{RFD3_MIN_CLEAN_RATE:>7.2f}"
+              f"{RFD3_MIN_INBAND:>9.4f}{RFD3_MAX_BREAKS:>7}{RFD3_MAX_CLASHES:>9}"
+              f"{RFD3_MIN_DISTINCT_AA:>4}{RFD3_MAX_UNK:>5}{'ok':>5}")
         print(f"{'#'*78}")
         print("GATE PASS — rfd3 designs cleared parse, designed-region geometry, "
               "sequence and determinism" if rr["gate"]
