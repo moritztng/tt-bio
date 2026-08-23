@@ -2119,15 +2119,46 @@ def _l1_memory_config_if_it_fits(t: ttnn.Tensor, headroom: float,
     return ttnn.DRAM_MEMORY_CONFIG
 
 
+# The divisor band the trimul K block is tuned in. `in0_block_w` must divide Kt, and the widest
+# legal block inside this band is 2.4x faster than 1 at Kt=10 and 2.15x at Kt=16 (microbench M2/M2b).
+_TRIMUL_IN0_BLOCK_W_BAND = 10
+
+
+def _trimul_in0_block_w(seq_len_tiles: int) -> int:
+    """K block width for the trimul matmul: the widest divisor of Kt inside the tuned band.
+
+    At a PRIME Kt above 10 the band holds nothing but 1, so the matmul runs with no K blocking at
+    all -- 544 aa (Kt = 17) at 19.97 TFLOP/s against 512 aa's (Kt = 16) 37.01, and the same at 352,
+    416, 608, 736, 928 and 992 aa. Kt itself always divides Kt and its circular buffers fit, so
+    there IS a wider legal block at exactly those lengths. It is not taken, and this is the reason,
+    MEASURED rather than argued (`perf/trimul_kernel/kt_prime_ab.py`, openfold3 at 544 aa, arms
+    interleaved in one process, one cold pair discarded):
+
+    - **`in0_block_w` is NOT bit-exact.** Widening it from 1 to 17 folds a DIFFERENT structure:
+      digest 20e1cc5ed6672ab7 against 563f1ec5e83f24e9, reproduced across two independent runs, and
+      the diffusion output's own spread moves with it, std 12.9631 -> 12.9079. So it does change the
+      order partial sums accumulate in, and any widening is an accuracy decision.
+    - **and it buys nothing**: 1.0057x and 0.9893x on two runs, against a 1.96 % A/A floor measured
+      on the same instrument. The isolated 1.85x on that one matmul is 0.6 % of a fold, or less.
+    - **and the wide block is not reliably legal.** Its circular buffers are 303104 B against
+      1461760 per bank on an IDLE device, but the second run threw
+      `Statically allocated circular buffers ... clash with L1 buffers` at program creation on two
+      programs -- which is `_l1_bank_bytes`'s own caveat, that the idle capacity is not what is free
+      beside live activations.
+
+    An unpriced accuracy cost against a win inside the noise is a NO-GO, so the band stays. Widening
+    it is Moritz's call and needs a rho margin, not a perf argument.
+    """
+    return max(d for d in range(min(_TRIMUL_IN0_BLOCK_W_BAND, seq_len_tiles), 0, -1)
+               if seq_len_tiles % d == 0)
+
+
 @lru_cache(maxsize=None)
 def _triangle_mul_program_config(seq_len_tiles: int) -> ttnn.MatmulMultiCoreReuseMultiCastProgramConfig:
     gx, gy = COMPUTE_GRID_MAIN
     per_core_M = -(-seq_len_tiles // gy)
     per_core_N = -(-seq_len_tiles // gx)
-    # in0_block_w must divide seq_len_tiles (Kt). Measured on Blackhole: widest
-    # legal block is 2.4x faster than 1 at Kt=10 and 2.15x at Kt=16 (microbench M2/M2b);
-    # K-tile accumulation order into the fp32 dest register is unchanged.
-    in0_block_w = max(d for d in range(min(10, seq_len_tiles), 0, -1) if seq_len_tiles % d == 0)
+    in0_block_w = _trimul_in0_block_w(seq_len_tiles)
     return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
         compute_with_storage_grid_size=(gx, gy),
         in0_block_w=in0_block_w,
