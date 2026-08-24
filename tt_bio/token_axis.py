@@ -134,18 +134,19 @@ TOKEN_AXIS = {
         "w14,w3 -- and both reach primitives measured to mask. 0 masked-ragged anywhere",
     ),
     "pxdesign": (
-        IMMUNE, None,
-        "AttentionPairBias.__call__ tenstorrent.py:5267 (the token DiT's materialised score "
-        "path); AtomTransformer._attention protenix.py:557 on the atom axis",
-        "censused on the shipped fixture tests/fixtures/pxdesign/PDL1.yaml (196 tokens, 6x32+4, "
-        "ragged): 320 ragged calls, ALL of them ttnn.softmax at w196, which masks, and NOT ONE "
-        "SDPA call of either kind. 0 masked-ragged, 0 ragged-but-unfused. The atom-axis site runs "
-        "163 calls all aligned. Immune by ROUTE, and the route is measured, not inferred -- the "
-        "same shape as openfold3's row. Two things this is NOT: it does not inherit protenix-v2's "
-        "trunk exposure, because ProtenixDesign._trunk_cond (pxdesign/model.py:167) never calls "
-        "Trunk.__call__ at all ('PXDesign-d has no trunk') and so never reaches the bucket at "
-        "protenix.py:2633; and for the same reason TT_BIO_PROTENIX_TOKEN_BUCKET does not apply to "
-        "it, so that lever being on by default changes nothing here",
+        BUCKETED, 32,
+        "pxdesign/model.py ProtenixDesign._bucket_token_axis, applied to the cond dict at "
+        ":201; everything downstream reads NT off cond[\"s_inputs\"].shape[0]",
+        "pad + additive -1e9 on the DiT pair bias + zero-pad the atom<->token matrix S; no "
+        "slice-back, because the output is atom coordinates and the token axis never reaches "
+        "it. IMMUNE by route was true and is not a resting state: on the shipped fixture "
+        "tests/fixtures/pxdesign/PDL1.yaml (196 tokens, 6x32+4) it ran 320 ragged calls, all "
+        "ttnn.softmax at w196, which masks. Bucketed to 224 they read 0 ragged / 483 aligned, "
+        "and the design is BIT-IDENTICAL to the ragged one (md5 cebac27b on the CIF, against a "
+        "closed A/A of the same digest twice with the bucket off) -- which is what multiple 32 "
+        "buys: the padded shape does not move, so there is nothing left to change the answer. "
+        "The two routes a padded token could reach a real one are the DiT attention keys, "
+        "closed by the structural_pair_attn_bias slot, and S, closed by zero columns",
     ),
     "nesso1": (
         BUCKETED, 64,
