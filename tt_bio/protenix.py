@@ -84,12 +84,23 @@ MSA_HOST_OFFLOAD_MIN_BYTES = 1 << 30      # 1 GiB
 
 
 TOKEN_PAD_MULTIPLE = 64
-# 64, the same multiple as PAIRFORMER_PAD_MULTIPLE and the rest of the Pairformer family. 32 is
-# the tile, so 32 is all correctness needs, and on an unaligned axis it is the cheaper of the two:
-# at N=580 a 64 bucket costs 640 tokens against 608 on work that scales as N-squared. It loses
-# anyway, because the pad amount is a tuned parameter and not a free one -- the one panel target
-# whose fold is sensitive to it is 4.2x better padded to 128 than to 96 (1.5688 A CA against
-# 6.6630 A, with the padding itself proven inert at two poison values). See tt_bio/token_axis.py.
+# 64, the same multiple as PAIRFORMER_PAD_MULTIPLE and the rest of the Pairformer family. 32 is the
+# tile, so 32 is all correctness needs, and 32 is never the wider pad: it is strictly cheaper at
+# N % 64 in 33..63 (N=580 pads to 608 against 640, +9.9 % pair area against +21.8 %) and identical
+# everywhere else, 298 and 512 included. 64 ships because it is the width the release gate is green
+# at, and the only fold ever measured at 32's width for the gate's 76-residue leg is a bad one
+# (6.6630 A against 1.5688 A at 128, one target, one seed, on a metric a diffusion sampler can flip
+# by basin). Displacing a gate-green constant needs multi-seed accuracy evidence at N in 65..96
+# first; the open question is registered in state/protenix-opendde-token-bucket-flip-measure.md.
+#
+# VALIDITY RANGE, measured, as GOALS.md SIZE GENERALITY requires of a threshold constant:
+#   N % 64 == 0   0 %. Both bucketing sites early-out, the fold is byte-identical.
+#   298 aa        +4.82 % protenix-v2, +5.97 % opendde (298 -> 320, +15.3 % pair area).
+#   512 aa        noise. opendde -0.101 s over 8 interleaved pairs, protenix-v2 byte-identical.
+#   20 aa         -17.9 % throughput on trpcage (20 -> 64, 10.2x pair area on an 810 ms fold).
+# perf/tokenbucket/{px,od}298_paired.json, od512_paired.json, perfquiet/readings.tsv. The cost is
+# padded pair area at fold sizes and per-call overhead only at smoke sizes, which is why pad
+# multiple 32 recovers 2.6 points of 16 at 20 aa and would recover nothing at 298.
 
 
 def _token_pad_multiple() -> int:

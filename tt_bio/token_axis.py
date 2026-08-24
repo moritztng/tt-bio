@@ -145,7 +145,7 @@ TOKEN_AXIS = {
         "trunk exposure, because ProtenixDesign._trunk_cond (pxdesign/model.py:167) never calls "
         "Trunk.__call__ at all ('PXDesign-d has no trunk') and so never reaches the bucket at "
         "protenix.py:2633; and for the same reason TT_BIO_PROTENIX_TOKEN_BUCKET does not apply to "
-        "it, so a future default-ON of that lever changes nothing here",
+        "it, so that lever being on by default changes nothing here",
     ),
     "nesso1": (
         UNCENSUSED, None,
