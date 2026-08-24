@@ -157,6 +157,13 @@ _TUNED_MM_CACHE = {}
 # tensor the old concat produced, and the rms_norm downstream still reduces over 258.
 # Measured (perf/p53/combined_onehot.json): 31.335 -> 6.168 ms/call, 5.08x, 50.3 ms/step.
 _CONCAT_ALIGNED = os.environ.get("RFD3_CONCAT_ALIGNED", "1") == "1"
+# p89: process_z normalises over 258 columns of which 130 are a one-hot, and the 128 that are
+# not are Z_init_II -- fixed for the whole design. So the rms scale and the z half of the linear
+# are both loop invariants, and the one-hot half is a table lookup. Three device ops per call
+# instead of six, 5.03 ms against 15.14 at [1,685,685,*] (perf/p89/process_z.json). Splitting one
+# fp32 accumulation into two bf16-rounded halves is not bit-exact (~1 bf16 ulp, rel median
+# 4.8e-3), so it is off by default and release-gated.
+_PROCESS_Z_COLLAPSE = os.environ.get("RFD3_PROCESS_Z_COLLAPSE", "0") == "1"
 # The per-step neighbour graph is the largest single host cost in a design. At the page fixture
 # (6051 atoms) the ledger puts it at 51.9 + 19.8 ms of an 84.8 ms host body, and P3.7 measured
 # 54.3 ms/step of that reaching the wall. It is one chain -- cdist -> masked_fill_ -> topk -- over
@@ -247,6 +254,17 @@ def set_gathered_softmax(on):
     """Toggle the gathered atom softmax from a screen without going through the environment."""
     global _GATHERED_SOFTMAX
     _GATHERED_SOFTMAX = bool(on)
+
+# [collapsed calls, shipped calls]. A silent arm is what made p86's batching result wrong, so both
+# process_z branches count themselves: the on arm must show shipped == 0 and the off arm
+# collapsed == 0, at the same total.
+PZSTATS = [0, 0]
+
+
+def set_process_z_collapse(on):
+    """Toggle the collapsed process_z from a screen without going through the environment."""
+    global _PROCESS_Z_COLLAPSE
+    _PROCESS_Z_COLLAPSE = bool(on)
 
 
 _PAIR_TRANSITION_H_CHUNK = 64                   # measured optimum at both hidden widths
@@ -2401,6 +2419,9 @@ class DiffusionTokenEncoder(Module):
                                 for i in range(self.N_PAIRFORMER)]
         # pure constants of (dtype) / (batch, tokens, dtype); see _onehot_dev and _zeros_dev
         self._const = {}
+        # one design's process_z invariants, released when Z_init_II changes; see
+        # _process_z_invariant. Not in _const: these are O(I^2) and design-scoped.
+        self._zinv = None
 
     def _batched(self, x_dev, batch):
         """Replicate a batch-1 device tensor over the batch dim.
@@ -2479,6 +2500,100 @@ class DiffusionTokenEncoder(Module):
             self._const[key] = entry
         return entry
 
+    def _process_z_table(self, with_self):
+        """The one-hot half of process_z's linear, as a constant lookup table.
+
+        zcat is [z(128) | e_bd(65) | e_bs(65)], so its one-hot columns contribute exactly
+        w_n[128+bd]*W[128+bd] (+ w_n[193+bs]*W[193+bs]) to the linear -- one row of a [65,128]
+        table, or [65*65,128] (1.1 MB) once the self-conditioning bins exist. Read back from the
+        uploaded weights, not the checkpoint: that holds the same bf16 values the shipped chain
+        multiplies, and it works under the shared tiled-weight cache, which keeps no host weights.
+        """
+        key = ("ztab", with_self, self.dtype)
+        tab = self._const.get(key)
+        if tab is not None:
+            return tab
+        n, c = self.N_BINS, self.C_Z
+        wn = ttnn.to_torch(self.process_z_n).float().reshape(-1)
+        ww = ttnn.to_torch(self.process_z_w).float()
+        t = wn[c:c + n, None] * ww[c:c + n]
+        if with_self:
+            ts = wn[c + n:c + 2 * n, None] * ww[c + n:c + 2 * n]
+            t = (t[:, None, :] + ts[None, :, :]).reshape(n * n, c)
+        tab = _tt(t.contiguous(), self.device, self.dtype)
+        self._const[key] = tab
+        return tab
+
+    def _process_z_invariant(self, Z_init_II, n_ones, batch):
+        """(inv, Ainv): the halves of process_z that do not depend on the timestep.
+
+        sum(zcat^2) is sum(z^2) + n_ones, because the one-hot columns contribute one 1.0 per
+        one-hot and nothing else. z is Z_init_II, fixed for the whole design, so the rms scale is
+        a single tensor for all 200 steps -- and so is the z half of the linear, since
+
+            linear(rms_norm(zcat)) = inv * ((z * w_n_z) @ W_z)  +  inv * T[bin]
+
+        The sum of squares runs in fp32, matching what rms_norm does internally. Held for one
+        design at a time and released when Z_init_II changes, because Ainv is O(I^2).
+        """
+        dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
+        dkey = (dev.id(), Z_init_II.data_ptr(), tuple(Z_init_II.shape), tuple(Z_init_II.stride()),
+                str(Z_init_II.dtype), Z_init_II._version, batch)
+        held = self._zinv
+        if held is None or held[0] != dkey:
+            for pair in (held[1].values() if held is not None else ()):
+                for t in pair:
+                    if t.is_allocated():
+                        ttnn.deallocate(t)
+            held = self._zinv = (dkey, {})
+        ent = held[1].get(n_ones)
+        if ent is not None and all(t.is_allocated() for t in ent):
+            return ent
+        c, w = self.C_Z, 2 * self.N_BINS + self.C_Z
+        z = self._batched(_tt_cached(Z_init_II, dev, dt), batch)
+        zf = ttnn.typecast(z, ttnn.float32)
+        sq = ttnn.multiply(zf, zf)
+        ttnn.deallocate(zf)
+        ss = ttnn.sum(sq, dim=-1, keepdim=True, compute_kernel_config=ckc)
+        ttnn.deallocate(sq)
+        ms = ttnn.multiply(ttnn.add(ss, float(n_ones)), 1.0 / w)
+        ttnn.deallocate(ss)
+        inv = ttnn.typecast(ttnn.rsqrt(ttnn.add(ms, 1e-6)), dt)
+        ttnn.deallocate(ms)
+        gz = _tt(ttnn.to_torch(self.process_z_n).float().reshape(-1)[:c].reshape(1, 1, 1, c), dev, dt)
+        wz = _tt(ttnn.to_torch(self.process_z_w).float()[:c].contiguous(), dev, dt)
+        zs = ttnn.multiply(z, gz)
+        a = ttnn.linear(zs, wz, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+        for t in (zs, gz, wz):
+            ttnn.deallocate(t)
+        ainv = ttnn.multiply(a, inv)
+        ttnn.deallocate(a)
+        held[1][n_ones] = ent = (inv, ainv)
+        return ent
+
+    def _process_z_collapsed(self, Z_init_II, bins, bins_self, batch, I):
+        """process_z in three device ops instead of six.
+
+        The shipped route builds a [B,I,I,288] concat and a [B,I,I,258] slice of it so rms_norm
+        can average over 258 columns, 130 of which are a one-hot: 15.14 ms/call at the page
+        fixture's [1,685,685,*], 29.93 ms/step over the two recycles. This is 5.03
+        (perf/p89/process_z.json). Not bit-exact -- one fp32 accumulation becomes two
+        bf16-rounded halves, ~1 bf16 ulp -- so it is release-gated behind
+        RFD3_PROCESS_Z_COLLAPSE and the shipped default is unchanged.
+        """
+        dev, n = self.device, self.N_BINS
+        inv, ainv = self._process_z_invariant(Z_init_II, 1 if bins_self is None else 2, batch)
+        tab = self._process_z_table(bins_self is not None)
+        idx = _tt_idx(bins if bins_self is None else bins * n + bins_self, dev)
+        em = ttnn.embedding(idx, tab, layout=ttnn.ROW_MAJOR_LAYOUT,
+                            memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        em = ttnn.to_layout(ttnn.reshape(em, (batch, I, I, self.C_Z)), ttnn.TILE_LAYOUT)
+        scaled = ttnn.multiply(em, inv)
+        ttnn.deallocate(em)
+        out = ttnn.add(scaled, ainv)
+        ttnn.deallocate(scaled)
+        return out
+
     def __call__(self, R_L_ca, S_init_I, Z_init_II, D_II_self=None):
         """R_L_ca: [B, I, 3] (scaled C-alpha positions), S_init_I: [B, I, c_s],
         Z_init_II: [I, I, c_z] or [1, I, I, c_z] (batch 1 -- replicated on device),
@@ -2512,22 +2627,28 @@ class DiffusionTokenEncoder(Module):
         bins = _scaled_distogram_bins(R_L_ca, sigma_data=self.sigma_data, n_bins=self.N_BINS)
         if Z_init_II.ndim == 3:
             Z_init_II = Z_init_II.unsqueeze(0)
-        z = self._batched(_tt_cached(Z_init_II, dev, dt), B)
-        w = 2 * self.N_BINS + self.C_Z
-        if _CONCAT_ALIGNED:
-            dself = self._combined_onehot_dev(bins, D_II_self, B, I)
-            wide = ttnn.concat([z, dself], dim=-1)        # [B,I,I,320], both pieces tile-aligned
-            ttnn.deallocate(dself)
-            zcat = ttnn.slice(wide, [0, 0, 0, 0], [B, I, I, w])
-            ttnn.deallocate(wide)
+        if _PROCESS_Z_COLLAPSE:
+            PZSTATS[0] += 1
+            z = self._process_z_collapsed(Z_init_II, bins, D_II_self, B, I)
         else:
-            d_dev = self._onehot_dev(bins, B, I)
-            self_dev = (self._zeros_dev(B, I) if D_II_self is None
-                        else self._onehot_dev(D_II_self, B, I))
-            zcat = ttnn.concat([z, d_dev, self_dev], dim=-1)  # [B,I,I,258]
-        z = ttnn.rms_norm(zcat, weight=self.process_z_n, epsilon=1e-6, compute_kernel_config=ckc)
-        z = ttnn.linear(z, self.process_z_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
-        ttnn.deallocate(zcat)
+            PZSTATS[1] += 1
+            z = self._batched(_tt_cached(Z_init_II, dev, dt), B)
+            w = 2 * self.N_BINS + self.C_Z
+            if _CONCAT_ALIGNED:
+                dself = self._combined_onehot_dev(bins, D_II_self, B, I)
+                wide = ttnn.concat([z, dself], dim=-1)    # [B,I,I,288], both pieces tile-aligned
+                ttnn.deallocate(dself)
+                zcat = ttnn.slice(wide, [0, 0, 0, 0], [B, I, I, w])
+                ttnn.deallocate(wide)
+            else:
+                d_dev = self._onehot_dev(bins, B, I)
+                self_dev = (self._zeros_dev(B, I) if D_II_self is None
+                            else self._onehot_dev(D_II_self, B, I))
+                zcat = ttnn.concat([z, d_dev, self_dev], dim=-1)  # [B,I,I,258]
+            z = ttnn.rms_norm(zcat, weight=self.process_z_n, epsilon=1e-6, compute_kernel_config=ckc)
+            z = ttnn.linear(z, self.process_z_w, compute_kernel_config=ckc, dtype=dt,
+                            core_grid=CORE_GRID_MAIN)
+            ttnn.deallocate(zcat)
         if f32:
             z = ttnn.typecast(z, ttnn.float32, memory_config=z.memory_config())
         for tr in self.transition_2:
