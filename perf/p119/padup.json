@@ -1,0 +1,64 @@
+{
+  "q_block": 1216,
+  "span_atoms": [
+    256,
+    12000
+  ],
+  "n_atom_counts": 11745,
+  "live_today": 288,
+  "live_today_fraction": 0.02452,
+  "padup_inflation": {
+    "min": 1.0,
+    "median": 1.0962,
+    "mean": 1.1977,
+    "max": 4.75,
+    "p90": 1.425
+  },
+  "r4_u_fraction": 0.5421,
+  "break_even_inflation": 1.8447,
+  "n_below_break_even": 11264,
+  "fraction_below_break_even": 0.95905,
+  "note": "Inflation is padded_to_Q / tile(atoms). Below ~1216 atoms every target pads to a single 1216 block, which is why the max is large. The U fraction is R4's and does not transfer; this brackets the fix, it does not price another target.",
+  "examples": {
+    "1350": {
+      "padded_tile": 1376,
+      "padded_to_Q": 2432,
+      "inflation": 1.767
+    },
+    "2000": {
+      "padded_tile": 2016,
+      "padded_to_Q": 2432,
+      "inflation": 1.206
+    },
+    "3000": {
+      "padded_tile": 3008,
+      "padded_to_Q": 3648,
+      "inflation": 1.213
+    },
+    "4000": {
+      "padded_tile": 4000,
+      "padded_to_Q": 4864,
+      "inflation": 1.216
+    },
+    "5000": {
+      "padded_tile": 5024,
+      "padded_to_Q": 6080,
+      "inflation": 1.21
+    },
+    "6051": {
+      "padded_tile": 6080,
+      "padded_to_Q": 6080,
+      "inflation": 1.0
+    },
+    "8000": {
+      "padded_tile": 8000,
+      "padded_to_Q": 8512,
+      "inflation": 1.064
+    },
+    "10000": {
+      "padded_tile": 10016,
+      "padded_to_Q": 10944,
+      "inflation": 1.093
+    }
+  }
+}
