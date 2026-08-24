@@ -2,7 +2,7 @@
   "schema": 2,
   "updated": "2026-08-23",
   "title": "TT-Bio: biomolecular structure, design and embeddings on Tenstorrent",
-  "subtitle": "Seven structure-prediction models, two binder-design models, one binding-affinity model and six protein-embedding models at 512 residues, measured on Tenstorrent Blackhole and on NVIDIA H200, B200 and A100.",
+  "subtitle": "Eight structure-prediction models, three binder-design models, one binding-affinity model and six protein-embedding models at 512 residues, measured on Tenstorrent Blackhole and on NVIDIA H200, B200 and A100.",
   "notes": [
     "This file is the only place numbers are edited. index.html reads it and derives everything else.",
     "Never write a derived value here. Server throughput, cost per hour and both throughput-per-dollar charts are computed in the page from s_per_fold, accelerators, price and power.",
@@ -441,6 +441,33 @@
           "ref": "Median of n=8 warm, 30.308 to 31.578 s, median 30.893, spread 1.270 s (4.11 %), cold 41.684 s discarded. Stack byte-identical to the H200 cell: rc-foundry 0.2.0, atomworks 2.2.1, cuequivariance-torch 0.11.1 with the cu12 ops wheels, torch 2.13.0+cu130, triton 3.7.1, plDDT 0.782, 4116 atoms. cuEquivariance carried every triangle op, counted not assumed: triangle_attention_cueq 9792 and triangle_multiply_cueq 9792, both vanilla counters 0, scaled_dot_product_attention 0. A100 and H200 run the same generic cuEquivariance triangle kernel, so the two cells are like-for-like on the kernel path. AtomWorks host featurisation is 14.988 s of the fold, 48.5 %, on an AMD EPYC 7763 at a 30.72 vCPU cgroup quota, which is a different EPYC from the 7513 the other A100 cells on this page were measured on. Card exclusive, peak 5.43 GiB of 80 GB."
         }
       }
+    },
+    {
+      "id": "openbind",
+      "name": "OpenBind-0",
+      "recycles": 3,
+      "sampling_steps": 200,
+      "note": "OpenBind-0 is the OpenFold3 stack on upstream's v0.5.0 checkpoint. It folds this page's fixture at the same three recycles and 200 sampling steps as the OpenFold3 row, resolved by the same code path, so the two rows are directly comparable. It also takes ligands, which OpenFold3 refuses. Its own GPU reference exists but not on this fixture: on a single-sequence 512-residue apo target an H200 takes 9.311 s of device time (perf/openbind/gpu_reference.json, cell ob_apo_512_s1) against 36.017 s on one Blackhole AI Processor, the latter measured on this host during the port and not committed to this repo. This page's fixture carries a 35-sequence alignment and MSA depth is a trunk cost, so that pair is context, not a cell. The reference also records its own 512-residue rung moving 10.65 % between two independently rented H200s, because the 200-step rollout is launch-bound and carries the landlord's CPU.",
+      "cells": {
+        "p150a": {
+          "status": "measured",
+          "s_per_fold": 37.712,
+          "parity": "Release-gate floor, 3.5 A CA RMSD and 0.70 TM (scripts/release_gate.py), fixed before this number existed and measured at 1.693 A / 0.894 on 7ROA. That is the gate's floor for the model, not a per-fixture check on this target, which has no experimental structure to score against.",
+          "ref": "Six warm folds across two processes, cold fold discarded in each: 37.001, 37.151, 37.668, 37.756, 37.862, 38.158 s, median 37.712, the two arms 37.756 and 37.668 (0.23 % apart). Alternated in one benchlock hold with a same-day OpenFold3 control on the same card: three arms reading 38.500 / 37.035 / 37.154 s, pooled median 37.154 s, so OpenBind-0 folds this fixture 1.5 % slower than OpenFold3 measured beside it. The control's own arms are the honest caveat on this cell: arms 2 and 3 agree to 0.32 % but arm 1, folded first while the box was still busy, reads 3.96 % slower than arm 2, and the published OpenFold3 cell of 38.254 s sits 2.96 % above the same-day pooled control. So compare this number to the control beside it rather than to the row above. All six folds agree on CIF sha ('f5ae1145ccb4842b',) and plDDT 0.559887; digests compare between arms of one host and card and nowhere else. tt-quietbox2, one Blackhole AI Processor of a p300c board, physical card 3, 11x10 Tensix grid, ttnn 0.68.0, git 283b64f3, shipped defaults at one diffusion sample."
+        },
+        "h200": {
+          "status": "not measured",
+          "detail": "OpenBind-0 runs upstream v0.5.0 and the OpenFold3 columns were measured against preview2, a release that keeps the fused attention-pair-bias route v0.5.0 drops; the reference measures the two 1.07x apart on device at this size, so OpenFold3's denominators are not this model's. Its own H200 reference was run on a single-sequence fixture and does not belong in this table. Nobody has rented a box for it on this one."
+        },
+        "b200": {
+          "status": "not measured",
+          "detail": "Same as the H200."
+        },
+        "a100": {
+          "status": "not measured",
+          "detail": "Same as the H200."
+        }
+      }
     }
   ],
   "design": {
@@ -506,6 +533,44 @@
             "status": "measured",
             "s_per_design": 44.29,
             "ref": "Median of n=3 warm batches, 43.91 / 44.29 / 44.44 s, spread 1.20 %, cold 45.18 s discarded, batch 1. rc-foundry 0.2.0 plus the 4010e3e2e attention.py, torch 2.13.0+cu130, checkpoint rfd3_latest.ckpt sha256 9b3f8592. dense_sdpa_pairbias_attention 7164, sparse 28656, cuEquivariance unreachable by code so 0, exactly the split both other GPUs read. Every design is 585 target plus 100 designed residues at seed 7. Peak 32707 MiB of 81920, no memory pressure. At batch 8 it amortises to 24.775 s per design, 1.79x."
+          }
+        }
+      },
+      {
+        "id": "pxdesign",
+        "name": "PXDesign",
+        "target": "beta-galactosidase (1DP0 chain A) cropped to 512 residues around one fixed epitope, 80-residue binder, 592 tokens",
+        "sampling_steps": 400,
+        "batch": 1,
+        "note": "This row is what `tt-bio design --model pxdesign` returns: the PXDesign-d generator, which writes a binder backbone with no sequence. The four-model filtering pipeline upstream runs after it (ProteinMPNN, AF2-IG and a Protenix filter) is not on the CLI. Both columns time the same three steps, featurise, generate and write the CIF, with the checkpoint load outside the cell on both sides. The LacZ crop is a cost fixture: the reference records its designs as well-folded and non-binding, because the epitope is an arbitrary exposed loop and one design per target is far below what a real campaign runs. Right fixture for seconds, wrong one for quality.",
+        "cells": {
+          "p150a": {
+            "status": "measured",
+            "s_per_design": 23.24,
+            "ref": "Eight warm designs across two independent processes, four each, cold design dropped in both: 22.890, 22.902, 22.903, 22.918, 23.563, 23.565, 23.842, 23.912 s, pooled median 23.240. The two legs median 23.242 and 23.233, 0.04 % apart, against a within-leg spread of 4.1 % and 4.3 %. 592 tokens, 512 target residues, 80-residue binder, n_step 400 and one design per call asserted from what the call received: n_sample is backbones out of ONE trajectory, so four designs means four calls, not --num_designs 4. Every design finite, and each written CIF parses to 80 residues, 321 atoms and one chain, because write_design_cifs writes the binder alone and the C-terminal OXT is the 321st atom. The four seeds each reproduce their coordinate digest in both processes, cold round included. fp32 diffusion, the shipped default via PROTENIX_DIFFUSION_FP32_DEVICE, against the reference's bf16, an asymmetry that runs against this cell. tt-quietbox2, one Blackhole AI Processor of a p300c board, physical card 3, 11x10 Tensix grid, ttnn 0.68.0, git 283b64f3, under a benchlock hold.",
+            "split": {
+              "host_s": 0.069,
+              "in_cell": true,
+              "ref": "Featurisation and the CIF write, timed inside the same process as the generate step. The three leaves partition the per-design wall by construction and the recorded residual is under 0.02 s. Featurisation is 0.069 s because conditional_templ is int64 distogram bin indices at 2.8 MB, not an (NT, NT, c_z) embedding: the 65-wide table is applied on the card inside the model."
+            }
+          },
+          "h200": {
+            "status": "measured",
+            "s_per_design": 30.8129,
+            "ref": "Cells laczc512_exte_n1_msa, laczc512_prev_n1 and laczc512_prev_n1_msa of perf/pxdesign/gpu_reference.json, the generator stage's own wall clock (gen_feat + gen_device + gen_write): 30.4243 / 30.8129 / 30.9251 s, median 30.8129, spread 1.63 %. One warm rep per cell after a discarded cold rep. The three run the same target CIF, the same hotspots and the same 80-residue binder, differing only in the eval preset and in whether the target YAML carries an msa key, which read_design_yaml documents as parsed and ignored because PXDesign-d has no trunk. A fourth cell reads 31.8163 s with LAYERNORM_TYPE=fast_layernorm exported, which the shipped CLI never sets, and is excluded; that flag is inert end to end, the two cells' whole-pipeline seconds agreeing to 0.08 %, so the 2.9 % gap in the generator stage is that stage's own run-to-run noise at one warm rep. Excluding it raises the Tenstorrent ratio, since the median of all four would be 30.8690 s. N_sample 1, n_step 400, bf16, tf32 on, checkpoint load outside the cell, torch 2.13.0+cu130 on a rented single-H200 node.",
+            "split": {
+              "host_s": 2.161,
+              "in_cell": true,
+              "ref": "gen_feat 2.083 s and gen_write 0.078 s of laczc512_exte_n1_msa, the same two host steps the Tenstorrent cell carries inside its own number."
+            }
+          },
+          "b200": {
+            "status": "not measured",
+            "detail": "The PXDesign GPU reference was a single rented H200 session. Nothing about the model prevents a B200 run; nobody has paid for one."
+          },
+          "a100": {
+            "status": "not measured",
+            "detail": "Same as the B200."
           }
         }
       }
