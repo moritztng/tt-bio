@@ -1,0 +1,313 @@
+{
+  "spec": "perf/dsfix/fixtures/rfd3_R4.json",
+  "rows": [
+    {
+      "arm": "b1",
+      "batch": 1,
+      "rep": 0,
+      "round": 0,
+      "sampler_wall_s": 259.409,
+      "n_designs": 2,
+      "batches": 2,
+      "batches_expected": 2,
+      "arm_verified": true,
+      "s_per_design": 129.704,
+      "digests": {
+        "R4_b100#0": "5295e526ebd0b757",
+        "R4_b100#1": "ac79c6d901a72c17"
+      },
+      "effective_batch": 1,
+      "loadavg": 19.04,
+      "L_atoms": 6051,
+      "n_atoms_seen": [
+        6051
+      ],
+      "calls": 398,
+      "call_q10_s": 0.48942,
+      "call_median_s": 0.56603,
+      "call_batches": [
+        {
+          "designs": 1,
+          "n": 199,
+          "q10": 0.48685,
+          "sum": 121.839
+        },
+        {
+          "designs": 1,
+          "n": 199,
+          "q10": 0.48975,
+          "sum": 137.437
+        }
+      ],
+      "ragged_batches": false,
+      "calls_covered_frac": 0.9995,
+      "robust_s_per_design": 97.172
+    },
+    {
+      "arm": "b2",
+      "batch": 2,
+      "rep": 0,
+      "round": 0,
+      "sampler_wall_s": 222.873,
+      "n_designs": 2,
+      "batches": 1,
+      "batches_expected": 1,
+      "arm_verified": true,
+      "s_per_design": 111.437,
+      "digests": {
+        "R4_b100#0": "5295e526ebd0b757",
+        "R4_b100#1": "ac79c6d901a72c17"
+      },
+      "effective_batch": 2,
+      "loadavg": 19.04,
+      "L_atoms": 6051,
+      "n_atoms_seen": [
+        6051
+      ],
+      "calls": 199,
+      "call_q10_s": 0.96827,
+      "call_median_s": 1.00353,
+      "call_batches": [
+        {
+          "designs": 2,
+          "n": 199,
+          "q10": 0.96827,
+          "sum": 222.108
+        }
+      ],
+      "ragged_batches": false,
+      "calls_covered_frac": 0.9966,
+      "robust_s_per_design": 96.343
+    },
+    {
+      "arm": "b1",
+      "batch": 1,
+      "rep": 1,
+      "round": 1,
+      "sampler_wall_s": 223.42,
+      "n_designs": 2,
+      "batches": 2,
+      "batches_expected": 2,
+      "arm_verified": true,
+      "s_per_design": 111.71,
+      "digests": {
+        "R4_b100#0": "5295e526ebd0b757",
+        "R4_b100#1": "ac79c6d901a72c17"
+      },
+      "effective_batch": 1,
+      "loadavg": 14.06,
+      "L_atoms": 6051,
+      "n_atoms_seen": [
+        6051
+      ],
+      "calls": 398,
+      "call_q10_s": 0.47726,
+      "call_median_s": 0.52044,
+      "call_batches": [
+        {
+          "designs": 1,
+          "n": 199,
+          "q10": 0.47162,
+          "sum": 108.26
+        },
+        {
+          "designs": 1,
+          "n": 199,
+          "q10": 0.49025,
+          "sum": 115.033
+        }
+      ],
+      "ragged_batches": false,
+      "calls_covered_frac": 0.9994,
+      "robust_s_per_design": 95.706
+    },
+    {
+      "arm": "b2",
+      "batch": 2,
+      "rep": 1,
+      "round": 1,
+      "sampler_wall_s": 217.09,
+      "n_designs": 2,
+      "batches": 1,
+      "batches_expected": 1,
+      "arm_verified": true,
+      "s_per_design": 108.545,
+      "digests": {
+        "R4_b100#0": "5295e526ebd0b757",
+        "R4_b100#1": "ac79c6d901a72c17"
+      },
+      "effective_batch": 2,
+      "loadavg": 14.06,
+      "L_atoms": 6051,
+      "n_atoms_seen": [
+        6051
+      ],
+      "calls": 199,
+      "call_q10_s": 0.97543,
+      "call_median_s": 1.00458,
+      "call_batches": [
+        {
+          "designs": 2,
+          "n": 199,
+          "q10": 0.97543,
+          "sum": 216.413
+        }
+      ],
+      "ragged_batches": false,
+      "calls_covered_frac": 0.9969,
+      "robust_s_per_design": 97.055
+    },
+    {
+      "arm": "b1",
+      "batch": 1,
+      "rep": 2,
+      "round": 2,
+      "sampler_wall_s": 205.576,
+      "n_designs": 2,
+      "batches": 2,
+      "batches_expected": 2,
+      "arm_verified": true,
+      "s_per_design": 102.788,
+      "digests": {
+        "R4_b100#0": "5295e526ebd0b757",
+        "R4_b100#1": "ac79c6d901a72c17"
+      },
+      "effective_batch": 1,
+      "loadavg": 8.19,
+      "L_atoms": 6051,
+      "n_atoms_seen": [
+        6051
+      ],
+      "calls": 398,
+      "call_q10_s": 0.4758,
+      "call_median_s": 0.49654,
+      "call_batches": [
+        {
+          "designs": 1,
+          "n": 199,
+          "q10": 0.48429,
+          "sum": 102.921
+        },
+        {
+          "designs": 1,
+          "n": 199,
+          "q10": 0.47117,
+          "sum": 102.537
+        }
+      ],
+      "ragged_batches": false,
+      "calls_covered_frac": 0.9994,
+      "robust_s_per_design": 95.068
+    },
+    {
+      "arm": "b2",
+      "batch": 2,
+      "rep": 2,
+      "round": 2,
+      "sampler_wall_s": 267.216,
+      "n_designs": 2,
+      "batches": 1,
+      "batches_expected": 1,
+      "arm_verified": true,
+      "s_per_design": 133.608,
+      "digests": {
+        "R4_b100#0": "5295e526ebd0b757",
+        "R4_b100#1": "ac79c6d901a72c17"
+      },
+      "effective_batch": 2,
+      "loadavg": 13.94,
+      "L_atoms": 6051,
+      "n_atoms_seen": [
+        6051
+      ],
+      "calls": 199,
+      "call_q10_s": 0.99681,
+      "call_median_s": 1.17243,
+      "call_batches": [
+        {
+          "designs": 2,
+          "n": 199,
+          "q10": 0.99681,
+          "sum": 265.882
+        }
+      ],
+      "ragged_batches": false,
+      "calls_covered_frac": 0.995,
+      "robust_s_per_design": 99.183
+    }
+  ],
+  "num_timesteps": 200,
+  "reps": 3,
+  "L_atoms": 6051,
+  "atoms_per_spec": {
+    "R4_b100": 6051
+  },
+  "arms": [
+    1,
+    2
+  ],
+  "designs_per_fold": 2,
+  "atom_pair_budget_admits": 2,
+  "shipped_speed_cap": 1,
+  "shipped_speed_cap_above_atoms": 2952,
+  "shipped_effective_batch_at_8": 1,
+  "per_arm_s_per_design": {
+    "b1": 111.7100797560015,
+    "b2": 111.43674674750218
+  },
+  "per_arm_min": {
+    "b1": 102.78818866099755,
+    "b2": 108.54505833200164
+  },
+  "per_arm_max": {
+    "b1": 129.70437679050156,
+    "b2": 133.60787341250034
+  },
+  "b1_aa_spread_frac": 0.24095,
+  "best_batched_arm": null,
+  "verdict": "VOID: b=1 A/A spread 24.095 % > 1 %, re-run the rung",
+  "paired_round_ratios": {
+    "b2": {
+      "n_rounds": 3,
+      "ratios": [
+        0.85916,
+        0.97167,
+        1.29984
+      ],
+      "median_ratio": 0.97167,
+      "worst": 1.29984,
+      "best": 0.85916
+    }
+  },
+  "robust_per_arm": {
+    "b1": {
+      "med": 95.70606,
+      "lo": 95.06827,
+      "hi": 97.1717,
+      "n": 3
+    },
+    "b2": {
+      "med": 97.05528,
+      "lo": 96.34287,
+      "hi": 99.18259,
+      "n": 3
+    }
+  },
+  "robust_aa_spread_frac": 0.02198,
+  "robust_verdict": null,
+  "per_round_s_per_design": {
+    "b1": {
+      "0": 129.704,
+      "1": 111.71,
+      "2": 102.788
+    },
+    "b2": {
+      "0": 111.437,
+      "1": 108.545,
+      "2": 133.608
+    }
+  },
+  "host": "tt-quietbox2",
+  "card": 1,
+  "partial": false
+}

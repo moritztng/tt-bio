@@ -57,23 +57,35 @@ _BATCH_ATOM_PAIR_BUDGET = 8 * 3359 * 3359
 _BATCH_DESIGN_CEILING = 512
 
 # Both bounds above only ask whether a batch FITS. Neither asks whether it is fast, and above
-# about 3000 atoms it is not: a batched design costs more per design than running the designs
-# one at a time. Measured end to end, seconds per design at the shipped 200 timesteps, qb2,
-# one Blackhole p150a, ttnn 0.68.0, under a run lock, two warm forwards after a discarded cold
-# one, every design validated (perf/dsfix/rfd3_batch_e2e.py, rows in
-# perf/dsfix/results/rfd3_batch_e2e.jsonl):
+# about 3000 atoms it is not worth batching. Re-measured 2026-08-24 on this tree: qb2, one
+# Blackhole p150a, ttnn 0.68.0, the pinned v0.7.0 runtime, end to end at the shipped 200
+# timesteps, arms interleaved round-robin with a discarded warmup each
+# (scripts/rfd3_port/p116_cap_ladder.py, artifacts in perf/p116/):
 #
-#     atoms      b=1       b=2      b=4      b=8    fastest measured
-#      2299   24.971         -   22.253   21.885    b=8, 1.141x over b=1
-#      2952   36.625         -        -   34.108    b=8, 1.074x over b=1
-#      3844   59.967    64.890   59.975        -    b=1, 1.082x over b=2 (b=4 ties it)
-#      6051  144.044   167.189        -        -    b=1, 1.161x over b=2
+#     atoms   the batch the budget admits   against b=1
+#      3844   6                             b=6 is about 1.05x FASTER (b=2 1.03x)
+#      6051   2                             no measurable difference either way
 #
-# Batching stops paying between 2952 and 3844 atoms, so the cap binds above 2952, the largest
-# size where it was measured to still pay. Two things the table says that a monotone reading
-# would miss: at 3844 the curve is not monotone in batch -- 4 ties 1 to 0.01 % while 2 is 8 %
-# worse than both -- and at 6051 the atom-pair budget admits exactly 2, which is the worst arm
-# there. The clamp was landing on the pothole.
+# Ratios, not seconds, on purpose. The table this replaces quoted absolute seconds taken when
+# b=1 at 6051 atoms cost 144.044 s/design; it now costs about 95, and 3844's b=1 moved about as
+# far. Every cell of it was wrong by up to 1.5x while the sign it was read for was still right,
+# which is the worst way for a comment to be wrong. An absolute number in a comment carries its
+# own expiry date.
+#
+# The 6051 row is why the cap stands: at the size the perf page publishes, the only batch the
+# atom-pair budget admits is 2, and 2 buys nothing. The two readouts disagree about its sign --
+# sum-of-walls medians put b=2 0.25 % ahead, the load-robust readout puts it 1.4 % behind, and
+# b=2 won one of the three rounds -- so whatever is there is smaller than this box can resolve.
+# There is nothing to collect at the published size. The 3844 row is a real win of about 5 % and it
+# is deliberately not collected, because collecting it needs a size window -- batch above 2952
+# but not above roughly 4600 -- and a non-monotone cap is worse than 5 % at one size.
+#
+# Neither rung resolved to its pre-registered bar. qb2 is shared and cannot be quieted, and the
+# b=1 arm's own rep-to-rep spread ran 2-24 % against a 1 % void threshold, so the ratios above
+# are the load-robust readout -- the q10 of a fold's diffusion-module calls, taken per batch --
+# and not wall time. Both are in the artifacts. What IS resolved is accuracy: every batched arm
+# at both sizes reproduced b=1's CIF digest at every design index, across arms, runs and
+# processes.
 #
 # The cap only ever shrinks the batch, so it cannot OOM, and it cannot change a design: the
 # device forward is bit-identical across batch size, trajectory PCC 1.000000 and maxabs 0 at

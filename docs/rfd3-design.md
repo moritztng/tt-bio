@@ -107,8 +107,10 @@ which is the 0.0632 in the first row.
 `--batch_size` is an upper bound, not the batch you get. Two limits reduce it. A
 memory limit scales the batch down by atom count so a batch cannot exhaust device
 memory: 8 is reachable up to 3359 atoms, 4 up to 4750, 2 up to 6718. A speed limit
-then pins the batch to 1 above 2952 atoms, because past about 3000 atoms a batched
-design costs more per design than running the designs one at a time. So every row
+then pins the batch to 1 above 2952 atoms, because past about 3000 atoms batching
+stops paying: at 6051 atoms the largest batch that fits is 2 and it measures no
+faster than one design at a time, and at 3844 atoms a batch of 6 is worth
+about 5%, too little to be worth a size-dependent default. So every row
 above is what the CLI actually does, and a target larger than 2952 atoms runs one
 design at a time whatever `--batch_size` says.
 Batch 8 at 3359 atoms, the largest batch the CLI will run, peaks at 11.1 GiB of
