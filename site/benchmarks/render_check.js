@@ -251,9 +251,10 @@ for (const m of D.models.concat(catModels, embedModels)) {
  * check counts what is left and exits 0. That is the "renders but quietly omits a series" failure
  * this file exists to catch, so the published section sizes are pinned here. Changing a row count
  * is a deliberate act; update this table in the same commit and say why. */
-/* Three rows are held in perf/page_rows_pending.json until every processor column is measured
- * (OpenBind-0, PXDesign, Nesso-1). They come back to these counts as they are restored. */
-const EXPECT_ROWS = { models: 7, design: 2, affinity: 0, embed: 6 };
+/* OpenBind-0 and Nesso-1 are restored: their h200, b200 and a100 cells exist now, so models goes
+ * 7 -> 8 and affinity 0 -> 1. PXDesign is still held in perf/page_rows_pending.json, because its
+ * b200 cell is blocked rather than measured, so design stays 2. */
+const EXPECT_ROWS = { models: 8, design: 2, affinity: 1, embed: 6 };
 for (const [key, n] of Object.entries(EXPECT_ROWS)) {
   const got = key === "models"
     ? predModels.length
