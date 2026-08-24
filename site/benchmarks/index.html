@@ -732,7 +732,8 @@ details.disclose > div{ padding-top:var(--s-4); }
     document.getElementById("c2-cond").innerHTML =
       "One measured accelerator times the accelerators in the box, on both sides: " +
       "<span class=\"num\">3600 / seconds per prediction or design &times; accelerators</span>. " +
-      "32 Blackhole AI Processors against 8 GPUs." + excludedNote();
+      "32 Blackhole AI Processors against 8 GPUs, each assumed to scale linearly with the "
+      + "count: no box's fan-out efficiency is measured here, on either side." + excludedNote();
   }
 
   function chartTime() {
@@ -1107,7 +1108,8 @@ details.disclose > div{ padding-top:var(--s-4); }
         }).join("; "));
     }
     mrow("Servers", "A server bar is one measured accelerator times the accelerators in the box, on " +
-      "both sides: 32 Blackhole AI Processors against 8 GPUs.");
+      "both sides: 32 Blackhole AI Processors against 8 GPUs. Both sides are assumed to scale " +
+      "linearly with accelerator count, so every server bar is an upper bound on its own box.");
     mrow("Cost", m.formula + " Only the second basis uses the window. " + m.amortisation_basis + " " +
       fmtCents(m.electricity_usd_per_kwh) + " is the US industrial average price of electricity. " +
       m.utilisation + " " + m.sensitivity);

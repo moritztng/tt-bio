@@ -1,0 +1,147 @@
+{
+ "distinctness": {
+  "laczc512_prev_n8_b2_rep0": {
+   "n_backbones": 8,
+   "chain_sizes": {
+    "A0": 512,
+    "B0": 80
+   },
+   "binder_ca": 80,
+   "pairwise_ca_rmsd_min": 17.682,
+   "pairwise_ca_rmsd_median": 54.639,
+   "pairwise_ca_rmsd_max": 73.684,
+   "identical_pairs": [],
+   "n_pairs": 28
+  },
+  "laczc512_prev_n8_b2_rep1": {
+   "n_backbones": 8,
+   "chain_sizes": {
+    "A0": 512,
+    "B0": 80
+   },
+   "binder_ca": 80,
+   "pairwise_ca_rmsd_min": 17.682,
+   "pairwise_ca_rmsd_median": 54.639,
+   "pairwise_ca_rmsd_max": 73.684,
+   "identical_pairs": [],
+   "n_pairs": 28
+  },
+  "laczc512_prev_n8_b2_rep2": {
+   "n_backbones": 8,
+   "chain_sizes": {
+    "A0": 512,
+    "B0": 80
+   },
+   "binder_ca": 80,
+   "pairwise_ca_rmsd_min": 17.682,
+   "pairwise_ca_rmsd_median": 54.639,
+   "pairwise_ca_rmsd_max": 73.684,
+   "identical_pairs": [],
+   "n_pairs": 28
+  }
+ },
+ "quality": {
+  "n1": {
+   "n_designs": 3,
+   "n_distinct_sequences": 1,
+   "af2ig_success": 0,
+   "af2ig_easy_success": 0,
+   "af2_plddt": {
+    "min": 0.93,
+    "median": 0.93,
+    "max": 0.93
+   },
+   "af2_ptm": {
+    "min": 0.73,
+    "median": 0.73,
+    "max": 0.73
+   },
+   "af2_iptm": {
+    "min": 0.18,
+    "median": 0.18,
+    "max": 0.18
+   },
+   "af2_ipAE": {
+    "min": 27.31,
+    "median": 27.31,
+    "max": 27.31
+   },
+   "af2_monomer_plddt": {
+    "min": 0.955,
+    "median": 0.955,
+    "max": 0.955
+   },
+   "af2_monomer_ptm": {
+    "min": 0.789,
+    "median": 0.789,
+    "max": 0.789
+   },
+   "af2_binder_pred_design_rmsd": {
+    "min": 0.77,
+    "median": 0.77,
+    "max": 0.77
+   },
+   "af2_complex_pred_design_rmsd": {
+    "min": 19.08,
+    "median": 19.08,
+    "max": 19.08
+   },
+   "Rg": {
+    "min": 13.57,
+    "median": 13.57,
+    "max": 13.57
+   }
+  },
+  "n8": {
+   "n_designs": 16,
+   "n_distinct_sequences": 8,
+   "af2ig_success": 0,
+   "af2ig_easy_success": 0,
+   "af2_plddt": {
+    "min": 0.9,
+    "median": 0.935,
+    "max": 0.95
+   },
+   "af2_ptm": {
+    "min": 0.73,
+    "median": 0.73,
+    "max": 0.73
+   },
+   "af2_iptm": {
+    "min": 0.15,
+    "median": 0.18,
+    "max": 0.2
+   },
+   "af2_ipAE": {
+    "min": 26.8,
+    "median": 27.23,
+    "max": 28.15
+   },
+   "af2_monomer_plddt": {
+    "min": 0.876,
+    "median": 0.955,
+    "max": 0.971
+   },
+   "af2_monomer_ptm": {
+    "min": 0.722,
+    "median": 0.813,
+    "max": 0.842
+   },
+   "af2_binder_pred_design_rmsd": {
+    "min": 0.43,
+    "median": 0.5,
+    "max": 1.25
+   },
+   "af2_complex_pred_design_rmsd": {
+    "min": 6.74,
+    "median": 17.91,
+    "max": 21.43
+   },
+   "Rg": {
+    "min": 12.41,
+    "median": 13.19,
+    "max": 13.44
+   }
+  }
+ }
+}
