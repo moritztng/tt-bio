@@ -144,15 +144,43 @@ def ref_trunk_bf16(net, f, recycles: int, device: str = "cpu"):
     return {k: v.float() for k, v in ro.items()}
 
 
+def port_sigma_data() -> float:
+    """`RF3.__init__`'s `sigma_data` default, without importing ttnn.
+
+    Reading it off the port's own constructor is what keeps the schedule constant from
+    drifting between the two entry points, but `tt_bio.rf3.model` imports ttnn at module
+    scope, and a reference-only run happens on a box that has no card and no wheel. So:
+    import it when that works, and otherwise parse the same default out of the same file.
+    Both paths read the port; neither copies the number."""
+    try:
+        import inspect
+
+        from tt_bio.rf3.model import RF3
+        return inspect.signature(RF3.__init__).parameters["sigma_data"].default
+    except ModuleNotFoundError:
+        import ast
+        src = (REPO / "tt_bio/rf3/model.py").read_text()
+        for node in ast.walk(ast.parse(src)):
+            if not (isinstance(node, ast.ClassDef) and node.name == "RF3"):
+                continue
+            for fn in node.body:
+                if not (isinstance(fn, ast.FunctionDef) and fn.name == "__init__"):
+                    continue
+                args = fn.args.args + fn.args.kwonlyargs
+                defaults = ([None] * (len(fn.args.args) - len(fn.args.defaults))
+                            + list(fn.args.defaults) + list(fn.args.kw_defaults))
+                for a, d in zip(args, defaults):
+                    if a.arg == "sigma_data" and d is not None:
+                        return float(ast.literal_eval(d))
+        raise SystemExit("no sigma_data default on RF3.__init__ in tt_bio/rf3/model.py")
+
+
 def host_sampler(steps: int):
     """The sampler without a card. Same class and the same `sigma_data` the device model
-    would construct it with, read off `RF3.__init__` rather than copied, so the schedule
-    constant cannot drift between the two entry points."""
-    import inspect
-    from tt_bio.rf3.model import RF3
+    would construct it with, so the schedule constant cannot drift between the two entry
+    points."""
     from tt_bio.rf3.sampler import DiffusionSampler
-    sd = inspect.signature(RF3.__init__).parameters["sigma_data"].default
-    return DiffusionSampler(num_timesteps=steps, sigma_data=sd)
+    return DiffusionSampler(num_timesteps=steps, sigma_data=port_sigma_data())
 
 
 def harvest_draws(sampler, seed: int, n_atom: int):
