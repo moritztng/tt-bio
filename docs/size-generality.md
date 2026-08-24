@@ -92,15 +92,20 @@ by default.
 The padding itself does not change the answer. Two different poison fill values give bit-identical
 trunk fingerprints, so what the masked columns contain cannot reach the output.
 
-Cost does not follow the rung arithmetic above. When the token count is already a multiple of 64 the
-pad is 0, both padding sites early-out, and this costs exactly nothing. When it is not, most of what
-you pay is a fixed cost per call in the pad and slice path, not the extra area: at 20 tokens, which
-round up to 64, dropping to a multiple of 32 shrinks the padded area fourfold and recovers only 2.6
-points of 16. So the cost is worst on short folds and fades as the fold grows. Measured on one p150a:
-about 18 % at 20 residues, 4.8 % on Protenix-v2 and 6.0 % on OpenDDE at 298, and nothing at all at an
-aligned length.
-`TT_BIO_PROTENIX_TOKEN_BUCKET=0` restores the old ragged path for an A/B,
-and `TT_BIO_PROTENIX_TOKEN_PAD_MULTIPLE` overrides the multiple.
+Cost follows the padded pair area, so it does follow the rung arithmetic above once you convert to
+padded tokens. When the token count is already a multiple of 64 the pad is 0, both padding sites
+early-out, and this costs exactly nothing. When it is not, you pay for the columns you added,
+quadratically: 298 tokens round to 320, a pair area 1.15x larger, and that costs 4.8 % on
+Protenix-v2. OpenDDE pays it twice at the same input, trunk 298 to 320 and refiner 580 to 640, and
+costs 6.0 %. Short folds are the exception and they are worse, because the fold is dispatch-bound to
+begin with: 20 residues round up to 64, a 10.2x pair area, and that costs about 18 % on one p150a.
+Nothing generalises from that last number. A multiple of 32 shrinks the 20-token area fourfold and
+recovers only 2.6 of those 18 points, yet at a token count 33 to 63 past a multiple of 64 the
+multiple of 32 is the strictly cheaper pad, so the multiple is its own size-generality decision and
+a smoke-size reading does not settle it.
+
+`TT_BIO_PROTENIX_TOKEN_BUCKET=0` restores the old ragged path for an A/B, and
+`TT_BIO_PROTENIX_TOKEN_PAD_MULTIPLE` overrides the multiple.
 
 Note what this does to the ladder. Every rung is a multiple of 64, so the residue axis pads to 0 at
 all four and the arm cannot price this lever on Protenix-v2. It still sees it on OpenDDE, whose
