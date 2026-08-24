@@ -1,0 +1,24 @@
+{
+  "legs": [
+    {
+      "leg": "rf3-1024aa",
+      "verdict": "PASS",
+      "detail": "xtal 1.958 A worst seed, ref 2.009 A, X 0.467 A, n_ca 966",
+      "wall": 326.4146736480034,
+      "committed": null,
+      "report": "rf3-1024aa.json"
+    }
+  ],
+  "tally": {
+    "PASS": 1
+  },
+  "scored": 1,
+  "total_wall_s": 326.41469400699134,
+  "card_grant": [
+    0
+  ],
+  "skipped_for_card_grant": [],
+  "workers": [
+    "pc:0"
+  ]
+}

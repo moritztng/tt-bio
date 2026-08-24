@@ -379,3 +379,80 @@ def test_delegated_leg_runs_with_the_pin_in_its_own_environment(tmp_path, monkey
     assert seen["visible"] == "3"
     # and the gate's own environment is put back, so one leg's pin cannot leak into the next
     assert os.environ["TT_VISIBLE_DEVICES"] == "0"
+
+
+# ---------------------------------------------------------------------------
+# rf3-1024aa: RF3's accuracy leg in the gate of record
+# ---------------------------------------------------------------------------
+# RF3 shipped ten releases with no leg here at all -- its accuracy coverage lived only in
+# release_gate.py, so the gate RELEASING.md calls the gate of record folded every other model
+# and not this one. These pin the wiring, card-free: a leg that delegates to the wrong function,
+# or whose verdict cannot fail, is the shape that reads as coverage without being any.
+def _rf3_row(xtal, gate, **kw):
+    """A stand-in run_rf3_1024aa row (see scripts/release_gate.py)."""
+    row = {"model": "rf3-1024aa", "xtal_a": xtal, "ref_xtal_a": 2.0092, "x_a": 0.4874,
+           "n_ca": 966, "gate": gate, "error": None, "seconds": 326.0}
+    row.update(kw)
+    return row
+
+
+def test_rf3_leg_delegates_to_the_release_gate_function_not_a_second_scorer(tmp_path, monkeypatch):
+    """One implementation of the leg, not two: the gate calls release_gate's run_rf3_1024aa,
+    which shells to scripts/rf3_port/accuracy_cell.py against the committed 7eip_997 reference
+    cache. A second RF3 scorer here is the thing this test exists to prevent."""
+    mod = _load()
+    leg = mod.LEGS_BY_ID["rf3-1024aa"]
+    assert leg.kind in mod.DELEGATED_KINDS
+    seen = {}
+
+    class _Stub:
+        def run_rf3_1024aa(self, keep):
+            seen["visible"] = os.environ.get("TT_VISIBLE_DEVICES")
+            seen["keep"] = keep
+            return _rf3_row(1.9576, True)
+
+    monkeypatch.setattr(mod, "_load_release_gate", lambda: _Stub())
+    monkeypatch.setenv("TT_VISIBLE_DEVICES", "0")
+    row = mod.run_inprocess(leg, tmp_path / "rf3.json", tmp_path / "rf3.log",
+                            dict(os.environ), pin_card=2)
+    assert row["xtal_a"] == 1.9576 and seen["keep"] is False
+    assert seen["visible"] == "2"                      # pinned, like every other delegated leg
+    assert os.environ["TT_VISIBLE_DEVICES"] == "0"     # and the pin does not leak
+    assert mod.extract_verdict(leg, row)[0] == "PASS"
+
+
+def test_rf3_verdict_fails_past_the_floor_and_on_an_absent_crystal_reading():
+    """The two failures worth having a leg for. A fold that drifted off the crystal must GAP;
+    a report with no crystal number at all must NOT pass on the number nobody computed (the
+    accuracy cell dropping vs_crystal is how an accuracy floor stops being able to fail)."""
+    mod = _load()
+    leg = mod.LEGS_BY_ID["rf3-1024aa"]
+    assert mod.extract_verdict(leg, _rf3_row(6.4, False))[0] == "GAP"
+    assert mod.extract_verdict(leg, _rf3_row(None, False))[0] == "NO-DATA"
+    verdict, detail = mod.extract_verdict(
+        leg, _rf3_row(None, False, error="accuracy_cell exited 1"))
+    assert verdict == "ERROR" and "exited 1" in detail
+    # and a GAP/ERROR/NO-DATA on a leg with no committed record still fails the gate
+    for v in ("GAP", "ERROR", "NO-DATA"):
+        assert mod.finalize_leg(leg, v, "", 0.0)[2] is False
+
+
+def test_rf3_preflight_names_a_missing_checkpoint_instead_of_erroring_mid_fold(monkeypatch):
+    """The cell loads the reference checkpoint before it knows the cached reference makes one
+    unnecessary, so a missing checkpoint used to cost the featurize pass and then ERROR. Same
+    card-free preflight the openfold3/openbind checkpoints get."""
+    mod = _load()
+    legs = [mod.LEGS_BY_ID["rf3-1024aa"]]
+    assert mod.preflight_check(legs) == []
+    monkeypatch.setenv("RF3_CKPT", "/nonexistent/rf3.ckpt")
+    problems = mod.preflight_check(legs)
+    assert len(problems) == 1 and "weights fetch rf3" in problems[0]
+
+
+def test_every_leg_kind_has_a_verdict_extractor():
+    """A leg wired into LEGS with no branch in extract_verdict reads UNKNOWN, which is neither
+    a pass nor a failure the gate acts on. Cheap standing guard for the next leg added."""
+    mod = _load()
+    unknown = sorted({leg.kind for leg in mod.LEGS
+                      if mod.extract_verdict(leg, {})[0] == "UNKNOWN"})
+    assert not unknown, f"leg kinds with no extractor: {unknown}"

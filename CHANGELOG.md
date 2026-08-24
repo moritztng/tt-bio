@@ -34,7 +34,22 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   `AF2IG_PARAMS` instead of a hard-coded home directory, so a release host that keeps the
   AlphaFold parameters elsewhere reports where it looked instead of a silent GAP.
 
+- `rf3-1024aa` joins `full_parity_gate.py`, the gate of record. RF3 had no leg there at all: its
+  accuracy coverage lived only in `release_gate.py`, so the command that must pass before a tag
+  folded ten models and not this one. The leg folds the 997 aa 7EIP anchor and gates its CA-RMSD
+  to the deposited crystal at 4.0 A, calling `release_gate`'s `run_rf3_1024aa` in-process the way
+  the BoltzGen and OpenDDE-abag legs call theirs, so there is one implementation of the leg and
+  one reference cache. Measured 1.958 A over 966 residues in 5.4 minutes.
+
 ### Fixed
+
+- RF3's accuracy cell looked for its checkpoint at `~/.cache/tt-bio/rf3/`, a second hard-coded
+  path that `tt_bio.weights` does not use. On a host where `tt-bio weights fetch rf3` had already
+  put the checkpoint, both release-gate legs that shell to the cell failed with
+  `FileNotFoundError` after paying for featurization. It now asks `tt_bio.weights` where the
+  weights are (`$RF3_CKPT`, `$TT_BIO_CACHE`, `$BOLTZ_CACHE`, `~/.boltz`), and
+  `full_parity_gate.py --check` reports a missing RF3 checkpoint card-free instead of erroring
+  mid-run.
 
 - OpenFold3 and OpenBind: a CCD ligand kept its chirality. The reference-molecule builder never
   told RDKit to read stereochemistry off the 3D coordinates before discarding them, so the

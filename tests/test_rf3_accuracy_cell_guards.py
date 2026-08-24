@@ -97,3 +97,20 @@ def test_a_reference_split_across_backends_says_so(ac, tmp_path):
     r = {}
     ac.adopt_ref_provenance(r, tmp_path, tmp_path)
     assert r["ref_device"] == "mixed: cpu,cuda"
+
+
+def test_default_ckpt_follows_tt_bio_weights_not_a_second_hard_coded_path(ac, monkeypatch,
+                                                                         tmp_path):
+    """A third guard, found by wiring the 997 aa leg into `full_parity_gate.py`: this file
+    read `~/.cache/tt-bio/rf3/...` while `tt_bio.weights` resolves rf3 through $RF3_CKPT /
+    $TT_BIO_CACHE / $BOLTZ_CACHE / ~/.boltz. On a host where `tt-bio weights fetch rf3` had
+    put the checkpoint, both release-gate legs that shell to this cell died with
+    FileNotFoundError after paying for featurization."""
+    ck = tmp_path / "rf3" / "rf3_foundry_01_24_latest_remapped.ckpt"
+    ck.parent.mkdir()
+    ck.write_bytes(b"")
+    monkeypatch.delenv("RF3_CKPT", raising=False)
+    monkeypatch.setenv("BOLTZ_CACHE", str(tmp_path))
+    assert ac._default_ckpt() == str(ck)
+    monkeypatch.setenv("RF3_CKPT", str(tmp_path / "elsewhere.ckpt"))
+    assert ac._default_ckpt() == str(tmp_path / "elsewhere.ckpt")   # override wins, even absent
