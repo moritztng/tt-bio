@@ -46,6 +46,18 @@ class SeedSpec:
     seed: int
     src_dir: str          # harness-format dir on disk: results.json + structures/<id>.cif
     target_id: str        # the structure id inside structures/ (e.g. "prot", "trpcage")
+    # The id the GATE leg asks for. A reference run names its structure after the target
+    # ("trpcage"), while the tt-bio leg names it after the input yaml ("trpcage_no_msa"), and
+    # full_parity_gate.py looks for structures/<leg.target_id>.cif. Harvesting under the
+    # reference's own name leaves the leg permanently BLOCKED-REF-REGEN-NEEDED even though the
+    # reference is right there. Set this when the two differ; it renames the CIF and the
+    # results.json "id" field, nothing else.
+    dst_id: str = ""
+    note: str = ""        # extra provenance sentence for this seed (e.g. added in a later pass)
+
+    @property
+    def out_id(self) -> str:
+        return self.dst_id or self.target_id
 
 
 @dataclass
@@ -288,7 +300,7 @@ SPECS = [
         ),
         settings={
             "use_msa": False, "recycling_cycles": 4, "diffusion_steps": 20,
-            "diffusion_samples": 1, "seeds": [0, 1, 2], "dtype": "fp32",
+            "diffusion_samples": 1, "seeds": [0, 1, 2, 3, 4], "dtype": "fp32",
             "trimul_kernel": "torch", "triatt_kernel": "torch",
             "target": "trp-cage (PDB 1L2Y, 20 res, 154 atoms, single-sequence no-MSA)",
             "rationale": "sample=1 isolates convergence (cycles/steps) from best-of-N selection; "
@@ -296,17 +308,31 @@ SPECS = [
                          "directly comparable at the same compute budget.",
         },
         seeds=[
-            SeedSpec(0, "/home/ttuser/pharma_ref_fixture_run/opendde_harness_trpcage_s0", "trpcage"),
-            SeedSpec(1, "/home/ttuser/pharma_ref_fixture_run/opendde_harness_trpcage_s1", "trpcage"),
-            SeedSpec(2, "/home/ttuser/pharma_ref_fixture_run/opendde_harness_trpcage_s2", "trpcage"),
+            SeedSpec(0, "/home/ttuser/pharma_ref_fixture_run/opendde_harness_trpcage_s0",
+                     "trpcage", dst_id="trpcage_no_msa"),
+            SeedSpec(1, "/home/ttuser/pharma_ref_fixture_run/opendde_harness_trpcage_s1",
+                     "trpcage", dst_id="trpcage_no_msa"),
+            SeedSpec(2, "/home/ttuser/pharma_ref_fixture_run/opendde_harness_trpcage_s2",
+                     "trpcage", dst_id="trpcage_no_msa"),
+            SeedSpec(3, "/home/ttuser/opendde_parity_prod/opendde_harness_trpcage_s3",
+                     "trpcage", dst_id="trpcage_no_msa",
+                     note="Added 2026-07-20 (3+3 -> 5+5 extension, same pinned commit/settings "
+                          "as seeds 0-2); raw run at opendde_parity_prod/ref_trpcage_s34."),
+            SeedSpec(4, "/home/ttuser/opendde_parity_prod/opendde_harness_trpcage_s4",
+                     "trpcage", dst_id="trpcage_no_msa",
+                     note="Added 2026-07-20 (3+3 -> 5+5 extension, same pinned commit/settings "
+                          "as seeds 0-2); raw run at opendde_parity_prod/ref_trpcage_s34."),
         ],
+        date="2026-07-13 (seeds 0-2); 2026-07-20 (seeds 3-4)",
         provenance_note=(
             "Harvested from a FRESH 2026-07-13 qb2 reference run (pharma_ref_fixture_run/"
             "opendde_trpcage_s{0,1,2}, mtime 2026-07-13 15:47-15:49), generated for this fixture "
             "rather than copied from a prior raw output. Per-seed model-forward ~5s (warm); "
             "ranking_score 0.0911 on all three seeds. The fresh reference-vs-reference floor "
             "R=0.31 A (mean of 3 seed pairs: 0.41/0.38/0.15) reproduces the published R=0.31 "
-            "in docs/implementation-parity.md within noise."
+            "in docs/implementation-parity.md within noise. Seeds 3,4 added 2026-07-20 from a "
+            "fresh qb2 CPU run (same pinned commit a0d5134, fp32, torch kernels, identical "
+            "settings) to extend the noise floor R to a real distribution (3+3 -> 5+5)."
         ),
     ),
     FixtureSpec(
@@ -536,15 +562,30 @@ def harvest(spec: FixtureSpec, skip_missing: bool = False) -> None:
                 f"{spec.settings_tag}/seed{ss.seed}: expected {cif} and {res}")
         seed_dst = base / f"seed{ss.seed}"
         (seed_dst / "structures").mkdir(parents=True, exist_ok=True)
-        shutil.copy2(cif, seed_dst / "structures" / f"{ss.target_id}.cif")
-        shutil.copy2(res, seed_dst / "results.json")
-        rec = _selected_record(_load_results(src), ss.target_id)
+        shutil.copy2(cif, seed_dst / "structures" / f"{ss.out_id}.cif")
+        results = _load_results(src)
+        if ss.out_id == ss.target_id:
+            shutil.copy2(res, seed_dst / "results.json")
+        else:
+            # Same records, id relabelled to the one the gate leg asks for. Coordinates and
+            # every confidence value are untouched.
+            renamed = [{**r, "id": ss.out_id} if r.get("id") == ss.target_id else r
+                       for r in results]
+            (seed_dst / "results.json").write_text(json.dumps(renamed, indent=2) + "\n")
+        rec = _selected_record(results, ss.target_id)
+        note = ("real reference output copied verbatim; not regenerated or edited"
+                if ss.out_id == ss.target_id else
+                f"real reference output copied verbatim; not regenerated or edited. Only the "
+                f"structure id is relabelled {ss.target_id!r} -> {ss.out_id!r} to match the "
+                f"gate leg's target_id; coordinates and confidence values are unchanged.")
+        if ss.note:
+            note = f"{note} {ss.note}"
         seed_meta = {
             "seed": ss.seed,
             "target_id": ss.target_id,
             "harvested_from": str(src),
             "selected_record": rec,
-            "note": "real reference output copied verbatim; not regenerated or edited",
+            "note": note,
         }
         (seed_dst / "meta.json").write_text(json.dumps(seed_meta, indent=2) + "\n")
 
@@ -574,7 +615,19 @@ def harvest(spec: FixtureSpec, skip_missing: bool = False) -> None:
             "release tag) the fixture is reused as-is and only the device side re-runs."
         ),
     }
-    (base / "meta.json").write_text(json.dumps(settings_meta, indent=2) + "\n")
+    # An envelope-scored fixture keeps its shared-draw cache key under "envelope", one level
+    # below this harvested provenance, and full_parity_gate.fixture_fingerprint reads that block
+    # in preference to the top level. Clobbering it here would change the fingerprint and send
+    # the leg to BLOCKED-REGEN on drift -- the mirror of the clobber regen_envelope_refs already
+    # avoids in the other direction. Carry it across.
+    meta_path = base / "meta.json"
+    if meta_path.exists():
+        prior = json.loads(meta_path.read_text())
+        if "envelope" in prior:
+            settings_meta["envelope"] = prior["envelope"]
+    # sort_keys: the committed metas are key-sorted, so re-harvesting an unchanged fixture is a
+    # no-op diff instead of a whole-file reorder.
+    meta_path.write_text(json.dumps(settings_meta, indent=2, sort_keys=True) + "\n")
     print(f"harvested {spec.model}/{spec.target}/{spec.settings_tag}: "
           f"{len(spec.seeds)} seeds -> {base}")
 
