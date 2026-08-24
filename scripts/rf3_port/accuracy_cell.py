@@ -600,19 +600,6 @@ def main() -> int:
         print(f"[seed {s}] {'cached' if per_seed[s].get('cached') else 'ran'} "
               f"{[round(float(x), 1) for x in per_seed[s]['timing']]}", flush=True)
 
-    if args.dev_only and not all((ref_work / f"seed{s}.npz").exists() for s in seeds):
-        # The other half has not landed yet. Every seed is cached, so --rescore finishes
-        # this later; scoring now would be scoring nothing.
-        report["metrics"] = None
-        report["pending"] = (f"reference not yet in {ref_work}; re-run with --rescore "
-                             f"--work {work} --ref-cache {ref_work}")
-        print(json.dumps(report, indent=2))
-        if args.out:
-            Path(args.out).write_text(json.dumps(report, indent=2) + "\n")
-        return 0
-    if args.dev_only:
-        report["ref_joined_from"] = join_ref(per_seed, seeds, ref_work)
-    report["metrics"] = score(per_seed, seeds)
     report["timing_s"] = {str(s): [round(float(x), 1) for x in per_seed[s]["timing"]]
                           for s in seeds}
     report["draws_sha"] = {str(s): str(per_seed[s]["shastr"][0]) for s in seeds}
@@ -631,6 +618,18 @@ def main() -> int:
     report["triatt_fused_hifi_stats"] = dict(_TT.TRIATT_FUSED_HIFI_STATS)
     report["triatt_instances_forced_one_k_chunk"] = triatt_built["n"]
     report["flags"] = resolved_flags()
+
+    # The route census above is collected BEFORE the pending exit on purpose: the counters
+    # are a property of the device rollout that just ran and are gone once the process is,
+    # while every seed's coordinates are cached and can be scored later.
+    if args.dev_only and not all((ref_work / f"seed{s}.npz").exists() for s in seeds):
+        report["metrics"] = None
+        report["pending"] = (f"reference not yet in {ref_work}; re-run with --rescore "
+                             f"--work {work} --ref-cache {ref_work}")
+    else:
+        if args.dev_only:
+            report["ref_joined_from"] = join_ref(per_seed, seeds, ref_work)
+        report["metrics"] = score(per_seed, seeds)
     print(json.dumps(report, indent=2))
     if args.out:
         Path(args.out).write_text(json.dumps(report, indent=2) + "\n")
