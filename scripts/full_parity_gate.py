@@ -1637,13 +1637,39 @@ def _port_gate_subprocess(argv: list[str], out_json: Path, mode: str,
     """
     proc = subprocess.run([sys.executable, *argv], cwd=REPO, capture_output=True, text=True,
                           env={**os.environ, "PYTHONPATH": str(REPO), **(env_extra or {})})
-    try:
-        rep = json.loads(proc.stdout)
-    except json.JSONDecodeError:
+    rep = _report_from_stdout(proc.stdout)
+    if rep is None:
         return {"mode": mode, "verdict": "ERROR",
                 "error": (proc.stderr or proc.stdout or "no output")[-600:]}
     out_json.write_text(json.dumps(rep, indent=2, default=str))
     return rep
+
+
+def _report_from_stdout(text: str) -> dict | None:
+    """The report object out of a stdout that may also carry device-log lines.
+
+    tt-metal logs to stdout, not stderr. On a device leg its `critical` TT_THROW line lands in
+    the same stream as the scorer's report, and requiring stdout to be one clean JSON document
+    scores the leg ERROR on a clash that tt-bio caught and retried. That kept
+    `af2ig-trunk-device` dark from the day it was added: at seq 208 on an 11x10 grid the trimul
+    L1 retry fires every run, so the leg reported ERROR with tt-bio's own "the result is
+    unchanged" notice as its error text (root-caused 2026-08-24, v0.7.0 gate).
+
+    Every scorer reached through here prints its report last, so take the last object that
+    decodes and let anything around it be log noise. A truncated report still decodes to
+    nothing and is still an ERROR, which is the case worth keeping.
+    """
+    dec, found, i = json.JSONDecoder(), None, text.find("{")
+    while i != -1:
+        try:
+            obj, end = dec.raw_decode(text, i)
+        except json.JSONDecodeError:
+            i = text.find("{", i + 1)
+            continue
+        if isinstance(obj, dict):
+            found = obj
+        i = text.find("{", max(end, i + 1))
+    return found
 
 
 def _featurizer_verdict(report: dict) -> tuple[str, str]:

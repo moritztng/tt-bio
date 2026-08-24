@@ -547,3 +547,52 @@ def test_an_unreadable_or_empty_pyproject_is_unverified_not_clean(tmp_path):
     empty = tmp_path / "empty.toml"
     empty.write_text("[project]\nname = \"tt-bio\"\n")
     assert "declared no dependencies" in g.declared_dependency_problems(empty)[0]
+
+
+# --- stdout parsing on a device leg -----------------------------------------------------------
+# tt-metal logs to stdout, so a port scorer's report shares the stream with device log lines.
+# Requiring one clean JSON document scored af2ig-trunk-device ERROR on every run: at seq 208 on
+# an 11x10 grid the trimul L1 retry always fires, and its tt-metal `critical` line was enough to
+# defeat json.loads. The leg was dark from the day it was added (root-caused 2026-08-24).
+
+TT_METAL_CRITICAL = (
+    "2026-08-24 13:08:10.513 | critical |          Always | TT_THROW: Statically allocated "
+    "circular buffers in program 129 clash with L1 buffers on core range "
+    "[(x=0,y=0) - (x=10,y=9)]. L1 buffer allocated at 1138688 and static circular buffer "
+    "region ends at 1176064 (assert.hpp:104)\n"
+)
+
+
+def test_a_device_log_line_before_the_report_does_not_hide_it():
+    m = _load()
+    report = {"mode": "af2ig_taps", "verdict": "PASS", "taps_total": 94}
+    import json as _json
+    out = m._report_from_stdout(TT_METAL_CRITICAL + _json.dumps(report, indent=1))
+    assert out == report
+
+
+def test_the_report_is_taken_even_with_log_lines_on_both_sides():
+    m = _load()
+    import json as _json
+    out = m._report_from_stdout(
+        "# substituting ['a', 'b'] into host torch\n"
+        + TT_METAL_CRITICAL
+        + _json.dumps({"mode": "af2ig_taps", "verdict": "GAP"})
+        + "\n"
+        + TT_METAL_CRITICAL
+    )
+    assert out == {"mode": "af2ig_taps", "verdict": "GAP"}
+
+
+def test_a_truncated_report_is_still_nothing():
+    """The case worth keeping: a scorer that died mid-print must stay an ERROR, not become a
+    PASS because some earlier fragment happened to parse."""
+    m = _load()
+    assert m._report_from_stdout(TT_METAL_CRITICAL + '{"mode": "af2ig_taps", "verd') is None
+    assert m._report_from_stdout(TT_METAL_CRITICAL) is None
+    assert m._report_from_stdout("") is None
+
+
+def test_a_bare_list_report_is_not_mistaken_for_a_report():
+    m = _load()
+    assert m._report_from_stdout("[1, 2, 3]") is None
