@@ -442,6 +442,36 @@
           "ref": "Median of n=8 warm, 30.308 to 31.578 s, median 30.893, spread 1.270 s (4.11 %), cold 41.684 s discarded. Stack byte-identical to the H200 cell: rc-foundry 0.2.0, atomworks 2.2.1, cuequivariance-torch 0.11.1 with the cu12 ops wheels, torch 2.13.0+cu130, triton 3.7.1, plDDT 0.782, 4116 atoms. cuEquivariance carried every triangle op, counted not assumed: triangle_attention_cueq 9792 and triangle_multiply_cueq 9792, both vanilla counters 0, scaled_dot_product_attention 0. A100 and H200 run the same generic cuEquivariance triangle kernel, so the two cells are like-for-like on the kernel path. AtomWorks host featurisation is 14.988 s of the fold, 48.5 %, on an AMD EPYC 7763 at a 30.72 vCPU cgroup quota, which is a different EPYC from the 7513 the other A100 cells on this page were measured on. Card exclusive, peak 5.43 GiB of 80 GB."
         }
       }
+    },
+    {
+      "id": "openbind",
+      "name": "OpenBind-0",
+      "recycles": 3,
+      "sampling_steps": 200,
+      "note": "OpenBind-0 is the OpenFold3 stack on upstream's v0.5.0 checkpoint. It folds this page's fixture at the same three recycles and 200 sampling steps as the OpenFold3 row, resolved by the same code path, so the two rows are directly comparable. It also takes ligands, which OpenFold3 refuses. Its own GPU reference exists but not on this fixture: on a single-sequence 512-residue apo target an H200 takes 9.311 s of device time (perf/openbind/gpu_reference.json, cell ob_apo_512_s1) against 36.017 s on one Blackhole AI Processor, the latter measured on this host during the port and not committed to this repo. This page's fixture carries a 35-sequence alignment and MSA depth is a trunk cost, so that pair is context, not a cell. The reference also records its own 512-residue rung moving 10.65 % between two independently rented H200s, because the 200-step rollout is launch-bound and carries the landlord's CPU.",
+      "cells": {
+        "p150a": {
+          "status": "measured",
+          "s_per_fold": 37.712,
+          "parity": "Release-gate floor, 3.5 A CA RMSD and 0.70 TM (scripts/release_gate.py), fixed before this number existed and measured at 1.693 A / 0.894 on 7ROA. That is the gate's floor for the model, not a per-fixture check on this target, which has no experimental structure to score against.",
+          "ref": "Six warm folds across two processes, cold fold discarded in each: 37.001, 37.151, 37.668, 37.756, 37.862, 38.158 s, median 37.712, the two arms 37.756 and 37.668 (0.23 % apart). Alternated in one benchlock hold with a same-day OpenFold3 control on the same card: three arms reading 38.500 / 37.035 / 37.154 s, pooled median 37.154 s, so OpenBind-0 folds this fixture 1.5 % slower than OpenFold3 measured beside it. The control's own arms are the honest caveat on this cell: arms 2 and 3 agree to 0.32 % but arm 1, folded first while the box was still busy, reads 3.96 % slower than arm 2, and the published OpenFold3 cell of 38.254 s sits 2.96 % above the same-day pooled control. So compare this number to the control beside it rather than to the row above. All six folds agree on CIF sha ('f5ae1145ccb4842b',) and plDDT 0.559887; digests compare between arms of one host and card and nowhere else. tt-quietbox2, one Blackhole AI Processor of a p300c board, physical card 3, 11x10 Tensix grid, ttnn 0.68.0, git 283b64f3, shipped defaults at one diffusion sample."
+        },
+        "h200": {
+          "status": "measured",
+          "s_per_fold": 9.233,
+          "ref": "Pooled median of 12 warm folds over 4 alternating arms, 3 warm plus a discarded cold fold each: 9.190 / 9.195 / 9.206 / 9.212 / 9.229 / 9.232 / 9.234 / 9.240 / 9.253 / 9.266 / 9.297 / 9.415 s, per-arm medians 9.212 / 9.240 / 9.195 / 9.297. An OpenFold3 control arm alternated with it on the same card in the same session pools to 10.0170 s against the published h200 cell's 10.263 s, 2.46 % apart, so this box reproduces the column; OpenBind-0 folds this fixture 7.83 % under the control beside it. That 2.46 % is wider than the widest warm spread inside any arm on this box (1.60 %), so it is this rental's host rather than run-to-run noise: read the relative figure, not this cell against the published OpenFold3 one. Both arms reach the cuEquivariance triangle kernels, counted not assumed: triangle_attention 1966 and triangle_multiplicative_update 1702 on this arm against 2752 and 1702 on the control, every torch-fallback counter 0. plDDT reproduces across all four arms (0.493327-0.494565) and sits well below the control's (0.636890-0.639807), which is the checkpoint difference, not noise. openfold3 0.5.0 on checkpoint of3-ob-2025-06-30-174k.pt, torch 2.13.0+cu130, cuequivariance-torch 0.11.1, triton 3.7.1. NVIDIA H200, driver 580.159.03, Intel(R) Xeon(R) Platinum 8480+ at 26.88 effective vCPU from the cgroup quota. Peak allocated VRAM 4113.0 MiB. The card was ours: the session gate read 0 foreign compute apps before every row it logged, and all 8 post-row nvidia-smi samples read 0 MiB resident. 3 recycles, 200 sampling steps, one diffusion sample, seed 0, the pinned cdk2x2_512 fixture with its 35-row alignment, checkpoint load outside the cell."
+        },
+        "b200": {
+          "status": "measured",
+          "s_per_fold": 10.711,
+          "ref": "Pooled median of 12 warm folds over 4 alternating arms, 3 warm plus a discarded cold fold each: 10.413 / 10.449 / 10.496 / 10.575 / 10.595 / 10.659 / 10.763 / 10.779 / 10.794 / 10.882 / 10.963 / 11.281 s, per-arm medians 10.449 / 10.963 / 10.779 / 10.595. An OpenFold3 control arm alternated with it on the same card in the same session pools to 11.8230 s against the published b200 cell's 11.897 s, 0.63 % apart, so this box reproduces the column; OpenBind-0 folds this fixture 9.41 % under the control beside it. That 0.63 % sits inside the widest warm spread within a single arm on this box (4.44 %). Both arms reach the cuEquivariance triangle kernels, counted not assumed: triangle_attention 1966 and triangle_multiplicative_update 1702 on this arm against 2752 and 1702 on the control, every torch-fallback counter 0. plDDT reproduces across all four arms (0.495700-0.496198) and sits well below the control's (0.634719-0.637730), which is the checkpoint difference, not noise. openfold3 0.5.0 on checkpoint of3-ob-2025-06-30-174k.pt, torch 2.13.0+cu130, cuequivariance-torch 0.11.1, triton 3.7.1. NVIDIA B200, driver 580.126.09, Intel(R) Xeon(R) Platinum 8559C at 23.04 effective vCPU from the cgroup quota. Peak allocated VRAM 4113.0 MiB. The card was ours: the session gate read 0 foreign compute apps before every row it logged, and all 8 post-row nvidia-smi samples read 0 MiB resident. 3 recycles, 200 sampling steps, one diffusion sample, seed 0, the pinned cdk2x2_512 fixture with its 35-row alignment, checkpoint load outside the cell."
+        },
+        "a100": {
+          "status": "measured",
+          "s_per_fold": 16.3425,
+          "ref": "Pooled median of 12 warm folds over 4 alternating arms, 3 warm plus a discarded cold fold each: 16.193 / 16.212 / 16.220 / 16.223 / 16.228 / 16.241 / 16.444 / 16.455 / 16.483 / 16.515 / 16.596 / 16.644 s, per-arm medians 16.220 / 16.483 / 16.223 / 16.596. An OpenFold3 control arm alternated with it on the same card in the same session pools to 16.9795 s against the published a100 cell's 16.942 s, 0.22 % apart, so this box reproduces the column; OpenBind-0 folds this fixture 3.75 % under the control beside it. That 0.22 % sits inside the widest warm spread within a single arm on this box (2.08 %). Both arms reach the cuEquivariance triangle kernels, counted not assumed: triangle_attention 1966 and triangle_multiplicative_update 1702 on this arm against 2752 and 1702 on the control, every torch-fallback counter 0. plDDT reproduces across all four arms (0.491980-0.492277) and sits well below the control's (0.635073-0.638610), which is the checkpoint difference, not noise. openfold3 0.5.0 on checkpoint of3-ob-2025-06-30-174k.pt, torch 2.13.0+cu130, cuequivariance-torch 0.11.1, triton 3.7.1. NVIDIA A100-SXM4-80GB, driver 580.159.03, AMD EPYC 7513 32-Core Processor at 30.72 effective vCPU from the cgroup quota. Peak allocated VRAM 4089.1 MiB. The card was ours: the session gate read 0 foreign compute apps before every row it logged, and all 8 post-row nvidia-smi samples read 0 MiB resident. 3 recycles, 200 sampling steps, one diffusion sample, seed 0, the pinned cdk2x2_512 fixture with its 35-row alignment, checkpoint load outside the cell."
+        }
+      }
     }
   ],
   "design": {
@@ -511,14 +541,105 @@
         },
         "server_charts": false,
         "server_charts_note": "RFdiffusion3 is not on the per-server or per-dollar charts. Those charts scale seconds per job by accelerator count, and this row's two sides do not have the same lever: a batch of eight is worth 2.12x on the H200, 2.50x on the B200 and 1.79x on the A100, measured at shipped defaults with the H200 at 79 % of its 700 W and 98 % utilisation, while the Blackhole AI Processor gains 1.04x at 3844 atoms and does not fit a batch of eight. At batch 1 the Galaxy reads 1.20x a DGX H200; at each side's best batch it reads 0.57x, so the batch decides the sign rather than the size. The seconds chart keeps the row, because one at a time is the right protocol for latency. BoltzGen stays on both charts: its batched path drifts 0.5-2.8 A per slot, which makes a batched design a different design, so batch 1 is the production configuration on the GPU as well as here."
+      },
+      {
+        "id": "pxdesign",
+        "name": "PXDesign",
+        "target": "beta-galactosidase (1DP0 chain A) cropped to 512 residues around one fixed epitope, 80-residue binder, 592 tokens",
+        "sampling_steps": 400,
+        "batch": 1,
+        "note": "This row is what `tt-bio design --model pxdesign` returns: the PXDesign-d generator, which writes a binder backbone with no sequence. The four-model filtering pipeline upstream runs after it (ProteinMPNN, AF2-IG and a Protenix filter) is not on the CLI. Both columns time the same three steps, featurise, generate and write the CIF, with the checkpoint load outside the cell on both sides. The LacZ crop is a cost fixture: the reference records its designs as well-folded and non-binding, because the epitope is an arbitrary exposed loop and one design per target is far below what a real campaign runs. Right fixture for seconds, wrong one for quality.",
+        "cells": {
+          "p150a": {
+            "status": "measured",
+            "s_per_design": 23.24,
+            "ref": "Eight warm designs across two independent processes, four each, cold design dropped in both: 22.890, 22.902, 22.903, 22.918, 23.563, 23.565, 23.842, 23.912 s, pooled median 23.240. The two legs median 23.242 and 23.233, 0.04 % apart, against a within-leg spread of 4.1 % and 4.3 %. 592 tokens, 512 target residues, 80-residue binder, n_step 400 and one design per call asserted from what the call received: n_sample is backbones out of ONE trajectory, so four designs means four calls, not --num_designs 4. Every design finite, and each written CIF parses to 80 residues, 321 atoms and one chain, because write_design_cifs writes the binder alone and the C-terminal OXT is the 321st atom. The four seeds each reproduce their coordinate digest in both processes, cold round included. fp32 diffusion, the shipped default via PROTENIX_DIFFUSION_FP32_DEVICE, against the reference's bf16, an asymmetry that runs against this cell. tt-quietbox2, one Blackhole AI Processor of a p300c board, physical card 3, 11x10 Tensix grid, ttnn 0.68.0, git 283b64f3, under a benchlock hold.",
+            "split": {
+              "host_s": 0.069,
+              "in_cell": true,
+              "ref": "Featurisation and the CIF write, timed inside the same process as the generate step. The three leaves partition the per-design wall by construction and the recorded residual is under 0.02 s. Featurisation is 0.069 s because conditional_templ is int64 distogram bin indices at 2.8 MB, not an (NT, NT, c_z) embedding: the 65-wide table is applied on the card inside the model."
+            }
+          },
+          "h200": {
+            "status": "measured",
+            "s_per_design": 30.8129,
+            "ref": "Cells laczc512_exte_n1_msa, laczc512_prev_n1 and laczc512_prev_n1_msa of perf/pxdesign/gpu_reference.json, the generator stage's own wall clock (gen_feat + gen_device + gen_write): 30.4243 / 30.8129 / 30.9251 s, median 30.8129, spread 1.63 %. One warm rep per cell after a discarded cold rep. The three run the same target CIF, the same hotspots and the same 80-residue binder, differing only in the eval preset and in whether the target YAML carries an msa key, which read_design_yaml documents as parsed and ignored because PXDesign-d has no trunk. A fourth cell reads 31.8163 s with LAYERNORM_TYPE=fast_layernorm exported, which the shipped CLI never sets, and is excluded; that flag is inert end to end, the two cells' whole-pipeline seconds agreeing to 0.08 %, so the 2.9 % gap in the generator stage is that stage's own run-to-run noise at one warm rep. Excluding it raises the Tenstorrent ratio, since the median of all four would be 30.8690 s. N_sample 1, n_step 400, bf16, tf32 on, checkpoint load outside the cell, torch 2.3.1 with CUDA 12.1 and cuDNN 8902 on a rented single-H200 node, the stack perf/pxdesign/gpu_reference.json records for these cells.",
+            "split": {
+              "host_s": 2.161,
+              "in_cell": true,
+              "ref": "gen_feat 2.083 s and gen_write 0.078 s of laczc512_exte_n1_msa, the same two host steps the Tenstorrent cell carries inside its own number."
+            }
+          },
+          "b200": {
+            "status": "blocked",
+            "reason": "Not at this protocol. The reference stack is torch 2.3.1 on CUDA 12.1 (perf/pxdesign/gpu_reference.json), and CUDA 12.1 ships no sm_100 kernels, so a B200 cannot run the thing the h200 cell measured. The pins are load-bearing in both directions: protenix needs deepspeed>=0.15.1 but 0.19.5 requires torch>=2.4, and jaxlib 0.4.29 is a local-CUDA build. Raising torch far enough to reach Blackwell moves DeepSpeed, jax and the Evoformer attention kernel with it, and the result would not be the same measurement as the H200 cell beside it."
+          },
+          "a100": {
+            "status": "measured",
+            "s_per_design": 45.174,
+            "ref": "The generator stage's own wall clock (gen_feat + gen_device + gen_write), the same quantity the h200 cell publishes: 44.9314 / 45.1740 / 45.5274 s, median 45.1740, spread 1.32 %. Three fresh processes of one cell, each a discarded cold rep 0 plus one warm rep 1, so every sample is rep-1-of-a-fresh-process as each h200 cell's was. The h200 median pools three cells that differ only in eval preset and in whether the YAML carries an msa key, which read_design_yaml parses and ignores because PXDesign-d has no trunk; two of those need a sliced MSA that is an external MSA-server product and is not in the repo, so this arm repeats the one cell it can byte-match instead, the same target YAML sha256 48a6b5c0c5d9ca9b the h200 laczc512_prev_n1 cell records. The A100 runs this stage 46.61 % slower than the H200's 30.8129 s, and its spread is the tighter of the two (1.32 % against the h200 cell's 1.63 % over the three it pools). Inside it, 41.5474 s is the diffusion call at 84.1 % mean GPU utilisation and 250 W median, and 3.5186 s plus 0.1080 s are the host featurise and CIF write the h200 cell also carries inside its number. Read only this stage against the H200. The whole pipeline is 153.7 s here against 112.4 s on the H200, and that wall is not this cell: the rest of it is the ProteinMPNN and AF2-IG filtering subprocesses (11.6 s of ProteinMPNN against 8.6 s, 65.5 s of AF2-IG against 49.8 s), which the CLI does not run at all. Reproducible: all 3 processes return the identical designed sequence at seed 42 (EPSPEEVIARLRAAVAALEARVAELMAKASPEERARLERLLEYLRARVARLVAGVEAGDPEALEAARRLVRRLEATLAAL), and each written CIF parses to one design of an 80-residue binder with no non-finite coordinates. The DeepSpeed Evoformer kernel is present and fast LayerNorm is not reached in any rep, matching the h200 cells the page includes rather than the fast-LayerNorm one it excludes. Card exclusive, no compute app on it before any rep. NVIDIA A100-SXM4-80GB, driver 580.159.03, compute capability 8.0 against the H200's 9.0. Peak allocated VRAM 2.078 GiB against the h200 cell's 2.078 GiB. Stack byte-matched to the h200 cell's: torch 2.3.1 with CUDA 12.1 and cuDNN 8902, protenix 0.5.0+pxd, pxdesign 0.1.0, pxdbench 0.1.2, deepspeed 0.15.4, jax 0.4.29, numpy 1.26.3. N_sample 1, n_step 400, bf16, 512 target residues, 80-residue binder, checkpoint load outside the cell.",
+            "split": {
+              "host_s": 3.627,
+              "in_cell": true,
+              "ref": "gen_feat and gen_write of the same warm reps, the two host steps the Tenstorrent and H200 cells also carry inside their own numbers."
+            }
+          }
+        }
       }
     ]
   },
   "affinity": {
     "cond": "Wall-clock seconds to return one binding-affinity prediction on a single AI Processor, warm, at the shipped defaults. Shorter is better. One prediction at a time on every platform.",
     "note": "Nesso-1 returns eleven scalars and no coordinates, so it cannot run the CDK2 fixture the fold rows use: it conditions on ESM-2 embeddings rather than an MSA and it needs a ligand. This row is measured on the 512 aa rung of the port's own size ladder instead, 532 tokens, one protein and one ligand. Read it against the other rows for what a 512-residue input costs on each platform, not as the same computation.",
-    "methods": "One protein plus one ligand at the shipped defaults: bf16 trunk, fp32 affinity stacks, 5 recycling steps, 256-token pocket crop, one prediction at a time. The Tenstorrent figure is a warm forward on one Blackhole AI Processor with the box quiet plus the featurisation measured in the same process; the H200 figure is the cuda-synchronised Lightning step plus its own host share, from the same rung of the GPU reference. The A100 figure is the same invocation-wall region on a rented A100 SXM4 80 GB, on a stack byte-matched to the H200 reference. B200 is unmeasured: nobody has paid for one. The H200 cell was taken on an H200 NVL at 600 W rather than the 700 W SXM part the folding rows' h200 column uses, so this row's H200 ratio is not directly comparable to theirs.",
-    "models": []
+    "methods": "One protein plus one ligand at the shipped defaults: bf16 trunk, fp32 affinity stacks, 5 recycling steps, 256-token pocket crop, one prediction at a time. The Tenstorrent figure is a warm forward on one Blackhole AI Processor with the box quiet plus the featurisation measured in the same process; the H200 figure is the cuda-synchronised Lightning step plus its own host share, from the same rung of the GPU reference. The A100 and B200 figures are the same invocation-wall region on rented single-GPU nodes, on a stack byte-matched to the H200 reference. The H200 cell was taken on an H200 NVL at 600 W rather than the 700 W SXM part the folding rows' h200 column uses, so this row's H200 ratio is not directly comparable to theirs.",
+    "models": [
+      {
+        "id": "nesso1",
+        "name": "Nesso-1",
+        "target": "CDK2 ladder 512 aa plus one ligand, 532 tokens, no MSA",
+        "recycling_steps": 5,
+        "batch": 1,
+        "cells": {
+          "p150a": {
+            "status": "measured",
+            "s_per_fold": 22.051,
+            "parity": "worst scalar 3.43x the reference spread, inside a 5.0x floor",
+            "ref": "8.341 s warm forward plus 13.710 s featurisation, both from one process on qb1 card 2 with the box quiet, 2 reps and the warm one taken: perf/nesso1/size_ladder.json rung aa512, arm bf16. ttnn 0.68.0.",
+            "split": {
+              "host_s": 13.71,
+              "in_cell": true,
+              "bound": "upper",
+              "ref": "Featurisation is RDKit conformer embedding plus an ESM-2 650M pass on host, timed in its own right in the same process as the forward. It is the cold pass, so summing it against a warm forward is an upper bound on the whole prediction: a screen that reuses the cached embedding pays less. The device half, 8.341 s, is exact."
+            }
+          },
+          "h200": {
+            "status": "measured",
+            "s_per_fold": 3.9403,
+            "ref": "One rented H200 NVL at a 600 W power limit, driver 595.58.03 -- this is the one GPU cell on the page measured on a different H200 part, where every other h200 cell is the 700 W SXM part in a DGX H200. Cell ladder_aa512_cueq of perf/nesso1/gpu_reference.json: invocation wall 3.9403 s over 4 reps, of which the cuda-synchronised Lightning predict step is 1.0509 s. torch 2.13.0+cu130, cuEquivariance kernels on and engaged on 100 % of the triangle calls. Model load is outside the cell on both sides.",
+            "split": {
+              "host_s": 2.8894,
+              "in_cell": true,
+              "ref": "host_s of the same cell: preprocessing 1.959 s and the ESM-2 pass 1.020 s dominate it. Same regions as the Tenstorrent cell, which is why the host halves are comparable and the whole-to-whole reading is the honest one."
+            }
+          },
+          "b200": {
+            "status": "measured",
+            "s_per_fold": 7.2491,
+            "ref": "Two independent processes, 3 warm reps each after a discarded cold rep, the same invocation-wall region the h200 and a100 cells hold: 6.8292 / 7.1488 / 7.2218 / 7.2763 / 7.5683 / 7.6070 s, pooled median 7.2491. The two legs median 7.5683 and 7.1488, 5.87 % apart, and that gap is host, not device: the Lightning predict step inside the same reps holds 1.2635-1.3201 s across all six, against 1.85434 s on the A100. Most of this rung is host work at 23.04 effective vCPU from the cgroup quota, so the wall moves with the landlord's CPU while the card's share barely does. Reproducible where it matters: both processes return the identical affinity scalar 1.234643 and the identical sha256 of the affinity values (1d5c6e3f8f7adab7), and that scalar is the H200 NVL arm's rather than the A100's. cuEquivariance engaged on 100 % of the triangle calls (2432 of 2432 attention and 2432 multiplicative-update). Peak allocated VRAM 1792.9 MiB, the same as the A100 arm. Card exclusive, no compute app on it before either leg. NVIDIA B200 at a 1000 W limit, driver 580.126.09, Python 3.12.14. Stack byte-matched to both published columns: torch 2.11.0+cu128, triton 3.6.0, cuequivariance-torch 0.11.1 with -ops-torch-cu12 0.11.1, lightning 2.6.5, transformers 5.15.1, rdkit 2026.3.5, nesso 1.0.0 at revision v1.0.0. 5 recycling steps, bf16-mixed, refine on, seed 42, batch 1, model load outside the cell."
+          },
+          "a100": {
+            "status": "measured",
+            "s_per_fold": 7.9019,
+            "ref": "Machine 144644, A100 SXM4 80 GB at a 400 W limit, driver 580.159.03, 30.72 effective vCPU from the cgroup quota. state/perfpage_a100/nesso1_ladder_aa512_cueq_a100.json, the same invocation-wall region the h200 cell holds: warm median 7.9019 s of reps 7.9019 / 7.8397 / 7.9114, spread 0.91 %, cold rep 12.0353 s discarded. Of that, the Lightning predict step is 1.85434 s and the device forward 1.8523 s. cuEquivariance engaged on 100 % of the triangle calls (2432 of 2432 on both the cueq and the callsite counter). Peak allocated VRAM 1792.9 MiB. Affinity scalar 1.248613 against the H200 NVL arm's 1.234643, both ok. The stack is byte-matched to that H200 NVL reference: torch 2.11.0+cu128, cuequivariance-torch 0.11.1 with -ops-torch-cu12 0.11.1, lightning 2.6.5, transformers 5.15.1, rdkit 2026.3.5, nesso 1.0.0, and the same 30.72 effective vCPU on both boxes.",
+            "split": {
+              "host_s": 6.048,
+              "in_cell": true,
+              "ref": "predict_step is 1.854 s of the 7.9019 s cell and the rest is host: the RDKit conformer preprocess and the ESM-2 pass, timed in the same process. Same regions as the Tenstorrent and H200 cells, so the three host halves are comparable."
+            }
+          }
+        }
+      }
+    ]
   },
   "embed": {
     "unit": "sequences per second",

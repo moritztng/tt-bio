@@ -1,0 +1,140 @@
+{
+  "model": "openfold3",
+  "side": "gpu",
+  "gpu": "NVIDIA H200",
+  "gpu_capability": [
+    9,
+    0
+  ],
+  "host_cpu": "Intel(R) Xeon(R) Platinum 8480+",
+  "cpu_count": 224,
+  "vcpu_cgroup": 26.88,
+  "affinity": 224,
+  "loadavg": [
+    2.72119140625,
+    5.736328125,
+    4.76611328125
+  ],
+  "nvidia_smi": "580.159.03, 700.00, 700.00, 143771, 1980",
+  "power_util": {
+    "idle_n": 30,
+    "idle_W": 79.1,
+    "idle_W_max": 79.4,
+    "idle_util_pct": 0.0,
+    "idle_util_pct_max": 0.0,
+    "idle_mem_MiB": 0.0,
+    "idle_mem_MiB_max": 0.0,
+    "idle_clocks_sm_MHz": 345.0,
+    "idle_clocks_sm_MHz_max": 345.0,
+    "warm_n": 150,
+    "warm_W": 359.5,
+    "warm_W_max": 634.3,
+    "warm_util_pct": 84.0,
+    "warm_util_pct_max": 100.0,
+    "warm_mem_MiB": 6173.0,
+    "warm_mem_MiB_max": 6173.0,
+    "warm_clocks_sm_MHz": 1980.0,
+    "warm_clocks_sm_MHz_max": 1980.0
+  },
+  "peak_mem_MiB": 4113.5,
+  "peak_mem_reserved_MiB": 5482.0,
+  "cueq_call_shapes": [
+    "cuequivariance_torch.triangle_multiplicative_update | (1, 512, 512, 128):torch.float32",
+    "triangle.triangle_attention | (1, 1, 16, 512, 24):torch.float32 | (1, 1, 16, 512, 24):torch.float32 | (1, 1, 16, 512, 24):torch.float32",
+    "triangle.triangle_attention | (512, 4, 512, 16):torch.float32 | (512, 4, 512, 16):torch.float32 | (512, 4, 512, 16):torch.float32",
+    "triangle.triangle_attention | (512, 4, 512, 32):torch.float32 | (512, 4, 512, 32):torch.float32 | (512, 4, 512, 32):torch.float32",
+    "triangle_attention | (1, 1, 16, 512, 24):torch.float32 | (1, 1, 16, 512, 24):torch.float32 | (1, 1, 16, 512, 24):torch.float32 | (1, 1, 16, 512, 512):torch.float32 | (1, 1, 1, 1, 512):torch.bool",
+    "triangle_attention | (512, 4, 512, 16):torch.float32 | (512, 4, 512, 16):torch.float32 | (512, 4, 512, 16):torch.float32 | (1, 4, 512, 512):torch.float32 | (512, 1, 1, 512):torch.bool",
+    "triangle_attention | (512, 4, 512, 32):torch.float32 | (512, 4, 512, 32):torch.float32 | (512, 4, 512, 32):torch.float32 | (1, 4, 512, 512):torch.float32 | (512, 1, 1, 512):torch.bool",
+    "triangle_attention._diagnose_triangle_attention_fallback",
+    "triangle_multiplicative_update | (1, 512, 512, 128):torch.float32"
+  ],
+  "cueq_import_errors": [],
+  "torch_version": "2.13.0+cu130",
+  "cuda_version": "13.0",
+  "recycling_steps": 3,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "seed": 0,
+  "fixture": {
+    "yaml": "/work/scripts/gpu_vs_tt/../../perf/size512/fixtures/cdk2x2_512.yaml",
+    "a3m": "/work/scripts/gpu_vs_tt/../../perf/size512/fixtures/cdk2x2_512.a3m",
+    "n_residues": 512
+  },
+  "packages": {
+    "torch": "2.13.0",
+    "triton": "3.7.1",
+    "openfold3": "0.4.4",
+    "cuequivariance_torch": "0.11.1",
+    "cuequivariance_ops_torch_cu12": "0.11.1"
+  },
+  "session_wall_s": 78.8,
+  "error": null,
+  "result": {
+    "warm_gap_median_s": 0.433,
+    "warm_gaps_s": [
+      0.439,
+      0.427
+    ],
+    "cold_s": 11.471,
+    "warm_times_s": [
+      10.032,
+      9.996,
+      10.002
+    ],
+    "warm_n": 3,
+    "warm_min_s": 9.996,
+    "warm_median_s": 10.002,
+    "warm_max_s": 10.032,
+    "warm_spread_pct": 0.36,
+    "wall_s": 75.82,
+    "n_timed_calls": 4,
+    "timed_symbol": "openfold3.projects.of3_all_atom.runner.OpenFold3AllAtom.predict_step",
+    "kernel_counts_total": {
+      "pairformer_combined_triangle_multiplication": 0,
+      "triangle_attention": 2752,
+      "triangle_multiplicative_update": 1702,
+      "triangle_mxfp8_cutlass_supported": 0,
+      "triangle_mxfp8_einsum": 0,
+      "triangle_mxfp8_einsum_cutlass": 0,
+      "triangle_mxfp8_select_backend": 0,
+      "triangle_attention._diagnose_triangle_attention_fallback": 2752,
+      "triangle_attention._triangle_attention_torch": 0,
+      "triangle_attention._warn_triangle_attention_fallback": 0,
+      "triangle_attention.triangle_attention": 0,
+      "cuequivariance_torch.triangle_attention": 0,
+      "cuequivariance_torch.triangle_multiplicative_update": 1702,
+      "triangle.triangle_attention": 2752,
+      "triangle.triangle_multiplicative_update": 0,
+      "torch_sdpa": 0
+    },
+    "predictions": [
+      "/root/work/of3/out/fold0/seed_0/fold0_seed_0_sample_1_model.cif",
+      "/root/work/of3/out/fold1/seed_0/fold1_seed_0_sample_1_model.cif",
+      "/root/work/of3/out/fold2/seed_0/fold2_seed_0_sample_1_model.cif",
+      "/root/work/of3/out/fold3/seed_0/fold3_seed_0_sample_1_model.cif"
+    ],
+    "cli_argv": [
+      "predict",
+      "--query-json",
+      "/root/work/of3/queries.json",
+      "--output-dir",
+      "/root/work/of3/out",
+      "--inference-ckpt-path",
+      "/root/ckpt/of3-p2-155k.pt",
+      "--runner-yaml",
+      "/root/work/of3/runner.yaml",
+      "--num-diffusion-samples",
+      "1",
+      "--use-msa-server",
+      "false",
+      "--use-templates",
+      "false"
+    ],
+    "msa_staged_as": "/root/work/of3/msa/uniref90_hits.a3m",
+    "msa_rows": 35,
+    "n_residues": 512,
+    "retained_structure": "/root/results/openfold3_fold3_seed_0_sample_1_model.cif"
+  },
+  "date": "2026-08-24T15:07:30Z"
+}

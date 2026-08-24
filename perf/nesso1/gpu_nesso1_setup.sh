@@ -22,6 +22,11 @@ echo "=== setup start $(date -u +%FT%TZ) ==="
 FAIL() { echo "SETUP FAILED: $*"; echo "$*" > /work/SETUP_FAIL; exit 1; }
 
 NESSO_REV=${NESSO_REV:-f0156e9}
+# The published h200 and a100 cells were both measured on torch 2.11.0+cu128 and say so, and
+# comparing a new column against them means installing that, not whatever the cu128 index
+# resolves to today. Overridable because a new GPU can need a newer wheel; when it is
+# overridden the cell has to say which torch it ran.
+TORCH_SPEC=${TORCH_SPEC:-torch==2.11.0}
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq && apt-get install -y -qq build-essential git wget curl python3-pip || FAIL "apt"
 echo "--- gcc: $(gcc --version | head -1)"
@@ -36,7 +41,7 @@ PY=/work/v_nesso/bin/python
 
 # torch first, from the cu12 index: cuequivariance-ops-torch-cu12 is a cu12 build, and the torch
 # wheel is also what puts libnvrtc.so.12 on the path that libcue_ops.so links against.
-$UV pip install -q --python $PY torch --index-url https://download.pytorch.org/whl/cu128 || FAIL "torch"
+$UV pip install -q --python $PY "$TORCH_SPEC" --index-url https://download.pytorch.org/whl/cu128 || FAIL "torch"
 $UV pip install -q --python $PY "nesso[kernels] @ git+https://github.com/recursionpharma/nesso.git@${NESSO_REV}" || FAIL "nesso[kernels]"
 
 # Fail-fast cueq probe: load_library() swallows its own failure and then names the WRONG missing

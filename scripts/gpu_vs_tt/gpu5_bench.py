@@ -45,6 +45,10 @@ SAMPLES = 1
 DEFAULTS = {
     "boltz-2":   dict(recycles=3,  steps=200),
     "openfold3": dict(recycles=3,  steps=200),
+    # OpenBind-0 is the same runner on upstream 0.5.0 and the of3-ob checkpoint, and
+    # tt_bio resolves it through OF3_FAMILY, so it inherits OpenFold3's recycles and
+    # steps rather than declaring its own. Same run_of3, different venv and --checkpoint.
+    "openbind":  dict(recycles=3,  steps=200),
     "esmfold2":  dict(recycles=10, steps=100),   # 100 requested -> 68 executed
     # Same shipped recycles and steps as esmfold2 (main.py resolves both variants together);
     # what differs is the checkpoint: a 24-block folding trunk against 48, MSA encoder off,
@@ -368,7 +372,9 @@ def run_boltz(args) -> dict:
 # OpenFold3
 # --------------------------------------------------------------------------------------
 def run_of3(args) -> dict:
-    """openfold3 0.4.4. Two shipped defaults must be overridden and both are traps:
+    """OpenFold3 and OpenBind-0: the same runner, 0.4.4 with of3-p2-155k or 0.5.0 with
+    of3-ob-2025-06-30-174k, picked by --checkpoint and by which venv runs this file. Two
+    shipped defaults must be overridden and both are traps:
     --num-diffusion-samples defaults to 5 (set 1, one structure is what a researcher asks
     for and what every other model here does) and --use-msa-server defaults True, which
     would silently ignore the precomputed MSA and hit ColabFold. cuEquivariance is opt-in
@@ -582,7 +588,8 @@ def run_esmfold2(args) -> dict:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--model", required=True, choices=["boltz-2", "openfold3", "esmfold2", "esmfold2-fast"])
+    ap.add_argument("--model", required=True,
+                    choices=["boltz-2", "openfold3", "openbind", "esmfold2", "esmfold2-fast"])
     ap.add_argument("--repeat", type=int, default=3, help="warm folds; fold 1 is cold on top")
     ap.add_argument("--yaml", type=Path, default=HERE.parents[1] /
                     "perf/size512/fixtures/cdk2x2_512.yaml")
@@ -623,7 +630,7 @@ def main() -> int:
         rows = args.a3m.read_text().split("\n")
         assert rows[1] == seq, f"{args.a3m} query row does not match {args.seq_file}"
 
-    fn = {"boltz-2": run_boltz, "openfold3": run_of3,
+    fn = {"boltz-2": run_boltz, "openfold3": run_of3, "openbind": run_of3,
       "esmfold2": run_esmfold2, "esmfold2-fast": run_esmfold2}[args.model]
 
     # Idle power first, on a card with nothing on it: a watt figure only means something
