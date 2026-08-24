@@ -245,7 +245,7 @@ for (const m of D.models.concat(catModels, embedModels)) {
  * check counts what is left and exits 0. That is the "renders but quietly omits a series" failure
  * this file exists to catch, so the published section sizes are pinned here. Changing a row count
  * is a deliberate act; update this table in the same commit and say why. */
-const EXPECT_ROWS = { models: 7, design: 2, affinity: 1, embed: 6 };
+const EXPECT_ROWS = { models: 8, design: 3, affinity: 1, embed: 6 };
 for (const [key, n] of Object.entries(EXPECT_ROWS)) {
   const got = key === "models"
     ? predModels.length
