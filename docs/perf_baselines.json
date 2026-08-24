@@ -264,22 +264,23 @@
             "protenix-v2": {
               "unit": "structures/s",
               "direction": "higher",
-              "value": 3.194585,
-              "latency_ms": 313.03,
+              "value": 2.634255,
+              "latency_ms": 379.61,
               "input": "trpcage (20 aa, single-seq)",
               "sampling_steps": 10,
               "diffusion_samples": 1,
               "recycling_steps": 1,
               "num_timesteps": null,
+              "n_step": null,
               "num_designs": null,
               "warmup": 2,
               "repeat": 5,
               "hardware": "blackhole",
               "card_type": "p300c",
               "machine_id": "tt-quietbox2",
-              "tt_bio_version": "0.5.0",
-              "date": "2026-08-07",
-              "note": "seed protenix-v2 p300c baseline on tt-quietbox2 for the OF3 R4 same-card comparison (OF3: 2.142 structures/s same session)"
+              "tt_bio_version": "0.7.0",
+              "date": "2026-08-24",
+              "note": "token-bucket pad on by default: the trunk token axis is padded to a multiple of 64, masked, and sliced back on exit, because both the stock and the fused SDPA read padded key columns at a bias of zero. This input is trpcage at 20 aa, which the pad takes to 64, so it carries the most extreme relative pad in the gate as a fixed per-call cost. At 298 aa the same flip is +4.8 to +6.0 %, at 512 aa it is byte-identical. See state/protenix-opendde-token-bucket-flip-measure.md."
             },
             "pxdesign": {
               "unit": "designs/s",
