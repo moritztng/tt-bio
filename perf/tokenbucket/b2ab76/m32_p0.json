@@ -1,0 +1,28 @@
+{
+  "model": "boltz2",
+  "kind": "fold",
+  "unit": "structures/s",
+  "direction": "higher",
+  "hardware": "blackhole",
+  "card_type": "p300c",
+  "throughput": 1.319737,
+  "latency_ms": 757.73,
+  "median_s": 0.7577,
+  "times_s": [
+    0.7552,
+    0.7568,
+    0.7577,
+    0.7622,
+    0.7712
+  ],
+  "load_s": 2.4,
+  "warmup": 2,
+  "repeat": 5,
+  "sampling_steps": 10,
+  "diffusion_samples": 1,
+  "recycling_steps": 1,
+  "input": "trpcage (20 aa, single-seq)",
+  "tt_bio_version": "0.7.0",
+  "date": "2026-08-24",
+  "fold_input": "/home/ttuser/.coworker/wt/token-axis-bucketing-unify-all-models/examples/8hel_nomsa.yaml"
+}
