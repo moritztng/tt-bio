@@ -161,6 +161,17 @@ def main():
     fmt = lambda xs: " / ".join(f"{x:.3f}" for x in sorted(xs))
     smi = ob_rep["nvidia_smi"].split(",")
     excl = exclusivity(a.dir, a.gpu)
+    # A control that lands inside the band can still be measurably off the published cell. If the
+    # gap is wider than either arm's own warm spread it is the landlord's host, not run-to-run
+    # noise, and the honest reading of this row is the relative figure rather than the absolute.
+    widest = max(j["result"]["warm_spread_pct"] for j in ctl_all + ob_all)
+    host_note = (
+        f"That {delta:.2f} % is wider than the widest warm spread inside any arm on this box "
+        f"({widest:.2f} %), so it is this rental's host rather than run-to-run noise: read the "
+        f"relative figure, not this cell against the published OpenFold3 one. "
+        if delta > widest else
+        f"That {delta:.2f} % sits inside the widest warm spread within a single arm on this box "
+        f"({widest:.2f} %). ")
     arm_medians = " / ".join(f"{j['result']['warm_median_s']:.3f}" for j in ob_all)
     ref = (
         f"Pooled median of {len(ob_warm)} warm folds over {ARMS} alternating arms, "
@@ -169,7 +180,7 @@ def main():
         f"An OpenFold3 control arm alternated with it on the same card in the same session pools to "
         f"{ctl:.4f} s against the published {a.gpu} cell's {pub} s, {delta:.2f} % apart, so this box "
         f"reproduces the column; OpenBind-0 folds this fixture {abs(rel):.2f} % "
-        f"{'under' if rel < 0 else 'over'} the control beside it. "
+        f"{'under' if rel < 0 else 'over'} the control beside it. {host_note}"
         f"Both arms reach the cuEquivariance triangle kernels, counted not assumed: "
         f"triangle_attention {ob_rep['result']['kernel_counts_total']['triangle_attention']} and "
         f"triangle_multiplicative_update "
