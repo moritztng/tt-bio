@@ -179,18 +179,22 @@ TOKEN_AXIS = {
         "A/A is bit-exact, so those deltas are a real consequence of the change and not run noise",
     ),
     "rf3": (
-        EXPOSED, None,
-        "no token pad anywhere in tt_bio/rf3/ (only atom-axis pads at atom_encoder_host.py:95,:172 "
-        "and atom_encoder.py:116); 7ROA L117 runs 117 tokens raw. The token axis is I at "
-        "host.py:91, and the ATOM axis is already bucketed in the same function, so the shape of "
-        "the fix is established there",
-        "rf3-4x-with-accuracy-land concluded 2026-08-23 and handed the bucket back; the boundary "
-        "is lifted and this row is owed, not blocked. CENSUSED ragged rather than inferred: one "
-        "fold at 298 aa (perf/bucketing_audit/census/rf3_aa298_ragged.json) reads 104 fused-SDPA "
-        "calls arriving RAGGED -- correct today only because the _sdpa_masked guard defaults ON "
-        "and pads all 104 -- plus 80 ttnn.softmax calls at a ragged w298 (tenstorrent.py:5584 x48, "
-        ":7076 x32), self-masking and so correct, but 80 calls at a shape no other length shares. "
-        "That is the recompilation tax this task exists to remove, still being paid",
+        PARTIAL, TOKEN_BUCKET,
+        "both Pairformer call sites go through the shared bucketed_pairformer: "
+        "rf3/model.py Recycler.__call__ (trunk, 48 blocks) and "
+        "rf3/confidence_head.py ConfidenceHead.__call__ (its own 4-layer stack). RF3 built "
+        "Pairformer directly rather than through the padding wrapper, which is why it reached "
+        "the triangle stack raw (rf3-pairformer-unpadded-pair-track)",
+        "rf3-4x-with-accuracy-land concluded 2026-08-23 and handed the bucket back. Censused at "
+        "298 tokens (ragged): the fused-SDPA path is CLOSED, ragged-pad guard 104 -> 8 (trunk "
+        "only) -> 0 (both sites), and the answer does not move -- coord_rms 970.0731811523438 "
+        "and plddt_logit_mean -0.20425711572170258 bit-identical across the unbucketed baseline "
+        "and both bucketed arms, which is the expected result at multiple 32. PARTIAL and not "
+        "BUCKETED because 80 ttnn.softmax calls are still ragged at w298: 48 in the token DiT "
+        "AttentionPairBias and 32 in the MSA module PairWeightedAveraging. Both self-mask, so "
+        "both are correct today and the debt is compile variants, not wrong math. Closing them "
+        "needs the token axis padded at the source (HostInputs.build) rather than at a "
+        "Pairformer boundary, which is a larger change than the helper covers",
     ),
     "rfd3": (
         BUCKETED, TOKEN_BUCKET,
