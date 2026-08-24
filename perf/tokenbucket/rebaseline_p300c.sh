@@ -46,7 +46,12 @@ quiet() {
   return 1
 }
 
-for m in protenix-v2 opendde opendde-abag; do
+# Which rows to write. Defaults to all three; pass MODELS to write only the rows still owed,
+# so a re-launch does not overwrite a row already taken on a quiet host with one taken on a
+# loud one (protenix-v2 was written at loadavg 1.05 on 2026-08-24 and must not be redone).
+MODELS=${MODELS:-"protenix-v2 opendde opendde-abag"}
+
+for m in $MODELS; do
   echo "=== $(date -Is) $m"
   quiet || { echo "HOLD $m: host never went quiet"; continue; }
   pre=$(cut -d' ' -f1-3 /proc/loadavg)
