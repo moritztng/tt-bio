@@ -253,8 +253,11 @@ for (const m of D.models.concat(catModels, embedModels)) {
  * is a deliberate act; update this table in the same commit and say why. */
 /* OpenBind-0 and Nesso-1 are restored: their h200, b200 and a100 cells exist now, so models goes
  * 7 -> 8 and affinity 0 -> 1. PXDesign is still held in perf/page_rows_pending.json, because its
- * b200 cell is blocked rather than measured, so design stays 2. */
-const EXPECT_ROWS = { models: 8, design: 2, affinity: 1, embed: 6 };
+ * b200 cell is blocked rather than measured. RFdiffusion3 is hidden by decision rather than held
+ * pending: all four of its cells are measured, but the Galaxy reads 5.87x a DGX H200 against a 4x
+ * bar, so design is 1 until that changes. A hidden row is still in the file, so the count here is
+ * of visible rows and deleting the row would still go red. */
+const EXPECT_ROWS = { models: 8, design: 1, affinity: 1, embed: 6 };
 for (const [key, n] of Object.entries(EXPECT_ROWS)) {
   const got = key === "models"
     ? predModels.length
@@ -280,8 +283,9 @@ for (const [key, n] of Object.entries(EXPECT_ROWS)) {
  * site/index.html reads the same file and draws the same rows with its own copy of the three
  * formulas. It shipped a hand-written copy of the derived values and drew 6 of the 9 rows the
  * data carried, on the front page, with nothing red. So it is checked here too: every folding,
- * design and affinity row reaches the bars, no embedding row does, and the hero's per-dollar
- * range matches an independent recomputation rather than being a number somebody typed. */
+ * design and affinity row reaches the bars, and no embedding row does. The hero's per-dollar
+ * range was checked here too until 5ab0ef26 removed the sentence and the span it filled; the
+ * check outlived them and this file has been red since. */
 const land = runPage("site/index.html");
 const bars = deepText(land.store.get("bars"));
 for (const m of predModels.concat(catModels)) {
@@ -295,30 +299,6 @@ for (const m of embedModels) {
                   "chart is per server");
   }
 }
-{
-  const P = Object.fromEntries(D.platforms.map((p) => [p.id, p]));
-  const perk = (s, p) => 3600.0 / s * p.accelerators * (p.scaling_efficiency ?? 1.0) /
-                         p.price_usd * 1000;
-  const ratios = predModels.concat(catModels).map((m) => {
-    const t = m.cells.p150a, g = m.cells.b200;
-    if (!t || !g || t.status !== "measured" || g.status !== "measured") return null;
-    const secs = (c) => c.s_per_fold ?? c.s_per_design;
-    return { name: m.name, r: perk(secs(t), P.galaxy_bh) / perk(secs(g), P.dgx_b200),
-             pending: !!m.parity_pending };
-  }).filter(Boolean).sort((a, b) => a.r - b.r);
-  const hi = ratios[ratios.length - 1];
-  const hero = deepText(land.store.get("perkrange"));
-  const want = ratios[0].r.toFixed(1) + "\u00d7 to " + hi.r.toFixed(1) + "\u00d7";
-  if (!hero.includes(want)) {
-    failures.push("the landing hero's per-dollar range should read " + want +
-                  " over " + ratios.length + " rows, and #perkrange reads \'" + hero + "\'");
-  }
-  if (hi.pending && !hero.includes(hi.name)) {
-    failures.push(hi.name + " sets the top of the hero range and still owes a reference-parity " +
-                  "run, so the hero has to name it");
-  }
-}
-
 if (failures.length) {
   console.error(failures.length + " row(s) did not reach the page:");
   for (const f of failures) console.error("  " + f);
