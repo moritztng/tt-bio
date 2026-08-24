@@ -148,15 +148,14 @@ TOKEN_AXIS = {
         "it, so that lever being on by default changes nothing here",
     ),
     "nesso1": (
-        UNCENSUSED, None,
-        "nesso1.py:138-154 routes the trunk through tenstorrent.PairformerModule / "
-        "Fp32PairformerModule, which pad to PAIRFORMER_PAD_MULTIPLE at tenstorrent.py:7932 -- "
-        "the same wrappers the boltz2 and boltzgen rows are BUCKETED on",
-        "tt-bio-unify-sweep-2026-08-24 U4: reads as the boltzgen case on the source, but no "
-        "probe run has confirmed it and the two RF3 lessons (per-op census wrong in both "
-        "directions, PAIRFORMER_PAD_MULTIPLE not actually reached) are exactly this shape. "
-        "Needs tests/token_axis_probe.py under a real `tt-bio affinity` at one aligned and one "
-        "ragged length before it can claim a status",
+        BUCKETED, 64,
+        "nesso1.py:138-154 routes both trunk stacks through tenstorrent.PairformerModule / "
+        "Fp32PairformerModule, which pad to PAIRFORMER_PAD_MULTIPLE at tenstorrent.py:7945",
+        "the wrapper IS reached, censused rather than inferred: `tt-bio affinity` on "
+        "perf/nesso1/inputs/ladder/aa128/cdk2_128.yaml runs 148 tokens, ragged against both 32 "
+        "and 64, and reads 0 ragged / 416 aligned with 0 masked-ragged -- 192 fused triatt_sdpa, "
+        "192 stock SDPA and 32 ttnn.softmax, all at the 192 the 64-bucket pads 148 to. The "
+        "counters are alive on the same run, which is the check a zero-reading census needs",
     ),
     "esmc-300m": (
         BUCKETED, 64, "esmc.py:78 BUCKET, applied at :1503 _batch_tokens and :1263",

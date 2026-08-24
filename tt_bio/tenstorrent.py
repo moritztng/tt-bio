@@ -459,6 +459,10 @@ _MIN_L1_SCALE = 0.7             # floor: keep chunks workable on a very tight pa
 
 PAIRFORMER_PAD_MULTIPLE = 64  # Pad token dim to this multiple to avoid kernel recompilation
 MSA_PAD_MULTIPLE = 1024  # Pad MSA dim to this multiple to avoid kernel recompilation
+# The pad arithmetic itself lives in token_axis.py, one copy, asserting the multiple divides the
+# 32 tile. These wrappers are the token bucket for boltz2, boltzgen and nesso1; the MSA axis is a
+# different axis padded for the same recompilation reason.
+from .token_axis import pad_amount
 # Upper bound on heavy atoms per token for PROTEIN residues (Trp=14); ties the atom
 # bucket to the seq_len bucket. Nucleotide tokens carry more (up to 23), so a DNA/RNA
 # target can exceed padded_seq * 14 — _populate_diffusion_cache extends the bucket to
@@ -7938,7 +7942,7 @@ class PairformerModule(TorchWrapper):
         use_kernels: bool = False,
     ) -> tuple[torch.Tensor | None, torch.Tensor]:
         seq_len = z.shape[1]
-        pad = (-seq_len) % PAIRFORMER_PAD_MULTIPLE
+        pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE)
 
         required_cache_keys = ("mask_tt", "attn_mask_start_tt", "attn_mask_end_tt")
         if (not self._first_forward_pass) and (not self._cache_has_all(required_cache_keys)):
@@ -8056,7 +8060,7 @@ class Fp32PairformerModule(TorchWrapper):
         use_kernels: bool = False,
     ) -> tuple[torch.Tensor | None, torch.Tensor]:
         seq_len = z.shape[1]
-        pad = (-seq_len) % PAIRFORMER_PAD_MULTIPLE
+        pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE)
 
         required_cache_keys = ("mask_tt", "tri_attn_mask_tt", "attn_mask_tt")
         if (not self._first_forward_pass) and (not self._cache_has_all(required_cache_keys)):
@@ -8150,7 +8154,7 @@ class MiniformerModule(TorchWrapper):
         use_kernels: bool = False,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         seq_len = z.shape[1]
-        pad = (-seq_len) % PAIRFORMER_PAD_MULTIPLE
+        pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE)
 
         required_cache_keys = ("mask_tt", "seq_mask_tt")
         if (not self._first_forward_pass) and (not self._cache_has_all(required_cache_keys)):
@@ -8232,7 +8236,7 @@ class DiffusionModule(TorchWrapper):
         NW = N // ATOM_WINDOW
 
         seq_len = s_inputs.shape[1]
-        token_pad = (-seq_len) % PAIRFORMER_PAD_MULTIPLE
+        token_pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE)
         padded_seq = seq_len + token_pad
         N_padded = padded_seq * MAX_ATOMS_PER_TOKEN
         if N > N_padded:
@@ -8569,8 +8573,8 @@ class MSAModule(TorchWrapper):
 
         seq_len = z.shape[1]
         n_msa = m.shape[1]
-        seq_pad = (-seq_len) % PAIRFORMER_PAD_MULTIPLE
-        msa_pad = (-n_msa) % MSA_PAD_MULTIPLE
+        seq_pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE)
+        msa_pad = pad_amount(n_msa, MSA_PAD_MULTIPLE)
 
         required_cache_keys = ("mask_tt", "attn_mask_tt", "msa_mask_tt", "n_msa")
         if (not self._first_forward_pass) and (not self._cache_has_all(required_cache_keys)):
@@ -8918,7 +8922,7 @@ class TrunkModule(TorchWrapper):
         recycling iterations.
         """
         seq_len = z_init.shape[1]
-        seq_pad = (-seq_len) % PAIRFORMER_PAD_MULTIPLE
+        seq_pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE)
         padded_seq = seq_len + seq_pad
 
         # ---- MSA feature tensor (host), mirrors MSAModule.forward ----
@@ -8932,7 +8936,7 @@ class TrunkModule(TorchWrapper):
             dim=-1,
         )
         n_msa = m.shape[1]
-        msa_pad = (-n_msa) % MSA_PAD_MULTIPLE
+        msa_pad = pad_amount(n_msa, MSA_PAD_MULTIPLE)
 
         # ---- pad the per-protein constants ----
         pad = torch.nn.functional.pad
