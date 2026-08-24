@@ -1,0 +1,67 @@
+{
+  "steps": 200,
+  "seed": 42,
+  "fixture": "perf/dsfix/fixtures/rfd3_R4.json",
+  "q_block": 1216,
+  "buckets": [
+    3264,
+    3488,
+    4224
+  ],
+  "digest_of_record": "5295e526ebd0b757",
+  "card": "1",
+  "host": "tt-quietbox2",
+  "arms": [
+    {
+      "arm": "off",
+      "enabled": false,
+      "n_cifs": 1,
+      "digest": "5295e526ebd0b757",
+      "blocked_calls": 0,
+      "fallback_calls": 0,
+      "shipped_calls": 1791,
+      "picks": {}
+    },
+    {
+      "arm": "on",
+      "enabled": true,
+      "n_cifs": 1,
+      "digest": "d5c0a82939695d68",
+      "blocked_calls": 1431,
+      "fallback_calls": 360,
+      "shipped_calls": 0,
+      "picks": {
+        "U3264": 93,
+        "U3488": 45,
+        "U4224": 21,
+        "dense": 40
+      }
+    }
+  ],
+  "checks": {
+    "shipped_reproduces_record": true,
+    "off_arm_silent": true,
+    "on_arm_took_over": true,
+    "same_call_total": true,
+    "digest_changed": true,
+    "residue_count_unchanged": true
+  },
+  "structural_delta": {
+    "a": "/tmp/rfd3_p106_off/R4_b100.cif",
+    "b": "/tmp/rfd3_p106_on/R4_b100.cif",
+    "n_atoms_a": 5126,
+    "n_atoms_b": 5124,
+    "n_residues_a": 685,
+    "n_residues_b": 685,
+    "n_residues_shared": 685,
+    "sequence_identity": 0.90803,
+    "n_residues_differing": 63,
+    "n_backbone_compared": 2740,
+    "backbone_rmsd": 1.1669,
+    "backbone_median_shift": 0.0,
+    "backbone_max_shift": 7.2398,
+    "backbone_p99_shift": 5.1186
+  },
+  "all_pass": true,
+  "note": "the all-atom shape check this run failed was the instrument, not the arm: RFD3 designs a sequence, so the arms differ in sidechain atom count. Re-scored on the backbone and the sequence by p106b; p106 now uses that instrument directly."
+}

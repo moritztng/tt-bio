@@ -12,14 +12,23 @@ fixture. It checks four things and none of them is a timing:
    wrong, so the arm is verified rather than assumed.
 3. **The block-sparse digest differs.** It has to: the softmax row sum reduces U terms instead of
    the full key axis. A matching digest would mean the arm never ran.
-4. **The structures agree.** Same seed, same target, same trajectory, so the two coordinate sets
-   are directly comparable with no alignment -- an RMSD here is a real per-atom disagreement and
-   not a superposition artifact. This is the number that says whether the reassociation cost
-   anything, and it is what the accuracy envelope would be scaled up from.
+4. **How far the structure moves**, on the backbone and on the sequence.
+
+On (4): the first version of this compared all atoms and failed its own shape check. That was the
+instrument's fault. RFD3 designs a sequence, so the two arms can give a residue different
+identities and therefore different sidechain atom counts (5126 against 5124), and no all-atom
+array can be subtracted across that. The backbone is what both arms always have, and since both
+ran the same seed on the same target down the same trajectory it needs no superposition -- an
+RMSD here is a real per-atom disagreement, not an alignment artifact.
+
+What (4) does NOT do is decide whether the arm is acceptable. The pre-registered bar is on design
+quality -- success rate and ipTM/pLDDT over many designs -- and "differs from the shipped chain"
+is a different question from "is worse than it". A design model that produces a different, equally
+good design has not regressed. This number sizes the envelope; it does not replace it.
 
 Also reports how many steps took each bucket and how many fell back to dense, which is the
 in-production check on p103's cost model: if the fallback fraction is far from the 20 % the model
-assumed, the predicted +3.787 s/design is priced against the wrong mix.
+assumed, the predicted prize is priced against the wrong mix.
 """
 import collections
 import hashlib
@@ -31,6 +40,8 @@ import sys
 import torch
 
 sys.path.insert(0, os.getcwd())
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from p106b_cif_compare import parse as _parse_cif                        # noqa: E402
 from tt_bio.rfd3 import design as rfd3_design                            # noqa: E402
 from tt_bio.rfd3 import block_sparse as BS                               # noqa: E402
 
@@ -40,6 +51,8 @@ SEED = int(sys.argv[3]) if len(sys.argv) > 3 else 42
 FIXTURE = pathlib.Path("perf/dsfix/fixtures/rfd3_R4.json")
 CKPT = "/home/ttuser/.boltz/rfd3/weights"
 DIGEST_OF_RECORD = "5295e526ebd0b757"
+BACKBONE = ("N", "CA", "C", "O")
+DIRS = {"off": "/tmp/rfd3_p106_off", "on": "/tmp/rfd3_p106_on"}
 
 # Which bucket each plan picked, and how many steps found none.
 PICKS = collections.Counter()
@@ -58,33 +71,29 @@ import tt_bio.rfd3.model as M                                            # noqa:
 M._BS.plan = _spy
 
 
-def coords(cif):
-    """Cartesian coordinates out of an mmCIF _atom_site loop, in file order."""
-    lines = cif.read_text().splitlines()
-    i = 0
-    while i < len(lines):
-        if lines[i].strip() == "loop_":
-            tags, j = [], i + 1
-            while j < len(lines) and lines[j].strip().startswith("_"):
-                tags.append(lines[j].strip())
-                j += 1
-            if any(t.startswith("_atom_site.") for t in tags):
-                cx, cy, cz = (tags.index("_atom_site.Cartn_" + a) for a in "xyz")
-                rows = []
-                while j < len(lines) and lines[j].strip() and not lines[j].startswith("#"):
-                    f = lines[j].split()
-                    if len(f) >= len(tags):
-                        rows.append([float(f[cx]), float(f[cy]), float(f[cz])])
-                    j += 1
-                return torch.tensor(rows)
-            i = j
-            continue
-        i += 1
-    raise SystemExit("no _atom_site loop in %s" % cif)
+def compare(dir_a, dir_b):
+    """Backbone RMSD and sequence identity between two output directories."""
+    at_a, seq_a = _parse_cif(sorted(pathlib.Path(dir_a).glob("*.cif"))[0])
+    at_b, seq_b = _parse_cif(sorted(pathlib.Path(dir_b).glob("*.cif"))[0])
+    res = sorted(set(seq_a) & set(seq_b))
+    same = sum(1 for k in res if seq_a[k] == seq_b[k])
+    keys = [k + (nm,) for k in res for nm in BACKBONE
+            if k + (nm,) in at_a and k + (nm,) in at_b]
+    d = (torch.tensor([at_a[k] for k in keys])
+         - torch.tensor([at_b[k] for k in keys])).norm(dim=-1)
+    return dict(n_atoms_a=len(at_a), n_atoms_b=len(at_b),
+                n_residues_a=len(seq_a), n_residues_b=len(seq_b),
+                n_residues_shared=len(res), n_residues_differing=len(res) - same,
+                sequence_identity=round(same / len(res), 5) if res else None,
+                n_backbone_compared=len(keys),
+                backbone_rmsd=round(float((d ** 2).mean().sqrt()), 4),
+                backbone_median_shift=round(float(d.median()), 4),
+                backbone_p99_shift=round(float(d.quantile(0.99)), 4),
+                backbone_max_shift=round(float(d.max()), 4))
 
 
 def fold(label, on):
-    out_dir = "/tmp/rfd3_p106_%s" % label
+    out_dir = DIRS[label]
     os.system("rm -rf %s" % out_dir)
     PICKS.clear()
     BS.STATS[0] = BS.STATS[1] = BS.STATS[2] = 0
@@ -105,15 +114,15 @@ def fold(label, on):
                picks=dict(PICKS))
     print("[p106] %-6s digest %s  blocked=%-5d fallback=%-5d shipped=%-5d  picks=%s"
           % (label, row["digest"], blocked, fallback, shipped, dict(PICKS)), flush=True)
-    return row, coords(cifs[0])
+    return row
 
 
 def main():
     print("[p106] steps=%d seed=%d card=%s  Q=%d buckets=%s"
           % (STEPS, SEED, os.environ.get("TT_VISIBLE_DEVICES"), BS.config()[0], BS.config()[1]),
           flush=True)
-    off, xyz_off = fold("off", False)
-    on, xyz_on = fold("on", True)
+    off = fold("off", False)
+    on = fold("on", True)
 
     checks = {}
     checks["shipped_reproduces_record"] = off["digest"] == DIGEST_OF_RECORD
@@ -122,21 +131,18 @@ def main():
     checks["same_call_total"] = (off["shipped_calls"]
                                 == on["blocked_calls"] + on["fallback_calls"])
     checks["digest_changed"] = on["digest"] != off["digest"]
-    checks["same_atom_count"] = xyz_off.shape == xyz_on.shape
 
-    delta = None
-    if checks["same_atom_count"]:
-        d = (xyz_on - xyz_off)
-        per_atom = d.norm(dim=-1)
-        delta = dict(n_atoms=int(xyz_off.shape[0]),
-                     rmsd=round(float((per_atom ** 2).mean().sqrt()), 4),
-                     max_atom_shift=round(float(per_atom.max()), 4),
-                     median_atom_shift=round(float(per_atom.median()), 4),
-                     max_coord_abs=round(float(d.abs().max()), 4))
-        print("\n[p106] no-alignment structural delta over %d atoms: RMSD %.4f A, "
-              "median shift %.4f, max shift %.4f"
-              % (delta["n_atoms"], delta["rmsd"], delta["median_atom_shift"],
-                 delta["max_atom_shift"]), flush=True)
+    delta = compare(DIRS["off"], DIRS["on"])
+    checks["residue_count_unchanged"] = delta["n_residues_a"] == delta["n_residues_b"]
+    print("\n[p106] sequence identity %.4f (%d of %d residues differ)"
+          % (delta["sequence_identity"], delta["n_residues_differing"],
+             delta["n_residues_shared"]), flush=True)
+    print("[p106] backbone over %d atoms: RMSD %.4f A, median %.4f, p99 %.4f, max %.4f"
+          % (delta["n_backbone_compared"], delta["backbone_rmsd"],
+             delta["backbone_median_shift"], delta["backbone_p99_shift"],
+             delta["backbone_max_shift"]), flush=True)
+    print("[p106] all-atom counts %d vs %d -- the difference is the sequence, not a lost residue"
+          % (delta["n_atoms_a"], delta["n_atoms_b"]), flush=True)
 
     n_atom_calls = on["blocked_calls"] + on["fallback_calls"]
     if n_atom_calls:
