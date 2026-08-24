@@ -2500,6 +2500,20 @@ class DiffusionTokenEncoder(Module):
             self._const[key] = entry
         return entry
 
+    def _process_z_weights(self):
+        """process_z's two weights back on host, as the bf16 values the device actually holds.
+
+        Read from the uploaded tensors rather than the checkpoint, so the collapsed path stays
+        correct under the shared tiled-weight cache, which keeps no host weights. 132 KB, read
+        once per module.
+        """
+        ent = self._const.get("zw")
+        if ent is None:
+            ent = (ttnn.to_torch(self.process_z_n).float().reshape(-1),
+                   ttnn.to_torch(self.process_z_w).float())
+            self._const["zw"] = ent
+        return ent
+
     def _process_z_table(self, with_self):
         """The one-hot half of process_z's linear, as a constant lookup table.
 
@@ -2514,8 +2528,7 @@ class DiffusionTokenEncoder(Module):
         if tab is not None:
             return tab
         n, c = self.N_BINS, self.C_Z
-        wn = ttnn.to_torch(self.process_z_n).float().reshape(-1)
-        ww = ttnn.to_torch(self.process_z_w).float()
+        wn, ww = self._process_z_weights()
         t = wn[c:c + n, None] * ww[c:c + n]
         if with_self:
             ts = wn[c + n:c + 2 * n, None] * ww[c + n:c + 2 * n]
@@ -2550,24 +2563,29 @@ class DiffusionTokenEncoder(Module):
         if ent is not None and all(t.is_allocated() for t in ent):
             return ent
         c, w = self.C_Z, 2 * self.N_BINS + self.C_Z
-        z = self._batched(_tt_cached(Z_init_II, dev, dt), batch)
+        cached = _tt_cached(Z_init_II, dev, dt)
+        z = self._batched(cached, batch)
+        wn, ww = self._process_z_weights()
+        gz = _tt(wn[:c].reshape(1, 1, 1, c), dev, dt)
+        wz = _tt(ww[:c].contiguous(), dev, dt)
+        tmp = []
         zf = ttnn.typecast(z, ttnn.float32)
         sq = ttnn.multiply(zf, zf)
-        ttnn.deallocate(zf)
         ss = ttnn.sum(sq, dim=-1, keepdim=True, compute_kernel_config=ckc)
-        ttnn.deallocate(sq)
-        ms = ttnn.multiply(ttnn.add(ss, float(n_ones)), 1.0 / w)
-        ttnn.deallocate(ss)
-        inv = ttnn.typecast(ttnn.rsqrt(ttnn.add(ms, 1e-6)), dt)
-        ttnn.deallocate(ms)
-        gz = _tt(ttnn.to_torch(self.process_z_n).float().reshape(-1)[:c].reshape(1, 1, 1, c), dev, dt)
-        wz = _tt(ttnn.to_torch(self.process_z_w).float()[:c].contiguous(), dev, dt)
+        shifted = ttnn.add(ss, float(n_ones))
+        ms = ttnn.multiply(shifted, 1.0 / w)
+        eps = ttnn.add(ms, 1e-6)
+        rs = ttnn.rsqrt(eps)
+        inv = ttnn.typecast(rs, dt)
         zs = ttnn.multiply(z, gz)
         a = ttnn.linear(zs, wz, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
-        for t in (zs, gz, wz):
-            ttnn.deallocate(t)
         ainv = ttnn.multiply(a, inv)
-        ttnn.deallocate(a)
+        tmp += [zf, sq, ss, shifted, ms, eps, rs, zs, a, gz, wz]
+        if z is not cached:                     # _batched copies only when batch > 1
+            tmp.append(z)
+        for t in tmp:
+            if t.is_allocated():
+                ttnn.deallocate(t)
         held[1][n_ones] = ent = (inv, ainv)
         return ent
 
