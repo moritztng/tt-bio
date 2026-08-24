@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import torch
 import ttnn
 
+from . import align
 from .tenstorrent import Module, device_dtype_override
 from .openfold3 import InputEmbedderGlue
 from .openfold3_confidence import OF3ConfidenceHead
@@ -18,18 +19,10 @@ from .envflags import env_flag
 def kabsch_rmsd(pred_ca, gt_ca):
     """Optimal-superposition Cα-RMSD (Kabsch). pred_ca, gt_ca: [N, 3].
 
-    Both point clouds are centred, then aligned via the SVD of the correlation
-    matrix with a reflection-correcting determinant, matching the
-    ``scripts/release_gate.py`` Kabsch used by the other tt-bio model gates.
+    Kept as a name because scripts/ and the gates import it; the maths is in
+    ``tt_bio.align``, shared with pxdesign's structure writer.
     """
-    p = pred_ca.double() - pred_ca.double().mean(0)
-    g = gt_ca.double() - gt_ca.double().mean(0)
-    u, _, vt = torch.linalg.svd(p.t() @ g)
-    d = torch.sign(torch.det(vt.t() @ u.t()))
-    s = torch.eye(3, dtype=torch.float64)
-    s[2, 2] = d
-    p_aligned = p @ (vt.t() @ s @ u.t()).t()
-    return float(torch.sqrt(((p_aligned - g) ** 2).sum(-1).mean()))
+    return align.rmsd(pred_ca, gt_ca)
 
 
 def load_pdb_ca(pdb_path):
