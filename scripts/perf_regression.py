@@ -334,15 +334,18 @@ SPECS: dict[str, dict] = {
                  cli_flags=("--from_pdb", "--num_timesteps", "{num_timesteps}",
                             "--devices", "{card}"),
                  input_label="IAI motif-scaffold, I40/L419, from_pdb, {num_timesteps} steps"),
-    # PXDesign-d, shipped in v0.7.0 as `tt-bio design --model pxdesign`. Like rfd3
-    # it is a design-verb model with no warm steady-state loop (one design =
+    # PXDesign-d, on the CLI as `tt-bio design --model pxdesign` since aed22240. Like
+    # rfd3 it is a design-verb model with no warm steady-state loop (one design =
     # host featurize -> conditioning distogram -> on-device diffusion sampler ->
     # CIF), so it takes the same kind="design" single-shot protocol.
     #
-    # It shipped with NO entry here and none in SPECS_EXEMPT, which is exactly the
-    # hole _assert_full_model_coverage exists to close -- the coverage check failed on
-    # main from the release until this entry landed, so the perf gate could not start
-    # at all. Same defect class as opendde-abag, one release later.
+    # It landed on main with NO entry here and none in SPECS_EXEMPT, which is exactly
+    # the hole _assert_full_model_coverage exists to close: the coverage check failed
+    # on main, so the perf gate could not start at all. Same defect class as
+    # opendde-abag, caught this time on main before any tag carried it: the newest
+    # tag is v0.6.8 and does not ship pxdesign, so unlike opendde-abag this never
+    # reached a user. v0.7.0 is the first release to carry the model, so this entry
+    # is what gets it perf coverage on the day it ships rather than a release later.
     #
     # Fixture is the PD-L1 quick-start target every other pxdesign leg already uses
     # (the input-path parity gate, the release gate's conditioned-fit leg,

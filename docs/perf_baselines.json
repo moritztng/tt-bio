@@ -280,6 +280,27 @@
               "tt_bio_version": "0.5.0",
               "date": "2026-08-07",
               "note": "seed protenix-v2 p300c baseline on tt-quietbox2 for the OF3 R4 same-card comparison (OF3: 2.142 structures/s same session)"
+            },
+            "pxdesign": {
+              "unit": "designs/s",
+              "direction": "higher",
+              "value": 0.066942,
+              "latency_ms": 14938.27,
+              "input": "PDL1.yaml (PD-L1 5O45 chain A, 196 tokens, 80-res binder, 400 steps)",
+              "sampling_steps": null,
+              "diffusion_samples": null,
+              "recycling_steps": null,
+              "num_timesteps": null,
+              "n_step": 400,
+              "num_designs": 1,
+              "warmup": 0,
+              "repeat": 3,
+              "hardware": "blackhole",
+              "card_type": "p300c",
+              "machine_id": "tt-quietbox2",
+              "tt_bio_version": "0.6.6",
+              "date": "2026-08-24",
+              "note": "seed the pxdesign perf cell on p300c tt-quietbox2 card 3. First baseline for this model: it landed on main exposed as `tt-bio design --model pxdesign` with no SPECS entry at all, so the coverage check refused to start the perf gate. Protocol is the SPECS entry: PD-L1 quick-start target (tests/fixtures/pxdesign/PDL1.yaml, 196 tokens, 80-residue binder), 1 design, 400 denoising steps (the shipped CLI default), median of 3 back-to-back end-to-end tt-bio design runs. Reps 13.39/14.94/15.74 s in a benchlock hold at loadavg 1.79. Two back-to-back draws of the median-of-3 agreed to 0.2% (14.938 s seeding, 14.970 s on the immediate gate re-run) while the per-rep spread inside one draw is ~16%, which is the median-of-3 protocol doing exactly what SINGLE_SHOT_REPEAT documents. Two draws is still not a characterisation: treat a FAIL within a few percent of the threshold as unproven until a third same-card draw reproduces it. Card type came from the sysfs fallback (tt-smi is not installed for ttuser on qb2); it reads p300c, which agrees with the six models already recorded under p300c/tt-quietbox2."
             }
           },
           "date": "2026-08-07",
