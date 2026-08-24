@@ -27,7 +27,25 @@ set -u
 WT=$(cd "$(dirname "$0")/../.." && pwd)
 SLUG=${SLUG:-$(basename "$WT")}
 HOSTTAG=$(hostname | sed -e s/tt-quietbox2/qb2/ -e s/tt-quietbox/qb1/)
-PY=/home/ttuser/tt-bio-dev/env/bin/python3
+# The gate refuses to score on an interpreter that violates pyproject.toml's declared bounds
+# (scripts/gate_guard.py:declared_dependency_problems), and v0.7.0 raised transformers to >=5.5.0
+# and huggingface_hub to >=1.5.0. tt-bio-dev/env is still on 4.57.6 / 0.36.2, so the hardcoded
+# interpreter this line used to name died in two seconds with "declared version bounds this
+# interpreter violates" -- the same hardcoding defect the DockQ resolver below already paid for.
+# Ask each candidate whether IT satisfies the tree's own pyproject instead of naming a winner.
+if [ -z "${GATE_PYTHON:-}" ]; then
+  for c in /home/ttuser/.coworker/rel070/relvenv/bin/python3 /home/ttuser/tt-bio-dev/env/bin/python3 \
+           /home/ttuser/tt-bio/env/bin/python3; do
+    [ -x "$c" ] || continue
+    PYTHONPATH=$WT "$c" -c 'import sys; sys.path.insert(0, sys.argv[1] + "/scripts");
+from gate_guard import declared_dependency_problems as d
+p = d(sys.argv[1] + "/pyproject.toml")
+sys.exit(1 if p else 0)' "$WT" 2>/dev/null || continue
+    GATE_PYTHON=$c; break
+  done
+fi
+: "${GATE_PYTHON:?no interpreter on this host satisfies pyproject.toml; set GATE_PYTHON}"
+PY=$GATE_PYTHON
 cd "$WT" || exit 1
 export PYTHONPATH=$WT ESM_ROOT=/home/ttuser/esm
 # release_gate shells the DockQ eval out to an interpreter that HAS DockQ installed (the gate venv
