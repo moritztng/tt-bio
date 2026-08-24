@@ -16,4 +16,5 @@ recursive-include tt_bio/kernels *.cpp *.hpp
 include tt_bio/_vendor/atomworks/LICENSE
 include tt_bio/_vendor/rf3/LICENSE
 include tt_bio/_vendor/foundry/LICENSE
+include tt_bio/_vendor/nesso/LICENSE
 recursive-include tt_bio/_vendor/atomworks *.smirks *.md py.typed

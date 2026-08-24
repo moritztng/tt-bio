@@ -41,6 +41,7 @@ from tt_bio.boltz2 import (
     tenstorrent,
 )
 from tt_bio.reference import PairformerNoSeqModule
+from tt_bio import weights as _weights
 
 HPARAMS_NAME = "hparams.json"
 WEIGHTS_NAME = "model.safetensors"
@@ -718,9 +719,9 @@ class Nesso1(nn.Module):
     @classmethod
     def from_pretrained(
         cls,
-        path_or_repo: str | Path = "recursionpharma/nesso",
+        path_or_repo: str | Path = _weights.NESSO_REPO,
         *,
-        revision: str = "v1.0.0",
+        revision: str = _weights.NESSO_REVISION,
         cache_dir: str | Path | None = None,
         use_tenstorrent: bool = False,
         **model_kwargs,
@@ -780,7 +781,7 @@ DEFAULT_SEED = 20260820
 def screen(
     data: "Path | str",
     out_dir: "Path | str",
-    weights: str = "recursionpharma/nesso",
+    weights: str = _weights.NESSO_REPO,
     *,
     use_tenstorrent: bool = True,
     trunk_fp32: bool = False,

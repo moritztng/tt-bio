@@ -5,6 +5,8 @@ from pathlib import Path
 
 import torch
 
+from ..align import rigid_transform
+
 # mmCIF is the output format because a designed binder carries no sequence, and PDB's fixed
 # columns have nowhere to say so without inventing a residue name per position.
 #
@@ -21,19 +23,6 @@ _CIF_COLS = ("group_PDB", "id", "type_symbol", "label_atom_id", "label_alt_id",
 
 #: `restype` row of the `xpb` binder placeholder. Every token carrying it is designed.
 BINDER_RESTYPE = 32
-
-
-def _kabsch(a: torch.Tensor, b: torch.Tensor):
-    """The rigid map taking `a` onto `b`: x -> (x - a.mean) @ R + b.mean.
-
-    Host fp64 with an exact SVD. Alignment is a scoring and output step, not a device op, and a
-    device-side approximation here would move every coordinate we write (`ttnn-host-kabsch`).
-    """
-    ca, cb = a.double().mean(0), b.double().mean(0)
-    u, _, vt = torch.linalg.svd((a.double() - ca).T @ (b.double() - cb))
-    d = torch.sign(torch.det(u @ vt))
-    r = u @ torch.diag(torch.tensor([1.0, 1.0, d], dtype=torch.float64)) @ vt
-    return r, ca, cb
 
 
 def _atom_names(feats: dict, sel: torch.Tensor) -> list[str]:
@@ -87,7 +76,7 @@ def write_design_cifs(coords: torch.Tensor, feats: dict, outdir: Path | str,
     out = []
     for s in range(coords.shape[0]):
         rep = coords[s][disto].double()
-        r, ca, cb = _kabsch(rep[conditioned], ref)
+        r, ca, cb = rigid_transform(rep[conditioned], ref)
         rmsd = float(((rep[conditioned] - ca) @ r + cb - ref).pow(2).sum(-1).mean().sqrt())
         binder = (coords[s][at_binder].double() - ca) @ r + cb
         path = outdir / (f"{stem}.cif" if coords.shape[0] == 1 else f"{stem}_{s}.cif")
