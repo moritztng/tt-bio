@@ -1664,7 +1664,7 @@ _FP32_SOFTMAX_FUSED_ADD = True
 # the exp-sum sits at or just above a power of two, which a confident softmax always does.
 # Passing the caller's compute kernel config drops that 10-60x. Off by default: it moves
 # shipped numbers on Boltz-2, Protenix-v2, OpenFold3 and ESMFold2, so it is release-gated.
-_SOFTMAX_CKC = os.environ.get("TT_BIO_SOFTMAX_CKC", "0") == "1"
+_SOFTMAX_CKC = env_flag("TT_BIO_SOFTMAX_CKC", False)
 
 # The four steps between the two matmuls -- typecast to fp32, the biased add, the softmax, the
 # typecast back -- are pure DRAM traffic: measured at 392.4 GB/s against a 383.9 GB/s ttnn.clone
