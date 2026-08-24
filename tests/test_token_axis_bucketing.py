@@ -6,8 +6,10 @@ reference at any ragged length. Every older port bucketed for kernel-recompilati
 immune to that as a side effect; RF3 did not inherit the convention and ran 117 tokens raw. So the
 convention cannot stay a convention. See tt_bio/token_axis.py and PLAYBOOKS.md §MODEL 2b.
 
-The check that matters most is the first one: a model added to a CLI --model choice without a
-bucketing decision fails here, which is exactly the way RF3 got in.
+Two things fail here. A model added to a CLI --model choice without a bucketing decision, which
+is exactly the way RF3 got in; and a model that HAS a decision other than "it buckets". EXPOSED,
+UNCENSUSED and IMMUNE are all failures now (Moritz, 2026-08-22: "i want to have bucketing
+implemented for every model"), with one allow-list entry for the row a live task owns.
 """
 import importlib
 import sys
@@ -83,6 +85,68 @@ def check_declared_multiples_match_the_live_constants():
                  + str(TA.TILE) + ("" if not bad else "; " + "; ".join(bad)))
 
 
+# The one permitted unresolved row, and the task that owes it. Keyed to the owner string so the
+# entry dies with the task rather than outliving it: `rf3-4x-with-accuracy-land` is measuring the
+# bucket against its own per-call TT_BIO_SDPA_RAGGED_PAD and picks on the numbers. Delete this
+# entry the moment it lands. Nothing else may be added -- an allow-list that grows is the
+# convention this file exists to replace.
+ALLOWED_UNBUCKETED = {"rf3": "rf3-4x-with-accuracy-land"}
+
+
+def _unbucketed():
+    """Every row not BUCKETED and not the allow-listed one, as name -> status."""
+    out = {}
+    for n, r in TA.TOKEN_AXIS.items():
+        if r[0] == TA.BUCKETED:
+            continue
+        if ALLOWED_UNBUCKETED.get(n) and ALLOWED_UNBUCKETED[n] in (r[3] or ""):
+            continue
+        out[n] = r[0]
+    return out
+
+
+def check_no_unresolved_rows():
+    """EXPOSED and UNCENSUSED are failures in themselves, not merely debts with a name on them.
+
+    `check_unresolved_rows_have_an_owner` only asked that someone be blamed. That let rf3 sit
+    EXPOSED and nesso1 sit UNCENSUSED across releases while the file read as green.
+    """
+    bad = sorted(f"{n}={s}" for n, s in _unbucketed().items()
+                 if s in (TA.EXPOSED, TA.UNCENSUSED))
+    return _fail(not bad, "no model is exposed or uncensused"
+                 + ("" if not bad else "; " + ", ".join(bad)))
+
+
+def check_immune_is_not_terminal():
+    """IMMUNE is evidence about risk, not an exemption.
+
+    An immune model is correct today because every ragged call happens to land on ttnn.softmax,
+    which masks its own tail, rather than on SDPA, which does not. It still pays the kernel
+    recompilation tax at every distinct length, and it is one refactor of that route away from
+    EXPOSED. The IMMUNE constant stays -- it is the right word for the `why` of a row that also
+    buckets -- but no row may rest on it.
+    """
+    bad = sorted(n for n, s in _unbucketed().items() if s == TA.IMMUNE)
+    return _fail(not bad, "no model rests on IMMUNE instead of bucketing"
+                 + ("" if not bad else "; " + ", ".join(bad)))
+
+
+def check_every_bucketed_row_uses_the_shared_table():
+    """A BUCKETED row's multiple is `token_axis.BUCKET_MULTIPLE`, so a fifth near-copy of the
+    mechanism carrying its own constant fails here rather than drifting quietly."""
+    bad = []
+    for n, r in TA.TOKEN_AXIS.items():
+        if r[0] != TA.BUCKETED:
+            continue
+        want = TA.BUCKET_MULTIPLE.get(n)
+        if want is None:
+            bad.append(f"{n} has no BUCKET_MULTIPLE entry")
+        elif want != r[1]:
+            bad.append(f"{n} runs {r[1]}, BUCKET_MULTIPLE says {want}")
+    return _fail(not bad, "every bucketed row's multiple comes from BUCKET_MULTIPLE"
+                 + ("" if not bad else "; " + "; ".join(bad)))
+
+
 CHECKS = (
     check_every_shipped_model_declared,
     check_statuses_are_known,
@@ -90,6 +154,9 @@ CHECKS = (
     check_immune_rows_carry_a_reason,
     check_bucketed_multiples_are_tile_multiples,
     check_declared_multiples_match_the_live_constants,
+    check_no_unresolved_rows,
+    check_immune_is_not_terminal,
+    check_every_bucketed_row_uses_the_shared_table,
 )
 
 

@@ -189,6 +189,141 @@ LIVE_MULTIPLES = {
     ("tt_bio.rfd3.model", "TILE"): 32,
 }
 
+# ---------------------------------------------------------------------------------------------
+# The mechanism. One copy of it, next to the census, so a new adoption is a table row and a call.
+# ---------------------------------------------------------------------------------------------
+
+# The bucket width per model. Keys are TOKEN_AXIS keys; a BUCKETED row's `multiple` must equal its
+# entry here (tests/test_token_axis_bucketing.py checks it), so the table above cannot drift from
+# the constant the model actually runs.
+#
+# WHY 32 FOR EVERY NEW ADOPTION, measured in perf/bucketing_audit/RESULTS.md:
+# the ttnn program cache keys on the LOGICAL shape, at 0.231 s per cold build on a p300. Raising an
+# axis from N to ceil(N/32)*32 changes no PADDED shape, so no tile count and no arithmetic -- those
+# tiles were already being computed with a zero tail -- and it cannot change a fused-SDPA gate
+# decision either, because `_padded_sdpa_len` (tenstorrent.py) is itself ceil(len/32)*32 and sees
+# the identical number. So 32 collapses 32 logical lengths onto one program for free. Every
+# multiple above 32 buys further variant reduction with REAL compute, and triangle ops are O(S^3):
+# 64 at N=98 runs 128 tokens, 2.23x the triangle work, where 32 also lands on 128 and runs 1.00x.
+#
+# WHY 64 SURVIVES ON THE LEGACY ROWS: PAIRFORMER_PAD_MULTIPLE, protenix.TOKEN_PAD_MULTIPLE and
+# esmc.BUCKET are gate-green at 64, and the only fold ever measured at 32's width on the gate's
+# 76-residue leg is a bad one (6.6630 A against 1.5688 A at 128, one target, one seed, on a metric
+# a diffusion sampler flips by basin). Moving a shipped constant needs multi-seed accuracy evidence
+# first; the open question is registered in state/protenix-opendde-token-bucket-flip-measure.md.
+BUCKET_MULTIPLE = {
+    "boltz2": 64,
+    "boltzgen": 64,
+    "esmfold2": 32,
+    "esmfold2-fast": 32,
+    "protenix-v2": 64,
+    "opendde": 64,
+    "opendde-abag": 64,
+    "openfold3": 32,
+    "openbind": 32,
+    "rfd3": 32,
+    "pxdesign": 32,
+    "nesso1": 64,
+    "esmc-300m": 64,
+    "esmc-600m": 64,
+    "esmc-6b": 64,
+    "saprot-35m": 64,
+    "saprot-650m": 64,
+    "saprot-1.3b": 64,
+}
+
+
+def bucket_enabled(default: bool = True) -> bool:
+    """The one global off switch, ``TT_BIO_TOKEN_BUCKET=0``.
+
+    Every model's bucket answers to it, so an A/B is one variable on one command instead of a
+    per-model flag list nobody can keep current. The legacy per-model flags still work and are
+    ANDed with this one, so turning this off turns everything off.
+    """
+    from .envflags import env_flag
+    return env_flag("TT_BIO_TOKEN_BUCKET", default)
+
+
+def bucket_multiple(model: str) -> int:
+    """The width `model` buckets to, overridable with ``TT_BIO_TOKEN_BUCKET_MULTIPLE``.
+
+    The override IS the acceptance test: a correctly masked bucket gives the same answer at every
+    pad amount, so folding one target at two multiples and comparing separates "the mask leaks"
+    from "bf16 reassociated over a different contraction length".
+    """
+    import os
+    v = os.environ.get("TT_BIO_TOKEN_BUCKET_MULTIPLE")
+    if v and v.strip():
+        return int(v)
+    return BUCKET_MULTIPLE[model]
+
+
+def pad_amount(N: int, mult: int) -> int:
+    """The single copy of the arithmetic. `mult` must be a multiple of TILE."""
+    assert mult % TILE == 0, f"bucket multiple {mult} is not a multiple of the {TILE} tile"
+    return (-N) % mult
+
+
+def bucketed_width(N: int, mult: int) -> int:
+    return N + pad_amount(N, mult)
+
+
+def token_pad_masks_torch(N: int, Np: int):
+    """(keep_1d, pair_mask, additive_attn_mask) for a token axis of real length `N` run at `Np`.
+
+    All three, because the three reduce-over-tokens families need different shapes of the same
+    fact and getting any one of them wrong has already cost a pass:
+
+      * `pair_mask` is the OUTER PRODUCT, not the 1-D mask. TriangleMultiplication multiplies an
+        unsqueezed mask into [1,S,S,C], so a 1-D [1,S] mask lands on the second token axis only
+        and the incoming variant then sums the padded rows in -- rel 2.00 against 6.7e-03.
+      * `additive` is -1e9 and not 0. Padding an additive attention bias with 0 puts the padded
+        keys back at score 0, which is the defect the bucket exists to close.
+    """
+    import torch
+    m1 = torch.zeros(1, Np)
+    m1[:, :N] = 1.0
+    return m1, m1[:, :, None] * m1[:, None, :], (1 - m1).unsqueeze(1).unsqueeze(1) * -1e9
+
+
+def token_pad_masks_tt(N: int, Np: int, dev):
+    """The same three, uploaded bf16 TILE_LAYOUT."""
+    import ttnn
+    m1, pair, additive = token_pad_masks_torch(N, Np)
+    up = lambda t: ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    return m1, up(pair), up(additive)
+
+
+def bucketed_pairformer(pf, s, z, dev, Np: int, extra_attn_bias=None):
+    """Run `pf` with its token axis padded out to `Np`, masked, and sliced back.
+
+    `Np` is passed in rather than derived so the gate and the multiple stay the caller's business
+    and this stays the only place the pad-mask-slice sequence is written. The trunk is not the only
+    exposure, and the census found the other sites rather than the source did: bucketing
+    protenix-v2's trunk alone left 8 of 1208 ragged fused-SDPA calls behind in the confidence
+    head, and OpenDDE keeps 8 more in a structural-token refiner on a different token axis
+    entirely. One helper covers all of them and any that get added -- fixing one caller is the
+    recurring failure (`fused-sdpa-ragged-tile-tail-and-census-discipline`).
+    """
+    import ttnn
+    N = int(z.shape[1])
+    pad = Np - N
+    assert pad >= 0, f"bucket width {Np} is below the real length {N}"
+    if not pad:
+        return pf(s, z, extra_attn_bias=extra_attn_bias)
+    _, pmask, attn = token_pad_masks_tt(N, Np, dev)
+    s = ttnn.pad(s, [(0, 0), (0, pad), (0, 0)], 0.0) if s is not None else None
+    z = ttnn.pad(z, [(0, 0), (0, pad), (0, pad), (0, 0)], 0.0)
+    if extra_attn_bias is not None:
+        extra_attn_bias = ttnn.pad(
+            extra_attn_bias, [(0, 0), (0, 0), (0, pad), (0, pad)], -1e9)
+    so, zo = pf(s, z, pmask, attn, attn, extra_attn_bias)
+    if so is not None:
+        so = ttnn.slice(so, (0, 0, 0), (1, N, so.shape[2]))
+    zo = ttnn.slice(zo, (0, 0, 0, 0), (1, N, N, zo.shape[3]))
+    return so, zo
+
+
 STATUSES = (BUCKETED, IMMUNE, PARTIAL, EXPOSED, UNCENSUSED)
 NEEDS_OWNER = (PARTIAL, EXPOSED, UNCENSUSED)
 NEEDS_MULTIPLE = (BUCKETED, PARTIAL)
