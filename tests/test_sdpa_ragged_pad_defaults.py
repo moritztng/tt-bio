@@ -22,6 +22,23 @@ a follow-up worth taking, not something to fold in here.
 
 `TT_BIO_SDPA_RAGGED_PAD` still forces the mask on at EVERY site; that global is how the table above
 was measured and it stays as the cross-model A/B switch.
+
+UPDATE 2026-08-24 -- THE GLOBAL NOW DEFAULTS ON, and the table above must be read with its date.
+Every row of it was measured while those models ran a RAGGED token axis. They do not any more:
+protenix-v2 and opendde bucket by default (1208 and 1216 ragged fused-SDPA calls -> 0), and every
+one of the 18 shipped models buckets now. So the guard fires on NOTHING on any shipped path, which
+is verified here and on hardware rather than argued -- `SDPA_RAGGED_PAD_STATS` reads 0 and the folds
+are bit-identical with the global off and on.
+
+That is the whole reason the OpenDDE regression did not block the flip: it was not explained away,
+the INPUT that produced it no longer occurs. The per-site selector stays for the day a model loses
+its bucket.
+
+This is a CORRECTNESS GUARD, not a perf knob. Do not "simplify" it back to opt-in. An unmasked
+ragged tail makes the softmax denominator sum garbage columns -- wrong math, the same class as
+PLAYBOOKS §MODEL 2b's 72x finding -- and a fix you have to know to ask for protects only the people
+who already knew. Measured at a genuinely ragged length it is free (-1.1 %, inside noise, because
+the pad aliases in TILE layout) and it corrects the answer.
 """
 import ast
 import inspect
@@ -166,3 +183,91 @@ def test_rf3_ships_the_mask_on():
     from tt_bio.rf3.remap import PAIRFORMER_FLAGS
     assert PAIRFORMER_FLAGS["fp32_softmax"] is False
     assert PAIRFORMER_FLAGS["tri_att_sdpa_ragged_pad"] is True
+
+
+# ---------------------------------------------------------------------------------------------
+# The global default. Moritz, 2026-08-24, ask 6378: flip it ON.
+# ---------------------------------------------------------------------------------------------
+
+def test_the_global_default_is_on_with_the_env_var_ABSENT():
+    """Not "the env var works" -- the DEFAULT, read with nothing in the environment.
+
+    `_SDPA_RAGGED_PAD` is bound at import, so monkeypatching this process cannot test it: the
+    module was imported long before the test ran, and a `delenv` here would pass against a stale
+    True. A child with the variable stripped from its environment is the only honest check, and it
+    is the exact condition a user gets.
+    """
+    import os
+    import subprocess
+    import sys
+    env = {k: v for k, v in os.environ.items() if k != "TT_BIO_SDPA_RAGGED_PAD"}
+    env["PYTHONPATH"] = str(ROOT)
+    out = subprocess.run(
+        [sys.executable, "-c",
+         "import tt_bio.tenstorrent as T; print('VALUE', T._SDPA_RAGGED_PAD)"],
+        capture_output=True, text=True, env=env, timeout=600)
+    assert "VALUE True" in out.stdout, (
+        "the fused-SDPA ragged-tail mask must default ON; child said:\n"
+        + out.stdout[-2000:] + out.stderr[-2000:])
+
+
+def test_the_escape_hatch_still_turns_it_off():
+    """Condition 4 of the flip: the old behaviour stays one env var away for bisecting."""
+    import os
+    import subprocess
+    import sys
+    env = dict(os.environ, TT_BIO_SDPA_RAGGED_PAD="0", PYTHONPATH=str(ROOT))
+    out = subprocess.run(
+        [sys.executable, "-c",
+         "import tt_bio.tenstorrent as T; print('VALUE', T._SDPA_RAGGED_PAD)"],
+        capture_output=True, text=True, env=env, timeout=600)
+    assert "VALUE False" in out.stdout, (
+        "TT_BIO_SDPA_RAGGED_PAD=0 must restore the unmasked behaviour; child said:\n"
+        + out.stdout[-2000:] + out.stderr[-2000:])
+
+
+def test_the_default_is_a_literal_True_at_the_one_place_it_is_read():
+    """Reading the source, so a refactor that moves the flag behind a helper still has to say
+    True out loud rather than inherit a False from somewhere else."""
+    src = (ROOT / "tt_bio/tenstorrent.py").read_text()
+    assert '_SDPA_RAGGED_PAD = env_flag("TT_BIO_SDPA_RAGGED_PAD", True)' in src
+
+
+def _device_available():
+    import os
+    return bool(os.environ.get("TT_VISIBLE_DEVICES")) and os.path.exists("/dev/tenstorrent")
+
+
+@pytest.mark.skipif(not _device_available(),
+                    reason="needs a TT card and TT_VISIBLE_DEVICES pinned to it")
+def test_a_ragged_call_really_is_masked():
+    """The guard's actual job, on hardware: at a ragged key length the padded columns come back
+    carrying the -1e9, and the aligned case is left completely alone.
+
+    Checks the bias `_sdpa_pad_ragged` hands the kernel rather than the kernel's output, because
+    that is where the defect lives -- ttnn reduces over the TILE-PADDED key length, so the only
+    thing standing between a real score and a padded column is what is in the bias there.
+    """
+    import torch
+    import ttnn
+    from tt_bio.tenstorrent import _sdpa_pad_ragged, _SDPA_PAD_MASK, get_device
+    dev = get_device()
+    B, H, S, D = 1, 2, 100, 32                     # 100 % 32 = 4 -> physically 128
+    up = lambda t: ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    q = up(torch.zeros(B, H, S, D)); k = up(torch.zeros(B, H, S, D))
+    v = up(torch.zeros(B, H, S, D)); bias = up(torch.zeros(B, H, S, S))
+    _q, _k, _v, bp, q_pad = _sdpa_pad_ragged(q, k, v, bias)
+    assert q_pad == 28, q_pad
+    got = ttnn.to_torch(bp).float()
+    assert got.shape[-1] == 128, got.shape
+    assert (got[..., :S, S:] <= _SDPA_PAD_MASK / 2).all(), \
+        "padded KEY columns are not masked: max %r" % float(got[..., :S, S:].max())
+    assert (got[..., :S, :S] == 0).all(), "the real region was disturbed"
+    assert (got[..., S:, :S] == 0).all(), \
+        "padded QUERY rows must pad with 0, not the mask -- a fully masked row divides by zero"
+
+    # ...and an already-aligned call is not touched at all, which is why the default-ON flip
+    # cannot move a number on any bucketed model.
+    qa = up(torch.zeros(B, H, 128, D)); ba = up(torch.zeros(B, H, 128, 128))
+    out = _sdpa_pad_ragged(qa, qa, qa, ba)
+    assert out[4] == 0 and out[3] is ba, "an aligned call must be returned untouched"

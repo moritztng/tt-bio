@@ -915,7 +915,24 @@ def _tri_att_q_chunks(q_len: int, k_len: int) -> tuple:
 # take a real share of the softmax mass. Writing a large negative into the bias over the padded key
 # columns takes it back to zero. The query axis pads with 0 instead: those output rows are sliced
 # off, and a fully-masked row would divide by zero.
-_SDPA_RAGGED_PAD = env_flag("TT_BIO_SDPA_RAGGED_PAD", False)
+# DEFAULT-ON since 2026-08-24 (Moritz, answering ask 6378). This is a CORRECTNESS GUARD, not a
+# perf knob, and it must not be "simplified" back to opt-in: an unmasked ragged tail makes the
+# softmax denominator sum garbage columns, which is wrong math of the same class as PLAYBOOKS
+# §MODEL 2b's 72x finding, and a fix you have to know to ask for protects only the people who
+# already knew.
+#
+# It is free where it fires and it fires almost nowhere. The gate below is
+# `bias is not None and (Sq % 32 or Sk % 32)`, so on an ALIGNED axis it is one modulo and no work
+# at all -- and every one of the 18 bucketed models presents an aligned axis by construction. It
+# therefore cannot move a published number; it only protects whatever still arrives ragged: a new
+# model, a refactor, a debug run with TT_BIO_TOKEN_BUCKET=0. Measured at a genuinely ragged length
+# (nesso1, 148 tokens, bucket forced off): -1.1 % wall clock, i.e. free inside noise, because
+# `_sdpa_pad_ragged`'s ttnn.pad ALIASES in TILE layout; and the answer moves 1.510 -> 1.523 toward
+# the correctly-bucketed 1.5395.
+#
+# `TT_BIO_SDPA_RAGGED_PAD=0` restores the old behaviour for bisecting, and the per-site
+# `TT_BIO_SDPA_RAGGED_PAD_AB` machinery is untouched.
+_SDPA_RAGGED_PAD = env_flag("TT_BIO_SDPA_RAGGED_PAD", True)
 # Let `_TRIATT_FUSED_HIFI_MIN_S` see the PADDED length instead of the true one, so a ragged call
 # just under the gate is served rather than declined. Only meaningful with the ragged pad on.
 _TRIATT_HIFI_MIN_S_PADDED = env_flag("TT_BIO_TRIATT_HIFI_MIN_S_PADDED", False)
@@ -2110,6 +2127,19 @@ def sdpa_ragged_pad_site(token: str, default: bool = False) -> bool:
     is the opposite of what the fix does to rf3, so this is not diffusion chaos being read as a
     regression. Until that is root-caused, the site that measured a win is the only site that gets
     it. `TT_BIO_SDPA_RAGGED_PAD` still forces it on everywhere, which is how the above was measured.
+
+    READ THE DATE ON THAT TABLE. Every row of it was measured while those models ran a RAGGED token
+    axis. They do not any more: protenix-v2 and opendde bucket by default (1208 and 1216 ragged
+    fused-SDPA calls -> 0), so on a shipped path this selector now decides nothing for either of
+    them -- the gate upstream never sees a ragged axis to act on. That is why the global default
+    could move to True without re-opening the OpenDDE regression: it is not that the regression was
+    explained, it is that the input which produced it no longer occurs. Verified, not assumed --
+    `SDPA_RAGGED_PAD_STATS` reads 0 fired on a real fold of both models, and the folds are
+    bit-identical with the global off and on.
+
+    Keep this selector anyway. If a model ever loses its bucket, this is the knob that decides
+    whether it gets the mask, and the OpenDDE row above is the reason that decision is per site
+    rather than automatic.
     """
     return _site_flag("TT_BIO_SDPA_RAGGED_PAD_AB", token, default)
 
