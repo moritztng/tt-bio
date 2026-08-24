@@ -1,8 +1,8 @@
 {
   "schema": 2,
   "updated": "2026-08-23",
-  "title": "TT-Bio: biomolecular structure, design and embeddings on Tenstorrent",
-  "subtitle": "Eight structure-prediction models, one binder-design model, one binding-affinity model and six protein-embedding models at 512 residues, measured on Tenstorrent Blackhole and on NVIDIA H200, B200 and A100.",
+  "title": "TT-Bio: biomolecular structure prediction, design and binding affinity on Tenstorrent",
+  "subtitle": "Eight structure-prediction models, one binder-design model and one binding-affinity model at 512 residues, measured on Tenstorrent Blackhole and on NVIDIA H200, B200 and A100.",
   "notes": [
     "This file is the only place numbers are edited. index.html reads it and derives everything else.",
     "Never write a derived value here. Server throughput, cost per hour and both throughput-per-dollar charts are computed in the page from s_per_fold, accelerators, price and power.",
@@ -11,7 +11,7 @@
     "The A100 appears twice: as a card, and as the DGX A100 640GB, the eight-GPU box NVIDIA sold that card in. The $175,000 that box carries is an assumed street price, not a vendor list price, and it is labelled as one everywhere it is used.",
     "A design model carrying 'hidden': true keeps every measured cell here and is drawn nowhere. Delete that one line to publish the row again.",
     "Every Tenstorrent cell states the board it was measured on. It inherits `measured_on` from its platform and overrides it only if it ran somewhere else. The column is priced as a p150a; the board that produced the number is a separate fact and is stated as one.",
-    "The embedding section is measured in sequences per second at a matched executed batch, and it is card-only: it enters neither throughput-per-dollar chart nor the per-server chart. The cost index on this page is built on the DGX H200 at 512 aa folds, and a workload class that index was not built for does not get an invented server price or power figure."
+    "The embed block is measured but not published. All six rows carry \"hidden\": true and the page has no code that reads it, so the guard counts them out of the title, the subtitle and the meta description. site/README.md records what was run. Restoring the section means dropping the flags, putting the chart and the t-embed table back, and moving EXPECT_ROWS.embed in render_check.js in the same commit."
   ],
   "scope": {
     "size_aa": 512,
@@ -21,9 +21,10 @@
     "diffusion_samples": 1,
     "seed": 0,
     "templates": "off",
-    "protocol": "Warm folds, one prediction at a time on one accelerator, the same two input files on both sides, each model at its own recycle and sampling-step settings. Each Tenstorrent cell is that model's fastest arm that passes parity. Each cell times what that platform's own harness times, and the regions are not identical: every Tenstorrent number is a whole prediction call with featurisation and structure writing inside it, and on NVIDIA that is true of RoseTTAFold3 and effectively true of ESMFold2, but the Boltz-2, OpenFold3, Protenix-v2 and OpenDDE cells time the network forward and leave host work outside the timer. What they leave out is 0.24 s, 0.43 s, 0.62 s and 6.31 s per prediction, which makes those four ratios larger than a like-for-like comparison would. The host and device table gives both readings for every row.",
+    "protocol": "Warm folds, one prediction at a time on one accelerator, the same two input files on both sides, each model at its own recycle and sampling-step settings. Each Tenstorrent cell is that model's fastest arm that passes parity.",
     "split": "Two readings of the same seven rows. Whole fold counts every second a user waits for on both sides. Device only strips the host work off both sides, and it is the reading that says what the silicon does. The Tenstorrent host seconds are inside the published cell; the NVIDIA ones sit outside it on every row but RoseTTAFold3. Every Tenstorrent host figure is an upper bound, so every device-only ratio here is a lower bound on the real device gap. Host work on the B200 and the A100 is not measured, so this table is Blackhole against H200 only.",
-    "gpu_generations": "The B200 is not uniformly faster than the H200 on these workloads. Seven rows go the H200's way: Boltz-2 by 10.2 %, OpenFold3 15.9 %, OpenBind-0 16.0 %, BoltzGen 27.2 %, ESMFold2-Fast 78.3 %, Nesso-1 84.0 % and ESM-C 6B 34.4 %. Every other row goes the B200's way. The B200 cells were re-measured on a config-identical machine and reproduce within 4.1 %, so the split is real. It is not the host: cutting the B200 box from 24 cores to 6 with taskset moves Boltz-2 by less than 1.5 % (8.285 / 8.163 / 8.192 s), and on single-threaded featurisation the B200 box's Xeon 8559C is 1.51x faster than the H200 box's Xeon 8480+ (8.275 s against 12.459 s on the same RoseTTAFold3 work), so the host difference runs toward the B200, not against it. The mechanism is saturation. Solving Boltz-2 at four recycle and sampling-step points on both cards gives 0.541 s per recycle on the B200 against 0.620 s on the H200, and 0.0288 s per sampling step against 0.0241 s: the B200 is the faster trunk, the H200 is the faster sampler. The published Boltz-2 cell is 70 % sampler on the B200 and 66 % on the H200, and the sampler phase draws 379 W of the B200's 1000 W limit at 68 % utilisation against 404 W of the H200's 700 W at 90 %. At 512 residues these workloads do not fill a B200. One packaging term was measured and it is small: cuEquivariance's Blackwell triangle-attention kernel ships only in the cu13 wheels and the published cells ran cu12; per call it is 2.69x faster, end to end it moves Boltz-2 by -2.76 % and BoltzGen the wrong way by +4.28 %."
+    "gpu_generations": "The B200 is not uniformly faster than the H200 on these workloads. Six rows go the H200's way: Boltz-2 by 10.2 %, OpenFold3 15.9 %, OpenBind-0 16.0 %, BoltzGen 27.2 %, ESMFold2-Fast 78.3 % and Nesso-1 84.0 %. Every other row goes the B200's way. The B200 cells were re-measured on a config-identical machine and reproduce within 4.1 %, so the split is real. It is not the host: cutting the B200 box from 24 cores to 6 with taskset moves Boltz-2 by less than 1.5 % (8.285 / 8.163 / 8.192 s), and on single-threaded featurisation the B200 box's Xeon 8559C is 1.51x faster than the H200 box's Xeon 8480+ (8.275 s against 12.459 s on the same RoseTTAFold3 work), so the host difference runs toward the B200, not against it. The mechanism is saturation. Solving Boltz-2 at four recycle and sampling-step points on both cards gives 0.541 s per recycle on the B200 against 0.620 s on the H200, and 0.0288 s per sampling step against 0.0241 s: the B200 is the faster trunk, the H200 is the faster sampler. The published Boltz-2 cell is 70 % sampler on the B200 and 66 % on the H200, and the sampler phase draws 379 W of the B200's 1000 W limit at 68 % utilisation against 404 W of the H200's 700 W at 90 %. At 512 residues these workloads do not fill a B200. One packaging term was measured and it is small: cuEquivariance's Blackwell triangle-attention kernel ships only in the cu13 wheels and the published cells ran cu12; per call it is 2.69x faster, end to end it moves Boltz-2 by -2.76 % and BoltzGen the wrong way by +4.28 %.",
+    "timed_region": "Each cell times what that platform's own harness times, and the regions are not identical: every Tenstorrent number is a whole prediction call with featurisation and structure writing inside it, and on NVIDIA that is true of RoseTTAFold3 and effectively true of ESMFold2, but the Boltz-2, OpenFold3, Protenix-v2 and OpenDDE cells time the network forward and leave host work outside the timer. What they leave out is 0.24 s, 0.43 s, 0.62 s and 6.31 s per prediction, which makes those four ratios larger than a like-for-like comparison would. The host and device table gives both readings for every row."
   },
   "platforms": [
     {
@@ -600,10 +601,7 @@
   },
   "embed": {
     "unit": "sequences per second",
-    "cond": "Sequences per second for one protein-embedding forward on a single AI Processor, warm, at the shipped defaults. Higher is better, which is the opposite of every other measured chart on this page. One 512-residue sequence copied to fill the batch, 514 tokens, and the executed batch is matched on both sides and stated per row. The timed regions are not identical and the asymmetry runs the same way as the folding rows': the Tenstorrent number starts from raw sequence strings, so tokenisation, host preparation, the transfer and the readback are inside it, while the NVIDIA number wraps only the model forward with tokenisation and transfer already done. The .npz serialisation, which is 85-93 % of the shipped Tenstorrent embed wall and pure host zlib, is outside the timer on both sides. No host share is quoted because nobody has measured the host fraction inside the embed call.",
-    "note": "These rows are card-only. They enter neither throughput-per-dollar chart nor the per-server chart, because the cost index on this page is built on the DGX H200 at 512 aa folds and an embedding forward is a workload class that index was not built for; inventing a server price or a power figure for it would be worse than leaving it out. One arm asymmetry, stated rather than smoothed: the A100 cells ran with torch's cuDNN SDPA backend on, the H200 and B200 cells with it forced off, because at batch 7 x 514 the cuDNN frontend builds no plan and the run dies. That flatters the A100 by a small unmeasured amount; on the one row where the cost of forcing it off was measured, ESMFold2-Fast on the H200, it is 1.6 % (3.999 to 4.064 s). SaProt 35M is slower than SaProt 1.3B here and that is a real result with a named cause, not a page bug: see its row note.",
     "methods": "Six encoders at the shipped defaults, --fast off, mean pooling, no masked-LM logits. bfloat16 on both sides. attn_implementation sdpa is requested on the NVIDIA side and the harness counts the calls rather than trusting the flag. The input is one 512-residue sequence from scripts/gpu_vs_tt/fixtures/prot512.seq (sha256 141f7d47...), copied to fill the batch; both sides assert that digest before timing. Tenstorrent figures are warm medians of n=7 on one Blackhole AI Processor under benchlock with the loadavg recorded; NVIDIA figures are warm medians of n=15 on rented single-GPU nodes with the cold rep discarded. Every cell carries its own accuracy check: on Tenstorrent an all-finite pooled digest with the batch rows asserted identical, on NVIDIA the cosine of the bf16 output against an fp32 recomputation of the same forward, 0.999956 to 0.999996 against a 0.999 bar.",
-    "scope": "Six protein-embedding models, measured separately from the folding rows and in a different unit. The number is sequences per second at a matched executed batch of 7 (1 for ESM-C 6B, whose sharded backbone ignores the batch size), on one 512-residue sequence at 514 tokens. Embedding parity was measured at 20-129 aa, not at 512, and each row's parity string says the length. These rows are card-only and enter no cost or per-server chart.",
     "models": [
       {
         "id": "esmc-300m",
@@ -641,7 +639,8 @@
             "batch": 7,
             "ref": "Machine 144644, A100 SXM4 80 GB at a 400 W limit, AMD EPYC 7513. torch 2.11.0+cu130, transformers 4.57.6, esm 3.4.0, bfloat16, attn_implementation sdpa requested and engaged (torch_sdpa 510). Warm median of n=15: 0.0301 s, min 0.0299, max 0.0307; the spread is one-sided, 15 of 15 reps land within 5 % of the median, so at 30.1 ms per batch the median is the stable statistic and the max is a transient. Cold rep discarded. cuDNN SDPA left on, 0 plan failures at sm_80, which is the one arm asymmetry in this section. Executed batch 7 at 514 tokens, matched to the Tenstorrent arm. Accuracy: cosine(bf16, fp32) = 0.999978 against a 0.999 bar, all finite. Fixture scripts/gpu_vs_tt/fixtures/prot512.seq sha256 141f7d4730ccf17e..., asserted by the harness. state/perfpage_a100/gpu_embed_esmc-300m_prot512_a100.json, the plain torch 2.11 arm: these rows use no triangle kernel, so the cuEquivariance packaging defect that forced the ESMFold2-Fast A100 cell onto a pinned torch 2.13 does not touch them, and 2.11 is what the H200 and B200 embed arms ran."
           }
-        }
+        },
+        "hidden": true
       },
       {
         "id": "esmc-600m",
@@ -679,7 +678,8 @@
             "batch": 7,
             "ref": "Machine 144644, A100 SXM4 80 GB at a 400 W limit, AMD EPYC 7513. torch 2.11.0+cu130, transformers 4.57.6, esm 3.4.0, bfloat16, attn_implementation sdpa requested and engaged (torch_sdpa 612). Warm median of n=15: 0.0438 s, min 0.0436, max 0.0482; the spread is one-sided, 9 of 15 reps land within 5 % of the median, so at 43.8 ms per batch the median is the stable statistic and the max is a transient. Cold rep discarded. cuDNN SDPA left on, 0 plan failures at sm_80, which is the one arm asymmetry in this section. Executed batch 7 at 514 tokens, matched to the Tenstorrent arm. Accuracy: cosine(bf16, fp32) = 0.999968 against a 0.999 bar, all finite. Fixture scripts/gpu_vs_tt/fixtures/prot512.seq sha256 141f7d4730ccf17e..., asserted by the harness. state/perfpage_a100/gpu_embed_esmc-600m_prot512_a100.json, the plain torch 2.11 arm: these rows use no triangle kernel, so the cuEquivariance packaging defect that forced the ESMFold2-Fast A100 cell onto a pinned torch 2.13 does not touch them, and 2.11 is what the H200 and B200 embed arms ran."
           }
-        }
+        },
+        "hidden": true
       },
       {
         "id": "esmc-6b",
@@ -719,7 +719,8 @@
             "batch": 1,
             "ref": "Machine 144644, A100 SXM4 80 GB at a 400 W limit, AMD EPYC 7513. torch 2.11.0+cu130, transformers 4.57.6, esm 3.4.0, bfloat16, attn_implementation sdpa requested and engaged (torch_sdpa 1360). Warm median of n=15: 0.0638 s, min 0.0629, max 0.0650; the spread is one-sided, 15 of 15 reps land within 5 % of the median, so at 63.8 ms per batch the median is the stable statistic and the max is a transient. Cold rep discarded. cuDNN SDPA left on, 0 plan failures at sm_80, which is the one arm asymmetry in this section. Executed batch 1 at 514 tokens, matched to the Tenstorrent arm. Accuracy: cosine(bf16, fp32) = 0.999973 against a 0.999 bar, all finite. Fixture scripts/gpu_vs_tt/fixtures/prot512.seq sha256 141f7d4730ccf17e..., asserted by the harness. state/perfpage_a100/gpu_embed_esmc-6b_prot512_a100.json, the plain torch 2.11 arm: these rows use no triangle kernel, so the cuEquivariance packaging defect that forced the ESMFold2-Fast A100 cell onto a pinned torch 2.13 does not touch them, and 2.11 is what the H200 and B200 embed arms ran."
           }
-        }
+        },
+        "hidden": true
       },
       {
         "id": "saprot-35m",
@@ -758,7 +759,8 @@
             "batch": 7,
             "ref": "Machine 144644, A100 SXM4 80 GB at a 400 W limit, AMD EPYC 7513. torch 2.11.0+cu130, transformers 4.57.6, esm 3.4.0, bfloat16, attn_implementation sdpa requested and engaged (torch_sdpa 204). Warm median of n=15: 0.0099 s, min 0.0094, max 0.0209; the spread is one-sided, 10 of 15 reps land within 5 % of the median, so at 9.9 ms per batch the median is the stable statistic and the max is a transient. Cold rep discarded. cuDNN SDPA left on, 0 plan failures at sm_80, which is the one arm asymmetry in this section. Executed batch 7 at 514 tokens, matched to the Tenstorrent arm. Accuracy: cosine(bf16, fp32) = 0.999995 against a 0.999 bar, all finite. Fixture scripts/gpu_vs_tt/fixtures/prot512.seq sha256 141f7d4730ccf17e..., asserted by the harness. state/perfpage_a100/gpu_embed_saprot-35m_prot512_a100.json, the plain torch 2.11 arm: these rows use no triangle kernel, so the cuEquivariance packaging defect that forced the ESMFold2-Fast A100 cell onto a pinned torch 2.13 does not touch them, and 2.11 is what the H200 and B200 embed arms ran."
           }
-        }
+        },
+        "hidden": true
       },
       {
         "id": "saprot-650m",
@@ -796,7 +798,8 @@
             "batch": 7,
             "ref": "Machine 144644, A100 SXM4 80 GB at a 400 W limit, AMD EPYC 7513. torch 2.11.0+cu130, transformers 4.57.6, esm 3.4.0, bfloat16, attn_implementation sdpa requested and engaged (torch_sdpa 561). Warm median of n=15: 0.0561 s, min 0.0560, max 0.0610; the spread is one-sided, 14 of 15 reps land within 5 % of the median, so at 56.1 ms per batch the median is the stable statistic and the max is a transient. Cold rep discarded. cuDNN SDPA left on, 0 plan failures at sm_80, which is the one arm asymmetry in this section. Executed batch 7 at 514 tokens, matched to the Tenstorrent arm. Accuracy: cosine(bf16, fp32) = 0.999995 against a 0.999 bar, all finite. Fixture scripts/gpu_vs_tt/fixtures/prot512.seq sha256 141f7d4730ccf17e..., asserted by the harness. state/perfpage_a100/gpu_embed_saprot-650m_prot512_a100.json, the plain torch 2.11 arm: these rows use no triangle kernel, so the cuEquivariance packaging defect that forced the ESMFold2-Fast A100 cell onto a pinned torch 2.13 does not touch them, and 2.11 is what the H200 and B200 embed arms ran."
           }
-        }
+        },
+        "hidden": true
       },
       {
         "id": "saprot-1.3b",
@@ -834,9 +837,12 @@
             "batch": 7,
             "ref": "Machine 144644, A100 SXM4 80 GB at a 400 W limit, AMD EPYC 7513. torch 2.11.0+cu130, transformers 4.57.6, esm 3.4.0, bfloat16, attn_implementation sdpa requested and engaged (torch_sdpa 1122). Warm median of n=15: 0.1125 s, min 0.1123, max 0.1197; the spread is one-sided, 14 of 15 reps land within 5 % of the median, so at 112.5 ms per batch the median is the stable statistic and the max is a transient. Cold rep discarded. cuDNN SDPA left on, 0 plan failures at sm_80, which is the one arm asymmetry in this section. Executed batch 7 at 514 tokens, matched to the Tenstorrent arm. Accuracy: cosine(bf16, fp32) = 0.999996 against a 0.999 bar, all finite. Fixture scripts/gpu_vs_tt/fixtures/prot512.seq sha256 141f7d4730ccf17e..., asserted by the harness. state/perfpage_a100/gpu_embed_saprot-1.3b_prot512_a100.json, the plain torch 2.11 arm: these rows use no triangle kernel, so the cuEquivariance packaging defect that forced the ESMFold2-Fast A100 cell onto a pinned torch 2.13 does not touch them, and 2.11 is what the H200 and B200 embed arms ran."
           }
-        }
+        },
+        "hidden": true
       }
-    ]
+    ],
+    "published": false,
+    "retired": "Not published on the page. The rows and their cells stay here; site/README.md says what was run and where the parity figures are."
   },
   "sources": {
     "tt-galaxy": {

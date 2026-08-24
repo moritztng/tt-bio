@@ -295,9 +295,9 @@ function build(D){
   const secs = c => c.s_per_fold ?? c.s_per_design;
 
   ORDER = CELLS.map(k => P[SERVER_OF[k]].name);
-  /* Folding, design and affinity rows: they share the per-server axis. NOT the embedding rows --
-   * this chart's unit is predictions per hour, and an embedding forward has no server price the
-   * cost index was built for. The caption says where they live instead. */
+  /* Folding, design and affinity rows: they share the per-server axis. The embed block is in the
+   * data file but published nowhere, and this chart's unit is predictions per hour, which an
+   * embedding forward has no server price for anyway. */
   const rows = [...D.models, ...(D.design?.models ?? []), ...(D.affinity?.models ?? [])]
     .filter(x => !x.hidden);
   CH = {};
@@ -347,7 +347,7 @@ function drawChart(){
   };
   document.getElementById("unit").innerHTML = UNIT[metric];
   document.getElementById("cap").textContent = CAP[metric] +
-    " Bars scale within each model. Embeddings are measured separately; see the benchmark page.";
+    " Bars scale within each model.";
 }
 document.getElementById("metric").addEventListener("click", e => {
   const b = e.target.closest("button[data-m]"); if(!b) return;

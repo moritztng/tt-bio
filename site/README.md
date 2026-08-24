@@ -9,10 +9,10 @@ fetch fails, which also means it goes stale silently -- check it against `tt_bio
 tuples when a model lands. Then performance and cost: every published row on Blackhole against
 H200, B200 and A100 at 512 residues, with throughput per dollar of a Galaxy Blackhole against a DGX
 H200, a DGX B200 and a DGX A100 on purchase price and again on total cost of ownership, predictions
-per hour per server, prediction time on one AI Processor, sequences per second for the embedding
-rows, and what each server costs to buy and to power. The row counts are deliberately not repeated
-here: `scripts/site_publish_guard.py` generates them into the JSON subtitle and the page's meta
-description, and a hand-written third copy would only go stale.
+per hour per server, prediction time on one AI Processor, and what each server costs to buy and to
+power. The row counts are deliberately not repeated here: `scripts/site_publish_guard.py` generates
+them into the JSON `title` and `subtitle` and into the page's `<title>` and meta description, and a
+hand-written fifth copy would only go stale.
 
 `index.html` is the landing page. Its bar chart reads the same JSON and derives the same three
 metrics, and the throughput-per-dollar range in the hero is the spread of the same purchase-price
@@ -85,13 +85,55 @@ A group of rows that shares the per-accelerator axis and has a price for its ser
 line puts the rows in both throughput-per-dollar charts, the per-server chart and all three derived
 tables, so it is only correct when the cost index the page is built on covers that workload.
 
-The `embed` section is deliberately outside `CATEGORIES` and is the model for a section that is not.
-Its unit is sequences per second, its timed region differs from the folding rows', and the cost index
-is built on the DGX H200 at 512 aa folds, so an embedding forward has no server price or power figure
-it could honestly carry. It gets its own band, its own chart and its own table, and it enters no cost
-or per-server surface. `render_check.js` asserts that absence per row rather than trusting anyone to
-remember it, so adding `embed` to `CATEGORIES` fails the check, and so does drawing an embedding row
-on the landing page.
+## The embedding rows
+
+The page does not benchmark protein embeddings. The capability table still lists ESM-C and SaProt,
+because TT-Bio runs them; what came off on 2026-08-24 is the chart and the measured table, and it was
+the whole category, not the rows that read worst.
+
+The measurements are not lost. All six rows keep every cell in `data/perf-512aa.json` under `embed`
+with `"hidden": true`, which is the same flag a held-back folding row carries, so the guard counts
+them out of all four count-bearing strings and `render_check.js` asserts no embedding row's name is
+drawn anywhere on either page. Putting the section back is three edits in one commit: drop the flags,
+restore the band and the `t-embed` table in `benchmarks/index.html`, and move `EXPECT_ROWS.embed` in
+`render_check.js` from 0 back to 6.
+
+What was run, kept here because the page no longer says it:
+
+Six encoders at the shipped defaults, --fast off, mean pooling, no masked-LM logits. bfloat16 on
+both sides. attn_implementation sdpa is requested on the NVIDIA side and the harness counts the
+calls rather than trusting the flag. The input is one 512-residue sequence from
+scripts/gpu_vs_tt/fixtures/prot512.seq (sha256 141f7d47...), copied to fill the batch; both sides
+assert that digest before timing. Tenstorrent figures are warm medians of n=7 on one Blackhole AI
+Processor under benchlock with the loadavg recorded; NVIDIA figures are warm medians of n=15 on
+rented single-GPU nodes with the cold rep discarded. Every cell carries its own accuracy check: on
+Tenstorrent an all-finite pooled digest with the batch rows asserted identical, on NVIDIA the
+cosine of the bf16 output against an fp32 recomputation of the same forward, 0.999956 to 0.999996
+against a 0.999 bar.
+
+Embedding parity, each Tenstorrent figure against that model's own reference. Every one is
+from 20-129 aa, not from the 512-residue sequence the cells were timed on, so none of them
+is a 512 aa claim:
+
+- **ESM-C 300M** per-residue embedding PCC 0.99875 at 20 aa, 0.99953 at 56, 0.99961 at 76 and
+  0.99919 at 129 against the esm reference, a default leg of scripts/full_parity_gate.py.
+- **ESM-C 600M** per-residue embedding PCC 0.99939 at worst over the same four targets at 20-129
+  aa, a default leg of scripts/full_parity_gate.py.
+- **ESM-C 6B** per-residue embedding PCC 0.99904 at worst over the same four targets at 20-129 aa,
+  an opt-in leg of scripts/full_parity_gate.py.
+- **SaProt 35M** per-residue embedding PCC 0.999138 and masked-LM logits PCC 0.999772 against the
+  HuggingFace EsmForMaskedLM reference at 76 aa, a default leg of scripts/full_parity_gate.py.
+- **SaProt 650M** per-residue embedding PCC 0.999638 and masked-LM logits PCC 0.999927 against the
+  same reference at 76 aa, a default leg of scripts/full_parity_gate.py.
+- **SaProt 1.3B** per-residue embedding PCC 0.995076, a documented near-pass under the 0.9987 bar
+  the other two SaProt sizes clear, with masked-LM logits at 0.998952. It is the one row here with
+  no gate leg. Attributed to bf16 accumulation over depth: this is the 650M's width at twice the
+  layers, 66 against 33 (docs/saprot-parity.md).
+
+The rows were also card-only: sequences per second is not predictions per hour, and the cost index on
+this page is built on the DGX H200 at 512 aa folds, so an embedding forward had no server price or
+power figure it could honestly carry. That is why `embed` was never a `CATEGORIES` entry, and it is
+still the model for a future section that shares neither the unit nor the cost index.
 
 Every new section needs its row count added to `EXPECT_ROWS` in `render_check.js`. That table is the
 only hardcoded thing in the file, and it is there because every other check is derived from the data:
