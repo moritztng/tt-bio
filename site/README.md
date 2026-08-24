@@ -6,12 +6,13 @@ Two pages, both driven by `data/perf-512aa.json`.
 affinity prediction, protein design, protein embeddings, with the `--model` id in the first column
 and one short cell per capability. That section is static markup, so it renders even if the data
 fetch fails, which also means it goes stale silently -- check it against `tt_bio/main.py`'s model
-tuples when a model lands. Then performance and cost: seven structure-prediction models, two binder
-design, one binding affinity and six protein embedding on Blackhole against H200, B200 and A100 at
-512 residues, with throughput per dollar of a Galaxy Blackhole against a DGX H200, a DGX B200 and a
-DGX A100 on purchase price and again on total cost of ownership, predictions per hour per server,
-prediction time on one AI Processor, sequences per second for the embedding rows, and what each
-server costs to buy and to power.
+tuples when a model lands. Then performance and cost: every published row on Blackhole against
+H200, B200 and A100 at 512 residues, with throughput per dollar of a Galaxy Blackhole against a DGX
+H200, a DGX B200 and a DGX A100 on purchase price and again on total cost of ownership, predictions
+per hour per server, prediction time on one AI Processor, sequences per second for the embedding
+rows, and what each server costs to buy and to power. The row counts are deliberately not repeated
+here: `scripts/site_publish_guard.py` generates them into the JSON subtitle and the page's meta
+description, and a hand-written third copy would only go stale.
 
 `index.html` is the landing page. Its bar chart reads the same JSON and derives the same three
 metrics, and the throughput-per-dollar range in the hero is the spread of the same purchase-price
@@ -53,6 +54,29 @@ indexed to. The window is 4 years and the rate is the US industrial average, and
 cost of ownership chart only. The purchase-price chart is predictions per hour divided by the price
 itself, with no window: spreading the price over a window multiplies both sides of that ratio by the
 same number, so it cancels. Only a price change moves it.
+
+## Holding a row back
+
+A model reaches the page only when every processor column is measured. A row with a blank column
+still draws: the chart plots the platforms it has, so a half-measured model reads as a published
+claim while the missing column is simply absent.
+
+`scripts/site_publish_guard.py` enforces that. With no flag it exits 1 naming any published row with
+a cell that is not `measured`, and it runs in three places, `tests/test_perf_page_renders.py`, the
+`deploy_site.sh` preflight and `pages.yml`, so neither publish path can put a partial row on
+tt-bio.com. Two flags move rows:
+
+    python3 scripts/site_publish_guard.py --strip      # hold every incomplete published row
+    python3 scripts/site_publish_guard.py --restore    # publish every held row that is now complete
+
+A held row keeps the cells it already has, in `perf/page_rows_pending.json`. Nothing is deleted and
+nothing is re-measured to bring it back. Both flags regenerate the subtitle and the meta description
+from the surviving rows, so the prose cannot drift from the table.
+
+`blocked` is not `measured`. A cell that says the model cannot run on that platform is an honest
+cell but it is not a number, so a row carrying one stays held. PXDesign is the standing case: its
+reference stack is torch 2.3.1 on CUDA 12.1, which ships no sm_100 kernels, so there is no B200
+figure comparable to the H200 one beside it.
 
 ## Adding a section
 
