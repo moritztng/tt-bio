@@ -23,12 +23,15 @@ parity claims but don't cover this real-seed path.
 """
 from __future__ import annotations
 
+import base64
+import json
 import os
 import pickle
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping, Sequence
@@ -410,6 +413,158 @@ def run_design(
                             partial_t=partial_t, cfg_scale=cfg_scale,
                             fp32_residual=fp32_residual, batch_size=batch_size,
                             multi_designs=num_designs > 1, verbose=verbose)
+
+
+def run_design_via_controller(
+    specs: Mapping[str, Mapping],
+    out_dir: str | Path,
+    *,
+    controller_url: str,
+    num_timesteps: int = 4,
+    seed: int = 42,
+    partial_t: float | None = None,
+    cfg_scale: float | None = None,
+    fp32_residual: bool = False,
+    num_designs: int = 1,
+    batch_size: int = 8,
+    run_id: str | None = None,
+    owner: str | None = None,
+    verbose: bool = True,
+) -> list[DesignResult]:
+    """Fleet twin of :func:`run_design`: shard the specs across a controller's
+    workers, then collect the CIFs here — the multi-host twin of the local path,
+    mirroring BoltzGen's ``gen run --controller``.
+
+    One shard per spec: all of a spec's designs ride in it because they share
+    the featurize + TokenInitializer pass and batch bit-identically, so
+    splitting them across workers would only multiply per-shard model-load
+    cost. Each worker runs its shard in-process on its persistent chip (no
+    cold-open) and ships the CIFs back. There is no central merge/filter —
+    RFD3 outputs are independent, one CIF per (spec, design).
+
+    Every spec's `input` structure is read here and shipped inline, so workers
+    on other machines need no shared filesystem.
+    """
+    from tt_bio.distributed import ControllerClient
+    from tt_bio.main import _write_job_outputs
+
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    client = ControllerClient(controller_url)
+    try:
+        online = int(client.cluster().get("online_workers") or 0)
+    except Exception as exc:
+        raise RuntimeError(f"Cannot reach controller at {controller_url}: {exc}") from exc
+    if online < 1:
+        raise RuntimeError(
+            f"No workers connected to {controller_url}. Start the master's pool "
+            f"and/or `tt-bio worker --connect {controller_url}` on other machines.")
+
+    # Validate every spec up front (same fast-fail as the local path) and read
+    # each referenced input structure for inline shipping.
+    parsed: dict[str, InputSpecification] = {}
+    structures: dict[str, str] = {}
+    for spec_id, raw in specs.items():
+        spec = InputSpecification.from_dict(raw)
+        spec.validate()
+        parsed[spec_id] = spec
+        if spec.input is None:
+            raise ValueError(f"spec {spec_id!r} has no `input` structure (required)")
+        src = Path(spec.input).expanduser()
+        if not src.is_file():
+            raise ValueError(f"spec {spec_id!r}: input structure not found: {src}")
+        name = src.name
+        content = src.read_text()
+        if name in structures and structures[name] != content:
+            raise ValueError(
+                f"two specs reference different structures named {name!r} — "
+                "rename one so workers can write them side by side")
+        structures[name] = content
+
+    config = {
+        "kind": "design",
+        "engine": "rfd3",
+        "num_timesteps": int(num_timesteps),
+        "seed": int(seed),
+        "partial_t": partial_t,
+        "cfg_scale": cfg_scale,
+        "fp32_residual": bool(fp32_residual),
+        "batch_size": int(batch_size),
+        "specs": [{"name": f"{sid}.json", "content": json.dumps({sid: dict(specs[sid])})}
+                  for sid in specs],
+        "structures": [{"name": n, "content": c} for n, c in structures.items()],
+    }
+    jobs = [{"id": f"rfd3_{sid}", "name": str(sid),
+             "input_b64": base64.b64encode(
+                 json.dumps({"spec_id": sid, "num_designs": int(num_designs)}).encode()).decode()}
+            for sid in specs]
+    run_payload = {"data": "rfd3-design", "out_dir": str(out_dir),
+                   "result_dir": str(out_dir), "jobs": jobs, "config": config,
+                   "owner": owner}
+    if run_id:
+        run_payload["run_id"] = run_id
+    run_id = client.create_run(run_payload)["run_id"]
+    if verbose:
+        print(f"Dispatched {len(jobs)} design shard(s) across {online} worker(s) "
+              f"on the fleet at {controller_url}", flush=True)
+
+    results: list[DesignResult] = []
+    failures: dict[str, str] = {}
+    after = 0
+    announced = False
+    last_beat = 0.0
+    multi = num_designs > 1
+    while True:
+        snap = client.events(run_id, after)
+        for ev in snap.get("events", []):
+            after = max(after, int(ev.get("seq", after)))
+            etype = ev.get("event")
+            if etype == "start" and not announced:
+                announced = True
+                # Echo the stage word so log-tailing progress (e.g. the platform)
+                # advances — mirrors the BoltzGen client's "stage:" lines.
+                print("stage: design", flush=True)
+            elif etype == "progress":
+                # Worker liveness relay — keep the log growing (throttled) so a
+                # long silent diffusion run doesn't look wedged.
+                now = time.time()
+                if verbose and now - last_beat >= 30:
+                    last_beat = now
+                    print(f"[design:{ev.get('name', '?')}] diffusing… "
+                          f"{int(ev.get('elapsed_s') or 0)}s elapsed", flush=True)
+            elif etype == "done":
+                row = ev.get("row") or {}
+                sid = str(row.get("name") or row.get("id", "")).removeprefix("rfd3_")
+                if row.get("status") == "ok":
+                    _write_job_outputs(client, run_id, str(row.get("id")), out_dir)
+                    n = int(row.get("num_designs") or 1)
+                    for i in range(n):
+                        p = _design_out_path(out_dir, sid, i, multi=multi)
+                        if p.exists():
+                            results.append(DesignResult(
+                                spec_id=sid, design_idx=i, out_path=p,
+                                final_pcc_vs_ref=None, n_atoms=0))
+                    if verbose:
+                        print(f"[design:{sid}] {n} design(s) done "
+                              f"({row.get('runtime_s', '?')}s)", flush=True)
+                else:
+                    failures[sid] = (row.get("error") or "failed").strip()
+        st = snap.get("status")
+        if st == "canceled":
+            print("Run canceled — stopping.", flush=True)
+            return []
+        if st in ("ok", "failed"):
+            break
+        time.sleep(0.5)
+
+    if failures:
+        for sid, err in failures.items():
+            print(f"  ✗ {sid}: {(err.splitlines() or ['failed'])[0]}", flush=True)
+    if not results and failures:
+        raise RuntimeError(
+            "Every design shard failed — no designs were produced. First error:\n"
+            + next(iter(failures.values()), "unknown (see worker logs)"))
+    return results
 
 
 def _run_design_jobs(jobs, specs, out_dir, *, checkpoint_dir, from_pdb, num_timesteps,
