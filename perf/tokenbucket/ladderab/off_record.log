@@ -1,0 +1,15 @@
+[release-gate] granted card(s) [2]
+
+======================================================================
+[size-ladder] RECORDING baseline for card p300c: opendde at rungs 256,512,640,768
+[size-ladder] predict folds: 6 steps, 1 sample, seed 0, single-sequence; nesso1: tt-bio affinity, bf16 trunk, 5 recycles, 256-token crop
+======================================================================
+[size-ladder] 56 dark lever(s) need a one-line exemption reason — search TODO in /tmp/slb_off_p300c.json and fill them in; the check FAILS on any dark lever without a reason.
+
+##############################################################################
+RELEASE GATE — size-ladder (rungs 256,512,640,768, 6 steps / 1 sample, seed 0, single-sequence, card p300c)  [RECORD]
+##############################################################################
+model              256aa    512aa    640aa    768aa  k256->512  k512->768     wall  result
+opendde            64.7s    79.0s   137.9s   182.7s       0.29       2.07    1635s  PASS
+##############################################################################
+BASELINE RECORDED — fill every TODO exemption reason in /tmp/slb_off_p300c.json, then re-run without --size-ladder-record
