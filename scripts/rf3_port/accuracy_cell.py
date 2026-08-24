@@ -572,6 +572,16 @@ def main() -> int:
         print(f"[seed {s}] {'cached' if per_seed[s].get('cached') else 'ran'} "
               f"{[round(float(x), 1) for x in per_seed[s]['timing']]}", flush=True)
 
+    if args.dev_only and not all((ref_work / f"seed{s}.npz").exists() for s in seeds):
+        # The other half has not landed yet. Every seed is cached, so --rescore finishes
+        # this later; scoring now would be scoring nothing.
+        report["metrics"] = None
+        report["pending"] = (f"reference not yet in {ref_work}; re-run with --rescore "
+                             f"--work {work} --ref-cache {ref_work}")
+        print(json.dumps(report, indent=2))
+        if args.out:
+            Path(args.out).write_text(json.dumps(report, indent=2) + "\n")
+        return 0
     if args.dev_only:
         report["ref_joined_from"] = join_ref(per_seed, seeds, ref_work)
     report["metrics"] = score(per_seed, seeds)
