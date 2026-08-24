@@ -38,7 +38,11 @@ ARMS = {
 }
 
 ROUTE = {
-    "a0": "_fp32_softmax_attention (materialised fp32 softmax, 5-op chain) -- SHIPPED",
+    # a0 overrides nothing, so its route is whatever the tree ships. That is _tri_att_sdpa since
+    # the fast arm became the default; it was _fp32_softmax_attention before the flip. This string
+    # is stamped into every result JSON, so do not hardcode a route name here again -- the
+    # resolved flags below it are the ones that cannot go stale.
+    "a0": "whatever the tree ships, no override applied -- read fp32_softmax under resolved",
     "a1": "_tri_att_sdpa (fused SDPA at the op-default config: HiFi2, math_approx, no fp32_dest_acc)",
     "a2": "_tri_att_sdpa_hifi (fused SDPA at HiFi4 + fp32_dest_acc) above 128 tokens, "
           "_fp32_softmax_attention below",

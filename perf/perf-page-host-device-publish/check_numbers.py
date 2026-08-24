@@ -24,12 +24,12 @@ EXPECT = {
     "protenix-v2": (0.101, 0.619, 50.442, 12.186, 3.947, 4.139),
     "opendde":     (0.125, 6.308, 82.268, 20.640, 3.057, 3.986),
     "openfold3":   (1.839, 0.428, 36.415, 10.263, 3.578, 3.548),
-    # a998c57b re-folded RF3 on the fixed numerics and republished the cell at 82.547 s
-    # (perf/rf3/page512/bisect_fix_p{1,2}_qb2c2.json, session medians 82.451 and 82.840)
-    # without updating this row, so this gate sat red on main until 2026-08-23. The 8.330 s
-    # host share is unchanged and was not re-measured, so the device half moves with the
-    # cell: 82.547 - 8.330 host = 74.217 device.
-    "rf3":         (8.330, 12.459, 74.217, 7.746, 3.621, 9.581),
+    # RF3's 8.330 s Tenstorrent host share is carried rather than re-measured, so the whole of a
+    # cell move lands in the device half: device = cell - 8.330. A republish that left this row
+    # behind is what sat this gate red on main until 2026-08-23, so
+    # perf/rf3/page512/publish_cell.py now rewrites the row and re-runs this file whenever it
+    # moves the cell.
+    "rf3":         (8.330, 12.459, 38.573, 7.746, 2.058, 4.980),
 }
 
 
