@@ -15,6 +15,7 @@ regenerated from the rows that survive, so neither direction leaves stale prose.
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import json
 import sys
 from pathlib import Path
@@ -81,10 +82,19 @@ def main() -> int:
     if args.strip:
         for cat in CATEGORIES:
             keep = []
+            held_ids = {(h["category"], h["row"]["id"]) for h in pending["rows"]}
             for row in rows(doc, cat):
                 if missing(row):
-                    pending["rows"].append({"category": cat, "row": row})
-                    changed.append(f"held {cat}/{row['id']} (missing {', '.join(missing(row))})")
+                    # A second --strip over a tree whose row is already held used to append it
+                    # again, and main carried two copies of all three held rows for it. A
+                    # duplicated hold restores twice: the row draws twice and the subtitle counts
+                    # it twice.
+                    if (cat, row["id"]) not in held_ids:
+                        pending["rows"].append({"category": cat, "row": row})
+                        held_ids.add((cat, row["id"]))
+                        changed.append(f"held {cat}/{row['id']} (missing {', '.join(missing(row))})")
+                    else:
+                        changed.append(f"already held, not duplicated: {cat}/{row['id']}")
                 else:
                     keep.append(row)
             set_rows(doc, cat, keep)
@@ -101,6 +111,9 @@ def main() -> int:
 
     bad = [f"{cat}/{row['id']} missing {', '.join(missing(row))}"
            for cat in CATEGORIES for row in rows(doc, cat) if missing(row)]
+    counts = Counter((h["category"], h["row"]["id"]) for h in pending["rows"])
+    bad += [f"{cat}/{rid} is held {n} times in {PENDING.name}; --restore would publish it {n} times"
+            for (cat, rid), n in counts.items() if n > 1]
     for line in bad:
         print(line, file=sys.stderr)
     if bad:
