@@ -32,6 +32,7 @@ import torch
 import ttnn
 
 from . import protenix_weights as PW
+from .envflags import env_flag
 from .protenix_weights import remap_adaln  # single source of all v2->tt-bio weight remaps
 from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
                           MSA_CHUNK_SIZE, batched_matmul, _narrow_proj_linear, _l1_layer_norm,
@@ -123,7 +124,6 @@ def _token_bucket() -> bool:
     columns at a bias of zero (perf/bucketing_audit/fused_sdpa_ragged_probe.py: relative error
     0.914 ragged against 0.038 aligned).
     """
-    from tt_bio.envflags import env_flag
     return env_flag("TT_BIO_PROTENIX_TOKEN_BUCKET", False)
 
 
@@ -873,7 +873,7 @@ class DiffusionModule(_KeyedWeights):
         self._w = dict(diffusion_state_dict)
         self.dev = device
         self.compute_kernel_config = compute_kernel_config
-        self._diffusion_fp32 = (os.environ.get("PROTENIX_DIFFUSION_FP32_DEVICE", "1") == "1"
+        self._diffusion_fp32 = (env_flag("PROTENIX_DIFFUSION_FP32_DEVICE", True)
                                  if diffusion_fp32 is None else diffusion_fp32)
         self.dtype = ttnn.float32 if self._diffusion_fp32 else ttnn.bfloat16
         # Depths from the weights. For protenix-v2 and OpenDDE these resolve to the class
@@ -1497,7 +1497,6 @@ class ConfidenceHead:
         """True only if the user opted in (TT_PROTENIX_CONF_DEVICE=1) AND the
         installed ttnn exposes every op the device path needs. Off otherwise
         (the host-heads path in confidence() is the default)."""
-        from tt_bio.envflags import env_flag
         if not env_flag("TT_PROTENIX_CONF_DEVICE", False):
             return False
         import ttnn
@@ -1826,7 +1825,7 @@ class Protenix:
         self._c_z = c_z
         def under(pfx):
             return {k[len(pfx):]: v for k, v in self._w.items() if k.startswith(pfx)}
-        resolved_diffusion_fp32 = (os.environ.get("PROTENIX_DIFFUSION_FP32_DEVICE", "1") == "1"
+        resolved_diffusion_fp32 = (env_flag("PROTENIX_DIFFUSION_FP32_DEVICE", True)
                                    if diffusion_fp32 is None else diffusion_fp32)
         # --fast for Protenix changes only the trunk to bf8. The trunk tolerates bf8
         # (s/z PCC 0.99), but bf8 in the coordinate-sensitive diffusion collapses the

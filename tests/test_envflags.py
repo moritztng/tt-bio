@@ -19,6 +19,7 @@ OLD = {
     "eq1":       lambda raw, d: (raw if raw is not None else ("1" if d else "0")) == "1",
     "not_0_or_": lambda raw, d: (raw if raw is not None else ("1" if d else "0")) not in ("0", ""),
     "not_true":  lambda raw, d: (raw if raw is not None else ("1" if d else "0")) in ("1", "true", "True"),
+    "not_in_f":  lambda raw, d: (raw if raw is not None else ("1" if d else "0")) not in ("0", "false", "False"),
 }
 
 
@@ -57,15 +58,24 @@ def test_a_typo_raises_instead_of_picking_a_branch(monkeypatch):
 
 
 def test_no_module_reads_a_gate_by_hand():
-    """Any new ``os.environ.get("TT_BIO_...") == "1"`` must go through env_flag."""
+    """Any hand-rolled boolean gate read must go through env_flag.
+
+    The prefix allow-list this replaced was ``(TT_BIO_|TT_PROTENIX_)``, so a whole
+    family of model-scoped gates -- ``PROTENIX_``, ``OF3_``, ``OPENDDE_``, ``BOLTZ2_``,
+    ``RFD3_`` -- sat outside the scanner. PXDesign then wrote its own
+    ``PROTENIX_DIFFUSION_FP32_DEVICE`` read four days after env_flag landed and the
+    scanner stayed green. Any upper-case name counts now, and the comparand set covers
+    the tuple form (``not in ("0", "false", "False")``) as well as ``== "1"`` / ``!= "0"``.
+    """
     import re
     from pathlib import Path
 
     import tt_bio
 
     root = Path(tt_bio.__file__).parent
-    pat = re.compile(r'os\.environ\.get\(\s*"(TT_BIO_|TT_PROTENIX_)[A-Z0-9_]+"[^)]*\)\s*'
-                     r'(!=|==)\s*"[01]"')
+    boolish = r'"(?:0|1|true|false|True|False|yes|no|on|off)"'
+    pat = re.compile(r'[\w.]*environ\.get\(\s*"[A-Z][A-Z0-9_]*"[^)]*\)\s*'
+                     r'(?:[!=]=\s*' + boolish + r'|(?:not\s+)?in\s*\([^)]*' + boolish + r')')
     bad = []
     for f in root.rglob("*.py"):
         if "_vendor" in f.parts:

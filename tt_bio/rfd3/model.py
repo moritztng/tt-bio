@@ -25,6 +25,7 @@ import torch.nn.functional as F
 import ttnn
 
 from .. import rfd3_bias, softmax_generic
+from ..envflags import env_flag
 from ..tenstorrent import Module, get_device, CORE_GRID_MAIN, attn_value_matmul
 
 # This is a SNAPSHOT, and deliberately left as one. `_configure_active_compute_grid` widens
@@ -61,7 +62,7 @@ from ..tenstorrent import Module, get_device, CORE_GRID_MAIN, attn_value_matmul
 # and keeps only bitwise-identical ones -- measures -4.96% at 3359/D=8 with maxabs exactly
 # 0.0 over a D=8 trajectory. Breaking bit-exactness here buys 0.2 percentage points. So there
 # is no accuracy-for-speed trade to make: take the exact path. Default OFF.
-FAST_GRID = os.environ.get("RFD3_FAST_GRID") == "1"
+FAST_GRID = env_flag("RFD3_FAST_GRID", False)
 BATCH_INVARIANT_GRID = CORE_GRID_MAIN if FAST_GRID else None
 
 
@@ -156,7 +157,7 @@ _TUNED_MM_CACHE = {}
 # slice back to 258. The padding is contiguous at the END, so the slice recovers exactly the
 # tensor the old concat produced, and the rms_norm downstream still reduces over 258.
 # Measured (perf/p53/combined_onehot.json): 31.335 -> 6.168 ms/call, 5.08x, 50.3 ms/step.
-_CONCAT_ALIGNED = os.environ.get("RFD3_CONCAT_ALIGNED", "1") == "1"
+_CONCAT_ALIGNED = env_flag("RFD3_CONCAT_ALIGNED", True)
 # The per-step neighbour graph is the largest single host cost in a design. At the page fixture
 # (6051 atoms) the ledger puts it at 51.9 + 19.8 ms of an 84.8 ms host body, and P3.7 measured
 # 54.3 ms/step of that reaching the wall. It is one chain -- cdist -> masked_fill_ -> topk -- over
@@ -181,7 +182,7 @@ _ATTN_ROW_BLOCK = int(os.environ.get("RFD3_ATTN_ROWBLOCK", "256"))
 # volume is unchanged, because the 18 shipped outputs are logically 16 wide and already tile-padded
 # to 32. Screened in scripts/rfd3_port/p60_pairbias_fusion.py.
 # RFD3_PAIRBIAS_FUSED=0 restores the per-block projection so the fold A/B has an arm.
-_PAIRBIAS_FUSED = os.environ.get("RFD3_PAIRBIAS_FUSED", "1") == "1"
+_PAIRBIAS_FUSED = env_flag("RFD3_PAIRBIAS_FUSED", True)
 _PAIRBIAS_SLOT = 32
 
 # The pair `Transition` is 37 % of every step's DRAM traffic (23.70 of 63.43 GB,
@@ -212,7 +213,7 @@ _PAIRBIAS_SLOT = 32
 # The chunking is NOT where the win is. With the intermediates left in DRAM, chunking alone is a
 # LOSS of 1.3-1.5 ms/call (perf/p64/pair_transition_l1.json arm B): the slice, the closing concat
 # and the extra op count cost more than they return. All of the result is the L1 residency.
-_PAIR_TRANSITION_L1 = os.environ.get("RFD3_PAIR_TRANSITION_L1", "1") == "1"
+_PAIR_TRANSITION_L1 = env_flag("RFD3_PAIR_TRANSITION_L1", True)
 _PAIR_TRANSITION_H_CHUNK = 64                   # measured optimum at both hidden widths
 _PAIR_TRANSITION_L1_BYTES = 138_000_000         # fits at 138 MB live, throws at 185
 _PAIR_TRANSITION_MIN_W = 512                    # token pair is 704 wide; atom pair is 128
@@ -231,9 +232,9 @@ def set_tune_matmul_for_atoms(n_atoms):
     return _TUNE_MATMUL
 # Debug: re-check every cached config against ttnn's default on every call and print any
 # divergence. Doubles the matmul work, so it is for locating a break, not for production.
-_TUNE_AUDIT = os.environ.get("RFD3_TUNE_AUDIT") == "1"
+_TUNE_AUDIT = env_flag("RFD3_TUNE_AUDIT", False)
 # Debug: print what calibration decided per shape, and why.
-_TUNE_LOG = os.environ.get("RFD3_TUNE_LOG") == "1"
+_TUNE_LOG = env_flag("RFD3_TUNE_LOG", False)
 _TUNE_MIN_GAIN = 1.05  # ignore a candidate that is not at least 5% faster than the default
 # Don't calibrate a matmul whose default call is already this fast: an explicit program config
 # costs a fixed amount per call that timing the matmul alone does not see, and under this floor
@@ -1823,7 +1824,7 @@ class LocalAtomTransformer(Module):
     def __call__(self, q_host, c_host, p_host, indices):
         dt, dev = self.dtype, self.device
         p_host = p_host.unsqueeze(0) if p_host.ndim == 3 else p_host
-        if os.environ.get("RFD3_SPARSE_QK", "1") == "1":
+        if env_flag("RFD3_SPARSE_QK", True):
             p, n_keys, attn_idx_dev, dense_bias = _sparse_qk_inputs(
                 p_host, indices, dev, dt, mask_cache=self._mask_cache
             )
@@ -2179,7 +2180,7 @@ class CompactStreamingDecoder(Module):
         valid, pack_idx_dev, unpack_idx_dev, upcast_mask_dev = self._design_buffers(tok_idx, batch)
         p_host = p_host.unsqueeze(0) if p_host.ndim == 2 else p_host
 
-        if os.environ.get("RFD3_SPARSE_QK", "1") == "1":
+        if env_flag("RFD3_SPARSE_QK", True):
             if self.trace:
                 q = self._run_device_sparse_traced(
                     a_host, q_host, c_host, p_host, indices, upcast_mask_dev,
@@ -2759,14 +2760,14 @@ class RFD3DiffusionModule(Module):
         # already accumulates in fp32 (fp32_dest_acc_en=True, HiFi4); this raises the STORAGE
         # dtype of the DM's matmuls/linears/norms to fp32 to stop bf16 rounding compounding
         # across the 18-block DiT stack. Measure before/after; keep default perf intact.
-        if dtype is None and os.environ.get("RFD3_DIT_FP32") == "1":
+        if dtype is None and env_flag("RFD3_DIT_FP32", False):
             dtype = ttnn.float32
         self.dtype = dtype or ttnn.bfloat16
         dt = self.dtype
         # fp32-residual-stream lever (opt-in via RFD3_FP32_RESIDUAL=1): threads through the
         # pure RFD3AtomBlock stacks (DiT + encoder) AND the DiffusionTokenEncoder's 2-block
         # Pairformer stack (the last shallow residual path). Default off = bf16, bit-identical.
-        self._dit_fp32_residual = os.environ.get("RFD3_FP32_RESIDUAL") == "1"
+        self._dit_fp32_residual = env_flag("RFD3_FP32_RESIDUAL", False)
         self.process_r_w = self.torch_to_tt("process_r.weight", dtype=dt)
         self.to_r_n = self.torch_to_tt("to_r_update.0.weight", dtype=dt)
         self.to_r_w = self.torch_to_tt("to_r_update.1.weight", dtype=dt)
@@ -2842,7 +2843,7 @@ class RFD3DiffusionModule(Module):
         # root-caused in p32 (see _trace_output_copy). self.encoder itself is always built with
         # trace=False -- production tracing of the encoder lives in _encoder_downcast_traced,
         # not in LocalAtomTransformer's own (isolated-test-only) trace mechanism.
-        self._trace_encoder = os.environ.get("RFD3_TRACE_ENCODER") == "1"
+        self._trace_encoder = env_flag("RFD3_TRACE_ENCODER", False)
         self._grouping_cache = {}      # batch -> {"valid", "pack_idx_dev", ...}, shared by downcast_c/downcast_q
         self._grouping_owner = None    # (id(tok_idx), shape) the cached slots belong to
         self._encoder_trace_state = None  # {"id", "shape", "q", "c", "p", "mask", "a", "s", "out_q", "out_a"}
@@ -2850,7 +2851,7 @@ class RFD3DiffusionModule(Module):
                                             fp32_residual=self._dit_fp32_residual, trace=False)
         self.decoder = CompactStreamingDecoder(self.scope("decoder"), ckc, dtype=dt,
                                                fp32_residual=self._dit_fp32_residual,
-                                               trace=os.environ.get("RFD3_TRACE_DECODER") == "1")
+                                               trace=env_flag("RFD3_TRACE_DECODER", False))
         # One sparse-QK cache for both: they are handed the same P_LL and the same
         # attn_indices every step, so sharing collapses three identical builds into
         # one (see _sparse_qk_inputs) and leaves one -1e4 scatter template alive

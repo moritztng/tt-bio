@@ -5230,10 +5230,9 @@ class Boltz2(nn.Module):
         # Scoped to the affinity model only (affinity_prediction=True): the
         # structure model has affinity_prediction=False so _diff_use_tt ==
         # use_tenstorrent and its diffusion is byte-for-byte unchanged.
-        import os as _os_diff
         self.affinity_diffusion_fp32_host = (
             affinity_prediction
-            and _os_diff.environ.get("BOLTZ2_AFFINITY_DIFFUSION_FP32_HOST", "0") == "1"
+            and env_flag("BOLTZ2_AFFINITY_DIFFUSION_FP32_HOST", False)
         )
         _diff_use_tt = use_tenstorrent and not self.affinity_diffusion_fp32_host
         self.structure_module = AtomDiffusion(
@@ -5294,8 +5293,7 @@ class Boltz2(nn.Module):
             # affinity pairformer (8 + 4 blocks, small) and heads in fp32 on host
             # removes that bias while the expensive trunk/diffusion stays on device.
             # Gated by BOLTZ2_AFFINITY_FP32_HOST (default on) so it can be A/B'd.
-            import os as _os
-            _aff_host_fp32 = _os.environ.get("BOLTZ2_AFFINITY_FP32_HOST", "1") != "0"
+            _aff_host_fp32 = env_flag("BOLTZ2_AFFINITY_FP32_HOST", True)
             _aff_use_tt = False if _aff_host_fp32 else use_tenstorrent
             if self.affinity_ensemble:
                 self.affinity_module1 = AffinityModule(

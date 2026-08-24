@@ -166,7 +166,7 @@ _DIFFUSION_FP32_DEVICE = False
 # q@k score matmul already uses fp32_dest_acc, so per memory
 # boltz-reference-selective-fp32-softmax the softmax is the remaining mismatch. Set
 # BOLTZ2_FP32_SOFTMAX=1 to A/B; default OFF until a leg closes against it.
-_FP32_SOFTMAX = os.environ.get("BOLTZ2_FP32_SOFTMAX", "0") == "1"
+_FP32_SOFTMAX = env_flag("BOLTZ2_FP32_SOFTMAX", False)
 # Benchmark-only escape hatch: compare the pre-decomposition channel moves.
 _TRIMUL_RAW_CHANNEL_MOVES = False
 # The trimul channel move's hand-written kernel is the fifth knob in this class and its constant
@@ -820,21 +820,21 @@ _ATOM_PAD_IN_TILE = env_flag("TT_BIO_ATOM_PAD_IN_TILE", True)
 # x 24 token layers + 400 x 3 atom layers). Measured in-fold as stage:DiffusionTransformer minus
 # its two layer regions: 449.2 ms. Bit-exact and memory-neutral -- the parts partition the whole
 # and the source is freed.
-_B2_BIAS_SLICE_HOIST = os.environ.get("BOLTZ2_BIAS_SLICE_HOIST", "1") == "1"
+_B2_BIAS_SLICE_HOIST = env_flag("BOLTZ2_BIAS_SLICE_HOIST", True)
 
 # L6: memoise AdaLN's conditioning half on the atom path. `s` there is the atom conditioning
 # `_c_reshaped`, cached once per fold, so 2400 calls per fold recompute 12 answers. This is
 # 717d36712 (openfold3's atom transformer, -1.565 s at 512 aa, bit-exact) applied to boltz-2.
 # The pair is held in DRAM: 24 retained L1 tensors of 1.83 MB would keep ~44 MB of L1 for the
 # whole rollout and clash with a later op's circular buffers.
-_B2_ADALN_S_MEMO = os.environ.get("BOLTZ2_ADALN_S_MEMO", "1") == "1"
+_B2_ADALN_S_MEMO = env_flag("BOLTZ2_ADALN_S_MEMO", True)
 
 # S6: route the token-level diffusion transformer's attention through the fused ttnn SDPA,
 # deleting the materialised [1, 16, 512, 512] logits tensor and its five DRAM traversals.
 # NOT bit-exact: the fused kernel keeps the exponentiated scores in a bf16 circular buffer.
 # The trunk's 264 calls are deliberately NOT rerouted -- the trunk hands its pair bias over in
 # L1, where ttnn SDPA TT_FATALs, and the forced spill is what confounded the predecessor's arm.
-_B2_TOKEN_DIT_SDPA = os.environ.get("BOLTZ2_TOKEN_DIT_SDPA", "0") == "1"
+_B2_TOKEN_DIT_SDPA = env_flag("BOLTZ2_TOKEN_DIT_SDPA", False)
 
 # C2, the triangle bias cast to bfloat8_b before the SDPA. OFF by default and it stays off until a
 # fold-level parity gate clears it: at N=512 the op-level error is rmsd/std 0.002547 at PCC

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-import os
 from dataclasses import dataclass
 
 import torch
@@ -13,6 +12,7 @@ from .openfold3_confidence import OF3ConfidenceHead
 from .openfold3_trunk import OF3Trunk
 from .openfold3_sample_diffusion import OF3SampleDiffusion
 from .openfold3_weights import _sub
+from .envflags import env_flag
 
 
 def kabsch_rmsd(pred_ca, gt_ca):
@@ -209,7 +209,7 @@ class OpenFold3(Module):
         # default-on). In bf16 the 9BK6 complex leg misses the all-atom noise floor
         # (X 1.889 > 1.821 threshold); in fp32 it passes (X 1.627, seeds 0-4:
         # 1.35-2.18 A). OF3_DIFFUSION_FP32_DEVICE=0 opts back out to bf16.
-        if os.environ.get("OF3_DIFFUSION_FP32_DEVICE", "1") == "1":
+        if env_flag("OF3_DIFFUSION_FP32_DEVICE", True):
             with device_dtype_override(ttnn.float32):
                 self.sampler = OF3SampleDiffusion(_sub(sd, "diffusion_module"),
                                                   compute_kernel_config,

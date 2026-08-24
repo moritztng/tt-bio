@@ -27,10 +27,11 @@ packer's rounding is the same rounding.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import ttnn
+
+from .envflags import env_flag
 
 TILE = 32
 _TILE_BYTES = {ttnn.bfloat16: 2048, ttnn.float32: 4096}
@@ -265,7 +266,7 @@ def softmax_into(device, x, out, grid=None, ckc=None, numeric_stable=True):
 
 SSTATS = [0]                       # calls served, so an A/B arm cannot silently decline
 
-_ENABLED = os.environ.get("RFD3_SOFTMAX_BF16", "1") not in ("0", "false", "False")
+_ENABLED = env_flag("RFD3_SOFTMAX_BF16", True)
 
 
 def set_enabled(on: bool) -> bool:
@@ -279,7 +280,7 @@ def set_enabled(on: bool) -> bool:
 # (p74 S2, maxabs 0 at [1,4,6051,6080]). The small kernel's is not yet, so shapes that do not
 # cross the factory's large-kernel trip fall back to the shipped pair until p74's S2 column is
 # green at the DiT rungs too. Flip with `RFD3_SOFTMAX_BF16_SMALL=1` once it is.
-_SMALL_OK = os.environ.get("RFD3_SOFTMAX_BF16_SMALL", "0") not in ("0", "false", "False")
+_SMALL_OK = env_flag("RFD3_SOFTMAX_BF16_SMALL", False)
 
 
 def set_small_enabled(on: bool) -> bool:

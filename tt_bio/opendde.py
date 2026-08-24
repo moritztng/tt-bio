@@ -18,6 +18,7 @@ import torch
 import ttnn
 
 from .protenix import _KeyedWeights
+from .envflags import env_flag
 from .tenstorrent import _acc_concat, concat_host_bytes, get_device
 
 # opendde/data/tokenizer.py
@@ -404,10 +405,9 @@ class OpenDDE:
         # so it needs an opt-out that does not also flip Protenix-v2 (which is what
         # PROTENIX_DIFFUSION_FP32_DEVICE would do -- tt-bio-shared-diffusion-global-env-default-regression).
         # Diagnostic only: fp32 here is >60x slower on OpenDDE's atom-level tensors.
-        import os
         self._protenix = Protenix(
             self._shared, compute_kernel_config, self.dev, c_z=C["c_z"], msa_update_first=True,
-            diffusion_fp32=os.environ.get("OPENDDE_DIFFUSION_FP32", "0") == "1", gated_move=True,
+            diffusion_fp32=env_flag("OPENDDE_DIFFUSION_FP32", False), gated_move=True,
             softmax_scope="opendde")
         self.expander = StructuralTokenExpander(
             routed["expander"], compute_kernel_config, c_s=C["c_s"], c_z=C["c_z"],
