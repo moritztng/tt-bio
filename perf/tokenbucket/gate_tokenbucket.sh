@@ -70,9 +70,12 @@ run() {  # rc is the command's, not an echo's (pass 2 logged rc=0 over four hard
   return 0   # never abort the chain on one red leg; every leg's log is wanted
 }
 
-# 1. Correctness. Own --workdir: full_parity_gate keys cached per-leg reports on leg id alone, so
-# the shared /tmp/full_parity_gate would replay another tree's verdicts as this branch's.
-run parity "$PY" -u scripts/full_parity_gate.py --workdir /tmp/full_parity_gate-tokenbucket \
+# 1. Correctness. Own --workdir, keyed on HEAD: full_parity_gate keys cached per-leg reports on leg
+# id alone, so the shared /tmp/full_parity_gate would replay another tree's verdicts as this
+# branch's. Its own code fingerprint over tt_bio+scripts then refuses to resume across a rebase,
+# which is right, but it leaves the old dir behind, so the dir names the commit it was built for and
+# a relaunch at the same HEAD still resumes that commit's folds.
+run parity "$PY" -u scripts/full_parity_gate.py --workdir /tmp/full_parity_gate-tokenbucket-${HEAD:0:12} \
   --workers $HOSTTAG:$CARD \
   --leg protenix-prot-msa --leg protenix-ubq-msa --leg protenix-hsa-msa --leg protenix-9ncy-msa \
   --leg opendde-trpcage-nomsa --leg opendde-prot-prod --leg opendde-abag --leg capacity
