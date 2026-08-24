@@ -140,8 +140,20 @@ the largest supported target (`examples/abag_pilot_expansion/9j4c_abag.yaml`,
 it exceeds the budget or if the run writes fewer structures than it was asked
 for. Set `RELEASE_GATE_CAPACITY_MAX_GIB` to gate a card with a different budget.
 
-The **l1-budget** leg gates a part rather than a number. Every L1-edge budget in
-`tt_bio/tenstorrent.py` was fitted on a 130-core p150a, and `_apply_grid_thresholds`
+The **rf3-1024aa** leg is RF3's accuracy floor at a length a customer target actually has.
+Every fold model here is otherwise scored on the same 117-residue target, and the defects that
+hide at length are size-specific: a token axis that stops bucketing to 32, an L1 gate fitted at
+512 aa, a fused-SDPA chunk that declines off-lattice. The leg folds 7EIP at 997 aa and gates the
+device's CA-RMSD to the deposited crystal at 4.0 A against 1.9687 A measured. It gates the crystal
+rather than X (device vs reference) on purpose: X moves when the reference cache is regenerated on
+another backend, so a release would fail for the reference moving rather than for the port. X and
+the reference's own crystal distance are reported alongside as evidence. One seed, one device
+rollout, about 5 minutes. It needs the RF3 checkpoint (`tt-bio weights fetch rf3`), which
+`--check` verifies card-free.
+
+The **l1-budget** arm gates a part rather than a number. It and **batch-position** below
+run in `release_gate.py`, not in the full gate, so a release runs both commands.
+Every L1-edge budget in `tt_bio/tenstorrent.py` was fitted on a 130-core p150a, and `_apply_grid_thresholds`
 keeps those values on any grid of 110 cores or more, so a P300's 110 cores ran budgets
 fitted for 130 and a mid-size target died at program creation with an L1
 circular-buffer clash (#11). No other leg could see it: they compare numbers, and a
@@ -153,7 +165,7 @@ never clashed. **A part-specific resource figure entering `tenstorrent.py` gets 
 `L1_BUDGET_PARTS` in the same commit** — the leg fails if a selectable grid has no row.
 See `docs/part-l1-budgets.md` for the measured figures and their provenance.
 
-The **batch-position** leg gates a job shape rather than a target. Every other leg
+The **batch-position** arm gates a job shape rather than a target. Every other leg
 folds one target per process, so a result that depends on where a target sits in the
 batch has nothing to differ from and none of them can see it. v0.6.4 shipped exactly
 that: three byte-identical Boltz-2 affinity targets in one job scored 0.648724 /
@@ -169,9 +181,10 @@ without it, a run where every fold collapsed to one constant would also pass.
 sanity look, but it is no longer the parity gate of record — `full_parity_gate.py`
 is the command that must pass before a tag. The two do not overlap awkwardly:
 the full gate runs the BoltzGen designability and OpenDDE-abag DockQ legs by
-calling `release_gate`'s vetted `run_boltzgen` / `run_opendde_abag` / `run_nesso1`
-**in-process** (capturing their real scRMSD/DockQ/scalar numbers), so there is one
-implementation of each leg, not two.
+calling `release_gate`'s vetted `run_boltzgen` / `run_opendde_abag` / `run_nesso1` /
+`run_capacity_all` / `run_rf3_1024aa` **in-process**, capturing the real scRMSD, DockQ,
+scalar, DRAM and crystal-RMSD numbers, so there is one implementation of each leg, not two.
+The two arms that stay `release_gate`-only are `l1-budget` and `batch-position`.
 
 Nesso-1 is scored by `release_gate.py --model nesso1`, which needs no ccd.pkl setup:
 `find_ccd` downloads the 413 MB file from the checkpoint repo on a miss, so `NESSO_CACHE`
