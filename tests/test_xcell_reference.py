@@ -215,6 +215,57 @@ def test_tied_head_reads_the_raw_not_the_normalised_embedding():
     assert (a - c).abs().max() > 1e-3
 
 
+# ------------------------------------------------- cross-validation against a real released impl
+
+def test_legacy_block_matches_torchs_own_postln_encoder_layer():
+    """The one part of this reconstruction with an EXTERNAL reference, so it gets a test.
+
+    Everything else here is checked against itself or against a published parameter count. But
+    X-Cell Mini's block is scGPT's, and scGPT's encoder layer IS
+    `torch.nn.TransformerEncoderLayer(norm_first=False, activation="relu")`. So the Post-LN claim
+    can be checked against PyTorch's own implementation rather than against our reading of it.
+    Measured: 4.8e-07, fp32 noise.
+    """
+    torch.manual_seed(0)
+    from tt_bio.xcell_reference import LegacyBlock
+
+    d, h, s_len, n = 64, 4, 24, 3
+    cfg = _cfg(d_model=d, n_heads=h, block="legacy")
+    ours = LegacyBlock(cfg, cross=False).eval()
+    theirs = torch.nn.TransformerEncoderLayer(
+        d_model=d, nhead=h, dim_feedforward=cfg.d_ff, dropout=0.0,
+        activation="relu", batch_first=True, norm_first=False).eval()
+    with torch.no_grad():
+        theirs.self_attn.in_proj_weight.copy_(
+            torch.cat([ours.attn.q.weight, ours.attn.k.weight, ours.attn.v.weight], 0))
+        theirs.self_attn.in_proj_bias.copy_(
+            torch.cat([ours.attn.q.bias, ours.attn.k.bias, ours.attn.v.bias], 0))
+        theirs.self_attn.out_proj.weight.copy_(ours.attn.o.weight)
+        theirs.self_attn.out_proj.bias.copy_(ours.attn.o.bias)
+        theirs.linear1.weight.copy_(ours.fc1.weight); theirs.linear1.bias.copy_(ours.fc1.bias)
+        theirs.linear2.weight.copy_(ours.fc2.weight); theirs.linear2.bias.copy_(ours.fc2.bias)
+        theirs.norm1.weight.copy_(ours.attn_norm.weight)
+        theirs.norm1.bias.copy_(ours.attn_norm.bias)
+        theirs.norm2.weight.copy_(ours.ffn_norm.weight)
+        theirs.norm2.bias.copy_(ours.ffn_norm.bias)
+        x = torch.randn(n, s_len, d)
+        assert (ours(x, None, None) - theirs(x)).abs().max() < 1e-5
+
+
+def test_modern_block_does_not_match_a_postln_layer():
+    """The negative control for the test above: if both matched, the two blocks would not
+    actually differ and `XCellConfig.block` would be decorative."""
+    torch.manual_seed(0)
+    d, h, s_len, n = 64, 4, 24, 3
+    modern = XCell(_cfg(d_model=d, n_heads=h, block="modern")).blocks[0].eval()
+    theirs = torch.nn.TransformerEncoderLayer(
+        d_model=d, nhead=h, dim_feedforward=4 * d, dropout=0.0,
+        activation="relu", batch_first=True, norm_first=False).eval()
+    x = torch.randn(n, s_len, d)
+    with torch.no_grad():
+        assert (modern(x, None, None) - theirs(x)).abs().max() > 0.1
+
+
 # ---------------------------------------------------------------- priors / masking
 
 def test_missing_prior_is_masked_not_attended_as_zeros():
