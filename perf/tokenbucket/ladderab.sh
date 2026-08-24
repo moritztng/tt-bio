@@ -16,7 +16,8 @@
 # whole informative content of the arm.
 set -u
 WT=/home/ttuser/.coworker/wt/tokenbucket-rebase-and-land
-PY=/home/ttuser/tt-bio-dev/env/bin/python3
+# v0.7.0 raised the declared pins (transformers>=5.5.0); tt-bio-dev/env is on 4.57.6.
+PY=${GATE_PYTHON:-/home/ttuser/.coworker/rel070/relvenv/bin/python3}
 CARD=${CARD:?}
 OUT=$WT/perf/tokenbucket/ladderab
 mkdir -p "$OUT"
@@ -33,6 +34,13 @@ env $LEASE PYTHONPATH=$WT ESM_ROOT=/home/ttuser/esm PATH=/home/ttuser/tt-bio/env
     > "$OUT/off_record.log" 2>&1
 log "END off-arm record rc=$?"
 cp -f /tmp/slb_off_p300c.json "$OUT/baseline_off_p300c.json" 2>/dev/null
+
+# The recorder leaves every dark lever's reason as a TODO and the comparison FAILS on any dark
+# lever that still has one. That guard is right for a committed baseline and wrong here: this file
+# is a scratch OFF-arm control, so darkness is the reference state, not a finding. Left in, it
+# buried ~15 real ON-vs-OFF deltas under 56 lines about the OFF arm.
+"$PY" perf/tokenbucket/stamp_off_reasons.py /tmp/slb_off_p300c.json
+cp -f /tmp/slb_off_p300c.json "$OUT/baseline_off_p300c.json"
 
 log "BEGIN on-arm compare vs the off arm"
 env $LEASE PYTHONPATH=$WT ESM_ROOT=/home/ttuser/esm PATH=/home/ttuser/tt-bio/env/bin:$PATH \
