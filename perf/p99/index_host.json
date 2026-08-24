@@ -1,0 +1,107 @@
+{
+  "tag": "early",
+  "reps": 20,
+  "steps": 200,
+  "L": 6051,
+  "n_key": 6080,
+  "k_sparse": 128,
+  "threads": 1,
+  "host": "tt-quietbox2",
+  "tags": [
+    "early",
+    "late",
+    "mid"
+  ],
+  "sweep": [
+    {
+      "Q": 160,
+      "n_blocks": 38,
+      "u_width": 1760,
+      "u_max": 1747,
+      "unique_ms": 23.9097,
+      "bitmap_ms": 2.4152,
+      "unique_s_per_design": 4.7819,
+      "bitmap_s_per_design": 0.483,
+      "gather_identical": true,
+      "pos_identical": true,
+      "u_max_per_tag": {
+        "early": 1747,
+        "late": 1200,
+        "mid": 2592
+      },
+      "u_bucket_bound": 2592
+    },
+    {
+      "Q": 320,
+      "n_blocks": 19,
+      "u_width": 2048,
+      "u_max": 2028,
+      "unique_ms": 16.6504,
+      "bitmap_ms": 2.2354,
+      "unique_s_per_design": 3.3301,
+      "bitmap_s_per_design": 0.4471,
+      "gather_identical": true,
+      "pos_identical": true,
+      "u_max_per_tag": {
+        "early": 2028,
+        "late": 1673,
+        "mid": 3020
+      },
+      "u_bucket_bound": 3040
+    },
+    {
+      "Q": 608,
+      "n_blocks": 10,
+      "u_width": 2496,
+      "u_max": 2472,
+      "unique_ms": 16.7269,
+      "bitmap_ms": 2.0981,
+      "unique_s_per_design": 3.3454,
+      "bitmap_s_per_design": 0.4196,
+      "gather_identical": true,
+      "pos_identical": true,
+      "u_max_per_tag": {
+        "early": 2472,
+        "late": 2356,
+        "mid": 3645
+      },
+      "u_bucket_bound": 3648
+    },
+    {
+      "Q": 1216,
+      "n_blocks": 5,
+      "u_width": 3264,
+      "u_max": 3241,
+      "unique_ms": 16.8107,
+      "bitmap_ms": 2.0175,
+      "unique_s_per_design": 3.3621,
+      "bitmap_s_per_design": 0.4035,
+      "gather_identical": true,
+      "pos_identical": true,
+      "u_max_per_tag": {
+        "early": 3241,
+        "late": 2909,
+        "mid": 4204
+      },
+      "u_bucket_bound": 4224
+    },
+    {
+      "Q": 3040,
+      "n_blocks": 2,
+      "u_width": 3936,
+      "u_max": 3936,
+      "unique_ms": 17.018,
+      "bitmap_ms": 1.8047,
+      "unique_s_per_design": 3.4036,
+      "bitmap_s_per_design": 0.3609,
+      "gather_identical": true,
+      "pos_identical": true,
+      "u_max_per_tag": {
+        "early": 3936,
+        "late": 4148,
+        "mid": 5261
+      },
+      "u_bucket_bound": 5280
+    }
+  ]
+}

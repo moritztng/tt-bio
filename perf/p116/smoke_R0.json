@@ -1,0 +1,190 @@
+{
+  "spec": "perf/dsfix/fixtures/rfd3_R0.json",
+  "rows": [
+    {
+      "arm": "b1",
+      "batch": 1,
+      "rep": 0,
+      "round": 0,
+      "sampler_wall_s": 4.865,
+      "n_designs": 2,
+      "batches": 2,
+      "batches_expected": 2,
+      "arm_verified": true,
+      "s_per_design": 2.433,
+      "digests": {
+        "R0_b100#0": "361d5ce28d627073",
+        "R0_b100#1": "9e5e86bea13adddb"
+      },
+      "effective_batch": 1,
+      "loadavg": 7.32,
+      "L_atoms": 2299,
+      "n_atoms_seen": [
+        2299
+      ],
+      "calls": 38,
+      "call_q10_s": 0.11639,
+      "call_median_s": 0.11781,
+      "calls_covered_frac": 0.9987,
+      "robust_s_per_design": 2.211
+    },
+    {
+      "arm": "b2",
+      "batch": 2,
+      "rep": 0,
+      "round": 0,
+      "sampler_wall_s": 4.51,
+      "n_designs": 2,
+      "batches": 1,
+      "batches_expected": 1,
+      "arm_verified": true,
+      "s_per_design": 2.255,
+      "digests": {
+        "R0_b100#0": "361d5ce28d627073",
+        "R0_b100#1": "9e5e86bea13adddb"
+      },
+      "effective_batch": 2,
+      "loadavg": 6.7,
+      "L_atoms": 2299,
+      "n_atoms_seen": [
+        2299
+      ],
+      "calls": 19,
+      "call_q10_s": 0.21562,
+      "call_median_s": 0.21687,
+      "calls_covered_frac": 0.9991,
+      "robust_s_per_design": 2.048
+    },
+    {
+      "arm": "b1",
+      "batch": 1,
+      "rep": 1,
+      "round": 1,
+      "sampler_wall_s": 4.878,
+      "n_designs": 2,
+      "batches": 2,
+      "batches_expected": 2,
+      "arm_verified": true,
+      "s_per_design": 2.439,
+      "digests": {
+        "R0_b100#0": "361d5ce28d627073",
+        "R0_b100#1": "9e5e86bea13adddb"
+      },
+      "effective_batch": 1,
+      "loadavg": 6.7,
+      "L_atoms": 2299,
+      "n_atoms_seen": [
+        2299
+      ],
+      "calls": 38,
+      "call_q10_s": 0.11693,
+      "call_median_s": 0.11808,
+      "calls_covered_frac": 0.9986,
+      "robust_s_per_design": 2.222
+    },
+    {
+      "arm": "b2",
+      "batch": 2,
+      "rep": 1,
+      "round": 1,
+      "sampler_wall_s": 4.556,
+      "n_designs": 2,
+      "batches": 1,
+      "batches_expected": 1,
+      "arm_verified": true,
+      "s_per_design": 2.278,
+      "digests": {
+        "R0_b100#0": "361d5ce28d627073",
+        "R0_b100#1": "9e5e86bea13adddb"
+      },
+      "effective_batch": 2,
+      "loadavg": 6.54,
+      "L_atoms": 2299,
+      "n_atoms_seen": [
+        2299
+      ],
+      "calls": 19,
+      "call_q10_s": 0.21722,
+      "call_median_s": 0.21983,
+      "calls_covered_frac": 0.9989,
+      "robust_s_per_design": 2.064
+    }
+  ],
+  "num_timesteps": 20,
+  "reps": 2,
+  "L_atoms": 2299,
+  "atoms_per_spec": {
+    "R0_b100": 2299
+  },
+  "arms": [
+    1,
+    2
+  ],
+  "designs_per_fold": 2,
+  "atom_pair_budget_admits": 17,
+  "shipped_speed_cap": 1,
+  "shipped_speed_cap_above_atoms": 2952,
+  "shipped_effective_batch_at_8": 8,
+  "per_arm_s_per_design": {
+    "b1": 2.435730345248885,
+    "b2": 2.2664852262496424
+  },
+  "per_arm_min": {
+    "b1": 2.4326150129982125,
+    "b2": 2.2549837749993458
+  },
+  "per_arm_max": {
+    "b1": 2.4388456774995575,
+    "b2": 2.277986677499939
+  },
+  "b1_aa_spread_frac": 0.00256,
+  "best_batched_arm": {
+    "batch": 2,
+    "s_per_design": 2.266,
+    "gain_frac": 0.06948,
+    "digest_identical": true,
+    "threshold_frac": 0.00767
+  },
+  "verdict": "RAISE to b=2: 2.266 vs 2.436 s/design, +6.948 % > 0.767 % threshold, bit-exact",
+  "paired_round_ratios": {
+    "b2": {
+      "n_rounds": 2,
+      "ratios": [
+        0.92698,
+        0.93404
+      ],
+      "median_ratio": 0.93051,
+      "worst": 0.93404,
+      "best": 0.92698
+    }
+  },
+  "robust_per_arm": {
+    "b1": {
+      "med": 2.21654,
+      "lo": 2.21137,
+      "hi": 2.22171,
+      "n": 2
+    },
+    "b2": {
+      "med": 2.05599,
+      "lo": 2.04844,
+      "hi": 2.06355,
+      "n": 2
+    }
+  },
+  "robust_aa_spread_frac": 0.00466,
+  "robust_verdict": "RAISE b=2: robust +7.243 % against a 1.399 % threshold",
+  "per_round_s_per_design": {
+    "b1": {
+      "0": 2.433,
+      "1": 2.439
+    },
+    "b2": {
+      "0": 2.255,
+      "1": 2.278
+    }
+  },
+  "host": "tt-quietbox2",
+  "card": 1,
+  "partial": false
+}

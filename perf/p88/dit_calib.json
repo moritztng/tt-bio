@@ -1,0 +1,80 @@
+{
+  "rows": [
+    {
+      "arm": "on",
+      "rep": 0,
+      "s_per_design": 95.8,
+      "n_cifs": 1,
+      "fused_calls": 7164,
+      "fused_expected": 7200,
+      "arm_verified": false,
+      "ineligible": 0,
+      "cif_sha256_16": "5295e526ebd0b757"
+    },
+    {
+      "arm": "on",
+      "rep": 1,
+      "s_per_design": 95.4,
+      "n_cifs": 1,
+      "fused_calls": 7164,
+      "fused_expected": 7200,
+      "arm_verified": false,
+      "ineligible": 0,
+      "cif_sha256_16": "5295e526ebd0b757"
+    },
+    {
+      "arm": "off",
+      "rep": 2,
+      "s_per_design": 97.213,
+      "n_cifs": 1,
+      "fused_calls": 0,
+      "fused_expected": 0,
+      "arm_verified": true,
+      "ineligible": 0,
+      "cif_sha256_16": "5295e526ebd0b757"
+    },
+    {
+      "arm": "off",
+      "rep": 3,
+      "s_per_design": 96.35,
+      "n_cifs": 1,
+      "fused_calls": 0,
+      "fused_expected": 0,
+      "arm_verified": true,
+      "ineligible": 0,
+      "cif_sha256_16": "5295e526ebd0b757"
+    }
+  ],
+  "num_timesteps": 200,
+  "arms": [
+    "on",
+    "on",
+    "off",
+    "off"
+  ],
+  "seed": 42,
+  "flag": "RFD3_DENSE_BIAS_FUSED",
+  "arms_all_verified": false,
+  "on_median_s": 95.6,
+  "off_median_s": 96.7815,
+  "aa_control_s": [
+    95.8,
+    95.4
+  ],
+  "aa_spread_s": 0.3999999999999915,
+  "fold_delta_s": 1.181,
+  "isolated_delta_s": 2.2,
+  "dit_isolated_over_fold": 1.862,
+  "head_dim_isolated_s": 5.8,
+  "head_dim_fold_implied_s": 3.115,
+  "digests": {
+    "on": [
+      "5295e526ebd0b757"
+    ],
+    "off": [
+      "5295e526ebd0b757"
+    ]
+  },
+  "host": "tt-quietbox2",
+  "card": 3
+}

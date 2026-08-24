@@ -26,6 +26,7 @@ import ttnn
 
 from .. import rfd3_bias, softmax_generic
 from ..envflags import env_flag
+from . import block_sparse as _BS
 from ..tenstorrent import Module, get_device, CORE_GRID_MAIN, attn_value_matmul
 
 # This is a SNAPSHOT, and deliberately left as one. `_configure_active_compute_grid` widens
@@ -158,6 +159,13 @@ _TUNED_MM_CACHE = {}
 # tensor the old concat produced, and the rms_norm downstream still reduces over 258.
 # Measured (perf/p53/combined_onehot.json): 31.335 -> 6.168 ms/call, 5.08x, 50.3 ms/step.
 _CONCAT_ALIGNED = env_flag("RFD3_CONCAT_ALIGNED", True)
+# p89: process_z normalises over 258 columns of which 130 are a one-hot, and the 128 that are
+# not are Z_init_II -- fixed for the whole design. So the rms scale and the z half of the linear
+# are both loop invariants, and the one-hot half is a table lookup. Three device ops per call
+# instead of six, 5.03 ms against 15.14 at [1,685,685,*] (perf/p89/process_z.json). Splitting one
+# fp32 accumulation into two bf16-rounded halves is not bit-exact (~1 bf16 ulp, rel median
+# 4.8e-3), so it is off by default and release-gated.
+_PROCESS_Z_COLLAPSE = env_flag("RFD3_PROCESS_Z_COLLAPSE", False)
 # The per-step neighbour graph is the largest single host cost in a design. At the page fixture
 # (6051 atoms) the ledger puts it at 51.9 + 19.8 ms of an 84.8 ms host body, and P3.7 measured
 # 54.3 ms/step of that reaching the wall. It is one chain -- cdist -> masked_fill_ -> topk -- over
@@ -214,6 +222,53 @@ _PAIRBIAS_SLOT = 32
 # LOSS of 1.3-1.5 ms/call (perf/p64/pair_transition_l1.json arm B): the slice, the closing concat
 # and the extra op count cost more than they return. All of the result is the L1 residency.
 _PAIR_TRANSITION_L1 = env_flag("RFD3_PAIR_TRANSITION_L1", True)
+
+
+# The atom attention's score tensor is [1, 4, 6051, 6080] fp32 = 588.6 MB at the page fixture, and
+# 128 columns of each row carry a real value: every other column is the -1e4 mask, whose exp
+# underflows to exactly 0.0. So 47.5x of the softmax's traffic contributes nothing to any row sum.
+# Under this flag the row reduction runs on the gathered [1, 4, 6051, 128] form (12.4 MB) and the
+# result is scattered back into a zero template.
+#
+# NOT bit-exact, and that is the whole point of the flag. The scores are bit-identical under
+# gathering -- the QK dot is one tile deep, so the dot-product tree does not depend on the N tiling
+# -- and the set of contributing terms is identical, because the masked columns are exact zeros
+# after exp. What changes is the ORDER: 128 contiguous terms reduce in a different tree from 128
+# terms scattered through 6080, and fp32 addition is not associative. Downstream that is a sub-ULP
+# perturbation of a bf16 attention weight, which 200 diffusion steps turn into a different
+# structure. Default OFF until the accuracy envelope in scripts/rfd3_port/p78_envelope_spec.json
+# reads out; the bar was committed (8ae442c5) before the first number existed.
+#
+# Upstream RFD3 computes this attention in exactly the gathered form: `sparse_pairbias_attention` is
+# the only pair-bias path in the released rc-foundry 0.2.0, and it still serves 28656 of 35820
+# pair-bias calls on the H200 arm that produces our own 12.974 s/design denominator. The dense
+# formulation is a tt-bio tiling choice, not the reference's.
+_GATHERED_SOFTMAX = env_flag("RFD3_GATHERED_SOFTMAX", False)
+# ttnn.gather (0.68.0) on dim 3 silently returns wrong data for every tile-row after the first
+# once the indexed axis exceeds this many elements: 99.87 % of elements wrong at the production
+# [1,4,6051,6080], and ~100x slower at the same threshold. The trigger is element count, not
+# bytes -- bf16 breaks at 2048 while fp32 at 1920 (7.5 KB/row) is exact. Measured in
+# scripts/rfd3_port/p81{,b,c}_*.py, perf/p81/*.json. ttnn.scatter at the same shape is clean.
+_TTNN_GATHER_MAX_KEY_AXIS = 1920
+
+
+def set_gathered_softmax(on):
+    """Toggle the gathered atom softmax from a screen without going through the environment."""
+    global _GATHERED_SOFTMAX
+    _GATHERED_SOFTMAX = bool(on)
+
+# [collapsed calls, shipped calls]. A silent arm is what made p86's batching result wrong, so both
+# process_z branches count themselves: the on arm must show shipped == 0 and the off arm
+# collapsed == 0, at the same total.
+PZSTATS = [0, 0]
+
+
+def set_process_z_collapse(on):
+    """Toggle the collapsed process_z from a screen without going through the environment."""
+    global _PROCESS_Z_COLLAPSE
+    _PROCESS_Z_COLLAPSE = bool(on)
+
+
 _PAIR_TRANSITION_H_CHUNK = 64                   # measured optimum at both hidden widths
 _PAIR_TRANSITION_L1_BYTES = 138_000_000         # fits at 138 MB live, throws at 185
 _PAIR_TRANSITION_MIN_W = 512                    # token pair is 704 wide; atom pair is 128
@@ -554,6 +609,21 @@ def _tt_host(x, dtype=ttnn.bfloat16):
     return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, dtype=dtype)
 
 
+def _pair_transition_chunk_h(batch, w_pad, hidden, height):
+    """Rows of the pair tensor one L1-resident SwiGLU chunk may cover.
+
+    Live per chunk is `b` + `m`, both [batch, h, w_pad, hidden] bf16, so the batch is part
+    of the footprint. It used to be missing, and that is what closed batching for three
+    passes: at b=2 and h=64 each resident is 2*64*704*512*2 = 92 274 688 B, the second one
+    fails against 68.4 MB free, and the crash lands on `m` in `_swiglu`. That byte figure
+    is exactly the request in `perf/p76/batch_r4_qb2.log`. Dividing by the batch holds the
+    live footprint at the measured-safe 138 MB whatever the batch is, and is a no-op at
+    b=1, where the cap is 95 either way and h stays 64.
+    """
+    cap = _PAIR_TRANSITION_L1_BYTES // (4 * max(1, batch) * w_pad * hidden)
+    return max(1, min(height, _PAIR_TRANSITION_H_CHUNK, cap))
+
+
 def _tt_refresh(x, dev_tensor, dtype=ttnn.bfloat16):
     """Overwrite a persistent trace-input buffer with fresh host data."""
     ttnn.copy_host_to_device_tensor(_tt_host(x, dtype), dev_tensor)
@@ -605,9 +675,7 @@ class Transition(Module):
                 and x.shape[2] >= _PAIR_TRANSITION_MIN_W):
             return self._swiglu(x, None)
         H, hidden = x.shape[1], int(self.fc1_w.shape[-1])
-        # Live per chunk is `b` + `m`, both [1, h, W_pad, hidden] bf16.
-        cap = _PAIR_TRANSITION_L1_BYTES // (4 * int(x.padded_shape[2]) * hidden)
-        h = max(1, min(H, _PAIR_TRANSITION_H_CHUNK, cap))
+        h = _pair_transition_chunk_h(x.shape[0], int(x.padded_shape[2]), hidden, H)
         # Slice lazily rather than `ttnn.chunk`, which materialises a second full copy of the
         # pair tensor up front. The 685-row tail is ragged at every h and gets its own shape,
         # hence its own program-config cache entry, which is what keeps it exact.
@@ -1181,6 +1249,25 @@ def _mask_template(cache, device, dtype, batch, n_heads, length):
     return entry[1]
 
 
+def _zero_template(cache, device, dtype, batch, n_heads, length):
+    """The zero dense template the gathered attention weights are scattered into.
+
+    The mask template's counterpart for the other side of the softmax. `_mask_template` holds
+    -1e4 because it is scattered into BEFORE the exp; this one holds 0.0 because it is scattered
+    into after, and the dense arm's non-neighbour weights are post-softmax exact zeros. Same
+    single-slot, same out-of-place-scatter argument (verify_scatter_aliasing.py).
+    """
+    key = (batch, n_heads, length, dtype)
+    entry = cache.get("zeros") if cache is not None else None
+    if entry is None or entry[0] != key:
+        entry = (key, ttnn.zeros(
+            (batch, n_heads, length, _align_tile(length)),
+            dtype=dtype, layout=ttnn.TILE_LAYOUT, device=device))
+        if cache is not None:
+            cache["zeros"] = entry
+    return entry[1]
+
+
 _PAIR_TABLE_SLOTS = 2
 
 
@@ -1233,6 +1320,22 @@ def _sparse_pair_gather(cache, p_host, indices, device, dtype):
         ttnn.reshape(rows, (batch, length, n_keys, p_host.shape[-1])), ttnn.TILE_LAYOUT)
     ttnn.deallocate(rows)
     return out
+
+
+def _check_gather_bound(length):
+    """Refuse the gathered atom softmax where ttnn.gather is known to return wrong data.
+
+    A default-off flag that silently computes garbage is worse than no flag: the arm was built
+    with five passing invariant tests, every one of which pinned a property of the INDEX rather
+    than the output of the op, and the first fold run on it would have produced a plausible
+    number. Fail loudly instead.
+    """
+    n_key_axis = _align_tile(length)
+    if n_key_axis > _TTNN_GATHER_MAX_KEY_AXIS:
+        raise RuntimeError(
+            "RFD3_GATHERED_SOFTMAX is unusable at this shape: the key axis is %d and ttnn.gather "
+            "returns wrong data above %d. The gathered atom softmax needs a fused kernel, not "
+            "ttnn.gather." % (n_key_axis, _TTNN_GATHER_MAX_KEY_AXIS))
 
 
 def _sparse_attn_index(indices, device, n_heads):
@@ -1325,7 +1428,33 @@ def _sparse_qk_inputs(p_host, indices, device, dtype, n_heads=4, mask_cache=None
         dense_bias = _mask_template(
             mask_cache, device, dtype, batch, n_heads, length
         )
-    out = (p_dev, n_keys, attn_idx_dev, dense_bias)
+    if _GATHERED_SOFTMAX:
+        _check_gather_bound(length)
+        # The gathered softmax needs the [B,H,L,K] TILE index that ttnn.gather/scatter take, which
+        # is what the non-fused route already builds. On the fused-bias route attn_idx_dev is the
+        # ROW_MAJOR [1,1,L,K] variant its kernel wants, so build the tiled replica as well rather
+        # than turning the fused bias off -- the arm has to differ from the shipped default in the
+        # softmax and nothing else.
+        gather_idx = (attn_idx_dev if not fused_bias
+                      else _sparse_attn_index(indices, device, n_heads))
+        gathered = (gather_idx,
+                    _zero_template(mask_cache, device, dtype, batch, n_heads, length))
+    else:
+        gathered = None
+    # Block-sparse plan for this step, or None to run the shipped dense chain. Built here rather
+    # than per call because a diffusion step's three call sites share one index and one cache
+    # entry, so the host work happens once a step -- which is what makes its 2.0 ms affordable.
+    # Requires the fused-bias route: the blocked chain reuses that kernel with a block-local
+    # index, and the non-fused route's dense -1e4 template is the thing this arm exists to avoid.
+    block = None
+    if _BS.enabled() and fused_bias and not _GATHERED_SOFTMAX:
+        bplan = _BS.plan(indices, _align_tile(length))
+        if bplan is not None:
+            nb, q_block, u_width, gather, pos = bplan
+            block = (nb, q_block, u_width,
+                     _BS.gather_index(gather, n_heads, _align_tile(length), device),
+                     _sparse_attn_index_rm(pos.unsqueeze(0), device))
+    out = (p_dev, n_keys, attn_idx_dev, dense_bias, gathered, block)
     if mask_cache is not None:
         mask_cache["step"] = (key, p_host, indices, out)
     return out
@@ -1612,9 +1741,31 @@ class RFD3AtomBlock(Module):
         n_key = _align_tile(length)
         kk = _pad_key_axis(kk, n_key, 2, 0.0)
         vv = _pad_key_axis(vv, n_key, 2, 0.0)
+        # Block-sparse arm. Replaces the whole tail -- scores, bias, softmax and the value
+        # matmul -- with a batched dense chain over the block's own key union, and hands back the
+        # same [1,H,length,head_dim] the dense chain would. Off by default; see block_sparse.py.
+        bs_out = None
+        block = sparse_qk[4] if sparse_qk is not None and len(sparse_qk) > 4 else None
+        if (block is not None and sparse_qk[2] is None
+                and rfd3_bias.fused_enabled() and dt == ttnn.bfloat16):
+            nb, q_block, u_width, gather_dev, pos_rm = block
+            pb = self._sparse_pair_bias(p, bias_cache)
+            # The blocked scores have nb*q_block rows and the compact bias has `length`, so the
+            # pad rows need a bias too. -1e4 makes them fully masked; they are sliced off the
+            # output either way.
+            pb = _pad_key_axis(pb, nb * q_block, 2, -1e4)
+            bs_out = _BS.attention(qq, kk, vv, pb, pos_rm, gather_dev, nb, q_block, u_width,
+                                   self.head_dim**-0.5, dt, ckc)
+        if bs_out is not None:
+            _BS.STATS[0] += 1
+        elif sparse_qk is not None and len(sparse_qk) > 4:
+            _BS.STATS[1 if _BS.enabled() else 2] += 1
         fused = False
         dense_fused = False
-        if sparse_qk is None:
+        gathered = None
+        if bs_out is not None:
+            pass
+        elif sparse_qk is None:
             # `pair_bias` arrives precomputed when the caller hoisted all of its blocks'
             # projections into one matmul; see _PAIRBIAS_FUSED.
             if pair_bias is None:
@@ -1648,7 +1799,7 @@ class RFD3AtomBlock(Module):
             # is independent of the M/N tiling and the scores are bit-identical to
             # the gathered form -- while at L=3359 the dense matmul costs 0.375 ms
             # against 33.9 ms for a gathered [1,32]@[32,128] batch plus scatter.
-            n_keys, attn_idx_dev, dense_bias = sparse_qk
+            n_keys, attn_idx_dev, dense_bias, gathered, block = sparse_qk
             # L6b: one kernel for the last five ops of this path -- the mask template, the
             # scatter of the neighbour bias, both widens and the scaled add. It reads the bf16
             # scores and the compact pair bias and writes `scores*scale + bias` in fp32, so the
@@ -1665,31 +1816,47 @@ class RFD3AtomBlock(Module):
             scores = ttnn.matmul(
                 qq, ttnn.permute(kk, (0, 1, 3, 2)), compute_kernel_config=ckc,
             )
-        if dense_fused:
-            scores = rfd3_bias.dense_fused_scores_bias_fp32(
-                scores, bias, self.head_dim**-0.5
-            )
-        elif fused:
-            scores = rfd3_bias.fused_scores_bias_fp32(
-                scores, pair_bias, attn_idx_dev, self.head_dim**-0.5
-            )
+        if bs_out is None:
+            if dense_fused:
+                scores = rfd3_bias.dense_fused_scores_bias_fp32(
+                    scores, bias, self.head_dim**-0.5
+                )
+            elif fused:
+                scores = rfd3_bias.fused_scores_bias_fp32(
+                    scores, pair_bias, attn_idx_dev, self.head_dim**-0.5
+                )
+            else:
+                scores = ttnn.typecast(
+                    scores, ttnn.float32, memory_config=scores.memory_config()
+                )
+                # Scale and add in ONE op: the scale rides on operand a as a MUL_UNARY_SFPU activation.
+                # Bit-exact rather than close, and by measurement rather than by argument
+                # (scripts/rfd3_port/p35_dense_chain_price.py, perf/p35/dense_chain_qb1c0.json): 1.285 ms
+                # against 2.246 for the pair at [1,4,3359,3360], torch.equal on the softmax output. It
+                # holds here because both operands are already fp32, so the op's destination register is
+                # fp32 and nothing is silently computed at the input dtype -- the trap that stops a
+                # bf16->fp32 widen from folding into a binary op the same way. Do not copy this to a
+                # bf16 site (GatedCrossAttention.run_device) on the strength of this comment: there the
+                # split form rounds the scaled scores to bf16 before the add and the folded form does not.
+                scores = ttnn.add(scores, bias_f, input_tensor_a_activations=[
+                    ttnn.UnaryWithParam(ttnn.UnaryOpType.MUL_UNARY_SFPU, self.head_dim**-0.5)])
+            if gathered is None:
+                attention = softmax_generic.softmax_bf16(scores, dt)
+            else:
+                # Reduce over the 128 columns that carry a value, not over all 6080. Every row has
+                # exactly 128 valid indices in [0, L) -- _extend_with_neighbours fills the sequence
+                # slots and tops up from the distance topk, and _create_attention_indices sorts them --
+                # so there is no ragged row and no index outside the key axis.
+                gather_idx, zeros = gathered
+                compact = ttnn.gather(scores, 3, gather_idx)
+                ttnn.deallocate(scores)
+                weights = softmax_generic.softmax_bf16(compact, dt)
+                ttnn.deallocate(compact)
+                attention = ttnn.scatter(zeros, 3, gather_idx, weights)
+                ttnn.deallocate(weights)
+            out = attn_value_matmul(attention, vv, ckc, dt)
         else:
-            scores = ttnn.typecast(
-                scores, ttnn.float32, memory_config=scores.memory_config()
-            )
-            # Scale and add in ONE op: the scale rides on operand a as a MUL_UNARY_SFPU activation.
-            # Bit-exact rather than close, and by measurement rather than by argument
-            # (scripts/rfd3_port/p35_dense_chain_price.py, perf/p35/dense_chain_qb1c0.json): 1.285 ms
-            # against 2.246 for the pair at [1,4,3359,3360], torch.equal on the softmax output. It
-            # holds here because both operands are already fp32, so the op's destination register is
-            # fp32 and nothing is silently computed at the input dtype -- the trap that stops a
-            # bf16->fp32 widen from folding into a binary op the same way. Do not copy this to a
-            # bf16 site (GatedCrossAttention.run_device) on the strength of this comment: there the
-            # split form rounds the scaled scores to bf16 before the add and the folded form does not.
-            scores = ttnn.add(scores, bias_f, input_tensor_a_activations=[
-                ttnn.UnaryWithParam(ttnn.UnaryOpType.MUL_UNARY_SFPU, self.head_dim**-0.5)])
-        attention = softmax_generic.softmax_bf16(scores, dt)
-        out = attn_value_matmul(attention, vv, ckc, dt)
+            out = bs_out
         out = _merge_heads(out, (batch, length, self.n_head * self.head_dim))
         out = ttnn.multiply(out, ttnn.sigmoid(gg))
         out = _tuned_linear(
@@ -1825,11 +1992,11 @@ class LocalAtomTransformer(Module):
         dt, dev = self.dtype, self.device
         p_host = p_host.unsqueeze(0) if p_host.ndim == 3 else p_host
         if env_flag("RFD3_SPARSE_QK", True):
-            p, n_keys, attn_idx_dev, dense_bias = _sparse_qk_inputs(
+            p, n_keys, attn_idx_dev, dense_bias, gathered, block = _sparse_qk_inputs(
                 p_host, indices, dev, dt, mask_cache=self._mask_cache
             )
             q, c = _tt(q_host, dev, dt), _tt(c_host, dev, dt)
-            sparse_qk = (n_keys, attn_idx_dev, dense_bias)
+            sparse_qk = (n_keys, attn_idx_dev, dense_bias, gathered, block)
             for block in self.blocks:
                 q = block(q, c, p, sparse_qk=sparse_qk)
             out = q
@@ -2022,7 +2189,7 @@ class CompactStreamingDecoder(Module):
         dense_bias = ttnn.full(
             (batch, n_heads, length, _align_tile(length)), -1e4,
             dtype=self.dtype, layout=ttnn.TILE_LAYOUT, device=dev)
-        sparse_qk = (n_keys, attn_p, dense_bias)
+        sparse_qk = (n_keys, attn_p, dense_bias, None, None)
         for _ in range(2):
             _ = self.run_device(
                 a_p, q_p, c_p, p_p, None, upcast_mask_dev, pack_idx_dev,
@@ -2188,10 +2355,10 @@ class CompactStreamingDecoder(Module):
                 )
                 a = _tt(a_host, dev, dt)
             else:
-                p, n_keys, attn_idx_dev, dense_bias = _sparse_qk_inputs(
+                p, n_keys, attn_idx_dev, dense_bias, gathered, block = _sparse_qk_inputs(
                     p_host, indices, dev, dt, mask_cache=self._mask_cache
                 )
-                sparse_qk = (n_keys, attn_idx_dev, dense_bias)
+                sparse_qk = (n_keys, attn_idx_dev, dense_bias, gathered, block)
                 a, q, c = (_tt(x, dev, dt) for x in (a_host, q_host, c_host))
                 # The two recycle calls in a step share p and the neighbour index, so
                 # each atom block's dense bias is bit-identical between them; build it
@@ -2302,6 +2469,9 @@ class DiffusionTokenEncoder(Module):
                                 for i in range(self.N_PAIRFORMER)]
         # pure constants of (dtype) / (batch, tokens, dtype); see _onehot_dev and _zeros_dev
         self._const = {}
+        # one design's process_z invariants, released when Z_init_II changes; see
+        # _process_z_invariant. Not in _const: these are O(I^2) and design-scoped.
+        self._zinv = None
 
     def _batched(self, x_dev, batch):
         """Replicate a batch-1 device tensor over the batch dim.
@@ -2380,6 +2550,118 @@ class DiffusionTokenEncoder(Module):
             self._const[key] = entry
         return entry
 
+    def _process_z_weights(self):
+        """process_z's two weights back on host, as the bf16 values the device actually holds.
+
+        Read from the uploaded tensors rather than the checkpoint, so the collapsed path stays
+        correct under the shared tiled-weight cache, which keeps no host weights. 132 KB, read
+        once per module.
+        """
+        ent = self._const.get("zw")
+        if ent is None:
+            ent = (ttnn.to_torch(self.process_z_n).float().reshape(-1),
+                   ttnn.to_torch(self.process_z_w).float())
+            self._const["zw"] = ent
+        return ent
+
+    def _process_z_table(self, with_self):
+        """The one-hot half of process_z's linear, as a constant lookup table.
+
+        zcat is [z(128) | e_bd(65) | e_bs(65)], so its one-hot columns contribute exactly
+        w_n[128+bd]*W[128+bd] (+ w_n[193+bs]*W[193+bs]) to the linear -- one row of a [65,128]
+        table, or [65*65,128] (1.1 MB) once the self-conditioning bins exist. Read back from the
+        uploaded weights, not the checkpoint: that holds the same bf16 values the shipped chain
+        multiplies, and it works under the shared tiled-weight cache, which keeps no host weights.
+        """
+        key = ("ztab", with_self, self.dtype)
+        tab = self._const.get(key)
+        if tab is not None:
+            return tab
+        n, c = self.N_BINS, self.C_Z
+        wn, ww = self._process_z_weights()
+        t = wn[c:c + n, None] * ww[c:c + n]
+        if with_self:
+            ts = wn[c + n:c + 2 * n, None] * ww[c + n:c + 2 * n]
+            t = (t[:, None, :] + ts[None, :, :]).reshape(n * n, c)
+        tab = _tt(t.contiguous(), self.device, self.dtype)
+        self._const[key] = tab
+        return tab
+
+    def _process_z_invariant(self, Z_init_II, n_ones, batch):
+        """(inv, Ainv): the halves of process_z that do not depend on the timestep.
+
+        sum(zcat^2) is sum(z^2) + n_ones, because the one-hot columns contribute one 1.0 per
+        one-hot and nothing else. z is Z_init_II, fixed for the whole design, so the rms scale is
+        a single tensor for all 200 steps -- and so is the z half of the linear, since
+
+            linear(rms_norm(zcat)) = inv * ((z * w_n_z) @ W_z)  +  inv * T[bin]
+
+        The sum of squares runs in fp32, matching what rms_norm does internally. Held for one
+        design at a time and released when Z_init_II changes, because Ainv is O(I^2).
+        """
+        dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
+        dkey = (dev.id(), Z_init_II.data_ptr(), tuple(Z_init_II.shape), tuple(Z_init_II.stride()),
+                str(Z_init_II.dtype), Z_init_II._version, batch)
+        held = self._zinv
+        if held is None or held[0] != dkey:
+            for pair in (held[1].values() if held is not None else ()):
+                for t in pair:
+                    if t.is_allocated():
+                        ttnn.deallocate(t)
+            held = self._zinv = (dkey, {})
+        ent = held[1].get(n_ones)
+        if ent is not None and all(t.is_allocated() for t in ent):
+            return ent
+        c, w = self.C_Z, 2 * self.N_BINS + self.C_Z
+        cached = _tt_cached(Z_init_II, dev, dt)
+        z = self._batched(cached, batch)
+        wn, ww = self._process_z_weights()
+        gz = _tt(wn[:c].reshape(1, 1, 1, c), dev, dt)
+        wz = _tt(ww[:c].contiguous(), dev, dt)
+        tmp = []
+        zf = ttnn.typecast(z, ttnn.float32)
+        sq = ttnn.multiply(zf, zf)
+        ss = ttnn.sum(sq, dim=-1, keepdim=True, compute_kernel_config=ckc)
+        shifted = ttnn.add(ss, float(n_ones))
+        ms = ttnn.multiply(shifted, 1.0 / w)
+        eps = ttnn.add(ms, 1e-6)
+        rs = ttnn.rsqrt(eps)
+        inv = ttnn.typecast(rs, dt)
+        zs = ttnn.multiply(z, gz)
+        a = ttnn.linear(zs, wz, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+        ainv = ttnn.multiply(a, inv)
+        tmp += [zf, sq, ss, shifted, ms, eps, rs, zs, a, gz, wz]
+        if z is not cached:                     # _batched copies only when batch > 1
+            tmp.append(z)
+        for t in tmp:
+            if t.is_allocated():
+                ttnn.deallocate(t)
+        held[1][n_ones] = ent = (inv, ainv)
+        return ent
+
+    def _process_z_collapsed(self, Z_init_II, bins, bins_self, batch, I):
+        """process_z in three device ops instead of six.
+
+        The shipped route builds a [B,I,I,288] concat and a [B,I,I,258] slice of it so rms_norm
+        can average over 258 columns, 130 of which are a one-hot: 15.14 ms/call at the page
+        fixture's [1,685,685,*], 29.93 ms/step over the two recycles. This is 5.03
+        (perf/p89/process_z.json). Not bit-exact -- one fp32 accumulation becomes two
+        bf16-rounded halves, ~1 bf16 ulp -- so it is release-gated behind
+        RFD3_PROCESS_Z_COLLAPSE and the shipped default is unchanged.
+        """
+        dev, n = self.device, self.N_BINS
+        inv, ainv = self._process_z_invariant(Z_init_II, 1 if bins_self is None else 2, batch)
+        tab = self._process_z_table(bins_self is not None)
+        idx = _tt_idx(bins if bins_self is None else bins * n + bins_self, dev)
+        em = ttnn.embedding(idx, tab, layout=ttnn.ROW_MAJOR_LAYOUT,
+                            memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        em = ttnn.to_layout(ttnn.reshape(em, (batch, I, I, self.C_Z)), ttnn.TILE_LAYOUT)
+        scaled = ttnn.multiply(em, inv)
+        ttnn.deallocate(em)
+        out = ttnn.add(scaled, ainv)
+        ttnn.deallocate(scaled)
+        return out
+
     def __call__(self, R_L_ca, S_init_I, Z_init_II, D_II_self=None):
         """R_L_ca: [B, I, 3] (scaled C-alpha positions), S_init_I: [B, I, c_s],
         Z_init_II: [I, I, c_z] or [1, I, I, c_z] (batch 1 -- replicated on device),
@@ -2413,22 +2695,28 @@ class DiffusionTokenEncoder(Module):
         bins = _scaled_distogram_bins(R_L_ca, sigma_data=self.sigma_data, n_bins=self.N_BINS)
         if Z_init_II.ndim == 3:
             Z_init_II = Z_init_II.unsqueeze(0)
-        z = self._batched(_tt_cached(Z_init_II, dev, dt), B)
-        w = 2 * self.N_BINS + self.C_Z
-        if _CONCAT_ALIGNED:
-            dself = self._combined_onehot_dev(bins, D_II_self, B, I)
-            wide = ttnn.concat([z, dself], dim=-1)        # [B,I,I,320], both pieces tile-aligned
-            ttnn.deallocate(dself)
-            zcat = ttnn.slice(wide, [0, 0, 0, 0], [B, I, I, w])
-            ttnn.deallocate(wide)
+        if _PROCESS_Z_COLLAPSE:
+            PZSTATS[0] += 1
+            z = self._process_z_collapsed(Z_init_II, bins, D_II_self, B, I)
         else:
-            d_dev = self._onehot_dev(bins, B, I)
-            self_dev = (self._zeros_dev(B, I) if D_II_self is None
-                        else self._onehot_dev(D_II_self, B, I))
-            zcat = ttnn.concat([z, d_dev, self_dev], dim=-1)  # [B,I,I,258]
-        z = ttnn.rms_norm(zcat, weight=self.process_z_n, epsilon=1e-6, compute_kernel_config=ckc)
-        z = ttnn.linear(z, self.process_z_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
-        ttnn.deallocate(zcat)
+            PZSTATS[1] += 1
+            z = self._batched(_tt_cached(Z_init_II, dev, dt), B)
+            w = 2 * self.N_BINS + self.C_Z
+            if _CONCAT_ALIGNED:
+                dself = self._combined_onehot_dev(bins, D_II_self, B, I)
+                wide = ttnn.concat([z, dself], dim=-1)    # [B,I,I,288], both pieces tile-aligned
+                ttnn.deallocate(dself)
+                zcat = ttnn.slice(wide, [0, 0, 0, 0], [B, I, I, w])
+                ttnn.deallocate(wide)
+            else:
+                d_dev = self._onehot_dev(bins, B, I)
+                self_dev = (self._zeros_dev(B, I) if D_II_self is None
+                            else self._onehot_dev(D_II_self, B, I))
+                zcat = ttnn.concat([z, d_dev, self_dev], dim=-1)  # [B,I,I,258]
+            z = ttnn.rms_norm(zcat, weight=self.process_z_n, epsilon=1e-6, compute_kernel_config=ckc)
+            z = ttnn.linear(z, self.process_z_w, compute_kernel_config=ckc, dtype=dt,
+                            core_grid=CORE_GRID_MAIN)
+            ttnn.deallocate(zcat)
         if f32:
             z = ttnn.typecast(z, ttnn.float32, memory_config=z.memory_config())
         for tr in self.transition_2:

@@ -1,0 +1,109 @@
+{
+  "rows": [
+    {
+      "hidden": 256,
+      "lever": true,
+      "chunk_h": 64,
+      "ms": 16.1828,
+      "lo": 16.1595,
+      "hi": 16.279
+    },
+    {
+      "hidden": 256,
+      "lever": false,
+      "chunk_h": 64,
+      "ms": 24.0251,
+      "lo": 23.6675,
+      "hi": 24.4262
+    },
+    {
+      "hidden": 256,
+      "lever_gain_ms": 7.8423,
+      "lever_gain_s_per_design": 6.274
+    },
+    {
+      "hidden": 256,
+      "part": "rms_norm",
+      "ms": 0.7987
+    },
+    {
+      "hidden": 256,
+      "part": "fc1 silu [128->256]",
+      "ms": 6.7874
+    },
+    {
+      "hidden": 256,
+      "part": "fc2 [128->256]",
+      "ms": 5.0817
+    },
+    {
+      "hidden": 256,
+      "part": "multiply a*b",
+      "ms": 1.6767
+    },
+    {
+      "hidden": 256,
+      "part": "fc3 [256->128]",
+      "ms": 9.6819
+    },
+    {
+      "hidden": 512,
+      "lever": true,
+      "chunk_h": 64,
+      "ms": 19.0692,
+      "lo": 19.0381,
+      "hi": 19.1436
+    },
+    {
+      "hidden": 512,
+      "lever": false,
+      "chunk_h": 64,
+      "ms": 37.2462,
+      "lo": 36.7366,
+      "hi": 39.2287
+    },
+    {
+      "hidden": 512,
+      "lever_gain_ms": 18.1771,
+      "lever_gain_s_per_design": 14.542
+    },
+    {
+      "hidden": 512,
+      "part": "rms_norm",
+      "ms": 0.8174
+    },
+    {
+      "hidden": 512,
+      "part": "fc1 silu [128->512]",
+      "ms": 8.6113
+    },
+    {
+      "hidden": 512,
+      "part": "fc2 [128->512]",
+      "ms": 4.9647
+    },
+    {
+      "hidden": 512,
+      "part": "multiply a*b",
+      "ms": 3.3833
+    },
+    {
+      "hidden": 512,
+      "part": "fc3 [512->128]",
+      "ms": 20.1752
+    }
+  ],
+  "I": 685,
+  "IP": 704,
+  "C": 128,
+  "steps": 200,
+  "calls_per_hidden_per_step": 4,
+  "step_ms_shipped": 141.008,
+  "step_ms_lever_off": 245.085,
+  "s_per_design_shipped": 28.202,
+  "s_per_design_lever_off": 49.017,
+  "census_phase1_step_ms": 135.1,
+  "census_overstatement_s_per_design": -1.182,
+  "host": "tt-quietbox2",
+  "card": "3"
+}

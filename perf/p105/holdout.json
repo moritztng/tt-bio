@@ -1,0 +1,114 @@
+{
+  "a": "perf/p102/umax_schedule.json",
+  "b": "perf/p104/umax_seed7.json",
+  "seed_a": 42,
+  "seed_b": 7,
+  "dense_ms": 9.9236,
+  "max_buckets": 3,
+  "per_q": {
+    "Q320": {
+      "A_on_B": {
+        "buckets": [
+          2048,
+          2304,
+          3040
+        ],
+        "in_sample_net": 0.954,
+        "out_sample_net": 1.004,
+        "overfit": -0.049,
+        "fallback_in": 40,
+        "fallback_out": 39
+      },
+      "B_on_A": {
+        "buckets": [
+          2048,
+          2240,
+          3040
+        ],
+        "in_sample_net": 1.079,
+        "out_sample_net": 0.928,
+        "overfit": 0.152,
+        "fallback_in": 39,
+        "fallback_out": 40
+      }
+    },
+    "Q608": {
+      "A_on_B": {
+        "buckets": [
+          2528,
+          2816,
+          3648
+        ],
+        "in_sample_net": 3.662,
+        "out_sample_net": 3.667,
+        "overfit": -0.005,
+        "fallback_in": 41,
+        "fallback_out": 40
+      },
+      "B_on_A": {
+        "buckets": [
+          2496,
+          2720,
+          3648
+        ],
+        "in_sample_net": 3.733,
+        "out_sample_net": 3.648,
+        "overfit": 0.085,
+        "fallback_in": 40,
+        "fallback_out": 41
+      }
+    },
+    "Q1216": {
+      "A_on_B": {
+        "buckets": [
+          3264,
+          3488,
+          4224
+        ],
+        "in_sample_net": 3.787,
+        "out_sample_net": 3.744,
+        "overfit": 0.044,
+        "fallback_in": 40,
+        "fallback_out": 40
+      },
+      "B_on_A": {
+        "buckets": [
+          3264,
+          3456,
+          4224
+        ],
+        "in_sample_net": 3.745,
+        "out_sample_net": 3.774,
+        "overfit": -0.03,
+        "fallback_in": 40,
+        "fallback_out": 40
+      }
+    },
+    "Q3040": {
+      "A_on_B": {
+        "buckets": [
+          4032,
+          4320,
+          5280
+        ],
+        "in_sample_net": 1.532,
+        "out_sample_net": 1.5,
+        "overfit": 0.033,
+        "fallback_in": 35,
+        "fallback_out": 35
+      },
+      "B_on_A": {
+        "buckets": [
+          4032,
+          4256,
+          5280
+        ],
+        "in_sample_net": 1.51,
+        "out_sample_net": 0.901,
+        "overfit": 0.609,
+        "fallback_in": 35,
+        "fallback_out": 35
+      }
+    }
+  }
+}

@@ -1,0 +1,164 @@
+{
+  "spec": "perf/dsfix/fixtures/rfd3_R4.json",
+  "rows": [
+    {
+      "arm": "b1",
+      "batch": 1,
+      "rep": 0,
+      "sampler_wall_s": 224.976,
+      "n_designs": 2,
+      "batches": 2,
+      "batches_expected": 2,
+      "arm_verified": true,
+      "s_per_design": 112.488,
+      "digests": {
+        "R4_b100#0": "5295e526ebd0b757",
+        "R4_b100#1": "ac79c6d901a72c17"
+      },
+      "effective_batch": 1,
+      "loadavg": 19.0,
+      "L_atoms": 6051,
+      "n_atoms_seen": [
+        6051
+      ]
+    },
+    {
+      "arm": "b1",
+      "batch": 1,
+      "rep": 1,
+      "sampler_wall_s": 209.912,
+      "n_designs": 2,
+      "batches": 2,
+      "batches_expected": 2,
+      "arm_verified": true,
+      "s_per_design": 104.956,
+      "digests": {
+        "R4_b100#0": "5295e526ebd0b757",
+        "R4_b100#1": "ac79c6d901a72c17"
+      },
+      "effective_batch": 1,
+      "loadavg": 19.0,
+      "L_atoms": 6051,
+      "n_atoms_seen": [
+        6051
+      ]
+    },
+    {
+      "arm": "b1",
+      "batch": 1,
+      "rep": 2,
+      "sampler_wall_s": 229.703,
+      "n_designs": 2,
+      "batches": 2,
+      "batches_expected": 2,
+      "arm_verified": true,
+      "s_per_design": 114.852,
+      "digests": {
+        "R4_b100#0": "5295e526ebd0b757",
+        "R4_b100#1": "ac79c6d901a72c17"
+      },
+      "effective_batch": 1,
+      "loadavg": 16.5,
+      "L_atoms": 6051,
+      "n_atoms_seen": [
+        6051
+      ]
+    },
+    {
+      "arm": "b2",
+      "batch": 2,
+      "rep": 0,
+      "sampler_wall_s": 216.573,
+      "n_designs": 2,
+      "batches": 1,
+      "batches_expected": 1,
+      "arm_verified": true,
+      "s_per_design": 108.287,
+      "digests": {
+        "R4_b100#0": "5295e526ebd0b757",
+        "R4_b100#1": "ac79c6d901a72c17"
+      },
+      "effective_batch": 2,
+      "loadavg": 19.65,
+      "L_atoms": 6051,
+      "n_atoms_seen": [
+        6051
+      ]
+    },
+    {
+      "arm": "b2",
+      "batch": 2,
+      "rep": 1,
+      "sampler_wall_s": 224.798,
+      "n_designs": 2,
+      "batches": 1,
+      "batches_expected": 1,
+      "arm_verified": true,
+      "s_per_design": 112.399,
+      "digests": {
+        "R4_b100#0": "5295e526ebd0b757",
+        "R4_b100#1": "ac79c6d901a72c17"
+      },
+      "effective_batch": 2,
+      "loadavg": 19.65,
+      "L_atoms": 6051,
+      "n_atoms_seen": [
+        6051
+      ]
+    },
+    {
+      "arm": "b2",
+      "batch": 2,
+      "rep": 2,
+      "sampler_wall_s": 240.965,
+      "n_designs": 2,
+      "batches": 1,
+      "batches_expected": 1,
+      "arm_verified": true,
+      "s_per_design": 120.482,
+      "digests": {
+        "R4_b100#0": "5295e526ebd0b757",
+        "R4_b100#1": "ac79c6d901a72c17"
+      },
+      "effective_batch": 2,
+      "loadavg": 24.11,
+      "L_atoms": 6051,
+      "n_atoms_seen": [
+        6051
+      ]
+    }
+  ],
+  "num_timesteps": 200,
+  "reps": 3,
+  "L_atoms": 6051,
+  "atoms_per_spec": {
+    "R4_b100": 6051
+  },
+  "arms": [
+    1,
+    2
+  ],
+  "designs_per_fold": 2,
+  "atom_pair_budget_admits": 2,
+  "shipped_speed_cap": 1,
+  "shipped_speed_cap_above_atoms": 2952,
+  "shipped_effective_batch_at_8": 1,
+  "per_arm_s_per_design": {
+    "b1": 112.4879118885001,
+    "b2": 112.39885763349957
+  },
+  "per_arm_min": {
+    "b1": 104.95583388800151,
+    "b2": 108.28660291900087
+  },
+  "per_arm_max": {
+    "b1": 114.85174925549836,
+    "b2": 120.48228203399958
+  },
+  "b1_aa_spread_frac": 0.08797,
+  "best_batched_arm": null,
+  "verdict": "VOID: b=1 A/A spread 8.797 % > 1 %, re-run the rung",
+  "host": "tt-quietbox2",
+  "card": 1,
+  "partial": false
+}

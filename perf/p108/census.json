@@ -1,0 +1,1037 @@
+{
+ "fixture": "9q6y chain A, 685 tokens, 6051 atoms, 200 timesteps, batch 1",
+ "roofs": {
+  "read_GB_s": 390.0,
+  "write_drain_GB_s": 163.9,
+  "write_roof_GB_s": 269.6,
+  "compute_TFLOP_s": 102.02
+ },
+ "per_step": {
+  "actual_read_GB": 36.0938512,
+  "actual_write_GB": 27.331397120000002,
+  "irreducible_read_GB": 3.5297301119999998,
+  "irreducible_write_GB": 2.8134850559999993,
+  "ratio": 9.998911693862317,
+  "actual_roof_ms": 232.31615211710297,
+  "irreducible_roof_ms": 38.46155334133089,
+  "irreducible_roof_ms_both_risc": 37.5756209174566,
+  "compute_TFLOP": 1.8605049118719998,
+  "compute_roof_ms": 18.236668416702607,
+  "measured_region_wall_ms": 491.985,
+  "device_ops": 2937
+ },
+ "regions": {
+  "token encoder": {
+   "ops": 126,
+   "actual_GB": 33.587055680000006,
+   "irreducible_GB": 2.6783693439999996,
+   "ratio": 12.540113541562402,
+   "actual_roof_ms": 133.53456101906187,
+   "irreducible_roof_ms": 21.314034525226575,
+   "measured_ms": 206.0
+  },
+  "token DiT": {
+   "ops": 2018,
+   "actual_GB": 25.985109504,
+   "irreducible_GB": 3.1833605119999997,
+   "ratio": 8.16279193199969,
+   "actual_roof_ms": 86.1052673955111,
+   "irreducible_roof_ms": 15.180850412353358,
+   "measured_ms": 133.967
+  },
+  "atom decoder": {
+   "ops": 626,
+   "actual_GB": 2.8654909440000003,
+   "irreducible_GB": 0.32099020800000005,
+   "ratio": 8.92703538171482,
+   "actual_roof_ms": 9.389554084081333,
+   "irreducible_roof_ms": 1.318923656738368,
+   "measured_ms": 102.766
+  },
+  "atom encoder": {
+   "ops": 167,
+   "actual_GB": 0.9875921919999999,
+   "irreducible_GB": 0.16049510400000003,
+   "ratio": 6.153410087824235,
+   "actual_roof_ms": 3.286769618448659,
+   "irreducible_roof_ms": 0.6477447470125872,
+   "measured_ms": 49.252
+  }
+ },
+ "sites": {
+  "[token encoder] transition_1 x2 [s,384,H=768]": {
+   "ops": 24,
+   "actual_GB": 0.04325376000000001,
+   "irreducible_GB": 0.004325376000000001,
+   "delta_GB": 0.03892838400000001
+  },
+  "[token encoder] distogram+self one-hot (2x ttnn.embedding)": {
+   "ops": 2,
+   "actual_GB": 0.37808032,
+   "irreducible_GB": 0.0,
+   "delta_GB": 0.37808032
+  },
+  "[token encoder] concat [z|d|dself] -> PAIR(320)": {
+   "ops": 2,
+   "actual_GB": 1.2345344,
+   "irreducible_GB": 0.0,
+   "delta_GB": 1.2345344
+  },
+  "[token encoder] slice PAIR(320) -> PAIR(258)": {
+   "ops": 2,
+   "actual_GB": 1.1728076799999998,
+   "irreducible_GB": 0.0,
+   "delta_GB": 1.1728076799999998
+  },
+  "[token encoder] rms_norm(258)": {
+   "ops": 2,
+   "actual_GB": 1.11108096,
+   "irreducible_GB": 0.0,
+   "delta_GB": 1.11108096
+  },
+  "[token encoder] process_z linear 258->128": {
+   "ops": 2,
+   "actual_GB": 0.80244736,
+   "irreducible_GB": 0.50153376,
+   "delta_GB": 0.30091359999999995
+  },
+  "[token encoder] transition_2 x2 [z,128,H=256]": {
+   "ops": 24,
+   "actual_GB": 9.8762752,
+   "irreducible_GB": 0.98762752,
+   "delta_GB": 8.888647680000002
+  },
+  "[token encoder] pairformer z_transition x2 [z,128,H=512]": {
+   "ops": 24,
+   "actual_GB": 15.80204032,
+   "irreducible_GB": 0.98762752,
+   "delta_GB": 14.814412800000001
+  },
+  "[token encoder] pf attn": {
+   "ops": 20,
+   "actual_GB": 3.0973296639999996,
+   "irreducible_GB": 0.19292979200000002,
+   "delta_GB": 2.904399872
+  },
+  "[token encoder] pf s_transition x2 [s,384,H=1536]": {
+   "ops": 24,
+   "actual_GB": 0.069206016,
+   "irreducible_GB": 0.004325376000000001,
+   "delta_GB": 0.06488064
+  },
+  "[token DiT] pair_bias linear 128->16 (model.py": {
+   "ops": 36,
+   "actual_GB": 5.5554048,
+   "irreducible_GB": 0.3086336,
+   "delta_GB": 5.2467712
+  },
+  "[token DiT] permute pair_bias -> [1,16,I,I]": {
+   "ops": 36,
+   "actual_GB": 1.682030592,
+   "irreducible_GB": 0.0,
+   "delta_GB": 1.682030592
+  },
+  "[token DiT] add(pair_bias, additive_mask)": {
+   "ops": 36,
+   "actual_GB": 1.712848896,
+   "irreducible_GB": 0.0,
+   "delta_GB": 1.712848896
+  },
+  "[token DiT] pad x3 (kk, vv, bias)": {
+   "ops": 108,
+   "actual_GB": 0.432,
+   "irreducible_GB": 0.0,
+   "delta_GB": 0.432
+  },
+  "[token DiT] typecast bias -> fp32": {
+   "ops": 36,
+   "actual_GB": 1.712848896,
+   "irreducible_GB": 0.0,
+   "delta_GB": 1.712848896
+  },
+  "[token DiT] matmul scores qq@kt": {
+   "ops": 36,
+   "actual_GB": 0.6488063999999999,
+   "irreducible_GB": 0.5709496319999999,
+   "delta_GB": 0.07785676799999999
+  },
+  "[token DiT] typecast scores -> fp32": {
+   "ops": 36,
+   "actual_GB": 1.712848896,
+   "irreducible_GB": 0.0,
+   "delta_GB": 1.712848896
+  },
+  "[token DiT] add scores + bias_f (fp32)": {
+   "ops": 36,
+   "actual_GB": 3.425697792,
+   "irreducible_GB": 0.0,
+   "delta_GB": 3.425697792
+  },
+  "[token DiT] softmax fp32": {
+   "ops": 36,
+   "actual_GB": 2.2837985279999997,
+   "irreducible_GB": 1.1418992639999999,
+   "delta_GB": 1.1418992639999999
+  },
+  "[token DiT] typecast attn -> bf16": {
+   "ops": 36,
+   "actual_GB": 1.712848896,
+   "irreducible_GB": 0.0,
+   "delta_GB": 1.712848896
+  },
+  "[token DiT] attn@vv + merge_heads": {
+   "ops": 36,
+   "actual_GB": 0.687734784,
+   "irreducible_GB": 0.609878016,
+   "delta_GB": 0.07785676799999999
+  },
+  "[token DiT] 12 linears on TOK(768)/TOK(384)": {
+   "ops": 432,
+   "actual_GB": 1.452681216,
+   "irreducible_GB": 0.0,
+   "delta_GB": 1.452681216
+  },
+  "[token DiT] reshape x3 + permute x3 (head split)": {
+   "ops": 216,
+   "actual_GB": 0.46714060800000007,
+   "irreducible_GB": 0.0,
+   "delta_GB": 0.46714060800000007
+  },
+  "[token DiT] rms_norm/sigmoid/multiply/add on TOK (the rest)": {
+   "ops": 900,
+   "actual_GB": 1.9464192,
+   "irreducible_GB": 0.0,
+   "delta_GB": 1.9464192
+  },
+  "[token DiT] DiT weights, read once per recycle": {
+   "ops": 2,
+   "actual_GB": 0.552,
+   "irreducible_GB": 0.552,
+   "delta_GB": 0.0
+  },
+  "[atom decoder] sparse pair bias [1,L,128,32]@[32,32]": {
+   "ops": 6,
+   "actual_GB": 0.594837504,
+   "irreducible_GB": 0.19827916800000003,
+   "delta_GB": 0.39655833599999996
+  },
+  "[atom decoder] softmax fp32 [1,4,LP,128]": {
+   "ops": 6,
+   "actual_GB": 0.14942207999999998,
+   "irreducible_GB": 0.07471103999999999,
+   "delta_GB": 0.07471103999999999
+  },
+  "[atom decoder] typecast around the softmax (x2)": {
+   "ops": 12,
+   "actual_GB": 0.22413312,
+   "irreducible_GB": 0.0,
+   "delta_GB": 0.22413312
+  },
+  "[atom decoder] scores + PV matmuls": {
+   "ops": 12,
+   "actual_GB": 0.018677759999999998,
+   "irreducible_GB": 0.0,
+   "delta_GB": 0.018677759999999998
+  },
+  "[atom decoder] atom-block linears + transitions (c=128, H=256)": {
+   "ops": 138,
+   "actual_GB": 0.42958848,
+   "irreducible_GB": 0.0,
+   "delta_GB": 0.42958848
+  },
+  "[atom decoder] reshape/permute/pack/unpack/gather (the rest)": {
+   "ops": 450,
+   "actual_GB": 1.400832,
+   "irreducible_GB": 0.0,
+   "delta_GB": 1.400832
+  },
+  "[atom decoder] atom-path weights, once per call": {
+   "ops": 2,
+   "actual_GB": 0.048,
+   "irreducible_GB": 0.048,
+   "delta_GB": 0.0
+  },
+  "[atom encoder] sparse pair bias": {
+   "ops": 3,
+   "actual_GB": 0.297418752,
+   "irreducible_GB": 0.09913958400000002,
+   "delta_GB": 0.19827916799999998
+  },
+  "[atom encoder] softmax fp32 [1,4,LP,128]": {
+   "ops": 3,
+   "actual_GB": 0.07471103999999999,
+   "irreducible_GB": 0.037355519999999996,
+   "delta_GB": 0.037355519999999996
+  },
+  "[atom encoder] typecast around the softmax (x2)": {
+   "ops": 6,
+   "actual_GB": 0.11206656,
+   "irreducible_GB": 0.0,
+   "delta_GB": 0.11206656
+  },
+  "[atom encoder] atom-block linears + transitions": {
+   "ops": 69,
+   "actual_GB": 0.21479424,
+   "irreducible_GB": 0.0,
+   "delta_GB": 0.21479424
+  },
+  "[atom encoder] embedding + to_layout + the rest": {
+   "ops": 85,
+   "actual_GB": 0.2646016,
+   "irreducible_GB": 0.0,
+   "delta_GB": 0.2646016
+  },
+  "[atom encoder] atom-path weights, once per step": {
+   "ops": 1,
+   "actual_GB": 0.024,
+   "irreducible_GB": 0.024,
+   "delta_GB": 0.0
+  }
+ },
+ "ops": [
+  {
+   "region": "token encoder",
+   "label": "transition_1 x2 [s,384,H=768]: rms_norm",
+   "n": 4,
+   "wkind": "copy",
+   "read_MB": 2.162688,
+   "write_MB": 2.162688,
+   "gflop": 0,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "folded into the fused block"
+  },
+  {
+   "region": "token encoder",
+   "label": "transition_1 x2 [s,384,H=768]: fc1 silu [384->768]",
+   "n": 4,
+   "wkind": "mm",
+   "read_MB": 2.162688,
+   "write_MB": 4.325376,
+   "gflop": 1.6609443839999998,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "compute stays"
+  },
+  {
+   "region": "token encoder",
+   "label": "transition_1 x2 [s,384,H=768]: fc2 [384->768]",
+   "n": 4,
+   "wkind": "mm",
+   "read_MB": 2.162688,
+   "write_MB": 4.325376,
+   "gflop": 1.6609443839999998,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "compute stays"
+  },
+  {
+   "region": "token encoder",
+   "label": "transition_1 x2 [s,384,H=768]: multiply a*b",
+   "n": 4,
+   "wkind": "copy",
+   "read_MB": 8.650752,
+   "write_MB": 4.325376,
+   "gflop": 0,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "L1-resident intermediate"
+  },
+  {
+   "region": "token encoder",
+   "label": "transition_1 x2 [s,384,H=768]: fc3 [768->384]",
+   "n": 4,
+   "wkind": "mm",
+   "read_MB": 4.325376,
+   "write_MB": 2.162688,
+   "gflop": 1.6609443839999998,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "compute stays"
+  },
+  {
+   "region": "token encoder",
+   "label": "transition_1 x2 [s,384,H=768]: residual add",
+   "n": 4,
+   "wkind": "copy",
+   "read_MB": 4.325376,
+   "write_MB": 2.162688,
+   "gflop": 0,
+   "irr_read_MB": 2.162688,
+   "irr_write_MB": 2.162688,
+   "assumption": "the ONE read and ONE write the whole Transition needs"
+  },
+  {
+   "region": "token encoder",
+   "label": "distogram+self one-hot (2x ttnn.embedding)",
+   "n": 2,
+   "wkind": "copy",
+   "read_MB": 7.72,
+   "write_MB": 370.36032,
+   "gflop": 0,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "IRREDUCIBLE 0: a one-hot of a bin index is a row gather from the weight; the 192-wide tensor never has to exist. The two int32 bin maps are the real input, 1.93 MB each."
+  },
+  {
+   "region": "token encoder",
+   "label": "concat [z|d|dself] -> PAIR(320)",
+   "n": 2,
+   "wkind": "copy",
+   "read_MB": 617.2672,
+   "write_MB": 617.2672,
+   "gflop": 0,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "IRREDUCIBLE 0: fused away"
+  },
+  {
+   "region": "token encoder",
+   "label": "slice PAIR(320) -> PAIR(258)",
+   "n": 2,
+   "wkind": "copy",
+   "read_MB": 617.2672,
+   "write_MB": 555.54048,
+   "gflop": 0,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "IRREDUCIBLE 0: fused away"
+  },
+  {
+   "region": "token encoder",
+   "label": "rms_norm(258)",
+   "n": 2,
+   "wkind": "copy",
+   "read_MB": 555.54048,
+   "write_MB": 555.54048,
+   "gflop": 0,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "IRREDUCIBLE 0: rms over 258 channels = rms over z's 128 plus the constant 2 the two one-hots contribute, so it is computable from z alone"
+  },
+  {
+   "region": "token encoder",
+   "label": "process_z linear 258->128",
+   "n": 2,
+   "wkind": "mm",
+   "read_MB": 555.54048,
+   "write_MB": 246.90688,
+   "gflop": 71.10918144,
+   "irr_read_MB": 254.62688,
+   "irr_write_MB": 246.90688,
+   "assumption": "IRREDUCIBLE: read z + the two bin maps once, write z once. The one-hot half of the matmul is two weight-row gathers, so its FLOPs are kept as an upper bound."
+  },
+  {
+   "region": "token encoder",
+   "label": "transition_2 x2 [z,128,H=256]: rms_norm",
+   "n": 4,
+   "wkind": "copy",
+   "read_MB": 493.81376,
+   "write_MB": 493.81376,
+   "gflop": 0,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "folded into the fused block"
+  },
+  {
+   "region": "token encoder",
+   "label": "transition_2 x2 [z,128,H=256]: fc1 silu [128->256]",
+   "n": 4,
+   "wkind": "mm",
+   "read_MB": 493.81376,
+   "write_MB": 987.62752,
+   "gflop": 126.41632255999998,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "compute stays"
+  },
+  {
+   "region": "token encoder",
+   "label": "transition_2 x2 [z,128,H=256]: fc2 [128->256]",
+   "n": 4,
+   "wkind": "mm",
+   "read_MB": 493.81376,
+   "write_MB": 987.62752,
+   "gflop": 126.41632255999998,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "compute stays"
+  },
+  {
+   "region": "token encoder",
+   "label": "transition_2 x2 [z,128,H=256]: multiply a*b",
+   "n": 4,
+   "wkind": "copy",
+   "read_MB": 1975.25504,
+   "write_MB": 987.62752,
+   "gflop": 0,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "L1-resident intermediate"
+  },
+  {
+   "region": "token encoder",
+   "label": "transition_2 x2 [z,128,H=256]: fc3 [256->128]",
+   "n": 4,
+   "wkind": "mm",
+   "read_MB": 987.62752,
+   "write_MB": 493.81376,
+   "gflop": 126.41632255999998,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "compute stays"
+  },
+  {
+   "region": "token encoder",
+   "label": "transition_2 x2 [z,128,H=256]: residual add",
+   "n": 4,
+   "wkind": "copy",
+   "read_MB": 987.62752,
+   "write_MB": 493.81376,
+   "gflop": 0,
+   "irr_read_MB": 493.81376,
+   "irr_write_MB": 493.81376,
+   "assumption": "the ONE read and ONE write the whole Transition needs"
+  },
+  {
+   "region": "token encoder",
+   "label": "pairformer z_transition x2 [z,128,H=512]: rms_norm",
+   "n": 4,
+   "wkind": "copy",
+   "read_MB": 493.81376,
+   "write_MB": 493.81376,
+   "gflop": 0,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "folded into the fused block"
+  },
+  {
+   "region": "token encoder",
+   "label": "pairformer z_transition x2 [z,128,H=512]: fc1 silu [128->512]",
+   "n": 4,
+   "wkind": "mm",
+   "read_MB": 493.81376,
+   "write_MB": 1975.25504,
+   "gflop": 252.83264511999997,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "compute stays"
+  },
+  {
+   "region": "token encoder",
+   "label": "pairformer z_transition x2 [z,128,H=512]: fc2 [128->512]",
+   "n": 4,
+   "wkind": "mm",
+   "read_MB": 493.81376,
+   "write_MB": 1975.25504,
+   "gflop": 252.83264511999997,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "compute stays"
+  },
+  {
+   "region": "token encoder",
+   "label": "pairformer z_transition x2 [z,128,H=512]: multiply a*b",
+   "n": 4,
+   "wkind": "copy",
+   "read_MB": 3950.51008,
+   "write_MB": 1975.25504,
+   "gflop": 0,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "L1-resident intermediate"
+  },
+  {
+   "region": "token encoder",
+   "label": "pairformer z_transition x2 [z,128,H=512]: fc3 [512->128]",
+   "n": 4,
+   "wkind": "mm",
+   "read_MB": 1975.25504,
+   "write_MB": 493.81376,
+   "gflop": 252.83264511999997,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "compute stays"
+  },
+  {
+   "region": "token encoder",
+   "label": "pairformer z_transition x2 [z,128,H=512]: residual add",
+   "n": 4,
+   "wkind": "copy",
+   "read_MB": 987.62752,
+   "write_MB": 493.81376,
+   "gflop": 0,
+   "irr_read_MB": 493.81376,
+   "irr_write_MB": 493.81376,
+   "assumption": "the ONE read and ONE write the whole Transition needs"
+  },
+  {
+   "region": "token encoder",
+   "label": "pf attn: rms_norm(z)",
+   "n": 4,
+   "wkind": "copy",
+   "read_MB": 493.81376,
+   "write_MB": 493.81376,
+   "gflop": 0,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "fused into the pair pass"
+  },
+  {
+   "region": "token encoder",
+   "label": "pf attn: to_b linear 128->16",
+   "n": 4,
+   "wkind": "mm",
+   "read_MB": 493.81376,
+   "write_MB": 123.45344,
+   "gflop": 15.80204032,
+   "irr_read_MB": 0,
+   "irr_write_MB": 61.72672,
+   "assumption": "IRREDUCIBLE: z is already being read by the fused pair pass, so only the 16-wide bias write is charged, unpadded"
+  },
+  {
+   "region": "token encoder",
+   "label": "pf attn: permute bias -> [1,16,I,I]",
+   "n": 4,
+   "wkind": "copy",
+   "read_MB": 123.45344,
+   "write_MB": 63.438848,
+   "gflop": 0,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "IRREDUCIBLE 0: a fused kernel emits the head-major layout directly"
+  },
+  {
+   "region": "token encoder",
+   "label": "pf attn: q/k/v/g/o + 2 rms_norm on TOK(384)",
+   "n": 4,
+   "wkind": "copy",
+   "read_MB": 19.464192,
+   "write_MB": 17.301504,
+   "gflop": 4.15236096,
+   "irr_read_MB": 2.162688,
+   "irr_write_MB": 2.162688,
+   "assumption": "token-vector work, negligible bytes"
+  },
+  {
+   "region": "token encoder",
+   "label": "pf attn: scores + fp32 softmax chain (6 ops)",
+   "n": 4,
+   "wkind": "copy",
+   "read_MB": 761.266176,
+   "write_MB": 507.510784,
+   "gflop": 3.045064704,
+   "irr_read_MB": 63.438848,
+   "irr_write_MB": 63.438848,
+   "assumption": "IRREDUCIBLE: scores written once bf16, read once by a fused softmax+PV; no fp32 copy"
+  },
+  {
+   "region": "token encoder",
+   "label": "pf s_transition x2 [s,384,H=1536]: rms_norm",
+   "n": 4,
+   "wkind": "copy",
+   "read_MB": 2.162688,
+   "write_MB": 2.162688,
+   "gflop": 0,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "folded into the fused block"
+  },
+  {
+   "region": "token encoder",
+   "label": "pf s_transition x2 [s,384,H=1536]: fc1 silu [384->1536]",
+   "n": 4,
+   "wkind": "mm",
+   "read_MB": 2.162688,
+   "write_MB": 8.650752,
+   "gflop": 3.3218887679999995,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "compute stays"
+  },
+  {
+   "region": "token encoder",
+   "label": "pf s_transition x2 [s,384,H=1536]: fc2 [384->1536]",
+   "n": 4,
+   "wkind": "mm",
+   "read_MB": 2.162688,
+   "write_MB": 8.650752,
+   "gflop": 3.3218887679999995,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "compute stays"
+  },
+  {
+   "region": "token encoder",
+   "label": "pf s_transition x2 [s,384,H=1536]: multiply a*b",
+   "n": 4,
+   "wkind": "copy",
+   "read_MB": 17.301504,
+   "write_MB": 8.650752,
+   "gflop": 0,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "L1-resident intermediate"
+  },
+  {
+   "region": "token encoder",
+   "label": "pf s_transition x2 [s,384,H=1536]: fc3 [1536->384]",
+   "n": 4,
+   "wkind": "mm",
+   "read_MB": 8.650752,
+   "write_MB": 2.162688,
+   "gflop": 3.3218887679999995,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "compute stays"
+  },
+  {
+   "region": "token encoder",
+   "label": "pf s_transition x2 [s,384,H=1536]: residual add",
+   "n": 4,
+   "wkind": "copy",
+   "read_MB": 4.325376,
+   "write_MB": 2.162688,
+   "gflop": 0,
+   "irr_read_MB": 2.162688,
+   "irr_write_MB": 2.162688,
+   "assumption": "the ONE read and ONE write the whole Transition needs"
+  },
+  {
+   "region": "token DiT",
+   "label": "pair_bias linear 128->16 (model.py:1492)",
+   "n": 36,
+   "wkind": "mm",
+   "read_MB": 4444.32384,
+   "write_MB": 1111.08096,
+   "gflop": 142.21836288,
+   "irr_read_MB": 246.90688,
+   "irr_write_MB": 61.72672,
+   "assumption": "IRREDUCIBLE: z is invariant across the 18 blocks and differs only across the 2 recycles, so 2 reads, not 36. Charged as 1/18 of the shipped read."
+  },
+  {
+   "region": "token DiT",
+   "label": "permute pair_bias -> [1,16,I,I]",
+   "n": 36,
+   "wkind": "copy",
+   "read_MB": 1111.08096,
+   "write_MB": 570.949632,
+   "gflop": 0,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "IRREDUCIBLE 0: emit head-major from the fused projection"
+  },
+  {
+   "region": "token DiT",
+   "label": "add(pair_bias, additive_mask)",
+   "n": 36,
+   "wkind": "copy",
+   "read_MB": 1141.899264,
+   "write_MB": 570.949632,
+   "gflop": 0,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "fused"
+  },
+  {
+   "region": "token DiT",
+   "label": "pad x3 (kk, vv, bias)",
+   "n": 108,
+   "wkind": "copy",
+   "read_MB": 216.0,
+   "write_MB": 216.0,
+   "gflop": 0,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "IRREDUCIBLE 0: 704 is already tile-aligned, this is defensive"
+  },
+  {
+   "region": "token DiT",
+   "label": "typecast bias -> fp32",
+   "n": 36,
+   "wkind": "copy",
+   "read_MB": 570.949632,
+   "write_MB": 1141.899264,
+   "gflop": 0,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "fused"
+  },
+  {
+   "region": "token DiT",
+   "label": "matmul scores qq@kt",
+   "n": 36,
+   "wkind": "copy",
+   "read_MB": 77.856768,
+   "write_MB": 570.949632,
+   "gflop": 27.405582336000002,
+   "irr_read_MB": 0,
+   "irr_write_MB": 570.949632,
+   "assumption": "scores written once"
+  },
+  {
+   "region": "token DiT",
+   "label": "typecast scores -> fp32",
+   "n": 36,
+   "wkind": "copy",
+   "read_MB": 570.949632,
+   "write_MB": 1141.899264,
+   "gflop": 0,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "fused"
+  },
+  {
+   "region": "token DiT",
+   "label": "add scores + bias_f (fp32)",
+   "n": 36,
+   "wkind": "copy",
+   "read_MB": 2283.798528,
+   "write_MB": 1141.899264,
+   "gflop": 0,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "fused"
+  },
+  {
+   "region": "token DiT",
+   "label": "softmax fp32",
+   "n": 36,
+   "wkind": "copy",
+   "read_MB": 1141.899264,
+   "write_MB": 1141.899264,
+   "gflop": 0,
+   "irr_read_MB": 570.949632,
+   "irr_write_MB": 570.949632,
+   "assumption": "IRREDUCIBLE: one bf16 read and one bf16 write; the fp32 residency is an implementation choice"
+  },
+  {
+   "region": "token DiT",
+   "label": "typecast attn -> bf16",
+   "n": 36,
+   "wkind": "copy",
+   "read_MB": 1141.899264,
+   "write_MB": 570.949632,
+   "gflop": 0,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "fused"
+  },
+  {
+   "region": "token DiT",
+   "label": "attn@vv + merge_heads",
+   "n": 36,
+   "wkind": "copy",
+   "read_MB": 609.878016,
+   "write_MB": 77.856768,
+   "gflop": 27.405582336000002,
+   "irr_read_MB": 570.949632,
+   "irr_write_MB": 38.928384,
+   "assumption": ""
+  },
+  {
+   "region": "token DiT",
+   "label": "12 linears on TOK(768)/TOK(384)",
+   "n": 432,
+   "wkind": "copy",
+   "read_MB": 985.5406079999999,
+   "write_MB": 467.14060800000004,
+   "gflop": 358.763986944,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "IRREDUCIBLE bytes ~0: a whole DiT block's token-vector state is 1.08 MB and lives in L1 for the block; only the weights must be read, charged in the weight line"
+  },
+  {
+   "region": "token DiT",
+   "label": "reshape x3 + permute x3 (head split)",
+   "n": 216,
+   "wkind": "copy",
+   "read_MB": 233.57030400000002,
+   "write_MB": 233.57030400000002,
+   "gflop": 0,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "IRREDUCIBLE 0: a fused qkv projection emits head-major"
+  },
+  {
+   "region": "token DiT",
+   "label": "rms_norm/sigmoid/multiply/add on TOK (the rest)",
+   "n": 900,
+   "wkind": "copy",
+   "read_MB": 973.2096,
+   "write_MB": 973.2096,
+   "gflop": 0,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "IRREDUCIBLE 0: L1-resident block state"
+  },
+  {
+   "region": "token DiT",
+   "label": "DiT weights, read once per recycle",
+   "n": 2,
+   "wkind": "copy",
+   "read_MB": 552.0,
+   "write_MB": 0,
+   "gflop": 0,
+   "irr_read_MB": 552.0,
+   "irr_write_MB": 0,
+   "assumption": "18 blocks x (5x768x768 + 3x768x1536 + 4x384x768 + 128x16) params at bf16"
+  },
+  {
+   "region": "atom decoder",
+   "label": "sparse pair bias [1,L,128,32]@[32,32]",
+   "n": 6,
+   "wkind": "copy",
+   "read_MB": 297.418752,
+   "write_MB": 297.418752,
+   "gflop": 9.517400064,
+   "irr_read_MB": 99.13958400000001,
+   "irr_write_MB": 99.13958400000001,
+   "assumption": "IRREDUCIBLE: the gathered pair features are the same for all 3 blocks in a call (the _sparse_pair_bias cache already exploits this), so 1 read per call not 3"
+  },
+  {
+   "region": "atom decoder",
+   "label": "softmax fp32 [1,4,LP,128]",
+   "n": 6,
+   "wkind": "copy",
+   "read_MB": 74.71104,
+   "write_MB": 74.71104,
+   "gflop": 0,
+   "irr_read_MB": 37.35552,
+   "irr_write_MB": 37.35552,
+   "assumption": "IRREDUCIBLE: bf16 in, bf16 out, fused with the PV matmul"
+  },
+  {
+   "region": "atom decoder",
+   "label": "typecast around the softmax (x2)",
+   "n": 12,
+   "wkind": "copy",
+   "read_MB": 74.71104,
+   "write_MB": 149.42208,
+   "gflop": 0,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "fused"
+  },
+  {
+   "region": "atom decoder",
+   "label": "scores + PV matmuls",
+   "n": 12,
+   "wkind": "copy",
+   "read_MB": 9.33888,
+   "write_MB": 9.33888,
+   "gflop": 2.39075328,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": ""
+  },
+  {
+   "region": "atom decoder",
+   "label": "atom-block linears + transitions (c=128, H=256)",
+   "n": 138,
+   "wkind": "copy",
+   "read_MB": 214.79424,
+   "write_MB": 214.79424,
+   "gflop": 27.49366272,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "IRREDUCIBLE bytes 0: the atom state is 1.56 MB and stays in L1 across the block"
+  },
+  {
+   "region": "atom decoder",
+   "label": "reshape/permute/pack/unpack/gather (the rest)",
+   "n": 450,
+   "wkind": "copy",
+   "read_MB": 700.416,
+   "write_MB": 700.416,
+   "gflop": 0,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "IRREDUCIBLE 0: layout, not mathematics"
+  },
+  {
+   "region": "atom decoder",
+   "label": "atom-path weights, once per call",
+   "n": 2,
+   "wkind": "copy",
+   "read_MB": 48.0,
+   "write_MB": 0,
+   "gflop": 0,
+   "irr_read_MB": 48.0,
+   "irr_write_MB": 0,
+   "assumption": ""
+  },
+  {
+   "region": "atom encoder",
+   "label": "sparse pair bias",
+   "n": 3,
+   "wkind": "copy",
+   "read_MB": 148.709376,
+   "write_MB": 148.709376,
+   "gflop": 4.758700032,
+   "irr_read_MB": 49.56979200000001,
+   "irr_write_MB": 49.56979200000001,
+   "assumption": "same as the decoder"
+  },
+  {
+   "region": "atom encoder",
+   "label": "softmax fp32 [1,4,LP,128]",
+   "n": 3,
+   "wkind": "copy",
+   "read_MB": 37.35552,
+   "write_MB": 37.35552,
+   "gflop": 0,
+   "irr_read_MB": 18.67776,
+   "irr_write_MB": 18.67776,
+   "assumption": ""
+  },
+  {
+   "region": "atom encoder",
+   "label": "typecast around the softmax (x2)",
+   "n": 6,
+   "wkind": "copy",
+   "read_MB": 37.35552,
+   "write_MB": 74.71104,
+   "gflop": 0,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": "fused"
+  },
+  {
+   "region": "atom encoder",
+   "label": "atom-block linears + transitions",
+   "n": 69,
+   "wkind": "copy",
+   "read_MB": 107.39712,
+   "write_MB": 107.39712,
+   "gflop": 13.74683136,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": ""
+  },
+  {
+   "region": "atom encoder",
+   "label": "embedding + to_layout + the rest",
+   "n": 85,
+   "wkind": "copy",
+   "read_MB": 132.3008,
+   "write_MB": 132.3008,
+   "gflop": 0,
+   "irr_read_MB": 0,
+   "irr_write_MB": 0,
+   "assumption": ""
+  },
+  {
+   "region": "atom encoder",
+   "label": "atom-path weights, once per step",
+   "n": 1,
+   "wkind": "copy",
+   "read_MB": 24.0,
+   "write_MB": 0,
+   "gflop": 0,
+   "irr_read_MB": 24.0,
+   "irr_write_MB": 0,
+   "assumption": ""
+  }
+ ]
+}

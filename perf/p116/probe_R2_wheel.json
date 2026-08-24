@@ -1,0 +1,61 @@
+{
+  "spec": "perf/dsfix/fixtures/rfd3_R2.json",
+  "rows": [
+    {
+      "arm": "b1",
+      "batch": 1,
+      "rep": 0,
+      "round": 0,
+      "sampler_wall_s": 59.555,
+      "n_designs": 1,
+      "batches": 1,
+      "batches_expected": 1,
+      "arm_verified": true,
+      "s_per_design": 59.555,
+      "digests": {
+        "R2_b100#0": "18172fc7e40df53b"
+      },
+      "effective_batch": 1,
+      "loadavg": 11.34,
+      "L_atoms": 3844,
+      "n_atoms_seen": [
+        3844
+      ]
+    }
+  ],
+  "num_timesteps": 200,
+  "reps": 1,
+  "L_atoms": 3844,
+  "atoms_per_spec": {
+    "R2_b100": 3844
+  },
+  "arms": [
+    1
+  ],
+  "designs_per_fold": 1,
+  "atom_pair_budget_admits": 6,
+  "shipped_speed_cap": 1,
+  "shipped_speed_cap_above_atoms": 2952,
+  "shipped_effective_batch_at_8": 1,
+  "per_arm_s_per_design": {
+    "b1": 59.55492392800079
+  },
+  "per_arm_min": {
+    "b1": 59.55492392800079
+  },
+  "per_arm_max": {
+    "b1": 59.55492392800079
+  },
+  "b1_aa_spread_frac": 0.0,
+  "best_batched_arm": null,
+  "verdict": "no batched arm produced a result",
+  "paired_round_ratios": {},
+  "per_round_s_per_design": {
+    "b1": {
+      "0": 59.555
+    }
+  },
+  "host": "tt-quietbox2",
+  "card": 1,
+  "partial": false
+}

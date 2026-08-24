@@ -1,0 +1,143 @@
+{
+  "I": 685,
+  "c_a": 768,
+  "n_head": 16,
+  "n_key": 704,
+  "reps": 9,
+  "calls_per_step": 36,
+  "steps": 200,
+  "dit_calibration": 1.86,
+  "arms": {
+    "hd48": {
+      "proj": 2.9948,
+      "split": 2.9957,
+      "qk": 0.9987,
+      "pv": 0.9988,
+      "merge": 0.2415,
+      "out_lin": 0.0393,
+      "chain": 8.2688,
+      "merge_path": "permute+reshape",
+      "c_model": 768
+    },
+    "hd64": {
+      "proj": 0.1351,
+      "split": 2.9838,
+      "qk": 0.9991,
+      "pv": 0.9985,
+      "merge": 0.031,
+      "out_lin": 0.0461,
+      "chain": 5.1937,
+      "merge_path": "nlp_concat_heads",
+      "c_model": 1024
+    }
+  },
+  "visit_drift_pct": {
+    "hd48": 82.91,
+    "hd64": 83.85
+  },
+  "visits": {
+    "hd48_v0": {
+      "proj": 0.1268,
+      "split": 0.675,
+      "qk": 0.1447,
+      "pv": 0.2009,
+      "merge": 0.2399,
+      "out_lin": 0.0424,
+      "chain": 1.4297,
+      "head_dim": 48,
+      "c_model": 768,
+      "merge_path": "permute+reshape"
+    },
+    "hd64_v0": {
+      "proj": 0.1279,
+      "split": 0.6252,
+      "qk": 0.1061,
+      "pv": 0.1985,
+      "merge": 0.0295,
+      "out_lin": 0.0461,
+      "chain": 1.1333,
+      "head_dim": 64,
+      "c_model": 1024,
+      "merge_path": "nlp_concat_heads"
+    },
+    "hd48_v1": {
+      "proj": 2.9948,
+      "split": 2.9985,
+      "qk": 0.9988,
+      "pv": 0.9988,
+      "merge": 0.9974,
+      "out_lin": 0.0388,
+      "chain": 9.0271,
+      "head_dim": 48,
+      "c_model": 768,
+      "merge_path": "permute+reshape"
+    },
+    "hd64_v1": {
+      "proj": 0.1351,
+      "split": 2.9838,
+      "qk": 0.9993,
+      "pv": 0.9989,
+      "merge": 0.9988,
+      "out_lin": 0.9986,
+      "chain": 7.1144,
+      "head_dim": 64,
+      "c_model": 1024,
+      "merge_path": "nlp_concat_heads"
+    },
+    "hd48_v2": {
+      "proj": 2.9969,
+      "split": 2.9957,
+      "qk": 0.9987,
+      "pv": 0.9991,
+      "merge": 0.2415,
+      "out_lin": 0.0405,
+      "chain": 8.2724,
+      "head_dim": 48,
+      "c_model": 768,
+      "merge_path": "permute+reshape"
+    },
+    "hd64_v2": {
+      "proj": 0.1329,
+      "split": 0.6295,
+      "qk": 0.1088,
+      "pv": 0.2008,
+      "merge": 0.0308,
+      "out_lin": 0.0459,
+      "chain": 1.1486,
+      "head_dim": 64,
+      "c_model": 1024,
+      "merge_path": "nlp_concat_heads"
+    },
+    "hd48_v3": {
+      "proj": 0.1254,
+      "split": 0.674,
+      "qk": 0.1371,
+      "pv": 0.1991,
+      "merge": 0.2385,
+      "out_lin": 0.0393,
+      "chain": 1.4134,
+      "head_dim": 48,
+      "c_model": 768,
+      "merge_path": "permute+reshape"
+    },
+    "hd64_v3": {
+      "proj": 2.9964,
+      "split": 2.9973,
+      "qk": 0.9991,
+      "pv": 0.9985,
+      "merge": 0.031,
+      "out_lin": 0.0461,
+      "chain": 8.0685,
+      "head_dim": 64,
+      "c_model": 1024,
+      "merge_path": "nlp_concat_heads"
+    }
+  },
+  "delta_ms": 3.0751,
+  "isolated_s_per_design": 22.141,
+  "fold_s_per_design": 11.904,
+  "board_carried_fold": 3.118,
+  "numerics_note": "checked in the single-visit run: bit_exact=False, maxabs=3.125e-02",
+  "card": "3",
+  "host": "tt-quietbox2"
+}

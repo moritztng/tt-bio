@@ -1,0 +1,119 @@
+{
+  "fixture": "perf/dsfix/fixtures/rfd3_R4.json",
+  "atoms": 6051,
+  "tokens": 685,
+  "batch": 1,
+  "steps_counted": 5.0,
+  "calls_counted": 10,
+  "num_timesteps": 8,
+  "roof_GB_s_measured": 385.0,
+  "rows": [
+    {
+      "region": "transition_2 x2",
+      "n": 10,
+      "ms_per_call": 27.385,
+      "ms_per_step": 54.77,
+      "MB_per_call": null,
+      "GB_s": null,
+      "pct_of_roof": null
+    },
+    {
+      "region": "pairformer[1]",
+      "n": 10,
+      "ms_per_call": 22.878,
+      "ms_per_step": 45.756,
+      "MB_per_call": null,
+      "GB_s": null,
+      "pct_of_roof": null
+    },
+    {
+      "region": "pairformer[0]",
+      "n": 10,
+      "ms_per_call": 22.865,
+      "ms_per_step": 45.73,
+      "MB_per_call": null,
+      "GB_s": null,
+      "pct_of_roof": null
+    },
+    {
+      "region": "ttnn.linear 258->128",
+      "n": 10,
+      "ms_per_call": 6.43,
+      "ms_per_step": 12.86,
+      "MB_per_call": 390.4,
+      "GB_s": 60.7,
+      "pct_of_roof": 15.8
+    },
+    {
+      "region": "_combined_onehot_dev[B,I,I,160]",
+      "n": 10,
+      "ms_per_call": 5.236,
+      "ms_per_step": 10.473,
+      "MB_per_call": 452.3,
+      "GB_s": 86.4,
+      "pct_of_roof": 22.4
+    },
+    {
+      "region": "ttnn.rms_norm(258)",
+      "n": 10,
+      "ms_per_call": 1.782,
+      "ms_per_step": 3.564,
+      "MB_per_call": 540.5,
+      "GB_s": 303.3,
+      "pct_of_roof": 78.8
+    },
+    {
+      "region": "ttnn.concat 128+160 -> 288",
+      "n": 10,
+      "ms_per_call": 1.526,
+      "ms_per_step": 3.053,
+      "MB_per_call": 540.5,
+      "GB_s": 354.2,
+      "pct_of_roof": 92.0
+    },
+    {
+      "region": "ttnn.slice 288 -> 258",
+      "n": 10,
+      "ms_per_call": 1.485,
+      "ms_per_step": 2.971,
+      "MB_per_call": 540.5,
+      "GB_s": 363.9,
+      "pct_of_roof": 94.5
+    },
+    {
+      "region": "host._scaled_distogram_bins",
+      "n": 10,
+      "ms_per_call": 1.367,
+      "ms_per_step": 2.734,
+      "MB_per_call": null,
+      "GB_s": null,
+      "pct_of_roof": null
+    },
+    {
+      "region": "s.upload+transition_1",
+      "n": 10,
+      "ms_per_call": 0.478,
+      "ms_per_step": 0.955,
+      "MB_per_call": null,
+      "GB_s": null,
+      "pct_of_roof": null
+    },
+    {
+      "region": "z.upload+_batched",
+      "n": 10,
+      "ms_per_call": 0.031,
+      "ms_per_step": 0.062,
+      "MB_per_call": null,
+      "GB_s": null,
+      "pct_of_roof": null
+    }
+  ],
+  "synced_sum_ms_per_step": 182.928,
+  "unsynced_region_ms_per_step": 183.303,
+  "oversync_inflation": 0.998,
+  "total_wall_s": 85.2,
+  "host": "qb2",
+  "card": 0,
+  "ttnn": "0.68.0",
+  "torch": "2.13.0+cpu"
+}

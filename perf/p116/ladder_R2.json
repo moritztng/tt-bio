@@ -1,0 +1,59 @@
+{
+  "spec": "perf/dsfix/fixtures/rfd3_R2.json",
+  "rows": [
+    {
+      "arm": "b1",
+      "stage": "warmup",
+      "exc": "TT_THROW @ /home/ttuser/tt-metal/tt_metal/impl/program/program.cpp:255: tt::exception\ninfo:\nFailed to generate binaries for softmax_large_tensor TT_THROW @ /home/ttuser/tt-metal/tt_metal/jit_build/build.cpp:67: tt::exception\ninfo:\ntrisc0 build failed. Log: In file included from ../chlkc_unpack.cpp:3,\n                 from /home/ttuser/tt-metal/tt_metal/hw/ckernels/blackhole/metal/common/chlkc_list.h:26,\n                 from /home/ttuser/tt-metal/tt_metal/hw/firmware/src/tt-1xx/trisck.cc:13:\n/home/ttuser/.coworker/wt/rfd3-b8-to-4x-p4/tt_bio/kernels/rfd3_softmax/softmax_large_tensor.cpp:23:10: "
+    },
+    {
+      "arm": "b2",
+      "stage": "warmup",
+      "exc": "TT_THROW @ /home/ttuser/tt-metal/tt_metal/impl/program/program.cpp:255: tt::exception\ninfo:\nFailed to generate binaries for softmax_large_tensor TT_THROW @ /home/ttuser/tt-metal/tt_metal/jit_build/build.cpp:67: tt::exception\ninfo:\ntrisc0 build failed. Log: In file included from ../chlkc_unpack.cpp:3,\n                 from /home/ttuser/tt-metal/tt_metal/hw/ckernels/blackhole/metal/common/chlkc_list.h:26,\n                 from /home/ttuser/tt-metal/tt_metal/hw/firmware/src/tt-1xx/trisck.cc:13:\n/home/ttuser/.coworker/wt/rfd3-b8-to-4x-p4/tt_bio/kernels/rfd3_softmax/softmax_large_tensor.cpp:23:10: "
+    },
+    {
+      "arm": "b4",
+      "stage": "warmup",
+      "exc": "TT_THROW @ /home/ttuser/tt-metal/tt_metal/impl/program/program.cpp:255: tt::exception\ninfo:\nFailed to generate binaries for softmax_large_tensor TT_THROW @ /home/ttuser/tt-metal/tt_metal/jit_build/build.cpp:67: tt::exception\ninfo:\ntrisc0 build failed. Log: In file included from ../chlkc_unpack.cpp:3,\n                 from /home/ttuser/tt-metal/tt_metal/hw/ckernels/blackhole/metal/common/chlkc_list.h:26,\n                 from /home/ttuser/tt-metal/tt_metal/hw/firmware/src/tt-1xx/trisck.cc:13:\n/home/ttuser/.coworker/wt/rfd3-b8-to-4x-p4/tt_bio/kernels/rfd3_softmax/softmax_large_tensor.cpp:23:10: "
+    }
+  ],
+  "num_timesteps": 200,
+  "reps": 2,
+  "L_atoms": 3844,
+  "atoms_per_spec": {
+    "R2_b100": 3844
+  },
+  "arms": [
+    1,
+    2,
+    4
+  ],
+  "designs_per_fold": 4,
+  "atom_pair_budget_admits": 6,
+  "shipped_speed_cap": 1,
+  "shipped_speed_cap_above_atoms": 2952,
+  "shipped_effective_batch_at_8": 1,
+  "per_arm_s_per_design": {
+    "b1": null,
+    "b2": null,
+    "b4": null
+  },
+  "per_arm_min": {
+    "b1": null,
+    "b2": null,
+    "b4": null
+  },
+  "per_arm_max": {
+    "b1": null,
+    "b2": null,
+    "b4": null
+  },
+  "b1_aa_spread_frac": null,
+  "best_batched_arm": null,
+  "verdict": null,
+  "paired_round_ratios": {},
+  "per_round_s_per_design": {},
+  "host": "tt-quietbox2",
+  "card": 1,
+  "partial": false
+}

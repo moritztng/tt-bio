@@ -1,0 +1,43 @@
+{
+  "rows": [
+    {
+      "part": "1 qk matmul",
+      "ms": 1.0871,
+      "pct": 11.07
+    },
+    {
+      "part": "2 fused_scores_bias_fp32 (L6b)",
+      "ms": 3.1215,
+      "pct": 31.79
+    },
+    {
+      "part": "3 softmax fp32->bf16",
+      "ms": 4.8196,
+      "pct": 49.09
+    },
+    {
+      "part": "4 pv matmul",
+      "ms": 0.7901,
+      "pct": 8.05
+    },
+    {
+      "part": "shipped_chain_whole",
+      "ms": 9.6466
+    }
+  ],
+  "H": 4,
+  "L": 6051,
+  "n_key": 6080,
+  "head_dim": 32,
+  "k_sparse": 128,
+  "calls_per_step": 9,
+  "steps": 200,
+  "shipped_chain_ms": 9.6466,
+  "shipped_parts_sum_ms": 9.8182,
+  "whole_site_s_per_design": 17.364,
+  "p77_dense_shipped_ms": 16.2657,
+  "p77_overstatement_s_per_design": 11.914,
+  "fused_enabled": true,
+  "host": "tt-quietbox2",
+  "card": "0"
+}
