@@ -95,14 +95,14 @@ tt-bio predict examples/prot.yaml --model rf3 \
 tt-bio predict targets.yaml --model rf3 --early_stop_plddt 0.5   # skip the rollout on hopeless targets
 ```
 
-| Feature | Boltz-2 | ESMFold2 | Protenix-v2 | OpenFold3 | OpenDDE | RF3 |
-|---|---|---|---|---|---|---|
-| Input | protein/DNA/RNA/ligand complex | single protein | protein/DNA/RNA/ligand complex | protein/RNA/DNA (polymer-only) | protein complex (antibody-antigen) | protein/DNA/RNA/ligand complex |
-| MSA | MSA-dependent (on by default) | single-sequence | proteins MSA-dependent (on by default), NA/ligand single-sequence | proteins MSA-dependent (on by default) | proteins MSA-dependent (on by default) | proteins MSA-dependent (on by default) |
-| Affinity / potentials / templates | yes | no | no | templates only | no | no |
-| Pocket / contact constraints | yes | no | no | no | no | no |
-| Covalent `bond` constraints | yes | no | yes | no | yes | from the input structure |
-| PAE/PDE output (`--write_pae`) | no | no | yes | no | no | in `_summary_confidences.json` |
+| Feature | Boltz-2 | ESMFold2 | Protenix-v2 | OpenFold3 | OpenBind-0 | OpenDDE | RF3 |
+|---|---|---|---|---|---|---|---|
+| Input | protein/DNA/RNA/ligand complex | single protein | protein/DNA/RNA/ligand complex | protein/RNA/DNA (polymer-only) | protein/DNA/RNA/ligand complex | protein complex (antibody-antigen) | protein/DNA/RNA/ligand complex |
+| MSA | MSA-dependent (on by default) | single-sequence | proteins MSA-dependent (on by default), NA/ligand single-sequence | proteins MSA-dependent (on by default) | proteins MSA-dependent (on by default) | proteins MSA-dependent (on by default) | proteins MSA-dependent (on by default) |
+| Affinity / potentials / templates | yes | no | no | templates only | templates only | no | no |
+| Pocket / contact constraints | yes | no | no | no | no | no | no |
+| Covalent `bond` constraints | yes | no | yes | no | no | yes | from the input structure |
+| PAE/PDE output (`--write_pae`) | no | no | yes | no | no | no | in `_summary_confidences.json` |
 
 Targets up to at least 1095 residues fold on a single 12 GiB Wormhole card, on every structure
 model including OpenDDE, whose structural-token expander makes it the strictest case. The pair
