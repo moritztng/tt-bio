@@ -122,14 +122,23 @@ def featurize_seed(fixture: str, recycles: int, seed: int):
         os.chdir(prev)
 
 
-def ref_trunk_bf16(net, f, recycles: int):
+def to_dev(x, device: str):
+    return x.to(device) if isinstance(x, torch.Tensor) else x
+
+
+def ref_trunk_bf16(net, f, recycles: int, device: str = "cpu"):
     """The reference trunk under bf16 autocast, which is the arm the port is scored
     against: both sides run bf16 where the reference does. Autocast casts msa_stack and
     the template features IN PLACE, so the reference gets a cloned dict and the device
-    arm keeps the original."""
+    arm keeps the original.
+
+    `device` is the backend the REFERENCE runs on, not the port's card. The two committed
+    anchors are cpu; `cuda` is what --ref-device buys, and its outputs stay on the GPU so
+    the denoiser that reads them does too."""
     from collections import deque
-    ff = {k: (v.clone() if isinstance(v, torch.Tensor) else v) for k, v in f.items()}
-    with torch.no_grad(), torch.autocast("cpu", dtype=torch.bfloat16):
+    ff = {k: (to_dev(v.clone(), device) if isinstance(v, torch.Tensor) else v)
+          for k, v in f.items()}
+    with torch.no_grad(), torch.autocast(device, dtype=torch.bfloat16):
         ro = deque(net.trunk_forward_with_recycling(f=ff, n_recycles=recycles),
                    maxlen=1).pop()
     return {k: v.float() for k, v in ro.items()}
@@ -210,16 +219,22 @@ def run_seed(args, net, tt, seed: int, work: Path, ref_cache: Path | None = None
                 "replayed")
         ref_src = f"cache:{cached_ref}"
     else:
+        rdev = getattr(args, "ref_device", "cpu")
         t0 = time.time()
-        ro = ref_trunk_bf16(net, f, args.recycles)
+        ro = ref_trunk_bf16(net, f, args.recycles, rdev)
         ref_trunk_s = time.time() - t0
+        # The SAMPLER stays on the host at every ref-device, so `Draws` keeps drawing from
+        # the CPU generator and the recorded stream is the one a later device run
+        # re-harvests locally. Only the denoiser crosses to the accelerator.
+        fd = f if rdev == "cpu" else {k: to_dev(v, rdev) for k, v in f.items()}
 
         def ref_denoise(x_noisy, t):
-            with torch.no_grad(), torch.autocast("cpu", dtype=torch.bfloat16):
-                return net.diffusion_module(
-                    X_noisy_L=x_noisy, t=t, f=f,
+            with torch.no_grad(), torch.autocast(rdev, dtype=torch.bfloat16):
+                out = net.diffusion_module(
+                    X_noisy_L=to_dev(x_noisy, rdev), t=to_dev(t, rdev), f=fd,
                     S_inputs_I=ro["S_inputs_I"], S_trunk_I=ro["S_I"],
                     Z_trunk_II=ro["Z_II"]).float()
+            return out if rdev == "cpu" else out.cpu()
 
         # Re-seed at SAMPLER ENTRY. A single up-front manual_seed is not enough: the two
         # trunks can consume the stream differently, which desyncs the draws before the
@@ -323,19 +338,22 @@ def probe(args, net) -> int:
     n_atom = int(f["ref_pos"].shape[-2])
 
     t0 = time.time()
-    ro = ref_trunk_bf16(net, f, args.recycles)
+    ro = ref_trunk_bf16(net, f, args.recycles, args.ref_device)
     trunk_s = time.time() - t0
 
-    x = torch.randn(1, n_atom, 3) * 16.0
-    t = torch.tensor([16.0])
+    rdev = args.ref_device
+    x = to_dev(torch.randn(1, n_atom, 3) * 16.0, rdev)
+    t = to_dev(torch.tensor([16.0]), rdev)
+    fd = f if rdev == "cpu" else {k: to_dev(v, rdev) for k, v in f.items()}
     t0 = time.time()
-    with torch.no_grad(), torch.autocast("cpu", dtype=torch.bfloat16):
-        net.diffusion_module(X_noisy_L=x, t=t, f=f, S_inputs_I=ro["S_inputs_I"],
+    with torch.no_grad(), torch.autocast(rdev, dtype=torch.bfloat16):
+        net.diffusion_module(X_noisy_L=x, t=t, f=fd, S_inputs_I=ro["S_inputs_I"],
                             S_trunk_I=ro["S_I"], Z_trunk_II=ro["Z_II"])
     call_s = time.time() - t0
 
     rep_out = {
-        "fixture": args.fixture, "recycles": args.recycles, "steps": args.steps,
+        "fixture": args.fixture, "ref_device": args.ref_device,
+        "recycles": args.recycles, "steps": args.steps,
         "n_atom": n_atom, "n_token": int(ro["S_I"].shape[-2]), "n_rep_atom": int(rep.size),
         "featurize_s": round(feat_s, 1),
         "ref_trunk_s": round(trunk_s, 1),
@@ -382,6 +400,12 @@ def main() -> int:
     ap.add_argument("--ref-cache", default=None,
                     help="where the arm-independent reference coordinates live; defaults "
                          "to a0's work dir, so a new arm pays only its device rollout")
+    ap.add_argument("--ref-device", default="cpu",
+                    help="backend the REFERENCE half runs on. The two committed anchors "
+                         "are cpu; cuda is the standing default for a NEW reference "
+                         "(PLAYBOOKS.md VERIFY/BENCHMARK) and is what makes a 1000-aa "
+                         "trunk affordable at all. The sampler loop and the RNG stay on "
+                         "the host either way, so the recorded draws are unchanged")
     ap.add_argument("--ref-only", action="store_true",
                     help="reference half only: no card, no device, no arm. Writes a npz "
                          "with no `dev` key, which a later device run reads as a cache")
@@ -401,7 +425,9 @@ def main() -> int:
               "ref_cache": str(ref_work),
               "fixture": args.fixture, "seeds": seeds, "recycles": args.recycles,
               "steps": args.steps, "diffusion_samples": 1,
-              "reference": "tt_bio._vendor.rf3 (upstream foundry), CPU torch, bf16 autocast",
+              "ref_device": args.ref_device,
+              "reference": "tt_bio._vendor.rf3 (upstream foundry), "
+                           f"{args.ref_device} torch, bf16 autocast",
               "kabsch_selftest_A": self_test,
               "metric_convention": "pharma_parity.noise_floor_verdict; floor = "
                                    "max(mean R, mean D); pairwise self-superposition, "
@@ -425,6 +451,11 @@ def main() -> int:
     from tt_bio.rf3.weights import load_reference
     t0 = time.time()
     net, cfg = load_reference(args.ckpt, num_steps=args.steps)
+    if args.ref_device != "cpu":
+        net = net.to(args.ref_device)
+        report["ref_device_name"] = (torch.cuda.get_device_name(0)
+                                     if args.ref_device.startswith("cuda")
+                                     else args.ref_device)
     report["ref_load_s"] = round(time.time() - t0, 1)
 
     if args.probe:
