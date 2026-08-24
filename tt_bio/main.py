@@ -1296,12 +1296,21 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
             # failure; that costs 0.5 s and needs no timeout.
             if local_procs and not any(proc.is_alive() for proc in local_procs):
                 if all_dead_seen:
+                    from tt_bio.device_lease import CONTENDED_EXIT_CODE, DeviceInUseError
                     codes = ", ".join(f"{proc.name} exit {proc.exitcode}"
                                       for proc in local_procs)
+                    if any(proc.exitcode == CONTENDED_EXIT_CODE for proc in local_procs):
+                        # A co-tenant held the card, so no worker opened a chip and there
+                        # is nothing to score. Raise the lease error the workers actually
+                        # died of, so the CLI group maps it to CONTENDED_EXIT_CODE: on a
+                        # bare exit 1 a release-gate arm renders this as its own accuracy
+                        # verdict, and six v0.7.0 legs reached the table through this line.
+                        raise DeviceInUseError(
+                            f"every local worker exited at device open ({codes}); the card "
+                            "is leased by another process, so nothing ran")
                     raise RuntimeError(
                         f"every local worker exited before the run finished ({codes}); "
-                        "no job can be served. The usual cause is a device-open "
-                        "failure: the card is leased by another process or wedged.")
+                        "no job can be served. The worker's own traceback above says why.")
                 all_dead_seen = True
             else:
                 all_dead_seen = False
