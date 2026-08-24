@@ -2199,7 +2199,11 @@ def main() -> int:
         if not args.check:
             print("Refusing to run the gate with misconfigured legs; fix the above (or scope with --leg).")
         return 1
-    blocked = [(l.id, _incomplete_fixture_seeds(l, list(l.seeds))) for l in legs]
+    # Only legs the scorer actually reads seed dirs for. An envelope leg scores against
+    # ref_fp32/ref_bf16 and never opens seed<N>/, so listing it here named a leg that scores
+    # fine as blocked and made the preflight count disagree with the run's own ledger.
+    blocked = [(l.id, _incomplete_fixture_seeds(l, list(l.seeds))) for l in legs
+               if _seeds_matched_against_fixture(l, args.legacy_rdx)]
     blocked = [(i, b) for i, b in blocked if b]
     if blocked:
         print("PREFLIGHT — fixtures present but INCOMPLETE (reference CIFs missing; each such "
