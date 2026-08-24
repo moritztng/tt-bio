@@ -1,0 +1,6 @@
+cuequivariance                0.11.1
+cuequivariance-ops-cu12       0.11.1
+cuequivariance-ops-cu13       0.11.1
+cuequivariance-ops-torch-cu12 0.11.1
+cuequivariance-ops-torch-cu13 0.11.1
+cuequivariance-torch          0.11.1
