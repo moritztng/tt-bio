@@ -260,8 +260,21 @@ def px_ref(gpu):
     return ref, cell[0]
 
 
+PX_H200_POOL = ("laczc512_exte_n1_msa", PX_LABEL, "laczc512_prev_n1_msa")
+
+
 def write_pxdesign(d, gpu, data):
     ref, h200 = px_ref(gpu)
+    # The h200 median pools these three, so its spread is computed from them rather than restated.
+    pool = {c["label"]: c["stages_s"]["gen_total_s"] for c in ref["cells"]
+            if c["label"] in PX_H200_POOL}
+    if len(pool) != len(PX_H200_POOL):
+        die(f"gpu_reference.json holds {sorted(pool)} of the three cells the h200 median pools")
+    # Spread over the MEDIAN, which is the convention the h200 cell's own ref used: asserted here
+    # by reproducing the 1.63 % that ref states, so the two cells' spreads are comparable figures
+    # rather than two different formulas printed side by side.
+    px_spread = lambda xs: (max(xs) - min(xs)) / statistics.median(xs) * 100.0
+    h200_spread = px_spread(list(pool.values()))
     files = sorted(d.glob(f"px_{gpu}_p*.jsonl"))
     if len(files) != PX_PROCS:
         die(f"{len(files)} process files px_{gpu}_p*.jsonl, want {PX_PROCS}")
@@ -332,9 +345,12 @@ def write_pxdesign(d, gpu, data):
         die(f"the {PX_PROCS} processes designed different binders at the same seed: {seqs}")
 
     ob = statistics.median(warm_gen)
-    spread = (max(warm_gen) - min(warm_gen)) / min(warm_gen) * 100.0
+    spread = px_spread(warm_gen)
     row = [r for r in data["design"]["models"] if r["id"] == "pxdesign"][0]
     h200_cell = row["cells"]["h200"]
+    if f"spread {h200_spread:.2f} %" not in h200_cell.get("ref", ""):
+        die(f"the h200 cell's ref does not state spread {h200_spread:.2f} %, so this cell has the "
+            "wrong formula and its spread would not be comparable to the one beside it")
     if h200_cell.get("status") != "measured":
         die("the PXDesign h200 cell is not measured, so there is nothing to write this against")
     pub = h200_cell["s_per_design"]
@@ -362,7 +378,7 @@ def write_pxdesign(d, gpu, data):
         f"YAML sha256 {h200['yaml_sha256'][:16]} the h200 laczc512_prev_n1 cell records. "
         f"The A100 runs this stage {(ob - pub) / pub * 100.0:.2f} % slower than the H200's "
         f"{pub} s, and its spread is the tighter of the two ({spread:.2f} % against the h200 "
-        f"cell's 1.63 % over its three). "
+        f"cell's {h200_spread:.2f} % over the three it pools). "
         f"Inside it, {statistics.median(j['stages']['gen_device']['s'] for j in reps):.4f} s is the "
         f"diffusion call at {gd['util_pct_mean']:.1f} % mean GPU utilisation and "
         f"{gd['power_W_median']:.0f} W median, and {statistics.median(j['stages']['gen_feat']['s'] for j in reps):.4f} s "
