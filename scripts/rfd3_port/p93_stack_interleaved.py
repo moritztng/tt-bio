@@ -142,7 +142,7 @@ def main():
     clean = [x for x in timed if x["load_clean"]]
     print("\n" + "=" * 78, flush=True)
     print("timed folds %d, of which load-clean %d (bar: 1-min loadavg <= %.1f)"
-          % (len(timed), len(clean)), flush=True)
+          % (len(timed), len(clean), LOAD_BAR), flush=True)
     print("arms all verified: %s   digests all match record: %s"
           % (all(x["arm_verified"] for x in rows),
              all(x["digest_matches_record"] for x in rows)), flush=True)
@@ -153,6 +153,11 @@ def main():
                arms_all_verified=all(x["arm_verified"] for x in rows),
                digests_all_match=all(x["digest_matches_record"] for x in rows),
                n_timed=len(timed), n_clean=len(clean))
+
+    # Dump the raw rows before any summary arithmetic runs. p93's first run lost 40 min
+    # of card time to a format-string bug in the summary, every fold already folded.
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    OUT.write_text(json.dumps(out, indent=2) + "\n")
 
     # Per-round deltas: the point of interleaving. A round with only some arms clean is dropped
     # whole, because a delta across a load boundary is exactly what p92 produced.
