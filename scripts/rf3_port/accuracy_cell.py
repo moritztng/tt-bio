@@ -67,8 +67,26 @@ if Path(tt_bio.__file__).resolve().parent.parent != REPO:
         f"tt_bio resolves to {tt_bio.__file__}, not {REPO}. Re-run with "
         f"PYTHONPATH={REPO}")
 
-DEFAULT_CKPT = os.path.expanduser(
-    "~/.cache/tt-bio/rf3/rf3_foundry_01_24_latest_remapped.ckpt")
+# A second hard-coded guess at where the checkpoint lives is how this cell -- and both
+# release-gate legs that shell to it -- died with FileNotFoundError on a host where
+# `tt-bio weights fetch rf3` had already put it: tt_bio resolves rf3 through
+# $RF3_CKPT / $TT_BIO_CACHE / $BOLTZ_CACHE / ~/.boltz, this file read ~/.cache/tt-bio only.
+# Ask tt_bio where the weights are; keep the historical path as a fallback for a host that
+# still has its copy there, and name the canonical location when neither exists.
+_LEGACY_CKPT = Path("~/.cache/tt-bio/rf3/rf3_foundry_01_24_latest_remapped.ckpt").expanduser()
+
+
+def _default_ckpt() -> str:
+    from tt_bio import weights
+    canonical = weights.resolve("rf3")
+    if canonical is not None and canonical.exists():
+        return str(canonical)
+    if _LEGACY_CKPT.exists():
+        return str(_LEGACY_CKPT)
+    return str(canonical or _LEGACY_CKPT)
+
+
+DEFAULT_CKPT = _default_ckpt()
 
 
 def kabsch_selftest() -> float:

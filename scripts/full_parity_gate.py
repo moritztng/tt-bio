@@ -189,6 +189,8 @@ def _shared_draw_env() -> dict:
 #        "boltzgen"   -> designability, boltzgen_designability (via release_gate --model boltzgen)
 #        "abag"       -> DockQ, opendde_dockq (via release_gate --model opendde-abag)
 #        "nesso1"     -> output scalars vs the torch reference (via release_gate --model nesso1)
+#        "rf3_xtal"   -> CA-RMSD to the deposited crystal at 997 aa (via release_gate
+#                        --model rf3-1024aa, which runs scripts/rf3_port/accuracy_cell.py)
 # fixture: "<model>/<target>/<tag>" path under ref-fixtures/, or "" for in-process-ref legs
 #          (ESMC/SaProt/ESMFold2/BoltzGen/abag run their own reference live each pass — fast).
 # committed_json: the docs/implementation-parity-data/*.json to compare the fresh verdict
@@ -535,6 +537,32 @@ LEGS += [
     Leg("nesso1", "nesso1", "nesso1", "", committed_json="nesso1.json", seeds=(0,),
         note="output-scalar parity vs the torch reference, normalised by upstream's own "
              "run-to-run spread; reuses release_gate --model nesso1"),
+    # RF3 had no leg here at all until this one: its whole pre-tag accuracy coverage lived in
+    # release_gate.py, so the gate of record folded ten models and not this one. The leg scores
+    # the END of the pipeline — the structure a customer receives — at 997 aa, which is where
+    # the size-specific defects live (a token axis that stops bucketing to 32, an L1 gate fitted
+    # at 512 aa, a fused-SDPA chunk that declines off-lattice). None of them touch 117 aa, the
+    # length release_gate's MODELS row folds.
+    #
+    # The floor is the CRYSTAL reading (device CA-RMSD to deposited 7EIP, <=4.0 A against 1.9687 A
+    # measured), not X: X moves when the reference cache is regenerated on another backend, and a
+    # release that fails because the reference moved fails for the wrong reason. X and the
+    # reference's own crystal distance ride along in the detail as evidence.
+    #
+    # Delegates to release_gate's run_rf3_1024aa the way boltzgen/abag/nesso1 delegate theirs, so
+    # scripts/rf3_port/accuracy_cell.py and its committed 7eip_997 reference cache stay the one
+    # implementation. seeds=(0,) for the reason the release_gate leg gives: the five-seed run
+    # spread 1.7362-2.1523 A under a 4.0 A floor, so seeds 1-4 buy a floor nothing and cost a
+    # device rollout each.
+    #
+    # No committed_json, like the capacity and pxdesign legs: the drift check compares VERDICTS,
+    # not values, so a committed record whose verdict this leg re-derives from the same floor
+    # would add a second copy of the anchor and detect nothing the floor does not. The anchor
+    # that has teeth is release_gate.RF3_1024AA_XTAL_MEASURED, which tests/test_rf3_1024aa_gate.py
+    # already checks against the measured artifact (perf/rf3/results/a0_7eip997.json).
+    Leg("rf3-1024aa", "rf3", "rf3_xtal", "", committed_json="", seeds=(0,),
+        note="RF3 at 997 aa: device CA-RMSD to the 7EIP crystal, floor <=4.0 A; reuses "
+             "release_gate --model rf3-1024aa (scripts/rf3_port/accuracy_cell.py)"),
 ]
 
 LEGS_BY_ID = {l.id: l for l in LEGS}
@@ -718,6 +746,17 @@ def preflight_check(legs: list) -> list:
                     f"openbind` or drop of3-ob-2025-06-30-174k.pt in ~/.boltz "
                     f"(fleet copy ~/of3-weights/); the fold otherwise fails inside "
                     f"tt_bio/worker.py after paying for setup")
+        if leg.kind == "rf3_xtal":
+            # The accuracy cell loads the reference checkpoint before it knows whether the
+            # cached reference makes one unnecessary, so a missing checkpoint costs the
+            # featurize pass and then ERRORs. Card-free, it costs a path lookup.
+            from tt_bio import weights as _weights
+            ck = _weights.resolve("rf3")
+            if ck is None or not ck.exists():
+                problems.append(
+                    f"{leg.id}: RF3 checkpoint not found at {ck} — `tt-bio weights fetch rf3` "
+                    f"(3.0 GB from IPD) or point $RF3_CKPT at an existing copy; the cell "
+                    f"otherwise ERRORs after paying for featurization")
         if leg.model == "openfold3":
             ckpt = os.environ.get("OF3_CKPT")
             if ckpt and not Path(ckpt).expanduser().exists():
@@ -1270,6 +1309,17 @@ def _load_release_gate():
     return _load_script_module("tt_bio_release_gate", REPO / "scripts" / "release_gate.py")
 
 
+# Legs whose scorer already exists, vetted, in release_gate.py: this gate calls THAT function
+# and captures its real structured row. One implementation of each leg, not two.
+DELEGATED_KINDS = {
+    "boltzgen": lambda rg: rg.run_boltzgen(rg._load_designability_harness(), keep=False),
+    "abag": lambda rg: rg.run_opendde_abag(keep=False),
+    "capacity": lambda rg: rg.run_capacity_all(keep=False),
+    "nesso1": lambda rg: rg.run_nesso1(keep=False),
+    "rf3_xtal": lambda rg: rg.run_rf3_1024aa(keep=False),
+}
+
+
 def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
                   fold_timeout: float | None = None, pin_card: int | None = None) -> dict | None:
     """Run the dedicated harness for esmc/saprot/esmfold2 (subprocess) or the in-process
@@ -1284,7 +1334,7 @@ def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
     a 1 GB bank, meaning the allocator saw DRAM as full rather than actually being short of it.
     The per-card legs, which are pinned, passed on those same chips in the same run. Pinning is
     also simply correct: these legs score one card's numerics, so they have no use for a mesh."""
-    if leg.kind in ("boltzgen", "abag", "capacity", "nesso1"):
+    if leg.kind in DELEGATED_KINDS:
         # These legs run in THIS process and shell out from there, so the pin has to be on this
         # process's environment. Setting it only on the spawned-harness branch below left every
         # delegated leg inheriting an unrestricted environment: boltzgen then designs on card 0
@@ -1295,11 +1345,7 @@ def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
         if pin_card is not None:
             os.environ["TT_VISIBLE_DEVICES"] = str(pin_card)
         try:
-            rg = _load_release_gate()
-            row = (rg.run_boltzgen(rg._load_designability_harness(), keep=False)
-                   if leg.kind == "boltzgen" else rg.run_capacity_all(keep=False)
-                   if leg.kind == "capacity" else rg.run_nesso1(keep=False)
-                   if leg.kind == "nesso1" else rg.run_opendde_abag(keep=False))
+            row = DELEGATED_KINDS[leg.kind](_load_release_gate())
         except Exception as e:
             return {"error": f"{type(e).__name__}: {e}"}
         finally:
@@ -1540,6 +1586,24 @@ def _nesso1_verdict(report: dict) -> tuple[str, str]:
     return ("PASS" if report.get("gate") else "GAP"), detail
 
 
+def _rf3_xtal_verdict(report: dict) -> tuple[str, str]:
+    """RF3 at 997 aa: PASS iff the worst seed's CA-RMSD to the deposited 7EIP crystal is inside
+    the release floor. An absent crystal reading is NO-DATA, never a pass -- the failure this
+    guards is the accuracy cell stopping emitting vs_crystal (a renamed ground_truth_ca.json)
+    and the leg reporting green on a number nobody computed."""
+    if report.get("error") and report.get("xtal_a") is None:
+        return "ERROR", str(report["error"])
+    if report.get("xtal_a") is None:
+        return "NO-DATA", "no device_vs_xtal_A in record"
+    detail = f"xtal {report['xtal_a']:.3f} A worst seed"
+    if report.get("ref_xtal_a") is not None:
+        detail += f", ref {report['ref_xtal_a']:.3f} A"
+    if report.get("x_a") is not None:
+        detail += f", X {report['x_a']:.3f} A"
+    detail += f", n_ca {report.get('n_ca')}"
+    return ("PASS" if report.get("gate") else "GAP"), detail
+
+
 def _capacity_verdict(report: dict) -> tuple[str, str]:
     """Capacity: PASS iff the largest-input fold stayed inside the DRAM budget AND wrote
     every sample it was asked for. An ERROR here is a real device fatal, not a soft miss --
@@ -1723,6 +1787,8 @@ def extract_verdict(leg: Leg, report: dict | None) -> tuple[str, str]:
         return _capacity_verdict(report)
     if leg.kind == "nesso1":
         return _nesso1_verdict(report)
+    if leg.kind == "rf3_xtal":
+        return _rf3_xtal_verdict(report)
     if leg.kind == "pxdesign":
         return _pxdesign_featurizer_verdict(report)
     if leg.kind in ("rfd3", "af2ig"):
