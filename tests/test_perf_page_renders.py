@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import sys
 import subprocess
 from pathlib import Path
 
@@ -61,8 +62,11 @@ def test_every_category_block_is_shaped_like_the_others():
     for k in keys:
         block = d.get(k)
         assert block, f"page draws category {k!r} but the data has no such block"
-        for field in ("cond", "note", "methods", "models"):
+        for field in ("cond", "note", "methods"):
             assert block.get(field), f"{k}.{field} missing"
+        # models may be empty: a category whose only rows are held pending a missing
+        # processor column draws nothing until they are restored.
+        assert isinstance(block.get("models"), list), f"{k}.models missing"
         for m in block["models"]:
             for field in ("id", "name", "target", "batch", "cells"):
                 assert field in m, f"{k} model {m.get('id')} missing {field}"
@@ -74,3 +78,17 @@ def test_every_category_block_is_shaped_like_the_others():
                 else:
                     assert c.get("detail") or c.get("reason"), \
                         f"{k}/{m['id']}/{cell} is not measured and says nothing about why"
+
+
+def test_no_published_row_is_missing_a_processor_column():
+    """A model reaches the page only when every processor column is measured.
+
+    Moritz, 2026-08-24: "if not all processors are measured yet dont add the model to
+    tt-bio.com". A half-measured row still draws its bars, so it reads as a published claim
+    while the column that might not flatter us is simply absent. Rows wait in
+    perf/page_rows_pending.json instead; scripts/site_publish_guard.py --restore publishes
+    one once its blanks are filled.
+    """
+    proc = subprocess.run([sys.executable, str(REPO / "scripts" / "site_publish_guard.py")],
+                          cwd=REPO, capture_output=True, text=True, timeout=60)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
