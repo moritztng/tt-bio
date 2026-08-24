@@ -105,9 +105,9 @@ def check_one_multiple_for_the_whole_fleet():
     our history rather than the hardware's, and nobody reading it later can tell whether 64 is
     right for Boltz-2 or merely old (Moritz, 2026-08-24). BUCKET_EXCEPTIONS is the only way to
     differ, and every entry has to carry that model's own numbers -- which is the difference
-    between an exception and a fork. Boltz-2 has such numbers (it loses 32 % at 20 aa on the fleet
-    value, because the narrower axis lets a fused kernel serve at a size where it loses); the
-    other 15 models do not, and may not acquire one without a measurement.
+    between an exception and a fork. No model has such numbers today: boltz2 briefly did and the
+    measurement did not replicate (it was reading run order, not the multiple), so the dict is
+    empty and the evidence machinery below is the guard rail for the next attempt.
     """
     seen = {}
     for n, r in TA.TOKEN_AXIS.items():

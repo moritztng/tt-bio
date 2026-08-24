@@ -54,38 +54,32 @@ TILE = 32
 # side by side, chosen by vintage, is not" the answer).
 TOKEN_BUCKET = 32
 
-# The escape hatch. An entry belongs here ONLY with that model's own numbers in EVIDENCE below --
-# its size distribution makes the fleet value cost measurably more. "It has always been 64" is not
-# a reason, and neither is "re-measuring would be work".
+# The escape hatch, and it is EMPTY. An entry belongs here only with that model's own numbers in
+# EVIDENCE below -- its size distribution makes the fleet value cost measurably more. "It has
+# always been 64" is not a reason, and neither is "re-measuring would be work".
 #
-# The three entries share ONE constant (tenstorrent.PAIRFORMER_PAD_MULTIPLE derives from
-# bucket_multiple("boltz2")), so they move together whether or not they are listed together. They
-# are listed together so the table cannot lie about which models the exception reaches.
-BUCKET_EXCEPTIONS = {"boltz2": 64, "boltzgen": 64, "nesso1": 64}
+# RETRACTED 2026-08-24: boltz2 was briefly listed here at 64 on a measurement that did not survive
+# a replication. Four interleaved pairs read multiple 64 beating 32 by 32 % at 20 aa; a second
+# session on the same box read the opposite (best-of-3, 32 -> 1.643 against 64 -> 1.614). What both
+# sessions actually measured was RUN ORDER: whichever arm ran first in each group won, 6 of 7 times
+# across the two scripts, and the within-arm spread was 0.816-1.643 structures/s -- a 2.0x range on
+# a box a release gate had at loadavg 10-22. See state/token-axis-bucketing-unify.md. boltz2's
+# multiple is therefore UNRESOLVED on throughput, not refused, and an unresolved model takes the
+# fleet value like everyone else. Its ACCURACY at 32 is settled and unaffected by any of this:
+# deterministic digest across 3 pairs, plddt 0.847076 -> 0.844731.
+BUCKET_EXCEPTIONS: dict = {}
 
 # Why each exception exists, in that model's own numbers. The guard requires an entry here for
-# every exception and refuses a short one, so an undocumented fork cannot be added quietly.
-BUCKET_EXCEPTION_EVIDENCE = {
-    "boltz2": (
-        "MEASURED REFUSAL, 2026-08-24, qb2 p300c. scripts/perf_regression.py on trpcage (20 aa), 4 "
-        "interleaved pairs at matched loadavg: multiple 64 reads 1.583 / 1.371 / 1.300 / 1.785 "
-        "structures/s against multiple 32's 1.100 / 1.175 / 1.059 / 1.208. Every pair the same "
-        "direction, best-of-4 1.785 vs 1.208 = -32%, and 64 wins even in the pairs where it carried "
-        "the higher load. NOT the padded compute -- 32 runs a 32-token axis where 64 runs 64, so 32 "
-        "does strictly LESS triangle work and should be faster. The census says why: at width 64 "
-        "the fused triatt SDPA DECLINES and the stock ttnn op serves (288 calls at "
-        "tenstorrent.py:1211), and at width 32 the fused kernel SERVES (0 stock calls). The "
-        "32-bucket switches boltz2 onto the fused path at a size where the fused path loses. That "
-        "is a fused-kernel size-gate problem, not a bucketing one, and closing it would let this "
-        "exception go -- see state/token-axis-bucketing-unify.md."),
-}
+# every exception and refuses a short one, so an undocumented fork cannot be added quietly. Empty
+# because there are no exceptions -- the machinery stays as the guard rail for the next attempt.
+BUCKET_EXCEPTION_EVIDENCE: dict = {}
 
-# An exception a model does not own, but inherits because it reads the SAME constant. These two run
-# tenstorrent.PAIRFORMER_PAD_MULTIPLE, which derives from bucket_multiple("boltz2"), so they move
-# with boltz2 whether or not anyone lists them. Listing them makes the table honest about the
-# exception's real reach, and the guard checks the parent actually has the evidence and the same
-# width -- so this cannot become a way to launder an undocumented fork through a third model.
-BUCKET_EXCEPTION_SHARED_WITH = {"boltzgen": "boltz2", "nesso1": "boltz2"}
+# An exception a model does not own, but inherits because it reads the SAME constant (boltzgen and
+# nesso1 read tenstorrent.PAIRFORMER_PAD_MULTIPLE, which derives from bucket_multiple("boltz2"), so
+# they move with boltz2 whether or not anyone lists them). The guard checks the parent really has
+# the evidence and the same width, so this cannot launder an undocumented fork through a third
+# model. Empty for the same reason as above.
+BUCKET_EXCEPTION_SHARED_WITH: dict = {}
 
 # A model's token axis is in exactly one of these states.
 BUCKETED = "bucketed"      # pads to `multiple`, masks the padding, slices back -- all three
@@ -99,14 +93,14 @@ UNCENSUSED = "uncensused"  # a reduce site nobody has checked yet; `owner` is re
 # model name (as it appears in a CLI --model choice) -> (status, multiple, site, why_or_owner)
 TOKEN_AXIS = {
     "boltz2": (
-        BUCKETED, BUCKET_EXCEPTIONS["boltz2"],
+        BUCKETED, TOKEN_BUCKET,
         "tenstorrent.py:7155 PairformerModule, :7273 Fp32PairformerModule, :7449 DiffusionModule, "
         ":7786 MSAModule, :8135 TrunkModule",
         "pad + pair-mask outer product + additive -1e9 attn mask + slice back; counters read "
         "tri_att 0 ragged / 560 aligned, attn_pair_bias 0 / 120",
     ),
     "boltzgen": (
-        BUCKETED, BUCKET_EXCEPTIONS["boltzgen"],
+        BUCKETED, TOKEN_BUCKET,
         "the same tenstorrent.py wrappers via boltzgen/model/models/boltz.py:26-28,:462",
         "inherits Boltz-2's bucket; its only other attention is a HOST torch SDPA "
         "(boltzgen/model/layers/attention.py:123), which never sees a tile layout. Censused: "
@@ -215,7 +209,7 @@ TOKEN_AXIS = {
         "closed by the structural_pair_attn_bias slot, and S, closed by zero columns",
     ),
     "nesso1": (
-        BUCKETED, BUCKET_EXCEPTIONS["nesso1"],
+        BUCKETED, TOKEN_BUCKET,
         "nesso1.py:138-154 routes both trunk stacks through tenstorrent.PairformerModule / "
         "Fp32PairformerModule, which pad to PAIRFORMER_PAD_MULTIPLE at tenstorrent.py:7945",
         "the wrapper IS reached, censused rather than inferred: `tt-bio affinity` on "
