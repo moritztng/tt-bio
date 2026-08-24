@@ -53,7 +53,7 @@ from tt_bio.rfd3.input import InputSpecification                          # noqa
 
 CKPT = "/home/ttuser/.boltz/rfd3/weights"
 SEED = 42
-CARD = int(os.environ.get("TT_VISIBLE_DEVICES", "-1"))
+CARD = int(os.environ.get("TT_VISIBLE_DEVICES") or -1)   # empty = host-only check, not card 0
 
 WALLS = []
 CALLS = []
@@ -105,10 +105,11 @@ def q10(xs):
 
 
 def clamp(batch_size, cap, L):
-    """design.py's own expression, so the prediction is the code and not a paraphrase."""
-    return min(batch_size, rfd3_design._BATCH_DESIGN_CEILING,
-               max(1, rfd3_design._BATCH_ATOM_PAIR_BUDGET // max(1, L * L)),
-               cap if L > rfd3_design._BATCH_SPEED_CAP_ABOVE_ATOMS else batch_size)
+    """design.py's own function, so the prediction is the code and not a paraphrase. `cap` is
+    passed for readability at the call sites; the module global is what the function reads, and
+    the arms set it, so they must agree."""
+    assert cap == rfd3_design._BATCH_SPEED_CAP, (cap, rfd3_design._BATCH_SPEED_CAP)
+    return rfd3_design.effective_design_batch(batch_size, L)
 
 
 def host_atom_count(specs):

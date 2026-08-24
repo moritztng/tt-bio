@@ -88,6 +88,23 @@ _BATCH_SPEED_CAP_ABOVE_ATOMS = 2952
 _BATCH_SPEED_CAP = 1
 
 
+def effective_design_batch(batch_size: int, L: int) -> int:
+    """How many designs of an L-atom target actually reach the sampler at once.
+
+    Four bounds and the tightest wins: what the caller asked for, the design ceiling, the
+    atom-pair budget the allocator admits, and the speed cap above
+    ``_BATCH_SPEED_CAP_ABOVE_ATOMS``. Module level because ``run_design``, the perf harnesses
+    and the tests all have to agree on it, and a second copy of a size expression is a
+    wrong-variable gate waiting to happen.
+    """
+    return min(
+        batch_size,
+        _BATCH_DESIGN_CEILING,
+        max(1, _BATCH_ATOM_PAIR_BUDGET // max(1, L * L)),
+        _BATCH_SPEED_CAP if L > _BATCH_SPEED_CAP_ABOVE_ATOMS else batch_size,
+    )
+
+
 @dataclass
 class DesignResult:
     spec_id: str
@@ -445,12 +462,7 @@ def _run_design_jobs(jobs, specs, out_dir, *, checkpoint_dir, from_pdb, num_time
         f_used, init_used, L, is_motif, coord0 = spec_feat[spec_id]
         sp_t = spec.partial_t if spec.partial_t is not None else partial_t
         set_tune_matmul_for_atoms(L)
-        effective_batch = min(
-            batch_size,
-            _BATCH_DESIGN_CEILING,
-            max(1, _BATCH_ATOM_PAIR_BUDGET // max(1, L * L)),
-            _BATCH_SPEED_CAP if L > _BATCH_SPEED_CAP_ABOVE_ATOMS else batch_size,
-        )
+        effective_batch = effective_design_batch(batch_size, L)
         for start in range(0, len(spec_jobs), effective_batch):
             chunk = spec_jobs[start : start + effective_batch]
             generators = [
