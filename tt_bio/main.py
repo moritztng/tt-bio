@@ -1519,7 +1519,26 @@ def _persist_run_results(client: ControllerClient, run_id: str, results_path: Pa
 
 
 
-@click.group()
+class _Cli(click.Group):
+    """The CLI group, with one job beyond click's: give device contention its own exit code.
+
+    A co-tenant holding the card is not a result. Every command here can die of
+    :class:`DeviceInUseError` after waiting out ``TT_BIO_LEASE_TIMEOUT``, and on a bare exit 1 a
+    caller cannot tell that from the model being wrong -- the v0.7.0 release gate scored eleven
+    such legs as accuracy failures across two passes. One reserved code, checked in one place.
+    """
+
+    def invoke(self, ctx):
+        from tt_bio.device_lease import CONTENDED_EXIT_CODE, DeviceInUseError
+
+        try:
+            return super().invoke(ctx)
+        except DeviceInUseError as exc:
+            click.echo(f"device contention, nothing ran: {exc}", err=True)
+            ctx.exit(CONTENDED_EXIT_CODE)
+
+
+@click.group(cls=_Cli)
 def cli():
     """Run biomolecular prediction, design, and embedding on Tenstorrent."""
     # One place covers predict, design, embed and gen: if a gate driver or a parent
