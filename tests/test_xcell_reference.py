@@ -12,7 +12,7 @@ import pytest
 torch = pytest.importorskip("torch")
 
 from tt_bio.xcell_reference import (  # noqa: E402
-    PRIOR_SOURCES, REVEAL_FRACTIONS, XCELL_MINI, XCell, XCellConfig, predict,
+    PRIOR_SOURCES, REVEAL_FRACTIONS, XCELL_MINI, XCELL_ULTRA, XCell, XCellConfig, predict,
 )
 
 D = 64
@@ -38,15 +38,20 @@ def _batch(cfg, n=3, g=32, seed=0):
 
 # ---------------------------------------------------------------- architecture
 
-def test_cross_attention_placement_matches_both_published_counts():
-    """`l % 3 == 2` is the only rule that gives 4 of 12 AND 11 of 34.
+def test_cross_attention_indices_are_the_published_ones():
+    """Table A2 publishes Mini's indices literally as 2, 5, 8, 11, and Ultra's count as 11.
 
-    docs/model.md gives X-Cell Mini 4 cross-attention layers at L=12; the preprint's TTA section
-    says X-Cell-Ultra bypasses "all 11 cross-attention blocks" at L=34. One rule, two independent
-    data points, so a refactor that shifts the stride or the offset fails here.
+    `l % 3 == 2` reproduces both, so a refactor that shifts the stride or the offset fails here.
     """
     assert XCellConfig(n_layers=12).cross_attn_layers == (2, 5, 8, 11)
     assert len(XCellConfig(n_layers=34).cross_attn_layers) == 11
+
+
+def test_cross_attention_indices_can_be_pinned_explicitly():
+    cfg = XCellConfig(n_layers=8, cross_attn_indices=(1, 7))
+    assert cfg.cross_attn_layers == (1, 7)
+    m = XCell(cfg)
+    assert {i for i, b in enumerate(m.blocks) if b.cross is not None} == {1, 7}
 
 
 def test_only_cross_layers_have_a_cross_block():
@@ -56,11 +61,35 @@ def test_only_cross_layers_have_a_cross_block():
     assert have == set(cfg.cross_attn_layers) == {2, 5}
 
 
-def test_mini_defaults_to_the_legacy_scgpt_block():
-    """Mini is scGPT-initialized and docs/model.md gives it Post-LN with a 1x ReLU FFN."""
-    assert XCELL_MINI.block == "legacy"
-    assert XCELL_MINI.d_ff == XCELL_MINI.d_model
-    assert XCELL_MINI.global_residual is False   # A23 ablated OFF: MAE 0.178 -> 0.163
+def test_mini_matches_its_published_configuration():
+    """Every X-Cell (55M) column of Table A2 that this module models."""
+    c = XCELL_MINI
+    assert (c.n_layers, c.d_model, c.n_heads, c.d_head) == (12, 512, 8, 64)
+    assert c.d_ff == 512 == c.d_model          # "512 (1 x d)"
+    assert c.block == "legacy"                 # Post-LN (LayerNorm), ReLU FFN
+    assert c.output_head == "mlp"              # NOT tied embeddings; tying is Ultra's
+    assert c.cross_attn_layers == (2, 5, 8, 11)
+    assert c.global_residual is False          # "Hidden residual: No"
+
+
+def test_ultra_matches_its_published_configuration():
+    c = XCELL_ULTRA
+    assert (c.n_layers, c.d_model, c.n_heads, c.d_head) == (34, 2560, 40, 64)
+    assert c.d_ff == 10240 == 4 * c.d_model    # "10240 (4 x d)"
+    assert c.block == "modern"                 # Pre-LN (RMSNorm), SwiGLU
+    assert c.output_head == "tied"
+    assert len(c.cross_attn_layers) == 11
+    assert c.global_residual is False
+
+
+def test_mini_has_attention_bias_and_no_qk_norm():
+    """Table A2: Mini has attention bias Yes, QK-Norm No; Ultra is the reverse."""
+    mini = XCell(_cfg(block="legacy")).blocks[0]
+    assert mini.attn.q.bias is not None
+    assert mini.attn.q_norm is None
+    modern = XCell(_cfg(block="modern")).blocks[0]
+    assert modern.attn.q.bias is None
+    assert modern.attn.q_norm is not None
 
 
 def test_modern_block_defaults_to_swiglu_4d():
@@ -77,8 +106,55 @@ def test_a_4d_modern_mini_would_blow_the_published_parameter_budget():
     def total(**kw):
         return sum(p.numel() for p in XCell(XCellConfig(**kw)).parameters())
 
-    assert total(block="modern") > 75e6           # d_ff = 4d, measured 84.9M
-    assert total() < 55e6                         # legacy 1x, measured 43.0M
+
+    assert total(block="modern", d_model=512, n_layers=12, n_heads=8,
+                 vocab_size=19_400) > 75e6        # d_ff = 4d, measured 84.9M
+    assert total(d_model=512, n_layers=12, n_heads=8,
+                 vocab_size=19_400) < 55e6        # legacy 1x, measured 43.0M
+
+
+def test_ultra_reconstructs_its_published_parameter_count():
+    """The strongest single check on the whole reconstruction.
+
+    X-Cell-Ultra is published at 4.87B. This module's Ultra config measures 4.860B, 0.2% off,
+    which it can only do if the block shape, d_ff = 4d, L = 34, the 11 cross-attention blocks and
+    the tied head are all right together.
+    """
+    n = sum(p.numel() for p in XCell(XCELL_ULTRA).parameters())
+    assert 4.80e9 < n < 4.95e9, f"{n/1e9:.3f}B is not the published 4.87B"
+
+
+def test_cross_blocks_carry_their_own_ffn():
+    """A22 is a SECOND SwiGLU, distinct from A19's, and Ultra's parameter count proves it.
+
+    Dropping the cross-block FFN would cost ~0.86B of Ultra's 4.87B, i.e. land ~18% low. So this
+    is not a stylistic reading of the appendix; the published count discriminates it.
+    """
+    block = XCell(XCellConfig(n_layers=3, d_model=64, n_heads=4, vocab_size=50,
+                              block="modern")).blocks[2]
+    assert block.cross is not None
+    assert hasattr(block, "cross_ffn"), "A22 FFN missing from the cross-attention block"
+    assert block.cross_ffn is not block.ffn
+
+
+def test_mlp_head_has_no_per_gene_bias_table_and_tied_head_does():
+    assert not hasattr(XCell(_cfg(output_head="mlp")).decoder, "gene_bias")
+    assert hasattr(XCell(_cfg(output_head="tied")).decoder, "gene_bias")
+
+
+@pytest.mark.parametrize("head", ["mlp", "tied"])
+def test_both_output_heads_run(head):
+    cfg = _cfg(output_head=head)
+    m = XCell(cfg).eval()
+    with torch.no_grad():
+        out = m(**_batch(cfg))
+    assert out.shape == (3, 32)
+    assert torch.isfinite(out).all()
+
+
+def test_config_rejects_an_unknown_output_head():
+    with pytest.raises(ValueError):
+        XCellConfig(output_head="linear")
 
 
 def test_sequence_length_is_genes_plus_cls():
@@ -127,9 +203,9 @@ def test_perturbation_context_has_six_tokens_in_table_order():
 def test_tied_head_reads_the_raw_not_the_normalised_embedding():
     """A26 uses e_g^raw. Scaling the embedding table must move the output; if the head read the
     LayerNormed embedding it would be nearly invariant to that scaling, which is the silent bug
-    this guards.
+    this guards. Only the tied head does this, so the test pins output_head="tied".
     """
-    cfg = _cfg()
+    cfg = _cfg(output_head="tied")
     m = XCell(cfg).eval()
     b = _batch(cfg)
     with torch.no_grad():

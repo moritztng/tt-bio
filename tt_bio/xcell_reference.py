@@ -22,15 +22,51 @@ appendix does not state -- the prior-MLP hidden width, the two decoder hidden wi
 epsilon -- are ``XCellConfig`` fields with documented defaults, never hardcodes, so a real
 checkpoint can set them without editing a module.
 
-**Mini is not the block the appendix specifies, and that is deliberate.** A12-A22 describe a
-pre-norm RMSNorm/SwiGLU/QK-Norm block, but upstream's own FSDP config wraps *two* layer classes,
-``TransformerEncoderLayer`` and ``ModernTransformerEncoderLayer``, and ``docs/model.md`` gives
-X-Cell Mini as Post-LN with a 1x ReLU FFN. Mini is scGPT-initialized and scGPT is Post-LN with a
-ReLU FFN, which is what upstream's ``strict=False`` load is accommodating. The parameter budget
-agrees: a modern block at d=512 costs 4d^2 + 3*d*d_ff = 4.20M with d_ff=4d, so 12 of them are
-~50M before the ~9.9M embedding, well past the published 55M, while a 1x-FFN Post-LN block costs
-~1.57M and leaves room for the embedding, the priors and the cross-attention blocks. Both blocks
-are implemented; ``XCellConfig.block`` picks one, and ``x-cell-mini`` picks ``legacy``.
+**Mini is not the block the appendix's equations specify, and Table A2 is what says so.**
+A12-A22 describe a pre-norm RMSNorm/SwiGLU/QK-Norm block, which is X-Cell-Ultra's. Table A2
+("X-Cell model configurations") gives the two variants side by side, and for the 55M model every
+row that matters points the other way:
+
+    row                X-Cell (55M)              X-Cell-Ultra (4.87B)
+    Layers L           12                        34
+    Hidden dim d       512                       2560
+    Heads / d_k        8 / 64                    40 / 64
+    FFN dim d_ff       512  (1 x d)              10240  (4 x d)
+    FFN activation     ReLU                      SwiGLU
+    Normalization      Post-LN (LayerNorm)       Pre-LN (RMSNorm)
+    Cross-attn layers  4 (indices 2,5,8,11)      11 (every 3rd + final)
+    QK-Norm            No                        Yes
+    Attention bias     Yes                       No
+    Output head        MLP                       Tied embeddings
+    Hidden residual    No                        No
+    Pre-trained init   scGPT                     From scratch
+
+So `block="legacy"` is Mini's published configuration, not a guess: Post-LN, a 1x ReLU FFN,
+attention biases present, no QK-Norm. It is also consistent with Mini being scGPT-initialized,
+scGPT being Post-LN with a ReLU FFN, and upstream loading it `strict=False`. Both blocks are
+implemented because Ultra uses the other one.
+
+Two consequences worth stating because they are easy to get backwards. **Mini's output head is a
+plain MLP, not the tied embedding projection of A26** -- tying is Ultra's, and the appendix's
+decoder section describes Ultra's path. And the cross-attention indices are *published* for Mini
+as 2, 5, 8, 11, which is exactly `l % 3 == 2`, so that rule is confirmed rather than inferred.
+
+**The parameter counts check the reconstruction, and Ultra's is the strong one.** Measured from
+this module: Ultra comes out at **4.860B against a published 4.87B, 0.2% off**. That agreement is
+only reachable if the modern block, `d_ff = 4d`, `L = 34`, the tied head and all 11
+cross-attention blocks are simultaneously right. It also settles a reading that would otherwise
+be a judgement call: A22 is a *second* SwiGLU inside the cross-attention block, and dropping it
+would cost ~0.86B and land ~18% low, so the published count discriminates it.
+
+Mini's count behaves differently and the reason is structural, not a discrepancy. This module is
+inference-only, and the published 55M is a *trained* model's count, so it includes the auxiliary
+perturbation decoder of A27 -- five per-source MLPs that reconstruct the prior embeddings as a
+cross-attention regulariser and do nothing at inference. At Mini's shape that decoder is ~6.5M,
+which is 12% of 55M but 1.2% of Ultra's 4.87B, which is exactly why Ultra matches and Mini reads
+low. This module measures 43.0M; the aux decoder plus a prior-MLP hidden width of 1024 rather
+than 512 (~6.5M) accounts for the gap. Those widths stay config fields and are *not* tuned to hit
+55M: fitting a parameter count is not evidence. What the count does rule out is the appendix's
+block for Mini, which measures 84.9M, 54% over.
 
 Inference only. The auxiliary perturbation decoder (A27) and every training loss are out of scope.
 """
@@ -77,7 +113,10 @@ class XCellConfig:
     vocab_size: int = 19_400        # |V| ~ 19,400 protein-coding genes + <cls>/<mask> + aliases
     d_ff: int | None = None         # None -> 1*d for `legacy`, 4*d for `modern` (A18/inline A18)
     block: str = "legacy"           # "legacy" (Post-LN, ReLU, scGPT-shaped) | "modern" (A12-A22)
+    output_head: str = "mlp"        # "mlp" (Mini) | "tied" (Ultra, A26). Table A2 row
+    #                                 "Output head": MLP for the 55M, tied embeddings for Ultra
     cross_attn_stride: int = 3      # cross-attention at layers l where l % stride == stride-1
+    cross_attn_indices: tuple[int, ...] | None = None  # explicit override; None -> the stride rule
     global_residual: bool = False   # A23 H' = H^(L) + H^(0). Ablated OFF: MAE 0.178 -> 0.163
     norm_eps: float = 1e-5          # unstated in the appendix
     prior_hidden: int | None = None  # None -> d_model. "two-layer with LeakyReLU" fixes the
@@ -91,6 +130,8 @@ class XCellConfig:
     def __post_init__(self) -> None:
         if self.block not in ("legacy", "modern"):
             raise ValueError(f"block must be 'legacy' or 'modern', got {self.block!r}")
+        if self.output_head not in ("mlp", "tied"):
+            raise ValueError(f"output_head must be 'mlp' or 'tied', got {self.output_head!r}")
         if self.d_model % self.n_heads:
             raise ValueError(f"d_model {self.d_model} not divisible by n_heads {self.n_heads}")
         if self.d_ff is None:
@@ -108,16 +149,24 @@ class XCellConfig:
     def cross_attn_layers(self) -> tuple[int, ...]:
         """Which layer indices carry a cross-attention block.
 
-        `l % 3 == 2` reproduces BOTH published counts: 4 of 12 for Mini (docs/model.md) and 11 of
-        34 for Ultra (the preprint's TTA section says it bypasses "all 11 cross-attention
-        blocks"). Two independent data points on one rule, so this is not a guess.
+        `l % 3 == 2` is not inferred: Table A2 publishes Mini's indices as literally 2, 5, 8, 11,
+        and the same rule gives 11 layers at L = 34, which is Ultra's published count. Table A2
+        describes Ultra's as "every 3rd + final"; at L = 34 both that reading and this one land on
+        11 layers, so the count cannot separate them. Mini is the only variant with announced
+        weights and its indices are published exactly, so the rule is exact where it matters and
+        `cross_attn_indices` pins Ultra explicitly if it ever does.
         """
+        if self.cross_attn_indices is not None:
+            return self.cross_attn_indices
         s = self.cross_attn_stride
         return tuple(l for l in range(self.n_layers) if l % s == s - 1)
 
 
-# X-Cell Mini, the only variant with announced weights (55M, docs/model.md).
+# The two published variants (Table A2). Mini is the only one with announced weights.
 XCELL_MINI = XCellConfig()
+XCELL_ULTRA = XCellConfig(
+    d_model=2560, n_layers=34, n_heads=40, block="modern", output_head="tied",
+)
 
 
 class RMSNorm(nn.Module):
@@ -331,7 +380,17 @@ class LegacyBlock(nn.Module):
 
 
 class Decoder(nn.Module):
-    """A24-A26: concat the cell embedding onto each gene, three LeakyReLU layers, tied projection."""
+    """A24-A26, with the last step as data rather than as a second decoder.
+
+    The body is shared: concatenate the cell embedding onto each gene (A24) and run the three
+    LeakyReLU layers to R^d (A25). Only the final projection to a scalar differs between
+    variants, per Table A2's "Output head" row -- Mini reads MLP, Ultra reads tied embeddings.
+    So this is one decoder with a two-valued last step, not two decoders.
+
+    `mlp` is a linear read-out of A25's R^d output. The appendix specifies the decoder for the
+    tied path, so the exact form of Mini's head is an assumption; sharing A25's body is the
+    reading that keeps both variants on one published equation.
+    """
 
     def __init__(self, cfg: XCellConfig):
         super().__init__()
@@ -339,9 +398,13 @@ class Decoder(nn.Module):
         self.fc1 = nn.Linear(2 * cfg.d_model, h1)
         self.fc2 = nn.Linear(h1, h2)
         self.fc3 = nn.Linear(h2, cfg.d_model)
-        self.gene_bias = nn.Embedding(cfg.vocab_size, 1)     # b_g, a learned per-gene bias
+        self.head = cfg.output_head
         self.slope = cfg.leaky_slope
-        self.scale = 1.0 / sqrt(cfg.d_model)                 # PaLM-style 1/sqrt(d)
+        if self.head == "tied":
+            self.gene_bias = nn.Embedding(cfg.vocab_size, 1)  # b_g, learned per-gene bias
+            self.scale = 1.0 / sqrt(cfg.d_model)              # PaLM-style 1/sqrt(d)
+        else:
+            self.out = nn.Linear(cfg.d_model, 1)
 
     def forward(self, h_genes: Tensor, h_cls: Tensor, raw_gene_emb: Tensor,
                 tokens: Tensor) -> Tensor:
@@ -350,6 +413,8 @@ class Decoder(nn.Module):
         h = F.leaky_relu(self.fc1(d), self.slope)
         h = F.leaky_relu(self.fc2(h), self.slope)
         h = self.fc3(h)                                      # A25, no activation after W3
+        if self.head == "mlp":
+            return self.out(h).squeeze(-1)
         # A26: tied projection through the RAW (un-normalized) gene embeddings.
         out = (h * raw_gene_emb).sum(-1) * self.scale
         return out + self.gene_bias(tokens).squeeze(-1)
