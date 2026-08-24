@@ -9,6 +9,7 @@
 #   bash gpu5_setup.sh protenix            # venv + weights for the control
 #   bash gpu5_setup.sh fetch &             # background: the two big downloads
 #   bash gpu5_setup.sh boltz esm of3 opendde
+#   bash gpu5_setup.sh ob obfetch     # OpenBind-0: openfold3 0.5.0 + its own checkpoint
 #   bash gpu5_setup.sh esmweights          # after esm: ESMFold2 + ESMC-6B, ~25 GB
 #   bash gpu5_setup.sh embedweights        # esmfold2-fast + 3x ESM-C + 3x SaProt, ~12 GB
 #
@@ -223,6 +224,52 @@ stage_fetch() {
   say "stage fetch done"
 }
 
+# OpenBind-0 is the OpenFold3 stack on upstream's v0.5.0 checkpoint, and upstream made the two
+# checkpoints mutually exclusive: of3-ob-2025-06-30-174k needs openfold3 >=0.5.0, of3-p2-155k
+# needs >=0.4,<0.5 (openfold3/entry_points/parameters.py). So OpenBind gets its own venv beside
+# venv-of3 rather than replacing it, and both arms can run in one session on one card.
+#
+# `pip install "openfold3[cuequivariance]==0.5.0"` produces an install that cannot import, and
+# both halves of the fix are upstream's bug (perf/openbind/gpu_ob_setup.sh paid for finding
+# them): the extra pins cuequivariance-ops-torch-cu12 while openfold3's own torch requirement
+# resolves to 2.13.0+cu130, so libcue_ops.so wants libnvrtc.so.12 against a CUDA 13 runtime;
+# and even the matching cu13 wheel does not import on its own, because nothing puts
+# site-packages/cuequivariance_ops/lib on the loader path. gpu5_session.sh exports that path.
+stage_ob() {
+  say "stage ob"
+  apt-get install -y -qq libxrender1 libxext6 libsm6 libxi6 2>&1 | tail -2 | tee -a "$LOG"
+  mkvenv ob
+  /root/venv-ob/bin/pip install --no-cache-dir -q "openfold3[cuequivariance]==0.5.0" \
+    2>&1 | tail -8 | tee -a "$LOG"
+  local sp
+  sp=$(/root/venv-ob/bin/python -c "import site;print(site.getsitepackages()[0])")
+  /root/venv-ob/bin/pip uninstall -y -q cuequivariance-ops-cu12 cuequivariance-ops-torch-cu12 \
+    2>&1 | tail -1
+  /root/venv-ob/bin/pip install -q --no-cache-dir --force-reinstall --no-deps \
+    "cuequivariance-ops-cu13==0.11.1" "cuequivariance-ops-torch-cu13==0.11.1" 2>&1 | tail -2
+  echo "$sp/cuequivariance_ops/lib:$sp/nvidia/cu13/lib" > /root/venv-ob/CUEQ_LD_PATH
+  LD_LIBRARY_PATH="$(cat /root/venv-ob/CUEQ_LD_PATH)" /root/venv-ob/bin/python -c "
+from importlib.metadata import version
+from cuequivariance_ops_torch.triangle_attention import triangle_attention
+from openfold3.projects.of3_all_atom.runner import OpenFold3AllAtom
+from openfold3.core.kernels.cueq_utils import is_cuequivariance_available
+print('ob import OK', version('openfold3'), 'predict_step', hasattr(OpenFold3AllAtom, 'predict_step'),
+      'cueq available', is_cuequivariance_available())
+" 2>&1 | tail -3 | tee -a "$LOG"
+  say "stage ob done"
+}
+
+stage_obfetch() {
+  say "stage obfetch"
+  if [ ! -s /root/ckpt/of3-ob-2025-06-30-174k.pt ]; then
+    curl -sSL -o /root/ckpt/of3-ob-2025-06-30-174k.pt \
+      https://openfold3-data.s3.amazonaws.com/openfold3-parameters/of3-ob-2025-06-30-174k.pt \
+      && ls -l /root/ckpt/of3-ob-2025-06-30-174k.pt | tee -a "$LOG"
+  fi
+  sha256sum /root/ckpt/of3-ob-2025-06-30-174k.pt 2>/dev/null | tee -a "$LOG"
+  say "stage obfetch done"
+}
+
 stage_esmweights() {
   say "stage esmweights"
   /root/venv-esm312/bin/python -c "
@@ -277,6 +324,8 @@ for s in "$@"; do
     opendde) stage_opendde ;;
     boltz) stage_boltz ;;
     of3) stage_of3 ;;
+    ob) stage_ob ;;
+    obfetch) stage_obfetch ;;
     esm) stage_esm ;;
     esmctl) stage_esmctl ;;
     esmweights) stage_esmweights ;;

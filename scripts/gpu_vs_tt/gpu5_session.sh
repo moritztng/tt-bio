@@ -13,7 +13,7 @@ HERE=$(pwd)
 R=/root/results
 mkdir -p "$R"
 TAG=${TAG:-h200}
-MODELS=${MODELS:-"protenix-v2 opendde boltz-2 esmfold2 openfold3"}
+MODELS=${MODELS:-"protenix-v2 opendde boltz-2 esmfold2 openfold3"}   # also: openbind, esmfold2-fast
 REPEAT=${REPEAT:-3}
 POWER=${POWER:-1}      # POWER= (empty) drops the 200 ms nvidia-smi sampler
 BUDGET_S=${BUDGET_S:-5400}
@@ -100,11 +100,20 @@ for M in $MODELS; do
       [ "$M" = "protenix-v2" ] && EXP=0.828628 || EXP=
       gate "$ST/$RUNG.pdb" "$EXP" | tee "$R/gate_${M}_${TAG}.txt"
       ;;
-    boltz-2|openfold3|esmfold2|esmfold2-fast)
-      EXTRA=""; NVLIB=""
+    boltz-2|openfold3|openbind|esmfold2|esmfold2-fast)
+      EXTRA=""; NVLIB=""; CKPT=/root/ckpt/of3-p2-155k.pt
       case "$M" in
         boltz-2)   PY=/root/venv-boltz/bin/python3 ;;
         openfold3) PY=/root/venv-of3/bin/python3 ;;
+        # Same runner, same fixture, same recycles and steps as the openfold3 row above; the
+        # whole delta is openfold3 0.5.0 in its own venv and the of3-ob checkpoint. Run the two
+        # back to back on one card and the OB0 delta is priced with the host held fixed, which
+        # is the only way this row's ratio is comparable to the OpenFold3 row's.
+        # NVLIB is not optional here: cuequivariance-ops-cu13 leaves libcue_ops.so off the
+        # loader path, and without it the cueq triangle kernels silently do not engage.
+        openbind)  PY=/root/venv-ob/bin/python3
+                   CKPT=/root/ckpt/of3-ob-2025-06-30-174k.pt
+                   NVLIB="$(cat /root/venv-ob/CUEQ_LD_PATH 2>/dev/null)" ;;
         # venv-esm312, not venv-esm: upstream esm needs python >=3.12 and the model class
         # comes from transformers. --esm-backend selects the fast kernel path, which is
         # NOT the default, and 10 loops / 100 requested steps is the paper's protocol and
@@ -126,7 +135,7 @@ for M in $MODELS; do
         $PY gpu5_bench.py --model "$M" --repeat "$REPEAT" ${POWER:+--power} \
         --yaml "$FIX/cdk2x2_512.yaml" --a3m "$FIX/cdk2x2_512.a3m" \
         --seq-file fixtures/prot512.seq --work /root/work \
-        --checkpoint /root/ckpt/of3-p2-155k.pt $EXTRA --out "$OUT" > "$LOG" 2>&1
+        --checkpoint "$CKPT" $EXTRA --out "$OUT" > "$LOG" 2>&1
       echo "$M rc=$?"
       # gpu5_bench.py records every prediction it produced; gate the last one, which is
       # the last warm fold rather than the discarded cold one. Written to a file rather
