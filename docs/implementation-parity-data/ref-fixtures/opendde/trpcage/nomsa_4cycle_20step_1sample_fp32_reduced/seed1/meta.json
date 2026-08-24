@@ -10,5 +10,5 @@
     "iptm": 0.0,
     "complex_plddt": 0.9366846466064453
   },
-  "note": "real reference output copied verbatim; not regenerated or edited"
+  "note": "real reference output copied verbatim; not regenerated or edited. Only the structure id is relabelled 'trpcage' -> 'trpcage_no_msa' to match the gate leg's target_id; coordinates and confidence values are unchanged."
 }
