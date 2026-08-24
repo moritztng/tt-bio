@@ -715,8 +715,8 @@
             "rf3": {
               "unit": "structures/s",
               "direction": "higher",
-              "value": 0.090937,
-              "latency_ms": 10996.68,
+              "value": 0.090824,
+              "latency_ms": 11010.34,
               "input": "trpcage (20 aa, single-seq)",
               "sampling_steps": 10,
               "diffusion_samples": 1,
@@ -728,9 +728,9 @@
               "hardware": "blackhole",
               "card_type": "p150a",
               "machine_id": "tt-quietbox",
-              "tt_bio_version": "0.6.5",
-              "date": "2026-08-22",
-              "note": "seed rf3 on qb1: the host the release gate runs on"
+              "tt_bio_version": "0.6.8",
+              "date": "2026-08-24",
+              "note": "reseed on the shipped fast arm (fp32_softmax=False + RF3-scoped ragged pad, b1e60d1d); previous row 2026-08-22 v0.6.5 measured the pre-flip arm. qb1 card 2, p150a 13x10, box quiet"
             },
             "esmc-300m": {
               "unit": "seq/s",
@@ -917,7 +917,7 @@
               "machine_id": "pc",
               "tt_bio_version": "0.6.5",
               "date": "2026-08-22",
-              "note": "seed rf3: shipped in v0.6.6 as a predict --model choice with no perf coverage; replaces the stale 'port is in flight' SPECS_EXEMPT (dc878435)"
+              "note": "seed rf3: shipped in v0.6.6 as a predict --model choice with no perf coverage; replaces the stale 'port is in flight' SPECS_EXEMPT (dc878435). STALE ARM as of v0.6.8: recorded before RF3 flipped to the fused-SDPA default, and pc cannot be re-measured because its only interpreter is Python 3.11, which tt-bio's requires-python excludes. The tt-quietbox cell was re-seeded on the shipped arm and moved -0.1%, so this row is expected to be close, but it has not been re-read."
             },
             "esmc-600m": {
               "unit": "seq/s",
