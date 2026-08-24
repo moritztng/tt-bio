@@ -33,8 +33,11 @@ step_setup() {
   [ -f $R/S1.ok ] && { say "S1 skip"; return; }
   say "S1 setup"
   bash /work/repo/perf/rf3/gpu_rf3_setup.sh
+  # setup.log carries the checkpoint sha256 and the version dump, and it lives outside $R, so the
+  # first B200 rental lost it: the results rsync only pulls $R and the box came down straight after.
+  cp -f /work/setup.log $R/setup.log 2>/dev/null
   [ -f /work/SETUP_OK ] || { say "S1 FAILED"; return 1; }
-  $PY -m pip list 2>/dev/null | tee $R/pip_list.txt | grep -iE 'cuequivariance|torch|foundry|atomworks|triton|lightning'
+  $(command -v uv || echo /opt/conda/bin/uv) pip list --python $PY 2>/dev/null | tee $R/pip_list.txt | grep -iE 'cuequivariance|torch|foundry|atomworks|triton|lightning'
   sha256sum $IN | tee $R/input_sha256.txt
   smi > $R/smi_before.txt
   touch $R/S1.ok
@@ -77,10 +80,12 @@ step_cu13() {
     return
   fi
   say "S5 cu13 ops wheel arm (Blackwell only)"
-  $PY -m pip install -q "cuequivariance-ops-torch-cu13==$($PY -c "
+  # The venv is uv-built and has no pip in it; `$PY -m pip` failed the first B200 run here.
+  UV=$(command -v uv || echo /opt/conda/bin/uv)
+  $UV pip install -q --python $PY "cuequivariance-ops-torch-cu13==$($PY -c "
 from importlib.metadata import version
 print(version('cuequivariance-torch'))")" || { say "S5 wheel install failed"; return 1; }
-  $PY -m pip list 2>/dev/null | grep -i cuequivariance > $R/pip_list_cu13.txt
+  $UV pip list --python $PY 2>/dev/null | grep -i cuequivariance > $R/pip_list_cu13.txt
   $PY $CEN --inputs $IN --out-dir /work/out/prof13 --report $R/prof_cu13.json \
       --n-recycles 1 --num-steps 2 --diffusion-batch-size 1 --seed 42 \
       --early-stop-plddt 0 --profile --label profile-cu13-wheel || return 1

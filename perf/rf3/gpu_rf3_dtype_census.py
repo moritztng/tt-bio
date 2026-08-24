@@ -397,7 +397,14 @@ def main() -> None:
         report["n_modules"] = n_mod
 
         if args.no_cueq:
+            # Both gates have to go. Walking `engine.model` flipped 0 modules on the first B200
+            # run: the tree the engine hands out here is not the one that folds. The module-level
+            # `SHOULD_USE_CUEQUIVARIANCE` is read at every forward (attention.py:88 and :238) and
+            # is not reachability-dependent, so it is the one that actually holds. Flipping it
+            # post-construction is safe: `use_cuequivariance` only adds two asserts in
+            # `TriangleMultiplication.__init__` (attention.py:196-204) and changes no parameter.
             import rf3.model.layers.attention as A
+            A.SHOULD_USE_CUEQUIVARIANCE = False
             n = 0
             for r in roots:
                 if not hasattr(r, "modules"):
@@ -407,6 +414,7 @@ def main() -> None:
                         m.use_cuequivariance = False
                         n += 1
             report["no_cueq_modules_flipped"] = n
+            report["no_cueq_global_gate"] = A.SHOULD_USE_CUEQUIVARIANCE
 
         torch.nn.modules.module.register_module_forward_pre_hook(lazy_index)
         if not args.profile:
