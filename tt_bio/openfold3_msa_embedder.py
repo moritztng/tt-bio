@@ -87,12 +87,16 @@ class MSAModuleBlock:
             scale_pair_bias=False, fp32_softmax=True, transpose_bias=transpose_bias,
             accurate_softmax=accurate_softmax_site("openfold3.msa"))
 
-    def __call__(self, m, z):
+    def __call__(self, m, z, pair_mask=None, attn_mask=None):
+        # OuterProductMean is deliberately left unmasked: it reduces over MSA DEPTH, so a padded
+        # token can only reach a padded pair through it. PairWeightedAveraging is not -- its
+        # softmax runs over the token axis, so a padded key would take real weight without the
+        # additive -1e9 (protenix.py Trunk.update_msa passes the same tensor for the same reason).
         z = ttnn.add(z, self.opm(m, None, None))
         if self.has_msa_update:
-            m = ttnn.add(m, ttnn.reshape(self.pwa(m, ttnn.clone(z)), tuple(m.shape)))
+            m = ttnn.add(m, ttnn.reshape(self.pwa(m, ttnn.clone(z), attn_mask), tuple(m.shape)))
             m = ttnn.add(m, ttnn.reshape(self.msa_transition(m), tuple(m.shape)))
-        z = self.pair_stack(None, z)[1]
+        z = self.pair_stack(None, z, pair_mask, attn_mask, attn_mask)[1]
         return m, z
 
 
@@ -116,7 +120,7 @@ class MSAModule:
             for b in remap_msa_module(state_dict, prefix="msa_module")
         ]
 
-    def __call__(self, m, z):
+    def __call__(self, m, z, pair_mask=None, attn_mask=None):
         for block in self.blocks:
-            m, z = block(m, z)
+            m, z = block(m, z, pair_mask, attn_mask)
         return m, z

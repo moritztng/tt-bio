@@ -49,6 +49,11 @@ JOBS = {
     "protenix-v2": _PREDICT + ["protenix-v2"],
     "opendde": _PREDICT + ["opendde"],
     "rfd3": _RFD3,
+    # Bucketed by this task. openfold3/openbind share OF3Trunk but openbind is censused on its
+    # OWN input class as well (see the ligand test below) -- a ligand token axis is not the
+    # polymer one and may not be inherited from it.
+    "openfold3": _PREDICT + ["openfold3"],
+    "openbind": _PREDICT + ["openbind"],
 }
 _RFD3_TARGET = os.path.join(REPO, "perf", "wh-correctness", "results", "payloads",
                             "des_rfd3_binder.json")
@@ -165,7 +170,12 @@ def test_no_bucketed_model_reaches_a_ragged_fused_sdpa(model):
 
 
 _ALIGNED_SEQ = ("NLYIQWLKDGGPSSGRPPPS" * 7)[:128]      # 128 tokens: already a tile multiple
-_BUCKET_OFF = {"TT_BIO_PROTENIX_TOKEN_BUCKET": "0"}
+# EXPLICIT, and the GLOBAL flag rather than protenix's own: `TT_BIO_TOKEN_BUCKET=0` turns off
+# every model's bucket, so one off-arm covers the whole file. Never spell this as `{}` -- an arm
+# spelled `{}` was the OFF arm before protenix's default flipped, and silently became the ON arm,
+# turning an A/B into an ON-vs-ON tautology that can never fail.
+_BUCKET_OFF = {"TT_BIO_TOKEN_BUCKET": "0"}
+_BUCKET_ON = {"TT_BIO_TOKEN_BUCKET": "1"}
 
 
 @pytest.mark.skipif(not _device_available(),
@@ -205,7 +215,7 @@ def test_protenix_token_bucket_is_a_noop_at_an_aligned_length():
     """
     with tempfile.TemporaryDirectory() as d:
         taps = {}
-        for arm, extra in (("off", _BUCKET_OFF), ("on", {})):
+        for arm, extra in (("off", _BUCKET_OFF), ("on", _BUCKET_ON)):
             t = os.path.join(d, f"tap_{arm}.txt")
             _census("protenix-v2", JOBS["protenix-v2"], env_extra=extra,
                     seq=_ALIGNED_SEQ, tap=t)
@@ -271,3 +281,45 @@ def test_bucket_lives_at_the_op_boundary_not_in_the_caller(name):
 
 if __name__ == "__main__":
     sys.exit(pytest.main([os.path.abspath(__file__), "-s", "-q"]))
+
+
+@pytest.mark.skipif(not _device_available(),
+                    reason="needs a TT card and TT_VISIBLE_DEVICES pinned to it")
+@pytest.mark.parametrize("model", ["openfold3", "openbind"])
+def test_of3_trunk_bucket_padding_is_inert(model):
+    """The padded region cannot reach a real token: two poison values, one answer.
+
+    This is the acceptance test that MATTERS for the OF3 trunk, because unlike pxdesign its
+    bucketed answer is NOT bit-identical to its ragged one -- it ran ragged into ttnn.softmax,
+    which masks its own tile tail, and the bucket replaces that with an explicit -1e9 over a
+    longer logical axis, which bf16 reassociates. Comparing the two arms therefore cannot
+    distinguish a leaking mask from a reassociated reduction. Comparing two POISON values can:
+    same logical input, same shapes, same reduction order, different garbage in the padding.
+    A mask that leaks gives two different structures here. (RFD3 p23's method.)
+    """
+    with tempfile.TemporaryDirectory() as d:
+        digests = {}
+        for q in ("0", "1000"):
+            out = os.path.join(d, "poison" + q)
+            _census(model, JOBS[model] + ["--out_dir", out],
+                    env_extra=dict(_BUCKET_ON, TT_BIO_TOKEN_PAD_POISON=q))
+            digests[q] = _structure_digest(out)
+        assert digests["0"] and digests["0"] == digests["1000"], (
+            f"{model}'s token-bucket padding is NOT inert -- poison 0 and poison 1000 gave "
+            f"different structures, so the pad mask leaks into the real region:\n"
+            f"  poison 0    {digests['0']}\n  poison 1000 {digests['1000']}")
+
+
+def _structure_digest(out_dir):
+    """md5 over every structure file the run wrote, in sorted path order."""
+    import hashlib
+    h = hashlib.md5()
+    found = []
+    for root, _dirs, files in os.walk(out_dir):
+        for f in sorted(files):
+            if f.endswith((".cif", ".pdb")):
+                found.append(os.path.join(root, f))
+    for path in sorted(found):
+        with open(path, "rb") as fh:
+            h.update(fh.read())
+    return h.hexdigest() if found else ""

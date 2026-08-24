@@ -124,8 +124,9 @@ def _pad_poison() -> float:
     the RFD3 p23 method -- same logical input, different padding -- and it is the only way to tell
     a leaking mask from a target whose fold is merely sensitive to the trunk's arithmetic.
     """
+    from .token_axis import pad_poison
     v = os.environ.get("TT_BIO_PROTENIX_PAD_POISON")
-    return float(v) if v else 0.0
+    return float(v) if v else pad_poison()
 
 
 def _token_bucket() -> bool:

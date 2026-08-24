@@ -156,7 +156,7 @@ class OF3Trunk(Module):
                           layout=ttnn.TILE_LAYOUT)
 
     def __call__(self, s_init, z_init, template_feat, msa_feat, s_input,
-                 progress_fn=None, template_slots=None):
+                 progress_fn=None, template_slots=None, pair_mask=None, attn_mask=None):
         """Fully-device assembled trunk forward.
 
         s_init, z_init: device bf16 [1,N,384] / [1,N,N,128] (InputEmbedder constants).
@@ -166,6 +166,10 @@ class OF3Trunk(Module):
         msa_feat: device bf16 [1,N_seq,N,34] (host post-subsample, constant across
             cycles -- ``m`` is identical every cycle in the reference).
         s_input: device bf16 [1,N,449] (InputEmbedder single input, constant).
+        pair_mask: device bf16 [1,N,N] or None -- the token bucket's outer-product pad mask,
+            multiplied into every TriangleMultiplication contraction.
+        attn_mask: device bf16 [1,1,1,N] or None -- the additive -1e9 companion, added to every
+            TriangleAttention and PairWeightedAveraging softmax over the token axis.
 
         Returns (s_trunk, z_trunk): device bf16 [1,N,384] / [1,N,N,128].
         """
@@ -180,10 +184,11 @@ class OF3Trunk(Module):
             if progress_fn:
                 progress_fn("trunk", step=cyc, total=self.num_cycles)
             z = self.glue.glue_z(z, z_init)              # device z-glue
-            z_tmpl = self.template(template_feat, z, template_slots, a_tmpl)
+            z_tmpl = self.template(template_feat, z, template_slots, a_tmpl,
+                                   pair_mask, attn_mask)
             z = ttnn.add(z, z_tmpl)
             ttnn.deallocate(z_tmpl)
-            z = self.msa_module(m, z)[1]               # device 4-block MSA module (degraded z); m reused next cycle
+            z = self.msa_module(m, z, pair_mask, attn_mask)[1]   # device 4-block MSA module (degraded z); m reused next cycle
             s = self.glue.glue_s(s, s_init)              # device s-glue
-            s, z = self.pairformer(s, z)                 # device 48-block Pairformer
+            s, z = self.pairformer(s, z, pair_mask, attn_mask, attn_mask)  # device 48-block Pairformer
         return s, z

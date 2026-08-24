@@ -97,26 +97,35 @@ TOKEN_AXIS = {
         "same helper, same flag, same counters",
     ),
     "openfold3": (
-        IMMUNE, None,
-        "own trunk, openfold3_trunk.py:104 OF3Trunk; no token pad constant in openfold3*.py",
-        "censused on examples/8hel_nomsa.yaml (N=76, ragged): 288 ragged calls, ALL of them "
-        "ttnn.softmax (tenstorrent.py:4774 x192, :6256 x96) which masks, and NOT ONE SDPA call of "
-        "either kind. Its atom and diffusion transformers run aligned (6003 calls). Immune by "
-        "route, and the route is measured, not inferred -- boltzgen reaches the same two softmax "
-        "sites aligned, so this is openfold3's missing bucket and not a safe site",
+        BUCKETED, 32,
+        "openfold3_fold.py OF3Fold.fold pads every trunk-side host feature to n_tok_trunk before "
+        "input_glue and slices s_trunk/z_trunk back on exit; the masks reach every reduce through "
+        "OF3Trunk -> Pairformer / TemplatePairStack / MSAModuleBlock",
+        "pad + pair-mask outer product + additive -1e9 attn mask + slice back. The DIFFUSION half "
+        "already ran at a 32 pad behind a real mask; the trunk was the half that did not, which "
+        "is all IMMUNE ever meant here. Censused on examples/8hel_nomsa.yaml (N=76, ragged), "
+        "1 recycle / 20 steps: 144 ragged / 603 aligned -> 0 ragged / 747 aligned, the 96 "
+        "TriangleAttention and 48 PairWeightedAveraging softmaxes at w76 all moving to w96. "
+        "Unlike pxdesign the bucketed answer is NOT bit-identical to the ragged one (plddt "
+        "0.541589 -> 0.542652) and it must not be: this model ran ragged into ttnn.softmax, which "
+        "masks its own tile tail, so the bucket replaces that with an explicit -1e9 over a longer "
+        "logical axis and bf16 reassociates. The padding is proven INERT instead: "
+        "TT_BIO_TOKEN_PAD_POISON at 0 and at 1000 give the bit-identical structure "
+        "(md5 bda6fefc). And at an ALIGNED N=96 the bucket is a byte-for-byte no-op, off arm and "
+        "on arm both md5 7a5b729a, against a closed A/A of 7ced2c24 twice",
     ),
     "openbind": (
-        IMMUNE, None,
-        "the same openfold3_trunk.py:104 OF3Trunk and the same four shared reduce sites as "
-        "openfold3; no token pad constant in openfold3*.py",
-        "censused for --model openbind on BOTH of its input classes, which openfold3 cannot "
-        "cover because it refuses ligands: examples/8hel_nomsa.yaml (76 tokens, polymer) and "
-        "examples/fkg_ligand.yaml (140 tokens, protein + a 33-atom CCD ligand), 1 recycle / 20 "
-        "steps / 1 sample, card 2. Both read 144 ragged / 603 aligned with the SAME split -- all "
-        "144 ragged calls are ttnn.softmax, which masks (tenstorrent.py:5051 x96 at w76/w140, "
-        ":6538 x48), and not one SDPA call of either kind; the atom and diffusion transformers "
-        "run aligned (123 + 480). So the ligand token axis reaches no unsafe reduce either, and "
-        "the route is measured on the ligand class rather than inherited from the polymer one",
+        BUCKETED, 32,
+        "the same OF3Fold.fold pad and the same OF3Trunk mask threading as openfold3; one edit, "
+        "two rows, and openfold3_fold.py asserts the two BUCKET_MULTIPLE entries agree",
+        "censused for --model openbind on BOTH input classes, which openfold3 cannot cover "
+        "because it refuses ligands: examples/8hel_nomsa.yaml (76 tokens, polymer) and "
+        "examples/fkg_ligand.yaml (140 tokens, protein + a 33-atom CCD ligand). Both read "
+        "144 ragged / 603 aligned -> 0 ragged / 747 aligned. The ligand class carries the same "
+        "poison proof as openfold3: TT_BIO_TOKEN_PAD_POISON 0 and 1000 both give md5 b13518f3, "
+        "so the ligand token axis is masked and not merely padded. plddt 0.558599 -> 0.562275 "
+        "(polymer) and 0.428274 -> 0.441170 (ligand), both up, both reproducible -- this model's "
+        "A/A is bit-exact, so those deltas are a real consequence of the change and not run noise",
     ),
     "rf3": (
         EXPOSED, None,
@@ -256,6 +265,27 @@ def bucket_multiple(model: str) -> int:
     if v and v.strip():
         return int(v)
     return BUCKET_MULTIPLE[model]
+
+
+def pad_poison() -> float:
+    """Fill value for the padded region's CONTINUOUS features. 0.0 in production.
+
+    This IS the acceptance test for the mask, and it is the only one that survives when the
+    bucketed answer is not bit-identical to the ragged one. Fold one target twice with different
+    poison and compare: a correctly masked bucket cannot let the padded region reach a real token,
+    so the real region's output has to be bit-identical whatever is in the padding. A bucket that
+    merely LOOKS right gives two different answers here. Same method RFD3 used to root-cause p23:
+    same logical input, different padding.
+
+    Distinguishing it from the other question -- whether the ragged and bucketed answers agree --
+    matters, because they legitimately need not. A model that ran ragged into ttnn.softmax was
+    relying on the kernel masking its own tile tail; bucketing replaces that with an explicit
+    -1e9 over a longer logical axis, and bf16 reassociates. Poison invariance separates "the mask
+    leaks" from "the reduction was reassociated".
+    """
+    import os
+    v = os.environ.get("TT_BIO_TOKEN_PAD_POISON")
+    return float(v) if v and v.strip() else 0.0
 
 
 def pad_amount(N: int, mult: int) -> int:

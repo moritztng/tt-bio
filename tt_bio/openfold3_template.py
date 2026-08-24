@@ -102,10 +102,9 @@ class TemplatePairStack(Module):
     Input (device bf16): ``t_embed`` [N_templ, N, N, c_t=64].
     Output: ``t_stack`` [N_templ, N, N, c_t=64] (final-LN'd, per template).
 
-    The pair_mask is all-ones for the single-chain ubiquitin golden (token_mask all
-    valid, single asym_id), so masking is a no-op and ``mask=None`` is passed to the
-    PairformerLayer (mirrors tests/test_openfold3_msa.py). Multi-chain / partial-mask
-    targets would pass the mask through PairformerLayer's ``mask``/``attn_mask`` args.
+    ``pair_mask``/``attn_mask`` are PairformerLayer's ``mask`` and ``attn_mask_start``/``_end``.
+    They are None for a target whose token axis is already a tile multiple, and carry the token
+    bucket's pad mask otherwise (OF3Fold.fold). The single-chain golden passes None either way.
     """
 
     def __init__(self, state_dict, compute_kernel_config, transpose_bias: bool = True):
@@ -121,13 +120,13 @@ class TemplatePairStack(Module):
         self.ln_w = self.torch_to_tt("template_pair_stack.layer_norm.weight")
         self.ln_b = self.torch_to_tt("template_pair_stack.layer_norm.bias")
 
-    def __call__(self, t_embed):
+    def __call__(self, t_embed, pair_mask=None, attn_mask=None):
         nt = t_embed.shape[0]
         outs = []
         for t in range(nt):
             v = t_embed[t:t + 1]                            # [1, N, N, c_t]
             for blk in self.blocks:
-                v = blk(None, v)[1]
+                v = blk(None, v, pair_mask, attn_mask, attn_mask)[1]
             v = ttnn.layer_norm(
                 v, weight=self.ln_w, bias=self.ln_b, epsilon=1e-5,
                 compute_kernel_config=self.compute_kernel_config)
@@ -157,14 +156,14 @@ class TemplateEmbedder(Module):
         """The z-independent half of leg 1, hoistable out of the recycle loop."""
         return self.fe.features(feat)
 
-    def __call__(self, feat, z, slots=None, a=None):
+    def __call__(self, feat, z, slots=None, a=None, pair_mask=None, attn_mask=None):
         """``slots`` maps every original template slot to its row in ``feat`` after
         ``dedup_template_slots``. The aggregation still sums one term per ORIGINAL slot
         and divides by their count, in the original order, so a deduplicated stack is
         bit-identical to the full one: ``((v+v)+v)+v`` packs to bf16 at every step and
         ``3v`` does not fit in 8 mantissa bits, so the sum cannot be collapsed."""
         t_embed, _ = self.fe(feat, z, a)                    # [n_distinct, N, N, 64]
-        t_stack = self.ps(t_embed)                          # [n_distinct, N, N, 64]
+        t_stack = self.ps(t_embed, pair_mask, attn_mask)    # [n_distinct, N, N, 64]
         if slots is None:
             slots = list(range(int(t_stack.shape[0])))
         u = t_stack[slots[0]:slots[0] + 1]
