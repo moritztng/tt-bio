@@ -337,17 +337,19 @@ gate venv does not carry it. The 1AHW implementation-parity detail stays in
 `docs/implementation-parity.md`.
 
 The performance gate measures warm throughput for every shipped architecture
-— the fold models, the ESMC embed path, and both design pipelines
-(BoltzGen via `tt-bio design --model boltzgen` on `examples/binder.yaml` and
-RFD3 via `tt-bio design --model rfd3`, each reported as designs/s) — and
+— the fold models, the ESMC embed path, and all three design models
+(BoltzGen via `tt-bio design --model boltzgen` on `examples/binder.yaml`,
+RFD3 via `tt-bio design --model rfd3`, PXDesign via
+`tt-bio design --model pxdesign`, each reported as designs/s) — and
 compares each with the matching card-type baseline in
 `docs/perf_baselines.json`. A slowdown beyond 15% fails.
 
 "Every shipped architecture" is enforced, not aspirational: `perf_regression.py`
-cross-checks its `SPECS` dict against `tt_bio.main.PREDICT_MODELS` /
-`EMBED_MODELS` / `SAPROT_MODELS` (the same lists each CLI `--model` choice is
-built from) before running anything, and refuses to start if any shipped model
-has neither a `SPECS` entry nor a documented `SPECS_EXEMPT` reason. This closes
+cross-checks its `SPECS` dict against every `*_MODELS` tuple in `tt_bio.main`
+(the same lists each CLI `--model` choice is built from, discovered rather than
+named so a new verb's tuple cannot slip past) before running anything, and
+refuses to start if any shipped model has neither a `SPECS` entry nor a
+documented `SPECS_EXEMPT` reason. This closes
 the gap that let OpenDDE's antibody-antigen checkpoint (`opendde-abag`) ship a
 >60x diffusion-precision slowdown in v0.3.3/v0.3.4 with zero perf coverage — it
 shared its implementation class with the already-covered `opendde` entry, so a

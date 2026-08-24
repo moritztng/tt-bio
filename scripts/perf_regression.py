@@ -55,6 +55,14 @@ What it measures, per model:
     Median wall-clock of SINGLE_SHOT_REPEAT back-to-back end-to-end
     ``tt-bio design --model rfd3`` subprocess runs. Same single-shot character
     as boltzgen: no warm steady-state loop, cold-inflated per rep.
+  * pxdesign — designs/s on the PD-L1 quick-start target
+    (``tests/fixtures/pxdesign/PDL1.yaml``: 5O45 chain A cropped to 116
+    residues plus an 80-residue binder, 196 tokens; 1 design, 400 denoising
+    steps — the shipped CLI default). Median wall-clock of SINGLE_SHOT_REPEAT
+    back-to-back end-to-end ``tt-bio design --model pxdesign`` subprocess runs,
+    same single-shot character as rfd3. Reuses the fixture the input-path
+    parity leg (``scripts/pxdesign_port/parity_gate.py``) and the release
+    gate's conditioned-fit leg (``scripts/release_gate.py``) already run.
   * saprot-650m embed — seq/s on a fixed batch of 8 ubiquitin-length sequences
     (batch_size 8). Device-resident ESM-2 over the fused AA+Foldseek-3Di vocab,
     loaded via ``tt_bio.saprot`` directly (the worker's embed path is
@@ -321,7 +329,38 @@ SPECS: dict[str, dict] = {
     # fast smoke setting); the gate measures the shipped default, not a
     # production-quality 200-step design.
     "rfd3": dict(kind="design", unit="designs/s", direction="higher",
-                  num_designs=1, num_timesteps=4),
+                 num_designs=1, num_timesteps=4,
+                 fixture="scripts/rfd3_port/parity_artifacts/iai_protein/iai_inputs.yaml",
+                 cli_flags=("--from_pdb", "--num_timesteps", "{num_timesteps}",
+                            "--devices", "{card}"),
+                 input_label="IAI motif-scaffold, I40/L419, from_pdb, {num_timesteps} steps"),
+    # PXDesign-d, on the CLI as `tt-bio design --model pxdesign` since aed22240. Like
+    # rfd3 it is a design-verb model with no warm steady-state loop (one design =
+    # host featurize -> conditioning distogram -> on-device diffusion sampler ->
+    # CIF), so it takes the same kind="design" single-shot protocol.
+    #
+    # It landed on main with NO entry here and none in SPECS_EXEMPT, which is exactly
+    # the hole _assert_full_model_coverage exists to close: the coverage check failed
+    # on main, so the perf gate could not start at all. Same defect class as
+    # opendde-abag, caught this time on main before any tag carried it: the newest
+    # tag is v0.6.8 and does not ship pxdesign, so unlike opendde-abag this never
+    # reached a user. v0.7.0 is the first release to carry the model, so this entry
+    # is what gets it perf coverage on the day it ships rather than a release later.
+    #
+    # Fixture is the PD-L1 quick-start target every other pxdesign leg already uses
+    # (the input-path parity gate, the release gate's conditioned-fit leg,
+    # design_e2e.py) -- no new fixture invented. n_step=400 is the shipped CLI
+    # default and the setting upstream runs; it is deliberately NOT the release
+    # gate's n_step=20, which is a deliberately short accuracy smoke. 400 steps put
+    # the sampler, not model load, in the timed region, which is what a
+    # dispatch/throughput gate needs to see. The CLI ignores --devices for this
+    # model (it runs on the one card the process can see), so the leg is pinned
+    # with TT_VISIBLE_DEVICES like every other leg here.
+    "pxdesign": dict(kind="design", unit="designs/s", direction="higher",
+                     num_designs=1, n_step=400,
+                     fixture="tests/fixtures/pxdesign/PDL1.yaml",
+                     cli_flags=("--n_step", "{n_step}"),
+                     input_label="PD-L1 5O45 chain A, 196 tokens, 80-res binder, {n_step} steps"),
     # nesso1 is `tt-bio affinity`, the second model answering the question
     # boltz2-affinity answers, so it runs the SAME FKBP12+SB3 fixture and the two
     # cells are directly comparable. Do NOT quote their ratio as the headline
@@ -432,7 +471,7 @@ SINGLE_SHOT_REPEAT = 3
 # genuinely stuck, not merely slow. Env-overridable for a slow host.
 MEASURE_TIMEOUT_S = int(os.environ.get("PERF_MEASURE_TIMEOUT", "1800"))   # fold/embed/affinity child
 GEN_TIMEOUT_S = int(os.environ.get("PERF_GEN_TIMEOUT", "3600"))           # full design pipeline
-DESIGN_TIMEOUT_S = int(os.environ.get("PERF_DESIGN_TIMEOUT", "1800"))       # tt-bio design (RFD3)
+DESIGN_TIMEOUT_S = int(os.environ.get("PERF_DESIGN_TIMEOUT", "1800"))       # tt-bio design (rfd3, pxdesign)
 
 
 # ── baseline file ──────────────────────────────────────────────────────────
@@ -836,54 +875,60 @@ def _measure_gen(model: str, spec: dict, out_path: Path) -> dict:
 
 
 def _measure_design(model: str, spec: dict, out_path: Path) -> dict:
-    """Time ``tt-bio design --model rfd3 --from_pdb`` end-to-end,
-    SINGLE_SHOT_REPEAT times, and write a JSON result gating the median
-    wall-clock.
+    """Time one ``tt-bio design`` model end-to-end, SINGLE_SHOT_REPEAT times, and
+    write a JSON result gating the median wall-clock.
 
-    RFD3 is a design pipeline (like BoltzGen), not a fold loop: it has no warm
-    steady-state ``predict_one`` to repeat. So this leg spawns the shipping
-    ``tt-bio design --model rfd3 --from_pdb`` CLI as a subprocess (the pipeline owns
-    its own
-    device lifecycle -- no device is opened in this measure process) and times
-    the full featurize -> on-device TokenInitializer -> EDM sampler -> CIF write
-    on the canonical IAI motif-scaffold fixture (the SAME fixture the parity leg
-    and the UX leg use -- scripts/rfd3_port/parity_artifacts/iai_protein/
-    iai_inputs.yaml, I40/L419). The gated metric is ``designs/s = num_designs /
-    median wall-clock`` over SINGLE_SHOT_REPEAT back-to-back runs -- one draw of
-    this ~4-9 s host-dominated pipeline swings wildly (a -21.6% draw under CPU
+    A design-verb model (like BoltzGen) is a pipeline, not a fold loop: it has no
+    warm steady-state ``predict_one`` to repeat. So this leg spawns the shipping
+    ``tt-bio design`` CLI as a subprocess (the pipeline owns its own device
+    lifecycle -- no device is opened in this measure process) and times one
+    end-to-end run: for rfd3, featurize -> on-device TokenInitializer -> EDM
+    sampler -> CIF write; for pxdesign, host featurize -> conditioning distogram
+    -> on-device diffusion sampler -> CIF write. The gated metric is ``designs/s
+    = num_designs / median wall-clock`` over SINGLE_SHOT_REPEAT back-to-back runs
+    -- one draw of a host-heavy pipeline swings wildly (a -21.6% draw under CPU
     contention and a +17% outlier seed are both on record, see the module
-    docstring's threshold section), so the median, not a single run, is what
-    the gate compares.
+    docstring's threshold section), so the median, not a single run, is what the
+    gate compares.
+
+    ``tt-bio design`` is one command over several models whose options are
+    model-scoped, so the fixture, the extra flags and the input label come from
+    the spec rather than from a fixed rfd3-shaped list: rfd3 takes ``--from_pdb``
+    / ``--num_timesteps`` and fans across ``--devices``, pxdesign takes
+    ``--n_step`` and prints a "does not use --devices" warning if it is handed
+    one. Each fixture is the one that model's parity/accuracy legs already run --
+    rfd3's IAI motif-scaffold spec (I40/L419), pxdesign's PD-L1 quick-start target
+    -- so no fixture is invented here. ``{card}`` in a flag expands to the pinned
+    card id and any other ``{key}`` to that key of the spec.
 
     Each rep absorbs first-kernel compile (disk-cached across processes after
     first contact) and model load, so ``designs/s`` remains a conservative
     (cold-inflated) warm-throughput proxy -- same character as the boltzgen leg.
     The cold fraction is stable across releases, so a dispatch/throughput
-    regression still shows up as a higher wall-clock in every rep.
-    num_timesteps=4 is the shipped CLI default (a fast smoke setting); the gate
-    measures the shipped default, not a production 200-step design.
+    regression still shows up as a higher wall-clock in every rep. Both legs run
+    the shipped CLI default step count (rfd3 4 timesteps, pxdesign 400 steps),
+    not a production-quality setting.
     """
-    spec_path = REPO_ROOT / "scripts" / "rfd3_port" / "parity_artifacts" / "iai_protein" / "iai_inputs.yaml"
+    spec_path = REPO_ROOT / spec["fixture"]
     if not spec_path.exists():
         raise FileNotFoundError(f"missing design fixture {spec_path}")
     n = spec["num_designs"]
-    timesteps = spec["num_timesteps"]
     work = Path(tempfile.mkdtemp(prefix=f"perf-{model}-"))
     # The design command's --devices takes physical card ids (not a count), so a
     # hardcoded "1" fails on single-card hosts (pc has only id 0). Derive the id
     # from TT_VISIBLE_DEVICES (default 0) -- the same convention detect_card_type
     # uses -- so the leg runs on whichever card the caller pinned.
     visible = (os.environ.get("TT_VISIBLE_DEVICES", "0").split(",")[0].strip() or "0")
+    fmt = dict(spec, card=visible)
+    flags = [str(f).format(**fmt) for f in spec["cli_flags"]]
 
     def make_cmd(rep: int):
         cmd = [
             sys.executable, "-m", "tt_bio.main", "design", str(spec_path),
-            "--model", "rfd3",
-            "--from_pdb",
+            "--model", model,
             "--out_dir", str(work / f"design-rep{rep}"),
             "--num_designs", str(n),
-            "--num_timesteps", str(timesteps),
-            "--devices", visible,
+            *flags,
         ]
         return cmd, work / f"design-rep{rep}.log"
 
@@ -912,9 +957,10 @@ def _measure_design(model: str, spec: dict, out_path: Path) -> dict:
         load_s=0.0,
         warmup=0,
         repeat=SINGLE_SHOT_REPEAT,
-        num_timesteps=timesteps,
+        num_timesteps=spec.get("num_timesteps"),
+        n_step=spec.get("n_step"),
         num_designs=n,
-        input=f"{spec_path.name} (IAI motif-scaffold, I40/L419, from_pdb, {timesteps} steps)",
+        input=f"{spec_path.name} ({spec['input_label'].format(**fmt)})",
         tt_bio_version=_version(),
         date=date.today().isoformat(),
     )
@@ -1484,15 +1530,17 @@ def _update_baselines(rows: list[dict], args) -> int:
         measured.add(r["model"])
         # The knob fields are provenance (the gate compares throughput only), and
         # they differ by kind: predict/affinity/gen carry sampling_steps/
-        # diffusion_samples/recycling_steps, while the design kind (rfd3) carries
-        # num_timesteps/num_designs. Use .get() so a kind that lacks a knob writes
+        # diffusion_samples/recycling_steps, while the design kind carries
+        # num_designs plus its own step knob (rfd3 num_timesteps, pxdesign
+        # n_step). Use .get() so a kind that lacks a knob writes
         # None instead of KeyError-ing, and persist whichever design knobs exist.
         models[r["model"]] = dict(
             unit=r["unit"], direction=r["direction"], value=r["throughput"],
             latency_ms=r["latency_ms"], input=r["input"],
             sampling_steps=r.get("sampling_steps"), diffusion_samples=r.get("diffusion_samples"),
             recycling_steps=r.get("recycling_steps"),
-            num_timesteps=r.get("num_timesteps"), num_designs=r.get("num_designs"),
+            num_timesteps=r.get("num_timesteps"), n_step=r.get("n_step"),
+            num_designs=r.get("num_designs"),
             warmup=r["warmup"], repeat=r["repeat"],
             hardware=r["hardware"], card_type=r.get("card_type", card_type),
             machine_id=machine_id,
