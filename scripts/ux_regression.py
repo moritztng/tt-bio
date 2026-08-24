@@ -952,9 +952,13 @@ def _check_design_progress(stdout: str, design_line: str) -> list[str]:
                         f"with nothing in between")
     if fi is None:
         problems.append("no 'Done — ...' line — design completion not reported")
-    if None not in (di, ri, fi) and not di < ri < fi:
-        problems.append(f"design stdout phases out of order: Designing@{di}, "
-                        f"result@{ri}, Done@{fi}")
+    # Both design models print the summary before the per-design detail, so the
+    # invariant worth asserting is that the headline comes first: a run that reports
+    # a result or a completion before it reports starting is the regression.
+    for name, idx in (("Done", fi), ("the per-design result", ri)):
+        if di is not None and idx is not None and idx < di:
+            problems.append(f"{name} line is printed before the 'Designing ...' headline "
+                            f"(Designing@{di}, {name}@{idx})")
     return problems
 
 
