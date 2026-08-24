@@ -460,11 +460,13 @@ _MIN_L1_SCALE = 0.7             # floor: keep chunks workable on a very tight pa
 # The token bucket for boltz2, boltzgen and nesso1, DERIVED from the fleet value rather than
 # restated -- a literal here is how a per-model fork starts. The pad arithmetic is one copy in
 # token_axis.py, which asserts the multiple divides the 32 tile.
-from .token_axis import bucket_multiple, pad_amount
+from .token_axis import bucket_enabled, bucket_multiple, pad_amount
 
 PAIRFORMER_PAD_MULTIPLE = bucket_multiple("boltz2")
 MSA_PAD_MULTIPLE = 1024  # a DIFFERENT axis, padded for the same recompilation reason; not the
-#                          token bucket, so it does not answer to TOKEN_BUCKET.
+#                          token bucket, so it answers to neither TOKEN_BUCKET nor the
+#                          TT_BIO_TOKEN_BUCKET off switch -- turning the token bucket off
+#                          for an A/B must not silently change the MSA axis too.
 # Upper bound on heavy atoms per token for PROTEIN residues (Trp=14); ties the atom
 # bucket to the seq_len bucket. Nucleotide tokens carry more (up to 23), so a DNA/RNA
 # target can exceed padded_seq * 14 — _populate_diffusion_cache extends the bucket to
@@ -7944,7 +7946,7 @@ class PairformerModule(TorchWrapper):
         use_kernels: bool = False,
     ) -> tuple[torch.Tensor | None, torch.Tensor]:
         seq_len = z.shape[1]
-        pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE)
+        pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE) if bucket_enabled() else 0
 
         required_cache_keys = ("mask_tt", "attn_mask_start_tt", "attn_mask_end_tt")
         if (not self._first_forward_pass) and (not self._cache_has_all(required_cache_keys)):
@@ -8062,7 +8064,7 @@ class Fp32PairformerModule(TorchWrapper):
         use_kernels: bool = False,
     ) -> tuple[torch.Tensor | None, torch.Tensor]:
         seq_len = z.shape[1]
-        pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE)
+        pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE) if bucket_enabled() else 0
 
         required_cache_keys = ("mask_tt", "tri_attn_mask_tt", "attn_mask_tt")
         if (not self._first_forward_pass) and (not self._cache_has_all(required_cache_keys)):
@@ -8156,7 +8158,7 @@ class MiniformerModule(TorchWrapper):
         use_kernels: bool = False,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         seq_len = z.shape[1]
-        pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE)
+        pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE) if bucket_enabled() else 0
 
         required_cache_keys = ("mask_tt", "seq_mask_tt")
         if (not self._first_forward_pass) and (not self._cache_has_all(required_cache_keys)):
@@ -8238,7 +8240,7 @@ class DiffusionModule(TorchWrapper):
         NW = N // ATOM_WINDOW
 
         seq_len = s_inputs.shape[1]
-        token_pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE)
+        token_pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE) if bucket_enabled() else 0
         padded_seq = seq_len + token_pad
         N_padded = padded_seq * MAX_ATOMS_PER_TOKEN
         if N > N_padded:
@@ -8575,7 +8577,7 @@ class MSAModule(TorchWrapper):
 
         seq_len = z.shape[1]
         n_msa = m.shape[1]
-        seq_pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE)
+        seq_pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE) if bucket_enabled() else 0
         msa_pad = pad_amount(n_msa, MSA_PAD_MULTIPLE)
 
         required_cache_keys = ("mask_tt", "attn_mask_tt", "msa_mask_tt", "n_msa")
@@ -8924,7 +8926,7 @@ class TrunkModule(TorchWrapper):
         recycling iterations.
         """
         seq_len = z_init.shape[1]
-        seq_pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE)
+        seq_pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE) if bucket_enabled() else 0
         padded_seq = seq_len + seq_pad
 
         # ---- MSA feature tensor (host), mirrors MSAModule.forward ----
