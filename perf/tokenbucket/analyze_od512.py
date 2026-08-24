@@ -19,7 +19,7 @@ print(f"{path}  model={d['model']}  n_tokens={d['n_tokens']}  ttnn={d['ttnn_vers
 for a in (on, off):
     ts = ab["arms"][a]["warm_times_s"]
     print(f"  arm {a}: median {st.median(ts):8.3f}  span {max(ts)-min(ts):.3f}  n={len(ts)}")
-    shas = {f["cif_sha256"] for f in folds[a]}
+    shas = {v for f in folds[a] for v in f["cif_sha256"].values()}
     plddts = {f["plddt"] for f in folds[a]}
     print(f"           cif {sorted(shas)}  plddt {sorted(plddts)}")
 
