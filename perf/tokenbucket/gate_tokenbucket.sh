@@ -39,6 +39,9 @@ run() {  # rc is the command's, not an echo's (pass 2 logged rc=0 over four hard
   tag=$1; shift
   if [ -f "$OUT/$tag.done" ]; then echo "SKIP $tag (already done)"; return 0; fi
   echo "=== $(date -Is) BEGIN $tag"
+  # keep the previous attempt: a red leg has no .done, so it re-runs on every relaunch and
+  # would otherwise overwrite the very output that documents why it is red.
+  [ -f "$OUT/$tag.log" ] && mv "$OUT/$tag.log" "$OUT/$tag.$(date +%H%M%S).log"
   env $LEASE PYTHONPATH=$WT ESM_ROOT=$ESM_ROOT OPENDDE_DOCKQ_PYTHON=$OPENDDE_DOCKQ_PYTHON "$@" > "$OUT/$tag.log" 2>&1
   rc=$?
   echo "=== $(date -Is) END $tag rc=$rc"
