@@ -35,7 +35,10 @@ run() {  # run <tag> <cmd...>; rc is the command's, not an echo's (pass 2 lost f
   return $rc
 }
 
-run parity "$PY" -u scripts/full_parity_gate.py \
+# --workdir of our own: cached per-leg reports are keyed on leg id alone, so the shared
+# /tmp/full_parity_gate would replay another tree's verdicts as this branch's. The gate
+# refuses to resume across a code-hash change, which is how this was caught.
+run parity "$PY" -u scripts/full_parity_gate.py --workdir /tmp/full_parity_gate-tokenbucket \
   --leg protenix-prot-msa --leg protenix-ubq-msa --leg protenix-hsa-msa --leg protenix-9ncy-msa \
   --leg opendde-trpcage-nomsa --leg opendde-prot-prod --leg opendde-abag --leg capacity
 run perf "$PY" -u scripts/perf_regression.py
