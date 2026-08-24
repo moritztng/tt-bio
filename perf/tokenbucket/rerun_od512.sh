@@ -21,15 +21,7 @@ LEASE="TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=wor
 # whose ARC core had died, and only a 256x256 matmul probe told the difference between "wedged" and
 # "slow". 60 s here is cheaper than 28 minutes of folding into a dead chip.
 echo "$(date -Is) preflight: card $CARD"
-if ! timeout 90 env $LEASE PYTHONPATH=$WT "$PY" -c "
-import ttnn, torch
-from tt_bio.tenstorrent import get_device, cleanup
-d = get_device()
-a = ttnn.from_torch(torch.ones(64, 64), layout=ttnn.TILE_LAYOUT, device=d, dtype=ttnn.bfloat16)
-got, want = ttnn.to_torch(ttnn.matmul(a, a)).sum().item(), 64 ** 3
-assert abs(got - want) < 1, fcard computes wrong: {got} != {want}
-cleanup()
-" >/dev/null 2>&1; then
+if ! timeout 300 env $LEASE PYTHONPATH=$WT "$PY" -u perf/tokenbucket/preflight_card.py >/dev/null 2>&1; then
   echo "$(date -Is) PREFLIGHT FAILED on card $CARD (timeout, wedge, or wrong result). Not folding."
   echo "  a wedge here shows as 100 % of one core in user time, not 0 %; tt-smi -r $CARD, and if"
   echo "  that says ARC core failed to start the card needs a power cycle, not another reset."
@@ -59,17 +51,4 @@ rc=$?
 echo "=== $(date -Is) od512 END rc=$rc ==="
 
 # ACCEPTANCE. Reject the run rather than average noise into a 0.167 s decision.
-[ $rc -eq 0 ] && "$PY" - <<PYEOF
-import json
-d = json.load(open("perf/tokenbucket/od512_paired.json"))
-a, w = d["ab"], d["warm_folds"]
-med, mean = a["paired_delta_median_s"], a["paired_delta_mean_s"]
-loads = [float(f["loadavg"][0]) for f in w]
-spans = {k: round(max(v["warm_times_s"]) - min(v["warm_times_s"]), 3) for k, v in a["arms"].items()}
-ok = (max(loads) <= 7.0) and (med >= 0) == (mean >= 0) and max(spans.values()) < 0.6
-print(f"median {med:+.3f} s  mean {mean:+.4f} s  deltas {a[paired_delta_s]}")
-print(f"loadavg {min(loads)}-{max(loads)}  per-arm span {spans}")
-print("ACCEPTED" if ok else "REJECTED: noise-dominated, do not decide on this run")
-print(f"margin 0.167 s -> OpenDDE {KEEPS if med <= 0.167 else LOSES} the beat-DGX-H200 bar"
-      if ok else "")
-PYEOF
+[ $rc -eq 0 ] && "$PY" perf/tokenbucket/accept_od512.py perf/tokenbucket/od512_paired.json
