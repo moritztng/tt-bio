@@ -22,6 +22,23 @@ Two constraints decide whether this is a win, and both were found by measurement
   wide for the widest bucket runs the shipped dense chain -- so the downside is capped at dense
   by construction rather than by tuning.
 
+**Together those two make this arm target-specific, which is the reason it is off by default and
+not merely unproven.** Q has to divide the tile-padded atom axis, so with Q=1216 (38 tiles) the arm
+fires only when ``ceil(atoms/32) % 38 == 0``: 288 of the 11745 atom counts between 256 and 12000,
+2.45%. Every other target takes the dense fallback on every step. `examples/rfd3_binder.json`, the
+release gate's own RFD3 fixture, is one of them -- 1350 atoms, 1376 padded, and 1376 = 2**5 * 43
+with 43 prime, so its only multiple-of-32 block sizes are 32 and 1376 and neither is usable. The
+gate therefore passes with ``RFD3_BLOCK_SPARSE=1`` having scored the dense chain twice; measured,
+`0 blocked, 1791 dense-fallback`. ``tests/test_rfd3_block_sparse.py`` pins both facts. U is
+per-target for the same reason, since the union scales with the atom count.
+
+Worth, on a target it does fit (R4, 6051 atoms, 6080 = 5 x 1216): **2.982 s/design**, median of 7
+rounds over two interleaved fold A/Bs, range 2.218-3.988, against an A/A control floor of 0.124
+(0.053-0.196). Every A/B round was flagged by the harness's load bar and the A/A rounds were not,
+so read that as a bracket; the distributions do not overlap and the contamination biases the ON arm
+the safe way, since only the ON arm does host work in :func:`plan`. Dense fall-back rate over a
+full 200-step schedule: 360 of 1791 = 20.1%.
+
 Not bit-exact, and the reason is only the softmax's reduction order. The scores gather exactly
 (the QK dot is one tile deep, so its dot-product tree does not depend on the M/N tiling) and the
 non-neighbour columns are exact post-exp zeros either way, because ``exp(-1e4 * head_dim**-0.5)``
