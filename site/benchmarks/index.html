@@ -1,3 +1,12 @@
+  /* Why a row is missing from these charts, in the chart's own caption rather than a footnote. */
+  function excludedNote() {
+    var out = "";
+    D.models.concat(catRows().map(function (r) { return r.m; })).forEach(function (m) {
+      if (m.server_charts === false && m.server_charts_note) out += " " + m.server_charts_note;
+    });
+    return out;
+  }
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -454,18 +463,27 @@ details.disclose > div{ padding-top:var(--s-4); }
     }));
   }
 
-  /* The rows the per-server and per-dollar surfaces may draw. A category can opt out with
-   * server_charts: false, and the design rows do.
+  /* The rows the per-server and per-dollar surfaces may draw. A row can opt out with
+   * server_charts: false, and RFdiffusion3 does.
    *
    * Those surfaces turn seconds per job into jobs per hour, and that is a throughput claim, not a
-   * latency one. Every design cell here is one design at a time, and on a GPU a batch of eight
-   * amortises 2.12x on the H200, 2.50x on the B200 and 1.79x on the A100 while the Blackhole AI
-   * Processor gains 1.04x and OOMs above b=2. Multiplying the batch-1 seconds by accelerator count
-   * therefore reverses the answer: RFdiffusion3 reads 1.20x a DGX H200 at batch 1 and 0.57x once
-   * the DGX is allowed the batch we measured ourselves. The seconds chart keeps every design row,
-   * because one-at-a-time is the right protocol for latency and the row's note carries the batch
-   * figures. The category comes back to these charts when each row has a best-batch cell on every
-   * platform. render_check.js asserts the absence rather than trusting this comment. */
+   * latency one. A row belongs there only if both sides are in their best production configuration.
+   * RFdiffusion3's are not the same: the GPUs take a batch of eight and the Blackhole AI Processor
+   * does not fit one, and the batch decides the sign of the answer, 1.20x a DGX H200 at batch 1
+   * against 0.57x at each side's best. BoltzGen is not in that position, because its batched path
+   * drifts 0.5-2.8 A per slot and so returns different designs: batch 1 is the production
+   * configuration on both sides, and the row stays. Every row keeps the seconds chart either way.
+   * render_check.js asserts the absence rather than trusting this comment. */
+  function serverRows() {
+    return D.models.concat(catRows().map(function (r) { return r.m; }))
+      .filter(function (m) { return m.server_charts !== false; })
+      .map(function (m) {
+        var r = catRows().filter(function (x) { return x.m === m; })[0];
+        return r ? { m: m, one: r.c.one, many: r.c.many, sub: r.c.sub }
+                 : { m: m, one: "prediction", many: "predictions" };
+      });
+  }
+
   /* Why a category is missing from these charts, in the chart's own caption rather than a footnote. */
   function excludedNote() {
     var out = "";
@@ -474,16 +492,6 @@ details.disclose > div{ padding-top:var(--s-4); }
       if (b && b.server_charts === false && b.server_charts_note) out += " " + b.server_charts_note;
     });
     return out;
-  }
-
-  function serverRows() {
-    return D.models.map(function (m) {
-      return { m: m, one: "prediction", many: "predictions" };
-    }).concat(catRows().filter(function (r) {
-      return !(D[r.c.key] && D[r.c.key].server_charts === false);
-    }).map(function (r) {
-      return { m: r.m, one: r.c.one, many: r.c.many, sub: r.c.sub };
-    }));
   }
 
   /* Everything a bar can tell you on hover, built from that cell's own provenance.

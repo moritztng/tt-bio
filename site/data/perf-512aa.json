@@ -508,11 +508,11 @@
             "s_per_design": 44.29,
             "ref": "Median of n=3 warm batches, 43.91 / 44.29 / 44.44 s, spread 1.20 %, cold 45.18 s discarded, batch 1. rc-foundry 0.2.0 plus the 4010e3e2e attention.py, torch 2.13.0+cu130, checkpoint rfd3_latest.ckpt sha256 9b3f8592. dense_sdpa_pairbias_attention 7164, sparse 28656, cuEquivariance unreachable by code so 0, exactly the split both other GPUs read. Every design is 585 target plus 100 designed residues at seed 7. Peak 32707 MiB of 81920, no memory pressure. At batch 8 it amortises to 24.775 s per design, 1.79x."
           }
-        }
+        },
+        "server_charts": false,
+        "server_charts_note": "RFdiffusion3 is not on the per-server or per-dollar charts. Those charts scale seconds per job by accelerator count, and this row's two sides do not have the same lever: a batch of eight is worth 2.12x on the H200, 2.50x on the B200 and 1.79x on the A100, measured at shipped defaults with the H200 at 79 % of its 700 W and 98 % utilisation, while the Blackhole AI Processor gains 1.04x at 3844 atoms and does not fit a batch of eight. At batch 1 the Galaxy reads 1.20x a DGX H200; at each side's best batch it reads 0.57x, so the batch decides the sign rather than the size. The seconds chart keeps the row, because one at a time is the right protocol for latency. BoltzGen stays on both charts: its batched path drifts 0.5-2.8 A per slot, which makes a batched design a different design, so batch 1 is the production configuration on the GPU as well as here."
       }
-    ],
-    "server_charts": false,
-    "server_charts_note": "Design rows are not on the per-server or per-dollar charts. Those charts turn seconds per job into jobs per hour, which is a throughput claim, and every design cell here is one design at a time. On a GPU a batch of eight amortises 2.12x on the H200, 2.50x on the B200 and 1.79x on the A100; the Blackhole AI Processor gains 1.04x at 3844 atoms and does not fit a batch of eight at all. Scaling the batch-1 seconds by accelerator count reverses the answer rather than shading it: RFdiffusion3 reads 1.20x a DGX H200 at batch 1 and 0.57x once that box runs the batch we measured ourselves. The seconds chart keeps every design row, because one at a time is the right protocol for latency. The rows return to the throughput charts when each one has a best-batch cell on every platform."
+    ]
   },
   "affinity": {
     "cond": "Wall-clock seconds to return one binding-affinity prediction on a single AI Processor, warm, at the shipped defaults. Shorter is better. One prediction at a time on every platform.",
