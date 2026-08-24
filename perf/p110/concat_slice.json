@@ -1,0 +1,45 @@
+{
+  "I": 685,
+  "w258": 258,
+  "w288": 288,
+  "reps": 7,
+  "concat_ms": 1.5363,
+  "slice_ms": 1.4564,
+  "rms_norm_258_ms": 1.7248,
+  "rms_norm_288_ms": 1.7267,
+  "linear_258_ms": 6.5098,
+  "linear_288_ms": 5.9865,
+  "shipped_chain_ms": 11.2273,
+  "proposed_chain_ms": 9.2496,
+  "shipped_s_per_design": 4.491,
+  "proposed_s_per_design": 3.7,
+  "prize_s_per_design": 0.791,
+  "slice_alone_s_per_design": 0.583,
+  "bit_exact": false,
+  "best_correction": "sqrt(258/288)",
+  "corrections": {
+    "sqrt(258/288)": {
+      "corr": 0.9464847243000456,
+      "bit_exact": false,
+      "maxabs": 0.03125,
+      "rel_max": 8666.45605469,
+      "rel_median": 0.0050251256
+    },
+    "1.0": {
+      "corr": 1.0,
+      "bit_exact": false,
+      "maxabs": 0.25,
+      "rel_max": 5003.89941406,
+      "rel_median": 0.0569105707
+    },
+    "sqrt(288/258)": {
+      "corr": 1.0565410875907486,
+      "bit_exact": false,
+      "maxabs": 0.5,
+      "rel_max": 8301.43652344,
+      "rel_median": 0.1167512685
+    }
+  },
+  "card": "3",
+  "host": "tt-quietbox2"
+}

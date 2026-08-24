@@ -97,19 +97,22 @@ def instrumented_run_device(self, R_L_ca, S_init_I, Z_init_II, D_II_self=None):
     with timed("host._scaled_distogram_bins", dev):
         bins = M._scaled_distogram_bins(R_L_ca, sigma_data=self.sigma_data, n_bins=self.N_BINS)
 
-    d_dev = _onehot_itemised(self, bins, B, I, dev, dt, "d")
-    if D_II_self is None:
-        with timed("self._zeros_dev (cached)", dev):
-            self_dev = self._zeros_dev(B, I)
-    else:
-        self_dev = _onehot_itemised(self, D_II_self, B, I, dev, dt, "self")
+    # The shipped path, not the pre-_CONCAT_ALIGNED one this file used to copy: ONE combined
+    # 160-wide one-hot, a 128+160 concat where both pieces are tile multiples, and a slice back
+    # to 258 so rms_norm averages over the right count.
+    with timed("_combined_onehot_dev[B,I,I,160]", dev):
+        dself = self._combined_onehot_dev(bins, D_II_self, B, I)
 
     with timed("z.upload+_batched", dev):
         z_in = Z_init_II.unsqueeze(0) if Z_init_II.ndim == 3 else Z_init_II
         z = self._batched(M._tt_cached(z_in, dev, dt), B)
 
-    with timed("ttnn.concat[B,I,I,258]", dev):
-        zcat = ttnn.concat([z, d_dev, self_dev], dim=-1)
+    with timed("ttnn.concat 128+160 -> 288", dev):
+        wide = ttnn.concat([z, dself], dim=-1)
+    ttnn.deallocate(dself)
+    with timed("ttnn.slice 288 -> 258", dev):
+        zcat = ttnn.slice(wide, [0, 0, 0, 0], [B, I, I, 2 * self.N_BINS + self.C_Z])
+    ttnn.deallocate(wide)
     with timed("ttnn.rms_norm(258)", dev):
         z = ttnn.rms_norm(zcat, weight=self.process_z_n, epsilon=1e-6, compute_kernel_config=ckc)
     with timed("ttnn.linear 258->128", dev):
@@ -138,7 +141,10 @@ def instrumented_run_device(self, R_L_ca, S_init_I, Z_init_II, D_II_self=None):
 
 
 def _onehot_itemised(self, bins, B, I, dev, dt, tag):
-    """The prior plan folded the embedding and the layout conversion together. Split them:
+    """UNUSED since the shipped path moved to _combined_onehot_dev. Kept for the RFD3_CONCAT_ALIGNED=0
+    arm only; the instrumented path above no longer calls it.
+
+    The prior plan folded the embedding and the layout conversion together. Split them:
     `ttnn-untilize-single-core-fallback` says a layout conversion can silently fall back to
     one core, and a 65-wide last dim tilizes to 96."""
     eye = self._const.get(("eye", dt))
@@ -163,13 +169,9 @@ def byte_model(B, I):
     p = I * I
     b = B * p
     return {
-        "d.idx upload": b * 4,
-        "d.ttnn.embedding": b * 4 + b * 65 * 2,
-        "d.to_layout(TILE)": b * 65 * 2 + b * 96 * 2,
-        "self.idx upload": b * 4,
-        "self.ttnn.embedding": b * 4 + b * 65 * 2,
-        "self.to_layout(TILE)": b * 65 * 2 + b * 96 * 2,
-        "ttnn.concat[B,I,I,258]": b * (128 + 96 + 96) * 2 + b * 288 * 2,
+        "_combined_onehot_dev[B,I,I,160]": b * 4 + b * 160 * 2 + b * 160 * 2 * 2,
+        "ttnn.concat 128+160 -> 288": b * (128 + 160) * 2 + b * 288 * 2,
+        "ttnn.slice 288 -> 258": b * 288 * 2 + b * 288 * 2,
         "ttnn.rms_norm(258)": b * 288 * 2 * 2,
         "ttnn.linear 258->128": b * 288 * 2 + b * 128 * 2,
     }
