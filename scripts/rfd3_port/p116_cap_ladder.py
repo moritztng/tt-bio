@@ -145,42 +145,60 @@ def main():
         print("[p116] WARNING: the cap does not bind at this size. This rung cannot inform it.",
               flush=True)
 
-    rows, per, digests = [], {}, {}
+    rows, per, digests, per_round = [], {}, {}, {}
+
+    # Which arms the shipped clamp actually admits at this L. Resolved before any fold, so every
+    # round below runs the same arm set.
+    plan_arms = []
     for b in arms:
         label = "b%d" % b
         rfd3_design._BATCH_SPEED_CAP = b
         eff = clamp(b, b, L)
         exp_batches = (N + eff - 1) // eff
-        print("\n=== arm %s: num_designs=%d batch_size=%d cap=%d -> effective_batch=%d, "
-              "expect %d sampler call(s) ===" % (label, N, b, b, eff, exp_batches), flush=True)
         if eff != b:
-            print("  SKIPPED: the clamp refuses this arm (effective %d != %d)" % (eff, b),
-                  flush=True)
+            print("=== arm %s SKIPPED: the clamp refuses it (effective %d != %d) ==="
+                  % (label, eff, b), flush=True)
             rows.append(dict(arm=label, stage="skipped", effective_batch=eff, requested=b))
             per[label] = None
             continue
+        print("=== arm %s: num_designs=%d batch_size=%d cap=%d -> effective_batch=%d, "
+              "expect %d sampler call(s) ===" % (label, N, b, b, eff, exp_batches), flush=True)
+        plan_arms.append([b, label, eff, exp_batches])
+
+    # Warm every arm before any arm is timed. Each batch shape compiles its own programs, so an
+    # unwarmed arm measures the compiler.
+    for a in list(plan_arms):
+        b, label, eff, exp_batches = a
+        rfd3_design._BATCH_SPEED_CAP = b
         try:
             w, dg, n, nb, na, la = fold(specs, "/tmp/rfd3_p116_warm_%s" % label, N, b, args.steps)
-            print("  warmup %8.3f s  %d design  %d batch(es)  atoms %s  load %.1f  DISCARDED"
-                  % (w, n, nb, na, la), flush=True)
+            print("  warmup %-4s %8.3f s  %d design  %d batch(es)  atoms %s  load %5.1f  DISCARDED"
+                  % (label, w, n, nb, na, la), flush=True)
         except Exception as e:
-            print("  warmup FAILED: %s" % str(e)[:240], flush=True)
+            print("  warmup %s FAILED: %s" % (label, str(e)[:240]), flush=True)
             rows.append(dict(arm=label, stage="warmup", exc=str(e)[:600]))
             per[label] = None
-            continue
-        got = []
-        for r in range(args.reps):
+            plan_arms.remove(a)
+
+    # Interleave the reps round-robin instead of running each arm as a block. The R4 rung was
+    # blocked and its b=1 reps ran at loadavg 19.0/19.0/16.5 while b=2 ran at 19.65/19.65/24.11,
+    # so a drift in the box load aliased straight into the arm delta. Round-robin puts every arm
+    # under the same drift, and it makes the per-round ratio a paired statistic.
+    for r in range(args.reps):
+        for b, label, eff, exp_batches in plan_arms:
+            rfd3_design._BATCH_SPEED_CAP = b
             try:
                 w, dg, n, nb, na, la = fold(specs, "/tmp/rfd3_p116_%s_%d" % (label, r), N, b,
                                             args.steps)
                 ok = (nb == exp_batches and n == N)
                 sd = w / max(1, n)
-                got.append(sd)
+                per_round.setdefault(label, {})[r] = sd
                 digests.setdefault(label, []).append(dg)
-                print("  rep%d %9.3f s sampler wall  %d design  %d batch(es) %s  %8.3f s/design"
-                      "  load %5.1f  %s" % (r, w, n, nb, "OK" if ok else "ARM WRONG", sd, la,
-                                            "|".join(dg[k] for k in sorted(dg))), flush=True)
-                rows.append(dict(arm=label, batch=b, rep=r, sampler_wall_s=round(w, 3),
+                print("  round%d %-4s %9.3f s sampler wall  %d design  %d batch(es) %s  "
+                      "%8.3f s/design  load %5.1f  %s"
+                      % (r, label, w, n, nb, "OK" if ok else "ARM WRONG", sd, la,
+                         "|".join(dg[k] for k in sorted(dg))), flush=True)
+                rows.append(dict(arm=label, batch=b, rep=r, round=r, sampler_wall_s=round(w, 3),
                                  n_designs=n, batches=nb, batches_expected=exp_batches,
                                  arm_verified=ok, s_per_design=round(sd, 3), digests=dg,
                                  effective_batch=eff, loadavg=round(la, 2), L_atoms=L,
@@ -188,10 +206,13 @@ def main():
                 assert ok, ("ARM WRONG: %d batches for %d designs at effective %d"
                             % (nb, n, eff))
             except Exception as e:
-                print("  rep%d FAILED: %s" % (r, str(e)[:240]), flush=True)
-                rows.append(dict(arm=label, rep=r, exc=str(e)[:600]))
-        per[label] = ((statistics.median(got), min(got), max(got), len(got)) if got else None)
+                print("  round%d %s FAILED: %s" % (r, label, str(e)[:240]), flush=True)
+                rows.append(dict(arm=label, rep=r, round=r, exc=str(e)[:600]))
         OUT.write_text(json.dumps({"rows": rows, "partial": True}, indent=2) + "\n")
+
+    for b, label, eff, exp_batches in plan_arms:
+        got = sorted(per_round.get(label, {}).values())
+        per[label] = ((statistics.median(got), min(got), max(got), len(got)) if got else None)
     rfd3_design._BATCH_SPEED_CAP = 1
 
     print("\n%-8s %14s %10s %10s %5s %9s" % ("arm", "s/design med", "min", "max", "n", "vs b=1"),
@@ -206,7 +227,7 @@ def main():
             print("%-8s %14s" % (label, "no result"), flush=True)
 
     # the pre-registered decision rule (state/rfd3-b8-to-4x-p4.md 3.3)
-    verdict, aa_frac, best = None, None, None
+    verdict, aa_frac, best, paired = None, None, None, {}
     if s1:
         aa_frac = (per["b1"][2] - per["b1"][1]) / s1
         thresh = max(0.005, 3.0 * aa_frac)
@@ -239,6 +260,22 @@ def main():
                            "%.3f %% threshold" % (b, 100 * gain, 100 * thresh))
         else:
             verdict = "no batched arm produced a result"
+        # Paired diagnostic ONLY. The verdict above is the rule pre-registered in
+        # state/rfd3-b8-to-4x-p4.md 3.3, computed from the arm medians, unchanged. This block
+        # reports the per-round ratio, which cancels the load drift common to a round, so a rung
+        # the unpaired rule voids can still be read for direction.
+        for _, b in sorted(cand):
+            lbl = "b%d" % b
+            rs = [per_round[lbl][r] / per_round["b1"][r]
+                  for r in sorted(per_round.get(lbl, {}))
+                  if r in per_round.get("b1", {})]
+            if rs:
+                paired[lbl] = dict(n_rounds=len(rs), ratios=[round(x, 5) for x in rs],
+                                   median_ratio=round(statistics.median(rs), 5),
+                                   worst=round(max(rs), 5), best=round(min(rs), 5))
+                print("  paired %s/b1 per round: %s -> median %.4fx (diagnostic, not the rule)"
+                      % (lbl, " ".join("%.4f" % x for x in rs), statistics.median(rs)),
+                      flush=True)
         print("\nverdict: %s" % verdict, flush=True)
         print("design.py's table at this size said: %s" % (
             {2299: "b=8 wins 1.141x", 2952: "b=8 wins 1.074x", 3844: "b=1 wins 1.082x",
@@ -259,6 +296,10 @@ def main():
                         for b in arms},
         "b1_aa_spread_frac": (round(aa_frac, 5) if aa_frac is not None else None),
         "best_batched_arm": best, "verdict": verdict,
+        "paired_round_ratios": paired,
+        "per_round_s_per_design": {k: {str(r): round(v, 3)
+                                       for r, v in sorted(d.items())}
+                                   for k, d in sorted(per_round.items())},
         "host": os.uname().nodename, "card": CARD, "partial": False,
     }, indent=2) + "\n")
     print("\nwrote", OUT, flush=True)
