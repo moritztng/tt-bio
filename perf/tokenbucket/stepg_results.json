@@ -1,0 +1,176 @@
+{
+ "task": "protenix-opendde-token-bucket-flip-measure",
+ "what": "step G of the TT_BIO_PROTENIX_TOKEN_BUCKET default-ON flip: release gate on every arm the flip touches, on qb1 card 3",
+ "parity": {
+  "legs": {
+   "protenix-prot-msa": {
+    "kind": "structure",
+    "ref": "cached",
+    "verdict": "PASS",
+    "wall_s": 300,
+    "detail": "prot: X=2.617 R=2.763 D=1.311 within=True [improves committed GAP-evidenced \u2014 not a drift]"
+   },
+   "protenix-ubq-msa": {
+    "kind": "structure",
+    "ref": "cached",
+    "verdict": "PASS",
+    "wall_s": 391,
+    "detail": "ubq: X=1.824 R=1.923 D=1.560 within=True [improves committed GAP-evidenced \u2014 not a drift]"
+   },
+   "protenix-hsa-msa": {
+    "kind": "structure",
+    "ref": "cached",
+    "verdict": "PASS",
+    "wall_s": 1070,
+    "detail": "hsa: X=0.668 R=0.695 D=0.562 within=True [improves committed GAP \u2014 not a drift]"
+   },
+   "protenix-9ncy-msa": {
+    "kind": "structure",
+    "ref": "cached",
+    "verdict": "BLOCKED-REGEN",
+    "wall_s": 0,
+    "detail": "fixture incomplete (missing structures/ cif)"
+   },
+   "opendde-trpcage-nomsa": {
+    "kind": "structure",
+    "ref": "cached",
+    "verdict": "BLOCKED-REGEN",
+    "wall_s": 0,
+    "detail": "fixture incomplete (missing structures/ cif)"
+   },
+   "opendde-prot-prod": {
+    "kind": "structure",
+    "ref": "cached",
+    "verdict": "PASS",
+    "wall_s": 318,
+    "detail": "prot_no_msa: X=6.067 R=1.499 D=4.882 within=True [improves committed GAP-evidenced \u2014 not a drift]"
+   },
+   "opendde-abag": {
+    "kind": "abag",
+    "ref": "in-process",
+    "verdict": "PASS",
+    "wall_s": 396,
+    "detail": "global DockQ=0.845 [reproduces committed]"
+   },
+   "capacity": {
+    "kind": "capacity",
+    "ref": "in-process",
+    "verdict": "PASS",
+    "wall_s": 1469,
+    "detail": "peak 8.74 GiB, 58 CIFs / 2 PAEs (capacity:9j4c_abag 8.74 GiB"
+   }
+  },
+  "tally": "{'PASS': 6, 'BLOCKED-REF-REGEN-NEEDED': 2}",
+  "total_wall_min": 65.7,
+  "gate": "GATE PASS \u2014 every fast-path leg reproduces within its floor",
+  "workers": "qb1:3",
+  "note": "the two BLOCKED legs have no structures/*.cif in the published fixture bundle; that predates this branch and those references are an upstream run that is never regenerated here"
+ },
+ "perf_regression": {
+  "input": "examples/trpcage.yaml, 20 aa single-seq; bucketed_width(20) = 64",
+  "threshold_pct": 15.0,
+  "card": "p150a",
+  "machine": "tt-quietbox",
+  "models": {
+   "protenix-v2": {
+    "baseline_str_s": 1.472,
+    "measured_str_s": 1.2325,
+    "delta_pct": -16.3,
+    "verdict": "FAIL",
+    "note": "median of 4 interleaved runs at loadavg 1.84-5.70, not the single gate run"
+   },
+   "opendde": {
+    "baseline_str_s": 1.2,
+    "measured_str_s": 1.118,
+    "delta_pct": -6.8,
+    "verdict": "PASS"
+   },
+   "opendde-abag": {
+    "baseline_str_s": 1.209,
+    "measured_str_s": 1.112,
+    "delta_pct": -8.0,
+    "verdict": "PASS"
+   }
+  },
+  "paired_control": {
+   "why": "perf_regression.py prints no loadavg, so a contended run cannot be caught after the fact. The same leg read -16.0% at loadavg 4.1 and -61.4% at loadavg 15-25 while a co-tenant ran its own perf_regression on another card. This arm stamps the load itself and interleaves the OFF control with alternating within-pair order.",
+   "loadavg_range": [
+    1.84,
+    5.7
+   ],
+   "off_str_s": [
+    1.45,
+    1.5,
+    1.508,
+    1.504
+   ],
+   "on_str_s": [
+    1.243,
+    1.231,
+    1.234,
+    1.213
+   ],
+   "off_median": 1.502,
+   "on_median": 1.2325,
+   "cost_vs_live_control_pct": -17.9,
+   "live_control_vs_committed_baseline_pct": 2.0,
+   "verdict": "the committed baseline reproduces (+2.0%), so the whole delta is the flip; -61.4% was contention and is discarded"
+  }
+ },
+ "perf_attribution": {
+  "why": "the committed perf baseline is historical, so the OFF arm is the control that separates the flip from box drift",
+  "arms": {
+   "off": {
+    "arm": "TT_BIO_PROTENIX_TOKEN_BUCKET=0",
+    "measured_str_s": 1.498,
+    "delta_pct_vs_committed": 1.8,
+    "verdict": "PASS"
+   },
+   "m32": {
+    "arm": "bucket on, pad multiple 32 (20 aa -> 32)",
+    "measured_str_s": 1.275,
+    "delta_pct_vs_committed": -13.4,
+    "verdict": "PASS"
+   },
+   "m64": {
+    "arm": "bucket on, pad multiple 64 (20 aa -> 64, the shipped default)",
+    "measured_str_s": 1.237,
+    "delta_pct_vs_committed": -16.0,
+    "verdict": "FAIL"
+   }
+  },
+  "finding": "the OFF arm reproduces the committed baseline (+1.8%), so the whole -16% is the flip. multiple 32 vs 64 buys only 2.6 points despite a 4x smaller pad area, so the cost at 20 aa is dominated by a fixed per-call overhead in the pad/slice path, not by padded area. reopening the 32-vs-64 choice would not fix it."
+ },
+ "size_ladder_298_diagnostic": {
+  "why": "the standing ladder is 256/512/640/768, every rung a multiple of 64, so it is structurally blind to this lever; 298 is the only rung that can see it",
+  "result": "cannot score \u2014 no 298 rung exists in the committed baseline. census only.",
+  "rungs": {
+   "protenix-v2": {
+    "wall_s_298aa": 25.7,
+    "result": "FAIL (protenix-v2/298: rung not recorded in the baseline)"
+   },
+   "opendde": {
+    "wall_s_298aa": 40.4,
+    "result": "FAIL (opendde/298: rung not recorded in the baseline)"
+   }
+  },
+  "provenance": "read off the 03:51:33-03:54:50 run. The log file was later overwritten by a relaunch, because a leg with no .done re-runs and run() clobbered $tag.log; that is fixed in gate_tokenbucket.sh now. 6 steps / 1 sample / seed 0 / single-sequence, card p150a."
+ },
+ "cost_curve": [
+  {
+   "tokens": 20,
+   "padded_to": 64,
+   "cost": "-17.9% protenix-v2 vs a live OFF control (-16.3% vs the committed baseline), -6.8% opendde, -8.0% opendde-abag"
+  },
+  {
+   "tokens": 298,
+   "padded_to": 320,
+   "cost": "+4.82% protenix-v2, +5.97% opendde"
+  },
+  {
+   "tokens": 512,
+   "padded_to": 512,
+   "cost": "0% by construction (byte-identical); opendde d = -0.101 s"
+  }
+ ]
+}
