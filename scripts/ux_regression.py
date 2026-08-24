@@ -444,8 +444,9 @@ def _check_cli() -> list[str]:
         problems.append(f"tt-bio --help failed to run: {e}")
 
     # `tt-bio design` is the unified design command with `--model
-    # boltzgen|rfd3` (mirroring `predict --model`). Gate the shared flag surface
-    # plus both model-scoped groups so a regression that drops one ships loudly.
+    # boltzgen|rfd3|pxdesign` (mirroring `predict --model`). Gate the shared flag
+    # surface plus every model-scoped group so a regression that drops one ships
+    # loudly.
     try:
         r = _run([sys.executable, "-m", "tt_bio.main", "design", "--help"],
                  env=_subprocess_env(), timeout=60)
@@ -456,10 +457,13 @@ def _check_cli() -> list[str]:
     else:
         for flag in ("--model", "--out_dir", "--num_designs", "--devices", "--seed",
                      "--from_pdb", "--num_timesteps", "--batch_size", "--checkpoint",
-                     "--protocol", "--steps", "--budget"):
+                     "--protocol", "--steps", "--budget", "--n_step"):
             if flag not in r.stdout:
                 problems.append(f"design --help missing flag {flag}")
-        for model_name in ("boltzgen", "rfd3"):
+        # Every model the design verb offers, not a hand-copied subset: pxdesign
+        # shipped on this verb and neither it nor its --n_step knob was listed
+        # here, the same hole that let it reach main with no perf-gate entry.
+        for model_name in ("boltzgen", "rfd3", "pxdesign"):
             if model_name not in r.stdout:
                 problems.append(f"design --help does not mention --model choice {model_name}")
         if "--golden_dir" in r.stdout:
