@@ -237,16 +237,188 @@ def write_nesso(d, gpu, data):
           f"device {min(dev):.4f}-{max(dev):.4f} s, affinity sha {sorted(shas)[0]}")
 
 
+# --- PXDesign ------------------------------------------------------------------------------------
+# The published PXDesign h200 cell is not a whole-pipeline wall: it is the generator stage's own
+# clock, gen_feat + gen_device + gen_write, taken from three cells of perf/pxdesign/gpu_reference.json
+# that differ only in eval preset and in whether the target YAML carries an inert msa key. Two of
+# those three need a sliced MSA that is an external MSA-server product and is not in the repo, so
+# this arm takes its three warm samples from the one cell whose fixture it can byte-match: the same
+# yaml sha256 the h200 laczc512_prev_n1 cell records, run as three fresh processes so every warm
+# sample is rep1-after-a-discarded-cold-rep exactly as each h200 cell's was.
+PX_LABEL = "laczc512_prev_n1"
+PX_PROTO = {"preset": "preview", "n_sample": 1, "n_step": 400, "dtype": "bf16", "seed": 42,
+            "extra": ""}
+PX_PROCS = 3
+
+
+def px_ref(gpu):
+    """The h200 reference this cell is written against, read off the committed file."""
+    ref = json.loads(Path("perf/pxdesign/gpu_reference.json").read_text())
+    cell = [c for c in ref["cells"] if c["label"] == PX_LABEL]
+    if len(cell) != 1:
+        die(f"perf/pxdesign/gpu_reference.json holds {len(cell)} cells labelled {PX_LABEL}, want 1")
+    return ref, cell[0]
+
+
+def write_pxdesign(d, gpu, data):
+    ref, h200 = px_ref(gpu)
+    files = sorted(d.glob(f"px_{gpu}_p*.jsonl"))
+    if len(files) != PX_PROCS:
+        die(f"{len(files)} process files px_{gpu}_p*.jsonl, want {PX_PROCS}")
+
+    warm_gen, warm_tot, cold_tot, seqs, reps = [], [], [], set(), []
+    for f in files:
+        rs = [json.loads(l) for l in f.read_text().splitlines() if l.strip()]
+        if len(rs) != 2:
+            die(f"{f.name}: {len(rs)} reps, want 2 (a cold rep 0 and one warm rep 1)")
+        cold, hot = rs
+        if not cold.get("cold") or hot.get("cold"):
+            die(f"{f.name}: rep 0 cold={cold.get('cold')}, rep 1 cold={hot.get('cold')}")
+        for j in rs:
+            if j["label"] != PX_LABEL:
+                die(f"{f.name}: label {j['label']}, want {PX_LABEL}")
+            if j["yaml_sha256"] != h200["yaml_sha256"]:
+                die(f"{f.name}: yaml sha256 {j['yaml_sha256'][:16]}, the published h200 cell "
+                    f"records {h200['yaml_sha256'][:16]}; different fixture, not a comparable cell")
+            for k, want in PX_PROTO.items():
+                if j.get(k) != want:
+                    die(f"{f.name}: {k} is {j.get(k)!r}, the published cell is {want!r}")
+            if not j.get("sanity_ok") or j.get("why"):
+                die(f"{f.name} rep {j['rep']}: sanity {j.get('why')}")
+            v = j["validation"]
+            if not v["ok"] or v["why"]:
+                die(f"{f.name} rep {j['rep']}: validation {v['why']}")
+            if v["n_generated_cif"] != 1 or v["seq_lengths"] != [80]:
+                die(f"{f.name} rep {j['rep']}: {v['n_generated_cif']} cif at {v['seq_lengths']}, "
+                    "want 1 design of an 80-residue binder")
+            if not j.get("gpu_exclusive") or j.get("compute_apps_before"):
+                die(f"{f.name} rep {j['rep']}: card not exclusive, "
+                    f"{j.get('compute_apps_before')}")
+            ci = j["counter_info"]
+            # The h200 median deliberately EXCLUDES the fast-LayerNorm variant, because the shipped
+            # CLI never exports LAYERNORM_TYPE before python starts. A cell that reached the fused
+            # kernel is the excluded measurement wearing the included cell's name.
+            if ci.get("fused_ln_present") or ci.get("layernorm_type_env"):
+                die(f"{f.name} rep {j['rep']}: fused LayerNorm reached "
+                    f"(fused_ln_present={ci.get('fused_ln_present')}, "
+                    f"layernorm_type_env={ci.get('layernorm_type_env')!r}); the published h200 "
+                    "median excludes that variant")
+            if not ci.get("ds4sci_present"):
+                die(f"{f.name} rep {j['rep']}: the DeepSpeed Evoformer kernel was not present")
+            st = j["stages"]
+            gen = sum(st[k]["s"] for k in ("gen_feat", "gen_device", "gen_write"))
+            if abs(gen - st["gen_total"]["s"]) > 2e-3:
+                die(f"{f.name} rep {j['rep']}: gen_feat+gen_device+gen_write {gen:.4f} does not "
+                    f"partition gen_total {st['gen_total']['s']:.4f}")
+            # Every package the h200 stack block names has to match, or the two cells are not the
+            # same measurement. Read off gpu_reference.json rather than restated here.
+            for k, want in ref["stack"].items():
+                if k.startswith(("gpu", "env_", "nvidia_", "jax_", "torch_", "cudnn")):
+                    continue
+                got = j["env"].get(k)
+                if got != want:
+                    die(f"{f.name} rep {j['rep']}: {k} is {got}, the h200 stack names {want}")
+        st = hot["stages"]
+        warm_gen.append(st["gen_total"]["s"])
+        warm_tot.append(hot["total_s"])
+        cold_tot.append(cold["total_s"])
+        if cold["total_s"] < hot["total_s"]:
+            die(f"{f.name}: cold rep {cold['total_s']:.2f} s is faster than the warm rep "
+                f"{hot['total_s']:.2f} s, so rep 0 was not actually cold")
+        seqs.add(tuple(hot["validation"]["sequences"]))
+        reps.append(hot)
+
+    if len(seqs) != 1:
+        die(f"the {PX_PROCS} processes designed different binders at the same seed: {seqs}")
+
+    ob = statistics.median(warm_gen)
+    spread = (max(warm_gen) - min(warm_gen)) / min(warm_gen) * 100.0
+    row = [r for r in data["design"]["models"] if r["id"] == "pxdesign"][0]
+    h200_cell = row["cells"]["h200"]
+    if h200_cell.get("status") != "measured":
+        die("the PXDesign h200 cell is not measured, so there is nothing to write this against")
+    pub = h200_cell["s_per_design"]
+    if abs(pub - h200["stages_s"]["gen_total_s"]) > 1e-3:
+        die(f"the page's h200 cell {pub} s is not gen_total_s "
+            f"{h200['stages_s']['gen_total_s']} s of {PX_LABEL}; the quantity moved")
+
+    r0, e = reps[0], reps[0]["env"]
+    st = r0["stages"]
+    gd = r0["gpu_per_stage"]["gen_device"]
+    # The whole-pipeline wall is NOT comparable between the two boxes and must not be read as if it
+    # were: ProteinMPNN and AF2-IG are host-bound subprocesses and this landlord's CPU is far
+    # slower. Both figures go in the ref so a reader cannot make that mistake by accident.
+    mpnn = statistics.median(j["stages"]["mpnn"]["s"] for j in reps)
+    fmt = lambda xs: " / ".join(f"{x:.4f}" for x in sorted(xs))
+    ref_txt = (
+        f"The generator stage's own wall clock (gen_feat + gen_device + gen_write), the same "
+        f"quantity the h200 cell publishes: {fmt(warm_gen)} s, median {ob:.4f}, spread "
+        f"{spread:.2f} %. Three fresh processes of one cell, each a discarded cold rep 0 plus one "
+        f"warm rep 1, so every sample is rep-1-of-a-fresh-process as each h200 cell's was. The "
+        f"h200 median pools three cells that differ only in eval preset and in whether the YAML "
+        f"carries an msa key, which read_design_yaml parses and ignores because PXDesign-d has no "
+        f"trunk; two of those need a sliced MSA that is an external MSA-server product and is not "
+        f"in the repo, so this arm repeats the one cell it can byte-match instead, the same target "
+        f"YAML sha256 {h200['yaml_sha256'][:16]} the h200 laczc512_prev_n1 cell records. "
+        f"The A100 runs this stage {(ob - pub) / pub * 100.0:+.2f} % against the H200's {pub} s. "
+        f"Inside it, {statistics.median(j['stages']['gen_device']['s'] for j in reps):.4f} s is the "
+        f"diffusion call at {gd['util_pct_mean']:.1f} % mean GPU utilisation and "
+        f"{gd['power_W_median']:.0f} W median, and {statistics.median(j['stages']['gen_feat']['s'] for j in reps):.4f} s "
+        f"plus {statistics.median(j['stages']['gen_write']['s'] for j in reps):.4f} s are the host "
+        f"featurise and CIF write the h200 cell also carries inside its number. "
+        f"Read only this stage against the H200: the whole pipeline is "
+        f"{statistics.median(warm_tot):.1f} s here against {h200['total_s_median']:.1f} s on the "
+        f"H200, almost all of it the host-bound ProteinMPNN and AF2-IG subprocesses "
+        f"({mpnn:.1f} s of ProteinMPNN against {h200['stages_s']['mpnn_s']:.1f} s), which is this "
+        f"landlord's CPU and not the card. "
+        f"Reproducible: all {PX_PROCS} processes return the identical designed sequence at seed "
+        f"{PX_PROTO['seed']} ({sorted(seqs)[0][0]}), and each written CIF parses to one design of "
+        f"an 80-residue binder with no non-finite coordinates. "
+        f"The DeepSpeed Evoformer kernel is present and fast LayerNorm is not reached in any rep, "
+        f"matching the h200 cells the page includes rather than the fast-LayerNorm one it excludes. "
+        f"Card exclusive, no compute app on it before any rep. "
+        f"{e['gpu']}, {e['nvidia_smi'].split(',')[1].strip()} driver, {e['gpu_capability']} "
+        f"compute capability, {r0['env'].get('cpu_name', 'host CPU')} at "
+        f"{r0['env'].get('effective_cpus', 'n/a')} effective vCPU. Peak allocated VRAM "
+        f"{r0['peak_vram_alloc_GiB']:.3f} GiB. Stack byte-matched to the h200 cell's: torch "
+        f"{e['torch']} with CUDA {e['torch_cuda']} and cuDNN {e['cudnn']}, protenix "
+        f"{e['protenix']}, pxdesign {e['pxdesign']}, pxdbench {e['pxdbench']}, deepspeed "
+        f"{e['deepspeed']}, jax {e['jax']}, numpy {e['numpy']}. N_sample 1, n_step 400, bf16, "
+        f"512 target residues, 80-residue binder, checkpoint load outside the cell."
+    )
+    cell = {"status": "measured", "s_per_design": round(ob, 4), "ref": ref_txt,
+            "split": {"host_s": round(statistics.median(
+                          j["stages"]["gen_feat"]["s"] + j["stages"]["gen_write"]["s"]
+                          for j in reps), 3),
+                      "in_cell": True,
+                      "ref": (f"gen_feat and gen_write of the same warm reps, the two host steps "
+                              f"the Tenstorrent and H200 cells also carry inside their own "
+                              f"numbers.")}}
+    print(f"pxdesign/{gpu}: {ob:.4f} s generator stage (warm {fmt(warm_gen)}, spread "
+          f"{spread:.2f} %), h200 {pub} s, {(ob - pub) / pub * 100.0:+.2f} %")
+    return row, cell
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dir", type=Path, required=True)
     ap.add_argument("--gpu", required=True, choices=("h200", "b200", "a100"))
     ap.add_argument("--data", type=Path, required=True)
-    ap.add_argument("--row", default="openbind", choices=("openbind", "nesso1"))
+    ap.add_argument("--row", default="openbind",
+                    choices=("openbind", "nesso1", "pxdesign"))
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
 
     data = json.loads(a.data.read_text())
+    if a.row == "pxdesign":
+        row, cell = write_pxdesign(a.dir, a.gpu, data)
+        if a.dry_run:
+            print(json.dumps(cell, indent=1))
+            return
+        row["cells"][a.gpu] = cell
+        a.data.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+        print(f"wrote pxdesign/{a.gpu} into {a.data}")
+        return
     if a.row == "nesso1":
         write_nesso(a.dir, a.gpu, data)
         if a.dry_run:
