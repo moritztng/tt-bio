@@ -24,6 +24,7 @@ WT=/home/ttuser/.coworker/wt/protenix-opendde-token-bucket-flip-measure
 PY=/home/ttuser/tt-bio-dev/env/bin/python3
 cd "$WT" || exit 1
 export PYTHONPATH=$WT ESM_ROOT=/home/ttuser/esm
+export OPENDDE_DOCKQ_PYTHON=/home/ttuser/w6_dockq_py
 LEASE="TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=worker:protenix-opendde-token-bucket-flip-measure"
 OUT=perf/tokenbucket/gate
 mkdir -p $OUT
@@ -38,7 +39,7 @@ run() {  # rc is the command's, not an echo's (pass 2 logged rc=0 over four hard
   tag=$1; shift
   if [ -f "$OUT/$tag.done" ]; then echo "SKIP $tag (already done)"; return 0; fi
   echo "=== $(date -Is) BEGIN $tag"
-  env $LEASE PYTHONPATH=$WT ESM_ROOT=$ESM_ROOT "$@" > "$OUT/$tag.log" 2>&1
+  env $LEASE PYTHONPATH=$WT ESM_ROOT=$ESM_ROOT OPENDDE_DOCKQ_PYTHON=$OPENDDE_DOCKQ_PYTHON "$@" > "$OUT/$tag.log" 2>&1
   rc=$?
   echo "=== $(date -Is) END $tag rc=$rc"
   [ $rc -eq 0 ] && touch "$OUT/$tag.done"
@@ -48,6 +49,7 @@ run() {  # rc is the command's, not an echo's (pass 2 logged rc=0 over four hard
 # 1. Correctness. Own --workdir: full_parity_gate keys cached per-leg reports on leg id alone, so
 # the shared /tmp/full_parity_gate would replay another tree's verdicts as this branch's.
 run parity "$PY" -u scripts/full_parity_gate.py --workdir /tmp/full_parity_gate-tokenbucket \
+  --workers qb1:$CARD \
   --leg protenix-prot-msa --leg protenix-ubq-msa --leg protenix-hsa-msa --leg protenix-9ncy-msa \
   --leg opendde-trpcage-nomsa --leg opendde-prot-prod --leg opendde-abag --leg capacity
 
