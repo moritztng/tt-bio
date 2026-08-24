@@ -24,22 +24,31 @@ release ships with still works, headlessly and fast, on a tiny input:
      the core flags, and each surface's results/manifest file has the shape
      the downstream reader expects.
 
-Coverage: the seven fold models (boltz2, esmfold2, esmfold2-fast, protenix-v2,
-openfold3, opendde, opendde-abag) for legs 1–3 (opendde-abag is gated on the Ab-Ag fixture
-examples/1ahw_abag.yaml; the other fold models use examples/trpcage.yaml), plus
-the embed-leg models (esmc-600m via `tt-bio embed`, saprot-650m via `tt-bio
-saprot`) for legs 2–3 (embed has no fold phases; its user-facing progress is the
-load → embed → done stdout lines), plus BOTH design models for legs 1–3
-exercised via the unified design surface: boltzgen via `tt-bio design
-examples/binder.yaml --model boltzgen` (a tiny 1-design binder job; its
-progress is the design pipeline's own stdout stage stream under --debug --log)
-and rfd3 via `tt-bio design --model rfd3 --from_pdb` (IAI motif-scaffold
-fixture), plus boltz2-affinity for legs 1–3 exercised via `tt-bio predict
-examples/affinity_fkg.yaml --model boltz2 --affinity_mw_correction` (Boltz-2
-binding-affinity mode; its progress event stream is the same shape as a
-structure fold — the affinity model's own trunk+diffusion re-run is silent — so
-the leg reuses _check_progress on the affinity path plus an affinity_pred_value
-results check).
+Coverage is DISCOVERED, not listed. The gated set comes from the ``*_MODELS``
+tuples in ``tt_bio.main`` — the single source of truth every ``--model`` choice
+list is built from — and ``_assert_full_model_coverage`` refuses to start if a
+shipped model has neither a leg nor a written reason in ``LEGS_EXEMPT``. The
+hardcoded lists this replaced are how nesso1, openbind and pxdesign all reached
+0.7.0 with zero UX coverage while the gate stayed green. Same idiom as
+``scripts/perf_regression.py:_assert_full_model_coverage`` and
+``scripts/packaging_smoke.py:_expected_data_files``.
+
+The legs, by shape:
+
+  * fold — every ``predict --model`` choice, on examples/trpcage.yaml
+    (opendde-abag on the Ab-Ag fixture examples/1ahw_abag.yaml), legs 1–3.
+  * embed — every ``embed --model`` and ``saprot --model`` choice, legs 2–3.
+    Embed has no fold phases; its progress is the load → embed → done stdout
+    lines.
+  * design — boltzgen via ``tt-bio design --model boltzgen``, whose progress is
+    the pipeline's own stdout stage stream under ``--debug --log``; rfd3 and
+    pxdesign via ``tt-bio design --model <m>``, whose progress is the plain
+    Designing → per-design → Done stdout lines.
+  * affinity — nesso1 via ``tt-bio affinity`` (a scalar screen: no coordinates,
+    so the legs are its stdout phases plus the two files it writes), and
+    Boltz-2's affinity mode via ``tt-bio predict --affinity_mw_correction``,
+    whose event stream is the same shape as a structure fold, so that leg reuses
+    _check_progress plus an affinity_pred_value results check.
 
 Fast + deterministic: folds ``examples/trpcage.yaml`` (20 residues; opendde-abag
 uses the larger 1ahw_abag Ab-Ag complex) with ``recycling_steps=2``,
@@ -70,7 +79,7 @@ import warnings
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from tt_bio import weights  # noqa: E402  (after the repo-root path insert)
+from tt_bio import main as tt_bio_main, weights  # noqa: E402  (after the path insert)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 # trpcage (20 residues) is the canonical tiny fold target — small enough that
@@ -91,30 +100,26 @@ SEED = 0
 PER_MODEL_TIMEOUT_S = 900
 ABAG_MODEL_TIMEOUT_S = 1800
 
-FOLD_MODELS = ["boltz2", "esmfold2", "esmfold2-fast", "protenix-v2", "openfold3",
-               "opendde", "opendde-abag", "rf3"]
-# OpenFold3 is the one fold model whose weights tt-bio does not download (see
-# NOTICE #6). main() refuses to start an openfold3 leg without a resolvable
-# checkpoint rather than skipping it: a shipped --model choice with no UX
-# coverage is the opendde-abag failure mode RELEASING.md describes. The path comes
-# from the weights registry, which honours OF3_CKPT and TT_BIO_CACHE/TT_BIO_ROOT --
-# a hardcoded ~/.boltz skipped the leg on any box with a relocated cache while the
-# weights were sitting right there.
+# Every `predict --model` choice gets a fold leg, taken from the CLI's own choice
+# list. A new fold model is covered the day it ships; there is no list here to
+# forget, which is exactly how openbind shipped with no UX leg at all.
+FOLD_MODELS = list(tt_bio_main.PREDICT_MODELS)
 # MSA-dependent models get --single_sequence so the gate is offline + deterministic
-# (no ColabFold server round-trip). esmfold2 / esmfold2-fast are single-seq by design.
-# opendde-abag rides the same MSA-dependent path as opendde (only the checkpoint
-# differs — opendde_abag.pt vs opendde.pt), so it gets --single_sequence too.
-MSA_DEPENDENT = {"boltz2", "protenix-v2", "openfold3", "opendde", "opendde-abag", "rf3"}
+# (no ColabFold server round-trip). Read from the same tuple the CLI itself uses to
+# decide whether a model wants an MSA, so a new MSA model cannot be handed the wrong
+# flag here. esmfold2 / esmfold2-fast are single-sequence by design and absent from it.
+MSA_DEPENDENT = set(tt_bio_main.MSA_DEFAULT_MODELS) & set(FOLD_MODELS)
 # opendde-abag is the antibody-antigen checkpoint, so it is gated on the canonical
 # Ab-Ag fixture 1ahw_abag.yaml (the same SAbDab/PDB 1ahw target the benchmark uses
 # elsewhere) instead of trpcage. Every other fold model uses trpcage.
 ABAG_DATA = REPO_ROOT / "examples" / "1ahw_abag.yaml"
-# Embed-leg models — a list (not a single constant) so every shipped embed CLI's
-# load→embed→done stdout UX is gated. esmc-600m via `tt-bio embed`; saprot-650m
-# via `tt-bio saprot` (its own subcommand — SaProt has its own CLI entry, not the
-# esmc embed command). Both write the same npz + manifest.json shape, so the
-# parse/manifest checks are shared.
-EMBED_MODELS = ["esmc-600m", "saprot-650m"]
+# Every embed choice, across both subcommands: `tt-bio embed` for esmc-*, `tt-bio
+# saprot` for saprot-* (SaProt has its own CLI entry, not the esmc embed command).
+# Both write the same npz + manifest.json shape, so the parse/manifest checks are
+# shared and _embed_subcommand picks the verb. Discovered, so a new checkpoint size
+# is gated on arrival rather than exempted on the grounds that it "shares the path"
+# — the reasoning that let opendde-abag ship with no perf coverage.
+EMBED_MODELS = list(tt_bio_main.EMBED_MODELS) + list(tt_bio_main.SAPROT_MODELS)
 
 # BoltzGen (binder design) — exercised via `tt-bio design --model boltzgen` on
 # the canonical binder fixture (same target the designability accuracy leg + the
@@ -144,16 +149,75 @@ AFFINITY_MODEL = "boltz2-affinity"
 AFFINITY_SPEC = REPO_ROOT / "examples" / "affinity_fkg.yaml"  # FKBP12+SB3, L107, msa: empty
 AFFINITY_TIMEOUT_S = 900  # affinity trunk fp32 (5 recycles, 64 blocks) ~140s + fold; load dominates
 
-# RFdiffusion3 (RFD3) structure design — exercised via
-# `tt-bio design --model rfd3 --from_pdb`
-# on the canonical IAI motif-scaffold fixture (the SAME fixture the parity leg
-# and the perf leg use — scripts/rfd3_port/parity_artifacts/iai_protein/
-# iai_inputs.yaml). A tiny 1-design job at the shipped default 4 timesteps is
-# enough to gate the UX plumbing (progress lines, output CIF parses, CLI
-# shape); it is not an accuracy or perf measurement.
-DESIGN_MODEL = "rfd3"
-DESIGN_SPEC = REPO_ROOT / "scripts" / "rfd3_port" / "parity_artifacts" / "iai_protein" / "iai_inputs.yaml"
-DESIGN_TIMEOUT_S = 1200  # load ~0.65 GiB ckpt + first-kernel compile + 1 design; load dominates
+# `tt-bio design --model <m>` for the single-shot designers. boltzgen is the one
+# design model with a pipeline-stage progress stream of its own, so it keeps its
+# own runner (run_gen) above; rfd3 and pxdesign share run_design and differ only in
+# the fixture, the model-scoped flags and the per-design line the CLI prints.
+# Each leg reuses a fixture already committed for that model's parity/perf work —
+# no new fixture invented — and runs 1 design at a low step count: this gates UX
+# plumbing, not accuracy or perf.
+DESIGN_LEGS: dict[str, dict] = {
+    "rfd3": dict(
+        # The SAME IAI motif-scaffold fixture the parity gate and the perf leg use.
+        spec=REPO_ROOT / "scripts" / "rfd3_port" / "parity_artifacts" / "iai_protein" / "iai_inputs.yaml",
+        args=["--from_pdb", "--num_timesteps", "4"],   # 4 is the shipped CLI default
+        pass_devices=True,
+        # "  <spec_id>#<i>: <path>.cif (n atoms)"
+        design_line=r"^\s*\S+#\d+:\s+\S+\.cif\s+\(\d+ atoms\)",
+        timeout=1200,   # 0.65 GiB ckpt + first-kernel compile + 1 design; load dominates
+    ),
+    "pxdesign": dict(
+        # PD-L1 (5O45 chain A, 116 residues) + an 80-residue binder — the fixture the
+        # pxdesign input/write tests already use, self-contained (its structure file
+        # resolves beside the YAML).
+        spec=REPO_ROOT / "tests" / "fixtures" / "pxdesign" / "PDL1.yaml",
+        args=["--n_step", "8"],   # shipped default is 400; 8 is a UX smoke
+        pass_devices=False,   # pxdesign is batch-1 and reads its card from TT_VISIBLE_DEVICES
+        # "  <stem>.cif: N residues, N atoms; target fit X A over N conditioned tokens"
+        design_line=r"^\s*\S+\.cif:\s+\d+ residues,\s+\d+ atoms; target fit ",
+        timeout=1200,   # 0.52 GiB ckpt + first-kernel compile + 8 steps
+    ),
+}
+
+# `tt-bio affinity` — the scalar-output affinity predictors, which fold nothing:
+# no coordinates, no CIF, so their UX is the stdout phases plus the two files the
+# screen writes. Runs the SAME FKBP12+SB3 fixture as the boltz2-affinity leg and as
+# both affinity cells in the perf gate, so all four surfaces score one target.
+SCALAR_AFFINITY_MODELS = list(tt_bio_main.AFFINITY_MODELS)
+SCALAR_AFFINITY_TIMEOUT_S = 900  # bf16 trunk, 5 recycles, 256-token crop at CLI defaults
+
+# Checkpoint preconditions, as data rather than scattered ifs. Four models can be
+# missing weights on a given host, and the right answer differs per model:
+#
+#   "require" — refuse to start and name the fix. rf3 and pxdesign auto-download,
+#     so the fix is one command and a gate must not sit on a multi-GB fetch mid-leg.
+#     openfold3's weights tt-bio cannot download, but RELEASING.md names OF3_CKPT a
+#     release-host prerequisite, so a missing file there is a misconfigured gate host
+#     rather than a legitimate absence — a green run with of3 ungated is worse than a
+#     loud stop. Paths come from the weights registry, which honours OF3_CKPT and
+#     TT_BIO_CACHE/TT_BIO_ROOT; a hardcoded ~/.boltz skipped the leg on any box with a
+#     relocated cache while the weights sat right there.
+#   "skip" — gate the leg when the checkpoint is present, SKIP it when absent with
+#     the reason printed on its own row and again in the verdict line. openbind's
+#     checkpoint is not a release-host prerequisite, and aborting all of the other
+#     legs over one optional manual download makes the gate unrunnable on a fresh
+#     box. A skip is loud and never counts as coverage.
+CKPT_POLICY: dict[str, tuple[str, str]] = {
+    "openfold3": ("require", "set OF3_CKPT or place the OpenFold3 preview2 weights at "
+                             "{path} (see docs/openfold3-port.md)"),
+    "openbind": ("skip", "OpenBind-0 checkpoint absent at {path} — tt-bio does not "
+                         "download it (no published parameter licence). Fetch it per "
+                         "docs/weights.md to gate this leg."),
+    "rf3": ("require", "fetch it with `tt-bio weights --download rf3` or place it at {path}"),
+    "pxdesign": ("require", "fetch it with `tt-bio weights --download pxdesign` or place "
+                            "it at {path}"),
+}
+
+# Models behind a --model CLI choice that deliberately have NO UX leg. Empty on
+# purpose: every shipped model is gated. An entry here needs a specific,
+# mechanical reason — never "it shares a code path with a covered model", which is
+# the exact reasoning that let opendde-abag ship with zero perf coverage.
+LEGS_EXEMPT: dict[str, str] = {}
 
 # esmc/saprot embed input: trpcage's 20-mer as a one-sequence FASTA, written into
 # the per-run tmp dir so the gate is self-contained (no examples/FASTA dependency).
@@ -383,6 +447,12 @@ def _check_cli() -> list[str]:
                      "--recycling_steps", "--single_sequence", "--out_dir", "--seed"):
             if flag not in r.stdout:
                 problems.append(f"predict --help missing flag {flag}")
+        # Every shipped fold model must be listed as a choice a user can type. The
+        # expected set is the CLI's own tuple, so a dropped choice fails here
+        # instead of only surfacing when someone tries to run the model.
+        for model_name in FOLD_MODELS:
+            if model_name not in r.stdout:
+                problems.append(f"predict --help does not list --model choice {model_name}")
 
     try:
         r = _run([sys.executable, "-m", "tt_bio.main", "embed", "--help"],
@@ -396,6 +466,9 @@ def _check_cli() -> list[str]:
             for flag in ("--model", "--format", "--out_dir", "--pool"):
                 if flag not in r.stdout:
                     problems.append(f"embed --help missing flag {flag}")
+            for model_name in tt_bio_main.EMBED_MODELS:
+                if model_name not in r.stdout:
+                    problems.append(f"embed --help does not list --model choice {model_name}")
 
     # SaProt ships under its own `tt-bio saprot` subcommand (not `tt-bio embed`),
     # so its flag surface is gated separately -- a regression that drops one of
@@ -412,6 +485,9 @@ def _check_cli() -> list[str]:
             for flag in ("--model", "--format", "--out_dir", "--pool", "--structure"):
                 if flag not in r.stdout:
                     problems.append(f"saprot --help missing flag {flag}")
+            for model_name in tt_bio_main.SAPROT_MODELS:
+                if model_name not in r.stdout:
+                    problems.append(f"saprot --help does not list --model choice {model_name}")
 
     # `tt-bio gen` is the DEPRECATED hidden alias for `tt-bio design --model
     # boltzgen`: it must keep working (exit 0), print a one-line deprecation
@@ -459,13 +535,65 @@ def _check_cli() -> list[str]:
                      "--protocol", "--steps", "--budget"):
             if flag not in r.stdout:
                 problems.append(f"design --help missing flag {flag}")
-        for model_name in ("boltzgen", "rfd3"):
+        for model_name in tt_bio_main.DESIGN_MODELS:
             if model_name not in r.stdout:
                 problems.append(f"design --help does not mention --model choice {model_name}")
         if "--golden_dir" in r.stdout:
             problems.append("design --help still shows the deprecated --golden_dir flag "
                             "(must stay hidden)")
+
+    # `tt-bio affinity` is its own verb (scalar affinity, no fold), so its flag
+    # surface needs its own check — it had none, which is half of why nesso1 shipped
+    # with no UX coverage.
+    try:
+        r = _run([sys.executable, "-m", "tt_bio.main", "affinity", "--help"],
+                 env=_subprocess_env(), timeout=60)
+        if r.returncode != 0:
+            problems.append(f"affinity --help exited {r.returncode}")
+    except Exception as e:
+        problems.append(f"affinity --help failed to run: {e}")
+    else:
+        for flag in ("--model", "--out_dir", "--accelerator", "--trunk",
+                     "--recycling_steps", "--tokens_budget", "--devices", "--seed"):
+            if flag not in r.stdout:
+                problems.append(f"affinity --help missing flag {flag}")
+        for model_name in tt_bio_main.AFFINITY_MODELS:
+            if model_name not in r.stdout:
+                problems.append(f"affinity --help does not list --model choice {model_name}")
     return problems
+
+
+def _shipped_models() -> dict[str, tuple[str, ...]]:
+    """Every ``*_MODELS`` tuple in ``tt_bio.main`` — the single source of truth each
+    ``--model`` choice list is built from. DISCOVERED by name, not enumerated: written
+    against the tuples that exist today, an enumerated version goes blind the moment a
+    new CLI verb brings its own tuple, which is how `tt-bio affinity`'s nesso1 could
+    ship with no coverage from a check built to make exactly that impossible."""
+    return {n: getattr(tt_bio_main, n) for n in dir(tt_bio_main) if n.endswith("_MODELS")}
+
+
+def _assert_full_model_coverage() -> None:
+    """Fail loudly, before any device work, if a model shipped behind a ``--model``
+    CLI choice has neither a UX leg nor a documented ``LEGS_EXEMPT`` reason.
+
+    Three models shipped in 0.7.0 — nesso1, openbind, pxdesign — and all three had
+    zero UX coverage, because the gated set was three hardcoded constants. A model
+    absent from a hand-maintained list can stay uncovered forever and nothing goes
+    red. This turns that silence into a startup failure that names the model.
+    """
+    tuples = _shipped_models()
+    shipped = set().union(*tuples.values())
+    covered = (set(FOLD_MODELS) | set(EMBED_MODELS) | {GEN_MODEL}
+               | set(DESIGN_LEGS) | set(SCALAR_AFFINITY_MODELS))
+    uncovered = shipped - covered - set(LEGS_EXEMPT)
+    if uncovered:
+        raise SystemExit(
+            f"ux_regression.py: no UX leg and no LEGS_EXEMPT reason for "
+            f"{sorted(uncovered)} — every model in tt_bio.main's "
+            f"{', '.join(sorted(tuples))} must have a leg or an explicit reason. "
+            f"A fold-shaped model needs nothing (FOLD_MODELS is derived); a design "
+            f"model needs a DESIGN_LEGS entry or its own runner; a new CLI verb needs "
+            f"a runner and its shape added to `covered` here.")
 
 
 # ── per-model runners ──────────────────────────────────────────────────────
@@ -649,7 +777,6 @@ def _check_gen_progress(stdout: str) -> list[str]:
     """Assert the gen pipeline's stdout stage stream advances through the
     design + refold + analysis stages with no phase skipped. Returns problem
     strings (empty == pass)."""
-    import re
     problems = []
     # A sub-step tick: "    <label> <n>/<total>" (DebugReporter.step) where label
     # is one of trunk/diff/batch/msa. Match on the stripped line.
@@ -806,58 +933,66 @@ def _check_gen_metrics(out_dir: Path) -> list[str]:
     return []
 
 
-def _check_design_progress(stdout: str) -> list[str]:
-    """Assert `tt-bio design`'s stdout advances Designing -> Done with a
-    per-design line. The design command's progress is plain print (no Rich live
-    view, no stage stream like gen), so the check is the headline lines plus a
-    written CIF. Returns problem strings (empty == pass)."""
+def _check_design_progress(stdout: str, design_line: str) -> list[str]:
+    """Assert `tt-bio design`'s stdout advances Designing -> per-design -> Done. The
+    design command's progress is plain print (no Rich live view, no stage stream like
+    gen), so the phases ARE these lines, and their order is what a user watches.
+    ``design_line`` is the model's own per-design result line. Returns problem strings
+    (empty == pass)."""
     problems = []
-    if "Designing" not in stdout:
+    lines = stdout.splitlines()
+    di = next((i for i, l in enumerate(lines) if "Designing" in l), None)
+    ri = next((i for i, l in enumerate(lines) if re.match(design_line, l)), None)
+    fi = next((i for i, l in enumerate(lines) if "Done —" in l or "Done -" in l), None)
+    if di is None:
         problems.append("no 'Designing ...' headline — design start not reported")
-    if "Done —" not in stdout and "Done -" not in stdout:
+    if ri is None:
+        problems.append(f"no per-design result line matching {design_line!r} — the design "
+                        f"itself is never reported, so the user sees start then finish "
+                        f"with nothing in between")
+    if fi is None:
         problems.append("no 'Done — ...' line — design completion not reported")
-    # a per-design line: "  <spec_id>#<i>: <path> (n atoms)"
-    import re
-    if not re.search(r"^\s*\S+#\d+:\s+\S+\.cif\s+\(\d+ atoms\)", stdout, re.M):
-        problems.append("no per-design 'spec#i: path (n atoms)' line — design result not reported")
+    if None not in (di, ri, fi) and not di < ri < fi:
+        problems.append(f"design stdout phases out of order: Designing@{di}, "
+                        f"result@{ri}, Done@{fi}")
     return problems
 
 
 def run_design(model: str, base: Path) -> dict:
-    """Run one tiny `tt-bio design --model rfd3 --from_pdb` job and gate the three UX
-    legs (progress lines, output CIF parses, CLI shape). Returns a result row.
-
-    Reuses the SAME IAI motif-scaffold fixture the parity + perf legs use
-    (scripts/rfd3_port/parity_artifacts/iai_protein/iai_inputs.yaml) — no new
-    fixture invented. 1 design at the shipped default 4 timesteps is enough to
-    gate UX plumbing, not accuracy or perf."""
+    """Run one tiny single-shot `tt-bio design --model <m>` job and gate the UX legs
+    (progress lines in order, output CIF parses). Table-driven off DESIGN_LEGS, so
+    rfd3 and pxdesign share this runner and a third design model needs a fixture and
+    a per-design line pattern, not another copy of this function."""
+    leg = DESIGN_LEGS[model]
+    spec, timeout = leg["spec"], leg["timeout"]
     out_dir = base / f"out_{model}"
     out_dir.mkdir(parents=True, exist_ok=True)
-    if not DESIGN_SPEC.exists():
-        sys.exit(f"missing design fixture {DESIGN_SPEC}")
+    if not spec.exists():
+        sys.exit(f"missing design fixture {spec}")
 
-    # --devices takes physical card ids (not a count); a hardcoded "1" fails on
-    # single-card hosts (pc has only id 0). Derive from TT_VISIBLE_DEVICES
-    # (default 0) so the leg runs on the caller's pinned card.
-    visible = (os.environ.get("TT_VISIBLE_DEVICES", "0").split(",")[0].strip() or "0")
     cmd = [
-        sys.executable, "-m", "tt_bio.main", "design", str(DESIGN_SPEC),
-        "--model", "rfd3",
-        "--from_pdb",
+        sys.executable, "-m", "tt_bio.main", "design", str(spec),
+        "--model", model,
         "--out_dir", str(out_dir),
         "--num_designs", "1",
-        "--num_timesteps", "4",
-        "--devices", visible,
+        *leg["args"],
     ]
-    print(f"\n{'='*70}\n[{model}] design {DESIGN_SPEC.name} (from_pdb, 1 design, 4 steps)\n{'='*70}", flush=True)
+    if leg["pass_devices"]:
+        # --devices takes physical card ids (not a count); a hardcoded "1" fails on
+        # single-card hosts (pc has only id 0). Derive from TT_VISIBLE_DEVICES
+        # (default 0) so the leg runs on the caller's pinned card.
+        visible = (os.environ.get("TT_VISIBLE_DEVICES", "0").split(",")[0].strip() or "0")
+        cmd += ["--devices", visible]
+    print(f"\n{'='*70}\n[{model}] design {spec.name} "
+          f"(1 design, {' '.join(leg['args'])})\n{'='*70}", flush=True)
 
     row = {"model": model, "seconds": None, "progress": False, "parse": False,
            "gate": False, "error": None, "checks": []}
     t0 = time.monotonic()
     try:
-        proc = _run(cmd, env=_subprocess_env(), timeout=DESIGN_TIMEOUT_S)
+        proc = _run(cmd, env=_subprocess_env(), timeout=timeout)
     except subprocess.TimeoutExpired:
-        row["error"] = f"design timed out after {DESIGN_TIMEOUT_S}s"
+        row["error"] = f"design timed out after {timeout}s"
         return row
     row["seconds"] = time.monotonic() - t0
     if proc.returncode != 0:
@@ -866,8 +1001,8 @@ def run_design(model: str, base: Path) -> dict:
                         f"{tail[-1] if tail else ''}")
         return row
 
-    # Leg 1: progress lines (design's plain-print Designing -> Done -> per-design).
-    prog_problems = _check_design_progress(proc.stdout or "")
+    # Leg 1: progress lines (design's plain-print Designing -> per-design -> Done).
+    prog_problems = _check_design_progress(proc.stdout or "", leg["design_line"])
     row["checks"].append(f"progress: {'OK' if not prog_problems else 'FAIL'}")
     if prog_problems:
         row["checks"].extend(f"  • {p}" for p in prog_problems)
@@ -896,40 +1031,23 @@ def run_design(model: str, base: Path) -> dict:
     return row
 
 
-def _print_design_row(r: dict) -> None:
-    wall = f"{r['seconds']:.0f}s" if r["seconds"] is not None else "-"
-    verdict = "PASS" if r["gate"] else f"FAIL ({r['error']})" if r["error"] else "FAIL"
-    print(f"{r['model']:<16}{'progress':>10}{'parse':>7}{'wall':>9}  {verdict}")
-    print(f"  prog={r['progress']} parse={r['parse']}")
-
-
 # ── driver ─────────────────────────────────────────────────────────────────
 
-def _print_fold_row(r: dict) -> None:
-    wall = f"{r['seconds']:.0f}s" if r["seconds"] is not None else "-"
-    verdict = "PASS" if r["gate"] else f"FAIL ({r['error']})" if r["error"] else "FAIL"
-    print(f"{r['model']:<16}{'progress':>10}{'parse':>7}{'results':>9}"
-          f"{wall:>9}  {verdict}")
-    print(f"  prog={r['progress']} parse={r['parse']} results={r['results']}")
-    for c in r["checks"]:
-        print(f"  {c}")
+# Every leg row carries the same keys plus its own shape-specific booleans, so one
+# printer covers all of them — and unlike the five it replaces, it prints the
+# per-check detail for every shape instead of dropping it for design/affinity.
+_ROW_FLAGS = ("progress", "parse", "results", "manifest", "metrics")
 
 
-def _print_embed_row(r: dict) -> None:
-    wall = f"{r['seconds']:.0f}s" if r["seconds"] is not None else "-"
-    verdict = "PASS" if r["gate"] else f"FAIL ({r['error']})" if r["error"] else "FAIL"
-    print(f"{r['model']:<16}{'progress':>10}{'parse':>7}{'manifest':>9}"
-          f"{wall:>9}  {verdict}")
-    for c in r["checks"]:
-        print(f"  {c}")
-
-
-def _print_gen_row(r: dict) -> None:
-    wall = f"{r['seconds']:.0f}s" if r["seconds"] is not None else "-"
-    verdict = "PASS" if r["gate"] else f"FAIL ({r['error']})" if r["error"] else "FAIL"
-    print(f"{r['model']:<16}{'progress':>10}{'parse':>7}{'metrics':>9}"
-          f"{wall:>9}  {verdict}")
-    for c in r["checks"]:
+def _print_row(r: dict) -> None:
+    wall = f"{r['seconds']:.0f}s" if r.get("seconds") is not None else "-"
+    if r.get("skipped"):
+        print(f"{r['model']:<16}{wall:>9}  SKIP — {r['reason']}")
+        return
+    verdict = "PASS" if r["gate"] else f"FAIL ({r['error']})" if r.get("error") else "FAIL"
+    print(f"{r['model']:<16}{wall:>9}  {verdict}")
+    print("  " + " ".join(f"{k}={r[k]}" for k in _ROW_FLAGS if k in r))
+    for c in r.get("checks", ()):
         print(f"  {c}")
 
 
@@ -1045,22 +1163,145 @@ def run_affinity(model: str, base: Path) -> dict:
     return row
 
 
-def _print_affinity_row(r: dict) -> None:
-    wall = f"{r['seconds']:.0f}s" if r["seconds"] is not None else "-"
-    verdict = "PASS" if r["gate"] else f"FAIL ({r['error']})" if r["error"] else "FAIL"
-    print(f"{r['model']:<16}{'progress':>10}{'parse':>7}{'results':>9}"
-          f"{wall:>9}  {verdict}")
-    print(f"  prog={r['progress']} parse={r['parse']} results={r['results']}")
+# ── nesso1 (`tt-bio affinity`) ─────────────────────────────────────────────
+
+def _check_scalar_affinity_progress(stdout: str) -> list[str]:
+    """`tt-bio affinity` has no Rich live view and no event stream: its three plain
+    stdout phases ARE the progress the user watches — `Loading <model> …`, one scored
+    line per input, then `Done — n/n scored`. A screen that printed nothing until the
+    end is the same class of regression as a fold bar jumping past a phase."""
+    lines = [l.strip() for l in stdout.splitlines() if l.strip()]
+    problems = []
+    li = next((i for i, l in enumerate(lines) if l.lower().startswith("loading")), None)
+    si = next((i for i, l in enumerate(lines)
+               if re.match(r"^\S+: affinity -?[\d.]+ p\(binder\) [\d.]+ \(\d+ tokens", l)),
+              None)
+    di = next((i for i, l in enumerate(lines) if l.lower().startswith("done")), None)
+    if li is None or si is None or di is None:
+        problems.append(f"missing loading → per-input → done stdout lines "
+                        f"(loading@{li}, scored@{si}, done@{di})")
+    elif not li < si < di:
+        problems.append(f"stdout phases out of order: loading@{li}, scored@{si}, "
+                        f"done@{di}")
+    return problems
+
+
+def _check_scalar_affinity_results(out_dir: Path, stem: str) -> list[str]:
+    """The two files a screen writes: `<id>_affinity.json` per input and one
+    `affinity.csv` for the screen. The affinity scalar is the whole output of the
+    model, so a row without it is a shape regression in the only thing the user gets."""
+    problems = []
+    js = out_dir / f"{stem}_affinity.json"
+    if not js.exists():
+        problems.append(f"affinity wrote no {js.name} under {out_dir}")
+    else:
+        try:
+            row = json.loads(js.read_text())
+        except Exception as e:
+            problems.append(f"{js.name}: load failed: {type(e).__name__}: {e}")
+        else:
+            missing = [k for k in ("id", "n_tokens", "seconds", "affinity_pred_value",
+                                   "affinity_probability_binary") if k not in row]
+            if missing:
+                problems.append(f"{js.name}: missing keys {missing} (have {sorted(row)})")
+    csv_path = out_dir / "affinity.csv"
+    if not csv_path.exists():
+        return problems + [f"affinity wrote no affinity.csv at {csv_path}"]
+    import csv as _csv
+    try:
+        with csv_path.open(newline="") as fh:
+            rows = list(_csv.DictReader(fh))
+    except Exception as e:
+        return problems + [f"affinity.csv: read failed: {type(e).__name__}: {e}"]
+    if not rows:
+        return problems + ["affinity.csv has a header but no data row"]
+    r = rows[0]
+    if r.get("error"):
+        problems.append(f"affinity.csv row errored: {r['error']}")
+    if not r.get("affinity_pred_value"):
+        problems.append(f"affinity.csv row has no affinity_pred_value "
+                        f"(columns {sorted(r)})")
+    return problems
+
+
+def run_scalar_affinity(model: str, base: Path) -> dict:
+    """Run one `tt-bio affinity` screen and gate its UX legs: the stdout phases
+    advance in order, and both written files carry the affinity scalar. Everything is
+    left at the shipped CLI defaults (bf16 trunk, 5 recycles, 256-token crop) so the
+    leg exercises what a user actually gets."""
+    out_dir = base / f"out_{model}"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    if not AFFINITY_SPEC.exists():
+        sys.exit(f"missing affinity fixture {AFFINITY_SPEC}")
+    cmd = [
+        sys.executable, "-m", "tt_bio.main", "affinity", str(AFFINITY_SPEC),
+        "--model", model,
+        "--out_dir", str(out_dir),
+    ]
+    print(f"\n{'='*70}\n[{model}] affinity {AFFINITY_SPEC.name} (CLI defaults)"
+          f"\n{'='*70}", flush=True)
+
+    row = {"model": model, "seconds": None, "progress": False, "results": False,
+           "gate": False, "error": None, "checks": []}
+    t0 = time.monotonic()
+    try:
+        proc = _run(cmd, env=_subprocess_env(), timeout=SCALAR_AFFINITY_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        row["error"] = f"affinity timed out after {SCALAR_AFFINITY_TIMEOUT_S}s"
+        return row
+    row["seconds"] = time.monotonic() - t0
+    if proc.returncode != 0:
+        tail = (proc.stderr or proc.stdout or "").strip().splitlines()
+        row["error"] = f"affinity exited {proc.returncode}: {tail[-1] if tail else ''}"
+        return row
+
+    prog_problems = _check_scalar_affinity_progress(proc.stdout or "")
+    row["checks"].append(f"progress(stdout): {'OK' if not prog_problems else 'FAIL'}")
+    row["checks"].extend(f"  • {x}" for x in prog_problems)
+    res_problems = _check_scalar_affinity_results(out_dir, AFFINITY_SPEC.stem)
+    row["checks"].append(f"affinity.csv + json: {'OK' if not res_problems else 'FAIL'}")
+    row["checks"].extend(f"  • {x}" for x in res_problems)
+
+    row["progress"] = not prog_problems
+    row["results"] = not res_problems
+    row["gate"] = row["progress"] and row["results"]
+    if not row["gate"]:
+        row["error"] = "; ".join(prog_problems + res_problems)
+    return row
+
+
+def _ckpt_gate(model: str) -> tuple[str, str] | None:
+    """``(action, message)`` when *model*'s checkpoint is missing, else None. Action
+    is CKPT_POLICY's: "require" (refuse to start) or "skip" (skip the leg loudly)."""
+    if model not in CKPT_POLICY:
+        return None
+    path = weights.resolve(model)
+    if path is not None and path.exists():
+        return None
+    action, msg = CKPT_POLICY[model]
+    return action, msg.format(path=path)
+
+
+# Which runner drives which model, in run order. One table, so main() dispatches by
+# lookup instead of one hand-written loop per shape, and adding a leg is one row.
+RUNNERS: tuple[tuple, ...] = (
+    (run_fold, FOLD_MODELS),
+    (run_embed, EMBED_MODELS),
+    (run_gen, [GEN_MODEL]),
+    (run_affinity, [AFFINITY_MODEL]),
+    (run_scalar_affinity, SCALAR_AFFINITY_MODELS),
+    (run_design, list(DESIGN_LEGS)),
+)
+ALL_LEGS = [m for _, group in RUNNERS for m in group]
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--model", action="append",
-                    choices=FOLD_MODELS + EMBED_MODELS + [GEN_MODEL, AFFINITY_MODEL, DESIGN_MODEL],
-                    help="Gate only this model (repeatable). Default: all six fold "
-                         "models + esmc-600m + saprot-650m embed + both design "
-                         "models (boltzgen, rfd3) + boltz2-affinity.")
+    _assert_full_model_coverage()
+    ap.add_argument("--model", action="append", choices=ALL_LEGS,
+                    help="Gate only this model (repeatable). Default: every model behind "
+                         "a --model CLI choice, plus Boltz-2's affinity mode.")
     ap.add_argument("--keep", action="store_true",
                     help="Keep the per-run output dirs under the tmp dir for inspection.")
     ap.add_argument("--cli-only", action="store_true",
@@ -1084,96 +1325,69 @@ def main() -> int:
             f"/home/ttuser/tt-bio-dev/env/bin/python scripts/ux_regression.py")
 
     # Leg 3 (CLI behaves) runs always — it needs no card.
-    print(f"\n{'#'*78}\nUX GATE — leg 3: CLI behaves (predict / embed / saprot / design / deprecated gen alias)\n{'#'*78}")
+    print(f"\n{'#'*78}\nUX GATE — leg 3: CLI behaves (predict / embed / saprot / "
+          f"affinity / design / deprecated gen alias)\n{'#'*78}")
     cli_problems = _check_cli()
     all_pass = not cli_problems
     if cli_problems:
         for prob in cli_problems:
             print(f"  ✗ {prob}")
     else:
-        print("  ✓ predict --help, embed --help, saprot --help, design --help "
-              "(--model boltzgen|rfd3), deprecated gen run --help (warns), "
-              "tt-bio --help all OK and list core flags")
+        n_shipped = len(set().union(*_shipped_models().values()))
+        print(f"  ✓ predict / embed / saprot / affinity / design --help, deprecated "
+              f"gen run --help (warns), tt-bio --help: all exit 0, list their core "
+              f"flags, and list all {n_shipped} shipped --model choices")
     print(f"{'#'*78}")
 
     if args.cli_only:
         return 0 if all_pass else 1
 
-    models = args.model or (FOLD_MODELS + EMBED_MODELS + [GEN_MODEL, AFFINITY_MODEL, DESIGN_MODEL])
-    fold_models = [m for m in models if m in FOLD_MODELS]
-    embed_models = [m for m in models if m in EMBED_MODELS]
-    gen_models = [m for m in models if m == GEN_MODEL]
-    affinity_models = [m for m in models if m == AFFINITY_MODEL]
-    design_models = [m for m in models if m == DESIGN_MODEL]
+    models = args.model or ALL_LEGS
+    requested = [(runner, m) for runner, group in RUNNERS for m in group if m in models]
 
-    if not DATA.exists() and fold_models:
-        sys.exit(f"missing gate target {DATA}")
-    if not GEN_SPEC.exists() and gen_models:
-        sys.exit(f"missing gen fixture {GEN_SPEC}")
-    if not AFFINITY_SPEC.exists() and affinity_models:
-        sys.exit(f"missing affinity fixture {AFFINITY_SPEC}")
-    if not DESIGN_SPEC.exists() and design_models:
-        sys.exit(f"missing design fixture {DESIGN_SPEC}")
-    of3_ckpt = weights.resolve("openfold3") if "openfold3" in fold_models else None
-    if "openfold3" in fold_models and not (of3_ckpt and of3_ckpt.exists()):
-        sys.exit(f"missing openfold3 checkpoint: set OF3_CKPT or place the OpenFold3 "
-                 f"preview2 weights at {of3_ckpt} (see docs/openfold3-port.md). "
-                 f"Run the rest with --model <name>.")
-    # rf3 fetches its own checkpoint on first use, but a gate must not sit on a 3 GB
-    # download mid-leg, so require it up front. Same registry lookup as openfold3.
-    rf3_ckpt = weights.resolve("rf3") if "rf3" in fold_models else None
-    if "rf3" in fold_models and not (rf3_ckpt and rf3_ckpt.exists()):
-        sys.exit(f"missing rf3 checkpoint: fetch it with `tt-bio weights --download rf3` "
-                 f"or place it at {rf3_ckpt}. Refusing to skip: rf3 is a shipped --model "
-                 f"choice, and skipping it is how a model reaches a release with no UX "
-                 f"coverage at all.")
-    if (not fold_models and not embed_models and not gen_models
-            and not affinity_models and not design_models):
+    if not requested:
         return 0 if all_pass else 1
+    if not DATA.exists() and any(m in FOLD_MODELS for _, m in requested):
+        sys.exit(f"missing gate target {DATA}")
+    # Checkpoint preconditions, before the tmp dir and before any device work.
+    # "require" stops the gate and names the fix; "skip" is recorded and printed.
+    skips: dict[str, str] = {}
+    for _, m in requested:
+        gate = _ckpt_gate(m)
+        if gate is None:
+            continue
+        action, message = gate
+        if action == "require":
+            sys.exit(f"missing {m} checkpoint: {message}. Refusing to skip: {m} is a "
+                     f"shipped --model choice, and skipping it is how a model reaches a "
+                     f"release with no UX coverage at all. Run the rest with --model <name>.")
+        skips[m] = message
 
     base = Path(tempfile.mkdtemp(prefix="ux_gate_", dir=str(REPO_ROOT)))
     try:
         rows = []
-        for m in fold_models:
-            r = run_fold(m, base)
-            rows.append(("fold", r))
-            all_pass &= r["gate"]
-        for m in embed_models:
-            r = run_embed(m, base)
-            rows.append(("embed", r))
-            all_pass &= r["gate"]
-        for m in gen_models:
-            r = run_gen(m, base)
-            rows.append(("gen", r))
-            all_pass &= r["gate"]
-        for m in affinity_models:
-            r = run_affinity(m, base)
-            rows.append(("affinity", r))
-            all_pass &= r["gate"]
-        for m in design_models:
-            r = run_design(m, base)
-            rows.append(("design", r))
+        for runner, m in requested:
+            if m in skips:
+                rows.append({"model": m, "skipped": True, "reason": skips[m]})
+                print(f"\n{'='*70}\n[{m}] SKIP — {skips[m]}\n{'='*70}", flush=True)
+                continue
+            r = runner(m, base)
+            rows.append(r)
             all_pass &= r["gate"]
         print(f"\n{'#'*78}\nUX GATE — summary (fold fixtures: {DATA.name}"
               f"{f' / {ABAG_DATA.name} (opendde-abag)' if ABAG_DATA.exists() else ''}, "
               f"recyc={RECYCLING_STEPS}, steps={SAMPLING_STEPS}, "
               f"samples={DIFFUSION_SAMPLES}, seed={SEED})\n{'#'*78}")
-        for kind, r in rows:
-            if kind == "fold":
-                _print_fold_row(r)
-            elif kind == "embed":
-                _print_embed_row(r)
-            elif kind == "gen":
-                _print_gen_row(r)
-            elif kind == "affinity":
-                _print_affinity_row(r)
-            elif kind == "design":
-                _print_design_row(r)
+        for r in rows:
+            _print_row(r)
         print(f"{'#'*78}")
-        print("GATE PASS — every surface cleared progress + parse + results/manifest "
-              "shape, and the CLI behaves" if all_pass
+        skipped = [r["model"] for r in rows if r.get("skipped")]
+        note = (f" — {len(skipped)} leg(s) NOT gated on this host: {', '.join(skipped)}"
+                if skipped else "")
+        print(f"GATE PASS — every surface run cleared progress + parse + "
+              f"results/manifest shape, and the CLI behaves{note}" if all_pass
               else "GATE FAIL — a surface missed a UX leg (see above). A UX regression "
-                   "blocks a tag, same standing as an accuracy regression.")
+                   f"blocks a tag, same standing as an accuracy regression.{note}")
     finally:
         if not args.keep:
             shutil.rmtree(base, ignore_errors=True)

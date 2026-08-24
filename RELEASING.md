@@ -74,10 +74,16 @@ TT_VISIBLE_DEVICES=0 OF3_CKPT=/path/to/of3-p2-155k.pt PYTHONPATH="$PWD" \
   python3 scripts/ux_regression.py
 ```
 
-OpenFold3's weights are the one checkpoint tt-bio does not download, so the
-accuracy, perf and UX gates all need `OF3_CKPT` (or the file at
-`~/.boltz/of3-p2-155k.pt`) before they can run its legs. `ux_regression.py`
-refuses to start rather than skipping the leg — see `docs/openfold3-port.md`.
+OpenFold3 and OpenBind are the two checkpoints tt-bio does not download, so the
+accuracy, perf and UX gates need them on disk before they can run those legs.
+OpenFold3 is a release-host prerequisite: set `OF3_CKPT` or place the file at
+`~/.boltz/of3-p2-155k.pt`, and `ux_regression.py` refuses to start without it
+rather than skipping the leg (see `docs/openfold3-port.md`). OpenBind is not a
+prerequisite, so its UX leg is skipped with the reason printed on its own row and
+again in the verdict line when the checkpoint is absent; fetch it per
+`docs/weights.md` to gate it. `ux_regression.py` derives its gated set from the
+`--model` choice lists in `tt_bio/main.py` and refuses to start if a shipped model
+has no leg, so a new port cannot reach a tag with zero UX coverage.
 
 The packaging guard (`scripts/packaging_smoke.py`) builds the wheel and sdist
 from the current tree and asserts every non-`.py` data file under `tt_bio/`
