@@ -100,6 +100,15 @@ built from a wheel of this tree, with every gate run against the checkout it is 
 - Host test suite: 1120 passed, 52 skipped, 1 xfailed.
 - UX regression (`ux_regression.py`): every surface cleared progress, argument parsing and the
   results manifest.
+- Performance regression (`perf_regression.py`, 15 legs): 14 PASS, 1 FAIL. Run on qb2 card 2
+  after the tag, against `71d83a94` (this tagged tree plus a perf-page merge whose whole diff is
+  a new contention exit code, no timed path touched). Every model that has a p300c baseline.
+  Boltz-2 reads 1.742 structures/s against a 1.498 baseline, OpenFold3 2.465 against 2.142,
+  Protenix-v2 3.214 against 3.195, OpenDDE 2.640 against 2.683, BoltzGen 0.01871 designs/s
+  against 0.01706, RFdiffusion3 0.2313 against 0.2653, PXDesign 0.06846 against 0.06694. The one
+  FAIL is `boltz2-affinity` at -35.3%, and the pre-0.7.0 merge base fails the same baseline by
+  the same margin, so that line is a stale baseline rather than this release's code. See Known
+  gaps.
 - The `biotite<1.7` pin was checked on the interpreter its break appears on. A clean Python 3.12
   install of this wheel resolves biotite 1.6.0, where both symbols the vendored AtomWorks tree
   reaches are present; biotite 1.7.1 on the same interpreter has dropped `BondList._bonds` and no
@@ -126,11 +135,25 @@ gated.
 - Size-generality ladder: not run. Its baseline exists only for the p150a, and the p150a in the
   fleet was unavailable for the whole release window. A ladder baseline recorded on the p300c
   from this release's own runs could not detect drift in the code that recorded it.
-- Performance regression: not run. The only gate-capable host was carrying three other workers at
-  a load average of 9 to 21 for the whole window, and a Boltz-2 measurement taken there read
-  0.757 structures/s against a 1.498 baseline — twice the wall for identical code. The suite's
-  own method treats a slower reading under contention as unproven, so no verdict was recorded
-  rather than a red one.
+- The `boltz2-affinity` perf baseline is not satisfiable on this host, so its FAIL scores the
+  baseline rather than the code. It was seeded 2026-07-19 on 0.3.1 as a single untimed draw, was
+  never reseeded when the affinity trunk moved from fp32-on-host to fp32-on-device, and the two
+  p300c cards in tt-quietbox2 disagree by roughly 2x on it. It is also the only p300c leg with no
+  machine-specific entry, so it falls back to that July card-level figure. Two same-card A/B
+  rounds against the pre-release merge base `6fc864c9` put the two trees within 4.0% and 1.2% of
+  each other, in opposite directions, while each tree moved 31 to 38% between rounds on its own
+  unchanged code as the box filled up. Both arms fail the 69.8 s baseline, by 33 to 51%. So the
+  leg needs a per-card reseed, and a protocol that can outvote a 38% swing before it can carry a
+  15% threshold on this host at all.
+- Three perf baselines are too stale to fail, so their PASS carries no information. `esmc-300m`,
+  `esmc-600m` and `esmc-6b` read +266%, +322% and +100% against p300c baselines seeded between
+  0.2.5 and 0.3.1, which predate fused RoPE, ESM-C trace capture and the fused TriMul and
+  TriAtt kernels. esmc-600m could lose three quarters of its throughput and still report PASS.
+  Boltz-2, ESMFold2 and OpenFold3 are the mild version of the same drift: all three now read at
+  or past +15%, so under 15% of today's speed is left as regression headroom. Reseeding needs a
+  quiet card of this type.
+- `rf3`, `esmc-300m-single` and `nesso1` have no p300c baseline at all, so the perf gate returns
+  NO BASELINE for them on this card type and cannot score them.
 - OpenBind-0 and PXDesign still have no cell on the benchmark page. Measuring them was in flight
   when this was cut. The page names both as unmeasured rather than projecting a number.
 - `tt-bio design --model pxdesign` is not exercised end to end by any gate leg. Its accuracy is
