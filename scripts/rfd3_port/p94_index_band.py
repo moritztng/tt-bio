@@ -118,6 +118,10 @@ def main():
                      d["union_max"], d["work_ratio_vs_dense"], d["speedup_if_work_bound"]),
                   flush=True)
     OUT.parent.mkdir(parents=True, exist_ok=True)
+    # persist the raw indices: p95 times the block-sparse arm against the REAL index,
+    # and a random permutation has none of the block structure this probe measured.
+    torch.save({tag: GRABBED[i][1] for tag, i in zip(("early", "mid", "late"), picks)},
+               OUT.parent / "indices.pt")
     OUT.write_text(json.dumps(dict(steps=STEPS, seed=SEED, fixture=str(FIXTURE),
                                    n_index_builds=CALLS["n"], n_atom_indices=len(GRABBED),
                                    card=os.environ.get("TT_VISIBLE_DEVICES"),
