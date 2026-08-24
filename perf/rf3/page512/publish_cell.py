@@ -95,10 +95,11 @@ def main():
     ap.add_argument("--provenance", help='provenance_<host>.json from the harness preflight; names the origin/main SHA the measured tree matched')
     ap.add_argument("--write", action="store_true")
     ap.add_argument("--updated", default="2026-08-23")
-    ap.add_argument("--cotenants", type=int,
-                    help="peak `foreign=N` across the legs, read off the driver "
-                         "log. Required: co-tenancy cannot be inferred from the "
-                         "per-fold loadavg, which is sampled at fold end.")
+    ap.add_argument("--cotenancy", nargs="*", default=[],
+                    help="cotenancy_<host>_<leg>.json per process, written by leg_inner.sh inside "
+                         "the lock at the timed start. Required: co-tenancy cannot be inferred "
+                         "from the per-fold loadavg, which is sampled at fold end, and the two "
+                         "legs of a pair do not necessarily see the same box.")
     a = ap.parse_args()
 
     procs = [load(p) for p in a.procs]
@@ -109,8 +110,17 @@ def main():
     # and records what it matched; refusing here as well is what stops a hand-run leg from being
     # published against a tree nobody checked.
     prov = load(a.provenance) if a.provenance else None
-    if a.cotenants is None:
-        fail.append("no --cotenants: read peak `foreign=N` off the driver log for each leg")
+    # One co-tenancy record per process, matched to it by leg suffix. A pair measured under
+    # different box load is a fact about the pair, not something to average into one adjective.
+    coten = {}
+    for f in a.cotenancy:
+        c = load(f)
+        coten[c["leg"]] = c
+    legs = [d["label"].rsplit("_", 1)[-1] for d in procs]
+    missing = [l for l in legs if l not in coten]
+    if missing:
+        fail.append(f"no co-tenancy record for {missing}: pass --cotenancy "
+                    f"cotenancy_<host>_<leg>.json for every process")
     if prov is None:
         fail.append("no --provenance: cannot show the measured tree was main")
     elif not prov.get("tt_bio_identical_to_main"):
@@ -176,17 +186,30 @@ def main():
     route_note = (
         "The raw JSONs carry a stale route string that predates the flip; resolved.fp32_softmax "
         "false next to it is the field that says which arm ran. " if stale else "")
-    # Co-tenancy comes from --cotenants, the `foreign=N` the driver logs at each leg start.
-    # It is NOT inferred from the per-fold loadavg: that is sampled at fold END, and it read 1.96
-    # for a process whose driver log recorded six concurrent foreign folds, i.e. inferring from it
-    # would have published "the box was quiet" about a co-tenanted run.
+    # Co-tenancy comes from the per-leg records the harness writes inside the lock, never from the
+    # per-fold loadavg: that is sampled at fold END, and it read 1.96 for a process whose driver log
+    # recorded six concurrent foreign folds, i.e. inferring from it would have published "the box
+    # was quiet" about a co-tenanted run. And the two legs need not agree, so neither does the
+    # sentence: where they differ, the difference is what explains the A/A.
     peak = max(float(f["loadavg"][0]) for d in procs for f in d["folds"])
-    quiet_note = (
-        f"Both processes ran co-tenanted, {a.cotenants} foreign folds on neighbouring cards at leg "
-        f"start, so this is an upper bound: benchlock excluded every other timed measurement on "
-        f"the host but not the rest of the box. " if a.cotenants else
-        f"No foreign fold was running on any card at either leg start, and benchlock excluded "
-        f"every other timed measurement on the host. 1-minute loadavg peaked at {peak:.2f}. ")
+    ntenants = [coten[l]["foreign_at_start"] for l in legs]
+    tail = ("Benchlock excluded every other timed measurement on the host but not the rest of the "
+            "box, so a co-tenanted leg is an upper bound. ")
+    if set(ntenants) == {0}:
+        quiet_note = (f"No foreign fold was running on any card at either leg start, and benchlock "
+                      f"excluded every other timed measurement on the host. 1-minute loadavg "
+                      f"peaked at {peak:.2f}. ")
+    elif len(set(ntenants)) == 1:
+        quiet_note = (f"Both processes ran co-tenanted, {ntenants[0]} foreign folds on neighbouring "
+                      f"cards at leg start. " + tail)
+    else:
+        each = ", ".join(
+            f"{l} with {n} foreign fold{'' if n == 1 else 's'} on neighbouring cards "
+            f"(1-minute loadavg {coten[l]['loadavg'].split()[0]})" for l, n in zip(legs, ntenants))
+        quiet_note = (
+            f"The two processes did not see the same box: {each}, both at the timed start inside "
+            f"the lock. The {aa} % between their medians is that difference and not run-to-run "
+            f"variance, and the pooled median sits between them. " + tail)
     host, card, ttnn, board = box
     short = {"tt-quietbox2": "qb2", "tt-quietbox": "qb1"}.get(host, host)
     # Only claim continuity with the previous cell where the box actually is the previous box.
