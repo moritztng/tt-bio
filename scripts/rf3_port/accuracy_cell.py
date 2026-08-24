@@ -361,6 +361,13 @@ def resolved_flags() -> dict:
         "triatt_fused_hifi_stats": dict(tts.TRIATT_FUSED_HIFI_STATS),
         "fp32_softmax_stats": dict(tts.FP32_SOFTMAX_STATS),
         "sdpa_k_chunk_stats": list(tts.SDPA_K_CHUNK_STATS),
+        # The ragged tail, COUNTED. 76 and 117 both pad to 128 and 1024 divides 32, so no
+        # RF3 anchor before 7eip_997 could witness the pad firing at all; a fix that never
+        # fired must not read as a null. [ragged calls padded, calls already aligned] and
+        # the per-site split.
+        "sdpa_ragged_pad_global": bool(tts._SDPA_RAGGED_PAD),
+        "sdpa_ragged_pad_stats": list(tts.SDPA_RAGGED_PAD_STATS),
+        "sdpa_ragged_sites": {k: list(v) for k, v in tts.SDPA_RAGGED_SITES.items()},
         "env": {k: v for k, v in sorted(os.environ.items())
                 if k.startswith(("TT_BIO", "TT_METAL", "TT_VISIBLE"))},
     }
