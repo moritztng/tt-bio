@@ -43,8 +43,16 @@ if ! timeout 300 env $LEASE PYTHONPATH=$WT "$PY" -u perf/tokenbucket/preflight_c
 fi
 echo "$(date -Is) preflight OK on card $CARD, load $(cut -d' ' -f1-3 /proc/loadavg)"
 
+# LEGS selects which legs run (space or comma separated tags, default all). The perf and ladder
+# legs are timing legs, the parity leg is not, so when another worker is loading the host the right
+# move is to run the correctness pole now and hold the timing legs for a quiet host, rather than let
+# a loaded run write a red log that says nothing about this branch.
+LEGS=${LEGS:-all}
+wanted() { [ "$LEGS" = all ] && return 0; case ",${LEGS//[[:space:]]/,}," in *,$1,*) return 0;; esac; return 1; }
+
 run() {  # rc is the command's, not an echo's (pass 2 logged rc=0 over four hard failures)
   tag=$1; shift
+  if ! wanted "$tag"; then echo "HOLD $tag (not in LEGS=$LEGS)"; return 0; fi
   # A .done is only a skip for the commit that wrote it. A rebase across 344 commits touching the
   # same files is exactly the case where "it passed before" is not evidence it still passes.
   if [ "$(cat "$OUT/$tag.done" 2>/dev/null)" = "$HEAD" ]; then

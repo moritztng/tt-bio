@@ -81,6 +81,7 @@ perf/p2/
 .scratch/
 .msa_zsilu/
 .msa_ab512_*/
+.msa_ab/
 
 # Benchmark scratch belongs under perf/<task>/, never in the repo root. Four run_*.sh
 # from the of3sizes pass were committed to root and merged (2026-08-13); this stops a repeat.
