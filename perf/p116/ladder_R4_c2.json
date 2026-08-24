@@ -1,0 +1,241 @@
+{
+  "spec": "perf/dsfix/fixtures/rfd3_R4.json",
+  "rows": [
+    {
+      "arm": "b1",
+      "batch": 1,
+      "rep": 0,
+      "round": 0,
+      "sampler_wall_s": 200.366,
+      "n_designs": 2,
+      "batches": 2,
+      "batches_expected": 2,
+      "arm_verified": true,
+      "s_per_design": 100.183,
+      "digests": {
+        "R4_b100#0": "5295e526ebd0b757",
+        "R4_b100#1": "ac79c6d901a72c17"
+      },
+      "effective_batch": 1,
+      "loadavg": 12.69,
+      "L_atoms": 6051,
+      "n_atoms_seen": [
+        6051
+      ],
+      "calls": 398,
+      "call_q10_s": 0.46356,
+      "call_median_s": 0.48709,
+      "calls_covered_frac": 0.9995,
+      "robust_s_per_design": 92.249
+    },
+    {
+      "arm": "b2",
+      "batch": 2,
+      "rep": 0,
+      "round": 0,
+      "sampler_wall_s": 207.453,
+      "n_designs": 2,
+      "batches": 1,
+      "batches_expected": 1,
+      "arm_verified": true,
+      "s_per_design": 103.726,
+      "digests": {
+        "R4_b100#0": "5295e526ebd0b757",
+        "R4_b100#1": "ac79c6d901a72c17"
+      },
+      "effective_batch": 2,
+      "loadavg": 18.07,
+      "L_atoms": 6051,
+      "n_atoms_seen": [
+        6051
+      ],
+      "calls": 199,
+      "call_q10_s": 0.92424,
+      "call_median_s": 0.97861,
+      "calls_covered_frac": 0.9971,
+      "robust_s_per_design": 91.962
+    },
+    {
+      "arm": "b1",
+      "batch": 1,
+      "rep": 1,
+      "round": 1,
+      "sampler_wall_s": 227.351,
+      "n_designs": 2,
+      "batches": 2,
+      "batches_expected": 2,
+      "arm_verified": true,
+      "s_per_design": 113.676,
+      "digests": {
+        "R4_b100#0": "5295e526ebd0b757",
+        "R4_b100#1": "ac79c6d901a72c17"
+      },
+      "effective_batch": 1,
+      "loadavg": 21.86,
+      "L_atoms": 6051,
+      "n_atoms_seen": [
+        6051
+      ],
+      "calls": 398,
+      "call_q10_s": 0.48393,
+      "call_median_s": 0.53937,
+      "calls_covered_frac": 0.9995,
+      "robust_s_per_design": 96.301
+    },
+    {
+      "arm": "b2",
+      "batch": 2,
+      "rep": 1,
+      "round": 1,
+      "sampler_wall_s": 213.366,
+      "n_designs": 2,
+      "batches": 1,
+      "batches_expected": 1,
+      "arm_verified": true,
+      "s_per_design": 106.683,
+      "digests": {
+        "R4_b100#0": "5295e526ebd0b757",
+        "R4_b100#1": "ac79c6d901a72c17"
+      },
+      "effective_batch": 2,
+      "loadavg": 21.86,
+      "L_atoms": 6051,
+      "n_atoms_seen": [
+        6051
+      ],
+      "calls": 199,
+      "call_q10_s": 0.9503,
+      "call_median_s": 1.01938,
+      "calls_covered_frac": 0.9973,
+      "robust_s_per_design": 94.555
+    },
+    {
+      "arm": "b1",
+      "batch": 1,
+      "rep": 2,
+      "round": 2,
+      "sampler_wall_s": 220.768,
+      "n_designs": 2,
+      "batches": 2,
+      "batches_expected": 2,
+      "arm_verified": true,
+      "s_per_design": 110.384,
+      "digests": {
+        "R4_b100#0": "5295e526ebd0b757",
+        "R4_b100#1": "ac79c6d901a72c17"
+      },
+      "effective_batch": 1,
+      "loadavg": 19.63,
+      "L_atoms": 6051,
+      "n_atoms_seen": [
+        6051
+      ],
+      "calls": 398,
+      "call_q10_s": 0.47433,
+      "call_median_s": 0.51886,
+      "calls_covered_frac": 0.9994,
+      "robust_s_per_design": 94.393
+    },
+    {
+      "arm": "b2",
+      "batch": 2,
+      "rep": 2,
+      "round": 2,
+      "sampler_wall_s": 196.595,
+      "n_designs": 2,
+      "batches": 1,
+      "batches_expected": 1,
+      "arm_verified": true,
+      "s_per_design": 98.297,
+      "digests": {
+        "R4_b100#0": "5295e526ebd0b757",
+        "R4_b100#1": "ac79c6d901a72c17"
+      },
+      "effective_batch": 2,
+      "loadavg": 15.32,
+      "L_atoms": 6051,
+      "n_atoms_seen": [
+        6051
+      ],
+      "calls": 199,
+      "call_q10_s": 0.93836,
+      "call_median_s": 0.95676,
+      "calls_covered_frac": 0.9986,
+      "robust_s_per_design": 93.367
+    }
+  ],
+  "num_timesteps": 200,
+  "reps": 3,
+  "L_atoms": 6051,
+  "atoms_per_spec": {
+    "R4_b100": 6051
+  },
+  "arms": [
+    1,
+    2
+  ],
+  "designs_per_fold": 2,
+  "atom_pair_budget_admits": 2,
+  "shipped_speed_cap": 1,
+  "shipped_speed_cap_above_atoms": 2952,
+  "shipped_effective_batch_at_8": 1,
+  "per_arm_s_per_design": {
+    "b1": 110.3838248730026,
+    "b2": 103.72641307150116
+  },
+  "per_arm_min": {
+    "b1": 100.1831082735007,
+    "b2": 98.2973412249994
+  },
+  "per_arm_max": {
+    "b1": 113.67570843849899,
+    "b2": 106.68323511650306
+  },
+  "b1_aa_spread_frac": 0.12223,
+  "best_batched_arm": null,
+  "verdict": "VOID: b=1 A/A spread 12.223 % > 1 %, re-run the rung",
+  "paired_round_ratios": {
+    "b2": {
+      "n_rounds": 3,
+      "ratios": [
+        1.03537,
+        0.93849,
+        0.8905
+      ],
+      "median_ratio": 0.93849,
+      "worst": 1.03537,
+      "best": 0.8905
+    }
+  },
+  "robust_per_arm": {
+    "b1": {
+      "med": 94.39259,
+      "lo": 92.24886,
+      "hi": 96.30132,
+      "n": 3
+    },
+    "b2": {
+      "med": 93.36711,
+      "lo": 91.96179,
+      "hi": 94.55505,
+      "n": 3
+    }
+  },
+  "robust_aa_spread_frac": 0.04293,
+  "robust_verdict": null,
+  "per_round_s_per_design": {
+    "b1": {
+      "0": 100.183,
+      "1": 113.676,
+      "2": 110.384
+    },
+    "b2": {
+      "0": 103.726,
+      "1": 106.683,
+      "2": 98.297
+    }
+  },
+  "host": "tt-quietbox2",
+  "card": 1,
+  "partial": false
+}

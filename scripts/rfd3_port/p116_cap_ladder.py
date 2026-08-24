@@ -57,6 +57,7 @@ CARD = int(os.environ.get("TT_VISIBLE_DEVICES") or -1)   # empty = host-only che
 
 WALLS = []
 CALLS = []
+BATCHES = []   # (designs_in_this_batch, first_call_index, last_call_index) per sampler call
 _sample = RFD3Sampler.sample
 
 
@@ -90,18 +91,55 @@ class _CallTimer:
 
 def _timed(self, dm, n, *a, **k):
     t0 = time.perf_counter()
+    mark = len(CALLS)
     out = _sample(self, _CallTimer(dm), n, *a, **k)
     WALLS.append(time.perf_counter() - t0)
+    # `n` is the sampler's D, the number of designs THIS batch carries. Recorded because a
+    # fold whose design count is not a multiple of its batch size ends on a smaller batch,
+    # and a smaller batch has a cheaper per-call cost -- see the quantile note in fold().
+    BATCHES.append((int(n), mark, len(CALLS)))
     return out
 
 
-RFD3Sampler.sample = _timed
+# Installed by main(), not at import: a test that imports this module to pin the
+# readout arithmetic must not rewrite a shipped method as a side effect.
 
 
 def q10(xs):
     """The 10th percentile, nearest-rank. No interpolation, so it is always an observed call."""
     ys = sorted(xs)
     return ys[max(0, min(len(ys) - 1, int(0.10 * len(ys))))]
+
+
+def split_batches(calls, batches):
+    """One record per sampler call, carrying that batch's own design count and its own q10.
+
+    The quantile has to be taken WITHIN a batch. A batch-b module call carries b designs, so its
+    cost scales with b, and when num_designs is not a multiple of batch_size the fold ends on a
+    SMALLER batch whose calls are correspondingly cheaper. Pooling every call into one q10 then
+    lands the quantile inside that tail and reports the tail's per-call cost as the whole arm's.
+
+    Measured, and the reason this function exists: R2 at 6 designs with b=4 runs batches [4, 2],
+    so half of its 398 calls are b=2 calls at 0.468 s against the b=4 calls' 0.93 s. The pooled
+    q10 came out 0.472 -- a b=2 call -- against a 0.924 s median, and the arm read 31.0 s/design
+    against its own 49.0 s wall. A phantom 1.54x, on the arm that decides a shipped default.
+    """
+    seg = []
+    for (d, i, j) in batches:
+        c = calls[i:j]
+        if c:
+            seg.append(dict(designs=d, n=len(c), q10=round(q10(c), 5), sum=round(sum(c), 3)))
+    return seg
+
+
+def robust_s_per_design(seg, n_designs):
+    """Per-design cost with the box's stalls taken out: every batch contributes its own
+    uncontended per-call cost times its call count. For a fold whose batches are all one size
+    this is exactly the pooled ``q10 x calls / designs``; for a ragged one it is the only
+    correct form."""
+    if not seg:
+        return None
+    return sum(b["q10"] * b["n"] for b in seg) / max(1, n_designs)
 
 
 def clamp(batch_size, cap, L):
@@ -129,6 +167,7 @@ def fold(specs, out_dir, num_designs, batch_size, steps):
     os.system("rm -rf %s" % out_dir)
     WALLS.clear()
     CALLS.clear()
+    BATCHES.clear()
     la = os.getloadavg()[0]
     res = rfd3_design.run_design(specs, out_dir, checkpoint_dir=CKPT, from_pdb=True,
                                  num_timesteps=steps, seed=SEED, num_designs=num_designs,
@@ -141,16 +180,27 @@ def fold(specs, out_dir, num_designs, batch_size, steps):
     n_atoms = sorted({r.n_atoms for r in res})
     # len(WALLS) is the number of batches the sampler actually ran.
     calls = list(CALLS)
-    # calls/design is fixed per arm: a batch-b module call carries b designs, so it falls as 1/b.
-    # q10 x calls/design is therefore the per-design cost with the box's stalls taken out.
+    # The quantile is taken WITHIN each batch, and the batches are then summed.
+    #
+    # A batch-b module call carries b designs, so its cost scales with b. When num_designs is not
+    # a multiple of batch_size the fold ends on a SMALLER batch whose calls are correspondingly
+    # cheaper, and pooling every call into one q10 lands the quantile inside that tail and reports
+    # the tail's per-call cost as the whole arm's. Measured: R2 at 6 designs with b=4 runs batches
+    # [4, 2], so half of its 398 calls are b=2 calls at 0.468 s against the b=4 calls' 0.93 s. The
+    # pooled q10 came out 0.472 -- a b=2 call -- against a 0.924 s median, and the arm read
+    # 31.0 s/design against its own 49.0 s wall, a phantom 1.54x win. Per batch it is exact, and
+    # for a fold whose batches are all one size it is identical to the pooled form.
+    seg = split_batches(calls, BATCHES)
     cs = dict(n=len(calls), q10=q10(calls) if calls else None,
               med=statistics.median(calls) if calls else None,
-              covered=(sum(calls) / sum(WALLS)) if WALLS and sum(WALLS) else None)
-    cs["robust_s_per_design"] = (cs["q10"] * cs["n"] / max(1, len(res))) if calls else None
+              covered=(sum(calls) / sum(WALLS)) if WALLS and sum(WALLS) else None,
+              batches=seg, ragged=len({b["designs"] for b in seg}) > 1)
+    cs["robust_s_per_design"] = robust_s_per_design(seg, len(res))
     return (sum(WALLS), digs, len(res), len(WALLS), n_atoms, max(la, os.getloadavg()[0]), cs)
 
 
 def main():
+    RFD3Sampler.sample = _timed
     ap = argparse.ArgumentParser()
     ap.add_argument("--spec", required=True)
     ap.add_argument("--out", required=True)
@@ -245,10 +295,12 @@ def main():
                 per_robust.setdefault(label, []).append(cs["robust_s_per_design"])
                 digests.setdefault(label, []).append(dg)
                 print("  round%d %-4s %9.3f s sampler wall  %d design  %d batch(es) %s  "
-                      "%8.3f s/design  robust %8.3f  (%d calls, q10 %.4f s, %.1f %% covered)  "
+                      "%8.3f s/design  robust %8.3f  (%d calls, %s, %.1f %% covered)  "
                       "load %5.1f  %s"
                       % (r, label, w, n, nb, "OK" if ok else "ARM WRONG", sd,
-                         cs["robust_s_per_design"], cs["n"], cs["q10"], 100 * cs["covered"], la,
+                         cs["robust_s_per_design"], cs["n"],
+                         " + ".join("%dx d%d q10 %.4f" % (b["n"], b["designs"], b["q10"])
+                                    for b in cs["batches"]), 100 * cs["covered"], la,
                          "|".join(dg[k] for k in sorted(dg))), flush=True)
                 rows.append(dict(arm=label, batch=b, rep=r, round=r, sampler_wall_s=round(w, 3),
                                  n_designs=n, batches=nb, batches_expected=exp_batches,
@@ -257,6 +309,8 @@ def main():
                                  n_atoms_seen=na, calls=cs["n"],
                                  call_q10_s=round(cs["q10"], 5),
                                  call_median_s=round(cs["med"], 5),
+                                 call_batches=cs["batches"],
+                                 ragged_batches=cs["ragged"],
                                  calls_covered_frac=round(cs["covered"], 4),
                                  robust_s_per_design=round(cs["robust_s_per_design"], 3)))
                 assert ok, ("ARM WRONG: %d batches for %d designs at effective %d"
