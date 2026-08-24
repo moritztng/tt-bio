@@ -92,18 +92,23 @@ by default.
 The padding itself does not change the answer. Two different poison fill values give bit-identical
 trunk fingerprints, so what the masked columns contain cannot reach the output.
 
-Cost follows the same rule as the rung arithmetic above. When the token count is already a multiple
-of 64 the pad is 0, both padding sites early-out, and this costs exactly nothing. When it is not,
-you pay for the rounded-up width on work that scales as the square of it. At 298 tokens, which
-rounds up to 320, that is 4.8 % on Protenix-v2 and 6.0 % on OpenDDE.
+Cost does not follow the rung arithmetic above. When the token count is already a multiple of 64 the
+pad is 0, both padding sites early-out, and this costs exactly nothing. When it is not, most of what
+you pay is a fixed cost per call in the pad and slice path, not the extra area: at 20 tokens, which
+round up to 64, dropping to a multiple of 32 shrinks the padded area fourfold and recovers only 2.6
+points of 16. So the cost is worst on short folds and fades as the fold grows. Measured on one p150a:
+about 18 % at 20 residues, 4.8 % on Protenix-v2 and 6.0 % on OpenDDE at 298, and nothing at all at an
+aligned length.
 `TT_BIO_PROTENIX_TOKEN_BUCKET=0` restores the old ragged path for an A/B,
 and `TT_BIO_PROTENIX_TOKEN_PAD_MULTIPLE` overrides the multiple.
 
-Note what this does to the ladder. Every rung is a multiple of 64, so the pad is 0 at all four and
-the size-ladder arm cannot see this lever at any of them. An off-lattice rung
-(`RELEASE_GATE_SIZE_RUNGS=298`) is the only way to price it, which is the same blindness this page
-describes one level up: a ladder built only from multiples of the thing you are testing tests
-nothing.
+Note what this does to the ladder. Every rung is a multiple of 64, so the residue axis pads to 0 at
+all four and the arm cannot price this lever on Protenix-v2. It still sees it on OpenDDE, whose
+refiner runs a second token axis at roughly twice the residue count minus one per glycine, and that
+lands on a multiple of 64 only for a sequence with no glycine at all. An off-lattice rung
+(`RELEASE_GATE_SIZE_RUNGS=298`) is the only way to price it on the residue axis, which is the same
+blindness this page describes one level up: a ladder built only from multiples of the thing you are
+testing tests nothing.
 
 ## What the 2026-08-19 sweep found
 
