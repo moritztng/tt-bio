@@ -289,7 +289,8 @@ def main():
         "triatt_tail_K1": list(_TQ.TAIL_STATS),
         "triatt_sdpa": list(_TS.STATS),
         "mm_dualnoc": list(_DN.STATS),
-        "sdpa_q_chunk": list(T.SDPA_Q_CHUNK_STATS),
+        # Renamed by the 349d7614 merge: the counter is keyed on the k chunk, not the q one.
+        "sdpa_k_chunk": list(T.SDPA_K_CHUNK_STATS),
     }
     rec["rejects"] = {
         "trimul_tail_F1": {str(k): v for k, v in _TT.REJECTS.items()},
@@ -298,7 +299,9 @@ def main():
         "reblock": {str(k): v for k, v in _RB.REJECTS.items()},
         "triatt_sdpa": {str(k): v for k, v in _TS.REJECTS.items()},
     }
-    rec["fp32_softmax_l1_refused_keys"] = sorted(str(k) for k in T._FP32_SOFTMAX_L1_REFUSED)
+    # Renamed by the 349d7614 merge, and it is now a dict: the value is the reason the L1
+    # geometry was retired, which is the whole point of reading it here.
+    rec["fp32_softmax_l1_refused"] = {str(k): v for k, v in T._FP32_SOFTMAX_L1_REFUSALS.items()}
     # The other silent L1-output refusal on the pair path. It catches bare `Exception` and
     # records only a shape key -- no served/declined counter -- so a refusal here is invisible
     # to the census proper. Pass 2 attributed the 2005504 B circular-buffer TT_THROW at 848
@@ -308,7 +311,7 @@ def main():
     rec["bmm_cfg_refused"] = sorted(str(k) for k in T._BMM_CFG_REFUSED)
     rec["sdpa_q_chunk_over_l1"] = sorted(str(k) for k in T._SDPA_Q_CHUNK_OVER_L1)
     print(json.dumps({"census": rec["census"],
-                      "fp32_softmax_l1_refused_keys": rec["fp32_softmax_l1_refused_keys"],
+                      "fp32_softmax_l1_refused": rec["fp32_softmax_l1_refused"],
                       "l1_out_refused_keys": rec["l1_out_refused_keys"],
                       "bmm_cfg_refused": rec["bmm_cfg_refused"],
                       "sdpa_q_chunk_over_l1": rec["sdpa_q_chunk_over_l1"]}), flush=True)
