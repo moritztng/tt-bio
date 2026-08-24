@@ -1,0 +1,79 @@
+{
+  "rows": [
+    {
+      "batch": 1,
+      "arm": "warmup",
+      "wall_s": 99.369,
+      "n_cifs": 1,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "discarded": true
+    },
+    {
+      "batch": 1,
+      "arm": "rep",
+      "rep": 0,
+      "wall_s": 97.755,
+      "n_cifs": 1,
+      "s_per_design": 97.755,
+      "cif_sha256_16": "5295e526ebd0b757"
+    },
+    {
+      "batch": 1,
+      "arm": "rep",
+      "rep": 1,
+      "wall_s": 97.26,
+      "n_cifs": 1,
+      "s_per_design": 97.26,
+      "cif_sha256_16": "5295e526ebd0b757"
+    },
+    {
+      "batch": 2,
+      "arm": "warmup",
+      "wall_s": 191.476,
+      "n_cifs": 2,
+      "cif_sha256_16": "5295e526ebd0b757|ac79c6d901a72c17",
+      "discarded": true
+    },
+    {
+      "batch": 2,
+      "arm": "rep",
+      "rep": 0,
+      "wall_s": 191.635,
+      "n_cifs": 2,
+      "s_per_design": 95.817,
+      "cif_sha256_16": "5295e526ebd0b757|ac79c6d901a72c17"
+    },
+    {
+      "batch": 2,
+      "arm": "rep",
+      "rep": 1,
+      "wall_s": 193.857,
+      "n_cifs": 2,
+      "s_per_design": 96.928,
+      "cif_sha256_16": "5295e526ebd0b757|ac79c6d901a72c17"
+    }
+  ],
+  "num_timesteps": 200,
+  "seed": 42,
+  "batches": [
+    1,
+    2
+  ],
+  "reps": 2,
+  "per_batch_s_per_design": {
+    "1": 97.50778589249967,
+    "2": 96.37298110150368
+  },
+  "per_batch_min": {
+    "1": 97.26022887800355,
+    "2": 95.81748550800694
+  },
+  "per_batch_max": {
+    "1": 97.75534290699579,
+    "2": 96.92847669500043
+  },
+  "baseline_of_record_s": 96.523,
+  "verdict": "b=2 WINS 1.135 s/design",
+  "host": "tt-quietbox2",
+  "card": 0
+}

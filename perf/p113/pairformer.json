@@ -1,0 +1,43 @@
+{
+  "steps": 8,
+  "cold": 2,
+  "seed": 42,
+  "fixture": "perf/dsfix/fixtures/rfd3_R4.json",
+  "blocks_per_step": 4,
+  "block_calls_total": 30,
+  "block_calls_kept": 22,
+  "steps_counted": 5.5,
+  "rows": {
+    "z_transition": {
+      "calls": 22,
+      "ms_per_call": 18.687,
+      "ms_per_step": 74.9343,
+      "s_per_design": 14.987
+    },
+    "attn": {
+      "calls": 22,
+      "ms_per_call": 3.3931,
+      "ms_per_step": 13.886,
+      "s_per_design": 2.777
+    },
+    "s_transition": {
+      "calls": 22,
+      "ms_per_call": 0.1709,
+      "ms_per_step": 1.1521,
+      "s_per_design": 0.23
+    },
+    "BLOCK": {
+      "calls": 22,
+      "ms_per_call": 23.1695,
+      "ms_per_step": 96.357,
+      "s_per_design": 19.271
+    }
+  },
+  "sum_of_subs_ms_per_step": 89.9724,
+  "block_wall_ms_per_step": 96.357,
+  "oversync": 0.9337,
+  "unattributed_ms_per_step": 6.3846,
+  "p111_pairformer_ms_per_step": 91.486,
+  "card": "3",
+  "host": "tt-quietbox2"
+}

@@ -1,0 +1,72 @@
+{
+  "rows": [
+    {
+      "arm": "dense_whole",
+      "ms": 16.2633
+    },
+    {
+      "arm": "dense_part",
+      "part": "qk matmul  [L,32]@[32,6080]",
+      "ms": 1.0847,
+      "pct_of_chain": 6.67
+    },
+    {
+      "arm": "dense_part",
+      "part": "typecast   bf16->fp32 588MB",
+      "ms": 2.4097,
+      "pct_of_chain": 14.82
+    },
+    {
+      "arm": "dense_part",
+      "part": "multiply   scale fp32",
+      "ms": 2.9304,
+      "pct_of_chain": 18.02
+    },
+    {
+      "arm": "dense_part",
+      "part": "add        + bias fp32",
+      "ms": 3.9092,
+      "pct_of_chain": 24.04
+    },
+    {
+      "arm": "dense_part",
+      "part": "softmax    fp32->bf16",
+      "ms": 4.8165,
+      "pct_of_chain": 29.62
+    },
+    {
+      "arm": "dense_part",
+      "part": "pv matmul  [L,6080]@[6080,32]",
+      "ms": 1.2843,
+      "pct_of_chain": 7.9
+    },
+    {
+      "arm": "dense_parts_sum",
+      "ms": 16.4348
+    },
+    {
+      "arm": "p2_shared_keys",
+      "ms": 0.4295,
+      "note": "every row attends the same 128 keys -- not gathered attention"
+    },
+    {
+      "arm": "honest_per_row_gathered",
+      "ms": 69.5026,
+      "note": "K,V pre-gathered on host into [1,H*L,K,DH]; host gather NOT timed"
+    }
+  ],
+  "H": 4,
+  "L": 6051,
+  "n_key": 6080,
+  "head_dim": 32,
+  "k_sparse": 128,
+  "calls_per_step": 9,
+  "steps": 200,
+  "dense_ms": 16.2633,
+  "p2_shared_key_ms": 0.4295,
+  "honest_gathered_ms": 69.5026,
+  "p2_prize_s_per_design": 28.501,
+  "honest_prize_s_per_design": -95.831,
+  "host": "tt-quietbox2",
+  "card": "0"
+}

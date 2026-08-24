@@ -1,0 +1,53 @@
+{
+  "tag": "early",
+  "H": 4,
+  "L": 6051,
+  "n_key": 6080,
+  "head_dim": 32,
+  "k_sparse": 128,
+  "q_block": 32,
+  "n_blocks": 190,
+  "u_width": 1472,
+  "u_max": 1462,
+  "union_mean": 488.3,
+  "union_median": 329.0,
+  "key_axis_narrowing": 4.13,
+  "bit_exact": false,
+  "maxabs": 0.078125,
+  "relmax": 0.029940119760479042,
+  "meanabs": 0.0037298293318599463,
+  "parts": [
+    {
+      "part": "block 1 kv gather x2",
+      "ms": 21.9871
+    },
+    {
+      "part": "block 2 qk matmul",
+      "ms": 1.0076
+    },
+    {
+      "part": "block 3 fused bias",
+      "ms": 1.9987
+    },
+    {
+      "part": "block 4 softmax",
+      "ms": 1.2175
+    },
+    {
+      "part": "block 5 pv matmul",
+      "ms": 8.5473
+    }
+  ],
+  "parts_sum_ms": 34.7581,
+  "dense_chain_ms": 9.9986,
+  "block_chain_ms": 33.9938,
+  "dense_s_per_design": 17.997,
+  "block_s_per_design": 61.189,
+  "isolated_prize_s_per_design": -43.191,
+  "calls_per_step": 9,
+  "steps": 200,
+  "reps": 5,
+  "fused_enabled": true,
+  "host": "tt-quietbox2",
+  "card": "3"
+}

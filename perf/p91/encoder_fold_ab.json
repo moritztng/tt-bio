@@ -1,0 +1,86 @@
+{
+  "rows": [
+    {
+      "arm": "off",
+      "rep": 0,
+      "s_per_design": 94.155,
+      "n_cifs": 1,
+      "batches": 1,
+      "collapsed_calls": 0,
+      "shipped_calls": 398,
+      "arm_verified": true,
+      "cif_sha256_16": "5295e526ebd0b757"
+    },
+    {
+      "arm": "off",
+      "rep": 1,
+      "s_per_design": 94.019,
+      "n_cifs": 1,
+      "batches": 1,
+      "collapsed_calls": 0,
+      "shipped_calls": 398,
+      "arm_verified": true,
+      "cif_sha256_16": "5295e526ebd0b757"
+    },
+    {
+      "arm": "on",
+      "rep": 2,
+      "s_per_design": 90.926,
+      "n_cifs": 1,
+      "batches": 1,
+      "collapsed_calls": 398,
+      "shipped_calls": 0,
+      "arm_verified": true,
+      "cif_sha256_16": "f66aebd19d25caac"
+    },
+    {
+      "arm": "on",
+      "rep": 3,
+      "s_per_design": 90.832,
+      "n_cifs": 1,
+      "batches": 1,
+      "collapsed_calls": 398,
+      "shipped_calls": 0,
+      "arm_verified": true,
+      "cif_sha256_16": "f66aebd19d25caac"
+    }
+  ],
+  "num_timesteps": 200,
+  "arms": [
+    "off",
+    "off",
+    "on",
+    "on"
+  ],
+  "seed": 42,
+  "flag": "RFD3_PROCESS_Z_COLLAPSE",
+  "arms_all_verified": true,
+  "encoder_calls_on": [
+    398
+  ],
+  "encoder_calls_off": [
+    398
+  ],
+  "same_total_calls": true,
+  "off_median_s": 94.087,
+  "on_median_s": 90.87899999999999,
+  "aa_control_s": [
+    94.155,
+    94.019
+  ],
+  "aa_spread_s": 0.13599999999999568,
+  "fold_delta_s": 3.208,
+  "isolated_delta_s": 3.895,
+  "encoder_isolated_over_fold": 1.214,
+  "digests": {
+    "off": [
+      "5295e526ebd0b757"
+    ],
+    "on": [
+      "f66aebd19d25caac"
+    ]
+  },
+  "host": "tt-quietbox2",
+  "card": 1,
+  "bit_exact": false
+}

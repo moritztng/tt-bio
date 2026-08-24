@@ -1,0 +1,18 @@
+{
+  "what": "null pass rate of p78_envelope_spec.json primary bar, simulated through p80_envelope.py --stage decide",
+  "why": "p78 derived n>=135 from 1.645*sqrt(2p(1-p)/n) < 0.10 margin. The bar is read on (observed - half_width) and the observed difference carries its own SE, so the derivation is optimistic. Host-only, no card.",
+  "population": "heavy-tailed synthetic at the spec worst-case rate p=0.5: half N(1.6,0.5), half N(6.0,4.0), floored at 0.1",
+  "margin": 0.10,
+  "trials": 150,
+  "bootstrap_resamples": 1500,
+  "seed": 0,
+  "rows": [
+    {"n": 144, "null_pass_rate": 0.507, "mean_lower_bound": -0.0992, "mean_abs_obs_diff": 0.0472},
+    {"n": 288, "null_pass_rate": 0.827, "mean_lower_bound": -0.0605, "mean_abs_obs_diff": 0.0334},
+    {"n": 432, "null_pass_rate": 0.880, "mean_lower_bound": -0.0564, "mean_abs_obs_diff": 0.0270},
+    {"n": 576, "null_pass_rate": 0.980, "mean_lower_bound": -0.0448, "mean_abs_obs_diff": 0.0221}
+  ],
+  "verdict": "the pre-registered n=144 is a coin flip on the null. No bar moves (p78 forbids it); n rises. 576 at the worst-case rate p=0.5.",
+  "cheaper_route": "p=0.5 is the spec-chosen worst case and n scales as p(1-p). Run the R0 null at n=144 first, read the actual designability rate, re-derive n from the measured rate inside the pre-registered formula.",
+  "not_measured_this_pass": "no card acquired; benchlock held by pxdesign-perf-p10 then perf-page-tt-cells for the whole pass"
+}

@@ -1,0 +1,79 @@
+{
+  "rows": [
+    {
+      "arm": "b1",
+      "rep": 0,
+      "wall_s": 95.473,
+      "n_cifs": 1,
+      "batches": 1,
+      "batches_expected": 1,
+      "arm_verified": true,
+      "s_per_design": 95.473,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "effective_batch": 1
+    },
+    {
+      "arm": "b1",
+      "rep": 1,
+      "wall_s": 95.381,
+      "n_cifs": 1,
+      "batches": 1,
+      "batches_expected": 1,
+      "arm_verified": true,
+      "s_per_design": 95.381,
+      "cif_sha256_16": "5295e526ebd0b757",
+      "effective_batch": 1
+    },
+    {
+      "arm": "b2_real",
+      "rep": 0,
+      "wall_s": 189.093,
+      "n_cifs": 2,
+      "batches": 1,
+      "batches_expected": 1,
+      "arm_verified": true,
+      "s_per_design": 94.547,
+      "cif_sha256_16": "5295e526ebd0b757|ac79c6d901a72c17",
+      "effective_batch": 2
+    },
+    {
+      "arm": "b2_real",
+      "rep": 1,
+      "wall_s": 187.71,
+      "n_cifs": 2,
+      "batches": 1,
+      "batches_expected": 1,
+      "arm_verified": true,
+      "s_per_design": 93.855,
+      "cif_sha256_16": "5295e526ebd0b757|ac79c6d901a72c17",
+      "effective_batch": 2
+    }
+  ],
+  "num_timesteps": 200,
+  "reps": 2,
+  "L_atoms": 6051,
+  "atom_pair_budget_admits": 2,
+  "shipped_speed_cap": 1,
+  "shipped_effective_batch_at_8": 1,
+  "per_arm_s_per_design": {
+    "b1": 95.42699706049461,
+    "b2_real": 94.20074970625137
+  },
+  "per_arm_min": {
+    "b1": 95.38121608299844,
+    "b2_real": 93.85479627899622
+  },
+  "per_arm_max": {
+    "b1": 95.47277803799079,
+    "b2_real": 94.54670313350653
+  },
+  "baseline_of_record_s": 96.523,
+  "verdict": "b=2 WINS 1.226 s/design -- the cap should be revisited",
+  "designpy_table_6051": {
+    "b1": 144.044,
+    "b2": 167.189
+  },
+  "host": "tt-quietbox2",
+  "card": 3,
+  "partial": false
+}

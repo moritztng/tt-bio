@@ -1,0 +1,72 @@
+{
+  "baseline_s_per_design": 94.087,
+  "bar_s_per_design": 51.896,
+  "gpu_denominator": 12.974,
+  "current_ratio": 7.252,
+  "deficit": 42.191,
+  "board": [
+    {
+      "lever": "Job 1, block-sparse atom attention",
+      "granted_s_per_design": 3.744,
+      "instrument": "cost model p103/p105 (+3.744); FOLD-MEASURED p114 median n=5 (+3.232). Granting the larger.",
+      "bit_exact": false,
+      "note": "built, default-off"
+    },
+    {
+      "lever": "process_z collapse",
+      "granted_s_per_design": 3.208,
+      "instrument": "fold A/B p91; independently corroborated by p111's 3.766 prediction",
+      "bit_exact": false,
+      "note": "built"
+    },
+    {
+      "lever": "head_dim 48 -> 64",
+      "granted_s_per_design": 3.118,
+      "instrument": "board's isolated 5.80 / 1.86 DiT calibration; SCREENED p112 at ~1.06. Granting 3.118.",
+      "bit_exact": false,
+      "note": "not built; weight-layout change"
+    },
+    {
+      "lever": "pair Transition remainder",
+      "granted_s_per_design": 2.5,
+      "instrument": "isolated ceiling / 2.95; 7.058 already landed",
+      "bit_exact": null,
+      "note": "unknown exactness"
+    },
+    {
+      "lever": "batching b=2",
+      "granted_s_per_design": 1.226,
+      "instrument": "fold A/B E6.3",
+      "bit_exact": true,
+      "note": "built, capped by _BATCH_SPEED_CAP"
+    },
+    {
+      "lever": "DiT half of L5a",
+      "granted_s_per_design": 0.58,
+      "instrument": "isolated 1.07 / 1.86",
+      "bit_exact": null,
+      "note": "BLOCKED, two kernels failed"
+    },
+    {
+      "lever": "pairformer attn, DELETED TO ZERO",
+      "granted_s_per_design": 2.288,
+      "instrument": "p113 2.777 isolated / 1.214 token-encoder calibration",
+      "bit_exact": null,
+      "note": "CEILING, not a lever"
+    },
+    {
+      "lever": "pairformer s_transition + block residual, DELETED TO ZERO",
+      "granted_s_per_design": 1.241,
+      "instrument": "p113 (0.230 + 1.277) isolated / 1.214",
+      "bit_exact": null,
+      "note": "CEILING, not a lever"
+    }
+  ],
+  "total_granted": 17.905,
+  "s_per_design_reached": 76.182,
+  "ratio_reached": 5.8719,
+  "shortfall_vs_bar": 24.286,
+  "bit_exact_granted": 1.226,
+  "atom_site_total_fold_valid": 17.364,
+  "unpaid_even_with_free_atom_attention": 24.827
+}
