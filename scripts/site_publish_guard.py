@@ -59,7 +59,17 @@ def missing(row: dict) -> list[str]:
 
 
 def counts(doc: dict) -> list[tuple[str, int]]:
-    return [(cat, len(rows(doc, cat))) for cat in CATEGORIES]
+    """Rows the page actually draws, which is not the same as rows in the file.
+
+    A row can leave the page two ways. `--strip` moves it to perf/page_rows_pending.json,
+    and these counts followed that from the start. `"hidden": true` leaves it in the file
+    and the renderer skips it, and these counts did not: the day RF3 and RFdiffusion3 were
+    hidden the subtitle went on claiming eight folding and two design models over a page
+    drawing seven and one, and the meta description said seventeen over sixteen. Both ways
+    out have to subtract here or the prose overstates the page.
+    """
+    return [(cat, len([r for r in rows(doc, cat) if not r.get("hidden")]))
+            for cat in CATEGORIES]
 
 
 def join(parts: list[str]) -> str:
