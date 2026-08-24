@@ -19,6 +19,11 @@ def load(p):
 
 def check(procs, censuses):
     fail = []
+    # The page protocol is two independent processes, and the ref reports both their
+    # medians by index. One process would IndexError while writing the page rather than
+    # refuse, and three would silently drop one out of the sentence.
+    if len(procs) != 2:
+        fail.append(f"{len(procs)} result JSONs, the protocol is exactly two processes")
     for d in procs:
         lbl = d["label"]
         if not d.get("warm_digest_identical"):
@@ -26,31 +31,31 @@ def check(procs, censuses):
         for f in d["folds"] + [d["cold"]]:
             dig = list(f["cif_sha256"].values())[0]
             if dig != EXPECT_DIGEST:
-                fail.append(f"{lbl}/{f[tag]}: digest {dig} != {EXPECT_DIGEST}")
+                fail.append(f"{lbl}/{f['tag']}: digest {dig} != {EXPECT_DIGEST}")
             if f["denoise_calls"] != 49:
-                fail.append(f"{lbl}/{f[tag]}: denoise_calls {f[denoise_calls]} != 49")
+                fail.append(f"{lbl}/{f['tag']}: denoise_calls {f['denoise_calls']} != 49")
             if f["n_tokens"] != 512:
-                fail.append(f"{lbl}/{f[tag]}: n_tokens {f[n_tokens]} != 512")
+                fail.append(f"{lbl}/{f['tag']}: n_tokens {f['n_tokens']} != 512")
             if not f.get("msa"):
-                fail.append(f"{lbl}/{f[tag]}: msa falsy")
+                fail.append(f"{lbl}/{f['tag']}: msa falsy")
             s = f["fp32_softmax_stats"]
             if s["unfused"] != 0 or s["fused"] <= 0:
-                fail.append(f"{lbl}/{f[tag]}: route not fused "
-                            f"(fused={s[fused]} unfused={s[unfused]})")
+                fail.append(f"{lbl}/{f['tag']}: route not fused "
+                            f"(fused={s['fused']} unfused={s['unfused']})")
         if d["recycling_steps"] != 10 or d["sampling_steps"] != 50:
-            fail.append(f"{lbl}: recycles/steps {d[recycling_steps]}/{d[sampling_steps]}")
+            fail.append(f"{lbl}: recycles/steps {d['recycling_steps']}/{d['sampling_steps']}")
         if d["diffusion_samples"] != 1 or d["seed"] != 0:
-            fail.append(f"{lbl}: diffusion_samples/seed {d[diffusion_samples]}/{d[seed]}")
+            fail.append(f"{lbl}: diffusion_samples/seed {d['diffusion_samples']}/{d['seed']}")
         if not d["sha256_a3m"].startswith(EXPECT_A3M):
-            fail.append(f"{lbl}: a3m sha {d[sha256_a3m][:16]}")
+            fail.append(f"{lbl}: a3m sha {d['sha256_a3m'][:16]}")
         if not d["sha256_target"].startswith(EXPECT_YAML):
-            fail.append(f"{lbl}: yaml sha {d[sha256_target][:16]}")
+            fail.append(f"{lbl}: yaml sha {d['sha256_target'][:16]}")
         if d["n_msa"] != 35:
-            fail.append(f"{lbl}: n_msa {d[n_msa]} != 35")
+            fail.append(f"{lbl}: n_msa {d['n_msa']} != 35")
         if d["arm"]["resolved"]["fp32_softmax"] is not False:
             fail.append(f"{lbl}: resolved fp32_softmax is not False")
         if d["arm"]["changed"]:
-            fail.append(f"{lbl}: arm overrode something: {d[arm][changed]}")
+            fail.append(f"{lbl}: arm overrode something: {d['arm']['changed']}")
         num = {k: v for k, v in d["env_flags"].items()
                if k not in ("TT_BIO_LEASE_CARDS", "TT_BIO_LEASE_HOLDER", "TT_BIO_SDPA_RAGGED_CENSUS")}
         if num:

@@ -97,21 +97,14 @@ for P in ${RF3_LEGS:-p1 p2}; do
     echo "=== $P had a result from another tree ($(cat "$RES.main" 2>/dev/null || echo unstamped)),"
     echo "    quarantined under $OUT/stale, re-measuring ==="
   fi
-  NF=$(nforeign)
-  echo "=== $P start $(date -u +%FT%TZ) load $(cut -d' ' -f1-3 /proc/loadavg) foreign=$NF ==="
-  foreign | sed 's/^/    cotenant: /'
-  # publish_cell.py requires this count and refuses to infer it: the per-fold loadavg is sampled
-  # at fold END and read 1.96 for a leg that started with six foreign folds running.
-  echo "{\"leg\": \"$P\", \"foreign_at_start\": $NF, \"loadavg\": \"$(cut -d' ' -f1-3 /proc/loadavg)\"}" \
-    > "$OUT/cotenancy_${HOST}_${P}.json"
+  echo "=== $P queued $(date -u +%FT%TZ) load $(cut -d' ' -f1-3 /proc/loadavg) foreign=$(nforeign) ==="
+  foreign | sed 's/^/    queued behind: /'
+  # The co-tenancy snapshot publish_cell.py reads is taken by leg_inner.sh, INSIDE the lock, where
+  # the timed fold actually starts. Taken here it describes a leg that is still waiting for the
+  # flock: this pass queued behind a 45-minute encoder A/B, and a count from here would have said
+  # "three foreign folds" about a leg that then ran on a quiet box.
   /home/ttuser/.coworker/scripts/benchlock.sh rf3-perf-page-row-refresh -- \
-    env PYTHONPATH="$PP" \
-        TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD \
-        TT_BIO_LEASE_HOLDER=worker:rf3-perf-page-row-refresh \
-        TT_BIO_SDPA_RAGGED_CENSUS="$OUT/census_postflip_${HOST}_${P}" \
-      "$PY" perf/rf3/page512_tt.py --repeat 2 --arm a0 \
-        --label "postflip_default_${HOST}_${P}" \
-        --out "$OUT/postflip_${HOST}_${P}.json" \
+    bash "$OUT/leg_inner.sh" "$OUT" "$HOST" "$P" "$CARD" "$PP" "$PY" \
         > "$OUT/postflip_${HOST}_${P}.log" 2>&1
   RC=$?
   echo "=== $P exit $RC $(date -u +%FT%TZ) load $(cut -d' ' -f1-3 /proc/loadavg) ==="
