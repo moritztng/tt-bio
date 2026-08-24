@@ -1,0 +1,20 @@
+=== chain_final start 2026-08-24T16:31:09Z ===
+=== N_sample 1, 3 reps 2026-08-24T16:31:09Z ===
+[pxd] laczc512_prev_n1_b2_rep0 total=126.60s s/design=126.60 | pxd-d=27.2 ptx=0.0 af2=58.1 mpnn=10.1 host=31.2 | ok=True []
+[sweep] == laczc512_prev_n1_b2 rep0 preview N=1 total=126.6s s/design=126.6 | pxd-d=27.2 ptx=0.0 af2=58.1 mpnn=10.1 host=31.2 | util=23.4% 120.9W vram=2.1GiB ds4sci=None ok=True []
+[pxd] laczc512_prev_n1_b2_rep1 total=130.48s s/design=130.48 | pxd-d=27.7 ptx=0.0 af2=60.0 mpnn=11.2 host=31.6 | ok=True []
+[sweep] == laczc512_prev_n1_b2 rep1 preview N=1 total=130.5s s/design=130.5 | pxd-d=27.7 ptx=0.0 af2=60.0 mpnn=11.2 host=31.6 | util=22.6% 120.9W vram=2.1GiB ds4sci=None ok=True []
+[pxd] laczc512_prev_n1_b2_rep2 total=131.35s s/design=131.35 | pxd-d=27.9 ptx=0.0 af2=61.2 mpnn=10.6 host=31.6 | ok=True []
+[sweep] == laczc512_prev_n1_b2 rep2 preview N=1 total=131.4s s/design=131.4 | pxd-d=27.9 ptx=0.0 af2=61.2 mpnn=10.6 host=31.6 | util=22.6% 120.9W vram=2.1GiB ds4sci=None ok=True []
+[sweep] ALL DONE
+=== N_sample 1 done 2026-08-24T16:38:06Z ===
+=== N_sample 8, 3 reps 2026-08-24T16:38:06Z ===
+[pxd] laczc512_prev_n8_b2_rep0 total=312.22s s/design=39.03 | pxd-d=119.2 ptx=0.0 af2=139.8 mpnn=14.3 host=38.9 | ok=True []
+[sweep] == laczc512_prev_n8_b2 rep0 preview N=8 total=312.2s s/design=39.0 | pxd-d=119.2 ptx=0.0 af2=139.8 mpnn=14.3 host=38.9 | util=62.2% 348.9W vram=4.1GiB ds4sci=None ok=True []
+[pxd] laczc512_prev_n8_b2_rep1 total=301.36s s/design=37.67 | pxd-d=118.7 ptx=0.0 af2=132.4 mpnn=12.8 host=37.5 | ok=True []
+[sweep] == laczc512_prev_n8_b2 rep1 preview N=8 total=301.4s s/design=37.7 | pxd-d=118.7 ptx=0.0 af2=132.4 mpnn=12.8 host=37.5 | util=64.0% 350.9W vram=4.1GiB ds4sci=None ok=True []
+[pxd] laczc512_prev_n8_b2_rep2 total=303.27s s/design=37.91 | pxd-d=118.5 ptx=0.0 af2=134.0 mpnn=13.0 host=37.8 | ok=True []
+[sweep] == laczc512_prev_n8_b2 rep2 preview N=8 total=303.3s s/design=37.9 | pxd-d=118.5 ptx=0.0 af2=134.0 mpnn=13.0 host=37.8 | util=63.9% 350.9W vram=4.1GiB ds4sci=None ok=True []
+[sweep] ALL DONE
+=== N_sample 8 done 2026-08-24T16:53:54Z ===
+=== chain_final done 2026-08-24T16:53:54Z ===

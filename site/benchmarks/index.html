@@ -1108,11 +1108,8 @@ details.disclose > div{ padding-top:var(--s-4); }
         }).join("; "));
     }
     mrow("Servers", "A server bar is one measured accelerator times the accelerators in the box, on " +
-      "both sides: 32 Blackhole AI Processors against 8 GPUs. Both are assumed to scale linearly " +
-      "with accelerator count and neither is measured at it, so every server bar is an upper " +
-      "bound on its own box. The one fan-out we have measured is 27.8x of 32 chips on a Wormhole " +
-      "Galaxy running folds, a different generation at a different workload, and nothing " +
-      "comparable exists for an eight-GPU DGX.");
+      "both sides: 32 Blackhole AI Processors against 8 GPUs. Both sides are assumed to scale " +
+      "linearly with accelerator count, so every server bar is an upper bound on its own box.");
     mrow("Cost", m.formula + " Only the second basis uses the window. " + m.amortisation_basis + " " +
       fmtCents(m.electricity_usd_per_kwh) + " is the US industrial average price of electricity. " +
       m.utilisation + " " + m.sensitivity);
