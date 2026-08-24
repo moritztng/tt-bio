@@ -3,6 +3,30 @@
 All notable changes to TT-Bio are recorded here. Versioning is [SemVer](https://semver.org);
 releases are cut from a commit that has passed the on-hardware test suite (see `RELEASING.md`).
 
+## [Unreleased]
+
+### Fixed
+
+- Protenix-v2, OpenDDE and OpenDDE-abag were padding the atom axis and not the token axis. At any
+  token count that is not a multiple of 64, the ragged tail reached the triangle attention as real
+  key columns rather than masked ones, and both the stock and the fused attention read them: on a
+  probe, relative error against the aligned answer is 0.914 ragged against 0.038 padded. A
+  98-residue fold presented 1208 ragged calls out of 1208 on Protenix-v2 and 1216 on OpenDDE, which
+  carries a third axis in its structural-token refiner at roughly twice the residue count and so is
+  essentially never aligned. All three axes now pad to a multiple of 64, mask, and slice back;
+  `TT_BIO_PROTENIX_TOKEN_BUCKET=0` restores the old path for an A/B and
+  `TT_BIO_PROTENIX_TOKEN_PAD_MULTIPLE` overrides the multiple.
+
+  Where the pad is 0 the fold is byte-identical, so a token count that is already a multiple of 64
+  costs nothing and changes no number: at 512 residues both arms return CIF `5e404779d791fa8f` on
+  Protenix-v2 and agree to -0.101 s over eight interleaved pairs on OpenDDE. Where the pad is not 0
+  you pay for the columns you added, and at real fold lengths that is a win rather than a cost:
+  298 residues round to 320 and run 4.8 % faster on Protenix-v2 and 6.0 % faster on OpenDDE. Short
+  folds are the exception and they are worse, because the fold is dispatch-bound before the pad
+  arrives: 20 residues round to 64 and lose about 17 % of throughput. That is the smoke input
+  `perf_regression.py` times, so its baseline rows were re-recorded deliberately rather than
+  waived. `docs/size-generality.md` has the size-by-size reading.
+
 ## [0.7.0] - 2026-08-24
 
 ### Added
