@@ -1,0 +1,22 @@
+{
+  "file": "/root/work/of3/out/fold3/seed_0/fold3_seed_0_sample_1_model.cif",
+  "n_ca": 512,
+  "checks": {
+    "all_finite": true,
+    "residue_count_ok": true,
+    "ca_ca_median_in_band": true,
+    "chain_breaks_ok": true,
+    "rg_in_band": true
+  },
+  "fail": [],
+  "ca_ca_median_A": 3.8275,
+  "chain_break_frac": 0.0,
+  "radius_of_gyration_A": 28.118,
+  "rg_band_A": [
+    11.8,
+    58.9
+  ],
+  "plddt_scale": "0-100",
+  "plddt_mean": 0.638184,
+  "pass": true
+}
