@@ -14,7 +14,7 @@ gets no cell written, however clean its own arms look.
   python3 perf/gpucatchup/write_gpu_cells.py --dir perf/gpucatchup/a100 --gpu a100 \
       --data site/data/perf-512aa.json
 """
-import argparse, glob, json, statistics, sys
+import argparse, glob, json, re, statistics, sys
 from pathlib import Path
 
 # The published OpenFold3 cell each box's control arm has to reproduce, read off the page itself
@@ -122,15 +122,140 @@ def exclusivity(d, gpu):
             f"read 0 MiB resident.")
 
 
+# --- Nesso-1 -------------------------------------------------------------------------------------
+# Nesso-1 has no control arm: nothing else on the page runs its stack, so there is no published
+# number this box could reproduce first. The bar for a brand-new GPU cell with no prior anchor is
+# internal A/A instead, which for this harness is a real digest and not a wall-clock coincidence --
+# two independent processes have to agree on the affinity values' sha256.
+NESSO_PINS = {   # what the h200 and a100 cells both name; a new column has to match or say it did not
+    "torch": "2.11.0+cu128", "nesso": "1.0.0", "cuequivariance-torch": "0.11.1",
+    "cuequivariance-ops-torch-cu12": "0.11.1", "lightning": "2.6.5",
+    "transformers": "5.15.1", "rdkit": "2026.3.5",
+}
+
+
+def write_nesso(d, gpu, data):
+    legs = [json.loads(f.read_text()) for f in sorted(d.glob(f"nesso1_ladder_aa512_cueq_{gpu}_*.json"))]
+    if len(legs) < 2:
+        die(f"{len(legs)} Nesso-1 legs, want at least 2 for an A/A")
+    warm, medians, dev = [], [], []
+    for j in legs:
+        lbl = j["label"]
+        if lbl != "ladder_aa512_cueq":
+            die(f"{lbl}: not the ladder_aa512_cueq rung the h200 and a100 cells hold")
+        if not j["ok"]:
+            die(f"{lbl}: {j['why']}")
+        if not j["gpu_exclusive"] or j["env"]["compute_apps_before"]:
+            die(f"{lbl}: card not exclusive, {j['env']['compute_apps_before']}")
+        if (j["reps"], j["recycling_steps"], j["precision"], j["seed"], j["num_workers"],
+                j["dataloader_batch_size"], j["refine"]) != (4, 5, "bf16-mixed", 42, 2, 1, "on"):
+            die(f"{lbl}: protocol differs from the published columns")
+        if j["seq_lens"] != [512] or j["n_records"] != 1:
+            die(f"{lbl}: {j['n_records']} records at {j['seq_lens']}, want 1 at [512]")
+        if not j["effective_use_kernels"] or not j["ckpt_use_kernels"]:
+            die(f"{lbl}: kernels off")
+        c = j["counts"]
+        if c["cueq.triangle_attention"] != c["callsite.triangle_attention"]:
+            die(f"{lbl}: cuEquivariance took {c['cueq.triangle_attention']} of "
+                f"{c['callsite.triangle_attention']} triangle-attention calls, not all of them")
+        for k, want in NESSO_PINS.items():
+            got = j["env"].get(k)
+            if got != want:
+                die(f"{lbl}: {k} is {got}, the published columns name {want}")
+        reps = j["rep_s"]
+        if reps[0] <= max(reps[1:]):
+            die(f"{lbl}: rep 0 ({reps[0]}) is not the slowest, so it was not the cold rep")
+        warm += reps[1:]
+        medians.append(statistics.median(reps[1:]))
+        ph = j["phases"]
+        dev += [ph[k]["predict_step"] for k in sorted(ph, key=int)][1:]
+
+    shas = {j["affinity"]["sha256_of_values"] for j in legs}
+    if len(shas) != 1:
+        die(f"the legs disagree on the affinity digest: {shas}")
+    aff = {j["affinity"]["mean"] for j in legs}
+    if len(aff) != 1:
+        die(f"the legs disagree on the affinity scalar: {aff}")
+
+    row = [r for r in data["affinity"]["models"] if r["id"] == "nesso1"][0]
+    a100 = row["cells"].get("a100", {})
+    ob = statistics.median(warm)
+    # The ref says this scalar is the H200 NVL arm's and not the A100 one. That is a claim about two
+    # other cells, so it is read out of the a100 cell -- which records both arms' scalars and its own
+    # device figure -- instead of being restated here.
+    scalar = f"{sorted(aff)[0]:.6f}"
+    a100_ref = a100.get("ref", "")
+    if scalar not in a100_ref:
+        die(f"affinity scalar {scalar} appears in no other cell's ref, so the claim that it matches "
+            "the H200 NVL arm is not supported by the page")
+    a100_dev = re.search(r"Lightning predict step is ([0-9.]+) s", a100_ref)
+    a100_scalar = re.search(r"Affinity scalar ([0-9.]+) against the H200 NVL arm's ([0-9.]+)", a100_ref)
+    if not a100_dev or not a100_scalar:
+        die("the a100 cell's ref no longer carries its predict-step and affinity-scalar wording; "
+            "this cell quotes both and must not guess them")
+    if a100_scalar.group(2) != scalar:
+        die(f"the a100 cell records the H200 NVL arm's scalar as {a100_scalar.group(2)}, "
+            f"this box measured {scalar}")
+    a100_vram = re.search(r"Peak allocated VRAM ([0-9.]+) MiB", a100_ref)
+    vram = f"{legs[0]['peak_vram_alloc_B'] / 2 ** 20:.1f}"
+    same_vram = bool(a100_vram) and a100_vram.group(1) == vram
+    if a100_scalar.group(1) == scalar:
+        die("the a100 cell records its own scalar as the same value, so the claim that this box "
+            "differs from the A100 is wrong")
+    e, g = legs[0]["env"], legs[0]["env"]["gpu_static"]
+    leg_gap = abs(medians[0] - medians[1]) / min(medians) * 100.0
+    ref = (
+        f"Two independent processes, 3 warm reps each after a discarded cold rep, the same "
+        f"invocation-wall region the h200 and a100 cells hold: "
+        f"{' / '.join(f'{x:.4f}' for x in sorted(warm))} s, pooled median {ob:.4f}. The two legs "
+        f"median {medians[0]:.4f} and {medians[1]:.4f}, {leg_gap:.2f} % apart, and that gap is host, "
+        f"not device: the Lightning predict step inside the same reps holds "
+        f"{min(dev):.4f}-{max(dev):.4f} s across all six, against "
+        f"{a100_dev.group(1)} s on the A100. Most of this rung is host work at "
+        f"{e['effective_cpus']:.2f} effective vCPU from the cgroup quota, so the wall moves with the "
+        f"landlord's CPU while the card's share barely does. "
+        f"Reproducible where it matters: both processes return the identical affinity scalar "
+        f"{sorted(aff)[0]:.6f} and the identical sha256 of the affinity values "
+        f"({sorted(shas)[0]}), and that scalar is the H200 NVL arm's rather than the A100's. "
+        f"cuEquivariance engaged on 100 % of the triangle calls "
+        f"({legs[0]['counts']['cueq.triangle_attention']} of "
+        f"{legs[0]['counts']['callsite.triangle_attention']} attention and "
+        f"{legs[0]['counts']['cueq.triangle_multiplicative_update']} multiplicative-update). "
+        f"Peak allocated VRAM {vram} MiB"
+        f"{', the same as the A100 arm' if same_vram else ''}. "
+        f"Card exclusive, no compute app on it before either leg. "
+        f"{g['name']} at a {float(g['power.limit']):.0f} W limit, driver {g['driver_version']}, "
+        f"Python {e['python']}. Stack byte-matched to both published columns: torch {e['torch']}, "
+        f"triton {e['triton']}, cuequivariance-torch {e['cuequivariance-torch']} with "
+        f"-ops-torch-cu12 {e['cuequivariance-ops-torch-cu12']}, lightning {e['lightning']}, "
+        f"transformers {e['transformers']}, rdkit {e['rdkit']}, nesso {e['nesso']} at revision "
+        f"{legs[0]['model_revision']}. 5 recycling steps, bf16-mixed, refine on, seed 42, batch 1, "
+        f"model load outside the cell."
+    )
+    row["cells"][gpu] = {"status": "measured", "s_per_fold": round(ob, 4), "ref": ref}
+    print(f"nesso1/{gpu}: {ob:.4f} s (legs {medians[0]:.4f} / {medians[1]:.4f}), "
+          f"device {min(dev):.4f}-{max(dev):.4f} s, affinity sha {sorted(shas)[0]}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dir", type=Path, required=True)
     ap.add_argument("--gpu", required=True, choices=("h200", "b200", "a100"))
     ap.add_argument("--data", type=Path, required=True)
+    ap.add_argument("--row", default="openbind", choices=("openbind", "nesso1"))
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
 
     data = json.loads(a.data.read_text())
+    if a.row == "nesso1":
+        write_nesso(a.dir, a.gpu, data)
+        if a.dry_run:
+            print(json.dumps([r for r in data["affinity"]["models"]
+                              if r["id"] == "nesso1"][0]["cells"][a.gpu], indent=1))
+            return
+        a.data.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+        print(f"wrote nesso1/{a.gpu} into {a.data}")
+        return
     rows = {r["id"]: r for r in data["models"]}
     published = rows["openfold3"]["cells"][a.gpu]
     if published.get("status") != "measured" or not published.get("s_per_fold"):

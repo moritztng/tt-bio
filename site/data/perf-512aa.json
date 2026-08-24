@@ -614,8 +614,9 @@
             }
           },
           "b200": {
-            "status": "not measured",
-            "detail": "The Nesso-1 GPU reference was a single rented H200 session. Nothing about the model prevents a B200 run; nobody has paid for one."
+            "status": "measured",
+            "s_per_fold": 7.2491,
+            "ref": "Two independent processes, 3 warm reps each after a discarded cold rep, the same invocation-wall region the h200 and a100 cells hold: 6.8292 / 7.1488 / 7.2218 / 7.2763 / 7.5683 / 7.6070 s, pooled median 7.2491. The two legs median 7.5683 and 7.1488, 5.87 % apart, and that gap is host, not device: the Lightning predict step inside the same reps holds 1.2635-1.3201 s across all six, against 1.85434 s on the A100. Most of this rung is host work at 23.04 effective vCPU from the cgroup quota, so the wall moves with the landlord's CPU while the card's share barely does. Reproducible where it matters: both processes return the identical affinity scalar 1.234643 and the identical sha256 of the affinity values (1d5c6e3f8f7adab7), and that scalar is the H200 NVL arm's rather than the A100's. cuEquivariance engaged on 100 % of the triangle calls (2432 of 2432 attention and 2432 multiplicative-update). Peak allocated VRAM 1792.9 MiB, the same as the A100 arm. Card exclusive, no compute app on it before either leg. NVIDIA B200 at a 1000 W limit, driver 580.126.09, Python 3.12.14. Stack byte-matched to both published columns: torch 2.11.0+cu128, triton 3.6.0, cuequivariance-torch 0.11.1 with -ops-torch-cu12 0.11.1, lightning 2.6.5, transformers 5.15.1, rdkit 2026.3.5, nesso 1.0.0 at revision v1.0.0. 5 recycling steps, bf16-mixed, refine on, seed 42, batch 1, model load outside the cell."
           },
           "a100": {
             "status": "measured",
