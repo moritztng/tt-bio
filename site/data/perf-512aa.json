@@ -510,7 +510,9 @@
           }
         }
       }
-    ]
+    ],
+    "server_charts": false,
+    "server_charts_note": "Design rows are not on the per-server or per-dollar charts. Those charts turn seconds per job into jobs per hour, which is a throughput claim, and every design cell here is one design at a time. On a GPU a batch of eight amortises 2.12x on the H200, 2.50x on the B200 and 1.79x on the A100; the Blackhole AI Processor gains 1.04x at 3844 atoms and does not fit a batch of eight at all. Scaling the batch-1 seconds by accelerator count reverses the answer rather than shading it: RFdiffusion3 reads 1.20x a DGX H200 at batch 1 and 0.57x once that box runs the batch we measured ourselves. The seconds chart keeps every design row, because one at a time is the right protocol for latency. The rows return to the throughput charts when each one has a best-batch cell on every platform."
   },
   "affinity": {
     "cond": "Wall-clock seconds to return one binding-affinity prediction on a single AI Processor, warm, at the shipped defaults. Shorter is better. One prediction at a time on every platform.",

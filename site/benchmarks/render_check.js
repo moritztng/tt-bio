@@ -124,15 +124,22 @@ for (const m of predModels) {
     want(t, m.name, m.name + " should be in the derived tables");
   }
 }
-/* Category rows: their own table and chart, and the same derived tables and server charts. */
+/* Category rows: their own table and chart, and the same derived tables and server charts -- unless
+ * the category opted out of the throughput surfaces with server_charts: false, which the design rows
+ * do because a batch-1 latency number scaled by accelerator count is not a throughput claim. Then the
+ * absence is the thing to assert. */
 for (const m of catModels) {
   want("t-design", m.name, m.name + " is a category row");
   want("c5-svg", m.name, m.name + " should be in the seconds chart");
-  for (const t of ["t-derived", "t-perdollar-capex", "t-perdollar"]) {
-    want(t, m.name, m.name + " should be in the derived tables");
-  }
-  for (const c of ["c1-svg", "c1b-svg", "c2-svg"]) {
-    want(c, m.name, m.name + " should be in the server charts");
+  const cat = catKeys.find((k) => (D[k].models || []).includes(m));
+  const onServerCharts = D[cat].server_charts !== false;
+  const surfaces = ["t-derived", "t-perdollar-capex", "t-perdollar", "c1-svg", "c1b-svg", "c2-svg"];
+  for (const t of surfaces) {
+    if (onServerCharts) {
+      want(t, m.name, m.name + " should be in the server and cost surfaces");
+    } else if ((store.get(t) ? deepText(store.get(t)) : "").includes(m.name)) {
+      failures.push(m.name + " is in " + t + ", but its category set server_charts: false");
+    }
   }
 }
 /* Every measured number reaches a table, and every unmeasured cell says so rather than

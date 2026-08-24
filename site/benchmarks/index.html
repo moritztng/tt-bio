@@ -454,6 +454,38 @@ details.disclose > div{ padding-top:var(--s-4); }
     }));
   }
 
+  /* The rows the per-server and per-dollar surfaces may draw. A category can opt out with
+   * server_charts: false, and the design rows do.
+   *
+   * Those surfaces turn seconds per job into jobs per hour, and that is a throughput claim, not a
+   * latency one. Every design cell here is one design at a time, and on a GPU a batch of eight
+   * amortises 2.12x on the H200, 2.50x on the B200 and 1.79x on the A100 while the Blackhole AI
+   * Processor gains 1.04x and OOMs above b=2. Multiplying the batch-1 seconds by accelerator count
+   * therefore reverses the answer: RFdiffusion3 reads 1.20x a DGX H200 at batch 1 and 0.57x once
+   * the DGX is allowed the batch we measured ourselves. The seconds chart keeps every design row,
+   * because one-at-a-time is the right protocol for latency and the row's note carries the batch
+   * figures. The category comes back to these charts when each row has a best-batch cell on every
+   * platform. render_check.js asserts the absence rather than trusting this comment. */
+  /* Why a category is missing from these charts, in the chart's own caption rather than a footnote. */
+  function excludedNote() {
+    var out = "";
+    CATEGORIES.forEach(function (c) {
+      var b = D[c.key];
+      if (b && b.server_charts === false && b.server_charts_note) out += " " + b.server_charts_note;
+    });
+    return out;
+  }
+
+  function serverRows() {
+    return D.models.map(function (m) {
+      return { m: m, one: "prediction", many: "predictions" };
+    }).concat(catRows().filter(function (r) {
+      return !(D[r.c.key] && D[r.c.key].server_charts === false);
+    }).map(function (r) {
+      return { m: r.m, one: r.c.one, many: r.c.many, sub: r.c.sub };
+    }));
+  }
+
   /* Everything a bar can tell you on hover, built from that cell's own provenance.
    *
    * measured_on is the board the number came off, which is not always the board the column
@@ -613,7 +645,7 @@ details.disclose > div{ padding-top:var(--s-4); }
   /* Charts 1 and 2 share their shape: one measured accelerator scaled to its server. */
   function serverChart(hostId, valueOf, fmt, spec) {
     var groups = [], max = 0;
-    rows().forEach(function (row) {
+    serverRows().forEach(function (row) {
       var m = row.m;
       var bars = CELLS.map(function (k) {
         var c = m.cells[k], p = plat(SERVER_OF[k]);
@@ -668,7 +700,7 @@ details.disclose > div{ padding-top:var(--s-4); }
         "price spread over " + m.amortisation_years + " years plus electricity at " +
         fmtCents(m.electricity_usd_per_kwh) + ", with the machine predicting around the clock.";
     var adv = [];
-    rows().forEach(function (row) {
+    serverRows().forEach(function (row) {
       var v = perDollarIndex(row.m, "p150a", basis);
       if (v !== null && isFinite(v)) adv.push(v);
     });
@@ -679,7 +711,7 @@ details.disclose > div{ padding-top:var(--s-4); }
       (capex ? " on purchase price alone. Electricity is a larger share of the Galaxy's hourly cost " +
                "than of the " + ref.name + "'s, because the Galaxy is so much cheaper to buy, so the " +
                "total cost of ownership chart below is the narrower of the two."
-             : " once electricity is included. " + m.sensitivity);
+             : " once electricity is included. " + m.sensitivity) + excludedNote();
   }
 
   function chartThroughput() {
@@ -692,7 +724,7 @@ details.disclose > div{ padding-top:var(--s-4); }
     document.getElementById("c2-cond").innerHTML =
       "One measured accelerator times the accelerators in the box, on both sides: " +
       "<span class=\"num\">3600 / seconds per prediction or design &times; accelerators</span>. " +
-      "32 Blackhole AI Processors against 8 GPUs.";
+      "32 Blackhole AI Processors against 8 GPUs." + excludedNote();
   }
 
   function chartTime() {
@@ -958,7 +990,7 @@ details.disclose > div{ padding-top:var(--s-4); }
         return "<th class=\"n\">" + serverLabel(plat(id)) + "</th>";
       }).join("") + "</tr></thead>";
     function body(basis) {
-      return rows().map(function (row) {
+      return serverRows().map(function (row) {
         var m = row.m;
         return "<tr><td>" + m.name + "</td>" + CELLS.map(function (k) {
           var p = plat(SERVER_OF[k]);
