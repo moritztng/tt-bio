@@ -54,11 +54,38 @@ TILE = 32
 # side by side, chosen by vintage, is not" the answer).
 TOKEN_BUCKET = 32
 
-# The escape hatch, deliberately empty. An entry belongs here ONLY with that model's own numbers
-# written above it -- its size distribution makes the fleet value cost X% more padded compute or Y
-# more compiled variants. "It has always been 64" is not a reason, and neither is "re-measuring
-# would be work".
-BUCKET_EXCEPTIONS: dict = {}
+# The escape hatch. An entry belongs here ONLY with that model's own numbers in EVIDENCE below --
+# its size distribution makes the fleet value cost measurably more. "It has always been 64" is not
+# a reason, and neither is "re-measuring would be work".
+#
+# The three entries share ONE constant (tenstorrent.PAIRFORMER_PAD_MULTIPLE derives from
+# bucket_multiple("boltz2")), so they move together whether or not they are listed together. They
+# are listed together so the table cannot lie about which models the exception reaches.
+BUCKET_EXCEPTIONS = {"boltz2": 64, "boltzgen": 64, "nesso1": 64}
+
+# Why each exception exists, in that model's own numbers. The guard requires an entry here for
+# every exception and refuses a short one, so an undocumented fork cannot be added quietly.
+BUCKET_EXCEPTION_EVIDENCE = {
+    "boltz2": (
+        "MEASURED REFUSAL, 2026-08-24, qb2 p300c. scripts/perf_regression.py on trpcage (20 aa), 4 "
+        "interleaved pairs at matched loadavg: multiple 64 reads 1.583 / 1.371 / 1.300 / 1.785 "
+        "structures/s against multiple 32's 1.100 / 1.175 / 1.059 / 1.208. Every pair the same "
+        "direction, best-of-4 1.785 vs 1.208 = -32%, and 64 wins even in the pairs where it carried "
+        "the higher load. NOT the padded compute -- 32 runs a 32-token axis where 64 runs 64, so 32 "
+        "does strictly LESS triangle work and should be faster. The census says why: at width 64 "
+        "the fused triatt SDPA DECLINES and the stock ttnn op serves (288 calls at "
+        "tenstorrent.py:1211), and at width 32 the fused kernel SERVES (0 stock calls). The "
+        "32-bucket switches boltz2 onto the fused path at a size where the fused path loses. That "
+        "is a fused-kernel size-gate problem, not a bucketing one, and closing it would let this "
+        "exception go -- see state/token-axis-bucketing-unify.md."),
+}
+
+# An exception a model does not own, but inherits because it reads the SAME constant. These two run
+# tenstorrent.PAIRFORMER_PAD_MULTIPLE, which derives from bucket_multiple("boltz2"), so they move
+# with boltz2 whether or not anyone lists them. Listing them makes the table honest about the
+# exception's real reach, and the guard checks the parent actually has the evidence and the same
+# width -- so this cannot become a way to launder an undocumented fork through a third model.
+BUCKET_EXCEPTION_SHARED_WITH = {"boltzgen": "boltz2", "nesso1": "boltz2"}
 
 # A model's token axis is in exactly one of these states.
 BUCKETED = "bucketed"      # pads to `multiple`, masks the padding, slices back -- all three
@@ -72,14 +99,14 @@ UNCENSUSED = "uncensused"  # a reduce site nobody has checked yet; `owner` is re
 # model name (as it appears in a CLI --model choice) -> (status, multiple, site, why_or_owner)
 TOKEN_AXIS = {
     "boltz2": (
-        BUCKETED, TOKEN_BUCKET,
+        BUCKETED, BUCKET_EXCEPTIONS["boltz2"],
         "tenstorrent.py:7155 PairformerModule, :7273 Fp32PairformerModule, :7449 DiffusionModule, "
         ":7786 MSAModule, :8135 TrunkModule",
         "pad + pair-mask outer product + additive -1e9 attn mask + slice back; counters read "
         "tri_att 0 ragged / 560 aligned, attn_pair_bias 0 / 120",
     ),
     "boltzgen": (
-        BUCKETED, TOKEN_BUCKET,
+        BUCKETED, BUCKET_EXCEPTIONS["boltzgen"],
         "the same tenstorrent.py wrappers via boltzgen/model/models/boltz.py:26-28,:462",
         "inherits Boltz-2's bucket; its only other attention is a HOST torch SDPA "
         "(boltzgen/model/layers/attention.py:123), which never sees a tile layout. Censused: "
@@ -188,7 +215,7 @@ TOKEN_AXIS = {
         "closed by the structural_pair_attn_bias slot, and S, closed by zero columns",
     ),
     "nesso1": (
-        BUCKETED, TOKEN_BUCKET,
+        BUCKETED, BUCKET_EXCEPTIONS["nesso1"],
         "nesso1.py:138-154 routes both trunk stacks through tenstorrent.PairformerModule / "
         "Fp32PairformerModule, which pad to PAIRFORMER_PAD_MULTIPLE at tenstorrent.py:7945",
         "the wrapper IS reached, censused rather than inferred: `tt-bio affinity` on "

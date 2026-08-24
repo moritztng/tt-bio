@@ -104,7 +104,10 @@ def check_one_multiple_for_the_whole_fleet():
     A constant that splits on when a model was written is a fork, not a hyperparameter: it encodes
     our history rather than the hardware's, and nobody reading it later can tell whether 64 is
     right for Boltz-2 or merely old (Moritz, 2026-08-24). BUCKET_EXCEPTIONS is the only way to
-    differ and it is empty; an entry needs that model's own numbers written above it.
+    differ, and every entry has to carry that model's own numbers -- which is the difference
+    between an exception and a fork. Boltz-2 has such numbers (it loses 32 % at 20 aa on the fleet
+    value, because the narrower axis lets a fused kernel serve at a size where it loses); the
+    other 15 models do not, and may not acquire one without a measurement.
     """
     seen = {}
     for n, r in TA.TOKEN_AXIS.items():
@@ -114,10 +117,36 @@ def check_one_multiple_for_the_whole_fleet():
                f"one multiple for the whole fleet (TOKEN_BUCKET={TA.TOKEN_BUCKET})"
                + ("" if len(seen) <= 1 else "; found "
                   + ", ".join(f"{m}: {len(v)} models ({v[0]}...)" for m, v in sorted(seen.items()))))
-    undocumented = sorted(TA.BUCKET_EXCEPTIONS)
-    return ok and _fail(not undocumented,
-                        "no model needs an exception to the fleet multiple"
-                        + ("" if not undocumented else "; exceptions: " + ", ".join(undocumented)))
+    # An exception is allowed, but only against that model's OWN numbers. "It has always been 64"
+    # is not a reason; a measurement is. 200 characters is not a quality bar, it is a floor that a
+    # one-line excuse cannot clear.
+    bad = []
+    for name, mult in sorted(TA.BUCKET_EXCEPTIONS.items()):
+        if name not in TA.TOKEN_AXIS:
+            bad.append(f"{name} is not a shipped model")
+        parent = TA.BUCKET_EXCEPTION_SHARED_WITH.get(name)
+        if parent:
+            # Inherited, not claimed: legitimate only if the parent really has the evidence and
+            # really runs the same width, otherwise it is a fork laundered through a third model.
+            if parent not in TA.BUCKET_EXCEPTIONS:
+                bad.append(f"{name} inherits from {parent}, which has no exception")
+            elif TA.BUCKET_EXCEPTIONS[parent] != mult:
+                bad.append(f"{name}={mult} inherits from {parent}="
+                           f"{TA.BUCKET_EXCEPTIONS[parent]}, which is a different width")
+            elif len((TA.BUCKET_EXCEPTION_EVIDENCE.get(parent) or "").strip()) < 200:
+                bad.append(f"{name} inherits from {parent}, whose evidence is too thin to inherit")
+            continue
+        why = (TA.BUCKET_EXCEPTION_EVIDENCE.get(name) or "").strip()
+        if len(why) < 200:
+            bad.append(f"{name}={mult} has no measured justification "
+                       f"({len(why)} chars in BUCKET_EXCEPTION_EVIDENCE)")
+    stale = sorted(set(TA.BUCKET_EXCEPTION_EVIDENCE) - set(TA.BUCKET_EXCEPTIONS))
+    if stale:
+        bad.append("evidence for a model that has no exception: " + ", ".join(stale))
+    return ok and _fail(not bad,
+                        f"every exception to TOKEN_BUCKET={TA.TOKEN_BUCKET} carries its own "
+                        f"measurement ({len(TA.BUCKET_EXCEPTIONS)} exception(s))"
+                        + ("" if not bad else "; " + "; ".join(bad)))
 
 
 # The one permitted unresolved row, and the task that owes it. Keyed to the owner string so the
