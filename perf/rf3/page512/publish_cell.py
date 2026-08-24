@@ -204,8 +204,10 @@ def main():
                       f"cards at leg start. " + tail)
     else:
         each = ", ".join(
-            f"{l} with {n} foreign fold{'' if n == 1 else 's'} on neighbouring cards "
-            f"(1-minute loadavg {coten[l]['loadavg'].split()[0]})" for l, n in zip(legs, ntenants))
+            f"{l} with " + ("no foreign fold" if n == 0 else
+                             f"{n} foreign fold{'' if n == 1 else 's'}") +
+            f" on neighbouring cards (1-minute loadavg {coten[l]['loadavg'].split()[0]})"
+            for l, n in zip(legs, ntenants))
         quiet_note = (
             f"The two processes did not see the same box: {each}, both at the timed start inside "
             f"the lock. The {aa} % between their medians is that difference and not run-to-run "
@@ -221,7 +223,8 @@ def main():
         f"Four warm folds of the shipped default across two independent processes under benchlock "
         f"on {short}, one Blackhole AI Processor of a {board} board, physical card {card}, "
         f"ttnn {ttnn}{same_note}: {f4} s, median {pooled}, the two processes\u2019 own medians "
-        f"{per_proc[0]} and {per_proc[1]} for an A/A of {aa} %, cold folds {colds} s discarded. "
+        f"{per_proc[0]:.3f} and {per_proc[1]:.3f} for an A/A of {aa} %, cold folds {colds} s "
+        f"discarded. "
         f"Reproducible digest across both processes: CIF sha256 {EXPECT_DIGEST}, plDDT "
         f"{plddt:.4f}, pTM {ptm:.4f} and 49 denoise calls on every warm and cold fold, the denoise "
         f"calls counted at the sampler rather than read off the config. "
