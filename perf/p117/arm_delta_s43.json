@@ -1,0 +1,16 @@
+{
+  "a": "/tmp/rfd3_s43_off/R4_b100.cif",
+  "b": "/tmp/rfd3_s43_on/R4_b100.cif",
+  "n_atoms_a": 5117,
+  "n_atoms_b": 5125,
+  "n_residues_a": 685,
+  "n_residues_b": 685,
+  "n_residues_shared": 685,
+  "sequence_identity": 0.91241,
+  "n_residues_differing": 60,
+  "n_backbone_compared": 2740,
+  "backbone_rmsd": 2.6898,
+  "backbone_median_shift": 0.0,
+  "backbone_max_shift": 16.9581,
+  "backbone_p99_shift": 12.4152
+}

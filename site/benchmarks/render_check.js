@@ -183,54 +183,23 @@ for (const k of catKeys) {
 
 
 /* ---------- embeddings ----------
- * The embed rows are deliberately not a CATEGORIES entry, so the category loops above cannot see
- * them and a refactor could drop all six without a single check going red. These three blocks are
- * the reason that cannot happen quietly: the rows drew, they did NOT reach a chart or table they
- * must stay out of, and every per-cell note reached the visible notes list. */
+ * The six embedding rows keep every measured cell in the data file and carry "hidden": true, and
+ * the page has no code that reads D.embed at all. Both halves matter: hiding the rows without
+ * removing the chart left an empty band, and removing the chart without hiding the rows left the
+ * subtitle counting them. So assert the strong form, that no embedding row's name is drawn
+ * anywhere on the page, rather than that six particular surfaces are clean. */
 const embedModels = ((D.embed && D.embed.models) || []).filter((m) => !m.hidden);
+const embedAll = (D.embed && D.embed.models) || [];
 
-for (const m of embedModels) {
-  want("t-embed", m.name, m.name + " is an embedding row and belongs in #t-embed");
-  want("c6-svg", m.name, m.name + " should be in the sequences-per-second chart");
-  for (const [key, c] of Object.entries(m.cells)) {
-    if (c.status === "measured") {
-      /* The page derives seq/s as batch / s_per_batch and nothing else may; assert the derivation
-       * landed rather than that some number is present. */
-      const seq = c.batch / c.s_per_batch;
-      const shown = Math.round(seq).toLocaleString("en-US");
-      if (!drawn("t-embed").includes(shown)) {
-        failures.push(m.name + "/" + key + " derives " + shown +
-                      " seq/s and #t-embed does not show it");
-      }
-      const perSeq = (c.s_per_batch / c.batch).toFixed(4);
-      if (!drawn("t-embed").includes(perSeq)) {
-        failures.push(m.name + "/" + key + " derives " + perSeq +
-                      " s/seq and #t-embed does not show it");
-      }
-    } else {
-      const label = c.status === "not measured" ? "not measured" : "does not run";
-      want("t-embed", label, m.name + "/" + key + " should be labelled " + label);
-    }
-  }
-}
-
-/* An embedding row may not enter any cost, per-server or folding surface. The cost index on this
- * page is built on the DGX H200 at 512 aa folds; an embedding forward has no server price or power
- * figure it could honestly carry, so "card-only" has to be enforced and not just intended. Group
- * labels and cell text only: a row name appearing inside a hover title is provenance prose, not a
- * drawn series. */
 function drawnLabels(id) {
   const el = store.get(id);
   if (!el) return "";
   return deepText(el).replace(/<title>[\s\S]*?<\/title>/g, "");
 }
-const forbidden = ["c1-svg", "c1b-svg", "c2-svg", "c3-svg", "c5-svg",
-                   "t-derived", "t-perdollar-capex", "t-perdollar", "t-measured", "t-design"];
-for (const m of embedModels) {
-  for (const id of forbidden) {
+for (const m of embedAll) {
+  for (const id of store.keys()) {
     if (drawnLabels(id).includes(m.name)) {
-      failures.push(m.name + " is card-only and must not be drawn in #" + id +
-                    " (adding embed to CATEGORIES would do exactly this)");
+      failures.push(m.name + " is an embedding row and must not be drawn: it reached #" + id);
     }
   }
 }
@@ -253,8 +222,15 @@ for (const m of D.models.concat(catModels, embedModels)) {
  * is a deliberate act; update this table in the same commit and say why. */
 /* OpenBind-0 and Nesso-1 are restored: their h200, b200 and a100 cells exist now, so models goes
  * 7 -> 8 and affinity 0 -> 1. PXDesign is still held in perf/page_rows_pending.json, because its
- * b200 cell is blocked rather than measured, so design stays 2. */
-const EXPECT_ROWS = { models: 8, design: 2, affinity: 1, embed: 6 };
+ * b200 cell is blocked rather than measured. RFdiffusion3 is hidden by decision rather than held
+ * pending: all four of its cells are measured, but the Galaxy reads 5.87x a DGX H200 against a 4x
+ * bar, so design is 1 until that changes. A hidden row is still in the file, so the count here is
+ * of visible rows and deleting the row would still go red. */
+/* embed is 0 by decision, 2026-08-24: the embedding benchmarks came off the page. All six rows
+   keep their measured cells in the data file behind "hidden": true, so restoring them is dropping
+   the flags and putting back the chart. It is the whole category or none, so a 1 here is as wrong
+   as a 6. */
+const EXPECT_ROWS = { models: 8, design: 1, affinity: 1, embed: 0 };
 for (const [key, n] of Object.entries(EXPECT_ROWS)) {
   const got = key === "models"
     ? predModels.length
@@ -265,14 +241,16 @@ for (const [key, n] of Object.entries(EXPECT_ROWS)) {
   }
 }
 
-/* Both main-flow caveats sit above every chart, outside every disclosure. */
+/* Relocated, not deleted. The H200-against-B200 split and what each side's timer covers used to sit
+ * in the scope list above every chart, where between them they were 2.4k characters of the 4.7k a
+ * reader met before the first bar. They now read as two Methods rows. Assert they are still on the
+ * page, because "trimmed" must not be able to become "dropped" without a check going red. */
 {
-  const scope = (store.get("scope-dl") || mkEl("dl")).children.map((c) => deepText(c)).join(" ");
-  if (D.scope.gpu_generations && !scope.includes(D.scope.gpu_generations.slice(0, 40))) {
-    failures.push("the H200-against-B200 caveat did not reach #scope-dl");
-  }
-  if (D.embed && D.embed.scope && !scope.includes(D.embed.scope.slice(0, 40))) {
-    failures.push("the embedding scope line did not reach #scope-dl");
+  const dl = (store.get("methods-dl") || mkEl("dl")).children.map((c) => deepText(c)).join(" ");
+  for (const k of ["gpu_generations", "timed_region"]) {
+    if (D.scope[k] && !dl.includes(D.scope[k].slice(0, 40))) {
+      failures.push("scope." + k + " did not reach #methods-dl");
+    }
   }
 }
 
@@ -280,8 +258,9 @@ for (const [key, n] of Object.entries(EXPECT_ROWS)) {
  * site/index.html reads the same file and draws the same rows with its own copy of the three
  * formulas. It shipped a hand-written copy of the derived values and drew 6 of the 9 rows the
  * data carried, on the front page, with nothing red. So it is checked here too: every folding,
- * design and affinity row reaches the bars, no embedding row does, and the hero's per-dollar
- * range matches an independent recomputation rather than being a number somebody typed. */
+ * design and affinity row reaches the bars, and no embedding row does. The hero's per-dollar
+ * range was checked here too until 5ab0ef26 removed the sentence and the span it filled; the
+ * check outlived them and this file has been red since. */
 const land = runPage("site/index.html");
 const bars = deepText(land.store.get("bars"));
 for (const m of predModels.concat(catModels)) {
@@ -295,35 +274,11 @@ for (const m of embedModels) {
                   "chart is per server");
   }
 }
-{
-  const P = Object.fromEntries(D.platforms.map((p) => [p.id, p]));
-  const perk = (s, p) => 3600.0 / s * p.accelerators * (p.scaling_efficiency ?? 1.0) /
-                         p.price_usd * 1000;
-  const ratios = predModels.concat(catModels).map((m) => {
-    const t = m.cells.p150a, g = m.cells.b200;
-    if (!t || !g || t.status !== "measured" || g.status !== "measured") return null;
-    const secs = (c) => c.s_per_fold ?? c.s_per_design;
-    return { name: m.name, r: perk(secs(t), P.galaxy_bh) / perk(secs(g), P.dgx_b200),
-             pending: !!m.parity_pending };
-  }).filter(Boolean).sort((a, b) => a.r - b.r);
-  const hi = ratios[ratios.length - 1];
-  const hero = deepText(land.store.get("perkrange"));
-  const want = ratios[0].r.toFixed(1) + "\u00d7 to " + hi.r.toFixed(1) + "\u00d7";
-  if (!hero.includes(want)) {
-    failures.push("the landing hero's per-dollar range should read " + want +
-                  " over " + ratios.length + " rows, and #perkrange reads \'" + hero + "\'");
-  }
-  if (hi.pending && !hero.includes(hi.name)) {
-    failures.push(hi.name + " sets the top of the hero range and still owes a reference-parity " +
-                  "run, so the hero has to name it");
-  }
-}
-
 if (failures.length) {
   console.error(failures.length + " row(s) did not reach the page:");
   for (const f of failures) console.error("  " + f);
   process.exit(1);
 }
-console.log("render_check: " + (predModels.length + catModels.length + embedModels.length) +
-            " rows drew, " + catKeys.length + " categories, " + embedModels.length +
-            " embedding rows card-only, no missing ids, landing page in step");
+console.log("render_check: " + (predModels.length + catModels.length) + " rows drew, " +
+            catKeys.length + " categories, " + embedAll.length +
+            " embedding rows held out of every surface, no missing ids, landing page in step");

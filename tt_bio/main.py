@@ -1118,21 +1118,35 @@ def _stop_worker_processes(procs: list) -> None:
 
 def _supervise_worker_processes(controller_url: str, workers: list, debug: bool,
                                 *, poll: float = 3.0, max_restarts: int = 10,
-                                restart_window: float = 600.0) -> None:
+                                restart_window: float = 600.0,
+                                readmit_after: float = 600.0,
+                                readmit_cap: float = 3600.0) -> None:
     """Spawn one process per worker slot and keep them alive.
 
     If a worker exits unexpectedly (crash, fatal device error), respawn it — a
     fresh process reopens its chip and rejoins the controller, so a transient
     failure self-heals instead of silently shrinking the fleet (the 31/32 drop).
-    A per-slot budget (``max_restarts`` within ``restart_window``) drops and logs a
-    permanently-bad device rather than crash-looping it forever. Respawns happen
-    one slot at a time, so they never re-trigger the concurrent-open contention of
-    a bulk startup. Blocks until interrupted; SIGINT stops the whole fleet cleanly."""
+    A per-slot budget (``max_restarts`` within ``restart_window``) parks a chip
+    that is failing rather than crash-looping it, and parking is temporary: the
+    slot is retried after ``readmit_after``, doubling up to ``readmit_cap``.
+
+    Parking has to expire, because the budget cannot tell a dead chip from a busy
+    one. A chip held by another process on the box fails to open in about a
+    second, so ten respawns at a 3 s poll burn the whole budget inside a minute —
+    and before this, that chip was gone until someone restarted the service.
+    Measured on the Galaxy 2026-08-11: five slots dropped that way during a
+    campaign, and the pool never got them back.
+
+    Respawns happen one slot at a time, so they never re-trigger the
+    concurrent-open contention of a bulk startup. Blocks until interrupted; SIGINT
+    stops the whole fleet cleanly."""
     ctx = mp.get_context("spawn")
     _cap_worker_threads(len(workers))
     procs: dict = {}
     restarts: dict = {}
-    dropped: set = set()
+    parked: dict = {}       # slot -> monotonic time it may be retried
+    park_backoff: dict = {}  # slot -> cool-off to use on its next parking
+    all_down_logged = False
 
     def _spawn(i: int) -> None:
         proc = ctx.Process(
@@ -1147,26 +1161,47 @@ def _supervise_worker_processes(controller_url: str, workers: list, debug: bool,
     try:
         while True:
             time.sleep(poll)
+            now = time.monotonic()
             for i, proc in list(procs.items()):
-                if i in dropped or proc.is_alive():
-                    continue
                 label = getattr(workers[i], "label", f"worker {i}")
-                now = time.monotonic()
+                if i in parked:
+                    if now < parked[i]:
+                        continue
+                    del parked[i]
+                    restarts.pop(i, None)
+                    click.echo(f"[supervisor] {label} back off the bench — retrying "
+                               f"the chip", err=True)
+                    _spawn(i)
+                    continue
+                if proc.is_alive():
+                    continue
                 recent = [t for t in restarts.get(i, []) if now - t < restart_window]
                 if len(recent) >= max_restarts:
-                    dropped.add(i)
+                    cool = park_backoff.get(i, readmit_after)
+                    parked[i] = now + cool
+                    park_backoff[i] = min(cool * 2, readmit_cap)
                     click.echo(f"[supervisor] {label} exited {max_restarts}x in "
-                               f"{int(restart_window)}s — giving up (reset the chip "
-                               f"and restart the service)", err=True)
+                               f"{int(restart_window)}s — benching it for "
+                               f"{int(cool)}s (chip busy, or bad and needs a reset)",
+                               err=True)
                     continue
                 recent.append(now)
                 restarts[i] = recent
                 click.echo(f"[supervisor] {label} exited (code={proc.exitcode}); "
                            f"respawning [{len(recent)}/{max_restarts}]", err=True)
                 _spawn(i)
-            if workers and len(dropped) == len(workers):
-                click.echo("[supervisor] all workers permanently failed — exiting", err=True)
-                break
+            # No slot holds a chip. Say so once, and keep retrying: the pool is the
+            # only thing that would notice the chips coming back. Callers see the
+            # truth through the controller — a worker registers only once its chip
+            # is open, so `online_workers` is 0 here and the platform refuses jobs.
+            if workers and len(parked) == len(workers):
+                if not all_down_logged:
+                    click.echo("[supervisor] no worker holds a chip — all slots "
+                               "benched, still retrying", err=True)
+                    all_down_logged = True
+            elif all_down_logged:
+                click.echo("[supervisor] a worker holds a chip again", err=True)
+                all_down_logged = False
     except KeyboardInterrupt:
         click.echo("\nStopping workers...")
         _stop_worker_processes(list(procs.values()))
@@ -3374,7 +3409,8 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
                    "Ignored with --controller.")
 @click.option("--controller", default=None,
               help="Submit to a running `tt-bio controller` (or a fleet joined via `tt-bio "
-                   "worker --connect`) instead of spawning local subprocess shards. Workers keep "
+                   "worker --connect`) instead of spawning local subprocess shards. Sequence-only "
+                   "in this path (structures never leave the submitting client). Workers keep "
                    "the SaProt model resident across calls, so repeated runs against the same "
                    "controller skip the weight reload.")
 @click.option("--owner", default=None,
@@ -3400,6 +3436,10 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
     from tt_bio import saprot, esmc
 
     torch.set_grad_enabled(False)
+    if controller and structure:
+        raise click.ClickException(
+            "--controller runs are sequence-only (structures stay on the submitting "
+            "client and are never shipped to workers). Drop --structure or run locally.")
     try:
         seqs = saprot.load_sequences_with_structure(data, structure)
     except ValueError as e:
@@ -3412,10 +3452,20 @@ def saprot_cmd(data, model, structure, out_dir, out_format, pool, return_logits,
         if devices:
             click.secho("Note: --devices is ignored with --controller (device topology comes "
                         "from connected workers).", fg="yellow")
-        _dispatch_embed_to_controller(controller, seqs, model=model, out=out,
+        # Sequence-only fleet path: strip the (empty) 3Di strings to bare
+        # sequences — the worker's saprot branch embeds {id: aa} directly.
+        bare = {sid: (v[0] if isinstance(v, (list, tuple)) else v) for sid, v in seqs.items()}
+        _dispatch_embed_to_controller(controller, bare, model=model, out=out,
                                       out_format=out_format, pool=pool,
                                       return_logits=return_logits, fast=fast,
                                       batch_size=batch_size, owner=owner)
+        if return_logits:
+            # SaProt logits are over the 446-token fused vocab, not ESMC's 64-dim head.
+            import json as _json
+            _mf = out / "manifest.json"
+            _m = _json.load(open(_mf))
+            _m["shapes"]["logits"] = "[length, 446] float32 (per-residue MLM logits over the fused AA+3Di vocab)"
+            _json.dump(_m, open(_mf, "w"), indent=2)
         return
 
     device_list = None
@@ -3589,10 +3639,23 @@ def _run_pxdesign_cli(inputs: Path, out_dir, cache, num_designs, n_step, seed) -
               help="boltzgen only. Debug mode: no Rich display, no output suppression.")
 @click.option("--log", is_flag=True,
               help="boltzgen only. With --debug: print per-stage progress lines.")
+# ---- fleet dispatch (both models) ----
+@click.option("--controller", default=None,
+              help="Submit to an existing controller at URL (e.g. http://HOST:8765) instead of "
+                   "running locally; compute comes from that cluster's workers. boltzgen: the "
+                   "pipeline's own fleet path (merge + filter here). rfd3: one shard per spec, "
+                   "each worker runs its shard in-process on its own card and ships CIFs back.")
+@click.option("--run-id", "run_id", default=None,
+              help="Use this run id on the controller (lets the submitter cancel the run later). "
+                   "Requires --controller.")
+@click.option("--owner", default=None,
+              help="Opaque fairness key (e.g. a hashed session id) the controller uses to "
+                   "fair-share devices across users. Requires --controller.")
 def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                checkpoint, golden_dir, num_timesteps, seed, partial_t, fp32_residual,
                spec_subset, from_pdb, batch_size, n_step, host_threads,
-               protocol, steps, configs, budget, reuse, fast, diffusion_trace, debug, log):
+               protocol, steps, configs, budget, reuse, fast, diffusion_trace, debug, log,
+               controller, run_id, owner):
     """Run structure design on Tenstorrent: generate new protein binders, scaffolds,
     or sequences from a specification instead of folding an existing one.
 
@@ -3674,6 +3737,12 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                          ("--log", log)):
             if on:
                 argv.append(flag)
+        if controller:
+            argv += ["--controller", controller]
+            if run_id:
+                argv += ["--run-id", run_id]
+            if owner:
+                argv += ["--owner", owner]
         _run_boltzgen_cli("tt-bio design", argv)
         return
 
@@ -3732,6 +3801,25 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
         specs = {k: v for k, v in specs.items() if k in keep}
         if not specs:
             raise click.ClickException(f"no spec ids in --spec matched {list(keep)}")
+
+    if controller:
+        if not from_pdb:
+            raise click.ClickException(
+                "--controller runs need --from_pdb (the golden-bridge fixture is a local "
+                "dev/test path and is never shipped to workers).")
+        click.echo(f"Designing {len(specs)} spec(s) × {num_designs} design(s) → {out_dir} "
+                   f"via the fleet at {controller} ({num_timesteps} steps)")
+        try:
+            results = _rfd3.run_design_via_controller(
+                specs, out_dir, controller_url=controller, num_timesteps=num_timesteps,
+                seed=seed, partial_t=partial_t, fp32_residual=fp32_residual,
+                num_designs=num_designs, batch_size=batch_size,
+                run_id=run_id, owner=owner, verbose=True,
+            )
+        except (ValueError, TypeError, RuntimeError) as e:
+            raise click.ClickException(str(e))
+        click.echo(f"Done — {len(results)} design(s) → {out_dir}")
+        return
 
     if checkpoint is None:
         gdir = str(ensure_rfd3_weights(Path(cache).expanduser()))

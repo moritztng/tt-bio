@@ -1,0 +1,98 @@
+{
+  "arm": "off",
+  "env_RFD3_BLOCK_SPARSE": null,
+  "bs_config": {
+    "q_block": 1216,
+    "buckets": [
+      3264,
+      3488,
+      4224
+    ]
+  },
+  "row": {
+    "model": "rfd3",
+    "seconds": 94.27031256799819,
+    "n_designs": 4,
+    "in_band": 0.9855,
+    "breaks": 1,
+    "clash_frac": 0.004202,
+    "clashes": 3,
+    "distinct_aa": 11,
+    "unk": 0,
+    "clean_rate": 0.75,
+    "determinism": true,
+    "parse": true,
+    "gate": true,
+    "error": null,
+    "per_design": [
+      {
+        "n_designed": 70,
+        "in_band": 1.0,
+        "step_median": 3.868,
+        "breaks": 0,
+        "clashes": 0,
+        "heavy": 715,
+        "clash_frac": 0.0,
+        "worst_contact": 0.0,
+        "unk": 0,
+        "distinct_aa": 14,
+        "top_aa_frac": 0.457,
+        "clean": true
+      },
+      {
+        "n_designed": 70,
+        "in_band": 0.9855,
+        "step_median": 3.865,
+        "breaks": 1,
+        "clashes": 2,
+        "heavy": 714,
+        "clash_frac": 0.002801,
+        "worst_contact": 1.836,
+        "unk": 0,
+        "distinct_aa": 12,
+        "top_aa_frac": 0.514,
+        "clean": false
+      },
+      {
+        "n_designed": 70,
+        "in_band": 1.0,
+        "step_median": 3.891,
+        "breaks": 0,
+        "clashes": 0,
+        "heavy": 715,
+        "clash_frac": 0.0,
+        "worst_contact": 0.0,
+        "unk": 0,
+        "distinct_aa": 14,
+        "top_aa_frac": 0.429,
+        "clean": true
+      },
+      {
+        "n_designed": 70,
+        "in_band": 1.0,
+        "step_median": 3.869,
+        "breaks": 0,
+        "clashes": 3,
+        "heavy": 714,
+        "clash_frac": 0.004202,
+        "worst_contact": 1.567,
+        "unk": 0,
+        "distinct_aa": 11,
+        "top_aa_frac": 0.429,
+        "clean": true
+      }
+    ]
+  },
+  "thresholds": {
+    "RFD3_MIN_CLEAN_RATE": 0.5,
+    "RFD3_MIN_INBAND": 0.98,
+    "RFD3_MAX_BREAKS": 0,
+    "RFD3_MAX_CLASHES": 6,
+    "RFD3_MIN_DISTINCT_AA": 5,
+    "RFD3_MAX_UNK": 0,
+    "num_designs": 4,
+    "timesteps": 200,
+    "seed": 42,
+    "det_timesteps": 4
+  }
+}

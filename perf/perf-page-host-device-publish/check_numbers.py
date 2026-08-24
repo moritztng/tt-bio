@@ -82,8 +82,11 @@ def main():
             bad.append(f"{m['id']}: the Tenstorrent host share is an upper bound and must say so")
     for missing in set(EXPECT) - seen:
         bad.append(f"{missing}: row absent")
-    if "network forward" not in page["scope"]["protocol"]:
-        bad.append("scope.protocol still does not say what the NVIDIA cells time")
+    # The timed-region paragraph moved out of scope.protocol into scope.timed_region on
+    # 2026-08-24, when the run conditions above the charts were cut to two sentences and the
+    # forensics went into Methods. It must still be on the page somewhere, so check both.
+    if "network forward" not in page["scope"].get("timed_region", page["scope"]["protocol"]):
+        bad.append("neither scope.timed_region nor scope.protocol says what the NVIDIA cells time")
     if not page["scope"].get("split"):
         bad.append("scope.split is missing, so the table renders with no caption")
     for mid in ("protenix-v2", "opendde", "rf3"):

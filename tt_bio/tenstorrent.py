@@ -915,20 +915,23 @@ def _tri_att_q_chunks(q_len: int, k_len: int) -> tuple:
 # take a real share of the softmax mass. Writing a large negative into the bias over the padded key
 # columns takes it back to zero. The query axis pads with 0 instead: those output rows are sliced
 # off, and a fully-masked row would divide by zero.
-# DEFAULT-ON since 2026-08-24 (Moritz, answering ask 6378). This is a CORRECTNESS GUARD, not a
-# perf knob, and it must not be "simplified" back to opt-in: an unmasked ragged tail makes the
-# softmax denominator sum garbage columns, which is wrong math of the same class as PLAYBOOKS
-# §MODEL 2b's 72x finding, and a fix you have to know to ask for protects only the people who
-# already knew.
+# DEFAULT-ON since 2026-08-24 (Moritz, ask 6378, and independently on main as 29347cd9). This is
+# a CORRECTNESS GUARD, not a perf knob, and it must not be "simplified" back to opt-in: an unmasked
+# ragged tail makes the softmax denominator sum garbage columns, which is wrong math of the same
+# class as PLAYBOOKS MODEL 2b's 72x finding, and a fix you have to know to ask for protects only the
+# people who already knew.
 #
 # It is free where it fires and it fires almost nowhere. The gate below is
-# `bias is not None and (Sq % 32 or Sk % 32)`, so on an ALIGNED axis it is one modulo and no work
-# at all -- and every one of the 18 bucketed models presents an aligned axis by construction. It
-# therefore cannot move a published number; it only protects whatever still arrives ragged: a new
-# model, a refactor, a debug run with TT_BIO_TOKEN_BUCKET=0. Measured at a genuinely ragged length
-# (nesso1, 148 tokens, bucket forced off): -1.1 % wall clock, i.e. free inside noise, because
-# `_sdpa_pad_ragged`'s ttnn.pad ALIASES in TILE layout; and the answer moves 1.510 -> 1.523 toward
-# the correctly-bucketed 1.5395.
+# `bias is not None and (Sq % 32 or Sk % 32)`, so on an ALIGNED axis it is one modulo and no work at
+# all -- and with token-axis bucketing landed, every shipped model presents an aligned axis by
+# construction. It therefore cannot move a published number; it only protects whatever still arrives
+# ragged: a new model, a refactor, a debug run with TT_BIO_TOKEN_BUCKET=0. Measured at a genuinely
+# ragged length (nesso1, 148 tokens, bucket forced off): -1.1 % wall clock, i.e. free inside noise,
+# because `_sdpa_pad_ragged`'s ttnn.pad ALIASES in TILE layout; and the answer moves 1.510 -> 1.523
+# toward the correctly-bucketed 1.5395.
+#
+# Before bucketing landed it cost 1.036x / 1.031x whole fold on Protenix-v2 and OpenDDE, and bought
+# back 0.4791 A and 0.3896 A. Both are bucketed now, so it fires on neither.
 #
 # `TT_BIO_SDPA_RAGGED_PAD=0` restores the old behaviour for bisecting, and the per-site
 # `TT_BIO_SDPA_RAGGED_PAD_AB` machinery is untouched.

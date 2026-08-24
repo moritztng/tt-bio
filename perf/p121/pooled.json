@@ -1,0 +1,143 @@
+{
+  "aa_control": {
+    "n_rounds": 2,
+    "rounds": [
+      {
+        "src": "aa.json",
+        "round": 1,
+        "off": 94.92,
+        "on": 94.867,
+        "raw": 0.053,
+        "frac": 0.000558,
+        "load_max": 2.48,
+        "load_clean": true
+      },
+      {
+        "src": "aa.json",
+        "round": 2,
+        "off": 94.763,
+        "on": 94.566,
+        "raw": 0.197,
+        "frac": 0.002079,
+        "load_max": 2.99,
+        "load_clean": true
+      }
+    ],
+    "frac_median": 0.001319,
+    "frac_min": 0.000558,
+    "frac_max": 0.002079,
+    "s_per_design_median": 0.124,
+    "s_per_design_min": 0.053,
+    "s_per_design_max": 0.196,
+    "all_rounds_load_clean": true
+  },
+  "ab": {
+    "n_rounds": 7,
+    "n_runs": 2,
+    "rounds": [
+      {
+        "src": "ab_clean.json",
+        "round": 1,
+        "off": 94.799,
+        "on": 92.366,
+        "raw": 2.433,
+        "frac": 0.025665,
+        "load_max": 3.27,
+        "load_clean": false
+      },
+      {
+        "src": "ab_clean.json",
+        "round": 2,
+        "off": 95.247,
+        "on": 91.546,
+        "raw": 3.701,
+        "frac": 0.038857,
+        "load_max": 3.47,
+        "load_clean": false
+      },
+      {
+        "src": "ab_clean.json",
+        "round": 3,
+        "off": 95.26,
+        "on": 91.853,
+        "raw": 3.407,
+        "frac": 0.035765,
+        "load_max": 3.59,
+        "load_clean": false
+      },
+      {
+        "src": "ab_clean2.json",
+        "round": 1,
+        "off": 95.845,
+        "on": 91.783,
+        "raw": 4.062,
+        "frac": 0.042381,
+        "load_max": 3.83,
+        "load_clean": false
+      },
+      {
+        "src": "ab_clean2.json",
+        "round": 2,
+        "off": 94.781,
+        "on": 91.777,
+        "raw": 3.004,
+        "frac": 0.031694,
+        "load_max": 4.57,
+        "load_clean": false
+      },
+      {
+        "src": "ab_clean2.json",
+        "round": 3,
+        "off": 95.046,
+        "on": 92.309,
+        "raw": 2.737,
+        "frac": 0.028797,
+        "load_max": 4.57,
+        "load_clean": false
+      },
+      {
+        "src": "ab_clean2.json",
+        "round": 4,
+        "off": 94.568,
+        "on": 92.339,
+        "raw": 2.229,
+        "frac": 0.02357,
+        "load_max": 3.57,
+        "load_clean": false
+      }
+    ],
+    "frac_median": 0.031694,
+    "frac_min": 0.02357,
+    "frac_max": 0.042381,
+    "frac_iqr": [
+      0.025665,
+      0.038857
+    ],
+    "s_per_design_median": 2.982,
+    "s_per_design_min": 2.218,
+    "s_per_design_max": 3.988,
+    "spread_pct": 59.35,
+    "all_rounds_load_clean": false,
+    "harness_verdict": "NO CLEAN ROUND -- every scored round voided on the 3.0 load bar"
+  },
+  "separation": {
+    "median_ratio": 24.0,
+    "ab_min_over_aa_max": 11.3,
+    "distributions_overlap": false
+  },
+  "landing": {
+    "page_cell_s_per_design": 91.443,
+    "page_cell_ratio": 7.048,
+    "enabled_on_a_fitting_target": 88.461,
+    "enabled_ratio": 6.818,
+    "bar_4x": 51.896,
+    "residual_above_bar": 36.565,
+    "note": "The lever stays default-OFF, so the SHIPPED number is unchanged at 91.443 / 7.048x. 'enabled_*' is what it reaches with RFD3_BLOCK_SPARSE=1 on a target whose padded atom axis is a multiple of 1216, which is 2.45%% of atom counts."
+  },
+  "cost_models_for_comparison": {
+    "p3_k3_gross": 4.191,
+    "p3_k3_net": 3.787,
+    "p3_k2_net": 3.552,
+    "p2_per_call_ratio_projection": 28.506
+  }
+}

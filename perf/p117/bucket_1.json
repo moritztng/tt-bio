@@ -1,0 +1,110 @@
+{
+  "source": "perf/p102/umax_schedule.json",
+  "dense_ms": 9.9236,
+  "calls_per_step": 9,
+  "steps": 200,
+  "host_s_per_design": {
+    "320": 0.447,
+    "608": 0.42,
+    "1216": 0.404,
+    "3040": 0.361
+  },
+  "best_q": "Q1216",
+  "best": {
+    "buckets": [
+      4224
+    ],
+    "fallback_steps": 40,
+    "fallback_frac": 0.201,
+    "mean_chain_ms": 8.6609,
+    "gross_s_per_design": 2.273,
+    "host_s_per_design": 0.404,
+    "net_s_per_design": 1.869
+  },
+  "per_q": {
+    "Q320": {
+      "measured_bracket": [
+        2048,
+        3040
+      ],
+      "u_max_schedule": 5536,
+      "n_indices": 199,
+      "buckets": {
+        "k1": {
+          "buckets": [
+            3040
+          ],
+          "fallback_steps": 40,
+          "fallback_frac": 0.201,
+          "mean_chain_ms": 13.2484,
+          "gross_s_per_design": -5.985,
+          "host_s_per_design": 0.447,
+          "net_s_per_design": -6.432
+        }
+      }
+    },
+    "Q608": {
+      "measured_bracket": [
+        2496,
+        3648
+      ],
+      "u_max_schedule": 5920,
+      "n_indices": 199,
+      "buckets": {
+        "k1": {
+          "buckets": [
+            3648
+          ],
+          "fallback_steps": 41,
+          "fallback_frac": 0.206,
+          "mean_chain_ms": 9.5165,
+          "gross_s_per_design": 0.733,
+          "host_s_per_design": 0.42,
+          "net_s_per_design": 0.313
+        }
+      }
+    },
+    "Q1216": {
+      "measured_bracket": [
+        3264,
+        4224
+      ],
+      "u_max_schedule": 6048,
+      "n_indices": 199,
+      "buckets": {
+        "k1": {
+          "buckets": [
+            4224
+          ],
+          "fallback_steps": 40,
+          "fallback_frac": 0.201,
+          "mean_chain_ms": 8.6609,
+          "gross_s_per_design": 2.273,
+          "host_s_per_design": 0.404,
+          "net_s_per_design": 1.869
+        }
+      }
+    },
+    "Q3040": {
+      "measured_bracket": [
+        3936,
+        5280
+      ],
+      "u_max_schedule": 6048,
+      "n_indices": 199,
+      "buckets": {
+        "k1": {
+          "buckets": [
+            5280
+          ],
+          "fallback_steps": 35,
+          "fallback_frac": 0.176,
+          "mean_chain_ms": 9.9341,
+          "gross_s_per_design": -0.019,
+          "host_s_per_design": 0.361,
+          "net_s_per_design": -0.38
+        }
+      }
+    }
+  }
+}

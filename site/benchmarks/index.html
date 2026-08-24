@@ -1,12 +1,3 @@
-  /* Why a row is missing from these charts, in the chart's own caption rather than a footnote. */
-  function excludedNote() {
-    var out = "";
-    D.models.concat(catRows().map(function (r) { return r.m; })).forEach(function (m) {
-      if (m.server_charts === false && m.server_charts_note) out += " " + m.server_charts_note;
-    });
-    return out;
-  }
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -15,8 +6,8 @@
 <link rel="icon" href="/assets/favicon.ico" sizes="32x32" type="image/x-icon">
 <link rel="icon" href="/assets/icon-500.png" sizes="500x500" type="image/png">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" sizes="500x500">
-<title>TT-Bio: biomolecular structure, design and embeddings on Tenstorrent</title>
-<meta name="description" content="Seventeen open biomolecular models measured on Tenstorrent: eight folding, two binder design, one binding affinity and six protein embedding. Seconds per prediction and throughput per dollar against NVIDIA H200, B200 and A100 at 512 residues, with every number's provenance on the page.">
+<title>TT-Bio: biomolecular structure prediction, design and binding affinity on Tenstorrent</title>
+<meta name="description" content="Ten open biomolecular models measured on Tenstorrent: eight folding, one binder design and one binding affinity. Seconds per prediction and throughput per dollar against NVIDIA H200, B200 and A100 at 512 residues, with every number's provenance on the page.">
 <link rel="preload" href="../assets/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="../assets/site.css">
 <style>
@@ -97,8 +88,6 @@ th{ color:var(--ink-3); font-weight:600; font-size:.72rem; letter-spacing:.09em;
 th.n, td.n{ text-align:right; }
 thead th{ border-bottom-color:var(--rule-2); }
 td.blocked{ color:var(--ink-4); }
-/* The second line of an embedding cell: the same figure inverted, so seq/s and s/seq sit together. */
-.subfig{ color:var(--ink-3); font-size:.86em; }
 .mtable td:first-child{ font-weight:600; }
 .mnote{ color:var(--ink-3); font-size:.88rem; margin:var(--s-2) 0 0; max-width:78ch; }
 .mnote code{ font-size:.94em; }
@@ -294,23 +283,6 @@ details.disclose > div{ padding-top:var(--s-4); }
 
 </section>
 
-<section class="band" id="embed">
-  <div class="band-head">
-    <h2>Protein embeddings</h2>
-    <p class="band-deck" id="embed-deck"></p>
-  </div>
-
-  <section class="chart" id="c6">
-    <div class="chart-head">
-      <div class="chart-title"><h3>Sequences per second, one AI Processor</h3><span class="pill">Measured</span></div>
-      <p class="cond" id="c6-cond"></p>
-    </div>
-    <div class="keys" id="c6-keys"></div>
-    <figure><div id="c6-svg"></div></figure>
-    <p class="cond" id="c6-note"></p>
-  </section>
-</section>
-
 <details class="disclose" id="exact">
   <summary>The exact figures <span class="sum-note">the measured seconds behind every bar, and the derived tables</span></summary>
   <div>
@@ -322,8 +294,6 @@ details.disclose > div{ padding-top:var(--s-4); }
     <div class="notes"><ul id="rownotes"></ul></div>
     <h4 style="margin-top:24px">Measured, seconds per design or affinity prediction on one AI Processor</h4>
     <div class="tablewrap"><table id="t-design"></table></div>
-    <h4 style="margin-top:24px">Measured, sequences per second on one AI Processor</h4>
-    <div class="tablewrap"><table id="t-embed"></table></div>
     <h4 style="margin-top:24px">Derived, predictions and designs per hour per server</h4>
     <div class="tablewrap"><table id="t-derived"></table></div>
     <h4 style="margin-top:24px">Derived, throughput per dollar of purchase price</h4>
@@ -435,17 +405,6 @@ details.disclose > div{ padding-top:var(--s-4); }
       one: "prediction", many: "predictions", sub: "binding affinity, no structure" }
   ];
   function catModels(k) { return ((D[k] && D[k].models) || []).filter(shown); }
-  /* The embedding rows are deliberately NOT a category. They are measured in a different unit at a
-   * different timed region, and they are card-only: the cost index on this page is built on the DGX
-   * H200 at 512 aa folds, so an embedding forward has no server price or power figure it could
-   * honestly carry. Adding "embed" to CATEGORIES would draw it into both throughput-per-dollar
-   * charts, the per-server chart and the three derived tables. render_check.js asserts that absence
-   * rather than trusting this comment. */
-  function embedModels() { return ((D.embed && D.embed.models) || []).filter(shown); }
-  /* The only place seq/s is derived. The JSON stores the measured seconds per batch and the batch it
-   * actually executed; everything a reader sees is computed from those two. */
-  function seqPerS(c) { return c.batch / c.s_per_batch; }
-  function sPerSeq(c) { return c.s_per_batch / c.batch; }
   function catRows() {
     return CATEGORIES.reduce(function (a, c) {
       return a.concat(catModels(c.key).map(function (m) { return { m: m, c: c }; }));
@@ -484,12 +443,13 @@ details.disclose > div{ padding-top:var(--s-4); }
       });
   }
 
-  /* Why a category is missing from these charts, in the chart's own caption rather than a footnote. */
+  /* Why a row is missing from these charts, in the chart's own caption rather than a footnote.
+     Reads model rows, because `server_charts` lives on a row and never on a category. A hidden
+     row is already gone from the page, so it needs no explanation and must not leave one. */
   function excludedNote() {
     var out = "";
-    CATEGORIES.forEach(function (c) {
-      var b = D[c.key];
-      if (b && b.server_charts === false && b.server_charts_note) out += " " + b.server_charts_note;
+    D.models.concat(catRows().map(function (r) { return r.m; })).forEach(function (m) {
+      if (!m.hidden && m.server_charts === false && m.server_charts_note) out += " " + m.server_charts_note;
     });
     return out;
   }
@@ -809,52 +769,6 @@ details.disclose > div{ padding-top:var(--s-4); }
       CATEGORIES.map(function (c) { return D[c.key] && D[c.key].note; }).filter(Boolean).join(" ");
   }
 
-  /* Embeddings, and the one chart on this page where longer bars are better. The cond says so in its
-   * first clause, because a reader arriving from four shorter-is-better charts will carry that
-   * assumption in. */
-  function chartEmbed() {
-    if (!D.embed) return;
-    var groups = [], max = 0;
-    embedModels().forEach(function (m) {
-      var bars = CELLS.map(function (k) {
-        var c = m.cells[k], p = plat(k);
-        if (c.status !== "measured") {
-          return { series: p.name, seriesShort: p.short, blocked: true,
-                   blockedLabel: blockedLabel(c), reason: blockedWhy(c) };
-        }
-        var v = seqPerS(c);
-        max = Math.max(max, v);
-        return {
-          series: p.name, seriesShort: p.short, color: SER[k], value: v,
-          label: fmtInt(v) + " seq/s", labelShort: fmtInt(v),
-          tip: tip(m, k, fmtInt(v) + " sequences per second, " + fmtSec(sPerSeq(c), 4) +
-                   " s per sequence, at an executed batch of " + c.batch)
-        };
-      });
-      groups.push({ label: m.name, sub: "batch " + m.cells.p150a.batch + ", " + m.tokens + " tokens", bars: bars });
-    });
-    drawBars(document.getElementById("c6-svg"), {
-      id: "c6", groups: groups, max: niceMax(max), unit: "sequences per second", unitShort: "seq/s",
-      tickFmt: function (v) { return v.toFixed(0); },
-      title: "Sequences per second for one protein-embedding forward on one AI Processor, measured",
-      desc: embedModels().map(function (m) {
-        return m.name + ": " + CELLS.map(function (k) {
-          var c = m.cells[k];
-          return plat(k).short + " " +
-            (c && c.status === "measured" ? fmtInt(seqPerS(c)) + " seq/s" : blockedLabel(c));
-        }).join(", ") + ".";
-      }).join(" ")
-    });
-    /* The deck names the roster; the scope row above every chart carries the section's scope and
-     * c6-cond right below carries its conditions, so neither is repeated here. */
-    document.getElementById("embed-deck").textContent =
-      embedModels().map(function (m) { return m.name; }).join(", ").replace(/, ([^,]*)$/, " and $1") +
-      ", each embedding one " + D.scope.size_aa + "-residue sequence at " +
-      embedModels()[0].tokens + " tokens.";
-    document.getElementById("c6-cond").textContent = D.embed.cond;
-    document.getElementById("c6-note").textContent = D.embed.note;
-  }
-
   function chartCost() {
     var rows = SERVERS.map(plat);
     var max = 0, groups = [];
@@ -946,7 +860,6 @@ details.disclose > div{ padding-top:var(--s-4); }
       rn.appendChild(Object.assign(document.createElement("li"), { textContent: text }));
     }
     var sections = [D.models].concat(CATEGORIES.map(function (c) { return catModels(c.key); }));
-    if (D.embed) sections.push(embedModels());
     sections.forEach(function (ms) {
       ms.forEach(function (m) {
         if (m.note) note(m.name + ". " + m.note);
@@ -974,25 +887,6 @@ details.disclose > div{ padding-top:var(--s-4); }
             return gpuCell(m.cells[k], function (c) { return fmtSec(secs(c)); });
           }).join("") + "</tr>";
       }).join("") + "</tbody>";
-
-    /* seq/s with s/seq beneath it, so a reader can invert the throughput without doing the
-     * arithmetic and can see that the batch is matched across the four platforms. */
-    if (D.embed) {
-      document.getElementById("t-embed").innerHTML =
-        "<thead><tr><th>Model</th><th class=\"n\">Params</th><th class=\"n\">Batch</th>" +
-        "<th class=\"n\">Blackhole p150a</th><th class=\"n\">H200</th><th class=\"n\">B200</th>" +
-        "<th class=\"n\">A100</th></tr></thead><tbody>" +
-        embedModels().map(function (m) {
-          return "<tr><td>" + m.name + "</td><td class=\"n num\">" + m.params + "</td>" +
-            "<td class=\"n num\">" + m.cells.p150a.batch + "</td>" +
-            CELLS.map(function (k) {
-              return gpuCell(m.cells[k], function (c) {
-                return fmtInt(seqPerS(c)) + " seq/s<br><span class=\"subfig\">" +
-                  fmtSec(sPerSeq(c), 4) + " s/seq</span>";
-              });
-            }).join("") + "</tr>";
-        }).join("") + "</tbody>";
-    }
 
     var head2 = "<thead><tr><th>Model</th>" +
       SERVERS.map(function (id) {
@@ -1035,11 +929,9 @@ details.disclose > div{ padding-top:var(--s-4); }
       if (ms.length) scopeRows.push([c.label + " target",
         ms.map(function (x) { return x.target; }).join("; ")]);
     });
-    /* Two caveats that belong in the main flow rather than behind a disclosure: which way the two
-     * NVIDIA generations actually go on these workloads, and that the embedding section is measured
-     * in a different unit over a different timed region. */
-    if (s.gpu_generations) scopeRows.push(["H200 and B200", s.gpu_generations]);
-    if (D.embed && D.embed.scope) scopeRows.push(["Embeddings", D.embed.scope]);
+    /* The scope list carries the run conditions and nothing else. How the two NVIDIA generations
+     * split across the rows, and what each side's timer covers, are methodology: they read as
+     * "H200 against B200" and "Timed region" in Methods below. */
     scopeRows.push(["Run", s.protocol], ["Updated", D.updated]);
     scopeRows.forEach(function (kv) {
       dl.appendChild(Object.assign(document.createElement("dt"), { textContent: kv[0] }));
@@ -1067,7 +959,6 @@ details.disclose > div{ padding-top:var(--s-4); }
     keyRow("c2-keys", SERVERS);
     keyRow("c3-keys", CELLS);
     keyRow("c5-keys", CELLS);
-    if (D.embed) keyRow("c6-keys", CELLS);
 
     var md = document.getElementById("methods-dl");
     function mrow(k, v) {
@@ -1080,14 +971,14 @@ details.disclose > div{ padding-top:var(--s-4); }
         var ms = catModels(c.key);
         return ms.length ? ", plus " + ms.map(function (x) { return x.name; }).join(", ") +
           " for " + c.methodsLabel.toLowerCase() : "";
-      }).join("") +
-      (D.embed ? ", plus " + embedModels().map(function (x) { return x.name; }).join(", ") +
-        " for protein embeddings, measured separately in " + D.embed.unit : "") + ".");
+      }).join("") + ".");
     mrow("Size", s.size_aa + " residues. " + s.description);
     mrow("Input", s.fixture + " with " + s.msa_file + ", seed " + s.seed + ", templates " + s.templates +
       ", " + s.diffusion_samples + " diffusion sample. Both sides ran these same two files.");
     mrow("Measured", "Wall-clock seconds for one prediction or one design on one accelerator, warm. " +
       "Hover any bar for the run behind it.");
+    if (s.timed_region) mrow("Timed region", s.timed_region);
+    if (s.gpu_generations) mrow("H200 against B200", s.gpu_generations);
     mrow("Parity", "Each Tenstorrent figure carries the parity it holds against that model's own " +
       "reference on this input: " + D.models.map(function (x) {
         var c = x.cells.p150a;
@@ -1096,17 +987,6 @@ details.disclose > div{ padding-top:var(--s-4); }
     CATEGORIES.forEach(function (c) {
       if (D[c.key] && D[c.key].methods) mrow(c.methodsLabel, D[c.key].methods);
     });
-    if (D.embed) {
-      mrow("Protein embeddings", D.embed.methods);
-      /* Built the same way as the folding rows' Parity line, and it must keep saying the length each
-       * PCC was measured at: every embedding parity figure is from 20-129 aa and every cell here is
-       * at 512, so a 76 aa PCC must not read as a 512 aa claim. */
-      mrow("Embedding parity", "Each Tenstorrent embedding figure carries the parity it holds against "
-        + "that model's own reference: " + embedModels().map(function (x) {
-          var c = x.cells.p150a;
-          return x.name + " " + (c && c.parity ? c.parity : "not measured");
-        }).join("; "));
-    }
     mrow("Servers", "A server bar is one measured accelerator times the accelerators in the box, on " +
       "both sides: 32 Blackhole AI Processors against 8 GPUs. Both sides are assumed to scale " +
       "linearly with accelerator count, so every server bar is an upper bound on its own box.");
@@ -1144,7 +1024,7 @@ details.disclose > div{ padding-top:var(--s-4); }
   function renderAll() {
     chartPerDollar("c1", "capex");
     chartPerDollar("c1b", "tco");
-    chartThroughput(); chartTime(); chartDesign(); chartEmbed(); chartCost(); tables();
+    chartThroughput(); chartTime(); chartDesign(); chartCost(); tables();
   }
 
   var rt = null;
@@ -1161,6 +1041,10 @@ details.disclose > div{ padding-top:var(--s-4); }
     .then(function (r) { return r.json(); })
     .then(function (json) {
       D = json;
+      /* `catModels` already drops a hidden design/affinity row; the prediction list is the one
+         place that never did, so a hidden prediction row still reached every chart and table.
+         Filter once here rather than at each of the ten iteration sites. */
+      D.models = (D.models || []).filter(shown);
       statics();
       renderAll();
     })

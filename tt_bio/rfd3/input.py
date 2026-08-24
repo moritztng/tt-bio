@@ -227,6 +227,37 @@ def parse_contig(s: str, *, unindex: bool = False) -> List[ContigComponent]:
     return out
 
 
+def contig_residue_count(comps: Sequence[ContigComponent]) -> int:
+    """How many residue tokens a parsed contig will build.
+
+    This mirrors the token plan in ``featurize._plan_tokens_from_contig`` term
+    for term, so a caller can size a submission before a structure is parsed or
+    a device is opened:
+
+      - ``Indexed`` contributes its nominal ``length`` (the featurizer raises if
+        the range is not present in the input structure, so the nominal count is
+        exact for any contig that runs at all, and an over-long range is a
+        rejection either way);
+      - ``Designed`` contributes ``length``;
+      - ``DesignedRange`` contributes ``(lo + hi) // 2`` — the fixed midpoint the
+        featurizer resolves it to (see the ``DesignedRange`` docstring: upstream
+        draws a random length, this port pins the midpoint for reproducibility);
+      - ``ChainBreak`` and ``UnindexedOffset`` are separators and cost nothing.
+
+    Keeping this beside the parser rather than in the caller means the size rule
+    cannot drift from the grammar it sizes.
+    """
+    n = 0
+    for c in comps:
+        if isinstance(c, Indexed):
+            n += c.length
+        elif isinstance(c, Designed):
+            n += c.length
+        elif isinstance(c, DesignedRange):
+            n += (c.lo + c.hi) // 2
+    return n
+
+
 # --- InputSelection parser -------------------------------------------------
 def parse_input_selection(
     value: Union[bool, str, Mapping, None],

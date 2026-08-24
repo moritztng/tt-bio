@@ -37,7 +37,11 @@ NOUNS = {"models": "structure-prediction model", "design": "binder-design model"
 # already says "models", and it is a search result, not a caption.
 SHORT = {"models": "folding", "design": "binder design", "affinity": "binding affinity",
          "embed": "protein embedding"}
+# What the page title calls each category. The title names the work, not the row count.
+TOPIC = {"models": "structure prediction", "design": "design", "affinity": "binding affinity",
+         "embed": "embeddings"}
 META_RE = re.compile(r'(<meta name="description" content=")([^"]*)(">)')
+TITLE_RE = re.compile(r"(<title>)([^<]*)(</title>)")
 
 
 def rows(doc: dict, cat: str) -> list:
@@ -59,7 +63,17 @@ def missing(row: dict) -> list[str]:
 
 
 def counts(doc: dict) -> list[tuple[str, int]]:
-    return [(cat, len(rows(doc, cat))) for cat in CATEGORIES]
+    """Rows the page actually draws, which is not the same as rows in the file.
+
+    A row can leave the page two ways. `--strip` moves it to perf/page_rows_pending.json,
+    and these counts followed that from the start. `"hidden": true` leaves it in the file
+    and the renderer skips it, and these counts did not: the day RF3 and RFdiffusion3 were
+    hidden the subtitle went on claiming eight folding and two design models over a page
+    drawing seven and one, and the meta description said seventeen over sixteen. Both ways
+    out have to subtract here or the prose overstates the page.
+    """
+    return [(cat, len([r for r in rows(doc, cat) if not r.get("hidden")]))
+            for cat in CATEGORIES]
 
 
 def join(parts: list[str]) -> str:
@@ -93,35 +107,51 @@ def meta_for(doc: dict) -> str:
             "the page.")
 
 
+def title_for(doc: dict) -> str:
+    """The page title, from the categories that still have a published row.
+
+    The day the embedding rows came off, the title still read "structure, design and
+    embeddings" over a page with no embedding chart, and it is written in two places: this
+    tag and `title` in the JSON, which the page assigns to document.title on load. Four
+    strings name what the page covers and every one of them is generated here.
+    """
+    live = [TOPIC[cat] for cat, n in counts(doc) if n]
+    return f"TT-Bio: biomolecular {join(live)} on Tenstorrent"
+
+
 def retitle(doc: dict) -> list[str]:
-    """Rewrite both count-bearing strings and report what moved."""
+    """Rewrite every count- or category-bearing string and report what moved."""
     moved = []
-    want = subtitle_for(doc)
-    if doc.get("subtitle") != want:
-        doc["subtitle"] = want
-        moved.append(f"subtitle: {want}")
+    for key, want in (("subtitle", subtitle_for(doc)), ("title", title_for(doc))):
+        if doc.get(key) != want:
+            doc[key] = want
+            moved.append(f"{key}: {want}")
     page = PAGE.read_text()
-    want_meta = meta_for(doc)
-    fixed, n = META_RE.subn(lambda m: m[1] + want_meta + m[3], page, count=1)
-    if not n:
-        raise SystemExit(f"no <meta name=\"description\"> in {PAGE}")
-    if fixed != page:
-        PAGE.write_text(fixed)
-        moved.append(f"meta: {want_meta}")
+    for what, rx, want in (("meta", META_RE, meta_for(doc)), ("title", TITLE_RE, title_for(doc))):
+        fixed, n = rx.subn(lambda m: m[1] + want + m[3], page, count=1)
+        if not n:
+            raise SystemExit(f"no {what} tag in {PAGE}")
+        if fixed != page:
+            PAGE.write_text(fixed)
+            page = fixed
+            moved.append(f"{what} tag: {want}")
     return moved
 
 
 def stale(doc: dict) -> list[str]:
-    """Count-bearing prose that no longer matches the published rows."""
+    """Count- or category-bearing prose that no longer matches the published rows."""
     bad = []
-    if doc.get("subtitle") != subtitle_for(doc):
-        bad.append(f"subtitle does not match the published row counts, want: {subtitle_for(doc)}")
-    found = META_RE.search(PAGE.read_text())
-    if not found:
-        bad.append(f"no <meta name=\"description\"> in {PAGE}")
-    elif found[2] != meta_for(doc):
-        bad.append(f"meta description does not match the published row counts, "
-                   f"want: {meta_for(doc)}")
+    page = PAGE.read_text()
+    for key, want in (("subtitle", subtitle_for(doc)), ("title", title_for(doc))):
+        if doc.get(key) != want:
+            bad.append(f"JSON {key} does not match the published rows, want: {want}")
+    for what, rx, want in (("meta description", META_RE, meta_for(doc)),
+                           ("<title>", TITLE_RE, title_for(doc))):
+        found = rx.search(page)
+        if not found:
+            bad.append(f"no {what} in {PAGE}")
+        elif found[2] != want:
+            bad.append(f"{what} does not match the published rows, want: {want}")
     return bad
 
 

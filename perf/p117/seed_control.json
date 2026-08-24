@@ -1,0 +1,86 @@
+{
+  "rows": [
+    {
+      "n_backbone": 2740,
+      "rmsd": 1.1669,
+      "max_shift": 7.2398,
+      "bit_identical": 2340,
+      "bit_identical_frac": 0.854,
+      "n_moving": 400,
+      "rmsd_moving": 3.0541,
+      "n_residues": 685,
+      "seq_identity": 0.908,
+      "n_designed": 100,
+      "designed_differing": 63,
+      "designed_identity": 0.37,
+      "pair": "arm delta, seed 42",
+      "kind": "arm"
+    },
+    {
+      "n_backbone": 2740,
+      "rmsd": 2.6898,
+      "max_shift": 16.9581,
+      "bit_identical": 2340,
+      "bit_identical_frac": 0.854,
+      "n_moving": 400,
+      "rmsd_moving": 7.0398,
+      "n_residues": 685,
+      "seq_identity": 0.9124,
+      "n_designed": 100,
+      "designed_differing": 60,
+      "designed_identity": 0.4,
+      "pair": "arm delta, seed 43",
+      "kind": "arm"
+    },
+    {
+      "n_backbone": 2740,
+      "rmsd": 6.6769,
+      "max_shift": 39.7414,
+      "bit_identical": 2340,
+      "bit_identical_frac": 0.854,
+      "n_moving": 400,
+      "rmsd_moving": 17.475,
+      "n_residues": 685,
+      "seq_identity": 0.8891,
+      "n_designed": 100,
+      "designed_differing": 76,
+      "designed_identity": 0.24,
+      "pair": "seed 42 vs 43, shipped arm",
+      "kind": "seed"
+    },
+    {
+      "n_backbone": 2740,
+      "rmsd": 6.5192,
+      "max_shift": 36.5605,
+      "bit_identical": 2340,
+      "bit_identical_frac": 0.854,
+      "n_moving": 400,
+      "rmsd_moving": 17.0624,
+      "n_residues": 685,
+      "seq_identity": 0.8847,
+      "n_designed": 100,
+      "designed_differing": 79,
+      "designed_identity": 0.21,
+      "pair": "seed 42 vs 43, sparse arm",
+      "kind": "seed"
+    }
+  ],
+  "n_designed": 100,
+  "arm_rmsd": [
+    1.1669,
+    2.6898
+  ],
+  "seed_rmsd": [
+    6.6769,
+    6.5192
+  ],
+  "arm_designed_identity": [
+    0.37,
+    0.4
+  ],
+  "seed_designed_identity": [
+    0.24,
+    0.21
+  ],
+  "arm_delta_below_seed_delta": true
+}
