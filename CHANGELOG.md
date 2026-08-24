@@ -85,6 +85,11 @@ built from a wheel of this tree, with every gate run against the checkout it is 
 - Host test suite: 1120 passed, 52 skipped, 1 xfailed.
 - UX regression (`ux_regression.py`): every surface cleared progress, argument parsing and the
   results manifest.
+- The `biotite<1.7` pin was checked on the interpreter its break appears on. A clean Python 3.12
+  install of this wheel resolves biotite 1.6.0, where both symbols the vendored AtomWorks tree
+  reaches are present; biotite 1.7.1 on the same interpreter has dropped `BondList._bonds` and no
+  longer exports `connect_via_residue_names` from `biotite.structure.bonds`. So the pin is what
+  keeps a clean 3.12 install able to featurize RoseTTAFold3.
 
 ### Known gaps
 
@@ -114,8 +119,6 @@ gated.
 - `tt-bio design --model pxdesign` is not exercised end to end by any gate leg. Its accuracy is
   covered by a fit-RMSD floor, a coordinate digest and 25 bit-exact featurizer arms; the CLI path
   around it, from argument parsing through weight resolution to the results manifest, is not.
-- The `biotite<1.7` pin guards a break that only appears on Python 3.12, which no gate host in
-  the fleet runs.
 
 ## [0.6.8] - 2026-08-24
 
