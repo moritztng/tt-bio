@@ -341,8 +341,9 @@ compares each with the matching card-type baseline in
 "Every shipped architecture" is enforced, not aspirational: `perf_regression.py`
 cross-checks its `SPECS` dict against every `*_MODELS` tuple in `tt_bio.main`
 (the same lists each CLI `--model` choice is built from, discovered rather than
-named so a new verb's tuple cannot slip past) before running anything, and refuses to start if any shipped model
-has neither a `SPECS` entry nor a documented `SPECS_EXEMPT` reason. This closes
+named so a new verb's tuple cannot slip past) before running anything, and
+refuses to start if any shipped model has neither a `SPECS` entry nor a
+documented `SPECS_EXEMPT` reason. This closes
 the gap that let OpenDDE's antibody-antigen checkpoint (`opendde-abag`) ship a
 >60x diffusion-precision slowdown in v0.3.3/v0.3.4 with zero perf coverage — it
 shared its implementation class with the already-covered `opendde` entry, so a
