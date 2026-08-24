@@ -36,6 +36,7 @@ OUT = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "perf/p95/block_sparse.
 REPS = int(sys.argv[2]) if len(sys.argv) > 2 else 5
 IDX_PT = pathlib.Path("perf/p94/indices.pt")
 TAG = sys.argv[3] if len(sys.argv) > 3 else "early"       # early is the widest union p94 saw
+QSWEEP = [int(x) for x in (sys.argv[4] if len(sys.argv) > 4 else "32,64,128,256").split(",")]
 H, L, NK, DH, K = 4, 6051, 6080, 32, 128
 Q = 32
 CALLS, STEPS = 9, 200
@@ -97,11 +98,25 @@ def gather_kv(x_bhnd, gather_flat_dev, nb, u_width, dev):
     x = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
     x = ttnn.reshape(x, (NK, H * DH))
     x = ttnn.pad(x, [[0, 1], [0, 0]], 0.0)                       # row NK == zeros, the pad slot
-    g = ttnn.embedding(gather_flat_dev, x, layout=ttnn.ROW_MAJOR_LAYOUT,
+    return gather_kv_from_rm(x, gather_flat_dev, nb, u_width)
+
+
+def gather_kv_from_rm(x_rm, gather_flat_dev, nb, u_width):
+    """The half that repeats per call: the source rows are a per-STEP constant, so the
+    permute/relayout/pad above is hoistable out of the 9 calls a step makes and only the
+    embedding and the reshape back are really per call."""
+    g = ttnn.embedding(gather_flat_dev, x_rm, layout=ttnn.ROW_MAJOR_LAYOUT,
                        memory_config=ttnn.DRAM_MEMORY_CONFIG)
     g = ttnn.reshape(g, (nb, u_width, H, DH))
     g = ttnn.to_layout(g, ttnn.TILE_LAYOUT)
     return ttnn.permute(g, (2, 0, 1, 3))                         # [H, nb, U, DH]
+
+
+def to_rm_rows(x_bhnd):
+    x = ttnn.permute(x_bhnd, (0, 2, 1, 3))
+    x = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
+    x = ttnn.reshape(x, (NK, H * DH))
+    return ttnn.pad(x, [[0, 1], [0, 0]], 0.0)
 
 
 def main():
