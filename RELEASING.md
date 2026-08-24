@@ -20,7 +20,15 @@ Run from the repository root, and run them with the interpreter that carries the
 nobody ships. The difference is not cosmetic: on a boltz2 no-MSA target, ttnn
 0.67.4 and 0.68.0 disagree by several angstrom of Kabsch RMSD on identical code
 (see the note in `docs/implementation-parity-data/boltz2-9ncy.json`), which reads
-as a parity regression that is not one. Check before you start:
+as a parity regression that is not one.
+
+All three gates now check this themselves and refuse before they open a card: the
+interpreter has to satisfy every requirement in `pyproject.toml`, versions included,
+not just TT-NN. That check exists because a gate host missing one declared package
+does not report a missing package, it reports the model that needed it as FAIL. On
+2026-08-23 the 0.6.7 UX gate called `rf3` broken when the host env was simply missing
+`toolz`, declared the day before, and it took a full gate run to find out. If a gate
+refuses here, install what it names rather than working around it:
 
 ```bash
 python3 -c "import importlib.metadata as m; print(m.version('ttnn'))"   # must equal the pyproject pin
@@ -32,12 +40,17 @@ stays the repository:
 
 ```bash
 python3 -m build && python3 -m venv /tmp/relvenv
-/tmp/relvenv/bin/pip install dist/tt_bio-*.whl
+/tmp/relvenv/bin/pip install "$(echo dist/tt_bio-*.whl)[tenstorrent,test]"
 PYTHONPATH="$PWD" /tmp/relvenv/bin/python3 scripts/full_parity_gate.py ...
 ```
 
 `full_parity_gate.py`, `perf_regression.py` and `ux_regression.py` all spawn their
 folds and scorers as `sys.executable`, so the choice propagates to every leg.
+
+The `[tenstorrent,test]` extras are not optional here. Without `tenstorrent` the venv has
+no TT-NN at all, and the dependency preflight above counts a missing declared dependency
+as a problem, so every gate refuses before it opens a card. `test` supplies pytest, which
+is not a runtime dependency and so is absent from a plain wheel install.
 
 ```bash
 # Pin the card. Much of the suite opens a device, and with TT_VISIBLE_DEVICES unset
@@ -100,8 +113,14 @@ cached and cards are free. Fan it across every card that is up for parallelism:
 python3 scripts/full_parity_gate.py --workers pc:0,qb1:0,qb1:1,qb2:0
 ```
 
-Two guards can stop either gate before it folds anything:
+Three guards can stop either gate before it folds anything:
 
+* **Worker names.** Every host in `--workers` that is not this box is probed once over ssh before
+  the first fold: reachable, actually a different machine, and carrying the card numbers you asked
+  for. Run the gate *on* qb2 with `--workers qb2:2` and `qb2` is an ssh alias that box cannot
+  resolve, so it would ssh to nothing and every device leg would exit 255 in 0s while the
+  in-process legs passed — a FAIL after 47 minutes with no model run. Write `localhost:2` for cards
+  on the box you are running on.
 * **Card grant.** `TT_VISIBLE_DEVICES` is the set of cards the run may open. Ask `--workers` for
   a card outside it and the gate refuses in preflight rather than taking a card a sibling job
   holds. A release run leaves it unset, which means the whole box and is the unchanged path; the
@@ -158,14 +177,25 @@ control in a single process and requires the three to agree exactly on the struc
 both affinity heads while the control does not. The control is what keeps the leg honest:
 without it, a run where every fold collapsed to one constant would also pass.
 
-`scripts/release_gate.py` remains as a fast single-target smoke proxy (one
-7ROA fold per model + a BoltzGen/OpenDDE-abag/ESMC quick check) for a quick
-sanity look, but it is no longer the parity gate of record — `full_parity_gate.py`
-is the command that must pass before a tag. The two do not overlap awkwardly:
-the full gate runs the BoltzGen designability and OpenDDE-abag DockQ legs by
-calling `release_gate`'s vetted `run_boltzgen` / `run_opendde_abag` / `run_nesso1`
-**in-process** (capturing their real scRMSD/DockQ/scalar numbers), so there is one
-implementation of each leg, not two.
+**Both gate scripts must pass before a tag, and neither is a subset of the
+other.** `full_parity_gate.py` is the parity gate of record: it owns the
+multi-seed reference-fixture comparison for the models it has legs for.
+`release_gate.py` owns the per-model ground-truth accuracy floors in its `MODELS`
+dict (the table above) plus the `DEFAULT_ARMS` legs, and for some models it is the
+*only* place a correctness leg exists at all — RF3, for one, has no
+`full_parity_gate.py` leg, so skipping `release_gate.py` ships RF3 with no
+accuracy check. Do not read "parity gate of record" as "the only gate that has to
+pass".
+
+The two do not overlap awkwardly: the full gate runs the BoltzGen designability
+and OpenDDE-abag DockQ legs by calling `release_gate`'s vetted `run_boltzgen` /
+`run_opendde_abag` / `run_nesso1` **in-process** (capturing their real
+scRMSD/DockQ/scalar numbers), so there is one implementation of each leg, not two.
+
+Before a tag, check which command scores each shipped model rather than assuming
+one covers everything: `grep -n <model> scripts/full_parity_gate.py
+scripts/release_gate.py`. A model named in a gate's docstring but missing from its
+leg list is not covered, and a leg that does not run reports no failure.
 
 Nesso-1 is scored by `release_gate.py --model nesso1`, which needs no ccd.pkl setup:
 `find_ccd` downloads the 413 MB file from the checkpoint repo on a miss, so `NESSO_CACHE`
@@ -295,8 +325,8 @@ time — an all-day thrash with zero model-numerics problems. Run `--check` and 
 one-leg `--dry-run`/fold smoke first; they catch that whole class in minutes.
 
 The accuracy gate covers Boltz-2, ESMFold2, ESMFold2-fast, Protenix-v2,
-OpenFold3, OpenDDE, BoltzGen designability, OpenDDE-abag antibody-antigen
-docking, and
+OpenFold3, OpenDDE, RF3, BoltzGen designability, RFD3 designed-region
+correctness, OpenDDE-abag antibody-antigen docking, Nesso-1 affinity scalars, and
 ESMC-300m/600m reference parity. It folds 7ROA at production sampling settings,
 parses every written mmCIF, and checks the confidence-selected structure against
 these regression limits:
@@ -309,6 +339,7 @@ these regression limits:
 | Protenix-v2 | 6.0 Å | 0.50 |
 | OpenFold3 | 3.5 Å | 0.70 |
 | OpenDDE | 6.0 Å | 0.50 |
+| RF3 | 3.0 Å | 0.75 |
 
 ESMFold2's floor is loose because it is anchored to the **default single-sequence**
 fold (measured 5.80 Å / TM 0.508 on Blackhole), not the MSA-on fold the old 4.0 Å /
@@ -318,7 +349,13 @@ esmfold2 leg. `scripts/release_gate.py:MODELS` is the source of truth for these
 numbers; keep this table in sync with it.
 
 BoltzGen passes when at least half of four generated binders refold within
-2 Å scRMSD. ESMC passes at per-residue PCC ≥0.99 against upstream ESM. Nesso-1 predicts no
+2 Å scRMSD. RFD3 scores the mmCIF it delivers, not its featurizer input: over four
+designs it needs a clean designed-region backbone in at least half of them, no
+heavy-atom clashes beyond 6, a real sequence at the designed positions, and
+byte-identical coordinates from a repeated seed in a fresh process. Every number is
+computed over the designed residues only, because for a binder RFD3 merges them into
+the target's own chain and a chain-level number passes by dilution.
+ESMC passes at per-residue PCC ≥0.99 against upstream ESM. Nesso-1 predicts no
 coordinates, so it is not in that table: it passes when the worst of its eleven output
 scalars stays inside 5.0x upstream's own run-to-run spread and the device repeats agree to
 1e-6. Floors live in `scripts/nesso1_port/device_parity.py`.
@@ -358,6 +395,14 @@ Update a baseline only for an intentional performance change:
 TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
   python3 scripts/perf_regression.py --update-baseline --note "reason"
 ```
+
+The UX gate also carries an **input-contracts** leg: the three OpenFold3 inputs
+0.6.7 fixed, folded through the shipped CLI. A `cyclic: true` chain must be
+refused rather than folded as a linear one, a YAML `msa:` pointing at the user's
+own alignment must fold, and a CCD ligand's reference conformer must keep the
+handedness its code names. Each has a card-free host test; none of the accuracy
+legs folds these inputs, which is how all three reached a release. Diagnostic
+opt-out is `--no-contracts`; a release run gates all three.
 
 The UX gate checks CLI help, live progress phase ordering, strict output parsing,
 and results or manifest shape for every user-facing architecture — the fold

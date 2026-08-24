@@ -2,7 +2,7 @@
 """Standing accuracy release gate — the on-hardware accuracy leg of RELEASING.md.
 
 For every shipped fold architecture (Boltz-2, ESMFold2, ESMFold2-fast,
-Protenix-v2, OpenFold3, OpenDDE) this
+Protenix-v2, OpenFold3, OpenDDE, RF3) this
 folds one easy, foldable target end-to-end on the real device with production
 sampling and then applies two independent gates to the result:
 
@@ -241,6 +241,10 @@ MODELS = {
     # the printed digit, so this floor covers seed and MSA-draw spread rather than a
     # run-to-run wobble that does not exist at 117 aa. Floor = ~2x measured, same discipline
     # as boltz2 (1.55 -> 3.0), protenix-v2 (3.87 -> 6.0) and openfold3 (1.775 -> 3.5).
+    # 2026-08-23, v0.6.8: re-read after RF3 flipped to the fused-SDPA default (fp32_softmax
+    # off, ragged key tail masked). Same card, same grid: RMSD 1.239 A / TM 0.958, i.e. the
+    # shipped fast arm lands on the pre-flip number. The floor is deliberately NOT tightened
+    # on it -- that is a change in gate strength, not a release task's call.
     "rf3":           {"max_rmsd": 3.0, "min_tm": 0.75},
     # OpenBind-0, shipped as `predict --model openbind`. Same OF3 stack on upstream's
     # v0.5.0 checkpoint, so it folds the shared 7ROA target with the same MSA bytes the
@@ -334,6 +338,12 @@ RFD3_DET_TIMESTEPS = 4
 # severe discontinuity (design 1 still scores 0.9855 in band, which clears the 0.98 bar on
 # its own), and `in_band` catches many mildly-wrong steps that never individually exceed
 # CA_CA_BREAK. A garbled coordinate tensor trips one or the other.
+# Provenance: every number below was measured on ttnn 0.67.4 while the release pin is 0.68.0,
+# and RELEASING.md warns those two runtimes can disagree by angstroms on a diffusion fold. The
+# v0.6.8 gate re-read the whole row on 0.68.0 (qb1 card 2, p150a 13x10) and it reproduces
+# exactly: clean 0.75, in band 0.9855, breaks 1, worst clash 3, distinct AA 11, UNK 0,
+# determinism identical (9702983e19b6d945 from two fresh processes). Three runs, two trees.
+# So the floors are runtime-portable in fact, not by assumption, and none of them moves.
 RFD3_MIN_CLEAN_RATE = 0.50   # measured 0.75 (3 of 4)
 RFD3_MIN_INBAND = 0.98       # measured 1.0000 / 0.9855 / 1.0000 / 1.0000
 RFD3_MAX_BREAKS = 0          # per design, inside the clean test above
@@ -1880,9 +1890,15 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
             r = _run_census_fold(model, rung, workdir,
                                  "warmup" if rep == 0 else f"rep{rep - 1}")
             if r.get("error"):
+                # Carry the rungs that already measured. Rungs run in ascending order, so a
+                # failure at the top rung used to discard three good measurements and print "-"
+                # in every cell, which reads as "this model cannot fold at all" instead of "this
+                # model folds up to 640 and died at 768". That cost a bisect on 2026-08-23 to
+                # recover information the leg already had.
                 return {"error": f"rung {rung} "
                                  f"{'warm-up' if rep == 0 else f'rep {rep - 1}'}: "
-                                 f"{r['error']}"}
+                                 f"{r['error']}",
+                        "runtime_s": runtimes, "partial": True}
             if rep == 0:
                 continue          # cold: kernels for this shape compile on this fold
             grid = grid or r.get("grid")
@@ -1959,7 +1975,8 @@ def _size_ladder_check_model(model: str, rungs, base_model: dict, workdir: Path)
     meas = _size_ladder_measure_model(model, rungs, workdir, reps, reps)
     if meas.get("error"):
         return {"model": model, "gate": False, "error": meas["error"],
-                "findings": [meas["error"]]}
+                "findings": [meas["error"]],
+                "runtime_s": meas.get("runtime_s") or {}, "partial": True}
     findings = []
     b_grid, c_grid = base_model.get("grid"), meas.get("grid")
     if b_grid and c_grid and b_grid != c_grid:
@@ -2671,9 +2688,10 @@ def main() -> int:
                     choices=list(MODELS) + list(DEFAULT_ARMS) + ["size-ladder"]
                     + ESMC_DEFAULT + ESMC_OPT_IN,
                     action="append",
-                    help="Gate only this model (repeatable). Default: the five fold "
-                         "models + boltzgen + rfd3 + opendde-abag + capacity + "
-                         "l1-budget + size-ladder + ESMC 300m/600m embed parity. "
+                    help="Gate only this model (repeatable). Default: every model in "
+                         "MODELS + every arm in DEFAULT_ARMS + size-ladder + ESMC "
+                         "300m/600m embed parity — the whole default set, so a newly "
+                         "added model or arm is covered without touching this string. "
                          "esmc-6b is opt-in (slow ~13 GB load).")
     ap.add_argument("--keep", action="store_true", help="Keep run output dirs for inspection.")
     ap.add_argument("--size-ladder-record-lever", default=None, metavar="FLAG[,FLAG...]",
@@ -2712,6 +2730,12 @@ def main() -> int:
     # device, and the boltzgen leg passes --devices <first granted card>. So there is nothing
     # here to skip for a narrow grant; what it does need is the load guard, and the grant
     # printed so a run's card is in its own log rather than inferred from the launch line.
+    dep_problems = gate_guard.declared_dependency_problems(REPO_ROOT / "pyproject.toml")
+    if dep_problems:
+        print("PREFLIGHT - refusing to run the gate on this interpreter:")
+        for problem in dep_problems:
+            print(f"  - {problem}")
+        return 1
     overloaded = gate_guard.load_ceiling_problem(args.load_ceiling)
     if overloaded:
         print(f"PREFLIGHT - refusing to run the gate. {overloaded}")

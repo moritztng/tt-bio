@@ -6,10 +6,12 @@ DNA, RNA, ligands in all three input forms, covalent glycan, non-canonical resid
 cyclic chains, templates). The captures are committed and 4.8 MB total, so this is the one
 RF3 gate that runs anywhere -- a laptop, CI, a host with no card.
 
-GAP_ENV is a skip, not a failure. `feats/ref_pos` is an RDKit-generated conformer and RDKit
-moves it between releases, so on a machine whose RDKit differs from the captures' the gate
-reports GAP_ENV with both versions named and every surviving mismatch inside the
-RDKit-derived key set. That is an environment difference, and reporting it as a failure
+GAP_ENV is a skip, not a failure. Two key sets are only comparable against a capture made
+in the same environment: `feats/ref_pos` and friends are RDKit-generated conformers, and
+`coord_atom_lvl_to_be_noised` carries a random rigid augmentation built from
+`torch.linalg.qr`, whose sign convention is the LAPACK backend's. The gate names every
+dependency that differs and excuses only the key set that dependency owns -- a torch
+difference does not excuse a conformer. Reporting an environment difference as a failure
 would be the same inversion as guarding on a fixture's existence while depending on its
 contents (see tests/of3_golden.py).
 """
@@ -37,3 +39,17 @@ def test_rf3_featurizer_parity():
     assert rep["fixtures_total"] == 10, rep["fixtures_total"]
     assert rep["fixtures_pass"] == rep["fixtures_total"], rep
     assert rep["keys_bitexact"] == rep["keys_total"], rep
+
+
+def test_an_env_difference_only_excuses_its_own_keys():
+    """A torch difference must not excuse a conformer, and an RDKit difference must not
+    excuse a rotation. Without this the leg would go green on a real port defect the
+    moment any dependency drifted."""
+    g = _load_rf3_parity_gate()
+    assert g.excusable_keys(None) == set()
+    assert g.excusable_keys({"torch": {}}) == g.TORCH_QR_DERIVED_KEYS
+    assert g.excusable_keys({"rdkit": {}}) == g.RDKIT_DERIVED_KEYS
+    assert g.excusable_keys({"numpy": {}}) == set()
+    assert g.excusable_keys({"torch": {}, "rdkit": {}}) == (
+        g.TORCH_QR_DERIVED_KEYS | g.RDKIT_DERIVED_KEYS)
+    assert not (g.TORCH_QR_DERIVED_KEYS & g.RDKIT_DERIVED_KEYS)
