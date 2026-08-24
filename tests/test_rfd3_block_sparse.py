@@ -116,6 +116,47 @@ def test_block_size_must_divide_the_padded_query_axis():
     assert BS.plan(idx, N_KEY, 1024, BUCKETS) is None
 
 
+def test_the_gate_fixture_has_no_usable_block_size():
+    """The release gate's own fixture cannot run this arm, and no choice of Q rescues it.
+
+    `examples/rfd3_binder.json` is 1350 atoms, so the padded query axis is 1376 = 2**5 * 43 with 43
+    prime. Its only multiple-of-32 divisors are 32 and 1376: 43 blocks, whose gathered row count
+    nb*U is worse than dense, or one block whose union IS the key axis, which is dense. So the arm
+    declines every step there and `release_gate.py --model rfd3` passes with RFD3_BLOCK_SPARSE=1
+    having scored the shipped dense chain twice (measured: 0 blocked, 1791 dense-fallback).
+
+    This is pinned rather than fixed because default-OFF is correct given it. If someone changes Q,
+    the gate fixture, or plan()'s divisibility policy, this test fails and the coverage claim in
+    block_sparse.py's docstring has to be re-stated.
+    """
+    gate_n_key = 1376                                  # _tile(1350)
+    assert gate_n_key % 32 == 0 and gate_n_key % Q != 0
+    usable = [q for q in range(32, gate_n_key + 1, 32) if gate_n_key % q == 0]
+    assert usable == [32, gate_n_key]
+
+    idx = _index(length=1350, n_key=gate_n_key, width=600)
+    assert BS.plan(idx, gate_n_key, Q, BUCKETS) is None
+    # Every Q the tile rule allows either splits into 43 blocks or is the whole axis.
+    for q in usable:
+        planned = BS.plan(idx, gate_n_key, q, BUCKETS)
+        nb = gate_n_key // q
+        assert planned is None or planned[0] == nb
+
+
+def test_the_live_atom_counts_are_one_in_thirty_eight():
+    """How narrow the arm is, as a number, because five passes measured it on the one fixture
+    whose padded axis happens to be 5 * 1216 and nothing said so.
+
+    plan() needs Q to DIVIDE the tile-padded atom axis, which is far stronger than the
+    multiple-of-32 rule the design notes state. Pure arithmetic on that condition.
+    """
+    q_tiles = Q // 32
+    assert q_tiles == 38
+    live = [a for a in range(256, 12001) if (-(-a // 32) * 32) % Q == 0]
+    assert len(live) == 288                            # of 11745 atom counts, 2.45 %
+    assert L in live and 1350 not in live              # R4 is live, the gate fixture is not
+
+
 def test_default_is_off_and_toggles_back():
     was = BS.set_enabled(True)
     try:

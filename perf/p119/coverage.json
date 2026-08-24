@@ -1,0 +1,78 @@
+{
+  "q_block": 1216,
+  "q_tiles": 38,
+  "rule": "arm is live iff ceil(atoms/32) % 38 == 0",
+  "known_fixtures": {
+    "rfd3_R4 (p103/p105/p106/p107 fixture)": {
+      "atoms": 6051,
+      "padded": 6080,
+      "padded_tiles": 190,
+      "arm_live": true,
+      "q_candidates_mult32": [
+        32,
+        64,
+        160,
+        320,
+        608,
+        1216,
+        3040,
+        6080
+      ]
+    },
+    "examples/rfd3_binder.json (release-gate Anchor 1)": {
+      "atoms": 1350,
+      "padded": 1376,
+      "padded_tiles": 43,
+      "arm_live": false,
+      "q_candidates_mult32": [
+        32,
+        1376
+      ]
+    }
+  },
+  "census_span": [
+    256,
+    12000
+  ],
+  "n_atom_counts": 11745,
+  "n_live": 288,
+  "live_fraction": 0.02452,
+  "live_windows_atoms": [
+    [
+      1185,
+      1216
+    ],
+    [
+      2401,
+      2432
+    ],
+    [
+      3617,
+      3648
+    ],
+    [
+      4833,
+      4864
+    ],
+    [
+      6049,
+      6080
+    ],
+    [
+      7265,
+      7296
+    ],
+    [
+      8481,
+      8512
+    ],
+    [
+      9697,
+      9728
+    ],
+    [
+      10913,
+      10944
+    ]
+  ]
+}

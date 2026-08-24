@@ -159,7 +159,7 @@ h2{font-size:clamp(1.85rem,3.5vw,2.5rem);margin:0 0 18px;max-width:22ch}
 
   <div class="facts">
     <div><div class="n">5&times;</div><div class="k">throughput per dollar</div>
-      <div class="s">of purchase price, against a DGX B200. <span id="perkrange"></span></div></div>
+      <div class="s">of purchase price, against a DGX B200.</div></div>
     <div><div class="n">One</div><div class="k">codebase</div>
       <div class="s">optimized from silicon to serving</div></div>
     <div><div class="n">1:1</div><div class="k">accuracy parity</div>
@@ -310,24 +310,6 @@ function build(D){
       row[p.name] = [ph, ph / p.price_usd * 1000, ph / ownUsd(p) * 1000];
     }
     CH[mod.name] = row;
-  }
-  /* The hero's range is the same per-dollar figure this chart draws, so it is computed here and
-   * not typed: it was written by hand as 3.7x to 7.6x and would have gone stale on the next row.
-   * Range over the rows measured on both boxes it compares, Galaxy Blackhole against DGX B200 at
-   * purchase price. A row still owing a reference-parity run says so if it sets the top, because
-   * the hero is prose and carries none of the per-cell provenance the benchmark page does. */
-  const vsB200 = rows.map(mod => {
-    const t = CH[mod.name][P.galaxy_bh.name], g = CH[mod.name][P.dgx_b200.name];
-    return t && g ? {name: mod.name, r: t[IDX.perk] / g[IDX.perk], pending: !!mod.parity_pending}
-                  : null;
-  }).filter(Boolean).sort((a,b) => a.r - b.r);
-  if (vsB200.length > 1){
-    const hi = vsB200[vsB200.length - 1];
-    document.getElementById("perkrange").textContent =
-      vsB200[0].r.toFixed(1) + "× to " + hi.r.toFixed(1) +
-      "× across the models on the benchmark page" +
-      (hi.pending ? ". The top of it, " + hi.name +
-                    ", has no reference-parity run yet." : ".");
   }
 
   const srv = CELLS.map(k => P[SERVER_OF[k]]);

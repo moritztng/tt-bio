@@ -253,8 +253,9 @@ stage_run() {
   for M in protenix-v2 opendde; do
     if [ "$M" = "protenix-v2" ]; then
       PY=/root/venv-$PROT_VENV/bin/python3; CK=/root/ckpt/protenix-v2.pt
-      # A100 read this fixture at 0.843 and the H200 at 0.853; the 0.828628 on
-      # record is the Tenstorrent number, which is the wrong reference for a GPU arm.
+      # A100 read this fixture at 0.843 and the H200 at 0.853; the 0.824329 on
+      # record is the Tenstorrent number (post 377976ab/c66baa63), which is the
+      # wrong reference for a GPU arm.
       RUNG=LD-shipped-default; EXP=0.843
     else
       PY=/root/venv-$ODDE_VENV/bin/python3; CK=/root/ckpt/opendde.pt

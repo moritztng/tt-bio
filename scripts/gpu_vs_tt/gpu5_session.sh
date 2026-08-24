@@ -110,9 +110,12 @@ for M in $MODELS; do
         --label "cdk2x2_512 (512 aa)" --name prot512 --rungs "$RUNG" \
         --save-structure "$ST" --out "$OUT" > "$LOG" 2>&1
       echo "$M rc=$?"
-      # protenix-v2 reads plDDT 0.828628 on this fixture on the TT side, so the gate
-      # prints a delta against a value already on record for the same model and fixture.
-      [ "$M" = "protenix-v2" ] && EXP=0.828628 || EXP=
+      # protenix-v2 reads plDDT 0.824329 on this fixture on the TT side (updated
+      # 2026-08-24 after 377976ab token-axis bucketing + c66baa63 fp32-softmax
+      # default-ON moved main's digest from 0.828628 -- see
+      # state/protenix-v2-trunk-dispatch-trace.md), so the gate prints a delta
+      # against a value already on record for the same model and fixture.
+      [ "$M" = "protenix-v2" ] && EXP=0.824329 || EXP=
       gate "$ST/$RUNG.pdb" "$EXP" | tee "$R/gate_${M}_${TAG}.txt"
       ;;
     boltz-2|openfold3|openbind|esmfold2|esmfold2-fast)

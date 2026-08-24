@@ -1,0 +1,159 @@
+{
+  "source": "perf/p102/umax_schedule.json",
+  "dense_ms": 9.9236,
+  "calls_per_step": 9,
+  "steps": 200,
+  "host_s_per_design": {
+    "320": 0.447,
+    "608": 0.42,
+    "1216": 0.404,
+    "3040": 0.361
+  },
+  "best_q": "Q1216",
+  "best": {
+    "buckets": [
+      3424,
+      4224
+    ],
+    "fallback_steps": 40,
+    "fallback_frac": 0.201,
+    "mean_chain_ms": 7.726,
+    "gross_s_per_design": 3.956,
+    "host_s_per_design": 0.404,
+    "net_s_per_design": 3.552
+  },
+  "per_q": {
+    "Q320": {
+      "measured_bracket": [
+        2048,
+        3040
+      ],
+      "u_max_schedule": 5536,
+      "n_indices": 199,
+      "buckets": {
+        "k1": {
+          "buckets": [
+            3040
+          ],
+          "fallback_steps": 40,
+          "fallback_frac": 0.201,
+          "mean_chain_ms": 13.2484,
+          "gross_s_per_design": -5.985,
+          "host_s_per_design": 0.447,
+          "net_s_per_design": -6.432
+        },
+        "k2": {
+          "buckets": [
+            2176,
+            3040
+          ],
+          "fallback_steps": 40,
+          "fallback_frac": 0.201,
+          "mean_chain_ms": 9.7002,
+          "gross_s_per_design": 0.402,
+          "host_s_per_design": 0.447,
+          "net_s_per_design": -0.045
+        }
+      }
+    },
+    "Q608": {
+      "measured_bracket": [
+        2496,
+        3648
+      ],
+      "u_max_schedule": 5920,
+      "n_indices": 199,
+      "buckets": {
+        "k1": {
+          "buckets": [
+            3648
+          ],
+          "fallback_steps": 41,
+          "fallback_frac": 0.206,
+          "mean_chain_ms": 9.5165,
+          "gross_s_per_design": 0.733,
+          "host_s_per_design": 0.42,
+          "net_s_per_design": 0.313
+        },
+        "k2": {
+          "buckets": [
+            2624,
+            3648
+          ],
+          "fallback_steps": 41,
+          "fallback_frac": 0.206,
+          "mean_chain_ms": 7.8836,
+          "gross_s_per_design": 3.672,
+          "host_s_per_design": 0.42,
+          "net_s_per_design": 3.252
+        }
+      }
+    },
+    "Q1216": {
+      "measured_bracket": [
+        3264,
+        4224
+      ],
+      "u_max_schedule": 6048,
+      "n_indices": 199,
+      "buckets": {
+        "k1": {
+          "buckets": [
+            4224
+          ],
+          "fallback_steps": 40,
+          "fallback_frac": 0.201,
+          "mean_chain_ms": 8.6609,
+          "gross_s_per_design": 2.273,
+          "host_s_per_design": 0.404,
+          "net_s_per_design": 1.869
+        },
+        "k2": {
+          "buckets": [
+            3424,
+            4224
+          ],
+          "fallback_steps": 40,
+          "fallback_frac": 0.201,
+          "mean_chain_ms": 7.726,
+          "gross_s_per_design": 3.956,
+          "host_s_per_design": 0.404,
+          "net_s_per_design": 3.552
+        }
+      }
+    },
+    "Q3040": {
+      "measured_bracket": [
+        3936,
+        5280
+      ],
+      "u_max_schedule": 6048,
+      "n_indices": 199,
+      "buckets": {
+        "k1": {
+          "buckets": [
+            5280
+          ],
+          "fallback_steps": 35,
+          "fallback_frac": 0.176,
+          "mean_chain_ms": 9.9341,
+          "gross_s_per_design": -0.019,
+          "host_s_per_design": 0.361,
+          "net_s_per_design": -0.38
+        },
+        "k2": {
+          "buckets": [
+            4320,
+            5280
+          ],
+          "fallback_steps": 35,
+          "fallback_frac": 0.176,
+          "mean_chain_ms": 8.9949,
+          "gross_s_per_design": 1.672,
+          "host_s_per_design": 0.361,
+          "net_s_per_design": 1.311
+        }
+      }
+    }
+  }
+}
