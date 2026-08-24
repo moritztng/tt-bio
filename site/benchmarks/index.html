@@ -1,12 +1,3 @@
-  /* Why a row is missing from these charts, in the chart's own caption rather than a footnote. */
-  function excludedNote() {
-    var out = "";
-    D.models.concat(catRows().map(function (r) { return r.m; })).forEach(function (m) {
-      if (m.server_charts === false && m.server_charts_note) out += " " + m.server_charts_note;
-    });
-    return out;
-  }
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -484,12 +475,13 @@ details.disclose > div{ padding-top:var(--s-4); }
       });
   }
 
-  /* Why a category is missing from these charts, in the chart's own caption rather than a footnote. */
+  /* Why a row is missing from these charts, in the chart's own caption rather than a footnote.
+     Reads model rows, because `server_charts` lives on a row and never on a category. A hidden
+     row is already gone from the page, so it needs no explanation and must not leave one. */
   function excludedNote() {
     var out = "";
-    CATEGORIES.forEach(function (c) {
-      var b = D[c.key];
-      if (b && b.server_charts === false && b.server_charts_note) out += " " + b.server_charts_note;
+    D.models.concat(catRows().map(function (r) { return r.m; })).forEach(function (m) {
+      if (!m.hidden && m.server_charts === false && m.server_charts_note) out += " " + m.server_charts_note;
     });
     return out;
   }
@@ -1161,6 +1153,10 @@ details.disclose > div{ padding-top:var(--s-4); }
     .then(function (r) { return r.json(); })
     .then(function (json) {
       D = json;
+      /* `catModels` already drops a hidden design/affinity row; the prediction list is the one
+         place that never did, so a hidden prediction row still reached every chart and table.
+         Filter once here rather than at each of the ten iteration sites. */
+      D.models = (D.models || []).filter(shown);
       statics();
       renderAll();
     })

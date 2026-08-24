@@ -441,7 +441,8 @@
           "s_per_fold": 30.893,
           "ref": "Median of n=8 warm, 30.308 to 31.578 s, median 30.893, spread 1.270 s (4.11 %), cold 41.684 s discarded. Stack byte-identical to the H200 cell: rc-foundry 0.2.0, atomworks 2.2.1, cuequivariance-torch 0.11.1 with the cu12 ops wheels, torch 2.13.0+cu130, triton 3.7.1, plDDT 0.782, 4116 atoms. cuEquivariance carried every triangle op, counted not assumed: triangle_attention_cueq 9792 and triangle_multiply_cueq 9792, both vanilla counters 0, scaled_dot_product_attention 0. A100 and H200 run the same generic cuEquivariance triangle kernel, so the two cells are like-for-like on the kernel path. AtomWorks host featurisation is 14.988 s of the fold, 48.5 %, on an AMD EPYC 7763 at a 30.72 vCPU cgroup quota, which is a different EPYC from the 7513 the other A100 cells on this page were measured on. Card exclusive, peak 5.43 GiB of 80 GB."
         }
-      }
+      },
+      "hidden": true
     },
     {
       "id": "openbind",
@@ -540,7 +541,8 @@
           }
         },
         "server_charts": false,
-        "server_charts_note": "RFdiffusion3 is not on the per-server or per-dollar charts. Those charts scale seconds per job by accelerator count, and this row's two sides do not have the same lever: a batch of eight is worth 2.12x on the H200, 2.50x on the B200 and 1.79x on the A100, measured at shipped defaults with the H200 at 79 % of its 700 W and 98 % utilisation, while the Blackhole AI Processor gains 1.04x at 3844 atoms and does not fit a batch of eight. At batch 1 the Galaxy reads 1.20x a DGX H200; at each side's best batch it reads 0.57x, so the batch decides the sign rather than the size. The seconds chart keeps the row, because one at a time is the right protocol for latency. BoltzGen stays on both charts: its batched path drifts 0.5-2.8 A per slot, which makes a batched design a different design, so batch 1 is the production configuration on the GPU as well as here."
+        "server_charts_note": "RFdiffusion3 is not on the per-server or per-dollar charts. Those charts scale seconds per job by accelerator count, and this row's two sides do not have the same lever: a batch of eight is worth 2.12x on the H200, 2.50x on the B200 and 1.79x on the A100, measured at shipped defaults with the H200 at 79 % of its 700 W and 98 % utilisation, while the Blackhole AI Processor gains 1.04x at 3844 atoms and does not fit a batch of eight. At batch 1 the Galaxy reads 1.20x a DGX H200; at each side's best batch it reads 0.57x, so the batch decides the sign rather than the size. The seconds chart keeps the row, because one at a time is the right protocol for latency. BoltzGen stays on both charts: its batched path drifts 0.5-2.8 A per slot, which makes a batched design a different design, so batch 1 is the production configuration on the GPU as well as here.",
+        "hidden": true
       }
     ]
   },
