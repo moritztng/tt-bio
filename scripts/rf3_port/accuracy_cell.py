@@ -204,7 +204,21 @@ def run_seed(args, net, tt, seed: int, work: Path, ref_cache: Path | None = None
     sampler = tt.sampler if tt is not None else host_sampler(args.steps)
     cached_ref = ref_cache / f"seed{seed}.npz" if ref_cache is not None else None
 
-    if cached_ref is not None and cached_ref.exists():
+    if getattr(args, "dev_only", False):
+        # No reference in this process. The draw stream is a property of the seed and the
+        # schedule alone -- arm-independent, backend-independent -- so harvesting it here
+        # and recording its hash lets a reference produced in PARALLEL be joined at score
+        # time under exactly the hash check the sequential path applies at run time.
+        if tt is None:
+            raise SystemExit("--dev-only needs a card")
+        t0 = time.time()
+        rec = harvest_draws(sampler, seed, n_atom)
+        ref_roll_s = time.time() - t0
+        ref_trunk_s = 0.0
+        ref_np = None
+        sha = draws_sha(rec.values)
+        ref_src = "dev-only: reference joined at score time"
+    elif cached_ref is not None and cached_ref.exists():
         z = np.load(cached_ref)
         ref_np, sha = z["ref"], str(z["shastr"][0])
         ref_trunk_s = 0.0
@@ -275,16 +289,41 @@ def run_seed(args, net, tt, seed: int, work: Path, ref_cache: Path | None = None
                          f"!= recorded {sha}; the arms did not share noise")
 
     rec_arr = {
-        "ref": ref_np,
         "dev": dev["X_L"][0].detach().cpu().numpy().astype(np.float64),
         "rep_idx": rep_idx,
         "timing": np.array([feat_s, ref_trunk_s, ref_roll_s, dev_s]),
         "sha": np.array([int(sha[:8], 16)], dtype=np.int64),
         "shastr": np.array([sha]), "refsrc": np.array([ref_src]),
     }
+    if ref_np is not None:
+        rec_arr["ref"] = ref_np
     work.mkdir(parents=True, exist_ok=True)
     np.savez(cache, **rec_arr)
     return rec_arr | {"cached": False}
+
+
+def join_ref(per_seed: dict, seeds: list[int], ref_work: Path) -> str:
+    """Attach a separately produced reference to dev-only seeds.
+
+    The join is only legal if both halves saw the same noise, so the reference's recorded
+    draw hash is asserted against the device run's harvested one -- the same assertion the
+    sequential path makes inside run_seed, moved to score time."""
+    for s in seeds:
+        if "ref" in per_seed[s]:
+            continue
+        f = ref_work / f"seed{s}.npz"
+        if not f.exists():
+            raise SystemExit(f"seed {s}: dev-only cache and no reference at {f}")
+        z = np.load(f)
+        if "ref" not in z.files:
+            raise SystemExit(f"{f}: no `ref` key, so it is not a reference cache")
+        got, want = str(per_seed[s]["shastr"][0]), str(z["shastr"][0])
+        if got != want:
+            raise SystemExit(
+                f"seed {s}: device harvested draws {got} != reference {want}; the two "
+                "halves did not share noise and X would be a cross-RNG comparison")
+        per_seed[s]["ref"] = z["ref"]
+    return str(ref_work)
 
 
 def score(per_seed: dict, seeds: list[int]) -> dict:
@@ -406,6 +445,12 @@ def main() -> int:
                          "(PLAYBOOKS.md VERIFY/BENCHMARK) and is what makes a 1000-aa "
                          "trunk affordable at all. The sampler loop and the RNG stay on "
                          "the host either way, so the recorded draws are unchanged")
+    ap.add_argument("--dev-only", action="store_true",
+                    help="device half only, with no reference in the process: harvest the "
+                         "draws locally, run the rollout, cache the coordinates. The "
+                         "reference is joined at score time from --ref-cache under the "
+                         "same draw-hash assertion, so the two halves can run in parallel "
+                         "on different machines")
     ap.add_argument("--ref-only", action="store_true",
                     help="reference half only: no card, no device, no arm. Writes a npz "
                          "with no `dev` key, which a later device run reads as a cache")
@@ -434,11 +479,16 @@ def main() -> int:
                                    "no shared frame",
               "work": str(work)}
 
+    if args.dev_only and args.ref_only:
+        raise SystemExit("--dev-only and --ref-only are the two halves; pick one")
+
     if args.rescore:
         per_seed = {}
         for s in seeds:
             z = np.load(work / f"seed{s}.npz")
             per_seed[s] = {k: z[k] for k in z.files}
+        if any("ref" not in per_seed[s] for s in seeds):
+            report["ref_joined_from"] = join_ref(per_seed, seeds, ref_work)
         report["metrics"] = score(per_seed, seeds)
         report["timing_s"] = {str(s): [round(float(x), 1)
                                        for x in per_seed[s]["timing"]] for s in seeds}
@@ -510,10 +560,13 @@ def main() -> int:
 
     per_seed = {}
     for s in seeds:
-        per_seed[s] = run_seed(args, net, tt, s, work, ref_cache=ref_work)
+        per_seed[s] = run_seed(args, net, tt, s, work,
+                               ref_cache=None if args.dev_only else ref_work)
         print(f"[seed {s}] {'cached' if per_seed[s].get('cached') else 'ran'} "
               f"{[round(float(x), 1) for x in per_seed[s]['timing']]}", flush=True)
 
+    if args.dev_only:
+        report["ref_joined_from"] = join_ref(per_seed, seeds, ref_work)
     report["metrics"] = score(per_seed, seeds)
     report["timing_s"] = {str(s): [round(float(x), 1) for x in per_seed[s]["timing"]]
                           for s in seeds}
