@@ -60,6 +60,7 @@ from tt_bio.tenstorrent import (
     TorchWrapper,
     Weights,
     _dtype,
+    _sdpa_program_config_for_lengths,
     get_device,
 )
 from tt_bio.xcell_reference import (
@@ -210,8 +211,15 @@ class SelfAttention(Module):
         if self.q_norm is not None:
             qn = self.q_norm(q); ttnn.deallocate(q); q = qn
             kn = self.k_norm(k); ttnn.deallocate(k); k = kn
+        # The gene axis is long, so the SDPA program config is the single biggest lever in this
+        # model: the stock call leaves 2.5-5.8x on the table at these shapes (measured on card 2,
+        # perf/xcell/ -- 24.98 -> 4.28 ms at 8 rows x S=4001). It is not bit-exact with the
+        # default, because a different chunking accumulates bf16 in a different order; the
+        # difference is ~1 ulp (max abs 0.023 against operands of order 1) and end-to-end PCC
+        # against the host reference is unchanged, which is the bar this has to clear.
         o = ttnn.transformer.scaled_dot_product_attention(
-            q, k, v, is_causal=False, scale=self.d_head ** -0.5)
+            q, k, v, is_causal=False, scale=self.d_head ** -0.5,
+            program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2]))
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
         m = self._merge_heads(o)
         ttnn.deallocate(o)
