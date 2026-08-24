@@ -546,3 +546,45 @@ def predict(model: XCell, control, tokens, priors, pert_token, prior_missing=Non
         mask = torch.where(newly, torch.ones_like(mask), mask)
         prev = alpha
     return pred
+
+
+XCELL_HF_REPO = "Xaira-Therapeutics/X-Cell"
+
+
+class WeightsNotPublished(RuntimeError):
+    """Raised because X-Cell's trained weights do not exist publicly, not because we cannot find
+    them. Separate from a missing-file error so a caller can tell "upstream has not shipped" from
+    "your cache is empty"."""
+
+
+def load_xcell(name: str = "xcell", *, fast: bool = False, architecture_only: bool = False,
+               seed: int = 0, cfg: XCellConfig = XCELL_MINI) -> "XCell":
+    """Build X-Cell on the device.
+
+    `architecture_only=True` fills every parameter from a seeded RNG. That is the mode the
+    performance numbers were measured in and the ONLY mode available today; it produces a
+    correctly shaped transcriptome and no biological signal whatsoever, and the CLI says so on
+    every run rather than in a footnote.
+
+    Without it this raises `WeightsNotPublished`, because there is nothing to load. Checked
+    2026-08-24: the HuggingFace repo holds three files and no checkpoint, and upstream's own
+    `predict` raises `NotImplementedError`. `scripts/xcell_watch.py` is what notices that changing.
+    """
+    if name not in ("xcell",):
+        raise ValueError(f"unknown X-Cell variant {name!r}")
+    if not architecture_only:
+        raise WeightsNotPublished(
+            "X-Cell has no public trained weights. As of 2026-08-24 "
+            f"https://huggingface.co/{XCELL_HF_REPO} holds three files and no checkpoint, and "
+            "upstream's inference code raises NotImplementedError. tt-bio ships the architecture "
+            "and its device performance; the weights are upstream's to release. Run "
+            "`python3 scripts/xcell_watch.py` to check whether that has changed, or pass "
+            "--architecture-only to measure the shape with random weights."
+        )
+    import torch as _torch
+    from tt_bio import xcell_reference as _ref
+    gen = _torch.Generator().manual_seed(seed)
+    with _torch.random.fork_rng(devices=[]):
+        _torch.manual_seed(int(_torch.randint(0, 2**31 - 1, (1,), generator=gen)))
+        host = _ref.XCell(cfg)
+    return XCell(cfg, host.state_dict(), fast=fast)

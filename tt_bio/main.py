@@ -3771,5 +3771,105 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
         click.echo(f"  {r.spec_id}#{r.design_idx}: {r.out_path} ({r.n_atoms} atoms)")
 
 
+@cli.command("perturb")
+@click.argument("data", type=click.Path(exists=True, path_type=Path))
+@click.option("--perturbation", required=True,
+              help="HGNC gene symbol of the CRISPRi knockdown to simulate, e.g. BRCA1. It must be "
+                   "present in the dataset: X-Cell forces the knockdown target into the gene "
+                   "subsample, so a target the matrix does not carry cannot be represented.")
+@click.option("--model", type=click.Choice(list(PERTURB_MODELS)), default="xcell",
+              show_default=True,
+              help="xcell: set-level diffusion LM predicting the perturbed transcriptome from "
+                   "control cells.")
+@click.option("--out_dir", default="./perturb", show_default=True, type=click.Path(path_type=Path))
+@click.option("--n_cells", default=64, show_default=True,
+              help="Cells per prediction set (S). 64 is the size the model was trained at.")
+@click.option("--n_genes", default=4000, show_default=True,
+              help="Gene context length (G'). The published training context is 4000; the whole "
+                   "~19k vocabulary is the other end. Cost grows with the square of this, since "
+                   "attention over genes is ~72% of the arithmetic at 4000.")
+@click.option("--n_diffusion_steps", default=4, show_default=True,
+              help="Coarse-to-fine refinement steps. 4 is the published schedule and its reveal "
+                   "ladder is 25/50/75/100%, so fewer steps means a partially revealed answer.")
+@click.option("--pre_normalized", is_flag=True,
+              help="Input is already log1p CP10k (e.g. Replogle-Nadig). Skips normalisation; "
+                   "normalising twice is silent and wrong.")
+@click.option("--architecture-only", "architecture_only", is_flag=True,
+              help="Run with random weights to measure the shape on this machine. Produces NO "
+                   "biological signal. This is the only mode available until upstream releases "
+                   "a checkpoint.")
+@click.option("--fast", is_flag=True, help="Lower-precision matmuls (faster, less accurate).")
+@click.option("--seed", default=0, show_default=True,
+              help="Seeds the gene subsample, the cell-set construction and the diffusion "
+                   "reveal ranks, so a run is repeatable.")
+def perturb_cmd(data, perturbation, model, out_dir, n_cells, n_genes, n_diffusion_steps,
+                pre_normalized, architecture_only, fast, seed):
+    """Predict the transcriptional response to a CRISPRi gene knockdown.
+
+    DATA is an .h5ad of control cells (log1p CP10k in ``.X``, gene symbols in ``.var_names``) or
+    an .npz holding ``expression`` [cells, genes] and ``gene_names``.
+
+    X-Cell's trained weights are not public, so without --architecture-only this reports that and
+    exits. The architecture and its device performance are here; the checkpoint is upstream's to
+    release. See docs/xcell.md.
+    """
+    import numpy as np
+    from tt_bio import xcell as _xcell
+    from tt_bio import xcell_data as _xd
+
+    if str(data).endswith(".npz"):
+        z = np.load(data, allow_pickle=True)
+        expression, gene_names = z["expression"], [str(g) for g in z["gene_names"]]
+    else:
+        expression, gene_names = _xd.read_h5ad(data)
+
+    rng = np.random.default_rng(seed)
+    try:
+        sets = _xd.prepare(expression, gene_names, perturbation, n_genes=n_genes,
+                           set_size=n_cells, pre_normalized=pre_normalized, rng=rng)
+    except ValueError as e:
+        raise click.ClickException(str(e))
+
+    click.echo(f"{expression.shape[0]} control cells x {expression.shape[1]} genes "
+               f"-> {len(sets)} set(s) of {n_cells} at G'={len(sets[0].gene_names)}, "
+               f"knockdown {perturbation}")
+    try:
+        net = _xcell.load_xcell(model, fast=fast, architecture_only=architecture_only, seed=seed)
+    except _xcell.WeightsNotPublished as e:
+        raise click.ClickException(str(e))
+
+    # Only reachable with --architecture-only: load_xcell raises otherwise. Gene identity is
+    # arbitrary in this mode because X-Cell's vocabulary ships with the checkpoint that does not
+    # exist, so the tokens below index a random embedding table and the numbers mean nothing
+    # biologically. They are still the right shape and the right cost, which is the point.
+    import torch
+    cfg = net.cfg
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    click.echo("ARCHITECTURE-ONLY: random weights, arbitrary gene identity. The output is "
+               "correctly shaped and carries NO biological signal.")
+
+    preds = []
+    for i, cell_set in enumerate(sets):
+        g = cell_set.values.shape[1]
+        tokens = torch.arange(g, dtype=torch.long).remainder(cfg.vocab_size).expand(n_cells, g)
+        priors = {nm: torch.zeros(n_cells, dim) for nm, dim, _ in _xcell.PRIOR_SOURCES}
+        missing = torch.ones(n_cells, len(_xcell.PRIOR_SOURCES) + 1, dtype=torch.bool)
+        missing[:, -1] = False          # the gene-identity token is always present (A11)
+        pred = _xcell.predict(
+            net, torch.from_numpy(cell_set.values).float(), tokens, priors,
+            tokens[:, 0].contiguous(), missing, n_steps=n_diffusion_steps,
+            generator=torch.Generator().manual_seed(seed + i),
+        )
+        preds.append(pred.numpy())
+        click.echo(f"  set {i + 1}/{len(sets)}: {tuple(pred.shape)}")
+
+    import numpy as np
+    dest = out_dir / f"{perturbation}_architecture_only.npz"
+    np.savez(dest, prediction=np.stack(preds), gene_names=np.array(sets[0].gene_names),
+             perturbation=perturbation, architecture_only=True)
+    click.echo(f"Done — {len(preds)} set(s) -> {dest} (architecture-only, not a prediction)")
+
+
 if __name__ == "__main__":
     cli()

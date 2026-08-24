@@ -31,8 +31,12 @@ def pcc(a, b):
     d = (a.norm() * b.norm())
     return float((a @ b) / d) if float(d) > 0 else 1.0
 
+_SCORES = []
+
+
 def report(tag, ref, got, bar=0.99):
     p = pcc(ref, got)
+    _SCORES.append((tag.strip(), p))
     err = float((ref.float() - got.float()).abs().max())
     rel = err / max(float(ref.float().abs().max()), 1e-9)
     ok = "PASS" if p > bar else "FAIL"
@@ -122,5 +126,12 @@ for g2 in (32, 65, 97):
     ok &= report(f"  G={g2} (ragged={g2 % 32 != 0})", r2, g2o)
 
 print("\nRESULT:", "ALL COMPONENTS PASS (PCC > 0.99)" if ok else "SOME COMPONENTS FAILED")
+# The gate parses this line rather than the table, so a formatting change cannot silently
+# un-gate the leg. worst_component names WHERE the minimum was, which is the first thing
+# anyone asks when it drops.
+worst = min(_SCORES, key=lambda kv: kv[1]) if _SCORES else ("none", float("nan"))
+# Space-free, because the gate parses this line by splitting on whitespace.
+print(f"XCELL_PARITY components={len(_SCORES)} min_pcc={worst[1]:.6f} "
+      f"worst_component={worst[0].replace(' ', '_')} result={'PASS' if ok else 'FAIL'}")
 ttnn.close_device(dev)
 sys.exit(0 if ok else 1)

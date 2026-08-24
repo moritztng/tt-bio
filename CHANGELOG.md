@@ -5,6 +5,35 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Added
+
+- X-Cell, a set-level diffusion language model that predicts the transcriptional response to a
+  CRISPRi gene knockdown. First transcriptomics model in tt-bio: every other model takes a
+  sequence or a structure, so this one gets its own verb, `tt-bio perturb`.
+
+  **It has no public trained weights, so there is no accuracy claim.** Upstream has published the
+  architecture but not the checkpoint or the inference code, and `tt-bio perturb` reports that and
+  exits unless you pass `--architecture-only`, which runs the real network with random weights to
+  measure the shape. `scripts/xcell_watch.py` checks whether upstream has shipped and exits
+  non-zero the day it does. Licence is CC BY-NC-SA 4.0, so it is not offered on the hosted
+  platform.
+
+  What is real and measured: every component matches our torch reference to PCC > 0.998, the
+  4-step refinement loop holds per step rather than only at step 0, and the model runs 15.6
+  TFLOP/s at a 4000-gene context on one p150. X-Cell Mini is shape-limited rather than
+  implementation-limited, because at hidden dim 512 every projection is a 512x512 matmul that
+  caps at 32 TFLOP/s on this card against 194 for a large square one. Tuning the attention program
+  config is worth 1.84x end to end at 4000 genes, and the model is not dispatch-bound. See
+  `docs/xcell.md`.
+
+  Its gene axis is deliberately NOT padded to a multiple of 32, which is the one exception in the
+  tree, and it is measured rather than argued: the attention kernel masks its own ragged tail when
+  no caller bias is supplied (relative error 0.068 at 98 tokens against 0.028 at 32, and
+  end-to-end 0.9993 at a ragged 65 genes against 0.9988 at an aligned 32), while padding it would
+  oblige a 32 MB mask per call at 4000 genes and padding without masking measures 3.1x the
+  reference error. The axis that is always ragged is the six-token prior context, and that one is
+  padded and masked on every call. `tt_bio/token_axis.py` carries the row.
+
 ### Fixed
 
 - Protenix-v2, OpenDDE and OpenDDE-abag were padding the atom axis and not the token axis. At any

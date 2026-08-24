@@ -185,6 +185,7 @@ import shutil
 import socket
 import statistics
 import subprocess
+import tempfile
 import sys
 import time
 import warnings
@@ -795,7 +796,7 @@ RF3_1024AA_XTAL_MEASURED = 1.9687
 # legs carry, env-tunable for the same reason.
 RF3_1024AA_TIMEOUT_S = int(os.environ.get("RELEASE_GATE_RF3_1024AA_TIMEOUT", "1800"))
 
-DEFAULT_ARMS = ("boltzgen", "rfd3", "opendde-abag", "capacity",
+DEFAULT_ARMS = ("xcell", "boltzgen", "rfd3", "opendde-abag", "capacity",
                 "l1-budget", "batch-position", "nesso1", "pxdesign",
                 "rf3-1024aa")
 
@@ -1643,6 +1644,55 @@ def run_rf3_1024aa(keep: bool) -> dict:
     if not keep:
         shutil.rmtree(work, ignore_errors=True)
     return row
+
+
+# X-Cell has no trained weights, so there is no structure to score and no RMSD floor to clear.
+# What CAN rot is the port's arithmetic against the torch reference it was built from, and that is
+# what this leg holds: scripts/xcell_parity.py walks the model component by component, then the
+# 4-step refinement loop per step, then the same forward at ragged gene lengths, and reports the
+# WORST PCC of the lot. The floor is well below the 0.998 measured at bring-up so bf16 noise and a
+# ttnn version bump do not trip it, and far above anything a real structural break would survive.
+XCELL_MIN_PCC = 0.99
+
+
+def run_xcell(keep: bool) -> dict:
+    """Score the ttnn X-Cell port against tt_bio/xcell_reference.py on this card."""
+    out = {"model": "xcell", "min_pcc": None, "components": None, "worst": None,
+           "seconds": None, "gate": False, "error": ""}
+    t0 = time.time()
+    cmd = [sys.executable, str(REPO_ROOT / "scripts" / "xcell_parity.py")]
+    # _run_fold does not capture stdout (it exists for the process-group kill), so the harness
+    # writes to a log we then read -- same shape as the fold legs above.
+    log = Path(tempfile.mkdtemp(prefix="xcell_gate_")) / "parity.log"
+    with open(log, "w") as fh:
+        rc, timed_out = _run_fold(cmd, timeout=1800, cwd=str(REPO_ROOT),
+                                  stdout=fh, stderr=subprocess.STDOUT)
+    out["seconds"] = time.time() - t0
+    text = log.read_text(errors="replace")
+    if not keep:
+        shutil.rmtree(log.parent, ignore_errors=True)
+    if timed_out:
+        out["error"] = "parity harness timed out"
+        return out
+    line = next((l for l in text.splitlines() if l.startswith("XCELL_PARITY ")), None)
+    if line is None:
+        out["error"] = _fold_error(text) or f"parity harness exited {rc}"
+        return out
+    fields = {}
+    for tok in line.split()[1:]:
+        k, _, v = tok.partition("=")
+        fields[k] = v
+    try:
+        out["min_pcc"] = float(fields["min_pcc"])
+        out["components"] = int(fields["components"])
+        out["worst"] = fields.get("worst_component", "?")
+    except (KeyError, ValueError):
+        out["error"] = f"unparsable parity line: {line[:120]}"
+        return out
+    if fields.get("result") != "PASS":
+        out["error"] = "a component fell below the harness bar"
+    out["gate"] = fields.get("result") == "PASS" and out["min_pcc"] >= XCELL_MIN_PCC
+    return out
 
 
 def run_capacity(keep: bool, leg) -> dict:
@@ -2845,8 +2895,9 @@ def main() -> int:
                     help="Gate only this model (repeatable). Default: every model in "
                          "MODELS + every arm in DEFAULT_ARMS + size-ladder + ESMC "
                          "300m/600m embed parity — the whole default set (currently the "
-                         "five fold models, boltzgen, rfd3, opendde-abag, capacity, "
-                         "l1-budget, batch-position, nesso1, pxdesign, rf3-1024aa), so a "
+                         "five fold models, xcell, boltzgen, rfd3, opendde-abag, "
+                         "capacity, l1-budget, batch-position, nesso1, pxdesign, "
+                         "rf3-1024aa), so a "
                          "newly added model or arm is covered without touching this "
                          "string. esmc-6b is opt-in (slow ~13 GB load).")
     ap.add_argument("--keep", action="store_true", help="Keep run output dirs for inspection.")
@@ -2917,6 +2968,7 @@ def main() -> int:
     want_rfd3 = "rfd3" in models
     want_pxdesign = "pxdesign" in models
     want_capacity = "capacity" in models
+    want_xcell = "xcell" in models
     want_l1_budget = "l1-budget" in models
     want_batch_position = "batch-position" in models
     want_nesso1 = "nesso1" in models
@@ -2974,6 +3026,23 @@ def main() -> int:
         print(f"{'#'*78}")
         print("GATE PASS — rf3 at 997 aa cleared the crystal floor" if rr["gate"]
               else "GATE FAIL — rf3 at 997 aa missed the crystal floor (see above)")
+
+    if want_xcell:
+        xr = run_xcell(args.keep)
+        print(f"\n{'#'*78}\nRELEASE GATE - xcell port vs tt_bio/xcell_reference.py"
+              f"\n{'#'*78}")
+        print(f"{'model':<15}{'min PCC':>10}{'components':>12}{'floor':>10}{'wall':>9}  result")
+        mp = f"{xr['min_pcc']:.6f}" if xr["min_pcc"] is not None else "  -  "
+        nc = str(xr["components"]) if xr["components"] is not None else "-"
+        wall = f"{xr['seconds']:.0f}s" if xr["seconds"] is not None else "-"
+        verdict = "PASS" if xr["gate"] else f"FAIL ({xr['error']})" if xr["error"] else "FAIL"
+        all_pass &= xr["gate"]
+        print(f"{xr['model']:<15}{mp:>10}{nc:>12}{f'>={XCELL_MIN_PCC}':>10}{wall:>9}  {verdict}")
+        if xr["worst"]:
+            print(f"weakest component: {xr['worst']}")
+        print("X-Cell has NO trained weights, so this scores the port's arithmetic against our "
+              "own\nreference and is not an accuracy claim.")
+        print(f"{'#'*78}")
 
     if want_boltzgen:
         bg = _load_designability_harness()

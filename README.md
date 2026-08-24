@@ -709,6 +709,16 @@ Behavior:
   - `power_profile.csv`
   - `power_profile.png`
 
+### Perturbation Prediction (X-Cell)
+
+Predicts the transcriptional response to a CRISPRi gene knockdown from a set of control cells.
+Upstream has not released trained weights, so this ships the architecture and its measured device
+performance only, and makes no accuracy claim. See [docs/xcell.md](docs/xcell.md).
+
+```bash
+tt-bio perturb control_cells.h5ad --perturbation BRCA1 --architecture-only
+```
+
 ## Design
 
 Design new binders and protein structures from a target or motif specification: one command, two models:
