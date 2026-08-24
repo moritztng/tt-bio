@@ -3,7 +3,7 @@
 All notable changes to TT-Bio are recorded here. Versioning is [SemVer](https://semver.org);
 releases are cut from a commit that has passed the on-hardware test suite (see `RELEASING.md`).
 
-## [0.6.8] - 2026-08-23
+## [0.6.8] - 2026-08-24
 
 ### Added
 
