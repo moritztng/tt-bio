@@ -181,8 +181,16 @@ TOKEN_AXIS = {
     "rf3": (
         EXPOSED, None,
         "no token pad anywhere in tt_bio/rf3/ (only atom-axis pads at atom_encoder_host.py:95,:172 "
-        "and atom_encoder.py:116); 7ROA L117 runs 117 tokens raw",
-        "rf3-4x-with-accuracy-land",
+        "and atom_encoder.py:116); 7ROA L117 runs 117 tokens raw. The token axis is I at "
+        "host.py:91, and the ATOM axis is already bucketed in the same function, so the shape of "
+        "the fix is established there",
+        "rf3-4x-with-accuracy-land concluded 2026-08-23 and handed the bucket back; the boundary "
+        "is lifted and this row is owed, not blocked. CENSUSED ragged rather than inferred: one "
+        "fold at 298 aa (perf/bucketing_audit/census/rf3_aa298_ragged.json) reads 104 fused-SDPA "
+        "calls arriving RAGGED -- correct today only because the _sdpa_masked guard defaults ON "
+        "and pads all 104 -- plus 80 ttnn.softmax calls at a ragged w298 (tenstorrent.py:5584 x48, "
+        ":7076 x32), self-masking and so correct, but 80 calls at a shape no other length shares. "
+        "That is the recompilation tax this task exists to remove, still being paid",
     ),
     "rfd3": (
         BUCKETED, TOKEN_BUCKET,
