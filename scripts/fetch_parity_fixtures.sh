@@ -56,8 +56,15 @@ API="https://api.github.com/repos/${REPO}/releases/tags/${TAG}"
 echo "Fetching parity fixtures: tag=${TAG} repo=${REPO} dest=${DEST}"
 
 # Resolve the two asset download URLs from the release.
-urls_json="$(curl -fsSL -H "Accept: application/vnd.github+json" "${API}" \
+release_json="$(curl -fsSL -H "Accept: application/vnd.github+json" "${API}")"
+urls_json="$(printf '%s' "${release_json}" \
   | python3 -c 'import json,sys; r=json.load(sys.stdin); print("\n".join(a["browser_download_url"] for a in r.get("assets",[])))')"
+# Asset id for the tarball, used as the CDN-free fallback below.
+asset_id="$(printf '%s' "${release_json}" | python3 -c '
+import json, sys
+r = json.load(sys.stdin)
+print(next((str(a["id"]) for a in r.get("assets", []) if a["name"] == sys.argv[1]), ""))
+' "${ASSET}")"
 
 # Match the asset URL by its path suffix. grep -F (fixed-string) is used so the
 # asset name is matched literally (no regex escaping of dots); the leading "/"
@@ -84,6 +91,17 @@ if [[ -n "${sha_url}" ]]; then
   # generated it. The checksum is about the bytes, so verify the bytes.
   want="$(head -n1 "${tmp}/${SHA_ASSET}")"; want="${want%% *}"
   got="$(sha256sum "${tmp}/${ASSET}")"; got="${got%% *}"
+  if [[ "${want}" != "${got}" && -n "${asset_id}" ]]; then
+    # browser_download_url is served through a CDN that can hold a stale copy for
+    # minutes after the asset is re-uploaded, while the 96-byte sha256 sidecar
+    # propagates at once. That reads as a checksum mismatch even though nothing is
+    # corrupt. The API asset endpoint serves the stored bytes directly, so retry
+    # there once before calling it a failure.
+    echo "checksum mismatch on the CDN copy; retrying via the release asset API" >&2
+    curl -fsSL -H "Accept: application/octet-stream" -o "${tmp}/${ASSET}" \
+      "https://api.github.com/repos/${REPO}/releases/assets/${asset_id}"
+    got="$(sha256sum "${tmp}/${ASSET}")"; got="${got%% *}"
+  fi
   if [[ "${want}" != "${got}" ]]; then
     echo "error: checksum mismatch for ${ASSET}: expected ${want}, got ${got}" >&2
     exit 1

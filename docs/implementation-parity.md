@@ -248,8 +248,17 @@ whose provenance the fix preserves: `opendde-prot-prod` PASS (X=4.824 R=1.499 D=
 the 2026-07-26 verified number X=4.678 R=1.499 D=6.103 within noise), `protenix-v2-{prot,ubq,hsa}`
 all PASS (within_noise_floor=true on every metric); `opendde-trpcage-nomsa` reports
 BLOCKED-REF-REGEN-NEEDED under `--legacy-rdx` for an unrelated, pre-existing reason (its committed
-device-side seed dirs lack `structures/*.cif` — not touched by this pass). Gate of record —
+seed dirs lack `structures/*.cif` — not touched by this pass). Gate of record —
 pending Moritz's sign-off before merge.
+
+**`opendde-trpcage-nomsa` closed 2026-08-24: PASS, X=0.361 R=0.374 D=0.342, within_noise_floor
+true.** The reference was never missing. All five seeds of the official Aureka OpenDDE CPU run
+(commit `a0d5134`) were committed with full provenance; only the CIFs were absent, because
+`pharma_harvest_ref_fixtures.py` wrote them under the reference's own structure id (`trpcage`)
+while the gate leg asks for the tt-bio target id (`trpcage_no_msa`). `SeedSpec` now carries a
+`dst_id` that renames the CIF and the results.json `id` and nothing else. The recovered reference
+reproduces the committed reference-vs-reference floor exactly (R 0.374 against the committed
+0.3736), which is what confirms these are the runs the provenance describes.
 
 **Three envelope legs are collapsed, found during the v0.5.0 release run (2026-07-27).** For
 `opendde-trpcage-nomsa`, `opendde-prot-prod` and `protenix-v2-ubq-msa` the published fixture's
