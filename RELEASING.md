@@ -87,10 +87,16 @@ TT_VISIBLE_DEVICES=0 OF3_CKPT=/path/to/of3-p2-155k.pt PYTHONPATH="$PWD" \
   python3 scripts/ux_regression.py
 ```
 
-OpenFold3's weights are the one checkpoint tt-bio does not download, so the
-accuracy, perf and UX gates all need `OF3_CKPT` (or the file at
-`~/.boltz/of3-p2-155k.pt`) before they can run its legs. `ux_regression.py`
-refuses to start rather than skipping the leg — see `docs/openfold3-port.md`.
+OpenFold3 and OpenBind are the two checkpoints tt-bio does not download, so the
+accuracy, perf and UX gates need them on disk before they can run those legs.
+OpenFold3 is a release-host prerequisite: set `OF3_CKPT` or place the file at
+`~/.boltz/of3-p2-155k.pt`, and `ux_regression.py` refuses to start without it
+rather than skipping the leg (see `docs/openfold3-port.md`). OpenBind is not a
+prerequisite, so its UX leg is skipped with the reason printed on its own row and
+again in the verdict line when the checkpoint is absent; fetch it per
+`docs/weights.md` to gate it. `ux_regression.py` derives its gated set from the
+`--model` choice lists in `tt_bio/main.py` and refuses to start if a shipped model
+has no leg, so a new port cannot reach a tag with zero UX coverage.
 
 The packaging guard (`scripts/packaging_smoke.py`) builds the wheel and sdist
 from the current tree and asserts every non-`.py` data file under `tt_bio/`
@@ -368,17 +374,19 @@ gate venv does not carry it. The 1AHW implementation-parity detail stays in
 `docs/implementation-parity.md`.
 
 The performance gate measures warm throughput for every shipped architecture
-— the fold models, the ESMC embed path, and both design pipelines
-(BoltzGen via `tt-bio design --model boltzgen` on `examples/binder.yaml` and
-RFD3 via `tt-bio design --model rfd3`, each reported as designs/s) — and
+— the fold models, the ESMC embed path, and all three design models
+(BoltzGen via `tt-bio design --model boltzgen` on `examples/binder.yaml`,
+RFD3 via `tt-bio design --model rfd3`, PXDesign via
+`tt-bio design --model pxdesign`, each reported as designs/s) — and
 compares each with the matching card-type baseline in
 `docs/perf_baselines.json`. A slowdown beyond 15% fails.
 
 "Every shipped architecture" is enforced, not aspirational: `perf_regression.py`
-cross-checks its `SPECS` dict against `tt_bio.main.PREDICT_MODELS` /
-`EMBED_MODELS` / `SAPROT_MODELS` (the same lists each CLI `--model` choice is
-built from) before running anything, and refuses to start if any shipped model
-has neither a `SPECS` entry nor a documented `SPECS_EXEMPT` reason. This closes
+cross-checks its `SPECS` dict against every `*_MODELS` tuple in `tt_bio.main`
+(the same lists each CLI `--model` choice is built from, discovered rather than
+named so a new verb's tuple cannot slip past) before running anything, and
+refuses to start if any shipped model has neither a `SPECS` entry nor a
+documented `SPECS_EXEMPT` reason. This closes
 the gap that let OpenDDE's antibody-antigen checkpoint (`opendde-abag`) ship a
 >60x diffusion-precision slowdown in v0.3.3/v0.3.4 with zero perf coverage — it
 shared its implementation class with the already-covered `opendde` entry, so a

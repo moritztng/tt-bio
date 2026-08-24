@@ -25,6 +25,8 @@ from rdkit import Chem
 from safetensors.torch import save_file
 
 from tt_bio._vendor.nesso.data.types import Manifest, Record
+from tt_bio.cache import cached, staged
+from tt_bio.weights import NESSO_REPO, NESSO_REVISION
 
 # RDKit drops atom properties when UNPICKLING too, not just when pickling, so this has
 # to be set before ccd.pkl is read or every standard-residue mol comes back without its
@@ -150,12 +152,13 @@ def link_given_esm(given: dict[str, str], esm_dir: Path) -> int:
         if not source.exists():
             raise FileNotFoundError(f"esm: {src} does not exist")
         dst = esm_dir / f"{mid}.safetensors"
-        if dst.exists():
+        if cached(dst):
             continue
         try:
-            dst.symlink_to(source.resolve())
+            dst.symlink_to(source.resolve())      # one syscall, so already atomic
         except OSError:
-            dst.write_bytes(source.read_bytes())
+            with staged(dst) as tmp:
+                tmp.write_bytes(source.read_bytes())
         linked += 1
     return linked
 
@@ -167,7 +170,7 @@ def run_esm(
     cache_dir: Path | None = None,
 ) -> int:
     """Write ``[1, L+2, 1280]`` final-layer ESM-2 embeddings, skipping ones on disk."""
-    missing = {m: s for m, s in seqs.items() if not (esm_dir / f"{m}.safetensors").exists()}
+    missing = {m: s for m, s in seqs.items() if not cached(esm_dir / f"{m}.safetensors")}
     if not missing:
         return 0
     from tt_bio._vendor.nesso.data.esm import extract_esm_embedding, setup_esm_model
@@ -175,7 +178,8 @@ def run_esm(
     model, tokenizer = setup_esm_model(model_name, torch.device("cpu"), cache_dir=cache_dir)
     for mid, seq in sorted(missing.items()):
         emb = extract_esm_embedding(seq, model, tokenizer)
-        save_file({"embeddings": emb}, esm_dir / f"{mid}.safetensors")
+        with staged(esm_dir / f"{mid}.safetensors") as tmp:
+            save_file({"embeddings": emb}, tmp)
     return len(missing)
 
 
@@ -194,8 +198,10 @@ def _parse_one(yp: Path, mol_dir: Path, structures_dir: Path, records_dir: Path)
     from tt_bio._vendor.nesso.data.yaml_input import parse_yaml
 
     struct, rec, _, _ = parse_yaml(yp, mol_dir, ccd_dict=_CCD)
-    struct.dump(structures_dir / f"{rec.id}.npz")
-    rec.dump(records_dir / f"{rec.id}.json")
+    with staged(structures_dir / f"{rec.id}.npz") as tmp:
+        struct.dump(tmp)
+    with staged(records_dir / f"{rec.id}.json") as tmp:
+        rec.dump(tmp)
     return rec
 
 
@@ -256,10 +262,6 @@ def build_dataset(paths: Paths, manifest: Manifest, ccd_pkl: Path, max_dist: flo
     )
 
 
-NESSO_REPO = "recursionpharma/nesso"
-NESSO_REVISION = "v1.0.0"
-
-
 def find_ccd(cache_dir: Path | None = None, *, download: bool = True) -> Path:
     """Locate the ``ccd.pkl`` shipped alongside the checkpoint (413 MB, never committed).
 
@@ -275,9 +277,17 @@ def find_ccd(cache_dir: Path | None = None, *, download: bool = True) -> Path:
     that downloaded itself and a component library that did not. ``download=False`` is for
     callers that want a precondition check rather than 413 MB.
     """
+    from tt_bio import weights
+
+    # The registry knows where this artifact resolves, and it is the only candidate that
+    # honours $TT_BIO_CACHE (weights.configure_hf_cache moves the hub cache under it). An
+    # explicit --cache still wins, so it goes second.
+    if cache_dir is None and (hit := weights.resolve("nesso1-ccd")) and hit.exists():
+        return hit
+
     roots, seen = [], set()
     for cand in (cache_dir, os.environ.get("NESSO_CACHE"), os.environ.get("HF_HOME"),
-                 "~/.cache/huggingface"):
+                 weights.cache_root(), "~/.cache/huggingface"):
         if not cand:
             continue
         r = Path(cand).expanduser()
@@ -295,10 +305,12 @@ def find_ccd(cache_dir: Path | None = None, *, download: bool = True) -> Path:
               "HuggingFace cache holding it, pass --cache, or name the file directly "
               "with --ccd")
     if download:
-        from huggingface_hub import hf_hub_download
-
-        print(f"Downloading ccd.pkl (413 MB) from {NESSO_REPO} …")
         try:
+            if cache_dir is None:
+                return weights.fetch("nesso1-ccd")
+            from huggingface_hub import hf_hub_download
+
+            print(f"Downloading ccd.pkl (394 MiB) from {NESSO_REPO} …")
             return Path(hf_hub_download(
                 repo_id=NESSO_REPO, filename="ccd.pkl", revision=NESSO_REVISION,
                 cache_dir=cache_dir,

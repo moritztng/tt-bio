@@ -30,6 +30,7 @@ import ttnn
 from ..protenix import (AtomAttentionEncoder, AtomFeaturization, DiffusionModule, Protenix,
                         edm_sample)
 from .featurize import condition_template_index
+from ..envflags import env_flag
 
 # Upstream's sampler settings, as an actual `pxdesign` run uses them. 400 steps and a
 # constant eta of 2.5 both differ from Protenix's fold defaults (200 steps, eta 1.5).
@@ -72,14 +73,13 @@ class ProtenixDesign(Protenix):
         # Deliberately not Protenix.__init__: there is no trunk and no confidence head in
         # this checkpoint, and building either from an empty state dict would silently make
         # a wrong module rather than fail.
-        import os
 
         import tt_bio.tenstorrent as _TT
         from ..tenstorrent import get_device
         self._w = model_state_dict
         self.compute_kernel_config = compute_kernel_config
         self.dev = device or get_device()
-        resolved_fp32 = (os.environ.get("PROTENIX_DIFFUSION_FP32_DEVICE", "1") == "1"
+        resolved_fp32 = (env_flag("PROTENIX_DIFFUSION_FP32_DEVICE", True)
                          if diffusion_fp32 is None else diffusion_fp32)
         self._fast = _TT._FAST_MODE
         _TT.set_fast_mode(False)     # --fast is a trunk lever, and there is no trunk here

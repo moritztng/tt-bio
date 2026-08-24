@@ -1,35 +1,28 @@
 from __future__ import annotations
 
 import math
-import os
 from dataclasses import dataclass
 
 import torch
 import ttnn
 
+from . import align
 from .tenstorrent import Module, device_dtype_override
 from .openfold3 import InputEmbedderGlue
 from .openfold3_confidence import OF3ConfidenceHead
 from .openfold3_trunk import OF3Trunk
 from .openfold3_sample_diffusion import OF3SampleDiffusion
 from .openfold3_weights import _sub
+from .envflags import env_flag
 
 
 def kabsch_rmsd(pred_ca, gt_ca):
     """Optimal-superposition Cα-RMSD (Kabsch). pred_ca, gt_ca: [N, 3].
 
-    Both point clouds are centred, then aligned via the SVD of the correlation
-    matrix with a reflection-correcting determinant, matching the
-    ``scripts/release_gate.py`` Kabsch used by the other tt-bio model gates.
+    Kept as a name because scripts/ and the gates import it; the maths is in
+    ``tt_bio.align``, shared with pxdesign's structure writer.
     """
-    p = pred_ca.double() - pred_ca.double().mean(0)
-    g = gt_ca.double() - gt_ca.double().mean(0)
-    u, _, vt = torch.linalg.svd(p.t() @ g)
-    d = torch.sign(torch.det(vt.t() @ u.t()))
-    s = torch.eye(3, dtype=torch.float64)
-    s[2, 2] = d
-    p_aligned = p @ (vt.t() @ s @ u.t()).t()
-    return float(torch.sqrt(((p_aligned - g) ** 2).sum(-1).mean()))
+    return align.rmsd(pred_ca, gt_ca)
 
 
 def load_pdb_ca(pdb_path):
@@ -209,7 +202,7 @@ class OpenFold3(Module):
         # default-on). In bf16 the 9BK6 complex leg misses the all-atom noise floor
         # (X 1.889 > 1.821 threshold); in fp32 it passes (X 1.627, seeds 0-4:
         # 1.35-2.18 A). OF3_DIFFUSION_FP32_DEVICE=0 opts back out to bf16.
-        if os.environ.get("OF3_DIFFUSION_FP32_DEVICE", "1") == "1":
+        if env_flag("OF3_DIFFUSION_FP32_DEVICE", True):
             with device_dtype_override(ttnn.float32):
                 self.sampler = OF3SampleDiffusion(_sub(sd, "diffusion_module"),
                                                   compute_kernel_config,

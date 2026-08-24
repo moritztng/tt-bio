@@ -630,7 +630,7 @@ class _WorkerState:
                 from tt_bio.tenstorrent import diffusion_fp32_device
 
                 struct_fp32_device = (
-                    os.environ.get("BOLTZ2_STRUCTURE_DIFFUSION_FP32_DEVICE", "0") == "1"
+                    env_flag("BOLTZ2_STRUCTURE_DIFFUSION_FP32_DEVICE", False)
                 )
                 ctx = diffusion_fp32_device(struct_fp32_device)
             else:
@@ -1610,7 +1610,7 @@ class _WorkerState:
                 from tt_bio.tenstorrent import diffusion_fp32_device
 
                 fp32_device = (
-                    os.environ.get("BOLTZ2_AFFINITY_DIFFUSION_FP32_DEVICE", "0") == "1"
+                    env_flag("BOLTZ2_AFFINITY_DIFFUSION_FP32_DEVICE", False)
                 )
                 ctx = diffusion_fp32_device(fp32_device)
             else:

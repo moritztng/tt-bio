@@ -1,0 +1,50 @@
+{
+  "per_seed": {
+    "0": {
+      "ref_device": "cpu",
+      "ref_device_name": "cpu",
+      "torch": "not recorded",
+      "utc": "not recorded",
+      "recycles": 10,
+      "steps": 50,
+      "backfilled": true
+    },
+    "1": {
+      "ref_device": "cpu",
+      "ref_device_name": "cpu",
+      "torch": "not recorded",
+      "utc": "not recorded",
+      "recycles": 10,
+      "steps": 50,
+      "backfilled": true
+    },
+    "2": {
+      "ref_device": "cpu",
+      "ref_device_name": "cpu",
+      "torch": "not recorded",
+      "utc": "not recorded",
+      "recycles": 10,
+      "steps": 50,
+      "backfilled": true
+    },
+    "3": {
+      "ref_device": "cpu",
+      "ref_device_name": "cpu",
+      "torch": "not recorded",
+      "utc": "not recorded",
+      "recycles": 10,
+      "steps": 50,
+      "backfilled": true
+    },
+    "4": {
+      "ref_device": "cpu",
+      "ref_device_name": "cpu",
+      "torch": "not recorded",
+      "utc": "not recorded",
+      "recycles": 10,
+      "steps": 50,
+      "backfilled": true
+    }
+  },
+  "note": "Backfilled, not written by the harness: these caches predate both ref_manifest.json and --ref-device (commit 1676ad83), when the reference half had no backend other than host torch. Their own reports carry no ref_device field at all, which is why cpu here is an inference from the code that produced them rather than a recorded measurement -- flagged so it never reads as one."
+}

@@ -1,0 +1,8 @@
+# Same reason as ../disto/.gitignore, which this campaign should have copied and did not: the
+# distograms are 22 MB each at 298 aa and 65 MB at 512 aa (783 MB for the 18-file set). Every
+# number derived from them is committed in ./score_{298,512}_{LG,LO}.json, and each array's
+# sha256, shape and dtype are in the per-arm fold.json, so a regenerated set can be checked
+# against the recorded one. Keep the CIFs and fold.json, which are 4 MB and carry the provenance.
+# disto_bias_run.sh regenerates the set, but its `cd` names the pxdesign-af2ig-port-p20 worktree
+# on tt-quietbox, which is gone -- point it at a checkout of this repo first.
+*.npy

@@ -36,6 +36,8 @@ from pathlib import Path
 import torch
 import ttnn
 
+from .envflags import env_flag
+
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "rfd3_bias"
 
 TILE_H = TILE_W = 32
@@ -454,7 +456,7 @@ def stats_line() -> str:
             f"fused served={FSTATS[0]} rejects={ {k: v for k, v in REJECTS.items()} }")
 
 
-if os.environ.get("RFD3_BIAS_STATS") == "1":
+if env_flag("RFD3_BIAS_STATS", False):
     import atexit
 
     atexit.register(lambda: print(stats_line(), flush=True))

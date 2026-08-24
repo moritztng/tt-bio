@@ -1,0 +1,8 @@
+{"origin_main": "db56e207e72491755d595edfb278d550ff8122fa",
+ "head": "89cadec9d7924df80ea2d21d4fef4ce4ee06fda9",
+ "merge_base": "db56e207e72491755d595edfb278d550ff8122fa",
+ "tt_bio_identical_to_main": true,
+ "ours_vs_merge_base": ["scripts/rf3_port/arms.py"],
+ "theirs_since_merge_base": [],
+ "non_tt_bio_diff_vs_main": ["scripts/rf3_port/arms.py"],
+ "host": "tt-quietbox2", "card": 2, "checked_at": "2026-08-24T06:48:15Z"}

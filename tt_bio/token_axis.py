@@ -147,6 +147,17 @@ TOKEN_AXIS = {
         "protenix.py:2633; and for the same reason TT_BIO_PROTENIX_TOKEN_BUCKET does not apply to "
         "it, so a future default-ON of that lever changes nothing here",
     ),
+    "nesso1": (
+        UNCENSUSED, None,
+        "nesso1.py:138-154 routes the trunk through tenstorrent.PairformerModule / "
+        "Fp32PairformerModule, which pad to PAIRFORMER_PAD_MULTIPLE at tenstorrent.py:7932 -- "
+        "the same wrappers the boltz2 and boltzgen rows are BUCKETED on",
+        "tt-bio-unify-sweep-2026-08-24 U4: reads as the boltzgen case on the source, but no "
+        "probe run has confirmed it and the two RF3 lessons (per-op census wrong in both "
+        "directions, PAIRFORMER_PAD_MULTIPLE not actually reached) are exactly this shape. "
+        "Needs tests/token_axis_probe.py under a real `tt-bio affinity` at one aligned and one "
+        "ragged length before it can claim a status",
+    ),
     "esmc-300m": (
         BUCKETED, 64, "esmc.py:78 BUCKET, applied at :1503 _batch_tokens and :1263",
         "pad to Lb + additive -inf on padded keys + key_valid zeroing + slice by lens; censused "
@@ -186,8 +197,13 @@ NEEDS_MULTIPLE = (BUCKETED, PARTIAL)
 def shipped_models():
     """Every name reachable from a CLI --model choice, from main.py's own tuples.
 
-    Derived, never hand-typed: the whole point of the guard is that a model added to the CLI
-    cannot slip past it.
+    The tuples are DISCOVERED, not named. Naming four of them said "derived, never
+    hand-typed" and was still a hand-typed list: `tt-bio affinity` brought its own
+    AFFINITY_MODELS and nesso1 slipped past the guard whose whole point was that a model
+    added to the CLI cannot. A tuple that is a subset of another (MSA_DEFAULT_MODELS)
+    changes nothing in the union, and a future non-CLI ``*_MODELS`` tuple fails loudly,
+    which is the right direction to be wrong in.
     """
-    from tt_bio.main import PREDICT_MODELS, DESIGN_MODELS, EMBED_MODELS, SAPROT_MODELS
-    return set(PREDICT_MODELS) | set(DESIGN_MODELS) | set(EMBED_MODELS) | set(SAPROT_MODELS)
+    from tt_bio import main as _main
+    tuples = {n: getattr(_main, n) for n in dir(_main) if n.endswith("_MODELS")}
+    return set().union(*tuples.values())
