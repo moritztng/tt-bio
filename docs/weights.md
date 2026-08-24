@@ -14,7 +14,7 @@ openfold3           openfold3      manual   present     2.13G  /home/you/.boltz/
 openbind            openbind       manual   present     2.13G  /home/you/.boltz/of3-ob-2025-06-30-174k.pt
 nesso1-ccd          nesso1         hf-repo  present     0.38G  /home/you/.cache/huggingface/hub/models--recursionpharma--nesso/...
 ...
-25/28 present, 58.6 GiB on disk, 18.7 GiB to fetch (tt-bio weights --download)
+25/28 present, 64.8 GiB on disk, 6.8 GiB to fetch (tt-bio weights --download)
 ```
 
 - `tt-bio weights --download` fetches everything that is missing or damaged.
