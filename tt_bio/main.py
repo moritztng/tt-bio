@@ -212,6 +212,13 @@ DESIGN_MODELS = ("boltzgen", "rfd3", "pxdesign")
 # ride the structure-writing scheduler path predict uses.
 AFFINITY_MODELS = ("nesso1",)
 
+# `perturb --model`: transcriptomic perturbation prediction. Its own verb rather than a
+# PREDICT_MODELS entry because the input is a cell x gene expression matrix and a gene symbol,
+# not a sequence or a structure, and the output is expression rather than coordinates. Being a
+# *_MODELS tuple is also what makes token_axis.shipped_models() discover it, so the bucketing
+# guard covers a new verb automatically instead of needing to be told about it.
+PERTURB_MODELS = ("xcell",)
+
 
 def predict_results_dir_name(model: str, stem: str) -> str:
     """Predict output folder name: <model>_results_<stem> (e.g.

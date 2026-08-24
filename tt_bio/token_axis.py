@@ -176,6 +176,30 @@ TOKEN_AXIS = {
     ),
     "saprot-650m": (BUCKETED, 64, "saprot.py:48", "same path as saprot-35m"),
     "saprot-1.3b": (BUCKETED, 64, "saprot.py:48", "same path as saprot-35m"),
+    # X-Cell has three candidate axes and they get three different answers; the interesting one is
+    # that padding the big axis would make it WORSE, not better.
+    "xcell": (
+        IMMUNE, None,
+        "the gene axis reaches exactly one reduce, the bias-free SDPA at xcell.py "
+        "SelfAttention.__call__; the 6-token cross-attention context is padded to a full tile and "
+        "masked at xcell.py cross_bias() on EVERY call; the cell-set axis is a batch dim",
+        "measured on card 2, ttnn 0.68.0, not read off the source. The gene axis runs at its true "
+        "length under a bias-free SDPA, which masks its own ragged tail: relative error vs torch "
+        "fp32 is 0.068 at S=98, 0.073 at 129 and 0.062 at 450 against 0.028 at 32 and 0.040 at 64 "
+        "-- the same bf16 floor ragged as aligned, not the 70x an unmasked tail costs. Confirmed "
+        "at FULL-MODEL level rather than per op, which is the screen the RF3 lesson says to "
+        "distrust: end-to-end PCC vs the host reference is 0.9993 at a ragged G=65 and 0.9984 at "
+        "97 against 0.9992 at an aligned 32. Padding this axis would be strictly worse: a bucket "
+        "obliges a mask, the SDPA op refuses the cheap key-only [N,1,1,K] broadcast bias "
+        "(mask_shape[2] == q_shape[2]), and a full [N,1,Q,K] bias at G=4000 is 32 MB per call to "
+        "protect an axis that measures clean without one -- while padding and NOT masking is the "
+        "defect itself, measured at 3.1x the reference error (0.1245 vs 0.0400, G=98 over 128). "
+        "The CONTEXT axis is the one that is always ragged (6 is never a multiple of 32) and it is "
+        "always padded and always masked, with tile padding and an absent prior source taking the "
+        "same -1e9 code path so there is no opt-in branch. The cell-set axis carries no reduce at "
+        "all: appendix A.1.1 folds (B,S,G') to (B*S,G') and nothing in the forward mixes cells, so "
+        "it is padded for program reuse only and never for correctness",
+    ),
 }
 
 # The live constants the table above claims. Checked against their real modules rather than
