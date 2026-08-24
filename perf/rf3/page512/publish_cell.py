@@ -9,6 +9,10 @@ import argparse, json, statistics, sys, pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 PAGE = ROOT / "site/data/perf-512aa.json"
+# The host/device gate pins RF3's device half to the cell, so the cell cannot move without it.
+# Its own comment records what happens otherwise: the previous republish left this row alone and
+# the gate sat red on main for a day. Moving both in one commit is the whole point of this tool.
+GATE = ROOT / "perf/perf-page-host-device-publish/check_numbers.py"
 BAND = (42.0, 52.0)          # brief tripwire
 EXPECT_DIGEST = "22402ffe781e21bb"
 EXPECT_A3M = "ef2301402e7716e9"
@@ -111,11 +115,16 @@ def main():
         fail.append("no --provenance: cannot show the measured tree was main")
     elif not prov.get("tt_bio_identical_to_main"):
         fail.append("provenance says tt_bio differed from main (%s)" % prov.get("origin_main"))
+    elif "ours_vs_merge_base" not in prov:
+        fail.append("provenance predates the merge-base split; re-run the harness preflight")
     else:
-        extra = [f for f in prov.get("non_tt_bio_diff_vs_main", [])
+        # What matters is what THIS branch changed. main moving ahead on a doc or a test between
+        # the fold and the publish is not a reason to distrust the fold, and reading it as one
+        # refused a publish that nothing was wrong with.
+        extra = [f for f in prov["ours_vs_merge_base"]
                  if not f.startswith(("perf/", "scripts/", "site/"))]
         if extra:
-            fail.append("measured tree differs from main outside tt_bio/perf/scripts: %s" % extra)
+            fail.append("this branch changed files outside perf/scripts/site: %s" % extra)
 
     warms = [w for d in procs for w in d["warm_walls_s"]]
     pooled = round(statistics.median(warms), 3)
@@ -211,20 +220,51 @@ def main():
     )
 
     page = json.loads(PAGE.read_text())
-    cell = [m for m in page["models"] if m["id"] == "rf3"][0]["cells"]["p150a"]
+    row = [m for m in page["models"] if m["id"] == "rf3"][0]
+    cell = row["cells"]["p150a"]
+    prev = cell["s_per_fold"]
     cell["s_per_fold"] = pooled
     cell["ref"] = ref
     cell["updated"] = a.updated
     cell["parity"] = ("reference-relative PASS on the fused arm, 7ROA 0.1780 A and "
                       "ubiquitin 0.2208 A, bit-exact run-to-run and cross-process")
+
+    # The gate row, derived from the same fields the page's own JS reads. host_s is carried, not
+    # re-measured, so the device half is where the cell's move lands.
+    g = row["cells"]["h200"]
+    host_tt = cell["split"]["host_s"]
+    gate_row = (host_tt, g["split"]["host_s"], round(pooled - host_tt, 3), g["split"]["device_s"],
+                round(pooled / g["s_per_fold"], 3),
+                round((pooled - host_tt) / g["split"]["device_s"], 3))
+    gate_src = GATE.read_text()
+    old_line = [l for l in gate_src.splitlines() if l.lstrip().startswith('"rf3":')]
+    if len(old_line) != 1:
+        print(f"REFUSING TO PUBLISH:\n  - {GATE.name}: found {len(old_line)} rf3 rows, expected 1")
+        return 1
+    new_line = '    "rf3":         (%s),' % ", ".join(f"{v:.3f}" for v in gate_row)
+    gate_new = gate_src.replace(old_line[0], new_line)
+
+    print(f"gate row:          rf3 -> {gate_row}")
     if not a.write:
-        print("(dry run, page not touched)\n")
-        print("new s_per_fold:", pooled)
+        print("(dry run, page and gate not touched)\n")
+        print("new s_per_fold:", pooled, f"(from {prev})")
         print("new parity:   ", cell["parity"])
+        print("new gate line: " + new_line.strip())
         print("new ref:\n" + ref)
         return 0
     PAGE.write_text(json.dumps(page, indent=2, ensure_ascii=False) + "\n")
+    GATE.write_text(gate_new)
     print(f"wrote {PAGE}: s_per_fold {pooled}, {ratio}x H200 fold ratio")
+    print(f"wrote {GATE}: rf3 device half {gate_row[2]} s")
+
+    # Publishing is not done until the gate that reads the cell agrees with it.
+    import subprocess
+    r = subprocess.run([sys.executable, str(GATE)], capture_output=True, text=True)
+    print(r.stdout.strip())
+    if r.returncode != 0:
+        print(r.stderr.strip())
+        print("\nPAGE AND GATE WRITTEN BUT THE GATE FAILS. Do not commit; read the rows above.")
+        return 1
     return 0
 
 if __name__ == "__main__":

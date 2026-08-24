@@ -24,11 +24,19 @@ if [ -n "$(git diff --name-only "$MAIN" -- tt_bio/)" ]; then
   git diff --stat "$MAIN" -- tt_bio/
   exit 71
 fi
+# A plain diff against main cannot tell "we edited this file" from "main moved past us since the
+# branch last merged", and the second is not a reason to distrust a fold. Record both sides off the
+# merge base: `ours` is what this branch actually changed, which is what the publish gate reads,
+# `theirs_since_base` is main moving on. The first refused a publish that nothing was wrong with.
+BASE=$(git merge-base HEAD "$MAIN")
 mkdir -p "$OUT"
 cat > "$OUT/provenance_$HOST.json" <<PROV
 {"origin_main": "$MAIN",
  "head": "$(git rev-parse HEAD)",
+ "merge_base": "$BASE",
  "tt_bio_identical_to_main": true,
+ "ours_vs_merge_base": [$(git diff --name-only "$BASE" HEAD | grep -v '^perf/' | sed 's/.*/"&"/' | paste -sd, -)],
+ "theirs_since_merge_base": [$(git diff --name-only "$BASE" "$MAIN" | sed 's/.*/"&"/' | paste -sd, -)],
  "non_tt_bio_diff_vs_main": [$(git diff --name-only "$MAIN" | grep -v '^perf/' | sed 's/.*/"&"/' | paste -sd, -)],
  "host": "$(hostname)", "card": $CARD, "checked_at": "$(date -u +%FT%TZ)"}
 PROV
