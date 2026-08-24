@@ -43,6 +43,16 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   fully unassigned. Run-to-run ligand-pose spread on the FKBP12 leg fell from 0.630 A to 0.183 A.
   Polymer folds are untouched: the guard fires only on an all-ligand atom array.
 
+- `full_parity_gate.py`: a port leg whose scorer runs on a card reported ERROR instead of a
+  verdict. tt-metal writes its log lines to stdout, the scorers print their JSON report to the
+  same stream, and the gate ran `json.loads` over the whole thing. `af2ig-trunk-device` hit this
+  on every run on an 11x10 Tensix grid, where the triangle-multiply L1 retry always fires at 208
+  tokens: the parse failed and the error the gate printed was tt-bio's own notice saying the clash
+  was handled and the result unchanged. The leg was unaffected on the 13x10 grid it was registered
+  on, so the blind spot was one board class wide and invisible from the other. The gate now takes
+  the report out of stdout and lets device log lines around it be log lines. A report truncated by
+  a scorer that died mid-print is still an ERROR.
+
 - `full_parity_gate.py --workers qb2:2` run on qb2 itself now dispatches locally. It compared
   the host token against the machine's own hostname (`tt-quietbox2`), classified the box it was
   running on as remote, and ran every device fold through `ssh qb2` — an alias that exists only
@@ -50,6 +60,62 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   each on `Could not resolve hostname qb2`, leaving a GATE FAIL that was pure plumbing. The
   fleet short names `qb1` and `qb2` now resolve to their own boxes; genuinely cross-host
   `--workers` entries still dispatch over ssh.
+
+### Gates
+
+Gated on a Tenstorrent Blackhole p300c (tt-quietbox2, Python 3.10.12, TT-NN 0.68.0), in a venv
+built from a wheel of this tree, with every gate run against the checkout it is tagging.
+
+- Accuracy floors (`release_gate.py`): all eight structure models clear their RMSD and TM floor.
+  OpenBind-0 folds 1.693 A at TM 0.894 against a 3.5 A / 0.70 floor. PXDesign's fit RMSD is
+  4.909 A against a 15.0 A floor, with its coordinate digest matching. Every model carried over
+  from 0.6.8 reproduces its 0.6.8 number to the digit: Boltz-2 1.700, ESMFold2 1.772,
+  ESMFold2-Fast 1.804, Protenix-v2 1.374, OpenDDE 1.418, OpenFold3 1.662, RoseTTAFold3 1.239 A.
+  BoltzGen 0.830 A scRMSD at a 100% pass rate, OpenDDE-AbAg DockQ 0.873, Nesso-1 worst scalar
+  3.771xR, ESM-C 300M/600M per-residue PCC 0.99961 / 0.99964.
+- Parity gate (`full_parity_gate.py`, 40 legs): 32 PASS, 1 PASS-caveated, 4 GAP, 2
+  BLOCKED-REGEN, 1 FAIL, 0 DRIFT elsewhere. All four GAPs and both BLOCKED-REGEN legs are the
+  same ones 0.6.8 shipped, with the same verdicts; a GAP that reproduces its committed record is
+  a reproduced verdict, not a failure. The FAIL is `af2ig-trunk-device`, described under Known
+  gaps. New this release and green for the first time: OpenBind's two structure legs
+  (ubiquitin all-atom 0.969 A, FKBP12+SB3 0.603 A) and the 25 bit-exact `pxdesign-featurizer`
+  arms.
+- Packaging (`packaging_smoke.py`): 61/61 data files and 43/43 declared runtime dependencies ship
+  in both the wheel and the sdist, and land on disk after a clean install.
+- Host test suite: 1120 passed, 52 skipped, 1 xfailed.
+- UX regression (`ux_regression.py`): every surface cleared progress, argument parsing and the
+  results manifest.
+
+### Known gaps
+
+Named rather than dropped, because a release that does not say what it did not check is not
+gated.
+
+- `af2ig-trunk-device` FAILs against its committed floor on a p300c: 13 of 94 taps miss where the
+  committed record has 9, minimum PCC 0.99601 against 0.99642, and one fewer failing scalar. That
+  record was measured on a p150a, bit-identical across two of them, so its 1.10x bound is
+  calibrated to within-board-type spread only, and a p300c splits every matmul across 110 Tensix
+  cores where a p150a uses 130. The magnitudes fit an accumulation-order difference rather than a
+  broken port, but no p150a was reachable to confirm it, so the leg has no p300c record and this
+  release does not claim one. AF2-IG is not reachable from the CLI in 0.7.0 — it is the filter
+  half of PXDesign's design selection, which has not shipped — so no user path is affected. The
+  leg's floor should key on board type, as the size ladder and the performance baselines already
+  do.
+- Size-generality ladder: not run. Its baseline exists only for the p150a, and the p150a in the
+  fleet was unavailable for the whole release window. A ladder baseline recorded on the p300c
+  from this release's own runs could not detect drift in the code that recorded it.
+- Performance regression: not run. The only gate-capable host was carrying three other workers at
+  a load average of 9 to 21 for the whole window, and a Boltz-2 measurement taken there read
+  0.757 structures/s against a 1.498 baseline — twice the wall for identical code. The suite's
+  own method treats a slower reading under contention as unproven, so no verdict was recorded
+  rather than a red one.
+- OpenBind-0 and PXDesign still have no cell on the benchmark page. Measuring them was in flight
+  when this was cut. The page names both as unmeasured rather than projecting a number.
+- `tt-bio design --model pxdesign` is not exercised end to end by any gate leg. Its accuracy is
+  covered by a fit-RMSD floor, a coordinate digest and 25 bit-exact featurizer arms; the CLI path
+  around it, from argument parsing through weight resolution to the results manifest, is not.
+- The `biotite<1.7` pin guards a break that only appears on Python 3.12, which no gate host in
+  the fleet runs.
 
 ## [0.6.8] - 2026-08-24
 
