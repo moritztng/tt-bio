@@ -96,16 +96,18 @@ built from a wheel of this tree, with every gate run against the checkout it is 
 Named rather than dropped, because a release that does not say what it did not check is not
 gated.
 
-- `af2ig-trunk-device` FAILs against its committed floor on a p300c: 13 of 94 taps miss where the
-  committed record has 9, minimum PCC 0.99601 against 0.99642, and one fewer failing scalar. That
-  record was measured on a p150a, bit-identical across two of them, so its 1.10x bound is
-  calibrated to within-board-type spread only, and a p300c splits every matmul across 110 Tensix
-  cores where a p150a uses 130. The magnitudes fit an accumulation-order difference rather than a
-  broken port, but no p150a was reachable to confirm it, so the leg has no p300c record and this
-  release does not claim one. AF2-IG is not reachable from the CLI in 0.7.0 — it is the filter
-  half of PXDesign's design selection, which has not shipped — so no user path is affected. The
-  leg's floor should key on board type, as the size ladder and the performance baselines already
-  do.
+- `af2ig-trunk-device` FAILs against its committed floor, and the cause is the committed floor
+  rather than the port. The leg read 13 of 94 taps missing at minimum PCC 0.9960112623 and
+  envelope 13.794076; the record it is scored against holds 9 taps. Both numbers are already
+  root-caused: the AF2-IG port established that an 11x10 Tensix grid gives 13 taps at PCC
+  0.9960112623 where a 13x10 grid gives 8, and pinned it by forcing a 13x10 board down to 11x10,
+  which returned the 11x10 figures to all ten printed digits. This run reproduces that same
+  11x10 value digit for digit. The committed record is a 13x10 measurement taken when the
+  template stack still ran on the host, and the leg now runs it on the card, which the port
+  measured as amplifying the gap from 2.6e-10 to 1.5e-3. So the record is stale in two respects,
+  board grid and template placement, and needs re-recording per grid and per arm — the port's
+  call, not a release action. AF2-IG has no CLI path in 0.7.0: it is the filter half of PXDesign's
+  design selection, which has not shipped, so no user path is affected.
 - Size-generality ladder: not run. Its baseline exists only for the p150a, and the p150a in the
   fleet was unavailable for the whole release window. A ladder baseline recorded on the p300c
   from this release's own runs could not detect drift in the code that recorded it.
