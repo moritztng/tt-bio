@@ -25,6 +25,7 @@ from rdkit import Chem
 from safetensors.torch import save_file
 
 from tt_bio._vendor.nesso.data.types import Manifest, Record
+from tt_bio.cache import cached, staged
 from tt_bio.weights import NESSO_REPO, NESSO_REVISION
 
 # RDKit drops atom properties when UNPICKLING too, not just when pickling, so this has
@@ -151,12 +152,13 @@ def link_given_esm(given: dict[str, str], esm_dir: Path) -> int:
         if not source.exists():
             raise FileNotFoundError(f"esm: {src} does not exist")
         dst = esm_dir / f"{mid}.safetensors"
-        if dst.exists():
+        if cached(dst):
             continue
         try:
-            dst.symlink_to(source.resolve())
+            dst.symlink_to(source.resolve())      # one syscall, so already atomic
         except OSError:
-            dst.write_bytes(source.read_bytes())
+            with staged(dst) as tmp:
+                tmp.write_bytes(source.read_bytes())
         linked += 1
     return linked
 
@@ -168,7 +170,7 @@ def run_esm(
     cache_dir: Path | None = None,
 ) -> int:
     """Write ``[1, L+2, 1280]`` final-layer ESM-2 embeddings, skipping ones on disk."""
-    missing = {m: s for m, s in seqs.items() if not (esm_dir / f"{m}.safetensors").exists()}
+    missing = {m: s for m, s in seqs.items() if not cached(esm_dir / f"{m}.safetensors")}
     if not missing:
         return 0
     from tt_bio._vendor.nesso.data.esm import extract_esm_embedding, setup_esm_model
@@ -176,7 +178,8 @@ def run_esm(
     model, tokenizer = setup_esm_model(model_name, torch.device("cpu"), cache_dir=cache_dir)
     for mid, seq in sorted(missing.items()):
         emb = extract_esm_embedding(seq, model, tokenizer)
-        save_file({"embeddings": emb}, esm_dir / f"{mid}.safetensors")
+        with staged(esm_dir / f"{mid}.safetensors") as tmp:
+            save_file({"embeddings": emb}, tmp)
     return len(missing)
 
 
@@ -195,8 +198,10 @@ def _parse_one(yp: Path, mol_dir: Path, structures_dir: Path, records_dir: Path)
     from tt_bio._vendor.nesso.data.yaml_input import parse_yaml
 
     struct, rec, _, _ = parse_yaml(yp, mol_dir, ccd_dict=_CCD)
-    struct.dump(structures_dir / f"{rec.id}.npz")
-    rec.dump(records_dir / f"{rec.id}.json")
+    with staged(structures_dir / f"{rec.id}.npz") as tmp:
+        struct.dump(tmp)
+    with staged(records_dir / f"{rec.id}.json") as tmp:
+        rec.dump(tmp)
     return rec
 
 

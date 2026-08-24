@@ -49,10 +49,15 @@ def staged(dst):
     The one place the publish rule lives. A producer that raises, or a process that
     is killed, leaves the tmp file rather than a partial ``dst`` that every later
     reader accepts.
+
+    The tmp name KEEPS the destination's suffix, because a producer is allowed to care
+    about it: ``np.savez_compressed`` appends ``.npz`` when the path it is handed does
+    not already end in it, so a tmp called ``.x.npz.1234.tmp`` gets written as
+    ``.x.npz.1234.tmp.npz`` and the rename then fails on a file that is not there.
     """
     dst = Path(dst)
     dst.parent.mkdir(parents=True, exist_ok=True)
-    tmp = dst.parent / f".{dst.name}.{os.getpid()}.tmp"
+    tmp = dst.parent / f".{dst.stem}.{os.getpid()}.tmp{dst.suffix}"
     try:
         yield tmp
         os.replace(tmp, dst)
