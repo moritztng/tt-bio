@@ -88,6 +88,16 @@ def stats_line():
     return "block-sparse atom attention: %d blocked, %d dense-fallback, %d shipped" % tuple(STATS)
 
 
+if os.environ.get("RFD3_BLOCK_SPARSE_STATS", "0") == "1":
+    # The release gate runs its fold in a subprocess, so the counters above are invisible to the
+    # harness that set the flag: a run where RFD3_BLOCK_SPARSE never reached the child looks
+    # exactly like a passing on-arm run. Print them at exit, the same idiom as
+    # rfd3_bias's RFD3_BIAS_STATS, so the arm can be read off the fold's own log.
+    import atexit
+
+    atexit.register(lambda: print(stats_line(), flush=True))
+
+
 def _tile(n):
     return -(-n // TILE) * TILE
 

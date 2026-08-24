@@ -38,6 +38,10 @@ ROUNDS = int(sys.argv[2]) if len(sys.argv) > 2 else 3
 STEPS = int(sys.argv[3]) if len(sys.argv) > 3 else 200
 SEED = int(sys.argv[4]) if len(sys.argv) > 4 else 42
 LOAD_BAR = float(os.environ.get("P107_LOAD_BAR", "3.0"))
+#: A/A control. The "on" arm runs the dense chain too, label and all, so the number this
+#: harness reports is its own floor rather than a prize. Report it before any A/B: a
+#: control comparable to the A/B means the A/B is not resolvable on this box.
+AA = os.environ.get("P107_AA", "0") == "1"
 FIXTURE = pathlib.Path("perf/dsfix/fixtures/rfd3_R4.json")
 CKPT = "/home/ttuser/.boltz/rfd3/weights"
 SHIPPED_DIGEST = "5295e526ebd0b757"
@@ -71,7 +75,7 @@ def fold(label, on, r):
     os.system("rm -rf %s" % out_dir)
     WALLS.clear()
     BS.STATS[0] = BS.STATS[1] = BS.STATS[2] = 0
-    was = BS.set_enabled(on)
+    was = BS.set_enabled(on and not AA)
     l0 = load1()
     try:
         rfd3_design.run_design(json.loads(FIXTURE.read_text()), out_dir, checkpoint_dir=CKPT,
@@ -82,10 +86,13 @@ def fold(label, on, r):
     l1 = load1()
     cifs = sorted(pathlib.Path(out_dir).glob("*.cif"))
     blocked, fallback, shipped = BS.STATS
-    # the on arm must have taken every atom call; the off arm none of them
-    arm_ok = (blocked > 0 and shipped == 0) if on else (blocked == 0 and fallback == 0)
+    # the on arm must have taken every atom call; the off arm none of them. Under AA both folds
+    # ARE the off arm, so both expectations are the off arm's -- these two are the only checks
+    # the control relaxes, and it still verifies the arm it actually ran.
+    dense_arm = (not on) or AA
+    arm_ok = (blocked == 0 and fallback == 0) if dense_arm else (blocked > 0 and shipped == 0)
     dig = hashlib.sha256(cifs[0].read_bytes()).hexdigest()[:16] if cifs else "NO CIF"
-    dig_ok = (dig != SHIPPED_DIGEST) if on else (dig == SHIPPED_DIGEST)
+    dig_ok = (dig == SHIPPED_DIGEST) if dense_arm else (dig != SHIPPED_DIGEST)
     row = dict(arm=label, round=r, warm=(r == 0), s_per_design=round(sum(WALLS), 3),
                n_cifs=len(cifs), digest=dig, blocked=blocked, fallback=fallback,
                shipped=shipped, load_before=l0, load_after=l1,
@@ -99,9 +106,10 @@ def fold(label, on, r):
 
 
 def main():
-    print("[p107] rounds=%d (+1 warm) steps=%d seed=%d card=%s load bar %.1f  Q=%d buckets=%s"
+    print("[p107] rounds=%d (+1 warm) steps=%d seed=%d card=%s load bar %.1f  Q=%d buckets=%s%s"
           % (ROUNDS, STEPS, SEED, os.environ.get("TT_VISIBLE_DEVICES"), LOAD_BAR,
-             BS.config()[0], BS.config()[1]), flush=True)
+             BS.config()[0], BS.config()[1],
+             "  A/A CONTROL (both arms dense)" if AA else ""), flush=True)
     print("[p107] predicted from the cost model: %+.3f s/design (p105, out of sample)"
           % PREDICTED, flush=True)
     rows = []
@@ -112,7 +120,7 @@ def main():
     OUT.parent.mkdir(parents=True, exist_ok=True)
     # Dump before any summary arithmetic: this harness's predecessor lost 40 minutes of card time
     # to a format-string bug in its summary, every fold already folded.
-    OUT.write_text(json.dumps(dict(rounds=ROUNDS, steps=STEPS, seed=SEED, load_bar=LOAD_BAR,
+    OUT.write_text(json.dumps(dict(aa=AA, rounds=ROUNDS, steps=STEPS, seed=SEED, load_bar=LOAD_BAR,
                                    q_block=BS.config()[0], buckets=list(BS.config()[1]),
                                    predicted_s_per_design=PREDICTED,
                                    card=os.environ.get("TT_VISIBLE_DEVICES"),

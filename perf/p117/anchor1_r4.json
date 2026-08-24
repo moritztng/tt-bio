@@ -1,0 +1,127 @@
+{
+  "spec": "perf/dsfix/fixtures/rfd3_R4.json",
+  "spec_id": "R4_b100",
+  "n_designed": 100,
+  "thresholds": {
+    "RFD3_MIN_INBAND": 0.98,
+    "RFD3_MAX_BREAKS": 0,
+    "RFD3_MAX_CLASHES": 6,
+    "RFD3_MIN_DISTINCT_AA": 5,
+    "RFD3_MAX_UNK": 0,
+    "RFD3_MIN_CLEAN_RATE": 0.5
+  },
+  "arms": {
+    "off": {
+      "dir": "/tmp/rfd3_s42_off",
+      "n_designs": 1,
+      "per_design": [
+        {
+          "n_designed": 100,
+          "in_band": 1.0,
+          "step_median": 3.851,
+          "breaks": 0,
+          "clashes": 23,
+          "heavy": 5126,
+          "clash_frac": 0.004487,
+          "worst_contact": 0.984,
+          "unk": 0,
+          "distinct_aa": 14,
+          "top_aa_frac": 0.36,
+          "clean": true
+        }
+      ],
+      "clean_rate": 1.0,
+      "in_band": 1.0,
+      "breaks": 0,
+      "clashes": 23,
+      "clash_frac": 0.004487,
+      "distinct_aa": 14,
+      "unk": 0,
+      "gate_ex_determinism": false
+    },
+    "on": {
+      "dir": "/tmp/rfd3_s42_on",
+      "n_designs": 1,
+      "per_design": [
+        {
+          "n_designed": 100,
+          "in_band": 1.0,
+          "step_median": 3.861,
+          "breaks": 0,
+          "clashes": 24,
+          "heavy": 5124,
+          "clash_frac": 0.004684,
+          "worst_contact": 1.182,
+          "unk": 0,
+          "distinct_aa": 15,
+          "top_aa_frac": 0.37,
+          "clean": true
+        }
+      ],
+      "clean_rate": 1.0,
+      "in_band": 1.0,
+      "breaks": 0,
+      "clashes": 24,
+      "clash_frac": 0.004684,
+      "distinct_aa": 15,
+      "unk": 0,
+      "gate_ex_determinism": false
+    },
+    "off_s43": {
+      "dir": "/tmp/rfd3_s43_off",
+      "n_designs": 1,
+      "per_design": [
+        {
+          "n_designed": 100,
+          "in_band": 1.0,
+          "step_median": 3.833,
+          "breaks": 0,
+          "clashes": 48,
+          "heavy": 5117,
+          "clash_frac": 0.00938,
+          "worst_contact": 0.702,
+          "unk": 0,
+          "distinct_aa": 13,
+          "top_aa_frac": 0.34,
+          "clean": true
+        }
+      ],
+      "clean_rate": 1.0,
+      "in_band": 1.0,
+      "breaks": 0,
+      "clashes": 48,
+      "clash_frac": 0.00938,
+      "distinct_aa": 13,
+      "unk": 0,
+      "gate_ex_determinism": false
+    },
+    "on_s43": {
+      "dir": "/tmp/rfd3_s43_on",
+      "n_designs": 1,
+      "per_design": [
+        {
+          "n_designed": 100,
+          "in_band": 1.0,
+          "step_median": 3.855,
+          "breaks": 0,
+          "clashes": 38,
+          "heavy": 5125,
+          "clash_frac": 0.007415,
+          "worst_contact": 0.733,
+          "unk": 0,
+          "distinct_aa": 15,
+          "top_aa_frac": 0.36,
+          "clean": true
+        }
+      ],
+      "clean_rate": 1.0,
+      "in_band": 1.0,
+      "breaks": 0,
+      "clashes": 38,
+      "clash_frac": 0.007415,
+      "distinct_aa": 15,
+      "unk": 0,
+      "gate_ex_determinism": false
+    }
+  }
+}
