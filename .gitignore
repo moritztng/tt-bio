@@ -90,6 +90,7 @@ perf/p2/
 /ab_*.sh
 scratch/
 .msa_px4pd_*/
+.msa_tokenbucket/
 
 # Correctness-sweep embedding artifacts: one .npz per sequence, and the cap cells are
 # 50 sequences x 2000 residues x d_model float32 each -- 1.3 GB across five models. The
@@ -116,3 +117,8 @@ node_modules/
 *.mp4
 *.webm
 *.mov
+
+# The !tt_bio/_vendor/**/msa/** re-include near the top also un-ignores __pycache__ under those
+# directories, so any worktree that has imported the vendored ESM carries an untracked dir and
+# merge_preflight.sh reads DIRTY on it. Re-ignore the bytecode; the sources stay included.
+tt_bio/_vendor/**/__pycache__/
