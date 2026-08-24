@@ -91,6 +91,19 @@ function deepText(el) {
 function drawn(id) { return deepText(store.get(id)); }
 
 const failures = [];
+/* Every drawn number is a number. A cell that is blocked on one platform can still be another
+ * cell's denominator -- throughput per dollar is indexed to one server -- and a row measured on
+ * Tenstorrent with no measurement on that server used to draw "NaNx" in the column that WAS
+ * measured. Every check below asserts that a row drew and that a blocked cell is labelled; none
+ * of them look at whether a drawn figure is finite, so four nodes went out wrong and green. */
+for (const [id, el] of store) {
+  const t = deepText(el);
+  const bad = t.match(/NaN|Infinity|undefined/);
+  if (bad) {
+    failures.push("#" + id + " drew " + bad[0] + ": " +
+                  t.replace(/\s+/g, " ").slice(Math.max(0, bad.index - 80), bad.index + 80));
+  }
+}
 function want(where, needle, why) {
   if (!drawn(where).includes(needle)) failures.push(why + " (missing from #" + where + ")");
 }

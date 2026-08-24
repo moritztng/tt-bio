@@ -391,12 +391,25 @@ details.disclose > div{ padding-top:var(--s-4); }
   /* One measured value per cell. A prediction cell holds seconds per fold, a design cell seconds
    * per design, and everything downstream derives from whichever one is there. */
   function secs(c) { return c.s_per_fold === undefined ? c.s_per_design : c.s_per_fold; }
-  /* Index every cell against the same reference server, which is 1.00x by construction. */
+  /* Index every cell against the same reference server, which is 1.00x by construction.
+   * A row can be measured on Tenstorrent and unmeasured on the index platform, and then there
+   * is no denominator. Return null instead of dividing by nothing; the callers draw it as
+   * blocked. Without this, such a row rendered "NaNx" in the measured column of both cost
+   * charts and both cost tables. */
   function perDollarIndex(m, key, basis) {
     var p = plat(SERVER_OF[key]), ref = plat(D.cost_model.index_platform);
     var refCell = null;
     for (var k in SERVER_OF) if (SERVER_OF[k] === ref.id) refCell = m.cells[k];
-    return perDollar(secs(m.cells[key]), p, basis) / perDollar(secs(refCell), ref, basis);
+    var cell = m.cells[key];
+    if (!cell || cell.status !== "measured" || !refCell || refCell.status !== "measured") return null;
+    return perDollar(secs(cell), p, basis) / perDollar(secs(refCell), ref, basis);
+  }
+  /* What a cell says when its own measurement exists but the index platform's does not. */
+  function noIndexLabel() { return "no " + plat(D.cost_model.index_platform).short + " baseline"; }
+  function noIndexWhy() {
+    return "Throughput per dollar is indexed to the " + plat(D.cost_model.index_platform).name +
+      ", and this row has no measurement there, so there is nothing to index it against. This " +
+      "row's seconds and per-hour figures are measured and stand on their own.";
   }
 
   /* A design model carrying "hidden": true keeps every measured cell in the JSON and is drawn
@@ -609,6 +622,10 @@ details.disclose > div{ padding-top:var(--s-4); }
                    blockedLabel: blockedLabel(c), reason: blockedWhy(c) };
         }
         var v = valueOf(m, k, p);
+        if (v === null || !isFinite(v)) {
+          return { series: serverLabel(p), seriesShort: serverShort(p), blocked: true,
+                   blockedLabel: noIndexLabel(), reason: noIndexWhy() };
+        }
         max = Math.max(max, v);
         return {
           series: serverLabel(p), seriesShort: serverShort(p), color: SER[p.id], value: v,
@@ -651,7 +668,10 @@ details.disclose > div{ padding-top:var(--s-4); }
         "price spread over " + m.amortisation_years + " years plus electricity at " +
         fmtCents(m.electricity_usd_per_kwh) + ", with the machine predicting around the clock.";
     var adv = [];
-    rows().forEach(function (row) { adv.push(perDollarIndex(row.m, "p150a", basis)); });
+    rows().forEach(function (row) {
+      var v = perDollarIndex(row.m, "p150a", basis);
+      if (v !== null && isFinite(v)) adv.push(v);
+    });
     adv.sort(function (x, y) { return x - y; });
     document.getElementById(host + "-note").textContent =
       "The Galaxy Blackhole returns " + fmtX(adv[0]) + " to " +
@@ -943,7 +963,12 @@ details.disclose > div{ padding-top:var(--s-4); }
         return "<tr><td>" + m.name + "</td>" + CELLS.map(function (k) {
           var p = plat(SERVER_OF[k]);
           return gpuCell(m.cells[k], function (c) {
-            return basis ? fmtX(perDollarIndex(m, k, basis)) : fmtInt(perHour(secs(c), p));
+            if (!basis) return fmtInt(perHour(secs(c), p));
+            var v = perDollarIndex(m, k, basis);
+            return v === null || !isFinite(v)
+              ? "<span class=\"blocked\" title=\"" + noIndexWhy().replace(/"/g, "&quot;") +
+                "\">" + noIndexLabel() + "</span>"
+              : fmtX(v);
           });
         }).join("") + "</tr>";
       }).join("");
