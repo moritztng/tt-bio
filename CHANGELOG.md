@@ -139,10 +139,12 @@ gated.
   baseline rather than the code. It was seeded 2026-07-19 on 0.3.1 as a single untimed draw, was
   never reseeded when the affinity trunk moved from fp32-on-host to fp32-on-device, and the two
   p300c cards in tt-quietbox2 disagree by roughly 2x on it. It is also the only p300c leg with no
-  machine-specific entry, so it falls back to that July card-level figure. A same-card
-  same-session A/B put HEAD at 108 s and the pre-release merge base `6fc864c9` at 104 s, a 4%
-  spread inside single-rep noise that reached 139 s, with both arms failing the 69.8 s baseline.
-  The fix is a per-card reseed, not a code change.
+  machine-specific entry, so it falls back to that July card-level figure. Two same-card A/B
+  rounds against the pre-release merge base `6fc864c9` put the two trees within 4.0% and 1.2% of
+  each other, in opposite directions, while each tree moved 31 to 38% between rounds on its own
+  unchanged code as the box filled up. Both arms fail the 69.8 s baseline, by 33 to 51%. So the
+  leg needs a per-card reseed, and a protocol that can outvote a 38% swing before it can carry a
+  15% threshold on this host at all.
 - Three perf baselines are too stale to fail, so their PASS carries no information. `esmc-300m`,
   `esmc-600m` and `esmc-6b` read +266%, +322% and +100% against p300c baselines seeded between
   0.2.5 and 0.3.1, which predate fused RoPE, ESM-C trace capture and the fused TriMul and
