@@ -45,7 +45,7 @@ def test_an_env_difference_only_excuses_its_own_keys():
     """A torch difference must not excuse a conformer, and an RDKit difference must not
     excuse a rotation. Without this the leg would go green on a real port defect the
     moment any dependency drifted."""
-    g = _load_rf3_parity_gate()
+    g = port_module("rf3_port", "parity_gate")
     assert g.excusable_keys(None) == set()
     assert g.excusable_keys({"torch": {}}) == g.TORCH_QR_DERIVED_KEYS
     assert g.excusable_keys({"rdkit": {}}) == g.RDKIT_DERIVED_KEYS
