@@ -34,9 +34,14 @@ def main() -> int:
                     default=ROOT / "scripts/gpu_vs_tt/fixtures/prot300.a3m")
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--pair-proj-bw", type=int, default=None,
-                    help="override _PAIR_PROJ_BW. Main ships 1 (the bit-exact out_block_h=5 half "
-                         "only); raising it turns on the in0_block_w half at the four pair-track "
-                         "sites perfwar-l1 already landed.")
+                    help="override _PAIR_PROJ_BW. Main ships 16; 1 is the bit-exact arm (the "
+                         "out_block_h=5 half only) and above 1 turns on the in0_block_w half at "
+                         "the four pair-track sites perfwar-l1 landed.")
+    ap.add_argument("--pair-proj-l1-bw", type=int, default=None,
+                    help="override _PAIR_PROJ_L1_BW. tenstorrent.py:269 says this cap must TRACK "
+                         "_PAIR_PROJ_BW, so an arm that drops only --pair-proj-bw to 1 leaves the "
+                         "L1-output sites at 16 and is not the byte-identical arm it claims to be. "
+                         "Defaults to whatever --pair-proj-bw is, so the arms stay honest.")
     a = ap.parse_args()
 
     import ttnn
@@ -50,6 +55,9 @@ def main() -> int:
 
     if a.pair_proj_bw is not None:
         T._PAIR_PROJ_BW = a.pair_proj_bw
+    l1_bw = a.pair_proj_l1_bw if a.pair_proj_l1_bw is not None else a.pair_proj_bw
+    if l1_bw is not None:
+        T._PAIR_PROJ_L1_BW = l1_bw
 
     fired = {"n": 0}
 
@@ -82,7 +90,7 @@ def main() -> int:
                n_tokens=cold_m.get("n_tokens"), cif_sha16=sha,
                cif_path=str(a.out.with_suffix(".cif")),
                fired_calls_per_fold=fired["n"] // max(1, a.repeat),
-               pair_proj_bw=T._PAIR_PROJ_BW,
+               pair_proj_bw=T._PAIR_PROJ_BW, pair_proj_l1_bw=T._PAIR_PROJ_L1_BW,
                grid=list(T.COMPUTE_GRID_MAIN))
     a.out.write_text(json.dumps(res, indent=1))
     print(json.dumps(res))

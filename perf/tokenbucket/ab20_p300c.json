@@ -1,0 +1,498 @@
+{
+ "what": "token-bucket A/B at the perf_regression gate's own 20 aa input (examples/trpcage.yaml, padded 20 -> 64), plus the pad-multiple sweep, on p300c / tt-quietbox2",
+ "why": "the gate's red is measured against a committed p300c baseline with 27 branch commits and 358 main commits in between, so it cannot attribute anything. These are ON-vs-OFF in the same minute on one card.",
+ "card": "p300c",
+ "machine": "tt-quietbox2",
+ "input": "examples/trpcage.yaml, 20 aa, single-seq",
+ "flag": "TT_BIO_PROTENIX_TOKEN_BUCKET",
+ "pad_multiple_flag": "TT_BIO_PROTENIX_TOKEN_PAD_MULTIPLE",
+ "caveat": "the host carried a co-tenant release campaign throughout; loadavg is stamped per reading and ran 2.5 to 21. Signs are consistent across pairs, magnitudes are not tight, and no pair is averaged across a load step.",
+ "ab_pairs": [
+  {
+   "model": "protenix-v2",
+   "pair": "p1",
+   "kept": true,
+   "off_structures_s": 3.00518,
+   "on_structures_s": 2.088561,
+   "off_ms_per_call": 333,
+   "on_ms_per_call": 479,
+   "on_over_off": 0.695,
+   "pct": -30.5,
+   "load1_off_begin": 8.17,
+   "load1_on_begin": 2.55
+  },
+  {
+   "model": "protenix-v2",
+   "pair": "p2",
+   "kept": true,
+   "off_structures_s": 3.231537,
+   "on_structures_s": 2.501929,
+   "off_ms_per_call": 309,
+   "on_ms_per_call": 400,
+   "on_over_off": 0.7742,
+   "pct": -22.6,
+   "load1_off_begin": 5.94,
+   "load1_on_begin": 5.96
+  },
+  {
+   "model": "opendde",
+   "pair": "p1",
+   "kept": true,
+   "off_structures_s": 2.47877,
+   "on_structures_s": 2.191663,
+   "off_ms_per_call": 403,
+   "on_ms_per_call": 456,
+   "on_over_off": 0.8842,
+   "pct": -11.6,
+   "load1_off_begin": 8.09,
+   "load1_on_begin": 8.46
+  },
+  {
+   "model": "opendde",
+   "pair": "p2",
+   "kept": true,
+   "off_structures_s": 2.602459,
+   "on_structures_s": 2.186814,
+   "off_ms_per_call": 384,
+   "on_ms_per_call": 457,
+   "on_over_off": 0.8403,
+   "pct": -16.0,
+   "load1_off_begin": 6.06,
+   "load1_on_begin": 6.13
+  },
+  {
+   "model": "opendde-abag",
+   "pair": "p1",
+   "kept": true,
+   "off_structures_s": 2.572881,
+   "on_structures_s": 2.175701,
+   "off_ms_per_call": 389,
+   "on_ms_per_call": 460,
+   "on_over_off": 0.8456,
+   "pct": -15.4,
+   "load1_off_begin": 6.24,
+   "load1_on_begin": 6.97
+  },
+  {
+   "model": "opendde-abag",
+   "pair": "p2",
+   "kept": false,
+   "why": "one arm failed to measure"
+  }
+ ],
+ "ab_runs": {
+  "opendde-abag.bucket0.p1": {
+   "log": "perf/tokenbucket/ab20/opendde-abag.bucket0.p1.log",
+   "model": "opendde-abag",
+   "structures_s": 2.572881,
+   "ms_per_call": 389,
+   "committed_baseline": 2.663,
+   "vs_committed": "-3.4%",
+   "verdict": "PASS",
+   "load": {
+    "begin": [
+     6.24,
+     5.39,
+     7.22
+    ],
+    "at_begin": "2026-08-24T13:06:58+00:00",
+    "end": [
+     5.96,
+     5.37,
+     7.19
+    ],
+    "at_end": "2026-08-24T13:07:10+00:00"
+   }
+  },
+  "opendde-abag.bucket0.p2": {
+   "log": "perf/tokenbucket/ab20/opendde-abag.bucket0.p2.log",
+   "model": "opendde-abag",
+   "structures_s": 2.156037,
+   "ms_per_call": 464,
+   "committed_baseline": 2.663,
+   "vs_committed": "-19.0%",
+   "verdict": "FAIL",
+   "load": {
+    "begin": [
+     12.93,
+     8.12,
+     7.88
+    ],
+    "at_begin": "2026-08-24T13:10:06+00:00",
+    "end": [
+     14.41,
+     9.83,
+     8.51
+    ],
+    "at_end": "2026-08-24T13:11:25+00:00"
+   }
+  },
+  "opendde-abag.bucket1.p1": {
+   "log": "perf/tokenbucket/ab20/opendde-abag.bucket1.p1.log",
+   "model": "opendde-abag",
+   "structures_s": 2.175701,
+   "ms_per_call": 460,
+   "committed_baseline": 2.663,
+   "vs_committed": "-18.3%",
+   "verdict": "FAIL",
+   "load": {
+    "begin": [
+     6.97,
+     5.48,
+     7.28
+    ],
+    "at_begin": "2026-08-24T13:06:45+00:00",
+    "end": [
+     6.24,
+     5.39,
+     7.22
+    ],
+    "at_end": "2026-08-24T13:06:58+00:00"
+   }
+  },
+  "opendde-abag.bucket1.p2": {
+   "log": "perf/tokenbucket/ab20/opendde-abag.bucket1.p2.log",
+   "committed_baseline": 2.663,
+   "vs_committed": "n/a",
+   "verdict": "FAIL",
+   "load": {
+    "begin": [
+     7.18,
+     5.71,
+     7.21
+    ],
+    "at_begin": "2026-08-24T13:08:00+00:00",
+    "end": [
+     12.93,
+     8.12,
+     7.88
+    ],
+    "at_end": "2026-08-24T13:10:06+00:00"
+   }
+  },
+  "opendde.bucket0.p1": {
+   "log": "perf/tokenbucket/ab20/opendde.bucket0.p1.log",
+   "model": "opendde",
+   "structures_s": 2.47877,
+   "ms_per_call": 403,
+   "committed_baseline": 2.683,
+   "vs_committed": "-7.6%",
+   "verdict": "PASS",
+   "load": {
+    "begin": [
+     8.09,
+     5.52,
+     7.35
+    ],
+    "at_begin": "2026-08-24T13:06:13+00:00",
+    "end": [
+     6.97,
+     5.48,
+     7.28
+    ],
+    "at_end": "2026-08-24T13:06:45+00:00"
+   }
+  },
+  "opendde.bucket0.p2": {
+   "log": "perf/tokenbucket/ab20/opendde.bucket0.p2.log",
+   "model": "opendde",
+   "structures_s": 2.602459,
+   "ms_per_call": 384,
+   "committed_baseline": 2.683,
+   "vs_committed": "-3.0%",
+   "verdict": "PASS",
+   "load": {
+    "begin": [
+     6.06,
+     5.45,
+     7.14
+    ],
+    "at_begin": "2026-08-24T13:07:47+00:00",
+    "end": [
+     7.18,
+     5.71,
+     7.21
+    ],
+    "at_end": "2026-08-24T13:08:00+00:00"
+   }
+  },
+  "opendde.bucket1.p1": {
+   "log": "perf/tokenbucket/ab20/opendde.bucket1.p1.log",
+   "model": "opendde",
+   "structures_s": 2.191663,
+   "ms_per_call": 456,
+   "committed_baseline": 2.683,
+   "vs_committed": "-18.3%",
+   "verdict": "FAIL",
+   "load": {
+    "begin": [
+     8.46,
+     5.44,
+     7.35
+    ],
+    "at_begin": "2026-08-24T13:05:57+00:00",
+    "end": [
+     8.09,
+     5.52,
+     7.35
+    ],
+    "at_end": "2026-08-24T13:06:13+00:00"
+   }
+  },
+  "opendde.bucket1.p2": {
+   "log": "perf/tokenbucket/ab20/opendde.bucket1.p2.log",
+   "model": "opendde",
+   "structures_s": 2.186814,
+   "ms_per_call": 457,
+   "committed_baseline": 2.683,
+   "vs_committed": "-18.5%",
+   "verdict": "FAIL",
+   "load": {
+    "begin": [
+     6.13,
+     5.44,
+     7.16
+    ],
+    "at_begin": "2026-08-24T13:07:34+00:00",
+    "end": [
+     6.06,
+     5.45,
+     7.14
+    ],
+    "at_end": "2026-08-24T13:07:47+00:00"
+   }
+  },
+  "protenix-v2.bucket0.p1": {
+   "log": "perf/tokenbucket/ab20/protenix-v2.bucket0.p1.log",
+   "model": "protenix-v2",
+   "structures_s": 3.00518,
+   "ms_per_call": 333,
+   "committed_baseline": 3.195,
+   "vs_committed": "-5.9%",
+   "verdict": "PASS",
+   "load": {
+    "begin": [
+     8.17,
+     4.73,
+     7.24
+    ],
+    "at_begin": "2026-08-24T13:05:10+00:00",
+    "end": [
+     8.46,
+     5.44,
+     7.35
+    ],
+    "at_end": "2026-08-24T13:05:57+00:00"
+   }
+  },
+  "protenix-v2.bucket0.p2": {
+   "log": "perf/tokenbucket/ab20/protenix-v2.bucket0.p2.log",
+   "model": "protenix-v2",
+   "structures_s": 3.231537,
+   "ms_per_call": 309,
+   "committed_baseline": 3.195,
+   "vs_committed": "+1.2%",
+   "verdict": "PASS",
+   "load": {
+    "begin": [
+     5.94,
+     5.38,
+     7.16
+    ],
+    "at_begin": "2026-08-24T13:07:23+00:00",
+    "end": [
+     6.13,
+     5.44,
+     7.16
+    ],
+    "at_end": "2026-08-24T13:07:34+00:00"
+   }
+  },
+  "protenix-v2.bucket1.p1": {
+   "log": "perf/tokenbucket/ab20/protenix-v2.bucket1.p1.log",
+   "model": "protenix-v2",
+   "structures_s": 2.088561,
+   "ms_per_call": 479,
+   "committed_baseline": 3.195,
+   "vs_committed": "-34.6%",
+   "verdict": "FAIL",
+   "load": {
+    "begin": [
+     2.55,
+     3.47,
+     6.95
+    ],
+    "at_begin": "2026-08-24T13:04:35+00:00",
+    "end": [
+     8.17,
+     4.73,
+     7.24
+    ],
+    "at_end": "2026-08-24T13:05:10+00:00"
+   }
+  },
+  "protenix-v2.bucket1.p2": {
+   "log": "perf/tokenbucket/ab20/protenix-v2.bucket1.p2.log",
+   "model": "protenix-v2",
+   "structures_s": 2.501929,
+   "ms_per_call": 400,
+   "committed_baseline": 3.195,
+   "vs_committed": "-21.7%",
+   "verdict": "FAIL",
+   "load": {
+    "begin": [
+     5.96,
+     5.37,
+     7.19
+    ],
+    "at_begin": "2026-08-24T13:07:10+00:00",
+    "end": [
+     5.94,
+     5.38,
+     7.16
+    ],
+    "at_end": "2026-08-24T13:07:23+00:00"
+   }
+  }
+ },
+ "padsweep_runs": {
+  "opendde.m32": {
+   "log": "perf/tokenbucket/padsweep_p300c/opendde.m32.log",
+   "model": "opendde",
+   "structures_s": 1.210375,
+   "ms_per_call": 826,
+   "committed_baseline": 2.683,
+   "vs_committed": "-54.9%",
+   "verdict": "FAIL",
+   "load": {
+    "begin": [
+     21.24,
+     13.87,
+     10.14
+    ],
+    "at_begin": "2026-08-24T13:13:17+00:00",
+    "end": [
+     18.22,
+     13.99,
+     10.32
+    ],
+    "at_end": "2026-08-24T13:13:56+00:00"
+   }
+  },
+  "opendde.m64": {
+   "log": "perf/tokenbucket/padsweep_p300c/opendde.m64.log",
+   "model": "opendde",
+   "structures_s": 1.151802,
+   "ms_per_call": 868,
+   "committed_baseline": 2.683,
+   "vs_committed": "-57.1%",
+   "verdict": "FAIL",
+   "load": {
+    "begin": [
+     18.22,
+     13.99,
+     10.32
+    ],
+    "at_begin": "2026-08-24T13:13:56+00:00",
+    "end": [
+     16.77,
+     14.04,
+     10.45
+    ],
+    "at_end": "2026-08-24T13:14:24+00:00"
+   }
+  },
+  "opendde.off": {
+   "log": "perf/tokenbucket/padsweep_p300c/opendde.off.log",
+   "model": "opendde",
+   "structures_s": 1.276799,
+   "ms_per_call": 783,
+   "committed_baseline": 2.683,
+   "vs_committed": "-52.4%",
+   "verdict": "FAIL",
+   "load": {
+    "begin": [
+     16.77,
+     14.04,
+     10.45
+    ],
+    "at_begin": "2026-08-24T13:14:24+00:00",
+    "end": [
+     16.9,
+     14.24,
+     10.6
+    ],
+    "at_end": "2026-08-24T13:14:44+00:00"
+   }
+  },
+  "protenix-v2.m32": {
+   "log": "perf/tokenbucket/padsweep_p300c/protenix-v2.m32.log",
+   "model": "protenix-v2",
+   "structures_s": 1.73021,
+   "ms_per_call": 578,
+   "committed_baseline": 3.195,
+   "vs_committed": "-45.8%",
+   "verdict": "FAIL",
+   "load": {
+    "begin": [
+     14.53,
+     9.93,
+     8.55
+    ],
+    "at_begin": "2026-08-24T13:11:30+00:00",
+    "end": [
+     19.86,
+     11.97,
+     9.3
+    ],
+    "at_end": "2026-08-24T13:12:16+00:00"
+   }
+  },
+  "protenix-v2.m64": {
+   "log": "perf/tokenbucket/padsweep_p300c/protenix-v2.m64.log",
+   "model": "protenix-v2",
+   "structures_s": 0.909274,
+   "ms_per_call": 1100,
+   "committed_baseline": 3.195,
+   "vs_committed": "-71.5%",
+   "verdict": "FAIL",
+   "load": {
+    "begin": [
+     19.86,
+     11.97,
+     9.3
+    ],
+    "at_begin": "2026-08-24T13:12:16+00:00",
+    "end": [
+     20.28,
+     12.81,
+     9.66
+    ],
+    "at_end": "2026-08-24T13:12:46+00:00"
+   }
+  },
+  "protenix-v2.off": {
+   "log": "perf/tokenbucket/padsweep_p300c/protenix-v2.off.log",
+   "model": "protenix-v2",
+   "structures_s": 1.461349,
+   "ms_per_call": 684,
+   "committed_baseline": 3.195,
+   "vs_committed": "-54.3%",
+   "verdict": "FAIL",
+   "load": {
+    "begin": [
+     20.28,
+     12.81,
+     9.66
+    ],
+    "at_begin": "2026-08-24T13:12:46+00:00",
+    "end": [
+     21.24,
+     13.87,
+     10.14
+    ],
+    "at_end": "2026-08-24T13:13:17+00:00"
+   }
+  }
+ }
+}

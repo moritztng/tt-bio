@@ -1,0 +1,4 @@
+gate/
+pagecheck*/**/*.cif
+ab768/cif/**/*.cif
+trpcage/

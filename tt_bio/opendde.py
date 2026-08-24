@@ -444,10 +444,14 @@ class OpenDDE:
         # Build the refiner trimuls' fused input-weight cache up front, so the first (timed)
         # call does not interleave the 96-tensor `_gp_cache` uploads with its compute.
         # Numerically inert, measured: a fold with this prewarm produces the same numbers as
-        # one without.
+        # one without. Warm the BUCKETED width: prewarm derives (chunk_size, group) from the
+        # width it is given, so warming Ns while the refiner runs at the padded Ns warms an
+        # entry the call never reads and leaves the upload back inside the first call.
+        from .protenix import bucketed_pairformer, bucketed_width
+        Nsw = bucketed_width(Ns)
         for blk in self.refiner.blocks:
-            blk.triangle_multiplication_start.prewarm(Ns, 1)
-            blk.triangle_multiplication_end.prewarm(Ns, 1)
+            blk.triangle_multiplication_start.prewarm(Nsw, 1)
+            blk.triangle_multiplication_end.prewarm(Nsw, 1)
         z4 = ttnn.reshape(z_st, (1, Ns, Ns, self.expander.c_z))
         s3 = ttnn.reshape(s_st, (1, Ns, self.expander.c_s))
         bias = None
@@ -455,8 +459,7 @@ class OpenDDE:
             bias = ttnn.reshape(attn_bias, (1, 1, Ns, Ns))
         # The refiner is a THIRD ragged token axis: Ns structural tokens, not residues, and the
         # census caught 8 ragged fused-SDPA calls here at Ns=181 after the trunk and the
-        # confidence head were both bucketed. Same helper, same default-off gate.
-        from .protenix import bucketed_pairformer
+        # confidence head were both bucketed. Same helper, same gate, on by default.
         from .tenstorrent import get_device as _gd
         s_ref, z_ref = bucketed_pairformer(self.refiner, s3, z4, _gd(),
                                            extra_attn_bias=bias)

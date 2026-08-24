@@ -1,0 +1,23 @@
+{
+ "model": "opendde",
+ "arm": "off",
+ "scope": "both",
+ "target": "perf/size512/fixtures/cdk2x2_298.yaml",
+ "cold_s": 124.772,
+ "times": [
+  43.816
+ ],
+ "median_s": 43.816,
+ "min_s": 43.816,
+ "plddt": 0.822245,
+ "n_tokens": 298,
+ "cif_sha16": "efad75c81e547797",
+ "cif_path": "perf/tokenbucket/pagecheck/298_bw16_1/r.cif",
+ "fired_calls_per_fold": 0,
+ "pair_proj_bw": 16,
+ "pair_proj_l1_bw": 16,
+ "grid": [
+  11,
+  10
+ ]
+}

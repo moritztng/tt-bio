@@ -1,0 +1,6 @@
+2026-08-24T13:16:04+00:00 BEGIN off-arm record (card 2) load 9.44 12.34 10.22
+2026-08-24T13:43:22+00:00 END off-arm record rc=0 load 1.50 3.29 6.25
+2026-08-24T13:43:22+00:00 BEGIN on-arm compare vs the off arm load 1.50 3.29 6.25
+2026-08-24T14:00:07+00:00 END on-arm compare rc=1 load 6.30 5.00 5.14
+2026-08-24T14:00:07+00:00 committed size_ladder_baseline.json unchanged load 6.30 5.00 5.14
+2026-08-24T14:00:07+00:00 ALL DONE load 6.30 5.00 5.14
