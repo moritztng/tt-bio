@@ -66,7 +66,14 @@ export RELEASE_GATE_SIZE_RUNGS=298
 run sizeladder298 "$PY" -u scripts/release_gate.py --model size-ladder \
   --size-ladder-models protenix-v2,opendde
 unset RELEASE_GATE_SIZE_RUNGS
-run sizeladder "$PY" -u scripts/release_gate.py --model size-ladder
+# Scoped to the two models the flip can reach, same grep-verified reason as the perf leg. The
+# unscoped sweep is 6 models x 4 rungs and spent 34 minutes on boltz2 and esmfold2, neither of
+# which calls into the bucketing at all. The full arm is the release run's job, not this
+# branch's: what this branch owes is evidence that the two models it changes do not regress.
+# protenix-v2's rows are provably unchanged (pad 0 at all four rungs); opendde's are the
+# informative ones, because its refiner axis 2*n_res-n_GLY is unaligned at every rung.
+run sizeladder "$PY" -u scripts/release_gate.py --model size-ladder \
+  --size-ladder-models protenix-v2,opendde
 
 echo "=== $(date -Is) ALL LEGS ATTEMPTED"
 for f in $OUT/*.log; do
