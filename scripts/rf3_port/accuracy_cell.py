@@ -375,6 +375,140 @@ def score(per_seed: dict, seeds: list[int]) -> dict:
     return metrics
 
 
+AA3 = {"ALA": "A", "ARG": "R", "ASN": "N", "ASP": "D", "CYS": "C", "GLN": "Q",
+       "GLU": "E", "GLY": "G", "HIS": "H", "ILE": "I", "LEU": "L", "LYS": "K",
+       "MET": "M", "PHE": "F", "PRO": "P", "SER": "S", "THR": "T", "TRP": "W",
+       "TYR": "Y", "VAL": "V"}
+
+
+def crystal_ca(fixture: str):
+    """The deposited CA of the modelled residues, and the fixture tokens they sit on.
+
+    Optional, and absent for the two small anchors: `ubq_76` and `7roa_117` exist to score
+    the port against the reference, and R/D/X needs no experiment. A fixture that ships
+    `ground_truth_ca.json` also gets the absolute reading, which is the only number that
+    says whether the port's X matters -- 0.64 A of device-vs-reference error means one
+    thing if both arms sit 1.9 A from the crystal and another if they sit at 8 A.
+
+    The token map is asserted, not assumed. `token0_auth_seq_id` places deposited residue
+    numbering on fixture tokens, and every mapped residue's three-letter code must match
+    the fixture sequence at that token -- an off-by-one in this map is invisible in the
+    RMSD (it just reads a bit worse) and is exactly the mistake a superposition cannot
+    catch for you.
+    """
+    f = fixture_dir(fixture) / "ground_truth_ca.json"
+    if not f.exists():
+        return None
+    d = json.loads(f.read_text())
+    off = d["token0_auth_seq_id"]
+    seq = json.loads((fixture_dir(fixture) / "input.json").read_text())
+    seq = seq[0]["components"][0]["seq"]
+    tok = np.array([r["auth_seq_id"] - off for r in d["ca"]], dtype=int)
+    xyz = np.array([r["xyz"] for r in d["ca"]], dtype=np.float64)
+    if tok.min() < 0 or tok.max() >= len(seq):
+        raise SystemExit(f"{f}: token map runs off the {len(seq)}-residue fixture sequence")
+    bad = [(int(i), c, seq[i]) for i, c in
+           ((t_, AA3.get(r["comp"], "?")) for t_, r in zip(tok, d["ca"])) if seq[i] != c]
+    if bad:
+        raise SystemExit(f"{f}: token map disagrees with the fixture sequence at "
+                         f"{len(bad)} residues, first {bad[0]}")
+    return tok, xyz
+
+
+def score_crystal(per_seed: dict, seeds: list[int], fixture: str):
+    """Each arm's CA-RMSD to the deposited structure, per seed and averaged.
+
+    Both arms are superposed on the crystal independently, over the modelled residues
+    only: 7EIP models 966 of the 997, and a fold has coordinates for the disordered
+    stretches the experiment does not.
+    """
+    got = crystal_ca(fixture)
+    if got is None:
+        return None
+    tok, xyz = got
+    out = {"n_ca_compared": int(len(tok)), "per_seed": [], "source": "ground_truth_ca.json"}
+    per_arm = {"dev": [], "reference": []}
+    for s in seeds:
+        row = {"seed": s}
+        for arm, label in (("dev", "device"), ("ref", "reference")):
+            ca = per_seed[s][arm][per_seed[s]["rep_idx"]][tok]
+            v = _kabsch_rmsd(ca, xyz)
+            row[f"{label}_vs_xtal_A"] = round(v, 4)
+            per_arm["dev" if arm == "dev" else "reference"].append(v)
+        out["per_seed"].append(row)
+    for k, v in per_arm.items():
+        out[f"{k}_mean_A"] = round(float(np.mean(v)), 4)
+        out[f"{k}_std_A"] = round(float(np.std(v)), 4)
+    # Signed, because the interesting failure is the port being WORSE than the reference
+    # it replaced; a negative delta is the port landing marginally closer to the crystal,
+    # which at this spread is seed noise and not an improvement.
+    out["dev_minus_reference_A"] = round(out["dev_mean_A"] - out["reference_mean_A"], 4)
+    return out
+
+
+REF_MANIFEST = "ref_manifest.json"
+
+
+def ref_stamp(args, report: dict) -> dict:
+    return {"ref_device": args.ref_device,
+            "ref_device_name": report.get("ref_device_name", args.ref_device),
+            "torch": torch.__version__,
+            "utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "recycles": args.recycles, "steps": args.steps}
+
+
+def ref_manifest_record(ref_work: Path, seeds_computed: dict) -> None:
+    """Record WHICH BACKEND produced each reference seed, next to the cache itself.
+
+    Without this a later `--rescore` reports its own unused `--ref-device` default as
+    though it were the backend the reference ran on: the 997 aa cell's first scored
+    artifact said "cpu torch" for a reference that had run on an H200, because `--rescore`
+    loads coordinates and never touches a reference. The cache is the durable artifact, so
+    its provenance belongs in the cache and not in whichever report happened to be open.
+
+    Per seed, because the harness caches per seed and a reference can legally be finished
+    across two runs -- possibly on two backends, which the reader then gets told about
+    instead of having one of them silently stand for both.
+    """
+    if not seeds_computed:
+        return
+    f = ref_work / REF_MANIFEST
+    m = json.loads(f.read_text()) if f.exists() else {"per_seed": {}}
+    m["per_seed"].update({str(k): v for k, v in seeds_computed.items()})
+    f.write_text(json.dumps(m, indent=2) + "\n")
+
+
+def adopt_ref_provenance(report: dict, ref_work: Path, work: Path) -> None:
+    """Report where the reference actually came from, for a run that did not produce it."""
+    m = {}
+    for d in (ref_work, work):
+        f = d / REF_MANIFEST
+        if f.exists():
+            m = json.loads(f.read_text()).get("per_seed", {})
+            break
+    got = {v.get("ref_device", "?") for v in m.values()} if m else set()
+    if len(got) == 1:
+        dev = got.pop()
+        names = sorted({v.get("ref_device_name") for v in m.values() if v.get("ref_device_name")})
+        report["ref_device"] = dev
+        report["reference"] = ("tt_bio._vendor.rf3 (upstream foundry), "
+                              f"{dev} torch, bf16 autocast")
+        report["ref_provenance"] = {"from": REF_MANIFEST, "devices": [dev],
+                                    "device_names": names, "per_seed": m}
+    elif got:
+        report["ref_device"] = "mixed: " + ",".join(sorted(got))
+        report["reference"] = ("tt_bio._vendor.rf3 (upstream foundry), bf16 autocast, "
+                               "reference seeds split across " + ",".join(sorted(got)))
+        report["ref_provenance"] = {"from": REF_MANIFEST, "devices": sorted(got),
+                                    "per_seed": m}
+    else:
+        report["ref_device"] = "unrecorded"
+        report["reference"] = ("tt_bio._vendor.rf3 (upstream foundry), bf16 autocast; "
+                               "backend not recorded in this cache")
+        report["ref_provenance"] = {"from": None,
+                                    "note": f"no {REF_MANIFEST} in {ref_work}"}
+
+
 def resolved_flags() -> dict:
     from tt_bio import tenstorrent as tts
     from tt_bio.rf3.remap import PAIRFORMER_FLAGS
@@ -524,7 +658,9 @@ def main() -> int:
             per_seed[s] = {k: z[k] for k in z.files}
         if any("ref" not in per_seed[s] for s in seeds):
             report["ref_joined_from"] = join_ref(per_seed, seeds, ref_work)
+        adopt_ref_provenance(report, ref_work, work)
         report["metrics"] = score(per_seed, seeds)
+        report["vs_crystal"] = score_crystal(per_seed, seeds, args.fixture)
         report["timing_s"] = {str(s): [round(float(x), 1)
                                        for x in per_seed[s]["timing"]] for s in seeds}
         report["draws_sha"] = {str(s): str(per_seed[s]["shastr"][0]) for s in seeds}
@@ -547,10 +683,14 @@ def main() -> int:
         return probe(args, net)
 
     if args.ref_only:
+        computed = {}
         for s in seeds:
             r = run_seed(args, net, None, s, work, ref_cache=None)
+            if not r.get("cached"):
+                computed[s] = ref_stamp(args, report)
             print(f"[ref seed {s}] {'cached' if r.get('cached') else 'ran'} "
                   f"{[round(float(x), 1) for x in r['timing']]}", flush=True)
+        ref_manifest_record(work, computed)
         report["ref_only"] = True
         print(json.dumps(report, indent=2))
         if args.out:
@@ -629,7 +769,12 @@ def main() -> int:
     else:
         if args.dev_only:
             report["ref_joined_from"] = join_ref(per_seed, seeds, ref_work)
+            adopt_ref_provenance(report, ref_work, work)
+        else:
+            ref_manifest_record(work, {s: ref_stamp(args, report) for s in seeds
+                                       if str(per_seed[s]["refsrc"][0]) == "computed"})
         report["metrics"] = score(per_seed, seeds)
+        report["vs_crystal"] = score_crystal(per_seed, seeds, args.fixture)
     print(json.dumps(report, indent=2))
     if args.out:
         Path(args.out).write_text(json.dumps(report, indent=2) + "\n")

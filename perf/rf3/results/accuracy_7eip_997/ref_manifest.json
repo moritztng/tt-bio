@@ -1,0 +1,70 @@
+{
+  "per_seed": {
+    "0": {
+      "ref_device": "cuda",
+      "ref_device_name": "NVIDIA H200",
+      "torch": "2.8.0 (pytorch/pytorch:2.8.0-cuda12.9-cudnn9-devel)",
+      "utc": "2026-08-24T08:25:00Z",
+      "recycles": 10,
+      "steps": 50
+    },
+    "1": {
+      "ref_device": "cuda",
+      "ref_device_name": "NVIDIA H200",
+      "torch": "2.8.0 (pytorch/pytorch:2.8.0-cuda12.9-cudnn9-devel)",
+      "utc": "2026-08-24T08:25:00Z",
+      "recycles": 10,
+      "steps": 50
+    },
+    "2": {
+      "ref_device": "cuda",
+      "ref_device_name": "NVIDIA H200",
+      "torch": "2.8.0 (pytorch/pytorch:2.8.0-cuda12.9-cudnn9-devel)",
+      "utc": "2026-08-24T08:25:00Z",
+      "recycles": 10,
+      "steps": 50
+    },
+    "3": {
+      "ref_device": "cuda",
+      "ref_device_name": "NVIDIA H200",
+      "torch": "2.8.0 (pytorch/pytorch:2.8.0-cuda12.9-cudnn9-devel)",
+      "utc": "2026-08-24T08:25:00Z",
+      "recycles": 10,
+      "steps": 50
+    },
+    "4": {
+      "ref_device": "cuda",
+      "ref_device_name": "NVIDIA H200",
+      "torch": "2.8.0 (pytorch/pytorch:2.8.0-cuda12.9-cudnn9-devel)",
+      "utc": "2026-08-24T08:25:00Z",
+      "recycles": 10,
+      "steps": 50
+    }
+  },
+  "note": "Written from the --ref-only run's own report (inlined below) rather than by the harness, because ref_manifest.json landed after that run. vast.ai on-demand H200, instance 48539199, destroyed the same day. torch is the image tag, which the report did not record; the harness records it now.",
+  "ref_run_report": {
+    "arm": "a0",
+    "arm_route": "whatever the tree ships, no override applied -- read fp32_softmax under resolved",
+    "arm_scope": "model-local (shipped default)",
+    "ref_cache": "/work/tt-bio/perf/rf3/results/accuracy_7eip_997",
+    "fixture": "7eip_997",
+    "seeds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "recycles": 10,
+    "steps": 50,
+    "diffusion_samples": 1,
+    "ref_device": "cuda",
+    "reference": "tt_bio._vendor.rf3 (upstream foundry), cuda torch, bf16 autocast",
+    "kabsch_selftest_A": 9.265044010831228e-15,
+    "metric_convention": "pharma_parity.noise_floor_verdict; floor = max(mean R, mean D); pairwise self-superposition, no shared frame",
+    "work": "/work/out/accuracy_7eip_997",
+    "ref_device_name": "NVIDIA H200",
+    "ref_load_s": 9.5,
+    "ref_only": true
+  }
+}
