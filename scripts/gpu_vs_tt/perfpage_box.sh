@@ -99,6 +99,16 @@ do_setup() {
   step boltz 2400 bash gpu5_setup.sh boltz
   step of3 2400 bash gpu5_setup.sh of3
 
+  # Nesso-1 landed on main after the manifest froze (merge c902ecdf), and the A100 rental is the
+  # only box in the campaign that can still give it a GPU column. SETUP_NESSO=1 builds /work/v_nesso
+  # and prefetches its three assets (ccd.pkl, model.safetensors, ESM-2 650M). FOREGROUND and after
+  # of3 on purpose: gpu_nesso1_setup.sh runs apt-get, so does stage_of3, and two concurrent apts
+  # deadlock on the dpkg lock. It also writes /work/{setup.log,SETUP_OK,SETUP_FAIL}, the same three
+  # paths gpu_rfd3_setup.sh uses -- safe only because SETUP_DESIGN=0 on this box.
+  if [ "${SETUP_NESSO:-0}" = 1 ]; then
+    step nesso 3600 bash "$W/perf/nesso1/gpu_nesso1_setup.sh"
+  fi
+
   # The two design harnesses live under /work and bring their own setup scripts. SETUP_DESIGN=0
   # skips both: they cost a venv, 3.9 GB of BoltzGen weights and a 2.51 GB RFdiffusion3
   # checkpoint, and a box that owes no design row should not pay for them. The H200 rental owes
@@ -301,13 +311,127 @@ do_measure_h200() {
   say "MEASURE_DONE"
 }
 
+# ------------------------------------------------- phase 2, A100: control first, then rows, then Nesso
+# The A100 rental is the last of the three and owes the same seven rows, but three things differ:
+#
+#   * The published A100 column was measured on machine 38441, and an offer on that exact machine
+#     is available again, so the control is a test of the harness and the package stack rather than
+#     of the hardware -- the same position the H200 pass was in. Published cell: ESMFold2 14.741 s.
+#   * sm_80 is the least-proven generation for cuEquivariance in this campaign, so every counter is
+#     reported either way. The prior A100 pass found the ops-cu12 wheels ship native sm_80 cubins and
+#     every counter matched H200/B200 exactly, and the NVIDIA changelog gates only CC 10.0/10.3
+#     kernels behind cu13 -- so there is nothing to flip here and a fallback would be a harness bug.
+#   * Nesso-1 merged to main after the freeze (c902ecdf) and has no A100 number anywhere. It runs
+#     LAST and is droppable: an extra row must never delay a frozen one.
+#
+# No design rows (both A100 design cells are published), no cu13 arm (nothing on sm_80 is cu13-gated),
+# no audit arm (the B200 pass answered it).
+do_measure_a100() {
+  cd "$REPO/scripts/gpu_vs_tt" || exit 2
+  # The SKU is part of the cell, so make it an artifact rather than terminal scrollback. A100 SXM4
+  # 80 GB reads a 400 W limit and 81920 MiB; the PCIe parts read 250/300 W and the 40 GB SXM4 reads
+  # 40960 MiB. Anything else and this box is the wrong part.
+  step sku 120 bash -c "nvidia-smi --query-gpu=name,memory.total,driver_version,power.limit,power.max_limit,clocks.max.sm,compute_cap --format=csv > $R/sku_${TAG}.txt; cat /sys/fs/cgroup/cpu.max >> $R/sku_${TAG}.txt; grep -m1 'model name' /proc/cpuinfo >> $R/sku_${TAG}.txt; nproc >> $R/sku_${TAG}.txt; cat $R/sku_${TAG}.txt"
+  quiet_box
+  step hostprobe 900 /root/venv-boltz/bin/python host_probe.py --out "$R/host_probe_${TAG}.json"
+
+  # --- the control, against the published A100 ESMFold2 cell. TAG=${TAG}ctl so its JSON can never
+  # be mistaken for, or overwrite, a published cell's file name. A check, not a replacement. ------
+  step control_esmfold2 3600 env TAG="${TAG}ctl" MODELS="esmfold2" bash gpu5_session.sh
+  step control_verdict 300 python3 control_verdict.py \
+    --result "$R/gpu_esmfold2_prot512_${TAG}ctl.json" --published 14.741 \
+    --label "floating venv-esm312, esm@main as stage_esm resolves it" \
+    --out "$R/CONTROL_VERDICT_${TAG}.json"
+  if [ -f "$R/CONTROL_RERUN_WANTED" ]; then
+    say "control missed its band -- running the pinned-package control arm"
+    step esmctl 2400 bash gpu5_setup.sh esmctl
+    step control_esmfold2_pinned 3600 env TAG="${TAG}ctlpin" ESM_VENV=/root/venv-esm312ctl \
+      MODELS="esmfold2" bash gpu5_session.sh
+    step control_verdict_pinned 300 python3 control_verdict.py \
+      --result "$R/gpu_esmfold2_prot512_${TAG}ctlpin.json" --published 14.741 \
+      --label "pinned venv-esm312ctl, esm@26b0bc2b + transformers 4.57.6" \
+      --out "$R/CONTROL_VERDICT_PINNED_${TAG}.json"
+  fi
+
+  # --- the seven frozen rows. The control does NOT gate them: they are minutes of a rental whose
+  # cost is the box. What the control governs is whether the doc may call them comparable to the
+  # published column, which is a publication decision, not a measurement one. -------------------
+  step new_esmfold2fast 3600 env TAG="$TAG" MODELS="esmfold2-fast" bash gpu5_session.sh
+  for m in esmc-300m esmc-600m esmc-6b saprot-35m saprot-650m saprot-1.3b; do
+    step "new_$m" 2400 /root/venv-esm312/bin/python gpu_embed_bench.py --model "$m" \
+      --repeat "${EMBED_REPEAT:-15}" --out "$R/gpu_embed_${m}_prot512_${TAG}.json"
+  done
+
+  # --- the third side of the campaign's two-sided arms. Both are already measured on B200 and H200;
+  # the A100 turns the trunk/sampler split and the host probe into a three-card statement. (3,200) is
+  # the published A100 boltz-2 configuration (14.395 s), so it is a second free control. -----------
+  for rs in "3 200" "10 200" "3 50" "10 50"; do
+    set -- $rs
+    step "phase_boltz_r$1_s$2" 2400 /root/venv-boltz/bin/python gpu5_bench.py \
+      --model boltz-2 --repeat 3 --power --recycles "$1" --steps "$2" \
+      --yaml "$REPO/perf/size512/fixtures/cdk2x2_512.yaml" \
+      --a3m "$REPO/perf/size512/fixtures/cdk2x2_512.a3m" --work /root/work \
+      --out "$R/phase_boltz-2_r$1_s$2_${TAG}.json"
+  done
+  # A counter proves cuEquivariance ran; only a per-call timing at the run's own recorded shape says
+  # what it cost. Third card on the same probe at the same shape, so all three are comparable.
+  step probe_cueq 900 /root/venv-boltz/bin/python cueq_tri_probe.py \
+    --from-json "$R/phase_boltz-2_r3_s200_${TAG}.json" --out "$R/cueq_probe_${TAG}.json"
+  # OpenFold3 is the fp32 row and the one that compresses the A100-vs-H200 gap most (1.651x). TAG
+  # ...sat so the file cannot be confused with the published openfold3 cell (16.942 s).
+  step sat_of3 2400 env TAG="${TAG}sat" MODELS="openfold3" bash gpu5_session.sh
+  # The cores ladder matters more here than on either other box: this is the campaign's only AMD
+  # host (EPYC 7513, 30.72 vCPU) against two Intel Xeons, and that is the one confound the prior
+  # A100 pass named and could not close.
+  for n in 12 6; do
+    step "cores$n" 2400 taskset -c "0-$((n - 1))" /root/venv-boltz/bin/python gpu5_bench.py \
+      --model boltz-2 --repeat 3 --power \
+      --yaml "$REPO/perf/size512/fixtures/cdk2x2_512.yaml" \
+      --a3m "$REPO/perf/size512/fixtures/cdk2x2_512.a3m" --work /root/work \
+      --out "$R/cores${n}_boltz-2_${TAG}.json"
+  done
+
+  # --- NEW MODEL: Nesso-1, last and droppable ---------------------------------------------------
+  # Nesso-1 merged after the manifest froze and its only GPU number is an H200 NVL at a 600 W limit
+  # (perf/nesso1/gpu_reference.json), a different part from the page's 700 W SXM column. So there is
+  # no A100 number for it anywhere, and this box is the only one in the campaign that can produce
+  # one. Run gpu_nesso1_run.py directly rather than gpu_nesso1_sweep.py: the sweep has no rung
+  # filter and would run all ten ladder cells plus six ligand cells, sixteen where two are owed.
+  # --reps 4 and --refine on are the reference's own settings for ladder_aa512_* (rep 0 cold and
+  # discarded, warm n=3), so these two cells are protocol-matched to the H200 numbers they compare to.
+  if [ "${MEASURE_NESSO:-0}" = 1 ] && [ -x /work/v_nesso/bin/python ]; then
+    for k in cueq torch; do
+      NK=""; [ "$k" = torch ] && NK="--no-kernels"
+      step "nesso_aa512_$k" 1800 /work/v_nesso/bin/python "$W/perf/nesso1/gpu_nesso1_run.py" \
+        --inputs "$W/perf/nesso1/inputs/ladder/aa512" \
+        --out-dir "/work/out/ladder_aa512_$k" \
+        --report "$R/nesso1_ladder_aa512_${k}_${TAG}.json" \
+        --reps 4 --refine on --label "ladder_aa512_$k" $NK
+    done
+  else
+    say "MEASURE_NESSO not set or /work/v_nesso missing: no Nesso-1 row on this box"
+  fi
+
+  date -u +%FT%TZ > "$R/MEASURE_DONE"
+  say "MEASURE_DONE"
+}
+
 case "${1:-all}" in
   setup)   do_setup ;;
   measure) do_measure ;;
   all)     do_setup; do_measure ;;
   measure-h200) do_measure_h200 ;;
   all-h200)     SETUP_DESIGN=0 do_setup; do_measure_h200 ;;
-  *) echo "usage: $0 {setup|measure|all|measure-h200|all-h200}" >&2; exit 2 ;;
+  measure-a100) do_measure_a100 ;;
+  # Nesso-1 landed after the freeze and this is the only box left that can give it a GPU column, so
+  # both nesso knobs default ON here. Pass SETUP_NESSO=0 MEASURE_NESSO=0 if the rental-time
+  # origin/main check comes back saying it is not there after all.
+  all-a100)     SETUP_DESIGN=0
+                SETUP_NESSO=${SETUP_NESSO:-1}
+                MEASURE_NESSO=${MEASURE_NESSO:-1}
+                export SETUP_DESIGN SETUP_NESSO MEASURE_NESSO
+                do_setup; do_measure_a100 ;;
+  *) echo "usage: $0 {setup|measure|all|measure-h200|all-h200|measure-a100|all-a100}" >&2; exit 2 ;;
 esac
 
 say "INVENTORY"

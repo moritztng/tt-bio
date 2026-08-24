@@ -26,8 +26,9 @@ EXPECT = {
     "openfold3":   (1.839, 0.428, 36.415, 10.263, 3.578, 3.548),
     # a998c57b re-folded RF3 on the fixed numerics and republished the cell at 82.547 s
     # (perf/rf3/page512/bisect_fix_p{1,2}_qb2c2.json, session medians 82.451 and 82.840)
-    # without updating this row, so this gate sat red on main until 2026-08-23. The
-    # numbers below are that cell: 82.547 - 8.330 host = 74.217 device.
+    # without updating this row, so this gate sat red on main until 2026-08-23. The 8.330 s
+    # host share is unchanged and was not re-measured, so the device half moves with the
+    # cell: 82.547 - 8.330 host = 74.217 device.
     "rf3":         (8.330, 12.459, 74.217, 7.746, 3.621, 9.581),
 }
 
@@ -52,7 +53,12 @@ def main():
     for m in page["models"]:
         t, g = m["cells"]["p150a"], m["cells"]["h200"]
         if "split" not in t or "split" not in g:
-            bad.append(f"{m['id']}: no split block")
+            # The page's t-hostsplit filters on p150a.split && h200.split, so a row whose
+            # host/device split nobody measured sits this table out rather than breaking it.
+            # EXPECT is the list of rows that do have both readings, and the set(EXPECT) - seen
+            # check below still catches one of those losing its split.
+            if m["id"] in EXPECT:
+                bad.append(f"{m['id']}: no split block")
             continue
         seen.add(m["id"])
         got = (t["split"]["host_s"], g["split"]["host_s"], round(device_s(t), 3), round(device_s(g), 3),

@@ -7,7 +7,7 @@
 <link rel="icon" href="/assets/icon-500.png" sizes="500x500" type="image/png">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" sizes="500x500">
 <title>TT-Bio: biomolecular structure, design and embeddings on Tenstorrent</title>
-<meta name="description" content="Open biomolecular models on Tenstorrent: folding and binding affinity, binder design, and protein embeddings. Measured throughput per dollar against NVIDIA H200, B200 and A100 at 512 residues, and BoltzGen binder design, with the single-accelerator times behind a disclosure.">
+<meta name="description" content="Sixteen open biomolecular models measured on Tenstorrent: seven folding, two binder design, one binding affinity and six protein embedding. Seconds per prediction and throughput per dollar against NVIDIA H200, B200 and A100 at 512 residues, with every number's provenance on the page.">
 <link rel="preload" href="../assets/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="../assets/site.css">
 <style>
@@ -88,6 +88,8 @@ th{ color:var(--ink-3); font-weight:600; font-size:.72rem; letter-spacing:.09em;
 th.n, td.n{ text-align:right; }
 thead th{ border-bottom-color:var(--rule-2); }
 td.blocked{ color:var(--ink-4); }
+/* The second line of an embedding cell: the same figure inverted, so seq/s and s/seq sit together. */
+.subfig{ color:var(--ink-3); font-size:.86em; }
 .mtable td:first-child{ font-weight:600; }
 .mnote{ color:var(--ink-3); font-size:.88rem; margin:var(--s-2) 0 0; max-width:78ch; }
 .mnote code{ font-size:.94em; }
@@ -170,13 +172,19 @@ details.disclose > div{ padding-top:var(--s-4); }
         <tr><td>boltz2</td><td>protein, DNA, RNA, ligand</td><td>yes</td><td>on by default</td></tr>
         <tr><td>protenix-v2</td><td>protein, DNA, RNA, ligand</td><td>no</td><td>on by default</td></tr>
         <tr><td>openfold3</td><td>protein, RNA, DNA</td><td>no</td><td>on by default</td></tr>
+        <tr><td>openbind</td><td>protein, RNA, DNA, ligand by SMILES or CCD</td><td>no</td><td>on by default</td></tr>
         <tr><td>esmfold2</td><td>single protein chain</td><td>no</td><td>not needed</td></tr>
         <tr><td>opendde</td><td>multi-chain protein complexes</td><td>no</td><td>on by default</td></tr>
+        <tr><td>rf3</td><td>protein, nucleic acid, ligand</td><td>no</td><td>on by default</td></tr>
+        <tr><td>nesso1</td><td>nothing, it returns scalars</td><td>yes</td><td>not needed</td></tr>
       </tbody>
     </table></div>
     <p class="mnote">Protenix-v2 and OpenFold3 are AlphaFold3-family. OpenDDE runs the Protenix-v2 stack
-    plus a structural-token expander. <code>esmfold2-fast</code> is lighter, <code>opendde-abag</code>
-    is the antibody-antigen checkpoint.</p>
+    plus a structural-token expander. OpenBind-0 is the same OpenFold3 stack on upstream's v0.5.0
+    checkpoint, tuned for protein-ligand co-folding. Nesso-1 runs under <code>tt-bio affinity</code>
+    rather than <code>predict</code>: no coordinates, no PAE, just an affinity value and ten other
+    scalars. <code>esmfold2-fast</code> is lighter, <code>opendde-abag</code> is the antibody-antigen
+    checkpoint.</p>
   </div>
 
   <div class="mgroup">
@@ -186,8 +194,11 @@ details.disclose > div{ padding-top:var(--s-4); }
       <tbody>
         <tr><td>boltzgen</td><td>BoltzGen</td><td>protein, peptide, nanobody, antibody binders</td><td>target structure in a design YAML</td></tr>
         <tr><td>rfd3</td><td>RFdiffusion3</td><td>all-atom binders, motif scaffolds, nucleic-acid binders</td><td>JSON spec with contig strings</td></tr>
+        <tr><td>pxdesign</td><td>PXDesign</td><td>binder backbones, no sequence</td><td>target structure in a design YAML</td></tr>
       </tbody>
     </table></div>
+    <p class="mnote">PXDesign conditions on a distogram of the target only and writes the binder as
+    GLY, because it generates a backbone with no sequence.</p>
   </div>
 
   <div class="mgroup">
@@ -274,6 +285,23 @@ details.disclose > div{ padding-top:var(--s-4); }
 
 </section>
 
+<section class="band" id="embed">
+  <div class="band-head">
+    <h2>Protein embeddings</h2>
+    <p class="band-deck" id="embed-deck"></p>
+  </div>
+
+  <section class="chart" id="c6">
+    <div class="chart-head">
+      <div class="chart-title"><h3>Sequences per second, one AI Processor</h3><span class="pill">Measured</span></div>
+      <p class="cond" id="c6-cond"></p>
+    </div>
+    <div class="keys" id="c6-keys"></div>
+    <figure><div id="c6-svg"></div></figure>
+    <p class="cond" id="c6-note"></p>
+  </section>
+</section>
+
 <details class="disclose" id="exact">
   <summary>The exact figures <span class="sum-note">the measured seconds behind every bar, and the derived tables</span></summary>
   <div>
@@ -285,6 +313,8 @@ details.disclose > div{ padding-top:var(--s-4); }
     <div class="notes"><ul id="rownotes"></ul></div>
     <h4 style="margin-top:24px">Measured, seconds per design or affinity prediction on one AI Processor</h4>
     <div class="tablewrap"><table id="t-design"></table></div>
+    <h4 style="margin-top:24px">Measured, sequences per second on one AI Processor</h4>
+    <div class="tablewrap"><table id="t-embed"></table></div>
     <h4 style="margin-top:24px">Derived, predictions and designs per hour per server</h4>
     <div class="tablewrap"><table id="t-derived"></table></div>
     <h4 style="margin-top:24px">Derived, throughput per dollar of purchase price</h4>
@@ -383,6 +413,17 @@ details.disclose > div{ padding-top:var(--s-4); }
       one: "prediction", many: "predictions", sub: "binding affinity, no structure" }
   ];
   function catModels(k) { return ((D[k] && D[k].models) || []).filter(shown); }
+  /* The embedding rows are deliberately NOT a category. They are measured in a different unit at a
+   * different timed region, and they are card-only: the cost index on this page is built on the DGX
+   * H200 at 512 aa folds, so an embedding forward has no server price or power figure it could
+   * honestly carry. Adding "embed" to CATEGORIES would draw it into both throughput-per-dollar
+   * charts, the per-server chart and the three derived tables. render_check.js asserts that absence
+   * rather than trusting this comment. */
+  function embedModels() { return ((D.embed && D.embed.models) || []).filter(shown); }
+  /* The only place seq/s is derived. The JSON stores the measured seconds per batch and the batch it
+   * actually executed; everything a reader sees is computed from those two. */
+  function seqPerS(c) { return c.batch / c.s_per_batch; }
+  function sPerSeq(c) { return c.s_per_batch / c.batch; }
   function catRows() {
     return CATEGORIES.reduce(function (a, c) {
       return a.concat(catModels(c.key).map(function (m) { return { m: m, c: c }; }));
@@ -409,6 +450,7 @@ details.disclose > div{ padding-top:var(--s-4); }
   function tip(m, key, headline) {
     var c = m.cells[key], p = plat(key), bits = [m.name + " on " + p.name, headline];
     if (c.parity) bits.push("parity: " + c.parity);
+    if (c.note) bits.push(c.note);
     var board = c.measured_on || p.measured_on;
     if (board) bits.push(board);
     if (c.ref) bits.push(c.ref);
@@ -706,6 +748,52 @@ details.disclose > div{ padding-top:var(--s-4); }
       CATEGORIES.map(function (c) { return D[c.key] && D[c.key].note; }).filter(Boolean).join(" ");
   }
 
+  /* Embeddings, and the one chart on this page where longer bars are better. The cond says so in its
+   * first clause, because a reader arriving from four shorter-is-better charts will carry that
+   * assumption in. */
+  function chartEmbed() {
+    if (!D.embed) return;
+    var groups = [], max = 0;
+    embedModels().forEach(function (m) {
+      var bars = CELLS.map(function (k) {
+        var c = m.cells[k], p = plat(k);
+        if (c.status !== "measured") {
+          return { series: p.name, seriesShort: p.short, blocked: true,
+                   blockedLabel: blockedLabel(c), reason: blockedWhy(c) };
+        }
+        var v = seqPerS(c);
+        max = Math.max(max, v);
+        return {
+          series: p.name, seriesShort: p.short, color: SER[k], value: v,
+          label: fmtInt(v) + " seq/s", labelShort: fmtInt(v),
+          tip: tip(m, k, fmtInt(v) + " sequences per second, " + fmtSec(sPerSeq(c), 4) +
+                   " s per sequence, at an executed batch of " + c.batch)
+        };
+      });
+      groups.push({ label: m.name, sub: "batch " + m.cells.p150a.batch + ", " + m.tokens + " tokens", bars: bars });
+    });
+    drawBars(document.getElementById("c6-svg"), {
+      id: "c6", groups: groups, max: niceMax(max), unit: "sequences per second", unitShort: "seq/s",
+      tickFmt: function (v) { return v.toFixed(0); },
+      title: "Sequences per second for one protein-embedding forward on one AI Processor, measured",
+      desc: embedModels().map(function (m) {
+        return m.name + ": " + CELLS.map(function (k) {
+          var c = m.cells[k];
+          return plat(k).short + " " +
+            (c && c.status === "measured" ? fmtInt(seqPerS(c)) + " seq/s" : blockedLabel(c));
+        }).join(", ") + ".";
+      }).join(" ")
+    });
+    /* The deck names the roster; the scope row above every chart carries the section's scope and
+     * c6-cond right below carries its conditions, so neither is repeated here. */
+    document.getElementById("embed-deck").textContent =
+      embedModels().map(function (m) { return m.name; }).join(", ").replace(/, ([^,]*)$/, " and $1") +
+      ", each embedding one " + D.scope.size_aa + "-residue sequence at " +
+      embedModels()[0].tokens + " tokens.";
+    document.getElementById("c6-cond").textContent = D.embed.cond;
+    document.getElementById("c6-note").textContent = D.embed.note;
+  }
+
   function chartCost() {
     var rows = SERVERS.map(plat);
     var max = 0, groups = [];
@@ -738,8 +826,12 @@ details.disclose > div{ padding-top:var(--s-4); }
   /* ---------- tables ---------- */
   function tables() {
     function gpuCell(c, render) {
+      /* A measured cell with a note carries it on hover, so the number and its reason sit together
+       * rather than the reason living only in the notes list below. */
       return c.status === "measured"
-        ? "<td class=\"n num\">" + render(c) + "</td>"
+        ? "<td class=\"n num\"" +
+          (c.note ? " title=\"" + c.note.replace(/"/g, "&quot;") + "\"" : "") +
+          ">" + render(c) + "</td>"
         : "<td class=\"n blocked\" title=\"" + blockedWhy(c).replace(/"/g, "&quot;") + "\">" + blockedLabel(c) + "</td>";
     }
     document.getElementById("t-measured").innerHTML =
@@ -784,11 +876,24 @@ details.disclose > div{ padding-top:var(--s-4); }
             "<td class=\"n num\">" + fmtX3(deviceS(t) / deviceS(g)) + "</td></tr>";
         }).join("") + "</tbody>";
     document.getElementById("t-hostsplit-cond").textContent = D.scope.split;
+    /* Every note in the file reaches this list: row notes and per-cell notes, from every section.
+     * A note that only exists as a hover title is a note most readers never see, and the six
+     * H200-against-B200 cell notes are the ones that most need reading. */
     var rn = document.getElementById("rownotes");
     rn.innerHTML = "";
-    D.models.filter(function (m) { return m.note; }).forEach(function (m) {
-      rn.appendChild(Object.assign(document.createElement("li"),
-        { textContent: m.name + ". " + m.note }));
+    function note(text) {
+      rn.appendChild(Object.assign(document.createElement("li"), { textContent: text }));
+    }
+    var sections = [D.models].concat(CATEGORIES.map(function (c) { return catModels(c.key); }));
+    if (D.embed) sections.push(embedModels());
+    sections.forEach(function (ms) {
+      ms.forEach(function (m) {
+        if (m.note) note(m.name + ". " + m.note);
+        CELLS.forEach(function (k) {
+          var c = m.cells[k];
+          if (c && c.note) note(m.name + " on the " + plat(k).name + ". " + c.note);
+        });
+      });
     });
 
     /* Steps means whatever step count that model is defined by: sampling steps for a design,
@@ -808,6 +913,25 @@ details.disclose > div{ padding-top:var(--s-4); }
             return gpuCell(m.cells[k], function (c) { return fmtSec(secs(c)); });
           }).join("") + "</tr>";
       }).join("") + "</tbody>";
+
+    /* seq/s with s/seq beneath it, so a reader can invert the throughput without doing the
+     * arithmetic and can see that the batch is matched across the four platforms. */
+    if (D.embed) {
+      document.getElementById("t-embed").innerHTML =
+        "<thead><tr><th>Model</th><th class=\"n\">Params</th><th class=\"n\">Batch</th>" +
+        "<th class=\"n\">Blackhole p150a</th><th class=\"n\">H200</th><th class=\"n\">B200</th>" +
+        "<th class=\"n\">A100</th></tr></thead><tbody>" +
+        embedModels().map(function (m) {
+          return "<tr><td>" + m.name + "</td><td class=\"n num\">" + m.params + "</td>" +
+            "<td class=\"n num\">" + m.cells.p150a.batch + "</td>" +
+            CELLS.map(function (k) {
+              return gpuCell(m.cells[k], function (c) {
+                return fmtInt(seqPerS(c)) + " seq/s<br><span class=\"subfig\">" +
+                  fmtSec(sPerSeq(c), 4) + " s/seq</span>";
+              });
+            }).join("") + "</tr>";
+        }).join("") + "</tbody>";
+    }
 
     var head2 = "<thead><tr><th>Model</th>" +
       SERVERS.map(function (id) {
@@ -845,6 +969,11 @@ details.disclose > div{ padding-top:var(--s-4); }
       if (ms.length) scopeRows.push([c.label + " target",
         ms.map(function (x) { return x.target; }).join("; ")]);
     });
+    /* Two caveats that belong in the main flow rather than behind a disclosure: which way the two
+     * NVIDIA generations actually go on these workloads, and that the embedding section is measured
+     * in a different unit over a different timed region. */
+    if (s.gpu_generations) scopeRows.push(["H200 and B200", s.gpu_generations]);
+    if (D.embed && D.embed.scope) scopeRows.push(["Embeddings", D.embed.scope]);
     scopeRows.push(["Run", s.protocol], ["Updated", D.updated]);
     scopeRows.forEach(function (kv) {
       dl.appendChild(Object.assign(document.createElement("dt"), { textContent: kv[0] }));
@@ -872,6 +1001,7 @@ details.disclose > div{ padding-top:var(--s-4); }
     keyRow("c2-keys", SERVERS);
     keyRow("c3-keys", CELLS);
     keyRow("c5-keys", CELLS);
+    if (D.embed) keyRow("c6-keys", CELLS);
 
     var md = document.getElementById("methods-dl");
     function mrow(k, v) {
@@ -884,7 +1014,9 @@ details.disclose > div{ padding-top:var(--s-4); }
         var ms = catModels(c.key);
         return ms.length ? ", plus " + ms.map(function (x) { return x.name; }).join(", ") +
           " for " + c.methodsLabel.toLowerCase() : "";
-      }).join("") + ".");
+      }).join("") +
+      (D.embed ? ", plus " + embedModels().map(function (x) { return x.name; }).join(", ") +
+        " for protein embeddings, measured separately in " + D.embed.unit : "") + ".");
     mrow("Size", s.size_aa + " residues. " + s.description);
     mrow("Input", s.fixture + " with " + s.msa_file + ", seed " + s.seed + ", templates " + s.templates +
       ", " + s.diffusion_samples + " diffusion sample. Both sides ran these same two files.");
@@ -898,6 +1030,17 @@ details.disclose > div{ padding-top:var(--s-4); }
     CATEGORIES.forEach(function (c) {
       if (D[c.key] && D[c.key].methods) mrow(c.methodsLabel, D[c.key].methods);
     });
+    if (D.embed) {
+      mrow("Protein embeddings", D.embed.methods);
+      /* Built the same way as the folding rows' Parity line, and it must keep saying the length each
+       * PCC was measured at: every embedding parity figure is from 20-129 aa and every cell here is
+       * at 512, so a 76 aa PCC must not read as a 512 aa claim. */
+      mrow("Embedding parity", "Each Tenstorrent embedding figure carries the parity it holds against "
+        + "that model's own reference: " + embedModels().map(function (x) {
+          var c = x.cells.p150a;
+          return x.name + " " + (c && c.parity ? c.parity : "not measured");
+        }).join("; "));
+    }
     mrow("Servers", "A server bar is one measured accelerator times the accelerators in the box, on " +
       "both sides: 32 Blackhole AI Processors against 8 GPUs.");
     mrow("Cost", m.formula + " Only the second basis uses the window. " + m.amortisation_basis + " " +
@@ -934,7 +1077,7 @@ details.disclose > div{ padding-top:var(--s-4); }
   function renderAll() {
     chartPerDollar("c1", "capex");
     chartPerDollar("c1b", "tco");
-    chartThroughput(); chartTime(); chartDesign(); chartCost(); tables();
+    chartThroughput(); chartTime(); chartDesign(); chartEmbed(); chartCost(); tables();
   }
 
   var rt = null;
