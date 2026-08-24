@@ -25,6 +25,7 @@ import torch.nn.functional as F
 import ttnn
 
 from .. import rfd3_bias, softmax_generic
+from . import block_sparse as _BS
 from ..tenstorrent import Module, get_device, CORE_GRID_MAIN, attn_value_matmul
 
 # This is a SNAPSHOT, and deliberately left as one. `_configure_active_compute_grid` widens
@@ -1428,7 +1429,20 @@ def _sparse_qk_inputs(p_host, indices, device, dtype, n_heads=4, mask_cache=None
                     _zero_template(mask_cache, device, dtype, batch, n_heads, length))
     else:
         gathered = None
-    out = (p_dev, n_keys, attn_idx_dev, dense_bias, gathered)
+    # Block-sparse plan for this step, or None to run the shipped dense chain. Built here rather
+    # than per call because a diffusion step's three call sites share one index and one cache
+    # entry, so the host work happens once a step -- which is what makes its 2.0 ms affordable.
+    # Requires the fused-bias route: the blocked chain reuses that kernel with a block-local
+    # index, and the non-fused route's dense -1e4 template is the thing this arm exists to avoid.
+    block = None
+    if _BS.enabled() and fused_bias and not _GATHERED_SOFTMAX:
+        bplan = _BS.plan(indices, _align_tile(length))
+        if bplan is not None:
+            nb, q_block, u_width, gather, pos = bplan
+            block = (nb, q_block, u_width,
+                     _BS.gather_index(gather, n_heads, _align_tile(length), device),
+                     _sparse_attn_index_rm(pos.unsqueeze(0), device))
+    out = (p_dev, n_keys, attn_idx_dev, dense_bias, gathered, block)
     if mask_cache is not None:
         mask_cache["step"] = (key, p_host, indices, out)
     return out
@@ -1715,10 +1729,31 @@ class RFD3AtomBlock(Module):
         n_key = _align_tile(length)
         kk = _pad_key_axis(kk, n_key, 2, 0.0)
         vv = _pad_key_axis(vv, n_key, 2, 0.0)
+        # Block-sparse arm. Replaces the whole tail -- scores, bias, softmax and the value
+        # matmul -- with a batched dense chain over the block's own key union, and hands back the
+        # same [1,H,length,head_dim] the dense chain would. Off by default; see block_sparse.py.
+        bs_out = None
+        block = sparse_qk[4] if sparse_qk is not None and len(sparse_qk) > 4 else None
+        if (block is not None and sparse_qk[2] is None
+                and rfd3_bias.fused_enabled() and dt == ttnn.bfloat16):
+            nb, q_block, u_width, gather_dev, pos_rm = block
+            pb = self._sparse_pair_bias(p, bias_cache)
+            # The blocked scores have nb*q_block rows and the compact bias has `length`, so the
+            # pad rows need a bias too. -1e4 makes them fully masked; they are sliced off the
+            # output either way.
+            pb = _pad_key_axis(pb, nb * q_block, 2, -1e4)
+            bs_out = _BS.attention(qq, kk, vv, pb, pos_rm, gather_dev, nb, q_block, u_width,
+                                   self.head_dim**-0.5, dt, ckc)
+        if bs_out is not None:
+            _BS.STATS[0] += 1
+        elif sparse_qk is not None and len(sparse_qk) > 4:
+            _BS.STATS[1 if _BS.enabled() else 2] += 1
         fused = False
         dense_fused = False
         gathered = None
-        if sparse_qk is None:
+        if bs_out is not None:
+            pass
+        elif sparse_qk is None:
             # `pair_bias` arrives precomputed when the caller hoisted all of its blocks'
             # projections into one matmul; see _PAIRBIAS_FUSED.
             if pair_bias is None:
@@ -1752,7 +1787,7 @@ class RFD3AtomBlock(Module):
             # is independent of the M/N tiling and the scores are bit-identical to
             # the gathered form -- while at L=3359 the dense matmul costs 0.375 ms
             # against 33.9 ms for a gathered [1,32]@[32,128] batch plus scatter.
-            n_keys, attn_idx_dev, dense_bias, gathered = sparse_qk
+            n_keys, attn_idx_dev, dense_bias, gathered, block = sparse_qk
             # L6b: one kernel for the last five ops of this path -- the mask template, the
             # scatter of the neighbour bias, both widens and the scaled add. It reads the bf16
             # scores and the compact pair bias and writes `scores*scale + bias` in fp32, so the
@@ -1769,44 +1804,47 @@ class RFD3AtomBlock(Module):
             scores = ttnn.matmul(
                 qq, ttnn.permute(kk, (0, 1, 3, 2)), compute_kernel_config=ckc,
             )
-        if dense_fused:
-            scores = rfd3_bias.dense_fused_scores_bias_fp32(
-                scores, bias, self.head_dim**-0.5
-            )
-        elif fused:
-            scores = rfd3_bias.fused_scores_bias_fp32(
-                scores, pair_bias, attn_idx_dev, self.head_dim**-0.5
-            )
+        if bs_out is None:
+            if dense_fused:
+                scores = rfd3_bias.dense_fused_scores_bias_fp32(
+                    scores, bias, self.head_dim**-0.5
+                )
+            elif fused:
+                scores = rfd3_bias.fused_scores_bias_fp32(
+                    scores, pair_bias, attn_idx_dev, self.head_dim**-0.5
+                )
+            else:
+                scores = ttnn.typecast(
+                    scores, ttnn.float32, memory_config=scores.memory_config()
+                )
+                # Scale and add in ONE op: the scale rides on operand a as a MUL_UNARY_SFPU activation.
+                # Bit-exact rather than close, and by measurement rather than by argument
+                # (scripts/rfd3_port/p35_dense_chain_price.py, perf/p35/dense_chain_qb1c0.json): 1.285 ms
+                # against 2.246 for the pair at [1,4,3359,3360], torch.equal on the softmax output. It
+                # holds here because both operands are already fp32, so the op's destination register is
+                # fp32 and nothing is silently computed at the input dtype -- the trap that stops a
+                # bf16->fp32 widen from folding into a binary op the same way. Do not copy this to a
+                # bf16 site (GatedCrossAttention.run_device) on the strength of this comment: there the
+                # split form rounds the scaled scores to bf16 before the add and the folded form does not.
+                scores = ttnn.add(scores, bias_f, input_tensor_a_activations=[
+                    ttnn.UnaryWithParam(ttnn.UnaryOpType.MUL_UNARY_SFPU, self.head_dim**-0.5)])
+            if gathered is None:
+                attention = softmax_generic.softmax_bf16(scores, dt)
+            else:
+                # Reduce over the 128 columns that carry a value, not over all 6080. Every row has
+                # exactly 128 valid indices in [0, L) -- _extend_with_neighbours fills the sequence
+                # slots and tops up from the distance topk, and _create_attention_indices sorts them --
+                # so there is no ragged row and no index outside the key axis.
+                gather_idx, zeros = gathered
+                compact = ttnn.gather(scores, 3, gather_idx)
+                ttnn.deallocate(scores)
+                weights = softmax_generic.softmax_bf16(compact, dt)
+                ttnn.deallocate(compact)
+                attention = ttnn.scatter(zeros, 3, gather_idx, weights)
+                ttnn.deallocate(weights)
+            out = attn_value_matmul(attention, vv, ckc, dt)
         else:
-            scores = ttnn.typecast(
-                scores, ttnn.float32, memory_config=scores.memory_config()
-            )
-            # Scale and add in ONE op: the scale rides on operand a as a MUL_UNARY_SFPU activation.
-            # Bit-exact rather than close, and by measurement rather than by argument
-            # (scripts/rfd3_port/p35_dense_chain_price.py, perf/p35/dense_chain_qb1c0.json): 1.285 ms
-            # against 2.246 for the pair at [1,4,3359,3360], torch.equal on the softmax output. It
-            # holds here because both operands are already fp32, so the op's destination register is
-            # fp32 and nothing is silently computed at the input dtype -- the trap that stops a
-            # bf16->fp32 widen from folding into a binary op the same way. Do not copy this to a
-            # bf16 site (GatedCrossAttention.run_device) on the strength of this comment: there the
-            # split form rounds the scaled scores to bf16 before the add and the folded form does not.
-            scores = ttnn.add(scores, bias_f, input_tensor_a_activations=[
-                ttnn.UnaryWithParam(ttnn.UnaryOpType.MUL_UNARY_SFPU, self.head_dim**-0.5)])
-        if gathered is None:
-            attention = softmax_generic.softmax_bf16(scores, dt)
-        else:
-            # Reduce over the 128 columns that carry a value, not over all 6080. Every row has
-            # exactly 128 valid indices in [0, L) -- _extend_with_neighbours fills the sequence
-            # slots and tops up from the distance topk, and _create_attention_indices sorts them --
-            # so there is no ragged row and no index outside the key axis.
-            gather_idx, zeros = gathered
-            compact = ttnn.gather(scores, 3, gather_idx)
-            ttnn.deallocate(scores)
-            weights = softmax_generic.softmax_bf16(compact, dt)
-            ttnn.deallocate(compact)
-            attention = ttnn.scatter(zeros, 3, gather_idx, weights)
-            ttnn.deallocate(weights)
-        out = attn_value_matmul(attention, vv, ckc, dt)
+            out = bs_out
         out = _merge_heads(out, (batch, length, self.n_head * self.head_dim))
         out = ttnn.multiply(out, ttnn.sigmoid(gg))
         out = _tuned_linear(
@@ -1942,11 +1980,11 @@ class LocalAtomTransformer(Module):
         dt, dev = self.dtype, self.device
         p_host = p_host.unsqueeze(0) if p_host.ndim == 3 else p_host
         if os.environ.get("RFD3_SPARSE_QK", "1") == "1":
-            p, n_keys, attn_idx_dev, dense_bias, gathered = _sparse_qk_inputs(
+            p, n_keys, attn_idx_dev, dense_bias, gathered, block = _sparse_qk_inputs(
                 p_host, indices, dev, dt, mask_cache=self._mask_cache
             )
             q, c = _tt(q_host, dev, dt), _tt(c_host, dev, dt)
-            sparse_qk = (n_keys, attn_idx_dev, dense_bias, gathered)
+            sparse_qk = (n_keys, attn_idx_dev, dense_bias, gathered, block)
             for block in self.blocks:
                 q = block(q, c, p, sparse_qk=sparse_qk)
             out = q
@@ -2139,7 +2177,7 @@ class CompactStreamingDecoder(Module):
         dense_bias = ttnn.full(
             (batch, n_heads, length, _align_tile(length)), -1e4,
             dtype=self.dtype, layout=ttnn.TILE_LAYOUT, device=dev)
-        sparse_qk = (n_keys, attn_p, dense_bias, None)
+        sparse_qk = (n_keys, attn_p, dense_bias, None, None)
         for _ in range(2):
             _ = self.run_device(
                 a_p, q_p, c_p, p_p, None, upcast_mask_dev, pack_idx_dev,
@@ -2305,10 +2343,10 @@ class CompactStreamingDecoder(Module):
                 )
                 a = _tt(a_host, dev, dt)
             else:
-                p, n_keys, attn_idx_dev, dense_bias, gathered = _sparse_qk_inputs(
+                p, n_keys, attn_idx_dev, dense_bias, gathered, block = _sparse_qk_inputs(
                     p_host, indices, dev, dt, mask_cache=self._mask_cache
                 )
-                sparse_qk = (n_keys, attn_idx_dev, dense_bias, gathered)
+                sparse_qk = (n_keys, attn_idx_dev, dense_bias, gathered, block)
                 a, q, c = (_tt(x, dev, dt) for x in (a_host, q_host, c_host))
                 # The two recycle calls in a step share p and the neighbour index, so
                 # each atom block's dense bias is bit-identical between them; build it
