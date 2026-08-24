@@ -112,6 +112,7 @@ include = ["tt_bio*"]
 "tt_bio._vendor.atomworks" = ["LICENSE", "py.typed", "io/tools/*.smirks", "ml/datasets/*.md"]
 "tt_bio._vendor.rf3" = ["LICENSE"]
 "tt_bio._vendor.foundry" = ["LICENSE"]
+"tt_bio._vendor.nesso" = ["LICENSE"]
 # runtime data files the package loads by path at import/featurize time — these
 # MUST ship in the wheel/sdist or a clean `pip install` crashes (see v0.3.4 changelog):
 #   - tt_bio/data/protein_ref_conformers.json: protenix-v2 + opendde featurization
