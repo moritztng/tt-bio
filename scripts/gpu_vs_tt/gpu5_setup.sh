@@ -214,13 +214,29 @@ print('pinned control venv OK; esm', esm.__version__, 'transformers', transforme
 }
 
 # The two big pulls, kicked off in the background while the small venvs build.
+S3=https://openfold3-data.s3.amazonaws.com/openfold3-parameters
+
+# The OpenFold3 checkpoints are 2.2 GB each and S3 serves a single curl stream at about
+# 1.6 MB/s to a European box, so one checkpoint was 23 minutes of rental paid for nothing.
+# aria2c -x16 pulls the same bytes in about one. Same lesson perf/pxdesign/gpu_pxdesign_setup.sh
+# already recorded for its own weights. curl stays as the fallback for a box without aria2.
+fetch_ckpt() {
+  local f=$1
+  [ -s "/root/ckpt/$f" ] && { say "have $f"; return 0; }
+  if command -v aria2c >/dev/null 2>&1 || { apt-get install -y -qq aria2 >/dev/null 2>&1 &&
+      command -v aria2c >/dev/null 2>&1; }; then
+    (cd /root/ckpt && aria2c -x16 -s16 -k1M --file-allocation=none --console-log-level=warn \
+      -o "$f" "$S3/$f") 2>&1 | tail -3 | tee -a "$LOG"
+  else
+    curl -sSL -o "/root/ckpt/$f" "$S3/$f"
+  fi
+  ls -l "/root/ckpt/$f" | tee -a "$LOG"
+  sha256sum "/root/ckpt/$f" | tee -a "$LOG"
+}
+
 stage_fetch() {
   say "stage fetch"
-  if [ ! -s /root/ckpt/of3-p2-155k.pt ]; then
-    curl -sSL -o /root/ckpt/of3-p2-155k.pt \
-      https://openfold3-data.s3.amazonaws.com/openfold3-parameters/of3-p2-155k.pt \
-      && ls -l /root/ckpt/of3-p2-155k.pt | tee -a "$LOG"
-  fi
+  fetch_ckpt of3-p2-155k.pt
   say "stage fetch done"
 }
 
@@ -261,12 +277,7 @@ print('ob import OK', version('openfold3'), 'predict_step', hasattr(OpenFold3All
 
 stage_obfetch() {
   say "stage obfetch"
-  if [ ! -s /root/ckpt/of3-ob-2025-06-30-174k.pt ]; then
-    curl -sSL -o /root/ckpt/of3-ob-2025-06-30-174k.pt \
-      https://openfold3-data.s3.amazonaws.com/openfold3-parameters/of3-ob-2025-06-30-174k.pt \
-      && ls -l /root/ckpt/of3-ob-2025-06-30-174k.pt | tee -a "$LOG"
-  fi
-  sha256sum /root/ckpt/of3-ob-2025-06-30-174k.pt 2>/dev/null | tee -a "$LOG"
+  fetch_ckpt of3-ob-2025-06-30-174k.pt
   say "stage obfetch done"
 }
 
