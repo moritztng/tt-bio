@@ -31,9 +31,10 @@ from tt_bio.rfd3 import model as M                                       # noqa:
 
 OUT = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "perf/p102/umax_schedule.json")
 STEPS = int(sys.argv[2]) if len(sys.argv) > 2 else 200
-FIXTURE = pathlib.Path("perf/dsfix/fixtures/rfd3_R4.json")
+FIXTURE = pathlib.Path(sys.argv[4] if len(sys.argv) > 4
+                       else "perf/dsfix/fixtures/rfd3_R4.json")
 CKPT = "/home/ttuser/.boltz/rfd3/weights"
-SEED = 42
+SEED = int(sys.argv[3]) if len(sys.argv) > 3 else 42
 QBLOCKS = (320, 608, 1216, 3040)
 NK, K, CALLS_PER_STEP = 6080, 128, 9
 
