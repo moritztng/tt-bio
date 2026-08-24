@@ -29,7 +29,7 @@ EXPECT = {
     # behind is what sat this gate red on main until 2026-08-23, so
     # perf/rf3/page512/publish_cell.py now rewrites the row and re-runs this file whenever it
     # moves the cell.
-    "rf3":         (8.330, 12.459, 74.217, 7.746, 3.621, 9.581),
+    "rf3":         (8.330, 12.459, 38.573, 7.746, 2.058, 4.980),
 }
 
 
