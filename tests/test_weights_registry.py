@@ -52,6 +52,10 @@ def test_every_shipped_model_has_artifacts():
     AFFINITY_MODELS, so nesso1 shipped with no registry row, no `tt-bio weights` entry and
     no docs row while the check built to make exactly that impossible stayed green. Same
     idiom as scripts/perf_regression.py:_assert_full_model_coverage, which got it right.
+
+    A model may legitimately have nothing to download (X-Cell has no published checkpoint).
+    That is weights.MODELS_WITHOUT_ARTIFACTS, and it still costs a written reason, so
+    'no artifacts' stays a decision someone made rather than a row someone forgot.
     """
     from tt_bio import main as _main
 
@@ -59,7 +63,8 @@ def test_every_shipped_model_has_artifacts():
     assert len(tuples) >= 5, f"expected main.py's --model tuples, found {sorted(tuples)}"
     for model in sorted(set().union(*tuples.values())):
         assert model in weights.MODEL_ARTIFACTS, f"{model} has no registry row"
-        assert weights.artifacts_for(model), model
+        assert weights.artifacts_for(model) or model in weights.MODELS_WITHOUT_ARTIFACTS, (
+            f"{model} has an empty registry row and no MODELS_WITHOUT_ARTIFACTS reason")
 
 
 def test_env_overrides_are_unique_and_complete():

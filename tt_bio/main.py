@@ -1638,6 +1638,15 @@ def weights_cmd(models, download, prune, force, yes, cache):
     except KeyError as e:
         raise click.ClickException(str(e).strip("\"'"))
 
+    # A model with an empty row is a decision, not a gap, so say which and why rather than
+    # printing an empty table at someone who asked for it by name.
+    for model in models:
+        reason = weights.MODELS_WITHOUT_ARTIFACTS.get(model)
+        if reason:
+            click.echo(f"{model}: nothing to fetch. {reason}")
+    if models and not rows:
+        return
+
     if download:
         for art in rows:
             if art.source == "manual":

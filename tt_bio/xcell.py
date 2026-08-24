@@ -212,11 +212,13 @@ class SelfAttention(Module):
             qn = self.q_norm(q); ttnn.deallocate(q); q = qn
             kn = self.k_norm(k); ttnn.deallocate(k); k = kn
         # The gene axis is long, so the SDPA program config is the single biggest lever in this
-        # model: the stock call leaves 2.5-5.8x on the table at these shapes (measured on card 2,
-        # perf/xcell/ -- 24.98 -> 4.28 ms at 8 rows x S=4001). It is not bit-exact with the
-        # default, because a different chunking accumulates bf16 in a different order; the
-        # difference is ~1 ulp (max abs 0.023 against operands of order 1) and end-to-end PCC
-        # against the host reference is unchanged, which is the bar this has to clear.
+        # model: on the bare op the stock heuristic leaves 2.9x to 5.9x on the table across the
+        # gene lengths this model runs (24.97 -> 4.25 ms at 8 rows x S=4001), which is 1.8x on
+        # the whole forward. perf/xcell/sdpa_ab.json, card 3, ttnn 0.68.0.
+        # It is not bit-exact with the default, because a different chunking accumulates bf16 in
+        # a different order, but the answer does not move: end-to-end PCC against the host
+        # reference is 0.999179 tuned against 0.998833 stock, so the faster arm is if anything
+        # the closer one. That is the bar this has to clear.
         o = ttnn.transformer.scaled_dot_product_attention(
             q, k, v, is_causal=False, scale=self.d_head ** -0.5,
             program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2]))

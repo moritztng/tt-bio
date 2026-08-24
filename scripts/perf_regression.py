@@ -408,6 +408,15 @@ SPECS_EXEMPT: dict[str, str] = {
                   "checkpoint, embed shape identical to saprot-650m)",
     "saprot-1.3b": "not yet seeded -- TODO: measure and add a SPECS entry (own "
                    "checkpoint, embed shape identical to saprot-650m)",
+    # Not "not yet seeded": there is nothing a regression gate could hold. Every leg here
+    # drives the shipped CLI, and `tt-bio perturb` exits without running the model because
+    # upstream has published no checkpoint. The architecture still has a speed and it is
+    # measured -- scripts/xcell_perf.py, perf/xcell/ -- but random weights make that a shape
+    # measurement, not a throughput number a release may be blocked on.
+    "xcell": "no trained checkpoint exists upstream, so `tt-bio perturb` has no shipped "
+             "inference path to gate. scripts/xcell_perf.py measures the architecture on "
+             "random weights instead. Add a SPECS entry the day weights land -- "
+             "scripts/xcell_watch.py exits non-zero to tell us.",
 }
 
 

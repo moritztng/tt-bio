@@ -23,7 +23,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   TFLOP/s at a 4000-gene context on one p150. X-Cell Mini is shape-limited rather than
   implementation-limited, because at hidden dim 512 every projection is a 512x512 matmul that
   caps at 32 TFLOP/s on this card against 194 for a large square one. Tuning the attention program
-  config is worth 1.84x end to end at 4000 genes, and the model is not dispatch-bound. See
+  config is worth 5.9x on the attention op itself and 1.8x on the whole forward at 4000 genes
+  (`perf/xcell/sdpa_ab.json`), and the model is not dispatch-bound. See
   `docs/xcell.md`.
 
   Its gene axis is deliberately NOT padded to a multiple of 32, which is the one exception in the

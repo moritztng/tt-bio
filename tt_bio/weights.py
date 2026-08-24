@@ -282,11 +282,22 @@ _ROWS: tuple[Artifact, ...] = (
 
 ARTIFACTS: dict[str, Artifact] = {a.key: a for a in _ROWS}
 
+# Models that ship no downloadable artifact at all, and why. Deriving MODEL_ARTIFACTS from
+# _ROWS alone cannot express one: a model with no row is indistinguishable from a model
+# nobody registered, which is the hole that let nesso1 ship with no registry entry. Naming
+# it here keeps the guard's teeth, because opting out costs a written reason.
+MODELS_WITHOUT_ARTIFACTS: dict[str, str] = {
+    "xcell": "upstream has published no trained checkpoint, so there is nothing to fetch; "
+             "`tt-bio perturb --architecture-only` runs the network with random weights",
+}
+
 # model -> the artifacts it needs, derived so a new row is picked up automatically.
 MODEL_ARTIFACTS: dict[str, tuple[str, ...]] = {}
 for _a in _ROWS:
     for _m in _a.models:
         MODEL_ARTIFACTS[_m] = (*MODEL_ARTIFACTS.get(_m, ()), _a.key)
+for _m in MODELS_WITHOUT_ARTIFACTS:
+    MODEL_ARTIFACTS.setdefault(_m, ())
 
 
 def artifacts_for(*models: str) -> tuple[Artifact, ...]:

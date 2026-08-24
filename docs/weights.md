@@ -104,3 +104,11 @@ verifies the file it is handed and says so if the copy is truncated.
 The two are different models, not two revisions of one: OpenBind is upstream tag `v0.5.0`,
 whose diffusion transformer moved a LayerNorm, so the preview2 weights do not load on it and
 its weights do not load on preview2. Keep both files if you want both `--model` choices.
+
+## X-Cell has no weights to fetch
+
+`tt-bio perturb --model xcell` has no row in the table above and never will until upstream
+ships a checkpoint. Xaira has published the architecture but not the parameters, so
+`tt-bio weights --download xcell` has nothing to do and says so. `--architecture-only` runs
+the real network on random weights, which measures its speed and nothing about its biology.
+See [xcell.md](xcell.md).

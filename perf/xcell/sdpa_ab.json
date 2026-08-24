@@ -1,0 +1,80 @@
+{
+  "what": "X-Cell self-attention: the ttnn SDPA program config against the stock heuristic",
+  "model": "X-Cell Mini (d=512 L=12 H=8), architecture-only, random weights",
+  "host": "tt-quietbox2",
+  "ttnn": "0.68.0",
+  "note": "warm mean of 5 reps after one warmup; identical inputs on both arms",
+  "end_to_end": [
+    {
+      "genes": 512,
+      "cells": 8,
+      "seq_len": 513,
+      "stock_ms": 47.199,
+      "tuned_ms": 41.017,
+      "speedup": 1.151,
+      "max_abs_diff": 0.003906,
+      "rel_diff": 0.017621,
+      "stock_max_abs": 0.22168
+    },
+    {
+      "genes": 2048,
+      "cells": 8,
+      "seq_len": 2049,
+      "stock_ms": 215.132,
+      "tuned_ms": 155.199,
+      "speedup": 1.386,
+      "max_abs_diff": 0.005859,
+      "rel_diff": 0.027778,
+      "stock_max_abs": 0.210938
+    },
+    {
+      "genes": 4000,
+      "cells": 8,
+      "seq_len": 4001,
+      "stock_ms": 554.799,
+      "tuned_ms": 312.761,
+      "speedup": 1.774,
+      "max_abs_diff": 0.007812,
+      "rel_diff": 0.036697,
+      "stock_max_abs": 0.212891
+    }
+  ],
+  "isolated_op": [
+    {
+      "seq_len": 513,
+      "rows": 8,
+      "heads": 8,
+      "d_head": 64,
+      "stock_ms": 0.496,
+      "tuned_ms": 0.171,
+      "speedup": 2.895,
+      "reps": 20
+    },
+    {
+      "seq_len": 2049,
+      "rows": 8,
+      "heads": 8,
+      "d_head": 64,
+      "stock_ms": 6.7,
+      "tuned_ms": 1.4,
+      "speedup": 4.785,
+      "reps": 20
+    },
+    {
+      "seq_len": 4001,
+      "rows": 8,
+      "heads": 8,
+      "d_head": 64,
+      "stock_ms": 24.965,
+      "tuned_ms": 4.247,
+      "speedup": 5.878,
+      "reps": 20
+    }
+  ],
+  "isolated_op_caveat": "one op between two synchronize_device calls, so the absolutes carry the sync and read high. The RATIO is the number to use: both arms pay the same sync.",
+  "parity_unchanged": {
+    "stock": 0.998833,
+    "tuned": 0.999179,
+    "config": "d=128 L=6 H=4 G=96 N=4"
+  }
+}
