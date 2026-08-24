@@ -60,6 +60,12 @@ def check(procs, censuses):
                if k not in ("TT_BIO_LEASE_CARDS", "TT_BIO_LEASE_HOLDER", "TT_BIO_SDPA_RAGGED_CENSUS")}
         if num:
             fail.append(f"{lbl}: numerics env flags present: {num}")
+    # The ref names the host, board, card and runtime. Derive them, and refuse a pair that does
+    # not agree on all four: two legs on different cards are not one cell, and a ref that names
+    # one of them describes half its own data.
+    box = {tuple(str(d[k]) for k in ("host", "card", "ttnn", "card_type")) for d in procs}
+    if len(box) > 1:
+        fail.append(f"processes disagree on host/card/ttnn/board: {sorted(box)}")
     if len(censuses) != len(procs):
         fail.append(f"{len(censuses)} census files for {len(procs)} processes: expected one each. "
                     f"A leftover ragged_sites_<pid>.json in a reused census dir looks like an "
@@ -76,7 +82,7 @@ def check(procs, censuses):
         fail.append(f"census: {ragged} ragged / {padded} padded, expected 0 / 0")
     if aligned == 0:
         fail.append("census: 0 aligned tri_att calls, the arm did not run")
-    return fail, (ragged, aligned, padded)
+    return fail, (ragged, aligned, padded), sorted(box)[0] if box else None
 
 def main():
     ap = argparse.ArgumentParser()
@@ -93,7 +99,7 @@ def main():
 
     procs = [load(p) for p in a.procs]
     censuses = [load(p) for p in a.census]
-    fail, cen = check(procs, censuses)
+    fail, cen, box = check(procs, censuses)
 
     # The cell prices the shipping tree or it prices nothing. The harness asserts this at launch
     # and records what it matched; refusing here as well is what stops a hand-run leg from being
@@ -172,10 +178,17 @@ def main():
         f"the host but not the rest of the box. " if a.cotenants else
         f"No foreign fold was running on any card at either leg start, and benchlock excluded "
         f"every other timed measurement on the host. 1-minute loadavg peaked at {peak:.2f}. ")
+    host, card, ttnn, board = box
+    short = {"tt-quietbox2": "qb2", "tt-quietbox": "qb1"}.get(host, host)
+    # Only claim continuity with the previous cell where the box actually is the previous box.
+    same_box = (short, card, ttnn) == ("qb2", "2", "0.68.0")
+    same_note = (", the same host, board, card and runtime the previous 82.547 s was measured on"
+                 if same_box else ", which is NOT the box the previous 82.547 s was measured on "
+                 "(qb2 card 2, ttnn 0.68.0)")
     ref = (
         f"Four warm folds of the shipped default across two independent processes under benchlock "
-        f"on qb2 card 2, ttnn 0.68.0, the same host, card and runtime the previous 82.547 s was "
-        f"measured on: {f4} s, median {pooled}, the two processes\u2019 own medians "
+        f"on {short}, one Blackhole AI Processor of a {board} board, physical card {card}, "
+        f"ttnn {ttnn}{same_note}: {f4} s, median {pooled}, the two processes\u2019 own medians "
         f"{per_proc[0]} and {per_proc[1]} for an A/A of {aa} %, cold folds {colds} s discarded. "
         f"Reproducible digest across both processes: CIF sha256 {EXPECT_DIGEST}, plDDT "
         f"{plddt:.4f}, pTM {ptm:.4f} and 49 denoise calls on every warm and cold fold, the denoise "
