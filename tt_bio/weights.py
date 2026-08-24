@@ -95,6 +95,7 @@ class Artifact:
     source: str                          # "hf-file" | "hf-repo" | "url" | "manual"
     licence: str
     repo: str | None = None              # HF repo id (hf-file, hf-repo)
+    revision: str | None = None          # HF tag/commit to pin; None means the repo default
     filename: str | None = None          # path within the repo (hf-file, hf-repo)
     url: str | None = None               # direct download (url)
     subdir: str = ""                     # cache-relative dir for flat files
@@ -128,6 +129,8 @@ BOLTZ2_REPO = "moritztng/boltz-2"
 PROTENIX_REPO = "TMF001/protenix-v2-weights"
 BOLTZGEN_REPO = "moritztng/boltzgen"
 OPENDDE_REPO = "aurekaresearch/OpenDDE"
+NESSO_REPO = "recursionpharma/nesso"
+NESSO_REVISION = "v1.0.0"      # not `main`: main carries only a config.json
 IPD_BASE = "https://files.ipd.uw.edu/pub"
 PXDESIGN_BASE = "https://pxdesign.tos-cn-beijing.volces.com"
 
@@ -182,6 +185,25 @@ _ROWS: tuple[Artifact, ...] = (
     Artifact("opendde-abag", ("opendde-abag",), "hf-repo", "see repo card (Aureka Research)",
              repo=OPENDDE_REPO, filename="opendde_abag.pt", approx_bytes=2625271509,
              legacy_env=("OPENDDE_CKPT",)),
+
+    # -- Nesso-1 (Recursion, Apache-2.0) ---------------------------------------
+    # An hf-repo pair rather than two hf-file rows, the same shape as the two OpenDDE rows:
+    # `tt-bio affinity` loads both files out of the hub cache (nesso1.py:740 for the weights,
+    # nesso1_input.py:298 for the CCD), so an hf-file row would download them to a flat
+    # <cache>/ path nothing reads and the status table would report missing on a host that
+    # has them. One snapshot of the pinned tag brings both, plus the 1.7 KB hparams.json
+    # that sits beside the weights and needs no row of its own.
+    #
+    # ESM-2 650M deliberately gets no row: nesso1_input.py:175 reaches it through the
+    # vendored `setup_esm_model`, i.e. through `transformers`, not through this fetch path.
+    Artifact("nesso1", ("nesso1",), "hf-repo", "Apache-2.0 (Recursion)",
+             repo=NESSO_REPO, revision=NESSO_REVISION,
+             filename=f"{NESSO_REVISION}/model.safetensors", approx_bytes=165426752,
+             note="affinity head; hparams.json sits beside it under the same revision tag"),
+    Artifact("nesso1-ccd", ("nesso1",), "hf-repo", "Apache-2.0 (Recursion)",
+             repo=NESSO_REPO, revision=NESSO_REVISION, filename="ccd.pkl",
+             approx_bytes=412923533,
+             note="CCD molecule dict, read by the host featurizer; $NESSO_CACHE also finds it"),
 
     # -- BoltzGen: six flat files under <cache>/boltzgen -----------------------
     Artifact("boltzgen-diverse", ("boltzgen",), "hf-file", "MIT",
@@ -470,9 +492,13 @@ def _download_to(url: str, dest: Path, *, max_retries: int = 5, quiet: bool = Fa
     raise RuntimeError(f"could not download {url} after {max_retries} attempts")
 
 
-def fetch_hf_repo(repo_id: str, *, filename: str | None = None, force: bool = False,
-                  quiet: bool = False) -> Path:
+def fetch_hf_repo(repo_id: str, *, filename: str | None = None, revision: str | None = None,
+                  force: bool = False, quiet: bool = False) -> Path:
     """Snapshot a whole HF repo into the hub cache and return the snapshot dir.
+
+    ``revision`` pins a tag or commit. It is not cosmetic for a repo whose default
+    branch is not the released tree: ``recursionpharma/nesso`` keeps ``main`` and
+    ``v1.0.0`` on different commits, and ``main`` holds only a ``config.json``.
 
     The hub cache is already written blob-at-a-time through ``.incomplete`` staging, so
     the destination cannot hold a partial blob. What it does not do is notice a blob
@@ -481,12 +507,12 @@ def fetch_hf_repo(repo_id: str, *, filename: str | None = None, force: bool = Fa
     it and re-snapshot with ``force_download`` if it fails."""
     from huggingface_hub import snapshot_download
 
-    snap = Path(snapshot_download(repo_id, force_download=force))
+    snap = Path(snapshot_download(repo_id, revision=revision, force_download=force))
     if filename:
         target = snap / filename
         if not target.exists() or not artifact_intact(target):
             _echo(f"Cached {repo_id}:{filename} is incomplete/corrupt, re-downloading", quiet)
-            snap = Path(snapshot_download(repo_id, force_download=True))
+            snap = Path(snapshot_download(repo_id, revision=revision, force_download=True))
     return snap
 
 
@@ -623,7 +649,7 @@ def resolve(key: str, root: str | Path | None = None) -> Path | None:
     if art.source == "hf-repo":
         from huggingface_hub import try_to_load_from_cache
         if art.filename:
-            hit = try_to_load_from_cache(art.repo, art.filename)
+            hit = try_to_load_from_cache(art.repo, art.filename, revision=art.revision)
             return Path(hit) if isinstance(hit, str) else None
         return _snapshot_dir(art.repo)
     if art.source == "manual":
@@ -739,7 +765,8 @@ def fetch(key: str, *, root: str | Path | None = None, force: bool = False,
         return dest
 
     if art.source == "hf-repo":
-        snap = fetch_hf_repo(art.repo, filename=art.filename, force=force, quiet=quiet)
+        snap = fetch_hf_repo(art.repo, filename=art.filename, revision=art.revision,
+                             force=force, quiet=quiet)
         return snap / art.filename if art.filename else snap
 
     if art.source == "hf-file":

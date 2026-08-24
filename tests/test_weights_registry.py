@@ -22,7 +22,6 @@ from pathlib import Path
 import pytest
 
 from tt_bio import weights
-from tt_bio.main import DESIGN_MODELS, EMBED_MODELS, PREDICT_MODELS, SAPROT_MODELS
 
 
 def _zip(path: Path, n: int = 4) -> Path:
@@ -46,8 +45,19 @@ def _truncate(path: Path, frac: float = 0.6) -> Path:
 
 def test_every_shipped_model_has_artifacts():
     """Anything that needs "every artifact we ship" imports the registry, so a model
-    missing from it would silently get no prefetch, no status row and no docs entry."""
-    for model in (*PREDICT_MODELS, *EMBED_MODELS, *SAPROT_MODELS, *DESIGN_MODELS):
+    missing from it would silently get no prefetch, no status row and no docs entry.
+
+    The tuples are DISCOVERED, not named. Written against the four that existed then, this
+    check was blind to a new CLI verb bringing its own tuple: `tt-bio affinity` added
+    AFFINITY_MODELS, so nesso1 shipped with no registry row, no `tt-bio weights` entry and
+    no docs row while the check built to make exactly that impossible stayed green. Same
+    idiom as scripts/perf_regression.py:_assert_full_model_coverage, which got it right.
+    """
+    from tt_bio import main as _main
+
+    tuples = {n: getattr(_main, n) for n in dir(_main) if n.endswith("_MODELS")}
+    assert len(tuples) >= 5, f"expected main.py's --model tuples, found {sorted(tuples)}"
+    for model in sorted(set().union(*tuples.values())):
         assert model in weights.MODEL_ARTIFACTS, f"{model} has no registry row"
         assert weights.artifacts_for(model), model
 

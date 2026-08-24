@@ -12,8 +12,9 @@ esmc-6b             esmc-6b        hf-repo  present    23.66G  /home/you/.cache/
 rf3                 rf3            url      missing         -  /home/you/.boltz/rf3/rf3_foundry_01_24_latest_remapped.ckpt
 openfold3           openfold3      manual   present     2.13G  /home/you/.boltz/of3-p2-155k.pt
 openbind            openbind       manual   present     2.13G  /home/you/.boltz/of3-ob-2025-06-30-174k.pt
+nesso1-ccd          nesso1         hf-repo  present     0.38G  /home/you/.cache/huggingface/hub/models--recursionpharma--nesso/...
 ...
-20/23 present, 58.6 GiB on disk, 18.7 GiB to fetch (tt-bio weights --download)
+25/28 present, 58.6 GiB on disk, 18.7 GiB to fetch (tt-bio weights --download)
 ```
 
 - `tt-bio weights --download` fetches everything that is missing or damaged.
@@ -34,7 +35,7 @@ Two directories, and one knob that moves both:
 | | Default | Holds |
 |---|---|---|
 | tt-bio cache | `~/.boltz` | the flat checkpoints: Boltz-2, Protenix-v2, BoltzGen, RF3, RFD3, the CCD molecule library, OpenFold3 |
-| Hugging Face hub cache | `~/.cache/huggingface/hub` | whole-repo models: ESMFold2, ESMC, SaProt, OpenDDE |
+| Hugging Face hub cache | `~/.cache/huggingface/hub` | whole-repo models: ESMFold2, ESMC, SaProt, OpenDDE, Nesso-1 |
 
 Set `TT_BIO_CACHE` and both move under it (the hub cache lands in `$TT_BIO_CACHE/hf`).
 That is the one to use on a shared box, a rented instance or a cluster where `$HOME` is
@@ -43,7 +44,12 @@ small. If you already set `HF_HOME` or `HF_HUB_CACHE` yourself, tt-bio leaves it
 `BOLTZ_CACHE` still moves the tt-bio half only, and `predict --cache` still overrides it
 per run. Neither touches the hub cache.
 
-A full set of weights is about 65 GiB per host.
+A full set of weights is about 86 GiB per host.
+
+One artifact is deliberately outside the registry: the ESM-2 650M encoder (2.4 GiB) that
+`tt-bio affinity --model nesso1` uses to embed its protein. `transformers` fetches it into
+the hub cache on first use, so `TT_BIO_CACHE` still moves it, but it will show up under
+"not claimed by any model" in `tt-bio weights`.
 
 ## Overriding one artifact
 
