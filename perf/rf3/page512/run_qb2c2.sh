@@ -42,6 +42,12 @@ cat > "$OUT/provenance_$HOST.json" <<PROV
 PROV
 echo "tt_bio is byte-identical to origin/main $MAIN"
 
+# The legs stamp themselves with the SHA they measured, so once both are in, a re-run of this
+# script is a preflight and two skips. PREFLIGHT_ONLY stops here instead of sitting through the
+# card-lease and quiet waits (up to 30 min) to reach a loop that will skip everything: after a
+# merge, refreshing the provenance is the only thing left to re-assert.
+[ -n "${PREFLIGHT_ONLY:-}" ] && { echo "PREFLIGHT_ONLY, stopping after provenance"; exit 0; }
+
 # 3600 was not enough: pass 4's p2 queued behind a chain with two `timeout 1800` legs left,
 # so its wait would have expired before the lock freed and benchlock.sh exits 75 there
 # rather than measuring. Overridable, because a leg that waits all night is also wrong.
