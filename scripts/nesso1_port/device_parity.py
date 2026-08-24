@@ -192,4 +192,14 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from tt_bio.device_lease import CONTENDED_EXIT_CODE, DeviceInUseError
+
+    try:
+        raise SystemExit(main())
+    except DeviceInUseError as exc:
+        # A co-tenant on the card is not a parity result. Exit on the reserved code so the
+        # release gate reports contention instead of scoring an arm that never ran: this leg
+        # failed both v0.7.0 gate passes this way and read as "missed the reference floor or
+        # drifted run to run" both times.
+        print(f"device contention, no measurement taken: {exc}", file=sys.stderr)
+        raise SystemExit(CONTENDED_EXIT_CODE) from None

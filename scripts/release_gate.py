@@ -193,6 +193,11 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 import gate_guard  # noqa: E402  (host-load guard, shared with full_parity_gate.py)
+# Resolved like every other tt_bio import in this file: through the installed dist, NOT by
+# prepending REPO_ROOT. A gate that silently switched to scoring the checkout instead of the
+# package it was pointed at would be measuring something else (parity-gate-scores-installed-
+# package-not-checkout), and that is not this commit's business to change.
+from tt_bio.device_lease import CONTENDED_EXIT_CODE  # noqa: E402
 
 # The default foldable gate target: examples/prot.yaml == PDB 7ROA, a 117-residue
 # monomer that Boltz-2 folds to 1.55 A — proof the target is easy, so a large RMSD
@@ -916,16 +921,32 @@ def _kill_group(proc) -> None:
             pass
 
 
+#: Legs whose subprocess exited on the device-contention code. Collected centrally in
+#: _run_fold rather than threaded through each arm's row: every arm renders a non-zero rc as its
+#: own accuracy verdict ("missed the ground-truth floor", "drifted run to run"), and a leg that
+#: never opened the card has no verdict to render. Reported once, before the final result.
+_CONTENDED: list = []
+
+
 def _run_fold(cmd: list, timeout: float, **popen_kw) -> tuple:
     """Run a fold subprocess in its OWN process group; on timeout kill the whole group so a
     hung MSA-server wait or a hung multiprocessing shutdown cannot orphan device-holding
     children (which would wedge the card for later legs). Returns (returncode, timed_out)."""
     proc = subprocess.Popen(cmd, start_new_session=True, **popen_kw)
     try:
-        return proc.wait(timeout=timeout), False
+        rc = proc.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
         _kill_group(proc)
         return None, True
+    if rc == CONTENDED_EXIT_CODE:
+        # Label it by what was run: "-m tt_bio.main predict ..." -> "tt-bio predict", a bare
+        # script -> its filename. Legs sharing a CLI collapse to one label, which is fine --
+        # the rows above already name them; this line's job is to say the count is not a verdict.
+        rest = [str(a) for a in cmd[1:]]
+        label = (f"tt-bio {rest[2]}" if rest[:1] == ["-m"] and len(rest) > 2
+                 else Path(rest[0]).name if rest else str(cmd[0]))
+        _CONTENDED.append(label)
+    return rc, False
 
 
 def _load_structure_harness():
@@ -3215,6 +3236,16 @@ def main() -> int:
         print("GATE PASS — ESMC embed path cleared the per-residue PCC floor" if esmc_pass
               else "GATE FAIL — an ESMC model missed the per-residue PCC floor (see above)")
 
+    if _CONTENDED:
+        # Say this last, where the reader is, and say it loudly: a contended leg's row above
+        # reads exactly like a model that missed its floor. Two consecutive v0.7.0 gate passes
+        # were misdiagnosed from those rows, one of them into a dedicated debugging worker.
+        print(f"\n{'#'*78}\nNOT A VERDICT — {len(_CONTENDED)} leg(s) exited on the device-"
+              f"contention code {CONTENDED_EXIT_CODE}: {', '.join(sorted(set(_CONTENDED)))}."
+              f"\nA co-tenant held the card, so those legs waited out TT_BIO_LEASE_TIMEOUT and "
+              f"measured\nnothing. Their rows above are not accuracy results. Grep this log for "
+              f"DeviceInUseError\nfor the holder, then re-run the arm on an uncontended card."
+              f"\n{'#'*78}")
     return 0 if all_pass else 1
 
 

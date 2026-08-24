@@ -1296,12 +1296,21 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
             # failure; that costs 0.5 s and needs no timeout.
             if local_procs and not any(proc.is_alive() for proc in local_procs):
                 if all_dead_seen:
+                    from tt_bio.device_lease import CONTENDED_EXIT_CODE, DeviceInUseError
                     codes = ", ".join(f"{proc.name} exit {proc.exitcode}"
                                       for proc in local_procs)
+                    if any(proc.exitcode == CONTENDED_EXIT_CODE for proc in local_procs):
+                        # A co-tenant held the card, so no worker opened a chip and there
+                        # is nothing to score. Raise the lease error the workers actually
+                        # died of, so the CLI group maps it to CONTENDED_EXIT_CODE: on a
+                        # bare exit 1 a release-gate arm renders this as its own accuracy
+                        # verdict, and six v0.7.0 legs reached the table through this line.
+                        raise DeviceInUseError(
+                            f"every local worker exited at device open ({codes}); the card "
+                            "is leased by another process, so nothing ran")
                     raise RuntimeError(
                         f"every local worker exited before the run finished ({codes}); "
-                        "no job can be served. The usual cause is a device-open "
-                        "failure: the card is leased by another process or wedged.")
+                        "no job can be served. The worker's own traceback above says why.")
                 all_dead_seen = True
             else:
                 all_dead_seen = False
@@ -1519,7 +1528,26 @@ def _persist_run_results(client: ControllerClient, run_id: str, results_path: Pa
 
 
 
-@click.group()
+class _Cli(click.Group):
+    """The CLI group, with one job beyond click's: give device contention its own exit code.
+
+    A co-tenant holding the card is not a result. Every command here can die of
+    :class:`DeviceInUseError` after waiting out ``TT_BIO_LEASE_TIMEOUT``, and on a bare exit 1 a
+    caller cannot tell that from the model being wrong -- the v0.7.0 release gate scored eleven
+    such legs as accuracy failures across two passes. One reserved code, checked in one place.
+    """
+
+    def invoke(self, ctx):
+        from tt_bio.device_lease import CONTENDED_EXIT_CODE, DeviceInUseError
+
+        try:
+            return super().invoke(ctx)
+        except DeviceInUseError as exc:
+            click.echo(f"device contention, nothing ran: {exc}", err=True)
+            ctx.exit(CONTENDED_EXIT_CODE)
+
+
+@click.group(cls=_Cli)
 def cli():
     """Run biomolecular prediction, design, and embedding on Tenstorrent."""
     # One place covers predict, design, embed and gen: if a gate driver or a parent

@@ -25,7 +25,7 @@ from typing import Any
 
 import torch
 
-from tt_bio.device_lease import install_parent_death_guard
+from tt_bio.device_lease import CONTENDED_EXIT_CODE, DeviceInUseError, install_parent_death_guard
 from tt_bio.distributed import ControllerClient, HttpProgressQueue
 from tt_bio.envflags import env_flag
 from tt_bio.cache import cached, seq_hash, staged
@@ -1768,7 +1768,7 @@ def run_worker_loop(
         try:
             from tt_bio.tenstorrent import get_device as _get_device
             _get_device()
-        except Exception:
+        except Exception as exc:
             _report_fatal(f"tt-bio worker {worker_info['label']}: device open failed\n"
                           f"{traceback.format_exc()}")
             # The chip didn't come up with working local dispatch (e.g. a raced
@@ -1776,7 +1776,15 @@ def run_worker_loop(
             # exit so the pool supervisor respawns us. The respawn reopens under the
             # host-wide device-init lock (one chip at a time), which is exactly what
             # clears the concurrent-init race behind a bad bring-up.
-            return
+            #
+            # Exit non-zero, and on CONTENDED_EXIT_CODE when a co-tenant holds the card,
+            # because `predict` reads these codes back: a fan-out whose workers never
+            # opened a chip has measured nothing, and main._stream_run used to report it
+            # as a run failure. Six v0.7.0 release-gate legs were scored as accuracy
+            # misses that way. The serve supervisor is unaffected, it respawns on any exit.
+            raise SystemExit(
+                CONTENDED_EXIT_CODE if isinstance(exc, DeviceInUseError) else 1
+            ) from None
     try:
         while True:
             if _dispatcher_pid and os.getppid() != _dispatcher_pid:

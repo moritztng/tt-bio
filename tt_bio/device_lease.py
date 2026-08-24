@@ -58,6 +58,18 @@ class DeviceInUseError(RuntimeError):
     """Raised when the physical card cannot be leased within the timeout."""
 
 
+#: Exit code an entry point uses when it dies of :class:`DeviceInUseError`, so a caller can
+#: tell "a co-tenant had the card" from "the thing under test is broken" by return code alone.
+#: 75 is sysexits' EX_TEMPFAIL: retriable, nothing wrong with the input. Same reserved-code
+#: convention as ``install_parent_death_guard(exit_code=70)`` below.
+#:
+#: Why this exists: a release-gate leg that cannot open the card waits out
+#: ``TT_BIO_LEASE_TIMEOUT`` and exits 1, which every gate arm renders as an accuracy verdict --
+#: "missed the ground-truth floor", "drifted run to run". Eleven legs across two v0.7.0 gate
+#: passes read as model defects when not one of them executed a device instruction.
+CONTENDED_EXIT_CODE = 75
+
+
 def lease_dir():
     """Directory holding the per-card lease files.
 
