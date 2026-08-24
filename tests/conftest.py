@@ -3,6 +3,8 @@ import os
 import subprocess
 from pathlib import Path
 
+import pytest
+
 
 def git_tracked(repo, *args):
     """Paths git tracks under *repo*, or None when *repo* is not a work tree.
@@ -47,3 +49,30 @@ def boltzgen_checkpoint(filename: str, env_var: str | None = None) -> Path:
     cache = Path(os.environ.get("BOLTZ_CACHE", str(Path.home() / ".boltz")))
     shipped = cache / "boltzgen" / filename
     return shipped if shipped.exists() else _HF_SNAPSHOT / filename
+
+
+# The device-selection environment is process-global, and tt_bio.device_lease reads it
+# live on every open. A test that sets TT_VISIBLE_DEVICES and then *pops* it instead of
+# putting the caller's value back leaves the rest of the session unpinned, and an unpinned
+# open brings up every card on the box -- which the card grant then refuses.
+#
+# On a one-card host that is invisible: unpinned and granted are the same set. On qb1
+# (four cards) under the one-card grant a gate leg actually gets, it is 78 failures in
+# test_tenstorrent.py and test_esmc.py, all of them the leak rather than the code, and all
+# of them a long way from the test that caused it. Restoring here rather than in each test
+# keeps a new test from reintroducing it.
+_DEVICE_ENV = ("TT_VISIBLE_DEVICES", "TT_BIO_LEASE_CARDS", "TT_BIO_LEASE_HOLDER",
+               "TT_BIO_LOGICAL_DEVICE_ID")
+
+
+@pytest.fixture(autouse=True)
+def _restore_device_env():
+    before = {k: os.environ.get(k) for k in _DEVICE_ENV}
+    try:
+        yield
+    finally:
+        for k, v in before.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v

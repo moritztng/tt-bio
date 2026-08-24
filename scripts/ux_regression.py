@@ -80,6 +80,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tt_bio import main as tt_bio_main, weights  # noqa: E402  (after the path insert)
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import gate_guard  # noqa: E402  (interpreter guard, shared with the two release gates)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 # trpcage (20 residues) is the canonical tiny fold target — small enough that
@@ -1313,6 +1315,17 @@ def main() -> int:
                     help="Run ONLY the CLI-behaviour leg (predict/embed --help). No card "
                          "needed — usable in GitHub CI. Skips the on-device legs.")
     args = ap.parse_args()
+
+    # rf3's UX leg reported FAIL on 2026-08-23 because the gate host's env was missing
+    # `toolz`, declared in pyproject.toml the day before. Every fixture and checkpoint was
+    # present; the interpreter was not, and nothing said so.
+    dep_problems = gate_guard.declared_dependency_problems(REPO_ROOT / "pyproject.toml")
+    if dep_problems:
+        for problem in dep_problems:
+            print(f"PREFLIGHT - {problem}")
+        sys.exit("Refusing to score tt-bio on an interpreter that does not satisfy its own "
+                 "declared dependencies: a leg that dies on a missing import is reported as a "
+                 "product failure.")
 
     # The guard drives the real `tt_bio.main` CLI via sys.executable, so it must
     # be launched with a Python that has tt-bio's deps installed (numpy / ttnn /

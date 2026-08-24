@@ -220,6 +220,13 @@ AFFINITY = REPO_ROOT / "examples" / "affinity_fkg.yaml"
 # cheap and runs in the parent before any model loads; tt-smi names boards sysfs
 # can't and is the canonical source when available.
 _P300_SUBSYSTEMS = {"0x0044", "0x0045", "0x0046"}  # Blackhole P300 (lone-chip custom topology)
+# Blackhole P150. Measured, not assumed: pc node 0 -- the card every p150a baseline in
+# docs/perf_baselines.json and docs/size_ladder_baseline.json was recorded on -- reads
+# subsystem 0x0040 and tt-smi calls it p150a on the same box; all four qb1 nodes read
+# 0x0040 and tt-smi named qb1 card 2 p150a on 2026-08-23 while it was still answering.
+# Without this the fallback cannot name the most common board we gate on, so any host
+# where tt-smi is slow scores "unknown:0x0040" and every per-card leg fails NO BASELINE.
+_P150_SUBSYSTEMS = {"0x0040"}
 
 # Per-model measurement spec. ``kind`` is "fold" or "embed". ``unit`` + ``direction``
 # define the gated metric (throughput, higher is better). Every fold model uses the
@@ -579,6 +586,8 @@ def detect_card_type() -> str:
     sub = _sysfs_subsystem_device(visible)
     if sub in _P300_SUBSYSTEMS:
         return "p300c"
+    if sub in _P150_SUBSYSTEMS:
+        return "p150a"
     if sub:
         return f"unknown:{sub}"
     return "unknown"

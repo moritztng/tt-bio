@@ -456,3 +456,220 @@ def test_every_leg_kind_has_a_verdict_extractor():
     unknown = sorted({leg.kind for leg in mod.LEGS
                       if mod.extract_verdict(leg, {})[0] == "UNKNOWN"})
     assert not unknown, f"leg kinds with no extractor: {unknown}"
+
+
+# --- remote worker probe: an unreachable / self-aliased / card-less worker aborts in seconds ---
+#
+# Pins the v0.6.7 gate-infra defect (2026-08-23): the gate ran ON qb2 with `--workers qb2:2,qb2:3`,
+# `qb2` is an ssh alias that exists only in another user's config on another host, so locality
+# matched by name classified it remote, ssh'd to an unresolvable name, and all 21 device legs
+# exited 255 in 0s while the 9 in-process legs passed. 47 minutes, no model run, verdict FAIL.
+
+def _workers(mod, spec):
+    return mod.parse_workers(spec)
+
+
+def test_unreachable_remote_worker_is_a_preflight_problem():
+    mod = _load()
+    ws = _workers(mod, "not-a-host:2,not-a-host:3")
+    probs = mod.remote_worker_problems(
+        ws, probe=lambda h: (255, "", "ssh: Could not resolve hostname not-a-host"))
+    assert len(probs) == 1, probs
+    assert "not-a-host" in probs[0] and "not reachable" in probs[0]
+    # names the fix, and says what would otherwise happen
+    assert "localhost:2" in probs[0] and "255" in probs[0]
+
+
+def test_remote_worker_that_is_this_same_box_is_a_preflight_problem():
+    mod = _load()
+    import socket
+    me = socket.gethostname().split(".")[0]
+    ws = _workers(mod, "myalias:2")
+    probs = mod.remote_worker_problems(ws, probe=lambda h: (0, f"{me}\n0\n1\n2\n3\n", ""))
+    assert len(probs) == 1, probs
+    assert "same box" in probs[0] and "localhost:2" in probs[0]
+
+
+def test_remote_worker_missing_the_card_node_is_a_preflight_problem():
+    mod = _load()
+    ws = _workers(mod, "otherbox:3")
+    probs = mod.remote_worker_problems(ws, probe=lambda h: (0, "otherbox\n0\n1\n", ""))
+    assert len(probs) == 1, probs
+    assert "/dev/tenstorrent/3" in probs[0]
+
+
+def test_reachable_remote_worker_with_its_card_is_no_problem():
+    mod = _load()
+    ws = _workers(mod, "otherbox:2,otherbox:3")
+    assert mod.remote_worker_problems(
+        ws, probe=lambda h: (0, "otherbox\n0\n1\n2\n3\n", "")) == []
+
+
+def test_local_workers_are_not_probed():
+    mod = _load()
+    ws = _workers(mod, "localhost:0")
+
+    def boom(h):
+        raise AssertionError(f"probed a local worker: {h}")
+
+    assert mod.remote_worker_problems(ws, probe=boom) == []
+
+
+def test_one_probe_per_host_not_per_worker():
+    mod = _load()
+    seen = []
+
+    def probe(h):
+        seen.append(h)
+        return 0, "otherbox\n0\n1\n2\n3\n", ""
+
+    mod.remote_worker_problems(_workers(mod, "otherbox:0,otherbox:1,otherbox:2"), probe=probe)
+    assert seen == ["otherbox"]
+
+
+# ---------------------------------------------------------------------------
+# The gate interpreter vs tt-bio's own declared dependencies (scripts/gate_guard.py)
+# ---------------------------------------------------------------------------
+# On 2026-08-23 the 0.6.7 UX gate reported `rf3 FAIL` on qb2. The cause was the gate host's
+# env, not the release: it was missing `toolz`, declared in pyproject.toml the day before, so
+# rf3's vendored atomworks parser died on ModuleNotFoundError. Nine of the 44 declared
+# requirements were off on that host, two of them version bounds. A red that reads as a
+# product regression and is actually a stale interpreter costs a whole gate run to diagnose.
+_PYPROJECT_SAMPLE = '''\
+[build-system]
+requires = ["setuptools"]
+
+[project]
+name = "tt-bio"
+requires-python = ">=3.10"
+dependencies = [
+    "torch",
+    "zstandard",      # a different distribution from the "zstd" below
+    "zstd",
+    "transformers>=5.5.0,<6.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+tenstorrent = ["ttnn==0.68.0"]
+
+[tool.setuptools]
+packages = ["tt_bio"]
+'''
+
+
+def test_both_pyproject_readers_agree_on_the_repos_own_file():
+    # The tomllib-free reader is what a 3.10 gate interpreter uses, and pc's is 3.10. Pin it
+    # against the real parser on the real file so it cannot drift into reading, say, one
+    # requirement instead of forty-four.
+    g = _guard()
+    text = (REPO / "pyproject.toml").read_text()
+    for extras in ((), ("tenstorrent",), ("tenstorrent", "reference", "test")):
+        real = g._pyproject_requirements(REPO / "pyproject.toml", extras)
+        scanned = g._scan_requirements(text, extras)
+        assert sorted(real) == sorted(scanned), extras
+    assert len(g._pyproject_requirements(REPO / "pyproject.toml", ("tenstorrent",))) > 30
+
+
+def test_a_package_named_only_inside_a_comment_is_not_a_requirement():
+    # tt-bio's dependency array literally contains `is a different distribution from the
+    # "zstd" above`. Collecting quoted strings without cutting comments first made that a
+    # forty-fifth requirement, and a phantom requirement is a phantom gate refusal.
+    g = _guard()
+    reqs = g._scan_requirements(_PYPROJECT_SAMPLE, ("tenstorrent",))
+    assert reqs.count("zstd") == 1
+    assert reqs == ["torch", "zstandard", "zstd", "transformers>=5.5.0,<6.0", "ttnn==0.68.0"]
+    assert "setuptools" not in reqs and "pytest" not in reqs   # other tables, other arrays
+
+
+def test_a_compliant_interpreter_reports_nothing(tmp_path):
+    g = _guard()
+    pj = tmp_path / "pyproject.toml"
+    pj.write_text(_PYPROJECT_SAMPLE)
+    env = {"torch": "2.8.0", "zstandard": "0.23.0", "zstd": "1.5.7",
+           "transformers": "5.5.0", "ttnn": "0.68.0"}
+    assert g.declared_dependency_problems(pj, ("tenstorrent",), env=env) == []
+
+
+def test_missing_declared_dependencies_are_named(tmp_path):
+    g = _guard()
+    pj = tmp_path / "pyproject.toml"
+    pj.write_text(_PYPROJECT_SAMPLE)
+    env = {"torch": "2.8.0", "transformers": "5.5.0", "ttnn": "0.68.0"}
+    problems = g.declared_dependency_problems(pj, ("tenstorrent",), env=env)
+    assert len(problems) == 1
+    assert "missing 2 of tt-bio's 5" in problems[0]
+    assert "zstandard, zstd" in problems[0]
+
+
+def test_a_violated_version_bound_is_a_problem_not_a_pass(tmp_path):
+    # The real case twice over: ttnn 0.67.4 against a pinned 0.68.0 (the two disagree by
+    # several angstrom on a boltz2 no-MSA target), and transformers 4.57.6 against >=5.5.0.
+    g = _guard()
+    pj = tmp_path / "pyproject.toml"
+    pj.write_text(_PYPROJECT_SAMPLE)
+    env = {"torch": "2.8.0", "zstandard": "0.23.0", "zstd": "1.5.7",
+           "transformers": "4.57.6", "ttnn": "0.67.4"}
+    problems = g.declared_dependency_problems(pj, ("tenstorrent",), env=env)
+    assert len(problems) == 1
+    assert "transformers 4.57.6 violates" in problems[0]
+    assert "ttnn 0.67.4 violates" in problems[0]
+
+
+def test_an_unreadable_or_empty_pyproject_is_unverified_not_clean(tmp_path):
+    # A reader that returns nothing must never read as "this interpreter is fine".
+    g = _guard()
+    missing = tmp_path / "nope.toml"
+    assert "cannot read declared dependencies" in g.declared_dependency_problems(missing)[0]
+    empty = tmp_path / "empty.toml"
+    empty.write_text("[project]\nname = \"tt-bio\"\n")
+    assert "declared no dependencies" in g.declared_dependency_problems(empty)[0]
+
+
+# --- stdout parsing on a device leg -----------------------------------------------------------
+# tt-metal logs to stdout, so a port scorer's report shares the stream with device log lines.
+# Requiring one clean JSON document scored af2ig-trunk-device ERROR on every run: at seq 208 on
+# an 11x10 grid the trimul L1 retry always fires, and its tt-metal `critical` line was enough to
+# defeat json.loads. The leg was dark from the day it was added (root-caused 2026-08-24).
+
+TT_METAL_CRITICAL = (
+    "2026-08-24 13:08:10.513 | critical |          Always | TT_THROW: Statically allocated "
+    "circular buffers in program 129 clash with L1 buffers on core range "
+    "[(x=0,y=0) - (x=10,y=9)]. L1 buffer allocated at 1138688 and static circular buffer "
+    "region ends at 1176064 (assert.hpp:104)\n"
+)
+
+
+def test_a_device_log_line_before_the_report_does_not_hide_it():
+    m = _load()
+    report = {"mode": "af2ig_taps", "verdict": "PASS", "taps_total": 94}
+    import json as _json
+    out = m._report_from_stdout(TT_METAL_CRITICAL + _json.dumps(report, indent=1))
+    assert out == report
+
+
+def test_the_report_is_taken_even_with_log_lines_on_both_sides():
+    m = _load()
+    import json as _json
+    out = m._report_from_stdout(
+        "# substituting ['a', 'b'] into host torch\n"
+        + TT_METAL_CRITICAL
+        + _json.dumps({"mode": "af2ig_taps", "verdict": "GAP"})
+        + "\n"
+        + TT_METAL_CRITICAL
+    )
+    assert out == {"mode": "af2ig_taps", "verdict": "GAP"}
+
+
+def test_a_truncated_report_is_still_nothing():
+    """The case worth keeping: a scorer that died mid-print must stay an ERROR, not become a
+    PASS because some earlier fragment happened to parse."""
+    m = _load()
+    assert m._report_from_stdout(TT_METAL_CRITICAL + '{"mode": "af2ig_taps", "verd') is None
+    assert m._report_from_stdout(TT_METAL_CRITICAL) is None
+    assert m._report_from_stdout("") is None
+
+
+def test_a_bare_list_report_is_not_mistaken_for_a_report():
+    m = _load()
+    assert m._report_from_stdout("[1, 2, 3]") is None

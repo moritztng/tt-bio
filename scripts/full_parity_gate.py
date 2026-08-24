@@ -923,6 +923,65 @@ def parse_workers(spec: str) -> list[Worker]:
     return out or [Worker(host=this_host, card=0, is_local=True)]
 
 
+def remote_worker_problems(workers: list[Worker], probe=None) -> list[str]:
+    """Probe every remote worker once: reachable, not this same box, and the card node exists.
+
+    Locality is decided by name (``parse_workers``), and a name can lie in both directions. An
+    ssh alias that only exists in one user's config on one host is not a hostname anywhere else:
+    running the gate ON qb2 with ``--workers qb2:2`` classified qb2 as remote, ssh'd to a name
+    that box cannot resolve, and every device leg exited 255 in 0s while the in-process legs
+    passed — 47 minutes of gate reporting FAIL with no model having run (2026-08-23, v0.6.7).
+    The inverse is just as quiet: an alias that does resolve, to this very box, silently doubles
+    a card's load instead of fanning out. So each distinct remote host is probed for its own
+    hostname and its device nodes before the first fold, and any of the three failures aborts in
+    seconds naming the host and the spec that would fix it.
+    """
+    problems = []
+    this_host = local_host()
+    if probe is None:
+        def probe(host):
+            r = subprocess.run(["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", host,
+                                "hostname; ls /dev/tenstorrent 2>/dev/null"],
+                               capture_output=True, text=True, timeout=30)
+            return r.returncode, r.stdout, r.stderr
+    by_host: dict[str, list[Worker]] = {}
+    for w in workers:
+        if not w.is_local:
+            by_host.setdefault(w.host, []).append(w)
+    for host, ws in by_host.items():
+        cards = sorted({w.card for w in ws})
+        try:
+            rc, out, err = probe(host)
+        except subprocess.TimeoutExpired:
+            rc, out, err = 255, "", "ssh probe timed out"
+        if rc != 0:
+            detail = (err or out).strip().splitlines()
+            problems.append(
+                f"remote worker host {host!r} is not reachable over ssh "
+                f"({detail[-1] if detail else f'exit {rc}'}). Every device leg would exit 255 "
+                f"in 0s. If {host!r} is an ssh alias, it only exists in the config of the user "
+                f"and host you wrote it for — name a host this box can reach, or "
+                f"'localhost:{cards[0]}' if you meant this box.")
+            continue
+        lines = [l.strip() for l in out.splitlines() if l.strip()]
+        remote_host = lines[0].split(".")[0] if lines else ""
+        if remote_host and remote_host == this_host:
+            problems.append(
+                f"remote worker host {host!r} resolves to this same box ({this_host}); it would "
+                f"ssh to itself and stack {len(ws)} worker(s) on one machine instead of fanning "
+                f"out. Write 'localhost:{cards[0]}' (or drop the entry) instead.")
+            continue
+        nodes = {l for l in lines[1:]}
+        absent = [c for c in cards if str(c) not in nodes]
+        if absent:
+            problems.append(
+                f"remote worker host {host!r} has no device node(s) "
+                f"{', '.join(f'/dev/tenstorrent/{c}' for c in absent)}"
+                f"{f' (it has {sorted(nodes)})' if nodes else ' (no /dev/tenstorrent at all)'}. "
+                f"A card number is per-host: the same number on the wrong box is a different card.")
+    return problems
+
+
 def _find_results_dir(out_dir: Path) -> Path | None:
     """The inner ``<model>_results_<id>/`` dir the scorer wants, located by its results.json.
     tt-bio predict writes results into a subdir of ``--out_dir``; the scorer expects that
@@ -1642,13 +1701,39 @@ def _port_gate_subprocess(argv: list[str], out_json: Path, mode: str,
     """
     proc = subprocess.run([sys.executable, *argv], cwd=REPO, capture_output=True, text=True,
                           env={**os.environ, "PYTHONPATH": str(REPO), **(env_extra or {})})
-    try:
-        rep = json.loads(proc.stdout)
-    except json.JSONDecodeError:
+    rep = _report_from_stdout(proc.stdout)
+    if rep is None:
         return {"mode": mode, "verdict": "ERROR",
                 "error": (proc.stderr or proc.stdout or "no output")[-600:]}
     out_json.write_text(json.dumps(rep, indent=2, default=str))
     return rep
+
+
+def _report_from_stdout(text: str) -> dict | None:
+    """The report object out of a stdout that may also carry device-log lines.
+
+    tt-metal logs to stdout, not stderr. On a device leg its `critical` TT_THROW line lands in
+    the same stream as the scorer's report, and requiring stdout to be one clean JSON document
+    scores the leg ERROR on a clash that tt-bio caught and retried. That kept
+    `af2ig-trunk-device` dark from the day it was added: at seq 208 on an 11x10 grid the trimul
+    L1 retry fires every run, so the leg reported ERROR with tt-bio's own "the result is
+    unchanged" notice as its error text (root-caused 2026-08-24, v0.7.0 gate).
+
+    Every scorer reached through here prints its report last, so take the last object that
+    decodes and let anything around it be log noise. A truncated report still decodes to
+    nothing and is still an ERROR, which is the case worth keeping.
+    """
+    dec, found, i = json.JSONDecoder(), None, text.find("{")
+    while i != -1:
+        try:
+            obj, end = dec.raw_decode(text, i)
+        except json.JSONDecodeError:
+            i = text.find("{", i + 1)
+            continue
+        if isinstance(obj, dict):
+            found = obj
+        i = text.find("{", max(end, i + 1))
+    return found
 
 
 def _featurizer_verdict(report: dict) -> tuple[str, str]:
@@ -2102,6 +2187,11 @@ def main() -> int:
     grant = gate_guard.card_grant()
     problems += gate_guard.worker_pool_problems(
         [w.card for w in workers if w.is_local], grant, local_host())
+    problems += remote_worker_problems(workers)
+    # The interpreter this gate is running on, checked against the dependency set the package
+    # itself declares. A host whose env predates a dependency addition reports the legs that
+    # reach the missing import as FAIL, which is indistinguishable from a regression.
+    problems += gate_guard.declared_dependency_problems(REPO / "pyproject.toml")
     if problems:
         print("PREFLIGHT — leg wiring problems detected:")
         for p in problems:
