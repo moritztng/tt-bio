@@ -54,11 +54,25 @@ gate() {  # gate <structure> <label>
 # row and published nothing. Our own cgroup CPU draw is the quantity that actually perturbs a
 # row, and a foreign process on the card is the other disqualifier.
 MAXCORES=${MAXCORES:-2.0}
+# cgroup v2 exposes usage in cpu.stat (microseconds); v1 exposes it in cpuacct.usage
+# (nanoseconds). A box on v1 has NEITHER file at /sys/fs/cgroup/cpu.stat, so the v2-only
+# reader returned 0.00 on every poll and the quiet gate silently degraded to the foreign-GPU
+# check alone. Read whichever the box has, and say so when it has neither.
+own_usec() {
+  if [ -r /sys/fs/cgroup/cpu.stat ]; then
+    awk '/usage_usec/{print $2}' /sys/fs/cgroup/cpu.stat
+  elif [ -r /sys/fs/cgroup/cpuacct/cpuacct.usage ]; then
+    awk '{printf "%d", $1/1000}' /sys/fs/cgroup/cpuacct/cpuacct.usage
+  elif [ -r /sys/fs/cgroup/cpu,cpuacct/cpuacct.usage ]; then
+    awk '{printf "%d", $1/1000}' /sys/fs/cgroup/cpu,cpuacct/cpuacct.usage
+  else
+    echo NONE
+  fi
+}
 own_cores() {
   local a b
-  a=$(awk '/usage_usec/{print $2}' /sys/fs/cgroup/cpu.stat 2>/dev/null || echo 0)
-  sleep 5
-  b=$(awk '/usage_usec/{print $2}' /sys/fs/cgroup/cpu.stat 2>/dev/null || echo 0)
+  a=$(own_usec); sleep 5; b=$(own_usec)
+  [ "$a" = NONE ] || [ -z "$a" ] && { echo "-1.00"; return; }
   awk -v a="$a" -v b="$b" 'BEGIN{printf "%.2f", (b-a)/5000000.0}'
 }
 foreign_gpu() { nvidia-smi --query-compute-apps=pid --format=csv,noheader 2>/dev/null | grep -c '[0-9]' || true; }
@@ -66,6 +80,7 @@ foreign_gpu() { nvidia-smi --query-compute-apps=pid --format=csv,noheader 2>/dev
 for M in $MODELS; do
   for _ in $(seq 1 60); do
     CORES=$(own_cores); FG=$(foreign_gpu)
+    [ "$CORES" = "-1.00" ] && echo "== no cgroup cpu accounting on this box: the quiet gate is the foreign-GPU check alone =="
     awk -v c="$CORES" -v m="$MAXCORES" 'BEGIN{exit !(c<m)}' && [ "${FG:-0}" -eq 0 ] && break
     echo "== waiting before $M: own draw $CORES cores (max $MAXCORES), foreign GPU procs $FG =="; sleep 25
   done
