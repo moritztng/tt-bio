@@ -42,6 +42,11 @@ FIXTURE = pathlib.Path("perf/dsfix/fixtures/rfd3_R4.json")
 CKPT = "/home/ttuser/.boltz/rfd3/weights"
 SHIPPED_DIGEST = "5295e526ebd0b757"
 PREDICTED = 3.744          # p105, out of sample
+# Clean card-1 baseline for this fixture. Co-tenancy inflates both arms roughly multiplicatively,
+# so a raw delta taken on a loaded box overstates the prize by the same factor the absolute is
+# inflated by. The fraction (off - on) / off is what survives that, and scaling it by a baseline
+# measured on a quiet box is what turns it back into s/design.
+CLEAN_BASELINE = float(os.environ.get("P107_CLEAN_BASELINE", "94.087"))
 
 WALLS = []
 _sample = RFD3Sampler.sample
@@ -128,21 +133,32 @@ def main():
             print("round %d dropped: load %s" % (r, {k: v["load_max"] for k, v in got.items()}),
                   flush=True)
             continue
-        d = got["off"]["s_per_design"] - got["on"]["s_per_design"]
-        deltas.append(d)
-        print("round %d  off %8.3f  on %8.3f  delta %+7.3f s/design"
-              % (r, got["off"]["s_per_design"], got["on"]["s_per_design"], d), flush=True)
+        o, n = got["off"]["s_per_design"], got["on"]["s_per_design"]
+        frac = (o - n) / o
+        deltas.append(dict(round=r, off=o, on=n, raw_delta=round(o - n, 3),
+                           frac=round(frac, 5),
+                           scaled_prize=round(frac * CLEAN_BASELINE, 3)))
+        print("round %d  off %8.3f  on %8.3f  raw %+7.3f  frac %+.4f  -> %+7.3f s/design "
+              "at the %.3f clean baseline"
+              % (r, o, n, o - n, frac, frac * CLEAN_BASELINE, CLEAN_BASELINE), flush=True)
 
-    summary = dict(n_clean_rounds=len(deltas), deltas=[round(x, 3) for x in deltas], bad=len(bad))
+    summary = dict(n_rounds_used=len(deltas), rounds=deltas, bad=len(bad),
+                   clean_baseline=CLEAN_BASELINE)
     if deltas:
-        med = statistics.median(deltas)
-        spread = (max(deltas) - min(deltas)) / abs(med) * 100 if med else float("nan")
-        summary.update(median_delta=round(med, 3), spread_pct=round(spread, 2),
+        sc = [d["scaled_prize"] for d in deltas]
+        med = statistics.median(sc)
+        spread = (max(sc) - min(sc)) / abs(med) * 100 if med else float("nan")
+        summary.update(median_scaled_prize=round(med, 3), spread_pct=round(spread, 2),
+                       median_raw_delta=round(statistics.median(
+                           [d["raw_delta"] for d in deltas]), 3),
                        predicted=PREDICTED, ratio_to_prediction=round(med / PREDICTED, 3))
-        print("\n[p107] median delta %+.3f s/design over n=%d clean rounds, spread %.2f %%"
-              % (med, len(deltas), spread), flush=True)
+        print("\n[p107] median %+.3f s/design over n=%d rounds, round-to-round spread %.2f %%"
+              % (med, len(sc), spread), flush=True)
         print("[p107] cost model predicted %+.3f -- measured/predicted = %.3f"
               % (PREDICTED, med / PREDICTED), flush=True)
+        if spread > 25.0:
+            print("[p107] SPREAD TOO WIDE -- treat this as void and re-run on a quiet box",
+                  flush=True)
     else:
         print("\n[p107] NO CLEAN ROUND -- the box never went quiet. Re-run, do not re-derive.",
               flush=True)
