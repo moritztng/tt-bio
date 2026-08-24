@@ -104,11 +104,15 @@ ratios read lower. The CLI agrees with the timed numbers: `tt-bio design
 --num_timesteps 200` at 419 atoms and `--batch_size 1` costs 15.7 s per design,
 which is the 0.0632 in the first row.
 
-`--batch_size` is an upper bound, not the batch you get: the runtime scales the
-batch down by atom count so a batch cannot exhaust device memory. The default 8
-is reachable up to 3359 atoms, batch 4 up to 4750, batch 2 up to 6718, and past
-that a design runs on its own — so every row above is what the CLI actually does.
-Batch 8 at 3359 atoms, the largest of them, peaks at 11.1 GiB of the card's 31.9.
+`--batch_size` is an upper bound, not the batch you get. Two limits reduce it. A
+memory limit scales the batch down by atom count so a batch cannot exhaust device
+memory: 8 is reachable up to 3359 atoms, 4 up to 4750, 2 up to 6718. A speed limit
+then pins the batch to 1 above 2952 atoms, because past about 3000 atoms a batched
+design costs more per design than running the designs one at a time. So every row
+above is what the CLI actually does, and a target larger than 2952 atoms runs one
+design at a time whatever `--batch_size` says.
+Batch 8 at 3359 atoms, the largest batch the CLI will run, peaks at 11.1 GiB of
+the card's 31.9.
 Lower `--batch_size` only to cut memory further; raising it above 8 does not help.
 `--devices` is still the parallelism that matters at large design sizes.
 
