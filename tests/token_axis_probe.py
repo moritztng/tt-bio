@@ -60,7 +60,7 @@ def _bump(op, site, ragged, shape="", **extra):
     # SIGKILLs the stragglers, and a SIGKILLed worker runs no atexit handler -- which is how the
     # third run of this probe still read zero on a fold that made thousands of calls.
     _N[0] += 1
-    if _N[0] % 256 == 0:
+    if _N[0] % 64 == 0:
         _dump()
 
 
@@ -205,6 +205,24 @@ def enable():
     builtins.__import__ = hook
 
 
+def _program_cache_entries():
+    """Distinct compiled ttnn programs on the open device, without ever opening one.
+
+    The ttnn program cache keys on the LOGICAL shape, so this counts kernel VARIANTS: it is the
+    number a token bucket is meant to reduce, and the reason Moritz asked for bucketing at all.
+    Read off `tt_bio.tenstorrent._device` rather than by calling get_device(), which would open a
+    card inside a probe.
+    """
+    m = sys.modules.get("tt_bio.tenstorrent")
+    dev = getattr(m, "_device", None) if m is not None else None
+    if dev is None:
+        return None
+    try:
+        return int(dev.num_program_cache_entries())
+    except Exception:
+        return None
+
+
 def _dump():
     d = os.environ.get("TOKEN_AXIS_CENSUS_DIR")
     if not d or not COUNTS:
@@ -212,6 +230,23 @@ def _dump():
     os.makedirs(d, exist_ok=True)
     with open(os.path.join(d, "census-%d.json" % os.getpid()), "w") as fh:
         json.dump(list(COUNTS.values()), fh)
+    # Separate file so `merge()` keeps seeing only census records. Rewritten on every periodic
+    # dump, so the last value survives a SIGKILLed worker -- the same reason the census itself
+    # does not wait for atexit.
+    n = _program_cache_entries()
+    if n is not None:
+        with open(os.path.join(d, "pce-%d.json" % os.getpid()), "w") as fh:
+            json.dump({"pid": os.getpid(), "program_cache_entries": n}, fh)
+
+
+def program_cache_entries(d):
+    """Max program-cache entries any process of the run reached. One worker per card, so the max
+    is that worker's final count; the parent never opens a device and writes no file."""
+    best = 0
+    for n in sorted(os.listdir(d)):
+        if n.startswith("pce-") and n.endswith(".json"):
+            best = max(best, int(json.load(open(os.path.join(d, n)))["program_cache_entries"]))
+    return best
 
 
 def merge(d):
@@ -250,3 +285,5 @@ def render(s):
 
 if __name__ == "__main__":
     print(render(merge(sys.argv[1])))
+    print("program cache entries (kernel variants): %d"
+          % program_cache_entries(sys.argv[1]))
