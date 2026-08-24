@@ -91,6 +91,19 @@ eval-time requirement, not a project runtime dep, so the gate scores this leg by
 shelling out to ``OPENDDE_DOCKQ_PYTHON`` (defaults to the gate's own python; set it to
 a venv that has DockQ installed if the gate venv does not).
 
+RF3 is gated twice, and the second leg is not redundant. Its MODELS row folds 7ROA at
+117 aa, which is where every fold model here is scored; the ``rf3-1024aa`` leg folds the
+997 aa 7EIP anchor and gates the device fold's CA-RMSD to the deposited structure. The
+defects that hide at length are size-specific by construction -- a token axis that stops
+bucketing to 32, an L1 gate fitted at 512 aa going dark above 640, a fused-SDPA chunk that
+declines off-lattice -- and none of them touch 117 aa. The size-ladder arm below already
+watches perf across four rungs; this is the accuracy half of the same idea at one rung. It
+gates the crystal rather than X (device vs reference) because X moves when the reference
+cache is regenerated on another backend, and a release that fails for that reason fails for
+the wrong one. Reuses ``scripts/rf3_port/accuracy_cell.py`` and the reference cache
+committed beside it, so the leg computes no reference and needs no GPU -- one device
+rollout, ~4 min.
+
 Capacity is a separate leg because the legs above cannot see it. They compare NUMBERS, so
 a change that grows the device-memory footprint either still fits (identical numbers, PASS)
 or dies with an allocation error — nothing in a parity fixture reports "this now needs 10 GB
@@ -125,7 +138,7 @@ so state a constant's board validity where you state its size validity. See
 docs/size-generality.md.
 
     # gate everything (five fold models + BoltzGen designability + ESMC embed parity
-    # + OpenDDE-abag docking + capacity + size-ladder) on card 1
+    # + OpenDDE-abag docking + rf3 at 997 aa + capacity + size-ladder) on card 1
     TT_VISIBLE_DEVICES=1 PYTHONPATH=<worktree> ESM_ROOT=/path/to/esm \
         OPENDDE_DOCKQ_PYTHON=/path/to/dockq_venv/bin/python \
         python scripts/release_gate.py
@@ -134,6 +147,7 @@ docs/size-generality.md.
     python scripts/release_gate.py --model boltzgen
     python scripts/release_gate.py --model esmc-300m
     python scripts/release_gate.py --model opendde-abag
+    python scripts/release_gate.py --model rf3-1024aa
     python scripts/release_gate.py --model capacity
     python scripts/release_gate.py --model size-ladder
     # re-record the size-ladder baseline after an intentional size-affecting change
@@ -721,8 +735,54 @@ PXDESIGN_FIT_RMSD_MEASURED = 4.909
 # Recorded alongside the floor above and reproduced across three runs of the leg.
 PXDESIGN_STRUCTURE_SHA16 = "64af2cbc286012b9"
 
+# --- rf3 997 aa accuracy leg ---------------------------------------------------
+# Named for the size-ladder rung it sits on (1024 aa); the fixture is 7EIP at 997
+# residues, the largest real target on that rung and deliberately not a multiple of 32.
+#
+# The MODELS row above gates rf3 on 7ROA, 117 aa. Nothing else here reads RF3's accuracy
+# at the length a customer target actually has, and the defects that hide at length are
+# size-specific by construction: a token axis that stops bucketing to 32, an L1 gate
+# fitted at 512 aa that goes dark above 640, a fused-SDPA chunk that declines off-lattice.
+# None of them touch 117 aa. The size-ladder arm already watches perf across four rungs;
+# this is the accuracy half of the same idea, at one rung.
+#
+# It gates the CRYSTAL reading: the device fold's CA-RMSD to the deposited 7EIP structure.
+# Not X (device vs reference), which is the accuracy cell's headline number, because X
+# needs the reference half and therefore moves when the reference cache is regenerated on
+# another backend -- a release that fails because the reference moved fails for the wrong
+# reason. The crystal does not move.
+#
+# Reuses scripts/rf3_port/accuracy_cell.py, the harness the anchor was measured with, run
+# as a subprocess the way the nesso1 leg delegates to its own parity harness: it opens a
+# device context and this process must stay free for the arms after it. The reference
+# coordinates come from the cache committed next to the cell, so the leg computes no
+# reference and needs no GPU; it pays one device rollout.
+RF3_1024AA_CELL = REPO_ROOT / "scripts" / "rf3_port" / "accuracy_cell.py"
+RF3_1024AA_FIXTURE = "7eip_997"
+RF3_1024AA_REF_CACHE = (REPO_ROOT / "perf" / "rf3" / "results"
+                        / f"accuracy_{RF3_1024AA_FIXTURE}")
+# One seed. The cell's five-seed run spread 1.7362-2.1523 A device-vs-crystal, a 0.42 A
+# band under a 4.0 A floor, so seeds two through five buy nothing a floor can read and
+# cost another device rollout each.
+RF3_1024AA_SEED = 0
+# Floor = ~2x measured, the same discipline every MODELS floor uses (boltz2 1.55 -> 3.0,
+# openfold3 1.775 -> 3.5, rf3/7ROA 1.238 -> 3.0). Measured 1.9687 A at seed 0
+# (perf/rf3/results/a0_7eip997.json) through the shipped arm: 10 recycles, RF3's own 50
+# sampling steps, one diffusion sample, HiFi4 + fp32_dest_acc + packer_l1_acc, the MSA
+# committed with the fixture. Catches a gross size-specific accuracy failure, not a fold
+# that is slightly worse.
+RF3_1024AA_MAX_XTAL_A = 4.0
+RF3_1024AA_XTAL_MEASURED = 1.9687
+# The leg measured 407 s end to end on qb2 card 3 with three other gate legs sharing the
+# host: 23 s featurize, 368 s device rollout, the rest the reference checkpoint load the
+# cell does before it knows whether it needs a reference. The same rollout measured 210 s
+# on an uncontended host, so a release host should see ~4 min. Same 1800 s bound the fold
+# legs carry, env-tunable for the same reason.
+RF3_1024AA_TIMEOUT_S = int(os.environ.get("RELEASE_GATE_RF3_1024AA_TIMEOUT", "1800"))
+
 DEFAULT_ARMS = ("boltzgen", "rfd3", "opendde-abag", "capacity",
-                "l1-budget", "batch-position", "nesso1", "pxdesign")
+                "l1-budget", "batch-position", "nesso1", "pxdesign",
+                "rf3-1024aa")
 
 L1_BUDGET_STEPS = 200
 # The width measured to fit at the issue-#11 call shape on a 110-core grid: the
@@ -1478,6 +1538,79 @@ def run_nesso1(keep: bool) -> dict:
     if not row["gate"]:
         row["error"] = (f"worst scalar {rep['X_device_vs_torch_key']} at "
                         f"{rep['X_over_R']:.3f}xR, device spread {rep['max_device_spread']:.3g}")
+    return row
+
+
+def run_rf3_1024aa(keep: bool) -> dict:
+    """Fold the 997 aa RF3 anchor on the device and gate its CA-RMSD to the crystal.
+
+    Delegates to ``scripts/rf3_port/accuracy_cell.py`` as a subprocess, the same way the
+    nesso1 leg delegates to its own parity harness: the cell opens a device context and
+    this process must stay free for the arms after it.
+    """
+    row = {"model": "rf3-1024aa", "seconds": None, "xtal_a": None, "ref_xtal_a": None,
+           "x_a": None, "n_ca": None, "gate": False, "error": None}
+    ref_seed = RF3_1024AA_REF_CACHE / f"seed{RF3_1024AA_SEED}.npz"
+    if not ref_seed.exists():
+        # Refuse rather than let the cell fall through to computing one: a 997 aa reference
+        # trunk plus rollout on the host is hours, not the minutes this leg is budgeted at.
+        row["error"] = f"missing committed reference cache {ref_seed}"
+        return row
+
+    # perf/rf3/, not the repo root: measurement artifacts belong under perf/, and --keep
+    # leaves the device coordinates and the report behind on purpose.
+    work = REPO_ROOT / "perf" / "rf3" / "gate_1024aa"
+    if work.exists():
+        shutil.rmtree(work)  # a cached rollout here would score a previous tree
+    work.mkdir(parents=True, exist_ok=True)
+    out_json = work / "report.json"
+    cmd = [
+        sys.executable, str(RF3_1024AA_CELL),
+        "--fixture", RF3_1024AA_FIXTURE,
+        "--seeds", str(RF3_1024AA_SEED),
+        "--steps", str(_sampling_steps("rf3")),
+        "--work", str(work),
+        "--ref-cache", str(RF3_1024AA_REF_CACHE),
+        "--out", str(out_json),
+    ]
+    print(f"\n{'='*70}\n[rf3-1024aa] folding {RF3_1024AA_FIXTURE} on the device and "
+          f"scoring it against the crystal (seed {RF3_1024AA_SEED}, "
+          f"{_sampling_steps('rf3')} steps, floor <={RF3_1024AA_MAX_XTAL_A} A)"
+          f"\n{'='*70}", flush=True)
+
+    t0 = time.monotonic()
+    rc, timed_out = _run_fold(cmd, RF3_1024AA_TIMEOUT_S, cwd=REPO_ROOT)
+    row["seconds"] = time.monotonic() - t0
+    if timed_out:
+        row["error"] = f"accuracy_cell timed out after {RF3_1024AA_TIMEOUT_S}s"
+        return row
+    if rc != 0:
+        row["error"] = f"accuracy_cell exited {rc}"
+        return row
+    if not out_json.exists():
+        row["error"] = f"accuracy_cell exited {rc} and wrote no report"
+        return row
+    rep = json.loads(out_json.read_text())
+    vs = rep.get("vs_crystal")
+    if not vs:
+        row["error"] = ("report carries no vs_crystal block; "
+                        f"is ground_truth_ca.json still next to the {RF3_1024AA_FIXTURE} "
+                        "fixture?")
+        return row
+    row["n_ca"] = vs["n_ca_compared"]
+    # The worst seed of however many ran, so lengthening the seed list can only tighten
+    # this leg. At one seed it is that seed.
+    row["xtal_a"] = max(r["device_vs_xtal_A"] for r in vs["per_seed"])
+    row["ref_xtal_a"] = max(r["reference_vs_xtal_A"] for r in vs["per_seed"])
+    # X is reported, not gated -- see the constants for why the crystal carries the floor.
+    ca = (rep.get("metrics") or {}).get("kabsch_rmsd") or {}
+    row["x_a"] = ca.get("cross", {}).get("mean")
+    row["gate"] = row["xtal_a"] <= RF3_1024AA_MAX_XTAL_A
+    if not row["gate"]:
+        row["error"] = (f"device sits {row['xtal_a']:.3f} A from the crystal, floor "
+                        f"<={RF3_1024AA_MAX_XTAL_A} A")
+    if not keep:
+        shutil.rmtree(work, ignore_errors=True)
     return row
 
 
@@ -2672,9 +2805,9 @@ def main() -> int:
                     + ESMC_DEFAULT + ESMC_OPT_IN,
                     action="append",
                     help="Gate only this model (repeatable). Default: the five fold "
-                         "models + boltzgen + rfd3 + opendde-abag + capacity + "
-                         "l1-budget + size-ladder + ESMC 300m/600m embed parity. "
-                         "esmc-6b is opt-in (slow ~13 GB load).")
+                         "models + boltzgen + rfd3 + opendde-abag + rf3-1024aa + "
+                         "capacity + l1-budget + size-ladder + ESMC 300m/600m embed "
+                         "parity. esmc-6b is opt-in (slow ~13 GB load).")
     ap.add_argument("--keep", action="store_true", help="Keep run output dirs for inspection.")
     ap.add_argument("--size-ladder-record-lever", default=None, metavar="FLAG[,FLAG...]",
                     help="Add new census levers to the existing size-ladder baseline "
@@ -2740,6 +2873,7 @@ def main() -> int:
     want_l1_budget = "l1-budget" in models
     want_batch_position = "batch-position" in models
     want_nesso1 = "nesso1" in models
+    want_rf3_1024aa = "rf3-1024aa" in models
     want_size_ladder = "size-ladder" in models
     esmc_models = [m for m in models if m in ESMC_DEFAULT + ESMC_OPT_IN]
     _preflight_msa_cache(models)
@@ -2771,6 +2905,28 @@ def main() -> int:
         print(f"{'#'*78}")
         print("GATE PASS — all models cleared parse + ground-truth floor" if all_pass
               else "GATE FAIL — a model missed parse or the ground-truth floor (see above)")
+
+    if want_rf3_1024aa:
+        rr = run_rf3_1024aa(args.keep)
+        print(f"\n{'#'*78}\nRELEASE GATE — {RF3_1024AA_FIXTURE} (rf3, 997 aa), "
+              f"{_sampling_steps('rf3')} steps / 1 sample, seed {RF3_1024AA_SEED}"
+              f"\n{'#'*78}")
+        print(f"{'model':<15}{'vs xtal (A)':>13}{'n CA':>6}{'ref':>8}{'X':>8}"
+              f"{'floor':>10}{'wall':>9}  result")
+        xt = f"{rr['xtal_a']:.3f}" if rr["xtal_a"] is not None else "  -  "
+        nca = str(rr["n_ca"]) if rr["n_ca"] is not None else "-"
+        rx = f"{rr['ref_xtal_a']:.3f}" if rr["ref_xtal_a"] is not None else "  -  "
+        xa = f"{rr['x_a']:.3f}" if rr["x_a"] is not None else "  -  "
+        wall = f"{rr['seconds']:.0f}s" if rr["seconds"] is not None else "-"
+        verdict = "PASS" if rr["gate"] else f"FAIL ({rr['error']})" if rr["error"] else "FAIL"
+        all_pass &= rr["gate"]
+        print(f"{rr['model']:<15}{xt:>13}{nca:>6}{rx:>8}{xa:>8}"
+              f"{f'<={RF3_1024AA_MAX_XTAL_A}':>10}{wall:>9}  {verdict}")
+        print(f"ref = the reference's own distance to the crystal, X = device vs reference: "
+              f"both evidence, not gated (measured {RF3_1024AA_XTAL_MEASURED} A)")
+        print(f"{'#'*78}")
+        print("GATE PASS — rf3 at 997 aa cleared the crystal floor" if rr["gate"]
+              else "GATE FAIL — rf3 at 997 aa missed the crystal floor (see above)")
 
     if want_boltzgen:
         bg = _load_designability_harness()

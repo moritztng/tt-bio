@@ -301,8 +301,8 @@ time — an all-day thrash with zero model-numerics problems. Run `--check` and 
 one-leg `--dry-run`/fold smoke first; they catch that whole class in minutes.
 
 The accuracy gate covers Boltz-2, ESMFold2, ESMFold2-fast, Protenix-v2,
-OpenFold3, OpenDDE, BoltzGen designability, OpenDDE-abag antibody-antigen
-docking, and
+OpenFold3, OpenDDE, RF3, OpenBind, BoltzGen designability, OpenDDE-abag
+antibody-antigen docking, and
 ESMC-300m/600m reference parity. It folds 7ROA at production sampling settings,
 parses every written mmCIF, and checks the confidence-selected structure against
 these regression limits:
@@ -315,6 +315,8 @@ these regression limits:
 | Protenix-v2 | 6.0 Å | 0.50 |
 | OpenFold3 | 3.5 Å | 0.70 |
 | OpenDDE | 6.0 Å | 0.50 |
+| RF3 | 3.0 Å | 0.75 |
+| OpenBind | 3.5 Å | 0.70 |
 
 ESMFold2's floor is loose because it is anchored to the **default single-sequence**
 fold (measured 5.80 Å / TM 0.508 on Blackhole), not the MSA-on fold the old 4.0 Å /
@@ -328,6 +330,24 @@ BoltzGen passes when at least half of four generated binders refold within
 coordinates, so it is not in that table: it passes when the worst of its eleven output
 scalars stays inside 5.0x upstream's own run-to-run spread and the device repeats agree to
 1e-6. Floors live in `scripts/nesso1_port/device_parity.py`.
+
+RF3 is gated a second time, at 997 aa. The table above scores every fold model on the
+same 117-residue target, and the accuracy defects that hide at length are size-specific:
+a token axis that stops bucketing to 32, an L1 gate fitted at 512 aa going dark above 640,
+a fused-SDPA chunk that declines off-lattice. None of them touch 117 aa. The `rf3-1024aa`
+leg folds the 7EIP anchor (997 residues, `scripts/rf3_port/size_ladder/7eip_997`) on the
+device and requires the fold to sit within 4.0 Å CA-RMSD of the deposited structure over
+the 966 modelled residues; measured 1.9687 Å. It gates that rather than device-vs-reference
+error, which moves whenever the reference cache is regenerated on another backend. Reuses
+`scripts/rf3_port/accuracy_cell.py` and the reference cache committed beside it, so the leg
+computes no reference and needs no GPU — one device rollout, about 4 minutes. Run it alone
+with:
+
+```bash
+TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
+  python3 scripts/release_gate.py --model rf3-1024aa
+```
+
 OpenDDE-abag co-folds the 1AHW Fab + antigen complex and passes when the
 confidence-selected complex scores global DockQ ≥0.50 against the experimental
 1AHW structure (a floor that catches a gross mis-dock; the measured baseline is
