@@ -30,6 +30,36 @@ the standing rule; adding a model to any CLI ``--model`` choice without adding i
 
 TILE = 32
 
+# THE fleet bucket. One number, because the constraint it answers is a property of the hardware
+# and not of any model: ``ttnn.TILE_LAYOUT`` tiles at 32 on both tile axes.
+#
+# WHY 32, AND NOT THE 64 SEVERAL MODELS SHIPPED WITH:
+#
+#   1. 32 is NEVER the wider pad. ceil(N/32)*32 <= ceil(N/64)*64 for every N, with equality exactly
+#      when ceil(N/32)*32 is an even multiple of 32 -- half of all lengths. On the other half 64
+#      adds a whole tile: N=76 runs 96 against 128, and triangle ops are O(S^3), so that is 2.37x
+#      the triangle work for nothing. 64 therefore cannot be faster than 32 at any length, is much
+#      slower at half of them, and cannot use less DRAM either, for the same reason.
+#   2. The one axis where 64 wins is COMPILED VARIANTS: it collapses 64 lengths onto one program
+#      where 32 collapses 32. That is real and it is measured, not argued (RESULTS.md). It is also
+#      ONE-TIME per shape -- the on-disk TT_METAL_CACHE persists across runs -- where the padded
+#      compute is paid on every fold, forever.
+#   3. The ttnn program cache keys on the LOGICAL shape, so raising N to ceil(N/32)*32 changes no
+#      PADDED shape: those tiles were already being computed with a zero tail. A 32-bucket is
+#      compute-free by construction, and cannot change a fused-SDPA gate decision either, because
+#      ``_padded_sdpa_len`` (tenstorrent.py) is the same ceil-to-32 and sees the identical number.
+#
+# A per-model multiple would encode when a model was written rather than what its hardware needs.
+# That is why this is one constant and not a table of them (Moritz, 2026-08-24: "two values living
+# side by side, chosen by vintage, is not" the answer).
+TOKEN_BUCKET = 32
+
+# The escape hatch, deliberately empty. An entry belongs here ONLY with that model's own numbers
+# written above it -- its size distribution makes the fleet value cost X% more padded compute or Y
+# more compiled variants. "It has always been 64" is not a reason, and neither is "re-measuring
+# would be work".
+BUCKET_EXCEPTIONS: dict = {}
+
 # A model's token axis is in exactly one of these states.
 BUCKETED = "bucketed"      # pads to `multiple`, masks the padding, slices back -- all three
 IMMUNE = "immune"          # runs ragged but reaches no unsafe reduce; `why` is required
@@ -42,14 +72,14 @@ UNCENSUSED = "uncensused"  # a reduce site nobody has checked yet; `owner` is re
 # model name (as it appears in a CLI --model choice) -> (status, multiple, site, why_or_owner)
 TOKEN_AXIS = {
     "boltz2": (
-        BUCKETED, 64,
+        BUCKETED, TOKEN_BUCKET,
         "tenstorrent.py:7155 PairformerModule, :7273 Fp32PairformerModule, :7449 DiffusionModule, "
         ":7786 MSAModule, :8135 TrunkModule",
         "pad + pair-mask outer product + additive -1e9 attn mask + slice back; counters read "
         "tri_att 0 ragged / 560 aligned, attn_pair_bias 0 / 120",
     ),
     "boltzgen": (
-        BUCKETED, 64,
+        BUCKETED, TOKEN_BUCKET,
         "the same tenstorrent.py wrappers via boltzgen/model/models/boltz.py:26-28,:462",
         "inherits Boltz-2's bucket; its only other attention is a HOST torch SDPA "
         "(boltzgen/model/layers/attention.py:123), which never sees a tile layout. Censused: "
@@ -57,7 +87,7 @@ TOKEN_AXIS = {
         "shared sites (tenstorrent.py:1015, :4532, :4774, :6256) that openfold3 runs ragged",
     ),
     "esmfold2": (
-        BUCKETED, 32,
+        BUCKETED, TOKEN_BUCKET,
         "esmfold2.py:105 PAD_MULTIPLE, applied at :207 FoldingTrunk.forward; LM axis esmc.py:1263 "
         "at 64",
         "the trunk pads both sequence axes, masks the triangle contraction and slices back. The "
@@ -66,14 +96,14 @@ TOKEN_AXIS = {
         "816 ragged ttnn.softmax at w20, 411 SDPA calls all ALIGNED, 0 masked-ragged",
     ),
     "esmfold2-fast": (
-        BUCKETED, 32, "same trunk as esmfold2 (esmfold2.py:105)",
+        BUCKETED, TOKEN_BUCKET, "same trunk as esmfold2 (esmfold2.py:105)",
         "the --fast route changes recycling and precision, not the pad site",
     ),
     # These three share one bucket (protenix.TOKEN_PAD_MULTIPLE, gated on
     # TT_BIO_PROTENIX_TOKEN_BUCKET, default ON) across the three token axes the census found one
     # after another. Set the flag to 0 for the ragged path; nothing else turns it off.
     "protenix-v2": (
-        BUCKETED, 64,
+        BUCKETED, TOKEN_BUCKET,
         "protenix.py Trunk.__call__ pads the trunk's own axis; protenix.bucketed_pairformer "
         "covers the confidence head's Pairformer, which runs at the real N",
         "pad + pair-mask outer product + additive -1e9 attn mask + slice back. Two axes, found "
@@ -83,7 +113,7 @@ TOKEN_AXIS = {
         "trunk fingerprints. The ATOM axis was already padded; the TOKEN axis was not",
     ),
     "opendde": (
-        BUCKETED, 64,
+        BUCKETED, TOKEN_BUCKET,
         "the protenix.py Trunk at c_z=384 (opendde.py:380) and the confidence head as above, plus "
         "a 4-block structural-token refiner (opendde.py:456) on a SEPARATE axis -- Ns=181 for a "
         "98-residue input, Ns = 2*n_res - n_gly",
@@ -93,11 +123,11 @@ TOKEN_AXIS = {
         "and therefore essentially never aligned, so this model pays the bucket at every size",
     ),
     "opendde-abag": (
-        BUCKETED, 64, "same trunk, confidence head and refiner as opendde",
+        BUCKETED, TOKEN_BUCKET, "same trunk, confidence head and refiner as opendde",
         "same helper, same flag, same counters",
     ),
     "openfold3": (
-        BUCKETED, 32,
+        BUCKETED, TOKEN_BUCKET,
         "openfold3_fold.py OF3Fold.fold pads every trunk-side host feature to n_tok_trunk before "
         "input_glue and slices s_trunk/z_trunk back on exit; the masks reach every reduce through "
         "OF3Trunk -> Pairformer / TemplatePairStack / MSAModuleBlock",
@@ -115,7 +145,7 @@ TOKEN_AXIS = {
         "on arm both md5 7a5b729a, against a closed A/A of 7ced2c24 twice",
     ),
     "openbind": (
-        BUCKETED, 32,
+        BUCKETED, TOKEN_BUCKET,
         "the same OF3Fold.fold pad and the same OF3Trunk mask threading as openfold3; one edit, "
         "two rows, and openfold3_fold.py asserts the two BUCKET_MULTIPLE entries agree",
         "censused for --model openbind on BOTH input classes, which openfold3 cannot cover "
@@ -134,7 +164,7 @@ TOKEN_AXIS = {
         "rf3-4x-with-accuracy-land",
     ),
     "rfd3": (
-        BUCKETED, 32,
+        BUCKETED, TOKEN_BUCKET,
         "rfd3/model.py:1092 TILE via _align_tile/_pad_key_axis, applied at :712-714 "
         "PairformerAttention, :1177, :1321, :1611-1624, :2022",
         "every TOKEN-axis reduce runs on a tile multiple: censused 0 ragged / 6 aligned at :726 "
@@ -143,7 +173,7 @@ TOKEN_AXIS = {
         "w14,w3 -- and both reach primitives measured to mask. 0 masked-ragged anywhere",
     ),
     "pxdesign": (
-        BUCKETED, 32,
+        BUCKETED, TOKEN_BUCKET,
         "pxdesign/model.py ProtenixDesign._bucket_token_axis, applied to the cond dict at "
         ":201; everything downstream reads NT off cond[\"s_inputs\"].shape[0]",
         "pad + additive -1e9 on the DiT pair bias + zero-pad the atom<->token matrix S; no "
@@ -158,7 +188,7 @@ TOKEN_AXIS = {
         "closed by the structural_pair_attn_bias slot, and S, closed by zero columns",
     ),
     "nesso1": (
-        BUCKETED, 64,
+        BUCKETED, TOKEN_BUCKET,
         "nesso1.py:138-154 routes both trunk stacks through tenstorrent.PairformerModule / "
         "Fp32PairformerModule, which pad to PAIRFORMER_PAD_MULTIPLE at tenstorrent.py:7945",
         "the wrapper IS reached, censused rather than inferred: `tt-bio affinity` on "
@@ -168,78 +198,43 @@ TOKEN_AXIS = {
         "counters are alive on the same run, which is the check a zero-reading census needs",
     ),
     "esmc-300m": (
-        BUCKETED, 64, "esmc.py:78 BUCKET, applied at :1503 _batch_tokens and :1263",
+        BUCKETED, TOKEN_BUCKET, "esmc.py:78 BUCKET, applied at :1503 _batch_tokens and :1263",
         "pad to Lb + additive -inf on padded keys + key_valid zeroing + slice by lens; censused "
         "0 ragged / 30 aligned at the esmc.py:241 SDPA on a 98-aa input. The bucket also sits at "
         "the OP BOUNDARY (esmc.bucket_token_axis, called from Model.forward), so a direct API "
         "call at a ragged L cannot bypass it -- a no-op on every CLI path, where _batch_tokens "
         "has already bucketed",
     ),
-    "esmc-600m": (BUCKETED, 64, "esmc.py:78 BUCKET", "same path as esmc-300m"),
-    "esmc-6b": (BUCKETED, 64, "esmc.py:78 BUCKET", "same path as esmc-300m"),
+    "esmc-600m": (BUCKETED, TOKEN_BUCKET, "esmc.py:78 BUCKET", "same path as esmc-300m"),
+    "esmc-6b": (BUCKETED, TOKEN_BUCKET, "esmc.py:78 BUCKET", "same path as esmc-300m"),
     "saprot-35m": (
-        BUCKETED, 64, "saprot.py:48 imports esmc.BUCKET, applied at :481-494",
+        BUCKETED, TOKEN_BUCKET, "saprot.py:48 imports esmc.BUCKET, applied at :481-494",
         "same pad + additive mask + slice as esmc, and the same op-boundary bucket in "
         "Saprot.forward; censused 0 ragged / 12 aligned at the saprot.py:203 SDPA on a 98-aa "
         "input",
     ),
-    "saprot-650m": (BUCKETED, 64, "saprot.py:48", "same path as saprot-35m"),
-    "saprot-1.3b": (BUCKETED, 64, "saprot.py:48", "same path as saprot-35m"),
+    "saprot-650m": (BUCKETED, TOKEN_BUCKET, "saprot.py:48", "same path as saprot-35m"),
+    "saprot-1.3b": (BUCKETED, TOKEN_BUCKET, "saprot.py:48", "same path as saprot-35m"),
 }
 
-# The live constants the table above claims. Checked against their real modules rather than
-# restated, so setting one of them to 48 is a test failure and not a silent 72x.
+# The modules that re-export the fleet bucket under their own historical name. DERIVED from
+# bucket_multiple() now rather than restated, so this maps the constant to the model whose value it
+# must equal; tests/test_token_axis_bucketing.py imports each and checks it. A LITERAL reappearing
+# in any of them is a test failure, not a silent fork.
 LIVE_MULTIPLES = {
-    ("tt_bio.protenix", "TOKEN_PAD_MULTIPLE"): 64,
-    ("tt_bio.tenstorrent", "PAIRFORMER_PAD_MULTIPLE"): 64,
-    ("tt_bio.tenstorrent", "MSA_PAD_MULTIPLE"): 1024,
-    ("tt_bio.esmfold2", "PAD_MULTIPLE"): 32,
-    ("tt_bio.esmc", "BUCKET"): 64,
-    ("tt_bio.rfd3.model", "TILE"): 32,
+    ("tt_bio.protenix", "TOKEN_PAD_MULTIPLE"): "protenix-v2",
+    ("tt_bio.tenstorrent", "PAIRFORMER_PAD_MULTIPLE"): "boltz2",
+    ("tt_bio.esmfold2", "PAD_MULTIPLE"): "esmfold2",
+    ("tt_bio.esmc", "BUCKET"): "esmc-300m",
 }
+
+# The MSA axis is padded for the same recompilation reason on a DIFFERENT axis, so it is not the
+# token bucket and does not answer to TOKEN_BUCKET. Pinned separately so it cannot drift unseen.
+MSA_AXIS_MULTIPLE = ("tt_bio.tenstorrent", "MSA_PAD_MULTIPLE", 1024)
 
 # ---------------------------------------------------------------------------------------------
 # The mechanism. One copy of it, next to the census, so a new adoption is a table row and a call.
 # ---------------------------------------------------------------------------------------------
-
-# The bucket width per model. Keys are TOKEN_AXIS keys; a BUCKETED row's `multiple` must equal its
-# entry here (tests/test_token_axis_bucketing.py checks it), so the table above cannot drift from
-# the constant the model actually runs.
-#
-# WHY 32 FOR EVERY NEW ADOPTION, measured in perf/bucketing_audit/RESULTS.md:
-# the ttnn program cache keys on the LOGICAL shape, at 0.231 s per cold build on a p300. Raising an
-# axis from N to ceil(N/32)*32 changes no PADDED shape, so no tile count and no arithmetic -- those
-# tiles were already being computed with a zero tail -- and it cannot change a fused-SDPA gate
-# decision either, because `_padded_sdpa_len` (tenstorrent.py) is itself ceil(len/32)*32 and sees
-# the identical number. So 32 collapses 32 logical lengths onto one program for free. Every
-# multiple above 32 buys further variant reduction with REAL compute, and triangle ops are O(S^3):
-# 64 at N=98 runs 128 tokens, 2.23x the triangle work, where 32 also lands on 128 and runs 1.00x.
-#
-# WHY 64 SURVIVES ON THE LEGACY ROWS: PAIRFORMER_PAD_MULTIPLE, protenix.TOKEN_PAD_MULTIPLE and
-# esmc.BUCKET are gate-green at 64, and the only fold ever measured at 32's width on the gate's
-# 76-residue leg is a bad one (6.6630 A against 1.5688 A at 128, one target, one seed, on a metric
-# a diffusion sampler flips by basin). Moving a shipped constant needs multi-seed accuracy evidence
-# first; the open question is registered in state/protenix-opendde-token-bucket-flip-measure.md.
-BUCKET_MULTIPLE = {
-    "boltz2": 64,
-    "boltzgen": 64,
-    "esmfold2": 32,
-    "esmfold2-fast": 32,
-    "protenix-v2": 64,
-    "opendde": 64,
-    "opendde-abag": 64,
-    "openfold3": 32,
-    "openbind": 32,
-    "rfd3": 32,
-    "pxdesign": 32,
-    "nesso1": 64,
-    "esmc-300m": 64,
-    "esmc-600m": 64,
-    "esmc-6b": 64,
-    "saprot-35m": 64,
-    "saprot-650m": 64,
-    "saprot-1.3b": 64,
-}
 
 
 def bucket_enabled(default: bool = True) -> bool:
@@ -254,17 +249,18 @@ def bucket_enabled(default: bool = True) -> bool:
 
 
 def bucket_multiple(model: str) -> int:
-    """The width `model` buckets to, overridable with ``TT_BIO_TOKEN_BUCKET_MULTIPLE``.
+    """The width `model` buckets to: the fleet value, unless it has a MEASURED exception.
 
-    The override IS the acceptance test: a correctly masked bucket gives the same answer at every
-    pad amount, so folding one target at two multiples and comparing separates "the mask leaks"
-    from "bf16 reassociated over a different contraction length".
+    ``TT_BIO_TOKEN_BUCKET_MULTIPLE`` overrides it fleet-wide, and that is what makes the choice
+    re-measurable in one variable: every model's pad constant derives from this function, so
+    setting it re-runs the whole fleet at another width. It doubles as the pad-invariance test --
+    a correctly masked bucket gives the same answer at every pad amount.
     """
     import os
     v = os.environ.get("TT_BIO_TOKEN_BUCKET_MULTIPLE")
     if v and v.strip():
         return int(v)
-    return BUCKET_MULTIPLE[model]
+    return BUCKET_EXCEPTIONS.get(model, TOKEN_BUCKET)
 
 
 def pad_poison() -> float:

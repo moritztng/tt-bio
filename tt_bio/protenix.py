@@ -33,6 +33,7 @@ import ttnn
 
 from . import protenix_weights as PW
 from .envflags import env_flag
+from .token_axis import bucket_multiple as _bucket_multiple
 from .protenix_weights import remap_adaln  # single source of all v2->tt-bio weight remaps
 from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
                           MSA_CHUNK_SIZE, batched_matmul, _narrow_proj_linear, _l1_layer_norm,
@@ -83,7 +84,7 @@ MSA_ROW_CHUNK_BUDGET_BYTES = 1 << 28      # 0.25 GiB
 MSA_HOST_OFFLOAD_MIN_BYTES = 1 << 30      # 1 GiB
 
 
-TOKEN_PAD_MULTIPLE = 64
+TOKEN_PAD_MULTIPLE = _bucket_multiple("protenix-v2")
 # 64, the same multiple as PAIRFORMER_PAD_MULTIPLE and the rest of the Pairformer family. 32 is the
 # tile, so 32 is all correctness needs, and 32 is never the wider pad: it is strictly cheaper at
 # N % 64 in 33..63 (N=580 pads to 608 against 640, +9.9 % pair area against +21.8 %) and identical

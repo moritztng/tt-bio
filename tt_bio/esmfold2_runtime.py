@@ -31,6 +31,7 @@ import torch
 import torch.nn.functional as F
 
 from tt_bio import esmfold2 as E
+from tt_bio.token_axis import pad_amount
 from tt_bio.esmc import ESMCLanguageModel
 from tt_bio.tenstorrent import dram_peak, is_wormhole
 
@@ -250,7 +251,7 @@ def _trunk_on_device(ftw, dev):
     import ttnn
 
     seq_len = dev.seq_len
-    pad = (-seq_len) % E.PAD_MULTIPLE
+    pad = pad_amount(seq_len, E.PAD_MULTIPLE)
     z, mask = dev.t, None
     if pad:
         n = seq_len + pad

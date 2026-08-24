@@ -69,20 +69,55 @@ def check_bucketed_multiples_are_tile_multiples():
 
 
 def check_declared_multiples_match_the_live_constants():
-    """The table claims values that live in five other modules. Import and compare them."""
+    """Four modules re-export the fleet bucket under a historical name. Import and compare.
+
+    They are DERIVED from `bucket_multiple()` rather than restated, so this normally cannot fail --
+    which is the point. It fails the moment someone puts a literal back, which is how a per-model
+    fork starts.
+    """
     bad = []
-    for (mod_name, attr), claimed in TA.LIVE_MULTIPLES.items():
+    for (mod_name, attr), model in TA.LIVE_MULTIPLES.items():
+        want = TA.bucket_multiple(model)
         try:
             live = getattr(importlib.import_module(mod_name), attr)
         except Exception as exc:                     # a renamed constant is a real failure
             bad.append(f"{mod_name}.{attr} unreadable ({type(exc).__name__})")
             continue
-        if live != claimed:
-            bad.append(f"{mod_name}.{attr} is {live}, table says {claimed}")
+        if live != want:
+            bad.append(f"{mod_name}.{attr} is {live}, {model} buckets at {want}")
         elif live % TA.TILE:
             bad.append(f"{mod_name}.{attr} = {live} is not a multiple of {TA.TILE}")
-    return _fail(not bad, "the live pad constants match the table and divide "
+    mod_name, attr, want = TA.MSA_AXIS_MULTIPLE
+    try:
+        live = getattr(importlib.import_module(mod_name), attr)
+        if live != want:
+            bad.append(f"{mod_name}.{attr} is {live}, expected {want}")
+    except Exception as exc:
+        bad.append(f"{mod_name}.{attr} unreadable ({type(exc).__name__})")
+    return _fail(not bad, "the live pad constants derive from the fleet value and divide "
                  + str(TA.TILE) + ("" if not bad else "; " + "; ".join(bad)))
+
+
+def check_one_multiple_for_the_whole_fleet():
+    """Every bucketed model runs the SAME multiple, or its exception carries a measured reason.
+
+    A constant that splits on when a model was written is a fork, not a hyperparameter: it encodes
+    our history rather than the hardware's, and nobody reading it later can tell whether 64 is
+    right for Boltz-2 or merely old (Moritz, 2026-08-24). BUCKET_EXCEPTIONS is the only way to
+    differ and it is empty; an entry needs that model's own numbers written above it.
+    """
+    seen = {}
+    for n, r in TA.TOKEN_AXIS.items():
+        if r[0] == TA.BUCKETED and n not in TA.BUCKET_EXCEPTIONS:
+            seen.setdefault(r[1], []).append(n)
+    ok = _fail(len(seen) <= 1,
+               f"one multiple for the whole fleet (TOKEN_BUCKET={TA.TOKEN_BUCKET})"
+               + ("" if len(seen) <= 1 else "; found "
+                  + ", ".join(f"{m}: {len(v)} models ({v[0]}...)" for m, v in sorted(seen.items()))))
+    undocumented = sorted(TA.BUCKET_EXCEPTIONS)
+    return ok and _fail(not undocumented,
+                        "no model needs an exception to the fleet multiple"
+                        + ("" if not undocumented else "; exceptions: " + ", ".join(undocumented)))
 
 
 # The one permitted unresolved row, and the task that owes it. Keyed to the owner string so the
@@ -132,18 +167,16 @@ def check_immune_is_not_terminal():
 
 
 def check_every_bucketed_row_uses_the_shared_table():
-    """A BUCKETED row's multiple is `token_axis.BUCKET_MULTIPLE`, so a fifth near-copy of the
-    mechanism carrying its own constant fails here rather than drifting quietly."""
+    """A BUCKETED row's multiple is what `token_axis.bucket_multiple()` returns, so a fifth
+    near-copy of the mechanism carrying its own constant fails here rather than drifting."""
     bad = []
     for n, r in TA.TOKEN_AXIS.items():
         if r[0] != TA.BUCKETED:
             continue
-        want = TA.BUCKET_MULTIPLE.get(n)
-        if want is None:
-            bad.append(f"{n} has no BUCKET_MULTIPLE entry")
-        elif want != r[1]:
-            bad.append(f"{n} runs {r[1]}, BUCKET_MULTIPLE says {want}")
-    return _fail(not bad, "every bucketed row's multiple comes from BUCKET_MULTIPLE"
+        want = TA.bucket_multiple(n)
+        if want != r[1]:
+            bad.append(f"{n} runs {r[1]}, bucket_multiple() says {want}")
+    return _fail(not bad, "every bucketed row's multiple comes from bucket_multiple()"
                  + ("" if not bad else "; " + "; ".join(bad)))
 
 
@@ -157,6 +190,7 @@ CHECKS = (
     check_no_unresolved_rows,
     check_immune_is_not_terminal,
     check_every_bucketed_row_uses_the_shared_table,
+    check_one_multiple_for_the_whole_fleet,
 )
 
 

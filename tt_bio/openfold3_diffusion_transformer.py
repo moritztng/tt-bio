@@ -64,6 +64,7 @@ import ttnn
 
 from .tenstorrent import Module, AdaLN, CORE_GRID_MAIN, _dtype, _cached, batched_matmul
 from .openfold3_atom_transformer import remap_of3_adaln
+from .token_axis import TILE, bucketed_width
 
 C_A = 768
 C_S = 384
@@ -286,7 +287,7 @@ class OF3DiffusionTransformer(Module):
         # positions are unaffected (padded queries' outputs are stripped at readout,
         # padded keys are masked out of every valid query's softmax).
         N = token_mask.shape[-1]
-        padded_N = ((N + 31) // 32) * 32
+        padded_N = bucketed_width(N, TILE)
         tok = ttnn.to_torch(token_mask).float().reshape(-1)  # [N]
         if padded_N == N:
             a_d, s_d, z_d, tmc_d = a, s, z, tok_mask_col

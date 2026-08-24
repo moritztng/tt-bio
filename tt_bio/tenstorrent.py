@@ -457,12 +457,14 @@ SMALL_GRID_MSA_TILE_AREA = 0
 _WH_FULL_L1_PER_CORE = 1572864  # 1.5 MiB
 _MIN_L1_SCALE = 0.7             # floor: keep chunks workable on a very tight part
 
-PAIRFORMER_PAD_MULTIPLE = 64  # Pad token dim to this multiple to avoid kernel recompilation
-MSA_PAD_MULTIPLE = 1024  # Pad MSA dim to this multiple to avoid kernel recompilation
-# The pad arithmetic itself lives in token_axis.py, one copy, asserting the multiple divides the
-# 32 tile. These wrappers are the token bucket for boltz2, boltzgen and nesso1; the MSA axis is a
-# different axis padded for the same recompilation reason.
-from .token_axis import pad_amount
+# The token bucket for boltz2, boltzgen and nesso1, DERIVED from the fleet value rather than
+# restated -- a literal here is how a per-model fork starts. The pad arithmetic is one copy in
+# token_axis.py, which asserts the multiple divides the 32 tile.
+from .token_axis import bucket_multiple, pad_amount
+
+PAIRFORMER_PAD_MULTIPLE = bucket_multiple("boltz2")
+MSA_PAD_MULTIPLE = 1024  # a DIFFERENT axis, padded for the same recompilation reason; not the
+#                          token bucket, so it does not answer to TOKEN_BUCKET.
 # Upper bound on heavy atoms per token for PROTEIN residues (Trp=14); ties the atom
 # bucket to the seq_len bucket. Nucleotide tokens carry more (up to 23), so a DNA/RNA
 # target can exceed padded_seq * 14 — _populate_diffusion_cache extends the bucket to
