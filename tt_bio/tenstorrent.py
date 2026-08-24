@@ -907,7 +907,14 @@ def _tri_att_q_chunks(q_len: int, k_len: int) -> tuple:
 # take a real share of the softmax mass. Writing a large negative into the bias over the padded key
 # columns takes it back to zero. The query axis pads with 0 instead: those output rows are sliced
 # off, and a fully-masked row would divide by zero.
-_SDPA_RAGGED_PAD = env_flag("TT_BIO_SDPA_RAGGED_PAD", False)
+# DEFAULT ON since 2026-08-24. This is a correctness guard, not a tuning knob, and an
+# off-by-default guard protects only the people who already know about the bug. It is a
+# no-op wherever the token axis is already a multiple of 32, so it costs nothing on a
+# bucketed model and costs 1.036x / 1.031x whole fold on the two that are not yet bucketed
+# (Protenix-v2, OpenDDE), which is what buys them 0.4791 A and 0.3896 A of accuracy back.
+# Boltz-2, BoltzGen, ESMFold2 and OpenFold3 are immune and fold bit-identically either way.
+# Set TT_BIO_SDPA_RAGGED_PAD=0 to get the old behaviour, which is wrong at any ragged length.
+_SDPA_RAGGED_PAD = env_flag("TT_BIO_SDPA_RAGGED_PAD", True)
 # Let `_TRIATT_FUSED_HIFI_MIN_S` see the PADDED length instead of the true one, so a ragged call
 # just under the gate is served rather than declined. Only meaningful with the ragged pad on.
 _TRIATT_HIFI_MIN_S_PADDED = env_flag("TT_BIO_TRIATT_HIFI_MIN_S_PADDED", False)
