@@ -40,7 +40,7 @@ from tt_bio.rfd3 import design as rfd3_design                      # noqa: E402
 from tt_bio.rfd3 import model as M                                 # noqa: E402
 from tt_bio import softmax_generic                                 # noqa: E402
 
-FIXTURE = pathlib.Path("perf/dsfix/fixtures/rfd3_R4.json")
+FIXTURE = pathlib.Path(os.environ.get("P122_FIXTURE", "perf/dsfix/fixtures/rfd3_R4.json"))
 
 
 def _ckpt():
@@ -59,16 +59,30 @@ OUT = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "perf/p122/atom_softmax
 STEPS = int(os.environ.get("P122_STEPS", 8))
 WARM_STEPS = int(os.environ.get("P122_WARM", 3))
 REPS = int(os.environ.get("P122_REPS", 1))
-ATOM_K = 6080          # the dense atom key axis; anything narrower is a DiT / local-attention call
-
 STEP = [0]
-ACC = collections.defaultdict(lambda: [0.0, 0])    # (call, bucket) -> [seconds, n]
+ACC = collections.defaultdict(lambda: [0.0, 0])    # (call, width) -> [seconds, n]
 STEP_WALL = []
+RSS_HWM = [0]
 
 
 def _bucket(width):
-    """Atom path or not. L5b is only about the dense 6080-wide chain."""
-    return "atom_6080" if int(width) == ATOM_K else "other_w%d" % int(width)
+    """Bucket by exact key width and pick the atom axis at report time.
+
+    The dense atom attention is by construction the widest tensor the model builds, so the
+    widest bucket IS the L5b site on every rung of the ladder. Hardcoding R4's 6080 would
+    report an empty chain on any other size rather than a wrong one, which is worse.
+    """
+    return int(width)
+
+
+def _rss_kb():
+    try:
+        for line in open("/proc/self/status"):
+            if line.startswith("VmHWM:"):
+                return int(line.split()[1])
+    except OSError:
+        pass
+    return 0
 
 
 def _timed(call, bucket, fn):
@@ -141,17 +155,22 @@ def _rep(specs, rep):
     wall = time.perf_counter() - t0
     counted = STEP[0] - WARM_STEPS
 
+    atom_w = max((w for (_, w) in ACC), default=0)
     rows = []
     for (call, bucket), (tot, n) in sorted(ACC.items(), key=lambda kv: -kv[1][0]):
-        rows.append({"call": call, "bucket": bucket,
+        rows.append({"call": call, "bucket": ("atom_w%d" % bucket) if bucket == atom_w
+                                             else "other_w%d" % bucket,
+                     "width": bucket,
                      "ms_per_step": round(1000 * tot / counted, 3),
                      "calls_per_step": round(n / counted, 1),
                      "ms_per_call": round(1000 * tot / n, 4)})
-    atom = {r["call"]: r for r in rows if r["bucket"] == "atom_6080"}
+    atom = {r["call"]: r for r in rows if r["width"] == atom_w}
     chain = round(sum(r["ms_per_step"] for r in atom.values()), 3)
     softmax_ms = atom.get("softmax_into", {}).get("ms_per_step", 0.0)
     step_ms = round(1000 * statistics.median(STEP_WALL), 1) if STEP_WALL else 0.0
+    RSS_HWM[0] = max(RSS_HWM[0], _rss_kb())
     return {"rep": rep, "total_wall_s": round(wall, 1), "counted_steps": counted,
+            "atom_key_width": atom_w, "rss_hwm_gb": round(RSS_HWM[0] / 1048576.0, 2),
             "step_wall_ms": step_ms, "rows": rows,
             "atom_chain_ms_per_step": chain,
             "softmax_into_ms_per_step": softmax_ms,
@@ -187,6 +206,8 @@ def main():
            "atom_chain_ms_per_step": chain,
            "softmax_into_ms_per_step": softmax_ms,
            "chain_share_of_step": share,
+           "atom_key_width": reps[-1]["atom_key_width"],
+           "rss_hwm_gb": max(r["rss_hwm_gb"] for r in reps),
            "per_rep": reps,
            "noise_floor": {
                "step_wall_ms": _spread([r["step_wall_ms"] for r in reps]),
@@ -211,11 +232,24 @@ def main():
     print("softmax_into on the atom shape: %.1f ms/step" % softmax_ms)
 
     # The gate, stated before the run and evaluated here rather than in prose afterwards.
-    res["acceptance_gate"] = "softmax_into >= 25 ms/step on atom_6080"
-    res["acceptance_pass"] = bool(softmax_ms >= 25.0)
-    print("ACCEPTANCE (%s): %s"
-          % (res["acceptance_gate"], "PASS" if res["acceptance_pass"] else
-             "FAIL -- re-price L5b before building it"))
+    on_fixture = res["atom_key_width"] == 6080
+    res["acceptance_gate"] = "softmax_into >= 25 ms/step at the 6080-wide atom axis"
+    res["acceptance_gate_applies"] = on_fixture
+    res["acceptance_pass"] = bool(softmax_ms >= 25.0) if on_fixture else None
+    if on_fixture:
+        print("ACCEPTANCE (%s): %s"
+              % (res["acceptance_gate"], "PASS" if res["acceptance_pass"] else
+                 "FAIL -- re-price L5b before building it"))
+    else:
+        # The gate is an absolute millisecond threshold set at 6051 atoms and the chain scales
+        # with the atom axis, so it is not a threshold this run is entitled to evaluate.
+        print("ACCEPTANCE: OFF-FIXTURE (atom axis %d, not 6080). The 25 ms/step gate is not "
+              "evaluated. The structural claim this run CAN settle is the share: %.1f %% of the "
+              "step wall is the L5b chain, and softmax_into is %sthe largest call in it."
+              % (res["atom_key_width"], 100 * share,
+                 "" if softmax_ms >= max((r["ms_per_step"] for r in reps[-1]["rows"]
+                                          if r["width"] == res["atom_key_width"]), default=0)
+                 else "NOT "))
 
     # The prize, re-stated against the number this run measured rather than against the
     # isolated one. COST-MODEL ESTIMATE, and it stays one until the fold A/B reports.
@@ -228,6 +262,7 @@ def main():
         "at_75pct": round(-0.75 * deletable / step_ms, 4) if step_ms else None,
         "at_41pct": round(-0.41 * deletable / step_ms, 4) if step_ms else None,
     }
+    print("peak host RSS %.2f GB" % res["rss_hwm_gb"])
     print("deletable %.1f ms/step -> %s of the step (COST-MODEL ESTIMATE, not a fold A/B)"
           % (deletable, res["prize_frac_of_step_estimate"]))
 
