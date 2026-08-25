@@ -58,7 +58,7 @@ def timed(fn, reps):
 def main():
     global DEV
     torch.manual_seed(SEED)
-    n_key = M._align_tile(L)
+    n_key = M.align_tile(L)
     # get_device(), not ttnn.open_device(): the raw open throws on this box because
     # TT_VISIBLE_DEVICES makes the cluster type CUSTOM, which needs a mesh graph descriptor.
     # get_device() also takes the card lease and enables the program cache the timings assume.

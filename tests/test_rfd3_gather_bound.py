@@ -22,8 +22,8 @@ def test_gather_bound_is_the_measured_one():
 
 def test_page_fixture_key_axis_is_past_the_bound():
     """6051 atoms tile-align to 6080, 3.2x the bound -- the arm cannot run at the page fixture."""
-    assert M._align_tile(6051) == 6080
-    assert M._align_tile(6051) > M._TTNN_GATHER_MAX_KEY_AXIS
+    assert M.align_tile(6051) == 6080
+    assert M.align_tile(6051) > M._TTNN_GATHER_MAX_KEY_AXIS
 
 
 def test_guard_refuses_the_page_fixture():

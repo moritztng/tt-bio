@@ -77,7 +77,7 @@ def plan(x, out, grid, fp32_dest_acc, numeric_stable=True):
     H = vol // (padded[0] * padded[-1])
     Wt, Ht = W // TILE, H // TILE
     # The padded-last-dim path pulls in cb_mask_padded and a different first compute loop. Both
-    # RFD3 sites pass a key axis that is already `_align_tile`d, so it is asserted, not handled.
+    # RFD3 sites pass a key axis that is already `align_tile`d, so it is asserted, not handled.
     assert W == logical[-1], ("padded last dim %d != logical %d; the mask_padded_data path is "
                               "not transcribed" % (W, logical[-1]))
 

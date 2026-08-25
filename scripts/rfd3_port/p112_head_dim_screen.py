@@ -127,7 +127,7 @@ def main():
 
           def pad_keys(x):
               """Production pads the key axis out to n_key so the softmax never reduces over tile
-              padding (_pad_key_axis). The screen has to do it too or the value matmul does not
+              padding (pad_axis). The screen has to do it too or the value matmul does not
               even have conformable shapes."""
               if x.shape[2] == N_KEY:
                   return x

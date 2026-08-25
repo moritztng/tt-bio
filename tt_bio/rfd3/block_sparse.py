@@ -53,8 +53,7 @@ import torch
 import ttnn
 
 from .. import rfd3_bias, softmax_generic
-
-TILE = 32
+from .tiles import TILE, align_tile, pad_axis
 
 _ENABLED = os.environ.get("RFD3_BLOCK_SPARSE", "0") == "1"
 #: Query rows per block. Must be a multiple of 32 and must divide the padded query axis, or the
@@ -115,10 +114,6 @@ if os.environ.get("RFD3_BLOCK_SPARSE_STATS", "0") == "1":
     atexit.register(lambda: print(stats_line(), flush=True))
 
 
-def _tile(n):
-    return -(-n // TILE) * TILE
-
-
 def plan(indices, n_key, q_block=None, buckets=None):
     """Host side of one step's plan, or ``None`` when the step does not qualify.
 
@@ -144,7 +139,7 @@ def plan(indices, n_key, q_block=None, buckets=None):
     if q_block % TILE or not buckets:
         return None
     length, n_neigh = indices.shape[1], indices.shape[2]
-    nb_rows = _tile(length)
+    nb_rows = align_tile(length)
     if nb_rows % q_block:
         return None
     nb = nb_rows // q_block
@@ -200,7 +195,7 @@ def attention(qq, kk, vv, pair_bias, pos_rm, gather_dev, nb, q_block, u_width, s
         return ttnn.reshape(g, (n_head, nb, u_width, head_dim))
 
     kg, vg = gath(kk), gath(vv)
-    qb = ttnn.reshape(_pad_rows(qq, nb_rows, 0.0), (n_head, nb, q_block, head_dim))
+    qb = ttnn.reshape(pad_axis(qq, nb_rows, 2, 0.0), (n_head, nb, q_block, head_dim))
     kgt = ttnn.permute(kg, (0, 1, 3, 2))
     ttnn.deallocate(kg)
     scores = ttnn.matmul(qb, kgt, compute_kernel_config=ckc)
@@ -221,12 +216,3 @@ def attention(qq, kk, vv, pair_bias, pos_rm, gather_dev, nb, q_block, u_width, s
     if nb_rows != length:
         out = ttnn.slice(out, [0, 0, 0, 0], [1, n_head, length, head_dim])
     return out
-
-
-def _pad_rows(x, width, value):
-    """Extend the row axis of a TILE tensor to `width`, writing `value` into the new rows."""
-    if x.shape[2] == width:
-        return x
-    pad = [(0, 0)] * len(x.shape)
-    pad[2] = (0, width - x.shape[2])
-    return ttnn.pad(x, pad, value)

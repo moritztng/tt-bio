@@ -64,7 +64,7 @@ def main():
     for H, I, NK in SHAPES:
         s_t = torch.randn(1, H, I, NK) * 0.3
         b_t = torch.where(torch.rand(1, H, I, NK) < 0.05, -1e4, torch.randn(1, H, I, NK) * 0.5)
-        # the pad columns the model's _pad_key_axis writes, so the operand really contains -9984
+        # the pad columns the model's pad_axis writes, so the operand really contains -9984
         if NK > I:
             b_t[..., I:] = -1e4
             s_t[..., I:] = 0.0
