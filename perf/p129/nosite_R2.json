@@ -1,0 +1,111 @@
+{
+  "flag": "RFD3_FC1_SPLIT_SILU",
+  "rows": [
+    {
+      "arm": "off",
+      "rep": 0,
+      "sampler_s": 1.509,
+      "cif_sha256_16": "6946a3bffa2bfc2c",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 3
+    },
+    {
+      "arm": "on",
+      "rep": 1,
+      "sampler_s": 1.5,
+      "cif_sha256_16": "6946a3bffa2bfc2c",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 3
+    },
+    {
+      "arm": "off",
+      "rep": 2,
+      "sampler_s": 1.503,
+      "cif_sha256_16": "6946a3bffa2bfc2c",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 3
+    },
+    {
+      "arm": "on",
+      "rep": 3,
+      "sampler_s": 1.505,
+      "cif_sha256_16": "6946a3bffa2bfc2c",
+      "n_cifs": 1,
+      "served_calls": 0,
+      "steps": 3
+    }
+  ],
+  "num_timesteps": 3,
+  "seed": 42,
+  "arms": [
+    "off",
+    "on",
+    "off",
+    "on"
+  ],
+  "fixture": "perf/dsfix/fixtures/rfd3_R2.json",
+  "arms_distinct": false,
+  "discarded_warmup_s": 6.296,
+  "bit_exact": true,
+  "digests": {
+    "off": [
+      "6946a3bffa2bfc2c"
+    ],
+    "on": [
+      "6946a3bffa2bfc2c"
+    ]
+  },
+  "aa_control_s": [
+    1.509,
+    1.503
+  ],
+  "aa_spread_s": 0.006000000000000005,
+  "off_median_s": 1.5059999999999998,
+  "off_min_s": 1.503,
+  "off_max_s": 1.509,
+  "on_median_s": 1.5025,
+  "on_min_s": 1.5,
+  "on_max_s": 1.505,
+  "delta_s": -0.003,
+  "ratio": 1.0023,
+  "delta_inside_aa_band": true,
+  "predicted_delta_s": 0.0,
+  "card": 0,
+  "torch": "2.8.0+cpu",
+  "rung": "R2",
+  "tokens": 418,
+  "site_plan": {
+    "512": {
+      "tokens": 418,
+      "hidden": 512,
+      "w_pad": 448,
+      "chunked": false,
+      "chunk_h_off": 64,
+      "chunk_h_on": 64,
+      "n_chunks_off": 7,
+      "n_chunks_on": 7,
+      "fc1_output_in_l1": true,
+      "chunk_h_moves": false
+    },
+    "256": {
+      "tokens": 418,
+      "hidden": 256,
+      "w_pad": 448,
+      "chunked": false,
+      "chunk_h_off": 64,
+      "chunk_h_on": 64,
+      "n_chunks_off": 7,
+      "n_chunks_on": 7,
+      "fc1_output_in_l1": true,
+      "chunk_h_moves": false
+    }
+  },
+  "provisional_on": "pc-card0",
+  "expect_no_site": true,
+  "fc1_served": {},
+  "fc1_declines": {},
+  "tune_matmul": true
+}
